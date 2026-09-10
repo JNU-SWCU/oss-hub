@@ -3,11 +3,9 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  TeamInvitePanel,
-  type TeamInvitePanelProps,
-} from './team-invite-panel';
+import { TeamInvitePanel } from './team-invite-panel';
 import type { InvitationCandidate } from './team-invitation-api';
+import type { TeamInvitationManagement } from './use-team-invitation-management';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -21,26 +19,38 @@ const candidates: InvitationCandidate[] = [
 
 const noOp = () => undefined;
 
-const baseProps: TeamInvitePanelProps = {
-  query: 'oc',
-  candidates,
-  searching: false,
-  searchError: null,
-  sentInvitations: [],
-  invitationCandidateNames: {},
-  invitingUserId: null,
-  cancelingInvitationId: null,
-  actionError: null,
-  onQueryChange: noOp,
-  onSearch: noOp,
-  onInvite: noOp,
-  onCancel: noOp,
-};
+/** 초대 레이어가 소비하는 공유 상태 계약 — 검색 상태는 이 하나에서만 온다. */
+function management(
+  overrides: Partial<TeamInvitationManagement> = {},
+): TeamInvitationManagement {
+  return {
+    sentInvitations: [],
+    sentLoading: false,
+    inviteQuery: 'oc',
+    inviteCandidates: candidates,
+    searching: false,
+    searchError: null,
+    invitingUserId: null,
+    cancelingInvitationId: null,
+    inviteActionError: null,
+    sentError: null,
+    onRetrySent: noOp,
+    onInviteQueryChange: noOp,
+    onSearch: noOp,
+    onInvite: noOp,
+    onCancelInvitation: noOp,
+    reloadSent: async () => undefined,
+    ...overrides,
+  };
+}
 
 let container: HTMLDivElement;
 let root: Root;
+const returnFocusRef: { current: HTMLButtonElement | null } = { current: null };
+const onClose = vi.fn();
 
 beforeEach(() => {
+  onClose.mockReset();
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -51,14 +61,22 @@ afterEach(() => {
   container.remove();
 });
 
-function renderPanel(overrides: Partial<TeamInvitePanelProps> = {}): void {
+/** 레이어는 portal로 body에 붙는다 — 조회는 문서 전체를 본다. */
+function renderPanel(overrides: Partial<TeamInvitationManagement> = {}): void {
   act(() => {
-    root.render(<TeamInvitePanel {...baseProps} {...overrides} />);
+    root.render(
+      <TeamInvitePanel
+        invitation={management(overrides)}
+        open
+        onClose={onClose}
+        returnFocusRef={returnFocusRef}
+      />,
+    );
   });
 }
 
 function getInput(): HTMLInputElement {
-  const input = container.querySelector<HTMLInputElement>('#invite-search');
+  const input = document.querySelector<HTMLInputElement>('#invite-search');
   if (!input) throw new Error('검색 입력을 찾지 못했다.');
   return input;
 }
@@ -85,52 +103,55 @@ describe('TeamInvitePanel — combobox 접근성 속성', () => {
     expect(input.getAttribute('aria-autocomplete')).toBe('list');
     expect(input.getAttribute('aria-expanded')).toBe('true');
 
-    const listbox = container.querySelector('[role="listbox"]');
+    const listbox = document.querySelector('[role="listbox"]');
     expect(listbox).not.toBeNull();
     expect(input.getAttribute('aria-controls')).toBe(
       listbox?.getAttribute('id'),
     );
 
-    const options = container.querySelectorAll('[role="option"]');
+    const options = document.querySelectorAll('[role="option"]');
     expect(options).toHaveLength(2);
     expect(options[0]?.getAttribute('aria-selected')).toBe('false');
     expect(options[1]?.getAttribute('aria-selected')).toBe('false');
   });
 
   it('검색 중이면 목록에 로딩 상태를 보여준다', () => {
-    renderPanel({ candidates: [], searching: true });
-    const listbox = container.querySelector('[role="listbox"]');
+    renderPanel({ inviteCandidates: [], searching: true });
+    const listbox = document.querySelector('[role="listbox"]');
     expect(listbox?.textContent).toContain('검색 중…');
   });
 
   it('2자 이상인데 결과가 없으면 결과 없음 상태를 보여준다', () => {
-    renderPanel({ candidates: [], query: 'zz' });
-    const listbox = container.querySelector('[role="listbox"]');
+    renderPanel({ inviteCandidates: [], inviteQuery: 'zz' });
+    const listbox = document.querySelector('[role="listbox"]');
     expect(listbox?.textContent).toContain('검색 결과가 없습니다');
   });
 
   it('2자 미만이면 목록에 결과 대신 최소 글자 수 힌트를 보여준다(옵션은 없음)', () => {
-    renderPanel({ candidates: [], query: 'o' });
+    renderPanel({ inviteCandidates: [], inviteQuery: 'o' });
     const input = getInput();
     expect(input.getAttribute('aria-expanded')).toBe('true');
-    expect(container.querySelectorAll('[role="option"]')).toHaveLength(0);
-    expect(container.querySelector('[role="listbox"]')?.textContent).toContain(
+    expect(document.querySelectorAll('[role="option"]')).toHaveLength(0);
+    expect(document.querySelector('[role="listbox"]')?.textContent).toContain(
       '이상 입력하면',
     );
   });
 
   it('빈 입력이면 목록을 아예 확장하지 않는다', () => {
-    renderPanel({ candidates: [], query: '' });
+    renderPanel({ inviteCandidates: [], inviteQuery: '' });
     const input = getInput();
     expect(input.getAttribute('aria-expanded')).toBe('false');
-    expect(container.querySelector('[role="listbox"]')).toBeNull();
+    expect(document.querySelector('[role="listbox"]')).toBeNull();
   });
 
   it('검색 실패 시 목록을 확장하지 않는다 — 실패는 별도 alert가 표면화한다', () => {
-    renderPanel({ candidates: [], searchError: '검색하지 못했습니다.' });
+    renderPanel({
+      inviteCandidates: [],
+      searchError: '검색하지 못했습니다.',
+    });
     const input = getInput();
     expect(input.getAttribute('aria-expanded')).toBe('false');
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain(
       '검색하지 못했습니다.',
     );
   });
@@ -142,10 +163,10 @@ describe('TeamInvitePanel — 키보드 내비게이션', () => {
     const input = getInput();
     const event = pressKey(input, 'ArrowDown');
 
-    const firstOption = container.querySelectorAll('[role="option"]')[0];
+    const firstOption = document.querySelectorAll('[role="option"]')[0];
     expect(event.defaultPrevented).toBe(true);
     expect(firstOption?.getAttribute('aria-selected')).toBe('true');
-    expect(input.getAttribute('aria-activedescendant')).toBe(
+    expect(getInput().getAttribute('aria-activedescendant')).toBe(
       firstOption?.getAttribute('id'),
     );
   });
@@ -156,7 +177,7 @@ describe('TeamInvitePanel — 키보드 내비게이션', () => {
     pressKey(input, 'ArrowDown');
     pressKey(input, 'ArrowDown');
 
-    const options = container.querySelectorAll('[role="option"]');
+    const options = document.querySelectorAll('[role="option"]');
     expect(options[0]?.getAttribute('aria-selected')).toBe('false');
     expect(options[1]?.getAttribute('aria-selected')).toBe('true');
   });
@@ -168,7 +189,7 @@ describe('TeamInvitePanel — 키보드 내비게이션', () => {
     pressKey(input, 'ArrowDown');
     pressKey(input, 'ArrowUp');
 
-    const options = container.querySelectorAll('[role="option"]');
+    const options = document.querySelectorAll('[role="option"]');
     expect(options[0]?.getAttribute('aria-selected')).toBe('true');
     expect(options[1]?.getAttribute('aria-selected')).toBe('false');
   });
@@ -186,17 +207,21 @@ describe('TeamInvitePanel — 키보드 내비게이션', () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
-  it('강조된 옵션이 없으면 Enter의 기본 동작(폼 제출)을 막지 않는다 — 기존 수동 검색 유지', () => {
+  it('강조된 옵션이 없으면 Enter의 기본 동작을 막지 않고 기존 수동 검색만 돈다', () => {
     const onInvite = vi.fn();
-    renderPanel({ onInvite });
+    const onSearch = vi.fn();
+    renderPanel({ onInvite, onSearch });
     const input = getInput();
     const event = pressKey(input, 'Enter');
 
     expect(onInvite).not.toHaveBeenCalled();
+    // 눈에 보이는 검색 버튼은 없앴지만(디바운스 자동 검색이 대신한다) 같은 요청을
+    // 손으로 다시 부르는 길은 남긴다.
+    expect(onSearch).toHaveBeenCalledOnce();
     expect(event.defaultPrevented).toBe(false);
   });
 
-  it('Escape는 목록을 닫고 강조를 해제한다', () => {
+  it('Escape는 목록을 닫고 강조를 해제한다 — 레이어는 그대로 둔다', () => {
     renderPanel();
     const input = getInput();
     pressKey(input, 'ArrowDown');
@@ -205,17 +230,18 @@ describe('TeamInvitePanel — 키보드 내비게이션', () => {
     const event = pressKey(input, 'Escape');
 
     expect(event.defaultPrevented).toBe(true);
-    expect(input.getAttribute('aria-expanded')).toBe('false');
-    expect(container.querySelector('[role="listbox"]')).toBeNull();
+    expect(getInput().getAttribute('aria-expanded')).toBe('false');
+    expect(document.querySelector('[role="listbox"]')).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('Escape로 닫은 뒤 다시 타이핑하면(query 변경) 목록이 다시 열린다', () => {
-    renderPanel({ query: 'oc' });
+    renderPanel({ inviteQuery: 'oc' });
     const input = getInput();
     pressKey(input, 'Escape');
     expect(input.getAttribute('aria-expanded')).toBe('false');
 
-    renderPanel({ query: 'oct' });
+    renderPanel({ inviteQuery: 'oct' });
     expect(getInput().getAttribute('aria-expanded')).toBe('true');
   });
 });
@@ -225,7 +251,7 @@ describe('TeamInvitePanel — 마우스 클릭', () => {
     const onInvite = vi.fn();
     renderPanel({ onInvite });
 
-    const buttons = container.querySelectorAll('[role="option"] button');
+    const buttons = document.querySelectorAll('[role="option"] button');
     expect(buttons).toHaveLength(2);
     act(() => {
       buttons[1]?.dispatchEvent(new MouseEvent('click', { bubbles: true }));

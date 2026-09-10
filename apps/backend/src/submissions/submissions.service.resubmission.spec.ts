@@ -3,10 +3,16 @@ import {
   MilestoneSubmissionType,
   SubmissionStatus,
 } from '@prisma/client';
-import type { ResubmitSubmissionInput } from './domain/submission-content';
+import type {
+  CreateSubmissionInput,
+  ResubmitSubmissionInput,
+} from './domain/submission-content';
+import { SubmissionMembershipChangedError } from './submission-membership.repository';
 import { SubmissionsErrorCode } from './submissions-error-code.enum';
 import type {
   ResubmissionTarget,
+  SubmissionApplication,
+  SubmissionMilestone,
   SubmissionsRepository,
   SubmissionsStore,
 } from './submissions.repository';
@@ -83,17 +89,28 @@ function buildService(
       store.findSubmissionForParticipant.mockResolvedValueOnce(value);
     }
   }
+  // 저장 경계에서 던진 오류가 트랜잭션 밖으로 나가야 한다 — 서비스가 삼키면
+  // 커밋된 것처럼 보이는 응답이 나간다. 실제 rollback 자리를 대역이 기록한다.
+  let rolledBack = false;
   const repository = {
     ...store,
-    withTransaction: (
+    withTransaction: async (
       operation: (transactionStore: SubmissionsStore) => Promise<unknown>,
-    ) => operation(store as unknown as SubmissionsStore),
+    ) => {
+      try {
+        return await operation(store as unknown as SubmissionsStore);
+      } catch (error: unknown) {
+        rolledBack = true;
+        throw error;
+      }
+    },
   } as unknown as SubmissionsRepository;
   return {
     service: new SubmissionsService(repository),
     createSubmissionRevision: store.createSubmissionRevision,
     submissionExists: store.submissionExists,
     findSubmissionForParticipant: store.findSubmissionForParticipant,
+    didRollBack: () => rolledBack,
   };
 }
 
@@ -385,5 +402,227 @@ it('비학생 계정은 재제출할 수 없다', async () => {
     service.resubmit(githubId, submissionId, textInput, NOW),
   ).rejects.toMatchObject({
     errorCode: { code: SubmissionsErrorCode.STUDENT_ONLY },
+  });
+});
+
+/**
+ * #1269 — 사전 인가와 저장 사이에 팀원 제외가 커밋될 수 있다. 저장 경계의 멤버십 잠금이
+ * 던지는 typed 오류는 「참여자가 아니다」와 같은 결론으로 나가야 하고, 그 사이 트랜잭션은
+ * 되돌아가야 한다. STALE 로 뭉개면 탈퇴한 사람에게 「다시 시도하라」고 안내하게 된다.
+ */
+describe('저장 경계 멤버십 변화', () => {
+  it('재제출 저장 중 팀에서 제외되면 403 NOT_APPLICATION_MEMBER로 되돌린다', async () => {
+    // Given
+    const { service, didRollBack } = buildService({
+      createError: new SubmissionMembershipChangedError(
+        'application-1',
+        'student-1',
+      ),
+    });
+
+    // When & Then
+    await expect(
+      service.resubmit(githubId, submissionId, textInput, NOW),
+    ).rejects.toMatchObject({
+      errorCode: { code: SubmissionsErrorCode.NOT_APPLICATION_MEMBER },
+    });
+    expect(didRollBack()).toBe(true);
+  });
+});
+
+const milestone: SubmissionMilestone = {
+  id: 'milestone-1',
+  programId: 'program-1',
+  name: '1차 제출',
+  dueAt: new Date('2027-01-01T00:00:00.000Z'),
+  submissionType: MilestoneSubmissionType.TEXT,
+  instructions: null,
+  programEndAt: new Date('2027-01-01T00:00:00.000Z'),
+};
+
+function application(
+  overrides: Partial<SubmissionApplication> = {},
+): SubmissionApplication {
+  return {
+    id: 'application-1',
+    programId: 'program-1',
+    teamId: 'team-1',
+    // 팀 신청이다 — 팀장이 아닌 현재 팀원도 제출할 수 있어야 한다.
+    teamMemberCount: 3,
+    status: ApplicationStatus.APPROVED,
+    existingSubmission: null,
+    ...overrides,
+  };
+}
+
+const createTextInput: CreateSubmissionInput = {
+  applicationId: 'application-1',
+  milestoneId: 'milestone-1',
+  content: { type: MilestoneSubmissionType.TEXT, text: '첫 제출 본문' },
+  comment: null,
+};
+
+function buildCreateService(
+  overrides: {
+    readonly application?: SubmissionApplication | null;
+    readonly milestone?: SubmissionMilestone | null;
+    readonly createError?: Error;
+  } = {},
+) {
+  const store = {
+    findActiveStudentByGithubId: jest.fn().mockResolvedValue({
+      id: 'student-1',
+    }),
+    findMilestoneById: jest
+      .fn()
+      .mockResolvedValue(
+        overrides.milestone === undefined ? milestone : overrides.milestone,
+      ),
+    findApplicationForParticipant: jest
+      .fn()
+      .mockResolvedValue(
+        overrides.application === undefined
+          ? application()
+          : overrides.application,
+      ),
+    lockProgramEndAt: jest
+      .fn()
+      .mockResolvedValue(new Date('2027-01-01T00:00:00.000Z')),
+    createSubmission: overrides.createError
+      ? jest.fn().mockRejectedValue(overrides.createError)
+      : jest.fn().mockResolvedValue({
+          id: 'submission-1',
+          status: SubmissionStatus.SUBMITTED,
+          submittedAt: NOW,
+        }),
+  };
+  let rolledBack = false;
+  const repository = {
+    ...store,
+    withTransaction: async (
+      operation: (transactionStore: SubmissionsStore) => Promise<unknown>,
+    ) => {
+      try {
+        return await operation(store as unknown as SubmissionsStore);
+      } catch (error: unknown) {
+        rolledBack = true;
+        throw error;
+      }
+    },
+  } as unknown as SubmissionsRepository;
+  return {
+    service: new SubmissionsService(repository),
+    createSubmission: store.createSubmission,
+    didRollBack: () => rolledBack,
+  };
+}
+
+describe('최초 제출', () => {
+  it('팀장이 아닌 현재 팀원의 제출을 지금 요청자로 귀속해 저장한다', async () => {
+    // Given
+    const { service, createSubmission } = buildCreateService();
+
+    // When
+    const result = await service.create(githubId, createTextInput, NOW);
+
+    // Then
+    expect(result).toEqual({
+      submissionId: 'submission-1',
+      status: SubmissionStatus.SUBMITTED,
+      submittedAt: NOW.toISOString(),
+    });
+    // 저장 경계로 넘기는 actor 는 지금 요청자다 — 옛 신청자·옛 팀장이 아니다.
+    expect(createSubmission).toHaveBeenCalledWith(
+      createTextInput,
+      'student-1',
+      NOW,
+      null,
+    );
+  });
+
+  it('제출 저장 중 팀에서 제외되면 403 NOT_APPLICATION_MEMBER로 되돌린다', async () => {
+    // Given
+    const { service, didRollBack } = buildCreateService({
+      createError: new SubmissionMembershipChangedError(
+        'application-1',
+        'student-1',
+      ),
+    });
+
+    // When & Then
+    await expect(
+      service.create(githubId, createTextInput, NOW),
+    ).rejects.toMatchObject({
+      errorCode: { code: SubmissionsErrorCode.NOT_APPLICATION_MEMBER },
+    });
+    expect(didRollBack()).toBe(true);
+  });
+
+  it('사전 조회에서 참여자가 아니면 저장 경계까지 가지 않는다', async () => {
+    // Given
+    const { service, createSubmission } = buildCreateService({
+      application: null,
+    });
+
+    // When & Then
+    await expect(
+      service.create(githubId, createTextInput, NOW),
+    ).rejects.toMatchObject({
+      errorCode: { code: SubmissionsErrorCode.NOT_APPLICATION_MEMBER },
+    });
+    expect(createSubmission).not.toHaveBeenCalled();
+  });
+
+  it('마감이 지난 마일스톤은 잠금 경계 전에 거절한다', async () => {
+    // Given
+    const { service, createSubmission } = buildCreateService({
+      milestone: {
+        ...milestone,
+        dueAt: new Date('2026-01-01T00:00:00.000Z'),
+      },
+    });
+
+    // When & Then
+    await expect(
+      service.create(githubId, createTextInput, NOW),
+    ).rejects.toMatchObject({
+      errorCode: { code: SubmissionsErrorCode.MILESTONE_CLOSED },
+    });
+    expect(createSubmission).not.toHaveBeenCalled();
+  });
+
+  it('이미 제출이 있으면 잠금 경계 전에 거절한다', async () => {
+    // Given
+    const { service, createSubmission } = buildCreateService({
+      application: application({
+        existingSubmission: {
+          id: 'submission-0',
+          status: SubmissionStatus.SUBMITTED,
+        },
+      }),
+    });
+
+    // When & Then
+    await expect(
+      service.create(githubId, createTextInput, NOW),
+    ).rejects.toMatchObject({
+      errorCode: { code: SubmissionsErrorCode.SUBMISSION_ALREADY_EXISTS },
+    });
+    expect(createSubmission).not.toHaveBeenCalled();
+  });
+
+  it('승인 전 신청은 제출할 수 없다', async () => {
+    // Given
+    const { service, createSubmission } = buildCreateService({
+      application: application({ status: ApplicationStatus.SUBMITTED }),
+    });
+
+    // When & Then
+    await expect(
+      service.create(githubId, createTextInput, NOW),
+    ).rejects.toMatchObject({
+      errorCode: { code: SubmissionsErrorCode.APPLICATION_APPROVAL_REQUIRED },
+    });
+    expect(createSubmission).not.toHaveBeenCalled();
   });
 });

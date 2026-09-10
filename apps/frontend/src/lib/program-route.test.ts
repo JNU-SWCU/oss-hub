@@ -4,7 +4,9 @@ import {
   programApplicationDetailHref,
   programDocumentsHref,
   programEditHref,
+  programApplyHref,
   programMilestoneDocumentsHref,
+  programMyTeamHref,
   programNewHref,
   programSubmissionReviewHref,
 } from './program-route';
@@ -39,6 +41,23 @@ describe('program-route href helpers', () => {
     expect(
       programSubmissionReviewHref('program:basic', 'sub:final/report'),
     ).toBe('/programs/program%3Abasic/submissions/sub%3Afinal%2Freport/review');
+  });
+
+  it('우리 팀 경로는 programId를 인코딩한다', () => {
+    expect(programMyTeamHref('program:basic')).toBe(
+      '/programs/program%3Abasic/my-team',
+    );
+    expect(programMyTeamHref('a/b')).toBe('/programs/a%2Fb/my-team');
+  });
+
+  it('우리 팀 경로는 신청·참여 팀 목록 어느 쪽도 아니다', () => {
+    const href = programMyTeamHref('prog-1');
+
+    expect(href).toBe('/programs/prog-1/my-team');
+    expect(href).not.toContain('/apply');
+    expect(href).not.toBe(programApplyHref('prog-1'));
+    // 공개 참여 팀 디렉터리(`/teams`)와도 다른 주소다.
+    expect(href).not.toBe('/programs/prog-1/teams');
   });
 
   it('서류 수합 경로는 두 세그먼트를 모두 인코딩한다', () => {

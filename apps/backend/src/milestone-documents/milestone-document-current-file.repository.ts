@@ -67,13 +67,21 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
    * - **이 마일스톤을 가진 프로그램 신청의 팀 구성원** — 이력의 `findStudentApplication`
    *   (`programId` + `submissionParticipantWhere`)에 대응한다.
    *
-   * `submissionParticipantWhere`는 **팀 소속 하나**로 참여자를 판정한다(D5 — 모든 신청이 Team을
-   * 갖고 개인 참여는 1인 팀이다). 그래서 여기서도 팀장·팀원만 문이다. `Application.applicantId`는
-   * 별도의 문이 **아니다**: 신청을 내는 경로가 신청자를 그 팀의 팀장이나 팀원으로 만들고
-   * (`ApplicationsService.submit`), 신청이 붙은 팀에서는 탈퇴가 거절된다
-   * (`ProgramTeamsRepository.leave` → `'locked'`). 그래서 지우는 것이 지금 누구의 접근도 빼앗지
-   * 않는다. 반대로 어떤 경위로든 신청자가 팀 밖에 놓이면 목록·이력이 이미 그를 막으므로, 받기만
-   * 열어 두면 「이력에 없는 파일이 열리는」 자리가 된다.
+   * `submissionParticipantWhere`는 **지금 있는 `TeamMember` 행 하나**로 참여자를 판정한다
+   * (`programApplicationParticipantWhere`, D5 — 모든 신청이 Team을 갖고 개인 참여는 1인 팀이다).
+   * 그래서 여기서도 문은 `members.some` **하나뿐**이다.
+   *
+   * ⚠ 예전에는 `team.leader` 절을 OR로 함께 봤다(#1269). `Team.leaderId`와 `TeamMember` 집합은
+   * 팀장 승계·팀원 제외·본인 탈퇴가 **함께** 옮기는 두 자리라, 팀장 절을 남겨 두면 그 사이
+   * 상태에서 두 조건이 갈린다 — 멤버십이 사라진 옛 팀장이 `Team.leaderId`만 붙들고 목록에 없는
+   * 파일을 계속 받는다. 팀장도 항상 자기 팀의 `TeamMember` 행을 가지므로(팀 생성 시 함께 만든다)
+   * 이 한 절이 **현재 팀장을 포함한** 모든 참여자를 담는다. 지금 접근을 잃는 사람은 없다.
+   *
+   * 같은 이유로 `Application.applicantId`도 문이 **아니다**. `applicantId`(누가 처음 냈는지),
+   * `Team.leaderId`(팀장 자리), `SubmissionFile.uploaderId`(누가 올렸는지)는 모두 **기록**이지
+   * 권한이 아니다 — 기록은 그대로 두고 권한만 현재 멤버십에서 읽는다. 어떤 경위로든 그 사람이
+   * 팀 밖에 놓이면 목록·이력이 이미 그를 막으므로, 받기만 열어 두면 「이력에 없는 파일이
+   * 열리는」 자리가 된다.
    *
    * **신청이 지금 승인 상태인지는 묻지 않는다.** 승인 되돌리기는 제출 행도 첨부도 지우지 않는
    * 순수한 상태 전이라(#1096) 목록은 `hasCurrentFile: true`를 사실대로 말한다. 여기서만 승인을
@@ -114,12 +122,7 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
           is: {
             program: { is: { milestones: { some: { id: milestoneId } } } },
             team: {
-              is: {
-                OR: [
-                  { leader: { is: activeStudent } },
-                  { members: { some: { user: { is: activeStudent } } } },
-                ],
-              },
+              is: { members: { some: { user: { is: activeStudent } } } },
             },
           },
         },

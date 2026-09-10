@@ -9,6 +9,7 @@ import {
   uploadSubmissionFile,
 } from './api';
 import { SubmissionChecklistPage } from './submission-checklist-page';
+import { SelectedMilestonePanel } from './components/submission-checklist-selected-panel';
 import type { SubmissionChecklistViewProps } from './components/submission-checklist-view';
 import type { SubmissionChecklist } from './types';
 
@@ -660,6 +661,47 @@ describe('SubmissionChecklistPage initial submission refresh', () => {
     expect(currentViewProps().checklist.items[0]?.submission?.status).toBe(
       'SUBMITTED',
     );
+  });
+});
+
+describe('SubmissionChecklistPage 선택 패널 표시', () => {
+  it('페이지가 넘긴 문맥 그대로 그리면 마일스톤 이름이나 상태가 반복되지 않는다', async () => {
+    await renderReadyPage();
+    const props = currentViewProps();
+    const item = props.checklist.items[0];
+    if (!item) throw new Error('expected checklist item');
+
+    // 페이지는 닫기 핸들러를 넘긴다 — 뷰는 그걸 보고 패널을 다이얼로그에 넣고,
+    // 패널은 창 제목이 이미 말한 이름을 다시 적지 않는다.
+    props.onCloseSelected?.();
+    expect(closeSelected).toHaveBeenCalled();
+    const html = renderToStaticMarkup(
+      <SelectedMilestonePanel
+        fileUpload={props.checklist.fileUpload}
+        programId={props.programId}
+        item={item}
+        input={props.input}
+        comment={props.comment}
+        errors={props.errors}
+        fileError={props.fileError}
+        submitting={props.submitting}
+        submissionPhase={props.submissionPhase}
+        onCloseSelected={props.onCloseSelected}
+        onTextChange={props.onTextChange}
+        onFileChange={props.onFileChange}
+        onCommentChange={props.onCommentChange}
+        onResubmit={props.onResubmit}
+      />,
+    );
+
+    expect(html).not.toContain(item.name);
+    expect(html).not.toContain('data-slot="card"');
+    expect((html.match(/data-slot="status-badge"/g) ?? []).length).toBe(1);
+    // 진짜 행동과 검토 기록은 그대로 남는다.
+    expect(html).toContain('Replace the file');
+    expect((html.match(/현재 제출본/g) ?? []).length).toBe(1);
+    expect(html).toContain('제출본 4번 제출');
+    expect(html).not.toContain('검토 대기 중');
   });
 });
 

@@ -131,7 +131,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       E2E_STUDENT_GITHUB_ID,
       graph.programId,
       {
-        answers: { title: 'E2E title', summary: 'E2E summary' },
+        answers: { title: 'E2E title' },
         teamName: null,
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: false,

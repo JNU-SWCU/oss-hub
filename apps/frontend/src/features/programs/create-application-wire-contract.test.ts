@@ -62,7 +62,7 @@ function backendDtoKeys(): readonly DtoKey[] {
 async function sentBodyKeys(): Promise<readonly string[]> {
   vi.mocked(apiClient).mockResolvedValue({});
   await createApplication('program-1', {
-    answers: { title: '제목', summary: '요약' },
+    answers: {},
     applicationTemplateVersion: 1,
     isRepositoryPublicationPlanned: true,
     repositoryConnectionMode: 'new',

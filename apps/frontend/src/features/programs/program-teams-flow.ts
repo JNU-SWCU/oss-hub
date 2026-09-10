@@ -1,37 +1,5 @@
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
-import type { ProgramTeam } from './api';
-import type { ApplicationFormTemplate, ProgramDetail } from './types';
-import { programHref } from './program-paths';
 
-export type ProgramTeamsPageState =
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'not-found' }
-  | { readonly kind: 'failed'; readonly message: string }
-  | {
-      readonly kind: 'empty';
-      readonly program: ProgramDetail;
-      readonly template: ApplicationFormTemplate;
-    }
-  | {
-      readonly kind: 'ready';
-      readonly program: ProgramDetail;
-      readonly template: ApplicationFormTemplate;
-      readonly team: ProgramTeam;
-      readonly joinCode: string | null;
-    };
-
-/** 팀 화면에서 실패할 수 있는 동작. 원인을 짚어 줄 수 있는 지점이 서로 다르다. */
-export type ProgramTeamAction = 'create' | 'join';
-
-/** 만들기 실패는 사용자가 직접 고칠 수 있는 입력이 팀 이름뿐이다. */
-export const TEAM_CREATE_FAILED_MESSAGE =
-  '팀을 만들지 못했습니다. 팀 이름을 확인한 뒤 다시 시도해 주세요.';
-
-/** 합류 실패의 가장 흔한 원인은 참여 코드 오기이므로 그것을 먼저 지목한다. */
-export const TEAM_JOIN_FAILED_MESSAGE =
-  '팀에 합류하지 못했습니다. 참여 코드가 맞는지 확인한 뒤 다시 시도해 주세요.';
-
-/** 코드를 알 수 없는 fallback. 최소한 "다시 해도 되는 상황"인지는 알려 준다. */
 export const TEAM_REQUEST_FAILED_MESSAGE =
   '팀 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
@@ -42,40 +10,31 @@ export function mapTeamError(problem: ProblemDetail): string {
     case 'TEAM_004':
       return '신청 기간이 아닙니다.';
     case 'TEAM_006':
-      return '이미 이 프로그램의 팀에 소속되어 있습니다.';
+      return '이미 이 프로그램의 팀에 소속되어 있습니다. 현재 팀을 다시 확인해 주세요.';
     case 'TEAM_007':
       return '팀 최대 인원을 초과할 수 없습니다.';
-    case 'TEAM_008':
-      return '신청 제출 후 팀을 변경할 수 없습니다.';
-    case 'TEAM_009':
-      return '참여 코드를 찾을 수 없습니다. 팀장에게 받은 코드를 다시 확인해 주세요.';
     case 'TEAM_010':
-      return '소속된 팀이 없습니다.';
+      return '소속된 팀이 없습니다. 현재 팀 구성을 다시 확인해 주세요.';
+    case 'TEAM_012':
+      return '신청 기록을 보존하기 위해 마지막 팀원은 탈퇴할 수 없습니다.';
+    case 'TEAM_013':
+      return '팀장만 다른 팀원을 제외할 수 있습니다.';
+    case 'TEAM_014':
+      return '본인은 팀 나가기를 통해 탈퇴할 수 있습니다.';
+    case 'TEAM_015':
+      return '이 팀의 구성원을 찾을 수 없습니다. 팀 현황을 다시 확인해 주세요.';
     default:
       return problem.detail || TEAM_REQUEST_FAILED_MESSAGE;
   }
 }
 
-/**
- * 팀 만들기·합류 실패를 한 곳에서 문구로 바꾼다.
- * ApiError면 서버가 짚어 준 원인을 쓰고, 그 밖의 실패(네트워크 등)는 동작별로
- * 사용자가 가장 먼저 확인해야 할 입력을 지목한다.
- */
-export function mapTeamActionError(
-  error: unknown,
-  action: ProgramTeamAction,
-): string {
-  if (error instanceof ApiError) return mapTeamError(error.problem);
-  return action === 'create'
-    ? TEAM_CREATE_FAILED_MESSAGE
-    : TEAM_JOIN_FAILED_MESSAGE;
+export function mapTeamActionError(error: unknown): string {
+  return error instanceof ApiError
+    ? mapTeamError(error.problem)
+    : TEAM_REQUEST_FAILED_MESSAGE;
 }
 
-export function applyHrefWithTeam(programId: string, teamId: string): string {
-  return `${programHref(programId, '/apply')}?teamId=${encodeURIComponent(teamId)}`;
-}
-
-/** `team-invitations/*` 오류 코드(TIV_00N) → 한국어 문구. */
+/** 초대의 실제 실패 원인을 보존한다. */
 export function mapInvitationError(problem: ProblemDetail): string {
   switch (problem.code) {
     case 'TIV_001':
@@ -85,7 +44,7 @@ export function mapInvitationError(problem: ProblemDetail): string {
     case 'TIV_003':
       return '팀장만 초대를 관리할 수 있습니다.';
     case 'TIV_004':
-      return '팀 구성원만 조회할 수 있습니다.';
+      return '팀 소속이 변경되었습니다. 현재 팀을 다시 확인해 주세요.';
     case 'TIV_005':
       return '자기 자신을 초대할 수 없습니다.';
     case 'TIV_006':
@@ -97,14 +56,15 @@ export function mapInvitationError(problem: ProblemDetail): string {
     case 'TIV_009':
       return '팀 최대 인원을 초과할 수 없습니다.';
     case 'TIV_010':
-      return '초대를 찾을 수 없습니다.';
+      return '초대를 찾을 수 없습니다. 초대 목록을 다시 확인해 주세요.';
     case 'TIV_011':
-      return '이미 처리된 초대입니다.';
+      return '이미 처리된 초대입니다. 초대 목록을 다시 확인해 주세요.';
     case 'TIV_012':
       return '본인이 받은 초대만 응답할 수 있습니다.';
-    case 'TIV_014':
-      return '신청 제출 후에는 팀 구성원을 변경할 수 없습니다.';
     default:
-      return problem.detail || '초대 요청을 처리하지 못했습니다.';
+      return (
+        problem.detail ||
+        '초대 요청을 처리하지 못했습니다. 현재 상태를 확인한 뒤 다시 시도해 주세요.'
+      );
   }
 }

@@ -144,8 +144,9 @@ export async function submitProgramApplication(
   mode: 'new' | 'own',
 ): Promise<void> {
   await page.goto(`/programs/${encodeURIComponent(programId)}/apply`);
-  await page.getByRole('button', { name: '팀 없이 계속', exact: true }).click();
-  await page.getByLabel('요약 *').fill('결정론적 신청 데이터');
+  await expect(page.getByLabel('신청자', { exact: false })).toBeVisible();
+  await expect(page.getByLabel('신청자', { exact: false })).not.toHaveValue('');
+  await page.getByLabel('팀 이름').fill('합성 신청 팀');
   await page
     .getByRole('radio', {
       name: mode === 'new' ? '새 저장소 발급받기' : '내 저장소 연결하기',

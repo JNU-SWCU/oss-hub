@@ -1,7 +1,10 @@
 import { RepositoryInvitationStatus, RepositorySource } from '@prisma/client';
 import {
+  CURRENT_MEMBER_GITHUB_LOGINS,
   githubClientMock,
+  grantInvitationWork,
   jobRepositoryMock,
+  MEMBERSHIP_FINGERPRINT,
   OWN_PROVISION_REPOSITORY,
   OWN_REPOSITORY_URL,
   ownProvisionContext,
@@ -9,7 +12,9 @@ import {
   PROVISION_REPOSITORY,
   provisionContext,
   provisionStateMock,
+  revokeInvitationWork,
 } from '../../test/repository-provision-worker.fixture';
+import { DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS } from './repository-provision.failure';
 import { COLLABORATOR_OUTCOMES } from './github-app.client';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
 import { buildRepositoryOwnershipMarker } from './repository-name';
@@ -35,8 +40,8 @@ describe('RepositoryProvisionWorker success', () => {
     expect(github.findRepository.mock.calls).toHaveLength(0);
   });
 
-  it('private 저장소를 먼저 기록하고 snapshot 대상만 초대한다', async () => {
-    // Given: 승인된 신청과 두 collaborator snapshot이 있다.
+  it('private 저장소를 먼저 기록하고 현재 팀원만 초대한다', async () => {
+    // Given: 승인된 신청과 현재 팀원 두 명이 있다.
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
     const github = githubClientMock();
@@ -63,11 +68,12 @@ describe('RepositoryProvisionWorker success', () => {
       github.createRepository.mock.invocationCallOrder[0] ?? 0,
     );
     expect(jobs.renewLease.mock.calls).toHaveLength(3);
+    // 권한 대상은 이벤트 snapshot이 아니라 현재 팀원 목록이다.
     expect(state.prepareInvitations.mock.calls[0]).toEqual([
       'synthetic-job-id',
       'worker-a',
       PROVISION_REPOSITORY.id,
-      ['synthetic-leader', 'synthetic-student'],
+      [...CURRENT_MEMBER_GITHUB_LOGINS],
     ]);
     expect(
       state.completeInvitation.mock.calls.map(([input]) => input.status),
@@ -75,7 +81,227 @@ describe('RepositoryProvisionWorker success', () => {
       RepositoryInvitationStatus.PENDING,
       RepositoryInvitationStatus.SUCCEEDED,
     ]);
-    expect(state.completeJob.mock.calls).toHaveLength(1);
+    // 관리형 저장소는 완료하면서 다음 재조회 시각과 반영한 팀원 지문을 함께 남긴다.
+    expect(state.completeJob.mock.calls).toEqual([
+      [
+        'synthetic-job-id',
+        'worker-a',
+        PROVISION_REPOSITORY.id,
+        PROVISION_NOW,
+        new Date(
+          PROVISION_NOW.getTime() +
+            DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
+        ),
+        MEMBERSHIP_FINGERPRINT,
+      ],
+    ]);
+  });
+
+  it('대기 초대가 하나도 없어도 다음 재조회 시각을 남긴다', async () => {
+    // Given: 모든 초대가 즉시 수락되어 대기 상태가 남지 않는다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    const github = githubClientMock();
+    github.ensureCollaborator.mockResolvedValue(
+      COLLABORATOR_OUTCOMES.SUCCEEDED,
+    );
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    // When: provision job을 실행한다.
+    await worker.runNext('worker-recurring', PROVISION_NOW);
+
+    // Then: 팀 이탈은 초대 상태를 바꾸지 않으므로 재조회 예약을 끊지 않는다.
+    expect(state.completeJob.mock.calls[0]?.[4]).toEqual(
+      new Date(
+        PROVISION_NOW.getTime() +
+          DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
+      ),
+    );
+    expect(state.completeJob.mock.calls[0]?.[5]).toBe(MEMBERSHIP_FINGERPRINT);
+  });
+
+  it('이벤트 payload에 남아 있어도 팀에서 빠진 login은 초대하지 않고 회수한다', async () => {
+    // Given: 승인 시점 snapshot에는 있지만 지금은 팀에 없는 login이 있다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        repository: PROVISION_REPOSITORY,
+        currentMemberGithubLogins: ['synthetic-leader'],
+        eventPayload: {
+          applicationId: 'synthetic-application-id',
+          programId: 'synthetic-program-id',
+          teamId: null,
+          requestedAt: PROVISION_NOW.toISOString(),
+          collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
+        },
+      }),
+    );
+    state.findInvitationWork.mockResolvedValue([
+      revokeInvitationWork({
+        id: 'synthetic-invitation-left',
+        githubLogin: 'synthetic-student',
+      }),
+      grantInvitationWork({
+        id: 'synthetic-invitation-leader',
+        githubLogin: 'synthetic-leader',
+      }),
+    ]);
+    const github = githubClientMock();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    // When: job을 실행한다.
+    await worker.runNext('worker-revoke', PROVISION_NOW);
+
+    // Then: 이탈자는 회수만, 남은 팀원은 부여만 받는다.
+    expect(state.prepareInvitations.mock.calls[0]?.[3]).toEqual([
+      'synthetic-leader',
+    ]);
+    expect(github.revokeCollaborator.mock.calls).toEqual([
+      [PROVISION_REPOSITORY.name, 'synthetic-student'],
+    ]);
+    expect(github.ensureCollaborator.mock.calls).toEqual([
+      [PROVISION_REPOSITORY.name, 'synthetic-leader'],
+    ]);
+    expect(state.completeInvitation.mock.calls[0]?.[0]).toMatchObject({
+      invitationId: 'synthetic-invitation-left',
+      repositoryId: PROVISION_REPOSITORY.id,
+      expectedStatus: RepositoryInvitationStatus.REVOKE_REQUIRED,
+      status: RepositoryInvitationStatus.REVOKED,
+    });
+  });
+
+  it('회수를 모두 끝낸 뒤에 부여를 진행한다', async () => {
+    // Given: 회수 한 건과 부여 한 건이 함께 남아 있고 목록은 부여가 앞에 온다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        repository: PROVISION_REPOSITORY,
+        currentMemberGithubLogins: ['synthetic-new'],
+      }),
+    );
+    state.findInvitationWork.mockResolvedValue([
+      grantInvitationWork({
+        id: 'synthetic-invitation-new',
+        githubLogin: 'synthetic-new',
+      }),
+      revokeInvitationWork({
+        id: 'synthetic-invitation-left',
+        githubLogin: 'synthetic-left',
+      }),
+    ]);
+    const github = githubClientMock();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    // When: job을 실행한다.
+    await worker.runNext('worker-order', PROVISION_NOW);
+
+    // Then: 목록 순서와 무관하게 회수가 먼저 나간다.
+    expect(
+      github.revokeCollaborator.mock.invocationCallOrder[0] ?? 0,
+    ).toBeLessThan(github.ensureCollaborator.mock.invocationCallOrder[0] ?? 0);
+  });
+
+  it('현재 팀원이 한 명도 없으면 모든 기존 권한을 회수한다', async () => {
+    // Given: 팀원이 전부 빠져 live 목록이 비었다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        repository: PROVISION_REPOSITORY,
+        currentMemberGithubLogins: [],
+      }),
+    );
+    state.findInvitationWork.mockResolvedValue([
+      revokeInvitationWork({
+        id: 'synthetic-invitation-a',
+        githubLogin: 'synthetic-leader',
+      }),
+      revokeInvitationWork({
+        id: 'synthetic-invitation-b',
+        githubLogin: 'synthetic-student',
+      }),
+    ]);
+    const github = githubClientMock();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    // When: job을 실행한다.
+    const result = await worker.runNext('worker-empty-team', PROVISION_NOW);
+
+    // Then: 빈 목록을 snapshot fallback으로 되돌리지 않고 전원 회수한다.
+    expect(result.kind).toBe('SUCCEEDED');
+    expect(state.prepareInvitations.mock.calls[0]?.[3]).toEqual([]);
+    expect(github.revokeCollaborator.mock.calls).toEqual([
+      [PROVISION_REPOSITORY.name, 'synthetic-leader'],
+      [PROVISION_REPOSITORY.name, 'synthetic-student'],
+    ]);
+    expect(github.ensureCollaborator.mock.calls).toHaveLength(0);
+  });
+
+  it('회수 뒤 재가입한 팀원은 다시 초대한다', async () => {
+    // Given: 한 번 회수됐던 login이 팀에 다시 들어와 부여 대상으로 돌아왔다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        repository: PROVISION_REPOSITORY,
+        currentMemberGithubLogins: ['synthetic-student'],
+      }),
+    );
+    state.findInvitationWork.mockResolvedValue([
+      grantInvitationWork({
+        id: 'synthetic-invitation-rejoined',
+        githubLogin: 'synthetic-student',
+      }),
+    ]);
+    const github = githubClientMock();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    // When: job을 실행한다.
+    await worker.runNext('worker-rejoin', PROVISION_NOW);
+
+    // Then: 회수 이력이 있어도 재가입자는 다시 초대된다.
+    expect(github.revokeCollaborator.mock.calls).toHaveLength(0);
+    expect(github.ensureCollaborator.mock.calls).toEqual([
+      [PROVISION_REPOSITORY.name, 'synthetic-student'],
+    ]);
+  });
+
+  it('회수 전에도 lease를 갱신한다', async () => {
+    // Given: 회수 대상 한 건만 남아 있다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        repository: PROVISION_REPOSITORY,
+        currentMemberGithubLogins: [],
+      }),
+    );
+    state.findInvitationWork.mockResolvedValue([revokeInvitationWork()]);
+    const github = githubClientMock();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    // When: job을 실행한다.
+    await worker.runNext('worker-revoke-lease', PROVISION_NOW);
+
+    // Then: 네트워크 호출 전에 lease를 먼저 갱신한다.
+    expect(jobs.renewLease.mock.calls).toHaveLength(1);
+    expect(jobs.renewLease.mock.invocationCallOrder[0] ?? 0).toBeLessThan(
+      github.revokeCollaborator.mock.invocationCallOrder[0] ?? 0,
+    );
   });
 
   it('DB에 저장된 repository가 있으면 생성 없이 실패 대상만 처리한다', async () => {
@@ -86,7 +312,11 @@ describe('RepositoryProvisionWorker success', () => {
       provisionContext({ repository: PROVISION_REPOSITORY }),
     );
     state.findInvitationWork.mockResolvedValue([
-      { id: 'synthetic-failed-invitation', githubLogin: 'synthetic-student' },
+      grantInvitationWork({
+        id: 'synthetic-failed-invitation',
+        githubLogin: 'synthetic-student',
+        status: RepositoryInvitationStatus.FAILED_RETRYABLE,
+      }),
     ]);
     const github = githubClientMock();
     const worker = new RepositoryProvisionWorker(jobs, state, github, {
@@ -288,7 +518,7 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     ]);
   });
 
-  it('OWN 승인은 협업자 초대·공개 전환을 시도하지 않는다', async () => {
+  it('OWN 승인은 협업자 초대·회수·공개 전환을 시도하지 않는다', async () => {
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
     state.loadContext.mockResolvedValue(ownProvisionContext());
@@ -311,9 +541,13 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     await worker.runNext('worker-own-no-write', PROVISION_NOW);
 
     expect(github.ensureCollaborator.mock.calls).toHaveLength(0);
+    // 학생 소유 저장소의 협업자는 플랫폼 권한 밖이다 — 회수를 시도하지 않는다.
+    expect(github.revokeCollaborator.mock.calls).toHaveLength(0);
     expect(state.prepareInvitations.mock.calls).toHaveLength(0);
     expect(state.findInvitationWork.mock.calls).toHaveLength(0);
     expect(state.completeInvitation.mock.calls).toHaveLength(0);
+    expect(state.failInvitation.mock.calls).toHaveLength(0);
+    // OWN은 관리형 재조회도 지문도 남기지 않는다(인자 4개).
     expect(state.completeJob.mock.calls).toEqual([
       [
         'synthetic-job-id',

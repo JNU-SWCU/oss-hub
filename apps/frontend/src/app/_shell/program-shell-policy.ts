@@ -1,7 +1,25 @@
+import { programDetailIdFromPathname } from './section-facets';
 import type {
   ProgramScopeSidebarGroup,
   ProgramScopeViewerRole,
 } from './sidebar-menu';
+
+/**
+ * 프로그램 스코프 작업 화면인가 — 즉, 좌측 패널을 `programScopeSidebarGroups`로 그릴
+ * 경로인가를 이름 붙여 판정한다.
+ *
+ * `/programs/:id/my-team`(#1269)은 여기 들어온다. 두 가지와 구분된다.
+ * - **생성 마법사(`/programs/new`)가 아니다.** 그 정적 세그먼트는 동적 `[id]` 스코프로
+ *   새지 않아 여전히 섹션 패싯 패널을 쓴다.
+ * - **학생 전역 대시보드(`/dashboard/*`)가 아니다.** 대시보드의 「참여 카드」와 같은 팀을
+ *   보이더라도, 이 경로는 프로그램 하나의 문맥 안에서 열리는 화면이다.
+ *
+ * 판정 자체는 `programDetailIdFromPathname` 하나로만 한다 — `ProductShell`이 쓰는 것과
+ * 다른 규칙을 두면 데스크톱 레일과 드로어가 갈라진다.
+ */
+export function isProgramScopedWorkspacePath(pathname: string): boolean {
+  return programDetailIdFromPathname(pathname) !== null;
+}
 
 export function withoutLoadingCounts(
   groups: readonly ProgramScopeSidebarGroup[],

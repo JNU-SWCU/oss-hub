@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '@/lib/api-client';
 import {
+  ProgramTeamResponseError,
   createApplication,
   decideApplication,
   getApplicationDetail,
+  getMyTeam,
   getProgramStatusCounts,
   listPrograms,
+  removeMyTeamMember,
 } from './api';
 import type { ProgramListPage, ProgramStatusCounts } from './types';
 
@@ -141,7 +144,7 @@ describe('createApplication', () => {
     vi.mocked(apiClient).mockResolvedValue(response);
 
     const result = await createApplication('program-1', {
-      answers: { title: '제목', summary: '요약' },
+      answers: {},
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: true,
       repositoryConnectionMode: 'new',
@@ -153,7 +156,7 @@ describe('createApplication', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          answers: { title: '제목', summary: '요약' },
+          answers: {},
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
           repositoryConnectionMode: 'NEW',
@@ -176,7 +179,7 @@ describe('createApplication', () => {
     vi.mocked(apiClient).mockResolvedValue(response);
 
     const result = await createApplication('program-1', {
-      answers: { title: '제목', summary: '요약' },
+      answers: { title: '제목' },
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: false,
       repositoryConnectionMode: 'new',
@@ -188,7 +191,7 @@ describe('createApplication', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          answers: { title: '제목', summary: '요약' },
+          answers: { title: '제목' },
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: false,
           repositoryConnectionMode: 'NEW',
@@ -211,7 +214,7 @@ describe('createApplication', () => {
     vi.mocked(apiClient).mockResolvedValue(response);
 
     const result = await createApplication('program-1', {
-      answers: { title: '제목', summary: '요약' },
+      answers: {},
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: true,
       repositoryConnectionMode: 'own',
@@ -223,7 +226,7 @@ describe('createApplication', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          answers: { title: '제목', summary: '요약' },
+          answers: {},
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
           repositoryConnectionMode: 'OWN',
@@ -238,7 +241,7 @@ describe('createApplication', () => {
     vi.mocked(apiClient).mockResolvedValue({ id: 'app-disabled' });
 
     await createApplication('program-1', {
-      answers: { title: '제목', summary: '요약' },
+      answers: {},
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: false,
       repositoryConnectionMode: null,
@@ -249,7 +252,7 @@ describe('createApplication', () => {
       'programs/program-1/applications',
       expect.objectContaining({
         body: JSON.stringify({
-          answers: { title: '제목', summary: '요약' },
+          answers: {},
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: false,
           repositoryConnectionMode: null,
@@ -321,6 +324,129 @@ describe('decideApplication', () => {
         method: 'PATCH',
         body: JSON.stringify({ action: 'REVERT' }),
       }),
+    );
+  });
+});
+
+/**
+ * 내 팀 응답은 화면이 다시 유추하지 않는 서버 계산 능력 플래그를 싣는다
+ * (backend `ProgramTeamResponseDto`). 플래그가 빠졌을 때 기본값을 지어내면
+ * 없는 버튼을 그렸다가 서버에서 거절당하거나, 있는 권한을 숨긴다.
+ */
+describe('getMyTeam', () => {
+  const backendTeam = {
+    id: 'team-1',
+    name: '기초스터디팀',
+    memberCount: 2,
+    minMembers: 2,
+    maxMembers: 4,
+    hasApplication: true,
+    canInvite: true,
+    canRemoveMembers: true,
+    canLeave: false,
+    isLeader: true,
+    members: [
+      { userId: 'user-1', nickname: 'leader', name: '팀장', isLeader: true },
+      { userId: 'user-2', nickname: 'member', name: null, isLeader: false },
+    ],
+  };
+
+  beforeEach(() => {
+    vi.mocked(apiClient).mockReset();
+  });
+
+  it('인증된 세션의 팀을 프로그램 경로로 읽고 능력 플래그를 그대로 통과시킨다', async () => {
+    vi.mocked(apiClient).mockResolvedValue(backendTeam);
+
+    await expect(getMyTeam('program 1')).resolves.toEqual(backendTeam);
+    expect(apiClient).toHaveBeenCalledWith('programs/program%201/teams/me');
+  });
+
+  it('폐기된 locked 같은 여분 키는 팀 계약에 싣지 않는다', async () => {
+    vi.mocked(apiClient).mockResolvedValue({ ...backendTeam, locked: true });
+
+    const team = await getMyTeam('program-1');
+
+    expect(Object.keys(team).sort()).toEqual([
+      'canInvite',
+      'canLeave',
+      'canRemoveMembers',
+      'hasApplication',
+      'id',
+      'isLeader',
+      'maxMembers',
+      'memberCount',
+      'members',
+      'minMembers',
+      'name',
+    ]);
+  });
+
+  it.each([
+    'hasApplication',
+    'canInvite',
+    'canRemoveMembers',
+    'canLeave',
+    'isLeader',
+  ])('능력 플래그 %s 가 빠지면 기본값 대신 응답 오류로 끊는다', async (key) => {
+    const withoutCapability: Record<string, unknown> = { ...backendTeam };
+    delete withoutCapability[key];
+    vi.mocked(apiClient).mockResolvedValue(withoutCapability);
+
+    await expect(getMyTeam('program-1')).rejects.toBeInstanceOf(
+      ProgramTeamResponseError,
+    );
+  });
+
+  it('멤버 목록이 계약을 벗어나면 빈 팀으로 접지 않는다', async () => {
+    vi.mocked(apiClient).mockResolvedValue({
+      ...backendTeam,
+      members: [{ userId: 'user-1', nickname: 'leader' }],
+    });
+
+    await expect(getMyTeam('program-1')).rejects.toBeInstanceOf(
+      ProgramTeamResponseError,
+    );
+  });
+
+  it('minMembers 가 없는 프로그램의 null 은 그대로 받는다', async () => {
+    vi.mocked(apiClient).mockResolvedValue({
+      ...backendTeam,
+      minMembers: null,
+    });
+
+    await expect(getMyTeam('program-1')).resolves.toMatchObject({
+      minMembers: null,
+    });
+  });
+});
+
+describe('removeMyTeamMember', () => {
+  beforeEach(() => {
+    vi.mocked(apiClient).mockReset();
+  });
+
+  it('팀장의 팀원 제외를 본문 없는 DELETE 로 보낸다', async () => {
+    vi.mocked(apiClient).mockResolvedValue(undefined);
+
+    await expect(
+      removeMyTeamMember('program-1', 'user-2'),
+    ).resolves.toBeUndefined();
+    expect(apiClient).toHaveBeenCalledWith(
+      'programs/program-1/teams/me/members/user-2',
+      { method: 'DELETE' },
+    );
+  });
+
+  it('프로그램·사용자 id 를 각각 URL 로 인코딩한다', async () => {
+    vi.mocked(apiClient).mockResolvedValue(undefined);
+
+    await removeMyTeamMember('program/1', 'user 2');
+
+    // 인코딩하지 않으면 다른 경로를 두드려 엉뚱한 팀원을 지우거나 404가 된다.
+    expect(apiClient).toHaveBeenCalledWith(
+      'programs/program%2F1/teams/me/members/user%202',
+      { method: 'DELETE' },
     );
   });
 });

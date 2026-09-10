@@ -25,6 +25,20 @@ export function programApplyHref(programId: string): string {
   return `/programs/${encodeURIComponent(programId)}/apply`;
 }
 
+/**
+ * 학생의 「우리 팀」 화면(#1269) — 이 프로그램에서 내가 속한 팀 하나를 보는 전용 경로다.
+ *
+ * 신청 화면(`programApplyHref`)과 **다른 주소**다. 팀 이야기를 신청 폼 안에 숨기지 않고
+ * 좌측 패널에서 바로 열리는 자기 자리로 둔다. 참여 팀 목록(`programHref(id, '/teams')`)과도
+ * 다르다 — 그쪽은 프로그램 전체 팀 디렉터리(공개 성격)고, 이쪽은 내 팀 하나다.
+ *
+ * 팀이 없는 학생에게도 같은 주소를 준다. 「팀이 있는지」를 신청 상태로 미리 추측해
+ * 링크를 감추지 않고, 화면이 서버 응답(`getMyTeam`)으로 팀 없음 상태를 직접 말한다.
+ */
+export function programMyTeamHref(programId: string): string {
+  return `/programs/${encodeURIComponent(programId)}/my-team`;
+}
+
 export function programNewHref(): string {
   return '/programs/new';
 }

@@ -37,6 +37,63 @@ export interface TeamInvitationRecord {
   respondedAt: Date | null;
 }
 
+/** 팀장이 확인할 수 있는 초대 대상의 최소 표시 정보. */
+export interface TeamInvitationInvitee {
+  readonly id: string;
+  readonly nickname: string;
+  readonly name: string | null;
+  readonly avatarUrl: string | null;
+}
+
+/** 보낸 초대 목록·생성 응답에만 대상 표시 정보를 더한 모양. */
+export interface SentTeamInvitationRecord extends TeamInvitationRecord {
+  readonly invitee: TeamInvitationInvitee;
+}
+
+const TEAM_INVITEE_SELECT = {
+  id: true,
+  nickname: true,
+  ...USER_PROFILE_NAME_SELECT,
+  avatarUrl: true,
+} as const satisfies Prisma.UserSelect;
+
+const SENT_TEAM_INVITATION_SELECT = {
+  id: true,
+  teamId: true,
+  programId: true,
+  inviteeId: true,
+  invitedById: true,
+  status: true,
+  invitedAt: true,
+  respondedAt: true,
+  invitee: { select: TEAM_INVITEE_SELECT },
+} as const satisfies Prisma.TeamInvitationSelect;
+
+type SentTeamInvitationRow = Prisma.TeamInvitationGetPayload<{
+  select: typeof SENT_TEAM_INVITATION_SELECT;
+}>;
+
+function toSentTeamInvitationRecord(
+  invitation: SentTeamInvitationRow,
+): SentTeamInvitationRecord {
+  return {
+    id: invitation.id,
+    teamId: invitation.teamId,
+    programId: invitation.programId,
+    inviteeId: invitation.inviteeId,
+    invitedById: invitation.invitedById,
+    status: invitation.status,
+    invitedAt: invitation.invitedAt,
+    respondedAt: invitation.respondedAt,
+    invitee: {
+      id: invitation.invitee.id,
+      nickname: invitation.invitee.nickname,
+      name: resolveUserProfileName(invitation.invitee),
+      avatarUrl: invitation.invitee.avatarUrl,
+    },
+  };
+}
+
 /**
  * 받은 초대 하나 + 카드로 보여 줄 요약.
  *
@@ -62,22 +119,56 @@ export interface TeamContextRecord {
   readonly programId: string;
   readonly leaderId: string;
   readonly teamMaxSize: number;
-  readonly locked: boolean;
 }
 
 export interface CreateInvitationInput {
   readonly teamId: string;
-  readonly programId: string;
+  /** 초대를 보내는 사람 — 팀 잠금 뒤 팀장·소속을 다시 확인할 기준이다. */
+  readonly actorId: string;
   readonly inviteeId: string;
-  readonly invitedById: string;
 }
 
-export class PendingInvitationConflictError extends Error {
-  override readonly name = 'PendingInvitationConflictError';
+/**
+ * 초대 생성 결과. 잠금 전 사전 조회는 전부 낡을 수 있어 최종 판정은 트랜잭션
+ * 안에서만 하고, 실패 사유를 호출부가 그대로 에러 코드로 옮길 수 있게 outcome으로
+ * 돌려준다(수락 트랜잭션과 같은 모양).
+ */
+export type CreateInvitationOutcome =
+  | { readonly kind: 'team-not-found' }
+  | { readonly kind: 'not-team-leader' }
+  | { readonly kind: 'not-team-member' }
+  | { readonly kind: 'invitee-already-in-team' }
+  | { readonly kind: 'team-full' }
+  | { readonly kind: 'already-invited' }
+  | {
+      readonly kind: 'ok';
+      readonly invitation: SentTeamInvitationRecord;
+    };
+
+/** 팀장의 대기 초대 취소 결과. */
+export type CancelInvitationOutcome =
+  | { readonly kind: 'not-found' }
+  | { readonly kind: 'not-team-leader' }
+  | { readonly kind: 'not-pending' }
+  | { readonly kind: 'ok' };
+
+/** 초대받은 본인의 거절 결과. */
+export type DeclineInvitationOutcome =
+  | { readonly kind: 'not-found' }
+  | { readonly kind: 'not-pending' }
+  | { readonly kind: 'ok' };
+
+interface LockedTeamRow {
+  readonly id: string;
 }
 
-export class TeamInvitationLockedError extends Error {
-  override readonly name = 'TeamInvitationLockedError';
+function lockTeamRow(
+  tx: Pick<Prisma.TransactionClient, '$queryRaw'>,
+  teamId: string,
+): Promise<LockedTeamRow[]> {
+  return tx.$queryRaw<LockedTeamRow[]>(
+    Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
+  );
 }
 
 @Injectable()
@@ -141,13 +232,19 @@ export class TeamInvitationsRepository {
   }
 
   /** 팀이 보낸 초대 목록 — 최신 발송분이 먼저 온다. */
-  async findByTeamId(teamId: string): Promise<TeamInvitationRecord[]> {
-    return this.prisma.teamInvitation.findMany({
+  async findByTeamId(teamId: string): Promise<SentTeamInvitationRecord[]> {
+    const invitations = await this.prisma.teamInvitation.findMany({
       where: { teamId },
       orderBy: { invitedAt: 'desc' },
+      select: SENT_TEAM_INVITATION_SELECT,
     });
+    return invitations.map(toSentTeamInvitationRecord);
   }
 
+  /**
+   * 조회·검색 권한 사전 판단용 스냅샷. 쓰기 경로의 최종 권한은 이 값이 아니라
+   * 팀 행을 잠근 트랜잭션 안의 재조회가 정본이다.
+   */
   async findTeamContext(teamId: string): Promise<TeamContextRecord | null> {
     const team = await this.prisma.team.findUnique({
       where: { id: teamId },
@@ -156,7 +253,6 @@ export class TeamInvitationsRepository {
         programId: true,
         leaderId: true,
         program: { select: { teamMaxSize: true } },
-        applications: { select: { id: true }, take: 1 },
       },
     });
     if (!team) return null;
@@ -165,7 +261,6 @@ export class TeamInvitationsRepository {
       programId: team.programId,
       leaderId: team.leaderId,
       teamMaxSize: team.program.teamMaxSize,
-      locked: team.applications.length > 0,
     };
   }
 
@@ -177,23 +272,8 @@ export class TeamInvitationsRepository {
     return member !== null;
   }
 
-  async isUserInProgramTeam(
-    programId: string,
-    userId: string,
-  ): Promise<boolean> {
-    const member = await this.prisma.teamMember.findUnique({
-      where: { programId_userId: { programId, userId } },
-      select: { userId: true },
-    });
-    return member !== null;
-  }
-
   async getInviteeEligibility(userId: string): Promise<InviteeEligibility> {
     return getInviteeEligibility(this.prisma, userId);
-  }
-
-  async countTeamMembers(teamId: string): Promise<number> {
-    return this.prisma.teamMember.count({ where: { teamId } });
   }
 
   /**
@@ -214,85 +294,169 @@ export class TeamInvitationsRepository {
     );
   }
 
+  /**
+   * 초대 생성 — 팀 행을 `FOR UPDATE`로 잠그고 그 안에서 팀장·소속·정원·대상의
+   * 프로그램 소속을 다시 판정한다.
+   *
+   * 왜 재판정이 필요한가. 초대를 시작한 사람이 기다리는 사이에 탈퇴해 팀장이
+   * 승계될 수 있다(`programs`의 탈퇴·제외도 같은 Team 행을 잠금다). 잠금 전
+   * 스냅샷만 믿으면 이미 떠난 전 팀장의 초대가 통과한다.
+   *
+   * 신청 제출 여부는 보지 않는다 — 신청 창구는 초기 접수의 문이지 참여 중
+   * 팀 구성 관리의 게이트가 아니다.
+   */
   async createInvitation(
     input: CreateInvitationInput,
     now: Date = new Date(),
-  ): Promise<TeamInvitationRecord> {
-    try {
-      return await this.prisma.$transaction(async (transaction) => {
-        await transaction.$queryRaw<readonly { readonly id: string }[]>(
-          Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${input.teamId} FOR UPDATE`,
-        );
-        const application = await transaction.application.findFirst({
-          where: { teamId: input.teamId },
-          select: { id: true },
-        });
-        if (application) throw new TeamInvitationLockedError();
+  ): Promise<CreateInvitationOutcome> {
+    const creation = this.prisma.$transaction<CreateInvitationOutcome>(
+      async (tx) => {
+        await lockTeamRow(tx, input.teamId);
 
-        return transaction.teamInvitation.create({
-          data: {
-            teamId: input.teamId,
-            programId: input.programId,
-            inviteeId: input.inviteeId,
-            invitedById: input.invitedById,
-            invitedAt: now,
+        const team = await tx.team.findUnique({
+          where: { id: input.teamId },
+          select: {
+            id: true,
+            programId: true,
+            leaderId: true,
+            program: { select: { teamMaxSize: true } },
           },
         });
-      });
+        if (!team) return { kind: 'team-not-found' };
+
+        // 권한을 먼저 본다 — 팀장이 아닌 사람에게 대상의 소속을 알리지 않는다.
+        if (team.leaderId !== input.actorId) return { kind: 'not-team-leader' };
+        const actorMembership = await tx.teamMember.findUnique({
+          where: {
+            teamId_userId: { teamId: team.id, userId: input.actorId },
+          },
+          select: { userId: true },
+        });
+        if (!actorMembership) return { kind: 'not-team-member' };
+
+        const inviteeMembership = await tx.teamMember.findUnique({
+          where: {
+            programId_userId: {
+              programId: team.programId,
+              userId: input.inviteeId,
+            },
+          },
+          select: { userId: true },
+        });
+        if (inviteeMembership) return { kind: 'invitee-already-in-team' };
+
+        const memberCount = await tx.teamMember.count({
+          where: { teamId: team.id },
+        });
+        if (memberCount >= team.program.teamMaxSize) {
+          return { kind: 'team-full' };
+        }
+
+        const invitation = await tx.teamInvitation.create({
+          data: {
+            teamId: team.id,
+            programId: team.programId,
+            inviteeId: input.inviteeId,
+            invitedById: input.actorId,
+            invitedAt: now,
+          },
+          select: SENT_TEAM_INVITATION_SELECT,
+        });
+        return {
+          kind: 'ok',
+          invitation: toSentTeamInvitationRecord(invitation),
+        };
+      },
+    );
+    try {
+      return await creation;
     } catch (error) {
+      // partial unique index는 Prisma가 P2002로 매핑하지 못하고 DB 제약 위반(23505)
+      // raw code로 올라올 수 있어 함께 잡는다(#164 패턴 마이그레이션 SQL 참고).
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         (error.code === 'P2002' || error.code === '23505')
       ) {
-        throw new PendingInvitationConflictError();
+        return { kind: 'already-invited' };
       }
-      // partial unique index는 Prisma가 P2002로 매핑하지 못하고 DB 제약 위반(23505)
-      // raw code로 올라올 수 있어 함께 잡는다(#164 패턴 마이그레이션 SQL 참고).
       throw error;
     }
   }
 
-  async findInvitationForActor(
+  /**
+   * 팀장의 대기 초대 취소 — 권한은 초대를 보낸 사람(`invitedById`)이 아니라
+   * 팀 행을 잠근 시점의 **현재 팀장**이다. 그래야 승계받은 팀장이 전 팀장이
+   * 남긴 초대를 정리할 수 있고, 이미 떠난 팀장은 정리할 수 없다.
+   *
+   * 스키마에 별도 CANCELLED 상태가 없어 "합류로 이어지지 않은 종결"은
+   * DECLINED 하나로 표현한다(#164 Prisma 스키마 계약).
+   */
+  async cancelPendingInvitationAsLeader(
     invitationId: string,
-  ): Promise<(TeamInvitationRecord & { readonly leaderId: string }) | null> {
-    const invitation = await this.prisma.teamInvitation.findUnique({
-      where: { id: invitationId },
-      include: { team: { select: { leaderId: true } } },
+    actorId: string,
+    now: Date = new Date(),
+  ): Promise<CancelInvitationOutcome> {
+    return this.prisma.$transaction<CancelInvitationOutcome>(async (tx) => {
+      const invitation = await tx.teamInvitation.findUnique({
+        where: { id: invitationId },
+        select: { teamId: true },
+      });
+      if (!invitation) return { kind: 'not-found' };
+
+      await lockTeamRow(tx, invitation.teamId);
+
+      const locked = await tx.teamInvitation.findUnique({
+        where: { id: invitationId },
+        select: { status: true, team: { select: { leaderId: true } } },
+      });
+      if (!locked) return { kind: 'not-found' };
+      if (locked.team.leaderId !== actorId) return { kind: 'not-team-leader' };
+      if (locked.status !== TeamInvitationStatus.PENDING) {
+        return { kind: 'not-pending' };
+      }
+
+      const closed = await tx.teamInvitation.updateMany({
+        where: { id: invitationId, status: TeamInvitationStatus.PENDING },
+        data: { status: TeamInvitationStatus.DECLINED, respondedAt: now },
+      });
+      if (closed.count === 0) return { kind: 'not-pending' };
+      return { kind: 'ok' };
     });
-    if (!invitation) return null;
-    return {
-      id: invitation.id,
-      teamId: invitation.teamId,
-      programId: invitation.programId,
-      inviteeId: invitation.inviteeId,
-      invitedById: invitation.invitedById,
-      status: invitation.status,
-      invitedAt: invitation.invitedAt,
-      respondedAt: invitation.respondedAt,
-      leaderId: invitation.team.leaderId,
-    };
   }
 
   /**
-   * 대기 중인 초대를 DECLINED로 닫는다. 팀장의 취소·초대받은 이의 거절 모두 이
-   * 메서드를 쓴다 — 스키마에 별도 CANCELLED 상태가 없어 "합류로 이어지지 않은
-   * 종결"을 DECLINED 하나로 표현한다(#164 Prisma 스키마 계약). 이미 응답된
-   * 초대는 count 0으로 알린다(호출자가 상태 전이 실패로 판단한다).
+   * 초대받은 본인의 거절. 본인 초대가 아니면 존재 여부를 알리지 않고
+   * `not-found`로 돌려준다 — 초대 id를 추측해 다른 사람의 초대 존재를
+   * 확인할 수 없게 한다. 상태 전이는 WHERE status=PENDING 재평가로 원자적이라
+   * 팀 잠금이 필요 없다(멤버십을 바꾸지 않는다).
    */
-  async closePendingInvitationAsDeclined(
+  async declinePendingInvitationAsInvitee(
     invitationId: string,
-  ): Promise<number> {
-    const result = await this.prisma.teamInvitation.updateMany({
-      where: { id: invitationId, status: TeamInvitationStatus.PENDING },
-      data: { status: TeamInvitationStatus.DECLINED, respondedAt: new Date() },
+    inviteeId: string,
+    now: Date = new Date(),
+  ): Promise<DeclineInvitationOutcome> {
+    const closed = await this.prisma.teamInvitation.updateMany({
+      where: {
+        id: invitationId,
+        inviteeId,
+        status: TeamInvitationStatus.PENDING,
+      },
+      data: { status: TeamInvitationStatus.DECLINED, respondedAt: now },
     });
-    return result.count;
+    if (closed.count > 0) return { kind: 'ok' };
+
+    const own = await this.prisma.teamInvitation.findFirst({
+      where: { id: invitationId, inviteeId },
+      select: { id: true },
+    });
+    return own ? { kind: 'not-pending' } : { kind: 'not-found' };
   }
 
   /**
    * 수락 트랜잭션 — 팀 행을 `FOR UPDATE`로 잠가 같은 팀에 대한 동시 수락 사이의
    * 정원 초과 경합을 직렬화한다(#164 패턴). 잠금 뒤 상태 재조회와 `updateMany`의
    * WHERE status=PENDING 재평가로 동시 수락·거절 경합을 원자적으로 막는다.
+   * 합류는 오직 여기서만 일어난다 — 초대 생성은 `TeamMember`를 만들지 않는다.
    */
   async withAcceptTransaction(
     invitationId: string,

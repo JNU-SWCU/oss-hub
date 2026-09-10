@@ -130,6 +130,7 @@ type ProvisionGithubClient = jest.Mocked<
     | 'findRepository'
     | 'createRepository'
     | 'ensureCollaborator'
+    | 'revokeCollaborator'
     | 'findPublicRepository'
     | 'organization'
   >
@@ -611,7 +612,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         PRECHECK_APPLICANT_GITHUB_ID,
         programId,
         {
-          answers: { title: '제목', summary: '요약' },
+          answers: { title: '제목' },
           teamName: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
@@ -663,7 +664,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         PRECHECK_APPLICANT_GITHUB_ID,
         programId,
         {
-          answers: { title: '제목', summary: '요약' },
+          answers: { title: '제목' },
           teamName: null,
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
@@ -784,6 +785,7 @@ function githubClient(): ProvisionGithubClient {
     findRepository: jest.fn().mockResolvedValue(null),
     createRepository: jest.fn(),
     ensureCollaborator: jest.fn(),
+    revokeCollaborator: jest.fn(),
     findPublicRepository: jest.fn().mockResolvedValue(null),
     organization: 'synthetic-own-chain-org',
   };

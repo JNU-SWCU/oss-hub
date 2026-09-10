@@ -336,17 +336,51 @@ describe('ProgramsRepository viewer personalization batch queries', () => {
     expect(findMany).toHaveBeenCalledWith({
       where: {
         programId: { in: ['program-a', 'program-b', 'program-c'] },
-        OR: [
-          { applicantId: 'student-1' },
-          { team: { leaderId: 'student-1' } },
-          { team: { members: { some: { userId: 'student-1' } } } },
-        ],
+        team: { members: { some: { userId: 'student-1' } } },
       },
       select: { programId: true, status: true },
     });
     expect(statuses.get('program-a')).toBe('SUBMITTED');
     expect(statuses.get('program-b')).toBe('APPROVED');
     expect(statuses.has('program-c')).toBe(false);
+  });
+
+  // 배치 조회는 「지금 그 팀 사람인가」만 묻는다 — 최초 신청자(applicantId)나 맨 leaderId
+  // 절이 남아 있으면 팀을 떠난 사람이 옛 팀의 신청 상태를 목록에서 계속 본다(#1269).
+  it('findViewerApplicationStatuses 는 최초 신청자·맨 leaderId 절을 조건에 남기지 않는다', async () => {
+    findMany.mockResolvedValue([]);
+
+    await repository.findViewerApplicationStatuses(
+      ['program-left'],
+      'ex-member-1',
+    );
+
+    const [{ where }] = findMany.mock.calls[0] as [
+      { where: Record<string, unknown> },
+    ];
+    expect(Object.keys(where).sort()).toEqual(['programId', 'team']);
+    expect(where).not.toHaveProperty('OR');
+    expect(where).not.toHaveProperty('applicantId');
+    expect(where.team).toEqual({
+      members: { some: { userId: 'ex-member-1' } },
+    });
+  });
+
+  // 멤버십 절이 걸러 낸 결과(빈 행)는 상태 맵에도 남지 않아야 한다 — 남으면 화면이
+  // 떠난 팀의 신청 상태 뱃지를 계속 그린다.
+  it('findViewerApplicationStatuses 는 멤버십에서 빠진 프로그램을 상태 맵에 담지 않는다', async () => {
+    findMany.mockResolvedValue([
+      { programId: 'program-a', status: 'APPROVED' },
+    ]);
+
+    const statuses = await repository.findViewerApplicationStatuses(
+      ['program-a', 'program-left'],
+      'student-1',
+    );
+
+    expect(statuses.get('program-a')).toBe('APPROVED');
+    expect(statuses.has('program-left')).toBe(false);
+    expect(statuses.size).toBe(1);
   });
 
   it('findViewerApplicationStatuses 는 빈 programId 목록에 쿼리를 보내지 않는다', async () => {

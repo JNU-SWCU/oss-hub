@@ -7,6 +7,7 @@ import { parseMyRepositoriesResponse } from './parser';
 import type {
   MyRepositoriesResponse,
   MyRepositoryResponseItem,
+  RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositoryProvisionStatus,
   RepositoryVisibility,
@@ -22,30 +23,35 @@ beforeEach(() => {
 function responseItem({
   id,
   mode = 'PERSONAL',
+  connectionMode = 'NEW',
   provisionStatus,
   invitationStatus = null,
   visibility = 'PRIVATE',
   lastErrorCode = null,
+  hasRepository = provisionStatus === 'SUCCEEDED',
 }: {
   readonly id: string;
   readonly mode?: 'PERSONAL' | 'TEAM';
+  readonly connectionMode?: RepositoryConnectionMode;
   readonly provisionStatus: RepositoryProvisionStatus;
   readonly invitationStatus?: RepositoryInvitationStatus;
   readonly visibility?: RepositoryVisibility;
   readonly lastErrorCode?: string | null;
+  readonly hasRepository?: boolean;
 }): MyRepositoryResponseItem {
-  const succeeded = provisionStatus === 'SUCCEEDED';
+  const owner = connectionMode === 'NEW' ? 'JNU-SWCU' : 'synthetic-student';
   return {
-    repositoryId: succeeded ? `repository-${id}` : null,
+    repositoryId: hasRepository ? `repository-${id}` : null,
     applicationId: `application-${id}`,
     applicationMode: mode,
-    programName: mode === 'PERSONAL' ? '캡스톤 프로그램' : 'OSS 경진대회',
+    connectionMode,
+    programName: mode === 'PERSONAL' ? '침스톤 프로그램' : 'OSS 경진대회',
     displayName: mode === 'PERSONAL' ? '개인 프로젝트' : '오픈소스팀',
-    repositoryName: succeeded ? `oss-${id}` : null,
-    githubUrl: succeeded ? `https://github.com/JNU-SWCU/oss-${id}` : null,
+    repositoryName: hasRepository ? `oss-${id}` : null,
+    githubUrl: hasRepository ? `https://github.com/${owner}/oss-${id}` : null,
     provisionStatus,
     invitationStatus,
-    visibility: succeeded ? visibility : null,
+    visibility: hasRepository ? visibility : null,
     lastErrorCode,
     updatedAt: '2026-07-24T01:00:00.000Z',
   };
@@ -141,6 +147,126 @@ describe('my repositories response parser', () => {
     });
   });
 
+  it('권한 동기화가 실패해도 지속된 저장소를 그대로 보여준다', () => {
+    const repositories = parseMyRepositoriesResponse({
+      items: [
+        responseItem({
+          id: 'revoking',
+          provisionStatus: 'FAILED_RETRYABLE',
+          invitationStatus: 'REVOKE_FAILED_RETRYABLE',
+          hasRepository: true,
+        }),
+      ],
+    });
+
+    expect(repositories.items[0]).toMatchObject({
+      repositoryName: 'oss-revoking',
+      githubUrl: 'https://github.com/JNU-SWCU/oss-revoking',
+      provisionLabel: '권한 동기화 재시도 중',
+      invitationLabel: '권한 회수 재시도 중',
+      canOpenGithub: false,
+    });
+  });
+
+  it.each([
+    ['PENDING', '권한 동기화 중'],
+    ['PROCESSING', '권한 동기화 중'],
+    ['FAILED_FINAL', '권한 동기화 확인 필요'],
+  ] as const)(
+    '이미 존재하는 저장소의 %s를 생성이 아닌 "%s"로 말한다',
+    (provisionStatus, label) => {
+      const repositories = parseMyRepositoriesResponse({
+        items: [
+          responseItem({
+            id: 'syncing',
+            provisionStatus,
+            invitationStatus: 'SUCCEEDED',
+            hasRepository: true,
+          }),
+        ],
+      });
+
+      expect(repositories.items[0]?.provisionLabel).toBe(label);
+    },
+  );
+
+  it('저장소가 아직 없는 job은 생성 단계 문구를 유지한다', () => {
+    const repositories = parseMyRepositoriesResponse({
+      items: [
+        responseItem({ id: 'creating', provisionStatus: 'FAILED_FINAL' }),
+      ],
+    });
+
+    expect(repositories.items[0]?.provisionLabel).toBe('담당자 확인 필요');
+  });
+
+  it.each([
+    ['REVOKE_REQUIRED', '권한 회수 중'],
+    ['REVOKED', '권한 회수 완료'],
+    ['REVOKE_FAILED_RETRYABLE', '권한 회수 재시도 중'],
+    ['REVOKE_FAILED_FINAL', '권한 회수 확인 필요'],
+  ] as const)(
+    '%s 상태는 "%s"로 표시하고 GitHub 링크를 열지 않는다',
+    (invitationStatus, label) => {
+      const repositories = parseMyRepositoriesResponse({
+        items: [
+          responseItem({
+            id: 'revoked',
+            provisionStatus: 'SUCCEEDED',
+            invitationStatus,
+          }),
+        ],
+      });
+
+      expect(repositories.items[0]).toMatchObject({
+        invitationLabel: label,
+        canOpenGithub: false,
+      });
+    },
+  );
+
+  it.each([
+    ['PENDING', true],
+    ['SUCCEEDED', true],
+    ['FAILED_RETRYABLE', false],
+    ['FAILED_FINAL', false],
+    [null, false],
+  ] as const)(
+    'NEW 저장소는 초대가 %s일 때 canOpenGithub=%s다',
+    (invitationStatus, expected) => {
+      const repositories = parseMyRepositoriesResponse({
+        items: [
+          responseItem({
+            id: 'grant',
+            provisionStatus: 'SUCCEEDED',
+            invitationStatus,
+          }),
+        ],
+      });
+
+      expect(repositories.items[0]?.canOpenGithub).toBe(expected);
+    },
+  );
+
+  it('OWN 저장소는 초대 없이도 외부 URL로 열 수 있다', () => {
+    const repositories = parseMyRepositoriesResponse({
+      items: [
+        responseItem({
+          id: 'own',
+          connectionMode: 'OWN',
+          provisionStatus: 'SUCCEEDED',
+          visibility: 'PUBLIC',
+        }),
+      ],
+    });
+
+    expect(repositories.items[0]).toMatchObject({
+      githubUrl: 'https://github.com/synthetic-student/oss-own',
+      invitationLabel: null,
+      canOpenGithub: true,
+    });
+  });
+
   it.each([
     ['unknown status', { ...response.items[0], provisionStatus: 'UNKNOWN' }],
     [
@@ -232,8 +358,42 @@ describe('my repositories response parser', () => {
       },
     ],
     [
-      'premature repository data',
-      { ...response.items[0], provisionStatus: 'PROCESSING' },
+      'unknown invitation status',
+      { ...response.items[0], invitationStatus: 'REVOKE_PENDING' },
+    ],
+    [
+      'unknown connection mode',
+      { ...response.items[0], connectionMode: 'MANAGED' },
+    ],
+    ['missing connection mode', { ...response.items[0], connectionMode: null }],
+    [
+      'partial repository identity during reconciliation',
+      {
+        ...responseItem({
+          id: 'partial',
+          provisionStatus: 'FAILED_RETRYABLE',
+          hasRepository: true,
+        }),
+        visibility: null,
+      },
+    ],
+    [
+      'OWN repository URL claimed under the managed organization contract',
+      {
+        ...responseItem({
+          id: 'own-mismatch',
+          connectionMode: 'OWN',
+          provisionStatus: 'SUCCEEDED',
+        }),
+        githubUrl: 'https://github.com/synthetic-student/other-repository',
+      },
+    ],
+    [
+      'NEW repository URL outside the managed organization',
+      {
+        ...responseItem({ id: '1', provisionStatus: 'SUCCEEDED' }),
+        githubUrl: 'https://github.com/synthetic-student/oss-1',
+      },
     ],
     [
       'missing successful repository data',

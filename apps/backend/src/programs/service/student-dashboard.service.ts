@@ -1,8 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
-  MilestoneDocumentKind,
-  type MilestoneSubmissionType,
   RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
@@ -13,21 +11,17 @@ import {
   milestoneCompletionStatus,
   type MilestoneCompletionStatus,
 } from '../../common/milestone-completion';
-import { PrismaService } from '../../prisma/prisma.service';
 import { programCoverImageUrl } from '../program-cover';
 import {
-  USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
-} from '../../profiles/user-profile-read';
-import {
+  type OwnedRepositoryProjectionDto,
   REPOSITORIES_READ_PORT,
   type RepositoriesReadPort,
 } from '../../github/repositories-read.port';
+import { projectSubmissionCompletionTargets } from '../../submissions/submission-completion-projection';
 import {
-  projectSubmissionCompletionTargets,
-  submissionCompletionTargetSelect,
-  type SubmissionCompletionTargetRow,
-} from '../../submissions/submission-completion-projection';
+  StudentDashboardReadRepository,
+  type StudentDashboardApplicationRow,
+} from '../repository/student-dashboard-read.repository';
 
 export interface StudentDashboardMilestone {
   readonly id: string;
@@ -41,13 +35,21 @@ export interface StudentDashboardMilestone {
     | 'REJECTED';
 }
 
+/**
+ * 대시보드 카드 한 장.
+ *
+ * ⚠ 「개인 신청/팀 신청」 구분(`applicationMode`)과 사람 이름(`displayName`)은 없다.
+ * 모든 신청이 팀이고 개인 참여는 1인 팀이므로(D5) 카드가 말할 것은 **지금 그 팀의
+ * 이름**뿐이다. 인원수로 개인/팀을 갈라 신청자 이름을 띄우면, 팀을 떠난 사람의 이름이
+ * 남거나 1인 팀이 팀으로 보이지 않는다.
+ */
 export interface StudentDashboardItem {
   readonly coverImageUrl?: string | null;
   readonly applicationId: string;
   readonly programId: string;
   readonly programName: string;
-  readonly applicationMode: 'PERSONAL' | 'TEAM';
-  readonly displayName: string;
+  readonly teamName: string;
+  readonly teamUrl: string;
   readonly applicationStatus: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
   readonly nextMilestone: StudentDashboardMilestone | null;
   readonly detailUrl: string;
@@ -55,6 +57,7 @@ export interface StudentDashboardItem {
   readonly repository: StudentDashboardRepository | null;
 }
 
+/** 카드에 실리는 저장소 발급 상태 뷰. 데이터 접근 계층이 아니다. */
 export interface StudentDashboardRepository {
   readonly repositoryName: string | null;
   readonly provisionStatus: 'NOT_STARTED' | RepositoryProvisionJobStatus;
@@ -100,6 +103,15 @@ function detailUrlFor(status: ApplicationStatus, programId: string): string {
 }
 
 /**
+ * 카드에서 「우리 팀」으로 들어가는 곳. 프로그램 하나에 팀 하나뿐이므로(D5·
+ * `TeamMember @@unique([programId, userId])`) 팀 id 가 아니라 프로그램 id 로 적는다.
+ * 팀장이든 아니든 지금 그 팀에 속한 사람 전원이 같은 주소를 받는다.
+ */
+function teamUrlFor(programId: string): string {
+  return `/programs/${encodeURIComponent(programId)}/my-team`;
+}
+
+/**
  * 이 신청이 마일스톤마다 어디까지 왔는가. 판정은 `milestoneCompletionStatus` 가 한다.
  *
  * 대시보드가 이 판정을 직접 하지 않는 이유는 프로그램 상세(`programs.service.ts`)·교직원
@@ -107,16 +119,9 @@ function detailUrlFor(status: ApplicationStatus, programId: string): string {
  * 「서류도 본다」를 따로 적으면 판정이 갈라지고, 실제로 갈라진 동안 대시보드만 학생에게 다른
  * 말을 했다(#1091).
  */
-function milestoneStatusesFor(application: {
-  readonly program: {
-    readonly milestones: readonly {
-      readonly id: string;
-      readonly submissionType: MilestoneSubmissionType | null;
-      readonly documents: readonly { readonly id: string }[];
-    }[];
-  };
-  readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
-}): ReadonlyMap<string, MilestoneCompletionStatus> {
+function milestoneStatusesFor(
+  application: StudentDashboardApplicationRow,
+): ReadonlyMap<string, MilestoneCompletionStatus> {
   // 원장 한 벌을 두 축(옛 방식 단일 제출 · 새 서류 항목)으로 갈라 놓는다.
   const { submissions, documentSubmissions } =
     projectSubmissionCompletionTargets(
@@ -151,7 +156,7 @@ function milestoneStatusesFor(application: {
 @Injectable()
 export class StudentDashboardService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repository: StudentDashboardReadRepository,
     @Inject(REPOSITORIES_READ_PORT)
     private readonly repositories: RepositoriesReadPort,
   ) {}
@@ -160,62 +165,7 @@ export class StudentDashboardService {
     sessionGithubId: bigint,
   ): Promise<readonly StudentDashboardItem[]> {
     const [applications, projectedRepositories] = await Promise.all([
-      this.prisma.application.findMany({
-        where: {
-          // 모든 신청이 Team을 갖고 개인 참여는 1인 팀이므로(D5) 팀 소속 하나로 판정한다.
-          team: {
-            OR: [
-              { leader: { githubId: sessionGithubId } },
-              { members: { some: { user: { githubId: sessionGithubId } } } },
-            ],
-          },
-        },
-        orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
-        select: {
-          id: true,
-          status: true,
-          teamId: true,
-          applicant: {
-            select: {
-              nickname: true,
-              ...USER_PROFILE_NAME_SELECT,
-            },
-          },
-          team: {
-            select: { name: true, _count: { select: { members: true } } },
-          },
-          program: {
-            select: {
-              cover: { select: { id: true } },
-              id: true,
-              name: true,
-              milestones: {
-                orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
-                select: {
-                  id: true,
-                  name: true,
-                  dueAt: true,
-                  submissionType: true,
-                  // ⚠ 필수 서류만 — 선택 서류가 섞이면 안 낸 선택 서류가 마일스톤을 영원히
-                  // 미완료로 잡아 둔다(`programs.repository.ts` 의 상세 조회와 같은 조건).
-                  documents: {
-                    where: {
-                      required: true,
-                      kind: MilestoneDocumentKind.DOCUMENT,
-                    },
-                    select: { id: true },
-                  },
-                },
-              },
-            },
-          },
-          // 원장을 통째로 읽는다. 옛 방식 슬롯만 골라 오면 새 서류 항목의 제출이 한 건도
-          // 도착하지 않아, 다 내고 승인까지 받은 학생이 첫 마일스톤에 갇힌다(#1091).
-          milestoneDocumentSubmissions: {
-            select: submissionCompletionTargetSelect,
-          },
-        },
-      }),
+      this.repository.findParticipatingApplications(sessionGithubId),
       this.repositories.getMyRepositories(sessionGithubId),
     ]);
     const repositoryByApplication = new Map(
@@ -227,78 +177,16 @@ export class StudentDashboardService {
 
     const items: StudentDashboardItem[] = [];
     for (const application of applications) {
-      // 개인 참여는 멤버 1명뿐인 팀이다(D5). 팀 유무가 아니라 인원으로 가른다
-      // (submission-matrix.service.ts isSoloTeam과 동일 규칙).
-      const applicationMode =
-        (application.team?._count.members ?? 0) > 1 ? 'TEAM' : 'PERSONAL';
-      const displayName =
-        applicationMode === 'TEAM'
-          ? application.team?.name
-          : (resolveUserProfileName(application.applicant) ??
-            application.applicant.nickname);
-
       if (
         !isSafeProgramId(application.program.id) ||
         !isNonEmptyString(application.program.name) ||
-        !isNonEmptyString(displayName)
+        !isNonEmptyString(application.team.name)
       ) {
         continue;
       }
 
-      const milestoneStatuses = milestoneStatusesFor(application);
-      const milestone =
-        application.status === ApplicationStatus.APPROVED
-          ? application.program.milestones.find(
-              (candidate) =>
-                milestoneStatuses.get(candidate.id) !==
-                SubmissionStatus.APPROVED,
-            )
-          : undefined;
-
-      if (
-        milestone &&
-        (!isNonEmptyString(milestone.id) ||
-          !isNonEmptyString(milestone.name) ||
-          Number.isNaN(milestone.dueAt.getTime()))
-      ) {
-        continue;
-      }
-
-      const nextMilestone: StudentDashboardMilestone | null = milestone
-        ? {
-            id: milestone.id,
-            name: milestone.name,
-            dueAt: milestone.dueAt,
-            submissionStatus:
-              milestoneStatuses.get(milestone.id) ?? MILESTONE_NOT_SUBMITTED,
-          }
-        : null;
-      let repository: StudentDashboardRepository | null = null;
-      if (application.status === ApplicationStatus.APPROVED) {
-        const projectedRepository = repositoryByApplication.get(application.id);
-        if (projectedRepository === undefined) {
-          repository = {
-            repositoryName: null,
-            provisionStatus: 'NOT_STARTED',
-            invitationStatus: null,
-            githubUrl: null,
-          };
-        } else {
-          const invitationStatus =
-            projectedRepository.provisionStatus ===
-              RepositoryProvisionJobStatus.SUCCEEDED &&
-            projectedRepository.invitationStatus === null &&
-            projectedRepository.connectionMode === RepositoryConnectionMode.NEW
-              ? RepositoryInvitationStatus.FAILED_FINAL
-              : projectedRepository.invitationStatus;
-          repository = {
-            repositoryName: projectedRepository.repositoryName,
-            provisionStatus: projectedRepository.provisionStatus,
-            invitationStatus,
-            githubUrl: projectedRepository.githubUrl,
-          };
-        }
-      }
+      const nextMilestone = this.nextMilestoneFor(application);
+      if (nextMilestone === 'invalid') continue;
 
       items.push({
         coverImageUrl: programCoverImageUrl(
@@ -308,16 +196,87 @@ export class StudentDashboardService {
         applicationId: application.id,
         programId: application.program.id,
         programName: application.program.name,
-        applicationMode,
-        displayName,
+        teamName: application.team.name,
+        teamUrl: teamUrlFor(application.program.id),
         applicationStatus: application.status,
         nextMilestone,
         detailUrl: detailUrlFor(application.status, application.program.id),
         checklistUrl: `/programs/${encodeURIComponent(application.program.id)}/submissions`,
-        repository,
+        repository: this.repositoryFor(application, repositoryByApplication),
       });
     }
 
     return items;
+  }
+
+  /**
+   * 아직 승인되지 않은 첫 마일스톤. 승인 전 신청은 일정 이야기를 하지 않으므로 null 이다.
+   * 값이 온전하지 않은 마일스톤은 `'invalid'` 로 알려 카드 자체를 버리게 한다 — 반쪽짜리
+   * 마일스톤을 실어 보내면 frontend 검증기가 대시보드 전체를 오류로 바꾼다.
+   */
+  private nextMilestoneFor(
+    application: StudentDashboardApplicationRow,
+  ): StudentDashboardMilestone | null | 'invalid' {
+    if (application.status !== ApplicationStatus.APPROVED) return null;
+
+    const milestoneStatuses = milestoneStatusesFor(application);
+    const milestone = application.program.milestones.find(
+      (candidate) =>
+        milestoneStatuses.get(candidate.id) !== SubmissionStatus.APPROVED,
+    );
+    if (milestone === undefined) return null;
+    if (
+      !isNonEmptyString(milestone.id) ||
+      !isNonEmptyString(milestone.name) ||
+      Number.isNaN(milestone.dueAt.getTime())
+    ) {
+      return 'invalid';
+    }
+
+    return {
+      id: milestone.id,
+      name: milestone.name,
+      dueAt: milestone.dueAt,
+      submissionStatus:
+        milestoneStatuses.get(milestone.id) ?? MILESTONE_NOT_SUBMITTED,
+    };
+  }
+
+  /**
+   * 승인된 신청만 저장소 칸을 갖는다. 발급 기록이 아직 없으면 `NOT_STARTED` 로 자리를
+   * 만들어 둔다 — 칸이 통째로 비면 화면이 「발급 실패」와 「아직 시작 전」을 구분하지 못한다.
+   */
+  private repositoryFor(
+    application: StudentDashboardApplicationRow,
+    repositoryByApplication: ReadonlyMap<string, OwnedRepositoryProjectionDto>,
+  ): StudentDashboardRepository | null {
+    if (application.status !== ApplicationStatus.APPROVED) return null;
+
+    const projectedRepository = repositoryByApplication.get(application.id);
+    if (projectedRepository === undefined) {
+      return {
+        repositoryName: null,
+        provisionStatus: 'NOT_STARTED',
+        invitationStatus: null,
+        githubUrl: null,
+      };
+    }
+
+    // 새로 만든 저장소인데 초대 흔적이 없으면 닫는 쪽으로 읽는다 — 초대가 사라진 성공을
+    // 「완료」로 그리면 학생은 들어갈 수 없는 저장소 앞에서 기다린다.
+    const invitationStatus =
+      projectedRepository.provisionStatus ===
+        RepositoryProvisionJobStatus.SUCCEEDED &&
+      projectedRepository.invitationStatus === null &&
+      projectedRepository.connectionMode === RepositoryConnectionMode.NEW
+        ? RepositoryInvitationStatus.FAILED_FINAL
+        : projectedRepository.invitationStatus;
+
+    return {
+      repositoryName: projectedRepository.repositoryName,
+      provisionStatus: projectedRepository.provisionStatus,
+      invitationStatus,
+      githubUrl: projectedRepository.githubUrl,
+    };
   }
 }

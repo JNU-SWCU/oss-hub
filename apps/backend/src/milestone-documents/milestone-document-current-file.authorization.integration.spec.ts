@@ -54,6 +54,9 @@ const expiredDocumentId = `${prefix}-document-expired`;
 const deletePendingDocumentId = `${prefix}-document-delete-pending`;
 const staleRevisionDocumentId = `${prefix}-document-stale-revision`;
 
+/** DB에 없는 서류 id — 「모르는 서류」의 응답과 비교하기 위한 기준점이다. */
+const unknownDocumentId = `${prefix}-document-unknown`;
+
 /** 이 프로그램과 아무 관계가 없는 두 번째 프로그램 — 「무관한 프로그램」 쪽 증거. */
 const outsideProgramId = `${prefix}-outside-program`;
 const outsideMilestoneId = `${prefix}-outside-milestone`;
@@ -111,10 +114,29 @@ const users = {
     githubId: 9_600_000_000_997_010n,
     hasStaffAccess: true,
   },
-  /** 거절된 신청의 팀장 — 승인 조건을 뺀 뒤 목록과 받기가 여기서도 같은 답을 하는지 본다. */
+  /** 거절된 신청의 팀장 — 승인 조건을 변 뒤 목록과 받기가 여기서도 같은 답을 하는지 본다. */
   rejectedLeader: {
     id: `${prefix}-rejected-leader`,
     githubId: 9_600_000_000_997_011n,
+  },
+  /**
+   * `Team.leaderId`에만 이름이 있고 `TeamMember` 행은 없는 사람(#1269). 승계·제외가
+   * 두 자리를 함께 옮기는 사이 상태를 그대로 세운다 — 팀장 절이 남아 있으면 이 사람만
+   * 목록에 없는 파일을 받는다.
+   */
+  bareLeader: {
+    id: `${prefix}-bare-leader`,
+    githubId: 9_600_000_000_997_012n,
+  },
+  /** 파일을 올리고 신청까지 낸 뒤 팀에서 제외된 사람 — 업로더·신청자 기록만 남는다. */
+  formerUploader: {
+    id: `${prefix}-former-uploader`,
+    githubId: 9_600_000_000_997_013n,
+  },
+  /** 그 팀에 지금 남아 있는 팀장 — 멤버십을 가진 팀장은 그대로 받는다. */
+  retainedLeader: {
+    id: `${prefix}-retained-leader`,
+    githubId: 9_600_000_000_997_014n,
   },
 } as const;
 
@@ -569,6 +591,43 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       actorId: users.outsider.id,
       milestoneIdOfFile: outsideMilestoneId,
     });
+
+    // `Team.leaderId`에만 이름이 있고 `TeamMember` 행은 없는 팀(#1269). 신청자도 업로더도
+    // 이 사람이다 — 기록을 전부 가졌어도 멤버십이 없으면 문이 열리지 않는다.
+    const bareLeaderApplicationId = await createTeamWithApplication(programId, {
+      key: 'bare-leader',
+      leaderId: users.bareLeader.id,
+      memberIds: [],
+      status: ApplicationStatus.APPROVED,
+    });
+    await seedSubmissionWithFile({
+      key: 'bare-leader-own',
+      documentId: ownDocumentId,
+      applicationId: bareLeaderApplicationId,
+      actorId: users.bareLeader.id,
+      milestoneIdOfFile: milestoneId,
+    });
+
+    // 올리고 낸 뒤 팀에서 제외된 사람. 먼저 팀원으로 세운 뒤 `TeamMember` 행만 지우면
+    // `Application.applicantId`·`SubmissionFile.uploaderId`는 그대로 남는다 — 기록은 보존하고
+    // 권한만 거두는 것이 이 티켓의 모양이다.
+    const formerApplicationId = await createTeamWithApplication(programId, {
+      key: 'former',
+      leaderId: users.retainedLeader.id,
+      memberIds: [users.retainedLeader.id, users.formerUploader.id],
+      applicantId: users.formerUploader.id,
+      status: ApplicationStatus.APPROVED,
+    });
+    await seedSubmissionWithFile({
+      key: 'former-own',
+      documentId: ownDocumentId,
+      applicationId: formerApplicationId,
+      actorId: users.formerUploader.id,
+      milestoneIdOfFile: milestoneId,
+    });
+    await prisma.teamMember.delete({
+      where: { id: `${prefix}-former-${users.formerUploader.id}` },
+    });
   });
 
   afterAll(async () => {
@@ -791,6 +850,88 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
         neighbourDocumentId,
       ),
     ).resolves.toEqual(hiddenAsMissing);
+  });
+
+  /**
+   * `Team.leaderId`는 문이 아니다(#1269). 팀장 승계·팀원 제외가 `Team.leaderId`와 `TeamMember`
+   * 집합을 함께 옮기므로, 팀장 갈래를 남겨 두면 그 사이 상태에서 목록과 받기가 갈린다 —
+   * 목록은 `TeamMember` 하나로 판정하고(`programApplicationParticipantWhere`) 받기만 열린다.
+   */
+  it('팀장 자리만 있고 팀원 행이 없는 사람에게는 목록도 받기도 닫혀 있다', async () => {
+    // Given: 그 팀의 제출과 살아 있는 첨부는 그대로 있지만 목록은 학생 칸을 주지 않는다.
+    const documents = await documentsService.listForViewer(
+      users.bareLeader.githubId,
+      milestoneId,
+    );
+    expect(
+      documents.every((document) => document.viewerSubmission === undefined),
+    ).toBe(true);
+
+    // When / Then
+    await expect(
+      downloadFails(users.bareLeader.githubId, milestoneId, ownDocumentId),
+    ).resolves.toEqual(hiddenAsMissing);
+  });
+
+  /**
+   * 올린 사람·처음 낸 사람이라는 **기록**은 그대로 남기고 권한만 현재 멤버십에서 읽는다.
+   * 거절은 모르는 서류와 **같은 응답**이어야 한다 — 답이 갈리면 제출물의 존재 여부가 새다.
+   */
+  it('파일을 올리고 신청까지 낸 사람도 팀원 행이 지워지면 모르는 서류와 같은 404를 받는다', async () => {
+    // Given: 기록은 살아 있다 — 신청자도 업로더도 이 사람이다.
+    const application = await prisma.application.findUniqueOrThrow({
+      where: { id: `${prefix}-former-application` },
+      select: { applicantId: true },
+    });
+    expect(application.applicantId).toBe(users.formerUploader.id);
+    const file = await prisma.submissionFile.findUniqueOrThrow({
+      where: { id: `${prefix}-former-own-file` },
+      select: { uploaderId: true, lifecycle: true },
+    });
+    expect(file.uploaderId).toBe(users.formerUploader.id);
+    expect(file.lifecycle).toBe(SubmissionFileLifecycle.ATTACHED);
+
+    // When
+    const denied = await downloadFails(
+      users.formerUploader.githubId,
+      milestoneId,
+      ownDocumentId,
+    );
+
+    // Then: 모르는 서류와 글자 그대로 같은 응답이다.
+    expect(denied).toEqual(
+      await downloadFails(
+        users.formerUploader.githubId,
+        milestoneId,
+        unknownDocumentId,
+      ),
+    );
+    expect(denied).toEqual(hiddenAsMissing);
+  });
+
+  /**
+   * 거둔 쪽이 넘치지 않았음을 같은 팀에서 바로 보인다 — 멤버십을 가진 현재 팀장은
+   * 제외된 사람이 올렸던 바로 그 파일을 그대로 받는다.
+   */
+  it('멤버십을 가진 현재 팀장은 제외된 사람이 올렸던 파일을 그대로 받는다', async () => {
+    // Given: 목록이 「현재 파일이 있다」고 말한다.
+    const documents = await documentsService.listForViewer(
+      users.retainedLeader.githubId,
+      milestoneId,
+    );
+    const own = documents.find((document) => document.id === ownDocumentId);
+    expect(own?.viewerSubmission?.hasCurrentFile).toBe(true);
+
+    // When / Then
+    const file = await currentFileService.download(
+      users.retainedLeader.githubId,
+      milestoneId,
+      ownDocumentId,
+    );
+    expect(file.fileName).toBe('former-own.pdf');
+    await expect(buffer(file.body)).resolves.toEqual(
+      Buffer.from(`bytes:${prefix}/former-own.pdf`),
+    );
   });
 
   it('목록에 뜨지 않는 옛 제출 슬롯은 받기에서도 없다', async () => {

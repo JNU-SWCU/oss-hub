@@ -1,331 +1,172 @@
+// @vitest-environment happy-dom
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
-import {
-  ProgramTeamRosterView,
-  ProgramTeamsDirectory,
-  ProgramTeamsSetupView,
-  type ProgramTeamDirectoryEntry,
-} from './program-teams-page';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
-import type { ProgramTeam } from './api';
-import type { ProgramDetail } from './types';
+import { getMyTeam, getProgramDetail } from './api';
 import {
-  applyHrefWithTeam,
+  getProgramTeamDirectory,
+  type ProgramTeamDirectoryEntry,
+} from './program-team-directory-api';
+import { ProgramTeamsDirectory, ProgramTeamsPage } from './program-teams-page';
+import {
   mapInvitationError,
   mapTeamActionError,
   mapTeamError,
 } from './program-teams-flow';
+import type { ProgramDetail } from './types';
 
-function problem(code: string, status: number): ProblemDetail {
+vi.mock('./api', () => ({ getMyTeam: vi.fn(), getProgramDetail: vi.fn() }));
+vi.mock('./program-team-directory-api', () => ({
+  getProgramTeamDirectory: vi.fn(),
+}));
+const team: ProgramTeamDirectoryEntry = {
+  teamId: 'team-1',
+  name: '합성 팀',
+  memberCount: 2,
+  members: [
+    { userId: 'leader-1', displayName: 'synthetic-leader', isLeader: true },
+    { userId: 'member-1', displayName: 'synthetic-member', isLeader: false },
+  ],
+};
+const program: ProgramDetail = {
+  id: 'program-1',
+  name: '합성 프로그램',
+  organizer: '합성 주관',
+  trackType: 'EXTRACURRICULAR',
+  applicationTemplateKey: 'basic',
+  lifecycle: 'PUBLISHED',
+  description: '',
+  repositoryProvisioningEnabled: false,
+  applicationPeriod: {
+    startsAt: '2020-01-01T00:00:00Z',
+    endsAt: '2099-01-01T00:00:00Z',
+  },
+  viewer: { role: 'STUDENT', applicationStatus: null },
+  milestones: [],
+};
+function problem(code: string, status = 409): ProblemDetail {
   return {
     type: 'about:blank',
     title: 'Error',
     status,
     detail: '',
     code,
-    instance: '/programs/p/teams',
+    instance: 'urn:test',
   };
 }
-
-const program: ProgramDetail = {
-  id: 'program-1',
-  name: '합성 팀 프로그램',
-  organizer: '합성 주관',
-  trackType: 'EXTRACURRICULAR',
-
-  applicationTemplateKey: 'oss-contest',
-  lifecycle: 'PUBLISHED',
-  description: '설명',
-  repositoryProvisioningEnabled: true,
-  applicationPeriod: {
-    startsAt: '2026-07-01T00:00:00.000Z',
-    endsAt: '2026-07-31T23:59:59.000Z',
-  },
-  viewer: { role: 'STUDENT', applicationStatus: null },
-  milestones: [],
-};
-
-const team: ProgramTeam = {
-  id: 'team-1',
-  name: '오픈소스팀',
-  memberCount: 2,
-  minMembers: 2,
-  maxMembers: 4,
-  locked: false,
-  isLeader: true,
-  members: [
-    {
-      userId: 'u1',
-      nickname: 'leader',
-      name: '팀장',
-      isLeader: true,
-    },
-    {
-      userId: 'u2',
-      nickname: 'member2',
-      name: null,
-      isLeader: false,
-    },
-  ],
-};
-
-describe('ProgramTeams views', () => {
-  it('내 팀 작업과 받은 초대를 공개 팀 탐색보다 먼저 보여 준다', () => {
-    const directory = <section>전체 참여 팀 탐색</section>;
-    const extras = <section>받은 초대</section>;
-    const setup = renderToStaticMarkup(
-      <ProgramTeamsSetupView
-        program={program}
-        createName="초안 팀명"
-        joinCode="INVITE123"
-        creating={false}
-        joining={false}
-        serverError={null}
-        extras={extras}
-        directory={directory}
-        onCreateNameChange={() => undefined}
-        onJoinCodeChange={() => undefined}
-        onCreate={() => undefined}
-        onJoin={() => undefined}
-      />,
-    );
-    expect(setup).toContain('전체 참여 팀 탐색');
-    expect(setup.indexOf('팀 만들기')).toBeLessThan(
-      setup.indexOf('전체 참여 팀 탐색'),
-    );
-    expect(setup.indexOf('참여 코드로 합류')).toBeLessThan(
-      setup.indexOf('전체 참여 팀 탐색'),
-    );
-    expect(setup.indexOf('받은 초대')).toBeLessThan(
-      setup.indexOf('전체 참여 팀 탐색'),
-    );
-    expect(setup).toContain('value="초안 팀명"');
-    expect(setup).toContain('value="INVITE123"');
-
-    const roster = renderToStaticMarkup(
-      <ProgramTeamRosterView
-        program={program}
-        team={team}
-        joinCode="INVITE123"
-        extras={extras}
-        directory={directory}
-      />,
-    );
-    expect(roster).toContain('전체 참여 팀 탐색');
-    expect(roster.indexOf('신청서 작성')).toBeLessThan(
-      roster.indexOf('전체 참여 팀 탐색'),
-    );
-    expect(roster).toContain('/programs/program-1/apply?teamId=team-1');
+let host: HTMLDivElement;
+let root: Root;
+beforeEach(() => {
+  Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+    configurable: true,
+    value: true,
   });
-
-  it('만들기·합류 폼을 렌더한다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramTeamsSetupView
-        program={program}
-        createName=""
-        joinCode=""
-        creating={false}
-        joining={false}
-        serverError={null}
-        onCreateNameChange={() => undefined}
-        onJoinCodeChange={() => undefined}
-        onCreate={() => undefined}
-        onJoin={() => undefined}
-      />,
-    );
-
-    expect(html).toContain('팀 만들기');
-    expect(html).toContain('참여 코드로 합류');
-    // 표기는 "참여 코드"로 통일한다 — 붙여 쓴 표기가 남으면 화면마다 갈린다(#355).
-    expect(html).not.toContain('참여코드');
-    expect(html).toContain('name="teamName"');
-    expect(html).toContain('name="joinCode"');
-    expect(html).not.toContain('TicketStub');
-  });
-
-  it('팀 현황·참여 코드·멤버 목록을 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramTeamRosterView
-        program={program}
-        team={team}
-        joinCode="ABCD1234XY"
-      />,
-    );
-
-    expect(html).toContain('오픈소스팀');
-    expect(html).toContain('2/4명');
-    expect(html).toContain('ABCD1234XY');
-    expect(html).toContain('참여 코드');
-    expect(html).not.toContain('참여코드');
-    expect(html).toContain('팀장');
-    expect(html).toContain('member2');
-    expect(html).toContain('신청서 작성');
-    expect(html).toContain('/programs/program-1/apply?teamId=team-1');
-  });
-
-  it('잠긴 팀을 안내한다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramTeamRosterView
-        program={program}
-        team={{ ...team, locked: true }}
-        joinCode={null}
-      />,
-    );
-    expect(html).toContain('신청 제출 후 팀을 변경할 수 없습니다');
-    expect(html).toContain('신청서 확인');
-    expect(html).not.toContain('신청서 작성');
-  });
-
-  it('서버 오류를 표시한다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramTeamsSetupView
-        program={program}
-        createName="팀"
-        joinCode=""
-        creating={false}
-        joining={false}
-        serverError="팀 최대 인원을 초과할 수 없습니다."
-        onCreateNameChange={() => undefined}
-        onJoinCodeChange={() => undefined}
-        onCreate={() => undefined}
-        onJoin={() => undefined}
-      />,
-    );
-    expect(html).toContain('팀 최대 인원을 초과할 수 없습니다.');
-  });
+  vi.resetAllMocks();
+  host = document.createElement('div');
+  document.body.appendChild(host);
+  root = createRoot(host);
+  vi.mocked(getProgramDetail).mockResolvedValue(program);
+  vi.mocked(getProgramTeamDirectory).mockResolvedValue([team]);
+  vi.mocked(getMyTeam).mockRejectedValue(
+    new ApiError(problem('TEAM_010', 404)),
+  );
+});
+afterEach(async () => {
+  await act(async () => root.unmount());
+  host.remove();
 });
 
-describe('program-teams-flow', () => {
-  it('TEAM_FULL 등 오류 메시지를 매핑한다', () => {
-    expect(
-      mapTeamError({
-        type: 'about:blank',
-        title: 'Conflict',
-        status: 409,
-        detail: 'x',
-        code: 'TEAM_007',
-        instance: '/programs/p/teams/join',
-      }),
-    ).toBe('팀 최대 인원을 초과할 수 없습니다.');
-  });
-
-  it('신청서 링크에 teamId 를 붙인다', () => {
-    expect(applyHrefWithTeam('prog:1', 'team:2')).toBe(
-      '/programs/prog%3A1/apply?teamId=team%3A2',
-    );
-  });
-
-  it('team-invitations 오류 코드를 매핑한다', () => {
-    expect(
-      mapInvitationError({
-        type: 'about:blank',
-        title: 'Conflict',
-        status: 409,
-        detail: 'x',
-        code: 'TIV_009',
-        instance: '/team-invitations/teams/t/invitations',
-      }),
-    ).toBe('팀 최대 인원을 초과할 수 없습니다.');
-
-    expect(
-      mapInvitationError({
-        type: 'about:blank',
-        title: 'Forbidden',
-        status: 403,
-        detail: '알 수 없는 오류',
-        code: 'TIV_999',
-        instance: '/team-invitations/x/accept',
-      }),
-    ).toBe('알 수 없는 오류');
-  });
-
-  // #355 — 판정 기준은 "읽은 사람이 다음에 무엇을 할 수 있는지 아는가"다.
-  // 실패만 알리고 끝나는 문구가 다시 들어오지 못하도록 문장을 통째로 고정한다.
-  it('참여 코드를 못 찾으면 어디서 코드를 다시 받는지 알려 준다', () => {
-    expect(mapTeamError(problem('TEAM_009', 404))).toBe(
-      '참여 코드를 찾을 수 없습니다. 팀장에게 받은 코드를 다시 확인해 주세요.',
-    );
-  });
-
-  it('코드를 모르는 팀 오류도 다시 시도해도 되는 상황인지 알려 준다', () => {
-    expect(mapTeamError(problem('TEAM_999', 500))).toBe(
-      '팀 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-    );
-  });
-
-  it('ApiError 가 아닌 만들기 실패는 확인할 입력으로 팀 이름을 지목한다', () => {
-    expect(mapTeamActionError(new TypeError('network'), 'create')).toBe(
-      '팀을 만들지 못했습니다. 팀 이름을 확인한 뒤 다시 시도해 주세요.',
-    );
-  });
-
-  it('ApiError 가 아닌 합류 실패는 가장 흔한 원인인 참여 코드를 지목한다', () => {
-    expect(mapTeamActionError(new TypeError('network'), 'join')).toBe(
-      '팀에 합류하지 못했습니다. 참여 코드가 맞는지 확인한 뒤 다시 시도해 주세요.',
-    );
-  });
-
-  it('ApiError 는 동작과 무관하게 서버가 짚어 준 원인을 그대로 쓴다', () => {
-    const error = new ApiError(problem('TEAM_007', 409));
-    expect(mapTeamActionError(error, 'create')).toBe(
-      '팀 최대 인원을 초과할 수 없습니다.',
-    );
-    expect(mapTeamActionError(error, 'join')).toBe(
-      '팀 최대 인원을 초과할 수 없습니다.',
-    );
-  });
-});
+async function renderPage() {
+  await act(async () =>
+    root.render(<ProgramTeamsPage programId="program-1" />),
+  );
+}
 
 describe('ProgramTeamsDirectory', () => {
-  const teams: ProgramTeamDirectoryEntry[] = [
-    {
-      teamId: 'team-1',
-      name: '오픈소스 4조',
-      memberCount: 2,
-      members: [
-        { userId: 'u1', displayName: '팀장닉', isLeader: true },
-        { userId: 'u2', displayName: '팀원닉', isLeader: false },
-      ],
-    },
-    {
-      teamId: 'team-2',
-      name: '오픈소스 5조',
-      memberCount: 1,
-      members: [{ userId: 'u3', displayName: '다른팀장', isLeader: true }],
-    },
-  ];
-
-  it('전체 팀과 멤버·팀장 표시를 렌더한다', () => {
+  it('명단과 인원은 한번만 표시하고 중복 관리 UI를 넣지 않는다', () => {
     const html = renderToStaticMarkup(
-      <ProgramTeamsDirectory teams={teams} myTeamId="team-1" />,
+      <ProgramTeamsDirectory teams={[team]} myTeamId="team-1" />,
     );
-
-    expect(html).toContain('참여 팀');
-    expect(html).toContain('팀 구성과 인원만 공개됩니다');
-    expect(html).toContain('저장소는 비공개');
-    expect(html).toContain('오픈소스 4조 (내 팀)');
-    expect(html).toContain('오픈소스 5조');
-    expect(html).not.toContain('오픈소스 5조 (내 팀)');
-    expect(html).toContain('2명 · ★ 팀장');
-    expect(html).toContain('팀장닉 ★');
-    expect(html).toContain('팀원닉');
-    expect(html).not.toContain('팀원닉 ★');
-    const teamsWithoutRepoLabel = (html.match(/GitHub 저장소 비공개/g) ?? [])
-      .length;
-    expect(teamsWithoutRepoLabel).toBe(2);
+    expect(html).toContain('합성 팀 (내 팀)');
+    expect(html).toContain('2명');
+    expect(html.match(/synthetic-leader/g)).toHaveLength(1);
+    expect(html).toContain('synthetic-member');
+    expect(html).toContain('팀장');
+    for (const removed of [
+      'GitHub 저장소 비공개',
+      '참여 코드',
+      '팀 나가기',
+      '팀원 초대',
+    ])
+      expect(html).not.toContain(removed);
   });
-
-  it('개인 소속 팀이 없으면 표시가 붙지 않는다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramTeamsDirectory teams={teams} myTeamId={null} />,
-    );
-    expect(html).not.toContain('(내 팀)');
+  it('내 팀이 아니면 표시하지 않고 비어 있을 때는 빈 상태를 제공한다', () => {
+    expect(
+      renderToStaticMarkup(
+        <ProgramTeamsDirectory teams={[team]} myTeamId={null} />,
+      ),
+    ).not.toContain('(내 팀)');
+    expect(
+      renderToStaticMarkup(
+        <ProgramTeamsDirectory teams={[]} myTeamId={null} />,
+      ),
+    ).toContain('아직 구성된 팀이 없습니다');
   });
+});
 
-  it('팀이 없으면 빈 상태를 보여준다', () => {
-    const html = renderToStaticMarkup(
-      <ProgramTeamsDirectory teams={[]} myTeamId={null} />,
+describe('ProgramTeamsPage', () => {
+  it('학생의 개인 팀 작업은 신청 화면으로 연결한다', async () => {
+    await renderPage();
+    expect(host.querySelectorAll('main')).toHaveLength(1);
+    expect(host.querySelectorAll('h1')).toHaveLength(1);
+    expect(
+      host.querySelector('a[href="/programs/program-1/apply"]'),
+    ).not.toBeNull();
+    expect(host.textContent).not.toContain('참여 코드');
+    expect(host.textContent).not.toContain('팀원 초대');
+  });
+  it('교직원에게 학생 전용 팀 API를 요청하지 않는다', async () => {
+    vi.mocked(getProgramDetail).mockResolvedValue({
+      ...program,
+      viewer: { role: 'STAFF', applicationStatus: null },
+    });
+    await renderPage();
+    expect(getMyTeam).not.toHaveBeenCalled();
+    expect(host.textContent).toContain('synthetic-leader');
+    expect(host.querySelector('a[href$="/apply"]')).toBeNull();
+  });
+  it('조회 실패를 빈 목록으로 바꾸지 않고 재시도한다', async () => {
+    vi.mocked(getProgramTeamDirectory).mockRejectedValueOnce(
+      new Error('network'),
     );
-    expect(html).toContain('아직 구성된 팀이 없습니다');
+    await renderPage();
+    expect(host.textContent).toContain('참여 팀 조회 실패');
+    expect(host.textContent).not.toContain('아직 구성된 팀이 없습니다');
+    await act(async () => host.querySelector('button')?.click());
+    expect(host.textContent).toContain('synthetic-member');
+  });
+});
+
+describe('team failure messages', () => {
+  it('서버 원인과 재시도 가능한 실패를 구분한다', () => {
+    expect(mapTeamError(problem('TEAM_007'))).toBe(
+      '팀 최대 인원을 초과할 수 없습니다.',
+    );
+    expect(mapTeamError(problem('TEAM_UNKNOWN', 500))).toContain('다시 시도');
+    expect(mapTeamActionError(new TypeError('network'))).toContain(
+      '팀 요청을 처리하지 못했습니다. 잠시 후 다시 시도',
+    );
+    expect(mapTeamActionError(new ApiError(problem('TEAM_007')))).toContain(
+      '최대 인원',
+    );
+    expect(mapInvitationError(problem('TIV_009'))).toContain('최대 인원');
+    expect(
+      mapInvitationError({
+        ...problem('TIV_UNKNOWN'),
+        detail: '서버 상세 오류',
+      }),
+    ).toBe('서버 상세 오류');
   });
 });

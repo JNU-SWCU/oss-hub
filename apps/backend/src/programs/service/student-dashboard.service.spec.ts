@@ -14,6 +14,10 @@ import {
   type RepositoriesReadPort,
 } from '../../github/repositories-read.port';
 import { submissionCompletionTargetSelect } from '../../submissions/submission-completion-projection';
+import {
+  StudentDashboardReadRepository,
+  type StudentDashboardApplicationRow,
+} from '../repository/student-dashboard-read.repository';
 import { StudentDashboardService } from './student-dashboard.service';
 
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
@@ -79,21 +83,25 @@ function documentMilestone(
   };
 }
 
-function program(milestones: readonly Record<string, unknown>[]) {
-  return { id: 'program-1', name: 'Synthetic Program', milestones };
+function program(
+  milestones: readonly StudentDashboardApplicationRow['program']['milestones'][number][],
+  id = 'program-1',
+) {
+  return { id, name: 'Synthetic Program', milestones };
 }
 
-function application(overrides: Record<string, unknown> = {}) {
+/**
+ * repository 가 주는 행 — 지금 그 팀에 속한 사람의 신청만 여기 온다.
+ * `applicant` 스칼라는 아예 없다(대시보드가 사람 이름을 추론하지 않는다).
+ */
+function application(
+  overrides: Partial<StudentDashboardApplicationRow> = {},
+): StudentDashboardApplicationRow {
   return {
     id: 'application-1',
     status: ApplicationStatus.APPROVED,
-    // D5: 개인 참여 = 1인 팀. teamId/team은 항상 있고 멤버 수로 개인/팀을 가른다.
-    teamId: 'solo-team-1',
-    applicant: {
-      profile: { name: 'Synthetic Applicant' },
-      nickname: 'synthetic',
-    },
-    team: { name: 'Synthetic Applicant', _count: { members: 1 } },
+    // D5: 개인 참여도 1인 팀이라 team 은 항상 있다.
+    team: { name: 'Synthetic Solo Team' },
     program: program([
       legacyMilestone('milestone-1', 'First milestone', DUE_AT),
     ]),
@@ -103,44 +111,62 @@ function application(overrides: Record<string, unknown> = {}) {
 }
 
 describe('StudentDashboardService', () => {
-  const findMany = jest.fn();
-  const prisma = {
-    application: { findMany },
-  } as unknown as PrismaService;
+  const findParticipatingApplications = jest.fn();
+  const repository = {
+    findParticipatingApplications,
+  } as unknown as StudentDashboardReadRepository;
   const getMyRepositories = jest.fn();
   const repositories = {
     getMyRepositories,
   } as RepositoriesReadPort;
-  const service = new StudentDashboardService(prisma, repositories);
+  const service = new StudentDashboardService(repository, repositories);
 
   beforeEach(() => {
     jest.clearAllMocks();
-    findMany.mockResolvedValue([]);
+    findParticipatingApplications.mockResolvedValue([]);
     getMyRepositories.mockResolvedValue([]);
   });
 
-  it('returns no items when the student owns no applications', async () => {
+  it('returns no items when the student is in no team', async () => {
     await expect(service.getStudentDashboard(404n)).resolves.toEqual([]);
-    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(findParticipatingApplications).toHaveBeenCalledWith(404n);
     expect(getMyRepositories).toHaveBeenCalledWith(404n);
   });
 
+  /**
+   * 커버는 repository 가 준 `program.cover.id` 하나로만 만든다 — 저장소 키 같은
+   * 보관 메타데이터가 카드 응답에 새어 나가면 안 된다(#1268).
+   */
   it('projects the current program cover without storage metadata', async () => {
-    findMany.mockResolvedValue([
+    findParticipatingApplications.mockResolvedValue([
       application({ program: { ...program([]), cover: { id: 'cover-1' } } }),
     ]);
+
     const items = await service.getStudentDashboard(404n);
+
     expect(items[0]?.coverImageUrl).toBe('/programs/program-1/cover/cover-1');
     expect(items[0]).not.toHaveProperty('storageKey');
   });
 
-  it('compiles with the DTO-only repositories read-port token', async () => {
+  it('projects a null cover when the program has no cover', async () => {
+    findParticipatingApplications.mockResolvedValue([application()]);
+
+    const items = await service.getStudentDashboard(404n);
+
+    expect(items[0]?.coverImageUrl).toBeNull();
+  });
+
+  it('compiles with the read repository and the DTO-only repositories read-port token', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         StudentDashboardService,
+        StudentDashboardReadRepository,
         {
           provide: PrismaService,
-          useValue: { application: { findMany: jest.fn() } },
+          useValue: {
+            user: { findUnique: jest.fn() },
+            application: { findMany: jest.fn() },
+          },
         },
         {
           provide: REPOSITORIES_READ_PORT,
@@ -154,75 +180,88 @@ describe('StudentDashboardService', () => {
     );
   });
 
-  it('maps owned solo-team and multi-member team applications and queries team membership only', async () => {
-    findMany.mockResolvedValue([
-      application(),
+  /**
+   * 카드의 이름은 **지금 그 팀의 이름**이다. 팀장이든 아니든, 1인 팀이든 여러 명이든
+   * 같은 이름과 같은 「우리 팀」 주소를 받는다 — 인원수로 개인/팀을 갈라 사람 이름을
+   * 띄우던 규칙(applicationMode/displayName)은 사라졌다.
+   */
+  it('gives every current member the same team name and my-team link', async () => {
+    findParticipatingApplications.mockResolvedValue([
+      application({ team: { name: 'Solo Team' } }),
       application({
         id: 'application-2',
-        teamId: 'team-1',
-        applicant: { profile: { name: 'Other applicant' }, nickname: 'other' },
-        team: { name: 'Synthetic Team', _count: { members: 2 } },
+        team: { name: 'Synthetic Team' },
       }),
     ]);
 
     const items = await service.getStudentDashboard(101n);
 
-    // D5: teamId는 항상 non-null이므로 멤버 수(1명 = 개인, 2명 이상 = 팀)로 가른다.
     expect(items).toEqual([
       expect.objectContaining({
         applicationId: 'application-1',
-        applicationMode: 'PERSONAL',
-        displayName: 'Synthetic Applicant',
+        teamName: 'Solo Team',
+        teamUrl: '/programs/program-1/my-team',
         detailUrl: '/programs/program-1',
         checklistUrl: '/programs/program-1/submissions',
       }),
       expect.objectContaining({
         applicationId: 'application-2',
-        applicationMode: 'TEAM',
-        displayName: 'Synthetic Team',
+        teamName: 'Synthetic Team',
+        teamUrl: '/programs/program-1/my-team',
       }),
     ]);
+    // 없어진 계약이 되살아나면 frontend 디코더가 다시 사람 이름을 그린다.
+    expect(items[0]).not.toHaveProperty('applicationMode');
+    expect(items[0]).not.toHaveProperty('displayName');
     expect(items[0]?.repository?.provisionStatus).toBe('NOT_STARTED');
-    expect(getMyRepositories).toHaveBeenCalledWith(101n);
-    expect(findMany).toHaveBeenCalledTimes(1);
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          // production student-dashboard.service.ts — 팀 소속 하나로 판정(D5).
-          team: {
-            OR: [
-              { leader: { githubId: 101n } },
-              { members: { some: { user: { githubId: 101n } } } },
-            ],
-          },
-        },
+  });
+
+  it('percent-encodes the program id in every card link', async () => {
+    findParticipatingApplications.mockResolvedValue([
+      application({
+        program: program(
+          [legacyMilestone('milestone-1', 'First milestone', DUE_AT)],
+          'program:1',
+        ),
       }),
-    );
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.teamUrl).toBe('/programs/program%3A1/my-team');
+    expect(item?.detailUrl).toBe('/programs/program%3A1');
+    expect(item?.checklistUrl).toBe('/programs/program%3A1/submissions');
+  });
+
+  it('drops a card whose team name is blank instead of inventing one', async () => {
+    findParticipatingApplications.mockResolvedValue([
+      application({ team: { name: '   ' } }),
+    ]);
+
+    await expect(service.getStudentDashboard(101n)).resolves.toEqual([]);
   });
 
   /**
    * 카드가 학생을 **어디로 보내는지**. 이 단언이 없는 동안 `detailUrl`은 아무 곳이나
    * 가리켜도 모든 테스트가 초록불이었고, 그래서 반려된 학생이 사유도 신청 상태도 없는
    * 프로그램 상세로 가는 것을 아무도 잡지 못했다(#733).
-   *
-   * frontend 검증기(`features/dashboard/api.ts`)가 같은 규칙을 반대편에서 **글자 그대로**
-   * 강제한다 — 한쪽만 바뀌면 검증기가 던져서 그 학생의 대시보드가 통째로 오류 화면이 된다.
-   * 그래서 세 상태를 전부 고정한다. 하나만 고정하면 나머지가 조용히 갈릴 수 있다.
    */
   it.each([
     [ApplicationStatus.SUBMITTED, '/programs/program-1/apply'],
     [ApplicationStatus.REJECTED, '/programs/program-1/apply'],
     [ApplicationStatus.APPROVED, '/programs/program-1'],
   ])('points a %s application at %s', async (status, detailUrl) => {
-    findMany.mockResolvedValue([application({ status })]);
+    findParticipatingApplications.mockResolvedValue([application({ status })]);
 
     const [item] = await service.getStudentDashboard(101n);
 
     expect(item?.detailUrl).toBe(detailUrl);
+    // 「우리 팀」은 판정과 무관하다 — 신청 중에도 팀은 이미 존재한다.
+    expect(item?.teamUrl).toBe('/programs/program-1/my-team');
   });
 
   it('keeps nextMilestone null for applications that are not approved', async () => {
-    findMany.mockResolvedValue([
+    findParticipatingApplications.mockResolvedValue([
       application({ status: ApplicationStatus.SUBMITTED }),
     ]);
 
@@ -232,7 +271,7 @@ describe('StudentDashboardService', () => {
   });
 
   it('skips approved milestones and returns null when all milestones are approved', async () => {
-    findMany.mockResolvedValue([
+    findParticipatingApplications.mockResolvedValue([
       application({
         program: program([
           legacyMilestone('milestone-1', 'First', DUE_AT),
@@ -260,24 +299,8 @@ describe('StudentDashboardService', () => {
     expect(items[1]?.nextMilestone).toBeNull();
   });
 
-  /**
-   * #1091 — 새 방식 마일스톤은 `submissionType` 이 없고 서류 항목으로만 완료한다.
-   *
-   * 대시보드가 옛 방식 슬롯만 골라 오던 동안 이 축의 제출은 한 건도 도착하지 않아,
-   * 학생이 다 내고 승인까지 받아도 카드가 첫 마일스톤에 머물렀다. 아래 네 건은 조회가
-   * 다시 옛 방식 슬롯만 보게 되면 전부 깨진다.
-   */
-  it('reads the whole target ledger instead of the legacy submission slot alone', async () => {
-    await service.getStudentDashboard(101n);
-
-    const [args] = findMany.mock.calls[0] as [Prisma.ApplicationFindManyArgs];
-    expect(args.select?.milestoneDocumentSubmissions).toEqual({
-      select: submissionCompletionTargetSelect,
-    });
-  });
-
   it('holds the milestone while any required document is unapproved', async () => {
-    findMany.mockResolvedValue([
+    findParticipatingApplications.mockResolvedValue([
       application({
         program: program([
           documentMilestone('milestone-1', 'First', DUE_AT, [
@@ -313,7 +336,7 @@ describe('StudentDashboardService', () => {
   });
 
   it('advances past a milestone whose required documents are all approved', async () => {
-    findMany.mockResolvedValue([
+    findParticipatingApplications.mockResolvedValue([
       application({
         program: program([
           documentMilestone('milestone-1', 'First', DUE_AT, [
@@ -354,7 +377,7 @@ describe('StudentDashboardService', () => {
   });
 
   it('empties nextMilestone once every milestone has its required documents approved', async () => {
-    findMany.mockResolvedValue([
+    findParticipatingApplications.mockResolvedValue([
       application({
         program: program([
           documentMilestone('milestone-1', 'First', DUE_AT, ['document-1']),
@@ -393,7 +416,7 @@ describe('StudentDashboardService', () => {
    * 두 축의 나쁜 쪽으로 읽으므로, 대시보드도 같은 답을 내야 두 화면이 같은 말을 한다.
    */
   it('lets an unapproved required document outrank an approved legacy submission', async () => {
-    findMany.mockResolvedValue([
+    findParticipatingApplications.mockResolvedValue([
       application({
         program: program([
           {
@@ -421,7 +444,7 @@ describe('StudentDashboardService', () => {
   });
 
   it('treats a missing submission as NOT_SUBMITTED', async () => {
-    findMany.mockResolvedValue([application()]);
+    findParticipatingApplications.mockResolvedValue([application()]);
 
     const [item] = await service.getStudentDashboard(101n);
 
@@ -434,7 +457,7 @@ describe('StudentDashboardService', () => {
   });
 
   it('maps a validated successful repository and current-user invitation', async () => {
-    findMany.mockResolvedValue([application()]);
+    findParticipatingApplications.mockResolvedValue([application()]);
     getMyRepositories.mockResolvedValue([
       {
         applicationId: 'application-1',
@@ -456,7 +479,7 @@ describe('StudentDashboardService', () => {
   });
 
   it('reuses the canonical pre-success repository projection', async () => {
-    findMany.mockResolvedValue([application()]);
+    findParticipatingApplications.mockResolvedValue([application()]);
     getMyRepositories.mockResolvedValue([
       {
         applicationId: 'application-1',
@@ -476,8 +499,9 @@ describe('StudentDashboardService', () => {
       githubUrl: null,
     });
   });
+
   it('distinguishes retryable and final provisioning failures without exposing raw errors', async () => {
-    findMany.mockResolvedValue([
+    findParticipatingApplications.mockResolvedValue([
       application(),
       application({ id: 'application-2' }),
     ]);
@@ -512,7 +536,7 @@ describe('StudentDashboardService', () => {
   });
 
   it('fails closed when repository creation succeeded without current-user invitation evidence', async () => {
-    findMany.mockResolvedValue([application()]);
+    findParticipatingApplications.mockResolvedValue([application()]);
     getMyRepositories.mockResolvedValue([
       {
         applicationId: 'application-1',
@@ -535,7 +559,7 @@ describe('StudentDashboardService', () => {
   });
 
   it('keeps a successful OWN repository complete without an organization invitation', async () => {
-    findMany.mockResolvedValue([application()]);
+    findParticipatingApplications.mockResolvedValue([application()]);
     getMyRepositories.mockResolvedValue([
       {
         applicationId: 'application-1',
@@ -555,5 +579,74 @@ describe('StudentDashboardService', () => {
       invitationStatus: null,
       githubUrl: 'https://github.com/synthetic-owner/synthetic-repository',
     });
+  });
+});
+
+/**
+ * 카드가 **누구에게 보이는가**는 이 조회 조건 하나가 정한다. service 는 Prisma 를 잡지
+ * 않으므로 여기서 진짜 repository 에 mock Prisma 를 물려 조건 자체를 고정한다.
+ */
+describe('StudentDashboardReadRepository', () => {
+  const findUnique = jest.fn();
+  const findMany = jest.fn();
+  const prisma = {
+    user: { findUnique },
+    application: { findMany },
+  } as unknown as PrismaService;
+  const repository = new StudentDashboardReadRepository(prisma);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    findUnique.mockResolvedValue({ id: 'user-1' });
+    findMany.mockResolvedValue([]);
+  });
+
+  /**
+   * 팀에서 빠진 옛 신청자는 카드를 잃는다. 조건에 `applicant`나 `team.leader` 절이
+   * 하나라도 남으면 그 사람이 남의 팀 카드를 계속 들고 있게 된다.
+   */
+  it('narrows applications to current TeamMember rows only', async () => {
+    await repository.findParticipatingApplications(101n);
+
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { githubId: 101n },
+      select: { id: true },
+    });
+    const [args] = findMany.mock.calls[0] as [Prisma.ApplicationFindManyArgs];
+    expect(args.where).toEqual({
+      team: { members: { some: { userId: 'user-1' } } },
+    });
+    expect(JSON.stringify(args.where)).not.toContain('applicant');
+    expect(JSON.stringify(args.where)).not.toContain('leader');
+  });
+
+  it('returns nothing and never queries applications for an unknown session user', async () => {
+    findUnique.mockResolvedValue(null);
+
+    await expect(
+      repository.findParticipatingApplications(404n),
+    ).resolves.toEqual([]);
+    expect(findMany).not.toHaveBeenCalled();
+  });
+
+  /**
+   * #1091 — 새 방식 마일스톤은 `submissionType` 이 없고 서류 항목으로만 완료한다.
+   * 조회가 다시 옛 방식 슬롯만 보게 되면 다 낸 학생이 첫 마일스톤에 갇힌다.
+   */
+  it('selects the whole target ledger and the current team name only', async () => {
+    await repository.findParticipatingApplications(101n);
+
+    const [args] = findMany.mock.calls[0] as [Prisma.ApplicationFindManyArgs];
+    expect(args.select?.milestoneDocumentSubmissions).toEqual({
+      select: submissionCompletionTargetSelect,
+    });
+    expect(args.select?.team).toEqual({ select: { name: true } });
+    // 커버는 식별자만 읽는다 — 보관 메타데이터까지 끌어오면 카드 응답으로 샌다(#1268).
+    const programSelect = args.select?.program as {
+      readonly select?: { readonly cover?: unknown };
+    };
+    expect(programSelect.select?.cover).toEqual({ select: { id: true } });
+    // 신청자 스칼라는 표시 이름의 원본이 아니다 — 아예 읽지 않는다.
+    expect(args.select).not.toHaveProperty('applicant');
   });
 });

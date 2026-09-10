@@ -6,7 +6,6 @@ import {
   ClipboardList,
   ExternalLink,
   FolderGit2,
-  UserRound,
   UsersRound,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -98,6 +97,7 @@ export function StudentDashboardCard({
 }) {
   const isPending = item.applicationStatus === 'SUBMITTED';
   const isRejected = item.applicationStatus === 'REJECTED';
+  const isDecided = !isPending && !isRejected;
   const isCompleted =
     item.applicationStatus === 'APPROVED' && item.nextMilestone === null;
   const repositoryUrl =
@@ -109,7 +109,6 @@ export function StudentDashboardCard({
       : null;
   const hasFinalProvisionFailure =
     item.repository?.provisionStatus === 'FAILED_FINAL';
-  const ModeIcon = item.applicationMode === 'PERSONAL' ? UserRound : UsersRound;
 
   return (
     <Card className="min-h-72">
@@ -123,11 +122,15 @@ export function StudentDashboardCard({
             {item.programName}
           </CardTitle>
         </div>
+        {/*
+          대시보드 항목은 전부 **지금 소속된 팀**이다(#1269). 1인 팀도 팀이라 아이콘과
+          문구를 갈라 쓰지 않고, 사람 이름 대신 팀 이름 하나만 말한다 — 같은 자리에서
+          어떤 카드는 팀을, 어떤 카드는 나를 가리키면 무엇의 목록인지 흐려진다.
+        */}
         <p className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
-          <ModeIcon aria-hidden="true" className="size-4" />
-          <span>
-            {item.applicationMode === 'PERSONAL' ? '개인' : '팀'} ·{' '}
-            {item.displayName}
+          <UsersRound aria-hidden="true" className="size-4" />
+          <span className="min-w-0 break-keep [overflow-wrap:anywhere]">
+            {item.teamName}
           </span>
         </p>
         <CardAction className="col-start-1 row-start-auto row-span-1 justify-self-start">
@@ -231,32 +234,50 @@ export function StudentDashboardCard({
             </div>
           </div>
         ) : null}
-        {!isPending && !isRejected ? <RepositorySummary item={item} /> : null}
+        {isDecided ? <RepositorySummary item={item} /> : null}
       </CardContent>
 
+      {/*
+        푸터는 이 카드에서 **다음에 할 일**만 남긴다. 프로그램 개요로 가는 버튼은 뺐다 —
+        우리 팀 화면과 프로그램 좌측 패널이 이미 개요를 이고 있어, 카드에 하나 더 두면
+        같은 목적지가 두 번 보이고 정작 팀·제출은 그 사이에 묻힌다.
+        판정 전·반려 카드에서는 「신청 상세」가 사유와 신청 상태를 볼 수 있는 유일한
+        길이라 언제나 첫 자리를 지킨다(#733).
+      */}
       <CardFooter className="flex flex-wrap gap-2">
+        {!isDecided ? (
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="min-h-10 px-3 sm:min-h-8"
+          >
+            <Link href={item.detailUrl}>신청 상세</Link>
+          </Button>
+        ) : null}
+        {/*
+          우리 팀은 판정 상태와 무관하게 열린다 — 이 목록에 있다는 것 자체가 지금 그 팀의
+          구성원이라는 뜻이고, 신청이 반려되어도 팀은 남는다(#1269).
+        */}
         <Button
           asChild
           size="sm"
-          variant="outline"
+          variant={isDecided && isPrimaryAction ? 'default' : 'outline'}
           className="min-h-10 px-3 sm:min-h-8"
         >
-          <Link href={item.detailUrl}>
-            {isPending || isRejected ? '신청 상세' : '프로그램 상세'}
+          <Link href={item.teamUrl}>
+            우리 팀{isDecided ? <ArrowRight aria-hidden="true" /> : null}
           </Link>
         </Button>
-        {!isPending && !isRejected ? (
+        {isDecided ? (
           <>
             <Button
               asChild
               size="sm"
-              variant={isPrimaryAction ? 'default' : 'outline'}
+              variant="outline"
               className="min-h-10 px-3 sm:min-h-8"
             >
-              <Link href={item.checklistUrl}>
-                제출 체크리스트
-                <ArrowRight aria-hidden="true" />
-              </Link>
+              <Link href={item.checklistUrl}>제출 현황</Link>
             </Button>
             {repositoryUrl ? (
               <Button

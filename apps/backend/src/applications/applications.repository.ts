@@ -70,7 +70,7 @@ type ApplicationDatabase = Pick<
 >;
 
 type LockedProgramRow = Readonly<{ lifecycle: ProgramLifecycle }>;
-type LockedTeamRow = Readonly<{ id: string }>;
+type LockedTeamRow = Readonly<{ id: string; leaderId: string }>;
 
 export interface ApplicationsTransactionStore {
   /** #547 — 판정 전이와 감사 기록이 같은 트랜잭션에서 함께 커밋되도록 하는 writer. */
@@ -284,8 +284,15 @@ export interface ApplicationCreateStore {
     programId: string,
     userId: string,
   ): Promise<CreatedTeamForApplication | null>;
-  /** 팀 구성 변경과 신청 생성을 직렬화한다. 잠금 순서는 Program → Team이다. */
-  lockTeamForApply(teamId: string): Promise<void>;
+  /**
+   * 팀 구성 변경과 신청 생성을 직렬화한다. 잠금 순서는 Program → Team이다.
+   *
+   * 잠그기만 하는 게 아니라 **잠근 뒤의 사실**로 신청 권한까지 되읽어 돌려준다 —
+   * `true`는 `userId`가 잠금 시점에 그 팀의 구성원이면서 팀장(`Team.leaderId`)일 때뿐이다.
+   * 잠금 전 스냅샷(`findExistingTeamMembership`)은 권한의 정본이 아니다 — 그 사이에
+   * 팀장이 바뀌거나 본인이 팀에서 빠졌을 수 있기 때문이다(#1269).
+   */
+  lockTeamForApply(teamId: string, userId: string): Promise<boolean>;
   /** 재사용할 팀의 최소 인원 검증용. */
   countTeamMembers(teamId: string): Promise<number>;
   createTeamWithLeader(
@@ -486,10 +493,21 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
     return this.database.teamMember.count({ where: { teamId } });
   }
 
-  async lockTeamForApply(teamId: string): Promise<void> {
-    await this.database.$queryRaw<readonly LockedTeamRow[]>(
-      Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
+  async lockTeamForApply(teamId: string, userId: string): Promise<boolean> {
+    const rows = await this.database.$queryRaw<readonly LockedTeamRow[]>(
+      Prisma.sql`SELECT "id", "leaderId" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
     );
+    const locked = rows[0];
+    if (!locked || locked.leaderId !== userId) {
+      return false;
+    }
+    // 팀장 자리만으로는 부족하다 — 구성원 행은 잠금 직전에도 지워질 수 있으므로
+    // 잠근 뒤의 현재 멤버십을 함께 확인한다.
+    const membership = await this.database.teamMember.findUnique({
+      where: { teamId_userId: { teamId, userId } },
+      select: { id: true },
+    });
+    return membership !== null;
   }
 
   async createTeamWithLeader(

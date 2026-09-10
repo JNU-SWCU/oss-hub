@@ -1,14 +1,24 @@
 export type RepositoryApplicationMode = 'PERSONAL' | 'TEAM';
+export type RepositoryConnectionMode = 'NEW' | 'OWN';
 export type RepositoryProvisionStatus =
   'PENDING' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED_RETRYABLE' | 'FAILED_FINAL';
 export type RepositoryInvitationStatus =
-  'PENDING' | 'SUCCEEDED' | 'FAILED_RETRYABLE' | 'FAILED_FINAL' | null;
+  | 'PENDING'
+  | 'SUCCEEDED'
+  | 'FAILED_RETRYABLE'
+  | 'FAILED_FINAL'
+  | 'REVOKE_REQUIRED'
+  | 'REVOKED'
+  | 'REVOKE_FAILED_RETRYABLE'
+  | 'REVOKE_FAILED_FINAL'
+  | null;
 export type RepositoryVisibility = 'PRIVATE' | 'PUBLIC';
 
 export type MyRepositoryResponseItem = {
   readonly repositoryId: string | null;
   readonly applicationId: string;
   readonly applicationMode: RepositoryApplicationMode;
+  readonly connectionMode: RepositoryConnectionMode;
   readonly programName: string;
   readonly displayName: string;
   readonly repositoryName: string | null;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ProgramTeam } from '@/features/programs/api';
 import type { MilestoneDocumentList } from '@/features/programs/milestone-document-api';
 import type { ProgramActivity, ProgramDetail } from '@/features/programs/types';
 import { resolveApplyBlockedReason } from '@/features/programs/program-apply-flow';
@@ -6,7 +7,16 @@ import { PROGRAM_TEMPLATE_DEFINITIONS } from '@/features/programs/program-templa
 import type { StudentApplication } from '@/features/programs/student-application-api';
 import type { SubmissionFormData } from '@/features/submissions/types';
 import type { LocalReviewFixtureId } from '@/lib/local-review-runtime';
-import { resolveLocalReviewResponse } from '../fixture-response';
+import { localReviewSessionState } from '../handler-kit';
+import {
+  resetLocalReviewFixtureState,
+  resolveLocalReviewResponse,
+} from '../fixture-response';
+import {
+  currentSyntheticUserId,
+  rememberProgramTeam,
+  rosterAfterLeave,
+} from './student-handlers';
 import { PUBLIC_PROGRAM_IDS } from './student-program-fixtures';
 
 function call(
@@ -20,6 +30,20 @@ function call(
     method,
     path,
     searchParams: new URLSearchParams(search),
+  });
+}
+function callWithBody(
+  fixture: LocalReviewFixtureId,
+  method: string,
+  path: string,
+  body: unknown,
+) {
+  return resolveLocalReviewResponse({
+    fixture,
+    method,
+    path,
+    searchParams: new URLSearchParams(),
+    body,
   });
 }
 
@@ -387,35 +411,68 @@ describe('student fixture responses', () => {
   );
 
   it('splits the two team states so both team screens are reviewable', () => {
-    // Given / When
+    // Given / When: 기초 스터디는 팀도 신청도 없는 입구다 — 정보를 먼저 읽고
+    // 직접 팀을 만들어 신청까지 걸어 볼 수 있어야 한다.
     const withTeam = jsonBody(
       call('student', 'GET', 'programs/program-capstone/teams/me'),
     ) as { readonly members: readonly unknown[] };
     const withoutTeam = call(
       'student',
       'GET',
-      'programs/program-oss-contest/teams/me',
+      'programs/program-basic-study/teams/me',
     );
 
-    // Then: 404는 화면에서 "팀 만들기·참여코드 합류" 화면으로 갈린다.
+    // Then: 404는 화면에서 "팀 만들기" 화면으로 갈린다.
     expect(withTeam.members).toHaveLength(3);
     expect(withoutTeam).toMatchObject({
       kind: 'json',
       status: 404,
       body: { code: 'TEAM_010' },
     });
+    // 그리고 그 입구에는 신청 기록도 없다 — 둘이 같이 없어야 새로 걸어 볼 수 있다.
+    expect(
+      call('student', 'GET', 'programs/program-basic-study/applications/me'),
+    ).toMatchObject({ kind: 'json', status: 404, body: { code: 'APP_001' } });
+  });
+
+  /**
+   * 신청은 항상 팀이 낸다(#1269) — 혼자면 1인 팀이 만들어지고, 그 신청서를 볼 수
+   * 있는 근거도 「그 팀의 구성원」뿐이다. 팀 없는 신청 픽스처를 하나라도 두면
+   * 픽스처가 소속 없는 사람에게 참여자 응답을 내주는 폴백을 되살리게 된다.
+   */
+  it('신청이 보이는 프로그램은 예외 없이 그 신청을 낸 팀의 구성원일 때뿐이다', () => {
+    resetLocalReviewFixtureState();
+
+    for (const programId of PUBLIC_PROGRAM_IDS) {
+      // Given / When
+      const mine = call(
+        'student',
+        'GET',
+        `programs/${programId}/applications/me`,
+      );
+      if (mine.kind !== 'json' || mine.status !== 200) continue;
+
+      // Then: 신청이 보이면 팀도 보이고, 그 팀이 바로 신청이 가리키는 팀이다.
+      const team = jsonBody(
+        call('student', 'GET', `programs/${programId}/teams/me`),
+      ) as ProgramTeam;
+      expect({
+        programId,
+        teamId: (mine.body as StudentApplication).teamId,
+      }).toEqual({ programId, teamId: team.id });
+      expect(team.hasApplication).toBe(true);
+    }
   });
 
   it('succeeds on every student action a screen can trigger', () => {
-    // Given / When
+    resetLocalReviewFixtureState();
+    const created = jsonBody(
+      callWithBody('student', 'POST', 'programs/program-basic-study/teams', {
+        name: '합성 기초팀',
+      }),
+    ) as { readonly id: string };
     const application = jsonBody(
       call('student', 'POST', 'programs/program-basic-study/applications'),
-    );
-    const team = jsonBody(
-      call('student', 'POST', 'programs/program-oss-contest/teams'),
-    );
-    const joined = jsonBody(
-      call('student', 'POST', 'programs/program-oss-contest/teams/join'),
     );
     const submission = jsonBody(call('student', 'POST', 'submissions'));
     const file = jsonBody(call('student', 'POST', 'submission-files'));
@@ -423,64 +480,68 @@ describe('student fixture responses', () => {
       call('student', 'POST', 'submissions/submission-revision/resubmissions'),
     );
 
-    // Then
     expect(application).toMatchObject({
       programId: 'program-basic-study',
       status: 'SUBMITTED',
+      teamId: created.id,
     });
-    expect(team).toMatchObject({ joinCode: 'FIXTURE01', memberCount: 1 });
-    expect(joined).toMatchObject({ id: 'synthetic-team-joined' });
+    expect(created).toMatchObject({
+      name: '합성 기초팀',
+      joinCode: 'FIXTURE01',
+      memberCount: 1,
+    });
     expect(submission).toMatchObject({ status: 'SUBMITTED' });
     expect(file).toMatchObject({ fileId: 'synthetic-file-01' });
-    // 체크리스트의 현재 revision(1) 다음 값이어야 성공 문구가 맞는다.
     expect(resubmission).toMatchObject({ revision: 2, status: 'SUBMITTED' });
   });
 
-  it('팀 만들기와 신청은 입력한 값을 되돌려 준다', () => {
-    // Given / When: 화면은 응답의 팀명을 그대로 명단에 그린다.
+  it('팀 만들기와 신청은 입력한 값을 되돌려 주고 다시 읽어도 남긴다', () => {
+    // 새 신청을 내는 걸음은 「신청 전」 프로그램에서만 재현된다 — 이미 신청이 있는
+    // 프로그램은 백엔드처럼 409 APP_011로 끝난다. 두 갈래는 세션 초기화로 나눈다.
+    resetLocalReviewFixtureState();
     const team = jsonBody(
-      resolveLocalReviewResponse({
-        fixture: 'student',
-        method: 'POST',
-        path: 'programs/program-oss-contest/teams',
-        searchParams: new URLSearchParams(),
-        body: { name: '합성 입력 팀' },
+      callWithBody('student', 'POST', 'programs/program-basic-study/teams', {
+        name: '합성 입력 팀',
       }),
-    );
+    ) as { readonly id: string };
     const application = jsonBody(
-      resolveLocalReviewResponse({
-        fixture: 'student',
-        method: 'POST',
-        path: 'programs/program-oss-contest/applications',
-        searchParams: new URLSearchParams(),
-        body: {
+      callWithBody(
+        'student',
+        'POST',
+        'programs/program-basic-study/applications',
+        {
           answers: { title: '합성 제목', summary: '합성 요약' },
           applicationTemplateVersion: 1,
           repositoryConnectionMode: 'OWN',
           repositoryUrl: 'https://github.com/team/repo',
         },
+      ),
+    );
+    resetLocalReviewFixtureState();
+    jsonBody(
+      callWithBody('student', 'POST', 'programs/program-basic-study/teams', {
+        name: '합성 기초팀',
       }),
     );
     const newRepositoryApplication = jsonBody(
-      resolveLocalReviewResponse({
-        fixture: 'student',
-        method: 'POST',
-        path: 'programs/program-basic-study/applications',
-        searchParams: new URLSearchParams(),
-        body: {
+      callWithBody(
+        'student',
+        'POST',
+        'programs/program-basic-study/applications',
+        {
           answers: { title: '합성 제목', summary: '합성 요약' },
           applicationTemplateVersion: 1,
           repositoryConnectionMode: 'NEW',
           repositoryUrl: null,
         },
-      }),
+      ),
     );
 
-    // Then
     expect(team).toMatchObject({ name: '합성 입력 팀' });
     expect(application).toMatchObject({
       repositoryConnectionMode: 'OWN',
       repositoryUrl: 'https://github.com/team/repo',
+      teamId: team.id,
     });
     expect(newRepositoryApplication).toMatchObject({
       repositoryConnectionMode: 'NEW',
@@ -489,24 +550,551 @@ describe('student fixture responses', () => {
   });
 
   it('신청 본문에 미허용 키 teamId 가 있으면 실제 backend 처럼 400 SYS_003 을 준다', () => {
-    // 2026-08-05 회귀 재발 방지. 이 픽스처가 예전에는 teamId 를 그대로 에코해서,
-    // frontend 가 미허용 키를 보내는 동안에도 로컬 검토가 성공처럼 보였다.
-    // 픽스처가 실제 계약보다 너그러우면 검토가 결함을 통과시킨다.
-    const plan = resolveLocalReviewResponse({
-      fixture: 'student',
-      method: 'POST',
-      path: 'programs/program-basic-study/applications',
-      searchParams: new URLSearchParams(),
-      body: {
+    resetLocalReviewFixtureState();
+    const plan = callWithBody(
+      'student',
+      'POST',
+      'programs/program-basic-study/applications',
+      {
         answers: { title: '합성 제목', summary: '합성 요약' },
         teamId: null,
         applicationTemplateVersion: 1,
         repositoryConnectionMode: 'NEW',
         repositoryUrl: null,
       },
-    });
+    );
 
     expect(jsonBody(plan, 400)).toMatchObject({ code: 'SYS_003' });
+  });
+
+  it('creates a basic-study team then keeps GET teams/me and submitted application across reload', () => {
+    resetLocalReviewFixtureState();
+    expect(
+      call('student', 'GET', 'programs/program-basic-study/teams/me'),
+    ).toMatchObject({ kind: 'json', status: 404, body: { code: 'TEAM_010' } });
+
+    const created = jsonBody(
+      callWithBody('student', 'POST', 'programs/program-basic-study/teams', {
+        name: '합성 기초 오픈소스팀',
+      }),
+    ) as { readonly id: string };
+
+    const roster = jsonBody(
+      call('student', 'GET', 'programs/program-basic-study/teams/me'),
+    ) as {
+      readonly id: string;
+      readonly name: string;
+      readonly isLeader: boolean;
+      readonly members: readonly {
+        readonly userId: string;
+        readonly isLeader: boolean;
+      }[];
+    };
+    expect(roster).toMatchObject({
+      id: created.id,
+      name: '합성 기초 오픈소스팀',
+      isLeader: true,
+      memberCount: 1,
+      // 만든 직후 — 팀장이라 초대할 수 있고, 혼자라 제외할 상대가 없고,
+      // 신청 기록이 없어 그대로 나갈(=팀을 지울) 수 있다.
+      hasApplication: false,
+      canInvite: true,
+      canRemoveMembers: false,
+      canLeave: true,
+    });
+    expect(roster.members).toEqual([
+      expect.objectContaining({
+        userId: 'synthetic-user-01',
+        isLeader: true,
+      }),
+    ]);
+    expect(
+      callWithBody('student', 'POST', 'programs/program-basic-study/teams', {
+        name: '합성 다른 팀',
+      }),
+    ).toMatchObject({
+      kind: 'json',
+      status: 409,
+      body: { code: 'TEAM_006' },
+    });
+    expect(
+      callWithBody('student', 'POST', 'programs/program-basic-study/teams', {
+        name: '   ',
+      }),
+    ).toMatchObject({
+      kind: 'json',
+      status: 400,
+      body: { code: 'SYS_003' },
+    });
+    expect(
+      callWithBody('student', 'POST', 'programs/missing-program/teams', {
+        name: '합성 팀',
+      }),
+    ).toMatchObject({
+      kind: 'json',
+      status: 404,
+      body: { code: 'TEAM_002' },
+    });
+
+    const submitted = jsonBody(
+      call('student', 'POST', 'programs/program-basic-study/applications'),
+    ) as { readonly teamId: string };
+    expect(submitted.teamId).toBe(created.id);
+
+    const mine = jsonBody(
+      call('student', 'GET', 'programs/program-basic-study/applications/me'),
+    ) as StudentApplication;
+    expect(mine).toMatchObject({
+      status: 'SUBMITTED',
+      teamId: created.id,
+      canCancel: true,
+    });
+    expect(
+      (
+        jsonBody(
+          call('student', 'GET', 'programs/program-basic-study/viewer'),
+        ) as ProgramDetail
+      ).viewer.applicationStatus,
+    ).toBe('SUBMITTED');
+    // 제출해도 팀은 얼지 않는다 — 같은 팀이 그대로 남고 초대 권한도 유지된다.
+    // 달라지는 것은 「신청 기록이 생겼고, 혼자라서 나갈 수 없다」만큼이다.
+    expect(
+      jsonBody(call('student', 'GET', 'programs/program-basic-study/teams/me')),
+    ).toMatchObject({
+      id: created.id,
+      isLeader: true,
+      memberCount: 1,
+      hasApplication: true,
+      canInvite: true,
+      canRemoveMembers: false,
+      canLeave: false,
+    });
+    // 마지막 구성원 + 신청 기록 = 탈퇴 불가. 신청을 먼저 취소해야 한다.
+    expect(
+      call('student', 'DELETE', 'programs/program-basic-study/teams/me'),
+    ).toMatchObject({ kind: 'json', status: 409, body: { code: 'TEAM_012' } });
+
+    expect(
+      jsonBody(
+        call(
+          'student',
+          'DELETE',
+          'programs/program-basic-study/applications/me',
+        ),
+      ),
+    ).toEqual({ cancelled: true });
+    expect(
+      call('student', 'GET', 'programs/program-basic-study/applications/me'),
+    ).toMatchObject({ kind: 'json', status: 404, body: { code: 'APP_001' } });
+    expect(
+      (
+        jsonBody(
+          call('student', 'GET', 'programs/program-basic-study/viewer'),
+        ) as ProgramDetail
+      ).viewer.applicationStatus,
+    ).toBeNull();
+
+    expect(
+      jsonBody(
+        call('student', 'DELETE', 'programs/program-basic-study/teams/me'),
+      ),
+    ).toEqual({});
+    expect(
+      call('student', 'GET', 'programs/program-basic-study/teams/me'),
+    ).toMatchObject({ kind: 'json', status: 404, body: { code: 'TEAM_010' } });
+    expect(
+      call('student', 'POST', 'programs/program-basic-study/applications'),
+    ).toMatchObject({
+      kind: 'json',
+      status: 403,
+      body: { code: 'APP_014' },
+    });
+
+    expect(
+      jsonBody(
+        call('student', 'GET', 'programs/program-sw-value/applications/me'),
+      ),
+    ).toMatchObject({ status: 'REJECTED', canCancel: false });
+    expect(
+      call('student', 'DELETE', 'programs/program-sw-value/applications/me'),
+    ).toMatchObject({
+      kind: 'json',
+      status: 409,
+      body: { code: 'APP_002' },
+    });
+
+    resetLocalReviewFixtureState();
+    expect(
+      call('student', 'GET', 'programs/program-basic-study/teams/me'),
+    ).toMatchObject({ kind: 'json', status: 404, body: { code: 'TEAM_010' } });
+    expect(
+      (
+        jsonBody(
+          call('student', 'GET', 'programs/program-capstone/teams/me'),
+        ) as { readonly members: readonly unknown[] }
+      ).members,
+    ).toHaveLength(3);
+  });
+});
+
+/**
+ * 팀 구성원 생명주기(#1269)를 로컬 검토가 그대로 걸어 볼 수 있어야 한다 — 팀장의
+ * 팀원 제외, 탈퇴와 자동 승계, 마지막 구성원 보호. 플래그를 픽스처가 지어내면
+ * 검토자는 배포에서 403으로 막힐 버튼을 누르고 「로컬에선 됐는데」를 증거로 삼게 된다.
+ *
+ * 이 합성 상태는 화면 검토용이다 — 실제 GitHub 협업자 회수나 동시성 직렬화는
+ * backend integration이 증명하며 여기서 흉내 내지 않는다.
+ */
+describe('team membership preview state', () => {
+  const OTHER_MEMBER = {
+    userId: 'synthetic-user-02',
+    nickname: 'synthetic-contributor-02',
+    name: '합성 팀원 A',
+    isLeader: false,
+  } as const;
+
+  /** 세션에 직접 심는 합성 팀. 능력 플래그는 읽을 때 다시 계산된다. */
+  function seedTeam(
+    programId: string,
+    overrides: Partial<ProgramTeam> & {
+      readonly members: ProgramTeam['members'];
+    },
+  ): ProgramTeam {
+    const team: ProgramTeam = {
+      id: 'synthetic-team-seeded',
+      name: '합성 공유팀',
+      memberCount: overrides.members.length,
+      minMembers: 1,
+      maxMembers: 4,
+      hasApplication: false,
+      canInvite: false,
+      canRemoveMembers: false,
+      canLeave: true,
+      isLeader: false,
+      ...overrides,
+    };
+    rememberProgramTeam(programId, team);
+    return team;
+  }
+
+  function myTeam(programId: string): ProgramTeam {
+    return jsonBody(
+      call('student', 'GET', `programs/${programId}/teams/me`),
+    ) as ProgramTeam;
+  }
+
+  it('팀장의 팀원 제외는 명단을 줄이고 능력 플래그를 다시 계산하며 신청 이력은 그대로 둔다', () => {
+    resetLocalReviewFixtureState();
+
+    // Given: 고정 픽스처의 캡스톤팀 — 내가 팀장이고 셋이며 신청 기록이 있다.
+    expect(myTeam('program-capstone')).toMatchObject({
+      memberCount: 3,
+      hasApplication: true,
+      canInvite: true,
+      canRemoveMembers: true,
+      canLeave: true,
+    });
+
+    // When
+    const removed = call(
+      'student',
+      'DELETE',
+      'programs/program-capstone/teams/me/members/synthetic-user-02',
+    );
+
+    // Then
+    expect(jsonBody(removed)).toEqual({});
+    const afterFirst = myTeam('program-capstone');
+    expect(afterFirst.members.map((member) => member.userId)).toEqual([
+      'synthetic-user-01',
+      'synthetic-user-03',
+    ]);
+    expect(afterFirst).toMatchObject({
+      memberCount: 2,
+      canRemoveMembers: true,
+      canLeave: true,
+    });
+
+    // When: 마지막 팀원까지 제외하면 제외할 상대가 없어지고, 신청 기록 때문에 혼자는 나갈 수 없다.
+    jsonBody(
+      call(
+        'student',
+        'DELETE',
+        'programs/program-capstone/teams/me/members/synthetic-user-03',
+      ),
+    );
+
+    // Then
+    expect(myTeam('program-capstone')).toMatchObject({
+      memberCount: 1,
+      hasApplication: true,
+      canInvite: true,
+      canRemoveMembers: false,
+      canLeave: false,
+    });
+    // 제외는 명단만 바꾼다 — 이미 난 신청은 그대로 남는다.
+    expect(
+      jsonBody(
+        call('student', 'GET', 'programs/program-capstone/applications/me'),
+      ),
+    ).toMatchObject({ status: 'APPROVED', teamId: 'synthetic-team-capstone' });
+  });
+
+  it('제외는 실제 도메인 코드로 거절한다 — 팀 없음·본인·이미 나간 대상·모르는 사람', () => {
+    resetLocalReviewFixtureState();
+
+    // Given / When / Then: 소속이 없으면 대상을 보기 전에 TEAM_010이다.
+    expect(
+      call(
+        'student',
+        'DELETE',
+        'programs/program-basic-study/teams/me/members/synthetic-user-02',
+      ),
+    ).toMatchObject({ kind: 'json', status: 404, body: { code: 'TEAM_010' } });
+
+    // 본인 제외는 탈퇴(승계 포함)가 책임지므로 409다.
+    expect(
+      call(
+        'student',
+        'DELETE',
+        `programs/program-capstone/teams/me/members/${currentSyntheticUserId()}`,
+      ),
+    ).toMatchObject({ kind: 'json', status: 409, body: { code: 'TEAM_014' } });
+
+    // 모르는 사람과 「방금 제외해 이제 팀에 없는」 사람은 구분 없는 404다.
+    jsonBody(
+      call(
+        'student',
+        'DELETE',
+        'programs/program-capstone/teams/me/members/synthetic-user-02',
+      ),
+    );
+    for (const staleTarget of ['synthetic-user-02', 'synthetic-user-09']) {
+      expect(
+        call(
+          'student',
+          'DELETE',
+          `programs/program-capstone/teams/me/members/${staleTarget}`,
+        ),
+      ).toMatchObject({
+        kind: 'json',
+        status: 404,
+        body: { code: 'TEAM_015' },
+      });
+    }
+  });
+
+  it('팀장이 아닌 구성원은 명단도 신청도 바꿀 수 없다', () => {
+    resetLocalReviewFixtureState();
+
+    // Given: 초대를 받아 합류한 팀원 — 팀장은 다른 사람이다.
+    seedTeam('program-basic-study', {
+      id: 'synthetic-team-basic-shared',
+      members: [
+        { ...OTHER_MEMBER, isLeader: true },
+        {
+          userId: currentSyntheticUserId(),
+          nickname: 'synthetic-contributor-01',
+          name: '합성 합류자',
+          isLeader: false,
+        },
+      ],
+    });
+
+    // When / Then: 팀장만 제외할 수 있고(TEAM_013), 팀 신청도 팀장만 낸다(APP_028).
+    expect(myTeam('program-basic-study')).toMatchObject({
+      isLeader: false,
+      canInvite: false,
+      canRemoveMembers: false,
+      canLeave: true,
+    });
+    expect(
+      call(
+        'student',
+        'DELETE',
+        `programs/program-basic-study/teams/me/members/${OTHER_MEMBER.userId}`,
+      ),
+    ).toMatchObject({ kind: 'json', status: 403, body: { code: 'TEAM_013' } });
+    expect(
+      call('student', 'POST', 'programs/program-basic-study/applications'),
+    ).toMatchObject({ kind: 'json', status: 403, body: { code: 'APP_028' } });
+  });
+
+  it('팀장이 나가면 팀은 남고, 나간 사람의 참여자 응답은 그 신청을 더 이상 드러내지 않는다', () => {
+    resetLocalReviewFixtureState();
+
+    // Given: 둘이고 내가 팀장인 팀으로 신청까지 냈다.
+    seedTeam('program-basic-study', {
+      id: 'synthetic-team-basic-shared',
+      isLeader: true,
+      members: [
+        {
+          userId: currentSyntheticUserId(),
+          nickname: 'synthetic-contributor-01',
+          name: '합성 팀장',
+          isLeader: true,
+        },
+        OTHER_MEMBER,
+      ],
+    });
+    jsonBody(
+      call('student', 'POST', 'programs/program-basic-study/applications'),
+    );
+    expect(myTeam('program-basic-study')).toMatchObject({
+      hasApplication: true,
+      // 신청 기록이 있어도 혼자가 아니므로 나갈 수 있다.
+      canLeave: true,
+    });
+
+    // When
+    expect(
+      jsonBody(
+        call('student', 'DELETE', 'programs/program-basic-study/teams/me'),
+      ),
+    ).toEqual({});
+
+    // Then: 나간 사람은 팀도, 그 팀이 낸 신청도 더 이상 보지 못한다.
+    expect(
+      call('student', 'GET', 'programs/program-basic-study/teams/me'),
+    ).toMatchObject({ kind: 'json', status: 404, body: { code: 'TEAM_010' } });
+    expect(
+      call('student', 'GET', 'programs/program-basic-study/applications/me'),
+    ).toMatchObject({ kind: 'json', status: 404, body: { code: 'APP_001' } });
+    expect(
+      (
+        jsonBody(
+          call('student', 'GET', 'programs/program-basic-study/viewer'),
+        ) as ProgramDetail
+      ).viewer.applicationStatus,
+    ).toBeNull();
+    // 참여자가 아니므로 제출 체크리스트도 백엔드와 같은 403 SUB_003이다.
+    expect(
+      call('student', 'GET', 'programs/program-basic-study/submissions/me'),
+    ).toMatchObject({ kind: 'json', status: 403, body: { code: 'SUB_003' } });
+
+    // 그리고 고정 픽스처가 나간 팀을 되살리지 않는다 — 새로 만든 팀은 다른 팀이고
+    // 예전 신청을 자기 것으로 주장하지 않는다.
+    const recreated = jsonBody(
+      callWithBody('student', 'POST', 'programs/program-basic-study/teams', {
+        name: '합성 새 팀',
+      }),
+    ) as { readonly id: string };
+    expect(recreated.id).not.toBe('synthetic-team-basic-shared');
+    expect(myTeam('program-basic-study')).toMatchObject({
+      id: recreated.id,
+      memberCount: 1,
+      hasApplication: false,
+      canInvite: true,
+      canLeave: true,
+    });
+  });
+
+  it('미제출 1인 팀의 탈퇴는 팀과 보낸 초대를 함께 정리한다', () => {
+    resetLocalReviewFixtureState();
+    const created = jsonBody(
+      callWithBody('student', 'POST', 'programs/program-basic-study/teams', {
+        name: '합성 단독팀',
+      }),
+    ) as { readonly id: string };
+    // Given: 그 팀이 보낸 대기 중인 초대가 하나 있다.
+    localReviewSessionState().sentInvitationsByTeam[created.id] = {
+      'synthetic-invitation-pending-01': {
+        id: 'synthetic-invitation-pending-01',
+        teamId: created.id,
+        programId: 'program-basic-study',
+        invitedById: currentSyntheticUserId(),
+        status: 'PENDING',
+        invitedAt: '2026-08-01T00:00:00.000Z',
+        respondedAt: null,
+        invitee: {
+          id: 'synthetic-user-04',
+          nickname: 'synthetic-contributor-04',
+          name: '합성 지원자 4',
+          avatarUrl: null,
+        },
+      },
+    };
+
+    // When
+    expect(
+      jsonBody(
+        call('student', 'DELETE', 'programs/program-basic-study/teams/me'),
+      ),
+    ).toEqual({});
+
+    // Then: 팀이 사라졌으므로 남아 있는 초대도 없다(backend 도 팀 삭제 전에 초대를 지운다).
+    expect(
+      Object.values(
+        localReviewSessionState().sentInvitationsByTeam[created.id] ?? {},
+      ),
+    ).toEqual([null]);
+    expect(
+      call('student', 'GET', 'programs/program-basic-study/teams/me'),
+    ).toMatchObject({ kind: 'json', status: 404, body: { code: 'TEAM_010' } });
+  });
+
+  it('탈퇴 뒤 남는 명단은 팀장이 나갈 때만 첫 사람으로 승계한다', () => {
+    // Given: 백엔드가 고르는 순서(합류 순) 그대로의 명단.
+    const leader = {
+      userId: currentSyntheticUserId(),
+      nickname: 'synthetic-contributor-01',
+      name: '합성 팀장',
+      isLeader: true,
+    } as const;
+    const base: ProgramTeam = {
+      id: 'synthetic-team-order',
+      name: '합성 순서팀',
+      memberCount: 3,
+      minMembers: 1,
+      maxMembers: 4,
+      hasApplication: false,
+      canInvite: true,
+      canRemoveMembers: true,
+      canLeave: true,
+      isLeader: true,
+      members: [
+        leader,
+        OTHER_MEMBER,
+        {
+          userId: 'synthetic-user-03',
+          nickname: 'synthetic-contributor-03',
+          name: null,
+          isLeader: false,
+        },
+      ],
+    };
+
+    // When / Then: 팀장이 나가면 남은 명단의 첫 사람이 팀장이 된다.
+    expect(rosterAfterLeave(base)).toEqual([
+      { ...OTHER_MEMBER, isLeader: true },
+      expect.objectContaining({
+        userId: 'synthetic-user-03',
+        isLeader: false,
+      }),
+    ]);
+
+    // 팀원이 나가면 팀장은 그대로다.
+    const asMember: ProgramTeam = {
+      ...base,
+      isLeader: false,
+      members: [
+        { ...OTHER_MEMBER, isLeader: true },
+        {
+          userId: currentSyntheticUserId(),
+          nickname: 'synthetic-contributor-01',
+          name: '합성 팀원',
+          isLeader: false,
+        },
+      ],
+    };
+    expect(rosterAfterLeave(asMember)).toEqual([
+      { ...OTHER_MEMBER, isLeader: true },
+    ]);
+
+    // 1인 팀은 빈 명단이다 — 팀 자체가 사라지는 갈래다.
+    expect(
+      rosterAfterLeave({ ...base, memberCount: 1, members: [leader] }),
+    ).toEqual([]);
   });
 });
 

@@ -19,24 +19,30 @@ export function FormRenderer({
   mode = 'preview',
   values = {},
   onChange,
+  showMetadata = true,
 }: {
   readonly template: ApplicationFormTemplate;
   readonly mode?: FormRendererMode;
   readonly values?: Readonly<Partial<Record<string, string>>>;
   readonly onChange?: (key: string, value: string) => void;
+  readonly showMetadata?: boolean;
 }) {
   return (
     <section
-      aria-label={`${template.name} 템플릿 미리보기`}
+      aria-label={
+        showMetadata ? `${template.name} 템플릿 미리보기` : '신청 정보'
+      }
       className="space-y-3"
     >
-      <div>
-        <p className="font-medium text-foreground">{template.name}</p>
-        <p className="text-sm text-muted-foreground">
-          {template.key} v{template.version} ·{' '}
-          {PARTICIPATION_LABELS[template.participation]}
-        </p>
-      </div>
+      {showMetadata ? (
+        <div>
+          <p className="font-medium text-foreground">{template.name}</p>
+          <p className="text-sm text-muted-foreground">
+            {template.key} v{template.version} ·{' '}
+            {PARTICIPATION_LABELS[template.participation]}
+          </p>
+        </div>
+      ) : null}
       <div className="space-y-3">
         {template.fields.map((field) => (
           <FormFieldControl

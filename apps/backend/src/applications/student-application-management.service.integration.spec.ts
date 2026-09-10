@@ -167,7 +167,7 @@ describe('StudentApplicationManagementService integration races', () => {
         MEMBER_GITHUB_ID,
         PROGRAM_ID,
         {
-          answers: { title: 'Hijacked title', summary: 'Hijacked summary' },
+          answers: { title: 'Hijacked title' },
           applicationTemplateVersion: 1,
         },
         NOW,
@@ -227,7 +227,7 @@ describe('StudentApplicationManagementService integration races', () => {
             GITHUB_ID,
             PROGRAM_ID,
             {
-              answers: { title: 'Updated title', summary: 'Updated summary' },
+              answers: { title: 'Updated title' },
               applicationTemplateVersion: 1,
             },
             NOW,
@@ -272,7 +272,7 @@ describe('StudentApplicationManagementService integration races', () => {
       GITHUB_ID,
       PROGRAM_ID,
       {
-        answers: { title: 'Updated title', summary: 'Updated summary' },
+        answers: { title: 'Updated title' },
         applicationTemplateVersion: 1,
       },
       NOW,

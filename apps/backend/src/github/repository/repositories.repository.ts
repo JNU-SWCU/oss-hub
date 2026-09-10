@@ -14,7 +14,10 @@ import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
 } from '../repository-identity';
-import { REPOSITORY_PROVISION_EVENT_TYPE } from '../repository-provision-event';
+import {
+  REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
+  REPOSITORY_PROVISION_EVENT_TYPE,
+} from '../repository-provision-event';
 
 export interface ClaimProvisionEventInput {
   readonly workerId: string;
@@ -25,6 +28,8 @@ export interface ClaimProvisionEventInput {
 export interface ClaimedProvisionEvent {
   readonly id: string;
   readonly aggregateId: string;
+  /// consumer dispatch의 유일한 근거 — payload 모양으로 type을 추측하지 않는다.
+  readonly type: string;
   readonly payload: Prisma.JsonValue;
 }
 
@@ -143,10 +148,12 @@ export interface RepositoriesTransactionStore {
   ): Promise<boolean>;
 }
 
-type ClaimedProvisionEventRow = {
+type ClaimedProvisionEventRow = ClaimedProvisionEvent;
+
+type LockedProvisionJobRow = {
   readonly id: string;
-  readonly aggregateId: string;
-  readonly payload: Prisma.JsonValue;
+  readonly status: RepositoryProvisionJobStatus;
+  readonly nextAttemptAt: Date;
 };
 
 class PrismaRepositoriesTransactionStore implements RepositoriesTransactionStore {
@@ -201,7 +208,10 @@ class PrismaRepositoriesTransactionStore implements RepositoriesTransactionStore
       WITH candidate AS (
         SELECT "id"
         FROM "OutboxEvent"
-        WHERE "type" = ${REPOSITORY_PROVISION_EVENT_TYPE}
+        WHERE "type" IN (
+            ${REPOSITORY_PROVISION_EVENT_TYPE},
+            ${REPOSITORY_ACCESS_SYNC_EVENT_TYPE}
+          )
           AND "aggregateType" = 'Application'
           AND "availableAt" <= ${input.now}
           AND (
@@ -223,25 +233,78 @@ class PrismaRepositoriesTransactionStore implements RepositoriesTransactionStore
           "updatedAt" = ${input.now}
       FROM candidate
       WHERE event."id" = candidate."id"
-      RETURNING event."id", event."aggregateId", event."payload"
+      RETURNING event."id", event."aggregateId", event."type", event."payload"
     `);
     return events[0] ?? null;
   }
 
+  /**
+   * event당 job은 application당 한 건이지만, 기존 행을 그대로 두면 종료된 job은 다시 깨지지 않는다.
+   * 같은 트랜잭션에서 행을 잠그고 status별로만 손대서 worker의 lease/완료 경합을 깨지 않는다.
+   * Job행 외에 Team/TeamMember를 잠그지 않는다(#66 완료 경로와의 lock 순서 계약).
+   */
   async upsertProvisionJob(
     applicationId: string,
     now: Date,
   ): Promise<ProvisionJobReference> {
-    return this.transaction.repositoryProvisionJob.upsert({
-      where: { applicationId },
-      update: {},
-      create: {
-        applicationId,
-        status: RepositoryProvisionJobStatus.PENDING,
-        nextAttemptAt: now,
-      },
-      select: { id: true },
-    });
+    const locked = await this.transaction.$queryRaw<LockedProvisionJobRow[]>(
+      Prisma.sql`
+        SELECT "id", "status", "nextAttemptAt"
+        FROM "RepositoryProvisionJob"
+        WHERE "applicationId" = ${applicationId}
+        FOR UPDATE
+      `,
+    );
+    const existing = locked[0];
+    if (existing === undefined) {
+      // 최초 생성은 applicationId unique에 기대는 idempotent 경로를 그대로 유지한다.
+      return this.transaction.repositoryProvisionJob.upsert({
+        where: { applicationId },
+        update: {},
+        create: {
+          applicationId,
+          status: RepositoryProvisionJobStatus.PENDING,
+          nextAttemptAt: now,
+        },
+        select: { id: true },
+      });
+    }
+
+    if (
+      existing.status === RepositoryProvisionJobStatus.SUCCEEDED ||
+      existing.status === RepositoryProvisionJobStatus.FAILED_FINAL
+    ) {
+      // 종료 상태는 새 요청으로 다시 무장한다 — 이전 실패 흔적은 남기지 않는다.
+      await this.transaction.repositoryProvisionJob.update({
+        where: { id: existing.id },
+        data: {
+          status: RepositoryProvisionJobStatus.PENDING,
+          nextAttemptAt: now,
+          attemptCount: 0,
+          lastErrorCode: null,
+          lastErrorMessage: null,
+          finishedAt: null,
+        },
+      });
+      return { id: existing.id };
+    }
+
+    if (
+      existing.status === RepositoryProvisionJobStatus.PENDING ||
+      existing.status === RepositoryProvisionJobStatus.FAILED_RETRYABLE
+    ) {
+      // 대기/재시도 중이면 진행 중인 backoff 시도 횟수를 되돌리지 않고 시각만 앞당긴다.
+      if (existing.nextAttemptAt.getTime() > now.getTime()) {
+        await this.transaction.repositoryProvisionJob.update({
+          where: { id: existing.id },
+          data: { nextAttemptAt: now },
+        });
+      }
+      return { id: existing.id };
+    }
+
+    // PROCESSING: 행 잠금만 잡아 완료 경합을 직렬화하고 lease는 건드리지 않는다.
+    return { id: existing.id };
   }
 
   async completeProvisionEvent(
@@ -310,10 +373,7 @@ export class RepositoriesRepository {
           status: ApplicationStatus.APPROVED,
           // 모든 신청이 Team을 갖고 개인 참여는 1인 팀이므로(D5) 팀 소속 하나로 판정한다.
           team: {
-            OR: [
-              { leader: { githubId } },
-              { members: { some: { user: { githubId } } } },
-            ],
+            members: { some: { user: { githubId } } },
           },
         },
       },
@@ -345,7 +405,12 @@ export class RepositoriesRepository {
             nameWithOwner: true,
             visibility: true,
             invitations: {
-              where: { githubLogin: user.nickname.toLowerCase() },
+              where: {
+                githubLogin: {
+                  equals: user.nickname.trim(),
+                  mode: 'insensitive',
+                },
+              },
               select: { status: true },
             },
           },

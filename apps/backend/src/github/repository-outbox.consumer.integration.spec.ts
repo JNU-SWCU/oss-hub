@@ -1,6 +1,7 @@
 import {
   ApplicationStatus,
   MemberKind,
+  Prisma,
   OutboxEventStatus,
   ProgramCategory,
   RepositoryProvisionJobStatus,
@@ -10,7 +11,10 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../prisma/prisma.service';
 import { RepositoriesRepository } from './repository/repositories.repository';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
-import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event';
+import {
+  REPOSITORY_PROVISION_EVENT_TYPE,
+  repositoryAccessSyncEventData,
+} from './repository-provision-event';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -29,6 +33,10 @@ const APPLICATION_IDS = [
   'synthetic-consume-active',
   'synthetic-consume-invalid',
   'synthetic-consume-parallel',
+  'synthetic-consume-succeeded',
+  'synthetic-consume-duplicate',
+  'synthetic-consume-processing',
+  'synthetic-consume-sync-invalid',
 ] as const;
 
 function programId(applicationId: string): string {
@@ -109,6 +117,25 @@ async function createProvisionEvent(
       availableAt: NOW,
       lockedAt,
       lockedBy: lockedAt ? 'stale-worker' : null,
+    },
+  });
+  return event.id;
+}
+
+async function createAccessSyncEvent(
+  applicationId: string,
+  requestedAt: Date = NOW,
+  payloadOverride?: Prisma.InputJsonValue,
+): Promise<string> {
+  const data = repositoryAccessSyncEventData(
+    applicationId,
+    teamIdFor(applicationId),
+    requestedAt,
+  );
+  const event = await prisma.outboxEvent.create({
+    data: {
+      ...data,
+      payload: payloadOverride ?? data.payload,
     },
   });
   return event.id;
@@ -220,6 +247,170 @@ describe('RepositoryOutboxConsumer integration', () => {
       status: OutboxEventStatus.PROCESSING,
       lockedBy: 'stale-worker',
     });
+    await expect(
+      prisma.repositoryProvisionJob.count({ where: { applicationId } }),
+    ).resolves.toBe(0);
+  });
+
+  it('완료된 job은 권한 동기화 요청으로 다시 무장된다', async () => {
+    // Given: 이미 성공해 종료된 job과 새 권한 동기화 요청이 있다.
+    const applicationId = APPLICATION_IDS[5];
+    await createApprovedApplication(applicationId);
+    await prisma.repositoryProvisionJob.create({
+      data: {
+        applicationId,
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+        attemptCount: 3,
+        nextAttemptAt: new Date(NOW.getTime() + 60 * 60_000),
+        lastErrorCode: 'PREVIOUS_FAILURE',
+        lastErrorMessage: 'previous failure detail',
+        finishedAt: new Date(NOW.getTime() - 60_000),
+      },
+    });
+    const eventId = await createAccessSyncEvent(applicationId);
+
+    // When: consumer가 권한 동기화 event를 처리한다.
+    const result = await consumer.consumeNext('worker-sync', NOW);
+
+    // Then: 같은 job이 지금 실행 대상으로 되살아나고 이전 실패 흔적이 지워진다.
+    const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
+      where: { applicationId },
+    });
+    expect(result).toEqual({ kind: 'CONSUMED', eventId, jobId: job.id });
+    expect(job).toMatchObject({
+      status: RepositoryProvisionJobStatus.PENDING,
+      attemptCount: 0,
+      nextAttemptAt: NOW,
+      lastErrorCode: null,
+      lastErrorMessage: null,
+      finishedAt: null,
+    });
+  });
+
+  it('권한 동기화 event가 중복돼도 job은 한 건으로 합쳐진다', async () => {
+    // Given: 같은 신청에 대한 권한 동기화 event가 두 건 쌓여 있다.
+    const applicationId = APPLICATION_IDS[6];
+    await createApprovedApplication(applicationId);
+    const firstEventId = await createAccessSyncEvent(applicationId);
+    const secondEventId = await createAccessSyncEvent(
+      applicationId,
+      new Date(NOW.getTime() + 1_000),
+    );
+
+    // When: consumer가 두 event를 모두 처리한다.
+    const first = await consumer.consumeNext('worker-dup', NOW);
+    const second = await consumer.consumeNext(
+      'worker-dup',
+      new Date(NOW.getTime() + 2_000),
+    );
+
+    // Then: 두 event 모두 처리되지만 job은 하나이고 즉시 실행 시각을 유지한다.
+    const jobs = await prisma.repositoryProvisionJob.findMany({
+      where: { applicationId },
+    });
+    expect(jobs).toHaveLength(1);
+    const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
+      where: { applicationId },
+    });
+    expect(first).toEqual({
+      kind: 'CONSUMED',
+      eventId: firstEventId,
+      jobId: job.id,
+    });
+    expect(second).toEqual({
+      kind: 'CONSUMED',
+      eventId: secondEventId,
+      jobId: job.id,
+    });
+    expect(job).toMatchObject({
+      status: RepositoryProvisionJobStatus.PENDING,
+      nextAttemptAt: NOW,
+    });
+  });
+
+  it('실행 중인 job의 lease를 권한 동기화 event가 빼앗지 않는다', async () => {
+    // Given: 다른 worker가 잡고 실행 중인 job이 있다.
+    const applicationId = APPLICATION_IDS[7];
+    await createApprovedApplication(applicationId);
+    const lockedAt = new Date(NOW.getTime() - 30_000);
+    await prisma.repositoryProvisionJob.create({
+      data: {
+        applicationId,
+        status: RepositoryProvisionJobStatus.PROCESSING,
+        attemptCount: 2,
+        nextAttemptAt: new Date(NOW.getTime() + 60_000),
+        lockedAt,
+        lockedBy: 'provision-worker',
+      },
+    });
+    const eventId = await createAccessSyncEvent(applicationId);
+
+    // When: consumer가 권한 동기화 event를 처리한다.
+    const result = await consumer.consumeNext('worker-lease', NOW);
+
+    // Then: event는 소비되지만 진행 중 job의 상태와 lease는 그대로다.
+    const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
+      where: { applicationId },
+    });
+    expect(result).toEqual({ kind: 'CONSUMED', eventId, jobId: job.id });
+    expect(job).toMatchObject({
+      status: RepositoryProvisionJobStatus.PROCESSING,
+      attemptCount: 2,
+      lockedAt,
+      lockedBy: 'provision-worker',
+    });
+  });
+
+  it('계약 밖 권한 동기화 payload는 FAILED로 격리한다', async () => {
+    // Given: 계약에 없는 key가 섞인 권한 동기화 event가 있다.
+    const applicationId = APPLICATION_IDS[8];
+    await createApprovedApplication(applicationId);
+    const eventId = await createAccessSyncEvent(applicationId, NOW, {
+      applicationId,
+      teamId: teamIdFor(applicationId),
+      requestedAt: NOW.toISOString(),
+      githubLogins: ['synthetic-applicant'],
+    });
+
+    // When: consumer가 event를 처리한다.
+    const result = await consumer.consumeNext('worker-sync-invalid', NOW);
+
+    // Then: job을 만들지 않고 정규화한 실패 코드만 남긴다.
+    expect(result).toEqual({ kind: 'FAILED', eventId });
+    await expect(
+      prisma.outboxEvent.findUniqueOrThrow({ where: { id: eventId } }),
+    ).resolves.toMatchObject({
+      status: OutboxEventStatus.FAILED,
+      lastError: 'INVALID_REPOSITORY_PROVISION_EVENT',
+      lockedAt: null,
+      lockedBy: null,
+    });
+    await expect(
+      prisma.repositoryProvisionJob.count({ where: { applicationId } }),
+    ).resolves.toBe(0);
+  });
+
+  it('승인 이벤트 parser는 권한 동기화 payload를 받아들이지 않는다', async () => {
+    // Given: type은 승인인데 payload가 권한 동기화 모양인 event가 있다.
+    const applicationId = APPLICATION_IDS[4];
+    await createApprovedApplication(applicationId);
+    const eventId = await createProvisionEvent(applicationId);
+    await prisma.outboxEvent.update({
+      where: { id: eventId },
+      data: {
+        payload: {
+          applicationId,
+          teamId: teamIdFor(applicationId),
+          requestedAt: NOW.toISOString(),
+        },
+      },
+    });
+
+    // When: consumer가 event를 처리한다.
+    const result = await consumer.consumeNext('worker-grant', NOW);
+
+    // Then: 승인 계약은 그대로 엄격해 job을 만들지 않는다.
+    expect(result).toEqual({ kind: 'FAILED', eventId });
     await expect(
       prisma.repositoryProvisionJob.count({ where: { applicationId } }),
     ).resolves.toBe(0);

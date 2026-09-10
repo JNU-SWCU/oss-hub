@@ -5,6 +5,10 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  lockSubmissionMembership,
+  SubmissionMembershipChangedError,
+} from '../submissions/submission-membership.repository';
 import type {
   MilestoneDocumentSubmissionDetail,
   UpsertMilestoneDocumentSubmissionInput,
@@ -50,12 +54,46 @@ const attachedFileSelect = {
  * 학생 제출의 잠금·기대 버전 확인·append-only 이력 쓰기를 한 경계에 모은다. 이전 첨부는
  * 삭제하지 않고 자기 제출 이력에 연결된 채 보존하며, 현재 파일 판정은 최신 이력의 revision으로
  * 한다. 이 함수 밖의 목록/CRUD repository가 이 동시성 규칙을 다시 구현하지 않는다.
+ *
+ * 쓰기의 첫 문장은 「지금 이 신청의 팀 사람인가」를 되묻는 공용 관문이다(#1269) — 아래 첫
+ * 주석에 그 이유와 잠금 순서가 있다.
  */
 export function upsertMilestoneDocumentSubmission(
   prisma: PrismaService,
   input: UpsertMilestoneDocumentSubmissionInput,
 ): Promise<MilestoneDocumentSubmissionDetail> {
   return prisma.$transaction(async (transaction) => {
+    /*
+     * 「이 사람이 **지금** 이 신청의 팀 사람인가」를 이 트랜잭션의 **첫 문장**으로 되묻는다(#1269).
+     *
+     * 서비스의 사전 확인(`findStudentApplication`)은 트랜잭션 밖의 읽기다. 그 읽기와 여기 쓰기
+     * 사이에 탈퇴·제외·승계가 커밋되면, 이미 팀에서 나간 사람의 제출·이력·첨부가 그대로 남는다.
+     * 권한의 정본은 잠금 뒤에 되읽은 현재 소속 하나이며, 판정 재확인(`expectedLatestReviewId`)이나
+     * 제출 상태 대조는 이 자리를 대신하지 못한다 — 둘 다 「누가 쓰는가」를 보지 않는다.
+     *
+     * 판정은 공용 `lockSubmissionMembership` 한 벌만 쓴다. 같은 판정을 여기 SQL로 다시 적으면
+     * 두 벌이 갈라지고, 갈라진 쪽이 곧 우회로가 된다.
+     *
+     * 자리가 맨 앞인 것도 의도다. 이 함수가 잡는 잠금은 `Milestone`(FOR SHARE) →
+     * `MilestoneDocument`이고 공용 관문은 `Program` → `Team`을 잡으므로, 앞에 두어야
+     * 전역 순서(`Program` → `Team` → `Milestone` → `MilestoneDocument`)의 부분집합으로 남는다.
+     * 뒤로 밀면 신청 경로(`Program` → `Team` → `Application`)와 엇갈려 교착이 된다.
+     *
+     * 권한은 **지금 소속**으로만 판정한다 — `submittedById`는 이 요청을 낸 인증된 학생이고,
+     * 예전 제출자·최초 신청자·팀장 자리는 어느 것도 여기서 권한이 되지 않는다.
+     */
+    const stillMember = await lockSubmissionMembership(
+      transaction,
+      input.applicationId,
+      input.submittedById,
+    );
+    if (!stillMember) {
+      throw new SubmissionMembershipChangedError(
+        input.applicationId,
+        input.submittedById,
+      );
+    }
+
     /**
      * 마감이 지난 요청인가. 마감 시각 읽기(`FOR SHARE`)는 **서류 행 잠금보다 먼저** 해야 한다 —
      * 삭제·순서 재부여가 「Milestone → MilestoneDocument」 순으로 잠그므로, 여기서만 순서를

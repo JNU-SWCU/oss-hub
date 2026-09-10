@@ -5,6 +5,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { DomainException } from '../common/error-code';
+import { SubmissionMembershipChangedError } from '../submissions/submission-membership.repository';
 import { buildMilestoneDocumentCollectionPage } from './domain/milestone-document-collection-page';
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
 import {
@@ -550,6 +551,16 @@ export class MilestoneDocumentsService {
       });
       return MilestoneDocumentSubmissionResponseDto.from(detail);
     } catch (error) {
+      /*
+       * 사전 인가 뒤에 팀원 제외·탈퇴가 커밋된 경우다(#1269). 이미 팀 사람이 아닌 것과
+       * 같은 결로 닫는다 — 위의 사전 확인이 내놓는 답(`NOT_APPLICATION_MEMBER`)과 같아야
+       * 새로고침 여부에 따라 다른 화면이 되지 않고, 없는 신청과 똑같은 응답이라 제출물의
+       * 존재 여부도 새지 않는다. 이 분기는 트랜잭션이 되돌려진 뒤라 제출·이력·첨부 어느
+       * 것도 남지 않는다.
+       */
+      if (error instanceof SubmissionMembershipChangedError) {
+        throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
+      }
       if (error instanceof MilestoneDocumentMissingError) {
         throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
       }

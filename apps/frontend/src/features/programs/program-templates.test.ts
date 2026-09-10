@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   PROGRAM_TEMPLATE_DEFINITIONS,
+  V1_APPLICATION_FIELDS,
   resolveProgramApplicationTemplate,
 } from './program-templates';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
@@ -37,6 +38,12 @@ describe('resolveProgramApplicationTemplate', () => {
     expect(resolveProgramApplicationTemplate(program, [])?.participation).toBe(
       'team',
     );
+    expect(resolveProgramApplicationTemplate(program, [])?.fields).toEqual(
+      V1_APPLICATION_FIELDS,
+    );
+    expect(V1_APPLICATION_FIELDS).toEqual([
+      { key: 'applicantName', type: 'auto', label: '신청자', required: true },
+    ]);
   });
 
   it('returns null when the key is unknown', () => {

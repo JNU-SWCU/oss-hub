@@ -67,23 +67,6 @@ export function ActivityPanelBody({
               <dd>{activity.releaseCount}</dd>
             </div>
           </dl>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-accent"
-              style={{
-                width: `${Math.min(
-                  100,
-                  Math.max(
-                    4,
-                    (activity.commitCount +
-                      activity.pullRequestCount +
-                      activity.releaseCount) *
-                      5,
-                  ),
-                )}%`,
-              }}
-            />
-          </div>
           <div className="grid gap-1 text-small text-muted-foreground">
             <p>
               {activity.lastActivityAt
@@ -102,7 +85,12 @@ export function ActivityPanelBody({
   );
 }
 
-function AuthenticatedActivityGraphPanel({
+/**
+ * 실제 활동 집계를 읽어 그리는 본문. 카드도 제목도 두지 않는다 — 이미 제목이
+ * 있는 자리(「우리 팀 활동」)에 놓이면 같은 말을 두 번 하는 머리가 되기 때문에,
+ * 테두리와 제목은 그것이 필요한 호출부(`ActivityGraphPanel`)만 씌운다.
+ */
+export function ActivityGraphContent({
   programId,
 }: {
   readonly programId: string;
@@ -123,16 +111,7 @@ function AuthenticatedActivityGraphPanel({
     void load();
   }, [load]);
 
-  return (
-    <Card aria-labelledby="activity-title">
-      <CardHeader>
-        <CardTitle id="activity-title">활동 그래프</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ActivityPanelBody state={state} onRetry={() => void load()} />
-      </CardContent>
-    </Card>
-  );
+  return <ActivityPanelBody state={state} onRetry={() => void load()} />;
 }
 
 export function ActivityGraphPanel({
@@ -143,5 +122,14 @@ export function ActivityGraphPanel({
   readonly viewerRole: ViewerRole;
 }) {
   if (viewerRole === null || viewerRole === 'PENDING') return null;
-  return <AuthenticatedActivityGraphPanel programId={programId} />;
+  return (
+    <Card aria-labelledby="activity-title">
+      <CardHeader>
+        <CardTitle id="activity-title">활동 현황</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ActivityGraphContent programId={programId} />
+      </CardContent>
+    </Card>
+  );
 }

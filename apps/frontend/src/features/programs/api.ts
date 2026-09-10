@@ -363,18 +363,10 @@ export type CreateApplicationRepositoryConnectionMode = 'new' | 'own';
  * 미허용 키가 되어 신청이 통째로 실패한다.
  */
 export interface CreateApplicationInput {
-  readonly answers: {
-    readonly title?: string;
-    readonly summary: string;
-  };
+  readonly answers: { readonly title?: string };
   readonly applicationTemplateVersion: number;
   readonly isRepositoryPublicationPlanned: boolean;
-  /** 폼 값 — wire 전송 시 `NEW`/`OWN`, 발급 비활성은 null로 매핑한다. */
   readonly repositoryConnectionMode: CreateApplicationRepositoryConnectionMode | null;
-  /**
-   * 폼 값. `own`이면 trim 한 URL을 보내고, `new`이면 빈 문자열이어도 wire에는
-   * `null`을 넣는다(백엔드가 빈 문자열을 400으로 거절한다).
-   */
   readonly repositoryUrl: string;
 }
 
@@ -428,13 +420,26 @@ export interface TeamMember {
   readonly isLeader: boolean;
 }
 
+/**
+ * 내 팀 응답 계약. 능력 플래그는 **서버가 계산한 결과**이며(backend
+ * `ProgramTeamResponseDto`), 화면이 팀장 여부·신청 이력으로 같은 규칙을 다시
+ * 유추하지 않는다. 폐기된 `locked` 키는 더 이상 내려오지 않는다.
+ *
+ * - `hasApplication`: 이 팀 이름으로 제출된 신청이 있는가(사실 표기용).
+ * - `canInvite`: 초대를 보낼 수 있는가(팀장만).
+ * - `canRemoveMembers`: 다른 팀원을 제외할 수 있는가(팀장이고 팀원이 둘 이상).
+ * - `canLeave`: 이 팀에서 나갈 수 있는가.
+ */
 export interface ProgramTeam {
   readonly id: string;
   readonly name: string;
   readonly memberCount: number;
   readonly minMembers: number | null;
   readonly maxMembers: number;
-  readonly locked: boolean;
+  readonly hasApplication: boolean;
+  readonly canInvite: boolean;
+  readonly canRemoveMembers: boolean;
+  readonly canLeave: boolean;
   readonly isLeader: boolean;
   readonly members: readonly TeamMember[];
 }
@@ -442,13 +447,77 @@ export interface ProgramTeam {
 export interface CreatedTeam {
   readonly id: string;
   readonly name: string;
-  readonly joinCode: string;
   readonly memberCount: number;
 }
 
-export function getMyTeam(programId: string): Promise<ProgramTeam> {
-  return apiClient<ProgramTeam>(
-    `programs/${encodeURIComponent(programId)}/teams/me`,
+/**
+ * 내 팀 응답이 계약을 벗어났다. 능력 플래그가 빠졌을 때 「권한 없음」이나
+ * 「권한 있음」 어느 쪽으로도 기본값을 지어내지 않기 위해 끊는다 —
+ * 없는 권한을 그렸다가 서버에서 거절당하면 학생은 이유를 알 수 없다.
+ */
+export class ProgramTeamResponseError extends Error {
+  constructor() {
+    super('팀 응답 형식이 올바르지 않습니다.');
+    this.name = 'ProgramTeamResponseError';
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
+
+function isTeamMember(value: unknown): value is TeamMember {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.userId) &&
+    isNonEmptyString(value.nickname) &&
+    (value.name === null || typeof value.name === 'string') &&
+    typeof value.isLeader === 'boolean'
+  );
+}
+
+function parseProgramTeam(value: unknown): ProgramTeam {
+  if (
+    !isRecord(value) ||
+    !isNonEmptyString(value.id) ||
+    typeof value.name !== 'string' ||
+    typeof value.memberCount !== 'number' ||
+    !(value.minMembers === null || typeof value.minMembers === 'number') ||
+    typeof value.maxMembers !== 'number' ||
+    typeof value.hasApplication !== 'boolean' ||
+    typeof value.canInvite !== 'boolean' ||
+    typeof value.canRemoveMembers !== 'boolean' ||
+    typeof value.canLeave !== 'boolean' ||
+    typeof value.isLeader !== 'boolean' ||
+    !Array.isArray(value.members) ||
+    !value.members.every(isTeamMember)
+  ) {
+    throw new ProgramTeamResponseError();
+  }
+  return {
+    id: value.id,
+    name: value.name,
+    memberCount: value.memberCount,
+    minMembers: value.minMembers,
+    maxMembers: value.maxMembers,
+    hasApplication: value.hasApplication,
+    canInvite: value.canInvite,
+    canRemoveMembers: value.canRemoveMembers,
+    canLeave: value.canLeave,
+    isLeader: value.isLeader,
+    members: value.members,
+  };
+}
+
+export async function getMyTeam(programId: string): Promise<ProgramTeam> {
+  return parseProgramTeam(
+    await apiClient<unknown>(
+      `programs/${encodeURIComponent(programId)}/teams/me`,
+    ),
   );
 }
 
@@ -458,26 +527,26 @@ export function leaveMyTeam(programId: string): Promise<void> {
   });
 }
 
+/**
+ * 팀장의 팀원 제외(backend `DELETE /programs/:programId/teams/me/members/:userId`).
+ * 본인 제외는 탈퇴(`leaveMyTeam`)가 팀장 승계까지 책임지므로 서버가 409로 돌려보낸다.
+ */
+export function removeMyTeamMember(
+  programId: string,
+  userId: string,
+): Promise<void> {
+  return apiClient<void>(
+    `programs/${encodeURIComponent(programId)}/teams/me/members/${encodeURIComponent(userId)}`,
+    { method: 'DELETE' },
+  );
+}
+
 export function createTeam(
   programId: string,
   input: { readonly name: string },
 ): Promise<CreatedTeam> {
   return apiClient<CreatedTeam>(
     `programs/${encodeURIComponent(programId)}/teams`,
-    {
-      method: 'POST',
-      headers: jsonHeaders,
-      body: JSON.stringify(input),
-    },
-  );
-}
-
-export function joinTeam(
-  programId: string,
-  input: { readonly joinCode: string },
-): Promise<ProgramTeam> {
-  return apiClient<ProgramTeam>(
-    `programs/${encodeURIComponent(programId)}/teams/join`,
     {
       method: 'POST',
       headers: jsonHeaders,

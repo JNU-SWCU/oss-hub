@@ -60,6 +60,9 @@ const REQUIRED_ACTION_REGISTRIES = [
   'SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS',
   'APPLICATION_DECISION_AUDIT_ACTIONS',
   'USER_PROFILE_AUDIT_ACTIONS',
+  // 팀 구성 변경(#1269) 감사. 백엔드가 이 레지스트리 이름을 바꾸면 아래 동기화
+  // 검증이 조용히 공허해지므로 필수 목록에 명시한다.
+  'TEAM_MEMBERSHIP_AUDIT_ACTIONS',
 ] as const;
 
 function listAuditActionExportNames(): string[] {
@@ -155,5 +158,49 @@ describe('감사 로그 action registry가 backend와 동기화되어 있다', (
 
   it('REPOSITORY_PUBLISHED가 필터 목록에 포함된다(#470)', () => {
     expect(AUDIT_LOG_ACTIONS).toContain('REPOSITORY_PUBLISHED');
+  });
+
+  // 백엔드가 실제로 남기기 시작한 TEAM_MEMBERSHIP_CHANGED를 프런트가 따라잡았는지를
+  // 구현으로 증명한다 — backend-ahead 허용 목록에 넣어 검사를 끌 수도 있었지만,
+  // 그러면 관리자가 팀 탈퇴·내보내기 기록을 필터로 조회할 수 없는 상태가 그대로 남는다.
+  it('TEAM_MEMBERSHIP_CHANGED가 backend·frontend 양쪽 registry에 모두 있다(#1269)', () => {
+    expect(backendActions).toContain('TEAM_MEMBERSHIP_CHANGED');
+    expect(AUDIT_LOG_ACTIONS).toContain('TEAM_MEMBERSHIP_CHANGED');
+    expect(
+      AUDIT_LOG_ACTION_LABELS.TEAM_MEMBERSHIP_CHANGED.trim().length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('TEAM_MEMBERSHIP_CHANGED를 backend-ahead 예외 목록으로 덧덮지 않았다', () => {
+    const backendAhead: readonly string[] = INDEPENDENT_AUTHORITY_BACKEND_AHEAD;
+    const wave1: readonly string[] = WAVE1_ACTIONS;
+    expect(backendAhead).not.toContain('TEAM_MEMBERSHIP_CHANGED');
+    expect(wave1).not.toContain('TEAM_MEMBERSHIP_CHANGED');
+  });
+
+  it('기존에 허용된 backend-ahead action 네 개는 그대로 유지된다', () => {
+    expect([...INDEPENDENT_AUTHORITY_BACKEND_AHEAD].sort()).toEqual([
+      'GRANT_ADMIN_ACCESS',
+      'GRANT_STAFF_ACCESS',
+      'REVOKE_ADMIN_ACCESS',
+      'REVOKE_STAFF_ACCESS',
+    ]);
+    for (const action of INDEPENDENT_AUTHORITY_BACKEND_AHEAD) {
+      expect(backendActions).toContain(action);
+      expect(frontendActions).not.toContain(action);
+    }
+  });
+
+  it('교직원·관리자 action 라벨을 그대로 보존한다', () => {
+    expect(AUDIT_LOG_ACTION_LABELS.STAFF_ROLE_REQUEST_APPROVED).toBe('승인');
+    expect(AUDIT_LOG_ACTION_LABELS.STAFF_ROLE_REQUEST_REJECTED).toBe('반려');
+    expect(AUDIT_LOG_ACTION_LABELS.STAFF_ROLE_REQUEST_REVOKED).toBe('회수');
+    expect(AUDIT_LOG_ACTION_LABELS.STAFF_ROLE_REQUEST_RESTORED).toBe('복구');
+    expect(AUDIT_LOG_ACTION_LABELS.USER_ROLE_CHANGED).toBe('역할 변경');
+    expect(AUDIT_LOG_ACTION_LABELS.USER_ACCOUNT_STATUS_CHANGED).toBe(
+      '계정 상태 변경',
+    );
+    expect(AUDIT_LOG_ACTION_LABELS.TEAM_CREATED).toBe('팀 생성');
+    expect(AUDIT_LOG_ACTION_LABELS.TEAM_JOINED).toBe('팀 합류');
   });
 });

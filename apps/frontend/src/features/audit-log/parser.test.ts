@@ -225,6 +225,118 @@ describe('parseAuditLogPage', () => {
     });
   });
 
+  // TEAM_MEMBERSHIP_CHANGED 행은 백엔드 metadata에 팀장 승계 사실까지 봉인되어 온다
+  // (apps/backend/src/audit-log/web-state-audit-metadata.ts). 파서는 그 중 문장에 쓸
+  // 사실만 검증해 투영하고 user id와 원본 metadata는 그대로 버린다.
+  function membershipWireRecord(metadata: unknown) {
+    return {
+      id: 'audit-team-membership',
+      actor: 'synthetic-student',
+      actorHandle: 'synthetic-student',
+      action: 'TEAM_MEMBERSHIP_CHANGED',
+      targetType: 'TEAM',
+      targetId: 'team-synthetic-1',
+      target: '합성 프로그램 · 합성 팀',
+      targetHandle: null,
+      occurredAt: '2026-07-24T07:00:00.000Z',
+      legacy: false,
+      metadata,
+    };
+  }
+
+  function membershipMetadata(
+    overrides: Record<string, unknown> = {},
+  ): Record<string, unknown> {
+    return {
+      schemaVersion: 1,
+      programName: '합성 프로그램',
+      teamName: '합성 팀',
+      operation: 'LEAVE',
+      removedUserId: 'synthetic-leader',
+      previousLeaderId: 'synthetic-leader',
+      nextLeaderId: 'synthetic-successor',
+      ...overrides,
+    };
+  }
+
+  function parseOne(record: unknown) {
+    return parseAuditLogPage({ items: [record], total: 1, page: 1, limit: 20 })
+      .items[0];
+  }
+
+  it('TEAM_MEMBERSHIP_CHANGED 행의 탈퇴·승계 사실을 투영하고 user id는 내려보내지 않는다', () => {
+    const item = parseOne(membershipWireRecord(membershipMetadata()));
+
+    expect(item.teamMembership).toEqual({
+      operation: 'LEAVE',
+      leaderChanged: true,
+      teamDeleted: false,
+    });
+    expect(item).not.toHaveProperty('metadata');
+    expect(JSON.stringify(item)).not.toContain('synthetic-successor');
+    expect(JSON.stringify(item)).not.toContain('synthetic-leader');
+  });
+
+  it('내보내기는 팀장이 그대로임을(leaderChanged=false) 남긴다', () => {
+    const item = parseOne(
+      membershipWireRecord(
+        membershipMetadata({
+          operation: 'REMOVE',
+          removedUserId: 'synthetic-member',
+          nextLeaderId: 'synthetic-leader',
+        }),
+      ),
+    );
+
+    expect(item.teamMembership).toEqual({
+      operation: 'REMOVE',
+      leaderChanged: false,
+      teamDeleted: false,
+    });
+  });
+
+  it('nextLeaderId가 null이면 팀이 삭제된 사실로 읽는다', () => {
+    const item = parseOne(
+      membershipWireRecord(
+        membershipMetadata({
+          removedUserId: 'synthetic-sole',
+          previousLeaderId: 'synthetic-sole',
+          nextLeaderId: null,
+        }),
+      ),
+    );
+
+    expect(item.teamMembership).toEqual({
+      operation: 'LEAVE',
+      leaderChanged: false,
+      teamDeleted: true,
+    });
+  });
+
+  it('계약을 벗어난 metadata는 행을 버리지 않고 상세만 비운다', () => {
+    for (const broken of [
+      membershipMetadata({ schemaVersion: 2 }),
+      membershipMetadata({ operation: 'TRANSFER' }),
+      membershipMetadata({ previousLeaderId: undefined }),
+      membershipMetadata({ teamName: '' }),
+      membershipMetadata({ nextLeaderId: 42 }),
+    ]) {
+      const item = parseOne(membershipWireRecord(broken));
+      expect(item.action).toBe('TEAM_MEMBERSHIP_CHANGED');
+      expect(item.target).toBe('합성 프로그램 · 합성 팀');
+      expect(item).not.toHaveProperty('teamMembership');
+    }
+  });
+
+  it('다른 action의 행에는 팀 구성 요약을 붙이지 않는다', () => {
+    const item = parseOne({
+      ...membershipWireRecord(membershipMetadata()),
+      action: 'TEAM_JOINED',
+    });
+
+    expect(item).not.toHaveProperty('teamMembership');
+  });
+
   it('APPLICATION_APPROVED 행이 합성 라벨(프로그램 이름 · @신청자) 스냅샷을 받으면 그 라벨을 그대로 통과시킨다', () => {
     const page = parseAuditLogPage({
       items: [AUDIT_LOG_APPLICATION_APPROVED_RECORD_FIXTURE],

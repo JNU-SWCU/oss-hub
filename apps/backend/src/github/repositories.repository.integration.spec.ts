@@ -122,12 +122,8 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         },
       ],
     });
-    // CURRENT_USER_ID는 MEMBER_TEAM_ID의 팀원으로 들어가 "리더가 아니라 팀원으로 소유"
-    // 분기(members some)를 검증한다. OTHER_USER_ID는 MEMBER_TEAM_ID의 리더인데,
-    // 실제 D5 생성 흐름(createTeamWithLeader)은 리더도 항상 TeamMember 행을 갖는다
-    // (프로그램당 한 팀에만 소속 가능한 unique 제약상 CURRENT_USER_ID는 이미 이 프로그램의
-    // 유일한 소속 슬롯을 MEMBER_TEAM_ID에 쓰고 있어 PERSONAL_TEAM_ID/LEADER_TEAM_ID에는
-    // 추가할 수 없다 — 이 두 팀은 리더 전용 소유(leader 분기)만 검증한다).
+    // 현재 소속은 MEMBER_TEAM_ID뿐이다. 다른 팀에 남은 leaderId와 applicantId는
+    // 의도적인 과거 귀속 fixture이며 저장소 접근 권한을 부여하지 않아야 한다.
     await prisma.teamMember.createMany({
       data: [
         {
@@ -194,58 +190,13 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
     }
   });
 
-  it('returns only current-user approved personal and team jobs with safe selected fields', async () => {
+  it('returns current-member jobs, excluding historical applicants and bare leaders', async () => {
     const jobs = await repository.listOwnedProvisionJobs(8_300_000_000_001n);
     const byApplication = new Map(jobs.map((job) => [job.application.id, job]));
 
-    expect([...byApplication.keys()].sort()).toEqual(
-      [
-        PERSONAL_APPLICATION_ID,
-        LEADER_APPLICATION_ID,
-        MEMBER_APPLICATION_ID,
-      ].sort(),
-    );
-    expect(byApplication.get(PERSONAL_APPLICATION_ID)).toEqual({
-      application: {
-        id: PERSONAL_APPLICATION_ID,
-        teamId: PERSONAL_TEAM_ID,
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
-        applicant: { nickname: `${PREFIX}-Current` },
-        program: { name: `${PREFIX}-program` },
-        team: {
-          name: `${PREFIX}-personal-team`,
-          _count: { members: 0 },
-        },
-      },
-      status: RepositoryProvisionJobStatus.PENDING,
-      lastErrorCode: 'SYNTHETIC_ERROR',
-      updatedAt: FIXED_UPDATED_AT,
-      repository: null,
-    });
-    expect(byApplication.get(LEADER_APPLICATION_ID)).toEqual({
-      application: {
-        id: LEADER_APPLICATION_ID,
-        teamId: LEADER_TEAM_ID,
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
-        applicant: { nickname: `${PREFIX}-other` },
-        program: { name: `${PREFIX}-program` },
-        team: {
-          name: `${PREFIX}-leader-team`,
-          _count: { members: 0 },
-        },
-      },
-      status: RepositoryProvisionJobStatus.SUCCEEDED,
-      lastErrorCode: 'SYNTHETIC_ERROR',
-      updatedAt: FIXED_UPDATED_AT,
-      repository: {
-        id: REPOSITORY_IDS[0],
-        applicationId: LEADER_APPLICATION_ID,
-        name: REPOSITORY_IDS[0],
-        url: `https://github.com/synthetic/${REPOSITORY_IDS[0]}`,
-        visibility: RepositoryVisibility.PRIVATE,
-        invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
-      },
-    });
+    expect([...byApplication.keys()]).toEqual([MEMBER_APPLICATION_ID]);
+    expect(byApplication.has(PERSONAL_APPLICATION_ID)).toBe(false);
+    expect(byApplication.has(LEADER_APPLICATION_ID)).toBe(false);
     expect(byApplication.get(MEMBER_APPLICATION_ID)).toEqual({
       application: {
         id: MEMBER_APPLICATION_ID,
@@ -271,6 +222,36 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       },
     });
   });
+
+  it.each([
+    [PERSONAL_TEAM_ID, PERSONAL_APPLICATION_ID],
+    [LEADER_TEAM_ID, LEADER_APPLICATION_ID],
+  ])(
+    'grants access to %s only while membership exists',
+    async (teamId, applicationId) => {
+      const membership = { userId: CURRENT_USER_ID, programId: PROGRAM_ID };
+      try {
+        await prisma.teamMember.updateMany({
+          where: membership,
+          data: { teamId },
+        });
+        const jobs =
+          await repository.listOwnedProvisionJobs(8_300_000_000_001n);
+        expect(jobs.map((job) => job.application.id)).toEqual([applicationId]);
+        expect(jobs[0]?.application.team?._count.members).toBe(1);
+      } finally {
+        await prisma.teamMember.updateMany({
+          where: membership,
+          data: { teamId: MEMBER_TEAM_ID },
+        });
+      }
+      const restored =
+        await repository.listOwnedProvisionJobs(8_300_000_000_001n);
+      expect(restored.map((job) => job.application.id)).toEqual([
+        MEMBER_APPLICATION_ID,
+      ]);
+    },
+  );
 });
 
 async function createFixtures(): Promise<void> {
@@ -380,7 +361,7 @@ async function createFixtures(): Promise<void> {
       },
       {
         repositoryId: REPOSITORY_IDS[1],
-        githubLogin: `${PREFIX}-current`,
+        githubLogin: `${PREFIX}-Current`,
         status: RepositoryInvitationStatus.PENDING,
       },
     ],

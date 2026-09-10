@@ -1556,6 +1556,22 @@
 - 주의: #1251과 submit-pr-evidence 버전·CHANGELOG가 겹친다. 새 HEAD는 이전 승인과 별도로 리뷰한다. 인터뷰 면제는 이 문서 개선 범위만 유지한다.
 - 범위: Xia가 직접 Ponytail full로 기존 참조 재사용·필수 근거 보존을 검토했다. 새 검사기·스킬·원칙 파일, 과거 게시물 수정, 제품 코드 변경, 병합·배포는 없다.
 
+## 2026-09-10 — 학생 신청과 우리 팀의 현재 구성원 계약을 통합한다
+
+- 상태: 진행 중
+- Issue: #1269
+- PR: 미생성
+- blocker: 최신 main 통합과 최종 검증
+- 내용: 신청 정보·팀 구성·초대·저장소 입력을 한 폼으로 통합하고 마지막 신청 확인을 유지한다.
+- 현재 구성원만 내부 제출물에 접근하며 탈퇴·제외·팀장 승계는 이력을 보존한다.
+- 관리형 저장소는 현재 팀원을 기준으로 권한을 조정하고, 외부 저장소의 권한은 관리했다고 표시하지 않는다.
+- 주의: GitHub 호출은 멤버십 트랜잭션 밖에서 수행한다. 성공뿐 아니라 실패 완료에서도 멤버십 변경을 다시 확인해야 outbox 신호가 유실되지 않는다.
+- 주의: 신청서의 작성자와 제출물의 업로더는 이력이지 현재 접근 권한이 아니다.
+- UX 리뷰에서 명시적 팀 생성 뒤 신청이 중단되는 렌더 경합, 초대 성공 뒤 중복 조작, 취소 오류 누락, 상태를 나타내는 비활성 버튼을 찾아 수정했다.
+- 검증: 권한 동기화 표시 반영 후 frontend 364 files / 3,832 tests와 typecheck 통과. 앞선 Chrome 전체 70개 통과는 이후 backend 변경의 증거로 재사용하지 않는다.
+- backend 최종 단위 검증에서 초대 수락 transaction fixture 두 파일의 새 outbox 의존성 누락을 발견했으며, 수정 뒤 전체 검증을 다시 수행한다.
+- 선행 migration PR #1268은 사용자 승인과 required CI를 거쳐 병합됐다. 이 작업의 enum migration은 이후 순서로 생성했다.
+- 공개 안전성: 합성 데이터로 검증했으며 운영 데이터·접속 정보·로컬 경로를 이 기록에 넣지 않았다.
 ## 2026-09-10 — 전화번호 컬럼 이관의 리허설 두 겹을 채운다
 
 - 상태: review
@@ -1566,3 +1582,21 @@
 - 검증: `migrate`·`negative` 두 lane을 일회용 PostgreSQL 컨테이너에서 실제로 돌려 각각 `{"status":"ok",...}`를 받았다. migrate는 값이 든 `TeamMember.phone`이 지워졌다가 직전 덤프로 되살아나는 것과 `User_phone_digits_check`가 10·11자리만 받는 것을, negative는 파일 전체가 한 트랜잭션이라 `ADD COLUMN`까지 롤백되는 것을 확인했다. 정적 계약 14개, ci-path-contract 8개, 전체 prettier가 통과했다.
 - 주의: 이 리허설 receipt를 근거로 `v0.6.154`를 발행했다. 스크립트는 호출자의 `DATABASE_URL`을 읽지 않고 unix 소켓 Docker endpoint만 허용하며 호스트 포트를 열지 않는다.
 - 범위: 리허설 tooling과 문서·CI 등록만 손댔다. 마이그레이션 SQL, 제품 코드, 운영 DB는 건드리지 않았다. `rehearse-program-deletion-column.sh`에 같은 정적 계약이 없는 것은 이 PR 범위 밖으로 남겨 둔다.
+
+## 2026-09-10 — 학생 신청 통합의 최종 증거를 기록한다
+
+- 상태: review
+- Issue: #1269
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 승인된 main과 신청·초대·우리 팀·현재 구성원 인가·관리형 권한 조정을 통합했다.
+- 검증: frontend 372 files / 3,880 tests, backend 337 suites / 4,076 tests, 격리 DB 103 suites / 670 tests, installed Chrome 74 tests가 통과했다.
+- 검증: 양쪽 typecheck·lint·build, 전체 format 검사, public-safe, migration 65개 동시 적용 직렬화를 확인했다.
+- 주의: Chrome 전체 실행의 QA148 증거 시나리오는 명시적 after 단계와 합성 cookie 경로를 요구한다.
+- 주의: architecture 경계 테스트가 일시적으로 만드는 실패 fixture와 backend 컴파일을 병렬 실행하지 않는다.
+- 주의: 권한 재조회는 주기마다 첫 시도부터 예산을 시작하되 같은 주기의 실패 횟수는 유지한다.
+- 주의: 구성원 변경 뒤 GitHub 권한까지 즉시 회수됐다고 판단하지 않는다.
+- 독립 리뷰: 현재 구성원·lease·fingerprint·회수 재시도 경계를 확인하고 재시도 예산과 대소문자 조회 지적 두 건을 수정했다.
+- UX 증거: main 기준 Before와 frontend 제품 코드 기준 After를 다시 촬영하고 작성자의 의도·직접 확인 경로·UX 원칙 답변을 받았다.
+- 공개 안전성: 합성 캡처만 기존 정식 Release에 첨부했으며 새 Release 발행이나 운영 변경으로 취급하지 않는다.
+- 남은 것: required CI를 거친 정식 릴리즈와 배포 후 역할별 신청 상태 표시 단순화는 별도 완료 확인이 필요하다.

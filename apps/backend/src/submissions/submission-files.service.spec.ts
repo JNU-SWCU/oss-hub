@@ -7,6 +7,7 @@ import {
   type StoreSubmissionFileInput,
   type SubmissionFileStoragePort,
 } from './submission-file-storage.port';
+import { SubmissionMembershipChangedError } from './submission-membership.repository';
 import {
   type CreatePendingSubmissionFileInput,
   type DownloadableSubmissionFile,
@@ -319,6 +320,45 @@ describe('SubmissionFilesService', () => {
       SubmissionsErrorCode.NOT_APPLICATION_MEMBER,
     );
     expect(storage.put).not.toHaveBeenCalled();
+  });
+
+  // #1269 — preflight 는 예약 시점에 이미 낡았다. 그 사이 탈퇴·승계가 커밋되면
+  // 예약 transaction 안의 공유 잠금이 이를 잡고, 서비스는 preflight 거절과 같은
+  // 403(NOT_APPLICATION_MEMBER)으로 돌려준다. 503 으로 뭉개면 학생에게는
+  // 「잠시 후 다시 시도」로 보여 권한 없는 재시도를 유도한다.
+  it('maps a membership change inside the reservation to the same NOT_APPLICATION_MEMBER refusal', async () => {
+    // Given
+    const { service, repository } = setup();
+    repository.createPending.mockRejectedValue(
+      new SubmissionMembershipChangedError('app', 'student-opaque'),
+    );
+
+    // When / Then
+    await expectCode(
+      service.upload(1n, 'app', 'milestone', file()),
+      SubmissionsErrorCode.NOT_APPLICATION_MEMBER,
+    );
+  });
+
+  it('writes no private object when membership changed between preflight and the pending write', async () => {
+    // Given
+    const { service, repository, storage } = setup();
+    repository.createPending.mockRejectedValue(
+      new SubmissionMembershipChangedError('app', 'student-opaque'),
+    );
+
+    // When
+    await service.upload(1n, 'app', 'milestone', file()).catch(() => undefined);
+
+    // Then: 예약이 거절됐으므로 저장소에는 아무 것도 쓰이지 않고 지울 것도 없다.
+    expect(repository.createPending).toHaveBeenCalledTimes(1);
+    // 거절은 지금 이 예약이 쓰려던 신청·업로더를 그대로 가리킨다.
+    expect(repository.createPending.mock.calls[0]![0]).toMatchObject({
+      applicationId: 'app',
+      uploaderId: 'student-opaque',
+    });
+    expect(storage.put).not.toHaveBeenCalled();
+    expect(storage.delete).not.toHaveBeenCalled();
   });
 
   it('allows a CHANGES_REQUESTED replacement upload after the milestone deadline', async () => {
@@ -694,6 +734,28 @@ describe('SubmissionFilesService', () => {
       SubmissionsErrorCode.SUBMISSION_FILE_NOT_FOUND,
     );
 
+    expect(storage.get).not.toHaveBeenCalled();
+  });
+
+  // #1269 — 팀에서 나간 과거 업로더는 repository 권한 질의에서 걸러진다.
+  // 서비스는 그 결과를 비공개 파일이 없을 때와 똑같은 404 로 돌려주고, 저장소를 읽지 않는다.
+  it('denies a departed uploader with the same not-found used for a missing file', async () => {
+    // Given
+    const { service, repository, storage } = setup();
+    repository.findDownloadableFile.mockResolvedValue(null);
+
+    // When
+    const departed = await service
+      .download(123n, 'file-opaque')
+      .catch((caught: unknown) => caught);
+    const missing = await service
+      .download(123n, 'file-missing')
+      .catch((caught: unknown) => caught);
+
+    // Then
+    expect((departed as DomainException).errorCode).toEqual(
+      (missing as DomainException).errorCode,
+    );
     expect(storage.get).not.toHaveBeenCalled();
   });
 

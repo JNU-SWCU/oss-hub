@@ -8,6 +8,7 @@ import type { MyRepository } from '../service/repositories.service';
 export interface MyRepositoryItemResponseDto {
   readonly repositoryId: string | null;
   readonly applicationId: string;
+  readonly connectionMode: 'NEW' | 'OWN';
   readonly applicationMode: 'PERSONAL' | 'TEAM';
   readonly programName: string;
   readonly displayName: string;
@@ -27,6 +28,7 @@ export class MyRepositoriesResponseDto {
     this.items = items.map((item) => ({
       repositoryId: item.repositoryId,
       applicationId: item.applicationId,
+      connectionMode: item.connectionMode,
       applicationMode: item.applicationMode,
       programName: item.programName,
       displayName: item.displayName,

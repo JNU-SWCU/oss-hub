@@ -14,6 +14,10 @@ import { STUDENT_MEMBER_WHERE } from '../profiles/user-profile-read';
 import { PrismaService } from '../prisma/prisma.service';
 import { submissionParticipantWhere } from './submission-application.record';
 import {
+  lockSubmissionMembership,
+  SubmissionMembershipChangedError,
+} from './submission-membership.repository';
+import {
   exactSubmissionByPublicId,
   submissionPublicIdWhere,
 } from './submission-public-id';
@@ -169,12 +173,12 @@ export class SubmissionFilesRepository {
         ...downloadableFileWhere(fileId, now),
       });
     }
+    // 과거 업로더라는 사실은 권한이 아니다(#1269). 팀에서 나간 사람은 자기가 올렸던
+    // 비공개 파일도 더는 받을 수 없고, 지금 팀에 속한 사람은 누가 올렸든 받을 수 있다.
+    // 제출 이력·귀속 필드는 그대로 남는다 — 여기서 좁히는 것은 접근 권한뿐이다.
     return this.findAuthorizedDownloadableFile({
       ...downloadableFileWhere(fileId, now),
-      OR: [
-        { uploaderId: user.id },
-        { application: { is: submissionParticipantWhere(user.id) } },
-      ],
+      application: { is: submissionParticipantWhere(user.id) },
     });
   }
 
@@ -242,12 +246,25 @@ export class SubmissionFilesRepository {
 
   createPending(input: CreatePendingSubmissionFileInput) {
     return this.prisma.$transaction(async (transaction) => {
-      await transaction.$queryRaw<readonly { id: string }[]>(Prisma.sql`
-        SELECT "id"
-        FROM "User"
-        WHERE "id" = ${input.uploaderId}
-        FOR UPDATE
-      `);
+      // 업로드 preflight(`findUploadAuthorization`)는 이 시점에 이미 낡았다(#1269).
+      // 탈퇴·승계가 그 사이에 커밋되면 더는 팀원이 아닌 사람이 pending 행을 만들고
+      // 비공개 객체까지 올린다. 공유 잠금이 Program → Team 순으로 행을 잡고 현재
+      // TeamMember를 다시 읽어 확정한다.
+      //
+      // 잠금 순서는 Program → Team → User로 고정한다. 수락·승계 경로가 Team → User
+      // 순으로 잡으므로, 예전처럼 User를 먼저 잡으면 교착이 난다.
+      const stillMember = await lockSubmissionMembership(
+        transaction,
+        input.applicationId,
+        input.uploaderId,
+      );
+      if (!stillMember) {
+        throw new SubmissionMembershipChangedError(
+          input.applicationId,
+          input.uploaderId,
+        );
+      }
+
       const programs = await transaction.$queryRaw<
         readonly { endAt: Date }[]
       >(Prisma.sql`
@@ -262,6 +279,13 @@ export class SubmissionFilesRepository {
       if (!program) {
         throw new SubmissionFileRetentionUnavailableError();
       }
+
+      await transaction.$queryRaw<readonly { id: string }[]>(Prisma.sql`
+        SELECT "id"
+        FROM "User"
+        WHERE "id" = ${input.uploaderId}
+        FOR UPDATE
+      `);
 
       const retained = await transaction.submissionFile.aggregate({
         where: {

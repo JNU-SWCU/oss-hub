@@ -74,6 +74,7 @@ test('student onboarding completes with affiliation and conditional student ID',
   await chooseMemberKind(page, 'STUDENT');
   await page.getByLabel('이름').fill('합성 학생 회원');
   await page.getByLabel('학번').fill('260901');
+  await page.getByLabel('전화번호').fill('1'.repeat(10));
   await page.locator('#profile-department').selectOption('인공지능학부');
   await assertTabSequence(
     page,

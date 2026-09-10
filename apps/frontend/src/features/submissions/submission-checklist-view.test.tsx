@@ -15,6 +15,7 @@ import {
   type SubmissionChecklistViewProps,
 } from './components/submission-checklist-view';
 import { ChecklistRow } from './components/submission-checklist-row';
+import { SelectedMilestonePanel } from './components/submission-checklist-selected-panel';
 import type {
   ChecklistSubmission,
   SubmissionChecklist,
@@ -191,41 +192,98 @@ describe('SubmissionChecklistView 체크리스트', () => {
   it('모바일에서 긴 안내와 파일명이 목록 폭을 넓히지 않는다', () => {
     const html = render();
 
-    expect(html.match(/grid-cols-\[minmax\(0,1fr\)\]/g)).toHaveLength(3);
+    // 바깥 section은 한 열 grid로 고정되고, 목록과 줄은 min-w-0로 줄어든다.
+    expect(html.match(/grid-cols-\[minmax\(0,1fr\)\]/g)).toHaveLength(1);
+    expect(html).toContain('data-slot="list-panel"');
+    for (const row of html.split('data-slot="list-row"').slice(1)) {
+      expect(row.slice(0, 400)).toContain('min-w-0');
+    }
   });
 
-  it('상태 5종을 programs 화면과 같은 라벨로, 보완 필요 행에는 재제출 진입 동작을 렌더한다', () => {
+  it('항목마다 카드를 반복하지 않고 공용 목록(ListPanel/ListRow) 한 장에 줄로 쌓는다', () => {
     // When
     const html = render();
 
-    // Then: 5종 상태 라벨.
+    // Then: 목록 판은 하나, 줄은 마일스톤 수만큼.
+    expect((html.match(/data-slot="list-panel"/g) ?? []).length).toBe(1);
+    expect((html.match(/data-slot="list-row"/g) ?? []).length).toBe(
+      ITEMS.length,
+    );
+    expect((html.match(/data-testid="checklist-row"/g) ?? []).length).toBe(
+      ITEMS.length,
+    );
+    // 목록 줄은 카드가 아니다.
+    expect(html).not.toContain('data-slot="card"');
+  });
+
+  it('상태 5종을 programs 화면과 같은 라벨로, 상태와 무관하게 한 줄에 하나씩 제출 내역 링크를 둔다', () => {
+    // When
+    const html = render();
+
+    // Then: 5종 상태 라벨은 제출 상태 배지로만 나타난다.
     expect(html).toContain('제출 전');
     expect(html).toContain('제출됨');
     expect(html).toContain('승인');
     expect(html).toContain('보완 필요');
     expect(html).toContain('최종 반려');
-    // 행동 버튼: 미제출 → 올리기, 재제출 가능 → 다시 제출, 나머지(읽기전용) → 보기.
-    expect(html).toContain(
-      '/programs/program-1/documents?milestoneId=milestone-final',
-    );
-    expect(html).toContain('id="submission-trigger-milestone-final"');
-    expect(html).toContain('올리기');
-    expect(html).toContain('다시 제출');
-    expect(html).toContain('보기');
-    expect(html).toContain(
-      '/programs/program-1/documents?milestoneId=milestone-interim',
+    // 상태마다 이름이 바뀌던 버튼 모양 앵커는 사라졌다.
+    expect(html).not.toContain('올리기');
+    expect(html).not.toContain('다시 제출');
+    expect(html).not.toContain('>보기<');
+    // 줄마다 목적지를 이름으로 부르는 링크 하나.
+    for (const item of ITEMS) {
+      expect(html).toContain(
+        `/programs/program-1/documents?milestoneId=${item.milestoneId}`,
+      );
+      expect(html).toContain(`id="submission-trigger-${item.milestoneId}"`);
+      expect(html).toContain(`aria-label="${item.name} 제출 내역 열기"`);
+    }
+    expect((html.match(/documents\?milestoneId=/g) ?? []).length).toBe(
+      ITEMS.length,
     );
   });
 
-  it('낼 서류 건수 중 제출 건수를 요약해 보여준다(좌측 패널과 같은 규칙)', () => {
-    // When — ITEMS 5개 중 submission!==null인 항목 4개(기획서/중간보고/시연/회고).
+  it('제출 현황 머리에는 지금 할 일만 적고 뜻 없는 분수나 반복 문장을 적지 않는다', () => {
+    // When — ITEMS 5개 중 보완 필요는 1건(중간 보고).
     const html = render();
 
     // Then
-    expect(html).toContain('내 제출물');
-    expect(html).toContain('4/5');
-    expect(html).toContain('낼 서류 5건 중 4건 제출 · 보완 필요 1건');
-    expect(html).toContain('단계별 제출물을 확인하고 여기에서 바로 냅니다.');
+    expect(html).toContain('제출 현황');
+    expect((html.match(/보완 필요 1건/g) ?? []).length).toBe(1);
+    expect(html).not.toContain('4/5');
+    expect(html).not.toContain('낼 서류');
+    expect(html).not.toContain('여기에서 바로 냅니다');
+    expect(html).not.toContain('내 제출물');
+  });
+
+  it('보완할 건이 없으면 머리에 건수를 아예 적지 않는다', () => {
+    // Given: 검토 대기 하나만 있는 체크리스트.
+    const demo = ITEMS[2];
+    if (!demo) throw new Error('expected submitted checklist fixture');
+
+    // When
+    const html = render({ checklist: { ...CHECKLIST, items: [demo] } });
+
+    // Then
+    expect(html).toContain('제출 현황');
+    expect(html).not.toContain('보완 필요');
+    expect(html).not.toMatch(/\d+\/\d+/);
+  });
+
+  it('마감은 평범한 일정 글로, 심사 결과만 상태 배지로 구분해 적는다', () => {
+    // Given: 마감이 지난 승인 항목 하나만.
+    const approved = ITEMS[0];
+    if (!approved) throw new Error('expected approved checklist fixture');
+
+    // When
+    const html = render({ checklist: { ...CHECKLIST, items: [approved] } });
+
+    // Then: 마감 지남은 글이고 배지는 승인 하나뿐이라 「실패한 제출」로 읽히지 않는다.
+    expect(html).toContain('마감 지남');
+    expect(html).toContain('제출 상태: ');
+    expect((html.match(/data-slot="status-badge"/g) ?? []).length).toBe(1);
+    expect(html).toContain('data-variant="approved"');
+    expect(html).not.toContain('data-variant="rejected"');
   });
 
   it('D-day는 Asia/Seoul 기준 표시 상태로 계산한다', () => {
@@ -277,9 +335,9 @@ describe('SubmissionChecklistView 체크리스트', () => {
   });
 });
 
-describe('ChecklistRow 제출 CTA', () => {
+describe('ChecklistRow 목적지 링크', () => {
   it.each([-1, 0, 1])(
-    '마감 경계 %dms에도 보완 요청의 재제출 링크를 보존한다',
+    '마감 경계 %dms에도 보완 요청의 제출 내역 링크를 보존한다',
     (offset) => {
       const item = ITEMS[1];
       if (!item) throw new Error('expected revision fixture');
@@ -296,7 +354,26 @@ describe('ChecklistRow 제출 CTA', () => {
     },
   );
 
-  it('다시 제출 primary click은 상세 재제출 패널로 진입하고 modified click은 native Link 동작을 보존한다', () => {
+  it('링크는 버튼 흘내내기가 아니라 이름이 곳 목적지인 앵커다', () => {
+    // Given: 검토 대기 제출물 한 줄.
+    const item = ITEMS[2];
+    if (!item) throw new Error('expected submitted checklist fixture');
+
+    // When
+    const html = renderToStaticMarkup(
+      <ChecklistRow programId="program-1" item={item} now={NOW} />,
+    );
+
+    // Then: 앵커 하나가 마일스톤 이름을 달고 서고, 버튼은 줄에 없다.
+    expect((html.match(/<a /g) ?? []).length).toBe(1);
+    expect(html).not.toContain('<button');
+    expect(html).not.toContain('role="button"');
+    expect(html).toContain('aria-label="시연 영상 제출 내역 열기"');
+    expect(html).toContain('>시연 영상</a>');
+    expect(html).toContain('id="submission-trigger-milestone-demo"');
+  });
+
+  it('primary click은 상세 패널로 진입하고 modified click은 native Link 동작을 보존한다', () => {
     // Given
     const item = ITEMS[1];
     if (!item) throw new Error('expected unsubmitted checklist item fixture');
@@ -329,7 +406,7 @@ describe('ChecklistRow 제출 CTA', () => {
 });
 
 describe('ChecklistRow 업로드 가능 여부', () => {
-  it('마감이 지난 미제출 마일스톤은 올리기 버튼을 비활성화한다', () => {
+  it('마감이 지난 미제출 마일스톤은 제출 자리를 열지 않고 그 사실만 적는다', () => {
     // Given: dueAt이 NOW(2026-07-24 Seoul)보다 지난 미제출 마일스톤.
     const overdueUnsubmitted: SubmissionChecklistItem = {
       milestoneId: 'milestone-overdue-empty',
@@ -346,15 +423,20 @@ describe('ChecklistRow 업로드 가능 여부', () => {
       />,
     );
 
-    // Then
-    expect(html).toContain('올리기');
-    expect(html).toContain('disabled=""');
+    // Then: 링크도 버튼도 없고, 돌아올 포커스 자리만 남는다.
+    expect(html).toContain('마감이 지나 새로 제출할 수 없습니다.');
+    expect(html).not.toContain('<a ');
+    expect(html).not.toContain('<button');
     expect(html).not.toContain(
       'href="/programs/program-1/documents?milestoneId=',
     );
+    expect(html).toContain(
+      'id="submission-trigger-milestone-overdue-empty" tabindex="-1"',
+    );
+    expect(html).toContain('제출 전');
   });
 
-  it('오늘 이미 지난 시각이 마감이면 올리기 버튼을 비활성화한다', () => {
+  it('오늘 이미 지난 시각이 마감이면 제출 자리를 열지 않는다', () => {
     // Given: NOW(Seoul 07-24 12:00)보다 앞선 같은 날 09:00 마감. 달력일 차이는
     // 0이라 D-day 라벨은 '오늘 마감'이지만 서버는 이미 거절한다.
     const dueEarlierToday: SubmissionChecklistItem = {
@@ -368,16 +450,15 @@ describe('ChecklistRow 업로드 가능 여부', () => {
       <ChecklistRow programId="program-1" item={dueEarlierToday} now={NOW} />,
     );
 
-    // Then: 라벨은 '오늘 마감'인 채로 업로드 자리만 막힌다.
+    // Then: 라벨은 '오늘 마감'인 채로 제출 자리만 막힌다.
     expect(html).toContain('오늘 마감');
-    expect(html).toContain('올리기');
-    expect(html).toContain('disabled=""');
+    expect(html).toContain('마감이 지나 새로 제출할 수 없습니다.');
     expect(html).not.toContain(
       'href="/programs/program-1/documents?milestoneId=',
     );
   });
 
-  it('오늘 남은 시각이 마감이면 올리기 버튼을 열어 둔다', () => {
+  it('오늘 남은 시각이 마감이면 제출 내역 링크를 열어 둔다', () => {
     // Given: 같은 '오늘 마감'이되 NOW보다 뒤인 23:59:59 마감. 위 검사가 과잉
     // 교정으로 '오늘 마감'을 통째로 막지 않는지 함께 고정한다.
     const dueLaterToday: SubmissionChecklistItem = {
@@ -393,14 +474,13 @@ describe('ChecklistRow 업로드 가능 여부', () => {
 
     // Then
     expect(html).toContain('오늘 마감');
-    expect(html).toContain('올리기');
-    expect(html).not.toContain('disabled=""');
+    expect(html).not.toContain('마감이 지나 새로 제출할 수 없습니다.');
     expect(html).toContain(
       'href="/programs/program-1/documents?milestoneId=milestone-due-later-today"',
     );
   });
 
-  it('보완 요청 상태면 canResubmit이 false여도 다시 제출 동작을 렌더한다', () => {
+  it('보완 요청 상태면 canResubmit이 false여도 보완 필요로 읽히고 제출 내역을 열 수 있다', () => {
     const changesRequested: SubmissionChecklistItem = {
       milestoneId: 'milestone-changes-requested',
       name: '보완 요청 서류',
@@ -418,23 +498,31 @@ describe('ChecklistRow 업로드 가능 여부', () => {
     );
 
     expect(html).toContain('보완 필요');
-    expect(html).toContain('다시 제출');
+    expect(html).toContain(
+      'href="/programs/program-1/documents?milestoneId=milestone-changes-requested"',
+    );
+    expect(html).not.toContain('다시 제출');
   });
 
-  it('승인된 제출물은 다시 제출 동작을 렌더하지 않는다', () => {
+  it('승인된 제출물도 같은 제출 내역 링크 하나만 렌더한다', () => {
     const approved = ITEMS[0];
     if (!approved) throw new Error('expected approved checklist fixture');
     const html = renderToStaticMarkup(
       <ChecklistRow programId="program-1" item={approved} now={NOW} />,
     );
 
-    expect(html).toContain('보기');
+    // 마감이 지났지만 이미 승인된 제출물이라 읽는 길을 닫지 않는다.
+    expect(html).toContain('마감 지남');
+    expect(html).toContain(
+      'href="/programs/program-1/documents?milestoneId=milestone-plan"',
+    );
+    expect(html).not.toContain('마감이 지나 새로 제출할 수 없습니다.');
     expect(html).not.toContain('다시 제출');
   });
 
-  it('마감 전 미제출 마일스톤은 올리기 버튼이 활성화된 링크다', () => {
+  it('마감 전 미제출 마일스톤은 제출 내역 링크가 열려 있다', () => {
     const html = render({ selectedMilestoneId: null });
-    expect(html).toContain('올리기');
+    expect(html).toContain('제출 전');
     expect(html).toContain(
       'href="/programs/program-1/documents?milestoneId=milestone-final"',
     );
@@ -449,8 +537,9 @@ describe('SubmissionChecklistView 선택 패널', () => {
     // Then
     expect(html).toContain('교직원 코멘트');
     expect(html).toContain('실행 화면 캡처를 추가해 주세요.');
-    expect(html).toContain('결과');
-    expect(html).toContain('보완 요청');
+    // 심사 결과가 지금 상태와 같으면 배지가 한 번 말한 것으로 끝난다.
+    expect(html).not.toContain('최근 검토 결과');
+    expect(html).toContain('보완 필요');
     expect(html).toContain('수정한 뒤 재제출할 수 있습니다.');
     expect(html).toContain('현재 제출본');
     expect(html).toContain('id="submission-text"'); // #115 유형별 입력 재사용
@@ -461,28 +550,38 @@ describe('SubmissionChecklistView 선택 패널', () => {
     expect(html).not.toMatch(/revision/i);
   });
 
-  it('검토 대기 선택 시 제출본 번호를 보여주고 입력을 비활성화한다', () => {
+  it('검토 대기 선택 시 제출본 번호와 읽기 전용 상태를 보여주고 달리 보이는 버튼을 두지 않는다', () => {
     // When
     const html = render({ selectedMilestoneId: 'milestone-demo' });
 
-    // Then
-    expect(html).toContain('제출본 1번이 검토 대기 중입니다');
+    // Then: 상태는 배지 하나, 제출본 번호는 검토 메타 한 줄로 한 번만 적는다.
+    expect(html).toContain('현재 제출본');
+    expect((html.match(/1번/g) ?? []).length).toBe(1);
+    expect(html).toContain(
+      '교직원 검토가 끝날 때까지는 제출 내용을 바꿀 수 없습니다',
+    );
     expect(html).toContain('disabled=""');
-    expect(html).toContain('검토 대기 중');
+    // 누를 수 없는 「검토 대기 중」 버튼은 상태를 버튼 모양으로 위장했다.
+    expect(html).not.toContain('검토 대기 중');
     expect(html).not.toContain('제출본 2번 제출');
     expect(html).not.toMatch(/revision/i);
   });
 
-  it('승인 선택 시 완료 배지와 검토 시각을 보여준다', () => {
+  it('승인 선택 시 같은 승인을 문장으로 되풀이하지 않고 검토 기록만 보여준다', () => {
     // When
     const html = render({ selectedMilestoneId: 'milestone-plan' });
 
     // Then
-    expect(html).toContain('제출본 1번이 승인되었습니다');
+    expect(html).not.toContain('승인되었습니다');
     expect(html).toContain('data-variant="approved"');
     expect(html).toContain('검토 시각');
-    expect(html).toContain('결과');
-    expect(html).toContain('승인');
+    // 패널 안에서 「승인」은 배지 한 번뿐 — 결과 dl로 또 적지 않는다.
+    const panel = html.slice(html.indexOf('data-testid="milestone-panel"'));
+    expect((panel.match(/승인/g) ?? []).length).toBe(1);
+    expect(panel).not.toContain('최근 검토 결과');
+    // 제출본 번호는 여전히 한 번은 분명하게 보인다.
+    expect(html).toContain('현재 제출본');
+    expect((html.match(/1번/g) ?? []).length).toBe(1);
     expect(html).toContain('data-testid="milestone-document-current-files"');
     expect(html).not.toMatch(/revision/i);
   });
@@ -494,10 +593,43 @@ describe('SubmissionChecklistView 선택 패널', () => {
     // Then
     expect(html).toContain('중복 제출로 최종 반려되었습니다.');
     expect(html).toContain('최종 반려된 제출은 재제출할 수 없습니다.');
-    expect(html).toContain('결과');
-    expect(html).toContain('반려');
+    expect(html).toContain('최종 반려');
+    expect(html).not.toContain('최근 검토 결과');
+    expect(html).toContain('검토 시각');
     expect(html).not.toContain('<form');
     expect(html).not.toContain('id="submission-text"');
+  });
+
+  it('지난 심사가 지금 상태와 다르면 그 결과를 이름으로 남긴다', () => {
+    // Given: 보완 요청을 받아 다시 낸 제출본이 검토 대기인 상태.
+    const demo = ITEMS[2];
+    if (!demo) throw new Error('expected submitted checklist fixture');
+    const reReviewed: SubmissionChecklistItem = {
+      ...demo,
+      submission: submission({
+        id: 'submission-demo',
+        status: 'SUBMITTED',
+        currentRevision: 2,
+        decision: 'CHANGES_REQUESTED',
+        reviewComment: '실행 화면 캡처를 추가해 주세요.',
+        lastReviewedAt: '2026-07-23T01:00:00.000Z',
+      }),
+    };
+
+    // When
+    const html = render({
+      checklist: { ...CHECKLIST, items: [reReviewed] },
+      selectedMilestoneId: 'milestone-demo',
+    });
+
+    // Then: 지금 상태(제출됨)와 지난 심사(보완 요청)는 같은 말이 아니라 둘 다 적는다.
+    expect(html).toContain('최근 검토 결과');
+    expect(html).toContain('보완 요청');
+    expect(html).toContain('교직원 코멘트');
+    expect(html).toContain('실행 화면 캡처를 추가해 주세요.');
+    expect(html).toContain('검토 시각');
+    expect(html).toContain('현재 제출본');
+    expect(html).toContain('2번');
   });
 
   it('FILE changes-requested milestones render the replacement file resubmission form', () => {
@@ -543,6 +675,72 @@ describe('SubmissionChecklistView 선택 패널', () => {
     expect(html).toContain('일시적으로 최신 상태를 불러오지 못했습니다.');
     expect(html).toContain('기획서 제출');
     expect(html).toContain('다시 시도');
+  });
+});
+
+describe('SelectedMilestonePanel 다이얼로그 문맥', () => {
+  /** 닫기 핸들러를 넘기면 뷰가 패널을 SubmissionDialog 안에 넣는다(상위 뷰 참조). */
+  function renderPanel(
+    item: SubmissionChecklistItem,
+    overrides: { readonly onCloseSelected?: () => void } = {},
+  ): string {
+    return renderToStaticMarkup(
+      <SelectedMilestonePanel
+        fileUpload={submissionUploadLimit()}
+        programId="program-1"
+        item={item}
+        input={{ file: null, text: '' }}
+        comment=""
+        errors={{}}
+        fileError={null}
+        submitting={false}
+        submissionPhase={null}
+        {...handlers}
+        {...overrides}
+      />,
+    );
+  }
+
+  it('창 안에서는 창 제목이 말한 마일스톤 이름을 카드 제목으로 다시 적지 않는다', () => {
+    const approved = ITEMS[0];
+    if (!approved) throw new Error('expected approved checklist fixture');
+
+    // When: 닫기 핸들러가 있는 문맥(= 다이얼로그).
+    const html = renderPanel(approved, { onCloseSelected: vi.fn() });
+
+    // Then: 이름도 카드 테두리도 반복되지 않고, 상태 배지는 하나 남는다.
+    expect(html).not.toContain(approved.name);
+    expect(html).not.toContain('data-slot="card"');
+    expect((html.match(/data-slot="status-badge"/g) ?? []).length).toBe(1);
+    expect(html).toContain('data-testid="milestone-panel"');
+    // 검토 기록과 현재 파일 영역은 그대로 남는다.
+    expect(html).toContain('검토 시각');
+    expect(html).toContain('data-testid="milestone-document-current-files"');
+  });
+
+  it('닫기가 없는 단독 사용처에서는 제목 있는 카드를 그대로 유지한다', () => {
+    const approved = ITEMS[0];
+    if (!approved) throw new Error('expected approved checklist fixture');
+
+    // When: 닫기 핸들러 없음(= 창 밖 본문 배치).
+    const html = renderPanel(approved);
+
+    // Then
+    expect(html).toContain(approved.name);
+    expect(html).toContain('data-slot="card"');
+  });
+
+  it('창 안의 검토 대기 패널에도 동작 없는 상태 버튼은 없다', () => {
+    const submitted = ITEMS[2];
+    if (!submitted) throw new Error('expected submitted checklist fixture');
+
+    // When
+    const html = renderPanel(submitted, { onCloseSelected: vi.fn() });
+
+    // Then
+    expect(html).not.toContain('검토 대기 중');
+    expect(html).not.toContain('<button type="button" disabled');
+    expect(html).toContain('현재 제출본');
   });
 });
 

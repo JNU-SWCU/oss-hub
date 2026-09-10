@@ -1,4 +1,9 @@
-import { EmptyState, ParticipantOnlyNotice } from '@/components';
+import {
+  EmptyState,
+  ListPanel,
+  ParticipantOnlyNotice,
+  SectionHeading,
+} from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { programApplyHref, programOverviewHref } from '@/lib/program-route';
@@ -60,21 +65,19 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
   const count = checklistSubmittedCount(items);
   const content = (
     <>
-      <header className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">
-        <div className="flex min-w-0 items-center justify-between gap-3">
-          <h2 className="font-heading text-xl font-semibold">내 제출물</h2>
-          <span className="text-sm font-semibold text-muted-foreground">
-            {count.submitted}/{count.total}
-          </span>
-        </div>
-        <p className="text-sm text-muted-foreground [word-break:keep-all]">
-          낼 서류 {count.total}건 중 {count.submitted}건 제출
-          {count.revisionNeeded > 0
-            ? ` · 보완 필요 ${count.revisionNeeded}건`
-            : ''}{' '}
-          — 단계별 제출물을 확인하고 여기에서 바로 냅니다.
-        </p>
-      </header>
+      {/*
+        예전에는 같은 수를 두 번 적었다 — 설명 없는 「4/5」와 그걸 풀어 쓴 문장.
+        분수는 어느 쪽이 무엇인지 말하지 않고, 다 낸 사람에게도 항상 보인다.
+        지금 할 일이 있을 때만, 그 일을 이름으로 부른다.
+      */}
+      <SectionHeading
+        title="제출 현황"
+        meta={
+          count.revisionNeeded > 0
+            ? `보완 필요 ${count.revisionNeeded}건`
+            : undefined
+        }
+      />
       {props.toastMessage ? (
         <div
           role="status"
@@ -114,10 +117,7 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
           description="프로그램에 마일스톤이 아직 등록되지 않았습니다."
         />
       ) : (
-        <ul
-          className="grid min-w-0 list-none grid-cols-[minmax(0,1fr)] gap-3 p-0"
-          data-testid="checklist"
-        >
+        <ListPanel role="list" className="min-w-0" data-testid="checklist">
           {items.map((item) => (
             <ChecklistRow
               key={item.milestoneId}
@@ -127,7 +127,7 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
               onSelectMilestone={props.onSelectMilestone}
             />
           ))}
-        </ul>
+        </ListPanel>
       )}
       {props.selectedMilestoneId && !selected ? (
         <Alert>

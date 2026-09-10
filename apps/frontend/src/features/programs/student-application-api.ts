@@ -10,7 +10,6 @@ export interface StudentApplication {
   readonly answers: {
     readonly applicantName: string;
     readonly title: string;
-    readonly summary: string;
   };
   readonly submittedAt: string;
   readonly updatedAt: string;
@@ -37,10 +36,7 @@ export interface StudentApplication {
 }
 
 export interface UpdateStudentApplicationInput {
-  readonly answers: {
-    readonly title: string;
-    readonly summary: string;
-  };
+  readonly answers: { readonly title: string };
   readonly applicationTemplateVersion: number;
 }
 

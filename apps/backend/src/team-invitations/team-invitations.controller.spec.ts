@@ -25,6 +25,27 @@ const receivedRecord = {
   teamMaxSize: 5,
 };
 
+const sentRecord = {
+  id: 'cuid-invitation',
+  teamId: 'cuid-team',
+  programId: 'cuid-program',
+  inviteeId: 'cuid-invitee',
+  invitedById: 'cuid-leader',
+  status: TeamInvitationStatus.PENDING,
+  invitedAt: new Date('2026-08-01T00:00:00.000Z'),
+  respondedAt: null,
+  invitee: {
+    id: 'cuid-invitee',
+    nickname: 'synthetic-invitee',
+    name: '합성 초대 대상',
+    avatarUrl: 'https://example.invalid/avatar.png',
+    email: 'private-not-returned',
+    studentNo: 'private-not-returned',
+    phone: 'private-not-returned',
+    profile: { name: 'private-not-returned' },
+  },
+};
+
 function readMethodGuards(target: object, methodName: string): unknown[] {
   const method: unknown = Object.getOwnPropertyDescriptor(
     target,
@@ -119,6 +140,39 @@ describe('TeamInvitationsController', () => {
     ]);
   });
 
+  it('listSentByTeam은 초대 대상의 허용된 표시 정보만 DTO에 직렬화한다', async () => {
+    const { controller, mocks } = buildController({
+      listSentByTeam: jest.fn().mockResolvedValue([sentRecord]),
+    });
+
+    const response = await controller.listSentByTeam(
+      { sessionGithubId: syntheticGithubId } as never,
+      'cuid-team',
+    );
+
+    expect(mocks.listSentByTeam).toHaveBeenCalledWith(
+      syntheticGithubId,
+      'cuid-team',
+    );
+    expect(response).toEqual([
+      {
+        id: 'cuid-invitation',
+        teamId: 'cuid-team',
+        programId: 'cuid-program',
+        invitedById: 'cuid-leader',
+        status: TeamInvitationStatus.PENDING,
+        invitedAt: '2026-08-01T00:00:00.000Z',
+        respondedAt: null,
+        invitee: {
+          id: 'cuid-invitee',
+          nickname: 'synthetic-invitee',
+          name: '합성 초대 대상',
+          avatarUrl: 'https://example.invalid/avatar.png',
+        },
+      },
+    ]);
+  });
+
   it('search는 query.query를 trim 없이 service로 넘긴다', async () => {
     const { controller, mocks } = buildController();
     const query = Object.assign(new SearchInvitationCandidatesRequestDto(), {
@@ -148,6 +202,16 @@ describe('TeamInvitationsController', () => {
       status: TeamInvitationStatus.PENDING,
       invitedAt: new Date('2026-08-01T00:00:00.000Z'),
       respondedAt: null,
+      invitee: {
+        id: 'cuid-invitee',
+        nickname: 'synthetic-invitee',
+        name: '합성 초대 대상',
+        avatarUrl: 'https://example.invalid/avatar.png',
+        email: 'private-not-returned',
+        studentNo: 'private-not-returned',
+        phone: 'private-not-returned',
+        profile: { name: 'private-not-returned' },
+      },
     };
     const { controller, mocks } = buildController({
       create: jest.fn().mockResolvedValue(created),
@@ -167,7 +231,21 @@ describe('TeamInvitationsController', () => {
       'cuid-team',
       'cuid-invitee',
     );
-    expect(response.id).toBe('cuid-invitation');
+    expect(response).toEqual({
+      id: 'cuid-invitation',
+      teamId: 'cuid-team',
+      programId: 'cuid-program',
+      invitedById: 'cuid-leader',
+      status: TeamInvitationStatus.PENDING,
+      invitedAt: '2026-08-01T00:00:00.000Z',
+      respondedAt: null,
+      invitee: {
+        id: 'cuid-invitee',
+        nickname: 'synthetic-invitee',
+        name: '합성 초대 대상',
+        avatarUrl: 'https://example.invalid/avatar.png',
+      },
+    });
   });
 
   it('cancel은 service.cancel을 호출한다', async () => {

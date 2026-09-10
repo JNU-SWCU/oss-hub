@@ -51,13 +51,21 @@ export class StaffProgramTeamResponseDto {
   }
 }
 
+/**
+ * 내 팀 응답 — view 의 필드를 하나씩 명시적으로 옮긴다(spread 금지).
+ * 능력 플래그(`canInvite`/`canRemoveMembers`/`canLeave`)는 서버 계산 결과이며
+ * 프런트가 같은 규칙을 다시 유추하지 않는다. 과거 `locked` 키는 내려주지 않는다.
+ */
 export class ProgramTeamResponseDto {
   readonly id: string;
   readonly name: string;
   readonly memberCount: number;
   readonly minMembers: number;
   readonly maxMembers: number;
-  readonly locked: boolean;
+  readonly hasApplication: boolean;
+  readonly canInvite: boolean;
+  readonly canRemoveMembers: boolean;
+  readonly canLeave: boolean;
   readonly isLeader: boolean;
   readonly members: readonly TeamMemberView[];
 
@@ -67,7 +75,10 @@ export class ProgramTeamResponseDto {
     this.memberCount = view.memberCount;
     this.minMembers = view.minMembers;
     this.maxMembers = view.maxMembers;
-    this.locked = view.locked;
+    this.hasApplication = view.hasApplication;
+    this.canInvite = view.canInvite;
+    this.canRemoveMembers = view.canRemoveMembers;
+    this.canLeave = view.canLeave;
     this.isLeader = view.isLeader;
     this.members = view.members;
   }

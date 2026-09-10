@@ -19,6 +19,7 @@ import {
   createProgramLifecycleAuditMetadata,
   createTeamCreatedAuditMetadata,
   createTeamJoinedAuditMetadata,
+  createTeamMembershipAuditMetadata,
   createRepositoryPublishAuditMetadata,
   createSubmissionFileCleanupAuditMetadata,
   createUserPhoneAuditMetadata,
@@ -29,6 +30,9 @@ import {
   PROGRAM_DELETION_AUDIT_SCHEMA_VERSION,
   TEAM_CREATED_AUDIT_SCHEMA_VERSION,
   TEAM_JOINED_AUDIT_SCHEMA_VERSION,
+  TEAM_MEMBERSHIP_AUDIT_ACTIONS,
+  TEAM_MEMBERSHIP_AUDIT_OPERATIONS,
+  TEAM_MEMBERSHIP_AUDIT_SCHEMA_VERSION,
   PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION,
   PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1,
   REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION,
@@ -703,6 +707,104 @@ describe('createTeamJoinedAuditMetadata / parseAuditLogMetadata — TEAM_JOINED'
         joinCodeDigest: 'digest',
       }),
     ).toThrow(InvalidAuditLogMetadataError);
+  });
+});
+
+describe('createTeamMembershipAuditMetadata / parseAuditLogMetadata — TEAM_MEMBERSHIP_CHANGED', () => {
+  const LEAVE_WITH_SUCCESSION = createTeamMembershipAuditMetadata({
+    programName: '합성 프로그램',
+    teamName: '합성 팀',
+    operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.LEAVE,
+    removedUserId: 'synthetic-leader',
+    previousLeaderId: 'synthetic-leader',
+    nextLeaderId: 'synthetic-successor',
+  });
+
+  it('action 상수를 TEAM_MEMBERSHIP_CHANGED로 노출한다', () => {
+    expect(TEAM_MEMBERSHIP_AUDIT_ACTIONS.TEAM_MEMBERSHIP_CHANGED).toBe(
+      'TEAM_MEMBERSHIP_CHANGED',
+    );
+  });
+
+  it('탈퇴·승계 사실을 조회 경로에서 손실 없이 되읽는다', () => {
+    expect(LEAVE_WITH_SUCCESSION.schemaVersion).toBe(
+      TEAM_MEMBERSHIP_AUDIT_SCHEMA_VERSION,
+    );
+    expect(parseAuditLogMetadata(LEAVE_WITH_SUCCESSION)).toEqual({
+      legacy: false,
+      metadata: LEAVE_WITH_SUCCESSION,
+    });
+  });
+
+  it('내보내기와 팀 삭제(nextLeaderId null)도 같은 계약으로 되읽는다', () => {
+    const removal = createTeamMembershipAuditMetadata({
+      programName: '합성 프로그램',
+      teamName: '합성 팀',
+      operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.REMOVE,
+      removedUserId: 'synthetic-member',
+      previousLeaderId: 'synthetic-leader',
+      nextLeaderId: 'synthetic-leader',
+    });
+    const teamDeleted = createTeamMembershipAuditMetadata({
+      programName: '합성 프로그램',
+      teamName: '합성 팀',
+      operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.LEAVE,
+      removedUserId: 'synthetic-sole',
+      previousLeaderId: 'synthetic-sole',
+      nextLeaderId: null,
+    });
+
+    expect(parseAuditLogMetadata(removal)).toEqual({
+      legacy: false,
+      metadata: removal,
+    });
+    expect(parseAuditLogMetadata(teamDeleted)).toEqual({
+      legacy: false,
+      metadata: teamDeleted,
+    });
+  });
+
+  // 등록 순서 회귀 방지. TEAM_CREATED/TEAM_JOINED가 먼저 잡으면 탈퇴·승계 필드가
+  // 조용히 잘려 "팀 생성 행"처럼 보이고, 감사 원장은 append-only라 되돌릴 수 없다.
+  it('일반 팀 상태 parser가 팀 구성 변경 필드를 먼저 삼키지 않는다', () => {
+    const evidence = parseAuditLogMetadata(LEAVE_WITH_SUCCESSION);
+
+    expect(evidence.metadata).toMatchObject({
+      operation: 'LEAVE',
+      removedUserId: 'synthetic-leader',
+      previousLeaderId: 'synthetic-leader',
+      nextLeaderId: 'synthetic-successor',
+    });
+  });
+
+  it('검증에 실패한 팀 구성 payload는 일반 팀 상태 행으로 격하되지 않고 거부된다', () => {
+    for (const broken of [
+      { ...LEAVE_WITH_SUCCESSION, operation: 'PROMOTE' },
+      { ...LEAVE_WITH_SUCCESSION, removedUserId: null },
+      { ...LEAVE_WITH_SUCCESSION, previousLeaderId: 42 },
+      { ...LEAVE_WITH_SUCCESSION, nextLeaderId: 42 },
+      {
+        schemaVersion: TEAM_MEMBERSHIP_AUDIT_SCHEMA_VERSION,
+        programName: '합성 프로그램',
+        teamName: '합성 팀',
+        operation: TEAM_MEMBERSHIP_AUDIT_OPERATIONS.LEAVE,
+      },
+    ]) {
+      expect(() => parseAuditLogMetadata(broken)).toThrow(
+        InvalidAuditLogMetadataError,
+      );
+    }
+  });
+
+  it('사람 신원(실명·이메일·join code)을 담은 팀 구성 행은 열지 않는다', () => {
+    expect(JSON.stringify(LEAVE_WITH_SUCCESSION)).not.toMatch(
+      /"name"|email|studentId|joinCode/,
+    );
+    for (const key of ['name', 'email', 'studentId', 'joinCodeDigest']) {
+      expect(() =>
+        parseAuditLogMetadata({ ...LEAVE_WITH_SUCCESSION, [key]: 'forbidden' }),
+      ).toThrow(InvalidAuditLogMetadataError);
+    }
   });
 });
 

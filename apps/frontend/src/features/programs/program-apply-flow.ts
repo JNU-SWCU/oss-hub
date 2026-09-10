@@ -1,4 +1,3 @@
-import { APPLICATION_ANSWER_MAX_LENGTHS } from './application-answer-limits';
 import type { ProblemDetail, ProblemDetailFieldError } from '@/lib/api-client';
 import type { ProgramTeam } from './api';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
@@ -62,7 +61,6 @@ export type RepositoryConnectionMode =
 
 export type ProgramApplyFormValues = {
   readonly title?: string;
-  readonly summary: string;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly repositoryConnectionMode: RepositoryConnectionMode;
   readonly repositoryUrl: string;
@@ -71,13 +69,11 @@ export type ProgramApplyFormValues = {
 
 export type ProgramApplyFormErrors = {
   readonly title?: string;
-  readonly summary?: string;
   readonly repositoryUrl?: string;
   readonly personalDataConsent?: string;
 };
 
 export const EMPTY_APPLY_FORM: ProgramApplyFormValues = {
-  summary: '',
   isRepositoryPublicationPlanned: true,
   repositoryConnectionMode: 'new',
   repositoryUrl: '',
@@ -115,17 +111,6 @@ export function validateApplyForm(
   repositoryProvisioningEnabled = true,
 ): ProgramApplyFormErrors {
   return {
-    ...(!values.summary.trim() ? { summary: '요약을 입력해 주세요.' } : {}),
-    /*
-     * 입력칸의 `maxLength` 는 **새로 치는 글자**만 막는다 — 상한이 생기기 전에 저장된
-     * 긴 신청서를 수정 화면에 불러오면 그 값은 그대로 남아, 손대지 않고 저장해도 400 이 난다.
-     * 그때 무엇을 줄여야 하는지 여기서 말해 준다.
-     */
-    ...(values.summary.trim().length > APPLICATION_ANSWER_MAX_LENGTHS.summary
-      ? {
-          summary: `요약은 ${APPLICATION_ANSWER_MAX_LENGTHS.summary.toLocaleString('ko-KR')}자를 넘을 수 없습니다.`,
-        }
-      : {}),
     ...(mode === 'create' &&
     repositoryProvisioningEnabled &&
     values.repositoryConnectionMode === 'own' &&
@@ -174,9 +159,8 @@ export function applyActionFailureMessage(action: ProgramApplyAction): string {
 export function mapApplyProblemFieldErrors(
   fieldErrors: readonly ProblemDetailFieldError[] | undefined,
 ): ProgramApplyFormErrors {
-  const errors: { summary?: string; repositoryUrl?: string } = {};
+  const errors: { repositoryUrl?: string } = {};
   for (const fieldError of fieldErrors ?? []) {
-    if (fieldError.field === 'summary') errors.summary = fieldError.message;
     if (fieldError.field === 'repositoryUrl')
       errors.repositoryUrl = fieldError.message;
   }
@@ -228,7 +212,7 @@ export function mapCreateApplicationError(
     case 'APP_024':
       // 칸별 안내는 `mapApplyProblemFieldErrors` 가 그 칸으로 옮긴다.
       // 여기 문구는 칸을 하나도 못 옮겼을 때의 마지막 안전망이다.
-      return '신청 항목이 너무 깁니다. 요약 길이를 줄여 주세요.';
+      return '신청 항목이 너무 깁니다. 입력한 내용을 확인해 주세요.';
     case 'APP_016':
       return '신청 양식이 갱신되었습니다. 페이지를 새로고침해 주세요.';
     case 'APP_008':
@@ -236,8 +220,4 @@ export function mapCreateApplicationError(
     default:
       return problem.detail || applyActionFailureMessage(action);
   }
-}
-
-export function teamSetupHref(programId: string): string {
-  return `/programs/${encodeURIComponent(programId)}/teams`;
 }

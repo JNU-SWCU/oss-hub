@@ -1,4 +1,3 @@
-export type DashboardApplicationMode = 'PERSONAL' | 'TEAM';
 export type DashboardApplicationStatus = 'SUBMITTED' | 'APPROVED' | 'REJECTED';
 export type DashboardSubmissionStatus =
   'NOT_SUBMITTED' | 'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
@@ -24,8 +23,14 @@ export interface DashboardItem {
   readonly applicationId: string;
   readonly programId: string;
   readonly programName: string;
-  readonly applicationMode: DashboardApplicationMode;
-  readonly displayName: string;
+  /**
+   * **지금** 소속된 팀의 이름. 1인 팀도 팀이라 이 값은 항상 있다 — 서버가 개인형이라는
+   * 개념 대신 팀 하나로 통일했고(#1269), 나갔거나 빠진 팀은 응답에 담기지 않는다.
+   * 그래서 화면은 "개인/팀"을 나누거나 사람 이름을 대신 그리지 않는다.
+   */
+  readonly teamName: string;
+  /** 그 팀의 화면(`/programs/{programId}/my-team`). 서버가 만든 값을 그대로 쓴다. */
+  readonly teamUrl: string;
   readonly applicationStatus: DashboardApplicationStatus;
   readonly nextMilestone: DashboardMilestone | null;
   readonly detailUrl: string;
@@ -52,16 +57,3 @@ export interface ApplicationDecisionNotice {
 }
 
 export type StudentDashboardStatus = 'loading' | 'success' | 'error';
-
-/**
- * 대시보드에 띄울 대기 중(PENDING) 팀 초대 한 건. 원본 계약(`team-invitations/received`)에는
- * 이름이 없어 프로그램·팀 이름은 별도 조회로 채운다 — 조회에 실패하면 `null`로 남기고
- * 화면이 식별 가능한 대체 문구를 보여준다(ADR-007).
- */
-export interface PendingTeamInviteView {
-  readonly invitationId: string;
-  readonly teamId: string;
-  readonly programId: string;
-  readonly programName: string | null;
-  readonly teamName: string | null;
-}

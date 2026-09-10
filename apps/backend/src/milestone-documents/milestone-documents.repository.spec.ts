@@ -9,6 +9,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { SubmissionMembershipChangedError } from '../submissions/submission-membership.repository';
 import {
   MilestoneDocumentDeadlineClosedError,
   MilestoneDocumentMissingError,
@@ -25,11 +26,99 @@ function firstCallArgument<T>(mock: jest.Mock): T {
   return argument as T;
 }
 
+/** 두 목의 선후를 비교할 때 쓴다 — 호출되지 않았으면 비교가 아니라 실패여야 한다. */
+function firstInvocationOrder(mock: jest.Mock): number {
+  const [order] = mock.mock.invocationCallOrder;
+  if (order === undefined) {
+    throw new Error('한 번도 불리지 않은 목의 호출 순서를 물었다');
+  }
+  return order;
+}
+
 // 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticDocumentId = 'cuid-synthetic-document';
 const syntheticApplicationId = 'cuid-synthetic-application';
 const syntheticUserId = 'cuid-synthetic-user';
+const syntheticFenceProgramId = 'cuid-synthetic-fence-program';
+const syntheticTeamId = 'cuid-synthetic-team';
+
+/** `Prisma.sql` 태그드 템플릿에서 이 스펙이 보는 부분만 적는다. */
+type RawQueryStatement = Readonly<{ strings: readonly string[] }>;
+type RawQueryFn = (sql: RawQueryStatement) => Promise<unknown>;
+
+type MembershipFence = Readonly<{
+  applicationFindUnique: jest.Mock;
+  applicationFindFirst: jest.Mock;
+  /** 공용 관문이 잡은 행을 잡은 순서대로. */
+  locks: readonly string[];
+}>;
+
+/**
+ * #1269 — 제출 쓰기 트랜잭션은 첫 문장으로 공용 `lockSubmissionMembership`을 지난다.
+ * 가짜 트랜잭션을 **실제 관문이 동작하는 형태**로 확장한다 — 관문을 목으로 갈아끼워
+ * 늘 통과시키면 이 파일의 시험은 울타리가 사라져도 모두 초록이 된다.
+ *
+ * ① `Program`·`Team` 잠금 SQL은 여기서 답하고, `Milestone`·`MilestoneDocument` 잠금은
+ *   각 시험이 넘긴 `$queryRaw` 목에 그대로 넘긴다 — 기존 once-응답 순서와 호출 횟수
+ *   단언이 뜻을 그대로 유지한다.
+ * ② `application.findFirst`는 술어를 **평가**한다. 현재 `TeamMember` 절 없이 물으면 터지고,
+ *   멤버 명단에 없는 행위자면 null을 돌려 관문이 실제로 닫힌다.
+ */
+function attachMembershipFence(
+  tx: { $queryRaw: unknown; application?: unknown },
+  currentMemberIds: readonly string[] = [syntheticUserId],
+): MembershipFence {
+  const featureQueryRaw = tx.$queryRaw as RawQueryFn;
+  const locks: string[] = [];
+
+  const applicationFindUnique = jest.fn((args: { where: { id: string } }) =>
+    args.where.id === syntheticApplicationId
+      ? Promise.resolve({
+          programId: syntheticFenceProgramId,
+          teamId: syntheticTeamId,
+        })
+      : Promise.resolve(null),
+  );
+
+  const applicationFindFirst = jest.fn(
+    (args: { where: Prisma.ApplicationWhereInput }) => {
+      const team = args.where.team as
+        Readonly<{ members?: { some?: { userId?: string } } }> | undefined;
+      const candidateId = team?.members?.some?.userId;
+      if (candidateId === undefined) {
+        throw new Error('현재 TeamMember 술어 없이 권한을 판정했다');
+      }
+      if ((args.where.id as string | undefined) !== syntheticApplicationId) {
+        return Promise.resolve(null);
+      }
+      return Promise.resolve(
+        currentMemberIds.includes(candidateId)
+          ? { id: syntheticApplicationId }
+          : null,
+      );
+    },
+  );
+
+  tx.$queryRaw = (sql: RawQueryStatement): Promise<unknown> => {
+    const text = String(sql.strings);
+    if (text.includes('"Program"')) {
+      locks.push('Program');
+      return Promise.resolve([{ id: syntheticFenceProgramId }]);
+    }
+    if (text.includes('"Team"')) {
+      locks.push('Team');
+      return Promise.resolve([{ id: syntheticTeamId }]);
+    }
+    return featureQueryRaw(sql);
+  };
+  tx.application = {
+    findUnique: applicationFindUnique,
+    findFirst: applicationFindFirst,
+  };
+
+  return { applicationFindUnique, applicationFindFirst, locks };
+}
 
 describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
   it('REPEATABLE READ transaction store로 좌표와 상세를 같은 DB snapshot에서 읽는다', async () => {
@@ -471,6 +560,8 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     lockedSubmission: { readonly status: SubmissionStatus } | null = {
       status: SubmissionStatus.CHANGES_REQUESTED,
     },
+    /** 잠금 뒤 되읽은 현재 팀원 명단. 기본은 「제출자는 지금도 팀원」이다. */
+    currentMemberIds: readonly string[] = [syntheticUserId],
   ) {
     const submissionUpsert = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-submission',
@@ -502,6 +593,9 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       submissionFile: { updateMany: fileUpdateMany, findMany: fileFindMany },
       ...overrides,
     };
+    // 쓰기 앞의 공용 관문이 지나갈 자리. Program·Team 잠금은 여기서 가로채고,
+    // 각 시험이 넘긴 `$queryRaw` 목은 서류 계열 잠금만 그대로 받는다.
+    const fence = attachMembershipFence(tx, currentMemberIds);
     const prisma = {
       $transaction: jest.fn((callback: (transaction: unknown) => unknown) =>
         callback(tx),
@@ -517,6 +611,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       submissionFindUnique,
       historyCreate,
       historyFindFirst,
+      fence,
     };
   }
 
@@ -742,7 +837,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
       });
     });
-    const { prisma } = transactionPrisma({
+    const { prisma, fence } = transactionPrisma({
       $queryRaw: queryRaw,
       milestoneDocumentSubmission: { upsert: submissionUpsert },
     });
@@ -761,6 +856,11 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     // Then
     expect(order).toEqual(['lock', 'upsert']);
+    // #1269 — 공용 관문은 Program → Team 순으로, 그리고 서류 행 잠금보다 먼저 지난다.
+    expect(fence.locks).toEqual(['Program', 'Team']);
+    expect(firstInvocationOrder(fence.applicationFindFirst)).toBeLessThan(
+      firstInvocationOrder(queryRaw),
+    );
     expect(
       String(firstCallArgument<{ strings: string[] }>(queryRaw).strings),
     ).toContain('FOR UPDATE');
@@ -1054,6 +1154,38 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     // Then
     expect(order).toEqual(['lock', 'readLatestReview']);
+  });
+
+  /**
+   * #1269 — 사전 인가와 쓰기 사이에 팀원 제외가 커밋되면, 잠금 뒤 되읽은 사실이
+   * 「이미 이 팀 사람이 아니다」가 된다. 제출·이력·첨부 어느 것도 남지 않아야 한다.
+   */
+  it('잠금 뒤 현재 팀원이 아니면 제출·이력·첨부를 쓰지 않는다', async () => {
+    // Given: 멤버 명단에서 제출자가 빠졌다.
+    const { prisma, submissionUpsert, historyCreate, fileUpdateMany, fence } =
+      transactionPrisma({}, null, null, []);
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    // When / Then
+    await expect(
+      repository.upsertSubmission({
+        milestoneDocumentId: syntheticDocumentId,
+        applicationId: syntheticApplicationId,
+        submittedById: syntheticUserId,
+        submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+        content: Prisma.JsonNull,
+        attachFile: {
+          fileId: 'cuid-synthetic-file',
+          uploaderId: syntheticUserId,
+          milestoneId: syntheticMilestoneId,
+        },
+        expectedLatestReviewId: null,
+      }),
+    ).rejects.toBeInstanceOf(SubmissionMembershipChangedError);
+    expect(fence.applicationFindFirst).toHaveBeenCalledTimes(1);
+    expect(submissionUpsert).not.toHaveBeenCalled();
+    expect(historyCreate).not.toHaveBeenCalled();
+    expect(fileUpdateMany).not.toHaveBeenCalled();
   });
 });
 
@@ -2954,6 +3086,8 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
             findMany: () => Promise.resolve([]),
           },
         };
+        // 공용 관문도 이 경합을 그대로 지난다 — 둘 다 팀원이므로 가르는 것은 서류 행 잠금뿐이다.
+        attachMembershipFence(transaction);
         try {
           return await callback(transaction);
         } finally {

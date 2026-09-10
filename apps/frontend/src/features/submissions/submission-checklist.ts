@@ -99,12 +99,12 @@ export function hasMilestoneDeadlinePassed(dueAt: string, now: Date): boolean {
   return Number.isFinite(due) && now.getTime() > due;
 }
 
-/** features/programs milestone-row와 동일한 마감 배지 variant 규칙. */
-export function deadlineVariant(
-  dDay: number,
-): 'rejected' | 'pending' | 'recruiting' {
-  return dDay < 0 ? 'rejected' : dDay === 0 ? 'pending' : 'recruiting';
-}
+/*
+ * 마감 배지 variant(deadlineVariant)는 없애고 마감을 평범한 글로 적는다. 상태
+ * 배지를 일정에도 쓰면 「마감 지남」의 빨간 배지가 승인된 제출물 옆에 서서
+ * 심사 결과처럼 읽힌다. 배지는 제출·심사 상태 하나만 말한다
+ * (components/submission-checklist-row.tsx).
+ */
 
 /** 서버가 dueAt ASC를 보장하지만 epoch 수치 기준으로 방어 정렬한다. */
 export function sortChecklistItems(

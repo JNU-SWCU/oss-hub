@@ -445,4 +445,78 @@ export const fixture = nextScheduledCollectionAt;
       });
     }
   });
+
+  // 멤버십 outbox 생산자(programs·team-invitations Repository)는 승인/권한 동기화
+  // 이벤트 payload를 직접 조립하지 않고 github의 **순수 이벤트 계약**
+  // (repository-provision-event: type 상수 + factory + parser)만 공유한다.
+  // 이 계약 파일은 Prisma delegate·GitHub client·concrete repository를 전혀
+  // 쓰지 않으므로 공개 surface지만, 같은 zone의 소비 구현(consumer/worker/
+  // concrete repository)은 여전히 비공개다. 아래 3개는 그 경계를 한 쌍의
+  // GREEN/RED로 고정한다 — allowlist가 파일 하나가 아니라 폴더 전체로
+  // 넓어지면 RED 두 건이 즉시 무너진다.
+  describe('규칙 6 — provision 이벤트 순수 계약만 공개, 구현은 비공개', () => {
+    it('GREEN: 생산자 Repository가 repository-provision-event 순수 계약을 import하면 통과한다', () => {
+      // Given: programs Repository가 outbox payload factory를 공유한다.
+      const relPath =
+        'src/programs/repository/__lint_fixture_provision_event.allowed.repository.ts';
+      writeFixture(
+        relPath,
+        `import { repositoryAccessSyncEventData } from '../../github/repository-provision-event';
+
+export const fixture = repositoryAccessSyncEventData;
+`,
+      );
+
+      // When: 실제 eslint.config.mjs로 lint한다.
+      const messages = boundaryMessages(lintFixture(relPath));
+
+      // Then: 공개 surface allowlist에 있으므로 위반이 없다.
+      expect(messages).toHaveLength(0);
+    });
+
+    it('RED: 같은 생산자가 이 이벤트를 쓰는 github concrete repository를 import하면 여전히 막힌다', () => {
+      // Given: 계약 대신 그 계약을 소비하는 구현(concrete repository)을 끌어온다.
+      const relPath =
+        'src/programs/repository/__lint_fixture_provision_event.concrete.repository.ts';
+      writeFixture(
+        relPath,
+        `import { RepositoryProvisionStateRepository } from '../../github/repository/repository-provision-state.repository';
+
+export type Fixture = RepositoryProvisionStateRepository;
+`,
+      );
+
+      // When: lint한다.
+      const messages = boundaryMessages(lintFixture(relPath));
+
+      // Then: 이벤트 계약 공개가 github 폴더 전체를 열지 않았음을 증명한다.
+      expect(messages).toHaveLength(1);
+      expect(messages[0]?.ruleId).toBe('boundary/module-zone');
+      expect(messages[0]?.line).toBe(1);
+      expect(messages[0]?.message).toContain('concrete repository');
+    });
+
+    it('RED: 이벤트를 소비하는 github 내부 구현(outbox consumer)은 계속 비공개다', () => {
+      // Given: 같은 zone의 소비 구현을 import한다 — 파일 이름이 계약과 비슷해도
+      // allowlist는 정확한 파일 이름만 연다.
+      const relPath =
+        'src/programs/repository/__lint_fixture_provision_event.consumer.repository.ts';
+      writeFixture(
+        relPath,
+        `import { RepositoryOutboxConsumer } from '../../github/repository-outbox.consumer';
+
+export type Fixture = RepositoryOutboxConsumer;
+`,
+      );
+
+      // When: lint한다.
+      const messages = boundaryMessages(lintFixture(relPath));
+
+      // Then: prefix가 아니라 파일 단위 allowlist임을 고정한다.
+      expect(messages).toHaveLength(1);
+      expect(messages[0]?.ruleId).toBe('boundary/module-zone');
+      expect(messages[0]?.line).toBe(1);
+      expect(messages[0]?.message).toContain('concrete repository');
+    });
+  });
 });

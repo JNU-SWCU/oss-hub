@@ -46,6 +46,12 @@ const collectionPublicFiles = [
   // Next collection tick for ranking `nextCycleAt`. Pure cron math — not a
   // reader, so ranking can import it without a github repository.
   'collection-schedule',
+  // 승인·권한 동기화 outbox 이벤트의 순수 계약(type 상수 + factory + parser).
+  // Prisma delegate·GitHub client·concrete repository를 전혀 쓰지 않는 순수
+  // 모듈이라, 생산자 zone(programs/team-invitations)의 Repository가 같은
+  // payload 모양을 복제하지 않고 이 계약 하나만 공유한다. 소비 구현
+  // (consumer/worker/repository)은 여전히 github 내부에 남는다.
+  'repository-provision-event',
 ];
 const collectionPublicDirs = ['dto'];
 // 계층 폴더(P20) 도입으로 공개 표면 일부가 zone 루트를 떠났다.

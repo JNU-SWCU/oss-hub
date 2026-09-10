@@ -9,6 +9,7 @@ import {
   rejectedDashboardFixture,
 } from './fixtures';
 import { loadStudentDashboard } from './load-student-dashboard';
+import type { StudentDashboard } from './types';
 
 const renderView = (
   props: Partial<Parameters<typeof StudentDashboardView>[0]> = {},
@@ -23,6 +24,14 @@ const renderView = (
     />,
   );
 
+const firstItemOf = (data: StudentDashboard) => {
+  const item = data.items[0];
+  if (item === undefined) {
+    throw new Error('카드가 하나 이상인 fixture가 필요합니다.');
+  }
+  return item;
+};
+
 describe('StudentDashboardView', () => {
   it('헤더에 내 활동 바로가기를 두지 않는다', () => {
     // 네비는 상단 waypoint + 좌측 사이드 패널로 충분하다.
@@ -34,19 +43,68 @@ describe('StudentDashboardView', () => {
     expect(emptyHtml).not.toContain('href="/dashboard/activity"');
   });
 
-  it('개인형과 팀형 참여 카드를 구분하고 다음 제출 상태를 표시한다', () => {
+  /**
+   * 대시보드 항목은 전부 **지금 소속된 팀**이다(#1269). 혼자 참여한 항목도 팀이므로
+   * 카드가 "개인"으로 갈라 사람 이름을 그리면 같은 자리에 두 가지 정체성이 생긴다.
+   */
+  it('모든 참여 카드가 현재 팀 이름을 말하고 개인형 표기를 남기지 않는다', () => {
     const html = renderView();
 
     expect(html).toContain('캡스톤 2026');
-    expect(html).toContain('개인');
     expect(html).toContain('OSS 경진대회');
-    expect(html).toContain('팀');
+    for (const item of dashboardFixture.items) {
+      expect(html).toContain(item.teamName);
+    }
+    // 1인 팀도 팀 이름으로 말한다 — 그 카드가 팀 이름을 갖고 있어야 이 단언이 의미 있다.
+    expect(firstItemOf(dashboardFixture).teamName).toBe('합성 1인 팀');
+    expect(html).not.toContain('개인');
+    expect(html).not.toContain('PERSONAL');
     expect(html).toContain('참여 중');
     expect(html).toContain('미제출');
     expect(html).toContain('D-3');
     expect(html).toContain('7월 26일 23:59 마감');
-    expect(html).toContain('프로그램 상세');
-    expect(html).toContain('제출 체크리스트');
+  });
+
+  it.each([
+    ['참여', dashboardFixture],
+    ['승인 대기', pendingDashboardFixture],
+    ['반려', rejectedDashboardFixture],
+    ['완료', completedDashboardFixture],
+  ] as const)('%s 카드도 팀 이름과 우리 팀 입구를 잃지 않는다', (_l, data) => {
+    const item = firstItemOf(data);
+    const html = renderView({ data });
+
+    expect(html).toContain(item.teamName);
+    expect(html).toContain('우리 팀');
+    // 응답이 준 주소를 그대로 쓰되, 그 값이 팀 화면 경로인지도 함께 고정한다.
+    expect(item.teamUrl).toBe(`/programs/${item.programId}/my-team`);
+    expect(html).toContain(`href="${item.teamUrl}"`);
+  });
+
+  /**
+   * 카드 전체를 링크로 감싸고 그 안에 버튼을 넣으면 중첩 대화형 요소가 되어 키보드와
+   * 스크린 리더의 이동 순서가 무너진다. 입구는 카드 표면이 아니라 명시적 CTA다.
+   */
+  it('카드 전체를 링크로 감싸거나 링크 안에 버튼을 중첩하지 않는다', () => {
+    const html = renderView();
+
+    expect(html).not.toMatch(/<a[^>]*>(?:(?!<\/a>)[\s\S])*<button/);
+    expect(html).not.toMatch(/<button[^>]*>(?:(?!<\/button>)[\s\S])*<a\s/);
+  });
+
+  it('승인 카드는 우리 팀과 제출 현황만 남기고 프로그램 개요 입구를 중복하지 않는다', () => {
+    const item = firstItemOf(dashboardFixture);
+    const html = renderView();
+
+    expect(html).toContain('우리 팀');
+    expect(html).toContain('제출 현황');
+    expect(html).toContain(`href="${item.checklistUrl}"`);
+    // 개요는 우리 팀 화면과 프로그램 좌측 패널이 이미 이고 있다.
+    expect(html).not.toContain('프로그램 상세');
+    expect(html).not.toContain(`href="/programs/${item.programId}"`);
+    // 제출 현황과 우리 팀은 서로 다른 화면이다 — 라벨만 바뀐 같은 주소가 아니다.
+    expect(item.checklistUrl).toBe(`/programs/${item.programId}/submissions`);
+    expect(item.checklistUrl).not.toBe(item.teamUrl);
   });
 
   it('저장소 생성·초대 상태와 안전한 이동 링크를 제공한다', () => {
@@ -59,10 +117,12 @@ describe('StudentDashboardView', () => {
     expect(html).not.toContain('href="/my-repos"');
     expect(html).toContain('준비 완료');
     expect(html).toContain('저장소 생성 중');
-    expect(html).toContain('href="https://github.com/JNU-SWCU/capstone-hong"');
+    expect(html).toContain(
+      'href="https://github.com/JNU-SWCU/synthetic-capstone-repo"',
+    );
 
-    const firstItem = dashboardFixture.items[0];
-    if (!firstItem?.repository) {
+    const firstItem = firstItemOf(dashboardFixture);
+    if (!firstItem.repository) {
       throw new Error('저장소가 포함된 대시보드 fixture가 필요합니다.');
     }
     const invitationPendingHtml = renderView({
@@ -80,7 +140,7 @@ describe('StudentDashboardView', () => {
     });
     expect(invitationPendingHtml).toContain('초대 수락 대기');
     expect(invitationPendingHtml).not.toContain(
-      'href="https://github.com/JNU-SWCU/capstone-hong"',
+      'href="https://github.com/JNU-SWCU/synthetic-capstone-repo"',
     );
 
     const invitationFailedHtml = renderView({
@@ -98,7 +158,7 @@ describe('StudentDashboardView', () => {
     });
     expect(invitationFailedHtml).toContain('초대 확인 필요');
     expect(invitationFailedHtml).not.toContain(
-      'href="https://github.com/JNU-SWCU/capstone-hong"',
+      'href="https://github.com/JNU-SWCU/synthetic-capstone-repo"',
     );
 
     const ownRepositoryHtml = renderView({
@@ -122,9 +182,10 @@ describe('StudentDashboardView', () => {
       'href="https://github.com/synthetic-owner/synthetic-repository"',
     );
   });
+
   it('최종 저장소 생성 실패는 사용자에게 경고하고 재시도와 구분한다', () => {
-    const firstItem = dashboardFixture.items[0];
-    if (!firstItem?.repository) {
+    const firstItem = firstItemOf(dashboardFixture);
+    if (!firstItem.repository) {
       throw new Error('저장소가 포함된 대시보드 fixture가 필요합니다.');
     }
 
@@ -168,7 +229,10 @@ describe('StudentDashboardView', () => {
     expect(html).toContain('승인 대기');
     expect(html).toContain('승인되면 다음 일정이 표시됩니다.');
     expect(html).toContain('신청 상세');
-    expect(html).not.toContain('제출 체크리스트');
+    expect(html).not.toContain('제출 현황');
+    expect(html).not.toContain(
+      `href="${firstItemOf(pendingDashboardFixture).checklistUrl}"`,
+    );
   });
 
   it('예정된 제출 항목을 모두 마쳤습니다. 상태를 표시한다', () => {
@@ -180,13 +244,15 @@ describe('StudentDashboardView', () => {
     expect(html).not.toContain('다음 마일스톤');
   });
 
-  it('반려 신청에는 신청 상세만 표시한다', () => {
+  it('반려 신청에는 신청 상세와 우리 팀만 남기고 제출 입구는 감춘다', () => {
     const html = renderView({ data: rejectedDashboardFixture });
 
     expect(html).toContain('신청 반려');
     expect(html).toContain('신청이 반려되었습니다.');
     expect(html).toContain('신청 상세');
-    expect(html).not.toContain('제출 체크리스트');
+    expect(html).not.toContain('제출 현황');
+    // 신청이 반려돼도 팀은 남는다 — 팀 화면으로 가는 길까지 끊지 않는다.
+    expect(html).toContain('우리 팀');
     // 카드가 약속하는 것과 목적지가 같아야 한다. 예전 문구는 "프로그램 상세에서 신청
     // 상태를"이었는데 그 화면에는 신청 상태도 사유도 없었다(#733).
     expect(html).toContain('신청 상세에서 반려 사유를 확인해 주세요.');
@@ -208,10 +274,7 @@ describe('StudentDashboardView', () => {
   ] as const)(
     '%s 카드의 신청 상세는 응답이 준 신청서 화면으로 간다',
     (_label, data) => {
-      const item = data.items[0];
-      if (item === undefined) {
-        throw new Error('카드가 하나 이상인 fixture가 필요합니다.');
-      }
+      const item = firstItemOf(data);
 
       const html = renderView({ data });
 
@@ -330,52 +393,6 @@ describe('StudentDashboardView', () => {
     expect(htmlWithReason).not.toContain(secret);
   });
 });
-
-describe('PendingTeamInvitesBanner를 통한 받은 팀 초대 배너', () => {
-  it('대기 중인 초대가 없으면 배너를 렌더하지 않는다', () => {
-    const html = renderView({ pendingTeamInvites: [] });
-
-    expect(html).not.toContain('받은 팀 초대');
-  });
-
-  it('대기 중인 초대가 있으면 건수와 프로그램·팀 이름을 표시한다', () => {
-    const html = renderView({
-      pendingTeamInvites: [
-        {
-          invitationId: 'invitation-1',
-          teamId: 'team-1',
-          programId: 'program-1',
-          programName: '캡스톤 2026',
-          teamName: '오픈소스팀',
-        },
-      ],
-    });
-
-    expect(html).toContain('받은 팀 초대 1건');
-    expect(html).toContain('캡스톤 2026');
-    expect(html).toContain('오픈소스팀');
-    expect(html).toContain('오픈소스팀 팀 초대 수락');
-    expect(html).toContain('오픈소스팀 팀 초대 거절');
-  });
-
-  it('이름을 알 수 없는 초대는 식별 가능한 대체 문구를 보여준다', () => {
-    const html = renderView({
-      pendingTeamInvites: [
-        {
-          invitationId: 'invitation-1',
-          teamId: 'team-1',
-          programId: 'program-1',
-          programName: null,
-          teamName: null,
-        },
-      ],
-    });
-
-    expect(html).toContain('알 수 없는 팀');
-    expect(html).toContain('알 수 없는 프로그램');
-  });
-});
-
 describe('loadStudentDashboard', () => {
   it('실패 후 다시 호출하면 성공 결과를 받는다', async () => {
     const fetchDashboard = vi

@@ -19,6 +19,7 @@ import {
   SubmissionFileStorageError,
   type SubmissionFileStoragePort,
 } from './submission-file-storage.port';
+import { SubmissionMembershipChangedError } from './submission-membership.repository';
 import {
   type CreatePendingSubmissionFileInput,
   type SubmissionFileResubmissionContext,
@@ -153,6 +154,12 @@ export class SubmissionFilesService {
     try {
       created = await this.repository.createPending(pendingInput);
     } catch (error) {
+      // 위의 preflight 이후 탈퇴·승계가 커밋되면 예약 transaction 안의 잠금이 이를
+      // 잡아낸다(#1269). 권한 없는 사용자는 preflight에서 걸린 것과 같은 403을 받고,
+      // 이 분기는 `storage.put` 앞이라 비공개 객체는 애초에 쓰이지 않는다.
+      if (error instanceof SubmissionMembershipChangedError) {
+        throw this.error(SubmissionsErrorCode.NOT_APPLICATION_MEMBER);
+      }
       if (error instanceof SubmissionFileQuotaExceededError) {
         throw this.error(SubmissionsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED);
       }

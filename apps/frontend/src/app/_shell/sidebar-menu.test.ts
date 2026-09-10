@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/types';
+import { programMyTeamHref } from '@/lib/program-route';
+import { isProgramScopedWorkspacePath } from './program-shell-policy';
 import { currentRankingYear } from '@/features/ranking/types';
 import { programDetailIdFromPathname, SECTION_FACETS } from './section-facets';
 import type { MemberAccess } from './member-access';
@@ -551,9 +553,10 @@ describe('programScopeSidebarGroups', () => {
     const [overview, documents, board] = groups;
     expect(overview?.items.map((i) => i.label)).toEqual([
       '프로그램 개요',
+      '우리 팀',
       '참여 팀',
     ]);
-    expect(overview?.items[1]?.count).toBe('47');
+    expect(overview?.items[2]?.count).toBe('47');
     // 학생은 신청 판정 창구가 없다 — 개요 그룹에 「신청자」를 붙이지 않는다.
     expect(overview?.items.some((i) => i.label === '신청자')).toBe(false);
     expect(documents?.items[0]).toMatchObject({
@@ -709,7 +712,8 @@ describe('programScopeSidebarGroups', () => {
       viewerRole: 'STUDENT',
     });
     expect(groups[0]?.items[0]?.href).toBe('/programs/prog-1');
-    expect(groups[0]?.items[1]?.href).toBe('/programs/prog-1/teams');
+    expect(groups[0]?.items[1]?.href).toBe('/programs/prog-1/my-team');
+    expect(groups[0]?.items[2]?.href).toBe('/programs/prog-1/teams');
     expect(groups[2]?.items[0]?.href).toBe('/programs/prog-1/board');
   });
 });
@@ -754,11 +758,11 @@ describe('programScopeSidebarGroups — 참여자 전용 항목(#1099)', () => {
     expect(labels(groups)).not.toContain('1차 계획서');
   });
 
-  it('프로그램 개요·참여 팀은 그대로 남는다 — 참여 전에도 열리는 화면이다', () => {
+  it('프로그램 개요·우리 팀·참여 팀은 그대로 남는다 — 참여 전에도 열리는 화면이다', () => {
     const groups = programScopeSidebarGroups(notParticipant);
 
-    expect(labels(groups)).toEqual(['프로그램 개요', '참여 팀']);
-    expect(groups[0]?.items[1]?.count).toBe('47');
+    expect(labels(groups)).toEqual(['프로그램 개요', '우리 팀', '참여 팀']);
+    expect(groups[0]?.items[2]?.count).toBe('47');
   });
 
   it('참여자에게는 지금과 똑같이 열린다', () => {
@@ -852,7 +856,11 @@ describe('programScopeSidebarGroups — 참여자 전용 항목(#1099)', () => {
 
       expect(labels(groups)).not.toContain('신청자');
       expect(labels(groups)).not.toContain('서류 현황');
-      expect(labels(groups).slice(0, 2)).toEqual(['프로그램 개요', '참여 팀']);
+      expect(labels(groups).slice(0, 3)).toEqual([
+        '프로그램 개요',
+        '우리 팀',
+        '참여 팀',
+      ]);
     });
 
     it('관리자 권한이 없는 미신청 학생은 게시판까지 사라진 채 그대로다', () => {
@@ -881,7 +889,7 @@ describe('programScopeSidebarGroups — 참여자 전용 항목(#1099)', () => {
     });
   });
 
-  it('비회원(GUEST) 좌측 패널 구성은 참여 여부와 무관하게 그대로다', () => {
+  it('비회원(GUEST) 좌측 패널 구성은 참여 여부와 무관하게 그대로다 — 우리 팀도 없다', () => {
     const guest = programScopeSidebarGroups({ ...base, viewerRole: 'GUEST' });
     const guestWithFlag = programScopeSidebarGroups({
       ...base,
@@ -891,5 +899,117 @@ describe('programScopeSidebarGroups — 참여자 전용 항목(#1099)', () => {
 
     expect(guestWithFlag).toEqual(guest);
     expect(guestWithFlag).toHaveLength(1);
+    expect(
+      guest.flatMap((group) => group.items.map((item) => item.label)),
+    ).toEqual(['프로그램 개요']);
+  });
+});
+
+describe('programScopeSidebarGroups — 우리 팀(#1269)', () => {
+  const base = {
+    programId: 'seed:1',
+    teamCount: 47,
+    boardPostCount: 3,
+  } as const;
+
+  function myTeamItem(viewerRole: 'GUEST' | 'STUDENT' | 'STAFF' | 'ADMIN') {
+    return programScopeSidebarGroups({ ...base, viewerRole })
+      .flatMap((group) => group.items)
+      .find((item) => item.label === '우리 팀');
+  }
+
+  it('학생은 개요·참여 팀 사이에서 인코딩된 전용 경로로 간다', () => {
+    const overview = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'STUDENT',
+    })[0];
+
+    expect(overview?.items.map((item) => item.label)).toEqual([
+      '프로그램 개요',
+      '우리 팀',
+      '참여 팀',
+    ]);
+    expect(overview?.items[1]).toMatchObject({
+      href: '/programs/seed%3A1/my-team',
+      depth: 0,
+    });
+    expect(overview?.items[1]?.href).toBe(programMyTeamHref('seed:1'));
+  });
+
+  it('공개 참여 팀 디렉터리·신청 화면과 다른 주소다', () => {
+    const overview = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'STUDENT',
+    })[0];
+    const hrefs = overview?.items.map((item) => item.href) ?? [];
+
+    expect(new Set(hrefs).size).toBe(hrefs.length);
+    expect(hrefs[1]).not.toBe(hrefs[2]);
+    expect(hrefs[1]).not.toContain('/apply');
+  });
+
+  it('뚜지를 붙이지 않는다 — 프로그램 전체 팀 수를 내 팀 자리에 쓰지 않는다', () => {
+    expect(myTeamItem('STUDENT')?.count).toBeUndefined();
+  });
+
+  it('신청 상태와 무관하게 모든 학생에게 보인다 — 팀 유무를 추측하지 않는다', () => {
+    for (const viewerParticipant of [true, false, undefined]) {
+      const labels = programScopeSidebarGroups({
+        ...base,
+        viewerRole: 'STUDENT',
+        viewerParticipant,
+      }).flatMap((group) => group.items.map((item) => item.label));
+
+      expect(labels).toContain('우리 팀');
+    }
+  });
+
+  it('교직원·관리자·비회원에게는 없다', () => {
+    expect(myTeamItem('STAFF')).toBeUndefined();
+    expect(myTeamItem('ADMIN')).toBeUndefined();
+    expect(myTeamItem('GUEST')).toBeUndefined();
+  });
+
+  it('교직원 개요 그룹은 그대로다', () => {
+    const overview = programScopeSidebarGroups({
+      ...base,
+      viewerRole: 'STAFF',
+    })[0];
+
+    expect(overview?.items.map((item) => item.label)).toEqual([
+      '프로그램 개요',
+      '참여 팀',
+      '신청자',
+    ]);
+  });
+
+  it('현재 메뉴 강조는 우리 팀 경로에서만 켜진다', () => {
+    const href = programMyTeamHref('prog-1');
+
+    expect(isCurrentSidebarItem('/programs/prog-1/my-team', href)).toBe(true);
+    expect(isCurrentSidebarItem('/programs/prog-1/teams', href)).toBe(false);
+    expect(isCurrentSidebarItem('/programs/prog-1/apply', href)).toBe(false);
+    expect(
+      isCurrentSidebarItem('/programs/prog-1/teams', '/programs/prog-1/teams'),
+    ).toBe(true);
+  });
+});
+
+describe('isProgramScopedWorkspacePath', () => {
+  it('우리 팀은 프로그램 스코프 작업 화면이다', () => {
+    expect(isProgramScopedWorkspacePath('/programs/prog-1/my-team')).toBe(true);
+    expect(isProgramScopedWorkspacePath('/programs/seed%3A1/my-team')).toBe(
+      true,
+    );
+    expect(programDetailIdFromPathname('/programs/seed%3A1/my-team')).toBe(
+      'seed:1',
+    );
+  });
+
+  it('생성 마법사·목록·전역 대시보드는 아니다', () => {
+    expect(isProgramScopedWorkspacePath('/programs/new')).toBe(false);
+    expect(isProgramScopedWorkspacePath('/programs')).toBe(false);
+    expect(isProgramScopedWorkspacePath('/dashboard')).toBe(false);
+    expect(isProgramScopedWorkspacePath('/dashboard/activity')).toBe(false);
   });
 });

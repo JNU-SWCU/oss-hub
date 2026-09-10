@@ -10,6 +10,7 @@ import type { RepositoriesReadPort } from '../../github/repositories-read.port';
 import { PrismaService } from '../../prisma/prisma.service';
 import { canonicalUserCreateFromLabel } from '../../users/canonical-user-fixture';
 import { ProgramsRepository } from '../repository/programs.repository';
+import { StudentDashboardReadRepository } from '../repository/student-dashboard-read.repository';
 import { ProgramsService } from './programs.service';
 import { StudentDashboardService } from './student-dashboard.service';
 
@@ -60,7 +61,10 @@ const prisma = new PrismaService();
 const noRepositories: RepositoriesReadPort = {
   getMyRepositories: () => Promise.resolve([]),
 };
-const dashboard = new StudentDashboardService(prisma, noRepositories);
+const dashboard = new StudentDashboardService(
+  new StudentDashboardReadRepository(prisma),
+  noRepositories,
+);
 const programs = new ProgramsService(new ProgramsRepository(prisma));
 
 function programRow(programId: string) {

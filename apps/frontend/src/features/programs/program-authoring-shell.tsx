@@ -5,8 +5,11 @@ import { cn } from '@/lib/utils';
 import { PROGRAM_AUTHORING_STEPS } from './program-authoring-model';
 
 export function ProgramAuthoringShell<
-  Step extends { readonly id: string; readonly label: string } =
-    (typeof PROGRAM_AUTHORING_STEPS)[number],
+  Step extends {
+    readonly id: string;
+    readonly label: string;
+    readonly disabled?: boolean;
+  } = (typeof PROGRAM_AUTHORING_STEPS)[number],
 >({
   currentStep,
   children,
@@ -46,6 +49,7 @@ export function ProgramAuthoringShell<
                   <Button
                     type="button"
                     variant="ghost"
+                    disabled={step.disabled}
                     className={cn(
                       'w-full justify-start gap-3 px-4',
                       step.id === currentStep &&

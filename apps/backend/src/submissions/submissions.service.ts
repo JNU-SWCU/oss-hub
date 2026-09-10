@@ -22,6 +22,7 @@ import type {
   SubmissionChecklistResponseDto,
   SubmissionFormResponseDto,
 } from './dto/submission-response.dto';
+import { SubmissionMembershipChangedError } from './submission-membership.repository';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
@@ -135,6 +136,10 @@ export class SubmissionsService {
         };
       });
     } catch (error: unknown) {
+      // 사전 인가 뒤에 팀원 제외가 커밋된 경우다 — 참여자가 아닌 것과 같은 결로로 닫는다.
+      if (error instanceof SubmissionMembershipChangedError) {
+        throw this.error(SubmissionsErrorCode.NOT_APPLICATION_MEMBER);
+      }
       if (error instanceof SubmissionAlreadyExistsError) {
         throw this.error(SubmissionsErrorCode.SUBMISSION_ALREADY_EXISTS);
       }
@@ -247,6 +252,9 @@ export class SubmissionsService {
         };
       });
     } catch (error: unknown) {
+      if (error instanceof SubmissionMembershipChangedError) {
+        throw this.error(SubmissionsErrorCode.NOT_APPLICATION_MEMBER);
+      }
       if (error instanceof StaleSubmissionRevisionError) {
         throw this.error(SubmissionsErrorCode.STALE_SUBMISSION_REVISION);
       }

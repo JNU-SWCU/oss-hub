@@ -118,6 +118,7 @@ describe('GET /api/v1/programs/application-templates', () => {
     for (const item of body.items) {
       expect(item.version).toBe(1);
       expect(item.fields).toEqual([...V1_APPLICATION_FIELDS]);
+      expect(item.fields.map((field) => field.key)).toEqual(['applicantName']);
     }
     expect(body.items.find((item) => item.key === 'basic')?.name).toBe(
       '기본 신청서',

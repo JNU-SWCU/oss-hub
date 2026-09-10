@@ -22,6 +22,11 @@ export type GithubPublicRepositoryMetadata = GithubRepositoryMetadata & {
   readonly archived: boolean;
 };
 
+export type GithubRepositoryInvitation = {
+  readonly invitationId: number;
+  readonly login: string;
+};
+
 export async function throwForGithubErrorResponse(
   response: Response,
   now: Date,
@@ -122,7 +127,13 @@ export function parseGithubPublicRepository(
   };
 }
 
-export function parseInvitationLogins(value: unknown): readonly string[] {
+/**
+ * repository invitation 목록에서 취소에 필요한 최소 field만 allowlist로 뽑는다.
+ * raw payload·초대 email 등 나머지 field는 보관하지도 반환하지도 않는다(ADR-006).
+ */
+export function parseRepositoryInvitations(
+  value: unknown,
+): readonly GithubRepositoryInvitation[] {
   if (!Array.isArray(value)) {
     throw invalidGithubResponseError();
   }
@@ -130,11 +141,18 @@ export function parseInvitationLogins(value: unknown): readonly string[] {
     if (!isRecord(invitation) || !isRecord(invitation.invitee)) {
       throw invalidGithubResponseError();
     }
+    const invitationId = invitation.id;
     const login = invitation.invitee.login;
-    if (typeof login !== 'string') {
+    if (
+      typeof invitationId !== 'number' ||
+      !Number.isSafeInteger(invitationId) ||
+      invitationId <= 0 ||
+      typeof login !== 'string' ||
+      login.length === 0
+    ) {
       throw invalidGithubResponseError();
     }
-    return login;
+    return { invitationId, login };
   });
 }
 
