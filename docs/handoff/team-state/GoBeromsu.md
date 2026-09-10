@@ -1582,3 +1582,21 @@
 - 검증: `migrate`·`negative` 두 lane을 일회용 PostgreSQL 컨테이너에서 실제로 돌려 각각 `{"status":"ok",...}`를 받았다. migrate는 값이 든 `TeamMember.phone`이 지워졌다가 직전 덤프로 되살아나는 것과 `User_phone_digits_check`가 10·11자리만 받는 것을, negative는 파일 전체가 한 트랜잭션이라 `ADD COLUMN`까지 롤백되는 것을 확인했다. 정적 계약 14개, ci-path-contract 8개, 전체 prettier가 통과했다.
 - 주의: 이 리허설 receipt를 근거로 `v0.6.154`를 발행했다. 스크립트는 호출자의 `DATABASE_URL`을 읽지 않고 unix 소켓 Docker endpoint만 허용하며 호스트 포트를 열지 않는다.
 - 범위: 리허설 tooling과 문서·CI 등록만 손댔다. 마이그레이션 SQL, 제품 코드, 운영 DB는 건드리지 않았다. `rehearse-program-deletion-column.sh`에 같은 정적 계약이 없는 것은 이 PR 범위 밖으로 남겨 둔다.
+
+## 2026-09-10 — 학생 신청 통합의 최종 증거를 기록한다
+
+- 상태: review
+- Issue: #1269
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 승인된 main과 신청·초대·우리 팀·현재 구성원 인가·관리형 권한 조정을 통합했다.
+- 검증: frontend 372 files / 3,880 tests, backend 337 suites / 4,076 tests, 격리 DB 103 suites / 670 tests, installed Chrome 74 tests가 통과했다.
+- 검증: 양쪽 typecheck·lint·build, 전체 format 검사, public-safe, migration 65개 동시 적용 직렬화를 확인했다.
+- 주의: Chrome 전체 실행의 QA148 증거 시나리오는 명시적 after 단계와 합성 cookie 경로를 요구한다.
+- 주의: architecture 경계 테스트가 일시적으로 만드는 실패 fixture와 backend 컴파일을 병렬 실행하지 않는다.
+- 주의: 권한 재조회는 주기마다 첫 시도부터 예산을 시작하되 같은 주기의 실패 횟수는 유지한다.
+- 주의: 구성원 변경 뒤 GitHub 권한까지 즉시 회수됐다고 판단하지 않는다.
+- 독립 리뷰: 현재 구성원·lease·fingerprint·회수 재시도 경계를 확인하고 재시도 예산과 대소문자 조회 지적 두 건을 수정했다.
+- UX 증거: main 기준 Before와 frontend 제품 코드 기준 After를 다시 촬영하고 작성자의 의도·직접 확인 경로·UX 원칙 답변을 받았다.
+- 공개 안전성: 합성 캡처만 기존 정식 Release에 첨부했으며 새 Release 발행이나 운영 변경으로 취급하지 않는다.
+- 남은 것: required CI를 거친 정식 릴리즈와 배포 후 역할별 신청 상태 표시 단순화는 별도 완료 확인이 필요하다.
