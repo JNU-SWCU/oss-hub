@@ -12,10 +12,13 @@ import { UsersService } from './users.service';
 
 const githubId = 4242n;
 const studentId = '1'.repeat(6);
+const initialPhone = '2'.repeat(11);
+const changedPhone = '3'.repeat(11);
 const input: PatchUserProfileInput = {
   name: '합성 사용자',
   studentId,
   department: '인공지능학부',
+  phone: initialPhone,
 };
 
 type StoredUser = {
@@ -23,6 +26,7 @@ type StoredUser = {
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
+  readonly phone?: string | null;
   readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly selectedMemberKind?: MemberKind | null;
   readonly memberKind?: MemberKind | null;
@@ -47,6 +51,7 @@ function buildService(
           name: 'GitHub 합성 이름',
           studentId: null,
           department: null,
+          phone: null,
           role: null,
           selectedMemberKind: MemberKind.STUDENT,
           memberKind: null,
@@ -98,6 +103,7 @@ it('현행 동의를 확인한 뒤 GitHub 이름과 빈 프로필을 반환한�
     name: 'GitHub 합성 이름',
     studentId: null,
     department: null,
+    phone: null,
     isComplete: false,
   });
   expect(requireCurrent).toHaveBeenCalledWith(githubId);
@@ -110,6 +116,7 @@ it('이름이 비어 있으면 학번과 학과가 있어도 미완료로 반환
       name: '',
       studentId,
       department: input.department ?? null,
+      phone: null,
       role: 'STUDENT',
     },
   });
@@ -118,6 +125,7 @@ it('이름이 비어 있으면 학번과 학과가 있어도 미완료로 반환
     name: '',
     studentId,
     department: input.department,
+    phone: null,
     isComplete: false,
   });
 });
@@ -147,6 +155,7 @@ it('빈 프로필을 한 번만 저장하고 완료 응답을 반환한다', asy
       name: input.name,
       studentId,
       department: input.department,
+      phone: input.phone,
       memberKind: MemberKind.STUDENT,
       affiliationKind: 'DEPARTMENT',
       affiliationName: input.department,
@@ -184,6 +193,7 @@ it('이미 완료된 프로필의 학번을 다른 값으로 바꾸려 하면 US
         name: input.name,
         studentId,
         department: input.department ?? null,
+        phone: input.phone,
         role: 'STUDENT',
       },
     });
@@ -195,5 +205,65 @@ it('이미 완료된 프로필의 학번을 다른 값으로 바꾸려 하면 US
   expect(error.errorCode.code).toBe(UsersErrorCode.STUDENT_ID_IMMUTABLE);
   expect(error.errorCode.status).toBe(400);
   expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
+  expect(updateProfileFields).not.toHaveBeenCalled();
+});
+
+it('완료된 프로필의 연락처를 PATCH로 변경한다', async () => {
+  const existingUser = {
+    id: 'synthetic-user',
+    name: input.name,
+    studentId,
+    department: input.department ?? null,
+    phone: initialPhone,
+    role: 'STUDENT' as const,
+  };
+  const { service, updateProfileFields } = buildService({
+    user: existingUser,
+  });
+
+  await expect(
+    service.patchMyProfile(githubId, {
+      name: input.name,
+      department: input.department,
+      phone: changedPhone,
+    }),
+  ).resolves.toEqual({
+    name: input.name,
+    studentId,
+    department: input.department,
+    phone: changedPhone,
+    isComplete: true,
+  });
+  expect(updateProfileFields).toHaveBeenCalledWith(existingUser, {
+    name: input.name,
+    department: input.department,
+    phone: changedPhone,
+  });
+});
+
+it('완료된 프로필의 형식화된 연락처 PATCH를 400 검증 오류로 거부한다', async () => {
+  const { service, updateProfileFields } = buildService({
+    user: {
+      id: 'synthetic-user',
+      name: input.name,
+      studentId,
+      department: input.department ?? null,
+      phone: initialPhone,
+      role: 'STUDENT',
+    },
+  });
+
+  const error = await captureDomainException(() =>
+    service.patchMyProfile(githubId, {
+      name: input.name,
+      department: input.department,
+      phone: '333-3333-3333',
+    }),
+  );
+
+  expect(error.errorCode).toMatchObject({
+    code: SystemErrorCode.VALIDATION_FAILED,
+    status: 400,
+  });
   expect(updateProfileFields).not.toHaveBeenCalled();
 });

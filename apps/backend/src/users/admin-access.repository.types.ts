@@ -115,7 +115,10 @@ export interface AdminAccessRepositoryPort {
     operation: (store: AdminAccessTransactionStore) => Promise<T>,
   ): Promise<T>;
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null>;
-  list(query: AdminAccessListQuery): Promise<AdminAccessUserPageRecord>;
+  list(
+    query: AdminAccessListQuery,
+    sortContext?: 'directory' | 'requestQueue',
+  ): Promise<AdminAccessUserPageRecord>;
   facets(query: AdminAccessListQuery): Promise<AdminAccessFacets>;
   findById(userId: string): Promise<AdminAccessUserDetailRecord | null>;
   listStaffAccessRequestHistory(

@@ -19,7 +19,7 @@ const flow = readFileSync(
   'utf-8',
 );
 const view = readFileSync(
-  path.resolve(__dirname, './components/consent-view.tsx'),
+  path.resolve(__dirname, './components/consent-policy-document.tsx'),
   'utf-8',
 );
 const documentStyle = readFileSync(
@@ -29,9 +29,14 @@ const documentStyle = readFileSync(
 
 /** `className="…"`에 담긴 클래스 목록만 뽑는다 — 주석의 낱말은 세지 않는다. */
 function classLists(source: string): string[][] {
-  return [...source.matchAll(/className="([^"]*)"/g)].map((match) =>
-    match[1]!.split(/\s+/),
-  );
+  return [
+    ...[...source.matchAll(/className="([^"]*)"/g)].map((match) =>
+      match[1]!.split(/\s+/),
+    ),
+    ...[...source.matchAll(/'([^']*)'/g)].map((match) =>
+      match[1]!.split(/\s+/),
+    ),
+  ];
 }
 
 const REM_PX = 16;

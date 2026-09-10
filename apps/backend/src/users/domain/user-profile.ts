@@ -9,6 +9,7 @@ export {
   isCompleteProfileFields,
   isCompleteUserProfile,
   isValidDepartment,
+  isValidPhone,
   isValidStudentId,
   isValidUserName,
   normalizeProfileText,
@@ -23,6 +24,7 @@ export interface UserProfile {
   readonly name: string;
   readonly studentId: string | null;
   readonly department: string | null;
+  readonly phone: string | null;
   readonly isComplete: boolean;
 }
 
@@ -36,6 +38,7 @@ export interface CompleteUserProfileInput {
   readonly name: string;
   readonly studentId: string | null;
   readonly department: string;
+  readonly phone?: string;
   readonly memberKind: MemberKind;
   readonly affiliationKind: AffiliationKind;
   readonly affiliationName: string;
@@ -54,6 +57,7 @@ export interface PatchUserProfileInput {
   readonly name: string;
   readonly studentId?: string;
   readonly department?: string;
+  readonly phone?: string;
   readonly affiliationKind?: AffiliationKind;
   readonly affiliationName?: string;
 }
@@ -68,6 +72,7 @@ export interface PatchUserProfileInput {
 export interface UpdateProfileFieldsInput {
   readonly name: string;
   readonly department: string;
+  readonly phone?: string;
   readonly affiliationKind?: AffiliationKind;
   readonly affiliationName?: string;
 }
@@ -77,6 +82,7 @@ export function toUserProfile(record: UserProfileRecord): UserProfile {
     name: record.name ?? '',
     studentId: record.studentId,
     department: record.department,
+    phone: record.phone ?? null,
     isComplete: isCompleteUserProfile(record),
   };
 }
@@ -98,6 +104,7 @@ export function nextProfileRecord(
     name: input.name,
     studentId: input.studentId,
     department: input.department,
+    phone: input.phone ?? user.phone,
     memberKind: input.memberKind,
     affiliationKind: input.affiliationKind,
     affiliationName: input.affiliationName,

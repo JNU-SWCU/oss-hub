@@ -10,6 +10,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from './collapsible';
+import { Dialog, DialogTrigger } from './dialog';
 import {
   Table,
   TableBody,
@@ -20,7 +21,7 @@ import {
 } from './table';
 
 describe('shadcn/ui primitives', () => {
-  it('renders all 7 primitives without throwing', () => {
+  it('renders all 8 primitives without throwing', () => {
     const html = renderToStaticMarkup(
       <>
         <Button>버튼</Button>
@@ -55,6 +56,9 @@ describe('shadcn/ui primitives', () => {
           <CollapsibleTrigger>접기 토글</CollapsibleTrigger>
           <CollapsibleContent>접을 수 있는 내용</CollapsibleContent>
         </Collapsible>
+        <Dialog>
+          <DialogTrigger>다이얼로그 열기</DialogTrigger>
+        </Dialog>
       </>,
     );
 
@@ -66,5 +70,6 @@ describe('shadcn/ui primitives', () => {
     expect(html).toContain('data-slot="collapsible-trigger"');
     expect(html).toContain('data-slot="collapsible-content"');
     expect(html).toContain('접을 수 있는 내용');
+    expect(html).toContain('data-slot="dialog-trigger"');
   });
 });

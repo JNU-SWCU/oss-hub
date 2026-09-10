@@ -31,10 +31,11 @@ export {
 export async function listAdminAccessUsers(
   prisma: Pick<PrismaService, 'user' | '$queryRaw'>,
   query: AdminAccessListQuery,
+  sortContext: 'directory' | 'requestQueue' = 'directory',
 ): Promise<AdminAccessUserPageRecord> {
   const where = adminAccessWhere(query);
   const [orderedIds, total, facets] = await Promise.all([
-    listOrderedAdminAccessUserIds(prisma, query),
+    listOrderedAdminAccessUserIds(prisma, query, sortContext),
     prisma.user.count({ where }),
     listAdminAccessFacets(prisma, query),
   ]);

@@ -26,6 +26,7 @@ function item(
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
+    createdAt: '2026-07-29T00:00:00.000Z',
     pendingRequest: null,
     lastLoginAt: '2026-07-30T01:00:00.000Z',
     ...overrides,
@@ -201,6 +202,27 @@ describe('AdminAccessView — 헤더 클릭 정렬 토글', () => {
     expect(onSortToggle).toHaveBeenCalledWith('lastLoginAt');
   });
 
+  it('"가입 일시" 헤더 클릭은 onSortToggle을 createdAt으로 호출한다', () => {
+    const onSortToggle = vi.fn();
+    act(() => {
+      root.render(
+        <AdminAccessView {...baseViewProps} onSortToggle={onSortToggle} />,
+      );
+    });
+
+    const createdAtHeaderButton = Array.from(
+      container.querySelectorAll('th button'),
+    ).find((button) => button.textContent?.includes('가입 일시'));
+    expect(createdAtHeaderButton).not.toBeUndefined();
+    act(() => {
+      createdAtHeaderButton?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true }),
+      );
+    });
+
+    expect(onSortToggle).toHaveBeenCalledWith('createdAt');
+  });
+
   it('현재 정렬 필드가 바뀌면 각 th의 aria-sort가 그에 맞게 바뀐다', () => {
     act(() => {
       root.render(
@@ -212,17 +234,17 @@ describe('AdminAccessView — 헤더 클릭 정렬 토글', () => {
     const userHeader = headerCells.find((th) =>
       th.textContent?.includes('사용자'),
     );
-    const lastLoginHeader = headerCells.find((th) =>
-      th.textContent?.includes('마지막 로그인'),
+    const createdAtHeader = headerCells.find((th) =>
+      th.textContent?.includes('가입 일시'),
     );
     expect(userHeader?.getAttribute('aria-sort')).toBe('ascending');
-    expect(lastLoginHeader?.getAttribute('aria-sort')).not.toBe('ascending');
+    expect(createdAtHeader?.getAttribute('aria-sort')).not.toBe('ascending');
 
     act(() => {
       root.render(
         <AdminAccessView
           {...baseViewProps}
-          sort="lastLoginAt"
+          sort="createdAt"
           direction="desc"
         />,
       );
@@ -232,10 +254,10 @@ describe('AdminAccessView — 헤더 클릭 정렬 토글', () => {
     const userHeaderAfter = headerCellsAfter.find((th) =>
       th.textContent?.includes('사용자'),
     );
-    const lastLoginHeaderAfter = headerCellsAfter.find((th) =>
-      th.textContent?.includes('마지막 로그인'),
+    const createdAtHeaderAfter = headerCellsAfter.find((th) =>
+      th.textContent?.includes('가입 일시'),
     );
     expect(userHeaderAfter?.getAttribute('aria-sort')).not.toBe('descending');
-    expect(lastLoginHeaderAfter?.getAttribute('aria-sort')).toBe('descending');
+    expect(createdAtHeaderAfter?.getAttribute('aria-sort')).toBe('descending');
   });
 });

@@ -136,6 +136,7 @@ export type AdminAccessUser = {
   readonly accountStatus: AccountStatus;
   readonly isSelf: boolean;
   readonly isProfileComplete: boolean;
+  readonly createdAt: Date;
   readonly pendingRequest: AdminAccessPendingRequest | null;
   readonly lastLoginAt: Date | null;
 };

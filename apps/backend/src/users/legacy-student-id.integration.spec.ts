@@ -1,6 +1,8 @@
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { DomainException } from '../common/error-code';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersErrorCode } from './users-error-code.enum';
 import { UsersRepository } from './users.repository';
@@ -18,6 +20,7 @@ assertIsolatedIntegrationDatabase({
  * 실재하는 학번이 아니라 자릿수만 맞춘 합성값이다. 정본은 `UserProfile` 행이다.
  */
 const LEGACY_STUDENT_ID = '9'.repeat(9);
+const NEW_ONBOARDING_PHONE = '80000999999';
 const NEW_STUDENT_ID = '1'.repeat(6);
 const userId = 'test:users:legacy-student-id';
 const githubId = 9_600_000_000_153_101n;
@@ -35,9 +38,15 @@ type StoredProfileFields = {
 
 const prisma = new PrismaService();
 // 동의 확인은 이 시나리오의 관심사가 아니다 — 저장소는 진짜를 쓴다.
-const service = new UsersService(new UsersRepository(prisma), {
-  requireCurrent: () => Promise.resolve(),
-});
+const service = new UsersService(
+  new UsersRepository(
+    prisma,
+    new AuditLogService(new AuditLogRepository(prisma)),
+  ),
+  {
+    requireCurrent: () => Promise.resolve(),
+  },
+);
 
 function readProfileRow(): Promise<StoredProfileFields[]> {
   return prisma.$queryRaw<StoredProfileFields[]>`
@@ -66,33 +75,44 @@ beforeAll(async () => {
   await prisma.$connect();
 });
 
-beforeEach(async () => {
-  await prisma.user.deleteMany({ where: { id: userId } });
+// 연락처 저장이 감사 기록을 남기면서 이 사용자 행은 더 이상 지울 수 없다 —
+// AuditLog는 append-only이고 `AuditLog.actorId`가 cascade 없이 `User`를 참조한다.
+// 학번 유일 제약을 쥔 것은 UserProfile 행이므로 매 테스트마다 그 행만 다시 만든다.
+async function resetLegacyStudent(): Promise<void> {
+  await prisma.userProfile.deleteMany({ where: { userId } });
   // 예전 형식으로 이미 가입을 마친 학생 — UserProfile 행이 정본이다.
-  await prisma.user.create({
-    data: {
+  const identity = {
+    selectedMemberKind: MemberKind.STUDENT,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+    phone: null,
+    profile: {
+      create: {
+        name,
+        studentId: LEGACY_STUDENT_ID,
+        department,
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: department,
+      },
+    },
+  };
+  await prisma.user.upsert({
+    where: { id: userId },
+    update: identity,
+    create: {
       id: userId,
       githubId,
       nickname: 'synthetic-legacy-student',
-      selectedMemberKind: MemberKind.STUDENT,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-      profile: {
-        create: {
-          name,
-          studentId: LEGACY_STUDENT_ID,
-          department,
-          memberKind: MemberKind.STUDENT,
-          affiliationKind: AffiliationKind.DEPARTMENT,
-          affiliationName: department,
-        },
-      },
+      ...identity,
     },
   });
-});
+}
+
+beforeEach(resetLegacyStudent);
 
 afterAll(async () => {
-  await prisma.user.deleteMany({ where: { id: userId } });
+  await prisma.userProfile.deleteMany({ where: { userId } });
   await prisma.$disconnect();
 });
 
@@ -108,6 +128,7 @@ it('예전 형식 학번으로 가입을 마친 학생은 완료된 프로필로
     name,
     studentId: LEGACY_STUDENT_ID,
     department,
+    phone: null,
     isComplete: true,
   });
 });
@@ -197,6 +218,7 @@ describe('학번이 없는 학생', () => {
       service.completeMyProfile(githubId, {
         name,
         studentId: NEW_ONBOARDING_STUDENT_ID,
+        phone: NEW_ONBOARDING_PHONE,
         department,
       }),
     ).resolves.toMatchObject({

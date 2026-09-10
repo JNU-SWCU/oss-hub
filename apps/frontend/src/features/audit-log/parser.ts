@@ -1,4 +1,8 @@
-import type { AuditLogPage, AuditLogRecord } from './types';
+import type {
+  AuditLogPage,
+  AuditLogRecord,
+  UserPhoneAuditTransition,
+} from './types';
 
 const INVALID_RESPONSE_MESSAGE = '감사 로그 응답 형식이 올바르지 않습니다';
 
@@ -38,6 +42,11 @@ function nullableHandle(value: unknown): string | null {
   return nonEmptyString(value);
 }
 
+function userPhoneAuditTransition(value: unknown): UserPhoneAuditTransition {
+  if (value === 'SET' || value === 'REPLACED') return value;
+  return invalidResponse();
+}
+
 function nonNegativeInteger(value: unknown): number {
   if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) {
     return value;
@@ -62,6 +71,14 @@ function isoTimestamp(value: unknown): string {
     return parsed;
   }
   return invalidResponse();
+}
+
+function phoneTransition(
+  action: string,
+  metadata: Record<string, unknown>,
+): UserPhoneAuditTransition | undefined {
+  if (action !== 'USER_PHONE_UPDATED') return undefined;
+  return userPhoneAuditTransition(metadata.transition);
 }
 
 // 백엔드 AuditLogRecord(apps/backend/src/audit-log/audit-log.repository.ts)는
@@ -90,20 +107,29 @@ function auditLogRecord(value: unknown): AuditLogRecord {
   if (typeof value.legacy !== 'boolean') {
     return invalidResponse();
   }
-  if (value.legacy ? value.metadata !== null : !isRecord(value.metadata)) {
+  const wireMetadata = value.metadata;
+  if (value.legacy ? wireMetadata !== null : !isRecord(wireMetadata)) {
     return invalidResponse();
   }
+
+  const action = nonEmptyString(value.action);
+  const parsedPhoneTransition = isRecord(wireMetadata)
+    ? phoneTransition(action, wireMetadata)
+    : undefined;
 
   return {
     id: nonEmptyString(value.id),
     actor: nonEmptyString(value.actor),
     actorHandle: nullableHandle(value.actorHandle),
-    action: nonEmptyString(value.action),
+    action,
     targetType: nonEmptyString(value.targetType),
     targetId: nonEmptyString(value.targetId),
     target: nonEmptyString(value.target),
     targetHandle: nullableHandle(value.targetHandle),
     occurredAt: isoTimestamp(value.occurredAt),
+    ...(parsedPhoneTransition
+      ? { phoneTransition: parsedPhoneTransition }
+      : {}),
   };
 }
 

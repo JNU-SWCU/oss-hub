@@ -9,6 +9,27 @@ import {
 } from './fixtures';
 import { AuditLogResponseError, parseAuditLogPage } from './parser';
 
+const AUDIT_LOG_USER_PHONE_RECORD_FIXTURE = {
+  id: 'audit-user-phone-updated',
+  actor: 'synthetic-admin',
+  actorHandle: 'synthetic-admin',
+  action: 'USER_PHONE_UPDATED',
+  targetType: 'USER',
+  targetId: 'user-synthetic-1',
+  target: 'synthetic-target-login',
+  targetHandle: 'synthetic-target-login',
+  occurredAt: '2026-09-07T03:00:00.000Z',
+  legacy: false,
+  metadata: {
+    schemaVersion: 1,
+    actor: { displayName: null, githubLogin: 'synthetic-admin' },
+    target: { displayName: null, githubLogin: 'synthetic-target-login' },
+    transition: 'SET',
+    phone: 'synthetic-secret-phone-value',
+    lastFour: '9999',
+  },
+} as const;
+
 describe('parseAuditLogPage', () => {
   it('실제 백엔드 응답 모양({ items, total, page, limit })을 파싱한다', () => {
     const page = parseAuditLogPage(AUDIT_LOG_PAGE_RESPONSE_FIXTURE);
@@ -62,6 +83,20 @@ describe('parseAuditLogPage', () => {
       expect(item).not.toHaveProperty('metadata');
       expect(item).not.toHaveProperty('legacy');
     }
+  });
+
+  it('USER_PHONE_UPDATED metadata는 transition만 보존하고 전화번호 값은 버린다', () => {
+    const page = parseAuditLogPage({
+      items: [AUDIT_LOG_USER_PHONE_RECORD_FIXTURE],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    expect(page.items[0]?.phoneTransition).toBe('SET');
+    expect(page.items[0]).not.toHaveProperty('metadata');
+    expect(JSON.stringify(page)).not.toContain('synthetic-secret-phone-value');
+    expect(JSON.stringify(page)).not.toContain('9999');
   });
 
   it('과거의 배열 응답 계약(비페이지 모양)은 거부한다', () => {
@@ -141,6 +176,23 @@ describe('parseAuditLogPage', () => {
       parseAuditLogPage({
         ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
         items: [{ ...AUDIT_LOG_ACCESS_RECORD_FIXTURE, metadata: null }],
+      }),
+    ).toThrow(AuditLogResponseError);
+  });
+
+  it('USER_PHONE_UPDATED transition이 SET/REPLACED가 아니면 거부한다', () => {
+    expect(() =>
+      parseAuditLogPage({
+        ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
+        items: [
+          {
+            ...AUDIT_LOG_USER_PHONE_RECORD_FIXTURE,
+            metadata: {
+              ...AUDIT_LOG_USER_PHONE_RECORD_FIXTURE.metadata,
+              transition: 'CLEARED',
+            },
+          },
+        ],
       }),
     ).toThrow(AuditLogResponseError);
   });

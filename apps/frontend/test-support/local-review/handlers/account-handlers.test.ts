@@ -216,6 +216,7 @@ describe('account fixture responses', () => {
       name: '합성 설정 사용자',
       studentId: '260001',
       department: '인공지능학부',
+      phone: '1'.repeat(10),
       isComplete: true,
     });
     expect(notification).toEqual({
@@ -230,6 +231,7 @@ describe('account fixture responses', () => {
       callWithBody('settings', 'PATCH', 'users/me/profile', {
         name: '합성 변경 이름',
         department: '빅데이터융합학과',
+        phone: '2'.repeat(11),
       }),
     );
     const notification = jsonBody(
@@ -244,6 +246,7 @@ describe('account fixture responses', () => {
       name: '합성 변경 이름',
       studentId: '260001',
       department: '빅데이터융합학과',
+      phone: '2'.repeat(11),
       isComplete: true,
     });
     expect(notification).toEqual({

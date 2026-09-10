@@ -34,6 +34,7 @@ import {
 } from './repository-program-audit-metadata';
 import {
   parseUserProfileAuditMetadata,
+  type UserPhoneAuditMetadata,
   type UserProfileAuditMetadata,
   type UserProfileAuditMetadataView,
 } from './user-profile-audit-metadata';
@@ -73,7 +74,8 @@ export type AuditLogMetadata =
   | CollectionTriggerAuditMetadata
   | SubmissionFileCleanupAuditMetadata
   | ApplicationDecisionAuditMetadata
-  | UserProfileAuditMetadata;
+  | UserProfileAuditMetadata
+  | UserPhoneAuditMetadata;
 
 export type AuditLogMetadataView =
   | AccessAuditMetadataView

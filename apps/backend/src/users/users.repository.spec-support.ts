@@ -1,9 +1,25 @@
+import type { AuditLogRecord } from '../audit-log/audit-log.repository';
+import type { AuditLogService } from '../audit-log/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersRepository } from './users.repository';
 import type { UserProfileRecord } from './user-profile-policy';
 import { profileRecord } from './member-authority-test-fixtures';
 
 type TransactionCallback<T> = (transaction: unknown) => Promise<T>;
+
+const auditLogRecord = {
+  id: 'synthetic-audit-record',
+  actor: 'synthetic-user',
+  actorHandle: null,
+  action: 'SYNTHETIC',
+  targetType: 'USER',
+  targetId: 'synthetic-user',
+  target: 'synthetic-user',
+  targetHandle: null,
+  occurredAt: new Date(0),
+  legacy: true,
+  metadata: null,
+} satisfies AuditLogRecord;
 
 function prismaServiceWith(overrides: object): PrismaService {
   return Object.assign(new PrismaService(), overrides);
@@ -25,8 +41,16 @@ export function usersRepositoryHarness(
   const staffAccessRequestCreate = jest
     .fn()
     .mockResolvedValue({ id: 'synthetic-request', status: 'PENDING' });
+  const auditRecord = jest
+    .fn<
+      ReturnType<AuditLogService['record']>,
+      Parameters<AuditLogService['record']>
+    >()
+    .mockResolvedValue(auditLogRecord);
+  // `$queryRaw`는 잠금 후 현재 전화번호를 읽는 경로이다. 기본값은 `current`와 같은
+  // 행이고, 동시 갱신 상황은 테스트에서 이 mock을 다른 값으로 바꿔 재현한다.
   const transaction = {
-    $queryRaw: jest.fn().mockResolvedValue([]),
+    $queryRaw: jest.fn().mockResolvedValue([{ phone: current.phone ?? null }]),
     user: {
       findUnique: transactionFindUnique,
       updateMany: userUpdateMany,
@@ -43,6 +67,7 @@ export function usersRepositoryHarness(
       findFirst: staffAccessRequestFindFirst,
       create: staffAccessRequestCreate,
     },
+    auditLog: { create: jest.fn() },
   };
   const prisma = prismaServiceWith({
     user: { findUnique },
@@ -66,13 +91,18 @@ export function usersRepositoryHarness(
     userProfileFindUnique,
     staffAccessRequestFindFirst,
     staffAccessRequestCreate,
-    repository: new UsersRepository(prisma),
+    auditRecord,
+    transaction,
+    repository: new UsersRepository(prisma, { record: auditRecord }),
   };
 }
 
 function toRow(record: UserProfileRecord) {
   return {
     id: record.id,
+    githubId: record.githubId,
+    nickname: record.githubLogin,
+    phone: record.phone ?? null,
     selectedMemberKind: record.selectedMemberKind ?? null,
     hasStaffAccess: record.hasStaffAccess ?? false,
     hasAdminAccess: record.hasAdminAccess ?? false,

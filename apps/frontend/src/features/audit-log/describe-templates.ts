@@ -1,0 +1,206 @@
+import type { AuditLogAction, AuditLogRecord } from './types';
+import {
+  actorSegment,
+  fallbackDescription,
+  fallbackTargetSegment,
+  isFallbackTarget,
+  nameSegment,
+  targetSegment,
+  targetTypeLabel,
+  text,
+  type AuditLogSentenceSegment,
+} from './describe-segments';
+
+type SentenceTemplate = (
+  record: AuditLogRecord,
+) => readonly AuditLogSentenceSegment[];
+
+function handleTargetSentence(
+  record: AuditLogRecord,
+  fallbackSuffix: string,
+  targetSuffix: string,
+): readonly AuditLogSentenceSegment[] {
+  return isFallbackTarget(record)
+    ? [
+        actorSegment(record),
+        text(`님이 ${targetTypeLabel(record)} `),
+        fallbackTargetSegment(record),
+        text(fallbackSuffix),
+      ]
+    : [
+        actorSegment(record),
+        text('님이 '),
+        targetSegment(record),
+        text(targetSuffix),
+      ];
+}
+
+function nameTargetSentence(
+  record: AuditLogRecord,
+  fallbackSuffix: string,
+  targetSuffix: string,
+): readonly AuditLogSentenceSegment[] {
+  return isFallbackTarget(record)
+    ? [
+        actorSegment(record),
+        text(`님이 ${targetTypeLabel(record)} `),
+        fallbackTargetSegment(record),
+        text(fallbackSuffix),
+      ]
+    : [
+        actorSegment(record),
+        text('님이 '),
+        nameSegment(record),
+        text(targetSuffix),
+      ];
+}
+
+function prefixedNameSentence(
+  record: AuditLogRecord,
+  prefix: string,
+  suffix: string,
+): readonly AuditLogSentenceSegment[] {
+  return [
+    actorSegment(record),
+    text(prefix),
+    isFallbackTarget(record)
+      ? fallbackTargetSegment(record)
+      : nameSegment(record),
+    text(suffix),
+  ];
+}
+
+function userPhoneUpdatedSentence(
+  record: AuditLogRecord,
+): readonly AuditLogSentenceSegment[] {
+  switch (record.phoneTransition) {
+    case 'SET':
+      return handleTargetSentence(
+        record,
+        '의 전화번호를 등록했습니다',
+        '님의 전화번호를 등록했습니다',
+      );
+    case 'REPLACED':
+      return handleTargetSentence(
+        record,
+        '의 전화번호를 변경했습니다',
+        '님의 전화번호를 변경했습니다',
+      );
+    case undefined:
+      return fallbackDescription(record).sentence;
+  }
+}
+
+export const SENTENCE_TEMPLATES: Readonly<
+  Record<AuditLogAction, SentenceTemplate>
+> = {
+  // target이 사람 스냅샷(핸들)일 때는 "{target}님의 ...했습니다" 문형을 그대로
+  // 쓴다. target이 폴백(`${targetType} / ${targetId}`)이면 '님' 존칭을 뺴고
+  // "{targetType 라벨} {targetId}을(를) ...했습니다"로 서술한다 — 코드체
+  // targetId 뒤에 '님'이 붙는 어색함을 없애면서도(리뷰 지적) 어떤 대상인지는
+  // 여전히 밝힌다.
+  STAFF_ROLE_REQUEST_APPROVED: (record) =>
+    handleTargetSentence(
+      record,
+      '을(를) 승인했습니다',
+      '님의 교직원 권한 요청을 승인했습니다',
+    ),
+  STAFF_ROLE_REQUEST_REJECTED: (record) =>
+    handleTargetSentence(
+      record,
+      '을(를) 반려했습니다',
+      '님의 교직원 권한 요청을 반려했습니다',
+    ),
+  STAFF_ROLE_REQUEST_REVOKED: (record) =>
+    handleTargetSentence(
+      record,
+      '을(를) 회수했습니다',
+      '님의 권한을 회수했습니다',
+    ),
+  STAFF_ROLE_REQUEST_RESTORED: (record) =>
+    handleTargetSentence(
+      record,
+      '을(를) 복구했습니다',
+      '님의 권한을 복구했습니다',
+    ),
+  USER_ROLE_CHANGED: (record) =>
+    handleTargetSentence(
+      record,
+      '의 역할을 변경했습니다',
+      '님의 역할을 변경했습니다',
+    ),
+  USER_ACCOUNT_STATUS_CHANGED: (record) =>
+    handleTargetSentence(
+      record,
+      '의 계정 상태를 변경했습니다',
+      '님의 계정 상태를 변경했습니다',
+    ),
+  // REPOSITORY_PUBLISHED는 이름 스냅샷(schemaVersion 2, owner/name 전체 이름) 또는
+  // join으로 찾은 현재 이름이 있으면 그 이름을, 없으면(과거 v1 행이면서 저장소도 이미
+  // 없으면) targetId 폴백을 보여준다. PROGRAM_ARCHIVED/RESTORED와 같은 규약이다.
+  REPOSITORY_PUBLISHED: (record) =>
+    prefixedNameSentence(record, '님이 저장소 ', '을(를) 공개로 전환했습니다'),
+  // PROGRAM_ARCHIVED/RESTORED는 이름 스냅샷(schemaVersion 2) 또는 join으로 찾은
+  // 현재 이름이 있으면 그 이름을, 없으면(과거 행이면서 프로그램도 이미 없으면)
+  // targetId 폴백을 보여준다. 이름은 GitHub 로그인이 아니므로 nameSegment로
+  // '@' 접두 없이 렌더한다.
+  // PROGRAM_CREATED / PROGRAM_DELETED / TEAM_* / APPLICATION_SUBMITTED use one
+  // nameSegment target only. Do not prefix "프로그램" in the happy path — TEAM
+  // and APPLICATION_SUBMITTED targets are already "프로그램 · 팀이름".
+  PROGRAM_CREATED: (record) =>
+    nameTargetSentence(record, '을(를) 만들었습니다', '을(를) 만들었습니다'),
+  PROGRAM_ARCHIVED: (record) =>
+    prefixedNameSentence(record, '님이 프로그램 ', '을(를) 보관했습니다'),
+  PROGRAM_RESTORED: (record) =>
+    prefixedNameSentence(record, '님이 프로그램 ', '을(를) 복구했습니다'),
+  PROGRAM_DELETED: (record) =>
+    nameTargetSentence(record, '을(를) 삭제했습니다', '을(를) 삭제했습니다'),
+  TEAM_CREATED: (record) =>
+    nameTargetSentence(record, '을(를) 만들었습니다', '을(를) 만들었습니다'),
+  TEAM_JOINED: (record) =>
+    nameTargetSentence(record, '에 합류했습니다', '에 합류했습니다'),
+  COLLECTION_SYNC_TRIGGERED: (record) => [
+    actorSegment(record),
+    text('님이 데이터 수집을 수동 실행했습니다'),
+  ],
+  SUBMISSION_FILE_CLEANUP_RETRY_RESET: (record) => [
+    actorSegment(record),
+    text('님이 제출 파일 정리 재시도를 초기화했습니다'),
+  ],
+  // APPLICATION_SUBMITTED target is "프로그램 · 팀이름", not an applicant handle.
+  // Reusing APPLICATION_APPROVED's "{target}님의 신청을 승인했습니다" would render
+  // "프로그램 · 팀이름님의".
+  APPLICATION_SUBMITTED: (record) =>
+    nameTargetSentence(record, '에 신청했습니다', '에 신청했습니다'),
+  // APPLICATION_*는 이름 스냅샷(schemaVersion 2)/join이 있으면 target이
+  // "{프로그램 이름} · @{신청자 로그인}" 합성 라벨이다(audit-log.repository.ts의
+  // composeApplicationTargetLabel) — 이미 "@"를 스스로 포함하므로 GitHub 로그인
+  // 전용인 targetSegment('handle', 자동 '@' 접두)가 아니라 nameSegment('name', 접두
+  // 없음)로 렌더한다. target 자체가 프로그램 이름을 담고 있어 뒤따르는 문구에서
+  // "프로그램"을 다시 말하지 않는다(중복 표현 방지).
+  APPLICATION_APPROVED: (record) =>
+    nameTargetSentence(
+      record,
+      '을(를) 승인했습니다',
+      '님의 신청을 승인했습니다',
+    ),
+  APPLICATION_REJECTED: (record) =>
+    nameTargetSentence(
+      record,
+      '을(를) 반려했습니다',
+      '님의 신청을 반려했습니다',
+    ),
+  APPLICATION_REVERTED: (record) =>
+    nameTargetSentence(
+      record,
+      '을(를) 검토 대기로 되돌렸습니다',
+      '님의 신청을 검토 대기로 되돌렸습니다',
+    ),
+  USER_PROFILE_UPDATED: (record) =>
+    handleTargetSentence(
+      record,
+      '의 프로필을 수정했습니다',
+      '님의 프로필을 수정했습니다',
+    ),
+  USER_PHONE_UPDATED: userPhoneUpdatedSentence,
+};

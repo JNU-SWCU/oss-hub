@@ -40,6 +40,7 @@ const LIST_ITEMS = [
     accountStatus: 'ACTIVE',
     isSelf: true,
     isProfileComplete: true,
+    createdAt: '2026-03-02T00:00:00.000Z',
     pendingRequest: null,
     lastLoginAt: '2026-07-31T00:10:00.000Z',
   },
@@ -51,6 +52,7 @@ const LIST_ITEMS = [
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
+    createdAt: '2026-01-15T00:00:00.000Z',
     pendingRequest: {
       id: 'synthetic-access-request-01',
       status: 'PENDING',
@@ -66,6 +68,7 @@ const LIST_ITEMS = [
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
+    createdAt: '2026-05-20T00:00:00.000Z',
     pendingRequest: null,
     lastLoginAt: '2026-07-28T05:00:00.000Z',
   },
@@ -78,6 +81,7 @@ const LIST_ITEMS = [
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: false,
+    createdAt: '2026-06-11T00:00:00.000Z',
     pendingRequest: null,
     lastLoginAt: null,
   },
@@ -90,6 +94,7 @@ const LIST_ITEMS = [
     accountStatus: 'DEACTIVATED',
     isSelf: false,
     isProfileComplete: true,
+    createdAt: '2026-02-08T00:00:00.000Z',
     pendingRequest: null,
     lastLoginAt: '2026-06-02T01:00:00.000Z',
   },
@@ -202,10 +207,8 @@ const HISTORIES: Readonly<
 };
 
 /**
- * 가입 시각 — 화면 응답에는 **넣지 않는다.** backend 는 `User.createdAt` 으로
- * 정렬하지만 목록 DTO 는 그 값을 내려주지 않기 때문이다(`AdminAccessListItem`).
- * 픽스처가 이 값을 갖고 있지 않으면 `sort=createdAt` 이 이름순으로 조용히
- * 떨어져, 정렬을 바꿔도 순서가 그대로라 검토자가 정렬 결함을 볼 수 없다.
+ * 가입 시각 — 목록 DTO가 내려주는 `User.createdAt`과 같은 값이다.
+ * `sort=createdAt`이 이름순으로 조용히 떨어지는 일을 막기 위해
  * 이름순·최근 로그인순과 **다른 순서**가 나오도록 일부러 어긋나게 뒀다.
  */
 const CREATED_AT_BY_ID: Readonly<Record<string, string>> = {

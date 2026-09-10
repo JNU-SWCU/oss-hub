@@ -29,6 +29,8 @@ export function profileRecord(
 ): UserProfileRecord {
   return {
     id,
+    githubId: 4242n,
+    githubLogin: id,
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: null,
     affiliationKind: null,
@@ -38,6 +40,7 @@ export function profileRecord(
     name: null,
     studentId: null,
     department: null,
+    phone: null,
     ...profile,
   };
 }

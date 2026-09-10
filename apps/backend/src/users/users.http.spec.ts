@@ -21,6 +21,7 @@ const validBody = {
   name: '합성 사용자',
   studentId: '1'.repeat(6),
   department: '인공지능학부',
+  phone: '7'.repeat(10),
 };
 const completeProfile = { ...validBody, isComplete: true };
 const usersService = {
@@ -28,6 +29,7 @@ const usersService = {
     name: 'GitHub 합성 이름',
     studentId: null,
     department: null,
+    phone: null,
     isComplete: false,
   }),
   completeMyProfile: jest.fn().mockResolvedValue(completeProfile),
@@ -153,6 +155,17 @@ it('유효한 PATCH를 정규화해 갱신한다', async () => {
   expect(usersService.patchMyProfile).toHaveBeenCalledWith(githubId, validBody);
 });
 
+it('연락처 구분자가 있는 PATCH 입력을 400 SYS_003으로 거부한다', async () => {
+  const response = await patch({
+    ...validBody,
+    phone: `${'1'.repeat(3)}-${'2'.repeat(7)}`,
+  });
+
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
+  expect(usersService.patchMyProfile).not.toHaveBeenCalled();
+});
+
 it('학번 없는 name·department POST도 DTO 검증을 통과한다', async () => {
   const response = await post({
     name: validBody.name,
@@ -179,6 +192,32 @@ it.each([
   { name: '학번 5자리', body: { ...validBody, studentId: '1'.repeat(5) } },
   { name: '학번 7자리', body: { ...validBody, studentId: '1'.repeat(7) } },
   { name: '학번 비숫자', body: { ...validBody, studentId: 'ABCDEF' } },
+  { name: '연락처 9자리', body: { ...validBody, phone: '1'.repeat(9) } },
+  { name: '연락처 12자리', body: { ...validBody, phone: '1'.repeat(12) } },
+  {
+    name: '연락처 공백',
+    body: { ...validBody, phone: `${'1'.repeat(3)} ${'2'.repeat(7)}` },
+  },
+  {
+    name: '연락처 점',
+    body: { ...validBody, phone: `${'1'.repeat(3)}.${'2'.repeat(7)}` },
+  },
+  {
+    name: '연락처 더하기',
+    body: { ...validBody, phone: `+${'1'.repeat(10)}` },
+  },
+  {
+    name: '연락처 괄호',
+    body: { ...validBody, phone: `(${'1'.repeat(3)})${'2'.repeat(7)}` },
+  },
+  {
+    name: '연락처 비숫자',
+    body: { ...validBody, phone: `${'1'.repeat(7)}ABCD` },
+  },
+  {
+    name: '연락처 전각 숫자',
+    body: { ...validBody, phone: `０${'1'.repeat(9)}` },
+  },
   { name: '빈 이름', body: { ...validBody, name: '   ' } },
   { name: '빈 학과', body: { ...validBody, department: '   ' } },
   {

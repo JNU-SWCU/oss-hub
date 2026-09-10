@@ -21,6 +21,7 @@ import {
   createTeamJoinedAuditMetadata,
   createRepositoryPublishAuditMetadata,
   createSubmissionFileCleanupAuditMetadata,
+  createUserPhoneAuditMetadata,
   InvalidAuditLogMetadataError,
   parseAuditLogMetadata,
   APPLICATION_SUBMITTED_AUDIT_SCHEMA_VERSION,
@@ -152,6 +153,57 @@ describe('createAccessAuditMetadata', () => {
       githubLogin: 'synthetic-target',
     });
   });
+});
+
+describe('createUserPhoneAuditMetadata / parseAuditLogMetadata — USER_PHONE_UPDATED', () => {
+  it.each(['SET', 'REPLACED'] as const)(
+    'schemaVersion 1 %s metadata를 값 없이 읽어낸다',
+    (transition) => {
+      const metadata = createUserPhoneAuditMetadata({
+        actor: { displayName: '합성 사용자', githubLogin: 'synthetic-user' },
+        target: { displayName: '합성 사용자', githubLogin: 'synthetic-user' },
+        transition,
+      });
+
+      const evidence = parseAuditLogMetadata(metadata);
+
+      expect(evidence).toEqual({ legacy: false, metadata });
+      expect(JSON.stringify(evidence)).not.toMatch(
+        new RegExp(
+          ['0'.repeat(11), 'value', 'hash', 'suffix', 'mask'].join('|'),
+        ),
+      );
+    },
+  );
+
+  it.each(['CLEARED', null, '1'.repeat(11)] as const)(
+    'transition %p은 USER_PHONE_UPDATED metadata로 받지 않는다',
+    (transition) => {
+      expect(() =>
+        parseAuditLogMetadata({
+          schemaVersion: 1,
+          actor: { displayName: '합성 사용자', githubLogin: 'synthetic-user' },
+          target: { displayName: '합성 사용자', githubLogin: 'synthetic-user' },
+          transition,
+        }),
+      ).toThrow(InvalidAuditLogMetadataError);
+    },
+  );
+
+  it.each(['value', 'hash', 'suffix', 'mask'] as const)(
+    '연락처 파생 필드 %s가 섞이면 fail closed 한다',
+    (key) => {
+      const metadata = createUserPhoneAuditMetadata({
+        actor: { displayName: '합성 사용자', githubLogin: 'synthetic-user' },
+        target: { displayName: '합성 사용자', githubLogin: 'synthetic-user' },
+        transition: 'SET',
+      });
+
+      expect(() =>
+        parseAuditLogMetadata({ ...metadata, [key]: '2'.repeat(11) }),
+      ).toThrow(InvalidAuditLogMetadataError);
+    },
+  );
 });
 
 describe('createProgramLifecycleAuditMetadata / parseAuditLogMetadata — PROGRAM_LIFECYCLE', () => {

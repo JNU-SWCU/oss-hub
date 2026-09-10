@@ -239,6 +239,7 @@ const MY_PROFILE_FIXTURE = {
   name: '합성 설정 사용자',
   studentId: '260001',
   department: '인공지능학부',
+  phone: '1'.repeat(10),
   isComplete: true,
 } as const satisfies UserProfile;
 
@@ -253,6 +254,7 @@ const EMPTY_PROFILE_FIXTURE = {
   name: 'GitHub 합성 이름',
   studentId: null,
   department: null,
+  phone: null,
   isComplete: false,
 } as const satisfies UserProfile;
 
@@ -569,7 +571,11 @@ function patchedProfile(context: LocalReviewContext): UserProfile {
   const patched = {
     name: bodyString(context, 'name') ?? base.name,
     studentId: bodyString(context, 'studentId') ?? base.studentId,
-    department: bodyString(context, 'department') ?? base.department,
+    department:
+      bodyString(context, 'department') ??
+      bodyString(context, 'affiliationName') ??
+      base.department,
+    phone: bodyString(context, 'phone') ?? base.phone,
     isComplete: false,
   } satisfies UserProfile;
   return {

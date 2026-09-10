@@ -22,6 +22,7 @@ function detail(overrides: Partial<AdminAccessDetail> = {}): AdminAccessDetail {
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
+    createdAt: '2026-07-29T00:00:00.000Z',
     pendingRequest: null,
     lastLoginAt: null,
     profile: {

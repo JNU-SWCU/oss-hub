@@ -1,8 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, type ComponentProps } from 'react';
-import { Dialog as DialogPrimitive } from 'radix-ui';
-import { X } from 'lucide-react';
+import { useId } from 'react';
 
 import { signupPrimaryClassName } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -17,6 +15,13 @@ import { cn } from '@/lib/utils';
 import type { ConsentRequiredItem } from '../api';
 import { createConsentRequest, type ConsentFlowState } from '../consent-state';
 import type { ConsentPolicyPresentation } from '../consent-policy-presentation';
+import { CONSENT_POLICY_DOCUMENT_ID } from './consent-policy-document';
+
+export {
+  ConsentPolicyDialog,
+  consentPolicyDialogClassName,
+} from './consent-policy-dialog';
+export { ConsentPolicyInline } from './consent-policy-document';
 
 /**
  * 이 화면의 패널 바탕 — 어두운 우주 바탕 위에 뜨는 반투명 유리 한 겹.
@@ -32,7 +37,7 @@ const consentPanelClassName =
  * 열려 있는 전문은 화면에 하나뿐이라 id도 하나면 된다 — `전문 보기` 버튼 셋이
  * 이 하나를 `aria-controls`로 가리킨다.
  */
-export const CONSENT_POLICY_DOCUMENT_ID = 'consent-policy-document';
+export { CONSENT_POLICY_DOCUMENT_ID };
 
 type EditableConsentState = Extract<
   ConsentFlowState,
@@ -152,11 +157,11 @@ export function ConsentForm({
 
       {/*
         거부 안내는 주 버튼 바로 위에 둔다. 이 자리가 아니면 버튼이 왜 흐린지 화면이
-        말해 주지 않아 고장으로 읽힌다. 개인정보보호법이 필수 동의에 요구하는 형식
-        (거부할 권리 + 거부 시 제한되는 서비스)이기도 하다(#517).
+        말해 주지 않아 고장으로 읽힌다. 필수 동의에 알려야 하는 것은 거부 시 제한되는
+        서비스이고, 거부할 수 있다는 사실은 이 문장이 이미 전제한다(#517).
       */}
       <p className="text-sm text-cosmos-danger">
-        비동의는 자유이나, 비동의시 서비스 이용이 어렵습니다.
+        비동의시 서비스 이용이 어렵습니다.
       </p>
 
       {/* 주 버튼은 아래에 하나뿐이다. 무대가 반전 스코프라 Button 기본 남색은
@@ -223,216 +228,6 @@ function ConsentPolicyTrigger({
     >
       <span className="sr-only">{item.label} </span>전문 보기
     </Button>
-  );
-}
-
-/**
- * 넓은 화면에서 오른쪽 기둥에 그대로 얹히는 전문(#517).
- *
- * 칸막이 선도 패널 테두리도 두지 않는다 — 우주 바탕 위에 제목·문서·닫기만 얹는다.
- * 열기 전 이 기둥은 아무것도 그리지 않는다(안내 문구도 두지 않는다).
- *
- * 불변식 둘(#522). 폭 상한 808 = 문서가 글에 주는 최대 폭 768(`policy-document.css`의
- * 48rem) + 문서 자기 좌우 여백 40 — 더 넓혀도 문서 안이 빈 여백으로 남고 불투명한 틀이
- * 별밭만 더 가린다. 세로로는 **자기 높이를 스스로 만들지 않는다**(`min-h-0` + 문서 틀
- * `flex-1`): 정해진 높이를 갖고 있으면 그만큼 행이 길어져 왼쪽 기둥이 밀려 올라간다.
- */
-export function ConsentPolicyInline({
-  item,
-  onClose,
-}: {
-  readonly item: ConsentRequiredItem;
-  readonly onClose: () => void;
-}) {
-  const regionRef = useRef<HTMLElement>(null);
-  const titleId = `${CONSENT_POLICY_DOCUMENT_ID}-title`;
-
-  /*
-    펼치면 초점을 이 영역으로 옮긴다. 옮기지 않으면 키보드 사용자는 방금 나타난
-    전문까지 Tab으로 다시 걸어 내려와야 한다. Escape는 이 영역의 keydown으로 받는다 —
-    문서는 `sandbox=""` iframe이라 그 안에서 누른 키는 이 문서에 닿지 않는다.
-  */
-  useEffect(() => {
-    regionRef.current?.focus();
-  }, [item.key]);
-
-  return (
-    <section
-      ref={regionRef}
-      id={CONSENT_POLICY_DOCUMENT_ID}
-      data-slot="consent-policy-inline"
-      aria-labelledby={titleId}
-      tabIndex={-1}
-      className="flex w-full max-w-[808px] min-h-0 min-w-0 flex-1 flex-col gap-3 focus:outline-none"
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') onClose();
-      }}
-    >
-      {/* 좌우 여백은 문서(`policy-document.css`)가 이미 20px를 두고 있다 — 제목도 같은
-          만큼 들여야 제목과 본문의 첫 글자가 한 줄로 선다. */}
-      <div className="flex items-center justify-between gap-3 px-5">
-        <h2
-          id={titleId}
-          className="font-heading text-lg font-semibold text-cosmos-copy"
-        >
-          {item.label} 전문
-        </h2>
-        <ConsentPolicyCloseButton onClick={onClose} />
-      </div>
-      <ConsentPolicyDocumentFrame item={item} className="min-h-0 flex-1" />
-    </section>
-  );
-}
-
-/**
- * 좁은 화면 전문 팝업의 자리와 크기(#519).
- *
- * 불변식 둘: 손에 쥐는 폭에서는 `top`·`bottom`을 함께 묶어 높이를 **정해진 값**으로
- * 두고(`max-h`로만 묶으면 판이 내용만큼만 자란다), 물러나는 만큼은
- * `env(safe-area-inset-*)`뿐이다(`100dvh`는 노치 기기에서 잘린다).
- * `sm` 위는 이 이슈의 범위가 아니라 예전 그대로 가운데 카드다.
- */
-export const consentPolicyDialogClassName = cn(
-  'fixed z-50 flex flex-col overflow-hidden bg-cosmos-near focus:outline-none',
-  'top-[env(safe-area-inset-top)] right-0 bottom-[env(safe-area-inset-bottom)] left-0',
-  'sm:top-1/2 sm:right-auto sm:bottom-auto sm:left-1/2 sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2rem)] sm:max-w-3xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-card sm:border sm:border-cosmos-border sm:shadow-lg',
-);
-
-/**
- * 좁은 화면에서 쓰는 전문 팝업. 나란히 놓을 폭이 없으므로 팝업은 남기고, 흰
- * 바탕(`bg-background`)만 걷어내 우주 톤으로 바꾼다(#517).
- *
- * 팝업은 Portal로 `body` 밑에 붙어 무대의 `data-surface="inverted"` 밖으로 나간다 —
- * 그래서 반전 토큰을 여기서 다시 선언한다. 그러지 않으면 `Button` 같은 부품이 밝은
- * 표면 기준 색으로 돌아간다.
- */
-export function ConsentPolicyDialog({
-  item,
-  onClose,
-  onCloseFocusTrigger,
-}: {
-  readonly item: ConsentRequiredItem | null;
-  readonly onClose: () => void;
-  readonly onCloseFocusTrigger: () => void;
-}) {
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  return (
-    <DialogPrimitive.Root
-      open={item !== null}
-      onOpenChange={(next) => {
-        if (!next) onClose();
-      }}
-    >
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-cosmos-void/80" />
-        <DialogPrimitive.Content
-          ref={contentRef}
-          data-surface="inverted"
-          className={consentPolicyDialogClassName}
-          /*
-            열릴 때 초점을 판 자체에 둔다. 두지 않으면 Radix가 첫 초점 대상인 iframe으로
-            보내는데, 그 iframe은 `sandbox=""`라 다른 문서다 — Escape 키가 그 문서에서
-            멈춰 바깥의 Radix에 닿지 않아 **Escape로 닫을 수 없는 팝업**이 됐다(닫기
-            버튼으로만 닫혔다). 판에 두면 키가 이 문서에 남고, 스크린 리더도 판 이름
-            (제목)부터 읽는다.
-          */
-          onOpenAutoFocus={(event) => {
-            event.preventDefault();
-            contentRef.current?.focus();
-          }}
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            onCloseFocusTrigger();
-          }}
-        >
-          {/* 제목·본문·닫기 세 구역으로 나눈다 — 경계는 우주 바탕의 테두리 색 하나다.
-              본문만 스크롤되므로 제목과 닫기는 어디까지 읽었든 늘 보인다. 좁은 화면에서
-              두 줄은 조작 요소 높이(44px) 그대로 서고 나머지는 본문 칸이다(#519). */}
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-cosmos-border px-5 sm:py-3">
-            <DialogPrimitive.Title className="font-heading text-lg font-semibold text-cosmos-copy">
-              {item?.label} 전문
-            </DialogPrimitive.Title>
-            <DialogPrimitive.Close asChild>
-              <ConsentPolicyCloseButton />
-            </DialogPrimitive.Close>
-          </div>
-          <DialogPrimitive.Description className="sr-only">
-            {item?.label}의 전체 내용을 확인합니다.
-          </DialogPrimitive.Description>
-          {/* 본문 칸에는 여백을 두지 않는다 — 문서가 자기 여백(20px)을 이미 갖고 있어
-              여기서 더 두면 375px에서 읽는 폭이 두 번 깎인다. */}
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {item ? (
-              /* 판 높이가 정해진 좁은 화면에서는 `h-full`이 남는 높이를 받고, 판이
-                 내용만큼 자라는 `sm` 위에서는 예전처럼 `min-h`가 값을 준다(#519). */
-              <ConsentPolicyDocumentFrame
-                item={item}
-                className="h-full min-h-[52dvh]"
-              />
-            ) : null}
-          </div>
-          <div className="flex shrink-0 justify-end border-t border-cosmos-border px-5 sm:py-3">
-            <DialogPrimitive.Close asChild>
-              <Button
-                className="border-cosmos-border text-cosmos-copy hover:bg-cosmos-muted/10 hover:text-cosmos-copy"
-                type="button"
-                variant="outline"
-              >
-                닫기
-              </Button>
-            </DialogPrimitive.Close>
-          </div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
-  );
-}
-
-/**
- * 두 갈래가 같은 닫기 버튼을 쓴다 — 44px 정사각형에 `✕` 하나.
- * 팝업 쪽은 `DialogPrimitive.Close asChild`가 `onClick`·`ref`를 끼워 넣으므로
- * 받은 props를 마지막에 편다.
- */
-function ConsentPolicyCloseButton(props: ComponentProps<'button'>) {
-  return (
-    <Button
-      data-slot="consent-policy-close"
-      className="shrink-0 text-cosmos-copy hover:bg-cosmos-muted/10 hover:text-cosmos-copy"
-      type="button"
-      variant="ghost"
-      size="icon"
-      aria-label="전문 닫기"
-      {...props}
-    >
-      <X aria-hidden="true" />
-    </Button>
-  );
-}
-
-/**
- * 전문 본문. 문구는 정책 문서가 주는 그대로 띄운다 — 수집 범위·보유 기간은 #490이
- * 확정한다. 테두리를 두지 않는 이유도 같다: 얹히는 것은 문서 한 장뿐이고 그 둘레에
- * 판을 만들지 않는다(#517).
- *
- * 바탕색은 문서가 다 오기 전 한 프레임을 위한 것이라 문서 쪽
- * (`public/policies/policy-document.css`)의 면과 같은 값이어야 한다. 어긋나면 열 때마다
- * 다른 색이 한 번 번쩍인다.
- */
-function ConsentPolicyDocumentFrame({
-  item,
-  className,
-}: {
-  readonly item: ConsentRequiredItem;
-  readonly className?: string;
-}) {
-  return (
-    <iframe
-      className={cn('w-full rounded-card bg-cosmos-near', className)}
-      sandbox=""
-      src={item.documentUrl}
-      title={`${item.label} 전문`}
-    />
   );
 }
 

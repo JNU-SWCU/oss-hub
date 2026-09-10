@@ -7,11 +7,16 @@ import { usersRepositoryHarness as harness } from './users.repository.spec-suppo
  * 묻는 fallback이 없다 — 행이 있으면 그 값이고, 없으면 아직 가입을 마치지 않은 사람이다.
  */
 describe('UsersRepository canonical profile reads', () => {
+  const syntheticPhone = '1'.repeat(11);
+
   it('프로필 행의 값을 그대로 읽는다', async () => {
     // Given
     const { findUnique, repository } = harness();
     findUnique.mockResolvedValue({
       id: 'user-profile-first',
+      githubId: 9_600_000_000_153_101n,
+      nickname: 'synthetic-profile-first',
+      phone: syntheticPhone,
       selectedMemberKind: 'STUDENT',
       hasStaffAccess: false,
       hasAdminAccess: false,
@@ -32,6 +37,8 @@ describe('UsersRepository canonical profile reads', () => {
     // Then
     expect(result).toEqual({
       id: 'user-profile-first',
+      githubId: 9_600_000_000_153_101n,
+      githubLogin: 'synthetic-profile-first',
       selectedMemberKind: 'STUDENT',
       memberKind: 'STUDENT',
       affiliationKind: 'DEPARTMENT',
@@ -42,6 +49,7 @@ describe('UsersRepository canonical profile reads', () => {
       name: 'Profile Name',
       studentId: '222222',
       department: 'Profile Department',
+      phone: syntheticPhone,
     });
   });
 
@@ -50,6 +58,9 @@ describe('UsersRepository canonical profile reads', () => {
     const { findUnique, repository } = harness();
     findUnique.mockResolvedValue({
       id: 'user-without-profile',
+      githubId: 9_600_000_000_153_102n,
+      nickname: 'synthetic-without-profile',
+      phone: null,
       selectedMemberKind: null,
       hasStaffAccess: false,
       hasAdminAccess: false,
@@ -63,6 +74,8 @@ describe('UsersRepository canonical profile reads', () => {
     // Then
     expect(result).toEqual({
       id: 'user-without-profile',
+      githubId: 9_600_000_000_153_102n,
+      githubLogin: 'synthetic-without-profile',
       selectedMemberKind: null,
       memberKind: null,
       affiliationKind: null,
@@ -73,6 +86,7 @@ describe('UsersRepository canonical profile reads', () => {
       name: null,
       studentId: null,
       department: null,
+      phone: null,
     });
   });
 
@@ -81,6 +95,9 @@ describe('UsersRepository canonical profile reads', () => {
     const { findUnique, repository } = harness();
     findUnique.mockResolvedValue({
       id: 'user-pending-staff',
+      githubId: 9_600_000_000_153_103n,
+      nickname: 'synthetic-pending-staff',
+      phone: null,
       selectedMemberKind: 'STAFF',
       hasStaffAccess: false,
       hasAdminAccess: false,

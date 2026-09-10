@@ -16,6 +16,8 @@ import {
 } from './settings-state';
 import type { SettingsFormValues } from './types';
 
+const TEN_DIGIT_PHONE = '1'.repeat(10);
+
 function validValues(
   overrides: Partial<SettingsFormValues> = {},
 ): SettingsFormValues {
@@ -23,6 +25,7 @@ function validValues(
     name: '합성 사용자',
     studentId: '1'.repeat(6),
     savedStudentId: '1'.repeat(6),
+    phone: TEN_DIGIT_PHONE,
     departmentOption: '인공지능학부',
     otherDepartment: '',
     notificationEmail: 'user@example.com',
@@ -39,6 +42,7 @@ describe('settings form state', () => {
           name: '합성 사용자',
           studentId: '1'.repeat(6),
           department: '합성 융합전공',
+          phone: TEN_DIGIT_PHONE,
           isComplete: true,
         },
         {
@@ -50,6 +54,7 @@ describe('settings form state', () => {
       name: '합성 사용자',
       studentId: '1'.repeat(6),
       savedStudentId: '1'.repeat(6),
+      phone: TEN_DIGIT_PHONE,
       departmentOption: OTHER_DEPARTMENT,
       otherDepartment: '합성 융합전공',
       notificationEmail: 'staff@example.com',
@@ -64,17 +69,19 @@ describe('settings form state', () => {
           name: '합성 교직원',
           studentId: null,
           department: '인공지능학부',
+          phone: null,
           isComplete: true,
         },
         null,
       ),
-    ).toMatchObject({ studentId: '', savedStudentId: '' });
+    ).toMatchObject({ studentId: '', savedStudentId: '', phone: '' });
   });
 
   it('이미 저장된 학번은 갱신 요청에 넣지 않는다', () => {
     expect(toSettingsProfileRequest(validValues(), 'STUDENT')).toEqual({
       name: '합성 사용자',
       department: '인공지능학부',
+      phone: TEN_DIGIT_PHONE,
     });
     expect(
       toSettingsProfileRequest(validValues(), 'STUDENT'),
@@ -86,10 +93,25 @@ describe('settings form state', () => {
     const errors = validateSettingsForm(empty, true, 'STAFF');
 
     expect(errors.studentId).toBeNull();
+    expect(errors.phone).toBeNull();
     expect(isSettingsFormValid(errors)).toBe(true);
     expect(toSettingsProfileRequest(empty, 'STAFF')).not.toHaveProperty(
       'studentId',
     );
+  });
+
+  it('학생은 전화번호를 비워 두면 저장할 수 없다', () => {
+    const errors = validateSettingsForm(
+      validValues({ phone: '' }),
+      true,
+      'STUDENT',
+    );
+
+    expect(errors.phone).toBe('전화번호는 숫자 10~11자리로 입력해 주세요.');
+    expect(isSettingsFormValid(errors)).toBe(false);
+    expect(
+      toSettingsProfileRequest(validValues({ phone: '' }), 'STUDENT'),
+    ).toBeNull();
   });
 
   it('알림 사용 가능할 때만 이메일을 검증한다', () => {

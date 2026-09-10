@@ -22,6 +22,7 @@ type StoredUser = {
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
+  readonly phone?: string | null;
   readonly selectedMemberKind?: MemberKind | null;
   readonly memberKind?: MemberKind | null;
   readonly hasAdminAccess?: boolean;
@@ -45,6 +46,7 @@ function buildService(
           name: 'GitHub 합성 이름',
           studentId: null,
           department: null,
+          phone: null,
           selectedMemberKind: MemberKind.STUDENT,
           memberKind: null,
           hasAdminAccess: false,
@@ -114,15 +116,17 @@ describe('기존 데이터 호환', () => {
 
   it('학번이 null인 기존 교직원은 학번을 요구받지 않고 이름·학과만 갱신한다', async () => {
     // Given
+    const existingStaff = {
+      id: 'synthetic-user',
+      name: input.name,
+      studentId: null,
+      department: input.department ?? null,
+      phone: null,
+      memberKind: MemberKind.STAFF,
+    };
     const { service, updateProfileFields, completeProfileIfUnchanged } =
       buildService({
-        user: {
-          id: 'synthetic-user',
-          name: input.name,
-          studentId: null,
-          department: input.department ?? null,
-          memberKind: MemberKind.STAFF,
-        },
+        user: existingStaff,
       });
 
     // When
@@ -136,9 +140,10 @@ describe('기존 데이터 호환', () => {
       name: '수정된 이름',
       studentId: null,
       department: '소프트웨어공학과',
+      phone: null,
       isComplete: true,
     });
-    expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
+    expect(updateProfileFields).toHaveBeenCalledWith(existingStaff, {
       name: '수정된 이름',
       department: '소프트웨어공학과',
       // 소속명은 학과의 사본이다 — 두 칸이 어긋나면 계약 CHECK가 거부한다.
@@ -149,15 +154,17 @@ describe('기존 데이터 호환', () => {
   });
 
   it('관리자 갱신도 이름·학과를 함께 보낸다', async () => {
+    const existingAdmin = {
+      id: 'synthetic-user',
+      name: input.name,
+      studentId: null,
+      department: input.department ?? null,
+      phone: null,
+      memberKind: MemberKind.STAFF,
+      hasAdminAccess: true,
+    };
     const { service, updateProfileFields } = buildService({
-      user: {
-        id: 'synthetic-user',
-        name: input.name,
-        studentId: null,
-        department: input.department ?? null,
-        memberKind: MemberKind.STAFF,
-        hasAdminAccess: true,
-      },
+      user: existingAdmin,
     });
 
     const profile = await service.patchMyProfile(githubId, {
@@ -166,7 +173,7 @@ describe('기존 데이터 호환', () => {
     });
 
     expect(profile.department).toBe(input.department);
-    expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
+    expect(updateProfileFields).toHaveBeenCalledWith(existingAdmin, {
       name: '수정된 이름',
       department: input.department,
       affiliationKind: AffiliationKind.DEPARTMENT,

@@ -38,6 +38,7 @@ const detail = {
   accountStatus: AccountStatus.ACTIVE,
   isSelf: false,
   isProfileComplete: true,
+  createdAt: new Date('2026-09-01T00:00:00.000Z'),
   pendingRequest: null,
   lastLoginAt: null,
   profile: {
