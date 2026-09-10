@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { authenticatedSessionBody } from './support/session-mock';
+import type { ProgramActivity } from '../src/features/programs/types';
 
 const programId = 'activity-deep-link';
 
@@ -10,17 +11,26 @@ const programId = 'activity-deep-link';
  * 드러난다 — 활동 그래프는 로딩 중 96px 자리만 차지하다가 데이터가 도착한
  * 뒤에야 자란다.
  */
-const activities = Array.from({ length: 6 }, (_, index) => ({
-  applicationId: `application-${index + 1}`,
-  label: `참여 저장소 ${index + 1}`,
-  commitCount: 12 + index,
-  pullRequestCount: 3 + index,
-  releaseCount: 1,
-  dataAsOf: '2026-08-19T00:00:00.000Z',
-  lastActivityAt: '2026-08-18T00:00:00.000Z',
-}));
+const activities: readonly ProgramActivity[] = Array.from(
+  { length: 6 },
+  (_, index) => ({
+    applicationId: `application-${index + 1}`,
+    label: `참여 저장소 ${index + 1}`,
+    commitCount: 12 + index,
+    pullRequestCount: 3 + index,
+    releaseCount: 1,
+    collectionStatus: 'READY',
+    members: [],
+    hasIncompleteContributions: false,
+    dataAsOf: '2026-08-19T00:00:00.000Z',
+    lastActivityAt: '2026-08-18T00:00:00.000Z',
+  }),
+);
 
-async function installProgramRoutes(page: Page): Promise<void> {
+async function installProgramRoutes(
+  page: Page,
+  activityRows: readonly ProgramActivity[] = activities,
+): Promise<void> {
   await page.route('**/api/v1/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === '/api/v1/auth/session') {
@@ -66,7 +76,7 @@ async function installProgramRoutes(page: Page): Promise<void> {
       return;
     }
     if (path === `/api/v1/programs/${programId}/activity`) {
-      await route.fulfill({ json: activities });
+      await route.fulfill({ json: activityRows });
       return;
     }
     if (path === '/api/v1/milestones/milestone-1/documents') {
@@ -117,6 +127,149 @@ for (const viewport of [
   { name: '모바일', width: 390, height: 844 },
   { name: '데스크톱', width: 1280, height: 900 },
 ]) {
+  test(`${viewport.name}에서 지표 비교와 팀원별 기여를 키보드로 확인한다`, async ({
+    browser,
+  }, testInfo) => {
+    const context = await browser.newContext({
+      viewport,
+      locale: 'ko-KR',
+      timezoneId: 'Asia/Seoul',
+    });
+    const page = await context.newPage();
+    const first = activities[0];
+    if (!first) throw new Error('Activity fixture missing');
+    const rows: readonly ProgramActivity[] = [
+      {
+        ...first,
+        label: '합성 팀 A',
+        commitCount: 40,
+        pullRequestCount: 2,
+        releaseCount: 0,
+        members: [
+          {
+            githubLogin: 'synthetic-contributor-with-a-long-name',
+            commitCount: 40,
+            pullRequestCount: 2,
+            releaseCount: 0,
+          },
+          {
+            githubLogin: 'synthetic-zero',
+            commitCount: 0,
+            pullRequestCount: 0,
+            releaseCount: 0,
+          },
+        ],
+      },
+      {
+        ...first,
+        applicationId: 'b',
+        label: '합성 팀 B',
+        commitCount: 20,
+        pullRequestCount: 4,
+        releaseCount: 1,
+        hasIncompleteContributions: true,
+        members: [
+          {
+            githubLogin: 'synthetic-partial',
+            commitCount: 10,
+            pullRequestCount: 4,
+            releaseCount: 1,
+          },
+        ],
+      },
+      {
+        ...first,
+        applicationId: 'empty',
+        label: '합성 활동 대기 팀',
+        collectionStatus: 'EMPTY',
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
+        members: [],
+      },
+      {
+        ...first,
+        applicationId: 'unlinked',
+        label: '합성 미연결 팀',
+        collectionStatus: 'NOT_CONNECTED',
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
+        members: [],
+      },
+      {
+        ...first,
+        applicationId: 'failed',
+        label: '합성 수집 실패 팀',
+        collectionStatus: 'FAILED',
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
+        members: [],
+      },
+    ];
+    await installProgramRoutes(page, rows);
+    await page.goto(`/programs/${programId}#activity`);
+    const card = page.locator('section#activity > div[data-slot="card"]');
+    await expect(card.getByRole('meter')).toHaveCount(6);
+    await expect(
+      card
+        .getByRole('meter', { name: '합성 팀 B 커밋', exact: true })
+        .locator('div'),
+    ).toHaveAttribute('style', 'width: 50%;');
+    const disclosure = card.locator('summary').first();
+    const member = card.getByText('@synthetic-zero', { exact: true });
+    await expect(member).toBeHidden();
+    await disclosure.focus();
+    await page.keyboard.press('Enter');
+    await expect(member).toBeVisible();
+    await expect(
+      card.getByText('아직 기여 없음', { exact: true }),
+    ).toBeVisible();
+    const before = await card
+      .getByRole('meter')
+      .evaluateAll((elements) =>
+        elements.map((element) => element.getAttribute('aria-valuenow')),
+      );
+    await page.screenshot({
+      path: testInfo.outputPath('after-desktop-or-mobile.png'),
+    });
+    await card.screenshot({
+      path: testInfo.outputPath('after-activity-element.png'),
+    });
+    expect(
+      await card.evaluate(
+        (element) => element.scrollWidth <= element.clientWidth,
+      ),
+    ).toBe(true);
+    await page.keyboard.press('Space');
+    await expect(member).toBeHidden();
+    await page.reload();
+    await expect(card.getByRole('meter')).toHaveCount(6);
+    expect(
+      await card
+        .getByRole('meter')
+        .evaluateAll((elements) =>
+          elements.map((element) => element.getAttribute('aria-valuenow')),
+        ),
+    ).toEqual(before);
+    await expect(member).toBeHidden();
+    await expect(
+      card.getByText('저장소가 연결되지 않았습니다.', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      card.getByText('아직 수집된 활동이 없습니다.', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      card.getByText('활동 수집에 실패했습니다', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      card.getByText('기여도 수집이 온전하지 않습니다', { exact: true }),
+    ).toBeVisible();
+    await expect(card.locator('summary')).toHaveCount(2);
+    await context.close();
+  });
+
   test(`${viewport.name}에서 비동기 프로그램 상세의 활동 영역으로 이동한다`, async ({
     browser,
   }) => {

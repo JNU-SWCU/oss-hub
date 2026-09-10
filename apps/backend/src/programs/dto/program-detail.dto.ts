@@ -78,4 +78,12 @@ export interface ProgramActivityResponseDto {
   readonly releaseCount: number;
   readonly lastActivityAt: string | null;
   readonly dataAsOf: string | null;
+  readonly collectionStatus: 'NOT_CONNECTED' | 'EMPTY' | 'FAILED' | 'READY';
+  readonly members: readonly {
+    readonly githubLogin: string;
+    readonly commitCount: number;
+    readonly pullRequestCount: number;
+    readonly releaseCount: number;
+  }[];
+  readonly hasIncompleteContributions: boolean;
 }

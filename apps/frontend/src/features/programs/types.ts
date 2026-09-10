@@ -402,4 +402,12 @@ export interface ProgramActivity {
   readonly releaseCount: number;
   readonly dataAsOf: string | null;
   readonly lastActivityAt: string | null;
+  readonly collectionStatus: 'NOT_CONNECTED' | 'EMPTY' | 'FAILED' | 'READY';
+  readonly members: readonly {
+    readonly githubLogin: string;
+    readonly commitCount: number;
+    readonly pullRequestCount: number;
+    readonly releaseCount: number;
+  }[];
+  readonly hasIncompleteContributions: boolean;
 }

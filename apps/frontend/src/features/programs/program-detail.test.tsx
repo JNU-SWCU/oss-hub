@@ -259,7 +259,7 @@ describe('ActivityPanelBody', () => {
     const failed = renderToStaticMarkup(
       <ActivityPanelBody state={{ kind: 'failed' }} onRetry={vi.fn()} />,
     );
-    expect(empty).toContain('아직 연결된 저장소가 없습니다');
+    expect(empty).toContain('표시할 팀이 없습니다');
     expect(failed).toContain('활동을 불러오지 못했습니다');
     expect(failed).toContain('프로그램 정보는 정상적으로 표시');
   });
@@ -276,6 +276,9 @@ describe('ActivityPanelBody', () => {
               commitCount: 2,
               pullRequestCount: 3,
               releaseCount: 4,
+              collectionStatus: 'READY',
+              members: [],
+              hasIncompleteContributions: false,
               lastActivityAt: '2026-07-23T00:00:00.000Z',
               dataAsOf: '2026-07-24T00:00:00.000Z',
             },
@@ -285,9 +288,12 @@ describe('ActivityPanelBody', () => {
       />,
     );
 
-    expect(html).toContain('커밋</dt><dd>2');
-    expect(html).toContain('PR</dt><dd>3');
-    expect(html).toContain('릴리스</dt><dd>4');
+    expect(html).toContain('aria-label="학생 커밋"');
+    expect(html).toContain('aria-label="학생 PR"');
+    expect(html).toContain('aria-label="학생 릴리스"');
+    expect(html).toContain('aria-valuenow="2"');
+    expect(html).toContain('aria-valuenow="3"');
+    expect(html).toContain('aria-valuenow="4"');
     expect(html).toContain('데이터 기준');
     expect(html).not.toContain('star');
   });
@@ -304,6 +310,9 @@ describe('ActivityPanelBody', () => {
               commitCount: 0,
               pullRequestCount: 0,
               releaseCount: 0,
+              collectionStatus: 'EMPTY',
+              members: [],
+              hasIncompleteContributions: false,
               lastActivityAt: null,
               dataAsOf: null,
             },

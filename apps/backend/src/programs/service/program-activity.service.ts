@@ -45,7 +45,7 @@ export class ProgramActivityService {
     @Inject(ProgramActivityRepository)
     private readonly activityReads: Pick<
       ProgramActivityRepository,
-      'findRepositoryActivity'
+      'findRepositoryActivity' | 'findProgramActivityApplications'
     >,
   ) {}
 
@@ -55,36 +55,51 @@ export class ProgramActivityService {
   ): Promise<readonly ProgramActivityResponseDto[]> {
     if (!viewer.userId || !viewer.role || viewer.role === 'PENDING') return [];
     try {
-      const repositories = await this.repository.findProgramRepositories(
-        programId,
-        viewer.role === 'STUDENT' ? viewer.userId : null,
-      );
-      const activity = await this.activityReads.findRepositoryActivity({
-        repositoryIds: repositories.map(
-          (repository) => repository.githubRepositoryId,
-        ),
-      });
-      const canonicalByRepository = new Map<
-        bigint,
-        ProgramRepositoryActivity
-      >();
-      for (const record of activity) {
-        const current = canonicalByRepository.get(record.repositoryId);
-        if (!current || current.dataAsOf < record.dataAsOf) {
-          canonicalByRepository.set(record.repositoryId, record);
+      const applications =
+        await this.activityReads.findProgramActivityApplications(
+          programId,
+          viewer.role === 'STUDENT' ? viewer.userId : null,
+        );
+      return applications.map((application): ProgramActivityResponseDto => {
+        const repository = application.repository;
+        const totals = {
+          commitCount: repository?._count.commits ?? 0,
+          pullRequestCount: repository?._count.pullRequests ?? 0,
+          releaseCount: repository?._count.releases ?? 0,
+        };
+        const contributions = new Map<bigint, typeof totals>();
+        for (const row of repository?.contributions ?? []) {
+          const previous = contributions.get(row.githubId);
+          contributions.set(row.githubId, {
+            commitCount: (previous?.commitCount ?? 0) + row.commitCount,
+            pullRequestCount:
+              (previous?.pullRequestCount ?? 0) + row.pullRequestCount,
+            releaseCount: (previous?.releaseCount ?? 0) + row.releaseCount,
+          });
         }
-      }
-
-      return repositories.map((repository) => {
-        const canonical = canonicalByRepository.get(
-          repository.githubRepositoryId,
+        const members = repository
+          ? application.team.members.map(({ user }) => ({
+              githubLogin: user.nickname,
+              commitCount: contributions.get(user.githubId)?.commitCount ?? 0,
+              pullRequestCount:
+                contributions.get(user.githubId)?.pullRequestCount ?? 0,
+              releaseCount: contributions.get(user.githubId)?.releaseCount ?? 0,
+            }))
+          : [];
+        const memberTotals = members.reduce(
+          (sum, member) => ({
+            commitCount: sum.commitCount + member.commitCount,
+            pullRequestCount: sum.pullRequestCount + member.pullRequestCount,
+            releaseCount: sum.releaseCount + member.releaseCount,
+          }),
+          { commitCount: 0, pullRequestCount: 0, releaseCount: 0 },
         );
         let lastActivityAt: Date | null = null;
-        if (canonical) {
+        if (repository) {
           for (const date of [
-            ...canonical.commitDates,
-            ...canonical.pullRequestDates,
-            ...canonical.releaseDates,
+            ...repository.commits.map((row) => row.committedAt),
+            ...repository.pullRequests.map((row) => row.createdAt),
+            ...repository.releases.map((row) => row.publishedAt),
           ]) {
             if (!lastActivityAt || lastActivityAt < date) {
               lastActivityAt = date;
@@ -92,16 +107,26 @@ export class ProgramActivityService {
           }
         }
         return {
-          applicationId: repository.application.id,
-          label:
-            repository.application.team?.name ??
-            repository.application.applicant.name ??
-            repository.application.applicant.nickname,
-          commitCount: canonical?.commitDates.length ?? 0,
-          pullRequestCount: canonical?.pullRequestDates.length ?? 0,
-          releaseCount: canonical?.releaseDates.length ?? 0,
+          applicationId: application.id,
+          label: application.team.name,
+          ...totals,
           lastActivityAt: lastActivityAt?.toISOString() ?? null,
-          dataAsOf: canonical?.dataAsOf.toISOString() ?? null,
+          dataAsOf: repository?.lastSuccessAt?.toISOString() ?? null,
+          collectionStatus: !repository
+            ? 'NOT_CONNECTED'
+            : repository.failureCount > 0
+              ? 'FAILED'
+              : totals.commitCount +
+                    totals.pullRequestCount +
+                    totals.releaseCount ===
+                  0
+                ? 'EMPTY'
+                : 'READY',
+          members,
+          hasIncompleteContributions:
+            totals.commitCount !== memberTotals.commitCount ||
+            totals.pullRequestCount !== memberTotals.pullRequestCount ||
+            totals.releaseCount !== memberTotals.releaseCount,
         };
       });
     } catch {
