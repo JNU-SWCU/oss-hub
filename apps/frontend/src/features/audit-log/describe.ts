@@ -2,6 +2,8 @@ import {
   AUDIT_LOG_ACTION_LABELS,
   type AuditLogAction,
   type AuditLogRecord,
+  type TeamMembershipChangeSummary,
+  type TeamMembershipOperation,
 } from './types';
 
 // audit-log.repository.ts의 targetType 리터럴을 미러링한다. actions와 달리 이 값들은
@@ -120,6 +122,38 @@ function targetTypeLabel(record: AuditLogRecord): string {
 
 function text(value: string): AuditLogSentenceSegment {
   return { kind: 'text', value };
+}
+
+// 팀 구성 변경 서술절은 "무슨 일이 일어났는가(어간)" + "그 결과 팀장 권한이 어떻게
+// 됐는가(어미)"로 나눠 조립한다. 내보내기는 "팀 구성원 자격"만 해제된 사실을 말하고
+// 계정·신청·과거 기록이 지워졌다고 읽힐 표현은 쓰지 않는다.
+const TEAM_MEMBERSHIP_OPERATION_STEMS: Readonly<
+  Record<TeamMembershipOperation, string>
+> = {
+  LEAVE: '에서 탈퇴',
+  REMOVE: '에서 팀원 한 명의 팀 구성원 자격을 해제',
+};
+
+// nextLeaderId가 null인 행은 "마지막 인원이 미제출 팀을 떠나 팀이 삭제된 경우"뿐이라
+// (web-state-audit-metadata.ts) 승계가 아니라 팀 소멸로 서술한다.
+function teamMembershipOutcome(summary: TeamMembershipChangeSummary): string {
+  if (summary.teamDeleted) return '해 남은 팀원이 없어 팀이 삭제되었습니다';
+  if (summary.leaderChanged) {
+    return '해 팀장 권한이 다른 팀원에게 승계되었습니다';
+  }
+  return '했습니다';
+}
+
+// metadata 검증에 실패했거나 필드가 빠졌으면(parser.ts가 teamMembership을 실지 않으면)
+// "무엇이 일어났는지 모른다"는 사실을 그대로 밝힌다 — 탈퇴·내보내기 중 하나를
+// 골라 추측하지도, TEAM_CREATED/TEAM_JOINED처럼 다른 사건으로 보이게 하지도 않는다.
+function teamMembershipClause(
+  summary: TeamMembershipChangeSummary | undefined,
+): string {
+  if (summary === undefined) {
+    return '의 팀 구성을 변경했습니다 (상세 내용 없음)';
+  }
+  return `${TEAM_MEMBERSHIP_OPERATION_STEMS[summary.operation]}${teamMembershipOutcome(summary)}`;
 }
 
 type SentenceTemplate = (
@@ -324,6 +358,25 @@ const SENTENCE_TEMPLATES: Readonly<Record<AuditLogAction, SentenceTemplate>> = {
           nameSegment(record),
           text('에 합류했습니다'),
         ],
+  // TEAM_MEMBERSHIP_CHANGED는 TEAM_CREATED/TEAM_JOINED와 같은 "프로그램 · 팀이름"
+  // target을 가지므로 같은 nameSegment/폴백 규약을 그대로 쓰고, 달라지는 건 서술절뿐이다
+  // (별도 렌더러를 두지 않는다).
+  TEAM_MEMBERSHIP_CHANGED: (record) => {
+    const clause = teamMembershipClause(record.teamMembership);
+    return isFallbackTarget(record)
+      ? [
+          actorSegment(record),
+          text(`님이 ${targetTypeLabel(record)} `),
+          fallbackTargetSegment(record),
+          text(clause),
+        ]
+      : [
+          actorSegment(record),
+          text('님이 '),
+          nameSegment(record),
+          text(clause),
+        ];
+  },
   COLLECTION_SYNC_TRIGGERED: (record) => [
     actorSegment(record),
     text('님이 데이터 수집을 수동 실행했습니다'),

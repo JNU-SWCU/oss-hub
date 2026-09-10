@@ -1,5 +1,8 @@
 import type { ActivityGranularity } from '@/features/activity-timeline/types';
+import type { ProgramTeam, TeamMember } from '@/features/programs/api';
 import { PROGRAM_TEMPLATE_DEFINITIONS } from '@/features/programs/program-templates';
+import type { StudentApplication } from '@/features/programs/student-application-api';
+import type { SentTeamInvitation } from '@/features/programs/team-invitation-api';
 import { apiPath } from '@/lib/api-client';
 import {
   accepted,
@@ -8,6 +11,7 @@ import {
   bodyRecord,
   bodyString,
   json,
+  localReviewSessionState,
   matchGet,
   matchPath,
   notFound,
@@ -19,8 +23,8 @@ import {
   type LocalReviewResponsePlan,
 } from '../handler-kit';
 import { STUDENT_JOURNEY_RESPONSES } from '../student-journey-fixtures';
+import { myProfileFixtureFor } from './account-handlers';
 import {
-  JOINED_TEAM_FIXTURE,
   MY_TEAM_FIXTURES,
   PROGRAM_CHECKLISTS,
   SUBMISSION_FORMS,
@@ -28,12 +32,13 @@ import {
   myApplicationFor,
   programActivityFor,
   programDetailFor,
-  studentApplicationStatusFor,
 } from './student-program-fixtures';
+import { sentInvitationsFor } from './team-invitation-fixtures';
 
 /**
  * 학생 동선의 로컬 검토 응답.
  * 담당 경로: `programs/{id}/viewer|activity|submissions/me|teams/me`,
+ * `programs/{id}/teams/me/members/{userId}`(팀장의 팀원 제외),
  * `programs/application-templates`, `programs/{id}/milestones/{id}/submission-form`,
  * `dashboard/student*`, 학생 조작(신청·팀·제출·재제출).
  *
@@ -42,6 +47,193 @@ import {
  */
 
 const PROGRAM_NOT_FOUND_CODE = 'PROGRAM_NOT_FOUND';
+const CURRENT_SYNTHETIC_USER = {
+  userId: 'synthetic-user-01',
+  nickname: 'synthetic-contributor-01',
+} as const;
+
+const SYNTHETIC_MUTATION_AT = '2026-08-01T00:00:00.000Z';
+
+export function currentSyntheticUserId(): string {
+  return CURRENT_SYNTHETIC_USER.userId;
+}
+
+function currentSyntheticMember(isLeader: boolean): TeamMember {
+  return {
+    userId: CURRENT_SYNTHETIC_USER.userId,
+    nickname: CURRENT_SYNTHETIC_USER.nickname,
+    name: myProfileFixtureFor('student').name,
+    isLeader,
+  };
+}
+
+/**
+ * 팀 능력 플래그를 **읽을 때 다시 계산한다** — backend
+ * `ProgramTeamsService.toTeamView`와 같은 규칙이다(`canInvite`는 팀장,
+ * `canRemoveMembers`는 팀장이면서 팀원이 둘 이상, `canLeave`는 혼자가 아니거나
+ * 신청 기록이 없을 때).
+ *
+ * 저장해 둔 플래그를 그대로 돌려주면 팀원 제외·신청 제출 뒤에 예전 값이 남아,
+ * 화면이 서버가 거절할 버튼을 그리거나 있는 권한을 숨긴다. 한 자리에서 파생시켜
+ * 쓰는 쪽들(팀 만들기·초대 수락·팀원 제외)이 각자 같은 규칙을 다시 적지 않게 한다.
+ */
+export function teamWithCapabilities(
+  programId: string,
+  team: Pick<
+    ProgramTeam,
+    'id' | 'name' | 'minMembers' | 'maxMembers' | 'members' | 'isLeader'
+  >,
+): ProgramTeam {
+  const viewer = team.members.find(
+    (member) => member.userId === currentSyntheticUserId(),
+  );
+  // 명단에 내가 없는 팀(아직 붙지 않은 초대 목적지)은 적혀 온 값을 그대로 믿는다.
+  const isLeader = viewer === undefined ? team.isLeader : viewer.isLeader;
+  const hasApplication = storedApplication(programId)?.teamId === team.id;
+  const memberCount = team.members.length;
+  return {
+    ...team,
+    memberCount,
+    hasApplication,
+    isLeader,
+    canInvite: isLeader,
+    canRemoveMembers: isLeader && memberCount > 1,
+    canLeave: memberCount > 1 || !hasApplication,
+  };
+}
+
+export function resolveProgramTeam(programId: string): ProgramTeam | null {
+  const { programTeams } = localReviewSessionState();
+  const stored =
+    programId in programTeams
+      ? (programTeams[programId] ?? null)
+      : (MY_TEAM_FIXTURES[programId] ?? null);
+  return stored === null ? null : teamWithCapabilities(programId, stored);
+}
+
+/**
+ * 본인이 나간 뒤 남는 명단. 팀장이 나가면 남은 명단의 **첫 사람**이 승계한다 —
+ * backend `ProgramTeamsRepository.leave`가 합류 순서(`createdAt`, `id`)로 고르는 그
+ * 사람이고, 픽스처 명단은 이미 그 순서다. 비어 있으면 1인 팀이라 팀 자체가 사라진다.
+ *
+ * 승계 결과는 나간 사람의 화면에 남지 않는다(나가면 무덤이 `null`이다). 규칙을
+ * 이 한 자리에 두어 「팀은 남고 팀장만 바뀐다」와 「1인 미제출 팀만 사라진다」가
+ * 같은 재료에서 나오게 한다.
+ */
+export function rosterAfterLeave(team: ProgramTeam): readonly TeamMember[] {
+  const remaining = team.members.filter(
+    (member) => member.userId !== currentSyntheticUserId(),
+  );
+  if (remaining.some((member) => member.isLeader)) return remaining;
+  return remaining.map((member, index) =>
+    index === 0 ? { ...member, isLeader: true } : member,
+  );
+}
+
+export function rememberProgramTeam(
+  programId: string,
+  team: ProgramTeam | null,
+): void {
+  localReviewSessionState().programTeams[programId] = team;
+}
+
+export function findOwnedTeamById(
+  teamId: string,
+): { readonly programId: string; readonly team: ProgramTeam } | null {
+  const { programTeams } = localReviewSessionState();
+  for (const [programId, team] of Object.entries(programTeams)) {
+    if (team?.id === teamId) {
+      return { programId, team: teamWithCapabilities(programId, team) };
+    }
+  }
+  for (const [programId, team] of Object.entries(MY_TEAM_FIXTURES)) {
+    if (programId in programTeams) continue;
+    if (team.id === teamId) {
+      return { programId, team: teamWithCapabilities(programId, team) };
+    }
+  }
+  return null;
+}
+
+/** 세션에 기록된 신청 원본. 팀을 떠난 뒤에도 이 기록은 지우지 않는다. */
+function storedApplication(programId: string): StudentApplication | null {
+  const { programApplications } = localReviewSessionState();
+  if (programId in programApplications) {
+    return programApplications[programId] ?? null;
+  }
+  return isPublicProgramId(programId) ? myApplicationFor(programId) : null;
+}
+
+/**
+ * 화면이 볼 수 있는 내 신청. 신청은 **그 신청을 낸 팀의 현재 구성원에게만** 보인다.
+ *
+ * 탈퇴해도 신청·제출 기록 자체는 남아 있어야 한다 — backend는 팀이 낸 신청을
+ * 지우거나 옮기지 않고, 남은 팀원의 참여 상태도 그대로다. 대신 나간 사람의
+ * 참여자 응답(내 신청서·상세 뷰어·제출 체크리스트)이 그 기록을 더 이상 드러내지
+ * 않는다. 기록을 지워 버리면 「팀은 남았는데 신청은 사라졌다」는, 실제 서버가
+ * 만들 수 없는 상태가 된다.
+ *
+ * ⚠ 「팀이 없는 신청은 그냥 보여 준다」는 예외를 두지 않는다. 지금 모든 신청은
+ * 팀이 내므로(혼자면 1인 팀이 생긴다, #1269) 그 예외는 소속 없는 사람에게
+ * 참여자 권한을 되돌려주는 폴백이 된다. 대신 신청이 있는 프로그램에는 항상 팀
+ * 픽스처를 둔다(`MY_TEAM_FIXTURES` 주석).
+ */
+export function visibleApplication(
+  programId: string,
+): StudentApplication | null {
+  const application = storedApplication(programId);
+  if (application === null) return null;
+  const team = resolveProgramTeam(programId);
+  return team !== null && team.id === application.teamId ? application : null;
+}
+
+/**
+ * 미제출 1인 팀이 사라질 때 대기 중인 보낸 초대를 함께 정리한다 — backend도 팀
+ * 삭제 전에 `teamInvitation`을 먼저 지운다. 고정 픽스처에만 있는 초대도 같이
+ * 무덤을 남겨야 목록이 삭제된 팀의 초대를 다시 그리지 않는다.
+ */
+function cancelSentInvitationsFor(teamId: string): void {
+  const { sentInvitationsByTeam } = localReviewSessionState();
+  const cleared: Record<string, SentTeamInvitation | null> = {};
+  for (const invitationId of Object.keys(sentInvitationsByTeam[teamId] ?? {})) {
+    cleared[invitationId] = null;
+  }
+  for (const invitation of sentInvitationsFor(teamId)) {
+    cleared[invitation.id] = null;
+  }
+  sentInvitationsByTeam[teamId] = cleared;
+}
+
+function rememberApplication(
+  programId: string,
+  application: StudentApplication | null,
+): void {
+  localReviewSessionState().programApplications[programId] = application;
+}
+
+function teamLimitsFor(programId: string): {
+  readonly minMembers: number | null;
+  readonly maxMembers: number;
+} {
+  const fixtureTeam = MY_TEAM_FIXTURES[programId];
+  if (fixtureTeam !== undefined) {
+    return {
+      minMembers: fixtureTeam.minMembers,
+      maxMembers: fixtureTeam.maxMembers,
+    };
+  }
+  if (programId === 'program-basic-study') {
+    return { minMembers: 1, maxMembers: 4 };
+  }
+  if (programId === 'program-oss-contest') {
+    return { minMembers: 2, maxMembers: 4 };
+  }
+  return { minMembers: 1, maxMembers: 4 };
+}
+
+function createdTeamIdFor(programId: string): string {
+  return `synthetic-team-${programId}`;
+}
 
 /**
  * 학생 동선 픽스처를 다른 학생 역할 페르소나(`settings`·`wrong-role`)에도 그대로
@@ -51,6 +243,13 @@ function studentJourneyFallbackHandler(
   context: LocalReviewContext,
 ): LocalReviewResponsePlan | null {
   if (context.method !== 'GET' || context.role !== 'STUDENT') return null;
+  const viewerParams = matchPath('programs/:id/viewer', context.path);
+  if (
+    viewerParams !== null &&
+    (viewerParams.id ?? '') in localReviewSessionState().programApplications
+  ) {
+    return null;
+  }
   const body = STUDENT_JOURNEY_RESPONSES[context.path];
   return body === undefined ? null : json(200, body);
 }
@@ -196,9 +395,25 @@ function programViewerHandler(
   if (!context.isAuthenticated) return unauthorized(context.path);
 
   const programId = params.id ?? '';
-  return isPublicProgramId(programId)
-    ? json(200, programDetailFor(programId, context.role))
-    : notFound(PROGRAM_NOT_FOUND_CODE, context.path);
+  if (!isPublicProgramId(programId)) {
+    return notFound(PROGRAM_NOT_FOUND_CODE, context.path);
+  }
+
+  const detail = programDetailFor(programId, context.role);
+  const { programApplications } = localReviewSessionState();
+  if (context.role !== 'STUDENT' || !(programId in programApplications)) {
+    return json(200, detail);
+  }
+
+  // 팀을 떠난 뒤에는 그 팀의 신청 상태를 더 이상 말하지 않는다 — 신청 기록은
+  // 남아 있지만 나간 사람은 더 이상 그 신청의 참여자가 아니다.
+  return json(200, {
+    ...detail,
+    viewer: {
+      ...detail.viewer,
+      applicationStatus: visibleApplication(programId)?.status ?? null,
+    },
+  });
 }
 
 /** 비로그인 폴백이 읽는 공개 상세. 뷰어 정보 없이 프로그램 정보만 준다. */
@@ -247,9 +462,7 @@ function submissionChecklistHandler(
     「학생 계정만 제출할 수 있습니다」(403)라서, 검토자가 로컬에서 본 화면과 배포에서
     나는 화면이 서로 다른 갈래였다. 참여자 아님 안내(#1099)가 이 경로로 도달한다.
   */
-  const applied =
-    isPublicProgramId(programId) &&
-    studentApplicationStatusFor(programId) !== null;
+  const applied = visibleApplication(programId) !== null;
   return applied
     ? problem(
         403,
@@ -327,8 +540,8 @@ function myApplicationHandler(
     );
   }
 
-  const application = myApplicationFor(programId);
-  // 신청 전인 프로그램 — 화면은 이때 신청 양식으로 간다.
+  const application = visibleApplication(programId);
+  // 신청 전인 프로그램 — 화면은 이때 신청 양식으로 간다. 팀을 떠난 뒤도 같다.
   return application === null
     ? problem(404, 'APP_001', apiPath(context.path), '신청을 찾을 수 없습니다.')
     : json(200, application);
@@ -340,11 +553,9 @@ function myTeamHandler(
   const params = matchGet(context, 'programs/:id/teams/me');
   if (params === null) return null;
 
-  const team = MY_TEAM_FIXTURES[params.id ?? ''];
-  // 팀이 없으면 404다 — 화면은 이때 팀 만들기·참여코드 합류 화면을 보여준다.
-  return team === undefined
-    ? notFound('TEAM_010', context.path)
-    : json(200, team);
+  const team = resolveProgramTeam(params.id ?? '');
+  // 팀이 없으면 404다 — 화면은 이때 팀 만들기 화면을 보여준다.
+  return team === null ? notFound('TEAM_010', context.path) : json(200, team);
 }
 
 /** 재제출 revision은 체크리스트의 현재 revision 다음 값이어야 화면 문구가 맞는다. */
@@ -356,6 +567,156 @@ const NEXT_RESUBMISSION_REVISIONS: Readonly<Record<string, number>> = {
 function studentMutationHandler(
   context: LocalReviewContext,
 ): LocalReviewResponsePlan | null {
+  const applicationMeParams = matchPath(
+    'programs/:id/applications/me',
+    context.path,
+  );
+  if (applicationMeParams !== null && context.method === 'DELETE') {
+    if (!context.isAuthenticated) return unauthenticated(context.path);
+    if (context.role !== 'STUDENT') {
+      return problem(
+        403,
+        'APP_008',
+        apiPath(context.path),
+        '승인된 학생 계정만 신청할 수 있습니다.',
+      );
+    }
+    const programId = applicationMeParams.id ?? '';
+    if (!isPublicProgramId(programId)) {
+      return problem(
+        404,
+        'APP_009',
+        apiPath(context.path),
+        '프로그램을 찾을 수 없습니다.',
+      );
+    }
+    const existing = visibleApplication(programId);
+    if (existing === null) {
+      return problem(
+        404,
+        'APP_001',
+        apiPath(context.path),
+        '신청을 찾을 수 없습니다.',
+      );
+    }
+    if (!existing.canCancel) {
+      return problem(
+        409,
+        'APP_002',
+        apiPath(context.path),
+        '이미 판정된 신청은 취소할 수 없습니다.',
+      );
+    }
+    // 팀은 그대로 둔다 — 신청을 취소해도 팀이 사라지지 않고, 능력 플래그는
+    // 읽을 때 다시 계산되므로 여기서 팀 행을 고쳐 둘 이유가 없다.
+    rememberApplication(programId, null);
+    return accepted({ cancelled: true });
+  }
+
+  const teamMeParams = matchPath('programs/:id/teams/me', context.path);
+  if (teamMeParams !== null && context.method === 'DELETE') {
+    if (!context.isAuthenticated) return unauthenticated(context.path);
+    if (context.role !== 'STUDENT') {
+      return problem(
+        403,
+        'TEAM_001',
+        apiPath(context.path),
+        '승인된 학생 계정만 팀을 구성할 수 있습니다.',
+      );
+    }
+    // backend `leave`는 프로그램을 따로 찾지 않는다 — 소속이 없으면 없는 프로그램도
+    // 같은 TEAM_010이다. 여기서만 TEAM_002를 주면 배포에서는 나지 않는 갈래가 생긴다.
+    const programId = teamMeParams.id ?? '';
+    const team = resolveProgramTeam(programId);
+    if (team === null) return notFound('TEAM_010', context.path);
+    /*
+      탈퇴는 신청을 낸 뒤에도, 신청 기간이 닫힌 뒤에도 된다 — 막는 것은 하나뿐이다:
+      신청 기록이 있는 팀의 마지막 구성원(TEAM_012). 예전의 「제출 후 동결(TEAM_008)」·
+      「팀원이 남으면 삭제 불가(TEAM_011)」는 은퇴한 코드라 더 이상 내려오지 않는다.
+    */
+    const remaining = rosterAfterLeave(team);
+    if (remaining.length === 0) {
+      if (team.hasApplication) {
+        return problem(
+          409,
+          'TEAM_012',
+          apiPath(context.path),
+          '신청 기록이 있는 팀의 마지막 구성원은 나갈 수 없습니다.',
+        );
+      }
+      // 미제출 1인 팀만 팀 자체가 사라진다. 대기 중인 초대도 함께 정리한다.
+      cancelSentInvitationsFor(team.id);
+    }
+    /*
+      나간 자리에는 `null` 무덤을 남긴다 — 고정 픽스처가 다시 살아나면 방금 나간 팀의
+      명단·초대가 그대로 다시 열려, 서버가 이미 거둘 접근이 화면에는 남는다.
+      팀이 남는 경우(`remaining.length > 0`)의 승계는 남은 사람들의 사실이라 나간
+      사람의 화면에는 나타나지 않고, 그 팀의 신청·제출·보낸 초대는 그대로 둔다.
+    */
+    rememberProgramTeam(programId, null);
+    return accepted();
+  }
+
+  /*
+    팀장의 팀원 제외. 판정 순서는 backend `ProgramTeamsRepository.removeMember`와
+    같다 — 소속(TEAM_010) → 팀장 여부(TEAM_013) → 본인 대상(TEAM_014) → 대상 존재
+    (TEAM_015). 권한을 먼저 보는 것이 중요하다: 팀장이 아닌 사람에게는 대상의 존재
+    여부를 알리지 않는다. 제외는 명단만 바꿀 뿐, 이미 난 신청·제출 기록은 지우지
+    않는다.
+  */
+  const teamMemberParams = matchPath(
+    'programs/:id/teams/me/members/:userId',
+    context.path,
+  );
+  if (teamMemberParams !== null && context.method === 'DELETE') {
+    if (!context.isAuthenticated) return unauthenticated(context.path);
+    if (context.role !== 'STUDENT') {
+      return problem(
+        403,
+        'TEAM_001',
+        apiPath(context.path),
+        '승인된 학생 계정만 팀을 구성할 수 있습니다.',
+      );
+    }
+    const programId = teamMemberParams.id ?? '';
+    const team = resolveProgramTeam(programId);
+    if (team === null) return notFound('TEAM_010', context.path);
+    if (!team.isLeader) {
+      return problem(
+        403,
+        'TEAM_013',
+        apiPath(context.path),
+        '팀장만 팀원을 제외할 수 있습니다.',
+      );
+    }
+    const targetUserId = teamMemberParams.userId ?? '';
+    if (targetUserId === currentSyntheticUserId()) {
+      return problem(
+        409,
+        'TEAM_014',
+        apiPath(context.path),
+        '본인은 제외할 수 없습니다. 팀 나가기를 사용해 주세요.',
+      );
+    }
+    const members = team.members.filter(
+      (member) => member.userId !== targetUserId,
+    );
+    if (members.length === team.members.length) {
+      return problem(
+        404,
+        'TEAM_015',
+        apiPath(context.path),
+        '해당 팀원을 찾을 수 없습니다.',
+      );
+    }
+    rememberProgramTeam(programId, {
+      ...team,
+      memberCount: members.length,
+      members,
+    });
+    return accepted();
+  }
+
   if (context.method !== 'POST') return null;
 
   const applicationParams = matchPath(
@@ -363,9 +724,6 @@ function studentMutationHandler(
     context.path,
   );
   if (applicationParams !== null) {
-    // 저장소 연결 필드를 에코해 브라우저 QA가 제출 payload를 확인할 수 있게 한다.
-    // 한계: 신청 내용은 저장되지 않아 다시 열면 픽스처의 신청 전 상태로 돌아온다.
-    //
     // 팀은 **요청 본문에서 읽지 않는다.** backend 는 신청자의 팀 멤버십으로 팀을 정하고
     // (`applications.service.ts` 의 `findExistingTeamMembership`) 요청 본문의 `teamId` 는
     // 미허용 키라 400 SYS_003 이 된다. 예전에는 여기서 `teamId` 를 그대로 에코했고, 그
@@ -384,12 +742,76 @@ function studentMutationHandler(
         'property teamId should not exist',
       );
     }
-    return accepted({
-      id: 'synthetic-application-basic',
-      programId: applicationParams.id,
+    const programId = applicationParams.id ?? '';
+    if (!isPublicProgramId(programId)) {
+      return problem(
+        404,
+        'APP_009',
+        apiPath(context.path),
+        '프로그램을 찾을 수 없습니다.',
+      );
+    }
+    if (visibleApplication(programId) !== null) {
+      return problem(
+        409,
+        'APP_011',
+        apiPath(context.path),
+        '이미 이 프로그램에 신청했습니다.',
+      );
+    }
+    const team = resolveProgramTeam(programId);
+    if (team === null) {
+      return problem(
+        403,
+        'APP_014',
+        apiPath(context.path),
+        '해당 팀의 구성원만 신청할 수 있습니다.',
+      );
+    }
+    /*
+      팀의 신청은 한 건이고 그 제출 권한은 **현재 팀장**에게만 있다(#1269,
+      backend `applications.service.ts`의 `lockTeamForApply` → APP_028). 초대를 받아
+      합류한 팀원은 따로 신청하지 않으므로, 픽스처가 여기를 열어 두면 배포에서는
+      403으로 막힐 화면이 로컬에서만 성공처럼 보인다.
+    */
+    if (!team.isLeader) {
+      return problem(
+        403,
+        'APP_028',
+        apiPath(context.path),
+        '팀장만 팀 신청을 제출할 수 있습니다.',
+      );
+    }
+    const program = programDetailFor(programId, 'STUDENT');
+    const application: StudentApplication = {
+      id: `synthetic-application-${programId}`,
+      programId,
       status: 'SUBMITTED',
-      teamId: 'synthetic-team-basic',
-      submittedAt: '2026-08-01T00:00:00.000Z',
+      teamId: team.id,
+      answers: {
+        applicantName: myProfileFixtureFor('student').name,
+        title: `${program.name} 참여 신청`,
+      },
+      submittedAt: SYNTHETIC_MUTATION_AT,
+      updatedAt: SYNTHETIC_MUTATION_AT,
+      isRepositoryPublicationPlanned: program.repositoryProvisioningEnabled,
+      rejectionReason: null,
+      isManager: true,
+      canManage: true,
+      canEdit: true,
+      canCancel: true,
+    };
+    /*
+      신청을 낸다고 팀이 얼지 않는다 — 보낸 초대도, 초대 권한도, 팀원 제외도 그대로다.
+      `hasApplication`은 이 신청이 가리키는 `teamId`에서 파생되므로 따로 적지 않는다.
+    */
+    rememberApplication(programId, application);
+    return accepted({
+      id: application.id,
+      programId,
+      status: 'SUBMITTED',
+      teamId: team.id,
+      submittedAt: SYNTHETIC_MUTATION_AT,
       repositoryConnectionMode,
       repositoryUrl:
         repositoryConnectionMode === 'OWN'
@@ -399,26 +821,72 @@ function studentMutationHandler(
     });
   }
 
-  if (matchPath('programs/:id/teams', context.path) !== null) {
-    // 화면은 이 응답의 이름과 참여코드를 그대로 명단 화면에 그린다 — 방금 입력한
-    // 팀명을 되돌려 준다. 한계: 저장되지 않아 다시 열면 팀 없음 상태로 돌아온다.
+  const teamCreateParams = matchPath('programs/:id/teams', context.path);
+  if (teamCreateParams !== null) {
+    const programId = teamCreateParams.id ?? '';
+    if (!isPublicProgramId(programId)) {
+      return problem(
+        404,
+        'TEAM_002',
+        apiPath(context.path),
+        '프로그램을 찾을 수 없습니다.',
+      );
+    }
+    /*
+      본문 검사가 소속 검사보다 **먼저**다 — backend도 `CreateTeamRequestDto`를
+      컨트롤러 경계에서 검사한 뒤에야 서비스의 소속 판정으로 들어간다. 순서를
+      바꾸면 빈 이름으로 보내도 「이미 팀에 소속됨」이 돌아와, 검토자가 보는 입력
+      오류 문구가 배포와 갈린다. 중복 소속 가드는 그대로 가지고 가고 뒤에서 본다.
+    */
+    const name = bodyString(context, 'name')?.trim() ?? '';
+    if (name === '') {
+      return problem(
+        400,
+        'SYS_003',
+        apiPath(context.path),
+        'name should not be empty',
+      );
+    }
+    const existing = resolveProgramTeam(programId);
+    if (existing !== null) {
+      return problem(
+        409,
+        'TEAM_006',
+        apiPath(context.path),
+        '이미 이 프로그램의 팀에 소속되어 있습니다.',
+      );
+    }
+    const limits = teamLimitsFor(programId);
+    const members = [currentSyntheticMember(true)];
+    // 만든 직후의 팀 — 만든 사람이 팀장이고(초대 가능), 혼자라 제외할 상대가 없고,
+    // 아직 신청 기록이 없어 그대로 나갈(=팀을 지울) 수 있다.
+    const team: ProgramTeam = {
+      id: createdTeamIdFor(programId),
+      name,
+      memberCount: members.length,
+      minMembers: limits.minMembers,
+      maxMembers: limits.maxMembers,
+      hasApplication: false,
+      canInvite: true,
+      canRemoveMembers: false,
+      canLeave: true,
+      isLeader: true,
+      members,
+    };
+    rememberProgramTeam(programId, team);
     return accepted({
-      id: 'synthetic-team-created',
-      name: bodyString(context, 'name') ?? '합성 신규 팀',
+      id: team.id,
+      name: team.name,
       joinCode: 'FIXTURE01',
-      memberCount: 1,
+      memberCount: team.memberCount,
     });
-  }
-
-  if (matchPath('programs/:id/teams/join', context.path) !== null) {
-    return accepted(JOINED_TEAM_FIXTURE);
   }
 
   if (context.path === 'submissions') {
     return accepted({
       submissionId: 'synthetic-submission-01',
       status: 'SUBMITTED',
-      submittedAt: '2026-08-01T00:00:00.000Z',
+      submittedAt: SYNTHETIC_MUTATION_AT,
     });
   }
 

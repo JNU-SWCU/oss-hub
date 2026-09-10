@@ -1,8 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OPEN_REVISION_FIXTURE } from './handlers/student-program-fixtures';
 import { parseArchiveDetail, parseArchivePage } from '@/features/archive/api';
 import { parseRankingPage, parseRankingYears } from '@/features/ranking/api';
+import { fetchStudentDashboard } from '@/features/dashboard/api';
 import { dashboardFixture } from '@/features/dashboard/fixtures';
+import type { StudentDashboard } from '@/features/dashboard/types';
+import {
+  rememberProgramTeam,
+  resolveProgramTeam,
+} from './handlers/student-handlers';
 import {
   parseLandingArchiveDetail,
   parseLandingArchivePage,
@@ -248,29 +254,11 @@ describe('local review fixture responses', () => {
       searchParams: new URLSearchParams(),
     });
 
-    // Then
-    expect(dashboard).toEqual({
-      kind: 'json',
-      status: 200,
-      body: dashboardFixture,
-    });
-  });
-
-  it('student fixture reuses the dashboard synthetic data', () => {
-    // Given / When
-    const response = resolveLocalReviewResponse({
-      fixture: 'student',
-      method: 'GET',
-      path: 'dashboard/student',
-      searchParams: new URLSearchParams(),
-    });
-
-    // Then
-    expect(response).toEqual({
-      kind: 'json',
-      status: 200,
-      body: dashboardFixture,
-    });
+    // Then: 복구한 학생이 빈 화면이 아니라 자기 카드를 본다.
+    expect(dashboard).toMatchObject({ kind: 'json', status: 200 });
+    expect(
+      (jsonBody(dashboard) as StudentDashboard).items.length,
+    ).toBeGreaterThan(0);
   });
 
   it('student dashboard program link resolves to matching detail and activity data', () => {
@@ -1063,4 +1051,273 @@ describe('local review fixture responses', () => {
     // Then
     expect(response).toMatchObject({ kind: 'json', status: 404 });
   });
+});
+
+/**
+ * 학생 대시보드는 **지금 소속된 팀**만 담아 온다(#1269). 검토용 응답이 이 규칙을
+ * 안 지키면 가장 보고 싶은 것들이 전부 가려진다 — 방금 나간 팀의 카드가 남아 있거나,
+ * 취소한 신청이 다음 조회에서 되살아나거나, 카드에 적힌 팀 이름이 실제 팀과 다른
+ * 상태를 검토자가 정상으로 본다. 그래서 응답을 **화면이 쓰는 그 어댑터로** 읽어
+ * 계약까지 함께 고정한다.
+ */
+describe('local review student dashboard cards', () => {
+  beforeEach(() => {
+    resetLocalReviewFixtureState();
+  });
+
+  afterEach(() => {
+    resetLocalReviewFixtureState();
+    vi.unstubAllGlobals();
+  });
+
+  function studentSend(
+    method: string,
+    path: string,
+    body?: unknown,
+  ): ReturnType<typeof resolveLocalReviewResponse> {
+    return resolveLocalReviewResponse({
+      fixture: 'student',
+      method,
+      path,
+      searchParams: new URLSearchParams(),
+      body,
+    });
+  }
+
+  function studentDashboardBody(): unknown {
+    return jsonBody(studentSend('GET', 'dashboard/student'));
+  }
+
+  /**
+   * 화면이 실제로 쓰는 어댑터로 읽는다. 필드를 손으로 비교하면 픽스처가 계약보다
+   * 너그러워져도 테스트가 통과해 버린다 — 지금 고치려는 것이 바로 그 상태다.
+   * 실제 백엔드로 나가지 않도록 응답은 픽스처 경계가 만든 것을 그대로 돌려준다.
+   */
+  async function parseAsScreen(body: unknown): Promise<StudentDashboard> {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+    return fetchStudentDashboard();
+  }
+
+  function programIdsOf(dashboard: StudentDashboard): readonly string[] {
+    return dashboard.items.map((item) => item.programId);
+  }
+
+  /*
+   * 기준 상태에서 카드가 서는 프로그램은 **세 개**다. 세션을 건드리지 않은 프로그램
+   * 픽스처에서 `synthetic-user-01`은 캡스톤·경진대회·SW가치확산 세 팀의 **현재
+   * 구성원**이고, 세 프로그램 모두 그 팀이 낸 신청이 살아 있다
+   * (`MY_TEAM_FIXTURES`·`MY_APPLICATION_FIXTURES`). 기초 스터디·내린 인턴십은 팀도
+   * 신청도 없어 카드가 서지 않는다.
+   *
+   * 기대값을 프로덕션 규칙으로 다시 계산하지 않고 **알려진 id·상태·팀 이름을 그대로
+   * 적는다** — 같은 술어로 양쪽을 맞추면 투영이 틀려도 테스트는 항상 맞는다.
+   */
+  it('기준 상태의 카드는 현재 팀·현재 신청에서 나오고 어댑터를 그대로 통과한다', async () => {
+    // Given / When: 화면이 대시보드를 한 번 조회한다.
+    const dashboard = await parseAsScreen(studentDashboardBody());
+
+    // Then: 지금 소속된 팀이 있고 그 팀의 신청이 보이는 프로그램만 카드가 된다.
+    expect(programIdsOf(dashboard)).toEqual([
+      'program-capstone',
+      'program-oss-contest',
+      'program-sw-value',
+    ]);
+
+    // 승인된 셋짜리 팀 — 목적지는 프로그램 상세이고, 다음 마일스톤은 지어낸 값이
+    // 아니라 마일스톤 투영에서 온다(승인된 기획서를 건너뛰고 중간 보고가 선다).
+    expect(dashboard.items[0]).toMatchObject({
+      programId: 'program-capstone',
+      programName: '합성 캡스톤 2026',
+      applicationId: 'application-personal',
+      applicationStatus: 'APPROVED',
+      teamName: '합성 캡스톤팀',
+      teamUrl: '/programs/program-capstone/my-team',
+      detailUrl: '/programs/program-capstone',
+      checklistUrl: '/programs/program-capstone/submissions',
+      nextMilestone: {
+        id: 'milestones-upcoming',
+        submissionStatus: 'NOT_SUBMITTED',
+      },
+      repository: { provisionStatus: 'SUCCEEDED' },
+    });
+
+    // 승인된 둘짜리 팀. 저장소는 아직 발급 중이라 이름도 주소도 없다.
+    expect(dashboard.items[1]).toMatchObject({
+      programId: 'program-oss-contest',
+      programName: '합성 OSS 경진대회',
+      applicationId: 'application-team',
+      applicationStatus: 'APPROVED',
+      teamName: '합성 경진대회팀',
+      teamUrl: '/programs/program-oss-contest/my-team',
+      detailUrl: '/programs/program-oss-contest',
+      checklistUrl: '/programs/program-oss-contest/submissions',
+      nextMilestone: {
+        id: 'milestones-overdue',
+        submissionStatus: 'CHANGES_REQUESTED',
+      },
+      repository: { provisionStatus: 'PROCESSING', githubUrl: null },
+    });
+
+    // 반려된 1인 팀 — 반려도 그 팀의 구성원이므로 카드는 남고, 목적지만 신청서
+    // 화면이다(반려 사유가 실려 오는 화면이 그곳뿐이다, #733). 승인이 아니라
+    // 저장소도 마일스톤도 없다 — 디코더가 그 조합만 통과시킨다.
+    expect(dashboard.items[2]).toMatchObject({
+      programId: 'program-sw-value',
+      programName: '합성 SW가치확산 프로그램',
+      applicationId: 'synthetic-application-sw-value',
+      applicationStatus: 'REJECTED',
+      teamName: '합성 가치확산팀',
+      teamUrl: '/programs/program-sw-value/my-team',
+      detailUrl: '/programs/program-sw-value/apply',
+      checklistUrl: '/programs/program-sw-value/submissions',
+      nextMilestone: null,
+      repository: null,
+    });
+
+    // 그리고 그 값들은 팀 화면·신청서 화면이 읽는 것과 같은 것이어야 한다 —
+    // 카드만 따로 놀면 한 사람의 화면들이 서로 다른 말을 하게 된다.
+    const team = resolveProgramTeam('program-capstone');
+    const application = jsonBody(
+      studentSend('GET', 'programs/program-capstone/applications/me'),
+    ) as { readonly id: string; readonly status: string };
+    expect(dashboard.items[0]?.teamName).toBe(team?.name);
+    expect(dashboard.items[0]?.applicationId).toBe(application.id);
+    expect(dashboard.items[0]?.applicationStatus).toBe(application.status);
+  });
+
+  it('팀을 만들고 신청을 내야 그 프로그램의 카드가 생긴다', async () => {
+    // Given: 신청 전이라 카드가 없다.
+    expect(
+      programIdsOf(await parseAsScreen(studentDashboardBody())),
+    ).not.toContain('program-basic-study');
+
+    // When: 팀을 먼저 만든다.
+    expect(
+      studentSend('POST', 'programs/program-basic-study/teams', {
+        name: '합성 신규 스터디 팀',
+      }),
+    ).toMatchObject({ kind: 'json', status: 200 });
+
+    // Then: 아직 카드는 없다 — 카드의 단위는 팀이 아니라 신청이다.
+    expect(
+      programIdsOf(await parseAsScreen(studentDashboardBody())),
+    ).not.toContain('program-basic-study');
+
+    // When: 그 팀으로 신청을 낸다.
+    const created = jsonBody(
+      studentSend('POST', 'programs/program-basic-study/applications', {}),
+    ) as { readonly id: string };
+
+    // Then: 카드가 생기고, 그 값들은 방금 persist 된 신청·팀 그대로다.
+    const dashboard = await parseAsScreen(studentDashboardBody());
+    const card = dashboard.items.find(
+      (item) => item.programId === 'program-basic-study',
+    );
+    expect(card).toBeDefined();
+    expect(card?.applicationId).toBe(created.id);
+    expect(card?.teamName).toBe('합성 신규 스터디 팀');
+    expect(card?.teamUrl).toBe('/programs/program-basic-study/my-team');
+    expect(card?.applicationStatus).toBe('SUBMITTED');
+    // 판정 전이라 목적지는 신청서 화면이고, 저장소도 마일스톤도 아직 없다 —
+    // 여기서 성공한 GitHub 저장소를 지어내면 실제로는 존재할 수 없는 화면이 된다.
+    expect(card?.detailUrl).toBe('/programs/program-basic-study/apply');
+    expect(card?.nextMilestone).toBeNull();
+    expect(card?.repository).toBeNull();
+  });
+
+  it('취소한 신청은 다음 조회에서 되살아나지 않는다', async () => {
+    // Given: 방금 낸 신청으로 카드가 하나 생겼다.
+    studentSend('POST', 'programs/program-basic-study/teams', {
+      name: '합성 신규 스터디 팀',
+    });
+    studentSend('POST', 'programs/program-basic-study/applications', {});
+    expect(programIdsOf(await parseAsScreen(studentDashboardBody()))).toContain(
+      'program-basic-study',
+    );
+
+    // When: 신청을 취소한다.
+    expect(
+      studentSend('DELETE', 'programs/program-basic-study/applications/me'),
+    ).toMatchObject({ kind: 'json', status: 200 });
+
+    // Then: 그 자리에서 사라지고, 다시 읽어도 고정 픽스처가 되살리지 않는다.
+    expect(
+      programIdsOf(await parseAsScreen(studentDashboardBody())),
+    ).not.toContain('program-basic-study');
+    expect(
+      programIdsOf(await parseAsScreen(studentDashboardBody())),
+    ).not.toContain('program-basic-study');
+  });
+
+  it('팀을 떠난 사람의 카드는 그 자리에서 사라진다', async () => {
+    // Given: 기준 상태에 캡스톤 카드가 있다.
+    expect(programIdsOf(await parseAsScreen(studentDashboardBody()))).toContain(
+      'program-capstone',
+    );
+
+    // When: 탈퇴·제외가 검토 세션에 남기는 무덤을 그대로 둔다.
+    rememberProgramTeam('program-capstone', null);
+
+    // Then: 무덤을 보지 못하면 고정 팀 픽스처가 방금 나간 팀을 되살린다.
+    expect(
+      programIdsOf(await parseAsScreen(studentDashboardBody())),
+    ).not.toContain('program-capstone');
+    expect(
+      programIdsOf(await parseAsScreen(studentDashboardBody())),
+    ).not.toContain('program-capstone');
+  });
+
+  it('팀 이름을 바꾸면 카드에 그 이름이 그대로 온다', async () => {
+    // Given: 기준 상태의 현재 팀.
+    const team = resolveProgramTeam('program-capstone');
+    if (team === null) throw new Error('기준 상태에 캡스톤 팀이 없다.');
+
+    // When: 이름만 바꾼 팀이 현재 값이 된다.
+    rememberProgramTeam('program-capstone', {
+      ...team,
+      name: '이름을 바꾼 합성 팀',
+    });
+
+    // Then: 카드가 예전 이름을 들고 있으면 검토자는 이름 변경이 안 된 것으로 읽는다.
+    const dashboard = await parseAsScreen(studentDashboardBody());
+    expect(dashboard.items[0]?.teamName).toBe('이름을 바꾼 합성 팀');
+  });
+
+  it('팀 화면 주소가 규약을 벗어나면 어댑터가 응답을 거절한다', async () => {
+    // Given: 픽스처가 만든 정상 응답.
+    const dashboard = studentDashboardBody() as StudentDashboard;
+    const item = dashboard.items[0];
+    if (item === undefined) throw new Error('기준 대시보드가 비어 있다.');
+
+    // When / Then: 팀 주소 하나만 외부로 바꿔도 그대로 버튼 href 로 싣지 않는다.
+    await expect(
+      parseAsScreen({
+        items: [{ ...item, teamUrl: 'https://evil.example.com/my-team' }],
+      }),
+    ).rejects.toThrow('학생 대시보드 응답 형식이 올바르지 않습니다.');
+  });
+
+  it.each(['anonymous', 'staff', 'admin'] as const)(
+    '%s 페르소나에게는 학생 대시보드를 주지 않는다',
+    (fixture) => {
+      // Given / When
+      const response = resolveLocalReviewResponse({
+        fixture,
+        method: 'GET',
+        path: 'dashboard/student',
+        searchParams: new URLSearchParams(),
+      });
+
+      // Then: 학생이 아닌 사람에게 합성 카드를 보여 주면 권한별 화면을 확인할 수 없다.
+      expect(response).toMatchObject({ kind: 'json', status: 404 });
+    },
+  );
 });

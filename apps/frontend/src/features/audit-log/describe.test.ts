@@ -4,7 +4,7 @@ import {
   describeAuditLog,
   describeTargetType,
 } from './describe';
-import type { AuditLogRecord } from './types';
+import type { AuditLogRecord, TeamMembershipChangeSummary } from './types';
 
 const BASE_RECORD: AuditLogRecord = {
   id: 'audit-1',
@@ -361,6 +361,129 @@ describe('describeAuditLog', () => {
     expect(sentenceText(record)).toBe(
       'synthetic-staff님이 합성 프로그램 · @synthetic-applicant-login님의 신청을 검토 대기로 되돌렸습니다',
     );
+  });
+
+  // TEAM_MEMBERSHIP_CHANGED: 백엔드가 남기는 실제 사건은 「자진 탈퇴」와 「팀원
+  // 내보내기」 두 종류이고, 같은 트랜잭션에서 팀장 승계 또는 팀 삭제가 함께 일어난다
+  // (apps/backend/src/audit-log/web-state-audit-metadata.ts). 문장은 그 사실만
+  // 말하고 user id는 렌더하지 않는다.
+  function membershipRecord(
+    teamMembership: TeamMembershipChangeSummary | undefined,
+    overrides: Partial<AuditLogRecord> = {},
+  ): AuditLogRecord {
+    return {
+      id: 'audit-team-membership',
+      actor: 'synthetic-student',
+      action: 'TEAM_MEMBERSHIP_CHANGED',
+      targetType: 'TEAM',
+      targetId: 'team-synthetic-3',
+      target: '합성 프로그램 · 합성 팀',
+      occurredAt: '2026-07-24T07:00:00.000Z',
+      ...(teamMembership === undefined ? {} : { teamMembership }),
+      ...overrides,
+    };
+  }
+
+  it('자진 탈퇴(LEAVE)이고 팀장이 그대로면 탈퇴 사실만 서술한다', () => {
+    const record = membershipRecord({
+      operation: 'LEAVE',
+      leaderChanged: false,
+      teamDeleted: false,
+    });
+
+    const { sentence } = describeAuditLog(record);
+    const targetSegment = sentence.find((segment) => segment.kind === 'target');
+    expect(targetSegment).toMatchObject({
+      kind: 'target',
+      value: '합성 프로그램 · 합성 팀',
+      variant: 'name',
+    });
+    expect(sentenceText(record)).toBe(
+      'synthetic-student님이 합성 프로그램 · 합성 팀에서 탈퇴했습니다',
+    );
+  });
+
+  it('팀장이 탈퇴해 승계가 일어나면 팀장 권한이 다른 팀원에게 넘어간 사실을 알린다', () => {
+    const record = membershipRecord({
+      operation: 'LEAVE',
+      leaderChanged: true,
+      teamDeleted: false,
+    });
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-student님이 합성 프로그램 · 합성 팀에서 탈퇴해 팀장 권한이 다른 팀원에게 승계되었습니다',
+    );
+  });
+
+  it('승계 대상이 없어 팀이 사라진 경우(nextLeaderId null)는 팀 삭제로만 서술한다', () => {
+    const record = membershipRecord({
+      operation: 'LEAVE',
+      leaderChanged: false,
+      teamDeleted: true,
+    });
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-student님이 합성 프로그램 · 합성 팀에서 탈퇴해 남은 팀원이 없어 팀이 삭제되었습니다',
+    );
+    expect(sentenceText(record)).not.toContain('승계');
+  });
+
+  it('내보내기(REMOVE)는 팀 구성원 자격 해제만 말하고 계정·신청 삭제로 읽히지 않는다', () => {
+    const record = membershipRecord(
+      { operation: 'REMOVE', leaderChanged: false, teamDeleted: false },
+      { id: 'audit-team-membership-remove', actor: 'synthetic-leader' },
+    );
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-leader님이 합성 프로그램 · 합성 팀에서 팀원 한 명의 팀 구성원 자격을 해제했습니다',
+    );
+    for (const forbidden of ['계정', '신청', '기록', '삭제']) {
+      expect(sentenceText(record)).not.toContain(forbidden);
+    }
+    expect(sentenceText(record)).not.toContain('승계');
+  });
+
+  it('teamMembership 요약이 없으면(누락·잘못된 metadata) 상세 내용 없음으로 밝히고 생성·합류로 추측하지 않는다', () => {
+    const record = membershipRecord(undefined);
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-student님이 합성 프로그램 · 합성 팀의 팀 구성을 변경했습니다 (상세 내용 없음)',
+    );
+    for (const forbidden of ['만들었습니다', '합류했습니다', '탈퇴', '해제']) {
+      expect(sentenceText(record)).not.toContain(forbidden);
+    }
+  });
+
+  it('폴백 target(팀 이름을 모름)이어도 존칭 없이 팀 id로 서술한다', () => {
+    const record = membershipRecord(
+      { operation: 'LEAVE', leaderChanged: true, teamDeleted: false },
+      { target: 'TEAM / team-synthetic-3' },
+    );
+
+    const { sentence } = describeAuditLog(record);
+    expect(sentence.find((segment) => segment.kind === 'target')).toMatchObject(
+      {
+        kind: 'target',
+        value: 'team-synthetic-3',
+        variant: 'fallback',
+      },
+    );
+    expect(sentenceText(record)).toBe(
+      'synthetic-student님이 팀 team-synthetic-3에서 탈퇴해 팀장 권한이 다른 팀원에게 승계되었습니다',
+    );
+  });
+
+  it('문장 어디에도 user id 같은 내부 식별자를 덧붙이지 않는다', () => {
+    const record = membershipRecord({
+      operation: 'REMOVE',
+      leaderChanged: false,
+      teamDeleted: false,
+    });
+
+    const { sentence } = describeAuditLog(record);
+    expect(sentence.every((segment) => segment.kind !== 'code')).toBe(true);
+    expect(sentenceText(record)).not.toContain('synthetic-removed');
+    expect(sentenceText(record)).not.toContain('team-synthetic-3');
   });
 
   it('등록되지 않은 action은 원본 action 문자열을 담은 폴백 문장을 만든다', () => {

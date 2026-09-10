@@ -11,7 +11,11 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
-function ApplicationConfirmationDialogHarness() {
+function ApplicationConfirmationDialogHarness({
+  onClose = () => {},
+}: {
+  readonly onClose?: () => void;
+}) {
   const [submitting, setSubmitting] = useState(false);
   const returnFocusRef = useRef<HTMLButtonElement>(null);
 
@@ -23,12 +27,65 @@ function ApplicationConfirmationDialogHarness() {
       <ApplicationConfirmationDialog
         kind="save"
         submitting={submitting}
-        onClose={() => {}}
+        onClose={onClose}
         onConfirm={() => setSubmitting(true)}
         returnFocusRef={returnFocusRef}
       />
     </>
   );
+}
+
+/** 부모가 확인창을 열고 닫는 실제 사용 형태(신청 실패 후 재시도 포함). */
+function ApplicationRetryHarness({
+  onClose,
+}: {
+  readonly onClose: () => void;
+}) {
+  const [attempt, setAttempt] = useState(0);
+  const [openKind, setOpenKind] = useState<'save' | 'submit' | null>('save');
+  const returnFocusRef = useRef<HTMLButtonElement>(null);
+
+  return (
+    <>
+      <button ref={returnFocusRef} type="button">
+        수정 내용 저장
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          // 실패 응답 뒤 재시도: 이전 확인창을 버리고 새 확인창을 즉시 연다.
+          setAttempt((current) => current + 1);
+          setOpenKind('submit');
+        }}
+      >
+        재시도
+      </button>
+      <button type="button" onClick={() => setOpenKind(null)}>
+        프로그램 닫기
+      </button>
+      {openKind === null ? null : (
+        <ApplicationConfirmationDialog
+          key={`${openKind}-${attempt}`}
+          kind={openKind}
+          submitting={false}
+          onClose={() => {
+            onClose();
+            setOpenKind(null);
+          }}
+          onConfirm={() => {}}
+          returnFocusRef={returnFocusRef}
+        />
+      )}
+    </>
+  );
+}
+
+/** Radix FocusScope는 언마운트 정리를 매크로태스크로 미룬다. 그 이후까지 기다린다. */
+async function flushDelayedUnmount() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
 }
 
 function getButton(name: string): HTMLButtonElement {
@@ -128,5 +185,97 @@ describe('ApplicationConfirmationDialog', () => {
     expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
     expect(getButton('처리 중…').disabled).toBe(true);
     expect(getButton('취소').disabled).toBe(true);
+  });
+
+  it('취소 클릭은 지연 정리까지 끝난 뒤에도 onClose를 정확히 한 번만 호출한다', async () => {
+    const onClose = vi.fn();
+    await act(async () =>
+      root.render(<ApplicationConfirmationDialogHarness onClose={onClose} />),
+    );
+
+    await act(async () => getButton('취소').click());
+    await flushDelayedUnmount();
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('Escape로 닫아도 onClose를 정확히 한 번만 호출한다', async () => {
+    const onClose = vi.fn();
+    await act(async () =>
+      root.render(<ApplicationConfirmationDialogHarness onClose={onClose} />),
+    );
+
+    await act(async () => {
+      getButton('취소').dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Escape',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    await flushDelayedUnmount();
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('확정 처리 중에는 취소와 Escape가 onClose를 호출하지 않는다', async () => {
+    const onClose = vi.fn();
+    await act(async () =>
+      root.render(<ApplicationConfirmationDialogHarness onClose={onClose} />),
+    );
+    const confirmButton = document
+      .querySelector('[role="alertdialog"]')
+      ?.querySelector<HTMLButtonElement>('button:last-child');
+    if (!confirmButton) throw new TypeError('Confirm button not found');
+    await act(async () => confirmButton.click());
+
+    await act(async () => {
+      const cancelButton = getButton('취소');
+      cancelButton.click();
+      cancelButton.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Escape',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    await flushDelayedUnmount();
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+  });
+
+  it('부모가 언마운트해 닫힌 경우에는 Radix 지연 정리 뒤에도 onClose가 없다', async () => {
+    const onClose = vi.fn();
+    await act(async () =>
+      root.render(<ApplicationRetryHarness onClose={onClose} />),
+    );
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+
+    await act(async () => getButton('프로그램 닫기').click());
+    await flushDelayedUnmount();
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+  });
+
+  it('이전 확인창의 언마운트가 새로 연 재시도 확인창을 닫지 못한다', async () => {
+    const onClose = vi.fn();
+    await act(async () =>
+      root.render(<ApplicationRetryHarness onClose={onClose} />),
+    );
+
+    await act(async () => getButton('재시도').click());
+    await flushDelayedUnmount();
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+    expect(
+      document
+        .querySelector('[role="alertdialog"]')
+        ?.textContent?.includes('신청서를 제출하시겠습니까?'),
+    ).toBe(true);
   });
 });

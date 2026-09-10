@@ -1,28 +1,30 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef } from 'react';
-import { AlertCircle, AlertTriangle } from 'lucide-react';
-import { EmptyState, PageHeader } from '@/components';
+import { useEffect, useRef, type RefObject } from 'react';
+import { AlertCircle } from 'lucide-react';
+import { EmptyState, PageBody, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { sanitizeDisplayText } from '@/lib/display-text';
+import { programMyTeamHref } from '@/lib/program-route';
 import type { ProgramTeam } from './api';
 import { ApplicationConfirmationDialog } from './application-confirmation-dialog';
 import { FormRenderer } from './form-renderer';
 import {
   remainingTeamMembers,
-  teamSetupHref,
   type ProgramApplyBlockedReason,
   type ProgramApplyFormErrors,
   type ProgramApplyFormValues,
   type RepositoryConnectionMode,
   type TeamMinimum,
 } from './program-apply-flow';
-import { programHref } from './program-paths';
+import { TeamInvitePanel } from './team-invite-panel';
+import { TeamMembersPanel } from './team-members-panel';
+import type { TeamInvitationManagement } from './use-team-invitation-management';
 import type { StudentApplication } from './student-application-api';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
@@ -31,35 +33,19 @@ export type ApplicationConfirmation = 'submit' | 'save' | 'cancel' | null;
 
 export function ApplySkeleton() {
   return (
-    <main
-      className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8"
-      aria-label="신청 양식 불러오는 중"
-    >
-      <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-72 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-    </main>
+    <PageBody className="max-w-4xl" aria-label="신청 양식 불러오는 중">
+      <div className="h-20 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+      <div className="h-72 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+    </PageBody>
   );
 }
 
 /**
  * 반려 사유 상자 — 이 화면이 이미 약속한 것을 실제로 보여 주는 자리(#722).
  *
- * 대시보드의 반려 알림이 "신청 상세에서 반려 사유를 확인해 주세요"라며 여기로 보내는데,
- * 정작 이 화면은 "승인 또는 반려된 신청서는 수정하거나 취소할 수 없습니다"만 말하고
- * 사유는 어디에도 없었다. 사유가 실려 오는 곳은 `GET .../applications/me` 하나뿐이고
- * (알림 payload·감사 로그·메일에는 담기지 않는다), `loadProgramApplyContext`가 그
- * 응답을 이미 받아 두므로 여기서 꺼내 쓰기만 하면 된다.
- *
- * 조형은 `features/roles/components/role-request-screen.tsx`의 반려 블록과 맞춘다 —
- * 같은 성격의 알림이 화면마다 다른 모양이면 위계가 무너진다. 다만 본문에는
- * `whitespace-pre-wrap`(교직원이 넣은 줄바꿈 보존)과 `break-keep`(한글 문장의 어색한
- * 줄바꿈 방지)을 더 건다 — 그쪽은 한 줄짜리 사유를 전제한 자리다.
- *
- * 사유가 비었거나 공백뿐이면 **아무것도 그리지 않는다.** 라벨만 뜨고 안이 비면 사용자는
- * 사유가 아직 안 온 줄 알고 기다린다(`sanitizeDisplayText`가 `null`을 돌려준다).
- *
- * ⚠ 길이는 **자르지 않는다.** 역할 요청 반려와 달리 신청 반려는 번호 매긴 보완 목록이
- * 자연스러운 형식이라, 뒤를 자르면 재신청 마감일 같은 마지막 줄이 통째로 사라진다.
+ * 사유가 실려 오는 곳은 `GET .../applications/me` 하나뿐이고,
+ * `loadProgramApplyContext`가 그 응답을 이미 받아 두므로 여기서 꺼내 쓰기만 한다.
+ * 사유가 비었거나 공백뿐이면 아무것도 그리지 않는다.
  */
 function RejectionReasonAlert({
   application,
@@ -95,10 +81,8 @@ const BLOCKED_CONTENT: Record<
   },
   'team-required': {
     title: '팀 구성이 필요합니다',
-    description:
-      '팀을 만든 뒤 신청할 수 있습니다. 팀 구성 화면에서 팀을 만들거나 참여 코드로 합류한 다음 다시 시도해 주세요.',
+    description: '팀을 만든 뒤 신청 화면에서 다시 시도해 주세요.',
   },
-  // 기다린다고 열리지 않는 막힘이라 **누구에게 말해야 하는지**까지 적는다(#1083).
   'manage-not-allowed': {
     title: '신청서를 수정할 권한이 없습니다',
     description:
@@ -106,60 +90,65 @@ const BLOCKED_CONTENT: Record<
   },
 };
 
+/**
+ * 신청을 더 진행할 수 없는 화면. 막힌 이유와 반려 사유는 그대로 보여 주고,
+ * 되돌아갈 곳으로 **이미 있는 팀 화면**만 준다 — 팀이 아직 없는
+ * `team-required`에는 링크를 붙이지 않는다(빈 화면으로 보내지 않는다).
+ * `programId`가 없으면 어떤 주소도 지어내지 않는다.
+ */
 export function BlockedView({
   reason,
-  program,
   application,
+  programId,
 }: {
   readonly reason: ProgramApplyBlockedReason;
-  readonly program: ProgramDetail;
-  /**
-   * 막힘을 판정하는 데 쓴 내 신청서. 반려 사유는 **여기에만** 실려 온다.
-   *
-   * 선택 prop으로 두지 않는다 — 기본값 `null`을 주면 호출부가 넘기는 것을 잊어도
-   * 조용히 컴파일되고, 사유가 사라진 화면이 다시 만들어진다. 조회하지 않은 갈래는
-   * 호출부가 `null`을 **명시**해서 "없다"와 "잊었다"를 구분한다.
-   */
   readonly application: StudentApplication | null;
+  readonly programId?: string;
 }) {
   const content = BLOCKED_CONTENT[reason];
+  const showMyTeam = programId !== undefined && reason !== 'team-required';
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-12">
-      {/* 안내 상자보다 **위**에 세운다 — 반려된 사람의 첫 할 일은 "수정할 수 없다"를
-          읽는 것이 아니라 왜 반려됐는지 읽는 것이다. */}
+    <PageBody className="max-w-3xl">
       <RejectionReasonAlert application={application} />
       <EmptyState
         className="break-keep"
         title={content.title}
         description={content.description}
         action={
-          <Button asChild variant="link">
-            <Link href={programHref(program.id)}>프로그램 개요</Link>
-          </Button>
+          showMyTeam ? (
+            <Button asChild variant="outline">
+              <Link href={programMyTeamHref(programId)}>우리 팀 보기</Link>
+            </Button>
+          ) : undefined
         }
       />
-    </main>
+    </PageBody>
   );
 }
 
+/**
+ * 제출 직후 화면. 「우리 팀 보기」는 방금 신청한 그 프로그램의 팀 화면
+ * (`/programs/:id/my-team`)으로 간다 — 팀 id를 화면이 만들어 붙이지 않는다.
+ * 팀 화면 자체가 서버 응답으로 팀 유무를 말하므로 여기서 미리 감추지 않는다.
+ */
 export function ProgramApplySuccessView({
-  program,
   applicationId,
+  programId,
   mode = 'create',
 }: {
-  readonly program: ProgramDetail;
   readonly applicationId: string;
+  readonly programId: string;
   readonly mode?: ApplicationFormMode;
 }) {
-  const dashboardLinkRef = useRef<HTMLAnchorElement>(null);
+  const primaryLinkRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
-    dashboardLinkRef.current?.focus();
+    primaryLinkRef.current?.focus();
   }, []);
 
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-12">
+    <PageBody className="max-w-3xl">
       <Alert>
         <AlertTitle>
           {mode === 'create'
@@ -171,22 +160,95 @@ export function ProgramApplySuccessView({
           내에서 다시 수정하거나 취소할 수 있습니다.
         </AlertDescription>
       </Alert>
-      <Button asChild>
-        <Link ref={dashboardLinkRef} href="/dashboard">
-          내 대시보드로
-        </Link>
-      </Button>
-    </main>
+      <div className="flex flex-wrap gap-3">
+        <Button asChild>
+          <Link ref={primaryLinkRef} href={programMyTeamHref(programId)}>
+            우리 팀 보기
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/dashboard">내 대시보드로</Link>
+        </Button>
+      </div>
+    </PageBody>
   );
 }
 
-interface ProgramApplyFormViewProps {
+/**
+ * 팀 이름 칸. 아직 팀이 없으면 학생이 지금 적는 이름이고, 이미 팀이 있으면
+ * 서버가 준 이름을 읽기 전용으로 보여 준다 — 이름 변경 API가 없으므로 고칠 수
+ * 있는 것처럼 보이게 하지 않는다.
+ */
+function TeamNameField({
+  team,
+  createName,
+  teamError,
+  creating,
+  onCreateNameChange,
+}: {
+  readonly team: ProgramTeam | null;
+  readonly createName: string;
+  readonly teamError: string | null;
+  readonly creating: boolean;
+  readonly onCreateNameChange: (value: string) => void;
+}) {
+  const existingName = team?.name ?? null;
+  const readOnly = existingName !== null;
+
+  return (
+    <div className="space-y-3">
+      <Field>
+        <FieldLabel htmlFor="apply-team-name">팀 이름</FieldLabel>
+        <Input
+          id="apply-team-name"
+          name="teamName"
+          value={readOnly ? existingName : createName}
+          onChange={(event) => onCreateNameChange(event.target.value)}
+          placeholder="오픈소스팀"
+          readOnly={readOnly}
+          disabled={readOnly || creating}
+          aria-invalid={teamError !== null ? true : undefined}
+        />
+        {teamError ? <FieldError>{teamError}</FieldError> : null}
+      </Field>
+    </div>
+  );
+}
+
+/**
+ * 신청 화면이 팀 영역을 그리는 데 필요한 전부.
+ *
+ * 초대 컨트롤러(`invitation`)는 **서버에 저장된 팀이 있을 때만** 넘어온다.
+ * 아직 팀이 없는 「앞으로 만들 내 팀」은 `null`이고, 그 상태의 초대(＋)는
+ * `onOpenInvite`로 페이지에 되돌려 준다 — 팀 생성은 페이지가 명시적으로 한다.
+ */
+export interface ProgramApplyTeamProps {
+  readonly programId: string;
+  readonly team: ProgramTeam | null;
+  /**
+   * 지금 로그인한 계정의 닉네임. 공유 팀 컴포넌트가 「내 행」을 가리려면
+   * 반드시 필요하다 — `features/programs`가 인증 모듈을 직접 읽지 않고
+   * 라우트가 준 세션을 그대로 내려보낸다.
+   */
+  readonly sessionNickname: string;
+  readonly invitation: TeamInvitationManagement | null;
+  readonly inviteOpen: boolean;
+  readonly inviteTriggerRef: RefObject<HTMLButtonElement | null>;
+  readonly createName: string;
+  readonly teamError: string | null;
+  readonly creating: boolean;
+  readonly onOpenInvite: () => void;
+  readonly onCloseInvite: () => void;
+  readonly onCreateNameChange: (value: string) => void;
+  readonly onTeamChanged: () => void;
+}
+
+interface ProgramApplyFormViewProps extends ProgramApplyTeamProps {
   readonly program: ProgramDetail;
   readonly template: ApplicationFormTemplate;
   readonly applicantName: string;
   /** 세션에 연결된 GitHub handle. "GitHub 계정 연동" 안내행에만 쓴다. */
   readonly githubHandle?: string;
-  readonly team?: ProgramTeam | null;
   readonly values: ProgramApplyFormValues;
   readonly errors: ProgramApplyFormErrors;
   readonly serverError: string | null;
@@ -294,69 +356,6 @@ function RepositoryConnectionSection({
   );
 }
 
-/**
- * 팀 구성 섹션 — 현재 팀 요약(읽기전용)만 보여준다. 검색·초대 UI는 이 신청 폼
- * 범위 밖이다: PM 결정은 team-invitations API·team-invitation-api.ts 클라이언트
- * 재사용을 전제하지만, 둘 다 아직 만들어지지 않았다(apiContract·blockers 참고).
- * 팀 생성·팀원 관리는 기존 팀 구성 페이지(`teamSetupHref`)로 안내한다.
- */
-function TeamCompositionSection({
-  programId,
-  team,
-}: {
-  readonly programId: string;
-  readonly team: ProgramTeam | null;
-}) {
-  return (
-    <div className="space-y-2">
-      <p className="font-medium text-foreground">
-        팀 구성{' '}
-        <span className="font-normal text-muted-foreground">
-          — 신청 전 팀 구성을 확인합니다
-        </span>
-      </p>
-      {team ? (
-        <div className="space-y-2 rounded-control border border-border p-3">
-          <p className="text-sm">
-            <span className="font-semibold">{team.name}</span>{' '}
-            <span className="text-muted-foreground">
-              · {team.memberCount}명
-            </span>
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {team.members.map((member) => (
-              <span
-                key={member.userId}
-                className="rounded-full border border-border px-2 py-0.5 text-xs"
-              >
-                {member.name ?? member.nickname}{' '}
-                <span className="text-primary tabular-nums">
-                  @{member.nickname}
-                </span>
-                {member.isLeader ? ' · 팀장' : ''}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          아직 구성된 팀이 없습니다.
-        </p>
-      )}
-      <Link
-        className="text-sm font-semibold underline underline-offset-4"
-        href={teamSetupHref(programId)}
-      >
-        팀 구성원 관리
-      </Link>
-    </div>
-  );
-}
-
-/**
- * 개인정보 수집·이용 동의 — 필수. `약관 보기`는 프로토타입 원문대로 실제 약관
- * 문서가 아직 없어 클릭해도 페이지 이동만 막는다(preventDefault).
- */
 function PersonalDataConsentField({
   checked,
   onToggle,
@@ -374,16 +373,76 @@ function PersonalDataConsentField({
       />
       <FieldLabel htmlFor="personal-data-consent">
         <span className="font-semibold text-destructive">[필수]</span> 개인정보
-        수집·이용 동의{' '}
-        <a
-          href="#"
-          className="underline underline-offset-4"
-          onClick={(event) => event.preventDefault()}
-        >
-          약관 보기
-        </a>
+        수집·이용 동의
       </FieldLabel>
     </Field>
+  );
+}
+
+function ApplicationFields({
+  template,
+  applicantName,
+  title,
+  titleError,
+  onTitleChange,
+}: {
+  readonly template: ApplicationFormTemplate;
+  readonly applicantName: string;
+  readonly title: string;
+  readonly titleError?: string;
+  readonly onTitleChange: (value: string) => void;
+}) {
+  return (
+    <>
+      <FormRenderer
+        template={template}
+        mode="edit"
+        showMetadata={false}
+        values={{ applicantName, title }}
+        onChange={(key, value) => {
+          if (key === 'title') onTitleChange(value);
+        }}
+      />
+      {titleError ? <FieldError>{titleError}</FieldError> : null}
+    </>
+  );
+}
+
+/**
+ * 팀원으로 합류한 사람의 대기 화면. 구성원 목록은 신청·우리 팀이 공유하는
+ * `TeamMembersPanel` 하나를 그대로 쓴다 — 신청 화면에서는 초대도 제외도
+ * 다루지 않으므로 `compose`로, 초대 컨트롤러 없이 그린다.
+ */
+function MemberAwaitingView({
+  programId,
+  programName,
+  team,
+  sessionNickname,
+  onChanged,
+}: {
+  readonly programId: string;
+  readonly programName: string;
+  readonly team: ProgramTeam;
+  readonly sessionNickname: string;
+  readonly onChanged: () => void;
+}) {
+  return (
+    <PageBody className="max-w-4xl">
+      <PageHeader title={`${programName} 신청`} />
+      <TeamMembersPanel
+        programId={programId}
+        team={team}
+        sessionNickname={sessionNickname}
+        mode="compose"
+        invitation={null}
+        onOpenInvite={null}
+        inviteTriggerRef={null}
+        onChanged={onChanged}
+      />
+      <p className="text-body text-muted-foreground break-keep">
+        팀장이 신청서를 제출할 때까지 기다립니다.
+      </p>
+    </PageBody>
   );
 }
 
@@ -395,7 +454,15 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     template,
     applicantName,
     githubHandle = '',
-    team = null,
+    programId,
+    team,
+    sessionNickname,
+    invitation,
+    inviteOpen,
+    inviteTriggerRef,
+    createName,
+    teamError,
+    creating,
     values,
     errors,
     serverError,
@@ -404,6 +471,10 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     confirmation,
     teamMinimum = null,
     submitting,
+    onOpenInvite,
+    onCloseInvite,
+    onCreateNameChange,
+    onTeamChanged,
     onChange,
     onTogglePublicationPlanned,
     onRepositoryModeChange,
@@ -413,63 +484,172 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     onCloseConfirmation,
     onConfirm,
   } = props;
-  const fieldValues = {
-    applicantName,
-    summary: values.summary,
-  } as const;
   const missingTeamMembers = remainingTeamMembers(teamMinimum);
+  const hasEditableAnswers = template.fields.some(
+    (field) => field.key === 'title' && field.type !== 'auto',
+  );
 
-  return (
-    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
-      <PageHeader
-        title={`${program.name} ${mode === 'create' ? '신청' : '신청서'}`}
-        description={
-          mode === 'create'
-            ? '필수 항목을 작성한 뒤 제출해 주세요.'
-            : '승인 전까지 신청서 내용을 수정할 수 있습니다.'
-        }
+  const confirmationDialog = confirmation ? (
+    <ApplicationConfirmationDialog
+      kind={confirmation}
+      submitting={submitting}
+      onClose={onCloseConfirmation}
+      onConfirm={onConfirm}
+      returnFocusRef={
+        confirmation === 'cancel' ? cancelButtonRef : submitButtonRef
+      }
+    />
+  ) : null;
+
+  if (mode === 'create' && team !== null && !team.isLeader) {
+    return (
+      <MemberAwaitingView
+        programId={programId}
+        programName={program.name}
+        team={team}
+        sessionNickname={sessionNickname}
+        onChanged={onTeamChanged}
       />
-      <Alert>
-        <AlertTriangle aria-hidden="true" />
-        <AlertTitle>신청서 수정·취소 안내</AlertTitle>
-        <AlertDescription className="[word-break:keep-all]">
-          신청 기간 내 ‘승인 대기’ 상태에서는 신청서를 수정하거나 신청을 취소할
-          수 있습니다. 승인된 이후에는 신청서 수정과 신청 취소가 불가능합니다.
-        </AlertDescription>
-      </Alert>
+    );
+  }
+
+  if (mode === 'edit') {
+    return (
+      <PageBody className="max-w-4xl">
+        <PageHeader title={`${program.name} 신청`} />
+        {team ? (
+          <TeamMembersPanel
+            programId={programId}
+            team={team}
+            sessionNickname={sessionNickname}
+            mode="compose"
+            invitation={null}
+            onOpenInvite={null}
+            inviteTriggerRef={null}
+            onChanged={onTeamChanged}
+          />
+        ) : null}
+        <Card>
+          <CardHeader>
+            <CardTitle>신청서</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ApplicationFields
+              template={template}
+              applicantName={applicantName}
+              title={values.title ?? ''}
+              titleError={errors.title}
+              onTitleChange={(value) => onChange('title', value)}
+            />
+            {program.repositoryProvisioningEnabled ? (
+              <Field orientation="horizontal">
+                <input
+                  id="repository-publication-planned"
+                  type="checkbox"
+                  checked={values.isRepositoryPublicationPlanned}
+                  disabled
+                  onChange={(event) =>
+                    onTogglePublicationPlanned(event.target.checked)
+                  }
+                />
+                <FieldLabel htmlFor="repository-publication-planned">
+                  제출 시 선택한 저장소 공개 예정 여부
+                </FieldLabel>
+              </Field>
+            ) : null}
+            {serverError ? (
+              <Alert variant="destructive">
+                <AlertTitle>저장 실패</AlertTitle>
+                <AlertDescription>{serverError}</AlertDescription>
+              </Alert>
+            ) : null}
+            <div className="flex flex-wrap justify-end gap-2">
+              {hasEditableAnswers ? (
+                <Button
+                  ref={submitButtonRef}
+                  type="button"
+                  disabled={submitting || missingTeamMembers > 0}
+                  onClick={onRequestSubmit}
+                >
+                  {submitting ? '저장 중…' : '수정 내용 저장'}
+                </Button>
+              ) : null}
+              {canManage ? (
+                <Button
+                  ref={cancelButtonRef}
+                  type="button"
+                  variant="destructive"
+                  disabled={submitting}
+                  onClick={onRequestCancel}
+                >
+                  신청 취소
+                </Button>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+        {confirmationDialog}
+      </PageBody>
+    );
+  }
+
+  /*
+    새 신청서는 한 화면이다 — 프로필·팀 이름·팀 구성·저장소·동의를 그대로 훑고
+    마지막 「신청 제출」 확인 하나로 끝난다. 단계 이동(다음/이전)도, 화면이 임의로
+    부르는 새로고침 버튼도 없다.
+  */
+  return (
+    <PageBody className="max-w-4xl">
+      <PageHeader title={`${program.name} 신청`} />
       <Card>
         <CardHeader>
           <CardTitle>신청서</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <FormRenderer
+        <CardContent className="space-y-6">
+          <ApplicationFields
             template={template}
-            mode="edit"
-            values={fieldValues}
-            onChange={(key, value) => {
-              if (key === 'summary') onChange(key, value);
-            }}
+            applicantName={applicantName}
+            title={values.title ?? ''}
+            titleError={errors.title}
+            onTitleChange={(value) => onChange('title', value)}
           />
-          {errors.summary ? <FieldError>{errors.summary}</FieldError> : null}
-          {mode === 'edit' || program.repositoryProvisioningEnabled ? (
+          <TeamNameField
+            team={team}
+            createName={createName}
+            teamError={teamError}
+            creating={creating}
+            onCreateNameChange={onCreateNameChange}
+          />
+        </CardContent>
+      </Card>
+      <TeamMembersPanel
+        programId={programId}
+        team={team}
+        sessionNickname={sessionNickname}
+        mode="compose"
+        invitation={invitation}
+        onOpenInvite={onOpenInvite}
+        inviteTriggerRef={inviteTriggerRef}
+        onChanged={onTeamChanged}
+      />
+      <Card>
+        <CardContent className="space-y-4 pt-6">
+          {program.repositoryProvisioningEnabled ? (
             <Field orientation="horizontal">
               <input
                 id="repository-publication-planned"
                 type="checkbox"
                 checked={values.isRepositoryPublicationPlanned}
-                disabled={mode === 'edit'}
                 onChange={(event) =>
                   onTogglePublicationPlanned(event.target.checked)
                 }
               />
               <FieldLabel htmlFor="repository-publication-planned">
-                {mode === 'edit'
-                  ? '제출 시 선택한 저장소 공개 예정 여부'
-                  : '선정 시 저장소를 공개할 예정입니다'}
+                선정 시 저장소를 공개할 예정입니다
               </FieldLabel>
             </Field>
           ) : null}
-          {mode === 'create' && program.repositoryProvisioningEnabled ? (
+          {program.repositoryProvisioningEnabled ? (
             <RepositoryConnectionSection
               githubHandle={githubHandle}
               repositoryConnectionMode={values.repositoryConnectionMode}
@@ -478,13 +658,10 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
               onUrlChange={(url) => onChange('repositoryUrl', url)}
             />
           ) : null}
-          <TeamCompositionSection programId={program.id} team={team} />
-          {mode === 'create' ? (
-            <PersonalDataConsentField
-              checked={values.personalDataConsent}
-              onToggle={onToggleConsent}
-            />
-          ) : null}
+          <PersonalDataConsentField
+            checked={values.personalDataConsent}
+            onToggle={onToggleConsent}
+          />
           {errors.repositoryUrl || errors.personalDataConsent ? (
             <Alert variant="destructive">
               <AlertTitle>제출할 수 없습니다</AlertTitle>
@@ -505,58 +682,32 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
                 최소 {teamMinimum.teamMinSize}명이 필요합니다
               </AlertTitle>
               <AlertDescription className="[word-break:keep-all]">
-                현재 {teamMinimum.memberCount}명이며 {missingTeamMembers}명이 더
-                필요합니다.{' '}
-                <Link
-                  className="font-semibold underline underline-offset-4"
-                  href={teamSetupHref(program.id)}
-                >
-                  팀 구성원 관리
-                </Link>
+                현재 {teamMinimum.memberCount}명이며 {missingTeamMembers}
+                명이 더 필요합니다. 팀원 초대에서 팀원을 추가해 주세요.
               </AlertDescription>
             </Alert>
           ) : null}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              ref={submitButtonRef}
-              type="button"
-              disabled={submitting || missingTeamMembers > 0}
-              onClick={onRequestSubmit}
-            >
-              {submitting
-                ? '저장 중…'
-                : mode === 'create'
-                  ? '신청 제출'
-                  : '수정 내용 저장'}
-            </Button>
-            <Button asChild variant="link">
-              <Link href={programHref(program.id)}>프로그램 개요</Link>
-            </Button>
-            {mode === 'edit' && canManage ? (
-              <Button
-                ref={cancelButtonRef}
-                type="button"
-                variant="destructive"
-                disabled={submitting}
-                onClick={onRequestCancel}
-              >
-                신청 취소
-              </Button>
-            ) : null}
-          </div>
         </CardContent>
       </Card>
-      {confirmation ? (
-        <ApplicationConfirmationDialog
-          kind={confirmation}
-          submitting={submitting}
-          onClose={onCloseConfirmation}
-          onConfirm={onConfirm}
-          returnFocusRef={
-            confirmation === 'cancel' ? cancelButtonRef : submitButtonRef
-          }
+      <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-6">
+        <Button
+          ref={submitButtonRef}
+          type="button"
+          disabled={submitting || creating || missingTeamMembers > 0}
+          onClick={onRequestSubmit}
+        >
+          {submitting ? '저장 중…' : '신청 제출'}
+        </Button>
+      </div>
+      {invitation ? (
+        <TeamInvitePanel
+          invitation={invitation}
+          open={inviteOpen}
+          onClose={onCloseInvite}
+          returnFocusRef={inviteTriggerRef}
         />
       ) : null}
-    </main>
+      {confirmationDialog}
+    </PageBody>
   );
 }

@@ -1,3 +1,9 @@
+import type { ProgramTeam } from '@/features/programs/api';
+import type { StudentApplication } from '@/features/programs/student-application-api';
+import type {
+  ReceivedTeamInvitation,
+  SentTeamInvitation,
+} from '@/features/programs/team-invitation-api';
 import type { AuthRole } from '@/features/auth/types';
 import type { UserProfile } from '@/features/profile/types';
 import type { RoleSelection } from '@/features/roles/types';
@@ -55,6 +61,34 @@ export type LocalReviewHandler = (
  */
 export interface LocalReviewSessionState {
   /**
+   * 프로그램별 내 팀. 값이 없으면 고정 픽스처를 쓰고, `null`은 탈퇴·삭제
+   * 무덤이다 — 무덤이 없으면 기준 팀이 다시 살아나 방금 나간 팀이 돌아온다.
+   *
+   * 신청·초대 핸들러가 같은 자리를 본다. 모듈 변수가 아니라 이 세션에 두어
+   * 개발 서버가 라우트를 다시 컴파일해도 팀 만들기가 GET에서 사라지지 않게 한다.
+   */
+  programTeams: Record<string, ProgramTeam | null>;
+  /**
+   * 프로그램별 내 신청. 값이 없으면 고정 픽스처를 쓰고, `null`은 취소 무덤이다.
+   * 뷰어 `applicationStatus`와 신청서 조회가 같은 값을 읽어야 제출 직후 화면이
+   * 신청 전으로 돌아가지 않는다.
+   */
+  programApplications: Record<string, StudentApplication | null>;
+  /**
+   * 팀별 보낸 초대. 안쪽 키는 초대 id이고 `null`은 삭제 무덤이다. 취소는 무덤이
+   * 아니라 같은 id의 상태만 바꾼다 — 목록이 항목을 잃어 버리면 취소가 안 된 것처럼
+   * 다시 살아난다.
+   */
+  sentInvitationsByTeam: Record<
+    string,
+    Record<string, SentTeamInvitation | null>
+  >;
+  /**
+   * 받은 초대 덮어쓰기. `null`은 무덤이다. 수락·거절을 여기 남겨야 폴링이 고정
+   * 목록을 다시 그리지 않는다.
+   */
+  receivedInvitationOverrides: Record<string, ReceivedTeamInvitation | null>;
+  /**
    * 온보딩에서 고른 역할. 고르기 전이면 `null`이다.
    *
    * 순서가 역할 → 프로필로 바뀌면서, 가입을 끝까지 걸어 보려면 "역할은 골랐고
@@ -83,6 +117,10 @@ function createLocalReviewSessionState(): LocalReviewSessionState {
     savedOnboardingProfile: null,
     errorOnceFailuresLeft: 1,
     lastRequestedFixture: null,
+    programTeams: {},
+    programApplications: {},
+    sentInvitationsByTeam: {},
+    receivedInvitationOverrides: {},
   };
 }
 

@@ -171,14 +171,15 @@ export const PUBLIC_PROFILE_FIXTURES: Readonly<
 };
 
 /**
- * `/my-repos` 목록. 파서가 `SUCCEEDED`가 아닌 항목은 저장소 관련 필드를 모두
- * `null`로 요구하므로 생성 중·실패 항목은 빈 값을 유지한다. `updatedAt`은
+ * `/my-repos` 목록. 아직 저장소가 만들어지지 않은 생성 중·실패 항목은
+ * 저장소 관련 필드를 `null`로 유지한다. `updatedAt`은
  * `Date#toISOString()` 형식만 통과한다.
  */
 const MY_REPOSITORY_FIXTURES = [
   {
     repositoryId: 'synthetic-repo-basic',
     applicationId: 'synthetic-application-basic',
+    connectionMode: 'NEW',
     applicationMode: 'PERSONAL',
     programName: '합성 기초 오픈소스 스터디',
     displayName: '합성 개인 실습 저장소',
@@ -193,6 +194,7 @@ const MY_REPOSITORY_FIXTURES = [
   {
     repositoryId: 'synthetic-repo-capstone',
     applicationId: 'synthetic-application-capstone',
+    connectionMode: 'NEW',
     applicationMode: 'TEAM',
     programName: '합성 캡스톤 2026',
     displayName: '합성 캡스톤 팀 저장소',
@@ -207,6 +209,7 @@ const MY_REPOSITORY_FIXTURES = [
   {
     repositoryId: null,
     applicationId: 'synthetic-application-provisioning',
+    connectionMode: 'NEW',
     applicationMode: 'TEAM',
     programName: '합성 OSS 경진대회',
     displayName: '합성 경진대회 팀 저장소',
@@ -221,6 +224,7 @@ const MY_REPOSITORY_FIXTURES = [
   {
     repositoryId: null,
     applicationId: 'synthetic-application-failed',
+    connectionMode: 'NEW',
     applicationMode: 'PERSONAL',
     programName: '합성 OSS 경진대회',
     displayName: '합성 경진대회 개인 저장소',

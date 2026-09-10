@@ -12,15 +12,12 @@
  *   ⚠ 그러니 `maxLength` 를 코드 포인트 세기(`[...value].length`)로 "맞추지" 말 것 —
  *     그 순간 브라우저가 서버보다 느슨해진다.
  */
-export const APPLICATION_ANSWER_MAX_LENGTHS = {
-  title: 200,
-  summary: 10_000,
-} as const;
+export const APPLICATION_ANSWER_MAX_LENGTHS = { title: 200 } as const;
 
 export type ApplicationAnswerKey = keyof typeof APPLICATION_ANSWER_MAX_LENGTHS;
 
 export function applicationAnswerMaxLength(key: string): number | undefined {
-  return key in APPLICATION_ANSWER_MAX_LENGTHS
+  return Object.hasOwn(APPLICATION_ANSWER_MAX_LENGTHS, key)
     ? APPLICATION_ANSWER_MAX_LENGTHS[key as ApplicationAnswerKey]
     : undefined;
 }

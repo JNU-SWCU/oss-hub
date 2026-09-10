@@ -6,7 +6,6 @@ import {
   checklistItemStatus,
   checklistSubmittedCount,
   CHECKLIST_STATUS_LABELS,
-  deadlineVariant,
   hasMilestoneDeadlinePassed,
   milestoneDeadline,
   resubmissionContent,
@@ -131,16 +130,6 @@ describe('hasMilestoneDeadlinePassed', () => {
 
     // When / Then
     expect(hasMilestoneDeadlinePassed('not-a-date', now)).toBe(false);
-  });
-});
-
-describe('deadlineVariant', () => {
-  it.each([
-    [-1, 'rejected'],
-    [0, 'pending'],
-    [3, 'recruiting'],
-  ] as const)('dDay %i은 %s variant다', (dDay, variant) => {
-    expect(deadlineVariant(dDay)).toBe(variant);
   });
 });
 

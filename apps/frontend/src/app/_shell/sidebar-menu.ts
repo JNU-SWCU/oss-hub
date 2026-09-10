@@ -1,5 +1,5 @@
 import type { NavItem } from '@/components';
-import { programDocumentsHref } from '@/lib/program-route';
+import { programDocumentsHref, programMyTeamHref } from '@/lib/program-route';
 import { archiveListHref } from '@/features/archive/types';
 import { programHref } from '@/features/programs/program-paths';
 import {
@@ -263,14 +263,35 @@ export function programScopeSidebarGroups(
       icon: 'home',
       depth: 0,
     },
-    {
-      label: '참여 팀',
-      href: programHref(programId, '/teams'),
-      icon: 'people',
-      depth: 0,
-      count: String(teamCount),
-    },
   ];
+  /*
+    「우리 팀」은 학생 뷰어에게만 둔다(#1269) — 내가 속한 팀 하나를 보는 화면이라
+    교직원·관리자 면에는 대응하는 내용이 없고(그쪽은 참여 팀 목록이 같은 자리를 쓴다),
+    비회원(`GUEST`)은 위 분기에서 이미 공개 개요 하나만 받는다.
+
+    모든 학생에게 보인다. 신청 상태로 「팀이 있다/없다」를 추측해 항목을 지우지 않고
+    (추측한 런타임 상태로 affordance를 지우지 않는다 — ADR-007), 화면이 `getMyTeam` 응답으로
+    팀 없음 상태를 명시한다. 팀원 명단 같은 데이터는 백엔드가 지킨다.
+
+    뚜지를 붙이지 않는다 — 내 팀 인원은 개인 정보고, 프로그램 전체 팀 수(`teamCount`)는
+    이 항목이 가리키는 것과 다른 수다(그 수는 아래 「참여 팀」이 이미 말한다).
+  */
+  if (viewerRole === 'STUDENT') {
+    overviewItems.push({
+      label: '우리 팀',
+      href: programMyTeamHref(programId),
+      // 접힌 레일에서 바로 아래 「참여 팀」(people)과 구분되어야 해 다른 아이콘을 쓴다.
+      icon: 'building',
+      depth: 0,
+    });
+  }
+  overviewItems.push({
+    label: '참여 팀',
+    href: programHref(programId, '/teams'),
+    icon: 'people',
+    depth: 0,
+    count: String(teamCount),
+  });
   // 승인·반려는 `/applicants`에만 있다. 학생에게는 권한도 UI도 없으므로 숨긴다.
   if (isStaffView) {
     overviewItems.push({

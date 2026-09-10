@@ -31,13 +31,7 @@ export type ProgramApplyContext =
       readonly kind: 'blocked';
       readonly reason: ProgramApplyBlockedReason;
       readonly program: ProgramDetail;
-      /**
-       * 막힘을 판정하는 데 쓴 내 신청서. 조회하지 않고 막은 갈래(팀 미구성 등)는 `null`.
-       *
-       * 예전에는 `already-applied` 판정 직후 이 객체를 버렸는데, 반려 사유가 **여기에만**
-       * 실려 오므로 버리는 순간 화면이 "승인 또는 반려된 신청서는 수정할 수 없습니다"라고만
-       * 말하고 왜 반려됐는지는 어디에서도 알 수 없게 된다(#722).
-       */
+      /** 반려 사유와 현재 신청 상태를 막힘 화면에서도 보존한다. */
       readonly application: StudentApplication | null;
     }
   | {
@@ -46,34 +40,40 @@ export type ProgramApplyContext =
       readonly program: ProgramDetail;
       readonly template: ApplicationFormTemplate;
       readonly applicantName: string;
-      /** 세션에 연결된 GitHub 계정. 폼의 "GitHub 계정 연동" 안내행이 그대로 쓴다. */
       readonly githubHandle: string;
       readonly teamId: string | null;
       readonly teamMinimum: TeamMinimum | null;
-      /** 팀형 신청의 현재 팀 요약(이름·팀원). 개인형이거나 팀이 없으면 null. */
       readonly team: ProgramTeam | null;
       readonly applicationId: string | null;
       readonly canManage: boolean;
       readonly initialValues: ProgramApplyFormValues;
     };
 
-async function resolveTeam(
-  programId: string,
-  template: ApplicationFormTemplate,
-  requestedTeamId: string | null,
-): Promise<{
+/** 백엔드가 「소속된 팀이 없습니다」로 응답하는 단 하나의 코드(`TeamsErrorCode.TEAM_NOT_FOUND`). */
+const NO_TEAM_ERROR_CODE = 'TEAM_010';
+
+/**
+ * 현재 팀은 **인증된 세션의 팀 조회**로만 정한다 — 화면이 실어 온 팀 id나 쿼리는
+ * 믿지 않는다. 모든 신청은 자기 팀을 만들어 진행하므로 개인형 템플릿도 예외가 아니다.
+ *
+ * 「팀 없음」으로 접는 실패는 서버가 그렇게 말한 404 `TEAM_010` 하나뿐이다.
+ * 프로그램 없음(404 `TEAM_002`)이나 알 수 없는 실패까지 팀 없음으로 접으면,
+ * 이미 팀에 속한 학생에게 팀 만들기를 다시 권해 초대·신청 이력이 갈린다.
+ */
+async function resolveTeam(programId: string): Promise<{
   readonly teamId: string | null;
   readonly minimum: TeamMinimum | null;
   readonly team: ProgramTeam | null;
 }> {
-  if (template.participation === 'individual') {
-    return { teamId: requestedTeamId, minimum: null, team: null };
-  }
   try {
     const team = await getMyTeam(programId);
     return { teamId: team.id, minimum: resolveTeamMinimum(team), team };
   } catch (error: unknown) {
-    if (error instanceof ApiError && error.problem.status === 404) {
+    if (
+      error instanceof ApiError &&
+      error.problem.status === 404 &&
+      error.problem.code === NO_TEAM_ERROR_CODE
+    ) {
       return { teamId: null, minimum: null, team: null };
     }
     throw error;
@@ -82,13 +82,14 @@ async function resolveTeam(
 
 export async function loadProgramApplyContext(
   programId: string,
-  requestedTeamId: string | null,
   sessionUser: ProgramApplySessionUser,
 ): Promise<ProgramApplyContext> {
   try {
+    // 템플릿 목록 실패를 삼키면 로컬 기본값(version 1 · 신청자 칸 하나)으로 만든
+    // 가짜 양식을 제출하게 되어 서버가 APP_016으로 되돌린다. 실패는 실패로 알린다.
     const [program, templates] = await Promise.all([
       getProgramDetail(programId),
-      listApplicationTemplates().catch(() => [] as ApplicationFormTemplate[]),
+      listApplicationTemplates(),
     ]);
     const template = resolveProgramApplicationTemplate(program, templates);
     if (!template) {
@@ -128,9 +129,7 @@ export async function loadProgramApplyContext(
       if (!application.canManage) {
         return {
           kind: 'blocked',
-          // 여기서 `canManage`가 거짓인 까닭은 둘뿐이다 — 기간이 끝났거나, 신청자도
-          // 팀장도 아니거나(#1083). 서버가 실어 보낸 `isManager`로 가른다. 화면이
-          // 시계를 다시 재면 기간 경계에서 서버와 다른 말을 하게 된다.
+          // 서버가 판정한 기간/권한을 사용해 경계 시각의 불일치를 피한다.
           reason: application.isManager
             ? 'period-closed'
             : 'manage-not-allowed',
@@ -138,11 +137,7 @@ export async function loadProgramApplyContext(
           application,
         };
       }
-      const editTeam = await resolveTeam(
-        programId,
-        template,
-        application.teamId,
-      );
+      const editTeam = await resolveTeam(programId);
       return {
         kind: 'ready',
         mode: 'edit',
@@ -156,11 +151,9 @@ export async function loadProgramApplyContext(
         applicationId: application.id,
         canManage: application.canManage,
         initialValues: {
-          summary: application.answers.summary,
+          title: application.answers.title,
           isRepositoryPublicationPlanned:
             application.isRepositoryPublicationPlanned,
-          // 저장소 연결 방식·개인정보 동의는 최초 제출 시점의 값이라 수정 화면에는
-          // 다시 묻지 않는다(program-apply-flow.validateApplyForm의 edit 분기 참고).
           repositoryConnectionMode: 'new',
           repositoryUrl: '',
           personalDataConsent: true,
@@ -168,10 +161,9 @@ export async function loadProgramApplyContext(
       };
     }
 
-    const team = await resolveTeam(programId, template, requestedTeamId);
+    const team = await resolveTeam(programId);
     const blocked = resolveApplyBlockedReason(program, template, team.teamId);
     if (blocked) {
-      // 이 갈래는 신청서를 조회하지 않는다 — 아직 신청이 없거나 팀이 없어 막힌다.
       return { kind: 'blocked', reason: blocked, program, application: null };
     }
     return {
@@ -185,9 +177,11 @@ export async function loadProgramApplyContext(
       teamMinimum: team.minimum,
       team: team.team,
       applicationId: null,
-      canManage: false,
+      // 팀이 없으면 자기 팀을 만들어 작성한다. 이미 팀이 있으면 신청서를 쓰는
+      // 사람은 팀장 하나뿐이다 — 초대로 합류한 팀원이 별도 팀·별도 신청을
+      // 만들지 못하게 서버 `isLeader`를 그대로 따른다.
+      canManage: team.team === null ? true : team.team.isLeader,
       initialValues: {
-        summary: '',
         isRepositoryPublicationPlanned: true,
         repositoryConnectionMode: 'new',
         repositoryUrl: '',

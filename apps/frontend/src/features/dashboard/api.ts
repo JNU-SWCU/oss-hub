@@ -1,6 +1,5 @@
 import { apiClient } from '@/lib/api-client';
 import type {
-  DashboardApplicationMode,
   DashboardApplicationStatus,
   DashboardItem,
   DashboardMilestone,
@@ -33,10 +32,6 @@ function isProgramPath(
   suffix = '',
 ): value is string {
   return value === `/programs/${encodeURIComponent(programId)}${suffix}`;
-}
-
-function isApplicationMode(value: unknown): value is DashboardApplicationMode {
-  return value === 'PERSONAL' || value === 'TEAM';
 }
 
 function isApplicationStatus(
@@ -152,8 +147,14 @@ function isDashboardItem(value: unknown): value is DashboardItem {
     isNonEmptyString(programId) &&
     isSafePathSegment(programId) &&
     isNonEmptyString(value.programName) &&
-    isApplicationMode(value.applicationMode) &&
-    isNonEmptyString(value.displayName) &&
+    // 대시보드 항목은 **현재 소속된 팀**만 담아 온다. 이름이 비어 오면 화면에서
+    // 「이름 없는 팀」 같은 대체 문구를 지어내는 대신 응답 자체를 거절한다 — 기본값을
+    // 채워 넣으면 서버가 팀을 잃어버린 사고가 화면에서는 정상처럼 보인다(#1269).
+    isNonEmptyString(value.teamName) &&
+    // 팀 화면 주소도 서버가 만든 값을 쓰되, **정확히 이 한 경로**여야 한다.
+    // 임의의 외부/내부 주소를 그대로 버튼 href로 옮기면 응답 하나로 사용자를
+    // 아무 데나 보낼 수 있게 된다.
+    isProgramPath(value.teamUrl, programId, '/my-team') &&
     isApplicationStatus(applicationStatus) &&
     (nextMilestone === null || isMilestone(nextMilestone)) &&
     (applicationStatus === 'APPROVED' || nextMilestone === null) &&

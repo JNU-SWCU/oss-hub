@@ -25,7 +25,6 @@ describe('student application API', () => {
       answers: {
         applicantName: '합성 학생',
         title: '제목',
-        summary: '요약',
       },
       submittedAt: '2026-07-10T00:00:00.000Z',
       updatedAt: '2026-07-10T00:00:00.000Z',
@@ -51,7 +50,7 @@ describe('student application API', () => {
 
     // When
     await updateMyApplication('program-1', {
-      answers: { title: '수정 제목', summary: '수정 요약' },
+      answers: { title: '수정 제목' },
       applicationTemplateVersion: 1,
     });
 
@@ -61,7 +60,7 @@ describe('student application API', () => {
       expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({
-          answers: { title: '수정 제목', summary: '수정 요약' },
+          answers: { title: '수정 제목' },
           applicationTemplateVersion: 1,
         }),
       }),

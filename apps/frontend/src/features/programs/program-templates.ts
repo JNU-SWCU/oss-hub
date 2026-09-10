@@ -27,18 +27,7 @@ export const PROGRAM_TRACK_TYPE_LABELS = {
 
 /** 서버 V1_APPLICATION_FIELDS와 동일 계약. 목록 API 병합 전 로컬 폴백. */
 export const V1_APPLICATION_FIELDS: readonly ApplicationFormField[] = [
-  {
-    key: 'applicantName',
-    type: 'auto',
-    label: '신청자',
-    required: true,
-  },
-  {
-    key: 'summary',
-    type: 'textarea',
-    label: '요약',
-    required: true,
-  },
+  { key: 'applicantName', type: 'auto', label: '신청자', required: true },
 ];
 
 export interface ProgramTemplateDefinition {

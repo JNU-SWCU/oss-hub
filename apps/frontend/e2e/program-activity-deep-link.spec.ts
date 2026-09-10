@@ -103,9 +103,7 @@ async function openActivityDeepLink(page: Page): Promise<void> {
   await installProgramRoutes(page);
   await page.goto(`/programs/${programId}#activity`);
   const activity = page.locator('#activity');
-  await expect(
-    activity.getByText('활동 그래프', { exact: true }),
-  ).toBeVisible();
+  await expect(activity.getByText('활동 현황', { exact: true })).toBeVisible();
   // 앵커가 늦게 자라는 레이아웃을 따라잡아야 하므로, 마지막 활동 행까지
   // 그려진 뒤에 위치를 읽는다.
   await expect(

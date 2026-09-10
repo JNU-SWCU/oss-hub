@@ -13,7 +13,7 @@ const FLOW_STEPS: readonly FlowStep[] = [
   {
     step: '02',
     title: '팀 구성',
-    description: '팀을 만들거나 참여 코드로 합류합니다.',
+    description: '팀을 만들거나 초대를 수락해 합류합니다.',
   },
   {
     step: '03',

@@ -18,6 +18,8 @@ const ACTION_BADGE_VARIANTS = {
   PROGRAM_DELETED: 'closed',
   TEAM_CREATED: 'approved',
   TEAM_JOINED: 'approved',
+  // 탈퇴·내보내기는 합류와 반대로 구성이 줄어드는 변경이라 보관·삭제와 같은 톤을 쓴다.
+  TEAM_MEMBERSHIP_CHANGED: 'closed',
   COLLECTION_SYNC_TRIGGERED: 'closed',
   SUBMISSION_FILE_CLEANUP_RETRY_RESET: 'closed',
   APPLICATION_SUBMITTED: 'pending',

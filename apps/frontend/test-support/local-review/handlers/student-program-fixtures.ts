@@ -577,12 +577,12 @@ export const MY_APPLICATION_FIXTURES: Readonly<
     id: 'synthetic-application-sw-value',
     programId: 'program-sw-value',
     status: 'REJECTED',
-    teamId: null,
+    // 신청은 항상 팀이 낸다 — 이 신청서를 볼 수 있는 근거가 그 팀의 구성원이라는
+    // 사실이므로, `MY_TEAM_FIXTURES`의 같은 팀을 가리켜야 한다.
+    teamId: 'synthetic-team-sw-value',
     answers: {
       applicantName: '합성 student 사용자',
       title: '학내 오픈소스 입문 워크숍 운영',
-      summary:
-        '오픈소스 기여 경험이 없는 학생을 대상으로 첫 PR까지 따라 할 수 있는 워크숍을 열고, 실습 자료를 저장소로 공개하려 합니다.',
     },
     submittedAt: '2026-06-20T00:00:00.000Z',
     updatedAt: '2026-06-28T00:00:00.000Z',
@@ -622,12 +622,11 @@ export function myApplicationFor(
     id: applicationId,
     programId,
     status,
+    // 신청이 있는 프로그램에는 팀 픽스처가 반드시 있다(위 `MY_TEAM_FIXTURES` 주석).
     teamId: MY_TEAM_FIXTURES[programId]?.id ?? null,
     answers: {
       applicantName: '합성 student 사용자',
       title: `${fixture.base.name} 참여 신청`,
-      summary:
-        '로컬 검토용 합성 신청서입니다. 실제 신청 내용과 무관하며 화면 구성 확인에만 씁니다.',
     },
     submittedAt: fixture.base.applicationPeriod.startsAt,
     updatedAt: fixture.base.applicationPeriod.startsAt,
@@ -912,8 +911,22 @@ export const SUBMISSION_FORMS: Readonly<Record<string, SubmissionFormData>> = {
 };
 
 /**
- * 내 팀. 캡스톤은 팀이 있는 상태(명단 화면), 경진대회는 팀이 없는 상태(팀 만들기·
- * 참여코드 합류 화면)를 검토할 수 있도록 갈라 둔다.
+ * 내 팀. **신청 기록이 있는 프로그램에는 반드시 팀이 있다** — 신청은 항상 팀이 내고
+ * (혼자면 1인 팀이 만들어진다, #1269) 그 팀의 구성원만 신청서를 볼 수 있기
+ * 때문이다. 팀 없이 신청만 있는 픽스처는 서버가 만들 수 없는 상태라 두지 않는다.
+ *
+ * - 캡스톤: 셈짜리 팀 + 승인된 신청(명단·제외·탈퇴 화면).
+ * - 경진대회: 둘짜리 팀 + 승인된 신청(팀 신청이 살아 있는 프로그램).
+ * - SW가치확산: 1인 팀 + 반려된 신청(반려 사유 화면이 이 신청서로만 닿는다).
+ * - 기초 스터디·내린 인턴십: 팀도 신청도 없다 — 검토자가 정보를 먼저 읽고 팀을
+ *   만들어 신청까지 걸어 볼 수 있는 입구가 여기다.
+ *
+ * 능력 플래그는 backend `ProgramTeamsService.toTeamView`가 계산해 내려주는 값과
+ * 같은 규칙으로 적는다(`canInvite`=팀장, `canRemoveMembers`=팀장·팀원 둘 이상,
+ * `canLeave`=혼자가 아니거나 신청 기록 없음). 폐기된 `locked`는 계약에 없다.
+ * 여기 적은 값이 어긋나도 핸들러가 읽을 때 같은 규칙으로 다시 계산하므로
+ * (`student-handlers.ts`의 `resolveProgramTeam`), 명단이 바뀌는 조작 뒤에도 화면이
+ * 옛 플래그를 보지 않는다.
  */
 export const MY_TEAM_FIXTURES: Readonly<Record<string, ProgramTeam>> = {
   'program-capstone': {
@@ -922,7 +935,10 @@ export const MY_TEAM_FIXTURES: Readonly<Record<string, ProgramTeam>> = {
     memberCount: 3,
     minMembers: 2,
     maxMembers: 4,
-    locked: true,
+    hasApplication: true,
+    canInvite: true,
+    canRemoveMembers: true,
+    canLeave: true,
     isLeader: true,
     members: [
       {
@@ -945,29 +961,56 @@ export const MY_TEAM_FIXTURES: Readonly<Record<string, ProgramTeam>> = {
       },
     ],
   },
-};
-
-/** 참여코드 합류 성공 응답. 화면이 이 값을 그대로 팀 명단으로 그린다. */
-export const JOINED_TEAM_FIXTURE: ProgramTeam = {
-  id: 'synthetic-team-joined',
-  name: '합성 오픈소스팀',
-  memberCount: 2,
-  minMembers: 2,
-  maxMembers: 4,
-  locked: false,
-  isLeader: false,
-  members: [
-    {
-      userId: 'synthetic-user-03',
-      nickname: 'synthetic-contributor-03',
-      name: '합성 팀장',
-      isLeader: true,
-    },
-    {
-      userId: 'synthetic-user-05',
-      nickname: 'synthetic-contributor-05',
-      name: '합성 참여자',
-      isLeader: false,
-    },
-  ],
+  // 승인된 팀 신청이 살아 있는 프로그램 — 신청이 있으면 팀도 있어야 한다.
+  'program-oss-contest': {
+    id: 'synthetic-team-contest',
+    name: '합성 경진대회팀',
+    memberCount: 2,
+    minMembers: 2,
+    maxMembers: 4,
+    hasApplication: true,
+    canInvite: true,
+    canRemoveMembers: true,
+    canLeave: true,
+    isLeader: true,
+    members: [
+      {
+        userId: 'synthetic-user-01',
+        nickname: 'synthetic-contributor-01',
+        name: '합성 팀장',
+        isLeader: true,
+      },
+      {
+        userId: 'synthetic-user-05',
+        nickname: 'synthetic-contributor-05',
+        name: '합성 참여자',
+        isLeader: false,
+      },
+    ],
+  },
+  /*
+    반려된 신청이 가리키는 1인 팀. 혼자이고 신청 기록이 있어 `canLeave`가 거짓이다 —
+    화면이 「마지막 구성원은 나갈 수 없습니다」 안내를 그리는 유일한 픽스처 상태이고,
+    반려 사유 화면(`student-rejection-reach.test.tsx`)이 읽는 신청서의 소속 팀이다.
+  */
+  'program-sw-value': {
+    id: 'synthetic-team-sw-value',
+    name: '합성 가치확산팀',
+    memberCount: 1,
+    minMembers: 1,
+    maxMembers: 4,
+    hasApplication: true,
+    canInvite: true,
+    canRemoveMembers: false,
+    canLeave: false,
+    isLeader: true,
+    members: [
+      {
+        userId: 'synthetic-user-01',
+        nickname: 'synthetic-contributor-01',
+        name: '합성 팀장',
+        isLeader: true,
+      },
+    ],
+  },
 };

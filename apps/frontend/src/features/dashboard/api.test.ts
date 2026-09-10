@@ -12,6 +12,32 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const approvedItem = dashboardFixture.items[0];
+if (approvedItem === undefined) throw new Error('dashboard fixture is empty');
+
+/**
+ * 키를 **아예 빼고** 보낸다. 빈 값과 없는 키는 서버 쪽 사고의 모양이 다르다 — 앞은
+ * 팀 이름을 잃어버린 것이고 뒤는 그 칸을 아직 싣지 않는 옛 응답이다. 둘 중 하나만
+ * 막으면 나머지 하나는 화면이 지어낸 문구로 덮인 채 정상처럼 보인다(#1269).
+ */
+function itemWithout(key: string): Record<string, unknown> {
+  const copy: Record<string, unknown> = { ...approvedItem };
+  delete copy[key];
+  return copy;
+}
+
+function respondWith(body: unknown): void {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    ),
+  );
+}
+
 describe('fetchStudentDashboard', () => {
   it('학생 대시보드를 단일 API 요청으로 조회한다', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
@@ -47,15 +73,7 @@ describe('fetchStudentDashboard', () => {
         },
       ],
     } as const;
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify(body), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
+    respondWith(body);
 
     await expect(fetchStudentDashboard()).resolves.toEqual(body);
   });
@@ -82,28 +100,147 @@ describe('fetchStudentDashboard', () => {
           },
         ],
       } as const;
-      vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue(
-          new Response(JSON.stringify(body), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          }),
-        ),
-      );
+      respondWith(body);
 
       await expect(fetchStudentDashboard()).resolves.toEqual(body);
     },
   );
+
+  /**
+   * 판정 전 신청에도 팀은 있다 — 1인 팀도 팀이라 서버는 팀 없는 항목을 만들지 않는다.
+   * 승인 항목에서만 팀 칸을 확인하면, 「제출은 됐는데 팀 이름이 비어 오는」 응답이
+   * 그대로 화면에 실려도 아무도 알아채지 못한다(#1269).
+   */
+  it('판정 전 신청도 현재 팀 이름과 팀 화면 주소를 그대로 싣는다', async () => {
+    const body = {
+      items: [
+        {
+          ...approvedItem,
+          applicationStatus: 'SUBMITTED',
+          nextMilestone: null,
+          repository: null,
+          detailUrl: `/programs/${approvedItem.programId}/apply`,
+          teamName: '합성 대기 팀',
+        },
+      ],
+    } as const;
+    respondWith(body);
+
+    await expect(fetchStudentDashboard()).resolves.toEqual(body);
+  });
+
   it.each([
     ['items가 배열이 아님', { items: null }],
+    /*
+     * 「지금 소속된 팀」이 이 응답의 계약이다. 이름이 비거나 아예 없이 오면 화면이
+     * 「이름 없는 팀」 같은 대체 문구를 지어내는 대신 응답을 거절해야 한다 — 기본값을
+     * 채워 넣으면 서버가 팀을 잃어버린 사고가 화면에서는 정상처럼 보인다(#1269).
+     */
     [
-      '지원 방식이 계약 밖 값',
+      '팀 이름이 공백뿐',
       {
         items: [
           {
-            ...dashboardFixture.items[0],
-            applicationMode: 'GROUP',
+            ...approvedItem,
+            teamName: '   ',
+          },
+        ],
+      },
+    ],
+    [
+      '팀 이름이 빈 문자열',
+      {
+        items: [
+          {
+            ...approvedItem,
+            teamName: '',
+          },
+        ],
+      },
+    ],
+    [
+      '팀 이름 칸이 아예 없음',
+      {
+        items: [itemWithout('teamName')],
+      },
+    ],
+    [
+      '팀 화면 주소 칸이 아예 없음',
+      {
+        items: [itemWithout('teamUrl')],
+      },
+    ],
+    /*
+     * 팀 화면 주소도 서버가 만든 값을 쓰되 **정확히 이 한 경로**여야 한다. 임의의
+     * 외부/내부 주소를 그대로 버튼 href로 옮기면 응답 하나로 사용자를 아무 데나
+     * 보낼 수 있게 된다.
+     */
+    [
+      '팀 화면 주소가 외부 주소',
+      {
+        items: [
+          {
+            ...approvedItem,
+            teamUrl: 'https://evil.example.com/my-team',
+          },
+        ],
+      },
+    ],
+    [
+      '팀 화면 주소가 프로토콜 상대 경로',
+      {
+        items: [
+          {
+            ...approvedItem,
+            teamUrl: '//evil.example.com/my-team',
+          },
+        ],
+      },
+    ],
+    /*
+     * 주소만 보면 앱 안이라 안전해 보이지만, 카드에 적힌 프로그램과 버튼이 여는 팀이
+     * 서로 다른 상태다 — 항목 하나가 이상한 게 아니라 화면이 거짓말을 하게 된다.
+     */
+    [
+      '팀 화면 주소가 다른 프로그램의 팀을 가리킴',
+      {
+        items: [
+          {
+            ...approvedItem,
+            teamUrl: '/programs/program-oss-contest/my-team',
+          },
+        ],
+      },
+    ],
+    [
+      '팀 화면 주소에 질의 문자열이 붙음',
+      {
+        items: [
+          {
+            ...approvedItem,
+            teamUrl: `/programs/${approvedItem.programId}/my-team?tab=members`,
+          },
+        ],
+      },
+    ],
+    [
+      '팀 화면 주소 끝에 슬래시가 붙어 정규 경로가 아님',
+      {
+        items: [
+          {
+            ...approvedItem,
+            teamUrl: `/programs/${approvedItem.programId}/my-team/`,
+          },
+        ],
+      },
+    ],
+    [
+      '팀 화면 주소가 프로그램 상세를 가리킴',
+      {
+        items: [
+          {
+            ...approvedItem,
+            teamUrl: `/programs/${approvedItem.programId}`,
           },
         ],
       },
@@ -113,7 +250,7 @@ describe('fetchStudentDashboard', () => {
       {
         items: [
           {
-            ...dashboardFixture.items[0],
+            ...approvedItem,
             applicationStatus: 'SUBMITTED',
           },
         ],
@@ -128,11 +265,11 @@ describe('fetchStudentDashboard', () => {
       {
         items: [
           {
-            ...dashboardFixture.items[0],
+            ...approvedItem,
             applicationStatus: 'REJECTED',
             nextMilestone: null,
             repository: null,
-            detailUrl: `/programs/${dashboardFixture.items[0].programId}`,
+            detailUrl: `/programs/${approvedItem.programId}`,
           },
         ],
       },
@@ -142,8 +279,8 @@ describe('fetchStudentDashboard', () => {
       {
         items: [
           {
-            ...dashboardFixture.items[0],
-            detailUrl: `/programs/${dashboardFixture.items[0].programId}/apply`,
+            ...approvedItem,
+            detailUrl: `/programs/${approvedItem.programId}/apply`,
           },
         ],
       },
@@ -153,9 +290,9 @@ describe('fetchStudentDashboard', () => {
       {
         items: [
           {
-            ...dashboardFixture.items[0],
+            ...approvedItem,
             nextMilestone: {
-              ...dashboardFixture.items[0].nextMilestone,
+              ...approvedItem.nextMilestone,
               dueAt: 'not-a-date',
             },
           },
@@ -167,7 +304,7 @@ describe('fetchStudentDashboard', () => {
       {
         items: [
           {
-            ...dashboardFixture.items[0],
+            ...approvedItem,
             detailUrl: '//example.com/program',
           },
         ],
@@ -178,7 +315,7 @@ describe('fetchStudentDashboard', () => {
       {
         items: [
           {
-            ...dashboardFixture.items[0],
+            ...approvedItem,
             detailUrl: '/\\example.com/program',
           },
         ],
@@ -189,7 +326,7 @@ describe('fetchStudentDashboard', () => {
       {
         items: [
           {
-            ...dashboardFixture.items[0],
+            ...approvedItem,
             detailUrl: '/programs/%2e%2e/admin/staff-requests',
           },
         ],
@@ -200,10 +337,11 @@ describe('fetchStudentDashboard', () => {
       {
         items: [
           {
-            ...dashboardFixture.items[0],
+            ...approvedItem,
             programId: '..',
             detailUrl: '/programs/..',
             checklistUrl: '/programs/../submissions',
+            teamUrl: '/programs/../my-team',
           },
         ],
       },
@@ -213,9 +351,9 @@ describe('fetchStudentDashboard', () => {
       {
         items: [
           {
-            ...dashboardFixture.items[0],
+            ...approvedItem,
             repository: {
-              ...dashboardFixture.items[0].repository,
+              ...approvedItem.repository,
               githubUrl:
                 'https://github.com/JNU-SWCU/capstone-hong?redirect=evil',
             },
@@ -228,9 +366,9 @@ describe('fetchStudentDashboard', () => {
       {
         items: [
           {
-            ...dashboardFixture.items[0],
+            ...approvedItem,
             repository: {
-              ...dashboardFixture.items[0].repository,
+              ...approvedItem.repository,
               githubUrl: 'https://github.com.example/JNU-SWCU/capstone-hong',
             },
           },
@@ -242,9 +380,9 @@ describe('fetchStudentDashboard', () => {
       {
         items: [
           {
-            ...dashboardFixture.items[0],
+            ...approvedItem,
             repository: {
-              ...dashboardFixture.items[0].repository,
+              ...approvedItem.repository,
               repositoryName: '../evil',
               githubUrl: 'https://github.com/JNU-SWCU/../evil',
             },
@@ -253,15 +391,7 @@ describe('fetchStudentDashboard', () => {
       },
     ],
   ])('잘못된 응답을 어댑터 경계에서 거부한다: %s', async (_label, body) => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify(body), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
+    respondWith(body);
 
     await expect(fetchStudentDashboard()).rejects.toThrow(
       '학생 대시보드 응답 형식이 올바르지 않습니다.',
@@ -312,15 +442,7 @@ describe('application decision notices', () => {
   });
 
   it('rejects malformed and unsafe notice payloads', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify([{ ...notice, programId: '../admin' }]), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
+    respondWith([{ ...notice, programId: '../admin' }]);
 
     await expect(fetchUnreadApplicationDecisionNotices()).rejects.toThrow(
       '신청 승인 알림 응답 형식이 올바르지 않습니다.',

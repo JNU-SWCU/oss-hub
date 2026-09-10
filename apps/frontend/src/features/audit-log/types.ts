@@ -17,7 +17,29 @@ export interface AuditLogRecord {
   readonly target: string;
   /** Event-time GitHub login for a person target. */
   readonly targetHandle?: string | null;
+  // TEAM_MEMBERSHIP_CHANGED 행에서만 채워지는 팀 구성 변경 요약이다. 백엔드
+  // metadata(web-state-audit-metadata.ts의 TeamMembershipAuditMetadata)에서 이 화면이
+  // 서술에 쓰는 사실만 파싱 단계에서 검증해 투영한 값이며, 원본 metadata나 user id는
+  // 전달하지 않는다(parser.ts). 검증에 실패했거나 필드가 빠진 행은 이 값이 없고,
+  // 그때 describe.ts는 "상세 내용 없음"으로 서술한다 — 생성/합류로 추측하지 않는다.
+  readonly teamMembership?: TeamMembershipChangeSummary;
   readonly occurredAt: string;
+}
+
+// apps/backend/src/audit-log/web-state-audit-metadata.ts의
+// TEAM_MEMBERSHIP_AUDIT_OPERATIONS를 미러링한다.
+export type TeamMembershipOperation = 'LEAVE' | 'REMOVE';
+
+// 팀 구성 변경 한 건에서 화면이 문장으로 서술할 사실만 담는다. 백엔드 metadata의
+// removedUserId/previousLeaderId/nextLeaderId는 내부 대상 식별자라 화면에 그대로
+// 노출하지 않고(조회·팬아웃도 하지 않는다), 승계 여부만 계산해 남긴다.
+export interface TeamMembershipChangeSummary {
+  /** LEAVE=자진 탈퇴, REMOVE=팀장이 팀원을 내보냄. */
+  readonly operation: TeamMembershipOperation;
+  /** 팀장이 남은 다른 팀원에게 승계됐다(nextLeaderId가 previousLeaderId와 다르다). */
+  readonly leaderChanged: boolean;
+  /** 마지막 인원이 미제출 팀을 떠나 팀 자체가 삭제됐다(nextLeaderId === null). */
+  readonly teamDeleted: boolean;
 }
 
 // apps/backend/src/audit-log/*-audit-metadata.ts에 정의된 action registry의
@@ -40,6 +62,7 @@ export const AUDIT_LOG_ACTION_LABELS = {
   PROGRAM_DELETED: '프로그램 삭제',
   TEAM_CREATED: '팀 생성',
   TEAM_JOINED: '팀 합류',
+  TEAM_MEMBERSHIP_CHANGED: '팀 구성 변경',
   COLLECTION_SYNC_TRIGGERED: '수집 실행',
   SUBMISSION_FILE_CLEANUP_RETRY_RESET: '제출 파일 정리 재시도',
   APPLICATION_SUBMITTED: '신청 제출',

@@ -66,8 +66,11 @@ it('아무 조작 없이 마감을 지나면 최초 제출만 닫고 재제출�
       await vi.advanceTimersByTimeAsync(1000);
     });
     expect(
+      container.querySelector('#submission-trigger-initial-clock')?.tagName,
+    ).toBe('SPAN');
+    expect(
       container.querySelector('#submission-trigger-initial-clock'),
-    ).toHaveProperty('disabled', true);
+    ).toHaveProperty('tabIndex', -1);
     expect(
       container.querySelector('#submission-trigger-revision-clock')?.tagName,
     ).toBe('A');

@@ -1,5 +1,10 @@
 import { dashboardFixture } from '@/features/dashboard/fixtures';
 import type {
+  DashboardItem,
+  DashboardMilestone,
+  StudentDashboard,
+} from '@/features/dashboard/types';
+import type {
   ArchiveApplicationMode,
   ArchiveTrackType,
 } from '@/features/archive/types';
@@ -45,7 +50,16 @@ import { BOARD_HANDLERS } from './handlers/board-handlers';
 import { MILESTONE_DOCUMENT_HANDLERS } from './handlers/milestone-document-handlers';
 import { PROGRAM_OVERVIEW_HANDLERS } from './handlers/program-overview-handlers';
 import { STAFF_HANDLERS } from './handlers/staff-handlers';
-import { STUDENT_HANDLERS } from './handlers/student-handlers';
+import {
+  STUDENT_HANDLERS,
+  resolveProgramTeam,
+  visibleApplication,
+} from './handlers/student-handlers';
+import {
+  PUBLIC_PROGRAM_IDS,
+  programDetailFor,
+  type PublicProgramId,
+} from './handlers/student-program-fixtures';
 import { TEAM_INVITATION_HANDLERS } from './handlers/team-invitation-handlers';
 import { STUDENT_JOURNEY_RESPONSES } from './student-journey-fixtures';
 
@@ -889,6 +903,117 @@ function publicProjectId(path: string): string | null {
   return matched?.[1] ?? null;
 }
 
+/**
+ * 학생 대시보드 주소 세 벌. 화면 어댑터(`features/dashboard/api.ts`)는 **정확히 이
+ * 경로들만** 통과시키고 하나라도 어긋나면 응답 전체를 던진다 — 카드 하나가 빠지는
+ * 것이 아니라 대시보드가 통째로 오류 화면이 된다. 그래서 주소를 손으로 적지 않고
+ * 한 자리에서 만든다.
+ */
+function programPath(programId: string): string {
+  return `/programs/${encodeURIComponent(programId)}`;
+}
+
+function teamPath(programId: string): string {
+  return `${programPath(programId)}/my-team`;
+}
+
+/**
+ * 승인 전에는 저장소가 없다. 승인됐는데 기준 카드가 없는 프로그램(검토 중에 새로
+ * 낸 신청)은 **아직 아무 것도 시작되지 않은** 상태가 사실이다 — 여기서 성공한
+ * GitHub 저장소를 지어내면 로컬 검토가 실제로는 존재하지 않는 화면을 보여준다.
+ */
+const NOT_STARTED_REPOSITORY = {
+  repositoryName: null,
+  provisionStatus: 'NOT_STARTED',
+  invitationStatus: null,
+  githubUrl: null,
+} as const satisfies NonNullable<DashboardItem['repository']>;
+
+/**
+ * 저장소 표현은 화면과 같은 canonical 대시보드 픽스처에서 가져온다. 여기서 다시
+ * 만들면 계약 소유자가 둘이 되어, 대시보드 카드의 저장소 칸만 조용히 어긋난다.
+ */
+const DASHBOARD_BASELINE_ITEMS = new Map(
+  dashboardFixture.items.map((item) => [item.programId, item] as const),
+);
+
+/**
+ * 다음 마일스톤은 **실제 마일스톤 데이터**에서 고른다 — 프로그램 상세가 학생에게
+ * 주는 것과 같은 투영(`programDetailFor`)이라, 상세 화면과 대시보드 카드가 서로
+ * 다른 마일스톤을 말하지 않는다. 이미 승인된 것과 이 학생에게 제출 대상이 아닌 것
+ * (`viewerSubmissionStatus === null`)은 남은 일이 아니므로 건너뛴다. 전부 걸러지면
+ * 남은 마일스톤이 없는 것이고, 그때만 `null`이다.
+ */
+function nextMilestoneFor(
+  programId: PublicProgramId,
+): DashboardMilestone | null {
+  const detail = programDetailFor(programId, 'STUDENT');
+  const milestones = [...detail.milestones].sort(
+    (left, right) => Date.parse(left.dueAt) - Date.parse(right.dueAt),
+  );
+  for (const milestone of milestones) {
+    const submissionStatus = milestone.viewerSubmissionStatus;
+    if (submissionStatus === null || submissionStatus === 'APPROVED') continue;
+    return {
+      id: milestone.id,
+      name: milestone.name,
+      dueAt: milestone.dueAt,
+      submissionStatus,
+    };
+  }
+  return null;
+}
+
+/**
+ * 대시보드 카드 한 장. **지금 소속된 팀이 있고 지금 살아 있는 신청이 있을 때만**
+ * 만들어진다(#1269).
+ *
+ * 팀과 신청 모두 검토 세션에 persist 된 값을 **핸들러가 쓰는 그 함수 그대로** 읽는다
+ * (`resolveProgramTeam`·`visibleApplication`). 여기서 폴백을 다시 구현하면 탈퇴
+ * 무덤·취소 무덤을 한쪽만 알게 되어, 방금 나간 팀의 카드가 대시보드에만 남거나
+ * 취소한 신청이 되살아난다 — 검토자는 그것을 제품 결함으로 읽는다.
+ *
+ * 신청은 **보이는 신청**을 쓴다 — 팀을 떠난 사람은 기록이 내부적으로 남아 있어도
+ * 참가자 카드를 받지 않아야 한다.
+ */
+function studentDashboardItemFor(
+  programId: PublicProgramId,
+): DashboardItem | null {
+  const team = resolveProgramTeam(programId);
+  if (team === null) return null;
+  const application = visibleApplication(programId);
+  if (application === null) return null;
+
+  const approved = application.status === 'APPROVED';
+  return {
+    applicationId: application.id,
+    programId,
+    programName: programDetailFor(programId, 'STUDENT').name,
+    // 이름은 **지금** 그 팀의 이름이다. 이름을 바꾸면 카드도 따라 바뀐다.
+    teamName: team.name,
+    teamUrl: teamPath(programId),
+    applicationStatus: application.status,
+    nextMilestone: approved ? nextMilestoneFor(programId) : null,
+    // 판정 전·반려는 신청서 화면으로 간다 — 반려 사유가 실려 오는 화면이 그곳뿐이다(#733).
+    detailUrl: approved
+      ? programPath(programId)
+      : `${programPath(programId)}/apply`,
+    checklistUrl: `${programPath(programId)}/submissions`,
+    repository: approved
+      ? (DASHBOARD_BASELINE_ITEMS.get(programId)?.repository ??
+        NOT_STARTED_REPOSITORY)
+      : null,
+  };
+}
+
+function studentDashboard(): StudentDashboard {
+  return {
+    items: PUBLIC_PROGRAM_IDS.map(studentDashboardItemFor).filter(
+      (item): item is DashboardItem => item !== null,
+    ),
+  };
+}
+
 export function resolveLocalReviewResponse({
   fixture,
   method,
@@ -960,7 +1085,7 @@ export function resolveLocalReviewResponse({
       // 빈 대시보드가 떠서 복구된 것으로 보이지 않는다.
       fixture === 'error-once')
   ) {
-    return json(200, dashboardFixture);
+    return json(200, studentDashboard());
   }
 
   const studentJourneyBody = STUDENT_JOURNEY_RESPONSES[path];
