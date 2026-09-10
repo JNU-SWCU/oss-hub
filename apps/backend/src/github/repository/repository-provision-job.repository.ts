@@ -85,6 +85,7 @@ export class RepositoryProvisionJobRepository {
           JOIN "Application" AS application ON application."id" = job."applicationId"
           JOIN "Program" AS program ON program."id" = application."programId"
           WHERE job."status" = CAST(${RepositoryProvisionJobStatus.SUCCEEDED} AS "RepositoryProvisionJobStatus")
+            AND job."repositoryId" IS NOT NULL
             AND job."nextAttemptAt" <= ${input.now}
             AND application."repositoryConnectionMode" = CAST(${RepositoryConnectionMode.NEW} AS "RepositoryConnectionMode")
             AND program."repositoryProvisioningEnabled" = TRUE

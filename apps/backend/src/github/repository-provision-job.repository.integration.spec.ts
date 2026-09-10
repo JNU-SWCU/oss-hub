@@ -199,9 +199,7 @@ describe('RepositoryProvisionJobRepository integration', () => {
       ),
     ).rejects.toBeInstanceOf(RepositoryProvisionLeaseLostError);
   });
-});
 
-describe('RepositoryProvisionJobRepository reconciliation claim', () => {
   it('대기 초대가 없어도 관리형 NEW 완료 job을 재조회 시각에 다시 임대한다', async () => {
     // Given: 초대 행이 하나도 없는 성공 job의 재조회 시각이 도래했다.
     const applicationId = 'synthetic-job-recurring';
