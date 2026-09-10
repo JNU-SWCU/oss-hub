@@ -131,10 +131,10 @@ describe('staleApplicationDecisionTitle', () => {
     );
   });
 
-  it('프로비저닝이 끝난 승인 되돌리기는 코드만으로도 사람 말 안내를 쓴다', () => {
+  it('프로비저닝이 끝난 승인을 반려로 바꾸려면 코드만으로도 사람 말 안내를 쓴다', () => {
     expect(
       staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_023'))),
-    ).toBe('저장소가 이미 만들어진 승인은 되돌릴 수 없습니다');
+    ).toBe('저장소가 이미 만들어진 승인은 반려로 바꿀 수 없습니다');
   });
 
   it('revertBlockedReason 이 같이 실려도 같은 사람 말 안내를 쓴다', () => {
@@ -146,10 +146,10 @@ describe('staleApplicationDecisionTitle', () => {
             'repository provision already succeeded; undo is locked to protect the provisioned repository',
         } as ProblemDetail & { readonly revertBlockedReason: string }),
       ),
-    ).toBe('저장소가 이미 만들어진 승인은 되돌릴 수 없습니다');
+    ).toBe('저장소가 이미 만들어진 승인은 반려로 바꿀 수 없습니다');
   });
 
-  it('일반 409와 되돌리기 잠금 409는 서로 다른 문구를 쓴다', () => {
+  it('일반 409와 전환 잠금 409는 서로 다른 문구를 쓴다', () => {
     expect(
       staleApplicationDecisionTitle(new ApiError(problem(409, 'APP_002'))),
     ).not.toBe(

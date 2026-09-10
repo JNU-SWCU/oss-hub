@@ -105,12 +105,13 @@ const RECRUITMENT_STATE_BADGES: Readonly<
   ended: { status: 'ended', label: PROGRAM_LIST_STATUS_LABELS.ended },
 };
 
+/** 표시 문구만 신청·반려로 묶고 카드 권한에 쓰는 내부 상태는 유지한다. */
 const APPLICATION_STATUS_BADGES: Readonly<
   Record<ApplicationStatus, ProgramListBadge>
 > = {
-  SUBMITTED: { status: 'pending', label: '승인 대기' },
-  APPROVED: { status: 'approved', label: '승인됨' },
-  REJECTED: { status: 'rejected', label: '반려됨' },
+  SUBMITTED: { status: 'pending', label: '신청' },
+  APPROVED: { status: 'approved', label: '신청' },
+  REJECTED: { status: 'rejected', label: '반려' },
 };
 
 /**

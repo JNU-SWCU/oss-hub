@@ -133,19 +133,14 @@ export function StudentDashboardCard({
             {item.teamName}
           </span>
         </p>
+        {/* 표시 문구와 별개로 제출·저장소 접근 조건은 기존 상태로 판단한다. */}
         <CardAction className="col-start-1 row-start-auto row-span-1 justify-self-start">
           <StatusBadge
             variant={
               isPending ? 'pending' : isRejected ? 'rejected' : 'approved'
             }
           >
-            {isPending
-              ? '승인 대기'
-              : isRejected
-                ? '신청 반려'
-                : isCompleted
-                  ? '완료'
-                  : '참여 중'}
+            {isRejected ? '반려' : '신청'}
           </StatusBadge>
         </CardAction>
       </CardHeader>

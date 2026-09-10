@@ -13,11 +13,16 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
+/**
+ * 화면이 여는 판정은 승인·반려 둘뿐이다 — 「검토 대기로」는 사라졌고, 이미 판정된
+ * 신청도 반대쪽 판정을 한 요청으로 바로 받는다.
+ */
+type DialogAction = Exclude<ApplicationDecisionAction, 'REVERT'>;
+
 const TRIGGER_LABELS = {
   APPROVE: '승인',
   REJECT: '반려',
-  REVERT: '검토 대기로',
-} as const satisfies Readonly<Record<ApplicationDecisionAction, string>>;
+} as const satisfies Readonly<Record<DialogAction, string>>;
 
 /**
  * 두 화면(목록·상세)이 하는 일을 줄여 놓은 것 — 판정 버튼이 창을 열고,
@@ -32,7 +37,7 @@ function Harness({
   applicantName = '합성 신청자',
   teamName = null,
 }: {
-  readonly action?: ApplicationDecisionAction;
+  readonly action?: DialogAction;
   readonly currentStatus?: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
   readonly errorMessage?: string | null;
   readonly busyAfterConfirm?: boolean;
@@ -52,9 +57,7 @@ function Harness({
       {open ? (
         <ApplicationDecisionDialog
           action={action}
-          currentStatus={
-            currentStatus ?? (action === 'REVERT' ? 'APPROVED' : 'SUBMITTED')
-          }
+          currentStatus={currentStatus ?? 'SUBMITTED'}
           applicantName={applicantName}
           teamName={teamName}
           repositoryProvisioningEnabled={false}
@@ -77,7 +80,7 @@ function Harness({
 
 /**
  * 판정이 저장되어 창이 **스스로** 닫힌 뒤를 줄여 놓은 것 — 창을 연 버튼은 사라지고
- * (「승인」→「검토 대기로」) 화면이 그 새 버튼으로 포커스를 옮긴다([#767]).
+ * 반대쪽 버튼만 남으며(「승인」→「반려」) 화면이 그 버튼으로 포커스를 옮긴다([#767]).
  */
 function SelfClosingHarness() {
   const [decided, setDecided] = useState(false);
@@ -91,7 +94,7 @@ function SelfClosingHarness() {
     <>
       {decided ? (
         <button id="after-decision" type="button">
-          검토 대기로
+          반려
         </button>
       ) : (
         <button id={triggerId} type="button">
@@ -187,7 +190,6 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
   it.each([
     ['APPROVE', '신청 승인'],
     ['REJECT', '신청 반려'],
-    ['REVERT', '검토 대기로'],
   ] as const)(
     '%s 창의 이름이 창 안의 제목을 가리킨다',
     async (action, heading) => {
@@ -209,10 +211,12 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     },
   );
 
-  it.each(['APPROVE', 'REVERT'] as const)(
-    '%s 창의 설명도 창 안의 문단을 가리킨다',
-    async (action) => {
-      await act(async () => root.render(<Harness action={action} />));
+  it.each(['SUBMITTED', 'REJECTED'] as const)(
+    '지금 %s 인 신청의 승인 창도 설명은 창 안의 문단을 가리킨다',
+    async (currentStatus) => {
+      await act(async () =>
+        root.render(<Harness action="APPROVE" currentStatus={currentStatus} />),
+      );
 
       const opened = dialog();
       const describedBy = opened?.getAttribute('aria-describedby');
@@ -304,7 +308,7 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     expect(opened?.contains(document.activeElement)).toBe(true);
   });
 
-  it.each(['APPROVE', 'REJECT', 'REVERT'] as const)(
+  it.each(['APPROVE', 'REJECT'] as const)(
     '%s 창을 Escape 로 닫으면 창을 연 버튼으로 포커스가 돌아온다',
     async (action) => {
       // Given: 그 판정의 확인창이 열려 있다.
@@ -355,7 +359,7 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     await act(async () => root.render(<SelfClosingHarness />));
     await act(async () => getButton('승인 확정').click());
     expect(dialog()).toBeNull();
-    const replacement = getButton('검토 대기로');
+    const replacement = getButton('반려');
     expect(document.activeElement).toBe(replacement);
 
     // When: 창이 미뤄 둔 포커스 복귀가 뒤늦게 일어난다.
@@ -464,22 +468,45 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
       expect(labels).not.toContain('제목');
     });
 
-    it('REVERT 창의 제목·확정 버튼 문구가 「검토 대기로」다', async () => {
-      await act(async () => root.render(<Harness action="REVERT" />));
+    it('검토 대기 신청의 승인 창은 없는 반려 사유를 말하지 않는다', async () => {
+      await act(async () => root.render(<Harness action="APPROVE" />));
 
-      expect(getButton('검토 대기로 되돌리기')).toBeTruthy();
+      expect(getButton('승인 확정')).toBeTruthy();
+      expect(dialog()?.textContent).not.toContain('반려 사유는 지워집니다');
+    });
+  });
+
+  describe('판정을 반대쪽으로 바꾸는 창은 무엇이 바뀌는지를 그대로 말한다', () => {
+    it('반려된 신청의 승인 창은 반려 사유가 지워진다고 미리 말한다', async () => {
+      // 눌러 놓고 뒤에 사유가 사라졌다는 것을 알면 교직원은 자기가 무엇을 눌렀는지 모른다.
+      await act(async () =>
+        root.render(<Harness action="APPROVE" currentStatus="REJECTED" />),
+      );
+
+      expect(getButton('승인 확정')).toBeTruthy();
+      expect(dialog()?.textContent).toContain('이미 반려한 신청입니다.');
       expect(dialog()?.textContent).toContain(
-        '승인을 철회하고 다시 검토 대기로 둡니다.',
+        '지금 남아 있는 반려 사유는 지워집니다.',
       );
     });
 
-    it('반려된 신청의 되돌리기 창은 반려 철회를 말한다', async () => {
+    it('승인된 신청의 반려 창은 검토 대기로 되돌린다고 말하지 않는다', async () => {
+      // 중간 상태를 거치는 것처럼 말하면 학생이 반려를 보는 시점을 잘못 잡는다.
       await act(async () =>
-        root.render(<Harness action="REVERT" currentStatus="REJECTED" />),
+        root.render(<Harness action="REJECT" currentStatus="APPROVED" />),
       );
 
+      expect(getButton('반려 확정')).toBeTruthy();
+      expect(dialog()?.textContent).toContain('검토 대기를 거치지 않고');
+      expect(dialog()?.textContent).not.toContain('되돌립니다');
+    });
+
+    it('검토 대기 신청의 반려 창은 전환 안내를 넣지 않는다', async () => {
+      await act(async () => root.render(<Harness action="REJECT" />));
+
+      expect(dialog()?.textContent).not.toContain('이미 승인한 신청입니다.');
       expect(dialog()?.textContent).toContain(
-        '반려를 철회하고 다시 검토 대기로 둡니다.',
+        '적은 사유는 학생에게 그대로 보입니다.',
       );
     });
   });

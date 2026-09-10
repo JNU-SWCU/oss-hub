@@ -194,19 +194,52 @@ describe('getProgramListBadge', () => {
         { ...hackathon, viewerApplicationStatus: 'SUBMITTED' },
         now,
       ),
-    ).toEqual({ status: 'pending', label: '승인 대기' });
+    ).toEqual({ status: 'pending', label: '신청' });
     expect(
       getProgramListBadge(
         { ...hackathon, viewerApplicationStatus: 'APPROVED' },
         now,
       ),
-    ).toEqual({ status: 'approved', label: '승인됨' });
+    ).toEqual({ status: 'approved', label: '신청' });
     expect(
       getProgramListBadge(
         { ...hackathon, viewerApplicationStatus: 'REJECTED' },
         now,
       ),
-    ).toEqual({ status: 'rejected', label: '반려됨' });
+    ).toEqual({ status: 'rejected', label: '반려' });
+  });
+
+  /**
+   * 학생이 읽는 문구는 둘로 줄였지만 그것이 상태를 지우진 않는다 — 카드 색과
+   * openable 판정을 겸하는 `status`는 서버 상태 그대로 갈라 있어야 한다.
+   */
+  it('keeps SUBMITTED and APPROVED apart in status while both read 신청', () => {
+    const submitted = getProgramListBadge(
+      { ...hackathon, viewerApplicationStatus: 'SUBMITTED' },
+      now,
+    );
+    const approved = getProgramListBadge(
+      { ...hackathon, viewerApplicationStatus: 'APPROVED' },
+      now,
+    );
+
+    expect(submitted.label).toBe(approved.label);
+    expect(submitted.status).not.toBe(approved.status);
+  });
+
+  it('never labels a student card with the old three-way copy', () => {
+    const labels = (['SUBMITTED', 'APPROVED', 'REJECTED'] as const).map(
+      (status) =>
+        getProgramListBadge(
+          { ...hackathon, viewerApplicationStatus: status },
+          now,
+        ).label,
+    );
+
+    expect(labels).toEqual(['신청', '신청', '반려']);
+    expect(labels).not.toContain('승인 대기');
+    expect(labels).not.toContain('승인됨');
+    expect(labels).not.toContain('반려됨');
   });
 
   it('staff (no viewerApplicationStatus) keeps seeing the plain recruiting badge', () => {

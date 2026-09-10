@@ -246,6 +246,13 @@ function applyLink(): Element | null {
   return host.querySelector('a[href="/programs/program-1/apply"]');
 }
 
+/** 머리글의 상태 배지 — 없으면 `null`. 명단·카드 안의 배지와 섞이지 않는다. */
+function headerBadge(): Element | null {
+  return host.querySelector(
+    '[data-slot="page-header-actions"] [data-slot="status-badge"]',
+  );
+}
+
 /** 「신청 상태」 카드 하나 — 카드 머리의 글자로 찾는다. */
 function stageCard(): Element {
   const found = Array.from(host.querySelectorAll('[data-slot="card"]')).find(
@@ -316,9 +323,13 @@ describe('ProgramMyTeamPage 접근', () => {
 });
 
 describe('ProgramMyTeamPage 신청 상태', () => {
-  it('팀장의 미제출 상태는 작성 중으로 말하고 이어 쓸 자리를 준다', async () => {
+  it('팀장의 미제출 상태는 상태 배지 없이 이어 쓸 자리만 준다', async () => {
     await renderPage();
-    expect(host.textContent).toContain('신청 작성 중');
+    // 내지 않은 신청서를 낸 것처럼 말하는 배지를 달지 않는다.
+    expect(host.querySelector('[data-slot="page-header-actions"]')).toBeNull();
+    expect(host.textContent).not.toContain('신청 작성 중');
+    // 없는 신청을 설명하는 사실과 진짜 신청 입구는 그대로 남는다.
+    expect(host.textContent).toContain('아직 제출된 신청서가 없습니다');
     expect(host.textContent).toContain('신청서 작성');
     expect(applyLink()).not.toBeNull();
     // 임시 저장이 없는데 있는 것처럼 말하지 않는다.
@@ -335,7 +346,7 @@ describe('ProgramMyTeamPage 신청 상태', () => {
       canRemoveMembers: false,
     });
     await renderPage({ nickname: 'synthetic-member' });
-    expect(host.textContent).toContain('신청 작성 중');
+    expect(host.querySelector('[data-slot="page-header-actions"]')).toBeNull();
     expect(host.textContent).toContain('신청서는 팀장이 작성해 제출합니다');
     expect(applyLink()).toBeNull();
     expect(host.textContent).not.toContain('신청서 작성');
@@ -346,7 +357,10 @@ describe('ProgramMyTeamPage 신청 상태', () => {
     vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
     vi.mocked(getMyApplication).mockResolvedValue(application);
     await renderPage();
-    expect(host.textContent).toContain('신청 검토 대기');
+    // 학생이 읽는 표시는 「신청」 하나다 — 검토 단계를 따로 말하지 않는다.
+    expect(headerBadge()?.textContent).toBe('신청');
+    expect(host.textContent).not.toContain('신청 검토 대기');
+    expect(host.textContent).toContain('교직원 검토를 기다리는 중입니다');
     expect(host.textContent).toContain('합성 신청서');
     expect(
       stageCard().querySelector('[data-slot="card-content"]'),
@@ -365,7 +379,7 @@ describe('ProgramMyTeamPage 신청 상태', () => {
       canManage: false,
     });
     await renderPage();
-    expect(host.textContent).toContain('신청 반려');
+    expect(headerBadge()?.textContent).toBe('반려');
     expect(host.textContent).toContain('팀 최소 인원을 채우지 못했습니다.');
     expect(host.textContent).not.toContain(SLOT_TEXT);
   });
@@ -378,10 +392,10 @@ describe('ProgramMyTeamPage 신청 상태', () => {
     vi.mocked(getMyApplication).mockResolvedValueOnce(application);
     await renderPage();
     expect(host.textContent).toContain('팀 신청서를 찾지 못했습니다');
-    expect(host.textContent).not.toContain('신청 작성 중');
+    expect(headerBadge()).toBeNull();
     expect(host.textContent).not.toContain('신청서 작성');
     await act(async () => button('다시 시도').click());
-    expect(host.textContent).toContain('신청 검토 대기');
+    expect(headerBadge()?.textContent).toBe('신청');
   });
 
   it('승인된 팀에는 실제 활동 집계와 제출 현황 조각을 함께 낸다', async () => {
@@ -402,7 +416,10 @@ describe('ProgramMyTeamPage 신청 상태', () => {
       },
     ]);
     await renderPage();
-    expect(host.textContent).toContain('참여 승인');
+    // 승인도 학생에게는 「신청」으로 읽힌다. 승인이 열어 준 것은 문구가 아니라
+    // 아래의 활동 집계·제출 현황 자리다.
+    expect(headerBadge()?.textContent).toBe('신청');
+    expect(host.textContent).not.toContain('참여 승인');
     // 승인된 팀의 신청 상태 카드는 상태와 제출 사실만 남는다 — 빈 본문을
     // 그려 카드 안에 빈 틈을 만들지 않는다.
     expect(stageCard().querySelector('[data-slot="card-content"]')).toBeNull();

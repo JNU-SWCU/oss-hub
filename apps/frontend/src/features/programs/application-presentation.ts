@@ -13,18 +13,14 @@ import type {
  * 것을 쓴다** — 같은 신청이 여러 화면에서 다른 낱말로 불리면 교직원이 다른 것으로
  * 읽는다.
  *
- * `SUBMITTED`가 「검토 대기」인 이유([#869]): 판정(승인/반려/되돌리기)을 신청 상세로
- * 몰아준 뒤로는 목록·참여 팀 화면 모두 판정 자체가 아니라 "볼 차례"를 알리는 자리라,
- * 라벨도 그 사실에 맞춘다.
+ * `SUBMITTED`가 「검토 대기」인 이유([#869]): 판정(승인·반려)을 신청 상세로 몰아준
+ * 뒤로는 목록·참여 팀 화면 모두 판정 자체가 아니라 "볼 차례"를 알리는 자리라, 라벨도
+ * 그 사실에 맞춘다. 교직원이 기다리는 상태를 가리키는 말이므로, 판정 조작이 승인·반려
+ * 둘로 줄어든 뒤에도 그대로다.
  *
- * ⚠ **아래 두 상수는 교직원 화면 전용이다.** 학생 본인에게는 자기 신청이 「제출됨」이
- * 맞다 — 「검토 대기」는 교직원 시점의 낱말이라 학생 화면에 그대로 쓰면 잘못 읽힌다.
- * 그래서 학생이 보는 화면들은 이름·값이 겹치더라도 **각자 독립된 상수**를 쓴다(같은
- * "제출됨"이라도 이 모듈의 것과 무관하다):
- * - `program-detail-format.ts` — 프로그램 상세의 내 신청 상태
- * - `submissions/submission-checklist.ts` — 제출물 체크리스트
- * 새 화면에서 신청 상태를 표시해야 한다면, 그 화면이 교직원용인지부터 확인하고 —
- * 학생용이면 이 상수를 재사용하지 말고 그 화면만의 상수를 새로 둔다.
+ * 아래 두 상수는 교직원 화면 전용이다. 학생의 프로그램 카드·우리 팀·대시보드는
+ * 신청·반려로 표시하되 실제 권한은 서버 상태로 판단한다. 마일스톤 제출 상태와도
+ * 공유하지 않는다.
  */
 
 export const APPLICATION_STATUS_LABELS: Readonly<
@@ -43,9 +39,13 @@ export const APPLICATION_STATUS_BADGE: Readonly<
   REJECTED: 'rejected',
 };
 
-/** 팀이 아직 신청서를 내지 않은 행의 배지(`program-staff-teams-page`). 다른 값이
- * 전부 명사라 형식을 맞춘다. */
-export const NO_APPLICATION_LABEL = '미신청';
+/**
+ * 신청이 없는 팀을 가리키는 낱말. 지금은 참여 팀 화면의 **거르기 칩 전용**이다 —
+ * 행의 배지로는 쓰지 않는다. 「신청이 없다」는 상태 배지가 아니라 상태가 없다는
+ * 뜻이기 때문이다. 거르는 기준으로 읽힐 말이라 「미신청」보다 「신청 없음」이 계약에
+ * 가깝다.
+ */
+export const NO_APPLICATION_LABEL = '신청 없음';
 
 /** 승인·반려는 신청 상세에서만 한다 — 목록·참여 팀 화면의 행 액션은 그리로 보내는
  * 링크뿐이다([#869]). */
@@ -64,12 +64,13 @@ export const PROVISIONING_LABELS: Readonly<
   ANOMALOUS: '확인 필요',
 };
 
-/** 서버 APP_023 조건 중 API에서 확인할 수 있는 완료 상태. 설정 해제 후에도 적용한다. */
+/** 이미 생성된 NEW 저장소는 설정 해제나 권한 재조회 중에도 승인 해제를 막는다. */
 export function isApplicationRevertBlocked(item: ApplicationListItem): boolean {
   return (
     item.status === 'APPROVED' &&
     item.repositoryConnectionMode === 'NEW' &&
-    item.repositoryProvisioning.jobStatus === 'SUCCEEDED'
+    (item.repository !== null ||
+      item.repositoryProvisioning.jobStatus === 'SUCCEEDED')
   );
 }
 
@@ -130,15 +131,15 @@ export function participationLabel(item: ApplicationListItem): string {
  * 404를 일반 오류로 흘리면 화면이 갱신되지 않아 이미 사라진 신청이 계속 대기 상태로
  * 남고, 다시 눌러도 같은 404가 반복된다.
  *
- * 프로비저닝이 끝난 승인 되돌리기(409 + `revertBlockedReason` / `APP_023`)도 같은
- * 경로로 처리한다. 다시 읽되, 내부 잠금 사유 문자열 대신 사람 말 안내를 쓴다.
+ * 프로비저닝이 끝난 승인을 반려로 바꾸려 한 경우(409 + `revertBlockedReason` / `APP_023`)도
+ * 같은 경로로 처리한다. 다시 읽되, 내부 잠금 사유 문자열 대신 사람 말 안내를 쓴다.
  */
 export function staleApplicationDecisionTitle(error: unknown): string | null {
   if (!(error instanceof ApiError)) return null;
   if (error.problem.status === 404) return '신청이 이미 취소되었습니다';
   if (error.problem.status === 409) {
     if (isRevertBlockedDecisionError(error.problem)) {
-      return '저장소가 이미 만들어진 승인은 되돌릴 수 없습니다';
+      return '저장소가 이미 만들어진 승인은 반려로 바꿀 수 없습니다';
     }
     return '신청 상태가 변경되었습니다';
   }
@@ -164,9 +165,9 @@ function isRevertBlockedDecisionError(problem: {
  * 신청이 하나뿐이라 `applicationId` 없이 부른다. `applicationId` 매개변수와 그걸
  * 쓰는 행별 분기는 목록이 판정을 되찾을 때를 위해 남겨 둔 것이고, 지금
  * 프로덕션 경로에는 없다([#869]).
- * ⚠ 승인·반려에 **성공**하면 그 버튼이 사라진다(「승인」이 「검토 대기로」로 바뀐다). 그때
- * 어디로 돌려줄지는 `application-decision-focus.ts` 가 같은 규칙으로 정한다 —
- * 같은 행의 **새 버튼**이고, 그것은 재조회가 끝난 뒤에야 생긴다([#767]).
+ * ⚠ 승인·반려에 **성공**하면 방금 누른 버튼이 사라지고 반대쪽 판정 버튼만 남는다
+ * (「승인」을 확정하면 「반려」만). 그때 어디로 돌려줄지는 `application-decision-focus.ts`
+ * 가 같은 규칙으로 정한다 — 그 새 버튼은 재조회가 끝난 뒤에야 생긴다([#767]).
  */
 export function applicationDecisionTriggerId(
   action: ApplicationDecisionAction,

@@ -59,7 +59,7 @@ describe('StudentDashboardView', () => {
     expect(firstItemOf(dashboardFixture).teamName).toBe('합성 1인 팀');
     expect(html).not.toContain('개인');
     expect(html).not.toContain('PERSONAL');
-    expect(html).toContain('참여 중');
+    expect(html).toContain('>신청<');
     expect(html).toContain('미제출');
     expect(html).toContain('D-3');
     expect(html).toContain('7월 26일 23:59 마감');
@@ -67,9 +67,9 @@ describe('StudentDashboardView', () => {
 
   it.each([
     ['참여', dashboardFixture],
-    ['승인 대기', pendingDashboardFixture],
+    ['판정 전 신청', pendingDashboardFixture],
     ['반려', rejectedDashboardFixture],
-    ['완료', completedDashboardFixture],
+    ['제출을 마친 신청', completedDashboardFixture],
   ] as const)('%s 카드도 팀 이름과 우리 팀 입구를 잃지 않는다', (_l, data) => {
     const item = firstItemOf(data);
     const html = renderView({ data });
@@ -223,10 +223,11 @@ describe('StudentDashboardView', () => {
     expect(retryableFailureHtml).not.toContain('저장소 생성에 실패했습니다.');
   });
 
-  it('승인 대기 신청에는 제출 링크나 마일스톤을 노출하지 않는다', () => {
+  it('판정 전 신청에는 제출 링크나 마일스톤을 노출하지 않는다', () => {
     const html = renderView({ data: pendingDashboardFixture });
 
-    expect(html).toContain('승인 대기');
+    expect(html).toContain('>신청<');
+    // 말은 승인된 신청과 같으니, 왜 지금은 제출할 수 없는지를 본문이 말해야 한다.
     expect(html).toContain('승인되면 다음 일정이 표시됩니다.');
     expect(html).toContain('신청 상세');
     expect(html).not.toContain('제출 현황');
@@ -235,11 +236,38 @@ describe('StudentDashboardView', () => {
     );
   });
 
+  /**
+   * 학생이 보는 신청 상태 말은 「신청」과 「반려」 둘뿐이다. 다만 말을 합치는 것과
+   * 할 수 있는 일을 합치는 것은 다른 문제다 — 판정 전과 승인은 여전히 서로 다른
+   * 입구를 갖고, 그 차이를 카드 본문이 문장으로 설명한다.
+   */
+  it('판정 전과 승인은 같은 「신청」을 달아도 할 수 있는 일이 다르다', () => {
+    const pendingHtml = renderView({ data: pendingDashboardFixture });
+    const approvedHtml = renderView({ data: dashboardFixture });
+
+    // 같은 말
+    expect(pendingHtml).toContain('>신청<');
+    expect(approvedHtml).toContain('>신청<');
+    expect(pendingHtml).not.toContain('>반려<');
+
+    // 다른 능력 — 판정 전에는 제출도 저장소도 없고 신청서만 열린다.
+    expect(pendingHtml).toContain('신청 상세');
+    expect(pendingHtml).not.toContain('제출 현황');
+    expect(pendingHtml).not.toContain('내 저장소');
+    expect(approvedHtml).not.toContain('신청 상세');
+    expect(approvedHtml).toContain('제출 현황');
+    expect(approvedHtml).toContain('내 저장소');
+    // 승인된 신청에는 제출을 막는 설명이 붙지 않는다.
+    expect(approvedHtml).not.toContain('승인되면 다음 일정이 표시됩니다.');
+  });
+
   it('예정된 제출 항목을 모두 마쳤습니다. 상태를 표시한다', () => {
     const html = renderView({ data: completedDashboardFixture });
 
     expect(html).toContain('예정된 제출 항목을 모두 마쳤습니다.');
-    expect(html).toContain('>완료<');
+    // 마지막 제출까지 끝내도 신청은 여전히 승인된 신청이다 — 세 번째 말을 만들지 않는다.
+    expect(html).toContain('>신청<');
+    expect(html).not.toContain('>완료<');
     expect(html).not.toContain('>참여 중<');
     expect(html).not.toContain('다음 마일스톤');
   });
@@ -247,7 +275,8 @@ describe('StudentDashboardView', () => {
   it('반려 신청에는 신청 상세와 우리 팀만 남기고 제출 입구는 감춘다', () => {
     const html = renderView({ data: rejectedDashboardFixture });
 
-    expect(html).toContain('신청 반려');
+    expect(html).toContain('>반려<');
+    expect(html).not.toContain('>신청<');
     expect(html).toContain('신청이 반려되었습니다.');
     expect(html).toContain('신청 상세');
     expect(html).not.toContain('제출 현황');
@@ -269,7 +298,7 @@ describe('StudentDashboardView', () => {
    * 화면인지도 함께 고정해야, 픽스처가 옛 주소로 돌아가면 여기서 걸린다.
    */
   it.each([
-    ['승인 대기', pendingDashboardFixture],
+    ['판정 전 신청', pendingDashboardFixture],
     ['반려', rejectedDashboardFixture],
   ] as const)(
     '%s 카드의 신청 상세는 응답이 준 신청서 화면으로 간다',

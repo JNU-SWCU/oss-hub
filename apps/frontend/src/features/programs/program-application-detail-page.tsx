@@ -34,6 +34,15 @@ import {
 } from './application-presentation';
 import type { ApplicationDecisionAction, ApplicationListItem } from './types';
 
+/**
+ * 화면이 건네는 판정은 승인·반려 둘뿐이다. 「검토 대기로」(`REVERT`)는 화면에서
+ * 사라졌다 — 이미 판정된 신청은 반대쪽 판정을 **한 요청으로** 곧바로 받는다.
+ * 되돌리기 뒤에 다시 판정하는 두 번 쓰기는 중간에서 끊기면 신청이 아무도 의도하지
+ * 않은 「검토 대기」에 남고, 그 사이의 상태가 학생에게 그대로 보인다.
+ * 백엔드의 되돌리기 API와 감사 기록은 그대로 살아 있고, UI 조작만 없애는 것이다.
+ */
+type DecisionAction = Exclude<ApplicationDecisionAction, 'REVERT'>;
+
 type LoadState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'ready'; readonly application: ApplicationListItem }
@@ -135,8 +144,7 @@ export function ProgramApplicationDetailPage({
   readonly applicationId: string;
 }): ReactElement {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
-  const [dialogAction, setDialogAction] =
-    useState<ApplicationDecisionAction | null>(null);
+  const [dialogAction, setDialogAction] = useState<DecisionAction | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [reasonError, setReasonError] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -149,18 +157,15 @@ export function ProgramApplicationDetailPage({
   const cancelled = useRef(false);
   /**
    * 확인창이 **스스로** 닫힌 뒤 판정 버튼으로 포커스를 돌려준다([#767]).
-   * ⚠ 재조회가 끝난 **뒤에** 불러야 한다 — 승인에 성공하면 새 버튼(「검토 대기로」)은
-   *   재조회 결과가 그려진 뒤에야 생긴다. 목록 화면과 같은 규칙을 쓴다.
+   * ⚠ 재조회가 끝난 **뒤에** 불러야 한다 — 승인에 성공하면 방금 누른 「승인」은 사라지고
+   *   반대쪽 「반려」만 남는데, 그 버튼은 재조회 결과가 그려진 뒤에야 생긴다.
    */
   const requestDecisionFocusReturn = useApplicationDecisionFocusReturn();
 
-  const openDecisionDialog = useCallback(
-    (action: ApplicationDecisionAction): void => {
-      setDecisionError(null);
-      setDialogAction(action);
-    },
-    [],
-  );
+  const openDecisionDialog = useCallback((action: DecisionAction): void => {
+    setDecisionError(null);
+    setDialogAction(action);
+  }, []);
 
   const reload = useCallback(async (): Promise<void> => {
     const application = await getApplicationDetail(applicationId);
@@ -212,36 +217,37 @@ export function ProgramApplicationDetailPage({
       setReasonError(true);
       return;
     }
+    /*
+     * 이미 판정된 신청을 반대쪽으로 바꿀 때도 **이 한 요청뿐이다**. 되돌리기를 먼저
+     * 보낸 뒤 판정을 보내면 둘 사이에서 끊긴 신청이 검토 대기로 남고, 그 상태가
+     * 그대로 학생 화면에 보인다.
+     */
     const input: ApplicationDecisionInput =
       dialogAction === 'APPROVE'
         ? { action: 'APPROVE' }
-        : dialogAction === 'REJECT'
-          ? { action: 'REJECT', reason }
-          : { action: 'REVERT' };
+        : { action: 'REJECT', reason };
     const decidedAction = dialogAction;
     setBusy(true);
     setNotice(null);
     setDecisionError(null);
     try {
-      const result = await decideApplication(applicationId, input);
+      await decideApplication(applicationId, input);
       setDialogAction(null);
       setRejectionReason('');
       try {
         await reload();
+        // 무엇이 저장됐는지는 방금 확정한 판정이 말해 준다 — 응답 상태를 다시
+        // 갈라 쓰면 계약상 올 수 없는 값까지 문구를 준비하게 된다.
         setNotice({
           kind: 'success',
           title:
-            result.status === 'APPROVED'
+            decidedAction === 'APPROVE'
               ? '승인을 저장했습니다'
-              : result.status === 'REJECTED'
-                ? '반려를 저장했습니다'
-                : '검토 대기로 되돌렸습니다',
+              : '반려를 저장했습니다',
           message:
-            result.status === 'APPROVED'
+            decidedAction === 'APPROVE'
               ? '승인 결과와 저장소 작업 상태를 다시 불러왔습니다.'
-              : result.status === 'REJECTED'
-                ? '반려 결과를 다시 불러왔습니다.'
-                : '신청을 다시 검토 대기 상태로 불러왔습니다.',
+              : '반려 결과를 다시 불러왔습니다.',
         });
       } catch {
         setNotice({
@@ -336,11 +342,23 @@ export function ProgramApplicationDetailPage({
   }
 
   const { application } = loadState;
-  const decidable = application.status === 'SUBMITTED';
-  const revertable =
-    application.status === 'APPROVED' || application.status === 'REJECTED';
-  const revertBlocked = isApplicationRevertBlocked(application);
-  const revertBlockedReasonId = `${applicationDecisionTriggerId('REVERT')}-reason`;
+  /*
+   * 남는 것은 「지금 상태가 아닌 쪽」이다 — 검토 대기면 둘 다, 승인이면 반려만,
+   * 반려면 승인만. 지금 상태와 같은 판정을 다시 누르는 버튼은 할 일이 없어 그리지 않는다.
+   */
+  const approvable = application.status !== 'APPROVED';
+  const rejectable = application.status !== 'REJECTED';
+  /*
+   * 서버 APP_023 — 새 저장소가 이미 만들어진 승인은 반려로 바꿀 수 없다. 조건은
+   * 그대로고(승인 + NEW + 생성 완료), 걸리는 버튼만 「검토 대기로」에서 「반려」로 옮겼다.
+   */
+  const rejectBlocked = isApplicationRevertBlocked(application);
+  /*
+   * ⚠ id 문자열은 그대로 둔다 — `application-decision-focus.ts` 가 포커스 후보의
+   *   **마지막 갈 곳**으로 이 id 를 부른다. 반려 버튼이 비활성이라 포커스를 못 받을 때
+   *   교직원이 그 이유를 읽을 수 있게 하는 자리라, 이름만 바꾸면 그 복귀가 끊긴다.
+   */
+  const rejectBlockedReasonId = `${applicationDecisionTriggerId('REVERT')}-reason`;
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
@@ -475,19 +493,24 @@ export function ProgramApplicationDetailPage({
        * 유일한 판정 지점이다.
        */}
       <div className="flex flex-wrap justify-end gap-2">
-        {decidable ? (
-          <>
-            <Button
-              id={applicationDecisionTriggerId('APPROVE')}
-              disabled={busy}
-              onClick={() => openDecisionDialog('APPROVE')}
-            >
-              승인
-            </Button>
+        {approvable ? (
+          <Button
+            id={applicationDecisionTriggerId('APPROVE')}
+            disabled={busy}
+            onClick={() => openDecisionDialog('APPROVE')}
+          >
+            승인
+          </Button>
+        ) : null}
+        {rejectable ? (
+          <div className="flex max-w-full flex-col items-end gap-2">
             <Button
               id={applicationDecisionTriggerId('REJECT')}
               variant="outline"
-              disabled={busy}
+              disabled={busy || rejectBlocked}
+              aria-describedby={
+                rejectBlocked ? rejectBlockedReasonId : undefined
+              }
               onClick={() => {
                 setReasonError(false);
                 setRejectionReason('');
@@ -496,28 +519,13 @@ export function ProgramApplicationDetailPage({
             >
               반려
             </Button>
-          </>
-        ) : null}
-        {revertable ? (
-          <div className="flex max-w-full flex-col items-end gap-2">
-            <Button
-              id={applicationDecisionTriggerId('REVERT')}
-              variant="ghost"
-              disabled={busy || revertBlocked}
-              aria-describedby={
-                revertBlocked ? revertBlockedReasonId : undefined
-              }
-              onClick={() => openDecisionDialog('REVERT')}
-            >
-              검토 대기로
-            </Button>
-            {revertBlocked ? (
+            {rejectBlocked ? (
               <p
-                id={revertBlockedReasonId}
+                id={rejectBlockedReasonId}
                 tabIndex={-1}
                 className="break-keep text-right text-small text-muted-foreground"
               >
-                저장소가 생성되어 승인을 되돌릴 수 없습니다.
+                저장소가 이미 만들어져 이 승인은 반려로 바꿀 수 없습니다.
               </p>
             ) : null}
           </div>

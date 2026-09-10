@@ -43,10 +43,16 @@ export function ApplicationDecisionDialog({
   onCancel,
   onConfirm,
 }: {
-  readonly action: ApplicationDecisionAction;
   /**
-   * 지금 배지. 되돌리기 확인창만 읽는다 — 승인된 신청과 반려된 신청을
-   * 같은 「취소」로 부르지 않고, 철회하는 칸을 밝힌다.
+   * 교직원이 고를 수 있는 판정은 승인·반려 둘뿐이다 — 「검토 대기로」는 화면에서
+   * 사라졌다. 백엔드가 승인↔반려를 **한 요청으로** 바꿔 주므로 되돌린 뒤 다시
+   * 판정하는 두 번 쓰기를 하지 않는다.
+   */
+  readonly action: Exclude<ApplicationDecisionAction, 'REVERT'>;
+  /**
+   * 지금 배지. 이미 판정된 신청을 **반대쪽으로 바꾸는** 경우인지를 이 값으로 가른다 —
+   * 처음 판정하는 것과 남아 있는 판정을 뒤집는 것은 결과가 다르고, 뒤집는 쪽은
+   * 지금 사유가 지워진다는 사실까지 눌리기 전에 말해야 한다.
    */
   readonly currentStatus: ApplicationStatus;
   /**
@@ -77,8 +83,8 @@ export function ApplicationDecisionDialog({
    * 창을 연 버튼의 id. 닫힐 때 그리로 포커스를 돌려준다(`submission-dialog.tsx`와 같은 규칙).
    *
    * ⚠ **취소·Escape 로 닫을 때의 자리다.** 화면이 창을 **스스로** 닫는 경우(판정 성공·
-   *   낡은 상태)에는 그 순간 이 버튼이 아직 `disabled` 이고, 성공 뒤에는 아예 다른
-   *   버튼으로 바뀐다(「승인」→「검토 대기로」). 그때의 복귀는 재조회가 끝나는 시점을 아는
+   *   낡은 상태)에는 그 순간 이 버튼이 아직 `disabled` 이고, 성공 뒤에는 반대쪽
+   *   버튼만 남는다(「승인」을 확정하면 「반려」). 그때의 복귀는 재조회가 끝나는 시점을 아는
    *   화면 쪽이 맡는다(`application-decision-focus.ts`, [#767]).
    */
   readonly returnFocusId: string;
@@ -137,11 +143,7 @@ export function ApplicationDecisionDialog({
         >
           <AlertDialog.Title asChild>
             <h2 className="text-lg font-semibold">
-              {action === 'APPROVE'
-                ? '신청 승인'
-                : isReject
-                  ? '신청 반려'
-                  : '검토 대기로'}
+              {isReject ? '신청 반려' : '신청 승인'}
             </h2>
           </AlertDialog.Title>
           {/*
@@ -170,9 +172,17 @@ export function ApplicationDecisionDialog({
               </div>
             ) : null}
           </dl>
-          {action === 'APPROVE' ? (
+          {!isReject ? (
             <AlertDialog.Description asChild>
               <p className="break-keep">
+                {/*
+                 * 반려된 신청을 승인으로 바꾸는 경우는 「처음 승인」과 결과가 다르다 —
+                 * 지금 화면 위에 그려 있는 반려 사유가 **지워진다**. 눌러 놓고 사유가
+                 * 사라졌다는 것을 뒤에 알게 되면 교직원은 자기가 무엇을 눌렀는지 모른다.
+                 */}
+                {currentStatus === 'REJECTED'
+                  ? '이미 반려한 신청입니다. 판정을 승인으로 바꾸면 지금 남아 있는 반려 사유는 지워집니다. '
+                  : ''}
                 {repositoryConnectionMode === 'OWN'
                   ? '승인하면 신청자가 낸 저장소를 연결합니다. 새 저장소를 만들지 않습니다.'
                   : repositoryProvisioningEnabled
@@ -180,7 +190,7 @@ export function ApplicationDecisionDialog({
                     : '이 신청은 승인해도 저장소를 만들지 않습니다.'}
               </p>
             </AlertDialog.Description>
-          ) : isReject ? (
+          ) : (
             /*
              * 라벨·오류·안내를 `<label>` **바깥**에 둔다. `<label>`이 감싸면 그 안의
              * 글자가 전부 입력칸의 이름이 되어, 스크린리더가 "반려 사유 반려 사유를
@@ -188,6 +198,17 @@ export function ApplicationDecisionDialog({
              * 안에 묻히면 무엇이 라벨이고 무엇이 오류인지 갈리지 않는다.
              */
             <div className="grid gap-2 text-sm">
+              {/*
+               * 승인된 신청을 반려로 바꾸는 경우만 말한다. 「검토 대기로 되돌린다」가
+               * 아니라 **판정이 반려로 바뀐다** — 중간 상태를 거치는 것처럼 말하면
+               * 학생이 반려를 보는 시점을 교직원이 잘못 잡는다.
+               */}
+              {currentStatus === 'APPROVED' ? (
+                <p className="break-keep">
+                  이미 승인한 신청입니다. 확정하면 검토 대기를 거치지 않고
+                  곧바로 반려로 바뀝니다.
+                </p>
+              ) : null}
               <label htmlFor="rejection-reason">반려 사유</label>
               <textarea
                 id="rejection-reason"
@@ -220,14 +241,6 @@ export function ApplicationDecisionDialog({
                 적은 사유는 학생에게 그대로 보입니다.
               </span>
             </div>
-          ) : (
-            <AlertDialog.Description asChild>
-              <p className="break-keep">
-                {currentStatus === 'REJECTED'
-                  ? '반려를 철회하고 다시 검토 대기로 둡니다. 이후 승인·반려를 다시 할 수 있습니다.'
-                  : '승인을 철회하고 다시 검토 대기로 둡니다. 이후 승인·반려를 다시 할 수 있습니다.'}
-              </p>
-            </AlertDialog.Description>
           )}
           {errorMessage !== null ? (
             <Alert variant="destructive">
@@ -253,13 +266,7 @@ export function ApplicationDecisionDialog({
              * 저장이 실패했을 때 적어 둔 사유가 함께 사라진다.
              */}
             <Button disabled={busy} onClick={onConfirm}>
-              {busy
-                ? '처리 중…'
-                : action === 'APPROVE'
-                  ? '승인 확정'
-                  : isReject
-                    ? '반려 확정'
-                    : '검토 대기로 되돌리기'}
+              {busy ? '처리 중…' : isReject ? '반려 확정' : '승인 확정'}
             </Button>
           </div>
         </AlertDialog.Content>

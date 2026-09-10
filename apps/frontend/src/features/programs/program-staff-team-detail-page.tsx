@@ -17,7 +17,6 @@ import { programHref } from './program-paths';
 import {
   APPLICATION_STATUS_BADGE,
   APPLICATION_STATUS_LABELS,
-  NO_APPLICATION_LABEL,
   REVIEW_ACTION_LABEL,
 } from './application-presentation';
 import { ProgramStaffRepositorySection } from './program-staff-repository-section';
@@ -149,10 +148,14 @@ export function ProgramStaffTeamDetailPage({
       <PageHeader
         title={detail.name}
         description={`팀원 ${detail.memberCount}명`}
+        /*
+         * 신청이 없으면 배지 자체를 그리지 않는다(#1272). 없는 신청에 배지를 달면
+         * 대기 중인 신청처럼 읽혀 교직원이 처리할 것이 있다고 오해한다 — 상태가
+         * 아니라 상태가 없는 것이므로 헤더는 조용히 비운다. 아래 「검토하기」도
+         * 같은 이유로 없다.
+         */
         actions={
-          application === null ? (
-            <StatusBadge variant="pending">{NO_APPLICATION_LABEL}</StatusBadge>
-          ) : (
+          application === null ? undefined : (
             <StatusBadge variant={APPLICATION_STATUS_BADGE[application.status]}>
               {APPLICATION_STATUS_LABELS[application.status]}
             </StatusBadge>

@@ -131,11 +131,17 @@ describe('ProgramStaffTeamDetailPage', () => {
     );
   });
 
-  it('신청이 없으면 미신청으로 표시하고 「검토하기」 링크가 없다', async () => {
+  // #1272 — 없는 신청에 배지를 달면 「대기 중인 신청」으로 읽힌다. 헤더는 비운다.
+  it('신청이 없으면 상태 배지를 그리지 않고 「검토하기」 링크도 없다', async () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withoutApplication);
     await render();
 
-    expect(container.textContent).toContain('미신청');
+    expect(
+      container.querySelector('[data-slot="page-header-actions"]'),
+    ).toBeNull();
+    expect(container.textContent).not.toContain('미신청');
+    expect(container.textContent).not.toContain('신청 없음');
+    expect(container.textContent).not.toContain('검토 대기');
     const reviewLink = [...container.querySelectorAll('a')].find(
       (a) => a.textContent?.trim() === '검토하기',
     );
