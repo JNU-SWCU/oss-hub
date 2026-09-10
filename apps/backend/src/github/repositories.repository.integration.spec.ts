@@ -361,7 +361,7 @@ async function createFixtures(): Promise<void> {
       },
       {
         repositoryId: REPOSITORY_IDS[1],
-        githubLogin: `${PREFIX}-current`,
+        githubLogin: `${PREFIX}-Current`,
         status: RepositoryInvitationStatus.PENDING,
       },
     ],

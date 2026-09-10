@@ -405,7 +405,12 @@ export class RepositoriesRepository {
             nameWithOwner: true,
             visibility: true,
             invitations: {
-              where: { githubLogin: user.nickname.toLowerCase() },
+              where: {
+                githubLogin: {
+                  equals: user.nickname.trim(),
+                  mode: 'insensitive',
+                },
+              },
               select: { status: true },
             },
           },
