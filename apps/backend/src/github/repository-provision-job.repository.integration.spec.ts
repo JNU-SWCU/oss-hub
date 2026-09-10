@@ -211,6 +211,10 @@ describe('RepositoryProvisionJobRepository integration', () => {
         attachRepository: true,
       },
     );
+    await prisma.repositoryProvisionJob.update({
+      where: { applicationId },
+      data: { attemptCount: 5 },
+    });
 
     // When: 재조회 claim을 시도한다.
     const claim = await repository.claimNextReconciliation({
@@ -219,8 +223,9 @@ describe('RepositoryProvisionJobRepository integration', () => {
       leaseMs: LEASE_MS,
     });
 
-    // Then: 팀원 변동을 볼 수 있도로 다시 임대하고 시도 횟수는 올리지 않는다.
+    // Then: 이전 주기의 실패 횟수와 무관하게 첫 시도부터 새 예산을 적용한다.
     expect(claim?.applicationId).toBe(applicationId);
+    expect(claim?.attemptCount).toBe(1);
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
         where: { applicationId },
@@ -229,7 +234,7 @@ describe('RepositoryProvisionJobRepository integration', () => {
       status: RepositoryProvisionJobStatus.PROCESSING,
       lockedBy: 'worker-reconcile',
       lockedAt: NOW,
-      attemptCount: 0,
+      attemptCount: 1,
       finishedAt: null,
     });
   });

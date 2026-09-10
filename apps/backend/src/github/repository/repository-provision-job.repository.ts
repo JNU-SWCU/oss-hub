@@ -95,6 +95,7 @@ export class RepositoryProvisionJobRepository {
         )
         UPDATE "RepositoryProvisionJob" AS job
         SET "status" = CAST(${RepositoryProvisionJobStatus.PROCESSING} AS "RepositoryProvisionJobStatus"),
+            "attemptCount" = 1,
             "lockedAt" = ${input.now},
             "lockedBy" = ${input.workerId},
             "finishedAt" = NULL,
