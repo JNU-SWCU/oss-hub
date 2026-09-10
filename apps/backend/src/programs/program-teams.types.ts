@@ -25,13 +25,27 @@ export interface StaffTeamView {
   readonly members: readonly TeamMemberView[];
 }
 
+/**
+ * 로그인한 학생이 보는 내 팀 — 화면이 버튼을 켜고 끌 때 쓰는 능력을 서버가 계산해서
+ * 내려준다. 과거의 `locked`(신청 제출 여부 하나로 모든 팀 편집을 잠그던 플래그)는
+ * 없앴다: 신청이 있어도 팀장은 초대·제외를 계속할 수 있고, 팀원은 스스로 나갈 수
+ * 있으며, 오직 "신청 이력이 있는 팀의 마지막 한 명"만 팀을 비울 수 없다.
+ *
+ * - `hasApplication`: 이 팀 이름으로 제출된 신청이 있는지(사실 표기용).
+ * - `canInvite`: 팀장만 초대할 수 있다.
+ * - `canRemoveMembers`: 팀장이고 자기 말고 다른 팀원이 있을 때만 제외할 수 있다.
+ * - `canLeave`: 다른 팀원이 남아 있거나, 신청 이력이 없어 팀이 사라져도 되는 경우.
+ */
 export interface ProgramTeamView {
   readonly id: string;
   readonly name: string;
   readonly memberCount: number;
   readonly minMembers: number;
   readonly maxMembers: number;
-  readonly locked: boolean;
+  readonly hasApplication: boolean;
+  readonly canInvite: boolean;
+  readonly canRemoveMembers: boolean;
+  readonly canLeave: boolean;
   readonly isLeader: boolean;
   readonly members: readonly TeamMemberView[];
 }

@@ -2,9 +2,9 @@ import { randomBytes } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   createTeamCreatedAuditMetadata,
-  createTeamJoinedAuditMetadata,
+  createTeamMembershipAuditMetadata,
   TEAM_CREATED_AUDIT_ACTIONS,
-  TEAM_JOINED_AUDIT_ACTIONS,
+  TEAM_MEMBERSHIP_AUDIT_ACTIONS,
 } from '../../audit-log/audit-log-metadata';
 import { AuditLogService } from '../../audit-log/audit-log.service';
 import { DomainException } from '../../common/error-code';
@@ -22,6 +22,8 @@ import {
   type StaffTeamDetailRecord,
   type StaffTeamRecord,
   type TeamDetailRecord,
+  type TeamMembershipAuditEvent,
+  type TeamMembershipAuditStore,
   type TeamProgramRecord,
 } from '../repository/program-teams.repository';
 import { TEAMS_ERROR_CODES, TeamsErrorCode } from '../teams-error-code.enum';
@@ -34,6 +36,10 @@ import type {
 
 const JOIN_CODE_ATTEMPTS = 5;
 
+/**
+ * `Team.joinCodeDigest` 는 아직 NOT NULL·UNIQUE 컬럼이라 생성 시점에 한 번 채운다.
+ * 참여코드로 합류하는 경로는 제거됐으므로 이 값을 다시 읽는 소비자는 없다.
+ */
 function generateJoinCode(): string {
   return randomBytes(6).toString('base64url').toUpperCase().slice(0, 10);
 }
@@ -125,85 +131,6 @@ export class ProgramTeamsService {
     };
   }
 
-  async join(
-    githubId: bigint,
-    programId: string,
-    joinCode: string,
-    now: Date = new Date(),
-  ): Promise<ProgramTeamView> {
-    const student = await this.requireStudent(githubId);
-    const program = await this.requireOpenProgram(programId, now);
-    const normalizedCode = joinCode.trim();
-    if (!normalizedCode) {
-      throw this.error(TeamsErrorCode.JOIN_CODE_NOT_FOUND);
-    }
-    const joinCodeDigest = computeJoinCodeDigest(
-      normalizedCode,
-      this.joinCodeSecret,
-    );
-
-    try {
-      await this.repository.withJoinTransaction(async (store) => {
-        const existing = await store.findMembershipByProgramUser(
-          programId,
-          student.id,
-        );
-        if (existing) {
-          throw this.error(TeamsErrorCode.ALREADY_IN_PROGRAM_TEAM);
-        }
-
-        const team = await store.findTeamByJoinCodeDigest(
-          programId,
-          joinCodeDigest,
-        );
-        if (!team) {
-          throw this.error(TeamsErrorCode.JOIN_CODE_NOT_FOUND);
-        }
-        if (team.hasApplication) {
-          throw this.error(TeamsErrorCode.TEAM_LOCKED_AFTER_APPLICATION);
-        }
-        if (team.memberCount >= program.teamMaxSize) {
-          throw this.error(TeamsErrorCode.TEAM_FULL);
-        }
-
-        // #164 패턴: 팀 행을 FOR UPDATE로 잠근 뒤 정원·잠금 판정을 다시 읽어
-        // 확정한다. 위의 findTeamByJoinCodeDigest 스냅샷은 잠금 전이라 동시
-        // 합류 경합 아래 stale할 수 있으므로, 실제 삽입 여부는 이 재조회
-        // 값만 근거로 삼는다.
-        const locked = await store.lockTeamForJoin(team.id);
-        if (locked.hasApplication) {
-          throw this.error(TeamsErrorCode.TEAM_LOCKED_AFTER_APPLICATION);
-        }
-        if (locked.memberCount >= program.teamMaxSize) {
-          throw this.error(TeamsErrorCode.TEAM_FULL);
-        }
-
-        await store.addMember(team.id, programId, student.id);
-        await this.auditLog.record(
-          {
-            actorGithubId: githubId,
-            action: TEAM_JOINED_AUDIT_ACTIONS.TEAM_JOINED,
-            targetType: 'TEAM',
-            targetId: team.id,
-            metadata: createTeamJoinedAuditMetadata({
-              programName: program.name,
-              teamName: team.name,
-            }),
-          },
-          store.auditLogWriter,
-        );
-      });
-    } catch (error) {
-      if (error instanceof DomainException) throw error;
-      if (error instanceof TeamMembershipConflictError) {
-        throw this.error(TeamsErrorCode.ALREADY_IN_PROGRAM_TEAM);
-      }
-      throw error;
-    }
-
-    return this.getMe(githubId, programId);
-  }
-
   async getMe(githubId: bigint, programId: string): Promise<ProgramTeamView> {
     const student = await this.requireStudent(githubId);
     const program = await this.repository.findProgramById(programId);
@@ -221,20 +148,82 @@ export class ProgramTeamsService {
     return this.toTeamView(detail, student.id);
   }
 
-  async leave(
-    githubId: bigint,
-    programId: string,
-    now: Date = new Date(),
-  ): Promise<void> {
+  /**
+   * 본인 탈퇴 — 신청 제출 후에도, 신청 기간이 닫힌 뒤에도 허용한다. 팀장이 나가면
+   * 남은 팀원 중 선임자가 자동 승계하고, 신청 기록이 있는 팀의 마지막 구성원만
+   * 409로 막아 신청 이력을 보존한다.
+   */
+  async leave(githubId: bigint, programId: string): Promise<void> {
     const student = await this.requireStudent(githubId);
-    await this.requireOpenProgram(programId, now);
-    const result = await this.repository.leave(programId, student.id);
+    const result = await this.repository.leave(
+      programId,
+      student.id,
+      (store, event) => this.recordMembershipAudit(githubId, store, event),
+    );
     if (result === 'not-found') {
       throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
     }
-    if (result === 'locked') {
-      throw this.error(TeamsErrorCode.TEAM_LOCKED_AFTER_APPLICATION);
+    if (result === 'last-member-with-application') {
+      throw this.error(TeamsErrorCode.LAST_MEMBER_WITH_APPLICATION);
     }
+  }
+
+  /**
+   * 팀장의 팀원 제외 — 팀장만 다른 현재 구성원을 제외한다. 본인 제외는 탈퇴가
+   * 승계까지 책임지므로 409로 돌려보낸다. 다른 팀원·없는 사용자는 구분 없는 404다.
+   */
+  async removeMember(
+    githubId: bigint,
+    programId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    const student = await this.requireStudent(githubId);
+    const result = await this.repository.removeMember(
+      programId,
+      student.id,
+      targetUserId,
+      (store, event) => this.recordMembershipAudit(githubId, store, event),
+    );
+    switch (result) {
+      case 'removed':
+        return;
+      case 'actor-not-in-team':
+        throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
+      case 'not-leader':
+        throw this.error(TeamsErrorCode.TEAM_LEADER_REQUIRED);
+      case 'self-target':
+        throw this.error(TeamsErrorCode.SELF_REMOVAL_REQUIRES_LEAVE);
+      case 'target-not-found':
+        throw this.error(TeamsErrorCode.TARGET_MEMBER_NOT_FOUND);
+    }
+  }
+
+  /**
+   * 멤버십 변경과 같은 트랜잭션에서 남기는 감사 기록. 실패하면 그대로 던져
+   * 멤버 삭제·팀장 승계까지 롤백된다.
+   */
+  private async recordMembershipAudit(
+    actorGithubId: bigint,
+    store: TeamMembershipAuditStore,
+    event: TeamMembershipAuditEvent,
+  ): Promise<void> {
+    await this.auditLog.record(
+      {
+        actorGithubId,
+        action: TEAM_MEMBERSHIP_AUDIT_ACTIONS.TEAM_MEMBERSHIP_CHANGED,
+        targetType: 'TEAM',
+        targetId: event.teamId,
+        metadata: createTeamMembershipAuditMetadata({
+          programName: event.programName,
+          teamName: event.teamName,
+          operation: event.operation,
+          removedUserId: event.removedUserId,
+          previousLeaderId: event.previousLeaderId,
+          nextLeaderId: event.nextLeaderId,
+        }),
+      },
+      store.auditLogWriter,
+    );
   }
 
   /**
@@ -328,18 +317,27 @@ export class ProgramTeamsService {
     return program;
   }
 
+  /**
+   * 권한 플래그는 서버가 계산한 미리보기일 뿐이다 — 실제 변경은 팀 행을 잠근 뒤
+   * 다시 판정하는 mutation 경로가 여전히 권위다.
+   */
   private toTeamView(
     detail: TeamDetailRecord,
     viewerUserId: string,
   ): ProgramTeamView {
+    const memberCount = detail.members.length;
+    const isLeader = detail.leaderId === viewerUserId;
     return {
       id: detail.id,
       name: detail.name,
-      memberCount: detail.members.length,
+      memberCount,
       minMembers: detail.teamMinSize,
       maxMembers: detail.teamMaxSize,
-      locked: detail.hasApplication,
-      isLeader: detail.leaderId === viewerUserId,
+      hasApplication: detail.hasApplication,
+      isLeader,
+      canInvite: isLeader,
+      canRemoveMembers: isLeader && memberCount > 1,
+      canLeave: memberCount > 1 || !detail.hasApplication,
       members: detail.members.map((member) => ({
         userId: member.userId,
         nickname: member.nickname,

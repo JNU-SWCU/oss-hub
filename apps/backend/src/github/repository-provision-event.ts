@@ -1,3 +1,5 @@
+import type { Prisma } from '@prisma/client';
+
 export type RepositoryProvisionConnectionMode = 'NEW' | 'OWN';
 
 export interface RepositoryProvisionEventPayload {
@@ -14,8 +16,21 @@ export interface RepositoryProvisionEventPayload {
   readonly repositoryUrl: string | null;
 }
 
+/**
+ * 승인된 신청의 현재 팀원 기준으로 저장소 권한을 다시 맞추라는 요청.
+ * provision 요청과 같은 outbox/consumer/job을 쓰고 새 queue를 만들지 않는다.
+ */
+export interface RepositoryAccessSyncEventPayload {
+  readonly applicationId: string;
+  readonly teamId: string;
+  readonly requestedAt: string;
+}
+
 export const REPOSITORY_PROVISION_EVENT_TYPE =
   'REPOSITORY_PROVISION_REQUESTED' as const;
+
+export const REPOSITORY_ACCESS_SYNC_EVENT_TYPE =
+  'REPOSITORY_ACCESS_SYNC_REQUESTED' as const;
 
 export class InvalidRepositoryProvisionEventError extends Error {
   override readonly name = 'InvalidRepositoryProvisionEventError';
@@ -105,6 +120,53 @@ export function parseRepositoryProvisionEvent(
   };
 }
 
+const ACCESS_SYNC_PAYLOAD_KEYS = [
+  'applicationId',
+  'teamId',
+  'requestedAt',
+] as const;
+
+/// 계약 밖 key가 하나라도 있으면 거부한다 — 권한 동기화 payload는 확장 지점이 아니다.
+export function parseRepositoryAccessSyncEvent(
+  value: unknown,
+): RepositoryAccessSyncEventPayload {
+  if (!isRecord(value)) {
+    throw new InvalidRepositoryProvisionEventError();
+  }
+  const keys = Object.keys(value);
+  if (
+    keys.length !== ACCESS_SYNC_PAYLOAD_KEYS.length ||
+    !ACCESS_SYNC_PAYLOAD_KEYS.every((key) => keys.includes(key))
+  ) {
+    throw new InvalidRepositoryProvisionEventError();
+  }
+  return {
+    applicationId: requiredString(value, 'applicationId'),
+    teamId: requiredString(value, 'teamId'),
+    requestedAt: requiredIsoTimestamp(value, 'requestedAt'),
+  };
+}
+
+/**
+ * 세 인자만으로 결정되는 순수 factory — 여기서 DB나 wall clock을 읽지 않는다.
+ * 같은 (application, 시각)의 재시도만 idempotencyKey로 합쳐지고 이후 팀 변경은 새 row가 된다.
+ */
+export function repositoryAccessSyncEventData(
+  applicationId: string,
+  teamId: string,
+  now: Date,
+): Prisma.OutboxEventCreateManyInput {
+  const requestedAt = now.toISOString();
+  return {
+    type: REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
+    aggregateType: 'Application',
+    aggregateId: applicationId,
+    idempotencyKey: `repository-access-sync:${applicationId}:${requestedAt}`,
+    payload: { applicationId, teamId, requestedAt },
+    availableAt: now,
+  };
+}
+
 type UnknownRecord = { readonly [key: string]: unknown };
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -114,6 +176,15 @@ function isRecord(value: unknown): value is UnknownRecord {
 function requiredString(record: UnknownRecord, key: string): string {
   const value = record[key];
   if (!isNonEmptyString(value)) {
+    throw new InvalidRepositoryProvisionEventError();
+  }
+  return value;
+}
+
+function requiredIsoTimestamp(record: UnknownRecord, key: string): string {
+  const value = requiredString(record, key);
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp) || new Date(timestamp).toISOString() !== value) {
     throw new InvalidRepositoryProvisionEventError();
   }
   return value;

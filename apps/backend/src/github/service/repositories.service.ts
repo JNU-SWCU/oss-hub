@@ -64,34 +64,28 @@ export class RepositoriesService {
   async getMyRepositories(githubId: bigint): Promise<readonly MyRepository[]> {
     const jobs = await this.repository.listOwnedProvisionJobs(githubId);
     return jobs.map((job) => {
-      if (
-        job.repository !== null &&
-        job.repository.applicationId !== job.application.id
-      ) {
+      // 저장소 행은 job status와 독립적으로 살아 있다. 권한 회수/재동기화 때문에
+      // job이 SUCCEEDED를 벗어나도 학생의 저장소는 그대로 존재하므로, status로
+      // 저장소를 숨기면 화면이 "저장소가 사라졌다"고 거짓말한다. 대신 저장소가
+      // 존재하는 모든 phase에서 identity를 검증해 잘못된 행을 노출하지 않는다.
+      const repository = job.repository;
+      if (repository !== null) {
+        if (repository.applicationId !== job.application.id) {
+          throw new RepositoryProvisionStateError();
+        }
+        if (
+          !isValidRepositoryIdentity(
+            repository.name,
+            repository.url,
+            job.application.repositoryConnectionMode,
+            this.organizationConfig.requireOrganization(),
+          )
+        ) {
+          throw new RepositoryProvisionStateError();
+        }
+      } else if (job.status === RepositoryProvisionJobStatus.SUCCEEDED) {
         throw new RepositoryProvisionStateError();
       }
-      if (
-        job.status === RepositoryProvisionJobStatus.SUCCEEDED &&
-        job.repository === null
-      ) {
-        throw new RepositoryProvisionStateError();
-      }
-      if (
-        job.status === RepositoryProvisionJobStatus.SUCCEEDED &&
-        job.repository !== null &&
-        !isValidSucceededRepositoryIdentity(
-          job.repository.name,
-          job.repository.url,
-          job.application.repositoryConnectionMode,
-          this.organizationConfig.requireOrganization(),
-        )
-      ) {
-        throw new RepositoryProvisionStateError();
-      }
-      const repository =
-        job.status === RepositoryProvisionJobStatus.SUCCEEDED
-          ? job.repository
-          : null;
 
       // 개인 참여는 멤버 1명뿐인 팀이다(D5). 팀 유무가 아니라 인원으로 가른다
       // (submission-matrix.service.ts isSoloTeam과 동일 규칙). displayName도
@@ -113,6 +107,8 @@ export class RepositoriesService {
         repositoryName: repository?.name ?? null,
         githubUrl: repository?.url ?? null,
         provisionStatus: job.status,
+        // 초대 상태는 지속된 invitation 행이 유일한 원본이다. 팀원 변경이나
+        // job status에서 회수 여부를 추론하지 않는다.
         invitationStatus: repository?.invitations[0]?.status ?? null,
         visibility: repository?.visibility ?? null,
         lastErrorCode: job.lastErrorCode,
@@ -196,7 +192,7 @@ export class RepositoriesService {
   }
 }
 
-function isValidSucceededRepositoryIdentity(
+function isValidRepositoryIdentity(
   name: string,
   url: string,
   connectionMode: RepositoryConnectionMode,

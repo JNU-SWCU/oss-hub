@@ -154,7 +154,9 @@ describe('ProgramsService detail', () => {
     expect(detail.milestones[1]?.viewerSubmissionStatus).toBe('NOT_SUBMITTED');
   });
 
-  it('TeamMember 행이 없는 팀장도 자신의 신청 상태를 조회한다', async () => {
+  // 상세 화면의 「내 신청 상태」는 지금 그 팀의 TeamMember 행 하나로만 갈린다 — 팀장도
+  // 자기 팀의 TeamMember 행을 항상 가지므로 이 한 절이 팀장·팀원을 모두 담는다(#1269).
+  it('현재 팀원(팀장 포함)은 멤버십 절 하나로 자기 신청 상태를 조회한다', async () => {
     // Given
     const { service, findFirst } = createService();
     findFirst.mockResolvedValue({
@@ -175,11 +177,7 @@ describe('ProgramsService detail', () => {
     expect(findFirst).toHaveBeenCalledWith({
       where: {
         programId: 'program-1',
-        OR: [
-          { applicantId: 'leader-1' },
-          { team: { leaderId: 'leader-1' } },
-          { team: { members: { some: { userId: 'leader-1' } } } },
-        ],
+        team: { members: { some: { userId: 'leader-1' } } },
       },
       select: {
         id: true,
@@ -195,6 +193,34 @@ describe('ProgramsService detail', () => {
       },
     });
     expect(detail.viewer.applicationStatus).toBe(ApplicationStatus.APPROVED);
+  });
+
+  // 최초 신청자 절이 남아 있으면 팀을 떠난 사람이 옛 팀의 신청서·반려 사유를 계속 읽는다.
+  it('팀을 떠난 사람의 조회에는 최초 신청자·맨 leaderId 절을 남기지 않는다', async () => {
+    // Given: 멤버십 절로 걸러 DB가 아무 행도 돌려주지 않는 상태.
+    const { service, findFirst } = createService();
+    findFirst.mockResolvedValue(null);
+    const viewer: ProgramViewer = {
+      githubId: 9n,
+      userId: 'ex-member-1',
+      role: 'STUDENT',
+    };
+
+    // When
+    const detail = await service.detail('program-1', viewer);
+
+    // Then
+    const [{ where }] = findFirst.mock.calls[0] as [
+      { where: Record<string, unknown> },
+    ];
+    expect(Object.keys(where).sort()).toEqual(['programId', 'team']);
+    expect(where).not.toHaveProperty('OR');
+    expect(where).not.toHaveProperty('applicantId');
+    expect(where.team).toEqual({
+      members: { some: { userId: 'ex-member-1' } },
+    });
+    expect(detail.viewer.applicationStatus).toBeNull();
+    expect(detail.milestones[0]?.viewerSubmissionStatus).toBeNull();
   });
   it('교직원에게 application 기준 제출 요약을 반환한다', async () => {
     const { service, findMany } = createService();

@@ -57,7 +57,7 @@ const CREATED: CreatedApplication = {
 };
 
 const DEFAULT_INPUT = {
-  answers: { title: '제목', summary: '요약' },
+  answers: { title: '제목' },
   teamName: null as string | null,
   applicationTemplateVersion: 1,
   isRepositoryPublicationPlanned: true,
@@ -120,7 +120,8 @@ function buildService(overrides: {
       .mockResolvedValue(ProgramLifecycle.PUBLISHED),
     findTeamMinSize: jest.fn().mockResolvedValue(null),
     findExistingTeamMembership: jest.fn().mockResolvedValue(null),
-    lockTeamForApply: jest.fn().mockResolvedValue(undefined),
+    // 잠금 뒤 되읽은 권한 — 기본값은 「현재 팀장 본인」이다.
+    lockTeamForApply: jest.fn().mockResolvedValue(true),
     countTeamMembers: jest.fn().mockResolvedValue(1),
     createTeamWithLeader,
     createApplication,
@@ -227,7 +228,6 @@ describe('ApplicationsService.create', () => {
       answers: {
         applicantName: '합성 학생',
         title: '제목',
-        summary: '요약',
       },
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: true,
@@ -361,7 +361,7 @@ describe('ApplicationsService.create', () => {
     });
   });
 
-  it('answers 누락·알 수 없는 키면 APP_015', async () => {
+  it('answers 의 제거된 summary·알 수 없는 키면 APP_015', async () => {
     const { service } = buildService({});
 
     await expect(
@@ -370,7 +370,7 @@ describe('ApplicationsService.create', () => {
         PROGRAM_ID,
         {
           ...DEFAULT_INPUT,
-          answers: { title: '제목' },
+          answers: { summary: '요약' },
         },
         NOW,
       ),
@@ -672,7 +672,7 @@ describe('ApplicationsService.create', () => {
   });
   it('이미 팀에 속해 있으면 새 팀을 만들지 않고 그 팀으로 신청한다', async () => {
     // Given — /teams 에서 팀을 먼저 만든 학생.
-    const lockTeamForApply = jest.fn().mockResolvedValue(undefined);
+    const lockTeamForApply = jest.fn().mockResolvedValue(true);
     const { service, createApplication, createTeamWithLeader } = buildService({
       store: {
         findExistingTeamMembership: jest
@@ -689,7 +689,7 @@ describe('ApplicationsService.create', () => {
     // Then — 새 팀을 만들지 않는다. 만들면 TeamMember unique 에 걸려
     // 학생이 영영 신청하지 못한다.
     expect(createTeamWithLeader).not.toHaveBeenCalled();
-    expect(lockTeamForApply).toHaveBeenCalledWith('existing-team');
+    expect(lockTeamForApply).toHaveBeenCalledWith('existing-team', STUDENT.id);
     expect(createApplication).toHaveBeenCalledWith(
       expect.objectContaining({ teamId: 'existing-team' }),
     );
@@ -811,5 +811,193 @@ describe('ApplicationsService.create', () => {
     expect(JSON.stringify(submittedCall[0].metadata)).not.toContain(
       'synthetic-login의 팀',
     );
+  });
+});
+
+/**
+ * #1269 — 팀 신청의 제출 권한은 **현재 팀장**에게만 있다. 초대받은 팀원은 합류만 하고
+ * 따로 신청하지 않는다. 권한 판정의 정본은 팀을 FOR UPDATE로 잠근 뒤 되읽은
+ * `store.lockTeamForApply(teamId, userId)` 결과이며, 잠금 전 멤버십 스냅샷이 아니다.
+ */
+describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만', () => {
+  const EXISTING_TEAM = { id: 'existing-team', name: '함께 만든 팀' };
+
+  function buildTeamService(overrides: {
+    readonly leaderAfterLock: boolean;
+    readonly teamMinSize?: number | null;
+    readonly memberCount?: number;
+  }) {
+    const lockTeamForApply = jest
+      .fn()
+      .mockResolvedValue(overrides.leaderAfterLock);
+    const countTeamMembers = jest
+      .fn()
+      .mockResolvedValue(overrides.memberCount ?? 2);
+    const built = buildService({
+      store: {
+        findExistingTeamMembership: jest.fn().mockResolvedValue(EXISTING_TEAM),
+        findTeamMinSize: jest
+          .fn()
+          .mockResolvedValue(overrides.teamMinSize ?? null),
+        lockTeamForApply,
+        countTeamMembers,
+      },
+    });
+    return { ...built, lockTeamForApply, countTeamMembers };
+  }
+
+  it('팀원(비팀장)은 팀 신청을 만들 수 없다 — APP_028 403', async () => {
+    // Given — 초대로 합류만 한 팀원. 잠금 뒤 되읽은 팀장이 본인이 아니다.
+    const {
+      service,
+      createApplication,
+      createTeamWithLeader,
+      lockTeamForApply,
+    } = buildTeamService({ leaderAfterLock: false });
+
+    // When / Then
+    await expect(
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: ApplicationsErrorCode.TEAM_LEADER_REQUIRED,
+        status: 403,
+      },
+    });
+    expect(lockTeamForApply).toHaveBeenCalledWith(EXISTING_TEAM.id, STUDENT.id);
+    // 팀원에게 따로 1인 팀을 만들어 주지도 않는다 — 신청은 팀당 한 건이다.
+    expect(createTeamWithLeader).not.toHaveBeenCalled();
+    expect(createApplication).not.toHaveBeenCalled();
+  });
+
+  it('잠금 전에는 팀장이었어도 잠근 뒤 팀장이 아니면 거부한다 — 스냅샷은 정본이 아니다', async () => {
+    // Given — 스냅샷 시점엔 팀장이었지만, 잠금 직전 팀장이 승계된 신청자.
+    const { service, createApplication, lockTeamForApply, countTeamMembers } =
+      buildTeamService({ leaderAfterLock: false });
+
+    // When / Then
+    await expect(
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
+    ).rejects.toMatchObject({
+      errorCode: { code: ApplicationsErrorCode.TEAM_LEADER_REQUIRED },
+    });
+    // 권한은 잠금 직후에 판정한다 — 최소 인원 계산까지 가지 않는다.
+    expect(countTeamMembers).not.toHaveBeenCalled();
+    expect(lockTeamForApply).toHaveBeenCalledTimes(1);
+    expect(createApplication).not.toHaveBeenCalled();
+  });
+
+  it('팀장을 승계한 사람은 그 팀으로 신청할 수 있다', async () => {
+    // Given — 잠근 뒤 되읽은 팀장이 본인인 승계자.
+    const { service, createApplication, lockTeamForApply, countTeamMembers } =
+      buildTeamService({
+        leaderAfterLock: true,
+        teamMinSize: 2,
+        memberCount: 2,
+      });
+
+    // When
+    const result = await service.create(
+      GITHUB_ID,
+      PROGRAM_ID,
+      DEFAULT_INPUT,
+      NOW,
+    );
+
+    // Then — 잠금 → 권한 → 최소 인원 → 생성 순서를 지킨다.
+    expect(result.teamId).toBe(EXISTING_TEAM.id);
+    expect(createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teamId: EXISTING_TEAM.id,
+        applicantId: STUDENT.id,
+      }),
+    );
+    const lockOrder = lockTeamForApply.mock.invocationCallOrder[0] ?? 0;
+    const countOrder = countTeamMembers.mock.invocationCallOrder[0] ?? 0;
+    const createOrder = createApplication.mock.invocationCallOrder[0] ?? 0;
+    expect(lockOrder).toBeLessThan(countOrder);
+    expect(countOrder).toBeLessThan(createOrder);
+  });
+
+  it('잠금 직전에 팀에서 빠진 사람은 신청이 쓰이기 전에 막힌다', async () => {
+    // Given — 최소 인원은 충족하지만 잠금 뒤 본인의 구성원 자격이 사라진 경우.
+    const { service, createApplication, countTeamMembers } = buildTeamService({
+      leaderAfterLock: false,
+      teamMinSize: 2,
+      memberCount: 3,
+    });
+
+    // When / Then
+    await expect(
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
+    ).rejects.toMatchObject({
+      errorCode: { code: ApplicationsErrorCode.TEAM_LEADER_REQUIRED },
+    });
+    expect(countTeamMembers).not.toHaveBeenCalled();
+    expect(createApplication).not.toHaveBeenCalled();
+  });
+
+  it('팀이 없던 신청자는 그대로 본인이 팀장인 팀을 만들고 팀 잠금 권한 판정을 거치지 않는다', async () => {
+    // Given — 이 프로그램에 아직 팀이 없는 학생(기존 경로).
+    const lockTeamForApply = jest.fn().mockResolvedValue(true);
+    const { service, createApplication, createTeamWithLeader } = buildService({
+      store: {
+        findExistingTeamMembership: jest.fn().mockResolvedValue(null),
+        lockTeamForApply,
+      },
+    });
+
+    // When
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
+
+    // Then
+    expect(lockTeamForApply).not.toHaveBeenCalled();
+    expect(createTeamWithLeader).toHaveBeenCalledWith(
+      expect.objectContaining({ leaderId: STUDENT.id }),
+    );
+    expect(createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({
+        teamId: 'synthetic-team',
+        applicantId: STUDENT.id,
+      }),
+    );
+  });
+
+  it('팀장이어도 최소 인원 미달이면 APP_019로 막고 신청을 만들지 않는다', async () => {
+    // Given — 팀장이지만 2인 프로그램에 1인 팀.
+    const { service, createApplication } = buildTeamService({
+      leaderAfterLock: true,
+      teamMinSize: 2,
+      memberCount: 1,
+    });
+
+    // When / Then
+    await expect(
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
+    ).rejects.toMatchObject({
+      errorCode: { code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET },
+      extensions: { memberCount: 1, teamMinSize: 2 },
+    });
+    expect(createApplication).not.toHaveBeenCalled();
+  });
+
+  it('팀장의 중복 신청은 계속 APP_011로 매핑한다', async () => {
+    // Given — 팀장이지만 같은 팀 신청이 이미 있는 경우(P2002).
+    const lockTeamForApply = jest.fn().mockResolvedValue(true);
+    const { service } = buildService({
+      createThrows: new ApplicationDuplicateError(),
+      store: {
+        findExistingTeamMembership: jest.fn().mockResolvedValue(EXISTING_TEAM),
+        lockTeamForApply,
+        countTeamMembers: jest.fn().mockResolvedValue(2),
+      },
+    });
+
+    // When / Then
+    await expect(
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
+    ).rejects.toMatchObject({
+      errorCode: { code: ApplicationsErrorCode.DUPLICATE_APPLICATION },
+    });
   });
 });

@@ -44,7 +44,7 @@ const sessionSecret = new Uint8Array(32).fill(7);
  * `apps/frontend/src/features/programs/api.ts` 도 같이 바꿔야 한다.
  */
 const CANONICAL_BODY: Readonly<Record<string, unknown>> = {
-  answers: { title: '제목', summary: '요약' },
+  answers: { title: '제목' },
   applicationTemplateVersion: 1,
   isRepositoryPublicationPlanned: true,
   repositoryConnectionMode: 'NEW',

@@ -11,10 +11,8 @@ import {
 } from './team-invitation-error-code.enum';
 import {
   InvitationCandidateRecord,
-  PendingInvitationConflictError,
   ReceivedTeamInvitationRecord,
-  TeamInvitationRecord,
-  TeamInvitationLockedError,
+  SentTeamInvitationRecord,
   TeamInvitationsRepository,
 } from './team-invitations.repository';
 
@@ -27,6 +25,10 @@ export interface AcceptedInvitationResult {
  * 검색으로 팀원을 찾아 초대하고, 초대받은 이가 수락/거절하는 흐름.
  * 기존 참여 코드(joinCodeDigest) 방식(programs 모듈)과 병존한다 — 이 서비스는
  * 건드리지 않는다.
+ *
+ * 신청 제출 여부로 초대·검색·수락을 막지 않는다. 신청 창구는 초기 접수의 문일
+ * 뿐이고, 참여가 시작된 뒤의 팀 구성 관리(초대·탈퇴·제외)는 팀장 권한과 정원으로
+ * 통제한다. 권한 판정의 정본은 팀 행을 잠근 트랜잭션 안의 재조회다.
  */
 @Injectable()
 export class TeamInvitationsService {
@@ -47,7 +49,7 @@ export class TeamInvitationsService {
   async listSentByTeam(
     githubId: bigint,
     teamId: string,
-  ): Promise<TeamInvitationRecord[]> {
+  ): Promise<SentTeamInvitationRecord[]> {
     const userId = await this.requireUserId(githubId);
     await this.requireTeamMember(teamId, userId);
     return this.repository.findByTeamId(teamId);
@@ -61,7 +63,6 @@ export class TeamInvitationsService {
   ): Promise<InvitationCandidateRecord[]> {
     const userId = await this.requireUserId(githubId);
     const team = await this.requireTeamLeader(teamId, userId);
-    this.requireUnlockedTeam(team.locked);
     const trimmed = query.trim();
     if (!trimmed) return [];
     return this.repository.searchCandidates(team.programId, trimmed, userId);
@@ -71,10 +72,11 @@ export class TeamInvitationsService {
     githubId: bigint,
     teamId: string,
     inviteeUserId: string,
-  ): Promise<TeamInvitationRecord> {
+  ): Promise<SentTeamInvitationRecord> {
     const actorId = await this.requireUserId(githubId);
-    const team = await this.requireTeamLeader(teamId, actorId);
-    this.requireUnlockedTeam(team.locked);
+    // 사전 권한 확인 — 팀장이 아닌 사람에게 초대 대상의 존재·자격을 알리지 않는다.
+    // 최종 판정은 아래 트랜잭션(팀 행 잠금 후 재조회)이 한다.
+    await this.requireTeamLeader(teamId, actorId);
 
     if (inviteeUserId === actorId) {
       throw this.error(TeamInvitationErrorCode.SELF_INVITE_FORBIDDEN);
@@ -89,69 +91,69 @@ export class TeamInvitationsService {
       case 'eligible':
         break;
     }
-    const alreadyInTeam = await this.repository.isUserInProgramTeam(
-      team.programId,
-      inviteeUserId,
-    );
-    if (alreadyInTeam) {
-      throw this.error(TeamInvitationErrorCode.INVITEE_ALREADY_IN_TEAM);
-    }
-    const memberCount = await this.repository.countTeamMembers(teamId);
-    if (memberCount >= team.teamMaxSize) {
-      throw this.error(TeamInvitationErrorCode.TEAM_FULL);
-    }
-
-    try {
-      return await this.repository.createInvitation({
-        teamId,
-        programId: team.programId,
-        inviteeId: inviteeUserId,
-        invitedById: actorId,
-      });
-    } catch (error) {
-      if (error instanceof PendingInvitationConflictError) {
+    const outcome = await this.repository.createInvitation({
+      teamId,
+      actorId,
+      inviteeId: inviteeUserId,
+    });
+    switch (outcome.kind) {
+      case 'team-not-found':
+        throw this.error(TeamInvitationErrorCode.TEAM_NOT_FOUND);
+      case 'not-team-leader':
+        throw this.error(TeamInvitationErrorCode.NOT_TEAM_LEADER);
+      case 'not-team-member':
+        throw this.error(TeamInvitationErrorCode.NOT_TEAM_MEMBER);
+      case 'invitee-already-in-team':
+        throw this.error(TeamInvitationErrorCode.INVITEE_ALREADY_IN_TEAM);
+      case 'team-full':
+        throw this.error(TeamInvitationErrorCode.TEAM_FULL);
+      case 'already-invited':
         throw this.error(TeamInvitationErrorCode.ALREADY_INVITED);
-      }
-      if (error instanceof TeamInvitationLockedError) {
-        throw this.error(TeamInvitationErrorCode.TEAM_LOCKED_AFTER_APPLICATION);
-      }
-      throw error;
+      case 'ok':
+        return outcome.invitation;
     }
   }
 
-  /** 팀장이 자기 팀이 보낸 대기 중인 초대를 취소한다. */
+  /**
+   * 대기 중인 초대 취소 — 팀 행을 잠근 시점의 현재 팀장만 할 수 있다.
+   * 초대를 보낸 사람이 이미 탈퇴했어도 승계받은 팀장이 정리할 수 있고,
+   * 떠난 전 팀장은 자기가 보낸 초대라도 더는 취소할 수 없다.
+   */
   async cancel(githubId: bigint, invitationId: string): Promise<void> {
     const actorId = await this.requireUserId(githubId);
-    const invitation =
-      await this.repository.findInvitationForActor(invitationId);
-    if (!invitation) {
-      throw this.error(TeamInvitationErrorCode.INVITATION_NOT_FOUND);
-    }
-    if (invitation.leaderId !== actorId) {
-      throw this.error(TeamInvitationErrorCode.NOT_TEAM_LEADER);
-    }
-    const closed =
-      await this.repository.closePendingInvitationAsDeclined(invitationId);
-    if (closed === 0) {
-      throw this.error(TeamInvitationErrorCode.INVITATION_NOT_PENDING);
+    const outcome = await this.repository.cancelPendingInvitationAsLeader(
+      invitationId,
+      actorId,
+    );
+    switch (outcome.kind) {
+      case 'not-found':
+        throw this.error(TeamInvitationErrorCode.INVITATION_NOT_FOUND);
+      case 'not-team-leader':
+        throw this.error(TeamInvitationErrorCode.NOT_TEAM_LEADER);
+      case 'not-pending':
+        throw this.error(TeamInvitationErrorCode.INVITATION_NOT_PENDING);
+      case 'ok':
+        return;
     }
   }
 
-  /** 초대받은 본인이 거절한다. */
+  /**
+   * 초대받은 본인이 거절한다. 본인 초대가 아니면 존재 여부를 알리지 않고
+   * TIV_010으로 답한다(초대 id로 남의 초대를 탐색할 수 없게 한다).
+   */
   async decline(githubId: bigint, invitationId: string): Promise<void> {
     const actorId = await this.requireUserId(githubId);
-    const invitation =
-      await this.repository.findInvitationForActor(invitationId);
-    if (!invitation) {
-      throw this.error(TeamInvitationErrorCode.INVITATION_NOT_FOUND);
-    }
-    if (invitation.inviteeId !== actorId) {
-      throw this.error(TeamInvitationErrorCode.NOT_INVITEE);
-    }
-    const closed =
-      await this.repository.closePendingInvitationAsDeclined(invitationId);
-    if (closed === 0) {
-      throw this.error(TeamInvitationErrorCode.INVITATION_NOT_PENDING);
+    const outcome = await this.repository.declinePendingInvitationAsInvitee(
+      invitationId,
+      actorId,
+    );
+    switch (outcome.kind) {
+      case 'not-found':
+        throw this.error(TeamInvitationErrorCode.INVITATION_NOT_FOUND);
+      case 'not-pending':
+        throw this.error(TeamInvitationErrorCode.INVITATION_NOT_PENDING);
+      case 'ok':
+        return;
     }
   }
 
@@ -198,8 +200,6 @@ export class TeamInvitationsService {
         throw this.error(TeamInvitationErrorCode.TEAM_FULL);
       case 'invitee-not-eligible':
         throw this.error(TeamInvitationErrorCode.INVITEE_NOT_ELIGIBLE);
-      case 'team-locked':
-        throw this.error(TeamInvitationErrorCode.TEAM_LOCKED_AFTER_APPLICATION);
       case 'ok':
         return { teamId: outcome.teamId, programId: outcome.programId };
     }
@@ -238,11 +238,5 @@ export class TeamInvitationsService {
 
   private error(code: TeamInvitationErrorCode): DomainException {
     return new DomainException(TEAM_INVITATION_ERROR_CODES[code]);
-  }
-
-  private requireUnlockedTeam(locked: boolean): void {
-    if (locked) {
-      throw this.error(TeamInvitationErrorCode.TEAM_LOCKED_AFTER_APPLICATION);
-    }
   }
 }

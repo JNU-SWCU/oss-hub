@@ -1,11 +1,16 @@
 import { ApplicationStatus } from '@prisma/client';
+import { RepositoryInvitationStatus } from '@prisma/client';
 import {
   githubClientMock,
+  grantInvitationWork,
   jobRepositoryMock,
+  MEMBERSHIP_FINGERPRINT,
+  ownProvisionContext,
   PROVISION_NOW,
   PROVISION_REPOSITORY,
   provisionContext,
   provisionStateMock,
+  revokeInvitationWork,
 } from '../../test/repository-provision-worker.fixture';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
@@ -72,6 +77,10 @@ describe('RepositoryProvisionWorker failure', () => {
     });
     expect(github.findRepository.mock.calls).toHaveLength(0);
     expect(state.failJob.mock.calls[0]?.[0].final).toBe(true);
+    // 계약 검증을 통과하지 못한 job은 비교할 관리형 기준이 없다.
+    expect(
+      state.failJob.mock.calls[0]?.[0].expectedMembershipFingerprint,
+    ).toBeUndefined();
   });
 
   it('레거시 teamId null payload는 백필된 context teamId와 달라도 통과한다', async () => {
@@ -326,7 +335,10 @@ describe('RepositoryProvisionWorker failure', () => {
       provisionContext({ repository: PROVISION_REPOSITORY }),
     );
     state.findInvitationWork.mockResolvedValue([
-      { id: 'synthetic-failed-invitation', githubLogin: 'synthetic-student' },
+      grantInvitationWork({
+        id: 'synthetic-failed-invitation',
+        githubLogin: 'synthetic-student',
+      }),
     ]);
     const github = githubClientMock();
     github.ensureCollaborator.mockRejectedValue(
@@ -348,8 +360,354 @@ describe('RepositoryProvisionWorker failure', () => {
     expect(github.createRepository.mock.calls).toHaveLength(0);
     expect(state.failInvitation.mock.calls[0]?.[0]).toMatchObject({
       invitationId: 'synthetic-failed-invitation',
+      repositoryId: PROVISION_REPOSITORY.id,
+      expectedStatus: RepositoryInvitationStatus.PENDING,
+      intent: 'GRANT',
       final: false,
       errorCode: GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM,
     });
+  });
+});
+
+describe('RepositoryProvisionWorker failure membership guard', () => {
+  it('관리형 job 실패는 읽어둔 팀원 지문을 함께 넘긴다', async () => {
+    // Given: 회수 호출이 5xx로 실패해 job이 재시도로 떨어진다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        repository: PROVISION_REPOSITORY,
+        currentMemberGithubLogins: [],
+      }),
+    );
+    state.findInvitationWork.mockResolvedValue([revokeInvitationWork()]);
+    const github = githubClientMock();
+    github.revokeCollaborator.mockRejectedValue(
+      new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
+    );
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
+
+    // When: job을 실행한다.
+    const result = await worker.runNext('worker-fail-guard', PROVISION_NOW);
+
+    // Then: 처리 중 들어온 팀원 변경 깨우기를 지우지 않도록 지문을 넘기고,
+    // 성공으로 위장하지 않는다.
+    expect(result.kind).toBe('FAILED_RETRYABLE');
+    expect(state.failJob.mock.calls[0]?.[0]).toMatchObject({
+      final: false,
+      expectedMembershipFingerprint: MEMBERSHIP_FINGERPRINT,
+    });
+    expect(state.completeJob.mock.calls).toHaveLength(0);
+  });
+
+  it('최종 실패로 끝나는 관리형 job도 지문 가드를 빼지 않는다', async () => {
+    // Given: 되돌릴 수 없는 권한 오류로 회수가 최종 실패한다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        repository: PROVISION_REPOSITORY,
+        currentMemberGithubLogins: [],
+      }),
+    );
+    state.findInvitationWork.mockResolvedValue([revokeInvitationWork()]);
+    const github = githubClientMock();
+    github.revokeCollaborator.mockRejectedValue(
+      new GithubOperationsError(
+        GITHUB_OPERATIONS_ERROR_CODES.PERMISSION,
+        false,
+      ),
+    );
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
+
+    // When: job을 실행한다.
+    const result = await worker.runNext(
+      'worker-fail-final-guard',
+      PROVISION_NOW,
+    );
+
+    // Then: 오래된 의도의 최종 실패가 새 팀원 변경 깨우기를 덮어쓰지 못하게 한다.
+    expect(result.kind).toBe('FAILED_FINAL');
+    expect(state.failJob.mock.calls[0]?.[0]).toMatchObject({
+      final: true,
+      expectedMembershipFingerprint: MEMBERSHIP_FINGERPRINT,
+    });
+  });
+
+  it('OWN 연결 실패는 지문을 넘기지 않는다', async () => {
+    // Given: OWN 연결 대상 저장소를 찾지 못해 최종 실패한다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(ownProvisionContext());
+    const github = githubClientMock();
+    github.findPublicRepository.mockResolvedValue(null);
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
+
+    // When: job을 실행한다.
+    const result = await worker.runNext('worker-own-fail-guard', PROVISION_NOW);
+
+    // Then: 회수 관리 밖인 OWN은 비교 기준을 남기지 않는다.
+    expect(result.kind).toBe('FAILED_FINAL');
+    expect(
+      state.failJob.mock.calls[0]?.[0].expectedMembershipFingerprint,
+    ).toBeUndefined();
+  });
+
+  it('context를 읽기 전 lease를 잃으면 job 실패를 아예 기록하지 않는다', async () => {
+    // Given: context 조회 자체가 lease 상실로 실패한다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockRejectedValue(
+      new RepositoryProvisionLeaseLostError(),
+    );
+    const github = githubClientMock();
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
+
+    // When: job을 실행한다.
+    const result = worker.runNext('worker-fenced-load', PROVISION_NOW);
+
+    // Then: 새 owner의 지문·상태를 건드리지 않고 즉시 중단한다.
+    await expect(result).rejects.toBeInstanceOf(
+      RepositoryProvisionLeaseLostError,
+    );
+    expect(state.failJob.mock.calls).toHaveLength(0);
+  });
+});
+
+describe('RepositoryProvisionWorker revocation failure', () => {
+  it('이미 REVOKED인 행의 주기 재확인 실패도 회수 의도로 기록한다', async () => {
+    // Given: 이미 회수된 행이 재확인 대상으로 다시 내려왔고 GitHub가 5xx를 낸다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        repository: PROVISION_REPOSITORY,
+        currentMemberGithubLogins: [],
+      }),
+    );
+    state.findInvitationWork.mockResolvedValue([
+      revokeInvitationWork({
+        id: 'synthetic-revoke-reverify',
+        githubLogin: 'synthetic-left',
+        status: RepositoryInvitationStatus.REVOKED,
+      }),
+    ]);
+    const github = githubClientMock();
+    github.revokeCollaborator.mockRejectedValue(
+      new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
+    );
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
+
+    // When: job을 실행한다.
+    const result = await worker.runNext('worker-reverify', PROVISION_NOW);
+
+    // Then: REVOKE_REQUIRED만 상대한다고 가정하지 않고, 행의 현재 상태를 그대로
+    // expectedStatus로 되돌려 CAS 경합을 깨뜨리지 않는다.
+    expect(result.kind).toBe('FAILED_RETRYABLE');
+    expect(github.revokeCollaborator.mock.calls).toEqual([
+      [PROVISION_REPOSITORY.name, 'synthetic-left'],
+    ]);
+    expect(state.failInvitation.mock.calls[0]?.[0]).toMatchObject({
+      invitationId: 'synthetic-revoke-reverify',
+      expectedStatus: RepositoryInvitationStatus.REVOKED,
+      intent: 'REVOKE',
+    });
+  });
+
+  it('한 대상의 회수 실패가 다른 대상의 회수를 막지 않는다', async () => {
+    // Given: 회수 대상 두 명 중 첫 번째가 GitHub 5xx로 실패한다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        repository: PROVISION_REPOSITORY,
+        currentMemberGithubLogins: ['synthetic-stay'],
+      }),
+    );
+    state.findInvitationWork.mockResolvedValue([
+      revokeInvitationWork({
+        id: 'synthetic-revoke-a',
+        githubLogin: 'synthetic-left-a',
+      }),
+      revokeInvitationWork({
+        id: 'synthetic-revoke-b',
+        githubLogin: 'synthetic-left-b',
+      }),
+      grantInvitationWork({
+        id: 'synthetic-grant',
+        githubLogin: 'synthetic-stay',
+      }),
+    ]);
+    const github = githubClientMock();
+    github.revokeCollaborator.mockRejectedValueOnce(
+      new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
+    );
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
+
+    // When: job을 실행한다.
+    const result = await worker.runNext('worker-revoke-partial', PROVISION_NOW);
+
+    // Then: 두 번째 회수는 그대로 진행하고, job만 재시도로 남는다.
+    expect(result.kind).toBe('FAILED_RETRYABLE');
+    expect(github.revokeCollaborator.mock.calls).toEqual([
+      [PROVISION_REPOSITORY.name, 'synthetic-left-a'],
+      [PROVISION_REPOSITORY.name, 'synthetic-left-b'],
+    ]);
+    expect(state.completeInvitation.mock.calls).toHaveLength(1);
+    expect(state.completeInvitation.mock.calls[0]?.[0]).toMatchObject({
+      invitationId: 'synthetic-revoke-b',
+      status: RepositoryInvitationStatus.REVOKED,
+    });
+    expect(state.failInvitation.mock.calls[0]?.[0]).toMatchObject({
+      invitationId: 'synthetic-revoke-a',
+      repositoryId: PROVISION_REPOSITORY.id,
+      expectedStatus: RepositoryInvitationStatus.REVOKE_REQUIRED,
+      intent: 'REVOKE',
+      final: false,
+      errorCode: GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM,
+    });
+    // 회수가 남은 채 새 권한을 주지 않는다.
+    expect(github.ensureCollaborator.mock.calls).toHaveLength(0);
+    expect(state.completeJob.mock.calls).toHaveLength(0);
+    expect(state.failJob.mock.calls[0]?.[0]).toMatchObject({
+      final: false,
+      errorCode: GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM,
+    });
+  });
+
+  it('회수 중 lease를 잃으면 남은 회수를 시도하지 않고 즉시 중단한다', async () => {
+    // Given: 첫 회수 뒤 lease 갱신이 다른 worker에게 펌스된다.
+    const jobs = jobRepositoryMock();
+    jobs.renewLease
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValue(new RepositoryProvisionLeaseLostError());
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        repository: PROVISION_REPOSITORY,
+        currentMemberGithubLogins: [],
+      }),
+    );
+    state.findInvitationWork.mockResolvedValue([
+      revokeInvitationWork({
+        id: 'synthetic-revoke-a',
+        githubLogin: 'synthetic-left-a',
+      }),
+      revokeInvitationWork({
+        id: 'synthetic-revoke-b',
+        githubLogin: 'synthetic-left-b',
+      }),
+    ]);
+    const github = githubClientMock();
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
+
+    // When: job을 실행한다.
+    const result = worker.runNext('worker-revoke-fenced', PROVISION_NOW);
+
+    // Then: 새 owner의 상태를 덮어쓰지 않고 두 번째 회수도 시도하지 않는다.
+    await expect(result).rejects.toBeInstanceOf(
+      RepositoryProvisionLeaseLostError,
+    );
+    expect(github.revokeCollaborator.mock.calls).toEqual([
+      [PROVISION_REPOSITORY.name, 'synthetic-left-a'],
+    ]);
+    expect(state.failInvitation.mock.calls).toHaveLength(0);
+    expect(state.failJob.mock.calls).toHaveLength(0);
+    expect(state.completeJob.mock.calls).toHaveLength(0);
+  });
+
+  it('되돌릴 수 없는 회수 실패는 최종 실패로 남기고 부여로 넘어가지 않는다', async () => {
+    // Given: 회수 호출이 재시도 불가 오류로 실패한다.
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        repository: PROVISION_REPOSITORY,
+        currentMemberGithubLogins: ['synthetic-stay'],
+      }),
+    );
+    state.findInvitationWork.mockResolvedValue([
+      revokeInvitationWork({
+        id: 'synthetic-revoke-final',
+        githubLogin: 'synthetic-left',
+      }),
+      grantInvitationWork({
+        id: 'synthetic-grant',
+        githubLogin: 'synthetic-stay',
+      }),
+    ]);
+    const github = githubClientMock();
+    github.revokeCollaborator.mockRejectedValue(
+      new GithubOperationsError(
+        GITHUB_OPERATIONS_ERROR_CODES.PERMISSION,
+        false,
+      ),
+    );
+    const worker = new RepositoryProvisionWorker(
+      jobs,
+      state,
+      github,
+      { enrollExternalRepository: jest.fn() },
+      OPTIONS,
+    );
+
+    // When: job을 실행한다.
+    const result = await worker.runNext('worker-revoke-final', PROVISION_NOW);
+
+    // Then: 회수를 마치지 못한 상태로 job을 완료하지 않는다.
+    expect(result).toEqual({
+      kind: 'FAILED_FINAL',
+      jobId: 'synthetic-job-id',
+      errorCode: GITHUB_OPERATIONS_ERROR_CODES.PERMISSION,
+    });
+    expect(state.failInvitation.mock.calls[0]?.[0]).toMatchObject({
+      invitationId: 'synthetic-revoke-final',
+      intent: 'REVOKE',
+      final: true,
+    });
+    expect(github.ensureCollaborator.mock.calls).toHaveLength(0);
+    expect(state.completeJob.mock.calls).toHaveLength(0);
   });
 });

@@ -837,6 +837,10 @@ enum RepositoryInvitationStatus {
   SUCCEEDED
   FAILED_RETRYABLE
   FAILED_FINAL
+  REVOKE_REQUIRED
+  REVOKED
+  REVOKE_FAILED_RETRYABLE
+  REVOKE_FAILED_FINAL
 }
 
 model RepositoryInvitation {

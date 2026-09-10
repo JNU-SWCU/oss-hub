@@ -69,12 +69,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
               is: { milestones: { some: { id: 'milestone-current' } } },
             },
             team: {
-              is: {
-                OR: [
-                  { leader: { is: activeStudent } },
-                  { members: { some: { user: { is: activeStudent } } } },
-                ],
-              },
+              is: { members: { some: { user: { is: activeStudent } } } },
             },
           },
         },
@@ -146,6 +141,39 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
       'program',
       'team',
     ]);
+  });
+
+  /**
+   * 참여 판정의 정본은 **지금 있는 `TeamMember` 행 하나**다(#1269 — 목록·이력이 쓰는
+   * `programApplicationParticipantWhere`와 같다). `team.leader` 갈래나 `OR` 분기가 다시
+   * 나타나면 여기서 던진다 — `Team.leaderId`와 `TeamMember` 집합은 승계·제외가 함께 옮기므로
+   * 팀장 갈래를 남겨 두면 멤버십이 사라진 옛 팀장이 목록에 없는 파일을 계속 받는다.
+   */
+  it('팀을 고르는 문은 현재 팀원 행 하나뿐이다 — 팀장 갈래도 OR 분기도 없다', async () => {
+    // Given
+    const findFirst = jest.fn().mockResolvedValue(null);
+    const repository = new MilestoneDocumentCurrentFileRepository({
+      milestoneDocumentSubmission: { findFirst },
+    });
+
+    // When
+    await repository.findForParticipant(
+      34_290_005n,
+      'milestone-current',
+      'document-current',
+    );
+
+    // Then
+    const [{ where }] = findFirst.mock.calls[0] as [
+      { where: { application: { is: { team: { is: unknown } } } } },
+    ];
+    const team = where.application.is.team.is as Record<string, unknown>;
+    expect(Object.keys(team)).toEqual(['members']);
+    expect(
+      JSON.stringify(team, (_key, value: unknown) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      ),
+    ).not.toContain('leader');
   });
 
   it('파일이 현재 revision과 다른 제출 이력에 연결됐으면 이전 파일을 돌려주지 않는다', async () => {

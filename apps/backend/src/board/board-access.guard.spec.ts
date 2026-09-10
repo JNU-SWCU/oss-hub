@@ -58,7 +58,7 @@ describe('BoardAccessGuard', () => {
     },
   );
 
-  it('APPROVED 신청을 가진 학생은 허용하고 boardActorIsStaff=false를 붙인다', async () => {
+  it('APPROVED 신청 팀의 현재 팀원은 허용하고 boardActorIsStaff=false를 붙인다', async () => {
     // Given
     findUniqueUser.mockResolvedValue({
       id: 'synthetic-student-user',
@@ -87,15 +87,74 @@ describe('BoardAccessGuard', () => {
       where: {
         programId: syntheticProgramId,
         status: ApplicationStatus.APPROVED,
-        OR: [
-          { applicantId: 'synthetic-student-user' },
-          { team: { leaderId: 'synthetic-student-user' } },
-          {
-            team: {
-              members: { some: { userId: 'synthetic-student-user' } },
-            },
-          },
-        ],
+        team: { members: { some: { userId: 'synthetic-student-user' } } },
+      },
+      select: { id: true },
+    });
+  });
+
+  // 게시판 읽기 권한은 「지금 그 팀 사람인가」 하나로만 갈린다 — 최초 신청자 절이나 맨
+  // leaderId 절이 남아 있으면 팀을 떠난 사람이 옛 프로그램 게시판을 계속 읽는다(#1269).
+  it('참여 판정 조건에 최초 신청자·맨 leaderId 절을 남기지 않는다', async () => {
+    // Given: 팀에서 빠진 사람 — DB는 멤버십 절로 걸러 아무 행도 주지 않는다.
+    findUniqueUser.mockResolvedValue({
+      id: 'synthetic-ex-member',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    findFirstApplication.mockResolvedValue(null);
+    const request = {
+      sessionGithubId: syntheticGithubId,
+      params: { programId: syntheticProgramId },
+    };
+
+    // When / Then: 옛 팀의 게시판은 더 이상 열리지 않는다.
+    await expect(
+      guard.canActivate(buildContext(request)),
+    ).rejects.toMatchObject({
+      errorCode: { code: BoardErrorCode.ACCESS_FORBIDDEN, status: 403 },
+    });
+    expect(request).not.toHaveProperty('boardActorId');
+
+    const [{ where }] = findFirstApplication.mock.calls[0] as [
+      { where: Record<string, unknown> },
+    ];
+    expect(Object.keys(where).sort()).toEqual(['programId', 'status', 'team']);
+    expect(where).not.toHaveProperty('OR');
+    expect(where).not.toHaveProperty('applicantId');
+    expect(where.team).toEqual({
+      members: { some: { userId: 'synthetic-ex-member' } },
+    });
+  });
+
+  // 승인 전 신청은 게시판을 열지 않는다 — 팀원이어도 status 절이 함께 걸려야 한다.
+  it('참여 판정은 APPROVED 상태 절을 팀 멤버십과 함께 건다', async () => {
+    // Given
+    findUniqueUser.mockResolvedValue({
+      id: 'synthetic-pending-member',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      accountStatus: AccountStatus.ACTIVE,
+    });
+    findFirstApplication.mockResolvedValue(null);
+
+    // When / Then
+    await expect(
+      guard.canActivate(
+        buildContext({
+          sessionGithubId: syntheticGithubId,
+          params: { programId: syntheticProgramId },
+        }),
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: BoardErrorCode.ACCESS_FORBIDDEN },
+    });
+    expect(findFirstApplication).toHaveBeenCalledWith({
+      where: {
+        programId: syntheticProgramId,
+        status: ApplicationStatus.APPROVED,
+        team: { members: { some: { userId: 'synthetic-pending-member' } } },
       },
       select: { id: true },
     });

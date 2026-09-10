@@ -7,9 +7,9 @@ import {
 describe('normalizeAndValidateApplicationAnswers', () => {
   const applicantName = '홍길동';
 
-  it('서버 applicantName을 주입하고 title·summary를 정규화한다', () => {
+  it('summary 없이 선택적인 title을 정규화하고 서버 applicantName을 주입한다', () => {
     const result = normalizeAndValidateApplicationAnswers(
-      { title: '  제목  ', summary: ' 요약 ' },
+      { title: '  제목  ' },
       applicantName,
       'enforce-length',
     );
@@ -19,18 +19,26 @@ describe('normalizeAndValidateApplicationAnswers', () => {
       answers: {
         applicantName: '홍길동',
         title: '제목',
-        summary: '요약',
       },
+    });
+  });
+
+  it('새 신청의 빈 answers도 신청자만 서버에서 채워 유효하다', () => {
+    expect(
+      normalizeAndValidateApplicationAnswers(
+        {},
+        applicantName,
+        'enforce-length',
+      ),
+    ).toEqual({
+      ok: true,
+      answers: { applicantName, title: '' },
     });
   });
 
   it('클라이언트가 보낸 applicantName은 무시하고 서버 값으로 덮어쓴다', () => {
     const result = normalizeAndValidateApplicationAnswers(
-      {
-        applicantName: '위조이름',
-        title: '제목',
-        summary: '요약',
-      },
+      { applicantName: '위조이름', title: '제목' },
       '서버이름',
       'enforce-length',
     );
@@ -40,47 +48,68 @@ describe('normalizeAndValidateApplicationAnswers', () => {
       answers: {
         applicantName: '서버이름',
         title: '제목',
-        summary: '요약',
       },
     });
   });
 
-  it('알 수 없는 키가 있으면 UNKNOWN_KEYS다', () => {
+  it('제거된 summary를 새 쓰기에서 보내면 UNKNOWN_KEYS다', () => {
+    expect(
+      normalizeAndValidateApplicationAnswers(
+        { summary: '요약' },
+        applicantName,
+        'enforce-length',
+      ),
+    ).toEqual({
+      ok: false,
+      reason: 'UNKNOWN_KEYS',
+      unknownKeys: ['summary'],
+    });
+  });
+
+  it('읽을 때 기존 summary는 버리고 기본값을 만들지 않는다', () => {
     const result = normalizeAndValidateApplicationAnswers(
-      { title: '제목', summary: '요약', extra: 'nope' },
+      { title: '기존 제목', summary: '이전 요약' },
       applicantName,
-      'enforce-length',
+      'skip-length',
     );
 
     expect(result).toEqual({
+      ok: true,
+      answers: {
+        applicantName,
+        title: '기존 제목',
+      },
+    });
+    if (result.ok) {
+      expect(result.answers).not.toHaveProperty('summary');
+    }
+  });
+
+  it('알 수 없는 키가 있으면 UNKNOWN_KEYS다', () => {
+    expect(
+      normalizeAndValidateApplicationAnswers(
+        { title: '제목', extra: 'nope' },
+        applicantName,
+        'enforce-length',
+      ),
+    ).toEqual({
       ok: false,
       reason: 'UNKNOWN_KEYS',
       unknownKeys: ['extra'],
     });
   });
 
-  it('summary 누락만 MISSING_REQUIRED다', () => {
-    expect(
-      normalizeAndValidateApplicationAnswers(
-        { title: '', summary: '요약' },
-        applicantName,
-        'enforce-length',
-      ),
-    ).toEqual({
-      ok: true,
-      answers: { applicantName, title: '', summary: '요약' },
-    });
-
+  it('신청자 이름이 없으면 MISSING_REQUIRED다', () => {
     expect(
       normalizeAndValidateApplicationAnswers(
         { title: '제목' },
-        applicantName,
+        '   ',
         'enforce-length',
       ),
     ).toEqual({
       ok: false,
       reason: 'MISSING_REQUIRED',
-      missingKeys: ['summary'],
+      missingKeys: ['applicantName'],
     });
   });
 
@@ -122,14 +151,11 @@ describe('checkApplicationTemplateVersion', () => {
 describe('신청 항목 길이 상한', () => {
   const applicantName = '합성 학생';
 
-  function answersOf(overrides: {
-    readonly title?: string;
-    readonly summary?: string;
-  }) {
-    return { title: '합성 제목', summary: '합성 지원 동기', ...overrides };
+  function answersOf(overrides: { readonly title?: string }) {
+    return { title: '합성 제목', ...overrides };
   }
 
-  it.each(['title', 'summary'] as const)(
+  it.each(['title'] as const)(
     '%s 가 상한을 넘으면 쓰기에서 거절한다',
     (key) => {
       // Given: 그 칸만 상한보다 한 글자 길다.
@@ -153,22 +179,19 @@ describe('신청 항목 길이 상한', () => {
     },
   );
 
-  it.each(['title', 'summary'] as const)(
-    '%s 가 상한과 같은 길이면 통과한다',
-    (key) => {
-      // Given: 딱 상한만큼이다(경계).
-      const limit = APPLICATION_ANSWER_MAX_LENGTHS[key];
-      const answers = answersOf({ [key]: '가'.repeat(limit) });
+  it.each(['title'] as const)('%s 가 상한과 같은 길이면 통과한다', (key) => {
+    // Given: 딱 상한만큼이다(경계).
+    const limit = APPLICATION_ANSWER_MAX_LENGTHS[key];
+    const answers = answersOf({ [key]: '가'.repeat(limit) });
 
-      // When·Then
-      const result = normalizeAndValidateApplicationAnswers(
-        answers,
-        applicantName,
-        'enforce-length',
-      );
-      expect(result.ok).toBe(true);
-    },
-  );
+    // When·Then
+    const result = normalizeAndValidateApplicationAnswers(
+      answers,
+      applicantName,
+      'enforce-length',
+    );
+    expect(result.ok).toBe(true);
+  });
 
   it('앞뒤 공백을 덜어 낸 뒤의 길이로 잰다', () => {
     // Given: 공백을 빼면 상한 안에 들어온다.
@@ -185,40 +208,21 @@ describe('신청 항목 길이 상한', () => {
     ).toBe(true);
   });
 
-  it('읽기에서는 상한을 넘는 저장분도 그대로 돌려준다', () => {
-    // Given: 상한이 생기기 전에 저장된 긴 지원 동기다.
-    // ⚠ 여기서 거절하면 학생이 **자기 신청서를 열지도 못한다** — 고치라고 만든
-    //   상한이 고칠 길을 막는다.
-    const tooLong = '가'.repeat(APPLICATION_ANSWER_MAX_LENGTHS.summary + 1);
-    const answers = answersOf({ summary: tooLong });
+  it('읽기에서는 상한을 넘는 기존 title도 그대로 돌려준다', () => {
+    // Given: 상한이 생기기 전에 저장된 긴 title이다.
+    const tooLong = '가'.repeat(APPLICATION_ANSWER_MAX_LENGTHS.title + 1);
 
     // When: 읽기로 검증한다.
     const result = normalizeAndValidateApplicationAnswers(
-      answers,
+      { title: tooLong, summary: '이전 요약' },
       applicantName,
       'skip-length',
     );
 
     // Then: 통과하고 내용도 안 잘린다.
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.answers.summary).toBe(tooLong);
-  });
-
-  it('두 칸이 함께 넘치면 둘 다 알려 준다', () => {
-    const answers = {
-      title: '가'.repeat(APPLICATION_ANSWER_MAX_LENGTHS.title + 1),
-      summary: '나'.repeat(APPLICATION_ANSWER_MAX_LENGTHS.summary + 1),
-    };
-
-    const result = normalizeAndValidateApplicationAnswers(
-      answers,
-      applicantName,
-      'enforce-length',
-    );
-
-    expect(result).toMatchObject({
-      reason: 'TOO_LONG',
-      tooLongKeys: ['title', 'summary'],
+    expect(result).toEqual({
+      ok: true,
+      answers: { applicantName, title: tooLong },
     });
   });
 });

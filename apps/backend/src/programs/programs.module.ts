@@ -35,6 +35,7 @@ import {
   StudentDashboardController,
 } from './controller/programs.controller';
 import { ProgramsRepository } from './repository/programs.repository';
+import { StudentDashboardReadRepository } from './repository/student-dashboard-read.repository';
 import { ProgramsService } from './service/programs.service';
 import { StudentDashboardService } from './service/student-dashboard.service';
 
@@ -72,6 +73,7 @@ import { StudentDashboardService } from './service/student-dashboard.service';
     },
     ProgramActivityService,
     ProgramViewerService,
+    StudentDashboardReadRepository,
     StudentDashboardService,
     ProgramEditorService,
     ProgramEditorRepository,

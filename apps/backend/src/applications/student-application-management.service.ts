@@ -39,7 +39,8 @@ export interface StudentApplicationView {
    */
   readonly rejectionReason: string | null;
   /**
-   * 이 신청서를 수정·취소할 수 있는 사람인지 — 신청자 본인이거나 팀장이다(#1083).
+   * 이 신청서를 수정·취소할 수 있는 사람인지 — **지금 그 팀의 팀장**만 그렇다(#1083).
+   * 처음 신청한 사람이라는 것은 근거가 아니다 — 그랬면 팀을 떠난 뒤에도 옴겨가 남는다.
    * 기간·상태와 무관한 **권한**만 말한다. 지금 실제로 누를 수 있는지는 `canManage`다.
    * 둘을 갈라 두는 이유는 화면이 「기간이 지났다」와 「당신 권한이 아니다」를
    * 다르게 말해야 하기 때문이다 — 팀원에게 기간 안내를 하면 기다리면 열릴 줄 안다.
@@ -153,17 +154,20 @@ export class StudentApplicationManagementService {
       studentId: student.id,
       application,
       policy,
+      // `findOwnedApplication`이 이미 「지금 이 팀 사람인가」로 좁혀 놓았으므로 남은 물음은
+      // 「그 팀의 팀장인가」만이다. 신청자 id는 넘기지 않는다 — 표시용 기록이다.
       isManager: isProgramApplicationManager(student.id, {
-        applicantId: application.applicant.id,
         teamLeaderId: application.teamLeaderId,
       }),
     };
   }
 
   /**
-   * 조회는 팀원 전원에게 열려 있지만 수정·취소는 신청자와 팀장만 할 수 있다(#1083).
+   * 조회는 팀원 전원에게 열려 있지만 수정·취소는 현재 팀장만 할 수 있다(#1083).
    *
-   * repository가 같은 판정을 트랜잭션 잠금 안에서 한 번 더 하므로 여기는 앞선 거절이다
+   * 이 판정은 잠금 밖에서 읽은 행을 보므로 그 사이에 승계가 일어나면 낙은 답이 된다 —
+   * repository가 `Team` 행을 잡은 뒤 같은 판정을 다시 하므로 그쪽이 최종 관문이고
+   * 여기는 앞선 거절이다
    * (`requireEditable`가 `validateMutation`보다 앞서는 것과 같은 짜임) — 될 수 없는
    * 요청 때문에 Program 행을 `FOR UPDATE`로 잠그지 않는다.
    * 오류는 repository가 돌려주는 실패와 같은 `APPLICATION_NOT_FOUND`로 맞춘다.

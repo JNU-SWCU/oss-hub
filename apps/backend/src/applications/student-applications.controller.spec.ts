@@ -29,7 +29,6 @@ const APPLICATION = {
   answers: {
     applicantName: '합성 학생',
     title: '제목',
-    summary: '요약',
   },
   submittedAt: new Date('2026-07-10T00:00:00.000Z'),
   updatedAt: new Date('2026-07-11T00:00:00.000Z'),
@@ -127,7 +126,7 @@ describe('StudentApplicationsController', () => {
     const service = createService();
     const controller = new StudentApplicationsController(service);
     const body = Object.assign(new UpdateStudentApplicationRequestDto(), {
-      answers: { title: '수정 제목', summary: '수정 요약' },
+      answers: { title: '수정 제목' },
       applicationTemplateVersion: 1,
     });
 
@@ -136,7 +135,7 @@ describe('StudentApplicationsController', () => {
 
     // Then
     expect(service.updateMine).toHaveBeenCalledWith(4242n, 'program-1', {
-      answers: { title: '수정 제목', summary: '수정 요약' },
+      answers: { title: '수정 제목' },
       applicationTemplateVersion: 1,
     });
   });

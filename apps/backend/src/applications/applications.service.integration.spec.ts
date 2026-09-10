@@ -230,7 +230,7 @@ describe('ApplicationsService integration', () => {
       8_000_000_000_002n,
       CREATE_PROGRAM_ID,
       {
-        answers: { title: '팀 제목', summary: '팀 요약' },
+        answers: { title: '팀 제목' },
         teamName: null,
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: true,

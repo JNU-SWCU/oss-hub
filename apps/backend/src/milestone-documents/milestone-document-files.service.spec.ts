@@ -17,6 +17,7 @@ import {
   SubmissionFileRetentionUnavailableError,
   type SubmissionFilesRepository,
 } from '../submissions/submission-files.repository';
+import { SubmissionMembershipChangedError } from '../submissions/submission-membership.repository';
 import { signatureValidZip } from '../submissions/submission-zip-test-builder';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
 
@@ -533,6 +534,48 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         code: MilestoneDocumentsErrorCode.FILE_RETENTION_UNAVAILABLE,
       },
     });
+  });
+
+  /**
+   * 업로드 preflight(`findStudentApplication`)와 pending 행 생성 사이에 탈퇴·제외·승계가
+   * 커밋될 수 있다(#1269). `createPending`은 팀 행을 잠근 뒤 되읽어 그 사실을 알고
+   * `SubmissionMembershipChangedError`를 던지는데, 이것은 저장소 장애가 아니라 **권한**이
+   * 사라진 것이다 — preflight가 같은 사실을 먼저 봤을 때 내는 `NOT_APPLICATION_MEMBER`와
+   * 같은 답이어야 한다. 기본 갈래인 FILE_STORAGE_UNAVAILABLE로 새면 더는 팀원이 아닌
+   * 학생이 「잠시 뒤 다시」라는 안내를 받고 영원히 재시도한다.
+   */
+  it('pending 행 생성 시점에 팀 소속이 사라졌으면 NOT_APPLICATION_MEMBER로 변환하고 스토리지에 올리지 않는다', async () => {
+    // Given
+    const { submissionFiles } = buildSubmissionFiles({
+      createPending: jest
+        .fn()
+        .mockRejectedValue(
+          new SubmissionMembershipChangedError(
+            syntheticApplicationId,
+            syntheticUserId,
+          ),
+        ),
+    });
+    const { mocks: storageMocks, storage } = buildStorage();
+    const service = new MilestoneDocumentFilesService(
+      buildRepository().repository,
+      storage,
+      submissionFiles,
+    );
+
+    // When / Then
+    await expect(
+      service.upload(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        pdfFile,
+        UPLOAD_NOW,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER },
+    });
+    expect(storageMocks.put).not.toHaveBeenCalled();
   });
 
   /**

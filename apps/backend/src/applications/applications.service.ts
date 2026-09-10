@@ -212,7 +212,18 @@ export class ApplicationsService {
           student.id,
         );
         if (existingTeam) {
-          await store.lockTeamForApply(existingTeam.id);
+          // 잠금 → 권한 → 최소 인원 → 생성 순서를 지킨다. 잠금 전에 읽은 멤버십
+          // 스냅샷은 권한의 정본이 아니다 — 그 사이에 팀장이 바뀌거나 본인이 팀에서
+          // 빠졌을 수 있으므로, FOR UPDATE로 잠근 **뒤의** 팀장·구성원 사실로 다시 묻는다.
+          // 초대받은 팀원은 합류만 하고 따로 신청하지 않는다 — 팀의 신청은 한 건이고
+          // 그 제출 권한은 팀장에게만 있다(#1269).
+          const actorIsCurrentLeader = await store.lockTeamForApply(
+            existingTeam.id,
+            student.id,
+          );
+          if (!actorIsCurrentLeader) {
+            throw this.error(ApplicationsErrorCode.TEAM_LEADER_REQUIRED);
+          }
         }
         const teamMinSize = await store.findTeamMinSize(programId);
         const memberCount = existingTeam

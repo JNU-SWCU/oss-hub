@@ -42,6 +42,7 @@ import {
   parseProgramCreatedAuditMetadata,
   parseTeamCreatedAuditMetadata,
   parseTeamJoinedAuditMetadata,
+  parseTeamMembershipAuditMetadata,
   type ApplicationSubmittedAuditMetadata,
   type ApplicationSubmittedAuditMetadataView,
   type ProgramCreatedAuditMetadata,
@@ -50,6 +51,8 @@ import {
   type TeamCreatedAuditMetadataView,
   type TeamJoinedAuditMetadata,
   type TeamJoinedAuditMetadataView,
+  type TeamMembershipAuditMetadata,
+  type TeamMembershipAuditMetadataView,
 } from './web-state-audit-metadata';
 
 export * from './access-audit-metadata';
@@ -69,6 +72,7 @@ export type AuditLogMetadata =
   | ProgramCreatedAuditMetadata
   | TeamCreatedAuditMetadata
   | TeamJoinedAuditMetadata
+  | TeamMembershipAuditMetadata
   | ApplicationSubmittedAuditMetadata
   | CollectionTriggerAuditMetadata
   | SubmissionFileCleanupAuditMetadata
@@ -84,6 +88,7 @@ export type AuditLogMetadataView =
   | ProgramCreatedAuditMetadataView
   | TeamCreatedAuditMetadataView
   | TeamJoinedAuditMetadataView
+  | TeamMembershipAuditMetadataView
   | ApplicationSubmittedAuditMetadataView
   | CollectionTriggerAuditMetadataView
   | SubmissionFileCleanupAuditMetadata
@@ -125,6 +130,9 @@ function parseKnownAuditLogMetadata(
     parseRepositoryPublishAuditMetadata(value) ??
     parseProgramLifecycleAuditMetadata(value) ??
     parseProgramDeletionAuditMetadata(value) ??
+    // 팀 구성 변경은 TEAM_CREATED/TEAM_JOINED보다 먼저 본다 — 세 계약 모두
+    // programName·teamName을 공유하므로 뒤에 두면 탈퇴·승계 필드가 통째로 잘려나간다.
+    parseTeamMembershipAuditMetadata(value) ??
     parseTeamCreatedAuditMetadata(value) ??
     parseTeamJoinedAuditMetadata(value) ??
     parseApplicationSubmittedAuditMetadata(value) ??

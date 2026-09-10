@@ -21,6 +21,7 @@ import {
   SubmissionFileRetentionUnavailableError,
   SubmissionFilesRepository,
 } from '../submissions/submission-files.repository';
+import { SubmissionMembershipChangedError } from '../submissions/submission-membership.repository';
 import { isSafeSubmissionZipMetadata } from '../submissions/submission-zip-admission';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
 import { milestoneDocumentSubmissionBlock } from './domain/milestone-document-submission-window';
@@ -164,6 +165,14 @@ export class MilestoneDocumentFilesService {
         pendingExpiresAt: new Date(now.getTime() + PENDING_TTL_MS),
       });
     } catch (error) {
+      // 위 preflight(`findStudentApplication`)는 잠금 없이 읽은 낡은 사실이다(#1269).
+      // `createPending`이 팀 행을 잠근 뒤 되읽어 「이미 팀 사람이 아님」을 알렸다면, 그것은
+      // 저장소 장애가 아니라 **권한**이 사라진 것이다 — preflight가 같은 사실을 먼저 봤을 때
+      // 내는 `NOT_APPLICATION_MEMBER`와 같은 응답으로 옮긴다. 여기서 storage 장애로 뭉개면
+      // 학생은 「잠시 뒤 다시」라는 안내를 받고 영원히 재시도한다.
+      if (error instanceof SubmissionMembershipChangedError) {
+        throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
+      }
       if (error instanceof SubmissionFileQuotaExceededError) {
         throw this.error(
           MilestoneDocumentsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED,

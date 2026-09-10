@@ -51,7 +51,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
   }, DATABASE_CONNECTION_TIMEOUT_MS);
 
   beforeEach(async () => {
-    await cleanup();
+    await resetGraph();
     await prisma.user.create({
       data: {
         id: `${TEST_PREFIX}staff`,
@@ -64,10 +64,10 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     });
   });
 
-  afterEach(cleanup);
+  afterEach(resetGraph);
 
   afterAll(async () => {
-    await cleanup();
+    await resetGraph();
     await prisma.$disconnect();
   });
 
@@ -1006,6 +1006,17 @@ describe('ProgramEditorService milestone aggregate integration', () => {
   });
 });
 
+/**
+ * 공용 `cleanup`은 팀·사용자를 지우지만 `TeamMember`는 모른다. 이 파일만 제출 관문(#1269)이
+ * 요구하는 멤버 행을 심으므로, 팀 삭제가 FK에 걸리지 않도록 여기서 먼저 걷어낸다.
+ */
+async function resetGraph(): Promise<void> {
+  await prisma.teamMember.deleteMany({
+    where: { teamId: { startsWith: `${TEST_PREFIX}team:` } },
+  });
+  await cleanup();
+}
+
 async function seedGraph(options: { readonly documentCount?: number } = {}) {
   const programId = `${TEST_PREFIX}program:aggregate:${crypto.randomUUID()}`;
   const milestoneId = `${TEST_PREFIX}milestone:aggregate:${crypto.randomUUID()}`;
@@ -1055,6 +1066,18 @@ async function createSubmissionApplication(programId: string) {
       name: 'Submission team',
       joinCodeDigest: crypto.randomUUID(),
       leaderId: studentId,
+    },
+  });
+  // 제출 쓰기 관문(#1269)은 `Team.leaderId`가 아니라 **지금의 `TeamMember` 행**으로
+  // 권한을 판정한다. 팀장도 생성 시 자기 멤버 행을 함께 갖는 실제 모양이라, 여기서도
+  // 같은 행을 심어야 이 파일의 경합 시나리오가 「정상 팀원」으로 출발한다.
+  // `programId`는 Team(id, programId) 복합 FK가 요구하는 비정규화 사본이다(#164).
+  await prisma.teamMember.create({
+    data: {
+      id: `${TEST_PREFIX}team-member:${crypto.randomUUID()}`,
+      teamId,
+      programId,
+      userId: studentId,
     },
   });
   await prisma.application.create({

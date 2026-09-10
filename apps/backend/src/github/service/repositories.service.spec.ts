@@ -147,17 +147,17 @@ describe('RepositoriesService.getMyRepositories', () => {
     expect(repository.listOwnedProvisionJobs).toHaveBeenCalledWith(123n);
     expect(result).toEqual([
       {
-        repositoryId: null,
+        repositoryId: 'synthetic-in-progress-repository',
         applicationId: 'synthetic-application',
         connectionMode: RepositoryConnectionMode.NEW,
         applicationMode: 'PERSONAL',
         programName: 'Synthetic program',
         displayName: 'synthetic-applicant',
-        repositoryName: null,
-        githubUrl: null,
+        repositoryName: 'synthetic-in-progress',
+        githubUrl: 'https://github.com/synthetic-org/synthetic-in-progress',
         provisionStatus: RepositoryProvisionJobStatus.PENDING,
-        invitationStatus: null,
-        visibility: null,
+        invitationStatus: RepositoryInvitationStatus.PENDING,
+        visibility: RepositoryVisibility.PRIVATE,
         lastErrorCode: 'PROVISION_RETRYABLE',
         updatedAt: NOW,
       },
@@ -231,6 +231,106 @@ describe('RepositoriesService.getMyRepositories', () => {
         updatedAt: NOW,
       },
     ]);
+  });
+
+  it('keeps a persisted repository visible while an access reconciliation job is failing', async () => {
+    const { repository, github, auditLog } = dependencies();
+    repository.listOwnedProvisionJobs.mockResolvedValue([
+      job({
+        status: RepositoryProvisionJobStatus.FAILED_RETRYABLE,
+        lastErrorCode: 'ACCESS_REVOKE_RETRYABLE',
+        repository: {
+          id: 'synthetic-revoking-repository',
+          applicationId: 'synthetic-application',
+          name: 'synthetic-revoking',
+          url: 'https://github.com/synthetic-org/synthetic-revoking',
+          visibility: RepositoryVisibility.PRIVATE,
+          invitations: [
+            { status: RepositoryInvitationStatus.REVOKE_FAILED_RETRYABLE },
+          ],
+        },
+      }),
+    ]);
+
+    const result = await serviceFrom({
+      ...dependencies(),
+      repository,
+      github,
+      auditLog,
+    }).getMyRepositories(123n);
+
+    expect(result).toEqual([
+      {
+        repositoryId: 'synthetic-revoking-repository',
+        applicationId: 'synthetic-application',
+        connectionMode: RepositoryConnectionMode.NEW,
+        applicationMode: 'PERSONAL',
+        programName: 'Synthetic program',
+        displayName: 'synthetic-applicant',
+        repositoryName: 'synthetic-revoking',
+        githubUrl: 'https://github.com/synthetic-org/synthetic-revoking',
+        provisionStatus: RepositoryProvisionJobStatus.FAILED_RETRYABLE,
+        invitationStatus: RepositoryInvitationStatus.REVOKE_FAILED_RETRYABLE,
+        visibility: RepositoryVisibility.PRIVATE,
+        lastErrorCode: 'ACCESS_REVOKE_RETRYABLE',
+        updatedAt: NOW,
+      },
+    ]);
+  });
+
+  it('reports the persisted invitation row instead of inferring revocation from job status', async () => {
+    const { repository, github, auditLog } = dependencies();
+    repository.listOwnedProvisionJobs.mockResolvedValue([
+      job({
+        status: RepositoryProvisionJobStatus.PROCESSING,
+        repository: {
+          id: 'synthetic-granted-repository',
+          applicationId: 'synthetic-application',
+          name: 'synthetic-granted',
+          url: 'https://github.com/synthetic-org/synthetic-granted',
+          visibility: RepositoryVisibility.PRIVATE,
+          invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
+        },
+      }),
+    ]);
+
+    const result = await serviceFrom({
+      ...dependencies(),
+      repository,
+      github,
+      auditLog,
+    }).getMyRepositories(123n);
+
+    expect(result[0]).toMatchObject({
+      provisionStatus: RepositoryProvisionJobStatus.PROCESSING,
+      invitationStatus: RepositoryInvitationStatus.SUCCEEDED,
+    });
+  });
+
+  it('fails closed on invalid repository identity in a pre-success phase', async () => {
+    const { repository, github, auditLog } = dependencies();
+    repository.listOwnedProvisionJobs.mockResolvedValue([
+      job({
+        status: RepositoryProvisionJobStatus.PROCESSING,
+        repository: {
+          id: 'synthetic-invalid-repository',
+          applicationId: 'synthetic-application',
+          name: 'synthetic-invalid',
+          url: 'https://github.com/other-org/synthetic-invalid',
+          visibility: RepositoryVisibility.PRIVATE,
+          invitations: [],
+        },
+      }),
+    ]);
+
+    await expect(
+      serviceFrom({
+        ...dependencies(),
+        repository,
+        github,
+        auditLog,
+      }).getMyRepositories(123n),
+    ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
 
   it('fails closed when a succeeded job has no repository', async () => {

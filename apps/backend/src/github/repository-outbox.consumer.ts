@@ -1,7 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import {
   InvalidRepositoryProvisionEventError,
+  parseRepositoryAccessSyncEvent,
   parseRepositoryProvisionEvent,
+  REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
+  REPOSITORY_PROVISION_EVENT_TYPE,
 } from './repository-provision-event';
 import { RepositoriesRepository } from './repository/repositories.repository';
 
@@ -37,7 +41,7 @@ export class RepositoryOutboxConsumer {
       }
 
       try {
-        const payload = parseRepositoryProvisionEvent(event.payload);
+        const payload = parseEventPayload(event.type, event.payload);
         if (payload.applicationId !== event.aggregateId) {
           throw new InvalidRepositoryProvisionEventError();
         }
@@ -58,4 +62,18 @@ export class RepositoryOutboxConsumer {
       }
     });
   }
+}
+
+/// type으로만 dispatch한다 — 모르는 type은 계약 밖 payload와 같은 격리 경로로 보낸다.
+function parseEventPayload(
+  type: string,
+  payload: Prisma.JsonValue,
+): { readonly applicationId: string } {
+  if (type === REPOSITORY_PROVISION_EVENT_TYPE) {
+    return parseRepositoryProvisionEvent(payload);
+  }
+  if (type === REPOSITORY_ACCESS_SYNC_EVENT_TYPE) {
+    return parseRepositoryAccessSyncEvent(payload);
+  }
+  throw new InvalidRepositoryProvisionEventError();
 }

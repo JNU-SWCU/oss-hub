@@ -28,11 +28,17 @@ export interface RepositoryProvisionContext {
   readonly teamId: string | null;
   readonly subjectName: string;
   readonly repository: ProvisionedRepository | null;
+  // live TeamMember 행만으로 계산한다 — 신청자나 leader를 fallback으로 채워
+  // 넣으면 revoke 판정이 현재 authority를 잃는다.
+  readonly currentMemberGithubLogins: readonly string[];
+  readonly membershipFingerprint: string;
 }
 
 export interface RepositoryInvitationWork {
   readonly id: string;
   readonly githubLogin: string;
+  readonly status: RepositoryInvitationStatus;
+  readonly intent: 'GRANT' | 'REVOKE';
 }
 
 export interface RecordProvisionedRepositoryInput {
@@ -52,7 +58,12 @@ export interface CompleteRepositoryInvitationInput {
   readonly jobId: string;
   readonly workerId: string;
   readonly invitationId: string;
-  readonly status: Extract<RepositoryInvitationStatus, 'PENDING' | 'SUCCEEDED'>;
+  readonly repositoryId: string;
+  readonly expectedStatus: RepositoryInvitationStatus;
+  readonly status: Extract<
+    RepositoryInvitationStatus,
+    'PENDING' | 'SUCCEEDED' | 'REVOKED'
+  >;
   readonly now: Date;
 }
 
@@ -60,6 +71,9 @@ export interface FailRepositoryInvitationInput {
   readonly jobId: string;
   readonly workerId: string;
   readonly invitationId: string;
+  readonly repositoryId: string;
+  readonly expectedStatus: RepositoryInvitationStatus;
+  readonly intent: 'GRANT' | 'REVOKE';
   readonly final: boolean;
   readonly errorCode: string;
   readonly now: Date;
@@ -72,6 +86,11 @@ export interface FailRepositoryProvisionJobInput {
   readonly errorCode: string;
   readonly nextAttemptAt: Date;
   readonly now: Date;
+  // completeJob과 같은 기준이다 — 작업 중 팀 구성원이 바뀌었다면 실패로 닫지 않고
+  // 즉시 재무장한다. 최종 실패로 닫아 버리면 그 사이 도착한 멤버십 변경 신호가
+  // (outbox가 PROCESSING 행의 lease를 건드리지 않으므로) 통째로 사라진다.
+  // OWN 경로에서만 생략한다 — compat fallback으로 비워두지 않는다.
+  readonly expectedMembershipFingerprint?: string;
 }
 
 export interface RepositoryProvisionStateStore {
@@ -101,6 +120,8 @@ export interface RepositoryProvisionStateStore {
     repositoryId: string,
     now: Date,
     nextReconciliationAt?: Date,
+    // OWN 경로에서만 생략한다 — compat fallback으로 비워두지 않는다.
+    expectedMembershipFingerprint?: string,
   ): Promise<void>;
   failJob(input: FailRepositoryProvisionJobInput): Promise<void>;
 }

@@ -5,6 +5,7 @@ import {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
+import { SubmissionMembershipChangedError } from '../submissions/submission-membership.repository';
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
 import {
@@ -1540,6 +1541,47 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     await expect(resubmit(service)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_CHANGED },
     });
+  });
+
+  /**
+   * #1269 — 사전 확인과 쓰기 사이에 팀원 제외·탈퇴가 커밋되면 저장소가 잉타입 오류로
+   * 트랜잭션을 되돌린다. 서비스는 그것을 「이 신청의 제출 권한이 없다」로 옮긴다.
+   */
+  it('쓰기 직전에 팀원이 아니게 됐으면 NOT_APPLICATION_MEMBER로 닫는다', async () => {
+    // Given: 파일 없는 TEXT 제출도 같은 울타리를 지난다.
+    const { mocks, repository } = resubmitRepository(null);
+    mocks.upsertSubmission.mockRejectedValue(
+      new SubmissionMembershipChangedError(
+        syntheticApplicationId,
+        syntheticUserId,
+      ),
+    );
+    const service = new MilestoneDocumentsService(repository);
+
+    // When / Then: 없는 신청·비참여자와 같은 응답이라 제출물의 존재 여부가 새지 않는다.
+    await expect(resubmit(service)).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER },
+    });
+  });
+
+  it('울타리 판정의 행위자로 **이번 요청의 학생**을 넘긴다', async () => {
+    // Given: 예전 제출자·최초 신청자가 아니라 지금 인증된 사람이 기준이다.
+    const { mocks, repository } = resubmitRepository({
+      id: 'cuid-synthetic-review',
+      decision: ReviewDecision.CHANGES_REQUESTED,
+    });
+    const service = new MilestoneDocumentsService(repository);
+
+    // When
+    await resubmit(service);
+
+    // Then
+    expect(mocks.upsertSubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        applicationId: syntheticApplicationId,
+        submittedById: syntheticUserId,
+      }),
+    );
   });
 });
 

@@ -6,7 +6,7 @@ import { CreateApplicationRequestDto } from './create-application-request.dto';
 
 function dto(body: Record<string, unknown>): CreateApplicationRequestDto {
   return plainToInstance(CreateApplicationRequestDto, {
-    answers: { title: '제목', summary: '요약' },
+    answers: { title: '제목' },
     applicationTemplateVersion: 1,
     ...body,
   });
@@ -26,7 +26,7 @@ function dto(body: Record<string, unknown>): CreateApplicationRequestDto {
 describe('CreateApplicationRequestDto.toInput', () => {
   it('구 클라이언트가 필드를 생략하면 true 로 기본 설정한다', () => {
     const body = Object.assign(new CreateApplicationRequestDto(), {
-      answers: { title: '제목', summary: '요약' },
+      answers: { title: '제목' },
       applicationTemplateVersion: 1,
     });
 
@@ -35,7 +35,7 @@ describe('CreateApplicationRequestDto.toInput', () => {
 
   it('명시적 true 는 그대로 유지한다', () => {
     const body = Object.assign(new CreateApplicationRequestDto(), {
-      answers: { title: '제목', summary: '요약' },
+      answers: { title: '제목' },
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: true,
     });
@@ -45,7 +45,7 @@ describe('CreateApplicationRequestDto.toInput', () => {
 
   it('명시적 false 는 true 로 덮어쓰지 않고 그대로 왕복한다', () => {
     const body = Object.assign(new CreateApplicationRequestDto(), {
-      answers: { title: '제목', summary: '요약' },
+      answers: { title: '제목' },
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: false,
     });
@@ -55,7 +55,7 @@ describe('CreateApplicationRequestDto.toInput', () => {
 
   it('두 필드 미지정은 mode/url 모두 null 로 정규화한다', () => {
     const body = Object.assign(new CreateApplicationRequestDto(), {
-      answers: { title: '제목', summary: '요약' },
+      answers: { title: '제목' },
       applicationTemplateVersion: 1,
     });
 
@@ -67,7 +67,7 @@ describe('CreateApplicationRequestDto.toInput', () => {
 
   it('NEW + repositoryUrl 없음은 성공하고 null 로 저장 입력을 만든다', () => {
     const body = Object.assign(new CreateApplicationRequestDto(), {
-      answers: { title: '제목', summary: '요약' },
+      answers: { title: '제목' },
       applicationTemplateVersion: 1,
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
     });
@@ -80,7 +80,7 @@ describe('CreateApplicationRequestDto.toInput', () => {
 
   it('OWN + 유효 URL 은 성공하고 저장 입력에 실린다', () => {
     const body = Object.assign(new CreateApplicationRequestDto(), {
-      answers: { title: '제목', summary: '요약' },
+      answers: { title: '제목' },
       applicationTemplateVersion: 1,
       repositoryConnectionMode: RepositoryConnectionMode.OWN,
       repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
@@ -94,7 +94,7 @@ describe('CreateApplicationRequestDto.toInput', () => {
 
   it('teamName 미입력을 null 로 정규화한다', () => {
     const body = Object.assign(new CreateApplicationRequestDto(), {
-      answers: { title: '제목', summary: '요약' },
+      answers: { title: '제목' },
       applicationTemplateVersion: 1,
     });
 
@@ -103,7 +103,7 @@ describe('CreateApplicationRequestDto.toInput', () => {
 
   it('teamName 공백은 null 로 정규화한다', () => {
     const body = Object.assign(new CreateApplicationRequestDto(), {
-      answers: { title: '제목', summary: '요약' },
+      answers: { title: '제목' },
       applicationTemplateVersion: 1,
       teamName: '   ',
     });
@@ -113,7 +113,7 @@ describe('CreateApplicationRequestDto.toInput', () => {
 
   it('teamName 은 trim 한다', () => {
     const body = Object.assign(new CreateApplicationRequestDto(), {
-      answers: { title: '제목', summary: '요약' },
+      answers: { title: '제목' },
       applicationTemplateVersion: 1,
       teamName: '  오픈소스팀  ',
     });

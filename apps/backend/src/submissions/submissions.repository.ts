@@ -28,22 +28,23 @@ import {
   toChecklistMilestone,
 } from './submission-checklist.record';
 import {
+  lockSubmissionMembership,
+  SubmissionMembershipChangedError,
+} from './submission-membership.repository';
+import {
   exactSubmissionByPublicId,
   publicSubmissionId,
   submissionPublicIdWhere,
 } from './submission-public-id';
 
-type SubmissionsDatabase = Pick<
-  Prisma.TransactionClient,
-  | 'application'
-  | '$queryRaw'
-  | 'milestone'
-  | 'milestoneDocument'
-  | 'milestoneDocumentSubmission'
-  | 'milestoneDocumentSubmissionHistory'
-  | 'submissionFile'
-  | 'user'
->;
+/**
+ * 이 store는 트랜잭션 클라이언트를 좁히지 않고 그대로 들고 다닌다 — 쓰기 경계에서
+ * 부를 공용 `lockSubmissionMembership`의 계약이 `Prisma.TransactionClient`로
+ * 고정되었기 때문이다.
+ * 예전의 `Pick<...>` 로 좁힌 필드는 그 함수에 그냥 넘길 수 없어 호출부마다 cast를
+ * 만들어야 하고, 그 cast가 바로 새 잠금을 우회할 수 있는 자리가 된다.
+ */
+type SubmissionsDatabase = Prisma.TransactionClient;
 
 export interface SubmissionActor {
   readonly id: string;
@@ -136,6 +137,7 @@ export interface CreateSubmissionRevisionInput {
   readonly baseStatus: SubmissionStatus;
   readonly content: SubmissionContentInput;
   readonly comment: string | null;
+  /** 지금 재제출하는 사람 — 이력 귀속과 멤버십 잠금 판정의 기준이 같은 값이다. */
   readonly submittedById: string;
   readonly applicationId: string;
   readonly milestoneId: string;
@@ -359,12 +361,39 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     return document?.id ?? null;
   }
 
+  /**
+   * 지금 이 신청의 팀원인지를 **쓰기 바로 앞에서** 잠금을 잡고 다시 본다.
+   *
+   * 사전 인가(`findApplicationForParticipant`·`findSubmissionForParticipant`)만 둔 동안은
+   * 그 사이에 팀원 제외가 커밋되면 탈퇴한 사람의 제출·이력이 그대로 들어간다(#1269).
+   * 공용 잠금 함수는 Program 다음 Team 순서로 행을 잠그고, 그 뒤에 멤버십을
+   * 다시 읽는다. 이 호출 뒤의 제출·revision·history·파일 쓰기는 모두 같은 잠금
+   * 아래에서 진행된다(트랜잭션 끝까지 유지).
+   *
+   * ⚠ 기준은 **지금 쓰는 사람**이다. 제출 행의 `submittedById`나 `Application.applicantId`는
+   * 과거 기록이므로 권한 판정에 다시 쓰지 않는다.
+   */
+  private async lockCurrentMembership(
+    applicationId: string,
+    actorUserId: string,
+  ): Promise<void> {
+    const stillMember = await lockSubmissionMembership(
+      this.database,
+      applicationId,
+      actorUserId,
+    );
+    if (!stillMember) {
+      throw new SubmissionMembershipChangedError(applicationId, actorUserId);
+    }
+  }
+
   async createSubmission(
     input: CreateSubmissionInput,
     submittedById: string,
     now: Date,
     fileExpiresAt: Date | null,
   ): Promise<CreatedSubmission> {
+    await this.lockCurrentMembership(input.applicationId, submittedById);
     try {
       const documentId = await this.legacySubmissionSlotId(input.milestoneId);
 
@@ -547,6 +576,7 @@ class PrismaSubmissionsStore implements SubmissionsStore {
   async createSubmissionRevision(
     input: CreateSubmissionRevisionInput,
   ): Promise<{ readonly revision: number }> {
+    await this.lockCurrentMembership(input.applicationId, input.submittedById);
     const nextRevision = input.baseRevision + 1;
     const updated = await this.database.milestoneDocumentSubmission.updateMany({
       where: {

@@ -16,7 +16,7 @@ export const APPLICATION_FIELD_TYPES = {
 export type ApplicationFieldType =
   (typeof APPLICATION_FIELD_TYPES)[keyof typeof APPLICATION_FIELD_TYPES];
 
-export type ApplicationFieldKey = 'applicantName' | 'summary';
+export type ApplicationFieldKey = 'applicantName';
 
 export interface FieldDef {
   readonly key: ApplicationFieldKey;
@@ -31,12 +31,6 @@ export const V1_APPLICATION_FIELDS: readonly FieldDef[] = [
     key: 'applicantName',
     type: APPLICATION_FIELD_TYPES.AUTO,
     label: '신청자',
-    required: true,
-  },
-  {
-    key: 'summary',
-    type: APPLICATION_FIELD_TYPES.TEXTAREA,
-    label: '요약',
     required: true,
   },
 ] as const;
