@@ -44,21 +44,29 @@ import type {
   ApplicationDecisionResult,
   ApplicationDecisionTarget,
   ApplicationTransition,
+  RepositoryProvisionJobSnapshot,
 } from './domain/application-decision';
 import { APPLICATION_DECISION_ACTIONS } from './domain/application-decision';
 import type { CreateApplicationInput } from './domain/create-application';
 
+/**
+ * 승인·반려는 검토 대기뿐 아니라 **반대 판정에서도 곧장** 넘어온다(#1272).
+ * 교직원이 오조작을 고칠 때 되돌리기 → 재판정 두 번을 요구하지 않는다 —
+ * `expectedStatus`가 출발 상태를 그대로 담아 기존 CAS 한 번으로 전이한다.
+ */
 type ApplicationDecisionPlan =
   | {
       readonly kind: 'APPROVE';
-      readonly expectedStatus: typeof ApplicationStatus.SUBMITTED;
+      readonly expectedStatus:
+        typeof ApplicationStatus.SUBMITTED | typeof ApplicationStatus.REJECTED;
       readonly nextStatus: typeof ApplicationStatus.APPROVED;
       readonly rejectionReason: null;
       readonly processedBy: { readonly id: string; readonly at: Date };
     }
   | {
       readonly kind: 'REJECT';
-      readonly expectedStatus: typeof ApplicationStatus.SUBMITTED;
+      readonly expectedStatus:
+        typeof ApplicationStatus.SUBMITTED | typeof ApplicationStatus.APPROVED;
       readonly nextStatus: typeof ApplicationStatus.REJECTED;
       readonly rejectionReason: string;
       readonly processedBy: { readonly id: string; readonly at: Date };
@@ -85,6 +93,11 @@ interface TeamMinimumExtensions extends ProblemDetailExtensions {
   readonly teamMinSize: number;
 }
 
+/**
+ * APP_023 계약 — 프로비저닝이 끝난 승인을 푸는 모든 경로(되돌리기·승인→반려)가
+ * 같은 코드와 같은 `revertBlockedReason` 필드를 쓴다. 프런트가 이 필드로 사람 말
+ * 안내를 고르므로(`application-presentation.ts`) 이름을 바꾸지 않는다.
+ */
 interface RevertBlockedExtensions extends ProblemDetailExtensions {
   readonly revertBlockedReason: string;
   readonly latestStatus: ApplicationStatus;
@@ -99,18 +112,6 @@ const ALWAYS_VALID_OWN_REPOSITORY_URL: Pick<
 };
 
 const JOIN_CODE_ATTEMPTS = 5;
-
-/**
- * 프로비저닝 "완료" = RepositoryProvisionJob.status === SUCCEEDED.
- * FAILED_* 는 미완료(재시도/최종실패)로 보고 되돌리기를 허용한다.
- * Repository 레코드 존재만으로는 판정하지 않는다 — job이 SUCCEEDED일 때만
- * worker가 repositoryId를 붙이지만, 잠금의 정본은 job status다.
- */
-function isProvisioningCompleted(
-  status: RepositoryProvisionJobStatus | undefined,
-): boolean {
-  return status === RepositoryProvisionJobStatus.SUCCEEDED;
-}
 
 @Injectable()
 export class ApplicationsService {
@@ -524,13 +525,22 @@ export class ApplicationsService {
         }
 
         switch (plan.kind) {
-          case 'REJECT':
+          case 'REJECT': {
+            if (plan.expectedStatus === ApplicationStatus.APPROVED) {
+              // 승인을 곧바로 반려로 뒤집을 때도 되돌리기와 똑같이 승인의 부수효과를
+              // 거둔다. 진행 중이던 프로비저닝 요청(outbox 이벤트 + job)을 남기면
+              // 워커가 집어 간 job이 `APPLICATION_NOT_APPROVED`로 FAILED_FINAL이 되고,
+              // 그 고아 job이 남은 채로 재승인 경로를 오염시킨다.
+              // SUCCEEDED는 APP_023 가드가 이미 막았으므로 여기서 지우는 건 항상 미완료다.
+              await store.discardRepositoryProvisionRequest(applicationId);
+            }
             return {
               kind: 'REJECTED',
               applicationId,
               status: plan.nextStatus,
               rejectionReason: plan.rejectionReason,
             };
+          }
           case 'REVERT': {
             // 되돌리기는 승인의 부수효과까지 되돌린다. 진행 중이던 프로비저닝
             // 요청(outbox 이벤트 + job)을 지우지 않으면, 워커가 이미 집어 간 job이
@@ -566,8 +576,9 @@ export class ApplicationsService {
             // FAILED_FINAL을 다시 집지 않으므로 재사용 경로에서는 저장소가 영영
             // 만들어지지 않는다. 지우고 새로 발행하면 그 창이 닫힌다.
             //
-            // 여기 도달했다는 것은 신청이 SUBMITTED였다는 뜻이고, 프로비저닝이
-            // 완료된 건은 되돌리기 가드가 이미 막았으므로 지우는 대상은 항상 미완료다.
+            // 여기 도달했다는 것은 신청이 SUBMITTED 또는 REJECTED였다는 뜻이다.
+            // 프로비저닝이 완료된 승인은 APP_023이 반려·되돌리기를 모두 막아
+            // 그 둘 중 어느 상태에도 SUCCEEDED job이 따라오지 않는다 — 지우는 대상은 항상 미완료다.
             await store.discardRepositoryProvisionRequest(applicationId);
 
             const event = await store.createRepositoryProvisionEvent({
@@ -635,14 +646,15 @@ export class ApplicationsService {
     readonly processedAt: Date;
     readonly findProvisionJob: (
       applicationId: string,
-    ) => Promise<{ status: RepositoryProvisionJobStatus } | null>;
+    ) => Promise<RepositoryProvisionJobSnapshot | null>;
   }): Promise<ApplicationDecisionPlan> {
     const { application, action, actorId, processedAt } = input;
 
     switch (action.action) {
       case APPLICATION_DECISION_ACTIONS.APPROVE: {
-        // D4 가드 ①: 이미 APPROVED면 중복 승인 409 (기존 ALREADY_DECIDED 재사용).
-        if (application.status !== ApplicationStatus.SUBMITTED) {
+        // 같은 판정을 다시 보내는 것만 409다(기존 ALREADY_DECIDED 재사용).
+        // REJECTED에서의 승인은 반대 판정이므로 한 번의 전이로 허용한다(#1272).
+        if (application.status === ApplicationStatus.APPROVED) {
           const extensions: ApplicationStatusConflictExtensions = {
             latestStatus: application.status,
           };
@@ -653,6 +665,7 @@ export class ApplicationsService {
             extensions,
           );
         }
+        const expectedStatus = application.status;
         if (
           application.repositoryConnectionMode ===
             RepositoryConnectionMode.OWN &&
@@ -663,14 +676,14 @@ export class ApplicationsService {
         }
         return {
           kind: 'APPROVE',
-          expectedStatus: ApplicationStatus.SUBMITTED,
+          expectedStatus,
           nextStatus: ApplicationStatus.APPROVED,
           rejectionReason: null,
           processedBy: { id: actorId, at: processedAt },
         };
       }
       case APPLICATION_DECISION_ACTIONS.REJECT: {
-        if (application.status !== ApplicationStatus.SUBMITTED) {
+        if (application.status === ApplicationStatus.REJECTED) {
           const extensions: ApplicationStatusConflictExtensions = {
             latestStatus: application.status,
           };
@@ -681,9 +694,16 @@ export class ApplicationsService {
             extensions,
           );
         }
+        const expectedStatus = application.status;
+        // 승인을 반려로 뒤집는 것은 승인을 푸는 일이다 — 되돌리기와 똑같은
+        // 완료 잠금(APP_023)을 거친다. 안 거치면 반려가 잠금을 우회하는 뒷문이 된다.
+        await this.assertProvisioningNotCompleted(
+          application,
+          input.findProvisionJob,
+        );
         return {
           kind: 'REJECT',
-          expectedStatus: ApplicationStatus.SUBMITTED,
+          expectedStatus,
           nextStatus: ApplicationStatus.REJECTED,
           rejectionReason: action.reason,
           processedBy: { id: actorId, at: processedAt },
@@ -716,31 +736,15 @@ export class ApplicationsService {
           );
         }
 
-        // D4 가드 ③: NEW 프로비저닝 완료만 되돌리기 잠금.
-        // OWN은 만든 저장소가 없어 완료 잠금을 걸지 않는다(ADR-009).
-        if (
-          application.status === ApplicationStatus.APPROVED &&
-          application.repositoryConnectionMode === RepositoryConnectionMode.NEW
-        ) {
-          const job = await input.findProvisionJob(application.id);
-          if (isProvisioningCompleted(job?.status)) {
-            const extensions: RevertBlockedExtensions = {
-              latestStatus: application.status,
-              revertBlockedReason:
-                'repository provision already succeeded; undo is locked to protect the provisioned repository',
-            };
-            throw new DomainException(
-              APPLICATIONS_ERROR_CODES[
-                ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED
-              ],
-              extensions,
-            );
-          }
-        }
+        const expectedStatus = application.status;
+        await this.assertProvisioningNotCompleted(
+          application,
+          input.findProvisionJob,
+        );
 
         return {
           kind: 'REVERT',
-          expectedStatus: application.status,
+          expectedStatus,
           nextStatus: ApplicationStatus.SUBMITTED,
           rejectionReason: null,
           processedBy: 'preserve',
@@ -751,6 +755,46 @@ export class ApplicationsService {
         return exhaustiveAction;
       }
     }
+  }
+
+  /**
+   * D4 가드 ③: NEW 프로비저닝이 완료된 승인은 풀 수 없다 — 되돌리기도, 반려로
+   * 뒤집는 것도 막는다. 이미 만들어진 저장소에 대한 접근이 판정 변경 한 번으로
+   * 끊기는 것을 막는 것이 이 잠금의 목적이라, 어느 방향으로 푸는지는 상관없다.
+   * APPROVED가 아니면 잠금 대상이 아니고, OWN은 만든 저장소가 없어 걸지 않는다(ADR-009).
+   */
+  private async assertProvisioningNotCompleted(
+    application: ApplicationDecisionTarget,
+    findProvisionJob: (
+      applicationId: string,
+    ) => Promise<RepositoryProvisionJobSnapshot | null>,
+  ): Promise<void> {
+    if (
+      application.status !== ApplicationStatus.APPROVED ||
+      application.repositoryConnectionMode !== RepositoryConnectionMode.NEW
+    ) {
+      return;
+    }
+    const job = await findProvisionJob(application.id);
+    // 생성된 저장소는 다음 권한 재조회에서 job이 PENDING/PROCESSING이어도 보호한다.
+    if (
+      job === null ||
+      (job.repositoryId === null &&
+        job.status !== RepositoryProvisionJobStatus.SUCCEEDED)
+    ) {
+      return;
+    }
+    const extensions: RevertBlockedExtensions = {
+      latestStatus: application.status,
+      revertBlockedReason:
+        'repository provision already succeeded; undo is locked to protect the provisioned repository',
+    };
+    throw new DomainException(
+      APPLICATIONS_ERROR_CODES[
+        ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED
+      ],
+      extensions,
+    );
   }
 
   private auditActionFor(

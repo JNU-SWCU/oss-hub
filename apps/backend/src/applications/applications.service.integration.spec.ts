@@ -51,6 +51,9 @@ const APPLICATION_IDS = [
   'synthetic-decided-application',
   'synthetic-cancelled-application',
   'synthetic-transaction-failure-application',
+  'synthetic-switch-reject-application',
+  'synthetic-switch-approve-application',
+  'synthetic-provisioned-application',
 ] as const;
 
 async function createApplication(
@@ -151,6 +154,11 @@ describe('ApplicationsService integration', () => {
     });
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
+    });
+    // 완료 잠금(APP_023) 시나리오가 job을 직접 심는다. Application FK를 잡고 있으므로
+    // 신청보다 먼저 지우지 않으면 정리 자체가 실패한다.
+    await prisma.repositoryProvisionJob.deleteMany({
+      where: { applicationId: { in: [...APPLICATION_IDS] } },
     });
     await prisma.application.deleteMany({
       where: {
@@ -509,10 +517,9 @@ describe('ApplicationsService integration', () => {
       data: { status: ApplicationStatus.APPROVED },
     });
 
-    // When
+    // When — #1272 이후 409는 **같은** 판정을 다시 보냈을 때만 난다.
     const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
-      action: APPLICATION_DECISION_ACTIONS.REJECT,
-      reason: '합성 반려 사유',
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
     // Then
@@ -522,6 +529,152 @@ describe('ApplicationsService integration', () => {
         status: 409,
       },
       extensions: { latestStatus: ApplicationStatus.APPROVED },
+    });
+  });
+
+  it('#1272 승인→반려: PATCH 한 번으로 전이하고 미완료 요청을 같은 트랜잭션에서 지운다', async () => {
+    // Given — 승인된 신청과 그때 남은 outbox 요청
+    const applicationId = APPLICATION_IDS[8];
+    await createApplication(applicationId, true);
+    await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
+    await expect(
+      prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
+    ).resolves.toBe(1);
+
+    // When — 되돌리기 없이 곧바로 반려
+    const result = await service.decide(
+      ACTOR_ID,
+      applicationId,
+      ACTOR_GITHUB_ID,
+      {
+        action: APPLICATION_DECISION_ACTIONS.REJECT,
+        reason: '합성 재판정 사유',
+      },
+    );
+
+    // Then
+    expect(result).toMatchObject({
+      kind: 'REJECTED',
+      status: ApplicationStatus.REJECTED,
+      rejectionReason: '합성 재판정 사유',
+    });
+    await expect(
+      prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
+    ).resolves.toMatchObject({
+      status: ApplicationStatus.REJECTED,
+      rejectionReason: '합성 재판정 사유',
+      processedById: ACTOR_ID,
+    });
+    // 승인의 부수효과까지 거둔다 — 고아 job을 만들 수 있는 요청을 남기지 않는다.
+    await expect(
+      prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
+    ).resolves.toBe(0);
+    // append-only 원장에 승인·반려 두 줄이 모두 남고, 반려의 before는 APPROVED다.
+    const auditLogs = await prisma.auditLog.findMany({
+      where: { targetType: 'APPLICATION', targetId: applicationId },
+    });
+    expect(auditLogs.map((log) => log.action).sort()).toEqual([
+      'APPLICATION_APPROVED',
+      'APPLICATION_REJECTED',
+    ]);
+    const rejectedLog = auditLogs.find(
+      (log) => log.action === 'APPLICATION_REJECTED',
+    );
+    expect(rejectedLog?.metadata).toMatchObject({
+      before: { status: ApplicationStatus.APPROVED },
+      after: { status: ApplicationStatus.REJECTED },
+    });
+    await expect(
+      prisma.notification.count({
+        where: {
+          userId: APPLICANT_ID,
+          type: 'APPLICATION_DECISION',
+        },
+      }),
+    ).resolves.toBe(2);
+  });
+
+  it('#1272 반려→승인: PATCH 한 번으로 전이하고 새 프로비저닝 이벤트를 발행한다', async () => {
+    // Given
+    const applicationId = APPLICATION_IDS[9];
+    await createApplication(applicationId, true);
+    await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+      action: APPLICATION_DECISION_ACTIONS.REJECT,
+      reason: '합성 반려 사유',
+    });
+
+    // When
+    const result = await service.decide(
+      ACTOR_ID,
+      applicationId,
+      ACTOR_GITHUB_ID,
+      { action: APPLICATION_DECISION_ACTIONS.APPROVE },
+    );
+
+    // Then
+    const event = await prisma.outboxEvent.findUniqueOrThrow({
+      where: { idempotencyKey: `repository-provision:${applicationId}` },
+    });
+    expect(result).toMatchObject({
+      kind: 'APPROVED',
+      status: ApplicationStatus.APPROVED,
+      repositoryProvisioning: {
+        enabled: true,
+        eventId: event.id,
+        jobStatus: RepositoryProvisionJobStatus.PENDING,
+      },
+    });
+    const application = await prisma.application.findUniqueOrThrow({
+      where: { id: applicationId },
+    });
+    expect(application).toMatchObject({
+      status: ApplicationStatus.APPROVED,
+      processedById: ACTOR_ID,
+    });
+    // 반려 사유는 승인 전이에서 비워진다 — 승인된 신청이 사유를 들고 있으면 안 된다.
+    expect(application.rejectionReason).toBeNull();
+  });
+
+  it('#1272 프로비저닝이 끝난 NEW 승인은 반려로도 풀 수 없다 (409 APP_023)', async () => {
+    // Given — 승인 후 워커가 저장소를 실제로 만든 상태(job SUCCEEDED)
+    const applicationId = APPLICATION_IDS[10];
+    await createApplication(applicationId, true);
+    await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
+    await prisma.repositoryProvisionJob.create({
+      data: {
+        applicationId,
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+      },
+    });
+
+    // When
+    const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+      action: APPLICATION_DECISION_ACTIONS.REJECT,
+      reason: '합성 반려 사유',
+    });
+
+    // Then — 반대 판정 직행이 완료 잠금을 우회하는 뒷문이 되지 않는다.
+    await expect(decision).rejects.toMatchObject({
+      errorCode: {
+        code: ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED,
+        status: 409,
+      },
+      extensions: { latestStatus: ApplicationStatus.APPROVED },
+    });
+    await expect(
+      prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
+    ).resolves.toMatchObject({ status: ApplicationStatus.APPROVED });
+    // 보호 대상인 저장소 작업은 그대로 남아 있다.
+    await expect(
+      prisma.repositoryProvisionJob.findUniqueOrThrow({
+        where: { applicationId },
+      }),
+    ).resolves.toMatchObject({
+      status: RepositoryProvisionJobStatus.SUCCEEDED,
     });
   });
 
