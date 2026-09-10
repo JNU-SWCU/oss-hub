@@ -33,6 +33,8 @@ export interface StudentDashboardApplicationRow {
   readonly program: {
     readonly id: string;
     readonly name: string;
+    /** 대표 이미지 식별자만 — 저장소 키 같은 보관 메타데이터는 카드로 나가지 않는다(#1268). */
+    readonly cover?: { readonly id: string } | null;
     readonly milestones: readonly StudentDashboardMilestoneRow[];
   };
   readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
@@ -44,6 +46,7 @@ export const studentDashboardApplicationSelect = {
   team: { select: { name: true } },
   program: {
     select: {
+      cover: { select: { id: true } },
       id: true,
       name: true,
       milestones: {
