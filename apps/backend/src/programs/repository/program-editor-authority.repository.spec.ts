@@ -109,6 +109,7 @@ describe('ProgramEditorRepository edit counts', () => {
     expect(findUnique).toHaveBeenCalledWith({
       where: { id: 'program-1' },
       include: {
+        cover: { select: { id: true } },
         _count: {
           select: { applications: true, teams: true, boardPosts: true },
         },

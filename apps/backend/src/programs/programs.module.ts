@@ -38,6 +38,9 @@ import { ProgramsRepository } from './repository/programs.repository';
 import { StudentDashboardReadRepository } from './repository/student-dashboard-read.repository';
 import { ProgramsService } from './service/programs.service';
 import { StudentDashboardService } from './service/student-dashboard.service';
+import { ProgramCoverController } from './controller/program-cover.controller';
+import { ProgramCoverService } from './service/program-cover.service';
+import { ProgramCoverRepository } from './repository/program-cover.repository';
 
 @Module({
   imports: [AuthModule, AuditLogModule, RepositoriesModule, SubmissionsModule],
@@ -45,6 +48,7 @@ import { StudentDashboardService } from './service/student-dashboard.service';
     // static sibling first — programs/application-templates before programs/:id
     ApplicationTemplatesController,
     ProgramAuthoringController,
+    ProgramCoverController,
     ProgramsController,
     StudentDashboardController,
     ProgramEditorController,
@@ -59,6 +63,8 @@ import { StudentDashboardService } from './service/student-dashboard.service';
     ProgramAuthoringService,
     ProgramAuthoringUploadRepository,
     ProgramAuthoringUploadService,
+    ProgramCoverService,
+    ProgramCoverRepository,
     ProgramAuthoringUploadMaintenanceService,
     ProgramAuthoringUploadMaintenanceScheduler,
     ProgramPurgeFileCleanupRepository,

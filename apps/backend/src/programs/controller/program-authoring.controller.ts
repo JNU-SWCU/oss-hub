@@ -40,6 +40,7 @@ import {
   type ProgramAuthoringUploadFile,
 } from '../program-authoring-upload.types';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../../submissions/submission-upload-policy';
+import { PROGRAM_COVER_MAX_BYTES } from '../program-cover';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -73,6 +74,27 @@ export class ProgramAuthoringController {
   ) {
     try {
       return await this.uploads.upload(
+        await this.requireAuthor(request.sessionGithubId),
+        file,
+      );
+    } catch (error) {
+      throw uploadHttpError(error);
+    }
+  }
+
+  @Post('cover-uploads')
+  @UseGuards(SessionGuard, OriginGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: PROGRAM_COVER_MAX_BYTES, files: 1 },
+    }),
+  )
+  async uploadCover(
+    @Req() request: SessionIdentity,
+    @UploadedFile() file: ProgramAuthoringUploadFile | undefined,
+  ) {
+    try {
+      return await this.uploads.uploadCover(
         await this.requireAuthor(request.sessionGithubId),
         file,
       );

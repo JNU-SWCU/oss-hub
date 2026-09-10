@@ -768,9 +768,7 @@ describe('참여자가 아닌 학생의 서류 화면(#1099)', () => {
 
   it('빨간 실패가 아니라 「아직 참여자가 아닙니다」 상태로 읽힌다', () => {
     expect(html).toContain('아직 참여자가 아닙니다');
-    expect(html).toContain(
-      '승인된 신청이 있는 참여자만 제출물을 볼 수 있습니다.',
-    );
+    expect(html).toContain('신청이 승인되면 서류를 제출할 수 있습니다.');
     expect(html).not.toContain('체크리스트 불러오기 실패');
     expect(html).not.toContain('다시 시도');
     expect(html).not.toContain('data-slot="alert"');

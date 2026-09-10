@@ -26,6 +26,7 @@ import type {
 export const ADMIN_GITHUB_ID = 9_131_300_001n;
 export const TARGET_GITHUB_ID = 9_131_300_002n;
 export const STAFF_GITHUB_ID = 9_131_300_003n;
+export const ACCOUNT_CREATED_AT = new Date('2026-07-19T00:00:00.000Z');
 
 export function staffActor(
   overrides: Partial<AdminAccessActor> = {},
@@ -71,6 +72,7 @@ export function accessUser(
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
     isProfileComplete: true,
+    createdAt: ACCOUNT_CREATED_AT,
     pendingRequest: null,
     lastLoginAt: null,
     ...overrides,

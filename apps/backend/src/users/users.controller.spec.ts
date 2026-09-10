@@ -10,6 +10,7 @@ const profile = {
   name: '합성 사용자',
   studentId: '1'.repeat(6),
   department: '인공지능학부',
+  phone: '1'.repeat(11),
   isComplete: true,
 };
 
@@ -60,6 +61,7 @@ it('POST는 정규화된 DTO를 가입 마치기에 전달한다', async () => {
     name: profile.name,
     studentId: profile.studentId,
     department: profile.department,
+    phone: profile.phone,
   });
 
   await expect(
@@ -69,6 +71,7 @@ it('POST는 정규화된 DTO를 가입 마치기에 전달한다', async () => {
     name: profile.name,
     studentId: profile.studentId,
     department: profile.department,
+    phone: profile.phone,
   });
 });
 
@@ -78,6 +81,7 @@ it('PATCH는 정규화된 DTO를 서비스에 전달한다', async () => {
     name: profile.name,
     studentId: profile.studentId,
     department: profile.department,
+    phone: profile.phone,
   });
 
   await expect(
@@ -87,6 +91,7 @@ it('PATCH는 정규화된 DTO를 서비스에 전달한다', async () => {
     name: profile.name,
     studentId: profile.studentId,
     department: profile.department,
+    phone: profile.phone,
   });
 });
 

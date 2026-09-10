@@ -7,9 +7,17 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
+  MaxLength,
 } from 'class-validator';
 
 export class UpdateProgramRequestDto {
+  @IsOptional()
+  @IsString()
+  @Matches(/^\S+$/u)
+  @MaxLength(128)
+  declare readonly coverUploadId?: string | null;
+
   @IsString()
   @IsNotEmpty()
   declare name: string;

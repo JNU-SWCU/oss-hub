@@ -63,7 +63,7 @@ export function ProgramAuthoringReviewStep({
   return (
     <FormSection
       title="최종 검토"
-      description="확정하면 전체 내용이 한 번에 생성됩니다. 생성 전에는 서버에 프로그램이 없습니다."
+      description="확정하면 프로그램과 입력한 마일스톤·제출 항목을 함께 생성합니다."
     >
       <div className="grid gap-4">
         <Card>
@@ -74,6 +74,10 @@ export function ProgramAuthoringReviewStep({
             <dl className="grid gap-4 text-body sm:grid-cols-2">
               <ReviewFact label="교과/비교과" value={trackLabel} />
               <ReviewFact label="주관" value={state.organizer} />
+              <ReviewFact
+                label="대표 이미지"
+                value={state.coverFile?.name ?? '없음'}
+              />
               <ReviewFact
                 label="팀 인원"
                 value={`${state.teamMinSize}명 ~ ${state.teamMaxSize}명`}

@@ -133,6 +133,29 @@ describe('StudentDashboardService', () => {
     expect(getMyRepositories).toHaveBeenCalledWith(404n);
   });
 
+  /**
+   * 커버는 repository 가 준 `program.cover.id` 하나로만 만든다 — 저장소 키 같은
+   * 보관 메타데이터가 카드 응답에 새어 나가면 안 된다(#1268).
+   */
+  it('projects the current program cover without storage metadata', async () => {
+    findParticipatingApplications.mockResolvedValue([
+      application({ program: { ...program([]), cover: { id: 'cover-1' } } }),
+    ]);
+
+    const items = await service.getStudentDashboard(404n);
+
+    expect(items[0]?.coverImageUrl).toBe('/programs/program-1/cover/cover-1');
+    expect(items[0]).not.toHaveProperty('storageKey');
+  });
+
+  it('projects a null cover when the program has no cover', async () => {
+    findParticipatingApplications.mockResolvedValue([application()]);
+
+    const items = await service.getStudentDashboard(404n);
+
+    expect(items[0]?.coverImageUrl).toBeNull();
+  });
+
   it('compiles with the read repository and the DTO-only repositories read-port token', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -618,6 +641,11 @@ describe('StudentDashboardReadRepository', () => {
       select: submissionCompletionTargetSelect,
     });
     expect(args.select?.team).toEqual({ select: { name: true } });
+    // 커버는 식별자만 읽는다 — 보관 메타데이터까지 끌어오면 카드 응답으로 샌다(#1268).
+    const programSelect = args.select?.program as {
+      readonly select?: { readonly cover?: unknown };
+    };
+    expect(programSelect.select?.cover).toEqual({ select: { id: true } });
     // 신청자 스칼라는 표시 이름의 원본이 아니다 — 아예 읽지 않는다.
     expect(args.select).not.toHaveProperty('applicant');
   });

@@ -19,14 +19,14 @@ export default async function MilestoneDocumentCollectionPage({
   // 조회 경로가 다시 인코딩할 때 이중 인코딩이 되지 않는다.
   return (
     <RolePanelShell allow={['staff']}>
+      <MilestoneDocumentCollectionScreen
+        programId={decodeRouteProgramId(id)}
+        milestoneId={decodeRouteProgramId(milestoneId)}
+      />
       <ProgramDocumentArchivePanel
         key={`${id}/${milestoneId}`}
         programId={decodeRouteProgramId(id)}
         initialMilestoneId={decodeRouteProgramId(milestoneId)}
-      />
-      <MilestoneDocumentCollectionScreen
-        programId={decodeRouteProgramId(id)}
-        milestoneId={decodeRouteProgramId(milestoneId)}
       />
     </RolePanelShell>
   );

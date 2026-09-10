@@ -14,6 +14,7 @@ const EMPTY_PROFILE = {
   name: '합성 가입 사용자',
   studentId: null,
   department: null,
+  phone: null,
   isComplete: false,
 } as const;
 
@@ -66,6 +67,7 @@ export async function installOnboardingFixture(
         readonly name: string;
         readonly studentId: string | null;
         readonly department: string | null;
+        readonly phone: string | null;
         readonly isComplete: true;
       } = EMPTY_PROFILE;
 
@@ -126,6 +128,7 @@ export async function installOnboardingFixture(
       const body = request.postDataJSON() as {
         name?: string;
         studentId?: string;
+        phone?: string;
         affiliationName?: string;
       };
       completed = true;
@@ -133,6 +136,7 @@ export async function installOnboardingFixture(
         name: body.name ?? '합성 가입 사용자',
         studentId: body.studentId ?? null,
         department: body.affiliationName ?? null,
+        phone: body.phone ?? null,
         isComplete: true,
       };
       await fulfillJson(route, savedProfile);

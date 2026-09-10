@@ -11,6 +11,7 @@ import {
   milestoneCompletionStatus,
   type MilestoneCompletionStatus,
 } from '../../common/milestone-completion';
+import { programCoverImageUrl } from '../program-cover';
 import {
   type OwnedRepositoryProjectionDto,
   REPOSITORIES_READ_PORT,
@@ -43,6 +44,7 @@ export interface StudentDashboardMilestone {
  * 남거나 1인 팀이 팀으로 보이지 않는다.
  */
 export interface StudentDashboardItem {
+  readonly coverImageUrl?: string | null;
   readonly applicationId: string;
   readonly programId: string;
   readonly programName: string;
@@ -187,6 +189,10 @@ export class StudentDashboardService {
       if (nextMilestone === 'invalid') continue;
 
       items.push({
+        coverImageUrl: programCoverImageUrl(
+          application.program.id,
+          application.program.cover?.id,
+        ),
         applicationId: application.id,
         programId: application.program.id,
         programName: application.program.name,

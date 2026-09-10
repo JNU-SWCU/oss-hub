@@ -20,6 +20,7 @@ describe('account onboarding fixture responses', () => {
       name: '합성 온보딩 사용자',
       studentId: '12',
       department: '인공지능학부',
+      phone: null,
       isComplete: false,
     });
   });

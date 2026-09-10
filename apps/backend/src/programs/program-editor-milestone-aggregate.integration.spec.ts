@@ -210,7 +210,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         where: { milestoneDocumentId: firstDocumentId },
         select: { storageKey: true },
       }),
-    ).toEqual({ storageKey: `objects/${uploadId}` });
+    ).toEqual({ storageKey: `program-authoring/${uploadId}` });
   });
 
   it('rejects a snapshot made before direct same-row template key replacement', async () => {
@@ -647,7 +647,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         where: { milestoneDocumentId: firstDocumentId },
         select: { storageKey: true },
       }),
-    ).toEqual({ storageKey: `objects/${uploadId}` });
+    ).toEqual({ storageKey: `program-authoring/${uploadId}` });
   });
 
   it('lets an actual cleanup claim win while aggregate is open before token locking', async () => {
@@ -1121,7 +1121,7 @@ async function createPendingUpload(
     data: {
       id,
       actorId: `${TEST_PREFIX}staff`,
-      storageKey: `objects/${id}`,
+      storageKey: `program-authoring/${id}`,
       originalFileName: 'form.pdf',
       mimeType: 'application/pdf',
       sizeBytes: 12,

@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import { PageBody } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -23,6 +30,12 @@ import { ProfileOnboardingForm } from './profile-onboarding-form';
 
 export { ProfileOnboardingForm as ProfileForm } from './profile-onboarding-form';
 
+interface ConsentRequiredRenderProps {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+  readonly onCompleted: () => void;
+}
+
 export function ProfileSkeleton() {
   return (
     <PageBody
@@ -39,9 +52,13 @@ export function ProfileSkeleton() {
 export function ProfileOnboardingScreen({
   memberKind,
   nextPath,
+  renderConsentRequired,
 }: {
   readonly memberKind: ProfileMemberKind;
   readonly nextPath: string;
+  readonly renderConsentRequired?: (
+    props: ConsentRequiredRenderProps,
+  ) => ReactNode;
 }) {
   const router = useRouter();
   const [values, setValues] = useState<ProfileFormValues | null>(null);
@@ -49,6 +66,7 @@ export function ProfileOnboardingScreen({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [isConsentRequiredOpen, setConsentRequiredOpen] = useState(false);
   const submissionInFlight = useRef(false);
 
   const navigateForError = useCallback(
@@ -58,7 +76,7 @@ export function ProfileOnboardingScreen({
           window.location.assign('/');
           return true;
         case 'consent-required':
-          router.replace('/consent');
+          setConsentRequiredOpen(true);
           return true;
         case 'already-complete':
           router.replace(nextPath);
@@ -100,9 +118,22 @@ export function ProfileOnboardingScreen({
     () =>
       values
         ? validateProfileForm(values, memberKind)
-        : { name: null, studentId: null, department: null },
+        : { name: null, studentId: null, phone: null, department: null },
     [memberKind, values],
   );
+
+  const consentRequiredDialog = renderConsentRequired
+    ? renderConsentRequired({
+        open: isConsentRequiredOpen,
+        onOpenChange: (nextOpen) => {
+          if (nextOpen) setConsentRequiredOpen(true);
+        },
+        onCompleted: () => {
+          setConsentRequiredOpen(false);
+          void loadProfile();
+        },
+      })
+    : null;
 
   async function submit(): Promise<void> {
     if (!values || submissionInFlight.current) return;
@@ -133,38 +164,51 @@ export function ProfileOnboardingScreen({
 
   if (loadError) {
     return (
-      <PageBody className="max-w-2xl">
-        <Alert variant="destructive">
-          <AlertTitle>프로필을 불러오지 못했습니다</AlertTitle>
-          <AlertDescription className="flex flex-col items-start gap-4">
-            <span>{loadError}</span>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void loadProfile()}
-            >
-              다시 시도
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </PageBody>
+      <>
+        <PageBody className="max-w-2xl">
+          <Alert variant="destructive">
+            <AlertTitle>프로필을 불러오지 못했습니다</AlertTitle>
+            <AlertDescription className="flex flex-col items-start gap-4">
+              <span>{loadError}</span>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void loadProfile()}
+              >
+                다시 시도
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </PageBody>
+        {consentRequiredDialog}
+      </>
     );
   }
 
-  if (!values) return <ProfileSkeleton />;
+  if (!values) {
+    return (
+      <>
+        <ProfileSkeleton />
+        {consentRequiredDialog}
+      </>
+    );
+  }
 
   return (
-    <ProfileOnboardingForm
-      memberKind={memberKind}
-      values={values}
-      errors={errors}
-      showRequiredErrors={hasSubmitted}
-      isSubmitting={isSubmitting}
-      submitError={submitError}
-      onChange={(patch) =>
-        setValues((current) => current && { ...current, ...patch })
-      }
-      onSubmit={() => void submit()}
-    />
+    <>
+      <ProfileOnboardingForm
+        memberKind={memberKind}
+        values={values}
+        errors={errors}
+        showRequiredErrors={hasSubmitted}
+        isSubmitting={isSubmitting}
+        submitError={submitError}
+        onChange={(patch) =>
+          setValues((current) => current && { ...current, ...patch })
+        }
+        onSubmit={() => void submit()}
+      />
+      {consentRequiredDialog}
+    </>
   );
 }

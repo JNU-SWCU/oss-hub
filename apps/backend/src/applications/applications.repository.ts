@@ -244,6 +244,7 @@ export interface StaffDashboardApplicationCounts {
 }
 
 export interface StaffDashboardProgramSummary {
+  readonly coverId?: string | null;
   readonly id: string;
   readonly name: string;
   readonly trackType: ProgramTrackType | null;
@@ -790,6 +791,7 @@ export class ApplicationsRepository {
     const programs = await this.prisma.program.findMany({
       orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }, { id: 'asc' }],
       select: {
+        cover: { select: { id: true } },
         id: true,
         name: true,
         trackType: true,
@@ -854,6 +856,7 @@ export class ApplicationsRepository {
             rejected: 0,
           };
         return {
+          coverId: program.cover?.id ?? null,
           id: program.id,
           name: program.name,
           trackType: program.trackType,

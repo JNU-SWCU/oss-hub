@@ -17,6 +17,7 @@ export interface StudentDashboardMilestoneResponseDto {
 }
 
 export interface StudentDashboardItemResponseDto {
+  readonly coverImageUrl: string | null;
   readonly applicationId: string;
   readonly programId: string;
   readonly programName: string;
@@ -41,6 +42,7 @@ export class StudentDashboardResponseDto {
 
   private constructor(items: readonly StudentDashboardItem[]) {
     this.items = items.map((item) => ({
+      coverImageUrl: item.coverImageUrl ?? null,
       applicationId: item.applicationId,
       programId: item.programId,
       programName: item.programName,

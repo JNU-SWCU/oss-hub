@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { toCompleteProfileRequest, validateProfileForm } from './profile-state';
 import type { ProfileFormValues } from './types';
 
+const TEN_DIGIT_PHONE = '1'.repeat(10);
+
 function values(patch: Partial<ProfileFormValues> = {}): ProfileFormValues {
   return {
     name: '합성 회원',
     studentId: '',
+    phone: '',
     savedStudentId: '',
     affiliationKind: 'DEPARTMENT',
     affiliationName: '',
@@ -18,13 +21,14 @@ function values(patch: Partial<ProfileFormValues> = {}): ProfileFormValues {
 describe('member affiliation completion', () => {
   it('builds a STUDENT completion with department affiliation and student ID', () => {
     // Given: valid student identity and department values.
-    const form = values({ studentId: '260821' });
+    const form = values({ studentId: '260821', phone: TEN_DIGIT_PHONE });
     // When: the canonical completion request is built.
     const request = toCompleteProfileRequest(form, 'STUDENT');
     // Then: member-dependent affiliation and ID fields are explicit.
     expect(request).toEqual({
       name: '합성 회원',
       studentId: '260821',
+      phone: TEN_DIGIT_PHONE,
       affiliationKind: 'DEPARTMENT',
       affiliationName: '인공지능학부',
     });

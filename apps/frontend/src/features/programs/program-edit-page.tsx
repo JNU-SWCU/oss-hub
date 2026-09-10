@@ -1,5 +1,7 @@
 ﻿'use client';
 
+import { useProgramCoverEdit } from './use-program-cover-edit';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditableMilestone, EditableMilestoneEditSnapshot } from './api';
 import {
@@ -71,6 +73,7 @@ export function ProgramEditPage({
    */
   readonly canDeleteProgram: boolean;
 }) {
+  const cover = useProgramCoverEdit();
   const [state, setState] = useState<ProgramEditLoadState>({ kind: 'loading' });
   const [form, setForm] = useState<ProgramEditForm | null>(null);
   const [dirtyFields, setDirtyFields] = useState<
@@ -103,7 +106,7 @@ export function ProgramEditPage({
     useState(false);
   const editRegionRef = useRef<HTMLDivElement>(null);
 
-  const isDirty = dirtyFields.length > 0;
+  const isDirty = dirtyFields.length > 0 || cover.selection !== undefined;
   const hasUnsavedMilestoneChanges = hasUnsavedMilestoneEdit(milestoneEditor);
   // 훅은 조건부 이른 반환(state.kind === 'failed' 등)보다 위에서 호출해야 한다.
   // 나가기 확인은 기본 정보뿐 아니라 마일스톤 편집기에 남은 입력도 지켜야 한다(#867).
@@ -172,7 +175,7 @@ export function ProgramEditPage({
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (milestoneUploadRuntimeRef.current.submitting) return;
+    if (isSaving || milestoneUploadRuntimeRef.current.submitting) return;
     if (form === null || state.kind !== 'ready') return;
     const currentScheduleForm = {
       ...form,
@@ -195,15 +198,24 @@ export function ProgramEditPage({
     setErrors({});
     setGeneralAlert(null);
     try {
-      const updated = await updateProgram(
-        programId,
-        buildProgramEditInput(currentScheduleForm, dirtyFields),
-      );
+      const preparedCover = await cover.prepare();
+      if (preparedCover.kind === 'failure') {
+        setErrors({ general: preparedCover.message });
+        return;
+      }
+      const updated = await updateProgram(programId, {
+        ...buildProgramEditInput(currentScheduleForm, dirtyFields),
+        ...('coverUploadId' in preparedCover
+          ? { coverUploadId: preparedCover.coverUploadId }
+          : {}),
+      });
+      cover.saved();
       setState({ kind: 'ready', program: updated });
       setForm(toProgramEditForm(updated));
       setDirtyFields([]);
       setToastMessage('저장되었습니다.');
     } catch (error: unknown) {
+      cover.failed(error);
       setErrors(mapProgramEditError(error));
     } finally {
       setIsSaving(false);
@@ -560,6 +572,12 @@ export function ProgramEditPage({
       <ProgramEditView
         program={state.program}
         form={form}
+        coverSelection={cover.selection}
+        onCoverChange={(file) => {
+          cover.change(file);
+          setErrors({});
+          setToastMessage(null);
+        }}
         errors={errors}
         toastMessage={toastMessage}
         generalAlert={generalAlert}

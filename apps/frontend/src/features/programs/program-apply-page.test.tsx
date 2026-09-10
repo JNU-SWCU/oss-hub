@@ -189,6 +189,8 @@ describe('ProgramApply views', () => {
     const html = renderForm({ team: null });
 
     expect(html).toContain('합성 프로그램 신청');
+    expect(html).toContain('@synthetic-student');
+    expect(html).toContain('계정에 연결된 GitHub');
     expect(html).toContain('합성 학생');
     expect(html).toContain('name="applicantName"');
     expect(html).toMatch(/name="applicantName"[^>]*readOnly|readonly/i);
@@ -278,9 +280,7 @@ describe('ProgramApply views', () => {
     });
 
     expect(html).toContain('https://github.com/team/repo');
-    expect(html).toContain(
-      'GitHub에 공개(Public)로 연동된 저장소만 연결할 수 있습니다.',
-    );
+    expect(html).toContain('기존 GitHub 공개 저장소를 연결합니다.');
   });
 
   it('저장소 URL 사전 검증 실패를 배너로 표시한다', () => {

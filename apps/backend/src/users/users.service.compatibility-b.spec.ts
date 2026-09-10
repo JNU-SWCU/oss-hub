@@ -23,6 +23,7 @@ type StoredUser = {
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;
+  readonly phone?: string | null;
   readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly selectedMemberKind?: MemberKind | null;
   readonly memberKind?: MemberKind | null;
@@ -47,6 +48,7 @@ function buildService(
           name: 'GitHub 합성 이름',
           studentId: null,
           department: null,
+          phone: null,
           role: null,
           selectedMemberKind: MemberKind.STUDENT,
           memberKind: null,
@@ -156,14 +158,16 @@ describe('기존 데이터 호환 후속', () => {
 
   it('이미 있는 학번과 같은 값을 다시 보내면 통과하고 학번은 건드리지 않는다', async () => {
     // Given — 폼이 현재 값을 그대로 싣는 정상 동작을 막지 않는다
+    const existingUser = {
+      id: 'synthetic-user',
+      name: input.name,
+      studentId,
+      department: input.department ?? null,
+      phone: null,
+      role: 'STUDENT' as const,
+    };
     const { service, updateProfileFields } = buildService({
-      user: {
-        id: 'synthetic-user',
-        name: input.name,
-        studentId,
-        department: input.department ?? null,
-        role: 'STUDENT',
-      },
+      user: existingUser,
     });
 
     // When
@@ -177,9 +181,10 @@ describe('기존 데이터 호환 후속', () => {
       name: '수정된 이름',
       studentId,
       department: input.department,
+      phone: null,
       isComplete: true,
     });
-    expect(updateProfileFields).toHaveBeenCalledWith('synthetic-user', {
+    expect(updateProfileFields).toHaveBeenCalledWith(existingUser, {
       name: '수정된 이름',
       department: input.department,
     });

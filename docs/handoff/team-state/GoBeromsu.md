@@ -1572,3 +1572,13 @@
 - backend 최종 단위 검증에서 초대 수락 transaction fixture 두 파일의 새 outbox 의존성 누락을 발견했으며, 수정 뒤 전체 검증을 다시 수행한다.
 - 선행 migration PR #1268은 사용자 승인과 required CI를 거쳐 병합됐다. 이 작업의 enum migration은 이후 순서로 생성했다.
 - 공개 안전성: 합성 데이터로 검증했으며 운영 데이터·접속 정보·로컬 경로를 이 기록에 넣지 않았다.
+## 2026-09-10 — 전화번호 컬럼 이관의 리허설 두 겹을 채운다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 내용: `20260906174608_add_user_phone_canonical`은 `TeamMember.phone`을 `DROP COLUMN` 하는데 리허설이 없었다. 컨테이너 리허설 스크립트와 required CI에 고정하는 정적 계약 테스트를 pre-deploy-verify ⓪이 요구하는 두 겹으로 채우고 문서에 판정 기준을 적었다.
+- 검증: `migrate`·`negative` 두 lane을 일회용 PostgreSQL 컨테이너에서 실제로 돌려 각각 `{"status":"ok",...}`를 받았다. migrate는 값이 든 `TeamMember.phone`이 지워졌다가 직전 덤프로 되살아나는 것과 `User_phone_digits_check`가 10·11자리만 받는 것을, negative는 파일 전체가 한 트랜잭션이라 `ADD COLUMN`까지 롤백되는 것을 확인했다. 정적 계약 14개, ci-path-contract 8개, 전체 prettier가 통과했다.
+- 주의: 이 리허설 receipt를 근거로 `v0.6.154`를 발행했다. 스크립트는 호출자의 `DATABASE_URL`을 읽지 않고 unix 소켓 Docker endpoint만 허용하며 호스트 포트를 열지 않는다.
+- 범위: 리허설 tooling과 문서·CI 등록만 손댔다. 마이그레이션 SQL, 제품 코드, 운영 DB는 건드리지 않았다. `rehearse-program-deletion-column.sh`에 같은 정적 계약이 없는 것은 이 PR 범위 밖으로 남겨 둔다.

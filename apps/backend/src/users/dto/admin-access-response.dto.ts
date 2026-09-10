@@ -31,6 +31,7 @@ export class AdminAccessUserResponseDto {
   readonly accountStatus: AccountStatus;
   readonly isSelf: boolean;
   readonly isProfileComplete: boolean;
+  readonly createdAt: string;
   readonly pendingRequest: PendingRequestResponseDto | null;
   readonly lastLoginAt: string | null;
 
@@ -42,6 +43,7 @@ export class AdminAccessUserResponseDto {
     this.accountStatus = user.accountStatus;
     this.isSelf = user.isSelf;
     this.isProfileComplete = user.isProfileComplete;
+    this.createdAt = user.createdAt.toISOString();
     this.pendingRequest = toPendingRequest(user.pendingRequest);
     this.lastLoginAt = user.lastLoginAt?.toISOString() ?? null;
   }
@@ -100,6 +102,7 @@ export class AdminAccessUserDetailResponseDto {
   readonly accountStatus: AccountStatus;
   readonly isSelf: boolean;
   readonly isProfileComplete: boolean;
+  readonly createdAt: string;
   readonly pendingRequest: PendingRequestResponseDto | null;
   readonly lastLoginAt: string | null;
   readonly profile: AdminAccessUserDetail['profile'];
@@ -115,6 +118,7 @@ export class AdminAccessUserDetailResponseDto {
     this.accountStatus = user.accountStatus;
     this.isSelf = user.isSelf;
     this.isProfileComplete = user.isProfileComplete;
+    this.createdAt = user.createdAt.toISOString();
     this.pendingRequest = toPendingRequest(user.pendingRequest);
     this.lastLoginAt = user.lastLoginAt?.toISOString() ?? null;
     this.profile = user.profile;

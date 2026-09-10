@@ -88,12 +88,10 @@ describe('ConsentForm', () => {
   it('주 버튼 바로 위에 거부 안내를 붉은 글씨로 둔다', () => {
     const html = renderForm();
 
-    expect(textOf(html)).toContain(
-      '비동의는 자유이나, 비동의시 서비스 이용이 어렵습니다.',
-    );
+    expect(textOf(html)).toContain('비동의시 서비스 이용이 어렵습니다.');
     expect(html).toContain('text-cosmos-danger');
     // 안내가 버튼보다 먼저 나와야 "바로 위"다.
-    expect(html.indexOf('비동의는 자유이나')).toBeLessThan(
+    expect(html.indexOf('비동의시')).toBeLessThan(
       html.indexOf('type="submit"'),
     );
   });
@@ -161,7 +159,7 @@ describe('좁은 화면 전문 팝업의 높이 계약', () => {
     .filter((token) => !token.startsWith('sm:'));
 
   const source = readFileSync(
-    path.resolve(__dirname, './consent-view.tsx'),
+    path.resolve(__dirname, './consent-policy-dialog.tsx'),
     'utf-8',
   );
 
@@ -182,6 +180,11 @@ describe('좁은 화면 전문 팝업의 높이 계약', () => {
     expect(narrow.some((token) => token.startsWith('-translate-y-'))).toBe(
       false,
     );
+  });
+
+  it('공유 다이얼로그의 중앙 정렬 변환을 좁은 화면에서 취소한다', () => {
+    expect(narrow).toContain('translate-x-0');
+    expect(narrow).toContain('translate-y-0');
   });
 
   // `100dvh`를 그대로 쓰면 노치·홈 표시줄이 있는 기기에서 위아래가 잘린다.

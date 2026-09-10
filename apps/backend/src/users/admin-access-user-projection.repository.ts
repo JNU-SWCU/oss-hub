@@ -20,6 +20,7 @@ export const ADMIN_ACCESS_USER_SELECT = {
   githubId: true,
   nickname: true,
   selectedMemberKind: true,
+  createdAt: true,
   hasStaffAccess: true,
   hasAdminAccess: true,
   accountStatus: true,
@@ -62,6 +63,7 @@ export function toAdminAccessUserRecord(
     hasAdminAccess: user.hasAdminAccess,
     accountStatus: user.accountStatus,
     isProfileComplete: isCompleteAdminAccessProfile(user, profile),
+    createdAt: user.createdAt,
     pendingRequest: pendingRequest
       ? {
           id: pendingRequest.id,

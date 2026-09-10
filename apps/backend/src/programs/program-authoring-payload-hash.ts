@@ -4,6 +4,7 @@ import type { ProgramAuthoringPlan } from './program-authoring.types';
 export function canonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {
   return {
     schemaVersion: 1,
+    ...(plan.coverUploadId ? { coverUploadId: plan.coverUploadId } : {}),
     program: {
       name: plan.program.name,
       organizer: plan.program.organizer,

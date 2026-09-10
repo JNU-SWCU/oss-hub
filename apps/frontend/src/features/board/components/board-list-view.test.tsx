@@ -56,7 +56,7 @@ describe('BoardListContent', () => {
   it('제목·안내 문구를 렌더한다(학생 뷰)', () => {
     const html = renderToStaticMarkup(<BoardListContent {...baseProps()} />);
     expect(html).toContain('게시판');
-    expect(html).toContain('교직원 공지와 질문 글입니다');
+    expect(html).toContain('프로그램 공지와 질문');
     expect(html).toContain('질문 쓰기');
   });
 
@@ -186,7 +186,7 @@ describe('BoardListContent — 참여자가 아닌 학생(#1099)', () => {
   it('빨간 실패가 아니라 「아직 참여자가 아닙니다」 안내를 보여준다', () => {
     expect(notParticipant).toContain('아직 참여자가 아닙니다');
     expect(notParticipant).toContain(
-      '승인된 신청이 있는 참여자만 게시판을 볼 수 있습니다.',
+      '신청이 승인되면 공지를 읽고 질문을 남길 수 있습니다.',
     );
     expect(notParticipant).not.toContain('게시판을 불러오지 못했습니다');
     expect(notParticipant).not.toContain('다시 시도');

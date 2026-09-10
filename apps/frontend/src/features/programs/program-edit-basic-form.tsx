@@ -1,3 +1,4 @@
+import { ProgramCoverField } from './program-cover-field';
 import {
   Field,
   FieldDescription,
@@ -21,6 +22,9 @@ import {
 import { ProgramDeadlineControl } from './program-deadline-control';
 
 interface ProgramEditBasicFormProps {
+  readonly coverSelection?: File | null;
+  readonly onCoverChange: (file: File | null | undefined) => void;
+  readonly isSaving?: boolean;
   readonly program: EditableProgram;
   readonly form: ProgramEditForm;
   readonly errors: ProgramEditErrors;
@@ -31,6 +35,9 @@ interface ProgramEditBasicFormProps {
 }
 
 export function ProgramEditBasicForm({
+  coverSelection,
+  onCoverChange,
+  isSaving,
   program,
   form,
   errors,
@@ -52,6 +59,13 @@ export function ProgramEditBasicForm({
             {errors.name}
           </FieldError>
         </Field>
+        <ProgramCoverField
+          selection={coverSelection}
+          currentImageUrl={program.coverImageUrl}
+          disabled={isSaving}
+          serverError={errors.coverUploadId}
+          onChange={onCoverChange}
+        />
         <Field>
           <FieldLabel htmlFor="program-organizer">주관기관 *</FieldLabel>
           <Input
@@ -135,9 +149,11 @@ export function ProgramEditBasicForm({
           <FieldError id="program-team-size-error" role="alert">
             {errors.team}
           </FieldError>
-          <FieldDescription id="program-team-size-description">
-            개인 신청도 1인 팀으로 다뤄집니다. 팀을 받지 않으려면 최소·최대를
-            모두 1로 둡니다.
+          <FieldDescription
+            id="program-team-size-description"
+            className="break-keep"
+          >
+            개인으로만 신청받으려면 최소·최대 인원을 모두 1명으로 설정하세요.
           </FieldDescription>
         </Field>
         <Field>

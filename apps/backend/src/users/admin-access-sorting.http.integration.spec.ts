@@ -75,3 +75,38 @@ it.each([
     });
   },
 );
+
+it('returns account createdAt on the admin directory response without exposing phone', async () => {
+  // Given
+  const accountCreatedAt = new Date('2026-07-29T00:00:00.000Z');
+  const target = await harness.createUser(
+    'created-at-target',
+    'STUDENT',
+    AccountStatus.ACTIVE,
+  );
+  await harness.prisma.user.update({
+    where: { id: target.id },
+    data: { createdAt: accountCreatedAt },
+  });
+
+  // When
+  const response = await harness.request(
+    'GET',
+    `/users/access?query=${target.nickname}`,
+    actorGithubId,
+  );
+
+  // Then
+  expect(response.status).toBe(200);
+  const body: unknown = await response.json();
+  expect(body).toEqual(
+    expect.objectContaining({
+      items: [
+        expect.objectContaining({
+          createdAt: accountCreatedAt.toISOString(),
+        }),
+      ],
+    }),
+  );
+  expect(JSON.stringify(body)).not.toContain('phone');
+});

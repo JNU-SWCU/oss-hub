@@ -31,6 +31,7 @@ function parseProfile(value: unknown): UserProfile {
     typeof value.name !== 'string' ||
     (value.studentId !== null && typeof value.studentId !== 'string') ||
     (value.department !== null && typeof value.department !== 'string') ||
+    (value.phone !== null && typeof value.phone !== 'string') ||
     typeof value.isComplete !== 'boolean' ||
     // 역할별로 필수 항목이 달라 응답만으로 완료 여부를 재계산할 수 없다.
     // 어느 역할에서도 성립해야 하는 불변식만 검사한다(`isConsistentCompleteProfile`).
@@ -39,6 +40,7 @@ function parseProfile(value: unknown): UserProfile {
         name: value.name,
         studentId: value.studentId,
         department: value.department,
+        phone: value.phone,
       }))
   ) {
     throw new ProfileResponseError();
@@ -47,6 +49,7 @@ function parseProfile(value: unknown): UserProfile {
     name: value.name,
     studentId: value.studentId,
     department: value.department,
+    phone: value.phone,
     isComplete: value.isComplete,
   };
 }
@@ -72,7 +75,7 @@ export async function completeMyProfile(
   );
 }
 
-/** 완료 사용자의 이름·학과만 PATCH — studentId는 보내지 않는다. */
+/** 완료 사용자의 이름·전화번호·학과만 PATCH — studentId는 보내지 않는다. */
 export async function updateMyProfile(
   request: UpdateProfileRequest,
 ): Promise<UserProfile> {

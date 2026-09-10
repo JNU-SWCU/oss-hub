@@ -1,4 +1,5 @@
 import { type ApplicationStatus } from '@prisma/client';
+import { programCoverImageUrl } from '../program-cover';
 import type {
   PersonalizedProgramListItem,
   ProgramListItemNote,
@@ -6,6 +7,7 @@ import type {
 } from '../service/programs.service';
 
 export class ProgramListResponseDto {
+  readonly coverImageUrl: string | null;
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
@@ -26,6 +28,7 @@ export class ProgramListResponseDto {
   readonly pendingApplicationCount?: number;
 
   private constructor(program: PersonalizedProgramListItem) {
+    this.coverImageUrl = programCoverImageUrl(program.id, program.coverId);
     this.id = program.id;
     this.name = program.name;
     this.organizer = program.organizer;

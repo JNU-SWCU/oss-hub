@@ -57,7 +57,7 @@ export class E2eProgramAuthoringFixture {
       );
       this.activeGraph = null;
     }
-    await this.prisma.$transaction(async (transaction) => {
+    const covers = await this.prisma.$transaction(async (transaction) => {
       const applications = await transaction.application.findMany({
         where: { programId: E2E_PROGRAM_ID },
         select: { id: true },
@@ -125,8 +125,19 @@ export class E2eProgramAuthoringFixture {
       await transaction.programAuthoringUpload.deleteMany({
         where: { actorId: E2E_STAFF_ID },
       });
+      const covers = await transaction.programCover.findMany({
+        where: { programId: E2E_PROGRAM_ID },
+        select: { storageKey: true },
+      });
+      await transaction.programCover.deleteMany({
+        where: { programId: E2E_PROGRAM_ID },
+      });
       await transaction.program.deleteMany({ where: { id: E2E_PROGRAM_ID } });
+      return covers;
     });
+    for (const cover of covers) {
+      await e2eProgramAuthoringExternalPorts.storage.delete(cover.storageKey);
+    }
     this.activeGraph = null;
   }
 

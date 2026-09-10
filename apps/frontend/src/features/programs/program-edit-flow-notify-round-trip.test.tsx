@@ -64,6 +64,7 @@ function EditViewHarness({
   onForm(form, dirtyFields);
   return (
     <ProgramEditView
+      onCoverChange={() => undefined}
       program={program}
       form={form}
       errors={{}}

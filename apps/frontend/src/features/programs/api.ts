@@ -194,6 +194,7 @@ export interface ProgramDeletionScopeCounts {
 }
 
 export interface EditableProgram {
+  readonly coverImageUrl?: string | null;
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
@@ -218,6 +219,7 @@ export interface EditableProgram {
 }
 
 export type UpdateProgramInput = Omit<CreateProgramInput, 'endAt'> & {
+  readonly coverUploadId?: string | null;
   readonly startAt: string;
   readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;

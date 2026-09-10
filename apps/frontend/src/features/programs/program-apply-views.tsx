@@ -156,8 +156,8 @@ export function ProgramApplySuccessView({
             : '신청서가 수정되었습니다'}
         </AlertTitle>
         <AlertDescription>
-          신청 번호 {applicationId}의 내용을 저장했습니다. 승인 전까지 신청 기간
-          내에서 다시 수정하거나 취소할 수 있습니다.
+          신청 번호 {applicationId}의 내용을 저장했습니다. 신청 기간 내 ‘검토
+          대기’ 상태에서만 수정하거나 취소할 수 있습니다.
         </AlertDescription>
       </Alert>
       <div className="flex flex-wrap gap-3">
@@ -330,10 +330,7 @@ function RepositoryConnectionSection({
             <span className="font-medium">내 저장소 연결하기</span>
           </span>
           <span className="pl-6 text-xs text-muted-foreground">
-            진행 중인 프로젝트가 있다면 그 repo를 그대로 프로그램에 연결합니다
-          </span>
-          <span className="pl-6 text-xs font-medium text-foreground">
-            외부 저장소는 공개 저장소만 연결
+            기존 GitHub 공개 저장소를 연결합니다.
           </span>
           {repositoryConnectionMode === 'own' ? (
             <div className="ml-6 mt-1 w-[calc(100%-1.5rem)] space-y-1">
@@ -344,10 +341,6 @@ function RepositoryConnectionSection({
                 value={repositoryUrl}
                 onChange={(event) => onUrlChange(event.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                GitHub에 공개(Public)로 연동된 저장소만 연결할 수 있습니다.
-                비공개 저장소이거나 주소가 존재하지 않으면 제출이 거부됩니다.
-              </p>
             </div>
           ) : null}
         </label>

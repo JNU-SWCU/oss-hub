@@ -24,6 +24,7 @@ export interface AuditLogRecord {
   // 그때 describe.ts는 "상세 내용 없음"으로 서술한다 — 생성/합류로 추측하지 않는다.
   readonly teamMembership?: TeamMembershipChangeSummary;
   readonly occurredAt: string;
+  readonly phoneTransition?: UserPhoneAuditTransition;
 }
 
 // apps/backend/src/audit-log/web-state-audit-metadata.ts의
@@ -41,6 +42,8 @@ export interface TeamMembershipChangeSummary {
   /** 마지막 인원이 미제출 팀을 떠나 팀 자체가 삭제됐다(nextLeaderId === null). */
   readonly teamDeleted: boolean;
 }
+
+export type UserPhoneAuditTransition = 'SET' | 'REPLACED';
 
 // apps/backend/src/audit-log/*-audit-metadata.ts에 정의된 action registry의
 // 합집합을 미러링한다. 모노레포에 공유 패키지가 없어
@@ -70,6 +73,7 @@ export const AUDIT_LOG_ACTION_LABELS = {
   APPLICATION_REJECTED: '신청 반려',
   APPLICATION_REVERTED: '검토 대기로',
   USER_PROFILE_UPDATED: '프로필 수정',
+  USER_PHONE_UPDATED: '전화번호 수정',
 } as const satisfies Readonly<Record<string, string>>;
 
 export type AuditLogAction = keyof typeof AUDIT_LOG_ACTION_LABELS;

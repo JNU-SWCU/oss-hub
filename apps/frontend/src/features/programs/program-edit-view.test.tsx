@@ -70,6 +70,7 @@ describe('ProgramEditView contract', () => {
   it('renders track type, template metadata, milestone actions, and the exit link', () => {
     const html = renderToStaticMarkup(
       <ProgramEditView
+        onCoverChange={() => undefined}
         program={editableProgram}
         form={toProgramEditForm(editableProgram)}
         errors={fieldErrors}
@@ -140,6 +141,7 @@ describe('ProgramEditView contract', () => {
     const program = { ...editableProgram, milestones: [] };
     const html = renderToStaticMarkup(
       <ProgramEditView
+        onCoverChange={() => undefined}
         program={program}
         form={toProgramEditForm(program)}
         errors={{}}
@@ -173,6 +175,7 @@ describe('ProgramEditView contract', () => {
   it('내부 구현 용어 대신 교직원이 읽을 수 있는 라벨을 쓴다', () => {
     const html = renderToStaticMarkup(
       <ProgramEditView
+        onCoverChange={() => undefined}
         program={editableProgram}
         form={toProgramEditForm(editableProgram)}
         errors={{}}
@@ -223,6 +226,7 @@ describe('ProgramEditView contract', () => {
     // When
     const html = renderToStaticMarkup(
       <ProgramEditView
+        onCoverChange={() => undefined}
         program={editableProgram}
         form={form}
         errors={fieldErrors}
@@ -256,6 +260,7 @@ describe('ProgramEditView contract', () => {
     // Given / When
     const html = renderToStaticMarkup(
       <ProgramEditView
+        onCoverChange={() => undefined}
         program={editableProgram}
         form={toProgramEditForm(editableProgram)}
         errors={{}}
@@ -296,6 +301,7 @@ describe('ProgramEditView contract', () => {
     };
     const html = renderToStaticMarkup(
       <ProgramEditView
+        onCoverChange={() => undefined}
         program={teamOnlyProgram}
         form={toProgramEditForm(teamOnlyProgram)}
         errors={{}}
@@ -428,6 +434,7 @@ describe('ProgramEditView contract', () => {
   it('폼의 제출 버튼은 justify-end이고 justify-between이 아니다', () => {
     const html = renderToStaticMarkup(
       <ProgramEditView
+        onCoverChange={() => undefined}
         program={editableProgram}
         form={toProgramEditForm(editableProgram)}
         errors={{}}
@@ -471,6 +478,7 @@ describe('ProgramEditView contract', () => {
       const program = { ...editableProgram, lifecycle };
       const html = renderToStaticMarkup(
         <ProgramEditView
+          onCoverChange={() => undefined}
           program={program}
           form={toProgramEditForm(program)}
           errors={{}}
@@ -508,6 +516,7 @@ describe('ProgramEditView contract', () => {
   it('canDeleteProgram=false면 삭제 섹션과 아카이브 안내를 모두 숨긴다', () => {
     const html = renderToStaticMarkup(
       <ProgramEditView
+        onCoverChange={() => undefined}
         program={editableProgram}
         form={toProgramEditForm(editableProgram)}
         errors={{}}

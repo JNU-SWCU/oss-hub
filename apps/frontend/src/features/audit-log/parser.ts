@@ -3,6 +3,7 @@ import type {
   AuditLogRecord,
   TeamMembershipChangeSummary,
   TeamMembershipOperation,
+  UserPhoneAuditTransition,
 } from './types';
 
 const INVALID_RESPONSE_MESSAGE = '감사 로그 응답 형식이 올바르지 않습니다';
@@ -47,6 +48,11 @@ function nullableHandle(value: unknown): string | null {
   return nonEmptyString(value);
 }
 
+function userPhoneAuditTransition(value: unknown): UserPhoneAuditTransition {
+  if (value === 'SET' || value === 'REPLACED') return value;
+  return invalidResponse();
+}
+
 function nonNegativeInteger(value: unknown): number {
   if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) {
     return value;
@@ -71,6 +77,14 @@ function isoTimestamp(value: unknown): string {
     return parsed;
   }
   return invalidResponse();
+}
+
+function phoneTransition(
+  action: string,
+  metadata: Record<string, unknown>,
+): UserPhoneAuditTransition | undefined {
+  if (action !== 'USER_PHONE_UPDATED') return undefined;
+  return userPhoneAuditTransition(metadata.transition);
 }
 
 // 백엔드 AuditLogRecord(apps/backend/src/audit-log/audit-log.repository.ts)는
@@ -147,12 +161,16 @@ function auditLogRecord(value: unknown): AuditLogRecord {
   if (typeof value.legacy !== 'boolean') {
     return invalidResponse();
   }
-  if (value.legacy ? value.metadata !== null : !isRecord(value.metadata)) {
+  const wireMetadata = value.metadata;
+  if (value.legacy ? wireMetadata !== null : !isRecord(wireMetadata)) {
     return invalidResponse();
   }
 
   const action = nonEmptyString(value.action);
-  const teamMembership = teamMembershipSummary(action, value.metadata);
+  const teamMembership = teamMembershipSummary(action, wireMetadata);
+  const parsedPhoneTransition = isRecord(wireMetadata)
+    ? phoneTransition(action, wireMetadata)
+    : undefined;
 
   return {
     id: nonEmptyString(value.id),
@@ -166,6 +184,9 @@ function auditLogRecord(value: unknown): AuditLogRecord {
     // 검증을 통과한 행에만 키를 달아 나머지 action의 모양은 그대로 유지한다.
     ...(teamMembership === undefined ? {} : { teamMembership }),
     occurredAt: isoTimestamp(value.occurredAt),
+    ...(parsedPhoneTransition
+      ? { phoneTransition: parsedPhoneTransition }
+      : {}),
   };
 }
 

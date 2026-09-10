@@ -205,6 +205,29 @@ describe('admin access read profile completeness', () => {
     expect(detail?.pendingRequest).toBeNull();
   });
 
+  it('projects the account creation time separately from a pending request time', () => {
+    // Given
+    const accountCreatedAt = new Date('2026-07-18T00:00:00.000Z');
+    const requestCreatedAt = new Date('2026-07-23T00:00:00.000Z');
+
+    // When
+    const record = toAdminAccessUserRecord(
+      userRow({
+        id: 'pending-staff-created-at',
+        role: null,
+        name: '가나다 교직원',
+        studentId: null,
+        department: '소프트웨어공학과',
+        createdAt: accountCreatedAt,
+        pendingRequest: { ...pendingRequest(), createdAt: requestCreatedAt },
+      }),
+    );
+
+    // Then
+    expect(record.createdAt).toEqual(accountCreatedAt);
+    expect(record.pendingRequest?.createdAt).toEqual(requestCreatedAt);
+  });
+
   it('lets an admin approve a pending staff request that has no student id', () => {
     // Given
     const before = toAdminAccessUserRecord(
@@ -369,6 +392,7 @@ type UserRowOptions = {
   readonly department: string | null;
   readonly pendingRequest: ReturnType<typeof pendingRequest> | null;
   readonly selectedRole?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
+  readonly createdAt?: Date;
 };
 
 /**
@@ -408,6 +432,7 @@ function userRow(options: UserRowOptions) {
       options.selectedRole === 'ADMIN'
         ? null
         : (options.selectedRole ?? facts.selectedMemberKind),
+    createdAt: options.createdAt ?? new Date('2026-07-19T00:00:00.000Z'),
     hasStaffAccess: facts.hasStaffAccess,
     hasAdminAccess: facts.hasAdminAccess,
     accountStatus: AccountStatus.ACTIVE,

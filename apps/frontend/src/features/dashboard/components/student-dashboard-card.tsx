@@ -10,7 +10,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-import { StatusBadge } from '@/components';
+import { StatusBadge, ProgramCover } from '@/components';
+import { apiPath } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -111,8 +112,16 @@ export function StudentDashboardCard({
 
   return (
     <Card className="min-h-72">
-      <CardHeader>
-        <CardTitle className="pr-20 text-lg">{item.programName}</CardTitle>
+      <CardHeader className="has-data-[slot=card-action]:grid-cols-1">
+        <div className="flex min-w-0 items-center gap-3">
+          <ProgramCover
+            size="thumbnail"
+            src={item.coverImageUrl ? apiPath(item.coverImageUrl) : null}
+          />
+          <CardTitle className="min-w-0 break-keep text-lg">
+            {item.programName}
+          </CardTitle>
+        </div>
         {/*
           대시보드 항목은 전부 **지금 소속된 팀**이다(#1269). 1인 팀도 팀이라 아이콘과
           문구를 갈라 쓰지 않고, 사람 이름 대신 팀 이름 하나만 말한다 — 같은 자리에서
@@ -124,7 +133,7 @@ export function StudentDashboardCard({
             {item.teamName}
           </span>
         </p>
-        <CardAction>
+        <CardAction className="col-start-1 row-start-auto row-span-1 justify-self-start">
           <StatusBadge
             variant={
               isPending ? 'pending' : isRejected ? 'rejected' : 'approved'

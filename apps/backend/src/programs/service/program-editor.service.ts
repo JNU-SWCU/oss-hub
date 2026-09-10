@@ -120,7 +120,7 @@ export class ProgramEditorService {
     input: UpdateProgramRequestDto,
   ) {
     return this.repository.withTransaction(async (store) => {
-      await this.requireEditor(store, githubId);
+      const actor = await this.requireEditor(store, githubId);
       const existing = await store.findEditableProgramForUpdate(programId);
       if (existing === null) this.fail(ProgramErrorCode.PROGRAM_NOT_FOUND);
       const name = input.name.trim();
@@ -217,24 +217,45 @@ export class ProgramEditorService {
       ) {
         this.fail(ProgramErrorCode.MILESTONE_REQUIRED);
       }
-      return store.updateProgram({
-        programId,
-        name,
-        organizer,
-        trackType: input.trackType,
-        applicationTemplateKey: existing.applicationTemplateKey,
-        applicationTemplateVersion: existing.applicationTemplateVersion,
-        applicationStartAt,
-        applicationEndAt,
-        startAt,
-        endAt,
-        liveFileExpiresAt,
-        teamMinSize: teamSize.teamMinSize,
-        teamMaxSize: teamSize.teamMaxSize,
-        repositoryProvisioningEnabled: input.repositoryProvisioningEnabled,
-        notifyOnDeadline: input.notifyOnDeadline,
-        description,
-      });
+      try {
+        return await store.updateProgram({
+          ...(input.coverUploadId === undefined
+            ? {}
+            : {
+                coverChange: {
+                  actorId: actor.id,
+                  uploadId: input.coverUploadId,
+                },
+              }),
+          programId,
+          name,
+          organizer,
+          trackType: input.trackType,
+          applicationTemplateKey: existing.applicationTemplateKey,
+          applicationTemplateVersion: existing.applicationTemplateVersion,
+          applicationStartAt,
+          applicationEndAt,
+          startAt,
+          endAt,
+          liveFileExpiresAt,
+          teamMinSize: teamSize.teamMinSize,
+          teamMaxSize: teamSize.teamMaxSize,
+          repositoryProvisioningEnabled: input.repositoryProvisioningEnabled,
+          notifyOnDeadline: input.notifyOnDeadline,
+          description,
+        });
+      } catch (error) {
+        if (!(error instanceof ProgramAuthoringUploadTokenError)) throw error;
+        this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+          fieldErrors: [
+            {
+              field: 'coverUploadId',
+              code: 'INVALID_UPLOAD_TOKEN',
+              message: '대표 이미지를 다시 선택해 주세요.',
+            },
+          ],
+        });
+      }
     });
   }
 

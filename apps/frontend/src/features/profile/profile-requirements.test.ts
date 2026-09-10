@@ -7,6 +7,7 @@ import {
   isProfileComplete,
   isStoredStudentId,
   isValidDepartment,
+  isValidPhone,
   isValidProfileName,
   isValidStudentId,
   profileFieldRequirement,
@@ -14,28 +15,39 @@ import {
 } from './profile-requirements';
 
 const STUDENT_ID = '1'.repeat(6);
+const TEN_DIGIT_PHONE = '1'.repeat(10);
+const ELEVEN_DIGIT_PHONE = '2'.repeat(11);
 
 function fields(overrides: {
   readonly name?: string;
   readonly studentId?: string | null;
   readonly department?: string | null;
+  readonly phone?: string | null;
 }) {
   return {
     name: '합성 사용자',
     studentId: STUDENT_ID,
     department: '인공지능학부',
+    phone: TEN_DIGIT_PHONE,
     ...overrides,
   };
 }
 
 describe('profile field requirements', () => {
   it.each([
-    ['STUDENT', true, true],
-    ['STAFF', false, true],
-    ['ADMIN', false, false],
-  ] as const)('%s의 필수 항목을 정의한다', (role, studentId, department) => {
-    expect(profileFieldRequirement(role)).toEqual({ studentId, department });
-  });
+    ['STUDENT', true, true, true],
+    ['STAFF', false, false, true],
+    ['ADMIN', false, false, false],
+  ] as const)(
+    '%s의 필수 항목을 정의한다',
+    (role, studentId, phone, department) => {
+      expect(profileFieldRequirement(role)).toEqual({
+        studentId,
+        phone,
+        department,
+      });
+    },
+  );
 
   it('역할 미배정(null)은 학생 기준을 따른다 — 역할 선택이 프로필 다음 단계다', () => {
     expect(profileFieldRequirement(null)).toEqual(
@@ -45,7 +57,7 @@ describe('profile field requirements', () => {
 });
 
 describe('role-aware profile completion', () => {
-  it('학생은 이름·학번·학과가 모두 있어야 완성이다', () => {
+  it('학생은 이름·학번·전화번호·학과가 모두 있어야 완성이다', () => {
     expect(isProfileComplete(fields({}), 'STUDENT')).toBe(true);
     expect(isProfileComplete(fields({ studentId: null }), 'STUDENT')).toBe(
       false,
@@ -53,6 +65,7 @@ describe('role-aware profile completion', () => {
     expect(isProfileComplete(fields({ department: null }), 'STUDENT')).toBe(
       false,
     );
+    expect(isProfileComplete(fields({ phone: null }), 'STUDENT')).toBe(false);
   });
 
   it('교직원은 학번이 없어도 완성이다', () => {
@@ -82,6 +95,12 @@ describe('role-aware profile completion', () => {
     expect(isProfileComplete(fields({ department: '   ' }), 'STAFF')).toBe(
       false,
     );
+    expect(
+      isProfileComplete(
+        fields({ phone: `${'1'.repeat(3)}-${'2'.repeat(4)}` }),
+        'STUDENT',
+      ),
+    ).toBe(false);
     // 요구되지 않는 항목의 잘못된 값은 완성 판정을 막지 않는다.
     expect(isProfileComplete(fields({ studentId: '12A456' }), 'STAFF')).toBe(
       true,
@@ -93,7 +112,7 @@ describe('server isComplete consistency', () => {
   it('값이 없는 항목은 역할 차이일 수 있으므로 모순으로 보지 않는다', () => {
     expect(
       isConsistentCompleteProfile(
-        fields({ studentId: null, department: null }),
+        fields({ studentId: null, department: null, phone: null }),
       ),
     ).toBe(true);
   });
@@ -107,6 +126,11 @@ describe('server isComplete consistency', () => {
     expect(isConsistentCompleteProfile(fields({ department: '   ' }))).toBe(
       false,
     );
+    expect(
+      isConsistentCompleteProfile(
+        fields({ phone: `${'1'.repeat(3)}-${'2'.repeat(4)}` }),
+      ),
+    ).toBe(false);
   });
 });
 
@@ -140,6 +164,15 @@ const PROFILE_UNICODE_CONTRACT = {
   legacyTenDigitId: '1000012345',
   blank: '   \n\t  ',
   nonSixDigitIds: ['12A456', '10000', '1000012', '１２３４５６'] as const,
+  phone: TEN_DIGIT_PHONE,
+  elevenDigitPhone: ELEVEN_DIGIT_PHONE,
+  nonPhoneNumbers: [
+    '1'.repeat(9),
+    '1'.repeat(12),
+    `${'1'.repeat(3)}-${'2'.repeat(4)}-${'3'.repeat(4)}`,
+    `${'1'.repeat(3)} ${'2'.repeat(4)} ${'3'.repeat(4)}`,
+    `${'1'.repeat(3)}.${'2'.repeat(4)}.${'3'.repeat(4)}`,
+  ] as const,
 } as const;
 
 const nfdCombiningE = `e${PROFILE_UNICODE_CONTRACT.combiningMark}`;
@@ -207,5 +240,13 @@ describe('unicode name and student-id contract', () => {
     expect(isValidStudentId(PROFILE_UNICODE_CONTRACT.legacyTenDigitId)).toBe(
       false,
     );
+  });
+
+  it('accepts only 10-11 digit phone numbers', () => {
+    expect(isValidPhone(PROFILE_UNICODE_CONTRACT.phone)).toBe(true);
+    expect(isValidPhone(PROFILE_UNICODE_CONTRACT.elevenDigitPhone)).toBe(true);
+    for (const phone of PROFILE_UNICODE_CONTRACT.nonPhoneNumbers) {
+      expect(isValidPhone(phone)).toBe(false);
+    }
   });
 });

@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('./program-authoring-api', () => ({
+  uploadProgramCover: vi.fn(),
   createAuthoringProgram: mocks.createAuthoringProgram,
   deleteAuthoringUpload: mocks.deleteAuthoringUpload,
   uploadAuthoringFile: mocks.uploadAuthoringFile,

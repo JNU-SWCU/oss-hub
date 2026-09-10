@@ -44,3 +44,5 @@ export {
 export type { ProgramCountdownProps, RemainingTime } from './program-countdown';
 export { ParticipantOnlyNotice } from './participant-only-notice';
 export type { ParticipantOnlyNoticeProps } from './participant-only-notice';
+
+export { ProgramCover, type ProgramCoverProps } from './program-cover';

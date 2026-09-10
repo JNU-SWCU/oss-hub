@@ -1,27 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useRef, useState } from 'react';
 
 import { SignupEyebrow, SignupLede, SignupTitle } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  acceptConsent,
-  classifyConsentApiError,
-  getCurrentConsent,
-  type ConsentRequiredItem,
-} from '../api';
+import { cn } from '@/lib/utils';
+import type { ConsentRequiredItem } from '../api';
 import { useConsentPolicyPresentation } from '../use-consent-policy-presentation';
-import {
-  applyAcceptedConsent,
-  applyConsentFailure,
-  applyCurrentConsent,
-  applyRefreshedConsent,
-  startConsentSubmission,
-  toggleConsentSelection,
-  type ConsentFlowState,
-} from '../consent-state';
+import type { ConsentPolicyPresentation } from '../consent-policy-presentation';
 import {
   ConsentForm,
   ConsentPolicyDialog,
@@ -29,6 +16,7 @@ import {
   ConsentPolicySkeleton,
   ConsentStatusCard,
 } from './consent-view';
+import { useConsentFlow } from './use-consent-flow';
 
 /**
  * 동의 화면(`/consent`)의 내용 — 배지·제목·리드와 본문. 정책을 불러오고, 선택을
@@ -39,10 +27,26 @@ import {
  * 무대를 직접 가져다 쓸 수 없다. 글자 위계(`Signup*`)만 공용 표현 계층
  * `@/components`에 내려와 있어 여기서 쓸 수 있다.
  */
-export function ConsentFlow() {
-  const router = useRouter();
-  const [state, setState] = useState<ConsentFlowState>({ kind: 'loading' });
-  const submissionInFlight = useRef(false);
+export function ConsentFlow({
+  onCompleted,
+  policyPresentation,
+  headingPresentation = 'signup',
+}: {
+  readonly onCompleted?: (nextUrl: string) => void;
+  readonly policyPresentation?: ConsentPolicyPresentation;
+  /**
+   * 가입 중간이 아닌 곳에서 열리면 `dialog`를 넘긴다.
+   *
+   * 가입 흐름의 `STEP 1 / 3`·제목·리드는 다음 단계로 이동한다는 전제 위에 써있다.
+   * 동의 갱신 팝업은 가입 중이 아니고 완료 뒤에 원래 화면으로 돌아오므로, 그 세 줄을
+   * 그대로 두면 단계 수와 이동 안내가 모두 틀린 말이 된다. 팝업 쪽 제목은 `DialogHeader`가
+   * 이미 말하므로 여기서는 그리지 않는다.
+   */
+  readonly headingPresentation?: 'signup' | 'dialog';
+}) {
+  const { retryLoad, state, submit, toggleSelection } = useConsentFlow({
+    onCompleted,
+  });
 
   /*
     전문 열림 상태가 폼이 아니라 여기 있는 이유는 자리 때문이다 — 넓은 화면에서
@@ -53,7 +57,8 @@ export function ConsentFlow() {
     null,
   );
   const policyTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const presentation = useConsentPolicyPresentation();
+  const viewportPresentation = useConsentPolicyPresentation();
+  const presentation = policyPresentation ?? viewportPresentation;
 
   const openPolicyDocument = useCallback(
     (item: ConsentRequiredItem, trigger: HTMLButtonElement) => {
@@ -67,127 +72,6 @@ export function ConsentFlow() {
     () => policyTriggerRef.current?.focus(),
     [],
   );
-
-  const applyFlowState = useCallback(
-    (next: ConsentFlowState) => {
-      setState(next);
-      switch (next.kind) {
-        case 'redirecting':
-          router.replace(next.nextUrl);
-          return;
-        case 'loading':
-        case 'ready':
-        case 'submitting':
-        case 'error':
-        case 'refreshing':
-          return;
-        default: {
-          const exhaustive: never = next;
-          return exhaustive;
-        }
-      }
-    },
-    [router],
-  );
-
-  const loadConsent = useCallback(
-    async (signal?: AbortSignal) => {
-      try {
-        applyFlowState(applyCurrentConsent(await getCurrentConsent(signal)));
-      } catch (error: unknown) {
-        if (signal?.aborted) {
-          return;
-        }
-        const errorKind = classifyConsentApiError(error);
-        switch (errorKind) {
-          case 'unauthorized':
-            window.location.assign('/');
-            return;
-          case 'stale':
-          case 'validation':
-          case 'generic':
-            setState({
-              kind: 'error',
-              phase: 'load',
-              message: '동의 정보를 불러오지 못했습니다. 다시 시도해 주세요.',
-            });
-            return;
-          default: {
-            const exhaustive: never = errorKind;
-            return exhaustive;
-          }
-        }
-      }
-    },
-    [applyFlowState],
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void loadConsent(controller.signal);
-    return () => controller.abort();
-  }, [loadConsent]);
-
-  const submit = useCallback(async () => {
-    if (submissionInFlight.current) {
-      return;
-    }
-    const transition = startConsentSubmission(state);
-    if (!transition) {
-      return;
-    }
-
-    submissionInFlight.current = true;
-    setState(transition.state);
-    try {
-      const response = await acceptConsent(transition.request);
-      applyFlowState(applyAcceptedConsent(response));
-    } catch (error: unknown) {
-      const failure = applyConsentFailure(
-        transition.state,
-        classifyConsentApiError(error),
-        '선택을 유지했습니다. 내용을 확인하고 다시 시도해 주세요.',
-      );
-      if (failure.navigation) {
-        window.location.assign(failure.navigation.target);
-        return;
-      }
-      applyFlowState(failure.state);
-
-      switch (failure.state.kind) {
-        case 'refreshing':
-          try {
-            const latest = await getCurrentConsent();
-            applyFlowState(applyRefreshedConsent(failure.state, latest));
-          } catch (refreshError: unknown) {
-            if (classifyConsentApiError(refreshError) === 'unauthorized') {
-              window.location.assign('/');
-              return;
-            }
-            setState({
-              kind: 'error',
-              phase: 'submit',
-              policy: transition.state.policy,
-              acceptedKeys: transition.state.acceptedKeys,
-              message: '최신 정책을 불러오지 못했습니다. 다시 시도해 주세요.',
-            });
-          }
-          return;
-        case 'loading':
-        case 'ready':
-        case 'submitting':
-        case 'redirecting':
-        case 'error':
-          return;
-        default: {
-          const exhaustive: never = failure.state;
-          return exhaustive;
-        }
-      }
-    } finally {
-      submissionInFlight.current = false;
-    }
-  }, [applyFlowState, state]);
 
   let content;
   switch (state.kind) {
@@ -211,9 +95,7 @@ export function ConsentFlow() {
           state={state}
           presentation={presentation}
           openPolicyKey={openPolicy?.key ?? null}
-          onToggle={(key) =>
-            setState((current) => toggleConsentSelection(current, key))
-          }
+          onToggle={toggleSelection}
           onSubmit={() => void submit()}
           onOpenPolicy={openPolicyDocument}
         />
@@ -227,9 +109,7 @@ export function ConsentFlow() {
               state={state}
               presentation={presentation}
               openPolicyKey={openPolicy?.key ?? null}
-              onToggle={(key) =>
-                setState((current) => toggleConsentSelection(current, key))
-              }
+              onToggle={toggleSelection}
               onSubmit={() => void submit()}
               onOpenPolicy={openPolicyDocument}
             />
@@ -241,14 +121,7 @@ export function ConsentFlow() {
               <AlertTitle>동의 정보를 불러오지 못했습니다.</AlertTitle>
               <AlertDescription className="flex flex-col items-start gap-3">
                 <span>{state.message}</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setState({ kind: 'loading' });
-                    void loadConsent();
-                  }}
-                >
+                <Button type="button" variant="outline" onClick={retryLoad}>
                   다시 시도
                 </Button>
               </AlertDescription>
@@ -310,13 +183,28 @@ export function ConsentFlow() {
        유지된다(1440 실측값을 깎지 않는다).
   */
   return (
-    <div className="flex w-full flex-col gap-8 min-[1280px]:mx-auto min-[1280px]:max-w-[1576px] min-[1280px]:flex-1 min-[1280px]:flex-row min-[1280px]:gap-[clamp(3rem,100vw_-_1392px,6rem)]">
+    <div
+      className={cn(
+        'flex w-full flex-col gap-8',
+        policyPresentation === undefined
+          ? [
+              'min-[1280px]:mx-auto min-[1280px]:max-w-[1576px]',
+              'min-[1280px]:flex-1 min-[1280px]:flex-row',
+              'min-[1280px]:gap-[clamp(3rem,100vw_-_1392px,6rem)]',
+            ]
+          : null,
+      )}
+    >
       <div className="flex w-full max-w-2xl flex-none flex-col gap-8 min-[1280px]:justify-center">
-        <SignupEyebrow>STEP 1 / 3</SignupEyebrow>
-        <SignupTitle>개인정보·활동 동의</SignupTitle>
-        <SignupLede>
-          필수 항목을 확인하고 동의하면 다음 단계로 이동합니다.
-        </SignupLede>
+        {headingPresentation === 'signup' ? (
+          <>
+            <SignupEyebrow>STEP 1 / 3</SignupEyebrow>
+            <SignupTitle>개인정보·활동 동의</SignupTitle>
+            <SignupLede>
+              필수 항목을 확인하고 동의하면 다음 단계로 이동합니다.
+            </SignupLede>
+          </>
+        ) : null}
         {content}
       </div>
 

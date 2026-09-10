@@ -499,6 +499,53 @@ describe('describeAuditLog', () => {
     );
     expect(sentence.some((segment) => segment.kind === 'code')).toBe(true);
   });
+
+  it('USER_PHONE_UPDATED SET은 전화번호 값을 보지 않고 등록 문장으로 만든다', () => {
+    const record: AuditLogRecord = {
+      ...BASE_RECORD,
+      id: 'audit-user-phone-set',
+      action: 'USER_PHONE_UPDATED',
+      targetType: 'USER',
+      targetId: 'user-synthetic-1',
+      target: 'synthetic-target-login',
+      phoneTransition: 'SET',
+    };
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-admin님이 synthetic-target-login님의 전화번호를 등록했습니다',
+    );
+  });
+
+  it('USER_PHONE_UPDATED REPLACED는 전화번호 값을 보지 않고 변경 문장으로 만든다', () => {
+    const record: AuditLogRecord = {
+      ...BASE_RECORD,
+      id: 'audit-user-phone-replaced',
+      action: 'USER_PHONE_UPDATED',
+      targetType: 'USER',
+      targetId: 'user-synthetic-2',
+      target: 'synthetic-target-login',
+      phoneTransition: 'REPLACED',
+    };
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-admin님이 synthetic-target-login님의 전화번호를 변경했습니다',
+    );
+  });
+
+  it('USER_PHONE_UPDATED transition이 없으면 변경 상태를 추측하지 않고 폴백 문장으로 만든다', () => {
+    const record: AuditLogRecord = {
+      ...BASE_RECORD,
+      id: 'audit-user-phone-missing-transition',
+      action: 'USER_PHONE_UPDATED',
+      targetType: 'USER',
+      targetId: 'user-synthetic-3',
+      target: 'synthetic-target-login',
+    };
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-admin님이 USER_PHONE_UPDATED 작업을 수행했습니다 (대상: synthetic-target-login)',
+    );
+  });
 });
 
 describe('describeTargetType', () => {

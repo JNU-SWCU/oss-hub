@@ -19,6 +19,7 @@ export interface DashboardMilestone {
 }
 
 export interface DashboardItem {
+  readonly coverImageUrl?: string | null;
   readonly applicationId: string;
   readonly programId: string;
   readonly programName: string;

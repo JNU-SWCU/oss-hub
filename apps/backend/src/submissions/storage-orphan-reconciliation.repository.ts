@@ -28,6 +28,8 @@ export type StorageReferenceTransactionClient = {
     StorageIdReader<Prisma.SubmissionFileWhereInput>;
   readonly programAuthoringUpload: StorageKeyReader<Prisma.ProgramAuthoringUploadWhereInput> &
     StorageIdReader<Prisma.ProgramAuthoringUploadWhereInput>;
+  readonly programCover: StorageKeyReader<Prisma.ProgramCoverWhereInput> &
+    StorageIdReader<Prisma.ProgramCoverWhereInput>;
   readonly milestoneDocumentTemplateFile: StorageKeyReader<Prisma.MilestoneDocumentTemplateFileWhereInput> &
     StorageIdReader<Prisma.MilestoneDocumentTemplateFileWhereInput>;
   readonly programPurgeFileTombstone: StorageKeyReader<Prisma.ProgramPurgeFileTombstoneWhereInput> &
@@ -51,6 +53,7 @@ export interface StorageReferencePrisma {
 export const STORAGE_KEY_OWNERS = [
   'SubmissionFile',
   'ProgramAuthoringUpload',
+  'ProgramCover',
   'MilestoneDocumentTemplateFile',
   'ProgramPurgeFileTombstone',
 ] as const;
@@ -65,6 +68,7 @@ export class PrismaStorageReferenceRepository implements StorageReferenceReposit
         const [
           submissionFiles,
           authoringUploads,
+          programCovers,
           templateFiles,
           purgeTombstones,
         ] = await Promise.all([
@@ -76,6 +80,9 @@ export class PrismaStorageReferenceRepository implements StorageReferenceReposit
             where: {
               lifecycle: { not: ProgramAuthoringUploadLifecycle.DELETED },
             },
+            select: { storageKey: true },
+          }),
+          transaction.programCover.findMany({
             select: { storageKey: true },
           }),
           transaction.milestoneDocumentTemplateFile.findMany({
@@ -93,6 +100,7 @@ export class PrismaStorageReferenceRepository implements StorageReferenceReposit
           [
             ...submissionFiles,
             ...authoringUploads,
+            ...programCovers,
             ...templateFiles,
             ...purgeTombstones,
           ].map(({ storageKey }) => storageKey),
@@ -105,37 +113,47 @@ export class PrismaStorageReferenceRepository implements StorageReferenceReposit
   async isLiveKey(key: string): Promise<boolean> {
     return this.prisma.$transaction(
       async (transaction) => {
-        const [submissionFile, authoringUpload, templateFile, purgeTombstone] =
-          await Promise.all([
-            transaction.submissionFile.findFirst({
-              where: {
-                storageKey: key,
-                lifecycle: { not: SubmissionFileLifecycle.DELETED },
-              },
-              select: { id: true },
-            }),
-            transaction.programAuthoringUpload.findFirst({
-              where: {
-                storageKey: key,
-                lifecycle: { not: ProgramAuthoringUploadLifecycle.DELETED },
-              },
-              select: { id: true },
-            }),
-            transaction.milestoneDocumentTemplateFile.findFirst({
-              where: { storageKey: key },
-              select: { id: true },
-            }),
-            transaction.programPurgeFileTombstone.findFirst({
-              where: {
-                storageKey: key,
-                lifecycle: { not: ProgramPurgeFileTombstoneLifecycle.DELETED },
-              },
-              select: { id: true },
-            }),
-          ]);
+        const [
+          submissionFile,
+          authoringUpload,
+          programCover,
+          templateFile,
+          purgeTombstone,
+        ] = await Promise.all([
+          transaction.submissionFile.findFirst({
+            where: {
+              storageKey: key,
+              lifecycle: { not: SubmissionFileLifecycle.DELETED },
+            },
+            select: { id: true },
+          }),
+          transaction.programAuthoringUpload.findFirst({
+            where: {
+              storageKey: key,
+              lifecycle: { not: ProgramAuthoringUploadLifecycle.DELETED },
+            },
+            select: { id: true },
+          }),
+          transaction.programCover.findFirst({
+            where: { storageKey: key },
+            select: { id: true },
+          }),
+          transaction.milestoneDocumentTemplateFile.findFirst({
+            where: { storageKey: key },
+            select: { id: true },
+          }),
+          transaction.programPurgeFileTombstone.findFirst({
+            where: {
+              storageKey: key,
+              lifecycle: { not: ProgramPurgeFileTombstoneLifecycle.DELETED },
+            },
+            select: { id: true },
+          }),
+        ]);
         return (
           submissionFile !== null ||
           authoringUpload !== null ||
+          programCover !== null ||
           templateFile !== null ||
           purgeTombstone !== null
         );

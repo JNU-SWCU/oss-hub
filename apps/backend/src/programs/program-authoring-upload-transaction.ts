@@ -6,6 +6,7 @@ import {
   type ProgramAuthoringPendingUploadConsumption,
   type ProgramAuthoringUploadToken,
 } from './program-authoring.types';
+import { assertProgramTemplateUpload } from './program-cover';
 
 export async function lockAttachableProgramAuthoringUploads(
   transaction: Prisma.TransactionClient,
@@ -14,6 +15,7 @@ export async function lockAttachableProgramAuthoringUploads(
 ): Promise<readonly ProgramAuthoringUploadToken[]> {
   const uploads = await lockProgramAuthoringUploads(transaction, tokenIds);
   assertAttachableProgramAuthoringUploads(actorId, tokenIds, uploads);
+  uploads.forEach(assertProgramTemplateUpload);
   return uploads;
 }
 
@@ -77,6 +79,7 @@ export async function consumePendingProgramAuthoringUploads(
   );
   for (const consumption of sortedConsumptions) {
     const { milestoneDocumentId, upload } = consumption;
+    assertProgramTemplateUpload(upload);
     const uploadedAt = new Date();
     await transaction.milestoneDocumentTemplateFile.upsert({
       where: { milestoneDocumentId },

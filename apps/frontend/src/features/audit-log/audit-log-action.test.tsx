@@ -24,6 +24,7 @@ describe('AuditLogActionValue', () => {
     ['APPLICATION_REJECTED', '신청 반려', 'rejected'],
     ['APPLICATION_REVERTED', '검토 대기로', 'closed'],
     ['USER_PROFILE_UPDATED', '프로필 수정', 'closed'],
+    ['USER_PHONE_UPDATED', '전화번호 수정', 'closed'],
   ] as const)(
     '%s를 한국어 배지와 원본 값으로 함께 표시한다',
     (action, label, variant) => {

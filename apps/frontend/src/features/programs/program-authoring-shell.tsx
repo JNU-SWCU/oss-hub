@@ -14,6 +14,7 @@ export function ProgramAuthoringShell<
   currentStep,
   children,
   onNavigate,
+  headerActions,
   title = '프로그램 만들기',
   description = '최종 확인 전에는 프로그램이 생성되지 않습니다.',
   steps = PROGRAM_AUTHORING_STEPS as unknown as readonly Step[],
@@ -21,6 +22,7 @@ export function ProgramAuthoringShell<
   readonly currentStep: Step['id'];
   readonly children: React.ReactNode;
   readonly onNavigate: (step: Step['id']) => void;
+  readonly headerActions?: React.ReactNode;
   readonly title?: string;
   readonly description?: string;
   readonly steps?: readonly Step[];
@@ -28,7 +30,16 @@ export function ProgramAuthoringShell<
   const currentIndex = steps.findIndex((step) => step.id === currentStep);
   return (
     <PageBody>
-      <PageHeader title={title} description={description} />
+      <PageHeader
+        title={title}
+        description={description}
+        className={
+          headerActions
+            ? 'sm:flex-col sm:items-stretch lg:flex-row lg:items-start'
+            : undefined
+        }
+        actions={headerActions}
+      />
       <div className="grid min-w-0 gap-8 lg:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)]">
         <aside className="self-start lg:sticky lg:top-6">
           <nav aria-label="작성 단계" className="hidden lg:block">

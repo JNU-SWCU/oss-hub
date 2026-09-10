@@ -45,8 +45,8 @@ describe('board-format', () => {
   });
 
   it('교직원·학생 안내 문구가 다르다', () => {
-    expect(boardSubtitle(true)).toContain('공지를 올리고');
-    expect(boardSubtitle(false)).toContain('교직원 공지와 질문');
+    expect(boardSubtitle(true)).toContain('프로그램 공지와 학생 질문');
+    expect(boardSubtitle(false)).toContain('프로그램 공지와 질문');
   });
 
   it('서울 시간대로 날짜·시각을 포맷한다', () => {

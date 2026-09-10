@@ -43,6 +43,7 @@ export function createInitialProgramAuthoringState(input: {
 }): ProgramAuthoringState {
   return {
     currentStep: 'basic',
+    coverFile: null,
     idempotencyKey: input.idempotencyKey,
     trackType: '',
     name: '',
@@ -71,6 +72,8 @@ export function programAuthoringReducer(
   action: ProgramAuthoringAction,
 ): ProgramAuthoringState {
   switch (action.type) {
+    case 'set_cover_file':
+      return { ...state, coverFile: action.file };
     case 'restore_state':
       return migrateProgramAuthoringState(action.state);
     case 'go_to_step':
