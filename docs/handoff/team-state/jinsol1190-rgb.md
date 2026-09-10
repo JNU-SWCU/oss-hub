@@ -59,6 +59,17 @@
 - 환경 참고: Windows 전체 frontend에서 무변경 `card-grid.geometry-runtime.test.mjs` 4건이 확장자 없는 `pnpm` 실행과 프로세스 신호 제약으로 재현됐고, production standalone 복사는 symlink `EPERM`으로 멈췄다. 제품 번들 컴파일·타입 검사·정적 페이지 생성은 그 전 단계까지 통과했다.
 - 공개 안전성: 합성 fixture만 사용했고 캡처는 브랜치에 커밋하지 않고 PR 첨부로 이전한다.
 
+## 2026-09-08 — QA148 회원가입 전화번호와 관리자 가입 일시
+
+- 상태: review 준비
+- Issue: #1131
+- PR: pending
+- blocker: PR 본문 작성 전 `submit-pr-evidence` 작성자 인터뷰 3답과 GitHub 렌더 첨부 URL이 필요하다.
+- 결과: 학생 가입 마지막 단계에 전화번호 10~11자리 필수 입력을 추가하고 설정에서 자기 전화번호를 확인·수정할 수 있게 했다. 전화번호는 `User.phone` 정본으로만 저장하고, 감사 로그에는 `SET`·`REPLACED` 상태만 남긴다. 관리자 사용자 목록과 상세 계약에는 계정 `가입 일시`를 추가했고, 가입 신청 큐의 `요청 시각` 정렬은 분리해 유지했다. 필수 동의가 필요한 온보딩 흐름은 `/consent`로 이동하지 않고 현재 화면의 다이얼로그에서 완료되게 했다.
+- 검증: migration/schema, backend phone/audit, admin createdAt, frontend phone/settings/department, consent dialog focused 테스트와 typecheck·lint를 통과했다. 합성 fixture 기반 Chrome에서 `/onboarding/profile`, `/settings`, `/onboarding/role`, `/dashboard/users`, `/dashboard/audit-logs`의 desktop·390px After 캡처와 public-safe PNG metadata 검사를 완료했다.
+- 환경 참고: Docker Desktop이 응답하지 않아 migration DB integration 일부는 isolated spec 작성·compile·ledger 검증까지 확인했고, 실제 DB 적용은 후속 전체 integration 환경에서 재확인해야 한다. repository-wide `pnpm format:check`는 기존 전역 포맷 경고가 있어 변경 파일 기준 Prettier와 Prisma format으로 별도 확인했다.
+- 공개 안전성: 합성 사용자·합성 번호 생성값만 사용했고 전화번호 원문은 audit metadata, 관리자 DTO, PR evidence 텍스트, 스크린샷에 싣지 않는다. evidence PNG는 브랜치에 커밋하지 않는다.
+
 ## 2026-09-10 — QA169 팀 활동 구성과 팀원별 기여
 
 - 상태: review
