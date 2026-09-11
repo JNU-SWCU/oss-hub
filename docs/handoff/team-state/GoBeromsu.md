@@ -1600,3 +1600,14 @@
 - UX 증거: main 기준 Before와 frontend 제품 코드 기준 After를 다시 촬영하고 작성자의 의도·직접 확인 경로·UX 원칙 답변을 받았다.
 - 공개 안전성: 합성 캡처만 기존 정식 Release에 첨부했으며 새 Release 발행이나 운영 변경으로 취급하지 않는다.
 - 남은 것: required CI를 거친 정식 릴리즈와 배포 후 역할별 신청 상태 표시 단순화는 별도 완료 확인이 필요하다.
+
+## 2026-09-11 — Docker COPY quoted-root fail-closed
+
+- 상태: review
+- Issue: #44
+- PR: (이 PR)
+- blocker: 없음
+- 내용: shell-form COPY source token의 matching quote 한 겹을 벗긴 뒤 기존 root/glob/absolute 분류를 적용한다. backslash·불균형 quote는 fail-closed. quoted-root 4 fixture와 later-source quoted-root 회귀를 추가했다.
+- 검증: bash scripts/check-docker-context.test.sh 38/38, live bash scripts/check-docker-context.sh . exit 0. image build 없음.
+- 주의: awk 본문은 bash single-quote 문자열이므로 apostrophe 리터럴을 직접 넣으면 스크립트가 깨진다. sprintf("%c", 39)로 처리한다.
+- 공개 안전성: 합성 fixture만 사용. 운영 접속·이미지 빌드 없음.

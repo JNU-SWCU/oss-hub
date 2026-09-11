@@ -150,6 +150,20 @@ while IFS= read -r dockerfile; do
       }
       for (j = 1; j < n; j++) {
         t = tokens[j]
+        # shell-form: strip one matching quote layer (39=apostrophe). backslash/unbalanced quotes fail-closed.
+        sq = sprintf("%c", 39)
+        if (index(t, "\\") > 0) {
+          printf "docker-context contract: escaped COPY source prohibited in %s (scan line %d, source position %d) — use unescaped literal paths only\n", rel, NR, j
+          continue
+        }
+        q0 = substr(t, 1, 1)
+        q1 = substr(t, length(t), 1)
+        if (length(t) >= 2 && (q0 == "\"" || q0 == sq) && q1 == q0) {
+          t = substr(t, 2, length(t) - 2)
+        } else if (index(t, "\"") > 0 || index(t, sq) > 0) {
+          printf "docker-context contract: unsupported-quoted COPY source prohibited in %s (scan line %d, source position %d) — use plain or fully-quoted literal paths only\n", rel, NR, j
+          continue
+        }
         if (t ~ /\$/) {
           printf "docker-context contract: variable-expansion COPY source prohibited in %s (scan line %d, source position %d) — ARG/ENV 값에 따라 root·glob 동치가 될 수 있으므로 literal 명시 경로만 허용\n", rel, NR, j
           continue
