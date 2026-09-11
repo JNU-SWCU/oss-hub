@@ -68,12 +68,19 @@ const cases: readonly {
       />
     ),
   },
-  ...(['APPROVE', 'REJECT', 'REVERT'] as const).map((action) => ({
-    name: `신청 판정 ${action}`,
+  ...(
+    [
+      { action: 'APPROVE', currentStatus: 'SUBMITTED' },
+      { action: 'REJECT', currentStatus: 'SUBMITTED' },
+      { action: 'APPROVE', currentStatus: 'REJECTED' },
+      { action: 'REJECT', currentStatus: 'APPROVED' },
+    ] as const
+  ).map(({ action, currentStatus }) => ({
+    name: `신청 판정 ${currentStatus} → ${action}`,
     render: (onCancel: () => void, onConfirm: () => void) => (
       <ApplicationDecisionDialog
         action={action}
-        currentStatus={action === 'REVERT' ? 'APPROVED' : 'SUBMITTED'}
+        currentStatus={currentStatus}
         applicantName="합성 신청자"
         teamName={null}
         repositoryProvisioningEnabled={false}

@@ -13,7 +13,10 @@ import {
   programApplicationDetailHref,
   programTeamDetailHref,
 } from '@/lib/program-route';
-import { REVIEW_ACTION_LABEL } from './application-presentation';
+import {
+  NO_APPLICATION_LABEL,
+  REVIEW_ACTION_LABEL,
+} from './application-presentation';
 import type {
   ApplicationListItem,
   ApplicationListPage,
@@ -182,7 +185,11 @@ describe('ProgramStaffTeamsPage', () => {
     });
   }
 
-  it('신청서를 내지 않은 팀도 목록에 남고 그렇게 표시된다', async () => {
+  /**
+   * #1272 — 신청이 없는 팀은 목록에 남지만 상태 칸은 **배지 없이 흐린 대시**다.
+   * 배지를 달면 없는 신청이 대기 중인 신청처럼 읽힌다.
+   */
+  it('신청서를 내지 않은 팀도 목록에 남고 상태 칸은 빈 대시다', async () => {
     await render(
       [
         team('t1', '가팀', [member('a', '김가', true)]),
@@ -192,7 +199,43 @@ describe('ProgramStaffTeamsPage', () => {
     );
 
     expect(container.textContent).toContain('나팀');
-    expect(container.textContent).toContain('미신청');
+    expect(container.textContent).not.toContain('미신청');
+
+    const row = [...container.querySelectorAll('tbody tr')].find((tr) =>
+      tr.textContent?.includes('나팀'),
+    );
+    if (row === undefined) throw new Error('나팀 행을 찾지 못했다');
+    // 열 순서: 팀 · 인원 · 팀장 · 신청 상태 · 저장소 · 작업
+    const statusCell = row.querySelectorAll('td')[3];
+    expect(statusCell?.textContent?.trim()).toBe('—');
+    expect(statusCell?.querySelector('[data-slot="status-badge"]')).toBeNull();
+  });
+
+  // 배지를 지워도 「신청이 없다」는 사실은 칩으로 골라볼 수 있어야 한다(#1272).
+  it('신청 없는 팀 칩은 신청이 없는 팀만 남긴다', async () => {
+    await render(
+      [
+        team('t1', '가팀', [member('a', '김가', true)]),
+        team('t2', '나팀', [member('b', '이나', true)]),
+      ],
+      [application('t1', 'APPROVED')],
+    );
+
+    const chip = [...container.querySelectorAll('button')].find((button) =>
+      button.textContent?.startsWith(NO_APPLICATION_LABEL),
+    );
+    if (chip === undefined)
+      throw new Error(`상태 칩을 찾지 못했다: ${NO_APPLICATION_LABEL}`);
+    expect(chip.textContent).toContain('1');
+
+    await act(async () => {
+      chip.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const rows = [...container.querySelectorAll('tbody tr')];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.textContent).toContain('나팀');
+    expect(rows[0]?.textContent).not.toContain('가팀');
   });
 
   it('팀원 실명을 보여준다', async () => {
@@ -351,7 +394,7 @@ describe('ProgramStaffTeamsPage', () => {
     expect(container.textContent).not.toContain('일부만 불러왔습니다');
   });
 
-  // 조용히 자르면 신청이 있는 팀이 「미신청」으로 보인다 — 빈 화면보다 나쁘다.
+  // 조용히 자르면 신청이 있는 팀의 상태 칸이 비어 보인다 — 빈 화면보다 나쁘다.
   it('신청이 상한을 넘으면 일부만 받았다고 알리고 신청자 목록으로 보낸다', async () => {
     listStaffProgramTeamsMock.mockResolvedValue([
       team('t1', '가팀', [member('a', '김가', true)]),
@@ -366,6 +409,7 @@ describe('ProgramStaffTeamsPage', () => {
     });
 
     expect(container.textContent).toContain('일부만 불러왔습니다');
+    expect(container.textContent).toContain('신청 상태가 비어 있는 팀');
     const applicantsLinks = [...container.querySelectorAll('a')].filter((a) =>
       a.href.includes('/programs/program-1/applicants'),
     );

@@ -4,6 +4,11 @@ import type {
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 
+/**
+ * `APPROVE`는 SUBMITTED·REJECTED에서, `REJECT`는 SUBMITTED·APPROVED에서 받는다 —
+ * 반대 판정으로 뒤집는 데 되돌리기를 먼저 요구하지 않는다(#1272).
+ * `REVERT`는 UI에서 내렸지만 backend API·이력으로는 계속 지원한다.
+ */
 export const APPLICATION_DECISION_ACTIONS = {
   APPROVE: 'APPROVE',
   REJECT: 'REJECT',
@@ -49,6 +54,11 @@ export interface ApplicationDecisionNotificationInput {
 
 export interface ApplicationTransition {
   readonly applicationId: string;
+  /**
+   * CAS의 기대 상태 — 판정 계획이 읽은 출발 상태를 그대로 싣는다. 승인·반려가
+   * 반대 판정에서도 출발하므로 SUBMITTED로 고정할 수 없다. 이 값이 어긋나면
+   * 갱신 건수가 0이 되어 409로 되돌아간다(경합한 요청이 밀린다).
+   */
   readonly expectedStatus: ApplicationStatus;
   readonly nextStatus: ApplicationStatus;
   readonly rejectionReason: string | null;

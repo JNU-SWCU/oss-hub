@@ -56,20 +56,19 @@ export function myTeamApplicationStage(
   }
 }
 
-const STAGE_LABELS: Readonly<Record<MyTeamApplicationStage, string>> = {
-  draft: '신청 작성 중',
-  submitted: '신청 검토 대기',
-  approved: '참여 승인',
-  rejected: '신청 반려',
-};
+interface StageBadge {
+  readonly label: string;
+  readonly variant: 'pending' | 'approved' | 'rejected';
+}
 
-const STAGE_VARIANTS: Readonly<
-  Record<MyTeamApplicationStage, 'pending' | 'approved' | 'rejected'>
+/** 신청이 없으면 배지를 생략한다. 실제 활동·제출 권한은 기존 stage로 판단한다. */
+const STAGE_BADGES: Readonly<
+  Record<MyTeamApplicationStage, StageBadge | null>
 > = {
-  draft: 'pending',
-  submitted: 'pending',
-  approved: 'approved',
-  rejected: 'rejected',
+  draft: null,
+  submitted: { label: '신청', variant: 'pending' },
+  approved: { label: '신청', variant: 'approved' },
+  rejected: { label: '반려', variant: 'rejected' },
 };
 
 export interface ProgramMyTeamViewProps {
@@ -225,6 +224,7 @@ export function ProgramMyTeamView({
   onDeparted,
 }: ProgramMyTeamViewProps) {
   const stage = myTeamApplicationStage(application);
+  const badge = STAGE_BADGES[stage];
 
   return (
     <PageBody className="max-w-4xl">
@@ -232,9 +232,9 @@ export function ProgramMyTeamView({
         title={team.name}
         description={program.name}
         actions={
-          <StatusBadge variant={STAGE_VARIANTS[stage]}>
-            {STAGE_LABELS[stage]}
-          </StatusBadge>
+          badge === null ? undefined : (
+            <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
+          )
         }
       />
 

@@ -413,14 +413,20 @@ describe('ApplicationsService.decide — REVERT', () => {
     );
   });
 
-  it('승인 되돌리기(프로비저닝 완료): 409 + revertBlockedReason', async () => {
+  it.each([
+    RepositoryProvisionJobStatus.SUCCEEDED,
+    RepositoryProvisionJobStatus.PENDING,
+    RepositoryProvisionJobStatus.PROCESSING,
+    RepositoryProvisionJobStatus.FAILED_RETRYABLE,
+    RepositoryProvisionJobStatus.FAILED_FINAL,
+  ])('생성된 저장소는 %s에서도 승인 되돌리기를 차단한다', async (status) => {
     const { service, record, findRepositoryProvisionJob, store } =
       createHarness();
     (store.findApplicationById as jest.Mock).mockResolvedValue(
       baseApplication({ status: ApplicationStatus.APPROVED }),
     );
     findRepositoryProvisionJob.mockResolvedValue({
-      status: RepositoryProvisionJobStatus.SUCCEEDED,
+      status,
       repositoryId: 'synthetic-repository',
     });
 
@@ -629,5 +635,306 @@ describe('ApplicationsService.decide — REVERT', () => {
     });
     // NEW 잠금 경로가 타면 job을 조회한다. OWN은 모드 가드로 조회하지 않는다.
     expect(findRepositoryProvisionJob).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * #1272 — 교직원이 판정을 바꿀 때 되돌리기 → 재판정 두 번을 요구하지 않는다.
+ * PATCH 한 번이 기존 CAS 한 번으로 반대 판정까지 옮기는 것과, 그럼에도
+ * 완료된 저장소 잠금(APP_023)과 같은 판정 재전송 409가 남아 있는 것을 고정한다.
+ */
+describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
+  it('APPROVED → REJECT: 기대 상태 APPROVED로 한 번에 전이하고 반려로 기록한다', async () => {
+    const {
+      service,
+      record,
+      store,
+      transitionApplication,
+      discardRepositoryProvisionRequest,
+      findRepositoryProvisionJob,
+      createApplicationDecisionNotifications,
+    } = createHarness({ provisioningEnabled: true });
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({
+        status: ApplicationStatus.APPROVED,
+        repositoryProvisioningEnabled: true,
+        processedById: PRIOR_PROCESSOR_ID,
+        processedAt: PRIOR_PROCESSED_AT,
+      }),
+    );
+    findRepositoryProvisionJob.mockResolvedValue({
+      status: RepositoryProvisionJobStatus.PENDING,
+      repositoryId: null,
+    });
+
+    const result = await service.decide(
+      ACTOR_ID,
+      APPLICATION_ID,
+      ACTOR_GITHUB_ID,
+      {
+        action: APPLICATION_DECISION_ACTIONS.REJECT,
+        reason: '합성 반려 사유',
+      },
+    );
+
+    expect(result).toEqual({
+      kind: 'REJECTED',
+      applicationId: APPLICATION_ID,
+      status: ApplicationStatus.REJECTED,
+      rejectionReason: '합성 반려 사유',
+    });
+    // 되돌리기를 거치지 않으므로 전이는 딱 한 번이고, 그 CAS의 기대 상태는 APPROVED다.
+    expect(transitionApplication).toHaveBeenCalledTimes(1);
+    expect(transitionApplication).toHaveBeenCalledWith(
+      expect.objectContaining({
+        applicationId: APPLICATION_ID,
+        expectedStatus: ApplicationStatus.APPROVED,
+        nextStatus: ApplicationStatus.REJECTED,
+        rejectionReason: '합성 반려 사유',
+      }),
+    );
+    // 반려는 actor를 기록한다 — 되돌리기처럼 preserve로 두지 않는다.
+    const rejectTransition = (
+      transitionApplication.mock.calls as readonly (readonly unknown[])[]
+    )[0]?.[0];
+    expect(rejectTransition).toEqual(
+      expect.objectContaining({
+        processedBy: expect.objectContaining({ id: ACTOR_ID }) as unknown,
+      }),
+    );
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'APPLICATION_REJECTED',
+        metadata: expect.objectContaining({
+          before: { status: ApplicationStatus.APPROVED },
+          after: { status: ApplicationStatus.REJECTED },
+        }) as unknown,
+      }),
+      auditLogWriter,
+    );
+    expect(createApplicationDecisionNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({ decision: ApplicationStatus.REJECTED }),
+    );
+    // 승인을 푸는 이상 되돌리기와 똑같이 미완료 프로비저닝 요청을 같은 트랜잭션에서
+    // 지운다 — 남기면 워커가 집은 job이 FAILED_FINAL로 굳어버린다.
+    expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
+      APPLICATION_ID,
+    );
+  });
+
+  it('REJECTED → APPROVE: 한 번에 전이하고 새 프로비저닝 이벤트를 발행한다', async () => {
+    const {
+      service,
+      record,
+      store,
+      transitionApplication,
+      discardRepositoryProvisionRequest,
+      createRepositoryProvisionEvent,
+    } = createHarness({ provisioningEnabled: true });
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({
+        status: ApplicationStatus.REJECTED,
+        repositoryProvisioningEnabled: true,
+        processedById: PRIOR_PROCESSOR_ID,
+        processedAt: PRIOR_PROCESSED_AT,
+      }),
+    );
+
+    const result = await service.decide(
+      ACTOR_ID,
+      APPLICATION_ID,
+      ACTOR_GITHUB_ID,
+      { action: APPLICATION_DECISION_ACTIONS.APPROVE },
+    );
+
+    expect(result).toMatchObject({
+      kind: 'APPROVED',
+      status: ApplicationStatus.APPROVED,
+      repositoryProvisioning: {
+        enabled: true,
+        eventId: 'synthetic-event',
+        jobStatus: RepositoryProvisionJobStatus.PENDING,
+      },
+    });
+    expect(transitionApplication).toHaveBeenCalledTimes(1);
+    expect(transitionApplication).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedStatus: ApplicationStatus.REJECTED,
+        nextStatus: ApplicationStatus.APPROVED,
+      }),
+    );
+    // 재승인은 기존 경로 그대로 — 남은 요청을 지우고 같은 멱등키로 새로 발행한다.
+    expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
+      APPLICATION_ID,
+    );
+    expect(createRepositoryProvisionEvent).toHaveBeenCalledTimes(1);
+    expect(createRepositoryProvisionEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        applicationId: APPLICATION_ID,
+        idempotencyKey: `repository-provision:${APPLICATION_ID}`,
+      }),
+    );
+    expect(record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'APPLICATION_APPROVED',
+        metadata: expect.objectContaining({
+          before: { status: ApplicationStatus.REJECTED },
+          after: { status: ApplicationStatus.APPROVED },
+        }) as unknown,
+      }),
+      auditLogWriter,
+    );
+  });
+
+  it('같은 판정 재전송(REJECTED에 REJECT)은 그대로 409다', async () => {
+    const { service, record, store, transitionApplication } = createHarness();
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({ status: ApplicationStatus.REJECTED }),
+    );
+
+    let thrown: unknown;
+    try {
+      await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+        action: APPLICATION_DECISION_ACTIONS.REJECT,
+        reason: '합성 반려 사유',
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expectDomainCode(thrown, ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED);
+    if (thrown instanceof DomainException) {
+      expect(thrown.errorCode.status).toBe(409);
+      expect(thrown.extensions).toEqual(
+        expect.objectContaining({
+          latestStatus: ApplicationStatus.REJECTED,
+        }),
+      );
+    }
+    expect(transitionApplication).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    RepositoryProvisionJobStatus.SUCCEEDED,
+    RepositoryProvisionJobStatus.PENDING,
+    RepositoryProvisionJobStatus.PROCESSING,
+    RepositoryProvisionJobStatus.FAILED_RETRYABLE,
+    RepositoryProvisionJobStatus.FAILED_FINAL,
+  ])(
+    '생성된 NEW 저장소는 %s에서도 반려로 풀 수 없다 — 409 APP_023',
+    async (status) => {
+      const {
+        service,
+        record,
+        store,
+        transitionApplication,
+        discardRepositoryProvisionRequest,
+        findRepositoryProvisionJob,
+      } = createHarness({ provisioningEnabled: true });
+      (store.findApplicationById as jest.Mock).mockResolvedValue(
+        baseApplication({
+          status: ApplicationStatus.APPROVED,
+          repositoryProvisioningEnabled: true,
+        }),
+      );
+      findRepositoryProvisionJob.mockResolvedValue({
+        status,
+        repositoryId: 'synthetic-repository',
+      });
+
+      let thrown: unknown;
+      try {
+        await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+          action: APPLICATION_DECISION_ACTIONS.REJECT,
+          reason: '합성 반려 사유',
+        });
+      } catch (error) {
+        thrown = error;
+      }
+
+      expectDomainCode(
+        thrown,
+        ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED,
+      );
+      if (thrown instanceof DomainException) {
+        expect(thrown.errorCode.status).toBe(409);
+        expect(thrown.extensions).toEqual(
+          expect.objectContaining({
+            latestStatus: ApplicationStatus.APPROVED,
+            revertBlockedReason: expect.stringContaining(
+              'succeeded',
+            ) as unknown,
+          }),
+        );
+      }
+      // 잠금이 걸렸으면 상태도 감사도 저장소 요청도 건드리지 않는다.
+      expect(transitionApplication).not.toHaveBeenCalled();
+      expect(record).not.toHaveBeenCalled();
+      expect(discardRepositoryProvisionRequest).not.toHaveBeenCalled();
+    },
+  );
+
+  it('OWN은 SUCCEEDED여도 승인→반려를 허용한다', async () => {
+    const { service, findRepositoryProvisionJob, store } = createHarness({
+      provisioningEnabled: true,
+    });
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({
+        status: ApplicationStatus.APPROVED,
+        repositoryProvisioningEnabled: true,
+        repositoryConnectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
+      }),
+    );
+    findRepositoryProvisionJob.mockResolvedValue({
+      status: RepositoryProvisionJobStatus.SUCCEEDED,
+      repositoryId: 'synthetic-repository',
+    });
+
+    await expect(
+      service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+        action: APPLICATION_DECISION_ACTIONS.REJECT,
+        reason: '합성 반려 사유',
+      }),
+    ).resolves.toMatchObject({
+      kind: 'REJECTED',
+      status: ApplicationStatus.REJECTED,
+    });
+    // OWN은 모드 가드에서 끝나 job을 조회하지도 않는다(ADR-009).
+    expect(findRepositoryProvisionJob).not.toHaveBeenCalled();
+  });
+
+  it('경합으로 APPROVED가 이미 밀렸으면 CAS가 판정을 거절한다', async () => {
+    const { service, record, store, transitionApplication } = createHarness();
+    (store.findApplicationById as jest.Mock)
+      .mockResolvedValueOnce(
+        baseApplication({ status: ApplicationStatus.APPROVED }),
+      )
+      // CAS 실패 후 다시 읽은 최신 상태 — 다른 교직원이 먼저 반려했다.
+      .mockResolvedValueOnce(
+        baseApplication({ status: ApplicationStatus.REJECTED }),
+      );
+    transitionApplication.mockResolvedValue(false);
+
+    let thrown: unknown;
+    try {
+      await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+        action: APPLICATION_DECISION_ACTIONS.REJECT,
+        reason: '합성 반려 사유',
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expectDomainCode(thrown, ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED);
+    if (thrown instanceof DomainException) {
+      expect(thrown.extensions).toEqual(
+        expect.objectContaining({
+          latestStatus: ApplicationStatus.REJECTED,
+        }),
+      );
+    }
+    expect(record).not.toHaveBeenCalled();
   });
 });

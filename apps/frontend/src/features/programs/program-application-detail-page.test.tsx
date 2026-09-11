@@ -127,6 +127,25 @@ async function flushCloseAutoFocus(): Promise<void> {
   });
 }
 
+/**
+ * 반려 확인창의 사유를 실제 입력처럼 채운다. React 가 값 setter 를 가로채기 때문에
+ * `value` 를 그냥 넣으면 상태가 갱신되지 않는다 — 원래 setter 로 넣고 input 을 직접 보낸다.
+ */
+async function typeRejectionReason(value: string): Promise<void> {
+  const textarea = document.querySelector('textarea');
+  if (!(textarea instanceof HTMLTextAreaElement)) {
+    throw new TypeError('반려 사유 입력칸이 없다');
+  }
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      'value',
+    )?.set;
+    setter?.call(textarea, value);
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
 describe('ProgramApplicationDetailPage', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -262,7 +281,7 @@ describe('ProgramApplicationDetailPage', () => {
     expect(container.textContent).not.toContain('오전 05:32');
   });
 
-  it('검토 대기 신청에는 승인·반려가 있고 검토 대기로는 없다', async () => {
+  it('검토 대기 신청에는 승인·반려가 둘 다 있고 검토 대기로는 없다', async () => {
     getApplicationDetailMock.mockResolvedValue(submitted);
 
     await mount();
@@ -272,14 +291,28 @@ describe('ProgramApplicationDetailPage', () => {
     expect(queryButton('검토 대기로')).toBeUndefined();
   });
 
-  it('승인되거나 반려된 신청에는 검토 대기로만 있다', async () => {
+  it('반려된 신청에는 반대쪽인 승인만 남는다', async () => {
+    // 되돌리기를 거치지 않고 곧바로 바꿀 수 있어야 한다 — 그래서 「검토 대기로」가 없다.
     getApplicationDetailMock.mockResolvedValue(rejected);
 
     await mount();
 
-    expect(getButton('검토 대기로')).toBeTruthy();
-    expect(queryButton('승인')).toBeUndefined();
+    expect(getButton('승인')).toBeTruthy();
     expect(queryButton('반려')).toBeUndefined();
+    expect(queryButton('검토 대기로')).toBeUndefined();
+  });
+
+  it('승인된 신청에는 반대쪽인 반려만 남는다', async () => {
+    getApplicationDetailMock.mockResolvedValue({
+      ...submitted,
+      status: 'APPROVED',
+    });
+
+    await mount();
+
+    expect(getButton('반려')).toBeTruthy();
+    expect(queryButton('승인')).toBeUndefined();
+    expect(queryButton('검토 대기로')).toBeUndefined();
   });
 
   it('반려된 신청은 사유를 보여준다', async () => {
@@ -292,9 +325,9 @@ describe('ProgramApplicationDetailPage', () => {
   });
 
   it.each([true, false])(
-    '발급 설정이 %s여도 이미 생성된 신규 저장소 신청은 되돌릴 수 없고 이유를 연결한다',
+    '발급 설정이 %s여도 이미 생성된 신규 저장소 승인은 반려로 바꿀 수 없고 이유를 연결한다',
     async (enabled) => {
-      // Given: 신규 저장소 생성이 완료된 승인 신청이다.
+      // Given: 신규 저장소 생성이 완료된 승인 신청이다(서버 APP_023 잠금 대상).
       getApplicationDetailMock.mockResolvedValue({
         ...provisioned,
         repositoryProvisioning: {
@@ -303,9 +336,9 @@ describe('ProgramApplicationDetailPage', () => {
         },
       });
       await mount();
-      const trigger = getButton('검토 대기로');
+      const trigger = getButton('반려');
 
-      // When: 되돌리기 버튼을 누른다.
+      // When: 반려 버튼을 누른다.
       await act(async () => trigger.click());
 
       // Then: 요청·확인창 없이 비활성 사유를 읽을 수 있다.
@@ -321,6 +354,40 @@ describe('ProgramApplicationDetailPage', () => {
   );
 
   it.each<RepositoryProvisioningJobStatus>([
+    'PENDING',
+    'PROCESSING',
+    'RETRYABLE_FAILED',
+    'FAILED',
+  ])(
+    '이미 생성된 저장소는 권한 작업이 %s여도 반려로 풀 수 없다',
+    async (jobStatus) => {
+      getApplicationDetailMock.mockResolvedValue({
+        ...provisioned,
+        repository: {
+          url: 'https://github.com/synthetic-org/synthetic-repository',
+          visibility: 'PRIVATE',
+        },
+        repositoryProvisioning: {
+          ...provisioned.repositoryProvisioning,
+          jobStatus,
+        },
+      });
+      await mount();
+
+      const trigger = getButton('반려');
+      await act(async () => trigger.click());
+
+      expect(trigger.disabled).toBe(true);
+      expect(
+        document.getElementById(trigger.getAttribute('aria-describedby') ?? '')
+          ?.textContent,
+      ).toContain('저장소');
+      expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+      expect(decideApplicationMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each<RepositoryProvisioningJobStatus>([
     'NOT_REQUESTED',
     'DISABLED',
     'PENDING',
@@ -329,7 +396,7 @@ describe('ProgramApplicationDetailPage', () => {
     'FAILED',
     'ANOMALOUS',
   ])(
-    '발급 상태가 %s이면 완료로 추정해 되돌리기를 막지 않는다',
+    '발급 상태가 %s이면 완료로 추정해 반려 전환을 막지 않는다',
     async (jobStatus) => {
       // Given: API가 저장소 생성 완료를 확인하지 않은 승인 신청이다.
       getApplicationDetailMock.mockResolvedValue({
@@ -341,8 +408,8 @@ describe('ProgramApplicationDetailPage', () => {
       });
       await mount();
 
-      // When: 되돌리기 버튼을 누른다.
-      const trigger = getButton('검토 대기로');
+      // When: 반려 버튼을 누른다.
+      const trigger = getButton('반려');
       await act(async () => trigger.click());
 
       // Then: 서버 판정을 받을 수 있는 기존 확인창으로 이어진다.
@@ -352,18 +419,30 @@ describe('ProgramApplicationDetailPage', () => {
     },
   );
 
-  it.each<ApplicationListItem>([
-    { ...provisioned, repositoryConnectionMode: 'OWN' },
-    { ...provisioned, status: 'REJECTED' },
+  it.each<{
+    readonly name: string;
+    readonly application: ApplicationListItem;
+    readonly oppositeLabel: string;
+  }>([
+    {
+      name: 'OWN 연결 승인',
+      application: { ...provisioned, repositoryConnectionMode: 'OWN' },
+      oppositeLabel: '반려',
+    },
+    {
+      name: '반려된 신청',
+      application: { ...provisioned, status: 'REJECTED' },
+      oppositeLabel: '승인',
+    },
   ])(
-    '신규 저장소 승인에 해당하지 않으면 성공 작업이 있어도 되돌리기를 허용한다: $status/$repositoryConnectionMode',
-    async (application) => {
+    '$name 은 성공한 저장소 작업이 있어도 반대 판정을 허용한다',
+    async ({ application, oppositeLabel }) => {
       // Given: 실제 서버의 완료 작업 차단 대상 밖에 있는 신청이다.
       getApplicationDetailMock.mockResolvedValue(application);
       await mount();
 
-      // When: 되돌리기를 누른다.
-      const trigger = getButton('검토 대기로');
+      // When: 남아 있는 반대쪽 판정을 누른다.
+      const trigger = getButton(oppositeLabel);
       await act(async () => trigger.click());
 
       // Then: 기존 확인 흐름을 유지한다.
@@ -389,7 +468,7 @@ describe('ProgramApplicationDetailPage', () => {
     await flushCloseAutoFocus();
 
     // Then: 비활성 버튼 대신 연결된 이유에서 다음 탐색을 이어갈 수 있다.
-    const trigger = getButton('검토 대기로');
+    const trigger = getButton('반려');
     expect(trigger.disabled).toBe(true);
     const description = document.getElementById(
       trigger.getAttribute('aria-describedby') ?? '',
@@ -399,7 +478,7 @@ describe('ProgramApplicationDetailPage', () => {
   });
 
   it('확인 중 발급이 끝나 APP_023을 받으면 최신 상태와 차단 이유로 복귀한다', async () => {
-    // Given: 되돌리기 확인창이 열린 뒤 저장소가 생성된다.
+    // Given: 승인을 반려로 바꾸려는 확인창이 열린 뒤 저장소가 생성된다.
     getApplicationDetailMock.mockResolvedValueOnce({
       ...provisioned,
       repositoryProvisioning: {
@@ -412,14 +491,15 @@ describe('ProgramApplicationDetailPage', () => {
       new ApiError(problem(409, 'APP_023')),
     );
     await mount();
-    await act(async () => getButton('검토 대기로').click());
+    await act(async () => getButton('반려').click());
+    await typeRejectionReason('합성 반려 사유');
 
-    // When: 되돌리기 확정을 서버가 거절한다.
-    await act(async () => getButton('검토 대기로 되돌리기').click());
+    // When: 반려 확정을 서버가 거절한다.
+    await act(async () => getButton('반려 확정').click());
     await flushCloseAutoFocus();
 
     // Then: 완료된 저장소를 회수하지 않고 최신 비활성 이유를 읽게 한다.
-    const trigger = getButton('검토 대기로');
+    const trigger = getButton('반려');
     expect(getApplicationDetailMock).toHaveBeenCalledTimes(2);
     expect(trigger.disabled).toBe(true);
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
@@ -472,18 +552,7 @@ describe('ProgramApplicationDetailPage', () => {
     await act(async () => {
       getButton('반려').click();
     });
-    const textarea = document.querySelector('textarea');
-    if (!(textarea instanceof HTMLTextAreaElement)) {
-      throw new TypeError('반려 사유 입력칸이 없다');
-    }
-    await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        'value',
-      )?.set;
-      setter?.call(textarea, '  예산 항목이 비어 있습니다  ');
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    });
+    await typeRejectionReason('  예산 항목이 비어 있습니다  ');
     await act(async () => {
       getButton('반려 확정').click();
     });
@@ -521,7 +590,9 @@ describe('ProgramApplicationDetailPage', () => {
 
     expect(container.textContent).toContain('신청 상태가 변경되었습니다');
     expect(container.textContent).toContain('예산 항목이 비어 있습니다');
-    expect(queryButton('승인')).toBeUndefined();
+    // 이미 반려된 신청이 됐으므로 반려 버튼은 사라지고 반대쪽 승인만 남는다.
+    expect(queryButton('반려')).toBeUndefined();
+    expect(getButton('승인')).toBeTruthy();
   });
 
   it('학생이 먼저 취소해 사라진 신청은 "찾을 수 없음"으로 닫는다', async () => {
@@ -762,8 +833,8 @@ describe('ProgramApplicationDetailPage', () => {
 
   it('판정에 성공해 확인창이 스스로 닫히면 그 자리의 새 버튼으로 포커스가 간다', async () => {
     // Given: 승인 확인창이 열려 있다.
-    // ⚠ 성공하면 「승인」이 **사라지고** 「검토 대기로」가 생긴다 — 창을 연 버튼으로는
-    //   돌아갈 수 없고, 새 버튼은 **재조회가 끝난 뒤에야** DOM 에 생긴다([#767]).
+    // ⚠ 성공하면 「승인」이 **사라지고** 반대쪽 「반려」만 남는다 — 창을 연 버튼으로는
+    //   돌아갈 수 없고, 그 버튼은 **재조회가 끝난 뒤에야** 그려진다([#767]).
     getApplicationDetailMock.mockResolvedValueOnce(submitted);
     decideApplicationMock.mockResolvedValue({
       applicationId: 'app-1',
@@ -783,40 +854,83 @@ describe('ProgramApplicationDetailPage', () => {
     });
     await flushCloseAutoFocus();
 
-    // Then: 문서 맨 앞이 아니라 그 자리를 이어받은 버튼에 있다.
+    // Then: 문서 맨 앞이 아니라 그 자리에 남은 반대쪽 판정 버튼에 있다.
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
-    expect(document.activeElement).toBe(getButton('검토 대기로'));
+    expect(document.activeElement).toBe(getButton('반려'));
     expect(container.textContent).toContain(
       '승인 결과와 저장소 작업 상태를 다시 불러왔습니다.',
     );
   });
 
-  it('검토 대기로 되돌리면 다시 생긴 승인 버튼으로 포커스가 간다', async () => {
+  it('반려된 신청을 승인으로 바꿀 때도 요청은 하나다 — 되돌리기를 거치지 않는다', async () => {
+    // Given: 반려된 신청에 남은 조작은 승인뿐이다.
     getApplicationDetailMock.mockResolvedValueOnce(rejected);
     decideApplicationMock.mockResolvedValue({
       applicationId: 'app-1',
-      status: 'SUBMITTED',
+      status: 'APPROVED',
+      repositoryProvisioning: rejected.repositoryProvisioning,
     });
-    getApplicationDetailMock.mockResolvedValueOnce(submitted);
+    getApplicationDetailMock.mockResolvedValueOnce({
+      ...rejected,
+      status: 'APPROVED',
+      rejectionReason: null,
+    });
     await mount();
-    await act(async () => getButton('검토 대기로').click());
+    await act(async () => getButton('승인').click());
 
-    await act(async () => getButton('검토 대기로 되돌리기').click());
+    // When: 승인을 확정한다.
+    await act(async () => getButton('승인 확정').click());
     await act(async () => {
       await Promise.resolve();
     });
     await flushCloseAutoFocus();
 
+    // Then: REVERT 없이 APPROVE 한 번만 나가고, 포커스는 반대쪽 반려로 간다.
+    expect(decideApplicationMock).toHaveBeenCalledTimes(1);
+    expect(decideApplicationMock).toHaveBeenCalledWith('app-1', {
+      action: 'APPROVE',
+    });
+    expect(document.activeElement).toBe(getButton('반려'));
+    expect(container.textContent).toContain('승인을 저장했습니다');
+    expect(container.textContent).not.toContain('검토 대기로 되돌렸습니다');
+    // 사유가 지워진다고 말했으면 화면에도 남아 있지 않아야 한다.
+    expect(container.textContent).not.toContain('예산 항목이 비어 있습니다');
+  });
+
+  it('승인된 신청을 반려로 바꿀 때도 요청은 하나고 사유가 같이 간다', async () => {
+    // Given: 저장소 생성이 완료되지 않은 승인 신청이다(서버 잠금 밖).
+    const approved: ApplicationListItem = { ...submitted, status: 'APPROVED' };
+    getApplicationDetailMock.mockResolvedValueOnce(approved);
+    decideApplicationMock.mockResolvedValue({
+      applicationId: 'app-1',
+      status: 'REJECTED',
+      rejectionReason: '예산 항목이 비어 있습니다',
+    });
+    getApplicationDetailMock.mockResolvedValueOnce(rejected);
+    await mount();
+
+    // When: 반려 사유를 적어 확정한다.
+    await act(async () => getButton('반려').click());
+    await typeRejectionReason('예산 항목이 비어 있습니다');
+    await act(async () => getButton('반려 확정').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await flushCloseAutoFocus();
+
+    // Then: REVERT 를 앞에 끼워 넣지 않는다 — 중간에 끊기면 검토 대기로 남는다.
+    expect(decideApplicationMock).toHaveBeenCalledTimes(1);
+    expect(decideApplicationMock).toHaveBeenCalledWith('app-1', {
+      action: 'REJECT',
+      reason: '예산 항목이 비어 있습니다',
+    });
+    expect(container.textContent).toContain('반려를 저장했습니다');
     expect(document.activeElement).toBe(getButton('승인'));
-    expect(container.textContent).toContain('검토 대기로 되돌렸습니다');
-    expect(container.textContent).toContain(
-      '신청을 다시 검토 대기 상태로 불러왔습니다.',
-    );
   });
 
   it('낡은 상태(409)로 창이 닫혀도 포커스가 문서 맨 앞으로 떨어지지 않는다', async () => {
-    // 다른 운영자가 먼저 판정한 경우다. 창을 닫는 시점에는 그 버튼이 아직 `disabled`
-    // 라 포커스를 못 받고, 재조회가 끝나면 아예 다른 버튼이 되어 있다.
+    // 다른 운영자가 먼저 반려한 경우다. 창을 닫는 시점에는 누르던 「승인」이 아직
+    // `disabled` 라 포커스를 못 받고, 재조회가 끝난 뒤에야 받을 수 있게 된다.
     getApplicationDetailMock.mockResolvedValueOnce(submitted);
     decideApplicationMock.mockRejectedValue(
       new ApiError(problem(409, 'APP_002')),
@@ -831,8 +945,9 @@ describe('ProgramApplicationDetailPage', () => {
     });
     await flushCloseAutoFocus();
 
+    // 반려된 신청이 되었으므로 남는 조작은 승인뿐이다.
     expect(document.activeElement).not.toBe(document.body);
-    expect(document.activeElement).toBe(getButton('검토 대기로'));
+    expect(document.activeElement).toBe(getButton('승인'));
   });
 
   it('재조회까지 실패해 신청이 그대로면 누르던 그 버튼으로 돌아온다', async () => {
@@ -847,18 +962,7 @@ describe('ProgramApplicationDetailPage', () => {
 
     // When: 반려를 확정한다.
     await act(async () => getButton('반려').click());
-    const textarea = document.querySelector('textarea');
-    if (!(textarea instanceof HTMLTextAreaElement)) {
-      throw new TypeError('반려 사유 입력칸이 없다');
-    }
-    await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(
-        HTMLTextAreaElement.prototype,
-        'value',
-      )?.set;
-      setter?.call(textarea, '합성 반려 사유');
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    });
+    await typeRejectionReason('합성 반려 사유');
     await act(async () => getButton('반려 확정').click());
     await act(async () => {
       await Promise.resolve();

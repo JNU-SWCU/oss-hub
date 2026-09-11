@@ -46,6 +46,10 @@ import type {
  * 승인·반려는 이 화면에 두지 않는다 — 신청 상세에서만 한다([#869]). 각 행은
  * 그 팀의 신청 상세로 가는 「검토하기」 링크를 갖고, 신청이 없는 팀은 갈 곳이 없어
  * 링크도 행 클릭도 없다.
+ *
+ * 신청이 없는 팀의 「신청 상태」 칸은 **배지를 그리지 않고 비운다**(#1272). 배지를
+ * 달면 없는 신청이 「대기 중인 신청」처럼 읽혀 교직원이 처리할 것이 있다고 오해한다 —
+ * 없는 것은 없다고, 다른 빈 칸(팀장·작업)과 같은 흐린 대시로 말한다.
  */
 
 /**
@@ -68,14 +72,14 @@ const PROVISION_FAILURE_STATUSES: ReadonlySet<RepositoryProvisioningJobStatus> =
 const APPLICATION_PAGE_SIZE = 100;
 /**
  * 폭주 방지 상한. 여기 걸리면 **조용히 자르지 않고 화면에 드러낸다** — 일부만 받은 채
- * 팀을 붙이면 신청이 있는 팀이 「미신청」으로 보이고, 그건 빈 화면보다 나쁘다.
+ * 팀을 붙이면 신청이 있는 팀이 신청 없는 팀으로 보이고, 그건 빈 화면보다 나쁘다.
  * 사용자는 틀린 것을 맞다고 읽는다.
  */
 const MAX_APPLICATION_PAGES = 20;
 
 /**
  * 신청을 끝까지 받아 온다. 팀 목록이 기준 축이라 **일부만 받으면 신청이 있는 팀이
- * 「미신청」으로 잘못 보인다** — 부분 데이터가 조용히 오답이 되는 자리다.
+ * 신청 없는 팀으로 잘못 보인다** — 부분 데이터가 조용히 오답이 되는 자리다.
  */
 export interface FetchedApplications {
   readonly items: readonly ApplicationListItem[];
@@ -285,7 +289,7 @@ export function ProgramStaffTeamsPage({
         header: '신청 상태',
         cell: (row) =>
           row.application === null ? (
-            <StatusBadge variant="pending">{NO_APPLICATION_LABEL}</StatusBadge>
+            <span className="text-muted-foreground text-sm">—</span>
           ) : (
             <StatusBadge
               variant={APPLICATION_STATUS_BADGE[row.application.status]}
@@ -418,9 +422,8 @@ export function ProgramStaffTeamsPage({
         <Alert>
           <AlertTitle>신청 정보를 일부만 불러왔습니다</AlertTitle>
           <AlertDescription>
-            신청 건수가 많아 전부 받지 못했습니다. 아래에서 「
-            {NO_APPLICATION_LABEL}」으로 보이는 팀 중 일부는 실제로 신청했을 수
-            있습니다.{' '}
+            신청 건수가 많아 전부 받지 못했습니다. 아래에서 신청 상태가 비어
+            있는 팀 중 일부는 실제로 신청했을 수 있습니다.{' '}
             <Link
               href={applicantsHref}
               className="font-medium underline underline-offset-2"
