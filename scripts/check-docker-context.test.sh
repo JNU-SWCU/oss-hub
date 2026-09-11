@@ -134,6 +134,10 @@ ctx=$(make_context multi-source-broad-dot)
 printf '%s\n' 'COPY package.json . /app/' >>"$ctx/apps/backend/Dockerfile"
 expect_fail '다중 source 중 후속 . 우회' "$ctx"
 
+ctx=$(make_context multi-source-quoted-root)
+printf '%s\n' 'COPY package.json "." /app' >>"$ctx/apps/backend/Dockerfile"
+expect_fail '다중 source 중 후속 quoted-root 우회' "$ctx"
+
 ctx=$(make_context multi-source-broad-parent)
 printf '%s\n' 'COPY package.json ../secret /app/' >>"$ctx/apps/backend/Dockerfile"
 expect_fail '다중 source 중 후속 상위 경로 우회' "$ctx"
@@ -141,6 +145,18 @@ expect_fail '다중 source 중 후속 상위 경로 우회' "$ctx"
 ctx=$(make_context multi-source-broad-glob)
 printf '%s\n' 'COPY package.json * /app/' >>"$ctx/apps/frontend/Dockerfile"
 expect_fail '다중 source 중 후속 glob 우회' "$ctx"
+
+ctx=$(make_context quoted-root-double)
+printf '%s\n' 'COPY "." /app' >>"$ctx/apps/backend/Dockerfile"
+expect_fail 'quoted-root double-quote 우회' "$ctx"
+
+ctx=$(make_context quoted-root-single)
+printf '%s\n' "COPY '.' /app" >>"$ctx/apps/frontend/Dockerfile"
+expect_fail 'quoted-root single-quote 우회' "$ctx"
+
+ctx=$(make_context quoted-root-dot-slash-dot)
+printf '%s\n' 'COPY "./." /app' >>"$ctx/apps/backend/Dockerfile"
+expect_fail 'quoted-root ./. 우회' "$ctx"
 
 ctx=$(make_context malformed-copy)
 printf '%s\n' 'COPY package.json' >>"$ctx/apps/backend/Dockerfile"
