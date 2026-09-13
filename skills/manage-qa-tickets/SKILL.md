@@ -1,8 +1,12 @@
 ---
 name: "manage-qa-tickets"
-description: "Owns the full OSS Hub QA ticket lifecycle from evidence-backed Notion intake through public GitHub Issue publication, Issue-to-Notion linking, legacy-row migration, implementation verification, and scoped PR delivery. Use when creating or deduplicating a QA ticket, publishing a QA row as an Issue, linking the two records, migrating QA history, or when asked `oss-hub 티켓 #123 진행해줘`. Not for release-candidate QA, screen design without a ticket, general PR review, or product work outside an issued ticket."
+description: >-
+  OSS Hub QA 티켓을 Notion에 쓰거나 중복을 거르거나 GitHub Issue로 발행·연결하거나 승인된 레거시 행을 이관할 때 연다.
+  「QA 티켓 만들어줘」「이 문제 티켓으로」「티켓 다시 써줘」「이슈로 올려줘」와 `oss-hub 티켓 #123 진행해줘`에 쓴다.
+  앞으로 쓰는 제목은 `QA<번호>` 뒤에 명령형 할 일이다. 이미 발행된 제목은 고치지 않는다.
+  구현·PR 증거는 submit-pr-evidence, 릴리스 QA는 run-release-qa, 코멘트는 write-github-comment다.
 metadata:
-  version: "4.6.1"
+  version: "4.7.0"
 ---
 
 # Manage QA tickets
@@ -32,9 +36,13 @@ Notion 본문에 쓴 `할 일`·`하지 않을 것 (이 티켓의 경계)`·`완
 | "QA 티켓 만들어줘", "이 문제 티켓으로", "티켓 다시 써줘" | 1. 작성 | [§1](#1-작성--notion에-티켓을-쓴다) |
 | "GitHub에 이슈로 올려줘", "이 행 배포해줘", "이슈랑 연결해줘" | 2. 발행 | [§2](#2-발행--notion-행을-github-issue로-내보낸다) |
 | (1단계로 방금 쓴 행) | 2. 발행 | 따로 요청하지 않아도 1단계에 이어서 [§2](#2-발행--notion-행을-github-issue로-내보낸다) |
-| "oss-hub 티켓 #123 진행해줘" | 3. 수행 | [§3](#3-수행--issue를-pr로-만든다) |
+| "oss-hub 티켓 #123 진행해줘" | 3. 수행 | [§3](#3-수행--issue를-pr로-만든다) — 곧 [submit-pr-evidence](../submit-pr-evidence/SKILL.md) |
 | "릴리스 QA 돌려줘", "결함 찾아줘" | — | 이 스킬이 아니라 `run-release-qa` |
+| "PR 열어줘", 티켓 없는 변경의 PR | — | 이 스킬이 아니라 `submit-pr-evidence` |
+| "코멘트 달아줘", 리뷰 답글 | — | 이 스킬이 아니라 `write-github-comment` |
 
+해당 단계가 아니면 그 준비(스키마 읽기, 캡처 lane, 발행 초안, 구현)를 시작하지 않는다.
+수행만 요청되면 작성·발행을 다시 돌리지 않고 Issue 번호를 submit-pr-evidence에 넘긴다.
 새로 쓴 행은 1단계가 끝나면 그대로 2단계로 이어진다 — "티켓 만들어줘"는 그 티켓을 실행 표면에 올려 달라는 요청이기도 하다.
 이어 붙일 때도 단계를 건너뛰지 않는다. Notion 행 없이 Issue를 만들면 증거가 어디에도 남지 않는다.
 
@@ -60,6 +68,8 @@ Notion 본문에 쓴 `할 일`·`하지 않을 것 (이 티켓의 경계)`·`완
 4. 실데이터, 개인정보, 자격증명, private 저장소 세부를 어느 표면에도 넣지 않는다.
 5. 기록되지 않은 역할·재현 절차·기대 결과·의존성·구현 경계를 추론하지 않는다. 없으면 `미기록`, 확인하지 못했으면 `확인 필요`로 남긴다.
 6. 사용자가 요청하지 않은 Notion 행이나 이미 있던 행의 GitHub Issue를 만들거나 고치지 않는다. 초안을 보여 달라는 요청은 쓰기 허가도 발행 허가도 아니다. 방금 쓴 행의 발행은 예외이며 작성 요청에 포함된 것으로 본다.
+7. 이미 발행된 Notion 행·GitHub Issue 제목은 새 제목 규칙으로 고치지 않는다. 규칙은 앞으로 쓰는 티켓에만 적용한다.
+  이 스킬에 적힌 발행·연결 절차는 그 자체로 이번 작업의 외부 쓰기 허가가 아니다.
 
 ## 1. 작성 — Notion에 티켓을 쓴다
 
@@ -84,8 +94,9 @@ Notion 본문에 쓴 `할 일`·`하지 않을 것 (이 티켓의 경계)`·`완
 
 ### 1.3 사실을 정규화한다
 
-제목은 `QA<번호>. <관찰된 증상>` 형태로 증상을 앞세운다.
+제목은 `QA<번호>. <명령형 할 일>`이다. 담당자가 무엇을 해야 하는지를 한국어 명령형으로 쓰고, 증상은 본문 `문제`에 둔다.
 번호는 현재 최댓값 다음을 쓰고 삭제된 번호를 재사용하지 않는다.
+이미 있는 행의 `QA 항목`은 이 형식으로 다시 쓰지 않는다.
 
 작업 유형은 하나만 고른다.
 
@@ -211,8 +222,10 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 
 ## 3. 수행 — Issue를 PR로 만든다
 
-`oss-hub 티켓 #<번호> 진행해줘`를 받으면 그 Issue 번호를 [submit-pr-evidence](../submit-pr-evidence/SKILL.md)에 넘긴다.
-계약 파싱, 구현 범위, 완료 조건 실증, 영역별 증거 게이트, PR 제출 절차는 그 스킬이 원본이다.
+`oss-hub 티켓 #<번호> 진행해줘`를 받으면 그 번호의 Issue가 있는지 확인한 뒤 [submit-pr-evidence](../submit-pr-evidence/SKILL.md)로 넘긴다.
+계약 파싱, 구현 범위, 완료 조건 실증, 영역별 증거, PR 본문은 그 스킬이 원본이다.
+여기서 캡처·인터뷰·PR 체크리스트를 복제하거나 수행하지 않는다.
+티켓 없는 PR도 이 단계가 아니라 submit-pr-evidence다.
 
 ## 4. 레거시 행 이관
 
@@ -225,6 +238,7 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 이미 이관된 행은 본문을 하나 더 붙이지 말고 건너뛴다.
 새 실행 본문은 기존 페이지 본문을 삭제하거나 교체하지 않고 뒤에 정확히 한 번 추가하며, 기존 원문 전체는 이관 검증이 끝날 때까지 그대로 보존한다.
 안전이 확인된 행은 원문 문제 서술을 `문제와 영향`에 그대로 옮기고 옛 분류는 레거시 사실로 표시해 보존한다.
+이관 중에도 기존 `QA 항목` 제목을 새 명령형 규칙으로 재작성하지 않는다.
 
 각 이관 행은 `GitHub Issue` URL과 `출처: QA<번호>`로 기존 공개 Issue를 역조회한다.
 같은 QA 번호 또는 같은 사용자 증상·경로·역할을 가리키는 Issue가 둘 이상이면 새 Issue를 만들지 않는다.
@@ -254,6 +268,9 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 - AGENTS.md의 브랜치·커밋·보안 규칙을 이 스킬 안에 옮겨 적는다 → 원본과 갈라진다. 항상 AGENTS.md를 직접 읽는다.
 - 요구 범위(`할 일` 또는 `최소 요구`)가 요구하지 않은 "개선"을 PR에 얹는다 → 빼고 별도 티켓으로 제안한다.
 - 구동해보지 않고 완료 조건을 체크한다 → 먼저 실제로 돌린 뒤 체크한다.
+- 앞으로 쓰는 제목을 증상 서술로 시작한다 → `QA<번호>. <명령형 할 일>`로 쓰고 증상은 본문 `문제`에 둔다.
+- 이미 발행된 QA 제목을 새 규칙에 맞추려고 고친다 → 미래 작성에만 적용한다.
+- 수행 절차·PR 증거 체크리스트를 이 스킬에 복제한다 → [submit-pr-evidence](../submit-pr-evidence/SKILL.md) 한 곳으로 넘긴다.
 
 ## 완료 체크리스트
 
@@ -266,6 +283,7 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 - [ ] 별도 팩트 체크 통과했고 `REFUTED`가 남아 있지 않다.
 - [ ] 화면 하나 또는 산출물 위치 하나와 논리 변경 하나만 다룬다.
 - [ ] 본문이 이 화면의 불편을 짚는 2~3줄 여는 말로 시작한다.
+- [ ] 새 행 제목이 `QA<번호>. <명령형 할 일>`이고, 이미 있는 제목은 고치지 않았다.
 - [ ] 영역을 하나 선언했고 영역별 최소 증거가 있다.
 - [ ] 모든 `frontend` 캡처가 요소 단위이며 selector·DOM path·URL·확인 시각을 달고 있다.
 - [ ] 모든 참고 UI에 캡처가 있고, 승인된 조합만 남아 있다.
@@ -283,11 +301,4 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 
 수행(3단계)에 해당하는 항목:
 
-- [ ] 세 계약 섹션을 읽었고, 선행 의존성이 미충족이거나 순환이면 착수하지 않고 보고했다.
-- [ ] 첫 수정 전에 루트와 관련 중첩 AGENTS.md를 읽었다.
-- [ ] 금지 섹션 밖 파일을 0건 수정했다.
-- [ ] 완료 조건 각 항목을 실제 증거로 실증했다.
-- [ ] 화면을 건드렸으면 [submit-pr-evidence의 증거 게이트](../submit-pr-evidence/SKILL.md#증거-게이트)에 따라 캡처와 확인 링크를 갖췄고, 화면이 아예 없는 변경에만 면제 사유를 적었다.
-- [ ] `backend` 로직 변경이면 mermaid 또는 DOT 흐름 다이어그램을 PR 본문 `## 흐름 다이어그램`에 넣었다([submit-pr-evidence/references/backend-diagram.md](../submit-pr-evidence/references/backend-diagram.md)가 원본).
-- [ ] `bash scripts/check-public-safe.sh`를 PR 전에 실행했다.
-- [ ] AGENTS.md가 정한 흐름대로 PR을 열고 보드 카드를 옮겼다.
+- [ ] Issue 번호를 [submit-pr-evidence](../submit-pr-evidence/SKILL.md)에 넘겼고, 이 스킬에서 PR 증거 절차를 복제하지 않았다.

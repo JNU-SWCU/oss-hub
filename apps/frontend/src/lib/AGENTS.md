@@ -1,11 +1,11 @@
-<!-- init:managed id=craft-init-4.0.0-frontend-lib sha256=a071448fb4c5f5035fd5b487391b0d29ba6ae7b2c205cc47d2168736341488a2 -->
+<!-- init:managed id=craft-init-4.0.0-frontend-lib sha256=6d4fafbdb4b4d98810037048d688d6db7c5117ba4b7cbd6731f22801ed11627c -->
 # Shared library scope
 
 ## Ownership
 
 - Own framework-independent frontend utilities and the application-wide transport boundary in `apps/frontend/src/lib/`.
 - `api-client.ts` owns `/api/v1` path construction, request execution, Problem Detail decoding, file downloads, and safe download filenames.
-- `internal-path.ts` owns untrusted internal destinations, `program-route.ts` owns named cross-feature program hrefs, and `local-review-runtime.ts` owns local-review runtime activation checks.
+- `internal-path.ts` owns untrusted internal destinations and `program-route.ts` owns named cross-feature program hrefs.
 
 ## Public interfaces
 
@@ -18,12 +18,12 @@
 
 - Build endpoint paths with `apiPath` and call the typed client; do not introduce a second base URL, direct transport wrapper, or caller-level Problem Detail parser.
 - Treat outside-controlled destinations as untrusted: pass navigation values through `isInternalPath` and `toInternalPath` before using them as internal targets.
-- Keep runtime activation checks in `local-review-runtime.ts`. `local-review-session.ts` only normalizes session bodies; request-persistent fixture state and handler behavior live under `test-support/local-review/`.
+- Do not import test-support or colocated tests from runtime modules; `eslint.config.mjs` owns that resolved-path boundary.
 - Keep helpers deterministic where possible, and put browser persistence or timing behind the existing narrow hook/runtime modules.
 
 ## Constraints
 
 - Do not import feature or route modules into `lib/`; this directory remains reusable below those layers.
-- Keep tests next to the exported behavior, including malformed paths, unexpected API responses, and local-review activation edge cases.
+- Keep tests next to the exported behavior, including malformed paths and unexpected API responses. Browser journeys remain in package-level `e2e/**/*.spec.ts`.
 - Add a new module only for a shared, stable contract; retain domain-specific formatting and rules in the owning feature.
 <!-- /init:managed id=craft-init-4.0.0-frontend-lib -->

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { getProgramDetail, listStaffProgramTeams } from './api';
 import { downloadProgramDocumentArchive } from './program-document-archive-api';
 import { ProgramDocumentArchivePanel } from './program-document-archive-panel';
-import { programDetailFor } from '../../../test-support/local-review/handlers/student-program-fixtures';
+import type { ProgramDetail, ProgramMilestone } from './types';
 
 vi.mock('./api', () => ({
   getProgramDetail: vi.fn(),
@@ -18,22 +18,55 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
   value: true,
 });
+
+function milestone(id: string, name: string): ProgramMilestone {
+  return {
+    id,
+    name,
+    dueAt: '2026-08-01T00:00:00.000Z',
+    dDay: 1,
+    deadlineLabel: 'D-1',
+    description: null,
+    submissionType: null,
+    submissionItemCount: 0,
+    viewerSubmissionStatus: null,
+    applicationSubmissionSummary: null,
+  };
+}
+
+function archiveProgram(
+  milestones: readonly ProgramMilestone[],
+): ProgramDetail {
+  return {
+    id: 'program-1',
+    name: '예시 프로그램',
+    organizer: '합성 운영기관',
+    trackType: 'EXTRACURRICULAR',
+    applicationTemplateKey: 'basic',
+    lifecycle: 'PUBLISHED',
+    description: '합성 설명',
+    repositoryProvisioningEnabled: false,
+    applicationPeriod: {
+      startsAt: '2026-07-01T00:00:00.000Z',
+      endsAt: '2026-08-31T23:59:59.000Z',
+    },
+    viewer: { role: 'STAFF', applicationStatus: null },
+    milestones,
+  };
+}
+
+const PLAN_AND_RESULT = [
+  milestone('stage-1', '계획'),
+  milestone('stage-2', '결과'),
+] as const;
+
 let root: Root;
 let container: HTMLDivElement;
 
 beforeEach(async () => {
-  const program = programDetailFor('program-capstone', 'STAFF');
   vi.mocked(getProgramDetail)
     .mockReset()
-    .mockResolvedValue({
-      ...program,
-      name: '예시 프로그램',
-      milestones: program.milestones.map((milestone, index) => ({
-        ...milestone,
-        id: `stage-${index + 1}`,
-        name: index === 0 ? '계획' : '결과',
-      })),
-    });
+    .mockResolvedValue(archiveProgram(PLAN_AND_RESULT));
   vi.mocked(listStaffProgramTeams)
     .mockReset()
     .mockResolvedValue([
@@ -137,8 +170,9 @@ it('does not submit an empty team selection', async () => {
 });
 
 it('requires a fresh milestone choice when the originating milestone no longer exists', async () => {
-  const program = programDetailFor('program-capstone', 'STAFF');
-  vi.mocked(getProgramDetail).mockResolvedValue(program);
+  vi.mocked(getProgramDetail).mockResolvedValue(
+    archiveProgram([milestone('stage-1', '계획')]),
+  );
   await open();
   expect(button('ZIP 내려받기').disabled).toBe(true);
   expect(downloadProgramDocumentArchive).not.toHaveBeenCalled();

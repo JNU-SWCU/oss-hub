@@ -25,6 +25,11 @@ export const AUTH_SCENARIOS = {
   'staff-revoked': seedId('auth', 'staff-revoked'),
   'admin-confirmed': seedId('auth', 'admin-confirmed'),
   'admin-second': seedId('auth', 'admin-second'),
+  'student-onboarding-unassigned': seedId(
+    'auth',
+    'student-onboarding-unassigned',
+  ),
+  'staff-onboarding-unassigned': seedId('auth', 'staff-onboarding-unassigned'),
 } as const;
 
 type AuthScenarioId = keyof typeof AUTH_SCENARIOS;
@@ -125,6 +130,22 @@ export async function seedAuth(stats: SeedStats): Promise<void> {
   // 프로필을 만들지 않는다 — 아직 아무것도 고르지 않은 상태 자체가 이 시나리오다.
   const roleUnselected = await upsertUser(stats, 'user-role-unselected', null);
   await upsertConsent(stats, roleUnselected.id);
+  // 가입 성공 e2e 전용 미배정 계정. user-role-unselected를 쓰면 동의 재방문 계약과
+  // 직렬 오염이 겹친다. 학생/교직원 여정은 서로를 덮어쓰지 않도록 둘로 나눈다.
+  // 프로필·역할 요청은 만들지 않는다 — 아직 아무것도 고르지 않은 상태 자체가 이 시나리오다.
+  const studentOnboardingUnassigned = await upsertUser(
+    stats,
+    'student-onboarding-unassigned',
+    null,
+  );
+  await upsertConsent(stats, studentOnboardingUnassigned.id);
+
+  const staffOnboardingUnassigned = await upsertUser(
+    stats,
+    'staff-onboarding-unassigned',
+    null,
+  );
+  await upsertConsent(stats, staffOnboardingUnassigned.id);
 
   const profileComplete = await upsertUser(stats, 'profile-complete', null);
   await upsertConsent(stats, profileComplete.id);

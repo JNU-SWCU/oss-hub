@@ -157,6 +157,39 @@ describe('parseAuditLogPage', () => {
     ).toThrow(AuditLogResponseError);
   });
 
+  it('화면 DTO만 있는 행(legacy·metadata 없음)은 거절하고 private metadata는 투영하지 않는다', () => {
+    const secret = 'synthetic-secret-audit-metadata';
+    const {
+      legacy: _legacy,
+      metadata: _metadata,
+      ...screenDtoOnly
+    } = AUDIT_LOG_ACCESS_RECORD_FIXTURE;
+
+    expect(() =>
+      parseAuditLogPage({
+        items: [screenDtoOnly],
+        total: 1,
+        page: 1,
+        limit: 20,
+      }),
+    ).toThrow(AuditLogResponseError);
+
+    const page = parseAuditLogPage({
+      items: [
+        {
+          ...AUDIT_LOG_ACCESS_RECORD_FIXTURE,
+          metadata: { ...AUDIT_LOG_ACCESS_RECORD_FIXTURE.metadata, secret },
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    expect(page.items[0]).not.toHaveProperty('metadata');
+    expect(page.items[0]).not.toHaveProperty('legacy');
+    expect(JSON.stringify(page)).not.toContain(secret);
+  });
+
   it('legacy가 true인데 metadata가 null이 아니면 거부한다', () => {
     expect(() =>
       parseAuditLogPage({

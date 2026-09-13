@@ -43,7 +43,7 @@ grep -rn "prisma\.<모델명 camelCase>\." apps/backend/src --include='*.ts'
 이유는 둘이다.
 
 - 내부 FK를 넣으면 아직 가입하지 않은 기여자가 조용히 집계에서 사라진다. 지금 랭킹에 보이는 사람이 사라지는 사용자 가시 회귀다.
-- 공개 응답이 private 원본과 join할 구조적 여지 자체가 없어진다(루트 AGENTS.md §4). 규율이 아니라 스키마가 경계를 강제한다.
+- 공개 응답이 private 원본과 join할 구조적 여지 자체가 없어진다([AGENTS.md Architecture & Data Flow](../../AGENTS.md#architecture--data-flow)). 규율이 아니라 스키마가 경계를 강제한다.
 
 단 비정규화는 **수집이 매번 전체를 덮어쓰는 테이블에만** 쓴다. 부분 갱신 테이블에 같은 패턴을 쓰면 drift를 막을 방법이 없다.
 
@@ -59,7 +59,7 @@ grep -rn "prisma\.<모델명 camelCase>\." apps/backend/src --include='*.ts'
 
 판정 기준: **모델명만 읽고 "이 테이블에 행이 언제, 몇 개 생기는가"에 답할 수 없으면 이름이 틀린 것이다.**
 
-기존 모델도 이 규칙을 따르도록 개명한다. 다만 개명은 동작 변경과 섞이므로 **개명만 담는 별도 PR**로 다루고(`pr-scope.md:9`), 마이그레이션은 직렬로 넣는다(루트 AGENTS.md §3).
+기존 모델도 이 규칙을 따르도록 개명한다. 다만 개명은 동작 변경과 섞이므로 **개명만 담는 별도 PR**로 다루고(`pr-scope.md:9`), 마이그레이션은 직렬로 넣는다([AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)).
 
 지우기로 결정된 테이블은 개명 대상에서 제외한다 — 개명하지 않고 지운다. `Canonical*` 8개(todo 14 전환으로 authority 상실)가 그 선례다 — ADR-006이 정한 보존 기간(1개 릴리스)을 넘기고 전 테이블 0행을 실측한 뒤 `20260820000000_drop_canonical_generation_tables`가 단일 FK 클러스터를 통째로 드롭해 **제거가 완료됐다**. 아직 남은 건 `PublicShowcase*`(writer 0건, Issue #463)이다.
 
@@ -73,5 +73,5 @@ GitHub API 동작을 기억으로 단정하지 않는다. 새 쿼리를 설계�
 
 ---
 
-이 문서는 루트 AGENTS.md §3(DB 마이그레이션 직렬 규칙)·§4(공개 endpoint와 private 테이블 join 금지)를 확장하며, [ADR-003](../decisions/ADR-003-backend-architecture.md)(백엔드 아키텍처)을 따른다.
+이 문서는 [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)(DB 마이그레이션 직렬 규칙)와 [AGENTS.md Architecture & Data Flow](../../AGENTS.md#architecture--data-flow)(공개 endpoint와 private 테이블 join 금지)를 확장하며, [ADR-003](../decisions/ADR-003-backend-architecture.md)(백엔드 아키텍처)을 따른다.
 스키마 변경 PR의 범위·분해 기준은 [`pr-scope.md`](pr-scope.md)가 원본이다.

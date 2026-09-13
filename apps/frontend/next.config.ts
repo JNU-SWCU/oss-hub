@@ -2,12 +2,6 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { NextConfig } from 'next';
-import {
-  LOCAL_REVIEW_FIXTURE_COOKIE,
-  LOCAL_REVIEW_FIXTURE_PATTERN,
-  LOCAL_REVIEW_LOOPBACK_HOST_PATTERN,
-  isLocalReviewRuntime,
-} from './src/lib/local-review-runtime';
 
 // 승인된 rewrite 대상 origin의 SHA-256 digest allowlist. 구문만 유효한 임의 HTTPS
 // origin으로는 production 빌드가 성공하지 않는다 — 승인 변경은 이 파일의 reviewable diff다.
@@ -99,53 +93,20 @@ const nextConfig: NextConfig = {
   async rewrites() {
     requireProductionVercelOriginBasicAuth();
 
-    const development = process.env.NODE_ENV === 'development';
-    const backendOrigin = development
-      ? (process.env.BACKEND_ORIGIN ?? 'http://localhost:4000').replace(
-          /\/$/,
-          '',
-        )
-      : requireProductionBackendOrigin();
+    const backendOrigin =
+      process.env.NODE_ENV === 'development'
+        ? (process.env.BACKEND_ORIGIN ?? 'http://localhost:4000').replace(
+            /\/$/,
+            '',
+          )
+        : requireProductionBackendOrigin();
 
-    const backendRewrite = {
-      source: '/api/v1/:path*',
-      destination: `${backendOrigin}/api/v1/:path*`,
-    };
-
-    if (
-      !development ||
-      !isLocalReviewRuntime({
-        nodeEnv: process.env.NODE_ENV,
-        enabled: process.env.OSS_HUB_LOCAL_REVIEW_FIXTURES,
-        backendOrigin,
-      })
-    ) {
-      return [backendRewrite];
-    }
-
-    // fixture cookie가 있고 요청 host도 loopback인 경우에만 내부 adapter가 우선한다.
-    // cookie가 없으면 같은 개발 서버에서도 실제 backend rewrite를 그대로 사용한다.
-    return {
-      beforeFiles: [
-        {
-          source: '/api/v1/:path*',
-          has: [
-            {
-              type: 'host' as const,
-              value: LOCAL_REVIEW_LOOPBACK_HOST_PATTERN,
-            },
-            {
-              type: 'cookie' as const,
-              key: LOCAL_REVIEW_FIXTURE_COOKIE,
-              value: LOCAL_REVIEW_FIXTURE_PATTERN,
-            },
-          ],
-          destination: '/local-review-api/:path*',
-        },
-      ],
-      afterFiles: [],
-      fallback: [backendRewrite],
-    };
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: `${backendOrigin}/api/v1/:path*`,
+      },
+    ];
   },
 };
 

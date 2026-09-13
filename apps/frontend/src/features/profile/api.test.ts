@@ -126,6 +126,33 @@ test('네 필드를 모두 담은 서버 응답도 그대로 파싱한다', asyn
   await expect(getMyProfile()).resolves.toEqual(fullProfile);
 });
 
+test('완료 응답의 private extra 필드는 화면 DTO로 투영하지 않는다', async () => {
+  const secret = 'synthetic-secret-profile-metadata';
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ...completeProfile,
+          isComplete: true,
+          secret,
+          role: 'STAFF',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    ),
+  );
+
+  const profile = await getMyProfile();
+  expect(profile).toEqual({ ...completeProfile, isComplete: true });
+  expect(profile).not.toHaveProperty('secret');
+  expect(profile).not.toHaveProperty('role');
+  expect(JSON.stringify(profile)).not.toContain(secret);
+});
+
 test('공백 이름을 완료로 표시한 프로필 응답을 거부한다', async () => {
   vi.stubGlobal(
     'fetch',

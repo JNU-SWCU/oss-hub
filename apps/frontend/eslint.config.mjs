@@ -4,6 +4,7 @@ import { defineConfig } from 'eslint/config';
 import nextPlugin from '@next/eslint-plugin-next';
 import prettier from 'eslint-config-prettier';
 import typescriptParser from '@typescript-eslint/parser';
+import runtimeTestBoundary from './eslint-rules/runtime-test-boundary.mjs';
 
 // docs/rules/frontend.md — 의존 방향은 app → features → lib 단방향이며,
 // feature는 다른 feature의 내부 경로에 직접 의존하지 않는다.
@@ -126,7 +127,7 @@ const apiClientFileExemption = {
 
 export default defineConfig([
   {
-    files: ['**/*.{js,mjs,cjs,ts,tsx}'],
+    files: ['**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: {
@@ -137,8 +138,14 @@ export default defineConfig([
     },
     plugins: {
       '@next/next': nextPlugin,
+      local: {
+        rules: { 'runtime-test-boundary': runtimeTestBoundary },
+      },
     },
-    rules: nextPlugin.configs.recommended.rules,
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      'local/runtime-test-boundary': 'error',
+    },
   },
   prettier,
   apiClientEntryConfig,

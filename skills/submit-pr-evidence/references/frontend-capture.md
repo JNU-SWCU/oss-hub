@@ -3,29 +3,47 @@
 "첨부한다"로는 부족하다 — 로컬 파일 경로(`/tmp/before.png`)를 PR 본문에 적으면 아무 이미지도 렌더되지 않고, 리뷰어는 화면을 못 본 채로 승인한다.
 그래서 이 절에서 실제로 렌더되는 경로 하나를 고정한다.
 
-## 같은 조건으로 같은 요소를 찍는다
+## 같은 조건으로 찍는다
 
-Before는 변경 전 코드, After는 변경 후 코드에서 찍고 나머지 조건은 전부 같게 둔다 — 같은 URL, 같은 페르소나, 같은 viewport, 같은 합성 데이터 상태.
+Before는 변경 전 코드, After는 변경 후 코드에서 찍는다.
+나머지 조건(합성 역할, viewport, 비교하는 동작에 영향을 주는 합성 데이터 상태)은 맞춘다.
+source SHA·route·viewport·합성 상태를 캡션에 적는다.
+isolated origin이 다르면 그 차이를 명시한다. 전체 URL이 같다거나 새 실행이라고 쓰지 않는다.
+비교 대상 밖 데이터나 관측할 수 없는 브라우저 프로필의 차이는 공개하고, 그 영역까지 같다고 주장하지 않는다.
+
+실제 Before/After 이미지와 After desktop·390x844 전체 화면이 공개 첨부로 렌더돼야 한다.
+일반 스크린샷 면제는 없다. 해당 캡처를 못 만들었으면 N/A나 `Before/After 없음`으로 바꾸지 않고 제출을 멈춘다.
+목업, Figma 시안, 테스트 출력, 코드 diff는 실제 실행 화면이나 실제 브라우저·API 동작을 대신하지 못한다.
+
+적용 갈래와 절 선언은 [SKILL.md](../SKILL.md#화면브라우저소비-화면--캡처)가 원본이다.
+표 형식의 뼈대는 [.github/pull_request_template.md](../../../.github/pull_request_template.md)의 `## Before / After` 절이다.
+같은 조건으로 Before/After를 얻는 실행 경로는 [`evidence-harness.md`](evidence-harness.md)가 원본이다.
+
+### 시각·컴포넌트 변경 — `| 요소 |`
+
 변경한 컴포넌트를 식별할 수 있는 범위만 담는다. 화면 전체를 찍고 캡션으로 대상을 설명하지 않는다.
 
-**요소 행이 먼저고 필수다** — 바뀐 컴포넌트마다 표에 한 행을 만든다. Before와 After는 반드시 같은 selector로 찍는다.
+**`| 요소 |` 행이 먼저고 필수다** — 바뀐 컴포넌트마다 표에 한 행을 만든다. Before와 After는 반드시 같은 selector로 찍는다.
 티켓에 `현재 화면` selector가 적혀 있으면 그 selector를 그대로 재사용한다 — 새로 고르지 않는다.
 selector 자체가 바뀌었으면(예: 요소가 다른 컨테이너로 옮겨감) 같은 selector로 찍을 수 없다는 뜻이므로, 캡션에 Before와 After 두 selector를 모두 적는다 — DOM path가 바뀐 것 자체가 리뷰어에게 필요한 정보다.
 
-표 형식의 원본은 [.github/pull_request_template.md](../../../.github/pull_request_template.md)의 `## Before / After` 절이다 — 여기서는 요소 행이 먼저이고 같은 selector로 찍는다는 규칙만 둔다.
-
 **전체 화면 두 장은 표 안이 아니라 표 아래에 링크로 둔다** — 표 안에 전체 화면을 넣으면 요소 행이 묻힌다.
-요소 단위 캡처 방법(selector 확정, bounding rect·DOM path 읽기)과 상태별 촬영은 [`qa-dom-capture`](../../manage-qa-tickets/agents/qa-dom-capture.md)가 원본이다.
-base 브랜치에서 Before를 찍는 법(로컬 하네스로 옛 코드를 띄우는 절차)은 [`evidence-harness.md`](evidence-harness.md)가 원본이다.
-목업, Figma 시안, 테스트 출력, 코드 diff는 실제 실행 화면을 대신하지 못한다.
+요소 단위 캡처 방법(selector 확정, bounding rect·DOM path 읽기)은 manage-qa-tickets의 `qa-dom-capture`가 원본이다.
+
+### 비시각 브라우저 변경 — `| 동작 |`
+
+렌더된 컴포넌트가 그대로인 브라우저 라우팅·런타임 경계 변경에는 `| 요소 |` 행을 지어내지 않는다.
+`## Before / After`를 `비시각 브라우저 변경 — <비어 있지 않은 이유>`로 연다. 이 한 줄은 면제가 아니다.
+절 안에 `| 동작 |` 표를 두고, 실제 Before/After 전체 화면과 실제 브라우저·API 동작 증거를 넣는다.
 
 파일명은 [`run-release-qa`](../../run-release-qa/SKILL.md)와 같은 규칙(`qa-id-role-route-viewport.png`)을 따른다 — 같은 저장소 안에서 캡처 파일명 관례가 갈리면 나중에 어느 QA 회차의 산출물인지 되짚기 어렵다.
+티켓 없는 PR은 이슈 번호 자리에 티켓없음 슬러그를 쓴다.
 
 ## 올리기 전에 사람이 직접 공개 안전을 확인한다
 
 저장된 두 이미지를 열어 [보안 규칙](../../../docs/rules/security.md)의 공개 금지 범위에 걸리는 것이 화면에 보이는지 눈으로 확인한다.
 그 deny-list를 여기 옮겨 적지 않는다 — 사본은 원본이 바뀔 때 조용히 갈라진다.
-하나라도 보이면 올리지 않고 합성 fixture 상태에서 다시 찍는다.
+하나라도 보이면 올리지 않고 합성 데이터 상태에서 다시 찍는다.
 화면에 세션 토큰·쿠키 값·devtools 패널·인증 관련 쿼리 파라미터가 보이지 않는 상태에서 찍는다.
 이미지 파일의 메타데이터(EXIF의 기기·경로·위치)도 화면에 안 보이지만 파일에는 남으므로, 올리기 전에 제거하거나 메타데이터를 남기지 않는 방식으로 다시 저장한다.
 `scripts/check-public-safe.sh`는 이 이미지를 검사해 주지 않는다 — 스캐너는 저장소 텍스트를 보고 증거 이미지는 저장소 밖에 있다.
@@ -76,3 +94,7 @@ curl -sIL -o /dev/null -w "%{http_code}\n" "https://github.com/JNU-SWCU/oss-hub/
 - `gh release create`로 새 release를 발행하지 않는다 — 발행(published)이 production 배포 트리거다([ADR-002](../../../docs/decisions/ADR-002-CI-CD-파이프라인.md)). **이미 발행된 release에 `gh release upload`로 파일만 더하는 것은 그 이벤트를 쏘지 않으므로 안전하고, [이미 발행된 Release 에 에셋으로 올린다](#이미-발행된-release-에-에셋으로-올린다)가 쓰는 방법이다.**
 - `/artifacts/`에 두지 않는다 — gitignore 대상이고 학생별 원시 수치의 자리다(ADR-010 §5). 커밋되지 않으므로 주소도 생기지 않는다.
 - 목업·Figma 시안·테스트 출력·코드 diff로 실제 실행 화면을 대신하지 않는다.
+- 해당되는 화면을 찍지 못한 채 `Before/After 없음`을 쓰지 않는다.
+- 렌더되지 않은 컴포넌트의 `| 요소 |` 행을 지어내지 않는다.
+- 비시각 브라우저 변경에 `Before/After 없음`이나 N/A를 쓰지 않는다.
+- isolated origin 차이를 숨기거나 전체 URL이 같다·새 실행이라고 쓰지 않는다.

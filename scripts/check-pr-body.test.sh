@@ -465,6 +465,67 @@ expect_fail "'이 흐름이 자연스러운가' 절이 비어있다" "$fixture_d
 expect_pass "'이 흐름이 자연스러운가' 절이 '화면 없음 — ' 예외 문구면 통과한다" "$fixture_dir/ux-narrative-exempt.md"
 expect_pass "'정리' 체크박스가 4개를 넘어도 전부 체크면 통과한다" "$fixture_dir/checklist-five-checked.md"
 
+for prefix in \
+  '티켓 없음 — ' \
+  '확인 링크 없음 — ' \
+  'Before/After 없음 — ' \
+  '화면 없음 — ' \
+  'UX 안티패턴 해당 없음 — ' \
+  '흐름 다이어그램 없음 — '; do
+  for blank_reason in '' '   ' $'\t'; do
+    awk -v prefix="$prefix" -v reason="$blank_reason" '
+      index($0, prefix) == 1 { print prefix reason; next }
+      { print }
+    ' "$fixture_dir/exemption-pass.md" >"$fixture_dir/blank-reason.md"
+    expect_fail "$prefix 빈 이유 또는 공백뿐인 이유를 거부한다" "$fixture_dir/blank-reason.md"
+  done
+done
+
+# ---- 비시각 브라우저 변경도 이미지와 근거를 요구한다 ----------------------------
+awk '
+  /^\| 요소 \|/ {
+    print "비시각 브라우저 변경 — 렌더링 변경 없이 API 라우팅만 바뀐다."
+    print ""
+    sub(/요소/, "동작")
+  }
+  { print }
+' "$fixture_dir/full-pass.md" >"$fixture_dir/nonvisual-pass.md"
+expect_pass '비시각 변경의 사유·동작 표·이미지를 허용한다' "$fixture_dir/nonvisual-pass.md"
+sed -E 's@<img[^>]*src="([^"]+)"[^>]*>@![capture](\1)@g' "$fixture_dir/nonvisual-pass.md" >"$fixture_dir/nonvisual-markdown.md"
+expect_pass '비시각 변경의 HTTPS Markdown 이미지도 허용한다' "$fixture_dir/nonvisual-markdown.md"
+
+for reason in '' '   ' $'\t'; do
+  awk -v reason="$reason" '
+    /^비시각 브라우저 변경 —/ { print "비시각 브라우저 변경 — " reason; next }
+    { print }
+  ' "$fixture_dir/nonvisual-pass.md" >"$fixture_dir/nonvisual-blank.md"
+  expect_fail '비시각 변경의 빈 사유와 공백뿐인 사유를 거부한다' "$fixture_dir/nonvisual-blank.md"
+done
+
+sed '/^비시각 브라우저 변경 —/d' "$fixture_dir/nonvisual-pass.md" >"$fixture_dir/nonvisual-no-reason.md"
+expect_fail '동작 표만으로 요소 표를 우회하지 못한다' "$fixture_dir/nonvisual-no-reason.md"
+sed '/^| 동작 |/d' "$fixture_dir/nonvisual-pass.md" >"$fixture_dir/nonvisual-no-table.md"
+expect_fail '비시각 변경의 동작 표 누락을 거부한다' "$fixture_dir/nonvisual-no-table.md"
+sed '/<img/d' "$fixture_dir/nonvisual-pass.md" >"$fixture_dir/nonvisual-no-image.md"
+expect_fail '비시각 변경의 이미지 누락을 거부한다' "$fixture_dir/nonvisual-no-image.md"
+sed 's/src="[^"]*"//g' "$fixture_dir/nonvisual-pass.md" >"$fixture_dir/nonvisual-srcless.md"
+expect_fail 'src 없는 img는 비시각 변경의 캡처가 아니다' "$fixture_dir/nonvisual-srcless.md"
+sed 's/^| 동작 | Before | After |$/설명 속 | 동작 | 헤더/' "$fixture_dir/nonvisual-pass.md" >"$fixture_dir/nonvisual-prose.md"
+expect_fail '문장 속 동작 토큰은 표 헤더가 아니다' "$fixture_dir/nonvisual-prose.md"
+awk '
+  /^\| 동작 \|/ { print; getline; next }
+  { print }
+' "$fixture_dir/nonvisual-pass.md" >"$fixture_dir/nonvisual-no-separator.md"
+expect_fail '구분선 없는 동작 헤더를 거부한다' "$fixture_dir/nonvisual-no-separator.md"
+sed 's/ | <img width="480" alt="바뀐 배지"[^>]*>/ | 이미지 없음/' "$fixture_dir/nonvisual-pass.md" >"$fixture_dir/nonvisual-one-image.md"
+expect_fail 'Before 이미지 한 장만으로 통과하지 못한다' "$fixture_dir/nonvisual-one-image.md"
+awk '
+  /^\| 동작 \|/ { print "```markdown" }
+  /^<sub>/ { print "```" }
+  { print }
+' "$fixture_dir/nonvisual-pass.md" >"$fixture_dir/nonvisual-code-only.md"
+expect_fail '코드 블록 속 표와 이미지는 렌더된 증거가 아니다' "$fixture_dir/nonvisual-code-only.md"
+
 # ---- --hook 모드 ----------------------------------------------------------------
 hook_input() {
   local command=$1
