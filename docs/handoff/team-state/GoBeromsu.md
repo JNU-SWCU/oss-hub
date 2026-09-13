@@ -1617,3 +1617,13 @@
 - 리뷰 한계: 독립 검토 실행은 런타임 오류로 결과를 받지 못했다. 부모가 원본을 검토하고 재조회 상태의 저장소 보호를 보완했다.
 - 배포: 선행 #1271은 승인된 v0.6.156으로 배포됐으며 exact SHA와 backend healthy·frontend release job 성공을 확인했다.
 - 범위: 이번 #1272 후속 변경은 별도 PR로 제출하며 병합하지 않는다.
+
+## 2026-09-13 — MinIO 이미지 공급 경로를 복구한다
+
+- 상태: review
+- Issue: #1278
+- PR: (이 PR)
+- blocker: 없음
+- 내용: Docker Hub 다운로드 거부를 같은 upstream Quay 이미지로 해결하고 기존 태그·고정 digest를 보존했다.
+- 검증: server와 client의 amd64·arm64 pull, 격리 integration 103 suites / 673 tests, Compose 검증 계약 15개와 환경 변수 계약을 통과했다.
+- 범위: 개발·로컬 integration 이미지 주소 네 곳만 바꾸며 운영 R2·제품 코드·테스트 게이트는 변경하지 않는다.
