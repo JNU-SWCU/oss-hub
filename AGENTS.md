@@ -66,6 +66,8 @@ frontend·backend 애플리케이션은 호스트에서 hot reload로 실행하�
 `pnpm dev`는 `.envrc`와 host `localhost` 경계를, `pnpm local:*`은 `.env`와 Compose service DNS 경계를 사용한다.
 두 환경의 DB/MinIO 주소를 복사하지 말고 상세 선택 기준은 `docs/rules/local-dev.md`를 따른다.
 `compose.yml`은 prebuilt release image와 production secret을 요구하므로 local development entry point로 사용하지 않는다.
+코드·설정을 바꾸는 세션에서는 관련 open PR을 한 번 확인하고 `bash scripts/setup-hooks.sh`로 repository hooks를 활성화한다.
+정보 질의·기획·보고만 하는 작업은 이 선행을 실행하지 않는다.
 
 ## Code Conventions & Common Patterns
 
@@ -120,13 +122,11 @@ PUBLIC safety:
 | `docs/handoff/TEAM-STATE.md` | journal index and append format; status source is GitHub Issue/PR |
 
 제품·기획 결정은 Notion Decision Log, 기술·운영 결정은 ADR, 구현 상태는 GitHub Issue/PR, secret 값은 운영 vault만 원본으로 삼는다.
-로컬 작업 시작 시 관련 open PR을 한 번 확인하고 `bash scripts/setup-hooks.sh`로 repository hooks를 활성화한다.
-스킬 사용은 선택이 아니라 게이트다 — 작업 표면에 대응하는 스킬을 `docs/rules/agent-skill-routing.md`에서 찾아 그 `SKILL.md`를 읽고 절차대로 수행하지 않은 작업은 완료로 인정하지 않는다.
+스킬 적용 범위와 runtime 로드·버전 규칙의 원본은 `docs/rules/agent-skill-routing.md`다.
+구현·티켓 발행·릴리스 QA 실행·PR 제출·코멘트는 그 표의 해당 스킬을 읽고 따르지 않으면 완료가 아니다.
+정보 질의·기획·보고만 하는 작업은 플러그인 설치·갱신, 미해당 SKILL 열람, 인터뷰를 하지 않는다.
 repo 스킬 다섯 개(`run-release-qa`, `manage-qa-tickets`, `submit-pr-evidence`, `build-oss-hub-handbook`, `write-github-comment`)는 `skills/`가 원본이며 Claude Code·Codex·Cursor·GJC는 각 runtime 디렉터리의 symlink로 같은 본문을 로드한다.
-PR을 열기 전에 `submit-pr-evidence`를 반드시 실행한다 — frontend 변경은 Before/After 캡처, backend 로직 변경은 mermaid/DOT 다이어그램이 PR 본문에 없으면 PR을 열지 않는다.
-PR·Issue에 코멘트를 달 때는 `write-github-comment`를 거친다 — 화면 이야기는 요소 캡처를, 답글은 위젯이 말하지 않는 것만 담는다.
-craft-skills는 로컬 날짜 기준 첫 개발 세션에 runtime-native marketplace에서 최신본을 확인·갱신하며 Claude Code는 project marketplace `autoUpdate`, Codex는 project `INSTALLED_BY_DEFAULT`, GJC는 라우팅 문서의 install 명령을 쓴다.
-스킬 이름 규칙·버전·CHANGELOG 계약과 runtime별 로드 방법의 원본은 `docs/rules/agent-skill-routing.md`다.
+구현 세션의 craft-skills 갱신은 runtime-native marketplace가 원본이며 Claude Code는 project marketplace `autoUpdate`, Codex는 project `INSTALLED_BY_DEFAULT`, GJC는 라우팅 문서의 install 명령을 쓴다.
 
 ## Runtime/Tooling Preferences
 
@@ -141,18 +141,22 @@ craft-skills는 로컬 날짜 기준 첫 개발 세션에 runtime-native marketp
 
 ## Testing & QA
 
-- 변경 파일에서 가장 싼 증명부터 실행하고 최종 명령 선택은 `docs/rules/ci-path-verification.md`를 따른다.
-- frontend unit/helper test는 Vitest의 기본 Node environment다.
-  DOM이 필요한 파일만 명시적으로 happy-dom을 사용한다.
+- 경로별 검증 명령은 `docs/rules/ci-path-verification.md`가 원본이다.
+  로컬 실행 경로(`pnpm dev` 대 `pnpm local:*`)는 `docs/rules/local-dev.md`가 원본이다.
+- frontend unit/helper는 Vitest 기본 Node environment다.
+  DOM이 필요한 파일만 happy-dom을 명시한다.
 - browser spec은 `apps/frontend/e2e/**/*.spec.ts`의 Playwright 소유이고 `e2e/support/**/*.test.ts`는 Vitest 소유다.
-- Playwright는 fresh local stack, Chrome, `workers: 1`, `retries: 0`을 사용한다.
-  UI·browser behavior 변경은 `pnpm --filter frontend e2e`를 local manual gate로 실행하며 GitHub Actions가 대신하지 않는다.
-- backend default `test`는 Jest unit suite이고 `*.integration.spec.ts`를 제외한다.
-  integration은 반드시 `pnpm --filter backend test:integration`의 isolated runner로 실행하며 임의 PostgreSQL에 직접 붙이지 않는다.
-- 빠른 시작은 `pnpm --filter frontend test` 또는 `pnpm --filter backend test:unit`이다.
+  Playwright는 fresh isolated stack, installed Chrome, `workers: 1`, `retries: 0`이며 GitHub Actions가 대신하지 않는다.
+  UI·browser behavior 변경의 자동 회귀는 `pnpm --filter frontend e2e`다.
+- 수동 화면 확인은 사용자가 명시한 브라우저 도구를 쓴다.
+  명시한 도구가 없으면 설치된 craft `browser` 라우팅을 따른다. 그 스킬의 기본값은 버전마다 바뀔 수 있어 여기 복제하지 않는다.
+  수동 점검은 Playwright 회귀(`pnpm --filter frontend e2e`)를 대체하지 않고, 명시한 도구를 다른 도구로 바꿔 쓰지 않는다.
+- backend default `test`는 Jest unit이며 `*.integration.spec.ts`를 제외한다.
+  integration은 `pnpm --filter backend test:integration`의 isolated runner만 사용하고 임의 PostgreSQL에 붙이지 않는다.
   focused script가 integration/E2E wrapper를 부르면 cheap test로 간주하지 않는다.
 - observable behavior, edge values, branch conditions, error handling을 검증하고 default/tautology test를 추가하지 않는다.
-- production-like validation은 `pnpm local:verify`를 사용한다.
+- `pnpm local:verify`는 production-like 통합이 필요할 때만 쓴다.
   backup pruning과 Jenkins deploy helper는 승인된 Jenkins 경로 밖에서 수동 실행하지 않는다.
 - PR에는 실제 실행한 검증만 기록하며 warning이나 test를 숨겨 통과시키지 않는다.
-- PR 증거는 `submit-pr-evidence`의 영역별 게이트를 따르며 증거 없는 frontend·backend 로직 PR은 리뷰로 넘기지 않는다.
+  적용되는 증거가 없으면 제출하지 않는다.
+  PR 증거 절차는 제출 표면에서 `submit-pr-evidence`가 원본이다.

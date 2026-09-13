@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { installBrowserAudit } from './support/browser-audit';
-import { installSyntheticAuthority } from './support/member-access-fixture';
+import {
+  fulfillJson,
+  installSyntheticAuthority,
+} from './support/member-access-fixture';
 import { captureResponsiveMenu } from './support/member-access-visual';
 
 test('미해결 호환 관리자도 변경 요청 없이 정상 인증 셸을 사용한다', async ({
@@ -14,18 +17,19 @@ test('미해결 호환 관리자도 변경 요청 없이 정상 인증 셸을 �
       postRequests.push(new URL(request.url()).pathname);
     }
   });
-  await installSyntheticAuthority(page, {
-    role: 'ADMIN',
-    memberKind: null,
-    hasStaffAccess: true,
-    hasAdminAccess: true,
-  });
-  await page.route('**/api/v1/dashboard/staff/summary', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ programs: [] }),
-    }),
+  await installSyntheticAuthority(
+    page,
+    {
+      role: 'ADMIN',
+      memberKind: null,
+      hasStaffAccess: true,
+      hasAdminAccess: true,
+    },
+    {
+      'GET /api/v1/dashboard/staff/summary': async (route) => {
+        await fulfillJson(route, { programs: [] });
+      },
+    },
   );
 
   // When

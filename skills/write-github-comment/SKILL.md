@@ -1,15 +1,24 @@
 ---
 name: write-github-comment
 description: >-
-  OSS Hub GitHub PR·Issue에 코멘트를 쓰거나 답할 때 쓴다 — 리뷰어가 지적을 남길 때, 작성자가 리뷰에 답할 때, 화면을 두고 다른 안을 제안할 때, 티켓에 진행·PR 연결을 남길 때. 「코멘트 달아줘」「답글 써줘」「리뷰 남겨줘」「이거 제안해줘」「PR에 써줘」「이슈에 남겨줘」「@handle한테 말해줘」처럼 GitHub에 글을 남기는 모든 요청, 그리고 `gh pr comment`·`gh issue comment`·`gh pr review`를 부르기 직전에는 코멘트라는 단어가 없어도 반드시 이 스킬을 먼저 연다. 네 가지 코멘트 템플릿을 가지고 있고, frontend 화면 제안에는 실제 컴포넌트의 요소 캡처를 요구하며, CI·테스트 통과 같은 위젯이 이미 보여 주는 말을 답글에서 걷어낸다.
+  OSS Hub PR·Issue에 코멘트를 달거나 답할 때 연다. 「코멘트 달아줘」「답글 써줘」「리뷰 남겨줘」「이거 제안해줘」「이슈에 남겨줘」와
+  `gh pr comment`·`gh issue comment`·`gh pr review` 직전에 쓴다.
+  지적·답글·UX 제안·진행만 다룬다. 화면 이야기는 요소 캡처가 필요하고, 위젯이 이미 보여 주는 말은 답글에 쓰지 않는다.
+  PR 본문은 submit-pr-evidence, 티켓 본문은 manage-qa-tickets다.
 metadata:
-  version: 1.1.0
+  version: "1.2.0"
 ---
 
 # Write GitHub Comment
 
 코멘트는 의사결정 지원 문서다.
 위젯이 말하지 않는 판단·이유·다음 행동을 전한다.
+
+## Output contract
+
+산출물은 네 템플릿 중 하나로 쓴 초안 파일이다.
+화면 이야기면 요소 캡처가 있고, 답글이면 위젯이 이미 보여 주는 말을 빼며, `--text-only` public-safe를 통과한다.
+게시는 사용자가 올리라고 한 뒤에만 한다. 초안만 요청되면 `gh pr comment`·`gh issue comment`·`gh pr review`를 부르지 않는다.
 
 ## 어느 코멘트인지 먼저 정한다
 
@@ -101,7 +110,7 @@ ISSUE_TEXT="$(cat <draft>)" bash scripts/check-public-safe.sh --text-only
 4. 초안을 저장소 밖(scratchpad)에 파일로 쓴다 — 해당 템플릿을 열어 놓고 빈칸을 채운다.
 5. 「지우기」 패스를 한다 — 위젯 반복·장식 도식을 걷어내되, 제안의 조건·필수 근거·검증 한계는 보존한다.
 6. 최종 초안으로 가독성 자기 점검과 `--text-only` public-safe 검사를 통과시킨다.
-7. 올린다 — `gh pr comment <n> --body-file <draft>` / `gh issue comment <n> --body-file <draft>` / `gh pr review <n> --comment --body-file <draft>`. inline `--body "…"`는 쓰지 않는다 — 초안 파일이 검사 대상이기 때문이다.
+7. 사용자가 올리라고 한 뒤에만 게시한다 — `gh pr comment <n> --body-file <draft>` / `gh issue comment <n> --body-file <draft>` / `gh pr review <n> --comment --body-file <draft>`. inline `--body "…"`는 쓰지 않는다. 초안만 요청되면 여기서 멈춘다.
 8. 올린 코멘트를 브라우저나 `gh … --comments`로 다시 열어 이미지가 렌더됐는지 확인한다. 깨진 이미지는 없는 이미지다.
 
 ## 하지 않는 것
@@ -113,6 +122,7 @@ ISSUE_TEXT="$(cat <draft>)" bash scripts/check-public-safe.sh --text-only
 - 제안만 하고 결정을 묻지 않는다 → 첫 화면에서 다음 행동을 말한다.
 - 범위 밖 제안을 코멘트에 쌓는다 → 티켓.
 - `--body "…"`로 바로 올린다 → 파일 초안 + 검사.
+- 초안만 요청됐는데 코멘트를 올린다 → 게시 허가를 받는다.
 - 실명·「~님」 호칭에 실명을 쓴다 → `@handle`.
 
 ## 완료 체크리스트
@@ -123,5 +133,6 @@ ISSUE_TEXT="$(cat <draft>)" bash scripts/check-public-safe.sh --text-only
 - [ ] 위젯이 이미 말하는 문장이 없다.
 - [ ] 제안의 조건·보존할 경계·필수 근거가 남아 있다.
 - [ ] 초안 파일로 public-safe `--text-only`를 통과했다.
+- [ ] 게시 허가가 있을 때만 올렸고, 없으면 초안에서 멈췄다.
 - [ ] 올린 뒤 다시 열어 이미지 렌더를 확인했다.
 - [ ] [readability.md](../submit-pr-evidence/references/readability.md)의 자기 점검을 통과했다.

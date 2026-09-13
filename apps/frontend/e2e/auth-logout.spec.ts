@@ -1,13 +1,45 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { installBrowserAudit } from './support/browser-audit';
 import {
   F3_LOGOUT_ORIGIN_PATH,
+  F3_SAVED_NOTIFICATION,
+  F3_SAVED_PROFILE,
   installLogoutFixture,
+  type F3ApiHandlers,
 } from './support/f3-account-fixture';
 import { captureF3Evidence } from './support/f3-evidence';
 
 const ACCOUNT_MENU_LABEL = 'synthetic-f3-account 계정 메뉴';
+
+async function fulfillJson(route: Route, body: unknown): Promise<void> {
+  await route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(body),
+  });
+}
+
+/**
+ * `/settings` 본문·학생 계정 슬롯이 출발 화면을 그리기 위해 읽는 UI 전용 조회.
+ * 백엔드 그래프를 대체하지 않는다.
+ */
+const SETTINGS_ORIGIN_READS: F3ApiHandlers = {
+  'GET /api/v1/users/me/profile': (route) =>
+    fulfillJson(route, F3_SAVED_PROFILE),
+  'GET /api/v1/users/me/notification-email': (route) =>
+    fulfillJson(route, F3_SAVED_NOTIFICATION),
+  'GET /api/v1/team-invitations/received': (route) => fulfillJson(route, []),
+};
+
+/**
+ * 로그아웃 성공 뒤 익명 홈이 공개 목록을 읽는다. 빈 페이지면 상세 GET이 이어지지
+ * 않는다. UI 전용이며 공개 집계 증거가 아니다.
+ */
+const ANONYMOUS_HOME_READS: F3ApiHandlers = {
+  'GET /api/v1/programs': (route) => fulfillJson(route, { items: [] }),
+  'GET /api/v1/projects': (route) => fulfillJson(route, { items: [] }),
+};
 
 /** 헤더 계정 메뉴를 열고 로그아웃을 누른다 — 사용자가 실제로 지나는 유일한 경로다. */
 async function clickLogout(page: Page): Promise<void> {
@@ -19,7 +51,10 @@ test('logout success returns to the anonymous home introduction', async ({
   page,
 }, testInfo) => {
   const audit = installBrowserAudit(page);
-  const fixture = await installLogoutFixture(page, 'success');
+  const fixture = await installLogoutFixture(page, 'success', {
+    ...SETTINGS_ORIGIN_READS,
+    ...ANONYMOUS_HOME_READS,
+  });
 
   await page.goto(F3_LOGOUT_ORIGIN_PATH);
   await clickLogout(page);
@@ -57,7 +92,11 @@ test('logout failure keeps the authenticated view and reports the error', async 
   page,
 }, testInfo) => {
   const audit = installBrowserAudit(page);
-  const fixture = await installLogoutFixture(page, 'failure');
+  const fixture = await installLogoutFixture(
+    page,
+    'failure',
+    SETTINGS_ORIGIN_READS,
+  );
 
   await page.goto(F3_LOGOUT_ORIGIN_PATH);
   await clickLogout(page);

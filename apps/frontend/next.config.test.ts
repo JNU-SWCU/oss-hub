@@ -83,63 +83,46 @@ describe('nextConfig rewrites', () => {
     ]);
   });
 
-  it('명시적으로 켠 로컬 개발에서만 fixture cookie 요청을 앱 내부 adapter로 보낸다', async () => {
+  it('레거시 OSS_HUB_LOCAL_REVIEW_FIXTURES 입력이 개발 기본 backend rewrite를 바꾸지 않는다', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('BACKEND_ORIGIN', undefined);
+    vi.stubEnv('OSS_HUB_LOCAL_REVIEW_FIXTURES', '1');
+
+    await expect(getRewrites()).resolves.toEqual([
+      {
+        source: '/api/v1/:path*',
+        destination: 'http://localhost:4000/api/v1/:path*',
+      },
+    ]);
+  });
+
+  it('레거시 OSS_HUB_LOCAL_REVIEW_FIXTURES 입력이 가드된 개발 loopback origin rewrite를 바꾸지 않는다', async () => {
     vi.stubEnv('NODE_ENV', 'development');
     vi.stubEnv('BACKEND_ORIGIN', 'http://localhost:4000');
     vi.stubEnv('OSS_HUB_LOCAL_REVIEW_FIXTURES', '1');
 
-    const rewrites = await getRewrites();
-    expect(rewrites).toEqual({
-      beforeFiles: [
-        {
-          source: '/api/v1/:path*',
-          has: [
-            {
-              type: 'host',
-              value: '(?:localhost|127\\.0\\.0\\.1)',
-            },
-            {
-              type: 'cookie',
-              key: 'oss_hub_local_review_fixture',
-              value:
-                '(?:anonymous|student|staff|admin|settings|loading|error|error-once|unassigned|wrong-role|role-pending|role-rejected|insights-long|insights-zero|insights-empty|insights-unregistered)',
-            },
-          ],
-          destination: '/local-review-api/:path*',
-        },
-      ],
-      afterFiles: [],
-      fallback: [
-        {
-          source: '/api/v1/:path*',
-          destination: 'http://localhost:4000/api/v1/:path*',
-        },
-      ],
-    });
-    if (Array.isArray(rewrites)) {
-      throw new Error('fixture rewrite groups 설정이 필요합니다.');
-    }
-    const cookieRewrite = rewrites.beforeFiles?.[0];
-    if (
-      cookieRewrite === undefined ||
-      !('has' in cookieRewrite) ||
-      cookieRewrite.has === undefined
-    ) {
-      throw new Error('fixture cookie rewrite 설정이 필요합니다.');
-    }
-    const cookieMatcher = cookieRewrite.has[1];
-    if (cookieMatcher === undefined || cookieMatcher.type !== 'cookie') {
-      throw new Error('fixture cookie matcher 설정이 필요합니다.');
-    }
-    expect(new RegExp(`^${cookieMatcher.value}$`).test('insights-long')).toBe(
-      true,
-    );
-    expect(
-      new RegExp(`^${cookieMatcher.value}$`).test('arbitrary-fixture'),
-    ).toBe(false);
+    await expect(getRewrites()).resolves.toEqual([
+      {
+        source: '/api/v1/:path*',
+        destination: 'http://localhost:4000/api/v1/:path*',
+      },
+    ]);
   });
 
-  it('production에서는 fixture flag가 있어도 external backend rewrite만 만든다', async () => {
+  it('레거시 OSS_HUB_LOCAL_REVIEW_FIXTURES 입력이 개발 커스텀 BACKEND_ORIGIN rewrite를 바꾸지 않는다', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('BACKEND_ORIGIN', 'http://backend:4000/');
+    vi.stubEnv('OSS_HUB_LOCAL_REVIEW_FIXTURES', '1');
+
+    await expect(getRewrites()).resolves.toEqual([
+      {
+        source: '/api/v1/:path*',
+        destination: 'http://backend:4000/api/v1/:path*',
+      },
+    ]);
+  });
+
+  it('레거시 OSS_HUB_LOCAL_REVIEW_FIXTURES 입력이 production backend rewrite를 바꾸지 않는다', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('BACKEND_ORIGIN', 'https://backend.example.test');
     vi.stubEnv('OSS_HUB_LOCAL_REVIEW_FIXTURES', '1');

@@ -3,6 +3,7 @@ import {
   expect,
   type Locator,
   type Page,
+  type Route,
   type TestInfo,
 } from '@playwright/test';
 
@@ -12,11 +13,6 @@ type EvidenceViewport = {
   readonly name: 'desktop' | 'mobile';
   readonly width: number;
   readonly height: number;
-};
-
-type EvidenceRoute = {
-  readonly fixture: 'unassigned' | 'settings' | 'admin';
-  readonly path: string;
 };
 
 type CaptureInput = {
@@ -29,6 +25,11 @@ type CaptureInput = {
   readonly masks?: readonly Locator[];
 };
 
+/** Spec-owned UI responses. Keys are `METHOD /api/v1/...` with the query stripped. */
+export type Qa148ApiHandlers = {
+  readonly [methodAndPath: string]: (route: Route) => Promise<void>;
+};
+
 export const EVIDENCE_VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 900 },
   { name: 'mobile', width: 390, height: 844 },
@@ -39,21 +40,53 @@ const PNG_SIGNATURE = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
 ]);
 
+/**
+ * Evidence lane phase.
+ *
+ * Current-suite runs are After. A missing or empty `QA148_CAPTURE_PHASE` must not
+ * skip or hide the spec. `before` is only for an appropriate historical baseline,
+ * not this retirement's unchanged UI. Any other value fails the suite.
+ */
 export function capturePhase(): CapturePhase {
   const phase = process.env.QA148_CAPTURE_PHASE;
+  if (phase === undefined || phase === '') return 'after';
   if (phase === 'before' || phase === 'after') return phase;
-  throw new Error('QA148_CAPTURE_PHASE must be before or after.');
+  throw new Error(
+    `QA148_CAPTURE_PHASE must be before or after, received ${JSON.stringify(phase)}.`,
+  );
 }
 
-export async function activateRoute(
+export async function fulfillJson(route: Route, body: unknown): Promise<void> {
+  await route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(body),
+  });
+}
+
+function unexpectedInterceptedApi(method: string, pathname: string): never {
+  throw new Error(`Unexpected intercepted API request: ${method} ${pathname}`);
+}
+
+/**
+ * Browser `/api/v1/**` router for this evidence spec.
+ *
+ * Unknown method/path throws. There is no catch-all 200. Intercepted bodies are
+ * UI arrangement only and are not backend persistence, onboarding, or audit proof.
+ */
+export async function installExactApiRouter(
   page: Page,
-  route: EvidenceRoute,
+  handlers: () => Qa148ApiHandlers,
 ): Promise<void> {
-  const target = encodeURIComponent(route.path);
-  await page.goto(`/local-review/${route.fixture}?to=${target}`);
-  await expect(page).toHaveURL(
-    new RegExp(`${route.path.replace('/', '\\/')}$`),
-  );
+  await page.route('**/api/v1/**', async (route) => {
+    const method = route.request().method();
+    const pathname = new URL(route.request().url()).pathname;
+    const handler = handlers()[`${method} ${pathname}`];
+    if (!handler) {
+      unexpectedInterceptedApi(method, pathname);
+    }
+    await handler(route);
+  });
 }
 
 export async function expectByPhase(

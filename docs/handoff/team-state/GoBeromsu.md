@@ -1618,6 +1618,33 @@
 - 배포: 선행 #1271은 승인된 v0.6.156으로 배포됐으며 exact SHA와 backend healthy·frontend release job 성공을 확인했다.
 - 범위: 이번 #1272 후속 변경은 별도 PR로 제출하며 병합하지 않는다.
 
+## 2026-09-13 — 런타임 검토 에뮬레이터를 제거한다
+
+- 상태: review
+- Issue: #1276
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 의미 있는 소비자·영속성 검증을 이전한 뒤 frontend local-review 라우트와 전용 지원 파일을 제거했다.
+- 보호: 실제 backend rewrite와 배포 보호를 유지하고 경로 해석 기반 ESLint로 런타임의 테스트 코드 의존을 차단한다.
+- 주의: backend 없는 검토 서버나 호환 플래그를 다시 만들지 않는다.
+- 주의: 최소 UI 응답은 테스트에만 두고 미등록 요청을 명시적으로 실패시킨다.
+- 검증: frontend 355 files / 3,604 tests, backend 337 suites / 4,090 tests, 격리 DB 104 suites / 679 tests가 통과했다.
+- 검증: Chrome 전체 82개, authoring 7개, reconstruction 6개를 통과했으며 캡처 보존 보완 뒤 경계 회귀 3개를 다시 확인했다.
+- 검증: PR 증거의 비시각 변경 형식을 추가한 뒤 본문 계약 72개가 통과했다.
+- 추가 검증: 이미지 URL·표 구조 우회 방지까지 보완한 본문 계약 78개와 frontend 경계·rewrite 계약 73개가 통과했다.
+- 증거: Aside 수동 점검과 Chrome 자동 회귀를 구분하며 origin·화면 밖 합성 데이터 차이로 증명할 수 없는 동등성은 주장하지 않는다.
+- 범위: 사용자 후속 승인으로 PR 제출과 비시각 브라우저 증거 규칙만 보완했다.
+- 보존: 기존 저널·생성 증거 이력·backend 업무 로직·schema·migration·운영 환경은 변경하지 않았다.
+
+## 2026-09-13 — 테스트 선언 파일의 경계 누락을 막는다
+
+- 상태: review
+- Issue: #1276
+- PR: #1277
+- blocker: 기존 CI는 `minio/mc` 이미지 다운로드 거부로 격리 integration 실행 전에 실패했다.
+- 내용: Codex 지적에 따라 기존 정규식이 `.d.ts`·`.d.mts`·`.d.cts`를 인식하도록 한 줄 수정했다.
+- 검증: 누락을 재현한 뒤 경계 52개와 frontend 전체 355 files / 3,608 tests, lint·typecheck·build를 통과했다.
+- 범위: 기존 하네스의 작은 매개변수 테스트만 추가했으며 공용 fixture 카탈로그나 별도 검사 도구는 늘리지 않았다.
 ## 2026-09-13 — MinIO 이미지 공급 경로를 복구한다
 
 - 상태: review

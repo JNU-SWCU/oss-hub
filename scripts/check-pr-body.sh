@@ -44,10 +44,11 @@ section_body() {
   ' "$file"
 }
 
-# 절 본문에 예외 문구(줄 시작)가 있는지 검사한다.
+# 절 본문에 이유가 비어 있지 않은 예외 문구(줄 시작)가 있는지 검사한다.
+# 실제로 증거가 적용되지 않는지는 리뷰가 판단하며, 수집 실패는 예외가 아니다.
 has_exemption() {
   local body=$1 prefix=$2
-  grep -qE "^${prefix}" <<<"$body"
+  grep -qE "^${prefix}.*[^[:space:]]" <<<"$body"
 }
 
 # `.github/pull_request_template.md`의 안내용 HTML 주석(단일·여러 줄)을 전부 지운다.
@@ -132,7 +133,7 @@ check_first_line() {
   if [[ "$first_line" =~ ^Closes\ \#[0-9]+ ]]; then
     return
   fi
-  if [[ "$first_line" == "티켓 없음 — "* ]]; then
+  if has_exemption "$first_line" "티켓 없음 — "; then
     return
   fi
   violations+=("R2 첫 줄이 'Closes #<번호>' 또는 '티켓 없음 — <이유>' 형식이 아니다: ${first_line:-(비어 있음)}")
@@ -153,8 +154,26 @@ check_quick_check() {
 
 # ---- R4: Before / After --------------------------------------------------------
 check_before_after() {
-  local file=$1 body
+  local file=$1 body rendered image_count
   body=$(section_body "$file" "Before / After")
+  if grep -qE '^비시각 브라우저 변경 —' <<<"$body"; then
+    rendered=$(awk '
+      /^[[:space:]]*(```|~~~)/ { fenced=!fenced; next }
+      !fenced { print }
+    ' <<<"$body")
+    has_exemption "$rendered" "비시각 브라우저 변경 — " \
+      || violations+=("R4 비시각 브라우저 변경의 사유가 비어 있다")
+    awk '
+      header && /^\|[[:space:]]*:?-{3,}:?[[:space:]]*\|[[:space:]]*:?-{3,}:?[[:space:]]*\|[[:space:]]*:?-{3,}:?[[:space:]]*\|[[:space:]]*$/ { found=1 }
+      { header=($0 ~ /^\|[[:space:]]*동작[[:space:]]*\|[[:space:]]*Before[[:space:]]*\|[[:space:]]*After[[:space:]]*\|[[:space:]]*$/) }
+      END { exit !found }
+    ' <<<"$rendered" \
+      || violations+=("R4 비시각 브라우저 변경에 동작·Before·After 헤더와 구분선이 없다")
+    image_count=$({ grep -oE '<img[[:space:]][^>]*src="https://[^"[:space:]]+"|!\[[^]]*\]\(https://[^)[:space:]]+\)' <<<"$rendered" || true; } | wc -l)
+    [[ "$image_count" -ge 2 ]] \
+      || violations+=("R4 비시각 브라우저 변경에 HTTPS Before/After 이미지 두 장이 없다")
+    return
+  fi
   if grep -qE '<img|!\[' <<<"$body"; then
     if ! grep -qF '| 요소 |' <<<"$body"; then
       violations+=("R4 'Before / After' 절에 이미지는 있지만 '| 요소 |' 헤더 행이 없다")
@@ -168,14 +187,15 @@ check_before_after() {
 }
 
 # ---- R11: '이 흐름이 자연스러운가'·'내가 고친 UX 문제' 절이 비어 있지 않다 -------------
-# 두 절 다 예외 문구("화면 없음 — <이유>")도 실제 내용으로 친다 — 그 문구 자체가
-# "화면을 보지 않았다"를 명시적으로 밝히는 유효한 답이다.
+# 두 절 다 적용되지 않는 이유가 있는 "화면 없음 — <이유>"를 유효한 답으로 친다.
 check_ux_narrative_sections() {
   local file=$1 heading body
   for heading in "이 흐름이 자연스러운가" "내가 고친 UX 문제"; do
     body=$(section_body "$file" "$heading")
     if ! grep -qE '[^[:space:]]' <<<"$body"; then
       violations+=("R11 '$heading' 절이 비어 있다 — 화면을 보고 쓰거나 \`화면 없음 — <이유>\`로 적는다")
+    elif grep -qE '^화면 없음 — ' <<<"$body" && ! has_exemption "$body" "화면 없음 — "; then
+      violations+=("R11 '$heading' 절의 '화면 없음' 예외 이유가 비어 있다")
     fi
   done
 }

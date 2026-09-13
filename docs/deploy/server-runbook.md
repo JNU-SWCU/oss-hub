@@ -335,7 +335,7 @@ M10의 outbox drain 확인은 그대로 유효하다 — 백필 이전 이벤트
 
 ## 8. 운영 credentials vault에 기록할 접근 정보 체크리스트 (aside 위임)
 
-아래 항목의 **실제 값**은 이 저장소가 아니라 **운영 credentials vault**가 원본이다(2026-08-19 정정 — 이전에 이 문서가 다른 곳을 가리켜 실행자가 엉뚱한 곳을 뒤졌다. AGENTS.md §2 — 한 사실은 한 원본). vault 이름·내부 경로·노트명은 공개 저장소인 여기 적지 않으며, 위치를 모르면 운영 담당자에게 묻는다. 기록 작업은 craft-skills aside에 위임한다(이 저장소·PR·로그에는 항목명만 남기고 값은 남기지 않는다).
+아래 항목의 **실제 값**은 이 저장소가 아니라 **운영 credentials vault**가 원본이다(2026-08-19 정정 — 이전에 이 문서가 다른 곳을 가리켜 실행자가 엉뚱한 곳을 뒤졌다. [AGENTS.md Important Files](../../AGENTS.md#important-files) — 한 사실은 한 원본). vault 이름·내부 경로·노트명은 공개 저장소인 여기 적지 않으며, 위치를 모르면 운영 담당자에게 묻는다. 기록 작업은 craft-skills aside에 위임한다(이 저장소·PR·로그에는 항목명만 남기고 값은 남기지 않는다).
 
 - [ ] 배포 EC2 인스턴스 ID / Tailscale 호스트명 / 접속 방법(SSM·Tailscale)
 - [ ] Jenkins 개인 관리자 계정(공용 계정 공유 금지)

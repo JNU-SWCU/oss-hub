@@ -27,7 +27,6 @@ backend_dist="$backend_directory/.e2e-dist-${project_name//[^A-Za-z0-9]/_}"
 artifact_directory="${E2E_ARTIFACT_DIR:-$repo_root/.omo/artifacts/program-authoring-and-document-flow/12-e2e}"
 
 export E2E_ARTIFACT_DIR="$artifact_directory"
-export OSS_HUB_LOCAL_REVIEW_FIXTURES="${OSS_HUB_LOCAL_REVIEW_FIXTURES:-1}"
 export E2E_FROZEN_NOW="${E2E_FROZEN_NOW:-2026-08-20T00:00:00.000Z}"
 export TZ="Asia/Seoul"
 mkdir -p "$artifact_directory"
@@ -175,7 +174,6 @@ node "$script_directory/support/assert-loopback-only.mjs" "$backend_port"
     PATH="$tool_path" \
     HOME="$sanitized_home" \
     BACKEND_ORIGIN="$backend_origin" \
-    OSS_HUB_LOCAL_REVIEW_FIXTURES="${OSS_HUB_LOCAL_REVIEW_FIXTURES:-}" \
     ./node_modules/.bin/next dev \
       --hostname 127.0.0.1 --port "$frontend_port"
 ) &

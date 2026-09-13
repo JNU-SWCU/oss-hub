@@ -115,4 +115,19 @@ describe('fetchMyRoleSelection', () => {
       });
     },
   );
+
+  it('고른 역할만 남기고 redirectTo·요청 필드는 투영하지 않는다', async () => {
+    respond(
+      JSON.stringify({
+        selectedRole: 'STAFF',
+        redirectTo: '/dashboard',
+        requestedRole: 'ADMIN',
+      }),
+    );
+
+    const state = await fetchMyRoleSelection();
+    expect(state).toEqual({ selectedRole: 'STAFF' });
+    expect(state).not.toHaveProperty('redirectTo');
+    expect(state).not.toHaveProperty('requestedRole');
+  });
 });
