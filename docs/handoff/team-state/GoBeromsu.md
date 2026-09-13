@@ -1645,3 +1645,12 @@
 - 내용: Codex 지적에 따라 기존 정규식이 `.d.ts`·`.d.mts`·`.d.cts`를 인식하도록 한 줄 수정했다.
 - 검증: 누락을 재현한 뒤 경계 52개와 frontend 전체 355 files / 3,608 tests, lint·typecheck·build를 통과했다.
 - 범위: 기존 하네스의 작은 매개변수 테스트만 추가했으며 공용 fixture 카탈로그나 별도 검사 도구는 늘리지 않았다.
+## 2026-09-13 — MinIO 이미지 공급 경로를 복구한다
+
+- 상태: review
+- Issue: #1278
+- PR: (이 PR)
+- blocker: 없음
+- 내용: Docker Hub 다운로드 거부를 같은 upstream Quay 이미지로 해결하고 기존 태그·고정 digest를 보존했다.
+- 검증: server와 client의 amd64·arm64 pull, 격리 integration 103 suites / 673 tests, Compose 검증 계약 15개와 환경 변수 계약을 통과했다.
+- 범위: 개발·로컬 integration 이미지 주소 네 곳만 바꾸며 운영 R2·제품 코드·테스트 게이트는 변경하지 않는다.
