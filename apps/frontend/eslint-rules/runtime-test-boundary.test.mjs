@@ -530,6 +530,26 @@ export const value = require('../../test-support/helper');
 
 describe('actual frontend ESLint configuration', () => {
   it.each([
+    ['helpers.test.d.ts', 1],
+    ['helpers.spec.d.mts', 1],
+    ['helpers.fixture.d.cts', 1],
+    ['helpers.d.ts', 0],
+  ])('enforces declaration ownership for %s', async (name, expected) => {
+    const root = await createProject();
+    await writeRel(root, `src/lib/${name}`, 'export type Entry = string;\n');
+    await writeRel(
+      root,
+      'src/lib/runtime.ts',
+      `export type { Entry } from './${name}';\n`,
+    );
+    const messages = await lintRel(root, 'src/lib/runtime.ts', true);
+    expect(messages).toHaveLength(expected);
+    for (const message of messages) {
+      expect(message.messageId).toBe('runtimeImport');
+    }
+  });
+
+  it.each([
     {
       file: 'src/app/local-review-api/[...path]/route.ts',
       source:

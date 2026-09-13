@@ -123,7 +123,7 @@ function relativeSegments(root, target) {
 }
 
 function isColocatedTestEntry(basename) {
-  return /\.(?:test|spec|fixture)\.[^.]+$/u.test(basename);
+  return /\.(?:test|spec|fixture)\.(?:d\.[cm]?ts|[^.]+)$/u.test(basename);
 }
 
 function isExplicitTestHelper(basename) {
