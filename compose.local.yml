@@ -4,7 +4,7 @@ services:
   # MinIO is a local/integration substitute only. Production compose.yml has no
   # MinIO service and always uses the managed object-store tuple.
   minio:
-    image: minio/minio:RELEASE.2025-07-23T15-54-02Z@sha256:d249d1fb6966de4d8ad26c04754b545205ff15a62e4fd19ebd0f26fa5baacbc0
+    image: quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z@sha256:d249d1fb6966de4d8ad26c04754b545205ff15a62e4fd19ebd0f26fa5baacbc0
     restart: unless-stopped
     command: server /data
     environment:
@@ -27,7 +27,7 @@ services:
       start_period: 10s
 
   minio-bucket:
-    image: minio/mc:RELEASE.2025-07-21T05-28-08Z@sha256:fb8f773eac8ef9d6da0486d5dec2f42f219358bcb8de579d1623d518c9ebd4cc
+    image: quay.io/minio/mc:RELEASE.2025-07-21T05-28-08Z@sha256:fb8f773eac8ef9d6da0486d5dec2f42f219358bcb8de579d1623d518c9ebd4cc
     restart: unless-stopped
     depends_on:
       minio:
