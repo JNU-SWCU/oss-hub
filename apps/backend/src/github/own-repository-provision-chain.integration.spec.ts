@@ -220,6 +220,25 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
   });
 
   afterEach(async () => {
+    await prisma.repositoryInvitation.deleteMany({
+      where: {
+        OR: [
+          { repository: { applicationId: { in: [...APPLICATION_IDS] } } },
+          {
+            repository: {
+              githubRepositoryId: {
+                in: [
+                  OWN_GITHUB_REPOSITORY_ID,
+                  NO_CONSENT_GITHUB_REPOSITORY_ID,
+                  ORG_GITHUB_REPOSITORY_ID,
+                  ECONOVATION_GITHUB_REPOSITORY_ID,
+                ],
+              },
+            },
+          },
+        ],
+      },
+    });
     await prisma.githubRepository.deleteMany({
       where: {
         githubRepositoryId: {
