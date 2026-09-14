@@ -7,6 +7,7 @@ import {
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
+  RepositorySource,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../../audit-log/audit-log.repository';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -61,6 +62,7 @@ export interface OwnedProvisionJob {
     readonly name: string;
     readonly url: string;
     readonly visibility: RepositoryVisibility;
+    readonly source: RepositorySource;
     readonly invitations: readonly {
       readonly status: RepositoryInvitationStatus;
     }[];
@@ -101,6 +103,7 @@ function toOwnedRepository(row: {
   readonly id: string;
   readonly applicationId: string | null;
   readonly nameWithOwner: string;
+  readonly source: RepositorySource;
   readonly visibility: RepositoryVisibility;
   readonly invitations: readonly {
     readonly status: RepositoryInvitationStatus;
@@ -115,6 +118,7 @@ function toOwnedRepository(row: {
     name: repositoryNameFromNameWithOwner(row.nameWithOwner),
     url: repositoryUrlFromNameWithOwner(row.nameWithOwner),
     visibility: row.visibility,
+    source: row.source,
     invitations: row.invitations,
   };
 }
@@ -404,6 +408,7 @@ export class RepositoriesRepository {
             applicationId: true,
             nameWithOwner: true,
             visibility: true,
+            source: true,
             invitations: {
               where: {
                 githubLogin: {

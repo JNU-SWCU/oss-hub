@@ -218,6 +218,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         name: REPOSITORY_IDS[1],
         url: `https://github.com/synthetic/${REPOSITORY_IDS[1]}`,
         visibility: RepositoryVisibility.PRIVATE,
+        source: RepositorySource.ORG_PROVISIONED,
         invitations: [{ status: RepositoryInvitationStatus.PENDING }],
       },
     });

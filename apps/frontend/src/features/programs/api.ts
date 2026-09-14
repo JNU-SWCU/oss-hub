@@ -2,6 +2,7 @@ import { ApiError, apiClient } from '@/lib/api-client';
 import { PROGRAM_EDIT_ERROR_CODES } from './program-edit-error-codes';
 import type { ProgramTrackType } from './program-templates';
 import { parseStaffDashboardSummary } from './staff-dashboard-parser';
+import { parseStaffRepositoryEvidence } from './staff-repository-evidence';
 import type {
   ApplicationFormField,
   ApplicationFormFieldKey,
@@ -354,8 +355,6 @@ export function deleteMilestone(
   );
 }
 
-export type CreateApplicationRepositoryConnectionMode = 'new' | 'own';
-
 /**
  * 신청 생성 요청 본문. 키는 backend `CreateApplicationRequestDto`가 whitelist 하는
  * 것과 정확히 같아야 한다 — 전역 `ValidationPipe`가 `forbidNonWhitelisted: true`라
@@ -370,8 +369,6 @@ export interface CreateApplicationInput {
   readonly answers: { readonly title?: string };
   readonly applicationTemplateVersion: number;
   readonly isRepositoryPublicationPlanned: boolean;
-  readonly repositoryConnectionMode: CreateApplicationRepositoryConnectionMode | null;
-  readonly repositoryUrl: string;
 }
 
 export interface CreatedApplication {
@@ -383,21 +380,10 @@ export interface CreatedApplication {
   readonly isRepositoryPublicationPlanned: boolean;
 }
 
-/** 폼 `new`/`own`/null → 신청 생성 API `NEW`/`OWN`/null. */
-function mapRepositoryConnectionModeForApi(
-  mode: CreateApplicationRepositoryConnectionMode | null,
-): 'NEW' | 'OWN' | null {
-  if (mode === null) return null;
-  return mode === 'own' ? 'OWN' : 'NEW';
-}
-
 export function createApplication(
   programId: string,
   input: CreateApplicationInput,
 ): Promise<CreatedApplication> {
-  const repositoryConnectionMode = mapRepositoryConnectionModeForApi(
-    input.repositoryConnectionMode,
-  );
   return apiClient<CreatedApplication>(
     `programs/${encodeURIComponent(programId)}/applications`,
     {
@@ -407,11 +393,6 @@ export function createApplication(
         answers: input.answers,
         applicationTemplateVersion: input.applicationTemplateVersion,
         isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
-        repositoryConnectionMode,
-        repositoryUrl:
-          repositoryConnectionMode === 'OWN'
-            ? input.repositoryUrl.trim()
-            : null,
       }),
     },
   );
@@ -713,11 +694,12 @@ export function purgeProgram(
  * 상태·저장소 발급 상태까지 한 요청으로 받는다 — 팀 상세 화면이 신청 목록을
  * 따로 불러 클라이언트에서 잇지 않게 하려는 것이다.
  */
-export function getStaffProgramTeamDetail(
+export async function getStaffProgramTeamDetail(
   programId: string,
   teamId: string,
 ): Promise<StaffTeamDetail> {
-  return apiClient<StaffTeamDetail>(
+  const detail = await apiClient<StaffTeamDetail>(
     `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
   );
+  return { ...detail, ...parseStaffRepositoryEvidence(detail) };
 }

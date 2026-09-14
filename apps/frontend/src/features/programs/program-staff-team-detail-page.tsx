@@ -20,6 +20,7 @@ import {
   REVIEW_ACTION_LABEL,
 } from './application-presentation';
 import { ProgramStaffRepositorySection } from './program-staff-repository-section';
+import { StaffRepositoryEvidenceView } from './staff-repository-evidence-view';
 import type { StaffTeamDetail } from './types';
 
 type LoadState =
@@ -44,13 +45,15 @@ function DetailSkeleton(): ReactElement {
 function Section({
   title,
   children,
+  headingClassName = 'font-semibold',
 }: {
   readonly title: string;
   readonly children: React.ReactNode;
+  readonly headingClassName?: string;
 }): ReactElement {
   return (
     <section className="grid gap-4 rounded-card border border-border p-card">
-      <h2 className="font-semibold">{title}</h2>
+      <h2 className={headingClassName}>{title}</h2>
       {children}
     </section>
   );
@@ -186,8 +189,17 @@ export function ProgramStaffTeamDetailPage({
         </ul>
       </Section>
 
-      <Section title="저장소">
+      <Section
+        title="저장소"
+        headingClassName="rounded-control bg-primary px-4 py-3 font-semibold text-primary-foreground"
+      >
         <ProgramStaffRepositorySection application={application} />
+        <StaffRepositoryEvidenceView
+          evidence={detail}
+          members={detail.members}
+          programId={programId}
+          teamId={teamId}
+        />
       </Section>
 
       {application !== null ? (

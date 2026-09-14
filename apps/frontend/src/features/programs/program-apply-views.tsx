@@ -19,13 +19,13 @@ import {
   type ProgramApplyBlockedReason,
   type ProgramApplyFormErrors,
   type ProgramApplyFormValues,
-  type RepositoryConnectionMode,
   type TeamMinimum,
 } from './program-apply-flow';
 import { TeamInvitePanel } from './team-invite-panel';
 import { TeamMembersPanel } from './team-members-panel';
 import type { TeamInvitationManagement } from './use-team-invitation-management';
 import type { StudentApplication } from './student-application-api';
+import { RepositoryUrlEditor } from './repository-url-editor';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
 export type ApplicationFormMode = 'create' | 'edit';
@@ -111,10 +111,21 @@ export function BlockedView({
   return (
     <PageBody className="max-w-3xl">
       <RejectionReasonAlert application={application} />
+      {application?.status === 'APPROVED' && programId !== undefined ? (
+        <RepositoryUrlEditor programId={programId} />
+      ) : null}
       <EmptyState
-        className="break-keep"
-        title={content.title}
-        description={content.description}
+        className="break-keep [overflow-wrap:anywhere] [&_p]:whitespace-pre-line"
+        title={
+          application?.status === 'APPROVED'
+            ? '신청서 내용 수정 제한'
+            : content.title
+        }
+        description={
+          application?.status === 'APPROVED'
+            ? '신청서 수정·취소는 제한됩니다.\n저장소 URL은 별도로 관리합니다.'
+            : content.description
+        }
         action={
           showMyTeam ? (
             <Button asChild variant="outline">
@@ -247,8 +258,6 @@ interface ProgramApplyFormViewProps extends ProgramApplyTeamProps {
   readonly program: ProgramDetail;
   readonly template: ApplicationFormTemplate;
   readonly applicantName: string;
-  /** 세션에 연결된 GitHub handle. "GitHub 계정 연동" 안내행에만 쓴다. */
-  readonly githubHandle?: string;
   readonly values: ProgramApplyFormValues;
   readonly errors: ProgramApplyFormErrors;
   readonly serverError: string | null;
@@ -259,7 +268,6 @@ interface ProgramApplyFormViewProps extends ProgramApplyTeamProps {
   readonly submitting: boolean;
   readonly onChange: (key: keyof ProgramApplyFormValues, value: string) => void;
   readonly onTogglePublicationPlanned: (checked: boolean) => void;
-  readonly onRepositoryModeChange: (mode: RepositoryConnectionMode) => void;
   readonly onToggleConsent: (checked: boolean) => void;
   readonly onRequestSubmit: () => void;
   readonly onRequestCancel: () => void;
@@ -268,87 +276,8 @@ interface ProgramApplyFormViewProps extends ProgramApplyTeamProps {
 }
 
 /**
- * GitHub 저장소 연결 섹션 — 계정 연동 안내(읽기전용) + 연결 방식 라디오(2택).
- * `own`을 고르면 조건부 repo URL 입력이 카드 안에 나타난다. 저장소 발급을 켠
- * 프로그램의 새 신청서 작성에서만 보인다.
+ * 개인정보 수집·이용 동의 — 필수.
  */
-function RepositoryConnectionSection({
-  githubHandle,
-  repositoryConnectionMode,
-  repositoryUrl,
-  onModeChange,
-  onUrlChange,
-}: {
-  readonly githubHandle: string;
-  readonly repositoryConnectionMode: RepositoryConnectionMode;
-  readonly repositoryUrl: string;
-  readonly onModeChange: (mode: RepositoryConnectionMode) => void;
-  readonly onUrlChange: (url: string) => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <p className="font-medium text-foreground">GitHub 저장소</p>
-      {githubHandle ? (
-        <p className="text-sm text-muted-foreground">
-          <span className="font-semibold text-foreground">@{githubHandle}</span>{' '}
-          계정에 연결된 GitHub · 지원서에 함께 제출됩니다
-        </p>
-      ) : null}
-      <div
-        className="space-y-2"
-        role="radiogroup"
-        aria-label="GitHub 저장소 연결 방식"
-      >
-        <label className="flex cursor-pointer flex-col gap-1 rounded-control border border-border px-4 py-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-          <span className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="repository-connection-mode"
-              value="new"
-              checked={repositoryConnectionMode === 'new'}
-              onChange={() => onModeChange('new')}
-            />
-            <span className="font-medium">새 저장소 발급받기</span>
-            <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
-              기본
-            </span>
-          </span>
-          <span className="pl-6 text-xs text-muted-foreground">
-            승인되면 운영 조직에 비공개 저장소가 생성되고 내 GitHub 계정이
-            초대됩니다
-          </span>
-        </label>
-        <label className="flex cursor-pointer flex-col gap-1 rounded-control border border-border px-4 py-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-          <span className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="repository-connection-mode"
-              value="own"
-              checked={repositoryConnectionMode === 'own'}
-              onChange={() => onModeChange('own')}
-            />
-            <span className="font-medium">내 저장소 연결하기</span>
-          </span>
-          <span className="pl-6 text-xs text-muted-foreground">
-            기존 GitHub 공개 저장소를 연결합니다.
-          </span>
-          {repositoryConnectionMode === 'own' ? (
-            <div className="ml-6 mt-1 w-[calc(100%-1.5rem)] space-y-1">
-              <Input
-                aria-label="연결할 저장소 URL"
-                className="w-full"
-                placeholder="https://github.com/team/repo"
-                value={repositoryUrl}
-                onChange={(event) => onUrlChange(event.target.value)}
-              />
-            </div>
-          ) : null}
-        </label>
-      </div>
-    </div>
-  );
-}
-
 function PersonalDataConsentField({
   checked,
   onToggle,
@@ -446,7 +375,6 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     program,
     template,
     applicantName,
-    githubHandle = '',
     programId,
     team,
     sessionNickname,
@@ -470,7 +398,6 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     onTeamChanged,
     onChange,
     onTogglePublicationPlanned,
-    onRepositoryModeChange,
     onToggleConsent,
     onRequestSubmit,
     onRequestCancel,
@@ -641,15 +568,6 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
                 선정 시 저장소를 공개할 예정입니다
               </FieldLabel>
             </Field>
-          ) : null}
-          {program.repositoryProvisioningEnabled ? (
-            <RepositoryConnectionSection
-              githubHandle={githubHandle}
-              repositoryConnectionMode={values.repositoryConnectionMode}
-              repositoryUrl={values.repositoryUrl}
-              onModeChange={onRepositoryModeChange}
-              onUrlChange={(url) => onChange('repositoryUrl', url)}
-            />
           ) : null}
           <PersonalDataConsentField
             checked={values.personalDataConsent}

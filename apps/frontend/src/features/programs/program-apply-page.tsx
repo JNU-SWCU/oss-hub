@@ -345,11 +345,7 @@ export function ProgramApplyPage({
       setTeamError(TEAM_NAME_REQUIRED_MESSAGE);
       return;
     }
-    const nextErrors = validateApplyForm(
-      values,
-      state.mode,
-      state.program.repositoryProvisioningEnabled,
-    );
+    const nextErrors = validateApplyForm(values, state.mode);
     setErrors(nextErrors);
     setServerError(null);
     if (Object.keys(nextErrors).length > 0) return;
@@ -425,12 +421,6 @@ export function ProgramApplyPage({
         isRepositoryPublicationPlanned:
           currentProgram.repositoryProvisioningEnabled &&
           values.isRepositoryPublicationPlanned,
-        repositoryConnectionMode: currentProgram.repositoryProvisioningEnabled
-          ? values.repositoryConnectionMode
-          : null,
-        repositoryUrl: currentProgram.repositoryProvisioningEnabled
-          ? values.repositoryUrl
-          : '',
       });
       if (!mutationStillCurrent(started)) return;
       invalidateBackgroundReads();
@@ -543,7 +533,6 @@ export function ProgramApplyPage({
           program={state.program}
           template={state.template}
           applicantName={state.applicantName}
-          githubHandle={state.githubHandle}
           values={values}
           errors={errors}
           serverError={serverError}
@@ -561,13 +550,6 @@ export function ProgramApplyPage({
             setValues((previous) => ({
               ...previous,
               isRepositoryPublicationPlanned: checked,
-            }));
-          }}
-          onRepositoryModeChange={(mode) => {
-            hasUserInput.current = true;
-            setValues((previous) => ({
-              ...previous,
-              repositoryConnectionMode: mode,
             }));
           }}
           onToggleConsent={(checked) => {

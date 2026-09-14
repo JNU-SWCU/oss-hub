@@ -154,8 +154,8 @@ export async function loadProgramApplyContext(
           title: application.answers.title,
           isRepositoryPublicationPlanned:
             application.isRepositoryPublicationPlanned,
-          repositoryConnectionMode: 'new',
-          repositoryUrl: '',
+          // 저장소 연결 방식·개인정보 동의는 최초 제출 시점의 값이라 수정 화면에는
+          // 다시 묻지 않는다(program-apply-flow.validateApplyForm의 edit 분기 참고).
           personalDataConsent: true,
         },
       };
@@ -183,8 +183,6 @@ export async function loadProgramApplyContext(
       canManage: team.team === null ? true : team.team.isLeader,
       initialValues: {
         isRepositoryPublicationPlanned: true,
-        repositoryConnectionMode: 'new',
-        repositoryUrl: '',
         personalDataConsent: false,
       },
     };
