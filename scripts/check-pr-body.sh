@@ -19,7 +19,7 @@ set -euo pipefail
 export LC_ALL=C
 
 # 절 제목(H2) — 이 순서로, 이 문자열과 글자 단위로 같아야 한다.
-# 첫 줄(Closes/티켓 없음)은 R2가 따로 검사하므로 여기 포함하지 않는다.
+# 첫 줄(Closes/Refs/티켓 없음)은 R2가 따로 검사하므로 여기 포함하지 않는다.
 HEADINGS=(
   "무엇이 좋아지나"
   "바로 확인"
@@ -91,7 +91,7 @@ strip_html_comments() {
   ' "$file"
 }
 
-# ---- R1: 절 제목 9개(H2)가 순서대로 전부 있다(Closes 줄까지 세면 열 개) ------------
+# ---- R1: 절 제목 9개(H2)가 순서대로 전부 있다(첫 줄까지 세면 열 개) ------------
 check_headings() {
   local file=$1
   local missing=() lines=() h line_no prev order_ok
@@ -130,13 +130,13 @@ check_first_line() {
   local file=$1 first_line
   first_line=$(awk '/[^[:space:]]/ { sub(/^[ \t]+/, ""); print; exit }' "$file")
 
-  if [[ "$first_line" =~ ^Closes\ \#[0-9]+ ]]; then
+  if [[ "$first_line" =~ ^(Closes|Refs)\ \#[0-9]+ ]]; then
     return
   fi
   if has_exemption "$first_line" "티켓 없음 — "; then
     return
   fi
-  violations+=("R2 첫 줄이 'Closes #<번호>' 또는 '티켓 없음 — <이유>' 형식이 아니다: ${first_line:-(비어 있음)}")
+  violations+=("R2 첫 줄이 'Closes #<번호>', 'Refs #<번호>' 또는 '티켓 없음 — <이유>' 형식이 아니다: ${first_line:-(비어 있음)}")
 }
 
 # ---- R3: 바로 확인 ------------------------------------------------------------
