@@ -413,6 +413,22 @@ describe('ProgramMyTeamPage 신청 상태', () => {
         releaseCount: 1,
         dataAsOf: '2026-01-05T00:00:00Z',
         lastActivityAt: '2026-01-04T00:00:00Z',
+        collectionStatus: 'READY',
+        members: [
+          {
+            githubLogin: 'synthetic-leader',
+            commitCount: 9,
+            pullRequestCount: 2,
+            releaseCount: 1,
+          },
+          {
+            githubLogin: 'synthetic-member',
+            commitCount: 3,
+            pullRequestCount: 1,
+            releaseCount: 0,
+          },
+        ],
+        hasIncompleteContributions: false,
       },
     ]);
     await renderPage();
@@ -434,6 +450,8 @@ describe('ProgramMyTeamPage 신청 상태', () => {
     expect(host.querySelectorAll('h2')).not.toHaveLength(0);
     expect(host.textContent).toContain('합성 팀 저장소');
     expect(host.textContent).toContain('12');
+    expect(host.textContent).toContain('@synthetic-leader');
+    expect(host.textContent).toContain('@synthetic-member');
     expect(host.textContent).toContain('데이터 기준');
     expect(host.textContent).toContain(SLOT_TEXT);
     expect(getProgramActivity).toHaveBeenCalledExactlyOnceWith('program-1');
@@ -446,7 +464,9 @@ describe('ProgramMyTeamPage 신청 상태', () => {
       status: 'APPROVED',
     });
     await renderPage();
-    expect(host.textContent).toContain('아직 연결된 저장소가 없습니다');
+    expect(host.textContent).toContain('표시할 팀이 없습니다');
+    expect(host.textContent).not.toContain('데이터 기준');
+    expect(host.textContent).not.toContain('커밋');
   });
 });
 

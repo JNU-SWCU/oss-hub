@@ -69,3 +69,18 @@
 - 검증: migration/schema, backend phone/audit, admin createdAt, frontend phone/settings/department, consent dialog focused 테스트와 typecheck·lint를 통과했다. 합성 fixture 기반 Chrome에서 `/onboarding/profile`, `/settings`, `/onboarding/role`, `/dashboard/users`, `/dashboard/audit-logs`의 desktop·390px After 캡처와 public-safe PNG metadata 검사를 완료했다.
 - 환경 참고: Docker Desktop이 응답하지 않아 migration DB integration 일부는 isolated spec 작성·compile·ledger 검증까지 확인했고, 실제 DB 적용은 후속 전체 integration 환경에서 재확인해야 한다. repository-wide `pnpm format:check`는 기존 전역 포맷 경고가 있어 변경 파일 기준 Prettier와 Prisma format으로 별도 확인했다.
 - 공개 안전성: 합성 사용자·합성 번호 생성값만 사용했고 전화번호 원문은 audit metadata, 관리자 DTO, PR evidence 텍스트, 스크린샷에 싣지 않는다. evidence PNG는 브랜치에 커밋하지 않는다.
+
+## 2026-09-10 — QA169 팀 활동 구성과 팀원별 기여
+
+- 상태: review
+- Issue: [#1240](https://github.com/JNU-SWCU/oss-hub/issues/1240)
+- PR: (이 PR)
+- blocker: 로컬 검증 완료, 배포 환경 재확인은 병합·배포 뒤 남은 확인이다.
+- 결과: 활동 카드를 커밋·PR·릴리스별 상대 막대로 바꾸고 TeamMember 명단과 기존 Contribution의 사람별 수치를 함께 읽는다.
+- 주의: 막대는 목표 달성률이 아니라 표시된 팀 중 같은 지표의 최댓값 대비 비율이다.
+- 주의: 팀 합계와 팀원 합계가 달라도 재배분하지 않으며, 기여가 없는 명단의 팀원은 0으로 남긴다.
+- 경계: schema·수집기·개인 타임라인·권한·활동 앵커는 바꾸지 않는다.
+- 검증: Linux 전체 frontend 353파일·3544건, backend 317스위트·3652건, Chrome E2E 70건, 양쪽 typecheck·lint·build와 전체 format 검사를 통과했다.
+- 화면: 합성 데이터로 390px·1120px, 지표 비율, Enter·Space 펼침·접힘, 새로고침, 미연결·활동 없음·수집 실패·합계 불일치를 확인했다.
+- 환경 참고: 한글 다운로드 검증에는 UTF-8 로케일이 필요하며 E2E 산출물은 개발 서버가 감시하는 소스 경로 밖에 둔다.
+- 공개 안전성: 합성 캡처만 GitHub 첨부로 사용하며 이미지·로컬 로그·실데이터는 커밋하지 않는다.

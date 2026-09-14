@@ -1,9 +1,12 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { expect, test } from './admin-session.fixture';
 import { e2eEnvironment } from './environment';
 import type {
   APIResponse,
+  Locator,
+  Page,
   Response as PlaywrightResponse,
+  TestInfo,
 } from '@playwright/test';
 import { expectApiStatus } from './support/program-authoring-flow';
 import {
@@ -229,6 +232,77 @@ test.describe('마일스톤 편집 재구성', () => {
     ]);
     expect(programPatch.ok()).toBe(true);
     expect(writes.filter((entry) => entry.kind === 'program')).toHaveLength(1);
+  });
+
+  test('마일스톤 삭제 확인창은 되돌릴 수 없음을 알리고 취소는 쓰지 않는다', async ({
+    authSeedPage,
+    programAuthoringActorPage,
+  }, testInfo) => {
+    const controlPage = await authSeedPage('admin-confirmed');
+    await resetProgramAuthoringControl(controlPage);
+    const programId = await fixtureProgramId(controlPage);
+    const staffPage = await programAuthoringActorPage('staff');
+    const writes = observeWrites(staffPage);
+    const deleteDialogName = '마일스톤을 되돌릴 수 없이 삭제할까요?';
+
+    await staffPage.setViewportSize({ width: 1440, height: 900 });
+    await staffPage.goto(`/programs/${encodeURIComponent(programId)}/edit`);
+    await expect(
+      staffPage.getByRole('heading', { name: '프로그램 편집' }),
+    ).toBeVisible();
+    const beforeCancelResponse = await staffPage.request.get(
+      `/api/v1/milestones/${encodedMilestoneId}/edit`,
+      { headers: originHeadersFor(staffPage.url()) },
+    );
+    await expectApiStatus(beforeCancelResponse, 200);
+    const beforeCancelSnapshot = await beforeCancelResponse.json();
+    const milestoneCard = staffPage.locator(
+      `[data-canonical-id="${milestoneId}"]`,
+    );
+    const deleteControl = milestoneCard.getByRole('button', { name: /삭제$/ });
+    const dialog = staffPage.getByRole('dialog', { name: deleteDialogName });
+
+    for (const viewport of [
+      { name: 'desktop', width: 1440, height: 900 },
+      { name: 'mobile', width: 390, height: 844 },
+    ] as const) {
+      await staffPage.setViewportSize({
+        width: viewport.width,
+        height: viewport.height,
+      });
+      await expect(milestoneCard).toContainText(milestoneId);
+      await deleteControl.click();
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toContainText(deleteDialogName);
+      await expect(dialog).toContainText(milestoneId);
+      await expect(dialog).toContainText(
+        '등록된 제출 항목도 삭제됩니다. 양식 파일은 OSS Hub에서 더 이상 이용할 수 없습니다.',
+      );
+      await expect(dialog).not.toContainText('양식 파일도 함께 삭제됩니다');
+      await expect(dialog).toContainText(
+        '학생이 올린 제출물이 하나라도 있으면 삭제되지 않습니다.',
+      );
+      await expectNoHorizontalOverflow(staffPage);
+      await captureOpenDialogEvidence(
+        staffPage,
+        testInfo,
+        dialog,
+        `milestone-delete-dialog-${viewport.name}`,
+      );
+      await dialog.getByRole('button', { name: '취소', exact: true }).click();
+      await expect(dialog).toHaveCount(0);
+      await expect(deleteControl).toBeVisible();
+      expect(writes).toEqual([]);
+    }
+    await expect(milestoneCard).toContainText(milestoneId);
+    await expect(deleteControl).toBeVisible();
+    expect(writes).toEqual([]);
+    const afterCancelResponse = await staffPage.request.get(
+      `/api/v1/milestones/${encodedMilestoneId}/edit`,
+      { headers: originHeadersFor(staffPage.url()) },
+    );
+    await expectApiStatus(afterCancelResponse, 200);
+    expect(await afterCancelResponse.json()).toEqual(beforeCancelSnapshot);
   });
 
   test('마일스톤 한 번 저장은 canonical 문서와 파일을 reload와 다운로드까지 보존하고 기본 입력도 남긴다', async ({
@@ -572,6 +646,59 @@ type Write = {
   readonly kind: 'milestone' | 'program' | 'upload';
   readonly url: string;
 };
+
+async function captureOpenDialogEvidence(
+  page: Page,
+  testInfo: TestInfo,
+  dialog: Locator,
+  name: string,
+): Promise<void> {
+  const viewport = await page.evaluate(() => ({
+    width: innerWidth,
+    height: innerHeight,
+  }));
+  expect(viewport).toEqual(page.viewportSize());
+  const panel = dialog.locator(':scope > div').first();
+  await expect(panel).toBeVisible();
+  const elementPath = testInfo.outputPath(`${name}-element.png`);
+  const viewportPath = testInfo.outputPath(`${name}-viewport.png`);
+  const conditionsPath = testInfo.outputPath(`${name}-conditions.json`);
+  const elementImage = await panel.screenshot({ path: elementPath });
+  const viewportImage = await page.screenshot({ path: viewportPath });
+  expect(new Set(elementImage).size).toBeGreaterThan(32);
+  expect(new Set(viewportImage).size).toBeGreaterThan(32);
+  await testInfo.attach(`${name}-element`, {
+    path: elementPath,
+    contentType: 'image/png',
+  });
+  await testInfo.attach(`${name}-viewport`, {
+    path: viewportPath,
+    contentType: 'image/png',
+  });
+  await writeFile(
+    conditionsPath,
+    JSON.stringify({
+      schemaVersion: 1,
+      kind: 'browser-automation-transcript',
+      tool: 'Playwright Chrome',
+      url: page.url(),
+      viewport,
+      role: 'staff',
+      screenshot: {
+        element: `${name}-element.png`,
+        viewport: `${name}-viewport.png`,
+      },
+      commands: [
+        `locator.screenshot({ path: testInfo.outputPath('${name}-element.png') })`,
+        `page.screenshot({ path: testInfo.outputPath('${name}-viewport.png') })`,
+      ],
+    }),
+  );
+  await testInfo.attach(`${name}-conditions`, {
+    path: conditionsPath,
+    contentType: 'application/json',
+  });
+}
 
 async function expectNoHorizontalOverflow(
   page: import('@playwright/test').Page,
