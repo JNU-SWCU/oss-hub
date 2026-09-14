@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ProgramCover } from '@/components/program-cover';
-import { apiPath } from '@/lib/api-client';
+import { programCoverSource } from './program-cover-source';
 import * as React from 'react';
 import type { VariantProps } from 'class-variance-authority';
 
@@ -122,7 +122,7 @@ function ProgramCard({
 
   const content = (
     <>
-      <ProgramCover src={coverImageUrl ? apiPath(coverImageUrl) : null} />
+      <ProgramCover src={programCoverSource(coverImageUrl)} />
       <div className="relative flex flex-1 flex-col gap-1.5 p-5">
         <StatusBadge
           aria-hidden="true"

@@ -110,6 +110,35 @@ beforeAll(async () => {
   baseUrl = await application.getUrl();
 });
 
+it.each([
+  { coverUploadId: null, externalCover: null },
+  {
+    coverUploadId: 'upload',
+    externalCover: {
+      sourceUrl: 'https://sojoong.kr/notice/notice-board/?uid=123&mod=document',
+      imageUrl: 'https://sojoong.kr/wp-content/uploads/synthetic.jpg',
+    },
+  },
+  {
+    externalCover: {
+      sourceUrl: 'https://sojoong.kr/notice/notice-board/?uid=123&mod=document',
+      imageUrl: 'https://attacker.example/image.jpg',
+    },
+  },
+  {
+    externalCover: {
+      imageUrl: 'https://sojoong.kr/wp-content/uploads/synthetic.jpg',
+    },
+  },
+])(
+  'rejects invalid external cover HTTP edits before persistence',
+  async (choice) => {
+    const response = await patchProgram({ ...updateInput, ...choice });
+    expect(response.status).toBe(400);
+    expect(store.updateProgram.mock.calls).toHaveLength(0);
+  },
+);
+
 beforeEach(() => {
   jest.clearAllMocks();
   const milestone = editableProgram.milestones[0];

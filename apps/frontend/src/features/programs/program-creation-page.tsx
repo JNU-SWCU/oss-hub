@@ -254,7 +254,7 @@ export function ProgramCreationPage({
         state.currentStep === 'basic' ? (
           <div className="w-full max-w-sm lg:w-72">
             <ProgramCoverPreview
-              selection={state.coverFile ?? null}
+              selection={state.externalCover ?? state.coverFile ?? null}
               name={state.name}
             />
           </div>

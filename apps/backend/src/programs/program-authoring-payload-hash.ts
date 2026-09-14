@@ -5,6 +5,7 @@ export function canonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {
   return {
     schemaVersion: 1,
     ...(plan.coverUploadId ? { coverUploadId: plan.coverUploadId } : {}),
+    ...(plan.externalCover ? { externalCover: plan.externalCover } : {}),
     program: {
       name: plan.program.name,
       organizer: plan.program.organizer,

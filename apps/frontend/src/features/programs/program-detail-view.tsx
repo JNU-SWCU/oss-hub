@@ -1,7 +1,7 @@
 'use client';
 
 import { ProgramCover } from '@/components';
-import { apiPath } from '@/lib/api-client';
+import { programCoverSource } from '@/components/program-cover-source';
 
 import Link from 'next/link';
 import { useEffect, useId, type ReactNode } from 'react';
@@ -538,7 +538,7 @@ export function ProgramDetailReadyState({
         <ProgramCover
           size="detail"
           title={program.name}
-          src={program.coverImageUrl ? apiPath(program.coverImageUrl) : null}
+          src={programCoverSource(program.coverImageUrl)}
         />
         <PageHeader
           className="sm:flex-col"

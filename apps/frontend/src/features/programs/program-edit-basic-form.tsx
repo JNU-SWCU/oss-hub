@@ -1,4 +1,6 @@
 import { ProgramCoverField } from './program-cover-field';
+import type { ProgramCoverSelection } from './program-cover-selection';
+import { ProgramNoticeImport } from './program-notice-import';
 import {
   Field,
   FieldDescription,
@@ -22,8 +24,8 @@ import {
 import { ProgramDeadlineControl } from './program-deadline-control';
 
 interface ProgramEditBasicFormProps {
-  readonly coverSelection?: File | null;
-  readonly onCoverChange: (file: File | null | undefined) => void;
+  readonly coverSelection?: ProgramCoverSelection;
+  readonly onCoverChange: (selection: ProgramCoverSelection) => void;
   readonly isSaving?: boolean;
   readonly program: EditableProgram;
   readonly form: ProgramEditForm;
@@ -46,6 +48,25 @@ export function ProgramEditBasicForm({
   return (
     <FormSection title="기본 정보">
       <FieldGroup>
+        <div>
+          <ProgramNoticeImport
+            currentName={form.name}
+            currentDescription={form.description}
+            hasCover={Boolean(
+              coverSelection ||
+              (coverSelection === undefined && program.coverImageUrl),
+            )}
+            sourceUrl={program.externalCover?.sourceUrl}
+            disabled={isSaving}
+            onApply={(patch) => {
+              if (patch.name !== undefined) onFieldChange('name', patch.name);
+              if (patch.description !== undefined)
+                onFieldChange('description', patch.description);
+              if (patch.externalCover !== undefined)
+                onCoverChange(patch.externalCover);
+            }}
+          />
+        </div>
         <Field>
           <FieldLabel htmlFor="program-name">프로그램명 *</FieldLabel>
           <Input

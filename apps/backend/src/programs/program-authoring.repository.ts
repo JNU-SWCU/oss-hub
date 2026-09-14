@@ -24,7 +24,11 @@ import type {
   ProgramAuthoringUploadToken,
 } from './program-authoring.types';
 import { lockProgramAuthoringUploads } from './program-authoring-upload-transaction';
-import { createProgramCover } from './repository/program-cover-write';
+import {
+  createProgramCover,
+  createExternalProgramCover,
+} from './repository/program-cover-write';
+import type { ProgramExternalCover } from './program-external-cover';
 
 type AuthoringActor = {
   readonly id: string;
@@ -119,19 +123,29 @@ class ProgramAuthoringTransactionRepository implements ProgramAuthoringTransacti
 
   async createProgram(
     plan: ProgramAuthoringProgramPlan,
-    cover?: {
-      readonly actorId: string;
-      readonly upload: ProgramAuthoringUploadToken;
-    },
+    cover?:
+      | {
+          readonly actorId: string;
+          readonly upload: ProgramAuthoringUploadToken;
+        }
+      | { readonly externalCover: ProgramExternalCover },
   ): Promise<ProgramAuthoringProgram> {
     const program = await this.prisma.program.create({
       data: plan,
     });
     if (cover !== undefined) {
-      await createProgramCover(this.prisma, {
-        programId: program.id,
-        ...cover,
-      });
+      if ('externalCover' in cover) {
+        await createExternalProgramCover(
+          this.prisma,
+          program.id,
+          cover.externalCover,
+        );
+      } else {
+        await createProgramCover(this.prisma, {
+          programId: program.id,
+          ...cover,
+        });
+      }
     }
     return program as ProgramAuthoringProgram;
   }

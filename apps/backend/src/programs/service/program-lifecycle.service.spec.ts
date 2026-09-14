@@ -25,7 +25,7 @@ function createDeleteService(
     readonly milestones?: readonly { readonly id: string }[];
     readonly milestoneDocuments?: readonly { readonly id: string }[];
     readonly orphanRepositoryCount?: number;
-    readonly cover?: { readonly storageKey: string };
+    readonly cover?: { readonly storageKey: string | null };
   } = {},
 ) {
   const userFindUnique = jest.fn().mockResolvedValue(
@@ -161,6 +161,15 @@ function createDeleteService(
 // 여기서 뒤집힌다. 바뀐 것은 누가 할 수 있는가 하나이고, 차단 조건·감사 로그는
 // 그대로임을 아래 케이스들이 계속 지킨다.
 describe('ProgramLifecycleService.delete — 교직원·관리자 영구 삭제 (#1095, 종전 #875)', () => {
+  it('removes an external cover reference without scheduling object deletion', async () => {
+    const { service, programCoverDelete, programPurgeFileTombstoneCreateMany } =
+      createDeleteService({ cover: { storageKey: null } });
+    await service.delete(1001n, 'program-1');
+    expect(programCoverDelete).toHaveBeenCalledWith({
+      where: { programId: 'program-1' },
+    });
+    expect(programPurgeFileTombstoneCreateMany).not.toHaveBeenCalled();
+  });
   it('표지가 있는 프로그램을 삭제하면 같은 트랜잭션에서 파일 정리를 예약한다', async () => {
     const {
       service,
@@ -184,7 +193,7 @@ describe('ProgramLifecycleService.delete — 교직원·관리자 영구 삭제 
       skipDuplicates: true,
     });
     expect(programCoverDelete).toHaveBeenCalledWith({
-      where: { storageKey: 'program-covers/delete-cover' },
+      where: { programId: 'program-1' },
     });
     expect(programCoverDelete.mock.invocationCallOrder[0]).toBeLessThan(
       programDelete.mock.invocationCallOrder[0] ?? 0,
@@ -480,7 +489,7 @@ function createPurgeService(
     readonly program?: unknown;
     readonly createRequest?: unknown;
     readonly templateFiles?: readonly { readonly storageKey: string }[];
-    readonly cover?: { readonly storageKey: string };
+    readonly cover?: { readonly storageKey: string | null };
     readonly counts?: Partial<Record<string, number>>;
     readonly applicationIds?: readonly string[];
     readonly applicationDecisionNotifications?: readonly {
@@ -719,6 +728,16 @@ function createPurgeService(
 }
 
 describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전체 삭제 (#1095)', () => {
+  it('excludes an external reference from purge storage cleanup counts', async () => {
+    const { service, programCoverDelete, programPurgeFileTombstoneCreateMany } =
+      createPurgeService({ cover: { storageKey: null }, templateFiles: [] });
+    const result = await service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS);
+    expect(result.deletedCounts.programPurgeFileTombstones).toBe(0);
+    expect(programCoverDelete).toHaveBeenCalledWith({
+      where: { programId: 'program-1' },
+    });
+    expect(programPurgeFileTombstoneCreateMany).not.toHaveBeenCalled();
+  });
   it('표지 정리를 예약한 뒤 연결 행을 삭제하고 tombstone 개수에 포함한다', async () => {
     const {
       service,
@@ -744,7 +763,7 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
       skipDuplicates: true,
     });
     expect(programCoverDelete).toHaveBeenCalledWith({
-      where: { storageKey: 'program-covers/purge-cover' },
+      where: { programId: 'program-1' },
     });
     expect(programCoverDelete.mock.invocationCallOrder[0]).toBeLessThan(
       programDelete.mock.invocationCallOrder[0] ?? 0,

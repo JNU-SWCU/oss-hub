@@ -8,18 +8,24 @@ import {
   type ProgramAuthoringUploadToken,
 } from '../program-authoring.types';
 import { assertProgramCoverUpload } from '../program-cover';
+import type { ProgramExternalCover } from '../program-external-cover';
 
 export type ProgramCoverChange = {
   readonly actorId: string;
-  readonly uploadId: string | null;
-};
+} & (
+  | { readonly uploadId: string | null; readonly externalCover?: never }
+  | {
+      readonly externalCover: ProgramExternalCover | null;
+      readonly uploadId?: never;
+    }
+);
 
 export async function replaceProgramCover(
   transaction: Prisma.TransactionClient,
   input: ProgramCoverChange & { readonly programId: string },
 ): Promise<void> {
   let upload: ProgramAuthoringUploadToken | null = null;
-  if (input.uploadId !== null) {
+  if (input.uploadId != null) {
     const uploads = await lockProgramAuthoringUploads(transaction, [
       input.uploadId,
     ]);
@@ -36,12 +42,14 @@ export async function replaceProgramCover(
     select: { storageKey: true },
   });
   if (previous !== null) {
-    await transaction.programPurgeFileTombstone.create({
-      data: {
-        storageKey: previous.storageKey,
-        nextDeleteAttemptAt: new Date(),
-      },
-    });
+    if (previous.storageKey !== null) {
+      await transaction.programPurgeFileTombstone.create({
+        data: {
+          storageKey: previous.storageKey,
+          nextDeleteAttemptAt: new Date(),
+        },
+      });
+    }
     await transaction.programCover.delete({
       where: { programId: input.programId },
     });
@@ -52,7 +60,23 @@ export async function replaceProgramCover(
       actorId: input.actorId,
       upload,
     });
+  } else if (input.externalCover != null) {
+    await createExternalProgramCover(
+      transaction,
+      input.programId,
+      input.externalCover,
+    );
   }
+}
+
+export async function createExternalProgramCover(
+  transaction: Prisma.TransactionClient,
+  programId: string,
+  externalCover: ProgramExternalCover,
+): Promise<void> {
+  await transaction.programCover.create({
+    data: { programId, source: 'EXTERNAL', ...externalCover },
+  });
 }
 
 export async function createProgramCover(

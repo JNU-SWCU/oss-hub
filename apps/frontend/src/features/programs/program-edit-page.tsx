@@ -208,6 +208,9 @@ export function ProgramEditPage({
         ...('coverUploadId' in preparedCover
           ? { coverUploadId: preparedCover.coverUploadId }
           : {}),
+        ...('externalCover' in preparedCover
+          ? { externalCover: preparedCover.externalCover }
+          : {}),
       });
       cover.saved();
       setState({ kind: 'ready', program: updated });

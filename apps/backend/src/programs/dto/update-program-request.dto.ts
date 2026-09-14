@@ -7,17 +7,10 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  Matches,
-  MaxLength,
 } from 'class-validator';
+import { ProgramCoverRequestDto } from './program-cover-request.dto';
 
-export class UpdateProgramRequestDto {
-  @IsOptional()
-  @IsString()
-  @Matches(/^\S+$/u)
-  @MaxLength(128)
-  declare readonly coverUploadId?: string | null;
-
+export class UpdateProgramRequestDto extends ProgramCoverRequestDto {
   @IsString()
   @IsNotEmpty()
   declare name: string;

@@ -148,6 +148,17 @@ describe('StudentDashboardService', () => {
     expect(items[0]).not.toHaveProperty('storageKey');
   });
 
+  it('projects an external cover directly on the student dashboard', async () => {
+    const imageUrl = 'https://sojoong.kr/wp-content/uploads/synthetic.jpg';
+    findParticipatingApplications.mockResolvedValue([
+      application({
+        program: { ...program([]), cover: { id: 'external-1', imageUrl } },
+      }),
+    ]);
+    const items = await service.getStudentDashboard(404n);
+    expect(items[0]?.coverImageUrl).toBe(imageUrl);
+  });
+
   it('projects a null cover when the program has no cover', async () => {
     findParticipatingApplications.mockResolvedValue([application()]);
 
@@ -645,7 +656,9 @@ describe('StudentDashboardReadRepository', () => {
     const programSelect = args.select?.program as {
       readonly select?: { readonly cover?: unknown };
     };
-    expect(programSelect.select?.cover).toEqual({ select: { id: true } });
+    expect(programSelect.select?.cover).toEqual({
+      select: { id: true, imageUrl: true },
+    });
     // 신청자 스칼라는 표시 이름의 원본이 아니다 — 아예 읽지 않는다.
     expect(args.select).not.toHaveProperty('applicant');
   });
