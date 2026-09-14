@@ -39,6 +39,12 @@ export class E2eProgramAuthoringController {
     return this.service.fixture();
   }
 
+  @Post('repository-evidence')
+  async repositoryEvidence(@Req() request: Request) {
+    this.requireLoopback(request);
+    return await this.execute(() => this.service.repositoryEvidence());
+  }
+
   @Post('adopt')
   async adopt(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
     this.requireLoopback(request);

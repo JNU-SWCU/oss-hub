@@ -295,8 +295,6 @@ describe('loadProgramApplyContext', () => {
       canManage: true,
       initialValues: {
         isRepositoryPublicationPlanned: true,
-        repositoryConnectionMode: 'new',
-        repositoryUrl: '',
         personalDataConsent: false,
       },
     });
@@ -358,8 +356,6 @@ describe('loadProgramApplyContext', () => {
       canManage: true,
       initialValues: {
         isRepositoryPublicationPlanned: true,
-        repositoryConnectionMode: 'new',
-        repositoryUrl: '',
         personalDataConsent: false,
       },
     });
@@ -408,8 +404,6 @@ describe('loadProgramApplyContext', () => {
       initialValues: {
         title: 'Existing title',
         isRepositoryPublicationPlanned: false,
-        repositoryConnectionMode: 'new',
-        repositoryUrl: '',
         personalDataConsent: true,
       },
     });

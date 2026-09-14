@@ -44,6 +44,8 @@ describe('ProgramTeamsService.getForStaff', () => {
         id: TEAM_ID,
         name: '오픈소스팀',
         leaderId: 'user-b',
+        repositoryContributions: null,
+        repositoryUrlHistory: { items: [], nextCursor: null },
         members: [
           { userId: 'user-a', nickname: 'login-a', name: '가나다' },
           { userId: 'user-b', nickname: 'login-b', name: '라마바' },
@@ -73,6 +75,8 @@ describe('ProgramTeamsService.getForStaff', () => {
         id: TEAM_ID,
         name: '오픈소스팀',
         leaderId: 'user-a',
+        repositoryContributions: null,
+        repositoryUrlHistory: { items: [], nextCursor: null },
         members: [{ userId: 'user-a', nickname: 'login-a', name: '가나다' }],
         application: {
           id: 'application-1',
@@ -134,6 +138,8 @@ describe('ProgramTeamsService.getForStaff', () => {
         id: TEAM_ID,
         name: '오픈소스팀',
         leaderId: 'user-a',
+        repositoryContributions: null,
+        repositoryUrlHistory: { items: [], nextCursor: null },
         members: [{ userId: 'user-a', nickname: 'login-a', name: '가나다' }],
         application: {
           id: 'application-1',
@@ -161,6 +167,8 @@ describe('ProgramTeamsService.getForStaff', () => {
     expect(payload).toEqual({
       teamId: TEAM_ID,
       name: '오픈소스팀',
+      repositoryContributions: null,
+      repositoryUrlHistory: { items: [], nextCursor: null },
       memberCount: 1,
       members: [
         {
@@ -240,6 +248,8 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
       application: { findFirst: applicationFindFirst },
       outboxEvent: { findUnique: outboxFindUnique },
       repositoryProvisionJob: { findUnique: jobFindUnique },
+      contribution: { groupBy: jest.fn().mockResolvedValue([]) },
+      auditLog: { findMany: jest.fn().mockResolvedValue([]) },
     };
     return {
       repository: new ProgramTeamsRepository(prisma as never),
@@ -268,7 +278,10 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
         name: '오픈소스팀',
         leaderId: 'user-a',
         members: [
-          { userId: 'user-a', user: { nickname: 'login-a', name: '가나다' } },
+          {
+            userId: 'user-a',
+            user: { githubId: 101n, nickname: 'login-a', name: '가나다' },
+          },
         ],
       },
       application: null,
@@ -292,7 +305,10 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
         name: '서류 전용 팀',
         leaderId: 'user-a',
         members: [
-          { userId: 'user-a', user: { nickname: 'login-a', name: '가나다' } },
+          {
+            userId: 'user-a',
+            user: { githubId: 101n, nickname: 'login-a', name: '가나다' },
+          },
         ],
       },
       application: {
@@ -305,9 +321,12 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
           id: 'repository-1',
           nameWithOwner: 'org/repo',
           visibility: 'PRIVATE',
+          lastSuccessAt: null,
+          failureCount: 0,
         },
         program: {
           repositoryProvisioningEnabled: true,
+          startAt: new Date('2026-08-01T00:00:00.000Z'),
           endAt: new Date('2026-08-12T00:00:00.000Z'),
           milestones: [
             { id: 'milestone-1', documents: [{ id: 'document-1' }] },

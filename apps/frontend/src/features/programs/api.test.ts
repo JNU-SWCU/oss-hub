@@ -147,8 +147,6 @@ describe('createApplication', () => {
       answers: {},
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: true,
-      repositoryConnectionMode: 'new',
-      repositoryUrl: '',
     });
 
     expect(apiClient).toHaveBeenCalledWith(
@@ -159,8 +157,6 @@ describe('createApplication', () => {
           answers: {},
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: 'NEW',
-          repositoryUrl: null,
         }),
       }),
     );
@@ -182,8 +178,6 @@ describe('createApplication', () => {
       answers: { title: '제목' },
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: false,
-      repositoryConnectionMode: 'new',
-      repositoryUrl: 'https://github.com/ignored/when-new',
     });
 
     expect(apiClient).toHaveBeenCalledWith(
@@ -194,15 +188,13 @@ describe('createApplication', () => {
           answers: { title: '제목' },
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: false,
-          repositoryConnectionMode: 'NEW',
-          repositoryUrl: null,
         }),
       }),
     );
     expect(result).toEqual(response);
   });
 
-  it('own 선택 시 OWN 과 trim 한 repositoryUrl 을 보낸다', async () => {
+  it('새 신청서에는 저장소 선택을 보내지 않는다', async () => {
     const response = {
       id: 'app-3',
       programId: 'program-1',
@@ -217,8 +209,6 @@ describe('createApplication', () => {
       answers: {},
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: true,
-      repositoryConnectionMode: 'own',
-      repositoryUrl: '  https://github.com/team/repo  ',
     });
 
     expect(apiClient).toHaveBeenCalledWith(
@@ -229,23 +219,19 @@ describe('createApplication', () => {
           answers: {},
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: true,
-          repositoryConnectionMode: 'OWN',
-          repositoryUrl: 'https://github.com/team/repo',
         }),
       }),
     );
     expect(result).toEqual(response);
   });
 
-  it('저장소 발급이 꺼진 프로그램은 mode와 URL을 null로 보낸다', async () => {
+  it('저장소 발급이 꺼진 프로그램도 선택 필드를 보내지 않는다', async () => {
     vi.mocked(apiClient).mockResolvedValue({ id: 'app-disabled' });
 
     await createApplication('program-1', {
       answers: {},
       applicationTemplateVersion: 1,
       isRepositoryPublicationPlanned: false,
-      repositoryConnectionMode: null,
-      repositoryUrl: '',
     });
 
     expect(apiClient).toHaveBeenCalledWith(
@@ -255,8 +241,6 @@ describe('createApplication', () => {
           answers: {},
           applicationTemplateVersion: 1,
           isRepositoryPublicationPlanned: false,
-          repositoryConnectionMode: null,
-          repositoryUrl: null,
         }),
       }),
     );

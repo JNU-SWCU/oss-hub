@@ -91,6 +91,7 @@ export function provisionContext(
     teamId: null,
     subjectName: 'Synthetic Student',
     repository: null,
+    currentRepositorySource: null,
     currentMemberGithubLogins: [...CURRENT_MEMBER_GITHUB_LOGINS],
     membershipFingerprint: MEMBERSHIP_FINGERPRINT,
     ...overrides,

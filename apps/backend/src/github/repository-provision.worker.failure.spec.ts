@@ -1,5 +1,5 @@
 import { ApplicationStatus } from '@prisma/client';
-import { RepositoryInvitationStatus } from '@prisma/client';
+import { RepositoryInvitationStatus, RepositorySource } from '@prisma/client';
 import {
   githubClientMock,
   grantInvitationWork,
@@ -87,18 +87,21 @@ describe('RepositoryProvisionWorker failure', () => {
     // Given: 백필 이전 outbox payload는 teamId null이고 context는 백필된 teamId다.
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
-    state.loadContext.mockResolvedValue(
-      provisionContext({
-        teamId: 'synthetic-backfilled-team',
-        eventPayload: {
-          applicationId: 'synthetic-application-id',
-          programId: 'synthetic-program-id',
-          teamId: null,
-          requestedAt: PROVISION_NOW.toISOString(),
-          collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
-        },
-      }),
-    );
+    const claimed = provisionContext({
+      teamId: 'synthetic-backfilled-team',
+      eventPayload: {
+        applicationId: 'synthetic-application-id',
+        programId: 'synthetic-program-id',
+        teamId: null,
+        requestedAt: PROVISION_NOW.toISOString(),
+        collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
+      },
+    });
+    state.loadContext.mockResolvedValueOnce(claimed).mockResolvedValueOnce({
+      ...claimed,
+      repository: PROVISION_REPOSITORY,
+      currentRepositorySource: RepositorySource.ORG_PROVISIONED,
+    });
     const github = githubClientMock();
     const worker = new RepositoryProvisionWorker(
       jobs,
@@ -332,7 +335,10 @@ describe('RepositoryProvisionWorker failure', () => {
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
     state.loadContext.mockResolvedValue(
-      provisionContext({ repository: PROVISION_REPOSITORY }),
+      provisionContext({
+        repository: PROVISION_REPOSITORY,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
+      }),
     );
     state.findInvitationWork.mockResolvedValue([
       grantInvitationWork({
@@ -377,6 +383,7 @@ describe('RepositoryProvisionWorker failure membership guard', () => {
     state.loadContext.mockResolvedValue(
       provisionContext({
         repository: PROVISION_REPOSITORY,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
         currentMemberGithubLogins: [],
       }),
     );
@@ -413,6 +420,7 @@ describe('RepositoryProvisionWorker failure membership guard', () => {
     state.loadContext.mockResolvedValue(
       provisionContext({
         repository: PROVISION_REPOSITORY,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
         currentMemberGithubLogins: [],
       }),
     );
@@ -506,6 +514,7 @@ describe('RepositoryProvisionWorker revocation failure', () => {
     state.loadContext.mockResolvedValue(
       provisionContext({
         repository: PROVISION_REPOSITORY,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
         currentMemberGithubLogins: [],
       }),
     );
@@ -551,6 +560,7 @@ describe('RepositoryProvisionWorker revocation failure', () => {
     state.loadContext.mockResolvedValue(
       provisionContext({
         repository: PROVISION_REPOSITORY,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
         currentMemberGithubLogins: ['synthetic-stay'],
       }),
     );
@@ -621,6 +631,7 @@ describe('RepositoryProvisionWorker revocation failure', () => {
     state.loadContext.mockResolvedValue(
       provisionContext({
         repository: PROVISION_REPOSITORY,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
         currentMemberGithubLogins: [],
       }),
     );
@@ -665,6 +676,7 @@ describe('RepositoryProvisionWorker revocation failure', () => {
     state.loadContext.mockResolvedValue(
       provisionContext({
         repository: PROVISION_REPOSITORY,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
         currentMemberGithubLogins: ['synthetic-stay'],
       }),
     );

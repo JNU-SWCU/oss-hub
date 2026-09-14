@@ -61,6 +61,10 @@ const APPLICATION_IDS = [
   'synthetic-worker-stale-membership',
   'synthetic-worker-invitation-cas',
   'synthetic-worker-final-failure-rearm',
+  'synthetic-worker-current-relink',
+  'synthetic-worker-new-external-current',
+  'synthetic-worker-own-managed-current',
+  'synthetic-worker-own-org-create',
 ] as const;
 const APPLICANT_LOGIN = 'synthetic-worker-applicant';
 /** 표기가 섞인 회원 — 정규화 없이 비교하면 같은 사람을 둘로 읽는다. */
@@ -79,6 +83,11 @@ const GHOST_USER = {
 const OWN_GITHUB_REPOSITORY_ID = 8_520_000_001n;
 const OWN_NAME_WITH_OWNER = 'synthetic-student/synthetic-own-repo';
 const OWN_REPOSITORY_URL = `https://github.com/${OWN_NAME_WITH_OWNER}`;
+const PREVIOUS_MANAGED_GITHUB_REPOSITORY_ID = 8_520_000_101n;
+const CURRENT_MANAGED_GITHUB_REPOSITORY_ID = 8_520_000_102n;
+const NEW_EXTERNAL_CURRENT_GITHUB_REPOSITORY_ID = 8_520_000_103n;
+const OWN_MANAGED_CURRENT_GITHUB_REPOSITORY_ID = 8_520_000_104n;
+const OWN_ORG_CREATE_GITHUB_REPOSITORY_ID = 8_520_000_105n;
 
 type ProvisionGithubClient = jest.Mocked<
   Pick<
@@ -127,7 +136,25 @@ describe('RepositoryProvisionWorker integration', () => {
 
   afterEach(async () => {
     await prisma.repositoryInvitation.deleteMany({
-      where: { repository: { applicationId: { in: [...APPLICATION_IDS] } } },
+      where: {
+        OR: [
+          { repository: { applicationId: { in: [...APPLICATION_IDS] } } },
+          {
+            repository: {
+              githubRepositoryId: {
+                in: [
+                  OWN_GITHUB_REPOSITORY_ID,
+                  PREVIOUS_MANAGED_GITHUB_REPOSITORY_ID,
+                  CURRENT_MANAGED_GITHUB_REPOSITORY_ID,
+                  NEW_EXTERNAL_CURRENT_GITHUB_REPOSITORY_ID,
+                  OWN_MANAGED_CURRENT_GITHUB_REPOSITORY_ID,
+                  OWN_ORG_CREATE_GITHUB_REPOSITORY_ID,
+                ],
+              },
+            },
+          },
+        ],
+      },
     });
     await prisma.repositoryProvisionJob.deleteMany({
       where: { applicationId: { in: [...APPLICATION_IDS] } },
@@ -139,7 +166,18 @@ describe('RepositoryProvisionWorker integration', () => {
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
     await prisma.githubRepository.deleteMany({
-      where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID },
+      where: {
+        githubRepositoryId: {
+          in: [
+            OWN_GITHUB_REPOSITORY_ID,
+            PREVIOUS_MANAGED_GITHUB_REPOSITORY_ID,
+            CURRENT_MANAGED_GITHUB_REPOSITORY_ID,
+            NEW_EXTERNAL_CURRENT_GITHUB_REPOSITORY_ID,
+            OWN_MANAGED_CURRENT_GITHUB_REPOSITORY_ID,
+            OWN_ORG_CREATE_GITHUB_REPOSITORY_ID,
+          ],
+        },
+      },
     });
     await prisma.application.deleteMany({
       where: { id: { in: [...APPLICATION_IDS] } },
@@ -235,6 +273,265 @@ describe('RepositoryProvisionWorker integration', () => {
       attemptCount: 1,
     });
   });
+  it('다른 관리형 private 저장소로 바꾸면 현재 저장소에만 초대를 보내고 이전 성공 초대는 쓰지 않는다', async () => {
+    // Given: NEW 승인 job이 있고, 이전 관리형 저장소의 성공 초대는 분리된 행에
+    // 남으며 현재 연결만 application.repository다.
+    const applicationId = 'synthetic-worker-current-relink';
+    await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
+    await outbox.consumeNext('outbox-worker-current-relink', NOW);
+    const previous = await prisma.githubRepository.create({
+      data: {
+        programId: programId(applicationId),
+        teamId: teamIdFor(applicationId),
+        githubRepositoryId: PREVIOUS_MANAGED_GITHUB_REPOSITORY_ID,
+        nameWithOwner: `synthetic-org/${applicationId}-previous`,
+        visibility: RepositoryVisibility.PRIVATE,
+        source: RepositorySource.ORG_PROVISIONED,
+        presence: CollectionRepositoryPresence.PRESENT,
+      },
+    });
+    await prisma.repositoryInvitation.create({
+      data: {
+        repositoryId: previous.id,
+        githubLogin: APPLICANT_LOGIN,
+        status: RepositoryInvitationStatus.SUCCEEDED,
+      },
+    });
+    const current = await prisma.githubRepository.create({
+      data: {
+        applicationId,
+        programId: programId(applicationId),
+        teamId: teamIdFor(applicationId),
+        githubRepositoryId: CURRENT_MANAGED_GITHUB_REPOSITORY_ID,
+        nameWithOwner: `synthetic-org/${applicationId}-current`,
+        visibility: RepositoryVisibility.PRIVATE,
+        source: RepositorySource.ORG_PROVISIONED,
+        presence: CollectionRepositoryPresence.PRESENT,
+      },
+    });
+    await prisma.repositoryProvisionJob.update({
+      where: { applicationId },
+      data: { repositoryId: current.id },
+    });
+    const github = githubClient();
+    github.ensureCollaborator.mockResolvedValue(
+      COLLABORATOR_OUTCOMES.SUCCEEDED,
+    );
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    // When: 현재 연결 저장소로 provision job을 실행한다.
+    const result = await worker.runNext('provision-worker-current-relink', NOW);
+
+    // Then: 현재 저장소에만 초대를 보내고 이전 성공 행은 그대로다.
+    expect(result.kind).toBe('SUCCEEDED');
+    expect(github.createRepository.mock.calls).toHaveLength(0);
+    expect(github.ensureCollaborator.mock.calls).toEqual([
+      [`${applicationId}-current`, APPLICANT_LOGIN],
+    ]);
+    await expect(
+      prisma.repositoryInvitation.findMany({
+        where: { repositoryId: current.id },
+        select: { githubLogin: true, status: true },
+      }),
+    ).resolves.toEqual([
+      {
+        githubLogin: APPLICANT_LOGIN,
+        status: RepositoryInvitationStatus.SUCCEEDED,
+      },
+    ]);
+    await expect(
+      prisma.repositoryInvitation.findMany({
+        where: { repositoryId: previous.id },
+        select: { githubLogin: true, status: true },
+      }),
+    ).resolves.toEqual([
+      {
+        githubLogin: APPLICANT_LOGIN,
+        status: RepositoryInvitationStatus.SUCCEEDED,
+      },
+    ]);
+  });
+  it('원래 NEW 이벤트여도 현재 EXTERNAL_PUBLIC 행이면 관리형 초대를 건너뛴다', async () => {
+    // Given: 승인 이벤트는 NEW이고 현재 연결만 외부 공개 저장소다.
+    const applicationId = 'synthetic-worker-new-external-current';
+    await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
+    await outbox.consumeNext('outbox-worker-new-external', NOW);
+    await prisma.githubRepository.create({
+      data: {
+        applicationId,
+        programId: programId(applicationId),
+        teamId: teamIdFor(applicationId),
+        githubRepositoryId: NEW_EXTERNAL_CURRENT_GITHUB_REPOSITORY_ID,
+        nameWithOwner: `synthetic-student/${applicationId}-external`,
+        visibility: RepositoryVisibility.PUBLIC,
+        source: RepositorySource.EXTERNAL_PUBLIC,
+        presence: CollectionRepositoryPresence.PRESENT,
+      },
+    });
+    await prisma.repositoryProvisionJob.update({
+      where: { applicationId },
+      data: {
+        repositoryId: (
+          await prisma.githubRepository.findUniqueOrThrow({
+            where: { applicationId },
+          })
+        ).id,
+      },
+    });
+    const github = githubClient();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    // When
+    const result = await worker.runNext('provision-worker-new-external', NOW);
+
+    // Then: 이벤트 NEW를 쓰지 않고 현재 외부 행에 초대를 보내지 않는다.
+    expect(result.kind).toBe('SUCCEEDED');
+    expect(github.createRepository.mock.calls).toHaveLength(0);
+    expect(github.ensureCollaborator.mock.calls).toHaveLength(0);
+    expect(github.findPublicRepository.mock.calls).toHaveLength(0);
+    await expect(
+      prisma.repositoryInvitation.count({
+        where: {
+          repository: {
+            githubRepositoryId: NEW_EXTERNAL_CURRENT_GITHUB_REPOSITORY_ID,
+          },
+        },
+      }),
+    ).resolves.toBe(0);
+  });
+
+  it('원래 OWN 이벤트여도 현재 ORG_PROVISIONED 행이면 현재 저장소에 초대한다', async () => {
+    // Given: 승인 이벤트는 OWN이고 현재 연결은 관리형 private 저장소다.
+    const applicationId = 'synthetic-worker-own-managed-current';
+    await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN], {
+      connectionMode: 'OWN',
+      repositoryUrl: OWN_REPOSITORY_URL,
+    });
+    await outbox.consumeNext('outbox-worker-own-managed', NOW);
+    const current = await prisma.githubRepository.create({
+      data: {
+        applicationId,
+        programId: programId(applicationId),
+        teamId: teamIdFor(applicationId),
+        githubRepositoryId: OWN_MANAGED_CURRENT_GITHUB_REPOSITORY_ID,
+        nameWithOwner: `synthetic-org/${applicationId}-managed`,
+        visibility: RepositoryVisibility.PRIVATE,
+        source: RepositorySource.ORG_PROVISIONED,
+        presence: CollectionRepositoryPresence.PRESENT,
+      },
+    });
+    await prisma.repositoryProvisionJob.update({
+      where: { applicationId },
+      data: { repositoryId: current.id },
+    });
+    const github = githubClient();
+    github.ensureCollaborator.mockResolvedValue(
+      COLLABORATOR_OUTCOMES.SUCCEEDED,
+    );
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    // When
+    const result = await worker.runNext('provision-worker-own-managed', NOW);
+
+    // Then: 현재 행에만 초대하고 완료 전까지 관리형 경로를 유지한다.
+    expect(result.kind).toBe('SUCCEEDED');
+    expect(github.createRepository.mock.calls).toHaveLength(0);
+    expect(github.findPublicRepository.mock.calls).toHaveLength(0);
+    expect(github.ensureCollaborator.mock.calls).toEqual([
+      [`${applicationId}-managed`, APPLICANT_LOGIN],
+    ]);
+    await expect(
+      prisma.repositoryInvitation.findMany({
+        where: { repositoryId: current.id },
+        select: { githubLogin: true, status: true },
+      }),
+    ).resolves.toEqual([
+      {
+        githubLogin: APPLICANT_LOGIN,
+        status: RepositoryInvitationStatus.SUCCEEDED,
+      },
+    ]);
+    await expect(
+      prisma.repositoryProvisionJob.findUniqueOrThrow({
+        where: { applicationId },
+      }),
+    ).resolves.toMatchObject({
+      status: RepositoryProvisionJobStatus.SUCCEEDED,
+      repositoryId: current.id,
+    });
+  });
+  it('처음 OWN+행 없음이 조직 저장소로 기록되면 초대를 보내고 재조회를 남긴다', async () => {
+    // Given: OWN 승인에 현재 행이 없고 조직 안 저장소가 App으로 확인된다.
+    const applicationId = 'synthetic-worker-own-org-create';
+    const repositoryUrl = `https://github.com/synthetic-org/${applicationId}`;
+    await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN], {
+      connectionMode: 'OWN',
+      repositoryUrl,
+    });
+    await outbox.consumeNext('outbox-worker-own-org-create', NOW);
+    const github = githubClient();
+    github.findRepository.mockResolvedValue({
+      githubRepositoryId: OWN_ORG_CREATE_GITHUB_REPOSITORY_ID,
+      name: applicationId,
+      url: repositoryUrl,
+      nameWithOwner: `synthetic-org/${applicationId}`,
+      visibility: RepositoryVisibility.PRIVATE,
+      description: null,
+    });
+    github.ensureCollaborator.mockResolvedValue(COLLABORATOR_OUTCOMES.PENDING);
+    const enrollExternalRepository = jest.fn();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository,
+    });
+
+    // When: 현재 행 없이 첫 provision을 실행한다.
+    const result = await worker.runNext('provision-worker-own-org-create', NOW);
+
+    // Then: 기록된 ORG_PROVISIONED가 초대를 만들고 관리형 재조회를 남긴다.
+    expect(result.kind).toBe('SUCCEEDED');
+    expect(github.findPublicRepository.mock.calls).toHaveLength(0);
+    expect(github.createRepository.mock.calls).toHaveLength(0);
+    expect(enrollExternalRepository).not.toHaveBeenCalled();
+    expect(github.ensureCollaborator.mock.calls).toEqual([
+      [applicationId, APPLICANT_LOGIN],
+    ]);
+    const recorded = await prisma.githubRepository.findUniqueOrThrow({
+      where: { applicationId },
+    });
+    expect(recorded).toMatchObject({
+      githubRepositoryId: OWN_ORG_CREATE_GITHUB_REPOSITORY_ID,
+      source: RepositorySource.ORG_PROVISIONED,
+    });
+    await expect(
+      prisma.repositoryInvitation.findMany({
+        where: { repositoryId: recorded.id },
+        select: { githubLogin: true, status: true },
+      }),
+    ).resolves.toEqual([
+      {
+        githubLogin: APPLICANT_LOGIN,
+        status: RepositoryInvitationStatus.PENDING,
+      },
+    ]);
+    await expect(
+      prisma.repositoryProvisionJob.findUniqueOrThrow({
+        where: { applicationId },
+      }),
+    ).resolves.toMatchObject({
+      status: RepositoryProvisionJobStatus.SUCCEEDED,
+      repositoryId: recorded.id,
+      nextAttemptAt: new Date(
+        NOW.getTime() + DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
+      ),
+    });
+  });
+
   it('일부 초대 재시도에서 repository를 다시 만들지 않는다', async () => {
     // Given: 첫 실행에서 두 번째 invitation만 일시 실패한다.
     const applicationId = APPLICATION_IDS[1];

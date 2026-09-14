@@ -4,6 +4,7 @@ import {
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
+  RepositorySource,
 } from '@prisma/client';
 import type { AuditLogService } from '../../audit-log/audit-log.service';
 import {
@@ -77,7 +78,7 @@ export class RepositoriesService {
           !isValidRepositoryIdentity(
             repository.name,
             repository.url,
-            job.application.repositoryConnectionMode,
+            repository.source,
             this.organizationConfig.requireOrganization(),
           )
         ) {
@@ -93,11 +94,18 @@ export class RepositoriesService {
       // 쓰면 개인 신청도 팀 생성 기본명("{닉네임}의 팀")이 표시된다.
       const applicationMode: 'PERSONAL' | 'TEAM' =
         (job.application.team?._count.members ?? 0) > 1 ? 'TEAM' : 'PERSONAL';
+      // 현재 연결 분류는 저장된 GithubRepository.source가 원본이다.
+      // Application.repositoryConnectionMode는 제출 당시 프로비저닝 의도(APP_023)라
+      // 행이 생기기 전 pending에만 쓰고, 존재하는 행의 source를 덮어쓰지 않는다.
+      const connectionMode =
+        repository === null
+          ? job.application.repositoryConnectionMode
+          : connectionModeFromSource(repository.source);
 
       return {
         repositoryId: repository?.id ?? null,
         applicationId: job.application.id,
-        connectionMode: job.application.repositoryConnectionMode,
+        connectionMode,
         applicationMode,
         programName: job.application.program.name,
         displayName:
@@ -192,17 +200,26 @@ export class RepositoriesService {
   }
 }
 
+function connectionModeFromSource(
+  source: RepositorySource,
+): RepositoryConnectionMode {
+  return source === RepositorySource.EXTERNAL_PUBLIC
+    ? RepositoryConnectionMode.OWN
+    : RepositoryConnectionMode.NEW;
+}
+
 function isValidRepositoryIdentity(
   name: string,
   url: string,
-  connectionMode: RepositoryConnectionMode,
+  source: RepositorySource,
   organization: string,
 ): boolean {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(name)) {
     return false;
   }
-  // OWN은 학생이 준 외부 URL을 그대로 쓴다. NEW만 조직 불변식을 강제한다.
-  if (connectionMode === RepositoryConnectionMode.OWN) {
+  // EXTERNAL_PUBLIC은 학생이 준 외부 URL을 그대로 쓴다.
+  // ORG_PROVISIONED만 조직 불변식을 강제한다.
+  if (source === RepositorySource.EXTERNAL_PUBLIC) {
     return parseGithubRepositoryUrl(url) !== null;
   }
   return url === `https://github.com/${organization}/${name}`;

@@ -6,6 +6,7 @@ import {
   RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
+  RepositorySource,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { REPOSITORY_PROVISION_EVENT_TYPE } from '../repository-provision-event';
@@ -93,6 +94,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     const job = await this.prisma.repositoryProvisionJob.findFirst({
       where: claimedJobWhere(jobId, workerId),
       select: {
+        repositoryId: true,
         application: {
           select: {
             id: true,
@@ -116,7 +118,12 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
                 members: { select: teamMemberLoginSelection },
               },
             },
-            repository: { select: repositorySelection },
+            repository: {
+              select: {
+                ...repositorySelection,
+                source: true,
+              },
+            },
           },
         },
       },
@@ -138,16 +145,26 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     if (event === null) {
       throw finalProvisionFailure(PROVISION_ERROR_CODES.INVALID_EVENT);
     }
+    if (job.repositoryId !== null) {
+      if (
+        application.repository === null ||
+        application.repository.id !== job.repositoryId
+      ) {
+        // 현재 연결 행이 있어야 하는데 없거나 job과 다르면 이벤트로 대체하지 않는다.
+        throw finalProvisionFailure(PROVISION_ERROR_CODES.REPOSITORY_MISMATCH);
+      }
+    }
     const team = application.team;
-    if (
-      team === null &&
-      application.repositoryConnectionMode === RepositoryConnectionMode.NEW
-    ) {
-      // NEW 저장소는 팀 구성원 집합이 접근 권한의 원본이다. 그 원본을 읽을 수
+    const requiresManagedMembership =
+      application.repository === null
+        ? application.repositoryConnectionMode === RepositoryConnectionMode.NEW
+        : application.repository.source === RepositorySource.ORG_PROVISIONED;
+    if (team === null && requiresManagedMembership) {
+      // 현재 관리 저장소는 팀 구성원 집합이 접근 권한의 원본이다. 그 원본을 읽을 수
       // 없는 채로 진행하면 빈 목록이 "전원 회수"로 해석된다 — fail closed.
       throw finalProvisionFailure(PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE);
     }
-    // OWN 경로는 초대 없이 본인 저장소를 연결할 뿐이라 팀이 없을 수 있다 —
+    // 외부 저장소 경로는 초대 없이 연결할 뿐이라 팀이 없을 수 있다 —
     // 그 때도 신청자를 목록에 채우지 않고 빈 목록을 그대로 든다.
     const currentMemberGithubLogins =
       team === null ? [] : loginsFromTeamMembers(team.members);
@@ -169,6 +186,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
         application.repository === null
           ? null
           : toProvisionedRepository(application.repository),
+      currentRepositorySource: application.repository?.source ?? null,
     };
   }
 
