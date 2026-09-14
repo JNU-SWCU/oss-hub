@@ -76,7 +76,11 @@ export function ProgramAuthoringReviewStep({
               <ReviewFact label="주관" value={state.organizer} />
               <ReviewFact
                 label="대표 이미지"
-                value={state.coverFile?.name ?? '없음'}
+                value={
+                  state.externalCover
+                    ? '공지에서 가져온 이미지'
+                    : (state.coverFile?.name ?? '없음')
+                }
               />
               <ReviewFact
                 label="팀 인원"

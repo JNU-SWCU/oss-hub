@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ProgramCover } from '@/components';
-import { apiPath } from '@/lib/api-client';
+import { programCoverSource } from '@/components/program-cover-source';
 import type { ReactElement, ReactNode } from 'react';
 import { DataTable, StatusBadge, type DataTableColumn } from '@/components';
 import {
@@ -118,7 +118,7 @@ function ProgramIdentity({
     <div className="flex min-w-0 items-start gap-3">
       <ProgramCover
         size="thumbnail"
-        src={program.coverImageUrl ? apiPath(program.coverImageUrl) : null}
+        src={programCoverSource(program.coverImageUrl)}
       />
       <div className="grid min-w-0 gap-1">
         <CardTitle className="break-keep text-base">

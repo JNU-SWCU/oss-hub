@@ -3,6 +3,10 @@
 import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
+  isExternalProgramCover,
+  type ProgramCoverSelection,
+} from './program-cover-selection';
+import {
   Field,
   FieldDescription,
   FieldError,
@@ -25,7 +29,7 @@ export function validateProgramCover(
 }
 
 export interface ProgramCoverFieldProps {
-  readonly selection: File | null | undefined;
+  readonly selection: ProgramCoverSelection;
   readonly currentImageUrl?: string | null;
   readonly disabled?: boolean;
   readonly serverError?: string;
@@ -113,7 +117,9 @@ export function ProgramCoverField({
         className="break-all text-sm text-muted-foreground"
         role={selection ? 'status' : undefined}
       >
-        {selection?.name ??
+        {(isExternalProgramCover(selection)
+          ? '공지에서 가져온 이미지'
+          : selection?.name) ??
           (hasImage ? '현재 대표 이미지' : '선택한 이미지 없음')}
       </p>
       <FieldDescription id={`${id}-hint`}>

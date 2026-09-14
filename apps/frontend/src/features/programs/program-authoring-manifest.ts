@@ -1,8 +1,10 @@
 import type { ProgramTrackType } from './program-templates';
 import type { ProgramAuthoringState } from './program-authoring-model';
+import type { ExternalProgramCover } from './program-cover-selection';
 
 export type ProgramAuthoringManifest = {
   readonly coverUploadId?: string;
+  readonly externalCover?: ExternalProgramCover;
   readonly name: string;
   readonly organizer: string;
   readonly trackType: ProgramTrackType;
@@ -59,9 +61,11 @@ export function buildProgramAuthoringManifest(
   uploadIds: ReadonlyMap<string, string>,
 ): ProgramAuthoringManifest {
   return {
-    ...(state.coverFile && uploadIds.has('program-cover')
-      ? { coverUploadId: uploadIds.get('program-cover') }
-      : {}),
+    ...(state.externalCover
+      ? { externalCover: state.externalCover }
+      : state.coverFile && uploadIds.has('program-cover')
+        ? { coverUploadId: uploadIds.get('program-cover') }
+        : {}),
     name: state.name.trim(),
     organizer: state.organizer.trim(),
     trackType: state.trackType as ProgramTrackType,

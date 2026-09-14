@@ -100,6 +100,9 @@ export class ProgramMilestoneEditResponseDto {
 }
 
 export class EditableProgramResponseDto {
+  readonly externalCover: NonNullable<
+    EditableProgramView['externalCover']
+  > | null;
   readonly coverImageUrl: string | null;
   readonly id: string;
   readonly name: string;
@@ -122,6 +125,7 @@ export class EditableProgramResponseDto {
   readonly teamMaxSize: number;
 
   private constructor(program: EditableProgramView) {
+    this.externalCover = program.externalCover ?? null;
     this.coverImageUrl = program.coverImageUrl ?? null;
     this.id = program.id;
     this.name = program.name;

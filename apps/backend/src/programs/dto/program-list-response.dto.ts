@@ -28,7 +28,11 @@ export class ProgramListResponseDto {
   readonly pendingApplicationCount?: number;
 
   private constructor(program: PersonalizedProgramListItem) {
-    this.coverImageUrl = programCoverImageUrl(program.id, program.coverId);
+    this.coverImageUrl = programCoverImageUrl(
+      program.id,
+      program.coverId,
+      program.coverExternalImageUrl,
+    );
     this.id = program.id;
     this.name = program.name;
     this.organizer = program.organizer;

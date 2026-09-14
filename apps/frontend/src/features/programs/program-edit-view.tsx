@@ -11,6 +11,7 @@ import type {
 } from './api';
 import { ProgramEditBasicForm } from './program-edit-basic-form';
 import { ProgramCoverPreview } from './program-cover-preview';
+import type { ProgramCoverSelection } from './program-cover-selection';
 import { ProgramEditScheduleEditor } from './program-edit-schedule-editor';
 import { ProgramEditDangerZoneSection } from './program-edit-danger-zone-section';
 import { ProgramEditMilestones } from './program-edit-milestones';
@@ -33,8 +34,8 @@ const FORM_WIDTH = 'max-w-4xl';
 const SECTIONS = 'flex min-w-0 flex-col gap-16';
 
 interface ProgramEditViewProps {
-  readonly coverSelection?: File | null;
-  readonly onCoverChange: (file: File | null | undefined) => void;
+  readonly coverSelection?: ProgramCoverSelection;
+  readonly onCoverChange: (selection: ProgramCoverSelection) => void;
   readonly program: EditableProgram;
   readonly form: ProgramEditForm;
   readonly errors: ProgramEditErrors;
