@@ -13,6 +13,8 @@ import {
   assertTabSequence,
   captureResponsiveMenu,
   captureResponsivePage,
+  captureTask9State,
+  TASK_9_VIEWPORTS,
 } from './support/member-access-visual';
 import {
   UNIONED_MENU_CASES,
@@ -95,7 +97,14 @@ function adminDirectoryReads(): MemberAccessApiHandlers {
 
 function menuReadsFor(authority: SyntheticAuthority): MemberAccessApiHandlers {
   return {
-    ...(authority.memberKind === 'STUDENT' ? studentMenuReads() : {}),
+    ...(authority.memberKind === 'STUDENT'
+      ? {
+          ...studentMenuReads(),
+          'GET /api/v1/dashboard/student': jsonHandler({ items: [] }),
+          'GET /api/v1/users/me/notifications/application-decisions':
+            jsonHandler([]),
+        }
+      : {}),
     ...(authority.hasStaffAccess ? staffMenuReads() : {}),
     ...(authority.hasAdminAccess ? adminDirectoryReads() : {}),
   };
@@ -197,7 +206,94 @@ async function captureMenuCase(
     for (const label of scenario.hidden) {
       await expect(page.getByText(label, { exact: true })).toHaveCount(0);
     }
+    if (scenario.name.startsWith('student-staff-')) {
+      await assertStudentStaffDestinations(page, scenario.path);
+    }
     await captureResponsiveMenu(page, testInfo, `menu-${scenario.name}`);
+    audit.assertClean();
+  } finally {
+    await context.close();
+  }
+}
+
+function studentStaffLink(page: Page, label: '내 대시보드' | '운영 대시보드') {
+  return page
+    .locator('[data-slot="app-sidebar-nav"]')
+    .getByRole('link', { name: label, exact: true });
+}
+
+async function assertStudentStaffDestinations(
+  page: Page,
+  path: string,
+): Promise<void> {
+  const personal = studentStaffLink(page, '내 대시보드');
+  const operating = studentStaffLink(page, '운영 대시보드');
+  await expect(personal).toHaveAttribute('href', '/dashboard/personal');
+  await expect(operating).toHaveAttribute('href', '/dashboard');
+  if (path === '/dashboard/personal') {
+    await expect(personal).toHaveAttribute('aria-current', 'page');
+    await expect(operating).not.toHaveAttribute('aria-current', 'page');
+    return;
+  }
+  await expect(operating).toHaveAttribute('aria-current', 'page');
+  await expect(personal).not.toHaveAttribute('aria-current', 'page');
+}
+
+async function captureStudentStaffCompactHeader(
+  browser: Browser,
+  testInfo: TestInfo,
+): Promise<void> {
+  const authority: SyntheticAuthority = {
+    role: 'STUDENT',
+    memberKind: 'STUDENT',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
+  };
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const audit = installBrowserAudit(page);
+  try {
+    await installSyntheticAuthority(page, authority, menuReadsFor(authority));
+    await page.goto('/dashboard/personal');
+    const accountMenu = page.getByRole('button', {
+      name: 'synthetic-member-access 계정 메뉴, 학생 · 교직원',
+    });
+    for (const viewport of TASK_9_VIEWPORTS) {
+      await page.setViewportSize(viewport);
+      const summary = page.getByLabel('학생 · 교직원 권한');
+      if (viewport.name === 'narrow') {
+        await expect(summary).toBeVisible();
+        await expect(summary).toHaveText('권한 2개');
+        await expect(
+          page.getByLabel('학생 권한', { exact: true }),
+        ).toBeHidden();
+        await expect(
+          page.getByLabel('교직원 권한', { exact: true }),
+        ).toBeHidden();
+      } else {
+        await expect(summary).toBeHidden();
+        await expect(
+          page.getByLabel('학생 권한', { exact: true }),
+        ).toBeVisible();
+        await expect(
+          page.getByLabel('교직원 권한', { exact: true }),
+        ).toBeVisible();
+      }
+      await accountMenu.click();
+      const menu = page.getByRole('menu', { name: '계정 메뉴' });
+      await expect(menu).toBeVisible();
+      await expect(
+        menu.getByText('학생 · 교직원', { exact: true }),
+      ).toBeVisible();
+      await captureTask9State(
+        page,
+        testInfo,
+        'account-student-staff',
+        viewport,
+      );
+      await page.keyboard.press('Escape');
+      await expect(menu).toHaveCount(0);
+    }
     audit.assertClean();
   } finally {
     await context.close();
@@ -320,7 +416,7 @@ test('staff onboarding omits student ID and reaches pending approval', async ({
   audit.assertClean();
 });
 
-test('unioned menus cover student, staff, student-admin, staff-admin, and admin-only', async ({
+test('unioned menus cover student, staff, student-admin, staff-admin, student-staff, and admin-only', async ({
   browser,
   page,
   adminPage,
@@ -328,6 +424,7 @@ test('unioned menus cover student, staff, student-admin, staff-admin, and admin-
   for (const scenario of UNIONED_MENU_CASES) {
     await captureMenuCase(browser, scenario, testInfo);
   }
+  await captureStudentStaffCompactHeader(browser, testInfo);
 
   const adminOnlyAudit = installBrowserAudit(page);
   const adminOnlyPostRequests: string[] = [];
@@ -399,6 +496,98 @@ test('direct URL denial removes admin surfaces and backend denies staff', async 
     `${e2eEnvironment.baseUrl}/api/v1/users/access`,
   );
   expect(response.status()).toBe(403);
+  audit.assertClean();
+});
+
+test('mixed student-staff seed reaches personal dashboard with distinct destinations', async ({
+  authSeedPage,
+}, testInfo) => {
+  // Failed Chrome oracle (staff-o-c57bd): this persona is not staff-only.
+  // staff-revocable has a studentId, so the public session is STUDENT +
+  // hasStaffAccess and /dashboard/personal already renders.
+  const page = await authSeedPage('staff-revocable');
+  const audit = installBrowserAudit(page);
+  const session = await page.request.get('/api/v1/auth/session');
+  expect(session.ok(), `session ${session.status()}`).toBe(true);
+  expect(await session.json()).toMatchObject({
+    isAuthenticated: true,
+    user: {
+      nickname: 'seed-auth-staff-revocable',
+      memberKind: 'STUDENT',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+      isProfileComplete: true,
+    },
+  });
+  await page.goto('/dashboard/personal');
+  await expect(page).toHaveURL(/\/dashboard\/personal$/);
+  await expect(
+    page.getByRole('heading', { name: '내 대시보드' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: '접근 권한이 없습니다' }),
+  ).toHaveCount(0);
+  await assertStudentStaffDestinations(page, '/dashboard/personal');
+  await captureResponsivePage(
+    page,
+    testInfo,
+    'personal-dashboard-mixed-accepted',
+  );
+  for (const viewport of [
+    { name: 'desktop', width: 1440, height: 900 },
+    { name: 'mobile', width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize({
+      width: viewport.width,
+      height: viewport.height,
+    });
+    const header = page.locator('[data-slot="nav-bar"]');
+    await expect(header).toBeVisible();
+    if (viewport.name === 'mobile') {
+      await expect(page.getByLabel('학생 · 교직원 권한')).toHaveText(
+        '권한 2개',
+      );
+    }
+    await header.screenshot({
+      path: testInfo.outputPath(`mixed-role-${viewport.name}-header.png`),
+    });
+    await page.screenshot({
+      path: testInfo.outputPath(`mixed-role-${viewport.name}-viewport.png`),
+    });
+  }
+  audit.assertClean();
+});
+
+test('non-student admin is denied on the personal dashboard route', async ({
+  authSeedPage,
+}, testInfo) => {
+  const page = await authSeedPage('admin-confirmed');
+  const audit = installBrowserAudit(page);
+  const session = await page.request.get('/api/v1/auth/session');
+  expect(session.ok(), `session ${session.status()}`).toBe(true);
+  expect(await session.json()).toMatchObject({
+    isAuthenticated: true,
+    user: {
+      nickname: 'seed-auth-admin-confirmed',
+      memberKind: 'STAFF',
+      hasStaffAccess: false,
+      hasAdminAccess: true,
+      isProfileComplete: true,
+    },
+  });
+  await page.goto('/dashboard/personal');
+  await expect(page).toHaveURL(/\/dashboard\/personal$/);
+  await expect(
+    page.getByRole('heading', { name: '접근 권한이 없습니다' }),
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: '내 대시보드' })).toHaveCount(
+    0,
+  );
+  await captureResponsivePage(
+    page,
+    testInfo,
+    'personal-dashboard-admin-denied',
+  );
   audit.assertClean();
 });
 

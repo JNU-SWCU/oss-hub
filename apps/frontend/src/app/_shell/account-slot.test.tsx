@@ -22,7 +22,11 @@ vi.mock('@/features/auth/use-session', () => ({
 // 역할칩을 붙이는 조립 로직만 검증하면 되므로, 실제 세션 조회 부작용 없이 표식만
 // 남기는 대역으로 대체한다.
 vi.mock('@/features/auth/components/login-button', () => ({
-  LoginButton: () => <div data-testid="login-button">login-button</div>,
+  LoginButton: ({ accountRoles }: { readonly accountRoles?: string }) => (
+    <div data-testid="login-button" data-account-roles={accountRoles}>
+      login-button
+    </div>
+  ),
 }));
 vi.mock('@/features/programs/team-invitation-notifications', () => ({
   TeamInvitationNotifications: ({
@@ -46,6 +50,8 @@ function mockSession(
     staffAccessRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
     isProfileComplete?: boolean;
     nickname?: string | null;
+    hasStaffAccess?: boolean;
+    hasAdminAccess?: boolean;
   } = {},
 ): void {
   const role = overrides.role ?? null;
@@ -53,8 +59,8 @@ function mockSession(
     status: overrides.status ?? 'assigned',
     role,
     memberKind: role === 'STUDENT' || role === 'STAFF' ? role : null,
-    hasStaffAccess: role === 'STAFF',
-    hasAdminAccess: role === 'ADMIN',
+    hasStaffAccess: overrides.hasStaffAccess ?? role === 'STAFF',
+    hasAdminAccess: overrides.hasAdminAccess ?? role === 'ADMIN',
     staffAccessRequestStatus: overrides.staffAccessRequestStatus ?? null,
     staffAccessRequestRejectionReason: null,
     selectedRole: null,
@@ -82,8 +88,8 @@ function mockSession(
             email: null,
             avatarUrl: null,
             memberKind: role === 'STUDENT' || role === 'STAFF' ? role : null,
-            hasStaffAccess: role === 'STAFF',
-            hasAdminAccess: role === 'ADMIN',
+            hasStaffAccess: overrides.hasStaffAccess ?? role === 'STAFF',
+            hasAdminAccess: overrides.hasAdminAccess ?? role === 'ADMIN',
             isProfileComplete: overrides.isProfileComplete ?? false,
           },
     retry: () => {},
@@ -91,6 +97,24 @@ function mockSession(
 }
 
 describe('AccountSlot', () => {
+  it('복합 권한은 좁은 헤더에서 요약하고 전체 이름을 계정 메뉴로 전달한다', () => {
+    mocks.usePathname.mockReturnValue('/dashboard/personal');
+    mockSession({
+      role: 'STUDENT',
+      isProfileComplete: true,
+      hasStaffAccess: true,
+      hasAdminAccess: true,
+    });
+    const html = renderToStaticMarkup(<AccountSlot />);
+    expect(html).toContain('권한 3개');
+    expect(html).toContain('min-[900px]:hidden');
+    expect(html.match(/hidden min-\[900px\]:inline-flex/g)).toHaveLength(3);
+    expect(html).toContain('data-account-roles="학생 · 교직원 · 관리자"');
+    expect(html).toContain('aria-label="학생 · 교직원 · 관리자 권한"');
+    for (const role of ['학생', '교직원', '관리자'])
+      expect(html).toContain(`aria-label="${role} 권한"`);
+  });
+
   it('가입을 마친 학생에게는 recruiting 톤의 "학생" 역할칩을 붙인다', () => {
     mocks.usePathname.mockReturnValue('/programs');
     mockSession({
@@ -106,6 +130,8 @@ describe('AccountSlot', () => {
     expect(html).toContain('text-status-recruiting-fg');
     expect(html).toContain('aria-label="학생 권한"');
     expect(html).toContain('data-testid="login-button"');
+    expect(html).not.toContain('권한 1개');
+    expect(html).not.toContain('data-account-roles');
   });
 
   it('가입을 마친 학생에게는 팀 초대 알림을 붙인다', () => {
@@ -134,6 +160,7 @@ describe('AccountSlot', () => {
     expect(html).toContain('text-status-approved-fg');
     expect(html).toContain('aria-label="교직원 권한"');
     expect(html).not.toContain('data-testid="team-invitation-notifications"');
+    expect(html).not.toContain('권한 1개');
   });
 
   // PM 결정: ADMIN 전용 색을 새로 만들지 않고 STAFF와 같은 approved 톤을 재사용한다.
@@ -151,38 +178,23 @@ describe('AccountSlot', () => {
 
   it('학생 면이 있는 다중 역할 회원에게는 팀 초대 알림을 붙인다', () => {
     mocks.usePathname.mockReturnValue('/programs');
-    mocks.useSessionRole.mockReturnValue({
+    mockSession({
       status: 'assigned',
       role: 'STUDENT',
-      memberKind: 'STUDENT',
+      isProfileComplete: true,
       hasStaffAccess: true,
       hasAdminAccess: false,
-      staffAccessRequestStatus: null,
-      staffAccessRequestRejectionReason: null,
-      selectedRole: null,
-      isProfileComplete: true,
-      retry: () => {},
-    });
-    mocks.useSession.mockReturnValue({
-      status: 'authenticated',
-      user: {
-        nickname: 'student-staff',
-        name: null,
-        email: null,
-        avatarUrl: null,
-        memberKind: 'STUDENT',
-        hasStaffAccess: true,
-        hasAdminAccess: false,
-        isProfileComplete: true,
-      },
-      retry: () => {},
+      nickname: 'student-staff',
     });
 
     const html = renderToStaticMarkup(<AccountSlot />);
 
     expect(html).toContain('data-testid="team-invitation-notifications"');
+    expect(html).toContain('data-identity="student-staff"');
     expect(html).toContain('학생');
     expect(html).toContain('교직원');
+    expect(html).toContain('권한 2개');
+    expect(html).toContain('data-account-roles="학생 · 교직원"');
   });
 
   it('비로그인 상태에서는 역할칩 없이 기존 로그인 진입만 유지한다', () => {

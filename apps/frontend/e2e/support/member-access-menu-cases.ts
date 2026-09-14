@@ -8,6 +8,14 @@ export interface MenuCase {
   readonly hidden: readonly string[];
 }
 
+const STUDENT_STAFF_VISIBLE = [
+  '내 대시보드',
+  '운영 대시보드',
+  '내 저장소',
+  '내 활동',
+  '학생 활성',
+] as const;
+
 export const UNIONED_MENU_CASES: readonly MenuCase[] = [
   {
     name: 'student',
@@ -56,5 +64,29 @@ export const UNIONED_MENU_CASES: readonly MenuCase[] = [
     },
     visible: ['운영 대시보드', '가입 신청', '사용자 목록', '감사 로그'],
     hidden: ['내 활동'],
+  },
+  {
+    name: 'student-staff-personal',
+    path: '/dashboard/personal',
+    authority: {
+      role: 'STUDENT',
+      memberKind: 'STUDENT',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    },
+    visible: STUDENT_STAFF_VISIBLE,
+    hidden: ['사용자 목록'],
+  },
+  {
+    name: 'student-staff-operating',
+    path: '/dashboard',
+    authority: {
+      role: 'STUDENT',
+      memberKind: 'STUDENT',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+    },
+    visible: STUDENT_STAFF_VISIBLE,
+    hidden: ['사용자 목록'],
   },
 ] as const;
