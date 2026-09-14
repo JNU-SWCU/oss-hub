@@ -292,6 +292,7 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
   await page.locator('label[data-role="STAFF"]').click();
   await page.getByRole('button', { name: '선택 완료' }).click();
   await expect(page).toHaveURL(/\/onboarding\/profile$/);
+  await expect(profileForm).toBeVisible();
   await expect(page.locator('#profile-phone')).toHaveCount(0);
 
   scene = 'settings';
