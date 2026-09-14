@@ -64,6 +64,163 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
     });
   }
 
+  test('반려 안내는 취소와 저장 실패를 보존하고 실제 재승인으로 복구된다', async ({
+    authSeedPage,
+    programAuthoringActorPage,
+  }, testInfo) => {
+    test.setTimeout(90_000);
+    const controlPage = await authSeedPage('admin-confirmed');
+    await resetProgramAuthoringControl(controlPage);
+    const programId = await fixtureProgramId(controlPage);
+    await expectApiStatus(
+      await controlPage.request.post(`${controlPath}/applications`, {
+        data: { mode: 'NEW' },
+      }),
+      201,
+    );
+    const listResponse = await controlPage.request.get(
+      `/api/v1/programs/${encodeURIComponent(programId)}/applications?page=1&pageSize=20`,
+    );
+    await expectApiStatus(listResponse, 200);
+    const { items } = await listResponse.json();
+    expect(items).toHaveLength(1);
+    expect(typeof items[0].id).toBe('string');
+    const decisionPath = `/api/v1/applications/${encodeURIComponent(items[0].id)}`;
+    const staffPage = await programAuthoringActorPage('staff', [
+      { status: 503, pathname: decisionPath },
+    ]);
+    const decisions: string[] = [];
+    staffPage.on('request', (request) => {
+      if (
+        new URL(request.url()).pathname === decisionPath &&
+        request.method() === 'PATCH'
+      ) {
+        decisions.push(request.postData() ?? '');
+      }
+    });
+    await staffPage.goto(
+      `/programs/${encodeURIComponent(programId)}/applicants`,
+    );
+    await staffPage
+      .getByRole('link', { name: '검토하기', exact: true })
+      .click();
+    const reject = staffPage.getByRole('button', { name: '반려', exact: true });
+    await expect(reject).toHaveCount(1);
+    const reviewUrl = staffPage.url();
+    const dialog = staffPage.getByRole('alertdialog');
+    for (const viewport of [
+      { name: 'desktop', width: 1440, height: 900 },
+      { name: 'mobile', width: 390, height: 844 },
+    ]) {
+      await staffPage.setViewportSize({
+        width: viewport.width,
+        height: viewport.height,
+      });
+      // 좁은 dev 화면의 Next 표시기가 버튼을 덮으므로 실제 키보드 경로를 쓴다.
+      await reject.press('Enter');
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toContainText('스스로 다시 신청할 수 없습니다');
+      await expect(dialog).toContainText('다시 승인할 수 있습니다');
+      await expect(dialog).not.toContainText('검토 대기로');
+      await expect(
+        dialog.getByRole('textbox', { name: '반려 사유', exact: true }),
+      ).toBeVisible();
+      await dialog.screenshot({
+        path: testInfo.outputPath(`rejection-${viewport.name}-element.png`),
+      });
+      await staffPage.screenshot({
+        path: testInfo.outputPath(`rejection-${viewport.name}-viewport.png`),
+      });
+      await staffPage.keyboard.press('Escape');
+      await expect(dialog).toHaveCount(0);
+      await expect(reject).toBeFocused();
+      expect(decisions).toEqual([]);
+    }
+    const beforeResponse = await staffPage.request.get(decisionPath);
+    await expectApiStatus(beforeResponse, 200);
+    expect(await beforeResponse.json()).toMatchObject({ status: 'SUBMITTED' });
+
+    await reject.press('Enter');
+    const reason = dialog.getByRole('textbox', {
+      name: '반려 사유',
+      exact: true,
+    });
+    await reason.fill('합성 반려 사유');
+    await staffPage.route(
+      (url) => url.pathname === decisionPath,
+      async (route) => {
+        expect(route.request().method()).toBe('PATCH');
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/problem+json',
+          body: JSON.stringify({
+            type: 'about:blank',
+            title: '합성 저장 장애',
+            status: 503,
+          }),
+        });
+      },
+      { times: 1 },
+    );
+    await dialog
+      .getByRole('button', { name: '반려 확정', exact: true })
+      .click();
+    await expect(dialog.getByRole('alert')).toBeVisible();
+    await expect(reason).toHaveValue('합성 반려 사유');
+    expect(decisions).toHaveLength(1);
+    const failedResponse = await staffPage.request.get(decisionPath);
+    await expectApiStatus(failedResponse, 200);
+    expect(await failedResponse.json()).toMatchObject({ status: 'SUBMITTED' });
+
+    await dialog
+      .getByRole('button', { name: '반려 확정', exact: true })
+      .click();
+    await expect(dialog).toHaveCount(0);
+    expect(decisions).toHaveLength(2);
+    const rejectedResponse = await staffPage.request.get(decisionPath);
+    await expectApiStatus(rejectedResponse, 200);
+    expect(await rejectedResponse.json()).toMatchObject({
+      status: 'REJECTED',
+      rejectionReason: '합성 반려 사유',
+    });
+    const studentPage = await programAuthoringActorPage('student');
+    await studentPage.goto(`/programs/${encodeURIComponent(programId)}/apply`);
+    await expect(
+      studentPage.getByText('합성 반려 사유', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      studentPage.getByRole('button', { name: '신청 제출' }),
+    ).toHaveCount(0);
+
+    await staffPage.goto(reviewUrl);
+    await staffPage
+      .getByRole('button', { name: '승인', exact: true })
+      .press('Enter');
+    await expect(dialog).toContainText('반려 사유는 지워집니다');
+    await dialog
+      .getByRole('button', { name: '승인 확정', exact: true })
+      .click();
+    await expect(dialog).toHaveCount(0);
+    expect(decisions).toHaveLength(3);
+    const approvedResponse = await staffPage.request.get(decisionPath);
+    await expectApiStatus(approvedResponse, 200);
+    expect(await approvedResponse.json()).toMatchObject({
+      status: 'APPROVED',
+      rejectionReason: null,
+    });
+    await writeArtifact('rejection-warning/conditions.json', {
+      tool: 'Playwright Chrome',
+      url: staffPage.url(),
+      role: 'staff',
+      viewports: [
+        { width: 1440, height: 900 },
+        { width: 390, height: 844 },
+      ],
+      syntheticFailure: { status: 503, requests: 1 },
+      realDecisions: ['REJECTED', 'APPROVED'],
+    });
+  });
+
   test('private OWN, inactive and opt-out recipients, stale preview, and cross-team files stay isolated', async ({
     authSeedPage,
     programAuthoringActorPage,
