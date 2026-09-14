@@ -441,6 +441,8 @@ sed 's/- \[x\] submit-pr-evidence 절차를 수행했다/- [x] submit-pr-evidenc
   "$fixture_dir/full-pass.md" >"$fixture_dir/checklist-five-checked.md"
 
 expect_pass '완전한 본문' "$fixture_dir/full-pass.md"
+sed '1s/Closes #1234/Refs #1234/' "$fixture_dir/full-pass.md" >"$fixture_dir/refs-pass.md"
+expect_pass '완료 처리 없는 이슈 참조 본문' "$fixture_dir/refs-pass.md"
 expect_pass '화면 없는 변경의 예외 문구 본문' "$fixture_dir/exemption-pass.md"
 expect_exit '절 하나 빠짐(검증)' 1 "$fixture_dir/missing-section.md"
 expect_fail 'Closes 줄 없음' "$fixture_dir/no-closes.md"
