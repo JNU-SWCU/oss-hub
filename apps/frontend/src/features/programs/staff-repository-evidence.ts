@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { isHttpsGithubOwnerRepoUrl } from './repository-url-api';
 
 export interface RepositoryContributor {
   readonly githubId: string;
@@ -53,12 +54,6 @@ function nullableString(value: unknown): value is string | null {
 function count(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
-function repositoryUrl(value: unknown): value is string {
-  return (
-    typeof value === 'string' &&
-    /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(value)
-  );
-}
 function date(value: unknown): value is string {
   return (
     typeof value === 'string' &&
@@ -82,8 +77,8 @@ function historyItem(value: unknown): value is RepositoryHistoryItem {
     date(value.occurredAt) &&
     typeof value.actorGithubLogin === 'string' &&
     (value.previousRepositoryUrl === null ||
-      repositoryUrl(value.previousRepositoryUrl)) &&
-    repositoryUrl(value.newRepositoryUrl) &&
+      isHttpsGithubOwnerRepoUrl(value.previousRepositoryUrl)) &&
+    isHttpsGithubOwnerRepoUrl(value.newRepositoryUrl) &&
     typeof value.reason === 'string'
   );
 }
@@ -101,7 +96,7 @@ function contributions(value: unknown): value is RepositoryContributions {
   if (!record(value) || !record(value.window)) return false;
   return (
     typeof value.repositoryId === 'string' &&
-    repositoryUrl(value.repositoryUrl) &&
+    isHttpsGithubOwnerRepoUrl(value.repositoryUrl) &&
     date(value.window.from) &&
     date(value.window.to) &&
     value.window.timeZone === 'Asia/Seoul' &&

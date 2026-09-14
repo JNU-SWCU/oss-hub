@@ -17,13 +17,21 @@ export class RepositoryUrlResponseError extends Error {
   }
 }
 
+export function isHttpsGithubOwnerRepoUrl(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(value)
+  );
+}
+
 export function parseRepositoryUrlState(value: unknown): RepositoryUrlState {
   if (
     typeof value !== 'object' ||
     value === null ||
     !('repositoryUrl' in value) ||
     !('canEditRepositoryUrl' in value) ||
-    (value.repositoryUrl !== null && typeof value.repositoryUrl !== 'string') ||
+    (value.repositoryUrl !== null &&
+      !isHttpsGithubOwnerRepoUrl(value.repositoryUrl)) ||
     typeof value.canEditRepositoryUrl !== 'boolean'
   )
     throw new RepositoryUrlResponseError();

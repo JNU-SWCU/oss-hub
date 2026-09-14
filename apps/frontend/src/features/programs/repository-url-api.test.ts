@@ -49,6 +49,35 @@ describe('repository URL contracts', () => {
       RepositoryUrlResponseError,
     );
   });
+  it.each([
+    null,
+    'https://github.com/synthetic/repo',
+    'https://github.com/synthetic/repo/',
+  ] as const)('accepts repositoryUrl %j', (repositoryUrl) => {
+    expect(
+      parseRepositoryUrlState({
+        repositoryUrl,
+        canEditRepositoryUrl: true,
+      }),
+    ).toEqual({ repositoryUrl, canEditRepositoryUrl: true });
+  });
+  it.each([
+    'javascript:alert(1)',
+    'https://example.com/untrusted',
+    'http://github.com/synthetic/repo',
+    'https://github.com/synthetic/repo/issues',
+    'https://github.com.evil.example/synthetic/repo',
+  ])(
+    'rejects unsafe repositoryUrl %j as a clickable href source',
+    (repositoryUrl) => {
+      expect(() =>
+        parseRepositoryUrlState({
+          repositoryUrl,
+          canEditRepositoryUrl: true,
+        }),
+      ).toThrow(RepositoryUrlResponseError);
+    },
+  );
   it('omits repository selection when submitting a new application', async () => {
     // Given
     vi.mocked(apiClient).mockResolvedValue({});

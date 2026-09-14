@@ -18,12 +18,16 @@ type LoadState =
   | { readonly kind: 'error' }
   | { readonly kind: 'ready'; readonly repository: RepositoryUrlState };
 
+const UNCONFIRMED_SAVE_MESSAGE =
+  '저장 결과를 확인할 수 없습니다.\n입력은 유지되었습니다.\n다시 불러와 현재 상태를 확인한 뒤에만 저장하세요.';
+
 export function RepositoryUrlEditor({
   programId,
 }: {
   readonly programId: string;
 }) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
+  const [boundProgramId, setBoundProgramId] = useState(programId);
   const [editing, setEditing] = useState(false);
   const [url, setUrl] = useState('');
   const [reason, setReason] = useState('');
@@ -31,32 +35,57 @@ export function RepositoryUrlEditor({
   const [validation, setValidation] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
   const reasonRef = useRef<HTMLTextAreaElement>(null);
+  const requestIdRef = useRef(0);
+  if (boundProgramId !== programId) {
+    setBoundProgramId(programId);
+    setState({ kind: 'loading' });
+    setEditing(false);
+    setUrl('');
+    setReason('');
+    setBusy(false);
+    setValidation(false);
+    setError(null);
+    setSaved(false);
+    setNeedsVerification(false);
+    requestIdRef.current += 1;
+  }
   const reload = useCallback(async () => {
-    const repository = await getRepositoryUrl(programId);
-    setState({ kind: 'ready', repository });
+    const requestId = ++requestIdRef.current;
+    try {
+      const repository = await getRepositoryUrl(programId);
+      if (requestIdRef.current !== requestId) return false;
+      setState({ kind: 'ready', repository });
+      setNeedsVerification(false);
+      return true;
+    } catch (failure: unknown) {
+      if (requestIdRef.current !== requestId) return false;
+      throw failure;
+    }
   }, [programId]);
   useEffect(() => {
-    let active = true;
+    const requestId = ++requestIdRef.current;
     void getRepositoryUrl(programId).then(
       (repository) => {
-        if (active) setState({ kind: 'ready', repository });
+        if (requestIdRef.current !== requestId) return;
+        setState({ kind: 'ready', repository });
       },
       () => {
-        if (active) setState({ kind: 'error' });
+        if (requestIdRef.current !== requestId) return;
+        setState({ kind: 'error' });
       },
     );
-    return () => {
-      active = false;
-    };
   }, [programId]);
 
   async function save() {
+    if (needsVerification) return;
     if (!reason.trim() || reason.trim().length > 500) {
       setValidation(true);
       reasonRef.current?.focus();
       return;
     }
+    const requestId = ++requestIdRef.current;
     setBusy(true);
     setError(null);
     setSaved(false);
@@ -65,25 +94,23 @@ export function RepositoryUrlEditor({
         repositoryUrl: url,
         reason,
       });
+      if (requestIdRef.current !== requestId) return;
       setState({ kind: 'ready', repository });
       setEditing(false);
       setReason('');
       setSaved(true);
-      try {
-        await reload();
-      } catch {
-        setError(
-          '저장은 완료했지만 최신 상태를 불러오지 못했습니다. 다시 불러와 주세요.',
-        );
-      }
     } catch (failure: unknown) {
-      setError(
-        failure instanceof ApiError
-          ? `${failure.problem.detail}\n입력은 유지되었습니다.\n재시도하세요.`
-          : '저장하지 못했습니다.\n입력은 유지되었습니다.\n재시도하세요.',
-      );
+      if (requestIdRef.current !== requestId) return;
+      if (failure instanceof ApiError) {
+        setError(
+          `${failure.problem.detail}\n입력은 유지되었습니다.\n재시도하세요.`,
+        );
+      } else {
+        setNeedsVerification(true);
+        setError(UNCONFIRMED_SAVE_MESSAGE);
+      }
     } finally {
-      setBusy(false);
+      if (requestIdRef.current === requestId) setBusy(false);
     }
   }
 
@@ -192,10 +219,14 @@ export function RepositoryUrlEditor({
                   disabled={busy}
                   onDiscard={() => {
                     setEditing(false);
-                    setError(null);
+                    if (!needsVerification) setError(null);
                   }}
                 />
-                <Button type="submit" disabled={busy} aria-busy={busy}>
+                <Button
+                  type="submit"
+                  disabled={busy || needsVerification}
+                  aria-busy={busy}
+                >
                   {busy ? '저장 중…' : '저장소 변경 저장'}
                 </Button>
               </div>
@@ -208,7 +239,7 @@ export function RepositoryUrlEditor({
                   setUrl(state.repository.repositoryUrl ?? '');
                   setReason('');
                   setValidation(false);
-                  setError(null);
+                  if (!needsVerification) setError(null);
                   setSaved(false);
                   setEditing(true);
                 }}
@@ -239,7 +270,9 @@ export function RepositoryUrlEditor({
               variant="link"
               onClick={() =>
                 void reload()
-                  .then(() => setError(null))
+                  .then((applied) => {
+                    if (applied) setError(null);
+                  })
                   .catch(() =>
                     setError('다시 불러오지 못했습니다. 잠시 후 재시도하세요.'),
                   )

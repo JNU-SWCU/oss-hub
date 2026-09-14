@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StaffRepositoryEvidenceView } from './staff-repository-evidence-view';
 import {
   getRepositoryHistory,
+  type RepositoryHistoryPage,
   type StaffRepositoryEvidence,
 } from './staff-repository-evidence';
 
@@ -16,6 +17,21 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
   value: true,
 });
+
+/** 끝나는 시점을 테스트가 잡는 요청. */
+function deferred<T>(): {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T) => void;
+  readonly reject: (reason: unknown) => void;
+} {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((done, fail) => {
+    resolve = done;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
 
 describe('staff repository evidence view', () => {
   let container: HTMLDivElement;
@@ -66,11 +82,15 @@ describe('staff repository evidence view', () => {
     act(() => root.unmount());
     container.remove();
   });
-  async function render() {
+  async function render(overrides?: {
+    readonly evidence?: StaffRepositoryEvidence;
+    readonly programId?: string;
+    readonly teamId?: string;
+  }) {
     await act(async () =>
       root.render(
         <StaffRepositoryEvidenceView
-          evidence={evidence}
+          evidence={overrides?.evidence ?? evidence}
           members={[
             {
               userId: 'user-1',
@@ -79,8 +99,8 @@ describe('staff repository evidence view', () => {
               isLeader: true,
             },
           ]}
-          programId="program-1"
-          teamId="team-1"
+          programId={overrides?.programId ?? 'program-1'}
+          teamId={overrides?.teamId ?? 'team-1'}
         />,
       ),
     );
@@ -102,6 +122,27 @@ describe('staff repository evidence view', () => {
       (element) => element.textContent === history.reason,
     );
     expect(reason?.className).toContain('whitespace-pre-wrap');
+  });
+  it('labels lastSuccessAt as the last successful collection, not a generic as-of time', async () => {
+    // Given
+    const lastSuccessAt = '2026-09-01T00:00:00.000Z';
+    const activity = evidence.repositoryContributions;
+    if (activity === null) throw new Error('fixture contributions required');
+    // When
+    await render({
+      evidence: {
+        ...evidence,
+        repositoryContributions: { ...activity, lastSuccessAt },
+      },
+    });
+    // Then
+    expect(container.textContent).toContain('마지막 성공 수집:');
+    expect(container.textContent).toContain(
+      new Date(lastSuccessAt).toLocaleString('ko-KR', {
+        timeZone: 'Asia/Seoul',
+      }),
+    );
+    expect(container.textContent).not.toContain('마지막 수집:');
   });
   it('preserves prose word boundaries and keeps history timestamps separate from handles', async () => {
     // Given / When
@@ -145,5 +186,118 @@ describe('staff repository evidence view', () => {
     expect(container.querySelectorAll('ol li')).toHaveLength(1);
     expect(container.querySelector('button')?.disabled).toBe(false);
     expect(container.querySelector('[role="alert"]')).not.toBeNull();
+  });
+  it('shows the new team history immediately and ignores a late previous page', async () => {
+    // Given
+    const pending = deferred<RepositoryHistoryPage>();
+    vi.mocked(getRepositoryHistory).mockReturnValueOnce(pending.promise);
+    await render();
+    await act(async () => container.querySelector('button')?.click());
+    expect(container.querySelector('button')?.disabled).toBe(true);
+    expect(container.querySelector('button')?.textContent).toContain(
+      '불러오는 중',
+    );
+    const other = {
+      ...history,
+      id: 'audit-other',
+      reason: 'Other team change',
+    };
+    // When
+    await render({
+      evidence: {
+        repositoryContributions: null,
+        repositoryUrlHistory: { items: [other], nextCursor: 'other-next' },
+      },
+      teamId: 'team-2',
+    });
+    // Then
+    expect(container.textContent).toContain('Other team change');
+    expect(container.textContent).not.toContain(history.reason);
+    expect(container.textContent).toContain('활동을 표시할 저장소가 없습니다.');
+    expect(container.querySelectorAll('ol li')).toHaveLength(1);
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.querySelector('button')?.disabled).toBe(false);
+    expect(container.querySelector('button')?.textContent).toContain(
+      '변경 이력 더 보기',
+    );
+    await act(async () => {
+      pending.resolve({
+        items: [{ ...history, id: 'audit-2', reason: 'Earlier change' }],
+        nextCursor: null,
+      });
+      await pending.promise;
+    });
+    expect(container.textContent).not.toContain('Earlier change');
+    expect(container.textContent).not.toContain(history.reason);
+    expect(container.querySelectorAll('ol li')).toHaveLength(1);
+    expect(getRepositoryHistory).toHaveBeenCalledTimes(1);
+    vi.mocked(getRepositoryHistory).mockResolvedValueOnce({
+      items: [{ ...other, id: 'audit-other-2', reason: 'Older other change' }],
+      nextCursor: null,
+    });
+    await act(async () => container.querySelector('button')?.click());
+    expect(getRepositoryHistory).toHaveBeenLastCalledWith(
+      'program-1',
+      'team-2',
+      'other-next',
+    );
+    expect(container.textContent).toContain('Older other change');
+    expect(container.querySelectorAll('ol li')).toHaveLength(2);
+  });
+  it('discards a failed page request when the program changes', async () => {
+    // Given
+    vi.mocked(getRepositoryHistory).mockRejectedValue(
+      new Error('Synthetic failure'),
+    );
+    await render();
+    await act(async () => container.querySelector('button')?.click());
+    expect(container.querySelector('[role="alert"]')).not.toBeNull();
+    // When
+    await render({
+      evidence: {
+        ...evidence,
+        repositoryUrlHistory: {
+          items: [
+            { ...history, id: 'audit-other', reason: 'Other program change' },
+          ],
+          nextCursor: 'other-next',
+        },
+      },
+      programId: 'program-2',
+    });
+    // Then
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.textContent).toContain('Other program change');
+    expect(container.textContent).not.toContain(history.reason);
+    expect(container.querySelector('button')?.disabled).toBe(false);
+  });
+  it('keeps same-team pagination when parent evidence rerenders', async () => {
+    // Given
+    const activity = evidence.repositoryContributions;
+    if (activity === null) throw new Error('fixture contributions required');
+    vi.mocked(getRepositoryHistory).mockResolvedValue({
+      items: [{ ...history, id: 'audit-2', reason: 'Earlier change' }],
+      nextCursor: null,
+    });
+    await render();
+    await act(async () => container.querySelector('button')?.click());
+    expect(container.querySelectorAll('ol li')).toHaveLength(2);
+    // When
+    await render({
+      evidence: {
+        repositoryContributions: {
+          ...activity,
+          collectionStatus: 'ERROR',
+        },
+        repositoryUrlHistory: { items: [history], nextCursor: 'next' },
+      },
+    });
+    // Then
+    expect(container.querySelectorAll('ol li')).toHaveLength(2);
+    expect(container.textContent).toContain('Earlier change');
+    expect(container.querySelector('button')).toBeNull();
+    expect(container.textContent).toContain(
+      '최근 수집에 실패했습니다. 마지막으로 수집된 활동을 표시합니다.',
+    );
   });
 });

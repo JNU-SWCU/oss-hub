@@ -15,17 +15,34 @@ const STATUS_LABEL = {
   ERROR: '최근 수집에 실패했습니다. 마지막으로 수집된 활동을 표시합니다.',
 } as const;
 
-export function StaffRepositoryEvidenceView({
-  evidence,
-  members,
-  programId,
-  teamId,
-}: {
+type StaffRepositoryEvidenceViewProps = {
   readonly evidence: StaffRepositoryEvidence;
   readonly members: readonly StaffProgramTeamMember[];
   readonly programId: string;
   readonly teamId: string;
-}) {
+};
+
+/**
+ * 프로그램·팀이 바뀌면 이전 이력 페이지·진행·오류를 통째로 버린다. 같은 팀의
+ * 부모 재렌더는 이 key를 유지하므로 이어 붙인 이력을 덮어쓰지 않는다.
+ */
+export function StaffRepositoryEvidenceView(
+  props: StaffRepositoryEvidenceViewProps,
+) {
+  return (
+    <StaffRepositoryEvidenceHistory
+      key={`${props.programId}|${props.teamId}`}
+      {...props}
+    />
+  );
+}
+
+function StaffRepositoryEvidenceHistory({
+  evidence,
+  members,
+  programId,
+  teamId,
+}: StaffRepositoryEvidenceViewProps) {
   const [history, setHistory] = useState(evidence.repositoryUrlHistory);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
@@ -68,7 +85,7 @@ export function StaffRepositoryEvidenceView({
             <p className="text-sm">{STATUS_LABEL[activity.collectionStatus]}</p>
             {activity.lastSuccessAt ? (
               <p className="text-sm text-muted-foreground">
-                마지막 수집:{' '}
+                마지막 성공 수집:{' '}
                 {new Date(activity.lastSuccessAt).toLocaleString('ko-KR', {
                   timeZone: 'Asia/Seoul',
                 })}
