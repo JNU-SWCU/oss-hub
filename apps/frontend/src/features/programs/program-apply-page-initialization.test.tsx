@@ -157,8 +157,6 @@ function readyContext(
     initialValues: {
       title: initialTitle,
       isRepositoryPublicationPlanned: true,
-      repositoryConnectionMode: 'new',
-      repositoryUrl: '',
       personalDataConsent: extras.mode === 'edit',
     },
   };

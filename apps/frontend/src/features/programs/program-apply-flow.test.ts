@@ -40,8 +40,6 @@ const template: ApplicationFormTemplate = {
 };
 const baseValues = {
   isRepositoryPublicationPlanned: true,
-  repositoryConnectionMode: 'new',
-  repositoryUrl: '',
   personalDataConsent: false,
 } as const;
 const problem = (code: string, detail = ''): ProblemDetail => ({
@@ -119,7 +117,7 @@ describe('program-apply-flow', () => {
     ).toBeNull();
   });
 
-  it('요약 없이 신청하고 개인정보 동의 누락은 차단한다', () => {
+  it('개인정보 동의 누락은 차단한다', () => {
     expect(validateApplyForm(baseValues)).toEqual({
       personalDataConsent: '개인정보 수집·이용에 동의해야 지원할 수 있습니다.',
     });
@@ -128,48 +126,10 @@ describe('program-apply-flow', () => {
     ).toEqual({});
   });
 
-  it('직접 연결하는 저장소 URL의 빈 값과 공백을 차단한다', () => {
-    for (const repositoryUrl of ['', '  ']) {
-      expect(
-        validateApplyForm({
-          ...baseValues,
-          personalDataConsent: true,
-          repositoryConnectionMode: 'own',
-          repositoryUrl,
-        }),
-      ).toEqual({
-        repositoryUrl:
-          '저장소 주소를 입력하거나 ‘새 저장소 발급받기’를 선택해 주세요.',
-      });
-    }
-    expect(
-      validateApplyForm({
-        ...baseValues,
-        personalDataConsent: true,
-        repositoryConnectionMode: 'own',
-        repositoryUrl: 'https://github.com/synthetic-owner/synthetic-repo',
-      }),
-    ).toEqual({});
-  });
-
-  it('저장소 발급을 사용하지 않으면 URL을 요구하지 않는다', () => {
+  it('수정할 때는 개인정보 동의를 다시 요구하지 않는다', () => {
     expect(
       validateApplyForm(
-        {
-          ...baseValues,
-          personalDataConsent: true,
-          repositoryConnectionMode: 'own',
-        },
-        'create',
-        false,
-      ),
-    ).toEqual({});
-  });
-
-  it('수정할 때는 저장소 연결과 동의를 다시 요구하지 않는다', () => {
-    expect(
-      validateApplyForm(
-        { ...baseValues, title: '기존 제목', repositoryConnectionMode: 'own' },
+        { ...baseValues, title: '기존 제목', personalDataConsent: false },
         'edit',
       ),
     ).toEqual({});

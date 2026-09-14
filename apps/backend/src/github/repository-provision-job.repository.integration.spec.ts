@@ -32,6 +32,7 @@ const APPLICATION_IDS = [
   'synthetic-job-own',
   'synthetic-job-unprovisioned',
   'synthetic-job-race',
+  'synthetic-job-org-on-own',
 ] as const;
 
 function repositoryIdFor(applicationId: string): string {
@@ -55,8 +56,16 @@ describe('RepositoryProvisionJobRepository integration', () => {
     await prisma.repositoryProvisionJob.deleteMany({
       where: { applicationId: { in: [...APPLICATION_IDS] } },
     });
+    await prisma.repositoryInvitation.deleteMany({
+      where: { repository: { applicationId: { in: [...APPLICATION_IDS] } } },
+    });
     await prisma.githubRepository.deleteMany({
-      where: { id: { in: APPLICATION_IDS.map(repositoryIdFor) } },
+      where: {
+        OR: [
+          { id: { in: APPLICATION_IDS.map(repositoryIdFor) } },
+          { applicationId: { in: [...APPLICATION_IDS] } },
+        ],
+      },
     });
     await prisma.application.deleteMany({
       where: { id: { in: [...APPLICATION_IDS] } },
@@ -107,6 +116,38 @@ describe('RepositoryProvisionJobRepository integration', () => {
       attemptCount: 1,
       lockedAt: NOW,
       startedAt: NOW,
+    });
+  });
+
+  it('reconciles a live ORG_PROVISIONED current link even when the canonical repository URL is stored', async () => {
+    const applicationId = APPLICATION_IDS[0];
+    await createJob(applicationId, RepositoryProvisionJobStatus.SUCCEEDED, NOW);
+    const current = await prisma.githubRepository.create({
+      data: {
+        applicationId,
+        githubRepositoryId: 8_133_900_001n,
+        nameWithOwner: 'synthetic/relinked',
+        source: 'ORG_PROVISIONED',
+        invitations: { create: { githubLogin: 'synthetic-invitee' } },
+      },
+    });
+    await prisma.application.update({
+      where: { id: applicationId },
+      data: { repositoryUrl: 'https://github.com/synthetic/relinked' },
+    });
+    await prisma.repositoryProvisionJob.update({
+      where: { applicationId },
+      data: { repositoryId: current.id },
+    });
+    await expect(
+      repository.claimNextReconciliation({
+        workerId: 'synthetic-reconciliation-worker',
+        now: NOW,
+        leaseMs: LEASE_MS,
+      }),
+    ).resolves.toMatchObject({
+      applicationId,
+      repositoryId: current.id,
     });
   });
 
@@ -239,8 +280,8 @@ describe('RepositoryProvisionJobRepository integration', () => {
     });
   });
 
-  it('OWN 연결·미프로비저닝 job은 재조회하지 않는다', async () => {
-    // Given: OWN 연결 job과 저장소가 없는 완료 job만 남아 있다.
+  it('EXTERNAL_PUBLIC 연결·미프로비저닝 job은 재조회하지 않는다', async () => {
+    // Given: 권한 authority가 아닌 공개 외부 연결 job과 저장소가 없는 완료 job만 남아 있다.
     await createJob(
       'synthetic-job-own',
       RepositoryProvisionJobStatus.SUCCEEDED,
@@ -265,6 +306,30 @@ describe('RepositoryProvisionJobRepository integration', () => {
 
     // Then: 회수할 권한도 대상도 없는 job을 깨우지 않는다.
     expect(claim).toBeNull();
+  });
+
+  it('reconciliation follows current ORG_PROVISIONED link even when application mode is still OWN', async () => {
+    const applicationId = 'synthetic-job-org-on-own';
+    await createJob(
+      applicationId,
+      RepositoryProvisionJobStatus.SUCCEEDED,
+      NOW,
+      {
+        attachRepository: true,
+        connectionMode: RepositoryConnectionMode.OWN,
+        source: RepositorySource.ORG_PROVISIONED,
+      },
+    );
+    await expect(
+      repository.claimNextReconciliation({
+        workerId: 'worker-reconcile-source',
+        now: NOW,
+        leaseMs: LEASE_MS,
+      }),
+    ).resolves.toMatchObject({
+      applicationId,
+      repositoryId: repositoryIdFor(applicationId),
+    });
   });
 
   it('동시 재조회 claim에서도 한 worker만 임대한다', async () => {
@@ -318,6 +383,7 @@ interface CreateJobOptions {
   readonly lockedAt?: Date | null;
   readonly attachRepository?: boolean;
   readonly connectionMode?: RepositoryConnectionMode;
+  readonly source?: RepositorySource;
 }
 
 async function createJob(
@@ -398,7 +464,11 @@ async function createJob(
           APPLICATION_IDS.findIndex((id) => id === applicationId),
       ),
       nameWithOwner: `synthetic-org/${applicationId}`,
-      source: RepositorySource.ORG_PROVISIONED,
+      source:
+        options.source ??
+        (options.connectionMode === RepositoryConnectionMode.OWN
+          ? RepositorySource.EXTERNAL_PUBLIC
+          : RepositorySource.ORG_PROVISIONED),
       applicationId,
       programId: program,
       teamId,

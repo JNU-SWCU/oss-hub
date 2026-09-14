@@ -51,19 +51,9 @@ export type ProgramApplyPageState =
       readonly applicationId: string;
     };
 
-/**
- * 새 신청서 생성 시점에만 쓰는 저장소 연결 방식.
- * 제출 시 API 경계(`createApplication`)에서 `NEW`/`OWN`으로 올려 보낸다.
- */
-export const REPOSITORY_CONNECTION_MODES = ['new', 'own'] as const;
-export type RepositoryConnectionMode =
-  (typeof REPOSITORY_CONNECTION_MODES)[number];
-
 export type ProgramApplyFormValues = {
   readonly title?: string;
   readonly isRepositoryPublicationPlanned: boolean;
-  readonly repositoryConnectionMode: RepositoryConnectionMode;
-  readonly repositoryUrl: string;
   readonly personalDataConsent: boolean;
 };
 
@@ -75,8 +65,6 @@ export type ProgramApplyFormErrors = {
 
 export const EMPTY_APPLY_FORM: ProgramApplyFormValues = {
   isRepositoryPublicationPlanned: true,
-  repositoryConnectionMode: 'new',
-  repositoryUrl: '',
   personalDataConsent: false,
 };
 
@@ -101,25 +89,15 @@ export function resolveApplyBlockedReason(
 }
 
 /**
- * GitHub 저장소 연결·개인정보 동의는 **새 신청서 제출**에만 적용된다(프로토타입
- * 원문 범위). 수정(`edit`)은 승인 전 이미 제출된 신청서의 제목·요약만 고치는
- * 흐름이라 두 항목을 다시 요구하지 않는다.
+ * 개인정보 동의는 **새 신청서 제출**에만 적용된다. 수정(`edit`)은 승인 전 이미
+ * 제출된 신청서의 제목만 고치는 흐름이라 동의를 다시 요구하지 않는다. 저장소
+ * URL은 승인 후 `RepositoryUrlEditor`가 별도 API로 다룬다.
  */
 export function validateApplyForm(
   values: ProgramApplyFormValues,
   mode: 'create' | 'edit' = 'create',
-  repositoryProvisioningEnabled = true,
 ): ProgramApplyFormErrors {
   return {
-    ...(mode === 'create' &&
-    repositoryProvisioningEnabled &&
-    values.repositoryConnectionMode === 'own' &&
-    !values.repositoryUrl.trim()
-      ? {
-          repositoryUrl:
-            '저장소 주소를 입력하거나 ‘새 저장소 발급받기’를 선택해 주세요.',
-        }
-      : {}),
     ...(mode === 'create' && !values.personalDataConsent
       ? {
           personalDataConsent:

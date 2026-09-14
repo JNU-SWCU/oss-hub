@@ -40,6 +40,9 @@ export type E2eProgramAuthoringState = {
 };
 
 export interface E2eProgramAuthoringPort {
+  repositoryEvidence(): Promise<
+    import('./e2e-repository-evidence.fixture').E2eRepositoryEvidence
+  >;
   reset(): Promise<void>;
   fixture(): Promise<E2eProgramAuthoringGraph>;
   adopt(

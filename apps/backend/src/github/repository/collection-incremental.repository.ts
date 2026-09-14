@@ -950,12 +950,19 @@ export class CollectionIncrementalRepository {
   }
 
   /**
-   * E1 — external sweep가 현재 가시성을 다시 확인할 추적 대상 전체를 읽는다.
+   * E1 — external sweep의 활성 신청 대상과 독립 등록 저장소를 읽는다.
+   * 신청 연결이 해제되고 팀·프로그램 이력만 남은 저장소는 새 fact를 수집하지 않는다.
    * ABSENT/PRIVATE도 재확인해야 다시 공개된 저장소가 자동 복구될 수 있다.
    */
   async listExternalRepositories(): Promise<CollectionRepositoryRow[]> {
     return this.db.githubRepository.findMany({
-      where: { source: 'EXTERNAL_PUBLIC' },
+      where: {
+        source: 'EXTERNAL_PUBLIC',
+        OR: [
+          { applicationId: { not: null } },
+          { teamId: null, programId: null },
+        ],
+      },
     });
   }
 

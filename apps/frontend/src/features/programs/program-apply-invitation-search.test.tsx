@@ -142,8 +142,6 @@ function readyContext(nextTeam: ProgramTeam | null): ReadyContext {
     canManage: true,
     initialValues: {
       isRepositoryPublicationPlanned: true,
-      repositoryConnectionMode: 'new',
-      repositoryUrl: '',
       personalDataConsent: false,
     },
   };

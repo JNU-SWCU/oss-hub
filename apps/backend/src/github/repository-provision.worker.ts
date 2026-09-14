@@ -106,40 +106,66 @@ export class RepositoryProvisionWorker {
       return { kind: 'EMPTY' };
     }
 
-    // 이 job이 관리형(NEW)이라고 확인된 뒤부터만 채운다. 실패 경로에서도 이 지문을
+    // 관리형 경로라고 확인된 뒤부터만 채운다. 실패 경로에서도 이 지문을
     // 넘겨야, 처리 중 들어온 팀원 변경 깨우기를 오래된 의도의 최종 실패가
     // 덮어쓰지 않는다 — fail 측이 live 지문과 비교해 달라졌으면 재무장한다.
     let membershipFingerprint: string | undefined;
     try {
-      const context = await this.state.loadContext(job.id, workerId);
-      const { connectionMode, repositoryUrl } = this.validateContext(context);
-      if (connectionMode === 'NEW') {
-        membershipFingerprint = context.membershipFingerprint;
-      }
-      const prepared: PreparedRepository =
-        context.repository === null
-          ? await this.createAndRecordRepository(
-              context,
-              connectionMode,
-              repositoryUrl,
-              job.id,
-              workerId,
-              now,
-            )
-          : { repository: context.repository, ownResolution: null };
-      const repository = prepared.repository;
-      if (connectionMode === 'OWN') {
-        const completedAt = now();
-        const resolution =
-          prepared.ownResolution ??
-          (await resolveOwnGithubRepository(this.github, repositoryUrl ?? ''));
-        const metadata = resolution.repository;
-        if (metadata.githubRepositoryId !== repository.githubRepositoryId) {
-          throw finalProvisionFailure(
-            PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
-          );
+      const claimed = await this.state.loadContext(job.id, workerId);
+      const { originalIntent, repositoryUrl } = this.validateContext(claimed);
+      let context = claimed;
+      let prepared: PreparedRepository;
+      if (claimed.repository === null) {
+        // NEW는 행이 생기기 전에도 관리형 실패 가드가 필요하다. OWN은
+        // 기록 뒤에 저장된 source가 관리형인지 봐야 지문을 채운다.
+        if (originalIntent === 'NEW') {
+          membershipFingerprint = claimed.membershipFingerprint;
         }
-        if (resolution.kind === 'EXTERNAL') {
+        prepared = await this.createAndRecordRepository(
+          claimed,
+          originalIntent,
+          repositoryUrl,
+          job.id,
+          workerId,
+          now,
+        );
+        context = await this.reloadRecordedContext(
+          job.id,
+          workerId,
+          claimed,
+          prepared.repository,
+        );
+      } else {
+        prepared = { repository: claimed.repository, ownResolution: null };
+      }
+      const repository = context.repository;
+      if (repository === null) {
+        throw finalProvisionFailure(PROVISION_ERROR_CODES.REPOSITORY_MISMATCH);
+      }
+      const accessPath = this.resolveAccessPath(
+        context.currentRepositorySource,
+      );
+      membershipFingerprint =
+        accessPath === 'MANAGED' ? context.membershipFingerprint : undefined;
+      if (accessPath === 'EXTERNAL') {
+        const completedAt = now();
+        if (prepared.ownResolution !== null) {
+          const resolution = prepared.ownResolution;
+          if (
+            resolution.repository.githubRepositoryId !==
+            repository.githubRepositoryId
+          ) {
+            throw finalProvisionFailure(
+              PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
+            );
+          }
+          // 접근 경로는 기록된 source가 고른다. ownResolution.kind로
+          // 초대를 건너뛰지 않으며, 외부 편입 메타데이터만 여기서 쓴다.
+          if (resolution.kind !== 'EXTERNAL') {
+            throw finalProvisionFailure(
+              PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
+            );
+          }
           const externalRepository = resolution.repository;
           await this.collectionEnrollment.enrollExternalRepository({
             applicantGithubId: context.applicantGithubId,
@@ -185,7 +211,7 @@ export class RepositoryProvisionWorker {
         now,
       );
       const completedAt = now();
-      // 관리형(NEW) 저장소는 대기 초대가 없어도 항상 다음 확인 시각을 남긴다 —
+      // 관리형 저장소는 대기 초대가 없어도 항상 다음 확인 시각을 남긴다 —
       // 팀 이탈은 초대 상태를 바꾸지 않으므로, 여기서 끊으면 권한 회수가
       // 다음 재조회 없이 영영 멈춘다.
       await this.state.completeJob(
@@ -223,7 +249,7 @@ export class RepositoryProvisionWorker {
               this.options.retryBaseMs,
             ),
         now: failedAt,
-        // context를 읽기 전이거나 계약 검증에 실패한 실패, 그리고 OWN은
+        // context를 읽기 전이거나 계약 검증에 실패한 실패, 그리고 외부 경로는
         // 비교할 기준이 없으므로 생략한다(compat fallback이 아니다).
         expectedMembershipFingerprint: membershipFingerprint,
       });
@@ -243,11 +269,14 @@ export class RepositoryProvisionWorker {
   }
 
   /**
-   * 이벤트는 "이 job이 이 신청·프로그램·팀의 것인가"와 연결 방식만 증명한다.
+   * 이벤트는 "이 job이 이 신청·프로그램·팀의 것인가"와 원래 연결 의도만 증명한다.
    * 누가 접근권을 가져야 하는가는 payload가 아니라 live 팀원 목록이 결정한다.
+   * 현재 행이 있으면 그 source가 초대/외부 skip을 고르고, 이벤트 의도는
+   * 행이 생기기 전에만 쓴다. 기록 뒤에는 원 이벤트를 바꾸지 않은 채
+   * claimed context를 다시 읽어 저장된 source로 고른다.
    */
   private validateContext(context: RepositoryProvisionContext): {
-    readonly connectionMode: 'NEW' | 'OWN';
+    readonly originalIntent: 'NEW' | 'OWN';
     readonly repositoryUrl: string | null;
   } {
     if (context.applicationStatus !== ApplicationStatus.APPROVED) {
@@ -269,7 +298,7 @@ export class RepositoryProvisionWorker {
         throw new InvalidRepositoryProvisionEventError();
       }
       return {
-        connectionMode: event.repositoryConnectionMode,
+        originalIntent: event.repositoryConnectionMode,
         repositoryUrl: event.repositoryUrl,
       };
     } catch (error) {
@@ -278,6 +307,50 @@ export class RepositoryProvisionWorker {
       }
       throw error;
     }
+  }
+
+  private resolveAccessPath(
+    source: RepositorySource | null,
+  ): 'MANAGED' | 'EXTERNAL' {
+    if (source === RepositorySource.ORG_PROVISIONED) {
+      return 'MANAGED';
+    }
+    if (source === RepositorySource.EXTERNAL_PUBLIC) {
+      return 'EXTERNAL';
+    }
+    throw finalProvisionFailure(PROVISION_ERROR_CODES.REPOSITORY_MISMATCH);
+  }
+
+  /**
+   * 생성 직후 한 번만 다시 읽는다. 이미 현재 행이 있는 경로는 호출하지 않는다.
+   * 저장된 현재 행이 없거나 방금 기록한 행과 다르면 이벤트로 대체하지 않는다.
+   */
+  private async reloadRecordedContext(
+    jobId: string,
+    workerId: string,
+    claimed: RepositoryProvisionContext,
+    recorded: ProvisionedRepository,
+  ): Promise<RepositoryProvisionContext> {
+    const reloaded = await this.state.loadContext(jobId, workerId);
+    this.validateContext(reloaded);
+    if (
+      reloaded.applicationId !== claimed.applicationId ||
+      reloaded.programId !== claimed.programId ||
+      reloaded.eventId !== claimed.eventId
+    ) {
+      throw finalProvisionFailure(PROVISION_ERROR_CODES.INVALID_EVENT);
+    }
+    const current = reloaded.repository;
+    if (
+      current === null ||
+      reloaded.currentRepositorySource === null ||
+      current.id !== recorded.id ||
+      current.githubRepositoryId !== recorded.githubRepositoryId ||
+      current.applicationId !== claimed.applicationId
+    ) {
+      throw finalProvisionFailure(PROVISION_ERROR_CODES.REPOSITORY_MISMATCH);
+    }
+    return reloaded;
   }
 
   private async createAndRecordRepository(
