@@ -21,6 +21,7 @@ interface LoginButtonViewProps {
   readonly session: AuthSession | null;
   /** 지금 보고 있는 경로. 목적지와 같으면 진입 버튼을 내지 않는다. */
   readonly pathname: string;
+  readonly accountRoles?: string;
   readonly logoutError: string | null;
   readonly menuOpen: boolean;
   readonly onMenuOpenChange: (open: boolean) => void;
@@ -54,6 +55,7 @@ function AccountAvatar({ user }: { readonly user: Me }) {
 export function LoginButtonView({
   session,
   pathname,
+  accountRoles,
   logoutError,
   menuOpen,
   onMenuOpenChange,
@@ -125,7 +127,7 @@ export function LoginButtonView({
           <Button
             type="button"
             variant="ghost"
-            aria-label={`${user.nickname} 계정 메뉴`}
+            aria-label={`${user.nickname} 계정 메뉴${accountRoles ? `, ${accountRoles}` : ''}`}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-controls={menuId}
@@ -151,6 +153,11 @@ export function LoginButtonView({
                 <p className="truncate text-sm font-semibold">
                   {user.nickname}
                 </p>
+                {accountRoles ? (
+                  <p className="break-keep text-xs text-muted-foreground">
+                    {accountRoles}
+                  </p>
+                ) : null}
               </div>
               {/*
                 `w-full` 은 로그아웃 줄과 넓이를 맞추려는 것이다. 없으면 이 링크가
@@ -195,7 +202,9 @@ export function LoginButtonView({
   }
 }
 
-export function LoginButton() {
+export function LoginButton({
+  accountRoles,
+}: { readonly accountRoles?: string } = {}) {
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   // 자체 조회를 두지 않고 공유 세션 저장소를 읽는다. 헤더와 본문이 각자 상태를
@@ -209,6 +218,7 @@ export function LoginButton() {
     <LoginButtonView
       session={session}
       pathname={pathname}
+      accountRoles={accountRoles}
       logoutError={logoutError}
       menuOpen={menuOpen}
       onMenuOpenChange={setMenuOpen}
