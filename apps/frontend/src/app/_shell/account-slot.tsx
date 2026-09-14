@@ -32,8 +32,9 @@ const SURFACE_CHIP_VARIANT: Record<MemberSurface, 'recruiting' | 'approved'> = {
  * 진입·계정 메뉴(아바타·이름)는 `LoginButton`이 그린다. 가입을 마쳐(역할 배정 +
  * 프로필 완료) 회원이 된 사용자에게만 역할칩을 붙인다. 학생 면이 있는 회원에게는
  * 받은 팀 초대 알림을 역할칩 앞에 둔다 — 교직원·관리자 면이 함께 있어도 학생
- * 면이 있으면 초대를 받을 수 있다. 비로그인·가입 미완료는 기존 로그인 진입
- * 버튼만 그대로 낸다.
+ * 면이 있으면 초대를 받을 수 있다. 권한이 둘 이상이면 900px 미만에서 `권한 N개`로
+ * 요약하고 전체 이름은 계정 메뉴(`accountRoles`)와 접근성 이름에 남긴다. 비로그인·
+ * 가입 미완료는 기존 로그인 진입 버튼만 그대로 낸다.
  *
  * 판단을 app 계층에 두는 이유는 의존 방향(app → features → lib) 때문이다. "가입을
  * 마쳤는가"는 인증 세션과 역할 요청을 **함께** 봐야 알 수 있는데, 역할 요청은
@@ -60,22 +61,38 @@ export function AccountSlot() {
       : [];
   const showTeamInvitations = surfaces.includes('student');
   const identityKey = session.user?.nickname ?? null;
+  const accountRoles =
+    surfaces.length > 1
+      ? surfaces.map((surface) => SURFACE_CHIP_LABEL[surface]).join(' · ')
+      : undefined;
 
   return (
     <div className="flex items-center gap-2">
       {showTeamInvitations ? (
         <TeamInvitationNotifications identityKey={identityKey} />
       ) : null}
+      {accountRoles ? (
+        <StatusBadge
+          variant="approved"
+          className="min-[900px]:hidden"
+          aria-label={`${accountRoles} 권한`}
+        >
+          권한 {surfaces.length}개
+        </StatusBadge>
+      ) : null}
       {surfaces.map((surface) => (
         <StatusBadge
           key={surface}
           variant={SURFACE_CHIP_VARIANT[surface]}
+          className={
+            accountRoles ? 'hidden min-[900px]:inline-flex' : undefined
+          }
           aria-label={`${SURFACE_CHIP_LABEL[surface]} 권한`}
         >
           {SURFACE_CHIP_LABEL[surface]}
         </StatusBadge>
       ))}
-      <LoginButton />
+      <LoginButton accountRoles={accountRoles} />
     </div>
   );
 }

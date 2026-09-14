@@ -25,6 +25,26 @@ const authenticatedSession = {
 } satisfies AuthSession;
 
 describe('LoginButtonView', () => {
+  it('요약된 복합 권한의 이름을 계정 버튼과 열린 메뉴에서 확인할 수 있다', () => {
+    const html = renderToStaticMarkup(
+      <LoginButtonView
+        session={authenticatedSession}
+        pathname="/dashboard/personal"
+        accountRoles="학생 · 교직원 · 관리자"
+        logoutError={null}
+        menuOpen
+        onMenuOpenChange={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    );
+    expect(html).toContain(
+      'aria-label="synthetic-user 계정 메뉴, 학생 · 교직원 · 관리자"',
+    );
+    expect(html).toMatch(/<p[^>]*>학생 · 교직원 · 관리자<\/p>/);
+    expect(html).toContain('href="/settings"');
+    expect(html).toContain('로그아웃');
+  });
+
   it('세션을 조회하는 동안 인증 액션을 렌더하지 않는다', () => {
     // Given
     const onLogout = vi.fn();
