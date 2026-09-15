@@ -33,7 +33,6 @@ import { ProgramListPagination } from './program-list-pagination';
 import { ProgramListStatusChips } from './program-list-status-nav';
 import { PROGRAM_TRACK_TYPE_LABELS } from './program-templates';
 import type {
-  ProgramListDirection,
   ProgramListItem,
   ProgramListPage as ProgramListPageData,
   ProgramListSort,
@@ -166,13 +165,6 @@ function ProgramListPage({
     );
   };
 
-  const goDirection = (nextDirection: ProgramListDirection) => {
-    if (!sort) return;
-    router.push(
-      buildProgramListHref({ status, sort, direction: nextDirection }),
-    );
-  };
-
   const content = (() => {
     if (loadState.kind === 'loading') return <ProgramListSkeleton />;
     if (loadState.kind === 'error') {
@@ -284,20 +276,6 @@ function ProgramListPage({
             ))}
           </Select>
         </label>
-        <Button
-          aria-label={
-            direction === 'desc' ? '내림차순으로 정렬됨' : '오름차순으로 정렬됨'
-          }
-          aria-pressed={direction === 'desc'}
-          disabled={!sort}
-          onClick={() =>
-            goDirection((direction ?? 'asc') === 'asc' ? 'desc' : 'asc')
-          }
-          type="button"
-          variant="outline"
-        >
-          {direction === 'desc' ? '내림차순' : '오름차순'}
-        </Button>
       </div>
       {content}
       <ProgramListPagination
