@@ -1,11 +1,10 @@
-import Link from 'next/link';
+import { ListCard } from '@/components/list-card';
 import { ProgramCover } from '@/components/program-cover';
 import { apiPath } from '@/lib/api-client';
 import * as React from 'react';
 import type { VariantProps } from 'class-variance-authority';
 
-import { StatusBadge, statusBadgeVariants } from '@/components/status-badge';
-import { cn } from '@/lib/utils';
+import { statusBadgeVariants } from '@/components/status-badge';
 
 /** 카드가 표현하는 업무 상태. 배지 팔레트를 결정한다. */
 export type ProgramCardStatus =
@@ -86,15 +85,7 @@ function TeamIcon() {
   );
 }
 
-/**
- * 프로그램 요약 카드. ProgramCard.dc.html 스펙을 그대로 옮긴다 — 배지는
- * 카드 우상단에 절대 위치, href가 있으면 status와 무관하게(종료 포함)
- * 카드 전체가 열리고 "자세히 ›" 푸터가 뜬다. 종료 여부는 배지·톤·
- * `data-status`로만 구분한다.
- *
- * 색은 전부 semantic 토큰(`--status-*-bg/fg`, `--primary`, `--accent`,
- * `--border`, `--card`)을 통해서만 나온다 — 하드코딩 색상 없음.
- */
+/** 프로그램 데이터와 상태 설명을 공용 목록 카드에 연결한다. */
 function ProgramCard({
   title,
   coverImageUrl,
@@ -105,101 +96,36 @@ function ProgramCard({
   note,
   noteIcon,
   href,
-  className,
   ...props
 }: ProgramCardProps) {
-  const openable = Boolean(href);
-  const variant = STATUS_BADGE_VARIANT[status];
-
-  // 배지 자체는 링크 이름에서 빼고(aria-hidden), 제목 앞에 "상태: …" 한 줄로
-  // 정리해 넣는다 — 그대로 두면 링크 이름이 "모집중 SW중심대학사업단 · …"처럼
-  // 배지 문구와 카테고리가 이어 붙어 어색해진다. 종료는 상세 열람이 막혀
-  // 있지 않으므로(신청만 마감) "열람할 수 없습니다" 같은 거짓 안내는 넣지 않는다.
   const srStatusPrefix =
     status === 'ended'
       ? `상태: ${badgeText}. 신청은 마감되었습니다. `
       : `상태: ${badgeText}. `;
 
-  const content = (
-    <>
-      <ProgramCover src={coverImageUrl ? apiPath(coverImageUrl) : null} />
-      <div className="relative flex flex-1 flex-col gap-1.5 p-5">
-        <StatusBadge
-          aria-hidden="true"
-          className="absolute top-4 right-4 font-bold"
-          variant={variant}
-        >
-          {badgeText}
-        </StatusBadge>
-        {category ? (
-          <div className="pr-[88px] min-w-0 break-keep [overflow-wrap:anywhere] text-[12px] text-muted-foreground">
-            {category}
-          </div>
-        ) : null}
-        <div className="text-[17px] font-bold text-pretty tracking-[-0.02em] text-foreground">
-          <span className="sr-only">{srStatusPrefix}</span>
-          {title}
-        </div>
-        {period ? (
-          <div className="text-[12px] text-muted-foreground tabular-nums">
-            {period}
-          </div>
-        ) : null}
-        {note ? (
-          <div className="flex items-center gap-[5px] text-[12px] font-[650] text-accent">
-            {noteIcon === 'team' ? <TeamIcon /> : null}
-            <span>{note}</span>
-          </div>
-        ) : null}
-        <div className="mt-auto flex justify-end pt-3">
-          {openable ? (
-            <span className="text-[12px] font-[650] text-primary">
-              자세히 ›
-            </span>
-          ) : null}
-        </div>
-      </div>
-    </>
-  );
-
-  const cardClassName = cn(
-    'relative box-border flex h-full min-h-[170px] flex-col overflow-hidden rounded-card border border-border bg-card',
-    openable
-      ? 'cursor-pointer transition-[border-color,box-shadow] duration-150 hover:border-ring hover:shadow-[0_2px_8px_rgba(0,26,77,0.08)]'
-      : 'cursor-default',
-    className,
-  );
-
-  // href는 항상 anchor(next/link)에 두고, 임의 div props(...props)는 안쪽
-  // div에만 편다 — Link의 prop 타입이 AnchorHTMLAttributes라 div 이벤트
-  // 핸들러 타입과 안 맞는다(HTMLDivElement vs HTMLAnchorElement 이벤트).
-  if (href) {
-    return (
-      <Link
-        className="block h-full rounded-card outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-        href={href}
-      >
-        <div
-          data-slot="program-card"
-          data-status={status}
-          className={cardClassName}
-          {...props}
-        >
-          {content}
-        </div>
-      </Link>
-    );
-  }
-
   return (
-    <div
+    <ListCard
+      {...props}
       data-slot="program-card"
       data-status={status}
-      className={cardClassName}
-      {...props}
-    >
-      {content}
-    </div>
+      title={title}
+      subtitle={category}
+      badge={{ text: badgeText, variant: STATUS_BADGE_VARIANT[status] }}
+      statusDescription={srStatusPrefix}
+      cover={
+        <ProgramCover src={coverImageUrl ? apiPath(coverImageUrl) : null} />
+      }
+      meta={period}
+      note={
+        note ? (
+          <span className="flex items-center gap-1.5">
+            {noteIcon === 'team' ? <TeamIcon /> : null}
+            <span>{note}</span>
+          </span>
+        ) : undefined
+      }
+      href={href}
+    />
   );
 }
 

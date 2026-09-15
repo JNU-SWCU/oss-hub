@@ -1,19 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, Archive, RotateCcw } from 'lucide-react';
-import { CardGrid, EmptyState, PageHeader, StatusBadge } from '@/components';
+import { CardGrid, EmptyState, PageHeader, ListCard } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { loadArchivePage, loadArchiveYears } from '../api';
 import { ArchiveListYearChips } from '../archive-list-category-nav';
 import {
@@ -76,30 +68,18 @@ function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
 
 function ArchiveCard({ item }: { readonly item: ArchiveListItem }) {
   return (
-    <Card className="min-w-0">
-      <CardHeader className="gap-3">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">
-              {item.programName} · {item.modeLabel}
-            </p>
-            <CardTitle className="mt-1 break-words">
-              {item.displayName}
-            </CardTitle>
-          </div>
-          <StatusBadge variant="approved">GitHub PUBLIC</StatusBadge>
-        </div>
-      </CardHeader>
-      <CardContent className="grid gap-1 text-sm">
-        <span className="text-muted-foreground">공개일</span>
-        <time dateTime={item.publishedAt}>{item.publishedLabel}</time>
-      </CardContent>
-      <CardFooter>
-        <Button asChild size="sm" variant="outline">
-          <Link href={item.detailUrl}>상세 보기</Link>
-        </Button>
-      </CardFooter>
-    </Card>
+    <ListCard
+      title={item.displayName}
+      subtitle={`${item.programName} · ${item.modeLabel}`}
+      badge={{ text: 'GitHub PUBLIC', variant: 'approved' }}
+      meta={
+        <>
+          <span>공개일 </span>
+          <time dateTime={item.publishedAt}>{item.publishedLabel}</time>
+        </>
+      }
+      href={item.detailUrl}
+    />
   );
 }
 
