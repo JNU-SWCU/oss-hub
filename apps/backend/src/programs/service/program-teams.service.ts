@@ -3,8 +3,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   createTeamCreatedAuditMetadata,
   createTeamMembershipAuditMetadata,
+  createTeamRenamedAuditMetadata,
   TEAM_CREATED_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
+  TEAM_RENAMED_AUDIT_ACTIONS,
 } from '../../audit-log/audit-log-metadata';
 import { AuditLogService } from '../../audit-log/audit-log.service';
 import { DomainException } from '../../common/error-code';
@@ -25,11 +27,13 @@ import {
   type TeamMembershipAuditEvent,
   type TeamMembershipAuditStore,
   type TeamProgramRecord,
+  type TeamRenameAuditEvent,
 } from '../repository/program-teams.repository';
 import { TEAMS_ERROR_CODES, TeamsErrorCode } from '../teams-error-code.enum';
 import type {
   CreatedTeamView,
   ProgramTeamView,
+  RenamedTeamView,
   StaffTeamDetailView,
   StaffTeamView,
 } from '../program-teams.types';
@@ -196,6 +200,70 @@ export class ProgramTeamsService {
       case 'target-not-found':
         throw this.error(TeamsErrorCode.TARGET_MEMBER_NOT_FOUND);
     }
+  }
+
+  /**
+   * 팀 이름 변경 — 해당 팀의 현재 팀장 또는 교직원·관리자만 통과한다.
+   *
+   * 가드를 새로 두지 않는다 — `ProgramTeamsStaffGuard`는 교직원 전용이라 팀장을 막고,
+   * 교직원 판정은 `ProgramLifecycleService.purge`가 이미 service 안에서 하는 것과 같은
+   * 모양이다. 최종 권한은 팀 행을 잠그고 난 뒤에 repository가 다시 판정한다.
+   *
+   * 승인 뒤 이미 발급된 GitHub 저장소 이름은 따라가지 않는다. 그걸 이유로 막지 않는다 —
+   * 막으면 오타 하나를 영영 못 고친다. 화면이 그 사실을 적는 쪽이 맞다.
+   */
+  async rename(
+    githubId: bigint,
+    programId: string,
+    teamId: string,
+    name: string,
+  ): Promise<RenamedTeamView> {
+    const actor = await this.repository.findActorAuthorityByGithubId(githubId);
+    if (!actor) {
+      throw this.error(TeamsErrorCode.TEAM_RENAME_FORBIDDEN);
+    }
+
+    const trimmedName = name.trim();
+    const result = await this.repository.renameTeam(
+      programId,
+      teamId,
+      { userId: actor.id, isStaff: actor.isStaff },
+      trimmedName,
+      (store, event) => this.recordRenameAudit(githubId, store, event),
+    );
+    switch (result) {
+      case 'renamed':
+        return { teamId, name: trimmedName };
+      case 'not-found':
+        throw this.error(TeamsErrorCode.TARGET_TEAM_NOT_FOUND);
+      case 'forbidden':
+        throw this.error(TeamsErrorCode.TEAM_RENAME_FORBIDDEN);
+    }
+  }
+
+  /**
+   * 이름 변경과 같은 트랜잭션에서 남기는 감사 기록. 실패하면 그대로 던져
+   * `Team.update`까지 롤백된다.
+   */
+  private async recordRenameAudit(
+    actorGithubId: bigint,
+    store: TeamMembershipAuditStore,
+    event: TeamRenameAuditEvent,
+  ): Promise<void> {
+    await this.auditLog.record(
+      {
+        actorGithubId,
+        action: TEAM_RENAMED_AUDIT_ACTIONS.TEAM_RENAMED,
+        targetType: 'TEAM',
+        targetId: event.teamId,
+        metadata: createTeamRenamedAuditMetadata({
+          programName: event.programName,
+          teamName: event.nextName,
+          previousName: event.previousName,
+        }),
+      },
+      store.auditLogWriter,
+    );
   }
 
   /**

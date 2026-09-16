@@ -3,6 +3,7 @@ import type { AuditLogService } from '../../audit-log/audit-log.service';
 import {
   TEAM_CREATED_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
+  TEAM_RENAMED_AUDIT_ACTIONS,
 } from '../../audit-log/audit-log-metadata';
 import { DomainException } from '../../common/error-code';
 import { computeJoinCodeDigest } from '../../common/join-code-digest';
@@ -12,9 +13,12 @@ import {
   type ProgramTeamsRepository,
   type RecordTeamMembershipAudit,
   type TeamDetailRecord,
+  type TeamActorAuthority,
   type TeamMembershipAuditEvent,
   type TeamMembershipAuditStore,
   type TeamProgramRecord,
+  type TeamRenameAuditEvent,
+  type TeamRenameResult,
   type TeamStudentActor,
 } from '../repository/program-teams.repository';
 import { ProgramTeamsService } from './program-teams.service';
@@ -62,6 +66,8 @@ function buildService(overrides: {
   readonly program?: TeamProgramRecord | null;
   readonly detail?: TeamDetailRecord | null;
   readonly createStore?: Partial<ProgramTeamsCreateStore>;
+  readonly actorAuthority?: TeamActorAuthority | null;
+  readonly renameResult?: TeamRenameResult;
 }) {
   const createTeamWithLeader = jest.fn().mockResolvedValue({
     id: 'synthetic-team',
@@ -103,6 +109,16 @@ function buildService(overrides: {
     ),
     leave: jest.fn().mockResolvedValue('removed'),
     removeMember: jest.fn().mockResolvedValue('removed'),
+    findActorAuthorityByGithubId: jest
+      .fn()
+      .mockResolvedValue(
+        overrides.actorAuthority === undefined
+          ? LEADER_AUTHORITY
+          : overrides.actorAuthority,
+      ),
+    renameTeam: jest
+      .fn()
+      .mockResolvedValue(overrides.renameResult ?? 'renamed'),
   } as unknown as ProgramTeamsRepository;
 
   return {
@@ -121,8 +137,18 @@ function buildService(overrides: {
     auditLogWriter,
     leave: jest.spyOn(repository, 'leave'),
     removeMember: jest.spyOn(repository, 'removeMember'),
+    renameTeam: jest.spyOn(repository, 'renameTeam'),
+    findActorAuthorityByGithubId: jest.spyOn(
+      repository,
+      'findActorAuthorityByGithubId',
+    ),
   };
 }
+
+const LEADER_AUTHORITY: TeamActorAuthority = {
+  id: STUDENT.id,
+  isStaff: false,
+};
 
 const MEMBERSHIP_AUDIT_WRITER =
   {} as TeamMembershipAuditStore['auditLogWriter'];
@@ -719,4 +745,129 @@ describe('ProgramTeamsService membership transaction boundary', () => {
       expect(accessed.filter((key) => EXTERNAL_SURFACE.test(key))).toEqual([]);
     },
   );
+});
+
+/**
+ * 팀 이름 변경 — 팀장과 교직원이 같은 endpoint를 쓴다.
+ * 권한 미리보기는 service가, 최종 판정은 팀 행을 잠근 repository가 한다.
+ */
+describe('ProgramTeamsService.rename', () => {
+  const TEAM_ID = 'synthetic-team';
+  const RENAME_EVENT: TeamRenameAuditEvent = {
+    teamId: TEAM_ID,
+    programName: TEAM_PROGRAM.name,
+    previousName: '오픈소스팀',
+    nextName: '알잘딱팀',
+  };
+
+  /** repository 에 넘어간 감사 콜백을 트랜잭션 대신 직접 호출한다. */
+  async function invokeRenameAudit(spy: {
+    readonly mock: { readonly calls: readonly (readonly unknown[])[] };
+  }): Promise<void> {
+    const call = spy.mock.calls.at(0);
+    if (call === undefined) {
+      throw new TypeError('Expected repository.renameTeam to be called');
+    }
+    const record = call.at(4);
+    if (typeof record !== 'function') {
+      throw new TypeError('Expected an audit callback argument');
+    }
+    await (
+      record as (
+        store: TeamMembershipAuditStore,
+        event: TeamRenameAuditEvent,
+      ) => Promise<void>
+    )({ auditLogWriter: MEMBERSHIP_AUDIT_WRITER }, RENAME_EVENT);
+  }
+
+  it('팀장이 바꾸면 바뀐 이름을 돌려주고 잠금 판정을 repository 에 넘긴다', async () => {
+    const { service, renameTeam } = buildService({});
+
+    const view = await service.rename(
+      GITHUB_ID,
+      PROGRAM_ID,
+      TEAM_ID,
+      '  알잘딱팀  ',
+    );
+
+    expect(view).toEqual({ teamId: TEAM_ID, name: '알잘딱팀' });
+    expect(renameTeam).toHaveBeenCalledWith(
+      PROGRAM_ID,
+      TEAM_ID,
+      { userId: STUDENT.id, isStaff: false },
+      '알잘딱팀',
+      expect.any(Function),
+    );
+  });
+
+  it.each([
+    ['교직원', { id: 'staff-1', isStaff: true }],
+    ['관리자', { id: 'admin-1', isStaff: true }],
+  ] as const)(
+    '%s 는 남의 팀 이름도 바꿀 수 있다',
+    async (_label, authority) => {
+      const { service, renameTeam } = buildService({
+        actorAuthority: authority,
+      });
+
+      await service.rename(GITHUB_ID, PROGRAM_ID, TEAM_ID, '알잘딱팀');
+
+      expect(renameTeam).toHaveBeenCalledWith(
+        PROGRAM_ID,
+        TEAM_ID,
+        { userId: authority.id, isStaff: true },
+        '알잘딱팀',
+        expect.any(Function),
+      );
+    },
+  );
+
+  it('비활성·없는 계정은 repository 를 부르기 전에 403 으로 막는다', async () => {
+    const { service, renameTeam } = buildService({ actorAuthority: null });
+
+    try {
+      await service.rename(GITHUB_ID, PROGRAM_ID, TEAM_ID, '알잘딱팀');
+      throw new TypeError('Expected rename to reject');
+    } catch (error) {
+      expectCode(error, TeamsErrorCode.TEAM_RENAME_FORBIDDEN);
+    }
+    expect(renameTeam).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['forbidden', TeamsErrorCode.TEAM_RENAME_FORBIDDEN],
+    ['not-found', TeamsErrorCode.TARGET_TEAM_NOT_FOUND],
+  ] as const)('%s 결과는 %s 로 매핑된다', async (outcome, expected) => {
+    const { service } = buildService({ renameResult: outcome });
+
+    try {
+      await service.rename(GITHUB_ID, PROGRAM_ID, TEAM_ID, '알잘딱팀');
+      throw new TypeError('Expected rename to reject');
+    } catch (error) {
+      expectCode(error, expected);
+    }
+  });
+
+  it('감사에는 바뀐 이름과 바뀌기 전 이름을 함께 남긴다', async () => {
+    const { service, renameTeam, record } = buildService({});
+
+    await service.rename(GITHUB_ID, PROGRAM_ID, TEAM_ID, '알잘딱팀');
+    await invokeRenameAudit(renameTeam);
+
+    expect(record).toHaveBeenCalledWith(
+      {
+        actorGithubId: GITHUB_ID,
+        action: TEAM_RENAMED_AUDIT_ACTIONS.TEAM_RENAMED,
+        targetType: 'TEAM',
+        targetId: TEAM_ID,
+        metadata: {
+          schemaVersion: 1,
+          programName: TEAM_PROGRAM.name,
+          teamName: '알잘딱팀',
+          previousName: '오픈소스팀',
+        },
+      },
+      MEMBERSHIP_AUDIT_WRITER,
+    );
+  });
 });
