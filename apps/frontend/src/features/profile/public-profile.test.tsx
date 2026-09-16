@@ -239,7 +239,7 @@ describe('public profile views', () => {
     );
 
     expect(html).toContain('octocat');
-    expect(html).toContain('전남대학교 OSS 프로그램 · 팀');
+    expect(html).toContain('전남대학교 OSS 프로그램');
     expect(html).toContain('oss-public');
     expect(html).toContain('관측됨');
     expect(html).toContain('활동량 안내: 평가·점수·랭킹이 아닙니다');

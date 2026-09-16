@@ -1,19 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, Archive, RotateCcw } from 'lucide-react';
-import { CardGrid, EmptyState, PageHeader, StatusBadge } from '@/components';
+import { CardGrid, EmptyState, PageHeader, ListCard } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { loadArchivePage, loadArchiveYears } from '../api';
 import { ArchiveListYearChips } from '../archive-list-category-nav';
 import {
@@ -74,32 +66,34 @@ function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   );
 }
 
+/** GitHub 브랜드 마크. lucide가 브랜드 아이콘을 제공하지 않아 직접 둔다. */
+function GithubMark() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      className="size-3.5 shrink-0"
+    >
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+    </svg>
+  );
+}
+
 function ArchiveCard({ item }: { readonly item: ArchiveListItem }) {
   return (
-    <Card className="min-w-0">
-      <CardHeader className="gap-3">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">
-              {item.programName} · {item.modeLabel}
-            </p>
-            <CardTitle className="mt-1 break-words">
-              {item.displayName}
-            </CardTitle>
-          </div>
-          <StatusBadge variant="approved">GitHub PUBLIC</StatusBadge>
-        </div>
-      </CardHeader>
-      <CardContent className="grid gap-1 text-sm">
-        <span className="text-muted-foreground">공개일</span>
-        <time dateTime={item.publishedAt}>{item.publishedLabel}</time>
-      </CardContent>
-      <CardFooter>
-        <Button asChild size="sm" variant="outline">
-          <Link href={item.detailUrl}>상세 보기</Link>
-        </Button>
-      </CardFooter>
-    </Card>
+    <ListCard
+      title={item.displayName}
+      subtitle={item.programName}
+      badge={{ text: 'public', variant: 'approved', icon: <GithubMark /> }}
+      details={[
+        {
+          label: '공개일',
+          value: <time dateTime={item.publishedAt}>{item.publishedLabel}</time>,
+        },
+      ]}
+      href={item.detailUrl}
+    />
   );
 }
 
@@ -160,17 +154,12 @@ export function ArchiveListContent({
         />
       ) : (
         <section aria-labelledby="archive-list-title" className="grid gap-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2
-              id="archive-list-title"
-              className="font-heading text-xl font-semibold"
-            >
-              공개 프로젝트
-            </h2>
-            <span className="text-sm text-muted-foreground">
-              {items.length}개 표시
-            </span>
-          </div>
+          <h2
+            id="archive-list-title"
+            className="font-heading text-xl font-semibold"
+          >
+            공개 프로젝트
+          </h2>
           <CardGrid>
             {items.map((item) => (
               <ArchiveCard key={item.projectId} item={item} />
