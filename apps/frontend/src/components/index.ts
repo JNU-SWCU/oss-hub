@@ -12,8 +12,6 @@ export type { RowActionsProps } from './row-actions';
 export { DetailPanelLayout } from './detail-panel-layout';
 export type { DetailPanelLayoutProps } from './detail-panel-layout';
 export { CardGrid } from './card-grid';
-export { ProgramCard } from './program-card';
-export type { ProgramCardProps } from './program-card';
 export { RepositoryPublishCard } from './repository-publish-card';
 export { StatusBadge, statusBadgeVariants } from './status-badge';
 export { EmptyState } from './empty-state';
@@ -46,3 +44,5 @@ export { ParticipantOnlyNotice } from './participant-only-notice';
 export type { ParticipantOnlyNoticeProps } from './participant-only-notice';
 
 export { ProgramCover, type ProgramCoverProps } from './program-cover';
+
+export { ListCard, type ListCardProps } from './list-card';

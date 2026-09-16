@@ -10,7 +10,8 @@ import {
   useState,
   type ReactElement,
 } from 'react';
-import { CardGrid, EmptyState, PageHeader, ProgramCard } from '@/components';
+import { CardGrid, EmptyState, PageHeader } from '@/components';
+import { ProgramCard } from './program-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

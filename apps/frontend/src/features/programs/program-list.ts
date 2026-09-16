@@ -1,4 +1,4 @@
-import type { ProgramCardStatus } from '@/components/program-card';
+import type { ProgramCardStatus } from './program-card';
 import {
   PROGRAM_LIST_STATUS_LABELS,
   type ApplicationStatus,
