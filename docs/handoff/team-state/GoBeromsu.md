@@ -1617,3 +1617,21 @@
 - 리뷰 한계: 독립 검토 실행은 런타임 오류로 결과를 받지 못했다. 부모가 원본을 검토하고 재조회 상태의 저장소 보호를 보완했다.
 - 배포: 선행 #1271은 승인된 v0.6.156으로 배포됐으며 exact SHA와 backend healthy·frontend release job 성공을 확인했다.
 - 범위: 이번 #1272 후속 변경은 별도 PR로 제출하며 병합하지 않는다.
+
+## 2026-09-16 — 팀 이름 변경 endpoint를 추가한다
+
+- 상태: active
+- Issue: -
+- PR: -
+- blocker: 없음
+- 내용: `PATCH /api/v1/programs/:programId/teams/:teamId`를 추가해 해당 팀의 현재 팀장과 교직원·관리자가 팀 이름을 바꿀 수 있게 했다. 지금까지 팀 이름은 생성 시점에 한 번 정해지면 누구도 바꿀 수 없었다.
+- 설계: 교직원 전용 가드를 새로 두지 않았다. `ProgramTeamsStaffGuard`를 붙이면 팀장이 문 앞에서 막히므로, 교직원 판정은 `ProgramLifecycleService.purge`와 같은 모양으로 service 안에서 하고 팀장 판정은 팀 행을 잠근 뒤 `Team.leaderId`로 되읽는다.
+- 설계: 없는 팀과 다른 프로그램의 팀은 같은 404다. 구분해 응답하면 다른 프로그램에 그 id의 팀이 있다는 사실이 새기 때문이다.
+- 설계: 같은 이름으로 바꾸는 요청은 성공이지만 쓰기도 감사도 남기지 않는다. 바뀐 것이 없는데 감사 사실을 만들면 원장이 거짓을 말한다.
+- 주의: 감사 metadata parser는 먼저 맞는 계약이 payload를 가져간다. `TEAM_CREATED`·`TEAM_JOINED`가 `programName`·`teamName`만 보므로 `previousName`을 예약 키로 등록하고 새 parser를 그 앞에 놓지 않으면 이름 변경 기록이 팀 생성 기록으로 조용히 격하된다. 회귀 테스트를 같은 자리에 두었다.
+- 주의: 승인 뒤 이미 발급된 GitHub 저장소 이름은 따라가지 않는다. 그 이유로 변경을 막지는 않았다. 막으면 오타 하나를 영영 고칠 수 없고, 화면이 그 사실을 적는 쪽이 맞다.
+- 검증: backend 337 suites / 4,102 tests, typecheck, lint, 전체 format 검사를 통과했다. `auth-route-manifest`가 라우트 인벤토리를 전수 고정하므로 부분 실행이 아니라 전체 단위 검증으로 확인했다.
+- 범위: backend만 손댔다. 참여 팀 화면의 행 클릭 팝업과 교직원 팀 삭제는 이 항목에 들어 있지 않다.
+- 남은 것: 교직원 팀 삭제는 새 삭제 순서를 만들지 않고 `PROGRAM_PURGE_DELETION_ORDER`를 팀 범위로 좁혀 쓰고, `readProgramDeletionScopeCounts`의 재검증 방식을 그대로 얹는다. `Application.team`의 `onDelete: Restrict`는 삭제 금지가 아니라 순서 요구이며, 팀 purge는 탈퇴 경로의 신청 보존 불변식과 다른 계열이다.
+- 남은 것: 참여 팀 표는 한 행에서 팀명 링크와 행 클릭이 서로 다른 화면으로 가므로, 행 클릭을 팀 상세 팝업 하나로 모으고 작업 열을 없앤다. 공용 dialog 껍데기는 `components/ui/dialog.tsx`가 이미 있고 판정 창은 `application-decision-dialog.tsx`를 재사용한다. `design.md`의 참여 팀·사이드바 결정도 함께 고친다.
+- 공개 안전성: 합성 데이터로만 검증했으며 운영 데이터·접속 정보·개인 경로를 이 기록에 넣지 않았다.
