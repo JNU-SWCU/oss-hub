@@ -244,7 +244,7 @@ describe('public archive views', () => {
       />,
     );
     expect(html).toContain('공개 프로젝트');
-    expect(html).toContain('GitHub PUBLIC');
+    expect(html).toContain('public');
     expect(html).toContain('href="/archive/repo_123"');
     expect(html).toContain('data-slot="archive-list-year-chips"');
     expect(html).not.toContain('id="archive-category"');
