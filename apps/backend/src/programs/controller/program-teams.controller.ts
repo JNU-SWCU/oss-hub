@@ -6,6 +6,7 @@ import {
   HttpCode,
   Inject,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -17,6 +18,7 @@ import {
   SessionGuard,
 } from '../../auth/session.guard';
 import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
+import { RenameTeamRequestDto } from '../dto/rename-team-request.dto';
 import {
   StaffTeamDetailResponseDto,
   RepositoryUrlHistoryResponseDto,
@@ -25,6 +27,7 @@ import { RepositoryUrlHistoryQueryRequestDto } from '../dto/repository-url-histo
 import {
   CreateTeamResponseDto,
   ProgramTeamResponseDto,
+  RenameTeamResponseDto,
   StaffProgramTeamResponseDto,
 } from '../dto/team-response.dto';
 import { ProgramTeamsStaffGuard } from '../program-teams-staff.guard';
@@ -43,6 +46,7 @@ type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
  * GET    /api/v1/programs/:programId/teams          (교직원 전용)
  * GET    /api/v1/programs/:programId/teams/:teamId  (교직원 전용)
  * GET    /api/v1/programs/:programId/teams/:teamId/repository-url-history  (교직원 전용)
+ * PATCH  /api/v1/programs/:programId/teams/:teamId  (팀장 또는 교직원)
  */
 @Controller('programs/:programId/teams')
 export class ProgramTeamsController {
@@ -57,6 +61,7 @@ export class ProgramTeamsController {
       | 'listForStaff'
       | 'getForStaff'
       | 'getRepositoryUrlHistoryForStaff'
+      | 'rename'
     >,
   ) {}
 
@@ -156,6 +161,29 @@ export class ProgramTeamsController {
         programId,
         teamId,
         query.toCursor(),
+      ),
+    );
+  }
+
+  /**
+   * 팀 이름 변경 — 해당 팀의 현재 팀장과 교직원·관리자가 같은 문을 쓴다.
+   * 그래서 `ProgramTeamsStaffGuard`를 붙이지 않는다 — 붙이면 팀장이 문 앞에서 막힌다.
+   * 권한은 service가 판정하고, 최종 판정은 팀 행을 잠그고 난 뒤에 repository가 다시 한다.
+   */
+  @Patch(':teamId')
+  @UseGuards(SessionGuard, OriginGuard)
+  async rename(
+    @Req() request: TeamSessionRequest,
+    @Param('programId') programId: string,
+    @Param('teamId') teamId: string,
+    @Body() body: RenameTeamRequestDto,
+  ): Promise<RenameTeamResponseDto> {
+    return RenameTeamResponseDto.from(
+      await this.service.rename(
+        request.sessionGithubId,
+        programId,
+        teamId,
+        body.name,
       ),
     );
   }

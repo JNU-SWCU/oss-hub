@@ -1,6 +1,7 @@
 import type {
   CreatedTeamView,
   ProgramTeamView,
+  RenamedTeamView,
   StaffTeamView,
   TeamMemberView,
 } from '../program-teams.types';
@@ -20,6 +21,24 @@ export class CreateTeamResponseDto {
 
   static from(view: CreatedTeamView): CreateTeamResponseDto {
     return new CreateTeamResponseDto(view);
+  }
+}
+
+/**
+ * 이름 변경 응답 — 바뀐 이름만 돌려준다.
+ * 팀장과 교직원이 같은 endpoint를 쓰므로 신청·저장소를 여기에 싣지 않는다.
+ */
+export class RenameTeamResponseDto {
+  readonly teamId: string;
+  readonly name: string;
+
+  private constructor(view: RenamedTeamView) {
+    this.teamId = view.teamId;
+    this.name = view.name;
+  }
+
+  static from(view: RenamedTeamView): RenameTeamResponseDto {
+    return new RenameTeamResponseDto(view);
   }
 }
 

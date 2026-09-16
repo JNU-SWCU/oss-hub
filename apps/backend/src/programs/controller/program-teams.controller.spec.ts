@@ -9,6 +9,7 @@ import { OriginGuard } from '../../auth/origin.guard';
 import { SessionGuard } from '../../auth/session.guard';
 import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
 import { RepositoryUrlHistoryQueryRequestDto } from '../dto/repository-url-history-query.dto';
+import { RenameTeamRequestDto } from '../dto/rename-team-request.dto';
 import { ProgramTeamsController } from './program-teams.controller';
 import { ProgramTeamsStaffGuard } from '../program-teams-staff.guard';
 
@@ -19,7 +20,8 @@ type ControllerMethodName =
   | 'removeMember'
   | 'list'
   | 'detail'
-  | 'repositoryUrlHistory';
+  | 'repositoryUrlHistory'
+  | 'rename';
 
 /** controller 가 실제로 주입받는 최소 능력 집합 — 계약이 바뀌면 여기서 먼저 깨진다. */
 type ControllerService = ConstructorParameters<
@@ -63,6 +65,7 @@ function serviceStub(
     listForStaff: jest.fn(),
     getForStaff: jest.fn(),
     getRepositoryUrlHistoryForStaff: jest.fn(),
+    rename: jest.fn(),
     ...overrides,
   };
 }
@@ -428,5 +431,42 @@ describe('ProgramTeamsController', () => {
       items: [],
       nextCursor: null,
     });
+  });
+});
+
+/**
+ * 이름 변경은 팀장과 교직원이 같은 문을 쓴다 — 교직원 전용 가드를 붙이면
+ * 팀장이 문 앞에서 막힌다. 그 회귀를 여기서 고정한다.
+ */
+describe('ProgramTeamsController.rename', () => {
+  it('PATCH :teamId 이고 SessionGuard·OriginGuard 만 적용한다', () => {
+    const method = methodOf('rename');
+
+    expect(readPath('rename')).toBe(':teamId');
+    expect(
+      method ? Reflect.getMetadata(METHOD_METADATA, method) : undefined,
+    ).toBe(RequestMethod.PATCH);
+    expect(readGuards('rename')).toEqual([SessionGuard, OriginGuard]);
+    expect(readGuards('rename')).not.toContain(ProgramTeamsStaffGuard);
+  });
+
+  it('service 결과를 RenameTeamResponseDto 로 반환한다', async () => {
+    const rename = jest
+      .fn()
+      .mockResolvedValue({ teamId: 'team-1', name: '알잘딱팀' });
+    const controller = new ProgramTeamsController(serviceStub({ rename }));
+    const body = Object.assign(new RenameTeamRequestDto(), {
+      name: '알잘딱팀',
+    });
+
+    const response = await controller.rename(
+      { sessionGithubId: 7n },
+      'program-1',
+      'team-1',
+      body,
+    );
+
+    expect(rename).toHaveBeenCalledWith(7n, 'program-1', 'team-1', '알잘딱팀');
+    expect(response).toEqual({ teamId: 'team-1', name: '알잘딱팀' });
   });
 });
