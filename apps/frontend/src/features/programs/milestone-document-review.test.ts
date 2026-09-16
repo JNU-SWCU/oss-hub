@@ -95,7 +95,7 @@ describe('milestoneDocumentCellDisplay', () => {
    * 칸을 **통째로** 넘긴다 — 판정이 실제로 손에 있는데도 무시하는지를 물어야 하기
    * 때문이다. 상태만 넘겨서는 그 함수가 판정을 안 본다는 것을 확인할 수 없다.
    */
-  it('다시 낸 칸은 지난 보완 요청이 남아 있어도 재검토 대기다', () => {
+  it('다시 낸 칸은 지난 보완 요청이 남아 있어도 검토 대기다', () => {
     const resubmitted: MilestoneDocumentCollectionCell = {
       documentId: 'd1',
       isSubmitted: true,
@@ -113,7 +113,7 @@ describe('milestoneDocumentCellDisplay', () => {
       },
     };
 
-    expect(milestoneDocumentCellDisplay(resubmitted)).toBe('REPENDING');
+    expect(milestoneDocumentCellDisplay(resubmitted)).toBe('PENDING');
   });
 });
 
@@ -131,21 +131,15 @@ describe('milestoneDocumentViewerDisplay', () => {
    * 재제출이 상태를 SUBMITTED로 되돌린다. 보완 요청을 받아 다시 낸 학생에게 계속
    * 「보완 요청」이라고 말하면 안 낸 것처럼 읽힌다.
    */
-  it('제출됨은 검토 대기로 접는다', () => {
-    expect(
-      milestoneDocumentViewerDisplay(viewer({ status: 'SUBMITTED' })),
-    ).toBe('PENDING');
-  });
-
-  it('두 번째 이상 제출본은 재검토 대기로 분명히 말한다', () => {
-    expect(
-      milestoneDocumentViewerDisplay(
-        viewer({ status: 'SUBMITTED', revision: 2 }),
-      ),
-    ).toBe('REPENDING');
-    expect(MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS.REPENDING).toBe(
-      '재검토 대기',
-    );
+  // 제출본 번호는 라벨을 가르지 않는다 — 첫 제출과 재제출이 같은 「교직원 차례」다.
+  it('제출됨은 제출본 번호와 무관하게 검토 대기다', () => {
+    for (const revision of [1, 2, 7]) {
+      expect(
+        milestoneDocumentViewerDisplay(
+          viewer({ status: 'SUBMITTED', revision }),
+        ),
+      ).toBe('PENDING');
+    }
   });
 
   it('판정 상태는 그대로 말한다', () => {
@@ -161,11 +155,10 @@ describe('milestoneDocumentViewerDisplay', () => {
 });
 
 describe('배지 표', () => {
-  it('첫 검토 대기와 재검토 대기를 다른 말로 구분한다', () => {
+  it('다섯 갈래를 이 말로 부른다', () => {
     expect(MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS).toEqual({
       NOT_SUBMITTED: '미제출',
       PENDING: '검토 대기',
-      REPENDING: '재검토 대기',
       APPROVED: '승인',
       CHANGES_REQUESTED: '보완 요청',
       REJECTED: '반려',
@@ -270,15 +263,14 @@ describe('isMilestoneDocumentDeadlineLocked', () => {
   });
 
   /**
-   * #1097 — 보완 요청에 응해 **한 번 다시 낸** 서류(재검토 대기). 위 「나머지 상태」의
-   * `SUBMITTED`와 값은 같지만 사연이 다르므로 따로 못 박는다: 재제출이 상태를 되돌려
-   * 놓았을 뿐 판정 이력에는 보완 요청이 남아 있다.
+   * #1097 — 보완 요청에 응해 **한 번 다시 낸** 서류. 위 「나머지 상태」의 `SUBMITTED`와
+   * 값은 같지만 사연이 다르므로 따로 못 박는다: 재제출이 상태를 되돌려 놓았을 뿐
+   * 판정 이력에는 보완 요청이 남아 있다.
    *
-   * 여기서 잠그는 것이 규칙이다 — 재제출은 한 번이고, 교직원이 검토하는 동안 내용은 바뀌지
+   * 여기서 잠그는 것이 규칙이다 — 재제출은 한 번이고, 교직원이 검토하는 동안 내용은 바뀜지
    * 않는다. 서버도 이 조합을 422(MSD_031)로 막으므로 화면과 서버가 같은 답을 낸다.
-   * 예전에는 서버만 열려 있어 「버튼은 잠겼는데 요청은 통과하는」 어긋남이었다.
    */
-  it('마감 뒤, 보완 요청에 이미 응한 재검토 대기는 잠근 채로 둔다', () => {
+  it('마감 뒤, 보완 요청에 이미 응한 제출은 잠근 채로 둔다', () => {
     expect(
       isMilestoneDocumentDeadlineLocked(
         true,
@@ -296,10 +288,10 @@ describe('isMilestoneDocumentDeadlineLocked', () => {
   });
 
   /**
-   * 잠그는 것은 **마감**이다. 같은 재검토 대기라도 마감 전이면 열려 있어야 한다 — 마감 전
+   * 잠그는 것은 **마감**이다. 같은 재제출이라도 마감 전이면 열려 있어야 한다 — 마감 전
    * 파일 교체는 지금도 되는 일이고, 서버도 마감 전에는 이 조합을 받는다.
    */
-  it('마감 전이면 재검토 대기도 잠기지 않는다', () => {
+  it('마감 전이면 재제출도 잠기지 않는다', () => {
     expect(
       isMilestoneDocumentDeadlineLocked(
         false,
