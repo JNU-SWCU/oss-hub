@@ -453,7 +453,8 @@ describe('ProgramDetailPage states', () => {
         }}
       />,
     );
-    expect(html).toContain('가입하고 신청하기');
+    // 비로그인도 학생과 같은 「신청하기」 버튼을 보고, 목적지만 가입 입구로 갈린다.
+    expect(html).toContain('신청하기');
     expect(html).toContain('href="/signup"');
     expect(html).not.toContain('로그인');
     expect(html).not.toContain('href="/"');
@@ -565,7 +566,7 @@ describe('ProgramDetailPage states', () => {
           {
             viewer: '비로그인',
             role: null,
-            label: '가입하고 신청하기',
+            label: '신청하기',
             href: '/signup',
           },
         ].map((entry) => ({ ...entry, kind, program })),
