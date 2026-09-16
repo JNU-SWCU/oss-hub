@@ -250,8 +250,7 @@ export function RepositoryUrlEditor({
           )}
           {!state.repository.canEditRepositoryUrl ? (
             <p className="text-sm text-muted-foreground">
-              승인된 신청의 신청자 또는 팀장만 프로그램 종료 전까지 변경할 수
-              있습니다.
+              승인된 팀의 팀장만 프로그램 종료 전까지 변경할 수 있습니다.
             </p>
           ) : null}
         </>

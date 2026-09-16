@@ -11,6 +11,7 @@ import {
   removeMyTeamMember,
   type ProgramTeam,
 } from './api';
+import { getRepositoryUrl } from './repository-url-api';
 import { ProgramMyTeamPage } from './program-my-team-page';
 import {
   getMyApplication,
@@ -52,6 +53,10 @@ vi.mock('./api', () => ({
   getProgramActivity: vi.fn(),
   removeMyTeamMember: vi.fn(),
   leaveMyTeam: vi.fn(),
+}));
+vi.mock('./repository-url-api', () => ({
+  getRepositoryUrl: vi.fn(),
+  updateRepositoryUrl: vi.fn(),
 }));
 vi.mock('./student-application-api', () => ({ getMyApplication: vi.fn() }));
 vi.mock('./use-team-invitation-management', () => ({
@@ -178,6 +183,10 @@ beforeEach(() => {
   });
   vi.resetAllMocks();
   seedSession('synthetic-leader');
+  vi.mocked(getRepositoryUrl).mockResolvedValue({
+    repositoryUrl: 'https://github.com/synthetic/team',
+    canEditRepositoryUrl: true,
+  });
   reloadSent = vi.fn(async () => {});
   vi.mocked(useTeamInvitationManagement).mockReturnValue(
     invitationStub({ reloadSent }),
@@ -601,4 +610,39 @@ describe('ProgramMyTeamPage 신원·범위 격리', () => {
     expect(getMyTeam).toHaveBeenLastCalledWith('program-2');
     expect(host.querySelector('h1')?.textContent).toBe('다른 팀');
   });
+});
+
+it.each([true, false])(
+  'shows the team repository with server edit permission %s',
+  async (canEditRepositoryUrl) => {
+    vi.mocked(getMyTeam).mockResolvedValue({
+      ...team,
+      hasApplication: true,
+      isLeader: canEditRepositoryUrl,
+    });
+    vi.mocked(getMyApplication).mockResolvedValue({
+      ...application,
+      status: 'APPROVED',
+    });
+    vi.mocked(getRepositoryUrl).mockResolvedValue({
+      repositoryUrl: 'https://github.com/synthetic/team',
+      canEditRepositoryUrl,
+    });
+    await renderPage({
+      nickname: canEditRepositoryUrl ? 'synthetic-leader' : 'synthetic-member',
+    });
+    expect(
+      host.querySelector('a[href="https://github.com/synthetic/team"]'),
+    ).not.toBeNull();
+    const edit = Array.from(host.querySelectorAll('button')).find(
+      (button) => button.textContent === '저장소 URL 수정',
+    );
+    expect(edit).toBeDefined();
+    expect(edit?.disabled).toBe(!canEditRepositoryUrl);
+  },
+);
+
+it('does not request a repository before a team application exists', async () => {
+  await renderPage();
+  expect(getRepositoryUrl).not.toHaveBeenCalled();
 });
