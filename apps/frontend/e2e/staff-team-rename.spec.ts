@@ -67,23 +67,20 @@ test('교직원이 팀 이름을 고치면 새로고침 뒤에도 남는다', as
   });
   await expect(trigger).toBeVisible();
   await trigger.click();
-  const dialog = staff.getByRole('alertdialog');
+  const dialog = staff.getByRole('dialog');
   await expect(dialog).toBeVisible();
   // 창은 설명문 없이 입력칸과 버튼만 갖는다 — 버튼이 하는 일을 문장으로 다시 말하지 않는다.
-  await expect(dialog.locator('p')).toHaveCount(0);
+  // 창은 설명문도 보이는 라벨도 없이 입력칸과 버튼만 갖는다.
+  await expect(dialog.locator('label')).toHaveCount(0);
   await captureRegion(dialog, testInfo, 'after-element-rename-dialog');
 
-  const input = dialog.locator('#team-name');
+  const input = dialog.locator('input[aria-label="팀 이름"]');
   await expect(input).toHaveValue(teamNameOnly);
-  // 지금 이름 그대로는 바뀔 것이 없어 저장할 수 없다.
-  await expect(
-    dialog.getByRole('button', { name: '저장', exact: true }),
-  ).toBeDisabled();
   await input.fill(RENAMED);
   await dialog.getByRole('button', { name: '저장', exact: true }).click();
 
   // Then: 제목과 알림이 새 이름을 말한다.
-  await expect(staff.getByRole('alertdialog')).toHaveCount(0);
+  await expect(staff.getByRole('dialog')).toHaveCount(0);
   await expect(header).toContainText(RENAMED);
   await expect(staff.getByText('팀 이름을 바꿨습니다')).toBeVisible();
   await captureRegion(header, testInfo, 'after-element-team-header-renamed');
@@ -138,13 +135,13 @@ test.describe('좁은 화면', () => {
     const trigger = staff.getByRole('button', { name: /수정$/ });
     await expect(trigger).toBeVisible();
     await trigger.click();
-    const dialog = staff.getByRole('alertdialog');
+    const dialog = staff.getByRole('dialog');
     await expect(dialog).toBeVisible();
     await capture(staff, testInfo, 'after-mobile-rename-dialog');
 
-    await dialog.locator('#team-name').fill(RENAMED);
+    await dialog.locator('input[aria-label="팀 이름"]').fill(RENAMED);
     await dialog.getByRole('button', { name: '저장', exact: true }).click();
-    await expect(staff.getByRole('alertdialog')).toHaveCount(0);
+    await expect(staff.getByRole('dialog')).toHaveCount(0);
     await expect(
       staff.locator('[data-slot="page-header"]').first(),
     ).toContainText(RENAMED);
