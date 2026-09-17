@@ -10,6 +10,7 @@ import type {
   ApplicationListItem,
   ApplicationListPage,
   ApplicationListParams,
+  DeletedTeamResult,
   ProgramActivity,
   ProgramDetail,
   ProgramListPage,
@@ -18,6 +19,7 @@ import type {
   RepositoryProvisioning,
   StaffProgramTeam,
   StaffTeamDetail,
+  TeamDeletionScope,
   ProgramParticipation,
   StaffDashboardSummary,
   SubmissionType,
@@ -715,5 +717,25 @@ export function getStaffProgramTeamDetail(
 ): Promise<StaffTeamDetail> {
   return apiClient<StaffTeamDetail>(
     `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
+  );
+}
+
+/**
+ * 교직원 팀 삭제. `expectedScope`는 누르는 사람이 확인 창에서 마지막으로 본 범위이며
+ * REQUIRED다 — 백엔드가 같은 값을 삭제 트랜잭션 안에서 다시 읽은 현재 범위와 비교해,
+ * 확인 이후 생긴 행이 있으면 409(TEAM_019)로 거부한다. `purgeProgram`과 같은 계약이다.
+ */
+export function deleteStaffProgramTeam(
+  programId: string,
+  teamId: string,
+  expectedScope: TeamDeletionScope,
+): Promise<DeletedTeamResult> {
+  return apiClient<DeletedTeamResult>(
+    `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
+    {
+      method: 'DELETE',
+      headers: jsonHeaders,
+      body: JSON.stringify({ expectedScope }),
+    },
   );
 }

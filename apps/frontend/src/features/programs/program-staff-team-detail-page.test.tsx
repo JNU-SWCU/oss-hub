@@ -71,6 +71,15 @@ const withApplication: StaffTeamDetail = {
       safeErrorClass: null,
     },
   },
+  deletionScope: {
+    applications: 1,
+    members: 2,
+    invitations: 0,
+    submissions: 0,
+    submissionEvents: 0,
+    detachedRepositories: 0,
+    scopeFingerprint: '0123456789abcdef0123456789abcdef',
+  },
 };
 
 const withoutApplication: StaffTeamDetail = {
@@ -81,6 +90,15 @@ const withoutApplication: StaffTeamDetail = {
     { userId: 'user-c', name: '마바사', nickname: 'login-c', isLeader: true },
   ],
   application: null,
+  deletionScope: {
+    applications: 0,
+    members: 1,
+    invitations: 0,
+    submissions: 0,
+    submissionEvents: 0,
+    detachedRepositories: 0,
+    scopeFingerprint: 'fedcba9876543210fedcba9876543210',
+  },
 };
 
 describe('ProgramStaffTeamDetailPage', () => {

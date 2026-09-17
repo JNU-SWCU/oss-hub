@@ -230,6 +230,16 @@ const staffProgramTeamDetailHandler: LocalReviewHandler = (context) => {
                   },
             repositoryProvisioning: application.repositoryProvisioning,
           },
+    deletionScope: {
+      applications: application === null ? 0 : 1,
+      members: team.memberCount,
+      invitations: 0,
+      submissions: 0,
+      submissionEvents: 0,
+      detachedRepositories:
+        application === null || application.repository === null ? 0 : 1,
+      scopeFingerprint: '0123456789abcdef0123456789abcdef',
+    },
   } satisfies StaffTeamDetail);
 };
 
