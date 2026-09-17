@@ -145,7 +145,7 @@ describe('ProgramStaffTeamDetailPage', () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withoutApplication);
     await render();
 
-    // 헤더에 남는 것은 「팀명 수정」뿐이다 — 상태를 말하는 배지는 없다.
+    // 헤더에 남는 것은 수정 아이콘뿐이다 — 상태를 말하는 배지는 없다.
     // (목록 안의 「팀장」 배지는 같은 컴포넌트라 헤더로 범위를 좀힌다.)
     expect(
       container.querySelector(
@@ -260,9 +260,13 @@ describe('ProgramStaffTeamDetailPage', () => {
    * 다루는 유일한 화면이다. 창은 Portal로 나가므로 `document` 기준으로 찾는다.
    */
   describe('팀명 수정', () => {
-    function renameTrigger(): HTMLButtonElement | undefined {
+    /**
+     * 보조 액션이라 글자가 아니라 아이콘이다(design.md R-27). 그래서 찾는 기준도
+     * 보이는 글자가 아니라 접근 가능한 이름이고, 그 이름은 팀마다 고유해야 한다.
+     */
+    function renameTrigger(name = '오픈소스팀'): HTMLButtonElement | undefined {
       return [...container.querySelectorAll('button')].find(
-        (button) => button.textContent?.trim() === '팀명 수정',
+        (button) => button.getAttribute('aria-label') === `${name} 수정`,
       );
     }
 
@@ -294,7 +298,18 @@ describe('ProgramStaffTeamDetailPage', () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withoutApplication);
       await render();
 
-      expect(renameTrigger()).toBeTruthy();
+      expect(renameTrigger('무신청팀')).toBeTruthy();
+    });
+
+    // 아이콘만 남기는 대신 이름을 잃으면 읽어 주는 도구에게는 빈 버튼이 된다.
+    it('아이콘 버튼은 팀명을 담은 접근 가능한 이름을 갖는다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      await render();
+
+      const trigger = renameTrigger();
+      expect(trigger?.getAttribute('aria-label')).toBe('오픈소스팀 수정');
+      // 글자를 그리지 않는다 — 그렸다면 아이콘이 이미 말한 것을 또 말하는 것이다.
+      expect(trigger?.textContent?.trim()).toBe('');
     });
 
     // 저장소 이름은 발급 시점 팀명으로 굳는다(backend `buildRepositoryNames`) —

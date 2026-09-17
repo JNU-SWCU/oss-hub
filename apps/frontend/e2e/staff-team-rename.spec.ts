@@ -48,6 +48,8 @@ test('교직원이 팀 이름을 고치면 새로고침 뒤에도 남는다', as
   const teamCellLink = applicantsTable.locator('a[href*="/teams/"]').first();
   await expect(teamCellLink).toBeVisible();
   const originalName = (await teamCellLink.innerText()).trim();
+  // 셀은 「팀명 (N명)」이다 — 접근 가능한 이름과 입력칸 값은 팀명만 쓴다.
+  const teamNameOnly = originalName.replace(/\s*\(\d+명\)$/, '');
   await teamCellLink.click();
   await staff.waitForURL(/\/teams\/[^/]+$/);
 
@@ -57,7 +59,12 @@ test('교직원이 팀 이름을 고치면 새로고침 뒤에도 남는다', as
   await capture(staff, testInfo, 'after-desktop-team-detail');
 
   // When: 창을 열어 새 이름으로 저장한다.
-  const trigger = staff.getByRole('button', { name: '팀명 수정' });
+  // 보조 액션이라 글자가 아니라 아이콘이다 — 접근 가능한 이름으로 찾고, 그 이름이
+  // 팀마다 고유한지도 함께 확인한다(design.md R-27).
+  const trigger = staff.getByRole('button', {
+    name: `${teamNameOnly} 수정`,
+    exact: true,
+  });
   await expect(trigger).toBeVisible();
   await trigger.click();
   const dialog = staff.getByRole('alertdialog');
@@ -69,7 +76,7 @@ test('교직원이 팀 이름을 고치면 새로고침 뒤에도 남는다', as
   await captureRegion(dialog, testInfo, 'after-element-rename-dialog');
 
   const input = dialog.locator('#team-name');
-  await expect(input).toHaveValue(originalName.replace(/\s*\(\d+명\)$/, ''));
+  await expect(input).toHaveValue(teamNameOnly);
   // 지금 이름 그대로는 바뀔 것이 없어 저장할 수 없다.
   await expect(
     dialog.getByRole('button', { name: '저장', exact: true }),
@@ -130,7 +137,7 @@ test.describe('좁은 화면', () => {
     await staff.waitForURL(/\/teams\/[^/]+$/);
     await capture(staff, testInfo, 'after-mobile-team-detail');
 
-    const trigger = staff.getByRole('button', { name: '팀명 수정' });
+    const trigger = staff.getByRole('button', { name: /수정$/ });
     await expect(trigger).toBeVisible();
     await trigger.click();
     const dialog = staff.getByRole('alertdialog');

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Pencil } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -11,6 +12,12 @@ import {
 import { EmptyState, PageHeader, StatusBadge } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { ApiError } from '@/lib/api-client';
 import { programApplicationDetailHref } from '@/lib/program-route';
 import { getStaffProgramTeamDetail } from './api';
@@ -155,125 +162,145 @@ export function ProgramStaffTeamDetailPage({
   const { application } = detail;
 
   return (
-    <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
-      <Button asChild variant="ghost" size="sm">
-        <Link href={teamsHref}>← 참여 팀으로</Link>
-      </Button>
-      <PageHeader
-        title={detail.name}
-        description={`팀원 ${detail.memberCount}명`}
-        /*
-         * 신청이 없으면 배지 자체를 그리지 않는다(#1272). 없는 신청에 배지를 달면
-         * 대기 중인 신청처럼 읽혀 교직원이 처리할 것이 있다고 오해한다 — 상태가
-         * 아니라 상태가 없는 것이므로 헤더는 조용히 비운다. 아래 「검토하기」도
-         * 같은 이유로 없다.
-         */
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {application === null ? null : (
-              <StatusBadge
-                variant={APPLICATION_STATUS_BADGE[application.status]}
+    // 툴팁 지연은 마일스톤 카드와 같은 200ms다 — 같은 종류의 보조 액션이 화면마다
+    // 다른 속도로 뜨면 같은 조작이 다르게 느껴진다.
+    <TooltipProvider delayDuration={200}>
+      <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
+        <Button asChild variant="ghost" size="sm">
+          <Link href={teamsHref}>← 참여 팀으로</Link>
+        </Button>
+        <PageHeader
+          title={detail.name}
+          description={`팀원 ${detail.memberCount}명`}
+          /*
+           * 신청이 없으면 배지 자체를 그리지 않는다(#1272). 없는 신청에 배지를 달면
+           * 대기 중인 신청처럼 읽혀 교직원이 처리할 것이 있다고 오해한다 — 상태가
+           * 아니라 상태가 없는 것이므로 헤더는 조용히 비운다. 아래 「검토하기」도
+           * 같은 이유로 없다.
+           */
+          /*
+           * 배지와 수정 아이콘을 그대로 넘긴다 — `PageHeader`가 이미 이 자리를
+           * `flex items-center gap-3`로 묶고 있어 감싸는 div를 더하면 간격이 두 번
+           * 정해져 다른 화면의 머리말과 어긋난다.
+           */
+          actions={
+            <>
+              {application === null ? null : (
+                <StatusBadge
+                  variant={APPLICATION_STATUS_BADGE[application.status]}
+                >
+                  {APPLICATION_STATUS_LABELS[application.status]}
+                </StatusBadge>
+              )}
+              {/*
+               * 팀명을 고치는 자리는 여기다 — 이 화면의 제목이 곧바로 팀명이고, 팀을 단위로
+               * 다루는 유일한 화면이다. 신청자 목록은 신청 축이라 팀만 만들고 아직
+               * 신청하지 않은 팀이 그 표에 없고, 신청 상세의 팀은 제출 시점 기록이다.
+               *
+               * 보조 액션이므로 글자 버튼이 아니라 아이콘 + 툴팁이다(design.md R-27).
+               * 접근 가능한 이름에 팀명을 넣는 것도 같은 규칙이다 — 마일스톤 카드의
+               * 「{이름} 수정」과 문형을 맞춘다. 44px 타겟은 `size="icon"`이 소유한다.
+               */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    id={RENAME_TRIGGER_ID}
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`${detail.name} 수정`}
+                    onClick={() => setRenaming(true)}
+                  >
+                    <Pencil aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{`${detail.name} 수정`}</TooltipContent>
+              </Tooltip>
+            </>
+          }
+        />
+
+        {justRenamed ? (
+          <Alert>
+            <AlertTitle>팀 이름을 바꿨습니다</AlertTitle>
+            <AlertDescription className="break-keep">
+              이제 「{detail.name}」입니다.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        <Section title="팀원">
+          <ul className="grid gap-3">
+            {detail.members.map((member) => (
+              <li
+                key={member.userId}
+                className="flex items-center justify-between gap-2 break-keep"
               >
-                {APPLICATION_STATUS_LABELS[application.status]}
-              </StatusBadge>
-            )}
-            {/*
-             * 팀명을 고치는 자리는 여기다 — 이 화면의 제목이 곧바로 팀명이고, 팀을 단위로
-             * 다루는 유일한 화면이다. 신청자 목록은 신청 축이라 팀만 만들고 아직
-             * 신청하지 않은 팀이 그 표에 없고, 신청 상세의 팀은 제출 시점 기록이다.
-             */}
-            <Button
-              id={RENAME_TRIGGER_ID}
-              variant="outline"
-              size="sm"
-              onClick={() => setRenaming(true)}
-            >
-              팀명 수정
+                <div className="grid gap-0.5">
+                  <span>{member.name ?? member.nickname}</span>
+                  <span className="text-xs text-muted-foreground">
+                    @{member.nickname}
+                  </span>
+                </div>
+                {member.isLeader ? (
+                  <StatusBadge variant="recruiting" size="default">
+                    팀장
+                  </StatusBadge>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </Section>
+
+        <Section
+          title="저장소"
+          headingClassName="rounded-control bg-primary px-4 py-3 font-semibold text-primary-foreground"
+        >
+          <ProgramStaffRepositorySection application={application} />
+          <StaffRepositoryEvidenceView
+            evidence={detail}
+            members={detail.members}
+            programId={programId}
+            teamId={teamId}
+          />
+        </Section>
+
+        {application !== null ? (
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button asChild>
+              <Link
+                href={programApplicationDetailHref(programId, application.id)}
+              >
+                {REVIEW_ACTION_LABEL}
+              </Link>
             </Button>
           </div>
-        }
-      />
+        ) : null}
 
-      {justRenamed ? (
-        <Alert>
-          <AlertTitle>팀 이름을 바꿨습니다</AlertTitle>
-          <AlertDescription className="break-keep">
-            이제 「{detail.name}」입니다.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      <Section title="팀원">
-        <ul className="grid gap-3">
-          {detail.members.map((member) => (
-            <li
-              key={member.userId}
-              className="flex items-center justify-between gap-2 break-keep"
-            >
-              <div className="grid gap-0.5">
-                <span>{member.name ?? member.nickname}</span>
-                <span className="text-xs text-muted-foreground">
-                  @{member.nickname}
-                </span>
-              </div>
-              {member.isLeader ? (
-                <StatusBadge variant="recruiting" size="default">
-                  팀장
-                </StatusBadge>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      </Section>
-
-      <Section
-        title="저장소"
-        headingClassName="rounded-control bg-primary px-4 py-3 font-semibold text-primary-foreground"
-      >
-        <ProgramStaffRepositorySection application={application} />
-        <StaffRepositoryEvidenceView
-          evidence={detail}
-          members={detail.members}
-          programId={programId}
-          teamId={teamId}
-        />
-      </Section>
-
-      {application !== null ? (
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button asChild>
-            <Link
-              href={programApplicationDetailHref(programId, application.id)}
-            >
-              {REVIEW_ACTION_LABEL}
-            </Link>
-          </Button>
-        </div>
-      ) : null}
-
-      {renaming ? (
-        <TeamNameDialog
-          programId={programId}
-          teamId={teamId}
-          currentName={detail.name}
-          returnFocusId={RENAME_TRIGGER_ID}
-          onCancel={() => setRenaming(false)}
-          onRenamed={(name) => {
-            setRenaming(false);
-            setJustRenamed(true);
-            /*
-             * 바뀐 이름만 덮어 쓴다 — 상세를 다시 불러오면 화면이 스켈레톤으로
-             * 갈아끼워져, 바꾼 사실을 확인하려는 사람 앞에서 화면이 한 번 비운다.
-             * 이름 밖의 값은 이 요청이 바꾸지 않는다.
-             */
-            setLoadState((current) =>
-              current.kind === 'ready'
-                ? { ...current, detail: { ...current.detail, name } }
-                : current,
-            );
-          }}
-        />
-      ) : null}
-    </main>
+        {renaming ? (
+          <TeamNameDialog
+            programId={programId}
+            teamId={teamId}
+            currentName={detail.name}
+            returnFocusId={RENAME_TRIGGER_ID}
+            onCancel={() => setRenaming(false)}
+            onRenamed={(name) => {
+              setRenaming(false);
+              setJustRenamed(true);
+              /*
+               * 바뀐 이름만 덮어 쓴다 — 상세를 다시 불러오면 화면이 스켈레톤으로
+               * 갈아끼워져, 바꾼 사실을 확인하려는 사람 앞에서 화면이 한 번 비운다.
+               * 이름 밖의 값은 이 요청이 바꾸지 않는다.
+               */
+              setLoadState((current) =>
+                current.kind === 'ready'
+                  ? { ...current, detail: { ...current.detail, name } }
+                  : current,
+              );
+            }}
+          />
+        ) : null}
+      </main>
+    </TooltipProvider>
   );
 }
