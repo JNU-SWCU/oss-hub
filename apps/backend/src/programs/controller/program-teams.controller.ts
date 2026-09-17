@@ -17,10 +17,12 @@ import {
   SessionGuard,
 } from '../../auth/session.guard';
 import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
+import { DeleteTeamRequestDto } from '../dto/delete-team-request.dto';
 import { RenameTeamRequestDto } from '../dto/rename-team-request.dto';
 import { StaffTeamDetailResponseDto } from '../dto/team-detail-response.dto';
 import {
   CreateTeamResponseDto,
+  DeleteTeamResponseDto,
   ProgramTeamResponseDto,
   RenameTeamResponseDto,
   StaffProgramTeamResponseDto,
@@ -41,6 +43,7 @@ type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
  * GET    /api/v1/programs/:programId/teams          (교직원 전용)
  * GET    /api/v1/programs/:programId/teams/:teamId  (교직원 전용)
  * PATCH  /api/v1/programs/:programId/teams/:teamId  (팀장 또는 교직원)
+ * DELETE /api/v1/programs/:programId/teams/:teamId  (교직원 전용)
  */
 @Controller('programs/:programId/teams')
 export class ProgramTeamsController {
@@ -55,6 +58,7 @@ export class ProgramTeamsController {
       | 'listForStaff'
       | 'getForStaff'
       | 'rename'
+      | 'deleteForStaff'
     >,
   ) {}
 
@@ -161,6 +165,32 @@ export class ProgramTeamsController {
         programId,
         teamId,
         body.name,
+      ),
+    );
+  }
+
+  /**
+   * 교직원 팀 삭제 — 가드를 붙이지 않는 것은 바로 위 `rename`과 같은 이유다. 교직원
+   * 판정은 `ProgramLifecycleService.purge`와 같은 모양으로 service가 하고, 최종 판정은
+   * 팀 행을 잠그고 난 뒤에 repository가 다시 한다.
+   *
+   * 본문을 받는 DELETE다 — `DELETE /programs/:id/purge`와 같은 계약이며,
+   * `expectedScope`는 확인 창이 마지막으로 본 범위라 REQUIRED다.
+   */
+  @Delete(':teamId')
+  @UseGuards(SessionGuard, OriginGuard)
+  async remove(
+    @Req() request: TeamSessionRequest,
+    @Param('programId') programId: string,
+    @Param('teamId') teamId: string,
+    @Body() body: DeleteTeamRequestDto,
+  ): Promise<DeleteTeamResponseDto> {
+    return DeleteTeamResponseDto.from(
+      await this.service.deleteForStaff(
+        request.sessionGithubId,
+        programId,
+        teamId,
+        body.expectedScope,
       ),
     );
   }

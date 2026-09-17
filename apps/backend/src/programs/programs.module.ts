@@ -27,6 +27,7 @@ import { ProgramEditorService } from './service/program-editor.service';
 import { ProgramLifecycleService } from './service/program-lifecycle.service';
 import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 import { ProgramTeamsController } from './controller/program-teams.controller';
+import { ProgramTeamDeletionRepository } from './repository/program-team-deletion.repository';
 import { ProgramTeamsRepository } from './repository/program-teams.repository';
 import { ProgramTeamsService } from './service/program-teams.service';
 import { ProgramViewerService } from './service/program-viewer.service';
@@ -86,6 +87,7 @@ import { ProgramCoverRepository } from './repository/program-cover.repository';
     ProgramLifecycleService,
     ProgramTeamsService,
     ProgramTeamsRepository,
+    ProgramTeamDeletionRepository,
     ProgramTeamsStaffGuard,
   ],
   exports: [

@@ -28,6 +28,16 @@ const sessionSecret = new Uint8Array(32).fill(7);
 const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
 
+const DELETION_SCOPE = {
+  applications: 1,
+  members: 1,
+  invitations: 0,
+  submissions: 2,
+  submissionEvents: 3,
+  detachedRepositories: 1,
+  scopeFingerprint: '0123456789abcdef0123456789abcdef',
+};
+
 const getForStaff = jest.fn();
 const findUnique = jest.fn();
 
@@ -114,6 +124,7 @@ it('ACTIVE STAFF 는 팀 상세를 200 으로 받는다', async () => {
       { userId: 'user-a', name: '가나다', nickname: 'login-a', isLeader: true },
     ],
     application: null,
+    deletionScope: DELETION_SCOPE,
   });
 
   // When
@@ -129,6 +140,9 @@ it('ACTIVE STAFF 는 팀 상세를 200 으로 받는다', async () => {
       { userId: 'user-a', name: '가나다', nickname: 'login-a', isLeader: true },
     ],
     application: null,
+    // 삭제 확인 창이 그대로 되돌려보낼 범위다 — 이 값이 응답에 없으면 화면은
+    // 무엇이 함께 지워지는지 말할 수 없고 `expectedScope` 를 지어낼 수도 없다.
+    deletionScope: DELETION_SCOPE,
   });
   expect(getForStaff).toHaveBeenCalledWith(PROGRAM_ID, TEAM_ID);
 });

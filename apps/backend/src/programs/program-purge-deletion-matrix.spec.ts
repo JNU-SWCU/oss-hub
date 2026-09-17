@@ -1,6 +1,9 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { PROGRAM_PURGE_DELETION_ORDER } from './program-purge-deletion-matrix';
+import {
+  PROGRAM_PURGE_DELETION_ORDER,
+  TEAM_PURGE_DELETION_ORDER,
+} from './program-purge-deletion-matrix';
 
 type RelationEdge = {
   readonly parent: string;
@@ -15,9 +18,16 @@ type RelationEdge = {
 const LOGICAL_PROGRAM_CHILD_MODELS = ['PublicShowcaseRepository'] as const;
 
 function schemaProgramChildGraph(schema: string): readonly string[] {
+  return schemaChildGraph(schema, ['Program', ...LOGICAL_PROGRAM_CHILD_MODELS]);
+}
+
+function schemaChildGraph(
+  schema: string,
+  roots: readonly string[],
+): readonly string[] {
   const edges = parseRequiredForeignKeyEdges(schema);
   const traversed = new Set<string>();
-  const queue = ['Program', ...LOGICAL_PROGRAM_CHILD_MODELS];
+  const queue = [...roots];
 
   while (queue.length > 0) {
     const parent = queue.shift();
@@ -124,6 +134,131 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
     );
     expect(position('applications')).toBeLessThan(position('teams'));
     expect(position('teams')).toBeLessThan(PROGRAM_PURGE_DELETION_ORDER.length);
+  });
+});
+
+describe('TEAM_PURGE_DELETION_ORDER', () => {
+  const teamCovers = TEAM_PURGE_DELETION_ORDER.flatMap((step) => step.covers);
+
+  it('program purge 순서의 부분수열이다 — 단계를 새로 만들거나 순서를 바꾸지 않는다', () => {
+    const programIds = PROGRAM_PURGE_DELETION_ORDER.map((step) => step.id);
+    const teamIds = TEAM_PURGE_DELETION_ORDER.map((step) => step.id);
+
+    expect(new Set(teamIds).size).toBe(teamIds.length);
+    expect(teamIds).toEqual(programIds.filter((id) => teamIds.includes(id)));
+
+    // operation 은 좁혀 담기면서 바뀔 수 있는 것이 아니다 — DETACH 가 DELETE 로
+    // 바뀌는 순간 수집 이력이 통째로 사라진다.
+    for (const step of TEAM_PURGE_DELETION_ORDER) {
+      const origin = PROGRAM_PURGE_DELETION_ORDER.find(
+        (candidate) => candidate.id === step.id,
+      );
+      expect(origin?.operation).toBe(step.operation);
+      for (const relation of step.covers) {
+        // 기계적으로 좁힌 관계는 그대로 있고, 논리 자식만 도달 경로가 바뀐다.
+        if (!relation.startsWith('logical:')) {
+          expect(origin?.covers).toContain(relation);
+        }
+      }
+    }
+  });
+
+  it('Team 전체 Prisma child graph를 빠짐없이 덮고, 프로그램에만 매달린 관계는 끌어오지 않는다', () => {
+    const schema = readFileSync(
+      join(process.cwd(), 'prisma/schema.prisma'),
+      'utf8',
+    );
+    const actual = schemaChildGraph(schema, ['Team']);
+    const covered = [
+      ...new Set(
+        teamCovers.filter(
+          (relation) =>
+            !relation.startsWith('logical:') && relation !== 'Program->Team',
+        ),
+      ),
+    ].sort();
+
+    expect(covered).toEqual(actual);
+    // 지워지는 팀 행 자체도 마지막 단계로 명시된다.
+    expect(teamCovers).toContain('Program->Team');
+
+    // 프로그램에만 매달린 것은 팀 삭제가 건드리지 않는다.
+    for (const programOnly of [
+      'Program->BoardPost',
+      'BoardPost->BoardComment',
+      'Program->Milestone',
+      'Milestone->MilestoneDocument',
+      'Milestone->SubmissionFile',
+      'MilestoneDocument->MilestoneDocumentSubmission',
+      'MilestoneDocument->MilestoneDocumentTemplateFile',
+      'Program->ProgramCreateRequest',
+      'Program->ProgramCover',
+      'Program->GithubRepository',
+      'Program->Application',
+      'logical:Program->OutboxEvent',
+      'logical:Program->PublicShowcaseRepository',
+      'PublicShowcaseRepository->PublicShowcaseContributor',
+      'logical:Program->Notification[DEADLINE_DIGEST,idempotencyKey]',
+    ]) {
+      expect(teamCovers).not.toContain(programOnly);
+    }
+  });
+
+  it('GithubRepository 는 여기서도 DETACH 이고 그 아래 수집 이력은 PRESERVE 다', () => {
+    const detach = TEAM_PURGE_DELETION_ORDER.find(
+      (step) => step.id === 'github-repositories',
+    );
+    expect(detach?.operation).toBe('DETACH');
+    expect(detach?.covers).toEqual([
+      'Application->GithubRepository',
+      'Team->GithubRepository',
+    ]);
+
+    const preserved = TEAM_PURGE_DELETION_ORDER.filter(
+      (step) => step.operation === 'PRESERVE',
+    ).flatMap((step) => step.covers);
+    expect(preserved).toEqual(
+      expect.arrayContaining([
+        'GithubRepository->Contribution',
+        'GithubRepository->CollectionCommitFact',
+        'GithubRepository->CollectionPullRequestFact',
+        'GithubRepository->CollectionReleaseFact',
+        'GithubRepository->CollectionRepositoryStream',
+        'GithubRepository->RepositoryInvitation',
+      ]),
+    );
+    const nonPreserveCovers = TEAM_PURGE_DELETION_ORDER.filter(
+      (step) => step.operation !== 'PRESERVE',
+    ).flatMap((step) => step.covers);
+    for (const relation of preserved) {
+      expect(nonPreserveCovers).not.toContain(relation);
+    }
+  });
+
+  it('application → teamInvitation → teamMember → team 순서를 고정한다', () => {
+    const position = (id: string) =>
+      TEAM_PURGE_DELETION_ORDER.findIndex((step) => step.id === id);
+
+    // Application.team 의 onDelete: Restrict 는 삭제 금지가 아니라 순서 요구다.
+    expect(position('applications')).toBeLessThan(position('team-invitations'));
+    expect(position('team-invitations')).toBeLessThan(position('team-members'));
+    expect(position('team-members')).toBeLessThan(position('teams'));
+    expect(position('teams')).toBe(TEAM_PURGE_DELETION_ORDER.length - 1);
+
+    // 자식이 부모보다 먼저라는 bottom-up 규칙은 좁혀도 그대로다.
+    expect(position('submission-files')).toBeLessThan(
+      position('milestone-document-submission-histories'),
+    );
+    expect(position('milestone-document-submission-histories')).toBeLessThan(
+      position('milestone-document-submissions'),
+    );
+    expect(position('milestone-document-submissions')).toBeLessThan(
+      position('applications'),
+    );
+    // 저장소를 먼저 떼어내야 application 삭제가 FK 에 막히지 않는다.
+    expect(position('github-repositories')).toBeLessThan(
+      position('applications'),
+    );
   });
 });
 
