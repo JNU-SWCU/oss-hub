@@ -1776,3 +1776,20 @@
 - 남은 것: 교직원 팀 삭제는 새 삭제 순서를 만들지 않고 `PROGRAM_PURGE_DELETION_ORDER`를 팀 범위로 좁혀 쓰고, `readProgramDeletionScopeCounts`의 재검증 방식을 그대로 얹는다. `Application.team`의 `onDelete: Restrict`는 삭제 금지가 아니라 순서 요구이며, 팀 purge는 탈퇴 경로의 신청 보존 불변식과 다른 계열이다.
 - 남은 것: 참여 팀 표는 한 행에서 팀명 링크와 행 클릭이 서로 다른 화면으로 가므로, 행 클릭을 팀 상세 팝업 하나로 모으고 작업 열을 없앤다. 공용 dialog 껍데기는 `components/ui/dialog.tsx`가 이미 있고 판정 창은 `application-decision-dialog.tsx`를 재사용한다. `design.md`의 참여 팀·사이드바 결정도 함께 고친다.
 - 공개 안전성: 합성 데이터로만 검증했으며 운영 데이터·접속 정보·개인 경로를 이 기록에 넣지 않았다.
+
+## 2026-09-17 — 교직원 팀 상세에서 팀 이름을 고친다
+
+- 상태: review
+- Issue: -
+- PR: 제출
+- blocker: 없음
+- 내용: 앞 항목의 backend endpoint에 화면을 붙였다. 교직원 팀 상세(`/programs/:id/teams/:teamId`) 제목 옆에 「팀명 수정」을 두고, 신청자 목록의 팀명 칸을 그 팀 상세로 가는 링크로 만들었다.
+- 설계: 입구를 신청자 목록이 아니라 팀 상세에 뒀다. 그 화면의 제목이 곧 팀명이고 팀을 단위로 다루는 유일한 화면이다. 신청자 목록은 신청 축이라 팀만 만들고 아직 신청하지 않은 팀이 그 표에 없고, 신청 상세의 팀은 제출 시점 기록이다. 그 표는 이미 가로 스크롤을 안내할 만큼 열이 많고 2~10초 폴링이 표를 다시 그린다.
+- 설계: 창은 `Dialog`가 아니라 `AlertDialog`다. 이름을 고쳐 치는 중에 바깥을 잘못 누르면 적던 값이 사라진다 — 판정 확인창과 같은 이유다.
+- 주의: 이미 발급된 GitHub 저장소 이름은 따라 바뀌지 않는다. 누르기 **전에** 창이 그 사실을 말한다. 저장소 이름은 발급 시점 팀명 슬러그로 굳는다(`buildRepositoryNames`).
+- 주의: 감사 화면이 backend action registry를 미러링하므로 `TEAM_RENAMED` 라벨·배지·서술을 함께 넣었다. 빠뜨리면 `action-registry.test.ts`가 frontend 누락으로 실패한다. 원장 문장은 바뀌기 전 이름을 metadata에서 읽어 「무엇에서 무엇으로」를 복원한다.
+- 정정: 이 작업의 앞 커밋은 `local-review` 픽스처 서버에 규칙을 더했으나, main이 ADR-013으로 그 런타임 경로를 지운 뒤였다. rebase에서 그 변경을 버리고 증거는 실제 격리 백엔드(`pnpm --filter frontend e2e`)로 다시 만들었다.
+- 검증: frontend 363 files / 3,682 tests, backend 342 suites / 4,186 tests, 격리 DB 107 suites / 704 tests, Chrome E2E 2 tests가 통과했다. 양쪽 typecheck·lint·build와 전체 format 검사를 통과했고 기존 frontend 경고 5개는 숨기지 않았다.
+- 검증: 저장 뒤 새로고침해 서버가 준 값으로 다시 읽는 데까지 E2E로 확인했다. 화면 상태만 바뀌고 저장되지 않는 회귀는 UI만 가로챈 테스트로는 잡히지 않는다.
+- 범위: 학생 「우리 팀」 화면에는 아직 입구를 두지 않았다. backend는 팀장도 같은 endpoint를 통과시키므로 후속으로 열 수 있다.
+- 공개 안전성: 합성 데이터로만 검증했으며 운영 데이터·접속 정보·개인 경로를 이 기록에 넣지 않았다.
