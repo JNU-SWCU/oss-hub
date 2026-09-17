@@ -140,6 +140,23 @@ function teamMembershipSummary(
   };
 }
 
+// TEAM_RENAMED는 바뀜기 전 이름만 더 잎는다 — 바뀐 뒤 이름은 이미 `target`에 합성돼
+// 있다(audit-log.repository.ts의 composeTeamTargetLabel). 모양이 어긋나면 목록을 통째
+// 거절하지 않고 undefined를 돌려, 문장이 이전 이름 없이 서술하게 둔다(팀 구성 변경과 같은 규칙).
+const TEAM_RENAMED_ACTION = 'TEAM_RENAMED';
+const TEAM_RENAMED_SCHEMA_VERSION = 1;
+
+function teamPreviousName(
+  action: string,
+  metadata: unknown,
+): string | undefined {
+  if (action !== TEAM_RENAMED_ACTION || !isRecord(metadata)) return undefined;
+  return metadata.schemaVersion === TEAM_RENAMED_SCHEMA_VERSION &&
+    isNonEmptyString(metadata.previousName)
+    ? metadata.previousName
+    : undefined;
+}
+
 const RECORD_KEYS = [
   'id',
   'actor',
@@ -168,6 +185,7 @@ function auditLogRecord(value: unknown): AuditLogRecord {
 
   const action = nonEmptyString(value.action);
   const teamMembership = teamMembershipSummary(action, wireMetadata);
+  const previousName = teamPreviousName(action, wireMetadata);
   const parsedPhoneTransition = isRecord(wireMetadata)
     ? phoneTransition(action, wireMetadata)
     : undefined;
@@ -183,6 +201,7 @@ function auditLogRecord(value: unknown): AuditLogRecord {
     targetHandle: nullableHandle(value.targetHandle),
     // 검증을 통과한 행에만 키를 달아 나머지 action의 모양은 그대로 유지한다.
     ...(teamMembership === undefined ? {} : { teamMembership }),
+    ...(previousName === undefined ? {} : { teamPreviousName: previousName }),
     occurredAt: isoTimestamp(value.occurredAt),
     ...(parsedPhoneTransition
       ? { phoneTransition: parsedPhoneTransition }

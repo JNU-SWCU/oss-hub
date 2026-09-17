@@ -275,6 +275,15 @@ export interface StaffTeamDetail extends StaffRepositoryEvidence {
   readonly application: StaffTeamDetailApplication | null;
 }
 
+/**
+ * 이름 변경 응답. 바뀐 사실만 온다 — 팀장과 교직원이 같은 endpoint를 써서
+ * 신청·저장소를 실어 보내지 않는다(backend `RenameTeamResponseDto` 미러).
+ */
+export interface RenamedTeam {
+  readonly teamId: string;
+  readonly name: string;
+}
+
 export interface ApplicationListPage {
   readonly items: readonly ApplicationListItem[];
   readonly page: number;
