@@ -1,4 +1,8 @@
-import { ProgramLifecycle, RepositoryVisibility } from '@prisma/client';
+import {
+  ProgramLifecycle,
+  RepositoryConnectionMode,
+  RepositoryVisibility,
+} from '@prisma/client';
 import { isJsonObject } from './audit-metadata-validation';
 
 export const REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION_V1 = 1 as const;
@@ -84,6 +88,80 @@ export function parseRepositoryPublishAuditMetadata(
   return value.schemaVersion === REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION_V1
     ? { ...base, schemaVersion: REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION_V1 }
     : null;
+}
+
+export const REPOSITORY_CONNECTION_AUDIT_SCHEMA_VERSION = 1 as const;
+export const REPOSITORY_CONNECTION_AUDIT_ACTIONS = {
+  REPOSITORY_CONNECTION_CHANGED: 'REPOSITORY_CONNECTION_CHANGED',
+} as const;
+
+export type RepositoryConnectionAuditState = {
+  readonly repositoryId: string | null;
+  readonly nameWithOwner: string | null;
+  readonly connectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
+};
+
+export type RepositoryConnectionAuditMetadata = {
+  readonly schemaVersion: typeof REPOSITORY_CONNECTION_AUDIT_SCHEMA_VERSION;
+  readonly applicationId: string;
+  readonly before: RepositoryConnectionAuditState;
+  readonly after: RepositoryConnectionAuditState;
+};
+
+export type RepositoryConnectionAuditMetadataView =
+  RepositoryConnectionAuditMetadata;
+
+export function createRepositoryConnectionAuditMetadata(
+  input: Omit<RepositoryConnectionAuditMetadata, 'schemaVersion'>,
+): RepositoryConnectionAuditMetadata {
+  return {
+    schemaVersion: REPOSITORY_CONNECTION_AUDIT_SCHEMA_VERSION,
+    ...input,
+  };
+}
+
+export function parseRepositoryConnectionAuditMetadata(
+  value: unknown,
+): RepositoryConnectionAuditMetadataView | null {
+  if (
+    !isJsonObject(value) ||
+    value.schemaVersion !== REPOSITORY_CONNECTION_AUDIT_SCHEMA_VERSION ||
+    typeof value.applicationId !== 'string' ||
+    !isRepositoryConnectionState(value.before) ||
+    !isRepositoryConnectionState(value.after)
+  ) {
+    return null;
+  }
+  return {
+    schemaVersion: REPOSITORY_CONNECTION_AUDIT_SCHEMA_VERSION,
+    applicationId: value.applicationId,
+    before: {
+      repositoryId: value.before.repositoryId,
+      nameWithOwner: value.before.nameWithOwner,
+      connectionMode: value.before.connectionMode,
+      repositoryUrl: value.before.repositoryUrl,
+    },
+    after: {
+      repositoryId: value.after.repositoryId,
+      nameWithOwner: value.after.nameWithOwner,
+      connectionMode: value.after.connectionMode,
+      repositoryUrl: value.after.repositoryUrl,
+    },
+  };
+}
+
+function isRepositoryConnectionState(
+  value: unknown,
+): value is RepositoryConnectionAuditState {
+  return (
+    isJsonObject(value) &&
+    (value.repositoryId === null || typeof value.repositoryId === 'string') &&
+    (value.nameWithOwner === null || typeof value.nameWithOwner === 'string') &&
+    (value.connectionMode === RepositoryConnectionMode.NEW ||
+      value.connectionMode === RepositoryConnectionMode.OWN) &&
+    (value.repositoryUrl === null || typeof value.repositoryUrl === 'string')
+  );
 }
 
 function isVisibilityState(

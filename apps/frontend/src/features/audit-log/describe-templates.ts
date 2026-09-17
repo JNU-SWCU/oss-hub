@@ -177,6 +177,12 @@ export const SENTENCE_TEMPLATES: Readonly<
   // 없으면) targetId 폴백을 보여준다. PROGRAM_ARCHIVED/RESTORED와 같은 규약이다.
   REPOSITORY_PUBLISHED: (record) =>
     prefixedNameSentence(record, '님이 저장소 ', '을(를) 공개로 전환했습니다'),
+  REPOSITORY_CONNECTION_CHANGED: (record) =>
+    nameTargetSentence(
+      record,
+      '의 저장소 연결을 변경했습니다',
+      '의 저장소 연결을 변경했습니다',
+    ),
   // PROGRAM_ARCHIVED/RESTORED는 이름 스냅샷(schemaVersion 2) 또는 join으로 찾은
   // 현재 이름이 있으면 그 이름을, 없으면(과거 행이면서 프로그램도 이미 없으면)
   // targetId 폴백을 보여준다. 이름은 GitHub 로그인이 아니므로 nameSegment로
@@ -196,6 +202,14 @@ export const SENTENCE_TEMPLATES: Readonly<
     nameTargetSentence(record, '을(를) 만들었습니다', '을(를) 만들었습니다'),
   TEAM_JOINED: (record) =>
     nameTargetSentence(record, '에 합류했습니다', '에 합류했습니다'),
+  TEAM_RENAMED: (record) =>
+    nameTargetSentence(
+      record,
+      '의 이름을 변경했습니다',
+      '의 이름을 변경했습니다',
+    ),
+  TEAM_DELETED: (record) =>
+    nameTargetSentence(record, '을(를) 삭제했습니다', '을(를) 삭제했습니다'),
   // TEAM_MEMBERSHIP_CHANGED는 TEAM_CREATED/TEAM_JOINED와 같은 "프로그램 · 팀이름"
   // target을 가지므로 같은 nameSegment/폴백 규약을 그대로 쓰고, 달라지는 건 서술절뿐이다
   // (별도 렌더러를 두지 않는다).
