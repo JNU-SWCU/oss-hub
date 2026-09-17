@@ -88,6 +88,11 @@ export function TeamNameDialog({
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/40" />
         <AlertDialog.Content
+          /*
+           * 설명 문단이 없는 입력 창이라 가리킬 설명도 없다. 판정 창의 반려 폼과 같은
+           * 처리다 — 넘기지 않고 `undefined`로 끊어 Radix가 없는 id를 가리키지 않게 한다.
+           */
+          aria-describedby={undefined}
           className="fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl bg-background p-6 shadow-lg outline-none *:min-w-0"
           onCloseAutoFocus={() => {
             document.getElementById(returnFocusId)?.focus();
@@ -96,16 +101,6 @@ export function TeamNameDialog({
           <AlertDialog.Title asChild>
             <h2 className="text-lg font-semibold">팀 이름 변경</h2>
           </AlertDialog.Title>
-          <AlertDialog.Description asChild>
-            {/*
-             * 저장소 이름은 발급 시점 팀명으로 굳는다(backend `buildRepositoryNames`).
-             * 이 사실을 안 적으면 교직원은 저장소까지 따라 바뀔 것으로 읽는다.
-             */}
-            <p className="text-small break-keep text-muted-foreground">
-              이미 만들어진 GitHub 저장소 이름은 따라 바뀌지 않습니다. 팀원과
-              교직원 화면에 보이는 팀 이름만 바뀝니다.
-            </p>
-          </AlertDialog.Description>
           <form
             className="grid gap-2 text-sm"
             onSubmit={(event) => {

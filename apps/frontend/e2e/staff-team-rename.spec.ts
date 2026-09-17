@@ -69,10 +69,8 @@ test('교직원이 팀 이름을 고치면 새로고침 뒤에도 남는다', as
   await trigger.click();
   const dialog = staff.getByRole('alertdialog');
   await expect(dialog).toBeVisible();
-  // 저장소 이름은 발급 시점 팀명으로 굳으므로 누르기 전에 그 사실을 말한다.
-  await expect(dialog).toContainText(
-    'GitHub 저장소 이름은 따라 바뀌지 않습니다',
-  );
+  // 창은 설명문 없이 입력칸과 버튼만 갖는다 — 버튼이 하는 일을 문장으로 다시 말하지 않는다.
+  await expect(dialog.locator('p')).toHaveCount(0);
   await captureRegion(dialog, testInfo, 'after-element-rename-dialog');
 
   const input = dialog.locator('#team-name');

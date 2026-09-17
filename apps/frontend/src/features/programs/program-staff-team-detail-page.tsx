@@ -56,16 +56,27 @@ function DetailSkeleton(): ReactElement {
 
 function Section({
   title,
+  meta,
   children,
   headingClassName = 'font-semibold',
 }: {
   readonly title: string;
+  /**
+   * 머리말 오른쪽에 붙는 수·단위. 공용 `SectionHeading`의 `meta`와 같은 역할이고
+   * 같은 키울을 쓴다 — 이 페이지는 카드 안 머리말이라 제목 크기만 다르다.
+   */
+  readonly meta?: string;
   readonly children: React.ReactNode;
   readonly headingClassName?: string;
 }): ReactElement {
   return (
     <section className="grid gap-4 rounded-card border border-border p-card">
-      <h2 className={headingClassName}>{title}</h2>
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className={headingClassName}>{title}</h2>
+        {meta ? (
+          <span className="text-small text-muted-foreground">{meta}</span>
+        ) : null}
+      </div>
       {children}
     </section>
   );
@@ -171,65 +182,61 @@ export function ProgramStaffTeamDetailPage({
         </Button>
         <PageHeader
           title={detail.name}
-          description={`팀원 ${detail.memberCount}명`}
+          /*
+           * 인원수를 제목 아래에 두지 않는다 — 「한빛 팀 / 팀원 3명 / 팀원」으로 한
+           * 눈에 「팀」이 세 번 서고, 정작 그 수를 설명하는 명단은 아래 섹션에 있다.
+           * 수는 그 명단의 머리말이 말한다(`섹션 title·meta`).
+           */
+          /*
+           * 수정은 제목 문자열을 대상으로 하므로 제목 옆이다. 우측 `actions`는
+           * 신청 상태 배지가 쓰는 자리라 둘을 한 덩어리로 묶으면 연필이 배지를
+           * 가리키는 것처럼 읽힌다.
+           */
+          titleAction={
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  id={RENAME_TRIGGER_ID}
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`${detail.name} 수정`}
+                  onClick={() => setRenaming(true)}
+                >
+                  <Pencil aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{`${detail.name} 수정`}</TooltipContent>
+            </Tooltip>
+          }
           /*
            * 신청이 없으면 배지 자체를 그리지 않는다(#1272). 없는 신청에 배지를 달면
            * 대기 중인 신청처럼 읽혀 교직원이 처리할 것이 있다고 오해한다 — 상태가
            * 아니라 상태가 없는 것이므로 헤더는 조용히 비운다. 아래 「검토하기」도
            * 같은 이유로 없다.
            */
-          /*
-           * 배지와 수정 아이콘을 그대로 넘긴다 — `PageHeader`가 이미 이 자리를
-           * `flex items-center gap-3`로 묶고 있어 감싸는 div를 더하면 간격이 두 번
-           * 정해져 다른 화면의 머리말과 어긋난다.
-           */
           actions={
-            <>
-              {application === null ? null : (
-                <StatusBadge
-                  variant={APPLICATION_STATUS_BADGE[application.status]}
-                >
-                  {APPLICATION_STATUS_LABELS[application.status]}
-                </StatusBadge>
-              )}
-              {/*
-               * 팀명을 고치는 자리는 여기다 — 이 화면의 제목이 곧바로 팀명이고, 팀을 단위로
-               * 다루는 유일한 화면이다. 신청자 목록은 신청 축이라 팀만 만들고 아직
-               * 신청하지 않은 팀이 그 표에 없고, 신청 상세의 팀은 제출 시점 기록이다.
-               *
-               * 보조 액션이므로 글자 버튼이 아니라 아이콘 + 툴팁이다(design.md R-27).
-               * 접근 가능한 이름에 팀명을 넣는 것도 같은 규칙이다 — 마일스톤 카드의
-               * 「{이름} 수정」과 문형을 맞춘다. 44px 타겟은 `size="icon"`이 소유한다.
-               */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    id={RENAME_TRIGGER_ID}
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`${detail.name} 수정`}
-                    onClick={() => setRenaming(true)}
-                  >
-                    <Pencil aria-hidden="true" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{`${detail.name} 수정`}</TooltipContent>
-              </Tooltip>
-            </>
+            application === null ? undefined : (
+              <StatusBadge
+                variant={APPLICATION_STATUS_BADGE[application.status]}
+              >
+                {APPLICATION_STATUS_LABELS[application.status]}
+              </StatusBadge>
+            )
           }
         />
 
+        {/*
+         * 바뀐 이름을 여기서 다시 말하지 않는다 — 바로 위 제목이 그 이름이다.
+         * 이 줄이 말하는 것은 「저장됐다」는 사실 하나다.
+         */}
         {justRenamed ? (
           <Alert>
             <AlertTitle>팀 이름을 바꿨습니다</AlertTitle>
-            <AlertDescription className="break-keep">
-              이제 「{detail.name}」입니다.
-            </AlertDescription>
           </Alert>
         ) : null}
 
-        <Section title="팀원">
+        <Section title="팀원" meta={`${detail.memberCount}명`}>
           <ul className="grid gap-3">
             {detail.members.map((member) => (
               <li

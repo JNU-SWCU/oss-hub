@@ -117,6 +117,23 @@ describe('ProgramStaffTeamDetailPage', () => {
     });
   }
 
+  /**
+   * 인원수는 명단이 있는 섹션이 말한다. 제목 아래에 두면 「한빛 팀 / 팀원 3명 /
+   * 팀원」으로 한 눈에 「팀」이 세 번 선다.
+   */
+  it('인원수는 머리말이 아니라 팀원 섹션이 말한다', async () => {
+    getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+    await render();
+
+    expect(
+      container.querySelector('[data-slot="page-header-description"]'),
+    ).toBeNull();
+    const memberSection = [...container.querySelectorAll('section')].find(
+      (section) => section.textContent?.includes('팀원'),
+    );
+    expect(memberSection?.textContent).toContain('2명');
+  });
+
   it('팀원 이름과 팀장 표시를 보여준다', async () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
     await render();
@@ -312,16 +329,38 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(trigger?.textContent?.trim()).toBe('');
     });
 
-    // 저장소 이름은 발급 시점 팀명으로 굳는다(backend `buildRepositoryNames`) —
-    // 누르기 **전에** 말하지 않으면 저장소까지 따라 바뀔 것으로 읽는다.
-    it('창은 저장소 이름이 따라 바뀌지 않는다고 미리 말한다', async () => {
+    /**
+     * 수정은 제목을 대상으로 하고 배지는 신청 상태를 말한다 — 가리키는 것이 다르므로
+     * 한 덩어리로 묶지 않는다. 묶으면 연필이 배지를 가리키는 것처럼 읽힌다.
+     */
+    it('수정은 제목 옆에, 상태 배지는 우측 액션에 따로 선다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      await render();
+
+      const titleAction = container.querySelector(
+        '[data-slot="page-header-title-action"]',
+      );
+      const actions = container.querySelector(
+        '[data-slot="page-header-actions"]',
+      );
+      expect(titleAction?.contains(renameTrigger() ?? null)).toBe(true);
+      expect(actions?.contains(renameTrigger() ?? null)).toBe(false);
+      expect(actions?.textContent).toContain('검토 대기');
+    });
+
+    /**
+     * 창은 제목·입력칸·버튼만 갖는다. 설명문을 다시 넣으려면 이 시험이 먼저 저지한다 —
+     * 버튼이 하는 일을 문장으로 한 번 더 말하는 자리가 여기였다(AP-17).
+     */
+    it('창은 설명문 없이 입력과 버튼만 갖는다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       await render();
       await openDialog();
 
-      expect(document.body.textContent).toContain(
-        '이미 만들어진 GitHub 저장소 이름은 따라 바뀌지 않습니다',
-      );
+      const dialog = document.querySelector('[role="alertdialog"]');
+      expect(dialog?.querySelector('p')).toBeNull();
+      expect(dialog?.textContent).not.toContain('GitHub');
+      expect(dialog?.querySelector('#team-name')).toBeTruthy();
     });
 
     it('새 이름으로 저장하면 제목과 알림이 바뀐 이름을 말한다', async () => {
