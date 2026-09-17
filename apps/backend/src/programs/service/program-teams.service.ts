@@ -231,7 +231,7 @@ export class ProgramTeamsService {
     const result = await this.repository.renameTeam(
       programId,
       teamId,
-      { userId: actor.id, isStaff: actor.isStaff },
+      actor,
       trimmedName,
       (store, event) => this.recordRenameAudit(githubId, store, event),
     );

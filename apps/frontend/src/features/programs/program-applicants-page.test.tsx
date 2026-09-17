@@ -9,7 +9,10 @@ import {
   ApplicationListRequestEpoch,
   ProgramApplicantsPage,
 } from './program-applicants-page';
-import { programApplicationDetailHref } from '@/lib/program-route';
+import {
+  programApplicationDetailHref,
+  programTeamDetailHref,
+} from '@/lib/program-route';
 import type {
   ApplicationListItem,
   ApplicationListPage,
@@ -277,6 +280,36 @@ describe('program applicants review flow', () => {
     expect(queryButton('승인')).toBeUndefined();
     expect(queryButton('반려')).toBeUndefined();
     expect(queryButton('되돌리기')).toBeUndefined();
+  });
+
+  /**
+   * 팀명 오타를 알아보는 자리는 이 표이고 고치는 자리는 팀 상세다 — 둘 사이가
+   * 끊겨 있으면 교직원은 사이드바 「참여 팀」으로 돌아가 같은 팀을 다시 찾아야 한다.
+   */
+  it('팀 신청 행의 팀명은 팀 상세로 가는 링크다', async () => {
+    listProgramApplicationsMock.mockResolvedValue(
+      applicationPage([team, personal]),
+    );
+
+    await act(async () => {
+      root.render(<ProgramApplicantsPage programId="program-1" />);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const teamLink = Array.from(container.querySelectorAll('a')).find(
+      (candidate) => candidate.textContent?.trim() === '합성 팀 (3명)',
+    );
+    expect(teamLink?.getAttribute('href')).toBe(
+      programTeamDetailHref('program-1', 'team-1'),
+    );
+    // 개인 신청은 갈 팀이 없으므로 링크를 만들지 않는다.
+    expect(
+      Array.from(container.querySelectorAll('a')).some(
+        (candidate) => candidate.textContent?.trim() === '1명',
+      ),
+    ).toBe(false);
   });
 
   it('SUBMITTED 행은 「검토 대기」로 보이고 「검토하기」 링크가 신청 상세를 가리킨다', async () => {

@@ -246,6 +246,42 @@ describe('describeAuditLog', () => {
     );
   });
 
+  // 팀 이름 변경은 target이 바뀐 **뒤**의 이름이라, 이전 이름이 문장에 함께
+  // 서야 「무엇에서 무엇으로」가 성립한다.
+  it('TEAM_RENAMED는 이전 이름과 바뀐 이름을 한 문장에 담는다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-team-renamed',
+      actor: 'synthetic-staff',
+      action: 'TEAM_RENAMED',
+      targetType: 'TEAM',
+      targetId: 'team-synthetic-3',
+      target: '합성 프로그램 · 새 팀이름',
+      teamPreviousName: '옛 팀이름',
+      occurredAt: '2026-07-24T04:37:00.000Z',
+    };
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-staff님이 합성 프로그램 · 새 팀이름의 이름을 「옛 팀이름」에서 바꿨습니다',
+    );
+  });
+
+  // metadata 검증에 실패한 행은 이전 이름을 지어내지 않고 빼고 말한다.
+  it('TEAM_RENAMED에 이전 이름이 없으면 그 대목을 빼고 서술한다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-team-renamed-no-previous',
+      actor: 'synthetic-staff',
+      action: 'TEAM_RENAMED',
+      targetType: 'TEAM',
+      targetId: 'team-synthetic-4',
+      target: '합성 프로그램 · 새 팀이름',
+      occurredAt: '2026-07-24T04:38:00.000Z',
+    };
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-staff님이 합성 프로그램 · 새 팀이름의 이름을 바꿨습니다',
+    );
+  });
+
   it('APPLICATION_SUBMITTED는 승인 문형("님의 신청을 승인했습니다")을 쓰지 않는다', () => {
     const record: AuditLogRecord = {
       id: 'audit-application-submitted-name',

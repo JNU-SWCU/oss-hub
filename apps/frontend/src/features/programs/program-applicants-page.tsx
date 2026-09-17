@@ -38,6 +38,7 @@ import { ProgramListPagination } from './program-list-pagination';
 import {
   programApplicationDetailHref,
   programEditHref,
+  programTeamDetailHref,
 } from '@/lib/program-route';
 import type {
   ApplicationListItem,
@@ -284,7 +285,28 @@ export function ProgramApplicantsPage({
           </div>
         ),
       },
-      { id: 'participation', header: '팀/인원', cell: participationLabel },
+      {
+        id: 'participation',
+        header: '팀/인원',
+        /*
+         * 팀 신청이면 팀 상세로 가는 길을 준다 — 팀명 오타를 알아보는 자리는 이
+         * 표인데 고치는 자리는 팀 상세라, 링크가 없으면 사이드바의 「참여 팀」으로
+         * 돌아가 같은 팀을 다시 찾아야 한다. 개인 신청은 갈 팀이 없어 글자로 둔다.
+         */
+        cell: (row) =>
+          row.team === null ? (
+            participationLabel(row)
+          ) : (
+            <Link
+              href={programTeamDetailHref(programId, row.team.id)}
+              className="underline underline-offset-2"
+              // 행 클릭은 신청 상세로 간다 — 이 링크만 팀 상세로 새어 나가게 둔다.
+              onClick={(event) => event.stopPropagation()}
+            >
+              {participationLabel(row)}
+            </Link>
+          ),
+      },
       {
         id: 'status',
         header: '상태',

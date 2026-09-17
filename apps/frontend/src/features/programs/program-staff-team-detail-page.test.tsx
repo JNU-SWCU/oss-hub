@@ -24,15 +24,19 @@ vi.mock('next/link', () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
-const { getStaffProgramTeamDetailMock, publishRepositoryMock } = vi.hoisted(
-  () => ({
-    getStaffProgramTeamDetailMock: vi.fn(),
-    publishRepositoryMock: vi.fn(),
-  }),
-);
+const {
+  getStaffProgramTeamDetailMock,
+  publishRepositoryMock,
+  renameProgramTeamMock,
+} = vi.hoisted(() => ({
+  getStaffProgramTeamDetailMock: vi.fn(),
+  publishRepositoryMock: vi.fn(),
+  renameProgramTeamMock: vi.fn(),
+}));
 
 vi.mock('./api', () => ({
   getStaffProgramTeamDetail: getStaffProgramTeamDetailMock,
+  renameProgramTeam: renameProgramTeamMock,
 }));
 
 vi.mock('@/lib/repository-publication', async (importOriginal) => ({
@@ -97,6 +101,7 @@ describe('ProgramStaffTeamDetailPage', () => {
     root = createRoot(container);
     getStaffProgramTeamDetailMock.mockReset();
     publishRepositoryMock.mockReset();
+    renameProgramTeamMock.mockReset();
   });
 
   afterEach(() => {
@@ -135,13 +140,17 @@ describe('ProgramStaffTeamDetailPage', () => {
     );
   });
 
-  // #1272 — 없는 신청에 배지를 달면 「대기 중인 신청」으로 읽힌다. 헤더는 비운다.
+  // #1272 — 없는 신청에 배지를 달면 「대기 중인 신청」으로 읽힌다.
   it('신청이 없으면 상태 배지를 그리지 않고 「검토하기」 링크도 없다', async () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withoutApplication);
     await render();
 
+    // 헤더에 남는 것은 「팀명 수정」뿐이다 — 상태를 말하는 배지는 없다.
+    // (목록 안의 「팀장」 배지는 같은 컴포넌트라 헤더로 범위를 좀힌다.)
     expect(
-      container.querySelector('[data-slot="page-header-actions"]'),
+      container.querySelector(
+        '[data-slot="page-header-actions"] [data-slot="status-badge"]',
+      ),
     ).toBeNull();
     expect(container.textContent).not.toContain('미신청');
     expect(container.textContent).not.toContain('신청 없음');
@@ -244,5 +253,120 @@ describe('ProgramStaffTeamDetailPage', () => {
     await render();
 
     expect(container.textContent).toContain('팀 상세를 열 수 없습니다');
+  });
+
+  /**
+   * 팀명을 고치는 자리는 이 화면이다 — 제목이 곧바로 팀명이고, 팀을 단위로
+   * 다루는 유일한 화면이다. 창은 Portal로 나가므로 `document` 기준으로 찾는다.
+   */
+  describe('팀명 수정', () => {
+    function renameTrigger(): HTMLButtonElement | undefined {
+      return [...container.querySelectorAll('button')].find(
+        (button) => button.textContent?.trim() === '팀명 수정',
+      );
+    }
+
+    function dialogButton(label: string): HTMLButtonElement | undefined {
+      return [...document.querySelectorAll('button')].find(
+        (button) => button.textContent?.trim() === label,
+      );
+    }
+
+    async function openDialog(): Promise<void> {
+      await act(async () => renameTrigger()?.click());
+    }
+
+    async function fill(value: string): Promise<void> {
+      const input = document.querySelector<HTMLInputElement>('#team-name');
+      await act(async () => {
+        if (input === null) return;
+        // React가 듣는 것은 native setter 뒤에 오는 input 이벤트다.
+        Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          'value',
+        )?.set?.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    }
+
+    it('신청이 없는 팀에도 수정 입구가 있다', async () => {
+      // 팀명은 신청과 무관하게 팀의 값이다 — 신청 전에도 고칠 수 있어야 한다.
+      getStaffProgramTeamDetailMock.mockResolvedValue(withoutApplication);
+      await render();
+
+      expect(renameTrigger()).toBeTruthy();
+    });
+
+    // 저장소 이름은 발급 시점 팀명으로 굳는다(backend `buildRepositoryNames`) —
+    // 누르기 **전에** 말하지 않으면 저장소까지 따라 바뀔 것으로 읽는다.
+    it('창은 저장소 이름이 따라 바뀌지 않는다고 미리 말한다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      await render();
+      await openDialog();
+
+      expect(document.body.textContent).toContain(
+        '이미 만들어진 GitHub 저장소 이름은 따라 바뀌지 않습니다',
+      );
+    });
+
+    it('새 이름으로 저장하면 제목과 알림이 바뀐 이름을 말한다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      renameProgramTeamMock.mockResolvedValue({
+        teamId: 'team-1',
+        name: '새팀이름',
+      });
+      await render();
+      await openDialog();
+      await fill('  새팀이름  ');
+      await act(async () => dialogButton('저장')?.click());
+
+      // 앞뒤 공백은 보내기 전에 떼다 — 백엔드가 trim 한 것과 같은 값이어야 한다.
+      expect(renameProgramTeamMock).toHaveBeenCalledWith(
+        'program-1',
+        'team-1',
+        '새팀이름',
+      );
+      expect(container.textContent).toContain('팀 이름을 바꿨습니다');
+      expect(container.textContent).toContain('새팀이름');
+      expect(container.textContent).not.toContain('오픈소스팀');
+      // 이름 하나 바꾸려고 상세를 통째 다시 읽지 않는다(화면이 스켈레톤으로 돌아간다).
+      expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('저장이 실패하면 창 안에서 말하고 제목은 그대로 둔다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      renameProgramTeamMock.mockRejectedValue(
+        new ApiError({
+          ...problem(403, 'TEAM_016'),
+          detail: '팀장 또는 교직원만 팀 이름을 바꿀 수 있습니다.',
+        }),
+      );
+      await render();
+      await openDialog();
+      await fill('새팀이름');
+      await act(async () => dialogButton('저장')?.click());
+
+      expect(document.body.textContent).toContain(
+        '팀장 또는 교직원만 팀 이름을 바꿀 수 있습니다.',
+      );
+      expect(container.textContent).toContain('오픈소스팀');
+      expect(container.textContent).not.toContain('팀 이름을 바꿨습니다');
+    });
+
+    it('빈 이름과 같은 이름은 저장할 수 없다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      await render();
+      await openDialog();
+
+      // 열자마자는 지금 이름이 들어 있다 — 그대로 누르면 바뀔 것이 없다.
+      expect(dialogButton('저장')?.disabled).toBe(true);
+
+      await fill('   ');
+      expect(dialogButton('저장')?.disabled).toBe(true);
+
+      await fill('다른 이름');
+      expect(dialogButton('저장')?.disabled).toBe(false);
+      expect(renameProgramTeamMock).not.toHaveBeenCalled();
+    });
   });
 });

@@ -149,15 +149,6 @@ export type TeamRemoveMemberResult =
  */
 export type TeamRenameResult = 'renamed' | 'not-found' | 'forbidden';
 
-/**
- * 이름 변경 행위자. `isStaff`는 service가 이미 판정한 교직원·관리자 여부다 —
- * 팀장 여부만은 팀을 잠그고 난 **뒤에** 다시 묻는다(그 사이에 팀장이 바뀔 수 있다).
- */
-export interface TeamRenameActor {
-  readonly userId: string;
-  readonly isStaff: boolean;
-}
-
 /** 이름 변경 감사에 필요한 사실 — 팀 행을 잠그고 읽은 값만 담는다. */
 export interface TeamRenameAuditEvent {
   readonly teamId: string;
@@ -175,7 +166,11 @@ export type RecordTeamRenameAudit = (
   event: TeamRenameAuditEvent,
 ) => Promise<void>;
 
-/** 이름 변경 행위자 조회 결과 — 비활성·없는 계정은 null로 접힌다. */
+/**
+ * 이름 변경 행위자. 조회 결과이면서 그대로 `renameTeam`의 입력이다 — 비활성·없는
+ * 계정은 null로 접힌다. `isStaff`는 교직원·관리자 여부고, 팀장 여부는 여기 담지
+ * 않는다 — 팀을 잠그고 난 **뒤에** 다시 묻는다(그 사이에 팀장이 바뀔 수 있다).
+ */
 export interface TeamActorAuthority {
   readonly id: string;
   readonly isStaff: boolean;
@@ -279,13 +274,13 @@ export class ProgramTeamsRepository {
    * 팀 이름 변경. 잠금 순서와 「잠근 뒤의 사실로 판정」 규칙은 `leave`·`removeMember`와
    * 같다 — 잠금 전에 읽은 팀장은 권한의 정본이 아니다(#1269와 같은 이유).
    *
-   * 같은 이름으로 바꾸는 요청은 성공이지만 쓰기도 audit도 없다 — 바뀜 것이 없는데
+   * 같은 이름으로 바꾸는 요청은 성공이지만 쓰기도 audit도 없다 — 바뀐 것이 없는데
    * 「바꿨다」는 감사 사실을 만들면 원장이 거짓말을 한다.
    */
   async renameTeam(
     programId: string,
     teamId: string,
-    actor: TeamRenameActor,
+    actor: TeamActorAuthority,
     name: string,
     recordAudit: RecordTeamRenameAudit,
   ): Promise<TeamRenameResult> {
@@ -302,7 +297,7 @@ export class ProgramTeamsRepository {
         },
       });
       if (!team || team.programId !== programId) return 'not-found';
-      if (!actor.isStaff && team.leaderId !== actor.userId) return 'forbidden';
+      if (!actor.isStaff && team.leaderId !== actor.id) return 'forbidden';
       if (team.name === name) return 'renamed';
 
       await tx.team.update({ where: { id: teamId }, data: { name } });

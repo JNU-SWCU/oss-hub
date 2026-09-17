@@ -9,6 +9,7 @@ import {
   type ReactElement,
 } from 'react';
 import { EmptyState, PageHeader, StatusBadge } from '@/components';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 import { programApplicationDetailHref } from '@/lib/program-route';
@@ -21,7 +22,11 @@ import {
 } from './application-presentation';
 import { ProgramStaffRepositorySection } from './program-staff-repository-section';
 import { StaffRepositoryEvidenceView } from './staff-repository-evidence-view';
+import { TeamNameDialog } from './team-name-dialog';
 import type { StaffTeamDetail } from './types';
+
+/** 이름 변경 창을 연 버튼. 창이 닫힐 때 포커스를 여기로 돌려준다. */
+const RENAME_TRIGGER_ID = 'staff-team-rename-trigger';
 
 type LoadState =
   | { readonly kind: 'loading' }
@@ -75,6 +80,12 @@ export function ProgramStaffTeamDetailPage({
   readonly teamId: string;
 }): ReactElement {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
+  const [renaming, setRenaming] = useState(false);
+  /**
+   * 이번 방문에서 이름을 바꿨는지. 바뀐 이름 자체는 `detail.name`이 이미 들고
+   * 있어 여기에 다시 담지 않는다 — 같은 값을 두 곳에 두면 어느 쪽이 참인지 갈린다.
+   */
+  const [justRenamed, setJustRenamed] = useState(false);
   const cancelled = useRef(false);
 
   const load = useCallback(async (): Promise<void> => {
@@ -158,13 +169,39 @@ export function ProgramStaffTeamDetailPage({
          * 같은 이유로 없다.
          */
         actions={
-          application === null ? undefined : (
-            <StatusBadge variant={APPLICATION_STATUS_BADGE[application.status]}>
-              {APPLICATION_STATUS_LABELS[application.status]}
-            </StatusBadge>
-          )
+          <div className="flex flex-wrap items-center gap-2">
+            {application === null ? null : (
+              <StatusBadge
+                variant={APPLICATION_STATUS_BADGE[application.status]}
+              >
+                {APPLICATION_STATUS_LABELS[application.status]}
+              </StatusBadge>
+            )}
+            {/*
+             * 팀명을 고치는 자리는 여기다 — 이 화면의 제목이 곧바로 팀명이고, 팀을 단위로
+             * 다루는 유일한 화면이다. 신청자 목록은 신청 축이라 팀만 만들고 아직
+             * 신청하지 않은 팀이 그 표에 없고, 신청 상세의 팀은 제출 시점 기록이다.
+             */}
+            <Button
+              id={RENAME_TRIGGER_ID}
+              variant="outline"
+              size="sm"
+              onClick={() => setRenaming(true)}
+            >
+              팀명 수정
+            </Button>
+          </div>
         }
       />
+
+      {justRenamed ? (
+        <Alert>
+          <AlertTitle>팀 이름을 바꿨습니다</AlertTitle>
+          <AlertDescription className="break-keep">
+            이제 「{detail.name}」입니다.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <Section title="팀원">
         <ul className="grid gap-3">
@@ -212,6 +249,30 @@ export function ProgramStaffTeamDetailPage({
             </Link>
           </Button>
         </div>
+      ) : null}
+
+      {renaming ? (
+        <TeamNameDialog
+          programId={programId}
+          teamId={teamId}
+          currentName={detail.name}
+          returnFocusId={RENAME_TRIGGER_ID}
+          onCancel={() => setRenaming(false)}
+          onRenamed={(name) => {
+            setRenaming(false);
+            setJustRenamed(true);
+            /*
+             * 바뀐 이름만 덮어 쓴다 — 상세를 다시 불러오면 화면이 스켈레톤으로
+             * 갈아끼워져, 바꾼 사실을 확인하려는 사람 앞에서 화면이 한 번 비운다.
+             * 이름 밖의 값은 이 요청이 바꾸지 않는다.
+             */
+            setLoadState((current) =>
+              current.kind === 'ready'
+                ? { ...current, detail: { ...current.detail, name } }
+                : current,
+            );
+          }}
+        />
       ) : null}
     </main>
   );
