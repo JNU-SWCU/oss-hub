@@ -32,9 +32,6 @@ import { StaffRepositoryEvidenceView } from './staff-repository-evidence-view';
 import { TeamNameDialog } from './team-name-dialog';
 import type { StaffTeamDetail } from './types';
 
-/** 이름 변경 창을 연 버튼. 창이 닫힐 때 포커스를 여기로 돌려준다. */
-const RENAME_TRIGGER_ID = 'staff-team-rename-trigger';
-
 type LoadState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'ready'; readonly detail: StaffTeamDetail }
@@ -105,6 +102,8 @@ export function ProgramStaffTeamDetailPage({
    */
   const [justRenamed, setJustRenamed] = useState(false);
   const cancelled = useRef(false);
+  /** 창이 닫힐 때 초점을 돌려줄 자리. 공용 창 껍데기가 이 ref를 받는다. */
+  const renameTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
     setLoadState({ kind: 'loading' });
@@ -196,7 +195,7 @@ export function ProgramStaffTeamDetailPage({
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  id={RENAME_TRIGGER_ID}
+                  ref={renameTriggerRef}
                   type="button"
                   variant="ghost"
                   size="icon"
@@ -289,7 +288,7 @@ export function ProgramStaffTeamDetailPage({
             programId={programId}
             teamId={teamId}
             currentName={detail.name}
-            returnFocusId={RENAME_TRIGGER_ID}
+            returnFocusRef={renameTriggerRef}
             onCancel={() => setRenaming(false)}
             onRenamed={(name) => {
               setRenaming(false);

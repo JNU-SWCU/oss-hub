@@ -298,7 +298,9 @@ describe('ProgramStaffTeamDetailPage', () => {
     }
 
     async function fill(value: string): Promise<void> {
-      const input = document.querySelector<HTMLInputElement>('#team-name');
+      const input = document.querySelector<HTMLInputElement>(
+        'input[aria-label="팀 이름"]',
+      );
       await act(async () => {
         if (input === null) return;
         // React가 듣는 것은 native setter 뒤에 오는 input 이벤트다.
@@ -351,16 +353,19 @@ describe('ProgramStaffTeamDetailPage', () => {
     /**
      * 창은 제목·입력칸·버튼만 갖는다. 설명문을 다시 넣으려면 이 시험이 먼저 저지한다 —
      * 버튼이 하는 일을 문장으로 한 번 더 말하는 자리가 여기였다(AP-17).
+     *
+     * 보이는 라벨도 두지 않는다 — 제목이 「팀 이름 변경」이고 칸이 하나뿐이라 라벨은
+     * 제목을 다시 말하는 자리가 된다. 이름은 `aria-label`로 남는다.
      */
-    it('창은 설명문 없이 입력과 버튼만 갖는다', async () => {
+    it('창은 설명문·보이는 라벨 없이 입력과 버튼만 갖는다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       await render();
       await openDialog();
 
-      const dialog = document.querySelector('[role="alertdialog"]');
-      expect(dialog?.querySelector('p')).toBeNull();
+      const dialog = document.querySelector('[role="dialog"]');
       expect(dialog?.textContent).not.toContain('GitHub');
-      expect(dialog?.querySelector('#team-name')).toBeTruthy();
+      expect(dialog?.querySelector('label')).toBeNull();
+      expect(dialog?.querySelector('input[aria-label="팀 이름"]')).toBeTruthy();
     });
 
     it('새 이름으로 저장하면 제목과 알림이 바뀐 이름을 말한다', async () => {
@@ -407,20 +412,42 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(container.textContent).not.toContain('팀 이름을 바꿨습니다');
     });
 
-    it('빈 이름과 같은 이름은 저장할 수 없다', async () => {
+    /**
+     * 누르기 전에 붉게 굴지 않는다. 누른 뒤에만 무엇이 모자란지 말한다 —
+     * 일정 창(`program-schedule-range-dialog`)이 쓰는 `attempted` 규칙과 같다.
+     */
+    it('빈 이름으로 저장하면 창 안에서 이유를 말하고 요청하지 않는다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       await render();
       await openDialog();
 
-      // 열자마자는 지금 이름이 들어 있다 — 그대로 누르면 바뀔 것이 없다.
-      expect(dialogButton('저장')?.disabled).toBe(true);
+      expect(document.body.textContent).not.toContain(
+        '팀 이름을 입력해 주세요',
+      );
 
       await fill('   ');
-      expect(dialogButton('저장')?.disabled).toBe(true);
+      await act(async () => dialogButton('저장')?.click());
 
-      await fill('다른 이름');
-      expect(dialogButton('저장')?.disabled).toBe(false);
+      expect(document.body.textContent).toContain('팀 이름을 입력해 주세요');
       expect(renameProgramTeamMock).not.toHaveBeenCalled();
+      // 창은 열려 있다 — 고칠 자리를 뺏지 않는다.
+      expect(document.querySelector('[role="dialog"]')).toBeTruthy();
+    });
+
+    /**
+     * 같은 이름은 바뀔 것이 없다. 백엔드도 같은 이름에는 쓰기도 감사도 남기지 않으므로
+     * 요청을 보내지 않고 창만 닫는 편이 그 판단과 같다.
+     */
+    it('같은 이름으로 저장하면 요청 없이 창만 닫는다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      await render();
+      await openDialog();
+      await act(async () => dialogButton('저장')?.click());
+
+      expect(renameProgramTeamMock).not.toHaveBeenCalled();
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+      // 바뀐 것이 없으므로 「바꿨습니다」라고 말하지 않는다.
+      expect(container.textContent).not.toContain('팀 이름을 바꿨습니다');
     });
   });
 });
