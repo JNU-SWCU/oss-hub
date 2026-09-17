@@ -1,16 +1,19 @@
 import {
   ApplicationStatus,
   MemberKind,
+  OutboxEventStatus,
   ProgramCategory,
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
   RepositorySource,
+  RepositoryVisibility,
   ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { RepositoryProvisionJobRepository } from './repository/repository-provision-job.repository';
 import { RepositoryProvisionLeaseLostError } from './repository-provision-state.helpers';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -32,10 +35,18 @@ const APPLICATION_IDS = [
   'synthetic-job-own',
   'synthetic-job-unprovisioned',
   'synthetic-job-race',
+  'synthetic-job-shared-a',
+  'synthetic-job-shared-b',
+  'synthetic-job-legacy-null-generation',
 ] as const;
+const SHARED_REPOSITORY_ID = 'synthetic-job-shared-repository';
 
 function repositoryIdFor(applicationId: string): string {
   return `${applicationId}-repository`;
+}
+
+function requestIdFor(applicationId: string): string {
+  return `${applicationId}-provision-event`;
 }
 
 describe('RepositoryProvisionJobRepository integration', () => {
@@ -56,7 +67,14 @@ describe('RepositoryProvisionJobRepository integration', () => {
       where: { applicationId: { in: [...APPLICATION_IDS] } },
     });
     await prisma.githubRepository.deleteMany({
-      where: { id: { in: APPLICATION_IDS.map(repositoryIdFor) } },
+      where: {
+        id: {
+          in: [...APPLICATION_IDS.map(repositoryIdFor), SHARED_REPOSITORY_ID],
+        },
+      },
+    });
+    await prisma.outboxEvent.deleteMany({
+      where: { id: { in: APPLICATION_IDS.map(requestIdFor) } },
     });
     await prisma.application.deleteMany({
       where: { id: { in: [...APPLICATION_IDS] } },
@@ -110,6 +128,63 @@ describe('RepositoryProvisionJobRepository integration', () => {
     });
   });
 
+  it('같은 historical repositoryId를 두 application job이 보존할 수 있다', async () => {
+    const firstApplicationId = APPLICATION_IDS[9];
+    const secondApplicationId = APPLICATION_IDS[10];
+    await createJob(
+      firstApplicationId,
+      RepositoryProvisionJobStatus.SUCCEEDED,
+      NOW,
+    );
+    await createJob(
+      secondApplicationId,
+      RepositoryProvisionJobStatus.SUCCEEDED,
+      NOW,
+    );
+    await prisma.githubRepository.create({
+      data: {
+        id: SHARED_REPOSITORY_ID,
+        programId: programId(firstApplicationId),
+        teamId: teamIdFor(firstApplicationId),
+        githubRepositoryId: 8_200_000_099_001n,
+        nameWithOwner: 'synthetic-org/shared-history',
+        source: RepositorySource.ORG_PROVISIONED,
+        visibility: RepositoryVisibility.PRIVATE,
+      },
+    });
+
+    await prisma.repositoryProvisionJob.update({
+      where: { applicationId: firstApplicationId },
+      data: { repositoryId: SHARED_REPOSITORY_ID },
+    });
+    await prisma.repositoryProvisionJob.update({
+      where: { applicationId: secondApplicationId },
+      data: { repositoryId: SHARED_REPOSITORY_ID },
+    });
+
+    await expect(
+      prisma.repositoryProvisionJob.count({
+        where: { repositoryId: SHARED_REPOSITORY_ID },
+      }),
+    ).resolves.toBe(2);
+    await expect(
+      prisma.githubRepository.findUniqueOrThrow({
+        where: { id: SHARED_REPOSITORY_ID },
+      }),
+    ).resolves.toMatchObject({ applicationId: null });
+    await expect(
+      prisma.repositoryProvisionJob.update({
+        where: { applicationId: secondApplicationId },
+        data: { repositoryId: 'synthetic-missing-repository' },
+      }),
+    ).rejects.toMatchObject({ code: 'P2003' });
+    await expect(
+      prisma.repositoryProvisionJob.count({
+        where: { repositoryId: SHARED_REPOSITORY_ID },
+      }),
+    ).resolves.toBe(2);
+  });
+
   it('backoff 전 FAILED_RETRYABLE job은 claim하지 않는다', async () => {
     // Given: 다음 실행 시각이 아직 오지 않은 재시도 job이 있다.
     await createJob(
@@ -127,6 +202,48 @@ describe('RepositoryProvisionJobRepository integration', () => {
 
     // Then: backoff를 건너뛰지 않는다.
     expect(claim).toBeNull();
+  });
+
+  it('세대를 증명할 수 없는 legacy job은 두 claim 경로 모두 fail closed 한다', async () => {
+    const applicationId = APPLICATION_IDS[11];
+    await createJob(applicationId, RepositoryProvisionJobStatus.PENDING, NOW);
+    await prisma.repositoryProvisionJob.update({
+      where: { applicationId },
+      data: { currentEventId: null },
+    });
+
+    await expect(
+      repository.claimNext({
+        workerId: 'worker-legacy',
+        now: NOW,
+        leaseMs: LEASE_MS,
+      }),
+    ).resolves.toBeNull();
+    await prisma.repositoryProvisionJob.update({
+      where: { applicationId },
+      data: {
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+        nextAttemptAt: NOW,
+      },
+    });
+    await expect(
+      repository.claimNextReconciliation({
+        workerId: 'worker-legacy',
+        now: NOW,
+        leaseMs: LEASE_MS,
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      prisma.repositoryProvisionJob.findUniqueOrThrow({
+        where: { applicationId },
+      }),
+    ).resolves.toMatchObject({
+      currentEventId: null,
+      status: RepositoryProvisionJobStatus.SUCCEEDED,
+      attemptCount: 0,
+      lockedAt: null,
+      lockedBy: null,
+    });
   });
 
   it('만료된 PROCESSING lease만 회수한다', async () => {
@@ -174,7 +291,12 @@ describe('RepositoryProvisionJobRepository integration', () => {
       throw new Error('fixture job must be claimable');
     }
     const renewedAt = new Date(NOW.getTime() + 4 * 60_000);
-    await repository.renewLease(claim.id, 'worker-a', renewedAt);
+    await repository.renewLease(
+      claim.id,
+      'worker-a',
+      claim.requestId,
+      renewedAt,
+    );
 
     // When: 최초 claim은 지났지만 갱신 lease가 유효한 시각에 다른 worker가 접근한다.
     const protectedClaim = await repository.claimNext({
@@ -195,6 +317,7 @@ describe('RepositoryProvisionJobRepository integration', () => {
       repository.renewLease(
         claim.id,
         'worker-a',
+        claim.requestId,
         new Date(NOW.getTime() + 10 * 60_000),
       ),
     ).rejects.toBeInstanceOf(RepositoryProvisionLeaseLostError);
@@ -301,7 +424,7 @@ describe('RepositoryProvisionJobRepository integration', () => {
     });
     const loser = job.lockedBy === 'worker-x' ? 'worker-y' : 'worker-x';
     await expect(
-      repository.renewLease(job.id, loser, NOW),
+      repository.renewLease(job.id, loser, job.currentEventId!, NOW),
     ).rejects.toBeInstanceOf(RepositoryProvisionLeaseLostError);
   });
 });
@@ -329,6 +452,7 @@ async function createJob(
   const lockedAt = options.lockedAt ?? null;
   const program = programId(applicationId);
   const teamId = teamIdFor(applicationId);
+  const requestId = requestIdFor(applicationId);
   await prisma.program.create({
     data: {
       id: program,
@@ -361,6 +485,30 @@ async function createJob(
       userId: APPLICANT_ID,
     },
   });
+  await prisma.outboxEvent.create({
+    data: {
+      id: requestId,
+      type: REPOSITORY_PROVISION_EVENT_TYPE,
+      aggregateType: 'Application',
+      aggregateId: applicationId,
+      idempotencyKey: `repository-provision:${applicationId}`,
+      payload: {
+        applicationId,
+        programId: program,
+        teamId,
+        requestedAt: NOW.toISOString(),
+        collaboratorGithubLogins: ['synthetic-provision-job-applicant'],
+        repositoryConnectionMode:
+          options.connectionMode ?? RepositoryConnectionMode.NEW,
+        repositoryUrl:
+          options.connectionMode === RepositoryConnectionMode.OWN
+            ? 'https://github.com/synthetic-student/synthetic-own-repo'
+            : null,
+      },
+      status: OutboxEventStatus.PROCESSED,
+      availableAt: NOW,
+    },
+  });
   await prisma.application.create({
     data: {
       id: applicationId,
@@ -378,6 +526,7 @@ async function createJob(
           : null,
       provisionJob: {
         create: {
+          currentEventId: requestId,
           status,
           nextAttemptAt,
           lockedAt,

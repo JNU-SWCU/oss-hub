@@ -1,4 +1,8 @@
-import type { Prisma } from '@prisma/client';
+import {
+  ApplicationStatus,
+  RepositoryConnectionMode,
+  type Prisma,
+} from '@prisma/client';
 
 export type RepositoryProvisionConnectionMode = 'NEW' | 'OWN';
 
@@ -14,6 +18,8 @@ export interface RepositoryProvisionEventPayload {
    */
   readonly repositoryConnectionMode: RepositoryProvisionConnectionMode;
   readonly repositoryUrl: string | null;
+  /** 연결 변경 요청 actor. 최초 승인·레거시 요청은 null이다. */
+  readonly requestedByGithubId?: string | null;
 }
 
 /**
@@ -108,6 +114,15 @@ export function parseRepositoryProvisionEvent(
       repositoryUrl = url;
     }
   }
+  const requestedByGithubId = value.requestedByGithubId;
+  if (
+    requestedByGithubId !== undefined &&
+    requestedByGithubId !== null &&
+    (typeof requestedByGithubId !== 'string' ||
+      !/^[1-9][0-9]*$/.test(requestedByGithubId))
+  ) {
+    throw new InvalidRepositoryProvisionEventError();
+  }
 
   return {
     applicationId,
@@ -117,6 +132,7 @@ export function parseRepositoryProvisionEvent(
     collaboratorGithubLogins,
     repositoryConnectionMode,
     repositoryUrl,
+    ...(requestedByGithubId === undefined ? {} : { requestedByGithubId }),
   };
 }
 

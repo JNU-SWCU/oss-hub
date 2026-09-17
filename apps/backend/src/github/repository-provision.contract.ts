@@ -1,6 +1,6 @@
 import type {
   ApplicationStatus,
-  Prisma,
+  RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositorySource,
   RepositoryVisibility,
@@ -17,8 +17,12 @@ export interface ProvisionedRepository {
 }
 
 export interface RepositoryProvisionContext {
-  readonly eventId: string;
-  readonly eventPayload: Prisma.JsonValue;
+  readonly requestId: string;
+  readonly requestedConnectionMode: RepositoryConnectionMode;
+  readonly requestedRepositoryUrl: string | null;
+  readonly requestedByGithubId: bigint | null;
+  readonly currentConnectionMode: RepositoryConnectionMode;
+  readonly currentRepositoryUrl: string | null;
   readonly applicationId: string;
   readonly applicantGithubId: bigint;
   readonly applicationStatus: ApplicationStatus;
@@ -44,9 +48,15 @@ export interface RepositoryInvitationWork {
 export interface RecordProvisionedRepositoryInput {
   readonly jobId: string;
   readonly workerId: string;
+  readonly requestId: string;
   readonly applicationId: string;
   readonly programId: string;
   readonly teamId: string | null;
+  readonly connectionMode: RepositoryConnectionMode;
+  readonly repositoryUrl: string | null;
+  readonly currentConnectionMode: RepositoryConnectionMode;
+  readonly currentRepositoryUrl: string | null;
+  readonly auditActorGithubId?: bigint;
   // OWN 연결이 조직 밖 저장소(EXTERNAL)로 판명되면 반드시 EXTERNAL_PUBLIC을 넘겨야
   // 한다 — 그래야 이 행이 이미 있다고 보고 종료하는 enrollExternalRepository의
   // updateMany(where: { source: 'EXTERNAL_PUBLIC' })가 같은 행을 잡는다(#617 단계 D).
@@ -57,6 +67,7 @@ export interface RecordProvisionedRepositoryInput {
 export interface CompleteRepositoryInvitationInput {
   readonly jobId: string;
   readonly workerId: string;
+  readonly requestId: string;
   readonly invitationId: string;
   readonly repositoryId: string;
   readonly expectedStatus: RepositoryInvitationStatus;
@@ -70,6 +81,7 @@ export interface CompleteRepositoryInvitationInput {
 export interface FailRepositoryInvitationInput {
   readonly jobId: string;
   readonly workerId: string;
+  readonly requestId: string;
   readonly invitationId: string;
   readonly repositoryId: string;
   readonly expectedStatus: RepositoryInvitationStatus;
@@ -82,6 +94,7 @@ export interface FailRepositoryInvitationInput {
 export interface FailRepositoryProvisionJobInput {
   readonly jobId: string;
   readonly workerId: string;
+  readonly requestId: string;
   readonly final: boolean;
   readonly errorCode: string;
   readonly nextAttemptAt: Date;
@@ -97,6 +110,7 @@ export interface RepositoryProvisionStateStore {
   loadContext(
     jobId: string,
     workerId: string,
+    requestId: string,
   ): Promise<RepositoryProvisionContext>;
   recordRepository(
     input: RecordProvisionedRepositoryInput,
@@ -104,19 +118,27 @@ export interface RepositoryProvisionStateStore {
   prepareInvitations(
     jobId: string,
     workerId: string,
+    requestId: string,
     repositoryId: string,
     githubLogins: readonly string[],
   ): Promise<void>;
   findInvitationWork(
     jobId: string,
     workerId: string,
+    requestId: string,
     repositoryId: string,
   ): Promise<readonly RepositoryInvitationWork[]>;
   completeInvitation(input: CompleteRepositoryInvitationInput): Promise<void>;
   failInvitation(input: FailRepositoryInvitationInput): Promise<void>;
+  recordSupersededRequest(
+    applicationId: string,
+    requestId: string,
+    now: Date,
+  ): Promise<void>;
   completeJob(
     jobId: string,
     workerId: string,
+    requestId: string,
     repositoryId: string,
     now: Date,
     nextReconciliationAt?: Date,

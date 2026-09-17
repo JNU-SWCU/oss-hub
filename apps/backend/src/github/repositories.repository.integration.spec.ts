@@ -208,19 +208,186 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
           name: `${PREFIX}-member-team`,
           _count: { members: 2 },
         },
+        repository: {
+          id: REPOSITORY_IDS[1],
+          name: REPOSITORY_IDS[1],
+          url: `https://github.com/synthetic/${REPOSITORY_IDS[1]}`,
+          visibility: RepositoryVisibility.PRIVATE,
+          invitations: [{ status: RepositoryInvitationStatus.PENDING }],
+        },
       },
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       lastErrorCode: 'SYNTHETIC_ERROR',
       updatedAt: FIXED_UPDATED_AT,
-      repository: {
-        id: REPOSITORY_IDS[1],
-        applicationId: MEMBER_APPLICATION_ID,
-        name: REPOSITORY_IDS[1],
-        url: `https://github.com/synthetic/${REPOSITORY_IDS[1]}`,
-        visibility: RepositoryVisibility.PRIVATE,
-        invitations: [{ status: RepositoryInvitationStatus.PENDING }],
-      },
     });
+  });
+
+  /**
+   * 저장소를 교체한 상황을 그대로 만든다 — 발급 job 은 옛 행을 그대로 붙들고
+   * 있고 신청은 새 행에 연결된 상태다. 조회가 신청을 거쳐 읽는다면 새 저장소가
+   * 나와야 하고, job 을 따라가면 옛 저장소가 나온다.
+   *
+   * 이 보증은 예전에 service 단위 테스트가 applicationId 불일치를 던져 지켰으나,
+   * 신청을 거쳐 읽으면 그 불일치를 만들 수 없어 여기 실제 DB 로 옮겨왔다.
+   */
+  it('follows the application to the current repository, not the job history', async () => {
+    const replacementId = `${PREFIX}-replacement-repository`;
+    try {
+      // 교체: 옛 행은 연결만 끊고(DETACH) 새 행이 신청을 차지한다.
+      await prisma.githubRepository.update({
+        where: { id: REPOSITORY_IDS[1] },
+        data: { applicationId: null, programId: null, teamId: null },
+      });
+      // OWN→NEW pending window: the job still records the old repository, but
+      // the application has no current repository. The projection must not
+      // resurrect job.repositoryId as the current connection.
+      const pendingJobs =
+        await repository.listOwnedProvisionJobs(8_300_000_000_001n);
+      expect(
+        pendingJobs.find(
+          (candidate) => candidate.application.id === MEMBER_APPLICATION_ID,
+        )?.application.repository,
+      ).toBeNull();
+      await prisma.githubRepository.create({
+        data: {
+          id: replacementId,
+          githubRepositoryId: 8_300_000_000_777n,
+          nameWithOwner: `synthetic/${replacementId}`,
+          visibility: RepositoryVisibility.PRIVATE,
+          source: RepositorySource.ORG_PROVISIONED,
+          applicationId: MEMBER_APPLICATION_ID,
+          programId: PROGRAM_ID,
+          teamId: MEMBER_TEAM_ID,
+        },
+      });
+      await prisma.repositoryInvitation.createMany({
+        data: [
+          {
+            repositoryId: replacementId,
+            githubLogin: `${PREFIX}-current`,
+            status: RepositoryInvitationStatus.SUCCEEDED,
+          },
+          {
+            repositoryId: replacementId,
+            githubLogin: `${PREFIX}-other`,
+            status: RepositoryInvitationStatus.FAILED_FINAL,
+          },
+        ],
+      });
+
+      const jobs = await repository.listOwnedProvisionJobs(8_300_000_000_001n);
+      const job = jobs.find(
+        (candidate) => candidate.application.id === MEMBER_APPLICATION_ID,
+      );
+
+      // job.repositoryId 는 여전히 옛 행을 가리킨다. 그래도 조회는 새 저장소를 낸다.
+      expect(job?.application.repository?.id).toBe(replacementId);
+      expect(job?.application.repository?.id).not.toBe(REPOSITORY_IDS[1]);
+      expect(job?.application.repository?.invitations).toEqual([
+        { status: RepositoryInvitationStatus.SUCCEEDED },
+      ]);
+    } finally {
+      await prisma.repositoryInvitation.deleteMany({
+        where: { repositoryId: replacementId },
+      });
+      await prisma.githubRepository.deleteMany({
+        where: { id: replacementId },
+      });
+      await prisma.githubRepository.update({
+        where: { id: REPOSITORY_IDS[1] },
+        data: {
+          applicationId: MEMBER_APPLICATION_ID,
+          programId: PROGRAM_ID,
+          teamId: MEMBER_TEAM_ID,
+        },
+      });
+    }
+  });
+
+  it('retains approved jobs without a repository when updatedAt ties', async () => {
+    const tiedApplicationId = `${PREFIX}-tied-pending-application`;
+    const tiedProgramId = `${PREFIX}-tied-program`;
+    const tiedTeamId = `${PREFIX}-tied-team`;
+    try {
+      await prisma.program.create({
+        data: {
+          id: tiedProgramId,
+          name: `${PREFIX}-tied-program`,
+          organizer: 'synthetic-organizer',
+          trackType: ProgramTrackType.EXTRACURRICULAR,
+          category: ProgramCategory.BASIC,
+          applicationTemplateKey: 'synthetic-template',
+          applicationTemplateVersion: 1,
+          applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
+          applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
+          description: 'synthetic-description',
+          repositoryProvisioningEnabled: true,
+        },
+      });
+      await prisma.team.create({
+        data: {
+          id: tiedTeamId,
+          programId: tiedProgramId,
+          name: `${PREFIX}-tied-team`,
+          joinCodeDigest: `${PREFIX}-tied-team-digest`,
+          leaderId: CURRENT_USER_ID,
+        },
+      });
+      await prisma.teamMember.create({
+        data: {
+          teamId: tiedTeamId,
+          programId: tiedProgramId,
+          userId: CURRENT_USER_ID,
+        },
+      });
+      await prisma.application.create({
+        data: {
+          ...application(
+            tiedApplicationId,
+            CURRENT_USER_ID,
+            tiedTeamId,
+            ApplicationStatus.APPROVED,
+          ),
+          programId: tiedProgramId,
+        },
+      });
+      await prisma.repositoryProvisionJob.create({
+        data: provisionJob(
+          tiedApplicationId,
+          null,
+          RepositoryProvisionJobStatus.PENDING,
+        ),
+      });
+
+      const jobs = await repository.listOwnedProvisionJobs(8_300_000_000_001n);
+      const tiedJobs = jobs.filter(
+        (candidate) =>
+          candidate.application.id === MEMBER_APPLICATION_ID ||
+          candidate.application.id === tiedApplicationId,
+      );
+
+      expect(tiedJobs).toHaveLength(2);
+      expect(tiedJobs.map((candidate) => candidate.application.id)).toEqual(
+        expect.arrayContaining([MEMBER_APPLICATION_ID, tiedApplicationId]),
+      );
+      expect(tiedJobs.map((candidate) => candidate.updatedAt)).toEqual([
+        FIXED_UPDATED_AT,
+        FIXED_UPDATED_AT,
+      ]);
+      expect(
+        tiedJobs.find(
+          (candidate) => candidate.application.id === tiedApplicationId,
+        )?.application.repository,
+      ).toBeNull();
+    } finally {
+      await prisma.repositoryProvisionJob.deleteMany({
+        where: { applicationId: tiedApplicationId },
+      });
+      await prisma.application.deleteMany({ where: { id: tiedApplicationId } });
+      await prisma.teamMember.deleteMany({ where: { teamId: tiedTeamId } });
+      await prisma.team.deleteMany({ where: { id: tiedTeamId } });
+      await prisma.program.deleteMany({ where: { id: tiedProgramId } });
+    }
   });
 
   it.each([

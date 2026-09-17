@@ -4,6 +4,7 @@ import {
   MemberKind,
   ProgramCategory,
   RepositoryConnectionMode,
+  RepositoryIssuanceOutcome,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -151,6 +152,9 @@ describe('ApplicationsService integration', () => {
   afterEach(async () => {
     await prisma.notification.deleteMany({
       where: { type: 'APPLICATION_DECISION' },
+    });
+    await prisma.repositoryIssuanceHistory.deleteMany({
+      where: { applicationId: { in: [...APPLICATION_IDS] } },
     });
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
@@ -304,6 +308,17 @@ describe('ApplicationsService integration', () => {
       teamId: `${applicationId}-team`,
       requestedAt: application.processedAt?.toISOString(),
       collaboratorGithubLogins: ['synthetic-applicant'],
+    });
+    await expect(
+      prisma.repositoryProvisionJob.findUniqueOrThrow({
+        where: { applicationId },
+      }),
+    ).resolves.toMatchObject({
+      currentEventId: event.id,
+      status: RepositoryProvisionJobStatus.PENDING,
+      attemptCount: 0,
+      lockedAt: null,
+      lockedBy: null,
     });
     // #547 — 판정과 같은 트랜잭션에서 typed audit이 실제 원장에 남는다.
     const auditLog = await prisma.auditLog.findFirstOrThrow({
@@ -476,7 +491,15 @@ describe('ApplicationsService integration', () => {
         aggregateType: 'Application',
         aggregateId: applicationId,
         idempotencyKey: `repository-provision:${applicationId}`,
-        payload: { synthetic: true },
+        payload: {
+          applicationId,
+          programId: `${applicationId}-program`,
+          teamId: `${applicationId}-team`,
+          requestedAt: new Date('2026-09-17T00:00:00.000Z').toISOString(),
+          collaboratorGithubLogins: ['synthetic-applicant'],
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          repositoryUrl: null,
+        },
       },
     });
 
@@ -498,6 +521,20 @@ describe('ApplicationsService integration', () => {
         ? approved.repositoryProvisioning.eventId
         : null,
     ).not.toBe(existing.id);
+    await expect(
+      prisma.repositoryIssuanceHistory.findUniqueOrThrow({
+        where: { requestId: existing.id },
+      }),
+    ).resolves.toMatchObject({
+      applicationId,
+      connectionMode: RepositoryConnectionMode.NEW,
+      outcome: RepositoryIssuanceOutcome.DISCARDED,
+    });
+    await expect(
+      prisma.repositoryIssuanceHistory.count({
+        where: { requestId: existing.id },
+      }),
+    ).resolves.toBe(1);
     await expect(
       prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
     ).resolves.toMatchObject({ status: ApplicationStatus.APPROVED });
@@ -644,9 +681,9 @@ describe('ApplicationsService integration', () => {
     await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
-    await prisma.repositoryProvisionJob.create({
+    await prisma.repositoryProvisionJob.update({
+      where: { applicationId },
       data: {
-        applicationId,
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       },
     });
@@ -700,8 +737,8 @@ describe('ApplicationsService integration', () => {
             // 경합 테스트의 대리 store도 감사 writer를 그대로 넘겨야 한다.
             auditLogWriter: store.auditLogWriter,
             findApplicationById: (id) => store.findApplicationById(id),
-            discardRepositoryProvisionRequest: (id) =>
-              store.discardRepositoryProvisionRequest(id),
+            discardRepositoryProvisionRequest: (id, discardedAt) =>
+              store.discardRepositoryProvisionRequest(id, discardedAt),
             findRepositoryProvisionJob: (id) =>
               store.findRepositoryProvisionJob(id),
             findRepositoryProvisionEvent: (key) =>
@@ -771,8 +808,8 @@ describe('ApplicationsService integration', () => {
           operation({
             auditLogWriter: store.auditLogWriter,
             findApplicationById: (id) => store.findApplicationById(id),
-            discardRepositoryProvisionRequest: (id) =>
-              store.discardRepositoryProvisionRequest(id),
+            discardRepositoryProvisionRequest: (id, discardedAt) =>
+              store.discardRepositoryProvisionRequest(id, discardedAt),
             findRepositoryProvisionJob: (id) =>
               store.findRepositoryProvisionJob(id),
             findRepositoryProvisionEvent: (key) =>

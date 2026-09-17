@@ -3,6 +3,7 @@ import {
   RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
+  RepositorySource,
   RepositoryVisibility,
 } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
@@ -10,10 +11,12 @@ import type { PrismaService } from '../../prisma/prisma.service';
 import { RepositoryProvisionStateRepository } from './repository-provision-state.repository';
 import { RepositoryProvisionLeaseLostError } from '../repository-provision-state.helpers';
 import { RepositoryProvisionFailure } from '../repository-provision.failure';
+import { REPOSITORY_PROVISION_EVENT_TYPE } from '../repository-provision-event';
 
 const NOW = new Date('2026-09-01T00:00:00.000Z');
 const JOB_ID = 'job-1';
 const WORKER_ID = 'worker-1';
+const REQUEST_ID = 'event-1';
 const REPOSITORY_ID = 'repository-1';
 
 interface InvitationRow {
@@ -43,9 +46,15 @@ interface MockDb {
     >;
   };
   outboxEvent: {
-    findFirst: jest.Mock<
-      Promise<{ readonly id: string; readonly payload: unknown } | null>,
-      [Prisma.OutboxEventFindFirstArgs]
+    findUnique: jest.Mock<
+      Promise<{
+        readonly id: string;
+        readonly type: string;
+        readonly aggregateType: string;
+        readonly aggregateId: string;
+        readonly payload: unknown;
+      } | null>,
+      [Prisma.OutboxEventFindUniqueArgs]
     >;
   };
   repositoryInvitation: {
@@ -82,11 +91,29 @@ interface MockDb {
       } | null>,
       [Prisma.GithubRepositoryFindUniqueArgs]
     >;
+    findUniqueOrThrow: jest.Mock<
+      Promise<{ readonly source: RepositorySource }>,
+      [Prisma.GithubRepositoryFindUniqueOrThrowArgs]
+    >;
     upsert: jest.Mock<Promise<unknown>, [Prisma.GithubRepositoryUpsertArgs]>;
+  };
+  repositoryIssuanceHistory: {
+    createMany: jest.Mock<
+      Promise<Prisma.BatchPayload>,
+      [Prisma.RepositoryIssuanceHistoryCreateManyArgs]
+    >;
   };
   $transaction: jest.Mock<Promise<unknown>, [(tx: MockDb) => unknown]>;
   $queryRaw: jest.Mock<
-    Promise<readonly { readonly applicationId: string }[]>,
+    Promise<
+      readonly {
+        readonly applicationId: string;
+        readonly currentEventId: string | null;
+        readonly repositoryId: string | null;
+        readonly status: RepositoryProvisionJobStatus;
+        readonly lockedBy: string | null;
+      }[]
+    >,
     [Prisma.Sql]
   >;
 }
@@ -109,12 +136,30 @@ function createDb(): MockDb {
         .mockResolvedValue({ count: 1 }),
     },
     outboxEvent: {
-      findFirst: jest
+      findUnique: jest
         .fn<
-          Promise<{ readonly id: string; readonly payload: unknown } | null>,
-          [Prisma.OutboxEventFindFirstArgs]
+          Promise<{
+            readonly id: string;
+            readonly type: string;
+            readonly aggregateType: string;
+            readonly aggregateId: string;
+            readonly payload: unknown;
+          } | null>,
+          [Prisma.OutboxEventFindUniqueArgs]
         >()
-        .mockResolvedValue({ id: 'event-1', payload: { synthetic: true } }),
+        .mockResolvedValue({
+          id: REQUEST_ID,
+          type: REPOSITORY_PROVISION_EVENT_TYPE,
+          aggregateType: 'Application',
+          aggregateId: 'application-1',
+          payload: {
+            applicationId: 'application-1',
+            programId: 'program-1',
+            teamId: null,
+            requestedAt: NOW.toISOString(),
+            collaboratorGithubLogins: ['synthetic-member'],
+          },
+        }),
     },
     repositoryInvitation: {
       findMany: jest
@@ -158,14 +203,44 @@ function createDb(): MockDb {
         } | null>,
         [Prisma.GithubRepositoryFindUniqueArgs]
       >(),
+      findUniqueOrThrow: jest
+        .fn<
+          Promise<{ readonly source: RepositorySource }>,
+          [Prisma.GithubRepositoryFindUniqueOrThrowArgs]
+        >()
+        .mockResolvedValue({ source: RepositorySource.ORG_PROVISIONED }),
       upsert: jest.fn<Promise<unknown>, [Prisma.GithubRepositoryUpsertArgs]>(),
+    },
+    repositoryIssuanceHistory: {
+      createMany: jest
+        .fn<
+          Promise<Prisma.BatchPayload>,
+          [Prisma.RepositoryIssuanceHistoryCreateManyArgs]
+        >()
+        .mockResolvedValue({ count: 1 }),
     },
     $queryRaw: jest
       .fn<
-        Promise<readonly { readonly applicationId: string }[]>,
+        Promise<
+          readonly {
+            readonly applicationId: string;
+            readonly currentEventId: string | null;
+            readonly repositoryId: string | null;
+            readonly status: RepositoryProvisionJobStatus;
+            readonly lockedBy: string | null;
+          }[]
+        >,
         [Prisma.Sql]
       >()
-      .mockResolvedValue([{ applicationId: 'application-1' }]),
+      .mockResolvedValue([
+        {
+          applicationId: 'application-1',
+          currentEventId: REQUEST_ID,
+          repositoryId: REPOSITORY_ID,
+          status: RepositoryProvisionJobStatus.PROCESSING,
+          lockedBy: WORKER_ID,
+        },
+      ]),
   };
   db.$transaction = jest.fn((run: (tx: MockDb) => unknown) =>
     Promise.resolve(run(db as MockDb)),
@@ -182,6 +257,8 @@ function jobRow(
   connectionMode: RepositoryConnectionMode = RepositoryConnectionMode.NEW,
 ): unknown {
   return {
+    currentEventId: REQUEST_ID,
+    repositoryId: REPOSITORY_ID,
     application: {
       id: 'application-1',
       status: ApplicationStatus.APPROVED,
@@ -222,7 +299,11 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
     );
 
     // When: context를 읽는다.
-    const context = await repositoryFor(db).loadContext(JOB_ID, WORKER_ID);
+    const context = await repositoryFor(db).loadContext(
+      JOB_ID,
+      WORKER_ID,
+      REQUEST_ID,
+    );
 
     // Then: trim/소문자/중복 제거/정렬된 목록과 그 목록 그대로의 지문이 나온다.
     expect(context.currentMemberGithubLogins).toEqual(['alpha', 'zeta']);
@@ -240,7 +321,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
 
     // When/Then: 빈 목록을 "전원 회수"로 흘려보내지 않고 fail closed 한다.
     await expect(
-      repositoryFor(db).loadContext(JOB_ID, WORKER_ID),
+      repositoryFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
     ).rejects.toMatchObject({
       name: 'RepositoryProvisionFailure',
       retryable: false,
@@ -251,12 +332,31 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
   it('OWN은 팀이 없어도 신청자를 채우지 않고 빈 목록을 든다', async () => {
     // Given: 팀 없는 OWN 신청이다.
     const db = createDb();
+    db.outboxEvent.findUnique.mockResolvedValue({
+      id: REQUEST_ID,
+      type: REPOSITORY_PROVISION_EVENT_TYPE,
+      aggregateType: 'Application',
+      aggregateId: 'application-1',
+      payload: {
+        applicationId: 'application-1',
+        programId: 'program-1',
+        teamId: null,
+        requestedAt: NOW.toISOString(),
+        collaboratorGithubLogins: ['synthetic-member'],
+        repositoryConnectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl: 'https://github.com/synthetic-owner/synthetic-repo',
+      },
+    });
     db.repositoryProvisionJob.findFirst.mockResolvedValue(
       jobRow(null, RepositoryConnectionMode.OWN),
     );
 
     // When: context를 읽는다.
-    const context = await repositoryFor(db).loadContext(JOB_ID, WORKER_ID);
+    const context = await repositoryFor(db).loadContext(
+      JOB_ID,
+      WORKER_ID,
+      REQUEST_ID,
+    );
 
     // Then: 초대 축이 없는 경로라 빈 목록이 정상이다.
     expect(context.currentMemberGithubLogins).toEqual([]);
@@ -269,7 +369,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
     db.repositoryProvisionJob.findFirst.mockResolvedValue(null);
 
     await expect(
-      repositoryFor(db).loadContext(JOB_ID, WORKER_ID),
+      repositoryFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
     ).rejects.toBeInstanceOf(RepositoryProvisionLeaseLostError);
   });
 });
@@ -310,6 +410,7 @@ describe('RepositoryProvisionStateRepository.prepareInvitations', () => {
     await repositoryFor(db).prepareInvitations(
       JOB_ID,
       WORKER_ID,
+      REQUEST_ID,
       REPOSITORY_ID,
       ['stay', 'rejoined', 'grant-final', 'fresh'],
     );
@@ -359,6 +460,7 @@ describe('RepositoryProvisionStateRepository.prepareInvitations', () => {
     await repositoryFor(db).prepareInvitations(
       JOB_ID,
       WORKER_ID,
+      REQUEST_ID,
       REPOSITORY_ID,
       ['stay'],
     );
@@ -405,6 +507,7 @@ describe('RepositoryProvisionStateRepository.findInvitationWork', () => {
     const work = await repositoryFor(db).findInvitationWork(
       JOB_ID,
       WORKER_ID,
+      REQUEST_ID,
       REPOSITORY_ID,
     );
 
@@ -442,6 +545,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
     await repositoryFor(db).completeInvitation({
       jobId: JOB_ID,
       workerId: WORKER_ID,
+      requestId: REQUEST_ID,
       invitationId: 'invitation-1',
       repositoryId: REPOSITORY_ID,
       expectedStatus: RepositoryInvitationStatus.REVOKE_REQUIRED,
@@ -468,6 +572,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
     await repositoryFor(db).completeInvitation({
       jobId: JOB_ID,
       workerId: WORKER_ID,
+      requestId: REQUEST_ID,
       invitationId: 'invitation-1',
       repositoryId: REPOSITORY_ID,
       expectedStatus: RepositoryInvitationStatus.REVOKED,
@@ -492,6 +597,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
       repositoryFor(db).completeInvitation({
         jobId: JOB_ID,
         workerId: WORKER_ID,
+        requestId: REQUEST_ID,
         invitationId: 'invitation-1',
         repositoryId: REPOSITORY_ID,
         expectedStatus: RepositoryInvitationStatus.PENDING,
@@ -507,6 +613,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
     await repositoryFor(db).completeInvitation({
       jobId: JOB_ID,
       workerId: WORKER_ID,
+      requestId: REQUEST_ID,
       invitationId: 'invitation-1',
       repositoryId: REPOSITORY_ID,
       expectedStatus: RepositoryInvitationStatus.PENDING,
@@ -533,6 +640,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
     await repository.failInvitation({
       jobId: JOB_ID,
       workerId: WORKER_ID,
+      requestId: REQUEST_ID,
       invitationId: 'invitation-1',
       repositoryId: REPOSITORY_ID,
       expectedStatus: RepositoryInvitationStatus.REVOKE_REQUIRED,
@@ -544,6 +652,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
     await repository.failInvitation({
       jobId: JOB_ID,
       workerId: WORKER_ID,
+      requestId: REQUEST_ID,
       invitationId: 'invitation-2',
       repositoryId: REPOSITORY_ID,
       expectedStatus: RepositoryInvitationStatus.REVOKE_FAILED_RETRYABLE,
@@ -555,6 +664,7 @@ describe('RepositoryProvisionStateRepository invitation CAS', () => {
     await repository.failInvitation({
       jobId: JOB_ID,
       workerId: WORKER_ID,
+      requestId: REQUEST_ID,
       invitationId: 'invitation-3',
       repositoryId: REPOSITORY_ID,
       expectedStatus: RepositoryInvitationStatus.PENDING,
@@ -592,6 +702,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     await repositoryFor(db).completeJob(
       JOB_ID,
       WORKER_ID,
+      REQUEST_ID,
       REPOSITORY_ID,
       NOW,
       nextAt,
@@ -623,6 +734,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     await repositoryFor(db).completeJob(
       JOB_ID,
       WORKER_ID,
+      REQUEST_ID,
       REPOSITORY_ID,
       NOW,
       new Date(NOW.getTime() + 900_000),
@@ -651,7 +763,15 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     const order: string[] = [];
     db.$queryRaw.mockImplementation(() => {
       order.push('lock-job');
-      return Promise.resolve([{ applicationId: 'application-1' }]);
+      return Promise.resolve([
+        {
+          applicationId: 'application-1',
+          currentEventId: REQUEST_ID,
+          repositoryId: REPOSITORY_ID,
+          status: RepositoryProvisionJobStatus.PROCESSING,
+          lockedBy: WORKER_ID,
+        },
+      ]);
     });
     db.application.findUnique.mockImplementation(() => {
       order.push('read-application');
@@ -666,6 +786,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     await repositoryFor(db).completeJob(
       JOB_ID,
       WORKER_ID,
+      REQUEST_ID,
       REPOSITORY_ID,
       NOW,
       undefined,
@@ -685,7 +806,13 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     const db = createDb();
 
     // When: 지문 없이 완료한다.
-    await repositoryFor(db).completeJob(JOB_ID, WORKER_ID, REPOSITORY_ID, NOW);
+    await repositoryFor(db).completeJob(
+      JOB_ID,
+      WORKER_ID,
+      REQUEST_ID,
+      REPOSITORY_ID,
+      NOW,
+    );
 
     // Then: 멤버십 재확인 없이 정상 완료한다.
     expect(db.teamMember.findMany).not.toHaveBeenCalled();
@@ -702,7 +829,13 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
     db.$queryRaw.mockResolvedValue([]);
 
     await expect(
-      repositoryFor(db).completeJob(JOB_ID, WORKER_ID, REPOSITORY_ID, NOW),
+      repositoryFor(db).completeJob(
+        JOB_ID,
+        WORKER_ID,
+        REQUEST_ID,
+        REPOSITORY_ID,
+        NOW,
+      ),
     ).rejects.toBeInstanceOf(RepositoryProvisionLeaseLostError);
     expect(db.repositoryProvisionJob.updateMany).not.toHaveBeenCalled();
   });
@@ -712,6 +845,7 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
   const failInput = {
     jobId: JOB_ID,
     workerId: WORKER_ID,
+    requestId: REQUEST_ID,
     final: true,
     errorCode: 'REPOSITORY_PROVISION_INTERNAL',
     nextAttemptAt: NOW,
@@ -798,6 +932,6 @@ it('loadContext 실패는 재시도하지 않는 provision 실패 타입이다',
   db.repositoryProvisionJob.findFirst.mockResolvedValue(jobRow(null));
 
   await expect(
-    repositoryFor(db).loadContext(JOB_ID, WORKER_ID),
+    repositoryFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
   ).rejects.toBeInstanceOf(RepositoryProvisionFailure);
 });

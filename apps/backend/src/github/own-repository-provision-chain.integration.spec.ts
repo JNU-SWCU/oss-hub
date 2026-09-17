@@ -136,6 +136,26 @@ type ProvisionGithubClient = jest.Mocked<
   >
 >;
 
+async function consumeUntilProvisionEvent(
+  eventId: string | null,
+  workerId: string,
+) {
+  if (eventId === null) {
+    throw new Error('fixture approval must create a provision event');
+  }
+  for (let offset = 0; offset < 100; offset += 1) {
+    const result = await outbox.consumeNext(
+      workerId,
+      new Date(Date.now() + offset),
+    );
+    if (result.kind === 'EMPTY') {
+      throw new Error(`provision event ${eventId} was not claimable`);
+    }
+    if (result.eventId === eventId) return result;
+  }
+  throw new Error(`provision event ${eventId} was not consumed`);
+}
+
 describe('OWN 저장소 연결·생성 사슬 통합', () => {
   beforeAll(async () => {
     await prisma.$connect();
@@ -318,6 +338,9 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
 
       // Then — outbox 이벤트가 생겼다.
       expect(decision.kind).toBe('APPROVED');
+      if (decision.kind !== 'APPROVED') {
+        throw new Error('fixture approval must succeed');
+      }
       await expect(
         prisma.outboxEvent.findUniqueOrThrow({
           where: {
@@ -328,7 +351,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
 
       // When — outbox를 job으로 소비한다.
       await expect(
-        outbox.consumeNext('own-chain-outbox-worker', new Date()),
+        consumeUntilProvisionEvent(
+          decision.repositoryProvisioning.eventId,
+          'own-chain-outbox-worker',
+        ),
       ).resolves.toMatchObject({ kind: 'CONSUMED' });
 
       // When — worker가 job을 처리한다(GitHub 경계만 mock, 편입 서비스는 real+real DB).
@@ -398,12 +424,15 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         { action: 'APPROVE' },
       );
       expect(decision.kind).toBe('APPROVED');
+      if (decision.kind !== 'APPROVED') {
+        throw new Error('fixture approval must succeed');
+      }
 
       // When — outbox를 job으로 소비한다.
       await expect(
-        outbox.consumeNext(
+        consumeUntilProvisionEvent(
+          decision.repositoryProvisioning.eventId,
           'own-chain-org-owner-external-outbox-worker',
-          new Date(),
         ),
       ).resolves.toMatchObject({ kind: 'CONSUMED' });
 
@@ -464,14 +493,20 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       NO_CONSENT_APPLICANT_ID,
       NO_CONSENT_REPOSITORY_URL,
     );
-    await service.decide(
+    const decision = await service.decide(
       STAFF_ACTOR_ID,
       NO_CONSENT_APPLICATION_ID,
       STAFF_GITHUB_ID,
       { action: 'APPROVE' },
     );
+    if (decision.kind !== 'APPROVED') {
+      throw new Error('fixture approval must succeed');
+    }
     await expect(
-      outbox.consumeNext('own-chain-no-consent-outbox-worker', new Date()),
+      consumeUntilProvisionEvent(
+        decision.repositoryProvisioning.eventId,
+        'own-chain-no-consent-outbox-worker',
+      ),
     ).resolves.toMatchObject({ kind: 'CONSUMED' });
     const github = githubClient();
     github.findPublicRepository.mockResolvedValue(
@@ -543,14 +578,20 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         ORG_OWN_APPLICANT_ID,
         ORG_OWN_REPOSITORY_URL,
       );
-      await service.decide(
+      const decision = await service.decide(
         STAFF_ACTOR_ID,
         ORG_OWN_APPLICATION_ID,
         STAFF_GITHUB_ID,
         { action: 'APPROVE' },
       );
+      if (decision.kind !== 'APPROVED') {
+        throw new Error('fixture approval must succeed');
+      }
       await expect(
-        outbox.consumeNext('own-chain-org-outbox-worker', new Date()),
+        consumeUntilProvisionEvent(
+          decision.repositoryProvisioning.eventId,
+          'own-chain-org-outbox-worker',
+        ),
       ).resolves.toMatchObject({ kind: 'CONSUMED' });
 
       // When — worker가 job을 처리한다. ORGANIZATION 경로는 findRepository로 해석되고,

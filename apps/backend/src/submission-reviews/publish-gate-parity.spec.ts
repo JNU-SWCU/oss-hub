@@ -43,6 +43,10 @@ function eligibleRow(): ReviewContextRow {
       applicant: { nickname: 'applicant', profile: { name: 'Applicant' } },
       team: { name: 'Synthetic Team' },
       isRepositoryPublicationPlanned: true,
+      provisionJob: {
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+        repositoryId: 'repository-1',
+      },
       program: {
         endAt: PROGRAM_ENDED_AT,
         milestones: [
@@ -67,10 +71,6 @@ function eligibleRow(): ReviewContextRow {
         id: 'repository-1',
         nameWithOwner: 'synthetic-org/synthetic-repository',
         visibility: RepositoryVisibility.PRIVATE,
-        provisionJob: {
-          status: RepositoryProvisionJobStatus.SUCCEEDED,
-          repositoryId: 'repository-1',
-        },
       },
     },
     milestoneDocument: {
@@ -111,8 +111,11 @@ const SCENARIOS = [
     label: '저장소 프로비저닝이 아직 안 끝났다',
     reason: PUBLISH_BLOCKED_REASONS.REPOSITORY_NOT_READY,
     errorCode: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY,
-    breakRow: (repository: ReviewRepository) => {
-      repository.provisionJob = {
+    breakRow: (
+      _repository: ReviewRepository,
+      application: ReviewApplication,
+    ) => {
+      application.provisionJob = {
         status: RepositoryProvisionJobStatus.PROCESSING,
         repositoryId: 'repository-1',
       };

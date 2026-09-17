@@ -74,14 +74,12 @@ export function provisionContext(
   overrides: Partial<RepositoryProvisionContext> = {},
 ): RepositoryProvisionContext {
   return {
-    eventId: 'synthetic-event-id',
-    eventPayload: {
-      applicationId: 'synthetic-application-id',
-      programId: 'synthetic-program-id',
-      teamId: null,
-      requestedAt: PROVISION_NOW.toISOString(),
-      collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
-    },
+    requestId: 'synthetic-request-id',
+    requestedConnectionMode: 'NEW',
+    requestedRepositoryUrl: null,
+    requestedByGithubId: null,
+    currentConnectionMode: 'NEW',
+    currentRepositoryUrl: null,
     applicationId: 'synthetic-application-id',
     applicantGithubId: 9_000_000_730_101n,
     applicationStatus: ApplicationStatus.APPROVED,
@@ -101,15 +99,8 @@ export function ownProvisionContext(
   overrides: Partial<RepositoryProvisionContext> = {},
 ): RepositoryProvisionContext {
   return provisionContext({
-    eventPayload: {
-      applicationId: 'synthetic-application-id',
-      programId: 'synthetic-program-id',
-      teamId: null,
-      requestedAt: PROVISION_NOW.toISOString(),
-      collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
-      repositoryConnectionMode: 'OWN',
-      repositoryUrl: OWN_REPOSITORY_URL,
-    },
+    requestedConnectionMode: 'OWN',
+    requestedRepositoryUrl: OWN_REPOSITORY_URL,
     ...overrides,
   });
 }
@@ -124,6 +115,7 @@ export function jobRepositoryMock(): jest.Mocked<
     claimNext: jest.fn().mockResolvedValue({
       id: 'synthetic-job-id',
       applicationId: 'synthetic-application-id',
+      requestId: 'synthetic-request-id',
       repositoryId: null,
       attemptCount: 1,
     }),
@@ -149,6 +141,7 @@ export function provisionStateMock(): jest.Mocked<RepositoryProvisionStateStore>
     ]),
     completeInvitation: jest.fn().mockResolvedValue(undefined),
     failInvitation: jest.fn().mockResolvedValue(undefined),
+    recordSupersededRequest: jest.fn().mockResolvedValue(undefined),
     completeJob: jest.fn().mockResolvedValue(undefined),
     failJob: jest.fn().mockResolvedValue(undefined),
   };

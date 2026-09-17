@@ -176,6 +176,7 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED PATCH /api/v1/programs/:programId/board/posts/:postId',
   'PROTECTED PATCH /api/v1/programs/:programId/board/posts/:postId/pin',
   'PROTECTED PATCH /api/v1/programs/:programId/teams/:teamId',
+  'PROTECTED PATCH /api/v1/repositories/:applicationId/connection',
   'PROTECTED PATCH /api/v1/users/:id/access',
   'PROTECTED PATCH /api/v1/users/:id/admin-access',
   'PROTECTED PATCH /api/v1/users/:id/profile',

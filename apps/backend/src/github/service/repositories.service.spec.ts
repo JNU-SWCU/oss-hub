@@ -78,7 +78,17 @@ function serviceFrom(deps: ReturnType<typeof dependencies>) {
   );
 }
 
-function job(overrides: Partial<OwnedProvisionJob> = {}): OwnedProvisionJob {
+/**
+ * 저장소는 `application` 아래에 둔다 — 현재 연결의 정본이 신청이라는 것을
+ * 테스트 데이터에서도 그대로 보이게 한다. `application` override는 기본값과
+ * 병합하므로 저장소만 바꾸려면 `application: { repository: ... }`만 주면 된다.
+ */
+function job(
+  overrides: Partial<Omit<OwnedProvisionJob, 'application'>> & {
+    readonly application?: Partial<OwnedProvisionJob['application']>;
+  } = {},
+): OwnedProvisionJob {
+  const { application, ...rest } = overrides;
   return {
     application: {
       id: 'synthetic-application',
@@ -91,28 +101,44 @@ function job(overrides: Partial<OwnedProvisionJob> = {}): OwnedProvisionJob {
       // 두 값이 같으면 displayName이 memberCount로 게이트되지 않아도 우연히
       // 같은 문자열이 나와 회귀를 못 잡는다.
       team: { name: 'synthetic-applicant의 팀', _count: { members: 1 } },
+      repository: null,
+      ...application,
     },
     status: RepositoryProvisionJobStatus.PENDING,
     lastErrorCode: null,
     updatedAt: NOW,
-    repository: null,
-    ...overrides,
+    ...rest,
   };
 }
 
 describe('RepositoriesService.getMyRepositories', () => {
+  it('returns an empty projection for an approved application with no provision job', async () => {
+    const { repository, github, auditLog } = dependencies();
+    repository.listOwnedProvisionJobs.mockResolvedValue([]);
+
+    await expect(
+      serviceFrom({
+        ...dependencies(),
+        repository,
+        github,
+        auditLog,
+      }).getMyRepositories(123n),
+    ).resolves.toEqual([]);
+  });
+
   it('maps personal and team jobs into the safe response contract', async () => {
     const { repository, github, auditLog } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         lastErrorCode: 'PROVISION_RETRYABLE',
-        repository: {
-          id: 'synthetic-in-progress-repository',
-          applicationId: 'synthetic-application',
-          name: 'synthetic-in-progress',
-          url: 'https://github.com/synthetic-org/synthetic-in-progress',
-          visibility: RepositoryVisibility.PRIVATE,
-          invitations: [{ status: RepositoryInvitationStatus.PENDING }],
+        application: {
+          repository: {
+            id: 'synthetic-in-progress-repository',
+            name: 'synthetic-in-progress',
+            url: 'https://github.com/synthetic-org/synthetic-in-progress',
+            visibility: RepositoryVisibility.PRIVATE,
+            invitations: [{ status: RepositoryInvitationStatus.PENDING }],
+          },
         },
       }),
       job({
@@ -123,16 +149,15 @@ describe('RepositoriesService.getMyRepositories', () => {
           applicant: { nickname: 'other-applicant' },
           program: { name: 'Team program' },
           team: { name: 'Synthetic team', _count: { members: 2 } },
+          repository: {
+            id: 'synthetic-completed-repository',
+            name: 'synthetic-completed',
+            url: 'https://github.com/synthetic-org/synthetic-completed',
+            visibility: RepositoryVisibility.PRIVATE,
+            invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
+          },
         },
         status: RepositoryProvisionJobStatus.SUCCEEDED,
-        repository: {
-          id: 'synthetic-completed-repository',
-          applicationId: 'synthetic-team-application',
-          name: 'synthetic-completed',
-          url: 'https://github.com/synthetic-org/synthetic-completed',
-          visibility: RepositoryVisibility.PRIVATE,
-          invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
-        },
       }),
     ]);
     const service = serviceFrom({
@@ -193,16 +218,15 @@ describe('RepositoriesService.getMyRepositories', () => {
           applicant: { nickname: 'synthetic-applicant' },
           program: { name: 'Synthetic program' },
           team: { name: 'synthetic-applicant의 팀', _count: { members: 1 } },
+          repository: {
+            id: 'synthetic-own-repository',
+            name: 'synthetic-own-repo',
+            url: externalUrl,
+            visibility: RepositoryVisibility.PUBLIC,
+            invitations: [],
+          },
         },
         status: RepositoryProvisionJobStatus.SUCCEEDED,
-        repository: {
-          id: 'synthetic-own-repository',
-          applicationId: 'synthetic-own-application',
-          name: 'synthetic-own-repo',
-          url: externalUrl,
-          visibility: RepositoryVisibility.PUBLIC,
-          invitations: [],
-        },
       }),
     ]);
     const service = serviceFrom({
@@ -239,15 +263,16 @@ describe('RepositoriesService.getMyRepositories', () => {
       job({
         status: RepositoryProvisionJobStatus.FAILED_RETRYABLE,
         lastErrorCode: 'ACCESS_REVOKE_RETRYABLE',
-        repository: {
-          id: 'synthetic-revoking-repository',
-          applicationId: 'synthetic-application',
-          name: 'synthetic-revoking',
-          url: 'https://github.com/synthetic-org/synthetic-revoking',
-          visibility: RepositoryVisibility.PRIVATE,
-          invitations: [
-            { status: RepositoryInvitationStatus.REVOKE_FAILED_RETRYABLE },
-          ],
+        application: {
+          repository: {
+            id: 'synthetic-revoking-repository',
+            name: 'synthetic-revoking',
+            url: 'https://github.com/synthetic-org/synthetic-revoking',
+            visibility: RepositoryVisibility.PRIVATE,
+            invitations: [
+              { status: RepositoryInvitationStatus.REVOKE_FAILED_RETRYABLE },
+            ],
+          },
         },
       }),
     ]);
@@ -283,13 +308,14 @@ describe('RepositoriesService.getMyRepositories', () => {
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         status: RepositoryProvisionJobStatus.PROCESSING,
-        repository: {
-          id: 'synthetic-granted-repository',
-          applicationId: 'synthetic-application',
-          name: 'synthetic-granted',
-          url: 'https://github.com/synthetic-org/synthetic-granted',
-          visibility: RepositoryVisibility.PRIVATE,
-          invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
+        application: {
+          repository: {
+            id: 'synthetic-granted-repository',
+            name: 'synthetic-granted',
+            url: 'https://github.com/synthetic-org/synthetic-granted',
+            visibility: RepositoryVisibility.PRIVATE,
+            invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
+          },
         },
       }),
     ]);
@@ -312,13 +338,14 @@ describe('RepositoriesService.getMyRepositories', () => {
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         status: RepositoryProvisionJobStatus.PROCESSING,
-        repository: {
-          id: 'synthetic-invalid-repository',
-          applicationId: 'synthetic-application',
-          name: 'synthetic-invalid',
-          url: 'https://github.com/other-org/synthetic-invalid',
-          visibility: RepositoryVisibility.PRIVATE,
-          invitations: [],
+        application: {
+          repository: {
+            id: 'synthetic-invalid-repository',
+            name: 'synthetic-invalid',
+            url: 'https://github.com/other-org/synthetic-invalid',
+            visibility: RepositoryVisibility.PRIVATE,
+            invitations: [],
+          },
         },
       }),
     ]);
@@ -349,57 +376,13 @@ describe('RepositoriesService.getMyRepositories', () => {
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
 
-  it('fails closed when a succeeded job points at another application repository', async () => {
-    const { repository, github, auditLog } = dependencies();
-    repository.listOwnedProvisionJobs.mockResolvedValue([
-      job({
-        status: RepositoryProvisionJobStatus.SUCCEEDED,
-        repository: {
-          id: 'synthetic-mismatched-repository',
-          applicationId: 'another-application',
-          name: 'synthetic-mismatched',
-          url: 'https://github.com/synthetic-org/synthetic-mismatched',
-          visibility: RepositoryVisibility.PRIVATE,
-          invitations: [],
-        },
-      }),
-    ]);
-
-    await expect(
-      serviceFrom({
-        ...dependencies(),
-        repository,
-        github,
-        auditLog,
-      }).getMyRepositories(123n),
-    ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
-  });
-
-  it('fails closed when a pre-success job points at another application repository', async () => {
-    const { repository, github, auditLog } = dependencies();
-    repository.listOwnedProvisionJobs.mockResolvedValue([
-      job({
-        status: RepositoryProvisionJobStatus.PROCESSING,
-        repository: {
-          id: 'synthetic-mismatched-repository',
-          applicationId: 'another-application',
-          name: 'synthetic-mismatched',
-          url: 'https://github.com/synthetic-org/synthetic-mismatched',
-          visibility: RepositoryVisibility.PRIVATE,
-          invitations: [],
-        },
-      }),
-    ]);
-
-    await expect(
-      serviceFrom({
-        ...dependencies(),
-        repository,
-        github,
-        auditLog,
-      }).getMyRepositories(123n),
-    ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
-  });
+  /**
+   * 「다른 신청의 저장소를 가리키면 닫힌다」는 단위 테스트 둘은 여기 있었다.
+   * 저장소를 `Application.repository`로 읽게 되면 그 상태를 만들 수가 없다 —
+   * 관계가 곳 그 신청의 저장소라 불일치를 주입할 지점이 없기 때문이다.
+   * 보증은 사라진 게 아니라 쿼리로 옮겨갔고, 신청을 거쳐 읽는다는 사실은
+   * `repositories.repository.integration.spec.ts`가 실제 DB로 증명한다.
+   */
 
   it.each([
     [
@@ -422,13 +405,14 @@ describe('RepositoriesService.getMyRepositories', () => {
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         status: RepositoryProvisionJobStatus.SUCCEEDED,
-        repository: {
-          id: 'synthetic-invalid-repository',
-          applicationId: 'synthetic-application',
-          name,
-          url,
-          visibility: RepositoryVisibility.PRIVATE,
-          invitations: [],
+        application: {
+          repository: {
+            id: 'synthetic-invalid-repository',
+            name,
+            url,
+            visibility: RepositoryVisibility.PRIVATE,
+            invitations: [],
+          },
         },
       }),
     ]);

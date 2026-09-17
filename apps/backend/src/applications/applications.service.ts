@@ -532,7 +532,10 @@ export class ApplicationsService {
               // 워커가 집어 간 job이 `APPLICATION_NOT_APPROVED`로 FAILED_FINAL이 되고,
               // 그 고아 job이 남은 채로 재승인 경로를 오염시킨다.
               // SUCCEEDED는 APP_023 가드가 이미 막았으므로 여기서 지우는 건 항상 미완료다.
-              await store.discardRepositoryProvisionRequest(applicationId);
+              await store.discardRepositoryProvisionRequest(
+                applicationId,
+                processedAt,
+              );
             }
             return {
               kind: 'REJECTED',
@@ -547,7 +550,10 @@ export class ApplicationsService {
             // `APPLICATION_NOT_APPROVED`로 FAILED_FINAL이 되고 재승인은 기존
             // 이벤트를 재사용해 새 job을 만들지 않아 **저장소가 영영 안 만들어진다**.
             // 가드가 SUCCEEDED를 이미 막았으므로 여기서 지우는 것은 항상 미완료 건이다.
-            await store.discardRepositoryProvisionRequest(applicationId);
+            await store.discardRepositoryProvisionRequest(
+              applicationId,
+              processedAt,
+            );
             return {
               kind: 'REVERTED',
               applicationId,
@@ -579,7 +585,10 @@ export class ApplicationsService {
             // 여기 도달했다는 것은 신청이 SUBMITTED 또는 REJECTED였다는 뜻이다.
             // 프로비저닝이 완료된 승인은 APP_023이 반려·되돌리기를 모두 막아
             // 그 둘 중 어느 상태에도 SUCCEEDED job이 따라오지 않는다 — 지우는 대상은 항상 미완료다.
-            await store.discardRepositoryProvisionRequest(applicationId);
+            await store.discardRepositoryProvisionRequest(
+              applicationId,
+              processedAt,
+            );
 
             const event = await store.createRepositoryProvisionEvent({
               applicationId,

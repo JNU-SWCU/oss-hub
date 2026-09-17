@@ -5,7 +5,10 @@ import {
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { assertSingleProvisionUpdate } from '../repository-provision-state.helpers';
+import {
+  assertCurrentRequest,
+  assertSingleProvisionUpdate,
+} from '../repository-provision-state.helpers';
 
 export interface ClaimRepositoryProvisionJobInput {
   readonly workerId: string;
@@ -16,6 +19,7 @@ export interface ClaimRepositoryProvisionJobInput {
 export interface ClaimedRepositoryProvisionJob {
   readonly id: string;
   readonly applicationId: string;
+  readonly requestId: string;
   readonly repositoryId: string | null;
   readonly attemptCount: number;
 }
@@ -49,6 +53,7 @@ export class RepositoryProvisionJobRepository {
             AND ("lockedAt" IS NULL OR "lockedAt" < ${leaseCutoff})
           )
         )
+          AND "currentEventId" IS NOT NULL
         ORDER BY "nextAttemptAt", "createdAt", "id"
         FOR UPDATE SKIP LOCKED
         LIMIT 1
@@ -63,7 +68,12 @@ export class RepositoryProvisionJobRepository {
           "updatedAt" = ${input.now}
       FROM candidate
       WHERE job."id" = candidate."id"
-      RETURNING job."id", job."applicationId", job."repositoryId", job."attemptCount"
+      RETURNING
+        job."id",
+        job."applicationId",
+        job."currentEventId" AS "requestId",
+        job."repositoryId",
+        job."attemptCount"
     `);
     return jobs[0] ?? null;
   }
@@ -85,6 +95,7 @@ export class RepositoryProvisionJobRepository {
           JOIN "Application" AS application ON application."id" = job."applicationId"
           JOIN "Program" AS program ON program."id" = application."programId"
           WHERE job."status" = CAST(${RepositoryProvisionJobStatus.SUCCEEDED} AS "RepositoryProvisionJobStatus")
+            AND job."currentEventId" IS NOT NULL
             AND job."repositoryId" IS NOT NULL
             AND job."nextAttemptAt" <= ${input.now}
             AND application."repositoryConnectionMode" = CAST(${RepositoryConnectionMode.NEW} AS "RepositoryConnectionMode")
@@ -102,21 +113,35 @@ export class RepositoryProvisionJobRepository {
             "updatedAt" = ${input.now}
         FROM candidate
         WHERE job."id" = candidate."id"
-        RETURNING job."id", job."applicationId", job."repositoryId", job."attemptCount"
+        RETURNING
+          job."id",
+          job."applicationId",
+          job."currentEventId" AS "requestId",
+          job."repositoryId",
+          job."attemptCount"
       `,
     );
     return jobs[0] ?? null;
   }
 
-  async renewLease(jobId: string, workerId: string, now: Date): Promise<void> {
-    const updated = await this.prisma.repositoryProvisionJob.updateMany({
-      where: {
-        id: jobId,
-        status: RepositoryProvisionJobStatus.PROCESSING,
-        lockedBy: workerId,
-      },
-      data: { lockedAt: now },
+  async renewLease(
+    jobId: string,
+    workerId: string,
+    requestId: string,
+    now: Date,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (transaction) => {
+      await assertCurrentRequest(transaction, jobId, workerId, requestId);
+      const updated = await transaction.repositoryProvisionJob.updateMany({
+        where: {
+          id: jobId,
+          status: RepositoryProvisionJobStatus.PROCESSING,
+          lockedBy: workerId,
+          currentEventId: requestId,
+        },
+        data: { lockedAt: now },
+      });
+      assertSingleProvisionUpdate(updated.count);
     });
-    assertSingleProvisionUpdate(updated.count);
   }
 }
