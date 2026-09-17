@@ -5,7 +5,6 @@ import {
   MilestoneDocumentKind,
   OutboxEventStatus,
   Prisma,
-  RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
   type ProgramCategory,
 } from '@prisma/client';
@@ -14,7 +13,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { requiredMilestonesApproved } from '../../common/milestone-completion';
 import { publishBlockedReasons } from '../../common/repository-publication';
 import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity';
-import { repositoryAccessSyncEventData } from '../../github/repository-provision-event';
+import {
+  repositoryAccessSyncEventData,
+  repositoryAccessSyncTargetWhere,
+} from '../../github/repository-provision-event';
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
@@ -790,13 +792,11 @@ type AccessSyncTx = Pick<
 /**
  * 구성원 변경과 같은 트랜잭션에서 권한 동기화 outbox 이벤트를 예약한다.
  *
- * 대상은 「승인된(APPROVED) + 새 저장소 발급(NEW) + 프로그램이 발급을 켜 둔」
- * 신청뿐이다. 미승인·OWN 연결·발급 꺼진 프로그램은 우리가 권한을 쓰는 저장소가
- * 아니므로 이벤트를 만들지 않는다. 대상이 없으면 쓰기도 없다(noop).
- *
- * 페이로드는 `github/repository-provision-event.ts`의 순수 factory 만 쓴다 —
- * 이 트랜잭션은 GitHub 를 부르지 않고 provision job 행도 잠그지 않는다.
- * 같은 ms 에 들어온 중복은 `skipDuplicates` 로 접는다 — worker 가 처리 시점의
+ * 대상 조건과 페이로드는 `github/repository-provision-event.ts`의 순수 계약을
+ * 공유한다 — 같은 정책이 `team-invitations` 쪽에도 있어 복제돼 있었던 부분이다.
+ * 조회·쓰기는 여기서 자기 Prisma로 한다(ADR-003 DEC-42) — 이 트랜잭션은
+ * GitHub를 부르지 않고 provision job 행도 잠그지 않는다. 대상이 없으면 noop.
+ * 같은 ms에 들어온 중복은 `skipDuplicates`로 접는다 — worker가 처리 시점의
  * 현재 구성원을 다시 읽으므로 한 번의 동기화가 그 순간의 변경을 모두 덮는다.
  */
 async function enqueueRepositoryAccessSyncEvents(
@@ -805,12 +805,7 @@ async function enqueueRepositoryAccessSyncEvents(
   now: Date,
 ): Promise<void> {
   const applications = await tx.application.findMany({
-    where: {
-      teamId,
-      status: ApplicationStatus.APPROVED,
-      repositoryConnectionMode: RepositoryConnectionMode.NEW,
-      program: { repositoryProvisioningEnabled: true },
-    },
+    where: repositoryAccessSyncTargetWhere(teamId),
     select: { id: true },
   });
   if (applications.length === 0) return;

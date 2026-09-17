@@ -148,6 +148,26 @@ export function parseRepositoryAccessSyncEvent(
 }
 
 /**
+ * 권한 동기화 대상 신청을 고르는 조건 — 「승인됨 + 새 저장소 발급 + 프로그램이
+ * 발급을 켜 둔」 셋을 모두 만족하는 것만 우리가 권한을 쓰는 저장소를 갖는다.
+ *
+ * 팀 구성원을 바꾸는 주체가 `programs`(제거·탈퇴)와 `team-invitations`(합류) 둘이라
+ * 이 조건이 양쪽에 같은 모양으로 복제돼 있었다. 정책은 발급 쪽 지식이므로 여기서
+ * 한 벌로 소유하고, 조회·쓰기는 각 Repository가 자기 Prisma로 한다 — 이 모듈은
+ * Prisma delegate를 들지 않는 순수 계약으로 남아야 경계를 넘어 공유될 수 있다.
+ */
+export function repositoryAccessSyncTargetWhere(
+  teamId: string,
+): Prisma.ApplicationWhereInput {
+  return {
+    teamId,
+    status: ApplicationStatus.APPROVED,
+    repositoryConnectionMode: RepositoryConnectionMode.NEW,
+    program: { repositoryProvisioningEnabled: true },
+  };
+}
+
+/**
  * 세 인자만으로 결정되는 순수 factory — 여기서 DB나 wall clock을 읽지 않는다.
  * 같은 (application, 시각)의 재시도만 idempotencyKey로 합쳐지고 이후 팀 변경은 새 row가 된다.
  */
