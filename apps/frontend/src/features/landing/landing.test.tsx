@@ -169,6 +169,41 @@ describe('landing page sections', () => {
     );
   });
 
+  it('shows owned and notice-imported covers on recruiting cards', () => {
+    const external =
+      'https://sojoong.kr/wp-content/uploads/kboard_attached/1/209901/synthetic-poster.png';
+    const html = renderToStaticMarkup(
+      <CurrentProgramSectionView
+        state={{
+          kind: 'ready',
+          programs: [
+            {
+              id: 'program_owned_cover',
+              name: '자체 이미지 프로그램',
+              organizer: 'JNU-SWCU',
+              trackType: 'EXTRACURRICULAR',
+              applicationEndAt: '2026-08-14T00:00:00.000Z',
+              coverImageUrl: '/programs/program_owned_cover/cover/cover_01',
+            },
+            {
+              id: 'program_notice_cover',
+              name: '공지 포스터 프로그램',
+              organizer: 'JNU-SWCU',
+              trackType: 'EXTRACURRICULAR',
+              applicationEndAt: '2026-08-14T00:00:00.000Z',
+              coverImageUrl: external,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(html).toContain(
+      'src="/api/v1/programs/program_owned_cover/cover/cover_01"',
+    );
+    expect(html).toContain(`src="${external}"`);
+  });
+
   it('renders the program flow section with the step-by-step flow', () => {
     const html = renderToStaticMarkup(<ProgramFlowSection />);
 

@@ -84,7 +84,9 @@ export async function stateForE2eProgramGraph(
     ...templateFiles.map(({ storageKey }) => storageKey),
     ...attachedSubmissionFileKeys.map(({ storageKey }) => storageKey),
     ...attachedAuthoringUploadKeys.map(({ storageKey }) => storageKey),
-    ...covers.map(({ storageKey }) => storageKey),
+    ...covers.flatMap(({ storageKey }) =>
+      storageKey === null ? [] : [storageKey],
+    ),
   ]);
   const capturedObjectKeys = new Set(capture.storage.objectKeys);
   let orphanObjects = 0;

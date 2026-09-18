@@ -17,7 +17,12 @@ const mocks = vi.hoisted(() => ({
   getAuthoringUploadPolicy: vi.fn(),
   completeAndNavigate: vi.fn(),
   useProgramExitGuard: vi.fn(),
+  previewProgramNotice: vi.fn(),
   discardUnsaved: undefined as (() => void) | undefined,
+}));
+
+vi.mock('./program-notice-api', () => ({
+  previewProgramNotice: mocks.previewProgramNotice,
 }));
 
 vi.mock('./program-authoring-api', () => ({
@@ -164,6 +169,65 @@ describe('ProgramCreationPage guided authoring', () => {
     expect(mocks.useProgramExitGuard).toHaveBeenLastCalledWith(false);
     mocks.discardUnsaved?.();
     expect(sessionStorage.getItem(PROGRAM_AUTHORING_RECOVERY_KEY)).toBeNull();
+  });
+
+  it('applies a notice to editable fields and only persists its external cover after final confirmation', async () => {
+    const sourceUrl = 'https://sojoong.kr/notice/?uid=42&mod=document';
+    const imageUrl = 'https://sojoong.kr/wp-content/uploads/poster.jpg';
+    const description = '합성 프로그램 안내\n\n운영 일정\n- 합성 활동';
+    mocks.previewProgramNotice.mockResolvedValueOnce({
+      sourceUrl,
+      name: '가져온 합성 프로그램',
+      description,
+      coverImages: [imageUrl],
+      warnings: [],
+    });
+    mocks.createAuthoringProgram.mockResolvedValueOnce({
+      id: 'notice-created',
+    });
+    const initial = {
+      ...completedAuthoringState(),
+      currentStep: 'basic' as const,
+    };
+    await act(async () =>
+      root.render(<ProgramCreationPage initialState={initial} />),
+    );
+    await act(async () => buttonNamed('기존 공지로 빠르게 시작하기').click());
+    const url = document.querySelector<HTMLInputElement>('input[type="url"]');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(url, sourceUrl);
+      url?.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => buttonNamed('불러오기').click());
+    await act(async () =>
+      document
+        .querySelector<HTMLInputElement>('input[name="notice-description"]')
+        ?.click(),
+    );
+    await act(async () => buttonNamed('선택한 내용 적용').click());
+    expect(container.querySelector('textarea')?.value).toBe(description);
+    expect(
+      container
+        .querySelector('[data-slot="program-cover-preview"] img')
+        ?.getAttribute('src'),
+    ).toBe(imageUrl);
+    expect(mocks.createAuthoringProgram).not.toHaveBeenCalled();
+    await act(async () => buttonNamed('최종 검토').click());
+    expect(container.textContent).toContain('공지에서 가져온 이미지');
+    await act(async () => buttonNamed('프로그램 만들기').click());
+    expect(mocks.createAuthoringProgram).not.toHaveBeenCalled();
+    await act(async () => buttonNamed('생성 확정').click());
+    const sent = mocks.createAuthoringProgram.mock.calls[0]?.[0];
+    expect(sent).toMatchObject({
+      name: initial.name,
+      description,
+      externalCover: { sourceUrl, imageUrl },
+    });
+    expect(sent).not.toHaveProperty('coverUploadId');
+    expect(sent.milestones).toHaveLength(initial.milestones.length);
   });
 
   it('필드 오류가 있으면 입력 옆에만 표시하고 중복 요약 경고는 만들지 않는다', async () => {

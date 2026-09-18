@@ -351,10 +351,11 @@ describe('PrismaStorageReferenceRepository', () => {
       select: { storageKey: true },
     });
     expect(loadTransaction.programCover.findMany).toHaveBeenCalledWith({
+      where: { source: 'OWNED' },
       select: { storageKey: true },
     });
     expect(liveTransaction.programCover.findFirst).toHaveBeenCalledWith({
-      where: { storageKey: 'program-covers/live' },
+      where: { storageKey: 'program-covers/live', source: 'OWNED' },
       select: { id: true },
     });
     expect(rootModels.programCover.findMany).not.toHaveBeenCalled();

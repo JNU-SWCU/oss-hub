@@ -33,10 +33,10 @@ export function ProgramCover({
       )}
     >
       {available ? (
-        // Request the versioned API route directly so current program visibility is checked before streaming.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
+          referrerPolicy="no-referrer"
           alt=""
           loading={size === 'detail' ? 'eager' : 'lazy'}
           decoding="async"
@@ -94,6 +94,7 @@ export function ProgramCover({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={src}
+            referrerPolicy="no-referrer"
             alt={`${title} 대표 이미지`}
             onError={() => setFailedSource(src)}
             className="min-h-0 flex-1 object-contain"

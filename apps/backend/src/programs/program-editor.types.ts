@@ -8,6 +8,7 @@ import type {
 import type { ProgramDeletionScopeCounts } from './program-deletion-scope';
 import type { ProgramAuthoringUploadToken } from './program-authoring.types';
 import type { ProgramCoverChange } from './repository/program-cover-write';
+import type { ProgramExternalCover } from './program-external-cover';
 
 export type { ProgramDeletionScopeCounts } from './program-deletion-scope';
 
@@ -106,6 +107,7 @@ export type ProgramCategoryLockState = {
 };
 
 export type EditableProgramView = {
+  readonly externalCover?: ProgramExternalCover | null;
   readonly coverImageUrl?: string | null;
   readonly id: string;
   readonly name: string;

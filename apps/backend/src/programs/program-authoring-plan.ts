@@ -1,5 +1,6 @@
 import { ProgramCategory } from '@prisma/client';
 import { getProgramTemplate } from './program-template.registry';
+import { validateProgramCoverChoice } from './program-external-cover';
 import {
   ProgramAuthoringValidationError,
   type ProgramAuthoringDocumentPlan,
@@ -16,6 +17,7 @@ const MAX_DOCUMENTS_PER_PROGRAM = 100;
 export function buildProgramAuthoringPlan(
   request: ProgramAuthoringRequest,
 ): ProgramAuthoringPlan {
+  const externalCover = validateProgramCoverChoice(request);
   const issues: ProgramAuthoringValidationIssue[] = [];
   const name = requiredString(request.name, 'name', issues);
   const organizer = requiredString(request.organizer, 'organizer', issues);
@@ -177,6 +179,7 @@ export function buildProgramAuthoringPlan(
     },
     milestones,
     ...(coverUploadId === null ? {} : { coverUploadId }),
+    ...(externalCover == null ? {} : { externalCover }),
     uploadTokenIds: uploadTokenIds.sort(),
   };
 }

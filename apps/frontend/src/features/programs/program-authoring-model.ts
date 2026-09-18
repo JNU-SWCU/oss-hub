@@ -73,7 +73,13 @@ export function programAuthoringReducer(
 ): ProgramAuthoringState {
   switch (action.type) {
     case 'set_cover_file':
-      return { ...state, coverFile: action.file };
+      return { ...state, coverFile: action.file, externalCover: null };
+    case 'apply_notice':
+      return {
+        ...state,
+        ...action.patch,
+        ...(action.patch.externalCover ? { coverFile: null } : {}),
+      };
     case 'restore_state':
       return migrateProgramAuthoringState(action.state);
     case 'go_to_step':

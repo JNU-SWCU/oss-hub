@@ -313,6 +313,19 @@ describe('StudentDashboardView', () => {
     },
   );
 
+  it('공지에서 가져온 포스터 주소를 카드 이미지로 그대로 보여 준다', () => {
+    const external =
+      'https://sojoong.kr/wp-content/uploads/kboard_attached/1/209901/synthetic-poster.png';
+    const html = renderView({
+      data: {
+        ...dashboardFixture,
+        items: [{ ...firstItemOf(dashboardFixture), coverImageUrl: external }],
+      },
+    });
+
+    expect(html).toContain(`src="${external}"`);
+  });
+
   it('신청이 없으면 프로그램 목록 이동을 제공한다', () => {
     const html = renderView({ data: { items: [] } });
 

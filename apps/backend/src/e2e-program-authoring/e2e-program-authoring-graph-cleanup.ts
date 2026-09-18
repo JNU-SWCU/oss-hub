@@ -121,8 +121,8 @@ export async function removeAdoptedGraph(
     return covers;
   });
   const storageKeys = new Set(
-    [...uploads, ...templateFiles, ...covers].map(
-      ({ storageKey }) => storageKey,
+    [...uploads, ...templateFiles, ...covers].flatMap(({ storageKey }) =>
+      storageKey === null ? [] : [storageKey],
     ),
   );
   for (const storageKey of storageKeys) {

@@ -1,6 +1,6 @@
 import { ListCard } from '@/components/list-card';
 import { ProgramCover } from '@/components/program-cover';
-import { apiPath } from '@/lib/api-client';
+import { programCoverSource } from '@/components/program-cover-source';
 import * as React from 'react';
 import type { VariantProps } from 'class-variance-authority';
 
@@ -112,9 +112,7 @@ function ProgramCard({
       subtitle={category}
       badge={{ text: badgeText, variant: STATUS_BADGE_VARIANT[status] }}
       statusDescription={srStatusPrefix}
-      cover={
-        <ProgramCover src={coverImageUrl ? apiPath(coverImageUrl) : null} />
-      }
+      cover={<ProgramCover src={programCoverSource(coverImageUrl)} />}
       meta={period}
       note={
         note ? (
