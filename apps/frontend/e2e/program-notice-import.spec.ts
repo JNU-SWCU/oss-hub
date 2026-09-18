@@ -250,6 +250,11 @@ test.describe('공지에서 가져오기', () => {
     await saveProgramCover(staff, programId);
     expect(await savedCoverPath(staff, programId)).toBeNull();
     await staff.reload();
-    await expect(field.getByText('선택한 이미지 없음')).toBeVisible();
+    await expect(
+      field.getByRole('button', { name: '이미지 선택', exact: true }),
+    ).toBeVisible();
+    await expect(
+      field.locator('[data-slot="program-cover-preview"]'),
+    ).toHaveCount(0);
   });
 });
