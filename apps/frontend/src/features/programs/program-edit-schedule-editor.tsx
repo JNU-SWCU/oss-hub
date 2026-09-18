@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
+import { RowActions } from '@/components';
+import { Button } from '@/components/ui/button';
 import { FieldError, FieldLabel } from '@/components/ui/field';
 import {
   Tooltip,
@@ -217,23 +219,26 @@ function ScheduleSummary({
             {summary}
           </p>
         </div>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              ref={setTrigger}
-              type="button"
-              aria-label={`${range.label} 수정`}
-              aria-invalid={Boolean(error)}
-              aria-describedby={error ? errorId : undefined}
-              disabled={isSaving}
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={onOpen}
-            >
-              <Pencil aria-hidden="true" className="size-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>{`${range.label} 수정`}</TooltipContent>
-        </Tooltip>
+        <RowActions className="shrink-0">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                ref={setTrigger}
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`${range.label} 수정`}
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? errorId : undefined}
+                disabled={isSaving}
+                onClick={onOpen}
+              >
+                <Pencil aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{`${range.label} 수정`}</TooltipContent>
+          </Tooltip>
+        </RowActions>
       </div>
       <FieldError id={errorId}>{error}</FieldError>
     </div>
