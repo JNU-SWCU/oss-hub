@@ -429,6 +429,16 @@ describe('my repositories response parser', () => {
     expect(Object.hasOwn(repositories.items[0], 'lastErrorCode')).toBe(false);
     expect(viewHtml).not.toContain(secret);
   });
+
+  it('wire extra metadata는 화면 모델에 투영하지 않는다', () => {
+    const secret = 'synthetic-secret-repo-metadata';
+    const repositories = parseMyRepositoriesResponse({
+      items: [{ ...response.items[0], fixtureKey: secret }],
+    });
+
+    expect(repositories.items[0]).not.toHaveProperty('fixtureKey');
+    expect(JSON.stringify(repositories)).not.toContain(secret);
+  });
 });
 
 describe('my repositories loader boundary', () => {

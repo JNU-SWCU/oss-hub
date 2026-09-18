@@ -246,8 +246,6 @@ describe('ApplicationsService integration', () => {
         teamName: null,
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: true,
-        repositoryConnectionMode: RepositoryConnectionMode.NEW,
-        repositoryUrl: null,
       },
       new Date('2026-07-15T00:00:00.000Z'),
     );

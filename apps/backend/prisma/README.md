@@ -58,10 +58,13 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
 
 시나리오 id ↔ 실제 레코드 매핑은 각 파일의 export를 참고한다.
 
-- `auth` (12) — `seeds/auth.ts`의 `AUTH_SCENARIOS`: `consent-required`, `user-role-unselected`,
+- `auth` (14) — `seeds/auth.ts`의 `AUTH_SCENARIOS`: `consent-required`, `user-role-unselected`,
   `profile-complete`, `student-confirmed`, `staff-pending`, `staff-pending-second`, `staff-rejected`,
-  `staff-approved`, `staff-revocable`, `staff-revoked`, `admin-confirmed`, `admin-second`.
+  `staff-approved`, `staff-revocable`, `staff-revoked`, `admin-confirmed`, `admin-second`,
+  `student-onboarding-unassigned`, `staff-onboarding-unassigned`.
   `user-role-unselected`는 동의 완료·프로필 미입력, `profile-complete`는 동의 완료·프로필 입력 완료 상태다.
+  `student-onboarding-unassigned`·`staff-onboarding-unassigned`는 실제 가입 완료 E2E가 각각 변경하는 동의 완료·역할 미선택 계정이다.
+  두 가입 흐름과 동의 재방문 시나리오가 상태를 공유하지 않도록 별도로 둔다.
   `staff-revoked`는 역할을 `STAFF`로 보존한 `DEACTIVATED` 계정이다.
   `staff-revocable`은 그와 달리 `ACTIVE`인 승인 완료 교직원이다 — 관리자가 화면에서 **회수를 누를 대상**이며,
   `DEACTIVATED` 계정은 로그인 자체가 401이라 회수 직후 화면을 만들 수 없어 따로 둔다.

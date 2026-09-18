@@ -824,7 +824,7 @@ describe('ProgramTeamsService.rename', () => {
     expect(renameTeam).toHaveBeenCalledWith(
       PROGRAM_ID,
       TEAM_ID,
-      { userId: STUDENT.id, isStaff: false },
+      { id: STUDENT.id, isStaff: false },
       '알잘딱팀',
       expect.any(Function),
     );
@@ -845,7 +845,7 @@ describe('ProgramTeamsService.rename', () => {
       expect(renameTeam).toHaveBeenCalledWith(
         PROGRAM_ID,
         TEAM_ID,
-        { userId: authority.id, isStaff: true },
+        authority,
         '알잘딱팀',
         expect.any(Function),
       );

@@ -111,6 +111,19 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     expect(result.documents.map((document) => document.sortOrder)).toEqual([
       1, 2,
     ]);
+    const reloaded = await editor.getMilestoneEdit(
+      STAFF_GITHUB_ID,
+      milestoneId,
+    );
+    expect(
+      reloaded.documents.map(({ name, sortOrder }) => ({
+        name,
+        sortOrder,
+      })),
+    ).toEqual([
+      { name: 'Second updated', sortOrder: 1 },
+      { name: 'New document', sortOrder: 2 },
+    ]);
     expect(
       await prisma.milestoneDocument.findUnique({
         where: { id: firstDocumentId },

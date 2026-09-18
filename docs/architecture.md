@@ -10,8 +10,8 @@ apps/
 └── backend/                  # NestJS REST API
     └── prisma/               # Prisma schema와 migration
 deploy/                       # nginx, Jenkins, 서버 배포 설정
-compose.yaml                  # 운영 런타임 Compose 정의
-compose.dev.yaml              # 개발 PostgreSQL Compose 정의
+compose.yml                   # 운영 런타임 Compose 정의
+compose.dev.yml               # 개발 PostgreSQL Compose 정의
 docs/
 ├── decisions/                # Architecture Decision Records
 ├── deploy/                   # 배포 runbook과 수동 운영 절차

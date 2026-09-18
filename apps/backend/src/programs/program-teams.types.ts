@@ -1,4 +1,5 @@
 import type { PublishBlockedReason } from '../common/repository-publication';
+import type { TeamRepositoryEvidenceView } from './program-team-repository-evidence.types';
 import type { TeamDeletionScopeCounts } from './team-deletion-scope';
 
 export interface TeamMemberView {
@@ -117,7 +118,7 @@ export interface TeamApplicationView {
  * 화면은 본 그대로를 `expectedScope`로 돌려보낸다. 목록(`StaffTeamView`)에는 두지 않는다 —
  * 목록은 한 번에 여러 팀을 그리며, 누르기 전에 읽은 수치는 이미 낡은 것이다.
  */
-export interface StaffTeamDetailView {
+export interface StaffTeamDetailView extends TeamRepositoryEvidenceView {
   readonly teamId: string;
   readonly name: string;
   readonly memberCount: number;

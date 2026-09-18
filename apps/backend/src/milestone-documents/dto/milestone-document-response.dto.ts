@@ -14,7 +14,7 @@ import { MilestoneDocumentRecord } from '../milestone-documents.repository';
  * 응해야 하는가」**이고 그 답이 정확히 `status`이기 때문이다. `CHANGES_REQUESTED`면 아직 응하지
  * 않은 것, `SUBMITTED`면 이미 응해 교직원 차례인 것이다 — 서버의 마감 판단
  * (`domain/milestone-document-submission-window.ts`의 `isChangeRequestResubmissionOpen`)도 같은
- * 두 값을 본다. 「첫 검토 대기」와 「재검토 대기」의 구분은 옆의 `revision`이 맡는다.
+ * 두 값을 본다.
  *
  * 여기에 `decision`을 더하려면 그 값으로 **무엇을 다르게 그릴지**부터 정해야 한다. 쓰는 데
  * 없이 실으면 화면마다 다른 근거로 같은 잠금을 계산하기 시작한다.
@@ -41,7 +41,7 @@ export interface MilestoneDocumentViewerReviewResponseDto {
 export interface MilestoneDocumentViewerSubmissionResponseDto {
   readonly submitted: boolean;
   readonly submittedAt: string | null;
-  /** 현재 제출본 번호. 두 번째부터는 화면이 「재검토 대기」로 구분한다. */
+  /** 현재 제출본 번호. 판정 요청의 낙관적 동시성 대조(`expectedRevision`)에 쓴다. */
   readonly revision: number | null;
   /**
    * 최신 판정이 옮겨 놓은 제출 상태 — 그리고 재제출이 `SUBMITTED`로 되돌려 놓는 값. 미제출이면

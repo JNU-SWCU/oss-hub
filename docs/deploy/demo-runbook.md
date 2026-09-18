@@ -8,13 +8,13 @@
 
 - 이 저장소는 public이다([security](../rules/security.md)).
 - 실제 호스트명·IP·SSH 별칭·계정명·시크릿·실데이터 행·스크린샷은 이 문서와 커밋·PR·로그 어디에도 적지 않는다.
-- 아래 `<...>` 자리표시자의 실제 값은 **운영 credentials vault**가 원본이다(AGENTS.md §2, [server-runbook](./server-runbook.md) §8). vault 이름·내부 경로·노트명은 이 저장소에 적지 않는다.
+- 아래 `<...>` 자리표시자의 실제 값은 **운영 credentials vault**가 원본이다([AGENTS.md Important Files](../../AGENTS.md#important-files), [server-runbook](./server-runbook.md) §8). vault 이름·내부 경로·노트명은 이 저장소에 적지 않는다.
 - oss-hub 구축 프로그램(D3에서 ID를 보호 목록에 고정)은 어떤 단계에서도 삭제·개명하지 않는다.
 - 실제 OAuth로 가입한 사용자 계정은 삭제·name 변경 대상에서 제외한다.
 - 이름·언어 휴리스틱으로 직접 DML을 실행하지 않는다 — 모든 UPDATE·purge는 D3에서 작성한 ID 매니페스트에 있는 ID로만 수행한다.
 - 각 단계의 예상 건수와 실제 건수가 다르면 그 자리에서 중단하고 원인을 확인한다.
 - 운영 서버에서 `docker compose down -v`는 절대 쓰지 않는다(`pgdata` 보존).
-- 학생 토큰으로 운영 서버에 쓰기 API를 호출하지 않는다 — 학생 역할 쓰기 단계는 사람이 수행하는 체크포인트다(AGENTS.md §4).
+- 학생 토큰으로 운영 서버에 쓰기 API를 호출하지 않는다 — 학생 역할 쓰기 단계는 사람이 수행하는 체크포인트다([AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)).
 
 ## 1. 표기 규약
 

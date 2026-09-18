@@ -157,6 +157,39 @@ describe('parseAuditLogPage', () => {
     ).toThrow(AuditLogResponseError);
   });
 
+  it('화면 DTO만 있는 행(legacy·metadata 없음)은 거절하고 private metadata는 투영하지 않는다', () => {
+    const secret = 'synthetic-secret-audit-metadata';
+    const {
+      legacy: _legacy,
+      metadata: _metadata,
+      ...screenDtoOnly
+    } = AUDIT_LOG_ACCESS_RECORD_FIXTURE;
+
+    expect(() =>
+      parseAuditLogPage({
+        items: [screenDtoOnly],
+        total: 1,
+        page: 1,
+        limit: 20,
+      }),
+    ).toThrow(AuditLogResponseError);
+
+    const page = parseAuditLogPage({
+      items: [
+        {
+          ...AUDIT_LOG_ACCESS_RECORD_FIXTURE,
+          metadata: { ...AUDIT_LOG_ACCESS_RECORD_FIXTURE.metadata, secret },
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    expect(page.items[0]).not.toHaveProperty('metadata');
+    expect(page.items[0]).not.toHaveProperty('legacy');
+    expect(JSON.stringify(page)).not.toContain(secret);
+  });
+
   it('legacy가 true인데 metadata가 null이 아니면 거부한다', () => {
     expect(() =>
       parseAuditLogPage({
@@ -335,6 +368,64 @@ describe('parseAuditLogPage', () => {
     });
 
     expect(item).not.toHaveProperty('teamMembership');
+  });
+
+  /**
+   * TEAM_RENAMED의 `target`은 바뀐 뒤의 이름이라, 바뀜기 전 이름은 metadata에서
+   * 따로 잃어야 「무엇에서 무엇으로」를 말할 수 있다.
+   */
+  it('TEAM_RENAMED 행은 바뀜기 전 이름을 투영한다', () => {
+    const item = parseOne({
+      ...membershipWireRecord({
+        schemaVersion: 1,
+        programName: '합성 프로그램',
+        teamName: '새 팀이름',
+        previousName: '옛 팀이름',
+      }),
+      action: 'TEAM_RENAMED',
+    });
+
+    expect(item.teamPreviousName).toBe('옛 팀이름');
+    expect(item).not.toHaveProperty('metadata');
+  });
+
+  it('이전 이름이 없거나 모양이 어긋나면 행을 버리지 않고 그 값만 비운다', () => {
+    for (const broken of [
+      { schemaVersion: 1, programName: '합성', teamName: '새 이름' },
+      {
+        schemaVersion: 2,
+        programName: '합성',
+        teamName: '새 이름',
+        previousName: '옛 이름',
+      },
+      {
+        schemaVersion: 1,
+        programName: '합성',
+        teamName: '새 이름',
+        previousName: '',
+      },
+    ]) {
+      const item = parseOne({
+        ...membershipWireRecord(broken),
+        action: 'TEAM_RENAMED',
+      });
+      expect(item.action).toBe('TEAM_RENAMED');
+      expect(item).not.toHaveProperty('teamPreviousName');
+    }
+  });
+
+  it('다른 action의 행에는 이전 팀 이름을 붙이지 않는다', () => {
+    const item = parseOne({
+      ...membershipWireRecord({
+        schemaVersion: 1,
+        programName: '합성 프로그램',
+        teamName: '합성 팀',
+        previousName: '옛 팀이름',
+      }),
+      action: 'TEAM_CREATED',
+    });
+
+    expect(item).not.toHaveProperty('teamPreviousName');
   });
 
   it('APPLICATION_APPROVED 행이 합성 라벨(프로그램 이름 · @신청자) 스냅샷을 받으면 그 라벨을 그대로 통과시킨다', () => {

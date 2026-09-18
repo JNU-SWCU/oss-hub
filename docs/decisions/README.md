@@ -17,6 +17,8 @@
 | ADR-009 | Accepted | 학생 소유 저장소 연결(OWN)의 권한·수집 경계 | [ADR-009-own-repository-connection](ADR-009-own-repository-connection.md) |
 | ADR-010 | Accepted | 기여 추적 컨텍스트 — 두 읽기 표면과 그 데이터원 | [ADR-010-contribution-tracking-context](ADR-010-contribution-tracking-context.md) |
 | ADR-011 | Accepted | 질의 필터의 타입 경계 — sentinel 문자열을 SQL 값으로 보내지 않는다 | [ADR-011-query-filter-type-boundary](ADR-011-query-filter-type-boundary.md) |
+| ADR-012 | Accepted | ProgramTrackType이 공개 API·작성 입력의 category를 대체한다 | [012-program-track-type](012-program-track-type.md) |
+| ADR-013 | Accepted | 프론트엔드 런타임과 테스트 의존 경계 | [ADR-013-runtime-test-boundary](ADR-013-runtime-test-boundary.md) |
 
 ## ADR 라이프사이클
 

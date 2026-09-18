@@ -7,18 +7,12 @@ import {
   CardGrid,
   DetailPanelLayout,
   EmptyState,
+  ListCard,
   PageHeader,
-  StatusBadge,
 } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   PublicProfileNotFoundError,
   loadPublicProfile,
@@ -125,47 +119,31 @@ function ProjectMetricsSummary({
 
 function ProjectCard({ project }: { readonly project: PublicProfileProject }) {
   return (
-    <Card className="min-w-0">
-      <CardHeader className="gap-3">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-sm text-muted-foreground">
-              {project.programName} · {project.modeLabel}
-            </p>
-            <CardTitle className="mt-1 break-words">
-              {project.displayName}
-            </CardTitle>
-          </div>
-          <StatusBadge
-            variant={
-              project.observed && project.hasCollectedData
-                ? 'approved'
-                : 'pending'
-            }
-          >
-            {activityLabel(project)}
-          </StatusBadge>
-        </div>
-      </CardHeader>
-      <CardContent className="grid gap-4 text-sm">
-        <div className="grid gap-1">
-          <span className="text-muted-foreground">저장소</span>
-          <code className="break-all">{project.repositoryName}</code>
-        </div>
-        <div className="grid gap-1">
-          <span className="text-muted-foreground">공개일</span>
-          <time dateTime={project.publishedAt}>{project.publishedLabel}</time>
-        </div>
-        {project.metrics !== null ? (
-          <ProjectMetricsSummary metrics={project.metrics} />
-        ) : null}
-      </CardContent>
-      <CardFooter>
-        <Button asChild size="sm" variant="outline">
-          <Link href={project.detailUrl}>상세 보기</Link>
-        </Button>
-      </CardFooter>
-    </Card>
+    <ListCard
+      title={project.displayName}
+      subtitle={project.programName}
+      badge={{
+        text: activityLabel(project),
+        variant:
+          project.observed && project.hasCollectedData ? 'approved' : 'pending',
+      }}
+      details={[
+        {
+          label: '저장소',
+          value: <code className="break-all">{project.repositoryName}</code>,
+        },
+        {
+          label: '공개일',
+          value: (
+            <time dateTime={project.publishedAt}>{project.publishedLabel}</time>
+          ),
+        },
+        ...(project.metrics !== null
+          ? [{ value: <ProjectMetricsSummary metrics={project.metrics} /> }]
+          : []),
+      ]}
+      href={project.detailUrl}
+    />
   );
 }
 

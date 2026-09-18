@@ -19,10 +19,12 @@ const ACTION_BADGE_VARIANTS = {
   PROGRAM_DELETED: 'closed',
   TEAM_CREATED: 'approved',
   TEAM_JOINED: 'approved',
-  TEAM_RENAMED: 'closed',
   TEAM_DELETED: 'closed',
   // 탈퇴·내보내기는 합류와 반대로 구성이 줄어드는 변경이라 보관·삭제와 같은 톤을 쓴다.
   TEAM_MEMBERSHIP_CHANGED: 'closed',
+  // 이름만 바뀜을 뿐 팀이 늘지도 줄지도 않았다 — 생성과 같은 톤으로 읽히면
+  // 새 팀이 생긴 것처럼 보이므로 중립적인 변경 톤을 쓴다.
+  TEAM_RENAMED: 'closed',
   COLLECTION_SYNC_TRIGGERED: 'closed',
   SUBMISSION_FILE_CLEANUP_RETRY_RESET: 'closed',
   APPLICATION_SUBMITTED: 'pending',

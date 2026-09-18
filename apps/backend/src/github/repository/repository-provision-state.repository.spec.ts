@@ -255,7 +255,8 @@ function repositoryFor(db: MockDb): RepositoryProvisionStateRepository {
 function jobRow(
   team: { readonly name: string; readonly nicknames: readonly string[] } | null,
   connectionMode: RepositoryConnectionMode = RepositoryConnectionMode.NEW,
-): unknown {
+  source: RepositorySource = RepositorySource.ORG_PROVISIONED,
+) {
   return {
     currentEventId: REQUEST_ID,
     repositoryId: REPOSITORY_ID,
@@ -267,6 +268,10 @@ function jobRow(
       applicant: { githubId: 42n, nickname: 'Applicant-Login' },
       program: { name: 'Synthetic', repositoryProvisioningEnabled: true },
       repositoryConnectionMode: connectionMode,
+      repositoryUrl:
+        connectionMode === RepositoryConnectionMode.OWN
+          ? 'https://github.com/synthetic-owner/synthetic-repo'
+          : null,
       team:
         team === null
           ? null
@@ -278,6 +283,7 @@ function jobRow(
             },
       repository: {
         id: REPOSITORY_ID,
+        source,
         applicationId: 'application-1',
         githubRepositoryId: 7n,
         nameWithOwner: 'synthetic-org/synthetic-repo',
@@ -348,7 +354,11 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
       },
     });
     db.repositoryProvisionJob.findFirst.mockResolvedValue(
-      jobRow(null, RepositoryConnectionMode.OWN),
+      jobRow(
+        null,
+        RepositoryConnectionMode.OWN,
+        RepositorySource.EXTERNAL_PUBLIC,
+      ),
     );
 
     // When: context를 읽는다.
@@ -362,7 +372,71 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
     expect(context.currentMemberGithubLogins).toEqual([]);
     expect(context.membershipFingerprint).toBe('[]');
     expect(context.subjectName).toBe('Applicant-Login');
+    expect(context.currentRepositorySource).toBe(
+      RepositorySource.EXTERNAL_PUBLIC,
+    );
   });
+
+  it('원래 OWN이어도 현재 관리 저장소의 팀을 읽지 못하면 막는다', async () => {
+    const db = createDb();
+    db.repositoryProvisionJob.findFirst.mockResolvedValue(
+      jobRow(
+        null,
+        RepositoryConnectionMode.OWN,
+        RepositorySource.ORG_PROVISIONED,
+      ),
+    );
+    await expect(
+      repositoryFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
+    ).rejects.toMatchObject({
+      code: 'REPOSITORY_PROVISION_MEMBERSHIP_UNAVAILABLE',
+      retryable: false,
+    });
+  });
+
+  it('원래 NEW라도 현재 외부 저장소에는 팀 초대 원본을 요구하지 않는다', async () => {
+    const db = createDb();
+    db.repositoryProvisionJob.findFirst.mockResolvedValue(
+      jobRow(
+        null,
+        RepositoryConnectionMode.NEW,
+        RepositorySource.EXTERNAL_PUBLIC,
+      ),
+    );
+    const context = await repositoryFor(db).loadContext(
+      JOB_ID,
+      WORKER_ID,
+      REQUEST_ID,
+    );
+    expect(context.currentRepositorySource).toBe(
+      RepositorySource.EXTERNAL_PUBLIC,
+    );
+    expect(context.currentMemberGithubLogins).toEqual([]);
+  });
+
+  // 현재 연결의 정본은 Application이고, job의 repositoryId는 「이 세대가 만든 결과」다.
+  // 둘이 어긋난 상태는 연결 교체가 만든 정상 상태이므로 실패가 아니라 「이 세대의
+  // 결과는 아직 없다」로 읽는다 — 그래야 worker가 교체된 목표로 다시 진행한다.
+  it.each(['missing', 'different'] as const)(
+    'job의 현재 저장소가 %s이면 이 세대의 결과로 보지 않는다',
+    async (state) => {
+      const db = createDb();
+      const job = jobRow({ name: 'synthetic-team', nicknames: ['alpha'] });
+      db.repositoryProvisionJob.findFirst.mockResolvedValue(
+        state === 'missing'
+          ? { ...job, application: { ...job.application, repository: null } }
+          : { ...job, repositoryId: 'different-repository' },
+      );
+
+      const context = await repositoryFor(db).loadContext(
+        JOB_ID,
+        WORKER_ID,
+        REQUEST_ID,
+      );
+
+      expect(context.repository).toBeNull();
+    },
+  );
 
   it('lease를 잃은 job은 context를 주지 않는다', async () => {
     const db = createDb();

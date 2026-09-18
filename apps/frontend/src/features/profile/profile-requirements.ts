@@ -16,7 +16,7 @@
  * 선언하고, 세션을 아는 app 계층이 이 타입으로 역할을 넘긴다.
  */
 export type ProfileMemberKind = 'STUDENT' | 'STAFF';
-/** Todo 13까지 local-review legacy fixture 해석에만 쓰는 호환 타입. */
+/** ADMIN은 STAFF와 같은 필수 항목을 쓰며 ProfileMemberKind에 넣지 않는다. */
 export type ProfileRole = ProfileMemberKind | 'ADMIN';
 
 export const PROFILE_NAME_MAX_LENGTH = 100;

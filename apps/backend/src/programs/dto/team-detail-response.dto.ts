@@ -3,6 +3,21 @@ import type {
   TeamApplicationView,
   TeamMemberView,
 } from '../program-teams.types';
+import type { RepositoryUrlHistoryPage } from '../program-team-repository-evidence.types';
+
+export class RepositoryUrlHistoryResponseDto {
+  readonly items: RepositoryUrlHistoryPage['items'];
+  readonly nextCursor: string | null;
+
+  private constructor(view: RepositoryUrlHistoryPage) {
+    this.items = view.items;
+    this.nextCursor = view.nextCursor;
+  }
+
+  static from(view: RepositoryUrlHistoryPage): RepositoryUrlHistoryResponseDto {
+    return new RepositoryUrlHistoryResponseDto(view);
+  }
+}
 
 /**
  * 교직원 전용 팀 상세(#874) 응답 — 팀원(실명 포함)·신청 상태·저장소 발급 상태를
@@ -48,6 +63,8 @@ export class StaffTeamDetailResponseDto {
   readonly memberCount: number;
   readonly members: readonly TeamMemberView[];
   readonly application: TeamApplicationResponseDto | null;
+  readonly repositoryContributions: StaffTeamDetailView['repositoryContributions'];
+  readonly repositoryUrlHistory: StaffTeamDetailView['repositoryUrlHistory'];
   /**
    * 삭제 확인 창이 「무엇이 함께 지워지는가」를 말하기 위해 읽는 수치이고, 누를 때
    * 그대로 `expectedScope`로 돌아간다. 개인정보가 아니라 개수만 담긴다.
@@ -59,6 +76,8 @@ export class StaffTeamDetailResponseDto {
     this.name = view.name;
     this.memberCount = view.memberCount;
     this.members = view.members;
+    this.repositoryContributions = view.repositoryContributions;
+    this.repositoryUrlHistory = view.repositoryUrlHistory;
     this.application = view.application
       ? TeamApplicationResponseDto.from(view.application)
       : null;

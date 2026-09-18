@@ -1,4 +1,4 @@
-<!-- init:managed id=craft-init-4.0.0-frontend-components sha256=a9367f65f0686f7030a748bbc7a496e2d97c0caa722979793cdc49f20e46a0cf -->
+<!-- init:managed id=craft-init-4.0.0-frontend-components sha256=69207d575978001081c286755744b2e81c5f6d6b1778dff6bd63a017eb1f732b -->
 # Shared component scope
 
 ## Ownership
@@ -25,5 +25,5 @@
 
 - Follow the token and primitive contract in `docs/design.md`; use existing semantic classes and `ui/` primitives instead of introducing component-local visual foundations.
 - Keep accessibility behavior attached to its shared control: keyboard navigation belongs in `nav-bar.tsx`, table semantics in `data-table.tsx`, and dialog behavior in the relevant `ui/` primitive.
-- Place behavior tests beside their component (`*.test.tsx`); geometry helper contracts remain with `card-grid.geometry*.mjs`.
+- Place behavior tests beside their component (`*.test.tsx`). Card-grid layout journeys live in `e2e/card-grid-geometry.spec.ts`.
 <!-- /init:managed id=craft-init-4.0.0-frontend-components -->

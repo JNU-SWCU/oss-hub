@@ -1,23 +1,148 @@
-import type { Browser, Page, TestInfo } from '@playwright/test';
+import type { Browser, Page, Route, TestInfo } from '@playwright/test';
 
 import { expect, test } from './admin-session.fixture';
 import { e2eEnvironment } from './environment';
 import { installBrowserAudit } from './support/browser-audit';
 import {
-  installOnboardingFixture,
+  fulfillJson,
   installSyntheticAuthority,
-  installUnassignedFixture,
+  type MemberAccessApiHandlers,
+  type SyntheticAuthority,
 } from './support/member-access-fixture';
 import {
   assertTabSequence,
   captureResponsiveMenu,
   captureResponsivePage,
+  captureTask9State,
+  TASK_9_VIEWPORTS,
 } from './support/member-access-visual';
 import {
   UNIONED_MENU_CASES,
   type MenuCase,
 } from './support/member-access-menu-cases';
 import { seedId } from './support/session-cookie';
+
+const EMPTY_ACTIVITY_TIMELINE = {
+  dataAsOf: null,
+  programs: [],
+  series: { granularity: 'MONTH', points: [] },
+} as const;
+
+const EMPTY_STAFF_INSIGHTS = {
+  scope: { kind: 'all' },
+  dataAsOf: null,
+  years: [],
+  cohorts: [],
+  departments: [],
+  programs: [],
+} as const;
+
+const EMPTY_STAFF_SUMMARY = { programs: [] } as const;
+
+const EMPTY_ADMIN_DIRECTORY = {
+  items: [],
+  page: 1,
+  limit: 20,
+  total: 0,
+  facets: {
+    roles: { unassigned: 0, student: 0, staff: 0, admin: 0 },
+    accountStatuses: { active: 0, deactivated: 0 },
+    pendingRequests: { none: 0, pending: 0 },
+  },
+} as const;
+
+const INCOMPLETE_PROFILE = {
+  name: '합성 가입 사용자',
+  studentId: null,
+  department: null,
+  phone: null,
+  isComplete: false,
+} as const;
+
+const COMPLETE_STAFF_PROFILE = {
+  name: '합성 권한 사용자',
+  studentId: null,
+  department: '합성 사업단',
+  phone: null,
+  isComplete: true,
+} as const;
+
+function jsonHandler(body: unknown) {
+  return async (route: Route): Promise<void> => {
+    await fulfillJson(route, body);
+  };
+}
+
+function studentMenuReads(): MemberAccessApiHandlers {
+  return {
+    'GET /api/v1/dashboard/student/activity-timeline': jsonHandler(
+      EMPTY_ACTIVITY_TIMELINE,
+    ),
+    'GET /api/v1/team-invitations/received': jsonHandler([]),
+  };
+}
+
+function staffMenuReads(): MemberAccessApiHandlers {
+  return {
+    'GET /api/v1/dashboard/staff/insights': jsonHandler(EMPTY_STAFF_INSIGHTS),
+    'GET /api/v1/dashboard/staff/summary': jsonHandler(EMPTY_STAFF_SUMMARY),
+  };
+}
+
+function adminDirectoryReads(): MemberAccessApiHandlers {
+  return {
+    'GET /api/v1/users/access': jsonHandler(EMPTY_ADMIN_DIRECTORY),
+  };
+}
+
+function menuReadsFor(authority: SyntheticAuthority): MemberAccessApiHandlers {
+  return {
+    ...(authority.memberKind === 'STUDENT'
+      ? {
+          ...studentMenuReads(),
+          'GET /api/v1/dashboard/student': jsonHandler({ items: [] }),
+          'GET /api/v1/users/me/notifications/application-decisions':
+            jsonHandler([]),
+        }
+      : {}),
+    ...(authority.hasStaffAccess ? staffMenuReads() : {}),
+    ...(authority.hasAdminAccess ? adminDirectoryReads() : {}),
+  };
+}
+
+async function installUnassignedMenuDenial(
+  page: Page,
+  kind: 'NONE' | 'REVOKED',
+): Promise<void> {
+  const settled = kind === 'REVOKED';
+  await installSyntheticAuthority(
+    page,
+    {
+      role: null,
+      memberKind: settled ? 'STAFF' : null,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      isProfileComplete: settled,
+    },
+    {
+      'GET /api/v1/role-requests/me': jsonHandler(
+        settled
+          ? {
+              requestedRole: 'STAFF',
+              status: 'REVOKED',
+              requestedAt: '2026-08-20T00:00:00.000Z',
+              decidedAt: '2026-08-21T00:00:00.000Z',
+              rejectionReason: null,
+            }
+          : null,
+      ),
+      'GET /api/v1/onboarding/role': jsonHandler({ selectedRole: null }),
+      'GET /api/v1/users/me/profile': jsonHandler(
+        settled ? COMPLETE_STAFF_PROFILE : INCOMPLETE_PROFILE,
+      ),
+    },
+  );
+}
 
 async function chooseMemberKind(
   page: Page,
@@ -32,6 +157,32 @@ async function chooseMemberKind(
   await expect(page).toHaveURL(/\/onboarding\/profile$/);
 }
 
+async function readPersistedOnboarding(page: Page): Promise<{
+  readonly session: unknown;
+  readonly profile: unknown;
+  readonly selection: unknown;
+  readonly staffRequestBody: string;
+}> {
+  const [session, profile, selection, staffRequest] = await Promise.all([
+    page.request.get('/api/v1/auth/session'),
+    page.request.get('/api/v1/users/me/profile'),
+    page.request.get('/api/v1/onboarding/role'),
+    page.request.get('/api/v1/role-requests/me'),
+  ]);
+  expect(session.ok(), `session ${session.status()}`).toBe(true);
+  expect(profile.ok(), `profile ${profile.status()}`).toBe(true);
+  expect(selection.ok(), `selection ${selection.status()}`).toBe(true);
+  expect(staffRequest.ok(), `staff request ${staffRequest.status()}`).toBe(
+    true,
+  );
+  return {
+    session: await session.json(),
+    profile: await profile.json(),
+    selection: await selection.json(),
+    staffRequestBody: await staffRequest.text(),
+  };
+}
+
 async function captureMenuCase(
   browser: Browser,
   scenario: MenuCase,
@@ -41,7 +192,11 @@ async function captureMenuCase(
   const page = await context.newPage();
   const audit = installBrowserAudit(page);
   try {
-    await installSyntheticAuthority(page, scenario.authority);
+    await installSyntheticAuthority(
+      page,
+      scenario.authority,
+      menuReadsFor(scenario.authority),
+    );
     await page.goto(scenario.path);
     for (const label of scenario.visible) {
       await expect(
@@ -51,6 +206,9 @@ async function captureMenuCase(
     for (const label of scenario.hidden) {
       await expect(page.getByText(label, { exact: true })).toHaveCount(0);
     }
+    if (scenario.name.startsWith('student-staff-')) {
+      await assertStudentStaffDestinations(page, scenario.path);
+    }
     await captureResponsiveMenu(page, testInfo, `menu-${scenario.name}`);
     audit.assertClean();
   } finally {
@@ -58,11 +216,95 @@ async function captureMenuCase(
   }
 }
 
-test('student onboarding completes with affiliation and conditional student ID', async ({
-  page,
-}, testInfo) => {
+function studentStaffLink(page: Page, label: '내 대시보드' | '운영 대시보드') {
+  return page
+    .locator('[data-slot="app-sidebar-nav"]')
+    .getByRole('link', { name: label, exact: true });
+}
+
+async function assertStudentStaffDestinations(
+  page: Page,
+  path: string,
+): Promise<void> {
+  const personal = studentStaffLink(page, '내 대시보드');
+  const operating = studentStaffLink(page, '운영 대시보드');
+  await expect(personal).toHaveAttribute('href', '/dashboard/personal');
+  await expect(operating).toHaveAttribute('href', '/dashboard');
+  if (path === '/dashboard/personal') {
+    await expect(personal).toHaveAttribute('aria-current', 'page');
+    await expect(operating).not.toHaveAttribute('aria-current', 'page');
+    return;
+  }
+  await expect(operating).toHaveAttribute('aria-current', 'page');
+  await expect(personal).not.toHaveAttribute('aria-current', 'page');
+}
+
+async function captureStudentStaffCompactHeader(
+  browser: Browser,
+  testInfo: TestInfo,
+): Promise<void> {
+  const authority: SyntheticAuthority = {
+    role: 'STUDENT',
+    memberKind: 'STUDENT',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
+  };
+  const context = await browser.newContext();
+  const page = await context.newPage();
   const audit = installBrowserAudit(page);
-  const fixture = await installOnboardingFixture(page);
+  try {
+    await installSyntheticAuthority(page, authority, menuReadsFor(authority));
+    await page.goto('/dashboard/personal');
+    const accountMenu = page.getByRole('button', {
+      name: 'synthetic-member-access 계정 메뉴, 학생 · 교직원',
+    });
+    for (const viewport of TASK_9_VIEWPORTS) {
+      await page.setViewportSize(viewport);
+      const summary = page.getByLabel('학생 · 교직원 권한');
+      if (viewport.name === 'narrow') {
+        await expect(summary).toBeVisible();
+        await expect(summary).toHaveText('권한 2개');
+        await expect(
+          page.getByLabel('학생 권한', { exact: true }),
+        ).toBeHidden();
+        await expect(
+          page.getByLabel('교직원 권한', { exact: true }),
+        ).toBeHidden();
+      } else {
+        await expect(summary).toBeHidden();
+        await expect(
+          page.getByLabel('학생 권한', { exact: true }),
+        ).toBeVisible();
+        await expect(
+          page.getByLabel('교직원 권한', { exact: true }),
+        ).toBeVisible();
+      }
+      await accountMenu.click();
+      const menu = page.getByRole('menu', { name: '계정 메뉴' });
+      await expect(menu).toBeVisible();
+      await expect(
+        menu.getByText('학생 · 교직원', { exact: true }),
+      ).toBeVisible();
+      await captureTask9State(
+        page,
+        testInfo,
+        'account-student-staff',
+        viewport,
+      );
+      await page.keyboard.press('Escape');
+      await expect(menu).toHaveCount(0);
+    }
+    audit.assertClean();
+  } finally {
+    await context.close();
+  }
+}
+
+test('student onboarding completes with affiliation and conditional student ID', async ({
+  authSeedPage,
+}, testInfo) => {
+  const page = await authSeedPage('student-onboarding-unassigned');
+  const audit = installBrowserAudit(page);
   await page.goto('/onboarding/role');
   await assertTabSequence(
     page,
@@ -84,18 +326,46 @@ test('student onboarding completes with affiliation and conditional student ID',
   await captureResponsivePage(page, testInfo, 'student-onboarding-affiliation');
   await page.getByRole('button', { name: '가입 마치기' }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
-  expect(fixture.selectedKind()).toBe('STUDENT');
   await expect(
     page.getByRole('heading', { name: '내 대시보드' }),
   ).toBeVisible();
+
+  await page.reload();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(
+    page.getByRole('heading', { name: '내 대시보드' }),
+  ).toBeVisible();
+  const persisted = await readPersistedOnboarding(page);
+  expect(persisted.session).toMatchObject({
+    isAuthenticated: true,
+    user: {
+      name: '합성 학생 회원',
+      memberKind: 'STUDENT',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      isProfileComplete: true,
+    },
+  });
+  expect(persisted.profile).toEqual({
+    name: '합성 학생 회원',
+    studentId: '260901',
+    department: '인공지능학부',
+    phone: '1'.repeat(10),
+    isComplete: true,
+  });
+  expect(persisted.selection).toEqual({ selectedRole: 'STUDENT' });
+  expect(persisted.staffRequestBody).toBe('');
+  const dashboard = await page.request.get('/api/v1/dashboard/student');
+  expect(dashboard.ok(), `dashboard ${dashboard.status()}`).toBe(true);
+  expect(await dashboard.json()).toEqual({ items: [] });
   audit.assertClean();
 });
 
 test('staff onboarding omits student ID and reaches pending approval', async ({
-  page,
+  authSeedPage,
 }, testInfo) => {
+  const page = await authSeedPage('staff-onboarding-unassigned');
   const audit = installBrowserAudit(page);
-  const fixture = await installOnboardingFixture(page);
   await page.goto('/onboarding/role');
   await captureResponsivePage(page, testInfo, 'staff-member-selection');
   await chooseMemberKind(page, 'STAFF');
@@ -108,15 +378,45 @@ test('staff onboarding omits student ID and reaches pending approval', async ({
   await captureResponsivePage(page, testInfo, 'staff-onboarding-affiliation');
   await page.getByRole('button', { name: '가입 마치기' }).click();
   await expect(page).toHaveURL(/\/onboarding\/pending$/);
-  expect(fixture.selectedKind()).toBe('STAFF');
   await expect(
     page.getByRole('heading', { name: /교직원 승인을/ }),
   ).toBeVisible();
   await captureResponsivePage(page, testInfo, 'staff-onboarding-pending');
+
+  await page.reload();
+  await expect(page).toHaveURL(/\/onboarding\/pending$/);
+  await expect(
+    page.getByRole('heading', { name: /교직원 승인을/ }),
+  ).toBeVisible();
+  const persisted = await readPersistedOnboarding(page);
+  expect(persisted.session).toMatchObject({
+    isAuthenticated: true,
+    user: {
+      name: '합성 교직원 회원',
+      memberKind: 'STAFF',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      isProfileComplete: true,
+    },
+  });
+  expect(persisted.profile).toEqual({
+    name: '합성 교직원 회원',
+    studentId: null,
+    department: '합성 SW중심대학사업단',
+    phone: null,
+    isComplete: true,
+  });
+  expect(persisted.selection).toEqual({ selectedRole: 'STAFF' });
+  expect(JSON.parse(persisted.staffRequestBody)).toMatchObject({
+    requestedRole: 'STAFF',
+    status: 'PENDING',
+    decidedAt: null,
+    rejectionReason: null,
+  });
   audit.assertClean();
 });
 
-test('unioned menus cover student, staff, student-admin, staff-admin, and admin-only', async ({
+test('unioned menus cover student, staff, student-admin, staff-admin, student-staff, and admin-only', async ({
   browser,
   page,
   adminPage,
@@ -124,6 +424,7 @@ test('unioned menus cover student, staff, student-admin, staff-admin, and admin-
   for (const scenario of UNIONED_MENU_CASES) {
     await captureMenuCase(browser, scenario, testInfo);
   }
+  await captureStudentStaffCompactHeader(browser, testInfo);
 
   const adminOnlyAudit = installBrowserAudit(page);
   const adminOnlyPostRequests: string[] = [];
@@ -132,12 +433,16 @@ test('unioned menus cover student, staff, student-admin, staff-admin, and admin-
       adminOnlyPostRequests.push(new URL(request.url()).pathname);
     }
   });
-  await installSyntheticAuthority(page, {
-    role: 'ADMIN',
-    memberKind: null,
-    hasStaffAccess: false,
-    hasAdminAccess: true,
-  });
+  await installSyntheticAuthority(
+    page,
+    {
+      role: 'ADMIN',
+      memberKind: null,
+      hasStaffAccess: false,
+      hasAdminAccess: true,
+    },
+    adminDirectoryReads(),
+  );
   await page.goto('/dashboard');
   await expect(page).toHaveURL(/\/dashboard\/users$/);
   await expect(page.locator('[data-slot="nav-bar"]')).toBeVisible();
@@ -194,6 +499,98 @@ test('direct URL denial removes admin surfaces and backend denies staff', async 
   audit.assertClean();
 });
 
+test('mixed student-staff seed reaches personal dashboard with distinct destinations', async ({
+  authSeedPage,
+}, testInfo) => {
+  // Failed Chrome oracle (staff-o-c57bd): this persona is not staff-only.
+  // staff-revocable has a studentId, so the public session is STUDENT +
+  // hasStaffAccess and /dashboard/personal already renders.
+  const page = await authSeedPage('staff-revocable');
+  const audit = installBrowserAudit(page);
+  const session = await page.request.get('/api/v1/auth/session');
+  expect(session.ok(), `session ${session.status()}`).toBe(true);
+  expect(await session.json()).toMatchObject({
+    isAuthenticated: true,
+    user: {
+      nickname: 'seed-auth-staff-revocable',
+      memberKind: 'STUDENT',
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+      isProfileComplete: true,
+    },
+  });
+  await page.goto('/dashboard/personal');
+  await expect(page).toHaveURL(/\/dashboard\/personal$/);
+  await expect(
+    page.getByRole('heading', { name: '내 대시보드' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: '접근 권한이 없습니다' }),
+  ).toHaveCount(0);
+  await assertStudentStaffDestinations(page, '/dashboard/personal');
+  await captureResponsivePage(
+    page,
+    testInfo,
+    'personal-dashboard-mixed-accepted',
+  );
+  for (const viewport of [
+    { name: 'desktop', width: 1440, height: 900 },
+    { name: 'mobile', width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize({
+      width: viewport.width,
+      height: viewport.height,
+    });
+    const header = page.locator('[data-slot="nav-bar"]');
+    await expect(header).toBeVisible();
+    if (viewport.name === 'mobile') {
+      await expect(page.getByLabel('학생 · 교직원 권한')).toHaveText(
+        '권한 2개',
+      );
+    }
+    await header.screenshot({
+      path: testInfo.outputPath(`mixed-role-${viewport.name}-header.png`),
+    });
+    await page.screenshot({
+      path: testInfo.outputPath(`mixed-role-${viewport.name}-viewport.png`),
+    });
+  }
+  audit.assertClean();
+});
+
+test('non-student admin is denied on the personal dashboard route', async ({
+  authSeedPage,
+}, testInfo) => {
+  const page = await authSeedPage('admin-confirmed');
+  const audit = installBrowserAudit(page);
+  const session = await page.request.get('/api/v1/auth/session');
+  expect(session.ok(), `session ${session.status()}`).toBe(true);
+  expect(await session.json()).toMatchObject({
+    isAuthenticated: true,
+    user: {
+      nickname: 'seed-auth-admin-confirmed',
+      memberKind: 'STAFF',
+      hasStaffAccess: false,
+      hasAdminAccess: true,
+      isProfileComplete: true,
+    },
+  });
+  await page.goto('/dashboard/personal');
+  await expect(page).toHaveURL(/\/dashboard\/personal$/);
+  await expect(
+    page.getByRole('heading', { name: '접근 권한이 없습니다' }),
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: '내 대시보드' })).toHaveCount(
+    0,
+  );
+  await captureResponsivePage(
+    page,
+    testInfo,
+    'personal-dashboard-admin-denied',
+  );
+  audit.assertClean();
+});
+
 test('rejected staff returns to member selection with the rejection reason', async ({
   authSeedPage,
 }, testInfo) => {
@@ -210,7 +607,7 @@ test('revoked staff is unassigned and has no staff surface', async ({
   page,
 }, testInfo) => {
   const audit = installBrowserAudit(page);
-  await installUnassignedFixture(page, 'NONE');
+  await installUnassignedMenuDenial(page, 'NONE');
   await page.goto('/dashboard/insights');
   await expect(page).toHaveURL(/\/onboarding\/role$/);
   await captureResponsivePage(page, testInfo, 'member-unassigned');
@@ -218,7 +615,7 @@ test('revoked staff is unassigned and has no staff surface', async ({
 
   const revokedPage = await page.context().newPage();
   const revokedAudit = installBrowserAudit(revokedPage);
-  await installUnassignedFixture(revokedPage, 'REVOKED');
+  await installUnassignedMenuDenial(revokedPage, 'REVOKED');
   await revokedPage.goto('/dashboard/insights');
   await expect(revokedPage).toHaveURL(/\/onboarding\/role$/);
   await expect(

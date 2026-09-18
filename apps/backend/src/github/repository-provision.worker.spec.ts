@@ -14,12 +14,18 @@ import {
   provisionStateMock,
   revokeInvitationWork,
 } from '../../test/repository-provision-worker.fixture';
-import { DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS } from './repository-provision.failure';
+import {
+  DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
+  PROVISION_ERROR_CODES,
+  RepositoryProvisionFailure,
+} from './repository-provision.failure';
 import { COLLABORATOR_OUTCOMES } from './github-app.client';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
 import { buildRepositoryOwnershipMarker } from './repository-name';
-import { PROVISION_ERROR_CODES } from './repository-provision.failure';
-import { RepositoryProvisionSupersededError } from './repository-provision-state.helpers';
+import {
+  PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
+  RepositoryProvisionSupersededError,
+} from './repository-provision-state.helpers';
 
 describe('RepositoryProvisionWorker success', () => {
   it('실행 가능한 job이 없으면 외부 호출을 하지 않는다', async () => {
@@ -65,9 +71,19 @@ describe('RepositoryProvisionWorker success', () => {
   });
 
   it('private 저장소를 먼저 기록하고 현재 팀원만 초대한다', async () => {
-    // Given: 승인된 신청과 현재 팀원 두 명이 있다.
+    // Given: 승인된 신청과 현재 팀원 두 명이 있다. 기록 전 context는 행이 없다.
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
+    const recordedFingerprint = 'recorded-membership-fingerprint';
+    state.loadContext
+      .mockResolvedValueOnce(provisionContext())
+      .mockResolvedValueOnce(
+        provisionContext({
+          repository: PROVISION_REPOSITORY,
+          currentRepositorySource: RepositorySource.ORG_PROVISIONED,
+          membershipFingerprint: recordedFingerprint,
+        }),
+      );
     const github = githubClientMock();
     github.ensureCollaborator
       .mockResolvedValueOnce(COLLABORATOR_OUTCOMES.PENDING)
@@ -98,6 +114,7 @@ describe('RepositoryProvisionWorker success', () => {
       'synthetic-request-id',
       PROVISION_NOW,
     );
+    expect(state.loadContext.mock.calls).toHaveLength(2);
     // 권한 대상은 요청 snapshot이 아니라 현재 팀원 목록이다.
     expect(state.prepareInvitations.mock.calls[0]).toEqual([
       'synthetic-job-id',
@@ -112,7 +129,7 @@ describe('RepositoryProvisionWorker success', () => {
       RepositoryInvitationStatus.PENDING,
       RepositoryInvitationStatus.SUCCEEDED,
     ]);
-    // 관리형 저장소는 완료하면서 다음 재조회 시각과 반영한 팀원 지문을 함께 남긴다.
+    // 관리형 저장소는 완료하면서 다음 재조회 시각과 기록 뒤 팀원 지문을 함께 남긴다.
     expect(state.completeJob.mock.calls).toEqual([
       [
         'synthetic-job-id',
@@ -124,7 +141,7 @@ describe('RepositoryProvisionWorker success', () => {
           PROVISION_NOW.getTime() +
             DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
         ),
-        MEMBERSHIP_FINGERPRINT,
+        recordedFingerprint,
       ],
     ]);
   });
@@ -133,6 +150,14 @@ describe('RepositoryProvisionWorker success', () => {
     // Given: 모든 초대가 즉시 수락되어 대기 상태가 남지 않는다.
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
+    state.loadContext
+      .mockResolvedValueOnce(provisionContext())
+      .mockResolvedValueOnce(
+        provisionContext({
+          repository: PROVISION_REPOSITORY,
+          currentRepositorySource: RepositorySource.ORG_PROVISIONED,
+        }),
+      );
     const github = githubClientMock();
     github.ensureCollaborator.mockResolvedValue(
       COLLABORATOR_OUTCOMES.SUCCEEDED,
@@ -161,6 +186,7 @@ describe('RepositoryProvisionWorker success', () => {
     state.loadContext.mockResolvedValue(
       provisionContext({
         repository: PROVISION_REPOSITORY,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
         currentMemberGithubLogins: ['synthetic-leader'],
       }),
     );
@@ -183,6 +209,7 @@ describe('RepositoryProvisionWorker success', () => {
     await worker.runNext('worker-revoke', PROVISION_NOW);
 
     // Then: 이탈자는 회수만, 남은 팀원은 부여만 받는다.
+    expect(state.loadContext.mock.calls).toHaveLength(1);
     expect(state.prepareInvitations.mock.calls[0]?.[4]).toEqual([
       'synthetic-leader',
     ]);
@@ -208,6 +235,7 @@ describe('RepositoryProvisionWorker success', () => {
     state.loadContext.mockResolvedValue(
       provisionContext({
         repository: PROVISION_REPOSITORY,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
         currentMemberGithubLogins: ['synthetic-new'],
       }),
     );
@@ -242,6 +270,7 @@ describe('RepositoryProvisionWorker success', () => {
     state.loadContext.mockResolvedValue(
       provisionContext({
         repository: PROVISION_REPOSITORY,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
         currentMemberGithubLogins: [],
       }),
     );
@@ -280,6 +309,7 @@ describe('RepositoryProvisionWorker success', () => {
     state.loadContext.mockResolvedValue(
       provisionContext({
         repository: PROVISION_REPOSITORY,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
         currentMemberGithubLogins: ['synthetic-student'],
       }),
     );
@@ -311,6 +341,7 @@ describe('RepositoryProvisionWorker success', () => {
     state.loadContext.mockResolvedValue(
       provisionContext({
         repository: PROVISION_REPOSITORY,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
         currentMemberGithubLogins: [],
       }),
     );
@@ -341,7 +372,10 @@ describe('RepositoryProvisionWorker success', () => {
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
     state.loadContext.mockResolvedValue(
-      provisionContext({ repository: PROVISION_REPOSITORY }),
+      provisionContext({
+        repository: PROVISION_REPOSITORY,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
+      }),
     );
     state.findInvitationWork.mockResolvedValue([
       grantInvitationWork({
@@ -359,6 +393,7 @@ describe('RepositoryProvisionWorker success', () => {
     await worker.runNext('worker-b', PROVISION_NOW);
 
     // Then: repository를 다시 만들지 않고 실패 대상만 재처리한다.
+    expect(state.loadContext.mock.calls).toHaveLength(1);
     expect(github.findRepository.mock.calls).toHaveLength(0);
     expect(github.createRepository.mock.calls).toHaveLength(0);
     expect(github.ensureCollaborator.mock.calls).toEqual([
@@ -366,10 +401,198 @@ describe('RepositoryProvisionWorker success', () => {
     ]);
   });
 
+  it('현재 연결 저장소에만 초대를 보내고 이전 저장소의 성공 초대는 쓰지 않는다', async () => {
+    // Given: 승인은 NEW이고 현재 연결은 교체된 관리형 저장소다. 이전 저장소
+    // 성공 초대는 loadContext.repository 밖에 있어 이 사이클의 일감이 아니다.
+    const currentRepository = {
+      ...PROVISION_REPOSITORY,
+      id: 'synthetic-current-repository-id',
+      githubRepositoryId: 222_333_444n,
+      name: 'synthetic-current-repo',
+    };
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        repository: currentRepository,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
+      }),
+    );
+    state.findInvitationWork.mockResolvedValue([
+      grantInvitationWork({
+        id: 'synthetic-current-invitation',
+        githubLogin: 'synthetic-student',
+      }),
+    ]);
+    const github = githubClientMock();
+    github.ensureCollaborator.mockResolvedValue(
+      COLLABORATOR_OUTCOMES.SUCCEEDED,
+    );
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    // When: 교체된 현재 저장소로 job을 실행한다.
+    const result = await worker.runNext('worker-current-link', PROVISION_NOW);
+
+    // Then: 현재 저장소 id로만 초대 준비·처리·완료하고 이전 저장소 이름은 부르지 않는다.
+    expect(result).toEqual({
+      kind: 'SUCCEEDED',
+      jobId: 'synthetic-job-id',
+      repositoryId: currentRepository.id,
+    });
+    expect(state.prepareInvitations.mock.calls).toEqual([
+      [
+        'synthetic-job-id',
+        'worker-current-link',
+        'synthetic-request-id',
+        currentRepository.id,
+        [...CURRENT_MEMBER_GITHUB_LOGINS],
+      ],
+    ]);
+    expect(state.findInvitationWork.mock.calls).toEqual([
+      [
+        'synthetic-job-id',
+        'worker-current-link',
+        'synthetic-request-id',
+        currentRepository.id,
+      ],
+    ]);
+    expect(github.ensureCollaborator.mock.calls).toEqual([
+      [currentRepository.name, 'synthetic-student'],
+    ]);
+    expect(state.completeInvitation.mock.calls[0]?.[0]).toMatchObject({
+      invitationId: 'synthetic-current-invitation',
+      repositoryId: currentRepository.id,
+      status: RepositoryInvitationStatus.SUCCEEDED,
+    });
+    expect(state.completeJob.mock.calls[0]?.[3]).toBe(currentRepository.id);
+    expect(github.createRepository.mock.calls).toHaveLength(0);
+  });
+
+  it('원래 NEW 이벤트여도 현재 행이 EXTERNAL_PUBLIC이면 관리형 초대를 건너뛴다', async () => {
+    // Given: 승인 이벤트는 NEW인데 현재 연결은 외부 공개 저장소다.
+    const currentRepository = {
+      ...OWN_PROVISION_REPOSITORY,
+      id: 'synthetic-external-current-id',
+    };
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      provisionContext({
+        repository: currentRepository,
+        currentRepositorySource: RepositorySource.EXTERNAL_PUBLIC,
+      }),
+    );
+    const github = githubClientMock();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    // When
+    const result = await worker.runNext('worker-new-external', PROVISION_NOW);
+
+    // Then: 현재 행 source가 초대를 건너뛰고 이벤트 NEW를 쓰지 않는다.
+    expect(result).toEqual({
+      kind: 'SUCCEEDED',
+      jobId: 'synthetic-job-id',
+      repositoryId: currentRepository.id,
+    });
+    expect(state.prepareInvitations.mock.calls).toHaveLength(0);
+    expect(github.ensureCollaborator.mock.calls).toHaveLength(0);
+    expect(github.revokeCollaborator.mock.calls).toHaveLength(0);
+    expect(github.findPublicRepository.mock.calls).toHaveLength(0);
+    expect(github.createRepository.mock.calls).toHaveLength(0);
+    expect(state.completeJob.mock.calls).toEqual([
+      [
+        'synthetic-job-id',
+        'worker-new-external',
+        'synthetic-request-id',
+        currentRepository.id,
+        PROVISION_NOW,
+      ],
+    ]);
+  });
+
+  it('원래 OWN 이벤트여도 현재 행이 ORG_PROVISIONED이면 현재 저장소에 초대한다', async () => {
+    // Given: 승인 이벤트는 OWN인데 현재 연결은 관리형 저장소다.
+    const currentRepository = {
+      ...PROVISION_REPOSITORY,
+      id: 'synthetic-managed-current-id',
+      name: 'synthetic-managed-current',
+    };
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockResolvedValue(
+      ownProvisionContext({
+        repository: currentRepository,
+        currentRepositorySource: RepositorySource.ORG_PROVISIONED,
+      }),
+    );
+    state.findInvitationWork.mockResolvedValue([
+      grantInvitationWork({
+        id: 'synthetic-managed-current-invitation',
+        githubLogin: 'synthetic-student',
+      }),
+    ]);
+    const github = githubClientMock();
+    github.ensureCollaborator.mockResolvedValue(
+      COLLABORATOR_OUTCOMES.SUCCEEDED,
+    );
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    // When
+    const result = await worker.runNext('worker-own-managed', PROVISION_NOW);
+
+    // Then: 현재 행에만 초대해 job을 닫기 전까지 관리형 재조회를 남긴다.
+    expect(result).toEqual({
+      kind: 'SUCCEEDED',
+      jobId: 'synthetic-job-id',
+      repositoryId: currentRepository.id,
+    });
+    expect(state.prepareInvitations.mock.calls).toEqual([
+      [
+        'synthetic-job-id',
+        'worker-own-managed',
+        'synthetic-request-id',
+        currentRepository.id,
+        [...CURRENT_MEMBER_GITHUB_LOGINS],
+      ],
+    ]);
+    expect(github.ensureCollaborator.mock.calls).toEqual([
+      [currentRepository.name, 'synthetic-student'],
+    ]);
+    expect(github.findPublicRepository.mock.calls).toHaveLength(0);
+    expect(state.completeJob.mock.calls).toEqual([
+      [
+        'synthetic-job-id',
+        'worker-own-managed',
+        'synthetic-request-id',
+        currentRepository.id,
+        PROVISION_NOW,
+        new Date(
+          PROVISION_NOW.getTime() +
+            DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
+        ),
+        MEMBERSHIP_FINGERPRINT,
+      ],
+    ]);
+  });
+
   it('생성 직후 중단된 재시도는 같은 이름의 원격 저장소를 이어 쓴다', async () => {
     // Given: DB 기록은 없지만 이전 시도에서 원격 저장소가 생성됐다.
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
+    state.loadContext
+      .mockResolvedValueOnce(provisionContext())
+      .mockResolvedValueOnce(
+        provisionContext({
+          repository: PROVISION_REPOSITORY,
+          currentRepositorySource: RepositorySource.ORG_PROVISIONED,
+        }),
+      );
     const github = githubClientMock();
     github.findRepository.mockResolvedValue({
       githubRepositoryId: PROVISION_REPOSITORY.githubRepositoryId,
@@ -397,11 +620,14 @@ describe('RepositoryProvisionWorker success', () => {
     // Given: context의 teamId가 백필돼 있다.
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
-    state.loadContext.mockResolvedValue(
-      provisionContext({
-        teamId: 'synthetic-backfilled-team',
-      }),
-    );
+    const claimed = provisionContext({
+      teamId: 'synthetic-backfilled-team',
+    });
+    state.loadContext.mockResolvedValueOnce(claimed).mockResolvedValueOnce({
+      ...claimed,
+      repository: PROVISION_REPOSITORY,
+      currentRepositorySource: RepositorySource.ORG_PROVISIONED,
+    });
     const github = githubClientMock();
     const worker = new RepositoryProvisionWorker(jobs, state, github, {
       enrollExternalRepository: jest.fn(),
@@ -423,23 +649,34 @@ describe('RepositoryProvisionWorker success', () => {
 });
 
 describe('RepositoryProvisionWorker OWN connection', () => {
-  it('설정 조직 OWN 저장소는 App 접근으로 확인하고 외부 편입하지 않는다', async () => {
+  it('설정 조직 OWN 저장소는 기록된 관리형 source로 초대하고 재조회를 남긴다', async () => {
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
     const repositoryUrl =
       'https://github.com/synthetic-org/synthetic-existing-repo';
-    state.loadContext.mockResolvedValue(
-      ownProvisionContext({
-        requestedRepositoryUrl: repositoryUrl,
-      }),
-    );
+    const claimed = ownProvisionContext({
+      requestedRepositoryUrl: repositoryUrl,
+    });
     const provisioned = {
       ...OWN_PROVISION_REPOSITORY,
       name: 'synthetic-existing-repo',
       url: repositoryUrl,
       visibility: 'PRIVATE' as const,
     };
+    const recordedFingerprint = 'recorded-org-own-fingerprint';
+    state.loadContext.mockResolvedValueOnce(claimed).mockResolvedValueOnce({
+      ...claimed,
+      repository: provisioned,
+      currentRepositorySource: RepositorySource.ORG_PROVISIONED,
+      membershipFingerprint: recordedFingerprint,
+    });
     state.recordRepository.mockResolvedValue(provisioned);
+    state.findInvitationWork.mockResolvedValue([
+      grantInvitationWork({
+        id: 'synthetic-org-own-invitation',
+        githubLogin: 'synthetic-student',
+      }),
+    ]);
     const github = githubClientMock();
     github.findRepository.mockResolvedValue({
       githubRepositoryId: provisioned.githubRepositoryId,
@@ -449,6 +686,7 @@ describe('RepositoryProvisionWorker OWN connection', () => {
       visibility: 'PRIVATE',
       description: null,
     });
+    github.ensureCollaborator.mockResolvedValue(COLLABORATOR_OUTCOMES.PENDING);
     const enrollExternalRepository = jest.fn();
     const worker = new RepositoryProvisionWorker(jobs, state, github, {
       enrollExternalRepository,
@@ -469,12 +707,107 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     expect(state.recordRepository.mock.calls[0]?.[0].source).toBe(
       RepositorySource.ORG_PROVISIONED,
     );
+    expect(state.prepareInvitations.mock.calls).toEqual([
+      [
+        'synthetic-job-id',
+        'worker-org-own',
+        'synthetic-request-id',
+        provisioned.id,
+        [...CURRENT_MEMBER_GITHUB_LOGINS],
+      ],
+    ]);
+    expect(github.ensureCollaborator.mock.calls).toEqual([
+      [provisioned.name, 'synthetic-student'],
+    ]);
+    expect(state.completeInvitation.mock.calls[0]?.[0]).toMatchObject({
+      invitationId: 'synthetic-org-own-invitation',
+      repositoryId: provisioned.id,
+      status: RepositoryInvitationStatus.PENDING,
+    });
+    expect(state.completeJob.mock.calls).toEqual([
+      [
+        'synthetic-job-id',
+        'worker-org-own',
+        'synthetic-request-id',
+        provisioned.id,
+        PROVISION_NOW,
+        new Date(
+          PROVISION_NOW.getTime() +
+            DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
+        ),
+        recordedFingerprint,
+      ],
+    ]);
+    expect(state.loadContext.mock.calls).toHaveLength(2);
+  });
+
+  it('OWN이 조직 저장소로 기록된 뒤 팀을 못 읽으면 초대 없이 최종 실패한다', async () => {
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    const repositoryUrl =
+      'https://github.com/synthetic-org/synthetic-existing-repo';
+    const claimed = ownProvisionContext({
+      requestedRepositoryUrl: repositoryUrl,
+    });
+    const provisioned = {
+      ...OWN_PROVISION_REPOSITORY,
+      name: 'synthetic-existing-repo',
+      url: repositoryUrl,
+      visibility: 'PRIVATE' as const,
+    };
+    state.loadContext
+      .mockResolvedValueOnce(claimed)
+      .mockRejectedValueOnce(
+        new RepositoryProvisionFailure(
+          PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
+          false,
+        ),
+      );
+    state.recordRepository.mockResolvedValue(provisioned);
+    const github = githubClientMock();
+    github.findRepository.mockResolvedValue({
+      githubRepositoryId: provisioned.githubRepositoryId,
+      name: provisioned.name,
+      url: repositoryUrl,
+      nameWithOwner: `synthetic-org/${provisioned.name}`,
+      visibility: 'PRIVATE',
+      description: null,
+    });
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    const result = await worker.runNext(
+      'worker-org-own-no-team',
+      PROVISION_NOW,
+    );
+
+    expect(result).toEqual({
+      kind: 'FAILED_FINAL',
+      jobId: 'synthetic-job-id',
+      errorCode: PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
+    });
+    expect(state.recordRepository.mock.calls).toHaveLength(1);
+    expect(state.prepareInvitations.mock.calls).toHaveLength(0);
+    expect(github.ensureCollaborator.mock.calls).toHaveLength(0);
+    expect(state.completeJob.mock.calls).toHaveLength(0);
+    expect(state.loadContext.mock.calls).toHaveLength(2);
+    expect(state.failJob.mock.calls[0]?.[0]).toMatchObject({
+      final: true,
+      errorCode: PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
+      expectedMembershipFingerprint: undefined,
+    });
   });
 
   it('OWN 승인은 저장소를 만들지 않고 학생 URL을 그대로 기록한다', async () => {
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
-    state.loadContext.mockResolvedValue(ownProvisionContext());
+    const claimed = ownProvisionContext();
+    state.loadContext.mockResolvedValueOnce(claimed).mockResolvedValueOnce({
+      ...claimed,
+      repository: OWN_PROVISION_REPOSITORY,
+      currentRepositorySource: RepositorySource.EXTERNAL_PUBLIC,
+    });
     state.recordRepository.mockResolvedValue(OWN_PROVISION_REPOSITORY);
     const github = githubClientMock();
     github.findPublicRepository.mockResolvedValue({
@@ -538,7 +871,12 @@ describe('RepositoryProvisionWorker OWN connection', () => {
   it('OWN 승인은 협업자 초대·회수·공개 전환을 시도하지 않는다', async () => {
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
-    state.loadContext.mockResolvedValue(ownProvisionContext());
+    const claimed = ownProvisionContext();
+    state.loadContext.mockResolvedValueOnce(claimed).mockResolvedValueOnce({
+      ...claimed,
+      repository: OWN_PROVISION_REPOSITORY,
+      currentRepositorySource: RepositorySource.EXTERNAL_PUBLIC,
+    });
     state.recordRepository.mockResolvedValue(OWN_PROVISION_REPOSITORY);
     const github = githubClientMock();
     github.findPublicRepository.mockResolvedValue({
@@ -579,11 +917,15 @@ describe('RepositoryProvisionWorker OWN connection', () => {
   it('편입 뒤 job 완료가 실패해도 재시도에서 같은 저장소로 수렴한다', async () => {
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
+    const claimed = ownProvisionContext();
+    const recorded = ownProvisionContext({
+      repository: OWN_PROVISION_REPOSITORY,
+      currentRepositorySource: RepositorySource.EXTERNAL_PUBLIC,
+    });
     state.loadContext
-      .mockResolvedValueOnce(ownProvisionContext())
-      .mockResolvedValueOnce(
-        ownProvisionContext({ repository: OWN_PROVISION_REPOSITORY }),
-      );
+      .mockResolvedValueOnce(claimed)
+      .mockResolvedValueOnce(recorded)
+      .mockResolvedValueOnce(recorded);
     state.recordRepository.mockResolvedValue(OWN_PROVISION_REPOSITORY);
     state.completeJob
       .mockRejectedValueOnce(new Error('synthetic completion failure'))
@@ -618,8 +960,9 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     });
 
     expect(state.recordRepository.mock.calls).toHaveLength(1);
-    expect(github.findPublicRepository.mock.calls).toHaveLength(2);
-    expect(enrollExternalRepository).toHaveBeenCalledTimes(2);
+    // 현재 EXTERNAL_PUBLIC 행이 있으면 이벤트 URL을 다시 묻지 않는다.
+    expect(github.findPublicRepository.mock.calls).toHaveLength(1);
+    expect(enrollExternalRepository).toHaveBeenCalledTimes(1);
     expect(state.failJob.mock.calls).toHaveLength(1);
   });
 
@@ -627,7 +970,10 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
     state.loadContext.mockResolvedValue(
-      ownProvisionContext({ repository: OWN_PROVISION_REPOSITORY }),
+      ownProvisionContext({
+        repository: OWN_PROVISION_REPOSITORY,
+        currentRepositorySource: RepositorySource.EXTERNAL_PUBLIC,
+      }),
     );
     const github = githubClientMock();
     github.findPublicRepository.mockResolvedValue({
@@ -648,12 +994,14 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     await expect(
       worker.runNext('worker-own-mismatch', PROVISION_NOW),
     ).resolves.toEqual({
-      kind: 'FAILED_FINAL',
+      kind: 'SUCCEEDED',
       jobId: 'synthetic-job-id',
-      errorCode: PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
+      repositoryId: OWN_PROVISION_REPOSITORY.id,
     });
+    // 현재 행 source가 외부면 이벤트 URL을 다시 물어 불일치를 만들지 않는다.
+    expect(github.findPublicRepository.mock.calls).toHaveLength(0);
     expect(enrollExternalRepository).not.toHaveBeenCalled();
-    expect(state.completeJob.mock.calls).toHaveLength(0);
+    expect(state.completeJob.mock.calls).toHaveLength(1);
   });
 
   it('OWN + 존재하지 않는 저장소는 명확한 최종 실패다', async () => {

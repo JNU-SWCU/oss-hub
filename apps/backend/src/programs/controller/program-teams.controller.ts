@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -19,7 +20,11 @@ import {
 import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
 import { DeleteTeamRequestDto } from '../dto/delete-team-request.dto';
 import { RenameTeamRequestDto } from '../dto/rename-team-request.dto';
-import { StaffTeamDetailResponseDto } from '../dto/team-detail-response.dto';
+import {
+  StaffTeamDetailResponseDto,
+  RepositoryUrlHistoryResponseDto,
+} from '../dto/team-detail-response.dto';
+import { RepositoryUrlHistoryQueryRequestDto } from '../dto/repository-url-history-query.dto';
 import {
   CreateTeamResponseDto,
   DeleteTeamResponseDto,
@@ -33,7 +38,7 @@ import { ProgramTeamsService } from '../service/program-teams.service';
 type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 /**
- * 팀 생성·내 팀 조회·교직원 팀 목록/상세 — ProgramsController 와 분리된 thin sibling.
+ * 팀 생성·내 팀 조회·교직원 팀 목록/상세/저장소 URL 이력 — ProgramsController 와 분리된 thin sibling.
  * 팀 합류는 초대 수락(`team-invitations`) 단독 경로다 — 참여코드로 합류하는
  * `POST teams/join` 은 초대 전용 규칙을 우회해서 제거했고 대체 경로도 두지 않는다.
  * POST   /api/v1/programs/:programId/teams
@@ -42,6 +47,7 @@ type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
  * DELETE /api/v1/programs/:programId/teams/me/members/:userId  (팀장의 팀원 제외)
  * GET    /api/v1/programs/:programId/teams          (교직원 전용)
  * GET    /api/v1/programs/:programId/teams/:teamId  (교직원 전용)
+ * GET    /api/v1/programs/:programId/teams/:teamId/repository-url-history  (교직원 전용)
  * PATCH  /api/v1/programs/:programId/teams/:teamId  (팀장 또는 교직원)
  * DELETE /api/v1/programs/:programId/teams/:teamId  (교직원 전용)
  */
@@ -57,6 +63,7 @@ export class ProgramTeamsController {
       | 'removeMember'
       | 'listForStaff'
       | 'getForStaff'
+      | 'getRepositoryUrlHistoryForStaff'
       | 'rename'
       | 'deleteForStaff'
     >,
@@ -143,6 +150,22 @@ export class ProgramTeamsController {
   ): Promise<StaffTeamDetailResponseDto> {
     return StaffTeamDetailResponseDto.from(
       await this.service.getForStaff(programId, teamId),
+    );
+  }
+
+  @Get(':teamId/repository-url-history')
+  @UseGuards(SessionGuard, ProgramTeamsStaffGuard)
+  async repositoryUrlHistory(
+    @Param('programId') programId: string,
+    @Param('teamId') teamId: string,
+    @Query() query: RepositoryUrlHistoryQueryRequestDto,
+  ): Promise<RepositoryUrlHistoryResponseDto> {
+    return RepositoryUrlHistoryResponseDto.from(
+      await this.service.getRepositoryUrlHistoryForStaff(
+        programId,
+        teamId,
+        query.toCursor(),
+      ),
     );
   }
 

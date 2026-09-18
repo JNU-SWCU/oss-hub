@@ -225,6 +225,32 @@ describe('SubmissionReviewView', () => {
     expect(html).toContain('disabled=""');
   });
 
+  it('전체 검토 화면이 적격 저장소의 공개 전환 버튼을 연다', () => {
+    // Given: 서버가 이미 적격이라고 준 컨텍스트. 화면은 게이트를 다시 계산하지 않는다.
+    const reviewContext = context({
+      repository: {
+        id: 'repository-eligible',
+        url: 'https://example.com/repository-eligible',
+        visibility: 'PRIVATE',
+        publishEligible: true,
+        blockedReasons: [],
+      },
+    });
+
+    // When
+    const html = render(reviewContext);
+
+    // Then: 전체 뷰 조성이 서버가 준 적격을 버튼까지 전달한다. 게이트를 다시 계산하지 않는다.
+    const publishButton = html.match(
+      /<button\b[^>]*>GitHub 저장소 공개 전환<\/button>/,
+    )?.[0];
+    expect(publishButton).toBeDefined();
+    expect(publishButton).not.toContain('disabled=""');
+    expect(html).toContain('GitHub 저장소 공개 전환');
+    expect(html).toContain('공개 조건을 모두 충족해 공개할 수 있습니다.');
+    expect(html).not.toContain('모든 필수 마일스톤의 승인이 필요합니다.');
+  });
+
   it('이미 공개된 저장소는 PUBLIC 상태와 저장소 링크를 표시한다', () => {
     // Given
     const reviewContext = context({

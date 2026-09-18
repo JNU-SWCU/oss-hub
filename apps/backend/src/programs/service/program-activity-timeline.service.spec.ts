@@ -48,8 +48,14 @@ function repositoryActivity(
 
 function activityReads(
   findRepositoryActivity: ProgramActivityRepository['findRepositoryActivity'],
-): Pick<ProgramActivityRepository, 'findRepositoryActivity'> {
-  return { findRepositoryActivity };
+): Pick<
+  ProgramActivityRepository,
+  'findRepositoryActivity' | 'findProgramActivityApplications'
+> {
+  return {
+    findRepositoryActivity,
+    findProgramActivityApplications: () => Promise.resolve([]),
+  };
 }
 
 describe('ProgramActivityService canonical activity', () => {

@@ -32,6 +32,9 @@ export interface RepositoryProvisionContext {
   readonly teamId: string | null;
   readonly subjectName: string;
   readonly repository: ProvisionedRepository | null;
+  // 현재 연결 GithubRepository의 저장된 source. 행이 없으면 null.
+  // 이벤트 원 의도와 별개이며, 행이 있을 때만 초대/외부 skip을 고른다.
+  readonly currentRepositorySource: RepositorySource | null;
   // live TeamMember 행만으로 계산한다 — 신청자나 leader를 fallback으로 채워
   // 넣으면 revoke 판정이 현재 authority를 잃는다.
   readonly currentMemberGithubLogins: readonly string[];

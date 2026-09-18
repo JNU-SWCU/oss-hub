@@ -91,4 +91,29 @@ describe('login/logout/refresh current-session seam', () => {
       ['auth/session'],
     ]);
   });
+
+  it('unassigned canonical wire does not invent staff authority from leftover role', async () => {
+    const unassignedUser: Me = {
+      ...syntheticUser,
+      memberKind: null,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      isProfileComplete: false,
+    };
+    vi.mocked(apiClient).mockResolvedValue({
+      isAuthenticated: true,
+      user: { ...unassignedUser, role: 'STAFF' },
+    } as AuthSession);
+
+    const published = nextSnapshot('authenticated');
+    ensureSessionLoaded();
+    await published;
+
+    const snapshot = getSessionSnapshot();
+    expect(snapshot.status).toBe('authenticated');
+    expect(snapshot.user?.memberKind).toBeNull();
+    expect(snapshot.user?.hasStaffAccess).toBe(false);
+    expect(snapshot.user?.hasAdminAccess).toBe(false);
+    expect(snapshot.user?.isProfileComplete).toBe(false);
+  });
 });

@@ -15,6 +15,10 @@ import {
 } from './application-decision-audit-metadata';
 import { isJsonObject } from './audit-metadata-validation';
 import {
+  parseApplicationRepositoryUrlAuditMetadata,
+  type ApplicationRepositoryUrlAuditMetadata,
+} from './application-repository-url-audit-metadata';
+import {
   parseCollectionTriggerAuditMetadata,
   parseSubmissionFileCleanupAuditMetadata,
   type CollectionTriggerAuditMetadata,
@@ -74,6 +78,7 @@ export * from './user-profile-audit-metadata';
 export * from './web-state-audit-metadata';
 
 export type AuditLogMetadata =
+  | ApplicationRepositoryUrlAuditMetadata
   | AccessAuditMetadata
   | IndependentAuthorityAuditMetadata
   | RepositoryConnectionAuditMetadata
@@ -94,6 +99,7 @@ export type AuditLogMetadata =
   | UserPhoneAuditMetadata;
 
 export type AuditLogMetadataView =
+  | ApplicationRepositoryUrlAuditMetadata
   | AccessAuditMetadataView
   | IndependentAuthorityAuditMetadataView
   | RepositoryConnectionAuditMetadataView
@@ -142,6 +148,7 @@ function parseKnownAuditLogMetadata(
   value: unknown,
 ): AuditLogMetadataView | null {
   return (
+    parseApplicationRepositoryUrlAuditMetadata(value) ??
     parseIndependentAuthorityAuditMetadata(value) ??
     parseAccessAuditMetadata(value) ??
     parseRepositoryConnectionAuditMetadata(value) ??

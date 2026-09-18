@@ -124,7 +124,6 @@ const testTeamProps = {
 const handlers = {
   onChange: noop,
   onTogglePublicationPlanned: noop,
-  onRepositoryModeChange: noop,
   onToggleConsent: noop,
   onRequestSubmit: noop,
   onRequestCancel: noop,
@@ -135,8 +134,6 @@ const handlers = {
 const baseValues = {
   title: '',
   isRepositoryPublicationPlanned: true,
-  repositoryConnectionMode: 'new' as const,
-  repositoryUrl: '',
   personalDataConsent: false,
 };
 
@@ -148,7 +145,6 @@ function renderForm(
       program={program}
       template={template}
       applicantName="합성 학생"
-      githubHandle="synthetic-student"
       values={baseValues}
       errors={{}}
       serverError={null}
@@ -189,13 +185,11 @@ describe('ProgramApply views', () => {
     const html = renderForm({ team: null });
 
     expect(html).toContain('합성 프로그램 신청');
-    expect(html).toContain('@synthetic-student');
-    expect(html).toContain('계정에 연결된 GitHub');
     expect(html).toContain('합성 학생');
     expect(html).toContain('name="applicantName"');
     expect(html).toMatch(/name="applicantName"[^>]*readOnly|readonly/i);
     expect(html).toContain('id="apply-team-name"');
-    expect(html).toContain('새 저장소 발급받기');
+    expect(html).toContain('선정 시 저장소를 공개할 예정입니다');
     expect(html).toContain('개인정보 수집·이용 동의');
     expect(html).toContain('신청 제출');
 
@@ -265,27 +259,17 @@ describe('ProgramApply views', () => {
     expect(html).not.toContain('팀에서 제외');
   });
 
-  it('저장소 발급을 사용하지 않는 프로그램에서는 연결 방식을 표시하지 않는다', () => {
-    const html = renderForm({
-      program: { ...program, repositoryProvisioningEnabled: false },
-    });
+  it('새 신청서는 저장소 연결 방식 라디오를 그리지 않는다', () => {
+    const html = renderForm({ team: null });
 
     expect(html).not.toContain('새 저장소 발급받기');
     expect(html).not.toContain('내 저장소 연결하기');
-  });
-
-  it('저장소를 직접 연결하면 URL 입력을 함께 보여준다', () => {
-    const html = renderForm({
-      values: { ...baseValues, repositoryConnectionMode: 'own' },
-    });
-
-    expect(html).toContain('https://github.com/team/repo');
-    expect(html).toContain('기존 GitHub 공개 저장소를 연결합니다.');
+    expect(html).not.toContain('repository-connection-mode');
+    expect(html).not.toContain('@synthetic-student');
   });
 
   it('저장소 URL 사전 검증 실패를 배너로 표시한다', () => {
     const html = renderForm({
-      values: { ...baseValues, repositoryConnectionMode: 'own' },
       errors: {
         repositoryUrl:
           '연결하려는 저장소를 찾을 수 없거나 비공개 저장소입니다. GitHub에 공개된 저장소만 연결할 수 있습니다.',
@@ -524,6 +508,30 @@ describe('ProgramApply views', () => {
 
     expect(html).not.toContain('반려 사유');
     expect(html).not.toContain('되돌리기 전 남아 있던 사유');
+    expect(html).toContain('신청서 내용 수정 제한');
+    expect(html).toContain('[&amp;_p]:whitespace-pre-line');
+    expect(html).toMatch(/data-slot="empty-state"[^>]*class="[^"]*break-keep/);
+    expect(html).not.toContain('수정할 수 없는 신청입니다');
+    // 프로그램 식별자가 없으면 팀 관리 목적지를 만들지 않는다.
+    expect(html).not.toContain('/my-team');
+  });
+
+  it('승인된 신청에 programId가 있으면 저장소 URL을 별도로 관리한다', () => {
+    const html = renderToStaticMarkup(
+      <BlockedView
+        reason="already-applied"
+        application={{
+          ...rejectedApplication('되돌리기 전 남아 있던 사유'),
+          status: 'APPROVED',
+        }}
+        programId={program.id}
+      />,
+    );
+
+    expect(html).toContain('신청서 내용 수정 제한');
+    expect(html).toContain('저장소 URL은 별도로 관리합니다');
+    expect(html).not.toContain('수정할 수 없는 신청입니다');
+    expect(html).toContain('href="/programs/program-1/my-team"');
   });
 
   it('신청서 없이 막힌 화면은 지금과 같다', () => {

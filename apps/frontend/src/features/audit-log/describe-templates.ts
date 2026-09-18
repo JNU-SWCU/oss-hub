@@ -202,12 +202,6 @@ export const SENTENCE_TEMPLATES: Readonly<
     nameTargetSentence(record, '을(를) 만들었습니다', '을(를) 만들었습니다'),
   TEAM_JOINED: (record) =>
     nameTargetSentence(record, '에 합류했습니다', '에 합류했습니다'),
-  TEAM_RENAMED: (record) =>
-    nameTargetSentence(
-      record,
-      '의 이름을 변경했습니다',
-      '의 이름을 변경했습니다',
-    ),
   TEAM_DELETED: (record) =>
     nameTargetSentence(record, '을(를) 삭제했습니다', '을(를) 삭제했습니다'),
   // TEAM_MEMBERSHIP_CHANGED는 TEAM_CREATED/TEAM_JOINED와 같은 "프로그램 · 팀이름"
@@ -215,6 +209,15 @@ export const SENTENCE_TEMPLATES: Readonly<
   // (별도 렌더러를 두지 않는다).
   TEAM_MEMBERSHIP_CHANGED: (record) => {
     const clause = teamMembershipClause(record.teamMembership);
+    return nameTargetSentence(record, clause, clause);
+  },
+  // target은 바뀐 **뒤**의 「프로그램 · 팀이름」이다. 이전 이름이 있을 때만
+  // 「어디서 왔는가」를 더한다 — 없으면 지어내지 않고 사실만 말한다.
+  TEAM_RENAMED: (record) => {
+    const clause =
+      record.teamPreviousName === undefined
+        ? '의 이름을 바꿨습니다'
+        : `의 이름을 「${record.teamPreviousName}」에서 바꿨습니다`;
     return nameTargetSentence(record, clause, clause);
   },
   COLLECTION_SYNC_TRIGGERED: (record) => [

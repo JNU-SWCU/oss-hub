@@ -1,5 +1,6 @@
 import type { ProgramCategory, ProgramTrackType } from './program-templates';
 import type { PublishBlockedReason } from '@/lib/repository-publication';
+import type { StaffRepositoryEvidence } from './staff-repository-evidence';
 
 export type ViewerRole = 'STUDENT' | 'STAFF' | 'ADMIN' | 'PENDING' | null;
 export type ApplicationStatus = 'SUBMITTED' | 'APPROVED' | 'REJECTED';
@@ -293,7 +294,7 @@ export interface DeletedTeamResult {
   readonly deletedCounts: TeamDeletedCounts;
 }
 
-export interface StaffTeamDetail {
+export interface StaffTeamDetail extends StaffRepositoryEvidence {
   readonly teamId: string;
   readonly name: string;
   readonly memberCount: number;
@@ -304,6 +305,15 @@ export interface StaffTeamDetail {
    * 누를 때 이 값이 그대로 `expectedScope` 로 돌아간다.
    */
   readonly deletionScope: TeamDeletionScope;
+}
+
+/**
+ * 이름 변경 응답. 바뀐 사실만 온다 — 팀장과 교직원이 같은 endpoint를 써서
+ * 신청·저장소를 실어 보내지 않는다(backend `RenameTeamResponseDto` 미러).
+ */
+export interface RenamedTeam {
+  readonly teamId: string;
+  readonly name: string;
 }
 
 export interface ApplicationListPage {
@@ -437,4 +447,12 @@ export interface ProgramActivity {
   readonly releaseCount: number;
   readonly dataAsOf: string | null;
   readonly lastActivityAt: string | null;
+  readonly collectionStatus: 'NOT_CONNECTED' | 'EMPTY' | 'FAILED' | 'READY';
+  readonly members: readonly {
+    readonly githubLogin: string;
+    readonly commitCount: number;
+    readonly pullRequestCount: number;
+    readonly releaseCount: number;
+  }[];
+  readonly hasIncompleteContributions: boolean;
 }

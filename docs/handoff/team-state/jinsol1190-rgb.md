@@ -69,3 +69,29 @@
 - 검증: migration/schema, backend phone/audit, admin createdAt, frontend phone/settings/department, consent dialog focused 테스트와 typecheck·lint를 통과했다. 합성 fixture 기반 Chrome에서 `/onboarding/profile`, `/settings`, `/onboarding/role`, `/dashboard/users`, `/dashboard/audit-logs`의 desktop·390px After 캡처와 public-safe PNG metadata 검사를 완료했다.
 - 환경 참고: Docker Desktop이 응답하지 않아 migration DB integration 일부는 isolated spec 작성·compile·ledger 검증까지 확인했고, 실제 DB 적용은 후속 전체 integration 환경에서 재확인해야 한다. repository-wide `pnpm format:check`는 기존 전역 포맷 경고가 있어 변경 파일 기준 Prettier와 Prisma format으로 별도 확인했다.
 - 공개 안전성: 합성 사용자·합성 번호 생성값만 사용했고 전화번호 원문은 audit metadata, 관리자 DTO, PR evidence 텍스트, 스크린샷에 싣지 않는다. evidence PNG는 브랜치에 커밋하지 않는다.
+
+## 2026-09-10 — QA169 팀 활동 구성과 팀원별 기여
+
+- 상태: review
+- Issue: [#1240](https://github.com/JNU-SWCU/oss-hub/issues/1240)
+- PR: (이 PR)
+- blocker: 로컬 검증 완료, 배포 환경 재확인은 병합·배포 뒤 남은 확인이다.
+- 결과: 활동 카드를 커밋·PR·릴리스별 상대 막대로 바꾸고 TeamMember 명단과 기존 Contribution의 사람별 수치를 함께 읽는다.
+- 주의: 막대는 목표 달성률이 아니라 표시된 팀 중 같은 지표의 최댓값 대비 비율이다.
+- 주의: 팀 합계와 팀원 합계가 달라도 재배분하지 않으며, 기여가 없는 명단의 팀원은 0으로 남긴다.
+- 경계: schema·수집기·개인 타임라인·권한·활동 앵커는 바꾸지 않는다.
+- 검증: Linux 전체 frontend 353파일·3544건, backend 317스위트·3652건, Chrome E2E 70건, 양쪽 typecheck·lint·build와 전체 format 검사를 통과했다.
+- 화면: 합성 데이터로 390px·1120px, 지표 비율, Enter·Space 펼침·접힘, 새로고침, 미연결·활동 없음·수집 실패·합계 불일치를 확인했다.
+- 환경 참고: 한글 다운로드 검증에는 UTF-8 로케일이 필요하며 E2E 산출물은 개발 서버가 감시하는 소스 경로 밖에 둔다.
+- 공개 안전성: 합성 캡처만 GitHub 첨부로 사용하며 이미지·로컬 로그·실데이터는 커밋하지 않는다.
+
+## 2026-09-15 — QA171 프로그램 목록 정렬 방향 버튼 제거
+
+- 상태: review 준비
+- Issue: [#1246](https://github.com/JNU-SWCU/oss-hub/issues/1246)
+- PR: (이 PR)
+- 결과: 목록 상단의 정렬 방향 버튼과 전용 이벤트 처리만 제거한다.
+- 경계: URL의 `direction` 해석·API 요청·정렬 기준 옵션·검색·상태 필터·카드·그리드·backend 정렬은 유지한다.
+- 검증: 합성 교직원이 실제 목록 API로 만든 네 상태의 프로그램으로 기본순·이름·지원 기간·상태 순서와 기존 내림차순 주소를 Chrome에서 확인한다.
+- 주의: `direction=desc`로 진입하면 정렬 기준을 바꿔도 기존 방향을 보존한다. 기본순을 선택하면 기존 URL 빌더 규칙에 따라 방향 쿼리도 빠진다.
+- blocker: 운영 환경 재확인은 병합·배포 뒤 수행한다.

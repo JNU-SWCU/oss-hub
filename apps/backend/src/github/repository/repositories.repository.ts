@@ -8,6 +8,7 @@ import {
   RepositoryIssuanceOutcome,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
+  RepositorySource,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../../audit-log/audit-log.repository';
 import { writeRepositoryIssuanceHistory } from '../../prisma/repository-provision-generation';
@@ -67,6 +68,7 @@ export interface OwnedProvisionJob {
       readonly name: string;
       readonly url: string;
       readonly visibility: RepositoryVisibility;
+      readonly source: RepositorySource;
       readonly invitations: readonly {
         readonly status: RepositoryInvitationStatus;
       }[];
@@ -110,6 +112,7 @@ function toPublishTarget(row: {
 function toOwnedRepository(row: {
   readonly id: string;
   readonly nameWithOwner: string;
+  readonly source: RepositorySource;
   readonly visibility: RepositoryVisibility;
   readonly invitations: readonly {
     readonly status: RepositoryInvitationStatus;
@@ -120,6 +123,7 @@ function toOwnedRepository(row: {
     name: repositoryNameFromNameWithOwner(row.nameWithOwner),
     url: repositoryUrlFromNameWithOwner(row.nameWithOwner),
     visibility: row.visibility,
+    source: row.source,
     invitations: row.invitations,
   };
 }
@@ -452,6 +456,7 @@ export class RepositoriesRepository {
                 id: true,
                 nameWithOwner: true,
                 visibility: true,
+                source: true,
                 invitations: {
                   where: {
                     githubLogin: {

@@ -15,7 +15,7 @@
 검출 결과는 `file:line - finding` 형식으로 보고한다.
 근거 표기는 외부 조사 문서를 링크하지 않고 2026-09-03 정적 감사로만 적는다.
 그 감사의 수치는 저장소 안에서 재현한다.
-로컬 toast state는 `grep -rl 'toastMessage' apps/frontend/src/features --include='*.ts*' | grep -v test`, 로컬 Skeleton은 `grep -rlE 'function [A-Za-z]*Skeleton' apps/frontend/src --include='*.tsx' | grep -v test`, radix dialog 직접 import는 `grep -rlE "from 'radix-ui'" apps/frontend/src/features | xargs grep -lE 'Dialog'`, 120자 초과 className은 `grep -rlE 'className="[^"]{121,}"' apps/frontend/src --include='*.tsx'`, fixture 파일과 LOC는 `find apps/frontend/src -type f -name '*fixture*'`와 같은 목록에 `| xargs cat | wc -l`을 붙여 세어 확인한다.
+로컬 toast state는 `grep -rl 'toastMessage' apps/frontend/src/features --include='*.ts*' | grep -v test`, 로컬 Skeleton은 `grep -rlE 'function [A-Za-z]*Skeleton' apps/frontend/src --include='*.tsx' | grep -v test`, radix dialog 직접 import는 `grep -rlE "from 'radix-ui'" apps/frontend/src/features | xargs grep -lE 'Dialog'`, 120자 초과 className은 `grep -rlE 'className="[^"]{121,}"' apps/frontend/src --include='*.tsx'`로 확인한다.
 
 ### 작업 → 절
 
@@ -45,9 +45,9 @@
 | R-17 | 이 문서 | Skeleton PR |
 | R-11, R-12 | 이 문서 | Alert kind PR |
 | R-13, R-14 | 이 문서 | notification PR |
-| R-18, R-19 | 이 문서 | 테스트 인라인화 → builder 승격 → 파일 삭제 PR |
-| R-20 | 이 문서 | 하네스 재설계 follow-up |
-| R-03, R-05, R-07, R-15, R-16, R-21, R-22, R-24, R-25 | 이 문서 | 없음 — 리뷰로 유지 |
+| R-18, R-19, R-22 | 이 문서 | 없음 — 리뷰로 유지 |
+| R-20 | 이 문서 | 런타임-테스트 경계 lint |
+| R-03, R-05, R-07, R-15, R-16, R-21, R-24, R-25 | 이 문서 | 없음 — 리뷰로 유지 |
 | R-26 ~ R-33 | 이 문서 (§화면별 결정 기록 → 학생 팀 구성·신청·초대 상호작용) | 없음 — 리뷰로 유지 |
 
 ## 구현 스택
@@ -274,11 +274,16 @@ error는 toast 단독으로 절대 쓰지 않는다.
 ## 테스트 데이터
 
 이것은 fixture를 어떻게 관리하느냐가 아니라 테스트를 어떻게 쓰느냐의 문제다.
-**R-18** 기본값은 fixture 파일 없음이며 각 테스트는 자기 단언에 필요한 최소 데이터를 테스트 본문에서 typed builder 호출로 만들고 `apps/frontend/src/**`의 비테스트 파일에 fixture·mock·sample·seed 이름을 쓰지 않는다.
-**R-19** builder는 두 개 이상의 테스트 파일이 같은 엔티티를 만들 때만 `apps/frontend/test-support/`로 올리고 완성된 응답 리터럴을 저장하는 fixture 저장소는 두지 않으며 Playwright 확장만 `*.fixture.ts`를 쓴다.
-**R-20** runtime 모듈은 테스트 데이터를 import하지 않으며 local-review 하네스의 현 상태는 부채로 기록하고 예외를 두지 않는다.
-**R-21** wire-contract drift는 fixture로 막지 않고 DTO 타입 `satisfies`와 계약 테스트로 막는다.
-**R-22** 테스트 본문의 인라인 객체·배열은 30줄 상한이며 넘으면 builder로 쪼개거나 단언을 줄인다.
+**R-18** 각 테스트는 자기 단언에 필요한 최소 데이터를 읽기 쉬운 형태로 둔다.
+builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해서 만들 때만 선택한다.
+**R-19** 공유는 파일 개수 임계가 아니라 수명으로 정한다.
+여러 테스트가 같은 수명 동안 같은 입력을 쓸 때만 `apps/frontend/test-support/`로 올리고, 완성 응답 카탈로그를 키우지 않으며 Playwright 확장만 `*.fixture.ts`를 쓴다.
+**R-20** 런타임 모듈은 테스트 데이터를 import하지 않는다.
+해석 가능한 런타임→테스트 의존은 예외 없이 거부한다.
+**R-21** `satisfies`는 TypeScript 형태만 검사한다.
+영속 동작이나 독립 배포된 wire 정합은 증명하지 않으며 그 증명은 계약 테스트·실제 응답이 맡는다.
+**R-22** 인라인 데이터의 줄 수 상한은 두지 않는다.
+오라클은 단언과 독립이어야 하며 읽기 어려우면 쪼개거나 범위를 줄인다.
 
 ## 안티패턴 (flag these)
 
@@ -298,9 +303,9 @@ error는 toast 단독으로 절대 쓰지 않는다.
 | AP-10 | 도메인 컴포넌트의 공용 승격 | `components/`에 있으나 소비 feature가 하나 | R-02 (보조 R-01) |
 | AP-11 | API 계약 누락 | composition에 named `*Props`·`className`·root `data-slot` 중 하나라도 없음 | R-04 |
 | AP-12 | 긴 class literal·hex | 120자 초과 단일 라인 `className`, `#` hex, `--palette-*` | R-08a·R-08b |
-| AP-13 | feature-local fixture 파일 | `apps/frontend/src/features/**`의 `*fixture*`·`*mock*`·`*seed*` 파일명 | R-18·R-19 |
-| AP-14 | 응답 리터럴 저장소·손 복사 DTO | 테스트 밖 모듈이 완성 응답 객체를 상수로 export, `satisfies` 없는 DTO 복사 | R-19·R-21 |
-| AP-15 | runtime 코드의 테스트 데이터 import | `apps/frontend/src/**` 런타임 모듈이 `apps/frontend/test-support/`를 import | R-20 |
+| AP-13 | 단언과 무관한 공유 카탈로그 | 여러 테스트가 쓰지 않는 완성 응답·시나리오 묶음을 공용 모듈로 키움 | R-18·R-19 |
+| AP-14 | `satisfies`를 wire·영속 증명으로 오인 | DTO `satisfies`만으로 배포된 API나 DB 동작을 통과로 기록 | R-21 |
+| AP-15 | runtime의 테스트 데이터 import | `apps/frontend/src/**` 런타임 모듈이 테스트 전용 모듈을 해석 가능하게 의존 | R-20 |
 
 ## 수용된 부채 (2026-09-03)
 
@@ -321,8 +326,8 @@ error는 toast 단독으로 절대 쓰지 않는다.
 | 2026-09-03 | `apps/frontend/src/components/form-section.tsx` root가 프리미티브 `data-slot="field-set"`뿐이고 자체 slot 없음 | R-04 | composition API PR |
 | 2026-09-03 | `apps/frontend/src/components/program-card.tsx` 소비자 하나인데 공용 상주 | R-02 | feature 하향 PR |
 | 2026-09-03 | 120자 초과 className 43파일과 hex 상수·inline style — `apps/frontend/src/features/activity-timeline/components/activity-chart.tsx` 26-29, `apps/frontend/src/features/landing/components/landing-journey.tsx` 401-414 | R-08a·R-08b | lint PR |
-| 2026-09-03 | `apps/frontend/src/features/**`에 fixture 9파일 1,022 LOC | R-18·R-19 | 테스트 인라인화 → 공용 builder 승격 → 파일 삭제 PR |
-| 2026-09-03 | local-review 하네스가 `apps/frontend/test-support/local-review/fixture-response.ts`에서 feature fixture를 소비 | R-20 | 하네스 재설계 follow-up |
+| 2026-09-03 | `apps/frontend/src/features/**`에 fixture 9파일 1,022 LOC | 당시 R-18·R-19 | 현재 규칙은 최소 인라인 데이터와 수명 기반 공유다. 파일명 금지는 폐지했고 미사용 카탈로그만 줄인다 |
+| 2026-09-03 | local-review 하네스가 `apps/frontend/test-support/local-review/fixture-response.ts`에서 feature fixture를 소비 | R-20 | 예외 없음. 런타임→테스트 의존은 경계 lint가 거부한다. 이 행은 당시 결합의 기록이며 해소는 런타임 제거 작업이다 |
 
 ## 컴포넌트 카드
 
@@ -862,6 +867,10 @@ nav는 조회 실패에서 종전대로 링크를 숨긴다(`role-home-link.tsx`
 | 강조색 | 남색을 유지하되, 한 화면에서 주 행동 하나에만 쓴다 |
 
 카드 스타일·표 밀도 등 본문 미감 세부는 화면별로 이어 간다.
+
+학생 유형과 교직원 권한(`hasStaffAccess`)이 함께 있는 계정은 개인 화면(`/dashboard/personal`)과 운영 화면(`/dashboard`)을 메뉴에서 구분한다.
+교직원 권한이 없는 학생은 관리자 권한 여부와 관계없이 기존 `/dashboard`에서 개인 화면을 본다.
+여러 권한이 있는 계정은 900px 미만 헤더에서 `권한 N개`로 요약하고, 계정 메뉴와 접근성 이름에서 전체 권한을 확인할 수 있게 한다.
 #### 프로그램 스코프 좌측 패널
 
 프로그램 상세(`/programs/:id` 및 하위)에서는 섹션 패싯 패널 대신 **프로그램 스코프 좌측 패널**을 쓴다.

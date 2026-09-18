@@ -2,6 +2,7 @@ import { ApiError, apiClient } from '@/lib/api-client';
 import { PROGRAM_EDIT_ERROR_CODES } from './program-edit-error-codes';
 import type { ProgramTrackType } from './program-templates';
 import { parseStaffDashboardSummary } from './staff-dashboard-parser';
+import { parseStaffRepositoryEvidence } from './staff-repository-evidence';
 import type {
   ApplicationFormField,
   ApplicationFormFieldKey,
@@ -17,6 +18,7 @@ import type {
   ProgramListParams,
   ProgramStatusCounts,
   RepositoryProvisioning,
+  RenamedTeam,
   StaffProgramTeam,
   StaffTeamDetail,
   TeamDeletionScope,
@@ -352,8 +354,6 @@ export function deleteMilestone(
   );
 }
 
-export type CreateApplicationRepositoryConnectionMode = 'new' | 'own';
-
 /**
  * 신청 생성 요청 본문. 키는 backend `CreateApplicationRequestDto`가 whitelist 하는
  * 것과 정확히 같아야 한다 — 전역 `ValidationPipe`가 `forbidNonWhitelisted: true`라
@@ -368,8 +368,6 @@ export interface CreateApplicationInput {
   readonly answers: { readonly title?: string };
   readonly applicationTemplateVersion: number;
   readonly isRepositoryPublicationPlanned: boolean;
-  readonly repositoryConnectionMode: CreateApplicationRepositoryConnectionMode | null;
-  readonly repositoryUrl: string;
 }
 
 export interface CreatedApplication {
@@ -381,21 +379,10 @@ export interface CreatedApplication {
   readonly isRepositoryPublicationPlanned: boolean;
 }
 
-/** 폼 `new`/`own`/null → 신청 생성 API `NEW`/`OWN`/null. */
-function mapRepositoryConnectionModeForApi(
-  mode: CreateApplicationRepositoryConnectionMode | null,
-): 'NEW' | 'OWN' | null {
-  if (mode === null) return null;
-  return mode === 'own' ? 'OWN' : 'NEW';
-}
-
 export function createApplication(
   programId: string,
   input: CreateApplicationInput,
 ): Promise<CreatedApplication> {
-  const repositoryConnectionMode = mapRepositoryConnectionModeForApi(
-    input.repositoryConnectionMode,
-  );
   return apiClient<CreatedApplication>(
     `programs/${encodeURIComponent(programId)}/applications`,
     {
@@ -405,11 +392,6 @@ export function createApplication(
         answers: input.answers,
         applicationTemplateVersion: input.applicationTemplateVersion,
         isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
-        repositoryConnectionMode,
-        repositoryUrl:
-          repositoryConnectionMode === 'OWN'
-            ? input.repositoryUrl.trim()
-            : null,
       }),
     },
   );
@@ -711,12 +693,36 @@ export function purgeProgram(
  * 상태·저장소 발급 상태까지 한 요청으로 받는다 — 팀 상세 화면이 신청 목록을
  * 따로 불러 클라이언트에서 잇지 않게 하려는 것이다.
  */
-export function getStaffProgramTeamDetail(
+export async function getStaffProgramTeamDetail(
   programId: string,
   teamId: string,
 ): Promise<StaffTeamDetail> {
-  return apiClient<StaffTeamDetail>(
+  const detail = await apiClient<StaffTeamDetail>(
     `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
+  );
+  return { ...detail, ...parseStaffRepositoryEvidence(detail) };
+}
+
+/**
+ * 팀 이름 변경. 그 팀의 현재 팀장과 교직원·관리자가 **같은 endpoint**를 쓴다 —
+ * 권한은 백엔드가 팀 행을 잠근 뒤 판정하므로 화면이 역할로 미리 갈라 부르지 않는다.
+ *
+ * 응답에는 바뀐 이름만 온다(`RenameTeamResponseDto`). 교직원 상세를 그대로 돌려주면
+ * 학생 팀장에게 저장소 URL이 따라 나가기 때문이다 — 부르는 화면이 이미 들고 있는
+ * 상세에 이 이름만 덮어 쓴다.
+ */
+export function renameProgramTeam(
+  programId: string,
+  teamId: string,
+  name: string,
+): Promise<RenamedTeam> {
+  return apiClient<RenamedTeam>(
+    `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
+    {
+      method: 'PATCH',
+      headers: jsonHeaders,
+      body: JSON.stringify({ name }),
+    },
   );
 }
 

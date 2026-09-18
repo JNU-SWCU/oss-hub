@@ -1,4 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
+import type {
+  TeamRepositoryEvidenceView,
+  RepositoryUrlHistoryCursor,
+  RepositoryUrlHistoryPage,
+} from '../program-team-repository-evidence.types';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -100,7 +106,7 @@ export interface StaffTeamRecord {
  * 교직원 전용 팀 상세(#874)의 한 팀 — `StaffTeamRecord`에 신청·저장소 발급 상태를
  * 더한 모양이다. 신청이 없으면 `application: null`.
  */
-export interface StaffTeamDetailRecord {
+export interface StaffTeamDetailRecord extends TeamRepositoryEvidenceView {
   readonly id: string;
   readonly name: string;
   readonly leaderId: string;
@@ -145,15 +151,6 @@ export type TeamRemoveMemberResult =
  */
 export type TeamRenameResult = 'renamed' | 'not-found' | 'forbidden';
 
-/**
- * 이름 변경 행위자. `isStaff`는 service가 이미 판정한 교직원·관리자 여부다 —
- * 팀장 여부만은 팀을 잠그고 난 **뒤에** 다시 묻는다(그 사이에 팀장이 바뀔 수 있다).
- */
-export interface TeamRenameActor {
-  readonly userId: string;
-  readonly isStaff: boolean;
-}
-
 /** 이름 변경 감사에 필요한 사실 — 팀 행을 잠그고 읽은 값만 담는다. */
 export interface TeamRenameAuditEvent {
   readonly teamId: string;
@@ -171,7 +168,11 @@ export type RecordTeamRenameAudit = (
   event: TeamRenameAuditEvent,
 ) => Promise<void>;
 
-/** 이름 변경 행위자 조회 결과 — 비활성·없는 계정은 null로 접힌다. */
+/**
+ * 이름 변경 행위자. 조회 결과이면서 그대로 `renameTeam`의 입력이다 — 비활성·없는
+ * 계정은 null로 접힌다. `isStaff`는 교직원·관리자 여부고, 팀장 여부는 여기 담지
+ * 않는다 — 팀을 잠그고 난 **뒤에** 다시 묻는다(그 사이에 팀장이 바뀔 수 있다).
+ */
 export interface TeamActorAuthority {
   readonly id: string;
   readonly isStaff: boolean;
@@ -275,13 +276,13 @@ export class ProgramTeamsRepository {
    * 팀 이름 변경. 잠금 순서와 「잠근 뒤의 사실로 판정」 규칙은 `leave`·`removeMember`와
    * 같다 — 잠금 전에 읽은 팀장은 권한의 정본이 아니다(#1269와 같은 이유).
    *
-   * 같은 이름으로 바꾸는 요청은 성공이지만 쓰기도 audit도 없다 — 바뀜 것이 없는데
+   * 같은 이름으로 바꾸는 요청은 성공이지만 쓰기도 audit도 없다 — 바뀐 것이 없는데
    * 「바꿨다」는 감사 사실을 만들면 원장이 거짓말을 한다.
    */
   async renameTeam(
     programId: string,
     teamId: string,
-    actor: TeamRenameActor,
+    actor: TeamActorAuthority,
     name: string,
     recordAudit: RecordTeamRenameAudit,
   ): Promise<TeamRenameResult> {
@@ -298,7 +299,7 @@ export class ProgramTeamsRepository {
         },
       });
       if (!team || team.programId !== programId) return 'not-found';
-      if (!actor.isStaff && team.leaderId !== actor.userId) return 'forbidden';
+      if (!actor.isStaff && team.leaderId !== actor.id) return 'forbidden';
       if (team.name === name) return 'renamed';
 
       await tx.team.update({ where: { id: teamId }, data: { name } });
@@ -454,6 +455,7 @@ export class ProgramTeamsRepository {
             userId: true,
             user: {
               select: {
+                githubId: true,
                 nickname: true,
                 ...USER_PROFILE_NAME_SELECT,
               },
@@ -472,14 +474,22 @@ export class ProgramTeamsRepository {
         status: true,
         updatedAt: true,
         repositoryConnectionMode: true,
+        repositoryUrl: true,
         isRepositoryPublicationPlanned: true,
         // GithubRepository는 name/url 컬럼을 두지 않는다(#617 단계 D) —
         // nameWithOwner에서 repository-identity.ts 헬퍼로 url을 유도한다.
         repository: {
-          select: { id: true, nameWithOwner: true, visibility: true },
+          select: {
+            id: true,
+            nameWithOwner: true,
+            visibility: true,
+            lastSuccessAt: true,
+            failureCount: true,
+          },
         },
         program: {
           select: {
+            startAt: true,
             repositoryProvisioningEnabled: true,
             endAt: true,
             milestones: {
@@ -555,13 +565,25 @@ export class ProgramTeamsRepository {
               blockedReasons,
             }
           : null,
-        repositoryProvisioning: resolveTeamRepositoryProvisioning(
-          application.status,
-          application.program.repositoryProvisioningEnabled,
-          application.updatedAt,
-          outbox ?? undefined,
-          job ?? undefined,
-        ),
+        repositoryProvisioning:
+          repository &&
+          application.repositoryUrl ===
+            repositoryUrlFromNameWithOwner(repository.nameWithOwner) &&
+          job?.repositoryId === repository.id &&
+          job.status === RepositoryProvisionJobStatus.SUCCEEDED
+            ? {
+                enabled: application.program.repositoryProvisioningEnabled,
+                jobStatus: 'SUCCEEDED',
+                updatedAt: job.updatedAt,
+                safeErrorClass: null,
+              }
+            : resolveTeamRepositoryProvisioning(
+                application.status,
+                application.program.repositoryProvisioningEnabled,
+                application.updatedAt,
+                outbox ?? undefined,
+                job ?? undefined,
+              ),
       };
     }
 
@@ -575,7 +597,38 @@ export class ProgramTeamsRepository {
         name: resolveUserProfileName(member.user),
       })),
       application: applicationView,
+      repositoryContributions: application
+        ? await new ProgramTeamRepositoryEvidenceRepository(
+            this.prisma,
+          ).contributions(application, team.members)
+        : null,
+      repositoryUrlHistory: application
+        ? await new ProgramTeamRepositoryEvidenceRepository(
+            this.prisma,
+          ).history({ programId, teamId, applicationId: application.id })
+        : { items: [], nextCursor: null },
     };
+  }
+
+  async findStaffRepositoryUrlHistory(
+    programId: string,
+    teamId: string,
+    cursor?: RepositoryUrlHistoryCursor,
+  ): Promise<RepositoryUrlHistoryPage | null> {
+    const team = await this.prisma.team.findFirst({
+      where: { id: teamId, programId },
+      select: { id: true },
+    });
+    if (!team) return null;
+    const application = await this.prisma.application.findFirst({
+      where: { programId, teamId },
+      select: { id: true },
+    });
+    if (!application) return { items: [], nextCursor: null };
+    return new ProgramTeamRepositoryEvidenceRepository(this.prisma).history(
+      { programId, teamId, applicationId: application.id },
+      cursor,
+    );
   }
 
   withCreateTransaction<T>(

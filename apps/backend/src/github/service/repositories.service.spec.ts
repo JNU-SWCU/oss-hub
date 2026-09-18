@@ -3,6 +3,7 @@ import {
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
+  RepositorySource,
 } from '@prisma/client';
 import type { AuditLogService } from '../../audit-log/audit-log.service';
 import type { GithubAppClient } from '../github-app.client';
@@ -137,6 +138,7 @@ describe('RepositoriesService.getMyRepositories', () => {
             name: 'synthetic-in-progress',
             url: 'https://github.com/synthetic-org/synthetic-in-progress',
             visibility: RepositoryVisibility.PRIVATE,
+            source: RepositorySource.ORG_PROVISIONED,
             invitations: [{ status: RepositoryInvitationStatus.PENDING }],
           },
         },
@@ -154,6 +156,7 @@ describe('RepositoriesService.getMyRepositories', () => {
             name: 'synthetic-completed',
             url: 'https://github.com/synthetic-org/synthetic-completed',
             visibility: RepositoryVisibility.PRIVATE,
+            source: RepositorySource.ORG_PROVISIONED,
             invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
           },
         },
@@ -223,6 +226,7 @@ describe('RepositoriesService.getMyRepositories', () => {
             name: 'synthetic-own-repo',
             url: externalUrl,
             visibility: RepositoryVisibility.PUBLIC,
+            source: RepositorySource.EXTERNAL_PUBLIC,
             invitations: [],
           },
         },
@@ -269,6 +273,7 @@ describe('RepositoriesService.getMyRepositories', () => {
             name: 'synthetic-revoking',
             url: 'https://github.com/synthetic-org/synthetic-revoking',
             visibility: RepositoryVisibility.PRIVATE,
+            source: RepositorySource.ORG_PROVISIONED,
             invitations: [
               { status: RepositoryInvitationStatus.REVOKE_FAILED_RETRYABLE },
             ],
@@ -314,6 +319,7 @@ describe('RepositoriesService.getMyRepositories', () => {
             name: 'synthetic-granted',
             url: 'https://github.com/synthetic-org/synthetic-granted',
             visibility: RepositoryVisibility.PRIVATE,
+            source: RepositorySource.ORG_PROVISIONED,
             invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
           },
         },
@@ -344,6 +350,7 @@ describe('RepositoriesService.getMyRepositories', () => {
             name: 'synthetic-invalid',
             url: 'https://github.com/other-org/synthetic-invalid',
             visibility: RepositoryVisibility.PRIVATE,
+            source: RepositorySource.ORG_PROVISIONED,
             invitations: [],
           },
         },
@@ -411,9 +418,95 @@ describe('RepositoriesService.getMyRepositories', () => {
             name,
             url,
             visibility: RepositoryVisibility.PRIVATE,
+            source: RepositorySource.ORG_PROVISIONED,
             invitations: [],
           },
         },
+      }),
+    ]);
+
+    await expect(
+      serviceFrom({
+        ...dependencies(),
+        repository,
+        github,
+        auditLog,
+      }).getMyRepositories(123n),
+    ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
+  });
+  it('classifies a valid external relink from persisted source on an immutable NEW application', async () => {
+    const { repository, github, auditLog } = dependencies();
+    const externalUrl =
+      'https://github.com/synthetic-student/synthetic-relinked-repo';
+    repository.listOwnedProvisionJobs.mockResolvedValue([
+      job({
+        application: {
+          id: 'synthetic-application',
+          teamId: 'synthetic-solo-team',
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          applicant: { nickname: 'synthetic-applicant' },
+          program: { name: 'Synthetic program' },
+          team: { name: 'synthetic-applicant의 팀', _count: { members: 1 } },
+          repository: {
+            id: 'synthetic-relinked-repository',
+            name: 'synthetic-relinked-repo',
+            url: externalUrl,
+            visibility: RepositoryVisibility.PUBLIC,
+            source: RepositorySource.EXTERNAL_PUBLIC,
+            invitations: [],
+          },
+        },
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+      }),
+    ]);
+
+    const result = await serviceFrom({
+      ...dependencies(),
+      repository,
+      github,
+      auditLog,
+    }).getMyRepositories(123n);
+
+    expect(result).toEqual([
+      {
+        repositoryId: 'synthetic-relinked-repository',
+        applicationId: 'synthetic-application',
+        connectionMode: RepositoryConnectionMode.OWN,
+        applicationMode: 'PERSONAL',
+        programName: 'Synthetic program',
+        displayName: 'synthetic-applicant',
+        repositoryName: 'synthetic-relinked-repo',
+        githubUrl: externalUrl,
+        provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+        invitationStatus: null,
+        visibility: RepositoryVisibility.PUBLIC,
+        lastErrorCode: null,
+        updatedAt: NOW,
+      },
+    ]);
+  });
+
+  it('fails closed when a managed identity does not match the persisted organization source', async () => {
+    const { repository, github, auditLog } = dependencies();
+    repository.listOwnedProvisionJobs.mockResolvedValue([
+      job({
+        application: {
+          id: 'synthetic-application',
+          teamId: 'synthetic-solo-team',
+          repositoryConnectionMode: RepositoryConnectionMode.OWN,
+          applicant: { nickname: 'synthetic-applicant' },
+          program: { name: 'Synthetic program' },
+          team: { name: 'synthetic-applicant의 팀', _count: { members: 1 } },
+          repository: {
+            id: 'synthetic-managed-mismatch-repository',
+            name: 'synthetic-managed-mismatch',
+            url: 'https://github.com/other-org/synthetic-managed-mismatch',
+            visibility: RepositoryVisibility.PRIVATE,
+            source: RepositorySource.ORG_PROVISIONED,
+            invitations: [],
+          },
+        },
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
       }),
     ]);
 

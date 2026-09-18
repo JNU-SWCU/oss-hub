@@ -5,6 +5,7 @@ import {
   RepositoryIssuanceOutcome,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
+  RepositorySource,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { writeRepositoryIssuanceHistory } from '../../prisma/repository-provision-generation';
@@ -129,7 +130,12 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
                   members: { select: teamMemberLoginSelection },
                 },
               },
-              repository: { select: repositorySelection },
+              repository: {
+                select: {
+                  ...repositorySelection,
+                  source: true,
+                },
+              },
             },
           },
         },
@@ -178,17 +184,18 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
         throw error;
       }
       const team = application.team;
-      if (
-        team === null &&
-        requested.repositoryConnectionMode === RepositoryConnectionMode.NEW
-      ) {
-        // NEW 저장소는 팀 구성원 집합이 접근 권한의 원본이다. 그 원본을 읽을 수
+      const requiresManagedMembership =
+        application.repository === null
+          ? requested.repositoryConnectionMode === RepositoryConnectionMode.NEW
+          : application.repository.source === RepositorySource.ORG_PROVISIONED;
+      if (team === null && requiresManagedMembership) {
+        // 현재 관리 저장소는 팀 구성원 집합이 접근 권한의 원본이다. 그 원본을 읽을 수
         // 없는 채로 진행하면 빈 목록이 "전원 회수"로 해석된다 — fail closed.
         throw finalProvisionFailure(
           PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
         );
       }
-      // OWN 경로는 초대 없이 본인 저장소를 연결할 뿐이라 팀이 없을 수 있다 —
+      // 외부 저장소 경로는 초대 없이 연결할 뿐이라 팀이 없을 수 있다 —
       // 그 때도 신청자를 목록에 채우지 않고 빈 목록을 그대로 든다.
       const currentMemberGithubLogins =
         team === null ? [] : loginsFromTeamMembers(team.members);
@@ -213,6 +220,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
         subjectName: team?.name ?? application.applicant.nickname,
         currentMemberGithubLogins,
         membershipFingerprint: membershipFingerprint(currentMemberGithubLogins),
+        currentRepositorySource: application.repository?.source ?? null,
         repository:
           application.repository === null ||
           job.repositoryId !== application.repository.id
