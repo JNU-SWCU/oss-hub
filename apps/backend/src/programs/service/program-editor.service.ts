@@ -18,8 +18,10 @@ import {
 } from '../program-milestone-edit';
 import {
   ProgramAuthoringUploadTokenError,
+  ProgramAuthoringValidationError,
   type ProgramAuthoringUploadToken,
 } from '../program-authoring.types';
+import { validateProgramCoverChoice } from '../program-external-cover';
 import type {
   ProgramAuthority,
   ProgramEditorRepositoryPort,
@@ -218,15 +220,18 @@ export class ProgramEditorService {
         this.fail(ProgramErrorCode.MILESTONE_REQUIRED);
       }
       try {
+        const externalCover = validateProgramCoverChoice(input);
         return await store.updateProgram({
-          ...(input.coverUploadId === undefined
-            ? {}
-            : {
-                coverChange: {
-                  actorId: actor.id,
-                  uploadId: input.coverUploadId,
-                },
-              }),
+          ...(externalCover !== undefined
+            ? { coverChange: { actorId: actor.id, externalCover } }
+            : input.coverUploadId === undefined
+              ? {}
+              : {
+                  coverChange: {
+                    actorId: actor.id,
+                    uploadId: input.coverUploadId,
+                  },
+                }),
           programId,
           name,
           organizer,
@@ -245,6 +250,15 @@ export class ProgramEditorService {
           description,
         });
       } catch (error) {
+        if (error instanceof ProgramAuthoringValidationError) {
+          this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+            fieldErrors: error.issues.map(({ path, code }) => ({
+              field: path,
+              code,
+              message: '대표 이미지 출처를 다시 확인해 주세요.',
+            })),
+          });
+        }
         if (!(error instanceof ProgramAuthoringUploadTokenError)) throw error;
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
           fieldErrors: [

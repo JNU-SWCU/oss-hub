@@ -136,7 +136,8 @@ export class E2eProgramAuthoringFixture {
       return covers;
     });
     for (const cover of covers) {
-      await e2eProgramAuthoringExternalPorts.storage.delete(cover.storageKey);
+      if (cover.storageKey !== null)
+        await e2eProgramAuthoringExternalPorts.storage.delete(cover.storageKey);
     }
     this.activeGraph = null;
   }

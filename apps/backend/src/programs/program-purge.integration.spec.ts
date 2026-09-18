@@ -155,7 +155,11 @@ async function cleanup(): Promise<void> {
     where: { programId: { startsWith: PREFIX } },
     select: { storageKey: true },
   });
-  await Promise.all(covers.map(({ storageKey }) => storage.delete(storageKey)));
+  await Promise.all(
+    covers.flatMap(({ storageKey }) =>
+      storageKey === null ? [] : [storage.delete(storageKey)],
+    ),
+  );
   await prisma.programCover.deleteMany({
     where: { programId: { startsWith: PREFIX } },
   });

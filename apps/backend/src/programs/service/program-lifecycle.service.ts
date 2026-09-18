@@ -581,14 +581,18 @@ export class ProgramLifecycleService {
       select: { storageKey: true },
     });
     if (!cover) return 0;
-    await transaction.programPurgeFileTombstone.createMany({
-      data: [{ storageKey: cover.storageKey, nextDeleteAttemptAt: new Date() }],
-      skipDuplicates: true,
-    });
+    if (cover.storageKey !== null) {
+      await transaction.programPurgeFileTombstone.createMany({
+        data: [
+          { storageKey: cover.storageKey, nextDeleteAttemptAt: new Date() },
+        ],
+        skipDuplicates: true,
+      });
+    }
     await transaction.programCover.delete({
-      where: { storageKey: cover.storageKey },
+      where: { programId },
     });
-    return 1;
+    return cover.storageKey === null ? 0 : 1;
   }
 
   private async countDeletionBlockers(

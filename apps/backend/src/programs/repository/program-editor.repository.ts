@@ -502,7 +502,7 @@ class ProgramEditorMilestoneEditRaceError extends Error {
 }
 
 const editableProgramInclude = {
-  cover: { select: { id: true } },
+  cover: { select: { id: true, imageUrl: true, sourceUrl: true } },
   _count: { select: { applications: true, teams: true, boardPosts: true } },
   milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
 } satisfies PrismaTypes.ProgramInclude;
@@ -512,7 +512,18 @@ function toEditableProgramView(
   deletionScopeCounts: ProgramDeletionScopeCounts,
 ): EditableProgramView {
   return {
-    coverImageUrl: programCoverImageUrl(program.id, program.cover?.id),
+    coverImageUrl: programCoverImageUrl(
+      program.id,
+      program.cover?.id,
+      program.cover?.imageUrl,
+    ),
+    externalCover:
+      program.cover?.sourceUrl != null && program.cover.imageUrl != null
+        ? {
+            sourceUrl: program.cover.sourceUrl,
+            imageUrl: program.cover.imageUrl,
+          }
+        : null,
     id: program.id,
     name: program.name,
     organizer: program.organizer,

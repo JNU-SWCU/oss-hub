@@ -42,12 +42,16 @@ import { StudentDashboardService } from './service/student-dashboard.service';
 import { ProgramCoverController } from './controller/program-cover.controller';
 import { ProgramCoverService } from './service/program-cover.service';
 import { ProgramCoverRepository } from './repository/program-cover.repository';
+import { ProgramNoticePreviewController } from './program-notice-preview.controller';
+import { ProgramNoticePreviewService } from './program-notice-preview.service';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 
 @Module({
   imports: [AuthModule, AuditLogModule, RepositoriesModule, SubmissionsModule],
   controllers: [
     // static sibling first — programs/application-templates before programs/:id
     ApplicationTemplatesController,
+    ProgramNoticePreviewController,
     ProgramAuthoringController,
     ProgramCoverController,
     ProgramsController,
@@ -62,6 +66,8 @@ import { ProgramCoverRepository } from './repository/program-cover.repository';
     ProgramCreationService,
     ProgramAuthoringRepository,
     ProgramAuthoringService,
+    ProgramNoticePreviewService,
+    ProgramNoticeFetchClient,
     ProgramAuthoringUploadRepository,
     ProgramAuthoringUploadService,
     ProgramCoverService,

@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import {
+  isExternalProgramCover,
+  type ExternalProgramCover,
+  type ProgramCoverSelection,
+} from './program-cover-selection';
+import {
   deleteAuthoringUpload,
   uploadProgramCover,
 } from './program-authoring-api';
@@ -13,7 +18,7 @@ import {
 } from './program-authoring-submit';
 
 export function useProgramCoverEdit() {
-  const [selection, setSelection] = useState<File | null | undefined>();
+  const [selection, setSelection] = useState<ProgramCoverSelection>();
   const runtime = useRef(createProgramSubmissionRuntime());
 
   useEffect(() => {
@@ -27,7 +32,7 @@ export function useProgramCoverEdit() {
     };
   }, []);
 
-  const change = (file: File | null | undefined) => {
+  const change = (file: ProgramCoverSelection) => {
     const previous = runtime.current.uploads.get('program-cover');
     runtime.current.uploads.delete('program-cover');
     runtime.current.uploadFiles.delete('program-cover');
@@ -36,11 +41,17 @@ export function useProgramCoverEdit() {
   };
 
   const prepare = async (): Promise<
-    | { readonly kind: 'ready'; readonly coverUploadId?: string | null }
+    | {
+        readonly kind: 'ready';
+        readonly coverUploadId?: string | null;
+        readonly externalCover?: ExternalProgramCover;
+      }
     | { readonly kind: 'failure'; readonly message: string }
   > => {
     if (selection === undefined) return { kind: 'ready' };
     if (selection === null) return { kind: 'ready', coverUploadId: null };
+    if (isExternalProgramCover(selection))
+      return { kind: 'ready', externalCover: selection };
     const failure = await preparePendingUploads({
       candidates: [{ localId: 'program-cover', file: selection }],
       runtime: runtime.current,

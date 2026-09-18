@@ -4,6 +4,23 @@ import { ProgramCard } from './program-card';
 
 // ProgramCard.dc.html 스펙 검증 — href 유무에 따른 openable 분기, note 렌더, 상태별 팔레트.
 describe('ProgramCard', () => {
+  it('preserves the external notice cover URL when rendering a list card', () => {
+    const coverImageUrl =
+      'https://sojoong.kr/wp-content/uploads/kboard_attached/1/209901/synthetic-poster.png';
+    const html = renderToStaticMarkup(
+      <ProgramCard
+        badgeText="모집중"
+        coverImageUrl={coverImageUrl}
+        status="recruiting"
+        title="합성 공지 프로그램"
+      />,
+    );
+
+    expect(html).toContain(`src="${coverImageUrl}"`);
+    expect(html).toContain('object-contain');
+    expect(html).toContain('referrerPolicy="no-referrer"');
+  });
+
   it('renders an openable card as a single link with the "자세히" footer', () => {
     const html = renderToStaticMarkup(
       <ProgramCard

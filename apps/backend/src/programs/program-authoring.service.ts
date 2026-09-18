@@ -95,9 +95,13 @@ export class ProgramAuthoringService {
     }
     const cover = uploads.find(({ id }) => id === plan.coverUploadId);
     const program =
-      cover === undefined
-        ? await store.createProgram(plan.program)
-        : await store.createProgram(plan.program, { actorId, upload: cover });
+      plan.externalCover !== undefined
+        ? await store.createProgram(plan.program, {
+            externalCover: plan.externalCover,
+          })
+        : cover === undefined
+          ? await store.createProgram(plan.program)
+          : await store.createProgram(plan.program, { actorId, upload: cover });
     let requestId: string;
     try {
       requestId = await store.createRequest({
