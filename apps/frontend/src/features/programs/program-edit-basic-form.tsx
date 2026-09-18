@@ -46,9 +46,12 @@ export function ProgramEditBasicForm({
   onFieldChange,
 }: ProgramEditBasicFormProps) {
   return (
-    <FormSection title="기본 정보">
-      <FieldGroup>
-        <div>
+    <FormSection
+      aria-labelledby="edit-basic-title"
+      className="[&>legend]:w-full"
+      title={
+        <span className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <span id="edit-basic-title">기본 정보</span>
           <ProgramNoticeImport
             currentName={form.name}
             currentDescription={form.description}
@@ -66,7 +69,11 @@ export function ProgramEditBasicForm({
                 onCoverChange(patch.externalCover);
             }}
           />
-        </div>
+        </span>
+      }
+      description="프로그램 목록과 상세 화면에 표시할 정보를 입력하세요."
+    >
+      <FieldGroup>
         <Field>
           <FieldLabel htmlFor="program-name">프로그램명 *</FieldLabel>
           <Input

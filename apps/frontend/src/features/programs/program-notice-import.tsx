@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -96,11 +97,12 @@ export function ProgramNoticeImport({
         ref={triggerRef}
         type="button"
         variant="outline"
-        size="sm"
+        className="w-full border-primary/40 font-sans text-primary sm:w-auto"
         disabled={disabled}
         onClick={() => setOpen(true)}
       >
-        공지에서 가져오기
+        <FileText aria-hidden="true" />
+        기존 공지로 빠르게 시작하기
       </Button>
       {open ? (
         <ProgramAuthoringDialog

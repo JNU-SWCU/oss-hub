@@ -29,18 +29,22 @@ export function ProgramAuthoringBasicStep({
 }: StepProps) {
   return (
     <FormSection
-      title="기본 정보"
+      aria-labelledby="authoring-basic-title"
+      className="[&>legend]:w-full"
+      title={
+        <span className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <span id="authoring-basic-title">기본 정보</span>
+          <ProgramNoticeImport
+            currentName={state.name}
+            currentDescription={state.description}
+            hasCover={Boolean(state.coverFile || state.externalCover)}
+            sourceUrl={state.externalCover?.sourceUrl}
+            onApply={(patch) => dispatch({ type: 'apply_notice', patch })}
+          />
+        </span>
+      }
       description="프로그램 목록과 상세 화면에 표시할 정보를 입력하세요."
     >
-      <div>
-        <ProgramNoticeImport
-          currentName={state.name}
-          currentDescription={state.description}
-          hasCover={Boolean(state.coverFile || state.externalCover)}
-          sourceUrl={state.externalCover?.sourceUrl}
-          onApply={(patch) => dispatch({ type: 'apply_notice', patch })}
-        />
-      </div>
       <ProgramAuthoringTextField
         id="program-name"
         label="프로그램명 *"
