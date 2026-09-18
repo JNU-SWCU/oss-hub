@@ -1,5 +1,6 @@
 'use client';
 
+import { Check, LoaderCircle, Pencil } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -116,12 +117,31 @@ export function RepositoryUrlEditor({
 
   return (
     <section
-      className="mt-6 grid gap-4 rounded-card border border-border p-card break-keep [overflow-wrap:anywhere]"
+      className="grid gap-3 rounded-card bg-card p-4 text-card-foreground ring-1 ring-foreground/10 break-keep [overflow-wrap:anywhere]"
       aria-label="프로젝트 저장소"
     >
-      <h2 className="rounded-control bg-primary px-4 py-3 font-semibold text-primary-foreground">
-        프로젝트 저장소
-      </h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold">프로젝트 저장소</h2>
+        {state.kind === 'ready' && !editing ? (
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="저장소 URL 수정"
+            title="저장소 URL 수정"
+            disabled={!state.repository.canEditRepositoryUrl}
+            onClick={() => {
+              setUrl(state.repository.repositoryUrl ?? '');
+              setReason('');
+              setValidation(false);
+              if (!needsVerification) setError(null);
+              setSaved(false);
+              setEditing(true);
+            }}
+          >
+            <Pencil aria-hidden="true" />
+          </Button>
+        ) : null}
+      </div>
       {state.kind === 'loading' ? (
         <p role="status">저장소를 불러오는 중…</p>
       ) : null}
@@ -224,30 +244,21 @@ export function RepositoryUrlEditor({
                 />
                 <Button
                   type="submit"
+                  size="icon-sm"
+                  aria-label={busy ? '저장 중…' : '저장소 변경 저장'}
+                  title="저장소 변경 저장"
                   disabled={busy || needsVerification}
                   aria-busy={busy}
                 >
-                  {busy ? '저장 중…' : '저장소 변경 저장'}
+                  {busy ? (
+                    <LoaderCircle className="animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Check aria-hidden="true" />
+                  )}
                 </Button>
               </div>
             </form>
-          ) : (
-            <div className="flex justify-end">
-              <Button
-                disabled={!state.repository.canEditRepositoryUrl}
-                onClick={() => {
-                  setUrl(state.repository.repositoryUrl ?? '');
-                  setReason('');
-                  setValidation(false);
-                  if (!needsVerification) setError(null);
-                  setSaved(false);
-                  setEditing(true);
-                }}
-              >
-                저장소 URL 수정
-              </Button>
-            </div>
-          )}
+          ) : null}
           {!state.repository.canEditRepositoryUrl ? (
             <p className="text-sm text-muted-foreground">
               승인된 팀의 팀장만 프로그램 종료 전까지 변경할 수 있습니다.

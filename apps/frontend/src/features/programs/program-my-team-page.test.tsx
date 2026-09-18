@@ -635,7 +635,7 @@ it.each([true, false])(
       host.querySelector('a[href="https://github.com/synthetic/team"]'),
     ).not.toBeNull();
     const edit = Array.from(host.querySelectorAll('button')).find(
-      (button) => button.textContent === '저장소 URL 수정',
+      (button) => button.getAttribute('aria-label') === '저장소 URL 수정',
     );
     expect(edit).toBeDefined();
     expect(edit?.disabled).toBe(!canEditRepositoryUrl);

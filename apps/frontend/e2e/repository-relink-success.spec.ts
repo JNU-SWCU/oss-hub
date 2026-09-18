@@ -76,6 +76,7 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 �
     testInfo,
     'team-repository-element',
   );
+  await captureRegion(editor, testInfo, 'team-repository-compact');
   await student.setViewportSize({ width: 390, height: 844 });
   await expect(editor.getByRole('link')).toBeVisible();
   expect(
@@ -91,9 +92,18 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 �
   await expect(
     editor.getByText(/변경 사유는 교직원이 확인할 수 있습니다/),
   ).toBeVisible();
+  await editor.getByRole('button', { name: '취소', exact: true }).click();
+  await expect(editor.getByLabel('새 저장소 URL')).toHaveCount(0);
+  await editor.getByRole('button', { name: '저장소 URL 수정' }).click();
   await editor.getByLabel('새 저장소 URL').fill(replacementUrl);
   await editor.getByLabel('변경 사유').fill(reason);
   await capture(student, testInfo, '01-student-warning');
+  await captureRegion(editor, testInfo, 'team-repository-editing-mobile');
+  expect(
+    await student.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
 
   // When: the student confirms the change through the real PATCH endpoint.
   const changeStartedAt = Date.now();

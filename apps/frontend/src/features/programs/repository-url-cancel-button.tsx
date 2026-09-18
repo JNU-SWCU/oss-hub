@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useState } from 'react';
 import { AlertDialog } from 'radix-ui';
 import { Button } from '@/components/ui/button';
@@ -23,8 +24,15 @@ export function RepositoryUrlCancelButton({
       }}
     >
       <AlertDialog.Trigger asChild>
-        <Button type="button" variant="outline" disabled={disabled}>
-          취소
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          aria-label="취소"
+          title="취소"
+          disabled={disabled}
+        >
+          <X aria-hidden="true" />
         </Button>
       </AlertDialog.Trigger>
       <AlertDialog.Portal>
