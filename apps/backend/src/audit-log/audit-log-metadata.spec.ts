@@ -20,6 +20,7 @@ import {
   createTeamCreatedAuditMetadata,
   createTeamJoinedAuditMetadata,
   createTeamMembershipAuditMetadata,
+  createTeamRenamedAuditMetadata,
   createRepositoryPublishAuditMetadata,
   createSubmissionFileCleanupAuditMetadata,
   createUserPhoneAuditMetadata,
@@ -32,6 +33,7 @@ import {
   TEAM_JOINED_AUDIT_SCHEMA_VERSION,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_OPERATIONS,
+  TEAM_RENAMED_AUDIT_SCHEMA_VERSION,
   TEAM_MEMBERSHIP_AUDIT_SCHEMA_VERSION,
   PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION,
   PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1,
@@ -835,5 +837,42 @@ describe('createApplicationSubmittedAuditMetadata / parseAuditLogMetadata — AP
         applicantGithubLogin: 'synthetic-login',
       }),
     ).toThrow(InvalidAuditLogMetadataError);
+  });
+});
+
+describe('createTeamRenamedAuditMetadata / parseAuditLogMetadata — TEAM_RENAMED', () => {
+  const RENAMED = createTeamRenamedAuditMetadata({
+    programName: '합성 프로그램',
+    teamName: '알잘딱팀',
+    previousName: '합성 팀',
+  });
+
+  it('바뀐 이름과 바뀌기 전 이름을 한 스냅샷에 함께 도장 찍는다', () => {
+    expect(RENAMED.schemaVersion).toBe(TEAM_RENAMED_AUDIT_SCHEMA_VERSION);
+    expect(parseAuditLogMetadata(RENAMED)).toEqual({
+      legacy: false,
+      metadata: RENAMED,
+    });
+  });
+
+  // 등록 순서 회귀 방지 — TEAM_CREATED/TEAM_JOINED가 먼저 잡으면 previousName이
+  // 조용히 잘려 "팀 생성 행"처럼 보이고, 감사 원장은 append-only라 되돌릴 수 없다.
+  it('일반 팀 상태 parser가 이름 변경 필드를 먼저 삼키지 않는다', () => {
+    expect(parseAuditLogMetadata(RENAMED).metadata).toMatchObject({
+      previousName: '합성 팀',
+      teamName: '알잘딱팀',
+    });
+  });
+
+  it('previousName 이 문자열이 아니면 팀 생성 행으로 격하되지 않고 거부된다', () => {
+    for (const broken of [
+      { ...RENAMED, previousName: null },
+      { ...RENAMED, previousName: 42 },
+      { ...RENAMED, previousName: {} },
+    ]) {
+      expect(() => parseAuditLogMetadata(broken)).toThrow(
+        InvalidAuditLogMetadataError,
+      );
+    }
   });
 });

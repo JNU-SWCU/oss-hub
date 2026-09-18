@@ -17,6 +17,7 @@ import type {
   ProgramListParams,
   ProgramStatusCounts,
   RepositoryProvisioning,
+  RenamedTeam,
   StaffProgramTeam,
   StaffTeamDetail,
   ProgramParticipation,
@@ -702,4 +703,27 @@ export async function getStaffProgramTeamDetail(
     `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
   );
   return { ...detail, ...parseStaffRepositoryEvidence(detail) };
+}
+
+/**
+ * 팀 이름 변경. 그 팀의 현재 팀장과 교직원·관리자가 **같은 endpoint**를 쓴다 —
+ * 권한은 백엔드가 팀 행을 잠근 뒤 판정하므로 화면이 역할로 미리 갈라 부르지 않는다.
+ *
+ * 응답에는 바뀐 이름만 온다(`RenameTeamResponseDto`). 교직원 상세를 그대로 돌려주면
+ * 학생 팀장에게 저장소 URL이 따라 나가기 때문이다 — 부르는 화면이 이미 들고 있는
+ * 상세에 이 이름만 덮어 쓴다.
+ */
+export function renameProgramTeam(
+  programId: string,
+  teamId: string,
+  name: string,
+): Promise<RenamedTeam> {
+  return apiClient<RenamedTeam>(
+    `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
+    {
+      method: 'PATCH',
+      headers: jsonHeaders,
+      body: JSON.stringify({ name }),
+    },
+  );
 }

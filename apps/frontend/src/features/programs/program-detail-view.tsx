@@ -218,20 +218,20 @@ export function ProgramActions({
   // 프로그램은 APP_010이다(`applications.service.ts`). 화면이 먼저 알려 줘야
   // 학생이 신청서를 다 채운 뒤에 거절당하지 않는다(#1092).
   const applyBlocked = isEnded(program);
-  if (role === null)
-    return applyBlocked ? (
-      <BlockedApplyEntry label="가입하고 신청하기" />
-    ) : (
-      <Button asChild>
-        <Link href={SIGNUP_ENTRY_HREF}>가입하고 신청하기</Link>
-      </Button>
-    );
-  if (role === 'STUDENT' && program.viewer.applicationStatus === null) {
+  // 비로그인과 미신청 학생은 같은 일을 하려는 사람이다 — 버튼도 같은 버튼로 보인다.
+  // 가입은 그 길의 중간 단계지 다른 행동이 아니므로 문구로 갈라 보이지 않고
+  // 목적지만 바뀐다(비로그인 → 가입 입구, 학생 → 신청 폼).
+  const applyEntryHref =
+    role === null ? SIGNUP_ENTRY_HREF : programHref(program.id, '/apply');
+  if (
+    role === null ||
+    (role === 'STUDENT' && program.viewer.applicationStatus === null)
+  ) {
     return applyBlocked ? (
       <BlockedApplyEntry label="신청하기" />
     ) : (
       <Button asChild>
-        <Link href={programHref(program.id, '/apply')}>신청하기</Link>
+        <Link href={applyEntryHref}>신청하기</Link>
       </Button>
     );
   }

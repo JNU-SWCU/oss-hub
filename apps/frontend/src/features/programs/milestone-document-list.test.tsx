@@ -458,7 +458,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
 
     await resubmit();
     await vi.waitFor(() => {
-      expect(container.textContent).toContain('재검토 대기');
+      expect(container.textContent).toContain('검토 대기');
       expect(container.textContent).toContain('3차 제출본');
       expect(container.textContent).toContain('팀원B');
     });
@@ -501,7 +501,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
 
     await act(async () => button('최신 상태 다시 불러오기')?.click());
     await vi.waitFor(() => {
-      expect(container.textContent).toContain('재검토 대기');
+      expect(container.textContent).toContain('검토 대기');
       expect(container.textContent).not.toContain('제출은 저장되었습니다.');
     });
     expect(fetchMock).toHaveBeenCalledTimes(5);
@@ -632,7 +632,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
       );
     });
     await vi.waitFor(() => {
-      expect(container.textContent).toContain('재검토 대기');
+      expect(container.textContent).toContain('검토 대기');
       expect(container.textContent).toContain(
         '승인된 제출 항목은 다시 제출할 수 없습니다.',
       );
@@ -1258,14 +1258,14 @@ describe('학생 행이 판정을 읽는 방식', () => {
   });
 
   /**
-   * #1097 — 보완 요청에 응해 한 번 다시 낸 줄(재검토 대기). 배지는 「보완 요청」이 아니라
-   * 「재검토 대기」로 바뀌어 있고, 「수정」은 잠긴 채다.
+   * #1097 — 보완 요청에 응해 한 번 다시 낸 줄. 배지는 「보완 요청」이 아니라 「검토 대기」로
+   * 돌아가 있고, 「수정」은 잠긴 채다.
    *
    * 잠근 채로 두는 것이 규칙이다: 재제출은 한 번이고, 교직원이 검토하는 동안 내용은 바뀌지
    * 않는다. 서버도 같은 조합을 422(MSD_031)로 막으므로 눌러 봐야 오류만 돌아오는 버튼이
    * 아니다 — 예전에는 서버만 열려 있어 화면과 서버가 어긋나 있었다.
    */
-  it('마감 뒤, 보완 요청에 이미 응한 재검토 대기는 잠근 채로 둔다', async () => {
+  it('마감 뒤, 보완 요청에 이미 응한 제출은 잠근 채로 둔다', async () => {
     await renderRow(
       viewer({
         status: 'SUBMITTED',
@@ -1279,7 +1279,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
       true,
     );
 
-    expect(container.textContent).toContain('재검토 대기');
+    expect(container.textContent).toContain('검토 대기');
     expect(actionButton('수정').disabled).toBe(true);
   });
 

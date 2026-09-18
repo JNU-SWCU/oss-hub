@@ -203,6 +203,15 @@ export const SENTENCE_TEMPLATES: Readonly<
     const clause = teamMembershipClause(record.teamMembership);
     return nameTargetSentence(record, clause, clause);
   },
+  // target은 바뀐 **뒤**의 「프로그램 · 팀이름」이다. 이전 이름이 있을 때만
+  // 「어디서 왔는가」를 더한다 — 없으면 지어내지 않고 사실만 말한다.
+  TEAM_RENAMED: (record) => {
+    const clause =
+      record.teamPreviousName === undefined
+        ? '의 이름을 바꿨습니다'
+        : `의 이름을 「${record.teamPreviousName}」에서 바꿨습니다`;
+    return nameTargetSentence(record, clause, clause);
+  },
   COLLECTION_SYNC_TRIGGERED: (record) => [
     actorSegment(record),
     text('님이 데이터 수집을 수동 실행했습니다'),

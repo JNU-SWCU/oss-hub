@@ -16,6 +16,18 @@ export interface CreatedTeamView {
 }
 
 /**
+ * 이름 변경 응답 — 바뀐 사실만 돌려준다.
+ *
+ * 팀장과 교직원이 같은 endpoint를 쓰므로 여기에 신청·저장소를 싣지 않는다.
+ * 교직원용 상세(`StaffTeamDetailView`)를 그대로 돌려주면 학생 팀장에게 저장소 URL이
+ * 따라 나가고, 그건 이름을 바꾼 대가로 줄 것이 아니다.
+ */
+export interface RenamedTeamView {
+  readonly teamId: string;
+  readonly name: string;
+}
+
+/**
  * 교직원 전용 팀 목록의 한 팀 — 팀원 전원의 실명을 포함한다.
  * 학번·학과·연락처·이메일·참여코드·저장소 URL 은 담지 않는다.
  */

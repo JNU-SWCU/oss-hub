@@ -142,6 +142,40 @@ export type TeamRemoveMemberResult =
   | 'self-target'
   | 'target-not-found';
 
+/**
+ * 이름 변경 결과. `not-found`는 없는 팀과 다른 프로그램의 팀을 구분하지 않는다 —
+ * 구분해 응답하면 남의 프로그램에 그 id의 팀이 있다는 사실이 새난다.
+ * 실패 결과는 아무것도 쓰지 않고 audit도 남기지 않는다.
+ */
+export type TeamRenameResult = 'renamed' | 'not-found' | 'forbidden';
+
+/** 이름 변경 감사에 필요한 사실 — 팀 행을 잠그고 읽은 값만 담는다. */
+export interface TeamRenameAuditEvent {
+  readonly teamId: string;
+  readonly programName: string;
+  readonly previousName: string;
+  readonly nextName: string;
+}
+
+/**
+ * 이름 변경과 같은 트랜잭션에서 감사를 남기는 필수 콜백. 콜백이 던지면 `Team.update`까지
+ * 함께 롤백된다.
+ */
+export type RecordTeamRenameAudit = (
+  store: TeamMembershipAuditStore,
+  event: TeamRenameAuditEvent,
+) => Promise<void>;
+
+/**
+ * 이름 변경 행위자. 조회 결과이면서 그대로 `renameTeam`의 입력이다 — 비활성·없는
+ * 계정은 null로 접힌다. `isStaff`는 교직원·관리자 여부고, 팀장 여부는 여기 담지
+ * 않는다 — 팀을 잠그고 난 **뒤에** 다시 묻는다(그 사이에 팀장이 바뀔 수 있다).
+ */
+export interface TeamActorAuthority {
+  readonly id: string;
+  readonly isStaff: boolean;
+}
+
 export type TeamMembershipOperation = 'LEAVE' | 'REMOVE';
 
 /**
@@ -208,6 +242,76 @@ export class ProgramTeamsRepository {
           name: resolveUserProfileName(user),
         }
       : null;
+  }
+
+  /**
+   * 이름 변경은 학생(팀장)과 교직원이 같은 endpoint를 쓰므로
+   * `findActiveStudentByGithubId`(학생 전용)로는 부족하다. 교직원 판정은
+   * `ProgramTeamsStaffGuard`·`ProgramLifecycleService.purge`와 동일하게
+   * ACTIVE + (hasStaffAccess || hasAdminAccess)다 — 가드를 새로 두지 않는 이유는
+   * 팀장도 같은 문을 지나야 하기 때문이다.
+   */
+  async findActorAuthorityByGithubId(
+    githubId: bigint,
+  ): Promise<TeamActorAuthority | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { githubId },
+      select: {
+        id: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
+    });
+    if (user?.accountStatus !== AccountStatus.ACTIVE) return null;
+    return {
+      id: user.id,
+      isStaff: user.hasStaffAccess || user.hasAdminAccess,
+    };
+  }
+
+  /**
+   * 팀 이름 변경. 잠금 순서와 「잠근 뒤의 사실로 판정」 규칙은 `leave`·`removeMember`와
+   * 같다 — 잠금 전에 읽은 팀장은 권한의 정본이 아니다(#1269와 같은 이유).
+   *
+   * 같은 이름으로 바꾸는 요청은 성공이지만 쓰기도 audit도 없다 — 바뀐 것이 없는데
+   * 「바꿨다」는 감사 사실을 만들면 원장이 거짓말을 한다.
+   */
+  async renameTeam(
+    programId: string,
+    teamId: string,
+    actor: TeamActorAuthority,
+    name: string,
+    recordAudit: RecordTeamRenameAudit,
+  ): Promise<TeamRenameResult> {
+    return this.prisma.$transaction(async (tx) => {
+      await lockTeamRow(tx, teamId);
+
+      const team = await tx.team.findUnique({
+        where: { id: teamId },
+        select: {
+          programId: true,
+          name: true,
+          leaderId: true,
+          program: { select: { name: true } },
+        },
+      });
+      if (!team || team.programId !== programId) return 'not-found';
+      if (!actor.isStaff && team.leaderId !== actor.id) return 'forbidden';
+      if (team.name === name) return 'renamed';
+
+      await tx.team.update({ where: { id: teamId }, data: { name } });
+      await recordAudit(
+        { auditLogWriter: tx },
+        {
+          teamId,
+          programName: team.program.name,
+          previousName: team.name,
+          nextName: name,
+        },
+      );
+      return 'renamed';
+    });
   }
 
   findProgramById(programId: string): Promise<TeamProgramRecord | null> {
