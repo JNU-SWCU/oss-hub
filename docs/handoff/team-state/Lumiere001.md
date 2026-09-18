@@ -1129,3 +1129,17 @@
   전체 브라우저 회귀 결과와 실제 실행 기준은 PR 본문에 기록한다.
 - 경계: 미등록 요청 검사·타임아웃·재시도 설정을 유지한다.
   공지 가져오기 구현, 운영 설정, 기존 증거 파일, 병합·배포를 변경하지 않는다.
+
+## 2026-09-18 — 필터 칩을 공용 FilterChip으로 통일한다
+
+- 상태: review
+- Issue: [#1293](https://github.com/JNU-SWCU/oss-hub/issues/1293)
+- PR: (이 PR)
+- blocker: 없음
+- 범위: 여섯 화면(프로그램 목록·아카이브의 좁은 폭 칩, 참여 팀 필터, 서류 수합 필터, 검토 판정 선택, 제출 단계 이동)이 각자 만들던 눌림 버튼을 `components/filter-chip.tsx`의 `FilterChipGroup`·`FilterChip` 하나로 바꿨다.
+  눌림 시각은 Button의 `toggle` variant 한 곳에서 정한다. 둥근 알약이지만 44px 높이와 테두리라 StatusBadge와 구분된다.
+  화살표·Home·End 이동은 제출 단계 이동에만 있던 것을 묶음 컴포넌트가 갖게 해 여섯 곳 모두에서 된다.
+- 검증: frontend 단위 364 files·3691 tests, typecheck·eslint·prettier 통과. 격리 e2e 스택에서 여섯 화면을 같은 selector·DOM 경로로 전후 촬영했다(1440·390, 단계 이동은 768).
+- 경계: 라벨·개수 문구, 필터 값 계약, 서버 호출, 데스크톱 좌측 패널 메뉴, 프로그램 편집의 일정 범위 선택은 바꾸지 않았다.
+- 공개 안전성: 전후 화면은 합성 시드 계정·합성 프로그램으로 촬영했고 증거 이미지는 저장소에 커밋하지 않는다.
+- 주의: `design.md`에 R-34·AP-16·FilterChip 카드를 추가했다. 새 필터 칩은 `FilterChip`을 쓰고 `aria-pressed` 날 버튼을 만들지 않는다.
