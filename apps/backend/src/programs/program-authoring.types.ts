@@ -6,6 +6,7 @@ import type {
   ProgramTrackType,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
+import type { ProgramExternalCover } from './program-external-cover';
 
 export type ProgramAuthoringDocumentRequest = {
   readonly name: string;
@@ -23,6 +24,7 @@ export type ProgramAuthoringMilestoneRequest = {
 
 export type ProgramAuthoringRequest = {
   readonly coverUploadId?: string | null;
+  readonly externalCover?: ProgramExternalCover | null;
   readonly name: string;
   readonly organizer: string;
   readonly trackType: ProgramTrackType;
@@ -74,6 +76,7 @@ export type ProgramAuthoringMilestonePlan = {
 
 export type ProgramAuthoringPlan = {
   readonly coverUploadId?: string | null;
+  readonly externalCover?: ProgramExternalCover;
   readonly program: ProgramAuthoringProgramPlan;
   readonly milestones: readonly ProgramAuthoringMilestonePlan[];
   readonly uploadTokenIds: readonly string[];
@@ -190,10 +193,12 @@ export interface ProgramAuthoringTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   createProgram(
     plan: ProgramAuthoringProgramPlan,
-    cover?: {
-      readonly actorId: string;
-      readonly upload: ProgramAuthoringUploadToken;
-    },
+    cover?:
+      | {
+          readonly actorId: string;
+          readonly upload: ProgramAuthoringUploadToken;
+        }
+      | { readonly externalCover: ProgramExternalCover },
   ): Promise<ProgramAuthoringProgram>;
   createRequest(input: ProgramAuthoringCreateRequestInput): Promise<string>;
   lockUploads(

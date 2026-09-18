@@ -87,6 +87,25 @@ function expectValidationCodes(
 }
 
 describe('buildProgramAuthoringPlan', () => {
+  it('preserves an external cover without allocating an upload token', () => {
+    const externalCover = {
+      sourceUrl: 'https://sojoong.kr/notice/notice-board/?uid=123&mod=document',
+      imageUrl:
+        'https://sojoong.kr/wp-content/uploads/kboard_attached/1/202609/synthetic.jpg',
+    };
+    const input = { ...request(), externalCover };
+    const plan = buildProgramAuthoringPlan(input);
+    expect(plan).toHaveProperty('externalCover', externalCover);
+    expect(plan.uploadTokenIds).toEqual(
+      buildProgramAuthoringPlan(request()).uploadTokenIds,
+    );
+  });
+
+  it('rejects two explicitly provided cover choices including removal', () => {
+    const input = { ...request(), coverUploadId: null, externalCover: null };
+    expectValidationCodes(input, ['CONFLICTING_COVER_CHOICES']);
+  });
+
   it('normalizes attachment filenames and preserves their required values', () => {
     // Given: request strings, offsets, and optional fields are not canonical.
     const input = request();

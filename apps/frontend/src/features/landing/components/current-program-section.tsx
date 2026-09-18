@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ProgramCover } from '@/components';
-import { apiPath } from '@/lib/api-client';
+import { programCoverSource } from '@/components/program-cover-source';
 import { ArrowRight, CalendarDays } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { loadLandingPrograms } from '../api';
@@ -107,11 +107,7 @@ export function CurrentProgramSectionView({
                 >
                   <div className="flex min-w-0 items-center gap-4">
                     <ProgramCover
-                      src={
-                        program.coverImageUrl
-                          ? apiPath(program.coverImageUrl)
-                          : null
-                      }
+                      src={programCoverSource(program.coverImageUrl)}
                       size="thumbnail"
                     />
                     <div className="min-w-0">

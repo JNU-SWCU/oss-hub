@@ -197,6 +197,8 @@ export interface ProgramDeletionScopeCounts {
 
 export interface EditableProgram {
   readonly coverImageUrl?: string | null;
+  readonly externalCover?:
+    import('./program-cover-selection').ExternalProgramCover | null;
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
@@ -222,6 +224,8 @@ export interface EditableProgram {
 
 export type UpdateProgramInput = Omit<CreateProgramInput, 'endAt'> & {
   readonly coverUploadId?: string | null;
+  readonly externalCover?:
+    import('./program-cover-selection').ExternalProgramCover | null;
   readonly startAt: string;
   readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;

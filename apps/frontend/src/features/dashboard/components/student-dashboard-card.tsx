@@ -11,7 +11,7 @@ import {
 import Link from 'next/link';
 
 import { StatusBadge, ProgramCover } from '@/components';
-import { apiPath } from '@/lib/api-client';
+import { programCoverSource } from '@/components/program-cover-source';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -116,7 +116,7 @@ export function StudentDashboardCard({
         <div className="flex min-w-0 items-center gap-3">
           <ProgramCover
             size="thumbnail"
-            src={item.coverImageUrl ? apiPath(item.coverImageUrl) : null}
+            src={programCoverSource(item.coverImageUrl)}
           />
           <CardTitle className="min-w-0 break-keep text-lg">
             {item.programName}

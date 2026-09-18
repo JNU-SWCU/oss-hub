@@ -527,6 +527,9 @@ function mapProblemFieldErrors(
   for (const fieldError of fieldErrors ?? []) {
     switch (fieldError.field) {
       case 'coverUploadId':
+      case 'externalCover':
+      case 'externalCover.sourceUrl':
+      case 'externalCover.imageUrl':
         errors.coverUploadId =
           fieldError.code === 'INVALID_UPLOAD_TOKEN'
             ? '대표 이미지를 저장하지 못했습니다. 선택한 이미지는 유지됩니다. 다시 저장해 주세요.'

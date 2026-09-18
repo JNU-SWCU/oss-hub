@@ -18,6 +18,7 @@ import {
 } from 'class-validator';
 import type { ValidationOptions } from 'class-validator';
 import { ProgramTrackType } from '@prisma/client';
+import { ProgramCoverRequestDto } from './program-cover-request.dto';
 
 function isUnknownArray(value: unknown): value is readonly unknown[] {
   return Array.isArray(value);
@@ -96,13 +97,7 @@ export class ProgramAuthoringMilestoneRequestDto {
   declare readonly documents: readonly ProgramAuthoringDocumentRequestDto[];
 }
 
-export class ProgramAuthoringRequestDto {
-  @IsOptional()
-  @IsString()
-  @Matches(/^\S+$/u)
-  @MaxLength(128)
-  declare readonly coverUploadId?: string | null;
-
+export class ProgramAuthoringRequestDto extends ProgramCoverRequestDto {
   @IsString()
   @Matches(/\S/u)
   @MaxLength(200)

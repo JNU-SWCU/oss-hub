@@ -192,6 +192,7 @@ export class StudentDashboardService {
         coverImageUrl: programCoverImageUrl(
           application.program.id,
           application.program.cover?.id,
+          application.program.cover?.imageUrl,
         ),
         applicationId: application.id,
         programId: application.program.id,

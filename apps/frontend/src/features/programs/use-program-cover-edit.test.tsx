@@ -94,6 +94,49 @@ it('reuploads the retained file after a committed save loses its response and th
 });
 afterEach(() => vi.resetAllMocks());
 
+it('prepares an external cover without uploading, cleans a replaced pending file, and retains remove/revert semantics', async () => {
+  let editor: ReturnType<typeof useProgramCoverEdit> | undefined;
+  function Editor() {
+    editor = useProgramCoverEdit();
+    return null;
+  }
+  const root = createRoot(document.createElement('div'));
+  const current = () => {
+    if (!editor) throw new Error('Editor did not mount');
+    return editor;
+  };
+  const externalCover = {
+    sourceUrl: 'https://sojoong.kr/notice/?uid=42&mod=document',
+    imageUrl: 'https://sojoong.kr/wp-content/uploads/poster.jpg',
+  };
+  try {
+    await act(async () => root.render(<Editor />));
+    api.uploadProgramCover.mockResolvedValueOnce({
+      id: 'old-upload',
+      expiresAt: '2099-01-01T00:00:00Z',
+    });
+    await act(async () =>
+      current().change(
+        new File(['synthetic'], 'cover.png', { type: 'image/png' }),
+      ),
+    );
+    await current().prepare();
+    await act(async () => current().change(externalCover));
+    expect(api.deleteAuthoringUpload).toHaveBeenCalledWith('old-upload');
+    expect(await current().prepare()).toEqual({ kind: 'ready', externalCover });
+    expect(api.uploadProgramCover).toHaveBeenCalledTimes(1);
+    await act(async () => current().change(null));
+    expect(await current().prepare()).toEqual({
+      kind: 'ready',
+      coverUploadId: null,
+    });
+    await act(async () => current().change(undefined));
+    expect(await current().prepare()).toEqual({ kind: 'ready' });
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
 it('preserves the existing cover, keeps a retryable replacement, and distinguishes remove from unchanged', async () => {
   let editor: ReturnType<typeof useProgramCoverEdit> | undefined;
   function Editor() {
