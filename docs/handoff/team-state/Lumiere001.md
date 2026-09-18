@@ -1174,3 +1174,17 @@
   비교의 Before는 이번 리뷰 수정 전 PR 소스이며 기존 main 대비 기능 증거와 구분한다.
 - 경계: 디자인 시스템 방향 결정, 팀 저장소 URL 관리, 병합·배포는 이 수정에 포함하지 않는다.
   기존 미커밋 증거 두 파일은 그대로 보존하며 새 캡처는 제품 브랜치에 넣지 않는다.
+
+## 2026-09-19 — 창 껍데기를 공용 DialogShell로 올린다
+
+- 상태: review
+- Issue: [#1296](https://github.com/JNU-SWCU/oss-hub/issues/1296)
+- PR: (이 PR)
+- blocker: 없음
+- 범위: `features/programs/program-authoring-dialog.tsx`에 있던 창 껍데기를 `components/dialog-shell.tsx`의 `DialogShell`로 올리고 shadcn `ui/dialog.tsx` 위에 다시 조립했다.
+  마일스톤 추가·일정 범위·팀원 초대·팀 이름 변경·공지 가져오기 다섯 창이 공용 껍데기를 쓴다. 호출부 API(`onCancel`·`onSave`/`footer`·`busy`·`returnFocusRef`·`size`)는 그대로다.
+  오버레이는 기존 창과 같은 어두운 반투명으로 두었고 좁은 폭의 버튼 줄도 한 줄 오른쪽 정렬을 유지해, 창 안팎 모두 이전 화면과 같다(전후 캡처 픽셀 대조 0.00%).
+- 검증: frontend 단위 367 files·3706 tests, typecheck·eslint·prettier 통과. 격리 e2e 스택에서 다섯 창을 `[role="dialog"]`로 전후 촬영했다(1440·390).
+- 경계: 창 안의 업무 로직·저장 API·권한, 확인창 문구와 버튼 이름은 바꾸지 않았다. 남은 radix 직접 import 11파일과 `div role="dialog"` 4곳은 후속이다.
+- 공개 안전성: 전후 화면은 합성 시드 계정·합성 프로그램으로 촬영했고 증거 이미지는 저장소에 커밋하지 않는다.
+- 주의: 새 창은 `DialogShell`을 쓰고 radix Dialog를 직접 조립하지 않는다(R-06). 동의 안내 창(consents)은 아직 `ui/dialog` 직접 조합이라 오버레이가 밝은 흐림이다 — 후속에서 맞춘다.
