@@ -11,9 +11,9 @@ import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repositor
 import type { OwnGithubRepositoryResolution } from '../github/service/own-repository-url-validation.service';
 import {
   REPOSITORY_PROVISION_EVENT_TYPE,
+  canonicalGithubLogins,
   parseRepositoryProvisionEvent,
 } from '../github/repository-provision-event';
-import { canonicalGithubLogins } from '../github/repository-provision-state.helpers';
 import {
   settleProvisionGenerationForSynchronousConnection,
   transferProvisionGeneration,

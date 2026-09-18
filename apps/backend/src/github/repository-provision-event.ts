@@ -236,3 +236,23 @@ function isGithubLogin(value: unknown): value is string {
     /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/.test(value)
   );
 }
+
+/**
+ * GitHub login 정규화 — trim + 소문자 + 빈 값 제거 + 중복 제거 + 사전순 정렬.
+ * 이 payload 계약이 `collaboratorGithubLogins`에 바로 이 모양을 요구하므로
+ * 정본을 계약과 같은 자리에 둔다. fingerprint 비교가 표기·순서 차이로 흔들리면
+ * 완료 직전 재확인이 매번 거짓 불일치를 내고 job이 영원히 재무장된다.
+ */
+export function canonicalGithubLogin(login: string | null | undefined): string {
+  return (login ?? '').trim().toLowerCase();
+}
+
+export function canonicalGithubLogins(
+  logins: readonly (string | null | undefined)[],
+): readonly string[] {
+  return [
+    ...new Set(
+      logins.map(canonicalGithubLogin).filter((login) => login.length > 0),
+    ),
+  ].sort();
+}

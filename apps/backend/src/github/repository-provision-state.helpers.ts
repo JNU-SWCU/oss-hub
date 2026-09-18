@@ -16,6 +16,10 @@ import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
 } from './repository-identity';
+import {
+  canonicalGithubLogin,
+  canonicalGithubLogins,
+} from './repository-provision-event';
 import type { GithubRepositoryMetadata } from './github-app.client';
 import type {
   ProvisionedRepository,
@@ -347,24 +351,9 @@ export function invitationIntent(
     : 'GRANT';
 }
 
-/**
- * GitHub login 정규화 — trim + 소문자 + 빈 값 제거 + 중복 제거 + 사전순 정렬.
- * fingerprint 비교가 표기 차이나 순서 차이로 흔들리면 완료 직전 재확인이
- * 매번 거짓 불일치를 내고 job이 영원히 재무장된다.
- */
-export function canonicalGithubLogin(login: string | null | undefined): string {
-  return (login ?? '').trim().toLowerCase();
-}
-
-export function canonicalGithubLogins(
-  logins: readonly (string | null | undefined)[],
-): readonly string[] {
-  return [
-    ...new Set(
-      logins.map(canonicalGithubLogin).filter((login) => login.length > 0),
-    ),
-  ].sort();
-}
+// login 정규화는 outbox payload 계약이 요구하는 모양(중복 없음·정렬)과 같은
+// 규칙이라 그 계약을 가진 순수 모듈이 정본을 든다 — 여기서는 다시 내보낼 뿐이다.
+export { canonicalGithubLogin, canonicalGithubLogins };
 
 /** 정규화된 login 목록 그대로가 지문이다 — 별도 해시를 두지 않는다. */
 export function membershipFingerprint(logins: readonly string[]): string {
