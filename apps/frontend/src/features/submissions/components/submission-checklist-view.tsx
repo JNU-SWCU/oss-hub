@@ -74,7 +74,7 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
         title="제출 현황"
         meta={
           count.revisionNeeded > 0
-            ? `보완 필요 ${count.revisionNeeded}건`
+            ? `보완 요청 ${count.revisionNeeded}건`
             : undefined
         }
       />

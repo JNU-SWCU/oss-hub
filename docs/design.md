@@ -220,6 +220,24 @@ CSS 파일 일반과 컴포넌트 CSS는 이 규칙 대상이 아니다.
 화면에 들어온 사용자가 원래 하려던 일을 이어갈 수 있도록 `다시 시도`, `목록으로 이동`, `일정으로 이동`, `제출 항목 추가`처럼 목적에 맞는 다음 행동을 하나 이상 제공한다.
 권한이 없으면 필요한 권한과 대신 갈 수 있는 화면을 함께 말한다.
 
+## 상태 어휘 (용어 사전)
+
+같은 상태는 모든 화면에서 같은 말과 같은 배지 색으로 부른다.
+**R-35** 상태 라벨과 StatusBadge 변형은 `apps/frontend/src/lib/status-vocabulary/`에서만 정의하고 feature는 그것을 import한다. feature 안에 `Record<…Status, string>` 라벨 상수나 variant 삼항 분기를 새로 만들지 않으며, 같은 상태에 두 번째 이름이 필요해 보이면 이 표를 고친다.
+
+| 도메인 | 값 | 라벨 | 배지 | 뜻 |
+| --- | --- | --- | --- | --- |
+| 제출(서류) | NOT_SUBMITTED | 미제출 | closed | 아직 낸 것이 없다 |
+| 제출(서류) | SUBMITTED | 검토 대기 | recruiting | 냈고 교직원이 볼 차례다 |
+| 제출(서류) | APPROVED | 승인 | approved | 판정 끝, 통과 |
+| 제출(서류) | CHANGES_REQUESTED | 보완 요청 | pending | 고쳐서 다시 내야 한다(학생이 할 일) |
+| 제출(서류) | REJECTED | 반려 | rejected | 판정 끝, 재제출 불가. 판정 **버튼** 이름은 재제출을 막는다는 뜻을 담아 「최종 반려」다 |
+| 역할 | STUDENT · STAFF · ADMIN · null | 학생 · 교직원 · 관리자 · 미지정 | closed · pending · approved · closed | 미지정은 값이 없는 것이지 실패가 아니다 |
+| 계정 상태 | ACTIVE · DEACTIVATED | 활성 · 비활성 | approved · closed | |
+| 신청 | SUBMITTED · APPROVED · REJECTED | 검토 대기 · 승인 · 반려 | pending · approved · rejected | 원본은 아직 `features/programs/application-presentation.ts`(#869 결정). 후속 이전 대상 |
+
+2026-09-19 결정(#1295): 제출 어휘는 교직원 서류 판정 화면의 말을 학생 화면 전체에 쓴다. 이전에는 「제출 전·제출됨·보완 필요·최종 반려」(프로그램 상세·체크리스트)와 「검토 중·승인 완료·수정 요청」(대시보드)이 같은 상태를 달리 불렀고, 배지도 학생 화면은 보완 요청을 붉게 칠했다. 게시판 댓글의 작성자 역할(ADMIN을 교직원으로 접음)과 검토 판정 버튼(`features/reviews`)은 이 표의 대상이 아니다.
+
 ## 피드백·알림
 
 | type | 트리거·범위 | 허용 kind | 소유 프리미티브 | 배치 | role / aria-live | 포커스 동작 | 소멸·지속 | 필수 액션 |
@@ -306,6 +324,7 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 | AP-13 | 단언과 무관한 공유 카탈로그 | 여러 테스트가 쓰지 않는 완성 응답·시나리오 묶음을 공용 모듈로 키움 | R-18·R-19 |
 | AP-14 | `satisfies`를 wire·영속 증명으로 오인 | DTO `satisfies`만으로 배포된 API나 DB 동작을 통과로 기록 | R-21 |
 | AP-15 | runtime의 테스트 데이터 import | `apps/frontend/src/**` 런타임 모듈이 테스트 전용 모듈을 해석 가능하게 의존 | R-20 |
+| AP-18 | 상태 라벨 중복 정의 | `features/**`의 `Record<…Status, string>` 라벨 상수, StatusBadge variant 삼항 분기 | R-35 |
 
 ## 수용된 부채 (2026-09-03)
 
@@ -452,7 +471,7 @@ Don't use when: 다음 행동이 필요한 피드백이면 대신 Alert를 쓴�
 Slots·Props: 미export — §수용된 부채(R-04).
 States: variant는 `recruiting`·`closed`·`pending`·`approved`·`rejected` 다섯 개다.
 Accessibility: 색만으로 상태를 전달하지 않고 라벨 텍스트가 상태를 말한다.
-Do·Don't: 도메인 상태는 다섯 variant에 매핑하고 새 색 조합을 호출자가 만들지 않는다.
+Do·Don't: 도메인 상태는 다섯 variant에 매핑하고 새 색 조합을 호출자가 만들지 않는다. 라벨과 variant는 `lib/status-vocabulary`의 맵에서 가져온다(R-35, §상태 어휘).
 
 ### ProgramCountdown (+ remainingUntil · formatClock · formatCountdownDate) — 그룹
 Use when: 다음 마감까지 남은 시간과 날짜를 표시할 때 쓴다.
