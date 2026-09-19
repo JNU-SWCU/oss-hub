@@ -73,6 +73,10 @@ test('모르는 필드가 섞여도 파싱한다 — 봉투와 항목 양쪽', (
     githubLogin: 'mina',
     commitCount: 2,
     pullRequestCount: 1,
+    issueCount: 3,
+    repositoryCount: 4,
+    starCount: 5,
+    total: 15,
   });
   expect(page.viewerClass).toBe('public');
   expect(page.nextCycleAt).toBeNull();
@@ -117,22 +121,30 @@ test('공개 허용 목록 밖 구식 지표는 읽지 않는다', () => {
     ],
   });
 
+  // `releaseCount` 는 폐기된 지표다 — 공개 항목에 실리지 않는다.
+  // 빠진 새 지표는 0 으로 읽는다: 백엔드가 뒤따라 배포되는 동안에도
+  // 화면이 죽지 않아야 한다.
   expect(page.items[0]).toEqual({
     rank: 1,
     githubLogin: 'mina',
     commitCount: 2,
     pullRequestCount: 1,
+    issueCount: 0,
+    repositoryCount: 0,
+    starCount: 0,
+    total: 4,
   });
+  expect(page.items[0]).not.toHaveProperty('releaseCount');
 });
 
-test('public total 은 파싱 결과에 남기지 않는다', () => {
+test('public total 을 파싱 결과에 남긴다', () => {
   const base = rankingPage(2026);
   const page = parseRankingPage({
     ...base,
     items: [{ ...base.items[0], total: 99 }],
   });
 
-  expect(page.items[0]).not.toHaveProperty('total');
+  expect(page.items[0]).toHaveProperty('total', 99);
 });
 
 test('필수 필드는 형이 어긋나면 계속 거부한다', () => {
@@ -271,7 +283,7 @@ test('viewerClass 가 public|staff 가 아니면 거부한다', () => {
   ).toThrow(RankingResponseError);
 });
 
-test('public 항목은 네 키만 남기고 staff 항목은 richer shape을 유지한다', () => {
+test('public 항목은 지표 여덟 키만 남기고 staff 항목은 richer shape을 유지한다', () => {
   const base = rankingPage(2026);
   const publicPage = parseRankingPage(base);
   const staffPage = parseRankingPage({
@@ -283,9 +295,17 @@ test('public 항목은 네 키만 남기고 staff 항목은 richer shape을 유�
   expect(Object.keys(publicPage.items[0] ?? {}).sort()).toEqual([
     'commitCount',
     'githubLogin',
+    'issueCount',
     'pullRequestCount',
     'rank',
+    'repositoryCount',
+    'starCount',
+    'total',
   ]);
+  // 공개가 감추는 것은 지표가 아니라 신원이다.
+  for (const identity of ['name', 'department', 'displayName']) {
+    expect(publicPage.items[0]).not.toHaveProperty(identity);
+  }
   expect(staffPage.items[0]).toEqual({
     rank: 1,
     displayName: 'mina',
