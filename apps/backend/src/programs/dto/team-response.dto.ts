@@ -1,5 +1,6 @@
 import type {
   CreatedTeamView,
+  DeletedTeamView,
   ProgramTeamView,
   RenamedTeamView,
   StaffTeamView,
@@ -39,6 +40,26 @@ export class RenameTeamResponseDto {
 
   static from(view: RenamedTeamView): RenameTeamResponseDto {
     return new RenameTeamResponseDto(view);
+  }
+}
+
+/**
+ * 삭제 응답 — 실제로 거둔 수치를 확인 창이 보여준 것과 같은 축으로 돌려준다.
+ * `detachedRepositories`는 지운 수가 아니라 연결만 끊은 저장소 수다.
+ */
+export class DeleteTeamResponseDto {
+  readonly teamId: string;
+  readonly deleted: true;
+  readonly deletedCounts: DeletedTeamView['deletedCounts'];
+
+  private constructor(view: DeletedTeamView) {
+    this.teamId = view.teamId;
+    this.deleted = view.deleted;
+    this.deletedCounts = view.deletedCounts;
+  }
+
+  static from(view: DeletedTeamView): DeleteTeamResponseDto {
+    return new DeleteTeamResponseDto(view);
   }
 }
 

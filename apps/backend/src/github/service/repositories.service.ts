@@ -69,11 +69,12 @@ export class RepositoriesService {
       // job이 SUCCEEDED를 벗어나도 학생의 저장소는 그대로 존재하므로, status로
       // 저장소를 숨기면 화면이 "저장소가 사라졌다"고 거짓말한다. 대신 저장소가
       // 존재하는 모든 phase에서 identity를 검증해 잘못된 행을 노출하지 않는다.
-      const repository = job.repository;
+      //
+      // 연결의 정본은 `Application.repository`다 — job이 붙든 행을 읽으면 저장소를
+      // 교체한 뒤에 옛 행이 나온다. 신청을 거쳐 읽으므로 신청과 저장소가
+      // 어긋나는 상황 자체가 구조적으로 생기지 않는다.
+      const repository = job.application.repository;
       if (repository !== null) {
-        if (repository.applicationId !== job.application.id) {
-          throw new RepositoryProvisionStateError();
-        }
         if (
           !isValidRepositoryIdentity(
             repository.name,

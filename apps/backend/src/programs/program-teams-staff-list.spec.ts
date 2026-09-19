@@ -8,6 +8,7 @@ import {
   type TeamProgramRecord,
 } from './repository/program-teams.repository';
 import { ProgramTeamsService } from './service/program-teams.service';
+import { stubTeamDeletionRepository } from './service/program-teams.service.test-support';
 import { TeamsErrorCode } from './teams-error-code.enum';
 
 /**
@@ -46,6 +47,7 @@ function buildService(overrides: {
     repository,
     loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
     { record: jest.fn() } as unknown as AuditLogService,
+    stubTeamDeletionRepository(),
   );
   return { service, findProgramById, listStaffTeams };
 }

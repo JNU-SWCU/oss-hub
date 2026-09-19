@@ -1777,6 +1777,28 @@
 - 남은 것: 참여 팀 표는 한 행에서 팀명 링크와 행 클릭이 서로 다른 화면으로 가므로, 행 클릭을 팀 상세 팝업 하나로 모으고 작업 열을 없앤다. 공용 dialog 껍데기는 `components/ui/dialog.tsx`가 이미 있고 판정 창은 `application-decision-dialog.tsx`를 재사용한다. `design.md`의 참여 팀·사이드바 결정도 함께 고친다.
 - 공개 안전성: 합성 데이터로만 검증했으며 운영 데이터·접속 정보·개인 경로를 이 기록에 넣지 않았다.
 
+## 2026-09-18 — 신청이 현재 저장소 연결을 소유하고 교직원이 팀을 삭제한다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 현재 저장소 연결의 정본을 발급 job에서 `Application`으로 옮기고, 발급 요청은 세대(`currentEventId`)로만 유효해지게 했다. 발급 job·outbox 이벤트·발급 이력은 이제 큐와 이력일 뿐 현재 연결을 대신 말하지 않는다.
+- 내용: `PATCH /api/v1/repositories/:applicationId/connection`을 추가했다. OWN은 같은 트랜잭션에서 저장소 포인터·mode·url을 한 묶음으로 바꾸고, NEW는 새 세대를 예약만 하며 워커가 실제로 붙일 때까지 기존 연결을 그대로 보여준다.
+- 내용: 교직원 팀 삭제(`DELETE /api/v1/programs/:programId/teams/:teamId`)는 `PROGRAM_PURGE_DELETION_ORDER`를 팀 범위로 좁힌 순서를 그대로 쓰고, 확인 창이 본 범위를 `expectedScope`로 되돌려받아 삭제 트랜잭션 안에서 다시 세어 다르면 409(TEAM_019)로 멈춘다.
+- 설계: 세대 이양은 요청을 받는 트랜잭션에서 끝난다. 컨슈머가 돌 때까지 미루면 그 틈에 낡은 워커가 저장소를 붙여 버린다. 이양 시점에 job의 `repositoryId`를 비워 「현재 세대가 만든 결과」와 「신청이 지금 쓰는 연결」을 구분한다.
+- 설계: 워커·컨슈머의 모든 쓰기는 자기가 집어 든 요청 id로 울타리를 친다. 낡은 요청은 후속 요청의 job 상태·lease·재시도 값을 한 칸도 건드리지 않고 자기 이력만 `SUPERSEDED`로 닫는다.
+- 설계: 발급 이력(`RepositoryIssuanceHistory`)은 `applicationId`를 FK가 아닌 인덱스 칸으로 들고 있어 팀·프로그램·신청이 지워져도 남는다. `requestId` unique가 종료 결과를 요청당 정확히 한 행으로 고정한다.
+- 설계: 동기 OWN 교체는 새 워커 세대를 만들지 않는다. 진행 중이던 비동기 세대를 `SUPERSEDED`로 닫고 job을 새 연결의 완료 상태로 맞춘다. 그러지 않으면 교체가 끝났는데 옛 세대가 계속 유효한 요청으로 남는다.
+- 주의: 대상 저장소 행을 `FOR UPDATE`로 잠근 뒤에 `source` 우열을 판정한다. 잠그기 전 스냅샷으로 판정하면 동시에 들어온 `ORG_PROVISIONED` 승격을 `EXTERNAL_PUBLIC`로 덮어쓴다.
+- 주의: `RepositoryProvisionJob.repositoryId`의 unique를 마지막에 지웠다. 소유권 이전과 세대 울타리가 먼저 서 있지 않으면 한 저장소를 두 job이 가리키는 순간 현재 연결을 판정할 방법이 사라진다.
+- 주의: `currentEventId` 마이그레이션은 기존 job을 추정 backfill하지 않는다. 옛 행은 null로 남아 claim에서 제외되고 다음 명시적 요청에서 세대를 받는다. timestamp·id 추정으로 채우면 잘못된 요청 payload를 실행한다.
+- 검증: backend 343 suites / 4,185 tests, 격리 DB 106 suites / 707 tests, frontend 372 files / 3,891 tests, installed Chrome E2E 74 tests가 통과했다.
+- 검증: workspace lint·typecheck·build와 전체 format 검사를 통과했다. 기존 frontend anchor 경고 5건과 Jest 종료 지연 경고는 숨기지 않았다.
+- 주의: `pnpm test`는 backend Jest와 frontend Vitest를 동시에 돌려 CPU가 포화되면 5초 타임아웃 테스트 하나가 흔들린다. 각 패키지를 따로 돌리면 재현되지 않는다.
+- 범위: 연결 교체 화면은 이 PR에 없다. backend 계약과 감사 표시까지이며 교직원 팀 삭제 버튼도 아직 화면에 붙이지 않았다.
+- 남은 것: 팀 상세 화면의 삭제 확인 창과 연결 교체 UI는 이 계약 위에 올린다. 화면은 `deletionScope`를 그대로 보여주고 누를 때 같은 값을 돌려보내면 된다.
+- 공개 안전성: 합성 데이터와 합성 캡처만 썼고 새 Release를 발행하지 않았다. 증거 이미지는 이미 발행된 v0.6.162에 에셋으로만 올렸다.
 ## 2026-09-17 — 교직원 팀 상세에서 팀 이름을 고친다
 
 - 상태: review
@@ -1835,3 +1857,35 @@
 - 검증: frontend 363 files / 3,688 tests, Chrome E2E 2 tests 통과. 창에 설명문도 `label`도 없다는 것, 빈 이름이 이유를 말하고 요청하지 않는다는 것, 같은 이름이 요청 없이 닫힌다는 것을 시험으로 고정했다.
 - 검증: 실제 시드(`한빛 팀`)로 창을 눈으로 확인했다 — 제목·입력칸·취소/저장뿐이고 콘솔 경고가 없다.
 - 공개 안전성: 합성 데이터로만 검증했으며 운영 데이터·접속 정보·개인 경로를 이 기록에 넣지 않았다.
+
+## 2026-09-18 — 연결 소유권 브랜치를 main과 합친다
+
+- 상태: review
+- Issue: -
+- PR: #1292
+- blocker: 없음
+- 내용: main이 그 사이 팀 이름 변경 화면·저장소 URL 변경 흐름·목록 카드 통합을 병합해 이 브랜치와 26개 파일이 충돌했다. 한 번의 merge로 풀고 양쪽 동작을 모두 남겼다.
+- 내용: 이 브랜치가 들고 있던 팀 이름 변경 구현은 main의 것이 이미 더 다듬어져 있어 버리고 main 쪽을 그대로 썼다. 감사 라벨·배지·서술도 main이 먼저 넣은 `TEAM_RENAMED`를 남기고 중복만 지웠다.
+- 통합: main의 학생 저장소 URL 변경은 job만 재무장하고 세대를 닫지 않았다. 그대로 두면 낡은 요청 payload를 든 worker가 방금 바꾼 연결을 덮어쓴다. 외부 저장소는 세대를 닫고 완료로, 조직 저장소는 세대를 닫은 뒤 새 OWN 요청을 발행해 worker가 초대 조정을 이어가게 했다.
+- 주의: job의 `repositoryId`는 이제 「이 세대가 만든 결과」다. 새 요청을 발행한 직후에는 null이고 worker가 붙일 때 채워진다. 현재 연결을 알고 싶으면 `Application.repository`를 본다.
+- 주의: `loadContext`는 job과 신청의 저장소가 어긋나도 더 이상 실패하지 않고 「이 세대의 결과 없음」으로 읽는다. 교체가 정상 상태이기 때문이며, 옛 mismatch 단정 테스트를 그 계약으로 고쳤다.
+- 주의: main이 로컬 검토 어댑터를 지웠다. 화면 증거는 이제 실제 backend를 붙인 `pnpm dev`나 e2e 스택에서 찍는다. 이 PR의 캡처는 병합 전 트리에서 당시 어댑터로 찍은 것이라 본문에 그 사실을 적었다.
+- 검증: backend 348 suites / 4,269 tests, 격리 DB 110 suites / 738 tests, frontend 363 files / 3,688 tests, installed Chrome 98 tests가 병합 뒤 기준으로 통과했다.
+- 검증: workspace lint·typecheck·build와 전체 format 검사를 통과했다. 기존 frontend anchor 경고 5건과 Jest 종료 지연 경고는 숨기지 않았다.
+- 공개 안전성: 합성 데이터만 썼고 증거 이미지는 이미 발행된 v0.6.162에 에셋으로만 올렸다.
+
+## 2026-09-19 — 교직원 팀 삭제 화면을 붙인다
+
+- 상태: review
+- Issue: -
+- PR: #1292
+- blocker: 없음
+- 내용: 팀 상세 맨 아래 「위험 영역」에 팀 삭제를 붙였다. 확인창이 `deletionScope`를 그대로 보여 주고, 본 그 값을 `expectedScope`로 되돌려 보낸다.
+- 설계: 창 껍데기는 이름 변경 창과 같은 `ProgramAuthoringDialog`를 쓰고, 범위 왕복과 409 재확인은 프로그램 purge 확인창의 방식을 그대로 따랐다. 두 번째 관행을 만들지 않았다.
+- 설계: 409(TEAM_019)에 자동 재시도하지 않는다. 응답이 실은 현재 범위로 창을 갱신하고 사람이 다시 누르게 한다.
+- 설계: `detachedRepositories`는 「삭제될 데이터」와 섞지 않고 연결 해제로 따로 적는다. 저장소는 지우지 않기 때문이다.
+- 검증: 교직원 세션으로 팀원 4명짜리 팀을 실제로 지웠다. `DELETE 200`, 참여 팀 목록 복귀, 팀·팀원 행 제거, `TEAM_DELETED` 감사 1건을 DB에서 확인했다.
+- 검증: frontend 368 files / 3,714 tests, typecheck, lint, 전체 format 검사를 통과했다. 기존 anchor 경고 5건은 그대로다.
+- 주의: 로컬 확인 중 `GET /api/v1/programs`가 500이었다. main 병합으로 들어온 `20260912090000_add_external_program_cover`를 로컬 DB에 적용하지 않은 탓이며, 병합 뒤에는 마이그레이션을 다시 적용해야 한다.
+- 남은 것: 참여 팀 목록에 삭제 결과 알림을 띄우는 것은 그 화면 몫으로 남겼다. 지금은 창이 결과를 말하고 목록으로 돌아간다.
+- 공개 안전성: 합성 데이터로만 확인했고 캡처는 이미 발행된 v0.6.162에 에셋으로만 올렸다.

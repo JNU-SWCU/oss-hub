@@ -1,5 +1,6 @@
 import type { PublishBlockedReason } from '../common/repository-publication';
 import type { TeamRepositoryEvidenceView } from './program-team-repository-evidence.types';
+import type { TeamDeletionScopeCounts } from './team-deletion-scope';
 
 export interface TeamMemberView {
   readonly userId: string;
@@ -112,6 +113,10 @@ export interface TeamApplicationView {
 /**
  * 교직원 전용 팀 상세(#874) — `listForStaff`의 한 팀에 신청·저장소 발급 상태를
  * 더한 모양이다. 학번·학과·연락처·이메일·참여코드는 여전히 담지 않는다.
+ *
+ * `deletionScope`는 삭제 확인 창이 「무엇이 함께 지워지는가」를 말하기 위해 읽는 스냅샷이고,
+ * 화면은 본 그대로를 `expectedScope`로 돌려보낸다. 목록(`StaffTeamView`)에는 두지 않는다 —
+ * 목록은 한 번에 여러 팀을 그리며, 누르기 전에 읽은 수치는 이미 낡은 것이다.
  */
 export interface StaffTeamDetailView extends TeamRepositoryEvidenceView {
   readonly teamId: string;
@@ -119,4 +124,15 @@ export interface StaffTeamDetailView extends TeamRepositoryEvidenceView {
   readonly memberCount: number;
   readonly members: readonly TeamMemberView[];
   readonly application: TeamApplicationView | null;
+  readonly deletionScope: TeamDeletionScopeCounts;
+}
+
+/**
+ * 삭제 결과 — 실제로 지운 수치를 돌려준다. 화면은 이 수치로 「무엇이 사라졌는지」를
+ * 확인 창이 보여준 예고와 같은 말로 마무리한다.
+ */
+export interface DeletedTeamView {
+  readonly teamId: string;
+  readonly deleted: true;
+  readonly deletedCounts: Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>;
 }

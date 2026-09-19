@@ -1,4 +1,4 @@
-export type ProgramPurgeDeletionStep = {
+export type PurgeDeletionStep = {
   readonly id: string;
   readonly operation: 'DELETE' | 'DETACH' | 'TOMBSTONE' | 'PRESERVE';
   /** Prisma schema의 부모→자식 관계. 논리 자식은 `logical:` 접두사를 쓴다. */
@@ -180,4 +180,68 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
     operation: 'TOMBSTONE',
     covers: ['Program->ProgramCover'],
   },
-] as const satisfies readonly ProgramPurgeDeletionStep[];
+] as const satisfies readonly PurgeDeletionStep[];
+
+/**
+ * 팀 하나만 지울 때 실제로 부모가 되는 모델. `Program`·`Milestone`·`BoardPost`·
+ * `ProgramCreateRequest`처럼 프로그램에 매달린 부모는 팀을 지운다고 사라지지 않으므로
+ * 여기 없다 — 그 자식들은 팀 삭제가 건드릴 것이 아니다.
+ */
+const TEAM_SUBTREE_PARENTS: ReadonlySet<string> = new Set([
+  'Team',
+  'Application',
+  'GithubRepository',
+  'MilestoneDocumentSubmission',
+  'MilestoneDocumentSubmissionHistory',
+]);
+
+/** 지워지는 팀 행 자체. 부모는 Program이지만 팀 삭제의 마지막 단계다. */
+const TEAM_ROW_RELATION = 'Program->Team';
+
+/**
+ * 논리 자식은 부모 모델을 문자열로 적을 뿐이라 기계적으로 좁힐 수 없다. 같은 행을
+ * 프로그램은 `programId`로, 팀은 그 팀의 `Application` id로 찾는다 — 도달 경로만 다르고
+ * 대상은 같은 행이므로 여기서 팀 범위의 이름으로 바꿔 단다.
+ *
+ * 이 표에 없는 논리 자식은 Program에만 매달린 것이다. `DEADLINE_DIGEST`는
+ * `prefix:date:programId:recipientId`로 프로그램 전 수신자에게 나가므로 팀 하나를
+ * 지운다고 지울 수 없고, `PublicShowcaseRepository` projection은 `programId`로만 묶이며
+ * 그 `repositoryId`가 가리키는 `GithubRepository`는 팀 삭제가 DETACH로 보존한다.
+ */
+const TEAM_SCOPED_LOGICAL_COVERS: Readonly<Record<string, string>> = {
+  'logical:Application->OutboxEvent': 'logical:Application->OutboxEvent',
+  'logical:Program->Notification[APPLICATION_DECISION,payload.programId]':
+    'logical:Application->Notification[APPLICATION_DECISION,payload.applicationId]',
+  'logical:Program->Notification[APPLICATION_DECISION_ACKNOWLEDGED,idempotencyKey]':
+    'logical:Application->Notification[APPLICATION_DECISION_ACKNOWLEDGED,idempotencyKey]',
+};
+
+function narrowCoverToTeam(relation: string): string | null {
+  if (relation.startsWith('logical:')) {
+    return TEAM_SCOPED_LOGICAL_COVERS[relation] ?? null;
+  }
+  if (relation === TEAM_ROW_RELATION) return relation;
+  return TEAM_SUBTREE_PARENTS.has(relation.slice(0, relation.indexOf('->')))
+    ? relation
+    : null;
+}
+
+/**
+ * 교직원 팀 삭제의 삭제 순서. **새로 만들지 않는다** — 위 program purge 순서에서 팀에
+ * 매달린 관계만 남겨 좁힌 것이고, 단계의 상대 순서와 operation은 그대로 물려받는다.
+ * 그래서 팀 삭제가 program purge와 다른 순서로 갈라질 수 없다(`teams` 단계가 마지막인
+ * 것, `applications`가 그보다 먼저인 것 모두 위 배열이 정한다).
+ *
+ * `GithubRepository`는 여기서도 DELETE가 아니라 DETACH다 — 수집 이력(Contribution·
+ * CollectionCommitFact 등)이 그 아래 Cascade로 매달려 있어서, 저장소 행을 지우면 팀
+ * 하나를 지우려다 전역 수집 자산이 함께 사라진다. 그 손자들은 `PRESERVE` 단계가
+ * 「부모가 남으니 그대로 둔다」고 명시적으로 선언한다.
+ */
+export const TEAM_PURGE_DELETION_ORDER: readonly PurgeDeletionStep[] =
+  PROGRAM_PURGE_DELETION_ORDER.map((step) => ({
+    id: step.id,
+    operation: step.operation,
+    covers: step.covers
+      .map(narrowCoverToTeam)
+      .filter((relation): relation is string => relation !== null),
+  })).filter((step) => step.covers.length > 0);
