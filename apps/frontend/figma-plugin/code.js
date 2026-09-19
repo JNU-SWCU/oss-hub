@@ -1146,19 +1146,17 @@ async function buildCards(buttonSet) {
     crossAlign: 'MIN',
     gap: 4,
   });
-  titles.appendChild(
-    await makeText('수강 신청 · 팀 등록', {
-      size: 16,
-      weight: 'semibold',
-      letter: -1,
-    }),
-  );
-  titles.appendChild(
-    await makeText('시작 2026년 8월 5일 · 마감 2026년 8월 6일', {
-      size: 13,
-      color: 'muted-foreground',
-    }),
-  );
+  const title = await makeText('수강 신청 · 팀 등록', {
+    size: 16,
+    weight: 'semibold',
+    letter: -1,
+  });
+  const meta = await makeText('시작 2026년 8월 5일 · 마감 2026년 8월 6일', {
+    size: 13,
+    color: 'muted-foreground',
+  });
+  titles.appendChild(title);
+  titles.appendChild(meta);
   header.appendChild(titles);
   const actions = frame('actions (RowActions)', { gap: 6 });
   for (const name of ['pencil', 'trash-2'])
@@ -1166,6 +1164,13 @@ async function buildCards(buttonSet) {
   header.appendChild(actions);
   card.appendChild(header);
   header.layoutSizingHorizontal = 'FILL';
+  // 코드의 CardHeader는 grid-cols-[1fr_auto]다 — 제목 묶음이 남는 폭을 채우고 글이
+  // 줄바꿈하며, 오른쪽 액션은 제 크기를 지킨다. 안 그러면 긴 제목이 액션을 밀어내 잘린다.
+  titles.layoutSizingHorizontal = 'FILL';
+  for (const text of [title, meta]) {
+    text.textAutoResize = 'HEIGHT';
+    text.layoutSizingHorizontal = 'FILL';
+  }
   const content = frame('content', {
     direction: 'VERTICAL',
     crossAlign: 'MIN',
