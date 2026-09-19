@@ -87,21 +87,30 @@ function readOptionalName(value: unknown): string | null | undefined {
  * 닫아 두고 목록 밖 키가 하나만 와도 페이지 전체를 거부해서, 백엔드가 칸을
  * 하나 더 붙이는 순간 랭킹 화면이 통째로 죽었다.
  *
- * Public items retain only the consent-aligned four-key projection. Staff
- * items keep the richer operational fields and tolerate omitted legacy
- * optional metrics as zero.
+ * Public items carry the consent-aligned metric projection — identity stays
+ * out (`name`·`department`), and omitted metrics read as zero so a frontend
+ * deployed ahead of the backend still renders. Staff items keep the richer
+ * operational fields on the same tolerant rule.
  */
 function parsePublicRankingItem(value: unknown): PublicRankingItem | null {
   if (!isRecord(value)) {
     return null;
   }
 
+  const issueCount = readOptionalCount(value.issueCount);
+  const repositoryCount = readOptionalCount(value.repositoryCount);
+  const starCount = readOptionalCount(value.starCount);
+  const total = readOptionalCount(value.total);
   if (
     'name' in value ||
     !isPositiveInteger(value.rank) ||
     typeof value.githubLogin !== 'string' ||
     !isNonNegativeInteger(value.commitCount) ||
-    !isNonNegativeInteger(value.pullRequestCount)
+    !isNonNegativeInteger(value.pullRequestCount) ||
+    issueCount === null ||
+    repositoryCount === null ||
+    starCount === null ||
+    total === null
   ) {
     return null;
   }
@@ -111,6 +120,10 @@ function parsePublicRankingItem(value: unknown): PublicRankingItem | null {
     githubLogin: value.githubLogin,
     commitCount: value.commitCount,
     pullRequestCount: value.pullRequestCount,
+    issueCount,
+    repositoryCount,
+    starCount,
+    total,
   };
 }
 

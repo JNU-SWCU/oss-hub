@@ -34,6 +34,10 @@ export interface PublicRankingItem {
   readonly githubLogin: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
+  readonly total: number;
 }
 
 /**

@@ -87,7 +87,7 @@ describe('RankingController', () => {
     ).toBeUndefined();
   });
 
-  it('public 항목은 허용된 네 키만 응답한다', async () => {
+  it('public 항목은 허용된 여덟 키만 응답한다 — 이름·학과는 여전히 빠진다', async () => {
     findPage.mockResolvedValue({
       year: 2026,
       items: [
@@ -123,23 +123,28 @@ describe('RankingController', () => {
       githubLogin: 'mina',
       commitCount: 2,
       pullRequestCount: 1,
+      issueCount: 3,
+      repositoryCount: 4,
+      starCount: 5,
+      total: 15,
     });
     expect(Object.keys(body.items[0] ?? {}).sort()).toEqual([
       'commitCount',
       'githubLogin',
+      'issueCount',
       'pullRequestCount',
       'rank',
+      'repositoryCount',
+      'starCount',
+      'total',
     ]);
+    // 공개 차단의 실제 가드는 이 여섯이다 — 지표가 아니라 신원이다.
     for (const excluded of [
       'department',
       'displayName',
       'githubId',
       'id',
-      'issueCount',
       'name',
-      'repositoryCount',
-      'starCount',
-      'total',
       'userId',
     ]) {
       expect(body.items[0]).not.toHaveProperty(excluded);
