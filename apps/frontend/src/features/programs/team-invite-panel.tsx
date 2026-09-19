@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { ProgramAuthoringDialog } from './program-authoring-dialog';
+import { DialogShell } from '@/components';
 import type { TeamInvitationManagement } from './use-team-invitation-management';
 
 /** 자동 검색이 붙는 최소 글자 수 — 힌트 문구도 이 값을 따른다(실제 요청 여부는 호출부가 정한다). */
@@ -164,7 +164,7 @@ export function TeamInvitePanel({
   }
 
   return (
-    <ProgramAuthoringDialog
+    <DialogShell
       title="팀원 초대"
       description="이름 또는 GitHub 아이디로 찾아 초대를 보냅니다. 초대한 사람은 팀 구성원 목록에 「초대 대기」로 남습니다."
       busy={busy}
@@ -287,6 +287,6 @@ export function TeamInvitePanel({
           )}
         </ul>
       ) : null}
-    </ProgramAuthoringDialog>
+    </DialogShell>
   );
 }
