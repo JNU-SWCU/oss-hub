@@ -1873,3 +1873,19 @@
 - 검증: backend 348 suites / 4,269 tests, 격리 DB 110 suites / 738 tests, frontend 363 files / 3,688 tests, installed Chrome 98 tests가 병합 뒤 기준으로 통과했다.
 - 검증: workspace lint·typecheck·build와 전체 format 검사를 통과했다. 기존 frontend anchor 경고 5건과 Jest 종료 지연 경고는 숨기지 않았다.
 - 공개 안전성: 합성 데이터만 썼고 증거 이미지는 이미 발행된 v0.6.162에 에셋으로만 올렸다.
+
+## 2026-09-19 — 교직원 팀 삭제 화면을 붙인다
+
+- 상태: review
+- Issue: -
+- PR: #1292
+- blocker: 없음
+- 내용: 팀 상세 맨 아래 「위험 영역」에 팀 삭제를 붙였다. 확인창이 `deletionScope`를 그대로 보여 주고, 본 그 값을 `expectedScope`로 되돌려 보낸다.
+- 설계: 창 껍데기는 이름 변경 창과 같은 `ProgramAuthoringDialog`를 쓰고, 범위 왕복과 409 재확인은 프로그램 purge 확인창의 방식을 그대로 따랐다. 두 번째 관행을 만들지 않았다.
+- 설계: 409(TEAM_019)에 자동 재시도하지 않는다. 응답이 실은 현재 범위로 창을 갱신하고 사람이 다시 누르게 한다.
+- 설계: `detachedRepositories`는 「삭제될 데이터」와 섞지 않고 연결 해제로 따로 적는다. 저장소는 지우지 않기 때문이다.
+- 검증: 교직원 세션으로 팀원 4명짜리 팀을 실제로 지웠다. `DELETE 200`, 참여 팀 목록 복귀, 팀·팀원 행 제거, `TEAM_DELETED` 감사 1건을 DB에서 확인했다.
+- 검증: frontend 368 files / 3,714 tests, typecheck, lint, 전체 format 검사를 통과했다. 기존 anchor 경고 5건은 그대로다.
+- 주의: 로컬 확인 중 `GET /api/v1/programs`가 500이었다. main 병합으로 들어온 `20260912090000_add_external_program_cover`를 로컬 DB에 적용하지 않은 탓이며, 병합 뒤에는 마이그레이션을 다시 적용해야 한다.
+- 남은 것: 참여 팀 목록에 삭제 결과 알림을 띄우는 것은 그 화면 몫으로 남겼다. 지금은 창이 결과를 말하고 목록으로 돌아간다.
+- 공개 안전성: 합성 데이터로만 확인했고 캡처는 이미 발행된 v0.6.162에 에셋으로만 올렸다.
