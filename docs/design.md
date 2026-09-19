@@ -49,6 +49,7 @@
 | R-20 | 이 문서 | 런타임-테스트 경계 lint |
 | R-03, R-05, R-07, R-15, R-16, R-21, R-24, R-25 | 이 문서 | 없음 — 리뷰로 유지 |
 | R-26 ~ R-33 | 이 문서 (§화면별 결정 기록 → 학생 팀 구성·신청·초대 상호작용) | 없음 — 리뷰로 유지 |
+| R-34 | 이 문서 | 없음 — 리뷰로 유지 |
 
 ## 구현 스택
 
@@ -156,7 +157,8 @@ Collapsible을 포함한 파일은 `apps/frontend/src/components/ui/`에 있고,
 
 ### Button
 
-`button.tsx`. 모든 액션 트리거(제출, 이동, 보조 액션)의 기반이며 variant(default/outline/secondary/ghost/destructive/link)와 size 변형을 cva로 관리한다.
+`button.tsx`. 모든 액션 트리거(제출, 이동, 보조 액션)의 기반이며 variant(default/outline/secondary/ghost/destructive/link/toggle)와 size 변형을 cva로 관리한다.
+`toggle`은 `FilterChip`이 쓰는 눌림 표면이며 feature가 직접 고르지 않는다.
 
 ### Input
 
@@ -187,6 +189,7 @@ Collapsible을 포함한 파일은 `apps/frontend/src/components/ui/`에 있고,
 
 **R-24** `apps/frontend/src/components/ui/*`는 shadcn 생성물이고 소유권은 저장소에 있으며 semantic 토큰 적용·`data-slot` 추가·접근성 보강은 허용하고 공개 slot·role을 바꾸는 DOM 변경과 도메인 분기 삽입은 금지한다.
 **R-25** 새 시각 변형은 `cva` variant를 소유 프리미티브에 추가해 만들고 variant 이름은 의미(kind·size)로 지으며 소비자 쪽 `className` 오버라이드로 변형을 만들지 않는다.
+**R-34** 목록을 거르거나 묶음 안에서 하나를 고르는 눌림 버튼(상태 필터·판정 선택·단계 이동)은 `FilterChipGroup`/`FilterChip`으로 만들고 feature 코드에 `aria-pressed`를 가진 날 `<button>`을 두지 않으며, 눌림 시각은 Button의 `toggle` variant 하나다.
 
 ## Composition 계약
 
@@ -307,6 +310,7 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 | AP-13 | 단언과 무관한 공유 카탈로그 | 여러 테스트가 쓰지 않는 완성 응답·시나리오 묶음을 공용 모듈로 키움 | R-18·R-19 |
 | AP-14 | `satisfies`를 wire·영속 증명으로 오인 | DTO `satisfies`만으로 배포된 API나 DB 동작을 통과로 기록 | R-21 |
 | AP-15 | runtime의 테스트 데이터 import | `apps/frontend/src/**` 런타임 모듈이 테스트 전용 모듈을 해석 가능하게 의존 | R-20 |
+| AP-16 | 날 토글 버튼 | `features/**`의 `aria-pressed`를 가진 `<button`, 화면마다 다른 필터 칩 클래스 | R-34 |
 
 ## 수용된 부채 (2026-09-03)
 
@@ -405,6 +409,13 @@ Slots·Props: EmptyStateProps의 icon·title·description·action을 쓴다.
 States: icon·description·action은 선택이다.
 Accessibility: action에 구체적 이름을 준다.
 Do·Don't: R-10을 따른다.
+
+### FilterChip
+Use when: 목록을 거르거나 한 묶음 안에서 하나를 고르는 눌림 버튼(상태 필터, 판정 선택, 단계 이동)을 놓을 때 `FilterChipGroup` 안에 `FilterChip`을 쓴다.
+Don't use when: 읽기만 하는 상태는 StatusBadge, 다른 화면으로 가는 것은 링크, 카드 하나를 고르는 것은 그 카드 자체를 쓴다.
+Slots·Props: FilterChipGroupProps의 aria-label·className, FilterChipProps의 pressed와 Button props.
+States: pressed(aria-pressed)·hover·focus-visible·disabled. 화살표 좌우·Home·End로 칩 사이를 옮긴다.
+Do·Don't: 칩은 둥근 알약이지만 h-control(44px)과 테두리를 유지한다. StatusBadge처럼 h-tag 높이·앞의 점·테두리 없는 표면으로 만들지 않는다(R-31, R-34).
 
 ### FormSection
 Use when: 관련 입력을 fieldset으로 묶을 때 쓴다.
