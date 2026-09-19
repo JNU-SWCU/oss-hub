@@ -216,16 +216,16 @@ describe('SubmissionChecklistView 체크리스트', () => {
     expect(html).not.toContain('data-slot="card"');
   });
 
-  it('상태 5종을 programs 화면과 같은 라벨로, 상태와 무관하게 한 줄에 하나씩 제출 내역 링크를 둔다', () => {
+  it('상태 5종을 공용 상태 어휘의 라벨로, 상태와 무관하게 한 줄에 하나씩 제출 내역 링크를 둔다', () => {
     // When
     const html = render();
 
-    // Then: 5종 상태 라벨은 제출 상태 배지로만 나타난다.
-    expect(html).toContain('제출 전');
-    expect(html).toContain('제출됨');
+    // Then: 5종 상태 라벨은 제출 상태 배지로만 나타난다(lib/status-vocabulary).
+    expect(html).toContain('미제출');
+    expect(html).toContain('검토 대기');
     expect(html).toContain('승인');
-    expect(html).toContain('보완 필요');
-    expect(html).toContain('최종 반려');
+    expect(html).toContain('보완 요청');
+    expect(html).toContain('>반려<');
     // 상태마다 이름이 바뀌던 버튼 모양 앵커는 사라졌다.
     expect(html).not.toContain('올리기');
     expect(html).not.toContain('다시 제출');
@@ -244,12 +244,12 @@ describe('SubmissionChecklistView 체크리스트', () => {
   });
 
   it('제출 현황 머리에는 지금 할 일만 적고 뜻 없는 분수나 반복 문장을 적지 않는다', () => {
-    // When — ITEMS 5개 중 보완 필요는 1건(중간 보고).
+    // When — ITEMS 5개 중 보완 요청은 1건(중간 보고).
     const html = render();
 
     // Then
     expect(html).toContain('제출 현황');
-    expect((html.match(/보완 필요 1건/g) ?? []).length).toBe(1);
+    expect((html.match(/보완 요청 1건/g) ?? []).length).toBe(1);
     expect(html).not.toContain('4/5');
     expect(html).not.toContain('낼 서류');
     expect(html).not.toContain('여기에서 바로 냅니다');
@@ -266,7 +266,7 @@ describe('SubmissionChecklistView 체크리스트', () => {
 
     // Then
     expect(html).toContain('제출 현황');
-    expect(html).not.toContain('보완 필요');
+    expect(html).not.toMatch(/보완 요청 \d+건/);
     expect(html).not.toMatch(/\d+\/\d+/);
   });
 
@@ -433,7 +433,7 @@ describe('ChecklistRow 업로드 가능 여부', () => {
     expect(html).toContain(
       'id="submission-trigger-milestone-overdue-empty" tabindex="-1"',
     );
-    expect(html).toContain('제출 전');
+    expect(html).toContain('미제출');
   });
 
   it('오늘 이미 지난 시각이 마감이면 제출 자리를 열지 않는다', () => {
@@ -480,7 +480,7 @@ describe('ChecklistRow 업로드 가능 여부', () => {
     );
   });
 
-  it('보완 요청 상태면 canResubmit이 false여도 보완 필요로 읽히고 제출 내역을 열 수 있다', () => {
+  it('보완 요청 상태면 canResubmit이 false여도 보완 요청으로 읽히고 제출 내역을 열 수 있다', () => {
     const changesRequested: SubmissionChecklistItem = {
       milestoneId: 'milestone-changes-requested',
       name: '보완 요청 서류',
@@ -497,7 +497,7 @@ describe('ChecklistRow 업로드 가능 여부', () => {
       <ChecklistRow programId="program-1" item={changesRequested} now={NOW} />,
     );
 
-    expect(html).toContain('보완 필요');
+    expect(html).toContain('보완 요청');
     expect(html).toContain(
       'href="/programs/program-1/documents?milestoneId=milestone-changes-requested"',
     );
@@ -522,7 +522,7 @@ describe('ChecklistRow 업로드 가능 여부', () => {
 
   it('마감 전 미제출 마일스톤은 제출 내역 링크가 열려 있다', () => {
     const html = render({ selectedMilestoneId: null });
-    expect(html).toContain('제출 전');
+    expect(html).toContain('미제출');
     expect(html).toContain(
       'href="/programs/program-1/documents?milestoneId=milestone-final"',
     );
@@ -539,7 +539,7 @@ describe('SubmissionChecklistView 선택 패널', () => {
     expect(html).toContain('실행 화면 캡처를 추가해 주세요.');
     // 심사 결과가 지금 상태와 같으면 배지가 한 번 말한 것으로 끝난다.
     expect(html).not.toContain('최근 검토 결과');
-    expect(html).toContain('보완 필요');
+    expect(html).toContain('보완 요청');
     expect(html).toContain('수정한 뒤 재제출할 수 있습니다.');
     expect(html).toContain('현재 제출본');
     expect(html).toContain('id="submission-text"'); // #115 유형별 입력 재사용
@@ -586,14 +586,15 @@ describe('SubmissionChecklistView 선택 패널', () => {
     expect(html).not.toMatch(/revision/i);
   });
 
-  it('최종 반려 선택 시 코멘트 읽기 전용이고 재제출 폼이 없다', () => {
+  it('반려된 제출 선택 시 코멘트 읽기 전용이고 재제출 폼이 없다', () => {
     // When
     const html = render({ selectedMilestoneId: 'milestone-retro' });
 
     // Then
     expect(html).toContain('중복 제출로 최종 반려되었습니다.');
-    expect(html).toContain('최종 반려된 제출은 재제출할 수 없습니다.');
-    expect(html).toContain('최종 반려');
+    expect(html).toContain('반려된 제출은 재제출할 수 없습니다.');
+    expect(html).toContain('data-variant="rejected"');
+    expect(html).toContain('>반려<');
     expect(html).not.toContain('최근 검토 결과');
     expect(html).toContain('검토 시각');
     expect(html).not.toContain('<form');
