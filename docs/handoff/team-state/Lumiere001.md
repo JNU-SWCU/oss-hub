@@ -1268,5 +1268,6 @@
   범위는 규칙문대로 `src/{components,features,app}`, 예외는 `cosmos-theme.ts`(색)와 `components/ui/**`(버튼). 기존 위반은 ESLint 9 bulk suppressions(`eslint-suppressions.json`, 90파일)로 억제해 새 위반만 막고, `lint:prune` 스크립트로 목록을 줄인다.
   design.md에 R-38을 적고 R-id 표·부채 표를 갱신했다.
 - 검증: 규칙 단위 테스트 5개(경계 120/121·hex·템플릿·palette·오탐 방지·날 button)를 더했고 frontend 단위 테스트 전체와 lint가 통과한다. 새 파일에 hex와 `<button>`을 넣으면 lint가 두 규칙으로 막는 것을 확인했다.
-- 주의: 억제 목록은 파일·규칙별 개수라, 같은 파일에서 하나를 고치고 하나를 새로 어기면 개수가 같아 통과할 수 있다. 목록이 줄수록 이 틈이 작아진다. `#1234` 같은 번호 문구는 4자리 hex로 잡히므로 이유를 적은 disable로 넘긴다.
+- 주의: `next build`에 내장된 lint는 Node API라 억제 목록을 읽지 못해 CI 빌드가 깨졌다 — `next.config.ts`에 `eslint.ignoreDuringBuilds`를 두고 lint는 CI의 lint 단계(CLI)만 담당한다.
+  억제 목록은 파일·규칙별 개수라, 같은 파일에서 하나를 고치고 하나를 새로 어기면 개수가 같아 통과할 수 있다. 목록이 줄수록 이 틈이 작아진다. `#1234` 같은 번호 문구는 4자리 hex로 잡히므로 이유를 적은 disable로 넘긴다.
 - 경계: 기존 위반 90파일은 이 PR에서 고치지 않았다(폴더 단위 후속 PR). cva 기본 문자열·`cn()` 인자·CSS 파일은 규칙 대상이 아니다.
