@@ -43,6 +43,36 @@ describe('DataTable', () => {
     expect(html.match(/<th[^>]*scope="col"/g)).toHaveLength(columns.length);
   });
 
+  it('rowHeader 열은 본문 셀을 행 제목(th scope="row")으로 그린다', () => {
+    const html = renderToStaticMarkup(
+      <DataTable
+        columns={[{ ...columns[0], rowHeader: true }, columns[1]]}
+        data={rows}
+        rowKey={(row) => row.id}
+      />,
+    );
+
+    expect(html).toMatch(/<th[^>]*scope="row"[^>]*>홍길동<\/th>/);
+    expect(html.match(/<th[^>]*scope="col"/g)).toHaveLength(columns.length);
+    expect(html).toContain('<td');
+  });
+
+  it('hideCaption은 caption을 보조기기에만 읽히게 둔다', () => {
+    const html = renderToStaticMarkup(
+      <DataTable
+        columns={columns}
+        data={rows}
+        rowKey={(row) => row.id}
+        caption="신청자 목록"
+        hideCaption
+      />,
+    );
+
+    expect(html).toMatch(
+      /<caption[^>]*class="[^"]*sr-only[^"]*"[^>]*>신청자 목록<\/caption>/,
+    );
+  });
+
   it('renders the empty state slot when data is empty', () => {
     const html = renderToStaticMarkup(
       <DataTable

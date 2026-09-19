@@ -709,8 +709,7 @@ describe('ProgramAuthoringMilestoneStep', () => {
       );
     });
 
-    expect(container.textContent).toContain('시작');
-    expect(container.textContent).toContain('마감');
+    expect(container.textContent).toContain('26.09.02 – 26.09.10 18:00');
     expect(container.textContent).toContain('운영자 공지');
     expect(
       container.querySelector('button[aria-label="오리엔테이션 수정"]'),

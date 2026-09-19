@@ -1,8 +1,8 @@
 'use client';
 
 import { CalendarDays } from 'lucide-react';
-import { useRef, type KeyboardEvent, type ReactElement } from 'react';
-import { Button } from '@/components/ui/button';
+import type { ReactElement } from 'react';
+import { FilterChip, FilterChipGroup } from '@/components';
 import { formatMatrixDueDateTime } from '../matrix';
 import type { MatrixMilestone } from '../types';
 
@@ -32,52 +32,23 @@ function stageOptions(
 /** 561–899px에서는 긴 목록을 다시 위로 찾지 않도록 본문 상단에 고정한다. */
 function TabletStageTabs(props: MatrixStageNavigationProps): ReactElement {
   const options = stageOptions(props.milestones);
-  const buttons = useRef<Array<HTMLButtonElement | null>>([]);
-
-  const moveFocus = (
-    event: KeyboardEvent<HTMLButtonElement>,
-    index: number,
-  ) => {
-    let nextIndex: number | null = null;
-    if (event.key === 'ArrowRight') nextIndex = (index + 1) % options.length;
-    if (event.key === 'ArrowLeft') {
-      nextIndex = (index - 1 + options.length) % options.length;
-    }
-    if (event.key === 'Home') nextIndex = 0;
-    if (event.key === 'End') nextIndex = options.length - 1;
-    if (nextIndex === null) return;
-    event.preventDefault();
-    buttons.current[nextIndex]?.focus();
-  };
 
   return (
     <div className="sticky top-0 z-20 -mx-2 hidden border-y border-border bg-background/95 px-2 py-3 backdrop-blur min-[561px]:block min-[900px]:hidden">
-      <div
-        role="group"
+      <FilterChipGroup
         aria-label="볼 제출 단계"
-        className="flex max-w-full gap-2 overflow-x-auto pb-1"
+        className="max-w-full flex-nowrap overflow-x-auto pb-1"
       >
-        {options.map((option, index) => {
-          const selected = option.id === props.selectedMilestoneId;
-          return (
-            <Button
-              key={option.id ?? 'all'}
-              ref={(element) => {
-                buttons.current[index] = element;
-              }}
-              type="button"
-              size="sm"
-              variant={selected ? 'default' : 'outline'}
-              aria-pressed={selected}
-              onKeyDown={(event) => moveFocus(event, index)}
-              onClick={() => props.onSelectMilestone(option.id)}
-              className="shrink-0 px-4"
-            >
-              {option.label}
-            </Button>
-          );
-        })}
-      </div>
+        {options.map((option) => (
+          <FilterChip
+            key={option.id ?? 'all'}
+            pressed={option.id === props.selectedMilestoneId}
+            onClick={() => props.onSelectMilestone(option.id)}
+          >
+            {option.label}
+          </FilterChip>
+        ))}
+      </FilterChipGroup>
     </div>
   );
 }

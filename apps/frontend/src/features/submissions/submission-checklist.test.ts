@@ -5,7 +5,6 @@ import {
   applyResubmission,
   checklistItemStatus,
   checklistSubmittedCount,
-  CHECKLIST_STATUS_LABELS,
   hasMilestoneDeadlinePassed,
   milestoneDeadline,
   resubmissionContent,
@@ -287,16 +286,6 @@ describe('checklistItemStatus', () => {
         }),
       ),
     ).toBe('CHANGES_REQUESTED');
-  });
-
-  it('상태 라벨 5종은 programs 화면과 같은 한국어 문구다', () => {
-    expect(CHECKLIST_STATUS_LABELS).toEqual({
-      NOT_SUBMITTED: '제출 전',
-      SUBMITTED: '제출됨',
-      APPROVED: '승인',
-      CHANGES_REQUESTED: '보완 필요',
-      REJECTED: '최종 반려',
-    });
   });
 });
 

@@ -46,3 +46,8 @@ export type { ParticipantOnlyNoticeProps } from './participant-only-notice';
 export { ProgramCover, type ProgramCoverProps } from './program-cover';
 
 export { ListCard, type ListCardProps } from './list-card';
+
+export { DialogShell } from './dialog-shell';
+export type { DialogShellProps } from './dialog-shell';
+export { FilterChip, FilterChipGroup } from './filter-chip';
+export type { FilterChipGroupProps, FilterChipProps } from './filter-chip';
