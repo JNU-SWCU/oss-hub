@@ -6,7 +6,7 @@ import { Field, FieldError } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 import { renameProgramTeam } from './api';
-import { ProgramAuthoringDialog } from './program-authoring-dialog';
+import { DialogShell } from '@/components';
 
 /** 백엔드 `RenameTeamRequestDto`의 `@MaxLength(100)`과 같은 값이어야 한다. */
 const TEAM_NAME_MAX_LENGTH = 100;
@@ -14,7 +14,7 @@ const TEAM_NAME_MAX_LENGTH = 100;
 /**
  * 팀 이름 변경 창.
  *
- * 껍데기는 이 폴더가 이미 쓰는 `ProgramAuthoringDialog`다 — 제목·본문·취소/저장
+ * 껍데기는 이 폴더가 이미 쓰는 `DialogShell`다 — 제목·본문·취소/저장
  * 줄·`busy` 동안 닫기 차단·초점 복귀가 전부 그 안에 있다. 창을 손으로 다시 짜면
  * 같은 일을 하는 두 번째 관행이 생긴다.
  *
@@ -87,7 +87,7 @@ export function TeamNameDialog({
   }
 
   return (
-    <ProgramAuthoringDialog
+    <DialogShell
       title="팀 이름 변경"
       busy={busy}
       returnFocusRef={returnFocusRef}
@@ -124,6 +124,6 @@ export function TeamNameDialog({
           </AlertDescription>
         </Alert>
       ) : null}
-    </ProgramAuthoringDialog>
+    </DialogShell>
   );
 }
