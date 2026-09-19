@@ -23,6 +23,7 @@ import { ApplicationTeamDeparture } from './application-team-departure';
 import { ActivityGraphContent } from './components/activity-graph-panel';
 import { formatSeoulDate } from './program-detail-format';
 import type { StudentApplication } from './student-application-api';
+import { RepositoryUrlEditor } from './repository-url-editor';
 import { TeamInvitePanel } from './team-invite-panel';
 import { TeamMembersPanel } from './team-members-panel';
 import type { ProgramDetail } from './types';
@@ -256,6 +257,13 @@ export function ProgramMyTeamView({
         team={team}
         application={application}
       />
+
+      {application !== null ? (
+        <RepositoryUrlEditor
+          key={`${programId}:${sessionNickname}`}
+          programId={programId}
+        />
+      ) : null}
 
       {/*
         명단이 자기 행동을 모두 가진다 — 초대 버튼도, 대기 중인 초대 행도

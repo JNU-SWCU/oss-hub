@@ -264,3 +264,31 @@ it('rejects a repository carrying another program history without detaching the 
     await prisma.auditLog.count({ where: { targetId: applicationId } }),
   ).toBe(0);
 });
+
+it('lets the original applicant read but rejects writes after leadership changes', async () => {
+  const successor = await prisma.user.create({
+    data: { githubId: targetGithubId + 5n, nickname: 'synthetic-successor' },
+  });
+  await prisma.teamMember.create({
+    data: { teamId, programId, userId: successor.id },
+  });
+  await prisma.team.update({
+    where: { id: teamId },
+    data: { leaderId: successor.id },
+  });
+  expect(await service.getMine(githubId, programId)).toEqual({
+    repositoryUrl: 'https://github.com/synthetic/old',
+    canEditRepositoryUrl: false,
+  });
+  resolver.resolve.mockClear();
+  await expect(
+    service.updateMine(githubId, programId, input),
+  ).rejects.toMatchObject({ errorCode: { code: 'APP_001' } });
+  expect(resolver.resolve).not.toHaveBeenCalled();
+  expect(
+    await prisma.auditLog.count({ where: { targetId: applicationId } }),
+  ).toBe(0);
+  expect(
+    await prisma.githubRepository.findUnique({ where: { id: oldId } }),
+  ).toMatchObject({ applicationId });
+});

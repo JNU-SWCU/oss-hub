@@ -56,7 +56,8 @@ describe('RepositoryUrlEditor', () => {
   }
   async function click(label: string) {
     const button = Array.from(document.body.querySelectorAll('button')).find(
-      (element) => element.textContent === label,
+      (element) =>
+        (element.getAttribute('aria-label') ?? element.textContent) === label,
     );
     if (!button) throw new Error(`Missing button ${label}`);
     await act(async () => button.click());

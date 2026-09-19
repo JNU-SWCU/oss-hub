@@ -168,10 +168,7 @@ export class StudentRepositoryUrlService {
     context: StudentRepositoryUrlContext | null,
     studentId: string,
   ): asserts context is StudentRepositoryUrlContext {
-    if (
-      !context ||
-      (context.applicantId !== studentId && context.team.leaderId !== studentId)
-    )
+    if (!context || context.team.leaderId !== studentId)
       throw new DomainException(
         APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.APPLICATION_NOT_FOUND],
       );
@@ -189,9 +186,7 @@ export class StudentRepositoryUrlService {
         {
           status: context.status,
           endAt: context.program.endAt,
-          isManager:
-            context.applicantId === studentId ||
-            context.team.leaderId === studentId,
+          isManager: context.team.leaderId === studentId,
         },
         new Date(),
       ),
