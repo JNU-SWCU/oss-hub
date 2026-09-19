@@ -82,3 +82,14 @@ export function formatSeoulShortDateTime(value: string): string {
   const { month, day, hour, minute } = seoulParts(value);
   return `${month}.${day} ${hour}:${minute}`;
 }
+
+/**
+ * 마일스톤 카드 기간 한 줄 — "26.08.05 – 26.08.06 01:58".
+ * 시작은 날짜만, 마감은 날짜와 시각(서울)을 적는다(동규 결정 2026-09-19, #1307).
+ * 좁은 칸 전용이라 다른 화면의 「2026년 8월 5일 01:58」 표기는 그대로 둔다.
+ */
+export function formatSeoulShortRange(startAt: string, dueAt: string): string {
+  const start = seoulParts(startAt);
+  const due = seoulParts(dueAt);
+  return `${start.year.slice(-2)}.${start.month}.${start.day} – ${due.year.slice(-2)}.${due.month}.${due.day} ${due.hour}:${due.minute}`;
+}

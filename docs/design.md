@@ -139,6 +139,11 @@ Button의 `destructive` variant는 이 토큰을 **흰 전경의 불투명 배�
 | Body | `text-sm leading-normal` |
 | Caption | `text-sm text-muted-foreground` |
 
+날짜는 자리에 따라 표기를 고른다.
+문장과 입력 확인은 `YYYY년 M월 D일 (요일) HH:mm`으로 적고, 마일스톤 카드처럼 좁은 칸의 기간은 한 줄 `YY.MM.DD – YY.MM.DD HH:mm`(시작 날짜, 마감 날짜와 시각, 서울 시각, 가운데는 en dash)으로 적는다 — 「26.08.05 – 26.08.06 01:58」.
+
+**R-37** 좁은 칸의 기간 한 줄은 `program-detail-format.ts`의 `formatSeoulShortRange`만 쓰고 호출부가 형식을 다시 만들지 않으며, 다른 화면의 긴 날짜 표기를 이 형식으로 바꾸지 않는다.
+
 ### 간격과 크기
 
 Tailwind v4 기본 spacing 스케일을 그대로 쓴다.
