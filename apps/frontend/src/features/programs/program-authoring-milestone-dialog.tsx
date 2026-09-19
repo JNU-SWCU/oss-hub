@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { ProgramAuthoringDialog } from './program-authoring-dialog';
+import { DialogShell } from '@/components';
 import type { ProgramAuthoringMilestone } from './program-authoring-model';
 import { ProgramAuthoringSubmissionItem } from './program-authoring-submission-item';
 import { ProgramAuthoringSortableAttachments } from './program-authoring-sortable-attachments';
@@ -89,7 +89,7 @@ export function ProgramAuthoringMilestoneDialog({
   }
 
   return (
-    <ProgramAuthoringDialog
+    <DialogShell
       size="lg"
       title={isNew ? '마일스톤 추가' : '마일스톤 수정'}
       description="운영 기간 안에서 일정과 공지, 첨부파일을 작성하세요."
@@ -214,7 +214,7 @@ export function ProgramAuthoringMilestoneDialog({
         <FieldError>{attachmentValidationMessage}</FieldError>
         <FieldError>{saveAttempted ? errors.attachments : null}</FieldError>
       </Field>
-    </ProgramAuthoringDialog>
+    </DialogShell>
   );
 }
 

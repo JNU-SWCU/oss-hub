@@ -16,29 +16,7 @@ import type {
 /** 체크리스트 행의 표시 상태 — 미제출(submission=null)을 포함한 5종. */
 export type ChecklistItemStatus = 'NOT_SUBMITTED' | ChecklistSubmissionStatus;
 
-/**
- * features/programs 화면(program-detail-format.ts)과 동일한 한국어 라벨.
- * feature 간 직접 import가 금지라 문자열을 그대로 맞춘다 — 라벨을 바꿀 때는
- * 두 곳을 함께 바꾼다.
- */
-export const CHECKLIST_STATUS_LABELS = {
-  NOT_SUBMITTED: '제출 전',
-  SUBMITTED: '제출됨',
-  APPROVED: '승인',
-  CHANGES_REQUESTED: '보완 필요',
-  REJECTED: '최종 반려',
-} as const satisfies Readonly<Record<ChecklistItemStatus, string>>;
-
-/** features/programs milestone-row와 동일한 StatusBadge variant 매핑. */
-export const CHECKLIST_STATUS_VARIANTS = {
-  NOT_SUBMITTED: 'pending',
-  SUBMITTED: 'pending',
-  APPROVED: 'approved',
-  CHANGES_REQUESTED: 'rejected',
-  REJECTED: 'rejected',
-} as const satisfies Readonly<
-  Record<ChecklistItemStatus, 'pending' | 'approved' | 'rejected'>
->;
+// 라벨·배지 변형은 `@/lib/status-vocabulary`의 SUBMISSION_STATUS_* 하나다(R-35).
 
 /** 상세 패널·목록 행·요약이 공유하는 재제출 필요 판정이다. */
 export function isRevisionNeeded(

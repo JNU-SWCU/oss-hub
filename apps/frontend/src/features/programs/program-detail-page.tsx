@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ApiError } from '@/lib/api-client';
-import { getProgramDetail } from './api';
+import { getProgramDetail, getPublicProgramDetail } from './api';
 import {
   getProgramOverview,
   type ProgramOverview,
@@ -32,25 +32,45 @@ export function detailFailure(error: unknown): DetailState {
     : { kind: 'failed' };
 }
 
+/**
+ * 방문자에게 세션이 있는가. app 계층이 공유 세션 저장소를 읽어 넘긴다 — 이 feature는
+ * `features/auth`를 import할 수 없다(feature 간 의존 금지).
+ *
+ * - `unknown`: 아직 모른다. 아무것도 부르지 않고 뼈대만 그린다.
+ * - `anonymous`: 세션이 없다. 공개 상세만 부른다 — viewer·overview를 부르면 401이 나고
+ *   화면은 그려지지만 콘솔에 오류 두 줄이 남는다(#1294).
+ * - `present`: 세션이 있다(조회 실패로 모를 때도 여기다). viewer·overview를 부르고,
+ *   viewer가 401이면 공개 상세로 내려간다.
+ */
+export type ProgramDetailSession = 'unknown' | 'anonymous' | 'present';
+
 export function ProgramDetailPage({
   programId,
+  session,
   approvedStudentMilestones,
 }: {
   readonly programId: string;
+  readonly session: ProgramDetailSession;
   readonly approvedStudentMilestones?: ReactNode;
 }) {
   const router = useRouter();
   const [state, setState] = useState<DetailState>({ kind: 'loading' });
   const load = useCallback(async () => {
+    if (session === 'unknown') return;
     setState({ kind: 'loading' });
     try {
+      if (session === 'anonymous') {
+        const program = await getPublicProgramDetail(programId);
+        setState({ kind: 'ready', program, overview: null });
+        return;
+      }
       const program = await getProgramDetail(programId);
       const overview = await getProgramOverview(programId).catch(() => null);
       setState({ kind: 'ready', program, overview });
     } catch (error: unknown) {
       setState(detailFailure(error));
     }
-  }, [programId]);
+  }, [programId, session]);
   useEffect(() => {
     void load();
   }, [load]);

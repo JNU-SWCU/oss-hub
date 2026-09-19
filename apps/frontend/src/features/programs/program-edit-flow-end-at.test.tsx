@@ -269,7 +269,7 @@ describe('프로그램 편집 일정 dialog — 종료일 미정', () => {
       'button[aria-label="신청 기간 수정"]',
     );
     if (trigger === null) throw new TypeError('Missing application trigger.');
-    expect(trigger.className).toContain('size-11');
+    expect(trigger.dataset.size).toBe('icon');
 
     vi.useFakeTimers();
     await act(async () => {

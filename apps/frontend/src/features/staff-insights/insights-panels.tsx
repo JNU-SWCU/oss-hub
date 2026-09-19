@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { EmptyState } from '@/components';
+import { DataTable, EmptyState, type DataTableColumn } from '@/components';
 import {
   Card,
   CardContent,
@@ -21,9 +21,41 @@ import {
   COHORT_LABELS,
   DEPARTMENT_COHORTS,
   type StaffInsightsCohortRow,
+  type StaffInsightsDepartmentRow,
   type StaffInsightsSummary,
 } from './types';
 import { ACTIVITY_METRICS, COHORT_CHART_KEYS } from './insights-model';
+
+const DEPARTMENT_COLUMNS: DataTableColumn<StaffInsightsDepartmentRow>[] = [
+  { id: 'department', header: '학과', cell: (row) => row.department },
+  { id: 'cohort', header: '구분', cell: (row) => COHORT_LABELS[row.cohort] },
+  {
+    id: 'studentCount',
+    header: '학생',
+    cell: (row) => row.studentCount,
+    cellClassName: 'tabular-nums',
+  },
+  {
+    id: 'activeStudentCount',
+    header: '활동',
+    cell: (row) => row.activeStudentCount,
+    cellClassName: 'tabular-nums',
+  },
+  {
+    id: 'participantCount',
+    header: '참여',
+    cell: (row) => row.participantCount,
+    cellClassName: 'tabular-nums',
+  },
+  ...ACTIVITY_METRICS.map(
+    (metric): DataTableColumn<StaffInsightsDepartmentRow> => ({
+      id: metric.field,
+      header: metric.label,
+      cell: (row) => row[metric.field],
+      cellClassName: 'tabular-nums',
+    }),
+  ),
+];
 
 export function ActivityPanel({
   sw,
@@ -131,58 +163,15 @@ export function DepartmentPanel({
           프로그램 신청은 활동 합계에 포함하지 않습니다.
         </CardDescription>
       </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <table className="w-full min-w-xl text-left text-sm">
-          <caption className="sr-only">학과별 학생 수와 랭킹 지표</caption>
-          <thead>
-            <tr className="border-b text-muted-foreground">
-              <th className="py-2 pr-3 font-medium">학과</th>
-              <th className="py-2 pr-3 font-medium">구분</th>
-              <th className="py-2 pr-3 font-medium">학생</th>
-              <th className="py-2 pr-3 font-medium">활동</th>
-              <th className="py-2 pr-3 font-medium">참여</th>
-              {ACTIVITY_METRICS.map((metric) => (
-                <th
-                  key={metric.field}
-                  className={
-                    metric.field === 'total'
-                      ? 'py-2 font-medium'
-                      : 'py-2 pr-3 font-medium'
-                  }
-                >
-                  {metric.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {summary.departments.map((row) => (
-              <tr key={row.department} className="border-b last:border-0">
-                <td className="py-2 pr-3">{row.department}</td>
-                <td className="py-2 pr-3">{COHORT_LABELS[row.cohort]}</td>
-                <td className="py-2 pr-3 tabular-nums">{row.studentCount}</td>
-                <td className="py-2 pr-3 tabular-nums">
-                  {row.activeStudentCount}
-                </td>
-                <td className="py-2 pr-3 tabular-nums">
-                  {row.participantCount}
-                </td>
-                {ACTIVITY_METRICS.map((metric) => (
-                  <td
-                    key={metric.field}
-                    className={
-                      metric.field === 'total'
-                        ? 'py-2 tabular-nums'
-                        : 'py-2 pr-3 tabular-nums'
-                    }
-                  >
-                    {row[metric.field]}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <CardContent>
+        <DataTable
+          columns={DEPARTMENT_COLUMNS}
+          data={[...summary.departments]}
+          rowKey={(row) => row.department}
+          caption="학과별 학생 수와 랭킹 지표"
+          hideCaption
+          scrollRegionLabel="학과별 학생 수와 랭킹 지표"
+        />
       </CardContent>
     </Card>
   );

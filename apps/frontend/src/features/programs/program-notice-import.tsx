@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { ApiError } from '@/lib/api-client';
-import { ProgramAuthoringDialog } from './program-authoring-dialog';
+import { DialogShell } from '@/components';
 import {
   previewProgramNotice,
   type ProgramNoticePatch,
@@ -105,7 +105,7 @@ export function ProgramNoticeImport({
         기존 공지로 빠르게 시작하기
       </Button>
       {open ? (
-        <ProgramAuthoringDialog
+        <DialogShell
           title="공지에서 가져오기"
           size="lg"
           returnFocusRef={triggerRef}
@@ -192,7 +192,7 @@ export function ProgramNoticeImport({
             신청 기간, 마일스톤, 제출 항목과 기한은 가져오지 않으니 직접 설정해
             주세요.
           </p>
-        </ProgramAuthoringDialog>
+        </DialogShell>
       ) : null}
     </>
   );

@@ -1,6 +1,6 @@
 import { Download } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { StatusBadge } from '@/components';
+import { FilterChip, FilterChipGroup, StatusBadge } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
@@ -34,9 +34,6 @@ import {
  * 조회·전송은 전부 컨테이너(`milestone-document-collection-screen.tsx`)가 갖는다.
  * 여기는 props만 그린다 — 정적 렌더로 문구를 검증할 수 있게 하려는 분리다.
  */
-
-const DECISION_BUTTON_BASE =
-  'h-control rounded-control px-4 text-small font-semibold transition-colors';
 
 const CONTENT_HEADING = 'text-small font-semibold';
 
@@ -298,28 +295,18 @@ export function MilestoneDocumentReviewPanel(
         <PreviousReview review={cell.review} />
       )}
 
-      <div
-        role="group"
-        aria-label="검토"
-        className="flex flex-wrap items-center gap-2"
-      >
+      <FilterChipGroup aria-label="검토" className="items-center">
         {MILESTONE_DOCUMENT_REVIEW_DECISION_ORDER.map((option) => (
-          <button
+          <FilterChip
             key={option}
-            type="button"
-            aria-pressed={props.decision === option}
+            pressed={props.decision === option}
             disabled={props.isSubmitting}
-            className={
-              props.decision === option
-                ? `${DECISION_BUTTON_BASE} bg-secondary text-foreground`
-                : `${DECISION_BUTTON_BASE} bg-card text-muted-foreground border border-border`
-            }
             onClick={() => props.onDecisionChange(option)}
           >
             {MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS[option]}
-          </button>
+          </FilterChip>
         ))}
-      </div>
+      </FilterChipGroup>
 
       <Field>
         <FieldLabel htmlFor={commentId}>사유</FieldLabel>

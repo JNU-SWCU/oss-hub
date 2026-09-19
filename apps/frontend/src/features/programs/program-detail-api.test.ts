@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
-import { getProgramDetail } from './api';
+import { getProgramDetail, getPublicProgramDetail } from './api';
 import type { ProgramDetail } from './types';
 
 const publicDetail: ProgramDetail = {
@@ -23,6 +23,27 @@ const publicDetail: ProgramDetail = {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe('getPublicProgramDetail', () => {
+  it('공개 endpoint 하나만 부른다 — 비로그인 방문자가 401을 만들지 않는 길(#1294)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(publicDetail), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getPublicProgramDetail('program-1')).resolves.toEqual(
+      publicDetail,
+    );
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith(
+      apiPath('programs/program-1'),
+      undefined,
+    );
+  });
 });
 
 describe('getProgramDetail', () => {

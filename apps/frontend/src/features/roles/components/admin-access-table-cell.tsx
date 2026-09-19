@@ -2,6 +2,12 @@ import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 
 import { StatusBadge } from '@/components';
+import {
+  ACCOUNT_STATUS_BADGE,
+  ACCOUNT_STATUS_LABEL,
+  roleBadgeVariant,
+  roleLabel,
+} from '@/lib/status-vocabulary';
 
 import type {
   AdminAccessAccountStatus,
@@ -13,17 +19,6 @@ import {
   type AccessWorkspace,
 } from '../admin-access-list-query';
 
-const ROLE_LABEL: Record<AdminAccessRole, string> = {
-  STUDENT: '학생',
-  STAFF: '교직원',
-  ADMIN: '관리자',
-};
-
-const ACCOUNT_STATUS_LABEL: Record<AdminAccessAccountStatus, string> = {
-  ACTIVE: '활성',
-  DEACTIVATED: '비활성',
-};
-
 export function formatAdminAccessDate(value: string | null): string {
   if (!value) return '기록 없음';
   return new Intl.DateTimeFormat('ko-KR', {
@@ -33,16 +28,9 @@ export function formatAdminAccessDate(value: string | null): string {
 }
 
 export function RoleBadge({ role }: { readonly role: AdminAccessRole | null }) {
-  if (!role) {
-    return <StatusBadge variant="rejected">미지정</StatusBadge>;
-  }
   return (
-    <StatusBadge
-      variant={
-        role === 'ADMIN' ? 'approved' : role === 'STAFF' ? 'pending' : 'closed'
-      }
-    >
-      {ROLE_LABEL[role]}
+    <StatusBadge variant={roleBadgeVariant(role)}>
+      {roleLabel(role)}
     </StatusBadge>
   );
 }
@@ -53,7 +41,7 @@ export function AccountStatusBadge({
   readonly status: AdminAccessAccountStatus;
 }) {
   return (
-    <StatusBadge variant={status === 'ACTIVE' ? 'approved' : 'closed'}>
+    <StatusBadge variant={ACCOUNT_STATUS_BADGE[status]}>
       {ACCOUNT_STATUS_LABEL[status]}
     </StatusBadge>
   );

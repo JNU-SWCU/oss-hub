@@ -10,6 +10,10 @@ import {
   MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH,
   type MilestoneDocumentReviewDecision,
 } from './milestone-document-review-api';
+import {
+  SUBMISSION_STATUS_BADGE,
+  SUBMISSION_STATUS_LABELS,
+} from '@/lib/status-vocabulary';
 import { isPastDue } from './program-detail-format';
 import { seoulDateTimeValue } from './seoul-date-time';
 
@@ -27,17 +31,18 @@ import { seoulDateTimeValue } from './seoul-date-time';
 /**
  * 한 칸(교직원)·한 줄(학생)이 지금 어떤 상태인가. 다섯 갈래는 교직원 표와 학생 목록이
  * 공유한다 — 같은 제출을 두 화면이 다른 말로 부르면 「보완 요청」을 받은 학생과 그것을
- * 「제출됨」으로 보는 교직원이 서로 다른 사실을 말하게 된다.
+ * 「검토 대기」로 보는 교직원이 서로 다른 사실을 말하게 된다. 말과 색의 원본은
+ * `@/lib/status-vocabulary`이고 여기서는 표시 갈래(PENDING)에 키만 맞춘다.
  */
 export type MilestoneDocumentReviewDisplay =
   'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 
 export const MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS = {
-  NOT_SUBMITTED: '미제출',
-  PENDING: '검토 대기',
-  APPROVED: '승인',
-  CHANGES_REQUESTED: '보완 요청',
-  REJECTED: '반려',
+  NOT_SUBMITTED: SUBMISSION_STATUS_LABELS.NOT_SUBMITTED,
+  PENDING: SUBMISSION_STATUS_LABELS.SUBMITTED,
+  APPROVED: SUBMISSION_STATUS_LABELS.APPROVED,
+  CHANGES_REQUESTED: SUBMISSION_STATUS_LABELS.CHANGES_REQUESTED,
+  REJECTED: SUBMISSION_STATUS_LABELS.REJECTED,
 } as const satisfies Readonly<Record<MilestoneDocumentReviewDisplay, string>>;
 
 /**
@@ -49,11 +54,11 @@ export const MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS = {
  * 색이면 아직 안 본 것과 이미 되돌려 보낌 것이 구분되지 않는다.
  */
 export const MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS = {
-  NOT_SUBMITTED: 'closed',
-  PENDING: 'recruiting',
-  APPROVED: 'approved',
-  CHANGES_REQUESTED: 'pending',
-  REJECTED: 'rejected',
+  NOT_SUBMITTED: SUBMISSION_STATUS_BADGE.NOT_SUBMITTED,
+  PENDING: SUBMISSION_STATUS_BADGE.SUBMITTED,
+  APPROVED: SUBMISSION_STATUS_BADGE.APPROVED,
+  CHANGES_REQUESTED: SUBMISSION_STATUS_BADGE.CHANGES_REQUESTED,
+  REJECTED: SUBMISSION_STATUS_BADGE.REJECTED,
 } as const satisfies Readonly<
   Record<
     MilestoneDocumentReviewDisplay,

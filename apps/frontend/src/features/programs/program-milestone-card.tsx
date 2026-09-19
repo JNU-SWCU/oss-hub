@@ -1,4 +1,6 @@
 import { Pencil, Trash2 } from 'lucide-react';
+import { RowActions } from '@/components';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardAction,
@@ -52,37 +54,41 @@ export function ProgramMilestoneCard({
             </dl>
           </div>
           <CardAction
-            className="absolute top-0 flex gap-1"
+            className="absolute top-0"
             style={{ right: 'var(--card-spacing)' }}
           >
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  disabled={disabled}
-                  aria-label={`${name} 수정`}
-                  className="inline-flex size-11 items-center justify-center rounded-control hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-                  onClick={onEdit}
-                >
-                  <Pencil aria-hidden="true" className="size-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>{`${name} 수정`}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  disabled={disabled}
-                  aria-label={`${name} 삭제`}
-                  className="inline-flex size-11 items-center justify-center rounded-control hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-                  onClick={onDelete}
-                >
-                  <Trash2 aria-hidden="true" className="size-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>{`${name} 삭제`}</TooltipContent>
-            </Tooltip>
+            <RowActions>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={disabled}
+                    aria-label={`${name} 수정`}
+                    onClick={onEdit}
+                  >
+                    <Pencil aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{`${name} 수정`}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={disabled}
+                    aria-label={`${name} 삭제`}
+                    onClick={onDelete}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{`${name} 삭제`}</TooltipContent>
+              </Tooltip>
+            </RowActions>
           </CardAction>
         </CardHeader>
         <CardContent className="grid gap-3">
