@@ -346,7 +346,7 @@ const TEXT_STYLES = [
     name: 'text/badge',
     size: 12,
     weight: 'semibold',
-    lineHeight: 100,
+    lineHeight: 133,
     letter: 0,
   },
   {
@@ -478,6 +478,8 @@ async function icon(name, size = 16, color = 'foreground') {
   node.name = `icon/${name}`;
   // resize는 프레임만 줄이고 안의 선은 그대로라 잘린다 — 비율로 통째로 줄인다.
   if (node.width > 0) node.rescale(size / node.width);
+  // 선 굵기가 프레임 밖으로 조금 나가도(휴지통 손잡이) 잘리지 않게 한다.
+  if ('clipsContent' in node) node.clipsContent = false;
   return node;
 }
 
@@ -704,7 +706,8 @@ async function badgeNode(variantName, sizeName) {
   const node = component(`variant=${variantName}, size=${sizeName}`, {
     mainAlign: 'CENTER',
     gap: 6,
-    padding: large ? [8, 16, 8, 16] : [0, 8, 0, 8],
+    // 좌우 10 = 코드 기본 `px-2.5`. 12px 글자에 8은 너무 빡빡하다(동규 2026-09-19).
+    padding: large ? [8, 16, 8, 16] : [0, 10, 0, 10],
     mainSizing: 'AUTO',
     crossSizing: large ? 'AUTO' : 'FIXED',
     radius: 999,
@@ -724,7 +727,8 @@ async function badgeNode(variantName, sizeName) {
       size: large ? 16 : 12,
       weight: 'semibold',
       color: `status.${variantName}.fg`,
-      lineHeight: 100,
+      // text-xs의 줄 간격 1rem(16px) = 133%
+      lineHeight: 133,
     }),
   );
   return node;
