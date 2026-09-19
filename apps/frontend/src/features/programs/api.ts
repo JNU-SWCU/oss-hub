@@ -270,6 +270,18 @@ export function getProgramStatusCounts(): Promise<ProgramStatusCounts> {
   return apiClient<ProgramStatusCounts>('programs/status-counts');
 }
 
+/** 세션 없이 볼 수 있는 공개 상세. 비로그인 방문자는 이것만 부른다(#1294). */
+export function getPublicProgramDetail(
+  programId: string,
+): Promise<ProgramDetail> {
+  return apiClient<ProgramDetail>(`programs/${encodeURIComponent(programId)}`);
+}
+
+/**
+ * 세션이 있는 방문자의 상세. viewer 응답이 401이면(그 사이 세션이 끝난 경우) 공개
+ * 상세로 내려간다. 비로그인이 확실할 때는 `getPublicProgramDetail`을 바로 불러
+ * 401을 만들지 않는다.
+ */
 export async function getProgramDetail(
   programId: string,
 ): Promise<ProgramDetail> {
@@ -279,7 +291,7 @@ export async function getProgramDetail(
   } catch (error: unknown) {
     if (!(error instanceof ApiError) || error.problem.status !== 401)
       throw error;
-    return apiClient<ProgramDetail>(`programs/${encodedId}`);
+    return getPublicProgramDetail(programId);
   }
 }
 

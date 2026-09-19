@@ -17,8 +17,8 @@ import {
   deriveAdminAccessGuards,
   formatAdminAccessDateTime,
 } from '../admin-access-detail-api';
+import { ACCOUNT_STATUS_LABEL } from '@/lib/status-vocabulary';
 import {
-  ACCOUNT_STATUS_LABEL,
   ADMIN_ACCESS_MUTATION_ACTIONS,
   actionForAccountStatus,
   type AdminAccessMutationAction,

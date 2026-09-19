@@ -110,7 +110,7 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('aria-describedby="program-save-scope"');
     expect(html).toContain('신청 기간 수정');
     expect(html).toContain('운영 기간 수정');
-    expect(html).toContain('class="inline-flex size-11');
+    expect(html).toContain('data-size="icon"');
     expect(html).toContain('data-slot="tooltip-trigger"');
     expect(html).toContain('aria-invalid="true"');
     expect(html).toContain('aria-describedby="application-schedule-error"');
@@ -129,8 +129,7 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('aria-label="기획서 제출 수정"');
     expect(html).toContain('aria-label="기획서 제출 삭제"');
     expect(html).toContain('data-canonical-id="milestone-canonical-id"');
-    expect(html).toContain('시작');
-    expect(html).toContain('마감');
+    expect(html).toContain('26.08.16 – 26.08.20 21:30');
     expect(html).toContain('운영자 공지');
     expect(html).not.toContain('제출 안내가 없습니다.');
     expect(html).toContain('href="/programs/program-1"');

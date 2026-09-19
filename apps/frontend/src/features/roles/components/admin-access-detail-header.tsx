@@ -1,27 +1,13 @@
 import { ExternalLink } from 'lucide-react';
 import { PageHeader, StatusBadge } from '@/components';
 import {
+  ACCOUNT_STATUS_BADGE,
   ACCOUNT_STATUS_LABEL,
-  ROLE_LABEL,
-} from '../admin-access-mutation-policy';
+  roleBadgeVariant,
+  roleLabel,
+} from '@/lib/status-vocabulary';
 import type { CanonicalAdminAccessDetail } from '../independent-authority-api';
 import type { AdminAccessDetailLayoutContext } from './admin-access-detail-layout';
-
-type RoleBadgeVariant = 'approved' | 'pending' | 'closed';
-
-function roleBadgeVariant(
-  role: CanonicalAdminAccessDetail['role'],
-): RoleBadgeVariant {
-  switch (role) {
-    case 'ADMIN':
-      return 'approved';
-    case 'STAFF':
-      return 'pending';
-    case 'STUDENT':
-    case null:
-      return 'closed';
-  }
-}
 
 export function AdminAccessDetailHeader({
   detail,
@@ -54,11 +40,9 @@ export function AdminAccessDetailHeader({
       actions={
         <div className="flex flex-wrap gap-2">
           <StatusBadge variant={roleBadgeVariant(detail.role)}>
-            {detail.role ? ROLE_LABEL[detail.role] : '미지정'}
+            {roleLabel(detail.role)}
           </StatusBadge>
-          <StatusBadge
-            variant={detail.accountStatus === 'ACTIVE' ? 'approved' : 'closed'}
-          >
+          <StatusBadge variant={ACCOUNT_STATUS_BADGE[detail.accountStatus]}>
             {ACCOUNT_STATUS_LABEL[detail.accountStatus]}
           </StatusBadge>
         </div>
