@@ -318,7 +318,11 @@ function paintFor(path, opacity = 1) {
   const variable = variablesByPath.get(path);
   const base = { type: 'SOLID', color: { r: 0, g: 0, b: 0 }, opacity };
   if (!variable) return base;
-  return figma.variables.setBoundVariableForPaint(base, 'color', variable);
+  // 변수를 묶은 복사본은 불투명도를 잃을 수 있어 뒤에 다시 얹는다(destructive 10% 등).
+  return {
+    ...figma.variables.setBoundVariableForPaint(base, 'color', variable),
+    opacity,
+  };
 }
 
 function bindNumber(node, field, path) {
@@ -383,15 +387,19 @@ function component(name, options) {
   return autoLayout(node, options);
 }
 
-async function icon(name, size = 16) {
+async function icon(name, size = 16, color = 'foreground') {
   let node;
   try {
     const response = await fetch(`${ICON_BASE}${name}.svg`);
     node = figma.createNodeFromSvg(await response.text());
+    // lucide는 stroke="currentColor"라 검정으로 들어온다 — 글자색 변수로 바꿔 묶는다.
+    for (const child of node.findAll((n) => 'strokes' in n)) {
+      if (child.strokes.length > 0) child.strokes = [paintFor(color)];
+    }
   } catch {
     node = figma.createFrame();
     node.fills = [];
-    node.strokes = [paintFor('foreground')];
+    node.strokes = [paintFor(color)];
   }
   node.name = `icon/${name}`;
   node.resize(size, size);
@@ -561,7 +569,7 @@ async function buttonNode(variantName, sizeName, state, label) {
   node.resize(sizeName === 'icon' ? 44 : 100, 44);
   bindNumber(node, 'height', 'control-height');
   if (sizeName === 'icon') {
-    node.appendChild(await icon('pencil', size.icon));
+    node.appendChild(await icon('pencil', size.icon, variant.text));
   } else {
     const text = await makeText(label, {
       size: size.text,

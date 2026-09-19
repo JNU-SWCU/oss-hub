@@ -69,6 +69,14 @@ function createFakeFigma(
       clone() {
         return node(type, { ...extra, name: self.name });
       },
+      findAll(predicate: (n: AnyNode) => boolean): AnyNode[] {
+        const found: AnyNode[] = [];
+        for (const child of self.children) {
+          if (predicate(child)) found.push(child);
+          found.push(...(child.findAll?.(predicate) ?? []));
+        }
+        return found;
+      },
       findOne(predicate: (n: AnyNode) => boolean): AnyNode | null {
         for (const child of self.children) {
           if (predicate(child)) return child;
