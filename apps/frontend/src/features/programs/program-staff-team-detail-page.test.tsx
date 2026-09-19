@@ -28,15 +28,24 @@ const {
   getStaffProgramTeamDetailMock,
   publishRepositoryMock,
   renameProgramTeamMock,
+  deleteStaffProgramTeamMock,
+  routerPushMock,
 } = vi.hoisted(() => ({
   getStaffProgramTeamDetailMock: vi.fn(),
   publishRepositoryMock: vi.fn(),
   renameProgramTeamMock: vi.fn(),
+  deleteStaffProgramTeamMock: vi.fn(),
+  routerPushMock: vi.fn(),
+}));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: routerPushMock }),
 }));
 
 vi.mock('./api', () => ({
   getStaffProgramTeamDetail: getStaffProgramTeamDetailMock,
   renameProgramTeam: renameProgramTeamMock,
+  deleteStaffProgramTeam: deleteStaffProgramTeamMock,
 }));
 
 vi.mock('@/lib/repository-publication', async (importOriginal) => ({
@@ -120,6 +129,8 @@ describe('ProgramStaffTeamDetailPage', () => {
     getStaffProgramTeamDetailMock.mockReset();
     publishRepositoryMock.mockReset();
     renameProgramTeamMock.mockReset();
+    deleteStaffProgramTeamMock.mockReset();
+    routerPushMock.mockReset();
   });
 
   afterEach(() => {
@@ -466,6 +477,29 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(document.querySelector('[role="dialog"]')).toBeNull();
       // 바뀐 것이 없으므로 「바꿨습니다」라고 말하지 않는다.
       expect(container.textContent).not.toContain('팀 이름을 바꿨습니다');
+    });
+  });
+
+  describe('팀 삭제', () => {
+    it('위험 영역에 팀 삭제 버튼이 있고 누르면 확인 창이 열린다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      await render();
+
+      const trigger = [...container.querySelectorAll('button')].find(
+        (button) => button.textContent?.trim() === '팀 삭제',
+      );
+      expect(trigger).toBeTruthy();
+      expect(trigger?.className).toContain('destructive');
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+
+      await act(async () => trigger?.click());
+
+      const dialog = document.querySelector('[role="dialog"]');
+      expect(dialog?.textContent).toContain('팀을 삭제할까요?');
+      expect(dialog?.textContent).toContain('지원서 1건 · 팀원 2명');
+      expect(dialog?.textContent).toContain(
+        '연결된 GitHub 저장소는 삭제하지 않고 연결만 해제합니다.',
+      );
     });
   });
 });
