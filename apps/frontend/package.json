@@ -9,6 +9,8 @@
     "e2e:install": "playwright install chrome",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "tokens:export": "node scripts/export-design-tokens.mjs",
+    "tokens:check": "node scripts/export-design-tokens.mjs --check",
     "test": "vitest run"
   },
   "dependencies": {

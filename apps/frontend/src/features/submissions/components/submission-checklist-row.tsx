@@ -4,8 +4,10 @@ import { ListRow, StatusBadge } from '@/components';
 import { formatFileSize } from '@/lib/format-file-size';
 import { programDocumentsHref } from '@/lib/program-route';
 import {
-  CHECKLIST_STATUS_LABELS,
-  CHECKLIST_STATUS_VARIANTS,
+  SUBMISSION_STATUS_BADGE,
+  SUBMISSION_STATUS_LABELS,
+} from '@/lib/status-vocabulary';
+import {
   checklistItemStatus,
   hasMilestoneDeadlinePassed,
   milestoneDeadline,
@@ -110,9 +112,9 @@ export function ChecklistRow({
           <SubmissionFileLink file={item.submission.file} compact />
         ) : null}
       </div>
-      <StatusBadge variant={CHECKLIST_STATUS_VARIANTS[status]}>
+      <StatusBadge variant={SUBMISSION_STATUS_BADGE[status]}>
         <span className="sr-only">제출 상태: </span>
-        {CHECKLIST_STATUS_LABELS[status]}
+        {SUBMISSION_STATUS_LABELS[status]}
       </StatusBadge>
     </ListRow>
   );

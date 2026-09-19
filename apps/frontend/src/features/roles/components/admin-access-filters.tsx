@@ -2,6 +2,11 @@ import type { SubmitEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  ACCOUNT_STATUS_LABEL,
+  ROLE_LABEL,
+  UNASSIGNED_ROLE_LABEL,
+} from '@/lib/status-vocabulary';
 
 import type {
   AdminAccessAccountStatus,
@@ -15,16 +20,10 @@ import {
   SelectValue,
 } from './role-select';
 
+// 거르기 목록 순서: 미지정이 먼저다(역할을 아직 주지 않은 계정부터 살핀다).
 const ROLE_FILTER_LABEL: Record<AdminAccessRoleFilter, string> = {
-  UNASSIGNED: '미지정',
-  STUDENT: '학생',
-  STAFF: '교직원',
-  ADMIN: '관리자',
-};
-
-const ACCOUNT_STATUS_LABEL: Record<AdminAccessAccountStatus, string> = {
-  ACTIVE: '활성',
-  DEACTIVATED: '비활성',
+  UNASSIGNED: UNASSIGNED_ROLE_LABEL,
+  ...ROLE_LABEL,
 };
 
 const ALL_ROLES = 'ALL_ROLES';

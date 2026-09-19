@@ -7,23 +7,14 @@ import {
   programDocumentsHref,
   programMilestoneDocumentsHref,
 } from '@/lib/program-route';
+import { SUBMISSION_STATUS_BADGE } from '@/lib/status-vocabulary';
 import { formatSeoulDate, submissionLabel } from '../program-detail-format';
 import type {
   BlockedMilestoneSubmissionAccess,
   MilestoneSubmissionAccess,
 } from '../milestone-submission-access';
 import { milestoneRowSubmitGate } from '../milestone-submit-gate';
-import type { ProgramMilestone, SubmissionStatus, ViewerRole } from '../types';
-
-const STATUS_VARIANTS = {
-  NOT_SUBMITTED: 'pending',
-  SUBMITTED: 'pending',
-  APPROVED: 'approved',
-  CHANGES_REQUESTED: 'rejected',
-  REJECTED: 'rejected',
-} as const satisfies Readonly<
-  Record<SubmissionStatus, 'pending' | 'approved' | 'rejected'>
->;
+import type { ProgramMilestone, ViewerRole } from '../types';
 
 interface MilestoneRowProps {
   readonly programId: string;
@@ -177,7 +168,7 @@ function StudentState({
   const submitHref = programDocumentsHref(programId, milestone.id);
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <StatusBadge variant={STATUS_VARIANTS[gate.status]}>
+      <StatusBadge variant={SUBMISSION_STATUS_BADGE[gate.status]}>
         {submissionLabel(gate.status)}
       </StatusBadge>
       {gate.kind === 'open' ? (
