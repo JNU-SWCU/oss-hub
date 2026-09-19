@@ -11,7 +11,7 @@ import {
   type ProgramMilestoneDraft,
 } from './program-edit-flow';
 import { ReadOnlyMilestoneDocuments } from './milestone-document-editor';
-import { formatSeoulDate } from './program-detail-format';
+import { formatSeoulShortRange } from './program-detail-format';
 import { ProgramEditMilestoneForm } from './program-edit-milestone-form';
 import type { ProgramScheduleCalendarEvent } from './program-schedule-calendar-model';
 import { ProgramEditMilestoneDialog } from './program-edit-milestone-dialog';
@@ -156,8 +156,7 @@ export function ProgramEditMilestones({
               id={milestone.id}
               disabled={isBusy}
               name={milestone.name}
-              startAt={formatSeoulDate(milestone.startAt)}
-              dueAt={formatSeoulDate(milestone.dueAt)}
+              period={formatSeoulShortRange(milestone.startAt, milestone.dueAt)}
               notice={milestone.instructions}
               onEdit={() => onEdit(milestone)}
               onDelete={() => onRequestDelete(milestone)}

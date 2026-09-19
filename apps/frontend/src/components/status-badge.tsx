@@ -17,7 +17,7 @@ const statusBadgeVariants = cva(
   {
     variants: {
       size: {
-        default: 'px-2 py-0.5 text-xs',
+        default: 'py-0.5 text-xs',
         lg: 'min-w-24 justify-center px-4 py-2 text-base font-semibold',
       },
       variant: {
