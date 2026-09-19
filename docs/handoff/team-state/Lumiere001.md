@@ -1185,3 +1185,14 @@
 - 검증: tokens:check 통과, 새 단위 테스트 2개(생성물 최신 여부·값 대조), typecheck·eslint·전체 포맷 통과. 화면 변경이 없어 캡처는 없다.
 - 주의: 토큰 값·이름·화면은 바꾸지 않았다. 폰트 교체(Pretendard)는 PM이 Figma 시안을 본 뒤 정한다(2026-09-19 동규 결정).
 - 경계: Figma 파일 작성, 폰트 적용, `@theme inline`·반전 표면 스코프의 내보내기는 포함하지 않는다.
+
+## 2026-09-19 — Figma 라이브러리를 코드에서 그리는 플러그인을 둔다
+
+- 상태: review
+- Issue: #1304 후속 (같은 티켓 「디자인 시스템 구성」)
+- PR: (이 PR, base는 #1305 브랜치 — 병합되면 main으로 바꾼다)
+- 내용: `apps/frontend/figma-plugin/`에 개발용 Figma 플러그인을 둔다. `docs/design-tokens/tokens.json`과 스펙 시트의 수치대로 변수(Light·Dark) · 텍스트 스타일 6개 · 컴포넌트(Button 105변형, StatusBadge 10 + 용어 사전, FilterChip 3, Dialog md·lg + Form/Field, Table 셀 3 + 예시 표, Card)를 그린다.
+  Starter 요금제 제한(컬렉션당 모드 1개, 파일당 페이지 3개)을 만나면 다크 값은 「OSS Hub Dark」 컬렉션에, 남은 부품은 한 페이지의 섹션에 둔다. 코드의 `bg-destructive/10` 같은 반투명 변형은 알파를 가진 `semantic/…@10` 변수로 따로 만든다.
+- 검증: 가짜 Figma API 위에서 끝까지 실행하는 단위 테스트 3개(정상·모드 1개 폴백·페이지 3개 폴백)와 typecheck·eslint·전체 포맷을 통과했다. 작성자의 Figma 데스크톱(Starter, Pretendard 설치)에서 실제로 불러와 실행해 전 부품이 생성됨을 확인했고, 두 결함(반투명 채우기 손실, 아이콘 잘림)을 고쳐 다시 실행했다.
+- 주의: 브라우저 화면 변경은 없다. 플러그인은 개발용(매니페스트 가져오기)이며 커뮤니티에 올리지 않는다. 폰트 교체는 여전히 PM이 Figma 시안을 본 뒤 정한다.
+- 경계: Figma 파일의 공유·라이브러리 게시, 아이콘 세트 전체, 화면 예시 페이지(09 Screens)는 포함하지 않는다.
