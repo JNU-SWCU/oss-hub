@@ -171,6 +171,8 @@ Tailwind v4 기본 spacing 스케일을 그대로 쓴다.
 
 Figma에서 읽는 절차: Tokens Studio 플러그인 → Settings → Sync providers에서 GitHub(`docs/design-tokens/tokens.json`, 브랜치 main)를 연결하거나, 파일을 내려받아 Load from file로 읽는다. 테마는 `$themes`의 Light·Dark 둘이다. 폰트 패밀리는 아직 내보내지 않는다 — 본문 폰트 교체(Pretendard)는 PM이 Figma 시안을 본 뒤 정한다(2026-09-19).
 
+PR 게이트: 본문 「정리」 절의 `- 디자인 규격:` 줄에 이번 PR이 쓴 공용 컴포넌트·토큰과 규격 출처(이 문서의 컴포넌트 카드 이름 또는 Figma 컴포넌트 링크)를 적는다. `scripts/check-pr-body.sh`의 R12가 빈 줄·자리표시자·이유 없는 예외를 막는다(#1309).
+
 ## 프리미티브
 
 Button부터 Table까지 6종은 `npx shadcn@latest add`로 생성했다(`radix-nova` 스타일).
