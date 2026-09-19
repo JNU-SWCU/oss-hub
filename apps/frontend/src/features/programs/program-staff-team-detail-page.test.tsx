@@ -490,11 +490,11 @@ describe('ProgramStaffTeamDetailPage', () => {
       );
       expect(trigger).toBeTruthy();
       expect(trigger?.className).toContain('destructive');
-      expect(document.querySelector('[role="dialog"]')).toBeNull();
+      expect(document.querySelector('[role="alertdialog"]')).toBeNull();
 
       await act(async () => trigger?.click());
 
-      const dialog = document.querySelector('[role="dialog"]');
+      const dialog = document.querySelector('[role="alertdialog"]');
       expect(dialog?.textContent).toContain('팀을 삭제할까요?');
       expect(dialog?.textContent).toContain('지원서 1건 · 팀원 2명');
       expect(dialog?.textContent).toContain(

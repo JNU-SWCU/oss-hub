@@ -332,8 +332,10 @@ export function ProgramStaffTeamDetailPage({
             teamId={teamId}
             teamName={detail.name}
             scope={detail.deletionScope}
-            returnFocusRef={deleteTriggerRef}
-            onCancel={() => setDeleting(false)}
+            onCancel={() => {
+              setDeleting(false);
+              requestAnimationFrame(() => deleteTriggerRef.current?.focus());
+            }}
             onDeleted={() => {
               /*
                * 참여 팀 목록은 아직 삭제 결과 알림을 읽지 않는다.

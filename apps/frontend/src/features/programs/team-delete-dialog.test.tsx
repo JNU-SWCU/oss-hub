@@ -62,22 +62,15 @@ function Harness({
   readonly onDeleted?: (summary: string) => void;
   readonly onCancel?: () => void;
 }) {
-  const returnFocusRef = useRef<HTMLButtonElement | null>(null);
   return (
-    <>
-      <button ref={returnFocusRef} type="button">
-        팀 삭제
-      </button>
-      <TeamDeleteDialog
-        programId="program-1"
-        teamId="team-1"
-        teamName="오픈소스팀"
-        scope={scope}
-        returnFocusRef={returnFocusRef}
-        onDeleted={onDeleted}
-        onCancel={onCancel}
-      />
-    </>
+    <TeamDeleteDialog
+      programId="program-1"
+      teamId="team-1"
+      teamName="오픈소스팀"
+      scope={scope}
+      onDeleted={onDeleted}
+      onCancel={onCancel}
+    />
   );
 }
 
@@ -114,9 +107,9 @@ describe('TeamDeleteDialog', () => {
     await act(async () => {
       root.render(<Harness onDeleted={onDeleted} onCancel={onCancel} />);
     });
-    const dialog = document.querySelector('[role="dialog"]');
+    const dialog = document.querySelector('[role="alertdialog"]');
     if (!(dialog instanceof HTMLElement)) {
-      throw new TypeError('삭제 확인 창이 없다');
+      throw new TypeError('삭제 확인 창(alertdialog)이 없다');
     }
     return dialog;
   }
@@ -232,6 +225,6 @@ describe('TeamDeleteDialog', () => {
 
     expect(dialog.textContent).toContain('교직원만 팀을 삭제할 수 있습니다.');
     expect(onDeleted).not.toHaveBeenCalled();
-    expect(document.querySelector('[role="dialog"]')).toBeTruthy();
+    expect(document.querySelector('[role="alertdialog"]')).toBeTruthy();
   });
 });
