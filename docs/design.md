@@ -149,6 +149,22 @@ Tailwind v4 기본 spacing 스케일을 그대로 쓴다.
 모서리는 semantic `--radius`(0.625rem)를 component 계층에서 `--radius-sm` ~ `--radius-4xl`로 확장해 쓴다.
 그림자는 Tailwind 기본 `shadow-sm`/`shadow`/`shadow-md` 유틸리티를 그대로 쓰고, 이번 단계에서 별도 elevation 토큰은 추가하지 않는다.
 
+## Figma 동기화
+
+토큰의 원본은 `apps/frontend/src/app/globals.css` 하나다. Figma는 그 사본을 읽는다.
+**R-36** 토큰 값·이름은 `globals.css`에서만 바꾸고, 바꾼 뒤 `pnpm --filter frontend tokens:export`로 `docs/design-tokens/tokens.json`을 다시 만든다. 생성 파일을 손으로 고치지 않으며, 단위 테스트(`src/lib/design-tokens.test.ts`)가 원본과 어긋난 생성 파일을 잡는다.
+
+| 세트 | 원본 | 내용 |
+| --- | --- | --- |
+| `primitive` | `:root`의 `--palette-*` | 색 램프. `palette.navy.600`처럼 경로로 부른다 |
+| `dimension` | `:root`의 `--space-*`·`--measure-*`·`--step-*` | 여백 척도·고정 치수·글자 크기 계단(`fontSize.page` 등) |
+| `light` | `:root`의 semantic | 역할 토큰. 값은 `{palette.navy.600}` 같은 alias |
+| `dark` | `.dark` | 다크 모드 재정의 |
+
+내보내지 않는 것: `@theme inline`(Tailwind 유틸리티 이름 매핑 — 코드 전용), `@media`, `[data-surface]` 반전 표면 스코프. `color-mix`·`rgb(var(…))` 같은 계산값은 CSS 문자열 그대로 두고 `description`에 손으로 지정한다고 적는다 — Figma는 그 식을 풀 수 없다.
+
+Figma에서 읽는 절차: Tokens Studio 플러그인 → Settings → Sync providers에서 GitHub(`docs/design-tokens/tokens.json`, 브랜치 main)를 연결하거나, 파일을 내려받아 Load from file로 읽는다. 테마는 `$themes`의 Light·Dark 둘이다. 폰트 패밀리는 아직 내보내지 않는다 — 본문 폰트 교체(Pretendard)는 PM이 Figma 시안을 본 뒤 정한다(2026-09-19).
+
 ## 프리미티브
 
 Button부터 Table까지 6종은 `npx shadcn@latest add`로 생성했다(`radix-nova` 스타일).
