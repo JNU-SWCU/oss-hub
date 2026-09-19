@@ -2,9 +2,17 @@
 
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { CalendarClock, RotateCcw } from 'lucide-react';
+import { RowActions } from '@/components';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
   dateKey,
@@ -250,36 +258,48 @@ export function ProgramScheduleRangeEditor({
                         </span>
                       </button>
                     )}
-                    <div className="mr-3 flex shrink-0 items-center gap-1">
-                      <button
-                        type="button"
-                        aria-label={`${range.label} 일정 입력`}
-                        title="일정 입력"
-                        className="inline-flex size-11 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        onClick={() => {
-                          onActiveIdChange(range.id);
-                          setManualRangeId(range.id);
-                        }}
-                      >
-                        <CalendarClock aria-hidden="true" className="size-4" />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`${range.label} 초기화`}
-                        title="기간 초기화"
-                        disabled={!range.startAt && !range.endAt}
-                        className="inline-flex size-11 items-center justify-center rounded-control text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
-                        onClick={() => {
-                          onActiveIdChange(range.id);
-                          setAnchorDate(null);
-                          setTimeControlsOpenFor(null);
-                          range.onStartAtChange('');
-                          range.onEndAtChange('');
-                        }}
-                      >
-                        <RotateCcw aria-hidden="true" className="size-4" />
-                      </button>
-                    </div>
+                    <TooltipProvider delayDuration={200}>
+                      <RowActions className="mr-3 shrink-0">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`${range.label} 일정 입력`}
+                              onClick={() => {
+                                onActiveIdChange(range.id);
+                                setManualRangeId(range.id);
+                              }}
+                            >
+                              <CalendarClock aria-hidden="true" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{`${range.label} 일정 입력`}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`${range.label} 초기화`}
+                              disabled={!range.startAt && !range.endAt}
+                              onClick={() => {
+                                onActiveIdChange(range.id);
+                                setAnchorDate(null);
+                                setTimeControlsOpenFor(null);
+                                range.onStartAtChange('');
+                                range.onEndAtChange('');
+                              }}
+                            >
+                              <RotateCcw aria-hidden="true" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{`${range.label} 초기화`}</TooltipContent>
+                        </Tooltip>
+                      </RowActions>
+                    </TooltipProvider>
                   </div>
                   <FieldError id={error ? rangeErrorId(range) : undefined}>
                     {error}

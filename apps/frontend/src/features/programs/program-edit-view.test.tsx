@@ -110,7 +110,7 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('aria-describedby="program-save-scope"');
     expect(html).toContain('신청 기간 수정');
     expect(html).toContain('운영 기간 수정');
-    expect(html).toContain('class="inline-flex size-11');
+    expect(html).toContain('data-size="icon"');
     expect(html).toContain('data-slot="tooltip-trigger"');
     expect(html).toContain('aria-invalid="true"');
     expect(html).toContain('aria-describedby="application-schedule-error"');

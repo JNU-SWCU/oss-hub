@@ -4,7 +4,7 @@ import { useId, useState } from 'react';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { ProgramAuthoringDialog } from './program-authoring-dialog';
+import { DialogShell } from '@/components';
 import {
   dateKey,
   monthKeyForEvents,
@@ -115,7 +115,7 @@ export function ProgramScheduleRangeDialog({
   }
 
   return (
-    <ProgramAuthoringDialog
+    <DialogShell
       title={range.label}
       description={
         description === undefined
@@ -230,7 +230,7 @@ export function ProgramScheduleRangeDialog({
         </Field>
       ) : null}
       <FieldError id={errorId}>{attempted ? error : null}</FieldError>
-    </ProgramAuthoringDialog>
+    </DialogShell>
   );
 }
 

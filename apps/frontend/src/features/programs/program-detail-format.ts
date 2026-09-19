@@ -1,16 +1,9 @@
+import { SUBMISSION_STATUS_LABELS } from '@/lib/status-vocabulary';
 import type { ProgramDetail, SubmissionStatus, SubmissionType } from './types';
 import {
   PROGRAM_TRACK_TYPE_LABELS,
   type ProgramTrackType,
 } from './program-templates';
-
-const SUBMISSION_LABELS = {
-  NOT_SUBMITTED: '제출 전',
-  SUBMITTED: '제출됨',
-  APPROVED: '승인',
-  CHANGES_REQUESTED: '보완 필요',
-  REJECTED: '최종 반려',
-} as const satisfies Readonly<Record<SubmissionStatus, string>>;
 
 const TYPE_LABELS = {
   FILE: '파일',
@@ -40,7 +33,7 @@ export function programDetailMeta(program: ProgramDetail): string {
 }
 
 export function submissionLabel(status: SubmissionStatus): string {
-  return SUBMISSION_LABELS[status];
+  return SUBMISSION_STATUS_LABELS[status];
 }
 
 export function submissionTypeLabel(type: SubmissionType): string {

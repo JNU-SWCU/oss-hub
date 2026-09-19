@@ -1,6 +1,6 @@
 'use client';
 
-import { cn } from '@/lib/utils';
+import { FilterChip, FilterChipGroup } from '@/components';
 import { type ArchiveListFilter } from './types';
 
 /**
@@ -20,32 +20,23 @@ export function ArchiveListYearChips({
   const filters: readonly ArchiveListFilter[] = ['all', ...years];
 
   return (
-    <div
+    <FilterChipGroup
       data-slot="archive-list-year-chips"
-      role="toolbar"
       aria-label="연도 필터"
-      className={cn('flex flex-wrap gap-2', className)}
+      className={className}
     >
       {filters.map((filter) => {
-        const active = value === filter;
         const label = filter === 'all' ? '전체' : String(filter);
         return (
-          <button
+          <FilterChip
             key={label}
-            type="button"
+            pressed={value === filter}
             onClick={() => onChange(filter)}
-            aria-pressed={active}
-            className={cn(
-              'rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors',
-              active
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-background text-foreground hover:bg-muted',
-            )}
           >
             {label}
-          </button>
+          </FilterChip>
         );
       })}
-    </div>
+    </FilterChipGroup>
   );
 }

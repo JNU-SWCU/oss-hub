@@ -46,17 +46,6 @@ export type AdminAccessSetStatusAction =
   | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_STATUS_ACTIVE
   | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_STATUS_DEACTIVATED;
 
-export const ROLE_LABEL: Record<AdminAccessRole, string> = {
-  STUDENT: '학생',
-  STAFF: '교직원',
-  ADMIN: '관리자',
-};
-
-export const ACCOUNT_STATUS_LABEL: Record<AdminAccessAccountStatus, string> = {
-  ACTIVE: '활성',
-  DEACTIVATED: '비활성',
-};
-
 export function isIndependentAuthorityMutationAction(
   action: AdminAccessMutationAction,
 ): action is IndependentAuthorityMutationAction {
