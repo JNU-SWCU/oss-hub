@@ -18,17 +18,17 @@
 
 ## 만드는 것
 
-| 페이지 | 내용 |
-| --- | --- |
+| 페이지                  | 내용                                                                                                                   |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | 변수 컬렉션 「OSS Hub」 | `palette/*`(색 램프), `space/*`·`measure/*`·`fontSize/*`(치수), `semantic/*`(역할, Light·Dark 모드, primitive를 alias) |
-| 텍스트 스타일 | `text/page` 40 · `text/section` 24 · `text/body` 16 · `text/small` 13 · `text/badge` 12 · `text/table` 14 |
-| 01 Tokens | 팔레트 견본 · 간격 척도 |
-| 02 Button | variant 7 × size 5 × state 3 (높이 44 고정) |
-| 03 Badge · 용어 사전 | StatusBadge 5 × 2 + 상태 어휘 표 |
-| 04 Filter Chip | 기본·hover·눌림 + 예시 묶음 |
-| 05 Dialog · Form | Dialog md(576)·lg(672), Form/Field, 오버레이 견본 |
-| 06 Table | 머리글·본문·행 제목 셀 + 학과별 활성 표 예시 |
-| 07 Card | 머리(제목·설명·행 액션)·내용·바닥 |
+| 텍스트 스타일           | `text/page` 40 · `text/section` 24 · `text/body` 16 · `text/small` 13 · `text/badge` 12 · `text/table` 14              |
+| 01 Tokens               | 팔레트 견본 · 간격 척도                                                                                                |
+| 02 Button               | variant 7 × size 5 × state 3 (높이 44 고정)                                                                            |
+| 03 Badge · 용어 사전    | StatusBadge 5 × 2 + 상태 어휘 표                                                                                       |
+| 04 Filter Chip          | 기본·hover·눌림 + 예시 묶음                                                                                            |
+| 05 Dialog · Form        | Dialog md(576)·lg(672), Form/Field, 오버레이 견본                                                                      |
+| 06 Table                | 머리글·본문·행 제목 셀 + 학과별 활성 표 예시                                                                           |
+| 07 Card                 | 머리(제목·설명·행 액션)·내용·바닥                                                                                      |
 
 계산값(`color-mix`·`rgb(var…)`)은 흰색·기본색에 불투명도를 준 값으로 근사하고, 읽지 못한 값은
 플러그인 창의 기록에 남긴다.

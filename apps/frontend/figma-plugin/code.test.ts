@@ -18,7 +18,9 @@ const TOKENS = readFileSync(
 
 type AnyNode = Record<string, any>;
 
-function createFakeFigma() {
+function createFakeFigma(
+  options: { singleMode?: boolean; pageLimit?: number } = {},
+) {
   const logs: string[] = [];
   const pages: AnyNode[] = [];
   const collections: AnyNode[] = [];
@@ -105,6 +107,10 @@ function createFakeFigma() {
       return currentPage;
     },
     createPage() {
+      if (options.pageLimit !== undefined && pages.length >= options.pageLimit)
+        throw new Error(
+          `in createPage: The Starter plan only comes with ${options.pageLimit} pages.`,
+        );
       const page = node('PAGE');
       pages.push(page);
       currentPage = page;
@@ -132,6 +138,8 @@ function createFakeFigma() {
             if (mode) mode.name = newName;
           },
           addMode(newName: string) {
+            if (options.singleMode)
+              throw new Error('in addMode: Limited to 1 modes only');
             const modeId = `mode-${collection.modes.length + 1}`;
             collection.modes.push({ modeId, name: newName });
             return modeId;
@@ -195,6 +203,8 @@ function createFakeFigma() {
     createEllipse: () => attach(node('ELLIPSE')),
     createRectangle: () => attach(node('RECTANGLE')),
     createNodeFromSvg: () => attach(node('FRAME', { name: 'svg' })),
+    createSection: () =>
+      attach(node('SECTION', { resizeWithoutConstraints() {} })),
     combineAsVariants(nodes: AnyNode[], parent: AnyNode) {
       const set = node('COMPONENT_SET');
       for (const child of nodes) set.appendChild(child);
@@ -210,33 +220,81 @@ function createFakeFigma() {
   return { figma, logs, pages, collections, variables, textStyles };
 }
 
+async function runPlugin(fake: ReturnType<typeof createFakeFigma>) {
+  const fetch = async (url: string) => ({
+    ok: true,
+    status: 200,
+    json: async () => JSON.parse(TOKENS),
+    text: async () =>
+      url.endsWith('.svg')
+        ? '<svg xmlns="http://www.w3.org/2000/svg"/>'
+        : TOKENS,
+  });
+  const sandbox = vm.createContext({
+    figma: fake.figma,
+    __html__: '',
+    fetch,
+    console,
+  });
+  vm.runInContext(CODE, sandbox, { filename: 'code.js' });
+  const onmessage = fake.figma.ui.onmessage;
+  if (!onmessage) throw new Error('onmessage가 등록되지 않았다');
+  await onmessage({
+    type: 'run',
+    url: 'https://raw.githubusercontent.com/JNU-SWCU/oss-hub/main/docs/design-tokens/tokens.json',
+    steps: { variables: true, components: true },
+  });
+}
+
 describe('figma plugin code.js', () => {
+  it('페이지를 3개까지만 허용하는 요금제면 나머지를 한 페이지의 섹션으로 나눈다', async () => {
+    const fake = createFakeFigma({ pageLimit: 3 });
+    fake.figma.createPage().name = 'Page 1';
+    await runPlugin(fake);
+
+    expect(fake.logs.find((line) => line.startsWith('실패'))).toBeUndefined();
+    const library = fake.pages.find((p) => p.name === '라이브러리 (OSS Hub)');
+    const sectionNames = library?.children
+      .filter((n: AnyNode) => n.type === 'SECTION')
+      .map((n: AnyNode) => n.name);
+    expect(sectionNames).toEqual(
+      expect.arrayContaining(['02 Button', '05 Dialog · Form', '07 Card']),
+    );
+    expect(fake.pages).toHaveLength(3);
+  });
+
+  it('모드를 하나만 허용하는 요금제면 다크 값을 별도 컬렉션에 둔다', async () => {
+    const fake = createFakeFigma({ singleMode: true });
+    await runPlugin(fake);
+
+    expect(fake.logs.find((line) => line.startsWith('실패'))).toBeUndefined();
+    expect(fake.collections.map((c) => c.name)).toEqual([
+      'OSS Hub',
+      'OSS Hub Dark',
+    ]);
+    const byName = (name: string, collectionId: string) =>
+      fake.variables.find(
+        (v) => v.name === name && v.variableCollectionId === collectionId,
+      );
+    const navy600 = fake.variables.find((v) => v.name === 'palette/navy/600');
+    const navy300 = fake.variables.find((v) => v.name === 'palette/navy/300');
+    expect(
+      byName('semantic/primary', 'collection-1')?.valuesByMode['mode-1'],
+    ).toEqual({
+      type: 'VARIABLE_ALIAS',
+      id: navy600?.id,
+    });
+    expect(
+      byName('semantic/primary', 'collection-2')?.valuesByMode['mode-1'],
+    ).toEqual({
+      type: 'VARIABLE_ALIAS',
+      id: navy300?.id,
+    });
+  });
+
   it('가짜 Figma API 위에서 변수·스타일·컴포넌트를 끝까지 만든다', async () => {
     const fake = createFakeFigma();
-    const fetch = async (url: string) => ({
-      ok: true,
-      status: 200,
-      json: async () => JSON.parse(TOKENS),
-      text: async () =>
-        url.endsWith('.svg')
-          ? '<svg xmlns="http://www.w3.org/2000/svg"/>'
-          : TOKENS,
-    });
-    const sandbox = vm.createContext({
-      figma: fake.figma,
-      __html__: '',
-      fetch,
-      console,
-    });
-    vm.runInContext(CODE, sandbox, { filename: 'code.js' });
-
-    const onmessage = fake.figma.ui.onmessage;
-    if (!onmessage) throw new Error('onmessage가 등록되지 않았다');
-    await onmessage({
-      type: 'run',
-      url: 'https://raw.githubusercontent.com/JNU-SWCU/oss-hub/main/docs/design-tokens/tokens.json',
-      steps: { variables: true, components: true },
-    });
+    await runPlugin(fake);
 
     const failure = fake.logs.find((line) => line.startsWith('실패'));
     expect(failure, fake.logs.join('\n')).toBeUndefined();

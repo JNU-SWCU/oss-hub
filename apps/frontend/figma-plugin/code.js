@@ -24,6 +24,8 @@ const PAGE_NAMES = {
   card: '07 Card',
 };
 const COLLECTION_NAME = 'OSS Hub';
+/** Starter 요금제는 컬렉션당 모드가 하나뿐이라 다크 값을 따로 둘 때 쓰는 컬렉션. */
+const DARK_COLLECTION_NAME = 'OSS Hub Dark';
 const ICON_BASE = 'https://unpkg.com/lucide-static/icons/';
 
 /** @type {{ family: string, regular: string, semibold: string } | null} */
@@ -101,21 +103,37 @@ function figmaName(path) {
 
 // ---------- 변수 ----------
 
+/**
+ * 컬렉션 「OSS Hub」의 Light 모드와, 다크 값을 둘 자리를 정한다. Professional 이상은 같은
+ * 컬렉션의 Dark 모드에, 모드를 하나만 허용하는 Starter 요금제는 별도 컬렉션
+ * 「OSS Hub Dark」에 둔다 — 값을 잃는 것보다 자리를 나누는 편이 낫다.
+ */
 async function ensureCollection() {
   const collections = await figma.variables.getLocalVariableCollectionsAsync();
   let collection = collections.find((c) => c.name === COLLECTION_NAME);
   if (!collection) {
     collection = figma.variables.createVariableCollection(COLLECTION_NAME);
     collection.renameMode(collection.modes[0].modeId, 'Light');
-    collection.addMode('Dark');
   }
-  const light =
-    collection.modes.find((m) => m.name === 'Light') ?? collection.modes[0];
-  const dark =
-    collection.modes.find((m) => m.name === 'Dark') ??
-    collection.modes[1] ??
-    light;
-  return { collection, light: light.modeId, dark: dark.modeId };
+  const light = (
+    collection.modes.find((m) => m.name === 'Light') ?? collection.modes[0]
+  ).modeId;
+  let dark = collection.modes.find((m) => m.name === 'Dark')?.modeId ?? null;
+  let darkCollection = null;
+  if (!dark) {
+    try {
+      dark = collection.addMode('Dark');
+    } catch (error) {
+      darkCollection =
+        collections.find((c) => c.name === DARK_COLLECTION_NAME) ??
+        figma.variables.createVariableCollection(DARK_COLLECTION_NAME);
+      darkCollection.renameMode(darkCollection.modes[0].modeId, 'Dark');
+      log(
+        `같은 컬렉션에 Dark 모드를 못 만든다(${error instanceof Error ? error.message : String(error)}). 다크 값은 「${DARK_COLLECTION_NAME}」 컬렉션에 둔다.`,
+      );
+    }
+  }
+  return { collection, light, dark, darkCollection };
 }
 
 async function ensureVariable(existing, name, collection, type) {
@@ -155,10 +173,11 @@ function variableType(token) {
 }
 
 async function createVariables(tokens) {
-  const { collection, light, dark } = await ensureCollection();
+  const { collection, light, dark, darkCollection } = await ensureCollection();
   const existing = await figma.variables.getLocalVariablesAsync();
   let created = 0;
-  let skipped = [];
+  let darkCreated = 0;
+  const skipped = [];
   const darkTokens = new Map(flatten(tokens.dark));
 
   for (const [set, prefix] of [
@@ -174,21 +193,35 @@ async function createVariables(tokens) {
         collection,
         variableType(token),
       );
-      const okLight = setTokenValue(variable, light, token);
-      const darkToken =
-        set === 'light' ? (darkTokens.get(path) ?? token) : token;
-      const okDark = setTokenValue(variable, dark, darkToken);
-      if (!okLight && !okDark) {
+      if (!setTokenValue(variable, light, token)) {
         skipped.push(name);
         variable.remove();
         continue;
+      }
+      const darkToken = set === 'light' ? darkTokens.get(path) : undefined;
+      if (dark) {
+        setTokenValue(variable, dark, darkToken ?? token);
+      } else if (darkCollection && darkToken) {
+        const darkVariable = await ensureVariable(
+          existing,
+          name,
+          darkCollection,
+          variableType(darkToken),
+        );
+        const darkMode = darkCollection.modes[0].modeId;
+        if (setTokenValue(darkVariable, darkMode, darkToken)) darkCreated += 1;
+        else darkVariable.remove();
       }
       if (token.description) variable.description = token.description;
       variablesByPath.set(path, variable);
       created += 1;
     }
   }
-  log(`변수 ${created}개 (컬렉션 「${COLLECTION_NAME}」, Light·Dark)`);
+  log(
+    dark
+      ? `변수 ${created}개 (컬렉션 「${COLLECTION_NAME}」, Light·Dark 모드)`
+      : `변수 ${created}개 (「${COLLECTION_NAME}」 Light) + 다크 ${darkCreated}개 (「${DARK_COLLECTION_NAME}」)`,
+  );
   if (skipped.length) log(`값을 못 읽어 건너뜀: ${skipped.join(', ')}`);
 }
 
@@ -378,17 +411,71 @@ async function iconButton(name) {
   return node;
 }
 
+/** 페이지 대신 섹션으로 나눌 때(Starter는 파일당 페이지 3개) 쓰는 상태. */
+let pagesAllowed = true;
+let libraryPage = null;
+const sections = [];
+
+/**
+ * 이름의 페이지를 비워서 돌려준다. 페이지를 더 못 만드는 요금제면 우리 것이 아닌 첫
+ * 페이지를 「OSS Hub 라이브러리」로 삼고 그 안에 같은 이름의 섹션을 만든다 — 페이지든
+ * 섹션이든 호출부는 똑같이 `appendChild`로 쓴다.
+ */
 async function preparePage(name) {
   const pages = figma.root.children;
   let page = pages.find((p) => p.name === name);
-  if (!page) {
-    page = figma.createPage();
-    page.name = name;
+  if (!page && pagesAllowed) {
+    try {
+      page = figma.createPage();
+      page.name = name;
+    } catch (error) {
+      pagesAllowed = false;
+      log(
+        `페이지를 더 못 만든다(${error instanceof Error ? error.message : String(error)}). 남은 것은 한 페이지 안의 섹션으로 나눈다.`,
+      );
+    }
   }
-  await page.loadAsync();
-  for (const child of [...page.children]) child.remove();
-  await figma.setCurrentPageAsync(page);
-  return page;
+  if (page) {
+    await page.loadAsync();
+    for (const child of [...page.children]) child.remove();
+    await figma.setCurrentPageAsync(page);
+    return page;
+  }
+  if (!libraryPage) {
+    const ours = new Set(Object.values(PAGE_NAMES));
+    libraryPage =
+      pages.find((p) => p.name === '라이브러리 (OSS Hub)') ??
+      pages.find((p) => !ours.has(p.name)) ??
+      figma.currentPage;
+    await libraryPage.loadAsync();
+    libraryPage.name = '라이브러리 (OSS Hub)';
+  }
+  await figma.setCurrentPageAsync(libraryPage);
+  for (const child of [...libraryPage.children]) {
+    if (child.type === 'SECTION' && child.name === name) child.remove();
+  }
+  const section = figma.createSection();
+  section.name = name;
+  libraryPage.appendChild(section);
+  sections.push(section);
+  return section;
+}
+
+/** 섹션을 안의 내용에 맞게 키우고 세로로 차례차례 놓는다. 페이지를 썼으면 할 일이 없다. */
+function layoutSections() {
+  let y = 0;
+  for (const section of sections) {
+    let maxX = 0;
+    let maxY = 0;
+    for (const child of section.children) {
+      maxX = Math.max(maxX, child.x + child.width);
+      maxY = Math.max(maxY, child.y + child.height);
+    }
+    section.resizeWithoutConstraints(maxX + 96, maxY + 96);
+    section.x = 0;
+    section.y = y;
+    y += section.height + 160;
+  }
 }
 
 function grid(nodes, columns, gapX, gapY) {
@@ -1149,6 +1236,7 @@ async function run(url, steps) {
     await buildDialogs(buttonSet);
     await buildTable();
     await buildCards(buttonSet);
+    layoutSections();
   }
   figma.notify('OSS Hub 디자인 라이브러리 생성 완료');
   log('완료. 각 페이지를 열어 확인한다.');
