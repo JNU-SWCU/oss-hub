@@ -66,6 +66,10 @@ function createFakeFigma(
         self.width = w;
         self.height = h;
       },
+      rescale(factor: number) {
+        self.width *= factor;
+        self.height *= factor;
+      },
       clone() {
         return node(type, { ...extra, name: self.name });
       },
@@ -314,7 +318,8 @@ describe('figma plugin code.js', () => {
       'Light',
       'Dark',
     ]);
-    expect(fake.variables.length).toBe(44 + 20 + 62);
+    // + 반투명 변형 7개(semantic/…@10 등)
+    expect(fake.variables.length).toBe(44 + 20 + 62 + 7);
     const primary = fake.variables.find((v) => v.name === 'semantic/primary');
     const navy600 = fake.variables.find((v) => v.name === 'palette/navy/600');
     const navy300 = fake.variables.find((v) => v.name === 'palette/navy/300');

@@ -34,6 +34,24 @@ let font = null;
 const variablesByPath = new Map();
 /** @type {Map<string, TextStyle>} */
 const textStyles = new Map();
+/** 토큰 경로 → 토큰(primitive·dimension·light). alias를 풀어 실제 색을 얻을 때 쓴다. */
+let tokenIndex = new Map();
+let darkIndex = new Map();
+/**
+ * 반투명 변형 변수(`semantic/destructive@10` 등). Figma는 변수를 묶은 채우기의 불투명도를
+ * 변수의 알파로 정하므로, 코드의 `bg-destructive/10` 같은 변형은 알파를 가진 변수로 따로 둔다.
+ */
+const tintVariables = new Map();
+const TINTS = [
+  ['primary', 80],
+  ['destructive', 10],
+  ['destructive', 20],
+  ['foreground', 10],
+  ['foreground', 35],
+  ['border', 50],
+  ['muted', 50],
+];
+let variableScope = null;
 
 function log(text) {
   figma.ui.postMessage({ type: 'log', text });
@@ -99,6 +117,20 @@ function flatten(set, prefix = []) {
 
 function figmaName(path) {
   return path.replace(/\./g, '/');
+}
+
+/** alias 사슬을 따라가 실제 RGBA를 얻는다. 못 풀면 null. */
+function resolveCssColor(path, index) {
+  const seen = new Set();
+  let token = index.get(path) ?? tokenIndex.get(path);
+  while (token) {
+    const alias = /^\{(.+)\}$/.exec(token.value);
+    if (!alias) return parseCssColor(token.value);
+    if (seen.has(alias[1])) return null;
+    seen.add(alias[1]);
+    token = index.get(alias[1]) ?? tokenIndex.get(alias[1]);
+  }
+  return null;
 }
 
 // ---------- 변수 ----------
@@ -223,6 +255,37 @@ async function createVariables(tokens) {
       : `변수 ${created}개 (「${COLLECTION_NAME}」 Light) + 다크 ${darkCreated}개 (「${DARK_COLLECTION_NAME}」)`,
   );
   if (skipped.length) log(`값을 못 읽어 건너뜀: ${skipped.join(', ')}`);
+  variableScope = { collection, light, dark, darkCollection };
+  await createTints(existing);
+}
+
+async function createTints(existing) {
+  const { collection, light, dark, darkCollection } = variableScope;
+  for (const [path, pct] of TINTS) {
+    const lightColor = resolveCssColor(path, tokenIndex);
+    if (!lightColor) continue;
+    const name = `semantic/${figmaName(path)}@${pct}`;
+    const variable = await ensureVariable(existing, name, collection, 'COLOR');
+    variable.setValueForMode(light, { ...lightColor, a: pct / 100 });
+    variable.description = `${path} ${pct}% — 코드의 /${pct} 변형(bg-${path}/${pct})`;
+    const darkColor = resolveCssColor(path, darkIndex) ?? lightColor;
+    if (dark) {
+      variable.setValueForMode(dark, { ...darkColor, a: pct / 100 });
+    } else if (darkCollection) {
+      const darkVariable = await ensureVariable(
+        existing,
+        name,
+        darkCollection,
+        'COLOR',
+      );
+      darkVariable.setValueForMode(darkCollection.modes[0].modeId, {
+        ...darkColor,
+        a: pct / 100,
+      });
+    }
+    tintVariables.set(`${path}@${pct}`, variable);
+  }
+  log(`반투명 변수 ${tintVariables.size}개 (semantic/…@10 등)`);
 }
 
 // ---------- 폰트 · 텍스트 스타일 ----------
@@ -315,14 +378,25 @@ async function createTextStyles() {
 // ---------- 그리기 도구 ----------
 
 function paintFor(path, opacity = 1) {
-  const variable = variablesByPath.get(path);
-  const base = { type: 'SOLID', color: { r: 0, g: 0, b: 0 }, opacity };
-  if (!variable) return base;
-  // 변수를 묶은 복사본은 불투명도를 잃을 수 있어 뒤에 다시 얹는다(destructive 10% 등).
-  return {
-    ...figma.variables.setBoundVariableForPaint(base, 'color', variable),
-    opacity,
-  };
+  const pct = Math.round(opacity * 100);
+  const variable =
+    pct < 100 ? tintVariables.get(`${path}@${pct}`) : variablesByPath.get(path);
+  if (!variable) {
+    // 변수가 없으면 값이라도 맞춘다 — 색은 토큰에서 풀고 불투명도는 그대로 준다.
+    const color = resolveCssColor(path, tokenIndex);
+    return {
+      type: 'SOLID',
+      color: color
+        ? { r: color.r, g: color.g, b: color.b }
+        : { r: 0, g: 0, b: 0 },
+      opacity,
+    };
+  }
+  return figma.variables.setBoundVariableForPaint(
+    { type: 'SOLID', color: { r: 0, g: 0, b: 0 } },
+    'color',
+    variable,
+  );
 }
 
 function bindNumber(node, field, path) {
@@ -402,7 +476,8 @@ async function icon(name, size = 16, color = 'foreground') {
     node.strokes = [paintFor(color)];
   }
   node.name = `icon/${name}`;
-  node.resize(size, size);
+  // resize는 프레임만 줄이고 안의 선은 그대로라 잘린다 — 비율로 통째로 줄인다.
+  if (node.width > 0) node.rescale(size / node.width);
   return node;
 }
 
@@ -1220,6 +1295,12 @@ async function run(url, steps) {
   log(
     `tokens.json 읽음: primitive ${flatten(tokens.primitive).length} · dimension ${flatten(tokens.dimension).length} · light ${flatten(tokens.light).length} · dark ${flatten(tokens.dark).length}`,
   );
+  tokenIndex = new Map([
+    ...flatten(tokens.primitive),
+    ...flatten(tokens.dimension),
+    ...flatten(tokens.light),
+  ]);
+  darkIndex = new Map(flatten(tokens.dark));
   await resolveFont();
   if (steps.variables) {
     await createVariables(tokens);
@@ -1227,10 +1308,9 @@ async function run(url, steps) {
   } else {
     // 컴포넌트만 다시 그릴 때도 기존 변수를 경로로 찾아 둔다.
     for (const variable of await figma.variables.getLocalVariablesAsync()) {
-      variablesByPath.set(
-        variable.name.replace(/^semantic\//, '').replace(/\//g, '.'),
-        variable,
-      );
+      const key = variable.name.replace(/^semantic\//, '').replace(/\//g, '.');
+      if (key.includes('@')) tintVariables.set(key, variable);
+      else variablesByPath.set(key, variable);
     }
     for (const style of await figma.getLocalTextStylesAsync())
       textStyles.set(style.name, style);

@@ -33,6 +33,13 @@
 계산값(`color-mix`·`rgb(var…)`)은 흰색·기본색에 불투명도를 준 값으로 근사하고, 읽지 못한 값은
 플러그인 창의 기록에 남긴다.
 
+## 요금제 제한
+
+Starter(무료) 요금제는 변수 컬렉션당 모드 1개, 파일당 페이지 3개까지다. 플러그인은 그 제한에
+맞춰 다크 값을 「OSS Hub Dark」 컬렉션에 따로 두고, 페이지를 더 못 만들면 남은 부품을 한
+페이지(「라이브러리 (OSS Hub)」)의 섹션으로 나눈다. Professional 이상에서는 같은 컬렉션의
+Dark 모드와 페이지 8개로 만든다. 2026-09-19 Starter 계정에서 끝까지 실행해 확인했다.
+
 ## 검증
 
 `pnpm --filter frontend test`가 `figma-plugin/code.test.ts`로 이 스크립트를 가짜 Figma API 위에서
