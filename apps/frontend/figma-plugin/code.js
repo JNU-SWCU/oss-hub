@@ -1151,7 +1151,9 @@ async function buildCards(buttonSet) {
     weight: 'semibold',
     letter: -1,
   });
-  const meta = await makeText('시작 2026년 8월 5일 · 마감 2026년 8월 6일', {
+  // 동규 2026-09-19: 기간은 한 줄에 짧게 읽히도록 「26.08.05 – 26.08.06」 꼴로 둔다.
+  // 사이트의 카드는 아직 「시작 2026년 8월 5일 01:58 / 마감 …」 두 줄이며, 코드 반영은 별도 결정.
+  const meta = await makeText('26.08.05 – 26.08.06', {
     size: 13,
     color: 'muted-foreground',
   });
