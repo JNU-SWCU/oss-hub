@@ -1188,6 +1188,16 @@
 - 경계: 디자인 시스템 방향 결정, 팀 저장소 URL 관리, 병합·배포는 이 수정에 포함하지 않는다.
   기존 미커밋 증거 두 파일은 그대로 보존하며 새 캡처는 제품 브랜치에 넣지 않는다.
 
+## 2026-09-19 — 디자인 토큰을 Figma가 읽는 형식으로 내보낸다
+
+- 상태: review
+- Issue: #1304
+- PR: (이 PR)
+- 내용: globals.css의 팔레트·치수·글자 크기 계단과 라이트·다크 semantic 토큰을 읽어 Tokens Studio 단일 파일(`docs/design-tokens/tokens.json`)을 만드는 스크립트와 `tokens:export`·`tokens:check` 명령을 둔다. alias(`{palette.navy.600}`)를 유지하고 계산값은 손으로 지정할 자리로 표시한다.
+  design.md에 Figma 동기화 절(R-36: 원본은 globals.css 하나, 생성 파일은 손으로 고치지 않는다)을 더한다.
+- 검증: tokens:check 통과, 새 단위 테스트 2개(생성물 최신 여부·값 대조), typecheck·eslint·전체 포맷 통과. 화면 변경이 없어 캡처는 없다.
+- 주의: 토큰 값·이름·화면은 바꾸지 않았다. 폰트 교체(Pretendard)는 PM이 Figma 시안을 본 뒤 정한다(2026-09-19 동규 결정).
+- 경계: Figma 파일 작성, 폰트 적용, `@theme inline`·반전 표면 스코프의 내보내기는 포함하지 않는다.
 ## 2026-09-19 — 비로그인 방문자의 프로그램 상세에서 401 두 건을 없앤다
 
 - 상태: review
