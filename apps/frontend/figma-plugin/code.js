@@ -465,7 +465,12 @@ async function icon(name, size = 16, color = 'foreground') {
   let node;
   try {
     const response = await fetch(`${ICON_BASE}${name}.svg`);
-    node = figma.createNodeFromSvg(await response.text());
+    // 프레임을 나중에 줄이면(rescale) 오른쪽이 잘리는 경우가 있어, SVG의 크기 속성을
+    // 목표 크기로 바꿔 그 크기로 바로 들여온다. viewBox가 선을 비율대로 맞춘다.
+    const svg = (await response.text())
+      .replace(/\swidth="24"/, ` width="${size}"`)
+      .replace(/\sheight="24"/, ` height="${size}"`);
+    node = figma.createNodeFromSvg(svg);
     // lucide는 stroke="currentColor"라 검정으로 들어온다 — 글자색 변수로 바꿔 묶는다.
     for (const child of node.findAll((n) => 'strokes' in n)) {
       if (child.strokes.length > 0) child.strokes = [paintFor(color)];
@@ -474,11 +479,10 @@ async function icon(name, size = 16, color = 'foreground') {
     node = figma.createFrame();
     node.fills = [];
     node.strokes = [paintFor(color)];
+    node.resize(size, size);
   }
   node.name = `icon/${name}`;
-  // resize는 프레임만 줄이고 안의 선은 그대로라 잘린다 — 비율로 통째로 줄인다.
-  if (node.width > 0) node.rescale(size / node.width);
-  // 선 굵기가 프레임 밖으로 조금 나가도(휴지통 손잡이) 잘리지 않게 한다.
+  // 선 굵기가 프레임 밖으로 조금 나가도 잘리지 않게 한다.
   if ('clipsContent' in node) node.clipsContent = false;
   return node;
 }
