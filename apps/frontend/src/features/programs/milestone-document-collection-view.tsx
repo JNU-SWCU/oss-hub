@@ -4,7 +4,14 @@ import {
 } from '@/lib/document-delivery';
 import Link from 'next/link';
 import { Fragment, type ReactElement, type ReactNode } from 'react';
-import { EmptyState, PageBody, PageHeader, StatusBadge } from '@/components';
+import {
+  EmptyState,
+  FilterChip,
+  FilterChipGroup,
+  PageBody,
+  PageHeader,
+  StatusBadge,
+} from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -84,9 +91,6 @@ const SCROLL_HINT_ID = 'milestone-document-collection-scroll-hint';
 const ARCHIVE_HINT_ID = 'milestone-document-collection-archive-hint';
 const DOWNLOAD_BEHAVIOR_HINT_ID = 'milestone-document-download-behavior-hint';
 const ARCHIVE_GROUPING_ID = 'milestone-document-collection-archive-grouping';
-
-const FILTER_BUTTON_BASE =
-  'h-control rounded-control px-4 text-small font-semibold transition-colors';
 
 export interface MilestoneDocumentCollectionViewProps {
   readonly programId: string;
@@ -370,29 +374,19 @@ function CollectionFilterButtons({
   readonly onFilterChange: (filter: MilestoneDocumentCollectionFilter) => void;
 }): ReactElement {
   return (
-    <div
-      role="group"
-      aria-label="필수 서류 제출 상태"
-      className="flex flex-wrap gap-2"
-    >
+    <FilterChipGroup aria-label="필수 서류 제출 상태">
       <p className="w-full text-small font-semibold">필수 서류 제출 상태</p>
       {MILESTONE_DOCUMENT_COLLECTION_FILTERS.map((option) => (
-        <button
+        <FilterChip
           key={option}
-          type="button"
-          aria-pressed={filter === option}
-          className={
-            filter === option
-              ? `${FILTER_BUTTON_BASE} bg-secondary text-foreground`
-              : `${FILTER_BUTTON_BASE} bg-card text-muted-foreground border border-border`
-          }
+          pressed={filter === option}
           onClick={() => onFilterChange(option)}
         >
           {MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS[option]}{' '}
           {collectionFilterCountFor(filterCounts, option, deliveryCounts)}팀
-        </button>
+        </FilterChip>
       ))}
-    </div>
+    </FilterChipGroup>
   );
 }
 
