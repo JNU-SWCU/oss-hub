@@ -9,8 +9,12 @@ import {
   expectByPhase,
   fulfillJson,
   installExactApiRouter,
-  type Qa148ApiHandlers,
-} from './support/qa148-evidence';
+  type EvidenceApiHandlers,
+} from './support/evidence-capture';
+
+/** 이 레인의 phase 환경 변수와 증거 파일 접두사. 다른 레인과 섞이지 않게 여기서만 정한다. */
+const QA148_CAPTURE_PHASE_VARIABLE = 'QA148_CAPTURE_PHASE';
+const QA148_ARTIFACT_PREFIX = 'qa148';
 
 /**
  * QA148 profile/admin visual evidence. Intercepted `/api/v1/**` bodies are UI-only
@@ -158,7 +162,7 @@ const CONSENT_PROFILE_PROBLEM = {
   code: 'CON_003',
 } as const;
 
-function sessionHandlers(body: unknown): Qa148ApiHandlers {
+function sessionHandlers(body: unknown): EvidenceApiHandlers {
   return {
     'GET /api/v1/auth/session': (route: Route) => fulfillJson(route, body),
   };
@@ -166,7 +170,7 @@ function sessionHandlers(body: unknown): Qa148ApiHandlers {
 
 function unassignedOnboardingHandlers(
   selectedRole: SelectedRole | null,
-): Qa148ApiHandlers {
+): EvidenceApiHandlers {
   return {
     'GET /api/v1/role-requests/me': (route: Route) => fulfillJson(route, null),
     'GET /api/v1/onboarding/role': (route: Route) =>
@@ -185,14 +189,14 @@ async function fulfillConsentProfile(route: Route): Promise<void> {
 test('captures QA148 before or after evidence for profile and admin surfaces', async ({
   page,
 }, testInfo) => {
-  const phase = capturePhase();
+  const phase = capturePhase(QA148_CAPTURE_PHASE_VARIABLE);
   const browserAudit = installBrowserAudit(page);
 
   let scene: EvidenceScene = 'role';
   let selectedRole: SelectedRole | null = null;
 
   await installExactApiRouter(page, () => {
-    const postRole: Qa148ApiHandlers = {
+    const postRole: EvidenceApiHandlers = {
       'POST /api/v1/onboarding/role': async (route: Route) => {
         const body = route.request().postDataJSON() as {
           readonly selectedRole?: unknown;
@@ -267,6 +271,7 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
     page,
     testInfo,
     phase,
+    prefix: QA148_ARTIFACT_PREFIX,
     name: 'role-onboarding',
     target: roleSelection,
   });
@@ -282,6 +287,7 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
     page,
     testInfo,
     phase,
+    prefix: QA148_ARTIFACT_PREFIX,
     name: 'student-profile',
     target: profileForm,
     masks: [profileForm.locator('input'), profileForm.locator('select')],
@@ -306,6 +312,7 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
     page,
     testInfo,
     phase,
+    prefix: QA148_ARTIFACT_PREFIX,
     name: 'settings-profile',
     target: settingsProfile,
     masks: [
@@ -327,6 +334,7 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
     page,
     testInfo,
     phase,
+    prefix: QA148_ARTIFACT_PREFIX,
     name: 'admin-users-header',
     target: usersTable,
   });
@@ -343,6 +351,7 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
     page,
     testInfo,
     phase,
+    prefix: QA148_ARTIFACT_PREFIX,
     name: 'admin-audit-header',
     target: auditTable,
   });
@@ -350,6 +359,7 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
     page,
     testInfo,
     phase,
+    prefix: QA148_ARTIFACT_PREFIX,
     name: 'admin-audit-phone-update',
     target: phoneUpdateRow.getByRole('cell').last(),
   });
@@ -389,6 +399,7 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
     page,
     testInfo,
     phase,
+    prefix: QA148_ARTIFACT_PREFIX,
     name: 'consent-required',
     target: consentDialog,
   });
@@ -424,6 +435,7 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
     page,
     testInfo,
     phase,
+    prefix: QA148_ARTIFACT_PREFIX,
     name: 'consent-policy-dialog',
     target: policyDialog,
     viewport: EVIDENCE_VIEWPORTS[0],
@@ -441,6 +453,7 @@ test('captures QA148 before or after evidence for profile and admin surfaces', a
     page,
     testInfo,
     phase,
+    prefix: QA148_ARTIFACT_PREFIX,
     name: 'consent-policy-dialog',
     target: policyDialog,
     viewport: EVIDENCE_VIEWPORTS[1],
