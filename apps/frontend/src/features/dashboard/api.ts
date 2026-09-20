@@ -202,7 +202,9 @@ function isApplicationDecisionNotice(
     isNonEmptyString(value.programId) &&
     isSafePathSegment(value.programId) &&
     isNonEmptyString(value.programName) &&
-    (value.decision === 'APPROVED' || value.decision === 'REJECTED') &&
+    (value.decision === 'APPROVED' ||
+      value.decision === 'REJECTED' ||
+      value.decision === 'SUBMITTED') &&
     isNonEmptyString(value.decidedAt) &&
     !Number.isNaN(Date.parse(value.decidedAt))
   );

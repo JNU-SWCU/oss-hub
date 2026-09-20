@@ -118,7 +118,7 @@ function blockingItems(
       label: '지원서',
       count: counts.applications,
       unit: '건',
-      href: programHref(programId, '/applicants'),
+      href: programHref(programId, '/teams'),
     },
     {
       label: '팀',

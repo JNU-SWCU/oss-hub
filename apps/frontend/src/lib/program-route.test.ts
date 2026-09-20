@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  programApplicantsHref,
-  programApplicationDetailHref,
   programDocumentsHref,
   programEditHref,
   programApplyHref,
@@ -31,12 +29,6 @@ describe('program-route href helpers', () => {
   it('인코딩된 programId로 편집·신청자·신청 상세·리뷰 경로를 만든다', () => {
     expect(programEditHref('program:basic')).toBe(
       '/programs/program%3Abasic/edit',
-    );
-    expect(programApplicantsHref('program:basic')).toBe(
-      '/programs/program%3Abasic/applicants',
-    );
-    expect(programApplicationDetailHref('program:basic', 'app:1')).toBe(
-      '/programs/program%3Abasic/applications/app%3A1',
     );
     expect(
       programSubmissionReviewHref('program:basic', 'sub:final/report'),

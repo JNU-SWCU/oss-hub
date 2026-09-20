@@ -96,7 +96,7 @@ export class StaffDashboardProgramSummaryResponseDto {
   /** 게시 축(PUBLISHED|ARCHIVED). 모집 기간 파생 상태가 아니다. */
   readonly lifecycle: ProgramLifecycle;
   readonly applications: StaffDashboardApplicationCountsResponseDto;
-  readonly applicantsPath: string;
+  readonly teamManagementPath: string;
   readonly activity: StaffDashboardActivitySummaryResponseDto;
   readonly submissions: StaffDashboardSubmissionSummaryResponseDto;
 
@@ -118,7 +118,7 @@ export class StaffDashboardProgramSummaryResponseDto {
     this.applications = StaffDashboardApplicationCountsResponseDto.from(
       program.applications,
     );
-    this.applicantsPath = program.applicantsPath;
+    this.teamManagementPath = program.teamManagementPath;
     this.activity = StaffDashboardActivitySummaryResponseDto.from(
       program.activity,
     );

@@ -245,7 +245,41 @@ describe('loadProgramApplyContext', () => {
    * 반려 사유는 `getMyApplication` 응답에만 실려 온다(#722). 예전에는 이 판정 직후
    * 응답 객체를 버려서, 화면이 사유를 그리려 해도 꺼낼 곳이 없었다.
    */
-  it('반려로 막을 때 사유가 실린 신청서를 함께 넘긴다', async () => {
+  /**
+   * 반려된 신청은 학생이 고쳐 다시 낼 수 있다(R-1). 그러므로 막히는 것은 승인뿐이고,
+   * 반려는 권한·기간이 허락하면 수정 화면이 열린다.
+   */
+  it('승인된 신청만 already-applied 로 막는다', async () => {
+    // Given
+    const approvedProgram = {
+      ...program,
+      viewer: { role: 'STUDENT', applicationStatus: 'APPROVED' },
+    } satisfies ProgramDetail;
+    const approvedApplication = {
+      ...application,
+      status: 'APPROVED',
+      canManage: false,
+    } satisfies StudentApplication;
+    vi.mocked(getProgramDetail).mockResolvedValue(approvedProgram);
+    vi.mocked(getMyApplication).mockResolvedValue(approvedApplication);
+
+    // When
+    const result = await loadDefaultContext();
+
+    // Then
+    expect(result).toEqual({
+      kind: 'blocked',
+      reason: 'already-applied',
+      program: approvedProgram,
+      application: approvedApplication,
+    });
+  });
+
+  /**
+   * 반려 자체는 더 이상 수정을 막지 않는다(R-1). 이 fixture 가 막히는 이유는 신청
+   * 기간이 닫혔기 때문이고, 화면이 그것을 「이미 신청했다」로 뭉개지 않아야 한다.
+   */
+  it('반려는 판정이 아니라 기간·권한으로만 막는다', async () => {
     // Given
     const rejectedProgram = {
       ...program,
@@ -266,7 +300,9 @@ describe('loadProgramApplyContext', () => {
     // Then
     expect(result).toEqual({
       kind: 'blocked',
-      reason: 'already-applied',
+      // 기간이 닫혔다는 사실과 「이미 신청했다」는 다른 말이다 — 후자는 고칠 길이
+      // 없다는 뜻으로 읽힌다.
+      reason: 'period-closed',
       program: rejectedProgram,
       application: rejectedApplication,
     });

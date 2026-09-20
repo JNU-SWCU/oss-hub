@@ -3,11 +3,7 @@
 import { AlertDialog } from 'radix-ui';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import type {
-  ApplicationDecisionAction,
-  ApplicationStatus,
-  RepositoryConnectionMode,
-} from './types';
+import type { ApplicationDecisionAction, ApplicationStatus } from './types';
 
 /**
  * 신청 판정 확인창. 목록(`program-applicants-page`)과 상세
@@ -32,8 +28,6 @@ export function ApplicationDecisionDialog({
   currentStatus,
   applicantName,
   teamName,
-  repositoryProvisioningEnabled,
-  repositoryConnectionMode,
   reason,
   reasonError,
   busy,
@@ -64,12 +58,6 @@ export function ApplicationDecisionDialog({
   readonly applicantName: string;
   /** 팀 신청일 때의 팀 이름. 개인 신청(`team`이 `null`)이면 `null` — 팀 줄을 그리지 않는다. */
   readonly teamName: string | null;
-  readonly repositoryProvisioningEnabled: boolean;
-  /**
-   * `OWN`이면 승인이 저장소를 **새로 만들지 않는다** — 신청자가 낸 저장소를 잇는다.
-   * 프로그램의 자동 생성 스위치만 보고 「생성합니다」라고 말하면 사실과 다르다.
-   */
-  readonly repositoryConnectionMode: RepositoryConnectionMode;
   readonly reason: string;
   readonly reasonError: boolean;
   readonly busy: boolean;
@@ -177,11 +165,7 @@ export function ApplicationDecisionDialog({
                 {currentStatus === 'REJECTED'
                   ? '이미 반려한 신청입니다. 판정을 승인으로 바꾸면 지금 남아 있는 반려 사유는 지워집니다. '
                   : ''}
-                {repositoryConnectionMode === 'OWN'
-                  ? '승인하면 신청자가 낸 저장소를 연결합니다. 새 저장소를 만들지 않습니다.'
-                  : repositoryProvisioningEnabled
-                    ? '승인하면 새 저장소 만들기를 시작합니다.'
-                    : '이 신청은 승인해도 저장소를 만들지 않습니다.'}
+                승인하면 이 신청이 프로그램 참여로 확정됩니다.
               </p>
             </AlertDialog.Description>
           ) : (
@@ -195,8 +179,9 @@ export function ApplicationDecisionDialog({
                 data-testid="application-decision-reject-consequence"
                 className="rounded-md border border-border bg-muted/40 p-3 text-small break-keep text-pretty"
               >
-                반려하면 신청자는 이 프로그램에 스스로 다시 신청할 수 없습니다.
-                교직원은 나중에 이 신청을 다시 승인할 수 있습니다.
+                반려하면 신청자가 신청서를 고쳐 다시 낼 수 있고, 다시 내면 검토
+                대기로 돌아옵니다. 교직원이 나중에 이 신청을 바로 승인할 수도
+                있습니다.
               </AlertDialog.Description>
               {/*
                * 라벨·오류·안내를 `<label>` **바깥**에 둔다. `<label>`이 감싸면 그 안의

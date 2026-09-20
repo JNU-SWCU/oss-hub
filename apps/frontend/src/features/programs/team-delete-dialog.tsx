@@ -5,6 +5,7 @@ import { useState, type ReactElement } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { ALERT_DIALOG_SHELL_CLASS } from '@/components/ui/dialog';
 import { deleteStaffProgramTeam } from './api';
 import {
@@ -13,6 +14,9 @@ import {
   teamDeleteScopeChangedCounts,
 } from './team-delete-flow';
 import type { TeamDeletionScope } from './types';
+
+/** backend `DeleteTeamRequestDto` 의 `@MaxLength(500)` 과 같은 값이어야 400 을 받지 않는다. */
+const MAX_NOTIFICATION_MESSAGE_LENGTH = 500;
 
 const DISAPPEARING_ITEMS = [
   ['applications', '지원서', '건'],
@@ -69,6 +73,11 @@ export function TeamDeleteDialog({
    * 아무 일도 안 일어난 것처럼 보인다.
    */
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  /**
+   * 팀원에게 함께 보낼 교직원 문구. 선택이다 — 비워도 삭제 사실은 알림으로 나간다.
+   * 여기 적는 것은 「무엇을 더 말할 것인가」일 뿐이다.
+   */
+  const [notificationMessage, setNotificationMessage] = useState('');
 
   const disappearing = DISAPPEARING_ITEMS.filter(
     ([key]) => displayedScope[key] > 0,
@@ -86,6 +95,7 @@ export function TeamDeleteDialog({
         programId,
         teamId,
         displayedScope,
+        notificationMessage,
       );
       onDeleted(formatTeamDeletedCounts(result.deletedCounts));
     } catch (error: unknown) {
@@ -139,6 +149,32 @@ export function TeamDeleteDialog({
                   ? ` (${displayedScope.detachedRepositories}건).`
                   : '.'}
               </p>
+              <div className="grid gap-2">
+                <label
+                  htmlFor="team-delete-notification-message"
+                  className="text-small font-medium"
+                >
+                  팀원에게 보낼 안내 (선택)
+                </label>
+                {/*
+                 * 알림 자체는 선택이 아니다 — 백엔드가 삭제와 같은 커밋에서 남긴다.
+                 * 비워 두면 삭제 사실만 가고, 적으면 그 문구가 함께 간다.
+                 */}
+                <Textarea
+                  id="team-delete-notification-message"
+                  maxLength={MAX_NOTIFICATION_MESSAGE_LENGTH}
+                  disabled={busy}
+                  value={notificationMessage}
+                  placeholder="비워 두면 삭제 사실만 알립니다."
+                  onChange={(event) =>
+                    setNotificationMessage(event.target.value)
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  {notificationMessage.length} /{' '}
+                  {MAX_NOTIFICATION_MESSAGE_LENGTH}자
+                </p>
+              </div>
               {scopeChangedMessage !== null ? (
                 <Alert variant="destructive">
                   <AlertTitle>삭제 범위가 변경되었습니다</AlertTitle>

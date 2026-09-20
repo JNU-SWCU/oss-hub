@@ -60,8 +60,6 @@ function Harness({
           currentStatus={currentStatus ?? 'SUBMITTED'}
           applicantName={applicantName}
           teamName={teamName}
-          repositoryProvisioningEnabled={false}
-          repositoryConnectionMode="NEW"
           reason=""
           reasonError={reasonError}
           busy={busy}
@@ -107,8 +105,6 @@ function SelfClosingHarness() {
           currentStatus="SUBMITTED"
           applicantName="합성 신청자"
           teamName={null}
-          repositoryProvisioningEnabled={false}
-          repositoryConnectionMode="NEW"
           reason=""
           reasonError={false}
           busy={false}
@@ -269,11 +265,10 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     const description = document.getElementById(
       dialog()?.getAttribute('aria-describedby') ?? '',
     );
-    expect(description?.textContent).toContain(
-      '스스로 다시 신청할 수 없습니다',
-    );
-    expect(description?.textContent).toContain('다시 승인할 수 있습니다');
-    expect(description?.textContent).not.toContain('검토 대기로');
+    expect(description?.textContent).toContain('고쳐 다시 낼 수 있고');
+    expect(description?.textContent).toContain('바로 승인할 수도 있습니다');
+    // 반려는 더 이상 종착점이 아니다 — 학생이 다시 내면 검토 대기로 돌아온다(R-1).
+    expect(description?.textContent).toContain('검토 대기로 돌아옵니다');
   });
 
   it('사유를 비운 채 확정하면 오류를 읽어 주는 도구가 알아챈다', async () => {
@@ -535,7 +530,7 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
       expect(notice).not.toBeNull();
       expect(dialog()?.contains(notice)).toBe(true);
       expect(notice?.textContent?.replaceAll(/\s+/gu, ' ').trim()).toBe(
-        '반려하면 신청자는 이 프로그램에 스스로 다시 신청할 수 없습니다. 교직원은 나중에 이 신청을 다시 승인할 수 있습니다.',
+        '반려하면 신청자가 신청서를 고쳐 다시 낼 수 있고, 다시 내면 검토 대기로 돌아옵니다. 교직원이 나중에 이 신청을 바로 승인할 수도 있습니다.',
       );
     });
 
@@ -544,8 +539,9 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
       //   복구 경로가 빠지지 않도록 따로 고정한다.
       await act(async () => root.render(<Harness action="REJECT" />));
 
-      expect(consequence()?.textContent).toContain('다시 승인할 수 있습니다');
-      expect(consequence()?.textContent).not.toContain('검토 대기로');
+      expect(consequence()?.textContent).toContain('바로 승인할 수도 있습니다');
+      // 학생 쪽 복구 경로도 같은 자리에서 말한다 — 반려는 종착점이 아니다(R-1).
+      expect(consequence()?.textContent).toContain('고쳐 다시 낼 수 있고');
     });
 
     it('겁주지 않는다 — 「영구히」·「되돌릴 수 없습니다」로 쓰지 않는다', async () => {
@@ -568,9 +564,7 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
 
       // Then: 반려 안내가 아예 없다 — 잘못된 자리에 있으면 없는 결과를 약속한다.
       expect(consequence()).toBeNull();
-      expect(dialog()?.textContent).not.toContain(
-        '스스로 다시 신청할 수 없습니다',
-      );
+      expect(dialog()?.textContent).not.toContain('고쳐 다시 낼 수 있고');
     });
 
     it('반려 결과는 창의 설명으로 읽고 사유 입력칸의 이름·설명은 유지한다', async () => {

@@ -47,17 +47,6 @@ export function programEditHref(programId: string): string {
   return `/programs/${encodeURIComponent(programId)}/edit`;
 }
 
-export function programApplicantsHref(programId: string): string {
-  return `/programs/${encodeURIComponent(programId)}/applicants`;
-}
-
-export function programApplicationDetailHref(
-  programId: string,
-  applicationId: string,
-): string {
-  return `/programs/${encodeURIComponent(programId)}/applications/${encodeURIComponent(applicationId)}`;
-}
-
 export function programSubmissionReviewHref(
   programId: string,
   submissionId: string,
