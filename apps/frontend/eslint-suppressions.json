@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "src/app/_shell/app-sidebar.tsx": {
-    "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
   "src/app/_shell/onboarding-gate.test.tsx": {
     "local/design-no-raw-button": {
       "count": 2
@@ -24,21 +19,8 @@
       "count": 1
     }
   },
-  "src/app/_shell/program-scope-sidebar.tsx": {
-    "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
   "src/app/_shell/shell-nav.tsx": {
     "local/design-class-name-length": {
-      "count": 1
-    }
-  },
-  "src/app/_shell/sidebar-drawer.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    },
-    "local/design-no-raw-button": {
       "count": 1
     }
   },
@@ -94,18 +76,10 @@
   },
   "src/components/nav-bar.tsx": {
     "local/design-class-name-length": {
-      "count": 4
-    },
-    "local/design-no-raw-button": {
-      "count": 1
+      "count": 3
     }
   },
   "src/components/page-header.test.tsx": {
-    "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
-  "src/components/program-cover.tsx": {
     "local/design-no-raw-button": {
       "count": 1
     }
@@ -318,10 +292,10 @@
   },
   "src/features/programs/program-schedule-range-editor.tsx": {
     "local/design-class-name-length": {
-      "count": 2
+      "count": 1
     },
     "local/design-no-raw-button": {
-      "count": 3
+      "count": 2
     }
   },
   "src/features/programs/program-type-modal.test.tsx": {

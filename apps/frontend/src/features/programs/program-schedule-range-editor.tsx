@@ -385,11 +385,12 @@ export function ProgramScheduleRangeEditor({
           {simpleLayout ? null : activeExtra}
           {simpleLayout ? null : (
             <div>
-              <button
+              <Button
                 type="button"
+                variant="link"
                 aria-expanded={timeControlsVisible}
                 aria-controls={timeControlsId}
-                className="text-small font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-auto p-0 text-small"
                 onClick={() =>
                   setTimeControlsOpenFor((current) =>
                     current === activeRange.id ? null : activeRange.id,
@@ -397,7 +398,7 @@ export function ProgramScheduleRangeEditor({
                 }
               >
                 시간 변경
-              </button>
+              </Button>
               {timeControlsVisible ? (
                 <RangeTimeFields id={timeControlsId} range={activeRange} />
               ) : null}
