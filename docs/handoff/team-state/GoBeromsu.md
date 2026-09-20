@@ -1891,6 +1891,7 @@
 - 공개 안전성: 합성 데이터로만 확인했고 캡처는 이미 발행된 v0.6.162에 에셋으로만 올렸다.
 
 ## 2026-09-20 — 확인창 껍데기 클래스를 공용으로 올린다
+## 2026-09-20 — 증거 캡처 헬퍼를 레인 공용으로 일반화
 
 - 상태: review
 - Issue: -
@@ -1907,3 +1908,18 @@
 - 한 줄로 적으면 120자를 넘으므로 `cn()`으로 조각을 나눠 뒀다.
   길이 제한을 지키면서 규격이 갈리지 않는다.
 - 검증: frontend 373 files / 3,733 tests, typecheck, lint(오류 0건), 전체 format 검사를 통과했다.
+- 무엇: `e2e/support/qa148-evidence.ts`를 `e2e/support/evidence-capture.ts`로 옮기고 티켓 전용 하드코딩 두 개를 파라미터로 뺐다.
+  파일명 접두사(`qa148-`)와 phase 환경 변수 이름(`QA148_CAPTURE_PHASE`)이다.
+- 왜: 다음 PR 계열이 Before/After 캡처를 만들어야 하는데 이 헬퍼를 그대로 쓰면 증거가 `qa148-*.png`로 나와 다른 티켓 실행으로 읽힌다.
+  복사해 두 번째 헬퍼를 만드는 것은 병렬 convention이라 하지 않았다.
+- 레인이 자기 이름을 갖는다: `capturePhase(variableName)`가 변수 이름을 받고 캡처 입력이 `prefix`를 받는다.
+  한 export가 두 레인의 phase를 동시에 바꾸지 못하게 하는 것이 요점이다.
+- 동작 불변: qa148 스펙은 자기 상수(`QA148_CAPTURE_PHASE_VARIABLE`·`QA148_ARTIFACT_PREFIX`)를 넘겨 이전과 똑같은 파일명을 만든다.
+- 검증: `pnpm --filter frontend e2e e2e/qa148-profile-admin-evidence.spec.ts` 1 passed.
+  격리 스택이 실제로 뜨고 두 viewport(1280x900 · 390x844) 캡처와 PNG 금지 청크 검사까지 통과했다.
+  `pnpm --filter frontend typecheck`·`lint`(기존 anchor 경고 5건 그대로, 오류 0건)·전체 format 검사를 통과했다.
+- 주의: e2e 스택을 돌리기 전에 `npx prisma generate`로 현재 브랜치 스키마에 맞는 client를 다시 만들어야 한다.
+  다른 브랜치에서 생성한 client가 남아 있으면 seed가 없는 컬럼을 참조해 webServer가 뜨지 않는다.
+- 쪼갬: `docs/rules/pr-scope.md` §3의 공용 코드 선행 규칙에 따라 이 헬퍼만 독립 PR로 낸다.
+  이 헬퍼를 쓰는 증거 스펙은 후행 PR이다.
+- 공개 안전성: `scripts/check-public-safe.sh`를 통과했다.
