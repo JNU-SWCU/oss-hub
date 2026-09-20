@@ -264,7 +264,7 @@ test('팀 관리 통합이 신청 상세에서 바꾸는 것을 Before/After 로
     phase,
     prefix: ARTIFACT_PREFIX,
     name: 'application-detail-approved',
-    target: main,
+    target: page.locator('body'),
   });
 
   /*
@@ -285,15 +285,15 @@ test('팀 관리 통합이 신청 상세에서 바꾸는 것을 Before/After 로
   );
   await expect(guardNotice).toBeVisible();
 
-  // 판정 영역만 잘라 찍는다 — 화면 전체를 다시 찍으면 장면 1 과 같은 이미지가 되어
-  // 리뷰어가 두 장을 구분할 수 없다.
+  // 판정 카드까지 넓혀 잘라 찍는다. 안내 문구만 잘라 내면 299x72 짜리 조각이 되어
+  // 무엇을 보는 화면인지 알 수 없고, 화면 전체를 다시 찍으면 장면 1 과 같아진다.
   await captureBothViewports({
     page,
     testInfo,
     phase,
     prefix: ARTIFACT_PREFIX,
     name: 'approved-reject-blocked-by-client-guard',
-    target: guardNotice.locator('..'),
+    target: guardNotice.locator('../..'),
   });
 
   browserAudit.assertClean();
@@ -349,7 +349,7 @@ test('반려된 학생 신청 화면이 Before/After 에서 같은지 찍는다'
     phase,
     prefix: ARTIFACT_PREFIX,
     name: 'student-rejected-application',
-    target: main,
+    target: page.locator('body'),
   });
 
   browserAudit.assertClean();
