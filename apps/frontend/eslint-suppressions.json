@@ -55,9 +55,6 @@
   "src/app/_shell/use-product-shell-data.test.tsx": {
     "local/design-no-hex-color": {
       "count": 1
-    },
-    "local/design-no-raw-button": {
-      "count": 1
     }
   },
   "src/app/dashboard/system-status/page.test.tsx": {

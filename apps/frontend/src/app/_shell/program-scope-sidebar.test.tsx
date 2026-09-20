@@ -215,12 +215,18 @@ describe('ProgramScopeSidebar', () => {
     );
   });
 
-  it('단계 목록 조회 실패에는 새로고침 대신 바로 다시 시도할 행동을 준다', () => {
-    const html = render({ milestoneNavigationFailed: true });
+  /**
+   * 좌측 패널은 갈 수 있는 곳을 보이는 곳이다. 단계 목록 조회가 실패하면 그 자식 항목이
+   * 없을 뿐, 오류 문구와 재시도 버튼을 내비게이션에 들이밀지 않는다 — 같은 훅의 형제
+   * 조회(facetData·scopeOverview)도 조용히 접는다.
+   */
+  it('단계 목록이 비어도 오류 문구 없이 나머지 내비게이션을 그대로 그린다', () => {
+    const html = render({ groups: staffGroups });
 
-    expect(html).toContain('role="alert"');
-    expect(html).toContain('단계 목록을 불러오지 못했습니다.');
-    expect(html).toContain('다시 불러오기');
+    expect(html).not.toContain('role="alert"');
+    expect(html).not.toContain('단계 목록을 불러오지 못했습니다.');
+    expect(html).not.toContain('다시 불러오기');
+    expect(html).toContain('프로그램 개요');
   });
 
   it('falls back to 모든 단계 for an unknown milestoneId without selecting another stage', () => {

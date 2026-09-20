@@ -1892,6 +1892,7 @@
 
 ## 2026-09-20 — 확인창 껍데기 클래스를 공용으로 올린다
 ## 2026-09-20 — 증거 캡처 헬퍼를 레인 공용으로 일반화
+## 2026-09-20 — 사이드바에서 단계 목록 오류 블록 제거
 
 - 상태: review
 - Issue: -
@@ -1923,3 +1924,17 @@
 - 쪼갬: `docs/rules/pr-scope.md` §3의 공용 코드 선행 규칙에 따라 이 헬퍼만 독립 PR로 낸다.
   이 헬퍼를 쓰는 증거 스펙은 후행 PR이다.
 - 공개 안전성: `scripts/check-public-safe.sh`를 통과했다.
+- 무엇: 좌측 패널이 단계 목록 조회 실패를 `role="alert"` 블록과 「다시 불러오기」 버튼으로 그리던 것을 지웠다.
+- 왜: 내비게이션 패널의 일이 아니다.
+  사이드바는 갈 수 있는 곳을 보이는 곳이고, 한 조회가 실패했다는 사실과 재시도 버튼은 본문이 다룰 일이다.
+- 일관성: 같은 훅(`use-product-shell-data.ts`)의 형제 조회인 `facetData`와 `scopeOverview`는 이미 catch에서 `setState(undefined)`만 하고 조용히 접는다.
+  단계 목록만 예외였다.
+- 어디서 오는 값인가: 단계 목록은 `GET programs/:id` 응답의 `milestones`에서 읽는다(`program-navigation-api.ts`).
+  그 조회가 깨지거나 키가 없으면 `getProgramNavigationMilestones`가 던지고 예전에는 그 사실이 좌측 패널에 뜬다.
+- 함께 사라진 것: `milestoneNavigationFailed`·`onRetryMilestoneNavigation` prop(바깥·안쪽 컴포넌트 양쪽), `scopeMilestonesFailed`·`retryScopeMilestones`·`scopeMilestonesRequest` 상태와 반환 필드.
+  재시도 손잡이를 남겨 두면 다음 화면이 다시 같은 블록을 그린다.
+- 대체 UI를 만들지 않았다: toast도 배너도 두지 않았다.
+  단계 자식 항목이 없을 뿐 나머지 내비게이션은 그대로 그려진다.
+- 검증: frontend 373 files / 3,733 tests, typecheck, lint(오류 0건), `BACKEND_ORIGIN=https://backend.example.test pnpm build`, 전체 format 검사를 통과했다.
+  격리 e2e 스택에서 단계 조회가 실패하는 상태를 실제로 만들어 Before/After를 찍었다.
+- 공개 안전성: 합성 응답만 썼고 캡처는 이미 발행된 v0.6.165에 에셋으로만 올렸다.

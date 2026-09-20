@@ -33,8 +33,6 @@ export function useProductShellData({
   readonly facetData: SectionFacetData | undefined;
   readonly scopeOverview: ProgramOverview | undefined;
   readonly scopeMilestones: readonly ProgramNavigationMilestone[] | undefined;
-  readonly scopeMilestonesFailed: boolean;
-  readonly retryScopeMilestones: () => void;
   /**
    * 이 프로그램의 참여자(승인된 신청)인지. `undefined`는 「아직 모른다」이며 조회 전과
    * 조회 실패를 함께 담는다 — 그 값으로 메뉴를 내리지 않는다(ADR-007).
@@ -45,13 +43,7 @@ export function useProductShellData({
   const [scopeOverview, setScopeOverview] = useState<ProgramOverview>();
   const [scopeMilestones, setScopeMilestones] =
     useState<readonly ProgramNavigationMilestone[]>();
-  const [scopeMilestonesFailed, setScopeMilestonesFailed] = useState(false);
   const [scopeParticipant, setScopeParticipant] = useState<boolean>();
-  const [scopeMilestonesRequest, setScopeMilestonesRequest] = useState(0);
-  const retryScopeMilestones = useCallback(
-    () => setScopeMilestonesRequest((request) => request + 1),
-    [],
-  );
 
   useEffect(() => {
     const spec =
@@ -93,27 +85,22 @@ export function useProductShellData({
   useEffect(() => {
     if (!shouldLoadProgramOverview(programDetailId, member)) {
       setScopeMilestones(undefined);
-      setScopeMilestonesFailed(false);
       return;
     }
     const controller = new AbortController();
     setScopeMilestones(undefined);
-    setScopeMilestonesFailed(false);
+    // 실패는 형제 조회(facetData·scopeOverview)와 같은 모양으로 조용히 접는다.
+    // 좌측 패널은 갈 수 있는 곳을 보이는 곳이고, 한 조회가 실패했다는 사실과
+    // 재시도 버튼은 본문이 다룰 일이다.
     void getProgramNavigationMilestones(programDetailId)
       .then((milestones) => {
-        if (!controller.signal.aborted) {
-          setScopeMilestones(milestones);
-          setScopeMilestonesFailed(false);
-        }
+        if (!controller.signal.aborted) setScopeMilestones(milestones);
       })
       .catch(() => {
-        if (!controller.signal.aborted) {
-          setScopeMilestones(undefined);
-          setScopeMilestonesFailed(true);
-        }
+        if (!controller.signal.aborted) setScopeMilestones(undefined);
       });
     return () => controller.abort();
-  }, [programDetailId, member, scopeMilestonesRequest]);
+  }, [programDetailId, member]);
 
   /**
    * 참여 여부는 개요가 답하지 않는다 — 개요의 `viewerDocuments*`는 승인 전 학생에게도
@@ -153,8 +140,6 @@ export function useProductShellData({
     facetData,
     scopeOverview,
     scopeMilestones,
-    scopeMilestonesFailed,
-    retryScopeMilestones,
     scopeParticipant,
   };
 }

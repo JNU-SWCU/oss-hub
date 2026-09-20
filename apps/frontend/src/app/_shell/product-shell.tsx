@@ -76,19 +76,13 @@ export function ProductShell({
   // 공개 개요 항목만 남는 GUEST로 낮춘다.
   const scopeViewerRole = programScopeViewerRole(member, session);
 
-  const {
-    facetData,
-    scopeOverview,
-    scopeMilestones,
-    scopeMilestonesFailed,
-    retryScopeMilestones,
-    scopeParticipant,
-  } = useProductShellData({
-    section,
-    programDetailId,
-    member,
-    studentViewer: scopeViewerRole === 'STUDENT',
-  });
+  const { facetData, scopeOverview, scopeMilestones, scopeParticipant } =
+    useProductShellData({
+      section,
+      programDetailId,
+      member,
+      studentViewer: scopeViewerRole === 'STUDENT',
+    });
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const drawer = useSidebarDrawer();
   const closeDrawer = drawer?.close;
@@ -197,8 +191,6 @@ export function ProductShell({
             onToggle={toggle}
             backHref={programScopeBackHref()}
             remainingMilestones={scopeOverview?.remainingMilestones}
-            milestoneNavigationFailed={scopeMilestonesFailed}
-            onRetryMilestoneNavigation={retryScopeMilestones}
           />
         ) : (
           <AppSidebar
@@ -229,8 +221,6 @@ export function ProductShell({
               search={search}
               collapsed={false}
               ariaLabel={drawerLabel}
-              milestoneNavigationFailed={scopeMilestonesFailed}
-              onRetryMilestoneNavigation={retryScopeMilestones}
             />
           ) : (
             <AppSidebarNav

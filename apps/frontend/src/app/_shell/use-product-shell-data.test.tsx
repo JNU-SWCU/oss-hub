@@ -74,14 +74,7 @@ function Probe({
     member,
     studentViewer,
   });
-  return (
-    <>
-      <output>{JSON.stringify(data)}</output>
-      <button type="button" onClick={data.retryScopeMilestones}>
-        단계 다시 불러오기
-      </button>
-    </>
-  );
+  return <output>{JSON.stringify(data)}</output>;
 }
 
 describe('useProductShellData 프로그램 단계 탐색', () => {
@@ -122,17 +115,16 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
     expect(container.textContent).toContain('1차 계획서');
   });
 
-  it('공개 단계 조회 실패를 알리고 사용자가 그 조회만 다시 시도할 수 있다', async () => {
+  /**
+   * 단계 조회가 실패해도 좌측 패널은 오류를 들이밀지 않는다. 형제 조회와 같은 모양으로
+   * 조용히 접고, 프로그램 개요는 그대로 남아 나머지 내비게이션이 계속 그려진다.
+   * 재시도는 좌측 패널의 일이 아니므로 훅이 그 손잡이를 내주지 않는다.
+   */
+  it('단계 조회가 실패해도 개요는 남기고 단계만 조용히 접는다', async () => {
     mocks.getProgramOverview.mockResolvedValue(OVERVIEW);
-    mocks.getProgramNavigationMilestones
-      .mockRejectedValueOnce(new TypeError('network'))
-      .mockResolvedValueOnce([
-        {
-          milestoneId: 'mid',
-          title: '중간 보고서',
-          submissionEnabled: true,
-        },
-      ]);
+    mocks.getProgramNavigationMilestones.mockRejectedValue(
+      new TypeError('network'),
+    );
 
     await act(async () => {
       root.render(<Probe programDetailId="program-1" member />);
@@ -140,16 +132,9 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
 
     expect(container.textContent).toContain('합성 프로그램');
     expect(container.textContent).not.toContain('"scopeMilestones":');
-    expect(container.textContent).toContain('"scopeMilestonesFailed":true');
-
-    await act(async () => {
-      container.querySelector('button')?.click();
-    });
-
-    expect(mocks.getProgramNavigationMilestones).toHaveBeenCalledTimes(2);
-    expect(mocks.getProgramOverview).toHaveBeenCalledTimes(1);
-    expect(container.textContent).toContain('중간 보고서');
-    expect(container.textContent).toContain('"scopeMilestonesFailed":false');
+    expect(container.textContent).not.toContain('scopeMilestonesFailed');
+    expect(container.textContent).not.toContain('retryScopeMilestones');
+    expect(mocks.getProgramNavigationMilestones).toHaveBeenCalledTimes(1);
   });
 
   it('비회원에게는 회원 전용 overview와 추가 단계 조회를 시작하지 않는다', async () => {
