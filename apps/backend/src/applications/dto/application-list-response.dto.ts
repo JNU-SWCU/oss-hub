@@ -50,7 +50,8 @@ export class ApplicationListItemResponseDto {
     readonly summary: string;
   };
 
-  private constructor(item: ApplicationListItem) {
+  /** 상세 DTO(`ApplicationDetailResponseDto`)가 이 모양을 이어받아 `reviewHistory`만 더한다. */
+  protected constructor(item: ApplicationListItem) {
     this.id = item.id;
     this.programId = item.programId;
     this.status = item.status;
