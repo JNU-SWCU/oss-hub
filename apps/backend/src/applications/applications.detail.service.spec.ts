@@ -22,6 +22,7 @@ const LIST_QUERY = {
   pageSize: 20,
   search: '',
   status: 'all',
+  view: 'default',
 } as const;
 
 function applicationRow(
@@ -99,6 +100,7 @@ describe('ApplicationsService.getForStaff', () => {
     const findApplicationForStaff = jest.fn().mockResolvedValue(null);
     const repository = {
       findApplicationForStaff,
+      listReviewHistory: jest.fn().mockResolvedValue([]),
     } as unknown as ApplicationsRepository;
     const service = new ApplicationsService(repository, noopAuditLog);
 
@@ -110,14 +112,32 @@ describe('ApplicationsService.getForStaff', () => {
     });
   });
 
-  it('찾은 신청을 그대로 돌려준다', async () => {
+  it('찾은 신청과 검토 이력을 함께 돌려준다', async () => {
     const item = { id: APPLICATION_ID };
+    const reviewHistory = [{ id: 'history-1' }];
     const repository = {
       findApplicationForStaff: jest.fn().mockResolvedValue(item),
+      listReviewHistory: jest.fn().mockResolvedValue(reviewHistory),
     } as unknown as ApplicationsRepository;
     const service = new ApplicationsService(repository, noopAuditLog);
 
-    await expect(service.getForStaff(APPLICATION_ID)).resolves.toBe(item);
+    await expect(service.getForStaff(APPLICATION_ID)).resolves.toEqual({
+      application: item,
+      reviewHistory,
+    });
+  });
+
+  it('신청이 없어도 이력 조회는 병행하고 응답은 동일 404다', async () => {
+    // 존재 여부로 부르는 쿼리 수를 가르면 응답 시간이 존재를 일러 준다.
+    const listReviewHistory = jest.fn().mockResolvedValue([]);
+    const repository = {
+      findApplicationForStaff: jest.fn().mockResolvedValue(null),
+      listReviewHistory,
+    } as unknown as ApplicationsRepository;
+    const service = new ApplicationsService(repository, noopAuditLog);
+
+    await expect(service.getForStaff(APPLICATION_ID)).rejects.toBeDefined();
+    expect(listReviewHistory).toHaveBeenCalledWith(APPLICATION_ID);
   });
 });
 

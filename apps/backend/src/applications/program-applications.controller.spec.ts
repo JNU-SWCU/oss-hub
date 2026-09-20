@@ -43,9 +43,13 @@ describe('ProgramApplicationsController', () => {
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
       repositoryUrl: null,
     });
-    const service: Pick<ApplicationsService, 'create' | 'listForProgram'> = {
+    const service: Pick<
+      ApplicationsService,
+      'create' | 'listForProgram' | 'listTeamManagementForProgram'
+    > = {
       create,
       listForProgram: jest.fn(),
+      listTeamManagementForProgram: jest.fn(),
     };
     const controller = new ProgramApplicationsController(service);
     const body = Object.assign(new CreateApplicationRequestDto(), {
@@ -88,9 +92,13 @@ describe('ProgramApplicationsController', () => {
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
       repositoryUrl: null,
     });
-    const service: Pick<ApplicationsService, 'create' | 'listForProgram'> = {
+    const service: Pick<
+      ApplicationsService,
+      'create' | 'listForProgram' | 'listTeamManagementForProgram'
+    > = {
       create,
       listForProgram: jest.fn(),
+      listTeamManagementForProgram: jest.fn(),
     };
     const controller = new ProgramApplicationsController(service);
     const body = Object.assign(new CreateApplicationRequestDto(), {
@@ -124,9 +132,13 @@ describe('ProgramApplicationsController', () => {
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
       repositoryUrl: null,
     });
-    const service: Pick<ApplicationsService, 'create' | 'listForProgram'> = {
+    const service: Pick<
+      ApplicationsService,
+      'create' | 'listForProgram' | 'listTeamManagementForProgram'
+    > = {
       create,
       listForProgram: jest.fn(),
+      listTeamManagementForProgram: jest.fn(),
     };
     const controller = new ProgramApplicationsController(service);
     const body = Object.assign(new CreateApplicationRequestDto(), {
@@ -162,9 +174,13 @@ describe('ProgramApplicationsController', () => {
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
       repositoryUrl: null,
     });
-    const service: Pick<ApplicationsService, 'create' | 'listForProgram'> = {
+    const service: Pick<
+      ApplicationsService,
+      'create' | 'listForProgram' | 'listTeamManagementForProgram'
+    > = {
       create,
       listForProgram: jest.fn(),
+      listTeamManagementForProgram: jest.fn(),
     };
     const controller = new ProgramApplicationsController(service);
     const body = Object.assign(new CreateApplicationRequestDto(), {
@@ -224,9 +240,13 @@ describe('ProgramApplicationsController', () => {
       totalItems: 1,
       totalPages: 1,
     });
-    const service: Pick<ApplicationsService, 'create' | 'listForProgram'> = {
+    const service: Pick<
+      ApplicationsService,
+      'create' | 'listForProgram' | 'listTeamManagementForProgram'
+    > = {
       create: jest.fn(),
       listForProgram,
+      listTeamManagementForProgram: jest.fn(),
     };
     const controller = new ProgramApplicationsController(service);
     const query = Object.assign(new ApplicationListQueryRequestDto(), {
@@ -243,6 +263,7 @@ describe('ProgramApplicationsController', () => {
       pageSize: 20,
       search: '합성',
       status: 'SUBMITTED',
+      view: 'default',
     });
     expect(response).toEqual({
       items: [
