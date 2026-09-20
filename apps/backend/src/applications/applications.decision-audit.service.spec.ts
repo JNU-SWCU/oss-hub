@@ -429,38 +429,71 @@ describe('ApplicationsService.decide — REVERT', () => {
     RepositoryProvisionJobStatus.PROCESSING,
     RepositoryProvisionJobStatus.FAILED_RETRYABLE,
     RepositoryProvisionJobStatus.FAILED_FINAL,
-  ])('생성된 저장소는 %s에서도 승인 되돌리기를 차단한다', async (status) => {
-    const { service, record, findRepositoryProvisionJob, store } =
-      createHarness();
+  ])(
+    '생성된 저장소가 있어도 %s에서 되돌리기가 통과하고 완료된 요청은 보존한다',
+    async (status) => {
+      // Given: 저장소가 이미 만들어졌다(repositoryId가 채워졌으면 완료다).
+      const {
+        service,
+        record,
+        store,
+        transitionApplication,
+        discardRepositoryProvisionRequest,
+        findRepositoryProvisionJob,
+      } = createHarness();
+      (store.findApplicationById as jest.Mock).mockResolvedValue(
+        baseApplication({ status: ApplicationStatus.APPROVED }),
+      );
+      findRepositoryProvisionJob.mockResolvedValue({
+        status,
+        repositoryId: 'synthetic-repository',
+      });
+
+      // When: 예전 APP_023이 막던 경로다.
+      const result = await service.decide(
+        ACTOR_ID,
+        APPLICATION_ID,
+        ACTOR_GITHUB_ID,
+        { action: APPLICATION_DECISION_ACTIONS.REVERT },
+      );
+
+      // Then: 전이도 감사도 이루어지고, 완료된 요청은 지우지 않는다.
+      expect(result).toMatchObject({
+        kind: 'REVERTED',
+        status: ApplicationStatus.SUBMITTED,
+      });
+      expect(transitionApplication).toHaveBeenCalled();
+      expect(record).toHaveBeenCalled();
+      expect(discardRepositoryProvisionRequest).not.toHaveBeenCalled();
+    },
+  );
+
+  it('미완료 프로비저닝은 되돌리기가 여전히 거둔다', async () => {
+    // Given: 워커가 아직 저장소를 만들지 않았다.
+    const {
+      service,
+      store,
+      discardRepositoryProvisionRequest,
+      findRepositoryProvisionJob,
+    } = createHarness();
     (store.findApplicationById as jest.Mock).mockResolvedValue(
       baseApplication({ status: ApplicationStatus.APPROVED }),
     );
     findRepositoryProvisionJob.mockResolvedValue({
-      status,
-      repositoryId: 'synthetic-repository',
+      status: RepositoryProvisionJobStatus.PENDING,
+      repositoryId: null,
     });
 
-    let thrown: unknown;
-    try {
-      await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
-        action: APPLICATION_DECISION_ACTIONS.REVERT,
-      });
-    } catch (error) {
-      thrown = error;
-    }
+    // When
+    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      action: APPLICATION_DECISION_ACTIONS.REVERT,
+    });
 
-    expectDomainCode(thrown, ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED);
-    expect(thrown).toBeInstanceOf(DomainException);
-    if (thrown instanceof DomainException) {
-      expect(thrown.errorCode.status).toBe(409);
-      expect(thrown.extensions).toEqual(
-        expect.objectContaining({
-          latestStatus: ApplicationStatus.APPROVED,
-          revertBlockedReason: expect.stringContaining('succeeded') as unknown,
-        }),
-      );
-    }
-    expect(record).not.toHaveBeenCalled();
+    // Then: 고아 job을 남기지 않는다.
+    expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
+      APPLICATION_ID,
+      expect.any(Date),
+    );
   });
 
   it('SUBMITTED에 REVERT를 시도하면 APPLICATION_REVERT_INVALID_STATUS', async () => {
@@ -621,8 +654,13 @@ describe('ApplicationsService.decide — REVERT', () => {
     });
   });
 
-  it('OWN은 프로비저닝 SUCCEEDED여도 되돌리기를 허용한다', async () => {
-    const { service, findRepositoryProvisionJob, store } = createHarness();
+  it('OWN은 프로비저닝 SUCCEEDED여도 되돌리기를 허용하고 완료된 연결을 보존한다', async () => {
+    const {
+      service,
+      findRepositoryProvisionJob,
+      discardRepositoryProvisionRequest,
+      store,
+    } = createHarness();
     (store.findApplicationById as jest.Mock).mockResolvedValue(
       baseApplication({
         status: ApplicationStatus.APPROVED,
@@ -643,15 +681,18 @@ describe('ApplicationsService.decide — REVERT', () => {
       kind: 'REVERTED',
       status: ApplicationStatus.SUBMITTED,
     });
-    // NEW 잠금 경로가 타면 job을 조회한다. OWN은 모드 가드로 조회하지 않는다.
-    expect(findRepositoryProvisionJob).not.toHaveBeenCalled();
+    // 보존 여부를 정하려고 모드와 관계없이 job을 한 번 읽는다. OWN도 연결이 끝났으면
+    // 그 사실을 지우지 않는다 — 예전에는 OWN이 모드 가드로 조회를 건너뛰고 무조건 지웠다.
+    expect(findRepositoryProvisionJob).toHaveBeenCalledWith(APPLICATION_ID);
+    expect(discardRepositoryProvisionRequest).not.toHaveBeenCalled();
   });
 });
 
 /**
  * #1272 — 교직원이 판정을 바꿀 때 되돌리기 → 재판정 두 번을 요구하지 않는다.
- * PATCH 한 번이 기존 CAS 한 번으로 반대 판정까지 옮기는 것과, 그럼에도
- * 완료된 저장소 잠금(APP_023)과 같은 판정 재전송 409가 남아 있는 것을 고정한다.
+ * PATCH 한 번이 기존 CAS 한 번으로 반대 판정까지 옳기는 것과, 같은 판정 재전송만
+ * 409로 남는 것을 고정한다. 완료된 저장소 잠금(옵 APP_023)은 사라졌다 — 이제
+ * 완료는 차단 사유가 아니라 보존 사유다.
  */
 describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
   it('APPROVED → REJECT: 기대 상태 APPROVED로 한 번에 전이하고 반려로 기록한다', async () => {
@@ -834,8 +875,9 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
     RepositoryProvisionJobStatus.FAILED_RETRYABLE,
     RepositoryProvisionJobStatus.FAILED_FINAL,
   ])(
-    '생성된 NEW 저장소는 %s에서도 반려로 풀 수 없다 — 409 APP_023',
+    '생성된 NEW 저장소가 있어도 %s에서 반려가 통과하고 완료된 요청은 보존한다',
     async (status) => {
+      // Given
       const {
         service,
         record,
@@ -855,40 +897,67 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
         repositoryId: 'synthetic-repository',
       });
 
-      let thrown: unknown;
-      try {
-        await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      // When
+      const result = await service.decide(
+        ACTOR_ID,
+        APPLICATION_ID,
+        ACTOR_GITHUB_ID,
+        {
           action: APPLICATION_DECISION_ACTIONS.REJECT,
           reason: '합성 반려 사유',
-        });
-      } catch (error) {
-        thrown = error;
-      }
-
-      expectDomainCode(
-        thrown,
-        ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED,
+        },
       );
-      if (thrown instanceof DomainException) {
-        expect(thrown.errorCode.status).toBe(409);
-        expect(thrown.extensions).toEqual(
-          expect.objectContaining({
-            latestStatus: ApplicationStatus.APPROVED,
-            revertBlockedReason: expect.stringContaining(
-              'succeeded',
-            ) as unknown,
-          }),
-        );
-      }
-      // 잠금이 걸렸으면 상태도 감사도 저장소 요청도 건드리지 않는다.
-      expect(transitionApplication).not.toHaveBeenCalled();
-      expect(record).not.toHaveBeenCalled();
+
+      // Then: 반려는 들어가고, 이미 만들어진 저장소의 job·outbox는 그대로 남는다.
+      expect(result).toMatchObject({
+        kind: 'REJECTED',
+        status: ApplicationStatus.REJECTED,
+      });
+      expect(transitionApplication).toHaveBeenCalled();
+      expect(record).toHaveBeenCalled();
       expect(discardRepositoryProvisionRequest).not.toHaveBeenCalled();
     },
   );
 
-  it('OWN은 SUCCEEDED여도 승인→반려를 허용한다', async () => {
-    const { service, findRepositoryProvisionJob, store } = createHarness({
+  it('미완료 NEW 프로비저닝은 승인→반려에서 여전히 거둔다', async () => {
+    // Given: 저장소가 아직 없다 — 고아 job이 될 수 있는 상태다.
+    const {
+      service,
+      store,
+      discardRepositoryProvisionRequest,
+      findRepositoryProvisionJob,
+    } = createHarness({ provisioningEnabled: true });
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({
+        status: ApplicationStatus.APPROVED,
+        repositoryProvisioningEnabled: true,
+      }),
+    );
+    findRepositoryProvisionJob.mockResolvedValue({
+      status: RepositoryProvisionJobStatus.PROCESSING,
+      repositoryId: null,
+    });
+
+    // When
+    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      action: APPLICATION_DECISION_ACTIONS.REJECT,
+      reason: '합성 반려 사유',
+    });
+
+    // Then
+    expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
+      APPLICATION_ID,
+      expect.any(Date),
+    );
+  });
+
+  it('OWN은 SUCCEEDED여도 승인→반려를 허용하고 완료된 연결을 보존한다', async () => {
+    const {
+      service,
+      findRepositoryProvisionJob,
+      discardRepositoryProvisionRequest,
+      store,
+    } = createHarness({
       provisioningEnabled: true,
     });
     (store.findApplicationById as jest.Mock).mockResolvedValue(
@@ -913,8 +982,9 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
       kind: 'REJECTED',
       status: ApplicationStatus.REJECTED,
     });
-    // OWN은 모드 가드에서 끝나 job을 조회하지도 않는다(ADR-009).
-    expect(findRepositoryProvisionJob).not.toHaveBeenCalled();
+    // 모드와 관계없이 job을 한 번 읽고, 연결이 끝난 OWN은 그 기록을 지우지 않는다.
+    expect(findRepositoryProvisionJob).toHaveBeenCalledWith(APPLICATION_ID);
+    expect(discardRepositoryProvisionRequest).not.toHaveBeenCalled();
   });
 
   it('경합으로 APPROVED가 이미 밀렸으면 CAS가 판정을 거절한다', async () => {
@@ -948,5 +1018,130 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
       );
     }
     expect(record).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * 판정 이력(`ApplicationReviewHistory`)은 상태 변경과 같은 트랜잭션에서 쌓인다.
+ * 여기서는 「어떤 판정이 어떤 사건으로 기록되는가」와 「CAS가 밀린 요청은 아무것도
+ * 남기지 않는가」를 고정한다. 트랜잭션 원자성 자체는 통합 테스트가 맡는다.
+ */
+describe('ApplicationsService.decide — 판정 이력과 알림', () => {
+  it.each([
+    [
+      APPLICATION_DECISION_ACTIONS.APPROVE,
+      ApplicationStatus.SUBMITTED,
+      'APPROVED',
+      null,
+    ],
+    [
+      APPLICATION_DECISION_ACTIONS.REVERT,
+      ApplicationStatus.APPROVED,
+      'REVERTED',
+      null,
+    ],
+  ] as const)(
+    '%s 판정은 %s에서 %s 이력을 상태 변경과 같은 store로 남긴다',
+    async (action, from, eventKind, rejectionReason) => {
+      // Given
+      const { service, store, appendReviewHistory } = createHarness();
+      (store.findApplicationById as jest.Mock).mockResolvedValue(
+        baseApplication({ status: from }),
+      );
+
+      // When
+      await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+        action,
+      });
+
+      // Then
+      expect(appendReviewHistory).toHaveBeenCalledWith(
+        expect.objectContaining({
+          applicationId: APPLICATION_ID,
+          eventKind,
+          actorId: ACTOR_ID,
+          rejectionReason,
+        }),
+      );
+      // 사건 시각은 상태 전이·감사 기록과 같은 한 순간이다.
+      expect(appendReviewHistory.mock.calls[0]?.[0].occurredAt).toBeInstanceOf(
+        Date,
+      );
+    },
+  );
+
+  it('반려는 사유를 이력에 함께 남긴다 — 다음 판정이 덮어써도 그때의 지적이 남는다', async () => {
+    // Given
+    const { service, appendReviewHistory } = createHarness();
+
+    // When
+    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      action: APPLICATION_DECISION_ACTIONS.REJECT,
+      reason: '서류가 비었습니다',
+    });
+
+    // Then
+    expect(appendReviewHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKind: 'REJECTED',
+        rejectionReason: '서류가 비었습니다',
+      }),
+    );
+  });
+
+  it('되돌림도 학생에게 알린다 — 승인이 풀린 사실을 화면을 다시 열기 전에 알아야 한다', async () => {
+    // Given
+    const { service, store, createApplicationDecisionNotifications } =
+      createHarness();
+    (store.findApplicationById as jest.Mock).mockResolvedValue(
+      baseApplication({ status: ApplicationStatus.APPROVED }),
+    );
+
+    // When
+    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      action: APPLICATION_DECISION_ACTIONS.REVERT,
+    });
+
+    // Then
+    expect(createApplicationDecisionNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({
+        applicationId: APPLICATION_ID,
+        decision: ApplicationStatus.SUBMITTED,
+      }),
+    );
+  });
+
+  it('CAS가 밀린 요청은 이력도 알림도 남기지 않는다', async () => {
+    // Given: 다른 교직원이 먼저 판정했다.
+    const {
+      service,
+      store,
+      transitionApplication,
+      appendReviewHistory,
+      createApplicationDecisionNotifications,
+    } = createHarness();
+    transitionApplication.mockResolvedValue(false);
+    (store.findApplicationById as jest.Mock)
+      .mockResolvedValueOnce(
+        baseApplication({ status: ApplicationStatus.SUBMITTED }),
+      )
+      .mockResolvedValueOnce(
+        baseApplication({ status: ApplicationStatus.APPROVED }),
+      );
+
+    // When
+    let thrown: unknown;
+    try {
+      await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+        action: APPLICATION_DECISION_ACTIONS.APPROVE,
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    // Then
+    expectDomainCode(thrown, ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED);
+    expect(appendReviewHistory).not.toHaveBeenCalled();
+    expect(createApplicationDecisionNotifications).not.toHaveBeenCalled();
   });
 });

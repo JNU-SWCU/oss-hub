@@ -27,8 +27,11 @@ export enum ApplicationsErrorCode {
   APPLICATION_REVERT_INVALID_STATUS = 'APP_021',
   /** OWN 연결인데 repositoryUrl이 정확한 GitHub 저장소 URL이 아닐 때. */
   OWN_REPOSITORY_URL_REQUIRED = 'APP_022',
-  /** 프로비저닝이 완료된 승인은 되돌릴 수 없다. */
-  APPLICATION_REVERT_BLOCKED = 'APP_023',
+  // APP_023(APPLICATION_REVERT_BLOCKED)은 은퇴했다. 교직원이 드롭다운에서 고르는 세
+  // 상태는 어느 출발점에서도 항상 고를 수 있어야 해서, 프로비저닝 완료를 판정 차단
+  // 사유로 쓰지 않는다. 완료된 프로비저닝은 이제 보존 사유일 뿐이다
+  // (`applications.service.ts`의 `isProvisioningCompleted`).
+  // 번호는 재사용하지 않는다(ADR-004).
   /** 신청 항목이 길이 상한을 넘었다 — 「올바르지 않다」와 갈라야 무엇을 줄일지 안다. */
   ANSWER_TOO_LONG = 'APP_024',
   REPOSITORY_CONNECTION_MODE_REQUIRED = 'APP_025',
@@ -111,11 +114,6 @@ export const APPLICATIONS_ERROR_CODES: Record<
     code: ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED,
     status: 400,
     message: '자체 저장소 연결에는 유효한 GitHub repositoryUrl이 필요합니다.',
-  },
-  [ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED]: {
-    code: ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED,
-    status: 409,
-    message: '저장소 프로비저닝이 완료된 승인은 되돌릴 수 없습니다.',
   },
   [ApplicationsErrorCode.ANSWER_TOO_LONG]: {
     code: ApplicationsErrorCode.ANSWER_TOO_LONG,
