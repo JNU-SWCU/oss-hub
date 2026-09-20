@@ -140,6 +140,22 @@ function DialogDescription({
   );
 }
 
+/**
+ * `AlertDialog.Content`가 쓰는 껍데기 규격. Radix `AlertDialog`는 이 저장소의
+ * `DialogContent`를 쓸 수 없어(다른 primitive 다) 같은 클래스 문자열이 화면마다
+ * 손으로 복제돼 있었다 — 지금 11곳이다.
+ *
+ * 한 줄로 적으면 120자를 넘어 R-08a에 걸린다(docs/design.md). 조각으로 나눠 한곳에
+ * 두면 길이 제한을 지키면서 규격도 갈리지 않는다.
+ *
+ * ⚠ 새 확인창은 이것을 쓴다. 직접 적으면 그 순간 열두 번째 복제가 된다.
+ */
+export const ALERT_DIALOG_SHELL_CLASS = cn(
+  'fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)]',
+  'w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2',
+  'overflow-y-auto outline-none',
+);
+
 export {
   Dialog,
   DialogClose,
