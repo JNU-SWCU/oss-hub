@@ -167,20 +167,25 @@ describe('반려된 신청의 사유가 신청 상세 화면에 도달한다', (
     expect(text).not.toContain('…');
   });
 
-  it('판정이 끝난 신청이라 수정·취소로 갈리지 않는다', async () => {
+  /**
+   * 반려는 더 이상 종착점이 아니다 — 학생이 고쳐 다시 내면 검토 대기로 돌아온다(R-1).
+   * 그래서 이 화면은 「수정할 수 없다」고 말하지 않고 수정 화면을 연다.
+   */
+  /**
+   * 반려 자체는 더 이상 수정을 막지 않는다(R-1). 이 학생이 못 고치는 이유는 권한이지
+   * 판정이 아니며, 화면이 그 둘을 같은 말로 뭉개지 않아야 한다.
+   */
+  it('고치지 못하는 이유를 판정이 아니라 권한으로 말한다', async () => {
     await act(async () => {
       root.render(
         <ProgramApplyPage programId={PROGRAM_ID} sessionUser={SESSION_USER} />,
       );
     });
     await vi.waitFor(() => {
-      expect(container.textContent ?? '').toContain(
-        '수정할 수 없는 신청입니다',
-      );
+      expect(container.textContent ?? '').toContain('반려 사유');
     });
 
     const text = container.textContent ?? '';
-    expect(text).toContain('수정할 수 없는 신청입니다');
-    expect(text).not.toContain('신청서 수정·취소 안내');
+    expect(text).not.toContain('수정할 수 없는 신청입니다');
   });
 });
