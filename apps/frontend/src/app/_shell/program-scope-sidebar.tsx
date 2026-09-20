@@ -31,8 +31,6 @@ export interface ProgramScopeSidebarProps {
   readonly backHref: string;
   /** 남은 마감 목록. undefined는 개요 미도착/실패, []는 모든 마감 종료를 뜻한다. */
   readonly remainingMilestones?: readonly CountdownMilestone[];
-  readonly milestoneNavigationFailed?: boolean;
-  readonly onRetryMilestoneNavigation?: () => void;
 }
 
 export function ProgramScopeSidebar({
@@ -44,8 +42,6 @@ export function ProgramScopeSidebar({
   onToggle,
   backHref,
   remainingMilestones,
-  milestoneNavigationFailed = false,
-  onRetryMilestoneNavigation,
 }: ProgramScopeSidebarProps) {
   const toggleLabel = collapsed ? '사이드바 펼치기' : '사이드바 접기';
 
@@ -106,8 +102,6 @@ export function ProgramScopeSidebar({
         search={search}
         collapsed={collapsed}
         ariaLabel={programName}
-        milestoneNavigationFailed={milestoneNavigationFailed}
-        onRetryMilestoneNavigation={onRetryMilestoneNavigation}
       />
 
       {!collapsed && remainingMilestones !== undefined ? (
@@ -135,8 +129,6 @@ export interface ProgramScopeSidebarNavProps {
   readonly search: string;
   readonly collapsed: boolean;
   readonly ariaLabel: string;
-  readonly milestoneNavigationFailed?: boolean;
-  readonly onRetryMilestoneNavigation?: () => void;
 }
 
 function stageHrefWithCurrentQuery(
@@ -168,8 +160,6 @@ export function ProgramScopeSidebarNav({
   search,
   collapsed,
   ariaLabel,
-  milestoneNavigationFailed = false,
-  onRetryMilestoneNavigation,
 }: ProgramScopeSidebarNavProps) {
   const milestoneId = new URLSearchParams(search).get('milestoneId');
   const requestedHref =
@@ -195,26 +185,6 @@ export function ProgramScopeSidebarNav({
           collapsed && 'items-center px-2',
         )}
       >
-        {milestoneNavigationFailed ? (
-          <div
-            role="alert"
-            className={cn(
-              'grid w-full gap-2 rounded-control border border-destructive/30 bg-destructive/5 p-3 text-small text-sidebar-foreground',
-              collapsed && 'hidden',
-            )}
-          >
-            <p>단계 목록을 불러오지 못했습니다.</p>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="w-full"
-              onClick={onRetryMilestoneNavigation}
-            >
-              다시 불러오기
-            </Button>
-          </div>
-        ) : null}
         {groups.map((group) => (
           <div
             key={group.label}
