@@ -118,7 +118,14 @@ export async function loadProgramApplyContext(
             '신청 상태가 변경되었습니다. 새로고침 후 다시 시도해 주세요.',
         };
       }
-      if (application.status !== 'SUBMITTED') {
+      /*
+       * 반려된 신청은 학생이 고쳐 다시 낼 수 있다(R-1). 그러므로 수정 화면이 열려야
+       * 한다 — 막히는 것은 승인된 신청뿐이다.
+       *
+       * ⚠ `status !== 'SUBMITTED'` 로 쓰면 반려까지 막힌다. 백엔드가 재제출을 열어도
+       *   화면이 그 문을 닫고 있으면 학생에게는 아무 변화가 없다.
+       */
+      if (application.status === 'APPROVED') {
         return {
           kind: 'blocked',
           reason: 'already-applied',
