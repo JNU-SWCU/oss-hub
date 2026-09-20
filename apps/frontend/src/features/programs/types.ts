@@ -437,7 +437,7 @@ export interface StaffDashboardProgramSummary {
   /** 게시 축(PUBLISHED|ARCHIVED). 모집 기간 파생 상태가 아니다. */
   readonly lifecycle: 'PUBLISHED' | 'ARCHIVED';
   readonly applications: StaffDashboardApplicationCounts;
-  readonly applicantsPath: string;
+  readonly teamManagementPath: string;
   readonly activity: StaffDashboardActivitySummary;
   readonly submissions: StaffDashboardSubmissionSummary;
 }

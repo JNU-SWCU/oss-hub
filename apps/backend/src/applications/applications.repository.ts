@@ -268,7 +268,7 @@ export interface StaffDashboardProgramSummary {
   /** 게시 축. 신청기간만으로는 「내림」을 알 수 없어 함께 싣는다(#1093). */
   readonly lifecycle: ProgramLifecycle;
   readonly applications: StaffDashboardApplicationCounts;
-  readonly applicantsPath: string;
+  readonly teamManagementPath: string;
 }
 
 export interface StaffDashboardSummary {
@@ -937,7 +937,7 @@ export class ApplicationsRepository {
           endAt: program.endAt,
           lifecycle: program.lifecycle,
           applications,
-          applicantsPath: `/programs/${encodeURIComponent(program.id)}/applicants`,
+          teamManagementPath: `/programs/${encodeURIComponent(program.id)}/teams`,
         };
       }),
     };

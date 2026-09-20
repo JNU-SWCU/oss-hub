@@ -35,7 +35,7 @@ const validResponse = {
         approved: 0,
         rejected: 0,
       },
-      applicantsPath: '/programs/program%3Abasic/applicants',
+      teamManagementPath: '/programs/program%3Abasic/teams',
       activity: {
         repositories: 0,
         commits: 0,
@@ -74,7 +74,7 @@ describe('getStaffDashboardSummary', () => {
       programs: [
         {
           ...validResponse.programs[0],
-          applicantsPath: '/programs/program:basic/applicants',
+          teamManagementPath: '/programs/program:basic/teams',
         },
       ],
     });
