@@ -1889,3 +1889,21 @@
 - 주의: 로컬 확인 중 `GET /api/v1/programs`가 500이었다. main 병합으로 들어온 `20260912090000_add_external_program_cover`를 로컬 DB에 적용하지 않은 탓이며, 병합 뒤에는 마이그레이션을 다시 적용해야 한다.
 - 남은 것: 참여 팀 목록에 삭제 결과 알림을 띄우는 것은 그 화면 몫으로 남겼다. 지금은 창이 결과를 말하고 목록으로 돌아간다.
 - 공개 안전성: 합성 데이터로만 확인했고 캡처는 이미 발행된 v0.6.162에 에셋으로만 올렸다.
+
+## 2026-09-20 — 확인창 껍데기 클래스를 공용으로 올린다
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 무엇: `AlertDialog.Content`가 쓰던 145자 className을 `components/ui/dialog.tsx`의 `ALERT_DIALOG_SHELL_CLASS`로 올리고 `team-delete-dialog.tsx`가 그것을 쓰게 했다.
+- 왜 지금: #1312가 design.md R-08a(className 120자)를 ESLint로 강제하는데, 그 억제 목록이 만들어진 뒤 `team-delete-dialog.tsx`가 main에 들어와 목록 밖에 남았다.
+  #1312를 main과 합치면 그 한 건이 CI를 깬다.
+- 억제 목록에 더하지 않은 이유: 그 문서가 「목록은 줄어들기만 한다」고 정해 뒀다.
+  R-08a가 말하는 「cva variant나 공용 컴포넌트로 옮긴다」를 그대로 했다.
+- 같은 문자열이 지금 11개 파일에 복제돼 있다.
+  Radix `AlertDialog`는 이 저장소의 `DialogContent`를 쓸 수 없어(다른 primitive다) 화면마다 손으로 적혀 있었다.
+  이 PR은 그중 한 곳만 옮긴다 — 나머지 10곳은 #1312의 억제 목록 안에 있어 이 PR의 CI를 막지 않고, 폴더 단위 후속 PR로 줄이는 것이 그 PR이 정한 방식이다.
+- 한 줄로 적으면 120자를 넘으므로 `cn()`으로 조각을 나눠 뒀다.
+  길이 제한을 지키면서 규격이 갈리지 않는다.
+- 검증: frontend 373 files / 3,733 tests, typecheck, lint(오류 0건), 전체 format 검사를 통과했다.
