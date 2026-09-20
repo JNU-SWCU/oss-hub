@@ -3,11 +3,16 @@ import {
   IsDefined,
   IsInt,
   IsNotEmptyObject,
+  IsOptional,
   IsString,
   Matches,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
+
+/** 학생에게 함께 보낼 문구의 길이 상한. 판정 반려 사유(`reason`)와 같은 결의 값이다. */
+export const TEAM_DELETION_NOTIFICATION_MESSAGE_MAX_LENGTH = 500;
 
 /**
  * 교직원이 삭제 확인 창에서 확인한 팀 범위 스냅샷.
@@ -58,4 +63,15 @@ export class DeleteTeamRequestDto {
   @ValidateNested()
   @Type(() => DeleteTeamExpectedScopeRequestDto)
   readonly expectedScope!: DeleteTeamExpectedScopeRequestDto;
+
+  /**
+   * 팀원에게 함께 보낼 교직원 문구. 선택이다 — 비워 두면 삭제 사실만 알린다.
+   *
+   * 알림 자체는 선택이 아니다(AC-21) — 이 필드가 없어도 삭제는 수신자에게 알림을
+   * 남긴다. 여기 실리는 것은 「무엇을 더 말할 것인가」일 뿐이다.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(TEAM_DELETION_NOTIFICATION_MESSAGE_MAX_LENGTH)
+  readonly notificationMessage?: string;
 }
