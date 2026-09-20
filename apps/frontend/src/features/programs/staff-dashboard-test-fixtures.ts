@@ -28,7 +28,7 @@ export function staffDashboardProgram(
       approved: 1,
       rejected: 1,
     },
-    applicantsPath: `/programs/${encodeURIComponent(id)}/applicants`,
+    teamManagementPath: `/programs/${encodeURIComponent(id)}/teams`,
     activity: {
       repositories: 1,
       commits: 2,

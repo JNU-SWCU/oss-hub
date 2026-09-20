@@ -115,7 +115,7 @@ function isSubmissions(
 function isProgram(value: unknown): value is StaffDashboardProgramSummary {
   if (!isRecord(value) || !isSafeProgramId(value.id)) return false;
   if (!isRecord(value.applicationPeriod)) return false;
-  const expectedApplicantsPath = `/programs/${encodeURIComponent(value.id)}/applicants`;
+  const expectedTeamManagementPath = `/programs/${encodeURIComponent(value.id)}/teams`;
   return (
     isNonEmptyString(value.name) &&
     isProgramTrackType(value.trackType) &&
@@ -127,7 +127,7 @@ function isProgram(value: unknown): value is StaffDashboardProgramSummary {
     // 조용히 「안 내린 프로그램」으로 넘기지 않고 응답 형식 오류로 끊는다.
     isIsoDate(value.endAt) &&
     isProgramLifecycle(value.lifecycle) &&
-    value.applicantsPath === expectedApplicantsPath &&
+    value.teamManagementPath === expectedTeamManagementPath &&
     isApplications(value.applications) &&
     isActivity(value.activity) &&
     isSubmissions(value.submissions)
