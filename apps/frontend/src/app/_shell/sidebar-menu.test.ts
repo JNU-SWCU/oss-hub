@@ -591,15 +591,15 @@ describe('programScopeSidebarGroups', () => {
       ],
     });
     const overview = groups[0];
-    // 승인·반려 입구 — 참여 팀만 있으면 판정 화면에 도달하지 못한다.
+    // 승인·반려 입구는 「팀 관리」 하나다 — 팀:신청이 1:1이라 같은 대상을 두
+    // 이름으로 부르던 것을 합쳤다.
     expect(overview?.items.map((i) => i.label)).toEqual([
       '프로그램 개요',
-      '참여 팀',
-      '신청자',
+      '팀 관리',
     ]);
-    expect(overview?.items[2]).toMatchObject({
-      label: '신청자',
-      href: '/programs/prog-1/applicants',
+    expect(overview?.items[1]).toMatchObject({
+      label: '팀 관리',
+      href: '/programs/prog-1/teams',
     });
     const documents = groups[1];
     expect(documents?.items[0]).toMatchObject({
@@ -694,7 +694,7 @@ describe('programScopeSidebarGroups', () => {
 
   it('ADMIN viewer is treated as staff view', () => {
     const groups = programScopeSidebarGroups({ ...base, viewerRole: 'ADMIN' });
-    expect(groups[0]?.items.some((i) => i.label === '신청자')).toBe(true);
+    expect(groups[0]?.items.some((i) => i.label === '팀 관리')).toBe(true);
     expect(groups[1]?.items[0]?.label).toBe('서류 현황');
   });
 
@@ -978,8 +978,7 @@ describe('programScopeSidebarGroups — 우리 팀(#1269)', () => {
 
     expect(overview?.items.map((item) => item.label)).toEqual([
       '프로그램 개요',
-      '참여 팀',
-      '신청자',
+      '팀 관리',
     ]);
   });
 

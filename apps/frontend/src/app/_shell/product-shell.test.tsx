@@ -166,14 +166,18 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
     expect(html).toContain('href="/programs/prog-1/board"');
   });
 
-  it('교직원 회원은 "서류 현황"과 신청 판정 입구(신청자)를 본다', () => {
+  it('교직원 회원은 "서류 현황"과 신청 판정 입구(팀 관리)를 본다', () => {
     mockSession({ status: 'assigned', role: 'STAFF', isProfileComplete: true });
     const html = render('/programs/prog-1');
 
     expect(html).toContain('서류 현황');
     expect(html).not.toContain('내 제출물');
-    expect(html).toContain('신청자');
-    expect(html).toContain('/programs/prog-1/applicants');
+    // 「참여 팀」과 「신청자」가 「팀 관리」 하나로 합쳐졌다 — 팀:신청이 1:1이라
+    // 같은 대상을 두 이름으로 부르고 있었다.
+    expect(html).toContain('팀 관리');
+    expect(html).not.toContain('신청자');
+    expect(html).toContain('/programs/prog-1/teams');
+    expect(html).not.toContain('/programs/prog-1/applicants');
     expect(html).toContain('‹ 프로그램 목록');
     expect(html).toMatch(/href="\/programs"/);
   });

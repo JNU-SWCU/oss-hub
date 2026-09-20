@@ -286,22 +286,21 @@ export function programScopeSidebarGroups(
       depth: 0,
     });
   }
+  /*
+   * 교직원에게는 「팀 관리」 하나다 — 예전에는 「참여 팀」과 「신청자」 둘이었고,
+   * 팀과 신청이 1:1이라 같은 대상을 두 이름으로 부르고 있었다. 승인·반려도 이제
+   * 이 화면 안에서 한다.
+   *
+   * 학생에게는 지금까지와 같은 「참여 팀」이다 — 학생은 판정하지 않으므로 그 이름이
+   * 가리키는 것이 달라지지 않는다.
+   */
   overviewItems.push({
-    label: '참여 팀',
+    label: isStaffView ? '팀 관리' : '참여 팀',
     href: programHref(programId, '/teams'),
     icon: 'people',
     depth: 0,
     count: String(teamCount),
   });
-  // 승인·반려는 `/applicants`에만 있다. 학생에게는 권한도 UI도 없으므로 숨긴다.
-  if (isStaffView) {
-    overviewItems.push({
-      label: '신청자',
-      href: programHref(programId, '/applicants'),
-      icon: 'list',
-      depth: 0,
-    });
-  }
 
   const overviewGroup: ProgramScopeSidebarGroup = {
     label: '프로그램',

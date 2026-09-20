@@ -238,7 +238,7 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
 
     expect(mocks.getMyApplication).not.toHaveBeenCalled();
     expect(sidebarText()).toContain('서류 현황');
-    expect(sidebarText()).toContain('신청자');
+    expect(sidebarText()).toContain('팀 관리');
     expect(hrefs()).toContain('/programs/prog-1/documents');
     expect(hrefs()).toContain('/programs/prog-1/board');
   });
@@ -271,12 +271,13 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
       expect(sidebarText()).not.toContain('스터디 계획서');
     });
 
-    it('학생 면 그대로다 — 신청자·서류 현황으로 승격되지 않는다', async () => {
+    it('학생 면 그대로다 — 팀 관리·서류 현황으로 승격되지 않는다', async () => {
       await renderShell();
 
       expect(mocks.getMyApplication).toHaveBeenCalledWith('prog-1');
       expect(sidebarText()).not.toContain('서류 현황');
-      expect(sidebarText()).not.toContain('신청자');
+      expect(sidebarText()).not.toContain('팀 관리');
+      expect(sidebarText()).toContain('참여 팀');
       expect(hrefs()).not.toContain('/programs/prog-1/applicants');
       // 참여 전에도 열리는 화면은 그대로 남는다.
       expect(hrefs()).toContain('/programs/prog-1');
