@@ -718,9 +718,10 @@ describe('ApplicationsService integration', () => {
       where: { applicationId },
       data: { status: RepositoryProvisionJobStatus.SUCCEEDED },
     });
-    const provisionedJob = await prisma.repositoryProvisionJob.findUniqueOrThrow(
-      { where: { applicationId } },
-    );
+    const provisionedJob =
+      await prisma.repositoryProvisionJob.findUniqueOrThrow({
+        where: { applicationId },
+      });
     const provisionedEvent = await prisma.outboxEvent.findUniqueOrThrow({
       where: { idempotencyKey: `repository-provision:${applicationId}` },
     });

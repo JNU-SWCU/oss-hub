@@ -476,7 +476,9 @@ export class ApplicationsService {
         // 항상 미완료(PENDING/PROCESSING) 요청뿐이다. 이미 만들어진 저장소의 job·outbox
         // 이력을 지우면 「언제 무엇이 발급됐는가」가 사라지고, 저장소 연결
         // (`GithubRepository`)은 반려를 받아도 그대로 남아야 한다(f-github-repo-survives).
-        const provisioningCompleted = isProvisioningCompleted(plan.provisionJob);
+        const provisioningCompleted = isProvisioningCompleted(
+          plan.provisionJob,
+        );
 
         switch (plan.kind) {
           case 'REJECT': {
