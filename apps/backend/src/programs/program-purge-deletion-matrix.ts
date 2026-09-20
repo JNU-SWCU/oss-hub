@@ -146,6 +146,21 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
     covers: ['Milestone->MilestoneDocument'],
   },
   {
+    id: 'application-review-histories',
+    operation: 'DELETE',
+    // Application->ApplicationReviewHistory는 FK가 `onDelete: Cascade`라
+    // `application.deleteMany` 한 번으로 DB가 대신 지운다(코드가 별도로
+    // deleteMany를 부르지 않는다 — migration
+    // 20260920030000_add_application_review_history에서 확인).
+    //
+    // 삭제 확인 화면의 별도 수치로는 사지 않는다. 이 행은 이밌 세는
+    // `applications`에서 전적으로 파생되므로 「신청이 몇 건 사라진다」가 이미
+    // 검토 이력이 함께 사라진다는 뜻이고, 반대로 이 id를 TOCTOU 지문에 넣으면
+    // 동시에 들어오는 판정 하나가 무관한 삭제를 거부하게 된다 — 지문은 이미
+    // Application 축에서 상태 변경을 범위 변경으로 보지 않는다.
+    covers: ['Application->ApplicationReviewHistory'],
+  },
+  {
     id: 'applications',
     operation: 'DELETE',
     covers: ['Program->Application', 'Team->Application'],

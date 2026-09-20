@@ -108,8 +108,10 @@ function buildService(overrides: {
     .fn<Promise<unknown>, Parameters<AuditLogService['record']>>()
     .mockResolvedValue(undefined);
   const auditLogWriter = {} as ApplicationCreateStore['auditLogWriter'];
+  const appendReviewHistory = jest.fn().mockResolvedValue({ revision: 1 });
   const store: ApplicationCreateStore = {
     auditLogWriter,
+    appendReviewHistory,
     lockProgramForApply: jest
       .fn()
       .mockResolvedValue(ProgramLifecycle.PUBLISHED),
@@ -162,6 +164,7 @@ function buildService(overrides: {
     createTeamWithLeader,
     record,
     auditLogWriter,
+    appendReviewHistory,
   };
 }
 

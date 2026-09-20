@@ -47,6 +47,11 @@ import type {
   RepositoryProvisionEventInput,
   RepositoryProvisionJobSnapshot,
 } from './domain/application-decision';
+import { appendReviewHistory } from './review-history.writer';
+import type {
+  AppendReviewHistoryInput,
+  AppendedReviewHistory,
+} from './review-history.writer';
 
 type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
   include: {
@@ -72,6 +77,7 @@ type ApplicationDatabase = Pick<
   | 'team'
   | 'teamMember'
   | 'application'
+  | 'applicationReviewHistory'
   | 'auditLog'
   | '$queryRaw'
 >;
@@ -82,6 +88,13 @@ type LockedTeamRow = Readonly<{ id: string; leaderId: string }>;
 export interface ApplicationsTransactionStore {
   /** #547 — 판정 전이와 감사 기록이 같은 트랜잭션에서 함께 커밋되도록 하는 writer. */
   readonly auditLogWriter: AuditLogTransactionWriter;
+  /**
+   * 판정 이력 한 행을 이 트랜잭션에 쌓는다. `transitionApplication`의 CAS가 성공한 뒤에만
+   * 부른다 — 패자 요청이 이력을 남기면 안 되기 때문이다.
+   */
+  appendReviewHistory(
+    input: AppendReviewHistoryInput,
+  ): Promise<AppendedReviewHistory>;
   findApplicationById(
     applicationId: string,
   ): Promise<ApplicationDecisionTarget | null>;
@@ -285,6 +298,10 @@ export class ApplicationJoinCodeDigestConflictError extends Error {
 
 export interface ApplicationCreateStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
+  /** 신청 생성과 같은 트랜잭션에서 최초 제출 이력을 쌓는다. */
+  appendReviewHistory(
+    input: AppendReviewHistoryInput,
+  ): Promise<AppendedReviewHistory>;
   lockProgramForApply(programId: string): Promise<ProgramLifecycle | null>;
   findTeamMinSize(programId: string): Promise<number | null>;
   /**
@@ -319,6 +336,12 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
 
   get auditLogWriter(): AuditLogTransactionWriter {
     return this.transaction;
+  }
+
+  appendReviewHistory(
+    input: AppendReviewHistoryInput,
+  ): Promise<AppendedReviewHistory> {
+    return appendReviewHistory(this.transaction, input);
   }
 
   async findApplicationById(
@@ -522,6 +545,12 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
 
   get auditLogWriter(): AuditLogTransactionWriter {
     return this.database;
+  }
+
+  appendReviewHistory(
+    input: AppendReviewHistoryInput,
+  ): Promise<AppendedReviewHistory> {
+    return appendReviewHistory(this.database, input);
   }
 
   async lockProgramForApply(

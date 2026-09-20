@@ -1893,6 +1893,7 @@
 ## 2026-09-20 — 확인창 껍데기 클래스를 공용으로 올린다
 ## 2026-09-20 — 증거 캡처 헬퍼를 레인 공용으로 일반화
 ## 2026-09-20 — 사이드바에서 단계 목록 오류 블록 제거
+## 2026-09-20 — 신청 판정 이력 원장과 공유 append writer
 
 - 상태: review
 - Issue: -
@@ -1938,3 +1939,24 @@
 - 검증: frontend 373 files / 3,733 tests, typecheck, lint(오류 0건), `BACKEND_ORIGIN=https://backend.example.test pnpm build`, 전체 format 검사를 통과했다.
   격리 e2e 스택에서 단계 조회가 실패하는 상태를 실제로 만들어 Before/After를 찍었다.
 - 공개 안전성: 합성 응답만 썼고 캡처는 이미 발행된 v0.6.165에 에셋으로만 올렸다.
+- 무엇: 신청 한 건에 일어난 제출·재제출·승인·반려·되돌림을 `ApplicationReviewHistory`에 쌓는다.
+  `Application.status`가 현재 상태 헤더를 들고 이 표가 사건을 덮어쓰지 않고 쌓는 짜임은 `MilestoneDocumentSubmissionHistory` 선례를 그대로 따랐다.
+- 이름: 계획 초안의 `ReviewHistoryEntry`를 쓰지 않았다.
+  `docs/rules/data-modeling.md` §4가 시간 축으로 행이 쌓이는 표는 `History`로 끝내라고 정하므로 `ApplicationReviewHistory`로 맞췄다.
+  API DTO는 `ReviewHistoryEntryResponseDto`로 계획의 이름을 지켰다 — DTO 이름은 §4의 대상이 아니다.
+- 회차: `Application.revision`을 `@default(1)`로 신설했다.
+  이 컬럼이 생기기 전 신청은 전부 최초 제출 1회분이라 기본값이 곧 정확한 백필이고 별도 backfill 문장을 두지 않았다.
+  회차 규칙은 writer 한 곳에만 둔다 — 재제출만 1 올리고 나머지 사건은 현재 값을 복사한다.
+- 트랜잭션: 이력 writer는 `Prisma.TransactionClient` 전체가 아니라 `application`·`applicationReviewHistory` 두 면만 받는다.
+  그 타입을 받으면 이력 writer로 트랜잭션 전권이 새어 나가고 「상태 변경과 같은 트랜잭션에서만 append한다」가 타입이 아니라 규율로만 남는다.
+- FK: `applicationId → Application.id` 하나만 걸고 `onDelete: Cascade`다.
+  `programId`/`teamId`로 두 번째 cascade 경로를 만들지 않았다 — 만들면 삭제 대상 팀과 무관한 이력까지 함께 지워진다.
+- 마이그레이션: `prisma migrate dev`가 아니라 `prisma migrate diff`(직전 커밋 schema → 현재 schema)로 SQL을 만들었다.
+  기존 `20260824000000_contract_member_authority`의 `_prisma_migrations` preflight가 Prisma shadow database에서 재생되지 않아 기준선에서도 P3006으로 멈춘다.
+  기존 마이그레이션 이력은 손대지 않았고 정상 `prisma migrate deploy` 경로로 검증했다.
+- 검증: backend 355 suites / 4,416 tests, typecheck, lint를 통과했다.
+  격리 러너로 이력 append 트랜잭션 경계 통합 4건을 통과했다 — insert 실패 시 상태 갱신까지 롤백, 회차 증가와 이력 행이 같은 커밋, append 후 예외 시 증가도 롤백, 대상 신청만 cascade 삭제.
+  `prisma migrate deploy` 70건 적용, 마이그레이션 원장 계약 6건, 두 동시 `prisma migrate deploy` 직렬화 검사를 통과했다.
+- 쪼갬: 이 작업은 `docs/rules/pr-scope.md` §3의 계약 PR이다.
+  판정 정책·학생 재제출·교직원 읽기 경로·팀 삭제 알림은 이 PR 위에 각각 독립 소형 PR로 따로 올린다.
+- 공개 안전성: 합성 fixture만 썼고 `scripts/check-public-safe.sh`를 통과했다.

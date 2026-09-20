@@ -734,6 +734,7 @@ describe('ApplicationsService integration', () => {
             // #547 — 판정 전이와 감사 기록이 같은 트랜잭션에서 커밋되므로
             // 경합 테스트의 대리 store도 감사 writer를 그대로 넘겨야 한다.
             auditLogWriter: store.auditLogWriter,
+            appendReviewHistory: (input) => store.appendReviewHistory(input),
             findApplicationById: (id) => store.findApplicationById(id),
             discardRepositoryProvisionRequest: (id, discardedAt) =>
               store.discardRepositoryProvisionRequest(id, discardedAt),
@@ -805,6 +806,7 @@ describe('ApplicationsService integration', () => {
         originalWithTransaction((store) =>
           operation({
             auditLogWriter: store.auditLogWriter,
+            appendReviewHistory: (input) => store.appendReviewHistory(input),
             findApplicationById: (id) => store.findApplicationById(id),
             discardRepositoryProvisionRequest: (id, discardedAt) =>
               store.discardRepositoryProvisionRequest(id, discardedAt),
