@@ -130,6 +130,7 @@ flowchart LR
 - 이번에 하지 않은 것: 없음
 - 리뷰어가 결정해 줘야 하는 것: 없음
 - 환경 전제: 없음
+- 디자인 규격: StatusBadge·Button 프리미티브와 semantic 토큰만 썼다(design.md 카드 「StatusBadge」·「Button」)
 - [x] 로컬 커밋을 전부 push했다
 - [x] `bash scripts/check-public-safe.sh`를 통과했고 본문·캡처에 실명·비밀값·내부 호스트·로컬 경로가 없다
 - [x] `bash scripts/check-pr-body.sh <본문 파일>`을 통과했다
@@ -177,6 +178,7 @@ UX 안티패턴 해당 없음 — docs만 바뀜
 - 이번에 하지 않은 것: 없음
 - 리뷰어가 결정해 줘야 하는 것: 없음
 - 환경 전제: 없음
+- 디자인 규격: StatusBadge·Button 프리미티브와 semantic 토큰만 썼다(design.md 카드 「StatusBadge」·「Button」)
 - [x] 로컬 커밋을 전부 push했다
 - [x] `bash scripts/check-public-safe.sh`를 통과했고 본문·캡처에 실명·비밀값·내부 호스트·로컬 경로가 없다
 - [x] `bash scripts/check-pr-body.sh <본문 파일>`을 통과했다
@@ -229,6 +231,17 @@ sed 's/- 자연스럽다\./- TODO 다시 확인/' "$fixture_dir/full-pass.md" >"
 # 체크박스 미체크
 sed 's/- \[x\] submit-pr-evidence 절차를 수행했다/- [ ] submit-pr-evidence 절차를 수행했다/' \
   "$fixture_dir/full-pass.md" >"$fixture_dir/checklist-unchecked.md"
+
+# 디자인 규격 줄 없음
+grep -v '^- 디자인 규격:' "$fixture_dir/full-pass.md" >"$fixture_dir/design-spec-missing.md"
+
+# 디자인 규격 줄에 템플릿 자리표시자가 남음
+sed 's/^- 디자인 규격: .*/- 디자인 규격: <쓴 공용 컴포넌트·토큰과 그 규격 출처 \/ 화면 변경 없음 — 이유>/' \
+  "$fixture_dir/full-pass.md" >"$fixture_dir/design-spec-placeholder.md"
+
+# 디자인 규격의 '화면 변경 없음' 예외 이유가 비어 있음
+sed 's/^- 디자인 규격: .*/- 디자인 규격: 화면 변경 없음 — /' \
+  "$fixture_dir/full-pass.md" >"$fixture_dir/design-spec-empty-reason.md"
 
 # ---- HTML 주석이 남은 본문(통과) ------------------------------------------------
 # 실제 .github/pull_request_template.md처럼 첫 줄이 주석이고, 절마다 여러 줄짜리
@@ -336,6 +349,7 @@ flowchart LR
 - 이번에 하지 않은 것: 없음
 - 리뷰어가 결정해 줘야 하는 것: 없음
 - 환경 전제: 없음
+- 디자인 규격: StatusBadge·Button 프리미티브와 semantic 토큰만 썼다(design.md 카드 「StatusBadge」·「Button」)
 - [x] 로컬 커밋을 전부 push했다
 - [x] `bash scripts/check-public-safe.sh`를 통과했고 본문·캡처에 실명·비밀값·내부 호스트·로컬 경로가 없다
 - [x] `bash scripts/check-pr-body.sh <본문 파일>`을 통과했다
@@ -383,6 +397,7 @@ UX 안티패턴 해당 없음 — x
 - 이번에 하지 않은 것: 없음
 - 리뷰어가 결정해 줘야 하는 것: 없음
 - 환경 전제: 없음
+- 디자인 규격: StatusBadge·Button 프리미티브와 semantic 토큰만 썼다(design.md 카드 「StatusBadge」·「Button」)
 - [x] 로컬 커밋을 전부 push했다
 - [x] `bash scripts/check-public-safe.sh`를 통과했고 본문·캡처에 실명·비밀값·내부 호스트·로컬 경로가 없다
 - [x] `bash scripts/check-pr-body.sh <본문 파일>`을 통과했다
@@ -453,6 +468,9 @@ expect_fail '근거 없이 통과만 적힌 AP 행' "$fixture_dir/ap-no-evidence
 expect_fail '로컬 경로 이미지' "$fixture_dir/local-path-image.md"
 expect_fail '자리표시자(TODO) 남음' "$fixture_dir/placeholder.md"
 expect_fail '정리 체크박스 미체크' "$fixture_dir/checklist-unchecked.md"
+expect_fail '디자인 규격 줄 없음' "$fixture_dir/design-spec-missing.md"
+expect_fail '디자인 규격 줄에 자리표시자 남음' "$fixture_dir/design-spec-placeholder.md"
+expect_fail '디자인 규격 화면 변경 없음 예외 이유 비어 있음' "$fixture_dir/design-spec-empty-reason.md"
 expect_exit '본문 파일 부재' 2 "$fixture_dir/does-not-exist.md"
 expect_pass 'HTML 주석이 남은 본문(템플릿 안내 주석 포함)' "$fixture_dir/comments-left-in.md"
 expect_fail '검증 절 본문이 HTML 주석뿐임' "$fixture_dir/verification-only-comment.md"

@@ -328,6 +328,29 @@ check_summary_checklist() {
   done < <(grep -E '^- \[[ xX]\]' <<<"$body")
 }
 
+# ---- R12: '정리' 절의 디자인 규격 줄 ----------------------------------------------
+# 디자인 시스템 정착(#1309). 이번 PR이 쓴 공용 컴포넌트·토큰과 그 규격 출처(docs/design.md
+# 컴포넌트 카드 이름 또는 Figma 컴포넌트 링크)를 적거나, 화면 변경이 없으면 이유가 비어
+# 있지 않은 `화면 변경 없음 — <이유>`를 쓴다. 템플릿의 `<…>` 자리표시자가 남으면 위반이다.
+check_design_spec() {
+  local file=$1 body line value
+  body=$(section_body "$file" "정리")
+  line=$(grep -E '^- 디자인 규격:' <<<"$body" | head -n 1 || true)
+  if [[ -z "$line" ]]; then
+    violations+=("R12 '정리' 절에 '- 디자인 규격:' 줄이 없다 — 쓴 공용 컴포넌트·토큰과 규격 출처(design.md 카드 또는 Figma 링크)를 적거나 \`화면 변경 없음 — <이유>\`로 적는다")
+    return
+  fi
+  value=${line#- 디자인 규격:}
+  value=${value#"${value%%[![:space:]]*}"}
+  if [[ -z "$value" ]]; then
+    violations+=("R12 디자인 규격 줄이 비어 있다")
+  elif grep -qE '<[^>]*>' <<<"$value"; then
+    violations+=("R12 디자인 규격 줄에 템플릿 자리표시자가 남아 있다: $line")
+  elif [[ "$value" == "화면 변경 없음"* ]] && ! grep -qE '^화면 변경 없음 — .*[^[:space:]]' <<<"$value"; then
+    violations+=("R12 디자인 규격 줄의 '화면 변경 없음' 예외 이유가 비어 있다")
+  fi
+}
+
 # ---- 파일 전체 검사 --------------------------------------------------------------
 check_file() {
   local file=$1
@@ -349,6 +372,7 @@ check_file() {
   check_paths_and_images "$file" # R8도 주석 속 로컬 경로를 잡아야 하므로 원본을 쓴다
   check_placeholders "$file" # R9는 주석 자체가 위반 대상이므로 원본을 쓴다
   check_summary_checklist "$stripped"
+  check_design_spec "$stripped"
 
   if ((${#violations[@]} == 0)); then
     echo "pr-body: ok"
