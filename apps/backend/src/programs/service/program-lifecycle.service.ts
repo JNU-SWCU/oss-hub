@@ -381,13 +381,12 @@ export class ProgramLifecycleService {
     // 팀 삭제 알림은 payload에 programId를 담고 있다(program-teams.service.ts
     // recordTeamDeletionNotification). 팀은 이미 사라졌으나 그 사실을 알리는 행은
     // 프로그램이 지워질 때 함께 거둔다 — 사라진 프로그램의 이름을 들고 남아 있을 이유가 없다.
-    const teamDeletedNotifications =
-      await transaction.notification.deleteMany({
-        where: {
-          type: 'TEAM_DELETED',
-          payload: { path: ['programId'], equals: programId },
-        },
-      });
+    const teamDeletedNotifications = await transaction.notification.deleteMany({
+      where: {
+        type: 'TEAM_DELETED',
+        payload: { path: ['programId'], equals: programId },
+      },
+    });
     const notifications = {
       count:
         applicationDecisionNotificationsDeleted.count +

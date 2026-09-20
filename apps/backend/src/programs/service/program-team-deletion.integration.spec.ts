@@ -803,7 +803,10 @@ it('비활성 교직원도 막힌다', async () => {
  */
 function teamDeletedNotifications(teamId: string) {
   return prisma.notification.findMany({
-    where: { type: 'TEAM_DELETED', idempotencyKey: { startsWith: `team-deleted:${teamId}:` } },
+    where: {
+      type: 'TEAM_DELETED',
+      idempotencyKey: { startsWith: `team-deleted:${teamId}:` },
+    },
     orderBy: { userId: 'asc' },
   });
 }
@@ -905,10 +908,7 @@ it('알림 enqueue 가 실패하면 팀·신청·이력·감사가 하나도 사
           store.auditLogWriter,
         );
       },
-      () =>
-        Promise.reject(
-          new Error('synthetic notification enqueue failure'),
-        ),
+      () => Promise.reject(new Error('synthetic notification enqueue failure')),
     )
     .then(() => null)
     .catch((caught: unknown) => caught);

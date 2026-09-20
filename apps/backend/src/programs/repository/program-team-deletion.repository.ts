@@ -171,9 +171,7 @@ export class ProgramTeamDeletionRepository {
               teamName: team.name,
               programId,
               programName: team.program.name,
-              recipientUserIds: recipients.map(
-                (recipient) => recipient.userId,
-              ),
+              recipientUserIds: recipients.map((recipient) => recipient.userId),
               deletedAt: new Date(),
             },
           );
