@@ -54,6 +54,7 @@ describe('ApplicationsService.listForProgram', () => {
         pageSize: 20,
         search: '',
         status: 'all',
+        view: 'default',
       }),
     ).rejects.toMatchObject({
       errorCode: {
@@ -145,6 +146,7 @@ describe('ApplicationsService.listForProgram', () => {
       pageSize: 10,
       search: '합성',
       status: 'SUBMITTED' as const,
+      view: 'default' as const,
     };
 
     await expect(service.listForProgram(PROGRAM_ID, query)).resolves.toEqual(
@@ -168,6 +170,7 @@ describe('ApplicationsService.listForProgram', () => {
         pageSize: 20,
         search: '',
         status: 'all',
+        view: 'default',
       }),
     ).resolves.toEqual(EMPTY_PAGE);
   });
@@ -182,6 +185,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
     pageSize: 20,
     search: '',
     status: 'all' as const,
+    view: 'default' as const,
   };
 
   type ProjectionSource = {

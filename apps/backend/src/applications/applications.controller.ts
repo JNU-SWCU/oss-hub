@@ -20,7 +20,7 @@ import {
   type ApplicationDecisionResponseDto,
   toApplicationDecisionResponse,
 } from './dto/application-decision-response.dto';
-import { ApplicationListItemResponseDto } from './dto/application-list-response.dto';
+import { ApplicationDetailResponseDto } from './dto/application-detail-response.dto';
 import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
 
 type ApplicationActorRequest = Pick<
@@ -47,8 +47,8 @@ export class ApplicationsController {
   @UseGuards(SessionGuard, ApplicationsStaffListGuard)
   async detail(
     @Param('id') applicationId: string,
-  ): Promise<ApplicationListItemResponseDto> {
-    return ApplicationListItemResponseDto.from(
+  ): Promise<ApplicationDetailResponseDto> {
+    return ApplicationDetailResponseDto.fromDetail(
       await this.service.getForStaff(applicationId),
     );
   }

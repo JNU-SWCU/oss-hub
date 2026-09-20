@@ -156,7 +156,9 @@ describe('ApplicationsController', () => {
       team: { id: 'synthetic-team', name: '팀', memberCount: 3 },
       answers: { applicantName: '신청자', title: '제목', summary: '요약' },
     };
-    const getForStaff = jest.fn().mockResolvedValue(item);
+    const getForStaff = jest
+      .fn()
+      .mockResolvedValue({ application: item, reviewHistory: [] });
     const controller = new ApplicationsController(stubService({ getForStaff }));
 
     // When

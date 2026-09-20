@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   AccountStatus,
+  type ApplicationReviewEventKind,
   ApplicationStatus,
   OutboxEventStatus,
   Prisma,
@@ -256,6 +257,73 @@ export interface ApplicationListPage {
   readonly pageSize: number;
   readonly totalItems: number;
   readonly totalPages: number;
+}
+
+/** 팀 관리 목록의 「팀/구성」 칸을 채우는 구성원 표시 이름. 실명이 없으면 nickname으로 보인다. */
+export interface TeamManagementMember {
+  readonly id: string;
+  readonly name: string | null;
+  readonly nickname: string;
+}
+
+/**
+ * 팀 관리 화면이 소비하는 lean projection.
+ *
+ * 저장소 관련 필드(`repositoryConnectionMode`·`repositoryUrl`·`repository`·
+ * `repositoryProvisioning`)를 **아예 담지 않는다** — 담았다가 화면에서 가리는 것은
+ * fetch-then-redact라 금지다(루트 AGENTS.md). 기존 `ApplicationListItem`을 좀힌 것이
+ * 아니라 별도 select로 병행 제공하므로, 이 타입이 바뎀도 기존 응답은 그대로다.
+ */
+export interface TeamManagementListItem {
+  readonly id: string;
+  readonly programId: string;
+  readonly status: ApplicationStatus;
+  readonly submittedAt: Date;
+  readonly rejectionReason: string | null;
+  readonly applicant: {
+    readonly id: string;
+    readonly name: string | null;
+    readonly nickname: string;
+  };
+  readonly team: {
+    readonly id: string;
+    readonly name: string;
+    readonly memberCount: number;
+    readonly members: readonly TeamManagementMember[];
+  } | null;
+}
+
+export interface TeamManagementListPage {
+  readonly items: readonly TeamManagementListItem[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
+
+/**
+ * 교직원 검토 이력 한 줄. allowlist만 담는다 — actor는 표시 가능한 이름·계정까지고
+ * 학번·소속·연락처는 애초에 읽지 않는다.
+ */
+export interface ApplicationReviewHistoryEntry {
+  readonly id: string;
+  readonly eventKind: ApplicationReviewEventKind;
+  readonly revision: number;
+  readonly actor: {
+    readonly name: string | null;
+    readonly nickname: string;
+  };
+  readonly occurredAt: Date;
+  readonly rejectionReason: string | null;
+}
+
+/**
+ * 교직원 신청 상세. 기존 목록 항목에 검토 이력을 더한 모양이다 — 목록 항목 타입을
+ * 공유하므로 「목록에서 보이던 값이 상세에서 사라지는」 어그러짐이 생길 여지가 없다.
+ */
+export interface StaffApplicationDetail {
+  readonly application: ApplicationListItem;
+  readonly reviewHistory: readonly ApplicationReviewHistoryEntry[];
 }
 
 /** #117 운영 대시보드 — Application 단위 집계(제출 매트릭스 아님). */
@@ -885,6 +953,108 @@ export class ApplicationsRepository {
     return toApplicationListItem(row, outbox ?? undefined, job ?? undefined);
   }
 
+  /**
+   * 교직원 검토 이력 — 최신순. 존재하지 않는 신청 id면 빈 배열이다.
+   * 호출자가 신청 자체를 따로 확인해 404를 가르므로, 여기서 존재 여부를 갈라
+   * 다른 응답을 만들지 않는다(비공개·부재 동일 404).
+   */
+  async listReviewHistory(
+    applicationId: string,
+  ): Promise<readonly ApplicationReviewHistoryEntry[]> {
+    const rows = await this.prisma.applicationReviewHistory.findMany({
+      where: { applicationId },
+      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+      select: {
+        id: true,
+        eventKind: true,
+        revision: true,
+        occurredAt: true,
+        rejectionReason: true,
+        actor: {
+          select: { nickname: true, ...USER_PROFILE_NAME_SELECT },
+        },
+      },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      eventKind: row.eventKind,
+      revision: row.revision,
+      occurredAt: row.occurredAt,
+      rejectionReason: row.rejectionReason,
+      actor: {
+        name: resolveUserProfileName(row.actor),
+        nickname: row.actor.nickname,
+      },
+    }));
+  }
+
+  /**
+   * 팀 관리 목록의 lean projection. 기존 `listApplicationsForProgram`은 그대로 두고
+   * 병행 제공한다 — 중간 배포 구간에서 예전 화면이 계속 동작해야 하기 때문이다.
+   *
+   * 정렬 계약은 `SUBMITTED 우선 → submittedAt ASC → id ASC`다. Prisma `orderBy`로는
+   * 「한 상태만 앞으로」를 쓸 수 없다 — enum 정렬은 선언 순서라 상태로 **묶어**
+   * 버려서, 오래된 반려가 최근 승인보다 뒤로 밀린다. 그래서 두 버킷(검토대기 / 나머지)를
+   * 각각 `submittedAt ASC, id ASC`로 읽고 페이지 경계를 계산해 이어 붙인다. 검색·필터
+   * where는 Prisma 빌더 하나를 그대로 써서 raw SQL로 중복 구현하지 않는다.
+   */
+  async listTeamManagementForProgram(
+    programId: string,
+    query: ApplicationListQuery,
+  ): Promise<TeamManagementListPage> {
+    const where = buildTeamManagementListWhere(programId, query);
+    // 「검토대기 먼저」는 상태를 골라 보지 않을 때만 의미가 있다. 하나로 좁혀 보는 중이면
+    // 앞세울 것이 없으므로 버킷을 나누지 않는다 — 나누면 상태 필터가 두 번째
+    // 버킷에서 덮여써져 걸러낸 상태 밖의 행까지 따라온다.
+    const buckets: readonly Prisma.ApplicationWhereInput[] =
+      query.status === 'all'
+        ? [
+            { ...where, status: ApplicationStatus.SUBMITTED },
+            { ...where, status: { not: ApplicationStatus.SUBMITTED } },
+          ]
+        : [where];
+    const skip = (query.page - 1) * query.pageSize;
+
+    const [rows, totalItems] = await this.prisma.$transaction(
+      async (transaction) => {
+        const total = await transaction.application.count({ where });
+        const collected: TeamManagementListRow[] = [];
+        let remainingSkip = skip;
+        let remainingTake = query.pageSize;
+        for (const bucket of buckets) {
+          if (remainingTake <= 0) break;
+          const bucketCount = await transaction.application.count({
+            where: bucket,
+          });
+          if (remainingSkip >= bucketCount) {
+            remainingSkip -= bucketCount;
+            continue;
+          }
+          const chunk = await transaction.application.findMany({
+            where: bucket,
+            orderBy: TEAM_MANAGEMENT_ORDER_BY,
+            skip: remainingSkip,
+            take: remainingTake,
+            select: TEAM_MANAGEMENT_LIST_SELECT,
+          });
+          collected.push(...chunk);
+          remainingSkip = 0;
+          remainingTake -= chunk.length;
+        }
+        return [collected, total] as const;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+
+    return {
+      items: rows.map(toTeamManagementListItem),
+      page: query.page,
+      pageSize: query.pageSize,
+      totalItems,
+      totalPages: Math.ceil(totalItems / query.pageSize),
+    };
+  }
+
   async listStaffDashboardSummary(): Promise<StaffDashboardSummary> {
     const programs = await this.prisma.program.findMany({
       orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }, { id: 'asc' }],
@@ -1017,6 +1187,113 @@ function buildApplicationListWhere(
     programId,
     ...statusWhere,
     ...searchWhere,
+  };
+}
+
+/**
+ * 팀 관리 목록의 검색 where. 기존 검색 축(신청자 이름·계정·팀이름·답변)에
+ * **팀원 축**을 더한다 — 교직원은 대표 신청자가 아닌 팀원 이름으로도 팀을 찾는다(AC-3).
+ */
+function buildTeamManagementListWhere(
+  programId: string,
+  query: ApplicationListQuery,
+): Prisma.ApplicationWhereInput {
+  const base = buildApplicationListWhere(programId, query);
+  if (!query.search || !Array.isArray(base.OR)) return base;
+  return {
+    ...base,
+    OR: [
+      ...base.OR,
+      {
+        team: {
+          members: {
+            some: {
+              OR: [
+                { user: userProfileNameWhere(query.search) },
+                {
+                  user: {
+                    nickname: {
+                      contains: query.search,
+                      mode: 'insensitive',
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      },
+    ],
+  };
+}
+
+/** 버킷 안의 정렬. 버킷 순서(검토대기 먼저)는 호출부가 정한다. */
+const TEAM_MANAGEMENT_ORDER_BY = [
+  { submittedAt: 'asc' },
+  { id: 'asc' },
+] as const satisfies Prisma.ApplicationOrderByWithRelationInput[];
+
+/**
+ * 팀 관리 lean select. 저장소 관련 컬럼과 `answers`를 **읽지 않는다** — 응답에서
+ * 빼는 것과 애초에 읽지 않는 것은 다르고, 이 목록은 후자다.
+ */
+const TEAM_MANAGEMENT_LIST_SELECT = {
+  id: true,
+  programId: true,
+  status: true,
+  submittedAt: true,
+  rejectionReason: true,
+  applicant: {
+    select: { id: true, nickname: true, ...USER_PROFILE_NAME_SELECT },
+  },
+  team: {
+    select: {
+      id: true,
+      name: true,
+      _count: { select: { members: true } },
+      members: {
+        orderBy: { createdAt: 'asc' },
+        select: {
+          user: {
+            select: { id: true, nickname: true, ...USER_PROFILE_NAME_SELECT },
+          },
+        },
+      },
+    },
+  },
+} as const satisfies Prisma.ApplicationSelect;
+
+type TeamManagementListRow = Prisma.ApplicationGetPayload<{
+  readonly select: typeof TEAM_MANAGEMENT_LIST_SELECT;
+}>;
+
+function toTeamManagementListItem(
+  row: TeamManagementListRow,
+): TeamManagementListItem {
+  return {
+    id: row.id,
+    programId: row.programId,
+    status: row.status,
+    submittedAt: row.submittedAt,
+    rejectionReason: row.rejectionReason,
+    applicant: {
+      id: row.applicant.id,
+      name: resolveUserProfileName(row.applicant),
+      nickname: row.applicant.nickname,
+    },
+    team:
+      row.team === null
+        ? null
+        : {
+            id: row.team.id,
+            name: row.team.name,
+            memberCount: row.team._count.members,
+            members: row.team.members.map((member) => ({
+              id: member.user.id,
+              name: resolveUserProfileName(member.user),
+              nickname: member.user.nickname,
+            })),
+          },
   };
 }
 

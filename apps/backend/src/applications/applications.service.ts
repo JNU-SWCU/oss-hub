@@ -33,10 +33,11 @@ import {
   ApplicationJoinCodeDigestConflictError,
   ApplicationTeamMembershipConflictError,
   ApplicationsRepository,
-  type ApplicationListItem,
   type ApplicationListPage,
   type CreatedApplication,
+  type StaffApplicationDetail,
   type StaffDashboardSummary,
+  type TeamManagementListPage,
   RepositoryEventAlreadyExistsError,
 } from './applications.repository';
 import type {
@@ -347,11 +348,27 @@ export class ApplicationsService {
     programId: string,
     query: ApplicationListQuery,
   ): Promise<ApplicationListPage> {
+    await this.requireProgram(programId);
+    return this.repository.listApplicationsForProgram(programId, query);
+  }
+
+  /**
+   * 팀 관리 목록(lean projection). 기존 `listForProgram`과 같은 endpoint에서
+   * `view=team-management`로 갈라진다 — 팀 축 페이지네이션을 다시 구현하지 않는다.
+   */
+  async listTeamManagementForProgram(
+    programId: string,
+    query: ApplicationListQuery,
+  ): Promise<TeamManagementListPage> {
+    await this.requireProgram(programId);
+    return this.repository.listTeamManagementForProgram(programId, query);
+  }
+
+  private async requireProgram(programId: string): Promise<void> {
     const program = await this.repository.findProgramById(programId);
     if (!program) {
       throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
     }
-    return this.repository.listApplicationsForProgram(programId, query);
   }
 
   /**
@@ -359,13 +376,17 @@ export class ApplicationsService {
    * 이미 신청 id 하나로 도달하는 계약이라, 조회만 프로그램을 요구하면 같은 자원에
    * 주소 규칙이 둘 생긴다.
    */
-  async getForStaff(applicationId: string): Promise<ApplicationListItem> {
-    const application =
-      await this.repository.findApplicationForStaff(applicationId);
+  async getForStaff(applicationId: string): Promise<StaffApplicationDetail> {
+    // 이력은 신청과 함께 읽는다 — 신청이 없으면 이력도 뱈 배열이므로 병행 조회가
+    // 존재 여부를 가르지 않는다(비공개·부재 동일 404).
+    const [application, reviewHistory] = await Promise.all([
+      this.repository.findApplicationForStaff(applicationId),
+      this.repository.listReviewHistory(applicationId),
+    ]);
     if (!application) {
       throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
     }
-    return application;
+    return { application, reviewHistory };
   }
 
   /** #117 교직원 운영 대시보드 요약 — Application 단위 집계. */

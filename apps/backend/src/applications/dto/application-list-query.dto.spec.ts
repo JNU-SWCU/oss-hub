@@ -15,6 +15,7 @@ describe('ApplicationListQueryRequestDto', () => {
       pageSize: 20,
       search: '',
       status: 'all',
+      view: 'default',
     });
   });
 
@@ -56,6 +57,7 @@ describe('ApplicationListQueryRequestDto', () => {
       pageSize: 10,
       search: 'team-alpha',
       status: 'APPROVED',
+      view: 'default',
     });
   });
 
@@ -77,7 +79,36 @@ describe('ApplicationListQueryRequestDto', () => {
       pageSize: 20,
       search: '',
       status: 'all',
+      view: 'default',
     });
     expect(query.toQuery()).not.toHaveProperty('mode');
+  });
+});
+
+describe('ApplicationListQueryRequestDto — view projection 선택', () => {
+  it('view 를 주지 않으면 기존 응답 모양(default)을 고른다', async () => {
+    const query = plainToInstance(ApplicationListQueryRequestDto, {});
+
+    expect(await validate(query)).toHaveLength(0);
+    expect(query.toQuery().view).toBe('default');
+  });
+
+  it('team-management 를 명시하면 그대로 전달한다', async () => {
+    const query = plainToInstance(ApplicationListQueryRequestDto, {
+      view: 'team-management',
+    });
+
+    expect(await validate(query)).toHaveLength(0);
+    expect(query.toQuery().view).toBe('team-management');
+  });
+
+  it('모르는 view 는 400 으로 거절한다 — 조용히 default 로 떨어뜨리지 않는다', async () => {
+    const query = plainToInstance(ApplicationListQueryRequestDto, {
+      view: 'whatever',
+    });
+
+    const errors = await validate(query);
+
+    expect(errors.map((error) => error.property)).toContain('view');
   });
 });

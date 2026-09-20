@@ -18,6 +18,7 @@ import { ApplicationListQueryRequestDto } from './dto/application-list-query.dto
 import { ApplicationListPageResponseDto } from './dto/application-list-response.dto';
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';
 import { CreateApplicationResponseDto } from './dto/create-application-response.dto';
+import { TeamManagementListPageResponseDto } from './dto/team-management-list-response.dto';
 
 type ApplicationSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -31,18 +32,31 @@ export class ProgramApplicationsController {
     @Inject(ApplicationsService)
     private readonly service: Pick<
       ApplicationsService,
-      'create' | 'listForProgram'
+      'create' | 'listForProgram' | 'listTeamManagementForProgram'
     >,
   ) {}
 
+  /**
+   * 교직원 목록. `view=team-management`면 팀 관리 화면용 lean projection을 돌려준다.
+   * 기본값은 `default`라 이 파라미터를 모르는 기존 클라이언트는 같은 응답을 받는다.
+   */
   @Get()
   @UseGuards(SessionGuard, ApplicationsStaffListGuard)
   async list(
     @Param('programId') programId: string,
     @Query() query: ApplicationListQueryRequestDto,
-  ): Promise<ApplicationListPageResponseDto> {
-    const page = await this.service.listForProgram(programId, query.toQuery());
-    return ApplicationListPageResponseDto.from(page);
+  ): Promise<
+    ApplicationListPageResponseDto | TeamManagementListPageResponseDto
+  > {
+    const listQuery = query.toQuery();
+    if (listQuery.view === 'team-management') {
+      return TeamManagementListPageResponseDto.from(
+        await this.service.listTeamManagementForProgram(programId, listQuery),
+      );
+    }
+    return ApplicationListPageResponseDto.from(
+      await this.service.listForProgram(programId, listQuery),
+    );
   }
 
   @Post()
