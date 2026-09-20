@@ -6,6 +6,7 @@ export type RepositoryOutboxRunResult =
 export type RepositoryWorkerRunResult =
   | { readonly kind: 'EMPTY' }
   | { readonly kind: 'SUCCEEDED' }
+  | { readonly kind: 'SUPERSEDED' }
   | { readonly kind: 'FAILED_RETRYABLE' | 'FAILED_FINAL' };
 
 export interface RepositoryE2eOrchestrationPort {

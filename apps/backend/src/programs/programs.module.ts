@@ -27,6 +27,7 @@ import { ProgramEditorService } from './service/program-editor.service';
 import { ProgramLifecycleService } from './service/program-lifecycle.service';
 import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 import { ProgramTeamsController } from './controller/program-teams.controller';
+import { ProgramTeamDeletionRepository } from './repository/program-team-deletion.repository';
 import { ProgramTeamsRepository } from './repository/program-teams.repository';
 import { ProgramTeamsService } from './service/program-teams.service';
 import { ProgramViewerService } from './service/program-viewer.service';
@@ -41,12 +42,16 @@ import { StudentDashboardService } from './service/student-dashboard.service';
 import { ProgramCoverController } from './controller/program-cover.controller';
 import { ProgramCoverService } from './service/program-cover.service';
 import { ProgramCoverRepository } from './repository/program-cover.repository';
+import { ProgramNoticePreviewController } from './program-notice-preview.controller';
+import { ProgramNoticePreviewService } from './program-notice-preview.service';
+import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 
 @Module({
   imports: [AuthModule, AuditLogModule, RepositoriesModule, SubmissionsModule],
   controllers: [
     // static sibling first — programs/application-templates before programs/:id
     ApplicationTemplatesController,
+    ProgramNoticePreviewController,
     ProgramAuthoringController,
     ProgramCoverController,
     ProgramsController,
@@ -61,6 +66,8 @@ import { ProgramCoverRepository } from './repository/program-cover.repository';
     ProgramCreationService,
     ProgramAuthoringRepository,
     ProgramAuthoringService,
+    ProgramNoticePreviewService,
+    ProgramNoticeFetchClient,
     ProgramAuthoringUploadRepository,
     ProgramAuthoringUploadService,
     ProgramCoverService,
@@ -86,6 +93,7 @@ import { ProgramCoverRepository } from './repository/program-cover.repository';
     ProgramLifecycleService,
     ProgramTeamsService,
     ProgramTeamsRepository,
+    ProgramTeamDeletionRepository,
     ProgramTeamsStaffGuard,
   ],
   exports: [

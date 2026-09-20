@@ -10,7 +10,7 @@ import type {
   EditableMilestoneDocument,
 } from './api';
 import { ProgramEditBasicForm } from './program-edit-basic-form';
-import { ProgramCoverPreview } from './program-cover-preview';
+import type { ProgramCoverSelection } from './program-cover-selection';
 import { ProgramEditScheduleEditor } from './program-edit-schedule-editor';
 import { ProgramEditDangerZoneSection } from './program-edit-danger-zone-section';
 import { ProgramEditMilestones } from './program-edit-milestones';
@@ -33,8 +33,8 @@ const FORM_WIDTH = 'max-w-4xl';
 const SECTIONS = 'flex min-w-0 flex-col gap-16';
 
 interface ProgramEditViewProps {
-  readonly coverSelection?: File | null;
-  readonly onCoverChange: (file: File | null | undefined) => void;
+  readonly coverSelection?: ProgramCoverSelection;
+  readonly onCoverChange: (selection: ProgramCoverSelection) => void;
   readonly program: EditableProgram;
   readonly form: ProgramEditForm;
   readonly errors: ProgramEditErrors;
@@ -165,7 +165,7 @@ export function ProgramEditView({
         <Button asChild variant="ghost" size="sm" className="self-start">
           <Link href={programHref(program.id)}>← 프로그램 개요</Link>
         </Button>
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="grid items-start gap-6">
           <div className="grid min-w-0 gap-6">
             <PageHeader title="프로그램 편집" description={program.name} />
             {/*
@@ -181,13 +181,6 @@ export function ProgramEditView({
                 프로그램 유형이 정하며 이 화면에서 바꿀 수 없습니다.
               </p>
             </details>
-          </div>
-          <div className="w-full max-w-sm">
-            <ProgramCoverPreview
-              selection={coverSelection}
-              currentImageUrl={program.coverImageUrl}
-              name={form.name}
-            />
           </div>
         </div>
       </div>

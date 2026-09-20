@@ -212,6 +212,7 @@ async function historyQueryPlans(
 ): Promise<readonly [readonly QueryPlanRow[], readonly QueryPlanRow[]]> {
   return prisma.$transaction(async (transaction) => {
     await transaction.$executeRaw`SET LOCAL enable_seqscan = off`;
+    await transaction.$executeRaw`SET LOCAL enable_bitmapscan = off`;
     const staffAccessRequestPlan = await transaction.$queryRaw<
       readonly QueryPlanRow[]
     >`

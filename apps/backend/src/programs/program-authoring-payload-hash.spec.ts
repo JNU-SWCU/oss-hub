@@ -48,6 +48,33 @@ function request(): ProgramAuthoringRequest {
 }
 
 describe('Program authoring canonical payload hash', () => {
+  it('includes both external source and image in the idempotency payload', () => {
+    const externalCover = {
+      sourceUrl: 'https://sojoong.kr/notice/notice-board/?uid=123&mod=document',
+      imageUrl: 'https://sojoong.kr/wp-content/uploads/synthetic.jpg',
+    };
+    const hash = (cover: typeof externalCover) =>
+      hashProgramAuthoringPayload(
+        buildProgramAuthoringPlan({ ...request(), externalCover: cover }),
+      );
+    expect(
+      hash({
+        ...externalCover,
+        sourceUrl: externalCover.sourceUrl.replace('123', '124'),
+      }),
+    ).not.toBe(hash(externalCover));
+    expect(
+      hash({
+        ...externalCover,
+        imageUrl: externalCover.imageUrl.replace('synthetic', 'changed'),
+      }),
+    ).not.toBe(hash(externalCover));
+    expect(
+      hashProgramAuthoringPayload(
+        buildProgramAuthoringPlan({ ...request(), externalCover: null }),
+      ),
+    ).toBe(hashProgramAuthoringPayload(buildProgramAuthoringPlan(request())));
+  });
   it('preserves historical no-cover hashes and includes a selected cover token', () => {
     const original = buildProgramAuthoringPlan(request());
     const empty = buildProgramAuthoringPlan({

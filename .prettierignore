@@ -10,6 +10,9 @@ out
 # 잠금 파일 — 도구가 소유한 포맷
 pnpm-lock.yaml
 
+# 생성 파일 — apps/frontend/scripts/export-design-tokens.mjs가 소유한다(design.md R-36)
+docs/design-tokens/tokens.json
+
 # Prisma가 생성하는 마이그레이션 SQL — 도구 산출물
 apps/backend/prisma/migrations
 
@@ -38,3 +41,4 @@ apps/backend/scripts/seed-staff-settings.js
 ds-bundle
 apps/frontend/.ds-css
 apps/frontend/ds-types
+apps/frontend/eslint-suppressions.json

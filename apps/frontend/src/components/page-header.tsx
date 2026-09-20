@@ -10,6 +10,15 @@ interface PageHeaderProps extends Omit<
   description?: React.ReactNode;
   actions?: React.ReactNode;
   /**
+   * 제목 **그 자체**를 다루는 액션(예: 이름 수정). 우측 `actions`와 가르는 이유는
+   * 둘이 가리키는 대상이 다르기 때문이다 — `actions`에 서는 상태 배지·페이지 CTA는
+   * 화면을 대상으로 하고, 이것은 제목 문자열을 대상으로 한다.
+   *
+   * heading **밖에** 그린다. 안에 넣으면 버튼 라벨이 heading의 접근 가능한 이름에
+   * 섮여 읽어 주는 도구가 「한빛 팀 한빛 팀 수정」으로 읽는다.
+   */
+  titleAction?: React.ReactNode;
+  /**
    * h1 기본 타이포(계단식 text-section/text-page)를 화면별로 덮어써야 할 때
    * 쓴다 — 선택적이며, 넘기지 않으면 기존 렌더와 동일하다. 화면이 필터에 따라
    * H1 문구 자체를 바꾸는 것(예: 프로그램 목록의 "모집중인 프로그램")은 이미
@@ -36,6 +45,7 @@ function PageHeader({
   title,
   description,
   actions,
+  titleAction,
   className,
   titleClassName,
   descriptionClassName,
@@ -54,17 +64,39 @@ function PageHeader({
       {...props}
     >
       <div className="flex min-w-0 flex-col gap-3">
-        <TitleTag
-          data-slot="page-header-title"
-          // 크기 계단의 맨 위 칸. 좁은 화면에서 40px은 제목 한 줄이 화면을 넘기므로
-          // 한 계단 내려 섹션 크기로 쓴다(시안의 900px 미만 규칙과 같은 취지).
-          className={cn(
-            'font-heading text-section leading-tight font-bold tracking-tight break-keep text-pretty sm:text-page',
-            titleClassName,
-          )}
-        >
-          {title}
-        </TitleTag>
+        {/*
+          `titleAction`이 없으면 제목을 그대로 둔다 — 쓰지 않는 화면까지 한 겹
+          더 감싸면 제목과 설명이 다른 부모로 갈라져, 그 둘을 한 덩어리로 읽던
+          화면의 계약이 조용히 깨진다(학생 「우리 팀」 머리말 시험이 그것을 잡는다).
+        */}
+        {titleAction ? (
+          <div className="flex min-w-0 items-center gap-2">
+            <TitleTag
+              data-slot="page-header-title"
+              className={cn(
+                'font-heading text-section leading-tight font-bold tracking-tight break-keep text-pretty sm:text-page',
+                titleClassName,
+              )}
+            >
+              {title}
+            </TitleTag>
+            <div data-slot="page-header-title-action" className="shrink-0">
+              {titleAction}
+            </div>
+          </div>
+        ) : (
+          <TitleTag
+            data-slot="page-header-title"
+            // 크기 계단의 맨 위 칸. 좁은 화면에서 40px은 제목 한 줄이 화면을 넘기므로
+            // 한 계단 내려 섹션 크기로 쓴다(시안의 900px 미만 규칙과 같은 취지).
+            className={cn(
+              'font-heading text-section leading-tight font-bold tracking-tight break-keep text-pretty sm:text-page',
+              titleClassName,
+            )}
+          >
+            {title}
+          </TitleTag>
+        )}
         {description ? (
           <p
             data-slot="page-header-description"

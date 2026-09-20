@@ -6,7 +6,9 @@ import {
   OutboxEventStatus,
   Prisma,
   RepositoryConnectionMode,
+  RepositoryIssuanceOutcome,
   RepositoryProvisionJobStatus,
+  type RepositorySource,
   type RepositoryVisibility,
   ProgramLifecycle,
   type ProgramCategory,
@@ -23,6 +25,11 @@ import {
 } from '../common/join-code-digest';
 import { PrismaService } from '../prisma/prisma.service';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-identity';
+import { parseRepositoryProvisionEvent } from '../github/repository-provision-event';
+import {
+  transferProvisionGeneration,
+  writeRepositoryIssuanceHistory,
+} from '../prisma/repository-provision-generation';
 import {
   userProfileNameWhere,
   STUDENT_MEMBER_WHERE,
@@ -89,7 +96,10 @@ export interface ApplicationsTransactionStore {
    * 남겨 두면 재승인이 기존 이벤트를 재사용해 새 job을 만들지 않아 저장소가
    * 영영 만들어지지 않는다. 완료된 건은 상위 가드가 이미 409로 막는다.
    */
-  discardRepositoryProvisionRequest(applicationId: string): Promise<void>;
+  discardRepositoryProvisionRequest(
+    applicationId: string,
+    discardedAt: Date,
+  ): Promise<void>;
   transitionApplication(input: ApplicationTransition): Promise<boolean>;
   createApplicationDecisionNotifications(
     input: ApplicationDecisionNotificationInput,
@@ -245,6 +255,7 @@ export interface StaffDashboardApplicationCounts {
 
 export interface StaffDashboardProgramSummary {
   readonly coverId?: string | null;
+  readonly coverExternalImageUrl?: string | null;
   readonly id: string;
   readonly name: string;
   readonly trackType: ProgramTrackType | null;
@@ -354,10 +365,53 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
 
   async discardRepositoryProvisionRequest(
     applicationId: string,
+    discardedAt: Date,
   ): Promise<void> {
-    // outbox를 먼저 지운다 — 컨슈머가 아직 이벤트를 집지 않았다면 job 자체가 생기지
-    // 않는다. 이미 집은 뒤라면 아래 job 삭제가 정리하고, 그 사이에 컨슈머가 넣은
-    // 고아 job은 다음 승인이 같은 경로로 다시 지운다.
+    // 판정 전이가 Application을 먼저 잠근 뒤 이 메서드로 온다. 여기서 Job을
+    // history보다 먼저 잠가 worker의 Application → Job → History 순서와 맞춘다.
+    const job = (
+      await this.transaction.$queryRaw<
+        readonly {
+          readonly currentEventId: string | null;
+          readonly repositoryId: string | null;
+          readonly repositorySource: RepositorySource | null;
+        }[]
+      >(Prisma.sql`
+        SELECT
+          job."currentEventId",
+          job."repositoryId",
+          (
+            SELECT repository."source"
+            FROM "GithubRepository" AS repository
+            WHERE repository."id" = job."repositoryId"
+          ) AS "repositorySource"
+        FROM "RepositoryProvisionJob" AS job
+        WHERE job."applicationId" = ${applicationId}
+        FOR UPDATE
+      `)
+    )[0];
+    const event = await this.transaction.outboxEvent.findUnique({
+      where: { idempotencyKey: `repository-provision:${applicationId}` },
+      select: { id: true },
+    });
+    if (event !== null) {
+      const ownsJob = job?.currentEventId === event.id;
+      await writeRepositoryIssuanceHistory(
+        this.transaction,
+        {
+          requestId: event.id,
+          applicationId,
+          repositoryId: ownsJob ? job.repositoryId : null,
+          source: ownsJob ? job.repositorySource : null,
+          outcome: RepositoryIssuanceOutcome.DISCARDED,
+          closedAt: discardedAt,
+        },
+        parseRepositoryProvisionEvent,
+      );
+    }
+
+    // 이벤트의 정확한 payload를 DISCARDED 이력으로 먼저 닫은 뒤 queue 상태를 지운다.
+    // consumer가 아직 job을 만들지 않은 옛 행도 event만으로 이력이 남는다.
     await this.transaction.outboxEvent.deleteMany({
       where: { idempotencyKey: `repository-provision:${applicationId}` },
     });
@@ -441,6 +495,15 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
           },
         },
       });
+      await transferProvisionGeneration(
+        this.transaction,
+        {
+          applicationId: input.applicationId,
+          newEventId: event.id,
+          now: input.requestedAt,
+        },
+        parseRepositoryProvisionEvent,
+      );
       return toRepositoryProvisionEvent(event);
     } catch (error) {
       if (
@@ -797,7 +860,7 @@ export class ApplicationsRepository {
     const programs = await this.prisma.program.findMany({
       orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }, { id: 'asc' }],
       select: {
-        cover: { select: { id: true } },
+        cover: { select: { id: true, imageUrl: true } },
         id: true,
         name: true,
         trackType: true,
@@ -863,6 +926,7 @@ export class ApplicationsRepository {
           };
         return {
           coverId: program.cover?.id ?? null,
+          coverExternalImageUrl: program.cover?.imageUrl ?? null,
           id: program.id,
           name: program.name,
           trackType: program.trackType,

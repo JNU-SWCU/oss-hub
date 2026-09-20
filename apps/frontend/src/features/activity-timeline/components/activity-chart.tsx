@@ -10,15 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable, type DataTableColumn } from '@/components';
 import { orderActivityPoints } from '../activity-point-order';
 import type { ActivityPoint } from '../types';
 
@@ -28,6 +20,45 @@ const series = [
   { key: 'releaseCount', label: 'Release', color: '#d97706' },
   { key: 'total', label: '합계', color: '#444444' },
 ] as const;
+
+const NUMBER_COLUMN = {
+  headClassName: 'text-right',
+  cellClassName: 'text-right',
+} as const;
+
+const TABLE_COLUMNS: DataTableColumn<ActivityPoint>[] = [
+  {
+    id: 'period',
+    header: '기간',
+    cell: (point) => point.period,
+    rowHeader: true,
+  },
+  {
+    id: 'commitCount',
+    header: '커밋',
+    cell: (point) => point.commitCount,
+    ...NUMBER_COLUMN,
+  },
+  {
+    id: 'prCount',
+    header: 'Pull Request',
+    cell: (point) => point.prCount,
+    ...NUMBER_COLUMN,
+  },
+  {
+    id: 'releaseCount',
+    header: 'Release',
+    cell: (point) => point.releaseCount,
+    ...NUMBER_COLUMN,
+  },
+  {
+    id: 'total',
+    header: '합계',
+    cell: (point) => point.total,
+    headClassName: 'text-right',
+    cellClassName: 'text-right font-medium',
+  },
+];
 
 export function ActivityChart({
   points,
@@ -87,45 +118,15 @@ export function ActivityChart({
           </LineChart>
         </ResponsiveContainer>
       </div>
-      <div className="rounded-md border border-border">
-        <Table scrollRegionLabel="기간별 활동량 표">
-          <TableCaption className="sr-only">기간별 활동량</TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead scope="col">기간</TableHead>
-              <TableHead scope="col" className="text-right">
-                커밋
-              </TableHead>
-              <TableHead scope="col" className="text-right">
-                Pull Request
-              </TableHead>
-              <TableHead scope="col" className="text-right">
-                Release
-              </TableHead>
-              <TableHead scope="col" className="text-right">
-                합계
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {orderedPoints.table.map((point) => (
-              <TableRow key={point.period}>
-                <TableHead scope="row">{point.period}</TableHead>
-                <TableCell className="text-right">
-                  {point.commitCount}
-                </TableCell>
-                <TableCell className="text-right">{point.prCount}</TableCell>
-                <TableCell className="text-right">
-                  {point.releaseCount}
-                </TableCell>
-                <TableCell className="text-right font-medium">
-                  {point.total}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={TABLE_COLUMNS}
+        data={[...orderedPoints.table]}
+        rowKey={(point) => point.period}
+        caption="기간별 활동량"
+        hideCaption
+        scrollRegionLabel="기간별 활동량 표"
+        className="rounded-md border border-border"
+      />
     </div>
   );
 }

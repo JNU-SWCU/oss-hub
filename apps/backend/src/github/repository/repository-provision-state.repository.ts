@@ -1,15 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import {
-  CollectionRepositoryPresence,
-  OutboxEventStatus,
   Prisma,
   RepositoryConnectionMode,
+  RepositoryIssuanceOutcome,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
   RepositorySource,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { REPOSITORY_PROVISION_EVENT_TYPE } from '../repository-provision-event';
+import { writeRepositoryIssuanceHistory } from '../../prisma/repository-provision-generation';
+import {
+  InvalidRepositoryProvisionEventError,
+  parseRepositoryProvisionEvent,
+  REPOSITORY_PROVISION_EVENT_TYPE,
+} from '../repository-provision-event';
 import type {
   CompleteRepositoryInvitationInput,
   FailRepositoryInvitationInput,
@@ -26,13 +30,17 @@ import {
 } from '../repository-provision.failure';
 import { DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS } from '../repository-provision.failure';
 import {
+  assertCurrentRequest,
   assertProvisionLease,
   assertSingleProvisionUpdate,
   canonicalGithubLogin,
   canonicalGithubLogins,
+  claimGithubRepositoryForApplication,
   claimedJobWhere,
+  GithubRepositoryClaimConflictError,
   invitationIntent,
   isPrismaUniqueConstraintError,
+  lockApplicationForRepositoryClaim,
   lockClaimedProvisionJob,
   loginsFromTeamMembers,
   matchesProvisionedMetadata,
@@ -43,7 +51,6 @@ import {
   teamMemberLoginSelection,
   toProvisionedRepository,
 } from '../repository-provision-state.helpers';
-import type { ProvisionedRepositoryRow } from '../repository-provision-state.helpers';
 
 /**
  * 회수 실패를 부여 실패 상태로 적으면 다음 사이클이 그 행을 "초대 재시도"로 읽어
@@ -90,104 +97,137 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
   async loadContext(
     jobId: string,
     workerId: string,
+    requestId: string,
   ): Promise<RepositoryProvisionContext> {
-    const job = await this.prisma.repositoryProvisionJob.findFirst({
-      where: claimedJobWhere(jobId, workerId),
-      select: {
-        repositoryId: true,
-        application: {
-          select: {
-            id: true,
-            status: true,
-            programId: true,
-            teamId: true,
-            applicant: { select: { githubId: true, nickname: true } },
-            program: {
-              select: {
-                name: true,
-                repositoryProvisioningEnabled: true,
+    return this.prisma.$transaction(async (transaction) => {
+      await assertCurrentRequest(transaction, jobId, workerId, requestId);
+      const job = await transaction.repositoryProvisionJob.findFirst({
+        where: claimedJobWhere(jobId, workerId),
+        select: {
+          currentEventId: true,
+          repositoryId: true,
+          application: {
+            select: {
+              id: true,
+              status: true,
+              programId: true,
+              teamId: true,
+              repositoryConnectionMode: true,
+              repositoryUrl: true,
+              applicant: { select: { githubId: true, nickname: true } },
+              program: {
+                select: {
+                  name: true,
+                  repositoryProvisioningEnabled: true,
+                },
               },
-            },
-            repositoryConnectionMode: true,
-            // 회수 판정의 유일한 authority는 live TeamMember 행이다 — leader/신청자를
-            // 여기서 같이 읽어 fallback으로 섮어 넣으면 팀을 떠난 사람이 영원히
-            // "현재 구성원"으로 남아 접근이 회수되지 않는다.
-            team: {
-              select: {
-                name: true,
-                members: { select: teamMemberLoginSelection },
+              // 회수 판정의 유일한 authority는 live TeamMember 행이다 — leader/신청자를
+              // 여기서 같이 읽어 fallback으로 섞어 넣으면 팀을 떠난 사람이 영원히
+              // "현재 구성원"으로 남아 접근이 회수되지 않는다.
+              team: {
+                select: {
+                  name: true,
+                  members: { select: teamMemberLoginSelection },
+                },
               },
-            },
-            repository: {
-              select: {
-                ...repositorySelection,
-                source: true,
+              repository: {
+                select: {
+                  ...repositorySelection,
+                  source: true,
+                },
               },
             },
           },
         },
-      },
-    });
-    if (job === null) {
-      throw new RepositoryProvisionLeaseLostError();
-    }
-    const application = job.application;
-    const event = await this.prisma.outboxEvent.findFirst({
-      where: {
-        type: REPOSITORY_PROVISION_EVENT_TYPE,
-        aggregateType: 'Application',
-        aggregateId: application.id,
-        status: OutboxEventStatus.PROCESSED,
-      },
-      orderBy: { createdAt: 'asc' },
-      select: { id: true, payload: true },
-    });
-    if (event === null) {
-      throw finalProvisionFailure(PROVISION_ERROR_CODES.INVALID_EVENT);
-    }
-    if (job.repositoryId !== null) {
-      if (
-        application.repository === null ||
-        application.repository.id !== job.repositoryId
-      ) {
-        // 현재 연결 행이 있어야 하는데 없거나 job과 다르면 이벤트로 대체하지 않는다.
-        throw finalProvisionFailure(PROVISION_ERROR_CODES.REPOSITORY_MISMATCH);
+      });
+      if (job === null) {
+        throw new RepositoryProvisionLeaseLostError();
       }
-    }
-    const team = application.team;
-    const requiresManagedMembership =
-      application.repository === null
-        ? application.repositoryConnectionMode === RepositoryConnectionMode.NEW
-        : application.repository.source === RepositorySource.ORG_PROVISIONED;
-    if (team === null && requiresManagedMembership) {
-      // 현재 관리 저장소는 팀 구성원 집합이 접근 권한의 원본이다. 그 원본을 읽을 수
-      // 없는 채로 진행하면 빈 목록이 "전원 회수"로 해석된다 — fail closed.
-      throw finalProvisionFailure(PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE);
-    }
-    // 외부 저장소 경로는 초대 없이 연결할 뿐이라 팀이 없을 수 있다 —
-    // 그 때도 신청자를 목록에 채우지 않고 빈 목록을 그대로 든다.
-    const currentMemberGithubLogins =
-      team === null ? [] : loginsFromTeamMembers(team.members);
-    return {
-      eventId: event.id,
-      eventPayload: event.payload,
-      applicationId: application.id,
-      applicantGithubId: application.applicant.githubId,
-      applicationStatus: application.status,
-      programId: application.programId,
-      programName: application.program.name,
-      repositoryProvisioningEnabled:
-        application.program.repositoryProvisioningEnabled,
-      teamId: application.teamId,
-      subjectName: team?.name ?? application.applicant.nickname,
-      currentMemberGithubLogins,
-      membershipFingerprint: membershipFingerprint(currentMemberGithubLogins),
-      repository:
+      if (job.currentEventId === null) {
+        throw finalProvisionFailure(PROVISION_ERROR_CODES.INVALID_EVENT);
+      }
+      const application = job.application;
+      const event = await transaction.outboxEvent.findUnique({
+        where: { id: job.currentEventId },
+        select: {
+          id: true,
+          type: true,
+          aggregateType: true,
+          aggregateId: true,
+          payload: true,
+        },
+      });
+      if (event === null) {
+        throw finalProvisionFailure(PROVISION_ERROR_CODES.INVALID_EVENT);
+      }
+      let requested: ReturnType<typeof parseRepositoryProvisionEvent>;
+      try {
+        if (
+          event.type !== REPOSITORY_PROVISION_EVENT_TYPE ||
+          event.aggregateType !== 'Application' ||
+          event.aggregateId !== application.id
+        ) {
+          throw new InvalidRepositoryProvisionEventError();
+        }
+        requested = parseRepositoryProvisionEvent(event.payload);
+        if (
+          requested.applicationId !== application.id ||
+          requested.programId !== application.programId ||
+          (requested.teamId !== null && requested.teamId !== application.teamId)
+        ) {
+          throw new InvalidRepositoryProvisionEventError();
+        }
+      } catch (error) {
+        if (error instanceof InvalidRepositoryProvisionEventError) {
+          throw finalProvisionFailure(PROVISION_ERROR_CODES.INVALID_EVENT);
+        }
+        throw error;
+      }
+      const team = application.team;
+      const requiresManagedMembership =
         application.repository === null
-          ? null
-          : toProvisionedRepository(application.repository),
-      currentRepositorySource: application.repository?.source ?? null,
-    };
+          ? requested.repositoryConnectionMode === RepositoryConnectionMode.NEW
+          : application.repository.source === RepositorySource.ORG_PROVISIONED;
+      if (team === null && requiresManagedMembership) {
+        // 현재 관리 저장소는 팀 구성원 집합이 접근 권한의 원본이다. 그 원본을 읽을 수
+        // 없는 채로 진행하면 빈 목록이 "전원 회수"로 해석된다 — fail closed.
+        throw finalProvisionFailure(
+          PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
+        );
+      }
+      // 외부 저장소 경로는 초대 없이 연결할 뿐이라 팀이 없을 수 있다 —
+      // 그 때도 신청자를 목록에 채우지 않고 빈 목록을 그대로 든다.
+      const currentMemberGithubLogins =
+        team === null ? [] : loginsFromTeamMembers(team.members);
+      return {
+        requestId: event.id,
+        requestedConnectionMode: requested.repositoryConnectionMode,
+        requestedRepositoryUrl: requested.repositoryUrl,
+        requestedByGithubId:
+          requested.requestedByGithubId == null
+            ? null
+            : BigInt(requested.requestedByGithubId),
+        currentConnectionMode: application.repositoryConnectionMode,
+        currentRepositoryUrl: application.repositoryUrl,
+        applicationId: application.id,
+        applicantGithubId: application.applicant.githubId,
+        applicationStatus: application.status,
+        programId: application.programId,
+        programName: application.program.name,
+        repositoryProvisioningEnabled:
+          application.program.repositoryProvisioningEnabled,
+        teamId: application.teamId,
+        subjectName: team?.name ?? application.applicant.nickname,
+        currentMemberGithubLogins,
+        membershipFingerprint: membershipFingerprint(currentMemberGithubLogins),
+        currentRepositorySource: application.repository?.source ?? null,
+        repository:
+          application.repository === null ||
+          job.repositoryId !== application.repository.id
+            ? null
+            : toProvisionedRepository(application.repository),
+      };
+    });
   }
 
   async recordRepository(
@@ -195,66 +235,32 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
   ): Promise<ProvisionedRepository> {
     try {
       return await this.prisma.$transaction(async (transaction) => {
-        await assertProvisionLease(transaction, input.jobId, input.workerId);
-        // GithubRepository에 직접 upsert한다(#617 단계 D) — 여기서 쓰는 건 provision
-        // 컬럼(applicationId/programId/teamId) + source/presence뿐이다. 수집 큐 필드
-        // (nextRunAt/lastSuccessAt/failureCount)는 create에서 스키마 기본값을 그대로 받고,
-        // update에서는 절대 건드리지 않는다(인벤토리 스윕과 동일한 원칙).
-        // source는 호출자가 넘긴 값을 그대로 쓴다 — OWN+EXTERNAL 연결을 여기서
-        // ORG_PROVISIONED로 잘못 찍으면, 뒤이은 enrollExternalRepository가
-        // "이미 다른 source로 있는 행"으로 보고 조용히 아무것도 안 한다.
-        //
-        // org sweep(collection-sync.service.ts)이 이 githubRepositoryId를 이미
-        // `applicationId: null`로 관찰해 놨을 수 있다(OWN+ORGANIZATION). 그 경우
-        // applicationId 기준 upsert는 항상 create로 떨어지고, githubRepositoryId
-        // unique 제약과 충돌해 REPOSITORY_MISMATCH로 영구 실패한다 — 그 행을
-        // 새로 만드는 대신 채택(adopt)한다. `applicationId: null` 조건을 건 채로
-        // updateMany해 동시에 다른 job이 같은 행을 먼저 채택하는 경쟁을 막는다
-        // (0건이면 진짜 충돌로 취급).
-        const swept = await transaction.githubRepository.findUnique({
-          where: { githubRepositoryId: input.metadata.githubRepositoryId },
-          select: { id: true, applicationId: true },
-        });
-        let repository: ProvisionedRepositoryRow;
-        if (swept !== null && swept.applicationId === null) {
-          const adopted = await transaction.githubRepository.updateMany({
-            where: { id: swept.id, applicationId: null },
-            data: {
-              applicationId: input.applicationId,
-              programId: input.programId,
-              teamId: input.teamId,
-              nameWithOwner: input.metadata.nameWithOwner,
-              visibility: input.metadata.visibility,
-              source: input.source,
-              presence: CollectionRepositoryPresence.PRESENT,
-            },
-          });
-          if (adopted.count !== 1) {
-            throw finalProvisionFailure(
-              PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
-            );
-          }
-          repository = await transaction.githubRepository.findUniqueOrThrow({
-            where: { id: swept.id },
-            select: repositorySelection,
-          });
-        } else {
-          repository = await transaction.githubRepository.upsert({
-            where: { applicationId: input.applicationId },
-            update: {},
-            create: {
-              applicationId: input.applicationId,
-              programId: input.programId,
-              teamId: input.teamId,
-              githubRepositoryId: input.metadata.githubRepositoryId,
-              nameWithOwner: input.metadata.nameWithOwner,
-              visibility: input.metadata.visibility,
-              source: input.source,
-              presence: CollectionRepositoryPresence.PRESENT,
-            },
-            select: repositorySelection,
-          });
-        }
+        // 연결 교체 경로와 같은 Application → Job 잠금 순서를 쓴다.
+        await lockApplicationForRepositoryClaim(
+          transaction,
+          input.applicationId,
+        );
+        await assertCurrentRequest(
+          transaction,
+          input.jobId,
+          input.workerId,
+          input.requestId,
+        );
+        const repository = await claimGithubRepositoryForApplication(
+          transaction,
+          {
+            applicationId: input.applicationId,
+            programId: input.programId,
+            teamId: input.teamId,
+            metadata: input.metadata,
+            source: input.source,
+            currentConnectionMode: input.currentConnectionMode,
+            currentRepositoryUrl: input.currentRepositoryUrl,
+            connectionMode: input.connectionMode,
+            repositoryUrl: input.repositoryUrl,
+            auditActorGithubId: input.auditActorGithubId,
+          },
+        );
         const provisioned = toProvisionedRepository(repository);
         if (!matchesProvisionedMetadata(provisioned, input)) {
           throw finalProvisionFailure(
@@ -269,7 +275,10 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
         return provisioned;
       });
     } catch (error) {
-      if (isPrismaUniqueConstraintError(error)) {
+      if (
+        error instanceof GithubRepositoryClaimConflictError ||
+        isPrismaUniqueConstraintError(error)
+      ) {
         throw finalProvisionFailure(PROVISION_ERROR_CODES.REPOSITORY_MISMATCH);
       }
       throw error;
@@ -279,12 +288,13 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
   async prepareInvitations(
     jobId: string,
     workerId: string,
+    requestId: string,
     repositoryId: string,
     githubLogins: readonly string[],
   ): Promise<void> {
     const desired = canonicalGithubLogins(githubLogins);
     await this.prisma.$transaction(async (transaction) => {
-      await assertProvisionLease(transaction, jobId, workerId);
+      await assertCurrentRequest(transaction, jobId, workerId, requestId);
       // 저장된 login 은 과거 event payload 표기 그대로일 수 있어(대소문자 혼재)
       // DB 문자열 비교로 대조하면 같은 사람을 다른 사람으로 읽는다 — 정규화한
       // 값으로 메모리에서 대조하고 갱신은 id 로 건다.
@@ -354,6 +364,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
   async findInvitationWork(
     jobId: string,
     workerId: string,
+    _requestId: string,
     repositoryId: string,
   ): Promise<readonly RepositoryInvitationWork[]> {
     await assertProvisionLease(this.prisma, jobId, workerId);
@@ -401,7 +412,12 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     input: CompleteRepositoryInvitationInput,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      await assertProvisionLease(transaction, input.jobId, input.workerId);
+      await assertCurrentRequest(
+        transaction,
+        input.jobId,
+        input.workerId,
+        input.requestId,
+      );
       // CAS — worker가 읽은 시점의 상태와 저장소까지 함께 맞추어야 쓴다. 사이에
       // 멤버십이 바뀌어 행이 REVOKE_REQUIRED로 옮겨갔다면 늦게 도착한 부여 결과가
       // 그 회수 지시를 덮어쓰면 안 된다.
@@ -451,7 +467,12 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
 
   async failInvitation(input: FailRepositoryInvitationInput): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      await assertProvisionLease(transaction, input.jobId, input.workerId);
+      await assertCurrentRequest(
+        transaction,
+        input.jobId,
+        input.workerId,
+        input.requestId,
+      );
       const updated = await transaction.repositoryInvitation.updateMany({
         where: {
           id: input.invitationId,
@@ -470,6 +491,29 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
     });
   }
 
+  async recordSupersededRequest(
+    applicationId: string,
+    requestId: string,
+    now: Date,
+  ): Promise<void> {
+    await this.prisma.$transaction((transaction) =>
+      writeRepositoryIssuanceHistory(
+        transaction,
+        {
+          requestId,
+          applicationId,
+          // 새 세대가 job을 소유한 뒤에는 job.repositoryId가 어느 세대의 결과인지
+          // 옛 worker가 증명할 수 없다. 잘못 귀속하느니 요청 identity만 남긴다.
+          repositoryId: null,
+          source: null,
+          outcome: RepositoryIssuanceOutcome.SUPERSEDED,
+          closedAt: now,
+        },
+        parseRepositoryProvisionEvent,
+      ),
+    );
+  }
+
   /**
    * 부여/회수를 다 돌린 뒤 완료 처리한다. GitHub 호출 동안 팀 구성원이 바뀔 수
    * 있으므로, 작업 시작 시점의 멤버십 지문과 지금 값을 비교해 다르면 SUCCEEDED로
@@ -483,6 +527,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
   async completeJob(
     jobId: string,
     workerId: string,
+    requestId: string,
     repositoryId: string,
     now: Date,
     nextReconciliationAt?: Date,
@@ -493,6 +538,7 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
         transaction,
         jobId,
         workerId,
+        requestId,
       );
       const stale =
         expectedMembershipFingerprint === undefined
@@ -517,6 +563,26 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
             },
       });
       assertSingleProvisionUpdate(updated.count);
+      if (!stale) {
+        const repository = await transaction.githubRepository.findUniqueOrThrow(
+          {
+            where: { id: repositoryId },
+            select: { source: true },
+          },
+        );
+        await writeRepositoryIssuanceHistory(
+          transaction,
+          {
+            requestId,
+            applicationId,
+            repositoryId,
+            source: repository.source,
+            outcome: RepositoryIssuanceOutcome.SUCCEEDED,
+            closedAt: now,
+          },
+          parseRepositoryProvisionEvent,
+        );
+      }
     });
   }
 
@@ -546,10 +612,11 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
    */
   async failJob(input: FailRepositoryProvisionJobInput): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      const { applicationId } = await lockClaimedProvisionJob(
+      const { applicationId, repositoryId } = await lockClaimedProvisionJob(
         transaction,
         input.jobId,
         input.workerId,
+        input.requestId,
       );
       const stale =
         input.expectedMembershipFingerprint === undefined
@@ -575,6 +642,28 @@ export class RepositoryProvisionStateRepository implements RepositoryProvisionSt
             },
       });
       assertSingleProvisionUpdate(updated.count);
+      if (!stale && input.final) {
+        const repository =
+          repositoryId === null
+            ? null
+            : await transaction.githubRepository.findUnique({
+                where: { id: repositoryId },
+                select: { source: true },
+              });
+        await writeRepositoryIssuanceHistory(
+          transaction,
+          {
+            requestId: input.requestId,
+            applicationId,
+            repositoryId,
+            source: repository?.source ?? null,
+            outcome: RepositoryIssuanceOutcome.FAILED_FINAL,
+            lastErrorCode: input.errorCode,
+            closedAt: input.now,
+          },
+          parseRepositoryProvisionEvent,
+        );
+      }
     });
   }
 }

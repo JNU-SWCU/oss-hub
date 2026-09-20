@@ -10,6 +10,10 @@ import {
   MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH,
   type MilestoneDocumentReviewDecision,
 } from './milestone-document-review-api';
+import {
+  SUBMISSION_STATUS_BADGE,
+  SUBMISSION_STATUS_LABELS,
+} from '@/lib/status-vocabulary';
 import { isPastDue } from './program-detail-format';
 import { seoulDateTimeValue } from './seoul-date-time';
 
@@ -27,23 +31,18 @@ import { seoulDateTimeValue } from './seoul-date-time';
 /**
  * 한 칸(교직원)·한 줄(학생)이 지금 어떤 상태인가. 다섯 갈래는 교직원 표와 학생 목록이
  * 공유한다 — 같은 제출을 두 화면이 다른 말로 부르면 「보완 요청」을 받은 학생과 그것을
- * 「제출됨」으로 보는 교직원이 서로 다른 사실을 말하게 된다.
+ * 「검토 대기」로 보는 교직원이 서로 다른 사실을 말하게 된다. 말과 색의 원본은
+ * `@/lib/status-vocabulary`이고 여기서는 표시 갈래(PENDING)에 키만 맞춘다.
  */
 export type MilestoneDocumentReviewDisplay =
-  | 'NOT_SUBMITTED'
-  | 'PENDING'
-  | 'REPENDING'
-  | 'APPROVED'
-  | 'CHANGES_REQUESTED'
-  | 'REJECTED';
+  'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 
 export const MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS = {
-  NOT_SUBMITTED: '미제출',
-  PENDING: '검토 대기',
-  REPENDING: '재검토 대기',
-  APPROVED: '승인',
-  CHANGES_REQUESTED: '보완 요청',
-  REJECTED: '반려',
+  NOT_SUBMITTED: SUBMISSION_STATUS_LABELS.NOT_SUBMITTED,
+  PENDING: SUBMISSION_STATUS_LABELS.SUBMITTED,
+  APPROVED: SUBMISSION_STATUS_LABELS.APPROVED,
+  CHANGES_REQUESTED: SUBMISSION_STATUS_LABELS.CHANGES_REQUESTED,
+  REJECTED: SUBMISSION_STATUS_LABELS.REJECTED,
 } as const satisfies Readonly<Record<MilestoneDocumentReviewDisplay, string>>;
 
 /**
@@ -52,15 +51,14 @@ export const MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS = {
  * 다섯 갈래에 다섯 변형이 1:1로 붙는다: 미제출은 회색(`closed`), 검토 대기는 진행 중을
  * 뜻하는 중립색(`recruiting`), 나머지 셋은 판정 색 그대로다. 「검토 대기」와 「보완 요청」을
  * 같은 색으로 묶지 않는 것이 요점이다 — 독촉 대상을 눈으로 고르는 화면에서 그 둘이 같은
- * 색이면 아직 안 본 것과 이미 되돌려 보낸 것이 구분되지 않는다.
+ * 색이면 아직 안 본 것과 이미 되돌려 보낌 것이 구분되지 않는다.
  */
 export const MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS = {
-  NOT_SUBMITTED: 'closed',
-  PENDING: 'recruiting',
-  REPENDING: 'recruiting',
-  APPROVED: 'approved',
-  CHANGES_REQUESTED: 'pending',
-  REJECTED: 'rejected',
+  NOT_SUBMITTED: SUBMISSION_STATUS_BADGE.NOT_SUBMITTED,
+  PENDING: SUBMISSION_STATUS_BADGE.SUBMITTED,
+  APPROVED: SUBMISSION_STATUS_BADGE.APPROVED,
+  CHANGES_REQUESTED: SUBMISSION_STATUS_BADGE.CHANGES_REQUESTED,
+  REJECTED: SUBMISSION_STATUS_BADGE.REJECTED,
 } as const satisfies Readonly<
   Record<
     MilestoneDocumentReviewDisplay,
@@ -76,22 +74,16 @@ export const MILESTONE_DOCUMENT_REVIEW_DECISION_ORDER: readonly MilestoneDocumen
  * 제출이 있는 자리의 상태 → 배지. 교직원 칸과 학생 줄이 **같은 함수**를 지난다 —
  * 두 화면이 같은 제출을 다른 말로 부르면 안 되기 때문이다.
  *
- * `SUBMITTED`가 「검토 대기」인 것은 재제출이 상태를 그리로 되돌리기 때문이다: 보완
- * 요청에 응해 다시 낸 제출은 아직 아무도 안 본 제출과 같은 자리에 선다. 상태가 비어
- * 오는 것(`null`)도 검토 대기로 읽는다 — 제출은 있는데 상태만 어긋난 응답에서 「미제출」
- * 이라고 말하면 교직원이 그 건을 아예 못 본다.
+ * 제출만 있고 상태가 비어 오는 것(`null`)도 검토 대기로 읽는다 — 「미제출」이라고 말하면
+ * 교직원이 그 건을 아예 못 본다.
+ *
+ * ⚠ 제출본 번호로 라벨을 다시 가르지 마라. `revision > 1`을 「재검토 대기」로 따로 불렀지만
+ * 색·재제출 가능 여부·마감 잠금·교직원이 할 일이 전부 같아 글자만 달랐다.
  */
 function submittedDisplay(
   status: MilestoneDocumentSubmissionStatus | null,
-  revision: number | null | undefined,
 ): MilestoneDocumentReviewDisplay {
-  if (status === null) return 'PENDING';
-  if (status === 'SUBMITTED') {
-    return revision !== null && revision !== undefined && revision > 1
-      ? 'REPENDING'
-      : 'PENDING';
-  }
-  return status;
+  return status === null || status === 'SUBMITTED' ? 'PENDING' : status;
 }
 
 /**
@@ -104,12 +96,10 @@ function submittedDisplay(
  * `review`는 패널에서 「지난 검토」를 보여 주는 데만 쓴다.
  */
 export function milestoneDocumentCellDisplay(
-  cell: Pick<MilestoneDocumentCollectionCell, 'isSubmitted' | 'status'> & {
-    readonly revision?: number | null;
-  },
+  cell: Pick<MilestoneDocumentCollectionCell, 'isSubmitted' | 'status'>,
 ): MilestoneDocumentReviewDisplay {
   if (!cell.isSubmitted) return 'NOT_SUBMITTED';
-  return submittedDisplay(cell.status, cell.revision);
+  return submittedDisplay(cell.status);
 }
 
 /**
@@ -122,7 +112,7 @@ export function milestoneDocumentViewerDisplay(
   if (viewerSubmission === undefined || !viewerSubmission.submitted) {
     return 'NOT_SUBMITTED';
   }
-  return submittedDisplay(viewerSubmission.status, viewerSubmission.revision);
+  return submittedDisplay(viewerSubmission.status);
 }
 
 /**

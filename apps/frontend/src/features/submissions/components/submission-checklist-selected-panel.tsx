@@ -4,12 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { programDocumentsHref } from '@/lib/program-route';
+import {
+  SUBMISSION_STATUS_BADGE,
+  SUBMISSION_STATUS_LABELS,
+} from '@/lib/status-vocabulary';
 import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
 import { MilestoneDocumentCurrentFiles } from '../milestone-document-current-files';
 import {
-  CHECKLIST_STATUS_LABELS,
-  CHECKLIST_STATUS_VARIANTS,
   isRevisionNeeded,
+  type ChecklistItemStatus,
 } from '../submission-checklist';
 import type {
   SubmissionFormErrors,
@@ -75,7 +78,7 @@ export function SelectedMilestonePanel(props: SelectedMilestonePanelProps) {
         <PanelCard item={item} status="REJECTED" embedded={embedded}>
           <SubmissionReviewMeta submission={submission} />
           <p className="text-sm text-muted-foreground">
-            최종 반려된 제출은 재제출할 수 없습니다.
+            반려된 제출은 재제출할 수 없습니다.
           </p>
         </PanelCard>
       );
@@ -193,14 +196,14 @@ function PanelCard({
   children,
 }: {
   readonly item: SubmissionChecklistItem;
-  readonly status: keyof typeof CHECKLIST_STATUS_LABELS;
+  readonly status: ChecklistItemStatus;
   readonly embedded: boolean;
   readonly testId?: string;
   readonly children: React.ReactNode;
 }) {
   const badge = (
-    <StatusBadge variant={CHECKLIST_STATUS_VARIANTS[status]}>
-      {CHECKLIST_STATUS_LABELS[status]}
+    <StatusBadge variant={SUBMISSION_STATUS_BADGE[status]}>
+      {SUBMISSION_STATUS_LABELS[status]}
     </StatusBadge>
   );
   const body = (

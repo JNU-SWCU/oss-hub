@@ -1,13 +1,14 @@
 import {
   AccountStatus,
-  ApplicationStatus,
   MemberKind,
   Prisma,
-  RepositoryConnectionMode,
   TeamInvitationStatus,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
-import { repositoryAccessSyncEventData } from '../github/repository-provision-event';
+import {
+  repositoryAccessSyncEventData,
+  repositoryAccessSyncTargetWhere,
+} from '../github/repository-provision-event';
 import type { PrismaService } from '../prisma/prisma.service';
 
 export type AcceptInvitationOutcome =
@@ -35,13 +36,11 @@ type AccessSyncTx = Pick<
 /**
  * 합류와 같은 트랜잭션에서 권한 동기화 outbox 이벤트를 예약한다.
  *
- * `programs/repository/program-teams.repository.ts`에 같은 모양의 함수가 있다 —
- * 거기서 import 하지 않는 이유는 `ProgramsModule` ↔ `TeamInvitationsModule`
- * 순환 의존을 만들지 않기 위해서다(같은 파일의 `resolveTeamRepositoryProvisioning`
- * 이 이미 따르는 선례). 페이로드 factory 는 둘 다 같은 순수 모듈을 쓴다.
- *
- * 대상은 「승인된(APPROVED) + 새 저장소 발급(NEW) + 프로그램이 발급을 켜 둔」
- * 신청뿐이고, 그런 신청이 없으면 아무것도 쓰지 않는다(noop).
+ * 대상 조건과 페이로드는 `github/repository-provision-event.ts`의 순수 계약을
+ * 공유한다 — 예전에는 조건까지 `programs` 쪽과 같은 모양으로 복제돼 있었다.
+ * 조회·쓰기를 여기서 하는 것은 `ProgramsModule` ↔ `TeamInvitationsModule` 순환을
+ * 피하기 위함이기도 하고, 소비자 Repository가 자기 Prisma를 쓴다는
+ * ADR-003 DEC-42 의 경계 때문이기도 하다. 대상이 없으면 noop.
  */
 async function enqueueRepositoryAccessSyncEvents(
   tx: AccessSyncTx,
@@ -49,12 +48,7 @@ async function enqueueRepositoryAccessSyncEvents(
   now: Date,
 ): Promise<void> {
   const applications = await tx.application.findMany({
-    where: {
-      teamId,
-      status: ApplicationStatus.APPROVED,
-      repositoryConnectionMode: RepositoryConnectionMode.NEW,
-      program: { repositoryProvisioningEnabled: true },
-    },
+    where: repositoryAccessSyncTargetWhere(teamId),
     select: { id: true },
   });
   if (applications.length === 0) return;

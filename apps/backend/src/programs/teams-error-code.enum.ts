@@ -17,6 +17,22 @@ export enum TeamsErrorCode {
   TEAM_LEADER_REQUIRED = 'TEAM_013',
   SELF_REMOVAL_REQUIRES_LEAVE = 'TEAM_014',
   TARGET_MEMBER_NOT_FOUND = 'TEAM_015',
+  TEAM_RENAME_FORBIDDEN = 'TEAM_016',
+  /**
+   * 지목한 팀이 없거나 다른 프로그램의 팀이다. `TEAM_010`(`소속된 팀이 없습니다`)과
+   * 나눠 둔다 — 그쪽은 「내 팀」 조회의 말이라 남의 팀을 다루는 자리에 쓰면 거짓말이 된다.
+   */
+  TARGET_TEAM_NOT_FOUND = 'TEAM_017',
+  /**
+   * 팀 삭제는 교직원·관리자만 한다. `TEAM_016`(이름 변경)과 나눠 둔다 — 그쪽은
+   * 팀장도 통과하므로 같은 코드를 쓰면 팀장에게 「그럼 팀장이면 되겠구나」로 읽힌다.
+   */
+  TEAM_DELETE_FORBIDDEN = 'TEAM_018',
+  /**
+   * 확인 화면이 본 범위와 서버가 삭제 트랜잭션 안에서 다시 센 범위가 다르다.
+   * 누르는 사람이 보지 못한 행이 함께 지워지는 것을 막는다(#F2 TOCTOU).
+   */
+  TEAM_DELETE_SCOPE_CHANGED = 'TEAM_019',
 }
 
 export const TEAMS_ERROR_CODES: Record<TeamsErrorCode, ErrorCode> = {
@@ -74,5 +90,25 @@ export const TEAMS_ERROR_CODES: Record<TeamsErrorCode, ErrorCode> = {
     code: TeamsErrorCode.TARGET_MEMBER_NOT_FOUND,
     status: 404,
     message: '해당 팀원을 찾을 수 없습니다.',
+  },
+  [TeamsErrorCode.TEAM_RENAME_FORBIDDEN]: {
+    code: TeamsErrorCode.TEAM_RENAME_FORBIDDEN,
+    status: 403,
+    message: '팀장 또는 교직원만 팀 이름을 바꿀 수 있습니다.',
+  },
+  [TeamsErrorCode.TARGET_TEAM_NOT_FOUND]: {
+    code: TeamsErrorCode.TARGET_TEAM_NOT_FOUND,
+    status: 404,
+    message: '팀을 찾을 수 없습니다.',
+  },
+  [TeamsErrorCode.TEAM_DELETE_FORBIDDEN]: {
+    code: TeamsErrorCode.TEAM_DELETE_FORBIDDEN,
+    status: 403,
+    message: '교직원만 팀을 삭제할 수 있습니다.',
+  },
+  [TeamsErrorCode.TEAM_DELETE_SCOPE_CHANGED]: {
+    code: TeamsErrorCode.TEAM_DELETE_SCOPE_CHANGED,
+    status: 409,
+    message: '확인 이후 팀의 내용이 바뀌었습니다. 다시 확인해 주세요.',
   },
 };

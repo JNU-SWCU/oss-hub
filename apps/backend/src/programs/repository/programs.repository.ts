@@ -43,7 +43,10 @@ export type ProgramListRecord = Pick<
   | 'description'
   | 'teamMinSize'
   | 'teamMaxSize'
-> & { readonly coverId?: string | null };
+> & {
+  readonly coverId?: string | null;
+  readonly coverExternalImageUrl?: string | null;
+};
 
 /** GET /programs 뷰어 개인화 배치 조회 결과. */
 export interface ProgramApplicationCounts {
@@ -80,7 +83,8 @@ export class ProgramsRepository {
           p."description",
           p."teamMinSize",
           p."teamMaxSize",
-          cover."id" AS "coverId"
+          cover."id" AS "coverId",
+          cover."imageUrl" AS "coverExternalImageUrl"
         FROM "Program" AS p
         LEFT JOIN "ProgramCover" AS cover ON cover."programId" = p."id"
         ${sqlWhere}
@@ -122,7 +126,7 @@ export class ProgramsRepository {
       where: { id: programId },
       select: {
         lifecycle: true,
-        cover: { select: { id: true } },
+        cover: { select: { id: true, imageUrl: true } },
         id: true,
         name: true,
         organizer: true,

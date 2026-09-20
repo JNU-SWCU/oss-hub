@@ -6,6 +6,7 @@ import {
   type StaffTeamDetailRecord,
 } from './repository/program-teams.repository';
 import { ProgramTeamsService } from './service/program-teams.service';
+import { stubTeamDeletionRepository } from './service/program-teams.service.test-support';
 import { TeamsErrorCode } from './teams-error-code.enum';
 
 /**
@@ -33,6 +34,7 @@ function buildService(overrides: {
     repository,
     loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
     { record: jest.fn() } as unknown as AuditLogService,
+    stubTeamDeletionRepository(),
   );
   return { service, findStaffTeamDetail };
 }
@@ -189,6 +191,17 @@ describe('ProgramTeamsService.getForStaff', () => {
           updatedAt: '2026-08-01T00:00:00.000Z',
           safeErrorClass: null,
         },
+      },
+      // 삭제 확인 창이 「무엇이 함께 지워지는가」를 말하기 위해 읽는 개수만 담는다 —
+      // 누를 때 이 값이 그대로 `expectedScope` 로 돌아간다.
+      deletionScope: {
+        applications: 0,
+        members: 0,
+        invitations: 0,
+        submissions: 0,
+        submissionEvents: 0,
+        detachedRepositories: 0,
+        scopeFingerprint: '0'.repeat(32),
       },
     });
     // repository/url 은 이 응답에서 의도적으로 담는 값이라 금지어에서 뺀다

@@ -67,7 +67,7 @@ describe('MilestoneRow', () => {
     // 이 갈래에는 GitHub만 연결하고 프로필을 못 채운 사람도 들어오므로, 이미 로그인한
     // 그에게 거짓이 되는 "로그인" 안내가 되살아나지 않게 못 박는다.
     expect(html).not.toContain('로그인');
-    expect(html).not.toContain('최종 반려');
+    expect(html).not.toContain('>반려<');
   });
 
   it('학생에게 반려 상태를 색뿐 아니라 텍스트로 표시한다', () => {
@@ -81,7 +81,8 @@ describe('MilestoneRow', () => {
         submissionAccess={access('STUDENT', 'APPROVED')}
       />,
     );
-    expect(html).toContain('최종 반려');
+    expect(html).toContain('data-variant="rejected"');
+    expect(html).toContain('>반려<');
   });
 
   it('신규 제출 항목 모델은 작동하지 않는 레거시 제출 버튼을 노출하지 않는다', () => {
@@ -176,7 +177,7 @@ describe('MilestoneRow', () => {
     );
 
     expect(html).toContain('신청 승인 후 제출 상태를 확인할 수 있습니다.');
-    expect(html).not.toContain('제출 전');
+    expect(html).not.toContain('미제출');
     expect(html).not.toContain('제출하기');
     expect(html).not.toContain('반려되어');
   });

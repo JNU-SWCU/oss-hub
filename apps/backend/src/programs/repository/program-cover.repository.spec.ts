@@ -18,6 +18,7 @@ it('restricts the public selector to current image metadata and the explicit pub
     where: {
       id: 'cover',
       programId: 'program',
+      source: 'OWNED',
       program: { lifecycle: { in: ['PUBLISHED', 'ARCHIVED'] } },
       storageKey: { startsWith: 'program-covers/' },
       mimeType: { in: ['image/jpeg', 'image/png'] },

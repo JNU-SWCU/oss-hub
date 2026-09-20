@@ -1,4 +1,6 @@
 import type { ProgramTrackType } from './program-templates';
+import type { ExternalProgramCover } from './program-cover-selection';
+import type { ProgramNoticePatch } from './program-notice-api';
 
 export const PROGRAM_AUTHORING_STEPS = [
   { id: 'basic', label: '기본 정보' },
@@ -36,6 +38,7 @@ export type ProgramAuthoringMilestone = {
 
 export type ProgramAuthoringState = {
   readonly coverFile?: File | null;
+  readonly externalCover?: ExternalProgramCover | null;
   readonly currentStep: ProgramAuthoringStep;
   readonly idempotencyKey: string;
   readonly trackType: ProgramTrackType | '';
@@ -62,12 +65,14 @@ type ProgramTextField = Exclude<
   | 'notifyOnDeadline'
   | 'milestones'
   | 'coverFile'
+  | 'externalCover'
 >;
 
 type MilestoneTextField = 'name' | 'startAt' | 'dueAt' | 'instructions';
 
 export type ProgramAuthoringAction =
   | { readonly type: 'set_cover_file'; readonly file: File | null }
+  | { readonly type: 'apply_notice'; readonly patch: ProgramNoticePatch }
   | {
       readonly type: 'restore_state';
       readonly state: ProgramAuthoringState;

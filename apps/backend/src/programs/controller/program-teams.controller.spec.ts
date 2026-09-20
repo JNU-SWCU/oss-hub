@@ -8,7 +8,9 @@ import {
 import { OriginGuard } from '../../auth/origin.guard';
 import { SessionGuard } from '../../auth/session.guard';
 import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
+import { DeleteTeamRequestDto } from '../dto/delete-team-request.dto';
 import { RepositoryUrlHistoryQueryRequestDto } from '../dto/repository-url-history-query.dto';
+import { RenameTeamRequestDto } from '../dto/rename-team-request.dto';
 import { ProgramTeamsController } from './program-teams.controller';
 import { ProgramTeamsStaffGuard } from '../program-teams-staff.guard';
 
@@ -19,7 +21,9 @@ type ControllerMethodName =
   | 'removeMember'
   | 'list'
   | 'detail'
-  | 'repositoryUrlHistory';
+  | 'repositoryUrlHistory'
+  | 'rename'
+  | 'remove';
 
 /** controller 가 실제로 주입받는 최소 능력 집합 — 계약이 바뀌면 여기서 먼저 깨진다. */
 type ControllerService = ConstructorParameters<
@@ -63,6 +67,8 @@ function serviceStub(
     listForStaff: jest.fn(),
     getForStaff: jest.fn(),
     getRepositoryUrlHistoryForStaff: jest.fn(),
+    rename: jest.fn(),
+    deleteForStaff: jest.fn(),
     ...overrides,
   };
 }
@@ -427,6 +433,109 @@ describe('ProgramTeamsController', () => {
     expect(response).toEqual({
       items: [],
       nextCursor: null,
+    });
+  });
+});
+
+/**
+ * 이름 변경은 팀장과 교직원이 같은 문을 쓴다 — 교직원 전용 가드를 붙이면
+ * 팀장이 문 앞에서 막힌다. 그 회귀를 여기서 고정한다.
+ */
+describe('ProgramTeamsController.rename', () => {
+  it('PATCH :teamId 이고 SessionGuard·OriginGuard 만 적용한다', () => {
+    const method = methodOf('rename');
+
+    expect(readPath('rename')).toBe(':teamId');
+    expect(
+      method ? Reflect.getMetadata(METHOD_METADATA, method) : undefined,
+    ).toBe(RequestMethod.PATCH);
+    expect(readGuards('rename')).toEqual([SessionGuard, OriginGuard]);
+    expect(readGuards('rename')).not.toContain(ProgramTeamsStaffGuard);
+  });
+
+  it('service 결과를 RenameTeamResponseDto 로 반환한다', async () => {
+    const rename = jest
+      .fn()
+      .mockResolvedValue({ teamId: 'team-1', name: '알잘딱팀' });
+    const controller = new ProgramTeamsController(serviceStub({ rename }));
+    const body = Object.assign(new RenameTeamRequestDto(), {
+      name: '알잘딱팀',
+    });
+
+    const response = await controller.rename(
+      { sessionGithubId: 7n },
+      'program-1',
+      'team-1',
+      body,
+    );
+
+    expect(rename).toHaveBeenCalledWith(7n, 'program-1', 'team-1', '알잘딱팀');
+    expect(response).toEqual({ teamId: 'team-1', name: '알잘딱팀' });
+  });
+});
+
+/**
+ * 팀 삭제도 새 Guard 클래스를 두지 않는다 — 교직원 판정은 `ProgramLifecycleService.purge`와
+ * 같은 모양으로 service 가 한다. 동적 `:teamId` 는 정적 형제(`me`)보다 뒤에 선언돼야
+ * `DELETE me` 가 가로채이지 않는다.
+ */
+describe('ProgramTeamsController.remove', () => {
+  it('DELETE :teamId 이고 SessionGuard·OriginGuard 만 적용한다', () => {
+    const method = methodOf('remove');
+
+    expect(readPath('remove')).toBe(':teamId');
+    expect(
+      method ? Reflect.getMetadata(METHOD_METADATA, method) : undefined,
+    ).toBe(RequestMethod.DELETE);
+    expect(readGuards('remove')).toEqual([SessionGuard, OriginGuard]);
+    expect(readGuards('remove')).not.toContain(ProgramTeamsStaffGuard);
+  });
+
+  it('정적 `me` 경로를 가로채지 않도록 뒤에 선언된다', () => {
+    expect(declarationOrder('leave')).toBeLessThan(declarationOrder('remove'));
+    expect(declarationOrder('removeMember')).toBeLessThan(
+      declarationOrder('remove'),
+    );
+  });
+
+  it('확인한 범위를 그대로 service 에 넘기고 지운 수치를 돌려준다', async () => {
+    const deletedCounts = {
+      applications: 1,
+      members: 3,
+      invitations: 0,
+      submissions: 2,
+      submissionEvents: 5,
+      detachedRepositories: 1,
+    };
+    const deleteForStaff = jest
+      .fn()
+      .mockResolvedValue({ teamId: 'team-1', deleted: true, deletedCounts });
+    const controller = new ProgramTeamsController(
+      serviceStub({ deleteForStaff }),
+    );
+    const expectedScope = {
+      ...deletedCounts,
+      scopeFingerprint: '0123456789abcdef0123456789abcdef',
+    };
+    const body = Object.assign(new DeleteTeamRequestDto(), { expectedScope });
+
+    const response = await controller.remove(
+      { sessionGithubId: 7n },
+      'program-1',
+      'team-1',
+      body,
+    );
+
+    expect(deleteForStaff).toHaveBeenCalledWith(
+      7n,
+      'program-1',
+      'team-1',
+      expectedScope,
+    );
+    expect(response).toEqual({
+      teamId: 'team-1',
+      deleted: true,
+      deletedCounts,
     });
   });
 });

@@ -48,99 +48,103 @@ describe('StaffDashboardController', () => {
     ]);
   });
 
-  it('maps composed service summary into the response DTO', async () => {
-    // Given
-    const summary = jest.fn().mockResolvedValue({
-      programs: [
-        {
-          coverId: 'cover:1',
-          id: 'program:1',
-          name: 'Synthetic program',
-          trackType: ProgramTrackType.EXTRACURRICULAR,
-          applicationPeriod: {
-            startsAt: new Date('2026-07-01T00:00:00.000Z'),
-            endsAt: new Date('2026-07-31T23:59:59.000Z'),
+  it.each([null, 'https://sojoong.kr/wp-content/uploads/synthetic.jpg'])(
+    'maps composed service summary with cover %s into the response DTO',
+    async (imageUrl) => {
+      // Given
+      const summary = jest.fn().mockResolvedValue({
+        programs: [
+          {
+            coverId: 'cover:1',
+            coverExternalImageUrl: imageUrl,
+            id: 'program:1',
+            name: 'Synthetic program',
+            trackType: ProgramTrackType.EXTRACURRICULAR,
+            applicationPeriod: {
+              startsAt: new Date('2026-07-01T00:00:00.000Z'),
+              endsAt: new Date('2026-07-31T23:59:59.000Z'),
+            },
+            endAt: new Date('2026-09-30T23:59:59.000Z'),
+            lifecycle: ProgramLifecycle.ARCHIVED,
+            applications: {
+              total: 3,
+              submitted: 1,
+              pendingApproval: 1,
+              approved: 1,
+              rejected: 1,
+            },
+            applicantsPath: '/programs/program%3A1/applicants',
+            activity: {
+              repositories: 1,
+              commits: 2,
+              pullRequests: 3,
+              releases: 4,
+              lastActivityAt: '2026-07-20T00:00:00.000Z',
+              dataAsOf: '2026-07-21T00:00:00.000Z',
+            },
+            submissions: {
+              approvedApplications: 1,
+              milestones: 2,
+              total: 2,
+              notSubmitted: 1,
+              submitted: 1,
+              approved: 0,
+              changesRequested: 0,
+              rejected: 0,
+            },
           },
-          endAt: new Date('2026-09-30T23:59:59.000Z'),
-          lifecycle: ProgramLifecycle.ARCHIVED,
-          applications: {
-            total: 3,
-            submitted: 1,
-            pendingApproval: 1,
-            approved: 1,
-            rejected: 1,
-          },
-          applicantsPath: '/programs/program%3A1/applicants',
-          activity: {
-            repositories: 1,
-            commits: 2,
-            pullRequests: 3,
-            releases: 4,
-            lastActivityAt: '2026-07-20T00:00:00.000Z',
-            dataAsOf: '2026-07-21T00:00:00.000Z',
-          },
-          submissions: {
-            approvedApplications: 1,
-            milestones: 2,
-            total: 2,
-            notSubmitted: 1,
-            submitted: 1,
-            approved: 0,
-            changesRequested: 0,
-            rejected: 0,
-          },
-        },
-      ],
-    });
-    const service: Pick<StaffDashboardService, 'summary'> = { summary };
-    const insights = { summarize: jest.fn() };
-    const controller = new StaffDashboardController(service, insights);
+        ],
+      });
+      const service: Pick<StaffDashboardService, 'summary'> = { summary };
+      const insights = { summarize: jest.fn() };
+      const controller = new StaffDashboardController(service, insights);
 
-    // When / Then
-    await expect(controller.summary()).resolves.toEqual({
-      programs: [
-        {
-          coverImageUrl: '/programs/program%3A1/cover/cover%3A1',
-          id: 'program:1',
-          name: 'Synthetic program',
-          trackType: ProgramTrackType.EXTRACURRICULAR,
-          applicationPeriod: {
-            startsAt: '2026-07-01T00:00:00.000Z',
-            endsAt: '2026-07-31T23:59:59.000Z',
+      // When / Then
+      await expect(controller.summary()).resolves.toEqual({
+        programs: [
+          {
+            coverImageUrl: imageUrl ?? '/programs/program%3A1/cover/cover%3A1',
+            id: 'program:1',
+            name: 'Synthetic program',
+            trackType: ProgramTrackType.EXTRACURRICULAR,
+            applicationPeriod: {
+              startsAt: '2026-07-01T00:00:00.000Z',
+              endsAt: '2026-07-31T23:59:59.000Z',
+            },
+            endAt: '2026-09-30T23:59:59.000Z',
+            lifecycle: ProgramLifecycle.ARCHIVED,
+            applications: {
+              total: 3,
+              submitted: 1,
+              pendingApproval: 1,
+              approved: 1,
+              rejected: 1,
+            },
+            applicantsPath: '/programs/program%3A1/applicants',
+            activity: {
+              repositories: 1,
+              commits: 2,
+              pullRequests: 3,
+              releases: 4,
+              lastActivityAt: '2026-07-20T00:00:00.000Z',
+              dataAsOf: '2026-07-21T00:00:00.000Z',
+            },
+            submissions: {
+              approvedApplications: 1,
+              milestones: 2,
+              total: 2,
+              notSubmitted: 1,
+              submitted: 1,
+              approved: 0,
+              changesRequested: 0,
+              rejected: 0,
+            },
           },
-          endAt: '2026-09-30T23:59:59.000Z',
-          lifecycle: ProgramLifecycle.ARCHIVED,
-          applications: {
-            total: 3,
-            submitted: 1,
-            pendingApproval: 1,
-            approved: 1,
-            rejected: 1,
-          },
-          applicantsPath: '/programs/program%3A1/applicants',
-          activity: {
-            repositories: 1,
-            commits: 2,
-            pullRequests: 3,
-            releases: 4,
-            lastActivityAt: '2026-07-20T00:00:00.000Z',
-            dataAsOf: '2026-07-21T00:00:00.000Z',
-          },
-          submissions: {
-            approvedApplications: 1,
-            milestones: 2,
-            total: 2,
-            notSubmitted: 1,
-            submitted: 1,
-            approved: 0,
-            changesRequested: 0,
-            rejected: 0,
-          },
-        },
-      ],
-    });
-    expect(summary).toHaveBeenCalledTimes(1);
-  });
+        ],
+      });
+      expect(summary).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('guards insights the same way and resolves a missing year to all-time', async () => {
     const summarize = jest.fn().mockResolvedValue({

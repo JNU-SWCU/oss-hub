@@ -2,6 +2,7 @@ import {
   AccountStatus,
   ApplicationStatus,
   ProgramLifecycle,
+  RepositoryConnectionMode,
   RepositoryVisibility,
   StaffAccessRequestStatus,
 } from '@prisma/client';
@@ -18,9 +19,12 @@ import {
   createProgramDeletionAuditMetadata,
   createProgramLifecycleAuditMetadata,
   createTeamCreatedAuditMetadata,
+  createTeamDeletedAuditMetadata,
   createTeamJoinedAuditMetadata,
   createTeamMembershipAuditMetadata,
+  createTeamRenamedAuditMetadata,
   createRepositoryPublishAuditMetadata,
+  createRepositoryConnectionAuditMetadata,
   createSubmissionFileCleanupAuditMetadata,
   createUserPhoneAuditMetadata,
   InvalidAuditLogMetadataError,
@@ -29,9 +33,11 @@ import {
   PROGRAM_CREATED_AUDIT_SCHEMA_VERSION,
   PROGRAM_DELETION_AUDIT_SCHEMA_VERSION,
   TEAM_CREATED_AUDIT_SCHEMA_VERSION,
+  TEAM_DELETED_AUDIT_SCHEMA_VERSION,
   TEAM_JOINED_AUDIT_SCHEMA_VERSION,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_OPERATIONS,
+  TEAM_RENAMED_AUDIT_SCHEMA_VERSION,
   TEAM_MEMBERSHIP_AUDIT_SCHEMA_VERSION,
   PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION,
   PROGRAM_LIFECYCLE_AUDIT_SCHEMA_VERSION_V1,
@@ -336,6 +342,55 @@ describe('createProgramDeletionAuditMetadata / parseAuditLogMetadata — PROGRAM
     expect(Object.keys(metadata).sort()).toEqual(
       ['blockingCounts', 'lifecycle', 'programName', 'schemaVersion'].sort(),
     );
+  });
+});
+
+describe('createRepositoryConnectionAuditMetadata / parseAuditLogMetadata', () => {
+  it('연결 전후 current tuple을 그대로 보존한다', () => {
+    const metadata = createRepositoryConnectionAuditMetadata({
+      applicationId: 'synthetic-application',
+      before: {
+        repositoryId: 'synthetic-old',
+        nameWithOwner: 'synthetic-owner/old',
+        connectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl: 'https://github.com/synthetic-owner/old',
+      },
+      after: {
+        repositoryId: 'synthetic-new',
+        nameWithOwner: 'synthetic-org/new',
+        connectionMode: RepositoryConnectionMode.NEW,
+        repositoryUrl: null,
+      },
+    });
+
+    expect(parseAuditLogMetadata(metadata)).toEqual({
+      legacy: false,
+      metadata,
+    });
+  });
+
+  it('allowlist 밖 연결 metadata key를 읽기 경계에서 버린다', () => {
+    const parsed = parseAuditLogMetadata({
+      schemaVersion: 1,
+      applicationId: 'synthetic-application',
+      before: {
+        repositoryId: null,
+        nameWithOwner: null,
+        connectionMode: RepositoryConnectionMode.NEW,
+        repositoryUrl: null,
+        privateNote: 'must-not-leak',
+      },
+      after: {
+        repositoryId: 'synthetic-repository',
+        nameWithOwner: 'synthetic-owner/repository',
+        connectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl: 'https://github.com/synthetic-owner/repository',
+        privateNote: 'must-not-leak',
+      },
+    });
+
+    expect(parsed).toMatchObject({ legacy: false });
+    expect(JSON.stringify(parsed)).not.toContain('privateNote');
   });
 });
 
@@ -835,5 +890,97 @@ describe('createApplicationSubmittedAuditMetadata / parseAuditLogMetadata — AP
         applicantGithubLogin: 'synthetic-login',
       }),
     ).toThrow(InvalidAuditLogMetadataError);
+  });
+});
+
+describe('createTeamRenamedAuditMetadata / parseAuditLogMetadata — TEAM_RENAMED', () => {
+  const RENAMED = createTeamRenamedAuditMetadata({
+    programName: '합성 프로그램',
+    teamName: '알잘딱팀',
+    previousName: '합성 팀',
+  });
+
+  it('바뀐 이름과 바뀌기 전 이름을 한 스냅샷에 함께 도장 찍는다', () => {
+    expect(RENAMED.schemaVersion).toBe(TEAM_RENAMED_AUDIT_SCHEMA_VERSION);
+    expect(parseAuditLogMetadata(RENAMED)).toEqual({
+      legacy: false,
+      metadata: RENAMED,
+    });
+  });
+
+  // 등록 순서 회귀 방지 — TEAM_CREATED/TEAM_JOINED가 먼저 잡으면 previousName이
+  // 조용히 잘려 "팀 생성 행"처럼 보이고, 감사 원장은 append-only라 되돌릴 수 없다.
+  it('일반 팀 상태 parser가 이름 변경 필드를 먼저 삼키지 않는다', () => {
+    expect(parseAuditLogMetadata(RENAMED).metadata).toMatchObject({
+      previousName: '합성 팀',
+      teamName: '알잘딱팀',
+    });
+  });
+
+  it('previousName 이 문자열이 아니면 팀 생성 행으로 격하되지 않고 거부된다', () => {
+    for (const broken of [
+      { ...RENAMED, previousName: null },
+      { ...RENAMED, previousName: 42 },
+      { ...RENAMED, previousName: {} },
+    ]) {
+      expect(() => parseAuditLogMetadata(broken)).toThrow(
+        InvalidAuditLogMetadataError,
+      );
+    }
+  });
+});
+
+describe('createTeamDeletedAuditMetadata / parseAuditLogMetadata — TEAM_DELETED', () => {
+  const DELETED = createTeamDeletedAuditMetadata({
+    programName: '합성 프로그램',
+    teamName: '합성 팀',
+    deletedCounts: {
+      applications: 1,
+      members: 3,
+      invitations: 2,
+      submissions: 4,
+      submissionEvents: 9,
+      detachedRepositories: 1,
+    },
+  });
+
+  it('함께 사라진 것의 수치를 한 스냅샷에 도장 찍는다', () => {
+    expect(DELETED.schemaVersion).toBe(TEAM_DELETED_AUDIT_SCHEMA_VERSION);
+    expect(parseAuditLogMetadata(DELETED)).toEqual({
+      legacy: false,
+      metadata: DELETED,
+    });
+  });
+
+  // 등록 순서 회귀 방지 — TEAM_CREATED/TEAM_JOINED가 먼저 잡으면 deletedCounts가
+  // 조용히 잘려 「팀이 생성됐다」는 정반대 사실로 읽히고, 원장은 append-only라 되돌릴 수 없다.
+  it('일반 팀 상태 parser가 삭제 수치를 먼저 삼키지 않는다', () => {
+    expect(parseAuditLogMetadata(DELETED).metadata).toMatchObject({
+      deletedCounts: { members: 3, detachedRepositories: 1 },
+      teamName: '합성 팀',
+    });
+  });
+
+  it('수치가 빠졌거나 정수가 아니면 팀 생성 행으로 격하되지 않고 거부된다', () => {
+    for (const broken of [
+      { ...DELETED, deletedCounts: null },
+      { ...DELETED, deletedCounts: {} },
+      {
+        ...DELETED,
+        deletedCounts: { ...DELETED.deletedCounts, members: 1.5 },
+      },
+      {
+        ...DELETED,
+        deletedCounts: { ...DELETED.deletedCounts, detachedRepositories: '1' },
+      },
+      {
+        ...DELETED,
+        deletedCounts: { ...DELETED.deletedCounts, unexpected: 0 },
+      },
+    ]) {
+      expect(() => parseAuditLogMetadata(broken)).toThrow(
+        InvalidAuditLogMetadataError,
+      );
+    }
   });
 });

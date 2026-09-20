@@ -139,7 +139,9 @@ describe('내린 프로그램의 상세 화면이 신청을 권하지 않는다'
 
   async function openDetail(): Promise<void> {
     await act(async () => {
-      root.render(<ProgramDetailPage programId={PROGRAM_ID} />);
+      root.render(
+        <ProgramDetailPage programId={PROGRAM_ID} session="present" />,
+      );
     });
     await vi.waitFor(() => {
       expect(

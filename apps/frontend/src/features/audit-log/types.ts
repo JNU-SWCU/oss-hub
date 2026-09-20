@@ -23,6 +23,11 @@ export interface AuditLogRecord {
   // 전달하지 않는다(parser.ts). 검증에 실패했거나 필드가 빠진 행은 이 값이 없고,
   // 그때 describe.ts는 "상세 내용 없음"으로 서술한다 — 생성/합류로 추측하지 않는다.
   readonly teamMembership?: TeamMembershipChangeSummary;
+  // TEAM_RENAMED 행에서만 채워지는 바뀜기 전 팀 이름이다. `target`은 바뀐 뒤의
+  // 이름이라 이 값이 없으면 「무엇에서 무엇으로」가 성립하지 않는다 — 백엔드가
+  // 같은 스냅샷에 둘을 함께 봉인 이유다(ADR-007). 검증에 실패한 행은 이 값이 없고,
+  // 그때 describe.ts는 이전 이름을 빼고 서술한다 — 아무 이름이나 지어내지 않는다.
+  readonly teamPreviousName?: string;
   readonly occurredAt: string;
   readonly phoneTransition?: UserPhoneAuditTransition;
 }
@@ -59,12 +64,15 @@ export const AUDIT_LOG_ACTION_LABELS = {
   USER_ROLE_CHANGED: '역할 변경',
   USER_ACCOUNT_STATUS_CHANGED: '계정 상태 변경',
   REPOSITORY_PUBLISHED: '저장소 공개',
+  REPOSITORY_CONNECTION_CHANGED: '저장소 연결 변경',
   PROGRAM_CREATED: '프로그램 생성',
   PROGRAM_ARCHIVED: '프로그램 보관',
   PROGRAM_RESTORED: '프로그램 복구',
   PROGRAM_DELETED: '프로그램 삭제',
   TEAM_CREATED: '팀 생성',
   TEAM_JOINED: '팀 합류',
+  TEAM_RENAMED: '팀 이름 변경',
+  TEAM_DELETED: '팀 삭제',
   TEAM_MEMBERSHIP_CHANGED: '팀 구성 변경',
   COLLECTION_SYNC_TRIGGERED: '수집 실행',
   SUBMISSION_FILE_CLEANUP_RETRY_RESET: '제출 파일 정리 재시도',

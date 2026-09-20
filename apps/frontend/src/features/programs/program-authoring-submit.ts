@@ -86,7 +86,7 @@ export async function ensureUploads(options: {
   ProgramAuthoringSubmitResult,
   { readonly kind: 'failure' }
 > | null> {
-  if (options.state.coverFile) {
+  if (options.state.coverFile && !options.state.externalCover) {
     const failure = await preparePendingUploads({
       candidates: [{ localId: 'program-cover', file: options.state.coverFile }],
       runtime: options.runtime,
@@ -101,6 +101,12 @@ export async function ensureUploads(options: {
         message:
           '대표 이미지를 올리지 못했습니다. 선택한 이미지는 유지되며 다시 시도할 수 있습니다.',
       };
+  } else if (options.runtime.uploads.has('program-cover')) {
+    await cleanupPreparedUploads({
+      runtime: options.runtime,
+      localIds: ['program-cover'],
+      deleteUpload: options.api.deleteUpload,
+    });
   }
   const pending: PendingUploadCandidate[] = [];
   for (const milestone of options.state.milestones) {

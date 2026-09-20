@@ -224,7 +224,11 @@ export class ProgramsService {
 
       return {
         id: program.id,
-        coverImageUrl: programCoverImageUrl(program.id, program.cover?.id),
+        coverImageUrl: programCoverImageUrl(
+          program.id,
+          program.cover?.id,
+          program.cover?.imageUrl,
+        ),
         name: program.name,
         organizer: program.organizer,
         trackType: program.trackType,

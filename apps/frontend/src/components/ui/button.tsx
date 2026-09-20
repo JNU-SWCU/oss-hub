@@ -28,6 +28,11 @@ const buttonVariants = cva(
         destructive:
           'bg-destructive/10 text-destructive-on-tint hover:bg-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30',
         link: 'text-primary underline-offset-4 hover:underline',
+        // 필터·세그먼트 칩(`FilterChip`)의 토글 표면. 둥근 알약이되 눌림(`aria-pressed`)은
+        // primary 채움, 아니면 테두리만 있는 표면이다. 읽기 전용 StatusBadge(h-tag·점)와는
+        // 44px 높이와 테두리로 구분되므로 누르는 것임이 보인다.
+        toggle:
+          'rounded-full border-border bg-background text-foreground hover:bg-muted aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary/90 dark:border-input',
       },
       size: {
         default:

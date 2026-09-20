@@ -6,7 +6,7 @@ import {
 } from '@prisma/client';
 import type { StorageReferenceRepository } from './storage-orphan-reconciliation';
 
-type StorageKey = { readonly storageKey: string };
+type StorageKey = { readonly storageKey: string | null };
 type StorageId = { readonly id: string };
 
 type StorageKeyReader<Where> = {
@@ -83,6 +83,7 @@ export class PrismaStorageReferenceRepository implements StorageReferenceReposit
             select: { storageKey: true },
           }),
           transaction.programCover.findMany({
+            where: { source: 'OWNED' },
             select: { storageKey: true },
           }),
           transaction.milestoneDocumentTemplateFile.findMany({
@@ -103,7 +104,9 @@ export class PrismaStorageReferenceRepository implements StorageReferenceReposit
             ...programCovers,
             ...templateFiles,
             ...purgeTombstones,
-          ].map(({ storageKey }) => storageKey),
+          ].flatMap(({ storageKey }) =>
+            storageKey === null ? [] : [storageKey],
+          ),
         );
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
@@ -135,7 +138,7 @@ export class PrismaStorageReferenceRepository implements StorageReferenceReposit
             select: { id: true },
           }),
           transaction.programCover.findFirst({
-            where: { storageKey: key },
+            where: { storageKey: key, source: 'OWNED' },
             select: { id: true },
           }),
           transaction.milestoneDocumentTemplateFile.findFirst({

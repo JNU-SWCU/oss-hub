@@ -11,14 +11,17 @@ import type {
   ApplicationListItem,
   ApplicationListPage,
   ApplicationListParams,
+  DeletedTeamResult,
   ProgramActivity,
   ProgramDetail,
   ProgramListPage,
   ProgramListParams,
   ProgramStatusCounts,
   RepositoryProvisioning,
+  RenamedTeam,
   StaffProgramTeam,
   StaffTeamDetail,
+  TeamDeletionScope,
   ProgramParticipation,
   StaffDashboardSummary,
   SubmissionType,
@@ -196,6 +199,8 @@ export interface ProgramDeletionScopeCounts {
 
 export interface EditableProgram {
   readonly coverImageUrl?: string | null;
+  readonly externalCover?:
+    import('./program-cover-selection').ExternalProgramCover | null;
   readonly id: string;
   readonly name: string;
   readonly organizer: string;
@@ -221,6 +226,8 @@ export interface EditableProgram {
 
 export type UpdateProgramInput = Omit<CreateProgramInput, 'endAt'> & {
   readonly coverUploadId?: string | null;
+  readonly externalCover?:
+    import('./program-cover-selection').ExternalProgramCover | null;
   readonly startAt: string;
   readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
@@ -263,6 +270,18 @@ export function getProgramStatusCounts(): Promise<ProgramStatusCounts> {
   return apiClient<ProgramStatusCounts>('programs/status-counts');
 }
 
+/** 세션 없이 볼 수 있는 공개 상세. 비로그인 방문자는 이것만 부른다(#1294). */
+export function getPublicProgramDetail(
+  programId: string,
+): Promise<ProgramDetail> {
+  return apiClient<ProgramDetail>(`programs/${encodeURIComponent(programId)}`);
+}
+
+/**
+ * 세션이 있는 방문자의 상세. viewer 응답이 401이면(그 사이 세션이 끝난 경우) 공개
+ * 상세로 내려간다. 비로그인이 확실할 때는 `getPublicProgramDetail`을 바로 불러
+ * 401을 만들지 않는다.
+ */
 export async function getProgramDetail(
   programId: string,
 ): Promise<ProgramDetail> {
@@ -272,7 +291,7 @@ export async function getProgramDetail(
   } catch (error: unknown) {
     if (!(error instanceof ApiError) || error.problem.status !== 401)
       throw error;
-    return apiClient<ProgramDetail>(`programs/${encodedId}`);
+    return getPublicProgramDetail(programId);
   }
 }
 
@@ -698,4 +717,47 @@ export async function getStaffProgramTeamDetail(
     `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
   );
   return { ...detail, ...parseStaffRepositoryEvidence(detail) };
+}
+
+/**
+ * 팀 이름 변경. 그 팀의 현재 팀장과 교직원·관리자가 **같은 endpoint**를 쓴다 —
+ * 권한은 백엔드가 팀 행을 잠근 뒤 판정하므로 화면이 역할로 미리 갈라 부르지 않는다.
+ *
+ * 응답에는 바뀐 이름만 온다(`RenameTeamResponseDto`). 교직원 상세를 그대로 돌려주면
+ * 학생 팀장에게 저장소 URL이 따라 나가기 때문이다 — 부르는 화면이 이미 들고 있는
+ * 상세에 이 이름만 덮어 쓴다.
+ */
+export function renameProgramTeam(
+  programId: string,
+  teamId: string,
+  name: string,
+): Promise<RenamedTeam> {
+  return apiClient<RenamedTeam>(
+    `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
+    {
+      method: 'PATCH',
+      headers: jsonHeaders,
+      body: JSON.stringify({ name }),
+    },
+  );
+}
+
+/**
+ * 교직원 팀 삭제. `expectedScope`는 누르는 사람이 확인 창에서 마지막으로 본 범위이며
+ * REQUIRED다 — 백엔드가 같은 값을 삭제 트랜잭션 안에서 다시 읽은 현재 범위와 비교해,
+ * 확인 이후 생긴 행이 있으면 409(TEAM_019)로 거부한다. `purgeProgram`과 같은 계약이다.
+ */
+export function deleteStaffProgramTeam(
+  programId: string,
+  teamId: string,
+  expectedScope: TeamDeletionScope,
+): Promise<DeletedTeamResult> {
+  return apiClient<DeletedTeamResult>(
+    `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
+    {
+      method: 'DELETE',
+      headers: jsonHeaders,
+      body: JSON.stringify({ expectedScope }),
+    },
+  );
 }

@@ -55,4 +55,31 @@ describe('PageHeader', () => {
 
     expect(html).not.toContain('page-header-description');
   });
+
+  /**
+   * 제목 그 자체를 대상으로 하는 액션(예: 이름 수정)은 heading **밖**에 서야 한다.
+   * 안에 넣으면 버튼 라벨이 heading의 접근 가능한 이름에 섮인다.
+   */
+  it('renders titleAction outside the heading element', () => {
+    const html = renderToStaticMarkup(
+      <PageHeader
+        title="한빛 팀"
+        titleAction={<button aria-label="한빛 팀 수정" />}
+      />,
+    );
+
+    const heading = html.slice(
+      html.indexOf('data-slot="page-header-title"'),
+      html.indexOf('</h1>'),
+    );
+    expect(heading).toContain('한빛 팀');
+    expect(heading).not.toContain('수정');
+    expect(html).toContain('page-header-title-action');
+  });
+
+  it('omits the title action wrapper when no titleAction is given', () => {
+    const html = renderToStaticMarkup(<PageHeader title="프로그램" />);
+
+    expect(html).not.toContain('page-header-title-action');
+  });
 });

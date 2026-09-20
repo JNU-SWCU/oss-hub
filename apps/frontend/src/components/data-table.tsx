@@ -20,6 +20,11 @@ interface DataTableColumn<TRow> {
   cellClassName?: string;
   /** 헤더 `<th>`에 그대로 전달되는 속성. 정렬 가능한 컬럼의 `aria-sort` 등에 쓴다. */
   headProps?: Pick<React.ComponentProps<'th'>, 'aria-sort'>;
+  /**
+   * true면 본문 셀을 `<th scope="row">`로 그린다. 기간·이름처럼 행을 대표하는
+   * 열에 켜면 보조기기가 각 셀을 읽을 때 행 제목을 함께 들려준다.
+   */
+  rowHeader?: boolean;
 }
 
 interface DataTableProps<TRow> extends Omit<
@@ -30,6 +35,12 @@ interface DataTableProps<TRow> extends Omit<
   data: TRow[];
   rowKey: (row: TRow, rowIndex: number) => React.Key;
   caption?: React.ReactNode;
+  /**
+   * true면 caption을 보조기기에만 읽힌다. 카드 제목이 이미 표 이름을 보여 주는
+   * 자리에서 쓴다 — caption을 아예 빼면 표 이름이 사라지고, 보이게 두면 같은
+   * 말이 두 번 보인다.
+   */
+  hideCaption?: boolean;
   /**
    * 가로 스크롤 영역의 이름. 표가 넘칠 때 키보드 사용자가 초점을 옮겨 왔을 때
    * 무슨 표인지 들리게 한다. 화면마다 다르므로 호출부가 준다.
@@ -77,6 +88,7 @@ function DataTable<TRow>({
   data,
   rowKey,
   caption,
+  hideCaption = false,
   scrollRegionLabel,
   isLoading = false,
   loadingSlot,
@@ -124,7 +136,11 @@ function DataTable<TRow>({
         scrollRegionLabel={scrollRegionLabel}
         scrollRegionDescribedBy={describedBy}
       >
-        {caption ? <TableCaption>{caption}</TableCaption> : null}
+        {caption ? (
+          <TableCaption className={hideCaption ? 'sr-only' : undefined}>
+            {caption}
+          </TableCaption>
+        ) : null}
         <TableHeader>
           <TableRow>
             {columns.map((column) => (
@@ -194,11 +210,24 @@ function DataTable<TRow>({
                       : undefined
                   }
                 >
-                  {columns.map((column) => (
-                    <TableCell key={column.id} className={column.cellClassName}>
-                      {column.cell(row, rowIndex)}
-                    </TableCell>
-                  ))}
+                  {columns.map((column) =>
+                    column.rowHeader ? (
+                      <TableHead
+                        key={column.id}
+                        scope="row"
+                        className={column.cellClassName}
+                      >
+                        {column.cell(row, rowIndex)}
+                      </TableHead>
+                    ) : (
+                      <TableCell
+                        key={column.id}
+                        className={column.cellClassName}
+                      >
+                        {column.cell(row, rowIndex)}
+                      </TableCell>
+                    ),
+                  )}
                 </TableRow>
               );
             })

@@ -11,6 +11,7 @@ import {
   StatusBadge,
   type DataTableColumn,
 } from '@/components';
+import { FilterChip, FilterChipGroup } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -435,7 +436,7 @@ export function ProgramStaffTeamsPage({
         </Alert>
       ) : null}
 
-      <div className="flex flex-wrap gap-2" role="group" aria-label="상태 필터">
+      <FilterChipGroup aria-label="상태 필터">
         {(
           [
             ['all', `전체 ${counts.all}`],
@@ -457,17 +458,15 @@ export function ProgramStaffTeamsPage({
             ],
           ] as const
         ).map(([value, label]) => (
-          <button
+          <FilterChip
             key={value}
-            type="button"
-            aria-pressed={filter === value}
+            pressed={filter === value}
             onClick={() => setFilter(value)}
-            className="rounded-full border px-3 py-1 text-sm aria-pressed:bg-primary aria-pressed:text-primary-foreground"
           >
             {label}
-          </button>
+          </FilterChip>
         ))}
-      </div>
+      </FilterChipGroup>
 
       <Input
         aria-label="팀 검색"

@@ -1,14 +1,26 @@
 import {
+  CollectionRepositoryPresence,
   Prisma,
+  RepositoryConnectionMode,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
+  RepositorySource,
 } from '@prisma/client';
 import type { RepositoryVisibility } from '@prisma/client';
+import {
+  createRepositoryConnectionAuditMetadata,
+  REPOSITORY_CONNECTION_AUDIT_ACTIONS,
+} from '../audit-log/audit-log-metadata';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
 } from './repository-identity';
+import {
+  canonicalGithubLogin,
+  canonicalGithubLogins,
+} from './repository-provision-event';
+import type { GithubRepositoryMetadata } from './github-app.client';
 import type {
   ProvisionedRepository,
   RecordProvisionedRepositoryInput,
@@ -16,6 +28,24 @@ import type {
 
 export class RepositoryProvisionLeaseLostError extends Error {
   override readonly name = 'RepositoryProvisionLeaseLostError';
+}
+
+export class RepositoryProvisionSupersededError extends Error {
+  override readonly name = 'RepositoryProvisionSupersededError';
+
+  constructor(readonly staleRequestId: string) {
+    super('Repository provision request was superseded');
+  }
+}
+
+export class GithubRepositoryClaimConflictError extends Error {
+  override readonly name = 'GithubRepositoryClaimConflictError';
+}
+
+interface LockedRepositoryClaimTarget {
+  readonly id: string;
+  readonly applicationId: string | null;
+  readonly source: RepositorySource;
 }
 
 /// GithubRepository는 name/url 컬럼을 두지 않는다(#617 단계 D) — nameWithOwner를 select하고
@@ -73,6 +103,55 @@ export async function assertProvisionLease(
   assertSingleProvisionUpdate(count);
 }
 
+/**
+ * worker가 잡은 lease와 요청 세대를 한 행 잠금 아래에서 함께 확인한다.
+ *
+ * 세대 검사를 먼저 한다. 새 요청이 같은 job을 재무장하면 옛 worker의 lease도
+ * 사라지는데, 그때 단순 lease-loss로 읽으면 옛 요청을 SUPERSEDED 이력으로 닫을
+ * 수 없다. 반대로 세대가 같을 때만 기존 lease-loss 의미를 유지한다.
+ */
+export async function assertCurrentRequest(
+  transaction: Prisma.TransactionClient,
+  jobId: string,
+  workerId: string,
+  expectedRequestId: string,
+): Promise<{
+  readonly applicationId: string;
+  readonly repositoryId: string | null;
+}> {
+  const rows = await transaction.$queryRaw<
+    readonly {
+      readonly applicationId: string;
+      readonly currentEventId: string | null;
+      readonly repositoryId: string | null;
+      readonly status: RepositoryProvisionJobStatus;
+      readonly lockedBy: string | null;
+    }[]
+  >(Prisma.sql`
+    SELECT "applicationId", "currentEventId", "repositoryId", "status", "lockedBy"
+    FROM "RepositoryProvisionJob"
+    WHERE "id" = ${jobId}
+    FOR UPDATE
+  `);
+  const row = rows[0];
+  if (row === undefined) {
+    throw new RepositoryProvisionLeaseLostError();
+  }
+  if (row.currentEventId !== expectedRequestId) {
+    throw new RepositoryProvisionSupersededError(expectedRequestId);
+  }
+  if (
+    row.status !== RepositoryProvisionJobStatus.PROCESSING ||
+    row.lockedBy !== workerId
+  ) {
+    throw new RepositoryProvisionLeaseLostError();
+  }
+  return {
+    applicationId: row.applicationId,
+    repositoryId: row.repositoryId,
+  };
+}
+
 export function assertSingleProvisionUpdate(count: number): void {
   if (count !== 1) {
     throw new RepositoryProvisionLeaseLostError();
@@ -84,6 +163,166 @@ export function isPrismaUniqueConstraintError(error: unknown): boolean {
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === 'P2002'
   );
+}
+
+export async function lockApplicationForRepositoryClaim(
+  transaction: Prisma.TransactionClient,
+  applicationId: string,
+): Promise<void> {
+  const rows = await transaction.$queryRaw<readonly { readonly id: string }[]>(
+    Prisma.sql`
+      SELECT "id"
+      FROM "Application"
+      WHERE "id" = ${applicationId}
+      FOR UPDATE
+    `,
+  );
+  if (rows.length !== 1) {
+    throw new GithubRepositoryClaimConflictError();
+  }
+}
+
+/**
+ * Application.repository 포인터와 mode/url을 한 current tuple로 바꾼다.
+ * 기존 행을 먼저 지우지 않고 detach하므로 활동·초대 이력은 보존된다.
+ */
+export async function claimGithubRepositoryForApplication(
+  transaction: Prisma.TransactionClient,
+  input: {
+    readonly applicationId: string;
+    readonly programId: string;
+    readonly teamId: string | null;
+    readonly metadata: GithubRepositoryMetadata;
+    readonly source: RepositorySource;
+    readonly currentConnectionMode: RepositoryConnectionMode;
+    readonly currentRepositoryUrl: string | null;
+    readonly connectionMode: RepositoryConnectionMode;
+    readonly repositoryUrl: string | null;
+    readonly auditActorGithubId?: bigint;
+  },
+): Promise<ProvisionedRepositoryRow> {
+  const target =
+    (
+      await transaction.$queryRaw<readonly LockedRepositoryClaimTarget[]>(
+        Prisma.sql`
+          SELECT "id", "applicationId", "source"
+          FROM "GithubRepository"
+          WHERE "githubRepositoryId" = ${input.metadata.githubRepositoryId}
+          FOR UPDATE
+        `,
+      )
+    )[0] ?? null;
+  if (
+    target !== null &&
+    target.applicationId !== null &&
+    target.applicationId !== input.applicationId
+  ) {
+    throw new GithubRepositoryClaimConflictError();
+  }
+
+  const current = await transaction.githubRepository.findUnique({
+    where: { applicationId: input.applicationId },
+    select: { id: true, nameWithOwner: true },
+  });
+  if (current !== null && current.id !== target?.id) {
+    await transaction.githubRepository.update({
+      where: { id: current.id },
+      data: { applicationId: null, publishedAt: null },
+    });
+  }
+
+  const source =
+    target?.source === RepositorySource.ORG_PROVISIONED
+      ? RepositorySource.ORG_PROVISIONED
+      : input.source;
+  let repository: ProvisionedRepositoryRow;
+  if (target === null) {
+    try {
+      repository = await transaction.githubRepository.create({
+        data: {
+          applicationId: input.applicationId,
+          programId: input.programId,
+          teamId: input.teamId,
+          githubRepositoryId: input.metadata.githubRepositoryId,
+          nameWithOwner: input.metadata.nameWithOwner,
+          visibility: input.metadata.visibility,
+          source,
+          presence: CollectionRepositoryPresence.PRESENT,
+        },
+        select: repositorySelection,
+      });
+    } catch (error) {
+      if (isPrismaUniqueConstraintError(error)) {
+        throw new GithubRepositoryClaimConflictError();
+      }
+      throw error;
+    }
+  } else {
+    const claimed = await transaction.githubRepository.updateMany({
+      where: {
+        id: target.id,
+        OR: [{ applicationId: null }, { applicationId: input.applicationId }],
+      },
+      data: {
+        applicationId: input.applicationId,
+        programId: input.programId,
+        teamId: input.teamId,
+        nameWithOwner: input.metadata.nameWithOwner,
+        visibility: input.metadata.visibility,
+        source,
+        presence: CollectionRepositoryPresence.PRESENT,
+      },
+    });
+    if (claimed.count !== 1) {
+      throw new GithubRepositoryClaimConflictError();
+    }
+    repository = await transaction.githubRepository.findUniqueOrThrow({
+      where: { id: target.id },
+      select: repositorySelection,
+    });
+  }
+
+  await transaction.application.update({
+    where: { id: input.applicationId },
+    data: {
+      repositoryConnectionMode: input.connectionMode,
+      repositoryUrl: input.repositoryUrl,
+    },
+  });
+  if (input.auditActorGithubId !== undefined) {
+    const auditActor = await transaction.user.findUniqueOrThrow({
+      where: { githubId: input.auditActorGithubId },
+      select: { id: true },
+    });
+    await transaction.auditLog.create({
+      data: {
+        actorId: auditActor.id,
+        action:
+          REPOSITORY_CONNECTION_AUDIT_ACTIONS.REPOSITORY_CONNECTION_CHANGED,
+        targetType: 'APPLICATION',
+        targetId: input.applicationId,
+        metadata: createRepositoryConnectionAuditMetadata({
+          applicationId: input.applicationId,
+          before: {
+            repositoryId: current?.id ?? null,
+            nameWithOwner: current?.nameWithOwner ?? null,
+            // caller only supplies actor for first-class connection changes.
+            // The current mode/url are read by that caller under the same
+            // Application lock and supplied separately below.
+            connectionMode: input.currentConnectionMode,
+            repositoryUrl: input.currentRepositoryUrl,
+          },
+          after: {
+            repositoryId: repository.id,
+            nameWithOwner: repository.nameWithOwner,
+            connectionMode: input.connectionMode,
+            repositoryUrl: input.repositoryUrl,
+          },
+        }),
+      },
+    });
+  }
+  return repository;
 }
 
 /**
@@ -112,24 +351,9 @@ export function invitationIntent(
     : 'GRANT';
 }
 
-/**
- * GitHub login 정규화 — trim + 소문자 + 빈 값 제거 + 중복 제거 + 사전순 정렬.
- * fingerprint 비교가 표기 차이나 순서 차이로 흔들리면 완료 직전 재확인이
- * 매번 거짓 불일치를 내고 job이 영원히 재무장된다.
- */
-export function canonicalGithubLogin(login: string | null | undefined): string {
-  return (login ?? '').trim().toLowerCase();
-}
-
-export function canonicalGithubLogins(
-  logins: readonly (string | null | undefined)[],
-): readonly string[] {
-  return [
-    ...new Set(
-      logins.map(canonicalGithubLogin).filter((login) => login.length > 0),
-    ),
-  ].sort();
-}
+// login 정규화는 outbox payload 계약이 요구하는 모양(중복 없음·정렬)과 같은
+// 규칙이라 그 계약을 가진 순수 모듈이 정본을 든다 — 여기서는 다시 내보낼 뿐이다.
+export { canonicalGithubLogin, canonicalGithubLogins };
 
 /** 정규화된 login 목록 그대로가 지문이다 — 별도 해시를 두지 않는다. */
 export function membershipFingerprint(logins: readonly string[]): string {
@@ -157,22 +381,12 @@ export async function lockClaimedProvisionJob(
   transaction: Prisma.TransactionClient,
   jobId: string,
   workerId: string,
-): Promise<{ readonly applicationId: string }> {
-  const rows = await transaction.$queryRaw<
-    { readonly applicationId: string }[]
-  >(Prisma.sql`
-    SELECT "applicationId"
-    FROM "RepositoryProvisionJob"
-    WHERE "id" = ${jobId}
-      AND "status" = CAST(${RepositoryProvisionJobStatus.PROCESSING} AS "RepositoryProvisionJobStatus")
-      AND "lockedBy" = ${workerId}
-    FOR UPDATE
-  `);
-  const row = rows[0];
-  if (rows.length !== 1 || row === undefined) {
-    throw new RepositoryProvisionLeaseLostError();
-  }
-  return row;
+  expectedRequestId: string,
+): Promise<{
+  readonly applicationId: string;
+  readonly repositoryId: string | null;
+}> {
+  return assertCurrentRequest(transaction, jobId, workerId, expectedRequestId);
 }
 
 export function matchesProvisionedMetadata(

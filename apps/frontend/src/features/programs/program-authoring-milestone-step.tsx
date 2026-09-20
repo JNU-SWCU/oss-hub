@@ -22,7 +22,8 @@ import {
   type ProgramScheduleCalendarEvent,
 } from './program-schedule-calendar-model';
 import { ProgramScheduleRangeCalendar } from './program-schedule-range-calendar';
-import { formatKoreanDate, timePart } from './program-schedule-range-selection';
+import { seoulDateTimeToIso } from './program-authoring-manifest';
+import { formatSeoulShortRange } from './program-detail-format';
 import type { ProgramAuthoringIssue } from './program-authoring-validation';
 import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
 
@@ -227,8 +228,7 @@ export function ProgramAuthoringMilestoneStep({
               key={item.id}
               id={item.id}
               name={item.name || '이름 없는 마일스톤'}
-              startAt={rangeLabel(item.startAt)}
-              dueAt={rangeLabel(item.dueAt)}
+              period={rangeLabel(item.startAt, item.dueAt)}
               notice={item.instructions || null}
               onEdit={() => {
                 setAnchorDate(null);
@@ -341,11 +341,13 @@ export function ProgramAuthoringMilestoneStep({
   );
 }
 
-function rangeLabel(value: string): string {
-  const date = dateKey(value);
-  return date === null
+function rangeLabel(startAt: string, dueAt: string): string {
+  return dateKey(startAt) === null || dateKey(dueAt) === null
     ? '기간 미정'
-    : `${formatKoreanDate(date)} ${timePart(value)}`;
+    : formatSeoulShortRange(
+        seoulDateTimeToIso(startAt),
+        seoulDateTimeToIso(dueAt),
+      );
 }
 
 function boundaryDateTime(

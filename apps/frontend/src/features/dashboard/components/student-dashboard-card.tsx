@@ -11,8 +11,9 @@ import {
 import Link from 'next/link';
 
 import { StatusBadge, ProgramCover } from '@/components';
-import { apiPath } from '@/lib/api-client';
+import { programCoverSource } from '@/components/program-cover-source';
 import { Button } from '@/components/ui/button';
+import { SUBMISSION_STATUS_LABELS } from '@/lib/status-vocabulary';
 import {
   Card,
   CardAction,
@@ -28,16 +29,7 @@ import {
 import type {
   DashboardItem,
   DashboardRepositoryProvisionStatus,
-  DashboardSubmissionStatus,
 } from '../types';
-
-const submissionLabels: Record<DashboardSubmissionStatus, string> = {
-  NOT_SUBMITTED: '미제출',
-  SUBMITTED: '검토 중',
-  APPROVED: '승인 완료',
-  CHANGES_REQUESTED: '수정 요청',
-  REJECTED: '반려',
-};
 
 const repositoryStatusLabels: Record<
   DashboardRepositoryProvisionStatus,
@@ -116,7 +108,7 @@ export function StudentDashboardCard({
         <div className="flex min-w-0 items-center gap-3">
           <ProgramCover
             size="thumbnail"
-            src={item.coverImageUrl ? apiPath(item.coverImageUrl) : null}
+            src={programCoverSource(item.coverImageUrl)}
           />
           <CardTitle className="min-w-0 break-keep text-lg">
             {item.programName}
@@ -207,7 +199,7 @@ export function StudentDashboardCard({
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
                 <ClipboardList aria-hidden="true" className="size-4" />
                 제출 상태:{' '}
-                {submissionLabels[item.nextMilestone.submissionStatus]}
+                {SUBMISSION_STATUS_LABELS[item.nextMilestone.submissionStatus]}
               </p>
             </div>
           ) : null}

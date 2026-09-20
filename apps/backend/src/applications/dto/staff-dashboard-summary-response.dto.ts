@@ -101,7 +101,11 @@ export class StaffDashboardProgramSummaryResponseDto {
   readonly submissions: StaffDashboardSubmissionSummaryResponseDto;
 
   private constructor(program: StaffDashboardComposedProgramSummary) {
-    this.coverImageUrl = programCoverImageUrl(program.id, program.coverId);
+    this.coverImageUrl = programCoverImageUrl(
+      program.id,
+      program.coverId,
+      program.coverExternalImageUrl,
+    );
     this.id = program.id;
     this.name = program.name;
     this.trackType = program.trackType;

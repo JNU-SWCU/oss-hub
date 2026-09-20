@@ -1,6 +1,8 @@
 import type {
   CreatedTeamView,
+  DeletedTeamView,
   ProgramTeamView,
+  RenamedTeamView,
   StaffTeamView,
   TeamMemberView,
 } from '../program-teams.types';
@@ -20,6 +22,44 @@ export class CreateTeamResponseDto {
 
   static from(view: CreatedTeamView): CreateTeamResponseDto {
     return new CreateTeamResponseDto(view);
+  }
+}
+
+/**
+ * 이름 변경 응답 — 바뀐 이름만 돌려준다.
+ * 팀장과 교직원이 같은 endpoint를 쓰므로 신청·저장소를 여기에 싣지 않는다.
+ */
+export class RenameTeamResponseDto {
+  readonly teamId: string;
+  readonly name: string;
+
+  private constructor(view: RenamedTeamView) {
+    this.teamId = view.teamId;
+    this.name = view.name;
+  }
+
+  static from(view: RenamedTeamView): RenameTeamResponseDto {
+    return new RenameTeamResponseDto(view);
+  }
+}
+
+/**
+ * 삭제 응답 — 실제로 거둔 수치를 확인 창이 보여준 것과 같은 축으로 돌려준다.
+ * `detachedRepositories`는 지운 수가 아니라 연결만 끊은 저장소 수다.
+ */
+export class DeleteTeamResponseDto {
+  readonly teamId: string;
+  readonly deleted: true;
+  readonly deletedCounts: DeletedTeamView['deletedCounts'];
+
+  private constructor(view: DeletedTeamView) {
+    this.teamId = view.teamId;
+    this.deleted = view.deleted;
+    this.deletedCounts = view.deletedCounts;
+  }
+
+  static from(view: DeletedTeamView): DeleteTeamResponseDto {
+    return new DeleteTeamResponseDto(view);
   }
 }
 

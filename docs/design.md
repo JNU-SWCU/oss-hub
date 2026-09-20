@@ -33,14 +33,14 @@
 
 규칙마다 소유자는 한 문서다.
 모든 규칙은 리뷰로 강제하며 자동 검사는 아직 없다.
-자동 검사는 lint PR이 R-08a·R-08b에 대해 처음 도입하고 그 밖의 열은 현재 부채를 해소할 후속 PR을 가리킨다.
+자동 검사는 R-08a·R-08b·R-38을 `apps/frontend/eslint-rules/design-system.mjs`가 강제하고(#1310), 그 밖의 열은 현재 부채를 해소할 후속 PR을 가리킨다.
 
 | 규칙 | 소유자 | 현재 부채를 해소할 후속 PR |
 | --- | --- | --- |
 | R-01, R-02 | `apps/frontend/src/components/AGENTS.md` | 없음 — 리뷰로 유지 |
 | R-04 | 이 문서 | composition API PR |
 | R-06 | 이 문서 | dialog shell PR |
-| R-08a, R-08b | 이 문서 | lint PR |
+| R-08a, R-08b, R-38 | 이 문서 | 없음 — lint가 강제한다. 기존 위반은 `apps/frontend/eslint-suppressions.json`이 억제하며 폴더 단위 후속 PR로 줄인다 |
 | R-09, R-10 | 이 문서 | FailureState PR |
 | R-17 | 이 문서 | Skeleton PR |
 | R-11, R-12 | 이 문서 | Alert kind PR |
@@ -49,6 +49,7 @@
 | R-20 | 이 문서 | 런타임-테스트 경계 lint |
 | R-03, R-05, R-07, R-15, R-16, R-21, R-24, R-25 | 이 문서 | 없음 — 리뷰로 유지 |
 | R-26 ~ R-33 | 이 문서 (§화면별 결정 기록 → 학생 팀 구성·신청·초대 상호작용) | 없음 — 리뷰로 유지 |
+| R-34 | 이 문서 | 없음 — 리뷰로 유지 |
 
 ## 구현 스택
 
@@ -139,6 +140,11 @@ Button의 `destructive` variant는 이 토큰을 **흰 전경의 불투명 배�
 | Body | `text-sm leading-normal` |
 | Caption | `text-sm text-muted-foreground` |
 
+날짜는 자리에 따라 표기를 고른다.
+문장과 입력 확인은 `YYYY년 M월 D일 (요일) HH:mm`으로 적고, 마일스톤 카드처럼 좁은 칸의 기간은 한 줄 `YY.MM.DD – YY.MM.DD HH:mm`(시작 날짜, 마감 날짜와 시각, 서울 시각, 가운데는 en dash)으로 적는다 — 「26.08.05 – 26.08.06 01:58」.
+
+**R-37** 좁은 칸의 기간 한 줄은 `program-detail-format.ts`의 `formatSeoulShortRange`만 쓰고 호출부가 형식을 다시 만들지 않으며, 다른 화면의 긴 날짜 표기를 이 형식으로 바꾸지 않는다.
+
 ### 간격과 크기
 
 Tailwind v4 기본 spacing 스케일을 그대로 쓴다.
@@ -149,6 +155,24 @@ Tailwind v4 기본 spacing 스케일을 그대로 쓴다.
 모서리는 semantic `--radius`(0.625rem)를 component 계층에서 `--radius-sm` ~ `--radius-4xl`로 확장해 쓴다.
 그림자는 Tailwind 기본 `shadow-sm`/`shadow`/`shadow-md` 유틸리티를 그대로 쓰고, 이번 단계에서 별도 elevation 토큰은 추가하지 않는다.
 
+## Figma 동기화
+
+토큰의 원본은 `apps/frontend/src/app/globals.css` 하나다. Figma는 그 사본을 읽는다.
+**R-36** 토큰 값·이름은 `globals.css`에서만 바꾸고, 바꾼 뒤 `pnpm --filter frontend tokens:export`로 `docs/design-tokens/tokens.json`을 다시 만든다. 생성 파일을 손으로 고치지 않으며, 단위 테스트(`src/lib/design-tokens.test.ts`)가 원본과 어긋난 생성 파일을 잡는다.
+
+| 세트 | 원본 | 내용 |
+| --- | --- | --- |
+| `primitive` | `:root`의 `--palette-*` | 색 램프. `palette.navy.600`처럼 경로로 부른다 |
+| `dimension` | `:root`의 `--space-*`·`--measure-*`·`--step-*` | 여백 척도·고정 치수·글자 크기 계단(`fontSize.page` 등) |
+| `light` | `:root`의 semantic | 역할 토큰. 값은 `{palette.navy.600}` 같은 alias |
+| `dark` | `.dark` | 다크 모드 재정의 |
+
+내보내지 않는 것: `@theme inline`(Tailwind 유틸리티 이름 매핑 — 코드 전용), `@media`, `[data-surface]` 반전 표면 스코프. `color-mix`·`rgb(var(…))` 같은 계산값은 CSS 문자열 그대로 두고 `description`에 손으로 지정한다고 적는다 — Figma는 그 식을 풀 수 없다.
+
+Figma에서 읽는 절차: Tokens Studio 플러그인 → Settings → Sync providers에서 GitHub(`docs/design-tokens/tokens.json`, 브랜치 main)를 연결하거나, 파일을 내려받아 Load from file로 읽는다. 테마는 `$themes`의 Light·Dark 둘이다. 폰트 패밀리는 아직 내보내지 않는다 — 본문 폰트 교체(Pretendard)는 PM이 Figma 시안을 본 뒤 정한다(2026-09-19).
+
+PR 게이트: 본문 「정리」 절의 `- 디자인 규격:` 줄에 이번 PR이 쓴 공용 컴포넌트·토큰과 규격 출처(이 문서의 컴포넌트 카드 이름 또는 Figma 컴포넌트 링크)를 적는다. `scripts/check-pr-body.sh`의 R12가 빈 줄·자리표시자·이유 없는 예외를 막는다(#1309).
+
 ## 프리미티브
 
 Button부터 Table까지 6종은 `npx shadcn@latest add`로 생성했다(`radix-nova` 스타일).
@@ -156,7 +180,9 @@ Collapsible을 포함한 파일은 `apps/frontend/src/components/ui/`에 있고,
 
 ### Button
 
-`button.tsx`. 모든 액션 트리거(제출, 이동, 보조 액션)의 기반이며 variant(default/outline/secondary/ghost/destructive/link)와 size 변형을 cva로 관리한다.
+`button.tsx`. 모든 액션 트리거(제출, 이동, 보조 액션)의 기반이며 variant(default/outline/secondary/ghost/destructive/link/toggle)와 size 변형을 cva로 관리한다.
+`toggle`은 `FilterChip`이 쓰는 눌림 표면이며 feature가 직접 고르지 않는다.
+아이콘만 있는 버튼은 `variant="ghost" size="icon"`(44px 정사각)에 `aria-label`과 툴팁을 함께 붙인다. feature에서 `inline-flex size-11 …` 날 `<button>`을 다시 만들지 않는다(R-27, AP-17).
 
 ### Input
 
@@ -178,7 +204,8 @@ Collapsible을 포함한 파일은 `apps/frontend/src/components/ui/`에 있고,
 
 ### Table
 
-`table.tsx`. 표 형태 데이터를 위한 프리미티브(필수 지정 항목)다. DetailPanelLayout의 목록 영역이나 관리 화면에서 쓰일 예정이다.
+`table.tsx`. 표 프리미티브다. feature는 이 프리미티브를 직접 조합하지 않고 `DataTable`을 쓴다(R-07). 행을 대표하는 열은 `DataTableColumn.rowHeader`로 `<th scope="row">`가 된다.
+직접 조합은 서류 수합 행렬 한 곳만 §수용된 부채에 기록된 예외이며, 차트의 낭독 전용 `sr-only` 표는 프리미티브도 DataTable도 쓰지 않는 시맨틱 `<table>`로 둔다.
 
 ### Collapsible
 
@@ -187,6 +214,7 @@ Collapsible을 포함한 파일은 `apps/frontend/src/components/ui/`에 있고,
 
 **R-24** `apps/frontend/src/components/ui/*`는 shadcn 생성물이고 소유권은 저장소에 있으며 semantic 토큰 적용·`data-slot` 추가·접근성 보강은 허용하고 공개 slot·role을 바꾸는 DOM 변경과 도메인 분기 삽입은 금지한다.
 **R-25** 새 시각 변형은 `cva` variant를 소유 프리미티브에 추가해 만들고 variant 이름은 의미(kind·size)로 지으며 소비자 쪽 `className` 오버라이드로 변형을 만들지 않는다.
+**R-34** 목록을 거르거나 묶음 안에서 하나를 고르는 눌림 버튼(상태 필터·판정 선택·단계 이동)은 `FilterChipGroup`/`FilterChip`으로 만들고 feature 코드에 `aria-pressed`를 가진 날 `<button>`을 두지 않으며, 눌림 시각은 Button의 `toggle` variant 하나다.
 
 ## Composition 계약
 
@@ -198,6 +226,8 @@ Collapsible을 포함한 파일은 `apps/frontend/src/components/ui/`에 있고,
 **R-08b — 색**: `apps/frontend/src/{components,features,app}/**`의 모든 TS/TSX에서 색 상수 배열·데이터 객체·inline `style` 값을 포함한 hex 색상 리터럴과 `--palette-*` 직접 참조를 금지하고 semantic 토큰을 쓴다.
 예외는 토큰 소유자 `apps/frontend/src/app/globals.css`, 격리 문서 `apps/frontend/public/policies/policy-document.css`, canvas 전용 테마 상수 `apps/frontend/src/features/landing/cosmos/cosmos-theme.ts`뿐이다.
 CSS 파일 일반과 컴포넌트 CSS는 이 규칙 대상이 아니다.
+**R-38** `apps/frontend/src/{components,features,app}/**`는 `<button>`을 직접 쓰지 않고 `Button` 프리미티브를 쓴다(아이콘만이면 `variant="ghost" size="icon"`에 `aria-label`과 툴팁). 예외는 프리미티브 소유자 `apps/frontend/src/components/ui/**`뿐이다.
+R-08a·R-08b·R-38은 `pnpm --filter frontend lint`가 강제한다. 기존 위반은 `apps/frontend/eslint-suppressions.json`이 파일·규칙 단위로 억제하고, 억제된 위반을 고치면 `pnpm --filter frontend lint:prune`으로 목록을 줄인다 — 목록은 줄어들기만 한다.
 
 ### 레이아웃 뼈대 어휘
 
@@ -220,6 +250,24 @@ CSS 파일 일반과 컴포넌트 CSS는 이 규칙 대상이 아니다.
 화면에 들어온 사용자가 원래 하려던 일을 이어갈 수 있도록 `다시 시도`, `목록으로 이동`, `일정으로 이동`, `제출 항목 추가`처럼 목적에 맞는 다음 행동을 하나 이상 제공한다.
 권한이 없으면 필요한 권한과 대신 갈 수 있는 화면을 함께 말한다.
 
+## 상태 어휘 (용어 사전)
+
+같은 상태는 모든 화면에서 같은 말과 같은 배지 색으로 부른다.
+**R-35** 상태 라벨과 StatusBadge 변형은 `apps/frontend/src/lib/status-vocabulary/`에서만 정의하고 feature는 그것을 import한다. feature 안에 `Record<…Status, string>` 라벨 상수나 variant 삼항 분기를 새로 만들지 않으며, 같은 상태에 두 번째 이름이 필요해 보이면 이 표를 고친다.
+
+| 도메인 | 값 | 라벨 | 배지 | 뜻 |
+| --- | --- | --- | --- | --- |
+| 제출(서류) | NOT_SUBMITTED | 미제출 | closed | 아직 낸 것이 없다 |
+| 제출(서류) | SUBMITTED | 검토 대기 | recruiting | 냈고 교직원이 볼 차례다 |
+| 제출(서류) | APPROVED | 승인 | approved | 판정 끝, 통과 |
+| 제출(서류) | CHANGES_REQUESTED | 보완 요청 | pending | 고쳐서 다시 내야 한다(학생이 할 일) |
+| 제출(서류) | REJECTED | 반려 | rejected | 판정 끝, 재제출 불가. 판정 **버튼** 이름은 재제출을 막는다는 뜻을 담아 「최종 반려」다 |
+| 역할 | STUDENT · STAFF · ADMIN · null | 학생 · 교직원 · 관리자 · 미지정 | closed · pending · approved · closed | 미지정은 값이 없는 것이지 실패가 아니다 |
+| 계정 상태 | ACTIVE · DEACTIVATED | 활성 · 비활성 | approved · closed | |
+| 신청 | SUBMITTED · APPROVED · REJECTED | 검토 대기 · 승인 · 반려 | pending · approved · rejected | 원본은 아직 `features/programs/application-presentation.ts`(#869 결정). 후속 이전 대상 |
+
+2026-09-19 결정(#1295): 제출 어휘는 교직원 서류 판정 화면의 말을 학생 화면 전체에 쓴다. 이전에는 「제출 전·제출됨·보완 필요·최종 반려」(프로그램 상세·체크리스트)와 「검토 중·승인 완료·수정 요청」(대시보드)이 같은 상태를 달리 불렀고, 배지도 학생 화면은 보완 요청을 붉게 칠했다. 게시판 댓글의 작성자 역할(ADMIN을 교직원으로 접음)과 검토 판정 버튼(`features/reviews`)은 이 표의 대상이 아니다.
+
 ## 피드백·알림
 
 | type | 트리거·범위 | 허용 kind | 소유 프리미티브 | 배치 | role / aria-live | 포커스 동작 | 소멸·지속 | 필수 액션 |
@@ -228,7 +276,7 @@ CSS 파일 일반과 컴포넌트 CSS는 이 규칙 대상이 아니다.
 | inline | 작업 중인 영역의 결과 | success·info·warning·error | Alert | 그 영역 안 | 동적 error=`role="alert"`, 그 외 동적 갱신=`role="status"`+`aria-live="polite"`, 정적 초기 렌더=live region 없음 | 포커스 이동 없음 | 화면을 떠날 때까지 | error면 다음 행동 링크(R-15) |
 | page | 화면 전체를 막는 실패·권한 | error·warning | 공용 failure surface(미구현 → §수용된 부채 R-10 행) | 본문 최상단 | 상호작용 중 발생한 동적 error만 `role="alert"`, 초기·정적 warning·접근 권한·안내는 live region 없음, 동적 non-error=`role="status"`/`aria-live="polite"` | 첫 액션으로 포커스 | 지속 | 재시도 또는 대체 경로 |
 | toast | 화면을 넘어가는 일회성 결과 | success·info | 전역 notification primitive(미구현 → §수용된 부채 R-13 행) | 뷰포트 고정 | `role="status"`+`aria-live="polite"` | 포커스 이동 없음 | 자동 소멸 허용, critical 금지(R-14) | 없음 |
-| dialog | 되돌릴 수 없는 결정 요청 | warning·error | 공용 dialog shell(미구현 → §수용된 부채 R-06 행) | 모달 | `role="alertdialog"` | focus trap + 복귀 | 사용자가 결정할 때까지 | 확인·취소 쌍 |
+| dialog | 되돌릴 수 없는 결정 요청 | warning·error | `DialogShell`(role=dialog 창) · 되돌릴 수 없는 결정의 alertdialog 변형은 §수용된 부채 R-06 행 | 모달 | `role="alertdialog"` | focus trap + 복귀 | 사용자가 결정할 때까지 | 확인·취소 쌍 |
 
 | kind | role | aria-live | 자동 소멸 | 소유 컴포넌트 |
 | --- | --- | --- | --- | --- |
@@ -260,8 +308,9 @@ error는 toast 단독으로 절대 쓰지 않는다.
 
 ## 다이얼로그
 
-공용 controlled shell은 `open`과 `onOpenChange`를 받고 busy 중에는 닫기를 금지하며 크기 variant를 제공한다.
-**R-06**을 따르며 `apps/frontend/src/features/**`의 radix 직접 import 11건은 §수용된 부채 R-06 행에서 해소한다.
+공용 껍데기는 `apps/frontend/src/components/dialog-shell.tsx`의 `DialogShell`이다.
+제목·설명·위에서 아래로 흐르는 본문·버튼 줄을 갖고 `open`(기본 true)·`busy`(요청 중 닫기 금지)·`size`(md·lg)·`returnFocusRef`(닫힌 뒤 초점 복귀)를 소유하며, 바닥 줄은 `onSave`(취소·저장) 또는 `footer` 둘 중 하나다.
+**R-06**을 따르며 feature 안에 남은 radix 직접 import(AlertDialog 8·Dialog 3)와 `div role="dialog"` 4곳은 §수용된 부채 R-06 행에서 해소한다.
 
 ## 접근성
 
@@ -298,7 +347,7 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 | AP-05 | 의미 없는 두 톤 | warning에 `variant="destructive"`, 성공에 `default` | R-11 |
 | AP-06 | 로컬 Skeleton 복제 | feature 파일 내 `function *Skeleton`·`animate-pulse` 블록 | R-17 |
 | AP-07 | page shell 재구현 | `features/**`의 `<main`·`text-xl`/`text-2xl` 제목 | R-07 |
-| AP-08 | raw table | `features/**`의 `<table`·`@/components/ui/table` 직접 import | R-07 (보조 R-05) |
+| AP-08 | raw table | `features/**`의 `<table`·`@/components/ui/table` 직접 import — 2026-09-19 #1297로 해소, 남은 3곳은 §수용된 부채의 기록된 예외 | R-07 (보조 R-05) |
 | AP-09 | Radix dialog 직접 조립 | `features/**`의 `radix-ui` Dialog/AlertDialog import, `div role="dialog"` | R-06 |
 | AP-10 | 도메인 컴포넌트의 공용 승격 | `components/`에 있으나 소비 feature가 하나 | R-02 (보조 R-01) |
 | AP-11 | API 계약 누락 | composition에 named `*Props`·`className`·root `data-slot` 중 하나라도 없음 | R-04 |
@@ -306,6 +355,9 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 | AP-13 | 단언과 무관한 공유 카탈로그 | 여러 테스트가 쓰지 않는 완성 응답·시나리오 묶음을 공용 모듈로 키움 | R-18·R-19 |
 | AP-14 | `satisfies`를 wire·영속 증명으로 오인 | DTO `satisfies`만으로 배포된 API나 DB 동작을 통과로 기록 | R-21 |
 | AP-15 | runtime의 테스트 데이터 import | `apps/frontend/src/**` 런타임 모듈이 테스트 전용 모듈을 해석 가능하게 의존 | R-20 |
+| AP-16 | 날 토글 버튼 | `features/**`의 `aria-pressed`를 가진 `<button`, 화면마다 다른 필터 칩 클래스 | R-34 |
+| AP-17 | 날 아이콘 버튼 | `features/**`의 `<button`이 `size-11`·`inline-flex … rounded-control` 클래스로 아이콘만 담음, `title`로 대신한 툴팁 — 2026-09-19 #1297로 6곳 해소 | R-27 + Button `size="icon"` |
+| AP-18 | 상태 라벨 중복 정의 | `features/**`의 `Record<…Status, string>` 라벨 상수, StatusBadge variant 삼항 분기 | R-35 |
 
 ## 수용된 부채 (2026-09-03)
 
@@ -320,14 +372,17 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 | 2026-09-03 | 공용 Skeleton 부재, 로컬 정의 15곳 | R-17 | Skeleton PR |
 | 2026-09-03 | `apps/frontend/src/components/ui/alert.tsx`가 두 variant뿐이고 항상 `role="alert"` | R-11 | Alert kind PR |
 | 2026-09-03 | 정적 heading에 `role="alert"` — `apps/frontend/src/app/_shell/access-denied.tsx` 18-24, `apps/frontend/src/app/_shell/login-required-notice.tsx` 19-25 | R-12 | Alert kind PR |
-| 2026-09-03 | 공용 dialog shell 부재, `apps/frontend/src/features/**`에 radix-ui Dialog/AlertDialog 직접 import 11건과 plain `div role="dialog"` 구현 잔존 | R-06 | dialog shell PR |
+| 2026-09-03 | 공용 dialog shell 부재 → 2026-09-18 `DialogShell` 추가(#1296)로 프로그램 작성·편집·팀 창 5곳 이전. 남은 radix 직접 import 11파일(AlertDialog 8·Dialog 3: 프로그램 유형 창·제출 창·접근 관리 오버레이)과 plain `div role="dialog"` 4곳 | R-06 | dialog shell 후속 PR |
 | 2026-09-03 | CardGrid·PageBody·ListPanel/ListRow·StatusBadge named `*Props` 미export, PaginationNav·RepositoryPublishCard·ProgramCountdown root `className` 미수용 | R-04 | composition API PR |
 | 2026-09-03 | signup typography helpers에 `className`·`data-slot` 없음 | R-04 | composition API PR |
 | 2026-09-03 | `apps/frontend/src/components/form-section.tsx` root가 프리미티브 `data-slot="field-set"`뿐이고 자체 slot 없음 | R-04 | composition API PR |
 | 2026-09-03 | `apps/frontend/src/components/program-card.tsx` 소비자 하나인데 공용 상주 | R-02 | feature 하향 PR |
-| 2026-09-03 | 120자 초과 className 43파일과 hex 상수·inline style — `apps/frontend/src/features/activity-timeline/components/activity-chart.tsx` 26-29, `apps/frontend/src/features/landing/components/landing-journey.tsx` 401-414 | R-08a·R-08b | lint PR |
+| 2026-09-03 | 120자 초과 className 43파일과 hex 상수·inline style — `apps/frontend/src/features/activity-timeline/components/activity-chart.tsx` 26-29, `apps/frontend/src/features/landing/components/landing-journey.tsx` 401-414 | R-08a·R-08b | 2026-09-19 lint 도입(#1310). 잔여는 `apps/frontend/eslint-suppressions.json`에 남김 — className 55건·43파일, hex 51건·29파일(테스트 27파일 포함). 폴더 단위 후속 PR로 줄이고 고친 뒤 `lint:prune` |
+| 2026-09-19 | 날 `<button>` 36건·24파일(테스트 14파일 포함) — `app/_shell` 내비게이션·로그인 버튼·접근 관리 표·일정 편집기·달력·서류 수합·`program-cover`·`nav-bar` | R-38 | `eslint-suppressions.json`에 남김(#1310). 후속 PR에서 `Button` 프리미티브로 교체 |
 | 2026-09-03 | `apps/frontend/src/features/**`에 fixture 9파일 1,022 LOC | 당시 R-18·R-19 | 현재 규칙은 최소 인라인 데이터와 수명 기반 공유다. 파일명 금지는 폐지했고 미사용 카탈로그만 줄인다 |
 | 2026-09-03 | local-review 하네스가 `apps/frontend/test-support/local-review/fixture-response.ts`에서 feature fixture를 소비 | R-20 | 예외 없음. 런타임→테스트 의존은 경계 lint가 거부한다. 이 행은 당시 결합의 기록이며 해소는 런타임 제거 작업이다 |
+| 2026-09-19 | 차트 낭독 전용 `sr-only` `<table>` 2곳 — `apps/frontend/src/features/staff-insights/insights-panels.tsx` ActivityPanel, `apps/frontend/src/features/staff-insights/participation-panel.tsx` | R-07 | 예외로 확정. DataTable은 초점을 받는 스크롤 영역과 빈 상태 행을 그리므로 보이지 않는 낭독 전용 표에 맞지 않는다. 시맨틱 `<table>`을 유지한다 |
+| 2026-09-19 | 서류 수합 행렬 — `apps/frontend/src/features/programs/milestone-document-collection-view.tsx`가 `ui/table`을 직접 조합 | R-07 | sticky 팀 열·`colSpan` 판정 행·행 펼침을 DataTable의 columns·data 모델이 담지 못한다. DataTable에 행 펼침 slot이 생기면 옮긴다 |
 
 ## 컴포넌트 카드
 
@@ -390,6 +445,13 @@ States: 자식 수는 소비자가 제어한다.
 Accessibility: 카드 제목과 링크를 구분한다.
 Do·Don't: 임의 grid className으로 대체하지 않는다.
 
+### DialogShell
+Use when: 화면 위에 창을 띄워 값을 고치거나 결정을 받을 때 쓴다. 제목·설명·본문(위→아래 폼)·버튼 줄이 한 자리에 있다.
+Don't use when: 한 줄 안내면 Alert, 화면 전체를 막는 실패면 failure surface, 되돌릴 수 없는 결정의 확인은 alertdialog 변형(후속)을 쓴다.
+Slots·Props: DialogShellProps의 title·description·children·size(md·lg)·busy·returnFocusRef·open·onCancel, 그리고 onSave+confirmLabel 또는 footer 중 하나.
+States: 열림·busy(닫기 금지, 버튼 비활성)·닫힘(초점 복귀). Escape·바깥 클릭·취소가 onCancel로 모인다.
+Do·Don't: feature 코드에서 radix Dialog를 직접 조립하지 않는다(R-06). 취소 라벨은 「취소」 하나다(#1247).
+
 ### EmptyState
 Use when: 정상 empty 상태의 원인과 다음 행동을 안내할 때 쓴다.
 Don't use when: R-10이 적용되는 상황이면 쓰지 않는다.
@@ -397,6 +459,13 @@ Slots·Props: EmptyStateProps의 icon·title·description·action을 쓴다.
 States: icon·description·action은 선택이다.
 Accessibility: action에 구체적 이름을 준다.
 Do·Don't: R-10을 따른다.
+
+### FilterChip
+Use when: 목록을 거르거나 한 묶음 안에서 하나를 고르는 눌림 버튼(상태 필터, 판정 선택, 단계 이동)을 놓을 때 `FilterChipGroup` 안에 `FilterChip`을 쓴다.
+Don't use when: 읽기만 하는 상태는 StatusBadge, 다른 화면으로 가는 것은 링크, 카드 하나를 고르는 것은 그 카드 자체를 쓴다.
+Slots·Props: FilterChipGroupProps의 aria-label·className, FilterChipProps의 pressed와 Button props.
+States: pressed(aria-pressed)·hover·focus-visible·disabled. 화살표 좌우·Home·End로 칩 사이를 옮긴다.
+Do·Don't: 칩은 둥근 알약이지만 h-control(44px)과 테두리를 유지한다. StatusBadge처럼 h-tag 높이·앞의 점·테두리 없는 표면으로 만들지 않는다(R-31, R-34).
 
 ### FormSection
 Use when: 관련 입력을 fieldset으로 묶을 때 쓴다.
@@ -431,11 +500,11 @@ Accessibility: busy와 차단·오류 원인을 텍스트로 알린다.
 Do·Don't: 발행 중 중복 액션을 허용하지 않는다.
 
 ### DataTable + RowActions — 그룹
-Use when: 행 데이터와 행별 액션을 함께 표시할 때 쓴다.
+Use when: 행 데이터와 행별 액션을 함께 표시할 때 쓴다. 카드 머리의 수정·삭제처럼 한 항목에 붙는 아이콘 액션 묶음도 RowActions로 감싼다.
 Don't use when: 카드형 요약이면 대신 CardGrid를 쓴다.
-Slots·Props: DataTableProps의 columns·data·rowKey와 RowActionsProps의 children을 쓴다.
+Slots·Props: DataTableProps의 columns·data·rowKey를 쓰고, 행을 대표하는 열은 `rowHeader`로 `<th scope="row">`가 된다. RowActions는 오른쪽 정렬 액션 슬롯이며 안의 아이콘 버튼은 `Button variant="ghost" size="icon"` + Tooltip + 행마다 고유한 `aria-label`이다(R-27).
 States: 이 컴포넌트는 loading·empty·ready를 소유하고 error는 호출자가 failure surface로 렌더한다.
-Accessibility: `caption`과 `scrollRegionLabel`을 제공한다.
+Accessibility: `caption`과 `scrollRegionLabel`을 제공한다. 카드 제목이 이미 표 이름을 보여 주면 `hideCaption`으로 caption을 보조기기에만 읽힌다.
 Do·Don't: R-07을 따른다.
 
 ### ListPanel + ListRow — 그룹
@@ -452,7 +521,7 @@ Don't use when: 다음 행동이 필요한 피드백이면 대신 Alert를 쓴�
 Slots·Props: 미export — §수용된 부채(R-04).
 States: variant는 `recruiting`·`closed`·`pending`·`approved`·`rejected` 다섯 개다.
 Accessibility: 색만으로 상태를 전달하지 않고 라벨 텍스트가 상태를 말한다.
-Do·Don't: 도메인 상태는 다섯 variant에 매핑하고 새 색 조합을 호출자가 만들지 않는다.
+Do·Don't: 도메인 상태는 다섯 variant에 매핑하고 새 색 조합을 호출자가 만들지 않는다. 라벨과 variant는 `lib/status-vocabulary`의 맵에서 가져온다(R-35, §상태 어휘).
 
 ### ProgramCountdown (+ remainingUntil · formatClock · formatCountdownDate) — 그룹
 Use when: 다음 마감까지 남은 시간과 날짜를 표시할 때 쓴다.
@@ -472,6 +541,12 @@ Do·Don't: helper class를 복사해 새 typography를 만들지 않는다.
 
 ### 사람 중심 일정·제출 폼
 
+- 프로그램 생성·편집의 기본 정보는 프로그램명 다음에 대표 이미지 입력을 둔다.
+  `기존 공지로 빠르게 시작하기`는 기본 정보 제목 옆의 보조 행동이며, 좁은 화면에서는 제목 아래로 내려온다.
+  공지 주소 입력·불러오기·항목 선택은 기존 다이얼로그에서 처리하고, 선택한 내용을 적용하기 전에는 작성 중인 값을 바꾸지 않는다.
+  대표 이미지 필드는 라벨 아래 전체 폭의 점선 영역에 아이콘·업로드 제목·허용 형식과 용량·선택 버튼을 위에서 아래로 배치한다.
+  선택 후에는 같은 영역에서 이미지 전체를 보여 주고 파일명 또는 공지 출처, 교체·제거 행동을 이어서 제공하며, 페이지 제목 옆에 같은 미리보기를 반복하지 않는다.
+  기존 Field·Button·ProgramCover와 semantic 토큰을 사용하고, JPG·PNG 및 5 MB 제한과 저장 시점은 유지한다.
 - 프로그램 만들기의 신청·운영 일정은 한 달력을 먼저 보여 주고, 그 아래에 신청 기간과 운영 기간을 각각 한 줄로 둔다.
   각 줄을 고른 뒤 달력에서 시작일과 종료일을 차례로 누르며, 날짜·시간을 함께 입력할 때는 같은 줄의 일정 입력 모달 하나만 사용한다.
   각 줄은 초기화 동작을 제공하고 날짜 입력과 시간 입력을 별도 모드로 나누지 않는다.

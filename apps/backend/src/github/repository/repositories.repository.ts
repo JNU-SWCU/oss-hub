@@ -5,17 +5,20 @@ import {
   Prisma,
   RepositoryConnectionMode,
   RepositoryInvitationStatus,
+  RepositoryIssuanceOutcome,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
   RepositorySource,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../../audit-log/audit-log.repository';
+import { writeRepositoryIssuanceHistory } from '../../prisma/repository-provision-generation';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
 } from '../repository-identity';
 import {
+  parseRepositoryProvisionEvent,
   REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   REPOSITORY_PROVISION_EVENT_TYPE,
 } from '../repository-provision-event';
@@ -36,6 +39,7 @@ export interface ClaimedProvisionEvent {
 
 export interface ProvisionJobReference {
   readonly id: string;
+  readonly currentEventId: string | null;
 }
 export interface OwnedProvisionJob {
   readonly application: {
@@ -52,21 +56,27 @@ export interface OwnedProvisionJob {
       readonly name: string;
       readonly _count: { readonly members: number };
     } | null;
+    /**
+     * 지금 이 신청에 연결된 저장소 — 현재 연결의 정본이다.
+     * 발급 job(`RepositoryProvisionJob.repository`)을 따라가지 않는다 — 그쪽은 과거
+     * 발급이 남긴 결과라 저장소를 교체하면 옛 행을 가리킨다.
+     * `GithubRepository.applicationId`가 unique라 이 관계는 항상 한 건이고,
+     * 신청과 어긋난 행은 구조적으로 여기로 올라올 수 없다.
+     */
+    readonly repository: {
+      readonly id: string;
+      readonly name: string;
+      readonly url: string;
+      readonly visibility: RepositoryVisibility;
+      readonly source: RepositorySource;
+      readonly invitations: readonly {
+        readonly status: RepositoryInvitationStatus;
+      }[];
+    } | null;
   };
   readonly status: RepositoryProvisionJobStatus;
   readonly lastErrorCode: string | null;
   readonly updatedAt: Date;
-  readonly repository: {
-    readonly id: string;
-    readonly applicationId: string;
-    readonly name: string;
-    readonly url: string;
-    readonly visibility: RepositoryVisibility;
-    readonly source: RepositorySource;
-    readonly invitations: readonly {
-      readonly status: RepositoryInvitationStatus;
-    }[];
-  } | null;
 }
 
 export interface RepositoryPublishTarget {
@@ -97,24 +107,19 @@ function toPublishTarget(row: {
   };
 }
 
-/// RepositoryProvisionJob.repository는 recordRepository가 만든 행만 가리킨다 — applicationId가
-/// null인 행(인벤토리 스윕이 만든 무관한 행)을 이 관계로 볼 일은 없다.
+/// `Application.repository`로 읽으므로 이 행은 정의상 그 신청의 저장소다 — applicationId를
+/// 다시 대조할 필요가 없고, 인벤토리 스윙이 만든 무관한 행은 이 관계에 올라오지 않는다.
 function toOwnedRepository(row: {
   readonly id: string;
-  readonly applicationId: string | null;
   readonly nameWithOwner: string;
   readonly source: RepositorySource;
   readonly visibility: RepositoryVisibility;
   readonly invitations: readonly {
     readonly status: RepositoryInvitationStatus;
   }[];
-}): NonNullable<OwnedProvisionJob['repository']> {
-  if (row.applicationId === null) {
-    throw new RepositoryPublishStateError();
-  }
+}): NonNullable<OwnedProvisionJob['application']['repository']> {
   return {
     id: row.id,
-    applicationId: row.applicationId,
     name: repositoryNameFromNameWithOwner(row.nameWithOwner),
     url: repositoryUrlFromNameWithOwner(row.nameWithOwner),
     visibility: row.visibility,
@@ -136,6 +141,14 @@ export interface RepositoriesTransactionStore {
     applicationId: string,
     now: Date,
   ): Promise<ProvisionJobReference>;
+  findProvisionJob(
+    applicationId: string,
+  ): Promise<ProvisionJobReference | null>;
+  confirmSupersededProvisionEvent(
+    eventId: string,
+    applicationId: string,
+    now: Date,
+  ): Promise<void>;
   completeProvisionEvent(
     eventId: string,
     workerId: string,
@@ -158,6 +171,7 @@ type LockedProvisionJobRow = {
   readonly id: string;
   readonly status: RepositoryProvisionJobStatus;
   readonly nextAttemptAt: Date;
+  readonly currentEventId: string | null;
 };
 
 class PrismaRepositoriesTransactionStore implements RepositoriesTransactionStore {
@@ -253,7 +267,7 @@ class PrismaRepositoriesTransactionStore implements RepositoriesTransactionStore
   ): Promise<ProvisionJobReference> {
     const locked = await this.transaction.$queryRaw<LockedProvisionJobRow[]>(
       Prisma.sql`
-        SELECT "id", "status", "nextAttemptAt"
+        SELECT "id", "status", "nextAttemptAt", "currentEventId"
         FROM "RepositoryProvisionJob"
         WHERE "applicationId" = ${applicationId}
         FOR UPDATE
@@ -270,7 +284,7 @@ class PrismaRepositoriesTransactionStore implements RepositoriesTransactionStore
           status: RepositoryProvisionJobStatus.PENDING,
           nextAttemptAt: now,
         },
-        select: { id: true },
+        select: { id: true, currentEventId: true },
       });
     }
 
@@ -290,7 +304,10 @@ class PrismaRepositoriesTransactionStore implements RepositoriesTransactionStore
           finishedAt: null,
         },
       });
-      return { id: existing.id };
+      return {
+        id: existing.id,
+        currentEventId: existing.currentEventId,
+      };
     }
 
     if (
@@ -304,11 +321,45 @@ class PrismaRepositoriesTransactionStore implements RepositoriesTransactionStore
           data: { nextAttemptAt: now },
         });
       }
-      return { id: existing.id };
+      return {
+        id: existing.id,
+        currentEventId: existing.currentEventId,
+      };
     }
 
     // PROCESSING: 행 잠금만 잡아 완료 경합을 직렬화하고 lease는 건드리지 않는다.
-    return { id: existing.id };
+    return {
+      id: existing.id,
+      currentEventId: existing.currentEventId,
+    };
+  }
+
+  async findProvisionJob(
+    applicationId: string,
+  ): Promise<ProvisionJobReference | null> {
+    return this.transaction.repositoryProvisionJob.findUnique({
+      where: { applicationId },
+      select: { id: true, currentEventId: true },
+    });
+  }
+
+  async confirmSupersededProvisionEvent(
+    eventId: string,
+    applicationId: string,
+    now: Date,
+  ): Promise<void> {
+    await writeRepositoryIssuanceHistory(
+      this.transaction,
+      {
+        requestId: eventId,
+        applicationId,
+        repositoryId: null,
+        source: null,
+        outcome: RepositoryIssuanceOutcome.SUPERSEDED,
+        closedAt: now,
+      },
+      parseRepositoryProvisionEvent,
+    );
   }
 
   async completeProvisionEvent(
@@ -400,23 +451,22 @@ export class RepositoriesRepository {
             team: {
               select: { name: true, _count: { select: { members: true } } },
             },
-          },
-        },
-        repository: {
-          select: {
-            id: true,
-            applicationId: true,
-            nameWithOwner: true,
-            visibility: true,
-            source: true,
-            invitations: {
-              where: {
-                githubLogin: {
-                  equals: user.nickname.trim(),
-                  mode: 'insensitive',
+            repository: {
+              select: {
+                id: true,
+                nameWithOwner: true,
+                visibility: true,
+                source: true,
+                invitations: {
+                  where: {
+                    githubLogin: {
+                      equals: user.nickname.trim(),
+                      mode: 'insensitive',
+                    },
+                  },
+                  select: { status: true },
                 },
               },
-              select: { status: true },
             },
           },
         },
@@ -424,8 +474,13 @@ export class RepositoriesRepository {
     });
     return jobs.map((job) => ({
       ...job,
-      repository:
-        job.repository === null ? null : toOwnedRepository(job.repository),
+      application: {
+        ...job.application,
+        repository:
+          job.application.repository === null
+            ? null
+            : toOwnedRepository(job.application.repository),
+      },
     }));
   }
 

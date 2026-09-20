@@ -1,4 +1,5 @@
 import { ProgramCoverField } from './program-cover-field';
+import { ProgramNoticeImport } from './program-notice-import';
 import { FormSection } from '@/components/form-section';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import {
@@ -28,7 +29,20 @@ export function ProgramAuthoringBasicStep({
 }: StepProps) {
   return (
     <FormSection
-      title="기본 정보"
+      aria-labelledby="authoring-basic-title"
+      className="[&>legend]:w-full"
+      title={
+        <span className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <span id="authoring-basic-title">기본 정보</span>
+          <ProgramNoticeImport
+            currentName={state.name}
+            currentDescription={state.description}
+            hasCover={Boolean(state.coverFile || state.externalCover)}
+            sourceUrl={state.externalCover?.sourceUrl}
+            onApply={(patch) => dispatch({ type: 'apply_notice', patch })}
+          />
+        </span>
+      }
       description="프로그램 목록과 상세 화면에 표시할 정보를 입력하세요."
     >
       <ProgramAuthoringTextField
@@ -41,7 +55,7 @@ export function ProgramAuthoringBasicStep({
         }
       />
       <ProgramCoverField
-        selection={state.coverFile ?? null}
+        selection={state.externalCover ?? state.coverFile ?? null}
         onChange={(file) =>
           dispatch({ type: 'set_cover_file', file: file ?? null })
         }
@@ -119,15 +133,30 @@ export function ProgramAuthoringBasicStep({
           />
         </div>
       </Field>
-      <ProgramAuthoringTextField
-        id="program-description"
-        label="소개/설명 *"
-        value={state.description}
-        error={messageFor(issues, 'description')}
-        onChange={(value) =>
-          dispatch({ type: 'set_program_field', field: 'description', value })
-        }
-      />
+      <Field>
+        <FieldLabel htmlFor="program-description">소개/설명 *</FieldLabel>
+        <textarea
+          id="program-description"
+          value={state.description}
+          aria-invalid={Boolean(messageFor(issues, 'description'))}
+          aria-describedby={
+            messageFor(issues, 'description')
+              ? 'program-description-error'
+              : undefined
+          }
+          onChange={(event) =>
+            dispatch({
+              type: 'set_program_field',
+              field: 'description',
+              value: event.target.value,
+            })
+          }
+          className="min-h-32 rounded-control border border-input bg-transparent p-4 text-body"
+        />
+        <FieldError id="program-description-error" role="alert">
+          {messageFor(issues, 'description')}
+        </FieldError>
+      </Field>
     </FormSection>
   );
 }
