@@ -5,6 +5,7 @@ import { useState, type ReactElement } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ALERT_DIALOG_SHELL_CLASS } from '@/components/ui/dialog';
 import { deleteStaffProgramTeam } from './api';
 import {
   formatTeamDeletedCounts,
@@ -112,7 +113,7 @@ export function TeamDeleteDialog({
     >
       <AlertDialog.Portal>
         <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/35" />
-        <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto outline-none">
+        <AlertDialog.Content className={ALERT_DIALOG_SHELL_CLASS}>
           <Card className="shadow-xl">
             <CardHeader>
               <AlertDialog.Title asChild>
