@@ -611,12 +611,25 @@ export function getApplicationDetail(
  * 별도 endpoint 가 아니라 같은 응답의 additive 확장이라 호출이 하나다. 목록에는 이 키가
  * 없다 — 신청마다 이력을 끌면 N+1 이고 목록은 타임라인을 그리지 않는다.
  */
-export function getApplicationDetailWithHistory(
+export async function getApplicationDetailWithHistory(
   applicationId: string,
 ): Promise<ApplicationDetail> {
-  return apiClient<ApplicationDetail>(
+  const detail = await apiClient<ApplicationDetail>(
     `applications/${encodeURIComponent(applicationId)}`,
   );
+  /*
+   * 이력이 없으면 빈 배열로 읽는다.
+   *
+   * ⚠ 프런트는 Vercel, backend 는 Jenkins 라 **따로 배포된다**. 프런트가 먼저 올라간
+   *   창에서는 아직 이 키를 모르는 backend 가 응답한다. 그때 `undefined.length` 로
+   *   팀 상세가 통째로 죽지 않아야 한다 — 공개 랭킹이 새 지표에 같은 규칙을 쓴다.
+   *
+   * 없는 것과 빈 것을 여기서 합치는 이유는 화면이 둘을 다르게 그릴 이유가 없어서다.
+   * 최초 제출 사건이 항상 남으므로 배포가 끝나면 이 분기는 지나가지 않는다.
+   */
+  return Array.isArray(detail.reviewHistory)
+    ? detail
+    : { ...detail, reviewHistory: [] };
 }
 
 /**
