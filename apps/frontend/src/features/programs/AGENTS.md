@@ -4,7 +4,7 @@
 ## Ownership
 
 - Own program catalog, detail, application, team, milestone, staff dashboard, authoring, and editing behavior in `apps/frontend/src/features/programs/`.
-- App routes import focused feature entries such as `program-list-page.tsx`, `program-detail-page.tsx`, `program-apply-page.tsx`, `program-edit-page.tsx`, and `program-applicants-page.tsx`; keep route decoding in `program-paths.ts`.
+- App routes import focused feature entries such as `program-list-page.tsx`, `program-detail-page.tsx`, `program-apply-page.tsx`, `program-edit-page.tsx`, and `program-staff-teams-page.tsx`; keep route decoding in `program-paths.ts`.
 - `components/activity-graph-panel.tsx` and `components/milestone-row.tsx` are program-only compositions, not shared-component candidates by default.
 
 ## Public interfaces and API

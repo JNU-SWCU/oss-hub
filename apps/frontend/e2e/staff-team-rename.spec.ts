@@ -37,7 +37,7 @@ test('교직원이 팀 이름을 고치면 새로고침 뒤에도 남는다', as
 
   // 신청자 목록의 팀명이 팀 상세로 가는 링크다 — 오타를 알아보는 자리에서 고치는
   // 자리로 이어지는지 함께 확인한다.
-  await staff.goto(`/programs/${encodeURIComponent(programId)}/applicants`);
+  await staff.goto(`/programs/${encodeURIComponent(programId)}/teams`);
   const applicantsTable = staff.getByRole('table');
   await expect(applicantsTable).toBeVisible();
   await captureRegion(
@@ -93,9 +93,9 @@ test('교직원이 팀 이름을 고치면 새로고침 뒤에도 남는다', as
   ).toContainText(RENAMED);
 
   // Then: 신청자 목록도 같은 이름을 보여 준다.
-  await staff.goto(`/programs/${encodeURIComponent(programId)}/applicants`);
+  await staff.goto(`/programs/${encodeURIComponent(programId)}/teams`);
   await expect(staff.getByRole('table')).toContainText(RENAMED);
-  await capture(staff, testInfo, 'after-desktop-applicants');
+  await capture(staff, testInfo, 'after-desktop-team-management');
 });
 
 /**
@@ -121,8 +121,8 @@ test.describe('좁은 화면', () => {
     );
 
     const staff = await programAuthoringActorPage('staff');
-    await staff.goto(`/programs/${encodeURIComponent(programId)}/applicants`);
-    await capture(staff, testInfo, 'after-mobile-applicants');
+    await staff.goto(`/programs/${encodeURIComponent(programId)}/teams`);
+    await capture(staff, testInfo, 'after-mobile-team-management');
     const teamCellLink = staff
       .getByRole('table')
       .locator('a[href*="/teams/"]')
