@@ -1,6 +1,5 @@
 import { ProgramCategory } from '@prisma/client';
 import type { AuditLogService } from '../audit-log/audit-log.service';
-import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { StaffProgramTeamResponseDto } from './dto/team-response.dto';
 import {
   ProgramTeamsRepository,
@@ -17,7 +16,6 @@ import { TeamsErrorCode } from './teams-error-code.enum';
  * 학번·학과·연락처·이메일·참여코드·저장소 URL 은 담지 않는다.
  */
 const PROGRAM_ID = 'synthetic-program';
-const JOIN_CODE_SECRET = 'synthetic-staff-list-secret';
 
 const PROGRAM: TeamProgramRecord = {
   id: PROGRAM_ID,
@@ -45,7 +43,6 @@ function buildService(overrides: {
   } as unknown as ProgramTeamsRepository;
   const service = new ProgramTeamsService(
     repository,
-    loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
     { record: jest.fn() } as unknown as AuditLogService,
     stubTeamDeletionRepository(),
   );

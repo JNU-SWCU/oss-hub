@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common/constants';
 import { OriginGuard } from '../../auth/origin.guard';
 import { SessionGuard } from '../../auth/session.guard';
-import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
 import { DeleteTeamRequestDto } from '../dto/delete-team-request.dto';
 import { RepositoryUrlHistoryQueryRequestDto } from '../dto/repository-url-history-query.dto';
 import { RenameTeamRequestDto } from '../dto/rename-team-request.dto';
@@ -15,7 +14,6 @@ import { ProgramTeamsController } from './program-teams.controller';
 import { ProgramTeamsStaffGuard } from '../program-teams-staff.guard';
 
 type ControllerMethodName =
-  | 'create'
   | 'me'
   | 'leave'
   | 'removeMember'
@@ -60,7 +58,6 @@ function serviceStub(
   overrides: Partial<ControllerService> = {},
 ): ControllerService {
   return {
-    create: jest.fn(),
     getMe: jest.fn(),
     leave: jest.fn(),
     removeMember: jest.fn(),
@@ -74,8 +71,27 @@ function serviceStub(
 }
 
 describe('ProgramTeamsController', () => {
-  it('create 에 SessionGuard·OriginGuard 를 적용한다', () => {
-    expect(readGuards('create')).toEqual([SessionGuard, OriginGuard]);
+  /**
+   * 팀은 신청이 만들기 로 통합됐다(T-BE-08) — 독립 생성 handler 를 지우고 alias·410
+   * 대실 route 도 두지 않는다. 뒤문이 없으므로 Nest 가 표준 404 를 돌려준다.
+   */
+  it('독립 팀 생성 handler 를 등록하지 않는다', () => {
+    const prototype: object = ProgramTeamsController.prototype;
+    expect(Object.getOwnPropertyNames(prototype)).not.toContain('create');
+
+    // 다른 이름으로 POST 를 살리지도 않았는지 — 해당 컨트롤러에 POST 로 등록된
+    // handler 가 하나도 없어야 한다.
+    const postHandlers = Object.getOwnPropertyNames(prototype)
+      .filter((name) => name !== 'constructor')
+      .filter((name) => {
+        const value: unknown = Object.getOwnPropertyDescriptor(
+          prototype,
+          name,
+        )?.value;
+        if (typeof value !== 'function') return false;
+        return Reflect.getMetadata(METHOD_METADATA, value) === RequestMethod.POST;
+      });
+    expect(postHandlers).toEqual([]);
   });
 
   /**
@@ -235,33 +251,6 @@ describe('ProgramTeamsController', () => {
         ],
       },
     ]);
-  });
-
-  it('create 는 service 결과를 CreateTeamResponseDto 로 반환한다', async () => {
-    const create = jest.fn().mockResolvedValue({
-      id: 'team-1',
-      name: '오픈소스팀',
-      joinCode: 'ABCD1234XY',
-      memberCount: 1,
-    });
-    const controller = new ProgramTeamsController(serviceStub({ create }));
-    const body = Object.assign(new CreateTeamRequestDto(), {
-      name: '오픈소스팀',
-    });
-
-    const response = await controller.create(
-      { sessionGithubId: 4242n },
-      'program-1',
-      body,
-    );
-
-    expect(create).toHaveBeenCalledWith(4242n, 'program-1', '오픈소스팀');
-    expect(response).toEqual({
-      id: 'team-1',
-      name: '오픈소스팀',
-      joinCode: 'ABCD1234XY',
-      memberCount: 1,
-    });
   });
 
   describe('GET me 응답 계약', () => {

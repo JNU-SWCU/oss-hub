@@ -20,7 +20,6 @@ import { AuditLogRepository } from '../../audit-log/audit-log.repository';
 import { AuditLogService } from '../../audit-log/audit-log.service';
 import { DomainException } from '../../common/error-code';
 import { PrismaService } from '../../prisma/prisma.service';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { canonicalUserCreateFromLabel } from '../../users/canonical-user-fixture';
 import { ProgramTeamDeletionRepository } from '../repository/program-team-deletion.repository';
 import { ProgramTeamsRepository } from '../repository/program-teams.repository';
@@ -79,7 +78,6 @@ const prisma = new PrismaService();
 const deletionRepository = new ProgramTeamDeletionRepository(prisma);
 const service = new ProgramTeamsService(
   new ProgramTeamsRepository(prisma),
-  loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: `${TEST_PREFIX}join-secret` }),
   new AuditLogService(new AuditLogRepository(prisma)),
   deletionRepository,
 );
@@ -793,3 +791,4 @@ it('비활성 교직원도 막힌다', async () => {
     prisma.team.count({ where: { id: fixture.teamId } }),
   ).resolves.toBe(1);
 });
+

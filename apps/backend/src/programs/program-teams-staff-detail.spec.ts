@@ -1,5 +1,4 @@
 import type { AuditLogService } from '../audit-log/audit-log.service';
-import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { StaffTeamDetailResponseDto } from './dto/team-detail-response.dto';
 import {
   ProgramTeamsRepository,
@@ -17,7 +16,6 @@ import { TeamsErrorCode } from './teams-error-code.enum';
  */
 const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
-const JOIN_CODE_SECRET = 'synthetic-staff-detail-secret';
 
 function buildService(overrides: {
   readonly detail?: StaffTeamDetailRecord | null;
@@ -32,7 +30,6 @@ function buildService(overrides: {
   } as unknown as ProgramTeamsRepository;
   const service = new ProgramTeamsService(
     repository,
-    loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
     { record: jest.fn() } as unknown as AuditLogService,
     stubTeamDeletionRepository(),
   );
