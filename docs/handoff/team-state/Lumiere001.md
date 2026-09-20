@@ -1291,3 +1291,13 @@
 - 주의: `next build`에 내장된 lint는 Node API라 억제 목록을 읽지 못해 CI 빌드가 깨졌다 — `next.config.ts`에 `eslint.ignoreDuringBuilds`를 두고 lint는 CI의 lint 단계(CLI)만 담당한다.
   억제 목록은 파일·규칙별 개수라, 같은 파일에서 하나를 고치고 하나를 새로 어기면 개수가 같아 통과할 수 있다. 목록이 줄수록 이 틈이 작아진다. `#1234` 같은 번호 문구는 4자리 hex로 잡히므로 이유를 적은 disable로 넘긴다.
 - 경계: 기존 위반 90파일은 이 PR에서 고치지 않았다(폴더 단위 후속 PR). cva 기본 문자열·`cn()` 인자·CSS 파일은 규칙 대상이 아니다.
+
+## 2026-09-21 — 차트 선과 랜딩 범례의 hex 색을 semantic 토큰으로 바꾼다
+
+- 상태: review
+- Issue: #1328 1단계 (lint 억제 목록 소진, Refs)
+- 내용: `activity-chart.tsx`의 선 4색(`#003399`·`#00923f`·`#d97706`·`#444444`)을 `--chart-1`·`--chart-2`·`--chart-3`·`--foreground`로, `landing-journey.tsx` 범례 점 3색(`#9db9f0`·`#5cc687`·`#fff`)을 `--cosmos-student`·`--cosmos-repository`·`--cosmos-copy`로 바꾼다. 같은 파일의 120자 className 1건은 `cn()` 묶음으로 나눈다.
+  억제 목록에서 두 파일 항목을 prune했다(화면 코드의 hex 억제 0).
+- 검증: frontend 단위 테스트 전체·lint·typecheck 통과. 격리 스택에서 학생 활동 차트와 랜딩 범례를 같은 selector로 전후 캡처하고 선 stroke·점 배경의 계산값을 기록했다.
+- 주의: 두 색은 팔레트 값으로 바뀐다 — Release 선 `#d97706` → amber-500 `#e0a030`, 범례 학생 점 `#9db9f0` → navy-200 `#adc1eb`(캔버스의 학생 점과 같은 토큰). 합계 선은 다크 모드에서 글자색을 따라간다.
+- 경계: 날 button(2단계)·긴 className(3단계)은 별도 PR. 테스트 파일의 hex 억제는 그대로다.

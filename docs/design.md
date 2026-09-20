@@ -377,7 +377,7 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 | 2026-09-03 | signup typography helpers에 `className`·`data-slot` 없음 | R-04 | composition API PR |
 | 2026-09-03 | `apps/frontend/src/components/form-section.tsx` root가 프리미티브 `data-slot="field-set"`뿐이고 자체 slot 없음 | R-04 | composition API PR |
 | 2026-09-03 | `apps/frontend/src/components/program-card.tsx` 소비자 하나인데 공용 상주 | R-02 | feature 하향 PR |
-| 2026-09-03 | 120자 초과 className 43파일과 hex 상수·inline style — `apps/frontend/src/features/activity-timeline/components/activity-chart.tsx` 26-29, `apps/frontend/src/features/landing/components/landing-journey.tsx` 401-414 | R-08a·R-08b | 2026-09-19 lint 도입(#1310). 잔여는 `apps/frontend/eslint-suppressions.json`에 남김 — className 55건·43파일, hex 51건·29파일(테스트 27파일 포함). 폴더 단위 후속 PR로 줄이고 고친 뒤 `lint:prune` |
+| 2026-09-03 | 120자 초과 className 43파일과 hex 상수·inline style — `apps/frontend/src/features/activity-timeline/components/activity-chart.tsx` 26-29, `apps/frontend/src/features/landing/components/landing-journey.tsx` 401-414 | R-08a·R-08b | 2026-09-19 lint 도입(#1310). 잔여는 `apps/frontend/eslint-suppressions.json`에 남김 — className 55건·43파일, hex는 화면 코드 2파일을 2026-09-21 #1328 1단계에서 토큰으로 바꿔 0(남은 hex 억제는 테스트 25파일). 폴더 단위 후속 PR로 줄이고 고친 뒤 `lint:prune` |
 | 2026-09-19 | 날 `<button>` 36건·24파일(테스트 14파일 포함) — `app/_shell` 내비게이션·로그인 버튼·접근 관리 표·일정 편집기·달력·서류 수합·`program-cover`·`nav-bar` | R-38 | `eslint-suppressions.json`에 남김(#1310). 후속 PR에서 `Button` 프리미티브로 교체 |
 | 2026-09-03 | `apps/frontend/src/features/**`에 fixture 9파일 1,022 LOC | 당시 R-18·R-19 | 현재 규칙은 최소 인라인 데이터와 수명 기반 공유다. 파일명 금지는 폐지했고 미사용 카탈로그만 줄인다 |
 | 2026-09-03 | local-review 하네스가 `apps/frontend/test-support/local-review/fixture-response.ts`에서 feature fixture를 소비 | R-20 | 예외 없음. 런타임→테스트 의존은 경계 lint가 거부한다. 이 행은 당시 결합의 기록이며 해소는 런타임 제거 작업이다 |
