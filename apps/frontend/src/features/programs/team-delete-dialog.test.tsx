@@ -149,10 +149,12 @@ describe('TeamDeleteDialog', () => {
     await flush();
 
     expect(deleteStaffProgramTeamMock).toHaveBeenCalledTimes(1);
+    // 문구를 적지 않으면 빈 문자열이 그대로 간다 — 키를 빼는 판단은 api 층이 한다.
     expect(deleteStaffProgramTeamMock).toHaveBeenCalledWith(
       'program-1',
       'team-1',
       scope,
+      '',
     );
     expect(onDeleted).toHaveBeenCalledWith(
       '지원서 1건 · 팀원 3명 · 저장소 연결 해제 1건',
@@ -202,6 +204,7 @@ describe('TeamDeleteDialog', () => {
       'program-1',
       'team-1',
       changedScope,
+      '',
     );
     expect(onDeleted).toHaveBeenCalledWith(
       '지원서 2건 · 팀원 3명 · 초대 1건 · 저장소 연결 해제 1건',
