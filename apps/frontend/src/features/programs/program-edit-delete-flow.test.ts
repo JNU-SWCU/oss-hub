@@ -45,7 +45,7 @@ describe('mapProgramDeleteError', () => {
           label: '지원서',
           count: 1,
           unit: '건',
-          href: '/programs/program%3A1/applicants',
+          href: '/programs/program%3A1/teams',
         },
         {
           label: '팀',

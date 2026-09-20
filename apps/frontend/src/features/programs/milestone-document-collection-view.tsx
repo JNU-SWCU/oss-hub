@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { programApplicantsHref, programEditHref } from '@/lib/program-route';
+import { programEditHref } from '@/lib/program-route';
 import {
   collectionCellFor,
   collectionDocumentTotalFor,
@@ -819,7 +819,7 @@ function CollectionBody(
         description="대기 중인 신청을 먼저 확인해 주세요. 신청을 승인하면 팀이 이 표에 나타납니다."
         action={
           <Button asChild variant="outline">
-            <Link href={programApplicantsHref(props.programId)}>
+            <Link href={programHref(props.programId, '/teams')}>
               신청 확인하기
             </Link>
           </Button>
