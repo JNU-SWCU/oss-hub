@@ -1,5 +1,31 @@
 import { ApiError } from '@/lib/api-client';
-import type { ApplicationListItem } from './types';
+import type { ApplicationDecisionInput } from './api';
+import type { ApplicationListItem, ApplicationStatus } from './types';
+
+/**
+ * 교직원이 고를 수 있는 세 상태. 어느 출발점에서도 **셋 다 항상 고를 수 있다**(AC-14).
+ *
+ * 목록과 상세가 같은 배열을 쓴다 — 각자 선언하면 한쪽에만 상태가 하나 늘어난다.
+ */
+export const DECISION_OPTIONS: readonly ApplicationStatus[] = [
+  'SUBMITTED',
+  'APPROVED',
+  'REJECTED',
+];
+
+/**
+ * 고른 상태를 판정 요청으로 옮긴다. 반려는 사유가 있어야 하며, 없으면 `null`을 돌려
+ * 부르는 화면이 입력 오류를 표시하게 한다 — 사유 없는 반려를 서버까지 보내지 않는다.
+ */
+export function decisionInputFor(
+  next: ApplicationStatus,
+  reason: string,
+): ApplicationDecisionInput | null {
+  if (next === 'APPROVED') return { action: 'APPROVE' };
+  if (next === 'SUBMITTED') return { action: 'REVERT' };
+  const trimmed = reason.trim();
+  return trimmed === '' ? null : { action: 'REJECT', reason: trimmed };
+}
 
 /**
  * 판정 요청이 어떻게 끝났는가. 서버가 무엇을 돌려줬는지만 담고 「그래서 행이 어떻게
@@ -99,4 +125,29 @@ export async function runDecisionWithRefetch(
  */
 export function blocksFurtherDecisions(result: DecisionRefetchResult): boolean {
   return result.kind === 'refetch-failed';
+}
+
+/**
+ * 판정 결과를 사용자에게 할 말 한 줄로 옮긴다. `null`이면 할 말이 없다 — 요청한
+ * 대로 됐고 화면이 이미 그것을 보이고 있다.
+ *
+ * 목록과 상세가 같은 문구를 쓴다. 각자 쓰면 같은 일이 화면마다 다르게 들린다.
+ */
+export function decisionNoticeFor(
+  result: DecisionRefetchResult,
+): string | null {
+  if (result.kind === 'refetch-failed') {
+    return '판정 결과를 확인하지 못했습니다. 새로고침한 뒤 이 신청의 상태를 다시 확인해 주세요.';
+  }
+  if (result.kind === 'removed') return '이 신청은 더 이상 없습니다.';
+  switch (result.outcome.kind) {
+    case 'applied':
+      return null;
+    case 'stale':
+      return '다른 사람이 먼저 판정했습니다. 최신 상태로 갱신했습니다.';
+    case 'gone':
+      return '이 신청은 더 이상 없습니다.';
+    case 'unknown':
+      return '판정 요청이 실패했습니다. 갱신한 상태를 보고 다시 시도해 주세요.';
+  }
 }
