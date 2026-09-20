@@ -15,6 +15,8 @@ import {
   ProgramLifecycle,
   ProgramPurgeFileTombstoneLifecycle,
   RepositoryInvitationStatus,
+  RepositoryConnectionMode,
+  RepositoryIssuanceOutcome,
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
@@ -98,6 +100,7 @@ type Fixture = {
   readonly applicationDecisionAcknowledgedNotificationId: string;
   readonly deadlineDigestNotificationId: string;
   readonly applicationOutboxEventId: string;
+  readonly repositoryIssuanceHistoryId: string;
   readonly repositoryInvitationId: string;
   readonly collectionStreamId: string;
   readonly contributionRepositoryId: string;
@@ -211,6 +214,9 @@ async function cleanup(): Promise<void> {
   });
   await prisma.repositoryProvisionJob.deleteMany({
     where: { application: { programId: { startsWith: PREFIX } } },
+  });
+  await prisma.repositoryIssuanceHistory.deleteMany({
+    where: { applicationId: { startsWith: PREFIX } },
   });
   // RepositoryInvitation은 GithubRepository로의 FK가 ON DELETE RESTRICT라 repo 삭제 전에
   // 명시적으로 지워야 한다 — Contribution/CollectionRepositoryStream류는 ON DELETE CASCADE라
@@ -535,6 +541,20 @@ async function seedFullChildGraph(
       nextAttemptAt: NOW,
       startedAt: NOW,
       finishedAt: NOW,
+    },
+  });
+  const repositoryIssuanceHistoryId = p('repository-issuance-history');
+  await prisma.repositoryIssuanceHistory.create({
+    data: {
+      id: repositoryIssuanceHistoryId,
+      requestId: p('repository-issuance-request'),
+      applicationId,
+      repositoryId: provisionedRepositoryId,
+      connectionMode: RepositoryConnectionMode.NEW,
+      source: RepositorySource.ORG_PROVISIONED,
+      outcome: RepositoryIssuanceOutcome.SUCCEEDED,
+      requestedAt: NOW,
+      closedAt: NOW,
     },
   });
 
@@ -885,6 +905,7 @@ async function seedFullChildGraph(
     applicationDecisionAcknowledgedNotificationId,
     deadlineDigestNotificationId,
     applicationOutboxEventId,
+    repositoryIssuanceHistoryId,
     repositoryInvitationId,
     collectionStreamId,
     contributionRepositoryId,
@@ -1294,6 +1315,17 @@ describe('Program purge integration — full child graph, worker file deletion, 
         where: { id: fixture.applicationOutboxEventId },
       }),
     ).resolves.toBeNull();
+    // Issuance history deliberately has no Application FK: program purge must
+    // retain the completed request as a detached, queryable audit record.
+    await expect(
+      prisma.repositoryIssuanceHistory.findUnique({
+        where: { id: fixture.repositoryIssuanceHistoryId },
+      }),
+    ).resolves.toMatchObject({
+      applicationId: fixture.applicationId,
+      outcome: RepositoryIssuanceOutcome.SUCCEEDED,
+      repositoryId: fixture.provisionedRepositoryId,
+    });
 
     // PublicShowcaseContributor는 PublicShowcaseRepository FK의 ON DELETE CASCADE로 함께 지워진다.
     await expect(

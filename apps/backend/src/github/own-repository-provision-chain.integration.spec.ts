@@ -139,6 +139,35 @@ type ProvisionGithubClient = jest.Mocked<
   >
 >;
 
+async function consumeUntilProvisionEvent(
+  eventId: string | null,
+  workerId: string,
+) {
+  if (eventId === null) {
+    throw new Error('fixture approval must create a provision event');
+  }
+  for (let offset = 0; offset < 100; offset += 1) {
+    const result = await outbox.consumeNext(
+      workerId,
+      new Date(Date.now() + offset),
+    );
+    if (result.kind === 'EMPTY') {
+      throw new Error(`provision event ${eventId} was not claimable`);
+    }
+    if (result.eventId === eventId) {
+      const event = await prisma.outboxEvent.findUniqueOrThrow({
+        where: { id: eventId },
+        select: { availableAt: true },
+      });
+      if (event.availableAt == null) {
+        throw new Error(`provision event ${eventId} has no availableAt`);
+      }
+      return { ...result, queueNow: event.availableAt };
+    }
+  }
+  throw new Error(`provision event ${eventId} was not consumed`);
+}
+
 describe('OWN 저장소 연결·생성 사슬 통합', () => {
   beforeAll(async () => {
     await prisma.$connect();
@@ -340,6 +369,9 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
 
       // Then — outbox 이벤트가 생겼다.
       expect(decision.kind).toBe('APPROVED');
+      if (decision.kind !== 'APPROVED') {
+        throw new Error('fixture approval must succeed');
+      }
       await expect(
         prisma.outboxEvent.findUniqueOrThrow({
           where: {
@@ -349,10 +381,12 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       ).resolves.toMatchObject({ status: 'PENDING' });
 
       // When — outbox를 job으로 소비한다.
-      const queueNow = await consumeApproval(
-        CHAIN_APPLICATION_ID,
+      const consumed = await consumeUntilProvisionEvent(
+        decision.repositoryProvisioning.eventId,
         'own-chain-outbox-worker',
       );
+      expect(consumed).toMatchObject({ kind: 'CONSUMED' });
+      const queueNow = consumed.queueNow;
 
       // When — worker가 job을 처리한다(GitHub 경계만 mock, 편입 서비스는 real+real DB).
       const github = githubClient();
@@ -421,12 +455,17 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         { action: 'APPROVE' },
       );
       expect(decision.kind).toBe('APPROVED');
+      if (decision.kind !== 'APPROVED') {
+        throw new Error('fixture approval must succeed');
+      }
 
       // When — outbox를 job으로 소비한다.
-      const queueNow = await consumeApproval(
-        ORG_OWNER_EXTERNAL_APPLICATION_ID,
+      const consumed = await consumeUntilProvisionEvent(
+        decision.repositoryProvisioning.eventId,
         'own-chain-org-owner-external-outbox-worker',
       );
+      expect(consumed).toMatchObject({ kind: 'CONSUMED' });
+      const queueNow = consumed.queueNow;
 
       // When — worker가 job을 처리한다. owner가 설정된 조직과 다르므로
       // findPublicRepository(EXTERNAL 경로)만 호출되고 findRepository(ORGANIZATION
@@ -485,16 +524,21 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       NO_CONSENT_APPLICANT_ID,
       NO_CONSENT_REPOSITORY_URL,
     );
-    await service.decide(
+    const decision = await service.decide(
       STAFF_ACTOR_ID,
       NO_CONSENT_APPLICATION_ID,
       STAFF_GITHUB_ID,
       { action: 'APPROVE' },
     );
-    const queueNow = await consumeApproval(
-      NO_CONSENT_APPLICATION_ID,
+    if (decision.kind !== 'APPROVED') {
+      throw new Error('fixture approval must succeed');
+    }
+    const consumed = await consumeUntilProvisionEvent(
+      decision.repositoryProvisioning.eventId,
       'own-chain-no-consent-outbox-worker',
     );
+    expect(consumed).toMatchObject({ kind: 'CONSUMED' });
+    const queueNow = consumed.queueNow;
     const github = githubClient();
     github.findPublicRepository.mockResolvedValue(
       ownRepositoryMetadata(
@@ -565,16 +609,21 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         ORG_OWN_APPLICANT_ID,
         ORG_OWN_REPOSITORY_URL,
       );
-      await service.decide(
+      const decision = await service.decide(
         STAFF_ACTOR_ID,
         ORG_OWN_APPLICATION_ID,
         STAFF_GITHUB_ID,
         { action: 'APPROVE' },
       );
-      const queueNow = await consumeApproval(
-        ORG_OWN_APPLICATION_ID,
+      if (decision.kind !== 'APPROVED') {
+        throw new Error('fixture approval must succeed');
+      }
+      const consumed = await consumeUntilProvisionEvent(
+        decision.repositoryProvisioning.eventId,
         'own-chain-org-outbox-worker',
       );
+      expect(consumed).toMatchObject({ kind: 'CONSUMED' });
+      const queueNow = consumed.queueNow;
 
       // When — worker가 job을 처리한다. ORGANIZATION 경로는 findRepository로 해석되고,
       // 동의 확인(enrollExternalRepository)은 EXTERNAL 경로에서만 일어나므로 여기선

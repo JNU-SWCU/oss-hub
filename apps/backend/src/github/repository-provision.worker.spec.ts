@@ -22,7 +22,10 @@ import {
 import { COLLABORATOR_OUTCOMES } from './github-app.client';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
 import { buildRepositoryOwnershipMarker } from './repository-name';
-import { PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE } from './repository-provision-state.helpers';
+import {
+  PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
+  RepositoryProvisionSupersededError,
+} from './repository-provision-state.helpers';
 
 describe('RepositoryProvisionWorker success', () => {
   it('실행 가능한 job이 없으면 외부 호출을 하지 않는다', async () => {
@@ -42,6 +45,29 @@ describe('RepositoryProvisionWorker success', () => {
     expect(result).toEqual({ kind: 'EMPTY' });
     expect(state.loadContext.mock.calls).toHaveLength(0);
     expect(github.findRepository.mock.calls).toHaveLength(0);
+  });
+
+  it('세대가 넘어간 worker는 후속 job을 쓰지 않고 자기 요청만 SUPERSEDED로 닫는다', async () => {
+    const jobs = jobRepositoryMock();
+    const state = provisionStateMock();
+    state.loadContext.mockRejectedValue(
+      new RepositoryProvisionSupersededError('synthetic-request-id'),
+    );
+    const github = githubClientMock();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    await expect(worker.runNext('worker-a', PROVISION_NOW)).resolves.toEqual({
+      kind: 'SUPERSEDED',
+      jobId: 'synthetic-job-id',
+      requestId: 'synthetic-request-id',
+    });
+    expect(state.recordSupersededRequest.mock.calls).toEqual([
+      ['synthetic-application-id', 'synthetic-request-id', PROVISION_NOW],
+    ]);
+    expect(state.failJob.mock.calls).toHaveLength(0);
+    expect(github.createRepository.mock.calls).toHaveLength(0);
   });
 
   it('private 저장소를 먼저 기록하고 현재 팀원만 초대한다', async () => {
@@ -82,11 +108,18 @@ describe('RepositoryProvisionWorker success', () => {
       github.createRepository.mock.invocationCallOrder[0] ?? 0,
     );
     expect(jobs.renewLease.mock.calls).toHaveLength(3);
+    expect(jobs.renewLease).toHaveBeenCalledWith(
+      'synthetic-job-id',
+      'worker-a',
+      'synthetic-request-id',
+      PROVISION_NOW,
+    );
     expect(state.loadContext.mock.calls).toHaveLength(2);
-    // 권한 대상은 이벤트 snapshot이 아니라 현재 팀원 목록이다.
+    // 권한 대상은 요청 snapshot이 아니라 현재 팀원 목록이다.
     expect(state.prepareInvitations.mock.calls[0]).toEqual([
       'synthetic-job-id',
       'worker-a',
+      'synthetic-request-id',
       PROVISION_REPOSITORY.id,
       [...CURRENT_MEMBER_GITHUB_LOGINS],
     ]);
@@ -101,6 +134,7 @@ describe('RepositoryProvisionWorker success', () => {
       [
         'synthetic-job-id',
         'worker-a',
+        'synthetic-request-id',
         PROVISION_REPOSITORY.id,
         PROVISION_NOW,
         new Date(
@@ -136,17 +170,17 @@ describe('RepositoryProvisionWorker success', () => {
     await worker.runNext('worker-recurring', PROVISION_NOW);
 
     // Then: 팀 이탈은 초대 상태를 바꾸지 않으므로 재조회 예약을 끊지 않는다.
-    expect(state.completeJob.mock.calls[0]?.[4]).toEqual(
+    expect(state.completeJob.mock.calls[0]?.[5]).toEqual(
       new Date(
         PROVISION_NOW.getTime() +
           DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
       ),
     );
-    expect(state.completeJob.mock.calls[0]?.[5]).toBe(MEMBERSHIP_FINGERPRINT);
+    expect(state.completeJob.mock.calls[0]?.[6]).toBe(MEMBERSHIP_FINGERPRINT);
   });
 
-  it('이벤트 payload에 남아 있어도 팀에서 빠진 login은 초대하지 않고 회수한다', async () => {
-    // Given: 승인 시점 snapshot에는 있지만 지금은 팀에 없는 login이 있다.
+  it('요청 당시 팀원이었어도 팀에서 빠진 login은 초대하지 않고 회수한다', async () => {
+    // Given: 요청 당시에는 있었지만 지금은 팀에 없는 login이 있다.
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
     state.loadContext.mockResolvedValue(
@@ -154,13 +188,6 @@ describe('RepositoryProvisionWorker success', () => {
         repository: PROVISION_REPOSITORY,
         currentRepositorySource: RepositorySource.ORG_PROVISIONED,
         currentMemberGithubLogins: ['synthetic-leader'],
-        eventPayload: {
-          applicationId: 'synthetic-application-id',
-          programId: 'synthetic-program-id',
-          teamId: null,
-          requestedAt: PROVISION_NOW.toISOString(),
-          collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
-        },
       }),
     );
     state.findInvitationWork.mockResolvedValue([
@@ -183,7 +210,7 @@ describe('RepositoryProvisionWorker success', () => {
 
     // Then: 이탈자는 회수만, 남은 팀원은 부여만 받는다.
     expect(state.loadContext.mock.calls).toHaveLength(1);
-    expect(state.prepareInvitations.mock.calls[0]?.[3]).toEqual([
+    expect(state.prepareInvitations.mock.calls[0]?.[4]).toEqual([
       'synthetic-leader',
     ]);
     expect(github.revokeCollaborator.mock.calls).toEqual([
@@ -193,6 +220,7 @@ describe('RepositoryProvisionWorker success', () => {
       [PROVISION_REPOSITORY.name, 'synthetic-leader'],
     ]);
     expect(state.completeInvitation.mock.calls[0]?.[0]).toMatchObject({
+      requestId: 'synthetic-request-id',
       invitationId: 'synthetic-invitation-left',
       repositoryId: PROVISION_REPOSITORY.id,
       expectedStatus: RepositoryInvitationStatus.REVOKE_REQUIRED,
@@ -266,7 +294,7 @@ describe('RepositoryProvisionWorker success', () => {
 
     // Then: 빈 목록을 snapshot fallback으로 되돌리지 않고 전원 회수한다.
     expect(result.kind).toBe('SUCCEEDED');
-    expect(state.prepareInvitations.mock.calls[0]?.[3]).toEqual([]);
+    expect(state.prepareInvitations.mock.calls[0]?.[4]).toEqual([]);
     expect(github.revokeCollaborator.mock.calls).toEqual([
       [PROVISION_REPOSITORY.name, 'synthetic-leader'],
       [PROVISION_REPOSITORY.name, 'synthetic-student'],
@@ -328,6 +356,12 @@ describe('RepositoryProvisionWorker success', () => {
 
     // Then: 네트워크 호출 전에 lease를 먼저 갱신한다.
     expect(jobs.renewLease.mock.calls).toHaveLength(1);
+    expect(jobs.renewLease).toHaveBeenCalledWith(
+      'synthetic-job-id',
+      'worker-revoke-lease',
+      'synthetic-request-id',
+      PROVISION_NOW,
+    );
     expect(jobs.renewLease.mock.invocationCallOrder[0] ?? 0).toBeLessThan(
       github.revokeCollaborator.mock.invocationCallOrder[0] ?? 0,
     );
@@ -411,12 +445,18 @@ describe('RepositoryProvisionWorker success', () => {
       [
         'synthetic-job-id',
         'worker-current-link',
+        'synthetic-request-id',
         currentRepository.id,
         [...CURRENT_MEMBER_GITHUB_LOGINS],
       ],
     ]);
     expect(state.findInvitationWork.mock.calls).toEqual([
-      ['synthetic-job-id', 'worker-current-link', currentRepository.id],
+      [
+        'synthetic-job-id',
+        'worker-current-link',
+        'synthetic-request-id',
+        currentRepository.id,
+      ],
     ]);
     expect(github.ensureCollaborator.mock.calls).toEqual([
       [currentRepository.name, 'synthetic-student'],
@@ -426,7 +466,7 @@ describe('RepositoryProvisionWorker success', () => {
       repositoryId: currentRepository.id,
       status: RepositoryInvitationStatus.SUCCEEDED,
     });
-    expect(state.completeJob.mock.calls[0]?.[2]).toBe(currentRepository.id);
+    expect(state.completeJob.mock.calls[0]?.[3]).toBe(currentRepository.id);
     expect(github.createRepository.mock.calls).toHaveLength(0);
   });
 
@@ -467,6 +507,7 @@ describe('RepositoryProvisionWorker success', () => {
       [
         'synthetic-job-id',
         'worker-new-external',
+        'synthetic-request-id',
         currentRepository.id,
         PROVISION_NOW,
       ],
@@ -515,6 +556,7 @@ describe('RepositoryProvisionWorker success', () => {
       [
         'synthetic-job-id',
         'worker-own-managed',
+        'synthetic-request-id',
         currentRepository.id,
         [...CURRENT_MEMBER_GITHUB_LOGINS],
       ],
@@ -527,6 +569,7 @@ describe('RepositoryProvisionWorker success', () => {
       [
         'synthetic-job-id',
         'worker-own-managed',
+        'synthetic-request-id',
         currentRepository.id,
         PROVISION_NOW,
         new Date(
@@ -573,19 +616,12 @@ describe('RepositoryProvisionWorker success', () => {
     ).toBe(PROVISION_REPOSITORY.githubRepositoryId);
   });
 
-  it('레거시 teamId null payload는 백필된 context teamId와 달라도 성공한다', async () => {
-    // Given: 백필 이전 outbox payload는 teamId null이고 context는 백필된 teamId다.
+  it('현재 요청 context는 백필된 teamId와 함께 성공한다', async () => {
+    // Given: context의 teamId가 백필돼 있다.
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
     const claimed = provisionContext({
       teamId: 'synthetic-backfilled-team',
-      eventPayload: {
-        applicationId: 'synthetic-application-id',
-        programId: 'synthetic-program-id',
-        teamId: null,
-        requestedAt: PROVISION_NOW.toISOString(),
-        collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
-      },
     });
     state.loadContext.mockResolvedValueOnce(claimed).mockResolvedValueOnce({
       ...claimed,
@@ -603,7 +639,7 @@ describe('RepositoryProvisionWorker success', () => {
       PROVISION_NOW,
     );
 
-    // Then: 레거시 null payload를 거부하지 않고 완료한다.
+    // Then: 현재 요청 contract는 teamId backfill과 무관하게 완료한다.
     expect(result).toEqual({
       kind: 'SUCCEEDED',
       jobId: 'synthetic-job-id',
@@ -619,15 +655,7 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     const repositoryUrl =
       'https://github.com/synthetic-org/synthetic-existing-repo';
     const claimed = ownProvisionContext({
-      eventPayload: {
-        applicationId: 'synthetic-application-id',
-        programId: 'synthetic-program-id',
-        teamId: null,
-        requestedAt: PROVISION_NOW.toISOString(),
-        collaboratorGithubLogins: ['synthetic-student'],
-        repositoryConnectionMode: 'OWN',
-        repositoryUrl,
-      },
+      requestedRepositoryUrl: repositoryUrl,
     });
     const provisioned = {
       ...OWN_PROVISION_REPOSITORY,
@@ -683,6 +711,7 @@ describe('RepositoryProvisionWorker OWN connection', () => {
       [
         'synthetic-job-id',
         'worker-org-own',
+        'synthetic-request-id',
         provisioned.id,
         [...CURRENT_MEMBER_GITHUB_LOGINS],
       ],
@@ -699,6 +728,7 @@ describe('RepositoryProvisionWorker OWN connection', () => {
       [
         'synthetic-job-id',
         'worker-org-own',
+        'synthetic-request-id',
         provisioned.id,
         PROVISION_NOW,
         new Date(
@@ -717,15 +747,7 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     const repositoryUrl =
       'https://github.com/synthetic-org/synthetic-existing-repo';
     const claimed = ownProvisionContext({
-      eventPayload: {
-        applicationId: 'synthetic-application-id',
-        programId: 'synthetic-program-id',
-        teamId: null,
-        requestedAt: PROVISION_NOW.toISOString(),
-        collaboratorGithubLogins: ['synthetic-student'],
-        repositoryConnectionMode: 'OWN',
-        repositoryUrl,
-      },
+      requestedRepositoryUrl: repositoryUrl,
     });
     const provisioned = {
       ...OWN_PROVISION_REPOSITORY,
@@ -880,11 +902,12 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     expect(state.findInvitationWork.mock.calls).toHaveLength(0);
     expect(state.completeInvitation.mock.calls).toHaveLength(0);
     expect(state.failInvitation.mock.calls).toHaveLength(0);
-    // OWN은 관리형 재조회도 지문도 남기지 않는다(인자 4개).
+    // OWN은 관리형 재조회도 지문도 남기지 않는다(요청 id를 포함한 인자 5개).
     expect(state.completeJob.mock.calls).toEqual([
       [
         'synthetic-job-id',
         'worker-own-no-write',
+        'synthetic-request-id',
         OWN_PROVISION_REPOSITORY.id,
         PROVISION_NOW,
       ],
@@ -1007,15 +1030,7 @@ describe('RepositoryProvisionWorker OWN connection', () => {
     const state = provisionStateMock();
     state.loadContext.mockResolvedValue(
       ownProvisionContext({
-        eventPayload: {
-          applicationId: 'synthetic-application-id',
-          programId: 'synthetic-program-id',
-          teamId: null,
-          requestedAt: PROVISION_NOW.toISOString(),
-          collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
-          repositoryConnectionMode: 'OWN',
-          repositoryUrl: 'https://gitlab.com/synthetic/repo',
-        },
+        requestedRepositoryUrl: 'https://gitlab.com/synthetic/repo',
       }),
     );
     const github = githubClientMock();

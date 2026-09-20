@@ -41,6 +41,28 @@ export class RepositoryOutboxConsumer {
       }
 
       try {
+        if (event.type === REPOSITORY_PROVISION_EVENT_TYPE) {
+          const payload = parseRepositoryProvisionEvent(event.payload);
+          if (payload.applicationId !== event.aggregateId) {
+            throw new InvalidRepositoryProvisionEventError();
+          }
+          const job = await store.findProvisionJob(payload.applicationId);
+          if (job === null) {
+            throw new InvalidRepositoryProvisionEventError();
+          }
+          if (job.currentEventId !== event.id) {
+            await store.confirmSupersededProvisionEvent(
+              event.id,
+              payload.applicationId,
+              now,
+            );
+          }
+          // 세대 이전은 요청 수락 트랜잭션에서 이미 끝났다. match와 mismatch
+          // 모두 이벤트만 닫고 successor-owned job은 한 칸도 쓰지 않는다.
+          await store.completeProvisionEvent(event.id, workerId, now);
+          return { kind: 'CONSUMED', eventId: event.id, jobId: job.id };
+        }
+
         const payload = parseEventPayload(event.type, event.payload);
         if (payload.applicationId !== event.aggregateId) {
           throw new InvalidRepositoryProvisionEventError();
@@ -69,9 +91,6 @@ function parseEventPayload(
   type: string,
   payload: Prisma.JsonValue,
 ): { readonly applicationId: string } {
-  if (type === REPOSITORY_PROVISION_EVENT_TYPE) {
-    return parseRepositoryProvisionEvent(payload);
-  }
   if (type === REPOSITORY_ACCESS_SYNC_EVENT_TYPE) {
     return parseRepositoryAccessSyncEvent(payload);
   }

@@ -6,9 +6,11 @@ import type {
 import { Inject, Injectable } from '@nestjs/common';
 import {
   createTeamCreatedAuditMetadata,
+  createTeamDeletedAuditMetadata,
   createTeamMembershipAuditMetadata,
   createTeamRenamedAuditMetadata,
   TEAM_CREATED_AUDIT_ACTIONS,
+  TEAM_DELETED_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_RENAMED_AUDIT_ACTIONS,
 } from '../../audit-log/audit-log-metadata';
@@ -33,9 +35,16 @@ import {
   type TeamProgramRecord,
   type TeamRenameAuditEvent,
 } from '../repository/program-teams.repository';
+import {
+  ProgramTeamDeletionRepository,
+  type TeamDeletionAuditEvent,
+  type TeamDeletionAuditStore,
+} from '../repository/program-team-deletion.repository';
+import type { TeamDeletionScopeCounts } from '../team-deletion-scope';
 import { TEAMS_ERROR_CODES, TeamsErrorCode } from '../teams-error-code.enum';
 import type {
   CreatedTeamView,
+  DeletedTeamView,
   ProgramTeamView,
   RenamedTeamView,
   StaffTeamDetailView,
@@ -60,6 +69,7 @@ export class ProgramTeamsService {
     private readonly repository: ProgramTeamsRepository,
     @Inject(RUNTIME_CONFIG) runtimeConfig: RuntimeConfig,
     private readonly auditLog: AuditLogService,
+    private readonly deletionRepository: ProgramTeamDeletionRepository,
   ) {
     this.joinCodeSecret = resolveJoinCodeSecretFromConfig(runtimeConfig);
   }
@@ -324,11 +334,88 @@ export class ProgramTeamsService {
     if (!detail) {
       throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
     }
-    return this.toStaffTeamDetailView(detail);
+    return this.toStaffTeamDetailView(
+      detail,
+      await this.deletionRepository.readScopeCounts(teamId),
+    );
+  }
+
+  /**
+   * 교직원 팀 삭제 — 팀과 그 아래 신청·초대·구성원·제출 이력을 한 번에 거둔다.
+   *
+   * 가드를 새로 두지 않는다 — 교직원 판정은 `ProgramLifecycleService.purge`와 같은
+   * 모양으로 service 안에서 한다(`rename`과 같은 `findActorAuthorityByGithubId`).
+   *
+   * 승인된 팀이라고 막지 않는다. 대신 확인 창이 본 범위(`expectedScope`)를 서버가 삭제
+   * 트랜잭션 안에서 다시 세서 대조한다 — 「지우지 말라」가 아니라 「누르는 사람이 본 것만
+   * 지운다」가 이 경로의 안전장치다. 차단 규칙을 두면 승인된 팀은 영영 정리할 수 없고,
+   * 그건 운영을 맡은 교직원에게서 가위를 뺏는 일이다.
+   *
+   * 한계: 이미 발급된 GitHub 저장소의 collaborator 권한은 함께 회수되지 않는다 —
+   * 회수 outbox 이벤트는 worker가 처리 시점에 Application을 다시 읽어야 하는데 그 행이
+   * 이 트랜잭션에서 사라진다. purge도 같은 성질이며, 화면이 그 사실을 적는 쪽이 맞다.
+   */
+  async deleteForStaff(
+    githubId: bigint,
+    programId: string,
+    teamId: string,
+    expectedScope: TeamDeletionScopeCounts,
+  ): Promise<DeletedTeamView> {
+    const actor = await this.repository.findActorAuthorityByGithubId(githubId);
+    if (!actor?.isStaff) {
+      throw this.error(TeamsErrorCode.TEAM_DELETE_FORBIDDEN);
+    }
+
+    const result = await this.deletionRepository.deleteTeam(
+      programId,
+      teamId,
+      expectedScope,
+      (store, event) => this.recordDeletionAudit(githubId, store, event),
+    );
+    switch (result.outcome) {
+      case 'deleted':
+        return {
+          teamId,
+          deleted: true,
+          deletedCounts: result.deletedCounts,
+        };
+      case 'not-found':
+        throw this.error(TeamsErrorCode.TARGET_TEAM_NOT_FOUND);
+      case 'scope-changed':
+        throw new DomainException(
+          TEAMS_ERROR_CODES[TeamsErrorCode.TEAM_DELETE_SCOPE_CHANGED],
+          { currentTeamScopeCounts: result.currentScopeCounts },
+        );
+    }
+  }
+
+  /**
+   * 삭제와 같은 트랜잭션에서 남기는 감사 기록. 실패하면 그대로 던져 삭제 전체가 롤백된다.
+   */
+  private async recordDeletionAudit(
+    actorGithubId: bigint,
+    store: TeamDeletionAuditStore,
+    event: TeamDeletionAuditEvent,
+  ): Promise<void> {
+    await this.auditLog.record(
+      {
+        actorGithubId,
+        action: TEAM_DELETED_AUDIT_ACTIONS.TEAM_DELETED,
+        targetType: 'TEAM',
+        targetId: event.teamId,
+        metadata: createTeamDeletedAuditMetadata({
+          programName: event.programName,
+          teamName: event.teamName,
+          deletedCounts: event.deletedCounts,
+        }),
+      },
+      store.auditLogWriter,
+    );
   }
 
   private toStaffTeamDetailView(
     detail: StaffTeamDetailRecord,
+    deletionScope: TeamDeletionScopeCounts,
   ): StaffTeamDetailView {
     const members = detail.members.map((member) => ({
       userId: member.userId,
@@ -347,6 +434,7 @@ export class ProgramTeamsService {
       application: detail.application,
       repositoryContributions: detail.repositoryContributions,
       repositoryUrlHistory: detail.repositoryUrlHistory,
+      deletionScope,
     };
   }
 

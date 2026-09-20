@@ -267,12 +267,44 @@ export interface StaffTeamDetailApplication {
   readonly repositoryProvisioning: RepositoryProvisioning;
 }
 
+/**
+ * 백엔드 `TeamDeletionScopeCounts` 미러 — 팀을 지우면 함께 사라지는 것의 개수다.
+ *
+ * `detachedRepositories` 만 뜻이 다르다 — 지워지는 수가 아니라 **연결만 끊기는** 저장소
+ * 수이다. 화면은 이 둘을 같은 문장으로 묶지 않는다.
+ *
+ * `scopeFingerprint` 는 그대로 되돌려보내는 값이다 — 수치만 같고 내용이 다른 행 집합이
+ * 통과하지 않게 한다.
+ */
+export interface TeamDeletionScope {
+  readonly applications: number;
+  readonly members: number;
+  readonly invitations: number;
+  readonly submissions: number;
+  readonly submissionEvents: number;
+  readonly detachedRepositories: number;
+  readonly scopeFingerprint: string;
+}
+
+export type TeamDeletedCounts = Omit<TeamDeletionScope, 'scopeFingerprint'>;
+
+export interface DeletedTeamResult {
+  readonly teamId: string;
+  readonly deleted: true;
+  readonly deletedCounts: TeamDeletedCounts;
+}
+
 export interface StaffTeamDetail extends StaffRepositoryEvidence {
   readonly teamId: string;
   readonly name: string;
   readonly memberCount: number;
   readonly members: readonly StaffProgramTeamMember[];
   readonly application: StaffTeamDetailApplication | null;
+  /**
+   * 삭제 확인 창이 「무엇이 함께 지워지는가」를 말하기 위해 서버가 읽어 내려준 수치다.
+   * 누를 때 이 값이 그대로 `expectedScope` 로 돌아간다.
+   */
+  readonly deletionScope: TeamDeletionScope;
 }
 
 /**

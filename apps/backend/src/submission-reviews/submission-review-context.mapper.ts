@@ -34,6 +34,7 @@ export const REVIEW_CONTEXT_SELECT = {
       },
       team: { select: { name: true } },
       isRepositoryPublicationPlanned: true,
+      provisionJob: { select: { status: true, repositoryId: true } },
       program: {
         select: {
           endAt: true,
@@ -65,7 +66,6 @@ export const REVIEW_CONTEXT_SELECT = {
           id: true,
           nameWithOwner: true,
           visibility: true,
-          provisionJob: { select: { status: true, repositoryId: true } },
         },
       },
     },
@@ -193,7 +193,7 @@ function toPublishEligibility(
       milestoneDocumentId: submission.milestoneDocument.id,
       status: submission.status,
     }));
-  const job = repository.provisionJob;
+  const job = application.provisionJob;
   return {
     visibility: repository.visibility,
     provisionStatus: job?.repositoryId === repository.id ? job.status : null,

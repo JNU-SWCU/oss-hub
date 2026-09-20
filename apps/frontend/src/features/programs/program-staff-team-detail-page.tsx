@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Pencil } from 'lucide-react';
 import {
   useCallback,
@@ -29,6 +30,7 @@ import {
 } from './application-presentation';
 import { ProgramStaffRepositorySection } from './program-staff-repository-section';
 import { StaffRepositoryEvidenceView } from './staff-repository-evidence-view';
+import { TeamDeleteDialog } from './team-delete-dialog';
 import { TeamNameDialog } from './team-name-dialog';
 import type { StaffTeamDetail } from './types';
 
@@ -96,6 +98,7 @@ export function ProgramStaffTeamDetailPage({
 }): ReactElement {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [renaming, setRenaming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   /**
    * 이번 방문에서 이름을 바꿨는지. 바뀐 이름 자체는 `detail.name`이 이미 들고
    * 있어 여기에 다시 담지 않는다 — 같은 값을 두 곳에 두면 어느 쪽이 참인지 갈린다.
@@ -104,6 +107,8 @@ export function ProgramStaffTeamDetailPage({
   const cancelled = useRef(false);
   /** 창이 닫힐 때 초점을 돌려줄 자리. 공용 창 껍데기가 이 ref를 받는다. */
   const renameTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const deleteTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const router = useRouter();
 
   const load = useCallback(async (): Promise<void> => {
     setLoadState({ kind: 'loading' });
@@ -282,6 +287,21 @@ export function ProgramStaffTeamDetailPage({
             </Button>
           </div>
         ) : null}
+        <Section title="위험 영역">
+          <p className="text-body text-muted-foreground [word-break:keep-all]">
+            연결된 데이터와 관련 기록을 포함해 되돌릴 수 없이 삭제합니다.
+          </p>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              ref={deleteTriggerRef}
+              type="button"
+              variant="destructive"
+              onClick={() => setDeleting(true)}
+            >
+              팀 삭제
+            </Button>
+          </div>
+        </Section>
 
         {renaming ? (
           <TeamNameDialog
@@ -303,6 +323,26 @@ export function ProgramStaffTeamDetailPage({
                   ? { ...current, detail: { ...current.detail, name } }
                   : current,
               );
+            }}
+          />
+        ) : null}
+        {deleting ? (
+          <TeamDeleteDialog
+            programId={programId}
+            teamId={teamId}
+            teamName={detail.name}
+            scope={detail.deletionScope}
+            onCancel={() => {
+              setDeleting(false);
+              requestAnimationFrame(() => deleteTriggerRef.current?.focus());
+            }}
+            onDeleted={() => {
+              /*
+               * 참여 팀 목록은 아직 삭제 결과 알림을 읽지 않는다.
+               * 쿼리만 붙이면 아무도 읽지 않는 죽은 값이 되고, `purged` 키는
+               * 프로그램 전체 삭제 말투라 여기 쓰지 않는다.
+               */
+              router.push(teamsHref);
             }}
           />
         ) : null}

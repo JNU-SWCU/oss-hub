@@ -394,6 +394,7 @@ describe('ApplicationsService.decide — REVERT', () => {
     // 저장소가 영영 만들어지지 않는다.
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
+      expect.any(Date),
     );
   });
 
@@ -410,6 +411,7 @@ describe('ApplicationsService.decide — REVERT', () => {
 
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
+      expect.any(Date),
     );
   });
 
@@ -719,6 +721,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
     // 지운다 — 남기면 워커가 집은 job이 FAILED_FINAL로 굳어버린다.
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
+      expect.any(Date),
     );
   });
 
@@ -766,6 +769,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
     // 재승인은 기존 경로 그대로 — 남은 요청을 지우고 같은 멱등키로 새로 발행한다.
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
+      expect.any(Date),
     );
     expect(createRepositoryProvisionEvent).toHaveBeenCalledTimes(1);
     expect(createRepositoryProvisionEvent).toHaveBeenCalledWith(

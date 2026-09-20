@@ -65,6 +65,11 @@ export class StaffTeamDetailResponseDto {
   readonly application: TeamApplicationResponseDto | null;
   readonly repositoryContributions: StaffTeamDetailView['repositoryContributions'];
   readonly repositoryUrlHistory: StaffTeamDetailView['repositoryUrlHistory'];
+  /**
+   * 삭제 확인 창이 「무엇이 함께 지워지는가」를 말하기 위해 읽는 수치이고, 누를 때
+   * 그대로 `expectedScope`로 돌아간다. 개인정보가 아니라 개수만 담긴다.
+   */
+  readonly deletionScope: StaffTeamDetailView['deletionScope'];
 
   private constructor(view: StaffTeamDetailView) {
     this.teamId = view.teamId;
@@ -76,6 +81,7 @@ export class StaffTeamDetailResponseDto {
     this.application = view.application
       ? TeamApplicationResponseDto.from(view.application)
       : null;
+    this.deletionScope = view.deletionScope;
   }
 
   static from(view: StaffTeamDetailView): StaffTeamDetailResponseDto {
