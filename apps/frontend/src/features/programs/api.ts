@@ -803,7 +803,9 @@ export function deleteStaffProgramTeam(
       // 빈 문구는 키째 빼서 보낸다 — 백엔드 DTO 가 옵셔널이고, 빈 문자열과
       // 「적지 않았다」를 서버에서 다시 가를 이유를 만들지 않는다.
       body: JSON.stringify(
-        trimmed ? { expectedScope, notificationMessage: trimmed } : { expectedScope },
+        trimmed
+          ? { expectedScope, notificationMessage: trimmed }
+          : { expectedScope },
       ),
     },
   );
