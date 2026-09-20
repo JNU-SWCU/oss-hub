@@ -144,6 +144,59 @@ const PROGRAM_OVERVIEW = {
   milestoneDocuments: [],
 } as const;
 
+const STUDENT_SESSION = {
+  isAuthenticated: true,
+  user: {
+    nickname: 'synthetic-student',
+    name: '합성 학생',
+    email: null,
+    avatarUrl: null,
+    memberKind: 'STUDENT',
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+    isProfileComplete: true,
+  },
+} as const;
+
+const STUDENT_TEAM = {
+  id: 'synthetic-team',
+  name: '합성 팀',
+  memberCount: 1,
+  minMembers: 1,
+  maxMembers: 4,
+  hasApplication: true,
+  canInvite: true,
+  canRemoveMembers: false,
+  canLeave: false,
+  isLeader: true,
+  members: [
+    {
+      userId: 'synthetic-student',
+      nickname: 'synthetic-student',
+      name: '합성 학생',
+      isLeader: true,
+    },
+  ],
+} as const;
+
+/**
+ * 반려된 학생 신청. `canManage`만 phase 마다 다르다 — PR-C 가 여는 것이 정확히 그 값이다.
+ */
+const REJECTED_STUDENT_APPLICATION = {
+  id: APPLICATION_ID,
+  programId: PROGRAM_ID,
+  status: 'REJECTED',
+  teamId: 'synthetic-team',
+  answers: { applicantName: '합성 학생', title: '합성 신청 제목' },
+  submittedAt: '2026-08-05T05:32:00.000Z',
+  updatedAt: '2026-08-06T01:00:00.000Z',
+  isRepositoryPublicationPlanned: true,
+  rejectionReason: '제출 서류가 비어 있습니다.',
+  isManager: true,
+  canEdit: false,
+  canCancel: false,
+} as const;
+
 const REJECTED_DECISION = {
   applicationId: APPLICATION_ID,
   status: 'REJECTED',
@@ -241,6 +294,62 @@ test('팀 관리 통합이 신청 상세에서 바꾸는 것을 Before/After 로
     prefix: ARTIFACT_PREFIX,
     name: 'approved-reject-blocked-by-client-guard',
     target: guardNotice.locator('..'),
+  });
+
+  browserAudit.assertClean();
+});
+
+test('반려된 학생 신청 화면이 Before/After 에서 같은지 찍는다', async ({
+  page,
+}, testInfo) => {
+  const phase = capturePhase(CAPTURE_PHASE_VARIABLE);
+  const browserAudit = installBrowserAudit(page);
+
+  await installExactApiRouter(page, (): EvidenceApiHandlers => {
+    // PR-C 가 여는 것은 이 한 값이다. 화면이 그것을 쓰는지 보는 것이 이 장면의 전부다.
+    const application = {
+      ...REJECTED_STUDENT_APPLICATION,
+      canManage: phase === 'after',
+    };
+    return {
+      'GET /api/v1/auth/session': (route: Route) =>
+        fulfillJson(route, STUDENT_SESSION),
+      [`GET /api/v1/programs/${PROGRAM_ID}`]: (route: Route) =>
+        fulfillJson(route, PROGRAM_DETAIL),
+      [`GET /api/v1/programs/${PROGRAM_ID}/viewer`]: (route: Route) =>
+        fulfillJson(route, PROGRAM_DETAIL),
+      [`GET /api/v1/programs/${PROGRAM_ID}/overview`]: (route: Route) =>
+        fulfillJson(route, { ...PROGRAM_OVERVIEW, viewerRole: 'STUDENT' }),
+      [`GET /api/v1/programs/${PROGRAM_ID}/teams/me`]: (route: Route) =>
+        fulfillJson(route, STUDENT_TEAM),
+      [`GET /api/v1/programs/${PROGRAM_ID}/applications/me`]: (route: Route) =>
+        fulfillJson(route, application),
+      'GET /api/v1/team-invitations/received': (route: Route) =>
+        fulfillJson(route, []),
+      [`GET /api/v1/team-invitations/teams/${STUDENT_TEAM.id}/sent`]: (
+        route: Route,
+      ) => fulfillJson(route, []),
+    };
+  });
+
+  await page.goto(`/programs/${PROGRAM_ID}/my-team`);
+
+  const main = page.locator('main');
+  /*
+   * 반려 사유는 두 phase 모두 보인다. 화면의 'rejected' 분기가 사유 Alert 하나만
+   * 그리고 `canManage` 를 읽지 않기 때문이다 — 그래서 backend 가 재제출을 열어도
+   * 학생에게는 아직 진입점이 없다. 그 진입점은 T-FE-12 가 만든다.
+   */
+  await expect(main.getByText('반려 사유')).toBeVisible();
+  await expect(main.getByText('제출 서류가 비어 있습니다.')).toBeVisible();
+
+  await captureBothViewports({
+    page,
+    testInfo,
+    phase,
+    prefix: ARTIFACT_PREFIX,
+    name: 'student-rejected-application',
+    target: main,
   });
 
   browserAudit.assertClean();
