@@ -827,3 +827,39 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
     });
   });
 });
+
+describe('ApplicationsService.create — 최초 제출 이력', () => {
+  it('신청 생성과 같은 트랜잭션 store로 SUBMITTED 이력을 남긴다', async () => {
+    // Given
+    const { service, appendReviewHistory } = buildService({});
+
+    // When
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
+
+    // Then: 행위자는 교직원이 아니라 제출한 학생이고, 시각은 신청의 submittedAt이다.
+    expect(appendReviewHistory).toHaveBeenCalledWith({
+      applicationId: CREATED.id,
+      eventKind: 'SUBMITTED',
+      actorId: STUDENT.id,
+      occurredAt: CREATED.submittedAt,
+      rejectionReason: null,
+    });
+  });
+
+  it('신청이 만들어지지 않으면 이력도 남기지 않는다', async () => {
+    // Given: 내린 프로그램이라 생성 자체가 막힌다.
+    const { service, appendReviewHistory } = buildService({
+      program: { ...OPEN_PROGRAM, lifecycle: ProgramLifecycle.ARCHIVED },
+    });
+
+    // When
+    await expect(
+      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
+    ).rejects.toMatchObject({
+      errorCode: { code: ApplicationsErrorCode.PROGRAM_ARCHIVED },
+    });
+
+    // Then
+    expect(appendReviewHistory).not.toHaveBeenCalled();
+  });
+});
