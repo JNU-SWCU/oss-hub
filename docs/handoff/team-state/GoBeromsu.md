@@ -1894,6 +1894,7 @@
 ## 2026-09-20 — 증거 캡처 헬퍼를 레인 공용으로 일반화
 ## 2026-09-20 — 사이드바에서 단계 목록 오류 블록 제거
 ## 2026-09-20 — 신청 판정 이력 원장과 공유 append writer
+## 2026-09-20 — 증거 캡처 헬퍼를 레인 공용으로 일반화
 
 - 상태: review
 - Issue: -
@@ -1960,3 +1961,30 @@
 - 쪼갬: 이 작업은 `docs/rules/pr-scope.md` §3의 계약 PR이다.
   판정 정책·학생 재제출·교직원 읽기 경로·팀 삭제 알림은 이 PR 위에 각각 독립 소형 PR로 따로 올린다.
 - 공개 안전성: 합성 fixture만 썼고 `scripts/check-public-safe.sh`를 통과했다.
+
+## 2026-09-20 — 팀 관리 통합 증거 레인과 프런트 가드 발견
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 무엇: 팀 관리 통합 backend 변경이 소비 화면에서 무엇을 바꾸는지 찍는 증거 스펙을 넣었다.
+  교직원 신청 상세를 Before/After 두 phase로 돌려 2장면 x 2 viewport x 2 phase = 8장을 만든다.
+- 찍다가 알아낸 것: 신청 상세는 승인→반려 버튼을 서버 응답이 아니라 **클라이언트에서 직접** 비활성화한다.
+  `application-presentation.ts`의 `isApplicationRevertBlocked`가 `status===APPROVED && repositoryConnectionMode==='NEW' && (repository!==null || jobStatus==='SUCCEEDED')`이면 참이고, 상세 화면이 그 값으로 버튼을 `disabled`로 만들고 「저장소가 이미 만들어져 이 승인은 반려로 바꿀 수 없습니다.」를 띄운다.
+- 그래서: backend에서 APP_023을 없애도 이 화면은 그대로다.
+  서버는 반려를 받을 수 있게 됐지만 화면이 요청을 아예 보내지 않는다.
+  AC-15가 사용자에게 닿으려면 T-FE-05가 이 프런트 가드를 함께 걷어내야 한다.
+  계획의 시나리오 1이 「프런트 APP_023 판별 코드는 PR2에서 제거한다」고 이미 적어 뒀지만, 그 문장이 「409 대신 2xx를 받을 뿐 깨지지 않는다」로 읽혀 버튼이 동작하는 것처럼 오해될 수 있다.
+- Before/After가 같다는 것이 증거다: 두 phase의 이미지가 바이트 크기까지 같다(47713 · 37248 · 4532 · 4967).
+  `reviewHistory` additive 확장도, APP_023 은퇴도 이 화면을 바꾸지 않는다.
+- 학생 화면도 같다: `program-my-team-view.tsx`의 'rejected' 분기는 사유 Alert 하나만 그리고 `canManage`를 읽지 않는다.
+  그래서 backend가 재제출을 열어도 학생에게는 아직 진입점이 없고, 그 진입점은 T-FE-12가 만든다.
+- 여섯 Before/After 쌍이 전부 sha256까지 같다.
+  화면이 「같아 보인다」가 아니라 실제로 같은 바이트다.
+- 장면 2는 화면 전체가 아니라 판정 영역만 잘라 찍는다.
+  전체를 다시 찍으면 장면 1과 같은 이미지가 되어 리뷰어가 두 장을 구분할 수 없다.
+- 검증: `pnpm --filter frontend e2e e2e/team-management-evidence.spec.ts`를 `TEAM_MANAGEMENT_CAPTURE_PHASE=before`와 `=after`로 각각 1 passed.
+  `pnpm --filter frontend typecheck`·`lint`(오류 0건)·전체 format 검사를 통과했다.
+- 공개 안전성: 가로챈 응답은 전부 합성값이고 캡처는 저장소에 커밋하지 않는다.
+  `scripts/check-public-safe.sh`를 통과했다.
