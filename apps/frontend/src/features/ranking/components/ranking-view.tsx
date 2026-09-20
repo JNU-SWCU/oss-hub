@@ -33,6 +33,14 @@ interface RankingViewProps {
 /** Empty department or staff name — a blank cell looks broken. */
 const EMPTY_CELL = '-';
 
+/**
+ * 두 계층이 같은 지표를 센다 — 공개와 교직원 화면이 다른 문장을 쓰면 같은
+ * 숫자를 두고 서로 다른 셈법을 한다고 읽힌다. 계층이 가르는 것은 이름·학과
+ * 표시 여부지 합산 규칙이 아니다.
+ */
+const RANKING_METRIC_DESCRIPTION =
+  'Commit · PR · Issue · Repo를 합산합니다. Star는 계정 전체 누적입니다.';
+
 const PUBLIC_RANKING_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
   {
     id: 'rank',
@@ -68,6 +76,39 @@ const PUBLIC_RANKING_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
     header: 'PR',
     cell: (item) => item.pullRequestCount,
     cellClassName: 'text-right tabular-nums',
+    headClassName: 'w-12 text-right',
+  },
+  {
+    id: 'issue',
+    header: 'Issue',
+    cell: (item) => item.issueCount,
+    cellClassName: 'text-right tabular-nums',
+    headClassName: 'w-12 text-right',
+  },
+  {
+    id: 'repository',
+    header: 'Repo',
+    cell: (item) => item.repositoryCount,
+    cellClassName: 'text-right tabular-nums',
+    headClassName: 'w-12 text-right',
+  },
+  {
+    id: 'star',
+    header: (
+      <span className="inline-flex flex-col items-end leading-tight">
+        <span>Star</span>
+        <span className="font-normal text-muted-foreground">(누적)</span>
+      </span>
+    ),
+    cell: (item) => item.starCount,
+    cellClassName: 'text-right tabular-nums',
+    headClassName: 'w-12 text-right',
+  },
+  {
+    id: 'total',
+    header: '합계',
+    cell: (item) => item.total,
+    cellClassName: 'text-right font-semibold tabular-nums',
     headClassName: 'w-12 text-right',
   },
 ];
@@ -242,11 +283,7 @@ export function RankingView({
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
       <PageHeader
         title="랭킹"
-        description={
-          showStaffFields
-            ? 'Commit · PR · Issue · Repo를 합산합니다. Star는 계정 전체 누적입니다.'
-            : 'Commit · PR 활동을 표시합니다.'
-        }
+        description={RANKING_METRIC_DESCRIPTION}
         actions={
           ranking ? (
             <>

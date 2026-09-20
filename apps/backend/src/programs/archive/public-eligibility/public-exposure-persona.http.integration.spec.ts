@@ -397,11 +397,22 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     const staffClassRankingItemLists: Record<string, unknown>[][] = [];
     // 공개(익명·STUDENT) 랭킹 wire 는 딱 이 네 칸이다 — 닉네임과 commit/PR 집계뿐이고
     // 학과·이슈·저장소·스타·합계·표시명은 공개 표면에서 제거됐다(공격 표면 축소).
+    /*
+     * 공개 랭킹 항목의 키 집합. **정확히 일치**를 요구한다 — 새 필드가 공개 표면에
+     * 새면 이 줄이 먼저 깨진다.
+     *
+     * 이슈·저장소·스타·합계는 #1234로 의도적으로 넓혔다. 커밋·PR과 같은 활동 집계라
+     * 같은 등급이며, 사람을 가리키는 값(이름·학과·표시명)은 아래에서 계속 막는다.
+     */
     const publicItemKeys = [
       'commitCount',
       'githubLogin',
+      'issueCount',
       'pullRequestCount',
       'rank',
+      'repositoryCount',
+      'starCount',
+      'total',
     ];
     // 교직원·관리자만 보는 rich 표 — 실명·학과·전 지표·합계를 싣는다.
     const staffItemKeys = [
@@ -491,10 +502,11 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {
         expect(Object.keys(item).sort()).toEqual(publicItemKeys);
+        // 막아야 하는 것은 사람을 가리키는 값이다. 활동 집계(`total` 포함)는
+        // #1234로 공개 표면에 들어왔고 위 키 집합이 그 범위를 정확히 고정한다.
         expect(item).not.toHaveProperty('name');
         expect(item).not.toHaveProperty('department');
         expect(item).not.toHaveProperty('displayName');
-        expect(item).not.toHaveProperty('total');
       }
     }
     for (const items of staffClassRankingItemLists) {
@@ -540,14 +552,13 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     }
     const publicRankingSerialized = JSON.stringify(publicClassRankingItemLists);
     for (const forbiddenKey of [
+      // 사람을 가리키는 값과 계정 정보만 막는다. 이슈·저장소·스타·합계는 #1234로
+      // 공개 표면에 의도적으로 들어왔고, 그 범위는 위 `publicItemKeys` 정확 일치가
+      // 고정한다 — 여기에 다시 적으면 두 곳이 서로 다른 계약을 말하게 된다.
       '"name"',
       '"studentId"',
       '"department"',
       '"displayName"',
-      '"issueCount"',
-      '"repositoryCount"',
-      '"starCount"',
-      '"total"',
       '"email"',
       '"role"',
       '"accountStatus"',
@@ -672,15 +683,21 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     );
     // fixture 는 올해 10/4/3/2/1, 지난해 1000×5 를 심었다 — 공개 wire 는 commit/PR
     // 집계만 노출하므로 올해 값이 그대로 보이고(지난해가 새면 12가 아니라 2012가 된다),
-    // 학과·이슈·저장소·스타·합계·표시명은 공개 표면에 없다.
+    // 학과·표시명 같은 사람 정보는 공개 표면에 없다.
+    //
+    // ⚠ 이슈·저장소·스타·합계는 #1234로 공개 표면에 **의도적으로** 들어왔다. 커밋·PR과
+    //   같은 활동 집계라 같은 등급이며, 여기서 막아야 하는 것은 그 수가 아니라 사람을
+    //   가리키는 값이다. 그 가드는 아래 네 줄이 계속 지킨다.
     expect(entry).toMatchObject({
       githubLogin: studentPersona.nickname,
       commitCount: 10,
       pullRequestCount: 4,
+      issueCount: 3,
     });
+    expect(entry).toHaveProperty('repositoryCount');
+    expect(entry).toHaveProperty('starCount');
+    expect(entry).toHaveProperty('total');
     expect(entry).not.toHaveProperty('department');
-    expect(entry).not.toHaveProperty('issueCount');
-    expect(entry).not.toHaveProperty('total');
     expect(entry).not.toHaveProperty('displayName');
     expect(JSON.stringify(ranking.items)).not.toContain(
       NAMED_PERSONA_REAL_NAME,

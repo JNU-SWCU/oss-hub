@@ -11,12 +11,20 @@ class PublicRankingEntryResponseDto {
   readonly githubLogin: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
+  readonly total: number;
 
   private constructor(entry: RankingEntry) {
     this.rank = entry.rank;
     this.githubLogin = entry.githubLogin;
     this.commitCount = entry.commitCount;
     this.pullRequestCount = entry.pullRequestCount;
+    this.issueCount = entry.issueCount;
+    this.repositoryCount = entry.repositoryCount;
+    this.starCount = entry.starCount;
+    this.total = entry.total;
   }
 
   static from(entry: RankingEntry): PublicRankingEntryResponseDto {
