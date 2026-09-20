@@ -1,5 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ApplicationStatus, type Prisma } from '@prisma/client';
+import {
+  ApplicationReviewEventKind,
+  ApplicationStatus,
+  type Prisma,
+} from '@prisma/client';
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
@@ -9,6 +13,46 @@ import {
   programApplicationManagerWhere,
   programApplicationParticipantWhere,
 } from '../programs/program-participant';
+import { appendReviewHistory } from './review-history.writer';
+import type {
+  AppendReviewHistoryInput,
+  AppendedReviewHistory,
+} from './review-history.writer';
+
+/**
+ * 학생 재제출 트랜잭션이 쓰는 store.
+ *
+ * 판정(`ApplicationsTransactionStore`)·생성(`ApplicationCreateStore`)과 같은 모양으로
+ * 이력 writer를 **자기 트랜잭션 client로** 엽는다. 세 진입점이 같은 writer를 같은
+ * 방식으로 쓰면 「상태 변경과 같은 트랜잭션에서만 append한다」는 계약이 경로마다
+ * 갈라질 수 없다.
+ */
+class StudentResubmissionStore {
+  constructor(private readonly transaction: Prisma.TransactionClient) {}
+
+  appendReviewHistory(
+    input: AppendReviewHistoryInput,
+  ): Promise<AppendedReviewHistory> {
+    return appendReviewHistory(this.transaction, input);
+  }
+}
+
+/**
+ * 학생이 직접 고쳐 다시 낼 수 있는 상태. **허용 집합을 그대로 적는다** —
+ * `!== APPROVED` 같은 부정형을 쓰지 않는다. 부정형은 상태가 하나 늘어날 때마다
+ * 조용히 그 새 상태를 허용해 버린다.
+ */
+const RESUBMITTABLE_STATUSES: readonly ApplicationStatus[] = [
+  ApplicationStatus.SUBMITTED,
+  ApplicationStatus.REJECTED,
+];
+
+/** 신청 취소는 아직 판정 전인 것만 허용한다 — 명세가 재제출만 확장했다(R-1). */
+const CANCELLABLE_STATUSES: readonly ApplicationStatus[] = [
+  ApplicationStatus.SUBMITTED,
+];
+
+export { RESUBMITTABLE_STATUSES, CANCELLABLE_STATUSES };
 
 export interface StudentApplicationPolicy {
   readonly applicationStartAt: Date;
@@ -167,21 +211,47 @@ export class StudentApplicationManagementRepository {
         input.studentId,
       );
       if (!application) return { kind: 'application-not-found' };
-      const failure = this.validateMutation(application, policy, this.clock());
+      const now = this.clock();
+      const failure = this.validateMutation(
+        application,
+        policy,
+        now,
+        RESUBMITTABLE_STATUSES,
+      );
       if (failure) return failure;
       if (
         input.applicationTemplateVersion !== policy.applicationTemplateVersion
       ) {
         return { kind: 'template-version-mismatch' };
       }
+      // 반려된 신청을 고쳐 내는 것은 「재제출」이다 — 검토대기로 돌아가고
+      // 지난 반려 사유는 뜨지 않는다. 사유를 남기면 검토대기 신청이 반려 문구를
+      // 지고 있게 되어 화면이 모순된다. 「그때 무엇을 지적받았는가」는 판정 이력에
+      // 남아 있다(`ApplicationReviewHistory.rejectionReason`).
+      const resubmitted = application.status === ApplicationStatus.REJECTED;
       const row = await transaction.application.update({
         where: { id: application.id },
         data: {
           answers: input.answers,
           applicationTemplateVersion: policy.applicationTemplateVersion,
+          ...(resubmitted
+            ? {
+                status: ApplicationStatus.SUBMITTED,
+                rejectionReason: null,
+              }
+            : {}),
         },
         select: APPLICATION_SELECT,
       });
+      if (resubmitted) {
+        await new StudentResubmissionStore(transaction).appendReviewHistory({
+          applicationId: application.id,
+          eventKind: ApplicationReviewEventKind.RESUBMITTED,
+          actorId: input.studentId,
+          occurredAt: now,
+          rejectionReason: null,
+        });
+      }
       return { kind: 'updated', application: toOwnedStudentApplication(row) };
     });
   }
@@ -198,7 +268,12 @@ export class StudentApplicationManagementRepository {
         input.studentId,
       );
       if (!application) return { kind: 'application-not-found' };
-      const failure = this.validateMutation(application, policy, this.clock());
+      const failure = this.validateMutation(
+        application,
+        policy,
+        this.clock(),
+        CANCELLABLE_STATUSES,
+      );
       if (failure) return failure;
       await transaction.application.delete({ where: { id: application.id } });
       return { kind: 'cancelled' };
@@ -282,8 +357,9 @@ export class StudentApplicationManagementRepository {
     application: OwnedStudentApplication,
     policy: StudentApplicationPolicy,
     now: Date,
+    allowedStatuses: readonly ApplicationStatus[],
   ): StudentApplicationMutationFailure | null {
-    if (application.status !== ApplicationStatus.SUBMITTED) {
+    if (!allowedStatuses.includes(application.status)) {
       return { kind: 'already-decided' };
     }
     if (!(policy.applicationStartAt <= now && now <= policy.applicationEndAt)) {
