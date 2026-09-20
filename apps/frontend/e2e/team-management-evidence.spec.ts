@@ -197,6 +197,33 @@ const REJECTED_STUDENT_APPLICATION = {
   canCancel: false,
 } as const;
 
+/** 신청 양식 — 신청 화면이 폼을 그리는 데 쓴다. */
+const APPLICATION_TEMPLATES = {
+  items: [
+    {
+      key: 'basic',
+      version: 1,
+      name: '기본 신청서',
+      participation: 'TEAM',
+      fields: [
+        {
+          key: 'applicantName',
+          type: 'TEXT',
+          label: '신청자 이름',
+          required: true,
+        },
+        { key: 'title', type: 'TEXT', label: '신청 제목', required: true },
+        {
+          key: 'summary',
+          type: 'TEXTAREA',
+          label: '지원 동기 · 계획',
+          required: true,
+        },
+      ],
+    },
+  ],
+} as const;
+
 const REJECTED_DECISION = {
   applicationId: APPLICATION_ID,
   status: 'REJECTED',
@@ -349,6 +376,57 @@ test('반려된 학생 신청 화면이 Before/After 에서 같은지 찍는다'
     phase,
     prefix: ARTIFACT_PREFIX,
     name: 'student-rejected-application',
+    target: page.locator('body'),
+  });
+
+  browserAudit.assertClean();
+});
+
+test('반려 상태 학생 신청 화면이 Before/After 에서 같은지 찍는다', async ({
+  page,
+}, testInfo) => {
+  const phase = capturePhase(CAPTURE_PHASE_VARIABLE);
+  const browserAudit = installBrowserAudit(page);
+
+  await installExactApiRouter(page, (): EvidenceApiHandlers => {
+    // PR-C 가 여는 것은 canManage 한 값이다. 신청 화면이 그 값으로 무엇을 하는지 본다.
+    const application = {
+      ...REJECTED_STUDENT_APPLICATION,
+      canManage: phase === 'after',
+    };
+    return {
+      'GET /api/v1/auth/session': (route: Route) =>
+        fulfillJson(route, STUDENT_SESSION),
+      'GET /api/v1/programs/application-templates': (route: Route) =>
+        fulfillJson(route, APPLICATION_TEMPLATES),
+      [`GET /api/v1/programs/${PROGRAM_ID}`]: (route: Route) =>
+        fulfillJson(route, PROGRAM_DETAIL),
+      [`GET /api/v1/programs/${PROGRAM_ID}/viewer`]: (route: Route) =>
+        fulfillJson(route, PROGRAM_DETAIL),
+      [`GET /api/v1/programs/${PROGRAM_ID}/overview`]: (route: Route) =>
+        fulfillJson(route, { ...PROGRAM_OVERVIEW, viewerRole: 'STUDENT' }),
+      [`GET /api/v1/programs/${PROGRAM_ID}/applications/me`]: (route: Route) =>
+        fulfillJson(route, application),
+      'GET /api/v1/team-invitations/received': (route: Route) =>
+        fulfillJson(route, []),
+    };
+  });
+
+  await page.goto(`/programs/${PROGRAM_ID}/apply`);
+
+  const main = page.locator('main');
+  await expect(main).toBeVisible();
+  /*
+   * `load-program-apply-context.ts` 가 `status !== 'SUBMITTED'` 를 already-applied 로
+   * 접기 때문에 backend 가 canManage 를 열어도 이 화면은 수정 모드로 가지 않는다.
+   * 그 분기를 여는 것이 T-FE-12 다.
+   */
+  await captureBothViewports({
+    page,
+    testInfo,
+    phase,
+    prefix: ARTIFACT_PREFIX,
+    name: 'student-apply-screen',
     target: page.locator('body'),
   });
 
