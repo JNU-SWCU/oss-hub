@@ -1936,3 +1936,21 @@
 - 덤으로 고친 둘: 반려 확인창의 「스스로 다시 신청할 수 없습니다」가 재제출을 연 뒤로 거짓이 됐고, 대시보드 알림 파서가 `decision`을 둘만 받아 되돌림 알림을 조용히 걸렀다.
 - 검증: frontend 375 files / 3,754 tests, typecheck, lint(오류 0건), build, 전체 format 검사를 통과했다.
   격리 e2e 스택에서 목록 화면 Before/After를 실제로 찍었다.
+## 2026-09-20 — 신청자 목록과 신청 상세 라우트 철거
+
+- 상태: review
+- Issue: -
+- PR: (이 PR — 팀 관리 통합 PR2의 마지막 갈래)
+- blocker: 통합 화면 PR이 base다. 대체 화면이 먼저 들어가야 지울 수 있다
+- 무엇: `/applicants`와 `/applications/[applicationId]` 라우트, 그 화면 둘과 각 테스트, 경로 헬퍼 둘을 지웠다(−2,977줄).
+- 지우자 죽은 링크 다섯 자리가 드러났고 전부 팀 관리로 돌렸다.
+  서류 현황 빈 상태의 「신청 확인하기」, 프로그램 삭제 차단 목록의 「지원서」 행, e2e 두 곳, features 경로 안내다.
+- 가장 큰 것은 계층을 넘는 문제였다.
+  backend가 운영 대시보드 응답에 `applicantsPath`를 싣고 frontend 파서가 그 값이 **정확히** `/applicants`인지 검증하고 있었다.
+  라우트만 지웠으면 교직원 대시보드 카드가 404로 보내거나 파서가 응답 전체를 거절했다.
+  이름과 값을 `teamManagementPath` + `/teams`로 함께 바꿨고 backend 5개·frontend 4개 파일이 같이 움직였다.
+- Next 캐시(`.next/types`)가 지운 라우트를 붙잡고 있어 typecheck가 실패했다.
+  캐시를 비우고 확인했다.
+- backend legacy projection 제거는 이 PR 범위가 아니다.
+  그것은 이 변경이 프로덕션에 배포된 뒤에만 안전하다.
+- 검증: frontend 371 files / 3,682 tests, backend 353 suites / 4,403 tests, 양쪽 typecheck·lint(오류 0건)·build, 전체 format 검사를 통과했다.
