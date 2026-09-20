@@ -1,0 +1,16 @@
+{
+  "name": "OSS Hub 디자인 라이브러리",
+  "id": "oss-hub-design-library",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": [
+      "https://raw.githubusercontent.com",
+      "https://unpkg.com"
+    ],
+    "reasoning": "저장소의 docs/design-tokens/tokens.json과 lucide 아이콘 SVG를 읽는다."
+  }
+}
