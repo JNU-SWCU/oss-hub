@@ -677,7 +677,14 @@ describe('ProgramApplicationDetailPage', () => {
     await act(async () => {
       getButton('승인').click();
     });
-    expect(document.body.textContent).toContain('새 저장소를 만들지 않습니다');
+    // 판정 확인창은 저장소를 더 이상 말하지 않는다 — 그 사실은 본문이 말하고,
+    // 창은 「이 판정이 무엇을 뜻하는가」만 말한다.
+    expect(document.body.textContent).toContain(
+      '승인하면 이 신청이 프로그램 참여로 확정됩니다',
+    );
+    expect(document.body.textContent).not.toContain(
+      '새 저장소를 만들지 않습니다',
+    );
   });
 
   it('반려 확인창의 안내가 입력칸 이름을 오염시키지 않는다', async () => {

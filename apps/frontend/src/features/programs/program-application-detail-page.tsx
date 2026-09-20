@@ -538,10 +538,6 @@ export function ProgramApplicationDetailPage({
           currentStatus={application.status}
           applicantName={displayApplicantName(application)}
           teamName={application.team ? application.team.name : null}
-          repositoryProvisioningEnabled={
-            application.repositoryProvisioning.enabled
-          }
-          repositoryConnectionMode={application.repositoryConnectionMode}
           reason={rejectionReason}
           reasonError={reasonError}
           busy={busy}
