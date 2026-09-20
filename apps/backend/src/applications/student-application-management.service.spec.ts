@@ -573,3 +573,124 @@ describe('StudentApplicationManagementService', () => {
     expect(result.answers.applicantName).toBe('Profile Applicant');
   });
 });
+
+/**
+ * R-1 — 재제출 허용 상태는 SUBMITTED(현행) + REJECTED(신규)다. APPROVED는 계속 막힌다.
+ * 허용 집합을 부정형(`!== APPROVED`)으로 쓰면 상태가 하나 늘 때 조용히 열리므로,
+ * 세 상태를 각각 입력으로 주어 경계를 고정한다.
+ */
+describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)', () => {
+  it.each([
+    [ApplicationStatus.SUBMITTED, true],
+    [ApplicationStatus.REJECTED, true],
+    [ApplicationStatus.APPROVED, false],
+  ] as const)('%s 신청의 수정 허용은 %s다', async (status, allowed) => {
+    // Given
+    const {
+      repository,
+      applicationsRepository,
+      findOwnedApplication,
+      updatePendingApplication,
+    } = createRepository();
+    findOwnedApplication.mockResolvedValue({ ...APPLICATION, status });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+    const update = () =>
+      service.updateMine(
+        4242n,
+        'program-1',
+        { answers: { title: '수정 제목' }, applicationTemplateVersion: 1 },
+        NOW,
+      );
+
+    // When / Then
+    if (allowed) {
+      await expect(update()).resolves.toBeDefined();
+      expect(updatePendingApplication.mock.calls).toHaveLength(1);
+    } else {
+      await expectDomainCode(
+        update(),
+        ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED,
+      );
+      expect(updatePendingApplication.mock.calls).toHaveLength(0);
+    }
+  });
+
+  it('반려 상태에서도 신청 기간이 닫혔으면 기간 오류로 막는다', async () => {
+    // Given: 반려는 허용 상태지만 기간 조건은 그대로 남는다.
+    const {
+      repository,
+      applicationsRepository,
+      findOwnedApplication,
+      updatePendingApplication,
+    } = createRepository();
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      status: ApplicationStatus.REJECTED,
+    });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    // When / Then
+    await expectDomainCode(
+      service.updateMine(
+        4242n,
+        'program-1',
+        { answers: { title: '수정 제목' }, applicationTemplateVersion: 1 },
+        new Date('2027-01-01T00:00:00.000Z'),
+      ),
+      ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED,
+    );
+    expect(updatePendingApplication.mock.calls).toHaveLength(0);
+  });
+
+  it('반려 신청은 조회에서 수정 가능으로 보인다 — 화면이 재제출 진입점을 연다', async () => {
+    // Given
+    const { repository, applicationsRepository, findOwnedApplication } =
+      createRepository();
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      status: ApplicationStatus.REJECTED,
+      rejectionReason: '합성 반려 사유',
+    });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    // When
+    const result = await service.getMine(4242n, 'program-1', NOW);
+
+    // Then
+    expect(result.canManage).toBe(true);
+  });
+
+  it('신청 취소는 반려 상태로 열리지 않는다 — 명세가 재제출만 확장했다', async () => {
+    // Given
+    const {
+      repository,
+      applicationsRepository,
+      findOwnedApplication,
+      deletePendingApplication,
+    } = createRepository();
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      status: ApplicationStatus.REJECTED,
+    });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    // When / Then
+    await expectDomainCode(
+      service.cancelMine(4242n, 'program-1', NOW),
+      ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED,
+    );
+    expect(deletePendingApplication.mock.calls).toHaveLength(0);
+  });
+});
