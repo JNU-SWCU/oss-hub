@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ApplicationStatus } from '@prisma/client';
+import type { ApplicationStatus } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import {
   checkApplicationTemplateVersion,
@@ -18,6 +18,8 @@ import {
 } from './applications.repository';
 import type { UpdateStudentApplicationInput } from './domain/update-student-application';
 import {
+  CANCELLABLE_STATUSES,
+  RESUBMITTABLE_STATUSES,
   StudentApplicationManagementRepository,
   type OwnedStudentApplication,
   type StudentApplicationMutationFailure,
@@ -81,7 +83,12 @@ export class StudentApplicationManagementService {
   ): Promise<StudentApplicationView> {
     const context = await this.requireContext(githubId, programId);
     this.requireManager(context);
-    this.requireEditable(context.application, context.policy, now);
+    this.requireMutable(
+      context.application,
+      context.policy,
+      now,
+      RESUBMITTABLE_STATUSES,
+    );
     const versionCheck = checkApplicationTemplateVersion(
       input.applicationTemplateVersion,
       context.policy.applicationTemplateVersion,
@@ -126,7 +133,12 @@ export class StudentApplicationManagementService {
   ): Promise<{ readonly cancelled: true }> {
     const context = await this.requireContext(githubId, programId);
     this.requireManager(context);
-    this.requireEditable(context.application, context.policy, now);
+    this.requireMutable(
+      context.application,
+      context.policy,
+      now,
+      CANCELLABLE_STATUSES,
+    );
     const result = await this.repository.deletePendingApplication({
       programId,
       studentId: context.studentId,
@@ -192,12 +204,21 @@ export class StudentApplicationManagementService {
     throw this.error(code);
   }
 
-  private requireEditable(
+  /**
+   * 수정·재제출은 검토대기와 **반려**에서 열리고(R-1), 신청 취소는 검토대기에서만 열린다.
+   * 승인된 신청은 어느 쪽도 들어가지 못한다.
+   *
+   * 호출자가 허용 집합을 넘긴다 — 이 함수가 한 집합을 고르면 수정과 취소 중 한쪽이
+   * 조용히 틀린 범위를 본다. 저장소도 같은 상수를 써(`RESUBMITTABLE_STATUSES`/
+   * `CANCELLABLE_STATUSES`) 잔금 안밖의 두 판정이 갈라지지 않게 한다.
+   */
+  private requireMutable(
     application: OwnedStudentApplication,
     policy: ApplyProgramRecord,
     now: Date,
+    allowedStatuses: readonly ApplicationStatus[],
   ): void {
-    if (application.status !== ApplicationStatus.SUBMITTED) {
+    if (!allowedStatuses.includes(application.status)) {
       throw this.error(ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED);
     }
     if (!this.isPeriodOpen(policy, now)) {
@@ -211,7 +232,7 @@ export class StudentApplicationManagementService {
     now: Date,
   ): boolean {
     return (
-      application.status === ApplicationStatus.SUBMITTED &&
+      RESUBMITTABLE_STATUSES.includes(application.status) &&
       this.isPeriodOpen(policy, now)
     );
   }
