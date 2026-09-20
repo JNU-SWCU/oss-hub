@@ -155,6 +155,73 @@ export interface ApplicationListParams {
   readonly status: ApplicationListStatus;
 }
 
+/** 팀 관리 목록의 「팀/구성」 칸을 채우는 구성원 표시 이름. 실명이 없으면 `null`이다. */
+export interface TeamManagementMember {
+  readonly id: string;
+  readonly name: string | null;
+  readonly nickname: string;
+}
+
+/**
+ * 팀 관리 화면이 읽는 lean 목록 항목.
+ *
+ * 저장소 관련 필드가 **키조차 없다** — 백엔드 projection 이 그 컬럼을 읽지 않기 때문이고,
+ * 화면에서 가리는 것과는 다르다(`docs/rules/security.md` fetch-then-redact 금지).
+ * 기존 `ApplicationListItem` 과 다른 타입인 이유이기도 하다: 하나를 좁히면 옛 화면이 깨진다.
+ */
+export interface TeamManagementListItem {
+  readonly id: string;
+  readonly programId: string;
+  readonly status: ApplicationStatus;
+  readonly submittedAt: string;
+  readonly rejectionReason: string | null;
+  readonly applicant: {
+    readonly id: string;
+    readonly name: string | null;
+    readonly nickname: string;
+  };
+  readonly team: {
+    readonly id: string;
+    readonly name: string;
+    readonly memberCount: number;
+    readonly members: readonly TeamManagementMember[];
+  } | null;
+}
+
+export interface TeamManagementListPage {
+  readonly items: readonly TeamManagementListItem[];
+  readonly page: number;
+  readonly pageSize: number;
+  readonly totalItems: number;
+  readonly totalPages: number;
+}
+
+export const REVIEW_HISTORY_EVENT_KINDS = [
+  'SUBMITTED',
+  'RESUBMITTED',
+  'APPROVED',
+  'REJECTED',
+  'REVERTED',
+] as const;
+export type ReviewHistoryEventKind =
+  (typeof REVIEW_HISTORY_EVENT_KINDS)[number];
+
+/**
+ * 검토 이력 한 줄. 서버가 최신순으로 준다 — 화면이 다시 정렬하지 않는다.
+ * `rejectionReason` 은 반려 사건에만 값이 있다.
+ */
+export interface ReviewHistoryEntry {
+  readonly id: string;
+  readonly eventKind: ReviewHistoryEventKind;
+  readonly revision: number;
+  readonly actor: {
+    readonly name: string | null;
+    readonly nickname: string;
+  };
+  readonly occurredAt: string;
+  readonly rejectionReason: string | null;
+}
+
 export const REPOSITORY_PROVISIONING_JOB_STATUSES = [
   'NOT_REQUESTED',
   'DISABLED',
@@ -455,4 +522,13 @@ export interface ProgramActivity {
     readonly releaseCount: number;
   }[];
   readonly hasIncompleteContributions: boolean;
+}
+
+/**
+ * 교직원 신청 상세. 목록 항목 모양을 그대로 이어받고 `reviewHistory` 만 더한다 —
+ * 백엔드 DTO 가 상속으로 같은 관계를 만든다. 목록에서 보이던 값이 상세에서 사라지지
+ * 않는다는 뜻이다.
+ */
+export interface ApplicationDetail extends ApplicationListItem {
+  readonly reviewHistory: readonly ReviewHistoryEntry[];
 }
