@@ -152,6 +152,8 @@ it('확인한 범위를 그대로 보내면 200 과 지운 수치를 받는다',
     PROGRAM_ID,
     TEAM_ID,
     EXPECTED_SCOPE,
+    // 알림 문구를 보내지 않았으므로 null로 접혀 내려간다.
+    null,
   );
 });
 

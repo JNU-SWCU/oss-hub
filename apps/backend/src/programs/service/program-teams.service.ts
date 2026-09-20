@@ -39,6 +39,8 @@ import {
   ProgramTeamDeletionRepository,
   type TeamDeletionAuditEvent,
   type TeamDeletionAuditStore,
+  type TeamDeletionNotificationEvent,
+  type TeamDeletionNotificationStore,
 } from '../repository/program-team-deletion.repository';
 import type { TeamDeletionScopeCounts } from '../team-deletion-scope';
 import { TEAMS_ERROR_CODES, TeamsErrorCode } from '../teams-error-code.enum';
@@ -50,6 +52,47 @@ import type {
   StaffTeamDetailView,
   StaffTeamView,
 } from '../program-teams.types';
+
+/** 팀 삭제 알림의 알림 종류. consumer가 이 값으로 외부 채널 전달을 고른다. */
+const TEAM_DELETED_NOTIFICATION_TYPE = 'TEAM_DELETED';
+
+/**
+ * 삭제와 같은 트랜잭션에서 수신자당 한 행씩 알림을 enqueue한다.
+ *
+ * 먱등 수단은 `Notification.idempotencyKey`의 unique 제약이다. 키는 「삭제 작업 식별자 +
+ * 수신자」로 잡는다 — 팀은 한 번만 삭제될 수 있고 cuid는 재사용되지 않으므로 팀 id가 곳
+ * 그 작업 식별자다. 같은 요청이 재시도되어도 수신자당 행이 둘로 늘지 않는다.
+ */
+async function recordTeamDeletionNotification(
+  store: TeamDeletionNotificationStore,
+  event: TeamDeletionNotificationEvent,
+  message: string | null,
+): Promise<void> {
+  if (event.recipientUserIds.length === 0) return;
+  const deletedAt = event.deletedAt.toISOString();
+  await store.notificationWriter.notification.createMany({
+    data: event.recipientUserIds.map((userId) => ({
+      userId,
+      type: TEAM_DELETED_NOTIFICATION_TYPE,
+      channel: 'IN_APP',
+      status: 'UNREAD',
+      idempotencyKey: `team-deleted:${event.teamId}:${userId}`,
+      payload: {
+        schemaVersion: 1,
+        teamId: event.teamId,
+        teamName: event.teamName,
+        programId: event.programId,
+        programName: event.programName,
+        // 뱈 문구는 null로 접는다 — 「적지 않았다」와 「뱈 문자열을 적었다」를 가르지 않는다.
+        message: message?.trim() ? message.trim() : null,
+        deletedAt,
+      },
+    })),
+    // 같은 삭제 요청의 재시도는 조용히 지나간다. 중복 행을 만들거나 P2002로
+    // 삭제 전체를 넘기지 않는다.
+    skipDuplicates: true,
+  });
+}
 
 const JOIN_CODE_ATTEMPTS = 5;
 
@@ -360,6 +403,7 @@ export class ProgramTeamsService {
     programId: string,
     teamId: string,
     expectedScope: TeamDeletionScopeCounts,
+    notificationMessage: string | null = null,
   ): Promise<DeletedTeamView> {
     const actor = await this.repository.findActorAuthorityByGithubId(githubId);
     if (!actor?.isStaff) {
@@ -371,6 +415,8 @@ export class ProgramTeamsService {
       teamId,
       expectedScope,
       (store, event) => this.recordDeletionAudit(githubId, store, event),
+      (store, event) =>
+        recordTeamDeletionNotification(store, event, notificationMessage),
     );
     switch (result.outcome) {
       case 'deleted':
@@ -391,6 +437,10 @@ export class ProgramTeamsService {
 
   /**
    * 삭제와 같은 트랜잭션에서 남기는 감사 기록. 실패하면 그대로 던져 삭제 전체가 롤백된다.
+   *
+   * 사라진 이력 수치는 따로 적지 않는다 — 판정 이력(`ApplicationReviewHistory`)은 신청에
+   * `onDelete: Cascade`로 달려 있어 `deletedCounts.applications`가 곳 그 사실을 말한다.
+   * 독립 수치를 늘리면 확인 화면이 본 수치와 감사 수치의 축이 갈라진다.
    */
   private async recordDeletionAudit(
     actorGithubId: bigint,

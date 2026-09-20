@@ -211,6 +211,9 @@ export async function readProgramDeletionScopeCounts(
             ) OR (
               notification.type = 'DEADLINE_DIGEST'
               AND notification."idempotencyKey" LIKE CONCAT('%:', ${programId}, ':%')
+            ) OR (
+              notification.type = 'TEAM_DELETED'
+              AND notification.payload->>'programId' = ${programId}
             )
           ) AS scope
         ) AS "scopeFingerprint"

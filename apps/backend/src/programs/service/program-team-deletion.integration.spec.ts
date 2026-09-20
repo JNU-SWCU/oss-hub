@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   AccountStatus,
+  ApplicationReviewEventKind,
   ApplicationStatus,
   MilestoneDocumentSubmissionHistoryEvent,
   ProgramCategory,
@@ -77,10 +78,11 @@ const RUN_PREFIX = `${TEST_PREFIX}run-${randomUUID()}:`;
 
 const prisma = new PrismaService();
 const deletionRepository = new ProgramTeamDeletionRepository(prisma);
+const auditLog = new AuditLogService(new AuditLogRepository(prisma));
 const service = new ProgramTeamsService(
   new ProgramTeamsRepository(prisma),
   loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: `${TEST_PREFIX}join-secret` }),
-  new AuditLogService(new AuditLogRepository(prisma)),
+  auditLog,
   deletionRepository,
 );
 
@@ -792,4 +794,240 @@ it('비활성 교직원도 막힌다', async () => {
   await expect(
     prisma.team.count({ where: { id: fixture.teamId } }),
   ).resolves.toBe(1);
+});
+
+/**
+ * AC-21 — 팀 삭제는 팀원에게 반드시 알린다. 알림이 **삭제와 같은 커밋**에 들어가는지가
+ * 이 절의 요점이다. 삭제가 먼저 커밋되고 알림이 나중에 실패하면 팀·신청·이력이 이미
+ * 사라진 뒤라 수신자 원본조차 없어 재시도로도 복구되지 않는다(계획 시나리오 7).
+ */
+function teamDeletedNotifications(teamId: string) {
+  return prisma.notification.findMany({
+    where: {
+      type: 'TEAM_DELETED',
+      idempotencyKey: { startsWith: `team-deleted:${teamId}:` },
+    },
+    orderBy: { userId: 'asc' },
+  });
+}
+
+it('문구를 비우면 삭제 사실만 담은 알림이 팀원 전원에게 같은 커밋으로 남는다', async () => {
+  // Given
+  const fixture = await seedApprovedTeam();
+  const expectedScope = await currentScope(fixture.teamId);
+
+  // When
+  await service.deleteForStaff(
+    STAFF_GITHUB_ID,
+    PROGRAM_ID,
+    fixture.teamId,
+    expectedScope,
+  );
+
+  // Then: 팀장·팀원 두 명에게 한 행씩, 문구는 null 이다.
+  const notifications = await teamDeletedNotifications(fixture.teamId);
+  expect(notifications.map((row) => row.userId).sort()).toEqual(
+    [LEADER_ID, MEMBER_ID].sort(),
+  );
+  expect(notifications[0]?.payload).toMatchObject({
+    schemaVersion: 1,
+    teamId: fixture.teamId,
+    programId: PROGRAM_ID,
+    message: null,
+  });
+  // 팀은 실제로 사라졌다 — 알림만 남고 삭제가 안 된 게 아니다.
+  await expect(
+    prisma.team.findUnique({ where: { id: fixture.teamId } }),
+  ).resolves.toBeNull();
+});
+
+it('문구를 채우면 그 문구가 알림 payload 에 함께 담긴다', async () => {
+  // Given
+  const fixture = await seedApprovedTeam();
+  const expectedScope = await currentScope(fixture.teamId);
+
+  // When
+  await service.deleteForStaff(
+    STAFF_GITHUB_ID,
+    PROGRAM_ID,
+    fixture.teamId,
+    expectedScope,
+    '  중복 신청이라 정리했습니다  ',
+  );
+
+  // Then: 앞뒤 공백은 접어 저장한다.
+  const notifications = await teamDeletedNotifications(fixture.teamId);
+  expect(notifications).toHaveLength(2);
+  for (const notification of notifications) {
+    expect(notification.payload).toMatchObject({
+      message: '중복 신청이라 정리했습니다',
+    });
+  }
+});
+
+it('알림 enqueue 가 실패하면 팀·신청·이력·감사가 하나도 사라지지 않는다', async () => {
+  // Given: 판정 이력까지 쌓아 둔 팀이다.
+  const fixture = await seedApprovedTeam();
+  await prisma.applicationReviewHistory.create({
+    data: {
+      id: `${fixture.teamId}:review-history`,
+      applicationId: fixture.applicationId,
+      eventKind: ApplicationReviewEventKind.APPROVED,
+      revision: 1,
+      actorId: STAFF_ID,
+      occurredAt: new Date('2026-09-01T00:00:00.000Z'),
+    },
+  });
+  const expectedScope = await currentScope(fixture.teamId);
+  const auditsBefore = await prisma.auditLog.count({
+    where: { targetId: fixture.teamId },
+  });
+
+  // When: enqueue 단계만 강제로 깨뜨린다. 서비스를 거치지 않고 repository 계약을 직접
+  //       본다 — 트랜잭션 client는 `prisma.notification`과 다른 객체라 전역 spy로는
+  //       그 안까지 닿지 않는다.
+  const failure = await deletionRepository
+    .deleteTeam(
+      PROGRAM_ID,
+      fixture.teamId,
+      expectedScope,
+      async (store, event) => {
+        await auditLog.record(
+          {
+            actorGithubId: STAFF_GITHUB_ID,
+            action: TEAM_DELETED_AUDIT_ACTIONS.TEAM_DELETED,
+            targetType: 'TEAM',
+            targetId: event.teamId,
+            metadata: {
+              schemaVersion: 1,
+              programName: event.programName,
+              teamName: event.teamName,
+              deletedCounts: event.deletedCounts,
+            },
+          },
+          store.auditLogWriter,
+        );
+      },
+      () => Promise.reject(new Error('synthetic notification enqueue failure')),
+    )
+    .then(() => null)
+    .catch((caught: unknown) => caught);
+
+  // Then: 요청은 실패하고 아무것도 지워지지 않았다.
+  expect(failure).not.toBeNull();
+  await expect(
+    prisma.team.findUnique({ where: { id: fixture.teamId } }),
+  ).resolves.not.toBeNull();
+  await expect(
+    prisma.application.count({ where: { id: fixture.applicationId } }),
+  ).resolves.toBe(1);
+  await expect(
+    prisma.applicationReviewHistory.count({
+      where: { applicationId: fixture.applicationId },
+    }),
+  ).resolves.toBe(1);
+  await expect(
+    prisma.auditLog.count({ where: { targetId: fixture.teamId } }),
+  ).resolves.toBe(auditsBefore);
+  await expect(teamDeletedNotifications(fixture.teamId)).resolves.toEqual([]);
+});
+
+it('같은 삭제를 재시도해도 수신자당 알림이 둘로 늘지 않는다', async () => {
+  // Given: 첫 삭제가 이미 알림을 남겼다.
+  const fixture = await seedApprovedTeam();
+  const expectedScope = await currentScope(fixture.teamId);
+  await service.deleteForStaff(
+    STAFF_GITHUB_ID,
+    PROGRAM_ID,
+    fixture.teamId,
+    expectedScope,
+  );
+  const first = await teamDeletedNotifications(fixture.teamId);
+  expect(first).toHaveLength(2);
+
+  // When: 같은 팀 id 로 다시 지우려 한다(팀은 이미 없으므로 404 다).
+  await expect(
+    service.deleteForStaff(
+      STAFF_GITHUB_ID,
+      PROGRAM_ID,
+      fixture.teamId,
+      expectedScope,
+    ),
+  ).rejects.toBeDefined();
+
+  // Then: 멱등키가 수신자당 한 행을 고정한다.
+  await expect(teamDeletedNotifications(fixture.teamId)).resolves.toHaveLength(
+    2,
+  );
+});
+
+it('수신자는 팀 행을 잠근 뒤의 실제 멤버십과 일치한다', async () => {
+  // Given: 팀원 한 명을 삭제 직전에 빼 둔다 — 잠금 앞 스냅샷을 쓰면 이 사람에게도
+  //        알림이 가고, 잠금 뒤에 읽으면 가지 않는다.
+  const fixture = await seedApprovedTeam();
+  const staleScope = await currentScope(fixture.teamId);
+  await prisma.teamMember.deleteMany({
+    where: { teamId: fixture.teamId, userId: MEMBER_ID },
+  });
+  const currentScopeCounts = await currentScope(fixture.teamId);
+  expect(staleScope.members).toBe(2);
+  expect(currentScopeCounts.members).toBe(1);
+
+  // When
+  await service.deleteForStaff(
+    STAFF_GITHUB_ID,
+    PROGRAM_ID,
+    fixture.teamId,
+    currentScopeCounts,
+  );
+
+  // Then
+  const notifications = await teamDeletedNotifications(fixture.teamId);
+  expect(notifications.map((row) => row.userId)).toEqual([LEADER_ID]);
+});
+
+it('팀 삭제는 그 팀의 판정 이력만 거두고 같은 프로그램의 다른 팀 이력은 남긴다', async () => {
+  // Given: 같은 프로그램에 두 팀이 각자 판정 이력을 갖는다.
+  const target = await seedApprovedTeam();
+  await prisma.teamMember.deleteMany({ where: { teamId: target.teamId } });
+  const survivor = await seedApprovedTeam();
+  for (const [teamId, applicationId] of [
+    [target.teamId, target.applicationId],
+    [survivor.teamId, survivor.applicationId],
+  ] as const) {
+    await prisma.applicationReviewHistory.create({
+      data: {
+        id: `${teamId}:cascade-history`,
+        applicationId,
+        eventKind: ApplicationReviewEventKind.APPROVED,
+        revision: 1,
+        actorId: STAFF_ID,
+        occurredAt: new Date('2026-09-01T00:00:00.000Z'),
+      },
+    });
+  }
+  const expectedScope = await currentScope(target.teamId);
+
+  // When
+  await service.deleteForStaff(
+    STAFF_GITHUB_ID,
+    PROGRAM_ID,
+    target.teamId,
+    expectedScope,
+  );
+
+  // Then: 대상은 cascade 로 사라지고 비대상은 정확히 보존된다.
+  await expect(
+    prisma.applicationReviewHistory.count({
+      where: { applicationId: target.applicationId },
+    }),
+  ).resolves.toBe(0);
+  await expect(
+    prisma.applicationReviewHistory.count({
+      where: { applicationId: survivor.applicationId },
+    }),
+  ).resolves.toBe(1);
+  await expect(
+    prisma.team.findUnique({ where: { id: survivor.teamId } }),
+  ).resolves.not.toBeNull();
 });

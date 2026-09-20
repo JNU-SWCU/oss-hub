@@ -39,6 +39,37 @@ export type RecordTeamDeletionAudit = (
   event: TeamDeletionAuditEvent,
 ) => Promise<void>;
 
+export interface TeamDeletionNotificationStore {
+  /** `Notification` 한 면만 열어 준다 — 콜백으로 트랜잭션 전권이 새지 않게 한다. */
+  readonly notificationWriter: Pick<Prisma.TransactionClient, 'notification'>;
+}
+
+/** 알림을 만드는 데 필요한 사실 — 팀 행을 잠그고 읽은 값만 담는다. */
+export interface TeamDeletionNotificationEvent {
+  readonly teamId: string;
+  readonly teamName: string;
+  readonly programId: string;
+  readonly programName: string;
+  /** 팀 행을 잠근 직후의 실제 멤버십. 잠금 밖 snapshot을 쓰지 않는 이유다. */
+  readonly recipientUserIds: readonly string[];
+  readonly deletedAt: Date;
+}
+
+/**
+ * 삭제와 같은 트랜잭션에서 학생 알림을 enqueue하는 필수 콜백(AC-21).
+ *
+ * 감사 콜백과 같은 모양이고 같은 이유로 필수다 — 던지면 삭제 전체가 롤백된다.
+ * 삭제가 먼저 커밋되고 알림이 나중에 실패하는 구간을 두면 팀·신청·이력이 이미 사라진 뒤라
+ * 수신자 원본조차 없어 재시도로도 복구되지 않는다.
+ *
+ * 외부 채널(메일 등) 전달은 이 트랜잭션 **밖**의 consumer가 `Notification` 행을 소비해
+ * 수행한다 — 외부 호출을 트랜잭션 안에 넣지 않는다.
+ */
+export type RecordTeamDeletionNotification = (
+  store: TeamDeletionNotificationStore,
+  event: TeamDeletionNotificationEvent,
+) => Promise<void>;
+
 /**
  * 삭제 결과. `not-found`는 없는 팀과 다른 프로그램의 팀을 구분하지 않는다 —
  * 구분해 응답하면 남의 프로그램에 그 id의 팀이 있다는 사실이 샌다.
@@ -95,6 +126,7 @@ export class ProgramTeamDeletionRepository {
     teamId: string,
     expectedScope: TeamDeletionScopeCounts,
     recordAudit: RecordTeamDeletionAudit,
+    recordNotification: RecordTeamDeletionNotification,
   ): Promise<TeamDeletionResult> {
     try {
       return await this.prisma.$transaction(
@@ -123,6 +155,26 @@ export class ProgramTeamDeletionRepository {
               currentScopeCounts,
             };
           }
+
+          // 수신자는 **팀 행을 잠근 뒤**에 읽는다. 잠금 앞 스냅샷을 쓰면 그 사이의
+          // 팀원 추가·제외와 경합해 엉넅한 사람에게 알림이 가거나 방금 들어온 사람을
+          // 빼먹는다. 삭제보다 먼저 부르는 이유는 `teamMember` 행이 그때까지 살아
+          // 있어야 하기 때문이다.
+          const recipients = await tx.teamMember.findMany({
+            where: { teamId },
+            select: { userId: true },
+          });
+          await recordNotification(
+            { notificationWriter: tx },
+            {
+              teamId,
+              teamName: team.name,
+              programId,
+              programName: team.program.name,
+              recipientUserIds: recipients.map((recipient) => recipient.userId),
+              deletedAt: new Date(),
+            },
+          );
 
           const deletedCounts = await deleteTeamTree(tx, teamId);
           if (

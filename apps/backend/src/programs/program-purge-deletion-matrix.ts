@@ -36,6 +36,7 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
       'logical:Program->Notification[APPLICATION_DECISION,payload.programId]',
       'logical:Program->Notification[APPLICATION_DECISION_ACKNOWLEDGED,idempotencyKey]',
       'logical:Program->Notification[DEADLINE_DIGEST,idempotencyKey]',
+      'logical:Program->Notification[TEAM_DELETED,payload.programId]',
     ],
   },
   {
@@ -149,7 +150,7 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
     id: 'application-review-histories',
     operation: 'DELETE',
     // Application->ApplicationReviewHistory는 FK가 `onDelete: Cascade`라
-    // `application.deleteMany` 한 번으로 DB가 대신 지운다(코드가 별도로
+    // `application.deleteMany` 한 번으로 DB가 대슸 지운다(코드가 별도로
     // deleteMany를 부르지 않는다 — migration
     // 20260920030000_add_application_review_history에서 확인).
     //
@@ -222,6 +223,9 @@ const TEAM_ROW_RELATION = 'Program->Team';
  * `prefix:date:programId:recipientId`로 프로그램 전 수신자에게 나가므로 팀 하나를
  * 지운다고 지울 수 없고, `PublicShowcaseRepository` projection은 `programId`로만 묶이며
  * 그 `repositoryId`가 가리키는 `GithubRepository`는 팀 삭제가 DETACH로 보존한다.
+ *
+ * `TEAM_DELETED`도 일부러 빼 둔다. 그 행은 팀 삭제가 **만드는** 것이니 같은 트랜잭션이
+ * 다시 지우면 알림 자체가 사라진다. 프로그램 purge만 그것을 거둑다.
  */
 const TEAM_SCOPED_LOGICAL_COVERS: Readonly<Record<string, string>> = {
   'logical:Application->OutboxEvent': 'logical:Application->OutboxEvent',

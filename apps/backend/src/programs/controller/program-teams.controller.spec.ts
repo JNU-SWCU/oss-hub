@@ -531,6 +531,8 @@ describe('ProgramTeamsController.remove', () => {
       'program-1',
       'team-1',
       expectedScope,
+      // 알림 문구를 보내지 않았으므로 null 로 접혀 내려간다.
+      null,
     );
     expect(response).toEqual({
       teamId: 'team-1',
