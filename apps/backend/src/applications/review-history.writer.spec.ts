@@ -114,10 +114,7 @@ it.each([
   const { client, created, update } = fakeClient({ revision: 4 });
 
   // When
-  const result = await appendReviewHistory(
-    client,
-    input(eventKind, '사유'),
-  );
+  const result = await appendReviewHistory(client, input(eventKind, '사유'));
 
   // Then
   expect(result).toEqual({ revision: 4 });
@@ -134,10 +131,7 @@ it('연속 재제출은 회차가 1씩만 전진한다', async () => {
     client,
     input(ApplicationReviewEventKind.RESUBMITTED),
   );
-  await appendReviewHistory(
-    client,
-    input(ApplicationReviewEventKind.APPROVED),
-  );
+  await appendReviewHistory(client, input(ApplicationReviewEventKind.APPROVED));
   await appendReviewHistory(
     client,
     input(ApplicationReviewEventKind.RESUBMITTED),

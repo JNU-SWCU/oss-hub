@@ -91,5 +91,8 @@ test('the migration is additive and declares the same cascade as the schema', ()
     /ALTER TABLE "Application" ADD COLUMN\s+"revision" INTEGER NOT NULL DEFAULT 1;/,
   );
   // 중간 배포 안전성 — 이 마이그레이션은 어떤 컬럼도 지우거나 좁히지 않는다.
-  assert.equal(/DROP COLUMN|DROP TABLE|DROP TYPE|SET NOT NULL/.test(migration), false);
+  assert.equal(
+    /DROP COLUMN|DROP TABLE|DROP TYPE|SET NOT NULL/.test(migration),
+    false,
+  );
 });
