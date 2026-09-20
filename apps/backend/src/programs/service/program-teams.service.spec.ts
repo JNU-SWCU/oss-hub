@@ -932,6 +932,7 @@ describe('ProgramTeamsService.deleteForStaff', () => {
       TEAM_ID,
       EXPECTED_SCOPE,
       expect.any(Function),
+      expect.any(Function),
     );
   });
 
@@ -1026,6 +1027,7 @@ describe('ProgramTeamsService.deleteForStaff', () => {
       PROGRAM_ID,
       TEAM_ID,
       heavyScope,
+      expect.any(Function),
       expect.any(Function),
     );
   });

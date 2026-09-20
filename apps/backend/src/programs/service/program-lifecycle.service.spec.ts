@@ -1024,18 +1024,25 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
     });
   });
 
-  it('APPLICATION_DECISION 알림이 없으면 ACKNOWLEDGED/본체 삭제를 건너뛰고 DEADLINE_DIGEST만 지운다', async () => {
+  it('APPLICATION_DECISION 알림이 없으면 ACKNOWLEDGED/본체 삭제를 건너뛰고 프로그램 축 알림만 지운다', async () => {
     const { service, notificationDeleteMany } = createPurgeService({
       applicationDecisionNotifications: [],
     });
 
     await service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS);
 
-    expect(notificationDeleteMany).toHaveBeenCalledTimes(1);
+    // 신청 축 알림 둘은 건너뛰고, 프로그램에 직접 매달린 둘만 지운다.
+    expect(notificationDeleteMany).toHaveBeenCalledTimes(2);
     expect(notificationDeleteMany).toHaveBeenCalledWith({
       where: {
         type: 'DEADLINE_DIGEST',
         idempotencyKey: { contains: ':program-1:' },
+      },
+    });
+    expect(notificationDeleteMany).toHaveBeenCalledWith({
+      where: {
+        type: 'TEAM_DELETED',
+        payload: { path: ['programId'], equals: 'program-1' },
       },
     });
   });

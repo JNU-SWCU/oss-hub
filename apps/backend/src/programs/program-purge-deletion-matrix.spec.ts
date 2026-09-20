@@ -359,6 +359,10 @@ const NOTIFICATION_TYPE_CLASSIFICATION: Record<
     programLinked: true,
     shape: 'idempotencyKey contains `:${programId}:`',
   },
+  TEAM_DELETED: {
+    programLinked: true,
+    shape: 'payload.programId',
+  },
   REPOSITORY_PROVISION_REQUESTED: {
     // OutboxEvent 타입이지 Notification type이 아니다 — 아래 outbox 스캔에서 다룬다.
     programLinked: false,
