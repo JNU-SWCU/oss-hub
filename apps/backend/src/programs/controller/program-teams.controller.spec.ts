@@ -89,7 +89,9 @@ describe('ProgramTeamsController', () => {
           name,
         )?.value;
         if (typeof value !== 'function') return false;
-        return Reflect.getMetadata(METHOD_METADATA, value) === RequestMethod.POST;
+        return (
+          Reflect.getMetadata(METHOD_METADATA, value) === RequestMethod.POST
+        );
       });
     expect(postHandlers).toEqual([]);
   });

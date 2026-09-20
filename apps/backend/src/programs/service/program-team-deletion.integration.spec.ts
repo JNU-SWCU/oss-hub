@@ -791,4 +791,3 @@ it('비활성 교직원도 막힌다', async () => {
     prisma.team.count({ where: { id: fixture.teamId } }),
   ).resolves.toBe(1);
 });
-
