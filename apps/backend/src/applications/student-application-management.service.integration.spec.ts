@@ -317,3 +317,188 @@ describe('StudentApplicationManagementService integration races', () => {
     );
   });
 });
+
+/**
+ * R-1 — 반려된 신청서를 학생이 고쳐 다시 내면 검토대기로 돌아간다.
+ * 상태 복귀·이력 append·회차 증가가 **한 커밋**에 함께 들어가는지가 요점이다.
+ */
+describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => {
+  beforeAll(async () => {
+    await prisma.$connect();
+    // `seedApplication`이 팀원 두 명을 넣으므로 둘 다 있어야 한다.
+    for (const student of [
+      { id: STUDENT_ID, githubId: GITHUB_ID, nickname: 'synthetic-student', studentId: '304001' },
+      {
+        id: MEMBER_ID,
+        githubId: MEMBER_GITHUB_ID,
+        nickname: 'synthetic-member',
+        studentId: '304002',
+      },
+    ]) {
+      await prisma.user.create({
+        data: {
+          id: student.id,
+          githubId: student.githubId,
+          nickname: student.nickname,
+          selectedMemberKind: MemberKind.STUDENT,
+          profile: {
+            create: {
+              name: 'Synthetic user',
+              studentId: student.studentId,
+              department: 'Synthetic department',
+              memberKind: MemberKind.STUDENT,
+              affiliationKind: AffiliationKind.DEPARTMENT,
+              affiliationName: 'Synthetic department',
+            },
+          },
+        },
+      });
+    }
+  });
+
+  beforeEach(async () => {
+    await seedApplication();
+    await prisma.application.update({
+      where: { id: APPLICATION_ID },
+      data: { status: 'REJECTED', rejectionReason: '서류가 비었습니다' },
+    });
+  });
+
+  afterEach(async () => {
+    await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
+    await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
+    await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
+    await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
+  });
+
+  afterAll(async () => {
+    await prisma.user.deleteMany({
+      where: { id: { in: [STUDENT_ID, MEMBER_ID] } },
+    });
+    await prisma.$disconnect();
+  });
+
+  it('반려 신청을 고쳐 내면 검토대기로 돌아가고 재제출 이력이 정확히 1행 는다', async () => {
+    // When
+    const updated = await service.updateMine(
+      GITHUB_ID,
+      PROGRAM_ID,
+      { answers: { title: '고친 제목' }, applicationTemplateVersion: 1 },
+      NOW,
+    );
+
+    // Then: 상태가 돌아가고 지난 반려 사유는 헤더에서 지워진다.
+    expect(updated.status).toBe('SUBMITTED');
+    expect(updated.rejectionReason).toBeNull();
+    const stored = await prisma.application.findUniqueOrThrow({
+      where: { id: APPLICATION_ID },
+      select: { status: true, rejectionReason: true, revision: true },
+    });
+    expect(stored).toEqual({
+      status: 'SUBMITTED',
+      rejectionReason: null,
+      revision: 2,
+    });
+
+    // 이력은 학생 행위자로 정확히 한 행이다.
+    const history = await prisma.applicationReviewHistory.findMany({
+      where: { applicationId: APPLICATION_ID },
+    });
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({
+      eventKind: 'RESUBMITTED',
+      revision: 2,
+      actorId: STUDENT_ID,
+      rejectionReason: null,
+    });
+  });
+
+  it('검토대기 신청의 수정은 이력도 회차도 건드리지 않는다', async () => {
+    // Given: 아직 판정 전이다.
+    await prisma.application.update({
+      where: { id: APPLICATION_ID },
+      data: { status: 'SUBMITTED', rejectionReason: null },
+    });
+
+    // When
+    await service.updateMine(
+      GITHUB_ID,
+      PROGRAM_ID,
+      { answers: { title: '고친 제목' }, applicationTemplateVersion: 1 },
+      NOW,
+    );
+
+    // Then: 재제출이 아니라 단순 수정이다.
+    await expect(
+      prisma.applicationReviewHistory.count({
+        where: { applicationId: APPLICATION_ID },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.application.findUniqueOrThrow({
+        where: { id: APPLICATION_ID },
+        select: { revision: true },
+      }),
+    ).resolves.toEqual({ revision: 1 });
+  });
+
+  it('신청 기간이 닫힌 뒤의 반려 재제출은 기간 오류로 막히고 아무것도 바뀌지 않는다', async () => {
+    // When
+    await expectDomainCode(
+      service.updateMine(
+        GITHUB_ID,
+        PROGRAM_ID,
+        { answers: { title: '고친 제목' }, applicationTemplateVersion: 1 },
+        new Date('2027-01-01T00:00:00.000Z'),
+      ),
+      ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED,
+    );
+
+    // Then
+    await expect(
+      prisma.application.findUniqueOrThrow({
+        where: { id: APPLICATION_ID },
+        select: { status: true, revision: true },
+      }),
+    ).resolves.toEqual({ status: 'REJECTED', revision: 1 });
+    await expect(
+      prisma.applicationReviewHistory.count({
+        where: { applicationId: APPLICATION_ID },
+      }),
+    ).resolves.toBe(0);
+  });
+
+  it('연속 재제출은 회차가 1씩 전진하고 이력이 쌓인다', async () => {
+    // Given: 한 번 재제출한다.
+    await service.updateMine(
+      GITHUB_ID,
+      PROGRAM_ID,
+      { answers: { title: '첫 수정' }, applicationTemplateVersion: 1 },
+      NOW,
+    );
+    // 교직원이 다시 반려한 상태를 만든다.
+    await prisma.application.update({
+      where: { id: APPLICATION_ID },
+      data: { status: 'REJECTED', rejectionReason: '아직 부족합니다' },
+    });
+
+    // When
+    await service.updateMine(
+      GITHUB_ID,
+      PROGRAM_ID,
+      { answers: { title: '둘째 수정' }, applicationTemplateVersion: 1 },
+      NOW,
+    );
+
+    // Then
+    const history = await prisma.applicationReviewHistory.findMany({
+      where: { applicationId: APPLICATION_ID },
+      orderBy: { revision: 'asc' },
+      select: { eventKind: true, revision: true },
+    });
+    expect(history).toEqual([
+      { eventKind: 'RESUBMITTED', revision: 2 },
+      { eventKind: 'RESUBMITTED', revision: 3 },
+    ]);
+  });
+});
