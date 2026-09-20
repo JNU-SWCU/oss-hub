@@ -78,8 +78,15 @@ function createHarness(
   const createApplicationDecisionNotifications = jest
     .fn<Promise<void>, [ApplicationDecisionNotificationInput]>()
     .mockResolvedValue(undefined);
+  const appendReviewHistory = jest
+    .fn<
+      ReturnType<ApplicationsTransactionStore['appendReviewHistory']>,
+      Parameters<ApplicationsTransactionStore['appendReviewHistory']>
+    >()
+    .mockResolvedValue({ revision: 1 });
   const store: ApplicationsTransactionStore = {
     auditLogWriter,
+    appendReviewHistory,
     findApplicationById: jest.fn().mockResolvedValue(
       baseApplication({
         repositoryProvisioningEnabled: options.provisioningEnabled,
@@ -114,6 +121,7 @@ function createHarness(
     findRepositoryProvisionEvent,
     discardRepositoryProvisionRequest,
     createApplicationDecisionNotifications,
+    appendReviewHistory,
   };
 }
 
