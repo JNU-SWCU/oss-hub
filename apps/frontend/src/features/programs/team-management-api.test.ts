@@ -62,6 +62,41 @@ describe('listTeamManagementApplications', () => {
 });
 
 describe('getApplicationDetailWithHistory', () => {
+  /*
+   * 프런트는 Vercel, backend 는 Jenkins 라 따로 배포된다. 프런트가 먼저 올라간 창에서
+   * 이 키를 모르는 backend 가 응답해도 화면이 죽지 않아야 한다.
+   */
+  it.each([
+    ['키가 없을 때', {}],
+    ['null 일 때', { reviewHistory: null }],
+    ['배열이 아닐 때', { reviewHistory: 'nope' }],
+  ])('검토 이력이 %s 빈 배열로 읽는다', async (_label, payload) => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ id: 'app-1', ...payload }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const detail = await getApplicationDetailWithHistory('app-1');
+
+    expect(detail.reviewHistory).toEqual([]);
+  });
+
+  it('이력이 오면 그대로 쓴다 — 빈 배열로 덮지 않는다', async () => {
+    const reviewHistory = [{ id: 'h1' }];
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ id: 'app-1', reviewHistory }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const detail = await getApplicationDetailWithHistory('app-1');
+
+    expect(detail.reviewHistory).toEqual(reviewHistory);
+  });
+
   it('상세는 새 경로가 아니라 같은 신청 endpoint 하나다', async () => {
     await getApplicationDetailWithHistory('synthetic/application');
 
