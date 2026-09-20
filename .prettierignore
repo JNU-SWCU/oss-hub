@@ -41,3 +41,4 @@ apps/backend/scripts/seed-staff-settings.js
 ds-bundle
 apps/frontend/.ds-css
 apps/frontend/ds-types
+apps/frontend/eslint-suppressions.json
