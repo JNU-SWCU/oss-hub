@@ -1,4 +1,11 @@
 {
+  "extraKnownMarketplaces": {
+    "craft-skills": {
+      "source": { "source": "github", "repo": "GoBeromsu/craft-skills" },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": { "craft-skills@craft-skills": true },
   "hooks": {
     "PreToolUse": [
       {
@@ -11,15 +18,5 @@
         ]
       }
     ]
-  },
-  "enabledPlugins": {},
-  "extraKnownMarketplaces": {
-    "craft-skills": {
-      "source": {
-        "source": "github",
-        "repo": "GoBeromsu/craft-skills"
-      },
-      "autoUpdate": true
-    }
   }
 }
