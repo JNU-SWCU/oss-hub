@@ -9,13 +9,6 @@ export interface TeamMemberView {
   readonly isLeader: boolean;
 }
 
-export interface CreatedTeamView {
-  readonly id: string;
-  readonly name: string;
-  readonly joinCode: string;
-  readonly memberCount: number;
-}
-
 /**
  * 이름 변경 응답 — 바뀐 사실만 돌려준다.
  *
