@@ -124,6 +124,8 @@ const PROGRAM_DETAIL = {
   startAt: '2026-08-01T00:00:00.000Z',
   endAt: '2026-12-31T00:00:00.000Z',
   repositoryProvisioningEnabled: true,
+  applicationTemplateKey: 'basic',
+  applicationTemplateVersion: 1,
 } as const;
 
 const PROGRAM_OVERVIEW = {
@@ -204,18 +206,18 @@ const APPLICATION_TEMPLATES = {
       key: 'basic',
       version: 1,
       name: '기본 신청서',
-      participation: 'TEAM',
+      participation: 'team',
       fields: [
         {
           key: 'applicantName',
-          type: 'TEXT',
+          type: 'auto',
           label: '신청자 이름',
           required: true,
         },
-        { key: 'title', type: 'TEXT', label: '신청 제목', required: true },
+        { key: 'title', type: 'text', label: '신청 제목', required: true },
         {
           key: 'summary',
-          type: 'TEXTAREA',
+          type: 'textarea',
           label: '지원 동기 · 계획',
           required: true,
         },
