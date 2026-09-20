@@ -33,9 +33,7 @@ describe('교직원 참여 팀 화면의 신청 목록 요청', () => {
     expect(max).toBeGreaterThan(0);
 
     const pageSource = readFileSync(PAGE_SOURCE_PATH, 'utf8');
-    const requested = Number(
-      /const APPLICATION_PAGE_SIZE = (\d+);/.exec(pageSource)?.[1],
-    );
+    const requested = Number(/const PAGE_SIZE = (\d+);/.exec(pageSource)?.[1]);
     expect(requested).toBeGreaterThan(0);
 
     expect(requested).toBeLessThanOrEqual(max);
