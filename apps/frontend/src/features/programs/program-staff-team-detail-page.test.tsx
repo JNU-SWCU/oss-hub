@@ -5,9 +5,8 @@ import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
-import { programApplicationDetailHref } from '@/lib/program-route';
 import { ProgramStaffTeamDetailPage } from './program-staff-team-detail-page';
-import type { StaffTeamDetail } from './types';
+import type { ApplicationDetail, StaffTeamDetail } from './types';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -29,8 +28,12 @@ const {
   publishRepositoryMock,
   renameProgramTeamMock,
   deleteStaffProgramTeamMock,
+  getApplicationDetailWithHistoryMock,
+  decideApplicationMock,
   routerPushMock,
 } = vi.hoisted(() => ({
+  getApplicationDetailWithHistoryMock: vi.fn(),
+  decideApplicationMock: vi.fn(),
   getStaffProgramTeamDetailMock: vi.fn(),
   publishRepositoryMock: vi.fn(),
   renameProgramTeamMock: vi.fn(),
@@ -46,6 +49,8 @@ vi.mock('./api', () => ({
   getStaffProgramTeamDetail: getStaffProgramTeamDetailMock,
   renameProgramTeam: renameProgramTeamMock,
   deleteStaffProgramTeam: deleteStaffProgramTeamMock,
+  getApplicationDetailWithHistory: getApplicationDetailWithHistoryMock,
+  decideApplication: decideApplicationMock,
 }));
 
 vi.mock('@/lib/repository-publication', async (importOriginal) => ({
@@ -63,6 +68,36 @@ function problem(status: number, code: string): ProblemDetail {
     code,
   };
 }
+
+/** 신청서 본문과 검토 이력. 팀 상세 응답은 요약만 주므로 화면이 따로 읽는다. */
+const APPLICATION_DETAIL = {
+  id: 'app-1',
+  status: 'SUBMITTED',
+  rejectionReason: null,
+  answers: {
+    applicantName: '합성 신청자',
+    summary: '합성 지원 동기와 계획입니다.',
+  },
+  applicant: { id: 'user-a', name: '합성 신청자', nickname: 'login-a' },
+  reviewHistory: [
+    {
+      id: 'h2',
+      eventKind: 'REJECTED',
+      revision: 1,
+      actor: { name: '합성 교직원', nickname: 'staff-a' },
+      occurredAt: '2026-08-06T01:00:00.000Z',
+      rejectionReason: '서류가 비어 있습니다.',
+    },
+    {
+      id: 'h1',
+      eventKind: 'SUBMITTED',
+      revision: 1,
+      actor: { name: '합성 신청자', nickname: 'login-a' },
+      occurredAt: '2026-08-05T05:32:00.000Z',
+      rejectionReason: null,
+    },
+  ],
+} as unknown as ApplicationDetail;
 
 const withApplication: StaffTeamDetail = {
   repositoryContributions: null,
@@ -131,6 +166,10 @@ describe('ProgramStaffTeamDetailPage', () => {
     renameProgramTeamMock.mockReset();
     deleteStaffProgramTeamMock.mockReset();
     routerPushMock.mockReset();
+    getApplicationDetailWithHistoryMock.mockReset();
+    getApplicationDetailWithHistoryMock.mockResolvedValue(APPLICATION_DETAIL);
+    decideApplicationMock.mockReset();
+    decideApplicationMock.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -173,18 +212,63 @@ describe('ProgramStaffTeamDetailPage', () => {
     expect(container.textContent).toContain('팀장');
   });
 
-  it('신청이 있으면 신청 상태와 「검토하기」 링크를 보여준다', async () => {
+  /**
+   * 신청서는 이 화면이 직접 그린다 — 별도 상세 화면으로 보내던 「검토하기」 링크가
+   * 사라졌다. 교직원이 팀과 신청을 보려고 두 화면을 오가지 않는다.
+   */
+  it('신청이 있으면 신청서와 검토 이력을 이 화면에서 그린다', async () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
     await render();
 
     expect(container.textContent).toContain('검토 대기');
+    expect(container.textContent).toContain('신청서');
+    expect(container.textContent).toContain('검토 이력');
     const reviewLink = [...container.querySelectorAll('a')].find(
       (a) => a.textContent?.trim() === '검토하기',
     );
-    expect(reviewLink?.getAttribute('href')).toBe(
-      programApplicationDetailHref('program-1', 'app-1'),
-    );
+    expect(reviewLink).toBeUndefined();
   });
+
+  it('신청서 본문은 접혀 있고 「내용 보기」로 편다', async () => {
+    getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+    await render();
+
+    expect(container.textContent).not.toContain('합성 지원 동기');
+    const toggle = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === '내용 보기',
+    );
+    await act(async () => toggle?.click());
+
+    expect(container.textContent).toContain('합성 지원 동기');
+  });
+
+  it('검토 이력을 서버가 준 순서 그대로 그린다', async () => {
+    getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+    await render();
+
+    const text = container.textContent ?? '';
+    // 서버가 최신순으로 준다 — 화면이 다시 정렬하면 이 순서가 뒤집힌다.
+    expect(text.indexOf('반려')).toBeLessThan(text.indexOf('제출'));
+  });
+
+  it.each(['SUBMITTED', 'APPROVED', 'REJECTED'] as const)(
+    '%s 에서도 세 상태를 전부 고를 수 있다',
+    async (status) => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      getApplicationDetailWithHistoryMock.mockResolvedValue({
+        ...APPLICATION_DETAIL,
+        status,
+      });
+      await render();
+
+      const select = container.querySelector<HTMLSelectElement>(
+        '#team-detail-application-status',
+      );
+      expect(select?.value).toBe(status);
+      expect(select?.disabled).toBe(false);
+      expect([...(select?.options ?? [])].every((o) => !o.disabled)).toBe(true);
+    },
+  );
 
   // #1272 — 없는 신청에 배지를 달면 「대기 중인 신청」으로 읽힌다.
   it('신청이 없으면 상태 배지를 그리지 않고 「검토하기」 링크도 없다', async () => {
