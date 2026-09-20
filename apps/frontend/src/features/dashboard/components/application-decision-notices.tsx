@@ -11,6 +11,7 @@ const decisionTime = new Intl.DateTimeFormat('ko-KR', {
 
 function noticePath(notice: ApplicationDecisionNotice): string {
   const programId = encodeURIComponent(notice.programId);
+  // 되돌림도 신청 화면을 가리킨다 — 지금 신청이 어떤 상태인지가 거기 있다.
   return notice.decision === 'APPROVED'
     ? `/programs/${programId}/submissions`
     : `/programs/${programId}/apply`;
@@ -36,7 +37,13 @@ export function ApplicationDecisionNotices({
             )}
             <AlertTitle className="[word-break:keep-all]">
               {notice.programName} 신청이{' '}
-              {approved ? '승인되었습니다' : '반려되었습니다'}
+              {approved
+                ? '승인되었습니다'
+                : notice.decision === 'SUBMITTED'
+                  ? // 되돌림은 반려가 아니다. 「반려되었습니다」로 뭉치면 학생은
+                    // 하지 않은 반려를 받았다고 읽는다.
+                    '다시 검토 대기로 돌아갔습니다'
+                  : '반려되었습니다'}
             </AlertTitle>
             <AlertDescription className="space-y-2 [word-break:keep-all]">
               <p>
@@ -44,12 +51,14 @@ export function ApplicationDecisionNotices({
                 처리되었습니다.{' '}
                 {approved
                   ? '다음 제출 일정과 준비할 내용을 확인해 주세요.'
-                  : // 사유 원문은 여기에 싣지 않는다 — 대시보드 알림 payload에 그런
-                    // 필드가 없다. 대신 사유가 실제로 있는 곳(`noticePath`가 가리키는
-                    // 신청 상세)을 정확히 가리킨다. 예전 문구("상태를 확인해 주세요")는
-                    // 그 화면이 상태만 말하고 이유는 말하지 않던 때의 말이라, 눌러 간
-                    // 사람이 아무것도 얻지 못했다(#722).
-                    '신청 상세에서 반려 사유를 확인해 주세요.'}
+                  : notice.decision === 'SUBMITTED'
+                    ? '교직원이 판정을 되돌렸습니다. 다시 검토를 기다려 주세요.'
+                    : // 사유 원문은 여기에 싣지 않는다 — 대시보드 알림 payload에 그런
+                      // 필드가 없다. 대신 사유가 실제로 있는 곳(`noticePath`가 가리키는
+                      // 신청 상세)을 정확히 가리킨다. 예전 문구("상태를 확인해 주세요")는
+                      // 그 화면이 상태만 말하고 이유는 말하지 않던 때의 말이라, 눌러 간
+                      // 사람이 아무것도 얻지 못했다(#722).
+                      '신청 상세에서 반려 사유를 확인해 주세요.'}
               </p>
               <Link
                 href={noticePath(notice)}
