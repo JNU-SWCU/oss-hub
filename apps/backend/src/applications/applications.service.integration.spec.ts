@@ -159,7 +159,7 @@ describe('ApplicationsService integration', () => {
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
-    // 완료 잠금(APP_023) 시나리오가 job을 직접 심는다. Application FK를 잡고 있으므로
+    // 완료된 프로비저닝 보존 시나리오가 job을 직접 심는다. Application FK를 잡고 있으므로
     // 신청보다 먼저 지우지 않으면 정리 자체가 실패한다.
     await prisma.repositoryProvisionJob.deleteMany({
       where: { applicationId: { in: [...APPLICATION_IDS] } },
@@ -479,7 +479,42 @@ describe('ApplicationsService integration', () => {
     ).resolves.toBe(1);
   });
 
-  it('남은 미완료 요청은 지우고 새 이벤트를 발행한다 — 멱등키 충돌 없음', async () => {
+  it('동시 반려는 CAS 승자 하나만 이력·알림을 남기고 패자는 부수효과가 0이다', async () => {
+    // Given: 두 교직원이 같은 검토대기 신청을 동시에 반려한다.
+    const applicationId = APPLICATION_IDS[4];
+    await createApplication(applicationId, false);
+
+    // When
+    const decisions = await Promise.allSettled([
+      service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+        action: APPLICATION_DECISION_ACTIONS.REJECT,
+        reason: '합성 반려 사유 A',
+      }),
+      service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+        action: APPLICATION_DECISION_ACTIONS.REJECT,
+        reason: '합성 반려 사유 B',
+      }),
+    ]);
+
+    // Then: 한 쪽만 성공하고, 밀린 요청은 이력도 알림도 남기지 않는다.
+    expect(
+      decisions.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    const rejectionEvents = await prisma.applicationReviewHistory.count({
+      where: { applicationId, eventKind: 'REJECTED' },
+    });
+    expect(rejectionEvents).toBe(1);
+    const notifications = await prisma.notification.count({
+      where: {
+        type: 'APPLICATION_DECISION',
+        payload: { path: ['applicationId'], equals: applicationId },
+      },
+    });
+    // 수신자는 팀장 한 명이므로 정확히 한 건이다.
+    expect(notifications).toBe(1);
+  });
+
+  it('남은 미완료 요청은 지우고 새 이벤트를 발행한다 — 먱등키 충돌 없음', async () => {
     // Given
     const applicationId = APPLICATION_IDS[4];
     await createApplication(applicationId, true);
@@ -672,7 +707,7 @@ describe('ApplicationsService integration', () => {
     expect(application.rejectionReason).toBeNull();
   });
 
-  it('#1272 프로비저닝이 끝난 NEW 승인은 반려로도 풀 수 없다 (409 APP_023)', async () => {
+  it('프로비저닝이 끝난 승인도 반려·되돌림·재승인이 다 되고 완료된 요청은 보존된다', async () => {
     // Given — 승인 후 워커가 저장소를 실제로 만든 상태(job SUCCEEDED)
     const applicationId = APPLICATION_IDS[10];
     await createApplication(applicationId, true);
@@ -681,36 +716,100 @@ describe('ApplicationsService integration', () => {
     });
     await prisma.repositoryProvisionJob.update({
       where: { applicationId },
-      data: {
-        status: RepositoryProvisionJobStatus.SUCCEEDED,
-      },
+      data: { status: RepositoryProvisionJobStatus.SUCCEEDED },
+    });
+    const provisionedJob = await prisma.repositoryProvisionJob.findUniqueOrThrow(
+      { where: { applicationId } },
+    );
+    const provisionedEvent = await prisma.outboxEvent.findUniqueOrThrow({
+      where: { idempotencyKey: `repository-provision:${applicationId}` },
     });
 
-    // When
-    const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
-      action: APPLICATION_DECISION_ACTIONS.REJECT,
-      reason: '합성 반려 사유',
-    });
+    // When — 이전에 APP_023이 409로 막던 반려다.
+    await expect(
+      service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+        action: APPLICATION_DECISION_ACTIONS.REJECT,
+        reason: '합성 반려 사유',
+      }),
+    ).resolves.toMatchObject({ kind: 'REJECTED' });
 
-    // Then — 반대 판정 직행이 완료 잠금을 우회하는 뒷문이 되지 않는다.
-    await expect(decision).rejects.toMatchObject({
-      errorCode: {
-        code: ApplicationsErrorCode.APPLICATION_REVERT_BLOCKED,
-        status: 409,
-      },
-      extensions: { latestStatus: ApplicationStatus.APPROVED },
-    });
+    // Then — 반려는 들어가고, 이미 끝난 작업은 지워지 않는다.
     await expect(
       prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
-    ).resolves.toMatchObject({ status: ApplicationStatus.APPROVED });
-    // 보호 대상인 저장소 작업은 그대로 남아 있다.
+    ).resolves.toMatchObject({ status: ApplicationStatus.REJECTED });
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
         where: { applicationId },
       }),
     ).resolves.toMatchObject({
+      id: provisionedJob.id,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
     });
+    await expect(
+      prisma.outboxEvent.findUniqueOrThrow({
+        where: { idempotencyKey: `repository-provision:${applicationId}` },
+      }),
+    ).resolves.toMatchObject({ id: provisionedEvent.id });
+
+    // When — 되돌림도 같은 이유로 통과하고 보존한다.
+    await expect(
+      service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+        action: APPLICATION_DECISION_ACTIONS.REVERT,
+      }),
+    ).resolves.toMatchObject({ kind: 'REVERTED' });
+    await expect(
+      prisma.repositoryProvisionJob.findUniqueOrThrow({
+        where: { applicationId },
+      }),
+    ).resolves.toMatchObject({ id: provisionedJob.id });
+
+    // When — 재승인은 새 프로비저닝을 중복 발행하지 않는다.
+    const reapproved = await service.decide(
+      ACTOR_ID,
+      applicationId,
+      ACTOR_GITHUB_ID,
+      { action: APPLICATION_DECISION_ACTIONS.APPROVE },
+    );
+
+    // Then
+    expect(reapproved).toMatchObject({
+      kind: 'APPROVED',
+      repositoryProvisioning: {
+        enabled: true,
+        eventId: provisionedEvent.id,
+        jobStatus: RepositoryProvisionJobStatus.SUCCEEDED,
+      },
+    });
+    await expect(
+      prisma.outboxEvent.count({
+        where: { aggregateId: applicationId, aggregateType: 'Application' },
+      }),
+    ).resolves.toBe(1);
+    await expect(
+      prisma.repositoryProvisionJob.findUniqueOrThrow({
+        where: { applicationId },
+      }),
+    ).resolves.toMatchObject({
+      id: provisionedJob.id,
+      status: RepositoryProvisionJobStatus.SUCCEEDED,
+    });
+
+    // 네 판정이 순서대로 쌓인다. 이 fixture는 `createApplication` 헬퍼가 Prisma로
+    // 직접 심어 생성 경로를 거치지 않으므로 SUBMITTED 사건은 없다 — 생성 경로의
+    // 최초 제출 이력은 `applications.create.service.spec.ts`가 따로 고정한다.
+    const history = await prisma.applicationReviewHistory.findMany({
+      where: { applicationId },
+      orderBy: { occurredAt: 'asc' },
+      select: { eventKind: true, revision: true },
+    });
+    expect(history.map((row) => row.eventKind)).toEqual([
+      'APPROVED',
+      'REJECTED',
+      'REVERTED',
+      'APPROVED',
+    ]);
+    // 재제출이 없었으므로 회차는 전부 1이다.
+    expect(history.every((row) => row.revision === 1)).toBe(true);
   });
 
   it('판정 사전 조회 후 학생 취소가 먼저 완료되면 404를 반환한다', async () => {
