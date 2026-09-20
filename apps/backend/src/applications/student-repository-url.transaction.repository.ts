@@ -1,12 +1,23 @@
+import { randomUUID } from 'node:crypto';
 import {
   AccountStatus,
   CollectionRepositoryPresence,
   Prisma,
+  RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
   RepositorySource,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import type { OwnGithubRepositoryResolution } from '../github/service/own-repository-url-validation.service';
+import {
+  REPOSITORY_PROVISION_EVENT_TYPE,
+  canonicalGithubLogins,
+  parseRepositoryProvisionEvent,
+} from '../github/repository-provision-event';
+import {
+  settleProvisionGenerationForSynchronousConnection,
+  transferProvisionGeneration,
+} from '../prisma/repository-provision-generation';
 import { STUDENT_MEMBER_WHERE } from '../profiles/user-profile-read';
 import { programApplicationManagerWhere } from '../programs/program-participant';
 import {
@@ -118,37 +129,60 @@ export class StudentRepositoryUrlTransaction {
       repositoryId = created.id;
     }
     const repositoryUrl = `https://github.com/${metadata.nameWithOwner}`;
-    const managedOrganization = resolution.kind === 'ORGANIZATION';
     const now = new Date();
     await tx.application.update({
       where: { id: context.id },
       data: { repositoryUrl },
     });
-    const jobStatus = managedOrganization
-      ? RepositoryProvisionJobStatus.PENDING
-      : RepositoryProvisionJobStatus.SUCCEEDED;
-    await tx.repositoryProvisionJob.upsert({
-      where: { applicationId: context.id },
-      create: {
-        applicationId: context.id,
-        repositoryId,
-        status: jobStatus,
-        attemptCount: 0,
-        nextAttemptAt: now,
-        finishedAt: managedOrganization ? null : now,
-      },
-      update: {
-        repositoryId,
-        status: jobStatus,
-        attemptCount: 0,
-        nextAttemptAt: now,
-        lockedAt: null,
-        lockedBy: null,
-        lastErrorCode: null,
-        lastErrorMessage: null,
-        finishedAt: managedOrganization ? null : now,
-      },
+    // 학생이 직접 다시 연결한 순간 이 연결이 현재이다 — 진행 중이던 발급
+    // 요청은 그 자리에서 끝난다. 세대를 닫지 않고 job만 재무장하면 낡은 요청의
+    // payload를 들고 온 worker가 방금 학생이 고른 저장소를 덮어쓴다.
+    if (resolution.kind !== 'ORGANIZATION') {
+      await settleProvisionGenerationForSynchronousConnection(
+        tx,
+        { applicationId: context.id, repositoryId, now },
+        parseRepositoryProvisionEvent,
+      );
+      return repositoryId;
+    }
+
+    // 조직 저장소는 연결만으로 끝나지 않는다 — worker가 초대를 이어서 조정해야 하므로
+    // 「지금 이 연결」을 가리키는 새 요청 세대를 만든다. 세대 없이 PENDING만 두면
+    // claim이 fail-closed로 건너뛰고, 이전 세대를 그대로 두면 낡은 목표로 실행된다.
+    const members = await tx.teamMember.findMany({
+      where: { teamId: context.teamId },
+      select: { user: { select: { nickname: true } } },
     });
+    const collaboratorGithubLogins = canonicalGithubLogins(
+      members.map((member) => member.user.nickname),
+    );
+    if (collaboratorGithubLogins.length === 0) {
+      throw repositoryUrlError('conflict');
+    }
+    const event = await tx.outboxEvent.create({
+      data: {
+        type: REPOSITORY_PROVISION_EVENT_TYPE,
+        aggregateType: 'Application',
+        aggregateId: context.id,
+        idempotencyKey: `repository-url:${context.id}:${randomUUID()}`,
+        payload: {
+          applicationId: context.id,
+          programId: context.programId,
+          teamId: context.teamId,
+          requestedAt: now.toISOString(),
+          collaboratorGithubLogins,
+          repositoryConnectionMode: RepositoryConnectionMode.OWN,
+          repositoryUrl,
+        },
+        availableAt: now,
+      },
+      select: { id: true },
+    });
+    await transferProvisionGeneration(
+      tx,
+      { applicationId: context.id, newEventId: event.id, now },
+      parseRepositoryProvisionEvent,
+    );
     return repositoryId;
   }
 }

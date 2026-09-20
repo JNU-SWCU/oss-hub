@@ -1,10 +1,12 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import {
+  RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
 import { SessionGuard } from '../../auth/session.guard';
 import { RepositoriesController } from './repositories.controller';
+import type { RepositoryConnectionsService } from '../service/repository-connections.service';
 import type { RepositoriesService } from '../service/repositories.service';
 
 const UPDATED_AT = new Date('2026-07-22T00:00:00.000Z');
@@ -39,7 +41,13 @@ describe('RepositoriesController', () => {
         },
       ]),
     } as jest.Mocked<Pick<RepositoriesService, 'getMyRepositories'>>;
-    const controller = new RepositoriesController(repositoriesService);
+    const repositoryConnectionsService = {
+      changeConnection: jest.fn(),
+    } as jest.Mocked<Pick<RepositoryConnectionsService, 'changeConnection'>>;
+    const controller = new RepositoriesController(
+      repositoriesService,
+      repositoryConnectionsService,
+    );
 
     const response = await controller.getMyRepositories({
       sessionGithubId: 123n,
@@ -53,5 +61,47 @@ describe('RepositoriesController', () => {
     expect(Reflect.getMetadata(GUARDS_METADATA, handler())).toEqual([
       SessionGuard,
     ]);
+  });
+
+  it('forwards PATCH connection changes and returns the connection response', async () => {
+    const repositoriesService = {
+      getMyRepositories: jest.fn(),
+    } as jest.Mocked<Pick<RepositoriesService, 'getMyRepositories'>>;
+    const repositoryConnectionsService = {
+      changeConnection: jest.fn().mockResolvedValue({
+        status: 'CONNECTED',
+        applicationId: 'synthetic-application',
+        repositoryId: 'synthetic-repository',
+        connectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl: 'https://github.com/synthetic/repository',
+      }),
+    } as jest.Mocked<Pick<RepositoryConnectionsService, 'changeConnection'>>;
+    const controller = new RepositoriesController(
+      repositoriesService,
+      repositoryConnectionsService,
+    );
+
+    const response = await controller.changeConnection(
+      { sessionGithubId: 123n },
+      'synthetic-application',
+      {
+        mode: RepositoryConnectionMode.OWN,
+        url: 'https://github.com/synthetic/repository',
+      },
+    );
+
+    expect(repositoryConnectionsService.changeConnection).toHaveBeenCalledWith({
+      applicationId: 'synthetic-application',
+      actorGithubId: 123n,
+      mode: RepositoryConnectionMode.OWN,
+      url: 'https://github.com/synthetic/repository',
+    });
+    expect(response).toEqual({
+      status: 'CONNECTED',
+      applicationId: 'synthetic-application',
+      repositoryId: 'synthetic-repository',
+      connectionMode: RepositoryConnectionMode.OWN,
+      repositoryUrl: 'https://github.com/synthetic/repository',
+    });
   });
 });

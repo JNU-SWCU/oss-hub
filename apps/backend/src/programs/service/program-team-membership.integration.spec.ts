@@ -16,6 +16,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { TeamInvitationsRepository } from '../../team-invitations/team-invitations.repository';
 import { canonicalUserCreateFromLabel } from '../../users/canonical-user-fixture';
+import { ProgramTeamDeletionRepository } from '../repository/program-team-deletion.repository';
 import { ProgramTeamsRepository } from '../repository/program-teams.repository';
 import { TeamsErrorCode } from '../teams-error-code.enum';
 import { ProgramTeamsService } from './program-teams.service';
@@ -91,6 +92,7 @@ const service = new ProgramTeamsService(
     TEAM_JOIN_CODE_SECRET: `${TEST_PREFIX}join-code-secret`,
   }),
   auditLog,
+  new ProgramTeamDeletionRepository(prisma),
 );
 const invitations = new TeamInvitationsRepository(prisma);
 

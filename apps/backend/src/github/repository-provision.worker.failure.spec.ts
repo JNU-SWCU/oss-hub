@@ -83,19 +83,12 @@ describe('RepositoryProvisionWorker failure', () => {
     ).toBeUndefined();
   });
 
-  it('레거시 teamId null payload는 백필된 context teamId와 달라도 통과한다', async () => {
-    // Given: 백필 이전 outbox payload는 teamId null이고 context는 백필된 teamId다.
+  it('현재 요청 context는 백필된 teamId와 함께 통과한다', async () => {
+    // Given: context의 teamId가 백필돼 있다.
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
     const claimed = provisionContext({
       teamId: 'synthetic-backfilled-team',
-      eventPayload: {
-        applicationId: 'synthetic-application-id',
-        programId: 'synthetic-program-id',
-        teamId: null,
-        requestedAt: PROVISION_NOW.toISOString(),
-        collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
-      },
     });
     state.loadContext.mockResolvedValueOnce(claimed).mockResolvedValueOnce({
       ...claimed,
@@ -117,7 +110,7 @@ describe('RepositoryProvisionWorker failure', () => {
       PROVISION_NOW,
     );
 
-    // Then: 레거시 null payload를 거부하지 않고 저장소 생성까지 진행한다.
+    // Then: 현재 요청 contract는 teamId backfill과 무관하게 저장소 생성까지 진행한다.
     expect(result).toEqual({
       kind: 'SUCCEEDED',
       jobId: 'synthetic-job-id',
@@ -126,20 +119,14 @@ describe('RepositoryProvisionWorker failure', () => {
     expect(state.recordRepository.mock.calls).toHaveLength(1);
   });
 
-  it('event.teamId 와 context.teamId 가 서로 다른 non-null 이면 INVALID_EVENT 로 거부한다', async () => {
-    // Given: payload teamId와 context teamId가 둘 다 있지만 서로 다르다.
+  it('OWN 요청에 repository URL이 없으면 URL 계약 오류로 거부한다', async () => {
+    // Given: OWN 연결 요청인데 URL이 없다.
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
     state.loadContext.mockResolvedValue(
       provisionContext({
-        teamId: 'synthetic-context-team',
-        eventPayload: {
-          applicationId: 'synthetic-application-id',
-          programId: 'synthetic-program-id',
-          teamId: 'synthetic-payload-team',
-          requestedAt: PROVISION_NOW.toISOString(),
-          collaboratorGithubLogins: ['synthetic-leader', 'synthetic-student'],
-        },
+        requestedConnectionMode: 'OWN',
+        requestedRepositoryUrl: null,
       }),
     );
     const github = githubClientMock();
@@ -152,13 +139,16 @@ describe('RepositoryProvisionWorker failure', () => {
     );
 
     // When: job을 실행한다.
-    const result = await worker.runNext('worker-team-mismatch', PROVISION_NOW);
+    const result = await worker.runNext(
+      'worker-own-missing-url',
+      PROVISION_NOW,
+    );
 
-    // Then: 이벤트 계약 불일치로 최종 실패하고 외부 호출을 막는다.
+    // Then: 현재 요청 계약 오류로 최종 실패하고 외부 호출을 막는다.
     expect(result).toEqual({
       kind: 'FAILED_FINAL',
       jobId: 'synthetic-job-id',
-      errorCode: PROVISION_ERROR_CODES.INVALID_EVENT,
+      errorCode: PROVISION_ERROR_CODES.OWN_REPOSITORY_URL_INVALID,
     });
     expect(github.findRepository.mock.calls).toHaveLength(0);
     expect(state.failJob.mock.calls[0]?.[0].final).toBe(true);
@@ -170,6 +160,7 @@ describe('RepositoryProvisionWorker failure', () => {
     jobs.claimNext.mockResolvedValue({
       id: 'synthetic-job-id',
       applicationId: 'synthetic-application-id',
+      requestId: 'synthetic-request-id',
       repositoryId: null,
       attemptCount: 2,
     });
@@ -192,6 +183,7 @@ describe('RepositoryProvisionWorker failure', () => {
     // Then: 두 배 backoff를 가진 재시도 상태로 저장한다.
     expect(result.kind).toBe('FAILED_RETRYABLE');
     expect(state.failJob.mock.calls[0]?.[0]).toMatchObject({
+      requestId: 'synthetic-request-id',
       final: false,
       nextAttemptAt: new Date('2026-07-22T00:02:00.000Z'),
     });
@@ -306,6 +298,7 @@ describe('RepositoryProvisionWorker failure', () => {
     jobs.claimNext.mockResolvedValue({
       id: 'synthetic-job-id',
       applicationId: 'synthetic-application-id',
+      requestId: 'synthetic-request-id',
       repositoryId: null,
       attemptCount: 3,
     });
@@ -365,6 +358,7 @@ describe('RepositoryProvisionWorker failure', () => {
     expect(result.kind).toBe('FAILED_RETRYABLE');
     expect(github.createRepository.mock.calls).toHaveLength(0);
     expect(state.failInvitation.mock.calls[0]?.[0]).toMatchObject({
+      requestId: 'synthetic-request-id',
       invitationId: 'synthetic-failed-invitation',
       repositoryId: PROVISION_REPOSITORY.id,
       expectedStatus: RepositoryInvitationStatus.PENDING,
@@ -407,6 +401,7 @@ describe('RepositoryProvisionWorker failure membership guard', () => {
     // 성공으로 위장하지 않는다.
     expect(result.kind).toBe('FAILED_RETRYABLE');
     expect(state.failJob.mock.calls[0]?.[0]).toMatchObject({
+      requestId: 'synthetic-request-id',
       final: false,
       expectedMembershipFingerprint: MEMBERSHIP_FINGERPRINT,
     });
@@ -449,6 +444,7 @@ describe('RepositoryProvisionWorker failure membership guard', () => {
     // Then: 오래된 의도의 최종 실패가 새 팀원 변경 깨우기를 덮어쓰지 못하게 한다.
     expect(result.kind).toBe('FAILED_FINAL');
     expect(state.failJob.mock.calls[0]?.[0]).toMatchObject({
+      requestId: 'synthetic-request-id',
       final: true,
       expectedMembershipFingerprint: MEMBERSHIP_FINGERPRINT,
     });
@@ -547,6 +543,7 @@ describe('RepositoryProvisionWorker revocation failure', () => {
       [PROVISION_REPOSITORY.name, 'synthetic-left'],
     ]);
     expect(state.failInvitation.mock.calls[0]?.[0]).toMatchObject({
+      requestId: 'synthetic-request-id',
       invitationId: 'synthetic-revoke-reverify',
       expectedStatus: RepositoryInvitationStatus.REVOKED,
       intent: 'REVOKE',
@@ -601,10 +598,12 @@ describe('RepositoryProvisionWorker revocation failure', () => {
     ]);
     expect(state.completeInvitation.mock.calls).toHaveLength(1);
     expect(state.completeInvitation.mock.calls[0]?.[0]).toMatchObject({
+      requestId: 'synthetic-request-id',
       invitationId: 'synthetic-revoke-b',
       status: RepositoryInvitationStatus.REVOKED,
     });
     expect(state.failInvitation.mock.calls[0]?.[0]).toMatchObject({
+      requestId: 'synthetic-request-id',
       invitationId: 'synthetic-revoke-a',
       repositoryId: PROVISION_REPOSITORY.id,
       expectedStatus: RepositoryInvitationStatus.REVOKE_REQUIRED,
@@ -616,6 +615,7 @@ describe('RepositoryProvisionWorker revocation failure', () => {
     expect(github.ensureCollaborator.mock.calls).toHaveLength(0);
     expect(state.completeJob.mock.calls).toHaveLength(0);
     expect(state.failJob.mock.calls[0]?.[0]).toMatchObject({
+      requestId: 'synthetic-request-id',
       final: false,
       errorCode: GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM,
     });
