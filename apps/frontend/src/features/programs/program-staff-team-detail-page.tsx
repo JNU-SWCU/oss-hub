@@ -20,19 +20,51 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ApiError } from '@/lib/api-client';
-import { programApplicationDetailHref } from '@/lib/program-route';
-import { getStaffProgramTeamDetail } from './api';
+import { Select } from '@/components/ui/select';
+import {
+  decideApplication,
+  getApplicationDetailWithHistory,
+  getStaffProgramTeamDetail,
+  type ApplicationDecisionInput,
+} from './api';
+import {
+  blocksFurtherDecisions,
+  runDecisionWithRefetch,
+} from './application-decision-refetch';
+import { ApplicationDecisionDialog } from './application-decision-dialog';
+import { ReviewHistoryTimeline } from './review-history-timeline';
 import { programHref } from './program-paths';
 import {
   APPLICATION_STATUS_BADGE,
   APPLICATION_STATUS_LABELS,
-  REVIEW_ACTION_LABEL,
+  displayAnswerText,
 } from './application-presentation';
 import { ProgramStaffRepositorySection } from './program-staff-repository-section';
 import { StaffRepositoryEvidenceView } from './staff-repository-evidence-view';
 import { TeamDeleteDialog } from './team-delete-dialog';
 import { TeamNameDialog } from './team-name-dialog';
-import type { StaffTeamDetail } from './types';
+import type {
+  ApplicationDetail,
+  ApplicationStatus,
+  StaffTeamDetail,
+} from './types';
+
+/** 교직원이 고를 수 있는 세 상태. 어느 출발점에서도 셋 다 항상 고를 수 있다(AC-14). */
+const DECISION_OPTIONS: readonly ApplicationStatus[] = [
+  'SUBMITTED',
+  'APPROVED',
+  'REJECTED',
+];
+
+function decisionInputFor(
+  next: ApplicationStatus,
+  reason: string,
+): ApplicationDecisionInput | null {
+  if (next === 'APPROVED') return { action: 'APPROVE' };
+  if (next === 'SUBMITTED') return { action: 'REVERT' };
+  const trimmed = reason.trim();
+  return trimmed === '' ? null : { action: 'REJECT', reason: trimmed };
+}
 
 type LoadState =
   | { readonly kind: 'loading' }
@@ -104,6 +136,16 @@ export function ProgramStaffTeamDetailPage({
    * 있어 여기에 다시 담지 않는다 — 같은 값을 두 곳에 두면 어느 쪽이 참인지 갈린다.
    */
   const [justRenamed, setJustRenamed] = useState(false);
+  /** 신청서 본문과 검토 이력. 팀 상세 응답은 요약만 주므로 따로 읽는다. */
+  const [applicationDetail, setApplicationDetail] =
+    useState<ApplicationDetail | null>(null);
+  const [answersOpen, setAnswersOpen] = useState(false);
+  const [decisionBusy, setDecisionBusy] = useState(false);
+  const [decisionBlocked, setDecisionBlocked] = useState(false);
+  const [decisionNotice, setDecisionNotice] = useState<string | null>(null);
+  const [pendingReject, setPendingReject] = useState(false);
+  const [reason, setReason] = useState('');
+  const [reasonError, setReasonError] = useState(false);
   const cancelled = useRef(false);
   /** 창이 닫힐 때 초점을 돌려줄 자리. 공용 창 껍데기가 이 ref를 받는다. */
   const renameTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -139,6 +181,75 @@ export function ProgramStaffTeamDetailPage({
       cancelled.current = true;
     };
   }, [load]);
+
+  const applicationId =
+    loadState.kind === 'ready'
+      ? (loadState.detail.application?.id ?? null)
+      : null;
+
+  const loadApplication = useCallback(async (): Promise<void> => {
+    if (applicationId === null) {
+      setApplicationDetail(null);
+      return;
+    }
+    try {
+      const detail = await getApplicationDetailWithHistory(applicationId);
+      if (!cancelled.current) setApplicationDetail(detail);
+    } catch {
+      // 신청서를 못 읽어도 팀 정보는 그대로 보인다 — 이 화면 전체를 실패로 접지 않는다.
+      if (!cancelled.current) setApplicationDetail(null);
+    }
+  }, [applicationId]);
+
+  useEffect(() => {
+    void loadApplication();
+  }, [loadApplication]);
+
+  const applyDecision = useCallback(
+    async (next: ApplicationStatus, why: string): Promise<void> => {
+      if (applicationId === null) return;
+      const input = decisionInputFor(next, why);
+      if (input === null) {
+        setReasonError(true);
+        return;
+      }
+      setDecisionBusy(true);
+      const result = await runDecisionWithRefetch({
+        decide: () => decideApplication(applicationId, input),
+        refetch: () => getApplicationDetailWithHistory(applicationId),
+      });
+      if (cancelled.current) return;
+      setDecisionBusy(false);
+      setPendingReject(false);
+      setReason('');
+      setReasonError(false);
+
+      if (result.kind === 'refetch-failed') {
+        setDecisionBlocked(true);
+        setDecisionNotice(
+          '판정 결과를 확인하지 못했습니다. 새로고침한 뒤 이 신청의 상태를 다시 확인해 주세요.',
+        );
+        return;
+      }
+      if (result.kind === 'removed') {
+        setApplicationDetail(null);
+        setDecisionNotice('이 신청은 더 이상 없습니다.');
+        return;
+      }
+      setDecisionNotice(
+        result.outcome.kind === 'stale'
+          ? '다른 사람이 먼저 판정했습니다. 최신 상태로 갱신했습니다.'
+          : result.outcome.kind === 'unknown'
+            ? '판정 요청이 실패했습니다. 갱신한 상태를 보고 다시 시도해 주세요.'
+            : null,
+      );
+      if (blocksFurtherDecisions(result)) return;
+      // 판정은 팀 상세의 요약 배지도 바꾼다 — 둘을 같이 다시 읽어야 한 화면이 두
+      // 이야기를 하지 않는다.
+      await Promise.all([loadApplication(), load()]);
+    },
+    [applicationId, loadApplication, load],
+  );
 
   const teamsHref = programHref(programId, '/teams');
 
@@ -276,17 +387,103 @@ export function ProgramStaffTeamDetailPage({
           />
         </Section>
 
-        {application !== null ? (
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button asChild>
-              <Link
-                href={programApplicationDetailHref(programId, application.id)}
-              >
-                {REVIEW_ACTION_LABEL}
-              </Link>
-            </Button>
-          </div>
+        {/*
+         * 신청서는 이 화면이 직접 그린다 — 예전에는 「검토하기」로 별도 상세 화면에
+         * 보냈고, 교직원이 팀과 신청을 보려고 두 화면을 오갔다. 그 이동이 사라졌다.
+         *
+         * 본문은 접어 둔다. 이 화면을 여는 이유는 대개 「누가 냈고 지금 어떤 상태인가」
+         * 이고, 신청서 전문은 그다음에 필요해진다(progressive disclosure).
+         */}
+        {applicationDetail !== null ? (
+          <Section title="신청서">
+            <div className="grid gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Select
+                  id="team-detail-application-status"
+                  aria-label="신청 상태"
+                  className="max-w-[12rem]"
+                  value={applicationDetail.status}
+                  disabled={decisionBusy || decisionBlocked}
+                  onChange={(event) => {
+                    const next = event.target.value as ApplicationStatus;
+                    if (next === applicationDetail.status) return;
+                    if (next === 'REJECTED') {
+                      setReason('');
+                      setReasonError(false);
+                      setPendingReject(true);
+                      return;
+                    }
+                    void applyDecision(next, '');
+                  }}
+                >
+                  {DECISION_OPTIONS.map((status) => (
+                    <option key={status} value={status}>
+                      {APPLICATION_STATUS_LABELS[status]}
+                    </option>
+                  ))}
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-expanded={answersOpen}
+                  onClick={() => setAnswersOpen((open) => !open)}
+                >
+                  {answersOpen ? '내용 접기' : '내용 보기'}
+                </Button>
+              </div>
+
+              {decisionNotice !== null ? (
+                <p role="status" className="text-small text-muted-foreground">
+                  {decisionNotice}
+                </p>
+              ) : null}
+
+              {/*
+               * 반려 사유는 신청서 본문보다 위다 — 이 신청을 다시 여는 이유가 대개
+               * 「왜 반려됐나」이기 때문이다.
+               */}
+              {applicationDetail.rejectionReason !== null ? (
+                <Alert variant="destructive">
+                  <AlertTitle>반려 사유</AlertTitle>
+                  <AlertDescription className="break-keep">
+                    {applicationDetail.rejectionReason}
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
+              {answersOpen ? (
+                <div className="grid gap-3 rounded-control border border-border p-4">
+                  <div className="grid gap-0.5">
+                    <span className="text-small text-muted-foreground">
+                      신청서에 적은 이름
+                    </span>
+                    <span className="break-keep [overflow-wrap:anywhere]">
+                      {displayAnswerText(
+                        applicationDetail.answers.applicantName,
+                      )}
+                    </span>
+                  </div>
+                  <div className="grid gap-0.5">
+                    <span className="text-small text-muted-foreground">
+                      지원 동기 · 계획
+                    </span>
+                    <p className="break-keep whitespace-pre-wrap [overflow-wrap:anywhere]">
+                      {displayAnswerText(applicationDetail.answers.summary)}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </Section>
         ) : null}
+
+        {applicationDetail !== null ? (
+          <Section title="검토 이력">
+            <ReviewHistoryTimeline entries={applicationDetail.reviewHistory} />
+          </Section>
+        ) : null}
+
         <Section title="위험 영역">
           <p className="text-body text-muted-foreground [word-break:keep-all]">
             연결된 데이터와 관련 기록을 포함해 되돌릴 수 없이 삭제합니다.
@@ -303,6 +500,34 @@ export function ProgramStaffTeamDetailPage({
           </div>
         </Section>
 
+        {pendingReject && applicationDetail !== null ? (
+          <ApplicationDecisionDialog
+            action="REJECT"
+            currentStatus={applicationDetail.status}
+            applicantName={
+              applicationDetail.applicant.name ??
+              applicationDetail.applicant.nickname
+            }
+            teamName={detail.name}
+            reason={reason}
+            reasonError={reasonError}
+            busy={decisionBusy}
+            errorMessage={null}
+            returnFocusId="team-detail-application-status"
+            onReasonChange={(value) => {
+              setReason(value);
+              if (value.trim() !== '') setReasonError(false);
+            }}
+            onCancel={() => {
+              setPendingReject(false);
+              setReason('');
+              setReasonError(false);
+            }}
+            onConfirm={() => {
+              void applyDecision('REJECTED', reason);
+            }}
+          />
+        ) : null}
         {renaming ? (
           <TeamNameDialog
             programId={programId}
