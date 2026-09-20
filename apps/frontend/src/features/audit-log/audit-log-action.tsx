@@ -12,12 +12,14 @@ const ACTION_BADGE_VARIANTS = {
   USER_ROLE_CHANGED: 'closed',
   USER_ACCOUNT_STATUS_CHANGED: 'closed',
   REPOSITORY_PUBLISHED: 'approved',
+  REPOSITORY_CONNECTION_CHANGED: 'closed',
   PROGRAM_CREATED: 'approved',
   PROGRAM_ARCHIVED: 'closed',
   PROGRAM_RESTORED: 'approved',
   PROGRAM_DELETED: 'closed',
   TEAM_CREATED: 'approved',
   TEAM_JOINED: 'approved',
+  TEAM_DELETED: 'closed',
   // 탈퇴·내보내기는 합류와 반대로 구성이 줄어드는 변경이라 보관·삭제와 같은 톤을 쓴다.
   TEAM_MEMBERSHIP_CHANGED: 'closed',
   // 이름만 바뀜을 뿐 팀이 늘지도 줄지도 않았다 — 생성과 같은 톤으로 읽히면

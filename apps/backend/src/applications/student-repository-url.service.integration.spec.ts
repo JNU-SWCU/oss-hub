@@ -152,15 +152,18 @@ it('does not mark a managed organization private replacement succeeded before in
     applicationId,
     source: RepositorySource.ORG_PROVISIONED,
   });
-  expect(
-    await prisma.repositoryProvisionJob.findUnique({
-      where: { applicationId },
-    }),
-  ).toMatchObject({
-    repositoryId: targetId,
+  // 연결 자체는 이미 Application이 들고 있고, job의 repositoryId는 「이 요청 세대가
+  // 만들어 낸 결과」다 — 초대 조정이 남은 새 세대는 아직 결과가 없으므로 null이고,
+  // 그 세대가 지금 유효해야 worker가 이어서 집어간다.
+  const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
+    where: { applicationId },
+  });
+  expect(job).toMatchObject({
+    repositoryId: null,
     status: RepositoryProvisionJobStatus.PENDING,
     finishedAt: null,
   });
+  expect(job.currentEventId).not.toBeNull();
   expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
   ).toMatchObject({ applicationId: null, programId, teamId });

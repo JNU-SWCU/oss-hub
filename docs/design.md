@@ -33,14 +33,14 @@
 
 규칙마다 소유자는 한 문서다.
 모든 규칙은 리뷰로 강제하며 자동 검사는 아직 없다.
-자동 검사는 lint PR이 R-08a·R-08b에 대해 처음 도입하고 그 밖의 열은 현재 부채를 해소할 후속 PR을 가리킨다.
+자동 검사는 R-08a·R-08b·R-38을 `apps/frontend/eslint-rules/design-system.mjs`가 강제하고(#1310), 그 밖의 열은 현재 부채를 해소할 후속 PR을 가리킨다.
 
 | 규칙 | 소유자 | 현재 부채를 해소할 후속 PR |
 | --- | --- | --- |
 | R-01, R-02 | `apps/frontend/src/components/AGENTS.md` | 없음 — 리뷰로 유지 |
 | R-04 | 이 문서 | composition API PR |
 | R-06 | 이 문서 | dialog shell PR |
-| R-08a, R-08b | 이 문서 | lint PR |
+| R-08a, R-08b, R-38 | 이 문서 | 없음 — lint가 강제한다. 기존 위반은 `apps/frontend/eslint-suppressions.json`이 억제하며 폴더 단위 후속 PR로 줄인다 |
 | R-09, R-10 | 이 문서 | FailureState PR |
 | R-17 | 이 문서 | Skeleton PR |
 | R-11, R-12 | 이 문서 | Alert kind PR |
@@ -226,6 +226,8 @@ Collapsible을 포함한 파일은 `apps/frontend/src/components/ui/`에 있고,
 **R-08b — 색**: `apps/frontend/src/{components,features,app}/**`의 모든 TS/TSX에서 색 상수 배열·데이터 객체·inline `style` 값을 포함한 hex 색상 리터럴과 `--palette-*` 직접 참조를 금지하고 semantic 토큰을 쓴다.
 예외는 토큰 소유자 `apps/frontend/src/app/globals.css`, 격리 문서 `apps/frontend/public/policies/policy-document.css`, canvas 전용 테마 상수 `apps/frontend/src/features/landing/cosmos/cosmos-theme.ts`뿐이다.
 CSS 파일 일반과 컴포넌트 CSS는 이 규칙 대상이 아니다.
+**R-38** `apps/frontend/src/{components,features,app}/**`는 `<button>`을 직접 쓰지 않고 `Button` 프리미티브를 쓴다(아이콘만이면 `variant="ghost" size="icon"`에 `aria-label`과 툴팁). 예외는 프리미티브 소유자 `apps/frontend/src/components/ui/**`뿐이다.
+R-08a·R-08b·R-38은 `pnpm --filter frontend lint`가 강제한다. 기존 위반은 `apps/frontend/eslint-suppressions.json`이 파일·규칙 단위로 억제하고, 억제된 위반을 고치면 `pnpm --filter frontend lint:prune`으로 목록을 줄인다 — 목록은 줄어들기만 한다.
 
 ### 레이아웃 뼈대 어휘
 
@@ -375,7 +377,8 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 | 2026-09-03 | signup typography helpers에 `className`·`data-slot` 없음 | R-04 | composition API PR |
 | 2026-09-03 | `apps/frontend/src/components/form-section.tsx` root가 프리미티브 `data-slot="field-set"`뿐이고 자체 slot 없음 | R-04 | composition API PR |
 | 2026-09-03 | `apps/frontend/src/components/program-card.tsx` 소비자 하나인데 공용 상주 | R-02 | feature 하향 PR |
-| 2026-09-03 | 120자 초과 className 43파일과 hex 상수·inline style — `apps/frontend/src/features/activity-timeline/components/activity-chart.tsx` 26-29, `apps/frontend/src/features/landing/components/landing-journey.tsx` 401-414 | R-08a·R-08b | lint PR |
+| 2026-09-03 | 120자 초과 className 43파일과 hex 상수·inline style — `apps/frontend/src/features/activity-timeline/components/activity-chart.tsx` 26-29, `apps/frontend/src/features/landing/components/landing-journey.tsx` 401-414 | R-08a·R-08b | 2026-09-19 lint 도입(#1310). 잔여는 `apps/frontend/eslint-suppressions.json`에 남김 — className 55건·43파일, hex 51건·29파일(테스트 27파일 포함). 폴더 단위 후속 PR로 줄이고 고친 뒤 `lint:prune` |
+| 2026-09-19 | 날 `<button>` 36건·24파일(테스트 14파일 포함) — `app/_shell` 내비게이션·로그인 버튼·접근 관리 표·일정 편집기·달력·서류 수합·`program-cover`·`nav-bar` | R-38 | `eslint-suppressions.json`에 남김(#1310). 후속 PR에서 `Button` 프리미티브로 교체 |
 | 2026-09-03 | `apps/frontend/src/features/**`에 fixture 9파일 1,022 LOC | 당시 R-18·R-19 | 현재 규칙은 최소 인라인 데이터와 수명 기반 공유다. 파일명 금지는 폐지했고 미사용 카탈로그만 줄인다 |
 | 2026-09-03 | local-review 하네스가 `apps/frontend/test-support/local-review/fixture-response.ts`에서 feature fixture를 소비 | R-20 | 예외 없음. 런타임→테스트 의존은 경계 lint가 거부한다. 이 행은 당시 결합의 기록이며 해소는 런타임 제거 작업이다 |
 | 2026-09-19 | 차트 낭독 전용 `sr-only` `<table>` 2곳 — `apps/frontend/src/features/staff-insights/insights-panels.tsx` ActivityPanel, `apps/frontend/src/features/staff-insights/participation-panel.tsx` | R-07 | 예외로 확정. DataTable은 초점을 받는 스크롤 영역과 빈 상태 행을 그리므로 보이지 않는 낭독 전용 표에 맞지 않는다. 시맨틱 `<table>`을 유지한다 |

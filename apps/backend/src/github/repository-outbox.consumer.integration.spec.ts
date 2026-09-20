@@ -4,15 +4,18 @@ import {
   Prisma,
   OutboxEventStatus,
   ProgramCategory,
+  RepositoryIssuanceOutcome,
   RepositoryProvisionJobStatus,
   ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { transferProvisionGeneration } from '../prisma/repository-provision-generation';
 import { RepositoriesRepository } from './repository/repositories.repository';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
 import {
   REPOSITORY_PROVISION_EVENT_TYPE,
+  parseRepositoryProvisionEvent,
   repositoryAccessSyncEventData,
 } from './repository-provision-event';
 
@@ -37,6 +40,7 @@ const APPLICATION_IDS = [
   'synthetic-consume-duplicate',
   'synthetic-consume-processing',
   'synthetic-consume-sync-invalid',
+  'synthetic-consume-generation',
 ] as const;
 
 function programId(applicationId: string): string {
@@ -99,27 +103,37 @@ async function createProvisionEvent(
   applicationId: string,
   status: OutboxEventStatus = OutboxEventStatus.PENDING,
   lockedAt: Date | null = null,
+  idempotencySuffix?: string,
 ): Promise<string> {
-  const event = await prisma.outboxEvent.create({
-    data: {
-      type: REPOSITORY_PROVISION_EVENT_TYPE,
-      aggregateType: 'Application',
-      aggregateId: applicationId,
-      idempotencyKey: `repository-provision:${applicationId}`,
-      payload: {
-        applicationId,
-        programId: programId(applicationId),
-        teamId: null,
-        requestedAt: NOW.toISOString(),
-        collaboratorGithubLogins: ['synthetic-applicant'],
+  return prisma.$transaction(async (transaction) => {
+    const event = await transaction.outboxEvent.create({
+      data: {
+        type: REPOSITORY_PROVISION_EVENT_TYPE,
+        aggregateType: 'Application',
+        aggregateId: applicationId,
+        idempotencyKey: idempotencySuffix
+          ? `repository-provision:${applicationId}:${idempotencySuffix}`
+          : `repository-provision:${applicationId}`,
+        payload: {
+          applicationId,
+          programId: programId(applicationId),
+          teamId: null,
+          requestedAt: NOW.toISOString(),
+          collaboratorGithubLogins: ['synthetic-applicant'],
+        },
+        status,
+        availableAt: NOW,
+        lockedAt,
+        lockedBy: lockedAt ? 'stale-worker' : null,
       },
-      status,
-      availableAt: NOW,
-      lockedAt,
-      lockedBy: lockedAt ? 'stale-worker' : null,
-    },
+    });
+    await transferProvisionGeneration(
+      transaction,
+      { applicationId, newEventId: event.id, now: NOW },
+      parseRepositoryProvisionEvent,
+    );
+    return event.id;
   });
-  return event.id;
 }
 
 async function createAccessSyncEvent(
@@ -155,6 +169,9 @@ describe('RepositoryOutboxConsumer integration', () => {
   });
 
   afterEach(async () => {
+    await prisma.repositoryIssuanceHistory.deleteMany({
+      where: { applicationId: { in: [...APPLICATION_IDS] } },
+    });
     await prisma.repositoryProvisionJob.deleteMany({
       where: { applicationId: { in: [...APPLICATION_IDS] } },
     });
@@ -180,7 +197,7 @@ describe('RepositoryOutboxConsumer integration', () => {
     await prisma.$disconnect();
   });
 
-  it('event claim과 job upsert를 한 트랜잭션에서 처리한다', async () => {
+  it('수락 때 세대가 이전된 event를 job 변경 없이 확인한다', async () => {
     // Given: 승인된 신청의 PENDING outbox가 있다.
     const applicationId = APPLICATION_IDS[0];
     await createApprovedApplication(applicationId);
@@ -207,6 +224,93 @@ describe('RepositoryOutboxConsumer integration', () => {
       lockedBy: null,
     });
     expect(job.status).toBe(RepositoryProvisionJobStatus.PENDING);
+  });
+
+  it('낡은 event는 확인만 하고 후속 세대 job을 한 칸도 바꾸지 않는다', async () => {
+    const applicationId = APPLICATION_IDS[9];
+    await createApprovedApplication(applicationId);
+    const firstEventId = await createProvisionEvent(
+      applicationId,
+      OutboxEventStatus.PENDING,
+      null,
+      'r1',
+    );
+    await prisma.outboxEvent.update({
+      where: { id: firstEventId },
+      data: { createdAt: new Date(NOW.getTime() - 2_000) },
+    });
+    const secondEventId = await createProvisionEvent(
+      applicationId,
+      OutboxEventStatus.PENDING,
+      null,
+      'r2',
+    );
+    await prisma.outboxEvent.update({
+      where: { id: secondEventId },
+      data: { createdAt: new Date(NOW.getTime() - 1_000) },
+    });
+    const before = await prisma.repositoryProvisionJob.findUniqueOrThrow({
+      where: { applicationId },
+      select: {
+        id: true,
+        currentEventId: true,
+        status: true,
+        attemptCount: true,
+        lockedAt: true,
+        lockedBy: true,
+      },
+    });
+    expect(before.currentEventId).toBe(secondEventId);
+
+    const staleResult = await consumer.consumeNext('worker-generation', NOW);
+    const afterStale = await prisma.repositoryProvisionJob.findUniqueOrThrow({
+      where: { applicationId },
+      select: {
+        id: true,
+        currentEventId: true,
+        status: true,
+        attemptCount: true,
+        lockedAt: true,
+        lockedBy: true,
+      },
+    });
+    expect(staleResult).toEqual({
+      kind: 'CONSUMED',
+      eventId: firstEventId,
+      jobId: before.id,
+    });
+    expect(afterStale).toEqual(before);
+    await expect(
+      prisma.repositoryIssuanceHistory.count({
+        where: {
+          requestId: firstEventId,
+          outcome: RepositoryIssuanceOutcome.SUPERSEDED,
+        },
+      }),
+    ).resolves.toBe(1);
+
+    const currentResult = await consumer.consumeNext(
+      'worker-generation',
+      new Date(NOW.getTime() + 1),
+    );
+    expect(currentResult).toEqual({
+      kind: 'CONSUMED',
+      eventId: secondEventId,
+      jobId: before.id,
+    });
+    await expect(
+      prisma.repositoryProvisionJob.findUniqueOrThrow({
+        where: { applicationId },
+        select: {
+          id: true,
+          currentEventId: true,
+          status: true,
+          attemptCount: true,
+          lockedAt: true,
+          lockedBy: true,
+        },
+      }),
+    ).resolves.toEqual(before);
   });
 
   it('lease가 만료된 PROCESSING event를 다시 claim한다', async () => {
@@ -249,7 +353,7 @@ describe('RepositoryOutboxConsumer integration', () => {
     });
     await expect(
       prisma.repositoryProvisionJob.count({ where: { applicationId } }),
-    ).resolves.toBe(0);
+    ).resolves.toBe(1);
   });
 
   it('완료된 job은 권한 동기화 요청으로 다시 무장된다', async () => {
@@ -413,10 +517,10 @@ describe('RepositoryOutboxConsumer integration', () => {
     expect(result).toEqual({ kind: 'FAILED', eventId });
     await expect(
       prisma.repositoryProvisionJob.count({ where: { applicationId } }),
-    ).resolves.toBe(0);
+    ).resolves.toBe(1);
   });
 
-  it('계약 밖 payload는 FAILED로 격리하고 job을 만들지 않는다', async () => {
+  it('계약 밖 payload는 FAILED로 격리하고 수락 때 만든 job은 보존한다', async () => {
     // Given: payload가 잘못된 PENDING event가 있다.
     const applicationId = APPLICATION_IDS[3];
     await createApprovedApplication(applicationId);
@@ -441,6 +545,6 @@ describe('RepositoryOutboxConsumer integration', () => {
     });
     await expect(
       prisma.repositoryProvisionJob.count({ where: { applicationId } }),
-    ).resolves.toBe(0);
+    ).resolves.toBe(1);
   });
 });

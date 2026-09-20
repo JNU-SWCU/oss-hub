@@ -5,6 +5,7 @@ import {
   OutboxEventStatus,
   ProgramCategory,
   RepositoryInvitationStatus,
+  RepositoryIssuanceOutcome,
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
@@ -12,6 +13,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { transferProvisionGeneration } from '../prisma/repository-provision-generation';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
@@ -22,8 +24,12 @@ import {
   type GithubRepositoryMetadata,
 } from './github-app.client';
 import { RepositoriesRepository } from './repository/repositories.repository';
+import { RepositoryConnectionsRepository } from './repository/repository-connections.repository';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
-import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event';
+import {
+  parseRepositoryProvisionEvent,
+  REPOSITORY_PROVISION_EVENT_TYPE,
+} from './repository-provision-event';
 import { RepositoryProvisionJobRepository } from './repository/repository-provision-job.repository';
 import { RepositoryProvisionStateRepository } from './repository/repository-provision-state.repository';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
@@ -51,6 +57,8 @@ const state = new RepositoryProvisionStateRepository(prisma);
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const APPLICANT_ID = 'synthetic-worker-applicant-id';
 const APPLICANT_GITHUB_ID = 8_300_000_000_001n;
+const CONNECTION_ACTOR_ID = 'synthetic-worker-connection-staff';
+const CONNECTION_ACTOR_GITHUB_ID = 8_300_000_099_001n;
 const APPLICATION_IDS = [
   'synthetic-worker-success',
   'synthetic-worker-partial',
@@ -61,6 +69,8 @@ const APPLICATION_IDS = [
   'synthetic-worker-stale-membership',
   'synthetic-worker-invitation-cas',
   'synthetic-worker-final-failure-rearm',
+  'synthetic-worker-terminal-failure',
+  'synthetic-worker-generation-race',
   'synthetic-worker-current-relink',
   'synthetic-worker-new-external-current',
   'synthetic-worker-own-managed-current',
@@ -113,12 +123,21 @@ describe('RepositoryProvisionWorker integration', () => {
       },
     });
     await prisma.user.createMany({
-      data: [MEMBER_USER, GHOST_USER].map((user) => ({
-        id: user.id,
-        githubId: user.githubId,
-        nickname: user.nickname,
-        selectedMemberKind: MemberKind.STUDENT,
-      })),
+      data: [
+        ...[MEMBER_USER, GHOST_USER].map((user) => ({
+          id: user.id,
+          githubId: user.githubId,
+          nickname: user.nickname,
+          selectedMemberKind: MemberKind.STUDENT,
+        })),
+        {
+          id: CONNECTION_ACTOR_ID,
+          githubId: CONNECTION_ACTOR_GITHUB_ID,
+          nickname: 'synthetic-worker-connection-staff',
+          selectedMemberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
+        },
+      ],
     });
     // OWN 편입은 현재 동의를 요구한다 — 동의 없이 수집 행을 만들지 않는다.
     // 버전은 서비스가 알려주는 값을 쓴다. 상수를 복사하면 정책이 올라갈 때
@@ -135,6 +154,9 @@ describe('RepositoryProvisionWorker integration', () => {
   });
 
   afterEach(async () => {
+    await prisma.repositoryIssuanceHistory.deleteMany({
+      where: { applicationId: { in: [...APPLICATION_IDS] } },
+    });
     await prisma.repositoryInvitation.deleteMany({
       where: {
         OR: [
@@ -195,6 +217,7 @@ describe('RepositoryProvisionWorker integration', () => {
 
   afterAll(async () => {
     await prisma.consent.deleteMany({ where: { userId: APPLICANT_ID } });
+    // connection actor는 append-only AuditLog FK가 잡으므로 격리 DB 수명까지 남긴다.
     await prisma.user.deleteMany({
       where: { id: { in: [APPLICANT_ID, MEMBER_USER.id, GHOST_USER.id] } },
     });
@@ -210,6 +233,13 @@ describe('RepositoryProvisionWorker integration', () => {
     ]);
     await addTeamMember(applicationId, MEMBER_USER.id, 'current-member');
     await outbox.consumeNext('outbox-worker-a', NOW);
+    const requestId = (
+      await prisma.repositoryProvisionJob.findUniqueOrThrow({
+        where: { applicationId },
+        select: { currentEventId: true },
+      })
+    ).currentEventId;
+    expect(requestId).not.toBeNull();
     const github = githubClient();
     github.ensureCollaborator
       .mockResolvedValueOnce(COLLABORATOR_OUTCOMES.PENDING)
@@ -272,7 +302,155 @@ describe('RepositoryProvisionWorker integration', () => {
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       attemptCount: 1,
     });
+    await expect(
+      prisma.repositoryIssuanceHistory.findUniqueOrThrow({
+        where: { requestId: requestId ?? '' },
+      }),
+    ).resolves.toMatchObject({
+      applicationId,
+      repositoryId: repository.id,
+      connectionMode: 'NEW',
+      source: RepositorySource.ORG_PROVISIONED,
+      outcome: RepositoryIssuanceOutcome.SUCCEEDED,
+      requestedAt: NOW,
+    });
+    await expect(
+      prisma.repositoryIssuanceHistory.count({
+        where: { requestId: requestId ?? '' },
+      }),
+    ).resolves.toBe(1);
   });
+
+  it('최종 실패를 정확한 requestId로 한 번만 이력에 닫는다', async () => {
+    const applicationId = APPLICATION_IDS[9];
+    await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
+    await outbox.consumeNext('outbox-worker-terminal-failure', NOW);
+    const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
+      where: { applicationId },
+      select: { currentEventId: true },
+    });
+    expect(job.currentEventId).not.toBeNull();
+    await prisma.application.update({
+      where: { id: applicationId },
+      data: { status: ApplicationStatus.REJECTED },
+    });
+    const worker = new RepositoryProvisionWorker(jobs, state, githubClient(), {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    await expect(
+      worker.runNext('provision-worker-terminal-failure', NOW),
+    ).resolves.toMatchObject({ kind: 'FAILED_FINAL' });
+    await expect(
+      prisma.repositoryIssuanceHistory.findUniqueOrThrow({
+        where: { requestId: job.currentEventId ?? '' },
+      }),
+    ).resolves.toMatchObject({
+      applicationId,
+      repositoryId: null,
+      connectionMode: 'NEW',
+      source: null,
+      outcome: RepositoryIssuanceOutcome.FAILED_FINAL,
+      lastErrorCode: PROVISION_ERROR_CODES.APPLICATION_NOT_APPROVED,
+      requestedAt: NOW,
+    });
+    await expect(
+      prisma.repositoryIssuanceHistory.count({
+        where: { requestId: job.currentEventId ?? '' },
+      }),
+    ).resolves.toBe(1);
+  });
+
+  it('R2 수락 뒤 R1 worker는 붙이지 못하고 R2만 완료한다', async () => {
+    const applicationId = APPLICATION_IDS[10];
+    await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
+    const r1 = await prisma.outboxEvent.findUniqueOrThrow({
+      where: { idempotencyKey: `repository-provision:${applicationId}` },
+    });
+    const claimedR1 = await claimJobFor(applicationId, 'worker-r1');
+    const r2At = new Date(NOW.getTime() + 1_000);
+    const connections = new RepositoryConnectionsRepository(prisma);
+
+    await expect(
+      connections.changeConnection(
+        applicationId,
+        {
+          userId: CONNECTION_ACTOR_ID,
+          githubId: CONNECTION_ACTOR_GITHUB_ID,
+          isStaff: true,
+        },
+        { mode: 'NEW' },
+        r2At,
+      ),
+    ).resolves.toMatchObject({ status: 'PENDING' });
+    const afterR2 = await prisma.repositoryProvisionJob.findUniqueOrThrow({
+      where: { applicationId },
+    });
+    expect(afterR2).toMatchObject({
+      status: RepositoryProvisionJobStatus.PENDING,
+      attemptCount: 0,
+      lockedAt: null,
+      lockedBy: null,
+      repositoryId: null,
+    });
+    expect(afterR2.currentEventId).not.toBe(r1.id);
+
+    await expect(
+      state.recordRepository({
+        jobId: claimedR1.id,
+        workerId: 'worker-r1',
+        requestId: r1.id,
+        applicationId,
+        programId: programId(applicationId),
+        teamId: teamIdFor(applicationId),
+        metadata: repositoryMetadata('stale-r1', 'stale R1'),
+        source: RepositorySource.ORG_PROVISIONED,
+        currentConnectionMode: 'NEW',
+        currentRepositoryUrl: null,
+        connectionMode: 'NEW',
+        repositoryUrl: null,
+      }),
+    ).rejects.toMatchObject({
+      name: 'RepositoryProvisionSupersededError',
+      staleRequestId: r1.id,
+    });
+    await expect(
+      prisma.githubRepository.count({ where: { applicationId } }),
+    ).resolves.toBe(0);
+    await state.recordSupersededRequest(applicationId, r1.id, r2At);
+
+    const consumedR1 = await outbox.consumeNext('outbox-r1', r2At);
+    expect(consumedR1).toMatchObject({ kind: 'CONSUMED', eventId: r1.id });
+    const consumedR2 = await outbox.consumeNext(
+      'outbox-r2',
+      new Date(r2At.getTime() + 1),
+    );
+    expect(consumedR2).toMatchObject({
+      kind: 'CONSUMED',
+      eventId: afterR2.currentEventId,
+    });
+    const worker = new RepositoryProvisionWorker(jobs, state, githubClient(), {
+      enrollExternalRepository: jest.fn(),
+    });
+    await expect(
+      worker.runNext('worker-r2', new Date(r2At.getTime() + 2)),
+    ).resolves.toMatchObject({ kind: 'SUCCEEDED' });
+
+    await expect(
+      prisma.repositoryIssuanceHistory.findMany({
+        where: { applicationId },
+        orderBy: { requestedAt: 'asc' },
+        select: { requestId: true, outcome: true },
+      }),
+    ).resolves.toEqual([
+      { requestId: r1.id, outcome: RepositoryIssuanceOutcome.SUPERSEDED },
+      {
+        requestId: afterR2.currentEventId,
+        outcome: RepositoryIssuanceOutcome.SUCCEEDED,
+      },
+    ]);
+  });
+
   it('다른 관리형 private 저장소로 바꾸면 현재 저장소에만 초대를 보내고 이전 성공 초대는 쓰지 않는다', async () => {
     // Given: NEW 승인 job이 있고, 이전 관리형 저장소의 성공 초대는 분리된 행에
     // 남으며 현재 연결만 application.repository다.
@@ -719,6 +897,110 @@ describe('RepositoryProvisionWorker integration', () => {
     });
   });
 
+  it('pending NEW reads its exact event target while the current OWN tuple remains visible', async () => {
+    const applicationId = APPLICATION_IDS[4];
+    await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN], {
+      connectionMode: 'OWN',
+      repositoryUrl: OWN_REPOSITORY_URL,
+    });
+    await outbox.consumeNext('outbox-own-r1', NOW);
+    await prisma.githubRepository.create({
+      data: {
+        applicationId,
+        programId: programId(applicationId),
+        teamId: teamIdFor(applicationId),
+        githubRepositoryId: OWN_GITHUB_REPOSITORY_ID,
+        nameWithOwner: OWN_NAME_WITH_OWNER,
+        source: RepositorySource.EXTERNAL_PUBLIC,
+        visibility: RepositoryVisibility.PUBLIC,
+      },
+    });
+    const r2 = await prisma.$transaction(async (transaction) => {
+      const event = await transaction.outboxEvent.create({
+        data: {
+          type: REPOSITORY_PROVISION_EVENT_TYPE,
+          aggregateType: 'Application',
+          aggregateId: applicationId,
+          idempotencyKey: `repository-provision:${applicationId}:r2`,
+          payload: {
+            applicationId,
+            programId: programId(applicationId),
+            teamId: null,
+            requestedAt: NOW.toISOString(),
+            collaboratorGithubLogins: [APPLICANT_LOGIN],
+            repositoryConnectionMode: 'NEW',
+            repositoryUrl: null,
+          },
+          availableAt: NOW,
+        },
+      });
+      await transferProvisionGeneration(
+        transaction,
+        { applicationId, newEventId: event.id, now: NOW },
+        parseRepositoryProvisionEvent,
+      );
+      return event;
+    });
+    const claimed = await claimJobFor(applicationId, 'exact-event-worker');
+    const context = await state.loadContext(
+      claimed.id,
+      'exact-event-worker',
+      claimed.requestId,
+    );
+    expect(claimed.requestId).toBe(r2.id);
+    expect(context).toMatchObject({
+      requestedConnectionMode: 'NEW',
+      requestedRepositoryUrl: null,
+      repository: null,
+    });
+    await expect(
+      prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
+    ).resolves.toMatchObject({
+      repositoryConnectionMode: 'OWN',
+      repositoryUrl: OWN_REPOSITORY_URL,
+    });
+    await prisma.repositoryProvisionJob.update({
+      where: { applicationId },
+      data: {
+        status: RepositoryProvisionJobStatus.PENDING,
+        attemptCount: 0,
+        lockedAt: null,
+        lockedBy: null,
+        startedAt: null,
+        nextAttemptAt: NOW,
+      },
+    });
+    await outbox.consumeNext('outbox-own-r2', NOW);
+    const github = githubClient();
+    const worker = new RepositoryProvisionWorker(jobs, state, github, {
+      enrollExternalRepository: jest.fn(),
+    });
+
+    await expect(
+      worker.runNext('provision-worker-own-r2', NOW),
+    ).resolves.toMatchObject({ kind: 'SUCCEEDED' });
+    expect(github.createRepository.mock.calls).toHaveLength(1);
+    expect(github.findPublicRepository.mock.calls).toHaveLength(0);
+    await expect(
+      prisma.application.findUniqueOrThrow({
+        where: { id: applicationId },
+        include: { repository: true },
+      }),
+    ).resolves.toMatchObject({
+      repositoryConnectionMode: 'NEW',
+      repositoryUrl: null,
+      repository: {
+        githubRepositoryId: 987654321n,
+        source: RepositorySource.ORG_PROVISIONED,
+      },
+    });
+    await expect(
+      prisma.githubRepository.findUniqueOrThrow({
+        where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID },
+      }),
+    ).resolves.toMatchObject({ applicationId: null });
+  });
+
   it('부여→탈퇴 회수→재합류를 같은 행에서 이력을 남기며 수렴한다', async () => {
     // Given: 세 명이 속한 팀에 부여가 끝난 상태다.
     const applicationId = 'synthetic-worker-revoke-lifecycle';
@@ -728,7 +1010,11 @@ describe('RepositoryProvisionWorker integration', () => {
     await outbox.consumeNext('outbox-worker-revoke', NOW);
     const repositoryId = await createProvisionedRepository(applicationId);
     const job = await claimJobFor(applicationId, 'state-worker-revoke');
-    const granted = await state.loadContext(job.id, 'state-worker-revoke');
+    const granted = await state.loadContext(
+      job.id,
+      'state-worker-revoke',
+      job.requestId,
+    );
     // 현재 TeamMember만이 authority다 — 신청자/리더 fallback이 섞이면 여기서 깨진다.
     expect(granted.currentMemberGithubLogins).toEqual([
       APPLICANT_LOGIN,
@@ -741,10 +1027,16 @@ describe('RepositoryProvisionWorker integration', () => {
     await state.prepareInvitations(
       job.id,
       'state-worker-revoke',
+      job.requestId,
       repositoryId,
       granted.currentMemberGithubLogins,
     );
-    await settleWork(job.id, 'state-worker-revoke', repositoryId);
+    await settleWork(
+      job.id,
+      'state-worker-revoke',
+      job.requestId,
+      repositoryId,
+    );
 
     // When: 두 명이 팀을 떠난 뒤 다시 조정한다.
     await prisma.teamMember.deleteMany({
@@ -753,17 +1045,23 @@ describe('RepositoryProvisionWorker integration', () => {
         userId: { in: [MEMBER_USER.id, GHOST_USER.id] },
       },
     });
-    const afterLeave = await state.loadContext(job.id, 'state-worker-revoke');
+    const afterLeave = await state.loadContext(
+      job.id,
+      'state-worker-revoke',
+      job.requestId,
+    );
     expect(afterLeave.currentMemberGithubLogins).toEqual([APPLICANT_LOGIN]);
     await state.prepareInvitations(
       job.id,
       'state-worker-revoke',
+      job.requestId,
       repositoryId,
       afterLeave.currentMemberGithubLogins,
     );
     const revokeWork = await state.findInvitationWork(
       job.id,
       'state-worker-revoke',
+      job.requestId,
       repositoryId,
     );
 
@@ -774,14 +1072,24 @@ describe('RepositoryProvisionWorker integration', () => {
       [GHOST_USER.login, 'REVOKE', RepositoryInvitationStatus.REVOKE_REQUIRED],
       [MEMBER_USER.login, 'REVOKE', RepositoryInvitationStatus.REVOKE_REQUIRED],
     ]);
-    await settleWork(job.id, 'state-worker-revoke', repositoryId);
+    await settleWork(
+      job.id,
+      'state-worker-revoke',
+      job.requestId,
+      repositoryId,
+    );
 
     // And: 한 명만 실제로 다시 합류한다.
     await addTeamMember(applicationId, MEMBER_USER.id, 'member-rejoin');
-    const afterRejoin = await state.loadContext(job.id, 'state-worker-revoke');
+    const afterRejoin = await state.loadContext(
+      job.id,
+      'state-worker-revoke',
+      job.requestId,
+    );
     await state.prepareInvitations(
       job.id,
       'state-worker-revoke',
+      job.requestId,
       repositoryId,
       afterRejoin.currentMemberGithubLogins,
     );
@@ -798,6 +1106,7 @@ describe('RepositoryProvisionWorker integration', () => {
     const reverify = await state.findInvitationWork(
       job.id,
       'state-worker-revoke',
+      job.requestId,
       repositoryId,
     );
     expect(
@@ -810,6 +1119,7 @@ describe('RepositoryProvisionWorker integration', () => {
     await state.completeInvitation({
       jobId: job.id,
       workerId: 'state-worker-revoke',
+      requestId: job.requestId,
       invitationId: reverify[0]!.id,
       repositoryId,
       expectedStatus: RepositoryInvitationStatus.REVOKED,
@@ -835,7 +1145,11 @@ describe('RepositoryProvisionWorker integration', () => {
     await outbox.consumeNext('outbox-worker-stale', NOW);
     const repositoryId = await createProvisionedRepository(applicationId);
     const job = await claimJobFor(applicationId, 'state-worker-stale');
-    const context = await state.loadContext(job.id, 'state-worker-stale');
+    const context = await state.loadContext(
+      job.id,
+      'state-worker-stale',
+      job.requestId,
+    );
     const reconciliationAt = new Date(
       NOW.getTime() + DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
     );
@@ -847,6 +1161,7 @@ describe('RepositoryProvisionWorker integration', () => {
     await state.completeJob(
       job.id,
       'state-worker-stale',
+      job.requestId,
       repositoryId,
       NOW,
       reconciliationAt,
@@ -869,10 +1184,15 @@ describe('RepositoryProvisionWorker integration', () => {
 
     // And: 지문이 맞는 다음 사이클은 정상적으로 닫힌다.
     const retry = await claimJobFor(applicationId, 'state-worker-stale-2');
-    const fresh = await state.loadContext(retry.id, 'state-worker-stale-2');
+    const fresh = await state.loadContext(
+      retry.id,
+      'state-worker-stale-2',
+      retry.requestId,
+    );
     await state.completeJob(
       retry.id,
       'state-worker-stale-2',
+      retry.requestId,
       repositoryId,
       NOW,
       reconciliationAt,
@@ -895,7 +1215,11 @@ describe('RepositoryProvisionWorker integration', () => {
     await addTeamMember(applicationId, MEMBER_USER.id, 'member');
     await outbox.consumeNext('outbox-worker-final-failure', NOW);
     const job = await claimJobFor(applicationId, 'state-worker-final');
-    const context = await state.loadContext(job.id, 'state-worker-final');
+    const context = await state.loadContext(
+      job.id,
+      'state-worker-final',
+      job.requestId,
+    );
     await prisma.teamMember.deleteMany({
       where: { teamId: teamIdFor(applicationId), userId: MEMBER_USER.id },
     });
@@ -904,6 +1228,7 @@ describe('RepositoryProvisionWorker integration', () => {
     await state.failJob({
       jobId: job.id,
       workerId: 'state-worker-final',
+      requestId: job.requestId,
       final: true,
       errorCode: PROVISION_ERROR_CODES.INTERNAL,
       nextAttemptAt: NOW,
@@ -934,12 +1259,17 @@ describe('RepositoryProvisionWorker integration', () => {
     await outbox.consumeNext('outbox-worker-cas', NOW);
     const repositoryId = await createProvisionedRepository(applicationId);
     const job = await claimJobFor(applicationId, 'state-worker-cas');
-    await state.prepareInvitations(job.id, 'state-worker-cas', repositoryId, [
-      APPLICANT_LOGIN,
-    ]);
+    await state.prepareInvitations(
+      job.id,
+      'state-worker-cas',
+      job.requestId,
+      repositoryId,
+      [APPLICANT_LOGIN],
+    );
     const [pending] = await state.findInvitationWork(
       job.id,
       'state-worker-cas',
+      job.requestId,
       repositoryId,
     );
     await prisma.teamMember.deleteMany({
@@ -948,6 +1278,7 @@ describe('RepositoryProvisionWorker integration', () => {
     await state.prepareInvitations(
       job.id,
       'state-worker-cas',
+      job.requestId,
       repositoryId,
       [],
     );
@@ -957,6 +1288,7 @@ describe('RepositoryProvisionWorker integration', () => {
       state.completeInvitation({
         jobId: job.id,
         workerId: 'state-worker-cas',
+        requestId: job.requestId,
         invitationId: pending!.id,
         repositoryId,
         expectedStatus: pending!.status,
@@ -969,6 +1301,7 @@ describe('RepositoryProvisionWorker integration', () => {
       state.failInvitation({
         jobId: job.id,
         workerId: 'state-worker-cas-intruder',
+        requestId: job.requestId,
         invitationId: pending!.id,
         repositoryId,
         expectedStatus: RepositoryInvitationStatus.REVOKE_REQUIRED,
@@ -1032,7 +1365,7 @@ async function createProvisionedRepository(
 async function claimJobFor(
   applicationId: string,
   workerId: string,
-): Promise<{ readonly id: string }> {
+): Promise<{ readonly id: string; readonly requestId: string }> {
   const job = await jobs.claimNext({
     workerId,
     now: NOW,
@@ -1048,16 +1381,19 @@ async function claimJobFor(
 async function settleWork(
   jobId: string,
   workerId: string,
+  requestId: string,
   repositoryId: string,
 ): Promise<void> {
   for (const work of await state.findInvitationWork(
     jobId,
     workerId,
+    requestId,
     repositoryId,
   )) {
     await state.completeInvitation({
       jobId,
       workerId,
+      requestId,
       invitationId: work.id,
       repositoryId,
       expectedStatus: work.status,
@@ -1190,30 +1526,37 @@ async function createApplicationAndEvent(
           }),
     },
   });
-  await prisma.outboxEvent.create({
-    data: {
-      type: REPOSITORY_PROVISION_EVENT_TYPE,
-      aggregateType: 'Application',
-      aggregateId: applicationId,
-      idempotencyKey: `repository-provision:${applicationId}`,
-      payload: {
-        applicationId,
-        programId: program,
-        // legacy outbox payload may still carry null teamId (worker accepts it).
-        teamId: null,
-        requestedAt: NOW.toISOString(),
-        collaboratorGithubLogins,
-        // OWN 여부는 outbox payload 가 원본이다 — Application 칸만 바꾸면
-        // worker 는 여전히 NEW 로 처리한다.
-        ...(own === undefined
-          ? {}
-          : {
-              repositoryConnectionMode: own.connectionMode,
-              repositoryUrl: own.repositoryUrl,
-            }),
+  await prisma.$transaction(async (transaction) => {
+    const event = await transaction.outboxEvent.create({
+      data: {
+        type: REPOSITORY_PROVISION_EVENT_TYPE,
+        aggregateType: 'Application',
+        aggregateId: applicationId,
+        idempotencyKey: `repository-provision:${applicationId}`,
+        payload: {
+          applicationId,
+          programId: program,
+          // legacy outbox payload may still carry null teamId (worker accepts it).
+          teamId: null,
+          requestedAt: NOW.toISOString(),
+          collaboratorGithubLogins,
+          // OWN 여부는 outbox payload 가 원본이다 — Application 칸만 바꾸면
+          // worker 는 여전히 NEW 로 처리한다.
+          ...(own === undefined
+            ? {}
+            : {
+                repositoryConnectionMode: own.connectionMode,
+                repositoryUrl: own.repositoryUrl,
+              }),
+        },
+        status: OutboxEventStatus.PENDING,
+        availableAt: NOW,
       },
-      status: OutboxEventStatus.PENDING,
-      availableAt: NOW,
-    },
+    });
+    await transferProvisionGeneration(
+      transaction,
+      { applicationId, newEventId: event.id, now: NOW },
+      parseRepositoryProvisionEvent,
+    );
   });
 }

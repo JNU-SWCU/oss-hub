@@ -5,6 +5,7 @@ import nextPlugin from '@next/eslint-plugin-next';
 import prettier from 'eslint-config-prettier';
 import typescriptParser from '@typescript-eslint/parser';
 import runtimeTestBoundary from './eslint-rules/runtime-test-boundary.mjs';
+import designSystemRules from './eslint-rules/design-system.mjs';
 
 // docs/rules/frontend.md — 의존 방향은 app → features → lib 단방향이며,
 // feature는 다른 feature의 내부 경로에 직접 의존하지 않는다.
@@ -125,6 +126,35 @@ const apiClientFileExemption = {
   },
 };
 
+// docs/design.md R-08a·R-08b·R-38 — 디자인 시스템 규칙을 lint로 강제한다(#1310).
+// 범위는 규칙문대로 src/{components,features,app}. 기존 위반은 eslint-suppressions.json이
+// 파일·규칙 단위로 억제하고 새 위반만 막는다. 억제된 위반을 고치면 `pnpm lint:prune`.
+const designSystemConfig = {
+  files: [
+    'src/components/**/*.{ts,tsx}',
+    'src/features/**/*.{ts,tsx}',
+    'src/app/**/*.{ts,tsx}',
+  ],
+  rules: {
+    'local/design-class-name-length': 'error',
+    'local/design-no-hex-color': 'error',
+    'local/design-no-raw-button': 'error',
+  },
+};
+
+const designSystemExemptions = [
+  {
+    // R-08b 규칙문의 예외 — canvas 전용 테마 상수
+    files: ['src/features/landing/cosmos/cosmos-theme.ts'],
+    rules: { 'local/design-no-hex-color': 'off' },
+  },
+  {
+    // 프리미티브 소유자만 <button>을 직접 쓴다
+    files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: { 'local/design-no-raw-button': 'off' },
+  },
+];
+
 export default defineConfig([
   {
     files: ['**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'],
@@ -139,7 +169,10 @@ export default defineConfig([
     plugins: {
       '@next/next': nextPlugin,
       local: {
-        rules: { 'runtime-test-boundary': runtimeTestBoundary },
+        rules: {
+          'runtime-test-boundary': runtimeTestBoundary,
+          ...designSystemRules,
+        },
       },
     },
     rules: {
@@ -152,6 +185,8 @@ export default defineConfig([
   ...featureBoundaryConfigs,
   libBoundaryConfig,
   apiClientFileExemption,
+  designSystemConfig,
+  ...designSystemExemptions,
   {
     ignores: ['.next/**', 'coverage/**', 'node_modules/**'],
   },

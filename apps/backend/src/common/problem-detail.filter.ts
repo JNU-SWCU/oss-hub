@@ -11,6 +11,7 @@ import type {
   ProblemDetailBlockingCounts,
   ProblemDetailCurrentAccess,
   ProblemDetailFieldError,
+  ProblemDetailTeamDeletionScopeCounts,
 } from './error-code';
 import { DomainException } from './error-code';
 import { SystemErrorCode } from './system-error-code.enum';
@@ -29,6 +30,7 @@ interface ProblemDetail {
   currentAccess?: ProblemDetailCurrentAccess;
   blockingCounts?: ProblemDetailBlockingCounts;
   currentScopeCounts?: ProblemDetailBlockingCounts;
+  currentTeamScopeCounts?: ProblemDetailTeamDeletionScopeCounts;
 }
 interface ExceptionLogEvent {
   readonly event: 'http.exception';
