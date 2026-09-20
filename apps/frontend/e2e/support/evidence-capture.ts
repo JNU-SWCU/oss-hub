@@ -19,6 +19,12 @@ type CaptureInput = {
   readonly page: Page;
   readonly testInfo: TestInfo;
   readonly phase: CapturePhase;
+  /**
+   * Artifact filename prefix. Each evidence lane passes its own so one lane's
+   * screenshots can never be read as another's — a generic prefix would let a
+   * reviewer attribute the wrong run to a PR.
+   */
+  readonly prefix: string;
   readonly name: string;
   readonly viewport: EvidenceViewport;
   readonly target: Locator;
@@ -26,7 +32,7 @@ type CaptureInput = {
 };
 
 /** Spec-owned UI responses. Keys are `METHOD /api/v1/...` with the query stripped. */
-export type Qa148ApiHandlers = {
+export type EvidenceApiHandlers = {
   readonly [methodAndPath: string]: (route: Route) => Promise<void>;
 };
 
@@ -41,18 +47,21 @@ const PNG_SIGNATURE = Buffer.from([
 ]);
 
 /**
- * Evidence lane phase.
+ * Evidence lane phase, read from the lane's own environment variable.
  *
- * Current-suite runs are After. A missing or empty `QA148_CAPTURE_PHASE` must not
- * skip or hide the spec. `before` is only for an appropriate historical baseline,
- * not this retirement's unchanged UI. Any other value fails the suite.
+ * Current-suite runs are After. A missing or empty value must not skip or hide the
+ * spec — an evidence lane that silently does nothing is worse than a failing one.
+ * `before` is only for an appropriate historical baseline. Any other value fails
+ * the suite rather than guessing.
+ *
+ * Each lane owns its variable name so two lanes cannot be switched by one export.
  */
-export function capturePhase(): CapturePhase {
-  const phase = process.env.QA148_CAPTURE_PHASE;
+export function capturePhase(variableName: string): CapturePhase {
+  const phase = process.env[variableName];
   if (phase === undefined || phase === '') return 'after';
   if (phase === 'before' || phase === 'after') return phase;
   throw new Error(
-    `QA148_CAPTURE_PHASE must be before or after, received ${JSON.stringify(phase)}.`,
+    `${variableName} must be before or after, received ${JSON.stringify(phase)}.`,
   );
 }
 
@@ -76,7 +85,7 @@ function unexpectedInterceptedApi(method: string, pathname: string): never {
  */
 export async function installExactApiRouter(
   page: Page,
-  handlers: () => Qa148ApiHandlers,
+  handlers: () => EvidenceApiHandlers,
 ): Promise<void> {
   await page.route('**/api/v1/**', async (route) => {
     const method = route.request().method();
@@ -120,7 +129,7 @@ export async function captureEvidenceRegion(
   await input.page.setViewportSize(input.viewport);
   await expect(input.target).toBeVisible();
   const path = input.testInfo.outputPath(
-    `qa148-${input.phase}-${input.name}-${input.viewport.name}.png`,
+    `${input.prefix}-${input.phase}-${input.name}-${input.viewport.name}.png`,
   );
   await input.target.screenshot({
     path,
@@ -129,7 +138,7 @@ export async function captureEvidenceRegion(
   });
   await expectNoForbiddenPngChunks(path);
   await input.testInfo.attach(
-    `qa148-${input.phase}-${input.name}-${input.viewport.name}`,
+    `${input.prefix}-${input.phase}-${input.name}-${input.viewport.name}`,
     { path, contentType: 'image/png' },
   );
   return path;
