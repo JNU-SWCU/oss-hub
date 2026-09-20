@@ -5,6 +5,7 @@ import { useState, type ReactElement } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { ALERT_DIALOG_SHELL_CLASS } from '@/components/ui/dialog';
 import { deleteStaffProgramTeam } from './api';
 import {
@@ -159,9 +160,8 @@ export function TeamDeleteDialog({
                  * 알림 자체는 선택이 아니다 — 백엔드가 삭제와 같은 커밋에서 남긴다.
                  * 비워 두면 삭제 사실만 가고, 적으면 그 문구가 함께 간다.
                  */}
-                <textarea
+                <Textarea
                   id="team-delete-notification-message"
-                  className="min-h-[5rem] w-full rounded-control border border-input bg-transparent px-4 py-2 text-body outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
                   maxLength={MAX_NOTIFICATION_MESSAGE_LENGTH}
                   disabled={busy}
                   value={notificationMessage}
