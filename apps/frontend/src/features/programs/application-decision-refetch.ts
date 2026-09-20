@@ -97,8 +97,6 @@ export async function runDecisionWithRefetch(
  * 재조회가 실패한 경우만 막는다. 409·404·5xx는 재조회가 성공했다면 화면이 진짜 상태를
  * 들고 있으므로 계속 조작할 수 있다.
  */
-export function blocksFurtherDecisions(
-  result: DecisionRefetchResult,
-): boolean {
+export function blocksFurtherDecisions(result: DecisionRefetchResult): boolean {
   return result.kind === 'refetch-failed';
 }
