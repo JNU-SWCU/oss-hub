@@ -33,7 +33,9 @@ export class ReviewHistoryEntryResponseDto {
     this.rejectionReason = entry.rejectionReason;
   }
 
-  static from(entry: ApplicationReviewHistoryEntry): ReviewHistoryEntryResponseDto {
+  static from(
+    entry: ApplicationReviewHistoryEntry,
+  ): ReviewHistoryEntryResponseDto {
     return new ReviewHistoryEntryResponseDto(entry);
   }
 }

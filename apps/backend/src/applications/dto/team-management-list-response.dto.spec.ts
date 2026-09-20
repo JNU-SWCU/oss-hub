@@ -24,7 +24,11 @@ const ITEM: TeamManagementListItem = {
     name: '합성 팀',
     memberCount: 2,
     members: [
-      { id: 'synthetic-applicant', name: '합성 신청자', nickname: 'applicant-login' },
+      {
+        id: 'synthetic-applicant',
+        name: '합성 신청자',
+        nickname: 'applicant-login',
+      },
       { id: 'synthetic-member', name: null, nickname: 'member-login' },
     ],
   },

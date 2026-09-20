@@ -438,7 +438,12 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
     // Given: 같은 모양의 신청이 다른 프로그램에 있다.
     const otherProgramId = `${PREFIX}program-other`;
     const otherLeaderId = `${PREFIX}leader-other`;
-    await createStudent(otherLeaderId, 9_410_000_900n, 'leader-other', '팀장 z');
+    await createStudent(
+      otherLeaderId,
+      9_410_000_900n,
+      'leader-other',
+      '팀장 z',
+    );
     await prisma.program.create({
       data: {
         id: otherProgramId,

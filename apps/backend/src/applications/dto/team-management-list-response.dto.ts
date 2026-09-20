@@ -40,9 +40,7 @@ export class TeamManagementListItemResponseDto {
     this.team = item.team;
   }
 
-  static from(
-    item: TeamManagementListItem,
-  ): TeamManagementListItemResponseDto {
+  static from(item: TeamManagementListItem): TeamManagementListItemResponseDto {
     return new TeamManagementListItemResponseDto(item);
   }
 }
@@ -64,9 +62,7 @@ export class TeamManagementListPageResponseDto {
     this.totalPages = page.totalPages;
   }
 
-  static from(
-    page: TeamManagementListPage,
-  ): TeamManagementListPageResponseDto {
+  static from(page: TeamManagementListPage): TeamManagementListPageResponseDto {
     return new TeamManagementListPageResponseDto(page);
   }
 }
