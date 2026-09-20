@@ -8,6 +8,7 @@ import type {
   ApplicationFormFieldKey,
   ApplicationFormFieldType,
   ApplicationFormTemplate,
+  ApplicationDetail,
   ApplicationListItem,
   ApplicationListPage,
   ApplicationListParams,
@@ -22,6 +23,7 @@ import type {
   StaffProgramTeam,
   StaffTeamDetail,
   TeamDeletionScope,
+  TeamManagementListPage,
   ProgramParticipation,
   StaffDashboardSummary,
   SubmissionType,
@@ -571,6 +573,27 @@ export function listProgramApplications(
 }
 
 /**
+ * 팀 관리 화면이 읽는 lean 목록. 같은 endpoint 의 `view=team-management` 분기다 —
+ * 팀 축 페이지네이션을 따로 만들지 않는다(팀:신청이 1:1이라 두 번째 구현은 중복이다).
+ * `view` 를 주지 않는 기존 호출은 지금까지와 같은 응답을 받는다.
+ */
+export function listTeamManagementApplications(
+  programId: string,
+  params: ApplicationListParams,
+): Promise<TeamManagementListPage> {
+  const search = new URLSearchParams({
+    page: String(params.page),
+    pageSize: String(params.pageSize),
+    search: params.search,
+    status: params.status,
+    view: 'team-management',
+  });
+  return apiClient<TeamManagementListPage>(
+    `programs/${encodeURIComponent(programId)}/applications?${search.toString()}`,
+  );
+}
+
+/**
  * #722 교직원 신청 상세. 목록 항목과 **같은 모양**이 온다 — 백엔드가 두 조회에 같은
  * select 를 쓰므로 화면끼리 필드가 어긋나지 않는다.
  */
@@ -578,6 +601,20 @@ export function getApplicationDetail(
   applicationId: string,
 ): Promise<ApplicationListItem> {
   return apiClient<ApplicationListItem>(
+    `applications/${encodeURIComponent(applicationId)}`,
+  );
+}
+
+/**
+ * 같은 상세 응답을 검토 이력까지 함께 읽는 면.
+ *
+ * 별도 endpoint 가 아니라 같은 응답의 additive 확장이라 호출이 하나다. 목록에는 이 키가
+ * 없다 — 신청마다 이력을 끌면 N+1 이고 목록은 타임라인을 그리지 않는다.
+ */
+export function getApplicationDetailWithHistory(
+  applicationId: string,
+): Promise<ApplicationDetail> {
+  return apiClient<ApplicationDetail>(
     `applications/${encodeURIComponent(applicationId)}`,
   );
 }
@@ -751,13 +788,23 @@ export function deleteStaffProgramTeam(
   programId: string,
   teamId: string,
   expectedScope: TeamDeletionScope,
+  /**
+   * 팀원에게 함께 보낼 교직원 문구. 선택이다 — 비우면 삭제 사실만 알린다.
+   * 알림 자체는 선택이 아니며 백엔드가 삭제와 같은 커밋에서 남긴다(AC-21).
+   */
+  notificationMessage?: string,
 ): Promise<DeletedTeamResult> {
+  const trimmed = notificationMessage?.trim();
   return apiClient<DeletedTeamResult>(
     `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
     {
       method: 'DELETE',
       headers: jsonHeaders,
-      body: JSON.stringify({ expectedScope }),
+      // 빈 문구는 키째 빼서 보낸다 — 백엔드 DTO 가 옵셔널이고, 빈 문자열과
+      // 「적지 않았다」를 서버에서 다시 가를 이유를 만들지 않는다.
+      body: JSON.stringify(
+        trimmed ? { expectedScope, notificationMessage: trimmed } : { expectedScope },
+      ),
     },
   );
 }
