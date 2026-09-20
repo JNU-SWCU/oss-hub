@@ -25,10 +25,12 @@ import {
   decideApplication,
   getApplicationDetailWithHistory,
   getStaffProgramTeamDetail,
-  type ApplicationDecisionInput,
 } from './api';
 import {
   blocksFurtherDecisions,
+  decisionInputFor,
+  decisionNoticeFor,
+  DECISION_OPTIONS,
   runDecisionWithRefetch,
 } from './application-decision-refetch';
 import { ApplicationDecisionDialog } from './application-decision-dialog';
@@ -48,23 +50,6 @@ import type {
   ApplicationStatus,
   StaffTeamDetail,
 } from './types';
-
-/** 교직원이 고를 수 있는 세 상태. 어느 출발점에서도 셋 다 항상 고를 수 있다(AC-14). */
-const DECISION_OPTIONS: readonly ApplicationStatus[] = [
-  'SUBMITTED',
-  'APPROVED',
-  'REJECTED',
-];
-
-function decisionInputFor(
-  next: ApplicationStatus,
-  reason: string,
-): ApplicationDecisionInput | null {
-  if (next === 'APPROVED') return { action: 'APPROVE' };
-  if (next === 'SUBMITTED') return { action: 'REVERT' };
-  const trimmed = reason.trim();
-  return trimmed === '' ? null : { action: 'REJECT', reason: trimmed };
-}
 
 type LoadState =
   | { readonly kind: 'loading' }
@@ -224,25 +209,15 @@ export function ProgramStaffTeamDetailPage({
       setReason('');
       setReasonError(false);
 
+      setDecisionNotice(decisionNoticeFor(result));
       if (result.kind === 'refetch-failed') {
         setDecisionBlocked(true);
-        setDecisionNotice(
-          '판정 결과를 확인하지 못했습니다. 새로고침한 뒤 이 신청의 상태를 다시 확인해 주세요.',
-        );
         return;
       }
       if (result.kind === 'removed') {
         setApplicationDetail(null);
-        setDecisionNotice('이 신청은 더 이상 없습니다.');
         return;
       }
-      setDecisionNotice(
-        result.outcome.kind === 'stale'
-          ? '다른 사람이 먼저 판정했습니다. 최신 상태로 갱신했습니다.'
-          : result.outcome.kind === 'unknown'
-            ? '판정 요청이 실패했습니다. 갱신한 상태를 보고 다시 시도해 주세요.'
-            : null,
-      );
       if (blocksFurtherDecisions(result)) return;
       // 판정은 팀 상세의 요약 배지도 바꾼다 — 둘을 같이 다시 읽어야 한 화면이 두
       // 이야기를 하지 않는다.

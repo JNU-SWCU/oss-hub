@@ -20,7 +20,6 @@ import {
   decideApplication,
   getApplicationDetail,
   listTeamManagementApplications,
-  type ApplicationDecisionInput,
 } from './api';
 import {
   APPLICATION_STATUS_BADGE,
@@ -29,8 +28,10 @@ import {
 } from './application-presentation';
 import {
   blocksFurtherDecisions,
+  decisionInputFor,
+  decisionNoticeFor,
+  DECISION_OPTIONS,
   runDecisionWithRefetch,
-  type DecisionRefetchResult,
 } from './application-decision-refetch';
 import { ApplicationDecisionDialog } from './application-decision-dialog';
 import type {
@@ -57,13 +58,6 @@ const PAGE_SIZE = 20;
 
 type StatusFilter = ApplicationListStatus;
 
-/** 교직원이 고를 수 있는 세 상태. 어느 출발점에서도 **셋 다 항상 고를 수 있다**(AC-14). */
-const DECISION_OPTIONS: readonly ApplicationStatus[] = [
-  'SUBMITTED',
-  'APPROVED',
-  'REJECTED',
-];
-
 interface LoadedState {
   readonly kind: 'ready';
   readonly items: readonly TeamManagementListItem[];
@@ -78,52 +72,6 @@ type ScreenState =
 interface RowNotice {
   readonly message: string;
   readonly blocked: boolean;
-}
-
-function noticeFor(result: DecisionRefetchResult): RowNotice | null {
-  if (result.kind === 'refetch-failed') {
-    return {
-      message:
-        '판정 결과를 확인하지 못했습니다. 새로고침한 뒤 이 팀의 상태를 다시 확인해 주세요.',
-      blocked: true,
-    };
-  }
-  if (result.kind === 'removed') {
-    return {
-      message: '이 신청은 더 이상 없습니다. 목록에서 내렸습니다.',
-      blocked: false,
-    };
-  }
-  switch (result.outcome.kind) {
-    case 'applied':
-      return null;
-    case 'stale':
-      return {
-        message: '다른 사람이 먼저 판정했습니다. 최신 상태로 갱신했습니다.',
-        blocked: false,
-      };
-    case 'gone':
-      return {
-        message: '이 신청은 더 이상 없습니다.',
-        blocked: false,
-      };
-    case 'unknown':
-      return {
-        message:
-          '판정 요청이 실패했습니다. 갱신한 상태를 보고 다시 시도해 주세요.',
-        blocked: false,
-      };
-  }
-}
-
-function decisionInputFor(
-  next: ApplicationStatus,
-  reason: string,
-): ApplicationDecisionInput | null {
-  if (next === 'APPROVED') return { action: 'APPROVE' };
-  if (next === 'SUBMITTED') return { action: 'REVERT' };
-  const trimmed = reason.trim();
-  return trimmed === '' ? null : { action: 'REJECT', reason: trimmed };
 }
 
 function memberSummary(item: TeamManagementListItem): string {
@@ -227,7 +175,11 @@ export function ProgramStaffTeamsPage({
       setReason('');
       setReasonError(false);
 
-      const notice = noticeFor(result);
+      const message = decisionNoticeFor(result);
+      const notice: RowNotice | null =
+        message === null
+          ? null
+          : { message, blocked: result.kind === 'refetch-failed' };
       setNotices((current) => {
         if (notice === null) {
           const { [item.id]: _removed, ...rest } = current;
