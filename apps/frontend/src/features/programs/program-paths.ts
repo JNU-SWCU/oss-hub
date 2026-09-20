@@ -3,7 +3,7 @@ export function programHref(programId: string, suffix = ''): string {
   return `/programs/${encodeURIComponent(programId)}${suffix}`;
 }
 
-/** Program-scoped staff path (edit/applicants/…). Prefer lib/program-route named helpers. */
+/** Program-scoped staff path (edit/teams/…). Prefer lib/program-route named helpers. */
 export function staffProgramHref(programId: string, suffix: string): string {
   return `/programs/${encodeURIComponent(programId)}${suffix}`;
 }
