@@ -16,11 +16,13 @@ import {
 import { parseRepositoryUrlState } from '../src/features/programs/repository-url-api';
 import { parseStaffRepositoryEvidence } from '../src/features/programs/staff-repository-evidence';
 
+test.use({ timezoneId: 'Asia/Seoul' });
+
 const replacementUrl = 'https://github.com/external-owner/relinked-public';
 const reason =
   '프로젝트 활동을 수집할 공개 저장소로 변경합니다.\n기존 프로젝트 활동 기록은 유지합니다.';
 
-test('학생이 저장소를 변경하면 재조회와 새 교직원 세션에 같은 변경 이력이 보인다', async ({
+test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 교직원 변경 이력에 반영된다', async ({
   authSeedPage,
   programAuthoringActorPage,
 }, testInfo) => {
@@ -57,7 +59,8 @@ test('학생이 저장소를 변경하면 재조회와 새 교직원 세션에 �
   const before = parseRepositoryUrlState(await beforeResponse.json());
   expect(before.canEditRepositoryUrl).toBe(true);
   expect(before.repositoryUrl).toMatch(/^https:\/\/github\.com\/e2e-org\//);
-  await student.goto(`/programs/${encodeURIComponent(programId)}/apply`);
+  await student.goto(`/programs/${encodeURIComponent(programId)}/my-team`);
+  await student.setViewportSize({ width: 1440, height: 900 });
   await expect(student.getByRole('radio', { name: /저장소/ })).toHaveCount(0);
   const editor = student.getByRole('region', {
     name: '프로젝트 저장소',
@@ -66,6 +69,22 @@ test('학생이 저장소를 변경하면 재조회와 새 교직원 세션에 �
   await expect(
     editor.getByRole('button', { name: '저장소 URL 수정' }),
   ).toBeEnabled();
+  await student.waitForLoadState('networkidle');
+  await capture(student, testInfo, 'team-repository-desktop');
+  await captureRegion(
+    student.locator('main'),
+    testInfo,
+    'team-repository-element',
+  );
+  await captureRegion(editor, testInfo, 'team-repository-compact');
+  await student.setViewportSize({ width: 390, height: 844 });
+  await expect(editor.getByRole('link')).toBeVisible();
+  expect(
+    await student.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await capture(student, testInfo, 'team-repository-mobile');
   await editor.getByRole('button', { name: '저장소 URL 수정' }).click();
   await expect(
     editor.getByText('저장소 변경 안내', { exact: true }),
@@ -73,9 +92,18 @@ test('학생이 저장소를 변경하면 재조회와 새 교직원 세션에 �
   await expect(
     editor.getByText(/변경 사유는 교직원이 확인할 수 있습니다/),
   ).toBeVisible();
+  await editor.getByRole('button', { name: '취소', exact: true }).click();
+  await expect(editor.getByLabel('새 저장소 URL')).toHaveCount(0);
+  await editor.getByRole('button', { name: '저장소 URL 수정' }).click();
   await editor.getByLabel('새 저장소 URL').fill(replacementUrl);
   await editor.getByLabel('변경 사유').fill(reason);
   await capture(student, testInfo, '01-student-warning');
+  await captureRegion(editor, testInfo, 'team-repository-editing-mobile');
+  expect(
+    await student.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
 
   // When: the student confirms the change through the real PATCH endpoint.
   const changeStartedAt = Date.now();

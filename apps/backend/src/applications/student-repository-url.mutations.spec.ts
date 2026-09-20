@@ -27,7 +27,7 @@ const input = {
   reason: 'Moved',
 };
 
-function fixture(studentId = 'student') {
+function fixture(studentId = 'leader') {
   const transaction = new StudentRepositoryUrlTransaction(new PrismaService());
   const lockContext = jest
     .spyOn(transaction, 'lockContext')
@@ -157,4 +157,29 @@ it('passes a managed organization private replacement through the transaction wi
     context,
     expect.objectContaining({ kind: 'ORGANIZATION' }),
   );
+});
+
+it('denies the original applicant after leadership has changed', async () => {
+  const { service, resolver, relink } = fixture('student');
+  expect(await service.getMine(1n, 'program')).toMatchObject({
+    canEditRepositoryUrl: false,
+  });
+  await expect(service.updateMine(1n, 'program', input)).rejects.toMatchObject({
+    errorCode: { code: 'APP_001' },
+  });
+  expect(resolver.resolve).not.toHaveBeenCalled();
+  expect(relink).not.toHaveBeenCalled();
+});
+
+it('rechecks leadership after locking before relinking', async () => {
+  const { service, lockContext, relink, audit } = fixture();
+  lockContext.mockResolvedValue({
+    ...context,
+    team: { leaderId: 'successor' },
+  });
+  await expect(service.updateMine(1n, 'program', input)).rejects.toMatchObject({
+    errorCode: { code: 'APP_001' },
+  });
+  expect(relink).not.toHaveBeenCalled();
+  expect(audit.record).not.toHaveBeenCalled();
 });

@@ -40,9 +40,12 @@ export class StudentRepositoryUrlTransaction {
       .$queryRaw`SELECT "id" FROM "Program" WHERE "id" = ${programId} FOR UPDATE`;
     const candidate = await this.transaction.application.findFirst({
       where: { programId, ...programApplicationManagerWhere(studentId) },
-      select: { id: true },
+      select: { id: true, teamId: true },
     });
     if (!candidate) return null;
+    // 팀장 승계·탈퇴와 같은 팀 행을 잠근 뒤 현재 권한을 다시 읽는다.
+    await this.transaction
+      .$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${candidate.teamId} FOR UPDATE`;
     await this.transaction
       .$queryRaw`SELECT "id" FROM "Application" WHERE "id" = ${candidate.id} FOR UPDATE`;
     const actor = await this.transaction.user.findFirst({
