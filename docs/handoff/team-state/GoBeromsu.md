@@ -1889,3 +1889,23 @@
 - 주의: 로컬 확인 중 `GET /api/v1/programs`가 500이었다. main 병합으로 들어온 `20260912090000_add_external_program_cover`를 로컬 DB에 적용하지 않은 탓이며, 병합 뒤에는 마이그레이션을 다시 적용해야 한다.
 - 남은 것: 참여 팀 목록에 삭제 결과 알림을 띄우는 것은 그 화면 몫으로 남겼다. 지금은 창이 결과를 말하고 목록으로 돌아간다.
 - 공개 안전성: 합성 데이터로만 확인했고 캡처는 이미 발행된 v0.6.162에 에셋으로만 올렸다.
+
+## 2026-09-20 — 독립 팀 생성 경로 제거
+
+- 상태: review
+- Issue: -
+- PR: (이 PR)
+- blocker: 없음
+- 무엇: `POST /api/v1/programs/:programId/teams`와 그 아래 service·repository·DTO·타입을 지웠다.
+  팀은 이제 신청이 만든다 — `applications.service.ts`의 생성 트랜잭션이 필요할 때만 1인 기본 팀을 만든다.
+- 왜: 신청 없는 팀이 생기면 교직원 팀 관리 화면이 「신청 없음」 상태를 다시 들여야 하고, 그 상태를 없애는 것이 이번 통합의 목적이다.
+- 대실 경로: alias도 410 응답도 두지 않았다.
+  등록된 handler가 없으면 Nest가 표준 404를 돌려준다 — 참여코드 합류(`POST teams/join`)를 지웠을 때와 같은 처리다.
+- 기계 가드: `auth-route-manifest`가 라우트 인벤토리와 개수(PROTECTED 118→117, 전체 135→134)를 잡아 갱신을 요구했다.
+  controller prototype에 `create`가 없고 POST로 등록된 handler가 하나도 없음을 단언하는 단위 테스트를 새로 넣었다.
+- 함께 사라진 것: `joinCodeSecret` 주입과 참여코드 생성 기계가 이 service에서 없어졌다.
+  `Team.joinCodeDigest`는 여전히 NOT NULL·UNIQUE이고 신청 생성 경로가 채운다.
+- 검증: backend 353 suites / 4,396 tests, typecheck, lint, 전체 format 검사를 통과했다.
+- 쪼갬: 이 PR은 다른 슬라이스에 의존하지 않아 `main` 기준 독립이다.
+  순수 제거라 +42 / -457이고 `docs/rules/pr-scope.md` §2 기준 안이다.
+- 공개 안전성: `scripts/check-public-safe.sh`를 통과했다.
