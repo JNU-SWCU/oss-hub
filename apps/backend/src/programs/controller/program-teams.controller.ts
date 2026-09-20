@@ -214,6 +214,7 @@ export class ProgramTeamsController {
         programId,
         teamId,
         body.expectedScope,
+        body.notificationMessage ?? null,
       ),
     );
   }
