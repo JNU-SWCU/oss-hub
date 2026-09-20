@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { NavBar, type NavItem } from '@/components';
+import { cn } from '@/lib/utils';
 import { useSidebarDrawer } from './product-shell';
 import { programDetailIdFromPathname } from './section-facets';
 import { shellSectionFromPathname } from './sidebar-menu';
@@ -70,7 +71,14 @@ export function ShellNav({ items, brand, actions }: ShellNavProps) {
         // 터치 타깃은 공개 nav 링크·액션 버튼용이다. 계정 드롭다운의
         // `role=menuitem`까지 잡으면 설정(<a>)만 justify-center가 걸려
         // 로그아웃(<button>)과 글자 정렬이 갈라진다.
-        className="max-[479px]:px-1 [&_a:not([role=menuitem])]:inline-flex [&_a:not([role=menuitem])]:min-h-11 [&_a:not([role=menuitem])]:min-w-11 [&_a:not([role=menuitem])]:items-center [&_a:not([role=menuitem])]:justify-center [&_button:not([role=menuitem])]:min-h-11 [&_button:not([role=menuitem])]:min-w-11"
+        className={cn(
+          'max-[479px]:px-1 [&_a:not([role=menuitem])]:inline-flex',
+          '[&_a:not([role=menuitem])]:min-h-11 [&_a:not([role=menuitem])]:min-w-11',
+          '[&_a:not([role=menuitem])]:items-center',
+          '[&_a:not([role=menuitem])]:justify-center',
+          '[&_button:not([role=menuitem])]:min-h-11',
+          '[&_button:not([role=menuitem])]:min-w-11',
+        )}
         linkComponent={Link}
       />
     </div>

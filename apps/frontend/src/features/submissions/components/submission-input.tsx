@@ -10,6 +10,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { formatFileSize } from '@/lib/format-file-size';
 import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
+import { cn } from '@/lib/utils';
 import {
   SUBMISSION_FILE_ACCEPT,
   validateSubmissionFile,
@@ -71,7 +72,13 @@ export function SubmissionInput({
             aria-invalid={Boolean(errors.text)}
             aria-describedby={errors.text ? 'submission-text-error' : undefined}
             onChange={(event) => onTextChange(event.target.value)}
-            className="min-h-48 w-full resize-y rounded-lg border border-input bg-transparent p-3 text-sm leading-6 transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className={cn(
+              'min-h-48 w-full resize-y rounded-lg border border-input bg-transparent p-3',
+              'text-sm leading-6 transition-colors outline-none',
+              'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+              'aria-invalid:border-destructive aria-invalid:ring-3',
+              'aria-invalid:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50',
+            )}
           />
           <FieldError id="submission-text-error">{errors.text}</FieldError>
         </Field>
