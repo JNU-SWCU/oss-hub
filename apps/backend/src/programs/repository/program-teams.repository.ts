@@ -59,18 +59,6 @@ export interface TeamMembershipRecord {
   readonly userId: string;
 }
 
-export interface CreateTeamRecordInput {
-  readonly programId: string;
-  readonly name: string;
-  readonly joinCodeDigest: string;
-  readonly leaderId: string;
-}
-
-export interface CreatedTeamRecord {
-  readonly id: string;
-  readonly name: string;
-}
-
 export interface TeamDetailRecord {
   readonly id: string;
   readonly name: string;
@@ -206,17 +194,6 @@ export type RecordTeamMembershipAudit = (
   store: TeamMembershipAuditStore,
   event: TeamMembershipAuditEvent,
 ) => Promise<void>;
-
-export interface ProgramTeamsCreateStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
-  findMembershipByProgramUser(
-    programId: string,
-    userId: string,
-  ): Promise<TeamMembershipRecord | null>;
-  createTeamWithLeader(
-    input: CreateTeamRecordInput,
-  ): Promise<CreatedTeamRecord>;
-}
 
 @Injectable()
 export class ProgramTeamsRepository {
@@ -631,16 +608,8 @@ export class ProgramTeamsRepository {
     );
   }
 
-  withCreateTransaction<T>(
-    operation: (store: ProgramTeamsCreateStore) => Promise<T>,
-  ): Promise<T> {
-    return this.prisma.$transaction((tx) =>
-      operation(new PrismaProgramTeamsCreateStore(tx)),
-    );
-  }
-
   /**
-   * 본인 탈퇴 — 신청 제출 여부나 신청 기간과 무관하게 허용한다. 유일한 제약은
+   * 본인 폈지 — 신청 제출 여부나 신청 기간과 무관하게 허용한다. 유일한 제약은
    * "신청 기록이 있는 팀의 마지막 구성원"이며 이때만 409로 막아 신청·제출·저장소의
    * 소유 팀을 남긴다(`Application`은 절대 지우거나 옮기지 않는다).
    *
@@ -879,73 +848,8 @@ function lockTeamRow(
   );
 }
 
-type TeamsTx = Pick<
-  Prisma.TransactionClient,
-  'team' | 'teamMember' | 'auditLog'
->;
-
 interface LockedTeamRow {
   readonly id: string;
-}
-
-class PrismaProgramTeamsCreateStore implements ProgramTeamsCreateStore {
-  constructor(private readonly tx: TeamsTx) {}
-
-  get auditLogWriter(): AuditLogTransactionWriter {
-    return this.tx;
-  }
-
-  async findMembershipByProgramUser(
-    programId: string,
-    userId: string,
-  ): Promise<TeamMembershipRecord | null> {
-    const row = await this.tx.teamMember.findUnique({
-      where: { programId_userId: { programId, userId } },
-      select: { teamId: true, userId: true },
-    });
-    return row;
-  }
-
-  async createTeamWithLeader(
-    input: CreateTeamRecordInput,
-  ): Promise<CreatedTeamRecord> {
-    try {
-      const team = await this.tx.team.create({
-        data: {
-          programId: input.programId,
-          name: input.name,
-          joinCodeDigest: input.joinCodeDigest,
-          leaderId: input.leaderId,
-        },
-        select: { id: true, name: true },
-      });
-      await this.tx.teamMember.create({
-        data: {
-          teamId: team.id,
-          programId: input.programId,
-          userId: input.leaderId,
-        },
-      });
-      return team;
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        const target = error.meta?.target;
-        const fields = Array.isArray(target)
-          ? target.map(String)
-          : typeof target === 'string'
-            ? [target]
-            : [];
-        if (fields.some((field) => field.includes('joinCodeDigest'))) {
-          throw new JoinCodeDigestConflictError();
-        }
-        throw new TeamMembershipConflictError();
-      }
-      throw error;
-    }
-  }
 }
 
 interface TeamProvisionOutbox {

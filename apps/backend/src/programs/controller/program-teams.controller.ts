@@ -7,7 +7,6 @@ import {
   Inject,
   Param,
   Patch,
-  Post,
   Query,
   Req,
   UseGuards,
@@ -17,7 +16,6 @@ import {
   type AuthenticatedRequest,
   SessionGuard,
 } from '../../auth/session.guard';
-import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
 import { DeleteTeamRequestDto } from '../dto/delete-team-request.dto';
 import { RenameTeamRequestDto } from '../dto/rename-team-request.dto';
 import {
@@ -26,7 +24,6 @@ import {
 } from '../dto/team-detail-response.dto';
 import { RepositoryUrlHistoryQueryRequestDto } from '../dto/repository-url-history-query.dto';
 import {
-  CreateTeamResponseDto,
   DeleteTeamResponseDto,
   ProgramTeamResponseDto,
   RenameTeamResponseDto,
@@ -38,10 +35,13 @@ import { ProgramTeamsService } from '../service/program-teams.service';
 type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 /**
- * 팀 생성·내 팀 조회·교직원 팀 목록/상세/저장소 URL 이력 — ProgramsController 와 분리된 thin sibling.
- * 팀 합류는 초대 수락(`team-invitations`) 단독 경로다 — 참여코드로 합류하는
- * `POST teams/join` 은 초대 전용 규칙을 우회해서 제거했고 대체 경로도 두지 않는다.
- * POST   /api/v1/programs/:programId/teams
+ * 내 팀 조회·교직원 팀 목록/상세/저장소 URL 이력 — ProgramsController 와 분리된 thin sibling.
+ * 팀 합루는 초대 수락(`team-invitations`) 단독 경로다 — 참여코드로 합루하는
+ * `POST teams/join` 은 초대 전용 그쟁을 우회해서 제거했고 대실 경로도 두지 않는다.
+ *
+ * 팀은 **신청이 만든다**. 독립 팀 생성(`POST /programs/:programId/teams`)은 제거했고
+ * 대실 경로를 두지 않는다 — 신청 없는 팀이 생기면 팀 관리 화면이 「신청 없음」 상태를
+ * 다시 들여야 하고, 그 상태는 이번 통합이 없오는 바로 그것이다.
  * GET    /api/v1/programs/:programId/teams/me
  * DELETE /api/v1/programs/:programId/teams/me                  (본인 탈퇴)
  * DELETE /api/v1/programs/:programId/teams/me/members/:userId  (팀장의 팀원 제외)
@@ -57,7 +57,6 @@ export class ProgramTeamsController {
     @Inject(ProgramTeamsService)
     private readonly service: Pick<
       ProgramTeamsService,
-      | 'create'
       | 'getMe'
       | 'leave'
       | 'removeMember'
@@ -68,22 +67,6 @@ export class ProgramTeamsController {
       | 'deleteForStaff'
     >,
   ) {}
-
-  @Post()
-  @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
-  async create(
-    @Req() request: TeamSessionRequest,
-    @Param('programId') programId: string,
-    @Body() body: CreateTeamRequestDto,
-  ): Promise<CreateTeamResponseDto> {
-    const team = await this.service.create(
-      request.sessionGithubId,
-      programId,
-      body.name,
-    );
-    return CreateTeamResponseDto.from(team);
-  }
 
   @Get('me')
   @UseGuards(SessionGuard)

@@ -1,15 +1,12 @@
-import { randomBytes } from 'node:crypto';
 import type {
   RepositoryUrlHistoryCursor,
   RepositoryUrlHistoryPage,
 } from '../program-team-repository-evidence.types';
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
-  createTeamCreatedAuditMetadata,
   createTeamDeletedAuditMetadata,
   createTeamMembershipAuditMetadata,
   createTeamRenamedAuditMetadata,
-  TEAM_CREATED_AUDIT_ACTIONS,
   TEAM_DELETED_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_RENAMED_AUDIT_ACTIONS,
@@ -17,16 +14,7 @@ import {
 import { AuditLogService } from '../../audit-log/audit-log.service';
 import { DomainException } from '../../common/error-code';
 import {
-  computeJoinCodeDigest,
-  resolveJoinCodeSecretFromConfig,
-} from '../../common/join-code-digest';
-import type { RuntimeConfig } from '../../runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from '../../runtime-config/runtime-config.module';
-import {
-  JoinCodeDigestConflictError,
   ProgramTeamsRepository,
-  TeamMembershipConflictError,
-  type CreatedTeamRecord,
   type StaffTeamDetailRecord,
   type StaffTeamRecord,
   type TeamDetailRecord,
@@ -43,7 +31,6 @@ import {
 import type { TeamDeletionScopeCounts } from '../team-deletion-scope';
 import { TEAMS_ERROR_CODES, TeamsErrorCode } from '../teams-error-code.enum';
 import type {
-  CreatedTeamView,
   DeletedTeamView,
   ProgramTeamView,
   RenamedTeamView,
@@ -51,103 +38,18 @@ import type {
   StaffTeamView,
 } from '../program-teams.types';
 
-const JOIN_CODE_ATTEMPTS = 5;
-
 /**
- * `Team.joinCodeDigest` 는 아직 NOT NULL·UNIQUE 컬럼이라 생성 시점에 한 번 채운다.
- * 참여코드로 합류하는 경로는 제거됐으므로 이 값을 다시 읽는 소비자는 없다.
+ * 팀은 신청이 만들고(`applications.service.ts` 생성 트랜잭션), 이 서버스는 이미 있는 팀을
+ * 읽고·이름 바꾸고·구성원을 뒤고·지우는 일만 한다. 독립 팀 생성은 제거했다 — 신청 없는 팀이
+ * 생기지 않으므로 팀 관리 화면은 「신청 없음」 상태를 다를 이유가 없다.
  */
-function generateJoinCode(): string {
-  return randomBytes(6).toString('base64url').toUpperCase().slice(0, 10);
-}
-
 @Injectable()
 export class ProgramTeamsService {
-  private readonly joinCodeSecret: string;
-
   constructor(
     private readonly repository: ProgramTeamsRepository,
-    @Inject(RUNTIME_CONFIG) runtimeConfig: RuntimeConfig,
     private readonly auditLog: AuditLogService,
     private readonly deletionRepository: ProgramTeamDeletionRepository,
-  ) {
-    this.joinCodeSecret = resolveJoinCodeSecretFromConfig(runtimeConfig);
-  }
-
-  async create(
-    githubId: bigint,
-    programId: string,
-    name: string,
-    now: Date = new Date(),
-  ): Promise<CreatedTeamView> {
-    const student = await this.requireStudent(githubId);
-    const program = await this.requireOpenProgram(programId, now);
-    const trimmedName = name.trim();
-
-    let joinCode = '';
-    let created: CreatedTeamRecord | null = null;
-
-    for (let attempt = 0; attempt < JOIN_CODE_ATTEMPTS; attempt += 1) {
-      joinCode = generateJoinCode();
-      const joinCodeDigest = computeJoinCodeDigest(
-        joinCode,
-        this.joinCodeSecret,
-      );
-      try {
-        created = await this.repository.withCreateTransaction(async (store) => {
-          const existing = await store.findMembershipByProgramUser(
-            programId,
-            student.id,
-          );
-          if (existing) {
-            throw this.error(TeamsErrorCode.ALREADY_IN_PROGRAM_TEAM);
-          }
-          const team = await store.createTeamWithLeader({
-            programId,
-            name: trimmedName,
-            joinCodeDigest,
-            leaderId: student.id,
-          });
-          await this.auditLog.record(
-            {
-              actorGithubId: githubId,
-              action: TEAM_CREATED_AUDIT_ACTIONS.TEAM_CREATED,
-              targetType: 'TEAM',
-              targetId: team.id,
-              metadata: createTeamCreatedAuditMetadata({
-                programName: program.name,
-                teamName: team.name,
-              }),
-            },
-            store.auditLogWriter,
-          );
-          return team;
-        });
-        break;
-      } catch (error) {
-        if (error instanceof DomainException) throw error;
-        if (error instanceof TeamMembershipConflictError) {
-          throw this.error(TeamsErrorCode.ALREADY_IN_PROGRAM_TEAM);
-        }
-        if (error instanceof JoinCodeDigestConflictError) {
-          continue;
-        }
-        throw error;
-      }
-    }
-
-    if (!created) {
-      throw new Error('join code digest collision retries exhausted');
-    }
-
-    // joinCode is returned once; never logged.
-    return {
-      id: created.id,
-      name: created.name,
-      joinCode,
-      memberCount: 1,
-    };
-  }
+  ) {}
 
   async getMe(githubId: bigint, programId: string): Promise<ProgramTeamView> {
     const student = await this.requireStudent(githubId);
@@ -391,6 +293,10 @@ export class ProgramTeamsService {
 
   /**
    * 삭제와 같은 트랜잭션에서 남기는 감사 기록. 실패하면 그대로 던져 삭제 전체가 롤백된다.
+   *
+   * 사라진 이력 수치는 따로 적지 않는다 — 판정 이력(`ApplicationReviewHistory`)은 신청에
+   * `onDelete: Cascade`로 달려 있어 `deletedCounts.applications`가 곰 그 사실을 말한다.
+   * 독립 수치를 늘리면 확인 화면이 본 수치와 감사 수치의 축이 갈라진다.
    */
   private async recordDeletionAudit(
     actorGithubId: bigint,
