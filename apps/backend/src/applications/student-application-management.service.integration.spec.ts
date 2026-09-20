@@ -327,7 +327,12 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
     await prisma.$connect();
     // `seedApplication`이 팀원 두 명을 넣으므로 둘 다 있어야 한다.
     for (const student of [
-      { id: STUDENT_ID, githubId: GITHUB_ID, nickname: 'synthetic-student', studentId: '304001' },
+      {
+        id: STUDENT_ID,
+        githubId: GITHUB_ID,
+        nickname: 'synthetic-student',
+        studentId: '304001',
+      },
       {
         id: MEMBER_ID,
         githubId: MEMBER_GITHUB_ID,
