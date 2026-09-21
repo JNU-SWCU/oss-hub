@@ -30,11 +30,7 @@ export function Skeleton({ label, children, className }: SkeletonProps) {
       <span className="sr-only" aria-live="polite" role="status">
         {label}
       </span>
-      <div
-        aria-busy="true"
-        data-slot="skeleton"
-        className={cn(className)}
-      >
+      <div aria-busy="true" data-slot="skeleton" className={cn(className)}>
         {children}
       </div>
     </>

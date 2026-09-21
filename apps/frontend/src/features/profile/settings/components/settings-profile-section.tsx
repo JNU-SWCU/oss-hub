@@ -37,6 +37,14 @@ export function SettingsProfileSection({
   const showDepartmentError =
     showValidationErrors && errors.department !== null;
   const isStudentIdLocked = hasSavedStudentId(values);
+  /*
+   * 오류가 떠도 형식 안내는 남긴다. 「숫자 6자리」가 필요한 순간이 바로
+   * 틀렸을 때인데, 예전에는 그때 안내가 DOM 에서 사라졌다.
+   * 낭독기에는 안내 id 뒤에 오류 id 를 덧붙여 둘 다 읽히게 한다
+   * (program-requirement-editor 가 쓰는 형태와 같다).
+   */
+  const describedBy = (helpId: string, errorId: string, hasError: boolean) =>
+    hasError ? `${helpId} ${errorId}` : helpId;
   const showStudentId = memberKind === 'STUDENT' || isStudentIdLocked;
 
   return (
@@ -50,9 +58,12 @@ export function SettingsProfileSection({
           maxLength={PROFILE_NAME_MAX_LENGTH}
           value={values.name}
           aria-invalid={showNameError}
+          aria-describedby={showNameError ? 'settings-name-error' : undefined}
           onChange={(event) => onChange({ name: event.target.value })}
         />
-        {showNameError ? <FieldError>{errors.name}</FieldError> : null}
+        {showNameError ? (
+          <FieldError id="settings-name-error">{errors.name}</FieldError>
+        ) : null}
       </Field>
 
       {showStudentId ? (
@@ -68,6 +79,11 @@ export function SettingsProfileSection({
             disabled={isStudentIdLocked}
             aria-readonly={isStudentIdLocked || undefined}
             aria-invalid={showStudentIdError}
+            aria-describedby={describedBy(
+              'settings-student-id-description',
+              'settings-student-id-error',
+              showStudentIdError,
+            )}
             onChange={
               isStudentIdLocked
                 ? undefined
@@ -77,15 +93,16 @@ export function SettingsProfileSection({
                     })
             }
           />
+          <FieldDescription id="settings-student-id-description">
+            {isStudentIdLocked
+              ? '학번은 변경할 수 없습니다.'
+              : '숫자 6자리 · 사용자가 입력한 식별 정보'}
+          </FieldDescription>
           {showStudentIdError ? (
-            <FieldError>{errors.studentId}</FieldError>
-          ) : (
-            <FieldDescription>
-              {isStudentIdLocked
-                ? '학번은 변경할 수 없습니다.'
-                : '숫자 6자리 · 사용자가 입력한 식별 정보'}
-            </FieldDescription>
-          )}
+            <FieldError id="settings-student-id-error">
+              {errors.studentId}
+            </FieldError>
+          ) : null}
         </Field>
       ) : null}
 
@@ -100,15 +117,19 @@ export function SettingsProfileSection({
           maxLength={11}
           value={values.phone}
           aria-invalid={showPhoneError}
+          aria-describedby={describedBy(
+            'settings-phone-description',
+            'settings-phone-error',
+            showPhoneError,
+          )}
           onChange={(event) => onChange({ phone: event.target.value })}
         />
+        <FieldDescription id="settings-phone-description">
+          프로그램 운영진이 선정·팀 운영 안내를 연락할 때 사용합니다.
+        </FieldDescription>
         {showPhoneError ? (
-          <FieldError>{errors.phone}</FieldError>
-        ) : (
-          <FieldDescription>
-            프로그램 운영진이 선정·팀 운영 안내를 연락할 때 사용합니다.
-          </FieldDescription>
-        )}
+          <FieldError id="settings-phone-error">{errors.phone}</FieldError>
+        ) : null}
       </Field>
 
       <Field data-invalid={showDepartmentError || undefined}>
@@ -118,6 +139,9 @@ export function SettingsProfileSection({
           name="department"
           value={values.departmentOption}
           aria-invalid={showDepartmentError}
+          aria-describedby={
+            showDepartmentError ? 'settings-department-error' : undefined
+          }
           onChange={(event) =>
             onChange({
               departmentOption: event.target.value,
@@ -147,13 +171,18 @@ export function SettingsProfileSection({
             maxLength={PROFILE_DEPARTMENT_MAX_LENGTH}
             value={values.otherDepartment}
             aria-invalid={showDepartmentError}
+            aria-describedby={
+              showDepartmentError ? 'settings-department-error' : undefined
+            }
             onChange={(event) =>
               onChange({ otherDepartment: event.target.value })
             }
           />
         ) : null}
         {showDepartmentError ? (
-          <FieldError>{errors.department}</FieldError>
+          <FieldError id="settings-department-error">
+            {errors.department}
+          </FieldError>
         ) : null}
       </Field>
     </FormSection>

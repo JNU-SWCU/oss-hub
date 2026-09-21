@@ -8,6 +8,7 @@ import {
   PageHeader,
   type DataTableColumn,
 } from '@/components';
+import { cn } from '@/lib/utils';
 import {
   RANKING_VIEWER_CLASSES,
   type RankingPage,
@@ -348,7 +349,12 @@ export function RankingView({
             />
           ) : ranking?.viewerClass === RANKING_VIEWER_CLASSES.STAFF ? (
             <DataTable
-              className="[&_[data-slot=table-cell]]:px-1 [&_[data-slot=table-cell]]:text-xs [&_[data-slot=table-head]]:px-1 [&_[data-slot=table-head]]:text-xs sm:[&_[data-slot=table-cell]]:px-2 sm:[&_[data-slot=table-cell]]:text-sm sm:[&_[data-slot=table-head]]:px-2 sm:[&_[data-slot=table-head]]:text-sm"
+              className={cn(
+                '[&_[data-slot=table-cell]]:px-1 [&_[data-slot=table-cell]]:text-xs',
+                '[&_[data-slot=table-head]]:px-1 [&_[data-slot=table-head]]:text-xs',
+                'sm:[&_[data-slot=table-cell]]:px-2 sm:[&_[data-slot=table-cell]]:text-sm',
+                'sm:[&_[data-slot=table-head]]:px-2 sm:[&_[data-slot=table-head]]:text-sm',
+              )}
               scrollRegionLabel="활동 랭킹 표"
               columns={STAFF_RANKING_COLUMNS}
               data={[...ranking.items]}
@@ -359,7 +365,12 @@ export function RankingView({
             />
           ) : (
             <DataTable
-              className="[&_[data-slot=table-cell]]:px-1 [&_[data-slot=table-cell]]:text-xs [&_[data-slot=table-head]]:px-1 [&_[data-slot=table-head]]:text-xs sm:[&_[data-slot=table-cell]]:px-2 sm:[&_[data-slot=table-cell]]:text-sm sm:[&_[data-slot=table-head]]:px-2 sm:[&_[data-slot=table-head]]:text-sm"
+              className={cn(
+                '[&_[data-slot=table-cell]]:px-1 [&_[data-slot=table-cell]]:text-xs',
+                '[&_[data-slot=table-head]]:px-1 [&_[data-slot=table-head]]:text-xs',
+                'sm:[&_[data-slot=table-cell]]:px-2 sm:[&_[data-slot=table-cell]]:text-sm',
+                'sm:[&_[data-slot=table-head]]:px-2 sm:[&_[data-slot=table-head]]:text-sm',
+              )}
               scrollRegionLabel="활동 랭킹 표"
               columns={PUBLIC_RANKING_COLUMNS}
               data={ranking === null ? [] : [...ranking.items]}

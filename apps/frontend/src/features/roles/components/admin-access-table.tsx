@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
 
 import { DataTable, type DataTableColumn } from '@/components';
+import { Button } from '@/components/ui/button';
 
 import type {
   AdminAccessListItem,
@@ -52,9 +53,13 @@ function SortableColumnHeader({
   const Icon = active && direction === 'desc' ? ChevronDown : ChevronUp;
 
   return (
-    <button
+    <Button
       type="button"
-      className="inline-flex items-center gap-1 hover:text-foreground"
+      variant="bare"
+      size="content"
+      // 머리글 글자 굵기는 `<th>`에서 물려받던 값이다. `content`가 굵기를 내용에
+      // 돌려주므로 여기서 다시 적어 지금 모양을 지킨다.
+      className="inline-flex items-center gap-1 font-semibold whitespace-nowrap hover:text-foreground"
       onClick={() => onSortToggle(field)}
     >
       {label}
@@ -64,7 +69,7 @@ function SortableColumnHeader({
           active ? 'size-4' : 'size-4 text-muted-foreground opacity-40'
         }
       />
-    </button>
+    </Button>
   );
 }
 

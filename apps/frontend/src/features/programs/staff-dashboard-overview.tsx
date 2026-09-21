@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { programEditHref } from '@/lib/program-route';
+import { cn } from '@/lib/utils';
 import {
   formatStaffApplicationPeriod,
   getStaffRecruitmentBadge,
@@ -76,7 +77,12 @@ export function StaffDashboardOverview({
           data={[...programs]}
           rowKey={(program) => program.id}
           caption={`총 ${totalPrograms}개 프로그램 운영 현황`}
-          className="[&_tbody_tr]:relative [&_tbody_tr]:cursor-pointer [&_tbody_tr:has(a:focus-visible)]:ring-2 [&_tbody_tr:has(a:focus-visible)]:ring-ring [&_tbody_tr:has(a:focus-visible)]:ring-inset"
+          className={cn(
+            '[&_tbody_tr]:relative [&_tbody_tr]:cursor-pointer',
+            '[&_tbody_tr:has(a:focus-visible)]:ring-2',
+            '[&_tbody_tr:has(a:focus-visible)]:ring-ring',
+            '[&_tbody_tr:has(a:focus-visible)]:ring-inset',
+          )}
         />
       </div>
       <section
@@ -125,7 +131,11 @@ function ProgramIdentity({
           <Link
             href={programEditHref(program.id)}
             aria-label={`${program.name} 편집`}
-            className="font-medium break-keep underline-offset-4 after:absolute after:inset-0 after:z-[1] hover:underline focus-visible:underline focus-visible:outline-none"
+            className={cn(
+              'font-medium break-keep underline-offset-4',
+              'after:absolute after:inset-0 after:z-[1] hover:underline',
+              'focus-visible:underline focus-visible:outline-none',
+            )}
           >
             {program.name}
           </Link>

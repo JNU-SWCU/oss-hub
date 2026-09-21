@@ -128,7 +128,8 @@ export function AdminAccessMutationActions({
                   aria-checked={isCurrent}
                   variant={isCurrent ? 'default' : 'outline'}
                   size="sm"
-                  className="h-auto min-h-10 w-full px-2 py-1.5"
+                  // 높이는 44px 컨트롤 규격을 따른다 — #1335에서 화면을 보고 그대로 두기로 했다.
+                  className="w-full px-2 py-1.5"
                   disabled={disabled}
                   onClick={() =>
                     onRequestAction(actionForAccountStatus(status))
@@ -187,7 +188,8 @@ function AuthorityControl({
               aria-checked={isCurrent}
               variant={isCurrent ? 'default' : 'outline'}
               size="sm"
-              className="h-auto min-h-10 w-full px-2 py-1.5"
+              // 높이는 44px 컨트롤 규격을 따른다 — #1335에서 화면을 보고 그대로 두기로 했다.
+              className="w-full px-2 py-1.5"
               disabled={disabled || isCurrent || (nextEnabled && grantBlocked)}
               onClick={() => onChange(nextEnabled)}
             >

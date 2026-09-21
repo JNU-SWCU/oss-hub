@@ -191,11 +191,6 @@ export function RepositoryUrlEditor({
                   사유는 교직원이 확인할 수 있습니다.
                 </AlertDescription>
               </Alert>
-              {validation ? (
-                <p role="alert" className="text-sm text-destructive">
-                  변경 사유를 1~500자로 입력해 주세요.
-                </p>
-              ) : null}
               <Field>
                 <FieldLabel htmlFor="repository-url">새 저장소 URL</FieldLabel>
                 <Input
@@ -219,14 +214,21 @@ export function RepositoryUrlEditor({
                   disabled={busy}
                   maxLength={500}
                   aria-invalid={validation}
+                  aria-describedby={
+                    validation ? 'repository-url-reason-error' : undefined
+                  }
                   onChange={(event) => {
                     setReason(event.target.value);
                     setValidation(false);
                   }}
                 />
+                {/*
+                  같은 실패를 폼 위의 날 <p role="alert"> 와 여기서 서로 다른
+                  문구로 두 번 말하고 있었다. 위의 것을 지우고 한 문장으로 합친다.
+                */}
                 {validation ? (
-                  <FieldError>
-                    공백을 제외한 변경 사유를 입력해 주세요.
+                  <FieldError id="repository-url-reason-error">
+                    공백을 제외하고 1~500자로 변경 사유를 입력해 주세요.
                   </FieldError>
                 ) : null}
               </Field>
