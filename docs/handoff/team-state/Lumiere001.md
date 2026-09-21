@@ -1300,4 +1300,13 @@
 - blocker: 없음
 - 내용: Tailwind v4 preflight 가 `button` 에 `cursor: pointer` 를 넣지 않고 이 저장소도 선언하지 않아 **모든 버튼이 화살표 커서**였다. 반대로 링크·클릭 가능한 표 줄에는 손 모양이 떠서 신호가 뒤집혀 있었다. `Button` 기본 클래스 한 조각으로 호출부 188 곳을 한 번에 고쳤다. `ListRow` 는 모든 줄에 hover 배경을 걸어 읽기 전용 줄이 눌리는 것처럼 반응했다 — 이 컴포넌트를 쓰는 다섯 화면 중 줄을 누르는 곳이 하나도 없어 기본에서 뺐다. `TableRow` 의 hover 는 판단이 갈려 그대로 두고 본문에 질문으로 적었다.
 - 검증: 프런트 단위 374 파일 3723 건 통과. 새 단언이 「누를 수 있는 것에는 손 모양 커서가 뜬다」를 고정한다. typecheck·lint·prettier 통과.
+## 2026-09-21 — 한글 본문 폰트를 Pretendard 로 self-host
+
+- 상태: review
+- Issue: #1342
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 앱이 내려받는 웹폰트가 `Geist`(Latin subset) 하나뿐이라 한글이 보는 사람의 운영체제 기본 글꼴로 그려지고 있었다. Geist 의 `@font-face` 다섯 개에 한글 영역이 없고 짝으로 붙는 `Geist Fallback` 은 `local("Arial")` 이라 거기에도 한글이 없다. npm `pretendard` 의 가변본 한 벌을 `next/font/local` 로 self-host 하고 Geist 를 걷어냈다. 선언 자리는 `apps/frontend/src/app/layout.tsx` 한 곳이고 CSS 변수 이름 `--font-sans` 를 그대로 둬서 `globals.css` 와 화면 93 개 파일은 한 줄도 건드리지 않았다. `docs/design.md` 타이포그래피 절과 R-39, `.design-sync/css/ds-entry.css` 를 같이 고쳤다 — 후자는 원격 Google Fonts `@import` 도 사라진다.
+- 검증: 로컬 브라우저 회귀 34 스펙 103 건 전부 통과(5.4 분, 건너뛴 것 0). 프런트 단위 374 파일 3723 건, typecheck·lint·prettier·`tokens:check` 통과. 빌드 산출물의 폰트는 Geist 5 개 75,948 B 에서 Pretendard 1 개 2,057,688 B 로 바뀌었고 preload 되는 바이트는 29,288 B 에서 0 이 됐다. `standalone/node_modules` 에 패키지가 끌려가지 않은 것도 확인했다. 브라우저에서 잰 `fontFamily` 에 Pretendard 와 한글 폴백이 모두 보인다.
+- 배포: 프런트 전용 변경이고 스키마·마이그레이션이 없다. 되돌리려면 `layout.tsx` 한 파일을 되돌리면 된다.
 - 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.
