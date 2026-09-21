@@ -1421,3 +1421,14 @@
 - 검증: 로컬 브라우저 회귀 34 스펙 103 건 전부 통과(5.4 분, 건너뛴 것 0). 프런트 단위 374 파일 3723 건, typecheck·lint·prettier·`tokens:check` 통과. 빌드 산출물의 폰트는 Geist 5 개 75,948 B 에서 Pretendard 1 개 2,057,688 B 로 바뀌었고 preload 되는 바이트는 29,288 B 에서 0 이 됐다. `standalone/node_modules` 에 패키지가 끌려가지 않은 것도 확인했다. 브라우저에서 잰 `fontFamily` 에 Pretendard 와 한글 폴백이 모두 보인다.
 - 배포: 프런트 전용 변경이고 스키마·마이그레이션이 없다. 되돌리려면 `layout.tsx` 한 파일을 되돌리면 된다.
 - 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-21 — QA174 이행기 코드를 걷는다
+
+- 상태: review
+- Issue: #1361
+- PR: (이 PR)
+- blocker: 없음
+- 내용: #1303 에서 프런트와 백엔드가 따로 배포되는 창을 덮으려고 둔 `absent-as-null.ts` 를 지웠다. 남겨 두면 다음 사람이 「실패를 삼켜도 되는 자리」로 읽는다. 두 조회의 반환 타입(`… | null`)은 새 계약이라 그대로 둔다.
+- 검증: **지우기 전에 배포를 확인했다.** 운영 백엔드가 `oss-hub-backend:v0.9.0` 으로 떠 있고, 컨테이너 안 컴파일된 컨트롤러가 `return application ? toResponse(application) : null;` · `return team ? ProgramTeamResponseDto.from(team) : null;` 로 새 동작이다. 추측으로 지우지 않았다. 프런트 단위 377 파일 3753 건 통과, lint·tsc·prettier 종료 코드 0.
+- 배포: 프런트 전용. 되돌리려면 이 커밋을 되돌리면 된다.
+- 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.
