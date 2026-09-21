@@ -21,6 +21,15 @@ import {
 } from './table';
 
 describe('shadcn/ui primitives', () => {
+  it('누를 수 있는 것에는 손 모양 커서가 뜬다', () => {
+    /*
+     * Tailwind v4 preflight 는 button 에 cursor: pointer 를 넣지 않는다.
+     * 프리미티브가 직접 들지 않으면 앱의 모든 버튼이 화살표 커서가 된다.
+     */
+    const html = renderToStaticMarkup(<Button>확인</Button>);
+    expect(html).toContain('cursor-pointer');
+  });
+
   it('renders all 8 primitives without throwing', () => {
     const html = renderToStaticMarkup(
       <>
