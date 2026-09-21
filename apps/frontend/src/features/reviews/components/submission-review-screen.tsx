@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 
 import { EmptyState, PageBody } from '@/components';
 import { Button } from '@/components/ui/button';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 
 import { useReviewSession } from '../use-review-session';
 import { SubmissionReviewView } from './submission-review-view';
@@ -13,16 +14,17 @@ const REVIEW_WIDTH = 'max-w-5xl';
 
 function ReviewSkeleton() {
   return (
-    <PageBody
-      className={REVIEW_WIDTH}
-      aria-busy="true"
-      aria-label="제출 상세를 불러오는 중"
-    >
-      <div className="mb-12 h-20 animate-pulse rounded-card bg-muted" />
-      <div className="flex flex-col gap-8">
-        <div className="h-72 animate-pulse rounded-card bg-muted" />
-        <div className="h-64 animate-pulse rounded-card bg-muted" />
-      </div>
+    <PageBody className={REVIEW_WIDTH}>
+      <Skeleton
+        label="제출 상세를 불러오는 중"
+        className="flex flex-col gap-12"
+      >
+        <SkeletonBlock className="mb-12 h-20 rounded-card" />
+        <div className="flex flex-col gap-8">
+          <SkeletonBlock className="h-72 rounded-card" />
+          <SkeletonBlock className="h-64 rounded-card" />
+        </div>
+      </Skeleton>
     </PageBody>
   );
 }

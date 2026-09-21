@@ -115,7 +115,8 @@ function findRetry(node: ReactNode): (() => void) | undefined {
 describe('SystemStatusView', () => {
   it('loading 상태를 busy skeleton으로 안전하게 표시한다', () => {
     const html = render({ kind: 'loading' });
-    expect(html).toContain('aria-label="시스템 상태를 불러오는 중"');
+    expect(html).toContain('role="status"');
+    expect(html).toContain('시스템 상태를 불러오는 중');
     expect(html).toContain('aria-busy="true"');
     expect(html).not.toContain('undefined');
   });

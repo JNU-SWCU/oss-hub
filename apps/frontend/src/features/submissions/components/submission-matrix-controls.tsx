@@ -1,5 +1,6 @@
 import { useId, type ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import {
   DOCUMENT_DELIVERY_STATUSES,
   type DocumentDeliveryStatus,
@@ -56,16 +57,15 @@ export function MatrixPagination({
 
 export function MatrixSkeleton(): ReactElement {
   return (
-    <div
-      aria-busy="true"
-      aria-label="제출 현황을 불러오는 중"
+    <Skeleton
+      label="제출 현황을 불러오는 중"
       className="flex flex-col gap-3 rounded-card border border-border p-card"
     >
-      <span className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+      <SkeletonBlock className="h-4 w-1/3 rounded" />
       {[0, 1, 2, 3].map((row) => (
-        <span key={row} className="h-3 w-full animate-pulse rounded bg-muted" />
+        <SkeletonBlock key={row} className="h-3 w-full rounded" />
       ))}
-    </div>
+    </Skeleton>
   );
 }
 

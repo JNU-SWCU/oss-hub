@@ -76,7 +76,9 @@ function renderForm(
 describe('settings form view', () => {
   it('조회 중 설정 Skeleton을 표시한다', () => {
     const html = renderToStaticMarkup(<SettingsSkeleton />);
-    expect(html).toContain('aria-label="설정을 불러오는 중"');
+    expect(html).toContain('role="status"');
+    expect(html).toContain('aria-busy="true"');
+    expect(html).toContain('설정을 불러오는 중');
     expect(html).toContain('animate-pulse');
   });
 

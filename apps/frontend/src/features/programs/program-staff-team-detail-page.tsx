@@ -18,6 +18,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import {
   Tooltip,
   TooltipContent,
@@ -56,19 +57,6 @@ type LoadState =
   | { readonly kind: 'ready'; readonly detail: StaffTeamDetail }
   | { readonly kind: 'not-found' }
   | { readonly kind: 'error'; readonly message: string };
-
-function DetailSkeleton(): ReactElement {
-  return (
-    <main
-      className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8"
-      aria-label="팀 상세 불러오는 중"
-    >
-      <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-40 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-40 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-    </main>
-  );
-}
 
 function Section({
   title,
@@ -233,7 +221,17 @@ export function ProgramStaffTeamDetailPage({
 
   const teamsHref = programHref(programId, '/teams');
 
-  if (loadState.kind === 'loading') return <DetailSkeleton />;
+  if (loadState.kind === 'loading') {
+    return (
+      <main className="mx-auto w-full max-w-3xl px-4 py-8">
+        <Skeleton label="팀 상세 불러오는 중" className="grid gap-6">
+          <SkeletonBlock className="h-20 rounded-xl" />
+          <SkeletonBlock className="h-40 rounded-xl" />
+          <SkeletonBlock className="h-40 rounded-xl" />
+        </Skeleton>
+      </main>
+    );
+  }
 
   if (loadState.kind === 'not-found' || loadState.kind === 'error') {
     const copy =

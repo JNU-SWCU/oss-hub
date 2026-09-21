@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { EmptyState, PageHeader } from '@/components';
 import { Button } from '@/components/ui/button';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { FadeUp } from './fade-up';
 import { CutButton, MetricCard, YearLinks } from './insights-controls';
 import { ActivityPanel, DepartmentPanel } from './insights-panels';
@@ -35,13 +36,12 @@ export function StaffInsightsView({
 }): ReactElement {
   if (state.kind === 'loading') {
     return (
-      <main
-        className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8"
-        aria-label="학생 활성을 불러오는 중"
-      >
-        <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-        <div className="h-40 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-        <div className="h-64 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
+      <main className="mx-auto w-full max-w-6xl px-4 py-8">
+        <Skeleton label="학생 활성을 불러오는 중" className="grid gap-6">
+          <SkeletonBlock className="h-20 rounded-xl" />
+          <SkeletonBlock className="h-40 rounded-xl" />
+          <SkeletonBlock className="h-64 rounded-xl" />
+        </Skeleton>
       </main>
     );
   }

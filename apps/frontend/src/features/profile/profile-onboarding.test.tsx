@@ -54,7 +54,9 @@ function renderForm(
 describe('profile onboarding view', () => {
   it('조회 중 프로필 Skeleton을 표시한다', () => {
     const html = renderToStaticMarkup(<ProfileSkeleton />);
-    expect(html).toContain('aria-label="프로필을 불러오는 중"');
+    expect(html).toContain('role="status"');
+    expect(html).toContain('aria-busy="true"');
+    expect(html).toContain('프로필을 불러오는 중');
     expect(html).toContain('animate-pulse');
   });
 

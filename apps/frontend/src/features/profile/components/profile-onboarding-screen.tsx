@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { PageBody } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { rememberSignupCompletion } from '@/lib/signup-completion-notice';
 import {
   classifyProfileApiError,
@@ -38,13 +39,11 @@ interface ConsentRequiredRenderProps {
 
 export function ProfileSkeleton() {
   return (
-    <PageBody
-      className="max-w-2xl"
-      role="status"
-      aria-label="프로필을 불러오는 중"
-    >
-      <div className="h-16 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
-      <div className="h-80 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+    <PageBody className="max-w-2xl">
+      <Skeleton label="프로필을 불러오는 중" className="flex flex-col gap-12">
+        <SkeletonBlock className="h-16 rounded-card" />
+        <SkeletonBlock className="h-80 rounded-card" />
+      </Skeleton>
     </PageBody>
   );
 }

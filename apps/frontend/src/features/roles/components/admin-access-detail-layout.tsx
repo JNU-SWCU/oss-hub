@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { UserRound } from 'lucide-react';
 import { EmptyState, FailureState } from '@/components';
 import { Button } from '@/components/ui/button';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import {
   accessListPath,
   type AccessWorkspace,
@@ -46,20 +47,22 @@ export function AdminAccessDetailLoading({
   const Root = detailRootTag(layoutContext);
   return (
     <Root
-      aria-label={
-        layoutContext === 'overlay'
-          ? undefined
-          : workspace === 'queue'
-            ? '가입 신청을 불러오는 중'
-            : '사용자 정보를 불러오는 중'
-      }
       className={detailRootClassName(
         layoutContext,
         'mx-auto grid w-full max-w-6xl gap-6 p-5 sm:p-8',
       )}
     >
-      <div className="h-24 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
-      <div className="h-64 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
+      <Skeleton
+        label={
+          workspace === 'queue'
+            ? '가입 신청을 불러오는 중'
+            : '사용자 정보를 불러오는 중'
+        }
+        className="grid gap-6"
+      >
+        <SkeletonBlock className="h-24 rounded-lg" />
+        <SkeletonBlock className="h-64 rounded-lg" />
+      </Skeleton>
     </Root>
   );
 }

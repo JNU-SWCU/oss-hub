@@ -7,6 +7,7 @@ import {
 import { EmptyState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { ActivityChart } from './activity-chart';
 import type {
   ActivityGranularity,
@@ -180,9 +181,9 @@ export function ActivityTimelineView({
             </AlertDescription>
           </Alert>
         ) : status === 'loading' ? (
-          <div className="h-80 animate-pulse rounded-md bg-muted" role="status">
-            <span className="sr-only">활동 그래프를 불러오는 중…</span>
-          </div>
+          <Skeleton label="활동 그래프를 불러오는 중…">
+            <SkeletonBlock className="h-80 rounded-md" />
+          </Skeleton>
         ) : data && data.series.points.length > 0 ? (
           <ActivityChart points={data.series.points} />
         ) : (

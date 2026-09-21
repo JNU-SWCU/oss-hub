@@ -5,6 +5,7 @@ import { EmptyState } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { getProgramActivity } from '../api';
 import { formatSeoulDate } from '../program-detail-format';
 import type { ProgramActivity, ViewerRole } from '../types';
@@ -29,10 +30,9 @@ export function ActivityPanelBody({
 }) {
   if (state.kind === 'loading')
     return (
-      <div
-        className="h-24 animate-pulse rounded-card bg-muted motion-reduce:animate-none"
-        aria-label="활동 불러오는 중"
-      />
+      <Skeleton label="활동 불러오는 중">
+        <SkeletonBlock className="h-24 rounded-card" />
+      </Skeleton>
     );
   if (state.kind === 'failed') {
     return (

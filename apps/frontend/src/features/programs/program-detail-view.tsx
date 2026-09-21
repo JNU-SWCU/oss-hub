@@ -15,6 +15,7 @@ import {
 } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
 import { MilestoneDocumentSection } from './milestone-document-list';
@@ -198,13 +199,15 @@ function BlockedApplyEntry({ label }: { readonly label: string }) {
 export function ProgramDetailSkeleton() {
   return (
     <main
-      className="mx-auto grid max-w-6xl gap-6 px-4 py-8"
+      className="mx-auto max-w-6xl px-4 py-8"
       aria-label="프로그램 상세 불러오는 중"
     >
-      <div className="h-24 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-40 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-56 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-36 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
+      <Skeleton label="프로그램 상세 불러오는 중" className="grid gap-6">
+        <SkeletonBlock className="h-24 rounded-xl" />
+        <SkeletonBlock className="h-40 rounded-xl" />
+        <SkeletonBlock className="h-56 rounded-xl" />
+        <SkeletonBlock className="h-36 rounded-xl" />
+      </Skeleton>
     </main>
   );
 }

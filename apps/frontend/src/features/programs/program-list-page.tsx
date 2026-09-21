@@ -2,20 +2,14 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactElement,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CardGrid, EmptyState, PageHeader } from '@/components';
 import { ProgramCard } from './program-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { ApiError } from '@/lib/api-client';
 import { listPrograms } from './api';
 import { programNewHref } from '@/lib/program-route';
@@ -78,16 +72,6 @@ function parseStatus(value: string | null): ProgramListStatus {
     return value as ProgramListStatus;
   }
   return 'all';
-}
-
-function ProgramListSkeleton(): ReactElement {
-  return (
-    <CardGrid aria-busy="true" aria-label="프로그램 목록을 불러오는 중">
-      {[0, 1, 2].map((index) => (
-        <div className="h-48 animate-pulse rounded-xl bg-muted" key={index} />
-      ))}
-    </CardGrid>
-  );
 }
 
 /**
@@ -167,7 +151,17 @@ function ProgramListPage({
   };
 
   const content = (() => {
-    if (loadState.kind === 'loading') return <ProgramListSkeleton />;
+    if (loadState.kind === 'loading') {
+      return (
+        <Skeleton label="프로그램 목록을 불러오는 중">
+          <CardGrid>
+            {[0, 1, 2].map((index) => (
+              <SkeletonBlock className="h-48 rounded-xl" key={index} />
+            ))}
+          </CardGrid>
+        </Skeleton>
+      );
+    }
     if (loadState.kind === 'error') {
       return (
         <EmptyState

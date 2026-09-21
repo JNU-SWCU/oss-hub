@@ -764,7 +764,11 @@ describe('수합 표에서 판정하기', () => {
 
   /** 뼈대(스켈레톤)가 서 있는가 — 표를 걷어 갔다는 뜻이다. */
   function skeleton(): Element | null {
-    return container.querySelector('[aria-label="서류 수합 표를 불러오는 중"]');
+    // 로딩 이름은 aria-label 이 아니라 role="status" 안 sr-only 글자다(R-17).
+    const region = container.querySelector('[data-slot="skeleton"]');
+    return region?.textContent?.includes('서류 수합 표를 불러오는 중')
+      ? region
+      : null;
   }
 
   /** 표를 감싼 상자가 「갱신 중」이라고 말하는가. 표 자체가 없으면 `null`. */

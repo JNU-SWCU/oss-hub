@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import type { ProfileMemberKind } from '../../profile-requirements';
 import type {
   SettingsFormErrors,
@@ -31,13 +32,11 @@ interface SettingsFormProps {
 
 export function SettingsSkeleton() {
   return (
-    <PageBody
-      className="max-w-2xl"
-      role="status"
-      aria-label="설정을 불러오는 중"
-    >
-      <div className="h-16 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
-      <div className="h-80 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+    <PageBody className="max-w-2xl">
+      <Skeleton label="설정을 불러오는 중" className="flex flex-col gap-12">
+        <SkeletonBlock className="h-16 rounded-card" />
+        <SkeletonBlock className="h-80 rounded-card" />
+      </Skeleton>
     </PageBody>
   );
 }

@@ -17,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import type {
   MyRepositoriesState,
   MyRepositoryItem,
@@ -40,16 +41,18 @@ const STATUS_VARIANTS = {
 
 function LoadingState() {
   return (
-    <PageBody aria-label="내 저장소를 불러오는 중">
-      <div className="h-20 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
-      <CardGrid>
-        {[0, 1, 2].map((index) => (
-          <div
-            key={index}
-            className="animate-pulse rounded-card bg-muted motion-reduce:animate-none"
-          />
-        ))}
-      </CardGrid>
+    <PageBody>
+      <Skeleton
+        label="내 저장소를 불러오는 중"
+        className="flex flex-col gap-12"
+      >
+        <SkeletonBlock className="h-20 rounded-card" />
+        <CardGrid>
+          {[0, 1, 2].map((index) => (
+            <SkeletonBlock key={index} className="rounded-card" />
+          ))}
+        </CardGrid>
+      </Skeleton>
     </PageBody>
   );
 }
