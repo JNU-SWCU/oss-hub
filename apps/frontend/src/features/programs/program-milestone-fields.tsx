@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 export function ProgramMilestoneFields({
   id,
@@ -50,7 +51,10 @@ export function ProgramMilestoneFields({
           aria-invalid={Boolean(instructionsError)}
           aria-describedby={instructionsError ? noticeErrorId : undefined}
           onChange={(event) => onInstructionsChange(event.target.value)}
-          className="min-h-28 rounded-control border border-input bg-transparent p-4 text-body break-keep whitespace-pre-wrap [overflow-wrap:anywhere]"
+          className={cn(
+            'min-h-28 rounded-control border border-input bg-transparent p-4',
+            'text-body break-keep whitespace-pre-wrap [overflow-wrap:anywhere]',
+          )}
         />
         <FieldError id={noticeErrorId} role="alert">
           {instructionsError}

@@ -1318,4 +1318,69 @@
 - blocker: 없음
 - 내용: 아홉 화면이 불러오기 실패를 점선 회색 빈 상자로 그려 사용자가 고장을 빈 목록으로 읽고 있었다(R-10 이 명시적으로 금지하는 형태다). error·failed 분기만 공용 FailureState 로 바꾸고, 「아직 등록된 마일스톤이 없습니다」·「검색 결과가 없습니다」·「아직 속한 팀이 없습니다」 같은 **진짜 빈 상태는 그대로 뒀다**. `not-found` 도 실패가 아니라 대상이 없는 것이라 빈 상태로 남겼다 — 재시도로 풀리지 않는다. 팀 상세는 `error` 와 `not-found` 가 한 덩어리였던 분기를 둘로 쪼갰다.
 - 검증: 프런트 단위 376 파일 3732 건 통과. typecheck·lint·prettier 통과.
+## 2026-09-21 — 입력 안내가 오류에 밀려나지 않게 한다
+
+- 상태: review
+- Issue: #1345
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 학번·전화번호 칸이 검증에 걸리면 형식 안내를 지우고 그 자리에 오류를 그렸다. 「숫자 6자리」가 가장 필요한 순간이 틀렸을 때인데 바로 그때 안내가 사라졌다. 둘을 함께 보이고, 여섯 화면에서 컨트롤이 안내 id 뒤에 오류 id 를 덧붙여 가리키게 해 낭독기가 둘 다 읽게 했다. 저장소 주소 편집기가 같은 검증 실패를 서로 다른 문구로 두 번 말하던 것을 한 문장으로 합쳤고, 접근 관리의 상시 상태 문구를 오류색에서 내렸으며, 알림 설정의 오류 문구 셋에 다음 행동을 채웠다(R-15).
+- 검증: 프런트 단위 374 파일 3723 건 통과. 새 단언 2 개가 소스만 되돌렸을 때 실제로 실패하는 것을 확인했다. typecheck·lint·prettier 통과.
+## 2026-09-21 — cn이 프로젝트 전용 치수·모서리 토큰을 알아보게 한다
+
+- 상태: review
+- Issue: #1334 (Closes), 화면 결정은 #1335로 분리
+- 내용: `cn`의 `extendTailwindMerge`에 `--spacing-*`·`--radius-*` 전용 토큰(card·control·row·tag·tile·topbar·sidebar-open·sidebar-collapsed, radius card·control)을 척도로 등록한다.
+  등록 전에는 tailwind-merge가 `h-control` 같은 이름을 모르는 그룹으로 두어 뒤에 온 `h-auto`를 지우지 못하고 둘 다 남겼고, 빌드된 CSS에서 `.h-control`(14237)이 `.h-auto`(14217)보다 뒤에 와 44px가 이겼다 — 호출부가 적은 덮어쓰기가 조용히 무시됐다.
+- 검증: `src/lib/utils.test.ts`에 토큰 11쌍의 덮어쓰기와 반대 방향·다른 그룹·글자 크기 계단까지 14개 테스트를 더했다. frontend 단위 373개 파일·3704개 테스트, lint·typecheck·prettier 통과.
+- 주의: 이 설정이 살아나면 실제로 작아지는 자리가 셋 있다(이력 타임라인 버튼, 접근 관리 판정 버튼 2곳, 감사 로그 배지). 이 PR은 도구만 고치고 화면은 그대로 두려고 그 셋의 덮어쓰기를 걷어내고 44px·26px 규격을 지켰다. 줄일지는 #1335에서 화면을 보고 정한다.
+- 경계: 프리미티브 기본값과 44px 규칙은 건드리지 않았다. 이 PR이 병합되면 #1328 A안(버튼 모양이 아닌 다섯 자리를 흡수할 Button 변형)이 기본을 해체하지 않고 변형 하나로 끝난다.
+
+## 2026-09-21 — 버튼처럼 생기지 않은 여섯 자리를 Button의 새 변형으로 흡수한다
+
+- 상태: review (Draft — base가 #1336 브랜치)
+- Issue: #1328 (lint 억제 목록 소진의 마지막 조각)
+- 내용: `Button`에 `variant="bare"`(표면을 칠하지 않음)와 `size="content"`(높이·모서리·테두리·굵기를 내용과 호출부에 돌려줌)를 더하고, 로그아웃 메뉴 줄·서류 수합 칸·달력 날짜 칸·기간 줄/카드 선택기·접근 관리 정렬 머리·일정 편집기 「시간 변경」 여섯 자리를 옮긴다.
+  프리미티브의 base는 한 줄도 건드리지 않았다 — #1336이 `cn`에 전용 토큰을 등록해 `h-auto`가 실제로 먹기 때문이다. 그 전에는 44px를 빼려면 base에서 `h-control`을 뽑아 size 8종에 내려 심어야 했다.
+- 검증: 격리 스택에서 같은 selector·같은 데이터로 전후를 찍어 **일곱 자리 모두 픽셀 차이 0.00%**(강한 차이·전체 차이 모두). frontend 단위 374개 파일·3718개 테스트, lint·typecheck·prettier 통과. 억제 목록의 `design-no-raw-button`에서 화면 코드가 전부 빠지고 테스트 13파일만 남는다.
+- 주의: `bare`는 base의 `aria-invalid` 표시를 끄는데, 그대로 끄면 오류 상태에서 초점 표시까지 사라진다(같은 명시도·뒤 순서). 변형을 겹쳐(`aria-invalid:focus-visible:*`) 명시도를 올려 초점 링을 다시 세웠다.
+- 되돌린 함정 셋: ① base의 `inline-flex`가 남아 기간 줄이 68px→44px로 접혔다 → `content`에 `block`을 넣고 가로 배치가 필요한 자리는 호출부가 덮는다. ② `whitespace-normal`이 지금 줄바꿈하지 않는 두 자리를 바꿨다 → 그 자리에 `whitespace-nowrap`을 적었다. ③ base의 `shrink-0`이 정렬 머리를 1px 밀었다 → `content`에 `shrink`.
+- 경계: 아이콘 버튼 네 자리와 `program-cover`는 #1331이 다룬다. `design-class-name-length`·`design-no-hex-color` 억제는 #1330·#1329가 다룬다.
+## 2026-09-21 — 버튼 모양의 날 <button> 여섯 곳을 Button 프리미티브로 바꾼다
+
+- 상태: review
+- Issue: #1328 2단계 (lint 억제 목록 소진, Refs)
+- 내용: 44px 정사각 아이콘 버튼 네 곳(`app-sidebar`·`program-scope-sidebar`의 접기, `sidebar-drawer`의 닫기, `nav-bar`의 서랍 열기)을 `Button variant="ghost" size="icon"`으로 바꾼다.
+  `program-cover`는 누르는 면이 카드 전체라 프리미티브가 맞지 않아 `Dialog.Trigger`가 스스로 `button`을 그리게 하고 `asChild`와 안쪽 `<button>`을 없앴다.
+- 검증: 세 자리(사이드바 접기 1440, 서랍 열기·닫기 390)를 같은 selector로 전후 캡처해 크기·계산 스타일이 같고 픽셀 차이가 0.00%임을 확인했다. frontend 단위 373개 파일·3704개 테스트, lint·typecheck·prettier 통과.
+- 주의: `Button`의 ghost는 `aria-expanded`를 「이 버튼이 연 팝업이 열려 있음」으로 보고 눌린 표면을 입힌다. 사이드바 토글은 그 속성이 영역의 펼침 상태라 처음 변환에서 버튼이 계속 눌린 것처럼 보였다 — 전후 비교가 잡았고 `aria-expanded:bg-transparent`로 껐다.
+- 되돌림: 일정 편집기의 「시간 변경」도 `variant="link"`로 옮겼다가 되돌렸다. `h-auto`가 듣지 않아 글자 버튼이 44px가 된다 — `cn`의 tailwind-merge가 프로젝트 전용 `h-control`을 모르는 이름으로 두어 두 클래스가 모두 남고, 빌드된 CSS에서 `.h-control`(14237)이 `.h-auto`(14217)보다 뒤에 와 이긴다. 같은 함정이 main의 네 자리에도 이미 있다(#1333).
+- 경계: 표 칸·달력 칸·메뉴 줄처럼 버튼 모양이 아닌 다섯 파일(로그인 메뉴, 서류 수합 칸, 달력 날짜, 기간 선택 줄·카드, 접근 관리 정렬 머리)은 그대로 두었다 — 프리미티브를 입히려면 높이·정렬·여백을 네다섯 개 덮어써야 해서 동규와 먼저 정한다.
+## 2026-09-21 — 120자를 넘는 className 리터럴을 cn() 묶음으로 나눈다
+
+- 상태: review
+- Issue: #1328 3단계 (lint 억제 목록 소진, Refs)
+- 내용: design.md R-08a 위반으로 억제돼 있던 `className` 문자열 42파일을 같은 순서의 클래스 묶음(`cn('…', '…')`)으로 나눈다.
+  클래스를 더하거나 빼지 않아 화면은 그대로다. 억제 목록에서 해당 항목을 prune해 `design-class-name-length` 억제가 1파일(`landing-journey.tsx`, 1단계 PR에서 처리)만 남는다.
+- 검증: 바꾼 42파일 모두에서 변경 전후의 클래스 토큰 목록이 속성 단위로 같은지 스크립트로 확인했다(불일치 0). frontend 단위 373개 파일·3704개 테스트, lint·typecheck·prettier 통과.
+- 주의: 학과 선택 대비 테스트가 소스에서 `className="…"`를 정규식으로 읽어 왔다 — `cn(…)` 묶음도 같은 유틸리티 목록으로 읽도록 추출을 넓혔다(판정 기준과 값은 그대로).
+- 경계: 날 `<button>`(2단계)은 별도 PR. 억제 파일은 손으로 고치지 않고 `lint:prune`으로만 줄였다.
+## 2026-09-21 — 차트 선과 랜딩 범례의 hex 색을 semantic 토큰으로 바꾼다
+
+- 상태: review
+- Issue: #1328 1단계 (lint 억제 목록 소진, Refs)
+- 내용: `activity-chart.tsx`의 선 4색(`#003399`·`#00923f`·`#d97706`·`#444444`)을 `--chart-1`·`--chart-2`·`--chart-3`·`--foreground`로, `landing-journey.tsx` 범례 점 3색(`#9db9f0`·`#5cc687`·`#fff`)을 `--cosmos-student`·`--cosmos-repository`·`--cosmos-copy`로 바꾼다. 같은 파일의 120자 className 1건은 `cn()` 묶음으로 나눈다.
+  억제 목록에서 두 파일 항목을 prune했다(화면 코드의 hex 억제 0).
+- 검증: frontend 단위 테스트 전체·lint·typecheck 통과. 격리 스택에서 학생 활동 차트와 랜딩 범례를 같은 selector로 전후 캡처하고 선 stroke·점 배경의 계산값을 기록했다.
+- 주의: 두 색은 팔레트 값으로 바뀐다 — Release 선 `#d97706` → amber-500 `#e0a030`, 범례 학생 점 `#9db9f0` → navy-200 `#adc1eb`(캔버스의 학생 점과 같은 토큰). 합계 선은 다크 모드에서 글자색을 따라간다.
+- 경계: 날 button(2단계)·긴 className(3단계)은 별도 PR. 테스트 파일의 hex 억제는 그대로다.
+## 2026-09-21 — 한글 본문 폰트를 Pretendard 로 self-host
+
+- 상태: review
+- Issue: #1342
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 앱이 내려받는 웹폰트가 `Geist`(Latin subset) 하나뿐이라 한글이 보는 사람의 운영체제 기본 글꼴로 그려지고 있었다. Geist 의 `@font-face` 다섯 개에 한글 영역이 없고 짝으로 붙는 `Geist Fallback` 은 `local("Arial")` 이라 거기에도 한글이 없다. npm `pretendard` 의 가변본 한 벌을 `next/font/local` 로 self-host 하고 Geist 를 걷어냈다. 선언 자리는 `apps/frontend/src/app/layout.tsx` 한 곳이고 CSS 변수 이름 `--font-sans` 를 그대로 둬서 `globals.css` 와 화면 93 개 파일은 한 줄도 건드리지 않았다. `docs/design.md` 타이포그래피 절과 R-39, `.design-sync/css/ds-entry.css` 를 같이 고쳤다 — 후자는 원격 Google Fonts `@import` 도 사라진다.
+- 검증: 로컬 브라우저 회귀 34 스펙 103 건 전부 통과(5.4 분, 건너뛴 것 0). 프런트 단위 374 파일 3723 건, typecheck·lint·prettier·`tokens:check` 통과. 빌드 산출물의 폰트는 Geist 5 개 75,948 B 에서 Pretendard 1 개 2,057,688 B 로 바뀌었고 preload 되는 바이트는 29,288 B 에서 0 이 됐다. `standalone/node_modules` 에 패키지가 끌려가지 않은 것도 확인했다. 브라우저에서 잰 `fontFamily` 에 Pretendard 와 한글 폴백이 모두 보인다.
+- 배포: 프런트 전용 변경이고 스키마·마이그레이션이 없다. 되돌리려면 `layout.tsx` 한 파일을 되돌리면 된다.
 - 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.

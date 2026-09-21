@@ -55,7 +55,7 @@ describe('FailureState', () => {
     const html = renderToStaticMarkup(
       <FailureState
         title="사용자 정보를 불러오지 못했습니다"
-        action={<span>목록으로</span>}
+        action={<a href="/dashboard/users">목록으로</a>}
       />,
     );
 

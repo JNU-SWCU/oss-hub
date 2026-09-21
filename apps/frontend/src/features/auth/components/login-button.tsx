@@ -174,9 +174,11 @@ export function LoginButtonView({
               >
                 설정
               </a>
-              <button
+              <Button
                 type="button"
                 role="menuitem"
+                variant="bare"
+                size="content"
                 className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
                 onClick={() => {
                   onMenuOpenChange(false);
@@ -184,7 +186,7 @@ export function LoginButtonView({
                 }}
               >
                 로그아웃
-              </button>
+              </Button>
             </div>
           ) : null}
           {logoutError ? (
