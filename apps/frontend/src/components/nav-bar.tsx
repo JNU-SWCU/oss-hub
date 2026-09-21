@@ -108,7 +108,11 @@ function NavBar({
           aria-expanded={sidebarDrawerOpen ?? false}
           aria-controls={sidebarDrawerId}
           onClick={onToggleSidebarDrawer}
-          className="flex size-11 shrink-0 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground min-[900px]:hidden"
+          className={cn(
+            'flex size-11 shrink-0 items-center justify-center rounded-md text-foreground/80',
+            'transition-colors hover:bg-muted hover:text-foreground',
+            'focus-visible:bg-muted focus-visible:text-foreground min-[900px]:hidden',
+          )}
         >
           <svg
             aria-hidden
@@ -161,7 +165,13 @@ function NavBar({
         <summary
           data-slot="nav-bar-menu-trigger"
           aria-label="메뉴"
-          className="flex size-11 cursor-pointer list-none items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground [&::-webkit-details-marker]:hidden"
+          className={cn(
+            'flex size-11 cursor-pointer list-none items-center justify-center',
+            'rounded-md text-foreground/80 transition-colors',
+            'hover:bg-muted hover:text-foreground',
+            'focus-visible:bg-muted focus-visible:text-foreground',
+            '[&::-webkit-details-marker]:hidden',
+          )}
         >
           <svg
             aria-hidden
@@ -188,7 +198,11 @@ function NavBar({
                 // `w-full`이 필요하다 — 호출부(ShellNav)가 터치 타깃 확보용으로
                 // `[&_a]:inline-flex`를 걸어 두어, 이 항목들이 글자 폭만큼만
                 // 줄어들면 줄의 빈 곳을 눌러도 아무 일도 일어나지 않는다.
-                className="flex min-h-11 w-full items-center px-3 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
+                className={cn(
+                  'flex min-h-11 w-full items-center px-3 text-sm font-medium text-foreground/80',
+                  'transition-colors hover:bg-muted hover:text-foreground',
+                  'focus-visible:bg-muted focus-visible:text-foreground',
+                )}
               >
                 {item.label}
               </LinkComponent>
@@ -204,7 +218,11 @@ function NavBar({
           <li key={item.href}>
             <LinkComponent
               href={item.href}
-              className="whitespace-nowrap rounded-md px-1 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground sm:px-2.5"
+              className={cn(
+                'whitespace-nowrap rounded-md px-1 py-1.5 text-sm font-medium text-foreground/80',
+                'transition-colors hover:bg-muted hover:text-foreground',
+                'focus-visible:bg-muted focus-visible:text-foreground sm:px-2.5',
+              )}
             >
               {item.label}
             </LinkComponent>

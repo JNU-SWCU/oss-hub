@@ -113,7 +113,11 @@ export function SidebarDrawer({
             type="button"
             onClick={onClose}
             aria-label="사이드바 메뉴 닫기"
-            className="flex size-control items-center justify-center rounded-control text-sidebar-foreground hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+            className={cn(
+              'flex size-control items-center justify-center',
+              'rounded-control text-sidebar-foreground hover:bg-sidebar-accent',
+              'focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
+            )}
           >
             <svg
               aria-hidden

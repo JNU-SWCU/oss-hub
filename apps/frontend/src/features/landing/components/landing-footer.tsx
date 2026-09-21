@@ -1,3 +1,5 @@
+import { cn } from '@/lib/utils';
+
 // 정책 링크 중 실제 라우트가 있는 것만 노출한다.
 // "GitHub 활동 수집"과 "Org 저장소 운영 약관"은 원본 디자인에는 있으나
 // 이 repo에 대응 라우트가 없어 죽은 앵커(href="#")를 만들지 않도록 생략했다.
@@ -14,7 +16,12 @@ const POLICY_LINKS: FooterLink[] = [
 export function LandingFooter() {
   return (
     <footer className="border-t border-border bg-background">
-      <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-2 px-8 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center">
+      <div
+        className={cn(
+          'mx-auto flex max-w-6xl flex-col items-start justify-between gap-2 px-8 py-4',
+          'text-xs text-muted-foreground sm:flex-row sm:items-center',
+        )}
+      >
         <span>
           © 2026 전남대학교 SW중심대학사업단 ·{' '}
           {/* 푸터 링크도 손가락으로 누르는 조작 요소다. 글자 크기(12px)만 따라

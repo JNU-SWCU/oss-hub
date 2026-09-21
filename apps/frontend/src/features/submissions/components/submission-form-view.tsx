@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { cn } from '@/lib/utils';
 import type {
   SubmissionFormErrors,
   SubmissionFormInput,
@@ -134,7 +135,11 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
                   onChange={(event) =>
                     props.onCommentChange(event.target.value)
                   }
-                  className="min-h-28 w-full resize-y rounded-control border border-input bg-transparent p-4 text-body leading-relaxed transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className={cn(
+                    'min-h-28 w-full resize-y rounded-control border border-input bg-transparent p-4',
+                    'text-body leading-relaxed transition-colors outline-none',
+                    'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                  )}
                 />
                 <FieldDescription id="submission-comment-description">
                   선택 입력 · 최대 2,000자

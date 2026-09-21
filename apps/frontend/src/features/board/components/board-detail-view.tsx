@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
+import { cn } from '@/lib/utils';
 import {
   createBoardComment,
   deleteBoardComment,
@@ -177,7 +178,11 @@ export function BoardDetailContent({
                 disabled={editSubmitting}
                 onChange={(event) => onEditBodyChange(event.target.value)}
                 placeholder="내용"
-                className="min-h-28 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className={cn(
+                  'min-h-28 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm',
+                  'outline-none focus-visible:border-ring focus-visible:ring-3',
+                  'focus-visible:ring-ring/50',
+                )}
               />
             </Field>
             {editError ? (

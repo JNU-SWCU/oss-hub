@@ -29,15 +29,7 @@
       "count": 1
     }
   },
-  "src/app/_shell/shell-nav.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
   "src/app/_shell/sidebar-drawer.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    },
     "local/design-no-raw-button": {
       "count": 1
     }
@@ -45,11 +37,6 @@
   "src/app/_shell/sidebar-menu.test.ts": {
     "local/design-no-hex-color": {
       "count": 2
-    }
-  },
-  "src/app/_shell/skip-link.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
     }
   },
   "src/app/_shell/use-product-shell-data.test.tsx": {
@@ -72,11 +59,6 @@
       "count": 1
     }
   },
-  "src/app/settings/settings-onboarding-notice.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
   "src/components/cards.test.tsx": {
     "local/design-no-raw-button": {
       "count": 1
@@ -93,9 +75,6 @@
     }
   },
   "src/components/nav-bar.tsx": {
-    "local/design-class-name-length": {
-      "count": 4
-    },
     "local/design-no-raw-button": {
       "count": 1
     }
@@ -115,11 +94,6 @@
       "count": 2
     }
   },
-  "src/components/signup-typography.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
   "src/components/ui/button-contrast.test.ts": {
     "local/design-no-hex-color": {
       "count": 5
@@ -130,18 +104,8 @@
       "count": 2
     }
   },
-  "src/features/audit-log/audit-log-view.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
   "src/features/auth/components/login-button.tsx": {
     "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
-  "src/features/board/components/board-detail-view.tsx": {
-    "local/design-class-name-length": {
       "count": 1
     }
   },
@@ -150,33 +114,14 @@
       "count": 1
     }
   },
-  "src/features/board/components/board-list-view.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
   "src/features/consents/policy-document-style.test.ts": {
     "local/design-no-hex-color": {
       "count": 1
     }
   },
-  "src/features/landing/components/current-program-section.tsx": {
-    "local/design-class-name-length": {
-      "count": 2
-    }
-  },
-  "src/features/landing/components/landing-footer.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
+
   "src/features/profile/components/department-select-contrast.test.ts": {
     "local/design-no-hex-color": {
-      "count": 1
-    }
-  },
-  "src/features/profile/components/profile-affiliation-fields.tsx": {
-    "local/design-class-name-length": {
       "count": 1
     }
   },
@@ -188,11 +133,6 @@
   "src/features/profile/public-profile.test.tsx": {
     "local/design-no-hex-color": {
       "count": 3
-    }
-  },
-  "src/features/profile/settings/components/settings-form.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
     }
   },
   "src/features/programs/application-confirmation-dialog.test.tsx": {
@@ -208,33 +148,8 @@
       "count": 3
     }
   },
-  "src/features/programs/application-decision-dialog.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
-  "src/features/programs/components/milestone-row.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
-  "src/features/programs/form-renderer.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
   "src/features/programs/milestone-document-collection-view.tsx": {
     "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
-  "src/features/programs/milestone-document-review-panel.tsx": {
-    "local/design-class-name-length": {
-      "count": 2
-    }
-  },
-  "src/features/programs/milestone-document-submission-form.tsx": {
-    "local/design-class-name-length": {
       "count": 1
     }
   },
@@ -243,23 +158,8 @@
       "count": 1
     }
   },
-  "src/features/programs/program-authoring-submission-item.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
-  "src/features/programs/program-deadline-control.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
   "src/features/programs/program-detail-api.test.ts": {
     "local/design-no-hex-color": {
-      "count": 1
-    }
-  },
-  "src/features/programs/program-detail-summary.tsx": {
-    "local/design-class-name-length": {
       "count": 1
     }
   },
@@ -273,23 +173,8 @@
       "count": 1
     }
   },
-  "src/features/programs/program-edit-milestone-dialog.tsx": {
-    "local/design-class-name-length": {
-      "count": 2
-    }
-  },
-  "src/features/programs/program-edit-purge-confirmation.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
   "src/features/programs/program-edit-team-size.test.tsx": {
     "local/design-no-hex-color": {
-      "count": 1
-    }
-  },
-  "src/features/programs/program-milestone-fields.tsx": {
-    "local/design-class-name-length": {
       "count": 1
     }
   },
@@ -304,9 +189,6 @@
     }
   },
   "src/features/programs/program-schedule-range-editor.tsx": {
-    "local/design-class-name-length": {
-      "count": 2
-    },
     "local/design-no-raw-button": {
       "count": 3
     }
@@ -316,33 +198,8 @@
       "count": 1
     }
   },
-  "src/features/programs/program-type-modal.tsx": {
-    "local/design-class-name-length": {
-      "count": 2
-    }
-  },
-  "src/features/programs/staff-dashboard-overview.tsx": {
-    "local/design-class-name-length": {
-      "count": 2
-    }
-  },
-  "src/features/ranking/components/ranking-view.tsx": {
-    "local/design-class-name-length": {
-      "count": 2
-    }
-  },
   "src/features/repositories/repositories.test.tsx": {
     "local/design-no-hex-color": {
-      "count": 1
-    }
-  },
-  "src/features/reviews/components/review-form.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
-  "src/features/reviews/components/revision-history.tsx": {
-    "local/design-class-name-length": {
       "count": 1
     }
   },
@@ -351,74 +208,14 @@
       "count": 1
     }
   },
-  "src/features/roles/components/admin-access-mutation-reject-dialog.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
   "src/features/roles/components/admin-access-table.tsx": {
     "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
-  "src/features/roles/components/role-selection-screen.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
-  "src/features/staff-insights/fade-up.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
-  "src/features/staff-insights/participation-panel.tsx": {
-    "local/design-class-name-length": {
       "count": 1
     }
   },
   "src/features/submissions/api.test.ts": {
     "local/design-no-hex-color": {
       "count": 1
-    }
-  },
-  "src/features/submissions/components/submission-checklist-row.tsx": {
-    "local/design-class-name-length": {
-      "count": 2
-    }
-  },
-  "src/features/submissions/components/submission-checklist-selected-panel.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
-  "src/features/submissions/components/submission-dialog.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
-  "src/features/submissions/components/submission-form-actions.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
-  "src/features/submissions/components/submission-form-view.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
-  "src/features/submissions/components/submission-input.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
-  "src/features/submissions/components/submission-matrix-cell.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    }
-  },
-  "src/features/submissions/components/submission-matrix-stage-navigation.tsx": {
-    "local/design-class-name-length": {
-      "count": 2
     }
   },
   "src/features/submissions/submission-checklist-page.test.tsx": {

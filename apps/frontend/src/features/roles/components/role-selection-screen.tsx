@@ -377,7 +377,13 @@ export function RoleSelectionForm({
                 {/* shadcn `Card`를 쓰지 않는다 — `bg-card`는 반전 스코프가 덮는 변수 집합에
                   없어서(globals.css의 `[data-surface='inverted']`) 어두운 무대 위에 흰
                   상자로 뜬다. 무대와 같은 --cosmos-* 로 직접 짓는다. */}
-                <div className="flex h-full flex-col gap-2 rounded-card border border-cosmos-border bg-cosmos-muted/8 p-4 transition-colors peer-checked:border-cosmos-copy hover:bg-cosmos-muted/15 motion-reduce:transition-none sm:p-5">
+                <div
+                  className={cn(
+                    'flex h-full flex-col gap-2 rounded-card border border-cosmos-border',
+                    'bg-cosmos-muted/8 p-4 transition-colors peer-checked:border-cosmos-copy',
+                    'hover:bg-cosmos-muted/15 motion-reduce:transition-none sm:p-5',
+                  )}
+                >
                   <div className="mb-1 flex items-center justify-between gap-2">
                     <span className="flex size-9 items-center justify-center rounded-lg bg-cosmos-muted/10 text-cosmos-copy">
                       <RoleIcon role={option.role} />
