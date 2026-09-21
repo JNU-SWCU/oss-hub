@@ -2,15 +2,15 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, FolderGit2, RotateCcw, UserRound } from 'lucide-react';
+import { FolderGit2, UserRound } from 'lucide-react';
 import {
   CardGrid,
   DetailPanelLayout,
   EmptyState,
   ListCard,
   PageHeader,
+  FailureState,
 } from '@/components';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -44,17 +44,10 @@ function LoadingState() {
 function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   return (
     <main className="mx-auto grid w-full max-w-3xl gap-6 p-5 sm:p-8">
-      <Alert variant="destructive">
-        <AlertCircle aria-hidden="true" />
-        <AlertTitle>공개 프로필을 불러오지 못했습니다</AlertTitle>
-        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-          <span>잠시 후 다시 시도해 주세요.</span>
-          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-            <RotateCcw aria-hidden="true" />
-            다시 시도
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <FailureState
+        title="공개 프로필을 불러오지 못했습니다"
+        onRetry={onRetry}
+      />
     </main>
   );
 }

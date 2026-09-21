@@ -1,6 +1,4 @@
-import { PageBody } from '@/components';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { PageBody, FailureState } from '@/components';
 
 export function SettingsLoadError({
   message,
@@ -11,15 +9,11 @@ export function SettingsLoadError({
 }) {
   return (
     <PageBody className="max-w-2xl">
-      <Alert variant="destructive">
-        <AlertTitle>설정을 불러오지 못했습니다</AlertTitle>
-        <AlertDescription className="flex flex-col items-start gap-4">
-          <span>{message}</span>
-          <Button type="button" variant="outline" onClick={onRetry}>
-            다시 시도
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <FailureState
+        title="설정을 불러오지 못했습니다"
+        description={message}
+        onRetry={onRetry}
+      />
     </PageBody>
   );
 }

@@ -41,7 +41,7 @@
 | R-04 | 이 문서 | composition API PR |
 | R-06 | 이 문서 | dialog shell PR |
 | R-08a, R-08b, R-38 | 이 문서 | 없음 — lint가 강제한다. 기존 위반은 `apps/frontend/eslint-suppressions.json`이 억제하며 폴더 단위 후속 PR로 줄인다 |
-| R-09, R-10 | 이 문서 | FailureState PR |
+| R-09, R-10 | 이 문서 | `FailureState`와 화면별 상태 분기 테스트 |
 | R-17 | 이 문서 | Skeleton PR |
 | R-11, R-12 | 이 문서 | Alert kind PR |
 | R-13, R-14 | 이 문서 | notification PR |
@@ -249,7 +249,8 @@ R-08a·R-08b·R-38은 `pnpm --filter frontend lint`가 강제한다. 기존 위�
 
 ## 상태 시스템
 
-공용 Skeleton과 failure surface는 아직 없으므로 「수용된 부채」에 기록하고 로컬 정의를 새로 늘리지 않는다.
+실패 표면은 `components/failure-state.tsx`의 `FailureState`를 사용한다.
+공용 Skeleton은 아직 없으므로 「수용된 부채」에 기록하고 로컬 정의를 새로 늘리지 않는다.
 **R-09** 컬렉션 뷰는 loading · empty · error · ready 네 상태를 상호배타로 렌더하고 네 분기를 테스트로 고정한다.
 **R-10** 재시도 가능한 fetch 실패는 공용 failure surface 하나만 쓰고 retry 액션을 노출하며 `EmptyState`와 bare destructive 텍스트는 error 상태에 금지한다.
 **R-17** loading 표면은 `aria-busy`, 접근 가능한 label, `motion-reduce` 처리를 갖는 공용 Skeleton을 쓰고 feature 로컬 Skeleton을 새로 정의하지 않는다.
@@ -282,7 +283,7 @@ R-08a·R-08b·R-38은 `pnpm --filter frontend lint`가 강제한다. 기존 위�
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | field | 필드 단위 검증 실패 | error | FieldError | 컨트롤 바로 아래 | `role="alert"` | 첫 오류로 포커스 이동 | 사용자가 고칠 때까지 지속 | 상단 요약과 쌍(R-16) |
 | inline | 작업 중인 영역의 결과 | success·info·warning·error | Alert | 그 영역 안 | 동적 error=`role="alert"`, 그 외 동적 갱신=`role="status"`+`aria-live="polite"`, 정적 초기 렌더=live region 없음 | 포커스 이동 없음 | 화면을 떠날 때까지 | error면 다음 행동 링크(R-15) |
-| page | 화면 전체를 막는 실패·권한 | error·warning | 공용 failure surface(미구현 → §수용된 부채 R-10 행) | 본문 최상단 | 상호작용 중 발생한 동적 error만 `role="alert"`, 초기·정적 warning·접근 권한·안내는 live region 없음, 동적 non-error=`role="status"`/`aria-live="polite"` | 첫 액션으로 포커스 | 지속 | 재시도 또는 대체 경로 |
+| page | 화면 전체를 막는 실패·권한 | error·warning | `FailureState` | 본문 최상단 | 상호작용 중 발생한 동적 error만 `role="alert"`, 초기·정적 warning·접근 권한·안내는 live region 없음, 동적 non-error=`role="status"`/`aria-live="polite"` | 첫 액션으로 포커스 | 지속 | 재시도 또는 대체 경로 |
 | toast | 화면을 넘어가는 일회성 결과 | success·info | 전역 notification primitive(미구현 → §수용된 부채 R-13 행) | 뷰포트 고정 | `role="status"`+`aria-live="polite"` | 포커스 이동 없음 | 자동 소멸 허용, critical 금지(R-14) | 없음 |
 | dialog | 되돌릴 수 없는 결정 요청 | warning·error | `DialogShell`(role=dialog 창) · 되돌릴 수 없는 결정의 alertdialog 변형은 §수용된 부채 R-06 행 | 모달 | `role="alertdialog"` | focus trap + 복귀 | 사용자가 결정할 때까지 | 확인·취소 쌍 |
 
@@ -375,7 +376,7 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 
 | 기록일 | 위반 | 규칙 | 해소 경로 |
 | --- | --- | --- | --- |
-| 2026-09-03 | 공용 failure surface 부재 — fetch 실패 표현이 파일마다 다르고 일부는 `EmptyState`로 렌더(예: `apps/frontend/src/features/programs/components/activity-graph-panel.tsx` 31-49) | R-10 | FailureState PR |
+| 2026-09-03 | 일부 화면의 fetch 실패가 아직 `EmptyState`로 렌더된다 | R-10 | 공용 `FailureState`로 호출부 이전 |
 | 2026-09-03 | 전역 notification primitive 부재, 로컬 `toastMessage` state 6파일 | R-13 | notification PR |
 | 2026-09-03 | 공용 Skeleton 부재, 로컬 정의 15곳 | R-17 | Skeleton PR |
 | 2026-09-03 | `apps/frontend/src/components/ui/alert.tsx`가 두 variant뿐이고 항상 `role="alert"` | R-11 | Alert kind PR |
