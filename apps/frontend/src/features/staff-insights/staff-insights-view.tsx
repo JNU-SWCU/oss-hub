@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { FailureState, PageHeader } from '@/components';
+import { FailureState, FilterChipGroup, PageHeader } from '@/components';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { FadeUp } from './fade-up';
 import { CutButton, MetricCard, YearLinks } from './insights-controls';
@@ -81,18 +81,17 @@ export function StaffInsightsView({
           </span>
           <YearLinks scope={summary.scope} years={summary.years} />
         </div>
-        <div
-          className="grid gap-2"
-          role="group"
-          aria-labelledby="insights-cut-label"
-        >
+        <div className="grid gap-2">
           <span
             id="insights-cut-label"
             className="text-xs font-semibold text-muted-foreground"
           >
             비교 관점
           </span>
-          <div className="flex flex-wrap gap-2">
+          <FilterChipGroup
+            aria-label="비교 관점"
+            aria-labelledby="insights-cut-label"
+          >
             <CutButton
               current={cut}
               value={INSIGHTS_CUTS.COHORT}
@@ -107,7 +106,7 @@ export function StaffInsightsView({
             >
               학과
             </CutButton>
-          </div>
+          </FilterChipGroup>
         </div>
       </section>
       <p className="text-sm text-muted-foreground">

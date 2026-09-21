@@ -1,3 +1,4 @@
+import { FilterChip } from '@/components';
 import Link from 'next/link';
 import type { ReactElement, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
@@ -72,17 +73,20 @@ export function CutButton({
   readonly onCutChange: (cut: InsightsCut) => void;
   readonly children: string;
 }): ReactElement {
+  /*
+   * 고른 값을 주 행동 색(`default`)으로 칠하지 않는다. 화면에서 가장 눈에 띄는
+   * 것이 「지금 고른 것」이 되면 정작 눌러야 할 주 행동이 묻힌다(R-34).
+   * 거르는 선택은 FilterChip 이 맡는다 — 눌림을 표면이 아니라 aria-pressed 와
+   * 칩 변형으로 말하고, 화살표 좌우로 칩 사이를 옮길 수 있다.
+   */
   return (
-    <Button
-      type="button"
-      size="sm"
-      variant={current === value ? 'default' : 'outline'}
-      aria-pressed={current === value}
+    <FilterChip
+      pressed={current === value}
       onClick={() => onCutChange(value)}
       className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
       {children}
-    </Button>
+    </FilterChip>
   );
 }
 
