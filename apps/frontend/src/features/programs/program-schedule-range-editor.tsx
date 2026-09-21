@@ -238,8 +238,10 @@ export function ProgramScheduleRangeEditor({
                         </span>
                       </div>
                     ) : (
-                      <button
+                      <Button
                         type="button"
+                        variant="bare"
+                        size="content"
                         aria-pressed={selected}
                         aria-invalid={Boolean(error)}
                         aria-describedby={
@@ -259,7 +261,7 @@ export function ProgramScheduleRangeEditor({
                         <span className="mt-1 block text-xs text-muted-foreground">
                           {rangeSummary(range)}
                         </span>
-                      </button>
+                      </Button>
                     )}
                     <TooltipProvider delayDuration={200}>
                       <RowActions className="mr-3 shrink-0">
@@ -325,9 +327,11 @@ export function ProgramScheduleRangeEditor({
               );
             }
             return (
-              <button
+              <Button
                 key={range.id}
                 type="button"
+                variant="bare"
+                size="content"
                 aria-pressed={selected}
                 data-schedule-range-selector
                 data-invalid={Boolean(range.startError || range.endError)}
@@ -351,7 +355,7 @@ export function ProgramScheduleRangeEditor({
                 <span className="mt-1 block text-xs text-muted-foreground">
                   {rangeSummary(range)}
                 </span>
-              </button>
+              </Button>
             );
           })}
           {simpleLayout ? null : headerAction}
@@ -388,16 +392,10 @@ export function ProgramScheduleRangeEditor({
           {simpleLayout ? null : activeExtra}
           {simpleLayout ? null : (
             <div>
-              {/*
-               * 이 자리는 Button 프리미티브로 옮기지 않는다(R-38 억제 유지). 글줄
-               * 안에 서는 글자 버튼이라 높이를 내용에 맡겨야 하는데, `h-auto`가
-               * 먹지 않는다 — `cn`의 tailwind-merge는 프로젝트 전용 `h-control`을
-               * 모르는 이름으로 두어 두 클래스가 모두 살아남고, 생성된 CSS에서
-               * `.h-control`이 `.h-auto`보다 뒤에 와 44px가 이긴다. 버튼 모양이
-               * 아닌 다섯 자리와 함께 #1328에서 다룬다.
-               */}
-              <button
+              <Button
                 type="button"
+                variant="link"
+                size="content"
                 aria-expanded={timeControlsVisible}
                 aria-controls={timeControlsId}
                 className={cn(
@@ -411,7 +409,7 @@ export function ProgramScheduleRangeEditor({
                 }
               >
                 시간 변경
-              </button>
+              </Button>
               {timeControlsVisible ? (
                 <RangeTimeFields id={timeControlsId} range={activeRange} />
               ) : null}

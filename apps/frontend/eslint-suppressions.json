@@ -79,11 +79,6 @@
       "count": 2
     }
   },
-  "src/features/auth/components/login-button.tsx": {
-    "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
   "src/features/board/components/board-list-view.test.tsx": {
     "local/design-no-hex-color": {
       "count": 1
@@ -123,11 +118,6 @@
       "count": 3
     }
   },
-  "src/features/programs/milestone-document-collection-view.tsx": {
-    "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
   "src/features/programs/milestone-submission-block.test.tsx": {
     "local/design-no-hex-color": {
       "count": 1
@@ -158,16 +148,6 @@
       "count": 1
     }
   },
-  "src/features/programs/program-schedule-range-calendar.tsx": {
-    "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
-  "src/features/programs/program-schedule-range-editor.tsx": {
-    "local/design-no-raw-button": {
-      "count": 3
-    }
-  },
   "src/features/programs/program-type-modal.test.tsx": {
     "local/design-no-raw-button": {
       "count": 1
@@ -180,11 +160,6 @@
   },
   "src/features/reviews/submission-review-screen.test.tsx": {
     "local/design-no-hex-color": {
-      "count": 1
-    }
-  },
-  "src/features/roles/components/admin-access-table.tsx": {
-    "local/design-no-raw-button": {
       "count": 1
     }
   },
