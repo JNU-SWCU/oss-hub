@@ -4,7 +4,12 @@ import {
   ChartNoAxesCombined,
   Clock3,
 } from 'lucide-react';
-import { EmptyState, PageHeader, FilterChip } from '@/components';
+import {
+  EmptyState,
+  FilterChip,
+  FilterChipGroup,
+  PageHeader,
+} from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
@@ -58,8 +63,7 @@ export function ActivityTimelineView({
         title="내 활동"
         description="참여 프로그램과 오픈소스 활동 추이를 확인합니다."
         actions={
-          <div
-            role="group"
+          <FilterChipGroup
             aria-label="활동 집계 기간"
             className="inline-flex rounded-md border border-border bg-background p-1"
           >
@@ -77,7 +81,7 @@ export function ActivityTimelineView({
                 {label}
               </FilterChip>
             ))}
-          </div>
+          </FilterChipGroup>
         }
       />
 
