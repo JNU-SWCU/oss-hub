@@ -1301,6 +1301,15 @@
 - 검증: 바꾼 42파일 모두에서 변경 전후의 클래스 토큰 목록이 속성 단위로 같은지 스크립트로 확인했다(불일치 0). frontend 단위 373개 파일·3704개 테스트, lint·typecheck·prettier 통과.
 - 주의: 학과 선택 대비 테스트가 소스에서 `className="…"`를 정규식으로 읽어 왔다 — `cn(…)` 묶음도 같은 유틸리티 목록으로 읽도록 추출을 넓혔다(판정 기준과 값은 그대로).
 - 경계: 날 `<button>`(2단계)은 별도 PR. 억제 파일은 손으로 고치지 않고 `lint:prune`으로만 줄였다.
+## 2026-09-21 — 차트 선과 랜딩 범례의 hex 색을 semantic 토큰으로 바꾼다
+
+- 상태: review
+- Issue: #1328 1단계 (lint 억제 목록 소진, Refs)
+- 내용: `activity-chart.tsx`의 선 4색(`#003399`·`#00923f`·`#d97706`·`#444444`)을 `--chart-1`·`--chart-2`·`--chart-3`·`--foreground`로, `landing-journey.tsx` 범례 점 3색(`#9db9f0`·`#5cc687`·`#fff`)을 `--cosmos-student`·`--cosmos-repository`·`--cosmos-copy`로 바꾼다. 같은 파일의 120자 className 1건은 `cn()` 묶음으로 나눈다.
+  억제 목록에서 두 파일 항목을 prune했다(화면 코드의 hex 억제 0).
+- 검증: frontend 단위 테스트 전체·lint·typecheck 통과. 격리 스택에서 학생 활동 차트와 랜딩 범례를 같은 selector로 전후 캡처하고 선 stroke·점 배경의 계산값을 기록했다.
+- 주의: 두 색은 팔레트 값으로 바뀐다 — Release 선 `#d97706` → amber-500 `#e0a030`, 범례 학생 점 `#9db9f0` → navy-200 `#adc1eb`(캔버스의 학생 점과 같은 토큰). 합계 선은 다크 모드에서 글자색을 따라간다.
+- 경계: 날 button(2단계)·긴 className(3단계)은 별도 PR. 테스트 파일의 hex 억제는 그대로다.
 ## 2026-09-21 — 한글 본문 폰트를 Pretendard 로 self-host
 
 - 상태: review

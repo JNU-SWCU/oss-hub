@@ -99,11 +99,6 @@
       "count": 5
     }
   },
-  "src/features/activity-timeline/components/activity-chart.tsx": {
-    "local/design-no-hex-color": {
-      "count": 4
-    }
-  },
   "src/features/audit-log/action-registry.test.ts": {
     "local/design-no-hex-color": {
       "count": 2
@@ -124,14 +119,7 @@
       "count": 1
     }
   },
-  "src/features/landing/components/landing-journey.tsx": {
-    "local/design-class-name-length": {
-      "count": 1
-    },
-    "local/design-no-hex-color": {
-      "count": 3
-    }
-  },
+
   "src/features/profile/components/department-select-contrast.test.ts": {
     "local/design-no-hex-color": {
       "count": 1
