@@ -29,6 +29,10 @@ describe('DialogShell', () => {
   async function render(props: Partial<DialogShellProps> = {}) {
     const onCancel = vi.fn();
     const onSave = vi.fn();
+    const {
+      children = <input aria-label="팀 이름" defaultValue="가팀" />,
+      ...rest
+    } = props;
     await act(async () => {
       root.render(
         <DialogShell
@@ -36,9 +40,9 @@ describe('DialogShell', () => {
           description="새 이름을 입력하세요."
           onCancel={onCancel}
           onSave={onSave}
-          {...(props as object)}
+          {...(rest as object)}
         >
-          <input aria-label="팀 이름" defaultValue="가팀" />
+          {children}
         </DialogShell>,
       );
     });
@@ -62,6 +66,21 @@ describe('DialogShell', () => {
 
     await render({ kind: 'alert' });
     expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+  });
+
+  it('alert는 본문보다 취소 버튼에 먼저 초점을 둔다', async () => {
+    const { button } = await render({
+      kind: 'alert',
+      children: <textarea aria-label="반려 사유" />,
+      footer: (
+        <>
+          <button type="button">취소</button>
+          <button type="button">확정</button>
+        </>
+      ),
+    });
+
+    expect(document.activeElement).toBe(button('취소'));
   });
 
   it('제목·설명·본문·취소/저장 줄을 한 창에 그린다', async () => {

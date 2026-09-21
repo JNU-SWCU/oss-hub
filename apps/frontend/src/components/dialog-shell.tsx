@@ -88,6 +88,7 @@ function DialogShell(props: DialogShellProps) {
     onCancel,
   } = props;
   const blockNextClose = React.useRef(false);
+  const footerRef = React.useRef<HTMLDivElement>(null);
 
   return (
     <Dialog
@@ -123,6 +124,15 @@ function DialogShell(props: DialogShellProps) {
           SIZE_CLASS[size],
           className,
         )}
+        onOpenAutoFocus={(event) => {
+          if (kind !== 'alert') return;
+          // `footer`의 첫 버튼은 공용 줄의 취소 자리다. 본문보다 먼저 포커스한다.
+          const cancelButton =
+            footerRef.current?.querySelector<HTMLButtonElement>('button');
+          if (!cancelButton) return;
+          event.preventDefault();
+          cancelButton.focus();
+        }}
         onEscapeKeyDown={(event) => {
           if (busy) {
             event.preventDefault();
@@ -164,6 +174,7 @@ function DialogShell(props: DialogShellProps) {
           {children}
         </div>
         <DialogFooter
+          ref={footerRef}
           data-slot="dialog-shell-footer"
           // 좁은 폭에서도 버튼 줄을 세로로 쌓지 않는다 — 기존 창들과 같은 오른쪽 정렬 한 줄.
           className="mt-5 flex-row justify-end"
