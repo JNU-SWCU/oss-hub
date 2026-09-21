@@ -296,11 +296,13 @@ describe('globals.css의 시안 v2 치수 토큰', () => {
     ).toEqual(expected);
   });
 
-  it('크기 계단은 네 단계다 — 페이지 40 / 섹션 24 / 본문 16 / 보조 13', () => {
+  it('크기 계단은 여섯 단계다 — 페이지 40 / 섹션 24 / 본문 16 / 보조 13 / 배지 12 / 표 14', () => {
     expect(declarationValue('--step-page')).toBe('40px');
     expect(declarationValue('--step-section')).toBe('24px');
     expect(declarationValue('--step-body')).toBe('16px');
     expect(declarationValue('--step-small')).toBe('13px');
+    expect(declarationValue('--step-badge')).toBe('12px');
+    expect(declarationValue('--step-table')).toBe('14px');
   });
 
   // 조작 가능한 사각형은 전부 같은 높이다. 배지만 예외(읽는 라벨이라 누르지 않는다).
@@ -363,6 +365,12 @@ describe('globals.css의 시안 v2 치수 토큰', () => {
       '--spacing-card: var(--card-padding)',
       '--text-page: var(--step-page)',
       '--text-small: var(--step-small)',
+      '--text-badge: var(--step-badge)',
+      // 배지·표는 대신하는 `text-xs`·`text-sm`과 같은 줄 간격을 **비율로** 가진다.
+      // px로 바꾸면 칸 안에서 글자 크기만 바꾼 자손이 20px을 그대로 물려받는다.
+      '--text-badge--line-height: calc(16 / 12)',
+      '--text-table: var(--step-table)',
+      '--text-table--line-height: calc(20 / 14)',
       '--radius-card: var(--card-radius)',
       '--radius-control: var(--control-radius)',
     ]) {

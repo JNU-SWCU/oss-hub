@@ -17,7 +17,7 @@ interface SectionHeadingProps extends Omit<
  * 섹션 머리. 크기 계단의 두 번째 칸(`--step-section` = 24)을 쓰는 유일한 자리다.
  *
  * 화면마다 h2 크기를 직접 고르면 페이지 제목(40)과 본문(16) 사이가 화면마다
- * 달라진다. 계단은 네 칸뿐이고, 섹션 제목은 그중 하나로 고정한다.
+ * 달라진다. 섹션 제목은 크기 계단 여섯 칸 중 하나로 고정한다.
  */
 function SectionHeading({
   title,
