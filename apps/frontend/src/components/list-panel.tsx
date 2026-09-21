@@ -26,13 +26,17 @@ function ListPanel({ className, ...props }: React.ComponentProps<'div'>) {
 /**
  * 목록 한 줄. 최소 높이 `--row-height`(76)로 줄마다 손이 닿는 크기를 보장하고,
  * 첫 줄을 제외한 모든 줄 위에 옅은 선을 긋는다.
+ *
+ * hover 배경은 기본으로 주지 않는다. 줄 전체를 누를 수 있는 자리에서만 호출부가
+ * `className`으로 얹는다 — 지금 이 컴포넌트를 쓰는 다섯 화면 중 줄을 누르는 곳은
+ * 하나도 없는데 모든 줄이 눌리는 것처럼 반응하고 있었다.
  */
 function ListRow({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="list-row"
       className={cn(
-        'flex min-h-row flex-wrap items-center gap-4 px-6 py-4 transition-colors hover:bg-muted/60 [&+&]:border-t [&+&]:border-border/50',
+        'flex min-h-row flex-wrap items-center gap-4 px-6 py-4 transition-colors [&+&]:border-t [&+&]:border-border/50',
         className,
       )}
       {...props}

@@ -117,7 +117,7 @@ export function SidebarDrawer({
             onClick={onClose}
             aria-label="사이드바 메뉴 닫기"
             className={cn(
-              'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
+              'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-foreground',
               'focus-visible:ring-sidebar-ring',
             )}
           >
