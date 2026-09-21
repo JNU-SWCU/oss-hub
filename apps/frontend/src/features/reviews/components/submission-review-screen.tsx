@@ -2,8 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 
-import { EmptyState, PageBody } from '@/components';
-import { Button } from '@/components/ui/button';
+import { FailureState, PageBody } from '@/components';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 
 import { useReviewSession } from '../use-review-session';
@@ -47,10 +46,10 @@ function ReviewSessionScreen({
   if (!review.context) {
     if (!review.loadError) return <ReviewSkeleton />;
     return (
-      <EmptyState
+      <FailureState
         title="제출 검토 정보를 불러오지 못했습니다"
         description={review.loadError}
-        action={<Button onClick={review.refresh}>다시 시도</Button>}
+        onRetry={review.refresh}
       />
     );
   }

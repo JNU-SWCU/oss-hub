@@ -8,6 +8,7 @@ import { Pencil } from 'lucide-react';
 import { useEffect, useId, type ReactNode } from 'react';
 import {
   EmptyState,
+  FailureState,
   ListPanel,
   PageHeader,
   SectionHeading,
@@ -289,15 +290,7 @@ export function ProgramDetailFailureState({
   }
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">
-      <EmptyState
-        title="프로그램을 불러오지 못했습니다"
-        description="잠시 후 다시 시도해 주세요."
-        action={
-          <Button type="button" onClick={onRetry}>
-            다시 시도
-          </Button>
-        }
-      />
+      <FailureState title="프로그램을 불러오지 못했습니다" onRetry={onRetry} />
     </main>
   );
 }

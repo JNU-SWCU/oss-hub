@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { EmptyState } from '@/components';
-import { Button } from '@/components/ui/button';
+import { EmptyState, FailureState } from '@/components';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
@@ -36,14 +35,10 @@ export function ActivityPanelBody({
     );
   if (state.kind === 'failed') {
     return (
-      <EmptyState
+      <FailureState
         title="활동을 불러오지 못했습니다"
         description="프로그램 정보는 정상적으로 표시되고 있습니다."
-        action={
-          <Button type="button" variant="outline" onClick={onRetry}>
-            다시 시도
-          </Button>
-        }
+        onRetry={onRetry}
       />
     );
   }

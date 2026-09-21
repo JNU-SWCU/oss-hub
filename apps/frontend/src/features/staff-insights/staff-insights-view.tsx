@@ -1,6 +1,5 @@
 import type { ReactElement } from 'react';
-import { EmptyState, PageHeader } from '@/components';
-import { Button } from '@/components/ui/button';
+import { FailureState, PageHeader } from '@/components';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { FadeUp } from './fade-up';
 import { CutButton, MetricCard, YearLinks } from './insights-controls';
@@ -48,14 +47,10 @@ export function StaffInsightsView({
   if (state.kind === 'error') {
     return (
       <main className="mx-auto w-full max-w-3xl px-4 py-12">
-        <EmptyState
+        <FailureState
           title="학생 활성을 불러오지 못했습니다"
           description={state.message}
-          action={
-            <Button type="button" onClick={state.onRetry}>
-              다시 시도
-            </Button>
-          }
+          onRetry={state.onRetry}
         />
       </main>
     );
