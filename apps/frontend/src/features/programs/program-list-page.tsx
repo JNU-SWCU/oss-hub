@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CardGrid, EmptyState, PageHeader } from '@/components';
+import { CardGrid, EmptyState, FailureState, PageHeader } from '@/components';
 import { ProgramCard } from './program-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -164,10 +164,10 @@ function ProgramListPage({
     }
     if (loadState.kind === 'error') {
       return (
-        <EmptyState
+        <FailureState
           title="프로그램 목록을 불러오지 못했습니다"
           description={loadState.message}
-          action={<Button onClick={() => void load()}>다시 시도</Button>}
+          onRetry={() => void load()}
         />
       );
     }

@@ -5,7 +5,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { EmptyState, PageBody } from '@/components';
+import { EmptyState, FailureState, PageBody } from '@/components';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 import { createApplication, createTeam, type ProgramTeam } from './api';
@@ -496,18 +496,10 @@ export function ProgramApplyPage({
     case 'failed':
       return (
         <PageBody className="max-w-3xl">
-          <EmptyState
+          <FailureState
             title="신청 양식을 불러오지 못했습니다"
             description={state.message}
-            action={
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void load()}
-              >
-                다시 시도
-              </Button>
-            }
+            onRetry={() => void load()}
           />
         </PageBody>
       );

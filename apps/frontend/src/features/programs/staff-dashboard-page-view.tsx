@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactElement } from 'react';
-import { EmptyState, PageHeader } from '@/components';
+import { EmptyState, FailureState, PageHeader } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { programNewHref } from '@/lib/program-route';
@@ -76,14 +76,10 @@ function StaffDashboardErrorState({
 }): ReactElement {
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-12">
-      <EmptyState
+      <FailureState
         title="운영 대시보드를 불러오지 못했습니다"
         description={message}
-        action={
-          <Button type="button" onClick={onRetry}>
-            다시 시도
-          </Button>
-        }
+        onRetry={onRetry}
       />
     </main>
   );
