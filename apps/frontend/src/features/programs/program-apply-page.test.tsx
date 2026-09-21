@@ -1,4 +1,6 @@
-import { createRef } from 'react';
+// @vitest-environment happy-dom
+import { act, createRef } from 'react';
+import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
@@ -165,6 +167,39 @@ describe('반려 재제출 화면의 반려 사유', () => {
     expect(html).not.toContain('반려 사유');
   });
 });
+
+/** 포털까지 담아야 하는 케이스용 — 실제 DOM 에 그리고 문서 전체 HTML 을 돌려준다. */
+function renderFormToDocument(
+  overrides: Partial<Parameters<typeof ProgramApplyFormView>[0]> = {},
+): string {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  act(() => {
+    root.render(
+      <ProgramApplyFormView
+        program={program}
+        template={template}
+        applicantName="합성 학생"
+        values={baseValues}
+        errors={{}}
+        serverError={null}
+        rejectionReason={null}
+        mode="create"
+        canManage={false}
+        confirmation={null}
+        submitting={false}
+        {...testTeamProps}
+        {...handlers}
+        {...overrides}
+      />,
+    );
+  });
+  const html = document.body.innerHTML;
+  act(() => root.unmount());
+  host.remove();
+  return html;
+}
 
 function renderForm(
   overrides: Partial<Parameters<typeof ProgramApplyFormView>[0]> = {},
@@ -370,7 +405,11 @@ describe('ProgramApply views', () => {
   });
 
   it('제출 확인창은 하나뿐이고 승인 이후 제한 문구를 표시한다', () => {
-    const html = renderForm({
+    /*
+     * 확인창은 공용 껍데기가 body 로 포털한다. 문자열 렌더로는 포털 내용을
+     * 담지 못하므로 이 케이스만 실제 DOM 에 그려 문서 전체에서 읽는다.
+     */
+    const html = renderFormToDocument({
       values: {
         ...baseValues,
         title: '제목',

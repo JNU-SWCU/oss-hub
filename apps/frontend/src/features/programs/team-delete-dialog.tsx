@@ -1,12 +1,10 @@
 'use client';
 
-import { AlertDialog } from 'radix-ui';
 import { useState, type ReactElement } from 'react';
+import { DialogShell } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { ALERT_DIALOG_SHELL_CLASS } from '@/components/ui/dialog';
 import { deleteStaffProgramTeam } from './api';
 import {
   formatTeamDeletedCounts,
@@ -35,10 +33,9 @@ const DISAPPEARING_ITEMS = [
 /**
  * 팀 삭제 확인 창.
  *
- * 껍데기는 프로그램 삭제 확인창(`ProgramEditPurgeConfirmation`)과 같은 alertdialog다.
- * 공용 `DialogShell`을 쓰지 않는다 — design.md가 되돌릴 수 없는 결정의 확인은
- * alertdialog 변형으로 묶어 둔다. 그 변형이 공용으로 올라올 때 두 창이 같은 자리에서
- * 함께 옮겨가도록 구조를 그쪽과 글자 단위로 맞춰 둔다.
+ * 껍데기는 공용 `DialogShell`의 `kind="alert"`다(R-06) — 되돌릴 수 없는 질문이라
+ * 낭독기에 `alertdialog`로 알리고 바깥을 잘못 눌러 사라지지 않는다. 폭은 기존
+ * 확인창 규격(`max-w-lg`)을 그대로 쓴다.
  *
  * 삭제는 이 창이 직접 한다. 화면에 마지막으로 보여 준 `scope`를 그대로 `expectedScope`로
  * 보낸다. 409(TEAM_019)가 오면 자동 재시도하지 않고 새 카운트로 다시 확인하게 한다.
@@ -114,102 +111,89 @@ export function TeamDeleteDialog({
   }
 
   return (
-    <AlertDialog.Root
-      open
-      onOpenChange={(next) => {
-        // 삭제가 도는 동안에는 닫지 않는다 — 화면만 먼저 사라지면 결과를 볼 자리가 없다.
-        if (!next && !busy) onCancel();
-      }}
+    <DialogShell
+      kind="alert"
+      title="팀을 삭제할까요?"
+      description={`${teamName} 팀과 연결된 데이터를 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
+      // 기존 확인창 규격(`ALERT_DIALOG_SHELL_CLASS`)과 같은 폭. 껍데기 기본(md)은 한 단계 넓다.
+      className="max-w-lg"
+      // 삭제가 도는 동안에는 닫지 않는다 — 화면만 먼저 사라지면 결과를 볼 자리가 없다.
+      busy={busy}
+      onCancel={onCancel}
+      footer={
+        <>
+          {/* 껍데기 버튼은 스스로 닫지 않는다 — `AlertDialog.Cancel`이 하던 닫기를 여기서 부른다. */}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={onCancel}
+          >
+            취소
+          </Button>
+          {/* 삭제는 일부러 닫지 않는다 — 409·실패를 이 창 안에서 다시 확인시켜야 한다. */}
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={busy}
+            onClick={() => void confirm()}
+          >
+            {busy ? '삭제 중…' : '삭제'}
+          </Button>
+        </>
+      }
     >
-      <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/35" />
-        <AlertDialog.Content className={ALERT_DIALOG_SHELL_CLASS}>
-          <Card className="shadow-xl">
-            <CardHeader>
-              <AlertDialog.Title asChild>
-                <CardTitle>팀을 삭제할까요?</CardTitle>
-              </AlertDialog.Title>
-            </CardHeader>
-            <CardContent className="grid gap-5">
-              <AlertDialog.Description className="text-body text-muted-foreground [word-break:keep-all]">
-                <span className="font-semibold text-foreground">
-                  {teamName}
-                </span>{' '}
-                팀과 연결된 데이터를 삭제합니다. 이 작업은 되돌릴 수 없습니다.
-              </AlertDialog.Description>
-              <Alert>
-                <AlertTitle>삭제될 데이터</AlertTitle>
-                <AlertDescription className="[word-break:keep-all]">
-                  {disappearing || '연결된 데이터 없음'}
-                </AlertDescription>
-              </Alert>
-              <p className="text-sm text-muted-foreground [word-break:keep-all]">
-                연결된 GitHub 저장소는 삭제하지 않고 연결만 해제합니다
-                {displayedScope.detachedRepositories > 0
-                  ? ` (${displayedScope.detachedRepositories}건).`
-                  : '.'}
-              </p>
-              <div className="grid gap-2">
-                <label
-                  htmlFor="team-delete-notification-message"
-                  className="text-small font-medium"
-                >
-                  팀원에게 보낼 안내 (선택)
-                </label>
-                {/*
-                 * 알림 자체는 선택이 아니다 — 백엔드가 삭제와 같은 커밋에서 남긴다.
-                 * 비워 두면 삭제 사실만 가고, 적으면 그 문구가 함께 간다.
-                 */}
-                <Textarea
-                  id="team-delete-notification-message"
-                  maxLength={MAX_NOTIFICATION_MESSAGE_LENGTH}
-                  disabled={busy}
-                  value={notificationMessage}
-                  placeholder="비워 두면 삭제 사실만 알립니다."
-                  onChange={(event) =>
-                    setNotificationMessage(event.target.value)
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  {notificationMessage.length} /{' '}
-                  {MAX_NOTIFICATION_MESSAGE_LENGTH}자
-                </p>
-              </div>
-              {scopeChangedMessage !== null ? (
-                <Alert variant="destructive">
-                  <AlertTitle>삭제 범위가 변경되었습니다</AlertTitle>
-                  <AlertDescription className="[word-break:keep-all]">
-                    {scopeChangedMessage}
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-              {errorMessage !== null ? (
-                <Alert variant="destructive">
-                  <AlertTitle>삭제하지 못했습니다</AlertTitle>
-                  <AlertDescription className="[word-break:keep-all]">
-                    {errorMessage}
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-              <div className="flex flex-wrap justify-end gap-2">
-                <AlertDialog.Cancel asChild>
-                  <Button type="button" variant="outline" disabled={busy}>
-                    취소
-                  </Button>
-                </AlertDialog.Cancel>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={busy}
-                  onClick={() => void confirm()}
-                >
-                  {busy ? '삭제 중…' : '삭제'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </AlertDialog.Content>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
+      <Alert>
+        <AlertTitle>삭제될 데이터</AlertTitle>
+        <AlertDescription className="[word-break:keep-all]">
+          {disappearing || '연결된 데이터 없음'}
+        </AlertDescription>
+      </Alert>
+      <p className="text-sm text-muted-foreground [word-break:keep-all]">
+        연결된 GitHub 저장소는 삭제하지 않고 연결만 해제합니다
+        {displayedScope.detachedRepositories > 0
+          ? ` (${displayedScope.detachedRepositories}건).`
+          : '.'}
+      </p>
+      <div className="grid gap-2">
+        <label
+          htmlFor="team-delete-notification-message"
+          className="text-small font-medium"
+        >
+          팀원에게 보낼 안내 (선택)
+        </label>
+        {/*
+         * 알림 자체는 선택이 아니다 — 백엔드가 삭제와 같은 커밋에서 남긴다.
+         * 비워 두면 삭제 사실만 가고, 적으면 그 문구가 함께 간다.
+         */}
+        <Textarea
+          id="team-delete-notification-message"
+          maxLength={MAX_NOTIFICATION_MESSAGE_LENGTH}
+          disabled={busy}
+          value={notificationMessage}
+          placeholder="비워 두면 삭제 사실만 알립니다."
+          onChange={(event) => setNotificationMessage(event.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          {notificationMessage.length} / {MAX_NOTIFICATION_MESSAGE_LENGTH}자
+        </p>
+      </div>
+      {scopeChangedMessage !== null ? (
+        <Alert variant="destructive">
+          <AlertTitle>삭제 범위가 변경되었습니다</AlertTitle>
+          <AlertDescription className="[word-break:keep-all]">
+            {scopeChangedMessage}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {errorMessage !== null ? (
+        <Alert variant="destructive">
+          <AlertTitle>삭제하지 못했습니다</AlertTitle>
+          <AlertDescription className="[word-break:keep-all]">
+            {errorMessage}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+    </DialogShell>
   );
 }

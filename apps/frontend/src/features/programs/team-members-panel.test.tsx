@@ -203,7 +203,8 @@ function inviteTrigger(): HTMLButtonElement | null {
 }
 
 function dialogButton(text: string): HTMLButtonElement {
-  const scope = host.querySelector('[role="alertdialog"]');
+  // 공용 창 껍데기는 body 로 포털한다 — 호스트 안이 아니라 문서에서 찾는다.
+  const scope = document.querySelector('[role="alertdialog"]');
   if (!scope) throw new Error('확인 레이어 없음');
   const found = Array.from(scope.querySelectorAll('button')).find(
     (item) => item.textContent === text,
@@ -224,7 +225,7 @@ function deferred() {
 }
 
 function dialog(): Element | null {
-  return host.querySelector('[role="alertdialog"]');
+  return document.querySelector('[role="alertdialog"]');
 }
 
 function apiError(code: string, detail: string): ApiError {
@@ -263,7 +264,7 @@ describe('TeamMembersPanel', () => {
     await act(async () => removeButtons()[0]?.click());
     // 확인 전에는 아무것도 지우지 않는다.
     expect(removeMyTeamMember).not.toHaveBeenCalled();
-    expect(host.querySelector('[role="alertdialog"]')).not.toBeNull();
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
 
     await act(async () => dialogButton('팀에서 제외').click());
     expect(removeMyTeamMember).toHaveBeenCalledExactlyOnceWith(
@@ -271,13 +272,13 @@ describe('TeamMembersPanel', () => {
       'member-1',
     );
     expect(onChanged).toHaveBeenCalledOnce();
-    expect(host.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
   });
 
   it('제외가 무엇을 지우는지 확인 레이어에서 밝힌다', async () => {
     await render();
     await act(async () => removeButtons()[0]?.click());
-    const dialog = host.querySelector('[role="alertdialog"]');
+    const dialog = document.querySelector('[role="alertdialog"]');
     expect(dialog?.textContent).toContain('팀 구성원 목록에서만 빠집니다');
     expect(dialog?.textContent).toContain(
       '이미 제출한 신청서와 제출 기록은 그대로 남고',
@@ -320,7 +321,8 @@ describe('TeamMembersPanel', () => {
     await act(async () => dialogButton('팀에서 제외').click());
     expect(onChanged).not.toHaveBeenCalled();
     // 공유 문구(`mapTeamError`)가 이 코드의 실제 원인을 말한다.
-    expect(host.textContent).toContain(
+    // 실패 문구는 창 안에 선다. 창은 body 로 포털된다.
+    expect(document.body.textContent).toContain(
       '이 팀의 구성원을 찾을 수 없습니다. 팀 현황을 다시 확인해 주세요.',
     );
     expect(host.textContent).not.toContain('잠시 후 다시 시도해 주세요');
@@ -336,7 +338,9 @@ describe('TeamMembersPanel', () => {
     await render();
     await act(async () => removeButtons()[0]?.click());
     await act(async () => dialogButton('팀에서 제외').click());
-    expect(host.textContent).toContain('알 수 없는 이유로 거절되었습니다.');
+    expect(document.body.textContent).toContain(
+      '알 수 없는 이유로 거절되었습니다.',
+    );
     expect(onChanged).not.toHaveBeenCalled();
   });
 
@@ -592,7 +596,7 @@ describe('TeamMembersPanel — 초대 대기', () => {
       }),
     });
     expect(host.querySelector('[role="dialog"]')).toBeNull();
-    expect(host.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
     expect(host.textContent).toContain('초대 취소 실패');
     expect(host.textContent).toContain(
       '이미 응답한 초대는 취소할 수 없습니다.',
