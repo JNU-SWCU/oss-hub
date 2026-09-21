@@ -3,6 +3,7 @@
 import { CalendarDays } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { FilterChip, FilterChipGroup } from '@/components';
+import { cn } from '@/lib/utils';
 import { formatMatrixDueDateTime } from '../matrix';
 import type { MatrixMilestone } from '../types';
 
@@ -34,7 +35,12 @@ function TabletStageTabs(props: MatrixStageNavigationProps): ReactElement {
   const options = stageOptions(props.milestones);
 
   return (
-    <div className="sticky top-0 z-20 -mx-2 hidden border-y border-border bg-background/95 px-2 py-3 backdrop-blur min-[561px]:block min-[900px]:hidden">
+    <div
+      className={cn(
+        'sticky top-0 z-20 -mx-2 hidden border-y border-border bg-background/95 px-2 py-3',
+        'backdrop-blur min-[561px]:block min-[900px]:hidden',
+      )}
+    >
       <FilterChipGroup
         aria-label="볼 제출 단계"
         className="max-w-full flex-nowrap overflow-x-auto pb-1"
@@ -70,7 +76,10 @@ function MobileStageSelect(props: MatrixStageNavigationProps): ReactElement {
         onChange={(event) =>
           props.onSelectMilestone(event.target.value || null)
         }
-        className="h-control w-full rounded-control border border-input bg-background px-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={cn(
+          'h-control w-full rounded-control border border-input bg-background px-3',
+          'text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        )}
       >
         {stageOptions(props.milestones).map((option) => (
           <option key={option.id ?? 'all'} value={option.id ?? ''}>

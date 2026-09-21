@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 /**
  * 가입 동선 네 화면(`/signup` · `/consent` · `/onboarding/role` ·
@@ -15,7 +16,12 @@ import type { ReactNode } from 'react';
  */
 export function SignupEyebrow({ children }: { readonly children: ReactNode }) {
   return (
-    <span className="w-fit rounded-full border border-cosmos-border bg-cosmos-muted/8 px-3.5 py-1.5 text-xs font-semibold tracking-[0.08em] text-cosmos-muted">
+    <span
+      className={cn(
+        'w-fit rounded-full border border-cosmos-border bg-cosmos-muted/8 px-3.5 py-1.5',
+        'text-xs font-semibold tracking-[0.08em] text-cosmos-muted',
+      )}
+    >
       {children}
     </span>
   );

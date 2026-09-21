@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import type { ProfileMemberKind } from '../../profile-requirements';
 import type {
   SettingsFormErrors,
@@ -75,7 +76,10 @@ export function SettingsForm({
       {toastMessage ? (
         <div
           role="status"
-          className="rounded-card border border-status-approved-bg bg-status-approved-bg px-6 py-4 text-small font-semibold text-status-approved-fg"
+          className={cn(
+            'rounded-card border border-status-approved-bg bg-status-approved-bg px-6 py-4',
+            'text-small font-semibold text-status-approved-fg',
+          )}
         >
           {toastMessage}
         </div>
