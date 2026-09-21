@@ -1,7 +1,11 @@
-import { AlertDialog } from 'radix-ui';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DialogShell } from '@/components';
 
+/**
+ * 프로그램 생성 확정 창.
+ *
+ * 되돌릴 수 없는 결정이라 공용 껍데기의 `kind="alert"`를 쓴다 — 바깥을 잘못 눌러
+ * 사라지지 않고, 낭독기에 `alertdialog`로 알린다. 확정 중에는 `busy`가 닫기를 막는다.
+ */
 export function ProgramAuthoringConfirmationDialog({
   submitting,
   onCancel,
@@ -12,38 +16,20 @@ export function ProgramAuthoringConfirmationDialog({
   readonly onConfirm: () => void;
 }) {
   return (
-    <AlertDialog.Root
-      open
-      onOpenChange={(open) => !open && !submitting && onCancel()}
+    <DialogShell
+      kind="alert"
+      title="프로그램을 생성하시겠습니까?"
+      description="마일스톤, 제출 항목, 선택한 양식 파일을 포함한 전체 내용이 한 번에 생성됩니다."
+      busy={submitting}
+      // 원래 폭을 지킨다 — 껍데기 기본 md 는 max-w-xl 이다.
+      className="max-w-lg"
+      // 본문이 없는 창이다. 빈 본문의 위 여백까지 두면 설명과 버튼 줄 사이가 원래보다 벌어진다.
+      bodyClassName="mt-0"
+      confirmLabel={submitting ? '생성 중…' : '생성 확정'}
+      onCancel={onCancel}
+      onSave={onConfirm}
     >
-      <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/35" />
-        <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 outline-none">
-          <Card className="shadow-xl">
-            <CardHeader>
-              <AlertDialog.Title asChild>
-                <CardTitle>프로그램을 생성하시겠습니까?</CardTitle>
-              </AlertDialog.Title>
-            </CardHeader>
-            <CardContent className="grid gap-5">
-              <AlertDialog.Description className="text-body text-muted-foreground [word-break:keep-all]">
-                마일스톤, 제출 항목, 선택한 양식 파일을 포함한 전체 내용이 한
-                번에 생성됩니다.
-              </AlertDialog.Description>
-              <div className="flex flex-wrap justify-end gap-2">
-                <AlertDialog.Cancel asChild>
-                  <Button type="button" variant="outline" disabled={submitting}>
-                    취소
-                  </Button>
-                </AlertDialog.Cancel>
-                <Button type="button" disabled={submitting} onClick={onConfirm}>
-                  {submitting ? '생성 중…' : '생성 확정'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </AlertDialog.Content>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
+      {null}
+    </DialogShell>
   );
 }

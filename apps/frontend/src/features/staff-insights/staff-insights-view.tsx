@@ -81,18 +81,17 @@ export function StaffInsightsView({
           </span>
           <YearLinks scope={summary.scope} years={summary.years} />
         </div>
-        <div
-          className="grid gap-2"
-          role="group"
-          aria-labelledby="insights-cut-label"
-        >
+        <div className="grid gap-2">
           <span
             id="insights-cut-label"
             className="text-xs font-semibold text-muted-foreground"
           >
             비교 관점
           </span>
-          <FilterChipGroup aria-label="비교 관점">
+          <FilterChipGroup
+            aria-label="비교 관점"
+            aria-labelledby="insights-cut-label"
+          >
             <CutButton
               current={cut}
               value={INSIGHTS_CUTS.COHORT}

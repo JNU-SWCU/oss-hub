@@ -14,6 +14,11 @@ describe('Skeleton', () => {
     // 불러오는 중임을 말한다.
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('role="status"');
+    // 상태 안내는 바쁜 뼈대 영역의 형제라 낭독기가 놓치지 않는다.
+    const statusIndex = html.indexOf('role="status"');
+    const busyIndex = html.indexOf('aria-busy="true"');
+    expect(statusIndex).toBeGreaterThanOrEqual(0);
+    expect(statusIndex).toBeLessThan(busyIndex);
     // 무엇을 불러오는지 낭독기가 읽을 이름이 있다.
     expect(html).toContain('프로그램 목록을 불러오는 중');
     // 움직임을 줄이도록 설정한 사람에게는 깜빡임을 끈다.

@@ -276,8 +276,9 @@ describe('ProgramApplyPage 한 화면 신청', () => {
   }
 
   function button(name: string, inDialog = false): HTMLButtonElement {
+    // 공용 창 껍데기는 body 로 포털한다 — 창 안 버튼은 문서에서 찾는다.
     const scope = inDialog
-      ? container.querySelector('[role="alertdialog"]')
+      ? document.querySelector('[role="alertdialog"]')
       : container;
     const target = [...(scope?.querySelectorAll('button') ?? [])].find(
       (candidate) => candidate.textContent?.trim() === name,
@@ -505,7 +506,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       button('신청 제출').click();
     });
     expect(createApplicationMock).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('신청서를 제출하시겠습니까?');
+    expect(document.body.textContent).toContain('신청서를 제출하시겠습니까?');
   });
 
   it('팀 이름이 비어 있으면 최종 확인 자체가 열리지 않는다', async () => {
@@ -688,7 +689,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(container.querySelector('[role="alertdialog"]')).not.toBeNull();
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
 
     await act(async () => {
       button('신청서 제출', true).click();

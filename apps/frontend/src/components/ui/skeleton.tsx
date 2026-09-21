@@ -19,22 +19,21 @@ export interface SkeletonProps {
  * 이 요소가 곧 배치 컨테이너다 — 안쪽에 래퍼를 하나 더 두면 grid 의 자식이
  * 하나로 줄어 뼈대가 실제 화면과 다르게 쌓인다.
  *
- * 뼈대 칸은 `aria-hidden`이라 낭독기에 들리지 않고, 대신 `label`을
- * `role="status"`로 한 번 읽는다. 회색 막대 열다섯 개를 하나씩 읽어 주는
- * 것은 아무에게도 도움이 안 된다.
+ * 뼈대 칸은 `aria-hidden`이라 낭독기에 들리지 않고, 대신 배치 컨테이너
+ * 바깥의 `role="status"`가 `label`을 한 번 읽는다. 회색 막대 열다섯 개를
+ * 하나씩 읽어 주는 것은 아무에게도 도움이 안 된다. 상태 안내를 `aria-busy`
+ * 영역 밖에 두어 낭독기가 안내를 놓치지 않게 한다.
  */
 export function Skeleton({ label, children, className }: SkeletonProps) {
   return (
-    <div
-      aria-busy="true"
-      aria-live="polite"
-      role="status"
-      data-slot="skeleton"
-      className={cn(className)}
-    >
-      <span className="sr-only">{label}</span>
-      {children}
-    </div>
+    <>
+      <span className="sr-only" aria-live="polite" role="status">
+        {label}
+      </span>
+      <div aria-busy="true" data-slot="skeleton" className={cn(className)}>
+        {children}
+      </div>
+    </>
   );
 }
 
