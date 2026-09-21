@@ -123,8 +123,12 @@ export function AdminAccessProfileSection({
             </Button>
           ) : null}
         </div>
+        {/*
+          「프로필 미완성」은 검증 실패가 아니라 상시 상태라 오류색을 쓰지 않는다.
+          같은 화면의 FieldError 와 같은 빨강이면 「지금 뭘 잘못 입력했다」로 읽힌다.
+        */}
         {!profile.isComplete ? (
-          <p className="text-sm text-destructive">
+          <p className="text-muted-foreground text-sm">
             프로필 미완성 — 교직원 승인·부여 불가
           </p>
         ) : null}
@@ -178,6 +182,9 @@ export function AdminAccessProfileSection({
             maxLength={ADMIN_PROFILE_NAME_MAX_LENGTH}
             value={values.name}
             aria-invalid={showNameError}
+            aria-describedby={
+              showNameError ? 'admin-profile-name-error' : undefined
+            }
             onChange={(event) =>
               setValues((current) => ({
                 ...current,
@@ -185,7 +192,9 @@ export function AdminAccessProfileSection({
               }))
             }
           />
-          {showNameError ? <FieldError>{errors.name}</FieldError> : null}
+          {showNameError ? (
+            <FieldError id="admin-profile-name-error">{errors.name}</FieldError>
+          ) : null}
         </Field>
 
         <Field data-invalid={showStudentIdError || undefined}>
@@ -196,6 +205,15 @@ export function AdminAccessProfileSection({
             inputMode="numeric"
             value={values.studentId}
             aria-invalid={showStudentIdError}
+            /*
+             * 오류가 떠도 형식 안내를 남긴다 — 「숫자 6자리」가 필요한 순간이
+             * 바로 틀렸을 때다. 낭독기에는 안내 뒤에 오류를 덧붙여 읽힌다.
+             */
+            aria-describedby={
+              showStudentIdError
+                ? 'admin-profile-student-id-description admin-profile-student-id-error'
+                : 'admin-profile-student-id-description'
+            }
             onChange={(event) =>
               setValues((current) => ({
                 ...current,
@@ -203,13 +221,14 @@ export function AdminAccessProfileSection({
               }))
             }
           />
+          <FieldDescription id="admin-profile-student-id-description">
+            숫자 6자리. 관리자는 이미 저장된 학번도 고칠 수 있습니다.
+          </FieldDescription>
           {showStudentIdError ? (
-            <FieldError>{errors.studentId}</FieldError>
-          ) : (
-            <FieldDescription>
-              숫자 6자리. 관리자는 이미 저장된 학번도 고칠 수 있습니다.
-            </FieldDescription>
-          )}
+            <FieldError id="admin-profile-student-id-error">
+              {errors.studentId}
+            </FieldError>
+          ) : null}
         </Field>
 
         <Field data-invalid={showDepartmentError || undefined}>
@@ -219,6 +238,9 @@ export function AdminAccessProfileSection({
             name="department"
             value={values.departmentOption}
             aria-invalid={showDepartmentError}
+            aria-describedby={
+              showDepartmentError ? 'admin-profile-department-error' : undefined
+            }
             onChange={(event) =>
               setValues((current) => ({
                 ...current,
@@ -249,6 +271,11 @@ export function AdminAccessProfileSection({
               maxLength={ADMIN_PROFILE_DEPARTMENT_MAX_LENGTH}
               value={values.otherDepartment}
               aria-invalid={showDepartmentError}
+              aria-describedby={
+                showDepartmentError
+                  ? 'admin-profile-department-error'
+                  : undefined
+              }
               onChange={(event) =>
                 setValues((current) => ({
                   ...current,
@@ -258,7 +285,9 @@ export function AdminAccessProfileSection({
             />
           ) : null}
           {showDepartmentError ? (
-            <FieldError>{errors.department}</FieldError>
+            <FieldError id="admin-profile-department-error">
+              {errors.department}
+            </FieldError>
           ) : null}
         </Field>
 

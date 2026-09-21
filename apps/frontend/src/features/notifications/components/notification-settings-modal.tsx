@@ -76,10 +76,14 @@ export function NotificationSettingsModal({
     } catch (error: unknown) {
       switch (classifyNotificationApiError(error)) {
         case 'unauthorized':
-          setSubmitError('로그인이 필요합니다.');
+          setSubmitError(
+            '로그인이 풀렸습니다. 다시 로그인한 뒤 저장해 주세요.',
+          );
           break;
         case 'forbidden':
-          setSubmitError('알림 설정을 변경할 권한이 없습니다.');
+          setSubmitError(
+            '알림 설정을 변경할 권한이 없습니다. 운영진에게 문의해 주세요.',
+          );
           break;
         case 'not-found':
         case 'generic':
@@ -122,10 +126,18 @@ export function NotificationSettingsModal({
                 autoComplete="email"
                 value={email}
                 aria-invalid={showError && !emailValid}
+                aria-describedby={
+                  showError && !emailValid
+                    ? 'notification-email-error'
+                    : undefined
+                }
                 onChange={(event) => setEmail(event.target.value)}
               />
               {showError && !emailValid ? (
-                <FieldError>이메일 형식이 올바르지 않습니다.</FieldError>
+                <FieldError id="notification-email-error">
+                  이메일 형식이 올바르지 않습니다. name@example.com 형태로
+                  입력해 주세요.
+                </FieldError>
               ) : null}
             </Field>
 

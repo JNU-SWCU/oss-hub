@@ -156,6 +156,39 @@ describe('settings form view', () => {
     ).toContain('학과를 선택하거나 입력해 주세요.');
   });
 
+  it('오류가 떠도 형식 안내를 남기고 둘 다 낭독되게 묶는다', () => {
+    const html = renderForm(
+      values({ studentId: '12', savedStudentId: '', phone: '1'.repeat(3) }),
+      { showValidationErrors: true },
+    );
+
+    // 안내가 오류에 밀려나지 않는다 — 「숫자 6자리」가 필요한 순간이 틀렸을 때다.
+    expect(html).toContain('숫자 6자리 · 사용자가 입력한 식별 정보');
+    expect(html).toContain('학번은 숫자 6자리로 입력해 주세요.');
+    expect(html).toContain(
+      '프로그램 운영진이 선정·팀 운영 안내를 연락할 때 사용합니다.',
+    );
+    expect(html).toContain('전화번호는 숫자 10~11자리로 입력해 주세요.');
+
+    // 낭독기가 안내와 오류를 둘 다 읽도록 컨트롤이 두 id를 함께 가리킨다.
+    expect(html).toContain(
+      'aria-describedby="settings-student-id-description settings-student-id-error"',
+    );
+    expect(html).toContain(
+      'aria-describedby="settings-phone-description settings-phone-error"',
+    );
+  });
+
+  it('오류가 없으면 안내만 가리킨다', () => {
+    const html = renderForm(values(), { showValidationErrors: true });
+
+    expect(html).toContain(
+      'aria-describedby="settings-student-id-description"',
+    );
+    expect(html).toContain('aria-describedby="settings-phone-description"');
+    expect(html).not.toContain('settings-phone-error');
+  });
+
   it('잘못된 이름·전화번호·학과·이메일을 인라인 오류로 표시하고 저장 버튼은 제출 가능하게 둔다', () => {
     const html = renderForm(
       values({
