@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, type ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 /** 드로어 dialog 요소의 DOM id — 토글 버튼의 `aria-controls`가 이 값을 가리킨다. */
@@ -109,14 +110,15 @@ export function SidebarDrawer({
           <p className="font-heading text-[15px] font-bold tracking-[-0.02em] text-sidebar-foreground">
             {label}
           </p>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={onClose}
             aria-label="사이드바 메뉴 닫기"
             className={cn(
-              'flex size-control items-center justify-center',
-              'rounded-control text-sidebar-foreground hover:bg-sidebar-accent',
-              'focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
+              'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
+              'focus-visible:ring-sidebar-ring',
             )}
           >
             <svg
@@ -131,7 +133,7 @@ export function SidebarDrawer({
             >
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
-          </button>
+          </Button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       </div>

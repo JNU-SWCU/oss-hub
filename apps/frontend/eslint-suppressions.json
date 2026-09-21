@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "src/app/_shell/app-sidebar.tsx": {
-    "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
   "src/app/_shell/onboarding-gate.test.tsx": {
     "local/design-no-raw-button": {
       "count": 2
@@ -21,16 +16,6 @@
   },
   "src/app/_shell/product-shell.test.tsx": {
     "local/design-no-hex-color": {
-      "count": 1
-    }
-  },
-  "src/app/_shell/program-scope-sidebar.tsx": {
-    "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
-  "src/app/_shell/sidebar-drawer.tsx": {
-    "local/design-no-raw-button": {
       "count": 1
     }
   },
@@ -74,17 +59,7 @@
       "count": 3
     }
   },
-  "src/components/nav-bar.tsx": {
-    "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
   "src/components/page-header.test.tsx": {
-    "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
-  "src/components/program-cover.tsx": {
     "local/design-no-raw-button": {
       "count": 1
     }
