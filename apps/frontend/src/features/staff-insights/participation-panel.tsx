@@ -16,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { formatProgramChartLabel } from './program-label';
 import { COHORT_LABELS, DEPARTMENT_COHORTS } from './types';
 import type { StaffInsightsSummary } from './types';
@@ -43,7 +44,10 @@ function ProgramNameTick({
       <title>{payload.value}</title>
       <foreignObject x={0} y={y - 20} width={Math.max(x - 8, 0)} height={40}>
         <div
-          className="recharts-text recharts-cartesian-axis-tick-value overflow-hidden text-ellipsis whitespace-nowrap text-right text-muted-foreground"
+          className={cn(
+            'recharts-text recharts-cartesian-axis-tick-value overflow-hidden',
+            'text-ellipsis whitespace-nowrap text-right text-muted-foreground',
+          )}
           style={{ fontSize: '0.75rem', lineHeight: 1.5 }}
           title={payload.value}
         >

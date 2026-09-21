@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertDialog, Dialog } from 'radix-ui';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import type {
   ProgramMilestoneEditor,
   ProgramMilestoneField,
@@ -125,7 +126,12 @@ export function ProgramEditMilestoneDialog({
         <Dialog.Overlay className="fixed inset-0 z-50 bg-foreground/40" />
         <Dialog.Content
           ref={contentRef}
-          className="fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden bg-background outline-none sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-[min(90dvh,46rem)] sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-card sm:border sm:border-border sm:shadow-lg"
+          className={cn(
+            'fixed inset-0 z-50 flex h-[100dvh] w-full flex-col overflow-hidden',
+            'bg-background outline-none sm:inset-auto sm:top-1/2 sm:left-1/2',
+            'sm:h-[min(90dvh,46rem)] sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2',
+            'sm:rounded-card sm:border sm:border-border sm:shadow-lg',
+          )}
           onEscapeKeyDown={(event) => {
             const active = document.activeElement;
             if (
@@ -246,7 +252,11 @@ export function ProgramEditMilestoneDialog({
         <AlertDialog.Portal>
           <AlertDialog.Overlay className="fixed inset-0 z-[60] bg-foreground/45" />
           <AlertDialog.Content
-            className="fixed top-1/2 left-1/2 z-[60] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-card border border-border bg-background p-card shadow-lg outline-none"
+            className={cn(
+              'fixed top-1/2 left-1/2 z-[60] w-[calc(100%-2rem)] max-w-md -translate-x-1/2',
+              '-translate-y-1/2 rounded-card border border-border bg-background p-card',
+              'shadow-lg outline-none',
+            )}
             onCloseAutoFocus={(event) => {
               event.preventDefault();
             }}

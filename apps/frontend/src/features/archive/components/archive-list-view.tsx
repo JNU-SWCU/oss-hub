@@ -2,9 +2,14 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, Archive, RotateCcw } from 'lucide-react';
-import { CardGrid, EmptyState, PageHeader, ListCard } from '@/components';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Archive } from 'lucide-react';
+import {
+  CardGrid,
+  EmptyState,
+  PageHeader,
+  ListCard,
+  FailureState,
+} from '@/components';
 import { Button } from '@/components/ui/button';
 import { loadArchivePage, loadArchiveYears } from '../api';
 import { ArchiveListYearChips } from '../archive-list-category-nav';
@@ -51,17 +56,10 @@ function LoadingState() {
 function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   return (
     <main className="mx-auto grid w-full max-w-3xl gap-6 p-5 sm:p-8">
-      <Alert variant="destructive">
-        <AlertCircle aria-hidden="true" />
-        <AlertTitle>공개 아카이브를 불러오지 못했습니다</AlertTitle>
-        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-          <span>잠시 후 다시 시도해 주세요.</span>
-          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-            <RotateCcw aria-hidden="true" />
-            다시 시도
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <FailureState
+        title="공개 아카이브를 불러오지 못했습니다"
+        onRetry={onRetry}
+      />
     </main>
   );
 }
