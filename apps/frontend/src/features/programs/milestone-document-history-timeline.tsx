@@ -159,7 +159,8 @@ function HistoryFile({
         asChild
         size="sm"
         variant="ghost"
-        className="h-auto max-w-full justify-start px-2 py-1"
+        // 높이는 44px 컨트롤 규격을 따른다 — 줄일지는 #1335에서 화면으로 정한다.
+        className="max-w-full justify-start px-2 py-1"
       >
         {/*
          * `download`를 붙여도 되는 자리다 — 파일 한 건이고 이름을 이미 알고 있다
