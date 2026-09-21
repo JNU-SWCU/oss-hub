@@ -213,40 +213,77 @@ describe('ProgramStaffTeamDetailPage', () => {
   });
 
   /**
-   * 신청서는 이 화면이 직접 그린다 — 별도 상세 화면으로 보내던 「검토하기」 링크가
-   * 사라졌다. 교직원이 팀과 신청을 보려고 두 화면을 오가지 않는다.
+   * 상태는 제목 옆 드롭다운 하나다. 별도 상세로 보내던 「검토하기」와 신청서
+   * 본문·지원 동기는 이 화면에 없다.
    */
-  it('신청이 있으면 신청서와 검토 이력을 이 화면에서 그린다', async () => {
+  it('신청이 있으면 제목 옆에서 상태를 바꾸고 검토 이력을 접어 둔다', async () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
     await render();
 
-    expect(container.textContent).toContain('검토 대기');
-    expect(container.textContent).toContain('신청서');
+    const select = container.querySelector<HTMLSelectElement>(
+      '#team-detail-application-status',
+    );
+    expect(select?.value).toBe('SUBMITTED');
+    expect(select?.getAttribute('data-variant')).toBe('pending');
+    expect(select?.className).toContain('bg-status-pending-bg');
+    expect(
+      container.querySelector(
+        '[data-slot="page-header-actions"] [data-slot="select"]',
+      ),
+    ).toBe(select);
+    expect(
+      container.querySelectorAll('[data-slot="status-badge"]').length,
+    ).toBe(1);
+    expect(
+      container.querySelector('[data-slot="status-badge"]')?.textContent,
+    ).toBe('팀장');
     expect(container.textContent).toContain('검토 이력');
+    expect(container.textContent).not.toContain('신청서');
+    expect(container.textContent).not.toContain('합성 지원 동기');
+    expect(container.textContent).not.toContain('내용 보기');
     const reviewLink = [...container.querySelectorAll('a')].find(
       (a) => a.textContent?.trim() === '검토하기',
     );
     expect(reviewLink).toBeUndefined();
+
+    const historyTrigger = container.querySelector(
+      '[data-slot="collapsible-trigger"]',
+    );
+    expect(historyTrigger).toBeInstanceOf(HTMLButtonElement);
+    expect(historyTrigger?.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('신청서 본문은 접혀 있고 「내용 보기」로 편다', async () => {
+  it('신청서 본문과 지원 동기를 그리지 않는다', async () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
     await render();
 
     expect(container.textContent).not.toContain('합성 지원 동기');
-    const toggle = [...container.querySelectorAll('button')].find(
-      (button) => button.textContent?.trim() === '내용 보기',
-    );
-    await act(async () => toggle?.click());
-
-    expect(container.textContent).toContain('합성 지원 동기');
+    expect(container.textContent).not.toContain('지원 동기');
+    expect(container.textContent).not.toContain('내용 보기');
+    expect(
+      [...container.querySelectorAll('button')].find(
+        (button) => button.textContent?.trim() === '내용 보기',
+      ),
+    ).toBeUndefined();
   });
 
-  it('검토 이력을 서버가 준 순서 그대로 그린다', async () => {
+  it('검토 이력은 접혀 있고 펼치면 서버가 준 순서 그대로 그린다', async () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
     await render();
 
-    const text = container.textContent ?? '';
+    const trigger = container.querySelector<HTMLButtonElement>(
+      '[data-slot="collapsible-trigger"]',
+    );
+    expect(trigger?.textContent).toContain('검토 이력');
+    expect(trigger?.getAttribute('aria-expanded')).toBe('false');
+
+    await act(async () => trigger?.click());
+
+    expect(trigger?.getAttribute('aria-expanded')).toBe('true');
+    const history = container.querySelector(
+      '[data-slot="collapsible-content"]',
+    );
+    const text = history?.textContent ?? '';
     // 서버가 최신순으로 준다 — 화면이 다시 정렬하면 이 순서가 뒤집힌다.
     expect(text.indexOf('반려')).toBeLessThan(text.indexOf('제출'));
   });
@@ -270,17 +307,35 @@ describe('ProgramStaffTeamDetailPage', () => {
     },
   );
 
-  // #1272 — 없는 신청에 배지를 달면 「대기 중인 신청」으로 읽힌다.
-  it('신청이 없으면 상태 배지를 그리지 않고 「검토하기」 링크도 없다', async () => {
+  it('반려는 사유 없이 바로 보내지 않고 확인창을 연다', async () => {
+    getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+    await render();
+
+    const select = container.querySelector<HTMLSelectElement>(
+      '#team-detail-application-status',
+    );
+    await act(async () => {
+      if (select) {
+        select.value = 'REJECTED';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    expect(decideApplicationMock).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="alertdialog"]')).toBeTruthy();
+  });
+
+  // #1272 — 없는 신청에 상태를 달면 「대기 중인 신청」으로 읽힌다.
+  it('신청이 없으면 상태 조작을 그리지 않고 「검토하기」 링크도 없다', async () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withoutApplication);
     await render();
 
-    // 헤더에 남는 것은 수정 아이콘뿐이다 — 상태를 말하는 배지는 없다.
-    // (목록 안의 「팀장」 배지는 같은 컴포넌트라 헤더로 범위를 좀힌다.)
+    // 헤더에 남는 것은 수정 아이콘뿐이다 — 상태를 말하는 조작은 없다.
     expect(
-      container.querySelector(
-        '[data-slot="page-header-actions"] [data-slot="status-badge"]',
-      ),
+      container.querySelector('[data-slot="page-header-actions"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('#team-detail-application-status'),
     ).toBeNull();
     expect(container.textContent).not.toContain('미신청');
     expect(container.textContent).not.toContain('신청 없음');
@@ -445,10 +500,11 @@ describe('ProgramStaffTeamDetailPage', () => {
     });
 
     /**
-     * 수정은 제목을 대상으로 하고 배지는 신청 상태를 말한다 — 가리키는 것이 다르므로
-     * 한 덩어리로 묶지 않는다. 묶으면 연필이 배지를 가리키는 것처럼 읽힌다.
+     * 수정은 제목을 대상으로 하고 상태 조작은 신청을 말한다 — 가리키는 것이
+     * 다르므로 한 덩어리로 묶지 않는다. 묶으면 연필이 상태를 가리키는 것처럼
+     * 읽힌다.
      */
-    it('수정은 제목 옆에, 상태 배지는 우측 액션에 따로 선다', async () => {
+    it('수정은 제목 옆에, 상태 조작은 우측 액션에 따로 선다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       await render();
 
@@ -460,6 +516,9 @@ describe('ProgramStaffTeamDetailPage', () => {
       );
       expect(titleAction?.contains(renameTrigger() ?? null)).toBe(true);
       expect(actions?.contains(renameTrigger() ?? null)).toBe(false);
+      expect(
+        actions?.querySelector('#team-detail-application-status'),
+      ).toBeTruthy();
       expect(actions?.textContent).toContain('검토 대기');
     });
 
