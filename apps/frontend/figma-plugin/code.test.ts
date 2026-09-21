@@ -336,6 +336,11 @@ describe('figma plugin code.js', () => {
         'mode-1'
       ],
     ).toBe(44);
+    // 배지·표 계단은 코드에서 rem(0.75rem·0.875rem)이다 — Figma 에는 px 로 옮겨 적는다
+    const px = (name: string) =>
+      fake.variables.find((v) => v.name === name)?.valuesByMode['mode-1'];
+    expect(px('fontSize/badge')).toBe(12);
+    expect(px('fontSize/table')).toBe(14);
 
     expect(fake.textStyles.map((s) => s.name)).toEqual([
       'text/page',

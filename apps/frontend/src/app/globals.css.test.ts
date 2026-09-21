@@ -301,8 +301,9 @@ describe('globals.css의 시안 v2 치수 토큰', () => {
     expect(declarationValue('--step-section')).toBe('24px');
     expect(declarationValue('--step-body')).toBe('16px');
     expect(declarationValue('--step-small')).toBe('13px');
-    expect(declarationValue('--step-badge')).toBe('12px');
-    expect(declarationValue('--step-table')).toBe('14px');
+    // 배지·표는 rem — 대신한 text-xs·text-sm처럼 브라우저 글자 크기 설정을 따른다
+    expect(declarationValue('--step-badge')).toBe('0.75rem');
+    expect(declarationValue('--step-table')).toBe('0.875rem');
   });
 
   // 조작 가능한 사각형은 전부 같은 높이다. 배지만 예외(읽는 라벨이라 누르지 않는다).
