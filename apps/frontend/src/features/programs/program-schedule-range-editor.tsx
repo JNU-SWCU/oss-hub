@@ -238,8 +238,10 @@ export function ProgramScheduleRangeEditor({
                         </span>
                       </div>
                     ) : (
-                      <button
+                      <Button
                         type="button"
+                        variant="bare"
+                        size="content"
                         aria-pressed={selected}
                         aria-invalid={Boolean(error)}
                         aria-describedby={
@@ -256,7 +258,7 @@ export function ProgramScheduleRangeEditor({
                         <span className="mt-1 block text-xs text-muted-foreground">
                           {rangeSummary(range)}
                         </span>
-                      </button>
+                      </Button>
                     )}
                     <TooltipProvider delayDuration={200}>
                       <RowActions className="mr-3 shrink-0">
@@ -322,9 +324,11 @@ export function ProgramScheduleRangeEditor({
               );
             }
             return (
-              <button
+              <Button
                 key={range.id}
                 type="button"
+                variant="bare"
+                size="content"
                 aria-pressed={selected}
                 data-schedule-range-selector
                 data-invalid={Boolean(range.startError || range.endError)}
@@ -348,7 +352,7 @@ export function ProgramScheduleRangeEditor({
                 <span className="mt-1 block text-xs text-muted-foreground">
                   {rangeSummary(range)}
                 </span>
-              </button>
+              </Button>
             );
           })}
           {simpleLayout ? null : headerAction}
@@ -385,11 +389,13 @@ export function ProgramScheduleRangeEditor({
           {simpleLayout ? null : activeExtra}
           {simpleLayout ? null : (
             <div>
-              <button
+              <Button
                 type="button"
+                variant="link"
+                size="content"
                 aria-expanded={timeControlsVisible}
                 aria-controls={timeControlsId}
-                className="text-small font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="text-small font-semibold focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 onClick={() =>
                   setTimeControlsOpenFor((current) =>
                     current === activeRange.id ? null : activeRange.id,
@@ -397,7 +403,7 @@ export function ProgramScheduleRangeEditor({
                 }
               >
                 시간 변경
-              </button>
+              </Button>
               {timeControlsVisible ? (
                 <RangeTimeFields id={timeControlsId} range={activeRange} />
               ) : null}

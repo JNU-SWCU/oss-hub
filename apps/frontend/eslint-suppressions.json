@@ -140,11 +140,6 @@
       "count": 1
     }
   },
-  "src/features/auth/components/login-button.tsx": {
-    "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
   "src/features/board/components/board-detail-view.tsx": {
     "local/design-class-name-length": {
       "count": 1
@@ -236,11 +231,6 @@
       "count": 1
     }
   },
-  "src/features/programs/milestone-document-collection-view.tsx": {
-    "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
   "src/features/programs/milestone-document-review-panel.tsx": {
     "local/design-class-name-length": {
       "count": 2
@@ -311,17 +301,9 @@
       "count": 1
     }
   },
-  "src/features/programs/program-schedule-range-calendar.tsx": {
-    "local/design-no-raw-button": {
-      "count": 1
-    }
-  },
   "src/features/programs/program-schedule-range-editor.tsx": {
     "local/design-class-name-length": {
-      "count": 2
-    },
-    "local/design-no-raw-button": {
-      "count": 3
+      "count": 1
     }
   },
   "src/features/programs/program-type-modal.test.tsx": {
@@ -366,11 +348,6 @@
   },
   "src/features/roles/components/admin-access-mutation-reject-dialog.tsx": {
     "local/design-class-name-length": {
-      "count": 1
-    }
-  },
-  "src/features/roles/components/admin-access-table.tsx": {
-    "local/design-no-raw-button": {
       "count": 1
     }
   },
