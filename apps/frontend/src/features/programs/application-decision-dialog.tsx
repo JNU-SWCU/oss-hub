@@ -3,6 +3,7 @@
 import { AlertDialog } from 'radix-ui';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import type { ApplicationDecisionAction, ApplicationStatus } from './types';
 
 /**
@@ -108,7 +109,11 @@ export function ApplicationDecisionDialog({
            *   길어지면 버튼에 닿을 방법이 없다(반려 + 입력 오류 + 저장 실패가 겹친 상태가
            *   제일 길다). 형제 창들과 같은 규칙(`submission-dialog`·`program-type-modal`).
            */
-          className="fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl bg-background p-6 shadow-lg outline-none *:min-w-0"
+          className={cn(
+            'fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)]',
+            'max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto',
+            'rounded-xl bg-background p-6 shadow-lg outline-none *:min-w-0',
+          )}
           /*
            * 취소·Escape 로 닫을 때 창을 연 버튼으로 돌려준다. 버튼이 없거나(판정 성공
            * 뒤) `disabled` 면 **아무것도 안 하고** 화면 쪽 복귀에 맡긴다([#767]) —

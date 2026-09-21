@@ -1301,6 +1301,34 @@
 - 검증: `src/lib/utils.test.ts`에 토큰 11쌍의 덮어쓰기와 반대 방향·다른 그룹·글자 크기 계단까지 14개 테스트를 더했다. frontend 단위 373개 파일·3704개 테스트, lint·typecheck·prettier 통과.
 - 주의: 이 설정이 살아나면 실제로 작아지는 자리가 셋 있다(이력 타임라인 버튼, 접근 관리 판정 버튼 2곳, 감사 로그 배지). 이 PR은 도구만 고치고 화면은 그대로 두려고 그 셋의 덮어쓰기를 걷어내고 44px·26px 규격을 지켰다. 줄일지는 #1335에서 화면을 보고 정한다.
 - 경계: 프리미티브 기본값과 44px 규칙은 건드리지 않았다. 이 PR이 병합되면 #1328 A안(버튼 모양이 아닌 다섯 자리를 흡수할 Button 변형)이 기본을 해체하지 않고 변형 하나로 끝난다.
+## 2026-09-21 — 버튼 모양의 날 <button> 여섯 곳을 Button 프리미티브로 바꾼다
+
+- 상태: review
+- Issue: #1328 2단계 (lint 억제 목록 소진, Refs)
+- 내용: 44px 정사각 아이콘 버튼 네 곳(`app-sidebar`·`program-scope-sidebar`의 접기, `sidebar-drawer`의 닫기, `nav-bar`의 서랍 열기)을 `Button variant="ghost" size="icon"`으로 바꾼다.
+  `program-cover`는 누르는 면이 카드 전체라 프리미티브가 맞지 않아 `Dialog.Trigger`가 스스로 `button`을 그리게 하고 `asChild`와 안쪽 `<button>`을 없앴다.
+- 검증: 세 자리(사이드바 접기 1440, 서랍 열기·닫기 390)를 같은 selector로 전후 캡처해 크기·계산 스타일이 같고 픽셀 차이가 0.00%임을 확인했다. frontend 단위 373개 파일·3704개 테스트, lint·typecheck·prettier 통과.
+- 주의: `Button`의 ghost는 `aria-expanded`를 「이 버튼이 연 팝업이 열려 있음」으로 보고 눌린 표면을 입힌다. 사이드바 토글은 그 속성이 영역의 펼침 상태라 처음 변환에서 버튼이 계속 눌린 것처럼 보였다 — 전후 비교가 잡았고 `aria-expanded:bg-transparent`로 껐다.
+- 되돌림: 일정 편집기의 「시간 변경」도 `variant="link"`로 옮겼다가 되돌렸다. `h-auto`가 듣지 않아 글자 버튼이 44px가 된다 — `cn`의 tailwind-merge가 프로젝트 전용 `h-control`을 모르는 이름으로 두어 두 클래스가 모두 남고, 빌드된 CSS에서 `.h-control`(14237)이 `.h-auto`(14217)보다 뒤에 와 이긴다. 같은 함정이 main의 네 자리에도 이미 있다(#1333).
+- 경계: 표 칸·달력 칸·메뉴 줄처럼 버튼 모양이 아닌 다섯 파일(로그인 메뉴, 서류 수합 칸, 달력 날짜, 기간 선택 줄·카드, 접근 관리 정렬 머리)은 그대로 두었다 — 프리미티브를 입히려면 높이·정렬·여백을 네다섯 개 덮어써야 해서 동규와 먼저 정한다.
+## 2026-09-21 — 120자를 넘는 className 리터럴을 cn() 묶음으로 나눈다
+
+- 상태: review
+- Issue: #1328 3단계 (lint 억제 목록 소진, Refs)
+- 내용: design.md R-08a 위반으로 억제돼 있던 `className` 문자열 42파일을 같은 순서의 클래스 묶음(`cn('…', '…')`)으로 나눈다.
+  클래스를 더하거나 빼지 않아 화면은 그대로다. 억제 목록에서 해당 항목을 prune해 `design-class-name-length` 억제가 1파일(`landing-journey.tsx`, 1단계 PR에서 처리)만 남는다.
+- 검증: 바꾼 42파일 모두에서 변경 전후의 클래스 토큰 목록이 속성 단위로 같은지 스크립트로 확인했다(불일치 0). frontend 단위 373개 파일·3704개 테스트, lint·typecheck·prettier 통과.
+- 주의: 학과 선택 대비 테스트가 소스에서 `className="…"`를 정규식으로 읽어 왔다 — `cn(…)` 묶음도 같은 유틸리티 목록으로 읽도록 추출을 넓혔다(판정 기준과 값은 그대로).
+- 경계: 날 `<button>`(2단계)은 별도 PR. 억제 파일은 손으로 고치지 않고 `lint:prune`으로만 줄였다.
+## 2026-09-21 — 차트 선과 랜딩 범례의 hex 색을 semantic 토큰으로 바꾼다
+
+- 상태: review
+- Issue: #1328 1단계 (lint 억제 목록 소진, Refs)
+- 내용: `activity-chart.tsx`의 선 4색(`#003399`·`#00923f`·`#d97706`·`#444444`)을 `--chart-1`·`--chart-2`·`--chart-3`·`--foreground`로, `landing-journey.tsx` 범례 점 3색(`#9db9f0`·`#5cc687`·`#fff`)을 `--cosmos-student`·`--cosmos-repository`·`--cosmos-copy`로 바꾼다. 같은 파일의 120자 className 1건은 `cn()` 묶음으로 나눈다.
+  억제 목록에서 두 파일 항목을 prune했다(화면 코드의 hex 억제 0).
+- 검증: frontend 단위 테스트 전체·lint·typecheck 통과. 격리 스택에서 학생 활동 차트와 랜딩 범례를 같은 selector로 전후 캡처하고 선 stroke·점 배경의 계산값을 기록했다.
+- 주의: 두 색은 팔레트 값으로 바뀐다 — Release 선 `#d97706` → amber-500 `#e0a030`, 범례 학생 점 `#9db9f0` → navy-200 `#adc1eb`(캔버스의 학생 점과 같은 토큰). 합계 선은 다크 모드에서 글자색을 따라간다.
+- 경계: 날 button(2단계)·긴 className(3단계)은 별도 PR. 테스트 파일의 hex 억제는 그대로다.
 ## 2026-09-21 — 한글 본문 폰트를 Pretendard 로 self-host
 
 - 상태: review

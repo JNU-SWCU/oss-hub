@@ -159,7 +159,20 @@ function readDepartmentSelectClassName(): string {
       'profile-affiliation-fields.tsx에서 <Select>를 찾지 못했습니다',
     );
   }
-  const match = /className="([^"]+)"/.exec(screenSource.slice(start));
+  const rest = screenSource.slice(start);
+  // 클래스 목록은 한 줄 문자열이거나 `cn('…', '…')` 묶음이다(R-08a로 120자에서 나눈다).
+  // 어느 쪽이든 유틸리티 목록 자체는 같으므로 공백 하나로 이어 붙여 같은 값을 만든다.
+  const grouped = /className=\{cn\(([\s\S]*?)\)\}/.exec(rest);
+  if (grouped) {
+    const parts = [...grouped[1]!.matchAll(/'([^']+)'/g)].map(
+      (part) => part[1]!,
+    );
+    if (parts.length === 0) {
+      throw new Error('학과 <Select>의 className 묶음이 비어 있습니다');
+    }
+    return parts.join(' ');
+  }
+  const match = /className="([^"]+)"/.exec(rest);
   if (!match) {
     throw new Error('학과 <Select>의 className을 찾지 못했습니다');
   }
