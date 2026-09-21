@@ -93,8 +93,15 @@ function findRetry(node: ReactNode): (() => void) | undefined {
   if (!node || typeof node !== 'object' || !('props' in node)) return undefined;
   const element = node as ReactElement<{
     onClick?: () => void;
+    onRetry?: () => void;
     children?: ReactNode;
   }>;
+  /*
+   * 재시도는 공용 FailureState 가 그리므로 여기서는 버튼이 아니라 그 컴포넌트가
+   * 받은 onRetry 가 보인다. 둘 다 본다 — 이 테스트가 고정하려는 것은 「눌렀을 때
+   * 전달한 handler 가 불린다」이지 어느 태그가 그것을 들고 있느냐가 아니다.
+   */
+  if (element.props.onRetry) return element.props.onRetry;
   if (element.props.onClick) return element.props.onClick;
   const children = element.props.children;
   const values = Array.isArray(children) ? children : [children];
