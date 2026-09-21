@@ -74,7 +74,8 @@ async function render(
 }
 
 function button(text: string, dialog = false): HTMLButtonElement {
-  const scope = dialog ? host.querySelector('[role="alertdialog"]') : host;
+  // 공용 창 껍데기는 body 로 포털한다 — 호스트 안이 아니라 문서에서 찾는다.
+  const scope = dialog ? document.querySelector('[role="alertdialog"]') : host;
   const found = Array.from(scope?.querySelectorAll('button') ?? []).find(
     (item) => item.textContent === text,
   );
@@ -94,7 +95,7 @@ function deferred() {
 }
 
 function dialog(): Element | null {
-  return host.querySelector('[role="alertdialog"]');
+  return document.querySelector('[role="alertdialog"]');
 }
 
 function apiError(code: string, detail: string): ApiError {
@@ -116,7 +117,7 @@ describe('ApplicationTeamDeparture', () => {
     expect(host.textContent).toContain('보낸 초대도 함께 취소');
     await act(async () => button('팀 삭제').click());
     expect(leaveMyTeam).not.toHaveBeenCalled();
-    expect(host.querySelector('[role="alertdialog"]')).not.toBeNull();
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
     await act(async () => button('팀 삭제', true).click());
     expect(leaveMyTeam).toHaveBeenCalledExactlyOnceWith('program-1');
     expect(onDeparted).toHaveBeenCalledOnce();
@@ -182,7 +183,8 @@ describe('ApplicationTeamDeparture', () => {
     await act(async () => button('팀 삭제', true).click());
     // 공유 문구(`mapTeamError`)가 이 코드의 실제 원인을 말한다 — 「잠시 후 다시
     // 시도해 주세요」 같은 일반 실패로 뭉개지 않는다.
-    expect(host.textContent).toContain(
+    // 실패 문구는 창 안에 선다. 창은 body 로 포털되므로 문서에서 읽는다.
+    expect(document.body.textContent).toContain(
       '신청 기록을 보존하기 위해 마지막 팀원은 탈퇴할 수 없습니다.',
     );
     expect(host.textContent).not.toContain('잠시 후 다시 시도해 주세요');
@@ -196,7 +198,9 @@ describe('ApplicationTeamDeparture', () => {
     await render();
     await act(async () => button('팀 삭제').click());
     await act(async () => button('팀 삭제', true).click());
-    expect(host.textContent).toContain('알 수 없는 이유로 거절되었습니다.');
+    expect(document.body.textContent).toContain(
+      '알 수 없는 이유로 거절되었습니다.',
+    );
     expect(onDeparted).not.toHaveBeenCalled();
   });
 
@@ -208,7 +212,7 @@ describe('ApplicationTeamDeparture', () => {
     await act(async () => button('팀 탈퇴').click());
     await act(async () => button('팀 탈퇴', true).click());
     expect(onDeparted).not.toHaveBeenCalled();
-    expect(host.textContent).toContain('다시 시도해 주세요');
+    expect(document.body.textContent).toContain('다시 시도해 주세요');
     await act(async () => button('팀 탈퇴', true).click());
     expect(onDeparted).toHaveBeenCalledOnce();
   });

@@ -50,6 +50,20 @@ describe('DialogShell', () => {
     return { dialog, button, onCancel, onSave };
   }
 
+  it('기본은 dialog 역할을 지키고 alert 는 alertdialog 가 된다', async () => {
+    /*
+     * Radix 는 자기 `role: 'dialog'` 뒤에 전달 props 를 펼친다. 껍데기가
+     * `role={undefined}` 를 넘기면 기본 역할이 지워져 앱의 모든 창이 역할을
+     * 잃는다 — 이 테스트가 그것을 막는다.
+     */
+    await render();
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+
+    await render({ kind: 'alert' });
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+  });
+
   it('제목·설명·본문·취소/저장 줄을 한 창에 그린다', async () => {
     const { dialog, button, onCancel, onSave } = await render();
 

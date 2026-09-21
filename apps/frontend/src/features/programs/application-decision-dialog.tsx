@@ -1,8 +1,9 @@
 'use client';
 
-import { AlertDialog } from 'radix-ui';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { DialogDescription } from '@/components/ui/dialog';
+import { DialogShell } from '@/components';
 import type { ApplicationDecisionAction, ApplicationStatus } from './types';
 
 /**
@@ -14,14 +15,20 @@ import type { ApplicationDecisionAction, ApplicationStatus } from './types';
  * 목록은 판정 뒤 페이지를 다시 읽고 상세는 그 한 건을 다시 읽어야 해서, 성공 후에
  * 할 일이 서로 다르기 때문이다.
  *
- * `AlertDialog`를 쓴다(`Dialog`가 아니다) — 되돌릴 수 없는 판정이고 사유를 쳐 넣은
- * 상태라, 바깥을 잘못 눌러 창이 닫히면 적던 글이 사라진다. 손으로 만들었던 옛 창도
- * 바깥 클릭으로 닫히지 않았으므로 동작이 바뀌지 않는다([#734]).
+ * 껍데기는 공용 `DialogShell`의 `kind="alert"`다(R-06). 되돌릴 수 없는 판정이고 사유를
+ * 쳐 넣은 상태라, 바깥을 잘못 눌러 창이 닫히면 적던 글이 사라진다 — `alert`가 바깥
+ * 클릭을 막는다. 손으로 만들었던 옛 창도 바깥 클릭으로 닫히지 않았으므로 동작이
+ * 바뀌지 않는다([#734]). 오버레이·초점 가두기·`busy` 동안 닫기 차단·`Portal`은 전부
+ * 껍데기가 쥔다 — 창이 페이지 DOM 안에 있으면 **창이 열린 뒤에** 삽입되는 형제(예:
+ * 화면 위쪽 알림)가 `aria-hidden` 밖에 남아 읽어 주는 도구가 창 뒤 경고를 함께
+ * 훑는다([#734] 리뷰가 실측). 그래서 두 화면의 테스트도 렌더 컨테이너가 아니라
+ * `document` 기준으로 창 내용을 찾는다.
  *
- * ⚠ `Portal`을 쓴다 — 창이 페이지 DOM 안에 있으면 **창이 열린 뒤에** 삽입되는 형제
- * (예: 화면 위쪽 알림)가 Radix가 걸어 둔 `aria-hidden` 밖에 남아, 읽어 주는 도구가
- * 창 뒤 경고를 함께 훑는다([#734] 리뷰가 실측). 그래서 두 화면의 테스트도 렌더
- * 컨테이너가 아니라 `document` 기준으로 창 내용을 찾는다.
+ * ⚠ 설명은 껍데기의 `description` 대신 본문 안의 `DialogDescription`으로 둔다 —
+ *   `description`은 제목 바로 아래에 붙는데, 이 창의 첫 블록은 **판정 대상 요약**이어야
+ *   하고(#869) 반려 쪽 설명은 테두리 상자에 `data-testid`까지 달고 있다. 자리와 모양이
+ *   함께 바뀌므로 옮기지 않는다. 창의 `aria-describedby`는 같은 Radix 문맥을 쓰는
+ *   `DialogDescription`이 그대로 이어 준다.
  */
 export function ApplicationDecisionDialog({
   action,
@@ -81,189 +88,170 @@ export function ApplicationDecisionDialog({
   readonly onConfirm: () => void;
 }) {
   const isReject = action === 'REJECT';
+  /**
+   * 껍데기는 ref 로 복귀 자리를 받는데 이 창은 id 만 안다. **닫히는 순간에** 찾는다 —
+   * 판정이 저장돼 그 버튼이 사라진 뒤라면 `null` 이 되고, 껍데기는 아무것도 안 한 채
+   * 화면 쪽 복귀에 자리를 내준다([#767]). 렌더 시점에 미리 찾아 두면 그때 이미 사라진
+   * 버튼을 쥐고 있다가 화면이 옮겨 둔 포커스를 덮는다.
+   */
+  const returnFocusRef = {
+    get current(): HTMLElement | null {
+      return document.getElementById(returnFocusId);
+    },
+  };
+
   return (
-    <AlertDialog.Root
-      open
+    <DialogShell
+      kind="alert"
+      title={isReject ? '신청 반려' : '신청 승인'}
+      // 옛 창의 폭(`max-w-md`)을 그대로 쓴다 — 껍데기 기본값(`md` = `max-w-xl`)보다 좁다.
+      className="max-w-md"
+      // 긴 신청자 이름·팀 이름이 본문을 밀어내지 않게 한다(옛 창의 `*:min-w-0` 자리).
+      bodyClassName="*:min-w-0"
       /*
-       * 닫힘을 여기 한 곳에서만 판정한다 — Escape·취소 버튼이 모두 이리로 온다.
-       * ⚠ 저장이 날아가는 중(`busy`)에는 닫지 않는다. 닫히면 적어 둔 사유를 잃고
-       *   무엇이 저장됐는지도 알 수 없다.
-       * `onEscapeKeyDown`으로 한 번 더 막지 않는다 — 창이 열려 있는지를 부르는 화면이
-       *   쥐고 있어서 이 가드만으로 충분하고, 변이로 확인했다(빼도 동작이 같았다).
+       * ⚠ 저장이 날아가는 중에는 닫지 않는다(Escape·취소 모두). 닫히면 적어 둔 사유를
+       *   잃고 무엇이 저장됐는지도 알 수 없다.
        */
-      onOpenChange={(open) => {
-        if (!open && !busy) onCancel();
-      }}
+      busy={busy}
+      returnFocusRef={returnFocusRef}
+      onCancel={onCancel}
+      footer={
+        <>
+          {/*
+           * ⚠ 저장 중에도 `disabled` 로 막지 않는다 — 창 안의 조작이 전부 disabled 가 되면
+           *   포커스를 둘 곳이 없어져 포커스가 창 **밖으로** 새고, 그때부터 읽어 주는 도구는
+           *   아무것도 못 읽는다. 실제로 닫는 것은 아래 `busy` 가드가 막는다.
+           *
+           * 옛 창의 `AlertDialog.Cancel` 은 눌리면 스스로 닫았다 — 껍데기 버튼은 안 닫으므로
+           * 그 자리를 여기서 메운다.
+           */}
+          <Button
+            variant="outline"
+            aria-disabled={busy || undefined}
+            onClick={() => {
+              if (!busy) onCancel();
+            }}
+          >
+            취소
+          </Button>
+          {/*
+           * 확정은 눌러도 창을 닫지 않는다 — 저장이 실패했을 때 적어 둔 사유가 함께
+           * 사라지면 안 된다. 닫는 것은 성공을 아는 화면 쪽이다.
+           */}
+          <Button disabled={busy} onClick={onConfirm}>
+            {busy ? '처리 중…' : isReject ? '반려 확정' : '승인 확정'}
+          </Button>
+        </>
+      }
     >
       {/*
-       * ⚠ `Portal` 을 쓴다 — 창이 페이지 DOM 안에 있으면, **창이 열린 뒤에** 삽입되는
-       *   형제(예: 화면 위쪽 알림)가 Radix 가 걸어 둔 `aria-hidden` 밖에 남는다.
-       *   그러면 읽어 주는 도구가 창 뒤 경고를 함께 훑는다. 형제 창들과 같은 규칙.
+       * 판정 대상 요약 — 눈에 띄되 확정 버튼보다 시각적으로 앞서지 않는다(#869).
+       * 그래서 `Alert`가 아니라 옅은 배경의 정보 블록으로, 본문 맨 위(설명·입력
+       * 폼보다 먼저)에 둔다. 내부 id는 애초에 props로 받지 않으므로 노출될 수 없다.
+       *
+       * 값이 아니라 이름-값 쌍인 `<dl>`을 쓴다(`Row`·`admin-access-profile-section`과 같은 규칙).
        */}
-      <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/40" />
-        <AlertDialog.Content
-          /*
-           * ⚠ 창이 스스로 스크롤되어야 한다 — 뒤 화면 스크롤은 잠기므로, 창이 화면보다
-           *   길어지면 버튼에 닿을 방법이 없다(반려 + 입력 오류 + 저장 실패가 겹친 상태가
-           *   제일 길다). 형제 창들과 같은 규칙(`submission-dialog`·`program-type-modal`).
-           */
-          className="fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl bg-background p-6 shadow-lg outline-none *:min-w-0"
-          /*
-           * 취소·Escape 로 닫을 때 창을 연 버튼으로 돌려준다. 버튼이 없거나(판정 성공
-           * 뒤) `disabled` 면 **아무것도 안 하고** 화면 쪽 복귀에 맡긴다([#767]) —
-           * 그때의 새 버튼은 재조회가 끝난 뒤에야 생기고, 이 복귀는 Radix 안의
-           * `setTimeout` 에서 뒤늦게 일어나 순서를 가정할 수 없다.
-           *
-           * `event.preventDefault()` 를 부르지 않는다 — Radix 의 modal `Dialog.Content`
-           * 가 이미 **언제나** 막고 자기 `Trigger` 로만 돌려주는데, 이 창은 화면이 직접
-           * 마운트해 `Trigger` 가 없다. 변이로 죽은 코드임을 확인했다.
-           */
-          onCloseAutoFocus={() => {
-            document.getElementById(returnFocusId)?.focus();
-          }}
-        >
-          <AlertDialog.Title asChild>
-            <h2 className="text-lg font-semibold">
-              {isReject ? '신청 반려' : '신청 승인'}
-            </h2>
-          </AlertDialog.Title>
-          {/*
-           * 판정 대상 요약 — 눈에 띄되 확정 버튼보다 시각적으로 앞서지 않는다(#869).
-           * 그래서 `Alert`가 아니라 옅은 배경의 정보 블록으로, 본문 맨 위(설명·입력
-           * 폼보다 먼저)에 둔다. 내부 id는 애초에 props로 받지 않으므로 노출될 수 없다.
-           *
-           * 값이 아니라 이름-값 쌍인 `<dl>`을 쓴다(`Row`·`admin-access-profile-section`과 같은 규칙).
-           */}
-          <dl
-            id="application-decision-summary"
-            className="grid gap-2 rounded-md border border-border bg-muted/40 p-3 text-small"
-          >
-            <div className="grid gap-0.5">
-              <dt className="text-muted-foreground">신청자</dt>
-              <dd className="break-keep font-medium text-foreground [overflow-wrap:anywhere]">
-                {applicantName}
-              </dd>
-            </div>
-            {teamName !== null ? (
-              <div className="grid gap-0.5">
-                <dt className="text-muted-foreground">팀</dt>
-                <dd className="break-keep text-muted-foreground [overflow-wrap:anywhere]">
-                  {teamName}
-                </dd>
-              </div>
-            ) : null}
-          </dl>
-          {!isReject ? (
-            <AlertDialog.Description asChild>
-              <p className="break-keep">
-                {/*
-                 * 반려된 신청을 승인으로 바꾸는 경우는 「처음 승인」과 결과가 다르다 —
-                 * 지금 화면 위에 그려 있는 반려 사유가 **지워진다**. 눌러 놓고 사유가
-                 * 사라졌다는 것을 뒤에 알게 되면 교직원은 자기가 무엇을 눌렀는지 모른다.
-                 */}
-                {currentStatus === 'REJECTED'
-                  ? '이미 반려한 신청입니다. 판정을 승인으로 바꾸면 지금 남아 있는 반려 사유는 지워집니다. '
-                  : ''}
-                승인하면 이 신청이 프로그램 참여로 확정됩니다.
-              </p>
-            </AlertDialog.Description>
-          ) : (
-            <>
-              {/*
-               * 반려는 학생이 스스로 다시 낼 수 없고, 교직원이 다시 승인할 수 있다.
-               * 확정 전에 둘 다 말한다 — 사유 입력칸의 이름이 되면
-               * 안 되므로 창의 설명으로 둔다([#1250]).
-               */}
-              <AlertDialog.Description
-                data-testid="application-decision-reject-consequence"
-                className="rounded-md border border-border bg-muted/40 p-3 text-small break-keep text-pretty"
-              >
-                반려하면 신청자가 신청서를 고쳐 다시 낼 수 있고, 다시 내면 검토
-                대기로 돌아옵니다. 교직원이 나중에 이 신청을 바로 승인할 수도
-                있습니다.
-              </AlertDialog.Description>
-              {/*
-               * 라벨·오류·안내를 `<label>` **바깥**에 둔다. `<label>`이 감싸면 그 안의
-               * 글자가 전부 입력칸의 이름이 되어, 스크린리더가 "반려 사유 반려 사유를
-               * 입력해 주세요 적은 사유는 학생에게…"를 이름으로 읽는다. 오류가 이름
-               * 안에 묻히면 무엇이 라벨이고 무엇이 오류인지 갈리지 않는다.
-               */}
-              <div className="grid gap-2 text-sm">
-                {/*
-                 * 승인된 신청을 반려로 바꾸는 경우만 말한다. 「검토 대기로 되돌린다」가
-                 * 아니라 **판정이 반려로 바뀐다** — 중간 상태를 거치는 것처럼 말하면
-                 * 학생이 반려를 보는 시점을 교직원이 잘못 잡는다.
-                 */}
-                {currentStatus === 'APPROVED' ? (
-                  <p className="break-keep">
-                    이미 승인한 신청입니다. 확정하면 검토 대기를 거치지 않고
-                    곧바로 반려로 바뀝니다.
-                  </p>
-                ) : null}
-                <label htmlFor="rejection-reason">반려 사유</label>
-                <textarea
-                  id="rejection-reason"
-                  className="min-h-28 rounded-md border border-input bg-background p-3"
-                  value={reason}
-                  disabled={busy}
-                  onChange={(event) => onReasonChange(event.target.value)}
-                  aria-invalid={reasonError}
-                  aria-describedby={
-                    reasonError ? 'reason-error reason-hint' : 'reason-hint'
-                  }
-                />
-                {reasonError ? (
-                  <span
-                    id="reason-error"
-                    role="alert"
-                    className="text-destructive"
-                  >
-                    반려 사유를 입력해 주세요.
-                  </span>
-                ) : null}
-                {/*
-                 * 사유가 학생에게 간다는 사실을 **누르기 전에** 말한다(서류 판정 패널과
-                 * 같은 규칙). 이 고지가 없으면 교직원은 내부 메모처럼 적는다.
-                 */}
-                <span
-                  id="reason-hint"
-                  className="text-muted-foreground break-keep"
-                >
-                  적은 사유는 학생에게 그대로 보입니다.
-                </span>
-              </div>
-            </>
-          )}
-          {errorMessage !== null ? (
-            <Alert variant="destructive">
-              <AlertTitle>저장하지 못했습니다</AlertTitle>
-              <AlertDescription className="[word-break:keep-all]">
-                {errorMessage}
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          <div className="flex justify-end gap-2">
-            {/*
-             * ⚠ 저장 중에도 `disabled` 로 막지 않는다 — 창 안의 조작이 전부 disabled 가 되면
-             *   포커스를 둘 곳이 없어져 포커스가 창 **밖으로** 새고, 그때부터 읽어 주는 도구는
-             *   아무것도 못 읽는다. 실제로 닫는 것은 `onOpenChange` 의 `busy` 가드가 막는다.
-             */}
-            <AlertDialog.Cancel asChild>
-              <Button variant="outline" aria-disabled={busy || undefined}>
-                취소
-              </Button>
-            </AlertDialog.Cancel>
-            {/*
-             * `AlertDialog.Action`을 쓰지 않는다 — 누르는 순간 창을 닫아 버려서,
-             * 저장이 실패했을 때 적어 둔 사유가 함께 사라진다.
-             */}
-            <Button disabled={busy} onClick={onConfirm}>
-              {busy ? '처리 중…' : isReject ? '반려 확정' : '승인 확정'}
-            </Button>
+      <dl
+        id="application-decision-summary"
+        className="grid gap-2 rounded-md border border-border bg-muted/40 p-3 text-small"
+      >
+        <div className="grid gap-0.5">
+          <dt className="text-muted-foreground">신청자</dt>
+          <dd className="break-keep font-medium text-foreground [overflow-wrap:anywhere]">
+            {applicantName}
+          </dd>
+        </div>
+        {teamName !== null ? (
+          <div className="grid gap-0.5">
+            <dt className="text-muted-foreground">팀</dt>
+            <dd className="break-keep text-muted-foreground [overflow-wrap:anywhere]">
+              {teamName}
+            </dd>
           </div>
-        </AlertDialog.Content>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
+        ) : null}
+      </dl>
+      {!isReject ? (
+        // `text-body text-foreground` 는 옛 `<p className="break-keep">` 가 물려받던 크기·색이다
+        // — `DialogDescription` 기본값(작고 흐린 글씨)으로 떨어지지 않게 고정한다.
+        <DialogDescription className="text-body text-foreground break-keep">
+          {/*
+           * 반려된 신청을 승인으로 바꾸는 경우는 「처음 승인」과 결과가 다르다 —
+           * 지금 화면 위에 그려 있는 반려 사유가 **지워진다**. 눌러 놓고 사유가
+           * 사라졌다는 것을 뒤에 알게 되면 교직원은 자기가 무엇을 눌렀는지 모른다.
+           */}
+          {currentStatus === 'REJECTED'
+            ? '이미 반려한 신청입니다. 판정을 승인으로 바꾸면 지금 남아 있는 반려 사유는 지워집니다. '
+            : ''}
+          승인하면 이 신청이 프로그램 참여로 확정됩니다.
+        </DialogDescription>
+      ) : (
+        <>
+          {/*
+           * 반려는 학생이 스스로 다시 낼 수 없고, 교직원이 다시 승인할 수 있다.
+           * 확정 전에 둘 다 말한다 — 사유 입력칸의 이름이 되면
+           * 안 되므로 창의 설명으로 둔다([#1250]).
+           */}
+          <DialogDescription
+            data-testid="application-decision-reject-consequence"
+            className="rounded-md border border-border bg-muted/40 p-3 text-small text-foreground break-keep text-pretty"
+          >
+            반려하면 신청자가 신청서를 고쳐 다시 낼 수 있고, 다시 내면 검토
+            대기로 돌아옵니다. 교직원이 나중에 이 신청을 바로 승인할 수도
+            있습니다.
+          </DialogDescription>
+          {/*
+           * 라벨·오류·안내를 `<label>` **바깥**에 둔다. `<label>`이 감싸면 그 안의
+           * 글자가 전부 입력칸의 이름이 되어, 스크린리더가 "반려 사유 반려 사유를
+           * 입력해 주세요 적은 사유는 학생에게…"를 이름으로 읽는다. 오류가 이름
+           * 안에 묻히면 무엇이 라벨이고 무엇이 오류인지 갈리지 않는다.
+           */}
+          <div className="grid gap-2 text-sm">
+            {/*
+             * 승인된 신청을 반려로 바꾸는 경우만 말한다. 「검토 대기로 되돌린다」가
+             * 아니라 **판정이 반려로 바뀐다** — 중간 상태를 거치는 것처럼 말하면
+             * 학생이 반려를 보는 시점을 교직원이 잘못 잡는다.
+             */}
+            {currentStatus === 'APPROVED' ? (
+              <p className="break-keep">
+                이미 승인한 신청입니다. 확정하면 검토 대기를 거치지 않고 곧바로
+                반려로 바뀝니다.
+              </p>
+            ) : null}
+            <label htmlFor="rejection-reason">반려 사유</label>
+            <textarea
+              id="rejection-reason"
+              className="min-h-28 rounded-md border border-input bg-background p-3"
+              value={reason}
+              disabled={busy}
+              onChange={(event) => onReasonChange(event.target.value)}
+              aria-invalid={reasonError}
+              aria-describedby={
+                reasonError ? 'reason-error reason-hint' : 'reason-hint'
+              }
+            />
+            {reasonError ? (
+              <span id="reason-error" role="alert" className="text-destructive">
+                반려 사유를 입력해 주세요.
+              </span>
+            ) : null}
+            {/*
+             * 사유가 학생에게 간다는 사실을 **누르기 전에** 말한다(서류 판정 패널과
+             * 같은 규칙). 이 고지가 없으면 교직원은 내부 메모처럼 적는다.
+             */}
+            <span id="reason-hint" className="text-muted-foreground break-keep">
+              적은 사유는 학생에게 그대로 보입니다.
+            </span>
+          </div>
+        </>
+      )}
+      {errorMessage !== null ? (
+        <Alert variant="destructive">
+          <AlertTitle>저장하지 못했습니다</AlertTitle>
+          <AlertDescription className="[word-break:keep-all]">
+            {errorMessage}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+    </DialogShell>
   );
 }

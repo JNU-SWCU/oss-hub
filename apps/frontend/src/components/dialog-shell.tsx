@@ -19,6 +19,11 @@ import { cn } from '@/lib/utils';
  * 바닥 줄은 둘 중 하나다. 저장 창은 `onSave`를 주면 「취소 · 저장」이 붙고, 저장이라는
  * 개념이 없는 창(예: 초대 검색)은 `footer`로 자기 버튼 줄을 직접 준다.
  * 아무 일도 하지 않는 `onSave`를 넘겨 저장 버튼을 숨기는 편법을 막는다.
+ *
+ * `kind="alert"`는 되돌릴 수 없는 일을 확인받는 창이다. 낭독기에 `alertdialog`로
+ * 알리고 바깥 클릭으로 닫히지 않게 한다 — 실수로 흘려보내면 안 되는 질문이라
+ * 명시적으로 답하게 한다. Radix `AlertDialog`로 갈아타지 않고 역할과 닫기 규칙만
+ * 바꾼다. 두 벌을 유지하면 초점 복귀·저장 중 닫기 차단 같은 규칙이 곧 갈라진다.
  */
 interface DialogShellBaseProps {
   readonly title: string;
@@ -26,6 +31,12 @@ interface DialogShellBaseProps {
   readonly children: React.ReactNode;
   /** md = 최대 폭 xl, lg = 최대 폭 2xl. 폭 외의 시각은 같다. */
   readonly size?: 'md' | 'lg';
+  /**
+   * `alert`는 되돌릴 수 없는 일을 확인받는 창이다. `role="alertdialog"`가 되고
+   * 바깥 클릭으로 닫히지 않는다. Escape 와 취소는 그대로 닫는다 — 빠져나갈
+   * 길까지 막으면 갇힌다.
+   */
+  readonly kind?: 'dialog' | 'alert';
   readonly className?: string;
   readonly bodyClassName?: string;
   /**
@@ -68,6 +79,7 @@ function DialogShell(props: DialogShellProps) {
     description,
     children,
     size = 'md',
+    kind = 'dialog',
     className,
     bodyClassName,
     busy = false,
@@ -92,7 +104,18 @@ function DialogShell(props: DialogShellProps) {
       <DialogContent
         data-slot="dialog-shell"
         data-size={size}
+        data-kind={kind}
+        /*
+         * `role`을 조건부로만 편다. Radix 는 자기 `role: 'dialog'` **뒤에**
+         * contentProps 를 펼치므로(react-dialog dist/index.mjs:222-227),
+         * `role={undefined}` 를 넘기면 기본 역할이 지워진다.
+         */
+        {...(kind === 'alert' ? { role: 'alertdialog' as const } : {})}
         showCloseButton={false}
+        onPointerDownOutside={(event) => {
+          // 되돌릴 수 없는 질문은 바깥을 잘못 눌러 사라지지 않는다.
+          if (kind === 'alert') event.preventDefault();
+        }}
         // 오버레이는 기존 창들과 같은 어두운 반투명이다(동규 결정, 2026-09-19). 흐림은 쓰지 않는다.
         overlayClassName="bg-foreground/35 backdrop-blur-none"
         className={cn(
