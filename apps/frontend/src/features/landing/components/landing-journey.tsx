@@ -2,6 +2,7 @@
 
 import { CircleAlert } from 'lucide-react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -283,7 +284,10 @@ export function LandingJourney({
           ) : notice ? (
             <div
               role="status"
-              className="mt-6 max-w-xl rounded-lg border border-cosmos-border bg-cosmos-muted/10 px-4 py-3 text-sm leading-relaxed text-cosmos-muted"
+              className={cn(
+                'mt-6 max-w-xl rounded-lg border border-cosmos-border bg-cosmos-muted/10',
+                'px-4 py-3 text-sm leading-relaxed text-cosmos-muted',
+              )}
             >
               {notice}
             </div>
@@ -398,11 +402,23 @@ export function LandingJourney({
 
         <div className={styles.legend} aria-hidden="true">
           <span>
-            <i style={{ width: 8, height: 8, background: '#9db9f0' }} />
+            <i
+              style={{
+                width: 8,
+                height: 8,
+                background: 'var(--cosmos-student)',
+              }}
+            />
             학생
           </span>
           <span>
-            <i style={{ width: 6, height: 6, background: '#5cc687' }} />
+            <i
+              style={{
+                width: 6,
+                height: 6,
+                background: 'var(--cosmos-repository)',
+              }}
+            />
             저장소
           </span>
           <span>
@@ -410,7 +426,7 @@ export function LandingJourney({
               style={{
                 width: 10,
                 height: 10,
-                background: '#fff',
+                background: 'var(--cosmos-copy)',
                 boxShadow: '0 0 8px rgba(255,255,255,.9)',
               }}
             />
