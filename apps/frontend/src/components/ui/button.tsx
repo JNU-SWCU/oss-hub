@@ -9,9 +9,14 @@ import { cn } from '@/lib/utils';
  * size 변형은 높이를 바꾸지 않는다. 좌우 여백과 글자 크기만 달라진다 —
  * 높이가 갈리는 순간 한 줄에 놓인 버튼·입력·선택의 밑선이 어긋나고,
  * 44px 아래로 내려가면 터치 타깃 최소치도 함께 깨지기 때문이다.
+ *
+ * 손 모양 커서를 기본에 둔다. Tailwind v4 preflight 는 `button` 에 `cursor: pointer`
+ * 를 넣지 않고 이 저장소도 어디서도 선언하지 않아, **진짜 버튼이 전부 화살표 커서**
+ * 였다. 반대로 링크·클릭 가능한 표 줄에는 손 모양이 떠서 신호가 뒤집혀 있었다.
+ * `disabled:pointer-events-none` 이 이미 있어 비활성 버튼에는 커서가 걸리지 않는다.
  */
 const buttonVariants = cva(
-  "group/button inline-flex h-control shrink-0 items-center justify-center rounded-control border border-transparent bg-clip-padding font-semibold whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex h-control shrink-0 cursor-pointer items-center justify-center rounded-control border border-transparent bg-clip-padding font-semibold whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
