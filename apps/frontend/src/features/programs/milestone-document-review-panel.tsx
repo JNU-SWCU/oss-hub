@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import type {
   MilestoneDocumentCollectionCell,
   MilestoneDocumentCollectionContent,
@@ -86,7 +87,11 @@ function SubmittedText({ text }: { readonly text: string }): ReactElement {
         tabIndex={0}
         role="region"
         aria-label="제출한 글"
-        className="max-h-80 overflow-y-auto rounded-card border border-border bg-card p-card text-small leading-6 break-words whitespace-pre-wrap outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        className={cn(
+          'max-h-80 overflow-y-auto rounded-card border border-border bg-card p-card',
+          'text-small leading-6 break-words whitespace-pre-wrap outline-none',
+          'focus-visible:ring-3 focus-visible:ring-ring/50',
+        )}
       >
         {text}
       </div>
@@ -317,7 +322,12 @@ export function MilestoneDocumentReviewPanel(
           disabled={props.isSubmitting}
           aria-describedby={`${commentId}-description`}
           onChange={(event) => props.onCommentChange(event.target.value)}
-          className="min-h-28 w-full resize-y rounded-lg border border-input bg-transparent p-3 text-sm leading-6 transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+          className={cn(
+            'min-h-28 w-full resize-y rounded-lg border border-input bg-transparent p-3',
+            'text-sm leading-6 transition-colors outline-none',
+            'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+          )}
         />
         <FieldDescription id={`${commentId}-description`}>
           학생에게 그대로 보입니다 · 최대 2,000자

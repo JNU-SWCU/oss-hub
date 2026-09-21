@@ -7,6 +7,7 @@ import {
   SUBMISSION_STATUS_BADGE,
   SUBMISSION_STATUS_LABELS,
 } from '@/lib/status-vocabulary';
+import { cn } from '@/lib/utils';
 import {
   checklistItemStatus,
   hasMilestoneDeadlinePassed,
@@ -70,7 +71,11 @@ export function ChecklistRow({
             href={submissionHref}
             id={triggerId}
             aria-label={`${item.name} 제출 내역 열기`}
-            className="w-fit min-w-0 font-semibold break-keep underline underline-offset-4 focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className={cn(
+              'w-fit min-w-0 font-semibold break-keep underline underline-offset-4',
+              'focus-visible:rounded-sm focus-visible:ring-3 focus-visible:ring-ring/50',
+              'focus-visible:outline-none',
+            )}
             onClick={
               onSelectMilestone
                 ? (event) => {
@@ -131,7 +136,12 @@ export function SubmissionFileLink({
     <a
       href={file.downloadUrl}
       download={file.fileName}
-      className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      className={cn(
+        'inline-flex min-w-0 max-w-full items-center gap-1.5',
+        'rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground',
+        'transition-colors hover:bg-muted hover:text-foreground',
+        'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+      )}
     >
       <FileText
         aria-hidden="true"

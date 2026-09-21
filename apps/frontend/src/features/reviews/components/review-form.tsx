@@ -16,6 +16,7 @@ import {
   FieldLegend,
   FieldSet,
 } from '@/components/ui/field';
+import { cn } from '@/lib/utils';
 
 import type { ReviewDecision } from '../types';
 import type { SubmissionReviewViewProps } from './submission-review-view';
@@ -111,7 +112,13 @@ export function ReviewForm(props: SubmissionReviewViewProps) {
                   : 'review-comment-description'
               }
               onChange={(event) => props.onCommentChange(event.target.value)}
-              className="min-h-28 w-full resize-y rounded-control border border-input bg-transparent p-4 text-body outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
+              className={cn(
+                'min-h-28 w-full resize-y rounded-control border border-input bg-transparent p-4',
+                'text-body outline-none placeholder:text-muted-foreground',
+                'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                'disabled:cursor-not-allowed disabled:opacity-50',
+                'aria-invalid:border-destructive aria-invalid:ring-destructive/20',
+              )}
               placeholder="검토 근거와 필요한 보완 내용을 입력하세요."
             />
             <FieldDescription id="review-comment-description">
