@@ -193,7 +193,8 @@ describe('SubmissionLoading', () => {
   it('모달 로딩은 중첩 main 없이 렌더한다', () => {
     const html = renderToStaticMarkup(<SubmissionLoading />);
 
-    expect(html).toContain('aria-label="제출 정보 불러오는 중"');
+    expect(html).toContain('role="status"');
+    expect(html).toContain('제출 정보 불러오는 중');
     expect(html).not.toContain('<main');
   });
 

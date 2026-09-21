@@ -3,6 +3,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FieldError } from '@/components/ui/field';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import type {
   EditableMilestone,
   EditableProgram,
@@ -83,11 +84,16 @@ interface ProgramEditViewProps {
 export function ProgramEditSkeleton() {
   return (
     <PageBody className={FORM_WIDTH} aria-label="프로그램 편집 불러오는 중">
-      <div className="h-20 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
-      <div className={SECTIONS}>
-        <div className="h-72 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
-        <div className="h-48 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
-      </div>
+      <Skeleton
+        label="프로그램 편집 불러오는 중"
+        className="flex flex-col gap-12"
+      >
+        <SkeletonBlock className="h-20 rounded-card" />
+        <div className={SECTIONS}>
+          <SkeletonBlock className="h-72 rounded-card" />
+          <SkeletonBlock className="h-48 rounded-card" />
+        </div>
+      </Skeleton>
     </PageBody>
   );
 }

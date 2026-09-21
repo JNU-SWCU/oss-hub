@@ -764,7 +764,15 @@ describe('수합 표에서 판정하기', () => {
 
   /** 뼈대(스켈레톤)가 서 있는가 — 표를 걷어 갔다는 뜻이다. */
   function skeleton(): Element | null {
-    return container.querySelector('[aria-label="서류 수합 표를 불러오는 중"]');
+    return container.querySelector('[data-slot="skeleton"]');
+  }
+
+  /** 낭독기에 로딩 이름을 알리는 상태 안내. 뼈대 영역 바깥에 있어야 한다. */
+  function skeletonStatus(): Element | null {
+    const status = container.querySelector('[role="status"]');
+    return status?.textContent?.includes('서류 수합 표를 불러오는 중')
+      ? status
+      : null;
   }
 
   /** 표를 감싼 상자가 「갱신 중」이라고 말하는가. 표 자체가 없으면 `null`. */
@@ -900,7 +908,12 @@ describe('수합 표에서 판정하기', () => {
 
     expect(container.querySelector('table')).toBeNull();
     expect(container.textContent).not.toContain('가팀');
-    expect(skeleton()).not.toBeNull();
+    const loading = skeleton();
+    expect(loading).not.toBeNull();
+    expect(loading?.getAttribute('aria-busy')).toBe('true');
+    const status = skeletonStatus();
+    expect(status).not.toBeNull();
+    expect(status?.closest('[aria-busy]')).toBeNull();
 
     await act(async () => release());
     await settle();
@@ -925,7 +938,12 @@ describe('수합 표에서 판정하기', () => {
 
     expect(container.querySelector('table')).toBeNull();
     expect(container.textContent).not.toContain('가팀');
-    expect(skeleton()).not.toBeNull();
+    const loading = skeleton();
+    expect(loading).not.toBeNull();
+    expect(loading?.getAttribute('aria-busy')).toBe('true');
+    const status = skeletonStatus();
+    expect(status).not.toBeNull();
+    expect(status?.closest('[aria-busy]')).toBeNull();
 
     await act(async () => release());
     await settle();

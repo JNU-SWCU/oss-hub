@@ -14,6 +14,7 @@ import {
 } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -753,19 +754,15 @@ function CollectionBody(
    */
   if (props.loadPhase === 'skeleton') {
     return (
-      <div
-        aria-busy="true"
-        aria-label="서류 수합 표를 불러오는 중"
+      <Skeleton
+        label="서류 수합 표를 불러오는 중"
         className="flex flex-col gap-3 rounded-card border border-border p-card"
       >
-        <span className="bg-muted h-4 w-1/3 animate-pulse rounded" />
+        <SkeletonBlock className="h-4 w-1/3 rounded" />
         {[0, 1, 2, 3].map((row) => (
-          <span
-            key={row}
-            className="bg-muted h-3 w-full animate-pulse rounded"
-          />
+          <SkeletonBlock key={row} className="h-3 w-full rounded" />
         ))}
-      </div>
+      </Skeleton>
     );
   }
   if (props.data === null) return null;

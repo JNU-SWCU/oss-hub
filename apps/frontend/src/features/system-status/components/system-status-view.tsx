@@ -17,6 +17,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatRelativeTime } from '../format-relative-time';
 import type {
@@ -112,19 +113,15 @@ function formatTimestamp(value: string | null) {
 
 function LoadingState() {
   return (
-    <main
-      aria-label="시스템 상태를 불러오는 중"
-      className="mx-auto grid w-full max-w-6xl gap-6 p-5 sm:p-8"
-    >
-      <div className="h-20 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
-      <CardGrid aria-busy="true">
-        {[0, 1, 2].map((index) => (
-          <div
-            key={index}
-            className="h-44 animate-pulse rounded-lg bg-muted motion-reduce:animate-none"
-          />
-        ))}
-      </CardGrid>
+    <main className="mx-auto grid w-full max-w-6xl gap-6 p-5 sm:p-8">
+      <Skeleton label="시스템 상태를 불러오는 중" className="grid gap-6">
+        <SkeletonBlock className="h-20 rounded-lg" />
+        <CardGrid>
+          {[0, 1, 2].map((index) => (
+            <SkeletonBlock key={index} className="h-44 rounded-lg" />
+          ))}
+        </CardGrid>
+      </Skeleton>
     </main>
   );
 }

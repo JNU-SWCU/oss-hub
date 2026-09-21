@@ -6,6 +6,7 @@ import {
 } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { programApplyHref, programOverviewHref } from '@/lib/program-route';
 import {
   checklistSubmittedCount,
@@ -177,12 +178,12 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
 
 export function ChecklistSkeleton() {
   return (
-    <section className="grid gap-4" aria-label="체크리스트 불러오는 중">
-      <div className="h-16 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-28 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-28 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-28 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-    </section>
+    <Skeleton label="체크리스트 불러오는 중" className="grid gap-4">
+      <SkeletonBlock className="h-16 rounded-xl" />
+      <SkeletonBlock className="h-28 rounded-xl" />
+      <SkeletonBlock className="h-28 rounded-xl" />
+      <SkeletonBlock className="h-28 rounded-xl" />
+    </Skeleton>
   );
 }
 

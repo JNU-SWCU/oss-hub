@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ProgramCover } from '@/components';
 import { programCoverSource } from '@/components/program-cover-source';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ArrowRight, CalendarDays } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -66,20 +67,20 @@ export function CurrentProgramSectionView({
         </div>
 
         {state.kind === 'loading' ? (
-          <div
+          <Skeleton
+            label="현재 모집 중인 프로그램을 불러오는 중입니다"
             className="mt-10 divide-y divide-border border-y border-border"
-            aria-busy="true"
           >
             {[0, 1, 2].map((index) => (
               <div
                 key={index}
                 className="grid gap-3 py-5 sm:grid-cols-[1fr_auto]"
               >
-                <span className="h-5 w-3/5 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-                <span className="h-5 w-28 animate-pulse rounded bg-muted motion-reduce:animate-none" />
+                <SkeletonBlock className="h-5 w-3/5 rounded" />
+                <SkeletonBlock className="h-5 w-28 rounded" />
               </div>
             ))}
-          </div>
+          </Skeleton>
         ) : null}
 
         {state.kind === 'error' ? (

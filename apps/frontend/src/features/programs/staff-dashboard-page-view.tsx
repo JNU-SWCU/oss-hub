@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactElement } from 'react';
 import { EmptyState, PageHeader } from '@/components';
 import { Button } from '@/components/ui/button';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { programNewHref } from '@/lib/program-route';
 import { ProgramListPagination } from './program-list-pagination';
 import { StaffDashboardControls } from './staff-dashboard-controls';
@@ -56,13 +57,12 @@ export function StaffDashboardPageView({
 
 function StaffDashboardLoadingState(): ReactElement {
   return (
-    <main
-      className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8"
-      aria-label="운영 대시보드를 불러오는 중"
-    >
-      <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-12 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-64 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
+    <main className="mx-auto w-full max-w-6xl px-4 py-8">
+      <Skeleton label="운영 대시보드를 불러오는 중" className="grid gap-6">
+        <SkeletonBlock className="h-20 rounded-xl" />
+        <SkeletonBlock className="h-12 rounded-xl" />
+        <SkeletonBlock className="h-64 rounded-xl" />
+      </Skeleton>
     </main>
   );
 }

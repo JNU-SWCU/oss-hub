@@ -42,7 +42,7 @@
 | R-06 | 이 문서 | dialog shell PR |
 | R-08a, R-08b, R-38 | 이 문서 | 없음 — lint가 강제한다. 기존 위반은 `apps/frontend/eslint-suppressions.json`이 억제하며 폴더 단위 후속 PR로 줄인다 |
 | R-09, R-10 | 이 문서 | `FailureState`와 화면별 상태 분기 테스트 |
-| R-17 | 이 문서 | Skeleton PR |
+| R-17 | 이 문서 | `Skeleton`과 화면별 loading 테스트 |
 | R-11, R-12 | 이 문서 | Alert kind PR |
 | R-13, R-14 | 이 문서 | notification PR |
 | R-18, R-19, R-22 | 이 문서 | 없음 — 리뷰로 유지 |
@@ -250,7 +250,7 @@ R-08a·R-08b·R-38은 `pnpm --filter frontend lint`가 강제한다. 기존 위�
 ## 상태 시스템
 
 실패 표면은 `components/failure-state.tsx`의 `FailureState`를 사용한다.
-공용 Skeleton은 아직 없으므로 「수용된 부채」에 기록하고 로컬 정의를 새로 늘리지 않는다.
+로딩 표면은 `components/ui/skeleton.tsx`의 `Skeleton`과 공용 배치 컴포넌트를 사용하고 로컬 정의를 새로 늘리지 않는다.
 **R-09** 컬렉션 뷰는 loading · empty · error · ready 네 상태를 상호배타로 렌더하고 네 분기를 테스트로 고정한다.
 **R-10** 재시도 가능한 fetch 실패는 공용 failure surface 하나만 쓰고 retry 액션을 노출하며 `EmptyState`와 bare destructive 텍스트는 error 상태에 금지한다.
 **R-17** loading 표면은 `aria-busy`, 접근 가능한 label, `motion-reduce` 처리를 갖는 공용 Skeleton을 쓰고 feature 로컬 Skeleton을 새로 정의하지 않는다.
@@ -378,7 +378,6 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 | --- | --- | --- | --- |
 | 2026-09-03 | 일부 화면의 fetch 실패가 아직 `EmptyState`로 렌더된다 | R-10 | 공용 `FailureState`로 호출부 이전 |
 | 2026-09-03 | 전역 notification primitive 부재, 로컬 `toastMessage` state 6파일 | R-13 | notification PR |
-| 2026-09-03 | 공용 Skeleton 부재, 로컬 정의 15곳 | R-17 | Skeleton PR |
 | 2026-09-03 | `apps/frontend/src/components/ui/alert.tsx`가 두 variant뿐이고 항상 `role="alert"` | R-11 | Alert kind PR |
 | 2026-09-03 | 정적 heading에 `role="alert"` — `apps/frontend/src/app/_shell/access-denied.tsx` 18-24, `apps/frontend/src/app/_shell/login-required-notice.tsx` 19-25 | R-12 | Alert kind PR |
 | 2026-09-03 | 공용 dialog shell 부재 → 2026-09-18 `DialogShell` 추가(#1296)로 프로그램 작성·편집·팀 창 5곳 이전. 남은 radix 직접 import 11파일(AlertDialog 8·Dialog 3: 프로그램 유형 창·제출 창·접근 관리 오버레이)과 plain `div role="dialog"` 4곳 | R-06 | dialog shell 후속 PR |

@@ -144,9 +144,14 @@ describe('프로필 온보딩 동의 다이얼로그', () => {
     await act(async () => dismiss?.click());
 
     // Then: the required-consent action stays visible with the loading shell.
-    expect(
-      container.querySelector('[aria-label="프로필을 불러오는 중"]'),
-    ).toBeInstanceOf(HTMLElement);
+    const loading = container.querySelector('[data-slot="skeleton"]');
+    expect(loading).toBeInstanceOf(HTMLElement);
+    expect(loading?.getAttribute('aria-busy')).toBe('true');
+
+    const status = container.querySelector('[role="status"]');
+    expect(status).toBeInstanceOf(HTMLElement);
+    expect(status?.textContent).toContain('프로필을 불러오는 중');
+    expect(status?.closest('[aria-busy]')).toBeNull();
     expect(container.textContent).toContain('동의 다이얼로그 닫기 시도');
   });
 });

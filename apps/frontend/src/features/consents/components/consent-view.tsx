@@ -11,6 +11,7 @@ import {
   FieldLegend,
   FieldSet,
 } from '@/components/ui/field';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { ConsentRequiredItem } from '../api';
 import { createConsentRequest, type ConsentFlowState } from '../consent-state';
@@ -243,22 +244,17 @@ export function ConsentStatusCard({ children }: { readonly children: string }) {
 }
 
 export function ConsentPolicySkeleton() {
+  /* 뼈대의 칸 배치는 실제 화면과 같게 둔다 — 다 불러온 뒤 요소가 뛰지 않는다. */
   return (
-    <div
-      aria-busy="true"
-      aria-live="polite"
-      className={cn('flex flex-col gap-6 p-4', consentPanelClassName)}
-      role="status"
+    <Skeleton
+      className={cn('flex flex-col gap-4 p-4', consentPanelClassName)}
+      label="동의 정책을 불러오는 중입니다."
     >
-      <span className="sr-only">동의 정책을 불러오는 중입니다.</span>
-      {/* 뼈대의 칸 배치는 실제 화면과 같게 둔다 — 다 불러온 뒤 요소가 뛰지 않는다. */}
-      <div aria-hidden="true" className="flex animate-pulse flex-col gap-4">
-        <div className="h-4 w-36 rounded bg-muted" />
-        <div className="h-14 rounded-lg bg-muted/60" />
-        <div className="h-14 rounded-lg bg-muted/60" />
-        <div className="h-14 rounded-lg bg-muted/60" />
-        <div className="h-11 w-40 rounded-control bg-muted" />
-      </div>
-    </div>
+      <SkeletonBlock className="h-4 w-36 rounded" />
+      <SkeletonBlock className="h-14 rounded-lg bg-muted/60" />
+      <SkeletonBlock className="h-14 rounded-lg bg-muted/60" />
+      <SkeletonBlock className="h-14 rounded-lg bg-muted/60" />
+      <SkeletonBlock className="h-11 w-40 rounded-control" />
+    </Skeleton>
   );
 }

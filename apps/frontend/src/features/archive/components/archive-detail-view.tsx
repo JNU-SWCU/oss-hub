@@ -11,6 +11,7 @@ import {
 } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { ArchiveNotFoundError, loadArchiveDetail } from '../api';
 import type { ArchiveDetail, ArchiveDetailState } from '../types';
 
@@ -21,12 +22,11 @@ type ArchiveDetailContentProps = {
 
 function LoadingState() {
   return (
-    <main
-      aria-label="공개 프로젝트를 불러오는 중"
-      className="mx-auto grid w-full max-w-6xl gap-6 p-5 sm:p-8"
-    >
-      <div className="h-24 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
-      <div className="h-64 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
+    <main className="mx-auto w-full max-w-6xl p-5 sm:p-8">
+      <Skeleton label="공개 프로젝트를 불러오는 중" className="grid gap-6">
+        <SkeletonBlock className="h-24 rounded-lg" />
+        <SkeletonBlock className="h-64 rounded-lg" />
+      </Skeleton>
     </main>
   );
 }
