@@ -39,10 +39,10 @@
 | --- | --- | --- |
 | R-01, R-02 | `apps/frontend/src/components/AGENTS.md` | 없음 — 리뷰로 유지 |
 | R-04 | 이 문서 | composition API PR |
-| R-06 | 이 문서 | dialog shell PR |
+| R-06 | 이 문서 | 되돌릴 수 없는 일을 묻는 창은 `DialogShell`(`kind="alert"`)로 옮겼다(#1351). 남은 7파일은 트리거로 여는 구조·전체화면 라이트박스·2단 그리드·방향이 바뀌는 패널이라 껍데기가 표현하지 못한다 — 옮기려면 껍데기 설계부터 정해야 한다 |
 | R-08a, R-08b, R-38 | 이 문서 | 없음 — lint가 강제한다. 기존 위반은 `apps/frontend/eslint-suppressions.json`이 억제하며 폴더 단위 후속 PR로 줄인다 |
-| R-09, R-10 | 이 문서 | `FailureState`와 화면별 상태 분기 테스트 |
-| R-17 | 이 문서 | `Skeleton`과 화면별 loading 테스트 |
+| R-09, R-10 | 이 문서 | 없음 — `components/failure-state.tsx`가 공용 표면이고 실패를 `EmptyState`로 그리던 자리를 전부 옮겼다(#1346·#1355). 네 상태 분기를 화면별 테스트로 고정하는 것은 남았다 |
+| R-17 | 이 문서 | 없음 — `components/ui/skeleton.tsx`가 공용 표면이고 화면별 로컬 정의를 전부 걷었다(#1347). `grep -rln "animate-pulse" apps/frontend/src --include='*.tsx'`에서 테스트와 이 프리미티브를 뺀 결과는 실시간 상태 점 하나뿐이어야 한다 |
 | R-11, R-12 | 이 문서 | Alert kind PR |
 | R-13, R-14 | 이 문서 | notification PR |
 | R-18, R-19, R-22 | 이 문서 | 없음 — 리뷰로 유지 |
@@ -52,6 +52,7 @@
 | R-34 | 이 문서 | 없음 — 리뷰로 유지 |
 | R-35, R-36, R-37 | 이 문서 | 없음 — 리뷰로 유지 |
 | R-39 | 이 문서 | 없음 — `grep -rn "font-family" apps/frontend/src` 가 0건이어야 한다 |
+| R-40 | 이 문서 | 없음 — lint를 두지 않는다. `variant="default"`를 세는 방식은 variant를 안 적은 Button을 못 보고, 삼항·early return으로 갈린 배타 분기를 한 줄로 오인해 오탐이 쏟아진다 |
 
 ## 구현 스택
 
@@ -224,6 +225,12 @@ Collapsible을 포함한 파일은 `apps/frontend/src/components/ui/`에 있고,
 **R-25** 새 시각 변형은 `cva` variant를 소유 프리미티브에 추가해 만들고 variant 이름은 의미(kind·size)로 지으며 소비자 쪽 `className` 오버라이드로 변형을 만들지 않는다.
 **R-34** 목록을 거르거나 묶음 안에서 하나를 고르는 눌림 버튼(상태 필터·판정 선택·단계 이동)은 `FilterChipGroup`/`FilterChip`으로 만들고 feature 코드에 `aria-pressed`를 가진 날 `<button>`을 두지 않으며, 눌림 시각은 Button의 `toggle` variant 하나다.
 
+**R-40** 한 화면의 주 행동은 하나 이하다.
+같은 액션 줄의 보조 행동은 `outline`, 약한 보조와 아이콘 버튼은 `ghost`를 쓴다.
+**눌림·선택 상태를 주 행동 색으로 칠하지 않는다**(R-34) — 이미 고른 것이 화면에서 가장 강하면 정작 눌러야 할 것이 묻힌다.
+파괴적 행동(`destructive`)은 확인 창의 확정 버튼이거나 「위험 영역」에 단독으로 설 때만 쓰고, 일반 액션 줄에 주 행동과 나란히 두지 않는다.
+창 푸터의 순서는 취소가 먼저, 확정이 나중이다.
+
 ## Composition 계약
 
 **R-03** 시각·상태 차이는 소유 컴포넌트의 `cva` variant로 표현하고 DOM 의미나 필수 slot이 다를 때만 새 컴포넌트를 만들며 한 컴포넌트에 시각 분기용 boolean prop이 세 개를 넘으면 variant로 바꾼다.
@@ -312,6 +319,8 @@ error는 toast 단독으로 절대 쓰지 않는다.
 에러는 `FieldError`가 `role="alert"`로 렌더링해 스크린 리더에 즉시 통지한다.
 
 **R-16** 폼 검증 실패는 필드 옆 `FieldError`와 상단 요약을 함께 보이고 첫 오류로 포커스를 옮긴다.
+**오류는 `FieldDescription`을 대체하지 않고 함께 남는다** — 「숫자 6자리」 같은 형식 안내가 가장 필요한 순간이 틀렸을 때인데, 그때 안내를 지우면 다시 확인할 방법이 화면에서 사라진다.
+컨트롤의 `aria-describedby`는 안내 id에 오류 id를 덧붙이는 형태(`` `${helpId}${err ? ` ${errId}` : ''}` ``)로 쓴다. `aria-invalid`만 걸면 낭독기가 「유효하지 않음」만 말하고 왜인지는 말하지 않는다.
 제출 중에는 중복 제출을 막고 버튼의 busy 상태를 노출한다.
 버튼 정렬은 `docs/rules/frontend.md`를 따른다.
 
