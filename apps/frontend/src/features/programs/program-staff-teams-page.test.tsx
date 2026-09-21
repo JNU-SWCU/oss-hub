@@ -196,6 +196,18 @@ describe('ProgramStaffTeamsPage — 상태 드롭다운(AC-14)', () => {
       expect(select?.disabled).toBe(false);
     },
   );
+  it('현재 상태를 드롭다운 하나로만 보여 주고 배지를 따로 두지 않는다', async () => {
+    await mount();
+
+    const select = statusSelects()[0];
+    expect(select?.value).toBe('SUBMITTED');
+    expect(select?.getAttribute('data-variant')).toBe('pending');
+    expect(select?.className).toContain('bg-status-pending-bg');
+    expect(
+      container.querySelectorAll('[data-slot="status-badge"]').length,
+    ).toBe(0);
+    expect(statusSelects()).toHaveLength(1);
+  });
 
   it('승인으로 바꾸면 판정하고 그 행을 다시 읽는다', async () => {
     await mount();

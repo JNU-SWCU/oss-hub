@@ -7,14 +7,12 @@ import {
   DataTable,
   EmptyState,
   PageHeader,
-  StatusBadge,
   type DataTableColumn,
 } from '@/components';
 import { FilterChip, FilterChipGroup } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { programTeamDetailHref } from '@/lib/program-route';
 import {
   decideApplication,
@@ -22,7 +20,6 @@ import {
   listTeamManagementApplications,
 } from './api';
 import {
-  APPLICATION_STATUS_BADGE,
   APPLICATION_STATUS_LABELS,
   formatSubmittedAt,
 } from './application-presentation';
@@ -30,10 +27,10 @@ import {
   blocksFurtherDecisions,
   decisionInputFor,
   decisionNoticeFor,
-  DECISION_OPTIONS,
   runDecisionWithRefetch,
 } from './application-decision-refetch';
 import { ApplicationDecisionDialog } from './application-decision-dialog';
+import { ApplicationStatusControl } from './application-status-control';
 import type {
   ApplicationListStatus,
   ApplicationStatus,
@@ -256,22 +253,15 @@ export function ProgramStaffTeamsPage({
           const notice = notices[item.id] ?? null;
           return (
             <div className="grid min-w-[9rem] gap-1">
-              <Select
+              <ApplicationStatusControl
+                id={`team-management-status-${item.id}`}
                 aria-label={`${item.applicant.nickname} 신청 상태`}
                 value={item.status}
                 // 세 옵션은 어느 출발 상태에서도 전부 활성이다(AC-14).
                 // 진행 중이거나 재조회가 실패한 행만 막는다.
                 disabled={busyId === item.id || (notice?.blocked ?? false)}
-                onChange={(event) =>
-                  onSelectStatus(item, event.target.value as ApplicationStatus)
-                }
-              >
-                {DECISION_OPTIONS.map((status) => (
-                  <option key={status} value={status}>
-                    {APPLICATION_STATUS_LABELS[status]}
-                  </option>
-                ))}
-              </Select>
+                onChange={(next) => onSelectStatus(item, next)}
+              />
               {notice !== null ? (
                 <span
                   role="status"
@@ -288,14 +278,9 @@ export function ProgramStaffTeamsPage({
         id: 'submittedAt',
         header: '최근 제출',
         cell: (item) => (
-          <div className="grid gap-0.5">
-            <span className="tabular-nums">
-              {formatSubmittedAt(item.submittedAt)}
-            </span>
-            <StatusBadge variant={APPLICATION_STATUS_BADGE[item.status]}>
-              {APPLICATION_STATUS_LABELS[item.status]}
-            </StatusBadge>
-          </div>
+          <span className="tabular-nums">
+            {formatSubmittedAt(item.submittedAt)}
+          </span>
         ),
       },
     ],

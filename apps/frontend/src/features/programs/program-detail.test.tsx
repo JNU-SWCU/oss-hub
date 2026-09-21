@@ -408,24 +408,50 @@ describe('ProgramDetailPage states', () => {
   });
 
   // 신청자 목록은 프로그램 스코프 사이드바에 이미 있는 목적지라, 헤더에서는
-  // 중복 노출하지 않는다(#865) — STAFF·ADMIN 모두 프로그램 편집 버튼 하나만 남는다.
+  // 중복 노출하지 않는다(#865). 편집은 큰 글자 CTA가 아니라 제목 옆 연필이다.
   it.each(['STAFF', 'ADMIN'] as const)(
-    '%s에게 프로그램 편집 CTA만 노출하고 신청자 목록·미구현 #124 경로는 숨긴다',
+    '%s에게 제목 옆 프로그램 편집 입구만 노출하고 신청자 목록·미구현 #124 경로는 숨긴다',
     (role) => {
       const html = renderToStaticMarkup(
-        <ProgramActions
+        <ProgramDetailReadyState
           program={{
             ...programWithoutMilestones,
             viewer: { role, applicationStatus: null },
           }}
         />,
       );
-      expect(html).toContain('/programs/program-1/edit');
-      expect(html).toContain('프로그램 편집');
+      expect(html).toContain('data-slot="page-header-title-action"');
+      expect(html).toContain('href="/programs/program-1/edit"');
+      expect(html).toContain('aria-label="프로그램 편집"');
+      expect(html).toContain('data-size="icon"');
+      expect(html).toContain('data-slot="tooltip-trigger"');
       expect(html).not.toContain('신청자 목록');
       expect(html).not.toContain('/programs/program-1/applicants');
       expect(html).not.toContain('/programs/program-1/submissions');
       expect(html).not.toContain('전체 제출 현황');
+    },
+  );
+
+  it.each([
+    {
+      role: 'STUDENT' as const,
+      applicationStatus: null,
+    },
+    { role: null, applicationStatus: null },
+  ])(
+    '$role 에게는 제목 옆 프로그램 편집 입구를 숨긴다',
+    ({ role, applicationStatus }) => {
+      const html = renderToStaticMarkup(
+        <ProgramDetailReadyState
+          program={{
+            ...programWithoutMilestones,
+            viewer: { role, applicationStatus },
+          }}
+        />,
+      );
+      expect(html).not.toContain('data-slot="page-header-title-action"');
+      expect(html).not.toContain('aria-label="프로그램 편집"');
+      expect(html).not.toContain('data-size="icon"');
     },
   );
 

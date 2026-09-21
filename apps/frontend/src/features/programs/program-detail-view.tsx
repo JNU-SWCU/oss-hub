@@ -4,6 +4,7 @@ import { ProgramCover } from '@/components';
 import { programCoverSource } from '@/components/program-cover-source';
 
 import Link from 'next/link';
+import { Pencil } from 'lucide-react';
 import { useEffect, useId, type ReactNode } from 'react';
 import {
   EmptyState,
@@ -13,6 +14,12 @@ import {
   StatusBadge,
 } from '@/components';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
@@ -235,16 +242,34 @@ export function ProgramActions({
       </Button>
     );
   }
-  if (role === 'STAFF' || role === 'ADMIN') {
-    // 신청자 목록은 프로그램 스코프 사이드바에 이미 있는 목적지라, 헤더에서는
-    // 중복 노출하지 않는다(#865).
-    return (
-      <Button asChild variant="outline">
-        <Link href={programEditHref(program.id)}>프로그램 편집</Link>
-      </Button>
-    );
-  }
   return null;
+}
+
+const PROGRAM_EDIT_LABEL = '프로그램 편집';
+
+/**
+ * 프로그램 제목을 대상으로 하는 편집 입구. 아이콘만 두고 이름은 aria-label과
+ * 툴팁으로 남긴다(R-27, R-38). heading 밖(`PageHeader.titleAction`)에 두어
+ * 읽어 주는 도구가 제목과 버튼 이름을 섞지 않게 한다.
+ */
+function ProgramEditTitleAction({ programId }: { readonly programId: string }) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button asChild variant="ghost" size="icon">
+            <Link
+              href={programEditHref(programId)}
+              aria-label={PROGRAM_EDIT_LABEL}
+            >
+              <Pencil aria-hidden="true" />
+            </Link>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{PROGRAM_EDIT_LABEL}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 export function ProgramDetailFailureState({
@@ -551,6 +576,12 @@ export function ProgramDetailReadyState({
             </span>
           }
           description={programDetailMeta(program)}
+          titleAction={
+            program.viewer.role === 'STAFF' ||
+            program.viewer.role === 'ADMIN' ? (
+              <ProgramEditTitleAction programId={program.id} />
+            ) : undefined
+          }
           actions={<ProgramActions program={program} />}
         />
       </div>

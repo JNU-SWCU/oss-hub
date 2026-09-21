@@ -1,6 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { ApiError } from '@/lib/api-client';
 import { getSubmissionMatrix } from '../api';
 import {
@@ -23,10 +29,12 @@ export function SubmissionMatrixScreen({
   programId,
   selectedMilestoneId,
   onSelectMilestone,
+  headerActions,
 }: {
   readonly programId: string;
   readonly selectedMilestoneId: string | null;
   readonly onSelectMilestone: (milestoneId: string | null) => void;
+  readonly headerActions?: ReactNode;
 }) {
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState<MatrixQueryInput>(INITIAL_QUERY);
@@ -78,6 +86,7 @@ export function SubmissionMatrixScreen({
       errorMessage={errorMessage}
       now={new Date()}
       selectedMilestoneId={selectedMilestoneId}
+      headerActions={headerActions}
       onSearchChange={setSearch}
       onSearch={() => {
         setQuickFilter('ALL');
