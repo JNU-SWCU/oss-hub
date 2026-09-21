@@ -1291,3 +1291,13 @@
 - 주의: `next build`에 내장된 lint는 Node API라 억제 목록을 읽지 못해 CI 빌드가 깨졌다 — `next.config.ts`에 `eslint.ignoreDuringBuilds`를 두고 lint는 CI의 lint 단계(CLI)만 담당한다.
   억제 목록은 파일·규칙별 개수라, 같은 파일에서 하나를 고치고 하나를 새로 어기면 개수가 같아 통과할 수 있다. 목록이 줄수록 이 틈이 작아진다. `#1234` 같은 번호 문구는 4자리 hex로 잡히므로 이유를 적은 disable로 넘긴다.
 - 경계: 기존 위반 90파일은 이 PR에서 고치지 않았다(폴더 단위 후속 PR). cva 기본 문자열·`cn()` 인자·CSS 파일은 규칙 대상이 아니다.
+
+## 2026-09-21 — 불러오는 동안 자리를 잡아 두는 공용 표면
+
+- 상태: review
+- Issue: #1347
+- PR: (이 PR)
+- blocker: 없음
+- 내용: design.md 의 R-17 이 요구하는 공용 Skeleton 이 존재한 적이 없어 앞 절은 어느 자리에서도 충족될 수 없었고 뒤 절은 스무 곳 넘게 어겨지고 있었다. `components/ui/skeleton.tsx` 에 Skeleton(영역)과 SkeletonBlock(칸)을 두고 스물여섯 화면을 옮겼다. 영역이 role=status·aria-busy·안 보이는 이름을, 칸이 animate-pulse·motion-reduce·aria-hidden 을 스스로 단다. 높이·모서리 클래스는 자리마다 그대로 옮겨 화면이 바뀌지 않는다. 로딩이 아닌 animate-pulse 와 일부러 뼈대를 안 그리는 자리는 그대로 뒀다.
+- 검증: 프런트 단위 376 파일 3732 건 통과. 로딩 이름을 aria-label 속성으로 찾던 테스트 여덟 곳을 「이름이 낭독된다」는 원래 계약을 직접 단언하도록 고쳤다. typecheck·lint·prettier 통과.
+- 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.
