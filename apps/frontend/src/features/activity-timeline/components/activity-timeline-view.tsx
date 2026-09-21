@@ -4,7 +4,7 @@ import {
   ChartNoAxesCombined,
   Clock3,
 } from 'lucide-react';
-import { EmptyState, PageHeader } from '@/components';
+import { EmptyState, PageHeader, FilterChip } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
@@ -69,16 +69,13 @@ export function ActivityTimelineView({
                 ['YEAR', '연도별'],
               ] as const
             ).map(([value, label]) => (
-              <Button
+              <FilterChip
                 key={value}
-                type="button"
-                size="sm"
-                variant={granularity === value ? 'default' : 'ghost'}
-                aria-pressed={granularity === value}
+                pressed={granularity === value}
                 onClick={() => onGranularityChange(value)}
               >
                 {label}
-              </Button>
+              </FilterChip>
             ))}
           </div>
         }
