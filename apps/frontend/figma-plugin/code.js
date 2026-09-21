@@ -313,20 +313,26 @@ async function resolveFont() {
   );
 }
 
+/*
+ * 줄 간격·자간은 코드가 원본이다. 제목 두 단계는 PageHeader·SectionHeading 이
+ * 쓰는 `leading-tight`(1.25)·`tracking-tight`(-2.5%) 와 같은 값을 적는다.
+ * 앞서 120%·-1% 로 적혀 있던 것은 스펙 시트의 제안값이었고 화면에 반영된 적이
+ * 없다 — 실측해 보니 코드와 어긋나 있었다(#1344).
+ */
 const TEXT_STYLES = [
   {
     name: 'text/page',
     size: 40,
     weight: 'semibold',
-    lineHeight: 120,
-    letter: -1,
+    lineHeight: 125,
+    letter: -2.5,
   },
   {
     name: 'text/section',
     size: 24,
     weight: 'semibold',
     lineHeight: 125,
-    letter: -1,
+    letter: -2.5,
   },
   {
     name: 'text/body',
