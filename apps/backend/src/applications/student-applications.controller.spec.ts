@@ -47,6 +47,15 @@ function createService() {
   >;
 }
 
+/**
+ * 조회가 「없음」을 null로 돌려주게 된 뒤(QA174 / #1303), **있어야 하는** 시나리오를
+ * 좁힌다. 없으면 그 자체가 실패이므로 조용히 넘기지 않고 바로 터뜨린다.
+ */
+function present<T>(value: T | null, what: string): T {
+  if (value === null) throw new Error(`${what}이(가) 있어야 하는 시나리오다`);
+  return value;
+}
+
 describe('StudentApplicationsController', () => {
   it('모든 학생 신청 관리 요청에 SessionGuard를 적용한다', () => {
     expect(guards(StudentApplicationsController)).toEqual([SessionGuard]);
@@ -63,9 +72,9 @@ describe('StudentApplicationsController', () => {
     const controller = new StudentApplicationsController(service);
 
     // When
-    const result = await controller.getMine(
-      { sessionGithubId: 4242n },
-      'program-1',
+    const result = present(
+      await controller.getMine({ sessionGithubId: 4242n }, 'program-1'),
+      '신청',
     );
 
     // Then
@@ -96,9 +105,9 @@ describe('StudentApplicationsController', () => {
     const controller = new StudentApplicationsController(service);
 
     // When
-    const result = await controller.getMine(
-      { sessionGithubId: 4242n },
-      'program-1',
+    const result = present(
+      await controller.getMine({ sessionGithubId: 4242n }, 'program-1'),
+      '신청',
     );
 
     // Then
@@ -111,9 +120,9 @@ describe('StudentApplicationsController', () => {
     const controller = new StudentApplicationsController(service);
 
     // When
-    const result = await controller.getMine(
-      { sessionGithubId: 4242n },
-      'program-1',
+    const result = present(
+      await controller.getMine({ sessionGithubId: 4242n }, 'program-1'),
+      '신청',
     );
 
     // Then

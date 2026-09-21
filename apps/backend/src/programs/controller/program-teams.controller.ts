@@ -95,9 +95,9 @@ export class ProgramTeamsController {
   async me(
     @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
-  ): Promise<ProgramTeamResponseDto> {
+  ): Promise<ProgramTeamResponseDto | null> {
     const team = await this.service.getMe(request.sessionGithubId, programId);
-    return ProgramTeamResponseDto.from(team);
+    return team ? ProgramTeamResponseDto.from(team) : null;
   }
 
   @Delete('me')

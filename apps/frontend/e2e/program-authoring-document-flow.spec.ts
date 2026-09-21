@@ -21,7 +21,6 @@ import {
   adoptProgramGraph,
   assertAdoptedProgramId,
   originHeaders,
-  newApplicationResourceErrors,
   programIdFromDetailUrl,
   resetProgramAuthoringControl,
   selectScheduleRange,
@@ -191,14 +190,10 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     const graph = await adoptProgramGraph(authorPage, programId);
     assertAdoptedProgramId(graph, programId);
     const staffPage = await programAuthoringActorPage('staff');
-    const studentPage = await programAuthoringActorPage(
-      'student',
-      newApplicationResourceErrors(programId),
-    );
-    const foreignStudentPage = await programAuthoringActorPage(
-      'foreignStudent',
-      newApplicationResourceErrors(programId),
-    );
+    // 신청·팀이 없어도 4xx가 나지 않는다(QA174 / #1303) — 허용 목록이 필요 없다.
+    const studentPage = await programAuthoringActorPage('student');
+    const foreignStudentPage =
+      await programAuthoringActorPage('foreignStudent');
 
     await submitProgramApplication(studentPage, programId);
     await expectApiStatus(

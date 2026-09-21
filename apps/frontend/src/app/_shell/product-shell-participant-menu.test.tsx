@@ -3,7 +3,6 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from '@/lib/api-client';
 import type { ProgramOverview } from '@/features/programs/program-overview-api';
 
 /**
@@ -177,17 +176,11 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
     );
   }
 
-  const NOT_APPLIED = new ApiError({
-    type: 'about:blank',
-    title: 'APP_001',
-    status: 404,
-    detail: '신청을 찾을 수 없습니다.',
-    instance: '/synthetic/programs/prog-1/applications/me',
-    code: 'APP_001',
-  });
+  /** 신청한 적 없는 학생에게 백엔드는 「없음」을 null로 답한다(QA174 / #1303). */
+  const NOT_APPLIED = null;
 
   it('신청한 적 없는 학생에게는 두 메뉴가 아예 없다', async () => {
-    mocks.getMyApplication.mockRejectedValue(NOT_APPLIED);
+    mocks.getMyApplication.mockResolvedValue(NOT_APPLIED);
 
     await renderShell();
 
@@ -201,7 +194,7 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
   });
 
   it('잠금 딱지를 대신 남기지 않는다 — 두 방식이 공존하지 않는다', async () => {
-    mocks.getMyApplication.mockRejectedValue(NOT_APPLIED);
+    mocks.getMyApplication.mockResolvedValue(NOT_APPLIED);
 
     await renderShell();
 
@@ -253,7 +246,7 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
   describe('학생 관리자(미신청)', () => {
     beforeEach(() => {
       mockStudentAdminSession();
-      mocks.getMyApplication.mockRejectedValue(NOT_APPLIED);
+      mocks.getMyApplication.mockResolvedValue(NOT_APPLIED);
     });
 
     it('게시판은 남는다 — 관리자 접근으로 실제로 열리는 화면이다', async () => {

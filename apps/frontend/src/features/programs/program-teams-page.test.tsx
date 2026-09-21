@@ -69,9 +69,8 @@ beforeEach(() => {
   root = createRoot(host);
   vi.mocked(getProgramDetail).mockResolvedValue(program);
   vi.mocked(getProgramTeamDirectory).mockResolvedValue([team]);
-  vi.mocked(getMyTeam).mockRejectedValue(
-    new ApiError(problem('TEAM_010', 404)),
-  );
+  // 소속된 팀이 없으면 서버는 null을 답한다(QA174 / #1303).
+  vi.mocked(getMyTeam).mockResolvedValue(null);
 });
 afterEach(async () => {
   await act(async () => root.unmount());

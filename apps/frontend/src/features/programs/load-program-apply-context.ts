@@ -55,15 +55,12 @@ export type ProgramApplyContext =
       readonly initialValues: ProgramApplyFormValues;
     };
 
-/** 백엔드가 「소속된 팀이 없습니다」로 응답하는 단 하나의 코드(`TeamsErrorCode.TEAM_NOT_FOUND`). */
-const NO_TEAM_ERROR_CODE = 'TEAM_010';
-
 /**
  * 현재 팀은 **인증된 세션의 팀 조회**로만 정한다 — 화면이 실어 온 팀 id나 쿼리는
  * 믿지 않는다. 모든 신청은 자기 팀을 만들어 진행하므로 개인형 템플릿도 예외가 아니다.
  *
- * 「팀 없음」으로 접는 실패는 서버가 그렇게 말한 404 `TEAM_010` 하나뿐이다.
- * 프로그램 없음(404 `TEAM_002`)이나 알 수 없는 실패까지 팀 없음으로 접으면,
+ * 「팀 없음」은 서버가 `null`로 말해 준다(QA174 / #1303). 프로그램 없음(404
+ * `TEAM_002`)이나 알 수 없는 실패는 그대로 올린다 — 그것까지 팀 없음으로 접으면
  * 이미 팀에 속한 학생에게 팀 만들기를 다시 권해 초대·신청 이력이 갈린다.
  */
 async function resolveTeam(programId: string): Promise<{
@@ -71,19 +68,9 @@ async function resolveTeam(programId: string): Promise<{
   readonly minimum: TeamMinimum | null;
   readonly team: ProgramTeam | null;
 }> {
-  try {
-    const team = await getMyTeam(programId);
-    return { teamId: team.id, minimum: resolveTeamMinimum(team), team };
-  } catch (error: unknown) {
-    if (
-      error instanceof ApiError &&
-      error.problem.status === 404 &&
-      error.problem.code === NO_TEAM_ERROR_CODE
-    ) {
-      return { teamId: null, minimum: null, team: null };
-    }
-    throw error;
-  }
+  const team = await getMyTeam(programId);
+  if (team === null) return { teamId: null, minimum: null, team: null };
+  return { teamId: team.id, minimum: resolveTeamMinimum(team), team };
 }
 
 export async function loadProgramApplyContext(
@@ -105,18 +92,8 @@ export async function loadProgramApplyContext(
     const githubHandle = sessionUser.nickname;
 
     if (program.viewer.applicationStatus !== null) {
-      const application = await getMyApplication(programId).catch(
-        (error: unknown) => {
-          if (
-            error instanceof ApiError &&
-            error.problem.status === 404 &&
-            error.problem.code === 'APP_001'
-          ) {
-            return null;
-          }
-          throw error;
-        },
-      );
+      // 상세가 「신청이 있다」는데 조회가 비면 그 사이 취소·반려로 바뀐 것이다.
+      const application = await getMyApplication(programId);
       if (application === null) {
         return {
           kind: 'failed',

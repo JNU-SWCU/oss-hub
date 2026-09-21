@@ -303,7 +303,7 @@ describe('ProgramMyTeamPage 접근', () => {
   });
 
   it('팀이 없으면 신청 화면으로 안내하고 수동 합류를 만들지 않는다', async () => {
-    vi.mocked(getMyTeam).mockRejectedValue(new ApiError(problem('TEAM_010')));
+    vi.mocked(getMyTeam).mockResolvedValue(null);
     await renderPage();
     expect(host.textContent).toContain('속한 팀이 없습니다');
     expect(applyLink()).not.toBeNull();
@@ -393,11 +393,10 @@ describe('ProgramMyTeamPage 신청 상태', () => {
     expect(host.textContent).not.toContain(SLOT_TEXT);
   });
 
-  it('신청서가 있다는 팀의 신청 404를 「신청 없음」으로 접지 않는다', async () => {
+  it('신청서가 있다는 팀의 빈 신청 조회를 「신청 없음」으로 접지 않는다', async () => {
     vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
-    vi.mocked(getMyApplication).mockRejectedValueOnce(
-      new ApiError(problem('APP_001')),
-    );
+    // 팀은 「신청서가 있다」는데 조회가 비었다 — 어긋남이지 신청 없음이 아니다.
+    vi.mocked(getMyApplication).mockResolvedValueOnce(null);
     vi.mocked(getMyApplication).mockResolvedValueOnce(application);
     await renderPage();
     expect(host.textContent).toContain('팀 신청서를 찾지 못했습니다');

@@ -140,8 +140,8 @@ function problem(status: number, code: string) {
   };
 }
 
-/** 서버가 「소속된 팀이 없습니다」라고 말하는 단 하나의 실패. */
-const noTeamError = new ApiError(problem(404, 'TEAM_010'));
+/** 서버는 「소속된 팀이 없음」을 null로 말한다(QA174 / #1303). */
+const NO_TEAM = null;
 
 function loadDefaultContext(): ReturnType<typeof loadProgramApplyContext> {
   return loadProgramApplyContext('program-1', sessionUser);
@@ -168,7 +168,7 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getProgramDetail).mockResolvedValue(program);
     vi.mocked(listApplicationTemplates).mockResolvedValue([template]);
     vi.mocked(getMyApplication).mockResolvedValue(application);
-    vi.mocked(getMyTeam).mockRejectedValue(noTeamError);
+    vi.mocked(getMyTeam).mockResolvedValue(NO_TEAM);
   });
 
   /**
@@ -449,16 +449,8 @@ describe('loadProgramApplyContext', () => {
   });
 
   it('converges to create state when another tab already cancelled the application', async () => {
-    vi.mocked(getMyApplication).mockRejectedValue(
-      new ApiError({
-        type: 'about:blank',
-        title: 'Not found',
-        status: 404,
-        detail: 'Application not found',
-        instance: '/applications/me',
-        code: 'APP_001',
-      }),
-    );
+    // 상세는 「신청이 있다」고 했는데 조회가 비었다 — 다른 탭이 그 사이 취소한 것이다.
+    vi.mocked(getMyApplication).mockResolvedValue(null);
 
     const result = await loadDefaultContext();
 
@@ -474,7 +466,7 @@ describe('loadProgramApplyContext', () => {
    */
   it.each([
     ['서버 오류', problem(500, 'SYS_001')],
-    ['프로그램 없음이 아닌 404', problem(404, 'TEAM_002')],
+    ['프로그램 없음(404)', problem(404, 'TEAM_002')],
     ['권한 거부', problem(403, 'TEAM_001')],
   ])('팀 조회 실패(%s)를 팀 없음으로 위조하지 않는다', async (_label, raw) => {
     vi.mocked(getProgramDetail).mockResolvedValue(openProgram());

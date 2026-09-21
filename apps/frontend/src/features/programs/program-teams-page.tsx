@@ -94,12 +94,7 @@ export function ProgramTeamsPage({
       ]);
       let myTeamId: string | null = null;
       if (program.viewer.role === 'STUDENT') {
-        try {
-          myTeamId = (await getMyTeam(programId)).id;
-        } catch (error: unknown) {
-          if (!(error instanceof ApiError && error.problem.status === 404))
-            throw error;
-        }
+        myTeamId = (await getMyTeam(programId))?.id ?? null;
       }
       if (request !== generation.current) return;
       setState({ kind: 'ready', program, teams, myTeamId });
