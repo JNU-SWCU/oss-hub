@@ -102,7 +102,12 @@ export function ProgramNoticeImport({
         onClick={() => setOpen(true)}
       >
         <FileText aria-hidden="true" />
-        기존 공지로 빠르게 시작하기
+        {/*
+         * 누르면 열리는 창의 이름과 같은 말을 쓴다. 다르면 누른 뒤에 「내가 무엇을
+         * 눌렀나」를 한 번 맞춰 보게 된다. 「빠르게 시작하기」는 이 버튼이 실제로 하는
+         * 일(공지에서 제목·소개·대표 이미지를 가져오기)을 말하지 않았다.
+         */}
+        공지에서 가져오기
       </Button>
       {open ? (
         <DialogShell

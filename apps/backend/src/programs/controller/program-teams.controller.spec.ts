@@ -69,6 +69,8 @@ function serviceStub(
     getRepositoryUrlHistoryForStaff: jest.fn(),
     rename: jest.fn(),
     deleteForStaff: jest.fn(),
+    removeMemberForStaff: jest.fn(),
+    transferLeaderForStaff: jest.fn(),
     ...overrides,
   };
 }

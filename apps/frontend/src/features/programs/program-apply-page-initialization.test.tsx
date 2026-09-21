@@ -101,6 +101,7 @@ function readyContext(
   return {
     kind: 'ready',
     mode: extras.mode ?? 'create',
+    rejectionReason: null,
     program: {
       id: programId,
       name: `${programId} 프로그램`,

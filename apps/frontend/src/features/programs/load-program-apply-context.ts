@@ -45,6 +45,12 @@ export type ProgramApplyContext =
       readonly teamMinimum: TeamMinimum | null;
       readonly team: ProgramTeam | null;
       readonly applicationId: string | null;
+      /**
+       * 반려 사유. 반려된 신청을 고쳐 다시 내는 경로에서 화면이 **왜 반려됐는지**를
+       * 같이 보여 주기 위해 싣는다 — 학생이 막히지 않게 된 뒤로 이 값을 볼 자리가
+       * 「막힌 화면」밖에 없어 사라져 있었다. 그 밖의 상태에서는 null 이다.
+       */
+      readonly rejectionReason: string | null;
       readonly canManage: boolean;
       readonly initialValues: ProgramApplyFormValues;
     };
@@ -133,6 +139,10 @@ export async function loadProgramApplyContext(
         teamMinimum: null,
         team: editTeam.team,
         applicationId: application.id,
+        rejectionReason:
+          application.status === 'REJECTED'
+            ? application.rejectionReason
+            : null,
         canManage: application.canManage,
         initialValues: {
           title: application.answers.title,
@@ -161,6 +171,7 @@ export async function loadProgramApplyContext(
       teamMinimum: team.minimum,
       team: team.team,
       applicationId: null,
+      rejectionReason: null,
       // 팀이 없으면 자기 팀을 만들어 작성한다. 이미 팀이 있으면 신청서를 쓰는
       // 사람은 팀장 하나뿐이다 — 초대로 합류한 팀원이 별도 팀·별도 신청을
       // 만들지 못하게 서버 `isLeader`를 그대로 따른다.

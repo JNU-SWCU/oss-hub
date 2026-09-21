@@ -1303,3 +1303,13 @@
 - 주의: 이 저장소는 프런트와 백엔드를 한 번에 배포하지 않는다 — 프런트는 릴리스 발행 즉시 Vercel, 백엔드는 Jenkins 10분 주기(ADR-002). 그 사이 창에서 새 프런트가 옛 백엔드의 404를 받으면 팀 없는 학생 화면이 오류로 접힌다. 그래서 `lib/absent-as-null.ts`가 「없음」을 뜻하던 그 코드 하나만 null로 접고 나머지는 올린다. 백엔드 배포 뒤 아무것도 걸리지 않으므로 후속 티켓에서 지운다.
 - 되돌린 함정: 브라우저 감사의 404 허용 목록(`newApplicationResourceErrors`)을 지웠다. 남겨 두면 A안 뒤에도 같은 경로의 회귀 404가 조용히 통과한다 — 허용만 하고 실제로 났는지는 아무도 단언하지 않는 구조였다.
 - 경계: 「팀을 떠난 원 신청자」가 조회에서 null을 받는 것은 그대로다(응답에 새로 실리는 정보가 없다). 변경 경로는 여전히 404로 닫힌다.
+## 2026-09-21 — 한글 본문 폰트를 Pretendard 로 self-host
+
+- 상태: review
+- Issue: #1342
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 앱이 내려받는 웹폰트가 `Geist`(Latin subset) 하나뿐이라 한글이 보는 사람의 운영체제 기본 글꼴로 그려지고 있었다. Geist 의 `@font-face` 다섯 개에 한글 영역이 없고 짝으로 붙는 `Geist Fallback` 은 `local("Arial")` 이라 거기에도 한글이 없다. npm `pretendard` 의 가변본 한 벌을 `next/font/local` 로 self-host 하고 Geist 를 걷어냈다. 선언 자리는 `apps/frontend/src/app/layout.tsx` 한 곳이고 CSS 변수 이름 `--font-sans` 를 그대로 둬서 `globals.css` 와 화면 93 개 파일은 한 줄도 건드리지 않았다. `docs/design.md` 타이포그래피 절과 R-39, `.design-sync/css/ds-entry.css` 를 같이 고쳤다 — 후자는 원격 Google Fonts `@import` 도 사라진다.
+- 검증: 로컬 브라우저 회귀 34 스펙 103 건 전부 통과(5.4 분, 건너뛴 것 0). 프런트 단위 374 파일 3723 건, typecheck·lint·prettier·`tokens:check` 통과. 빌드 산출물의 폰트는 Geist 5 개 75,948 B 에서 Pretendard 1 개 2,057,688 B 로 바뀌었고 preload 되는 바이트는 29,288 B 에서 0 이 됐다. `standalone/node_modules` 에 패키지가 끌려가지 않은 것도 확인했다. 브라우저에서 잰 `fontFamily` 에 Pretendard 와 한글 폴백이 모두 보인다.
+- 배포: 프런트 전용 변경이고 스키마·마이그레이션이 없다. 되돌리려면 `layout.tsx` 한 파일을 되돌리면 된다.
+- 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.

@@ -269,6 +269,77 @@ export class ProgramTeamsService {
   }
 
   /**
+   * 교직원의 팀원 제외 — 행위자가 그 팀에 속하지 않는다는 점이 학생용과 다르다.
+   *
+   * 가드를 따로 두지 않는 이유는 `rename`·`deleteForStaff`와 같다 — 교직원 판정을
+   * service가 하고, 최종 판정은 팀 행을 잠그고 난 뒤에 repository가 다시 한다.
+   */
+  async removeMemberForStaff(
+    githubId: bigint,
+    programId: string,
+    teamId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    const actor = await this.repository.findActorAuthorityByGithubId(githubId);
+    if (!actor?.isStaff) {
+      throw this.error(TeamsErrorCode.STAFF_ONLY);
+    }
+
+    const result = await this.repository.removeMemberForStaff(
+      programId,
+      teamId,
+      actor.id,
+      targetUserId,
+      (store, event) => this.recordMembershipAudit(githubId, store, event),
+    );
+    switch (result) {
+      case 'removed':
+        return;
+      case 'forbidden':
+        throw this.error(TeamsErrorCode.STAFF_ONLY);
+      case 'not-found':
+        throw this.error(TeamsErrorCode.TARGET_MEMBER_NOT_FOUND);
+      case 'last-member-with-application':
+        throw this.error(TeamsErrorCode.LAST_MEMBER_WITH_APPLICATION);
+    }
+  }
+
+  /**
+   * 교직원의 팀장 변경 — 대상은 그 팀의 현재 구성원이어야 한다.
+   *
+   * 이미 그 사람이 팀장이면 성공으로 끝난다 — 같은 요청을 두 번 보내는 것이 오류는
+   * 아니고, 바뀜 것이 없으므로 감사도 남지 않는다.
+   */
+  async transferLeaderForStaff(
+    githubId: bigint,
+    programId: string,
+    teamId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    const actor = await this.repository.findActorAuthorityByGithubId(githubId);
+    if (!actor?.isStaff) {
+      throw this.error(TeamsErrorCode.STAFF_ONLY);
+    }
+
+    const result = await this.repository.transferLeaderForStaff(
+      programId,
+      teamId,
+      actor.id,
+      targetUserId,
+      (store, event) => this.recordMembershipAudit(githubId, store, event),
+    );
+    switch (result) {
+      case 'transferred':
+      case 'unchanged':
+        return;
+      case 'forbidden':
+        throw this.error(TeamsErrorCode.STAFF_ONLY);
+      case 'not-found':
+        throw this.error(TeamsErrorCode.TARGET_MEMBER_NOT_FOUND);
+    }
+  }
+
+  /**
    * 팀 이름 변경 — 해당 팀의 현재 팀장 또는 교직원·관리자만 통과한다.
    *
    * 가드를 새로 두지 않는다 — `ProgramTeamsStaffGuard`는 교직원 전용이라 팀장을 막고,
