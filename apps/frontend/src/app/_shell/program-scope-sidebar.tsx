@@ -74,16 +74,18 @@ export function ProgramScopeSidebar({
             </p>
           </div>
         ) : null}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={onToggle}
           aria-expanded={!collapsed}
           aria-label={toggleLabel}
           title={toggleLabel}
           className={cn(
-            'flex size-control items-center justify-center rounded-control text-sidebar-foreground hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
+            'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-foreground focus-visible:ring-sidebar-ring aria-expanded:bg-transparent aria-expanded:hover:bg-sidebar-accent aria-expanded:hover:text-sidebar-foreground',
             !collapsed &&
-              'ml-auto border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground',
+              'ml-auto border-sidebar-border text-muted-foreground aria-expanded:text-muted-foreground',
           )}
         >
           <ShellIcon
@@ -93,7 +95,7 @@ export function ProgramScopeSidebar({
               collapsed && 'rotate-180',
             )}
           />
-        </button>
+        </Button>
       </div>
 
       <ProgramScopeSidebarNav
