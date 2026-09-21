@@ -187,8 +187,8 @@ describe('useProductShellData 참여 여부(#1099)', () => {
     expect(container.textContent).toContain('"scopeParticipant":false');
   });
 
-  it('신청이 없으면(404) 참여자가 아님이 확정된다', async () => {
-    mocks.getMyApplication.mockRejectedValue(apiError(404, 'APP_001'));
+  it('신청이 없으면(null) 참여자가 아님이 확정된다', async () => {
+    mocks.getMyApplication.mockResolvedValue(null);
 
     await act(async () => {
       root.render(<Probe programDetailId="program-1" member studentViewer />);
@@ -197,7 +197,7 @@ describe('useProductShellData 참여 여부(#1099)', () => {
     expect(container.textContent).toContain('"scopeParticipant":false');
   });
 
-  it('404가 아닌 실패는 모르는 채로 둔다 — 추측으로 메뉴를 잠그지 않는다', async () => {
+  it('실패는 모르는 채로 둔다 — 추측으로 메뉴를 잠그지 않는다', async () => {
     mocks.getMyApplication.mockRejectedValue(new TypeError('network'));
 
     await act(async () => {
@@ -205,6 +205,18 @@ describe('useProductShellData 참여 여부(#1099)', () => {
     });
 
     // undefined는 JSON.stringify가 키째로 지운다 — 「모른다」가 그대로 남았다는 뜻이다.
+    expect(container.textContent).not.toContain('"scopeParticipant":');
+  });
+
+  // 신청 없음이 null이 된 뒤 이 경로에 남는 404는 「프로그램 자체가 없음」뿐이다.
+  // 그것은 「참여자가 아니다」가 아니라 「모른다」다 — 추측으로 메뉴를 내리지 않는다.
+  it('프로그램이 없다는 404도 모르는 채로 둔다', async () => {
+    mocks.getMyApplication.mockRejectedValue(apiError(404, 'APP_009'));
+
+    await act(async () => {
+      root.render(<Probe programDetailId="program-1" member studentViewer />);
+    });
+
     expect(container.textContent).not.toContain('"scopeParticipant":');
   });
 

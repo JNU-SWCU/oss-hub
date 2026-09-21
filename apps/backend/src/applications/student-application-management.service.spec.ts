@@ -101,6 +101,15 @@ async function expectDomainCode(
   }
 }
 
+/**
+ * 조회가 「없음」을 null로 돌려주게 된 뒤(QA174 / #1303), **있어야 하는** 시나리오를
+ * 좁힌다. 없으면 그 자체가 실패이므로 조용히 넘기지 않고 바로 터뜨린다.
+ */
+function present<T>(value: T | null, what: string): T {
+  if (value === null) throw new Error(`${what}이(가) 있어야 하는 시나리오다`);
+  return value;
+}
+
 describe('StudentApplicationManagementService', () => {
   it('신청 기간 내 승인 대기 신청을 조회한다', async () => {
     // Given
@@ -111,7 +120,10 @@ describe('StudentApplicationManagementService', () => {
     );
 
     // When
-    const result = await service.getMine(4242n, 'program-1', NOW);
+    const result = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
 
     // Then
     expect(result).toEqual({
@@ -155,7 +167,10 @@ describe('StudentApplicationManagementService', () => {
     );
 
     // When
-    const result = await service.getMine(4242n, 'program-1', NOW);
+    const result = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
 
     // Then
     expect(result.rejectionReason).toBe('합성 반려 사유');
@@ -179,7 +194,10 @@ describe('StudentApplicationManagementService', () => {
       );
 
       // When
-      const result = await service.getMine(4242n, 'program-1', NOW);
+      const result = present(
+        await service.getMine(4242n, 'program-1', NOW),
+        '신청',
+      );
 
       // Then
       expect(result).toHaveProperty('rejectionReason');
@@ -234,7 +252,10 @@ describe('StudentApplicationManagementService', () => {
     );
 
     // When
-    const beforeUpdate = await service.getMine(4242n, 'program-1', NOW);
+    const beforeUpdate = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
     const afterUpdate = await service.updateMine(
       4242n,
       'program-1',
@@ -318,7 +339,10 @@ describe('StudentApplicationManagementService', () => {
     );
 
     // When
-    const result = await service.getMine(4242n, 'program-1', NOW);
+    const result = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
 
     // Then
     expect(result.answers.title).toBe('기존 제목');
@@ -387,7 +411,10 @@ describe('StudentApplicationManagementService', () => {
     );
 
     // When
-    const result = await service.getMine(4242n, 'program-1', NOW);
+    const result = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
 
     // Then
     expect(result.isManager).toBe(false);
@@ -395,10 +422,11 @@ describe('StudentApplicationManagementService', () => {
   });
 
   /**
-   * 팀을 떠난 사람은 원 신청자였더라도 **읽기도** 못 한다 — repository가 현재 멤버십으로
-   * 좁혀 `null`을 돌려주고, 세 표면 모두 같은 APP_001로 닫힌다.
+   * 팀을 떠난 사람은 원 신청자였더라도 제 신청을 되찾지 못한다 — repository가 현재
+   * 멤버십으로 좁혀 `null`을 돌려준다. **변경**(update·cancel)은 APP_001로 닫고,
+   * **조회**는 QA174 뒤로 「보여줄 신청이 없다」는 뜻의 null을 돌려준다(아래 별도 테스트).
    */
-  it.each(['get', 'update', 'cancel'] as const)(
+  it.each(['update', 'cancel'] as const)(
     '팀을 떠난 원 신청자의 %s 요청을 거절한다',
     async (operation) => {
       // Given
@@ -417,7 +445,6 @@ describe('StudentApplicationManagementService', () => {
 
       // When / Then
       const operations = {
-        get: () => service.getMine(4242n, 'program-1', NOW),
         update: () =>
           service.updateMine(
             4242n,
@@ -440,6 +467,30 @@ describe('StudentApplicationManagementService', () => {
   );
 
   /**
+   * 조회는 「없음」을 오류로 보지 않는다(QA174 / #1303). 신청한 적이 없든 팀을 떠나
+   * 보여줄 것이 없든, 조회자에게는 둘 다 「없다」이고 응답에 새로 실리는 정보도 없다.
+   */
+  it('보여줄 신청이 없으면 조회는 null을 돌려준다', async () => {
+    // Given
+    const { repository, applicationsRepository, findOwnedApplication } =
+      createRepository();
+    findOwnedApplication.mockResolvedValue(null);
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    // When
+    const result = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
+
+    // Then
+    expect(result).toBeNull();
+  });
+
+  /**
    * 승계로 팀장이 된 사람은 신청자가 아니어도 관리한다 — 단, 기간·상태 창은 그대로다.
    * 권한과 창을 갈라 두어야 화면이 「기간이 지났다」와 「당신 권한이 아니다」를 갈라 말한다.
    */
@@ -452,10 +503,13 @@ describe('StudentApplicationManagementService', () => {
     );
 
     // When
-    const result = await service.getMine(
-      4242n,
-      'program-1',
-      new Date('2026-08-01T00:00:00.000Z'),
+    const result = present(
+      await service.getMine(
+        4242n,
+        'program-1',
+        new Date('2026-08-01T00:00:00.000Z'),
+      ),
+      '신청',
     );
 
     // Then
@@ -567,7 +621,10 @@ describe('StudentApplicationManagementService', () => {
     );
 
     // When
-    const result = await service.getMine(4242n, 'program-1', NOW);
+    const result = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
 
     // Then
     expect(result.answers.applicantName).toBe('Profile Applicant');
@@ -663,7 +720,10 @@ describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)',
     );
 
     // When
-    const result = await service.getMine(4242n, 'program-1', NOW);
+    const result = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
 
     // Then
     expect(result.canManage).toBe(true);

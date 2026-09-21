@@ -192,7 +192,18 @@ export class ProgramTeamsService {
     };
   }
 
-  async getMe(githubId: bigint, programId: string): Promise<ProgramTeamView> {
+  /**
+   * 조회는 「없음」을 오류로 보지 않는다.
+   *
+   * 팀을 아직 만들지 않은 학생에게 팀이 없는 것은 정상이다(QA174). 「내 팀 없음」만
+   * null이고 나머지는 그대로 던진다 — 학생이 아니면 403(`STUDENT_ONLY`), 프로그램
+   * 자체가 없으면 404(`PROGRAM_NOT_FOUND`). 탈퇴·팀원 제외 같은 변경은 여전히
+   * `TEAM_NOT_FOUND`를 던진다.
+   */
+  async getMe(
+    githubId: bigint,
+    programId: string,
+  ): Promise<ProgramTeamView | null> {
     const student = await this.requireStudent(githubId);
     const program = await this.repository.findProgramById(programId);
     if (!program) {
@@ -203,9 +214,7 @@ export class ProgramTeamsService {
       programId,
       student.id,
     );
-    if (!detail) {
-      throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
-    }
+    if (!detail) return null;
     return this.toTeamView(detail, student.id);
   }
 

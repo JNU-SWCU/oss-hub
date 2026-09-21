@@ -71,10 +71,12 @@ export class StudentApplicationsController {
   async getMine(
     @Req() request: StudentApplicationRequest,
     @Param('programId') programId: string,
-  ): Promise<StudentApplicationResponse> {
-    return toResponse(
-      await this.service.getMine(request.sessionGithubId, programId),
+  ): Promise<StudentApplicationResponse | null> {
+    const application = await this.service.getMine(
+      request.sessionGithubId,
+      programId,
     );
+    return application ? toResponse(application) : null;
   }
 
   @Patch()

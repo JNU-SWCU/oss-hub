@@ -351,6 +351,7 @@ describe('getMyTeam', () => {
 
     const team = await getMyTeam('program-1');
 
+    if (team === null) throw new Error('팀이 있어야 하는 시나리오다');
     expect(Object.keys(team).sort()).toEqual([
       'canInvite',
       'canLeave',

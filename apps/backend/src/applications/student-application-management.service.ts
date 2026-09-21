@@ -65,12 +65,24 @@ export class StudentApplicationManagementService {
     private readonly applicationsRepository: ApplicationsRepository,
   ) {}
 
+  /**
+   * 조회는 「없음」을 오류로 보지 않는다.
+   *
+   * 신청하지 않은 학생에게 신청이 없는 것은 정상이다. 404로 답하면 화면은 멀쩡한데
+   * 콘솔·서버 로그에 4xx가 쌓이고, 콘솔 오류를 기준 삼는 브라우저 자동 검사가 이
+   * 화면들을 검사하지 못한다(QA174). 「없음」만 null이고 나머지는 그대로 던진다 —
+   * 학생이 아니면 403(`STUDENT_ONLY`), 프로그램 자체가 없으면 404(`PROGRAM_NOT_FOUND`).
+   *
+   * 변경(`updateMine`·`cancelMine`)은 여전히 `APPLICATION_NOT_FOUND`를 던진다. 없는
+   * 것을 고치라는 요청은 실제로 오류다.
+   */
   async getMine(
     githubId: bigint,
     programId: string,
     now: Date = new Date(),
-  ): Promise<StudentApplicationView> {
-    const context = await this.requireContext(githubId, programId);
+  ): Promise<StudentApplicationView | null> {
+    const context = await this.findContext(githubId, programId);
+    if (!context) return null;
     const editable = this.isEditable(context.application, context.policy, now);
     return this.toView(context.application, context.isManager, editable);
   }
@@ -151,6 +163,25 @@ export class StudentApplicationManagementService {
     githubId: bigint,
     programId: string,
   ): Promise<StudentApplicationContext> {
+    const context = await this.findContext(githubId, programId);
+    if (!context) {
+      throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
+    }
+    return context;
+  }
+
+  /**
+   * 「없음」을 null로 돌려주는 조회용 경로. 학생이 아님·프로그램 없음은 그대로 던진다.
+   *
+   * `findOwnedApplication`의 null은 두 가지를 합친다 — 신청이 아예 없거나, 신청은
+   * 있지만 조회자가 지금 그 팀의 구성원이 아니거나(팀을 떠났거나 제외됐다). 조회자
+   * 시점에서는 둘 다 「당신에게 보여줄 신청이 없다」이고, 응답에 새로 실리는 정보도
+   * 없다. 갈라야 할 일이 생기면 레포가 두 경우를 구분해 돌려주게 바꾼다.
+   */
+  private async findContext(
+    githubId: bigint,
+    programId: string,
+  ): Promise<StudentApplicationContext | null> {
     const student =
       await this.applicationsRepository.findActiveStudentByGithubId(githubId);
     if (!student) throw this.error(ApplicationsErrorCode.STUDENT_ONLY);
@@ -159,9 +190,7 @@ export class StudentApplicationManagementService {
       this.applicationsRepository.findProgramById(programId),
     ]);
     if (!policy) throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
-    if (!application) {
-      throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
-    }
+    if (!application) return null;
     return {
       studentId: student.id,
       application,

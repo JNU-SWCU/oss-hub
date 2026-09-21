@@ -119,19 +119,15 @@ export function useProductShellData({
     setScopeParticipant(undefined);
     void getMyApplication(programDetailId)
       .then((application) => {
-        if (!controller.signal.aborted) {
-          setScopeParticipant(application.status === 'APPROVED');
-        }
-      })
-      .catch((error: unknown) => {
         if (controller.signal.aborted) return;
-        // 신청이 아예 없으면 404다 — 참여자가 아님이 확정된다. 그 밖의 실패(네트워크·
-        // 5xx)는 모르는 채로 두고 메뉴를 내리지 않는다.
-        setScopeParticipant(
-          error instanceof ApiError && error.problem.status === 404
-            ? false
-            : undefined,
-        );
+        // 신청이 없으면 `null`이다 — 참여자가 아님이 확정된다(QA174 / #1303).
+        setScopeParticipant(application?.status === 'APPROVED');
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        // 남은 실패(프로그램 없음·네트워크·5xx)는 「참여자가 아니다」가 아니라
+        // 「모른다」다. 추측으로 메뉴를 내리지 않는다.
+        setScopeParticipant(undefined);
       });
     return () => controller.abort();
   }, [programDetailId, member, studentViewer]);

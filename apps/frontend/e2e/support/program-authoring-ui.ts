@@ -153,13 +153,6 @@ export async function submitProgramApplication(
   await expect(page.getByText('신청이 접수되었습니다')).toBeVisible();
 }
 
-export function newApplicationResourceErrors(programId: string) {
-  return ['applications/me', 'teams/me'].map((path) => ({
-    status: 404,
-    pathname: `/api/v1/programs/${encodeURIComponent(programId)}/${path}`,
-  }));
-}
-
 export function originHeaders(): { readonly Origin: string } {
   return { Origin: e2eEnvironment.baseUrl };
 }

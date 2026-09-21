@@ -23,9 +23,6 @@ import {
 import type { ProgramDetail } from './types';
 import { useTeamInvitationManagement } from './use-team-invitation-management';
 
-/** 백엔드가 「소속된 팀이 없습니다」로 응답하는 단 하나의 코드(`TeamsErrorCode.TEAM_NOT_FOUND`). */
-const NO_TEAM_ERROR_CODE = 'TEAM_010';
-
 const LOAD_FAILED_MESSAGE =
   '우리 팀 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
@@ -58,14 +55,6 @@ type ProgramMyTeamPageState =
       /** 이 응답을 받은 순간의 로그인 신원. 자기 행·자기 탈퇴 판정의 기준이다. */
       readonly sessionNickname: string;
     };
-
-function isNoTeamError(error: unknown): boolean {
-  return (
-    error instanceof ApiError &&
-    error.problem.status === 404 &&
-    error.problem.code === NO_TEAM_ERROR_CODE
-  );
-}
 
 function loadFailureMessage(error: unknown): string {
   if (error instanceof ApiError) return error.problem.detail;
@@ -159,30 +148,30 @@ export function ProgramMyTeamPage({
       try {
         const [program, team] = await Promise.all([
           getProgramDetail(currentProgramId),
-          getMyTeam(currentProgramId).then(
-            (value): ProgramTeam | null => value,
-            (error: unknown): ProgramTeam | null => {
-              if (isNoTeamError(error)) return null;
-              throw error;
-            },
-          ),
+          getMyTeam(currentProgramId),
         ]);
 
         let application: StudentApplication | null = null;
         if (team !== null && team.hasApplication) {
-          try {
-            application = await getMyApplication(currentProgramId);
-          } catch (error: unknown) {
-            if (!stillCurrent()) return;
-            const message =
-              error instanceof ApiError && error.problem.status === 404
-                ? APPLICATION_OUT_OF_SYNC_MESSAGE
-                : loadFailureMessage(error);
+          const failWith = (message: string): void => {
             if (quiet && stateRef.current.kind === 'ready') {
               setRefreshError(message);
               return;
             }
             setState({ kind: 'failed', message });
+          };
+          try {
+            application = await getMyApplication(currentProgramId);
+          } catch (error: unknown) {
+            if (!stillCurrent()) return;
+            failWith(loadFailureMessage(error));
+            return;
+          }
+          // 팀은 「신청서가 있다」는데 신청 조회가 비었다 — 어긋남이다. 「신청 없음」으로
+          // 접으면 이미 제출한 팀에게 신청서 작성 링크가 다시 뜬다(위 주석의 회귀).
+          if (application === null) {
+            if (!stillCurrent()) return;
+            failWith(APPLICATION_OUT_OF_SYNC_MESSAGE);
             return;
           }
         }

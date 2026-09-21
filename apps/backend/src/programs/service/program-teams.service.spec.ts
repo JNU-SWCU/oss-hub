@@ -214,6 +214,15 @@ function expectCode(error: unknown, code: TeamsErrorCode) {
   expect((error as DomainException).errorCode.code).toBe(code);
 }
 
+/**
+ * 조회가 「없음」을 null로 돌려주게 된 뒤(QA174 / #1303), **있어야 하는** 시나리오를
+ * 좁힌다. 없으면 그 자체가 실패이므로 조용히 넘기지 않고 바로 터뜨린다.
+ */
+function present<T>(value: T | null, what: string): T {
+  if (value === null) throw new Error(`${what}이(가) 있어야 하는 시나리오다`);
+  return value;
+}
+
 describe('ProgramTeamsService', () => {
   it('팀을 생성하고 평문 joinCode 를 한 번 반환하며 digest 만 저장한다', async () => {
     const { service, createTeamWithLeader } = buildService({});
@@ -325,15 +334,12 @@ describe('ProgramTeamsService', () => {
     expect(methods).not.toContain('join');
   });
 
-  it('내 팀이 없으면 404', async () => {
+  // 조회는 「없음」을 오류로 보지 않는다(QA174 / #1303). 팀을 아직 만들지 않은 학생에게
+  // 팀이 없는 것은 정상이다. 탈퇴·팀원 제외 같은 변경은 여전히 TEAM_010으로 닫는다.
+  it('내 팀이 없으면 null', async () => {
     const { service } = buildService({ detail: null });
 
-    try {
-      await service.getMe(GITHUB_ID, PROGRAM_ID);
-      throw new Error('expected throw');
-    } catch (error) {
-      expectCode(error, TeamsErrorCode.TEAM_NOT_FOUND);
-    }
+    expect(await service.getMe(GITHUB_ID, PROGRAM_ID)).toBeNull();
   });
 
   it('내 팀을 구성원 목록과 권한 미리보기로 반환한다', async () => {
@@ -352,7 +358,7 @@ describe('ProgramTeamsService', () => {
       },
     });
 
-    const result = await service.getMe(GITHUB_ID, PROGRAM_ID);
+    const result = present(await service.getMe(GITHUB_ID, PROGRAM_ID), '내 팀');
 
     expect(result).toEqual({
       id: 'synthetic-team',
@@ -389,7 +395,7 @@ describe('ProgramTeamsService', () => {
       detail: { ...DETAIL, hasApplication: true },
     });
 
-    const result = await service.getMe(GITHUB_ID, PROGRAM_ID);
+    const result = present(await service.getMe(GITHUB_ID, PROGRAM_ID), '내 팀');
 
     expect(result).toMatchObject({
       memberCount: 1,
@@ -404,7 +410,7 @@ describe('ProgramTeamsService', () => {
   it('미제출 1인 팀장은 나갈 수 있다', async () => {
     const { service } = buildService({ detail: DETAIL });
 
-    const result = await service.getMe(GITHUB_ID, PROGRAM_ID);
+    const result = present(await service.getMe(GITHUB_ID, PROGRAM_ID), '내 팀');
 
     expect(result).toMatchObject({ canLeave: true, canRemoveMembers: false });
   });
@@ -422,7 +428,7 @@ describe('ProgramTeamsService', () => {
       },
     });
 
-    const result = await service.getMe(GITHUB_ID, PROGRAM_ID);
+    const result = present(await service.getMe(GITHUB_ID, PROGRAM_ID), '내 팀');
 
     expect(result).toMatchObject({
       isLeader: false,
@@ -447,7 +453,7 @@ describe('ProgramTeamsService', () => {
       },
     });
 
-    const result = await service.getMe(GITHUB_ID, PROGRAM_ID);
+    const result = present(await service.getMe(GITHUB_ID, PROGRAM_ID), '내 팀');
 
     expect(result.maxMembers).toBe(1);
     expect(result.minMembers).toBe(1);

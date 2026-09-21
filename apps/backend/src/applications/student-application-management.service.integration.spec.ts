@@ -90,6 +90,15 @@ async function expectDomainCode(
   }
 }
 
+/**
+ * 조회가 「없음」을 null로 돌려주게 된 뒤(QA174 / #1303), **있어야 하는** 시나리오를
+ * 좁힌다. 없으면 그 자체가 실패이므로 조용히 넘기지 않고 바로 터뜨린다.
+ */
+function present<T>(value: T | null, what: string): T {
+  if (value === null) throw new Error(`${what}이(가) 있어야 하는 시나리오다`);
+  return value;
+}
+
 describe('StudentApplicationManagementService integration races', () => {
   beforeAll(async () => {
     await prisma.$connect();
@@ -187,7 +196,10 @@ describe('StudentApplicationManagementService integration races', () => {
    * 범위이고 판정 알림 수신자와 같은 집합이다(#570). 쓰기만 좁힌 것을 고정한다.
    */
   it('일반 팀원의 조회는 그대로 열어 두되 관리 권한은 내린다', async () => {
-    const view = await service.getMine(MEMBER_GITHUB_ID, PROGRAM_ID, NOW);
+    const view = present(
+      await service.getMine(MEMBER_GITHUB_ID, PROGRAM_ID, NOW),
+      '신청',
+    );
 
     expect(view.id).toBe(APPLICATION_ID);
     expect(view.answers.title).toBe('Original title');

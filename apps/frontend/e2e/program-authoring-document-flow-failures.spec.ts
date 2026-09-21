@@ -11,7 +11,6 @@ import {
 import {
   fixtureProgramId,
   originHeaders,
-  newApplicationResourceErrors,
   resetProgramAuthoringControl,
   submitProgramApplication,
 } from './support/program-authoring-ui';
@@ -230,10 +229,7 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
     await resetProgramAuthoringControl(controlPage);
     const programId = await fixtureProgramId(controlPage);
     const studentPage = await programAuthoringActorPage('student');
-    const foreignPage = await programAuthoringActorPage(
-      'foreignStudent',
-      newApplicationResourceErrors(programId),
-    );
+    const foreignPage = await programAuthoringActorPage('foreignStudent');
 
     await submitProgramApplication(foreignPage, programId);
     await foreignPage.goto(`/programs/${encodeURIComponent(programId)}/apply`);
