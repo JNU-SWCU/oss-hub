@@ -481,10 +481,7 @@ describe('StudentApplicationManagementService', () => {
     );
 
     // When
-    const result = present(
-      await service.getMine(4242n, 'program-1', NOW),
-      '신청',
-    );
+    const result = await service.getMine(4242n, 'program-1', NOW);
 
     // Then
     expect(result).toBeNull();
