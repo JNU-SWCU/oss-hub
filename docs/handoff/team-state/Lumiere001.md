@@ -1301,3 +1301,13 @@
 - 검증: `src/lib/utils.test.ts`에 토큰 11쌍의 덮어쓰기와 반대 방향·다른 그룹·글자 크기 계단까지 14개 테스트를 더했다. frontend 단위 373개 파일·3704개 테스트, lint·typecheck·prettier 통과.
 - 주의: 이 설정이 살아나면 실제로 작아지는 자리가 셋 있다(이력 타임라인 버튼, 접근 관리 판정 버튼 2곳, 감사 로그 배지). 이 PR은 도구만 고치고 화면은 그대로 두려고 그 셋의 덮어쓰기를 걷어내고 44px·26px 규격을 지켰다. 줄일지는 #1335에서 화면을 보고 정한다.
 - 경계: 프리미티브 기본값과 44px 규칙은 건드리지 않았다. 이 PR이 병합되면 #1328 A안(버튼 모양이 아닌 다섯 자리를 흡수할 Button 변형)이 기본을 해체하지 않고 변형 하나로 끝난다.
+## 2026-09-21 — 한글 본문 폰트를 Pretendard 로 self-host
+
+- 상태: review
+- Issue: #1342
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 앱이 내려받는 웹폰트가 `Geist`(Latin subset) 하나뿐이라 한글이 보는 사람의 운영체제 기본 글꼴로 그려지고 있었다. Geist 의 `@font-face` 다섯 개에 한글 영역이 없고 짝으로 붙는 `Geist Fallback` 은 `local("Arial")` 이라 거기에도 한글이 없다. npm `pretendard` 의 가변본 한 벌을 `next/font/local` 로 self-host 하고 Geist 를 걷어냈다. 선언 자리는 `apps/frontend/src/app/layout.tsx` 한 곳이고 CSS 변수 이름 `--font-sans` 를 그대로 둬서 `globals.css` 와 화면 93 개 파일은 한 줄도 건드리지 않았다. `docs/design.md` 타이포그래피 절과 R-39, `.design-sync/css/ds-entry.css` 를 같이 고쳤다 — 후자는 원격 Google Fonts `@import` 도 사라진다.
+- 검증: 로컬 브라우저 회귀 34 스펙 103 건 전부 통과(5.4 분, 건너뛴 것 0). 프런트 단위 374 파일 3723 건, typecheck·lint·prettier·`tokens:check` 통과. 빌드 산출물의 폰트는 Geist 5 개 75,948 B 에서 Pretendard 1 개 2,057,688 B 로 바뀌었고 preload 되는 바이트는 29,288 B 에서 0 이 됐다. `standalone/node_modules` 에 패키지가 끌려가지 않은 것도 확인했다. 브라우저에서 잰 `fontFamily` 에 Pretendard 와 한글 폴백이 모두 보인다.
+- 배포: 프런트 전용 변경이고 스키마·마이그레이션이 없다. 되돌리려면 `layout.tsx` 한 파일을 되돌리면 된다.
+- 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.

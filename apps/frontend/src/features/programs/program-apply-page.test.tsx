@@ -137,6 +137,35 @@ const baseValues = {
   personalDataConsent: false,
 };
 
+/*
+ * 반려 사유는 예전에 「막힌 화면」에만 있었다. 반려 재제출이 열리면서 학생은 더 이상
+ * 막히지 않으므로, 그 자리에만 두면 왜 반려됐는지를 영영 볼 수 없다.
+ */
+describe('반려 재제출 화면의 반려 사유', () => {
+  it('고쳐 다시 내는 화면에 반려 사유를 함께 보인다', () => {
+    const html = renderForm({
+      mode: 'edit',
+      rejectionReason: '합성 반려 사유',
+    });
+
+    expect(html).toContain('반려 사유');
+    expect(html).toContain('합성 반려 사유');
+  });
+
+  it('사유가 비었거나 공백뿐이면 상자를 그리지 않는다', () => {
+    for (const reason of [null, '', '   ']) {
+      const html = renderForm({ mode: 'edit', rejectionReason: reason });
+      expect(html).not.toContain('반려 사유');
+    }
+  });
+
+  it('최초 신청 화면에는 반려 사유 자리가 없다', () => {
+    const html = renderForm({ mode: 'create', rejectionReason: null });
+
+    expect(html).not.toContain('반려 사유');
+  });
+});
+
 function renderForm(
   overrides: Partial<Parameters<typeof ProgramApplyFormView>[0]> = {},
 ) {
@@ -148,6 +177,7 @@ function renderForm(
       values={baseValues}
       errors={{}}
       serverError={null}
+      rejectionReason={null}
       mode="create"
       canManage={false}
       confirmation={null}
@@ -306,6 +336,7 @@ describe('ProgramApply views', () => {
     const html = renderForm({
       team: submittedLeaderTeam,
       values: { ...baseValues, title: '기존 제목' },
+      rejectionReason: null,
       mode: 'edit',
       canManage: true,
     });

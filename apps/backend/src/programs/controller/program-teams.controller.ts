@@ -20,6 +20,7 @@ import {
 import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
 import { DeleteTeamRequestDto } from '../dto/delete-team-request.dto';
 import { RenameTeamRequestDto } from '../dto/rename-team-request.dto';
+import { TransferTeamLeaderRequestDto } from '../dto/transfer-team-leader-request.dto';
 import {
   StaffTeamDetailResponseDto,
   RepositoryUrlHistoryResponseDto,
@@ -50,6 +51,8 @@ type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
  * GET    /api/v1/programs/:programId/teams/:teamId/repository-url-history  (교직원 전용)
  * PATCH  /api/v1/programs/:programId/teams/:teamId  (팀장 또는 교직원)
  * DELETE /api/v1/programs/:programId/teams/:teamId  (교직원 전용)
+ * DELETE /api/v1/programs/:programId/teams/:teamId/members/:userId  (교직원 전용)
+ * PATCH  /api/v1/programs/:programId/teams/:teamId/leader            (교직원 전용)
  */
 @Controller('programs/:programId/teams')
 export class ProgramTeamsController {
@@ -66,6 +69,8 @@ export class ProgramTeamsController {
       | 'getRepositoryUrlHistoryForStaff'
       | 'rename'
       | 'deleteForStaff'
+      | 'removeMemberForStaff'
+      | 'transferLeaderForStaff'
     >,
   ) {}
 
@@ -200,6 +205,53 @@ export class ProgramTeamsController {
    * 본문을 받는 DELETE다 — `DELETE /programs/:id/purge`와 같은 계약이며,
    * `expectedScope`는 확인 창이 마지막으로 본 범위라 REQUIRED다.
    */
+  /**
+   * 교직원의 팀원 제외 — 행위자는 그 팀 밖에 있다.
+   *
+   * 학생 경로(`me/members/:userId`)와 URL이 닮았지만 다른 문이다. 그쪽은 정적 `me`
+   * 아래라 이 동적 경로보다 먼저 선언돼 있어 서로 가로채지 않는다.
+   *
+   * 가드를 붙이지 않는 것은 `rename`·`remove`와 같은 이유다 — 교직원 판정을 service가
+   * 하고, 최종 판정은 팀 행을 잠근 뒤 repository가 다시 한다.
+   */
+  @Delete(':teamId/members/:userId')
+  @HttpCode(204)
+  @UseGuards(SessionGuard, OriginGuard)
+  async removeMemberForStaff(
+    @Req() request: TeamSessionRequest,
+    @Param('programId') programId: string,
+    @Param('teamId') teamId: string,
+    @Param('userId') userId: string,
+  ): Promise<void> {
+    await this.service.removeMemberForStaff(
+      request.sessionGithubId,
+      programId,
+      teamId,
+      userId,
+    );
+  }
+
+  /**
+   * 교직원의 팀장 변경 — 대상은 그 팀의 현재 구성원이어야 한다.
+   * 이미 그 사람이 팀장이면 아무것도 바꾸지 않고 204로 끝난다.
+   */
+  @Patch(':teamId/leader')
+  @HttpCode(204)
+  @UseGuards(SessionGuard, OriginGuard)
+  async transferLeaderForStaff(
+    @Req() request: TeamSessionRequest,
+    @Param('programId') programId: string,
+    @Param('teamId') teamId: string,
+    @Body() body: TransferTeamLeaderRequestDto,
+  ): Promise<void> {
+    await this.service.transferLeaderForStaff(
+      request.sessionGithubId,
+      programId,
+      teamId,
+      body.userId,
+    );
+  }
+
   @Delete(':teamId')
   @UseGuards(SessionGuard, OriginGuard)
   async remove(

@@ -7,14 +7,12 @@ import {
   DataTable,
   EmptyState,
   PageHeader,
-  StatusBadge,
   type DataTableColumn,
 } from '@/components';
 import { FilterChip, FilterChipGroup } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { programTeamDetailHref } from '@/lib/program-route';
 import {
   decideApplication,
@@ -22,7 +20,6 @@ import {
   listTeamManagementApplications,
 } from './api';
 import {
-  APPLICATION_STATUS_BADGE,
   APPLICATION_STATUS_LABELS,
   formatSubmittedAt,
 } from './application-presentation';
@@ -30,10 +27,10 @@ import {
   blocksFurtherDecisions,
   decisionInputFor,
   decisionNoticeFor,
-  DECISION_OPTIONS,
   runDecisionWithRefetch,
 } from './application-decision-refetch';
 import { ApplicationDecisionDialog } from './application-decision-dialog';
+import { ApplicationStatusControl } from './application-status-control';
 import type {
   ApplicationListStatus,
   ApplicationStatus,
@@ -103,6 +100,8 @@ export function ProgramStaffTeamsPage({
   } | null>(null);
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState(false);
+  /** 창 안에 남겨 둘 실패 안내. 적용된 판정에서는 항상 null 이다. */
+  const [decisionError, setDecisionError] = useState<string | null>(null);
   const cancelled = useRef(false);
 
   const load = useCallback(async () => {
@@ -164,6 +163,10 @@ export function ProgramStaffTeamsPage({
         setReasonError(true);
         return;
       }
+      // 이 판정이 창에서 시작됐는가 — `onSelectStatus`의 확인 조건과 같아야 한다.
+      const dialogOpen =
+        next === 'REJECTED' ||
+        (next === 'APPROVED' && item.status === 'REJECTED');
       setBusyId(item.id);
       const result = await runDecisionWithRefetch({
         decide: () => decideApplication(item.id, input),
@@ -171,13 +174,32 @@ export function ProgramStaffTeamsPage({
       });
       if (cancelled.current) return;
       setBusyId(null);
-      setPending(null);
-      setReason('');
-      setReasonError(false);
 
+      /*
+       * 판정이 적용되지 **않은** 때는 창과 입력을 그대로 둔다.
+       *
+       * 닫아 버리면 교직원이 방금 적은 반려 사유를 다시 타이핑해야 한다 — 서버가
+       * 5xx를 돌려준 것은 그 사람의 잘못이 아니다. 적용된 뒤에만 정리한다.
+       */
+      const applied = result.outcome.kind === 'applied';
       const message = decisionNoticeFor(result);
+      /*
+       * 창이 떠 있는 채로 실패하면 안내는 **창 안에서만** 말한다. 같은 문구를 창과
+       * 행에 나란히 두면 어느 쪽이 지금 상황인지 한 번 더 생각하게 된다. 승인처럼
+       * 창이 없는 경로는 그대로 행에 남긴다.
+       */
+      const keptOpen = !applied && dialogOpen;
+      if (applied) {
+        setPending(null);
+        setReason('');
+        setReasonError(false);
+        setDecisionError(null);
+      } else if (dialogOpen) {
+        setDecisionError(message);
+      }
+
       const notice: RowNotice | null =
-        message === null
+        message === null || keptOpen
           ? null
           : { message, blocked: result.kind === 'refetch-failed' };
       setNotices((current) => {
@@ -197,9 +219,22 @@ export function ProgramStaffTeamsPage({
   const onSelectStatus = useCallback(
     (item: TeamManagementListItem, next: ApplicationStatus) => {
       if (next === item.status) return;
-      if (next === 'REJECTED') {
+      /*
+       * 확인을 거치는 두 경우다.
+       *
+       * 1. 반려 — 사유가 필요하다.
+       * 2. 반려된 신청을 승인 — 지금 남아 있는 반려 사유가 **지워진다**.
+       *    누르고 나서 사유가 사라졌다는 것을 뒤에 알게 되면 교직원은 자기가 무엇을
+       *    눌렀는지 모른다. 창은 이미 그 문구를 가지고 있었고, 여기서 열어 주지 않아
+       *    닿지 않고 있었다.
+       */
+      const needsConfirm =
+        next === 'REJECTED' ||
+        (next === 'APPROVED' && item.status === 'REJECTED');
+      if (needsConfirm) {
         setReason('');
         setReasonError(false);
+        setDecisionError(null);
         setPending({ item, next });
         return;
       }
@@ -256,22 +291,15 @@ export function ProgramStaffTeamsPage({
           const notice = notices[item.id] ?? null;
           return (
             <div className="grid min-w-[9rem] gap-1">
-              <Select
+              <ApplicationStatusControl
+                id={`team-management-status-${item.id}`}
                 aria-label={`${item.applicant.nickname} 신청 상태`}
                 value={item.status}
                 // 세 옵션은 어느 출발 상태에서도 전부 활성이다(AC-14).
                 // 진행 중이거나 재조회가 실패한 행만 막는다.
                 disabled={busyId === item.id || (notice?.blocked ?? false)}
-                onChange={(event) =>
-                  onSelectStatus(item, event.target.value as ApplicationStatus)
-                }
-              >
-                {DECISION_OPTIONS.map((status) => (
-                  <option key={status} value={status}>
-                    {APPLICATION_STATUS_LABELS[status]}
-                  </option>
-                ))}
-              </Select>
+                onChange={(next) => onSelectStatus(item, next)}
+              />
               {notice !== null ? (
                 <span
                   role="status"
@@ -288,14 +316,9 @@ export function ProgramStaffTeamsPage({
         id: 'submittedAt',
         header: '최근 제출',
         cell: (item) => (
-          <div className="grid gap-0.5">
-            <span className="tabular-nums">
-              {formatSubmittedAt(item.submittedAt)}
-            </span>
-            <StatusBadge variant={APPLICATION_STATUS_BADGE[item.status]}>
-              {APPLICATION_STATUS_LABELS[item.status]}
-            </StatusBadge>
-          </div>
+          <span className="tabular-nums">
+            {formatSubmittedAt(item.submittedAt)}
+          </span>
         ),
       },
     ],
@@ -434,7 +457,9 @@ export function ProgramStaffTeamsPage({
 
       {pending !== null ? (
         <ApplicationDecisionDialog
-          action="REJECT"
+          // 무엇을 확인하는 창인지는 **고른 상태**가 정한다 — 반려만 확인하던 시절의
+          // 고정값을 남겨 두면 승인 확인이 「신청 반려」라고 말한다.
+          action={pending.next === 'REJECTED' ? 'REJECT' : 'APPROVE'}
           currentStatus={pending.item.status}
           applicantName={
             pending.item.applicant.name ?? pending.item.applicant.nickname
@@ -443,7 +468,7 @@ export function ProgramStaffTeamsPage({
           reason={reason}
           reasonError={reasonError}
           busy={busyId === pending.item.id}
-          errorMessage={null}
+          errorMessage={decisionError}
           returnFocusId={`team-management-status-${pending.item.id}`}
           onReasonChange={(value) => {
             setReason(value);
@@ -453,6 +478,7 @@ export function ProgramStaffTeamsPage({
             setPending(null);
             setReason('');
             setReasonError(false);
+            setDecisionError(null);
           }}
           onConfirm={() => {
             void applyDecision(pending.item, pending.next, reason);

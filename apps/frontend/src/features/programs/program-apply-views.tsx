@@ -53,7 +53,16 @@ function RejectionReasonAlert({
   readonly application: StudentApplication | null;
 }) {
   if (application === null || application.status !== 'REJECTED') return null;
-  const reason = sanitizeDisplayText(application.rejectionReason);
+  return <RejectionReason reason={application.rejectionReason} />;
+}
+
+/**
+ * 반려 사유 상자. 사유 문자열 하나만 받는다 — 막힌 화면은 신청 객체를 들고 있고
+ * 재제출 폼은 사유만 들고 있어서, 둘이 같은 상자를 쓰려면 여기가 좁아야 한다.
+ * 사유가 비었거나 공백뿐이면 아무것도 그리지 않는다.
+ */
+function RejectionReason({ reason: raw }: { readonly reason: string | null }) {
+  const reason = sanitizeDisplayText(raw);
   if (reason === null) return null;
 
   return (
@@ -262,6 +271,11 @@ interface ProgramApplyFormViewProps extends ProgramApplyTeamProps {
   readonly errors: ProgramApplyFormErrors;
   readonly serverError: string | null;
   readonly mode: ApplicationFormMode;
+  /**
+   * 반려 사유. 반려된 신청을 고쳐 다시 내는 경로에서 **왜 반려됐는지**를 같은 화면에
+   * 두기 위해 받는다 — 사유 없이 고치라고 하면 무엇을 고쳐야 하는지 알 수 없다.
+   */
+  readonly rejectionReason: string | null;
   readonly canManage: boolean;
   readonly confirmation: ApplicationConfirmation;
   readonly teamMinimum?: TeamMinimum | null;
@@ -388,6 +402,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     errors,
     serverError,
     mode,
+    rejectionReason,
     canManage,
     confirmation,
     teamMinimum = null,
@@ -437,6 +452,11 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     return (
       <PageBody className="max-w-4xl">
         <PageHeader title={`${program.name} 신청`} />
+        {/*
+         * 반려 사유는 예전에 「막힌 화면」에만 있었다. 반려 재제출이 열리면서 학생은
+         * 더 이상 막히지 않으므로, 그 자리에만 두면 사유를 영영 볼 수 없다.
+         */}
+        <RejectionReason reason={rejectionReason} />
         {team ? (
           <TeamMembersPanel
             programId={programId}

@@ -88,9 +88,7 @@ export function MatrixStatsStrip({
   ];
   return (
     <div className="grid gap-3 rounded-card border border-border p-card">
-      <p className="text-small text-muted-foreground">
-        팀별 제출 단계 · 이 페이지 기준
-      </p>
+      <p className="text-small text-muted-foreground">팀별 제출 단계</p>
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
         {facts.map((fact) => (
           <div key={fact.label} className="flex flex-col gap-1">
