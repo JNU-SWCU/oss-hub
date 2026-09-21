@@ -14,12 +14,6 @@ import {
   StatusBadge,
 } from '@/components';
 import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
 import { MilestoneRow } from './components/milestone-row';
@@ -245,30 +239,26 @@ export function ProgramActions({
   return null;
 }
 
-const PROGRAM_EDIT_LABEL = '프로그램 편집';
-
 /**
- * 프로그램 제목을 대상으로 하는 편집 입구. 아이콘만 두고 이름은 aria-label과
- * 툴팁으로 남긴다(R-27, R-38). heading 밖(`PageHeader.titleAction`)에 두어
- * 읽어 주는 도구가 제목과 버튼 이름을 섞지 않게 한다.
+ * 프로그램 편집 입구.
+ *
+ * ⚠ 제목 옆(`PageHeader.titleAction`)에 두지 않는다. 그 슬롯은 **제목 자체**를
+ * 다루는 액션의 자리이고, 근접성이 곧 범위를 말한다 — 제목 옆에 붙은 연필은
+ * 「이름을 고친다」로 읽힌다. 이 버튼이 여는 것은 프로그램 전체 편집이므로
+ * 페이지 액션 영역에 선다.
+ *
+ * 아이콘만 두지 않는 이유도 같다. 연필은 「무언가를 고친다」까지만 말하고 그
+ * 무언가가 무엇인지는 자리로만 전달되는데, 그 자리가 모호하면 아무것도 남지
+ * 않는다. 글자를 함께 둔다.
  */
-function ProgramEditTitleAction({ programId }: { readonly programId: string }) {
+function ProgramEditAction({ programId }: { readonly programId: string }) {
   return (
-    <TooltipProvider delayDuration={200}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button asChild variant="ghost" size="icon">
-            <Link
-              href={programEditHref(programId)}
-              aria-label={PROGRAM_EDIT_LABEL}
-            >
-              <Pencil aria-hidden="true" />
-            </Link>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{PROGRAM_EDIT_LABEL}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Button asChild variant="outline" size="sm">
+      <Link href={programEditHref(programId)}>
+        <Pencil aria-hidden="true" />
+        편집
+      </Link>
+    </Button>
   );
 }
 
@@ -576,13 +566,15 @@ export function ProgramDetailReadyState({
             </span>
           }
           description={programDetailMeta(program)}
-          titleAction={
-            program.viewer.role === 'STAFF' ||
-            program.viewer.role === 'ADMIN' ? (
-              <ProgramEditTitleAction programId={program.id} />
-            ) : undefined
+          actions={
+            <>
+              {program.viewer.role === 'STAFF' ||
+              program.viewer.role === 'ADMIN' ? (
+                <ProgramEditAction programId={program.id} />
+              ) : null}
+              <ProgramActions program={program} />
+            </>
           }
-          actions={<ProgramActions program={program} />}
         />
       </div>
       <ProgramSummary program={program} />

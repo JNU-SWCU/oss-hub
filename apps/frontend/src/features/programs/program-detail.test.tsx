@@ -420,11 +420,11 @@ describe('ProgramDetailPage states', () => {
           }}
         />,
       );
-      expect(html).toContain('data-slot="page-header-title-action"');
+      expect(html).toContain('data-slot="page-header-actions"');
       expect(html).toContain('href="/programs/program-1/edit"');
-      expect(html).toContain('aria-label="프로그램 편집"');
-      expect(html).toContain('data-size="icon"');
-      expect(html).toContain('data-slot="tooltip-trigger"');
+      // 연필만 두지 않는다 — 글자가 함께 있어야 무엇을 고치는지 남는다.
+      expect(html).toContain('편집');
+      expect(html).toContain('lucide-pencil');
       expect(html).not.toContain('신청자 목록');
       expect(html).not.toContain('/programs/program-1/applicants');
       expect(html).not.toContain('/programs/program-1/submissions');
@@ -439,7 +439,7 @@ describe('ProgramDetailPage states', () => {
     },
     { role: null, applicationStatus: null },
   ])(
-    '$role 에게는 제목 옆 프로그램 편집 입구를 숨긴다',
+    '$role 에게는 프로그램 편집 입구를 숨긴다',
     ({ role, applicationStatus }) => {
       const html = renderToStaticMarkup(
         <ProgramDetailReadyState
@@ -449,9 +449,9 @@ describe('ProgramDetailPage states', () => {
           }}
         />,
       );
-      expect(html).not.toContain('data-slot="page-header-title-action"');
-      expect(html).not.toContain('aria-label="프로그램 편집"');
-      expect(html).not.toContain('data-size="icon"');
+      // 편집 입구 자체가 없어야 한다 — 페이지 액션 영역은 다른 것도 쓰므로
+      // 그 슬롯의 부재가 아니라 편집 링크의 부재로 판정한다.
+      expect(html).not.toContain('/edit"');
     },
   );
 
