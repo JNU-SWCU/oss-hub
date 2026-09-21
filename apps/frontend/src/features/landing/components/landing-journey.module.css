@@ -293,10 +293,6 @@
     gap: 22px;
   }
 
-  .statValue {
-    font-size: var(--step-section);
-  }
-
   .statNote {
     margin-top: 10px;
   }

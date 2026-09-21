@@ -171,6 +171,9 @@ CardGrid(§3)처럼 컬럼 수를 아예 쓰지 않는 `auto-fit`/`minmax` 패�
 `sm:h-14` `md:h-px`
 
 ### 타이포그래피
+- 크기 계단(먼저 쓴다): `text-page`(40) `text-section`(24) `text-body`(16)
+  `text-small`(13) `text-badge`(12, 상태 배지) `text-table`(14, 표 본문·사이드바 메뉴)
+  — 원본은 `globals.css`의 `--step-*`, 규칙은 `docs/design.md` 타이포그래피 절
 - 크기: `text-xs` `text-sm` `text-base` `text-lg` `text-xl` `text-2xl` `text-3xl`
   `text-4xl` (반응형 전용으로 `sm:text-3xl` `sm:text-5xl`도 존재 — 비반응형
   `text-5xl` 이상은 없다)
