@@ -1,4 +1,4 @@
-import { AlertCircle, ExternalLink, FolderGit2, RotateCcw } from 'lucide-react';
+import { ExternalLink, FolderGit2 } from 'lucide-react';
 import Link from 'next/link';
 import {
   CardGrid,
@@ -7,8 +7,8 @@ import {
   PageHeader,
   SectionHeading,
   StatusBadge,
+  FailureState,
 } from '@/components';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -17,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import type {
   MyRepositoriesState,
   MyRepositoryItem,
@@ -40,16 +41,18 @@ const STATUS_VARIANTS = {
 
 function LoadingState() {
   return (
-    <PageBody aria-label="내 저장소를 불러오는 중">
-      <div className="h-20 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
-      <CardGrid>
-        {[0, 1, 2].map((index) => (
-          <div
-            key={index}
-            className="animate-pulse rounded-card bg-muted motion-reduce:animate-none"
-          />
-        ))}
-      </CardGrid>
+    <PageBody>
+      <Skeleton
+        label="내 저장소를 불러오는 중"
+        className="flex flex-col gap-12"
+      >
+        <SkeletonBlock className="h-20 rounded-card" />
+        <CardGrid>
+          {[0, 1, 2].map((index) => (
+            <SkeletonBlock key={index} className="rounded-card" />
+          ))}
+        </CardGrid>
+      </Skeleton>
     </PageBody>
   );
 }
@@ -57,17 +60,7 @@ function LoadingState() {
 function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   return (
     <PageBody className="max-w-3xl">
-      <Alert variant="destructive">
-        <AlertCircle aria-hidden="true" />
-        <AlertTitle>내 저장소를 불러오지 못했습니다</AlertTitle>
-        <AlertDescription className="flex flex-wrap items-center justify-between gap-4">
-          <span>잠시 후 다시 시도해 주세요.</span>
-          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-            <RotateCcw aria-hidden="true" />
-            다시 시도
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <FailureState title="내 저장소를 불러오지 못했습니다" onRetry={onRetry} />
     </PageBody>
   );
 }

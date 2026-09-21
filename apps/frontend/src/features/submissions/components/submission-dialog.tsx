@@ -3,6 +3,7 @@
 import { X } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export function SubmissionDialog({
   title,
@@ -34,7 +35,12 @@ export function SubmissionDialog({
           // 창이 열린 순간 「제출하기」가 보이는 영역보다 200px 아래에 있었다. macOS의
           // 겹침 스크롤막대는 스크롤하기 전까지 보이지 않아 더 내려갈 수 있다는 신호도
           // 없다 — 눌렀다고 생각한 자리가 빈 곳이면 아무 일도 일어나지 않는다.
-          className="fixed top-1/2 left-1/2 z-50 grid max-h-[min(90dvh,52rem)] w-[calc(100%_-_2rem)] max-w-[46rem] min-w-0 -translate-x-1/2 -translate-y-1/2 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-lg border border-border bg-background shadow-lg outline-none"
+          className={cn(
+            'fixed top-1/2 left-1/2 z-50 grid max-h-[min(90dvh,52rem)] w-[calc(100%_-_2rem)]',
+            'max-w-[46rem] min-w-0 -translate-x-1/2 -translate-y-1/2',
+            'grid-rows-[auto_minmax(0,1fr)] overflow-hidden',
+            'rounded-lg border border-border bg-background shadow-lg outline-none',
+          )}
           onCloseAutoFocus={(event) => {
             const returnTarget = document.getElementById(returnFocusId);
             if (!(returnTarget instanceof HTMLElement)) return;

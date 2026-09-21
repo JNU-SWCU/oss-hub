@@ -4,6 +4,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import type { ProfileMemberKind } from '../../profile-requirements';
 import type {
   SettingsFormErrors,
@@ -31,13 +33,11 @@ interface SettingsFormProps {
 
 export function SettingsSkeleton() {
   return (
-    <PageBody
-      className="max-w-2xl"
-      role="status"
-      aria-label="설정을 불러오는 중"
-    >
-      <div className="h-16 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
-      <div className="h-80 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+    <PageBody className="max-w-2xl">
+      <Skeleton label="설정을 불러오는 중" className="flex flex-col gap-12">
+        <SkeletonBlock className="h-16 rounded-card" />
+        <SkeletonBlock className="h-80 rounded-card" />
+      </Skeleton>
     </PageBody>
   );
 }
@@ -75,7 +75,10 @@ export function SettingsForm({
       {toastMessage ? (
         <div
           role="status"
-          className="rounded-card border border-status-approved-bg bg-status-approved-bg px-6 py-4 text-small font-semibold text-status-approved-fg"
+          className={cn(
+            'rounded-card border border-status-approved-bg bg-status-approved-bg px-6 py-4',
+            'text-small font-semibold text-status-approved-fg',
+          )}
         >
           {toastMessage}
         </div>
@@ -124,12 +127,19 @@ export function SettingsForm({
                   autoComplete="email"
                   value={values.notificationEmail}
                   aria-invalid={showEmailError}
+                  aria-describedby={
+                    showEmailError
+                      ? 'settings-notification-email-error'
+                      : undefined
+                  }
                   onChange={(event) =>
                     onChange({ notificationEmail: event.target.value })
                   }
                 />
                 {showEmailError ? (
-                  <FieldError>{errors.notificationEmail}</FieldError>
+                  <FieldError id="settings-notification-email-error">
+                    {errors.notificationEmail}
+                  </FieldError>
                 ) : null}
               </Field>
               <label className="flex min-h-control items-center gap-3 text-body">

@@ -10,7 +10,12 @@ import {
   useState,
   type ReactElement,
 } from 'react';
-import { EmptyState, PageHeader, StatusBadge } from '@/components';
+import {
+  EmptyState,
+  FailureState,
+  PageHeader,
+  StatusBadge,
+} from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,6 +23,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import {
   Tooltip,
   TooltipContent,
@@ -56,19 +62,6 @@ type LoadState =
   | { readonly kind: 'ready'; readonly detail: StaffTeamDetail }
   | { readonly kind: 'not-found' }
   | { readonly kind: 'error'; readonly message: string };
-
-function DetailSkeleton(): ReactElement {
-  return (
-    <main
-      className="mx-auto grid w-full max-w-3xl gap-6 px-4 py-8"
-      aria-label="팀 상세 불러오는 중"
-    >
-      <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-40 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-40 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-    </main>
-  );
-}
 
 function Section({
   title,
@@ -233,31 +226,47 @@ export function ProgramStaffTeamDetailPage({
 
   const teamsHref = programHref(programId, '/teams');
 
-  if (loadState.kind === 'loading') return <DetailSkeleton />;
+  if (loadState.kind === 'loading') {
+    return (
+      <main className="mx-auto w-full max-w-3xl px-4 py-8">
+        <Skeleton label="팀 상세 불러오는 중" className="grid gap-6">
+          <SkeletonBlock className="h-20 rounded-xl" />
+          <SkeletonBlock className="h-40 rounded-xl" />
+          <SkeletonBlock className="h-40 rounded-xl" />
+        </Skeleton>
+      </main>
+    );
+  }
 
-  if (loadState.kind === 'not-found' || loadState.kind === 'error') {
-    const copy =
-      loadState.kind === 'not-found'
-        ? {
-            title: '팀을 찾을 수 없습니다',
-            description: '이 프로그램의 팀이 아니거나 주소가 잘못되었습니다.',
-          }
-        : { title: '팀 상세를 열 수 없습니다', description: loadState.message };
+  if (loadState.kind === 'not-found') {
     return (
       <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
         <PageHeader title="팀 상세" />
         <EmptyState
-          title={copy.title}
-          description={copy.description}
+          title="팀을 찾을 수 없습니다"
+          description="이 프로그램의 팀이 아니거나 주소가 잘못되었습니다."
           action={
-            <div className="flex flex-wrap justify-center gap-2">
-              {loadState.kind === 'error' ? (
-                <Button onClick={() => void load()}>다시 시도</Button>
-              ) : null}
-              <Button asChild variant="outline">
-                <Link href={teamsHref}>참여 팀으로</Link>
-              </Button>
-            </div>
+            <Button asChild variant="outline">
+              <Link href={teamsHref}>참여 팀으로</Link>
+            </Button>
+          }
+        />
+      </main>
+    );
+  }
+
+  if (loadState.kind === 'error') {
+    return (
+      <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
+        <PageHeader title="팀 상세" />
+        <FailureState
+          title="팀 상세를 열 수 없습니다"
+          description={loadState.message}
+          onRetry={() => void load()}
+          action={
+            <Button asChild variant="outline" size="sm">
+              <Link href={teamsHref}>참여 팀으로</Link>
+            </Button>
           }
         />
       </main>

@@ -2,11 +2,16 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, ExternalLink, RotateCcw, Users } from 'lucide-react';
-import { DetailPanelLayout, EmptyState, PageHeader } from '@/components';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { ExternalLink, Users } from 'lucide-react';
+import {
+  DetailPanelLayout,
+  EmptyState,
+  PageHeader,
+  FailureState,
+} from '@/components';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { ArchiveNotFoundError, loadArchiveDetail } from '../api';
 import type { ArchiveDetail, ArchiveDetailState } from '../types';
 
@@ -17,12 +22,11 @@ type ArchiveDetailContentProps = {
 
 function LoadingState() {
   return (
-    <main
-      aria-label="공개 프로젝트를 불러오는 중"
-      className="mx-auto grid w-full max-w-6xl gap-6 p-5 sm:p-8"
-    >
-      <div className="h-24 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
-      <div className="h-64 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
+    <main className="mx-auto w-full max-w-6xl p-5 sm:p-8">
+      <Skeleton label="공개 프로젝트를 불러오는 중" className="grid gap-6">
+        <SkeletonBlock className="h-24 rounded-lg" />
+        <SkeletonBlock className="h-64 rounded-lg" />
+      </Skeleton>
     </main>
   );
 }
@@ -30,17 +34,10 @@ function LoadingState() {
 function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   return (
     <main className="mx-auto grid w-full max-w-3xl gap-6 p-5 sm:p-8">
-      <Alert variant="destructive">
-        <AlertCircle aria-hidden="true" />
-        <AlertTitle>공개 프로젝트를 불러오지 못했습니다</AlertTitle>
-        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-          <span>잠시 후 다시 시도해 주세요.</span>
-          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-            <RotateCcw aria-hidden="true" />
-            다시 시도
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <FailureState
+        title="공개 프로젝트를 불러오지 못했습니다"
+        onRetry={onRetry}
+      />
     </main>
   );
 }

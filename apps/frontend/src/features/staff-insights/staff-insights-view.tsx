@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
-import { EmptyState, PageHeader } from '@/components';
-import { Button } from '@/components/ui/button';
+import { FailureState, FilterChipGroup, PageHeader } from '@/components';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { FadeUp } from './fade-up';
 import { CutButton, MetricCard, YearLinks } from './insights-controls';
 import { ActivityPanel, DepartmentPanel } from './insights-panels';
@@ -35,27 +35,22 @@ export function StaffInsightsView({
 }): ReactElement {
   if (state.kind === 'loading') {
     return (
-      <main
-        className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8"
-        aria-label="학생 활성을 불러오는 중"
-      >
-        <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-        <div className="h-40 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-        <div className="h-64 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
+      <main className="mx-auto w-full max-w-6xl px-4 py-8">
+        <Skeleton label="학생 활성을 불러오는 중" className="grid gap-6">
+          <SkeletonBlock className="h-20 rounded-xl" />
+          <SkeletonBlock className="h-40 rounded-xl" />
+          <SkeletonBlock className="h-64 rounded-xl" />
+        </Skeleton>
       </main>
     );
   }
   if (state.kind === 'error') {
     return (
       <main className="mx-auto w-full max-w-3xl px-4 py-12">
-        <EmptyState
+        <FailureState
           title="학생 활성을 불러오지 못했습니다"
           description={state.message}
-          action={
-            <Button type="button" onClick={state.onRetry}>
-              다시 시도
-            </Button>
-          }
+          onRetry={state.onRetry}
         />
       </main>
     );
@@ -86,18 +81,17 @@ export function StaffInsightsView({
           </span>
           <YearLinks scope={summary.scope} years={summary.years} />
         </div>
-        <div
-          className="grid gap-2"
-          role="group"
-          aria-labelledby="insights-cut-label"
-        >
+        <div className="grid gap-2">
           <span
             id="insights-cut-label"
             className="text-xs font-semibold text-muted-foreground"
           >
             비교 관점
           </span>
-          <div className="flex flex-wrap gap-2">
+          <FilterChipGroup
+            aria-label="비교 관점"
+            aria-labelledby="insights-cut-label"
+          >
             <CutButton
               current={cut}
               value={INSIGHTS_CUTS.COHORT}
@@ -112,7 +106,7 @@ export function StaffInsightsView({
             >
               학과
             </CutButton>
-          </div>
+          </FilterChipGroup>
         </div>
       </section>
       <p className="text-sm text-muted-foreground">

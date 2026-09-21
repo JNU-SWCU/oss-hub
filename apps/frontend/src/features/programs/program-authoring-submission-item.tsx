@@ -9,6 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import type { MilestoneDocumentUploadPolicy } from './milestone-document-api';
 import { milestoneDocumentUploadRejection } from './milestone-document-upload-policy';
 
@@ -105,7 +106,10 @@ export function ProgramAuthoringSubmissionItem({
     <TooltipProvider delayDuration={200}>
       <div
         aria-label={`${requirement.name || '새'} 제출 항목`}
-        className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-2 rounded-card border border-border p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
+        className={cn(
+          'grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-2',
+          'rounded-card border border-border p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]',
+        )}
         role="group"
       >
         <div className="row-span-2 shrink-0 self-start">{reorderHandle}</div>

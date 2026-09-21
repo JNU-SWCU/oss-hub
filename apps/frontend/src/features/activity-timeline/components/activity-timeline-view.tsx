@@ -4,9 +4,15 @@ import {
   ChartNoAxesCombined,
   Clock3,
 } from 'lucide-react';
-import { EmptyState, PageHeader } from '@/components';
+import {
+  EmptyState,
+  FilterChip,
+  FilterChipGroup,
+  PageHeader,
+} from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { ActivityChart } from './activity-chart';
 import type {
   ActivityGranularity,
@@ -57,8 +63,7 @@ export function ActivityTimelineView({
         title="내 활동"
         description="참여 프로그램과 오픈소스 활동 추이를 확인합니다."
         actions={
-          <div
-            role="group"
+          <FilterChipGroup
             aria-label="활동 집계 기간"
             className="inline-flex rounded-md border border-border bg-background p-1"
           >
@@ -68,18 +73,15 @@ export function ActivityTimelineView({
                 ['YEAR', '연도별'],
               ] as const
             ).map(([value, label]) => (
-              <Button
+              <FilterChip
                 key={value}
-                type="button"
-                size="sm"
-                variant={granularity === value ? 'default' : 'ghost'}
-                aria-pressed={granularity === value}
+                pressed={granularity === value}
                 onClick={() => onGranularityChange(value)}
               >
                 {label}
-              </Button>
+              </FilterChip>
             ))}
-          </div>
+          </FilterChipGroup>
         }
       />
 
@@ -180,9 +182,9 @@ export function ActivityTimelineView({
             </AlertDescription>
           </Alert>
         ) : status === 'loading' ? (
-          <div className="h-80 animate-pulse rounded-md bg-muted" role="status">
-            <span className="sr-only">활동 그래프를 불러오는 중…</span>
-          </div>
+          <Skeleton label="활동 그래프를 불러오는 중…">
+            <SkeletonBlock className="h-80 rounded-md" />
+          </Skeleton>
         ) : data && data.series.points.length > 0 ? (
           <ActivityChart points={data.series.points} />
         ) : (

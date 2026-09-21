@@ -3,6 +3,8 @@ import { DataTable, EmptyState, PageHeader } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import {
   AUDIT_LOG_ACTION_LABELS,
   AUDIT_LOG_ACTIONS,
@@ -69,7 +71,11 @@ export function AuditLogView(props: AuditLogViewProps) {
           </label>
           <select
             id="audit-action"
-            className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 min-h-11 w-full min-w-0 rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px]"
+            className={cn(
+              'border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50',
+              'min-h-11 w-full min-w-0 rounded-md border px-3 text-sm outline-none',
+              'focus-visible:ring-[3px]',
+            )}
             value={props.filters.action}
             onChange={(event) => update('action', event.target.value)}
           >
@@ -142,18 +148,14 @@ export function AuditLogView(props: AuditLogViewProps) {
         rowKey={(record) => record.id}
         isLoading={props.isLoading}
         loadingSlot={
-          <div
+          <Skeleton
+            label="감사 로그를 불러오는 중"
             className="flex flex-col gap-2 py-2"
-            aria-busy="true"
-            aria-label="감사 로그를 불러오는 중"
           >
             {[0, 1, 2].map((row) => (
-              <span
-                key={row}
-                className="bg-muted mx-auto h-3 w-4/5 animate-pulse rounded"
-              />
+              <SkeletonBlock key={row} className="mx-auto h-3 w-4/5 rounded" />
             ))}
-          </div>
+          </Skeleton>
         }
         emptyState={
           <EmptyState

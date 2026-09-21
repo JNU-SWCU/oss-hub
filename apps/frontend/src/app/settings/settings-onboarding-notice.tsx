@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import { cn } from '@/lib/utils';
 
 /**
  * 승인을 기다리는 교직원이 설정을 열었을 때 화면 맨 위에 서는 안내.
@@ -46,7 +47,10 @@ export function SettingsOnboardingNotice() {
     // 안내가 본문에 딸린 말이 아니라 다른 화면 조각으로 읽힌다.
     <section
       aria-labelledby="settings-onboarding-notice-heading"
-      className="mx-auto mt-8 flex w-full max-w-2xl flex-col items-start gap-2 rounded-card border border-border bg-card px-6 py-4 sm:mt-16"
+      className={cn(
+        'mx-auto mt-8 flex w-full max-w-2xl flex-col items-start gap-2',
+        'rounded-card border border-border bg-card px-6 py-4 sm:mt-16',
+      )}
       role="status"
       aria-live="polite"
     >

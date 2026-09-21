@@ -1,13 +1,14 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import type { CreatedSubmission } from '../types';
 
 export function SubmissionLoading() {
   return (
-    <div className="grid gap-6" aria-label="제출 정보 불러오는 중">
-      <div className="h-44 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-      <div className="h-80 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
-    </div>
+    <Skeleton label="제출 정보 불러오는 중" className="grid gap-6">
+      <SkeletonBlock className="h-44 rounded-xl" />
+      <SkeletonBlock className="h-80 rounded-xl" />
+    </Skeleton>
   );
 }
 

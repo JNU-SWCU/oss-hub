@@ -14,6 +14,7 @@ import {
 } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -299,11 +300,13 @@ function CollectionCellContent({
   return (
     <span className="flex flex-col items-start gap-0.5">
       {cell.isSubmitted ? (
-        <button
+        <Button
           type="button"
+          variant="bare"
+          size="content"
           aria-expanded={isReviewOpen}
           aria-label={`${teamName} ${documentName} 검토`}
-          className="flex flex-col items-start gap-0.5 rounded-control text-left hover:opacity-80"
+          className="flex flex-col items-start gap-0.5 rounded-control text-left whitespace-nowrap hover:opacity-80"
           /*
            * 판정을 묶어 둘 버전을 **이 순간의 칸에서** 떠 온다. 저장할 때 다시 읽으면
            * 그때의 최신값이 실려 서버의 대조가 언제나 통과하고, 그 사이 학생이 다시 낸
@@ -318,7 +321,7 @@ function CollectionCellContent({
         >
           {badge}
           <SubmittedAt submittedAt={cell.submittedAt} />
-        </button>
+        </Button>
       ) : (
         badge
       )}
@@ -751,19 +754,15 @@ function CollectionBody(
    */
   if (props.loadPhase === 'skeleton') {
     return (
-      <div
-        aria-busy="true"
-        aria-label="서류 수합 표를 불러오는 중"
+      <Skeleton
+        label="서류 수합 표를 불러오는 중"
         className="flex flex-col gap-3 rounded-card border border-border p-card"
       >
-        <span className="bg-muted h-4 w-1/3 animate-pulse rounded" />
+        <SkeletonBlock className="h-4 w-1/3 rounded" />
         {[0, 1, 2, 3].map((row) => (
-          <span
-            key={row}
-            className="bg-muted h-3 w-full animate-pulse rounded"
-          />
+          <SkeletonBlock key={row} className="h-3 w-full rounded" />
         ))}
-      </div>
+      </Skeleton>
     );
   }
   if (props.data === null) return null;

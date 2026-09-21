@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { sanitizeDisplayText } from '@/lib/display-text';
 import { programMyTeamHref } from '@/lib/program-route';
 import type { ProgramTeam } from './api';
@@ -33,9 +34,11 @@ export type ApplicationConfirmation = 'submit' | 'save' | 'cancel' | null;
 
 export function ApplySkeleton() {
   return (
-    <PageBody className="max-w-4xl" aria-label="신청 양식 불러오는 중">
-      <div className="h-20 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
-      <div className="h-72 animate-pulse rounded-card bg-muted motion-reduce:animate-none" />
+    <PageBody className="max-w-4xl">
+      <Skeleton label="신청 양식 불러오는 중" className="flex flex-col gap-12">
+        <SkeletonBlock className="h-20 rounded-card" />
+        <SkeletonBlock className="h-72 rounded-card" />
+      </Skeleton>
     </PageBody>
   );
 }
@@ -228,8 +231,11 @@ function TeamNameField({
           readOnly={readOnly}
           disabled={readOnly || creating}
           aria-invalid={teamError !== null ? true : undefined}
+          aria-describedby={teamError ? 'apply-team-name-error' : undefined}
         />
-        {teamError ? <FieldError>{teamError}</FieldError> : null}
+        {teamError ? (
+          <FieldError id="apply-team-name-error">{teamError}</FieldError>
+        ) : null}
       </Field>
     </div>
   );

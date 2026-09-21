@@ -242,9 +242,11 @@ export function ProgramScheduleRangeCalendar({
                     );
                   }
                   return (
-                    <button
+                    <Button
                       key={day}
                       type="button"
+                      variant="bare"
+                      size="content"
                       disabled={!selectable}
                       data-calendar-date={day}
                       tabIndex={focusedDate === day && selectable ? 0 : -1}
@@ -258,7 +260,7 @@ export function ProgramScheduleRangeCalendar({
                       onKeyDown={(event) => handleKeyDown(event, day)}
                     >
                       {Number(day.slice(-2))}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>

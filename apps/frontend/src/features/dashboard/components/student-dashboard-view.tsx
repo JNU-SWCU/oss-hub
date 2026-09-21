@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { CardGrid, EmptyState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import type {
   DashboardItem,
   ApplicationDecisionNotice,
@@ -61,15 +62,17 @@ interface StudentDashboardViewProps {
 }
 
 function DashboardSkeleton() {
+  /*
+    `Skeleton`은 `CardGrid` 바깥에 둔다 — 안에 넣으면 그리드의 자식이 하나로 줄어
+    `CardGrid`가 자식에게 주는 타일 너비·최소 높이를 뼈대 칸이 못 받고 세로로 쌓인다.
+  */
   return (
-    <CardGrid aria-busy="true" aria-label="대시보드를 불러오는 중">
-      {[0, 1].map((item) => (
-        <div
-          key={item}
-          className="min-h-72 animate-pulse rounded-lg bg-muted"
-        />
-      ))}
-    </CardGrid>
+    <Skeleton label="대시보드를 불러오는 중">
+      <CardGrid>
+        <SkeletonBlock className="min-h-72 rounded-lg" />
+        <SkeletonBlock className="min-h-72 rounded-lg" />
+      </CardGrid>
+    </Skeleton>
   );
 }
 

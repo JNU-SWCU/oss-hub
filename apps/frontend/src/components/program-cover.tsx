@@ -58,17 +58,19 @@ export function ProgramCover({
 
   return (
     <Dialog.Root>
-      <Dialog.Trigger asChild>
-        <button
-          type="button"
-          className="group relative block w-full rounded-card focus-visible:outline-2 focus-visible:outline-ring"
-          aria-label={`${title} 대표 이미지 크게 보기`}
-        >
-          {image}
-          <span className="absolute right-3 bottom-3 flex items-center gap-1 rounded-md bg-background/95 px-2 py-1 text-xs">
-            <Maximize2 className="size-3.5" aria-hidden="true" /> 크게 보기
-          </span>
-        </button>
+      {/*
+       * 누르는 면이 카드 전체(이미지)라 44px 높이의 Button 프리미티브가 맞지 않는다.
+       * Dialog.Trigger가 스스로 button을 그리게 두고 클래스만 얹는다 — 날 <button>을
+       * 다시 만들지 않으면서(R-38) 렌더 결과는 그대로다.
+       */}
+      <Dialog.Trigger
+        className="group relative block w-full rounded-card focus-visible:outline-2 focus-visible:outline-ring"
+        aria-label={`${title} 대표 이미지 크게 보기`}
+      >
+        {image}
+        <span className="absolute right-3 bottom-3 flex items-center gap-1 rounded-md bg-background/95 px-2 py-1 text-xs">
+          <Maximize2 className="size-3.5" aria-hidden="true" /> 크게 보기
+        </span>
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-foreground/60" />

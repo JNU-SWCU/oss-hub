@@ -2,10 +2,16 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, Archive, RotateCcw } from 'lucide-react';
-import { CardGrid, EmptyState, PageHeader, ListCard } from '@/components';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Archive } from 'lucide-react';
+import {
+  CardGrid,
+  EmptyState,
+  PageHeader,
+  ListCard,
+  FailureState,
+} from '@/components';
 import { Button } from '@/components/ui/button';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { loadArchivePage, loadArchiveYears } from '../api';
 import { ArchiveListYearChips } from '../archive-list-category-nav';
 import {
@@ -31,19 +37,15 @@ type ArchiveListContentProps = {
 
 function LoadingState() {
   return (
-    <main
-      aria-label="공개 아카이브를 불러오는 중"
-      className="mx-auto grid w-full max-w-6xl gap-6 p-5 sm:p-8"
-    >
-      <div className="h-24 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
-      <CardGrid>
-        {[0, 1, 2].map((index) => (
-          <div
-            key={index}
-            className="h-56 animate-pulse rounded-lg bg-muted motion-reduce:animate-none"
-          />
-        ))}
-      </CardGrid>
+    <main className="mx-auto w-full max-w-6xl p-5 sm:p-8">
+      <Skeleton label="공개 아카이브를 불러오는 중" className="grid gap-6">
+        <SkeletonBlock className="h-24 rounded-lg" />
+        <CardGrid>
+          {[0, 1, 2].map((index) => (
+            <SkeletonBlock key={index} className="h-56 rounded-lg" />
+          ))}
+        </CardGrid>
+      </Skeleton>
     </main>
   );
 }
@@ -51,17 +53,10 @@ function LoadingState() {
 function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   return (
     <main className="mx-auto grid w-full max-w-3xl gap-6 p-5 sm:p-8">
-      <Alert variant="destructive">
-        <AlertCircle aria-hidden="true" />
-        <AlertTitle>공개 아카이브를 불러오지 못했습니다</AlertTitle>
-        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-          <span>잠시 후 다시 시도해 주세요.</span>
-          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-            <RotateCcw aria-hidden="true" />
-            다시 시도
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <FailureState
+        title="공개 아카이브를 불러오지 못했습니다"
+        onRetry={onRetry}
+      />
     </main>
   );
 }

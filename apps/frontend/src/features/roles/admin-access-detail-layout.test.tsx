@@ -61,7 +61,8 @@ describe('레이아웃 컨텍스트(standalone/overlay) — landmark·제목 레
       />,
     );
     expect(html).toContain('<main');
-    expect(html).toContain('aria-label="사용자 정보를 불러오는 중"');
+    expect(html).toContain('role="status"');
+    expect(html).toContain('사용자 정보를 불러오는 중');
   });
 
   it('overlay는 <main>이 아닌 <div>를 쓰고 landmark 이름을 붙이지 않는다(로딩 상태)', () => {

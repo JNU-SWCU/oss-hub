@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { EmptyState, PageBody, PageHeader } from '@/components';
+import { EmptyState, FailureState, PageBody, PageHeader } from '@/components';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 import { programApplyHref, programOverviewHref } from '@/lib/program-route';
@@ -284,14 +284,10 @@ export function ProgramMyTeamPage({
   if (state.kind === 'failed') {
     return (
       <PageBody className="max-w-4xl">
-        <EmptyState
+        <FailureState
           title="우리 팀을 불러오지 못했습니다"
           description={state.message}
-          action={
-            <Button type="button" variant="outline" onClick={() => void load()}>
-              다시 시도
-            </Button>
-          }
+          onRetry={() => void load()}
         />
       </PageBody>
     );
