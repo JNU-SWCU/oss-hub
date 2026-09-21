@@ -89,13 +89,19 @@ export function ActivityPanel({
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
                 dataKey="metric"
-                tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+                tick={{
+                  fill: 'var(--muted-foreground)',
+                  fontSize: 'var(--step-badge)',
+                }}
                 tickLine={false}
               />
               <YAxis
                 allowDecimals={false}
                 width={44}
-                tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+                tick={{
+                  fill: 'var(--muted-foreground)',
+                  fontSize: 'var(--step-badge)',
+                }}
                 tickLine={false}
                 axisLine={false}
               />

@@ -79,14 +79,20 @@ export function ActivityChart({
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis
               dataKey="period"
-              tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+              tick={{
+                fill: 'var(--muted-foreground)',
+                fontSize: 'var(--step-badge)',
+              }}
               tickLine={false}
               axisLine={{ stroke: 'var(--border)' }}
             />
             <YAxis
               allowDecimals={false}
               width={44}
-              tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+              tick={{
+                fill: 'var(--muted-foreground)',
+                fontSize: 'var(--step-badge)',
+              }}
               tickLine={false}
               axisLine={false}
             />
@@ -101,7 +107,7 @@ export function ActivityChart({
               formatter={(value: string) => (
                 <span className="text-foreground">{value}</span>
               )}
-              wrapperStyle={{ fontSize: 12 }}
+              wrapperStyle={{ fontSize: 'var(--step-badge)' }}
             />
             {series.map((item) => (
               <Line
