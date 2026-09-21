@@ -1300,4 +1300,13 @@
 - blocker: 없음
 - 내용: 학번·전화번호 칸이 검증에 걸리면 형식 안내를 지우고 그 자리에 오류를 그렸다. 「숫자 6자리」가 가장 필요한 순간이 틀렸을 때인데 바로 그때 안내가 사라졌다. 둘을 함께 보이고, 여섯 화면에서 컨트롤이 안내 id 뒤에 오류 id 를 덧붙여 가리키게 해 낭독기가 둘 다 읽게 했다. 저장소 주소 편집기가 같은 검증 실패를 서로 다른 문구로 두 번 말하던 것을 한 문장으로 합쳤고, 접근 관리의 상시 상태 문구를 오류색에서 내렸으며, 알림 설정의 오류 문구 셋에 다음 행동을 채웠다(R-15).
 - 검증: 프런트 단위 374 파일 3723 건 통과. 새 단언 2 개가 소스만 되돌렸을 때 실제로 실패하는 것을 확인했다. typecheck·lint·prettier 통과.
+## 2026-09-21 — 한글 본문 폰트를 Pretendard 로 self-host
+
+- 상태: review
+- Issue: #1342
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 앱이 내려받는 웹폰트가 `Geist`(Latin subset) 하나뿐이라 한글이 보는 사람의 운영체제 기본 글꼴로 그려지고 있었다. Geist 의 `@font-face` 다섯 개에 한글 영역이 없고 짝으로 붙는 `Geist Fallback` 은 `local("Arial")` 이라 거기에도 한글이 없다. npm `pretendard` 의 가변본 한 벌을 `next/font/local` 로 self-host 하고 Geist 를 걷어냈다. 선언 자리는 `apps/frontend/src/app/layout.tsx` 한 곳이고 CSS 변수 이름 `--font-sans` 를 그대로 둬서 `globals.css` 와 화면 93 개 파일은 한 줄도 건드리지 않았다. `docs/design.md` 타이포그래피 절과 R-39, `.design-sync/css/ds-entry.css` 를 같이 고쳤다 — 후자는 원격 Google Fonts `@import` 도 사라진다.
+- 검증: 로컬 브라우저 회귀 34 스펙 103 건 전부 통과(5.4 분, 건너뛴 것 0). 프런트 단위 374 파일 3723 건, typecheck·lint·prettier·`tokens:check` 통과. 빌드 산출물의 폰트는 Geist 5 개 75,948 B 에서 Pretendard 1 개 2,057,688 B 로 바뀌었고 preload 되는 바이트는 29,288 B 에서 0 이 됐다. `standalone/node_modules` 에 패키지가 끌려가지 않은 것도 확인했다. 브라우저에서 잰 `fontFamily` 에 Pretendard 와 한글 폴백이 모두 보인다.
+- 배포: 프런트 전용 변경이고 스키마·마이그레이션이 없다. 되돌리려면 `layout.tsx` 한 파일을 되돌리면 된다.
 - 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.
