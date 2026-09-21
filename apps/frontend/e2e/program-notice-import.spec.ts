@@ -41,7 +41,7 @@ async function routeNotice(target: Page | BrowserContext): Promise<void> {
 
 async function importNotice(page: Page, select: readonly string[] = []) {
   await page
-    .getByRole('button', { name: '기존 공지로 빠르게 시작하기', exact: true })
+    .getByRole('button', { name: '공지에서 가져오기', exact: true })
     .click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('sojoong 공지 URL').fill(NOTICE.sourceUrl);

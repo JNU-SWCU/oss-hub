@@ -1302,3 +1302,13 @@
 - 주의: `Button`의 ghost는 `aria-expanded`를 「이 버튼이 연 팝업이 열려 있음」으로 보고 눌린 표면을 입힌다. 사이드바 토글은 그 속성이 영역의 펼침 상태라 처음 변환에서 버튼이 계속 눌린 것처럼 보였다 — 전후 비교가 잡았고 `aria-expanded:bg-transparent`로 껐다.
 - 되돌림: 일정 편집기의 「시간 변경」도 `variant="link"`로 옮겼다가 되돌렸다. `h-auto`가 듣지 않아 글자 버튼이 44px가 된다 — `cn`의 tailwind-merge가 프로젝트 전용 `h-control`을 모르는 이름으로 두어 두 클래스가 모두 남고, 빌드된 CSS에서 `.h-control`(14237)이 `.h-auto`(14217)보다 뒤에 와 이긴다. 같은 함정이 main의 네 자리에도 이미 있다(#1333).
 - 경계: 표 칸·달력 칸·메뉴 줄처럼 버튼 모양이 아닌 다섯 파일(로그인 메뉴, 서류 수합 칸, 달력 날짜, 기간 선택 줄·카드, 접근 관리 정렬 머리)은 그대로 두었다 — 프리미티브를 입히려면 높이·정렬·여백을 네다섯 개 덮어써야 해서 동규와 먼저 정한다.
+## 2026-09-21 — 한글 본문 폰트를 Pretendard 로 self-host
+
+- 상태: review
+- Issue: #1342
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 앱이 내려받는 웹폰트가 `Geist`(Latin subset) 하나뿐이라 한글이 보는 사람의 운영체제 기본 글꼴로 그려지고 있었다. Geist 의 `@font-face` 다섯 개에 한글 영역이 없고 짝으로 붙는 `Geist Fallback` 은 `local("Arial")` 이라 거기에도 한글이 없다. npm `pretendard` 의 가변본 한 벌을 `next/font/local` 로 self-host 하고 Geist 를 걷어냈다. 선언 자리는 `apps/frontend/src/app/layout.tsx` 한 곳이고 CSS 변수 이름 `--font-sans` 를 그대로 둬서 `globals.css` 와 화면 93 개 파일은 한 줄도 건드리지 않았다. `docs/design.md` 타이포그래피 절과 R-39, `.design-sync/css/ds-entry.css` 를 같이 고쳤다 — 후자는 원격 Google Fonts `@import` 도 사라진다.
+- 검증: 로컬 브라우저 회귀 34 스펙 103 건 전부 통과(5.4 분, 건너뛴 것 0). 프런트 단위 374 파일 3723 건, typecheck·lint·prettier·`tokens:check` 통과. 빌드 산출물의 폰트는 Geist 5 개 75,948 B 에서 Pretendard 1 개 2,057,688 B 로 바뀌었고 preload 되는 바이트는 29,288 B 에서 0 이 됐다. `standalone/node_modules` 에 패키지가 끌려가지 않은 것도 확인했다. 브라우저에서 잰 `fontFamily` 에 Pretendard 와 한글 폴백이 모두 보인다.
+- 배포: 프런트 전용 변경이고 스키마·마이그레이션이 없다. 되돌리려면 `layout.tsx` 한 파일을 되돌리면 된다.
+- 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.

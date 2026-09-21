@@ -119,8 +119,8 @@ describe('ProgramEditView contract', () => {
     expect(html).not.toContain('신청·운영·마일스톤 일정');
     expect(html).not.toContain('날짜 선택 달력');
     expect(html).not.toContain('oss-contest');
-    expect(html).toContain('OSS경진대회 신청서');
-    expect(html).toContain('v1');
+    // 양식명·버전도 이 화면에 없다 — 구현 식별자뿐 아니라 사람이 읽는 이름까지 뺐다.
+    expect(html).not.toContain('OSS경진대회 신청서');
     expect(html).toContain('milestone-canonical-id');
     expect(html).toContain('기획서 제출');
     expect(html).toContain('신청 기간');
@@ -198,8 +198,13 @@ describe('ProgramEditView contract', () => {
       />,
     );
 
-    expect(html).toContain('신청서 양식');
-    expect(html).toContain('양식 버전');
+    /*
+     * 신청서 양식·버전은 이 화면에 두지 않는다 — 프로그램 유형이 정하고 여기서
+     * 바꿀 수 없다. 편집 화면이 바꿀 수 없는 것을 설명하고 있으면 고칠 수 있는
+     * 것과 아닌 것을 매번 갈라내야 한다.
+     */
+    expect(html).not.toContain('신청서 양식');
+    expect(html).not.toContain('양식 버전');
     expect(html).toContain('신청 승인 시 GitHub 저장소 자동 생성');
     expect(html).toContain(
       '학생이 제출물을 올릴 마일스톤을 등록·수정·삭제할 수 있습니다.',

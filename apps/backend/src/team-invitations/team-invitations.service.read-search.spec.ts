@@ -232,3 +232,60 @@ describe('TeamInvitationsService.searchCandidates', () => {
     expect(repository.searchCandidates).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * 교직원은 그 팀의 구성원도 팀장도 아니다. 그런데도 초대를 관리할 수 있어야
+ * 팀 구성을 고칠 수 있다 — 구성원 검사를 그대로 두면 교직원을 팀에 넣어야만
+ * 초대할 수 있게 된다.
+ */
+describe('교직원의 초대 관리 권한', () => {
+  it('교직원은 구성원이 아니어도 보낸 초대를 본다', async () => {
+    const sent = [sentInvitationRecord()];
+    const { service, repository } = buildService({
+      findTeamContext: jest
+        .fn()
+        .mockResolvedValue(teamContext(syntheticLeaderId)),
+      isTeamMember: jest.fn().mockResolvedValue(false),
+      isActiveStaff: jest.fn().mockResolvedValue(true),
+      findByTeamId: jest.fn().mockResolvedValue(sent),
+    });
+
+    await expect(
+      service.listSentByTeam(syntheticGithubId, syntheticTeamId),
+    ).resolves.toBe(sent);
+    expect(repository.findByTeamId).toHaveBeenCalledWith(syntheticTeamId);
+  });
+
+  it('교직원은 팀장이 아니어도 초대 대상을 검색한다', async () => {
+    const { service, repository } = buildService({
+      findTeamContext: jest
+        .fn()
+        .mockResolvedValue(teamContext('cuid-synthetic-other-leader')),
+      isActiveStaff: jest.fn().mockResolvedValue(true),
+      searchCandidates: jest.fn().mockResolvedValue([]),
+    });
+
+    await expect(
+      service.searchCandidates(syntheticGithubId, syntheticTeamId, '합성'),
+    ).resolves.toEqual([]);
+    expect(repository.searchCandidates).toHaveBeenCalled();
+  });
+
+  /** 권한이 회수된 교직원은 다시 평범한 사용자다. */
+  it('교직원이 아닌 사람은 여전히 막힌다', async () => {
+    const { service } = buildService({
+      findTeamContext: jest
+        .fn()
+        .mockResolvedValue(teamContext('cuid-synthetic-other-leader')),
+      isTeamMember: jest.fn().mockResolvedValue(false),
+      isActiveStaff: jest.fn().mockResolvedValue(false),
+    });
+
+    await expect(
+      service.listSentByTeam(syntheticGithubId, syntheticTeamId),
+    ).rejects.toThrow();
+    await expect(
+      service.searchCandidates(syntheticGithubId, syntheticTeamId, '합성'),
+    ).rejects.toThrow();
+  });
+});

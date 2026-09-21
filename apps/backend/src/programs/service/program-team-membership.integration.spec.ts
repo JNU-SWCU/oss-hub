@@ -64,12 +64,15 @@ const LEADER_ID = `${TEST_PREFIX}leader`;
 const MEMBER_A_ID = `${TEST_PREFIX}member-a`;
 const MEMBER_B_ID = `${TEST_PREFIX}member-b`;
 const INVITEE_ID = `${TEST_PREFIX}invitee`;
+/** 교직원은 어느 팀의 구성원도 아니다 — 팀 밖에서 구성을 고치는 행위자다. */
+const STAFF_ID = `${TEST_PREFIX}staff`;
 
 const GITHUB_ID_BY_USER: ReadonlyMap<string, bigint> = new Map([
   [LEADER_ID, 9_450_000_001n],
   [MEMBER_A_ID, 9_450_000_002n],
   [MEMBER_B_ID, 9_450_000_003n],
   [INVITEE_ID, 9_450_000_004n],
+  [STAFF_ID, 9_450_000_005n],
 ]);
 
 function githubIdOf(userId: string): bigint {
@@ -143,12 +146,15 @@ async function seedDurableFixturesOnce(): Promise<void> {
     const existing = await prisma.user.count({ where: { id: userId } });
     if (existing > 0) continue;
     await prisma.user.create({
-      data: canonicalUserCreateFromLabel('STUDENT', {
-        id: userId,
-        githubId,
-        nickname: `synthetic-${userId.slice(TEST_PREFIX.length)}`,
-        name: 'Synthetic user',
-      }),
+      data: canonicalUserCreateFromLabel(
+        userId === STAFF_ID ? 'STAFF' : 'STUDENT',
+        {
+          id: userId,
+          githubId,
+          nickname: `synthetic-${userId.slice(TEST_PREFIX.length)}`,
+          name: 'Synthetic user',
+        },
+      ),
     });
   }
   await prisma.program.upsert({
@@ -870,5 +876,267 @@ describe('program team membership transactions integration', () => {
     await expect(
       prisma.submissionFile.count({ where: { id: submitted.fileId } }),
     ).resolves.toBe(1);
+  });
+
+  /**
+   * 교직원의 팀 구성 조작 — 행위자가 그 팀 밖에 있다는 점이 학생 경로와 다르다.
+   *
+   * 여기서 지키는 것은 세 가지다. 권한은 팀 행을 잠근 뒤에 다시 보고, 프로그램·팀
+   * 연결이 어긋나면 존재를 알리지 않으며, 팀장을 빼도 팀장 없는 팀이 남지 않는다.
+   */
+  describe('staff team composition', () => {
+    it('교직원이 팀 밖에서 팀원을 제외한다 — 팀장 자리는 그대로다', async () => {
+      const teamId = `${RUN_PREFIX}staff-remove`;
+      await seedTeam(teamId, LEADER_ID, [
+        {
+          userId: LEADER_ID,
+          memberRowId: `${teamId}:1`,
+          createdAt: JOINED_FIRST,
+        },
+        {
+          userId: MEMBER_A_ID,
+          memberRowId: `${teamId}:2`,
+          createdAt: JOINED_SECOND,
+        },
+      ]);
+
+      await service.removeMemberForStaff(
+        githubIdOf(STAFF_ID),
+        PROGRAM_ID,
+        teamId,
+        MEMBER_A_ID,
+      );
+
+      await expect(
+        prisma.teamMember.count({ where: { teamId } }),
+      ).resolves.toBe(1);
+      await expect(
+        prisma.team.findUniqueOrThrow({
+          where: { id: teamId },
+          select: { leaderId: true },
+        }),
+      ).resolves.toEqual({ leaderId: LEADER_ID });
+    });
+
+    /**
+     * 팀장을 빼면 남은 사람이 팀장이 된다 — `leave` 와 같은 결정적 승계다.
+     * 두 경로가 다른 승계를 쓰면 같은 팀이 누가 지우느냐에 따라 다른 팀장을 갖는다.
+     */
+    it('교직원이 팀장을 제외하면 가장 먼저 합류한 남은 팀원이 팀장이 된다', async () => {
+      const teamId = `${RUN_PREFIX}staff-remove-leader`;
+      await seedTeam(teamId, LEADER_ID, [
+        {
+          userId: LEADER_ID,
+          memberRowId: `${teamId}:1`,
+          createdAt: JOINED_SECOND,
+        },
+        {
+          userId: MEMBER_A_ID,
+          memberRowId: `${teamId}:2`,
+          createdAt: JOINED_FIRST,
+        },
+        {
+          userId: MEMBER_B_ID,
+          memberRowId: `${teamId}:3`,
+          createdAt: JOINED_SECOND,
+        },
+      ]);
+
+      await service.removeMemberForStaff(
+        githubIdOf(STAFF_ID),
+        PROGRAM_ID,
+        teamId,
+        LEADER_ID,
+      );
+
+      await expect(
+        prisma.team.findUniqueOrThrow({
+          where: { id: teamId },
+          select: { leaderId: true },
+        }),
+      ).resolves.toEqual({ leaderId: MEMBER_A_ID });
+      // 새 팀장은 반드시 그 팀에 남아 있어야 한다.
+      await expect(
+        prisma.teamMember.count({ where: { teamId, userId: MEMBER_A_ID } }),
+      ).resolves.toBe(1);
+    });
+
+    it('신청이 매달린 팀의 마지막 팀원은 교직원도 뺄 수 없다', async () => {
+      const teamId = `${RUN_PREFIX}staff-remove-last`;
+      await seedTeam(teamId, LEADER_ID, [
+        {
+          userId: LEADER_ID,
+          memberRowId: `${teamId}:1`,
+          createdAt: JOINED_FIRST,
+        },
+      ]);
+      await seedApplication(teamId, LEADER_ID);
+
+      await expect(
+        service.removeMemberForStaff(
+          githubIdOf(STAFF_ID),
+          PROGRAM_ID,
+          teamId,
+          LEADER_ID,
+        ),
+      ).rejects.toThrow();
+
+      await expect(
+        prisma.teamMember.count({ where: { teamId } }),
+      ).resolves.toBe(1);
+    });
+
+    it('학생은 교직원 경로로 남의 팀원을 뺄 수 없다', async () => {
+      const teamId = `${RUN_PREFIX}staff-remove-denied`;
+      await seedTeam(teamId, LEADER_ID, [
+        {
+          userId: LEADER_ID,
+          memberRowId: `${teamId}:1`,
+          createdAt: JOINED_FIRST,
+        },
+        {
+          userId: MEMBER_A_ID,
+          memberRowId: `${teamId}:2`,
+          createdAt: JOINED_SECOND,
+        },
+      ]);
+
+      await expect(
+        service.removeMemberForStaff(
+          githubIdOf(MEMBER_B_ID),
+          PROGRAM_ID,
+          teamId,
+          MEMBER_A_ID,
+        ),
+      ).rejects.toThrow();
+
+      await expect(
+        prisma.teamMember.count({ where: { teamId } }),
+      ).resolves.toBe(2);
+    });
+
+    it('교직원이 팀장을 바꾼다 — 구성원은 그대로다', async () => {
+      const teamId = `${RUN_PREFIX}staff-transfer`;
+      await seedTeam(teamId, LEADER_ID, [
+        {
+          userId: LEADER_ID,
+          memberRowId: `${teamId}:1`,
+          createdAt: JOINED_FIRST,
+        },
+        {
+          userId: MEMBER_A_ID,
+          memberRowId: `${teamId}:2`,
+          createdAt: JOINED_SECOND,
+        },
+      ]);
+
+      await service.transferLeaderForStaff(
+        githubIdOf(STAFF_ID),
+        PROGRAM_ID,
+        teamId,
+        MEMBER_A_ID,
+      );
+
+      await expect(
+        prisma.team.findUniqueOrThrow({
+          where: { id: teamId },
+          select: { leaderId: true },
+        }),
+      ).resolves.toEqual({ leaderId: MEMBER_A_ID });
+      await expect(
+        prisma.teamMember.count({ where: { teamId } }),
+      ).resolves.toBe(2);
+    });
+
+    /**
+     * 구성원이 아닌 사람을 팀장으로 세우면 `Team.leaderId` 가 팀에 없는 사람을
+     * 가리키고, 그 순간 팀장 권한을 가진 사람이 팀 밖에 있게 된다.
+     */
+    it('그 팀 구성원이 아닌 사람은 팀장이 될 수 없다', async () => {
+      const teamId = `${RUN_PREFIX}staff-transfer-outsider`;
+      await seedTeam(teamId, LEADER_ID, [
+        {
+          userId: LEADER_ID,
+          memberRowId: `${teamId}:1`,
+          createdAt: JOINED_FIRST,
+        },
+      ]);
+
+      await expect(
+        service.transferLeaderForStaff(
+          githubIdOf(STAFF_ID),
+          PROGRAM_ID,
+          teamId,
+          MEMBER_B_ID,
+        ),
+      ).rejects.toThrow();
+
+      await expect(
+        prisma.team.findUniqueOrThrow({
+          where: { id: teamId },
+          select: { leaderId: true },
+        }),
+      ).resolves.toEqual({ leaderId: LEADER_ID });
+    });
+
+    it('이미 팀장인 사람을 다시 지정해도 성공이고 아무것도 바뀌지 않는다', async () => {
+      const teamId = `${RUN_PREFIX}staff-transfer-noop`;
+      await seedTeam(teamId, LEADER_ID, [
+        {
+          userId: LEADER_ID,
+          memberRowId: `${teamId}:1`,
+          createdAt: JOINED_FIRST,
+        },
+      ]);
+
+      await expect(
+        service.transferLeaderForStaff(
+          githubIdOf(STAFF_ID),
+          PROGRAM_ID,
+          teamId,
+          LEADER_ID,
+        ),
+      ).resolves.toBeUndefined();
+
+      await expect(
+        prisma.team.findUniqueOrThrow({
+          where: { id: teamId },
+          select: { leaderId: true },
+        }),
+      ).resolves.toEqual({ leaderId: LEADER_ID });
+    });
+
+    /**
+     * 다른 프로그램의 팀 id 를 넣어도 「그런 팀이 없다」와 같은 응답이어야 한다 —
+     * 구분해 주면 남의 프로그램에 그 id 의 팀이 있다는 사실이 샌다.
+     */
+    it('프로그램과 팀이 어긋나면 존재를 알리지 않는다', async () => {
+      const teamId = `${RUN_PREFIX}staff-wrong-program`;
+      await seedTeam(teamId, LEADER_ID, [
+        {
+          userId: LEADER_ID,
+          memberRowId: `${teamId}:1`,
+          createdAt: JOINED_FIRST,
+        },
+        {
+          userId: MEMBER_A_ID,
+          memberRowId: `${teamId}:2`,
+          createdAt: JOINED_SECOND,
+        },
+      ]);
+
+      await expect(
+        service.removeMemberForStaff(
+          githubIdOf(STAFF_ID),
+          `${PROGRAM_ID}:other`,
+          teamId,
+          MEMBER_A_ID,
+        ),
+      ).rejects.toThrow();
+
+      await expect(
+        prisma.teamMember.count({ where: { teamId } }),
+      ).resolves.toBe(2);
+    });
   });
 });

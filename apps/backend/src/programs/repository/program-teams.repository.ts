@@ -145,6 +145,26 @@ export type TeamRemoveMemberResult =
   | 'target-not-found';
 
 /**
+ * 교직원의 팀원 제외 결과.
+ *
+ * `not-found`는 없는 팀·다른 프로그램의 팀·그 팀에 없는 대상을 전부 같게 말한다 —
+ * 구분해 응답하면 남의 프로그램에 그 id의 팀·사람이 있다는 사실이 새난다.
+ *
+ * `last-member-with-application`은 학생 탈퇴와 같은 규칙이다 — 신청이 매달린 팀의
+ * 마지막 사람을 빼면 주인 없는 신청이 남는다. 교직원이라고 예외를 두지 않는다.
+ */
+export type StaffRemoveMemberResult =
+  'removed' | 'forbidden' | 'not-found' | 'last-member-with-application';
+
+/**
+ * 교직원의 팀장 변경 결과. 이미 그 사람이 팀장이면 `unchanged`다 — 성공이지만
+ * 쓰기도 audit도 없다. 바뀜 것이 없는데 「바꿨다」는 감사 사실을 만들면 원장이 거짓말을 한다
+ * (`renameTeam`과 같은 규칙).
+ */
+export type StaffTransferLeaderResult =
+  'transferred' | 'unchanged' | 'forbidden' | 'not-found';
+
+/**
  * 이름 변경 결과. `not-found`는 없는 팀과 다른 프로그램의 팀을 구분하지 않는다 —
  * 구분해 응답하면 남의 프로그램에 그 id의 팀이 있다는 사실이 새난다.
  * 실패 결과는 아무것도 쓰지 않고 audit도 남기지 않는다.
@@ -178,7 +198,7 @@ export interface TeamActorAuthority {
   readonly isStaff: boolean;
 }
 
-export type TeamMembershipOperation = 'LEAVE' | 'REMOVE';
+export type TeamMembershipOperation = 'LEAVE' | 'REMOVE' | 'TRANSFER_LEADER';
 
 /**
  * 멤버십 변경 감사에 필요한 사실 — 팀 행을 잠근 뒤 읽은 값만 담는다.
@@ -189,7 +209,8 @@ export interface TeamMembershipAuditEvent {
   readonly programName: string;
   readonly teamName: string;
   readonly operation: TeamMembershipOperation;
-  readonly removedUserId: string;
+  /** `TRANSFER_LEADER`는 구성원이 그대로라 null이다. */
+  readonly removedUserId: string | null;
   readonly previousLeaderId: string;
   readonly nextLeaderId: string | null;
 }
@@ -803,6 +824,181 @@ export class ProgramTeamsRepository {
       return 'removed';
     });
   }
+
+  /**
+   * 교직원의 팀원 제외 — 행위자는 팀 밖에 있다.
+   *
+   * 학생용 `removeMember`와 갈라지는 지점은 세 개다. 행위자 소속을 보지 않고,
+   * 팀장도 제외할 수 있으며(승계는 `leave`와 같은 규칙으로 여기서 한다), 마지막
+   * 사람은 신청이 없을 때만 빠진다.
+   *
+   * 권한을 **잠금 안에서 다시 읽는다** — 잠금 전에 읽은 교직원 여부는 권한의 정본이
+   * 아니다(`renameTeam`·#1269와 같은 이유). 그 사이에 권한이 회수될 수 있다.
+   */
+  async removeMemberForStaff(
+    programId: string,
+    teamId: string,
+    actorUserId: string,
+    targetUserId: string,
+    recordAudit: RecordTeamMembershipAudit,
+  ): Promise<StaffRemoveMemberResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const team = await tx.team.findUnique({
+        where: { id: teamId },
+        select: { programId: true },
+      });
+      if (!team || team.programId !== programId) return 'not-found';
+
+      await lockTeamRow(tx, teamId);
+
+      if (!(await isActiveStaff(tx, actorUserId))) return 'forbidden';
+
+      const target = await tx.teamMember.findUnique({
+        where: { programId_userId: { programId, userId: targetUserId } },
+        select: TEAM_MEMBERSHIP_CONTEXT_SELECT,
+      });
+      if (!target || target.teamId !== teamId) return 'not-found';
+
+      const now = new Date();
+      const previousLeaderId = target.team.leaderId;
+      const [memberCount, application] = await Promise.all([
+        tx.teamMember.count({ where: { teamId } }),
+        tx.application.findFirst({ where: { teamId }, select: { id: true } }),
+      ]);
+
+      if (memberCount <= 1) {
+        if (application !== null) return 'last-member-with-application';
+        await tx.teamMember.delete({
+          where: { teamId_userId: { teamId, userId: targetUserId } },
+        });
+        await tx.teamInvitation.deleteMany({ where: { teamId, programId } });
+        await tx.team.delete({ where: { id: teamId } });
+        await recordAudit(
+          { auditLogWriter: tx },
+          membershipAuditEvent(target, {
+            operation: 'REMOVE',
+            removedUserId: targetUserId,
+            previousLeaderId,
+            nextLeaderId: null,
+          }),
+        );
+        return 'removed';
+      }
+
+      let nextLeaderId = previousLeaderId;
+      if (previousLeaderId === targetUserId) {
+        // 팀장을 빼면 `leave`와 같은 결정적 승계를 한다 — 먼저 합류한 사람,
+        // 동시 합류는 id 오름차순. 두 곳이 다르면 같은 팀이 누가 지우느냐에 따라
+        // 다른 팀장을 갖게 된다.
+        const successor = await tx.teamMember.findFirst({
+          where: { teamId, userId: { not: targetUserId } },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          select: { userId: true },
+        });
+        if (!successor) {
+          throw new Error(
+            'team member count and roster disagree inside the team lock',
+          );
+        }
+        nextLeaderId = successor.userId;
+        // 이관이 멤버 행 삭제보다 먼저다 — 반대 순서면 `Team.leaderId`가 잠긐
+        // 팀에 없는 사용자를 가리킨다.
+        await tx.team.update({
+          where: { id: teamId },
+          data: { leaderId: nextLeaderId },
+        });
+      }
+
+      await tx.teamMember.delete({
+        where: { teamId_userId: { teamId, userId: targetUserId } },
+      });
+      await enqueueRepositoryAccessSyncEvents(tx, teamId, now);
+      await recordAudit(
+        { auditLogWriter: tx },
+        membershipAuditEvent(target, {
+          operation: 'REMOVE',
+          removedUserId: targetUserId,
+          previousLeaderId,
+          nextLeaderId,
+        }),
+      );
+      return 'removed';
+    });
+  }
+
+  /**
+   * 교직원의 팀장 변경 — 대상은 그 팀의 현재 구성원이어야 한다.
+   *
+   * 구성원이 아닌 사람을 팀장으로 세우면 `Team.leaderId`가 팀에 없는 사람을
+   * 가리키고, 그 순간 팀장 권한을 가진 사람이 팀에 없게 된다.
+   *
+   * 제외와 같은 이유로 권한을 잠금 안에서 다시 읽는다.
+   */
+  async transferLeaderForStaff(
+    programId: string,
+    teamId: string,
+    actorUserId: string,
+    targetUserId: string,
+    recordAudit: RecordTeamMembershipAudit,
+  ): Promise<StaffTransferLeaderResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const team = await tx.team.findUnique({
+        where: { id: teamId },
+        select: { programId: true },
+      });
+      if (!team || team.programId !== programId) return 'not-found';
+
+      await lockTeamRow(tx, teamId);
+
+      if (!(await isActiveStaff(tx, actorUserId))) return 'forbidden';
+
+      const target = await tx.teamMember.findUnique({
+        where: { programId_userId: { programId, userId: targetUserId } },
+        select: TEAM_MEMBERSHIP_CONTEXT_SELECT,
+      });
+      if (!target || target.teamId !== teamId) return 'not-found';
+
+      const previousLeaderId = target.team.leaderId;
+      if (previousLeaderId === targetUserId) return 'unchanged';
+
+      await tx.team.update({
+        where: { id: teamId },
+        data: { leaderId: targetUserId },
+      });
+      // 구성원은 그대로다 — 저장소 접근권은 구성원 집합으로 결정되므로
+      // 동기화 이벤트를 예약하지 않는다.
+      await recordAudit(
+        { auditLogWriter: tx },
+        membershipAuditEvent(target, {
+          operation: 'TRANSFER_LEADER',
+          removedUserId: null,
+          previousLeaderId,
+          nextLeaderId: targetUserId,
+        }),
+      );
+      return 'transferred';
+    });
+  }
+}
+
+/**
+ * 잠금 안에서 다시 본 교직원 권한. 기준은 `findActorAuthorityByGithubId`와 같다 —
+ * ACTIVE + (staff || admin). 두 기준이 갈라지면 문 앞과 문 안이 다른 말을 한다.
+ */
+async function isActiveStaff(
+  tx: Pick<Prisma.TransactionClient, 'user'>,
+  userId: string,
+): Promise<boolean> {
+  const user = await tx.user.findUnique({
+    where: { id: userId },
+    select: {
+      hasStaffAccess: true,
+      hasAdminAccess: true,
+      accountStatus: true,
+    },
+  });
+  if (user?.accountStatus !== AccountStatus.ACTIVE) return false;
+  return user.hasStaffAccess || user.hasAdminAccess;
 }
 
 const TEAM_MEMBERSHIP_CONTEXT_SELECT = {
