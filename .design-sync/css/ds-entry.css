@@ -1,13 +1,13 @@
 /*
  * design-sync CSS entry — apps/frontend의 실제 globals.css를 standalone으로 컴파일한다.
  *
- * 앱에서는 next/font/google이 Geist를 self-host하고 --font-sans를 <html>에 주입한다.
+ * 앱에서는 next/font/local이 Pretendard를 self-host하고 --font-sans를 <html>에 주입한다.
  * design 번들에는 Next가 없어 그 주입이 없으므로(globals.css의
- * `--font-sans: var(--font-sans)`가 순환 참조로 남는다) 여기서 폰트를 직접 로드하고
- * --font-sans를 실제 스택으로 정의한다. 원격 @import는 converter가 styles.css로
- * 그대로 옮긴다([FONT_REMOTE], informational).
+ * `--font-sans: var(--font-sans)`가 순환 참조로 남는다) 여기서 --font-sans를 실제
+ * 스택으로 정의해 끊는다. 폰트 파일은 내려받지 않는다 — 디자이너는 Pretendard를
+ * 로컬에 설치해 두고(apps/frontend/figma-plugin/README.md) 그 설치본으로 렌더한다.
+ * 이로써 원격 @import([FONT_REMOTE])가 사라진다.
  */
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap');
 @import '../../apps/frontend/node_modules/tailwindcss/index.css' source(none);
 @import '../../apps/frontend/src/app/globals.css';
 
@@ -17,5 +17,6 @@
 /* next/font 주입 대체 — @theme inline의 순환 참조를 실제 값으로 끊는다 */
 :root {
   --font-sans:
-    'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    'Pretendard Variable', 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR',
+    'Malgun Gothic', sans-serif;
 }
