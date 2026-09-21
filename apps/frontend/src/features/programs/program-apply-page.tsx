@@ -537,6 +537,7 @@ export function ProgramApplyPage({
           errors={errors}
           serverError={serverError}
           mode={state.mode}
+          rejectionReason={state.rejectionReason}
           canManage={state.canManage}
           confirmation={confirmation}
           teamMinimum={state.teamMinimum}

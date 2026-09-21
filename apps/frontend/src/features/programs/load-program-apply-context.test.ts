@@ -327,6 +327,7 @@ describe('loadProgramApplyContext', () => {
       teamMinimum: null,
       team: null,
       applicationId: null,
+      rejectionReason: null,
       // 팀이 없는 사람은 자기 팀의 팀장이 될 사람이다.
       canManage: true,
       initialValues: {
@@ -389,6 +390,7 @@ describe('loadProgramApplyContext', () => {
       teamMinimum: { memberCount: 2, teamMinSize: 2 },
       team: leaderTeam,
       applicationId: null,
+      rejectionReason: null,
       canManage: true,
       initialValues: {
         isRepositoryPublicationPlanned: true,
@@ -436,6 +438,7 @@ describe('loadProgramApplyContext', () => {
       teamMinimum: null,
       team: leaderTeam,
       applicationId: 'application-1',
+      rejectionReason: null,
       canManage: true,
       initialValues: {
         title: 'Existing title',
