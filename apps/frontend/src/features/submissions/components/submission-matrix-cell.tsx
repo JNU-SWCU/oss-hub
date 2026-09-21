@@ -6,6 +6,7 @@ import {
   DOCUMENT_DELIVERY_LABELS,
   DOCUMENT_DELIVERY_VARIANTS,
 } from '@/lib/document-delivery';
+import { cn } from '@/lib/utils';
 import {
   formatSubmittedAt,
   MATRIX_CELL_DISPLAY_LABELS,
@@ -85,7 +86,11 @@ export function MatrixCellContent({
     <Link
       href={cell.reviewUrl}
       aria-label={`${milestone.name} 제출물 검토`}
-      className="group inline-flex flex-col items-start gap-2 rounded-control focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+      className={cn(
+        'group inline-flex flex-col items-start gap-2 rounded-control',
+        'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'focus-visible:outline-none',
+      )}
     >
       {meta}
       <span className="inline-flex items-center gap-1 text-small font-semibold text-primary underline-offset-4 group-hover:underline">

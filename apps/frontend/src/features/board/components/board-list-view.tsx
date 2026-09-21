@@ -19,6 +19,7 @@ import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 import { programApplyHref, programOverviewHref } from '@/lib/program-route';
+import { cn } from '@/lib/utils';
 import { createBoardPost, listBoardPosts } from '../api';
 import { subscribeBoardListInvalidation } from '../board-list-refetch';
 import {
@@ -188,7 +189,11 @@ export function BoardListContent({
                 disabled={newPostSubmitting}
                 onChange={(event) => onBodyChange(event.target.value)}
                 placeholder="내용"
-                className="min-h-28 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className={cn(
+                  'min-h-28 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm',
+                  'outline-none focus-visible:border-ring focus-visible:ring-3',
+                  'focus-visible:ring-ring/50',
+                )}
               />
             </Field>
             {newPostError ? (

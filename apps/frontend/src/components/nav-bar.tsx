@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export interface NavItem {
@@ -101,14 +102,21 @@ function NavBar({
       {...props}
     >
       {onToggleSidebarDrawer ? (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           data-slot="nav-bar-sidebar-drawer-trigger"
           aria-label="사이드바 메뉴 열기"
           aria-expanded={sidebarDrawerOpen ?? false}
           aria-controls={sidebarDrawerId}
           onClick={onToggleSidebarDrawer}
-          className="flex size-11 shrink-0 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground min-[900px]:hidden"
+          // 서랍이 열려 있을 때 ghost의 aria-expanded 표면이 얹히지 않도록 끈다 — 이
+          // 버튼의 모양은 서랍 상태와 무관하게 유지한다.
+          className={cn(
+            'shrink-0 text-foreground/80 focus-visible:bg-muted focus-visible:text-foreground',
+            'aria-expanded:bg-transparent aria-expanded:text-foreground/80 min-[900px]:hidden',
+          )}
         >
           <svg
             aria-hidden
@@ -124,7 +132,7 @@ function NavBar({
             <rect x="3" y="4" width="18" height="16" rx="2" />
             <path d="M9 4v16" />
           </svg>
-        </button>
+        </Button>
       ) : null}
       {brand ? (
         <div
@@ -161,7 +169,13 @@ function NavBar({
         <summary
           data-slot="nav-bar-menu-trigger"
           aria-label="메뉴"
-          className="flex size-11 cursor-pointer list-none items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground [&::-webkit-details-marker]:hidden"
+          className={cn(
+            'flex size-11 cursor-pointer list-none items-center justify-center',
+            'rounded-md text-foreground/80 transition-colors',
+            'hover:bg-muted hover:text-foreground',
+            'focus-visible:bg-muted focus-visible:text-foreground',
+            '[&::-webkit-details-marker]:hidden',
+          )}
         >
           <svg
             aria-hidden
@@ -188,7 +202,11 @@ function NavBar({
                 // `w-full`이 필요하다 — 호출부(ShellNav)가 터치 타깃 확보용으로
                 // `[&_a]:inline-flex`를 걸어 두어, 이 항목들이 글자 폭만큼만
                 // 줄어들면 줄의 빈 곳을 눌러도 아무 일도 일어나지 않는다.
-                className="flex min-h-11 w-full items-center px-3 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
+                className={cn(
+                  'flex min-h-11 w-full items-center px-3 text-sm font-medium text-foreground/80',
+                  'transition-colors hover:bg-muted hover:text-foreground',
+                  'focus-visible:bg-muted focus-visible:text-foreground',
+                )}
               >
                 {item.label}
               </LinkComponent>
@@ -204,7 +222,11 @@ function NavBar({
           <li key={item.href}>
             <LinkComponent
               href={item.href}
-              className="whitespace-nowrap rounded-md px-1 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground sm:px-2.5"
+              className={cn(
+                'whitespace-nowrap rounded-md px-1 py-1.5 text-sm font-medium text-foreground/80',
+                'transition-colors hover:bg-muted hover:text-foreground',
+                'focus-visible:bg-muted focus-visible:text-foreground sm:px-2.5',
+              )}
             >
               {item.label}
             </LinkComponent>

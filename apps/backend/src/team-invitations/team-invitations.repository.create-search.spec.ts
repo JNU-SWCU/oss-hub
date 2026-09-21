@@ -185,6 +185,15 @@ describe('TeamInvitationsRepository.createInvitation', () => {
         create:
           options.create ?? jest.fn().mockResolvedValue(selectedInvitationRow),
       },
+      // 잠금 안의 교직원 확인이 읽는 자리. 기본값은 비교직원이라 기존 팀장 경로가
+      // 그대로 판정된다.
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          hasStaffAccess: false,
+          hasAdminAccess: false,
+          accountStatus: 'ACTIVE',
+        }),
+      },
     };
   }
 

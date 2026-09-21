@@ -1,5 +1,6 @@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface AdminAccessMutationRejectDialogProps {
   readonly githubLogin: string;
@@ -66,7 +67,11 @@ export function AdminAccessMutationRejectDialog({
           value={reason}
           onChange={(event) => onReasonChange(event.target.value)}
           disabled={isProcessing}
-          className="mt-2 min-h-28 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className={cn(
+            'mt-2 min-h-28 w-full rounded-lg border border-input bg-transparent px-3 py-2',
+            'text-sm outline-none focus-visible:border-ring focus-visible:ring-3',
+            'focus-visible:ring-ring/50',
+          )}
         />
         {errorMessage ? (
           <Alert variant="destructive" className="mt-4">

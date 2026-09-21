@@ -74,16 +74,21 @@ export function ProgramScopeSidebar({
             </p>
           </div>
         ) : null}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={onToggle}
           aria-expanded={!collapsed}
           aria-label={toggleLabel}
           title={toggleLabel}
           className={cn(
-            'flex size-control items-center justify-center rounded-control text-sidebar-foreground hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
+            // Button의 ghost는 `aria-expanded`를 "이 버튼이 연 팝업이 열려 있음"으로 보고
+            // 눌린 표면(muted 채움)을 입힌다. 여기서 aria-expanded는 사이드바 영역이
+            // 펼쳐져 있다는 뜻이라 그 표면을 끈다.
+            'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-sidebar-ring aria-expanded:bg-transparent',
             !collapsed &&
-              'ml-auto border border-sidebar-border text-muted-foreground hover:text-sidebar-foreground',
+              'ml-auto border-sidebar-border text-muted-foreground aria-expanded:text-muted-foreground',
           )}
         >
           <ShellIcon
@@ -93,7 +98,7 @@ export function ProgramScopeSidebar({
               collapsed && 'rotate-180',
             )}
           />
-        </button>
+        </Button>
       </div>
 
       <ProgramScopeSidebarNav

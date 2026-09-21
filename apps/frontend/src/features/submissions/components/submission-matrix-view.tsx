@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { PageBody, PageHeader } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ export interface SubmissionMatrixViewProps {
   readonly errorMessage: string | null;
   readonly now: Date;
   readonly selectedMilestoneId: string | null;
+  readonly headerActions?: ReactNode;
   readonly onSearchChange: (value: string) => void;
   readonly onSearch: () => void;
   readonly onQuickFilterChange: (filter: MatrixQuickFilter) => void;
@@ -49,7 +50,7 @@ export function SubmissionMatrixView(props: SubmissionMatrixViewProps) {
 
   return (
     <PageBody>
-      <PageHeader title="서류 현황" />
+      <PageHeader title="서류 현황" actions={props.headerActions} />
       <div className={SECTION_BODY}>
         {props.data && props.data.milestones.length > 0 ? (
           <MatrixStageNavigation

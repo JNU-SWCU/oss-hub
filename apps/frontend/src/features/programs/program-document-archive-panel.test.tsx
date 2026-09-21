@@ -99,12 +99,18 @@ function button(label: string): HTMLButtonElement {
   if (!value) throw new TypeError(`Missing ${label}`);
   return value;
 }
+function toggle(): HTMLButtonElement {
+  return button('제출 자료 ZIP 내려받기');
+}
 async function open() {
-  await act(async () => button('제출 자료 ZIP 내려받기').click());
+  await act(async () => toggle().click());
 }
 
 it('opens in the originating milestone with current-only summary before any download', async () => {
   expect(getProgramDetail).not.toHaveBeenCalled();
+  expect(toggle().textContent?.trim()).toBe('내려받기');
+  expect(toggle().getAttribute('aria-label')).toBe('제출 자료 ZIP 내려받기');
+  expect(toggle().getAttribute('title')).toBe('제출 자료 ZIP 내려받기');
   await open();
   expect(
     container.querySelector('[data-testid="program-document-archive-summary"]')

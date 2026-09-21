@@ -6,6 +6,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
 import type { ProgramOverview } from './program-overview-api';
 import type { ProgramDetail } from './types';
 
@@ -24,7 +25,11 @@ export function ProgramSummary({
         <CardHeader className="gap-0 px-0">
           <CollapsibleTrigger
             aria-controls={contentId}
-            className="group flex h-control w-full items-center justify-between gap-3 px-(--card-spacing) text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            className={cn(
+              'group flex h-control w-full items-center justify-between gap-3',
+              'px-(--card-spacing) text-left outline-none',
+              'focus-visible:ring-3 focus-visible:ring-ring/50',
+            )}
           >
             <CardTitle>프로그램 안내</CardTitle>
             <ChevronDown

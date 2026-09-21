@@ -50,6 +50,8 @@
 | R-03, R-05, R-07, R-15, R-16, R-21, R-24, R-25 | 이 문서 | 없음 — 리뷰로 유지 |
 | R-26 ~ R-33 | 이 문서 (§화면별 결정 기록 → 학생 팀 구성·신청·초대 상호작용) | 없음 — 리뷰로 유지 |
 | R-34 | 이 문서 | 없음 — 리뷰로 유지 |
+| R-35, R-36, R-37 | 이 문서 | 없음 — 리뷰로 유지 |
+| R-39 | 이 문서 | 없음 — `grep -rn "font-family" apps/frontend/src` 가 0건이어야 한다 |
 
 ## 구현 스택
 
@@ -129,9 +131,14 @@ Button의 `destructive` variant는 이 토큰을 **흰 전경의 불투명 배�
 
 ### 타이포그래피
 
-폰트는 `next/font/google`의 `Geist`(Latin subset, self-hosted, shadcn init이 자동 구성)를 그대로 쓴다.
-한글은 별도 웹폰트를 추가하지 않고 시스템 sans-serif로 글리프 단위 폴백한다.
+폰트는 `next/font/local`로 self-host 하는 `Pretendard` 가변본(wght 45–920) 한 벌을 쓴다.
+라틴·숫자도 같은 폰트가 맡아 라틴 전용 폰트를 따로 두지 않는다 — 앞서 쓰던 `Geist`는 한글 글리프가 없어 한글이 운영체제 기본 글꼴로 떨어지고 있었다.
+파일 한 벌이 2 MB라 `preload: false` + `display: 'swap'`으로 두어 첫 화면을 막지 않는다. 글자는 시스템 한글 글꼴로 먼저 보이고 내려받는 대로 바뀐다.
 새 타이포그래피 토큰을 만들지 않고 Tailwind 유틸리티 조합으로 역할을 정의한다.
+
+**R-39** 본문 폰트는 `apps/frontend/src/app/layout.tsx`의 `next/font/local` 한 곳에서만 선언하고 CSS 변수 이름은 `--font-sans`로 고정한다. 코드·CSS에 폰트 패밀리 이름을 직접 적지 않으며, `:root`에 폰트 변수를 두지 않는다 — 토큰 내보내기(`export-design-tokens.mjs`)가 `:root`만 읽고 폰트 값을 색으로 분류해 조용히 싣는다.
+
+Figma 텍스트 스타일이 지정하는 줄 간격(120·125·145·150%)과 자간(-1%)은 코드에 동반 토큰으로 옮기지 않았다. 코드는 Tailwind 기본 줄 간격과 자리별 유틸리티를 쓴다 — 어긋남은 결함이 아니라 아직 안 한 일이다.
 
 | 역할 | 클래스 조합 |
 | --- | --- |
@@ -169,7 +176,7 @@ Tailwind v4 기본 spacing 스케일을 그대로 쓴다.
 
 내보내지 않는 것: `@theme inline`(Tailwind 유틸리티 이름 매핑 — 코드 전용), `@media`, `[data-surface]` 반전 표면 스코프. `color-mix`·`rgb(var(…))` 같은 계산값은 CSS 문자열 그대로 두고 `description`에 손으로 지정한다고 적는다 — Figma는 그 식을 풀 수 없다.
 
-Figma에서 읽는 절차: Tokens Studio 플러그인 → Settings → Sync providers에서 GitHub(`docs/design-tokens/tokens.json`, 브랜치 main)를 연결하거나, 파일을 내려받아 Load from file로 읽는다. 테마는 `$themes`의 Light·Dark 둘이다. 폰트 패밀리는 아직 내보내지 않는다 — 본문 폰트 교체(Pretendard)는 PM이 Figma 시안을 본 뒤 정한다(2026-09-19).
+Figma에서 읽는 절차: Tokens Studio 플러그인 → Settings → Sync providers에서 GitHub(`docs/design-tokens/tokens.json`, 브랜치 main)를 연결하거나, 파일을 내려받아 Load from file로 읽는다. 테마는 `$themes`의 Light·Dark 둘이다. 폰트 패밀리는 내보내지 않는다 — 선언 위치가 `layout.tsx` 한 곳이고(R-39) Figma 쪽은 로컬에 설치한 Pretendard를 직접 쓴다.
 
 PR 게이트: 본문 「정리」 절의 `- 디자인 규격:` 줄에 이번 PR이 쓴 공용 컴포넌트·토큰과 규격 출처(이 문서의 컴포넌트 카드 이름 또는 Figma 컴포넌트 링크)를 적는다. `scripts/check-pr-body.sh`의 R12가 빈 줄·자리표시자·이유 없는 예외를 막는다(#1309).
 
@@ -378,7 +385,7 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 | 2026-09-03 | signup typography helpers에 `className`·`data-slot` 없음 | R-04 | composition API PR |
 | 2026-09-03 | `apps/frontend/src/components/form-section.tsx` root가 프리미티브 `data-slot="field-set"`뿐이고 자체 slot 없음 | R-04 | composition API PR |
 | 2026-09-03 | `apps/frontend/src/components/program-card.tsx` 소비자 하나인데 공용 상주 | R-02 | feature 하향 PR |
-| 2026-09-03 | 120자 초과 className 43파일과 hex 상수·inline style — `apps/frontend/src/features/activity-timeline/components/activity-chart.tsx` 26-29, `apps/frontend/src/features/landing/components/landing-journey.tsx` 401-414 | R-08a·R-08b | 2026-09-19 lint 도입(#1310). 잔여는 `apps/frontend/eslint-suppressions.json`에 남김 — className 55건·43파일, hex 51건·29파일(테스트 27파일 포함). 폴더 단위 후속 PR로 줄이고 고친 뒤 `lint:prune` |
+| 2026-09-03 | 120자 초과 className 43파일과 hex 상수·inline style — `apps/frontend/src/features/activity-timeline/components/activity-chart.tsx` 26-29, `apps/frontend/src/features/landing/components/landing-journey.tsx` 401-414 | R-08a·R-08b | 2026-09-19 lint 도입(#1310). 잔여는 `apps/frontend/eslint-suppressions.json`에 남김 — className 55건·43파일, hex는 화면 코드 2파일을 2026-09-21 #1328 1단계에서 토큰으로 바꿔 0(남은 hex 억제는 테스트 25파일). 폴더 단위 후속 PR로 줄이고 고친 뒤 `lint:prune` |
 | 2026-09-19 | 날 `<button>` 36건·24파일(테스트 14파일 포함) — `app/_shell` 내비게이션·로그인 버튼·접근 관리 표·일정 편집기·달력·서류 수합·`program-cover`·`nav-bar` | R-38 | 2026-09-21 화면 코드 해소 — 버튼 모양이 아닌 다섯 자리는 `variant="bare" size="content"`로 옮겼고(#1328) 아이콘 버튼 네 자리와 `program-cover`는 표준 변형으로 옮겼다. 남은 억제는 테스트 파일 13개뿐 |
 | 2026-09-03 | `apps/frontend/src/features/**`에 fixture 9파일 1,022 LOC | 당시 R-18·R-19 | 현재 규칙은 최소 인라인 데이터와 수명 기반 공유다. 파일명 금지는 폐지했고 미사용 카탈로그만 줄인다 |
 | 2026-09-03 | local-review 하네스가 `apps/frontend/test-support/local-review/fixture-response.ts`에서 feature fixture를 소비 | R-20 | 예외 없음. 런타임→테스트 의존은 경계 lint가 거부한다. 이 행은 당시 결합의 기록이며 해소는 런타임 제거 작업이다 |

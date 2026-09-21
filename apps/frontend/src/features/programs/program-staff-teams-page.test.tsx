@@ -196,6 +196,18 @@ describe('ProgramStaffTeamsPage — 상태 드롭다운(AC-14)', () => {
       expect(select?.disabled).toBe(false);
     },
   );
+  it('현재 상태를 드롭다운 하나로만 보여 주고 배지를 따로 두지 않는다', async () => {
+    await mount();
+
+    const select = statusSelects()[0];
+    expect(select?.value).toBe('SUBMITTED');
+    expect(select?.getAttribute('data-variant')).toBe('pending');
+    expect(select?.className).toContain('bg-status-pending-bg');
+    expect(
+      container.querySelectorAll('[data-slot="status-badge"]').length,
+    ).toBe(0);
+    expect(statusSelects()).toHaveLength(1);
+  });
 
   it('승인으로 바꾸면 판정하고 그 행을 다시 읽는다', async () => {
     await mount();
@@ -316,5 +328,77 @@ describe('ProgramStaffTeamsPage — 빈 화면과 실패', () => {
 
     expect(container.textContent).toContain('불러오지 못했습니다');
     expect(container.textContent).toContain('다시 시도');
+  });
+});
+
+/**
+ * 확인 창이 **무엇을 확인하는지**가 고른 상태와 일치하는가.
+ *
+ * ⚠ 이 자리는 한 번 거짓말을 했다. 반려만 확인하던 시절의 `action="REJECT"` 고정값이
+ * 남아, 승인 확인 창이 「신청 반려」·「반려 확정」이라고 말하면서 실제로는 승인을
+ * 보냈다. 라벨과 동작이 반대인 버튼이었고, 승인 전용 안내(「반려 사유는 지워집니다」)도
+ * 같은 상수에 막혀 그려지지 않았다.
+ *
+ * 승인 경로를 여는 테스트가 없어서 못 잡았다. 그래서 여기 둔다.
+ */
+describe('ProgramStaffTeamsPage — 확인 창이 말하는 것과 보내는 것', () => {
+  it('반려된 신청을 승인하면 승인 확인 창이 뜬다 — 반려 창이 아니다', async () => {
+    listTeamManagementApplicationsMock.mockResolvedValue(
+      page([item('a', 'REJECTED')]),
+    );
+    await mount();
+
+    const select = statusSelects()[0]!;
+    await act(async () => {
+      select.value = 'APPROVED';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    const dialog = document.body.textContent ?? '';
+    expect(dialog).toContain('신청 승인');
+    expect(dialog).toContain('승인 확정');
+    expect(dialog).not.toContain('반려 확정');
+    // 승인 전용 안내가 실제로 그려진다.
+    expect(dialog).toContain('반려 사유는 지워집니다');
+  });
+
+  it('반려를 고르면 반려 확인 창이 뜬다', async () => {
+    listTeamManagementApplicationsMock.mockResolvedValue(
+      page([item('a', 'SUBMITTED')]),
+    );
+    await mount();
+
+    const select = statusSelects()[0]!;
+    await act(async () => {
+      select.value = 'REJECTED';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    const dialog = document.body.textContent ?? '';
+    expect(dialog).toContain('신청 반려');
+    expect(dialog).toContain('반려 확정');
+    expect(dialog).not.toContain('승인 확정');
+  });
+
+  it('확인 창이 보내는 판정은 창이 말한 것과 같다', async () => {
+    listTeamManagementApplicationsMock.mockResolvedValue(
+      page([item('a', 'REJECTED')]),
+    );
+    await mount();
+
+    const select = statusSelects()[0]!;
+    await act(async () => {
+      select.value = 'APPROVED';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const confirm = [...document.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === '승인 확정',
+    );
+    await act(async () => (confirm as HTMLButtonElement).click());
+
+    // 창이 「승인」이라고 말했으면 서버로도 승인이 가야 한다.
+    expect(decideApplicationMock).toHaveBeenCalledWith('a', {
+      action: 'APPROVE',
+    });
   });
 });
