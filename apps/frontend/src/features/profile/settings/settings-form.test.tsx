@@ -220,9 +220,7 @@ describe('settings form view', () => {
     expect(invalidHtml).toContain(
       'aria-describedby="settings-notification-email-error"',
     );
-    expect(invalidHtml).toContain(
-      'id="settings-notification-email-error"',
-    );
+    expect(invalidHtml).toContain('id="settings-notification-email-error"');
     expect(validHtml).not.toContain('settings-notification-email-error');
   });
 
