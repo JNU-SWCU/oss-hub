@@ -37,6 +37,7 @@ import {
   runDecisionWithRefetch,
 } from './application-decision-refetch';
 import { ApplicationDecisionDialog } from './application-decision-dialog';
+import { StaffTeamMembersPanel } from './staff-team-members-panel';
 import { ApplicationStatusControl } from './application-status-control';
 import { ReviewHistoryTimeline } from './review-history-timeline';
 import { programHref } from './program-paths';
@@ -108,9 +109,15 @@ function Section({
 export function ProgramStaffTeamDetailPage({
   programId,
   teamId,
+  sessionKey,
 }: {
   readonly programId: string;
   readonly teamId: string;
+  /**
+   * 로그인 신원(닉네임). 구성 변경 요청이 도는 동안 사람이 바뀜면 그 결과를
+   * 새 사용자 화면에 흘리지 않기 위한 식별자다 — 조합 계층인 route가 내려 준다.
+   */
+  readonly sessionKey: string | null;
 }): ReactElement {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [renaming, setRenaming] = useState(false);
@@ -376,6 +383,23 @@ export function ProgramStaffTeamDetailPage({
             ))}
           </ul>
         </Section>
+
+        {/*
+         * 명단 바로 아래에 둔다 — 누가 있는지 보고 바로 고치는 자리다.
+         * 팀원 추가는 여전히 초대·수락이다 — 교직원이라고 남의 계정을 팀에
+         * 집어넣지 않는다.
+         */}
+        <StaffTeamMembersPanel
+          programId={programId}
+          teamId={teamId}
+          teamName={detail.name}
+          memberCount={detail.memberCount}
+          members={detail.members}
+          sessionKey={sessionKey}
+          onChanged={() => {
+            void load();
+          }}
+        />
 
         <Section
           title="저장소"
