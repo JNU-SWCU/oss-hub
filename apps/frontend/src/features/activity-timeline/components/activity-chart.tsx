@@ -14,11 +14,12 @@ import { DataTable, type DataTableColumn } from '@/components';
 import { orderActivityPoints } from '../activity-point-order';
 import type { ActivityPoint } from '../types';
 
+// 선 색은 semantic 차트 토큰(design.md R-08b). 다크 모드에서도 토큰이 알아서 바뀐다.
 const series = [
-  { key: 'commitCount', label: '커밋', color: '#003399' },
-  { key: 'prCount', label: 'Pull Request', color: '#00923f' },
-  { key: 'releaseCount', label: 'Release', color: '#d97706' },
-  { key: 'total', label: '합계', color: '#444444' },
+  { key: 'commitCount', label: '커밋', color: 'var(--chart-1)' },
+  { key: 'prCount', label: 'Pull Request', color: 'var(--chart-2)' },
+  { key: 'releaseCount', label: 'Release', color: 'var(--chart-3)' },
+  { key: 'total', label: '합계', color: 'var(--foreground)' },
 ] as const;
 
 const NUMBER_COLUMN = {

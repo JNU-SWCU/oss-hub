@@ -9,6 +9,7 @@ import {
   SUBMISSION_STATUS_LABELS,
 } from '@/lib/status-vocabulary';
 import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
+import { cn } from '@/lib/utils';
 import { MilestoneDocumentCurrentFiles } from '../milestone-document-current-files';
 import {
   isRevisionNeeded,
@@ -159,7 +160,12 @@ function ResubmissionForm(
             disabled={props.submitting}
             aria-describedby="resubmission-comment-description"
             onChange={(event) => props.onCommentChange(event.target.value)}
-            className="min-h-28 w-full resize-y rounded-lg border border-input bg-transparent p-3 text-sm leading-6 transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+            className={cn(
+              'min-h-28 w-full resize-y rounded-lg border border-input bg-transparent p-3',
+              'text-sm leading-6 transition-colors outline-none',
+              'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+              'disabled:cursor-not-allowed disabled:opacity-50',
+            )}
           />
           <FieldDescription id="resubmission-comment-description">
             선택 입력 · 최대 2,000자

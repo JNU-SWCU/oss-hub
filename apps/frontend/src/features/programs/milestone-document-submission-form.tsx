@@ -8,6 +8,7 @@ import {
   FieldLabel,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import type { MilestoneDocumentUploadPolicy } from './milestone-document-api';
 import {
   milestoneDocumentUploadHint,
@@ -107,7 +108,11 @@ export function MilestoneDocumentSubmissionForm({
           aria-describedby={helpId}
           value={text}
           placeholder="제출할 내용이나 설명을 적어 주세요."
-          className="min-h-28 rounded-control border border-input bg-background p-3 text-body outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          className={cn(
+            'min-h-28 rounded-control border border-input bg-background p-3 text-body',
+            'outline-none focus-visible:border-ring focus-visible:ring-3',
+            'focus-visible:ring-ring/50',
+          )}
           maxLength={10_000}
           onChange={(event) => setText(event.target.value)}
         />

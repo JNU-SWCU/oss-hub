@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { Dialog } from 'radix-ui';
 import type { RefObject } from 'react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { FormRenderer } from './form-renderer';
 import type { ProgramTemplateDefinition } from './program-templates';
 
@@ -32,7 +33,12 @@ export function ProgramTypeModal({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
         <Dialog.Content
-          className="fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%_-_2rem)] max-w-4xl min-w-0 -translate-x-1/2 -translate-y-1/2 gap-6 overflow-x-hidden overflow-y-auto rounded-card bg-background p-card shadow-lg outline-none *:min-w-0 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]"
+          className={cn(
+            'fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-[calc(100%_-_2rem)]',
+            'max-w-4xl min-w-0 -translate-x-1/2 -translate-y-1/2 gap-6 overflow-x-hidden',
+            'overflow-y-auto rounded-card bg-background p-card shadow-lg outline-none',
+            '*:min-w-0 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]',
+          )}
           onCloseAutoFocus={(event) => {
             const returnTarget = returnFocusRef.current;
             if (returnTarget === null) return;
@@ -70,7 +76,11 @@ export function ProgramTypeModal({
               {definitions.map((definition) => (
                 <label
                   key={definition.category}
-                  className="flex min-h-control cursor-pointer items-center gap-2 rounded-control border border-border px-4 py-3 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+                  className={cn(
+                    'flex min-h-control cursor-pointer items-center gap-2',
+                    'rounded-control border border-border px-4 py-3',
+                    'has-[:checked]:border-primary has-[:checked]:bg-primary/5',
+                  )}
                 >
                   <input
                     checked={selected?.category === definition.category}

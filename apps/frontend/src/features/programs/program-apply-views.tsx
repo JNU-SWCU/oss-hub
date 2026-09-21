@@ -231,8 +231,11 @@ function TeamNameField({
           readOnly={readOnly}
           disabled={readOnly || creating}
           aria-invalid={teamError !== null ? true : undefined}
+          aria-describedby={teamError ? 'apply-team-name-error' : undefined}
         />
-        {teamError ? <FieldError>{teamError}</FieldError> : null}
+        {teamError ? (
+          <FieldError id="apply-team-name-error">{teamError}</FieldError>
+        ) : null}
       </Field>
     </div>
   );
