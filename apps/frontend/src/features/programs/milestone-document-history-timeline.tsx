@@ -159,7 +159,7 @@ function HistoryFile({
         asChild
         size="sm"
         variant="ghost"
-        // 높이는 44px 컨트롤 규격을 따른다 — 줄일지는 #1335에서 화면으로 정한다.
+        // 높이는 44px 컨트롤 규격을 따른다 — #1335에서 화면을 보고 그대로 두기로 했다.
         className="max-w-full justify-start px-2 py-1"
       >
         {/*
