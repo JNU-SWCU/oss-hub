@@ -134,18 +134,29 @@ Button의 `destructive` variant는 이 토큰을 **흰 전경의 불투명 배�
 폰트는 `next/font/local`로 self-host 하는 `Pretendard` 가변본(wght 45–920) 한 벌을 쓴다.
 라틴·숫자도 같은 폰트가 맡아 라틴 전용 폰트를 따로 두지 않는다 — 앞서 쓰던 `Geist`는 한글 글리프가 없어 한글이 운영체제 기본 글꼴로 떨어지고 있었다.
 파일 한 벌이 2 MB라 `preload: false` + `display: 'swap'`으로 두어 첫 화면을 막지 않는다. 글자는 시스템 한글 글꼴로 먼저 보이고 내려받는 대로 바뀐다.
-새 타이포그래피 토큰을 만들지 않고 Tailwind 유틸리티 조합으로 역할을 정의한다.
+글자 크기는 `globals.css`의 크기 계단 여섯 단계(`--step-*`)를 `text-page`~`text-table` 유틸리티로 쓴다.
 
 **R-39** 본문 폰트는 `apps/frontend/src/app/layout.tsx`의 `next/font/local` 한 곳에서만 선언하고 CSS 변수 이름은 `--font-sans`로 고정한다. 코드·CSS에 폰트 패밀리 이름을 직접 적지 않으며, `:root`에 폰트 변수를 두지 않는다 — 토큰 내보내기(`export-design-tokens.mjs`)가 `:root`만 읽고 폰트 값을 색으로 분류해 조용히 싣는다.
 
-Figma 텍스트 스타일이 지정하는 줄 간격(120·125·145·150%)과 자간(-1%)은 코드에 동반 토큰으로 옮기지 않았다. 코드는 Tailwind 기본 줄 간격과 자리별 유틸리티를 쓴다 — 어긋남은 결함이 아니라 아직 안 한 일이다.
+| 단계 | 유틸리티 | 크기 | 줄 간격 | 자간 | 쓰는 자리 |
+| --- | --- | --- | --- | --- | --- |
+| page | `text-page` | 40px | 50px (125%) | -2.5% | 페이지 제목(`PageHeader`) |
+| section | `text-section` | 24px | 30px (125%) | -2.5% | 섹션 제목(`SectionHeading`) |
+| body | `text-body` | 16px | 150% (물려받는다) | 0 | 본문 |
+| small | `text-small` | 13px | 150% (물려받는다) | 0 | 보조 문구 |
+| badge | `text-badge` | 0.75rem (12px) | 16px (133.3%) | 0 | 상태 배지(`StatusBadge`) |
+| table | `text-table` | 0.875rem (14px) | 20px (142.9%) | 0 | 표 본문(`Table` — 칸이 물려받는다), 사이드바 메뉴 |
 
-| 역할 | 클래스 조합 |
-| --- | --- |
-| Display | `text-3xl font-bold tracking-tight` |
-| Heading | `text-xl font-semibold` |
-| Body | `text-sm leading-normal` |
-| Caption | `text-sm text-muted-foreground` |
+계단은 제목과 본문의 위계만 담지 않는다. 배지와 표 칸처럼 여러 화면이 같은 치수로 되풀이하는 부품의 글자 크기도 계단의 한 칸이고, 그래서 Figma 텍스트 스타일 여섯 개(`text/page`~`text/table`)와 이름이 하나씩 맞는다(#1344).
+배지·표 두 칸만 rem이다. 이 두 칸이 대신한 `text-xs`·`text-sm`이 rem이라 브라우저 기본 글자 크기를 키운 사용자에게 배지·표 글자가 따라 커졌고, px로 두면 그 사용자에게만 표 머리글(`text-xs`)이 칸 글자보다 커진다.
+임의 크기(`text-[15px]`, CSS 모듈의 `font-size: 15px`)를 새로 쓰지 않고 계단 이름으로 부른다 — Tailwind 클래스는 `text-page`~`text-table`, CSS 모듈과 인라인 스타일은 `var(--step-*)`다. 계단 사이에 끼어 있던 크기는 한 칸 작은 쪽으로, 위로만 갈 수 있던 크기는 위로 옮겼다(#1344, 동규 결정): 사이드바·서랍 메뉴와 랜딩 버튼·단계 이름 15→14px, 랜딩 통계 숫자 30→24px, 랭킹 카운트다운 22→24px, 11px(감사 로그 작업 배지, 랜딩 단계 번호·통계 주석) → 12px. 프로그램 하위 단계는 메뉴와의 1px 차이를 지키려 14→13px(`text-small`)로 내렸다.
+남은 임의 크기는 셋이다. 창 폭에 따라 커지는 랜딩 제목(`clamp()`), 주변 글자에 비례해야 하는 감사 로그 문장 속 코드 조각(`0.85em`), 그리고 활동·인사이트 차트 축 글자(`fontSize: 12`)다. 차트 축은 폭이 44px로 고정이라, rem인 `--step-badge`로 옮기면 브라우저 글자 크기를 키운 사용자에게 네 자리 숫자의 앞자리가 잘린다. 앱 밖 정적 문서(`public/policies/*.css`)는 계단 토큰을 읽을 수 없어 대상이 아니다.
+Tailwind 기본 크기(`text-xs`·`text-sm`·`text-lg`·`text-xl` 등)는 임의 크기가 아니어서 이번에 옮기지 않았고 여러 화면에 남아 있다. `text-xs`·`text-sm`은 `text-badge`·`text-table`과 값이 같다.
+
+줄 간격과 자간의 원본은 코드다. 제목 두 단계는 `PageHeader`·`SectionHeading`이 `leading-tight`·`tracking-tight`를 직접 들고, 본문·보조는 문서 기본 줄 간격을 물려받는다.
+배지·표 두 단계만 줄 간격 동반 토큰(`--text-badge--line-height`·`--text-table--line-height`)을 가지며, 그 자리가 쓰던 `text-xs`·`text-sm`과 같은 값을 px가 아니라 비율(`calc(16 / 12)`·`calc(20 / 14)`)로 적는다 — px로 적으면 표 칸 안에서 글자 크기만 바꾼 자손(`text-small` 등)이 20px을 그대로 물려받아 행 높이가 바뀐다.
+표 머리글은 계단 밖이다. `TableHead`가 `text-xs`(12px/16px)와 `tracking-wide`(2.5%)를 직접 든다.
+Figma 텍스트 스타일은 플러그인(`apps/frontend/figma-plugin`)이 이 표의 값을 그대로 적는다. 값이 다르면 코드가 맞다.
 
 날짜는 자리에 따라 표기를 고른다.
 문장과 입력 확인은 `YYYY년 M월 D일 (요일) HH:mm`으로 적고, 마일스톤 카드처럼 좁은 칸의 기간은 한 줄 `YY.MM.DD – YY.MM.DD HH:mm`(시작 날짜, 마감 날짜와 시각, 서울 시각, 가운데는 en dash)으로 적는다 — 「26.08.05 – 26.08.06 01:58」.
@@ -806,7 +817,7 @@ PR 제출 전에는 변경된 사용자 흐름의 UX 리뷰를 반드시 완료�
 | --- | --- |
 | 폭 900px 이하 | 사선 스크림을 위→아래 세로 스크림으로 바꾼다. 그래프 중심이 화면 한가운데로 오고 라벨 좌측 금지 구역이 없어진다. 프레임 예산도 33ms로 본다(그 위는 16.7ms) |
 | 폭 820px 이하 | 범례와 진행 표시를 감춘다 |
-| 높이 520px 이하(가로모드 폰) | 패널 세로 중앙을 28px 내려 eyebrow가 고정 헤더 뒤로 들어가지 않게 하고, 제목·여백·통계 크기를 줄이며 SCROLL 힌트를 감춘다. 패널 구성과 순서는 그대로다 |
+| 높이 520px 이하(가로모드 폰) | 패널 세로 중앙을 28px 내려 eyebrow가 고정 헤더 뒤로 들어가지 않게 하고, 제목·여백을 줄이며(통계 숫자는 계단 `--step-section` 한 크기라 그대로다) SCROLL 힌트를 감춘다. 패널 구성과 순서는 그대로다 |
 
 패널 좌우 인셋은 `clamp(16px, 6vw, 96px)`, 최대 너비 720px이다.
 제목은 `clamp(24px, 5.4vw, 62px)`(h1)과 `clamp(22px, 3.6vw, 42px)`(h2), 본문은 `clamp(15px, 1.3vw, 18px)` / line-height 1.75 / 최대 40em이며 한국어 줄바꿈은 `word-break: keep-all`이다.
