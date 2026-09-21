@@ -44,7 +44,7 @@ type SentInvitationsState =
  */
 export interface TeamInvitationManagementInput {
   readonly programId: string;
-  readonly team: ProgramTeam | null;
+  readonly team: Pick<ProgramTeam, 'id' | 'canInvite'> | null;
   readonly sessionKey: string | null;
 }
 

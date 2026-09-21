@@ -49,6 +49,7 @@ export type MockRepository = TeamInvitationsRepository & {
   findByTeamId: jest.Mock;
   findTeamContext: jest.Mock;
   isTeamMember: jest.Mock;
+  isActiveStaff: jest.Mock;
   getInviteeEligibility: jest.Mock;
   searchCandidates: jest.Mock;
   createInvitation: jest.Mock;
@@ -76,6 +77,8 @@ export function buildService(
       teamMaxSize: 4,
     }),
     isTeamMember: jest.fn().mockResolvedValue(true),
+    // 기본값은 비교직원이다 — 교직원 경로를 보는 테스트만 명시적으로 켠다.
+    isActiveStaff: jest.fn().mockResolvedValue(false),
     getInviteeEligibility: jest.fn().mockResolvedValue('eligible'),
     searchCandidates: jest.fn().mockResolvedValue([]),
     createInvitation: jest

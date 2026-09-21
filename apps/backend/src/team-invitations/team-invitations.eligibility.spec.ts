@@ -88,6 +88,7 @@ describe('팀 초대 대상 자격', () => {
         teamMaxSize: 4,
       }),
       getInviteeEligibility: jest.fn().mockResolvedValue('not-eligible'),
+      isActiveStaff: jest.fn().mockResolvedValue(false),
       isUserInProgramTeam: jest.fn().mockResolvedValue(false),
       countTeamMembers: jest.fn().mockResolvedValue(1),
       createInvitation: jest.fn(),

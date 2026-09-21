@@ -192,7 +192,7 @@ describe('ProgramCreationPage guided authoring', () => {
     await act(async () =>
       root.render(<ProgramCreationPage initialState={initial} />),
     );
-    await act(async () => buttonNamed('기존 공지로 빠르게 시작하기').click());
+    await act(async () => buttonNamed('공지에서 가져오기').click());
     const url = document.querySelector<HTMLInputElement>('input[type="url"]');
     await act(async () => {
       Object.getOwnPropertyDescriptor(

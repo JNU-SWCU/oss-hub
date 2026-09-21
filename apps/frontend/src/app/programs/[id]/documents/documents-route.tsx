@@ -31,23 +31,27 @@ export function DocumentsRoute({ programId }: { readonly programId: string }) {
 
   if (session.hasStaffAccess) {
     return (
-      <>
-        <ProgramDocumentArchivePanel key={programId} programId={programId} />
-        <SubmissionMatrixScreen
-          programId={programId}
-          selectedMilestoneId={selectedMilestoneId}
-          onSelectMilestone={(milestoneId) => {
-            router.replace(
-              withMilestoneQuery(
-                programId,
-                new URLSearchParams(searchParams.toString()),
-                milestoneId,
-              ),
-              { scroll: false },
-            );
-          }}
-        />
-      </>
+      <SubmissionMatrixScreen
+        programId={programId}
+        selectedMilestoneId={selectedMilestoneId}
+        headerActions={
+          <ProgramDocumentArchivePanel
+            key={programId}
+            programId={programId}
+            embedded
+          />
+        }
+        onSelectMilestone={(milestoneId) => {
+          router.replace(
+            withMilestoneQuery(
+              programId,
+              new URLSearchParams(searchParams.toString()),
+              milestoneId,
+            ),
+            { scroll: false },
+          );
+        }}
+      />
     );
   }
 
