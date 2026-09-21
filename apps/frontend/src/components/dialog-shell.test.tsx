@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogShell, type DialogShellProps } from './dialog-shell';
+import { Button } from './ui/button';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -29,6 +30,10 @@ describe('DialogShell', () => {
   async function render(props: Partial<DialogShellProps> = {}) {
     const onCancel = vi.fn();
     const onSave = vi.fn();
+    const {
+      children = <input aria-label="팀 이름" defaultValue="가팀" />,
+      ...rest
+    } = props;
     await act(async () => {
       root.render(
         <DialogShell
@@ -36,9 +41,9 @@ describe('DialogShell', () => {
           description="새 이름을 입력하세요."
           onCancel={onCancel}
           onSave={onSave}
-          {...(props as object)}
+          {...(rest as object)}
         >
-          <input aria-label="팀 이름" defaultValue="가팀" />
+          {children}
         </DialogShell>,
       );
     });
@@ -49,6 +54,35 @@ describe('DialogShell', () => {
       );
     return { dialog, button, onCancel, onSave };
   }
+
+  it('기본은 dialog 역할을 지키고 alert 는 alertdialog 가 된다', async () => {
+    /*
+     * Radix 는 자기 `role: 'dialog'` 뒤에 전달 props 를 펼친다. 껍데기가
+     * `role={undefined}` 를 넘기면 기본 역할이 지워져 앱의 모든 창이 역할을
+     * 잃는다 — 이 테스트가 그것을 막는다.
+     */
+    await render();
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+
+    await render({ kind: 'alert' });
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+  });
+
+  it('alert는 본문보다 취소 버튼에 먼저 초점을 둔다', async () => {
+    const { button } = await render({
+      kind: 'alert',
+      children: <textarea aria-label="반려 사유" />,
+      footer: (
+        <>
+          <Button type="button">취소</Button>
+          <Button type="button">확정</Button>
+        </>
+      ),
+    });
+
+    expect(document.activeElement).toBe(button('취소'));
+  });
 
   it('제목·설명·본문·취소/저장 줄을 한 창에 그린다', async () => {
     const { dialog, button, onCancel, onSave } = await render();
@@ -72,9 +106,9 @@ describe('DialogShell', () => {
       size: 'lg',
       onSave: undefined,
       footer: (
-        <button type="button" onClick={() => {}}>
+        <Button type="button" onClick={() => {}}>
           닫기
-        </button>
+        </Button>
       ),
     } as Partial<DialogShellProps>);
 

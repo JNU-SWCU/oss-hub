@@ -1300,6 +1300,14 @@
 - blocker: 없음
 - 내용: design.md 의 R-17 이 요구하는 공용 Skeleton 이 존재한 적이 없어 앞 절은 어느 자리에서도 충족될 수 없었고 뒤 절은 스무 곳 넘게 어겨지고 있었다. `components/ui/skeleton.tsx` 에 Skeleton(영역)과 SkeletonBlock(칸)을 두고 스물여섯 화면을 옮겼다. 영역이 role=status·aria-busy·안 보이는 이름을, 칸이 animate-pulse·motion-reduce·aria-hidden 을 스스로 단다. 높이·모서리 클래스는 자리마다 그대로 옮겨 화면이 바뀌지 않는다. 로딩이 아닌 animate-pulse 와 일부러 뼈대를 안 그리는 자리는 그대로 뒀다.
 - 검증: 프런트 단위 376 파일 3732 건 통과. 로딩 이름을 aria-label 속성으로 찾던 테스트 여덟 곳을 「이름이 낭독된다」는 원래 계약을 직접 단언하도록 고쳤다. typecheck·lint·prettier 통과.
+## 2026-09-21 — 확인창을 공용 껍데기로 (R-06)
+
+- 상태: review
+- Issue: #1351
+- PR: (이 PR)
+- blocker: 없음
+- 내용: R-06 이 요구하는 공용 창 껍데기를 화면 열셋이 안 쓰고 radix 를 직접 가져다 썼다. 대부분 태만이 아니라 껍데기가 경고형 창(`role="alertdialog"`)을 못 내는 것 하나에 막혀 있었다. 껍데기에 `kind="alert"` 를 더하고 되돌릴 수 없는 일을 확인받는 창 여섯을 옮겼다. 나머지 일곱은 트리거로 여는 구조·전체화면 라이트박스·2단 그리드처럼 껍데기가 표현하지 못하는 것을 써서 그대로 두고 본문에 이유를 적었다.
+- 검증: 프런트 단위 374 파일 3724 건 통과. 창이 body 로 포털되면서 호스트 안에서 창을 찾던 테스트 33 건이 깨져 문서 기준으로 고쳤다. 새 테스트가 「기본은 dialog 역할을 지키고 alert 는 alertdialog 가 된다」를 고정한다. typecheck·lint·prettier 통과.
 ## 2026-09-21 — 누를 수 있다는 신호를 바로잡는다
 
 - 상태: review
