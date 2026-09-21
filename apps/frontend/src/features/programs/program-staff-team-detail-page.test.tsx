@@ -180,7 +180,11 @@ describe('ProgramStaffTeamDetailPage', () => {
   async function render(): Promise<void> {
     await act(async () => {
       root.render(
-        <ProgramStaffTeamDetailPage programId="program-1" teamId="team-1" />,
+        <ProgramStaffTeamDetailPage
+          programId="program-1"
+          teamId="team-1"
+          sessionKey="synthetic-staff"
+        />,
       );
     });
   }
