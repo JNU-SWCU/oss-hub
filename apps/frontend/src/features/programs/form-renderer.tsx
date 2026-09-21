@@ -1,5 +1,6 @@
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { applicationAnswerMaxLength } from './application-answer-limits';
 import type {
   ApplicationFormField,
@@ -90,7 +91,10 @@ function FormFieldControl({
           readOnly={readOnly}
           disabled={readOnly && mode === 'preview'}
           onChange={(event) => onChange?.(field.key, event.target.value)}
-          className="min-h-24 w-full rounded-lg border border-input bg-transparent p-3 text-sm disabled:cursor-not-allowed disabled:opacity-70"
+          className={cn(
+            'min-h-24 w-full rounded-lg border border-input bg-transparent p-3 text-sm',
+            'disabled:cursor-not-allowed disabled:opacity-70',
+          )}
         />
       ) : (
         <Input

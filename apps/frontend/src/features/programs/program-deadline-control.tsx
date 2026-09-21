@@ -4,6 +4,7 @@ import { BellRing, Eye, Send } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
+import { cn } from '@/lib/utils';
 import {
   DeadlinePreviewBodies,
   DeadlinePreviewCounts,
@@ -76,7 +77,11 @@ export function ProgramDeadlineControl({
                 <Field key={key}>
                   <FieldLabel htmlFor={key}>{label}</FieldLabel>
                   <textarea
-                    className="w-full min-w-0 rounded-control border border-input bg-background px-3 py-2 text-small focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className={cn(
+                      'w-full min-w-0 rounded-control border border-input bg-background px-3 py-2',
+                      'text-small focus-visible:outline-none focus-visible:ring-2',
+                      'focus-visible:ring-ring',
+                    )}
                     id={key}
                     aria-label={label}
                     aria-describedby={`${key}-count`}

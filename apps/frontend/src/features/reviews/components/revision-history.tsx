@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 import {
   DECISION_PRESENTATION,
@@ -133,7 +134,12 @@ function RevisionFileLink({ file }: { readonly file: SubmissionRevisionFile }) {
     <a
       href={file.downloadUrl}
       download={file.fileName}
-      className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      className={cn(
+        'inline-flex min-w-0 max-w-full items-center gap-1.5',
+        'rounded-md border border-border bg-background px-2 py-1 text-foreground',
+        'transition-colors hover:bg-muted hover:text-foreground',
+        'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+      )}
     >
       <FileText
         aria-hidden="true"
