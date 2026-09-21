@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DialogShell, type DialogShellProps } from './dialog-shell';
+import { Button } from './ui/button';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -74,8 +75,8 @@ describe('DialogShell', () => {
       children: <textarea aria-label="반려 사유" />,
       footer: (
         <>
-          <button type="button">취소</button>
-          <button type="button">확정</button>
+          <Button type="button">취소</Button>
+          <Button type="button">확정</Button>
         </>
       ),
     });
@@ -105,9 +106,9 @@ describe('DialogShell', () => {
       size: 'lg',
       onSave: undefined,
       footer: (
-        <button type="button" onClick={() => {}}>
+        <Button type="button" onClick={() => {}}>
           닫기
-        </button>
+        </Button>
       ),
     } as Partial<DialogShellProps>);
 

@@ -1,4 +1,4 @@
-import { AlertCircle, ExternalLink, FolderGit2, RotateCcw } from 'lucide-react';
+import { ExternalLink, FolderGit2 } from 'lucide-react';
 import Link from 'next/link';
 import {
   CardGrid,
@@ -7,8 +7,8 @@ import {
   PageHeader,
   SectionHeading,
   StatusBadge,
+  FailureState,
 } from '@/components';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -57,17 +57,7 @@ function LoadingState() {
 function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   return (
     <PageBody className="max-w-3xl">
-      <Alert variant="destructive">
-        <AlertCircle aria-hidden="true" />
-        <AlertTitle>내 저장소를 불러오지 못했습니다</AlertTitle>
-        <AlertDescription className="flex flex-wrap items-center justify-between gap-4">
-          <span>잠시 후 다시 시도해 주세요.</span>
-          <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-            <RotateCcw aria-hidden="true" />
-            다시 시도
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <FailureState title="내 저장소를 불러오지 못했습니다" onRetry={onRetry} />
     </PageBody>
   );
 }

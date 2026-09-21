@@ -8,6 +8,7 @@ import {
   programMilestoneDocumentsHref,
 } from '@/lib/program-route';
 import { SUBMISSION_STATUS_BADGE } from '@/lib/status-vocabulary';
+import { cn } from '@/lib/utils';
 import { formatSeoulDate, submissionLabel } from '../program-detail-format';
 import type {
   BlockedMilestoneSubmissionAccess,
@@ -230,7 +231,10 @@ export function MilestoneRow({
         */}
         <span
           aria-hidden="true"
-          className="grid size-tag shrink-0 place-items-center rounded-full bg-background text-small font-semibold text-muted-foreground ring-1 ring-foreground/10"
+          className={cn(
+            'grid size-tag shrink-0 place-items-center rounded-full bg-background',
+            'text-small font-semibold text-muted-foreground ring-1 ring-foreground/10',
+          )}
         >
           {position}
         </span>

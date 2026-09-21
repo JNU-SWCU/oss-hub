@@ -51,3 +51,6 @@ export { DialogShell } from './dialog-shell';
 export type { DialogShellProps } from './dialog-shell';
 export { FilterChip, FilterChipGroup } from './filter-chip';
 export type { FilterChipGroupProps, FilterChipProps } from './filter-chip';
+
+export { FailureState } from './failure-state';
+export type { FailureStateProps } from './failure-state';

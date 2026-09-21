@@ -169,12 +169,19 @@ describe('LoginButtonView', () => {
     // 설정·로그아웃은 같은 왼쪽 정렬 계약이다. ShellNav 자손 선택자가
     // menuitem을 건드리면 설정만 가운데로 밀리므로, 여기 마크업은 둘 다
     // text-left·w-full을 유지한다(cascade 제외는 shell-nav 테스트가 지킨다).
-    expect(html).toMatch(
-      /role="menuitem"[^>]*class="(?=[^"]*\bw-full\b)(?=[^"]*\btext-left\b)[^"]*"[^>]*>설정/,
-    );
-    expect(html).toMatch(
-      /role="menuitem"[^>]*class="(?=[^"]*\bw-full\b)(?=[^"]*\btext-left\b)[^"]*"[^>]*>로그아웃/,
-    );
+    //
+    // 속성 순서는 계약이 아니다 — `<a>`는 손으로 적은 순서대로, `<button>`은
+    // Button 프리미티브가 `class`를 먼저 얹는다. 여는 태그 하나를 통째로 집어
+    // 그 안에 필요한 것이 다 있는지만 본다.
+    const openTagBefore = (label: string) =>
+      new RegExp(`<[a-z]+([^>]*)>${label}`).exec(html)?.[1] ?? '';
+    for (const label of ['설정', '로그아웃']) {
+      const attrs = openTagBefore(label);
+      expect(attrs, `${label} 여는 태그를 찾지 못했다`).not.toBe('');
+      expect(attrs).toContain('role="menuitem"');
+      expect(attrs).toMatch(/class="[^"]*\bw-full\b/);
+      expect(attrs).toMatch(/class="[^"]*\btext-left\b/);
+    }
   });
 });
 

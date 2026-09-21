@@ -41,7 +41,7 @@
 | R-04 | 이 문서 | composition API PR |
 | R-06 | 이 문서 | dialog shell PR |
 | R-08a, R-08b, R-38 | 이 문서 | 없음 — lint가 강제한다. 기존 위반은 `apps/frontend/eslint-suppressions.json`이 억제하며 폴더 단위 후속 PR로 줄인다 |
-| R-09, R-10 | 이 문서 | FailureState PR |
+| R-09, R-10 | 이 문서 | `FailureState`와 화면별 상태 분기 테스트 |
 | R-17 | 이 문서 | Skeleton PR |
 | R-11, R-12 | 이 문서 | Alert kind PR |
 | R-13, R-14 | 이 문서 | notification PR |
@@ -189,6 +189,7 @@ Collapsible을 포함한 파일은 `apps/frontend/src/components/ui/`에 있고,
 
 `button.tsx`. 모든 액션 트리거(제출, 이동, 보조 액션)의 기반이며 variant(default/outline/secondary/ghost/destructive/link/toggle)와 size 변형을 cva로 관리한다.
 `toggle`은 `FilterChip`이 쓰는 눌림 표면이며 feature가 직접 고르지 않는다.
+`variant="bare" size="content"`는 **버튼처럼 생기지 않은 「누를 수 있는 면」** 전용이다 — 표 칸, 달력 날짜, 메뉴 줄, 행·카드 선택기처럼 크기를 바깥 격자나 내용이 정하는 자리다. 표면(배경·글자색·hover·눌림 표시)과 여백·정렬·줄바꿈은 호출부가 소유하고, 프리미티브는 접근 가능한 이름·비활성·초점 표시만 준다. 44px 규칙이 지켜야 하는 것은 손가락이 닿는 컨트롤이므로 이 자리는 그 대상이 아니다.
 아이콘만 있는 버튼은 `variant="ghost" size="icon"`(44px 정사각)에 `aria-label`과 툴팁을 함께 붙인다. feature에서 `inline-flex size-11 …` 날 `<button>`을 다시 만들지 않는다(R-27, AP-17).
 
 ### Input
@@ -248,7 +249,8 @@ R-08a·R-08b·R-38은 `pnpm --filter frontend lint`가 강제한다. 기존 위�
 
 ## 상태 시스템
 
-공용 Skeleton과 failure surface는 아직 없으므로 「수용된 부채」에 기록하고 로컬 정의를 새로 늘리지 않는다.
+실패 표면은 `components/failure-state.tsx`의 `FailureState`를 사용한다.
+공용 Skeleton은 아직 없으므로 「수용된 부채」에 기록하고 로컬 정의를 새로 늘리지 않는다.
 **R-09** 컬렉션 뷰는 loading · empty · error · ready 네 상태를 상호배타로 렌더하고 네 분기를 테스트로 고정한다.
 **R-10** 재시도 가능한 fetch 실패는 공용 failure surface 하나만 쓰고 retry 액션을 노출하며 `EmptyState`와 bare destructive 텍스트는 error 상태에 금지한다.
 **R-17** loading 표면은 `aria-busy`, 접근 가능한 label, `motion-reduce` 처리를 갖는 공용 Skeleton을 쓰고 feature 로컬 Skeleton을 새로 정의하지 않는다.
@@ -281,7 +283,7 @@ R-08a·R-08b·R-38은 `pnpm --filter frontend lint`가 강제한다. 기존 위�
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | field | 필드 단위 검증 실패 | error | FieldError | 컨트롤 바로 아래 | `role="alert"` | 첫 오류로 포커스 이동 | 사용자가 고칠 때까지 지속 | 상단 요약과 쌍(R-16) |
 | inline | 작업 중인 영역의 결과 | success·info·warning·error | Alert | 그 영역 안 | 동적 error=`role="alert"`, 그 외 동적 갱신=`role="status"`+`aria-live="polite"`, 정적 초기 렌더=live region 없음 | 포커스 이동 없음 | 화면을 떠날 때까지 | error면 다음 행동 링크(R-15) |
-| page | 화면 전체를 막는 실패·권한 | error·warning | 공용 failure surface(미구현 → §수용된 부채 R-10 행) | 본문 최상단 | 상호작용 중 발생한 동적 error만 `role="alert"`, 초기·정적 warning·접근 권한·안내는 live region 없음, 동적 non-error=`role="status"`/`aria-live="polite"` | 첫 액션으로 포커스 | 지속 | 재시도 또는 대체 경로 |
+| page | 화면 전체를 막는 실패·권한 | error·warning | `FailureState` | 본문 최상단 | 상호작용 중 발생한 동적 error만 `role="alert"`, 초기·정적 warning·접근 권한·안내는 live region 없음, 동적 non-error=`role="status"`/`aria-live="polite"` | 첫 액션으로 포커스 | 지속 | 재시도 또는 대체 경로 |
 | toast | 화면을 넘어가는 일회성 결과 | success·info | 전역 notification primitive(미구현 → §수용된 부채 R-13 행) | 뷰포트 고정 | `role="status"`+`aria-live="polite"` | 포커스 이동 없음 | 자동 소멸 허용, critical 금지(R-14) | 없음 |
 | dialog | 되돌릴 수 없는 결정 요청 | warning·error | `DialogShell`(role=dialog 창) · 되돌릴 수 없는 결정의 alertdialog 변형은 §수용된 부채 R-06 행 | 모달 | `role="alertdialog"` | focus trap + 복귀 | 사용자가 결정할 때까지 | 확인·취소 쌍 |
 
@@ -374,7 +376,7 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 
 | 기록일 | 위반 | 규칙 | 해소 경로 |
 | --- | --- | --- | --- |
-| 2026-09-03 | 공용 failure surface 부재 — fetch 실패 표현이 파일마다 다르고 일부는 `EmptyState`로 렌더(예: `apps/frontend/src/features/programs/components/activity-graph-panel.tsx` 31-49) | R-10 | FailureState PR |
+| 2026-09-03 | 일부 화면의 fetch 실패가 아직 `EmptyState`로 렌더된다 | R-10 | 공용 `FailureState`로 호출부 이전 |
 | 2026-09-03 | 전역 notification primitive 부재, 로컬 `toastMessage` state 6파일 | R-13 | notification PR |
 | 2026-09-03 | 공용 Skeleton 부재, 로컬 정의 15곳 | R-17 | Skeleton PR |
 | 2026-09-03 | `apps/frontend/src/components/ui/alert.tsx`가 두 variant뿐이고 항상 `role="alert"` | R-11 | Alert kind PR |
@@ -384,8 +386,8 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 | 2026-09-03 | signup typography helpers에 `className`·`data-slot` 없음 | R-04 | composition API PR |
 | 2026-09-03 | `apps/frontend/src/components/form-section.tsx` root가 프리미티브 `data-slot="field-set"`뿐이고 자체 slot 없음 | R-04 | composition API PR |
 | 2026-09-03 | `apps/frontend/src/components/program-card.tsx` 소비자 하나인데 공용 상주 | R-02 | feature 하향 PR |
-| 2026-09-03 | 120자 초과 className 43파일과 hex 상수·inline style — `apps/frontend/src/features/activity-timeline/components/activity-chart.tsx` 26-29, `apps/frontend/src/features/landing/components/landing-journey.tsx` 401-414 | R-08a·R-08b | 2026-09-19 lint 도입(#1310). 잔여는 `apps/frontend/eslint-suppressions.json`에 남김 — className 55건·43파일, hex 51건·29파일(테스트 27파일 포함). 폴더 단위 후속 PR로 줄이고 고친 뒤 `lint:prune` |
-| 2026-09-19 | 날 `<button>` 36건·24파일(테스트 14파일 포함) — `app/_shell` 내비게이션·로그인 버튼·접근 관리 표·일정 편집기·달력·서류 수합·`program-cover`·`nav-bar` | R-38 | `eslint-suppressions.json`에 남김(#1310). 후속 PR에서 `Button` 프리미티브로 교체 |
+| 2026-09-03 | 120자 초과 className 43파일과 hex 상수·inline style — `apps/frontend/src/features/activity-timeline/components/activity-chart.tsx` 26-29, `apps/frontend/src/features/landing/components/landing-journey.tsx` 401-414 | R-08a·R-08b | 2026-09-19 lint 도입(#1310). 잔여는 `apps/frontend/eslint-suppressions.json`에 남김 — className 55건·43파일, hex는 화면 코드 2파일을 2026-09-21 #1328 1단계에서 토큰으로 바꿔 0(남은 hex 억제는 테스트 25파일). 폴더 단위 후속 PR로 줄이고 고친 뒤 `lint:prune` |
+| 2026-09-19 | 날 `<button>` 36건·24파일(테스트 14파일 포함) — `app/_shell` 내비게이션·로그인 버튼·접근 관리 표·일정 편집기·달력·서류 수합·`program-cover`·`nav-bar` | R-38 | 2026-09-21 화면 코드 해소 — 버튼 모양이 아닌 다섯 자리는 `variant="bare" size="content"`로 옮겼고(#1328) 아이콘 버튼 네 자리와 `program-cover`는 표준 변형으로 옮겼다. 남은 억제는 테스트 파일 13개뿐 |
 | 2026-09-03 | `apps/frontend/src/features/**`에 fixture 9파일 1,022 LOC | 당시 R-18·R-19 | 현재 규칙은 최소 인라인 데이터와 수명 기반 공유다. 파일명 금지는 폐지했고 미사용 카탈로그만 줄인다 |
 | 2026-09-03 | local-review 하네스가 `apps/frontend/test-support/local-review/fixture-response.ts`에서 feature fixture를 소비 | R-20 | 예외 없음. 런타임→테스트 의존은 경계 lint가 거부한다. 이 행은 당시 결합의 기록이며 해소는 런타임 제거 작업이다 |
 | 2026-09-19 | 차트 낭독 전용 `sr-only` `<table>` 2곳 — `apps/frontend/src/features/staff-insights/insights-panels.tsx` ActivityPanel, `apps/frontend/src/features/staff-insights/participation-panel.tsx` | R-07 | 예외로 확정. DataTable은 초점을 받는 스크롤 영역과 빈 상태 행을 그리므로 보이지 않는 낭독 전용 표에 맞지 않는다. 시맨틱 `<table>`을 유지한다 |

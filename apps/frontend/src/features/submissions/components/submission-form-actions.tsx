@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export interface SubmissionFormActionsProps {
   /** 제출 버튼 문구. 최초 제출은 「제출하기」, 재제출은 「제출본 N번 제출」이다. */
@@ -29,7 +30,12 @@ export function SubmissionFormActions({
       // **안쪽 여백을 뺀** 자리라, 이 줄만으로는 상자의 `pb-5 sm:pb-6`만큼 틈이 남아
       // 지나가는 내용이 버튼 밑으로 비친다. 높이는 그 여백과 같게 맞춘다. 클릭도 함께
       // 막는다 — 안 그러면 버튼 바로 아래를 눌렀을 때 뒤로 지나가던 입력이 눌린다.
-      className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background pt-4 pb-5 after:absolute after:inset-x-0 after:top-full after:h-5 after:bg-background sm:pb-6 sm:after:h-6"
+      className={cn(
+        'sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3',
+        'border-t border-border bg-background pt-4 pb-5',
+        'after:absolute after:inset-x-0 after:top-full after:h-5 after:bg-background',
+        'sm:pb-6 sm:after:h-6',
+      )}
     >
       <Button type="button" variant="outline" onClick={onCancel}>
         취소
