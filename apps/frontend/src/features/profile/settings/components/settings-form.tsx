@@ -124,12 +124,19 @@ export function SettingsForm({
                   autoComplete="email"
                   value={values.notificationEmail}
                   aria-invalid={showEmailError}
+                  aria-describedby={
+                    showEmailError
+                      ? 'settings-notification-email-error'
+                      : undefined
+                  }
                   onChange={(event) =>
                     onChange({ notificationEmail: event.target.value })
                   }
                 />
                 {showEmailError ? (
-                  <FieldError>{errors.notificationEmail}</FieldError>
+                  <FieldError id="settings-notification-email-error">
+                    {errors.notificationEmail}
+                  </FieldError>
                 ) : null}
               </Field>
               <label className="flex min-h-control items-center gap-3 text-body">

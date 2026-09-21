@@ -210,6 +210,22 @@ describe('settings form view', () => {
     expect(html).not.toMatch(/type="submit"[^>]*disabled/);
   });
 
+  it('이메일 오류를 입력 필드와 연결한다', () => {
+    const invalidHtml = renderForm(
+      values({ notificationEmail: 'not-an-email' }),
+      { showValidationErrors: true },
+    );
+    const validHtml = renderForm(values(), { showValidationErrors: true });
+
+    expect(invalidHtml).toContain(
+      'aria-describedby="settings-notification-email-error"',
+    );
+    expect(invalidHtml).toContain(
+      'id="settings-notification-email-error"',
+    );
+    expect(validHtml).not.toContain('settings-notification-email-error');
+  });
+
   it('이름·기타 학과 길이 제한과 오류 메시지를 표시한다', () => {
     const html = renderForm(
       values({
