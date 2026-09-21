@@ -1300,4 +1300,12 @@
 - blocker: 없음
 - 내용: design.md 의 R-17 이 요구하는 공용 Skeleton 이 존재한 적이 없어 앞 절은 어느 자리에서도 충족될 수 없었고 뒤 절은 스무 곳 넘게 어겨지고 있었다. `components/ui/skeleton.tsx` 에 Skeleton(영역)과 SkeletonBlock(칸)을 두고 스물여섯 화면을 옮겼다. 영역이 role=status·aria-busy·안 보이는 이름을, 칸이 animate-pulse·motion-reduce·aria-hidden 을 스스로 단다. 높이·모서리 클래스는 자리마다 그대로 옮겨 화면이 바뀌지 않는다. 로딩이 아닌 animate-pulse 와 일부러 뼈대를 안 그리는 자리는 그대로 뒀다.
 - 검증: 프런트 단위 376 파일 3732 건 통과. 로딩 이름을 aria-label 속성으로 찾던 테스트 여덟 곳을 「이름이 낭독된다」는 원래 계약을 직접 단언하도록 고쳤다. typecheck·lint·prettier 통과.
+## 2026-09-21 — 불러오기 실패를 그리는 공용 표면
+
+- 상태: review
+- Issue: #1346
+- PR: (이 PR)
+- blocker: 없음
+- 내용: design.md 의 R-10 이 요구하는 공용 failure surface 가 존재한 적이 없었고, 그 자리를 글자 하나 안 다른 ErrorState 가 일곱 번 복제돼 메우고 있었다. `components/failure-state.tsx` 를 두고 일곱 자리를 옮겼다. 모양을 새로 만들지 않고 기존 복제본을 그대로 옮겨 픽셀이 바뀌지 않는다. 페이지 래퍼는 컴포넌트에 넣지 않았다 — 부르는 쪽마다 다르고 패널 안에서는 래퍼가 없어야 한다.
+- 검증: 프런트 단위 375 파일 3728 건 통과(새 컴포넌트 테스트 5 개 포함). typecheck·lint·prettier 통과.
 - 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.
