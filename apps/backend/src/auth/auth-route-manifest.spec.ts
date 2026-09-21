@@ -120,8 +120,8 @@ describe('authentication route metadata manifest', () => {
       EXPECTED_OPTIONAL_SESSION_AUTH_ROUTES,
     );
     expect(routesByAccess[AUTH_ROUTE_ACCESS.OPTIONAL_SESSION]).toHaveLength(4);
-    expect(routesByAccess[AUTH_ROUTE_ACCESS.PROTECTED]).toHaveLength(118);
-    expect(manifest).toHaveLength(135);
+    expect(routesByAccess[AUTH_ROUTE_ACCESS.PROTECTED]).toHaveLength(120);
+    expect(manifest).toHaveLength(137);
     expect(
       manifest.filter(
         ({ method, path }) =>

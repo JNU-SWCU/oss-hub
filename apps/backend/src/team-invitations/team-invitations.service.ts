@@ -213,11 +213,17 @@ export class TeamInvitationsService {
     return userId;
   }
 
+  /*
+   * 교직원은 구성원·팀장 검사를 지나간다 — 그 팀에 속하지 않고도 구성을 고칠 수
+   * 있어야 하기 때문이다. 이것은 **사전 확인**이고, 쓰기의 최종 판정은 팀 행을 잠그고
+   * 난 뒤에 repository가 다시 한다 — 그 사이에 권한이 회수될 수 있다.
+   */
   private async requireTeamMember(teamId: string, userId: string) {
     const team = await this.repository.findTeamContext(teamId);
     if (!team) {
       throw this.error(TeamInvitationErrorCode.TEAM_NOT_FOUND);
     }
+    if (await this.repository.isActiveStaff(userId)) return team;
     const isMember = await this.repository.isTeamMember(teamId, userId);
     if (!isMember) {
       throw this.error(TeamInvitationErrorCode.NOT_TEAM_MEMBER);
@@ -230,6 +236,7 @@ export class TeamInvitationsService {
     if (!team) {
       throw this.error(TeamInvitationErrorCode.TEAM_NOT_FOUND);
     }
+    if (await this.repository.isActiveStaff(userId)) return team;
     if (team.leaderId !== userId) {
       throw this.error(TeamInvitationErrorCode.NOT_TEAM_LEADER);
     }

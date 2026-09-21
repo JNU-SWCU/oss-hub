@@ -4,6 +4,7 @@ import { ProgramCover } from '@/components';
 import { programCoverSource } from '@/components/program-cover-source';
 
 import Link from 'next/link';
+import { Pencil } from 'lucide-react';
 import { useEffect, useId, type ReactNode } from 'react';
 import {
   EmptyState,
@@ -235,16 +236,30 @@ export function ProgramActions({
       </Button>
     );
   }
-  if (role === 'STAFF' || role === 'ADMIN') {
-    // 신청자 목록은 프로그램 스코프 사이드바에 이미 있는 목적지라, 헤더에서는
-    // 중복 노출하지 않는다(#865).
-    return (
-      <Button asChild variant="outline">
-        <Link href={programEditHref(program.id)}>프로그램 편집</Link>
-      </Button>
-    );
-  }
   return null;
+}
+
+/**
+ * 프로그램 편집 입구.
+ *
+ * ⚠ 제목 옆(`PageHeader.titleAction`)에 두지 않는다. 그 슬롯은 **제목 자체**를
+ * 다루는 액션의 자리이고, 근접성이 곧 범위를 말한다 — 제목 옆에 붙은 연필은
+ * 「이름을 고친다」로 읽힌다. 이 버튼이 여는 것은 프로그램 전체 편집이므로
+ * 페이지 액션 영역에 선다.
+ *
+ * 아이콘만 두지 않는 이유도 같다. 연필은 「무언가를 고친다」까지만 말하고 그
+ * 무언가가 무엇인지는 자리로만 전달되는데, 그 자리가 모호하면 아무것도 남지
+ * 않는다. 글자를 함께 둔다.
+ */
+function ProgramEditAction({ programId }: { readonly programId: string }) {
+  return (
+    <Button asChild variant="outline" size="sm">
+      <Link href={programEditHref(programId)}>
+        <Pencil aria-hidden="true" />
+        편집
+      </Link>
+    </Button>
+  );
 }
 
 export function ProgramDetailFailureState({
@@ -551,7 +566,15 @@ export function ProgramDetailReadyState({
             </span>
           }
           description={programDetailMeta(program)}
-          actions={<ProgramActions program={program} />}
+          actions={
+            <>
+              {program.viewer.role === 'STAFF' ||
+              program.viewer.role === 'ADMIN' ? (
+                <ProgramEditAction programId={program.id} />
+              ) : null}
+              <ProgramActions program={program} />
+            </>
+          }
         />
       </div>
       <ProgramSummary program={program} />

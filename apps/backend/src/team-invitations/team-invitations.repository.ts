@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, TeamInvitationStatus } from '@prisma/client';
+import { AccountStatus, Prisma, TeamInvitationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
@@ -272,6 +272,14 @@ export class TeamInvitationsRepository {
     return member !== null;
   }
 
+  /**
+   * 교직원·관리자 여부 — 기준은 저장소 다른 교직원 문과 같다(ACTIVE + staff||admin).
+   * 사전 확인용이며, 쓰기의 최종 판정은 팀 행을 잠그고 난 뒤에 다시 한다.
+   */
+  async isActiveStaff(userId: string): Promise<boolean> {
+    return isActiveStaffActor(this.prisma, userId);
+  }
+
   async getInviteeEligibility(userId: string): Promise<InviteeEligibility> {
     return getInviteeEligibility(this.prisma, userId);
   }
@@ -324,15 +332,28 @@ export class TeamInvitationsRepository {
         });
         if (!team) return { kind: 'team-not-found' };
 
-        // 권한을 먼저 본다 — 팀장이 아닌 사람에게 대상의 소속을 알리지 않는다.
-        if (team.leaderId !== input.actorId) return { kind: 'not-team-leader' };
-        const actorMembership = await tx.teamMember.findUnique({
-          where: {
-            teamId_userId: { teamId: team.id, userId: input.actorId },
-          },
-          select: { userId: true },
-        });
-        if (!actorMembership) return { kind: 'not-team-member' };
+        /*
+         * 권한을 먼저 본다 — 통과하지 못할 사람에게 대상의 소속을 알리지 않는다.
+         *
+         * 팀장과 교직원이 같은 문을 쓴다. 교직원은 그 팀의 구성원이 아니므로 소속
+         * 검사를 거치지 않는다 — 거치게 하면 교직원을 팀에 넣어야 초대할 수 있게 된다.
+         *
+         * 권한은 **잠금 안에서** 본다. 잠금 전에 읽은 교직원 여부는 정본이 아니고,
+         * 그 사이에 권한이 회수될 수 있다.
+         */
+        const actorIsStaff = await isActiveStaffActor(tx, input.actorId);
+        if (!actorIsStaff) {
+          if (team.leaderId !== input.actorId) {
+            return { kind: 'not-team-leader' };
+          }
+          const actorMembership = await tx.teamMember.findUnique({
+            where: {
+              teamId_userId: { teamId: team.id, userId: input.actorId },
+            },
+            select: { userId: true },
+          });
+          if (!actorMembership) return { kind: 'not-team-member' };
+        }
 
         const inviteeMembership = await tx.teamMember.findUnique({
           where: {
@@ -410,7 +431,13 @@ export class TeamInvitationsRepository {
         select: { status: true, team: { select: { leaderId: true } } },
       });
       if (!locked) return { kind: 'not-found' };
-      if (locked.team.leaderId !== actorId) return { kind: 'not-team-leader' };
+      // 팀장과 교직원이 같은 문을 쓴다 — 둘 다 잠금 안의 사실로 판정한다.
+      if (
+        locked.team.leaderId !== actorId &&
+        !(await isActiveStaffActor(tx, actorId))
+      ) {
+        return { kind: 'not-team-leader' };
+      }
       if (locked.status !== TeamInvitationStatus.PENDING) {
         return { kind: 'not-pending' };
       }
@@ -472,4 +499,26 @@ export class TeamInvitationsRepository {
       onOk,
     );
   }
+}
+
+/**
+ * 교직원·관리자 판정 — `ProgramTeamsRepository`와 같은 기준이다(ACTIVE + staff||admin).
+ *
+ * 잠금 안에서도 같은 함수를 쓴다. 문 앞과 문 안이 다른 기준을 쓰면 통과시킨 사람을
+ * 안에서 막거나 그 반대가 된다.
+ */
+async function isActiveStaffActor(
+  db: Pick<Prisma.TransactionClient, 'user'>,
+  userId: string,
+): Promise<boolean> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      hasStaffAccess: true,
+      hasAdminAccess: true,
+      accountStatus: true,
+    },
+  });
+  if (user?.accountStatus !== AccountStatus.ACTIVE) return false;
+  return user.hasStaffAccess || user.hasAdminAccess;
 }

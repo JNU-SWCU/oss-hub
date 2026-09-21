@@ -27,9 +27,11 @@ type LoadState =
 export function ProgramDocumentArchivePanel({
   programId,
   initialMilestoneId,
+  embedded = false,
 }: {
   readonly programId: string;
   readonly initialMilestoneId?: string;
+  readonly embedded?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
@@ -133,105 +135,107 @@ export function ProgramDocumentArchivePanel({
   }
 
   const toggleLabel = open ? '다운로드 범위 닫기' : '제출 자료 ZIP 내려받기';
-
-  return (
-    <PageBody className="pb-0">
-      <section
-        aria-label="제출 자료 ZIP 내려받기"
-        data-testid="program-document-archive"
-        className="grid gap-4"
-      >
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            aria-label={toggleLabel}
-            aria-expanded={open}
-            aria-controls="program-document-archive-options"
-            onClick={() => setOpen(!open)}
-            disabled={busy}
-          >
-            {open ? <X aria-hidden="true" /> : <Download aria-hidden="true" />}
-            {toggleLabel}
-          </Button>
-        </div>
-        {open ? (
-          <div
-            id="program-document-archive-options"
-            className="grid min-w-0 gap-4 rounded-card border border-border p-4"
-          >
-            <h2 className="text-lg font-semibold">다운로드 범위</h2>
-            <p className="break-keep text-small text-muted-foreground">
-              목록의 검색·필터와 별개로 지정합니다. 승인된 신청의 현재 제출
-              자료를 받습니다.
-            </p>
-            {loadState.kind === 'loading' ? (
-              <p role="status">범위를 불러오는 중…</p>
-            ) : loadState.kind === 'error' ? (
-              <Alert variant="destructive">
-                <AlertDescription>
-                  {loadState.message}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setRetry(retry + 1)}
-                  >
-                    다시 시도
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <>
-                <ProgramDocumentArchiveOptions
-                  program={loadState.program}
-                  teams={loadState.teams}
-                  kind={kind}
-                  grouping={grouping}
-                  selectedMilestone={selectedMilestone}
-                  selectedTeam={selectedTeam}
-                  busy={busy}
-                  onKindChange={(value) => {
-                    setKind(value);
-                    clearFeedback();
-                  }}
-                  onMilestoneChange={(value) => {
-                    setMilestoneId(value);
-                    clearFeedback();
-                  }}
-                  onTeamChange={(value) => {
-                    setTeamId(value);
-                    clearFeedback();
-                  }}
-                  onGroupingChange={(value) => {
-                    setGrouping(value);
-                    clearFeedback();
-                  }}
-                />
-                {error === null ? null : (
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                {notice === null ? null : (
-                  <p role="status" className="text-small">
-                    {notice}
-                  </p>
-                )}
-                <div className="flex justify-end">
-                  <Button
-                    type="button"
-                    disabled={busy || scope === null}
-                    onClick={() => void download()}
-                  >
-                    <Download aria-hidden="true" />
-                    {busy ? 'ZIP 준비 중…' : 'ZIP 내려받기'}
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        ) : null}
-      </section>
-    </PageBody>
+  const trigger = (
+    <Button
+      type="button"
+      variant="outline"
+      title={toggleLabel}
+      aria-label={toggleLabel}
+      aria-expanded={open}
+      aria-controls="program-document-archive-options"
+      onClick={() => setOpen(!open)}
+      disabled={busy}
+    >
+      {open ? <X aria-hidden="true" /> : <Download aria-hidden="true" />}
+      내려받기
+    </Button>
   );
+  const panel = (
+    <section
+      aria-label="제출 자료 ZIP 내려받기"
+      data-testid="program-document-archive"
+      className="grid w-full min-w-0 gap-4"
+    >
+      {embedded ? trigger : <div className="flex justify-end">{trigger}</div>}
+      {open ? (
+        <div
+          id="program-document-archive-options"
+          className="grid min-w-0 gap-4 rounded-card border border-border p-4"
+        >
+          <h2 className="text-lg font-semibold">다운로드 범위</h2>
+          <p className="break-keep text-small text-muted-foreground">
+            목록의 검색·필터와 별개로 지정합니다. 승인된 신청의 현재 제출 자료를
+            받습니다.
+          </p>
+          {loadState.kind === 'loading' ? (
+            <p role="status">범위를 불러오는 중…</p>
+          ) : loadState.kind === 'error' ? (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {loadState.message}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setRetry(retry + 1)}
+                >
+                  다시 시도
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <>
+              <ProgramDocumentArchiveOptions
+                program={loadState.program}
+                teams={loadState.teams}
+                kind={kind}
+                grouping={grouping}
+                selectedMilestone={selectedMilestone}
+                selectedTeam={selectedTeam}
+                busy={busy}
+                onKindChange={(value) => {
+                  setKind(value);
+                  clearFeedback();
+                }}
+                onMilestoneChange={(value) => {
+                  setMilestoneId(value);
+                  clearFeedback();
+                }}
+                onTeamChange={(value) => {
+                  setTeamId(value);
+                  clearFeedback();
+                }}
+                onGroupingChange={(value) => {
+                  setGrouping(value);
+                  clearFeedback();
+                }}
+              />
+              {error === null ? null : (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              {notice === null ? null : (
+                <p role="status" className="text-small">
+                  {notice}
+                </p>
+              )}
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  disabled={busy || scope === null}
+                  onClick={() => void download()}
+                >
+                  <Download aria-hidden="true" />
+                  {busy ? 'ZIP 준비 중…' : 'ZIP 내려받기'}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
+    </section>
+  );
+
+  if (embedded) return panel;
+  return <PageBody className="pb-0">{panel}</PageBody>;
 }

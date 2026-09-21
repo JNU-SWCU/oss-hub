@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Pencil } from 'lucide-react';
+import { ChevronDown, Pencil } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -14,13 +14,17 @@ import { EmptyState, PageHeader, StatusBadge } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { ApiError } from '@/lib/api-client';
-import { Select } from '@/components/ui/select';
 import {
   decideApplication,
   getApplicationDetailWithHistory,
@@ -30,17 +34,13 @@ import {
   blocksFurtherDecisions,
   decisionInputFor,
   decisionNoticeFor,
-  DECISION_OPTIONS,
   runDecisionWithRefetch,
 } from './application-decision-refetch';
 import { ApplicationDecisionDialog } from './application-decision-dialog';
+import { StaffTeamMembersPanel } from './staff-team-members-panel';
+import { ApplicationStatusControl } from './application-status-control';
 import { ReviewHistoryTimeline } from './review-history-timeline';
 import { programHref } from './program-paths';
-import {
-  APPLICATION_STATUS_BADGE,
-  APPLICATION_STATUS_LABELS,
-  displayAnswerText,
-} from './application-presentation';
 import { ProgramStaffRepositorySection } from './program-staff-repository-section';
 import { StaffRepositoryEvidenceView } from './staff-repository-evidence-view';
 import { TeamDeleteDialog } from './team-delete-dialog';
@@ -109,9 +109,15 @@ function Section({
 export function ProgramStaffTeamDetailPage({
   programId,
   teamId,
+  sessionKey,
 }: {
   readonly programId: string;
   readonly teamId: string;
+  /**
+   * 로그인 신원(닉네임). 구성 변경 요청이 도는 동안 사람이 바뀜면 그 결과를
+   * 새 사용자 화면에 흘리지 않기 위한 식별자다 — 조합 계층인 route가 내려 준다.
+   */
+  readonly sessionKey: string | null;
 }): ReactElement {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [renaming, setRenaming] = useState(false);
@@ -124,7 +130,6 @@ export function ProgramStaffTeamDetailPage({
   /** 신청서 본문과 검토 이력. 팀 상세 응답은 요약만 주므로 따로 읽는다. */
   const [applicationDetail, setApplicationDetail] =
     useState<ApplicationDetail | null>(null);
-  const [answersOpen, setAnswersOpen] = useState(false);
   const [decisionBusy, setDecisionBusy] = useState(false);
   const [decisionBlocked, setDecisionBlocked] = useState(false);
   const [decisionNotice, setDecisionNotice] = useState<string | null>(null);
@@ -261,6 +266,24 @@ export function ProgramStaffTeamDetailPage({
 
   const { detail } = loadState;
   const { application } = detail;
+  const currentStatus =
+    applicationDetail?.status ?? application?.status ?? null;
+  const onSelectStatus = (next: ApplicationStatus): void => {
+    if (
+      applicationDetail === null ||
+      currentStatus === null ||
+      next === currentStatus
+    ) {
+      return;
+    }
+    if (next === 'REJECTED') {
+      setReason('');
+      setReasonError(false);
+      setPendingReject(true);
+      return;
+    }
+    void applyDecision(next, '');
+  };
 
   return (
     // 툴팁 지연은 마일스톤 카드와 같은 200ms다 — 같은 종류의 보조 액션이 화면마다
@@ -279,7 +302,7 @@ export function ProgramStaffTeamDetailPage({
            */
           /*
            * 수정은 제목 문자열을 대상으로 하므로 제목 옆이다. 우측 `actions`는
-           * 신청 상태 배지가 쓰는 자리라 둘을 한 덩어리로 묶으면 연필이 배지를
+           * 신청 상태를 바꾸는 자리라 둘을 한 덩어리로 묶으면 연필이 상태를
            * 가리키는 것처럼 읽힌다.
            */
           titleAction={
@@ -300,18 +323,30 @@ export function ProgramStaffTeamDetailPage({
             </Tooltip>
           }
           /*
-           * 신청이 없으면 배지 자체를 그리지 않는다(#1272). 없는 신청에 배지를 달면
-           * 대기 중인 신청처럼 읽혀 교직원이 처리할 것이 있다고 오해한다 — 상태가
-           * 아니라 상태가 없는 것이므로 헤더는 조용히 비운다. 아래 「검토하기」도
-           * 같은 이유로 없다.
+           * 신청이 없으면 상태 조작 자체를 그리지 않는다(#1272). 없는 신청에
+           * 상태를 달면 대기 중인 신청처럼 읽혀 교직원이 처리할 것이 있다고
+           * 오해한다 — 상태가 아니라 상태가 없는 것이므로 헤더는 조용히 비운다.
            */
           actions={
-            application === null ? undefined : (
-              <StatusBadge
-                variant={APPLICATION_STATUS_BADGE[application.status]}
-              >
-                {APPLICATION_STATUS_LABELS[application.status]}
-              </StatusBadge>
+            currentStatus === null ? undefined : (
+              <div className="grid justify-items-end gap-1">
+                <ApplicationStatusControl
+                  id="team-detail-application-status"
+                  aria-label="신청 상태"
+                  value={currentStatus}
+                  disabled={
+                    applicationDetail === null ||
+                    decisionBusy ||
+                    decisionBlocked
+                  }
+                  onChange={onSelectStatus}
+                />
+                {decisionNotice !== null ? (
+                  <p role="status" className="text-small text-muted-foreground">
+                    {decisionNotice}
+                  </p>
+                ) : null}
+              </div>
             )
           }
         />
@@ -349,6 +384,23 @@ export function ProgramStaffTeamDetailPage({
           </ul>
         </Section>
 
+        {/*
+         * 명단 바로 아래에 둔다 — 누가 있는지 보고 바로 고치는 자리다.
+         * 팀원 추가는 여전히 초대·수락이다 — 교직원이라고 남의 계정을 팀에
+         * 집어넣지 않는다.
+         */}
+        <StaffTeamMembersPanel
+          programId={programId}
+          teamId={teamId}
+          teamName={detail.name}
+          memberCount={detail.memberCount}
+          members={detail.members}
+          sessionKey={sessionKey}
+          onChanged={() => {
+            void load();
+          }}
+        />
+
         <Section
           title="저장소"
           headingClassName="rounded-control bg-primary px-4 py-3 font-semibold text-primary-foreground"
@@ -363,100 +415,48 @@ export function ProgramStaffTeamDetailPage({
         </Section>
 
         {/*
-         * 신청서는 이 화면이 직접 그린다 — 예전에는 「검토하기」로 별도 상세 화면에
-         * 보냈고, 교직원이 팀과 신청을 보려고 두 화면을 오갔다. 그 이동이 사라졌다.
-         *
-         * 본문은 접어 둔다. 이 화면을 여는 이유는 대개 「누가 냈고 지금 어떤 상태인가」
-         * 이고, 신청서 전문은 그다음에 필요해진다(progressive disclosure).
+         * 신청서 본문·지원 동기는 이 화면에 두지 않는다. 상태는 제목 옆에서
+         * 바꾸고, 검토 이력만 접어 둔다. 이력은 신청 상세 조회가 준 값이다 —
+         * 그 조회를 빼면 이력이 비고 판정 재조회도 끊긴다.
          */}
         {applicationDetail !== null ? (
-          <Section title="신청서">
-            <div className="grid gap-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <Select
-                  id="team-detail-application-status"
-                  aria-label="신청 상태"
-                  className="max-w-[12rem]"
-                  value={applicationDetail.status}
-                  disabled={decisionBusy || decisionBlocked}
-                  onChange={(event) => {
-                    const next = event.target.value as ApplicationStatus;
-                    if (next === applicationDetail.status) return;
-                    if (next === 'REJECTED') {
-                      setReason('');
-                      setReasonError(false);
-                      setPendingReject(true);
-                      return;
-                    }
-                    void applyDecision(next, '');
-                  }}
-                >
-                  {DECISION_OPTIONS.map((status) => (
-                    <option key={status} value={status}>
-                      {APPLICATION_STATUS_LABELS[status]}
-                    </option>
-                  ))}
-                </Select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  aria-expanded={answersOpen}
-                  onClick={() => setAnswersOpen((open) => !open)}
-                >
-                  {answersOpen ? '내용 접기' : '내용 보기'}
-                </Button>
-              </div>
-
-              {decisionNotice !== null ? (
-                <p role="status" className="text-small text-muted-foreground">
-                  {decisionNotice}
-                </p>
-              ) : null}
-
-              {/*
-               * 반려 사유는 신청서 본문보다 위다 — 이 신청을 다시 여는 이유가 대개
-               * 「왜 반려됐나」이기 때문이다.
-               */}
-              {applicationDetail.rejectionReason !== null ? (
-                <Alert variant="destructive">
-                  <AlertTitle>반려 사유</AlertTitle>
-                  <AlertDescription className="break-keep">
-                    {applicationDetail.rejectionReason}
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-
-              {answersOpen ? (
-                <div className="grid gap-3 rounded-control border border-border p-4">
-                  <div className="grid gap-0.5">
-                    <span className="text-small text-muted-foreground">
-                      신청서에 적은 이름
-                    </span>
-                    <span className="break-keep [overflow-wrap:anywhere]">
-                      {displayAnswerText(
-                        applicationDetail.answers.applicantName,
-                      )}
-                    </span>
-                  </div>
-                  <div className="grid gap-0.5">
-                    <span className="text-small text-muted-foreground">
-                      지원 동기 · 계획
-                    </span>
-                    <p className="break-keep whitespace-pre-wrap [overflow-wrap:anywhere]">
-                      {displayAnswerText(applicationDetail.answers.summary)}
-                    </p>
-                  </div>
+          <Collapsible defaultOpen={false}>
+            <section className="grid gap-0 rounded-card border border-border">
+              <CollapsibleTrigger
+                className={[
+                  'group flex h-control w-full items-center justify-between gap-3 px-card text-left',
+                  'outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                ].join(' ')}
+              >
+                <h2 className="font-semibold">검토 이력</h2>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={[
+                    'size-4 shrink-0 transition-transform',
+                    'group-data-[state=open]:rotate-180 motion-reduce:transition-none',
+                  ].join(' ')}
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent
+                className="data-[state=closed]:hidden"
+                forceMount
+              >
+                <div className="grid gap-4 px-card pb-card">
+                  {applicationDetail.rejectionReason !== null ? (
+                    <Alert variant="destructive">
+                      <AlertTitle>반려 사유</AlertTitle>
+                      <AlertDescription className="break-keep">
+                        {applicationDetail.rejectionReason}
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+                  <ReviewHistoryTimeline
+                    entries={applicationDetail.reviewHistory}
+                  />
                 </div>
-              ) : null}
-            </div>
-          </Section>
-        ) : null}
-
-        {applicationDetail !== null ? (
-          <Section title="검토 이력">
-            <ReviewHistoryTimeline entries={applicationDetail.reviewHistory} />
-          </Section>
+              </CollapsibleContent>
+            </section>
+          </Collapsible>
         ) : null}
 
         <Section title="위험 영역">

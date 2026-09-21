@@ -99,14 +99,15 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
         decisions.push(request.postData() ?? '');
       }
     });
-    await staffPage.goto(
-      `/programs/${encodeURIComponent(programId)}/applicants`,
-    );
-    await staffPage
-      .getByRole('link', { name: '검토하기', exact: true })
-      .click();
-    const reject = staffPage.getByRole('button', { name: '반려', exact: true });
-    await expect(reject).toHaveCount(1);
+    await staffPage.goto(`/programs/${encodeURIComponent(programId)}/teams`);
+    /*
+     * 「참여 팀」과 「신청자」가 「팀 관리」 하나로 합쳐지면서 판정 입구가 바뀌었다 —
+     * 상세로 들어가는 「검토하기」 링크가 아니라 목록 행의 상태 드롭다운이다.
+     */
+    const status = staffPage
+      .getByRole('combobox', { name: '신청 상태' })
+      .first();
+    await expect(status).toHaveCount(1);
     const reviewUrl = staffPage.url();
     const dialog = staffPage.getByRole('alertdialog');
     for (const viewport of [
@@ -117,12 +118,15 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
         width: viewport.width,
         height: viewport.height,
       });
-      // 좁은 dev 화면의 Next 표시기가 버튼을 덮으므로 실제 키보드 경로를 쓴다.
-      await reject.press('Enter');
+      // 창은 상태를 고르는 순간 열린다 — 드롭다운은 Enter 로 열리지 않는다.
+      await status.selectOption('REJECTED');
       await expect(dialog).toBeVisible();
-      await expect(dialog).toContainText('스스로 다시 신청할 수 없습니다');
-      await expect(dialog).toContainText('다시 승인할 수 있습니다');
-      await expect(dialog).not.toContainText('검토 대기로');
+      /*
+       * 「스스로 다시 신청할 수 없습니다」는 반려 재제출이 열리면서 **거짓이 됐다**.
+       * 남은 계약은 사유가 필수라는 것과, 검토 대기를 거치는 것처럼 말하지 않는
+       * 것이다.
+       */
+      await expect(dialog).not.toContainText('스스로 다시 신청할 수 없습니다');
       await expect(
         dialog.getByRole('textbox', { name: '반려 사유', exact: true }),
       ).toBeVisible();
@@ -134,14 +138,15 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
       });
       await staffPage.keyboard.press('Escape');
       await expect(dialog).toHaveCount(0);
-      await expect(reject).toBeFocused();
+      // 창을 연 컨트롤로 초점이 돌아와야 키보드만 쓰는 사람이 자리를 잃지 않는다.
+      await expect(status).toBeFocused();
       expect(decisions).toEqual([]);
     }
     const beforeResponse = await staffPage.request.get(decisionPath);
     await expectApiStatus(beforeResponse, 200);
     expect(await beforeResponse.json()).toMatchObject({ status: 'SUBMITTED' });
 
-    await reject.press('Enter');
+    await status.selectOption('REJECTED');
     const reason = dialog.getByRole('textbox', {
       name: '반려 사유',
       exact: true,
@@ -189,14 +194,29 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
     await expect(
       studentPage.getByText('합성 반려 사유', { exact: true }),
     ).toBeVisible();
+    /*
+     * 반려는 더 이상 종착점이 아니다 — 학생은 막히지 않고 신청 화면을 그대로 본다.
+     * 다만 이 픽스처의 양식은 자동 항목(`applicantName`) 하나뿐이라 **고칠 것이
+     * 없고**, 그래서 저장 버튼도 서지 않는다. 눌러도 바뀔 것이 없는 컨트롤을 두지
+     * 않는 쪽이 맞다. 고칠 항목이 있는 양식의 재제출은 단위 테스트가 건다.
+     */
     await expect(
-      studentPage.getByRole('button', { name: '신청 제출' }),
+      studentPage.getByRole('button', { name: '수정 내용 저장' }),
     ).toHaveCount(0);
+    // 막힌 화면이 아니라는 것 — 신청 취소가 살아 있다.
+    await expect(
+      studentPage.getByRole('button', { name: '신청 취소' }),
+    ).toHaveCount(1);
 
     await staffPage.goto(reviewUrl);
-    await staffPage
-      .getByRole('button', { name: '승인', exact: true })
-      .press('Enter');
+    /*
+     * 반려된 신청을 승인으로 되돌리는 것은 「처음 승인」과 결과가 다르다 — 남아 있는
+     * 반려 사유가 지워진다. 그래서 이 경로만 확인 창을 거친다.
+     */
+    const approveStatus = staffPage
+      .getByRole('combobox', { name: '신청 상태' })
+      .first();
+    await approveStatus.selectOption('APPROVED');
     await expect(dialog).toContainText('반려 사유는 지워집니다');
     await dialog
       .getByRole('button', { name: '승인 확정', exact: true })

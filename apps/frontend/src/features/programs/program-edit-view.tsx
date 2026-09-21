@@ -23,7 +23,6 @@ import {
   type ProgramMilestoneDraft,
 } from './program-edit-flow';
 import { programHref } from './program-paths';
-import { PROGRAM_TEMPLATE_DEFINITIONS } from './program-templates';
 import { editScheduleEvents } from './program-schedule-overview-model';
 import { FormSection, PageBody, PageHeader } from '@/components';
 
@@ -167,20 +166,12 @@ export function ProgramEditView({
         </Button>
         <div className="grid items-start gap-6">
           <div className="grid min-w-0 gap-6">
-            <PageHeader title="프로그램 편집" description={program.name} />
             {/*
-          양식 키(`oss-contest`)와 버전은 구현 식별자다. 화면에는 사람이 읽을 양식명만
-          두고, 버전은 평소 볼 일이 없으므로 접어 둔다.
-        */}
-            <details className="rounded-card border border-border bg-card p-card text-small">
-              <summary className="cursor-pointer font-semibold">
-                신청서 양식 · {applicationTemplateName(program)}
-              </summary>
-              <p className="mt-2 text-muted-foreground">
-                양식 버전 v{program.applicationTemplateVersion} — 양식과 버전은
-                프로그램 유형이 정하며 이 화면에서 바꿀 수 없습니다.
-              </p>
-            </details>
+             * 신청서 양식·버전은 이 화면에 두지 않는다 — 프로그램 유형이 정하고
+             * 여기서 바꿀 수 없다. 편집 화면이 바꿀 수 없는 것을 설명하고 있으면
+             * 고칠 수 있는 것과 아닌 것을 매번 갈라내야 한다.
+             */}
+            <PageHeader title="프로그램 편집" description={program.name} />
           </div>
         </div>
       </div>
@@ -295,13 +286,5 @@ export function ProgramEditView({
         ) : null}
       </div>
     </PageBody>
-  );
-}
-
-function applicationTemplateName(program: EditableProgram): string {
-  return (
-    PROGRAM_TEMPLATE_DEFINITIONS.find(
-      (item) => item.template.key === program.applicationTemplateKey,
-    )?.template.name ?? '기본 신청서'
   );
 }

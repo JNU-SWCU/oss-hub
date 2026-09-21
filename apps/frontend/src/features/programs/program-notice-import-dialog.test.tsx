@@ -65,7 +65,7 @@ async function open() {
       />,
     ),
   );
-  await act(async () => button('기존 공지로 빠르게 시작하기').click());
+  await act(async () => button('공지에서 가져오기').click());
   await enterUrl(preview.sourceUrl);
 }
 
@@ -124,7 +124,7 @@ it('aborts closing, ignores a late response, and reopens with the last entered U
   expect(nextSignal.aborted).toBe(true);
   await act(async () => resolve?.(preview));
   expect(onApply).not.toHaveBeenCalled();
-  await act(async () => button('기존 공지로 빠르게 시작하기').click());
+  await act(async () => button('공지에서 가져오기').click());
   expect(
     document.querySelector<HTMLInputElement>('input[type="url"]')?.value,
   ).toBe('https://sojoong.kr/notice/?uid=43&mod=document');

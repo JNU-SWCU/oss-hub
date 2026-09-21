@@ -74,6 +74,7 @@ export const TEAM_MEMBERSHIP_AUDIT_ACTIONS = {
 export const TEAM_MEMBERSHIP_AUDIT_OPERATIONS = {
   LEAVE: 'LEAVE',
   REMOVE: 'REMOVE',
+  TRANSFER_LEADER: 'TRANSFER_LEADER',
 } as const;
 export type TeamMembershipAuditOperation =
   (typeof TEAM_MEMBERSHIP_AUDIT_OPERATIONS)[keyof typeof TEAM_MEMBERSHIP_AUDIT_OPERATIONS];
@@ -88,7 +89,11 @@ export type TeamMembershipAuditMetadata = {
   readonly programName: string;
   readonly teamName: string;
   readonly operation: TeamMembershipAuditOperation;
-  readonly removedUserId: string;
+  /**
+   * 빠진 사람. `TRANSFER_LEADER`는 구성원이 그대로라 null이다 — 아무도 빠지지
+   * 않았다는 사실을 빈 문자열이나 팀장 id 같은 값으로 위장하지 않는다.
+   */
+  readonly removedUserId: string | null;
   readonly previousLeaderId: string;
   readonly nextLeaderId: string | null;
 };
@@ -254,8 +259,10 @@ export function parseTeamMembershipAuditMetadata(
   }
   const { operation, removedUserId, previousLeaderId, nextLeaderId } = value;
 
+  // 「빠진 사람」은 연산마다 다르다. 탈퇴·제외는 반드시 있고, 팀장 변경은 반드시 없다 —
+  // 한쪽을 느슨하게 풀면 「아무도 안 빠졌는데 제외했다」는 원장이 통과한다.
   return isTeamMembershipOperation(operation) &&
-    typeof removedUserId === 'string' &&
+    hasValidRemovedUserId(operation, removedUserId) &&
     typeof previousLeaderId === 'string' &&
     (nextLeaderId === null || typeof nextLeaderId === 'string')
     ? {
@@ -346,12 +353,25 @@ function isTeamStateShape(
 } {
   return isBase(value, schemaVersion) && typeof value.teamName === 'string';
 }
+/**
+ * 탈퇴·제외는 빠진 사람을 반드시 가리킨다. 팀장 변경은 구성원이 그대로라 반드시 null이다.
+ */
+function hasValidRemovedUserId(
+  operation: TeamMembershipAuditOperation,
+  removedUserId: unknown,
+): removedUserId is string | null {
+  return operation === TEAM_MEMBERSHIP_AUDIT_OPERATIONS.TRANSFER_LEADER
+    ? removedUserId === null
+    : typeof removedUserId === 'string';
+}
+
 function isTeamMembershipOperation(
   value: unknown,
 ): value is TeamMembershipAuditOperation {
   return (
     value === TEAM_MEMBERSHIP_AUDIT_OPERATIONS.LEAVE ||
-    value === TEAM_MEMBERSHIP_AUDIT_OPERATIONS.REMOVE
+    value === TEAM_MEMBERSHIP_AUDIT_OPERATIONS.REMOVE ||
+    value === TEAM_MEMBERSHIP_AUDIT_OPERATIONS.TRANSFER_LEADER
   );
 }
 function isBase(
