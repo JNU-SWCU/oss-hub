@@ -764,10 +764,14 @@ describe('수합 표에서 판정하기', () => {
 
   /** 뼈대(스켈레톤)가 서 있는가 — 표를 걷어 갔다는 뜻이다. */
   function skeleton(): Element | null {
-    // 로딩 이름은 aria-label 이 아니라 role="status" 안 sr-only 글자다(R-17).
-    const region = container.querySelector('[data-slot="skeleton"]');
-    return region?.textContent?.includes('서류 수합 표를 불러오는 중')
-      ? region
+    return container.querySelector('[data-slot="skeleton"]');
+  }
+
+  /** 낭독기에 로딩 이름을 알리는 상태 안내. 뼈대 영역 바깥에 있어야 한다. */
+  function skeletonStatus(): Element | null {
+    const status = container.querySelector('[role="status"]');
+    return status?.textContent?.includes('서류 수합 표를 불러오는 중')
+      ? status
       : null;
   }
 
@@ -904,7 +908,12 @@ describe('수합 표에서 판정하기', () => {
 
     expect(container.querySelector('table')).toBeNull();
     expect(container.textContent).not.toContain('가팀');
-    expect(skeleton()).not.toBeNull();
+    const loading = skeleton();
+    expect(loading).not.toBeNull();
+    expect(loading?.getAttribute('aria-busy')).toBe('true');
+    const status = skeletonStatus();
+    expect(status).not.toBeNull();
+    expect(status?.closest('[aria-busy]')).toBeNull();
 
     await act(async () => release());
     await settle();
@@ -929,7 +938,12 @@ describe('수합 표에서 판정하기', () => {
 
     expect(container.querySelector('table')).toBeNull();
     expect(container.textContent).not.toContain('가팀');
-    expect(skeleton()).not.toBeNull();
+    const loading = skeleton();
+    expect(loading).not.toBeNull();
+    expect(loading?.getAttribute('aria-busy')).toBe('true');
+    const status = skeletonStatus();
+    expect(status).not.toBeNull();
+    expect(status?.closest('[aria-busy]')).toBeNull();
 
     await act(async () => release());
     await settle();
