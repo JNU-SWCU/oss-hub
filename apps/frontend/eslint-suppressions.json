@@ -292,10 +292,10 @@
   },
   "src/features/programs/program-schedule-range-editor.tsx": {
     "local/design-class-name-length": {
-      "count": 1
+      "count": 2
     },
     "local/design-no-raw-button": {
-      "count": 2
+      "count": 3
     }
   },
   "src/features/programs/program-type-modal.test.tsx": {

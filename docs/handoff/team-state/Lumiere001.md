@@ -1296,8 +1296,9 @@
 
 - 상태: review
 - Issue: #1328 2단계 (lint 억제 목록 소진, Refs)
-- 내용: 44px 정사각 아이콘 버튼 네 곳(`app-sidebar`·`program-scope-sidebar`의 접기, `sidebar-drawer`의 닫기, `nav-bar`의 서랍 열기)을 `Button variant="ghost" size="icon"`으로, 일정 편집기의 「시간 변경」을 `variant="link"`로 바꾼다.
+- 내용: 44px 정사각 아이콘 버튼 네 곳(`app-sidebar`·`program-scope-sidebar`의 접기, `sidebar-drawer`의 닫기, `nav-bar`의 서랍 열기)을 `Button variant="ghost" size="icon"`으로 바꾼다.
   `program-cover`는 누르는 면이 카드 전체라 프리미티브가 맞지 않아 `Dialog.Trigger`가 스스로 `button`을 그리게 하고 `asChild`와 안쪽 `<button>`을 없앴다.
 - 검증: 세 자리(사이드바 접기 1440, 서랍 열기·닫기 390)를 같은 selector로 전후 캡처해 크기·계산 스타일이 같고 픽셀 차이가 0.00%임을 확인했다. frontend 단위 373개 파일·3704개 테스트, lint·typecheck·prettier 통과.
 - 주의: `Button`의 ghost는 `aria-expanded`를 「이 버튼이 연 팝업이 열려 있음」으로 보고 눌린 표면을 입힌다. 사이드바 토글은 그 속성이 영역의 펼침 상태라 처음 변환에서 버튼이 계속 눌린 것처럼 보였다 — 전후 비교가 잡았고 `aria-expanded:bg-transparent`로 껐다.
+- 되돌림: 일정 편집기의 「시간 변경」도 `variant="link"`로 옮겼다가 되돌렸다. `h-auto`가 듣지 않아 글자 버튼이 44px가 된다 — `cn`의 tailwind-merge가 프로젝트 전용 `h-control`을 모르는 이름으로 두어 두 클래스가 모두 남고, 빌드된 CSS에서 `.h-control`(14237)이 `.h-auto`(14217)보다 뒤에 와 이긴다. 같은 함정이 main의 네 자리에도 이미 있다(#1333).
 - 경계: 표 칸·달력 칸·메뉴 줄처럼 버튼 모양이 아닌 다섯 파일(로그인 메뉴, 서류 수합 칸, 달력 날짜, 기간 선택 줄·카드, 접근 관리 정렬 머리)은 그대로 두었다 — 프리미티브를 입히려면 높이·정렬·여백을 네다섯 개 덮어써야 해서 동규와 먼저 정한다.
