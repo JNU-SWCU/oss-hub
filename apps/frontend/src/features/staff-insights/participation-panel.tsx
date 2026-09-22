@@ -48,7 +48,7 @@ function ProgramNameTick({
             'recharts-text recharts-cartesian-axis-tick-value overflow-hidden',
             'text-ellipsis whitespace-nowrap text-right text-muted-foreground',
           )}
-          style={{ fontSize: '0.75rem', lineHeight: 1.5 }}
+          style={{ fontSize: 'var(--step-badge)', lineHeight: 1.5 }}
           title={payload.value}
         >
           {label}
@@ -128,7 +128,7 @@ export function ParticipationPanel({
                   allowDecimals={false}
                   tick={{
                     fill: 'var(--muted-foreground)',
-                    fontSize: '0.75rem',
+                    fontSize: 'var(--step-badge)',
                   }}
                   tickLine={false}
                   axisLine={false}

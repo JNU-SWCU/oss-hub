@@ -313,20 +313,28 @@ async function resolveFont() {
   );
 }
 
+/*
+ * 줄 간격·자간은 코드가 원본이다. 제목 두 단계는 PageHeader·SectionHeading 이
+ * 쓰는 `leading-tight`(1.25)·`tracking-tight`(-2.5%) 와 같은 값을 적는다.
+ * 앞서 120%·-1% 로 적혀 있던 것은 스펙 시트의 제안값이었고 화면에 반영된 적이
+ * 없다 — 실측해 보니 코드와 어긋나 있었다(#1344).
+ * 배지·표는 globals.css 의 `text-badge`(12px/16px)·`text-table`(14px/20px) 이고
+ * 16/12·20/14 를 소수 한 자리로 적는다. 133·145 는 같은 스펙 시트의 제안값이었다.
+ */
 const TEXT_STYLES = [
   {
     name: 'text/page',
     size: 40,
     weight: 'semibold',
-    lineHeight: 120,
-    letter: -1,
+    lineHeight: 125,
+    letter: -2.5,
   },
   {
     name: 'text/section',
     size: 24,
     weight: 'semibold',
     lineHeight: 125,
-    letter: -1,
+    letter: -2.5,
   },
   {
     name: 'text/body',
@@ -346,14 +354,14 @@ const TEXT_STYLES = [
     name: 'text/badge',
     size: 12,
     weight: 'semibold',
-    lineHeight: 133,
+    lineHeight: 133.3,
     letter: 0,
   },
   {
     name: 'text/table',
     size: 14,
     weight: 'regular',
-    lineHeight: 145,
+    lineHeight: 142.9,
     letter: 0,
   },
 ];
@@ -731,8 +739,8 @@ async function badgeNode(variantName, sizeName) {
       size: large ? 16 : 12,
       weight: 'semibold',
       color: `status.${variantName}.fg`,
-      // text-xs의 줄 간격 1rem(16px) = 133%
-      lineHeight: 133,
+      // text-badge 의 줄 간격 16px = 133.3% (TEXT_STYLES 의 text/badge 와 같다)
+      lineHeight: 133.3,
     }),
   );
   return node;
@@ -1021,8 +1029,9 @@ async function tableCell(kind, text, align = 'LEFT') {
       size: isHead ? 12 : 14,
       weight: isHead ? 'semibold' : 'regular',
       color: kind === 'head' ? 'muted-foreground' : 'foreground',
-      lineHeight: isHead ? 100 : 145,
-      letter: kind === 'head' ? 2 : 0,
+      // 머리글은 `text-xs`(12px/16px)·`tracking-wide`(2.5%), 칸은 `text-table`(14px/20px)
+      lineHeight: isHead ? 133.3 : 142.9,
+      letter: kind === 'head' ? 2.5 : 0,
       align,
     }),
   );
@@ -1274,8 +1283,8 @@ async function buildCover() {
     await makeText('OSS Hub 디자인 시스템', {
       size: 40,
       weight: 'semibold',
-      letter: -1,
-      lineHeight: 120,
+      letter: -2.5,
+      lineHeight: 125,
     }),
   );
   cover.appendChild(

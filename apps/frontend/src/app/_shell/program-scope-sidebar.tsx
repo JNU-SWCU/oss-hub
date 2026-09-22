@@ -69,7 +69,7 @@ export function ProgramScopeSidebar({
             >
               ‹ 프로그램 목록
             </Link>
-            <p className="w-full truncate font-heading text-[13px] font-semibold tracking-[-0.01em] text-sidebar-foreground">
+            <p className="w-full truncate font-heading text-small font-semibold tracking-[-0.01em] text-sidebar-foreground">
               {programName}
             </p>
           </div>
