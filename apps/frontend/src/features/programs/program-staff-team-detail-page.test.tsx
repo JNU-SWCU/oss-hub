@@ -230,6 +230,8 @@ describe('ProgramStaffTeamDetailPage', () => {
     expect(select?.value).toBe('SUBMITTED');
     expect(select?.getAttribute('data-variant')).toBe('pending');
     expect(select?.className).toContain('bg-status-pending-bg');
+    // 누르는 컨트롤이라 Select 기본 44px(h-control)이다. 배지 높이(h-tag)가 섞이면 cn이 h-control을 지운다.
+    expect(select?.className).toContain('h-control');
     expect(
       container.querySelector(
         '[data-slot="page-header-actions"] [data-slot="select"]',
