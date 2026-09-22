@@ -25,6 +25,32 @@ describe('StaffInsightsView', () => {
     expect(html).toContain('id="insights-cut-label"');
   });
 
+  it('marks the current year with the chip toggle surface instead of the primary action colour', () => {
+    const html = renderToStaticMarkup(
+      <StaffInsightsView
+        state={{
+          kind: 'ready',
+          summary: STAFF_INSIGHTS_FIXTURE,
+          cut: INSIGHTS_CUTS.COHORT,
+          onCutChange: () => {},
+        }}
+      />,
+    );
+    const start = html.indexOf('aria-label="필터"');
+    const filters = html.slice(start, html.indexOf('</section>', start));
+
+    // 지금 보는 해는 여전히 링크이고(R-31), 눌림은 옆 칩과 같은 toggle 표면으로 말한다.
+    const currentYear = filters.match(/<a[^>]*aria-current="page"[^>]*>/)?.[0];
+    expect(currentYear).toBeDefined();
+    expect(currentYear).toContain('data-variant="toggle"');
+    expect(currentYear).toContain('href=');
+    // toggle 표면이 「지금 보는 곳」도 채운다 — 이 선언이 빠지면 지금 보는 해가 빈 칩이 된다.
+    expect(currentYear).toContain('aria-[current=page]:bg-secondary');
+
+    // 필터 줄 안에 주 행동 색(채운 남색)으로 칠한 것이 없다.
+    expect(filters).not.toContain('data-variant="default"');
+  });
+
   it('shows cohort KPIs and ranking comparison copy', () => {
     const html = renderToStaticMarkup(
       <StaffInsightsView

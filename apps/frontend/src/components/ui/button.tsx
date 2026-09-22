@@ -40,8 +40,14 @@ const buttonVariants = cva(
         // 필터·세그먼트 칩(`FilterChip`)의 토글 표면. 둥근 알약이되 눌림(`aria-pressed`)은
         // secondary 채움, 아니면 테두리만 있는 표면이다. 읽기 전용 StatusBadge(h-tag·점)와는
         // 44px 높이와 테두리로 구분되므로 누르는 것임이 보인다.
+        //
+        // 「지금 보는 곳」(`aria-current="page"`)도 같은 눌림 표면을 쓴다 — 한 필터 줄 안에서
+        // 「골랐다」가 링크든 버튼이든 한 가지 모양으로 보여야 하기 때문이다. 필터가 주소로
+        // 걸리는 자리(연도 링크)는 진짜 `<a href>`여야 하고(R-31), 링크에는 `aria-pressed`가
+        // 아니라 `aria-current`가 맞는 말이다. 눌림·선택 상태를 주 행동 색(`default`)으로
+        // 칠하지 않는다(R-34).
         toggle:
-          'rounded-full border-border bg-background text-foreground hover:bg-muted aria-pressed:border-secondary aria-pressed:bg-secondary aria-pressed:text-secondary-foreground aria-pressed:hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] dark:border-input',
+          'rounded-full border-border bg-background text-foreground hover:bg-muted aria-pressed:border-secondary aria-pressed:bg-secondary aria-pressed:text-secondary-foreground aria-pressed:hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-[current=page]:border-secondary aria-[current=page]:bg-secondary aria-[current=page]:text-secondary-foreground aria-[current=page]:hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] dark:border-input',
         /*
          * 표면을 칠하지 않는다. 배경·글자색·hover·눌림(`aria-pressed`)·펼침
          * (`aria-expanded`) 표시를 전부 호출부가 소유한다 — 「누를 수 있는 면」
