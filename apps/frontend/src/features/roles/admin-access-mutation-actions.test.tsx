@@ -17,11 +17,12 @@ import {
 } from './components/admin-access-mutation-actions';
 
 /**
- * PR04G 재설계 — 드롭다운 하나였던 "접근 변경"이 역할/계정 상태 각각의
- * 세그먼트 버튼 그룹(`role="radiogroup"`)과, 대기 요청이 있을 때만 뜨는
- * 별도 결정 카드로 갈라졌다. 옛 `TWO_STEP_ADMIN_PROMOTION_HINT` 관련 테스트는
- * 그 힌트 자체가 삭제되어 전부 걷어낸다. 클릭 상호작용은
- * `admin-access-overlay.test.tsx`와 같은 happy-dom + createRoot/act 패턴을 쓴다.
+ * PR04G 재설계 — 드롭다운 하나였던 "접근 변경"이 교직원 접근·관리자 접근·계정
+ * 상태 세 묶음과, 대기 요청이 있을 때만 뜨는 별도 결정 카드로 갈라졌다. #1365가
+ * 다시 묶음 안의 세그먼트 버튼 그룹(`role="radiogroup"`)을 걷어내고 「지금 값은
+ * 글자, 버튼은 행동 하나」로 바꿨다 — 지금 값이 채운 `disabled` 버튼이던 옛 모양이
+ * R-31 검출 신호였다. 클릭 상호작용은 `admin-access-overlay.test.tsx`와 같은
+ * happy-dom + createRoot/act 패턴을 쓴다.
  */
 
 function detail(
@@ -66,29 +67,83 @@ afterEach(() => {
 });
 
 describe('AdminAccessMutationActions — 독립 접근/계정 상태 세그먼트 컨트롤', () => {
-  it('현재 값 버튼은 클릭해도 onRequestAction이 호출되지 않는다(disabled)', () => {
+  it('묶음마다 버튼은 하나뿐이고, 지금 값과 같은 쓰기 요청은 어느 버튼에서도 나가지 않는다', () => {
     const onRequestAction = vi.fn();
     act(() => {
       root.render(
         <AdminAccessMutationActions
-          detail={detail({ role: 'STAFF' })}
+          // 교직원 접근 있음 / 관리자 접근 없음 / 활성 — 세 묶음이 서로 다른 방향이다.
+          detail={detail({
+            hasStaffAccess: true,
+            hasAdminAccess: false,
+            accountStatus: 'ACTIVE',
+          })}
           processingAction={null}
           onRequestAction={onRequestAction}
         />,
       );
     });
 
-    const currentButton = Array.from(
-      container.querySelectorAll('button[role="radio"][aria-checked="true"]'),
-    )[0] as HTMLButtonElement;
-    expect(currentButton.disabled).toBe(true);
+    const buttons = Array.from(container.querySelectorAll('button'));
+    expect(buttons).toHaveLength(3);
+    for (const button of buttons) {
+      expect(button.disabled).toBe(false);
+      act(() => {
+        button.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, cancelable: true }),
+        );
+      });
+    }
+
+    // 세 버튼 모두 지금 값의 반대로만 간다 — 지금 값을 다시 쓰는 명령은 화면에 없다.
+    expect(onRequestAction.mock.calls.flat()).toEqual([
+      'REVOKE_STAFF_ACCESS',
+      'GRANT_ADMIN_ACCESS',
+      'SET_STATUS_DEACTIVATED',
+    ]);
+  });
+
+  it('지금 값은 글자로 읽히고, 카드에 채운 주 행동 색 버튼이 남지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessMutationActions
+        detail={detail({
+          hasStaffAccess: true,
+          hasAdminAccess: false,
+          accountStatus: 'ACTIVE',
+        })}
+        processingAction={null}
+        onRequestAction={() => {}}
+      />,
+    );
+
+    expect(html).toContain('허용됨');
+    expect(html).toContain('없음');
+    expect(html).toContain('활성');
+    // R-31 검출 신호 — 상태 문자열을 담은 disabled 버튼이 없다.
+    expect(html).not.toContain('disabled=""');
+    expect(html).not.toContain('data-variant="default"');
+  });
+
+  it('버튼 이름은 묶음 이름과 행동이 띄어쓰기로 이어진다(낭독기·e2e 계약)', () => {
     act(() => {
-      currentButton.dispatchEvent(
-        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      root.render(
+        <AdminAccessMutationActions
+          detail={detail({
+            hasStaffAccess: true,
+            hasAdminAccess: false,
+            accountStatus: 'ACTIVE',
+          })}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
       );
     });
 
-    expect(onRequestAction).not.toHaveBeenCalled();
+    expect(
+      Array.from(container.querySelectorAll('button')).map(
+        (button) => button.textContent,
+      ),
+    ).toEqual(['교직원 접근 회수', '관리자 접근 허용', '계정 상태 비활성화']);
   });
 
   it('대기 중인 요청이 있으면 전체 컨트롤이 비활성화되고 안내문이 뜬다', () => {

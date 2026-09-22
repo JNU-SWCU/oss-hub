@@ -148,12 +148,11 @@ describe('독립 접근 컨트롤 통합', () => {
       );
     });
 
-    const staffGroup = container.querySelector(
-      '[aria-labelledby="admin-staff-access-control-label"]',
-    );
-    const staffButton = Array.from(
-      staffGroup?.querySelectorAll('button[role="radio"]') ?? [],
-    ).find((button) => button.textContent?.endsWith('허용'));
+    const staffButton = container
+      .querySelector('#admin-staff-access-control-label')
+      ?.closest('div')
+      ?.querySelector('button');
+    expect(staffButton?.textContent).toBe('교직원 접근 허용');
     act(() => {
       staffButton?.dispatchEvent(
         new MouseEvent('click', { bubbles: true, cancelable: true }),

@@ -9,15 +9,15 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-import type {
-  AdminAccessAccountStatus,
-  AdminAccessDetail,
-} from '../admin-access-api';
+import type { AdminAccessDetail } from '../admin-access-api';
 import {
   deriveAdminAccessGuards,
   formatAdminAccessDateTime,
 } from '../admin-access-detail-api';
-import { ACCOUNT_STATUS_LABEL } from '@/lib/status-vocabulary';
+import {
+  ACCESS_STATE_LABEL,
+  ACCOUNT_STATUS_LABEL,
+} from '@/lib/status-vocabulary';
 import {
   ADMIN_ACCESS_MUTATION_ACTIONS,
   actionForAccountStatus,
@@ -31,17 +31,17 @@ interface AdminAccessMutationActionsProps {
   readonly onRequestAction: (action: AdminAccessMutationAction) => void;
 }
 
-const ACCOUNT_STATUS_ORDER: readonly AdminAccessAccountStatus[] = [
-  'ACTIVE',
-  'DEACTIVATED',
-];
-
 /**
- * `/dashboard/users` 상세(04E)·오버레이(04F)가 공유하는 접근 변경 패널
- * (PR04G, 직접 선택 방식으로 재설계). 드롭다운 대신 역할·계정 상태 각각을
- * 세그먼트 버튼으로 보여준다 — 현재 값은 채워진 버튼(`default`)으로만 표시되고,
- * 다른 값을 고르면 `onRequestAction`이 곧장 확인 다이얼로그를 연다(쓰기가
- * 다이얼로그 없이 실행되는 경로는 없다). 막힌 선택지는 숨기지 않고 비활성화
+ * `/dashboard/users` 상세(04E)·오버레이(04F)가 공유하는 접근 변경 패널.
+ * 묶음(교직원 접근·관리자 접근·계정 상태)마다 지금 값은 상태 글자로 읽히고,
+ * 버튼은 반대 값으로 바꾸는 행동 하나만 선다(#1365). 예전에는 값마다 버튼이
+ * 하나씩 있고 지금 값 쪽이 채운 버튼(`default`) + `disabled`였는데, 카드에서
+ * 가장 진한 표면이 전부 누를 수 없는 것이 되어 R-31 검출 신호(상태 문자열을
+ * 담은 `disabled` 버튼)에 그대로 걸렸다. 버튼 문구는 확인 다이얼로그·완료
+ * 메시지가 쓰는 말(허용·회수·비활성화·재활성화)에 맞춘다.
+ *
+ * 버튼을 누르면 `onRequestAction`이 곧장 확인 다이얼로그를 연다(쓰기가
+ * 다이얼로그 없이 실행되는 경로는 없다). 막힌 전환은 숨기지 않고 비활성화
  * 상태로 두며, 바로 아래에 이유를 문장으로 보여준다 — 이미 응답에 들어있는
  * 사실(대기 요청·본인 여부·프로필 완료 여부)에 근거한 것이라
  * "런타임 상태 추측으로 affordance를 숨기는" 것과는 다르다(`docs/rules/frontend.md`).
@@ -54,6 +54,8 @@ export function AdminAccessMutationActions({
   const guards = deriveAdminAccessGuards(detail);
   const controlBlocked = guards.controlBlockedReason !== null;
   const isProcessing = processingAction !== null;
+  const nextAccountStatus =
+    detail.accountStatus === 'ACTIVE' ? 'DEACTIVATED' : 'ACTIVE';
 
   return (
     <Card>
@@ -107,38 +109,27 @@ export function AdminAccessMutationActions({
           >
             계정 상태
           </span>
-          <div
-            role="radiogroup"
-            aria-labelledby="admin-access-status-control-label"
-            className="grid grid-cols-2 gap-2"
-          >
-            {ACCOUNT_STATUS_ORDER.map((status) => {
-              const isCurrent = detail.accountStatus === status;
-              const disabled =
-                isCurrent ||
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm">
+              {ACCOUNT_STATUS_LABEL[detail.accountStatus]}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={
                 controlBlocked ||
                 isProcessing ||
-                (status === 'DEACTIVATED' &&
-                  guards.deactivationBlockedReason !== null);
-              return (
-                <Button
-                  key={status}
-                  type="button"
-                  role="radio"
-                  aria-checked={isCurrent}
-                  variant={isCurrent ? 'default' : 'outline'}
-                  size="sm"
-                  // 높이는 44px 컨트롤 규격을 따른다 — #1335에서 화면을 보고 그대로 두기로 했다.
-                  className="w-full px-2 py-1.5"
-                  disabled={disabled}
-                  onClick={() =>
-                    onRequestAction(actionForAccountStatus(status))
-                  }
-                >
-                  {ACCOUNT_STATUS_LABEL[status]}
-                </Button>
-              );
-            })}
+                (nextAccountStatus === 'DEACTIVATED' &&
+                  guards.deactivationBlockedReason !== null)
+              }
+              onClick={() =>
+                onRequestAction(actionForAccountStatus(nextAccountStatus))
+              }
+            >
+              <span className="sr-only">계정 상태</span>{' '}
+              {nextAccountStatus === 'DEACTIVATED' ? '비활성화' : '재활성화'}
+            </Button>
           </div>
           {!controlBlocked && guards.deactivationBlockedReason ? (
             <p className="text-sm text-muted-foreground">
@@ -173,31 +164,19 @@ function AuthorityControl({
       <span className="text-sm font-medium" id={labelId}>
         {label}
       </span>
-      <div
-        role="radiogroup"
-        aria-labelledby={labelId}
-        className="grid grid-cols-2 gap-2"
-      >
-        {[true, false].map((nextEnabled) => {
-          const isCurrent = enabled === nextEnabled;
-          return (
-            <Button
-              key={String(nextEnabled)}
-              type="button"
-              role="radio"
-              aria-checked={isCurrent}
-              variant={isCurrent ? 'default' : 'outline'}
-              size="sm"
-              // 높이는 44px 컨트롤 규격을 따른다 — #1335에서 화면을 보고 그대로 두기로 했다.
-              className="w-full px-2 py-1.5"
-              disabled={disabled || isCurrent || (nextEnabled && grantBlocked)}
-              onClick={() => onChange(nextEnabled)}
-            >
-              <span className="sr-only">{label}</span>
-              {nextEnabled ? '허용' : '해제'}
-            </Button>
-          );
-        })}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm">
+          {ACCESS_STATE_LABEL[enabled ? 'GRANTED' : 'NONE']}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled || (!enabled && grantBlocked)}
+          onClick={() => onChange(!enabled)}
+        >
+          <span className="sr-only">{label}</span> {enabled ? '회수' : '허용'}
+        </Button>
       </div>
     </div>
   );

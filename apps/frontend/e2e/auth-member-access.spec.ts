@@ -470,7 +470,10 @@ test('unioned menus cover student, staff, student-admin, staff-admin, student-st
   await expect(
     adminPage.locator('#admin-admin-access-control-label'),
   ).toHaveText('관리자 접근');
-  const deactivate = adminPage.getByRole('radio', { name: '비활성' });
+  const deactivate = adminPage.getByRole('button', {
+    name: '계정 상태 비활성화',
+    exact: true,
+  });
   await deactivate.focus();
   await expect(deactivate).toBeFocused();
   await captureResponsivePage(adminPage, testInfo, 'staff-only-controls');
