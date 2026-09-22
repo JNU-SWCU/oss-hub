@@ -95,7 +95,7 @@ function SingleCountdown({
       className="mx-3 shrink-0 border-t border-sidebar-border px-1 py-4"
     >
       <p className="text-xs text-muted-foreground">현재 시각</p>
-      <p className="text-[22px] font-bold tracking-[-0.03em] text-sidebar-foreground tabular-nums">
+      <p className="text-section font-bold tracking-[-0.03em] text-sidebar-foreground tabular-nums">
         {formatClock(clock)}
       </p>
       <p className="text-xs text-muted-foreground tabular-nums">
@@ -117,7 +117,7 @@ type CountdownValueProps = Readonly<{ value: number; unit: string }>;
 function CountdownUnit({ value, unit }: CountdownValueProps) {
   return (
     <span className="flex items-baseline gap-0.5">
-      <span className="text-[22px] font-bold tracking-[-0.03em] text-primary tabular-nums">
+      <span className="text-section font-bold tracking-[-0.03em] text-primary tabular-nums">
         {value}
       </span>
       <span className="text-xs text-muted-foreground">{unit}</span>

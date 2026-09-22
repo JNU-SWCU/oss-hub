@@ -107,7 +107,7 @@ export function SidebarDrawer({
         )}
       >
         <div className="flex h-topbar shrink-0 items-center justify-between gap-3 border-b border-sidebar-border px-4">
-          <p className="font-heading text-[15px] font-bold tracking-[-0.02em] text-sidebar-foreground">
+          <p className="font-heading text-table font-bold tracking-[-0.02em] text-sidebar-foreground">
             {label}
           </p>
           <Button

@@ -108,7 +108,7 @@
   background: color-mix(in oklch, var(--cosmos-muted) 8%, transparent);
   border-radius: 999px;
   padding: 6px 14px;
-  font-size: 12px;
+  font-size: var(--step-badge);
   font-weight: 600;
   letter-spacing: 0.08em;
   color: var(--cosmos-muted);
@@ -154,7 +154,7 @@
   align-items: center;
   min-height: 44px;
   color: color-mix(in oklch, var(--cosmos-copy) 85%, transparent);
-  font-size: 14px;
+  font-size: var(--step-table);
   text-decoration: underline;
   text-underline-offset: 4px;
 }
@@ -173,7 +173,7 @@
   background: transparent;
   color: var(--cosmos-copy);
   padding: 12px 22px;
-  font-size: 15px;
+  font-size: var(--step-table);
   font-weight: 600;
   text-decoration: none;
 }
@@ -198,7 +198,7 @@
 }
 
 .stepNo {
-  font-size: 11px;
+  font-size: var(--step-badge);
   font-weight: 600;
   letter-spacing: 0.1em;
   color: var(--cosmos-repository);
@@ -206,12 +206,12 @@
 }
 
 .stepTitle {
-  font-size: 15px;
+  font-size: var(--step-table);
   color: var(--cosmos-copy);
 }
 
 .stepDesc {
-  font-size: 14px;
+  font-size: var(--step-table);
   color: color-mix(in oklch, var(--cosmos-muted) 72%, transparent);
 }
 
@@ -225,14 +225,14 @@
 }
 
 .statValue {
-  font-size: 30px;
+  font-size: var(--step-section);
   font-weight: 700;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
 .statKey {
-  font-size: 12px;
+  font-size: var(--step-badge);
   color: var(--cosmos-edge);
   margin-top: 4px;
   letter-spacing: 0.04em;
@@ -244,7 +244,7 @@
   border: 1px solid var(--cosmos-border);
   border-radius: 6px;
   padding: 3px 8px;
-  font-size: 11px;
+  font-size: var(--step-badge);
   letter-spacing: 0.04em;
   color: color-mix(in oklch, var(--cosmos-muted) 70%, transparent);
 }
@@ -293,10 +293,6 @@
     gap: 22px;
   }
 
-  .statValue {
-    font-size: 24px;
-  }
-
   .statNote {
     margin-top: 10px;
   }
@@ -315,7 +311,7 @@
   backdrop-filter: blur(8px);
   border-radius: 999px;
   padding: 9px 16px;
-  font-size: 12px;
+  font-size: var(--step-badge);
   color: var(--cosmos-muted);
 }
 
@@ -383,7 +379,7 @@
   bottom: 30px;
   transform: translateX(-50%);
   z-index: 5;
-  font-size: 12px;
+  font-size: var(--step-badge);
   letter-spacing: 0.14em;
   color: color-mix(in oklch, var(--cosmos-muted) 75%, transparent);
   display: flex;
@@ -428,7 +424,7 @@
   border-radius: 8px;
   background: rgb(var(--cosmos-scrim-rgb) / 75%);
   color: var(--cosmos-copy);
-  font-size: 14px;
+  font-size: var(--step-table);
   font-weight: 600;
   text-decoration: none;
   transform: translateY(-200%);

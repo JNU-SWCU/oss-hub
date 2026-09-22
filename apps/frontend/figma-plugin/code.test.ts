@@ -312,14 +312,14 @@ describe('figma plugin code.js', () => {
     expect(failure, fake.logs.join('\n')).toBeUndefined();
     expect(fake.logs.at(-1)).toContain('완료');
 
-    // 변수: primitive 44 + dimension 20 + light 63 중 값을 못 읽는 cosmos.scrim-rgb 하나 제외
+    // 변수: primitive 44 + dimension 22(계단 여섯 단 포함) + light 63 중 값을 못 읽는 cosmos.scrim-rgb 하나 제외
     expect(fake.collections.map((c) => c.name)).toEqual(['OSS Hub']);
     expect(fake.collections[0].modes.map((m: AnyNode) => m.name)).toEqual([
       'Light',
       'Dark',
     ]);
     // + 반투명 변형 7개(semantic/…@10 등)
-    expect(fake.variables.length).toBe(44 + 20 + 62 + 7);
+    expect(fake.variables.length).toBe(44 + 22 + 62 + 7);
     const primary = fake.variables.find((v) => v.name === 'semantic/primary');
     const navy600 = fake.variables.find((v) => v.name === 'palette/navy/600');
     const navy300 = fake.variables.find((v) => v.name === 'palette/navy/300');
@@ -336,6 +336,11 @@ describe('figma plugin code.js', () => {
         'mode-1'
       ],
     ).toBe(44);
+    // 배지·표 계단은 코드에서 rem(0.75rem·0.875rem)이다 — Figma 에는 px 로 옮겨 적는다
+    const px = (name: string) =>
+      fake.variables.find((v) => v.name === name)?.valuesByMode['mode-1'];
+    expect(px('fontSize/badge')).toBe(12);
+    expect(px('fontSize/table')).toBe(14);
 
     expect(fake.textStyles.map((s) => s.name)).toEqual([
       'text/page',

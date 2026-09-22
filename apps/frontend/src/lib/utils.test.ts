@@ -41,5 +41,17 @@ describe('cn — 전용 토큰 덮어쓰기', () => {
     expect(cn('text-primary-foreground', 'text-body')).toBe(
       'text-primary-foreground text-body',
     );
+    expect(cn('text-badge', 'text-status-approved-fg')).toBe(
+      'text-badge text-status-approved-fg',
+    );
+    expect(cn('text-table', 'text-muted-foreground')).toBe(
+      'text-table text-muted-foreground',
+    );
+  });
+
+  // StatusBadge `size="lg"`가 기본의 `text-badge`를 `text-base`로 덮는 자리가 이것이다.
+  it('배지·표 단계도 다른 글자 크기와 한 그룹이라 뒤에 온 것이 이긴다', () => {
+    expect(cn('text-badge', 'text-base')).toBe('text-base');
+    expect(cn('text-table', 'text-xs')).toBe('text-xs');
   });
 });

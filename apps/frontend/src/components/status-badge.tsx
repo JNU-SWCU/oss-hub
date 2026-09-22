@@ -13,11 +13,11 @@ const statusBadgeVariants = cva(
   // 읽는 라벨이라 44에 맞추지 않는다.
   // 앞의 점은 장식이 아니다. 상태를 색으로만 구분하면 색각 이상 사용자가 읽을 수
   // 없으므로 색 + 글자 + 점 세 신호를 함께 쓴다(글자는 호출부가 children으로 준다).
-  "inline-flex h-tag w-fit shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold before:size-1.5 before:shrink-0 before:rounded-full before:bg-current before:content-['']",
+  "inline-flex h-tag w-fit shrink-0 items-center gap-1.5 rounded-full px-2.5 text-badge font-semibold before:size-1.5 before:shrink-0 before:rounded-full before:bg-current before:content-['']",
   {
     variants: {
       size: {
-        default: 'py-0.5 text-xs',
+        default: 'py-0.5 text-badge',
         lg: 'min-w-24 justify-center px-4 py-2 text-base font-semibold',
       },
       variant: {
