@@ -1444,3 +1444,26 @@
 - 주의: ① 줄 간격 동반 토큰은 px 가 아니라 비율로 둔다 — px 는 칸 안 자손에게 고정 길이로 상속돼 행이 자란다. ② 계단에 칸을 더하면 `lib/utils.ts` 의 tailwind-merge `font-size` 목록에도 더한다(빠지면 `text-badge` 가 색으로 분류돼 지워진다). ③ px 자리를 rem 계단으로 옮기면 「이름만 바뀌는」 게 아니다 — 브라우저 글자 크기를 키우면 따라 커진다. 활동·인사이트 차트 축은 폭 44px 고정이라 옮기면 네 자리 숫자가 잘려 px 12 로 두었다. 사이드바 메뉴(rem)와 하위 단계(`text-small`, px)는 20px 설정에서 17.5 대 13 으로 벌어진다. ④ 전후 PNG 비교는 RGB 로 — Pillow `getbbox()` 는 RGBA 차 이미지의 알파만 본다. ⑤ 앱 셸이 안쪽 스크롤이라 `fullPage` 캡처가 뷰포트에서 끝난다 — 요소 치수 덤프로 판정한다.
 - 남은 것: Figma 파일은 병합 뒤 데스크톱에서 플러그인(`apps/frontend/figma-plugin`)을 다시 실행해야 갱신된다.
 - 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-23 — 저장소 URL 취소 확인창의 버튼 순서·색을 다른 확인창과 맞춘다
+
+- 상태: review
+- Issue: #1364
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 저장소 URL 편집 중 X 를 눌렀을 때 뜨는 「변경사항을 저장하지 않고 돌아가겠습니까?」 창만 확정인 「변경사항 버리기」가 왼쪽이고 취소인 「이어서 수정하기」가 오른쪽 남색이었다.
+  main 의 다른 확인창 셋(마일스톤 편집 저장 포기, 계정 비활성화, 프로그램 영구 삭제)은 모두 취소(outline)가 먼저·확정(destructive)이 나중이라, 익숙한 자리대로 왼쪽을 누른 팀장은 고치던 URL 과 변경 사유를 잃었다.
+  `repository-url-cancel-button.tsx` 에서 `AlertDialog.Cancel` 을 `AlertDialog.Action` 앞으로 옮기고 「이어서 수정하기」에 `variant="outline"`, 「변경사항 버리기」에 `variant="destructive"` 를 준다.
+  글자와 창 문구는 그대로다. 이 컴포넌트는 `repository-url-editor.tsx` 한 곳에서만 쓰이고 그 편집기가 `/apply` 와 `/my-team` 두 화면에 그려지므로 한 번 고치면 두 화면이 같이 바뀐다.
+- 검증: 격리 스택에서 같은 selector(`[role="alertdialog"] [data-slot="card-content"] > div:last-child`)로 1440·390 전후를 찍었고, 매 샷 직전에 `[data-slot="button"]` 의 [글자, variant] 배열을 읽어 기대값과 다르면 스크린샷을 찍지 않고 죽게 해 AFTER 가 실제로 떠 있는 화면임을 DOM 으로 고정했다.
+  프런트 단위 377 파일 3755 건(대상 파일 13 건, 새 검사 1 건 포함), typecheck·lint(0 errors 5 warnings, 전부 main 에 이미 있던 무관한 경고)·prettier·`next build` 통과.
+  브라우저 회귀 `pnpm --filter frontend e2e` 는 격리 스택을 새로 띄워 35 스펙 104 건 전부 통과(5.7 분, 실패·건너뜀 0)했고, 실행된 스펙 목록이 `apps/frontend/e2e/*.spec.ts` 35 개와 정확히 일치했다.
+  대상은 `repository-relink-editing.spec.ts:37` 이며, 그 실행이 남긴 `cancel-confirmation-{desktop,mobile}.png` 를 PR 의 뷰포트 전체 After 캡처로 그대로 썼다.
+- 주의: ① 순서는 반드시 HTML 에서 바꾼다. `flex-row-reverse` 로 보이는 순서만 뒤집으면 Tab 순서와 낭독 순서가 화면과 어긋난다.
+  ② 이 순서를 지키는 자동 검사는 새로 더한 단위 테스트 하나뿐이다. e2e `repository-relink-editing.spec.ts:80-82` 의 「이어서 수정하기에 초점」 검사는 순서가 다시 뒤집혀도 통과한다 — radix 가 DOM 순서와 무관하게 Cancel 노드에 초점을 준다(`@radix-ui/react-alert-dialog` 1.1.19 `dist/index.mjs:63-65`).
+  #1133 이 이 파일들을 이어받을 때 그 테스트를 같이 옮기지 않으면 순서 회귀를 잡을 그물이 사라진다.
+  ③ `destructive` 는 새빨간 버튼이 아니라 연한 배경 + 진한 붉은 글씨라, AFTER 에는 이 창에 남색 solid 버튼이 하나도 남지 않는다. 의도한 결과다(동규 확정).
+- 남은 것: R-40(「창 푸터의 순서는 취소가 먼저, 확정이 나중이다」) 규칙 문장은 열린 PR #1360 이 `docs/design.md` 를 들고 있어 이 PR 에서 건드리지 않았다. #1360 병합 뒤 후속 커밋으로 넣는다.
+  배포 환경 1440·390 재확인은 병합 뒤 승인된 팀을 가진 팀장 학생 계정으로 한다.
+  저널은 파일 끝에 붙였으므로 같은 자리에 붙이는 #1362 와 충돌한다. #1362 가 먼저 병합되면 이 PR 이 main 을 병합해 푼다(ADR-005:25 — base 가 바뀌면 이전 검토 결과를 재사용하지 않는다).
+- 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.
