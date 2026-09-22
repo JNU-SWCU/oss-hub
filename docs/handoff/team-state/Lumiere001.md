@@ -1422,15 +1422,6 @@
 - 배포: 프런트 전용 변경이고 스키마·마이그레이션이 없다. 되돌리려면 `layout.tsx` 한 파일을 되돌리면 된다.
 - 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.
 
-## 2026-09-21 — QA174 이행기 코드를 걷는다
-
-- 상태: review
-- Issue: #1361
-- PR: (이 PR)
-- blocker: 없음
-- 내용: #1303 에서 프런트와 백엔드가 따로 배포되는 창을 덮으려고 둔 `absent-as-null.ts` 를 지웠다. 남겨 두면 다음 사람이 「실패를 삼켜도 되는 자리」로 읽는다. 두 조회의 반환 타입(`… | null`)은 새 계약이라 그대로 둔다.
-- 검증: **지우기 전에 배포를 확인했다.** 운영 백엔드가 `oss-hub-backend:v0.9.0` 으로 떠 있고, 컨테이너 안 컴파일된 컨트롤러가 `return application ? toResponse(application) : null;` · `return team ? ProgramTeamResponseDto.from(team) : null;` 로 새 동작이다. 추측으로 지우지 않았다. 프런트 단위 377 파일 3753 건 통과, lint·tsc·prettier 종료 코드 0.
-- 배포: 프런트 전용. 되돌리려면 이 커밋을 되돌리면 된다.
 ## 2026-09-21 — Figma 제목 타이포를 코드 실제값으로
 
 - 상태: review
@@ -1453,3 +1444,13 @@
 - 주의: ① 줄 간격 동반 토큰은 px 가 아니라 비율로 둔다 — px 는 칸 안 자손에게 고정 길이로 상속돼 행이 자란다. ② 계단에 칸을 더하면 `lib/utils.ts` 의 tailwind-merge `font-size` 목록에도 더한다(빠지면 `text-badge` 가 색으로 분류돼 지워진다). ③ px 자리를 rem 계단으로 옮기면 「이름만 바뀌는」 게 아니다 — 브라우저 글자 크기를 키우면 따라 커진다. 활동·인사이트 차트 축은 폭 44px 고정이라 옮기면 네 자리 숫자가 잘려 px 12 로 두었다. 사이드바 메뉴(rem)와 하위 단계(`text-small`, px)는 20px 설정에서 17.5 대 13 으로 벌어진다. ④ 전후 PNG 비교는 RGB 로 — Pillow `getbbox()` 는 RGBA 차 이미지의 알파만 본다. ⑤ 앱 셸이 안쪽 스크롤이라 `fullPage` 캡처가 뷰포트에서 끝난다 — 요소 치수 덤프로 판정한다.
 - 남은 것: Figma 파일은 병합 뒤 데스크톱에서 플러그인(`apps/frontend/figma-plugin`)을 다시 실행해야 갱신된다.
 - 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.
+
+## 2026-09-21 — QA174 이행기 코드를 걷는다
+
+- 상태: review
+- Issue: #1361
+- PR: (이 PR)
+- blocker: 없음
+- 내용: #1303 에서 프런트와 백엔드가 따로 배포되는 창을 덮으려고 둔 `absent-as-null.ts` 를 지웠다. 남겨 두면 다음 사람이 「실패를 삼켜도 되는 자리」로 읽는다. 두 조회의 반환 타입(`… | null`)은 새 계약이라 그대로 둔다.
+- 검증: **지우기 전에 배포를 확인했다.** 운영 백엔드가 `oss-hub-backend:v0.9.0` 으로 떠 있고, 컨테이너 안 컴파일된 컨트롤러가 `return application ? toResponse(application) : null;` · `return team ? ProgramTeamResponseDto.from(team) : null;` 로 새 동작이다. 추측으로 지우지 않았다. 프런트 단위 377 파일 3753 건 통과, lint·tsc·prettier 종료 코드 0.
+- 배포: 프런트 전용. 되돌리려면 이 커밋을 되돌리면 된다.
