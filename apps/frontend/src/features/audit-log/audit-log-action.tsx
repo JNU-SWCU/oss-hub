@@ -58,7 +58,7 @@ export function AuditLogActionValue({ action }: { readonly action: string }) {
   return (
     <span className="flex min-w-0 flex-col items-start gap-1.5">
       <StatusBadge variant={variant}>{label}</StatusBadge>
-      <span className="max-w-full break-all font-mono text-[11px] leading-relaxed text-muted-foreground">
+      <span className="max-w-full break-all font-mono text-badge leading-relaxed text-muted-foreground">
         {action}
       </span>
     </span>

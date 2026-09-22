@@ -79,7 +79,7 @@ export function AppSidebar({
         )}
       >
         {!collapsed ? (
-          <p className="font-heading text-[15px] font-bold tracking-[-0.02em] text-sidebar-foreground">
+          <p className="font-heading text-table font-bold tracking-[-0.02em] text-sidebar-foreground">
             {title}
           </p>
         ) : null}
@@ -233,7 +233,7 @@ function SidebarLink({
       data-depth={item.depth ?? 0}
       data-icon={item.icon}
       className={cn(
-        'group relative flex h-control shrink-0 items-center rounded-control text-[15px] whitespace-nowrap text-muted-foreground transition-colors',
+        'group relative flex h-control shrink-0 items-center rounded-control text-table whitespace-nowrap text-muted-foreground transition-colors',
         'hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
         current &&
           'bg-sidebar-current font-semibold text-sidebar-current-foreground',

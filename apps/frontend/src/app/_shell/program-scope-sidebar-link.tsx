@@ -46,7 +46,7 @@ export function ScopeSidebarLink({
       data-depth={depth}
       data-icon={depth === 0 || collapsed ? item.icon : undefined}
       className={cn(
-        'group relative flex h-control shrink-0 items-center rounded-control text-[15px] whitespace-nowrap text-muted-foreground transition-colors',
+        'group relative flex h-control shrink-0 items-center rounded-control text-table whitespace-nowrap text-muted-foreground transition-colors',
         'hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none',
         current &&
           'bg-sidebar-current font-semibold text-sidebar-current-foreground',
@@ -54,7 +54,7 @@ export function ScopeSidebarLink({
         collapsed
           ? 'w-control justify-center px-0'
           : depth === 1
-            ? 'gap-3 py-0 pr-3 pl-9 text-[14px]'
+            ? 'gap-3 py-0 pr-3 pl-9 text-small'
             : 'gap-3 px-3',
       )}
     >

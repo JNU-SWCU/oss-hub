@@ -102,11 +102,16 @@
   --space-8: 64px;
   --space-9: 96px;
 
-  /* 크기 계단 — 네 단계뿐이다. 페이지 제목 / 섹션 / 본문 / 보조 */
+  /* 크기 계단 — 여섯 단계. 페이지 제목 / 섹션 / 본문 / 보조 / 배지 / 표.
+     배지·표 두 칸은 rem(12px·14px)이다. 이 두 칸이 대신한 `text-xs`·`text-sm`이 rem이라
+     브라우저 기본 글자 크기를 키운 사용자에게 배지·표 글자가 따라 커졌고, px로 두면
+     그 사용자에게만 표 머리글(`text-xs`)이 칸 글자보다 커지는 역전이 생긴다(#1344). */
   --step-page: 40px;
   --step-section: 24px;
   --step-body: 16px;
   --step-small: 13px;
+  --step-badge: 0.75rem;
+  --step-table: 0.875rem;
 
   /* 네모의 크기 — 여백 척도의 배수가 아닌 고정 치수. 여백과 섞이면 둘 다 흐려지므로
      별도 램프로 둔다. 44는 터치 타깃 최소치, 26은 읽는 라벨(배지) 높이다. */
@@ -196,11 +201,18 @@
   --spacing-topbar: var(--topbar-height);
   --spacing-sidebar-open: var(--sidebar-open-width);
   --spacing-sidebar-collapsed: var(--sidebar-collapsed-width);
-  /* 크기 계단 네 단계 — `text-page`·`text-section`·`text-body`·`text-small` */
+  /* 크기 계단 여섯 단계 — `text-page`·`text-section`·`text-body`·`text-small`·
+     `text-badge`·`text-table`. 배지·표 두 단계는 그 자리가 쓰던 `text-xs`·`text-sm`을
+     대신하므로 줄 간격(16px·20px)도 함께 옮긴다. px가 아니라 비율로 적는다 — 칸 안에서
+     글자 크기만 바꾼 자손이 지금처럼 자기 크기에 비례한 줄 간격을 물려받는다. */
   --text-page: var(--step-page);
   --text-section: var(--step-section);
   --text-body: var(--step-body);
   --text-small: var(--step-small);
+  --text-badge: var(--step-badge);
+  --text-badge--line-height: calc(16 / 12);
+  --text-table: var(--step-table);
+  --text-table--line-height: calc(20 / 14);
   /* 카드 12 / 조작 사각형 8. 기존 `--radius`(shadcn 전역)는 건드리지 않는다 —
      본문 컴포넌트 전체가 거기 매달려 있고 이번 단계는 셸까지다. */
   --radius-card: var(--card-radius);

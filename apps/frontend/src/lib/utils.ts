@@ -2,7 +2,8 @@ import { clsx, type ClassValue } from 'clsx';
 import { extendTailwindMerge } from 'tailwind-merge';
 
 /**
- * 크기 계단 네 칸(`text-page`·`text-section`·`text-body`·`text-small`)을
+ * 크기 계단 여섯 칸(`text-page`·`text-section`·`text-body`·`text-small`·
+ * `text-badge`·`text-table`)을
  * tailwind-merge에 **글자 크기**로 등록한다.
  *
  * 등록하지 않으면 tailwind-merge는 모르는 `text-…`를 글자 **색**으로 넘겨짚는다.
@@ -42,7 +43,14 @@ const twMerge = extendTailwindMerge({
       radius: ['card', 'control'],
     },
     classGroups: {
-      'font-size': ['text-page', 'text-section', 'text-body', 'text-small'],
+      'font-size': [
+        'text-page',
+        'text-section',
+        'text-body',
+        'text-small',
+        'text-badge',
+        'text-table',
+      ],
     },
   },
 });
