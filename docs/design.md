@@ -15,7 +15,7 @@
 검출 결과는 `file:line - finding` 형식으로 보고한다.
 근거 표기는 외부 조사 문서를 링크하지 않고 2026-09-03 정적 감사로만 적는다.
 그 감사의 수치는 저장소 안에서 재현한다.
-로컬 toast state는 `grep -rl 'toastMessage' apps/frontend/src/features --include='*.ts*' | grep -v test`, 로컬 Skeleton은 `grep -rlE 'function [A-Za-z]*Skeleton' apps/frontend/src --include='*.tsx' | grep -v test`, radix dialog 직접 import는 `grep -rlE "from 'radix-ui'" apps/frontend/src/features | xargs grep -lE 'Dialog'`, 120자 초과 className은 `grep -rlE 'className="[^"]{121,}"' apps/frontend/src --include='*.tsx'`로 확인한다.
+로컬 toast state는 `grep -rl 'toastMessage' apps/frontend/src/features --include='*.ts*' | grep -v test`, 로컬 Skeleton은 `grep -rln 'animate-pulse' apps/frontend/src --include='*.tsx' | grep -v test | grep -v components/ui/skeleton.tsx`(실시간 상태 점을 그리는 `system-status-view.tsx` 하나만 남아야 한다), radix dialog 직접 import는 `grep -rlE "from 'radix-ui'" apps/frontend/src/features | xargs grep -lE 'Dialog'`, 120자 초과 className은 `grep -rlE 'className="[^"]{121,}"' apps/frontend/src --include='*.tsx'`로 확인한다.
 
 ### 작업 → 절
 
@@ -39,10 +39,10 @@
 | --- | --- | --- |
 | R-01, R-02 | `apps/frontend/src/components/AGENTS.md` | 없음 — 리뷰로 유지 |
 | R-04 | 이 문서 | composition API PR |
-| R-06 | 이 문서 | 되돌릴 수 없는 일을 묻는 창은 `DialogShell`(`kind="alert"`)로 옮겼다(#1351). 남은 7파일은 트리거로 여는 구조·전체화면 라이트박스·2단 그리드·방향이 바뀌는 패널이라 껍데기가 표현하지 못한다 — 옮기려면 껍데기 설계부터 정해야 한다 |
+| R-06 | 이 문서 | dialog shell 설계 후속 — 현황은 §수용된 부채 R-06 행 |
 | R-08a, R-08b, R-38 | 이 문서 | 없음 — lint가 강제한다. 기존 위반은 `apps/frontend/eslint-suppressions.json`이 억제하며 폴더 단위 후속 PR로 줄인다 |
-| R-09, R-10 | 이 문서 | 없음 — `components/failure-state.tsx`가 공용 표면이고 실패를 `EmptyState`로 그리던 자리를 전부 옮겼다(#1346·#1355). 네 상태 분기를 화면별 테스트로 고정하는 것은 남았다 |
-| R-17 | 이 문서 | 없음 — `components/ui/skeleton.tsx`가 공용 표면이고 화면별 로컬 정의를 전부 걷었다(#1347). `grep -rln "animate-pulse" apps/frontend/src --include='*.tsx'`에서 테스트와 이 프리미티브를 뺀 결과는 실시간 상태 점 하나뿐이어야 한다 |
+| R-09, R-10 | 이 문서 | 화면별 네 상태 분기 테스트 — 현황은 §수용된 부채 R-10 행 |
+| R-17 | 이 문서 | 없음 — 리뷰로 유지. 로컬 구현은 맨 위 검출식으로 확인한다(#1347) |
 | R-11, R-12 | 이 문서 | Alert kind PR |
 | R-13, R-14 | 이 문서 | notification PR |
 | R-18, R-19, R-22 | 이 문서 | 없음 — 리뷰로 유지 |
@@ -271,7 +271,7 @@ R-08a·R-08b·R-38은 `pnpm --filter frontend lint`가 강제한다. 기존 위�
 로딩 표면은 `components/ui/skeleton.tsx`의 `Skeleton`과 공용 배치 컴포넌트를 사용하고 로컬 정의를 새로 늘리지 않는다.
 **R-09** 컬렉션 뷰는 loading · empty · error · ready 네 상태를 상호배타로 렌더하고 네 분기를 테스트로 고정한다.
 **R-10** 재시도 가능한 fetch 실패는 공용 failure surface 하나만 쓰고 retry 액션을 노출하며 `EmptyState`와 bare destructive 텍스트는 error 상태에 금지한다.
-**R-17** loading 표면은 `aria-busy`, 접근 가능한 label, `motion-reduce` 처리를 갖는 공용 Skeleton을 쓰고 feature 로컬 Skeleton을 새로 정의하지 않는다.
+**R-17** loading 표면은 `aria-busy`, 접근 가능한 label, `motion-reduce` 처리를 갖는 공용 Skeleton을 쓰고 feature 로컬 Skeleton을 새로 정의하지 않는다. 공용 `Skeleton`을 조합해 화면 배치를 잡는 함수(`DashboardSkeleton` 등)는 로컬 정의가 아니다 — 금지 대상은 `animate-pulse`를 직접 그리는 구현이다.
 
 상태 설명만으로 끝내지 않는다.
 화면에 들어온 사용자가 원래 하려던 일을 이어갈 수 있도록 `다시 시도`, `목록으로 이동`, `일정으로 이동`, `제출 항목 추가`처럼 목적에 맞는 다음 행동을 하나 이상 제공한다.
@@ -339,7 +339,7 @@ error는 toast 단독으로 절대 쓰지 않는다.
 
 공용 껍데기는 `apps/frontend/src/components/dialog-shell.tsx`의 `DialogShell`이다.
 제목·설명·위에서 아래로 흐르는 본문·버튼 줄을 갖고 `open`(기본 true)·`busy`(요청 중 닫기 금지)·`size`(md·lg)·`returnFocusRef`(닫힌 뒤 초점 복귀)를 소유하며, 바닥 줄은 `onSave`(취소·저장) 또는 `footer` 둘 중 하나다.
-**R-06**을 따르며 feature 안에 남은 radix 직접 import(AlertDialog 8·Dialog 3)와 `div role="dialog"` 4곳은 §수용된 부채 R-06 행에서 해소한다.
+**R-06**을 따르며 feature 안에 남은 radix 직접 import와 `div role="dialog"`는 §수용된 부채 R-06 행에서 해소한다.
 
 ## 접근성
 
@@ -374,7 +374,7 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 | AP-03 | 로컬 toast 흉내 | `toastMessage`·`setToast` state, `role="status"` 녹색 박스 | R-13 |
 | AP-04 | 긴급도 없는 `role="alert"` | 정적 heading·초기 렌더 콘텐츠의 `role="alert"`, 성공 Alert의 assertive 공지 | R-12 |
 | AP-05 | 의미 없는 두 톤 | warning에 `variant="destructive"`, 성공에 `default` | R-11 |
-| AP-06 | 로컬 Skeleton 복제 | feature 파일 내 `function *Skeleton`·`animate-pulse` 블록 | R-17 |
+| AP-06 | 로컬 Skeleton 복제 | feature 파일 내 `animate-pulse` 블록(공용 `Skeleton`을 조합한 `function *Skeleton` 배치 함수는 해당 없음) | R-17 |
 | AP-07 | page shell 재구현 | `features/**`의 `<main`·`text-xl`/`text-2xl` 제목 | R-07 |
 | AP-08 | raw table | `features/**`의 `<table`·`@/components/ui/table` 직접 import — 2026-09-19 #1297로 해소, 남은 3곳은 §수용된 부채의 기록된 예외 | R-07 (보조 R-05) |
 | AP-09 | Radix dialog 직접 조립 | `features/**`의 `radix-ui` Dialog/AlertDialog import, `div role="dialog"` | R-06 |
@@ -396,17 +396,17 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 
 | 기록일 | 위반 | 규칙 | 해소 경로 |
 | --- | --- | --- | --- |
-| 2026-09-03 | 일부 화면의 fetch 실패가 아직 `EmptyState`로 렌더된다 | R-10 | 공용 `FailureState`로 호출부 이전 |
+| 2026-09-03 | 일부 화면의 fetch 실패가 아직 `EmptyState`로 렌더된다 | R-10 | 2026-09-21 해소 — 공용 `FailureState`(`components/failure-state.tsx`)로 복제 7곳(#1346)과 실패를 빈 상자로 그리던 9곳(#1355)을 옮겼다. 네 상태 분기를 화면별 테스트로 고정하는 것(R-09)은 남았다 |
 | 2026-09-03 | 전역 notification primitive 부재, 로컬 `toastMessage` state 6파일 | R-13 | notification PR |
 | 2026-09-03 | `apps/frontend/src/components/ui/alert.tsx`가 두 variant뿐이고 항상 `role="alert"` | R-11 | Alert kind PR |
 | 2026-09-03 | 정적 heading에 `role="alert"` — `apps/frontend/src/app/_shell/access-denied.tsx` 18-24, `apps/frontend/src/app/_shell/login-required-notice.tsx` 19-25 | R-12 | Alert kind PR |
-| 2026-09-03 | 공용 dialog shell 부재 → 2026-09-18 `DialogShell` 추가(#1296)로 프로그램 작성·편집·팀 창 5곳 이전. 남은 radix 직접 import 11파일(AlertDialog 8·Dialog 3: 프로그램 유형 창·제출 창·접근 관리 오버레이)과 plain `div role="dialog"` 4곳 | R-06 | dialog shell 후속 PR |
+| 2026-09-03 | 공용 dialog shell 부재 → 2026-09-18 `DialogShell` 추가(#1296)로 프로그램 작성·편집·팀 창 5곳 이전, 2026-09-21 되돌릴 수 없는 일을 묻는 창 6곳을 `kind="alert"`로 이전(#1351). 남은 radix 직접 import 7파일(feature 6·`components/program-cover.tsx` 1)과 plain `div role="dialog"` 4곳 — 트리거로 여는 구조·전체화면 라이트박스·2단 그리드·방향이 바뀌는 패널이라 껍데기가 표현하지 못한다 | R-06 | dialog shell 설계를 먼저 정한 뒤 후속 PR |
 | 2026-09-03 | CardGrid·PageBody·ListPanel/ListRow·StatusBadge named `*Props` 미export, PaginationNav·RepositoryPublishCard·ProgramCountdown root `className` 미수용 | R-04 | composition API PR |
 | 2026-09-03 | signup typography helpers에 `className`·`data-slot` 없음 | R-04 | composition API PR |
 | 2026-09-03 | `apps/frontend/src/components/form-section.tsx` root가 프리미티브 `data-slot="field-set"`뿐이고 자체 slot 없음 | R-04 | composition API PR |
 | 2026-09-03 | `apps/frontend/src/components/program-card.tsx` 소비자 하나인데 공용 상주 | R-02 | feature 하향 PR |
 | 2026-09-03 | 120자 초과 className 43파일과 hex 상수·inline style — `apps/frontend/src/features/activity-timeline/components/activity-chart.tsx` 26-29, `apps/frontend/src/features/landing/components/landing-journey.tsx` 401-414 | R-08a·R-08b | 2026-09-19 lint 도입(#1310). 잔여는 `apps/frontend/eslint-suppressions.json`에 남김 — className 55건·43파일, hex는 화면 코드 2파일을 2026-09-21 #1328 1단계에서 토큰으로 바꿔 0(남은 hex 억제는 테스트 25파일). 폴더 단위 후속 PR로 줄이고 고친 뒤 `lint:prune` |
-| 2026-09-19 | 날 `<button>` 36건·24파일(테스트 14파일 포함) — `app/_shell` 내비게이션·로그인 버튼·접근 관리 표·일정 편집기·달력·서류 수합·`program-cover`·`nav-bar` | R-38 | 2026-09-21 화면 코드 해소 — 버튼 모양이 아닌 다섯 자리는 `variant="bare" size="content"`로 옮겼고(#1328) 아이콘 버튼 네 자리와 `program-cover`는 표준 변형으로 옮겼다. 남은 억제는 테스트 파일 13개뿐 |
+| 2026-09-19 | 날 `<button>` 36건·24파일(테스트 14파일 포함) — `app/_shell` 내비게이션·로그인 버튼·접근 관리 표·일정 편집기·달력·서류 수합·`program-cover`·`nav-bar` | R-38 | 2026-09-21 화면 코드 해소 — 버튼 모양이 아닌 다섯 자리는 `variant="bare" size="content"`로 옮겼고(#1328) 아이콘 버튼 네 자리와 `program-cover`는 표준 변형으로 옮겼다. 남은 억제는 테스트 파일 12개뿐 |
 | 2026-09-03 | `apps/frontend/src/features/**`에 fixture 9파일 1,022 LOC | 당시 R-18·R-19 | 현재 규칙은 최소 인라인 데이터와 수명 기반 공유다. 파일명 금지는 폐지했고 미사용 카탈로그만 줄인다 |
 | 2026-09-03 | local-review 하네스가 `apps/frontend/test-support/local-review/fixture-response.ts`에서 feature fixture를 소비 | R-20 | 예외 없음. 런타임→테스트 의존은 경계 lint가 거부한다. 이 행은 당시 결합의 기록이며 해소는 런타임 제거 작업이다 |
 | 2026-09-19 | 차트 낭독 전용 `sr-only` `<table>` 2곳 — `apps/frontend/src/features/staff-insights/insights-panels.tsx` ActivityPanel, `apps/frontend/src/features/staff-insights/participation-panel.tsx` | R-07 | 예외로 확정. DataTable은 초점을 받는 스크롤 영역과 빈 상태 행을 그리므로 보이지 않는 낭독 전용 표에 맞지 않는다. 시맨틱 `<table>`을 유지한다 |
