@@ -18,7 +18,11 @@ export type ChecklistItemStatus = 'NOT_SUBMITTED' | ChecklistSubmissionStatus;
 
 // 라벨·배지 변형은 `@/lib/status-vocabulary`의 SUBMISSION_STATUS_* 하나다(R-35).
 
-/** 상세 패널·목록 행·요약이 공유하는 재제출 필요 판정이다. */
+/**
+ * 창에 재제출 폼을 열지(그리고 재제출을 보낼지) 정하는 데만 쓴다. 마감 전 검토
+ * 대기(canResubmit)도 제출물을 바꿀 수 있어 참이다. 배지 이름과 「보완 요청 N건」
+ * 집계는 이 값이 아니라 서버 상태를 그대로 따른다(#1372, R-35).
+ */
 export function isRevisionNeeded(
   submission: ChecklistSubmission | null,
 ): boolean {
@@ -31,7 +35,6 @@ export function isRevisionNeeded(
 export function checklistItemStatus(
   item: SubmissionChecklistItem,
 ): ChecklistItemStatus {
-  if (isRevisionNeeded(item.submission)) return 'CHANGES_REQUESTED';
   return item.submission?.status ?? 'NOT_SUBMITTED';
 }
 
@@ -110,8 +113,9 @@ export function checklistSubmittedCount(
   return {
     total: items.length,
     submitted: items.filter((item) => item.submission !== null).length,
-    revisionNeeded: items.filter((item) => isRevisionNeeded(item.submission))
-      .length,
+    revisionNeeded: items.filter(
+      (item) => item.submission?.status === 'CHANGES_REQUESTED',
+    ).length,
   };
 }
 

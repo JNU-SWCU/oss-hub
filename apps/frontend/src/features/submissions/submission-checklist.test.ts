@@ -207,7 +207,7 @@ describe('checklistSubmittedCount', () => {
     });
   });
 
-  it('재제출 가능 또는 보완 요청 상태를 보완 필요 건으로 구분한다', () => {
+  it('보완 요청 건수는 서버 상태가 보완 요청인 서류만 센다(재제출 가능 여부 무관)', () => {
     const items: SubmissionChecklistItem[] = [
       checklistItem({
         milestoneId: 'm-resubmit',
@@ -239,10 +239,12 @@ describe('checklistSubmittedCount', () => {
       }),
     ];
 
+    // Then: 마감 전 검토 대기(canResubmit)는 세지 않고, 보완 요청은
+    // canResubmit이 false여도 센다.
     expect(checklistSubmittedCount(items)).toEqual({
       total: 2,
       submitted: 2,
-      revisionNeeded: 2,
+      revisionNeeded: 1,
     });
   });
 
@@ -267,26 +269,53 @@ describe('checklistItemStatus', () => {
     ).toBe('NOT_SUBMITTED');
   });
 
-  it('재제출 가능하면 서버 상태보다 보완 필요를 우선 표시한다', () => {
-    expect(
-      checklistItemStatus(
-        checklistItem({
-          milestoneId: 'milestone-resubmit',
-          dueAt: '2026-09-01T14:59:59.000Z',
-          submission: {
-            id: 'submission-resubmit',
-            status: 'SUBMITTED',
-            currentRevision: 1,
-            decision: null,
-            lastReviewedAt: null,
-            reviewComment: null,
-            canResubmit: true,
-            file: null,
-          },
-        }),
-      ),
-    ).toBe('CHANGES_REQUESTED');
-  });
+  // #1372 — canResubmit은 「지금 바꿔 낼 수 있는가」일 뿐이라 배지 이름과
+  // 「보완 요청 N건」을 바꾸지 않는다. 둘 다 서버 상태를 그대로 따른다(R-35).
+  it.each([
+    ['마감 전 검토 대기', 'SUBMITTED', null, true, 'SUBMITTED', 0],
+    ['마감 뒤 검토 대기', 'SUBMITTED', null, false, 'SUBMITTED', 0],
+    [
+      '보완 요청을 받고 마감 전에 다시 낸 검토 대기',
+      'SUBMITTED',
+      'CHANGES_REQUESTED',
+      true,
+      'SUBMITTED',
+      0,
+    ],
+    [
+      '보완 요청',
+      'CHANGES_REQUESTED',
+      'CHANGES_REQUESTED',
+      true,
+      'CHANGES_REQUESTED',
+      1,
+    ],
+  ] as const)(
+    '%s(상태 %s, 지난 판정 %s, 재제출 가능 %s): 배지 %s, 보완 요청 %i건',
+    (_label, status, decision, canResubmit, badge, revisionNeeded) => {
+      // Given
+      const item = checklistItem({
+        milestoneId: 'milestone-review',
+        dueAt: '2026-09-01T14:59:59.000Z',
+        submission: {
+          id: 'submission-review',
+          status,
+          currentRevision: 1,
+          decision,
+          lastReviewedAt: null,
+          reviewComment: null,
+          canResubmit,
+          file: null,
+        },
+      });
+
+      // When / Then
+      expect(checklistItemStatus(item)).toBe(badge);
+      expect(checklistSubmittedCount([item]).revisionNeeded).toBe(
+        revisionNeeded,
+      );
+    },
+  );
 });
 
 describe('resubmissionFailure', () => {
