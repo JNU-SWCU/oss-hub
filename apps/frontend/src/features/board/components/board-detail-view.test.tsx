@@ -4,6 +4,7 @@ import {
   BoardDetailContent,
   type BoardDetailContentProps,
 } from './board-detail-view';
+import { openingTag, textOf } from './field-error-test-support';
 import type { BoardPostDetail } from '../types';
 
 const post: BoardPostDetail = {
@@ -52,14 +53,18 @@ function baseProps(
     editTitle: '',
     editBody: '',
     editSubmitting: false,
-    editError: null,
+    editErrors: { title: null, body: null },
+    editShowFieldErrors: false,
+    editSubmitError: null,
     pinSubmitting: false,
     pinError: null,
     deleteSubmitting: false,
     deleteError: null,
     commentDraft: '',
     commentSubmitting: false,
-    commentError: null,
+    commentDraftError: null,
+    commentShowDraftError: false,
+    commentSubmitError: null,
     deletingCommentId: null,
     onRetry: () => {},
     onToggleEdit: () => {},
@@ -336,33 +341,95 @@ describe('BoardDetailContent', () => {
     expect(html).toContain('취소');
   });
 
-  it('수정 중 에러 메시지를 보여준다', () => {
+  it('수정 폼의 입력 누락은 그 칸 바로 아래에 붙는다', () => {
     const html = renderToStaticMarkup(
       <BoardDetailContent
         {...baseProps({
           state: { kind: 'ready', post },
           editing: true,
-          editError: '제목을 입력해 주세요.',
+          editTitle: post.title,
+          editBody: '',
+          editErrors: { title: null, body: '내용을 입력해 주세요.' },
+          editShowFieldErrors: true,
         })}
       />,
     );
-    expect(html).toContain('제목을 입력해 주세요.');
+
+    const body = openingTag(html, 'board-edit-body');
+    expect(body).toContain('aria-invalid="true"');
+    expect(body).toContain('aria-describedby="board-edit-body-error"');
+    expect(textOf(html, 'board-edit-body-error')).toBe('내용을 입력해 주세요.');
+    // 채워 둔 제목 칸은 함께 빨개지지 않는다.
+    expect(openingTag(html, 'board-edit-title')).not.toContain(
+      'aria-invalid="true"',
+    );
   });
 
-  it('삭제·고정·댓글 에러 메시지를 각각 보여준다', () => {
+  it('수정의 서버 실패는 경고 상자에만 남고 칸은 오류 상태가 아니다', () => {
+    const html = renderToStaticMarkup(
+      <BoardDetailContent
+        {...baseProps({
+          state: { kind: 'ready', post },
+          editing: true,
+          editTitle: post.title,
+          editBody: post.body,
+          editShowFieldErrors: true,
+          editSubmitError: '작성자만 수정·삭제할 수 있습니다.',
+        })}
+      />,
+    );
+    expect(html).toContain('data-slot="alert"');
+    expect(html).toContain('작성자만 수정·삭제할 수 있습니다.');
+    expect(html).not.toContain('data-slot="field-error"');
+    expect(openingTag(html, 'board-edit-title')).not.toContain(
+      'aria-invalid="true"',
+    );
+    expect(openingTag(html, 'board-edit-body')).not.toContain(
+      'aria-invalid="true"',
+    );
+  });
+
+  it('댓글 입력 누락은 댓글 칸 바로 아래에 붙는다', () => {
+    const html = renderToStaticMarkup(
+      <BoardDetailContent
+        {...baseProps({
+          state: { kind: 'ready', post },
+          commentDraftError: '댓글 내용을 입력해 주세요.',
+          commentShowDraftError: true,
+        })}
+      />,
+    );
+
+    const comment = openingTag(html, 'board-comment-error');
+    expect(comment).toContain('data-slot="field-error"');
+    expect(textOf(html, 'board-comment-error')).toBe(
+      '댓글 내용을 입력해 주세요.',
+    );
+    expect(html).toContain('aria-describedby="board-comment-error"');
+    expect(html).toContain('aria-invalid="true"');
+    // 입력 누락은 상자를 세우지 않는다.
+    expect(html).not.toContain('data-slot="alert"');
+  });
+
+  it('삭제·고정 실패와 댓글 작성·삭제 실패는 경고 상자에 남는다', () => {
     const html = renderToStaticMarkup(
       <BoardDetailContent
         {...baseProps({
           state: { kind: 'ready', post },
           deleteError: '작성자만 수정·삭제할 수 있습니다.',
           pinError: '교직원만 게시글을 고정할 수 있습니다.',
-          commentError: '댓글 내용을 입력해 주세요.',
+          commentSubmitError: '댓글을 찾을 수 없습니다.',
+          // 댓글 삭제 실패 뒤에도 빈 댓글 칸이 빨개지지 않는다.
+          commentDraftError: '댓글 내용을 입력해 주세요.',
+          commentShowDraftError: false,
         })}
       />,
     );
     expect(html).toContain('작성자만 수정·삭제할 수 있습니다.');
     expect(html).toContain('교직원만 게시글을 고정할 수 있습니다.');
-    expect(html).toContain('댓글 내용을 입력해 주세요.');
+    expect(html).toContain('댓글을 찾을 수 없습니다.');
+    expect(html).not.toContain('댓글 내용을 입력해 주세요.');
+    expect(html).not.toContain('aria-invalid="true"');
   });
   it('공백 없는 긴 문자열을 본문과 댓글에서 접는다', () => {
     const html = renderToStaticMarkup(

@@ -9,6 +9,7 @@ import {
   boardSubtitle,
   boardWriteButtonLabel,
   formatBoardDateTime,
+  hasBoardPostInputError,
   mapBoardError,
   validateBoardCommentInput,
   validateBoardPostInput,
@@ -56,22 +57,34 @@ describe('board-format', () => {
   });
 
   describe('validateBoardPostInput', () => {
-    it('제목이 비어 있으면 에러를 반환한다', () => {
-      expect(validateBoardPostInput({ title: '  ', body: '내용' })).toBe(
-        '제목을 입력해 주세요.',
-      );
+    it('제목이 비어 있으면 제목 칸에만 오류를 반환한다', () => {
+      expect(validateBoardPostInput({ title: '  ', body: '내용' })).toEqual({
+        title: '제목을 입력해 주세요.',
+        body: null,
+      });
     });
 
-    it('내용이 비어 있으면 에러를 반환한다', () => {
-      expect(validateBoardPostInput({ title: '제목', body: '  ' })).toBe(
-        '내용을 입력해 주세요.',
-      );
+    it('내용이 비어 있으면 내용 칸에만 오류를 반환한다', () => {
+      expect(validateBoardPostInput({ title: '제목', body: '  ' })).toEqual({
+        title: null,
+        body: '내용을 입력해 주세요.',
+      });
     });
 
-    it('제목·내용이 모두 있으면 null을 반환한다', () => {
-      expect(
-        validateBoardPostInput({ title: '제목', body: '내용' }),
-      ).toBeNull();
+    // 첫 오류 하나만 돌려주면 제목을 채우고 한 번 더 누른 뒤에야 내용 오류를 본다.
+    it('제목·내용이 둘 다 비면 두 칸 모두 오류를 반환한다', () => {
+      const errors = validateBoardPostInput({ title: '  ', body: '' });
+      expect(errors).toEqual({
+        title: '제목을 입력해 주세요.',
+        body: '내용을 입력해 주세요.',
+      });
+      expect(hasBoardPostInputError(errors)).toBe(true);
+    });
+
+    it('제목·내용이 모두 있으면 두 칸 모두 오류가 없다', () => {
+      const errors = validateBoardPostInput({ title: '제목', body: '내용' });
+      expect(errors).toEqual({ title: null, body: null });
+      expect(hasBoardPostInputError(errors)).toBe(false);
     });
   });
 
