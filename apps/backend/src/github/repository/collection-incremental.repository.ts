@@ -6,6 +6,7 @@ import type {
   CollectionSyncRunTrigger,
   CollectionSyncStreamSummary,
   CommitFactInput,
+  IssueFactInput,
   PullRequestFactInput,
   RecordFactsResult,
   RecordRepositoryObservationInput,
@@ -305,6 +306,38 @@ export class CollectionIncrementalRepository {
     return { acceptedCount: acceptedFacts.length, insertedCount };
   }
 
+  async recordIssueFacts(
+    repositoryId: string,
+    facts: readonly IssueFactInput[],
+    registeredGithubIds: RegisteredGithubIdSet,
+  ): Promise<RecordFactsResult> {
+    if (facts.length === 0) return { acceptedCount: 0, insertedCount: 0 };
+    const acceptedFacts = this.onlyRegisteredFacts(facts, registeredGithubIds);
+    if (acceptedFacts.length === 0) {
+      return { acceptedCount: 0, insertedCount: 0 };
+    }
+    const { count: insertedCount } =
+      await this.db.githubIssueHistory.createMany({
+        data: acceptedFacts.map((fact) => ({
+          repositoryId,
+          githubIssueId: fact.githubIssueId,
+          state: fact.state,
+          createdAt: fact.createdAt,
+          authorGithubId: fact.authorGithubId ?? null,
+          authorGithubLogin: fact.authorGithubLogin ?? null,
+        })),
+        skipDuplicates: true,
+      });
+    await this.rebuildAffectedContributions(
+      repositoryId,
+      acceptedFacts.map((fact) => ({
+        date: asiaSeoulDate(fact.createdAt),
+        githubId: fact.authorGithubId ?? null,
+      })),
+    );
+    return { acceptedCount: acceptedFacts.length, insertedCount };
+  }
+
   async listRegisteredGithubIds(): Promise<RegisteredGithubIdSet> {
     const users = await this.db.user.findMany({ select: { githubId: true } });
     return new Set(users.map((user) => user.githubId));
@@ -519,11 +552,13 @@ export class CollectionIncrementalRepository {
     // fact 테이블에서 (사람, 날짜)별 합계를 만들어 한 번에 넣는다. githubIds는 이 run/import가
     // 시작할 때 고정한 가입자 snapshot을 이미 통과한 acceptedFacts에서만 왔다. 여기서 live
     // User를 다시 JOIN하면 도중의 가입/상태 변화로 fact와 Contribution의 기준이 갈라진다.
-    // 세 fact 를 UNION ALL 로 모아 한 번만 그룹핑하며, 누적이 아니라 그대로 덮어쓴다.
+    // 네 fact 를 UNION ALL 로 모아 한 번만 그룹핑하며, 누적이 아니라 그대로 덮어쓴다.
+    // 어느 fact 가 칸을 건드렸든 네 값을 모두 다시 센다 — 위에서 칸을 통째로 지웠으므로
+    // 한 갈래라도 빠지면 그 값이 0 으로 덮인다.
     await this.db.$executeRaw`
       INSERT INTO "Contribution" (
         "repositoryId", "githubId", "date",
-        "commitCount", "pullRequestCount", "releaseCount", "updatedAt"
+        "commitCount", "pullRequestCount", "releaseCount", "issueCount", "updatedAt"
       )
       SELECT
         f."repositoryId",
@@ -532,6 +567,7 @@ export class CollectionIncrementalRepository {
         SUM(f."commit")::int,
         SUM(f."pr")::int,
         SUM(f."release")::int,
+        SUM(f."issue")::int,
         NOW()
       FROM (
         -- fact 시각 칸은 timestamp WITHOUT time zone 이라 저장값이 UTC 다.
@@ -539,20 +575,26 @@ export class CollectionIncrementalRepository {
         -- UTC 로 한 번 붙인 뒤 서울로 옮겨야 KST 자정에서 날짜가 갈린다.
         SELECT "repositoryId", "authorGithubId" AS "githubId",
                ((("committedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul')::date) AS "day",
-               1 AS "commit", 0 AS "pr", 0 AS "release"
+               1 AS "commit", 0 AS "pr", 0 AS "release", 0 AS "issue"
           FROM "CollectionCommitFact"
          WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
         UNION ALL
         SELECT "repositoryId", "authorGithubId",
                ((("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul')::date),
-               0, 1, 0
+               0, 1, 0, 0
           FROM "CollectionPullRequestFact"
          WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
         UNION ALL
         SELECT "repositoryId", "authorGithubId",
                ((("publishedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul')::date),
-               0, 0, 1
+               0, 0, 1, 0
           FROM "CollectionReleaseFact"
+         WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
+        UNION ALL
+        SELECT "repositoryId", "authorGithubId",
+               ((("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul')::date),
+               0, 0, 0, 1
+          FROM "GithubIssueHistory"
          WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
       ) AS f
       WHERE f."githubId" = ANY(${githubIds})
@@ -562,6 +604,7 @@ export class CollectionIncrementalRepository {
         "commitCount" = EXCLUDED."commitCount",
         "pullRequestCount" = EXCLUDED."pullRequestCount",
         "releaseCount" = EXCLUDED."releaseCount",
+        "issueCount" = EXCLUDED."issueCount",
         "updatedAt" = NOW()
     `;
   }

@@ -23,6 +23,7 @@ interface MockPrisma {
   collectionCommitFact: { count: jest.Mock };
   collectionPullRequestFact: { count: jest.Mock };
   collectionReleaseFact: { count: jest.Mock };
+  githubIssueHistory: { count: jest.Mock };
 }
 
 /** 기본은 "전부 깨끗한 빈 DB". 각 테스트가 필요한 것만 어긋뜨린다. */
@@ -31,7 +32,12 @@ const createDb = (): MockPrisma => ({
     groupBy: jest.fn().mockResolvedValue([]),
     findMany: jest.fn().mockResolvedValue([]),
     aggregate: jest.fn().mockResolvedValue({
-      _sum: { commitCount: 0, pullRequestCount: 0, releaseCount: 0 },
+      _sum: {
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
+        issueCount: 0,
+      },
     }),
     count: jest.fn().mockResolvedValue(0),
   },
@@ -39,6 +45,7 @@ const createDb = (): MockPrisma => ({
   collectionCommitFact: { count: jest.fn().mockResolvedValue(0) },
   collectionPullRequestFact: { count: jest.fn().mockResolvedValue(0) },
   collectionReleaseFact: { count: jest.fn().mockResolvedValue(0) },
+  githubIssueHistory: { count: jest.fn().mockResolvedValue(0) },
 });
 
 const invariantsFor = (db: MockPrisma): ContributionInvariants =>
@@ -130,6 +137,25 @@ describe('ContributionInvariants', () => {
       const report = await invariantsFor(db).check();
 
       expect(resultNamed(report, '내부 합계 정합')?.ok).toBe(false);
+    });
+
+    it('이슈 집계도 fact 건수를 넘으면 잡는다', async () => {
+      const db = createDb();
+      db.contribution.aggregate.mockResolvedValue({
+        _sum: {
+          commitCount: 0,
+          pullRequestCount: 0,
+          releaseCount: 0,
+          issueCount: 4,
+        },
+      });
+      db.githubIssueHistory.count.mockResolvedValue(1);
+
+      const report = await invariantsFor(db).check();
+
+      const result = resultNamed(report, '내부 합계 정합');
+      expect(result?.ok).toBe(false);
+      expect(result?.detail).toContain('issue 4 > fact 1');
     });
 
     it('가입자 필터 때문에 집계가 fact 보다 작은 것은 정상이다', async () => {
