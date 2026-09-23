@@ -270,7 +270,12 @@ describe('figma plugin code.js', () => {
       .filter((n: AnyNode) => n.type === 'SECTION')
       .map((n: AnyNode) => n.name);
     expect(sectionNames).toEqual(
-      expect.arrayContaining(['02 Button', '05 Dialog · Form', '07 Card']),
+      expect.arrayContaining([
+        '02 Button',
+        '05 Dialog · Form',
+        '07 Card',
+        '08 실패 · 불러오는 중',
+      ]),
     );
     expect(fake.pages).toHaveLength(3);
   });
@@ -318,8 +323,8 @@ describe('figma plugin code.js', () => {
       'Light',
       'Dark',
     ]);
-    // + 반투명 변형 7개(semantic/…@10 등)
-    expect(fake.variables.length).toBe(44 + 22 + 62 + 7);
+    // + 반투명 변형 8개(semantic/…@10 등, 실패 설명의 destructive@90 포함)
+    expect(fake.variables.length).toBe(44 + 22 + 62 + 8);
     const primary = fake.variables.find((v) => v.name === 'semantic/primary');
     const navy600 = fake.variables.find((v) => v.name === 'palette/navy/600');
     const navy300 = fake.variables.find((v) => v.name === 'palette/navy/300');
@@ -362,6 +367,7 @@ describe('figma plugin code.js', () => {
         '05 Dialog · Form',
         '06 Table',
         '07 Card',
+        '08 실패 · 불러오는 중',
       ]),
     );
     const setNamed = (name: string) =>
@@ -375,5 +381,56 @@ describe('figma plugin code.js', () => {
     expect(dialogPage?.children.map((n: AnyNode) => n.name)).toEqual(
       expect.arrayContaining(['Form/Field', 'Dialog/md', 'Dialog/lg']),
     );
+
+    // 실패 표면은 버튼 있는 것·없는 것 둘, 뼈대는 한 칸짜리 컴포넌트 하나다.
+    const failureSet = setNamed('FailureState');
+    expect(failureSet?.children.map((n: AnyNode) => n.name)).toEqual([
+      'retry=true',
+      'retry=false',
+    ]);
+    const statePage = fake.pages.find(
+      (p) => p.name === '08 실패 · 불러오는 중',
+    );
+    const block = statePage?.children.find(
+      (n: AnyNode) => n.type === 'COMPONENT' && n.name === 'SkeletonBlock',
+    );
+    expect(block?.description).toContain('animate-pulse');
+
+    // 색을 변수로 묶었는지 — 어긋난 칸이 다시 생기지 않게 값이 아니라 변수로 본다.
+    const variableId = (name: string) =>
+      fake.variables.find((v) => v.name === name)?.id;
+    const fillId = (n?: AnyNode) => n?.fills?.[0]?.boundVariables?.color?.id;
+    const text = (n?: AnyNode) =>
+      n?.findOne((c: AnyNode) => c.type === 'TEXT') as AnyNode | undefined;
+
+    // 행 제목 칸은 열 머리글과 같은 클래스다 — 회색 글자(muted-foreground)에 자간 2.5%.
+    const rowHeader = fake.pages
+      .flatMap((p) => p.children)
+      .find((n) => n.name === 'Table/RowHeaderCell');
+    expect(fillId(text(rowHeader))).toBe(
+      variableId('semantic/muted-foreground'),
+    );
+    expect(text(rowHeader)?.letterSpacing).toEqual({
+      unit: 'PERCENT',
+      value: 2.5,
+    });
+
+    // 눌린 필터 칩은 secondary 채움이다(button.tsx toggle, #1358).
+    const pressedChip = setNamed('FilterChip')?.children.find(
+      (n: AnyNode) => n.name === 'state=pressed',
+    );
+    expect(fillId(pressedChip)).toBe(variableId('semantic/secondary'));
+    expect(fillId(text(pressedChip))).toBe(
+      variableId('semantic/secondary-foreground'),
+    );
+
+    // 실패 설명은 destructive 90% — 반투명 변형 변수로 묶는다.
+    const retryVariant = failureSet?.children.find(
+      (n: AnyNode) => n.name === 'retry=true',
+    );
+    const description = retryVariant?.findOne(
+      (n: AnyNode) => n.parent?.name === 'description' && n.type === 'TEXT',
+    );
+    expect(fillId(description)).toBe(variableId('semantic/destructive@90'));
   });
 });
