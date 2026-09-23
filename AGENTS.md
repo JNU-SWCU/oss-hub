@@ -118,6 +118,7 @@ PUBLIC safety:
 | `docs/rules/ci-path-verification.md` | changed path별 required verification matrix |
 
 제품·기획 결정은 Notion Decision Log, 기술·운영 결정은 ADR, 구현 상태는 GitHub Issue/PR, secret 값은 운영 vault만 원본으로 삼는다.
+티켓과 QA 발견 목록은 GitHub Issue만 원본으로 삼고 다른 저장소에 복제하지 않는다.
 스킬 적용 범위와 runtime 로드·버전 규칙의 원본은 `docs/rules/agent-skill-routing.md`다.
 구현·티켓 발행·릴리스 QA 실행·PR 제출·코멘트는 그 표의 해당 스킬을 읽고 따르지 않으면 완료가 아니다.
 정보 질의·기획·보고만 하는 작업은 플러그인 설치·갱신, 미해당 SKILL 열람, 인터뷰를 하지 않는다.

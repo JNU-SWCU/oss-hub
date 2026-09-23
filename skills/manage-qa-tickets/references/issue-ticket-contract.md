@@ -1,35 +1,45 @@
-# Notion QA ticket contract
+# GitHub Issue QA ticket contract
 
-## Properties
+QA·작업 티켓의 원본은 GitHub Issue 하나다.
+이 문서는 그 Issue의 제목과 본문 계약이다.
+속성으로 나누던 값은 제목, 본문 섹션, label, assignee, 본문 `마감` 줄로만 남긴다.
 
-| Property | Type | Contract |
-| --- | --- | --- |
-| `QA 항목` | Title | Future rows: `QA<number>. <명령형 할 일>`. Do not rewrite existing titles. |
-| `작업 유형` | Select | One of `feat`, `fix`, `refactor`, `chore` |
-| `페르소나` | Multi-select | Any supported combination of `교직원`, `학생`, `관리자` |
-| `상태` | Status | New tickets start at `신규` |
-| `담당자` | Person | Zero or one person only |
-| `완료 여부` | Checkbox | Manual and unchecked until deployed verification passes |
-| `마감` | Date | Publication date plus the evidence-backed 1, 3, or 5 business-day tier |
-| `요청자` | Person | Defaults to the person who creates the row |
-| `요청일` | Created time | Automatic publication timestamp |
-| `재현 URL` | URL | Complete safe URL when known |
-| `증거` | Files | Safe evidence only, with no real data or personal information |
-| `GitHub Issue` | URL | 발행된 실행 Issue의 URL, 발행 전에는 비어 있음 |
+## 어디에 적나
 
-Properties are the index and assignment surface.
-The page body is the execution contract.
+| 옛 속성 | Issue |
+| --- | --- |
+| `QA 항목` | 제목. 앞으로 쓰는 형식은 `<명령형 할 일>`. 식별자는 GitHub `#번호` |
+| `문제 내용` | 본문 `## 문제` |
+| `Front URL` | 본문 `재현 URL` 줄. 안전하면 전체 URL, 없으면 `해당 없음` |
+| `확인 역할` | 본문 `페르소나` 줄. `교직원`·`학생`·`관리자` 중 증거가 있는 것만 |
+| `분류 영역` | 본문 첫 사실 줄의 `영역`. `frontend`·`backend`·`infra` 중 하나 |
+| `상태` | Issue open/closed. 새 티켓은 open으로 만든다 |
+| `담당자` | assignee 0명 또는 1명. GitHub @handle만 쓴다 |
+| `마감` | 본문 `## 우선순위와 기한`의 `마감:` 줄. 발행일 기준 1·3·5 영업일 |
+| `작업 유형` | label은 저장소에 있는 것만 단다. `feat`·`fix`·`refactor`·`chore` label은 없다 |
+| `완료 여부` | 두지 않는다. 배포 확인은 사람이 Issue를 닫는 것으로 끝낸다 |
+| `요청자`·`요청일` | 두지 않는다. Issue 작성자와 생성 시각이 그 자리다 |
+| `증거` | 본문에 첨부하거나 재현 경로로 적는다. 승인 없는 제3자 캡처는 공개 Issue에 넣지 않는다 |
+| `GitHub Issue` URL | 두지 않는다. Issue가 곧 원본이다 |
 
-## 데이터베이스 조회
+기본 label은 저장소에 있는 `ticket`이다.
+`작업 유형`은 본문 `## 작업 계약` 앞 한 줄에 `작업 유형: feat|fix|refactor|chore`로만 적고 label로 만들지 않는다.
+없는 label을 새로 만들지 않는다.
+`ticket` 외 저장소 label(`bug`, `documentation`, `enhancement`, `question` 등)은 그 의미가 증거와 맞을 때만 추가한다.
 
-`🐞 QA 요청`의 data source는 `collection://3b3583e4-660d-808b-aa59-000b87428b42`다.
+## 식별자와 중복 조회
 
-조회에서 반복해서 걸리는 것 넷을 미리 적어 둔다.
+새 티켓의 식별자는 GitHub이 부여하는 `#번호`다.
+`QA<n>`을 세거나 다음 번호를 손으로 배정하지 않는다.
+이미 있는 `QA<n>` 제목은 이 규칙으로 고치지 않는다.
 
-- `notion-fetch`의 `id`는 문자열 하나다. 배열이나 `urls`로 넘기면 요청 자체가 거부된다.
-- `notion-query-data-sources`는 인자를 `{"data": {"data_source_urls": [...], "query": "..."}}`로 한 겹 감싼다. 평평하게 넘기면 거부된다.
-- `마감` 조건은 속성 이름만으로 걸리지 않는다. `date:마감:start`로 지정한다.
-- `QA 항목` 정렬은 문자열 정렬이다. `QA99`가 `QA100`보다 뒤에 오므로 최댓값을 `ORDER BY ... DESC LIMIT n`으로 찾으면 세 자리 번호가 창 밖으로 밀려난다. 번호 범위를 `LIKE`로 좁혀 확인한다.
+중복은 열린 Issue와 닫힌 Issue를 증상·경로·역할로 검색해 가른다.
+
+```bash
+gh issue list --repo JNU-SWCU/oss-hub --state all --search "<증상 또는 경로>" --limit 50 --json number,title,state
+```
+
+같은 증상·경로·역할의 Issue가 있으면 새로 만들지 말고 그 `#번호`를 고치거나 참조한다.
 
 ## Choosing the body
 
@@ -42,19 +52,21 @@ Keep only the reproduction detail needed to understand and verify the named prob
 
 ## 제목
 
-제목은 앞으로 쓰는 티켓에만 적용한다. 이미 Notion·GitHub에 있는 `QA 항목`은 이 규칙으로 고치지 않는다.
+제목은 앞으로 쓰는 티켓에만 적용한다.
+이미 GitHub에 있는 Issue 제목은 이 규칙으로 고치지 않는다.
 
-형식은 `QA<번호>. <명령형 할 일>`이다.
+형식은 `<명령형 할 일>`이다.
+식별자는 GitHub `#번호`이며 제목에 `QA<n>`을 붙이지 않는다.
 담당자가 무엇을 해야 하는지 한국어 명령형 `~하세요`로 끝나는 한 줄이다.
-`[P1]`/`[P2]` 같은 우선순위 접두가 있으면 번호 앞에 둘 수 있고, 접두와 `QA<번호>. `를 뺀 나머지는 40자 이내를 목표로 한다.
+`[P1]`/`[P2]` 같은 우선순위 접두가 있으면 명령 앞에 둘 수 있고, 접두를 뺀 나머지는 40자 이내를 목표로 한다.
 증상은 제목이 아니라 본문 `문제`에 쓴다.
 
-- 나쁨: `QA182. 프로그램 신청과 팀 구성이 분리된 화면·흐름으로 흩어져 있어 한 번에 끝나지 않는다`
-- 좋음: `QA182. 분산된 프로그램 신청 흐름을 한 화면에서 끝내세요`
+- 나쁨: `프로그램 신청과 팀 구성이 분리된 화면·흐름으로 흩어져 있어 한 번에 끝나지 않는다`
+- 좋음: `분산된 프로그램 신청 흐름을 한 화면에서 끝내세요`
 - 나쁨: `[P1] 프로그램 신청과 팀 구성이 분리된 화면·흐름으로 흩어져 있어 한 번에 끝나지 않는다`
-- 좋음: `[P1] QA182. 분산된 프로그램 신청 흐름을 한 화면에서 끝내세요`
+- 좋음: `[P1] 분산된 프로그램 신청 흐름을 한 화면에서 끝내세요`
 
-`QA182`는 자리표시자다. 실제 번호는 현재 최댓값 다음이며, 이 예시로 기존 티켓을 찾지 않는다.
+이미 `QA<n>`이 붙은 제목은 예시로 다시 쓰지 않고 그대로 둔다.
 
 ## 여는 말
 

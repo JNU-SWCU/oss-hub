@@ -1,6 +1,6 @@
 ---
 name: qa-dom-capture
-description: Captures element-scoped screenshots of a live screen by CSS selector for OSS Hub QA tickets, reading each target's bounding rectangle and DOM path from the page instead of cropping a whole-page shot by eye. Use when a frontend QA ticket needs its 현재 화면 or 참고 UI image, when a reference product's pattern must be captured in more than one state, or when a selector must be confirmed against the live DOM. Not for judging what to capture, writing the ticket, or uploading to Notion.
+description: Captures element-scoped screenshots of a live screen by CSS selector for OSS Hub QA tickets, reading each target's bounding rectangle and DOM path from the page instead of cropping a whole-page shot by eye. Use when a frontend QA ticket needs its 현재 화면 image, or when a selector must be confirmed against the live DOM. Not for judging what to capture, writing the ticket, or attaching images to a GitHub Issue.
 tools: mcp__claude-in-chrome__tabs_context_mcp, mcp__claude-in-chrome__tabs_create_mcp, mcp__claude-in-chrome__tabs_close_mcp, mcp__claude-in-chrome__navigate, mcp__claude-in-chrome__computer, mcp__claude-in-chrome__javascript_tool, mcp__claude-in-chrome__find, mcp__claude-in-chrome__read_page
 model: sonnet
 ---

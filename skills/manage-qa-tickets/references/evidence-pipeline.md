@@ -2,7 +2,7 @@
 
 티켓 본문을 쓰기 전에 모아야 하는 증거는 세 갈래이고, 서로 입력을 주고받지 않는다.
 그래서 세 갈래를 순서대로 돌리지 않고 subagent lane으로 동시에 던진다.
-lane은 전부 읽기 전용이며, Notion 쓰기와 본문 작성은 orchestrator만 한다.
+lane은 전부 읽기 전용이며, Issue 발행과 본문 작성은 orchestrator만 한다.
 
 ## lane 구성
 
@@ -10,9 +10,9 @@ lane은 전부 읽기 전용이며, Notion 쓰기와 본문 작성은 orchestrat
 | --- | --- | --- |
 | 캡처 | [`qa-dom-capture`](../agents/qa-dom-capture.md) | 요소만 잘라낸 이미지 파일 경로, selector, DOM path, 전체 URL, 확인 시각 |
 | 코드 앵커 | [`qa-code-anchor`](../agents/qa-code-anchor.md) | `경로:줄` 형식의 시작 지점, 현재 섹션 순서, component가 실제로 받는 데이터, 관련 테스트 |
-| 중복 | orchestrator | 인접 티켓 번호와 제목, 다음 QA 번호, 중복 판정 근거 |
+| 중복 | orchestrator | 인접 Issue `#번호`와 제목, 중복 판정 근거 |
 
-중복 조회는 Notion 접근 권한을 쓰므로 orchestrator가 직접 한다.
+중복 조회는 orchestrator가 `gh issue list --search`로 증상·경로·역할을 검색해 직접 한다.
 나머지 두 lane은 읽기 전용이고 서로의 출력을 입력으로 쓰지 않으므로 동시에 띄운다.
 
 캡처 lane은 하나만 띄운다.
@@ -20,7 +20,7 @@ lane은 전부 읽기 전용이며, Notion 쓰기와 본문 작성은 orchestrat
 한 lane 안에서는 캡처를 순서대로 처리한다.
 
 `backend`나 `infra` 영역이면 캡처 lane을 띄우지 않는다.
-그 영역의 최소 증거는 [notion-ticket-contract.md](notion-ticket-contract.md)의 영역별 증거 표가 정한다.
+그 영역의 최소 증거는 [issue-ticket-contract.md](issue-ticket-contract.md)의 영역별 증거 표가 정한다.
 `backend` 로직 변경은 화면 캡처 대신 PR 제출 시 흐름 다이어그램을 요구하며, 그 기준은 [submit-pr-evidence/references/backend-diagram.md](../../submit-pr-evidence/references/backend-diagram.md)가 원본이다.
 
 ## lane에 넘길 것
@@ -52,11 +52,11 @@ lane이 돌려주는 값은 산문이 아니라 구조화된 데이터로 받는
 본문 초안이 완성되면 [`qa-fact-checker`](../agents/qa-fact-checker.md)에게 넘겨 발행 전에 검증한다.
 초안을 쓴 lane이 자기 초안을 검증하지 않는다.
 검증 대상은 문장이 아니라 주장이다 — 전제가 지금도 성립하는지, 재현 절차가 실제로 재현되는지, `경로:줄`이 그 줄에 그 내용을 담고 있는지, 이미 고쳐졌거나 이미 티켓이 있는지, 재사용하라고 쓴 component가 실제로 존재하는지.
-`REFUTED`가 하나라도 남아 있으면 그 문장을 고치기 전에 Notion에 쓰지 않는다.
+`REFUTED`가 하나라도 남아 있으면 그 문장을 고치기 전에 초안을 발행하지 않는다.
 `UNVERIFIED`는 `확인 필요`로 본문에 남기고, 확인한 것처럼 쓰지 않는다.
 
 ## orchestrator가 받은 뒤
 
 lane의 보고는 주장이지 증거가 아니다.
 파일 경로, `경로:줄`, 행 id 같은 확인 가능한 값이 없는 항목은 티켓에 옮기지 않고 `확인 필요`로 남긴다.
-세 lane이 모두 돌아온 뒤에 본문을 쓰고, 사용자 승인을 받은 다음에 Notion에 쓴다.
+세 lane이 모두 돌아온 뒤에 본문을 쓰고, 공개 안전 검사를 통과한 다음에 Issue로 발행한다.

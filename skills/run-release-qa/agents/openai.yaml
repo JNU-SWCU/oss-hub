@@ -1,4 +1,4 @@
 interface:
   display_name: 'Release QA'
   short_description: '릴리스 QA 범위를 고른 뒤 그 범위만 수행합니다'
-  default_prompt: 'Use $run-release-qa after choosing report-only, recheck, delta, or full. Report-only reads available Notion, Issue, and CI records, marks missing sources, and must not install tools, start services, or run suites. Full rerun needs explicit permission. Do not mutate product data, Issues, PRs, or Notion without approval.'
+  default_prompt: 'Use $run-release-qa after choosing report-only, recheck, delta, or full. Report-only reads GitHub Issues by #number and CI records; a legacy QA title is optional lookup, not required identity. Mark missing sources. Do not install tools, start services, or run suites in report-only. Full rerun needs explicit permission. Do not mutate product data, Issues, or PRs without approval.'
