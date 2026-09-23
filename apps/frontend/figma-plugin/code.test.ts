@@ -374,7 +374,8 @@ describe('figma plugin code.js', () => {
       fake.pages
         .flatMap((p) => p.children)
         .find((n) => n.type === 'COMPONENT_SET' && n.name === name);
-    expect(setNamed('Button')?.children).toHaveLength(7 * 5 * 3);
+    // 「누를 수 있는 면」(bare × content)은 따로 두지 않고 같은 격자를 넓혔다.
+    expect(setNamed('Button')?.children).toHaveLength(8 * 6 * 3);
     expect(setNamed('StatusBadge')?.children).toHaveLength(10);
     expect(setNamed('FilterChip')?.children).toHaveLength(3);
     const dialogPage = fake.pages.find((p) => p.name === '05 Dialog · Form');
@@ -395,6 +396,55 @@ describe('figma plugin code.js', () => {
       (n: AnyNode) => n.type === 'COMPONENT' && n.name === 'SkeletonBlock',
     );
     expect(block?.description).toContain('animate-pulse');
+
+    // 부품 목록을 통째로 고정한다 — 하나가 늘거나 이름이 바뀌면 여기서 깨진다.
+    const inventory = fake.pages
+      .flatMap((p) => p.children)
+      .filter(
+        (n: AnyNode) => n.type === 'COMPONENT_SET' || n.type === 'COMPONENT',
+      )
+      .map((n: AnyNode) => n.name)
+      .sort();
+    expect(inventory).toEqual([
+      'Button',
+      'Card',
+      'Dialog/lg',
+      'Dialog/md',
+      'FailureState',
+      'FilterChip',
+      'Form/Field',
+      'SkeletonBlock',
+      'StatusBadge',
+      'Table/Cell',
+      'Table/HeaderCell',
+      'Table/RowHeaderCell',
+    ]);
+
+    /*
+     * 버튼처럼 안 생긴 면: 표면을 칠하지 않고(fills·strokes 없음), 모서리도 44 높이도
+     * 내용에 돌려주며, 비활성이어도 흐려지지 않는다(`disabled:opacity-100`).
+     */
+    const buttonNamed = (name: string) =>
+      setNamed('Button')?.children.find((n: AnyNode) => n.name === name);
+    const bareContent = buttonNamed(
+      'variant=bare, size=content, state=disabled',
+    );
+    expect(bareContent?.fills).toEqual([]);
+    expect(bareContent?.strokes).toEqual([]);
+    expect(bareContent?.cornerRadius).toBe(0);
+    expect(bareContent?.opacity).toBe(1);
+    expect(bareContent?.height).not.toBe(44);
+    expect(
+      bareContent?.findOne((n: AnyNode) => n.type === 'TEXT')?.fontName,
+    ).toEqual({ family: 'Inter', style: 'Regular' });
+    // 같은 bare 라도 content 가 아닌 크기는 44 고정을 그대로 지킨다.
+    expect(
+      buttonNamed('variant=bare, size=default, state=disabled')?.height,
+    ).toBe(44);
+    // 표면을 칠하는 변형의 비활성은 그대로 반투명이다.
+    expect(
+      buttonNamed('variant=default, size=default, state=disabled')?.opacity,
+    ).toBe(0.5);
 
     const dialogComponent = (name: string) =>
       dialogPage?.children.find((n: AnyNode) => n.name === name);

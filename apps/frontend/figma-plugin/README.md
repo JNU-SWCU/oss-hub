@@ -23,7 +23,7 @@
 | 변수 컬렉션 「OSS Hub」 | `palette/*`(색 램프), `space/*`·`measure/*`·`fontSize/*`(치수), `semantic/*`(역할, Light·Dark 모드, primitive를 alias) |
 | 텍스트 스타일           | `text/page` 40 · `text/section` 24 · `text/body` 16 · `text/small` 13 · `text/badge` 12 · `text/table` 14              |
 | 01 Tokens               | 팔레트 견본 · 간격 척도                                                                                                |
-| 02 Button               | variant 7 × size 5 × state 3 (높이 44 고정)                                                                            |
+| 02 Button               | variant 8 × size 6 × state 3 = 144 (높이 44 고정, size=content 만 예외)                                                |
 | 03 Badge · 용어 사전    | StatusBadge 5 × 2 + 상태 어휘 표                                                                                       |
 | 04 Filter Chip          | 기본·hover·눌림 + 예시 묶음                                                                                            |
 | 05 Dialog · Form        | Dialog md(576)·lg(672), Form/Field, 오버레이 견본                                                                      |
@@ -33,6 +33,13 @@
 
 계산값(`color-mix`·`rgb(var…)`)은 흰색·기본색에 불투명도를 준 값으로 근사하고, 읽지 못한 값은
 플러그인 창의 기록에 남긴다.
+
+화면과 일부러 어긋나는 것.
+
+- **버튼처럼 안 생긴 「누를 수 있는 면」**(표 칸·달력 날짜, 코드의 `variant="bare" size="content"`)은
+  따로 만들지 않고 **기존 Button 세트를 넓혀** 같은 격자에 넣었다(7×5×3 = 105 → 8×6×3 = 144).
+  격자를 채우느라 코드에 아직 없는 조합(`default × content`, `bare × icon` 등)도 함께 그린다 —
+  쓰이는 것은 둘을 함께 쓴 `bare × content` 하나다.
 
 ## 요금제 제한
 

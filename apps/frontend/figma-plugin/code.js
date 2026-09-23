@@ -603,6 +603,12 @@ const BUTTON_SIZES = {
   xs: { padding: 12, text: 13, icon: 14 },
   lg: { padding: 32, text: 16, icon: 16 },
   icon: { padding: 0, text: 0, icon: 16 },
+  /*
+   * 크기를 바깥이 정하는 자리 — 표 칸·달력 날짜처럼 격자가 높이를 정하는 면이다.
+   * 코드는 `block h-auto rounded-none border-0 font-normal`이라 44 고정 높이·모서리·
+   * 굵은 글자를 전부 내용과 호출부에 돌려준다. 좌우 여백도 호출부 몫이라 0이다.
+   */
+  content: { padding: 0, text: 16, icon: 16, free: true },
 };
 
 const BUTTON_VARIANTS = {
@@ -637,6 +643,13 @@ const BUTTON_VARIANTS = {
     pill: true,
     hover: { fill: 'muted' },
   },
+  /*
+   * 표면을 칠하지 않는 「누를 수 있는 면」(메뉴 줄, 표 칸, 달력 날짜, 표 머리글 정렬).
+   * 배경·hover·눌림 표시를 전부 호출부가 소유하므로 여기서는 글자만 둔다.
+   * 비활성이어도 흐려지지 않는다(`disabled:opacity-100`) — 그 자리들은 못 쓰는 상태를
+   * 제 방식(회색 칸·점선)으로 말한다. 코드는 `size="content"`와 함께 쓴다.
+   */
+  bare: { text: 'foreground', hover: {}, disabledOpacity: 1 },
 };
 
 async function buttonNode(variantName, sizeName, state, label) {
@@ -652,27 +665,31 @@ async function buttonNode(variantName, sizeName, state, label) {
       gap: 8,
       padding: [0, size.padding, 0, size.padding],
       mainSizing: sizeName === 'icon' ? 'FIXED' : 'AUTO',
-      crossSizing: 'FIXED',
-      radius: variant.pill ? 999 : 8,
+      crossSizing: size.free ? 'AUTO' : 'FIXED',
+      radius: size.free ? 0 : variant.pill ? 999 : 8,
       fill: fillPath ? paintFor(fillPath, fillOpacity) : undefined,
       stroke: variant.stroke ? paintFor(variant.stroke) : undefined,
     },
   );
-  node.resize(sizeName === 'icon' ? 44 : 100, 44);
-  bindNumber(node, 'height', 'control-height');
+  // size=content 는 높이를 재지도 변수로 묶지도 않는다 — 내용이 정하는 값이다.
+  if (!size.free) {
+    node.resize(sizeName === 'icon' ? 44 : 100, 44);
+    bindNumber(node, 'height', 'control-height');
+  }
   if (sizeName === 'icon') {
     node.appendChild(await icon('pencil', size.icon, variant.text));
   } else {
     const text = await makeText(label, {
       size: size.text,
-      weight: 'semibold',
+      // content 는 `font-normal`에 `whitespace-normal`이라 굵기와 줄 간격이 본문이다.
+      weight: size.free ? 'regular' : 'semibold',
       color: variant.text,
-      lineHeight: 100,
+      lineHeight: size.free ? 150 : 100,
     });
     if (variant.underline) text.textDecoration = 'UNDERLINE';
     node.appendChild(text);
   }
-  if (state === 'disabled') node.opacity = 0.5;
+  if (state === 'disabled') node.opacity = variant.disabledOpacity ?? 0.5;
   return node;
 }
 
@@ -687,6 +704,7 @@ async function buildButtons() {
     destructive: '삭제',
     link: '자세히',
     toggle: '모집중',
+    bare: '표 칸',
   };
   for (const variantName of Object.keys(BUTTON_VARIANTS)) {
     for (const state of ['default', 'hover', 'disabled']) {
@@ -701,7 +719,7 @@ async function buildButtons() {
   const set = figma.combineAsVariants(nodes, page);
   set.name = 'Button';
   set.description =
-    '높이 44 고정(control-height). variant 7 × size 5 × state 3. 코드: components/ui/button.tsx';
+    'variant 8 × size 6 × state 3 = 144변형. 높이는 control-height 44 고정이고 size=content 만 예외로 내용이 정한다. variant=bare 는 표면을 칠하지 않아 배경·hover·눌림을 호출부가 소유한다 — 코드가 실제로 쓰는 것은 그 둘을 함께 쓴 bare × content 하나다(표 칸·달력 날짜·표 머리글 정렬). 격자를 채우느라 코드에 아직 없는 조합(default × content, bare × icon 등)도 함께 그린다. 코드: components/ui/button.tsx';
   log(`Button ${nodes.length}변형`);
   return set;
 }
