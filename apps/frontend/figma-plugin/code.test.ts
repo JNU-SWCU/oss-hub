@@ -380,7 +380,12 @@ describe('figma plugin code.js', () => {
     expect(setNamed('FilterChip')?.children).toHaveLength(3);
     const dialogPage = fake.pages.find((p) => p.name === '05 Dialog · Form');
     expect(dialogPage?.children.map((n: AnyNode) => n.name)).toEqual(
-      expect.arrayContaining(['Form/Field', 'Dialog/md', 'Dialog/lg']),
+      expect.arrayContaining([
+        'Form/Field',
+        'Dialog/md',
+        'Dialog/lg',
+        'Dialog/alert',
+      ]),
     );
 
     // 실패 표면은 버튼 있는 것·없는 것 둘, 뼈대는 한 칸짜리 컴포넌트 하나다.
@@ -408,6 +413,7 @@ describe('figma plugin code.js', () => {
     expect(inventory).toEqual([
       'Button',
       'Card',
+      'Dialog/alert',
       'Dialog/lg',
       'Dialog/md',
       'FailureState',
@@ -457,6 +463,25 @@ describe('figma plugin code.js', () => {
     const inputBox = dialogChild('Form/Field', 'input');
     expect(inputBox?.height).toBe(44);
     expect([inputBox?.paddingTop, inputBox?.paddingLeft]).toEqual([0, 16]);
+
+    // 확인창은 저장 창(576)보다 좁고, 확정 버튼이 「삭제」다. 낭독기 역할·바깥 클릭
+    // 규칙은 그림에 안 보이므로 컴포넌트 설명에 적는다.
+    const alertDialog = dialogComponent('Dialog/alert');
+    expect(alertDialog?.width).toBe(512);
+    expect(alertDialog?.description).toContain('alertdialog');
+    expect(
+      dialogChild('Dialog/alert', 'footer')?.children.map(
+        (n: AnyNode) =>
+          n.findOne((c: AnyNode) => c.type === 'TEXT')?.characters,
+      ),
+    ).toEqual(['취소', '삭제']);
+    // 저장 창은 1·2칸짜리 폼 그대로다.
+    expect(dialogChild('Dialog/md', 'body (위→아래)')?.children).toHaveLength(
+      1,
+    );
+    expect(dialogChild('Dialog/lg', 'body (위→아래)')?.children).toHaveLength(
+      2,
+    );
 
     // 색을 변수로 묶었는지 — 어긋난 칸이 다시 생기지 않게 값이 아니라 변수로 본다.
     const variableId = (name: string) =>

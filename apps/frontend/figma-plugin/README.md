@@ -26,7 +26,7 @@
 | 02 Button               | variant 8 × size 6 × state 3 = 144 (높이 44 고정, size=content 만 예외)                                                |
 | 03 Badge · 용어 사전    | StatusBadge 5 × 2 + 상태 어휘 표                                                                                       |
 | 04 Filter Chip          | 기본·hover·눌림 + 예시 묶음                                                                                            |
-| 05 Dialog · Form        | Dialog md(576)·lg(672), Form/Field, 오버레이 견본                                                                      |
+| 05 Dialog · Form        | Dialog md(576)·lg(672)·alert(512), Form/Field, 오버레이 견본                                                           |
 | 06 Table                | 머리글·본문·행 제목 셀 + 학과별 활성 표 예시                                                                           |
 | 07 Card                 | 머리(제목·설명·행 액션)·내용·바닥                                                                                      |
 | 08 실패 · 불러오는 중   | FailureState(「다시 시도」 있는 것·없는 것) · SkeletonBlock + 뼈대 예시                                                 |
@@ -40,6 +40,9 @@
   따로 만들지 않고 **기존 Button 세트를 넓혀** 같은 격자에 넣었다(7×5×3 = 105 → 8×6×3 = 144).
   격자를 채우느라 코드에 아직 없는 조합(`default × content`, `bare × icon` 등)도 함께 그린다 —
   쓰이는 것은 둘을 함께 쓴 `bare × content` 하나다.
+- **되돌릴 수 없는 일을 묻는 확인창**은 저장 창에 메모를 붙이지 않고 `Dialog/alert`로 **따로 그렸다**.
+  폭이 512(`max-w-lg`)로 좁고, 낭독기 역할(`alertdialog`)·바깥 클릭 차단·초점이 「취소」로 가는
+  것처럼 그림에 안 보이는 규칙은 컴포넌트 설명에 적어 둔다.
 
 ## 요금제 제한
 

@@ -3,8 +3,8 @@
  * OSS Hub 디자인 라이브러리 플러그인.
  *
  * 저장소의 `docs/design-tokens/tokens.json`(원본은 globals.css)과 vault 스펙 시트의 수치대로
- * Figma 변수(Light·Dark) · 텍스트 스타일 · 컴포넌트(Button · Badge · FilterChip · Dialog ·
- * Form Field · Table · Card · FailureState · SkeletonBlock)를 만든다.
+ * Figma 변수(Light·Dark) · 텍스트 스타일 · 컴포넌트(Button · Badge · FilterChip · Dialog
+ * (저장·확인) · Form Field · Table · Card · FailureState · SkeletonBlock)를 만든다.
  * 사람이 그리는 대신 코드가 그린다 — 코드가 원본이고
  * Figma는 거울이라는 design.md R-36의 연장이다.
  *
@@ -942,9 +942,41 @@ async function buttonInstance(buttonSet, variant, label, size = 'default') {
   return instance;
 }
 
-async function dialogNode(size, buttonSet, fieldComponent) {
-  const width = size === 'md' ? 576 : 672;
-  const node = component(`Dialog/${size}`, {
+/*
+ * 창 세 가지. 폭은 코드의 `max-w-*`다 — 껍데기 기본 md 는 `max-w-xl`(576), lg 는
+ * `max-w-2xl`(672)이다(dialog-shell.tsx SIZE_CLASS). 되돌릴 수 없는 일을 묻는 확인창은
+ * 호출부가 직접 좁히는데, 여섯 곳 중 다섯이 `max-w-lg`(512)이고 신청 판정 창만
+ * `max-w-md`(448)다 — 흔한 쪽인 512 로 그린다.
+ */
+const DIALOG_KINDS = {
+  md: {
+    width: 576,
+    fields: 1,
+    title: '팀 이름 변경',
+    description: '새 이름을 입력하세요.',
+    confirm: { variant: 'default', label: '저장' },
+  },
+  lg: {
+    width: 672,
+    fields: 2,
+    title: '팀 이름 변경',
+    description: '새 이름을 입력하세요.',
+    confirm: { variant: 'default', label: '저장' },
+  },
+  alert: {
+    width: 512,
+    fields: 0,
+    title: '팀을 삭제할까요?',
+    description:
+      '가팀 팀과 연결된 데이터를 삭제합니다. 이 작업은 되돌릴 수 없습니다.',
+    note: '연결된 GitHub 저장소는 삭제하지 않고 연결만 해제합니다.',
+    confirm: { variant: 'destructive', label: '삭제' },
+  },
+};
+
+async function dialogNode(kind, buttonSet, fieldComponent) {
+  const spec = DIALOG_KINDS[kind];
+  const node = component(`Dialog/${kind}`, {
     direction: 'VERTICAL',
     crossAlign: 'MIN',
     gap: 20,
@@ -954,7 +986,7 @@ async function dialogNode(size, buttonSet, fieldComponent) {
     fill: paintFor('background'),
     stroke: paintFor('border'),
   });
-  node.resize(width, 10);
+  node.resize(spec.width, 10);
   node.primaryAxisSizingMode = 'AUTO';
   node.effects = [
     {
@@ -973,31 +1005,42 @@ async function dialogNode(size, buttonSet, fieldComponent) {
     gap: 4,
   });
   head.appendChild(
-    await makeText('팀 이름 변경', { size: 18, weight: 'semibold' }),
+    await makeText(spec.title, { size: 18, weight: 'semibold' }),
   );
   head.appendChild(
-    await makeText('새 이름을 입력하세요.', {
+    await makeText(spec.description, {
       size: 13,
       color: 'muted-foreground',
     }),
   );
   node.appendChild(head);
-  const body = frame('body (위→아래 폼)', {
+  const body = frame('body (위→아래)', {
     direction: 'VERTICAL',
     crossAlign: 'MIN',
     gap: 20,
   });
   node.appendChild(body);
   body.layoutSizingHorizontal = 'FILL';
-  for (const count of size === 'lg' ? [1, 2] : [1]) {
+  for (let count = 1; count <= spec.fields; count += 1) {
     const field = fieldComponent.createInstance();
     field.name = `field ${count}`;
     body.appendChild(field);
     field.layoutSizingHorizontal = 'FILL';
   }
+  if (spec.note) {
+    const note = await makeText(spec.note, {
+      size: 13,
+      color: 'muted-foreground',
+    });
+    body.appendChild(note);
+    note.textAutoResize = 'HEIGHT';
+    note.layoutSizingHorizontal = 'FILL';
+  }
   const footer = frame('footer', { mainAlign: 'MAX', gap: 8 });
   footer.appendChild(await buttonInstance(buttonSet, 'outline', '취소'));
-  footer.appendChild(await buttonInstance(buttonSet, 'default', '저장'));
+  footer.appendChild(
+    await buttonInstance(buttonSet, spec.confirm.variant, spec.confirm.label),
+  );
   node.appendChild(footer);
   footer.layoutSizingHorizontal = 'FILL';
   return node;
@@ -1013,12 +1056,18 @@ async function buildDialogs(buttonSet) {
   page.appendChild(field);
   const md = await dialogNode('md', buttonSet, field);
   const lg = await dialogNode('lg', buttonSet, field);
+  const alert = await dialogNode('alert', buttonSet, field);
+  alert.description =
+    '되돌릴 수 없는 일을 묻는 확인창. 저장 창(576)보다 좁은 512(max-w-lg)이고(신청 판정 창만 448), 낭독기에는 `alertdialog`로 알린다. 바깥을 잘못 눌러도 닫히지 않고 Escape·취소로만 빠져나간다 — 열릴 때 초점도 본문이 아니라 「취소」에 간다. 확정 버튼은 destructive 이고, 요청이 도는 동안에는 닫기를 막는다. 코드: components/dialog-shell.tsx 의 kind="alert" (팀·프로그램 삭제, 신청 판정, 서류 재제출 등이 쓴다)';
   page.appendChild(md);
   page.appendChild(lg);
+  page.appendChild(alert);
   field.x = 0;
   md.x = 480;
   lg.x = 480;
   lg.y = md.height + 48;
+  alert.x = 480;
+  alert.y = lg.y + lg.height + 48;
   const overlay = frame('오버레이 (foreground 35%, 흐림 없음)', {
     crossSizing: 'FIXED',
     mainSizing: 'FIXED',
@@ -1028,7 +1077,7 @@ async function buildDialogs(buttonSet) {
   overlay.x = 0;
   overlay.y = field.height + 48;
   page.appendChild(overlay);
-  log('Dialog md·lg + Form/Field + 오버레이 견본');
+  log('Dialog md·lg·alert + Form/Field + 오버레이 견본');
 }
 
 // ---------- Table ----------
