@@ -23,6 +23,19 @@ function jsonResponse(value: unknown, status = 201): Response {
   });
 }
 
+const uploadPolicy = {
+  maxBytes: 5 * 1024 * 1024,
+  maxLabel: '5 MB',
+  accept: '.pdf,.hwp,.zip',
+  formatLabel: 'PDF, HWP, ZIP',
+};
+
+const currentFileDocument = {
+  id: 'document-1',
+  name: '계획서',
+  viewerSubmission: { submitted: true, hasCurrentFile: true },
+};
+
 describe('submissions api', () => {
   it.each([
     () => getSubmissionForm('program-1', 'milestone-1'),
@@ -34,9 +47,24 @@ describe('submissions api', () => {
     );
   });
 
+  it.each([
+    ['배열을 돌려주는 응답', []],
+    ['documents가 빠진 봉투', { fileUpload: uploadPolicy }],
+    ['documents가 배열이 아닌 봉투', { documents: null }],
+  ])('%s을 빈 목록으로 삼키지 않는다', async (_label, body) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(body, 200)));
+    await expect(
+      listMilestoneDocumentCurrentFiles('milestone-1'),
+    ).rejects.toThrow('Invalid milestone document list response');
+  });
+
   it('마일스톤 서류 목록과 현재 파일 endpoint에서 식별자를 모두 인코딩한다', async () => {
     // Given
-    const listResponse = jsonResponse([], 200);
+    // 응답은 배열이 아니라 봉투다 — 여기에 빈 배열을 두어 진짜 계약이 가려졌었다.
+    const listResponse = jsonResponse(
+      { documents: [currentFileDocument], fileUpload: uploadPolicy },
+      200,
+    );
     const fileResponse = new Response('current', {
       status: 200,
       headers: {
@@ -51,10 +79,11 @@ describe('submissions api', () => {
     vi.stubGlobal('fetch', request);
 
     // When
-    await listMilestoneDocumentCurrentFiles('milestone/1');
+    const documents = await listMilestoneDocumentCurrentFiles('milestone/1');
     await downloadMilestoneDocumentCurrentFile('milestone/1', 'document/1');
 
     // Then
+    expect(documents).toEqual([currentFileDocument]);
     expect(request).toHaveBeenNthCalledWith(
       1,
       apiPath('milestones/milestone%2F1/documents'),
