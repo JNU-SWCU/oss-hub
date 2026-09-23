@@ -57,17 +57,8 @@ export class StudentRepositoryUrlTransaction {
     const metadata = resolution.repository;
     const existing = await tx.githubRepository.findUnique({
       where: { githubRepositoryId: metadata.githubRepositoryId },
-      select: { id: true, applicationId: true, programId: true, teamId: true },
+      select: { id: true },
     });
-    if (
-      existing &&
-      ((existing.applicationId !== null &&
-        existing.applicationId !== context.id) ||
-        (existing.programId !== null &&
-          existing.programId !== context.programId) ||
-        (existing.teamId !== null && existing.teamId !== context.teamId))
-    )
-      throw repositoryUrlError('conflict');
     if (context.repository) {
       await tx.githubRepository.update({
         where: { id: context.repository.id },
@@ -97,8 +88,17 @@ export class StudentRepositoryUrlTransaction {
     };
     let repositoryId: string;
     if (existing) {
+      // 다른 신청이 쥐고 있거나 다른 팀의 이력을 든 저장소는 가져오지 않는다.
+      // 읽은 뒤에 다른 요청이 바꿔도 같은 UPDATE가 최신 행으로 다시 판정한다.
       const result = await tx.githubRepository.updateMany({
-        where: { id: existing.id, applicationId: null },
+        where: {
+          id: existing.id,
+          applicationId: null,
+          AND: [
+            { OR: [{ programId: null }, { programId: context.programId }] },
+            { OR: [{ teamId: null }, { teamId: context.teamId }] },
+          ],
+        },
         data,
       });
       if (result.count !== 1) throw repositoryUrlError('conflict');

@@ -344,6 +344,94 @@ it('rejects a repository carrying another program history without detaching the 
   ).toBe(0);
 });
 
+it('rejects another team history that lands on the target after it was read', async () => {
+  // Given: B는 읽을 때 비어 있지만, 이 요청이 A를 떼려고 기다리는 사이 다른 팀이
+  // B를 거쳐 가서 그 팀의 programId·teamId가 남는다.
+  const otherProgramId = `${programId}-race`;
+  const otherTeamId = `${teamId}-race`;
+  const { id: leaderId } = await prisma.user.findUniqueOrThrow({
+    where: { githubId },
+  });
+  await prisma.program.create({
+    data: {
+      id: otherProgramId,
+      name: 'Synthetic race program',
+      organizer: 'Synthetic',
+      category: 'BASIC',
+      applicationTemplateKey: 'basic',
+      applicationTemplateVersion: 1,
+      applicationStartAt: new Date('2026-01-01'),
+      applicationEndAt: new Date('2026-01-31'),
+      description: 'Synthetic',
+    },
+  });
+  await prisma.team.create({
+    data: {
+      id: otherTeamId,
+      programId: otherProgramId,
+      name: 'Synthetic race team',
+      joinCodeDigest: `${otherTeamId}-digest`,
+      leaderId,
+    },
+  });
+  let reportLocked!: () => void;
+  let release!: () => void;
+  const locked = new Promise<void>((resolve) => {
+    reportLocked = resolve;
+  });
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const otherTeam = prisma.$transaction(async (transaction) => {
+    await transaction.$queryRaw`SELECT "id" FROM "GithubRepository" WHERE "id" = ${oldId} FOR UPDATE`;
+    reportLocked();
+    await released;
+    await transaction.githubRepository.update({
+      where: { id: targetId },
+      data: { programId: otherProgramId, teamId: otherTeamId },
+    });
+  });
+  await locked;
+  // When
+  const relink = service.updateMine(githubId, programId, input).then(
+    () => 'linked',
+    (error: unknown) => error,
+  );
+  await waitForGithubRepositoryUpdateWaiter();
+  release();
+  await otherTeam;
+  // Then
+  expect(await relink).toMatchObject({ errorCode: { code: 'APP_029' } });
+  expect(
+    await prisma.githubRepository.findUnique({ where: { id: targetId } }),
+  ).toMatchObject({
+    applicationId: null,
+    programId: otherProgramId,
+    teamId: otherTeamId,
+  });
+  expect(
+    await prisma.githubRepository.findUnique({ where: { id: oldId } }),
+  ).toMatchObject({ applicationId });
+  expect(
+    await prisma.auditLog.count({ where: { targetId: applicationId } }),
+  ).toBe(0);
+});
+
+async function waitForGithubRepositoryUpdateWaiter(): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const rows = await prisma.$queryRaw<readonly { waiting: bigint }[]>`
+      SELECT COUNT(*) AS waiting
+      FROM pg_stat_activity
+      WHERE datname = current_database()
+        AND wait_event_type = 'Lock'
+        AND query LIKE '%UPDATE%"GithubRepository"%'
+    `;
+    if ((rows[0]?.waiting ?? 0n) > 0n) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error('Expected the relink to wait on the current repository row.');
+}
+
 it('lets the original applicant read but rejects writes after leadership changes', async () => {
   const successor = await prisma.user.create({
     data: { githubId: targetGithubId + 5n, nickname: 'synthetic-successor' },
