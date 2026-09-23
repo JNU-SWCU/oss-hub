@@ -269,7 +269,7 @@ describe('CollectionAppTokenProvider', () => {
         .mockResolvedValueOnce(
           json({
             ...access,
-            permissions: { ...access.permissions, issues: 'read' },
+            permissions: { ...access.permissions, issues: 'write' },
           }),
         ),
       () => Date.parse('2026-01-01T00:00:00Z'),
@@ -278,6 +278,21 @@ describe('CollectionAppTokenProvider', () => {
     await expect(provider.getToken()).rejects.toMatchObject({
       safeReason: 'PERMISSIONS',
     });
+  });
+
+  it('accepts the optional Issues read permission so granting it does not halt collection', async () => {
+    const withIssues = { ...installation.permissions, issues: 'read' };
+    const provider = new CollectionAppTokenProvider(
+      { ...config, privateKey },
+      fetchMock()
+        .mockResolvedValueOnce(
+          json({ ...installation, permissions: withIssues }),
+        )
+        .mockResolvedValueOnce(json({ ...access, permissions: withIssues })),
+      () => Date.parse('2026-01-01T00:00:00Z'),
+    );
+
+    await expect(provider.getToken()).resolves.toBe('installation-token');
   });
   const invalidInstallations: ReadonlyArray<
     readonly [unknown, CollectionAppTokenError['safeReason']]
@@ -301,14 +316,28 @@ describe('CollectionAppTokenProvider', () => {
     [
       {
         ...installation,
-        permissions: { ...installation.permissions, issues: 'read' },
+        permissions: { ...installation.permissions, issues: 'write' },
+      },
+      'PERMISSIONS',
+    ],
+    [
+      {
+        ...installation,
+        permissions: { ...installation.permissions, administration: 'read' },
+      },
+      'PERMISSIONS',
+    ],
+    [
+      {
+        ...installation,
+        permissions: { metadata: 'read', contents: 'read', issues: 'read' },
       },
       'PERMISSIONS',
     ],
   ];
 
   it.each(invalidInstallations)(
-    'rejects invalid organization identity, selection, and non-exact permissions',
+    'rejects invalid organization identity, selection, and permissions outside the allowlist',
     async (invalid, safeReason) => {
       const provider = new CollectionAppTokenProvider(
         { ...config, privateKey },
