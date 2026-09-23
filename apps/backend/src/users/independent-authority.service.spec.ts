@@ -140,6 +140,54 @@ it('rejects revoking the final active admin', async () => {
   expect(store.updates).toHaveLength(0);
 });
 
+/**
+ * #1382 — 자기 관리자 접근 회수는 성공하는 순간 호출자가 이 화면을 읽을 권한까지
+ * 잃는다. 계정 상태 쪽 `ROL_017`과 같은 자리의 거절이며, 활성 관리자가 둘 이상이라
+ * `ROL_018`이 걸리지 않는 상태에서만 이 가드가 답한다.
+ */
+it('rejects revoking the actor own admin access', async () => {
+  const store = new AuthorityStore();
+  store.activeAdminCount = 3;
+  store.target = target({
+    id: 'actor',
+    hasAdminAccess: true,
+    hasStaffAccess: true,
+    role: 'ADMIN',
+  });
+  const service = new IndependentAuthorityService(store, noopAuditLog());
+
+  await expect(
+    service.patchAdminAccess(actorGithubId, 'actor', {
+      command: ADMIN_ACCESS_COMMANDS.REVOKE,
+    }),
+  ).rejects.toMatchObject({
+    errorCode: {
+      code: RolesErrorCode.SELF_ADMIN_REVOKE_FORBIDDEN,
+      status: 409,
+    },
+  });
+  expect(store.updates).toHaveLength(0);
+});
+
+it('still allows the actor to revoke their own staff access', async () => {
+  const store = new AuthorityStore();
+  store.activeAdminCount = 3;
+  store.target = target({
+    id: 'actor',
+    hasAdminAccess: true,
+    hasStaffAccess: true,
+    role: 'ADMIN',
+  });
+  const service = new IndependentAuthorityService(store, noopAuditLog());
+
+  await expect(
+    service.patchStaffAccess(actorGithubId, 'actor', {
+      command: STAFF_ACCESS_COMMANDS.REVOKE,
+    }),
+  ).resolves.toMatchObject({ hasStaffAccess: false, hasAdminAccess: true });
+  expect(store.updates).toHaveLength(1);
+});
+
 function noopAuditLog() {
   return { record: jest.fn().mockResolvedValue({}) };
 }
