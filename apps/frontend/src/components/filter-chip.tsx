@@ -9,14 +9,14 @@ import { cn } from '@/lib/utils';
  * 필터·세그먼트 칩 묶음.
  *
  * 칩은 눌림을 `aria-pressed`로 말하는 Button(`toggle` 변형)이고, 묶음은 `role="group"`과
- * `aria-label`로 무엇을 거르는지 말한다. 화살표 좌우·Home·End로 칩 사이를 옮긴다 —
- * 제출 단계 이동 한 곳에만 있던 동작을 모든 사용처가 갖는다.
+ * 이름으로 무엇을 거르는지 말한다. 이름은 `aria-label` 문자열이나 보이는 제목을 가리키는
+ * `aria-labelledby` 중 하나로 주며, 둘 중 하나는 반드시 있어야 한다. 화살표 좌우·Home·End로
+ * 칩 사이를 옮긴다 — 제출 단계 이동 한 곳에만 있던 동작을 모든 사용처가 갖는다.
  * 둥근 알약이지만 읽기 전용 StatusBadge(h-tag 26px·앞의 점·테두리 없음)와 달리 44px 높이에
  * 테두리가 있어 누르는 것임이 보인다(R-31).
  */
-export interface FilterChipGroupProps extends React.ComponentProps<'div'> {
-  readonly 'aria-label': string;
-}
+export type FilterChipGroupProps = React.ComponentProps<'div'> &
+  ({ readonly 'aria-label': string } | { readonly 'aria-labelledby': string });
 
 const CHIP_SELECTOR = 'button[data-variant="toggle"]:not(:disabled)';
 

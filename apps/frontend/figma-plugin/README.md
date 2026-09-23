@@ -11,7 +11,7 @@
 2. 메뉴 Plugins → Development → **Import plugin from manifest…** → 이 폴더의 `manifest.json`.
 3. Plugins → Development → 「OSS Hub 디자인 라이브러리」 실행 → tokens.json 주소를 확인하고
    **만들기**. 기본 주소는 `main` 브랜치이며, 병합 전에는 브랜치 주소로 바꾼다.
-4. 페이지 `00 Cover` ~ `07 Card`를 연다.
+4. 페이지 `00 Cover` ~ `08 실패 · 불러오는 중`을 연다.
 
 폰트는 Pretendard Variable → Pretendard → Inter 순으로 있는 것을 쓴다. Pretendard가 없으면
 `brew install --cask font-pretendard` 뒤 Figma를 다시 연다.
@@ -29,6 +29,7 @@
 | 05 Dialog · Form        | Dialog md(576)·lg(672), Form/Field, 오버레이 견본                                                                      |
 | 06 Table                | 머리글·본문·행 제목 셀 + 학과별 활성 표 예시                                                                           |
 | 07 Card                 | 머리(제목·설명·행 액션)·내용·바닥                                                                                      |
+| 08 실패 · 불러오는 중   | FailureState(「다시 시도」 있는 것·없는 것) · SkeletonBlock + 뼈대 예시                                                 |
 
 계산값(`color-mix`·`rgb(var…)`)은 흰색·기본색에 불투명도를 준 값으로 근사하고, 읽지 못한 값은
 플러그인 창의 기록에 남긴다.
@@ -38,7 +39,9 @@
 Starter(무료) 요금제는 변수 컬렉션당 모드 1개, 파일당 페이지 3개까지다. 플러그인은 그 제한에
 맞춰 다크 값을 「OSS Hub Dark」 컬렉션에 따로 두고, 페이지를 더 못 만들면 남은 부품을 한
 페이지(「라이브러리 (OSS Hub)」)의 섹션으로 나눈다. Professional 이상에서는 같은 컬렉션의
-Dark 모드와 페이지 8개로 만든다. 2026-09-19 Starter 계정에서 끝까지 실행해 확인했다.
+Dark 모드와 페이지 9개로 만든다. 2026-09-19 Starter 계정에서 끝까지 실행해 확인했고, 그때
+구성은 8페이지였다 — 08 페이지가 늘어난 뒤의 Starter 분기는 `pageLimit` 단위 테스트로만
+확인했다.
 
 ## 검증
 

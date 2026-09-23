@@ -49,14 +49,20 @@ export function RepositoryUrlCancelButton({
                 수정한 저장소 URL과 변경 사유가 저장되지 않습니다.
               </AlertDialog.Description>
               <div className="flex flex-wrap justify-end gap-2">
+                <AlertDialog.Cancel asChild>
+                  <Button type="button" variant="outline">
+                    이어서 수정하기
+                  </Button>
+                </AlertDialog.Cancel>
                 <AlertDialog.Action asChild>
-                  <Button type="button" variant="outline" onClick={onDiscard}>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={onDiscard}
+                  >
                     변경사항 버리기
                   </Button>
                 </AlertDialog.Action>
-                <AlertDialog.Cancel asChild>
-                  <Button type="button">이어서 수정하기</Button>
-                </AlertDialog.Cancel>
               </div>
             </CardContent>
           </Card>

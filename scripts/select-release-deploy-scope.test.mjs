@@ -28,7 +28,7 @@ test('backend 소스만 바뀐 릴리스는 backend 만 배포한다', () => {
 test('배포 산출물을 바꾸지 않는 릴리스는 어느 쪽도 배포하지 않는다', () => {
   const scope = selectReleaseDeployScope([
     'docs/decisions/ADR-002-CI-CD-파이프라인.md',
-    'docs/handoff/team-state/GoBeromsu.md',
+    'docs/onboarding.md',
     '.github/pull_request_template.md',
     'skills/run-release-qa/SKILL.md',
   ]);

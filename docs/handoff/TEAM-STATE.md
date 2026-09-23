@@ -1,8 +1,10 @@
-# TEAM-STATE — 멤버 저널 인덱스
+# TEAM-STATE — 동결된 멤버 저널 인덱스
 
-진행 상태의 원본은 GitHub Issue·PR이다.
-이 파일은 인덱스만 두고, 작업 기록은 작성자 저널에만 남긴다.
-쓰기 규칙은 루트 [AGENTS.md](../../AGENTS.md) §3이 원본이다.
+이 디렉터리는 더 이상 갱신하지 않는다.
+구현 상태의 원본은 GitHub Issue/PR이며, 작업자와 변경 이력은 Issue와 commit 자체로 추적한다.
+멤버끼리 서로의 작업 상태를 별도 저널로 작성·확인할 의무를 두지 않는다.
+같은 정보를 TEAM-STATE에 다시 기록하면 원본과 어긋난 stale 정보가 남을 위험이 있으므로 유지 절차를 폐기한다.
+아래 링크는 2026-09-23에 동결한 이력이다.
 
 | 작성자 | 저널 |
 | --- | --- |
@@ -10,22 +12,7 @@
 | @Lumiere001 | [team-state/Lumiere001.md](team-state/Lumiere001.md) |
 | @Geuin04 | [team-state/Geuin04.md](team-state/Geuin04.md) |
 | @jinsol1190-rgb | [team-state/jinsol1190-rgb.md](team-state/jinsol1190-rgb.md) |
+| Codex | [team-state/Codex.md](team-state/Codex.md) |
 
-없는 핸들은 `docs/handoff/team-state/<핸들>.md`를 새로 만든다.
-2026-08-20 이전 공유 스냅샷은 [TEAM-STATE.archive.md](TEAM-STATE.archive.md)에 동결돼 있고 더 이상 고치지 않는다.
-
-## 항목 형식
-
-자기 저널 **맨 끝**에만 붙인다. 옛 항목은 고치지 않는다.
-
-```markdown
-## 2026-08-20 — 짧은 제목
-
-- 상태: review
-- Issue: -
-- PR: (이 PR)
-- blocker: 없음
-```
-
-`상태`는 `planned` / `active` / `blocked` / `review` / `done`이다.
-같은 기능의 상태 전이는 행을 고치지 않고 새 항목을 붙인다. 현재 상태는 같은 Issue·PR(없으면 제목)의 마지막 항목이다.
+없는 핸들의 저널을 새로 만들지 않는다.
+2026-08-20 이전 공유 스냅샷은 [TEAM-STATE.archive.md](TEAM-STATE.archive.md)에 동결돼 있다.

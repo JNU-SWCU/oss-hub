@@ -4,6 +4,7 @@ import {
   BoardListContent,
   type BoardListContentProps,
 } from './board-list-view';
+import { openingTag, textOf } from './field-error-test-support';
 import type { BoardPostSummary } from '../types';
 
 const posts: readonly BoardPostSummary[] = [
@@ -41,7 +42,9 @@ function baseProps(
     newPostTitle: '',
     newPostBody: '',
     newPostSubmitting: false,
-    newPostError: null,
+    newPostErrors: { title: null, body: null },
+    newPostShowFieldErrors: false,
+    newPostSubmitError: null,
     onToggleNewPost: () => {},
     onTitleChange: () => {},
     onBodyChange: () => {},
@@ -149,16 +152,78 @@ describe('BoardListContent', () => {
     expect(html).toContain('취소');
   });
 
-  it('새 글 작성 중 에러 메시지를 보여준다', () => {
+  it('입력 누락은 그 칸 바로 아래에 붙고 칸이 오류 상태가 된다', () => {
     const html = renderToStaticMarkup(
       <BoardListContent
         {...baseProps({
           newPostOpen: true,
-          newPostError: '제목을 입력해 주세요.',
+          newPostErrors: {
+            title: '제목을 입력해 주세요.',
+            body: '내용을 입력해 주세요.',
+          },
+          newPostShowFieldErrors: true,
         })}
       />,
     );
-    expect(html).toContain('제목을 입력해 주세요.');
+
+    // 문구가 화면 어딘가에 있는 것으로는 부족하다 — 그 칸이 가리키는 요소에 있어야
+    // 낭독기가 칸 이름 뒤에 이유를 읽는다.
+    const title = openingTag(html, 'board-new-post-title');
+    expect(title).toContain('aria-invalid="true"');
+    expect(title).toContain('aria-describedby="board-new-post-title-error"');
+    expect(textOf(html, 'board-new-post-title-error')).toBe(
+      '제목을 입력해 주세요.',
+    );
+
+    const body = openingTag(html, 'board-new-post-body');
+    expect(body).toContain('aria-invalid="true"');
+    expect(body).toContain('aria-describedby="board-new-post-body-error"');
+    expect(textOf(html, 'board-new-post-body-error')).toBe(
+      '내용을 입력해 주세요.',
+    );
+  });
+
+  it('한 번 누르기 전에는 빈 칸을 빨갛게 칠하지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <BoardListContent
+        {...baseProps({
+          newPostOpen: true,
+          newPostErrors: {
+            title: '제목을 입력해 주세요.',
+            body: '내용을 입력해 주세요.',
+          },
+          newPostShowFieldErrors: false,
+        })}
+      />,
+    );
+    expect(openingTag(html, 'board-new-post-title')).not.toContain(
+      'aria-invalid="true"',
+    );
+    expect(html).not.toContain('제목을 입력해 주세요.');
+  });
+
+  it('서버가 거절한 실패는 경고 상자에만 남고 칸은 오류 상태가 아니다', () => {
+    const html = renderToStaticMarkup(
+      <BoardListContent
+        {...baseProps({
+          newPostOpen: true,
+          newPostTitle: '제목 초안',
+          newPostBody: '내용 초안',
+          newPostShowFieldErrors: true,
+          newPostSubmitError: '이 프로그램 게시판에 접근할 권한이 없습니다.',
+        })}
+      />,
+    );
+
+    expect(html).toContain('data-slot="alert"');
+    expect(html).toContain('이 프로그램 게시판에 접근할 권한이 없습니다.');
+    expect(openingTag(html, 'board-new-post-title')).not.toContain(
+      'aria-invalid="true"',
+    );
+    expect(openingTag(html, 'board-new-post-body')).not.toContain(
+      'aria-invalid="true"',
+    );
+    expect(html).not.toContain('data-slot="field-error"');
   });
 
   it('총 개수가 페이지 크기를 넘으면 페이지네이션을 보여준다', () => {

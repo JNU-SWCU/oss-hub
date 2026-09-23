@@ -35,7 +35,6 @@ OSS Hub는 오픈소스 프로그램 탐색·신청·제출·리뷰, 역할 기�
 | `scripts` | CI contract, local integration, diagnostics, deploy helpers; `scripts/AGENTS.md` 적용 |
 | `docs/decisions` | 기술·운영 결정의 canonical ADR |
 | `docs/rules` | security, frontend, local-dev, data-modeling, CI path 규칙 |
-| `docs/handoff/team-state` | GitHub handle별 append-only 작업 저널 |
 | `skills` | repo-owned skill 원본; runtime 디렉터리(.codex/.claude/.cursor/.gjc)는 여기를 가리키는 symlink만 둔다 |
 | `.github/workflows` | required CI와 public-safe 실행 경계 |
 | `deploy`, `compose*.yml`, `Jenkinsfile` | nginx, local/production container, release deploy 계약 |
@@ -91,8 +90,6 @@ Ownership과 협업 규칙:
 - shared lib·설정·CI는 착수 전 Issue로 선점하고 독립 소형 PR로 다룬다.
   DB migration PR은 동시에 진행하지 않는다.
 - PR은 Ready로 열며 stack 하위 PR만 base가 미병합 상위 branch인 동안 Draft를 허용한다.
-- PR 전 자기 `docs/handoff/team-state/<handle>.md` 끝에 새 항목을 추가한다.
-  과거 항목, 다른 사람 저널, `TEAM-STATE.archive.md`를 수정하지 않는다.
 - commit/push/PR 절차는 `docs/rules/pr-scope.md`와 ADR-005를 따른다.
   병합 판단의 원본은 required `ci`·`public-safe` 결과와 GitHub mergeable 상태다.
 
@@ -119,7 +116,6 @@ PUBLIC safety:
 | `.github/workflows/ci.yml` | always-created required checks와 inner path-selective lanes |
 | `Jenkinsfile` | stable GitHub Release → exact main SHA production deployment |
 | `docs/rules/ci-path-verification.md` | changed path별 required verification matrix |
-| `docs/handoff/TEAM-STATE.md` | journal index and append format; status source is GitHub Issue/PR |
 
 제품·기획 결정은 Notion Decision Log, 기술·운영 결정은 ADR, 구현 상태는 GitHub Issue/PR, secret 값은 운영 vault만 원본으로 삼는다.
 티켓과 QA 발견 목록은 GitHub Issue만 원본으로 삼고 다른 저장소에 복제하지 않는다.

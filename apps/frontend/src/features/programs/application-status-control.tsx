@@ -48,7 +48,7 @@ export function ApplicationStatusControl({
         data-status={value}
         data-variant={APPLICATION_STATUS_BADGE[value]}
         className={cn(
-          'h-tag w-full min-w-0 cursor-pointer appearance-none py-0 pr-7 pl-2.5',
+          'w-full min-w-0 cursor-pointer appearance-none py-0 pr-7 pl-2.5',
           'rounded-full border-transparent text-xs font-semibold',
           'focus-visible:border-ring disabled:bg-input/50',
           STATUS_SURFACE[value],
