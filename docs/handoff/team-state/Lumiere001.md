@@ -1453,6 +1453,17 @@
 - 남은 것: Figma 파일은 병합 뒤 데스크톱에서 플러그인(`apps/frontend/figma-plugin`)을 다시 실행해야 갱신된다.
 - 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.
 
+## 2026-09-23 — 서류 현황 빠른 필터를 공용 필터 칩으로 옮긴다
+
+- 상태: review
+- Issue: #1367
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 「필수 서류 제출 상태」 빠른 필터 다섯 개가 `Button` 변형(`secondary`/`ghost`)을 손으로 골라 그려서, 고르지 않은 칩은 테두리 색이 투명해 글자만 떠 있었고 화살표·Home·End 로 칩 사이를 옮길 수도 없었다. R-34 대로 `FilterChipGroup`·`FilterChip` 으로 옮긴다. 공용 묶음이 이름을 `aria-label` 문자열로만 받게 타입이 잡혀 있어 이 줄이 쓰는 `aria-labelledby`(보이는 제목 `<p>` 가리키기)를 넘길 수 없었으므로, `FilterChipGroupProps` 를 「`aria-label` 과 `aria-labelledby` 중 하나는 필수」인 합집합 타입으로 넓혔다(동규 결정 A). 실행 동작은 그대로라 기존 사용처 여덟 곳은 한 줄도 안 고쳤다.
+- 검증: 격리 스택에서 같은 selector(`[role="group"][aria-labelledby]`)로 1440·768·390 전후를 찍었고, 찍기 전에 같은 로케이터에서 `data-slot="filter-chip-group"`·`data-variant="toggle"` 5개·`ghost` 0개를 단언해 화면에 실제로 새 코드가 그려진 것을 확인했다. 키보드는 정지 화면으로 못 보여 줘서 같은 실행에서 글로 남겼다 — Before 는 화살표·Home·End 에 초점이 아예 안 움직이고 After 는 다섯 칩을 건너가며 양끝에서 감긴다. frontend 단위 377 파일·3754 건, lint(경고 5·오류 0)·typecheck·바꾼 3파일 prettier 통과. 로컬 브라우저 회귀 35 스펙 104 건 통과(건너뛴 것 0·실패 0) — 실행 로그에 찍힌 스펙 목록과 `apps/frontend/e2e/*.spec.ts` 35 개를 맞춰 봐서 안 돈 파일이 0 개임을 확인했고, 바뀐 화면을 실제로 여는 스펙은 `program-authoring-document-flow.spec.ts` 하나다.
+- 주의: ① 칩 폭이 좌우 여백 12→16px 과 테두리 때문에 하나당 8px 씩 넓어진다. 390px 에서 줄이 더 접힐 줄 알았는데 첫 줄 셋의 합이 간격 포함 321px 라 342px 폭에 그대로 들어간다 — 전후 모두 3+2 두 줄, 묶음 높이 124px 로 같다. 라벨 글자가 길어지면 이 여유가 먼저 사라진다. ② 새 단언은 화면의 `aria-pressed` 버튼 개수를 세지 않고 다섯 라벨로 칩을 고른다 — 같은 렌더 HTML 에 「볼 제출 단계」 칩도 눌림 토글로 들어 있어 개수로 세면 고친 뒤에도 실패한다. ③ 이 단언은 칩이 `toggle` 인지만 본다. 묶음을 손수 짠 `<div role="group">` 으로 되돌려도 통과하고 화살표 이동만 조용히 깨진다 — `submission-matrix-controls.test.tsx` 에 `dataset.slot === 'filter-chip-group'` 한 줄을 더하면 막힌다. ④ 공용 묶음은 roving tabindex 가 아니라 다섯 칩이 모두 탭 순서에 남는다. 나머지 여덟 사용처와 같은 기존 동작이라 이 티켓에서는 안 건드렸다.
+- 남은 것: `docs/design.md` FilterChip 카드의 Slots·Props 한 줄(「`aria-label` 또는 `aria-labelledby` 중 하나 필수」)은 #1360 이 같은 파일을 열어 둬서 이 PR 에 없다. #1360 병합 뒤 별도 커밋으로 넣어야 티켓의 할 일이 닫힌다(그 줄은 병합 후 ~494 행으로 밀린다). 낭독기로 묶음 이름과 「눌림」을 듣는 확인, 배포 뒤 키보드·390px 재확인은 사람 몫이다.
+- 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음. 캡처는 합성 시드 값(전체 팀 1 · 미제출 있는 팀 1)뿐이다.
 ## 2026-09-21 — QA174 이행기 코드를 걷는다
 
 - 상태: review
