@@ -529,6 +529,29 @@ describe('figma plugin code.js', () => {
         (n: AnyNode) => n.properties.variant,
       ),
     ).toEqual(['outline', 'default']);
+    /*
+     * 큰 배지는 코드 값 그대로다 — 최소 폭 96(`min-w-24`)과 글자 16px 만 lg 가 더하고,
+     * 높이 26 은 기본 클래스라 lg 가 덮지 않는다. 내용에 맞춰 늘리면 거울이 다시 어긋난다.
+     */
+    const badgeNamed = (name: string) =>
+      setNamed('StatusBadge')?.children.find((n: AnyNode) => n.name === name);
+    const badgeLarge = badgeNamed('variant=recruiting, size=lg');
+    expect([badgeLarge?.height, badgeLarge?.minWidth]).toEqual([26, 96]);
+    expect(badgeLarge?.counterAxisSizingMode).toBe('FIXED');
+    const badgeLargeText = badgeLarge?.findOne(
+      (n: AnyNode) => n.type === 'TEXT',
+    );
+    expect([badgeLargeText?.fontSize, badgeLargeText?.lineHeight]).toEqual([
+      16,
+      { unit: 'PERCENT', value: 150 },
+    ]);
+    // 기본 크기는 12px 글자에 133.3% 그대로이고 최소 폭이 없다.
+    const badgeDefault = badgeNamed('variant=recruiting, size=default');
+    expect([badgeDefault?.height, badgeDefault?.minWidth]).toEqual([
+      26,
+      undefined,
+    ]);
+
     // 저장 창은 1·2칸짜리 폼 그대로다.
     expect(dialogChild('Dialog/md', 'body (위→아래)')?.children).toHaveLength(
       1,

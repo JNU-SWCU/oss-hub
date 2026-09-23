@@ -741,16 +741,22 @@ async function badgeNode(variantName, sizeName) {
     mainAlign: 'CENTER',
     gap: 6,
     // 좌우 10 = 코드 기본 `px-2.5`. 12px 글자에 8은 너무 빡빡하다(동규 2026-09-19).
+    // lg 는 `px-4 py-2`라 좌우 16 · 위아래 8이다.
     padding: large ? [8, 16, 8, 16] : [0, 10, 0, 10],
     mainSizing: 'AUTO',
-    crossSizing: large ? 'AUTO' : 'FIXED',
+    crossSizing: 'FIXED',
     radius: 999,
     fill: paintFor(`status.${variantName}.bg`),
   });
-  if (!large) {
-    node.resize(60, 26);
-    bindNumber(node, 'height', 'tag-height');
-  }
+  /*
+   * 높이 26(tag-height)은 기본 클래스에 있고 lg 가 덮지 않으므로 두 크기가 같다.
+   * lg 가 더하는 것은 `min-w-24`(96) 하나다. 위아래 여백 8 + 글자 한 줄 24 = 40 이
+   * 26 에 들어가지 않아 lg 는 글자가 여백을 파고든 모양이 된다 — 코드가 브라우저에서
+   * 그렇게 그려지므로 거울도 그대로 둔다. 코드 쪽을 고칠지는 별도 티켓이다.
+   */
+  node.resize(large ? 96 : 60, 26);
+  bindNumber(node, 'height', 'tag-height');
+  if (large) node.minWidth = 96;
   const dot = figma.createEllipse();
   dot.name = 'dot';
   dot.resize(6, 6);
@@ -761,8 +767,8 @@ async function badgeNode(variantName, sizeName) {
       size: large ? 16 : 12,
       weight: 'semibold',
       color: `status.${variantName}.fg`,
-      // text-badge 의 줄 간격 16px = 133.3% (TEXT_STYLES 의 text/badge 와 같다)
-      lineHeight: 133.3,
+      // 기본은 text-badge 12px/16px = 133.3%, lg 는 `text-base` 16px/24px = 150%다.
+      lineHeight: large ? 150 : 133.3,
     }),
   );
   return node;
@@ -808,7 +814,7 @@ async function buildBadges() {
   const set = figma.combineAsVariants(nodes, page);
   set.name = 'StatusBadge';
   set.description =
-    '높이 26(tag-height). 색·글자·점 세 신호. 코드: components/status-badge.tsx, 어휘: lib/status-vocabulary';
+    '높이 26(tag-height)은 두 크기가 같다 — lg 가 더하는 것은 글자 16px(줄 간격 150%) · 좌우 여백 16 · 최소 폭 96뿐이다. 그래서 lg 는 글자가 위아래 여백을 파고든다(코드가 브라우저에서 그리는 모양 그대로이고, 지금 이 크기를 쓰는 화면은 0곳이다). 색·글자·점 세 신호. 코드: components/status-badge.tsx, 어휘: lib/status-vocabulary';
 
   const sheet = frame('용어 사전 — 같은 상태는 같은 말·같은 색', {
     direction: 'VERTICAL',
