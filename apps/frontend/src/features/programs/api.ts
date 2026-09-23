@@ -1,5 +1,4 @@
 import { ApiError, apiClient } from '@/lib/api-client';
-import { absentAsNull } from '@/lib/absent-as-null';
 import { PROGRAM_EDIT_ERROR_CODES } from './program-edit-error-codes';
 import type { ProgramTrackType } from './program-templates';
 import { parseStaffDashboardSummary } from './staff-dashboard-parser';
@@ -516,9 +515,6 @@ function parseProgramTeam(value: unknown): ProgramTeam {
   };
 }
 
-/** 옛 백엔드가 「내 팀 없음」에 쓰던 코드. `absentAsNull` 주석 참고 — 이행기 전용이다. */
-const LEGACY_NO_TEAM_CODE = 'TEAM_010';
-
 /**
  * 소속된 팀이 없으면 `null`이다 — 「아직 팀이 없음」은 오류가 아니다(QA174 / #1303).
  * 학생이 아니거나 프로그램 자체가 없으면 여전히 거절된다.
@@ -528,7 +524,7 @@ export async function getMyTeam(
 ): Promise<ProgramTeam | null> {
   const body = await apiClient<unknown>(
     `programs/${encodeURIComponent(programId)}/teams/me`,
-  ).catch(absentAsNull(LEGACY_NO_TEAM_CODE));
+  );
   return body === null ? null : parseProgramTeam(body);
 }
 
