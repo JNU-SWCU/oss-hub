@@ -1,7 +1,7 @@
 # TEAM-STATE — 동결된 스냅샷 (2026-08-20)
 
-> 이 파일은 더 이상 갱신하지 않는다. 멤버 저널도 2026-09-23에 함께 동결했다.
-> 구현 상태의 원본은 GitHub Issue/PR이다. 인덱스는 [TEAM-STATE.md](TEAM-STATE.md)다.
+> 이 파일은 더 이상 갱신하지 않는다. 새 기록은 `docs/handoff/team-state/<핸들>.md`에 붙인다.
+> 인덱스는 [TEAM-STATE.md](TEAM-STATE.md)다.
 
 # TEAM-STATE — 팀 상태 스냅샷
 
