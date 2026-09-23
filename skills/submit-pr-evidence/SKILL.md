@@ -125,7 +125,8 @@ isolated origin이 다르면 그 차이를 적는다. 전체 URL이 같다거나
 
 ## 화면 UX와 diff 검토
 
-화면이 해당되면 [references/ux-antipatterns.md](references/ux-antipatterns.md) 스무 항목을 통과시킨다.
+화면이 해당되면 [references/ux-antipatterns.md](references/ux-antipatterns.md) 스물세 항목을 통과시킨다.
+판정 표는 `<details>` 안에 둔다.
 발견한 위반은 열기 전에 고친다. 경계 밖일 때만 별도 티켓으로 남긴다.
 
 모든 PR은 범위에 맞는 diff 검토를 한다.
@@ -145,7 +146,7 @@ ponytail 결과를 근거 없이 「통과」로 적지 않는다.
    티켓 문구를 그대로 옮긴 답은 다시 묻는다.
 2. **위화감** — 「방금 직접 눌러보셨잖아요. 어색했던 지점이 있나요? 없다면 어디서 어디까지 눌러보고 그렇게 판단하셨나요?」
    눌러본 경로를 말하지 못하는 「없음」은 확인하지 않았다는 뜻이다.
-3. **안티패턴** — 「[스무 항목](references/ux-antipatterns.md) 중 이 화면에서 특히 지켜야 하는 건 무엇이고 왜 그렇게 보세요?」
+3. **안티패턴** — 「[스물세 항목](references/ux-antipatterns.md) 중 이 화면에서 특히 지켜야 하는 건 무엇이고 왜 그렇게 보세요?」
 
 답은 1번 `## 무엇이 좋아지나`, 2번 `## 이 흐름이 자연스러운가`, 3번 `## UX 안티패턴 점검` 마지막 줄로 옮긴다.
 말버릇을 다듬지 않는다.
@@ -280,7 +281,7 @@ Claude Code hook은 통과하지 않은 본문의 `gh pr create`를 막는다.
 - [ ] 화면·브라우저가 해당되면 Before/After가 있다. 시각 변경은 `| 요소 |` 같은 selector 행이고, 비시각 브라우저 변경은 `비시각 브라우저 변경 — <이유>`와 `| 동작 |` 표다. 실제 Before/After 이미지와 After desktop·390x844가 공개 첨부되며 SHA·route·viewport·합성 상태와 isolated origin 차이를 적었다. 공개 안전·메타데이터를 사람이 확인했다. 해당 캡처를 못 찍어 면제하거나 N/A로 바꾸지 않았다.
 - [ ] 화면·브라우저가 해당되면 `https://jnu-oss-hub.com/<path>` 확인 링크가 있다.
 - [ ] 해당 없는 절만 예외 문구 + 비어 있지 않은 사유다.
-- [ ] 화면이 해당되면 [UX 안티패턴](references/ux-antipatterns.md) 스무 줄이 근거와 함께 찼고 위반을 열기 전에 고쳤다.
+- [ ] 화면이 해당되면 [UX 안티패턴](references/ux-antipatterns.md) 스물세 줄이 `<details>` 안에서 근거와 함께 찼고 위반을 열기 전에 고쳤다.
 - [ ] diff에서 과잉 구현을 걸렀고, ponytail을 쓰기 위해 새로 설치하지 않았다.
 - [ ] backend 로직이 해당되면 mermaid 또는 DOT를 `## 흐름 다이어그램`에 넣었고 실데이터·시크릿을 노드에 넣지 않았다.
 - [ ] `bash scripts/check-public-safe.sh`를 실행했다.
