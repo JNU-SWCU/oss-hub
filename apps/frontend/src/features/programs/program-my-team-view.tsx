@@ -289,14 +289,18 @@ export function ProgramMyTeamView({
         />
       ) : null}
 
-      {stage === 'approved' ? (
+      {stage === 'approved' && application !== null ? (
         <section
           className="flex flex-col gap-3"
           aria-labelledby="my-team-activity"
         >
           <SectionHeading id="my-team-activity" title="우리 팀 활동" />
           {/* 프로그램이 바뀌면 이전 프로그램의 활동을 그대로 두지 않는다. */}
-          <ActivityGraphContent key={programId} programId={programId} />
+          <ActivityGraphContent
+            key={`${programId}:${application.id}`}
+            programId={programId}
+            applicationId={application.id}
+          />
         </section>
       ) : null}
 

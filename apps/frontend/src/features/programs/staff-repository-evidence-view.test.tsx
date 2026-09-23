@@ -42,7 +42,6 @@ describe('staff repository evidence view', () => {
     actorGithubLogin: 'synthetic-author',
     previousRepositoryUrl: 'https://github.com/synthetic/old',
     newRepositoryUrl: 'https://github.com/synthetic/current',
-    reason: 'Project moved\nPreserve project history',
   };
   const evidence: StaffRepositoryEvidence = {
     repositoryContributions: {
@@ -117,11 +116,7 @@ describe('staff repository evidence view', () => {
     expect(container.textContent).toContain(history.previousRepositoryUrl);
     expect(container.textContent).toContain(history.newRepositoryUrl);
     expect(container.textContent).toContain(history.actorGithubLogin);
-    expect(container.textContent).toContain(history.reason);
-    const reason = Array.from(container.querySelectorAll('dd')).find(
-      (element) => element.textContent === history.reason,
-    );
-    expect(reason?.className).toContain('whitespace-pre-wrap');
+    expect(container.textContent).not.toContain('변경 사유');
   });
   it('labels lastSuccessAt as the last successful collection, not a generic as-of time', async () => {
     // Given
@@ -159,7 +154,7 @@ describe('staff repository evidence view', () => {
   it('appends the next history page and removes exhausted pagination', async () => {
     // Given
     vi.mocked(getRepositoryHistory).mockResolvedValue({
-      items: [{ ...history, id: 'audit-2', reason: 'Earlier change' }],
+      items: [{ ...history, id: 'audit-2', actorGithubLogin: 'earlier-actor' }],
       nextCursor: null,
     });
     await render();
@@ -200,7 +195,7 @@ describe('staff repository evidence view', () => {
     const other = {
       ...history,
       id: 'audit-other',
-      reason: 'Other team change',
+      actorGithubLogin: 'other-team-actor',
     };
     // When
     await render({
@@ -211,8 +206,8 @@ describe('staff repository evidence view', () => {
       teamId: 'team-2',
     });
     // Then
-    expect(container.textContent).toContain('Other team change');
-    expect(container.textContent).not.toContain(history.reason);
+    expect(container.textContent).toContain('other-team-actor');
+    expect(container.textContent).not.toContain(history.actorGithubLogin);
     expect(container.textContent).toContain('활동을 표시할 저장소가 없습니다.');
     expect(container.querySelectorAll('ol li')).toHaveLength(1);
     expect(container.querySelector('[role="alert"]')).toBeNull();
@@ -222,17 +217,25 @@ describe('staff repository evidence view', () => {
     );
     await act(async () => {
       pending.resolve({
-        items: [{ ...history, id: 'audit-2', reason: 'Earlier change' }],
+        items: [
+          { ...history, id: 'audit-2', actorGithubLogin: 'earlier-actor' },
+        ],
         nextCursor: null,
       });
       await pending.promise;
     });
-    expect(container.textContent).not.toContain('Earlier change');
-    expect(container.textContent).not.toContain(history.reason);
+    expect(container.textContent).not.toContain('earlier-actor');
+    expect(container.textContent).not.toContain(history.actorGithubLogin);
     expect(container.querySelectorAll('ol li')).toHaveLength(1);
     expect(getRepositoryHistory).toHaveBeenCalledTimes(1);
     vi.mocked(getRepositoryHistory).mockResolvedValueOnce({
-      items: [{ ...other, id: 'audit-other-2', reason: 'Older other change' }],
+      items: [
+        {
+          ...other,
+          id: 'audit-other-2',
+          actorGithubLogin: 'older-other-actor',
+        },
+      ],
       nextCursor: null,
     });
     await act(async () => container.querySelector('button')?.click());
@@ -241,7 +244,7 @@ describe('staff repository evidence view', () => {
       'team-2',
       'other-next',
     );
-    expect(container.textContent).toContain('Older other change');
+    expect(container.textContent).toContain('older-other-actor');
     expect(container.querySelectorAll('ol li')).toHaveLength(2);
   });
   it('discards a failed page request when the program changes', async () => {
@@ -258,7 +261,11 @@ describe('staff repository evidence view', () => {
         ...evidence,
         repositoryUrlHistory: {
           items: [
-            { ...history, id: 'audit-other', reason: 'Other program change' },
+            {
+              ...history,
+              id: 'audit-other',
+              actorGithubLogin: 'other-program-actor',
+            },
           ],
           nextCursor: 'other-next',
         },
@@ -267,8 +274,8 @@ describe('staff repository evidence view', () => {
     });
     // Then
     expect(container.querySelector('[role="alert"]')).toBeNull();
-    expect(container.textContent).toContain('Other program change');
-    expect(container.textContent).not.toContain(history.reason);
+    expect(container.textContent).toContain('other-program-actor');
+    expect(container.textContent).not.toContain(history.actorGithubLogin);
     expect(container.querySelector('button')?.disabled).toBe(false);
   });
   it('keeps same-team pagination when parent evidence rerenders', async () => {
@@ -276,7 +283,7 @@ describe('staff repository evidence view', () => {
     const activity = evidence.repositoryContributions;
     if (activity === null) throw new Error('fixture contributions required');
     vi.mocked(getRepositoryHistory).mockResolvedValue({
-      items: [{ ...history, id: 'audit-2', reason: 'Earlier change' }],
+      items: [{ ...history, id: 'audit-2', actorGithubLogin: 'earlier-actor' }],
       nextCursor: null,
     });
     await render();
@@ -294,7 +301,7 @@ describe('staff repository evidence view', () => {
     });
     // Then
     expect(container.querySelectorAll('ol li')).toHaveLength(2);
-    expect(container.textContent).toContain('Earlier change');
+    expect(container.textContent).toContain('earlier-actor');
     expect(container.querySelector('button')).toBeNull();
     expect(container.textContent).toContain(
       '최근 수집에 실패했습니다. 마지막으로 수집된 활동을 표시합니다.',

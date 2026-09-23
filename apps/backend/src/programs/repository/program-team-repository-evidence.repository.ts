@@ -73,7 +73,6 @@ export class ProgramTeamRepositoryEvidenceRepository {
         actorGithubLogin: metadata.actorGithubLogin,
         previousRepositoryUrl: metadata.before.repositoryUrl,
         newRepositoryUrl: metadata.after.repositoryUrl,
-        reason: metadata.reason,
       };
     });
     const last = items.at(-1);
