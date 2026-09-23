@@ -1,10 +1,16 @@
 import {
   RepositoryConnectionMode,
+  RepositoryIssuanceOutcome,
   RepositoryProvisionJobStatus,
   RepositorySource,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { parseApplicationRepositoryUrlAuditMetadata } from '../audit-log/application-repository-url-audit-metadata';
+import {
+  parseRepositoryProvisionEvent,
+  REPOSITORY_PROVISION_EVENT_TYPE,
+} from '../github/repository-provision-event';
+import { transferProvisionGeneration } from '../prisma/repository-provision-generation';
 import {
   prisma,
   service,
@@ -128,7 +134,35 @@ it('projects a successful relink without an original provision outbox', async ()
     repositoryProvisioning: { jobStatus: 'SUCCEEDED' },
   });
 });
-it('does not mark a managed organization private replacement succeeded before invitation reconciliation', async () => {
+it('links a managed organization repository without re-arming provisioning', async () => {
+  // Given: 승인 때 만든 발급 요청이 아직 끝나지 않았다.
+  const pending = await prisma.$transaction(async (transaction) => {
+    const now = new Date();
+    const event = await transaction.outboxEvent.create({
+      data: {
+        type: REPOSITORY_PROVISION_EVENT_TYPE,
+        aggregateType: 'Application',
+        aggregateId: applicationId,
+        idempotencyKey: `repository-provision:${applicationId}`,
+        payload: {
+          applicationId,
+          programId,
+          teamId,
+          requestedAt: now.toISOString(),
+          collaboratorGithubLogins: ['synthetic-relink-user'],
+          repositoryConnectionMode: 'NEW',
+          repositoryUrl: null,
+        },
+        availableAt: now,
+      },
+    });
+    await transferProvisionGeneration(
+      transaction,
+      { applicationId, newEventId: event.id, now },
+      parseRepositoryProvisionEvent,
+    );
+    return event;
+  });
   resolver.resolve.mockResolvedValue({
     kind: 'ORGANIZATION',
     repository: {
@@ -140,10 +174,12 @@ it('does not mark a managed organization private replacement succeeded before in
       description: null,
     },
   });
+  // When
   await service.updateMine(githubId, programId, {
     ...input,
     repositoryUrl: 'https://github.com/synthetic-org/target',
   });
+  // Then: 연결만 바뀐다 — 새 발급 요청도, 초대도 없다.
   expect(
     await prisma.application.findUnique({ where: { id: applicationId } }),
   ).toMatchObject({
@@ -156,18 +192,33 @@ it('does not mark a managed organization private replacement succeeded before in
     applicationId,
     source: RepositorySource.ORG_PROVISIONED,
   });
-  // 연결 자체는 이미 Application이 들고 있고, job의 repositoryId는 「이 요청 세대가
-  // 만들어 낸 결과」다 — 초대 조정이 남은 새 세대는 아직 결과가 없으므로 null이고,
-  // 그 세대가 지금 유효해야 worker가 이어서 집어간다.
-  const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { applicationId },
+  expect(
+    await prisma.outboxEvent.findMany({
+      where: { aggregateId: applicationId },
+      select: { id: true },
+    }),
+  ).toEqual([{ id: pending.id }]);
+  expect(
+    await prisma.repositoryInvitation.count({
+      where: { repositoryId: targetId },
+    }),
+  ).toBe(0);
+  // job은 새 세대 없이 완료로 남아 worker가 다시 집지 않고, 진행 중이던 요청은
+  // 직접 연결에 밀려 SUPERSEDED로 닫힌다.
+  expect(
+    await prisma.repositoryProvisionJob.findUniqueOrThrow({
+      where: { applicationId },
+    }),
+  ).toMatchObject({
+    repositoryId: targetId,
+    status: RepositoryProvisionJobStatus.SUCCEEDED,
+    currentEventId: null,
   });
-  expect(job).toMatchObject({
-    repositoryId: null,
-    status: RepositoryProvisionJobStatus.PENDING,
-    finishedAt: null,
-  });
-  expect(job.currentEventId).not.toBeNull();
+  expect(
+    await prisma.repositoryIssuanceHistory.findUniqueOrThrow({
+      where: { requestId: pending.id },
+    }),
+  ).toMatchObject({ outcome: RepositoryIssuanceOutcome.SUPERSEDED });
   expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
   ).toMatchObject({ applicationId: null, programId, teamId });
