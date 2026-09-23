@@ -98,8 +98,13 @@ export class RepositoriesService {
       // 현재 연결 분류는 저장된 GithubRepository.source가 원본이다.
       // Application.repositoryConnectionMode는 제출 당시 프로비저닝 의도(APP_023)라
       // 행이 생기기 전 pending에만 쓰고, 존재하는 행의 source를 덮어쓰지 않는다.
+      // 단 OWN은 직접 연결이 포인터와 같은 트랜잭션에서 적는 값이라 믿는다(#1133) —
+      // 조직 저장소를 직접 연결해도 발급·초대가 없으므로 source로 NEW를 추정하면
+      // 초대 행이 없는 성공이 「초대 실패」로 그려진다.
       const connectionMode =
-        repository === null
+        repository === null ||
+        job.application.repositoryConnectionMode ===
+          RepositoryConnectionMode.OWN
           ? job.application.repositoryConnectionMode
           : connectionModeFromSource(repository.source);
 
