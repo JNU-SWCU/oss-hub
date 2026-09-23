@@ -219,6 +219,11 @@ export function AdminAccessPendingRequestCard({
 }: AdminAccessPendingRequestCardProps) {
   if (!detail.pendingRequest) return null;
   const isProcessing = processingAction !== null;
+  // [승인]은 역할과 계정 상태를 한 요청에 함께 담아 보내는데, 비활성 계정에서는
+  // 그 명령이 서버 전이표에 걸려 반드시 409 `ROL_014`로 끝난다(#1381). 누르기
+  // 전에 막고 실제로 되는 순서를 한 줄로 적는다 — [반려]는 역할도 상태도 바꾸지
+  // 않아 통과하므로 그대로 열어 둔다.
+  const { approvalBlockedReason } = deriveAdminAccessGuards(detail);
 
   return (
     <Card>
@@ -228,24 +233,35 @@ export function AdminAccessPendingRequestCard({
           {formatAdminAccessDateTime(detail.pendingRequest.createdAt)}에 신청됨
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          className="h-11"
-          disabled={isProcessing}
-          onClick={() => onRequestAction(ADMIN_ACCESS_MUTATION_ACTIONS.APPROVE)}
-        >
-          승인
-        </Button>
-        <Button
-          type="button"
-          className="h-11"
-          variant="destructive"
-          disabled={isProcessing}
-          onClick={() => onRequestAction(ADMIN_ACCESS_MUTATION_ACTIONS.REJECT)}
-        >
-          반려
-        </Button>
+      <CardContent className="grid gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            className="h-11"
+            disabled={isProcessing || approvalBlockedReason !== null}
+            onClick={() =>
+              onRequestAction(ADMIN_ACCESS_MUTATION_ACTIONS.APPROVE)
+            }
+          >
+            승인
+          </Button>
+          <Button
+            type="button"
+            className="h-11"
+            variant="destructive"
+            disabled={isProcessing}
+            onClick={() =>
+              onRequestAction(ADMIN_ACCESS_MUTATION_ACTIONS.REJECT)
+            }
+          >
+            반려
+          </Button>
+        </div>
+        {approvalBlockedReason ? (
+          <p className="text-sm text-muted-foreground">
+            {approvalBlockedReason}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );

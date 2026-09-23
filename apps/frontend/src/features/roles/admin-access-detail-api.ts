@@ -84,6 +84,8 @@ export async function loadAdminAccessDetail(
 export interface AdminAccessGuards {
   /** 대기 중인 요청이 있어 역할·상태 컨트롤 전체가 막혔을 때의 안내문. 없으면 `null`. */
   readonly controlBlockedReason: string | null;
+  /** 비활성 계정이라 대기 요청 [승인]이 반드시 실패할 때의 안내문. 없으면 `null`. */
+  readonly approvalBlockedReason: string | null;
   /** 본인 계정이라 비활성화 선택지가 막혔을 때의 안내문. 없으면 `null`. */
   readonly deactivationBlockedReason: string | null;
   /** 프로필 미완료라 교직원·관리자 선택지가 막혔을 때의 안내문. 없으면 `null`. */
@@ -94,6 +96,14 @@ export interface AdminAccessGuards {
  * 접근 변경 카드의 화면 전용 가드 — 백엔드는 이 중 어느 것도 별도 필드로
  * 내려주지 않으므로 이미 응답에 있는 `pendingRequest`·`isSelf`·
  * `profile.isComplete`에서 읽기 전용으로 계산한다.
+ *
+ * `approvalBlockedReason`은 서버 전이표를 그대로 읽은 것이다 — [승인]은
+ * `desiredRole: 'STAFF'` + `desiredAccountStatus: 'ACTIVE'`를 함께 보내는데
+ * (`admin-access-mutation-policy.ts`), 전이표는 역할과 계정 상태를 한 번에 바꾸는
+ * 명령을 결정 분기보다 먼저 409 `ROL_014`로 거절한다(`admin-access-transition-table.ts`의
+ * `changesRole && changesAccountStatus`). 그래서 비활성 계정에서 역할까지 바뀌는
+ * 승인은 어떤 모양으로도 통과할 수 없다. 이미 `STAFF`인 계정은 역할이 그대로라
+ * 계정 상태만 바뀌어 서버가 받아 주므로 막지 않는다.
  *
  * `elevatedRoleBlockedReason`은 백엔드 정책보다 보수적이다 — 백엔드는
  * 대기 요청을 승인할 때만 프로필 완료를 요구하고(`admin-access-transition-table.ts`의
@@ -109,6 +119,10 @@ export function deriveAdminAccessGuards(
     controlBlockedReason: detail.pendingRequest
       ? '대기 중인 요청을 먼저 처리해 주세요.'
       : null,
+    approvalBlockedReason:
+      detail.accountStatus === 'DEACTIVATED' && detail.role !== 'STAFF'
+        ? '비활성 계정은 승인할 수 없습니다 — [반려] 후 계정을 재활성화하고 교직원 접근을 허용해 주세요.'
+        : null,
     deactivationBlockedReason: detail.isSelf
       ? '자기 계정은 비활성화할 수 없습니다.'
       : null,

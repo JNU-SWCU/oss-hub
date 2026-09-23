@@ -51,13 +51,48 @@ function historyPage() {
   return { items: [], page: 1, limit: 20, total: 0 };
 }
 
-describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 완료에서 읽기 전용으로 가드를 계산한다', () => {
-  it('아무 조건도 걸리지 않으면 세 가드 모두 null이다', () => {
+describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 완료·계정 상태에서 읽기 전용으로 가드를 계산한다', () => {
+  it('아무 조건도 걸리지 않으면 네 가드 모두 null이다', () => {
     expect(deriveAdminAccessGuards(detail())).toEqual({
       controlBlockedReason: null,
+      approvalBlockedReason: null,
       deactivationBlockedReason: null,
       elevatedRoleBlockedReason: null,
     });
+  });
+
+  it('비활성 계정이면 승인만 막힌다', () => {
+    const guards = deriveAdminAccessGuards(
+      detail({ accountStatus: 'DEACTIVATED' }),
+    );
+    expect(guards.approvalBlockedReason).toBe(
+      '비활성 계정은 승인할 수 없습니다 — [반려] 후 계정을 재활성화하고 교직원 접근을 허용해 주세요.',
+    );
+    expect(guards.controlBlockedReason).toBeNull();
+    expect(guards.deactivationBlockedReason).toBeNull();
+    expect(guards.elevatedRoleBlockedReason).toBeNull();
+  });
+
+  it('활성 계정이면 승인 가드가 켜지지 않는다', () => {
+    expect(
+      deriveAdminAccessGuards(detail({ accountStatus: 'ACTIVE' }))
+        .approvalBlockedReason,
+    ).toBeNull();
+  });
+
+  it('이미 교직원인 비활성 계정은 승인이 역할을 바꾸지 않아 막지 않는다', () => {
+    // 전이표가 거절하는 것은 역할과 계정 상태를 한 번에 바꾸는 명령이다. 역할이
+    // 이미 STAFF면 승인은 계정 상태만 바꾸므로 서버가 200으로 받아 준다.
+    expect(
+      deriveAdminAccessGuards(
+        detail({
+          role: 'STAFF',
+          memberKind: 'STAFF',
+          hasStaffAccess: true,
+          accountStatus: 'DEACTIVATED',
+        }),
+      ).approvalBlockedReason,
+    ).toBeNull();
   });
 
   it('대기 중인 요청이 있으면 전체 컨트롤이 막힌다', () => {
