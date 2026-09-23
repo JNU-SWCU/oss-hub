@@ -720,7 +720,7 @@ async function buildButtons() {
   const set = figma.combineAsVariants(nodes, page);
   set.name = 'Button';
   set.description =
-    'variant 8 × size 6 × state 3 = 144변형. 높이는 control-height 44 고정이고 size=content 만 예외로 내용이 정한다. variant=bare 는 표면을 칠하지 않아 배경·hover·눌림을 호출부가 소유한다 — 코드가 실제로 쓰는 것은 그 둘을 함께 쓴 bare × content 하나다(표 칸·달력 날짜·표 머리글 정렬). 격자를 채우느라 코드에 아직 없는 조합(default × content, bare × icon 등)도 함께 그린다. 코드: components/ui/button.tsx';
+    'variant 8 × size 6 × state 3 = 144변형. 높이는 control-height 44 고정이고 size=content 만 예외로 내용이 정한다. variant=bare 는 표면을 칠하지 않아 배경·hover·눌림을 호출부가 소유한다. 코드가 실제로 쓰는 조합은 bare × content 6곳(메뉴 줄·표 칸·달력 날짜·행 선택기·표 머리글 정렬)과 link × content 1곳(일정 편집의 「시간 변경」 펼치기)이다. 격자를 채우느라 코드에 아직 없는 조합(default × content, bare × icon 등)도 함께 그린다. 코드: components/ui/button.tsx';
   log(`Button ${nodes.length}변형`);
   return set;
 }
