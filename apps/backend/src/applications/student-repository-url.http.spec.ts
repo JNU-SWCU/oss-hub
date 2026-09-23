@@ -84,34 +84,14 @@ async function patch(body: object, headers: Record<string, string> = {}) {
 it('accepts and trims the dedicated repository URL request', async () => {
   const response = await patch({
     repositoryUrl: ' https://github.com/example/project ',
-    reason: ' Project moved ',
   });
   expect(response.status).toBe(200);
   expect(updateMine).toHaveBeenCalledWith(1133n, 'program', {
     repositoryUrl: 'https://github.com/example/project',
-    reason: 'Project moved',
   });
 });
-it.each(['\n', '\r', '\r\n'])(
-  'accepts multiline reasons with %j line endings without changing their content',
-  async (ending) => {
-    // Given
-    const reason = `Moved repository${ending}Preserve project history`;
-    // When
-    const response = await patch({
-      repositoryUrl: 'https://github.com/example/project',
-      reason: ` \r\n${reason}\r\n `,
-    });
-    // Then
-    expect(response.status).toBe(200);
-    expect(updateMine).toHaveBeenCalledWith(1133n, 'program', {
-      repositoryUrl: 'https://github.com/example/project',
-      reason,
-    });
-  },
-);
-it.each(['', ' ', '\r\n', 'x'.repeat(501)])(
-  'rejects invalid reason %s before mutation',
+it.each(['', 'Moved repository', 'First line\nSecond line'])(
+  'rejects the removed reason field %s before mutation',
   async (reason) => {
     const response = await patch({
       repositoryUrl: 'https://github.com/example/project',
@@ -121,50 +101,18 @@ it.each(['', ' ', '\r\n', 'x'.repeat(501)])(
     expect(updateMine).not.toHaveBeenCalled();
   },
 );
-it.each(
-  Array.from({ length: 33 }, (_, index) => (index === 32 ? 127 : index)).filter(
-    (code) => code !== 10 && code !== 13,
-  ),
-)('rejects embedded control character %i before mutation', async (code) => {
-  // Given
-  const reason = `Moved${String.fromCharCode(code)}repository`;
-  // When
-  const response = await patch({
-    repositoryUrl: 'https://github.com/example/project',
-    reason,
-  });
-  // Then
-  expect(response.status).toBe(400);
-  expect(updateMine).not.toHaveBeenCalled();
-});
-it.each(['x', `${'x'.repeat(498)}\ny`])(
-  'accepts a trimmed reason at the length boundaries (%s)',
-  async (reason) => {
-    // Given / When
-    const response = await patch({
-      repositoryUrl: 'https://github.com/example/project',
-      reason: ` ${reason} `,
-    });
-    // Then
-    expect(response.status).toBe(200);
-    expect(updateMine).toHaveBeenCalledWith(1133n, 'program', {
-      repositoryUrl: 'https://github.com/example/project',
-      reason,
-    });
-  },
-);
 it.each([
   'https://github.com/example/project.git',
   'https://github.com/example/project/issues',
   'https://github.com/example/project?q=1',
 ])('rejects invalid repository URL %s', async (repositoryUrl) => {
-  const response = await patch({ repositoryUrl, reason: 'Moved' });
+  const response = await patch({ repositoryUrl });
   expect(response.status).toBe(400);
   expect(updateMine).not.toHaveBeenCalled();
 });
 it('requires a session', async () => {
   const response = await patch(
-    { repositoryUrl: 'https://github.com/example/project', reason: 'Moved' },
+    { repositoryUrl: 'https://github.com/example/project' },
     { cookie: '' },
   );
   expect(response.status).toBe(401);
@@ -172,7 +120,7 @@ it('requires a session', async () => {
 });
 it('requires a permitted origin', async () => {
   const response = await patch(
-    { repositoryUrl: 'https://github.com/example/project', reason: 'Moved' },
+    { repositoryUrl: 'https://github.com/example/project' },
     { origin: 'http://foreign.test' },
   );
   expect(response.status).toBe(403);

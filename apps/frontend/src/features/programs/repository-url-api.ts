@@ -7,7 +7,6 @@ export interface RepositoryUrlState {
 
 export interface RepositoryUrlInput {
   readonly repositoryUrl: string;
-  readonly reason: string;
 }
 
 export class RepositoryUrlResponseError extends Error {
@@ -63,7 +62,6 @@ export async function updateRepositoryUrl(
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           repositoryUrl: input.repositoryUrl.trim(),
-          reason: input.reason.trim(),
         }),
       },
     ),

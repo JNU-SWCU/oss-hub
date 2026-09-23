@@ -26,10 +26,8 @@ assertIsolatedIntegrationDatabase({
 });
 
 it('relinks and enqueues the new identity while preserving historical contributions', async () => {
-  // Given
-  const reason = 'Moved repository\nPreserve project history';
   // When
-  await service.updateMine(githubId, programId, { ...input, reason });
+  await service.updateMine(githubId, programId, input);
   // Then
   expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
@@ -53,14 +51,20 @@ it('relinks and enqueues the new identity while preserving historical contributi
     repositoryConnectionMode: RepositoryConnectionMode.NEW,
     repositoryUrl: input.repositoryUrl,
   });
-  expect(
-    await prisma.auditLog.findMany({ where: { targetId: applicationId } }),
-  ).toMatchObject([
+  const entries = await prisma.auditLog.findMany({
+    where: { targetId: applicationId },
+  });
+  expect(entries).toMatchObject([
     {
       action: 'APPLICATION_REPOSITORY_URL_CHANGED',
-      metadata: { reason },
+      metadata: {
+        schemaVersion: 2,
+        before: { repositoryId: oldId },
+        after: { repositoryId: targetId, repositoryUrl: input.repositoryUrl },
+      },
     },
   ]);
+  expect(entries[0]?.metadata).not.toHaveProperty('reason');
 });
 it('rolls back binding and queue changes when the audit write fails', async () => {
   jest

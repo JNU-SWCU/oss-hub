@@ -11,7 +11,7 @@ vi.mock('@/lib/api-client', () => ({ apiClient: vi.fn() }));
 
 describe('repository URL contracts', () => {
   it.each(['\n', '\r', '\r\n'])(
-    'trims URL and reason while preserving %j line endings at the mutation boundary',
+    'trims URL whitespace %j and sends no change reason',
     async (ending) => {
       // Given
       const response = {
@@ -21,8 +21,7 @@ describe('repository URL contracts', () => {
       vi.mocked(apiClient).mockResolvedValue(response);
       // When
       await updateRepositoryUrl('program/1', {
-        repositoryUrl: ' https://github.com/synthetic/repo ',
-        reason: ` project moved${ending}Preserve project history `,
+        repositoryUrl: `${ending} https://github.com/synthetic/repo ${ending}`,
       });
       // Then
       expect(apiClient).toHaveBeenLastCalledWith(
@@ -32,7 +31,6 @@ describe('repository URL contracts', () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             repositoryUrl: response.repositoryUrl,
-            reason: `project moved${ending}Preserve project history`,
           }),
         },
       );

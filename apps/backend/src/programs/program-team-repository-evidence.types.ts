@@ -28,7 +28,6 @@ export interface RepositoryUrlHistoryView {
   readonly actorGithubLogin: string;
   readonly previousRepositoryUrl: string | null;
   readonly newRepositoryUrl: string;
-  readonly reason: string;
 }
 
 export interface TeamRepositoryEvidenceView {

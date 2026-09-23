@@ -12,7 +12,6 @@ import { Transform } from 'class-transformer';
 import {
   IsString,
   MaxLength,
-  MinLength,
   Validate,
   ValidatorConstraint,
   type ValidatorConstraintInterface,
@@ -34,21 +33,6 @@ class GithubRepositoryUrlConstraint implements ValidatorConstraintInterface {
   }
 }
 
-@ValidatorConstraint({ name: 'repositoryChangeReason', async: false })
-class RepositoryChangeReasonConstraint implements ValidatorConstraintInterface {
-  validate(value: unknown): boolean {
-    return (
-      typeof value === 'string' &&
-      Array.from(value).every(
-        (character) =>
-          character === '\n' ||
-          character === '\r' ||
-          (character.charCodeAt(0) >= 32 && character.charCodeAt(0) !== 127),
-      )
-    );
-  }
-}
-
 export class UpdateStudentRepositoryUrlRequestDto {
   @Transform(({ value }: { readonly value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,
@@ -57,15 +41,6 @@ export class UpdateStudentRepositoryUrlRequestDto {
   @MaxLength(250)
   @Validate(GithubRepositoryUrlConstraint)
   declare readonly repositoryUrl: string;
-
-  @Transform(({ value }: { readonly value: unknown }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
-  @IsString()
-  @MinLength(1)
-  @MaxLength(500)
-  @Validate(RepositoryChangeReasonConstraint)
-  declare readonly reason: string;
 }
 
 @Controller('programs/:programId/applications/me/repository-url')
@@ -91,7 +66,6 @@ export class StudentRepositoryUrlController {
   ): Promise<StudentRepositoryUrlView> {
     return this.service.updateMine(request.sessionGithubId, programId, {
       repositoryUrl: body.repositoryUrl,
-      reason: body.reason,
     });
   }
 }

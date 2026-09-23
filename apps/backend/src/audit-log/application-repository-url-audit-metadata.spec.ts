@@ -26,6 +26,23 @@ describe('application repository URL audit', () => {
     expect(result).toEqual({ legacy: false, metadata });
   });
 
+  it('reads current reasonless events without losing committed identities', () => {
+    const current = {
+      schemaVersion: 2,
+      programId: metadata.programId,
+      teamId: metadata.teamId,
+      programName: metadata.programName,
+      actorGithubLogin: metadata.actorGithubLogin,
+      before: metadata.before,
+      after: metadata.after,
+    };
+    expect(parseAuditLogMetadata(current)).toEqual({
+      legacy: false,
+      metadata: current,
+    });
+    expect(current).not.toHaveProperty('reason');
+  });
+
   it.each([251, 500])(
     'accepts a reason with %i astral characters',
     (length) => {
