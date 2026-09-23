@@ -280,6 +280,34 @@ describe('figma plugin code.js', () => {
     expect(fake.pages).toHaveLength(3);
   });
 
+  it('두 번 실행해도 변수·스타일·부품이 늘지 않는다', async () => {
+    const fake = createFakeFigma();
+    const shape = () => {
+      const nodes = fake.pages.flatMap((p) => p.children);
+      return {
+        variables: fake.variables.length,
+        styles: fake.textStyles.length,
+        pages: fake.pages.map((p: AnyNode) => p.name),
+        components: nodes
+          .filter(
+            (n: AnyNode) =>
+              n.type === 'COMPONENT_SET' || n.type === 'COMPONENT',
+          )
+          .map((n: AnyNode) => n.name)
+          .sort(),
+        buttons: nodes.find((n: AnyNode) => n.name === 'Button')?.children
+          .length,
+      };
+    };
+    await runPlugin(fake);
+    const first = shape();
+    await runPlugin(fake);
+
+    expect(fake.logs.find((line) => line.startsWith('실패'))).toBeUndefined();
+    // 같은 이름의 변수·스타일은 다시 쓰고, 페이지는 비우고 다시 그린다.
+    expect(shape()).toEqual(first);
+  });
+
   it('모드를 하나만 허용하는 요금제면 다크 값을 별도 컬렉션에 둔다', async () => {
     const fake = createFakeFigma({ singleMode: true });
     await runPlugin(fake);

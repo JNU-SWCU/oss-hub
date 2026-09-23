@@ -58,4 +58,8 @@ Dark 모드와 페이지 9개로 만든다. 2026-09-19 Starter 계정에서 끝�
 ## 검증
 
 `pnpm --filter frontend test`가 `figma-plugin/code.test.ts`로 이 스크립트를 가짜 Figma API 위에서
-끝까지 실행해 변수·스타일·컴포넌트 수를 고정한다. 실제 Figma에서의 시각 확인은 실행한 사람이 한다.
+끝까지 실행해 변수·스타일·컴포넌트 수를 고정한다 — 부품 14종 목록과 Button 144변형을 통째로
+단언하므로 하나가 늘거나 이름이 바뀌면 깨지고, 같은 파일을 두 번 실행해 늘어나지 않는 것도 본다.
+파일 하나만 돌리려면 `pnpm --filter frontend exec vitest run figma-plugin/code.test.ts` 다
+(`pnpm … test -- <경로>`는 경로가 먹히지 않고 전체가 돈다). 실제 Figma에서의 시각 확인은 실행한
+사람이 한다.
