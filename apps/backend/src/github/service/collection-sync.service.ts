@@ -75,7 +75,7 @@ export interface CollectionSyncRunResult {
   cycleCompleted: boolean;
   stoppedForBudget: boolean;
   /**
-   * #511 — 이번 run이 새로 적재한 fact 수(commit/PR/release 합). 중복 fact는 세지 않는다
+   * #511 — 이번 run이 새로 적재한 fact 수(commit/PR/release/issue 합). 중복 fact는 세지 않는다
    * (`createMany`+`skipDuplicates`가 반환하는 실제 삽입 수만 누적). 트리거 표면이 성공
    * 로그에 "신규 수집 건수"를 남기기 위한 유일한 출처다.
    */
@@ -113,6 +113,7 @@ type SyncRepository = Pick<
   | 'recordCommitFacts'
   | 'recordPullRequestFacts'
   | 'recordReleaseFacts'
+  | 'recordIssueFacts'
   | 'listRegisteredGithubIds'
   | 'recordRepositoryObservation'
   | 'refreshExternalRepositoryObservation'
@@ -217,7 +218,7 @@ interface SweepInventory {
  *      PRESENT 저장소로 stream sync만 계속한다.
  *   2) 저장소를 githubRepositoryId 오름차순으로 정렬하고, durable cursor(`CollectionSyncCursor`)
  *      기준으로 이어간다 — 이번 run에서 이미 지난 저장소는 절대 다시 repo 1부터 재시작하지 않는다.
- *   3) 저장소별로 commit/PR/release 세 stream을 순서대로 동기화한다. 새 stream row(및 backfill이
+ *   3) 저장소별로 commit/PR/release/issue 네 stream을 순서대로 동기화한다. 새 stream row(및 backfill이
  *      만든 VERIFYING 자리표시자)는 실제 provider traversal이 안전한 frontier를 확립했을 때만
  *      READY로 승격한다. 이미 READY인 스트림은 조건부 poll(conditional GET/probe)만 수행하고,
  *      바뀐 것이 없으면 전체 이력 호출을 하지 않는다.
@@ -563,6 +564,7 @@ export class CollectionSyncService {
             case 'RELEASE':
               insertedReleaseCount += insertedCount;
               break;
+            // ISSUE는 insertedFactCount에만 더한다 — sweep 이력에는 칸이 없다.
           }
         },
       );
@@ -917,7 +919,7 @@ export class CollectionSyncService {
 
   /**
    * 저장소 하나의 stream을 차례로 동기화하고, 각 stream이 성공한 즉시 새 fact 수를
-   * 보고한다. 세 stream을 모두 마친 뒤 한꺼번에 반환하면 앞 stream의 checkpoint가
+   * 보고한다. 모든 stream을 마친 뒤 한꺼번에 반환하면 앞 stream의 checkpoint가
    * 커밋된 뒤 다음 stream이 실패했을 때 실제 적재 건수가 sweep history에서 사라진다.
    */
   private async syncRepository(
@@ -932,10 +934,10 @@ export class CollectionSyncService {
     ) => void,
   ): Promise<void> {
     const [owner, name] = splitNameWithOwner(repository.nameWithOwner);
-    // 팀원 목록은 저장소당 한 번만 읽어 세 stream이 공유한다. 커밋은 이 목록으로 **취득
-    // 범위**를 좁히고(author-scoped GraphQL), PR·릴리스는 author 인자가 없어 전량 받은 뒤
+    // 팀원 목록은 저장소당 한 번만 읽어 모든 stream이 공유한다. 커밋은 이 목록으로 **취득
+    // 범위**를 좁히고(author-scoped GraphQL), PR·릴리스·Issue는 author 인자가 없어 전량 받은 뒤
     // 이 목록으로 **적재를** 좁힌다(ADR-009 §4). stream마다 다시 읽으면 한 저장소를 처리하는
-    // 도중에 팀원이 바뀌어 세 stream의 기준이 갈라질 수 있다.
+    // 도중에 팀원이 바뀌어 stream마다 기준이 갈라질 수 있다.
     //
     // **조회를 COMMIT stream의 `trackStreamOutcome` 안에 두는 것이 이 배치의 요점이다.**
     // 이 조회가 실패하면 그 사실이 `CollectionRepositoryStream.lastErrorCode`에 남아야 한다
@@ -962,7 +964,7 @@ export class CollectionSyncService {
             );
           // TeamMember/User 관계도 run 시작 뒤 바뀔 수 있다. 이 run의 User snapshot에
           // 없던 계정까지 fingerprint에 넣으면 fact는 거르면서 "백필 완료"만 기록해
-          // 다음 run이 과거 PR을 영구히 건너뛴다. 세 stream과 fingerprint 모두 같은
+          // 다음 run이 과거 PR을 영구히 건너뛴다. 모든 stream과 fingerprint가 같은
           // snapshot으로 좁힌 목록을 공유한다.
           const registeredMembers =
             members === null
@@ -1020,6 +1022,25 @@ export class CollectionSyncService {
         ),
     );
     onStreamInserted('RELEASE', releaseCount);
+    // Issue는 마지막이다. 새로 생긴 stream이 실패해도(예: installation이 아직 Issues 권한을
+    // 승인하지 않음) 앞 세 stream의 checkpoint는 이미 커밋된 뒤다.
+    const issueCount = await this.trackStreamOutcome(
+      lease,
+      repository.id,
+      'ISSUE',
+      () =>
+        this.syncIssueStream(
+          runtime,
+          lease,
+          repository,
+          owner,
+          name,
+          teamMembers,
+          registeredGithubIds,
+          deadline,
+        ),
+    );
+    onStreamInserted('ISSUE', issueCount);
   }
 
   /**
@@ -1550,6 +1571,88 @@ export class CollectionSyncService {
         frontierSha: frontierProbe,
         requestFingerprint,
         etag,
+        lastRunAt: this.now(),
+      });
+      return recorded.insertedCount;
+    });
+  }
+
+  /**
+   * Issue도 PR과 같은 규칙이다(`syncPullRequestStream` 참고) — 저장된 `(createdAt, id)` 커서까지
+   * 읽고, 팀원 집합 표식(`frontierSha`)이 바뀐 sweep만 커서를 버리고 한 번 전부 다시 읽으며,
+   * 작성자 거르기는 적재 직전에만 한다. ISSUE stream 행이 아직 없는 저장소(배포 직후의 과거
+   * Issue)도 같은 경로로 처음부터 읽힌다.
+   *
+   * 다른 점 하나: issues 목록에는 PR이 섞여 온다. client가 커서를 **첫 원본 항목(PR 포함)**에서
+   * 뽑은 뒤 PR을 버리므로, "새로 읽은 것이 없다"는 거른 목록 길이가 아니라 커서가 그대로인지로
+   * 판정한다 — 새 PR만 쌓인 페이지에서도 커서가 전진해야 다음 sweep이 같은 페이지를 다시
+   * 받지 않는다.
+   */
+  private async syncIssueStream(
+    runtime: CollectionSyncRuntime,
+    lease: SyncLeaseToken,
+    repository: CollectionRepositoryRow,
+    owner: string,
+    name: string,
+    teamMembers: readonly RepositoryTeamMemberAccount[] | null,
+    registeredGithubIds: RegisteredGithubIdSet,
+    deadline: number,
+  ): Promise<number> {
+    const existing = await this.incrementalRepository.getStreamFrontier(
+      repository.id,
+      'ISSUE',
+    );
+    const teamMembershipFrontier =
+      teamMembers === null
+        ? null
+        : pullRequestTeamMembershipFrontier(teamMembers);
+    const tieFrontier =
+      existing?.status === 'READY' &&
+      (teamMembershipFrontier === null ||
+        existing.frontierSha === teamMembershipFrontier) &&
+      existing.frontierCreatedAt &&
+      existing.frontierEntityId !== null
+        ? {
+            createdAt: existing.frontierCreatedAt.toISOString(),
+            id: existing.frontierEntityId.toString(),
+          }
+        : null;
+
+    const result = await this.beforeDeadline(
+      runtime.client.listNewIssues(owner, name, tieFrontier),
+      deadline,
+    );
+    if (tieFrontier !== null && result.newFrontier?.id === tieFrontier.id) {
+      return 0;
+    }
+
+    const issues = this.onlyTeamAuthored(result.issues, teamMembers);
+    return this.incrementalRepository.runInTransaction(async (repo) => {
+      await repo.assertSyncLeaseValid(lease, this.now());
+      const recorded = await repo.recordIssueFacts(
+        repository.id,
+        issues.map((issue) => ({
+          githubIssueId: BigInt(issue.id),
+          state: issue.state,
+          createdAt: new Date(issue.createdAt),
+          authorGithubId:
+            issue.authorGithubId === null ? null : BigInt(issue.authorGithubId),
+          authorGithubLogin: issue.authorLogin,
+        })),
+        registeredGithubIds,
+      );
+      await repo.upsertStreamFrontier({
+        repositoryId: repository.id,
+        streamType: 'ISSUE',
+        status: 'READY',
+        frontierSha: teamMembershipFrontier,
+        frontierCreatedAt: result.newFrontier
+          ? new Date(result.newFrontier.createdAt)
+          : null,
+        frontierEntityId: result.newFrontier
+          ? BigInt(result.newFrontier.id)
+          : null,
+        requestFingerprint: requestFingerprintKey(result.fingerprint),
         lastRunAt: this.now(),
       });
       return recorded.insertedCount;

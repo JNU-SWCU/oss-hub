@@ -49,6 +49,9 @@ export interface PullRequestFrontier {
   readonly id: string;
 }
 
+/** Issue stream frontier: the same `(createdAt, id)` tie-break over the issue listing. */
+export type IssueFrontier = PullRequestFrontier;
+
 /** Release stream frontier: opaque representation of the latest probe item. */
 export interface ReleaseFrontier {
   readonly probe: string;

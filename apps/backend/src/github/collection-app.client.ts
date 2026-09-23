@@ -1,5 +1,6 @@
 import { CollectionAppConfigValues } from './collection-app.config';
 import {
+  IssueFrontier,
   PullRequestFrontier,
   ReleaseFrontier,
   RequestFingerprint,
@@ -154,6 +155,13 @@ export interface CollectionRelease {
   authorGithubId: string | null;
   htmlUrl: string;
 }
+export interface CollectionIssue {
+  id: string;
+  state: 'open' | 'closed';
+  createdAt: string;
+  authorLogin: string | null;
+  authorGithubId: string | null;
+}
 
 /**
  * Result of a lightweight (`per_page=1`) default-branch head probe. When
@@ -192,6 +200,18 @@ export interface CommitTraversalResult {
 export interface PullRequestIncrementalResult {
   pullRequests: CollectionPullRequest[];
   newFrontier: PullRequestFrontier | null;
+  fingerprint: RequestFingerprint;
+}
+
+/**
+ * Result of reading issues strictly newer than `(createdAt, id)`. Pull
+ * requests the listing interleaves are already dropped from `issues`, but
+ * `newFrontier` still comes from the first raw item — PR or issue — so it
+ * equals the input frontier only when nothing newer was read at all.
+ */
+export interface IssueIncrementalResult {
+  issues: CollectionIssue[];
+  newFrontier: IssueFrontier | null;
   fingerprint: RequestFingerprint;
 }
 
@@ -437,7 +457,7 @@ export class CollectionAppClient {
       (raw) => knownShas.has(this.string(this.record(raw).sha)),
       (v) => this.commit(v),
       undefined,
-      true,
+      { emptyRepositoryIsEmpty: true },
     );
     return {
       commits: dedupeByKey(items, (commit) => commit.sha),
@@ -469,6 +489,46 @@ export class CollectionAppClient {
       ? { createdAt: pullRequests[0].createdAt, id: pullRequests[0].id }
       : tieFrontier;
     return { pullRequests, newFrontier, fingerprint };
+  }
+
+  /**
+   * Reads issues `state=all&sort=created&direction=desc` until the
+   * `(createdAt, id)` tie frontier is met, the same traversal as
+   * {@link listNewPullRequests}. GitHub interleaves pull requests here (items
+   * carrying a `pull_request` key): the new frontier is taken from the first
+   * raw item before they are dropped, so a page of nothing but pull requests
+   * still advances it. A `410` (issues disabled) reads as an empty listing.
+   */
+  async listNewIssues(
+    owner: string,
+    repo: string,
+    tieFrontier: IssueFrontier | null,
+  ): Promise<IssueIncrementalResult> {
+    const { items } = await this.traverseUntil(
+      `/repos/${this.segment(owner)}/${this.segment(repo)}/issues?state=all&sort=created&direction=desc&per_page=100`,
+      (raw) =>
+        tieFrontier !== null &&
+        this.isAtOrBeforePullRequestFrontier(raw, tieFrontier),
+      (v) => this.issueListItem(v),
+      undefined,
+      { goneIsEmpty: true },
+    );
+    return {
+      issues: dedupeByKey(
+        items.flatMap((item) => (item.issue ? [item.issue] : [])),
+        (issue) => issue.id,
+      ),
+      newFrontier: items[0]?.frontier ?? tieFrontier,
+      fingerprint: {
+        endpoint: `/repos/${owner}/${repo}/issues`,
+        ref: null,
+        query: 'state=all',
+        order: 'sort=created&direction=desc',
+        pageSize: 100,
+        accept: ACCEPT,
+        apiVersion: API_VERSION,
+      },
+    };
   }
 
   /**
@@ -623,13 +683,9 @@ export class CollectionAppClient {
     emptyRepositoryIsEmpty = false,
   ): Promise<T[]> {
     return (
-      await this.traverseUntil(
-        path,
-        () => false,
-        normalize,
-        envelope,
+      await this.traverseUntil(path, () => false, normalize, envelope, {
         emptyRepositoryIsEmpty,
-      )
+      })
     ).items;
   }
 
@@ -646,7 +702,7 @@ export class CollectionAppClient {
     shouldStop: (raw: unknown) => boolean,
     normalize: (value: unknown) => T,
     envelope?: string,
-    emptyRepositoryIsEmpty = false,
+    emptyWhen: { emptyRepositoryIsEmpty?: boolean; goneIsEmpty?: boolean } = {},
   ): Promise<{ items: T[]; exhausted: boolean }> {
     const deadline = this.now() + this.config.deadlineMs;
     const result: T[] = [];
@@ -660,9 +716,7 @@ export class CollectionAppClient {
         throw new CollectionAppClientError('PAGINATION');
       if (seen.has(next)) throw new CollectionAppClientError('PAGINATION');
       seen.add(next);
-      const response = await this.request(next, deadline, {
-        emptyRepositoryIsEmpty,
-      });
+      const response = await this.request(next, deadline, emptyWhen);
       const container = envelope
         ? this.record(response.body)[envelope]
         : response.body;
@@ -679,7 +733,12 @@ export class CollectionAppClient {
   private async request(
     url: string,
     deadline: number,
-    options?: { emptyRepositoryIsEmpty?: boolean; ifNoneMatch?: string | null },
+    options?: {
+      emptyRepositoryIsEmpty?: boolean;
+      /** `410 Gone`(issue 비활성 저장소)을 빈 목록으로 읽는다. */
+      goneIsEmpty?: boolean;
+      ifNoneMatch?: string | null;
+    },
   ): Promise<{
     body: unknown;
     link: string | null;
@@ -748,6 +807,14 @@ export class CollectionAppClient {
             notModified: false,
           };
         }
+      }
+      if (options?.goneIsEmpty && response.status === 410) {
+        return {
+          body: [],
+          link: null,
+          etag: response.headers.get('etag'),
+          notModified: false,
+        };
       }
       if (!response.ok) {
         if (
@@ -974,6 +1041,26 @@ export class CollectionAppClient {
       publishedAt: this.date(r.published_at),
       ...this.actor(r.author),
       htmlUrl: this.string(r.html_url),
+    };
+  }
+  /** Issue listing item → its frontier, plus the issue itself unless it is a pull request. */
+  private issueListItem(v: unknown): {
+    frontier: IssueFrontier;
+    issue: CollectionIssue | null;
+  } {
+    const r = this.record(v);
+    const frontier = { createdAt: this.date(r.created_at), id: this.id(r.id) };
+    if (r.pull_request) return { frontier, issue: null };
+    const state = this.string(r.state);
+    if (state !== 'open' && state !== 'closed') this.invalid();
+    return {
+      frontier,
+      issue: {
+        id: frontier.id,
+        state,
+        createdAt: frontier.createdAt,
+        ...this.actor(r.user),
+      },
     };
   }
   private actor(v: unknown): {

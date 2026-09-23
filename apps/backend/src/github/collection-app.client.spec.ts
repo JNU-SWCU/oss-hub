@@ -64,6 +64,23 @@ const prFixture = (id: number, createdAt: string) => ({
   user: null,
   html_url: `https://github.test/pr/${id}`,
 });
+/** An item of the issue listing — `pullRequest` adds the `pull_request` key GitHub uses to mark PRs. */
+const issueListFixture = (
+  id: number,
+  createdAt: string,
+  pullRequest = false,
+) => ({
+  id,
+  number: id,
+  state: 'closed',
+  created_at: createdAt,
+  user: { id: 7, login: 'octocat' },
+  title: 'excluded',
+  body: 'excluded',
+  ...(pullRequest
+    ? { pull_request: { url: `https://github.test/pr/${id}` } }
+    : {}),
+});
 const releaseFixture = (
   id: number,
   draft: boolean,
@@ -856,6 +873,83 @@ describe('CollectionAppClient incremental contract', () => {
       await expect(
         client.listNewPullRequests('o', 'r', null),
       ).rejects.toMatchObject({ kind: 'RATE_LIMITED' });
+    });
+  });
+
+  describe('listNewIssues', () => {
+    it('drops pull_request items but takes the new frontier from the first raw item even when it is a PR', async () => {
+      const fetcher = fetchMock()
+        .mockResolvedValueOnce(
+          json(
+            [
+              issueListFixture(30, '2026-01-03T00:00:00Z', true),
+              issueListFixture(29, '2026-01-02T00:00:00Z'),
+            ],
+            { headers: { link: '<https://api.github.test/next>; rel="next"' } },
+          ),
+        )
+        .mockResolvedValueOnce(
+          json([
+            issueListFixture(28, '2026-01-02T00:00:00Z', true),
+            issueListFixture(27, '2026-01-01T00:00:00Z'),
+          ]),
+        );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      const result = await client.listNewIssues('o', 'r', {
+        createdAt: '2026-01-01T00:00:00Z',
+        id: '27',
+      });
+
+      expect(fetcher.mock.calls[0]?.[0]).toEqual(
+        expect.stringContaining(
+          '/repos/o/r/issues?state=all&sort=created&direction=desc&per_page=100',
+        ),
+      );
+      // Only the issue survives, reduced to the stored fields (no title/body).
+      expect(result.issues).toEqual([
+        {
+          id: '29',
+          state: 'closed',
+          createdAt: '2026-01-02T00:00:00Z',
+          authorLogin: 'octocat',
+          authorGithubId: '7',
+        },
+      ]);
+      expect(result.newFrontier).toEqual({
+        createdAt: '2026-01-03T00:00:00Z',
+        id: '30',
+      });
+    });
+
+    it('keeps the input frontier only when nothing newer was read', async () => {
+      const tie = { createdAt: '2026-01-03T00:00:00Z', id: '30' };
+      const client = new CollectionAppClient(
+        config,
+        tokenProvider,
+        fetchMock().mockResolvedValue(
+          json([issueListFixture(30, '2026-01-03T00:00:00Z', true)]),
+        ),
+      );
+      const result = await client.listNewIssues('o', 'r', tie);
+      expect(result.issues).toEqual([]);
+      expect(result.newFrontier).toBe(tie);
+    });
+
+    it('reads 410 (issues disabled) as an empty listing instead of an error, only on the issue listing', async () => {
+      const gone = () =>
+        json({ message: 'Issues are disabled for this repo' }, { status: 410 });
+      const client = new CollectionAppClient(
+        config,
+        tokenProvider,
+        fetchMock().mockImplementation(() => Promise.resolve(gone())),
+      );
+
+      await expect(client.listNewIssues('o', 'r', null)).resolves.toMatchObject(
+        { issues: [], newFrontier: null },
+      );
+      await expect(
+        client.listNewPullRequests('o', 'r', null),
+      ).rejects.toMatchObject({ kind: 'UPSTREAM' });
     });
   });
 

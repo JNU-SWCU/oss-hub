@@ -10,11 +10,13 @@ import { CollectionAppClientError } from '../collection-app.client';
 import type {
   CollectionAppClient,
   CollectionCommit,
+  CollectionIssue,
   CollectionPullRequest,
   CollectionRelease,
   CollectionRepository as ProviderRepository,
   CommitHeadProbeResult,
   CommitTraversalResult,
+  IssueIncrementalResult,
   PullRequestIncrementalResult,
   ReleaseListingResult,
   ReleaseProbeResult,
@@ -65,6 +67,7 @@ interface Store {
   commitFacts: Map<string, Row>;
   pullRequestFacts: Map<string, Row>;
   releaseFacts: Map<string, Row>;
+  issueFacts: Map<string, Row>;
   contributions: Map<string, Row>;
   recomputeCalls: number;
   streams: Map<string, Row>;
@@ -93,6 +96,7 @@ const emptyStore = (): Store => ({
   commitFacts: new Map(),
   pullRequestFacts: new Map(),
   releaseFacts: new Map(),
+  issueFacts: new Map(),
   contributions: new Map(),
   recomputeCalls: 0,
   streams: new Map(),
@@ -108,6 +112,7 @@ const cloneStore = (store: Store): Store => ({
   commitFacts: new Map(store.commitFacts),
   pullRequestFacts: new Map(store.pullRequestFacts),
   releaseFacts: new Map(store.releaseFacts),
+  issueFacts: new Map(store.issueFacts),
   contributions: new Map(store.contributions),
   recomputeCalls: store.recomputeCalls,
   streams: new Map(store.streams),
@@ -327,6 +332,27 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
               (a.publishedAt as Date).getTime(),
           );
         return rows[0] ?? null;
+      },
+    },
+    githubIssueHistory: {
+      createMany: ({
+        data,
+      }: {
+        data: ReadonlyArray<
+          Row & { repositoryId: string; githubIssueId: bigint }
+        >;
+      }): { count: number } => {
+        let count = 0;
+        for (const item of data) {
+          const key = `${item.repositoryId}:${String(item.githubIssueId)}`;
+          if (box.store.issueFacts.has(key)) continue; // skipDuplicates
+          box.store.issueFacts.set(key, {
+            id: `issue-${box.store.issueFacts.size + 1}`,
+            ...item,
+          });
+          count += 1;
+        }
+        return { count };
       },
     },
     contribution: {
@@ -647,6 +673,7 @@ interface ClientMock {
     Promise<ReleaseListingResult>,
     unknown[]
   >;
+  listNewIssues: jest.Mock<Promise<IssueIncrementalResult>, unknown[]>;
   resolveUserNodeId: jest.Mock<Promise<string | null>, [string]>;
   listDefaultBranchCommitsByAuthor: jest.Mock<
     Promise<CollectionCommit[]>,
@@ -709,6 +736,13 @@ function createClient(repositories: ProviderRepository[]): ClientMock {
         releases: [],
         fingerprint: fingerprint('/repos/o/r/releases'),
       } satisfies ReleaseListingResult),
+    listNewIssues: jest
+      .fn<Promise<IssueIncrementalResult>, unknown[]>()
+      .mockResolvedValue({
+        issues: [],
+        newFrontier: null,
+        fingerprint: fingerprint('/repos/o/r/issues'),
+      } satisfies IssueIncrementalResult),
     // author-scoped 기본값: 모든 login이 `node:<login>`으로 해석되고 커밋은 없다.
     resolveUserNodeId: jest
       .fn<Promise<string | null>, [string]>()
@@ -2547,6 +2581,209 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터(ADR-00
     // `99`는 이 fake의 가입자 snapshot에 있고 `999`는 없다.
     expect(storedPullRequestLogins(box)).toEqual(['outsider']);
     expect(storedReleaseLogins(box)).toEqual(['outsider']);
+  });
+});
+
+describe('CollectionSyncService — Issue stream(#1133)', () => {
+  type ListingItem = CollectionIssue & { pullRequest?: boolean };
+
+  const issue = (overrides: Partial<ListingItem> = {}): ListingItem => ({
+    id: '800',
+    state: 'open',
+    createdAt: '2026-08-01T00:00:00.000Z',
+    authorLogin: 'alice',
+    authorGithubId: '11',
+    ...overrides,
+  });
+
+  /**
+   * `CollectionAppClient.listNewIssues`의 계약을 흉내 낸다 — tie frontier보다 새 항목만
+   * 새 것부터 읽고, 커서는 **첫 원본 항목(PR 포함)**에서 뽑은 뒤 PR을 버린다.
+   */
+  const serveIssueListing =
+    (listing: readonly ListingItem[]) =>
+    (...args: unknown[]): Promise<IssueIncrementalResult> => {
+      const tie = args[2] as { createdAt: string; id: string } | null;
+      const fresh = [...listing]
+        .sort((a, b) => {
+          const byCreatedAt = Date.parse(b.createdAt) - Date.parse(a.createdAt);
+          return byCreatedAt !== 0
+            ? byCreatedAt
+            : Number(BigInt(b.id) - BigInt(a.id));
+        })
+        .filter(
+          (item) =>
+            tie === null ||
+            (Date.parse(item.createdAt) === Date.parse(tie.createdAt)
+              ? BigInt(item.id) > BigInt(tie.id)
+              : Date.parse(item.createdAt) > Date.parse(tie.createdAt)),
+        );
+      return Promise.resolve({
+        issues: fresh.filter((item) => !item.pullRequest),
+        newFrontier: fresh[0]
+          ? { createdAt: fresh[0].createdAt, id: fresh[0].id }
+          : tie,
+        fingerprint: fingerprint('/repos/o/r/issues'),
+      });
+    };
+
+  const storedIssueIds = (box: { store: Store }): string[] =>
+    [...box.store.issueFacts.values()]
+      .map((fact) => String(fact.githubIssueId))
+      .sort();
+
+  it('팀원 issue만 적재하고 비팀원·작성자 불명 issue는 fact로 남기지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    client.listNewIssues.mockImplementation(
+      serveIssueListing([
+        issue({ id: '800' }),
+        // 99는 가입자지만 이 저장소 팀원이 아니다 — 가입자 경계가 아니라 팀원 필터가 거른다.
+        issue({ id: '801', authorLogin: 'outsider', authorGithubId: '99' }),
+        issue({ id: '802', authorLogin: null, authorGithubId: null }),
+      ]),
+    );
+
+    const result = await createService(db, client).run('owner-1');
+
+    expect(storedIssueIds(box)).toEqual(['800']);
+    expect([...box.store.issueFacts.values()][0]).toMatchObject({
+      authorGithubId: 11n,
+      state: 'open',
+      createdAt: new Date('2026-08-01T00:00:00.000Z'),
+    });
+    // Issue 적재 수는 run 합계에만 들어간다(sweep 이력에는 칸이 없다).
+    expect(result.insertedFactCount).toBe(1);
+    const stream = box.store.streams.get('repo-1:ISSUE');
+    expect(stream?.status).toBe('READY');
+    // 커서는 거른 항목 위(가장 새 원본 항목)에 선다.
+    expect(stream?.frontierEntityId).toBe(802n);
+  });
+
+  it('새로 읽힌 원본이 PR뿐이어도 Issue 커서가 전진해 다음 sweep이 같은 페이지를 다시 받지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    const listing = [issue({ id: '800' })];
+    client.listNewIssues.mockImplementation(serveIssueListing(listing));
+    const service = createService(db, client);
+
+    await service.run('owner-1');
+    expect(box.store.streams.get('repo-1:ISSUE')?.frontierEntityId).toBe(800n);
+
+    // 두 번째 sweep 전까지 PR 두 개만 열렸다 — issue 목록에는 PR 항목으로 섞여 온다.
+    listing.push(
+      issue({
+        id: '801',
+        createdAt: '2026-08-02T00:00:00.000Z',
+        pullRequest: true,
+      }),
+      issue({
+        id: '802',
+        createdAt: '2026-08-03T00:00:00.000Z',
+        pullRequest: true,
+      }),
+    );
+    await service.run('owner-1');
+    const afterPullRequests = box.store.streams.get('repo-1:ISSUE');
+    expect(afterPullRequests?.frontierEntityId).toBe(802n);
+    expect(afterPullRequests?.frontierCreatedAt).toEqual(
+      new Date('2026-08-03T00:00:00.000Z'),
+    );
+    expect(storedIssueIds(box)).toEqual(['800']);
+
+    // 세 번째 sweep은 전진한 커서부터 읽는다 — PR 페이지를 다시 받지 않는다.
+    await service.run('owner-1');
+    expect(client.listNewIssues.mock.calls[2]?.[2]).toEqual({
+      createdAt: '2026-08-03T00:00:00.000Z',
+      id: '802',
+    });
+  });
+
+  it('팀원 구성이 바뀐 sweep은 Issue 커서를 버리고 한 번 전부 다시 읽은 뒤 증분으로 돌아간다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    client.listNewIssues.mockImplementation(
+      serveIssueListing([
+        issue({ id: '800' }),
+        issue({
+          id: '790',
+          createdAt: '2026-07-01T00:00:00.000Z',
+          authorLogin: 'carol',
+          authorGithubId: '33',
+        }),
+      ]),
+    );
+    const service = createService(db, client);
+
+    await service.run('owner-1');
+    expect(client.listNewIssues.mock.calls[0]?.[2]).toBeNull();
+    expect(storedIssueIds(box)).toEqual(['800']);
+
+    // carol이 팀에 합류한다.
+    box.store.teamMembers.set('later', {
+      id: 'later',
+      teamId: 'team-1',
+      createdAt: new Date(Date.UTC(2026, 6, 15)),
+      user: { githubId: 33n, nickname: 'carol' },
+    });
+    await service.run('owner-1');
+    // 저장된 커서가 있어도 팀원 표식이 달라졌으므로 처음부터 다시 읽는다.
+    expect(client.listNewIssues.mock.calls[1]?.[2]).toBeNull();
+    expect(storedIssueIds(box)).toEqual(['790', '800']);
+    expect(box.store.streams.get('repo-1:ISSUE')?.frontierSha).toMatch(
+      /^team-members:v1:[0-9a-f]{64}$/,
+    );
+
+    await service.run('owner-1');
+    expect(client.listNewIssues.mock.calls[2]?.[2]).toEqual({
+      createdAt: '2026-08-01T00:00:00.000Z',
+      id: '800',
+    });
+  });
+
+  it('Issue stream이 권한 오류로 실패해도 앞 stream의 적재는 남고 오류는 ISSUE 행에만 기록된다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    const client = createClient([repository]);
+    client.listCommitsUntilKnownSha.mockResolvedValue({
+      commits: [commit({ sha: 'sha-kept' })],
+      disconnectedFullScan: true,
+      fingerprint: fingerprint('/repos/o/r/commits'),
+    });
+    // installation이 아직 Issues 권한을 승인하지 않은 조직 저장소를 흉내 낸다.
+    client.listNewIssues.mockRejectedValue(
+      new CollectionAppClientError('PERMISSION'),
+    );
+
+    const result = await createService(db, client).run('owner-1');
+
+    expect(result.status).toBe('COMPLETED');
+    expect(result.processedRepositoryCount).toBe(0);
+    expect([...box.store.commitFacts.values()].map((fact) => fact.sha)).toEqual(
+      ['sha-kept'],
+    );
+    expect(box.store.streams.get('repo-1:ISSUE')?.lastErrorCode).toBe(
+      'PROVIDER_PERMISSION',
+    );
+    expect(box.store.streams.get('repo-1:COMMIT')?.lastErrorCode ?? null).toBe(
+      null,
+    );
+    // 조직 저장소는 권한 오류로 공개 상태가 회수되지 않는다(외부 저장소만 회수 대상이다).
+    expect(box.store.repositories.get(repoKey(100n))?.visibility).toBe(
+      'PUBLIC',
+    );
   });
 });
 
