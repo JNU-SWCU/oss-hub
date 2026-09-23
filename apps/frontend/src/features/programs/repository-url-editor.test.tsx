@@ -127,6 +127,28 @@ describe('RepositoryUrlEditor', () => {
       ).toBe('');
     },
   );
+  it('puts keep-editing before the destructive discard in the confirmation footer', async () => {
+    // Given
+    await render();
+    await click('저장소 URL 수정');
+    await fill('#repository-url', 'https://github.com/synthetic/replacement');
+    // When
+    await click('취소');
+    // Then
+    const buttons = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[role="alertdialog"] [data-slot="button"]',
+      ),
+    );
+    expect(buttons.map((button) => button.textContent)).toEqual([
+      '이어서 수정하기',
+      '변경사항 버리기',
+    ]);
+    expect(buttons.map((button) => button.dataset.variant)).toEqual([
+      'outline',
+      'destructive',
+    ]);
+  });
   it('keeps Korean warning words together in the narrow editor', async () => {
     // Given
     await render();

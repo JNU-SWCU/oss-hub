@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ACCESS_STATE_LABEL,
   ACCOUNT_STATUS_LABEL,
   ROLE_LABEL,
   SUBMISSION_STATUS_BADGE,
@@ -15,6 +16,7 @@ describe('status vocabulary', () => {
       SUBMISSION_STATUS_LABELS,
       ROLE_LABEL,
       ACCOUNT_STATUS_LABEL,
+      ACCESS_STATE_LABEL,
     ]) {
       const values = Object.values(labels);
       expect(new Set(values).size).toBe(values.length);

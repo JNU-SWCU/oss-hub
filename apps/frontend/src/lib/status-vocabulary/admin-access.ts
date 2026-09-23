@@ -37,6 +37,20 @@ export const ACCOUNT_STATUS_LABEL = {
   DEACTIVATED: '비활성',
 } as const satisfies Readonly<Record<AccountStatusKey, string>>;
 
+/**
+ * 교직원·관리자 접근을 가졌는지 읽기용으로 쓰는 말(#1365). 「없음」은 한 번도
+ * 받은 적 없는 계정과 회수된 계정 모두에 맞는 중립적인 말이라 골랐다 —
+ * 「회수됨」은 이력이 있다는 뜻을 풍긴다. 배지는 두지 않는다. 이 값이 보이는
+ * 자리(「접근 변경」 카드)는 바로 옆에 행동 버튼이 서는 곳이라, 배지를 붙이면
+ * 머리말의 계정 상태 배지와 같은 사실이 두 번 강조된다(AP-1).
+ */
+export type AccessStateKey = 'GRANTED' | 'NONE';
+
+export const ACCESS_STATE_LABEL = {
+  GRANTED: '허용됨',
+  NONE: '없음',
+} as const satisfies Readonly<Record<AccessStateKey, string>>;
+
 export const ACCOUNT_STATUS_BADGE = {
   ACTIVE: 'approved',
   DEACTIVATED: 'closed',
