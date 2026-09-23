@@ -84,6 +84,7 @@ export const COLLECTION_STREAM_TYPE_VALUES = [
   'COMMIT',
   'PULL_REQUEST',
   'RELEASE',
+  'ISSUE',
 ] as const;
 export type CollectionStreamTypeResponseDto =
   (typeof COLLECTION_STREAM_TYPE_VALUES)[number];
