@@ -21,12 +21,24 @@ function milestoneDocumentsPath(milestoneId: string): string {
   return `milestones/${encodeURIComponent(milestoneId)}/documents`;
 }
 
-export function listMilestoneDocumentCurrentFiles(
+/**
+ * ⚠ 이 endpoint는 항목 배열이 아니라 **봉투**를 돌려준다 — `{ documents, fileUpload }`
+ * (백엔드 `MilestoneDocumentListResponseDto`, #1107). 화면이 쓰는 것은 항목뿐이라
+ * 여기서 벗겨 낸다.
+ *
+ * 봉투가 아닌 응답은 빈 목록으로 삼키지 않고 던진다. 조용히 빈 칸을 그리면
+ * 계약이 다시 갈리는 날 화면은 「난 파일이 없다」고 말하고 아무도 모른다
+ * (같은 이유로 `requireSubmissionUploadLimit`도 던진다).
+ */
+export async function listMilestoneDocumentCurrentFiles(
   milestoneId: string,
 ): Promise<readonly MilestoneDocumentCurrentFileItem[]> {
-  return apiClient<readonly MilestoneDocumentCurrentFileItem[]>(
-    milestoneDocumentsPath(milestoneId),
-  );
+  const response = await apiClient<{
+    readonly documents: readonly MilestoneDocumentCurrentFileItem[];
+  }>(milestoneDocumentsPath(milestoneId));
+  if (!Array.isArray(response?.documents))
+    throw new TypeError('Invalid milestone document list response');
+  return response.documents;
 }
 
 export function downloadMilestoneDocumentCurrentFile(

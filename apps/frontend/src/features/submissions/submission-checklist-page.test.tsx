@@ -9,6 +9,7 @@ import {
   uploadSubmissionFile,
 } from './api';
 import { SubmissionChecklistPage } from './submission-checklist-page';
+import { ChecklistRow } from './components/submission-checklist-row';
 import { SelectedMilestonePanel } from './components/submission-checklist-selected-panel';
 import type { SubmissionChecklistViewProps } from './components/submission-checklist-view';
 import type { SubmissionChecklist } from './types';
@@ -465,6 +466,56 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
       content: { type: 'FILE', fileId: 'file-first' },
       comment: '',
     });
+  });
+});
+
+// 재제출 직후는 그 줄이 있어야 할 바로 그 순간이다. 이 경로는 체크리스트를 다시
+// 읽지 않으므로, 낙관적 갱신이 판정 필드를 비우면 새로고침 전까지 이력이 사라진다.
+describe('SubmissionChecklistPage 재제출 직후 화면', () => {
+  it('새로고침 없이도 지난 보완 요청 이력이 줄과 창에 남는다', async () => {
+    // Given
+    vi.mocked(uploadSubmissionFile).mockResolvedValue(uploaded('file-first'));
+    vi.mocked(createResubmission).mockResolvedValue(CREATED_RESUBMISSION);
+    await renderReadyPage();
+
+    // When
+    await selectFileAndSubmit(FILE);
+
+    // Then: 다시 읽지 않은 상태 그대로다.
+    const props = currentViewProps();
+    expect(getSubmissionChecklist).toHaveBeenCalledTimes(1);
+    const item = props.checklist.items[0];
+    if (!item) throw new Error('expected checklist item');
+
+    // 줄: 배지는 지금 상태(검토 대기) 하나만 말하고 지난 판정은 그대로 남는다.
+    const row = renderToStaticMarkup(
+      <ChecklistRow programId={props.programId} item={item} now={props.now} />,
+    );
+    expect(row).toContain('제출 상태: </span>검토 대기');
+    expect(row).toContain('이전 검토 결과: 보완 요청');
+
+    // 창: 같은 사실이 교직원 코멘트와 함께 다시 나온다.
+    const panel = renderToStaticMarkup(
+      <SelectedMilestonePanel
+        fileUpload={props.checklist.fileUpload}
+        programId={props.programId}
+        item={item}
+        input={props.input}
+        comment={props.comment}
+        errors={props.errors}
+        fileError={props.fileError}
+        submitting={props.submitting}
+        submissionPhase={props.submissionPhase}
+        onCloseSelected={props.onCloseSelected}
+        onTextChange={props.onTextChange}
+        onFileChange={props.onFileChange}
+        onCommentChange={props.onCommentChange}
+        onResubmit={props.onResubmit}
+      />,
+    );
+    expect(panel).toContain('최근 검토 결과');
+    expect(panel).toContain('Replace the file');
+    expect(panel).toContain('현재 제출본');
   });
 });
 
