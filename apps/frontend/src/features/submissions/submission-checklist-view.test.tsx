@@ -559,6 +559,69 @@ describe('ChecklistRow 업로드 가능 여부', () => {
   });
 });
 
+describe('ChecklistRow 지난 보완 요청 이력', () => {
+  function renderRow(
+    submissionOverrides: Partial<ChecklistSubmission> | null,
+  ): string {
+    return renderToStaticMarkup(
+      <ChecklistRow
+        programId="program-1"
+        item={{
+          milestoneId: 'milestone-history',
+          name: '중간 보고',
+          dueAt: '2026-07-27T14:59:59.000Z',
+          submissionType: 'TEXT',
+          submission:
+            submissionOverrides === null
+              ? null
+              : submission(submissionOverrides),
+        }}
+        now={NOW}
+      />,
+    );
+  }
+
+  it('보완 요청을 받고 다시 낸 서류는 지금 상태와 지난 판정을 따로 적는다', () => {
+    // Given: 서버는 다시 낸 뒤에도 마지막 판정(decision)을 그대로 보낸다.
+    const html = renderRow({
+      status: 'SUBMITTED',
+      currentRevision: 2,
+      decision: 'CHANGES_REQUESTED',
+      reviewComment: '실행 화면 캡처를 추가해 주세요.',
+      lastReviewedAt: '2026-07-23T01:00:00.000Z',
+      canResubmit: true,
+    });
+
+    // Then: 배지는 지금 상태 하나만 말하고, 지난 판정은 「이전」을 붙인 본문 줄로
+    // 남아 학생이 보완 요청을 받았던 사실을 창을 열지 않고도 안다.
+    expect(html).toContain('이전 검토 결과: 보완 요청');
+    expect(html).toContain('제출 상태: </span>검토 대기');
+    expect((html.match(/data-slot="status-badge"/g) ?? []).length).toBe(1);
+    expect(html).toContain('data-variant="recruiting"');
+    expect(html).not.toContain('data-variant="pending"');
+  });
+
+  // 지금 학생이 할 일이 있거나(보완 요청) 심사가 끝났거나(승인·반려) 낸 것이
+  // 없으면(미제출), 배지가 이미 그 사실을 말한다. 지난 판정을 한 번 더 적으면
+  // 지금 상태와 겹쳐 읽힌다.
+  it.each([
+    [
+      '보완 요청',
+      { status: 'CHANGES_REQUESTED', decision: 'CHANGES_REQUESTED' },
+    ],
+    ['반려', { status: 'REJECTED', decision: 'REJECTED' }],
+    ['승인', { status: 'APPROVED', decision: 'APPROVED' }],
+    ['판정 전 검토 대기', { status: 'SUBMITTED', decision: null }],
+    ['미제출', null],
+  ] as const)('%s 줄에는 지난 판정을 적지 않는다', (_label, overrides) => {
+    // When
+    const html = renderRow(overrides);
+
+    // Then
+    expect(html).not.toContain('이전 검토 결과');
+  });
+});
+
 describe('SubmissionChecklistView 선택 패널', () => {
   it('보완 요청 판정과 코멘트, 재제출 경로를 보여준다', () => {
     // When
