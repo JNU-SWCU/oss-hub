@@ -116,6 +116,12 @@ it('saves a staff link on a provisioning-off program and shows it in the staff h
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
   ).toMatchObject({ applicationId, programId, teamId });
+  expect(
+    await prisma.application.findUnique({ where: { id: applicationId } }),
+  ).toMatchObject({
+    repositoryConnectionMode: RepositoryConnectionMode.OWN,
+    repositoryUrl: input.repositoryUrl,
+  });
   await expect(
     prisma.auditLog.findFirstOrThrow({ where: { targetId: applicationId } }),
   ).resolves.toMatchObject({

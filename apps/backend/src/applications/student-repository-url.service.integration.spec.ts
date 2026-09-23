@@ -9,6 +9,7 @@ import { parseApplicationRepositoryUrlAuditMetadata } from '../audit-log/applica
 import {
   parseRepositoryProvisionEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,
+  repositoryAccessSyncTargetWhere,
 } from '../github/repository-provision-event';
 import { transferProvisionGeneration } from '../prisma/repository-provision-generation';
 import {
@@ -54,7 +55,7 @@ it('relinks and enqueues the new identity while preserving historical contributi
   expect(
     await prisma.application.findUnique({ where: { id: applicationId } }),
   ).toMatchObject({
-    repositoryConnectionMode: RepositoryConnectionMode.NEW,
+    repositoryConnectionMode: RepositoryConnectionMode.OWN,
     repositoryUrl: input.repositoryUrl,
   });
   const entries = await prisma.auditLog.findMany({
@@ -129,10 +130,30 @@ it('projects a successful relink without an original provision outbox', async ()
   expect(
     await applications.findApplicationForStaff(applicationId),
   ).toMatchObject({
-    repositoryConnectionMode: RepositoryConnectionMode.NEW,
+    repositoryConnectionMode: RepositoryConnectionMode.OWN,
     repositoryUrl: input.repositoryUrl,
     repositoryProvisioning: { jobStatus: 'SUCCEEDED' },
   });
+});
+it('takes a manual link out of the membership access sync on a provisioning-on program', async () => {
+  // Given: 발급이 켜진 프로그램의 승인 신청은 팀원이 바뀌면 권한 동기화 대상이다.
+  await prisma.program.update({
+    where: { id: programId },
+    data: { repositoryProvisioningEnabled: true },
+  });
+  expect(
+    await prisma.application.count({
+      where: repositoryAccessSyncTargetWhere(teamId),
+    }),
+  ).toBe(1);
+  // When
+  await service.updateMine(githubId, programId, input);
+  // Then: 직접 연결은 초대하지 않으므로 끝난 job을 다시 깨울 이유가 없다.
+  expect(
+    await prisma.application.count({
+      where: repositoryAccessSyncTargetWhere(teamId),
+    }),
+  ).toBe(0);
 });
 it('links a managed organization repository without re-arming provisioning', async () => {
   // Given: 승인 때 만든 발급 요청이 아직 끝나지 않았다.
@@ -183,7 +204,7 @@ it('links a managed organization repository without re-arming provisioning', asy
   expect(
     await prisma.application.findUnique({ where: { id: applicationId } }),
   ).toMatchObject({
-    repositoryConnectionMode: RepositoryConnectionMode.NEW,
+    repositoryConnectionMode: RepositoryConnectionMode.OWN,
     repositoryUrl: 'https://github.com/synthetic-org/target',
   });
   expect(

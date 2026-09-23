@@ -1,6 +1,7 @@
 import {
   CollectionRepositoryPresence,
   Prisma,
+  RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
   RepositorySource,
 } from '@prisma/client';
@@ -110,9 +111,13 @@ export class StudentRepositoryUrlTransaction {
       repositoryId = created.id;
     }
     const repositoryUrl = `https://github.com/${metadata.nameWithOwner}`;
+    // 연결 방식·포인터·URL은 한 묶음으로 바뀐다 — 직접 고른 저장소는 OWN이다.
     await tx.application.update({
       where: { id: context.id },
-      data: { repositoryUrl },
+      data: {
+        repositoryConnectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl,
+      },
     });
     // 직접 연결은 연결하고 수집할 뿐이다 — 조직 저장소여도 저장소를 만들거나 초대하지
     // 않는다. 진행 중이던 발급 요청은 SUPERSEDED로 닫고 job은 새 세대 없이 완료로
