@@ -104,6 +104,23 @@ const CHECKLIST: SubmissionChecklist = {
   items: ITEMS,
 };
 
+/**
+ * #1372 — 교직원이 판정하지 않았고 마감 전이라 서버가 canResubmit=true로 보내는
+ * 서류. 지난 판정이 없어야(decision=null) 화면 어디에도 「보완 요청」이 없다.
+ */
+const PENDING_REPLACEABLE: SubmissionChecklistItem = {
+  milestoneId: 'milestone-demo',
+  name: '시연 영상',
+  dueAt: '2026-07-30T14:59:59.000Z',
+  submissionType: 'TEXT',
+  submission: submission({
+    id: 'submission-demo',
+    status: 'SUBMITTED',
+    decision: null,
+    canResubmit: true,
+  }),
+};
+
 const handlers = {
   onTextChange: vi.fn(),
   onFileChange: vi.fn(),
@@ -268,6 +285,19 @@ describe('SubmissionChecklistView 체크리스트', () => {
     expect(html).toContain('제출 현황');
     expect(html).not.toMatch(/보완 요청 \d+건/);
     expect(html).not.toMatch(/\d+\/\d+/);
+  });
+
+  it('마감 전이라 바꿔 낼 수 있어도 판정 전 서류는 검토 대기로 부르고 보완 요청으로 세지 않는다', () => {
+    // When
+    const html = render({
+      checklist: { ...CHECKLIST, items: [PENDING_REPLACEABLE] },
+    });
+
+    // Then: 줄 배지는 서버 상태(파란 검토 대기), 머리에는 건수가 없다.
+    expect(html).toContain('제출 상태: </span>검토 대기');
+    expect(html).toContain('data-variant="recruiting"');
+    expect(html).not.toContain('data-variant="pending"');
+    expect(html).not.toContain('보완 요청');
   });
 
   it('마감은 평범한 일정 글로, 심사 결과만 상태 배지로 구분해 적는다', () => {
@@ -529,6 +559,69 @@ describe('ChecklistRow 업로드 가능 여부', () => {
   });
 });
 
+describe('ChecklistRow 지난 보완 요청 이력', () => {
+  function renderRow(
+    submissionOverrides: Partial<ChecklistSubmission> | null,
+  ): string {
+    return renderToStaticMarkup(
+      <ChecklistRow
+        programId="program-1"
+        item={{
+          milestoneId: 'milestone-history',
+          name: '중간 보고',
+          dueAt: '2026-07-27T14:59:59.000Z',
+          submissionType: 'TEXT',
+          submission:
+            submissionOverrides === null
+              ? null
+              : submission(submissionOverrides),
+        }}
+        now={NOW}
+      />,
+    );
+  }
+
+  it('보완 요청을 받고 다시 낸 서류는 지금 상태와 지난 판정을 따로 적는다', () => {
+    // Given: 서버는 다시 낸 뒤에도 마지막 판정(decision)을 그대로 보낸다.
+    const html = renderRow({
+      status: 'SUBMITTED',
+      currentRevision: 2,
+      decision: 'CHANGES_REQUESTED',
+      reviewComment: '실행 화면 캡처를 추가해 주세요.',
+      lastReviewedAt: '2026-07-23T01:00:00.000Z',
+      canResubmit: true,
+    });
+
+    // Then: 배지는 지금 상태 하나만 말하고, 지난 판정은 「이전」을 붙인 본문 줄로
+    // 남아 학생이 보완 요청을 받았던 사실을 창을 열지 않고도 안다.
+    expect(html).toContain('이전 검토 결과: 보완 요청');
+    expect(html).toContain('제출 상태: </span>검토 대기');
+    expect((html.match(/data-slot="status-badge"/g) ?? []).length).toBe(1);
+    expect(html).toContain('data-variant="recruiting"');
+    expect(html).not.toContain('data-variant="pending"');
+  });
+
+  // 지금 학생이 할 일이 있거나(보완 요청) 심사가 끝났거나(승인·반려) 낸 것이
+  // 없으면(미제출), 배지가 이미 그 사실을 말한다. 지난 판정을 한 번 더 적으면
+  // 지금 상태와 겹쳐 읽힌다.
+  it.each([
+    [
+      '보완 요청',
+      { status: 'CHANGES_REQUESTED', decision: 'CHANGES_REQUESTED' },
+    ],
+    ['반려', { status: 'REJECTED', decision: 'REJECTED' }],
+    ['승인', { status: 'APPROVED', decision: 'APPROVED' }],
+    ['판정 전 검토 대기', { status: 'SUBMITTED', decision: null }],
+    ['미제출', null],
+  ] as const)('%s 줄에는 지난 판정을 적지 않는다', (_label, overrides) => {
+    // When
+    const html = renderRow(overrides);
+
+    // Then
+    expect(html).not.toContain('이전 검토 결과');
+  });
+});
+
 describe('SubmissionChecklistView 선택 패널', () => {
   it('보완 요청 판정과 코멘트, 재제출 경로를 보여준다', () => {
     // When
@@ -742,6 +835,46 @@ describe('SelectedMilestonePanel 다이얼로그 문맥', () => {
     expect(html).not.toContain('검토 대기 중');
     expect(html).not.toContain('<button type="button" disabled');
     expect(html).toContain('현재 제출본');
+  });
+
+  it('마감 전 검토 대기 창은 검토 대기 배지와 교체 문구·재제출 폼을 함께 연다', () => {
+    // When
+    const html = renderPanel(PENDING_REPLACEABLE, { onCloseSelected: vi.fn() });
+
+    // Then: 바꿔 낼 수 있다는 사실은 배지가 아니라 문구와 폼이 말한다.
+    expect((html.match(/data-slot="status-badge"/g) ?? []).length).toBe(1);
+    expect(html).toContain('data-variant="recruiting"');
+    expect(html).toContain('검토 대기');
+    expect(html).toContain('마감 전에는 제출물을 교체할 수 있습니다.');
+    expect(html).toContain('data-testid="resubmission"');
+    expect(html).toContain('제출본 2번 제출');
+    expect(html).not.toContain('보완 요청');
+  });
+
+  it('보완 요청을 받고 마감 전에 다시 낸 서류는 검토 대기 배지이고 지난 판정만 이름으로 남긴다', () => {
+    // Given: 서버는 다시 낸 뒤에도 마지막 판정(decision)을 그대로 보낸다.
+    const resubmitted: SubmissionChecklistItem = {
+      ...PENDING_REPLACEABLE,
+      submission: submission({
+        id: 'submission-demo',
+        status: 'SUBMITTED',
+        currentRevision: 2,
+        decision: 'CHANGES_REQUESTED',
+        reviewComment: '실행 화면 캡처를 추가해 주세요.',
+        lastReviewedAt: '2026-07-23T01:00:00.000Z',
+        canResubmit: true,
+      }),
+    };
+
+    // When
+    const html = renderPanel(resubmitted, { onCloseSelected: vi.fn() });
+
+    // Then: 「보완 요청」은 배지가 아니라 「최근 검토 결과」에 한 번만 나온다.
+    expect(html).toContain('data-variant="recruiting"');
+    expect(html).not.toContain('data-variant="pending"');
+    expect(html).toContain('최근 검토 결과');
+    expect((html.match(/보완 요청/g) ?? []).length).toBe(1);
+    expect(html).toContain('data-testid="resubmission"');
   });
 });
 
