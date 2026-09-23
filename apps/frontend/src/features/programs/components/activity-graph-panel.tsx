@@ -23,9 +23,11 @@ const metrics = [
 export function ActivityPanelBody({
   state,
   onRetry,
+  compareTeams = true,
 }: {
   readonly state: ActivityState;
   readonly onRetry: () => void;
+  readonly compareTeams?: boolean;
 }) {
   if (state.kind === 'loading')
     return (
@@ -47,7 +49,11 @@ export function ActivityPanelBody({
       <EmptyState
         className="break-keep"
         title="표시할 팀이 없습니다"
-        description="참여 팀이 생기면 활동을 비교할 수 있습니다."
+        description={
+          compareTeams
+            ? '참여 팀이 생기면 활동을 비교할 수 있습니다.'
+            : '우리 팀의 활동이 집계되면 표시됩니다.'
+        }
       />
     );
   }
@@ -56,12 +62,14 @@ export function ActivityPanelBody({
   );
   return (
     <div className="grid gap-6">
-      <p
-        id="activity-scale"
-        className="break-keep text-small text-muted-foreground"
-      >
-        표시된 팀 중 같은 지표의 최댓값이 100%입니다.
-      </p>
+      {compareTeams ? (
+        <p
+          id="activity-scale"
+          className="break-keep text-small text-muted-foreground"
+        >
+          표시된 팀 중 같은 지표의 최댓값이 100%입니다.
+        </p>
+      ) : null}
       <ul className="grid gap-6">
         {state.activities.map((activity) => (
           <li
@@ -99,23 +107,25 @@ export function ActivityPanelBody({
                       <dt>{label}</dt>
                       <dd className="tabular-nums">{activity[key]}</dd>
                     </div>
-                    <div
-                      className="h-2 overflow-hidden rounded-full bg-muted"
-                      role="meter"
-                      aria-label={`${activity.label} ${label}`}
-                      aria-describedby="activity-scale"
-                      aria-valuemin={0}
-                      aria-valuemax={Math.max(1, maxima[index] ?? 0)}
-                      aria-valuenow={activity[key]}
-                      aria-valuetext={`${activity[key]}건, 같은 지표의 최댓값 ${maxima[index] ?? 0}건`}
-                    >
+                    {compareTeams ? (
                       <div
-                        className={`h-full rounded-full ${color}`}
-                        style={{
-                          width: `${maxima[index] ? (activity[key] / maxima[index]) * 100 : 0}%`,
-                        }}
-                      />
-                    </div>
+                        className="h-2 overflow-hidden rounded-full bg-muted"
+                        role="meter"
+                        aria-label={`${activity.label} ${label}`}
+                        aria-describedby="activity-scale"
+                        aria-valuemin={0}
+                        aria-valuemax={Math.max(1, maxima[index] ?? 0)}
+                        aria-valuenow={activity[key]}
+                        aria-valuetext={`${activity[key]}건, 같은 지표의 최댓값 ${maxima[index] ?? 0}건`}
+                      >
+                        <div
+                          className={`h-full rounded-full ${color}`}
+                          style={{
+                            width: `${maxima[index] ? (activity[key] / maxima[index]) * 100 : 0}%`,
+                          }}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </dl>
@@ -190,8 +200,10 @@ export function ActivityPanelBody({
  */
 export function ActivityGraphContent({
   programId,
+  applicationId,
 }: {
   readonly programId: string;
+  readonly applicationId?: string;
 }) {
   const [state, setState] = useState<ActivityState>({ kind: 'loading' });
   const load = useCallback(async () => {
@@ -209,7 +221,22 @@ export function ActivityGraphContent({
     void load();
   }, [load]);
 
-  return <ActivityPanelBody state={state} onRetry={() => void load()} />;
+  const visibleState =
+    state.kind === 'ready' && applicationId !== undefined
+      ? {
+          kind: 'ready' as const,
+          activities: state.activities.filter(
+            (activity) => activity.applicationId === applicationId,
+          ),
+        }
+      : state;
+  return (
+    <ActivityPanelBody
+      state={visibleState}
+      onRetry={() => void load()}
+      compareTeams={applicationId === undefined}
+    />
+  );
 }
 
 export function ActivityGraphPanel({
