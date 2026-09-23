@@ -233,7 +233,7 @@ Claude Code hook은 통과하지 않은 본문의 `gh pr create`를 막는다.
 1. `bash scripts/check-public-safe.sh`로 변경 파일·커밋 메시지의 public-safe 위반을 검사한다. PUBLIC repo이므로 본문·코멘트에도 같은 기준을 적용한다. 텍스트만이면 [references/public-safety-check.md](references/public-safety-check.md)의 `--text-only`를 쓴다.
 2. `gh pr create --body-file <경로>`로 연다. 브랜치명·커밋 형식은 [AGENTS.md](../../AGENTS.md)가 원본이다. 연 뒤 `gh pr view <n> --json body`로 본문을 다시 읽는다.
 3. 연리면 [프로젝트 보드](https://github.com/orgs/JNU-SWCU/projects/1)에서 해당 카드를 In Review로 옮긴다. 티켓 없는 PR이면 없는 카드를 만들지 않는다.
-4. Notion에서 발행된 티켓이면(Issue 본문에 `QA<번호>` 참조) PR URL을 Issue에 코멘트로 남긴다. Notion 행은 손대지 않는다.
+4. PR이 Issue를 `Closes` 또는 `Refs`로 가리키면 GitHub가 링크하므로 PR URL을 Issue 코멘트로 남기지 않는다.
 
 ## 리뷰 답글 작성 원칙
 
@@ -285,7 +285,7 @@ Claude Code hook은 통과하지 않은 본문의 `gh pr create`를 막는다.
 - [ ] backend 로직이 해당되면 mermaid 또는 DOT를 `## 흐름 다이어그램`에 넣었고 실데이터·시크릿을 노드에 넣지 않았다.
 - [ ] `bash scripts/check-public-safe.sh`를 실행했다.
 - [ ] AGENTS.md 흐름대로 PR을 열었고, 보드 카드가 있으면 In Review로 옮겼다.
-- [ ] Notion에서 발행된 티켓이면 Issue에 PR URL을 남겼다.
+- [ ] PR이 Issue를 가리키면 PR URL을 Issue 코멘트로 다시 남기지 않았다.
 - [ ] 화면이 해당되고 답이 없었던 인터뷰만 물었고, 에이전트가 대신 답한 것이 0건이다.
 - [ ] `## 무엇이 좋아지나`와 화면이 있을 때 `## 이 흐름이 자연스러운가`를 한 문단 줄글로 썼다.
 - [ ] `## 정리`가 본문 맨 마지막이다.

@@ -1,4 +1,4 @@
 interface:
   display_name: 'OSS Hub QA 티켓 관리'
-  short_description: 'QA 티켓을 Notion에 쓰고 GitHub Issue로 발행합니다'
-  default_prompt: 'Use $manage-qa-tickets to write, deduplicate, publish, link, or migrate an OSS Hub QA ticket. Future titles are QA<number> plus an imperative action; do not rewrite live tickets. Implementation and PR evidence belong to $submit-pr-evidence. Not for release QA or comments.'
+  short_description: 'QA 티켓을 GitHub Issue로만 작성·발행합니다'
+  default_prompt: 'Use $manage-qa-tickets to draft an OSS Hub QA ticket outside the repo, dedupe with gh issue list, and publish one GitHub Issue. Future titles are QA<number> plus an imperative action; do not rewrite live tickets. Implementation and PR evidence belong to $submit-pr-evidence. Not for release QA or comments.'

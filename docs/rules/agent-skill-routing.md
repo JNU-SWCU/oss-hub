@@ -13,7 +13,7 @@
 | 코드·설정 구현 | 표의 frontend/backend/design/testing/db/api/cicd/programming/refactor/debug/research/init | 미해당 스킬 전수 열람. 훅·open PR은 [AGENTS.md Development Commands](../../AGENTS.md#development-commands) |
 | 실행 중 화면 확인 | craft `browser` | Playwright 회귀 대체. 사용자가 명시한 브라우저 도구를 다른 도구로 교체 |
 | 릴리스 QA 실행 | `run-release-qa` | 범위 선언 전의 환경 준비. report-only는 도구 설치·서비스 기동·스위트 실행 |
-| QA 티켓 발행·이관 | `manage-qa-tickets` | 발행 승인 없는 GitHub/Notion 쓰기 |
+| QA 티켓 발행 | `manage-qa-tickets` | 발행 승인 없는 GitHub Issue 쓰기 |
 | PR 제출 | `submit-pr-evidence` | 적용 증거 없는 제출. 티켓이 없다는 이유만으로 구현 Issue를 만들지 않는다 |
 | PR·Issue 코멘트 | `write-github-comment` | 다른 스킬의 구현·QA 레인 |
 
@@ -21,7 +21,7 @@
 
 | 작업 표면 | 쓰는 스킬 | 스킬 위치 | 이 repo에서 함께 지키는 것 |
 | --- | --- | --- | --- |
-| QA 티켓 작성·발행·이관 | `manage-qa-tickets` | repo `skills/manage-qa-tickets` | 그 스킬이 자기 절차의 원본이다 |
+| QA 티켓 작성·발행 | `manage-qa-tickets` | repo `skills/manage-qa-tickets` | 그 스킬이 자기 절차의 원본이다 |
 | 티켓 수행·PR 제출 전 증거 | `submit-pr-evidence` | repo `skills/submit-pr-evidence` | frontend Before/After 캡처는 [frontend-capture.md](../../skills/submit-pr-evidence/references/frontend-capture.md), backend 로직 다이어그램은 [backend-diagram.md](../../skills/submit-pr-evidence/references/backend-diagram.md), 가독성은 [readability.md](../../skills/submit-pr-evidence/references/readability.md)가 원본이다 |
 | PR·Issue 코멘트·리뷰 답글·UX 제안 | `write-github-comment` | repo `skills/write-github-comment` | 그 스킬이 네 코멘트 템플릿(지적·답글·UX 제안·진행)의 원본이고, 가독성은 [readability.md](../../skills/submit-pr-evidence/references/readability.md)를 따른다 |
 | 역할별 사용 핸드북 작성·갱신 | `build-oss-hub-handbook` | repo `skills/build-oss-hub-handbook` | 핸드북 품질 기준은 그 스킬의 `references/quality-checklist.md`가 원본이다 |
@@ -62,7 +62,7 @@ runtime 디렉터리(`.codex/skills`, `.claude/skills`, `.cursor/skills`)는 sym
 | 스킬 | 역할 | 버전 원본 |
 | --- | --- | --- |
 | `run-release-qa` | 릴리스 후보 QA | `skills/run-release-qa/SKILL.md`의 `metadata.version` + `CHANGELOG.md` |
-| `manage-qa-tickets` | QA 티켓 작성·발행·이관 | `skills/manage-qa-tickets/SKILL.md`의 `metadata.version` + `CHANGELOG.md` |
+| `manage-qa-tickets` | QA 티켓 작성·발행 | `skills/manage-qa-tickets/SKILL.md`의 `metadata.version` + `CHANGELOG.md` |
 | `submit-pr-evidence` | PR 제출 전 필수 증거 게이트 | `skills/submit-pr-evidence/SKILL.md`의 `metadata.version` + `CHANGELOG.md` |
 | `build-oss-hub-handbook` | 역할별 사용 핸드북 | `skills/build-oss-hub-handbook/SKILL.md`의 `metadata.version` + `CHANGELOG.md` |
 | `write-github-comment` | PR·Issue 코멘트·답글·제안·진행 템플릿 | `skills/write-github-comment/SKILL.md`의 `metadata.version` + `CHANGELOG.md` |
