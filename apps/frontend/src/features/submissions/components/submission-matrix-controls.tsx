@@ -1,4 +1,5 @@
 import { useId, type ReactElement } from 'react';
+import { FilterChip, FilterChipGroup } from '@/components';
 import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import {
@@ -122,27 +123,19 @@ export function MatrixQuickFilterButtons({
   ];
 
   return (
-    <div
-      role="group"
-      aria-labelledby={titleId}
-      className="flex max-w-full flex-wrap gap-2"
-    >
+    <FilterChipGroup aria-labelledby={titleId} className="max-w-full">
       <p id={titleId} className="w-full text-small font-semibold">
         필수 서류 제출 상태
       </p>
       {options.map((option) => (
-        <Button
+        <FilterChip
           key={option.value}
-          type="button"
-          size="sm"
-          variant={quickFilter === option.value ? 'secondary' : 'ghost'}
-          aria-pressed={quickFilter === option.value}
-          className="px-3 text-small"
+          pressed={quickFilter === option.value}
           onClick={() => onQuickFilterChange(option.value)}
         >
           {option.label}
-        </Button>
+        </FilterChip>
       ))}
-    </div>
+    </FilterChipGroup>
   );
 }
