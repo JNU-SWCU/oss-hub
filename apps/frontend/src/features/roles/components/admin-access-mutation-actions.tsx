@@ -102,7 +102,11 @@ export function AdminAccessMutationActions({
             {guards.elevatedRoleBlockedReason}
           </p>
         ) : null}
-        <div className="grid gap-2">
+        <div
+          className="grid gap-2"
+          role="group"
+          aria-labelledby="admin-access-status-control-label"
+        >
           <span
             className="text-sm font-medium"
             id="admin-access-status-control-label"
@@ -160,7 +164,9 @@ function AuthorityControl({
       ? 'admin-staff-access-control-label'
       : 'admin-admin-access-control-label';
   return (
-    <div className="grid gap-2">
+    // 라디오그룹을 걷어낸 자리를 `group`으로 메운다 — 상태 글자와 버튼이 묶음
+    // 이름 아래 함께 읽히고, 라디오 의미(하나만 고름)는 되살아나지 않는다.
+    <div className="grid gap-2" role="group" aria-labelledby={labelId}>
       <span className="text-sm font-medium" id={labelId}>
         {label}
       </span>

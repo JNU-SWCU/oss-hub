@@ -202,6 +202,26 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 세그먼�
     expect(html).toContain('자기 계정은 비활성화할 수 없습니다.');
   });
 
+  it('세 묶음이 각자 이름과 묶인 group으로 읽힌다(라디오그룹을 걷어낸 자리)', () => {
+    act(() => {
+      root.render(
+        <AdminAccessMutationActions
+          detail={detail()}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
+      );
+    });
+
+    expect(
+      Array.from(container.querySelectorAll('[role="group"]')).map((group) =>
+        container
+          .querySelector(`#${group.getAttribute('aria-labelledby')}`)
+          ?.textContent?.trim(),
+      ),
+    ).toEqual(['교직원 접근', '관리자 접근', '계정 상태']);
+  });
+
   it('막힌 컨트롤이 없을 때는 대기 요청 안내문을 보여주지 않는다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessMutationActions
