@@ -66,11 +66,16 @@ function render(source: CanonicalAdminAccessDetail, onRequestAction = vi.fn()) {
   return onRequestAction;
 }
 
-function authorityButton(label: string, value: '허용' | '해제') {
-  const group = container.querySelector(`[aria-labelledby="${label}"]`);
-  return Array.from(group?.querySelectorAll('button') ?? []).find((button) =>
-    button.textContent?.endsWith(value),
-  );
+/**
+ * #1365 이후 묶음마다 버튼은 하나다 — 「허용」과 「회수」 중 지금 값의 반대만
+ * 그려지므로, 찾은 버튼의 글자가 기대한 행동인지까지 확인한다.
+ */
+function authorityButton(labelId: string, action: '허용' | '회수') {
+  const button = container
+    .querySelector(`#${labelId}`)
+    ?.closest('div')
+    ?.querySelector('button');
+  return button?.textContent?.endsWith(action) ? button : undefined;
 }
 
 describe('independent admin authority controls', () => {
@@ -89,8 +94,14 @@ describe('independent admin authority controls', () => {
           onRequestAction={() => {}}
         />,
       );
-      expect(html.match(/role="radiogroup"/g)).toHaveLength(3);
-      expect(html.match(/aria-checked="true"/g)).toHaveLength(3);
+      // #1365 — 묶음마다 지금 값 글자 하나와 행동 버튼 하나. 라디오는 없다.
+      expect(html).not.toContain('role="radiogroup"');
+      expect(html.match(/<button/g)).toHaveLength(3);
+      const grantedCount = [hasStaffAccess, hasAdminAccess].filter(
+        Boolean,
+      ).length;
+      expect(html.match(/허용됨/g) ?? []).toHaveLength(grantedCount);
+      expect(html.match(/없음/g) ?? []).toHaveLength(2 - grantedCount);
       expect(html).not.toContain('canonical 관리 API');
     },
   );
@@ -104,7 +115,7 @@ describe('independent admin authority controls', () => {
       }),
     );
     act(() =>
-      authorityButton('admin-staff-access-control-label', '해제')?.click(),
+      authorityButton('admin-staff-access-control-label', '회수')?.click(),
     );
     expect(request).toHaveBeenCalledWith('REVOKE_STAFF_ACCESS');
   });
@@ -118,7 +129,7 @@ describe('independent admin authority controls', () => {
       }),
     );
     act(() =>
-      authorityButton('admin-admin-access-control-label', '해제')?.click(),
+      authorityButton('admin-admin-access-control-label', '회수')?.click(),
     );
     expect(request).toHaveBeenCalledWith('REVOKE_ADMIN_ACCESS');
   });
@@ -137,12 +148,15 @@ describe('independent admin authority controls', () => {
     ]);
   });
 
-  it('disables same-state controls without emitting a mutation', () => {
+  it('같은 값으로 가는 컨트롤은 아예 그려지지 않는다', () => {
     const request = render(detail({ hasAdminAccess: true }));
-    const current = authorityButton('admin-admin-access-control-label', '허용');
-    expect(current).toBeInstanceOf(HTMLButtonElement);
-    expect((current as HTMLButtonElement).disabled).toBe(true);
-    act(() => current?.click());
+    // 이미 허용된 묶음에는 「허용」 버튼이 없고, 「회수」 하나만 선다.
+    expect(
+      authorityButton('admin-admin-access-control-label', '허용'),
+    ).toBeUndefined();
+    expect(
+      authorityButton('admin-admin-access-control-label', '회수'),
+    ).toBeInstanceOf(HTMLButtonElement);
     expect(request).not.toHaveBeenCalled();
   });
 });

@@ -50,7 +50,8 @@ export async function openApplicantDetail(
  * #759 가 그 셀렉트를 없애고 라디오그룹과 승인/반려 버튼으로 쪼갰으며, Task 11이
  * 다시 역할 라디오그룹을 지우고 교직원·관리자 접근을 독립 컨트롤로 나눠놓았다.
  * 그쪽은 이 헬퍼가 아니라 `chooseAuthority`·`chooseAccountStatus` 가 맡는다 —
- * 라디오 버튼 직접 선택 방식이라 "작업 이름 고르기" 추상화에 맞지 않는다.
+ * 묶음마다 행동 버튼 하나를 직접 누르는 방식이라 "작업 이름 고르기" 추상화에
+ * 맞지 않는다.
  */
 export async function chooseMutation(
   page: Page,
@@ -68,40 +69,38 @@ export async function chooseMutation(
 }
 
 /**
- * 접근 변경 카드의 독립 권한 세그먼트 컨트롤에서 교직원·관리자 접근을
- * 허용/해제하고 확인 다이얼로그를 띄운다(확정은 호출자가 누른다 — 다이얼로그
- * 문구를 먼저 단언하는 것이 이 흐름의 핵심이다).
+ * 접근 변경 카드에서 교직원·관리자 접근을 허용/회수하고 확인 다이얼로그를
+ * 띄운다(확정은 호출자가 누른다 — 다이얼로그 문구를 먼저 단언하는 것이 이
+ * 흐름의 핵심이다).
  *
  * Task 11이 단일 「역할」 라디오그룹을 지우고 교직원 접근·관리자 접근을
- * 각각 독립 컨트롤로 쪼개다 — 한 칸에 접힌 표시용 역할(`authorityLabel`)은
- * 이제 배지로만 남고 쓰기는 `hasStaffAccess`·`hasAdminAccess`를 각각 바꾸는
- * 두 명령이 맡는다. 각 버튼의 접근성 이름은 sr-only 라벨(「교직원 접근」)과
- * 보이는 텍스트(「허용」/「해제」)가 합쳐진 값이라, 그룹을 먼저 잡고 그 안에서
- * 버튼을 고른다.
+ * 각각 독립 컨트롤로 쪼갰고, #1365가 다시 묶음 안의 라디오 두 개를 「지금 값은
+ * 글자, 버튼은 행동 하나」로 바꿨다. 그래서 지금 값의 반대 행동 버튼만 존재하고,
+ * 버튼의 접근성 이름은 sr-only 묶음 이름(「교직원 접근」)과 보이는 행동
+ * (「허용」/「회수」)이 띄어쓰기로 이어진 값이다.
  */
 export async function chooseAuthority(
   page: Page,
   authority: '교직원 접근' | '관리자 접근',
-  next: '허용' | '해제',
+  next: '허용' | '회수',
 ): Promise<void> {
   await page
-    .getByRole('radiogroup', { name: authority })
-    .getByRole('radio', { name: new RegExp(`${next}$`) })
+    .getByRole('button', { name: `${authority} ${next}`, exact: true })
     .click();
 }
 
 /**
- * 접근 변경 카드의 「계정 상태」 세그먼트 컨트롤 — Task 11 이후도 여전히
- * 레거시 CAS 리소스(`expectedRole` 포함)를 통해 쓰는 유일한 화면 경로라,
- * 낙관적 잠금 충돌(409 `ROL_013`)을 화면에서 만들어 볼 수 있는 지점이다.
+ * 접근 변경 카드의 「계정 상태」 컨트롤 — Task 11 이후도 여전히 레거시 CAS
+ * 리소스(`expectedRole` 포함)를 통해 쓰는 유일한 화면 경로라, 낙관적 잠금
+ * 충돌(409 `ROL_013`)을 화면에서 만들어 볼 수 있는 지점이다. #1365 이후 이
+ * 묶음에도 sr-only 묶음 이름 「계정 상태」가 붙어 행동으로 읽힌다.
  */
 export async function chooseAccountStatus(
   page: Page,
-  statusLabel: '활성' | '비활성',
+  action: '재활성화' | '비활성화',
 ): Promise<void> {
   await page
-    .getByRole('radiogroup', { name: '계정 상태' })
-    .getByRole('radio', { name: statusLabel, exact: true })
+    .getByRole('button', { name: `계정 상태 ${action}`, exact: true })
     .click();
 }
 
@@ -118,9 +117,9 @@ export async function grantAuthority(
   await page.getByRole('button', { name: '허용 확정' }).click();
 }
 
-/** 비활성 → 「비활성화 확정」까지의 기계적 조작 묶음. */
+/** 비활성화 → 「비활성화 확정」까지의 기계적 조작 묶음. */
 export async function deactivateAccount(page: Page): Promise<void> {
-  await chooseAccountStatus(page, '비활성');
+  await chooseAccountStatus(page, '비활성화');
   await page.getByRole('button', { name: '비활성화 확정' }).click();
 }
 
