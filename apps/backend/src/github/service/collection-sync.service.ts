@@ -186,6 +186,16 @@ const isTeamMemberAuthor = (
   memberIds: ReadonlySet<bigint>,
 ): boolean => authorGithubId !== null && memberIds.has(BigInt(authorGithubId));
 
+/**
+ * 수집 대상 규칙 — 신청에 연결된 저장소이거나, 팀·프로그램 이력이 전혀 없는 독립 저장소다.
+ * `listExternalRepositories`의 SQL 조건과 한 벌이다. 연결이 풀려 이전 팀·프로그램 이력만 남은
+ * 저장소는 그 이력을 보존만 하고 새 fact는 받지 않는다 — 계속 수집하면 팀이 떠난 저장소의 활동이
+ * 그 이력을 타고 프로그램 실적에 계속 쌓인다. 인벤토리·presence 관찰은 이 규칙과 무관하다.
+ */
+const isCollectionTarget = (repository: CollectionRepositoryRow): boolean =>
+  repository.applicationId != null ||
+  (repository.programId == null && repository.teamId == null);
+
 interface SweepInventory {
   readonly complete: boolean;
   readonly repositories: readonly CollectionRepositoryRow[];
@@ -410,6 +420,7 @@ export class CollectionSyncService {
 
     const sweepStartedAt = this.now();
     const ordered = [...inventory.repositories]
+      .filter(isCollectionTarget)
       .filter(
         (repository) =>
           startAfter === null ||
