@@ -8,7 +8,7 @@ description: >-
   해당 증거가 없으면 PR을 막는다.
   코멘트는 write-github-comment, QA 티켓은 manage-qa-tickets, 릴리스 QA는 run-release-qa를 쓴다.
 metadata:
-  version: "1.13.0"
+  version: "1.14.0"
 ---
 
 # Submit PR Evidence
