@@ -19,7 +19,7 @@ export interface PublicEligibilityObservation {
  * todo 15 — public eligibility 정책 입력.
  *
  * `platformPublic`/`publishedAt`은 이미 확정된 platform eligibility(managed publish 발행
- * 결정 — 예: `PublicShowcaseRepository` projection)를 그대로 전달받는다. 이 정책은 그 결정을
+ * 결정 — 예: `Repository.publishedAt`)를 그대로 전달받는다. 이 정책은 그 결정을
  * 다시 계산하지 않고, 그 위에 Collection freshness fence만 얹는다.
  */
 export interface PublicEligibilityInput {

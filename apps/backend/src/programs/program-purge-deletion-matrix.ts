@@ -17,11 +17,6 @@ export type PurgeDeletionStep = {
  */
 export const PROGRAM_PURGE_DELETION_ORDER = [
   {
-    id: 'public-showcase-projections',
-    operation: 'DELETE',
-    covers: ['logical:Program->PublicShowcaseRepository'],
-  },
-  {
     id: 'program-outbox-events',
     operation: 'DELETE',
     covers: [
@@ -85,15 +80,6 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
       'GithubRepository->CollectionPullRequestFact',
       'GithubRepository->CollectionReleaseFact',
     ],
-  },
-  {
-    id: 'public-showcase-contributors',
-    operation: 'DELETE',
-    // PublicShowcaseRepository->PublicShowcaseContributor는 실제 FK가
-    // onDelete: Cascade라 publicShowcaseRepository.deleteMany 한 번으로 DB가 대신 지운다
-    // (코드에서 별도 deleteMany를 부르지 않는다 — migration
-    // 20260726123000_add_public_showcase_projection에서 확인).
-    covers: ['PublicShowcaseRepository->PublicShowcaseContributor'],
   },
   {
     id: 'submission-files',
@@ -221,8 +207,7 @@ const TEAM_ROW_RELATION = 'Program->Team';
  *
  * 이 표에 없는 논리 자식은 Program에만 매달린 것이다. `DEADLINE_DIGEST`는
  * `prefix:date:programId:recipientId`로 프로그램 전 수신자에게 나가므로 팀 하나를
- * 지운다고 지울 수 없고, `PublicShowcaseRepository` projection은 `programId`로만 묶이며
- * 그 `repositoryId`가 가리키는 `GithubRepository`는 팀 삭제가 DETACH로 보존한다.
+ * 지운다고 지울 수 없다.
  *
  * `TEAM_DELETED`도 일부러 빼 둔다. 그 행은 팀 삭제가 **만드는** 것이니 같은 트랜잭션이
  * 다시 지우면 알림 자체가 사라진다. 프로그램 purge만 그것을 거둑다.

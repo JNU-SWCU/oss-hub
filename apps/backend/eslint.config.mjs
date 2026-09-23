@@ -140,15 +140,13 @@ const envRestrictedSyntax = [
   },
 ];
 
-// ADR-003 DEC-42 — canonical* 계열과 legacy inert 테이블(collectionRun,
-// githubRawObservation)은 collection 구현만 만질 수 있는 Prisma delegate다.
-// 속성 이름만 보는 AST 셀렉터라 어떤 변수명(prisma/this.prisma/db 등)으로
-// 접근하든 잡아낸다.
+// ADR-003 DEC-42 — canonical* 계열은 collection 구현만 만질 수 있는 Prisma
+// delegate다. 속성 이름만 보는 AST 셀렉터라 어떤 변수명(prisma/this.prisma/db
+// 등)으로 접근하든 잡아낸다.
 const collectionDelegateRestrictedSyntax = {
-  selector:
-    'MemberExpression[property.name=/^(canonical[A-Z]|collectionRun|githubRawObservation)/]',
+  selector: 'MemberExpression[property.name=/^canonical[A-Z]/]',
   message:
-    'collection Prisma delegate(canonical*/collectionRun/githubRawObservation)는 collection 구현 밖에서 접근하지 않는다 (ADR-003 DEC-42).',
+    'collection Prisma delegate(canonical*)는 collection 구현 밖에서 접근하지 않는다 (ADR-003 DEC-42).',
 };
 
 export default tseslint.config(
@@ -187,10 +185,10 @@ export default tseslint.config(
       'no-restricted-syntax': ['error', ...envRestrictedSyntax],
     },
   },
-  // collection 구현 밖에서는 canonical*/collectionRun/githubRawObservation
-  // Prisma delegate를 직접 만질 수 없다 (ADR-003 DEC-42). collection 폴더는
-  // 제외되므로(config 병합 규칙상 이 config가 collection 파일에는 매치되지
-  // 않아 위 env 규칙만 남는다) 구현 내부에서는 그대로 delegate를 쓸 수 있다.
+  // collection 구현 밖에서는 canonical* Prisma delegate를 직접 만질 수 없다
+  // (ADR-003 DEC-42). collection 폴더는 제외되므로(config 병합 규칙상 이
+  // config가 collection 파일에는 매치되지 않아 위 env 규칙만 남는다) 구현
+  // 내부에서는 그대로 delegate를 쓸 수 있다.
   {
     files: ['src/**/*.ts'],
     ignores: ['src/github/**/*.ts'],

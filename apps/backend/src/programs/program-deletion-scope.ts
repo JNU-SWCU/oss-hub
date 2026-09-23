@@ -179,15 +179,6 @@ export async function readProgramDeletionScopeCounts(
                 SELECT id FROM "Team" WHERE "programId" = ${programId}
               )
             UNION ALL
-            SELECT CONCAT('PublicShowcaseRepository:', showcase."repositoryId")
-            FROM "PublicShowcaseRepository" AS showcase WHERE showcase."programId" = ${programId}
-            UNION ALL
-            SELECT CONCAT('PublicShowcaseContributor:', contributor.id)
-            FROM "PublicShowcaseContributor" AS contributor
-            INNER JOIN "PublicShowcaseRepository" AS showcase
-              ON showcase."repositoryId" = contributor."repositoryId"
-            WHERE showcase."programId" = ${programId}
-            UNION ALL
             SELECT CONCAT('OutboxEvent:', event.id)
             FROM "OutboxEvent" AS event
             WHERE (event."aggregateType" = 'PROGRAM' AND event."aggregateId" = ${programId})
