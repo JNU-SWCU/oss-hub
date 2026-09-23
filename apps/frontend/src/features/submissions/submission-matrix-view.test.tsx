@@ -284,15 +284,14 @@ describe('SubmissionMatrixView', () => {
 
   it('필수 서류 상태 빠른 필터를 팀 수와 함께 보여주고, 선택된 세그먼트만 aria-pressed된다(#619 스펙, #865)', () => {
     // Given
-    const ariaPressedFor = (html: string, label: string): string | null => {
-      const button =
-        html
-          .match(
-            /<button[^>]*aria-pressed="(?:true|false)"[^>]*>[\s\S]*?<\/button>/g,
-          )
-          ?.find((candidate) => candidate.includes(label)) ?? null;
-      return button?.match(/aria-pressed="(true|false)"/)?.[1] ?? null;
-    };
+    const chipFor = (html: string, label: string): string | null =>
+      html
+        .match(
+          /<button[^>]*aria-pressed="(?:true|false)"[^>]*>[\s\S]*?<\/button>/g,
+        )
+        ?.find((candidate) => candidate.includes(label)) ?? null;
+    const ariaPressedFor = (html: string, label: string): string | null =>
+      chipFor(html, label)?.match(/aria-pressed="(true|false)"/)?.[1] ?? null;
 
     // When — 픽스처: 팀 행(오픈소스팀)은 미제출 있음, 필수 서류 없음 행은 없음.
     const html = render();
@@ -304,6 +303,18 @@ describe('SubmissionMatrixView', () => {
     expect(html).toContain('제출 완료 팀 0');
     expect(html).toContain('지각 제출 팀 0');
     expect(html).not.toContain('선택됨');
+
+    // Then — 다섯 칩은 모두 공용 FilterChip(Button의 toggle 변형)이다(#1367).
+    // 화면의 aria-pressed 버튼을 세지 않고 라벨로 고른다 — 같은 화면의 단계 칩도 눌림 버튼이다.
+    for (const label of [
+      '전체 팀 2',
+      '미제출 있는 팀 2',
+      '지각 제출 팀 0',
+      '제출 완료 팀 0',
+      '필수 서류 없는 팀 0',
+    ]) {
+      expect(chipFor(html, label)).toContain('data-variant="toggle"');
+    }
 
     // Then — 기본값 ALL만 aria-pressed="true".
     expect(ariaPressedFor(html, '전체 팀 2')).toBe('true');
