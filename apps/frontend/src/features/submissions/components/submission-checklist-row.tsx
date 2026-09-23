@@ -44,6 +44,14 @@ export function ChecklistRow({
   // 포커스되는 자리에 둔다.
   const lateBlocked =
     status === 'NOT_SUBMITTED' && hasMilestoneDeadlinePassed(item.dueAt, now);
+  // 보완 요청을 받고 고쳐서 다시 낸 서류다. 지금 학생이 할 일은 없어서 배지는
+  // 검토 대기지만(#1372), 배지만 두면 보완 요청을 받았던 일 자체가 없던 일처럼
+  // 읽힌다. 지난 판정은 「이전」이라는 이름을 달고 지난 일로만 적는다 — 지금
+  // 상태를 말하는 것은 배지 하나뿐이다. 창을 열면 같은 사실이 교직원 코멘트와
+  // 함께 「최근 검토 결과」로 다시 나온다.
+  const previousChangesRequested =
+    item.submission?.status === 'SUBMITTED' &&
+    item.submission.decision === 'CHANGES_REQUESTED';
   const triggerId = submissionTriggerId(item.milestoneId);
   const submissionHref = programDocumentsHref(programId, item.milestoneId);
   return (
@@ -108,6 +116,11 @@ export function ChecklistRow({
           <span className="whitespace-nowrap">{deadline.label}</span> ·{' '}
           {TYPE_LABELS[item.submissionType]}
         </p>
+        {previousChangesRequested ? (
+          <p className="text-small break-keep text-muted-foreground">
+            이전 검토 결과: {SUBMISSION_STATUS_LABELS.CHANGES_REQUESTED}
+          </p>
+        ) : null}
         {lateBlocked ? (
           <p className="text-small break-keep text-muted-foreground">
             마감이 지나 새로 제출할 수 없습니다.
