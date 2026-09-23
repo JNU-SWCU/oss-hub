@@ -27,8 +27,15 @@ describe('application repository URL audit', () => {
   });
 
   it('reads current reasonless events without losing committed identities', () => {
-    const { reason: _reason, ...historical } = metadata;
-    const current = { ...historical, schemaVersion: 2 };
+    const current = {
+      schemaVersion: 2,
+      programId: metadata.programId,
+      teamId: metadata.teamId,
+      programName: metadata.programName,
+      actorGithubLogin: metadata.actorGithubLogin,
+      before: metadata.before,
+      after: metadata.after,
+    };
     expect(parseAuditLogMetadata(current)).toEqual({
       legacy: false,
       metadata: current,
