@@ -24,7 +24,6 @@ import {
   type GithubRepositoryMetadata,
 } from './github-app.client';
 import { RepositoriesRepository } from './repository/repositories.repository';
-import { RepositoryConnectionsRepository } from './repository/repository-connections.repository';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
 import {
   parseRepositoryProvisionEvent,
@@ -369,20 +368,34 @@ describe('RepositoryProvisionWorker integration', () => {
     });
     const claimedR1 = await claimJobFor(applicationId, 'worker-r1');
     const r2At = new Date(NOW.getTime() + 1_000);
-    const connections = new RepositoryConnectionsRepository(prisma);
-
-    await expect(
-      connections.changeConnection(
-        applicationId,
-        {
-          userId: CONNECTION_ACTOR_ID,
-          githubId: CONNECTION_ACTOR_GITHUB_ID,
-          isStaff: true,
+    // R2는 걷어 낸 교직원 NEW 요청이 남겼을 수 있는 모양(requestedByGithubId 포함)
+    // 그대로다 — 이미 쌓인 그런 요청도 worker가 끝까지 처리해야 한다.
+    await prisma.$transaction(async (transaction) => {
+      const event = await transaction.outboxEvent.create({
+        data: {
+          type: REPOSITORY_PROVISION_EVENT_TYPE,
+          aggregateType: 'Application',
+          aggregateId: applicationId,
+          idempotencyKey: `repository-connection:${applicationId}:r2`,
+          payload: {
+            applicationId,
+            programId: programId(applicationId),
+            teamId: teamIdFor(applicationId),
+            requestedAt: r2At.toISOString(),
+            collaboratorGithubLogins: [APPLICANT_LOGIN],
+            repositoryConnectionMode: 'NEW',
+            repositoryUrl: null,
+            requestedByGithubId: CONNECTION_ACTOR_GITHUB_ID.toString(),
+          },
+          availableAt: r2At,
         },
-        { mode: 'NEW' },
-        r2At,
-      ),
-    ).resolves.toMatchObject({ status: 'PENDING' });
+      });
+      await transferProvisionGeneration(
+        transaction,
+        { applicationId, newEventId: event.id, now: r2At },
+        parseRepositoryProvisionEvent,
+      );
+    });
     const afterR2 = await prisma.repositoryProvisionJob.findUniqueOrThrow({
       where: { applicationId },
     });

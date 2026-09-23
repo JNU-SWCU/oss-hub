@@ -15,9 +15,7 @@ import {
 } from './github-app.token';
 import { GithubOperationsConfig } from './github-operations.config';
 import { RepositoriesRepository } from './repository/repositories.repository';
-import { RepositoryConnectionsRepository } from './repository/repository-connections.repository';
 import { RepositoriesService } from './service/repositories.service';
-import { RepositoryConnectionsService } from './service/repository-connections.service';
 import { REPOSITORIES_READ_PORT } from './repositories-read.port';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
 import { RepositoryProvisionJobRepository } from './repository/repository-provision-job.repository';
@@ -62,21 +60,6 @@ export function resolveGithubAppClient(
     },
     GithubOperationsConfig,
     RepositoriesRepository,
-    RepositoryConnectionsRepository,
-    {
-      provide: RepositoryConnectionsService,
-      inject: [
-        RepositoryConnectionsRepository,
-        GithubAppClient,
-        RepositoryOwnEnrollmentService,
-      ],
-      useFactory: (
-        repository: RepositoryConnectionsRepository,
-        github: GithubAppClient,
-        enrollment: RepositoryOwnEnrollmentService,
-      ): RepositoryConnectionsService =>
-        new RepositoryConnectionsService(repository, github, enrollment),
-    },
     RepositoryOutboxConsumer,
     RepositoryProvisionJobRepository,
     RepositoryProvisionStateRepository,
