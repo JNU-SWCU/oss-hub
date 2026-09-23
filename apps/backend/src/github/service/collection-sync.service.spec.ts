@@ -2818,3 +2818,149 @@ describe('CollectionSyncService — 시스템 상태 관측성 2단계: sweep-hi
     warned.mockRestore();
   });
 });
+
+describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepository)', () => {
+  const NOW = new Date('2026-08-01T00:00:00.000Z');
+  const ORG_LEASE = cursorKey(1n, 'org:synthetic-org');
+  const linkedRow = (overrides: Row = {}): Row => ({
+    id: 'repo-linked',
+    githubOrganizationId: GITHUB_ORG_ID,
+    githubRepositoryId: 100n,
+    nameWithOwner: 'synthetic-org/linked',
+    defaultBranch: 'main',
+    archived: false,
+    visibility: 'PRIVATE',
+    presence: 'PRESENT',
+    source: 'ORG_PROVISIONED',
+    lastCompleteInventoryObservedAt: new Date('2026-07-01T00:00:00.000Z'),
+    applicationId: 'application-1',
+    programId: 'program-1',
+    teamId: 'team-1',
+    ...overrides,
+  });
+  const providerCallCount = (client: ClientMock): number =>
+    (Object.values(client) as jest.Mock[]).reduce<number>(
+      (total, mock) => total + mock.mock.calls.length,
+      0,
+    );
+
+  it('연결된 조직 저장소를 sweep cursor·이력 없이 바로 수집하고 성공을 기록한다', async () => {
+    const { db, box } = createFakeDb();
+    box.store.repositories.set(repoKey(100n), linkedRow());
+    seedOwningRepository(box, 100n, 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    const client = createClient([]);
+    client.listDefaultBranchCommitsByAuthor.mockResolvedValue([
+      commit({ sha: 'sha-linked', authorLogin: 'alice', authorGithubId: '11' }),
+    ]);
+
+    const result = await createService(db, client).runRepository(
+      'owner-link',
+      100n,
+    );
+
+    expect(result).toMatchObject({
+      status: 'COMPLETED',
+      processedRepositoryCount: 1,
+      insertedFactCount: 1,
+    });
+    expect(client.listInstallationRepositories).not.toHaveBeenCalled();
+    expect([...box.store.commitFacts.values()]).toEqual([
+      expect.objectContaining({
+        repositoryId: 'repo-linked',
+        sha: 'sha-linked',
+      }),
+    ]);
+    expect(box.store.repositories.get(repoKey(100n))).toMatchObject({
+      failureCount: 0,
+      lastSuccessAt: NOW,
+    });
+    expect(box.store.cursors.size).toBe(0);
+    expect(box.store.sweepHistory.size).toBe(0);
+    // 끝나면 lease를 바로 풀어 다음 sweep이 기다리지 않는다.
+    expect(box.store.leases.get(ORG_LEASE)).toMatchObject({ expiresAt: NOW });
+  });
+
+  it('sweep이 scope lease를 쥐고 있으면 provider를 부르지 않고 SKIPPED_LEASE_HELD다', async () => {
+    const { db, box } = createFakeDb();
+    box.store.repositories.set(repoKey(100n), linkedRow());
+    box.store.leases.set(ORG_LEASE, {
+      appId: 1n,
+      scope: 'org:synthetic-org',
+      ownerId: 'scheduler:sweep',
+      epoch: 1n,
+      runId: 'sweep-run',
+      expiresAt: new Date(NOW.getTime() + 60_000),
+    });
+    const client = createClient([]);
+
+    const result = await createService(db, client).runRepository(
+      'owner-link',
+      100n,
+    );
+
+    expect(result.status).toBe('SKIPPED_LEASE_HELD');
+    expect(providerCallCount(client)).toBe(0);
+    expect(box.store.leases.get(ORG_LEASE)).toMatchObject({
+      runId: 'sweep-run',
+    });
+  });
+
+  it.each([
+    [
+      '조직 밖 비공개 저장소',
+      {
+        source: 'EXTERNAL_PUBLIC',
+        visibility: 'PRIVATE',
+        githubOrganizationId: null,
+      },
+    ],
+    ['기본 브랜치를 아직 모르는 저장소', { defaultBranch: null }],
+    ['연결이 풀리고 팀 이력만 남은 저장소', { applicationId: null }],
+    ['사라진 저장소', { presence: 'ABSENT' }],
+  ])(
+    '%s는 lease도 provider도 건드리지 않고 SKIPPED다',
+    async (_label, overrides) => {
+      const { db, box } = createFakeDb();
+      box.store.repositories.set(repoKey(100n), linkedRow(overrides));
+      const client = createClient([]);
+
+      const result = await createServiceWithExternal(db, client).runRepository(
+        'owner-link',
+        100n,
+      );
+
+      expect(result.status).toBe('SKIPPED');
+      expect(providerCallCount(client)).toBe(0);
+      expect(box.store.leases.size).toBe(0);
+    },
+  );
+
+  it('rate budget이 바닥이면 sweep 루프처럼 provider를 부르지 않고 멈춘다', async () => {
+    const { db, box } = createFakeDb();
+    box.store.repositories.set(repoKey(100n), linkedRow());
+    const client = createClient([]);
+    const runtime = runtimeFor(client);
+    jest.spyOn(runtime.queue, 'shouldStop').mockReturnValue(true);
+    const service = new CollectionSyncService(
+      new CollectionIncrementalRepository(db),
+      () => runtime,
+      () => Promise.resolve(GITHUB_ORG_ID),
+      () => NOW,
+      () => 'run-1',
+    );
+
+    const result = await service.runRepository('owner-link', 100n);
+
+    expect(result).toMatchObject({
+      status: 'COMPLETED',
+      processedRepositoryCount: 0,
+      stoppedForBudget: true,
+    });
+    expect(providerCallCount(client)).toBe(0);
+    expect(box.store.repositories.get(repoKey(100n))?.lastSuccessAt).toBe(
+      undefined,
+    );
+  });
+});

@@ -63,8 +63,9 @@ const streamErrorCode = (error: unknown): string =>
     ? `PROVIDER_${error.kind}`
     : DEFAULT_STREAM_ERROR_CODE;
 
+/** `SKIPPED`는 저장소 1건 run(`runRepository`)이 그 저장소를 수집 대상으로 보지 않았다는 뜻이다. */
 export type CollectionSyncRunStatus =
-  'SKIPPED_LEASE_HELD' | 'COMPLETED' | 'FAILED';
+  'SKIPPED' | 'SKIPPED_LEASE_HELD' | 'COMPLETED' | 'FAILED';
 
 export interface CollectionSyncRunResult {
   runId: string;
@@ -123,6 +124,7 @@ type SyncRepository = Pick<
   | 'getSyncCursor'
   | 'upsertSyncCursor'
   | 'recordSweepHistory'
+  | 'findRepositoryByLogicalKey'
   | 'acquireSyncLease'
   | 'heartbeatSyncLease'
   | 'releaseSyncLease'
@@ -280,12 +282,7 @@ export class CollectionSyncService {
     ownerId: string,
     runId?: string,
   ): Promise<CollectionSyncRunResult> {
-    if (!this.externalRuntimeFactory) {
-      throw new Error(
-        'collection sync: external runtime not configured (runExternal requires an externalRuntimeFactory)',
-      );
-    }
-    const runtime = await this.externalRuntimeFactory();
+    const runtime = await this.externalRuntime();
     return this.runSweep({
       source: 'EXTERNAL_PUBLIC',
       scope: EXTERNAL_SCOPE,
@@ -296,6 +293,86 @@ export class CollectionSyncService {
       discoverInventory: (lease, deadline) =>
         this.syncExternalInventory(runtime, lease, deadline),
     });
+  }
+
+  /**
+   * 방금 연결한 저장소 하나를 매시 sweep을 기다리지 않고 바로 수집한다(#1133). 그 저장소의
+   * sweep과 같은 scope lease 아래에서 sweep 루프와 같은 `syncOne`을 돌리므로 두 경로가 같은
+   * 저장소를 동시에 쓰지 않는다. sweep cursor와 sweep history는 건드리지 않는다 — 다음 sweep은
+   * 평소대로 이 저장소까지 다시 훑는다.
+   *
+   * 수집 대상이 아니거나, 사라졌거나, 기본 브랜치를 아직 모르거나(조직 저장소는 sweep 인벤토리가
+   * 채운다), 조직 밖인데 공개가 아니면 provider를 부르지 않고 `SKIPPED`다. lease를 sweep이
+   * 쥐고 있으면 `SKIPPED_LEASE_HELD`다 — 도는 중이거나 다음 sweep이 이 저장소를 수집한다.
+   *
+   * ponytail: 이 run이 scope lease를 쥔 사이에 매시 cron이 오면 그 scope는 한 tick을 건너뛴다.
+   * 트리거가 프로세스 안에 있어 저장과 실행 사이에 재시작하면 수집은 매시 sweep으로 밀린다.
+   * 둘 다 문제가 되면 연결 이벤트를 durable 큐로 옮긴다.
+   */
+  async runRepository(
+    ownerId: string,
+    githubRepositoryId: bigint,
+    runId: string = this.createRunId(),
+  ): Promise<CollectionSyncRunResult> {
+    const repository =
+      await this.incrementalRepository.findRepositoryByLogicalKey(
+        githubRepositoryId,
+      );
+    if (
+      repository === null ||
+      !isCollectionTarget(repository) ||
+      repository.presence !== 'PRESENT' ||
+      repository.defaultBranch === null ||
+      (repository.source === 'EXTERNAL_PUBLIC' &&
+        repository.visibility !== 'PUBLIC')
+    ) {
+      return idleRunResult(runId, 'SKIPPED');
+    }
+    const external = repository.source === 'EXTERNAL_PUBLIC';
+    const runtime = external
+      ? await this.externalRuntime()
+      : await this.runtimeFactory();
+    const key = {
+      appId: BigInt(runtime.appId),
+      scope: external ? EXTERNAL_SCOPE : orgScope(runtime.organizationLogin),
+    };
+    return this.withSyncLease(key, ownerId, runId, async (lease) => {
+      const deadline = this.now().getTime() + RUN_DEADLINE_MS;
+      const identitySnapshot =
+        await this.incrementalRepository.listRegisteredGithubIds();
+      let insertedFactCount = 0;
+      // sweep 루프와 같은 rate budget 정지 조건이다.
+      const outcome: RepositorySyncOutcome = runtime.queue.shouldStop()
+        ? { kind: 'STOPPED_FOR_BUDGET' }
+        : await this.syncOne(
+            runtime,
+            lease,
+            repository,
+            identitySnapshot,
+            deadline,
+            runId,
+            (_streamType, insertedCount) => {
+              insertedFactCount += insertedCount;
+            },
+          );
+      await this.incrementalRepository.releaseSyncLease(lease, this.now());
+      return {
+        ...idleRunResult(runId, 'COMPLETED'),
+        processedRepositoryCount: outcome.kind === 'PROCESSED' ? 1 : 0,
+        stoppedForBudget: outcome.kind === 'STOPPED_FOR_BUDGET',
+        insertedFactCount,
+      };
+    });
+  }
+
+  private externalRuntime():
+    CollectionSyncRuntime | Promise<CollectionSyncRuntime> {
+    if (!this.externalRuntimeFactory) {
+      throw new Error(
+        'collection sync: external runtime not configured (runExternal requires an externalRuntimeFactory)',
+      );
+    }
+    return this.externalRuntimeFactory();
   }
 
   private async runSweep(params: {

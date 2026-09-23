@@ -38,6 +38,8 @@ const testFileGlobs = [
 const collectionPublicFiles = [
   // 수집 쪽 공개 surface — DEC-42.
   'collection.module',
+  // 저장소 연결 직후 수집을 시작하는 port(#1133). 수집 구현은 github 안에 남는다.
+  'collection-trigger.port',
   // 프로비저닝 쪽 공개 surface.
   //
   // 합병 전 `repositories/` 는 캡슐화 대상이 아니었으므로 아래 파일들은 원래
