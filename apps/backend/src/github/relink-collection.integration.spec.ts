@@ -3,6 +3,7 @@ import {
   prisma,
   service,
   resolver,
+  collectionTrigger,
   githubId,
   programId,
   applicationId,
@@ -283,6 +284,7 @@ function syntheticProvider() {
   const resolveUserNodeId = jest
     .spyOn(client, 'resolveUserNodeId')
     .mockResolvedValue('synthetic-node');
+  const getRepository = jest.spyOn(client, 'getRepository');
   const runtime = () => ({
     appId: '8133',
     organizationLogin: 'synthetic',
@@ -294,6 +296,7 @@ function syntheticProvider() {
     client,
     runtime,
     resolveUserNodeId,
+    getRepository,
     /** stream 호출이 가리킨 저장소 이름(`owner/name`의 name) 목록. */
     streamedNames: () =>
       repositoryCalls.flatMap((spy) =>
@@ -301,6 +304,60 @@ function syntheticProvider() {
       ),
   };
 }
+
+it('collects a repository linked into an empty slot right after the team route saves it', async () => {
+  // Given: the team has no repository yet.
+  await prisma.githubRepository.delete({ where: { id: oldId } });
+  const provider = syntheticProvider();
+  jest
+    .spyOn(provider.client, 'listDefaultBranchCommitsByAuthor')
+    .mockResolvedValue([
+      {
+        sha: 'collected-right-after-link',
+        authorLogin: 'synthetic-relink-user',
+        authorGithubId: githubId.toString(),
+        committedAt: '2026-08-02T00:00:00Z',
+        htmlUrl: 'https://example.invalid/commit/collected-right-after-link',
+      },
+    ]);
+  const sync = new CollectionSyncService(
+    collection,
+    provider.runtime,
+    () => Promise.resolve(8133n),
+    () => observedAt,
+    () => 'synthetic-link-run',
+    provider.runtime,
+  );
+  // When: the leader saves B through the team route, and the captured trigger runs on the real database.
+  await service.updateForTeam(githubId, programId, teamId, input);
+  const linked = collectionTrigger.collectRepository.mock.calls.map(
+    ([id]) => id,
+  );
+  expect(linked).toEqual([targetGithubId]);
+  const results = await Promise.all(
+    linked.map((id) => sync.runRepository('synthetic-link', id)),
+  );
+  // Then: B has facts and a Contribution row now, without an inventory re-read.
+  expect(results).toEqual([
+    expect.objectContaining({
+      status: 'COMPLETED',
+      processedRepositoryCount: 1,
+      insertedFactCount: 1,
+    }),
+  ]);
+  expect(provider.getRepository).not.toHaveBeenCalled();
+  expect(
+    await prisma.collectionCommitFact.findMany({
+      where: { repositoryId: targetId },
+    }),
+  ).toEqual([expect.objectContaining({ sha: 'collected-right-after-link' })]);
+  expect(
+    await prisma.contribution.findMany({ where: { repositoryId: targetId } }),
+  ).toEqual([expect.objectContaining({ githubId, commitCount: 1 })]);
+  expect(
+    await prisma.githubRepository.findUnique({ where: { id: targetId } }),
+  ).toMatchObject({ lastSuccessAt: observedAt, failureCount: 0 });
+});
 
 it('stops streaming a detached organization repository in the organization sweep', async () => {
   // Given: organization repository A was replaced by B, and C is an ordinary organization repository.

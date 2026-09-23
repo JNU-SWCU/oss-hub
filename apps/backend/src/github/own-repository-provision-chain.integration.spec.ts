@@ -688,6 +688,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       new OwnRepositoryUrlValidationService(github),
       new ConsentsService(new ConsentsRepository(prisma)),
       new AuditLogService(new AuditLogRepository(prisma)),
+      { collectRepository: jest.fn() },
     );
     await relink.updateMine(
       APPLICANT_GITHUB_ID,

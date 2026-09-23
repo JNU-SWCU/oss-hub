@@ -1,5 +1,6 @@
 import { ApplicationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { repositoryUrlError } from './student-repository-url.errors';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { StudentRepositoryUrlTransaction } from './student-repository-url.transaction.repository';
 import type {
@@ -44,12 +45,18 @@ function fixture(
     .spyOn(transaction, 'lockTeamContext')
     .mockResolvedValue(teamContext);
   const relink = jest.spyOn(transaction, 'relink').mockResolvedValue('target');
+  // 커밋과 수집 시작의 순서를 본다 — 수집은 커밋이 끝난 뒤에만 시작해야 한다.
+  const events: string[] = [];
   const repository = {
     findContext: jest.fn().mockResolvedValue(context),
     findTeamContext: jest.fn().mockResolvedValue(teamContext),
-    withTransaction: <T>(
+    withTransaction: async <T>(
       operation: (store: StudentRepositoryUrlTransaction) => Promise<T>,
-    ) => operation(transaction),
+    ) => {
+      const result = await operation(transaction);
+      events.push('commit');
+      return result;
+    },
   } satisfies Pick<
     StudentRepositoryUrlRepository,
     'findContext' | 'findTeamContext' | 'withTransaction'
@@ -68,6 +75,11 @@ function fixture(
   };
   const consents = { requireCurrent: jest.fn().mockResolvedValue(undefined) };
   const audit = { record: jest.fn().mockResolvedValue(undefined) };
+  const collection = {
+    collectRepository: jest.fn((githubRepositoryId: bigint) => {
+      events.push(`collect:${githubRepositoryId}`);
+    }),
+  };
   const service = new StudentRepositoryUrlService(
     repository,
     {
@@ -80,6 +92,7 @@ function fixture(
     resolver,
     consents,
     audit,
+    collection,
   );
   return {
     service,
@@ -87,6 +100,8 @@ function fixture(
     resolver,
     consents,
     audit,
+    collection,
+    events,
     lockTeamContext,
     relink,
   };
@@ -134,7 +149,7 @@ it('requires the applicant consent for an external repository even when the lead
   expect(relink).not.toHaveBeenCalled();
 });
 it('does not mutate or audit when the current canonical repository is submitted again', async () => {
-  const { service, resolver, audit, relink } = fixture();
+  const { service, resolver, audit, relink, collection } = fixture();
   resolver.resolve.mockResolvedValue({
     kind: 'ORGANIZATION',
     repository: { githubRepositoryId: 2n, nameWithOwner: 'synthetic/old' },
@@ -145,6 +160,28 @@ it('does not mutate or audit when the current canonical repository is submitted 
   });
   expect(relink).not.toHaveBeenCalled();
   expect(audit.record).not.toHaveBeenCalled();
+  expect(collection.collectRepository).not.toHaveBeenCalled();
+});
+it('starts collecting the new repository once, after the relink commits', async () => {
+  const { service, events } = fixture();
+  await service.updateForTeam(1n, 'program', 'team', input);
+  expect(events).toEqual(['commit', 'collect:3']);
+});
+it('does not collect when the target repository is taken by another team', async () => {
+  const { service, relink, collection } = fixture();
+  relink.mockRejectedValue(repositoryUrlError('conflict'));
+  await expect(service.updateMine(1n, 'program', input)).rejects.toMatchObject({
+    errorCode: { code: 'APP_029' },
+  });
+  expect(collection.collectRepository).not.toHaveBeenCalled();
+});
+it('does not collect when the audit write rolls the relink back', async () => {
+  const { service, audit, collection } = fixture();
+  audit.record.mockRejectedValue(new Error('Synthetic audit outage'));
+  await expect(service.updateMine(1n, 'program', input)).rejects.toThrow(
+    'Synthetic audit outage',
+  );
+  expect(collection.collectRepository).not.toHaveBeenCalled();
 });
 it('rechecks the program end after the context is locked', async () => {
   const { service, lockTeamContext, relink } = fixture();
