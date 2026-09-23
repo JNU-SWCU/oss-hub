@@ -4,7 +4,8 @@
  *
  * 저장소의 `docs/design-tokens/tokens.json`(원본은 globals.css)과 vault 스펙 시트의 수치대로
  * Figma 변수(Light·Dark) · 텍스트 스타일 · 컴포넌트(Button · Badge · FilterChip · Dialog
- * (저장·확인) · Form Field · Table · Card · FailureState · SkeletonBlock)를 만든다.
+ * (저장·확인) · Form Field · Form Textarea · Table · Card · FailureState · SkeletonBlock)를
+ * 만든다.
  * 사람이 그리는 대신 코드가 그린다 — 코드가 원본이고
  * Figma는 거울이라는 design.md R-36의 연장이다.
  *
@@ -903,8 +904,13 @@ async function buildChips() {
 
 // ---------- Dialog · Form ----------
 
-async function formField(label, placeholder, help) {
-  const field = component('Form/Field', {
+/**
+ * 라벨 · 입력 · 도움말 한 벌. `multiline`이면 한 줄 입력(Input) 대신 여러 줄
+ * 입력(Textarea)을 둔다 — 테두리·모서리·좌우 여백은 같은 조작 규격이고 높이만
+ * 다르다(textarea.tsx가 Input·Select와 같은 규격을 쓴다고 적어 둔 그대로다).
+ */
+async function formField(label, placeholder, help, multiline = false) {
+  const field = component(multiline ? 'Form/Textarea' : 'Form/Field', {
     direction: 'VERTICAL',
     crossAlign: 'MIN',
     gap: 8,
@@ -913,16 +919,21 @@ async function formField(label, placeholder, help) {
   field.resize(400, 10);
   field.primaryAxisSizingMode = 'AUTO';
   field.appendChild(await makeText(label, { size: 13, weight: 'semibold' }));
-  const input = frame('input', {
-    // 좌우 여백 16 = 코드의 `px-4`(input.tsx). 12 는 코드 어디에도 없던 값이다.
-    padding: [0, 16, 0, 16],
+  const input = frame(multiline ? 'textarea' : 'input', {
+    // 좌우 여백 16 = 코드의 `px-4`(input.tsx · textarea.tsx). 여러 줄은 위아래 8
+    // (`py-2`)이 더 붙고 글이 맨 위에서 시작한다 — 한 줄은 세로 가운데다.
+    direction: multiline ? 'VERTICAL' : 'HORIZONTAL',
+    crossAlign: multiline ? 'MIN' : 'CENTER',
+    padding: multiline ? [8, 16, 8, 16] : [0, 16, 0, 16],
     crossSizing: 'FIXED',
     mainSizing: 'FIXED',
     radius: 8,
     fill: paintFor('background'),
     stroke: paintFor('input'),
   });
-  input.resize(400, 44);
+  // 한 줄은 control-height 44, 여러 줄은 `min-h-20` 80이다. 80은 최소값이라 글이
+  // 늘면 함께 늘고, 게시판 글쓰기·수정은 `min-h-28`(112)로 덮어 쓴다.
+  input.resize(400, multiline ? 80 : 44);
   input.appendChild(
     await makeText(placeholder, { size: 16, color: 'muted-foreground' }),
   );
@@ -1054,6 +1065,15 @@ async function buildDialogs(buttonSet) {
     '2~30자. 다른 팀과 겹치면 저장되지 않습니다.',
   );
   page.appendChild(field);
+  const textarea = await formField(
+    '내용',
+    '내용',
+    '10,000자까지 쓸 수 있습니다.',
+    true,
+  );
+  textarea.description =
+    '여러 줄 입력. 테두리·모서리·좌우 여백은 한 줄 입력과 같고 높이만 다르다 — `min-h-20`(80)이 최소이고 글이 늘면 함께 늘어난다. 게시판 글쓰기·글 수정은 `min-h-28`(112)로 덮어 쓰고, 팀 삭제 안내 칸은 기본값을 그대로 쓴다. 코드: components/ui/textarea.tsx';
+  page.appendChild(textarea);
   const md = await dialogNode('md', buttonSet, field);
   const lg = await dialogNode('lg', buttonSet, field);
   const alert = await dialogNode('alert', buttonSet, field);
@@ -1063,6 +1083,8 @@ async function buildDialogs(buttonSet) {
   page.appendChild(lg);
   page.appendChild(alert);
   field.x = 0;
+  textarea.x = 0;
+  textarea.y = field.height + 48;
   md.x = 480;
   lg.x = 480;
   lg.y = md.height + 48;
@@ -1075,9 +1097,9 @@ async function buildDialogs(buttonSet) {
   overlay.fills = [paintFor('foreground', 0.35)];
   overlay.resize(200, 120);
   overlay.x = 0;
-  overlay.y = field.height + 48;
+  overlay.y = textarea.y + textarea.height + 48;
   page.appendChild(overlay);
-  log('Dialog md·lg·alert + Form/Field + 오버레이 견본');
+  log('Dialog md·lg·alert + Form/Field · Form/Textarea + 오버레이 견본');
 }
 
 // ---------- Table ----------

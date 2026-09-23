@@ -382,6 +382,7 @@ describe('figma plugin code.js', () => {
     expect(dialogPage?.children.map((n: AnyNode) => n.name)).toEqual(
       expect.arrayContaining([
         'Form/Field',
+        'Form/Textarea',
         'Dialog/md',
         'Dialog/lg',
         'Dialog/alert',
@@ -419,6 +420,7 @@ describe('figma plugin code.js', () => {
       'FailureState',
       'FilterChip',
       'Form/Field',
+      'Form/Textarea',
       'SkeletonBlock',
       'StatusBadge',
       'Table/Cell',
@@ -463,6 +465,13 @@ describe('figma plugin code.js', () => {
     const inputBox = dialogChild('Form/Field', 'input');
     expect(inputBox?.height).toBe(44);
     expect([inputBox?.paddingTop, inputBox?.paddingLeft]).toEqual([0, 16]);
+
+    // 여러 줄 입력은 `min-h-20`(80)에 `px-4 py-2`다 — 좌우 여백은 한 줄과 같다.
+    const textareaBox = dialogChild('Form/Textarea', 'textarea');
+    expect(textareaBox?.height).toBe(80);
+    expect([textareaBox?.paddingTop, textareaBox?.paddingLeft]).toEqual([
+      8, 16,
+    ]);
 
     // 확인창은 저장 창(576)보다 좁고, 확정 버튼이 「삭제」다. 낭독기 역할·바깥 클릭
     // 규칙은 그림에 안 보이므로 컴포넌트 설명에 적는다.
