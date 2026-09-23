@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import {
-  AccountStatus,
   CollectionRepositoryPresence,
   Prisma,
   RepositoryConnectionMode,
@@ -18,11 +17,10 @@ import {
   settleProvisionGenerationForSynchronousConnection,
   transferProvisionGeneration,
 } from '../prisma/repository-provision-generation';
-import { STUDENT_MEMBER_WHERE } from '../profiles/user-profile-read';
-import { programApplicationManagerWhere } from '../programs/program-participant';
 import {
-  STUDENT_REPOSITORY_URL_SELECT,
+  readTeamRepositoryUrlContext,
   type StudentRepositoryUrlContext,
+  type TeamRepositoryUrlContext,
 } from './student-repository-url.repository';
 import { repositoryUrlError } from './student-repository-url.errors';
 
@@ -32,35 +30,24 @@ export class StudentRepositoryUrlTransaction {
     return this.transaction;
   }
 
-  async lockContext(
+  async lockTeamContext(
     programId: string,
-    studentId: string,
-  ): Promise<StudentRepositoryUrlContext | null> {
+    teamId: string,
+    actorGithubId: bigint,
+  ): Promise<TeamRepositoryUrlContext | null> {
     await this.transaction
       .$queryRaw`SELECT "id" FROM "Program" WHERE "id" = ${programId} FOR UPDATE`;
-    const candidate = await this.transaction.application.findFirst({
-      where: { programId, ...programApplicationManagerWhere(studentId) },
-      select: { id: true, teamId: true },
-    });
-    if (!candidate) return null;
     // 팀장 승계·탈퇴와 같은 팀 행을 잠근 뒤 현재 권한을 다시 읽는다.
     await this.transaction
-      .$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${candidate.teamId} FOR UPDATE`;
+      .$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} AND "programId" = ${programId} FOR UPDATE`;
     await this.transaction
-      .$queryRaw`SELECT "id" FROM "Application" WHERE "id" = ${candidate.id} FOR UPDATE`;
-    const actor = await this.transaction.user.findFirst({
-      where: {
-        id: studentId,
-        accountStatus: AccountStatus.ACTIVE,
-        ...STUDENT_MEMBER_WHERE,
-      },
-      select: { id: true },
-    });
-    if (!actor) return null;
-    return this.transaction.application.findFirst({
-      where: { programId, ...programApplicationManagerWhere(studentId) },
-      select: STUDENT_REPOSITORY_URL_SELECT,
-    });
+      .$queryRaw`SELECT "id" FROM "Application" WHERE "programId" = ${programId} AND "teamId" = ${teamId} FOR UPDATE`;
+    return readTeamRepositoryUrlContext(
+      this.transaction,
+      programId,
+      teamId,
+      actorGithubId,
+    );
   }
 
   async relink(
