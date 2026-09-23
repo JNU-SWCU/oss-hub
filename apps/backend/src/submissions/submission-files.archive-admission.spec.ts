@@ -6,6 +6,9 @@ import { signatureValidZip } from './submission-zip-test-builder';
 
 const MIB = 1024 * 1024;
 
+/** 전통 방식 암호화가 자료 앞에 덧붙이는 머리 크기. 이만큼을 더해야 진짜 암호화 자료다. */
+const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;
+
 type ArchiveCase = {
   readonly scenario: string;
   readonly build: () => Buffer;
@@ -41,7 +44,15 @@ const HAZARDOUS_ARCHIVES = [
   },
   {
     scenario: 'an encrypted entry flag',
-    build: () => signatureValidZip([{ name: 'encrypted.txt', flags: 0x0001 }]),
+    build: () =>
+      signatureValidZip([
+        {
+          name: 'encrypted.txt',
+          flags: 0x0001,
+          compressedSize: 1 + TRADITIONAL_ENCRYPTION_HEADER_BYTES,
+          uncompressedSize: 1,
+        },
+      ]),
   },
   {
     scenario: 'an unsupported compression method',
