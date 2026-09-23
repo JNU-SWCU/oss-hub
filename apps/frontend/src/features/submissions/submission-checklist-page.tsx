@@ -210,7 +210,12 @@ export function SubmissionChecklistPage({
       }
       setState({
         kind: 'ready',
-        data: applyResubmission(checklist, item.milestoneId, result),
+        data: applyResubmission(
+          checklist,
+          item.milestoneId,
+          result,
+          now ?? new Date(),
+        ),
       });
       setStaleNotice(null);
       setFileError(null);
