@@ -254,7 +254,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     // 회수한다"가 정본 조작이다. 다이얼로그가 다른 접근 권한은 그대로라고
     // 명시하는지까지 본다 — 독립성이 이 화면의 계약이다.
     await openDetail(adminPage, STAFF_REVOCABLE, '합성 활성 교직원');
-    await chooseAuthority(adminPage, '교직원 접근', '해제');
+    await chooseAuthority(adminPage, '교직원 접근', '회수');
     const revokeDialog = adminPage.getByRole('dialog');
     await expect(revokeDialog).toContainText('교직원 접근 회수');
     await expect(revokeDialog).toContainText(

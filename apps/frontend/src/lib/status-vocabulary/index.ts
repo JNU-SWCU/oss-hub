@@ -5,6 +5,7 @@ export {
   type SubmissionStatusKey,
 } from './submission';
 export {
+  ACCESS_STATE_LABEL,
   ACCOUNT_STATUS_BADGE,
   ACCOUNT_STATUS_LABEL,
   ROLE_BADGE,
@@ -13,6 +14,7 @@ export {
   UNASSIGNED_ROLE_LABEL,
   roleBadgeVariant,
   roleLabel,
+  type AccessStateKey,
   type AccountStatusKey,
   type AdminAccessRoleKey,
 } from './admin-access';
