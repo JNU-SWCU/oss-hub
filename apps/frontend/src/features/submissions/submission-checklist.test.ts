@@ -474,11 +474,12 @@ describe('submitResubmissionRevision', () => {
 });
 
 describe('applyResubmission', () => {
-  it('대상 행만 SUBMITTED·새 revision으로 갱신하고 나머지는 보존한다', () => {
-    // Given
+  const DUE_AT = '2026-09-01T14:59:59.000Z';
+
+  function resubmittedChecklist(now: Date) {
     const target = checklistItem({
       milestoneId: 'milestone-target',
-      dueAt: '2026-09-01T14:59:59.000Z',
+      dueAt: DUE_AT,
       submission: {
         id: 'submission-1',
         status: 'CHANGES_REQUESTED',
@@ -500,27 +501,46 @@ describe('applyResubmission', () => {
       fileUpload: submissionUploadLimit(),
       items: [target, other],
     };
+    const next = applyResubmission(
+      checklist,
+      'milestone-target',
+      { submissionId: 'submission-1', revision: 2, status: 'SUBMITTED' },
+      now,
+    );
+    return { next, target, other };
+  }
 
-    // When
-    const next = applyResubmission(checklist, 'milestone-target', {
-      submissionId: 'submission-1',
-      revision: 2,
-      status: 'SUBMITTED',
-    });
+  // 서버는 재제출해도 판정 이력을 지우지 않는다(submissions.service.ts의
+  // latestReview) — 낙관적 갱신이 비워 버리면 새로고침해야 지난 판정이 되돌아온다.
+  it('마감 전 재제출은 지난 판정을 지우지 않고 다음 조회와 같은 행을 만든다', () => {
+    // Given: Seoul 2026-08-31 23:59:59 — 마감 하루 전.
+    const { next, target, other } = resubmittedChecklist(
+      new Date('2026-08-31T14:59:59.000Z'),
+    );
 
     // Then
     expect(next.items[0]?.submission).toEqual({
       id: 'submission-1',
       status: 'SUBMITTED',
       currentRevision: 2,
-      decision: null,
-      lastReviewedAt: null,
-      reviewComment: null,
-      canResubmit: false,
+      decision: 'CHANGES_REQUESTED',
+      lastReviewedAt: '2026-08-28T01:00:00.000Z',
+      reviewComment: '실행 화면을 추가해 주세요',
+      // 검토 대기 + 마감 전이면 서버도 교체를 허용한다.
+      canResubmit: true,
       file: null,
     });
     expect(next.items[1]).toBe(other);
     // 원본은 그대로 — 이전 상태를 덮어쓰지 않는다.
     expect(target.submission?.status).toBe('CHANGES_REQUESTED');
+  });
+
+  it('마감 뒤 재제출은 더 낼 수 없다고 표시한다', () => {
+    // Given: 마감 1초 뒤 — 보완 요청이라 재제출은 됐지만 이제 상태는 검토 대기다.
+    const { next } = resubmittedChecklist(new Date('2026-09-01T15:00:00.000Z'));
+
+    // Then
+    expect(next.items[0]?.submission?.canResubmit).toBe(false);
+    expect(next.items[0]?.submission?.decision).toBe('CHANGES_REQUESTED');
   });
 });

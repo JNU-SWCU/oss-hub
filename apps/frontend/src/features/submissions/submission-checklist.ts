@@ -231,11 +231,26 @@ export async function submitResubmissionRevision({
   });
 }
 
-/** 재제출 성공(201)을 체크리스트에 반영 — 해당 행만 SUBMITTED로 갱신한다. */
+/**
+ * 재제출 성공(201)을 체크리스트에 반영 — 해당 행만 SUBMITTED로 갱신한다.
+ *
+ * 만들어 내는 행은 다음 조회가 돌려줄 행과 같아야 한다. 새로고침하면 달라지는
+ * 화면이 곧 버그다. 재제출은 교직원 판정 이력을 지우지 않으므로(backend
+ * createSubmissionRevision은 submission만 갱신한다) 서버는 다음 조회에서도
+ * 지난 판정을 decision·lastReviewedAt·reviewComment로 그대로 다시 준다. 여기서
+ * 비우면 「이전 검토 결과: 보완 요청」 줄과 창의 「최근 검토 결과」가 새로고침
+ * 전까지만 사라진다 — 그 줄이 있어야 할 바로 그 순간에.
+ *
+ * canResubmit도 서버(submissions.service.ts toChecklistItem)와 같은 식으로
+ * 다시 센다: 재제출 직후 상태는 늘 SUBMITTED이므로 마감 전이면 참이다.
+ *
+ * file은 뺀다 — 201 응답에 새 revision의 파일 정보가 없어 서버 값을 만들 수 없다.
+ */
 export function applyResubmission(
   checklist: SubmissionChecklist,
   milestoneId: string,
   result: CreatedResubmission,
+  now: Date,
 ): SubmissionChecklist {
   return {
     ...checklist,
@@ -247,10 +262,7 @@ export function applyResubmission(
               ...item.submission,
               status: result.status,
               currentRevision: result.revision,
-              decision: null,
-              lastReviewedAt: null,
-              reviewComment: null,
-              canResubmit: false,
+              canResubmit: !hasMilestoneDeadlinePassed(item.dueAt, now),
             },
           }
         : item,
