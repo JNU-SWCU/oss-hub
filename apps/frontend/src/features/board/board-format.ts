@@ -85,13 +85,27 @@ export function formatBoardDateTime(iso: string): string {
   return BOARD_DATE_TIME_FORMAT.format(new Date(iso));
 }
 
+export interface BoardPostInputErrors {
+  readonly title: string | null;
+  readonly body: string | null;
+}
+
+/**
+ * 칸마다 오류를 돌려준다. 첫 오류 하나만 돌려주면 제목·내용을 둘 다 비웠을 때
+ * 제목을 채우고 한 번 더 누른 뒤에야 내용 오류를 볼 수 있다.
+ */
 export function validateBoardPostInput(input: {
   readonly title: string;
   readonly body: string;
-}): string | null {
-  if (!input.title.trim()) return '제목을 입력해 주세요.';
-  if (!input.body.trim()) return '내용을 입력해 주세요.';
-  return null;
+}): BoardPostInputErrors {
+  return {
+    title: input.title.trim() ? null : '제목을 입력해 주세요.',
+    body: input.body.trim() ? null : '내용을 입력해 주세요.',
+  };
+}
+
+export function hasBoardPostInputError(errors: BoardPostInputErrors): boolean {
+  return errors.title !== null || errors.body !== null;
 }
 
 export function validateBoardCommentInput(body: string): string | null {

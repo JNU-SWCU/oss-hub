@@ -48,10 +48,17 @@ export function YearLink({
   readonly current: boolean;
   readonly children: string;
 }): ReactElement {
+  /*
+   * 지금 보는 해를 주 행동 색(`default`)으로 칠하지 않는다 — 남색은 그 화면에서 누를
+   * 행동 하나의 몫이고, 지금 보는 해는 행동이 아니라 현재 위치다(R-34). 옆 「비교 관점」
+   * 칩과 같은 눌림 표면(`toggle`)을 써서 한 필터 줄 안의 「골랐다」가 한 가지 모양이 되게
+   * 한다. 연도는 `?year=` 주소로 가므로 진짜 링크로 남기고(R-31, 새 탭 열기·주소 복사),
+   * 링크이므로 눌림은 `aria-pressed`가 아니라 `aria-current="page"`로 말한다.
+   */
   return (
     <Button
       asChild
-      variant={current ? 'default' : 'outline'}
+      variant="toggle"
       size="sm"
       className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >

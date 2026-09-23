@@ -2,16 +2,16 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, ChevronLeft, Pin, PinOff, RotateCcw } from 'lucide-react';
 import { PageHeader, StatusBadge } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Field, FieldLabel } from '@/components/ui/field';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { ApiError } from '@/lib/api-client';
-import { cn } from '@/lib/utils';
 import {
   createBoardComment,
   deleteBoardComment,
@@ -29,12 +29,18 @@ import {
   boardCommentAuthorRoleLabel,
   boardPostAuthorRoleLabel,
   formatBoardDateTime,
+  hasBoardPostInputError,
   mapBoardError,
   validateBoardCommentInput,
   validateBoardPostInput,
+  type BoardPostInputErrors,
 } from '../board-format';
 import { boardListHref } from '../board-paths';
 import type { BoardDetailState, BoardPostDetail } from '../types';
+
+const EDIT_TITLE_ERROR_ID = 'board-edit-title-error';
+const EDIT_BODY_ERROR_ID = 'board-edit-body-error';
+const COMMENT_ERROR_ID = 'board-comment-error';
 
 export interface BoardDetailContentProps {
   readonly programId: string;
@@ -44,14 +50,22 @@ export interface BoardDetailContentProps {
   readonly editTitle: string;
   readonly editBody: string;
   readonly editSubmitting: boolean;
-  readonly editError: string | null;
+  /** 지금 입력값으로 다시 판정한 칸 오류. 서버 실패와 섞지 않는다. */
+  readonly editErrors: BoardPostInputErrors;
+  /** 한 번 「저장」을 누른 뒤부터 칸 오류를 보인다. */
+  readonly editShowFieldErrors: boolean;
+  /** 서버가 거절한 이유. 칸이 아니라 폼의 경고 상자에 남는다. */
+  readonly editSubmitError: string | null;
   readonly pinSubmitting: boolean;
   readonly pinError: string | null;
   readonly deleteSubmitting: boolean;
   readonly deleteError: string | null;
   readonly commentDraft: string;
   readonly commentSubmitting: boolean;
-  readonly commentError: string | null;
+  readonly commentDraftError: string | null;
+  readonly commentShowDraftError: boolean;
+  /** 댓글 작성·삭제 실패. 입력 누락과 달리 댓글 목록 끝 경고 상자에 남는다. */
+  readonly commentSubmitError: string | null;
   readonly deletingCommentId: string | null;
   readonly onRetry: () => void;
   readonly onToggleEdit: () => void;
@@ -96,14 +110,18 @@ export function BoardDetailContent({
   editTitle,
   editBody,
   editSubmitting,
-  editError,
+  editErrors,
+  editShowFieldErrors,
+  editSubmitError,
   pinSubmitting,
   pinError,
   deleteSubmitting,
   deleteError,
   commentDraft,
   commentSubmitting,
-  commentError,
+  commentDraftError,
+  commentShowDraftError,
+  commentSubmitError,
   deletingCommentId,
   onRetry,
   onToggleEdit,
@@ -116,6 +134,25 @@ export function BoardDetailContent({
   onSubmitComment,
   onDeleteComment,
 }: BoardDetailContentProps) {
+  const editTitleRef = useRef<HTMLInputElement>(null);
+  const editBodyRef = useRef<HTMLTextAreaElement>(null);
+  const commentRef = useRef<HTMLInputElement>(null);
+  const showEditTitleError = editShowFieldErrors && editErrors.title !== null;
+  const showEditBodyError = editShowFieldErrors && editErrors.body !== null;
+  const showCommentError = commentShowDraftError && commentDraftError !== null;
+
+  // 오류 칸으로 커서를 옮긴다 — 눌린 값으로 판정하므로 이 시점의 오류가 결과다.
+  function handleSubmitEdit(): void {
+    onSubmitEdit();
+    if (editErrors.title !== null) editTitleRef.current?.focus();
+    else if (editErrors.body !== null) editBodyRef.current?.focus();
+  }
+
+  function handleSubmitComment(): void {
+    onSubmitComment();
+    if (commentDraftError !== null) commentRef.current?.focus();
+  }
+
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-5 sm:p-8">
       <Link
@@ -157,37 +194,53 @@ export function BoardDetailContent({
       ) : editing ? (
         <Card>
           <CardContent className="grid gap-4 pt-6">
-            <Field>
+            <Field data-invalid={showEditTitleError || undefined}>
               <FieldLabel htmlFor="board-edit-title">제목</FieldLabel>
               <Input
                 id="board-edit-title"
+                ref={editTitleRef}
                 value={editTitle}
                 maxLength={200}
                 disabled={editSubmitting}
+                aria-invalid={showEditTitleError}
+                aria-describedby={
+                  showEditTitleError ? EDIT_TITLE_ERROR_ID : undefined
+                }
                 onChange={(event) => onEditTitleChange(event.target.value)}
                 placeholder="제목"
               />
+              {showEditTitleError ? (
+                <FieldError id={EDIT_TITLE_ERROR_ID}>
+                  {editErrors.title}
+                </FieldError>
+              ) : null}
             </Field>
-            <Field>
+            <Field data-invalid={showEditBodyError || undefined}>
               <FieldLabel htmlFor="board-edit-body">내용</FieldLabel>
-              <textarea
+              <Textarea
                 id="board-edit-body"
+                ref={editBodyRef}
                 value={editBody}
                 maxLength={10000}
                 rows={6}
                 disabled={editSubmitting}
+                aria-invalid={showEditBodyError}
+                aria-describedby={
+                  showEditBodyError ? EDIT_BODY_ERROR_ID : undefined
+                }
                 onChange={(event) => onEditBodyChange(event.target.value)}
                 placeholder="내용"
-                className={cn(
-                  'min-h-28 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm',
-                  'outline-none focus-visible:border-ring focus-visible:ring-3',
-                  'focus-visible:ring-ring/50',
-                )}
+                className="min-h-28"
               />
+              {showEditBodyError ? (
+                <FieldError id={EDIT_BODY_ERROR_ID}>
+                  {editErrors.body}
+                </FieldError>
+              ) : null}
             </Field>
-            {editError ? (
+            {editSubmitError ? (
               <Alert variant="destructive">
-                <AlertDescription>{editError}</AlertDescription>
+                <AlertDescription>{editSubmitError}</AlertDescription>
               </Alert>
             ) : null}
             <div className="flex justify-end gap-2">
@@ -195,7 +248,7 @@ export function BoardDetailContent({
                 type="button"
                 size="sm"
                 disabled={editSubmitting}
-                onClick={onSubmitEdit}
+                onClick={handleSubmitEdit}
               >
                 {editSubmitting ? '저장 중…' : '저장'}
               </Button>
@@ -322,24 +375,42 @@ export function BoardDetailContent({
                   </div>
                 ))
               )}
-              {commentError ? (
+              {commentSubmitError ? (
                 <Alert variant="destructive">
-                  <AlertDescription>{commentError}</AlertDescription>
+                  <AlertDescription>{commentSubmitError}</AlertDescription>
                 </Alert>
               ) : null}
-              <div className="mt-2 flex gap-2">
-                <Input
-                  aria-label="댓글 내용"
-                  value={commentDraft}
-                  maxLength={2000}
-                  disabled={commentSubmitting}
-                  onChange={(event) => onCommentDraftChange(event.target.value)}
-                  placeholder="댓글을 입력하세요"
-                />
+              {/* 오류가 입력칸 밑에 붙어도 버튼이 내려가지 않도록 윗줄에 맞춘다. */}
+              <div className="mt-2 flex items-start gap-2">
+                <Field
+                  className="min-w-0 flex-1"
+                  data-invalid={showCommentError || undefined}
+                >
+                  <Input
+                    aria-label="댓글 내용"
+                    ref={commentRef}
+                    value={commentDraft}
+                    maxLength={2000}
+                    disabled={commentSubmitting}
+                    aria-invalid={showCommentError}
+                    aria-describedby={
+                      showCommentError ? COMMENT_ERROR_ID : undefined
+                    }
+                    onChange={(event) =>
+                      onCommentDraftChange(event.target.value)
+                    }
+                    placeholder="댓글을 입력하세요"
+                  />
+                  {showCommentError ? (
+                    <FieldError id={COMMENT_ERROR_ID}>
+                      {commentDraftError}
+                    </FieldError>
+                  ) : null}
+                </Field>
                 <Button
                   type="button"
                   disabled={commentSubmitting}
-                  onClick={onSubmitComment}
+                  onClick={handleSubmitComment}
                 >
                   댓글 달기
                 </Button>
@@ -368,19 +439,36 @@ export function BoardDetailView({
   const [editTitle, setEditTitle] = useState('');
   const [editBody, setEditBody] = useState('');
   const [editSubmitting, setEditSubmitting] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
+  const [editSubmitted, setEditSubmitted] = useState(false);
+  const [editSubmitError, setEditSubmitError] = useState<string | null>(null);
   const [pinSubmitting, setPinSubmitting] = useState(false);
   const [pinError, setPinError] = useState<string | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
-  const [commentError, setCommentError] = useState<string | null>(null);
+  const [commentSubmitted, setCommentSubmitted] = useState(false);
+  const [commentSubmitError, setCommentSubmitError] = useState<string | null>(
+    null,
+  );
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(
     null,
   );
 
   const retry = useCallback(() => setAttempt((current) => current + 1), []);
+
+  /*
+    가입 프로필·설정 폼과 같은 방식이다 — 한 번 제출한 뒤부터는 지금 입력값으로 매번 다시
+    판정한다. 그래서 비운 칸을 채우면 그 칸의 빨간색이 사라지고, 공백만 친 칸은 그대로 남는다.
+  */
+  const editErrors = useMemo(
+    () => validateBoardPostInput({ title: editTitle, body: editBody }),
+    [editTitle, editBody],
+  );
+  const commentDraftError = useMemo(
+    () => validateBoardCommentInput(commentDraft),
+    [commentDraft],
+  );
 
   useEffect(() => {
     let active = true;
@@ -413,7 +501,8 @@ export function BoardDetailView({
       if (next) {
         setEditTitle(state.post.title);
         setEditBody(state.post.body);
-        setEditError(null);
+        setEditSubmitted(false);
+        setEditSubmitError(null);
       }
       return next;
     });
@@ -421,30 +510,24 @@ export function BoardDetailView({
 
   const submitEdit = useCallback(() => {
     if (state.kind !== 'ready') return;
-    const validationError = validateBoardPostInput({
-      title: editTitle,
-      body: editBody,
-    });
-    if (validationError) {
-      setEditError(validationError);
-      return;
-    }
+    setEditSubmitted(true);
+    if (hasBoardPostInputError(editErrors)) return;
     setEditSubmitting(true);
-    setEditError(null);
+    setEditSubmitError(null);
     updateBoardPost(programId, postId, { title: editTitle, body: editBody })
       .then((post) => {
         setState({ kind: 'ready', post });
         setEditing(false);
       })
       .catch((error: unknown) => {
-        setEditError(
+        setEditSubmitError(
           error instanceof ApiError
             ? mapBoardError(error.problem)
             : '잠시 후 다시 시도해 주세요.',
         );
       })
       .finally(() => setEditSubmitting(false));
-  }, [state, programId, postId, editTitle, editBody]);
+  }, [state, programId, postId, editTitle, editBody, editErrors]);
 
   const deletePost = useCallback(() => {
     if (state.kind !== 'ready') return;
@@ -491,13 +574,10 @@ export function BoardDetailView({
 
   const submitComment = useCallback(() => {
     if (state.kind !== 'ready') return;
-    const validationError = validateBoardCommentInput(commentDraft);
-    if (validationError) {
-      setCommentError(validationError);
-      return;
-    }
+    setCommentSubmitted(true);
+    if (commentDraftError) return;
     setCommentSubmitting(true);
-    setCommentError(null);
+    setCommentSubmitError(null);
     createBoardComment(programId, postId, { body: commentDraft })
       .then((comment) => {
         setState((current) =>
@@ -513,23 +593,25 @@ export function BoardDetailView({
             : current,
         );
         setCommentDraft('');
+        // 보낸 뒤 빈 칸이 곧바로 빨개지지 않도록 「한 번 제출했다」를 되돌린다.
+        setCommentSubmitted(false);
       })
       .catch((error: unknown) => {
-        setCommentError(
+        setCommentSubmitError(
           error instanceof ApiError
             ? mapBoardError(error.problem)
             : '잠시 후 다시 시도해 주세요.',
         );
       })
       .finally(() => setCommentSubmitting(false));
-  }, [state, programId, postId, commentDraft]);
+  }, [state, programId, postId, commentDraft, commentDraftError]);
 
   const deleteComment = useCallback(
     (commentId: string) => {
       if (state.kind !== 'ready') return;
       if (!window.confirm('댓글을 삭제하시겠습니까?')) return;
       setDeletingCommentId(commentId);
-      setCommentError(null);
+      setCommentSubmitError(null);
       deleteBoardComment(programId, postId, commentId)
         .then(() => {
           setState((current) =>
@@ -548,7 +630,7 @@ export function BoardDetailView({
           );
         })
         .catch((error: unknown) => {
-          setCommentError(
+          setCommentSubmitError(
             error instanceof ApiError
               ? mapBoardError(error.problem)
               : '잠시 후 다시 시도해 주세요.',
@@ -568,14 +650,18 @@ export function BoardDetailView({
       editTitle={editTitle}
       editBody={editBody}
       editSubmitting={editSubmitting}
-      editError={editError}
+      editErrors={editErrors}
+      editShowFieldErrors={editSubmitted}
+      editSubmitError={editSubmitError}
       pinSubmitting={pinSubmitting}
       pinError={pinError}
       deleteSubmitting={deleteSubmitting}
       deleteError={deleteError}
       commentDraft={commentDraft}
       commentSubmitting={commentSubmitting}
-      commentError={commentError}
+      commentDraftError={commentDraftError}
+      commentShowDraftError={commentSubmitted}
+      commentSubmitError={commentSubmitError}
       deletingCommentId={deletingCommentId}
       onRetry={retry}
       onToggleEdit={toggleEdit}

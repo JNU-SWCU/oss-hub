@@ -4,7 +4,8 @@
  *
  * 저장소의 `docs/design-tokens/tokens.json`(원본은 globals.css)과 vault 스펙 시트의 수치대로
  * Figma 변수(Light·Dark) · 텍스트 스타일 · 컴포넌트(Button · Badge · FilterChip · Dialog ·
- * Form Field · Table · Card)를 만든다. 사람이 그리는 대신 코드가 그린다 — 코드가 원본이고
+ * Form Field · Table · Card · FailureState · SkeletonBlock)를 만든다.
+ * 사람이 그리는 대신 코드가 그린다 — 코드가 원본이고
  * Figma는 거울이라는 design.md R-36의 연장이다.
  *
  * 실행: Figma 데스크톱 → Plugins → Development → Import plugin from manifest → 이 폴더의
@@ -22,6 +23,7 @@ const PAGE_NAMES = {
   dialog: '05 Dialog · Form',
   table: '06 Table',
   card: '07 Card',
+  state: '08 실패 · 불러오는 중',
 };
 const COLLECTION_NAME = 'OSS Hub';
 /** Starter 요금제는 컬렉션당 모드가 하나뿐이라 다크 값을 따로 둘 때 쓰는 컬렉션. */
@@ -46,6 +48,7 @@ const TINTS = [
   ['primary', 80],
   ['destructive', 10],
   ['destructive', 20],
+  ['destructive', 90],
   ['foreground', 10],
   ['foreground', 35],
   ['border', 50],
@@ -426,7 +429,7 @@ async function makeText(characters, options) {
   node.lineHeight = { unit: 'PERCENT', value: options.lineHeight ?? 150 };
   if (options.letter)
     node.letterSpacing = { unit: 'PERCENT', value: options.letter };
-  node.fills = [paintFor(options.color ?? 'foreground')];
+  node.fills = [paintFor(options.color ?? 'foreground', options.opacity ?? 1)];
   node.textAutoResize = 'WIDTH_AND_HEIGHT';
   if (options.align) node.textAlignHorizontal = options.align;
   if (options.style && textStyles.has(options.style)) {
@@ -837,10 +840,11 @@ async function buildChips() {
       padding: [0, 16, 0, 16],
       crossSizing: 'FIXED',
       radius: 999,
+      // 눌림은 `aria-pressed`의 secondary 채움이다(button.tsx toggle 변형, #1358).
       fill: paintFor(
-        pressed ? 'primary' : state === 'hover' ? 'muted' : 'background',
+        pressed ? 'secondary' : state === 'hover' ? 'muted' : 'background',
       ),
-      stroke: paintFor(pressed ? 'primary' : 'border'),
+      stroke: paintFor(pressed ? 'secondary' : 'border'),
     });
     node.resize(80, 44);
     bindNumber(node, 'height', 'control-height');
@@ -848,7 +852,7 @@ async function buildChips() {
       await makeText('모집중', {
         size: 13,
         weight: 'semibold',
-        color: pressed ? 'primary-foreground' : 'foreground',
+        color: pressed ? 'secondary-foreground' : 'foreground',
         lineHeight: 100,
       }),
     );
@@ -911,9 +915,9 @@ async function formField(label, placeholder, help) {
   return field;
 }
 
-async function buttonInstance(buttonSet, variant, label) {
+async function buttonInstance(buttonSet, variant, label, size = 'default') {
   const instance = buttonSet.defaultVariant.createInstance();
-  instance.setProperties({ variant, size: 'default', state: 'default' });
+  instance.setProperties({ variant, size, state: 'default' });
   const text = instance.findOne((n) => n.type === 'TEXT');
   if (text) text.characters = label;
   return instance;
@@ -1028,10 +1032,12 @@ async function tableCell(kind, text, align = 'LEFT') {
     await makeText(text, {
       size: isHead ? 12 : 14,
       weight: isHead ? 'semibold' : 'regular',
-      color: kind === 'head' ? 'muted-foreground' : 'foreground',
+      // 행 제목 칸도 `TableHead`(scope="row")라 열 머리글과 같은 클래스를 받는다
+      // — 회색 글자에 자간 2.5%다(data-table.tsx의 rowHeader 열).
+      color: isHead ? 'muted-foreground' : 'foreground',
       // 머리글은 `text-xs`(12px/16px)·`tracking-wide`(2.5%), 칸은 `text-table`(14px/20px)
       lineHeight: isHead ? 133.3 : 142.9,
-      letter: kind === 'head' ? 2.5 : 0,
+      letter: isHead ? 2.5 : 0,
       align,
     }),
   );
@@ -1207,6 +1213,120 @@ async function buildCards(buttonSet) {
   log('Card (머리·내용·바닥·행 액션)');
 }
 
+// ---------- 실패 표면 · 로딩 뼈대 ----------
+
+/**
+ * 불러오기에 실패한 자리. `Alert variant="destructive"` 표면이라 카드와 같은 여백 24 ·
+ * 모서리 12에 배경은 card, 글자와 아이콘만 오류색이다. 설명은 destructive 90%다.
+ */
+async function failureStateNode(buttonSet, withRetry) {
+  const node = component(`retry=${withRetry}`, {
+    crossAlign: 'MIN',
+    // grid-cols-[auto_1fr] 의 gap-x-2 — 아이콘과 글 사이 8
+    gap: 8,
+    padding: [24, 24, 24, 24],
+    mainSizing: 'FIXED',
+    crossSizing: 'FIXED',
+    radius: 12,
+    fill: paintFor('card'),
+    stroke: paintFor('border'),
+  });
+  // 폭은 480 고정, 높이는 내용에 맞춘다 — Dialog와 같은 순서로 먼저 크기를 준다.
+  node.resize(480, 10);
+  node.counterAxisSizingMode = 'AUTO';
+  // lucide 의 circle-alert — 코드가 쓰는 `AlertCircle`이 같은 아이콘의 옛 이름이다.
+  node.appendChild(await icon('circle-alert', 16, 'destructive'));
+  const column = frame('text', {
+    direction: 'VERTICAL',
+    crossAlign: 'MIN',
+    gap: 4,
+  });
+  node.appendChild(column);
+  column.layoutSizingHorizontal = 'FILL';
+  column.appendChild(
+    await makeText('프로그램을 불러오지 못했습니다', {
+      size: 16,
+      weight: 'semibold',
+      color: 'destructive',
+    }),
+  );
+  const description = await makeText('잠시 후 다시 시도해 주세요.', {
+    size: 16,
+    color: 'destructive',
+    opacity: 0.9,
+  });
+  if (withRetry) {
+    // 버튼이 서면 설명 줄이 좌우로 갈라진다(flex justify-between, gap-3).
+    const row = frame('description', {
+      mainAlign: 'SPACE_BETWEEN',
+      gap: 12,
+    });
+    row.appendChild(description);
+    row.appendChild(
+      await buttonInstance(buttonSet, 'outline', '다시 시도', 'sm'),
+    );
+    column.appendChild(row);
+    row.layoutSizingHorizontal = 'FILL';
+  } else {
+    column.appendChild(description);
+    description.textAutoResize = 'HEIGHT';
+    description.layoutSizingHorizontal = 'FILL';
+  }
+  return node;
+}
+
+async function buildStates(buttonSet) {
+  const page = await preparePage(PAGE_NAMES.state);
+  const nodes = [];
+  for (const withRetry of [true, false]) {
+    nodes.push(await failureStateNode(buttonSet, withRetry));
+  }
+  grid(nodes, 1, 24, 24);
+  const set = figma.combineAsVariants(nodes, page);
+  set.name = 'FailureState';
+  set.description =
+    '불러오기 실패 표면. Alert variant="destructive" — 배경 card, 테두리 border, 글자·아이콘 destructive, 설명 destructive 90%. 「다시 시도」는 Button outline·sm 인스턴스다. 코드는 그 버튼 안에 회전 화살표(RotateCcw)를 함께 두지만 Figma는 인스턴스 안에 아이콘을 넣지 못해 글자만 둔다. 실패에 EmptyState(점선 회색 상자)를 쓰지 않는다. 코드: components/failure-state.tsx';
+
+  const block = component('SkeletonBlock', {
+    mainSizing: 'FIXED',
+    crossSizing: 'FIXED',
+    radius: 8,
+    fill: paintFor('muted'),
+  });
+  block.resize(240, 20);
+  block.description =
+    '불러오는 동안 내용 자리를 잡아 두는 한 칸(bg-muted). 크기·모서리는 부르는 쪽이 실제 콘텐츠에 맞춰 정한다 — 다 불러온 뒤 요소가 뛰지 않게 같은 높이를 준다. 깜빡임(animate-pulse)은 Figma에 그리지 않는다. 코드: components/ui/skeleton.tsx';
+  page.appendChild(block);
+
+  const example = frame(
+    '예시 — 카드를 불러오는 중 (Skeleton, 낭독기는 sr-only 안내만 읽는다)',
+    {
+      direction: 'VERTICAL',
+      crossAlign: 'MIN',
+      gap: 12,
+      padding: [24, 24, 24, 24],
+      radius: 12,
+      fill: paintFor('card'),
+      stroke: paintFor('foreground', 0.1),
+    },
+  );
+  for (const [width, height] of [
+    [200, 24],
+    [312, 20],
+    [160, 20],
+  ]) {
+    const instance = block.createInstance();
+    instance.resize(width, height);
+    example.appendChild(instance);
+  }
+  block.x = set.x + set.width + 80;
+  block.y = set.y;
+  example.x = block.x;
+  example.y = block.y + 80;
+  page.appendChild(example);
+  log('FailureState 2변형 + SkeletonBlock + 뼈대 예시');
+}
+
 // ---------- Tokens 페이지 · Cover ----------
 
 async function buildTokenSheet(tokens) {
@@ -1348,6 +1468,7 @@ async function run(url, steps) {
     await buildDialogs(buttonSet);
     await buildTable();
     await buildCards(buttonSet);
+    await buildStates(buttonSet);
     layoutSections();
   }
   figma.notify('OSS Hub 디자인 라이브러리 생성 완료');
