@@ -84,7 +84,7 @@ export async function loadAdminAccessDetail(
 export interface AdminAccessGuards {
   /** 대기 중인 요청이 있어 역할·상태 컨트롤 전체가 막혔을 때의 안내문. 없으면 `null`. */
   readonly controlBlockedReason: string | null;
-  /** 비활성 계정이라 대기 요청 [승인]이 반드시 실패할 때의 안내문. 없으면 `null`. */
+  /** 비활성 계정이라 대기 요청 승인이 서버에서 거절될 때의 안내문. 없으면 `null`. */
   readonly approvalBlockedReason: string | null;
   /** 본인 계정이라 비활성화 선택지가 막혔을 때의 안내문. 없으면 `null`. */
   readonly deactivationBlockedReason: string | null;
@@ -97,13 +97,15 @@ export interface AdminAccessGuards {
  * 내려주지 않으므로 이미 응답에 있는 `pendingRequest`·`isSelf`·
  * `profile.isComplete`에서 읽기 전용으로 계산한다.
  *
- * `approvalBlockedReason`은 서버 전이표를 그대로 읽은 것이다 — [승인]은
- * `desiredRole: 'STAFF'` + `desiredAccountStatus: 'ACTIVE'`를 함께 보내는데
- * (`admin-access-mutation-policy.ts`), 전이표는 역할과 계정 상태를 한 번에 바꾸는
- * 명령을 결정 분기보다 먼저 409 `ROL_014`로 거절한다(`admin-access-transition-table.ts`의
- * `changesRole && changesAccountStatus`). 그래서 비활성 계정에서 역할까지 바뀌는
- * 승인은 어떤 모양으로도 통과할 수 없다. 이미 `STAFF`인 계정은 역할이 그대로라
- * 계정 상태만 바뀌어 서버가 받아 주므로 막지 않는다.
+ * `approvalBlockedReason`은 서버가 이 명령을 받지 않는다는 사실을 그대로 읽은
+ * 것이다 — [승인]은 `desiredRole: 'STAFF'` + `desiredAccountStatus: 'ACTIVE'`를
+ * 함께 보내며(`admin-access-mutation-policy.ts`), 비활성 계정에서 그 명령은 actor에
+ * 따라 둘 중 하나로 끝난다. 관리자가 아닌 승인자(가입 신청 큐의 교직원)는 결정
+ * 명령에 계정 상태 변경을 실을 수 없어 403 `ROL_004`로 막히고
+ * (`admin-access-authorization.ts`의 `assertDecisionOnlyCommand`), 관리자는 역할과
+ * 계정 상태를 한 번에 바꾸는 명령을 금지하는 전이표에 걸려 409 `ROL_014`를 받는다
+ * (`admin-access-transition-table.ts`의 `changesRole && changesAccountStatus`).
+ * 어느 쪽이든 비활성 계정의 승인은 통과하지 않으므로 누르기 전에 막는다.
  *
  * `elevatedRoleBlockedReason`은 백엔드 정책보다 보수적이다 — 백엔드는
  * 대기 요청을 승인할 때만 프로필 완료를 요구하고(`admin-access-transition-table.ts`의
@@ -120,8 +122,8 @@ export function deriveAdminAccessGuards(
       ? '대기 중인 요청을 먼저 처리해 주세요.'
       : null,
     approvalBlockedReason:
-      detail.accountStatus === 'DEACTIVATED' && detail.role !== 'STAFF'
-        ? '비활성 계정은 승인할 수 없습니다 — [반려] 후 계정을 재활성화하고 교직원 접근을 허용해 주세요.'
+      detail.accountStatus === 'DEACTIVATED'
+        ? '비활성 계정은 승인할 수 없습니다. 계정이 다시 활성화된 뒤에 처리할 수 있습니다.'
         : null,
     deactivationBlockedReason: detail.isSelf
       ? '자기 계정은 비활성화할 수 없습니다.'

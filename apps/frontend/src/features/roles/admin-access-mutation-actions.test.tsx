@@ -384,8 +384,8 @@ describe('AdminAccessPendingRequestCard — 대기 요청 결정 카드', () => 
   });
 
   it('비활성 계정이면 [승인]만 꺼지고 왜 막혔는지와 다음 걸음이 뜬다', () => {
-    // #1381 — 비활성 계정에 [승인]을 보내면 역할과 계정 상태가 한 번에 바뀌어
-    // 서버 전이표가 409 `ROL_014`로 반드시 거절한다. 누르기 전에 막는다.
+    // #1381 — 비활성 계정에 [승인]을 보내면 서버가 반드시 거절한다(큐의 교직원
+    // 승인자는 403 `ROL_004`, 관리자는 409 `ROL_014`). 누르기 전에 막는다.
     act(() => {
       root.render(
         <AdminAccessPendingRequestCard
@@ -416,7 +416,7 @@ describe('AdminAccessPendingRequestCard — 대기 요청 결정 카드', () => 
       ['반려', false],
     ]);
     expect(container.textContent).toContain(
-      '비활성 계정은 승인할 수 없습니다 — [반려] 후 계정을 재활성화하고 교직원 접근을 허용해 주세요.',
+      '비활성 계정은 승인할 수 없습니다. 계정이 다시 활성화된 뒤에 처리할 수 있습니다.',
     );
   });
 

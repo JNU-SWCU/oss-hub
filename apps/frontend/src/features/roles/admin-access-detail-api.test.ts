@@ -66,7 +66,7 @@ describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 �
       detail({ accountStatus: 'DEACTIVATED' }),
     );
     expect(guards.approvalBlockedReason).toBe(
-      '비활성 계정은 승인할 수 없습니다 — [반려] 후 계정을 재활성화하고 교직원 접근을 허용해 주세요.',
+      '비활성 계정은 승인할 수 없습니다. 계정이 다시 활성화된 뒤에 처리할 수 있습니다.',
     );
     expect(guards.controlBlockedReason).toBeNull();
     expect(guards.deactivationBlockedReason).toBeNull();
@@ -77,21 +77,6 @@ describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 �
     expect(
       deriveAdminAccessGuards(detail({ accountStatus: 'ACTIVE' }))
         .approvalBlockedReason,
-    ).toBeNull();
-  });
-
-  it('이미 교직원인 비활성 계정은 승인이 역할을 바꾸지 않아 막지 않는다', () => {
-    // 전이표가 거절하는 것은 역할과 계정 상태를 한 번에 바꾸는 명령이다. 역할이
-    // 이미 STAFF면 승인은 계정 상태만 바꾸므로 서버가 200으로 받아 준다.
-    expect(
-      deriveAdminAccessGuards(
-        detail({
-          role: 'STAFF',
-          memberKind: 'STAFF',
-          hasStaffAccess: true,
-          accountStatus: 'DEACTIVATED',
-        }),
-      ).approvalBlockedReason,
     ).toBeNull();
   });
 
