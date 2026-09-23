@@ -276,7 +276,15 @@ describe('role onboarding views', () => {
     expect(html).toContain('다시 승인 요청하기');
   });
 
-  it('승인된 요청은 교직원 화면 이동 경로를 제공한다', () => {
+  /**
+   * 이 화면의 `APPROVED`는 **승인 기록만 남고 권한은 없는 사람**이다.
+   *
+   * 이 뷰를 여는 화면(`StaffAccessRequestScreen`)은 `OnboardingGate` 아래에만 서고,
+   * 그 게이트는 열 수 있는 업무 화면이 하나도 없는 사람에게만 자식을 그린다. 그래서
+   * 여기서 "이제 프로그램을 개설할 수 있습니다"라고 말하면 반드시 거짓이고, 예전의
+   * `교직원 화면으로 이동`은 대시보드가 그를 이 화면으로 되돌려보내는 왕복이 됐다.
+   */
+  it('승인 기록만 남은 요청은 권한이 없다는 사실과 확인 수단을 함께 표시한다', () => {
     // Given
     const approved = staffAccessRequest({
       status: 'APPROVED',
@@ -294,9 +302,13 @@ describe('role onboarding views', () => {
       />,
     );
 
-    // Then
+    // Then — 사실을 먼저 말하고, 결과가 달라질 수 있는 행동 하나를 함께 준다.
     expect(html).toContain('data-status="APPROVED"');
-    expect(html).toContain('href="/dashboard"');
+    expect(html).toContain('지금은 교직원 권한이 없습니다');
+    expect(html).toContain('사업단 관리자에게 문의');
+    expect(html).toContain('상태 새로고침');
+    // 되돌아올 문은 내지 않는다 — 면이 없는 그를 `/dashboard`가 다시 이리로 보낸다.
+    expect(html).not.toContain('href="/dashboard"');
   });
 
   /**

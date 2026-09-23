@@ -18,6 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * 2. 그 경로에 직접 닿아도 "접근 권한이 없는 페이지" → 돌아가기가 다시 그 경로인
  *    닫힌 고리가 되지 않는가.
  * 3. 승인을 기다리는 교직원의 설정 예외(#581)는 그대로 열리는가.
+ * 4. 승인 기록만 남고 권한은 없는 사람이 두 화면 사이를 오가지 않는가.
  *
  * 가짜는 네트워크 경계(`/auth/session`·역할 요청·프로필·알림 채널)에만 세운다 —
  * 훅·게이트·셸이 전부 진짜로 돌아야 "도달"을 검사한 것이 된다.
@@ -105,6 +106,7 @@ vi.mock('@/features/auth/use-session', () => ({
 import { AppFrame } from './app-frame';
 import { onboardingPathFor } from './onboarding-route';
 import DashboardPage from '../dashboard/page';
+import OnboardingPendingPage from '../onboarding/pending/page';
 import SettingsPage from '../settings/page';
 import { SETTINGS_ONBOARDING_NOTICE_HEADING } from '../settings/settings-onboarding-notice';
 import {
@@ -238,6 +240,103 @@ describe('면이 없는 회원의 화면 도달', () => {
 
         // Then
         expect(text).toContain('대시보드');
+      },
+    );
+  });
+
+  /**
+   * 승인 이력만 남고 권한은 없는 사람 — 두 화면이 서로를 가리키던 자리.
+   *
+   * 이 상태는 권한 회수가 `REVOKED` 기록을 남기지 못한 계정에서 생긴다. 대시보드는
+   * 면이 없는 그를 승인 대기 화면으로 보내고, 승인 대기 화면은 그 승인을 아직 살아
+   * 있는 것으로 읽어 그를 대시보드로 돌려보냈다. 어느 쪽도 멈추지 않으니 사용자가
+   * 본 것은 양쪽의 `확인 중…`뿐이었고, 한 바퀴마다 세션 재조회가 한 번씩 더 나갔다.
+   *
+   * 그래서 여기서 묻는 것은 문구가 아니라 **멈추는가**다.
+   */
+  describe('승인 기록만 남은 무권한 교직원', () => {
+    beforeEach(() => {
+      mocks.useSession.mockReturnValue(
+        authenticatedSession(ZERO_SURFACE_STAFF),
+      );
+      mocks.fetchMyStaffAccessRequest.mockResolvedValue(
+        staffAccessRequest({
+          status: 'APPROVED',
+          decidedAt: '2026-07-30T03:00:00.000Z',
+        }),
+      );
+    });
+
+    it('승인 대기 화면은 사정을 설명하고 어디로도 보내지 않는다', async () => {
+      // When
+      const { text, redirects } = await mount(<OnboardingPendingPage />);
+
+      // Then: 고리의 한쪽 — 이 화면에서 나가는 이동이 없다.
+      expect(redirects).toEqual([]);
+      expect(mocks.refresh).not.toHaveBeenCalled();
+      // 기다리라는 말만 남기고 멈추는 것도 갇힌 것이다. 지금 사정과, 눌러서 결과가
+      // 달라질 수 있는 행동이 같은 화면에 함께 있어야 한다.
+      expect(text).not.toContain('승인 상태를 확인하고 있습니다');
+      expect(text).toContain('지금은 교직원 권한이 없습니다');
+      expect(text).toContain('상태 새로고침');
+    });
+
+    it('대시보드에서 출발해도 한 번의 이동으로 멈춘다', async () => {
+      // When: 대시보드가 보낸 곳으로 실제로 한 번 더 들어간다 — 목적지를 눈으로만
+      // 확인하면 그 목적지가 출발지를 도로 가리키는 고리를 잡지 못한다(#673의 교훈).
+      const departure = await mount(<DashboardPage />);
+      const arrival = await mount(<OnboardingPendingPage />);
+
+      // Then
+      expect([...new Set(departure.redirects)]).toEqual([
+        '/onboarding/pending',
+      ]);
+      expect(departure.text).not.toContain(ACCESS_DENIED_HEADING);
+      expect(arrival.redirects).toEqual([]);
+    });
+  });
+
+  /**
+   * 승인 대기 화면에 닿는 나머지 상태 — 고치기 전과 **같은 곳에서** 멈춰야 한다.
+   *
+   * 고리를 끊는 가장 쉬운 방법은 화면 하나를 전부 멈춰 세우는 것이고, 그러면 승인을
+   * 기다리는 사람이 회수된 사람과 같은 자리에 서게 된다. 바뀐 갈래가 하나뿐이라는
+   * 사실을 여기서 못박는다.
+   */
+  describe('승인 대기 화면의 나머지 상태는 그대로다', () => {
+    it('승인 대기 교직원은 대기 안내를 그 자리에서 본다', async () => {
+      // Given
+      mocks.useSession.mockReturnValue(
+        authenticatedSession(ZERO_SURFACE_STAFF),
+      );
+      mocks.fetchMyStaffAccessRequest.mockResolvedValue(
+        staffAccessRequest({ status: 'PENDING' }),
+      );
+
+      // When
+      const { text, redirects } = await mount(<OnboardingPendingPage />);
+
+      // Then
+      expect(redirects).toEqual([]);
+      expect(text).toContain('교직원 승인을 기다리고 있습니다');
+    });
+
+    it.each(['REJECTED', 'REVOKED', null] as const)(
+      '%s 상태는 승인 대기 화면에 머무르지 않고 역할 선택으로 간다',
+      async (status) => {
+        // Given
+        mocks.useSession.mockReturnValue(
+          authenticatedSession(ZERO_SURFACE_STAFF),
+        );
+        mocks.fetchMyStaffAccessRequest.mockResolvedValue(
+          status === null ? null : staffAccessRequest({ status }),
+        );
+
+        // When
+        const { redirects } = await mount(<OnboardingPendingPage />);
+
+        // Then
+        expect(redirects).toContain('/onboarding/role');
       },
     );
   });

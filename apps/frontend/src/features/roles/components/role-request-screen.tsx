@@ -1,13 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import {
-  CircleCheck,
-  Clock3,
-  RefreshCw,
-  TriangleAlert,
-  UserPen,
-} from 'lucide-react';
+import { Clock3, RefreshCw, TriangleAlert, UserPen } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -127,12 +121,31 @@ function statusPresentation(
         description: '반려 사유를 확인한 뒤 다시 승인을 요청할 수 있습니다.',
         badge: <StatusBadge variant="rejected">반려</StatusBadge>,
       };
+    /**
+     * 승인 기록은 남아 있는데 지금 권한은 없는 사람 — 이 화면의 `APPROVED`는 그 뜻뿐이다.
+     *
+     * 이 화면에 서는 사람은 `OnboardingGate`가 미배정(`unassigned`)으로 판정한 사람뿐이고,
+     * 미배정은 곧 **열 수 있는 업무 화면이 하나도 없다**는 뜻이다
+     * (`app/_shell/use-session-role.ts`의 `hasUsableSurface`). 권한이 살아 있는 사람은
+     * 그 게이트가 자기 역할 홈으로 내보내므로 여기까지 오지 못한다.
+     *
+     * 그래서 "이제 프로그램을 개설할 수 있습니다"라고 말하던 예전 문구는 이 자리에서
+     * 반드시 거짓이었다. 그 문구 대신 화면은 이동을 걸었고(`/dashboard`), 대시보드는
+     * 면이 없는 그를 다시 여기로 돌려보내 두 화면이 서로를 가리켰다. 사실을 말하면
+     * 이동할 이유가 사라진다 — 지금 권한이 없다는 것이 이 사람에 대한 사실이다.
+     */
     case 'APPROVED':
       return {
-        icon: <CircleCheck className="size-8" />,
-        title: '교직원 역할이 승인되었습니다',
-        description: '이제 프로그램 생성과 운영 기능을 사용할 수 있습니다.',
-        badge: <StatusBadge variant="approved">승인</StatusBadge>,
+        icon: <TriangleAlert className="size-8" />,
+        title: '승인 기록은 있지만 지금은 교직원 권한이 없습니다',
+        // 원인이 둘이라 둘 다 적는다. 관리자가 권한을 회수했을 수도 있고, 승인이
+        // 방금 끝나 이 브라우저가 들고 있는 로그인 정보에 아직 반영되지 않았을 수도
+        // 있다. 둘을 가리는 수단은 아래 버튼 하나뿐이지만 그 버튼이 무엇을 하는지는
+        // 버튼이 스스로 말하므로 문장은 다시 적지 않고, 다시 확인해도 같을 때 갈 곳만
+        // 알려 준다.
+        description:
+          '관리자가 권한을 회수했거나, 승인이 아직 이 브라우저의 로그인 정보에 반영되지 않은 상태입니다. 다시 확인해도 그대로면 사업단 관리자에게 문의해 주세요.',
+        badge: <StatusBadge variant="closed">권한 없음</StatusBadge>,
       };
     case 'REVOKED':
       return {
@@ -189,19 +202,20 @@ export function StaffAccessRequestStatusView({
               </Button>
             ) : null}
 
-            {request.status === 'APPROVED' ? (
-              <Button asChild size="lg">
-                <a href="/dashboard">교직원 화면으로 이동</a>
-              </Button>
-            ) : null}
-
             {request.status === 'REVOKED' ? (
               <Button asChild size="lg">
                 <a href="/onboarding/role">역할 다시 선택하기</a>
               </Button>
             ) : null}
 
-            {request.status === 'PENDING' || request.status === 'REJECTED' ? (
+            {request.status === 'PENDING' ||
+            request.status === 'REJECTED' ||
+            request.status === 'APPROVED' ? (
+              // `APPROVED`도 함께 낸다. 승인 기록만 남은 사람에게 이 버튼은 유일하게
+              // 결과가 달라질 수 있는 행동이다 — 공용 스냅샷을 다시 읽어 세션이 뒤늦게
+              // 권한을 물어 왔는지 확인한다. 그래도 그대로면 남은 길은 문의뿐이고,
+              // 그 사실은 위 설명이 말한다.
+              //
               // 재요청이 날아가 있는 동안에는 잠근다. 그 사이 새로고침을 누르면
               // 경고를 지웠다가, 뒤늦게 도착한 재요청 실패가 그 위에 다시 경고를
               // 그린다 — 사용자에게는 눌러서 사라진 것이 저절로 되살아난 것으로
@@ -221,8 +235,11 @@ export function StaffAccessRequestStatusView({
             {/* 승인 대기(`PENDING`)에서만 낸다 — 설정 화면의 문(`app/settings/
                 settings-access.ts`의 `isSettingsOpenForStaffAwaitingRole`)이 열리는
                 갈래와 같아야 한다. 반려·회수는 그 문이 닫혀 있어 링크를 내면 눌러도
-                이 화면으로 되돌아오는 제자리 걸음이 된다. 승인은 이 화면에 머무르지
-                않고 `/dashboard`로 나간다. 두 곳이 갈라지지 않도록
+                이 화면으로 되돌아오는 제자리 걸음이 된다. 승인 기록만 남은 사람
+                (`APPROVED`)에게는 설정 문이 열려 있지만(#581) 링크는 내지 않는다 —
+                그가 지금 해야 할 일은 이름을 고치는 것이 아니라 상태를 확인하고
+                문의하는 것이라, 셋째 버튼을 세우면 진짜 다음 행동이 묻힌다.
+                두 곳이 갈라지지 않도록
                 `app/onboarding/pending/profile-edit-path.test.ts`가 못박는다. */}
             {request.status === 'PENDING' ? (
               // 링크 문구는 고칠 수 있는 항목을 그대로 적는다 — 학번은 한 번
@@ -266,7 +283,8 @@ export function StaffAccessRequestScreen({
   const [state, setState] = useState<RequestViewState>(() => {
     if (
       staffAccessRequestStatus === 'PENDING' ||
-      staffAccessRequestStatus === 'REJECTED'
+      staffAccessRequestStatus === 'REJECTED' ||
+      staffAccessRequestStatus === 'APPROVED'
     ) {
       return {
         kind: 'ready',
@@ -283,8 +301,21 @@ export function StaffAccessRequestScreen({
 
   useEffect(() => {
     switch (staffAccessRequestStatus) {
+      // `APPROVED`가 여기 함께 선다. 예전에는 `/dashboard`로 내보내며 세션을 새로
+      // 읽게 했는데, 이 화면에 오는 `APPROVED`는 **권한이 없는** 사람뿐이라
+      // (`statusPresentation`) 대시보드 게이트가 그를 곧바로 여기로 돌려보냈다.
+      // 두 화면이 서로를 가리키는 동안 사용자가 본 것은 양쪽의 `확인 중…`뿐이었고,
+      // 한 바퀴마다 세션 재조회가 한 번씩 더 나갔다.
+      //
+      // 이동을 걷어 내도 잃는 것이 없다. 승인이 방금 끝난 사람은 세션이 갱신되는
+      // 순간 `assigned`가 되어 `OnboardingGate`가 역할 홈으로 내보내고, 그 갱신을
+      // 지금 일으키는 버튼(`상태 새로고침`)이 이 화면에 있다 — `router.refresh()`는
+      // 서버 컴포넌트만 다시 그릴 뿐 브라우저가 들고 있는 로그인 정보
+      // (`features/auth/session-store.ts`의 모듈 저장소)를 다시 읽지 않아 애초에
+      // 그 창을 닫지 못했다.
       case 'PENDING':
       case 'REJECTED':
+      case 'APPROVED':
         setState({
           kind: 'ready',
           request: {
@@ -292,10 +323,6 @@ export function StaffAccessRequestScreen({
             rejectionReason: staffAccessRequestRejectionReason,
           },
         });
-        return;
-      case 'APPROVED':
-        router.replace('/dashboard');
-        router.refresh();
         return;
       case 'REVOKED':
       case null:
