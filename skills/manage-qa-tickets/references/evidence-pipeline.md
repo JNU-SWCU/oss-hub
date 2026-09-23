@@ -10,9 +10,9 @@ lane은 전부 읽기 전용이며, Issue 발행과 본문 작성은 orchestrato
 | --- | --- | --- |
 | 캡처 | [`qa-dom-capture`](../agents/qa-dom-capture.md) | 요소만 잘라낸 이미지 파일 경로, selector, DOM path, 전체 URL, 확인 시각 |
 | 코드 앵커 | [`qa-code-anchor`](../agents/qa-code-anchor.md) | `경로:줄` 형식의 시작 지점, 현재 섹션 순서, component가 실제로 받는 데이터, 관련 테스트 |
-| 중복 | orchestrator | 인접 티켓 번호와 제목, 다음 QA 번호, 중복 판정 근거 |
+| 중복 | orchestrator | 인접 Issue `#번호`와 제목, 중복 판정 근거 |
 
-중복 조회는 `gh issue list --search`로 orchestrator가 직접 한다.
+중복 조회는 orchestrator가 `gh issue list --search`로 증상·경로·역할을 검색해 직접 한다.
 나머지 두 lane은 읽기 전용이고 서로의 출력을 입력으로 쓰지 않으므로 동시에 띄운다.
 
 캡처 lane은 하나만 띄운다.

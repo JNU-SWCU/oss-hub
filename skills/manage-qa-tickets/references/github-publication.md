@@ -45,8 +45,8 @@ Issue 본문은 저장소 밖에 둔 초안 파일의 사본이다.
 
 본문 맨 앞에는 저장소 [work-ticket 템플릿](../../../.github/ISSUE_TEMPLATE/work-ticket.md)의 `## 시작` 블록을 문구 그대로 둔다.
 실행 진입점이고 초안의 문제 서술보다 앞에 온다.
-`출처: QA<번호>` 꼬리표는 두지 않는다.
-번호는 제목의 `QA<번호>`가 들고 있고, 본문에 같은 번호를 한 번 더 적으면 두 표면이 어긋날 자리가 생긴다.
+식별자는 GitHub이 만든 `#번호`다.
+제목에 `QA<n>`을 붙이거나 본문에 `출처: QA<번호>`를 두지 않는다.
 
 발행 뒤 그 Issue에 남기는 진행·막힘 코멘트는 이 문서가 아니라 [write-github-comment](../../write-github-comment/SKILL.md)의 진행 템플릿을 쓴다.
 PR이 Issue를 `Closes` 또는 `Refs`로 가리키면 GitHub가 링크를 만들므로, PR URL을 Issue 코멘트로 다시 남기지 않는다.
@@ -64,13 +64,13 @@ Issue를 만든 뒤에만 고치면 검사한 텍스트와 공개된 텍스트�
 
 ## 제목·label·담당자·마감
 
-제목은 [issue-ticket-contract.md](issue-ticket-contract.md)의 `QA<번호>. <명령형 할 일>`이다.
-`[P1]` 같은 등급 접두가 있으면 번호 앞에 둔다.
+제목은 [issue-ticket-contract.md](issue-ticket-contract.md)의 `<명령형 할 일>`이다.
+`[P1]` 같은 등급 접두가 있으면 명령 앞에 둔다.
 증상은 제목이 아니라 본문 `문제`에 쓴다.
 
 | 값 | Issue |
 | --- | --- |
-| 제목 | `QA<번호>. <명령형 할 일>` |
+| 제목 | `<명령형 할 일>`. 식별자는 만든 뒤의 `#번호` |
 | 마감 | 본문 `## 우선순위와 기한`의 `마감:` 줄. 1 영업일=`P0`, 3 영업일=`P1`, 5 영업일=`P2` |
 | 작업 유형 | 본문 한 줄 `작업 유형: feat\|fix\|refactor\|chore`. 그 이름의 label은 저장소에 없다 |
 | 페르소나 | 본문 `페르소나` 줄. 별도 label로 만들지 않는다 |
@@ -93,9 +93,9 @@ Issue를 만든 뒤에만 고치면 검사한 텍스트와 공개된 텍스트�
 
 OSS Hub 자체 화면의 요소 캡처는 Issue에 넣는다.
 고칠 사람이 무엇이 잘못됐는지 보는 것이 티켓의 절반이고, 우리 화면은 우리가 공개해도 되는 화면이다.
-제3자 제품 스크린샷은 어디에도 넣지 않는다.
-패턴은 문장으로 적고 공개 URL만 남긴다.
-남의 제품 화면을 우리 공개 저장소에 재배포하지 않는다.
+승인 없는 제3자 제품 캡처는 공개 Issue에 넣지 않는다.
+공개 표면에는 패턴 서술과 공개 URL만 남긴다.
+비공개 관찰 증거까지 금지하지는 않는다.
 
 자체 화면 캡처라도 Issue에 넣기 전에 이미지 자체를 눈으로 확인한다.
 
@@ -136,7 +136,7 @@ ISSUE_TEXT="$(cat <draft-file>)" bash scripts/check-public-safe.sh --text-only
 
 ```bash
 gh issue create --repo JNU-SWCU/oss-hub \
-  --title "<QA<번호>. <명령형 할 일>>" \
+  --title "<명령형 할 일>" \
   --body-file <body-file> \
   --label ticket \
   --assignee <github-handle>

@@ -3,10 +3,10 @@ name: "manage-qa-tickets"
 description: >-
   OSS Hub QA 티켓을 저장소 밖 초안으로 쓰고 열린·닫힌 GitHub Issue와 중복을 가른 뒤 `gh issue create`로 발행할 때 연다.
   「QA 티켓 만들어줘」「이 문제 티켓으로」「티켓 다시 써줘」「이슈로 올려줘」와 `oss-hub 티켓 #123 진행해줘`에 쓴다.
-  앞으로 쓰는 제목은 `QA<번호>` 뒤에 명령형 할 일이다. 이미 발행된 제목은 고치지 않는다.
+  앞으로 쓰는 제목은 명령형 할 일이다. 식별자는 GitHub `#번호`다. 이미 발행된 제목은 고치지 않는다.
   구현·PR 증거는 submit-pr-evidence, 릴리스 QA는 run-release-qa, 코멘트는 write-github-comment다.
 metadata:
-  version: "5.0.0"
+  version: "5.0.1"
 ---
 
 # Manage QA tickets
@@ -85,32 +85,26 @@ QA·작업 티켓의 원본은 GitHub Issue 하나다.
 - Issue 본문을 다른 곳에 미러링하거나, 만든 Issue URL을 다른 속성에 되돌려 쓰지 않는다.
 - 다른 시스템의 사용자 ID로 GitHub 핸들을 매핑하지 않는다. 담당자는 사용자가 알려 준 @handle만 쓴다.
 - 이미 있는 Issue를 새 제목 규칙으로 일괄 고치지 않는다.
-- `출처: QA<번호>` 꼬리표를 본문에 넣지 않는다. 번호는 제목이 든다.
-- 제3자 제품 스크린샷을 초안, Issue, PR, 저장소 어디에도 넣지 않는다. 패턴은 문장으로 적고 공개 URL만 링크한다.
+- 제목에 `QA<n>`을 붙이거나 본문에 `출처: QA<번호>`를 두지 않는다. 식별자는 GitHub `#번호`다.
+- 승인 없는 제3자 제품 캡처를 공개 Issue에 넣지 않는다. 공개 표면에는 패턴 서술과 공개 URL만 남긴다.
 
 ## 1. 작성 — 초안을 저장소 밖에 쓴다
 
 초안은 저장소 밖 임시 파일에만 쓴다.
 저장소에 초안을 커밋하면 공개 이력이 티켓보다 먼저 생긴다.
 
-### 1.1 본문 계약과 다음 번호를 읽는다
+### 1.1 본문 계약을 읽는다
 
 속성과 본문 계약의 원본은 [issue-ticket-contract.md](references/issue-ticket-contract.md)다.
-다음 번호는 열린 Issue와 닫힌 Issue 제목에서 가장 큰 `QA<n>` 다음이다.
-삭제됐거나 닫힌 번호를 재사용하지 않는다.
-
-```bash
-gh issue list --repo JNU-SWCU/oss-hub --state all --search "QA in:title" --limit 200 --json number,title,state
-```
-
-문자열 정렬로 최댓값을 자르지 않는다.
-`QA99`가 `QA100`보다 뒤에 오므로 결과를 숫자로 비교한다.
-한 번에 안 끝나면 자릿수 범위를 나눠 다시 조회한다.
-절차는 [issue-ticket-contract.md](references/issue-ticket-contract.md)의 번호 조회가 원본이다.
+새 티켓의 식별자는 GitHub이 부여하는 `#번호`다.
+`QA<n>`을 세거나 다음 번호를 손으로 배정하지 않는다.
 
 ### 1.2 만들기 직전에 중복을 확인한다
 
-초안을 발행 파일로 굳히기 바로 전에 같은 조회로 열린 Issue와 닫힌 Issue를 다시 검색한다.
+초안을 발행 파일로 굳히기 바로 전에 증상·경로·역할로 열린 Issue와 닫힌 Issue를 다시 검색한다.
+```bash
+gh issue list --repo JNU-SWCU/oss-hub --state all --search "<증상 또는 경로>" --limit 50 --json number,title,state
+```
 아래 중 하나라도 기존 Issue와 맞으면 새 Issue를 만들지 않고 그 Issue를 고치거나 참조한다.
 
 - 핵심 제목 구절이 같거나 한쪽이 다른 쪽을 포함한다.
@@ -123,7 +117,7 @@ gh issue list --repo JNU-SWCU/oss-hub --state all --search "QA in:title" --limit
 
 ### 1.3 사실을 정규화한다
 
-제목은 `QA<번호>. <명령형 할 일>`이다.
+제목은 `<명령형 할 일>`이다.
 담당자가 무엇을 해야 하는지를 한국어 명령형으로 쓰고, 증상은 본문 `문제`에 둔다.
 이미 있는 Issue 제목은 이 형식으로 다시 쓰지 않는다.
 
@@ -192,7 +186,7 @@ issue-ticket-contract.md도 그 문서를 가리키고 여기서 되풀이하지
 그다음 현재 화면, UX 방향, 기대 흐름, 참고 UI, 최소 요구, 완료 조건, 작업 범위를 그 순서로 쓴다.
 
 참고 UI는 공개 URL과 빌려올 패턴의 문장 서술을 쌍으로 갖춘다.
-제3자 제품 스크린샷은 넣지 않는다.
+승인 없는 제3자 제품 캡처는 공개 Issue에 넣지 않는다.
 반복 인용되는 제품은 [ux-reference-catalog.md](references/ux-reference-catalog.md)를 먼저 보고, 카탈로그에 있으면 URL과 경계를 다시 쓰지 말고 그 문서를 가리킨다.
 후보는 실제 화면이 있는 둘에서 넷 정도만 보고, 흐름이 평범한 CRUD·파일·날짜 처리면 낯선 제품보다 익숙한 표준 패턴을 고른다.
 후보마다 빌려올 점, 가져오지 않을 점, OSS Hub 경계를 적고, 승인은 하위 흐름별로 받는다.
@@ -254,15 +248,15 @@ angle-bracket 자리표시자를 남긴 채 발행하지 않는다.
 핵심만 옮기면 이렇다.
 
 - 방금 검증한 초안은 1단계가 끝나는 즉시 이어서 발행한다. 이미 있는 Issue는 사용자가 지목했을 때만 고친다.
-- 본문 맨 앞에 [work-ticket 템플릿](../../.github/ISSUE_TEMPLATE/work-ticket.md)의 `## 시작` 블록을 문구 그대로 둔다. `출처: QA<번호>` 줄은 붙이지 않는다.
+- 본문 맨 앞에 [work-ticket 템플릿](../../.github/ISSUE_TEMPLATE/work-ticket.md)의 `## 시작` 블록을 문구 그대로 둔다. 제목에 `QA<n>`을 붙이지 않는다.
 - 세 실행 계약(요구 범위·경계·완료 조건)이 초안에 없으면 Issue에서 채우지 말고 초안을 먼저 보강한다. 사람은 GitHub @handle로만 부른다.
-- OSS Hub 자체 화면의 요소 캡처는 개인정보 검사를 통과하면 Issue에 넣는다. 제3자 제품 스크린샷은 넣지 않고 패턴 서술과 공개 URL만 남긴다.
+- OSS Hub 자체 화면의 요소 캡처는 개인정보 검사를 통과하면 Issue에 넣는다. 승인 없는 제3자 캡처는 공개 Issue에 넣지 않고 패턴 서술과 공개 URL만 남긴다.
 - 기본 label은 저장소에 있는 `ticket`이다. 없는 label을 만들지 않는다.
 - assignee는 사용자가 알려 준 GitHub 핸들 0명 또는 1명이다.
 
 ```bash
 gh issue create --repo JNU-SWCU/oss-hub \
-  --title "<QA<번호>. <명령형 할 일>>" \
+  --title "<명령형 할 일>" \
   --body-file <body-file> \
   --label ticket \
   --assignee <github-handle>
@@ -294,7 +288,7 @@ gh issue view <number> --repo JNU-SWCU/oss-hub --json title,body,labels,assignee
 - 만든 Issue를 다시 읽지 않는다 → label·assignee·본문 누락이 공개된 채로 남는다.
 - UX 개선을 구현 체크리스트로 시작한다 → 현재 경험, 사용자 영향, 목표, 기대 흐름을 파일·API보다 먼저 쓴다.
 - 참고 링크를 해석 없이 나열한다 → 레퍼런스마다 쓸모 있는 패턴과 제한된 OSS Hub 적용을 적는다.
-- 제3자 제품 스크린샷을 티켓에 넣는다 → 패턴은 문장으로 적고 공개 URL만 링크한다.
+- 승인 없는 제3자 캡처를 공개 Issue에 넣는다 → 패턴은 문장으로 적고 공개 URL만 링크한다.
 - 승인 뒤에도 레퍼런스를 더 찾거나 반려된 후보를 남긴다 → 승인된 조합을 고정하고 나머지는 지운다.
 - 사용자가 기존 티켓 URL을 줬는데 새 Issue를 만든다 → 지목된 Issue를 고치고, 중복이 따로 있으면 별도로 보고하며, 승인 없이 닫지 않는다.
 - 화면 전체를 찍고 캡션으로 대상을 설명한다 → selector를 먼저 확정하고 그 요소만 찍는다.
@@ -303,7 +297,7 @@ gh issue view <number> --repo JNU-SWCU/oss-hub --json title,body,labels,assignee
 - AGENTS.md의 브랜치·커밋·보안 규칙을 이 스킬 안에 옮겨 적는다 → 원본과 갈라진다. 항상 AGENTS.md를 직접 읽는다.
 - 요구 범위(`할 일` 또는 `최소 요구`)가 요구하지 않은 "개선"을 PR에 얹는다 → 빼고 별도 티켓으로 제안한다.
 - 구동해보지 않고 완료 조건을 체크한다 → 먼저 실제로 돌린 뒤 체크한다.
-- 앞으로 쓰는 제목을 증상 서술로 시작한다 → `QA<번호>. <명령형 할 일>`로 쓰고 증상은 본문 `문제`에 둔다.
+- 앞으로 쓰는 제목을 증상 서술로 시작하거나 `QA<n>`을 붙인다 → `<명령형 할 일>`만 쓰고 증상은 본문 `문제`에 둔다. 식별자는 `#번호`다.
 - 이미 발행된 QA 제목을 새 규칙에 맞추려고 고친다 → 미래 작성에만 적용한다.
 - 수행 절차·PR 증거 체크리스트를 이 스킬에 복제한다 → [submit-pr-evidence](../submit-pr-evidence/SKILL.md) 한 곳으로 넘긴다.
 - 저장소에 없는 label을 만든다 → `ticket`만 달고 보고한다.
@@ -312,7 +306,7 @@ gh issue view <number> --repo JNU-SWCU/oss-hub --json title,body,labels,assignee
 
 작성(1단계)에 해당하는 항목:
 
-- [ ] 본문 계약과 가장 큰 `QA<n>`을 열린·닫힌 Issue에서 읽었다.
+- [ ] 본문 계약을 읽었고 `QA<n>`을 손으로 배정하지 않았다.
 - [ ] 만들기 직전에 `gh issue list --search`로 중복을 다시 조회했다.
 - [ ] 초안은 저장소 밖 임시 파일에만 있다.
 - [ ] 증거 기반으로 본문 변형을 골랐고, 사용자가 지목한 참조 Issue가 있으면 다시 열었다.
@@ -321,10 +315,10 @@ gh issue view <number> --repo JNU-SWCU/oss-hub --json title,body,labels,assignee
 - [ ] 초안 전문으로 `ISSUE_TEXT` public-safe 검사를 통과했다.
 - [ ] 화면 하나 또는 산출물 위치 하나와 논리 변경 하나만 다룬다.
 - [ ] 본문이 이 화면의 불편을 짚는 2~3줄 여는 말로 시작한다.
-- [ ] 새 제목이 `QA<번호>. <명령형 할 일>`이고, 이미 있는 제목은 고치지 않았다.
+- [ ] 새 제목이 `<명령형 할 일>`이고, 이미 있는 제목은 고치지 않았다.
 - [ ] 영역을 하나 선언했고 영역별 최소 증거가 있다.
 - [ ] 모든 `frontend` 캡처가 OSS Hub 자체 화면의 요소 단위이며 selector·DOM path·URL·확인 시각을 달고 있다.
-- [ ] 모든 참고 UI가 패턴 서술과 공개 URL만 갖고, 제3자 스크린샷이 없다.
+- [ ] 공개 Issue의 참고 UI는 패턴 서술과 공개 URL만 갖고, 승인 없는 제3자 캡처가 없다.
 - [ ] `현재 화면` 캡션의 selector가 PR Before/After에서 그대로 쓸 수 있는 형태다.
 - [ ] 작업 유형·페르소나·담당자 0~1명·`마감` 줄이 증거로 뒷받침된다.
 
