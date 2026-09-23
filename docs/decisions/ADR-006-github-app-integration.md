@@ -45,7 +45,7 @@ Accepted
 조직 소유 `Collection App`과 `Repository Operations App`을 test와 production에 각각 별도 등록하고 각 환경의 대상 조직에 설치한다.
 두 App은 각자의 installation access token만 사용하며 사용자 OAuth token이나 user access token을 사용하지 않는다.
 
-`Collection App`은 REST로 조직 전체 repository의 metadata·default-branch commit·all-state pull request·published release만 읽으며 repository를 생성하거나 collaborator·visibility를 변경할 수 없다.
+`Collection App`은 REST로 조직 전체 repository의 metadata·default-branch commit·all-state pull request·published release·all-state issue만 읽으며 repository를 생성하거나 collaborator·visibility를 변경할 수 없다.
 `Repository Operations App`은 platform-managed repository의 생성·collaborator 초대·visibility 변경만 수행하고 조직 전체 수집 권한을 갖지 않는다.
 두 App은 App ID, private key, installation token cache를 공유하지 않는다.
 
@@ -96,6 +96,7 @@ ADR, Issue, PR, commit, 로그, Notion에는 실제 값이나 private key 예시
 | Collection App | 조직 repository metadata 조회 | `GET /repos/{owner}/{repo}` | Repository `Metadata: read` | Org 소속과 mapped/unmapped 상태를 판별한다. |
 | Collection App | commit 조회 | `GET /repos/{owner}/{repo}/commits` | Repository `Contents: read` | 신규 repo는 default branch 전체를 backfill하고, 기존 repo는 default-branch head probe 이후 알려진 SHA를 만날 때까지만 순회한다. |
 | Collection App | pull request 조회 | `GET /repos/{owner}/{repo}/pulls` | Repository `Pull requests: read` | `state=all&sort=created&direction=desc` 고정과 `(createdAt, githubPullRequestId)` tie frontier로 새 PR만 읽는다. |
+| Collection App | issue 조회 | `GET /repos/{owner}/{repo}/issues` | Repository `Issues: read` | pull request와 같은 `state=all&sort=created&direction=desc` 고정과 `(createdAt, githubIssueId)` tie frontier로 새 issue만 읽는다. |
 | Collection App | published release 조회 | `GET /repos/{owner}/{repo}/releases` | Repository `Contents: read` | published release만 포함하며 draft는 제외한다. probe가 바뀐 repo만 published release 목록 전체를 다시 읽어 ID로 dedupe한다. |
 | Repository Operations App | 조직 private repository 생성 | `POST /orgs/{org}/repos` | Repository `Administration: write` | 생성 요청은 `private: true`로 고정한다. |
 | Repository Operations App | repository metadata 조회 | `GET /repos/{owner}/{repo}` | Repository `Metadata: read` | external repository ID·이름·visibility를 대조한다. |
@@ -104,7 +105,9 @@ ADR, Issue, PR, commit, 로그, Notion에는 실제 값이나 private key 예시
 | Repository Operations App | collaborator 초대 | `PUT /repos/{owner}/{repo}/collaborators/{username}` | Repository `Administration: write` | 학생에게 필요한 최소 역할인 `permission: push`를 사용한다. |
 | Repository Operations App | private에서 public으로 전환 | `PATCH /repos/{owner}/{repo}` | Repository `Administration: write` | #125의 staff action 뒤 `visibility: public`으로 바꾸고 metadata를 다시 조회한다. |
 
-`Collection App`은 Repository `Metadata: read`, `Contents: read`, `Pull requests: read`만 요청한다.
+`Collection App`은 Repository `Metadata: read`, `Contents: read`, `Pull requests: read`, `Issues: read`만 요청한다.
+`Issues: read`는 2026-09-24에 추가했다.
+installation이 새 권한을 승인하기 전의 세 권한도 받아들이므로, 승인 전에는 issue stream만 권한 오류로 남는다.
 `Repository Operations App`은 Repository `Administration: write`와 `Metadata: read`만 요청한다.
 Organization `Members`를 포함한 organization permission은 어느 App에도 요청하지 않는다.
 `Administration: write`가 invitation 조회의 `Administration: read` 요구도 포함한다.
@@ -124,17 +127,19 @@ mapped/unmapped, private/public 모두 이 collection 범위에 포함하며 pri
 commit  unique key  = (repositoryId, sha)
 PR      unique key  = (repositoryId, githubPullRequestId)
 release unique key  = (repositoryId, githubReleaseId)
+issue   unique key  = (repositoryId, githubIssueId)
 ```
 
 force-push, PR state 변경, release 삭제는 이미 관측된 unique count를 감소시키지 않는다.
 같은 사실의 재관측·재시도·중복 응답도 unique key 때문에 count를 증가시키지 않는다.
 이 누적 계약 때문에 tombstone·reachability 재계산과 periodic org-wide full-history reconciliation을 두지 않는다.
 
-신규 repository는 commit·PR·release 세 stream을 1회 full backfill한다.
+신규 repository는 commit·PR·release·issue 네 stream을 1회 full backfill한다.
 기존 repository는 hourly run마다 installation 전체를 inventory하되, 각 stream은 endpoint별 safe frontier 이후의 변경분만 처리한다.
 
 - commit: default-branch head probe가 이전과 다르면 최신→과거 순회로 이미 알려진 SHA를 만날 때까지 읽는다. 교집합 SHA가 없는 **연결이 끊긴 repository만** 그 repository의 현재 default branch 전체를 다시 읽어 SHA로 dedupe한 뒤에 frontier를 승격한다.
 - pull request: `state=all&sort=created&direction=desc`로 고정 조회하고 `(createdAt, githubPullRequestId)` tie frontier를 넘을 때까지만 읽는다.
+- issue: pull request와 같은 고정 조회와 `(createdAt, githubIssueId)` tie frontier를 쓴다. 목록에 섞여 오는 pull request(`pull_request` 키)는 frontier를 정하는 데만 쓰고 저장하지 않으며, `410`(issue 비활성)은 빈 목록으로 읽는다.
 - release: 고정된 probe representation(최신 published release ID/시각)이 바뀐 **repository만** published release 목록 전체를 다시 읽어 `(repositoryId, githubReleaseId)`로 dedupe한다. draft release는 계속 제외한다.
 
 위 완전 재스캔은 변경이 감지된 해당 repository에만 적용하는 예외적 복구 scan이며, 변경 없는 repository 전체를 반복 재수집하는 periodic org-wide reconciliation이 아니다.
@@ -150,7 +155,7 @@ provider 요청은 하나의 fair serial queue를 통과하며 최소 250ms 간�
 각 endpoint는 최대 100 page로 제한한다.
 page 한도, rate limit, 권한 오류, 부분 실패가 발생한 stream은 그 stream의 checkpoint와 aggregate를 승격하지 않고 직전 성공 상태를 유지한다.
 재시도는 실패한 stream의 checkpoint부터 이어가며 부분 결과를 확정 상태에 합치지 않는다.
-REST 응답은 repository·commit·pull request·release numeric ID, 발생 시각, dedupe key와 합의된 파생 count로 즉시 projection한 뒤 폐기한다.
+REST 응답은 repository·commit·pull request·release·issue numeric ID, 발생 시각, dedupe key와 합의된 파생 count로 즉시 projection한 뒤 폐기한다.
 
 ### 조직 밖 public repository 수집 — 외부 자격증명과 discovery
 
@@ -225,9 +230,10 @@ fine-grained PAT는 repository selection이나 permission 설정과 무관하게
 - commit fact: `(repositoryId, sha)`, 발생 시각. commit message·author email·diff·code 내용은 저장하지 않는다.
 - PR fact: `(repositoryId, githubPullRequestId)`, 관측 시각. title·body는 저장하지 않는다.
 - release fact: `(repositoryId, githubReleaseId)`, 발생 시각. body는 저장하지 않는다.
-- 집계: repository/contributor 단위 commit·PR·release 누적 count, 마지막 관측 시각(watermark/frontier), stream 상태.
+- issue history(`GithubIssueHistory`): `(repositoryId, githubIssueId)`, 발생 시각. title·body는 저장하지 않는다.
+- 집계: repository/contributor 단위 commit·PR·release·issue 누적 count, 마지막 관측 시각(watermark/frontier), stream 상태.
 
-raw response, code·diff, commit message·author email, pull request title·body, release body, 사용자 profile, credential(JWT/private key/installation token)은 DB·cache·로그·공개 smoke artifact 어디에도 남기지 않는다.
+raw response, code·diff, commit message·author email, pull request title·body, release body, issue title·body, 사용자 profile, credential(JWT/private key/installation token)은 DB·cache·로그·공개 smoke artifact 어디에도 남기지 않는다.
 repository의 `githubRepositoryId`·이름·visibility는 내부 collection DB에는 저장하지만, **공개 API 응답과 공개 smoke artifact에는** private repository의 식별 정보(이름, 존재 여부, visibility)를 노출하지 않는다 — "private repository 식별 정보를 남기지 않는다"는 이전 서술은 내부 저장과 공개 노출을 구분하지 않아 실제 구현과 충돌했으므로 위와 같이 층을 분리해 교정한다.
 
 조직 밖 public repository의 수집도 위 field inventory를 그대로 따른다 — 저장하는 field는 org repository와 동일하며, 앞 절의 확장이 새 field를 추가하지 않는다.
@@ -338,7 +344,7 @@ Repository Operations App smoke는 다음 순서로 수행한다.
 
 Collection App의 E1 smoke는 commit, all-state PR, published release가 준비된 public 합성 repository와 private 합성 repository에서 수행한다.
 API 호출 전에 test App의 installation 설정과 token 발급 결과에서 repository·organization permission map과 repository selection을 정규화한다.
-repository permission은 `Metadata: read`, `Contents: read`, `Pull requests: read`만, organization permission은 없음, repository selection은 `All repositories`여야 하며 webhook URL·event subscription이 없고 allowlist 밖 권한이 하나라도 있으면 FAIL한다.
+repository permission은 `Metadata: read`, `Contents: read`, `Pull requests: read`(선택 `Issues: read`)만, organization permission은 없음, repository selection은 `All repositories`여야 하며 webhook URL·event subscription이 없고 allowlist 밖 권한이 하나라도 있으면 FAIL한다.
 그 뒤 실제 installation token으로 두 합성 repository의 metadata·default-branch commit·all-state PR·published release 조회가 각각 성공하고 각 repository의 stream이 `READY`로 승격되는지 확인한다.
 권한 오설정 시 실제 변경이 생길 수 있는 write 요청은 최소 권한 검증에 사용하지 않는다.
 
@@ -412,7 +418,7 @@ rollback은 M3 schedule 중지, C2 current pointer를 마지막 검증된 comple
 
 - #121은 Repository Operations App의 installation token client와 durable worker를 구현할 수 있다.
 - Collection App은 매시간과 `ADMIN` manual trigger에서 신규 repository를 1회 backfill하고 기존 repository는 endpoint별 safe frontier로 변경분만 증분 수집해 누적 facts/aggregate를 갱신한다.
-- Collection App installation token은 조직 repository의 metadata·default-branch commit·all-state pull request·published release를 읽을 수 있고 쓰기 권한은 갖지 않는다.
+- Collection App installation token은 조직 repository의 metadata·default-branch commit·all-state pull request·published release·all-state issue를 읽을 수 있고 쓰기 권한은 갖지 않는다.
 - platform-managed repository를 기존 `Repository` 관계에 매핑하고 unmapped Org repository는 가짜 program·team 관계 없이 처리한다.
 - #125는 모든 필수 마일스톤 승인 뒤 별도 staff/admin action으로만 Repository Operations App의 공개 전환을 호출한다.
 - 승인 시점 collaborator snapshot이 팀 변경과 worker 지연 사이의 의미 변화를 막는다.
@@ -502,3 +508,4 @@ rollback은 M3 schedule 중지, C2 current pointer를 마지막 검증된 comple
 - 2026-08-04: `apps/backend/src/collection/AGENTS.md` Purpose 문단의 "webhook·OAuth·PAT 수집 경로는 C2(#151, ADR-006)로 제거되었다"는 서술과, 위에서 도입한 조직 밖 public repository 수집용 서비스 계정 PAT가 같은 ADR 안에서 상충하는 것처럼 읽힐 수 있다는 지적에 따라 "선택한 자격증명" 절에 범위 구분 문단을 추가했다. C2의 원문(이 문서 "Alternatives considered"의 "cutover와 rollback" 항목, "C2에서 ... REST complete generation을 유일한 current pointer authority로 전환하고 Collection webhook URL·event subscription·secret을 제거한다", "rollback은 ... webhook credential이나 OAuth/PAT fallback을 되살리지 않는다")을 직접 재확인한 결과, C2가 제거한 것은 **조직(`JNU-SWCU` installation 범위) 저장소를 읽는 Collection App의 current-pointer authority**이지 PAT라는 자격증명 형태 자체의 전면 금지가 아니었다 — `collection/AGENTS.md` Purpose 문단 자신도 그 모듈의 수집 대상을 "조직 설치 범위의 저장소 전체(조직 밖·개인 계정 repo는 제외)"로 명시하고 있어 조직 밖 수집은 애초에 그 문장의 대상 밖이다. 따라서 이번 조직 밖 public repository 수집용 PAT는 C2를 번복(supersede)하는 것이 아니라, C2가 다루지 않은 별도 스코프(조직 밖 수집)의 신규 authority로 판단해 "New constraints"에 이 구분을 명문화했다. 조직 저장소의 current-pointer authority는 여전히 Collection App installation token(REST reconciliation) 하나뿐이며 바뀌지 않았다. `collection/AGENTS.md` Purpose 문단은 이 스코프 구분을 아직 명시하지 않으므로 이 ADR과 함께 갱신돼야 한다는 점을 기록했다 — 다만 그 파일은 `collection` 모듈 소유 레인의 파일이라 이 ADR 편집에서 직접 고치지 않았다.
 - 2026-08-04: 위 판정을 ADR 내부 서술만이 아니라 **Issue #151 원문**으로 직접 재확인했다(`gh issue view 151 --comments` 1회 호출, rate limit 절약을 위해 추가 API 호출 없이 진행). #151("백엔드: GitHub 저장소 주기 수집 스케줄러")의 원 범위는 GitHub App 이전의 기존 인증 방식(collection.service.ts/github-api.client.ts, `CollectionRun`/`GithubRawObservation` 기반)으로 조직 저장소를 배치 수집하는 스케줄러화였고 "GitHub App 전환 — #120 소관. 이 티켓은 현재 인증 방식을 그대로 사용한다"고 GitHub App 전환을 명시적으로 범위 밖에 뒀다. 이후 코멘트에서 구현 범위가 GitHub App REST-only 전환까지 확장됐고, 마지막 코멘트가 "Collection App 실설치·REST-only 수집... C1 확인 후 C2 retirement를 진행합니다"라고 C2를 **"retirement"**로 명시했다 — 즉 C2는 조직 저장소를 수집하던 기존 webhook·OAuth·PAT 경로를 퇴역시키고 Collection App installation token REST-only로 일원화한 결정이며, 조직 밖·개인 계정 public repository 수집이라는 개념 자체가 #151에 존재하지 않았다(그 개념은 이후 `.omc/plans/github-repository-unification.md`에서 나왔다). 이 근거와 ADR 자체의 "Collection App의 유일한 수집 authority는 ... webhook, OAuth, PAT 경로를 병행하거나 fallback으로 사용하지 않는다"(주어가 "Collection App"으로 명시) 및 "조직 밖 repository와 개인 계정 소유 repository는 이 범위 밖이다" 문장이 모두 같은 결론을 가리켜 **판정을 1번(범위 명확화)으로 확정**했다 — 2번(전면 supersede)이 아니다. 이어서 "저장·폐기 field inventory"와 "공개 노출과 complete/partial inventory" 두 절이 `source` 값과 무관하게 `EXTERNAL_PUBLIC` 행에도 동일하게 적용된다는 점을 각 절에 명시적으로 추가했다 — forbidden field 목록도, 공개 노출 fail-closed·partial inventory 규칙도 PAT 도입으로 완화되거나 확장되지 않는다. PAT 값 자체(예시 문자열 포함)는 이 개정에도, 다른 어떤 개정에도 등장시키지 않았다 — 시크릿은 gitignore된 저장소에만 존재해야 한다는 제약을 그대로 지켰다.
 - 2026-08-20: "누적 저장소로의 1회 전환과 이전 세대 보존" 5항이 예고한 **후속 migration을 실제로 수행해 old generation 테이블 8개(`Canonical*`)의 제거를 완료**했다(기존 본문 삭제 없음 — 이 노트는 4·5항이 정한 계약이 이행됐음을 기록만 한다). 4항은 old generation 테이블을 전환 이후 한 release 동안만 read-only rollback 용도로 보존한다고 정했고, 5항은 보존 기간이 끝나면 그 제거를 전환 자체가 아닌 별도 추적 migration에서 수행한다고 정했다 — `20260820000000_drop_canonical_generation_tables`가 그 migration이다. 제거 판단의 근거는 셋이다: (1) 전환은 한참 전 릴리스에서 완료됐고 그 뒤 릴리스가 여럿 지나 "한 release" 보존 창이 오래 지났다. (2) 8개 테이블 전부 프로덕션 실측 0행이었다(반복 측정) — 4항이 rollback의 대상으로 규정한 "마지막 성공 generation" 자체가 남아 있지 않아 보존이 지키는 것이 없었다. (3) 이 테이블을 읽던 rollback 참조 reader는 선행 커밋에서, 쓰던 writer(`CollectionReconciliationService`)와 전환 orchestration(`CollectionCutoverService`·`CollectionGenerationImportService`와 그 CLI)은 같은 커밋에서 제거돼 참조가 0건이다. 8개는 `CanonicalCollectionRun`을 뿌리로 하는 단일 FK 클러스터라 부분 삭제가 불가능해 한 migration에서 자식→부모 순으로 통째 드롭했고, 그 8개만 쓰던 `CanonicalCollectionRunStatus` enum도 함께 제거했다. **rollback 계약 자체는 변경하지 않는다** — 4항이 정의한 "마지막 성공 generation을 current로 복원"이라는 코드 경로는 이미 존재하지 않으며, 되돌리기는 이전 릴리스 재배포 + 백업 restore라는 순수 운영 절차다(배포 시점 전체 백업 존재). `CollectionCutoverLease`(quiesce 게이트)와 legacy 관측 테이블 `CollectionRun`·`GithubRawObservation`은 이번 제거 대상이 아니며 그대로 남는다.
+- 2026-09-24: #1133 Issue 수집을 위해 Collection App 권한에 `Issues: read`를 더하고, issue 조회 endpoint·unique key·stream 규칙·저장 field(`(repositoryId, githubIssueId)`, 발생 시각, title·body 미저장)를 기록했다. `GET /repos/{owner}/{repo}/issues`는 installation token에 `Issues: read`를 요구한다(GitHub App 권한 문서). 목록 endpoint는 issue를 끈 저장소에서도 `410`이 아니라 pull request만 담은 `200`을 돌려줌을 비인증 호출로 확인했다(`410`은 단건 issue 조회가 돌려준다) — `410` 처리는 방어용이다. 호출 비용은 페이지당 core rate limit 1이고, 목록이 pull request까지 담으므로 첫 backfill은 PR stream보다 페이지가 많다. 조직 owner가 installation의 새 권한 요청을 승인해야 조직 저장소 issue가 수집된다. 저장 테이블은 관측한 issue마다 행이 쌓이므로 [`data-modeling.md`](../rules/data-modeling.md) §4를 따라 `Fact`가 아니라 `History`로 끝나는 `GithubIssueHistory`다 — 형제 `Collection*Fact` 세 테이블의 개명은 별도 PR이다.
