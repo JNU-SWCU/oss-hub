@@ -95,7 +95,11 @@ function createFakeFigma(
       createInstance() {
         const instance = node('INSTANCE', { name: self.name });
         for (const child of self.children) instance.appendChild(child.clone());
-        instance.setProperties = () => {};
+        // 어느 변형을 꽂았는지 남긴다 — 인스턴스는 글자만 보면 표면 색이 안 보인다.
+        instance.properties = {} as Record<string, string>;
+        instance.setProperties = (props: Record<string, string>) => {
+          Object.assign(instance.properties, props);
+        };
         return instance;
       },
       ...extra,
@@ -506,12 +510,25 @@ describe('figma plugin code.js', () => {
     const alertDialog = dialogComponent('Dialog/alert');
     expect(alertDialog?.width).toBe(512);
     expect(alertDialog?.description).toContain('alertdialog');
+    const alertFooter = dialogChild('Dialog/alert', 'footer')?.children;
     expect(
-      dialogChild('Dialog/alert', 'footer')?.children.map(
+      alertFooter?.map(
         (n: AnyNode) =>
           n.findOne((c: AnyNode) => c.type === 'TEXT')?.characters,
       ),
     ).toEqual(['취소', '삭제']);
+    // 확정 버튼의 destructive 표면이 「되돌릴 수 없다」의 시각 신호다 — 글자만
+    // 고정하면 주 행동 색(default)으로 바뀌어도 이 테스트가 통과해 버린다(R-34).
+    expect(alertFooter?.map((n: AnyNode) => n.properties.variant)).toEqual([
+      'outline',
+      'destructive',
+    ]);
+    // 저장 창의 확정은 그대로 주 행동 색이다.
+    expect(
+      dialogChild('Dialog/md', 'footer')?.children.map(
+        (n: AnyNode) => n.properties.variant,
+      ),
+    ).toEqual(['outline', 'default']);
     // 저장 창은 1·2칸짜리 폼 그대로다.
     expect(dialogChild('Dialog/md', 'body (위→아래)')?.children).toHaveLength(
       1,
