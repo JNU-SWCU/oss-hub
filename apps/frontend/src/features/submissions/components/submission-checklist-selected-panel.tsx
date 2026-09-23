@@ -130,7 +130,7 @@ function ResubmissionForm(
     >
       <PanelCard
         item={item}
-        status="CHANGES_REQUESTED"
+        status={submission.status}
         embedded={props.onCloseSelected !== undefined}
         testId="resubmission"
       >
