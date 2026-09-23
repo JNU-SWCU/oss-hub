@@ -97,7 +97,16 @@ export function AdminAccessMutationActions({
             )
           }
         />
-        {!controlBlocked && guards.elevatedRoleBlockedReason ? (
+        {/*
+          이유 문장은 실제로 막힌 버튼이 있을 때만 뜬다 — 두 접근이 이미 모두
+          허용된 계정에서는 버튼이 둘 다 [회수]라 프로필 완료 여부가 아무것도
+          막지 않는데 "부여할 수 없습니다"만 남는다(프로필 없는 시드 관리자
+          계정이 정확히 이 상태다). 조건은 아래 버튼의 `disabled`와 같은 근거를
+          본다.
+        */}
+        {!controlBlocked &&
+        guards.elevatedRoleBlockedReason &&
+        (!detail.hasStaffAccess || !detail.hasAdminAccess) ? (
           <p className="text-sm text-muted-foreground">
             {guards.elevatedRoleBlockedReason}
           </p>
@@ -135,7 +144,10 @@ export function AdminAccessMutationActions({
               {nextAccountStatus === 'DEACTIVATED' ? '비활성화' : '재활성화'}
             </Button>
           </div>
-          {!controlBlocked && guards.deactivationBlockedReason ? (
+          {/* 같은 이유로 버튼이 [재활성화]일 때는 비활성화 가드 문장을 띄우지 않는다. */}
+          {!controlBlocked &&
+          nextAccountStatus === 'DEACTIVATED' &&
+          guards.deactivationBlockedReason ? (
             <p className="text-sm text-muted-foreground">
               {guards.deactivationBlockedReason}
             </p>

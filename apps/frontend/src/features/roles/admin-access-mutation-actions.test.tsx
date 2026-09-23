@@ -188,18 +188,70 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 세그먼�
       '프로필(이름·학번·학과) 완성 전에는 부여할 수 없습니다.',
     );
     expect(html).not.toContain('canonical 관리 API');
+    // 아직 받지 않은 「관리자 접근 허용」 하나만 막힌다(교직원은 이미 허용됨 → 회수).
+    expect(html.match(/disabled=""/g)?.length ?? 0).toBe(1);
   });
 
-  it('본인 계정이면 비활성화 버튼만 막히고 안내문이 뜬다', () => {
+  it('두 접근이 이미 허용됐으면 프로필 미완료여도 막힌 버튼도 이유 문장도 없다', () => {
+    // 시드로 만든 첫 관리자 계정이 프로필을 채우기 전까지 정확히 이 상태다
+    // (`apps/backend/src/auth/auth.repository.ts`가 profile 없는 계정에 권한을 켠다).
     const html = renderToStaticMarkup(
       <AdminAccessMutationActions
-        detail={detail({ isSelf: true, accountStatus: 'ACTIVE' })}
+        detail={detail({
+          hasStaffAccess: true,
+          hasAdminAccess: true,
+          profile: {
+            name: null,
+            studentId: null,
+            department: null,
+            isComplete: false,
+          },
+        })}
         processingAction={null}
         onRequestAction={() => {}}
       />,
     );
 
-    expect(html).toContain('자기 계정은 비활성화할 수 없습니다.');
+    // 두 버튼 다 [회수]라 프로필 완료 여부가 아무것도 막지 않는다.
+    expect(html).not.toContain('부여할 수 없습니다');
+    expect(html).not.toContain('disabled=""');
+  });
+
+  it('본인 계정이면 비활성화 버튼만 막히고 안내문이 뜬다', () => {
+    act(() => {
+      root.render(
+        <AdminAccessMutationActions
+          detail={detail({ isSelf: true, accountStatus: 'ACTIVE' })}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
+      );
+    });
+
+    expect(container.innerHTML).toContain(
+      '자기 계정은 비활성화할 수 없습니다.',
+    );
+    expect(
+      Array.from(container.querySelectorAll('button'))
+        .filter((button) => button.disabled)
+        .map((button) => button.textContent),
+    ).toEqual(['계정 상태 비활성화']);
+  });
+
+  it('본인 계정이어도 비활성 상태면 [재활성화]라 비활성화 가드 문장이 뜨지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <AdminAccessMutationActions
+        detail={detail({ isSelf: true, accountStatus: 'DEACTIVATED' })}
+        processingAction={null}
+        onRequestAction={() => {}}
+      />,
+    );
+
+    // ROL_017은 비활성화 방향에만 걸린다 — 재활성화 버튼은 열려 있어야 하고,
+    // 막힌 버튼이 없으면 이유 문장도 없어야 한다.
+    expect(html).toContain('재활성화');
+    expect(html).not.toContain('자기 계정은 비활성화할 수 없습니다.');
+    expect(html).not.toContain('disabled=""');
   });
 
   it('세 묶음이 각자 이름과 묶인 group으로 읽힌다(라디오그룹을 걷어낸 자리)', () => {
