@@ -200,7 +200,9 @@ Collapsible을 포함한 파일은 `apps/frontend/src/components/ui/`에 있고,
 ### Button
 
 `button.tsx`. 모든 액션 트리거(제출, 이동, 보조 액션)의 기반이며 variant(default/outline/secondary/ghost/destructive/link/toggle)와 size 변형을 cva로 관리한다.
-`toggle`은 `FilterChip`이 쓰는 눌림 표면이며 feature가 직접 고르지 않는다.
+`toggle`은 한 필터 줄 안에서 「골랐다」를 말하는 눌림 표면이다.
+눌림은 버튼이면 `aria-pressed`, 주소로 걸리는 필터 링크면 `aria-current="page"`로 말하고 둘이 같은 채움을 받는다.
+칩 묶음은 `FilterChip`을 쓰고(R-34), feature가 이 변형을 직접 고르는 것은 주소로 거는 필터 링크뿐이다(교직원 인사이트의 연도 링크).
 `variant="bare" size="content"`는 **버튼처럼 생기지 않은 「누를 수 있는 면」** 전용이다 — 표 칸, 달력 날짜, 메뉴 줄, 행·카드 선택기처럼 크기를 바깥 격자나 내용이 정하는 자리다. 표면(배경·글자색·hover·눌림 표시)과 여백·정렬·줄바꿈은 호출부가 소유하고, 프리미티브는 접근 가능한 이름·비활성·초점 표시만 준다. 44px 규칙이 지켜야 하는 것은 손가락이 닿는 컨트롤이므로 이 자리는 그 대상이 아니다.
 아이콘만 있는 버튼은 `variant="ghost" size="icon"`(44px 정사각)에 `aria-label`과 툴팁을 함께 붙인다. feature에서 `inline-flex size-11 …` 날 `<button>`을 다시 만들지 않는다(R-27, AP-17).
 
@@ -235,6 +237,7 @@ Collapsible을 포함한 파일은 `apps/frontend/src/components/ui/`에 있고,
 **R-24** `apps/frontend/src/components/ui/*`는 shadcn 생성물이고 소유권은 저장소에 있으며 semantic 토큰 적용·`data-slot` 추가·접근성 보강은 허용하고 공개 slot·role을 바꾸는 DOM 변경과 도메인 분기 삽입은 금지한다.
 **R-25** 새 시각 변형은 `cva` variant를 소유 프리미티브에 추가해 만들고 variant 이름은 의미(kind·size)로 지으며 소비자 쪽 `className` 오버라이드로 변형을 만들지 않는다.
 **R-34** 목록을 거르거나 묶음 안에서 하나를 고르는 눌림 버튼(상태 필터·판정 선택·단계 이동)은 `FilterChipGroup`/`FilterChip`으로 만들고 feature 코드에 `aria-pressed`를 가진 날 `<button>`을 두지 않으며, 눌림 시각은 Button의 `toggle` variant 하나다.
+누르면 바로 확인창이 뜨는 실행 버튼은 칩이 아니라 R-31을 따른다 — 괄호의 「판정 선택」은 고른 뒤 따로 저장하는 선택이고, 누르는 순간 쓰기가 시작되면 칩의 「눌림」이 지금 서버 값인지 방금 고른 값인지 모호해진다.
 
 **R-40** 한 화면의 주 행동은 하나 이하다.
 같은 액션 줄의 보조 행동은 `outline`, 약한 보조와 아이콘 버튼은 `ghost`를 쓴다.
@@ -291,6 +294,7 @@ R-08a·R-08b·R-38은 `pnpm --filter frontend lint`가 강제한다. 기존 위�
 | 제출(서류) | REJECTED | 반려 | rejected | 판정 끝, 재제출 불가. 판정 **버튼** 이름은 재제출을 막는다는 뜻을 담아 「최종 반려」다 |
 | 역할 | STUDENT · STAFF · ADMIN · null | 학생 · 교직원 · 관리자 · 미지정 | closed · pending · approved · closed | 미지정은 값이 없는 것이지 실패가 아니다 |
 | 계정 상태 | ACTIVE · DEACTIVATED | 활성 · 비활성 | approved · closed | |
+| 접근 | GRANTED · NONE | 허용됨 · 없음 | 없음 | 교직원·관리자 접근을 지금 가졌는지. 「없음」은 받은 적 없는 계정과 회수된 계정 모두에 맞는 중립적인 말이다. 바로 옆에 행동 버튼이 서는 자리라 배지를 붙이지 않는다(#1365) |
 | 신청 | SUBMITTED · APPROVED · REJECTED | 검토 대기 · 승인 · 반려 | pending · approved · rejected | 원본은 아직 `features/programs/application-presentation.ts`(#869 결정). 후속 이전 대상 |
 
 2026-09-19 결정(#1295): 제출 어휘는 교직원 서류 판정 화면의 말을 학생 화면 전체에 쓴다. 이전에는 「제출 전·제출됨·보완 필요·최종 반려」(프로그램 상세·체크리스트)와 「검토 중·승인 완료·수정 요청」(대시보드)이 같은 상태를 달리 불렀고, 배지도 학생 화면은 보완 요청을 붉게 칠했다. 게시판 댓글의 작성자 역할(ADMIN을 교직원으로 접음)과 검토 판정 버튼(`features/reviews`)은 이 표의 대상이 아니다.
@@ -411,6 +415,7 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 | 2026-09-03 | local-review 하네스가 `apps/frontend/test-support/local-review/fixture-response.ts`에서 feature fixture를 소비 | R-20 | 예외 없음. 런타임→테스트 의존은 경계 lint가 거부한다. 이 행은 당시 결합의 기록이며 해소는 런타임 제거 작업이다 |
 | 2026-09-19 | 차트 낭독 전용 `sr-only` `<table>` 2곳 — `apps/frontend/src/features/staff-insights/insights-panels.tsx` ActivityPanel, `apps/frontend/src/features/staff-insights/participation-panel.tsx` | R-07 | 예외로 확정. DataTable은 초점을 받는 스크롤 영역과 빈 상태 행을 그리므로 보이지 않는 낭독 전용 표에 맞지 않는다. 시맨틱 `<table>`을 유지한다 |
 | 2026-09-19 | 서류 수합 행렬 — `apps/frontend/src/features/programs/milestone-document-collection-view.tsx`가 `ui/table`을 직접 조합 | R-07 | sticky 팀 열·`colSpan` 판정 행·행 펼침을 DataTable의 columns·data 모델이 담지 못한다. DataTable에 행 펼침 slot이 생기면 옮긴다 |
+| 2026-09-23 | 읽기 전용 표 줄도 마우스를 올리면 배경이 바뀐다 — `apps/frontend/src/components/ui/table.tsx` 97의 `TableRow` 기본 `hover:bg-muted/50`가 머리글·빈 상태 줄까지 전 줄에 걸린다 | R-31 | 예외로 확정(#1368). 흰 바탕 위 계산값이 `oklab(0.976 0 0 / 0.5)` = rgb(251, 251, 251)로 흰색과 255단계 중 4 차이라 「눌린다」는 잘못된 신호가 화면에서 거의 보이지 않고, 넓은 표에서 줄을 따라가는 보조로 남긴다. 목록 줄은 반대다 — `ListRow`는 #1352에서 hover를 기본에서 뺐고 줄 전체를 누르는 자리에서만 호출부가 얹는다. 표에서 누를 수 있는 줄은 `DataTable`이 `cursor-pointer`로 가른다 |
 
 ## 컴포넌트 카드
 
@@ -491,7 +496,7 @@ Do·Don't: R-10을 따른다.
 ### FilterChip
 Use when: 목록을 거르거나 한 묶음 안에서 하나를 고르는 눌림 버튼(상태 필터, 판정 선택, 단계 이동)을 놓을 때 `FilterChipGroup` 안에 `FilterChip`을 쓴다.
 Don't use when: 읽기만 하는 상태는 StatusBadge, 다른 화면으로 가는 것은 링크, 카드 하나를 고르는 것은 그 카드 자체를 쓴다.
-Slots·Props: FilterChipGroupProps의 aria-label·className, FilterChipProps의 pressed와 Button props.
+Slots·Props: FilterChipGroupProps의 aria-label·className, FilterChipProps의 pressed와 Button props. 묶음 이름은 `aria-label` 문자열이나 보이는 제목을 가리키는 `aria-labelledby` 중 하나가 반드시 있어야 하며 타입이 그 합집합을 강제한다.
 States: pressed(aria-pressed)·hover·focus-visible·disabled. 화살표 좌우·Home·End로 칩 사이를 옮긴다.
 Do·Don't: 칩은 둥근 알약이지만 h-control(44px)과 테두리를 유지한다. StatusBadge처럼 h-tag 높이·앞의 점·테두리 없는 표면으로 만들지 않는다(R-31, R-34).
 
@@ -533,7 +538,7 @@ Don't use when: 카드형 요약이면 대신 CardGrid를 쓴다.
 Slots·Props: DataTableProps의 columns·data·rowKey를 쓰고, 행을 대표하는 열은 `rowHeader`로 `<th scope="row">`가 된다. RowActions는 오른쪽 정렬 액션 슬롯이며 안의 아이콘 버튼은 `Button variant="ghost" size="icon"` + Tooltip + 행마다 고유한 `aria-label`이다(R-27).
 States: 이 컴포넌트는 loading·empty·ready를 소유하고 error는 호출자가 failure surface로 렌더한다.
 Accessibility: `caption`과 `scrollRegionLabel`을 제공한다. 카드 제목이 이미 표 이름을 보여 주면 `hideCaption`으로 caption을 보조기기에만 읽힌다.
-Do·Don't: R-07을 따른다.
+Do·Don't: R-07을 따른다. 줄 전체를 누를 수 있을 때만 `cursor-pointer`를 얹고, 누를 수 없는 줄의 hover 배경은 `TableRow` 기본으로 남는다(§수용된 부채 2026-09-23 행).
 
 ### ListPanel + ListRow — 그룹
 Use when: 선택 가능한 목록과 행을 구성할 때 쓴다.
