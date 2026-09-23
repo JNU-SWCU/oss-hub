@@ -13,7 +13,6 @@
 - Pass PR-controlled text to commands through environment variables rather than inline GitHub expression interpolation.
 - Preserve the always-created required `ci` and `public-safe` checks and their names; merge status is determined by their actual GitHub results.
 - Keep workflow-level path filters out of `workflows/ci.yml`; inner `dorny/paths-filter` conditions select affected lanes while retaining a check for every PR.
-- `team-state-drift` is advisory; do not make it a substitute for GitHub Issue/PR state.
 - `public-safe-issue` scans Issue and comment text; preserve its public-input handling and deny-list enforcement.
 - Never add a workflow that reaches Jenkins or production: no deploy trigger, no Jenkins URL/token secret, and no checkout/build/migration/rollback/production mutation surface in `.github/workflows/`.
 
@@ -26,7 +25,7 @@
 
 ## Important paths
 
-- `workflows/ci.yml` — PR CI, commitlint, public-safe, and advisory drift jobs.
+- `workflows/ci.yml` — PR CI, commitlint, and public-safe jobs.
 - `CODEOWNERS` — review-candidate routing patterns.
 - `pull_request_template.md` — PR body baseline.
 - `ISSUE_TEMPLATE/work-ticket.md` — scoped work-ticket input.

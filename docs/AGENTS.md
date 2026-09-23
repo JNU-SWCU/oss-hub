@@ -12,8 +12,7 @@
 - `decisions/README.md` indexes ADRs; the affected ADR is the canonical record for an architectural or operational decision.
 - `rules/security.md`, `rules/frontend.md`, `rules/local-dev.md`, `rules/pr-scope.md`, and `rules/ci-path-verification.md` each own their named contracts.
 - `deploy/server-runbook.md`, `deploy/pre-deploy-verify.md`, and `deploy/demo-runbook.md` own deployment procedure; do not restate commands or approval flows elsewhere.
-- `handoff/TEAM-STATE.md` is only the journal index; append work updates only to `handoff/team-state/<handle>.md`.
-- `handoff/TEAM-STATE.archive.md` is frozen and must not be edited.
+- `handoff/TEAM-STATE.md`, `handoff/TEAM-STATE.archive.md`, and `handoff/team-state/` are frozen history; do not append or edit them. Implementation status belongs in GitHub Issue/PR.
 - `research/<slug>.md` records evidence for a decision; promote a decision into its ADR rather than treating research as authority.
 
 ## High-risk documentation constraints
@@ -28,7 +27,7 @@
 - `decisions/README.md` — ADR index and lifecycle.
 - `rules/security.md` — public-safe content boundary.
 - `rules/ci-path-verification.md` — required verification by changed path.
-- `handoff/TEAM-STATE.md` and `handoff/team-state/` — index and append-only member journals.
+- `handoff/TEAM-STATE.md` and `handoff/team-state/` — frozen historical journals, not a status source.
 - `deploy/server-runbook.md` — production operation authority.
 - `design.md` — frontend design-system contract.
 <!-- /init:managed id=craft-init-4.0.0-docs -->
