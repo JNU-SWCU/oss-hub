@@ -86,6 +86,8 @@ export interface AdminAccessGuards {
   readonly controlBlockedReason: string | null;
   /** 본인 계정이라 비활성화 선택지가 막혔을 때의 안내문. 없으면 `null`. */
   readonly deactivationBlockedReason: string | null;
+  /** 본인 계정이라 관리자 접근 회수가 막혔을 때의 안내문. 없으면 `null`. */
+  readonly adminRevokeBlockedReason: string | null;
   /** 프로필 미완료라 교직원·관리자 선택지가 막혔을 때의 안내문. 없으면 `null`. */
   readonly elevatedRoleBlockedReason: string | null;
 }
@@ -94,6 +96,12 @@ export interface AdminAccessGuards {
  * 접근 변경 카드의 화면 전용 가드 — 백엔드는 이 중 어느 것도 별도 필드로
  * 내려주지 않으므로 이미 응답에 있는 `pendingRequest`·`isSelf`·
  * `profile.isComplete`에서 읽기 전용으로 계산한다.
+ *
+ * `adminRevokeBlockedReason`은 서버의 `ROL_022`와 같은 조건을 화면에서 미리
+ * 보여 줄 뿐이다(#1382) — 회수가 성공하면 누른 사람이 이 화면을 읽을 권한을
+ * 잃어 결과를 확인할 수 없어서, `deactivationBlockedReason`과 같은 모양으로
+ * 버튼 아래에 이유를 둔다. 교직원 접근 회수는 이 출입증을 건드리지 않으므로
+ * 여기서 막지 않는다.
  *
  * `elevatedRoleBlockedReason`은 백엔드 정책보다 보수적이다 — 백엔드는
  * 대기 요청을 승인할 때만 프로필 완료를 요구하고(`admin-access-transition-table.ts`의
@@ -111,6 +119,9 @@ export function deriveAdminAccessGuards(
       : null,
     deactivationBlockedReason: detail.isSelf
       ? '자기 계정은 비활성화할 수 없습니다.'
+      : null,
+    adminRevokeBlockedReason: detail.isSelf
+      ? '자기 계정의 관리자 접근은 회수할 수 없습니다.'
       : null,
     elevatedRoleBlockedReason: detail.profile.isComplete
       ? null

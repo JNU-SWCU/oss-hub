@@ -76,6 +76,9 @@ export function AdminAccessMutationActions({
           enabled={detail.hasStaffAccess}
           disabled={controlBlocked || isProcessing}
           grantBlocked={guards.elevatedRoleBlockedReason !== null}
+          // 본인이 자기 교직원 접근을 버려도 이 화면의 출입증은
+          // `hasAdminAccess`라 화면을 잃지 않는다 — 여기서는 막지 않는다(#1382).
+          revokeBlockedReason={null}
           onChange={(enabled) =>
             onRequestAction(
               enabled
@@ -89,6 +92,11 @@ export function AdminAccessMutationActions({
           enabled={detail.hasAdminAccess}
           disabled={controlBlocked || isProcessing}
           grantBlocked={guards.elevatedRoleBlockedReason !== null}
+          // 대기 요청 안내문이 이미 카드 위에 떠 있으면 같은 말을 두 번 하지
+          // 않는다 — 계정 상태 가드 문장도 같은 조건으로 숨는다.
+          revokeBlockedReason={
+            controlBlocked ? null : guards.adminRevokeBlockedReason
+          }
           onChange={(enabled) =>
             onRequestAction(
               enabled
@@ -163,12 +171,15 @@ function AuthorityControl({
   enabled,
   disabled,
   grantBlocked,
+  revokeBlockedReason,
   onChange,
 }: {
   readonly label: '교직원 접근' | '관리자 접근';
   readonly enabled: boolean;
   readonly disabled: boolean;
   readonly grantBlocked: boolean;
+  /** 회수가 막혔을 때 버튼 아래에 붙일 이유. 막히지 않으면 `null`. */
+  readonly revokeBlockedReason: string | null;
   readonly onChange: (enabled: boolean) => void;
 }) {
   const labelId =
@@ -190,12 +201,21 @@ function AuthorityControl({
           type="button"
           variant="outline"
           size="sm"
-          disabled={disabled || (!enabled && grantBlocked)}
+          disabled={
+            disabled ||
+            (!enabled && grantBlocked) ||
+            (enabled && revokeBlockedReason !== null)
+          }
           onClick={() => onChange(!enabled)}
         >
           <span className="sr-only">{label}</span> {enabled ? '회수' : '허용'}
         </Button>
       </div>
+      {/* 버튼이 [허용]일 때는 회수 가드가 아무것도 막지 않으므로 문장도 없다 —
+          계정 상태 묶음이 [재활성화]일 때와 같은 규칙이다. */}
+      {enabled && revokeBlockedReason ? (
+        <p className="text-sm text-muted-foreground">{revokeBlockedReason}</p>
+      ) : null}
     </div>
   );
 }

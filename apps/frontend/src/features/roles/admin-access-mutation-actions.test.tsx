@@ -254,6 +254,81 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 세그먼�
     expect(html).not.toContain('disabled=""');
   });
 
+  it('본인 계정의 관리자 접근 회수는 막히고 같은 묶음 안에 이유가 붙는다', () => {
+    // #1382 — 성공하면 누른 사람이 이 화면을 읽을 권한을 잃어 결과를 확인할 수
+    // 없다. 서버도 `ROL_022`로 거절한다.
+    act(() => {
+      root.render(
+        <AdminAccessMutationActions
+          detail={detail({ isSelf: true, hasAdminAccess: true })}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
+      );
+    });
+
+    const group = container.querySelector(
+      '[aria-labelledby="admin-admin-access-control-label"]',
+    );
+    const button = group?.querySelector('button');
+    expect(button?.textContent).toBe('관리자 접근 회수');
+    expect(button?.disabled).toBe(true);
+    // 계정 상태 쪽 가드 문장과 같은 자리·같은 모양이다.
+    const reason = group?.querySelector('p.text-sm.text-muted-foreground');
+    expect(reason?.textContent).toBe(
+      '자기 계정의 관리자 접근은 회수할 수 없습니다.',
+    );
+  });
+
+  it('남의 계정이면 관리자 접근 회수 버튼이 그대로 눌리고 이유 문장도 없다', () => {
+    const onRequestAction = vi.fn();
+    act(() => {
+      root.render(
+        <AdminAccessMutationActions
+          detail={detail({ isSelf: false, hasAdminAccess: true })}
+          processingAction={null}
+          onRequestAction={onRequestAction}
+        />,
+      );
+    });
+
+    const button = container
+      .querySelector('[aria-labelledby="admin-admin-access-control-label"]')
+      ?.querySelector('button');
+    expect(button?.disabled).toBe(false);
+    act(() => {
+      button?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
+    });
+    expect(onRequestAction).toHaveBeenCalledWith('REVOKE_ADMIN_ACCESS');
+    expect(container.innerHTML).not.toContain(
+      '자기 계정의 관리자 접근은 회수할 수 없습니다.',
+    );
+  });
+
+  it('본인 계정이어도 관리자 접근이 없으면 [허용] 버튼이 열려 있고 이유 문장도 없다', () => {
+    act(() => {
+      root.render(
+        <AdminAccessMutationActions
+          detail={detail({ isSelf: true, hasAdminAccess: false })}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
+      );
+    });
+
+    // 회수 가드는 회수 방향에만 걸린다 — 계정 상태의 [재활성화]와 같은 규칙이다.
+    const button = container
+      .querySelector('[aria-labelledby="admin-admin-access-control-label"]')
+      ?.querySelector('button');
+    expect(button?.textContent).toBe('관리자 접근 허용');
+    expect(button?.disabled).toBe(false);
+    expect(container.innerHTML).not.toContain(
+      '자기 계정의 관리자 접근은 회수할 수 없습니다.',
+    );
+  });
+
   it('세 묶음이 각자 이름과 묶인 group으로 읽힌다(라디오그룹을 걷어낸 자리)', () => {
     act(() => {
       root.render(
