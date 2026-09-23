@@ -1453,6 +1453,17 @@
 - 남은 것: Figma 파일은 병합 뒤 데스크톱에서 플러그인(`apps/frontend/figma-plugin`)을 다시 실행해야 갱신된다.
 - 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.
 
+## 2026-09-23 — 지금 보는 연도를 주 행동 색 대신 필터 칩의 눌린 모양으로 그린다
+
+- 상태: review
+- Issue: #1369
+- PR: (이 PR)
+- blocker: 없음
+- 내용: 교직원 「학생 활성」의 「기간」 줄에서 지금 보는 해만 주 행동 색(채운 남색, `Button variant="default"`)이라, 바로 옆 「비교 관점」의 회색 눌림 칩과 「골랐다」 모양이 한 줄 안에서 둘로 갈려 있었다. 공용 `Button` 의 `toggle` 변형이 `aria-pressed` 말고 `aria-current="page"` 에도 같은 눌림 표면을 주도록 유틸리티 넷을 더하고(`border-secondary`·`bg-secondary`·`text-secondary-foreground`·`hover`), `YearLink` 는 `variant={current ? 'default' : 'outline'}` 를 `variant="toggle"` 하나로 바꾼다. 연도는 `?year=` 주소로 가는 자리라 `<a href>` 와 `aria-current="page"` 는 한 글자도 건드리지 않았다(R-31 — 새 탭 열기·주소 복사).
+- 검증: 격리 스택 합성 데이터에서 「전체」·「2026」 두 상태를 1440x900·390x844 두 폭으로 전후 촬영했고, 여덟 장 모두 DOM 에서 값을 직접 읽어 단언했다 — 지금 보는 해의 배경이 눌린 칩과 같은 rgb(238, 238, 238) 이고, 필터 줄 안 `[data-variant="default"]` 가 1개에서 0개, `aria-current="page"` 는 1개 그대로, 연도 링크 3개 모두 `href` 유지, 요소 상자는 전후 동일(1440 에서 1120x68, 390 에서 358x152). 프런트 단위 377 파일 3755 건 통과(실행된 377개 이름이 저장소의 단위 시험 파일 377개와 정확히 일치), typecheck·lint(오류 0·경고 5, 전부 이 변경이 안 건드린 두 파일의 기존 경고)·바뀐 3파일 prettier 통과. 되돌림 확인: `insights-controls.tsx` 만 되돌리면 `data-variant="toggle"` 단언이, `button.tsx` 만 되돌리면 `aria-[current=page]:bg-secondary` 단언이 각각 혼자 깨진다. 로컬 브라우저 회귀 35 스펙 104 건 통과(건너뜀·재시도 0, 6.4분, 실행된 스펙 파일 35개가 저장소의 `*.spec.ts` 35개와 일치) — 이 화면을 여는 `staff-insights-comparison-ux.spec.ts` 6 건이 그 안에 있다.
+- 주의: ① `toggle` 을 고르는 자리가 이제 둘이다 — `FilterChip`(`aria-pressed`)과 연도 링크(`aria-current="page"`). `FilterChip` 호출부에 `aria-current` 를 넘기면 그 칩도 눌린 것으로 그려진다(지금 호출부 9곳은 넘기지 않는다). ② 고른 해가 눈에 덜 띈다 — 채움 `--secondary`(#eeeeee)와 이웃의 흰 바탕은 대비가 약하고, 고른 쪽 테두리 `border-secondary`(#eeeeee)가 안 고른 쪽 `--border`(#dddddd)보다 오히려 옅다. #1358 이 배포한 눌린 칩의 성질이지 이번 변경이 만든 것은 아니다. ③ 고르지 않은 해까지 모양이 바뀐다 — 모서리 8px 사각에서 `rounded-full` 알약이 된다. ④ `renderToStaticMarkup` 은 CSS 를 못 보므로 `button.tsx` 쪽 절반은 클래스 문자열 단언 하나로만 묶여 있다 — Tailwind 토큰 이름을 바꾸면 이 단언부터 같이 고쳐야 한다. ⑤ 지금 보는 해에 초점이 가면 테두리는 `focus-visible:border-ring` 이 아니라 `aria-[current=page]:border-secondary` 가 이긴다(소스 순서, 명시도 동률) — 초점 자체는 ring 과 호출부 outline 이 그리므로 보이고, 눌린 `FilterChip` 도 전부터 같게 동작한다.
+- 남은 것: `docs/design.md` 의 「`toggle` 은 `FilterChip` 이 쓰는 눌림 표면이며 feature 가 직접 고르지 않는다」 문장이 이제 사실이 아니다(티켓 할 일 3번). 같은 파일을 든 PR #1360 이 열려 있어 이 PR 에서 건드리지 않았고, #1360 병합 뒤 별도 커밋으로 「버튼은 `aria-pressed` 로, 주소로 걸리는 필터 링크는 `aria-current="page"` 로 말한다」 취지의 문장으로 고친다. Figma 플러그인(`figma-plugin/code.js`)은 `FilterChip` 의 눌림 색을 아직 남색으로 그린다 — #1358 이후 낡은 값이라 #1371 범위에 넣을지 정해야 한다. 배포 환경의 키보드 조작·390px 확인은 릴리스가 나간 뒤다.
+- 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음. 캡처는 합성 시드 데이터로 찍었고 촬영 뒤 시드 6행을 지워 되돌렸다.
 ## 2026-09-23 — 접근 변경 카드의 지금 값을 글자로, 버튼은 바꿀 행동 하나로
 
 - 상태: review
