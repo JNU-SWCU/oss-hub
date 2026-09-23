@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, MessageSquare, Pin, RotateCcw } from 'lucide-react';
 import {
   DataTable,
@@ -15,11 +15,11 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Field, FieldLabel } from '@/components/ui/field';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { ApiError } from '@/lib/api-client';
 import { programApplyHref, programOverviewHref } from '@/lib/program-route';
-import { cn } from '@/lib/utils';
 import { createBoardPost, listBoardPosts } from '../api';
 import { subscribeBoardListInvalidation } from '../board-list-refetch';
 import {
@@ -29,13 +29,18 @@ import {
   boardSubtitle,
   boardWriteButtonLabel,
   formatBoardDateTime,
+  hasBoardPostInputError,
   mapBoardError,
   validateBoardPostInput,
+  type BoardPostInputErrors,
 } from '../board-format';
 import { boardPostHref } from '../board-paths';
 import type { BoardListState, BoardPostSummary } from '../types';
 
 const PAGE_SIZE = 20;
+
+const NEW_POST_TITLE_ERROR_ID = 'board-new-post-title-error';
+const NEW_POST_BODY_ERROR_ID = 'board-new-post-body-error';
 
 /** 이 프로그램 참여자가 아니라는 게시판 응답 코드(`board-access.guard.ts`). */
 const BOARD_PARTICIPATION_REQUIRED_CODE = 'BRD_001';
@@ -114,7 +119,12 @@ export interface BoardListContentProps {
   readonly newPostTitle: string;
   readonly newPostBody: string;
   readonly newPostSubmitting: boolean;
-  readonly newPostError: string | null;
+  /** 지금 입력값으로 다시 판정한 칸 오류. 서버 실패와 섞지 않는다. */
+  readonly newPostErrors: BoardPostInputErrors;
+  /** 한 번 「올리기」를 누른 뒤부터 칸 오류를 보인다. */
+  readonly newPostShowFieldErrors: boolean;
+  /** 서버가 거절한 이유. 칸이 아니라 폼의 경고 상자에 남는다. */
+  readonly newPostSubmitError: string | null;
   readonly onToggleNewPost: () => void;
   readonly onTitleChange: (value: string) => void;
   readonly onBodyChange: (value: string) => void;
@@ -132,7 +142,9 @@ export function BoardListContent({
   newPostTitle,
   newPostBody,
   newPostSubmitting,
-  newPostError,
+  newPostErrors,
+  newPostShowFieldErrors,
+  newPostSubmitError,
   onToggleNewPost,
   onTitleChange,
   onBodyChange,
@@ -140,11 +152,22 @@ export function BoardListContent({
   onPageChange,
   onRetry,
 }: BoardListContentProps) {
+  const titleRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const showTitleError = newPostShowFieldErrors && newPostErrors.title !== null;
+  const showBodyError = newPostShowFieldErrors && newPostErrors.body !== null;
   const columns = columnsFor(programId);
   const items = state.kind === 'ready' ? state.page.items : [];
   const total = state.kind === 'ready' ? state.page.total : 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const participationRequired = state.kind === 'not-participant';
+
+  function handleSubmitNewPost(): void {
+    onSubmitNewPost();
+    // 오류 칸으로 커서를 옮긴다 — 눌린 값으로 판정하므로 이 시점의 `newPostErrors`가 결과다.
+    if (newPostErrors.title !== null) titleRef.current?.focus();
+    else if (newPostErrors.body !== null) bodyRef.current?.focus();
+  }
 
   /*
     참여자가 아님을 **서버가 이미 말한** 뒤에는 「질문 쓰기」를 그리지 않는다. 열어도
@@ -168,37 +191,53 @@ export function BoardListContent({
       {newPostOpen ? (
         <Card>
           <CardContent className="grid gap-4 pt-6">
-            <Field>
+            <Field data-invalid={showTitleError || undefined}>
               <FieldLabel htmlFor="board-new-post-title">제목</FieldLabel>
               <Input
                 id="board-new-post-title"
+                ref={titleRef}
                 value={newPostTitle}
                 maxLength={200}
                 disabled={newPostSubmitting}
+                aria-invalid={showTitleError}
+                aria-describedby={
+                  showTitleError ? NEW_POST_TITLE_ERROR_ID : undefined
+                }
                 onChange={(event) => onTitleChange(event.target.value)}
                 placeholder="제목"
               />
+              {showTitleError ? (
+                <FieldError id={NEW_POST_TITLE_ERROR_ID}>
+                  {newPostErrors.title}
+                </FieldError>
+              ) : null}
             </Field>
-            <Field>
+            <Field data-invalid={showBodyError || undefined}>
               <FieldLabel htmlFor="board-new-post-body">내용</FieldLabel>
-              <textarea
+              <Textarea
                 id="board-new-post-body"
+                ref={bodyRef}
                 value={newPostBody}
                 maxLength={10000}
                 rows={4}
                 disabled={newPostSubmitting}
+                aria-invalid={showBodyError}
+                aria-describedby={
+                  showBodyError ? NEW_POST_BODY_ERROR_ID : undefined
+                }
                 onChange={(event) => onBodyChange(event.target.value)}
                 placeholder="내용"
-                className={cn(
-                  'min-h-28 w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm',
-                  'outline-none focus-visible:border-ring focus-visible:ring-3',
-                  'focus-visible:ring-ring/50',
-                )}
+                className="min-h-28"
               />
+              {showBodyError ? (
+                <FieldError id={NEW_POST_BODY_ERROR_ID}>
+                  {newPostErrors.body}
+                </FieldError>
+              ) : null}
             </Field>
-            {newPostError ? (
+            {newPostSubmitError ? (
               <Alert variant="destructive">
-                <AlertDescription>{newPostError}</AlertDescription>
+                <AlertDescription>{newPostSubmitError}</AlertDescription>
               </Alert>
             ) : null}
             <div className="flex justify-end gap-2">
@@ -206,7 +245,7 @@ export function BoardListContent({
                 type="button"
                 size="sm"
                 disabled={newPostSubmitting}
-                onClick={onSubmitNewPost}
+                onClick={handleSubmitNewPost}
               >
                 {newPostSubmitting ? '올리는 중…' : '올리기'}
               </Button>
@@ -302,7 +341,19 @@ export function BoardListView({
   const [newPostTitle, setNewPostTitle] = useState('');
   const [newPostBody, setNewPostBody] = useState('');
   const [newPostSubmitting, setNewPostSubmitting] = useState(false);
-  const [newPostError, setNewPostError] = useState<string | null>(null);
+  const [newPostSubmitted, setNewPostSubmitted] = useState(false);
+  const [newPostSubmitError, setNewPostSubmitError] = useState<string | null>(
+    null,
+  );
+
+  /*
+    가입 프로필·설정 폼과 같은 방식이다 — 한 번 제출한 뒤부터는 지금 입력값으로 매번 다시
+    판정한다. 그래서 비운 칸을 채우면 그 칸의 빨간색이 사라지고, 공백만 친 칸은 그대로 남는다.
+  */
+  const newPostErrors = useMemo(
+    () => validateBoardPostInput({ title: newPostTitle, body: newPostBody }),
+    [newPostTitle, newPostBody],
+  );
 
   const retry = useCallback(() => setAttempt((current) => current + 1), []);
 
@@ -342,33 +393,28 @@ export function BoardListView({
     setNewPostOpen((open) => !open);
     setNewPostTitle('');
     setNewPostBody('');
-    setNewPostError(null);
+    setNewPostSubmitted(false);
+    setNewPostSubmitError(null);
   }, []);
 
   const submitNewPost = useCallback(() => {
-    const validationError = validateBoardPostInput({
-      title: newPostTitle,
-      body: newPostBody,
-    });
-    if (validationError) {
-      setNewPostError(validationError);
-      return;
-    }
+    setNewPostSubmitted(true);
+    if (hasBoardPostInputError(newPostErrors)) return;
     setNewPostSubmitting(true);
-    setNewPostError(null);
+    setNewPostSubmitError(null);
     createBoardPost(programId, { title: newPostTitle, body: newPostBody })
       .then((post) => {
         router.push(boardPostHref(programId, post.id));
       })
       .catch((error: unknown) => {
         setNewPostSubmitting(false);
-        setNewPostError(
+        setNewPostSubmitError(
           error instanceof ApiError
             ? mapBoardError(error.problem)
             : '잠시 후 다시 시도해 주세요.',
         );
       });
-  }, [programId, newPostTitle, newPostBody, router]);
+  }, [programId, newPostTitle, newPostBody, newPostErrors, router]);
 
   return (
     <BoardListContent
@@ -380,7 +426,9 @@ export function BoardListView({
       newPostTitle={newPostTitle}
       newPostBody={newPostBody}
       newPostSubmitting={newPostSubmitting}
-      newPostError={newPostError}
+      newPostErrors={newPostErrors}
+      newPostShowFieldErrors={newPostSubmitted}
+      newPostSubmitError={newPostSubmitError}
       onToggleNewPost={toggleNewPost}
       onTitleChange={setNewPostTitle}
       onBodyChange={setNewPostBody}
