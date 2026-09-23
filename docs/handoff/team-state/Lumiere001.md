@@ -1453,6 +1453,15 @@
 - 남은 것: Figma 파일은 병합 뒤 데스크톱에서 플러그인(`apps/frontend/figma-plugin`)을 다시 실행해야 갱신된다.
 - 공개 안전성: 비밀값, 실명, 내부 호스트, 로컬 경로 없음.
 
+## 2026-09-21 — QA174 이행기 코드를 걷는다
+
+- 상태: review
+- Issue: #1361
+- PR: (이 PR)
+- blocker: 없음
+- 내용: #1303 에서 프런트와 백엔드가 따로 배포되는 창을 덮으려고 둔 `absent-as-null.ts` 를 지웠다. 남겨 두면 다음 사람이 「실패를 삼켜도 되는 자리」로 읽는다. 두 조회의 반환 타입(`… | null`)은 새 계약이라 그대로 둔다.
+- 검증: **지우기 전에 배포를 확인했다.** 운영 백엔드가 `oss-hub-backend:v0.9.0` 으로 떠 있고, 컨테이너 안 컴파일된 컨트롤러가 `return application ? toResponse(application) : null;` · `return team ? ProgramTeamResponseDto.from(team) : null;` 로 새 동작이다. 추측으로 지우지 않았다. 프런트 단위 377 파일 3753 건 통과, lint·tsc·prettier 종료 코드 0.
+- 배포: 프런트 전용. 되돌리려면 이 커밋을 되돌리면 된다.
 ## 2026-09-23 — 신청 상태 드롭다운을 옆 버튼과 같은 44px 로
 
 - 상태: review

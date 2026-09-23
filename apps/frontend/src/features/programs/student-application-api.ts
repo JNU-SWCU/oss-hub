@@ -1,5 +1,4 @@
 import { apiClient } from '@/lib/api-client';
-import { absentAsNull } from '@/lib/absent-as-null';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 
@@ -36,9 +35,6 @@ export interface StudentApplication {
   readonly canCancel: boolean;
 }
 
-/** 옛 백엔드가 「신청 없음」에 쓰던 코드. `absentAsNull` 주석 참고 — 이행기 전용이다. */
-const LEGACY_NO_APPLICATION_CODE = 'APP_001';
-
 export interface UpdateStudentApplicationInput {
   readonly answers: { readonly title: string };
   readonly applicationTemplateVersion: number;
@@ -53,7 +49,7 @@ export function getMyApplication(
 ): Promise<StudentApplication | null> {
   return apiClient<StudentApplication | null>(
     `programs/${encodeURIComponent(programId)}/applications/me`,
-  ).catch(absentAsNull(LEGACY_NO_APPLICATION_CODE));
+  );
 }
 
 export function updateMyApplication(
