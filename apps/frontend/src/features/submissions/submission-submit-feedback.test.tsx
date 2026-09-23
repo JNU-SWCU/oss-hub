@@ -4,6 +4,7 @@ import { submissionUploadLimit } from '../../../test-support/submission-upload-l
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from '@/lib/api-client';
 import { SubmissionChecklistView } from './components/submission-checklist-view';
 import { SubmissionDialog } from './components/submission-dialog';
 import { SubmissionPage } from './submission-page';
@@ -22,6 +23,7 @@ const api = vi.hoisted(() => ({
   uploads: 0,
   creates: 0,
   fileId: 'submission-file-1' as string,
+  uploadFailure: null as Error | null,
 }));
 
 vi.mock('./api', () => ({
@@ -29,6 +31,7 @@ vi.mock('./api', () => ({
     Promise.resolve(FILE_FORM),
   uploadSubmissionFile: (): Promise<UploadedSubmissionFile> => {
     api.uploads += 1;
+    if (api.uploadFailure) return Promise.reject(api.uploadFailure);
     return Promise.resolve({
       fileId: api.fileId,
       fileName: 'plan.pdf',
@@ -141,6 +144,7 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
     api.uploads = 0;
     api.creates = 0;
     api.fileId = 'submission-file-1';
+    api.uploadFailure = null;
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -237,6 +241,43 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
     expect(
       alerts.some((text) => text?.includes('제출 내용을 만들지 못했습니다')),
     ).toBe(true);
+  });
+
+  /*
+   * #1108 — 허용 형식인 `.zip`이 압축 안의 내용 때문에 막혔다. 형식 안내를 띄우면 학생은
+   * 고칠 곳을 찾지 못하고 같은 파일을 다시 낸다. 서버의 갈래별 문장을 파일 입력 옆에 세운다.
+   */
+  it('압축 파일 내용 거절은 서버 문장을 파일 입력 옆에 세운다', async () => {
+    // Given: 서버가 압축 안에 든 또 다른 압축 파일을 이유로 거절한다.
+    const detail =
+      '압축 파일 안에 또 다른 압축 파일이 있습니다. 안쪽 압축을 풀고 다시 압축해 주세요.';
+    api.uploadFailure = new ApiError({
+      type: 'about:blank',
+      title: 'SUB_027',
+      status: 422,
+      detail,
+      instance: '/synthetic/submission-files',
+      code: 'SUB_027',
+    });
+    await act(async () =>
+      pickFile(new File(['PK'], 'bundle.zip', { type: 'application/zip' })),
+    );
+
+    // When
+    await act(async () => clickSubmit());
+
+    // Then: 제출 생성까지 가지 않고, 문장이 파일 입력의 오류 자리에 선다.
+    expect(api.uploads).toBe(1);
+    expect(api.creates).toBe(0);
+    expect(document.querySelector('#submission-file-error')?.textContent).toBe(
+      detail,
+    );
+    expect(
+      document.querySelector('#submission-file')?.getAttribute('aria-invalid'),
+    ).toBe('true');
+    expect(document.body.textContent).not.toContain(
+      'PDF, HWP, ZIP 파일만 제출할 수 있습니다.',
+    );
   });
 
   it('올바른 파일이면 업로드와 제출 생성이 이어서 나간다', async () => {
