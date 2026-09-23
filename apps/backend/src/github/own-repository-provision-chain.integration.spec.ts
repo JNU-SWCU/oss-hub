@@ -692,7 +692,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     await relink.updateMine(
       APPLICANT_GITHUB_ID,
       programIdFor(CHAIN_APPLICATION_ID),
-      { repositoryUrl: OWN_REPOSITORY_URL, reason: 'Synthetic relink' },
+      { repositoryUrl: OWN_REPOSITORY_URL },
     );
     const current = await prisma.githubRepository.findUniqueOrThrow({
       where: { applicationId: CHAIN_APPLICATION_ID },

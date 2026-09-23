@@ -19,8 +19,6 @@ import { parseStaffRepositoryEvidence } from '../src/features/programs/staff-rep
 test.use({ timezoneId: 'Asia/Seoul' });
 
 const replacementUrl = 'https://github.com/external-owner/relinked-public';
-const reason =
-  '프로젝트 활동을 수집할 공개 저장소로 변경합니다.\n기존 프로젝트 활동 기록은 유지합니다.';
 
 test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 교직원 변경 이력에 반영된다', async ({
   authSeedPage,
@@ -88,15 +86,15 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 �
   await editor.getByRole('button', { name: '저장소 URL 수정' }).click();
   await expect(
     editor.getByText('저장소 변경 안내', { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
-    editor.getByText(/변경 사유는 교직원이 확인할 수 있습니다/),
-  ).toBeVisible();
+    editor.getByText(/주소는 교직원이 확인할 수 있습니다/),
+  ).toHaveCount(0);
   await editor.getByRole('button', { name: '취소', exact: true }).click();
   await expect(editor.getByLabel('새 저장소 URL')).toHaveCount(0);
   await editor.getByRole('button', { name: '저장소 URL 수정' }).click();
   await editor.getByLabel('새 저장소 URL').fill(replacementUrl);
-  await editor.getByLabel('변경 사유').fill(reason);
+  await expect(editor.getByLabel('변경 사유')).toHaveCount(0);
   await capture(student, testInfo, '01-student-warning');
   await captureRegion(editor, testInfo, 'team-repository-editing-mobile');
   expect(
@@ -118,6 +116,9 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 �
       .click(),
   ]);
   expect(savedResponse.status()).toBe(200);
+  expect(savedResponse.request().postDataJSON()).toEqual({
+    repositoryUrl: replacementUrl,
+  });
   const changeFinishedAt = Date.now();
   expect(parseRepositoryUrlState(await savedResponse.json())).toEqual({
     repositoryUrl: replacementUrl,
@@ -183,8 +184,8 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 �
     previousRepositoryUrl: before.repositoryUrl,
     newRepositoryUrl: replacementUrl,
     actorGithubLogin: 'e2e-program-authoring-student',
-    reason,
   });
+  expect(change).not.toHaveProperty('reason');
   expect(Date.parse(change.occurredAt)).toBeGreaterThanOrEqual(changeStartedAt);
   expect(Date.parse(change.occurredAt)).toBeLessThanOrEqual(changeFinishedAt);
   await staff.goto(
@@ -194,15 +195,7 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 �
     name: '저장소 URL 변경 이력',
     exact: true,
   });
-  await expect(history.getByText(reason, { exact: true })).toBeVisible();
-  await expect(history.getByText(reason, { exact: true })).toHaveJSProperty(
-    'textContent',
-    reason,
-  );
-  await expect(history.getByText(reason, { exact: true })).toHaveCSS(
-    'white-space',
-    'pre-wrap',
-  );
+  await expect(history.getByText('변경 사유', { exact: true })).toHaveCount(0);
   await expect(
     history.getByText(`@${change.actorGithubLogin}`, { exact: true }),
   ).toBeVisible();
@@ -237,7 +230,9 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 �
   await captureRegion(activity, testInfo, '04-staff-activity-desktop');
   await captureRegion(history, testInfo, '05-staff-history-desktop');
   await staff.setViewportSize({ width: 390, height: 844 });
-  await expect(history.getByText(reason, { exact: true })).toBeVisible();
+  await expect(
+    history.getByText(change.newRepositoryUrl, { exact: true }),
+  ).toBeVisible();
   await capture(staff, testInfo, '06-staff-mobile-viewport');
   await captureRegion(activity, testInfo, '07-staff-activity-mobile');
   await captureRegion(history, testInfo, '08-staff-history-mobile');
