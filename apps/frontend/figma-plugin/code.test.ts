@@ -396,6 +396,18 @@ describe('figma plugin code.js', () => {
     );
     expect(block?.description).toContain('animate-pulse');
 
+    const dialogComponent = (name: string) =>
+      dialogPage?.children.find((n: AnyNode) => n.name === name);
+    const dialogChild = (component: string, child: string) =>
+      dialogComponent(component)?.children.find(
+        (n: AnyNode) => n.name === child,
+      );
+
+    // 한 줄 입력은 control-height 44 에 좌우 여백이 코드의 `px-4`(16)다.
+    const inputBox = dialogChild('Form/Field', 'input');
+    expect(inputBox?.height).toBe(44);
+    expect([inputBox?.paddingTop, inputBox?.paddingLeft]).toEqual([0, 16]);
+
     // 색을 변수로 묶었는지 — 어긋난 칸이 다시 생기지 않게 값이 아니라 변수로 본다.
     const variableId = (name: string) =>
       fake.variables.find((v) => v.name === name)?.id;

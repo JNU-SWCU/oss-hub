@@ -896,7 +896,8 @@ async function formField(label, placeholder, help) {
   field.primaryAxisSizingMode = 'AUTO';
   field.appendChild(await makeText(label, { size: 13, weight: 'semibold' }));
   const input = frame('input', {
-    padding: [0, 12, 0, 12],
+    // 좌우 여백 16 = 코드의 `px-4`(input.tsx). 12 는 코드 어디에도 없던 값이다.
+    padding: [0, 16, 0, 16],
     crossSizing: 'FIXED',
     mainSizing: 'FIXED',
     radius: 8,
