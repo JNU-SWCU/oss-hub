@@ -26,7 +26,6 @@ export type StudentRepositoryUrlView = {
 };
 export type UpdateStudentRepositoryUrlInput = {
   readonly repositoryUrl: string;
-  readonly reason: string;
 };
 
 export function canEditStudentRepositoryUrl(
@@ -112,12 +111,11 @@ export class StudentRepositoryUrlService {
             targetType: 'APPLICATION',
             targetId: current.id,
             metadata: {
-              schemaVersion: 1,
+              schemaVersion: 2,
               programId,
               teamId: current.teamId,
               programName: current.program.name,
               actorGithubLogin: actor.nickname,
-              reason: input.reason,
               before: {
                 repositoryId: current.repository?.id ?? null,
                 repositoryUrl: this.url(current),

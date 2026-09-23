@@ -170,12 +170,6 @@ function StaffRepositoryEvidenceHistory({
                     <dt className="text-muted-foreground">변경 후</dt>
                     <dd className="break-all">{item.newRepositoryUrl}</dd>
                   </div>
-                  <div>
-                    <dt className="text-muted-foreground">변경 사유</dt>
-                    <dd className="whitespace-pre-wrap break-keep [overflow-wrap:anywhere]">
-                      {item.reason}
-                    </dd>
-                  </div>
                 </dl>
               </li>
             ))}

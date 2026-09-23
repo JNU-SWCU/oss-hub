@@ -24,7 +24,6 @@ const context: StudentRepositoryUrlContext = {
 };
 const input = {
   repositoryUrl: 'https://github.com/synthetic/target',
-  reason: 'Moved',
 };
 
 function fixture(studentId = 'leader') {
@@ -132,7 +131,7 @@ it('records old and new identities with the actor snapshot in the transaction', 
     action: 'APPLICATION_REPOSITORY_URL_CHANGED',
     metadata: {
       actorGithubLogin: 'synthetic-actor',
-      reason: 'Moved',
+      schemaVersion: 2,
       before: { repositoryId: 'old' },
       after: { repositoryId: 'target' },
     },

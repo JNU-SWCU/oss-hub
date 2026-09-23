@@ -44,7 +44,6 @@ describe('staff repository evidence boundary', () => {
           actorGithubLogin: 'synthetic-author',
           previousRepositoryUrl: null,
           newRepositoryUrl: 'https://github.com/synthetic/current',
-          reason: 'Project moved',
         },
       ],
       nextCursor: 'opaque-cursor',

@@ -96,10 +96,7 @@ describe('RepositoryUrlEditor', () => {
     expect(updateRepositoryUrl).not.toHaveBeenCalled();
     expect(container.querySelector('form')).toBeNull();
   });
-  it.each([
-    ['#repository-url', 'https://github.com/synthetic/replacement'],
-    ['#repository-url-reason', '수정 중인 사유'],
-  ])(
+  it.each([['#repository-url', 'https://github.com/synthetic/replacement']])(
     'preserves dirty %s until discard is confirmed',
     async (selector, value) => {
       await render();
@@ -121,10 +118,7 @@ describe('RepositoryUrlEditor', () => {
       expect(
         container.querySelector<HTMLInputElement>('#repository-url')?.value,
       ).toBe(initial.repositoryUrl);
-      expect(
-        container.querySelector<HTMLTextAreaElement>('#repository-url-reason')
-          ?.value,
-      ).toBe('');
+      expect(container.querySelector('textarea')).toBeNull();
     },
   );
   it('puts keep-editing before the destructive discard in the confirmation footer', async () => {
@@ -149,29 +143,30 @@ describe('RepositoryUrlEditor', () => {
       'destructive',
     ]);
   });
-  it('keeps Korean warning words together in the narrow editor', async () => {
+  it('opens the URL input without a redundant change notice', async () => {
     // Given
     await render();
     // When
     await click('저장소 URL 수정');
     // Then
-    expect(
-      container.querySelector('form [data-slot="alert-description"]')
-        ?.className,
-    ).toContain('break-keep');
+    expect(container.querySelector('#repository-url')).not.toBeNull();
+    expect(container.querySelector('form [role="alert"]')).toBeNull();
+    expect(container.textContent).not.toContain('저장소 변경 안내');
   });
-  it('rejects whitespace-only reasons before mutation', async () => {
+  it('saves with only a repository URL and no reason field', async () => {
     // Given
     await render();
     await click('저장소 URL 수정');
-    await fill('#repository-url-reason', '   ');
+    vi.mocked(updateRepositoryUrl).mockResolvedValue(initial);
     // When
     await submit();
     // Then
-    expect(updateRepositoryUrl).not.toHaveBeenCalled();
-    expect(container.querySelector('[aria-invalid="true"]')).not.toBeNull();
+    expect(updateRepositoryUrl).toHaveBeenCalledWith('program-1', {
+      repositoryUrl: initial.repositoryUrl,
+    });
+    expect(container.querySelector('textarea')).toBeNull();
   });
-  it('retains both inputs when saving fails', async () => {
+  it('retains the URL when saving fails', async () => {
     // Given
     vi.mocked(updateRepositoryUrl).mockRejectedValue(
       new ApiError({
@@ -186,20 +181,12 @@ describe('RepositoryUrlEditor', () => {
     await render();
     await click('저장소 URL 수정');
     await fill('#repository-url', 'https://github.com/synthetic/replacement');
-    await fill(
-      '#repository-url-reason',
-      'Moved project\nPreserve project history',
-    );
     // When
     await submit();
     // Then
     expect(
       container.querySelector<HTMLInputElement>('#repository-url')?.value,
     ).toBe('https://github.com/synthetic/replacement');
-    expect(
-      container.querySelector<HTMLTextAreaElement>('#repository-url-reason')
-        ?.value,
-    ).toBe('Moved project\nPreserve project history');
     expect(container.textContent).toContain('서버가 거절한 합성 오류입니다.');
     expect(container.textContent).toContain('재시도하세요');
     expect(
@@ -227,16 +214,11 @@ describe('RepositoryUrlEditor', () => {
     await render();
     await click('저장소 URL 수정');
     await fill('#repository-url', replacement.repositoryUrl);
-    await fill(
-      '#repository-url-reason',
-      'Moved project\nPreserve project history',
-    );
     // When
     await submit();
     // Then
     expect(updateRepositoryUrl).toHaveBeenCalledWith('program-1', {
       repositoryUrl: replacement.repositoryUrl,
-      reason: 'Moved project\nPreserve project history',
     });
     expect(getRepositoryUrl).toHaveBeenCalledTimes(1);
     expect(container.querySelector('a')?.getAttribute('href')).toBe(
@@ -263,7 +245,6 @@ describe('RepositoryUrlEditor', () => {
     await render('program-1');
     await click('저장소 URL 수정');
     await fill('#repository-url', 'https://github.com/synthetic/draft');
-    await fill('#repository-url-reason', '작성 중이던 사유');
     await render('program-2');
     expect(container.textContent).toContain('저장소를 불러오는 중');
     expect(container.querySelector('form')).toBeNull();
@@ -272,7 +253,6 @@ describe('RepositoryUrlEditor', () => {
     expect(container.textContent).not.toContain(
       'https://github.com/synthetic/draft',
     );
-    expect(container.textContent).not.toContain('작성 중이던 사유');
     await act(async () => {
       next.resolve({
         repositoryUrl: 'https://github.com/synthetic/other',
@@ -309,7 +289,6 @@ describe('RepositoryUrlEditor', () => {
     });
     await click('저장소 URL 수정');
     await fill('#repository-url', saved.repositoryUrl);
-    await fill('#repository-url-reason', '프로그램 전환 후 저장');
     await submit();
     expect(container.querySelector('a')?.getAttribute('href')).toBe(
       saved.repositoryUrl,
@@ -347,7 +326,6 @@ describe('RepositoryUrlEditor', () => {
     await render();
     await click('저장소 URL 수정');
     await fill('#repository-url', replacement.repositoryUrl);
-    await fill('#repository-url-reason', '사유');
     await submit();
     expect(container.textContent).toContain('서버가 거절한 합성 오류입니다.');
     expect(container.textContent).toContain('재시도하세요');
@@ -367,22 +345,16 @@ describe('RepositoryUrlEditor', () => {
   });
   it('retains an unconfirmed save and does not PATCH again until the current state is read back', async () => {
     const replacement = 'https://github.com/synthetic/replacement';
-    const reason = 'Moved project\nPreserve project history';
     vi.mocked(updateRepositoryUrl).mockRejectedValue(
       new RepositoryUrlResponseError(),
     );
     await render();
     await click('저장소 URL 수정');
     await fill('#repository-url', replacement);
-    await fill('#repository-url-reason', reason);
     await submit();
     expect(
       container.querySelector<HTMLInputElement>('#repository-url')?.value,
     ).toBe(replacement);
-    expect(
-      container.querySelector<HTMLTextAreaElement>('#repository-url-reason')
-        ?.value,
-    ).toBe(reason);
     expect(container.textContent).toContain('저장 결과를 확인할 수 없습니다');
     expect(container.textContent).toContain(
       '다시 불러와 현재 상태를 확인한 뒤에만 저장하세요',

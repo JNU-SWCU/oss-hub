@@ -29,7 +29,6 @@ export interface RepositoryHistoryItem {
   readonly actorGithubLogin: string;
   readonly previousRepositoryUrl: string | null;
   readonly newRepositoryUrl: string;
-  readonly reason: string;
 }
 export interface RepositoryHistoryPage {
   readonly items: readonly RepositoryHistoryItem[];
@@ -78,8 +77,7 @@ function historyItem(value: unknown): value is RepositoryHistoryItem {
     typeof value.actorGithubLogin === 'string' &&
     (value.previousRepositoryUrl === null ||
       isHttpsGithubOwnerRepoUrl(value.previousRepositoryUrl)) &&
-    isHttpsGithubOwnerRepoUrl(value.newRepositoryUrl) &&
-    typeof value.reason === 'string'
+    isHttpsGithubOwnerRepoUrl(value.newRepositoryUrl)
   );
 }
 export function parseRepositoryHistory(value: unknown): RepositoryHistoryPage {

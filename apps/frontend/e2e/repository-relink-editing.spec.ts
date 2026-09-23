@@ -70,9 +70,8 @@ test('수정 중 취소는 입력을 보존하고 명시적으로 버린 경우�
   await expect(dialog).toBeHidden();
   await edit.click();
   const draftUrl = 'https://github.com/external-owner/relinked-public';
-  const draftReason = '아직 저장하지 않은 변경 사유';
   await editor.getByLabel('새 저장소 URL').fill(draftUrl);
-  await editor.getByLabel('변경 사유').fill(draftReason);
+  await expect(editor.getByLabel('변경 사유')).toHaveCount(0);
 
   // When: cancel is dismissed with the safe action or Escape, then explicitly confirmed.
   await cancel.click();
@@ -83,13 +82,11 @@ test('수정 중 취소는 입력을 보존하고 명시적으로 버린 경우�
   await capture(student, testInfo, 'cancel-confirmation-desktop');
   await dialog.getByRole('button', { name: '이어서 수정하기' }).click();
   await expect(editor.getByLabel('새 저장소 URL')).toHaveValue(draftUrl);
-  await expect(editor.getByLabel('변경 사유')).toHaveValue(draftReason);
   await cancel.click();
   await student.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect(cancel).toBeFocused();
   await expect(editor.getByLabel('새 저장소 URL')).toHaveValue(draftUrl);
-  await expect(editor.getByLabel('변경 사유')).toHaveValue(draftReason);
   await student.setViewportSize({ width: 390, height: 844 });
   await cancel.click();
   await capture(student, testInfo, 'cancel-confirmation-mobile');
@@ -101,11 +98,10 @@ test('수정 중 취소는 입력을 보존하고 명시적으로 버린 경우�
   await expect(editor.getByLabel('새 저장소 URL')).toHaveValue(
     initial.repositoryUrl ?? '',
   );
-  await expect(editor.getByLabel('변경 사유')).toBeEmpty();
   expect(writes).toEqual([]);
 });
 
-test('비공개 저장소 변경 실패는 URL과 사유를 보존하고 기존 연결을 유지한다', async ({
+test('비공개 저장소 변경 실패는 URL을 보존하고 기존 연결을 유지한다', async ({
   authSeedPage,
   programAuthoringActorPage,
 }) => {
@@ -124,9 +120,7 @@ test('비공개 저장소 변경 실패는 URL과 사유를 보존하고 기존 
   await student.goto(`/programs/${encodeURIComponent(programId)}/apply`);
   await student.getByRole('button', { name: '저장소 URL 수정' }).click();
   const privateUrl = 'https://github.com/external-owner/private-repository';
-  const reason = '공개가 아닌 저장소 연결 검증';
   await student.getByLabel('새 저장소 URL').fill(privateUrl);
-  await student.getByLabel('변경 사유').fill(reason);
 
   // When: the real API rejects the private repository.
   const [response] = await Promise.all([
@@ -143,7 +137,6 @@ test('비공개 저장소 변경 실패는 URL과 사유를 보존하고 기존 
   // Then: inputs remain recoverable and explicit discard returns to the unchanged repository.
   expect(response.status()).toBe(400);
   await expect(student.getByLabel('새 저장소 URL')).toHaveValue(privateUrl);
-  await expect(student.getByLabel('변경 사유')).toHaveValue(reason);
   await student.getByRole('button', { name: '취소', exact: true }).click();
   await student
     .getByRole('alertdialog')
@@ -176,8 +169,6 @@ test('확인되지 않은 저장 결과는 입력을 유지하고 다시 불러�
     );
   }
   const replacementUrl = 'https://github.com/external-owner/relinked-public';
-  const reason =
-    '프로젝트 활동을 수집할 공개 저장소로 변경합니다.\n기존 프로젝트 활동 기록은 유지합니다.';
   const unsafeUrl = 'javascript:alert(1)';
   const repositoryRequests: string[] = [];
   student.on('request', (request) => {
@@ -193,13 +184,15 @@ test('확인되지 않은 저장 결과는 입력을 유지하고 다시 불러�
   await editor.getByRole('button', { name: '저장소 URL 수정' }).click();
   await expect(
     editor.getByText('저장소 변경 안내', { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await editor.getByLabel('새 저장소 URL').fill(replacementUrl);
-  await editor.getByLabel('변경 사유').fill(reason);
   await student.route(
     (url) => url.pathname === repositoryPath,
     async (route) => {
       expect(route.request().method()).toBe('PATCH');
+      expect(route.request().postDataJSON()).toEqual({
+        repositoryUrl: replacementUrl,
+      });
       const committed = await route.fetch();
       expect(committed.status()).toBe(200);
       await route.fulfill({
@@ -238,7 +231,6 @@ test('확인되지 않은 저장 결과는 입력을 유지하고 다시 불러�
     parseRepositoryUrlState(await persistedResponse.json()).repositoryUrl,
   ).toBe(replacementUrl);
   await expect(editor.locator('#repository-url')).toHaveValue(replacementUrl);
-  await expect(editor.locator('#repository-url-reason')).toHaveValue(reason);
   const outcome = editor.getByRole('alert').filter({
     hasText: '저장 결과를 확인할 수 없습니다.',
   });
@@ -287,7 +279,6 @@ test('확인되지 않은 저장 결과는 입력을 유지하고 다시 불러�
   await expect(outcome).toBeHidden();
   await expect(save).toBeEnabled();
   await expect(editor.locator('#repository-url')).toHaveValue(replacementUrl);
-  await expect(editor.locator('#repository-url-reason')).toHaveValue(reason);
   await expect(
     editor.getByRole('link', { name: replacementUrl, exact: true }),
   ).toHaveAttribute('href', replacementUrl);
