@@ -728,7 +728,6 @@ export interface ProgramPurgeDeletedCounts {
   readonly programCreateRequests: number;
   readonly repositoryProvisionJobs: number;
   readonly githubRepositoriesDetached: number;
-  readonly publicShowcaseRepositories: number;
   readonly outboxEvents: number;
   readonly notifications: number;
   readonly programPurgeFileTombstones: number;
