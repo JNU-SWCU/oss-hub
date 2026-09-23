@@ -201,6 +201,10 @@ check_ux_narrative_sections() {
 }
 
 # ---- R5: UX 안티패턴 점검 -------------------------------------------------------
+# AP-1..AP-23 행이 절 안에 있는지 본다. 넷(AP-1·AP-4·AP-7·AP-8)은 세면 끝나고
+# 나머지 열아홉은 사람이 판정한다. 행은 <details> 안이어도 된다 — <details>는
+# HTML 주석이 아니라서 strip_html_comments가 지우지 않고, section_body는 다음
+# H2까지를 그대로 넘긴다. <summary>와 표 사이 빈 줄도 요구하지 않는다.
 check_ux_antipatterns() {
   local file=$1 body n missing=() no_evidence
   body=$(section_body "$file" "UX 안티패턴 점검")
@@ -209,14 +213,15 @@ check_ux_antipatterns() {
     return
   fi
 
-  for n in $(seq 1 20); do
+  for n in $(seq 1 23); do
     if ! grep -qE "^\| *AP-${n} " <<<"$body"; then
       missing+=("AP-$n")
     fi
   done
   if ((${#missing[@]} > 0)); then
     local joined
-    joined=$(IFS=', '; echo "${missing[*]}")
+    joined=$(printf '%s, ' "${missing[@]}")
+    joined=${joined%, }
     violations+=("R5 'UX 안티패턴 점검' 절에 없는 행: $joined")
   fi
 

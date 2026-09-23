@@ -17,6 +17,7 @@ import { isJsonObject } from './audit-metadata-validation';
 import {
   parseApplicationRepositoryUrlAuditMetadata,
   type ApplicationRepositoryUrlAuditMetadata,
+  type ApplicationRepositoryUrlAuditMetadataView,
 } from './application-repository-url-audit-metadata';
 import {
   parseCollectionTriggerAuditMetadata,
@@ -99,7 +100,7 @@ export type AuditLogMetadata =
   | UserPhoneAuditMetadata;
 
 export type AuditLogMetadataView =
-  | ApplicationRepositoryUrlAuditMetadata
+  | ApplicationRepositoryUrlAuditMetadataView
   | AccessAuditMetadataView
   | IndependentAuthorityAuditMetadataView
   | RepositoryConnectionAuditMetadataView

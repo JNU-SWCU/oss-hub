@@ -4,7 +4,7 @@ import { Check, LoaderCircle, Pencil } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 import { RepositoryUrlCancelButton } from './repository-url-cancel-button';
@@ -31,22 +31,17 @@ export function RepositoryUrlEditor({
   const [boundProgramId, setBoundProgramId] = useState(programId);
   const [editing, setEditing] = useState(false);
   const [url, setUrl] = useState('');
-  const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
-  const [validation, setValidation] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
-  const reasonRef = useRef<HTMLTextAreaElement>(null);
   const requestIdRef = useRef(0);
   if (boundProgramId !== programId) {
     setBoundProgramId(programId);
     setState({ kind: 'loading' });
     setEditing(false);
     setUrl('');
-    setReason('');
     setBusy(false);
-    setValidation(false);
     setError(null);
     setSaved(false);
     setNeedsVerification(false);
@@ -81,11 +76,6 @@ export function RepositoryUrlEditor({
 
   async function save() {
     if (needsVerification) return;
-    if (!reason.trim() || reason.trim().length > 500) {
-      setValidation(true);
-      reasonRef.current?.focus();
-      return;
-    }
     const requestId = ++requestIdRef.current;
     setBusy(true);
     setError(null);
@@ -93,12 +83,10 @@ export function RepositoryUrlEditor({
     try {
       const repository = await updateRepositoryUrl(programId, {
         repositoryUrl: url,
-        reason,
       });
       if (requestIdRef.current !== requestId) return;
       setState({ kind: 'ready', repository });
       setEditing(false);
-      setReason('');
       setSaved(true);
     } catch (failure: unknown) {
       if (requestIdRef.current !== requestId) return;
@@ -131,8 +119,6 @@ export function RepositoryUrlEditor({
             disabled={!state.repository.canEditRepositoryUrl}
             onClick={() => {
               setUrl(state.repository.repositoryUrl ?? '');
-              setReason('');
-              setValidation(false);
               if (!needsVerification) setError(null);
               setSaved(false);
               setEditing(true);
@@ -183,14 +169,6 @@ export function RepositoryUrlEditor({
                 void save();
               }}
             >
-              <Alert>
-                <AlertTitle>저장소 변경 안내</AlertTitle>
-                <AlertDescription className="break-keep [overflow-wrap:anywhere]">
-                  연결된 저장소와 활동 수집 대상이 바뀝니다. 변경{' '}
-                  <span className="whitespace-nowrap">전·후</span> 주소와 변경
-                  사유는 교직원이 확인할 수 있습니다.
-                </AlertDescription>
-              </Alert>
               <Field>
                 <FieldLabel htmlFor="repository-url">새 저장소 URL</FieldLabel>
                 <Input
@@ -202,42 +180,9 @@ export function RepositoryUrlEditor({
                   onChange={(event) => setUrl(event.target.value)}
                 />
               </Field>
-              <Field>
-                <FieldLabel htmlFor="repository-url-reason">
-                  변경 사유 (필수)
-                </FieldLabel>
-                <textarea
-                  ref={reasonRef}
-                  id="repository-url-reason"
-                  className="min-h-24 rounded-control border border-input p-3 text-sm"
-                  value={reason}
-                  disabled={busy}
-                  maxLength={500}
-                  aria-invalid={validation}
-                  aria-describedby={
-                    validation ? 'repository-url-reason-error' : undefined
-                  }
-                  onChange={(event) => {
-                    setReason(event.target.value);
-                    setValidation(false);
-                  }}
-                />
-                {/*
-                  같은 실패를 폼 위의 날 <p role="alert"> 와 여기서 서로 다른
-                  문구로 두 번 말하고 있었다. 위의 것을 지우고 한 문장으로 합친다.
-                */}
-                {validation ? (
-                  <FieldError id="repository-url-reason-error">
-                    공백을 제외하고 1~500자로 변경 사유를 입력해 주세요.
-                  </FieldError>
-                ) : null}
-              </Field>
               <div className="flex justify-end gap-2">
                 <RepositoryUrlCancelButton
-                  dirty={
-                    url !== (state.repository.repositoryUrl ?? '') ||
-                    reason !== ''
-                  }
+                  dirty={url !== (state.repository.repositoryUrl ?? '')}
                   disabled={busy}
                   onDiscard={() => {
                     setEditing(false);

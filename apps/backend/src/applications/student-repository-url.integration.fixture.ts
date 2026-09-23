@@ -55,7 +55,6 @@ const service = new StudentRepositoryUrlService(
 );
 const input = {
   repositoryUrl: 'https://github.com/synthetic/target',
-  reason: 'Project moved',
 };
 
 beforeAll(async () => {

@@ -61,10 +61,15 @@ After 전체 화면: [desktop 1440x900](<url>) · [390x844](<url>)
 
 ## UX 안티패턴 점검
 
-<!-- skills/submit-pr-evidence/references/ux-antipatterns.md의 스무 줄 판정 표 형식 그대로 채운다.
-     해당 없으면 이 절 본문을 `UX 안티패턴 해당 없음 — <이유>`로 바꾼다. -->
+<!-- skills/submit-pr-evidence/references/ux-antipatterns.md의 스물세 줄 판정 표 형식 그대로 채운다. AP-21~23을 포함한다.
+     표는 <details> 안에 둔다. summary와 표 사이 빈 줄은 없어도 된다.
+     해당 없으면 이 절 본문을 `UX 안티패턴 해당 없음 — <이유>`로 바꾼다. 그 줄은 <details> 밖에 둔다. -->
 
-<스무 줄 판정 표>
+<details><summary>스물세 줄 판정 표</summary>
+
+<판정 표>
+
+</details>
 
 이 화면에서 특히 지켜야 하는 항목: <번호와 이유 한 문장>
 

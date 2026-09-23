@@ -146,7 +146,6 @@ it('returns only application-scoped URL history with the actor snapshot', async 
           actorGithubLogin: 'actor-at-change',
           previousRepositoryUrl: 'https://github.com/synthetic/old',
           newRepositoryUrl: 'https://github.com/synthetic/current',
-          reason: 'Correct repository',
         },
       ],
       nextCursor: null,

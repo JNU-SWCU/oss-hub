@@ -46,7 +46,7 @@ export function RepositoryUrlCancelButton({
             </CardHeader>
             <CardContent className="grid gap-5">
               <AlertDialog.Description className="text-body text-muted-foreground [word-break:keep-all]">
-                수정한 저장소 URL과 변경 사유가 저장되지 않습니다.
+                수정한 저장소 URL이 저장되지 않습니다.
               </AlertDialog.Description>
               <div className="flex flex-wrap justify-end gap-2">
                 <AlertDialog.Cancel asChild>
