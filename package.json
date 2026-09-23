@@ -10,8 +10,6 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "team-state:check": "node scripts/team-state-check.mjs",
-    "team-state:check:test": "node --test scripts/team-state-check.test.mjs",
     "commitlint": "commitlint --config commitlint.config.cjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

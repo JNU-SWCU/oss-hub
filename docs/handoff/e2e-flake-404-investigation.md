@@ -2,8 +2,7 @@
 
 > **이 문서는 미완결 조사의 인계장이다.** 원인은 아직 특정되지 않았다.
 > 2026-08-07 시점에 확인된 사실과, 다음 세션이 어디서부터 이어 붙이면 되는지를 적는다.
-> 팀 상태 기록은 [TEAM-STATE.md](TEAM-STATE.md) 인덱스가 가리키는 작성자 저널이 원본이다.
-> 이 문서가 가리키던 옛 표 행은 [TEAM-STATE.archive.md](TEAM-STATE.archive.md)에 동결돼 있다.
+> 구현 상태의 원본은 GitHub Issue/PR이다. 저널은 동결된 이력이다.
 
 ## 메타
 
@@ -158,8 +157,3 @@ pnpm --filter frontend e2e
 - 이제 dev 서버 로그가 `[WebServer]` 접두로 함께 출력된다. 404를 여기서 바로
   읽을 수 있다.
 - 재발 시 확인할 곳: 실패 단언 메시지의 `이 세션에서 실패한 응답:` 블록.
-
-## 🔗 관련 문서
-
-- [TEAM-STATE.archive.md](TEAM-STATE.archive.md) — 이 조사가 적혀 있던 옛 표 행
-- [team-state-drift-check.md](team-state-drift-check.md) — pre-push 훅 우회 절차

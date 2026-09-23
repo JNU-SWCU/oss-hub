@@ -21,7 +21,6 @@
 - `prune-deploy-backups.sh` can delete production backups and runs only on its approved Jenkins-success path; preserve the deletion guard and test it through its synthetic companion.
 - `jenkins/validate-production-env.mjs`, `jenkins/validate-github-app-credentials.mjs`, and `check-jenkinsfile.sh` are deployment-boundary checks; never weaken fail-closed validation or expose credential material.
 - `check-public-safe.sh` enforces public-safe scanning; its deny-list authority is `../docs/rules/security.md`.
-- `team-state-check.mjs` reads GitHub state; keep its read-only behavior and separate it from append-only journal writes.
 
 ## Important paths
 

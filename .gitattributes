@@ -1,3 +1,0 @@
-# Author journals are append-at-EOF. union keeps both sides when the same
-# person has two parallel PRs adding entries.
-docs/handoff/team-state/*.md merge=union

@@ -8,7 +8,7 @@ description: >-
   해당 증거가 없으면 PR을 막는다.
   코멘트는 write-github-comment, QA 티켓은 manage-qa-tickets, 릴리스 QA는 run-release-qa를 쓴다.
 metadata:
-  version: "1.13.0"
+  version: "1.13.1"
 ---
 
 # Submit PR Evidence
@@ -156,7 +156,6 @@ ponytail 결과를 근거 없이 「통과」로 적지 않는다.
 
 ## 로컬 관문
 
-- **`docs/handoff/team-state/<GitHub 아이디>.md`에 이번 작업 항목이 있어야 한다.** pre-push 훅이 검사한다. 본문은 리뷰어에게 무엇이 좋아지는지를, 저널은 다음에 이 코드를 만질 사람에게 무엇을 조심할지를 말한다.
 - **`corepack pnpm exec prettier --check .`가 통과해야 한다.** 훅이 저장소 전체를 본다.
 
 ## PR 본문 순서

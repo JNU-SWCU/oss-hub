@@ -155,9 +155,6 @@ jobs:
         with:
           node-version: 24
 
-      - name: TEAM-STATE drift 검사기 단위테스트
-        run: node --test scripts/team-state-check.test.mjs
-
       - name: CI path 계약 검사
         run: node --test scripts/ci-path-contract.test.mjs
 
@@ -187,10 +184,6 @@ jobs:
           for hook in .githooks/*; do
             bash -n "$hook"
           done
-
-      - name: TEAM-STATE pre-push 가드 회귀 테스트
-        if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
-        run: bash scripts/check-team-state-updated.test.sh
 
       - name: 호스트 lane DATABASE_URL 가드 회귀 테스트
         if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
@@ -323,33 +316,6 @@ jobs:
       # 설치와 dev 서버 온디맨드 컴파일에 의존해 러너 환경 결함이 제품 결함으로
       # 둔갑하고(#856), PR에서는 어차피 실행되지 않아 회귀를 늦게만 알려 준다.
       # 실행은 로컬 `pnpm --filter frontend e2e`로 옮긴다 — 릴리스 전 수동 게이트다.
-
-  # 1차 도입은 advisory다. drift·unknown은 non-zero로 보고하되 required ci를 차단하지 않는다.
-  team-state-drift:
-    name: team-state-drift (advisory)
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      issues: read
-      pull-requests: read
-    steps:
-      - name: 체크아웃
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Node 설정
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: GitHub 상태 drift 검사
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/team-state-check.mjs
 
   # 커밋 메시지 규칙(AGENTS.md §5)은 변경 경로와 무관하므로 paths-filter 없이 모든 PR에서 실행한다.
   # issue 이벤트에는 GITHUB_BASE_REF가 없어 실행하지 않는다.
