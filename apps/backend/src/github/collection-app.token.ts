@@ -9,6 +9,16 @@ const REQUIRED_PERMISSIONS = {
   metadata: 'read',
   pull_requests: 'read',
 } as const;
+/**
+ * Issue 수집(#1133)이 쓰는 권한. installation이 새 권한 요청을 승인하기 전후를 모두 받아들여
+ * 배포와 조직 owner 승인의 순서가 조직 수집 전체를 세우지 않게 한다 — 승인 전에는 Issue
+ * stream만 권한 오류로 남는다. 이 목록 밖의 권한이나 다른 수준은 여전히 거부한다.
+ */
+const OPTIONAL_PERMISSIONS = { issues: 'read' } as const;
+const ALLOWED_PERMISSIONS: Readonly<Record<string, string>> = {
+  ...REQUIRED_PERMISSIONS,
+  ...OPTIONAL_PERMISSIONS,
+};
 
 export class CollectionAppTokenError extends Error {
   readonly code = 'COLLECTION_APP_TOKEN_INVALID';
@@ -231,13 +241,10 @@ export class CollectionAppTokenProvider {
 
   private validatePermissions(value: unknown): void {
     const permissions = this.record(value);
-    const entries = Object.entries(permissions);
     if (
-      entries.length !== Object.keys(REQUIRED_PERMISSIONS).length ||
-      entries.some(
-        ([key, permission]) =>
-          REQUIRED_PERMISSIONS[key as keyof typeof REQUIRED_PERMISSIONS] !==
-          permission,
+      Object.keys(REQUIRED_PERMISSIONS).some((key) => !(key in permissions)) ||
+      Object.entries(permissions).some(
+        ([key, permission]) => ALLOWED_PERMISSIONS[key] !== permission,
       )
     ) {
       throw new CollectionAppTokenError('PERMISSIONS');
