@@ -32,6 +32,7 @@ import type {
   AdminAccessLoginHistoryPage,
   AdminAccessStaffAccessRequestHistoryPage,
 } from './domain/admin-access';
+import { insertRevokedStaffAccessRequest } from './staff-access-revocation-write';
 
 export type {
   AdminAccessActor,
@@ -111,22 +112,10 @@ class PrismaAdminAccessTransactionStore implements AdminAccessTransactionStore {
     return result.count === 1;
   }
 
-  async insertRevokedRequest(
+  insertRevokedRequest(
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest> {
-    // partial unique(`StaffAccessRequest_userId_pending_key`)는 PENDING 행만 묶으므로
-    // REVOKED 행은 몇 번을 회수하든 매번 새로 쌓인다 — 회수·재승인이 반복된 사람의
-    // 이력이 관리자 상세에서 시간순으로 그대로 읽힌다.
-    const created = await this.transaction.staffAccessRequest.create({
-      data: {
-        userId: input.userId,
-        status: StaffAccessRequestStatus.REVOKED,
-        decidedById: input.actorId,
-        decidedAt: input.decidedAt,
-      },
-      select: { id: true },
-    });
-    return { id: created.id };
+    return insertRevokedStaffAccessRequest(this.transaction, input);
   }
 }
 
