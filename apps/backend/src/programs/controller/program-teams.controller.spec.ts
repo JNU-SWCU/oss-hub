@@ -21,6 +21,7 @@ type ControllerMethodName =
   | 'removeMember'
   | 'list'
   | 'detail'
+  | 'activity'
   | 'repositoryUrlHistory'
   | 'rename'
   | 'remove';
@@ -66,6 +67,7 @@ function serviceStub(
     removeMember: jest.fn(),
     listForStaff: jest.fn(),
     getForStaff: jest.fn(),
+    getActivity: jest.fn(),
     getRepositoryUrlHistoryForStaff: jest.fn(),
     rename: jest.fn(),
     deleteForStaff: jest.fn(),
@@ -388,6 +390,38 @@ describe('ProgramTeamsController', () => {
       ],
       application: null,
     });
+  });
+
+  it('activity 는 :teamId/activity 이고 SessionGuard 만 적용한다 — 팀원도 이 문을 지난다', () => {
+    expect(readGuards('activity')).toEqual([SessionGuard]);
+    expect(readPath('activity')).toBe(':teamId/activity');
+  });
+
+  it('activity 는 세션·프로그램·팀을 service 로 넘기고 DTO 로 반환한다', async () => {
+    const view = {
+      applicationId: null,
+      repository: null,
+      status: 'NOT_CONNECTED' as const,
+      lastSuccessAt: null,
+      window: {
+        from: '2026-08-01',
+        to: '2026-08-31',
+        timeZone: 'Asia/Seoul' as const,
+      },
+      canEditRepositoryUrl: false,
+      members: [],
+    };
+    const getActivity = jest.fn().mockResolvedValue(view);
+    const controller = new ProgramTeamsController(serviceStub({ getActivity }));
+
+    const response = await controller.activity(
+      { sessionGithubId: 42n },
+      'program-1',
+      'team-1',
+    );
+
+    expect(getActivity).toHaveBeenCalledWith(42n, 'program-1', 'team-1');
+    expect(response).toEqual(view);
   });
 
   it('repositoryUrlHistory 에 SessionGuard·ProgramTeamsStaffGuard 를 적용한다', () => {

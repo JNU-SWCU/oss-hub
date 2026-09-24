@@ -145,6 +145,7 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED GET /api/v1/programs/:programId/submissions/me',
   'PROTECTED GET /api/v1/programs/:programId/teams',
   'PROTECTED GET /api/v1/programs/:programId/teams/:teamId',
+  'PROTECTED GET /api/v1/programs/:programId/teams/:teamId/activity',
   'PROTECTED GET /api/v1/programs/:programId/teams/:teamId/repository-url-history',
   'PROTECTED GET /api/v1/programs/:programId/teams/me',
   'PUBLIC GET /api/v1/programs/application-templates',

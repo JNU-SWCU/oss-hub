@@ -2,7 +2,9 @@ import { randomBytes } from 'node:crypto';
 import type {
   RepositoryUrlHistoryCursor,
   RepositoryUrlHistoryPage,
+  TeamActivityView,
 } from '../program-team-repository-evidence.types';
+import { canEditStudentRepositoryUrl } from '../program-participant';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   createTeamCreatedAuditMetadata,
@@ -565,6 +567,47 @@ export class ProgramTeamsService {
       repositoryContributions: detail.repositoryContributions,
       repositoryUrlHistory: detail.repositoryUrlHistory,
       deletionScope,
+    };
+  }
+
+  /**
+   * 팀 저장소 활동(#1133) — 학생(지금 그 팀 팀원 누구나)과 교직원·관리자가 같은 문으로
+   * 같은 값을 읽는다. 가드를 두지 않는 이유는 `rename`과 같다 — 팀원도 이 문을 지나야 한다.
+   *
+   * 팀 밖의 학생·비활성 계정·없는 팀·다른 프로그램의 팀은 전부 같은 404다 — 구분하면
+   * 남의 프로그램에 그 id의 팀이 있다는 사실이 샌다. 활동 행은 판정을 통과한 뒤에만 읽는다.
+   */
+  async getActivity(
+    githubId: bigint,
+    programId: string,
+    teamId: string,
+    now: Date = new Date(),
+  ): Promise<TeamActivityView> {
+    const actor = await this.repository.findActorAuthorityByGithubId(githubId);
+    const team = actor
+      ? await this.repository.findTeamActivityScope(programId, teamId)
+      : null;
+    if (
+      !actor ||
+      !team ||
+      (!actor.isStaff &&
+        !team.members.some((member) => member.userId === actor.id))
+    ) {
+      throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
+    }
+    return {
+      ...(await this.repository.readTeamActivity(team)),
+      // 역할이 가르는 유일한 칸 — 쓰기 경로와 같은 판정이라 버튼과 저장이 어긋나지 않는다.
+      canEditRepositoryUrl:
+        team.application !== null &&
+        canEditStudentRepositoryUrl(
+          {
+            status: team.application.status,
+            endAt: team.program.endAt,
+            isManager: actor.isStaff || team.leaderId === actor.id,
+          },
+          now,
+        ),
     };
   }
 

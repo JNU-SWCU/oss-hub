@@ -1,6 +1,9 @@
+import type { ApplicationStatus } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
 import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity';
 import type {
+  TeamActivityCounts,
+  TeamActivityView,
   TeamRepositoryContributionsView,
   RepositoryUrlHistoryPage,
   RepositoryUrlHistoryCursor,
@@ -25,7 +28,19 @@ interface TeamRepositoryMember {
   readonly user: { readonly githubId: bigint };
 }
 
-const LAST_QUERYABLE_DAY = Date.UTC(9999, 11, 31);
+/** 팀 저장소 활동을 그릴 재료 — 지금 팀원과 지금 신청에 걸린 저장소뿐이다. */
+export interface TeamActivityScope {
+  readonly leaderId: string;
+  readonly program: { readonly startAt: Date; readonly endAt: Date };
+  readonly members: readonly (TeamRepositoryMember & {
+    readonly user: { readonly nickname: string };
+  })[];
+  readonly application: {
+    readonly id: string;
+    readonly status: ApplicationStatus;
+    readonly repository: ApplicationRepositorySource['repository'];
+  } | null;
+}
 
 export class ProgramTeamRepositoryEvidenceRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -91,39 +106,10 @@ export class ProgramTeamRepositoryEvidenceRepository {
   ): Promise<TeamRepositoryContributionsView | null> {
     const repository = application.repository;
     if (!repository) return null;
-    const dateFormat = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Seoul',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-    const calendarDate = (value: Date): string => {
-      const parts = Object.fromEntries(
-        dateFormat.formatToParts(value).map((part) => [part.type, part.value]),
-      );
-      const bucket = new Date(0);
-      bucket.setUTCFullYear(
-        Number(parts.year),
-        Number(parts.month) - 1,
-        Number(parts.day),
-      );
-      return bucket.toISOString().replace(/T.*$/, '');
-    };
-    const from = calendarDate(application.program.startAt);
-    const to = calendarDate(application.program.endAt);
+    const window = programWindow(application.program);
     const rows = await this.prisma.contribution.groupBy({
       by: ['githubId'],
-      where: {
-        repositoryId: repository.id,
-        date: {
-          gte: new Date(`${from}T00:00:00Z`),
-          // Prisma는 네 자리 연도만 넘긴다. 센티널 끝(`+010000-01-01`)은 그 앞의 마지막
-          // 날로 비교한다 — 그보다 뒤 날짜의 기여 행은 없으니 결과가 같다.
-          lte: new Date(
-            Math.min(Date.parse(`${to}T00:00:00Z`), LAST_QUERYABLE_DAY),
-          ),
-        },
-      },
+      where: { repositoryId: repository.id, date: windowDates(window) },
       _sum: { commitCount: true, pullRequestCount: true, releaseCount: true },
       // Issue만 연 날은 세 칸이 모두 0인 행을 남긴다(#1133). 이 화면은 issue 수를 보이지
       // 않으므로 창 안 합계가 0인 사람을 "커밋 0 · PR 0 · 릴리스 0"으로 세우지 않는다.
@@ -151,13 +137,8 @@ export class ProgramTeamRepositoryEvidenceRepository {
     return {
       repositoryId: repository.id,
       repositoryUrl: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
-      window: { from, to, timeZone: 'Asia/Seoul' },
-      collectionStatus:
-        repository.failureCount > 0
-          ? 'ERROR'
-          : repository.lastSuccessAt
-            ? 'COLLECTED'
-            : 'NOT_COLLECTED',
+      window,
+      collectionStatus: collectionStatus(repository),
       lastSuccessAt: repository.lastSuccessAt?.toISOString() ?? null,
       members: members.map((member) => ({
         userId: member.userId,
@@ -174,6 +155,133 @@ export class ProgramTeamRepositoryEvidenceRepository {
         .map(([, contributor]) => contributor),
     };
   }
+
+  /**
+   * 팀 저장소 활동(#1133) — 지금 신청에 걸린 저장소의, 지금 팀원의, 프로그램 기간 안
+   * 일별 기여 행을 그대로 옮긴다. 저장소를 바꾸면 옛 저장소의 행은 여기서 사라진다.
+   *
+   * 수집을 한 번도 끝내지 못한 저장소는 행이 있어도 싣지 않는다 — 끝나지 않은 첫 수집의
+   * 일부를 「이만큼 했다」로 그릴 수 없다. 실패 중이어도 끝낸 적이 있으면 마지막 값을 싣는다.
+   */
+  async activity(
+    team: TeamActivityScope,
+  ): Promise<Omit<TeamActivityView, 'canEditRepositoryUrl'>> {
+    const repository = team.application?.repository ?? null;
+    const window = programWindow(team.program);
+    const rows = repository?.lastSuccessAt
+      ? await this.prisma.contribution.findMany({
+          where: {
+            repositoryId: repository.id,
+            githubId: {
+              in: team.members.map((member) => member.user.githubId),
+            },
+            date: windowDates(window),
+            // 릴리스만 있는 날은 이 화면이 세는 세 지표가 모두 0이다 — 점으로 찍지 않는다.
+            OR: [
+              { commitCount: { gt: 0 } },
+              { pullRequestCount: { gt: 0 } },
+              { issueCount: { gt: 0 } },
+            ],
+          },
+          select: {
+            githubId: true,
+            date: true,
+            commitCount: true,
+            pullRequestCount: true,
+            issueCount: true,
+          },
+          orderBy: { date: 'asc' },
+        })
+      : [];
+    return {
+      applicationId: team.application?.id ?? null,
+      repository: repository && {
+        id: repository.id,
+        url: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
+      },
+      status: repository ? collectionStatus(repository) : 'NOT_CONNECTED',
+      lastSuccessAt: repository?.lastSuccessAt?.toISOString() ?? null,
+      window,
+      members: team.members.map((member) => {
+        const points = rows
+          .filter((row) => row.githubId === member.user.githubId)
+          .map(({ date, commitCount, pullRequestCount, issueCount }) => ({
+            date: date.toISOString().slice(0, 10),
+            commitCount,
+            pullRequestCount,
+            issueCount,
+          }));
+        const total = (metric: keyof TeamActivityCounts) =>
+          points.reduce((sum, point) => sum + point[metric], 0);
+        return {
+          userId: member.userId,
+          githubLogin: member.user.nickname,
+          totals: {
+            commitCount: total('commitCount'),
+            pullRequestCount: total('pullRequestCount'),
+            issueCount: total('issueCount'),
+          },
+          points,
+        };
+      }),
+    };
+  }
+}
+
+const seoulCalendar = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+/**
+ * 프로그램 기간을 서울 달력 날짜로 옮긴다. 센티널 끝(`9999-12-31T23:59:59.999Z`)은
+ * 서울에서 이미 다음 해라 `+010000-01-01`이 된다 — 자르지 않고 그대로 싣는다.
+ */
+function programWindow(program: {
+  readonly startAt: Date;
+  readonly endAt: Date;
+}): TeamRepositoryContributionsView['window'] {
+  const calendarDate = (value: Date): string => {
+    const parts = Object.fromEntries(
+      seoulCalendar.formatToParts(value).map((part) => [part.type, part.value]),
+    );
+    const bucket = new Date(0);
+    bucket.setUTCFullYear(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+    );
+    return bucket.toISOString().replace(/T.*$/, '');
+  };
+  return {
+    from: calendarDate(program.startAt),
+    to: calendarDate(program.endAt),
+    timeZone: 'Asia/Seoul',
+  };
+}
+
+const LAST_QUERYABLE_DAY = Date.UTC(9999, 11, 31);
+
+/** `Contribution.date`는 서울 날짜 칸이라 창의 두 끝 날짜와 그대로 비교한다. */
+function windowDates(window: { readonly from: string; readonly to: string }) {
+  return {
+    gte: new Date(`${window.from}T00:00:00Z`),
+    // Prisma는 네 자리 연도만 넘긴다. 센티널 끝(`+010000-01-01`)은 그 앞의 마지막
+    // 날로 비교한다 — 그보다 뒤 날짜의 기여 행은 없으니 결과가 같다.
+    lte: new Date(
+      Math.min(Date.parse(`${window.to}T00:00:00Z`), LAST_QUERYABLE_DAY),
+    ),
+  };
+}
+
+function collectionStatus(repository: {
+  readonly lastSuccessAt: Date | null;
+  readonly failureCount: number;
+}): 'NOT_COLLECTED' | 'COLLECTED' | 'ERROR' {
+  if (repository.failureCount > 0) return 'ERROR';
+  return repository.lastSuccessAt ? 'COLLECTED' : 'NOT_COLLECTED';
 }
 
 class InvalidRepositoryUrlHistoryError extends Error {
