@@ -301,3 +301,125 @@ it('counts only the currently linked repository in program totals after a relink
     commitCount: 2,
   });
 });
+
+it('does not show a person who only opened issues in the window as zero commits, PRs and releases', async () => {
+  // Given — #1133: a day with only issues leaves a Contribution row whose three shown counts are 0.
+  const scope = `staff-evidence-issue-${randomUUID()}`;
+  const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
+  const activeId = `${scope}-active`;
+  const issueOnlyId = `${scope}-issue-only`;
+  const scopedProgramId = `${scope}-program`;
+  const scopedTeamId = `${scope}-team`;
+  const scopedApplicationId = `${scope}-application`;
+  const scopedRepositoryId = `${scope}-repository`;
+  await prisma.user.createMany({
+    data: [
+      { id: activeId, githubId: base, nickname: 'synthetic-active' },
+      { id: issueOnlyId, githubId: base + 1n, nickname: 'synthetic-issuer' },
+    ],
+  });
+  await prisma.program.create({
+    data: {
+      id: scopedProgramId,
+      name: 'Synthetic program',
+      organizer: 'Synthetic',
+      category: 'BASIC',
+      applicationTemplateKey: 'synthetic',
+      applicationTemplateVersion: 1,
+      description: 'Synthetic',
+      applicationStartAt: new Date('2026-07-01Z'),
+      applicationEndAt: new Date('2026-07-31Z'),
+      startAt: new Date('2026-07-31T15:00:00Z'),
+      endAt: new Date('2026-08-31T14:59:59Z'),
+    },
+  });
+  await prisma.team.create({
+    data: {
+      id: scopedTeamId,
+      programId: scopedProgramId,
+      name: 'Synthetic team',
+      joinCodeDigest: scope,
+      leaderId: activeId,
+    },
+  });
+  await prisma.teamMember.createMany({
+    data: [activeId, issueOnlyId].map((userId) => ({
+      teamId: scopedTeamId,
+      programId: scopedProgramId,
+      userId,
+    })),
+  });
+  await prisma.application.create({
+    data: {
+      id: scopedApplicationId,
+      programId: scopedProgramId,
+      teamId: scopedTeamId,
+      applicantId: activeId,
+      answers: {},
+      applicationTemplateVersion: 1,
+    },
+  });
+  await prisma.githubRepository.create({
+    data: {
+      id: scopedRepositoryId,
+      githubRepositoryId: base + 2n,
+      nameWithOwner: 'synthetic/issue-only',
+      source: 'EXTERNAL_PUBLIC',
+      applicationId: scopedApplicationId,
+      programId: scopedProgramId,
+      teamId: scopedTeamId,
+      lastSuccessAt: new Date('2026-09-01Z'),
+    },
+  });
+  await prisma.contribution.createMany({
+    data: [
+      { githubId: base, date: new Date('2026-08-01Z'), commitCount: 2 },
+      // An issue-only day of someone with commits keeps their sums unchanged.
+      { githubId: base, date: new Date('2026-08-02Z'), issueCount: 5 },
+      { githubId: base + 1n, date: new Date('2026-08-01Z'), issueCount: 1 },
+      // Outside the team: the issue-only person drops out, the PR author stays.
+      { githubId: base + 3n, date: new Date('2026-08-03Z'), issueCount: 4 },
+      {
+        githubId: base + 4n,
+        date: new Date('2026-08-03Z'),
+        pullRequestCount: 1,
+      },
+    ].map((row) => ({ ...row, repositoryId: scopedRepositoryId })),
+  });
+  // When
+  const detail = await new ProgramTeamsRepository(prisma).findStaffTeamDetail(
+    scopedProgramId,
+    scopedTeamId,
+  );
+  // Then
+  expect(
+    [...(detail?.repositoryContributions?.members ?? [])].sort((a, b) =>
+      a.userId.localeCompare(b.userId),
+    ),
+  ).toEqual([
+    {
+      userId: activeId,
+      githubId: base.toString(),
+      commitCount: 2,
+      pullRequestCount: 0,
+      releaseCount: 0,
+      hasObservations: true,
+    },
+    {
+      userId: issueOnlyId,
+      githubId: (base + 1n).toString(),
+      commitCount: 0,
+      pullRequestCount: 0,
+      releaseCount: 0,
+      hasObservations: false,
+    },
+  ]);
+  expect(detail?.repositoryContributions?.unmatchedContributors).toEqual([
+    {
+      githubId: (base + 4n).toString(),
+      commitCount: 0,
+      pullRequestCount: 1,
+      releaseCount: 0,
+    },
+  ]);
+});

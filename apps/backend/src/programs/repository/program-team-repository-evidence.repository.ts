@@ -125,6 +125,15 @@ export class ProgramTeamRepositoryEvidenceRepository {
         },
       },
       _sum: { commitCount: true, pullRequestCount: true, releaseCount: true },
+      // Issue만 연 날은 세 칸이 모두 0인 행을 남긴다(#1133). 이 화면은 issue 수를 보이지
+      // 않으므로 창 안 합계가 0인 사람을 "커밋 0 · PR 0 · 릴리스 0"으로 세우지 않는다.
+      having: {
+        OR: [
+          { commitCount: { _sum: { gt: 0 } } },
+          { pullRequestCount: { _sum: { gt: 0 } } },
+          { releaseCount: { _sum: { gt: 0 } } },
+        ],
+      },
       orderBy: { githubId: 'asc' },
     });
     const contributors = new Map(

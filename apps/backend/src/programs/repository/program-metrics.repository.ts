@@ -266,10 +266,16 @@ export class ProgramMetricsRepository {
       });
     }
 
-    const logins = await this.resolveGithubLogins(
-      [...byContributor.values()].map((entry) => entry.githubUserId),
+    // Issue만 연 날은 세 칸이 모두 0인 행을 남긴다(#1133). 이 목록은 issue 수를 보이지
+    // 않으므로 합계가 0인 기여자를 "커밋 0 · PR 0 · 릴리스 0"으로 세우지 않는다.
+    const contributors = [...byContributor.values()].filter(
+      (entry) =>
+        entry.commitCount + entry.pullRequestCount + entry.releaseCount > 0,
     );
-    return [...byContributor.values()].map((entry) => ({
+    const logins = await this.resolveGithubLogins(
+      contributors.map((entry) => entry.githubUserId),
+    );
+    return contributors.map((entry) => ({
       ...entry,
       githubLogin: logins.get(entry.githubUserId) ?? '',
     }));
