@@ -87,6 +87,19 @@ export class IndependentAuthorityService {
       if (revokesLastActiveAdmin) {
         throw roleError(RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED);
       }
+      // 자기 관리자 접근 회수는 성공하는 순간 이 화면을 읽을 권한까지 사라져
+      // 누른 사람이 결과를 확인할 수 없다(#1382). 계정 상태 쪽 `ROL_017`과 같은
+      // 자리의 가드이며, 판정은 이 경로 한 곳에만 둔다.
+      //
+      // 순서가 `revokesLastActiveAdmin` 뒤인 것은 의도다 — 활성 관리자가 하나뿐일
+      // 때는 기존 `ROL_018`이 그대로 답해야 한다(#1382의 「하지 않을 것」).
+      if (
+        target === AUTHORITY_TARGETS.ADMIN &&
+        !enabled &&
+        actor.id === before.id
+      ) {
+        throw roleError(RolesErrorCode.SELF_ADMIN_REVOKE_FORBIDDEN);
+      }
       const transition = resolveIndependentAuthorityTransition(
         before,
         target,
@@ -94,6 +107,13 @@ export class IndependentAuthorityService {
       );
       if (authorityChanged(before, transition)) {
         await store.updateAuthority(userId, transition);
+        if (revokesStaffAccess(before, transition)) {
+          await store.insertRevokedRequest({
+            userId: before.id,
+            actorId: actor.id,
+            decidedAt: new Date(),
+          });
+        }
         await this.auditLog.record(
           createIndependentAuthorityAudit({
             actorGithubId,
@@ -131,6 +151,23 @@ async function requireTarget(
     throw roleError(RolesErrorCode.USER_NOT_FOUND);
   }
   return target;
+}
+
+/**
+ * 이 전이가 교직원 접근을 **끄는가**.
+ *
+ * 회수 이력(`StaffAccessRequest`의 `REVOKED` 행)은 이 한 방향에만 남는다. 부여 전이와
+ * 관리자 접근 전이는 교직원 신청 표를 건드리지 않는다 — 관리자 접근 전이는
+ * `hasStaffAccess`를 그대로 두므로 이 판정이 켜지지 않는다.
+ *
+ * 명령 이름이 아니라 **전이 결과**로 본다. 이미 꺼져 있는 접근에 회수를 다시 보내면
+ * `before`와 `transition`이 같아 아무 행도 늘지 않는다(멱등).
+ */
+function revokesStaffAccess(
+  before: IndependentAuthorityUserRecord,
+  transition: IndependentAuthorityTransition,
+): boolean {
+  return before.hasStaffAccess && !transition.hasStaffAccess;
 }
 
 function authorityChanged(

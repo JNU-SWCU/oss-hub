@@ -44,7 +44,7 @@ afterAll(async () => {
 });
 
 describe('Admin access real PostgreSQL transactions', () => {
-  it('serializes two final-admin demotions so exactly one commits', async () => {
+  it('serializes two mutual admin demotions so exactly one commits', async () => {
     // Given
     await prisma.user.updateMany({
       where: { hasAdminAccess: true, accountStatus: AccountStatus.ACTIVE },
@@ -60,15 +60,17 @@ describe('Admin access real PostgreSQL transactions', () => {
       ),
       auditLog,
     );
-    const demote = (targetId: string) =>
-      synchronizedService.patchAdminAccess(first.githubId, targetId, {
+    // 서로를 강등한다 — actor가 자기 자신을 강등하면 #1382의 `ROL_022`가
+    // 잠금 경쟁보다 먼저 답해 버려, 이 테스트가 재려는 직렬화가 실행되지 않는다.
+    const demote = (actorGithubId: bigint, targetId: string) =>
+      synchronizedService.patchAdminAccess(actorGithubId, targetId, {
         command: ADMIN_ACCESS_COMMANDS.REVOKE,
       });
 
     // When
     const results = await Promise.allSettled([
-      demote(first.id),
-      demote(second.id),
+      demote(first.githubId, second.id),
+      demote(second.githubId, first.id),
     ]);
 
     // Then
@@ -78,22 +80,16 @@ describe('Admin access real PostgreSQL transactions', () => {
     const rejected = results.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
-    // 두 트랜잭션 중 어느 쪽이 lockActiveAdmins()를 먼저 통과하는지는 실 DB 잠금
-    // 경쟁이라 결정되지 않는다. actor가 두 target 중 하나(자기 자신)이기도 해서,
-    // 재검증(TOCTOU 재조회)이 지목하는 사유가 승자에 따라 갈린다: 다른 admin을
-    // 강등하는 트랜잭션이 지면 LAST_ACTIVE_ADMIN_REQUIRED(마지막 admin 규칙)를,
-    // 자기 자신을 강등하는 트랜잭션이 지면 ADMIN_ONLY(재검증이 이미 강등된 actor를
-    // 잡아냄)를 본다 — 둘 다 "정확히 하나만 커밋된다"는 이 테스트의 불변식을 증명한다.
+    // 어느 쪽이 lockActiveAdmins()를 먼저 통과하는지는 실 DB 잠금 경쟁이라 정해지지
+    // 않지만, 진 쪽의 actor는 이긴 트랜잭션이 방금 강등한 바로 그 계정이다.
+    // 잠금이 풀린 뒤 재검증(TOCTOU 재조회)이 그것을 잡아 ADMIN_ONLY로 막는다 —
+    // 잠금이 직렬화하지 못했다면 두 트랜잭션이 모두 통과해 활성 관리자가 0명이 된다.
     const reason = rejected?.reason as
       { errorCode?: { code: string; status: number } } | undefined;
-    if (reason?.errorCode?.code === RolesErrorCode.ADMIN_ONLY) {
-      expect(reason.errorCode.status).toBe(403);
-    } else {
-      expect(reason?.errorCode).toMatchObject({
-        code: RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED,
-        status: 409,
-      });
-    }
+    expect(reason?.errorCode).toMatchObject({
+      code: RolesErrorCode.ADMIN_ONLY,
+      status: 403,
+    });
     await expect(
       prisma.user.count({
         where: { hasAdminAccess: true, accountStatus: AccountStatus.ACTIVE },

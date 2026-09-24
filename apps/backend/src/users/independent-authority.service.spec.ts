@@ -1,7 +1,11 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
-import type { AdminAccessActor } from './admin-access.repository.types';
+import type {
+  AdminAccessActor,
+  AdminAccessInsertedRequest,
+  AdminAccessRevokedRequestInsert,
+} from './admin-access.repository.types';
 import {
   ADMIN_ACCESS_COMMANDS,
   STAFF_ACCESS_COMMANDS,
@@ -35,6 +39,7 @@ class AuthorityStore
   target: IndependentAuthorityUserRecord | null = target();
   activeAdminCount = 2;
   updates: IndependentAuthorityTransition[] = [];
+  revokedInserts: AdminAccessRevokedRequestInsert[] = [];
 
   withTransaction<T>(
     operation: (store: IndependentAuthorityTransactionStore) => Promise<T>,
@@ -60,6 +65,13 @@ class AuthorityStore
   ): Promise<void> {
     this.updates.push(transition);
     return Promise.resolve();
+  }
+
+  insertRevokedRequest(
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest> {
+    this.revokedInserts.push(input);
+    return Promise.resolve({ id: `revoked-${this.revokedInserts.length}` });
   }
 }
 
@@ -138,6 +150,103 @@ it('rejects revoking the final active admin', async () => {
     errorCode: { code: RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED, status: 409 },
   });
   expect(store.updates).toHaveLength(0);
+});
+
+it('교직원 접근을 회수하면 행위자와 시각이 적힌 회수 이력 한 행을 남긴다', async () => {
+  const store = new AuthorityStore();
+  store.target = target({ hasStaffAccess: true, role: 'STAFF' });
+  const service = new IndependentAuthorityService(store, noopAuditLog());
+
+  await service.patchStaffAccess(actorGithubId, 'target', {
+    command: STAFF_ACCESS_COMMANDS.REVOKE,
+  });
+
+  expect(store.revokedInserts).toHaveLength(1);
+  expect(store.revokedInserts[0]).toMatchObject({
+    userId: 'target',
+    actorId: 'actor',
+  });
+  expect(store.revokedInserts[0]?.decidedAt).toBeInstanceOf(Date);
+});
+
+it.each([
+  ['교직원 접근을 켜는 전이', STAFF_ACCESS_COMMANDS.GRANT, target({})],
+  [
+    '관리자 접근을 끄는 전이',
+    ADMIN_ACCESS_COMMANDS.REVOKE,
+    target({ hasStaffAccess: true, hasAdminAccess: true, role: 'ADMIN' }),
+  ],
+  [
+    '이미 꺼져 있는 접근에 다시 보낸 회수',
+    STAFF_ACCESS_COMMANDS.REVOKE,
+    // 권한 전이는 아니지만 `selectedMemberKind`·역할 표기가 바뀌어 사용자 행은 갱신된다.
+    // 그래도 회수는 일어나지 않았으므로 이력이 늘면 안 된다.
+    target({ hasStaffAccess: false, memberKind: null }),
+  ],
+] as const)(
+  '%s는 교직원 신청 표를 건드리지 않는다',
+  async (_label, command, before) => {
+    const store = new AuthorityStore();
+    store.target = before;
+    const service = new IndependentAuthorityService(store, noopAuditLog());
+
+    if (command === ADMIN_ACCESS_COMMANDS.REVOKE) {
+      await service.patchAdminAccess(actorGithubId, 'target', { command });
+    } else {
+      await service.patchStaffAccess(actorGithubId, 'target', { command });
+    }
+
+    expect(store.updates).toHaveLength(1);
+    expect(store.revokedInserts).toEqual([]);
+  },
+);
+
+/**
+ * #1382 — 자기 관리자 접근 회수는 성공하는 순간 호출자가 이 화면을 읽을 권한까지
+ * 잃는다. 계정 상태 쪽 `ROL_017`과 같은 자리의 거절이며, 활성 관리자가 둘 이상이라
+ * `ROL_018`이 걸리지 않는 상태에서만 이 가드가 답한다.
+ */
+it('rejects revoking the actor own admin access', async () => {
+  const store = new AuthorityStore();
+  store.activeAdminCount = 3;
+  store.target = target({
+    id: 'actor',
+    hasAdminAccess: true,
+    hasStaffAccess: true,
+    role: 'ADMIN',
+  });
+  const service = new IndependentAuthorityService(store, noopAuditLog());
+
+  await expect(
+    service.patchAdminAccess(actorGithubId, 'actor', {
+      command: ADMIN_ACCESS_COMMANDS.REVOKE,
+    }),
+  ).rejects.toMatchObject({
+    errorCode: {
+      code: RolesErrorCode.SELF_ADMIN_REVOKE_FORBIDDEN,
+      status: 409,
+    },
+  });
+  expect(store.updates).toHaveLength(0);
+});
+
+it('still allows the actor to revoke their own staff access', async () => {
+  const store = new AuthorityStore();
+  store.activeAdminCount = 3;
+  store.target = target({
+    id: 'actor',
+    hasAdminAccess: true,
+    hasStaffAccess: true,
+    role: 'ADMIN',
+  });
+  const service = new IndependentAuthorityService(store, noopAuditLog());
+
+  await expect(
+    service.patchStaffAccess(actorGithubId, 'actor', {
+      command: STAFF_ACCESS_COMMANDS.REVOKE,
+    }),
+  ).resolves.toMatchObject({ hasStaffAccess: false, hasAdminAccess: true });
+  expect(store.updates).toHaveLength(1);
 });
 
 function noopAuditLog() {

@@ -254,6 +254,81 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 세그먼�
     expect(html).not.toContain('disabled=""');
   });
 
+  it('본인 계정의 관리자 접근 회수는 막히고 같은 묶음 안에 이유가 붙는다', () => {
+    // #1382 — 성공하면 누른 사람이 이 화면을 읽을 권한을 잃어 결과를 확인할 수
+    // 없다. 서버도 `ROL_022`로 거절한다.
+    act(() => {
+      root.render(
+        <AdminAccessMutationActions
+          detail={detail({ isSelf: true, hasAdminAccess: true })}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
+      );
+    });
+
+    const group = container.querySelector(
+      '[aria-labelledby="admin-admin-access-control-label"]',
+    );
+    const button = group?.querySelector('button');
+    expect(button?.textContent).toBe('관리자 접근 회수');
+    expect(button?.disabled).toBe(true);
+    // 계정 상태 쪽 가드 문장과 같은 자리·같은 모양이다.
+    const reason = group?.querySelector('p.text-sm.text-muted-foreground');
+    expect(reason?.textContent).toBe(
+      '자기 계정의 관리자 접근은 회수할 수 없습니다.',
+    );
+  });
+
+  it('남의 계정이면 관리자 접근 회수 버튼이 그대로 눌리고 이유 문장도 없다', () => {
+    const onRequestAction = vi.fn();
+    act(() => {
+      root.render(
+        <AdminAccessMutationActions
+          detail={detail({ isSelf: false, hasAdminAccess: true })}
+          processingAction={null}
+          onRequestAction={onRequestAction}
+        />,
+      );
+    });
+
+    const button = container
+      .querySelector('[aria-labelledby="admin-admin-access-control-label"]')
+      ?.querySelector('button');
+    expect(button?.disabled).toBe(false);
+    act(() => {
+      button?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
+    });
+    expect(onRequestAction).toHaveBeenCalledWith('REVOKE_ADMIN_ACCESS');
+    expect(container.innerHTML).not.toContain(
+      '자기 계정의 관리자 접근은 회수할 수 없습니다.',
+    );
+  });
+
+  it('본인 계정이어도 관리자 접근이 없으면 [허용] 버튼이 열려 있고 이유 문장도 없다', () => {
+    act(() => {
+      root.render(
+        <AdminAccessMutationActions
+          detail={detail({ isSelf: true, hasAdminAccess: false })}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
+      );
+    });
+
+    // 회수 가드는 회수 방향에만 걸린다 — 계정 상태의 [재활성화]와 같은 규칙이다.
+    const button = container
+      .querySelector('[aria-labelledby="admin-admin-access-control-label"]')
+      ?.querySelector('button');
+    expect(button?.textContent).toBe('관리자 접근 허용');
+    expect(button?.disabled).toBe(false);
+    expect(container.innerHTML).not.toContain(
+      '자기 계정의 관리자 접근은 회수할 수 없습니다.',
+    );
+  });
+
   it('세 묶음이 각자 이름과 묶인 group으로 읽힌다(라디오그룹을 걷어낸 자리)', () => {
     act(() => {
       root.render(
@@ -381,6 +456,105 @@ describe('AdminAccessPendingRequestCard — 대기 요청 결정 카드', () => 
     });
 
     expect(onRequestAction).toHaveBeenCalledWith('REJECT');
+  });
+
+  it('비활성 계정이면 [승인]만 꺼지고 왜 막혔는지와 다음 걸음이 뜬다', () => {
+    // #1381 — 비활성 계정에 [승인]을 보내면 서버가 반드시 거절한다(큐의 교직원
+    // 승인자는 403 `ROL_004`, 관리자는 409 `ROL_014`). 누르기 전에 막는다.
+    act(() => {
+      root.render(
+        <AdminAccessPendingRequestCard
+          detail={detail({
+            role: 'STUDENT',
+            memberKind: 'STUDENT',
+            hasStaffAccess: false,
+            accountStatus: 'DEACTIVATED',
+            pendingRequest: {
+              id: 'req-1',
+              status: 'PENDING',
+              createdAt: '2026-07-30T00:00:00.000Z',
+            },
+          })}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
+      );
+    });
+
+    expect(
+      Array.from(container.querySelectorAll('button')).map((button) => [
+        button.textContent,
+        button.disabled,
+      ]),
+    ).toEqual([
+      ['승인', true],
+      ['반려', false],
+    ]);
+    expect(container.textContent).toContain(
+      '비활성 계정은 승인할 수 없습니다. 계정이 다시 활성화된 뒤에 처리할 수 있습니다.',
+    );
+  });
+
+  it('비활성 계정에서도 [반려]는 눌려 REJECT를 그대로 보낸다', () => {
+    const onRequestAction = vi.fn();
+    act(() => {
+      root.render(
+        <AdminAccessPendingRequestCard
+          detail={detail({
+            role: 'STUDENT',
+            memberKind: 'STUDENT',
+            hasStaffAccess: false,
+            accountStatus: 'DEACTIVATED',
+            pendingRequest: {
+              id: 'req-1',
+              status: 'PENDING',
+              createdAt: '2026-07-30T00:00:00.000Z',
+            },
+          })}
+          processingAction={null}
+          onRequestAction={onRequestAction}
+        />,
+      );
+    });
+
+    for (const button of Array.from(container.querySelectorAll('button'))) {
+      act(() => {
+        button.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, cancelable: true }),
+        );
+      });
+    }
+
+    expect(onRequestAction.mock.calls.flat()).toEqual(['REJECT']);
+  });
+
+  it('활성 계정이면 [승인]은 그대로 눌리고 가드 문장도 뜨지 않는다', () => {
+    act(() => {
+      root.render(
+        <AdminAccessPendingRequestCard
+          detail={detail({
+            role: 'STUDENT',
+            memberKind: 'STUDENT',
+            hasStaffAccess: false,
+            accountStatus: 'ACTIVE',
+            pendingRequest: {
+              id: 'req-1',
+              status: 'PENDING',
+              createdAt: '2026-07-30T00:00:00.000Z',
+            },
+          })}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
+      );
+    });
+
+    expect(
+      Array.from(container.querySelectorAll('button')).map(
+        (button) => button.disabled,
+      ),
+    ).toEqual([false, false]);
+    expect(container.textContent).not.toContain('비활성 계정은 승인할 수');
   });
 
   it('처리 중(processingAction이 있음)이면 승인/반려 버튼이 모두 비활성화된다', () => {

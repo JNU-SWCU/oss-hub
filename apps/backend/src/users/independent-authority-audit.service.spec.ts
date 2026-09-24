@@ -77,6 +77,11 @@ class AuditAuthorityStore
     this.updates.push(transition);
     return Promise.resolve();
   }
+
+  insertRevokedRequest(): Promise<{ readonly id: string }> {
+    this.events.push('revoked-request');
+    return Promise.resolve({ id: 'synthetic-revoked-request' });
+  }
 }
 
 it.each([
@@ -153,6 +158,29 @@ it.each([
     });
   },
 );
+
+it('교직원 회수는 권한 갱신과 감사 로그 사이, 같은 트랜잭션에서 회수 이력을 남긴다', async () => {
+  const store = new AuditAuthorityStore();
+  store.target = targetUser({ role: 'STAFF', hasStaffAccess: true });
+  const record = jest.fn().mockImplementation(() => {
+    store.events.push('audit');
+    return Promise.resolve({});
+  });
+  const service = new IndependentAuthorityService(store, { record });
+
+  await service.patchStaffAccess(actorGithubId, 'target', {
+    command: STAFF_ACCESS_COMMANDS.REVOKE,
+  });
+
+  expect(store.events).toEqual([
+    'lock',
+    'actor',
+    'target',
+    'update',
+    'revoked-request',
+    'audit',
+  ]);
+});
 
 it('does not write a phantom audit for an idempotent same-state command', async () => {
   const store = new AuditAuthorityStore();

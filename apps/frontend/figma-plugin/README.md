@@ -23,16 +23,35 @@
 | 변수 컬렉션 「OSS Hub」 | `palette/*`(색 램프), `space/*`·`measure/*`·`fontSize/*`(치수), `semantic/*`(역할, Light·Dark 모드, primitive를 alias) |
 | 텍스트 스타일           | `text/page` 40 · `text/section` 24 · `text/body` 16 · `text/small` 13 · `text/badge` 12 · `text/table` 14              |
 | 01 Tokens               | 팔레트 견본 · 간격 척도                                                                                                |
-| 02 Button               | variant 7 × size 5 × state 3 (높이 44 고정)                                                                            |
+| 02 Button               | variant 8 × size 6 × state 3 = 144 (높이 44 고정, size=content 만 예외)                                                |
 | 03 Badge · 용어 사전    | StatusBadge 5 × 2 + 상태 어휘 표                                                                                       |
 | 04 Filter Chip          | 기본·hover·눌림 + 예시 묶음                                                                                            |
-| 05 Dialog · Form        | Dialog md(576)·lg(672), Form/Field, 오버레이 견본                                                                      |
+| 05 Dialog · Form        | Dialog md(576)·lg(672)·alert(512), Form/Field, Form/Textarea, 오버레이 견본                                            |
 | 06 Table                | 머리글·본문·행 제목 셀 + 학과별 활성 표 예시                                                                           |
 | 07 Card                 | 머리(제목·설명·행 액션)·내용·바닥                                                                                      |
 | 08 실패 · 불러오는 중   | FailureState(「다시 시도」 있는 것·없는 것) · SkeletonBlock + 뼈대 예시                                                 |
 
 계산값(`color-mix`·`rgb(var…)`)은 흰색·기본색에 불투명도를 준 값으로 근사하고, 읽지 못한 값은
 플러그인 창의 기록에 남긴다.
+
+화면과 일부러 어긋나는 것.
+
+- **버튼처럼 안 생긴 「누를 수 있는 면」**(표 칸·달력 날짜, 코드의 `variant="bare" size="content"`)은
+  따로 만들지 않고 **기존 Button 세트를 넓혀** 같은 격자에 넣었다(7×5×3 = 105 → 8×6×3 = 144).
+  격자를 채우느라 코드에 아직 없는 조합(`default × content`, `bare × icon` 등)도 함께 그린다 —
+  실제로 쓰이는 것은 `bare × content` 6곳(메뉴 줄·표 칸·달력 날짜·행 선택기·표 머리글 정렬)과
+  `link × content` 1곳(일정 편집의 「시간 변경」 펼치기)이다.
+- **아이콘 버튼의 세 크기**(`icon-xs`·`icon-sm`·`icon-lg`)는 코드에 있지만 그리지 않는다. 셋 다
+  `w-control px-0`이라 `icon`과 같은 정사각형이고 안에 들어가는 아이콘 크기만 다르다 — 격자를
+  세 줄 늘려도 같은 그림이 반복될 뿐이다. 크기 6종은 Figma 가 그리는 범위이지 코드 API 전부가 아니다.
+- **되돌릴 수 없는 일을 묻는 확인창**은 저장 창에 메모를 붙이지 않고 `Dialog/alert`로 **따로 그렸다**.
+  폭이 512(`max-w-lg`)로 좁고, 낭독기 역할(`alertdialog`)·바깥 클릭 차단·초점이 「취소」로 가는
+  것처럼 그림에 안 보이는 규칙은 컴포넌트 설명에 적어 둔다.
+- **큰 배지**(StatusBadge `size=lg`)는 지금 어느 화면도 쓰지 않지만 Figma 에는 그대로 둔다
+  (PM 결정, 2026-09-23). 값도 코드 그대로다 — 최소 폭 96(`min-w-24`) · 글자 16px(줄 간격 150%)
+  에 높이는 기본 클래스의 26(`h-tag`)이라, 위아래 여백 8 + 글자 24 = 40 이 26 에 안 들어가
+  글자가 여백을 파고든다. 거울이므로 Figma 에서 고치지 않고, 코드에서 지울지·높이를 풀지는
+  별도 티켓으로 다룬다.
 
 ## 요금제 제한
 
@@ -46,4 +65,8 @@ Dark 모드와 페이지 9개로 만든다. 2026-09-19 Starter 계정에서 끝�
 ## 검증
 
 `pnpm --filter frontend test`가 `figma-plugin/code.test.ts`로 이 스크립트를 가짜 Figma API 위에서
-끝까지 실행해 변수·스타일·컴포넌트 수를 고정한다. 실제 Figma에서의 시각 확인은 실행한 사람이 한다.
+끝까지 실행해 변수·스타일·컴포넌트 수를 고정한다 — 부품 14종 목록과 Button 144변형을 통째로
+단언하므로 하나가 늘거나 이름이 바뀌면 깨지고, 같은 파일을 두 번 실행해 늘어나지 않는 것도 본다.
+파일 하나만 돌리려면 `pnpm --filter frontend exec vitest run figma-plugin/code.test.ts` 다
+(`pnpm … test -- <경로>`는 경로가 먹히지 않고 전체가 돈다). 실제 Figma에서의 시각 확인은 실행한
+사람이 한다.

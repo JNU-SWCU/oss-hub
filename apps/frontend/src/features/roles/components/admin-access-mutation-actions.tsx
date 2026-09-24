@@ -76,6 +76,9 @@ export function AdminAccessMutationActions({
           enabled={detail.hasStaffAccess}
           disabled={controlBlocked || isProcessing}
           grantBlocked={guards.elevatedRoleBlockedReason !== null}
+          // 본인이 자기 교직원 접근을 버려도 이 화면의 출입증은
+          // `hasAdminAccess`라 화면을 잃지 않는다 — 여기서는 막지 않는다(#1382).
+          revokeBlockedReason={null}
           onChange={(enabled) =>
             onRequestAction(
               enabled
@@ -89,6 +92,11 @@ export function AdminAccessMutationActions({
           enabled={detail.hasAdminAccess}
           disabled={controlBlocked || isProcessing}
           grantBlocked={guards.elevatedRoleBlockedReason !== null}
+          // 대기 요청 안내문이 이미 카드 위에 떠 있으면 같은 말을 두 번 하지
+          // 않는다 — 계정 상태 가드 문장도 같은 조건으로 숨는다.
+          revokeBlockedReason={
+            controlBlocked ? null : guards.adminRevokeBlockedReason
+          }
           onChange={(enabled) =>
             onRequestAction(
               enabled
@@ -163,12 +171,15 @@ function AuthorityControl({
   enabled,
   disabled,
   grantBlocked,
+  revokeBlockedReason,
   onChange,
 }: {
   readonly label: '교직원 접근' | '관리자 접근';
   readonly enabled: boolean;
   readonly disabled: boolean;
   readonly grantBlocked: boolean;
+  /** 회수가 막혔을 때 버튼 아래에 붙일 이유. 막히지 않으면 `null`. */
+  readonly revokeBlockedReason: string | null;
   readonly onChange: (enabled: boolean) => void;
 }) {
   const labelId =
@@ -190,12 +201,21 @@ function AuthorityControl({
           type="button"
           variant="outline"
           size="sm"
-          disabled={disabled || (!enabled && grantBlocked)}
+          disabled={
+            disabled ||
+            (!enabled && grantBlocked) ||
+            (enabled && revokeBlockedReason !== null)
+          }
           onClick={() => onChange(!enabled)}
         >
           <span className="sr-only">{label}</span> {enabled ? '회수' : '허용'}
         </Button>
       </div>
+      {/* 버튼이 [허용]일 때는 회수 가드가 아무것도 막지 않으므로 문장도 없다 —
+          계정 상태 묶음이 [재활성화]일 때와 같은 규칙이다. */}
+      {enabled && revokeBlockedReason ? (
+        <p className="text-sm text-muted-foreground">{revokeBlockedReason}</p>
+      ) : null}
     </div>
   );
 }
@@ -219,6 +239,11 @@ export function AdminAccessPendingRequestCard({
 }: AdminAccessPendingRequestCardProps) {
   if (!detail.pendingRequest) return null;
   const isProcessing = processingAction !== null;
+  // [승인]은 역할과 계정 상태를 한 요청에 함께 담아 보내는데, 비활성 계정에서는
+  // 그 명령이 서버에서 반드시 거절된다(#1381) — 큐의 교직원 승인자는 403
+  // `ROL_004`, 관리자는 409 `ROL_014`다. 누르기 전에 막고 이유를 한 줄로 적는다.
+  // [반려]는 역할도 상태도 바꾸지 않아 두 actor 모두 통과하므로 그대로 열어 둔다.
+  const { approvalBlockedReason } = deriveAdminAccessGuards(detail);
 
   return (
     <Card>
@@ -228,24 +253,35 @@ export function AdminAccessPendingRequestCard({
           {formatAdminAccessDateTime(detail.pendingRequest.createdAt)}에 신청됨
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          className="h-11"
-          disabled={isProcessing}
-          onClick={() => onRequestAction(ADMIN_ACCESS_MUTATION_ACTIONS.APPROVE)}
-        >
-          승인
-        </Button>
-        <Button
-          type="button"
-          className="h-11"
-          variant="destructive"
-          disabled={isProcessing}
-          onClick={() => onRequestAction(ADMIN_ACCESS_MUTATION_ACTIONS.REJECT)}
-        >
-          반려
-        </Button>
+      <CardContent className="grid gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            className="h-11"
+            disabled={isProcessing || approvalBlockedReason !== null}
+            onClick={() =>
+              onRequestAction(ADMIN_ACCESS_MUTATION_ACTIONS.APPROVE)
+            }
+          >
+            승인
+          </Button>
+          <Button
+            type="button"
+            className="h-11"
+            variant="destructive"
+            disabled={isProcessing}
+            onClick={() =>
+              onRequestAction(ADMIN_ACCESS_MUTATION_ACTIONS.REJECT)
+            }
+          >
+            반려
+          </Button>
+        </div>
+        {approvalBlockedReason ? (
+          <p className="text-sm text-muted-foreground">
+            {approvalBlockedReason}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );
