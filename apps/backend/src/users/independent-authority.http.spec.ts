@@ -10,7 +10,11 @@ import { issueSessionToken } from '../auth/session-token';
 import { SessionGuard } from '../auth/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { PrismaService } from '../prisma/prisma.service';
-import type { AdminAccessActor } from './admin-access.repository.types';
+import type {
+  AdminAccessActor,
+  AdminAccessInsertedRequest,
+  AdminAccessRevokedRequestInsert,
+} from './admin-access.repository.types';
 import {
   ADMIN_ACCESS_COMMANDS,
   STAFF_ACCESS_COMMANDS,
@@ -39,6 +43,7 @@ class HttpAuthorityStore
   target: IndependentAuthorityUserRecord = targetUser();
   activeAdminCount = 2;
   updates: IndependentAuthorityTransition[] = [];
+  revokedInserts: AdminAccessRevokedRequestInsert[] = [];
 
   withTransaction<T>(
     operation: (store: IndependentAuthorityTransactionStore) => Promise<T>,
@@ -67,11 +72,19 @@ class HttpAuthorityStore
     return Promise.resolve();
   }
 
+  insertRevokedRequest(
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest> {
+    this.revokedInserts.push(input);
+    return Promise.resolve({ id: `revoked-${this.revokedInserts.length}` });
+  }
+
   reset(): void {
     this.actor = adminActor();
     this.target = targetUser();
     this.activeAdminCount = 2;
     this.updates = [];
+    this.revokedInserts = [];
   }
 }
 

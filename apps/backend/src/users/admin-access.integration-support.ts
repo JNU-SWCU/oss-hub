@@ -446,6 +446,14 @@ class BarrierIndependentAuthorityStore implements IndependentAuthorityTransactio
   ): Promise<void> {
     return this.store.updateAuthority(userId, transition);
   }
+
+  insertRevokedRequest(
+    input: Parameters<
+      IndependentAuthorityTransactionStore['insertRevokedRequest']
+    >[0],
+  ): ReturnType<IndependentAuthorityTransactionStore['insertRevokedRequest']> {
+    return this.store.insertRevokedRequest(input);
+  }
 }
 
 export class BarrierIndependentAuthorityRepository implements IndependentAuthorityRepositoryPort {

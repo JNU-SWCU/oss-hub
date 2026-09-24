@@ -51,14 +51,34 @@ function historyPage() {
   return { items: [], page: 1, limit: 20, total: 0 };
 }
 
-describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 완료에서 읽기 전용으로 가드를 계산한다', () => {
-  it('아무 조건도 걸리지 않으면 네 가드 모두 null이다', () => {
+describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 완료·계정 상태에서 읽기 전용으로 가드를 계산한다', () => {
+  it('아무 조건도 걸리지 않으면 다섯 가드 모두 null이다', () => {
     expect(deriveAdminAccessGuards(detail())).toEqual({
       controlBlockedReason: null,
+      approvalBlockedReason: null,
       deactivationBlockedReason: null,
       adminRevokeBlockedReason: null,
       elevatedRoleBlockedReason: null,
     });
+  });
+
+  it('비활성 계정이면 승인만 막힌다', () => {
+    const guards = deriveAdminAccessGuards(
+      detail({ accountStatus: 'DEACTIVATED' }),
+    );
+    expect(guards.approvalBlockedReason).toBe(
+      '비활성 계정은 승인할 수 없습니다. 계정이 다시 활성화된 뒤에 처리할 수 있습니다.',
+    );
+    expect(guards.controlBlockedReason).toBeNull();
+    expect(guards.deactivationBlockedReason).toBeNull();
+    expect(guards.elevatedRoleBlockedReason).toBeNull();
+  });
+
+  it('활성 계정이면 승인 가드가 켜지지 않는다', () => {
+    expect(
+      deriveAdminAccessGuards(detail({ accountStatus: 'ACTIVE' }))
+        .approvalBlockedReason,
+    ).toBeNull();
   });
 
   it('대기 중인 요청이 있으면 전체 컨트롤이 막힌다', () => {
@@ -115,7 +135,7 @@ describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 �
     expect(guards.adminRevokeBlockedReason).toBeNull();
   });
 
-  it('세 조건이 동시에 성립하면 네 가드 모두 함께 켜진다', () => {
+  it('세 조건이 동시에 성립하면 계정 상태를 제외한 네 가드가 함께 켜진다', () => {
     const guards = deriveAdminAccessGuards(
       detail({
         isSelf: true,

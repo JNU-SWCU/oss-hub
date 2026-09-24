@@ -84,6 +84,8 @@ export async function loadAdminAccessDetail(
 export interface AdminAccessGuards {
   /** 대기 중인 요청이 있어 역할·상태 컨트롤 전체가 막혔을 때의 안내문. 없으면 `null`. */
   readonly controlBlockedReason: string | null;
+  /** 비활성 계정이라 대기 요청 승인이 서버에서 거절될 때의 안내문. 없으면 `null`. */
+  readonly approvalBlockedReason: string | null;
   /** 본인 계정이라 비활성화 선택지가 막혔을 때의 안내문. 없으면 `null`. */
   readonly deactivationBlockedReason: string | null;
   /** 본인 계정이라 관리자 접근 회수가 막혔을 때의 안내문. 없으면 `null`. */
@@ -96,6 +98,16 @@ export interface AdminAccessGuards {
  * 접근 변경 카드의 화면 전용 가드 — 백엔드는 이 중 어느 것도 별도 필드로
  * 내려주지 않으므로 이미 응답에 있는 `pendingRequest`·`isSelf`·
  * `profile.isComplete`에서 읽기 전용으로 계산한다.
+ *
+ * `approvalBlockedReason`은 서버가 이 명령을 받지 않는다는 사실을 그대로 읽은
+ * 것이다 — [승인]은 `desiredRole: 'STAFF'` + `desiredAccountStatus: 'ACTIVE'`를
+ * 함께 보내며(`admin-access-mutation-policy.ts`), 비활성 계정에서 그 명령은 actor에
+ * 따라 둘 중 하나로 끝난다. 관리자가 아닌 승인자(가입 신청 큐의 교직원)는 결정
+ * 명령에 계정 상태 변경을 실을 수 없어 403 `ROL_004`로 막히고
+ * (`admin-access-authorization.ts`의 `assertDecisionOnlyCommand`), 관리자는 역할과
+ * 계정 상태를 한 번에 바꾸는 명령을 금지하는 전이표에 걸려 409 `ROL_014`를 받는다
+ * (`admin-access-transition-table.ts`의 `changesRole && changesAccountStatus`).
+ * 어느 쪽이든 비활성 계정의 승인은 통과하지 않으므로 누르기 전에 막는다.
  *
  * `adminRevokeBlockedReason`은 서버의 `ROL_022`와 같은 조건을 화면에서 미리
  * 보여 줄 뿐이다(#1382) — 회수가 성공하면 누른 사람이 이 화면을 읽을 권한을
@@ -117,6 +129,10 @@ export function deriveAdminAccessGuards(
     controlBlockedReason: detail.pendingRequest
       ? '대기 중인 요청을 먼저 처리해 주세요.'
       : null,
+    approvalBlockedReason:
+      detail.accountStatus === 'DEACTIVATED'
+        ? '비활성 계정은 승인할 수 없습니다. 계정이 다시 활성화된 뒤에 처리할 수 있습니다.'
+        : null,
     deactivationBlockedReason: detail.isSelf
       ? '자기 계정은 비활성화할 수 없습니다.'
       : null,

@@ -458,6 +458,105 @@ describe('AdminAccessPendingRequestCard — 대기 요청 결정 카드', () => 
     expect(onRequestAction).toHaveBeenCalledWith('REJECT');
   });
 
+  it('비활성 계정이면 [승인]만 꺼지고 왜 막혔는지와 다음 걸음이 뜬다', () => {
+    // #1381 — 비활성 계정에 [승인]을 보내면 서버가 반드시 거절한다(큐의 교직원
+    // 승인자는 403 `ROL_004`, 관리자는 409 `ROL_014`). 누르기 전에 막는다.
+    act(() => {
+      root.render(
+        <AdminAccessPendingRequestCard
+          detail={detail({
+            role: 'STUDENT',
+            memberKind: 'STUDENT',
+            hasStaffAccess: false,
+            accountStatus: 'DEACTIVATED',
+            pendingRequest: {
+              id: 'req-1',
+              status: 'PENDING',
+              createdAt: '2026-07-30T00:00:00.000Z',
+            },
+          })}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
+      );
+    });
+
+    expect(
+      Array.from(container.querySelectorAll('button')).map((button) => [
+        button.textContent,
+        button.disabled,
+      ]),
+    ).toEqual([
+      ['승인', true],
+      ['반려', false],
+    ]);
+    expect(container.textContent).toContain(
+      '비활성 계정은 승인할 수 없습니다. 계정이 다시 활성화된 뒤에 처리할 수 있습니다.',
+    );
+  });
+
+  it('비활성 계정에서도 [반려]는 눌려 REJECT를 그대로 보낸다', () => {
+    const onRequestAction = vi.fn();
+    act(() => {
+      root.render(
+        <AdminAccessPendingRequestCard
+          detail={detail({
+            role: 'STUDENT',
+            memberKind: 'STUDENT',
+            hasStaffAccess: false,
+            accountStatus: 'DEACTIVATED',
+            pendingRequest: {
+              id: 'req-1',
+              status: 'PENDING',
+              createdAt: '2026-07-30T00:00:00.000Z',
+            },
+          })}
+          processingAction={null}
+          onRequestAction={onRequestAction}
+        />,
+      );
+    });
+
+    for (const button of Array.from(container.querySelectorAll('button'))) {
+      act(() => {
+        button.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, cancelable: true }),
+        );
+      });
+    }
+
+    expect(onRequestAction.mock.calls.flat()).toEqual(['REJECT']);
+  });
+
+  it('활성 계정이면 [승인]은 그대로 눌리고 가드 문장도 뜨지 않는다', () => {
+    act(() => {
+      root.render(
+        <AdminAccessPendingRequestCard
+          detail={detail({
+            role: 'STUDENT',
+            memberKind: 'STUDENT',
+            hasStaffAccess: false,
+            accountStatus: 'ACTIVE',
+            pendingRequest: {
+              id: 'req-1',
+              status: 'PENDING',
+              createdAt: '2026-07-30T00:00:00.000Z',
+            },
+          })}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
+      );
+    });
+
+    expect(
+      Array.from(container.querySelectorAll('button')).map(
+        (button) => button.disabled,
+      ),
+    ).toEqual([false, false]);
+    expect(container.textContent).not.toContain('비활성 계정은 승인할 수');
+  });
+
   it('처리 중(processingAction이 있음)이면 승인/반려 버튼이 모두 비활성화된다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessPendingRequestCard
