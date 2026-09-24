@@ -173,6 +173,8 @@ describe('profile onboarding view', () => {
     expect(html).toMatch(/id="profile-student-id"[^>]*aria-invalid="true"/);
     expect(html).toMatch(/id="profile-phone"[^>]*aria-invalid="true"/);
     expect(html).toMatch(/id="profile-department"[^>]*aria-invalid="true"/);
+    // 세 칸이 함께 틀렸으므로 폼 맨 위에 개수 요약이 선다(R-16).
+    expect(html).toContain('고칠 칸이 3개 있습니다');
     // 다시 누를 수 있어야 한다 — 고쳐 쓴 뒤 같은 버튼으로 저장까지 간다.
     expect(html).not.toMatch(/type="submit"[^>]*disabled/);
   });
@@ -228,5 +230,94 @@ describe('profile onboarding view', () => {
     expect(savingHtml).toContain('disabled=""');
     expect(failedHtml).toContain('프로필을 저장하지 못했습니다');
     expect(failedHtml).toContain('잠시 후 다시 시도해 주세요.');
+  });
+});
+
+describe('가입 프로필 입력의 상단 오류 요약(R-16)', () => {
+  const SUMMARY = 'data-slot="form-error-summary"';
+  const visibleFieldErrors = (html: string) =>
+    html.split('data-slot="field-error"').length - 1;
+
+  it('학생이 네 칸을 모두 비우고 누르면 보이는 오류 수만큼 맨 위에 요약한다', () => {
+    const html = renderForm(
+      values({ name: '', studentId: '', phone: '', departmentOption: '' }),
+      { role: 'STUDENT', showRequiredErrors: true },
+    );
+
+    expect(visibleFieldErrors(html)).toBe(4);
+    expect(html).toContain('고칠 칸이 4개 있습니다');
+    expect(html.indexOf(SUMMARY)).toBeGreaterThan(-1);
+    expect(html.indexOf(SUMMARY)).toBeLessThan(
+      html.indexOf('id="profile-name"'),
+    );
+    // 요약은 칸 옆 문구를 다시 적지 않는다.
+    expect(html.split('학과를 선택하거나 입력해 주세요.').length - 1).toBe(1);
+  });
+
+  it('교직원은 이름·학과 두 칸이 비면 2개로 요약한다', () => {
+    const html = renderForm(
+      values({ name: '', studentId: '', phone: '', departmentOption: '' }),
+      { memberKind: 'STAFF', showRequiredErrors: true },
+    );
+
+    expect(visibleFieldErrors(html)).toBe(2);
+    expect(html).toContain('고칠 칸이 2개 있습니다');
+    expect(html.indexOf(SUMMARY)).toBeLessThan(
+      html.indexOf('id="profile-name"'),
+    );
+  });
+
+  it('오류가 하나뿐이면 요약 없이 칸 옆 오류만 보인다', () => {
+    const html = renderForm(values({ name: '' }), {
+      role: 'STUDENT',
+      showRequiredErrors: true,
+    });
+
+    expect(visibleFieldErrors(html)).toBe(1);
+    expect(html).not.toContain(SUMMARY);
+  });
+
+  it('교직원 화면에 없는 학번 칸의 오류는 세지 않는다', () => {
+    // 학번 칸은 학생에게만 그린다. 값이 남아 오류가 계산돼도 화면에는 없다.
+    const html = renderForm(values({ name: '', studentId: 'A' }), {
+      memberKind: 'STAFF',
+      showRequiredErrors: true,
+    });
+
+    expect(html).not.toContain('profile-student-id');
+    expect(visibleFieldErrors(html)).toBe(1);
+    expect(html).not.toContain(SUMMARY);
+  });
+
+  it('누르기 전에는 네 칸이 비어 있어도 요약을 그리지 않는다', () => {
+    const html = renderForm(
+      values({ name: '', studentId: '', phone: '', departmentOption: '' }),
+      { role: 'STUDENT' },
+    );
+
+    expect(visibleFieldErrors(html)).toBe(0);
+    expect(html).not.toContain(SUMMARY);
+  });
+
+  it('누르기 전에 치는 도중 학번·전화번호 오류가 둘 보여도 요약은 서지 않는다', () => {
+    // 두 칸은 치는 즉시 형식 오류를 보인다. 요약은 「가입 마치기」가 막혔을 때의 개수다.
+    const html = renderForm(values({ studentId: '12', phone: '010' }), {
+      role: 'STUDENT',
+    });
+
+    expect(visibleFieldErrors(html)).toBe(2);
+    expect(html).not.toContain(SUMMARY);
+  });
+
+  it('저장 버튼 옆 서버 오류는 세지 않는다', () => {
+    // 칸 오류는 이름 하나뿐이고 서버 오류가 따로 서 있다 — 요약 조건(둘 이상)에 들지 않는다.
+    const html = renderForm(values({ name: '' }), {
+      role: 'STUDENT',
+      showRequiredErrors: true,
+      submitError: '프로필을 저장하지 못했습니다.',
+    });
+
+    expect(visibleFieldErrors(html)).toBe(1);
+    expect(html).not.toContain(SUMMARY);
   });
 });

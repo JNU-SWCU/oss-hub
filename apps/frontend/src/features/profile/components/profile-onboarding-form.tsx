@@ -1,6 +1,7 @@
 import { useRef, type FormEvent } from 'react';
 import {
   signupPrimaryClassName,
+  FormErrorSummary,
   FormSection,
   SignupEyebrow,
   SignupLede,
@@ -56,6 +57,7 @@ export function ProfileOnboardingForm({
   const isStudent = memberKind === 'STUDENT';
   const showNameError = showRequiredErrors && errors.name !== null;
   const showStudentIdError =
+    isStudent &&
     errors.studentId !== null &&
     (showRequiredErrors || values.studentId.length > 0);
   const showPhoneError =
@@ -93,6 +95,21 @@ export function ProfileOnboardingForm({
         프로그램 신청과 팀 구성에 사용할 정보를 입력해 주세요.
       </SignupLede>
       <form className="flex flex-col gap-10" onSubmit={handleSubmit}>
+        {/*
+          학번·전화번호는 누르기 전에도 치는 즉시 오류를 보인다. 요약까지 그때 서면
+          입력 도중 role="alert" 가 끼어드므로, 요약은 「가입 마치기」를 누른 뒤에만
+          센다 — 다른 폼들과 같이 「제출이 막혔을 때」의 개수다(R-16).
+        */}
+        <FormErrorSummary
+          count={
+            showRequiredErrors
+              ? Number(showNameError) +
+                Number(showStudentIdError) +
+                Number(showPhoneError) +
+                Number(showAffiliationError)
+              : 0
+          }
+        />
         <FormSection title="기본 정보">
           <Field data-invalid={showNameError || undefined}>
             <FieldLabel htmlFor="profile-name">
