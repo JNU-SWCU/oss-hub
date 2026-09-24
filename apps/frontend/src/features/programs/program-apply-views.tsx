@@ -141,7 +141,7 @@ export function BlockedView({
 
 /**
  * 제출 직후 화면. 「우리 팀 보기」는 방금 신청한 그 프로그램의 팀 화면
- * (`/programs/:id/my-team`)으로 간다 — 팀 id를 화면이 만들어 붙이지 않는다.
+ * (`/programs/:id/team`)으로 간다 — 팀 id를 화면이 만들어 붙이지 않는다.
  * 팀 화면 자체가 서버 응답으로 팀 유무를 말하므로 여기서 미리 감추지 않는다.
  */
 export function ProgramApplySuccessView({

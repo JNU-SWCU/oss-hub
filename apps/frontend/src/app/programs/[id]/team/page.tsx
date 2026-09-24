@@ -45,8 +45,9 @@ function ProgramMyTeamWorkspace({ programId }: { readonly programId: string }) {
 
 // #1269 「우리 팀」(URL: /programs/[id]/team, #1133) — 접근: STUDENT.
 // 이 프로그램에서 내가 속한 팀 하나를 보는 학생 전용 작업 공간이다. 좌측 패널
-// (`_shell/sidebar-menu.ts`)·대시보드·초대 수락은 아직 `/my-team`(`programMyTeamHref`)으로
-// 들어오고, 그 주소가 이곳으로 보낸다(`../my-team/page.tsx`).
+// (`_shell/sidebar-menu.ts`)·초대 수락은 `programMyTeamHref`로 이 주소에 바로 온다.
+// 대시보드는 백엔드가 만든 `teamUrl`(`/my-team`)을 그대로 쓰므로 그 주소가 이곳으로
+// 보낸다(`../my-team/page.tsx`).
 export default function ProgramMyTeamRoutePage({
   params,
 }: {
