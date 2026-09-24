@@ -22,6 +22,7 @@ export enum RolesErrorCode {
   ACCESS_CHANGE_REQUIRED = 'ROL_019',
   SELF_ACCESS_MUTATION_FORBIDDEN = 'ROL_020',
   INDEPENDENT_AUTHORITY_REQUIRED = 'ROL_021',
+  SELF_ADMIN_REVOKE_FORBIDDEN = 'ROL_022',
 }
 
 export const ROLES_ERROR_CODES: Record<RolesErrorCode, ErrorCode> = {
@@ -130,5 +131,11 @@ export const ROLES_ERROR_CODES: Record<RolesErrorCode, ErrorCode> = {
     status: 400,
     message:
       '역할 강등은 이 엔드포인트에서 처리하지 않습니다. PATCH /users/:id/staff-access 또는 PATCH /users/:id/admin-access 를 사용하세요.',
+  },
+  [RolesErrorCode.SELF_ADMIN_REVOKE_FORBIDDEN]: {
+    code: RolesErrorCode.SELF_ADMIN_REVOKE_FORBIDDEN,
+    status: 409,
+    message:
+      '자기 계정의 관리자 접근은 회수할 수 없습니다. 다른 활성 관리자에게 요청해 주세요.',
   },
 };

@@ -87,6 +87,19 @@ export class IndependentAuthorityService {
       if (revokesLastActiveAdmin) {
         throw roleError(RolesErrorCode.LAST_ACTIVE_ADMIN_REQUIRED);
       }
+      // 자기 관리자 접근 회수는 성공하는 순간 이 화면을 읽을 권한까지 사라져
+      // 누른 사람이 결과를 확인할 수 없다(#1382). 계정 상태 쪽 `ROL_017`과 같은
+      // 자리의 가드이며, 판정은 이 경로 한 곳에만 둔다.
+      //
+      // 순서가 `revokesLastActiveAdmin` 뒤인 것은 의도다 — 활성 관리자가 하나뿐일
+      // 때는 기존 `ROL_018`이 그대로 답해야 한다(#1382의 「하지 않을 것」).
+      if (
+        target === AUTHORITY_TARGETS.ADMIN &&
+        !enabled &&
+        actor.id === before.id
+      ) {
+        throw roleError(RolesErrorCode.SELF_ADMIN_REVOKE_FORBIDDEN);
+      }
       const transition = resolveIndependentAuthorityTransition(
         before,
         target,

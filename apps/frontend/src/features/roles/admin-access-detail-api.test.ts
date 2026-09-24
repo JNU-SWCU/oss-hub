@@ -52,11 +52,12 @@ function historyPage() {
 }
 
 describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 완료·계정 상태에서 읽기 전용으로 가드를 계산한다', () => {
-  it('아무 조건도 걸리지 않으면 네 가드 모두 null이다', () => {
+  it('아무 조건도 걸리지 않으면 다섯 가드 모두 null이다', () => {
     expect(deriveAdminAccessGuards(detail())).toEqual({
       controlBlockedReason: null,
       approvalBlockedReason: null,
       deactivationBlockedReason: null,
+      adminRevokeBlockedReason: null,
       elevatedRoleBlockedReason: null,
     });
   });
@@ -95,13 +96,24 @@ describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 �
     );
   });
 
-  it('본인 계정이면 비활성화만 막힌다', () => {
+  it('본인 계정이면 비활성화와 관리자 접근 회수가 함께 막힌다', () => {
     const guards = deriveAdminAccessGuards(detail({ isSelf: true }));
     expect(guards.deactivationBlockedReason).toBe(
       '자기 계정은 비활성화할 수 없습니다.',
     );
+    // #1382 — 서버의 `ROL_022`와 같은 조건을 화면이 미리 말한다.
+    expect(guards.adminRevokeBlockedReason).toBe(
+      '자기 계정의 관리자 접근은 회수할 수 없습니다.',
+    );
     expect(guards.controlBlockedReason).toBeNull();
     expect(guards.elevatedRoleBlockedReason).toBeNull();
+  });
+
+  it('남의 계정이면 관리자 접근 회수 가드는 켜지지 않는다', () => {
+    expect(
+      deriveAdminAccessGuards(detail({ isSelf: false, hasAdminAccess: true }))
+        .adminRevokeBlockedReason,
+    ).toBeNull();
   });
 
   it('프로필이 미완료면 교직원·관리자 부여만 막힌다', () => {
@@ -120,9 +132,10 @@ describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 �
     );
     expect(guards.controlBlockedReason).toBeNull();
     expect(guards.deactivationBlockedReason).toBeNull();
+    expect(guards.adminRevokeBlockedReason).toBeNull();
   });
 
-  it('세 조건이 동시에 성립하면 세 가드 모두 함께 켜진다', () => {
+  it('세 조건이 동시에 성립하면 계정 상태를 제외한 네 가드가 함께 켜진다', () => {
     const guards = deriveAdminAccessGuards(
       detail({
         isSelf: true,
@@ -141,6 +154,7 @@ describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 �
     );
     expect(guards.controlBlockedReason).not.toBeNull();
     expect(guards.deactivationBlockedReason).not.toBeNull();
+    expect(guards.adminRevokeBlockedReason).not.toBeNull();
     expect(guards.elevatedRoleBlockedReason).not.toBeNull();
   });
 });
