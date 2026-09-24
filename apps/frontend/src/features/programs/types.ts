@@ -1,6 +1,5 @@
 import type { ProgramCategory, ProgramTrackType } from './program-templates';
 import type { PublishBlockedReason } from '@/lib/repository-publication';
-import type { StaffRepositoryEvidence } from './staff-repository-evidence';
 
 export type ViewerRole = 'STUDENT' | 'STAFF' | 'ADMIN' | 'PENDING' | null;
 export type ApplicationStatus = 'SUBMITTED' | 'APPROVED' | 'REJECTED';
@@ -361,7 +360,7 @@ export interface DeletedTeamResult {
   readonly deletedCounts: TeamDeletedCounts;
 }
 
-export interface StaffTeamDetail extends StaffRepositoryEvidence {
+export interface StaffTeamDetail {
   readonly teamId: string;
   readonly name: string;
   readonly memberCount: number;

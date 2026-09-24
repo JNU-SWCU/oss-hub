@@ -48,7 +48,8 @@ import { ApplicationStatusControl } from './application-status-control';
 import { ReviewHistoryTimeline } from './review-history-timeline';
 import { programHref } from './program-paths';
 import { ProgramStaffRepositorySection } from './program-staff-repository-section';
-import { StaffRepositoryEvidenceView } from './staff-repository-evidence-view';
+import { updateTeamRepositoryUrl } from './repository-url-api';
+import { TeamRepositoryPanel } from './team-repository-panel';
 import { TeamDeleteDialog } from './team-delete-dialog';
 import { TeamNameDialog } from './team-name-dialog';
 import type {
@@ -67,7 +68,6 @@ function Section({
   title,
   meta,
   children,
-  headingClassName = 'font-semibold',
 }: {
   readonly title: string;
   /**
@@ -76,12 +76,11 @@ function Section({
    */
   readonly meta?: string;
   readonly children: React.ReactNode;
-  readonly headingClassName?: string;
 }): ReactElement {
   return (
     <section className="grid gap-4 rounded-card border border-border p-card">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className={headingClassName}>{title}</h2>
+        <h2 className="font-semibold">{title}</h2>
         {meta ? (
           <span className="text-small text-muted-foreground">{meta}</span>
         ) : null}
@@ -135,27 +134,36 @@ export function ProgramStaffTeamDetailPage({
   const deleteTriggerRef = useRef<HTMLButtonElement | null>(null);
   const router = useRouter();
 
-  const load = useCallback(async (): Promise<void> => {
-    setLoadState({ kind: 'loading' });
-    try {
-      const detail = await getStaffProgramTeamDetail(programId, teamId);
-      if (cancelled.current) return;
-      setLoadState({ kind: 'ready', detail });
-    } catch (error: unknown) {
-      if (cancelled.current) return;
-      if (error instanceof ApiError && error.problem.status === 404) {
-        setLoadState({ kind: 'not-found' });
-      } else {
-        setLoadState({
-          kind: 'error',
-          message:
-            error instanceof ApiError
-              ? error.problem.detail
-              : '팀 상세를 불러오지 못했습니다.',
-        });
+  /**
+   * `quiet`는 보이는 화면을 스켈레톤으로 갈아 끼우지 않고 값만 새로 받는다 — 저장소를
+   * 바꾼 직후 발급·공개 카드가 옛 저장소를 가리키지 않게 할 때 쓴다. 실패하면 보이던
+   * 화면을 그대로 둔다.
+   */
+  const load = useCallback(
+    async (options?: { readonly quiet?: boolean }): Promise<void> => {
+      const quiet = options?.quiet === true;
+      if (!quiet) setLoadState({ kind: 'loading' });
+      try {
+        const detail = await getStaffProgramTeamDetail(programId, teamId);
+        if (cancelled.current) return;
+        setLoadState({ kind: 'ready', detail });
+      } catch (error: unknown) {
+        if (cancelled.current || quiet) return;
+        if (error instanceof ApiError && error.problem.status === 404) {
+          setLoadState({ kind: 'not-found' });
+        } else {
+          setLoadState({
+            kind: 'error',
+            message:
+              error instanceof ApiError
+                ? error.problem.detail
+                : '팀 상세를 불러오지 못했습니다.',
+          });
+        }
       }
-    }
-  }, [programId, teamId]);
+    },
+    [programId, teamId],
+  );
 
   useEffect(() => {
     cancelled.current = false;
@@ -410,18 +418,24 @@ export function ProgramStaffTeamDetailPage({
           }}
         />
 
-        <Section
-          title="저장소"
-          headingClassName="rounded-control bg-primary px-4 py-3 font-semibold text-primary-foreground"
+        {/*
+         * 학생 「우리 팀」과 같은 조회·같은 그래프다(#1133). 역할이 가르는 것은 저장 경로와
+         * 서버가 준 편집 권한뿐이다. 발급·공개 상태는 교직원에게만 있는 줄이라 URL 줄 아래에 붙인다.
+         */}
+        <TeamRepositoryPanel
+          programId={programId}
+          teamId={teamId}
+          activityTitle="팀 활동"
+          saveRepositoryUrl={(repositoryUrl) =>
+            updateTeamRepositoryUrl(programId, teamId, { repositoryUrl })
+          }
+          onSaved={() => void load({ quiet: true })}
         >
-          <ProgramStaffRepositorySection application={application} />
-          <StaffRepositoryEvidenceView
-            evidence={detail}
-            members={detail.members}
-            programId={programId}
-            teamId={teamId}
+          <ProgramStaffRepositorySection
+            key={application?.repository?.id ?? ''}
+            application={application}
           />
-        </Section>
+        </TeamRepositoryPanel>
 
         {/*
          * 신청서 본문·지원 동기는 이 화면에 두지 않는다. 상태는 제목 옆에서
