@@ -87,7 +87,7 @@ describe('RankingController', () => {
     ).toBeUndefined();
   });
 
-  it('public 항목은 허용된 여덟 키만 응답한다 — 이름·학과는 여전히 빠진다', async () => {
+  it('public 항목은 허용된 네 키만 응답한다 — Issue·Repo·Star·합계도 빠진다', async () => {
     findPage.mockResolvedValue({
       year: 2026,
       items: [
@@ -123,11 +123,63 @@ describe('RankingController', () => {
       githubLogin: 'mina',
       commitCount: 2,
       pullRequestCount: 1,
-      issueCount: 3,
-      repositoryCount: 4,
-      starCount: 5,
-      total: 15,
     });
+    expect(Object.keys(body.items[0] ?? {}).sort()).toEqual([
+      'commitCount',
+      'githubLogin',
+      'pullRequestCount',
+      'rank',
+    ]);
+    // 신원 여섯은 계층과 무관한 가드고, 구성원 지표 넷은 이 계층에서 빠진다.
+    for (const excluded of [
+      'department',
+      'displayName',
+      'githubId',
+      'id',
+      'name',
+      'userId',
+      'issueCount',
+      'repositoryCount',
+      'starCount',
+      'total',
+    ]) {
+      expect(body.items[0]).not.toHaveProperty(excluded);
+    }
+    expect(findPage).toHaveBeenCalledWith(2026, 1, 20, null);
+  });
+
+  it('member 항목은 지표 여덟 키를 싣고 신원은 계속 뺀다', async () => {
+    findPage.mockResolvedValue({
+      year: 2026,
+      items: [
+        {
+          rank: 1,
+          displayName: 'mina',
+          githubLogin: 'mina',
+          department: '소프트웨어공학과',
+          commitCount: 2,
+          pullRequestCount: 1,
+          issueCount: 3,
+          repositoryCount: 4,
+          starCount: 5,
+          total: 15,
+        },
+      ],
+      page: 1,
+      pageSize: 20,
+      total: 1,
+      dataAsOf: null,
+      viewerClass: 'member',
+      nextCycleAt: null,
+    });
+    const { response, headers } = recordingResponse();
+
+    const body = await controller.findPage(
+      { year: '2026', page: 1, pageSize: 20 },
+      requestWithAuth(4242n),
+      response,
+    );
+
     expect(Object.keys(body.items[0] ?? {}).sort()).toEqual([
       'commitCount',
       'githubLogin',
@@ -138,7 +190,6 @@ describe('RankingController', () => {
       'starCount',
       'total',
     ]);
-    // 공개 차단의 실제 가드는 이 여섯이다 — 지표가 아니라 신원이다.
     for (const excluded of [
       'department',
       'displayName',
@@ -149,7 +200,10 @@ describe('RankingController', () => {
     ]) {
       expect(body.items[0]).not.toHaveProperty(excluded);
     }
-    expect(findPage).toHaveBeenCalledWith(2026, 1, 20, null);
+    expect(body.viewerClass).toBe('member');
+    // 세션에 딸린 응답은 공유 캐시에 담기면 안 된다.
+    expect(headers.get('Cache-Control')).toBe('private, no-store');
+    expect(headers.get('Vary')).toBe('Cookie');
   });
 
   it('anonymous auth metadata면 githubId null로 조회하고 public no-store를 내린다', async () => {

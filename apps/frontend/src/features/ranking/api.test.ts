@@ -68,15 +68,12 @@ test('모르는 필드가 섞여도 파싱한다 — 봉투와 항목 양쪽', (
     items: [{ ...base.items[0], futureField: 'x', releaseCount: 9 }],
   });
 
+  // 공개 투영은 네 칸이다 — 봉투가 더 실어 보내도 화면 계약은 넓어지지 않는다.
   expect(page.items[0]).toEqual({
     rank: 1,
     githubLogin: 'mina',
     commitCount: 2,
     pullRequestCount: 1,
-    issueCount: 3,
-    repositoryCount: 4,
-    starCount: 5,
-    total: 15,
   });
   expect(page.viewerClass).toBe('public');
   expect(page.nextCycleAt).toBeNull();
@@ -129,22 +126,59 @@ test('공개 허용 목록 밖 구식 지표는 읽지 않는다', () => {
     githubLogin: 'mina',
     commitCount: 2,
     pullRequestCount: 1,
-    issueCount: 0,
-    repositoryCount: 0,
-    starCount: 0,
-    total: 4,
   });
   expect(page.items[0]).not.toHaveProperty('releaseCount');
+  expect(page.items[0]).not.toHaveProperty('total');
 });
 
-test('public total 을 파싱 결과에 남긴다', () => {
+test('public 항목에서는 total 을 읽지 않는다 — 합계는 구성원 계층부터다', () => {
   const base = rankingPage(2026);
   const page = parseRankingPage({
     ...base,
     items: [{ ...base.items[0], total: 99 }],
   });
 
-  expect(page.items[0]).toHaveProperty('total', 99);
+  expect(page.items[0]).not.toHaveProperty('total');
+});
+
+test('member 항목은 지표 여덟 칸을 읽고 빠진 지표는 0 으로 떨어뜨린다', () => {
+  const base = rankingPage(2026);
+  const full = parseRankingPage({ ...base, viewerClass: 'member' });
+  const sparse = parseRankingPage({
+    ...base,
+    viewerClass: 'member',
+    items: [
+      { rank: 1, githubLogin: 'mina', commitCount: 2, pullRequestCount: 1 },
+    ],
+  });
+
+  expect(full.viewerClass).toBe('member');
+  expect(full.items[0]).toEqual({
+    rank: 1,
+    githubLogin: 'mina',
+    commitCount: 2,
+    pullRequestCount: 1,
+    issueCount: 3,
+    repositoryCount: 4,
+    starCount: 5,
+    total: 15,
+  });
+  expect(sparse.items[0]).toHaveProperty('total', 0);
+  // 신원은 member 에도 실리지 않는다.
+  for (const identity of ['name', 'department', 'displayName']) {
+    expect(full.items[0]).not.toHaveProperty(identity);
+  }
+});
+
+test('member 항목에 name 키가 있으면 거부한다 — 신원 가드는 계층을 타지 않는다', () => {
+  const base = rankingPage(2026);
+  expect(() =>
+    parseRankingPage({
+      ...base,
+      viewerClass: 'member',
+      items: [{ ...base.items[0], name: 'synthetic-staff-name' }],
+    }),
+  ).toThrow(RankingResponseError);
 });
 
 test('필수 필드는 형이 어긋나면 계속 거부한다', () => {
@@ -274,7 +308,7 @@ test('viewerClass 가 없으면 거부한다', () => {
   );
 });
 
-test('viewerClass 가 public|staff 가 아니면 거부한다', () => {
+test('viewerClass 가 public|member|staff 가 아니면 거부한다', () => {
   expect(() =>
     parseRankingPage({ ...rankingPage(2026), viewerClass: 'STUDENT' }),
   ).toThrow(RankingResponseError);
@@ -283,7 +317,7 @@ test('viewerClass 가 public|staff 가 아니면 거부한다', () => {
   ).toThrow(RankingResponseError);
 });
 
-test('public 항목은 지표 여덟 키만 남기고 staff 항목은 richer shape을 유지한다', () => {
+test('public 항목은 네 키만 남기고 staff 항목은 richer shape을 유지한다', () => {
   const base = rankingPage(2026);
   const publicPage = parseRankingPage(base);
   const staffPage = parseRankingPage({
@@ -295,12 +329,8 @@ test('public 항목은 지표 여덟 키만 남기고 staff 항목은 richer sha
   expect(Object.keys(publicPage.items[0] ?? {}).sort()).toEqual([
     'commitCount',
     'githubLogin',
-    'issueCount',
     'pullRequestCount',
     'rank',
-    'repositoryCount',
-    'starCount',
-    'total',
   ]);
   // 공개가 감추는 것은 지표가 아니라 신원이다.
   for (const identity of ['name', 'department', 'displayName']) {

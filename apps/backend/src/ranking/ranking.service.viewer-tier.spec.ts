@@ -64,6 +64,22 @@ describe('RankingService viewer class', () => {
     });
   });
 
+  describe('member class', () => {
+    it('member 는 이름을 조회하지 않고 member 봉투를 유지한다', async () => {
+      harness.findViewerClass.mockResolvedValue('member');
+      harness.findMetrics.mockResolvedValue([
+        activity(1n, 'octo-cat', { commitCount: 2, department: '전자공학과' }),
+      ]);
+
+      const page = await harness.service.findPage(2026, 1, 20, 11n);
+
+      expect(harness.findNamesByGithubIds).not.toHaveBeenCalled();
+      expect(page.viewerClass).toBe('member');
+      expect(page.items[0]).not.toHaveProperty('name');
+      expect(page.items[0]).toMatchObject({ githubLogin: 'octo-cat' });
+    });
+  });
+
   describe('staff class', () => {
     it('joins names on the page slice only', async () => {
       harness.findViewerClass.mockResolvedValue('staff');

@@ -9,7 +9,7 @@ import {
   resolveUserProfileName,
 } from '../../profiles/user-profile-read';
 
-export type RankingViewerClass = 'public' | 'staff';
+export type RankingViewerClass = 'public' | 'member' | 'staff';
 
 export interface RankingMetricRow {
   readonly githubId: bigint;
@@ -47,6 +47,10 @@ const RANKING_ELIGIBLE_MEMBER: Prisma.UserWhereInput = {
 export class RankingRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * 뷰어 계층. 세션이 없으면 `public`이고, 계정이 실재하고 ACTIVE 일 때만
+   * 위 계층으로 올린다 — 조회 실패·탈퇴·정지는 전부 `public`으로 떨어진다.
+   */
   async findViewerClass(githubId: bigint | null): Promise<RankingViewerClass> {
     if (githubId === null) {
       return 'public';
@@ -59,14 +63,13 @@ export class RankingRepository {
         accountStatus: true,
       },
     });
-    if (
-      actor !== null &&
-      (actor.hasStaffAccess || actor.hasAdminAccess) &&
-      actor.accountStatus === AccountStatus.ACTIVE
-    ) {
+    if (actor === null || actor.accountStatus !== AccountStatus.ACTIVE) {
+      return 'public';
+    }
+    if (actor.hasStaffAccess || actor.hasAdminAccess) {
       return 'staff';
     }
-    return 'public';
+    return 'member';
   }
 
   async findMetrics(
