@@ -25,6 +25,8 @@ interface TeamRepositoryMember {
   readonly user: { readonly githubId: bigint };
 }
 
+const LAST_QUERYABLE_DAY = Date.UTC(9999, 11, 31);
+
 export class ProgramTeamRepositoryEvidenceRepository {
   constructor(private readonly prisma: PrismaService) {}
 
@@ -115,7 +117,11 @@ export class ProgramTeamRepositoryEvidenceRepository {
         repositoryId: repository.id,
         date: {
           gte: new Date(`${from}T00:00:00Z`),
-          lte: new Date(`${to}T00:00:00Z`),
+          // Prisma는 네 자리 연도만 넘긴다. 센티널 끝(`+010000-01-01`)은 그 앞의 마지막
+          // 날로 비교한다 — 그보다 뒤 날짜의 기여 행은 없으니 결과가 같다.
+          lte: new Date(
+            Math.min(Date.parse(`${to}T00:00:00Z`), LAST_QUERYABLE_DAY),
+          ),
         },
       },
       _sum: { commitCount: true, pullRequestCount: true, releaseCount: true },

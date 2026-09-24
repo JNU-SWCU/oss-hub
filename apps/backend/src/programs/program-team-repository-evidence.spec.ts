@@ -11,7 +11,7 @@ import { ProgramTeamRepositoryEvidenceRepository } from './repository/program-te
 
 afterEach(() => jest.clearAllMocks());
 
-it('preserves legacy program date boundaries using valid ISO calendar dates', async () => {
+it('keeps the sentinel window but bounds the query by the last queryable day', async () => {
   // Given
   givenRepository();
   const repository = new ProgramTeamRepositoryEvidenceRepository(
@@ -45,7 +45,7 @@ it('preserves legacy program date boundaries using valid ISO calendar dates', as
         repositoryId: 'current-repo',
         date: {
           gte: new Date('0001-01-01T00:00:00.000Z'),
-          lte: new Date('+010000-01-01T00:00:00.000Z'),
+          lte: new Date('9999-12-31T00:00:00.000Z'),
         },
       },
     }),

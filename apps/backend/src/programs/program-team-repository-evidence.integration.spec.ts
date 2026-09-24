@@ -188,3 +188,86 @@ it('projects only linked repository facts inside the program window while retain
     }),
   ).toBe(1);
 });
+
+it('reads contributions of a program that never set an end date', async () => {
+  // Given — endAt omitted keeps the 9999-12-31T23:59:59.999 sentinel, which Seoul reads as year 10000.
+  // The legacy write trigger moves an omitted startAt to applicationEndAt.
+  const scope = `staff-evidence-sentinel-${randomUUID()}`;
+  const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
+  const scopedProgramId = `${scope}-program`;
+  const scopedTeamId = `${scope}-team`;
+  const scopedApplicationId = `${scope}-application`;
+  const scopedRepositoryId = `${scope}-repository`;
+  await prisma.user.create({
+    data: { id: `${scope}-member`, githubId: base, nickname: 'sentinel' },
+  });
+  await prisma.program.create({
+    data: {
+      id: scopedProgramId,
+      name: 'Synthetic program',
+      organizer: 'Synthetic',
+      category: 'BASIC',
+      applicationTemplateKey: 'synthetic',
+      applicationTemplateVersion: 1,
+      description: 'Synthetic',
+      applicationStartAt: new Date('2026-07-01Z'),
+      applicationEndAt: new Date('2026-07-31Z'),
+    },
+  });
+  await prisma.team.create({
+    data: {
+      id: scopedTeamId,
+      programId: scopedProgramId,
+      name: 'Synthetic team',
+      joinCodeDigest: scope,
+      leaderId: `${scope}-member`,
+    },
+  });
+  await prisma.teamMember.create({
+    data: {
+      teamId: scopedTeamId,
+      programId: scopedProgramId,
+      userId: `${scope}-member`,
+    },
+  });
+  await prisma.application.create({
+    data: {
+      id: scopedApplicationId,
+      programId: scopedProgramId,
+      teamId: scopedTeamId,
+      applicantId: `${scope}-member`,
+      answers: {},
+      applicationTemplateVersion: 1,
+    },
+  });
+  await prisma.githubRepository.create({
+    data: {
+      id: scopedRepositoryId,
+      githubRepositoryId: base + 1n,
+      nameWithOwner: 'synthetic/sentinel',
+      source: 'EXTERNAL_PUBLIC',
+      applicationId: scopedApplicationId,
+      programId: scopedProgramId,
+      teamId: scopedTeamId,
+      lastSuccessAt: new Date('2026-09-01Z'),
+    },
+  });
+  await prisma.contribution.create({
+    data: {
+      repositoryId: scopedRepositoryId,
+      githubId: base,
+      date: new Date('2026-08-01Z'),
+      commitCount: 3,
+    },
+  });
+  // When
+  const detail = await new ProgramTeamsRepository(prisma).findStaffTeamDetail(
+    scopedProgramId,
+    scopedTeamId,
+  );
+  // Then
+  expect(detail?.repositoryContributions).toMatchObject({
+    window: { from: '2026-07-31', to: '+010000-01-01', timeZone: 'Asia/Seoul' },
+    members: [{ userId: `${scope}-member`, commitCount: 3 }],
+  });
+});
