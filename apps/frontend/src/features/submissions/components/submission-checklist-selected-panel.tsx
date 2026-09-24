@@ -32,6 +32,8 @@ export interface SelectedMilestonePanelProps {
   readonly comment: string;
   readonly errors: SubmissionFormErrors;
   readonly fileError: string | null;
+  /** 고른 ZIP의 판정을 기다리는 중(#1108). */
+  readonly fileChecking?: boolean;
   readonly submitting: boolean;
   readonly submissionPhase: 'uploading' | 'creating' | null;
   readonly onCloseSelected?: () => void;
@@ -148,6 +150,7 @@ function ResubmissionForm(
           disabled={props.submitting}
           file={props.input.file}
           fileError={props.fileError}
+          fileChecking={props.fileChecking}
           onTextChange={props.onTextChange}
           onFileChange={props.onFileChange}
         />

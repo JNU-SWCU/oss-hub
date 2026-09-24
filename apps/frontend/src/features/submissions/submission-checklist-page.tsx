@@ -31,6 +31,7 @@ import {
 } from './components/submission-checklist-view';
 import { useSubmissionChecklistInitialSubmissionFlow } from './submission-checklist-initial-submission';
 import type { SubmissionChecklist } from './types';
+import { useSubmissionFileCheck } from './use-submission-file-check';
 
 type ChecklistPageState =
   | { readonly kind: 'loading' }
@@ -89,6 +90,7 @@ export function SubmissionChecklistPage({
     useState<ResubmissionPhase | null>(null);
   const uploadedFile = useRef(new SubmissionFileUploadCache());
   const resubmitInFlight = useRef(false);
+  const fileCheck = useSubmissionFileCheck(input.file);
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -311,7 +313,8 @@ export function SubmissionChecklistPage({
       input={input}
       comment={comment}
       errors={errors}
-      fileError={fileError}
+      fileError={fileError ?? fileCheck.message}
+      fileChecking={fileCheck.checking}
       serverError={serverError}
       staleNotice={staleNotice}
       toastMessage={toastMessage}
@@ -325,6 +328,7 @@ export function SubmissionChecklistPage({
         setFileError(null);
         setErrors({});
         uploadedFile.current.discardUnless(file);
+        fileCheck.start(file, state.data.fileUpload);
       }}
       onCommentChange={setComment}
       onResubmit={() => void resubmit(state.data)}

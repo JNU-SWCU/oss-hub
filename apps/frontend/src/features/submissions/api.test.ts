@@ -2,6 +2,7 @@ import { submissionUploadLimit } from '../../../test-support/submission-upload-l
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
 import {
+  checkSubmissionFile,
   createResubmission,
   createSubmission,
   downloadMilestoneDocumentCurrentFile,
@@ -164,6 +165,27 @@ describe('submissions api', () => {
     expect(init.body.get('milestoneId')).toBe('milestone-1');
     expect(init.body.get('submissionId')).toBe('submission-1');
     expect(init.body.get('baseRevision')).toBe('3');
+    expect(init.body.get('file')).toBe(file);
+  });
+
+  it('파일 판정은 파일 하나만 판정 경로로 보내고 본문 없는 204를 통과로 받는다', async () => {
+    // Given: 판정 경로는 저장하지 않으므로 식별자 없이 파일만 보낸다(#1108).
+    const request = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', request);
+    const file = new File(['PK'], 'bundle.zip', { type: 'application/zip' });
+
+    // When / Then
+    await expect(checkSubmissionFile(file)).resolves.toBeUndefined();
+    const [url, init] = request.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(apiPath('submission-files/checks'));
+    expect(init.method).toBe('POST');
+    expect(init.headers).toBeUndefined();
+    if (!(init.body instanceof FormData)) {
+      throw new Error('expected FormData body');
+    }
+    expect([...init.body.keys()]).toEqual(['file']);
     expect(init.body.get('file')).toBe(file);
   });
   it('program과 milestone 식별자를 인코딩해 폼을 조회한다', async () => {

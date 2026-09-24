@@ -4,6 +4,7 @@ import { isValidElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import {
+  checkSubmissionFile,
   createResubmission,
   getSubmissionChecklist,
   uploadSubmissionFile,
@@ -135,6 +136,7 @@ vi.mock('react', async (importOriginal) => {
 });
 
 vi.mock('./api', () => ({
+  checkSubmissionFile: vi.fn(),
   createResubmission: vi.fn(),
   getSubmissionChecklist: vi.fn(),
   uploadSubmissionFile: vi.fn(),
@@ -313,7 +315,9 @@ beforeEach(() => {
   vi.mocked(getSubmissionChecklist).mockReset();
   vi.mocked(uploadSubmissionFile).mockReset();
   vi.mocked(createResubmission).mockReset();
+  vi.mocked(checkSubmissionFile).mockReset();
   vi.mocked(getSubmissionChecklist).mockResolvedValue(CHECKLIST);
+  vi.mocked(checkSubmissionFile).mockResolvedValue(undefined);
 });
 
 describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
@@ -468,6 +472,48 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
     expect(currentViewProps().fileError).not.toBe(
       'PDF, HWP, ZIP 파일만 제출할 수 있습니다.',
     );
+  });
+
+  /*
+   * #1108 인터뷰 — 보완 재제출 화면도 ZIP을 고르자마자 판정을 묻는다. 업로드·재제출은
+   * 나가지 않고, 판정 대기와 거절 문장이 파일 입력 자리로 간다.
+   */
+  it('ZIP을 고르면 재제출을 누르지 않아도 판정 대기와 거절 문장을 파일 입력에 넘긴다', async () => {
+    // Given
+    const detail =
+      '비밀번호가 걸린 압축 파일은 제출할 수 없습니다. 비밀번호 없이 다시 압축해 주세요.';
+    vi.mocked(checkSubmissionFile).mockRejectedValueOnce(
+      new ApiError(problem('SUB_028', detail)),
+    );
+    const locked = new File(['PK'], 'locked.zip', { type: 'application/zip' });
+    await renderReadyPage();
+
+    // When: 파일만 고른다.
+    currentViewProps().onFileChange(locked);
+    renderPage();
+
+    // Then: 판정을 기다리는 중이다.
+    expect(currentViewProps().fileChecking).toBe(true);
+    expect(currentViewProps().fileError).toBeNull();
+
+    // When: 판정이 돌아온다.
+    await flushAsyncWork();
+    renderPage();
+
+    // Then: 제출 없이 거절 문장이 파일 입력으로 간다.
+    expect(checkSubmissionFile).toHaveBeenCalledWith(locked);
+    expect(currentViewProps().fileChecking).toBe(false);
+    expect(currentViewProps().fileError).toBe(detail);
+    expect(uploadSubmissionFile).not.toHaveBeenCalled();
+    expect(createResubmission).not.toHaveBeenCalled();
+
+    // When: 다른 파일(PDF)로 바꾼다.
+    currentViewProps().onFileChange(FILE);
+    renderPage();
+
+    // Then: 지난 문장은 사라지고 PDF는 판정을 묻지 않는다.
+    expect(currentViewProps().fileError).toBeNull();
+    expect(checkSubmissionFile).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the cached upload id for other retryable create-resubmission server errors', async () => {

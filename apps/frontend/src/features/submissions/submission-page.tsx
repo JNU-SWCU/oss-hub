@@ -26,6 +26,7 @@ import {
   SubmissionFileUploadCache,
 } from './submission-form';
 import type { CreatedSubmission, SubmissionFormData } from './types';
+import { useSubmissionFileCheck } from './use-submission-file-check';
 
 type SubmissionPageState =
   | { readonly kind: 'loading' }
@@ -67,6 +68,7 @@ export function SubmissionPage({
   >(null);
   const uploadedFile = useRef(new SubmissionFileUploadCache());
   const submitInFlight = useRef(false);
+  const fileCheck = useSubmissionFileCheck(file);
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -233,7 +235,8 @@ export function SubmissionPage({
       serverErrorKind={serverErrorKind}
       submitting={submitting}
       file={file}
-      fileError={fileError}
+      fileError={fileError ?? fileCheck.message}
+      fileChecking={fileCheck.checking}
       submissionPhase={submissionPhase}
       onTextChange={(text) => setInput((previous) => ({ ...previous, text }))}
       onFileChange={(nextFile) => {
@@ -242,6 +245,7 @@ export function SubmissionPage({
         setFileError(null);
         setErrors({});
         uploadedFile.current.discardUnless(nextFile);
+        fileCheck.start(nextFile, state.data.fileUpload);
       }}
       onCommentChange={setComment}
       onSubmit={() => void submit(state.data)}

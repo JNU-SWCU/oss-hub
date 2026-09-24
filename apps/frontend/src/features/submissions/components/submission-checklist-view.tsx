@@ -34,6 +34,8 @@ export interface SubmissionChecklistViewProps {
   readonly comment: string;
   readonly errors: SubmissionFormErrors;
   readonly fileError: string | null;
+  /** 고른 ZIP의 판정을 기다리는 중(#1108). */
+  readonly fileChecking?: boolean;
   readonly serverError: string | null;
   readonly staleNotice: string | null;
   readonly toastMessage: string | null;

@@ -105,6 +105,20 @@ export function getSubmissionFileErrorMessage(
   return SUBMISSION_FILE_ERROR_MESSAGES[code] ?? null;
 }
 
+/**
+ * 파일을 고르자마자 받은 판정(#1108)을 파일 입력 옆 문장으로 바꾼다 — 제출 때 같은 자리에
+ * 서는 문장과 같다. 파일 판정이 아닌 코드(세션·권한·서버 장애)는 `null`이다. 그 실패는
+ * 제출이 지금처럼 다시 만나 알린다.
+ */
+export function submissionFileCheckMessage(
+  problem: { readonly code: string; readonly detail: string },
+  policy: SubmissionUploadLimit,
+): string | null {
+  return isSubmissionArchiveErrorCode(problem.code)
+    ? problem.detail
+    : getSubmissionFileErrorMessage(problem.code, policy);
+}
+
 /** 유형별 제출 입력의 DOM id. `SubmissionInput`이 실제로 쓰는 값과 같아야 한다. */
 export const SUBMISSION_FIELD_IDS = {
   FILE: 'submission-file',
