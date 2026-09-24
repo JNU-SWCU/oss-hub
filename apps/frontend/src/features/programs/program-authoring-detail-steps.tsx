@@ -26,7 +26,10 @@ export function ProgramAuthoringBasicStep({
   state,
   issues,
   dispatch,
-}: StepProps) {
+  onCoverErrorChange,
+}: StepProps & {
+  readonly onCoverErrorChange?: (message: string | null) => void;
+}) {
   return (
     <FormSection
       aria-labelledby="authoring-basic-title"
@@ -59,6 +62,7 @@ export function ProgramAuthoringBasicStep({
         onChange={(file) =>
           dispatch({ type: 'set_cover_file', file: file ?? null })
         }
+        onLocalErrorChange={onCoverErrorChange}
       />
       <ProgramAuthoringTextField
         id="authoring-organizer"

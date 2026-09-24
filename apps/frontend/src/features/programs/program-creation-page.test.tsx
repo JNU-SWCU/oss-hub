@@ -50,6 +50,25 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
+function setFieldValue(selector: string, value: string): void {
+  const field = document.querySelector<
+    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+  >(selector);
+  if (field === null) throw new TypeError(`Missing field ${selector}`);
+  const prototype =
+    field instanceof HTMLTextAreaElement
+      ? HTMLTextAreaElement.prototype
+      : field instanceof HTMLSelectElement
+        ? HTMLSelectElement.prototype
+        : HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(prototype, 'value')?.set?.call(field, value);
+  field.dispatchEvent(
+    new Event(field instanceof HTMLSelectElement ? 'change' : 'input', {
+      bubbles: true,
+    }),
+  );
+}
+
 function buttonNamed(name: string): HTMLButtonElement {
   const button = [...document.querySelectorAll('button')].find((candidate) =>
     candidate.textContent?.includes(name),
@@ -230,14 +249,82 @@ describe('ProgramCreationPage guided authoring', () => {
     expect(sent.milestones).toHaveLength(initial.milestones.length);
   });
 
-  it('필드 오류가 있으면 입력 옆에만 표시하고 중복 요약 경고는 만들지 않는다', async () => {
+  it('필드 오류가 둘 이상이면 칸 옆 오류와 함께 맨 위에 개수만 한 줄로 알린다(R-16)', async () => {
     await act(async () => root.render(<ProgramCreationPage />));
     await act(async () => buttonNamed('기본 정보').click());
     await act(async () => buttonNamed('계속').click());
 
     expect(container.textContent).toContain('주관기관을 입력해 주세요.');
+    const summary = container.querySelector('[data-slot="form-error-summary"]');
+    // 빈 기본 정보의 오류는 프로그램명·주관기관·교과/비교과·소개 넷이다.
+    expect(summary?.textContent).toBe('고칠 칸이 4개 있습니다');
+    // 요약은 칸 옆 문구를 다시 적지 않는다(R-16) — 옛 목록형 요약도 돌아오지 않는다.
+    expect(summary?.textContent).not.toContain('주관기관을 입력해 주세요.');
     expect(container.textContent).not.toContain('입력 내용을 확인해 주세요');
     expect(container.textContent).not.toContain('표시된 입력란을 고친 뒤');
+    // 요약은 칸들보다 앞에 서고, 포커스는 가져가지 않는다 — 커서는 첫 오류 칸에 있다.
+    const html = container.innerHTML;
+    expect(html.indexOf('data-slot="form-error-summary"')).toBeLessThan(
+      html.indexOf('id="program-name"'),
+    );
+    expect(document.activeElement?.id).toBe('program-name');
+  });
+
+  it('최종 검토에서 돌아와도 요약은 지금 단계 화면에 보이는 오류 줄 수만 센다', async () => {
+    await act(async () => root.render(<ProgramCreationPage />));
+    // 빈 상태로 최종 검토에서 만들기를 누르면 모든 단계의 오류가 한꺼번에
+    // 모이고 첫 오류 단계(기본 정보)로 돌아온다.
+    await act(async () => buttonNamed('최종 검토').click());
+    await act(async () => buttonNamed('프로그램 만들기').click());
+
+    const summary = container.querySelector('[data-slot="form-error-summary"]');
+    const visible = container.querySelectorAll('[data-slot="field-error"]');
+    expect(visible.length).toBe(4);
+    expect(summary?.textContent).toBe(`고칠 칸이 ${visible.length}개 있습니다`);
+  });
+
+  it('대표 이미지 칸이 스스로 띄운 파일 오류도 한 줄로 센다', async () => {
+    await act(async () => root.render(<ProgramCreationPage />));
+    await act(async () => buttonNamed('기본 정보').click());
+    const input = container.querySelector<HTMLInputElement>(
+      '[data-slot="program-cover-field"] input[type="file"]',
+    );
+    if (input === null) throw new TypeError('Missing cover file input.');
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [new File(['gif'], 'poster.gif', { type: 'image/gif' })],
+    });
+    await act(async () => {
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await act(async () => buttonNamed('계속').click());
+
+    const visible = container.querySelectorAll('[data-slot="field-error"]');
+    // 필수값 넷 + 이미지 형식 오류 하나. 이미지 오류는 페이지의 오류 목록에 없다.
+    expect(visible.length).toBe(5);
+    expect(
+      container.querySelector('[data-slot="form-error-summary"]')?.textContent,
+    ).toBe('고칠 칸이 5개 있습니다');
+  });
+
+  it('일정 단계는 시작·종료를 기간 한 줄로 세어 요약한다', async () => {
+    await act(async () => root.render(<ProgramCreationPage />));
+    await act(async () => buttonNamed('기본 정보').click());
+    await act(async () => {
+      setFieldValue('#program-name', '요약 확인 프로그램');
+      setFieldValue('#authoring-organizer', '요약 확인 학과');
+      setFieldValue('#program-track-type', 'EXTRACURRICULAR');
+      setFieldValue('#program-description', '요약 확인 소개');
+    });
+    // 기본 정보가 채워졌으므로 첫 오류 단계는 일정이다.
+    await act(async () => buttonNamed('최종 검토').click());
+    await act(async () => buttonNamed('프로그램 만들기').click());
+
+    const summary = container.querySelector('[data-slot="form-error-summary"]');
+    const visible = container.querySelectorAll('[data-slot="field-error"]');
+    // 신청·운영 시작과 종료가 모두 비어 오류 경로는 넷이지만 보이는 줄은 둘이다.
+    expect(visible.length).toBe(2);
+    expect(summary?.textContent).toBe('고칠 칸이 2개 있습니다');
   });
 
   it('navigates without persisting dirty form content', async () => {

@@ -181,6 +181,12 @@ describe('BoardListContent', () => {
     expect(textOf(html, 'board-new-post-body-error')).toBe(
       '내용을 입력해 주세요.',
     );
+    // 두 칸이 모두 틀렸으므로 폼 맨 위에 개수 요약이 선다(R-16).
+    expect(html).toContain('고칠 칸이 2개 있습니다');
+    expect(html.indexOf('data-slot="form-error-summary"')).toBeGreaterThan(-1);
+    expect(html.indexOf('data-slot="form-error-summary"')).toBeLessThan(
+      html.indexOf('id="board-new-post-title"'),
+    );
   });
 
   it('한 번 누르기 전에는 빈 칸을 빨갛게 칠하지 않는다', () => {
@@ -200,6 +206,8 @@ describe('BoardListContent', () => {
       'aria-invalid="true"',
     );
     expect(html).not.toContain('제목을 입력해 주세요.');
+    // 오류값은 이미 둘이지만 아직 누르지 않았으므로 요약도 없다.
+    expect(html).not.toContain('data-slot="form-error-summary"');
   });
 
   it('서버가 거절한 실패는 경고 상자에만 남고 칸은 오류 상태가 아니다', () => {

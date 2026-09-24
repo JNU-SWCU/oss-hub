@@ -25,6 +25,8 @@ type ProgramAuthoringStepContentProps = {
   readonly files: Map<string, File>;
   readonly runtime: ProgramSubmissionRuntime;
   readonly newId: () => string;
+  /** 기본 정보 단계의 대표 이미지 칸이 스스로 띄운 오류(R-16 요약 개수용). */
+  readonly onCoverErrorChange?: (message: string | null) => void;
 };
 
 export function ProgramAuthoringStepContent({
@@ -36,6 +38,7 @@ export function ProgramAuthoringStepContent({
   files,
   runtime,
   newId,
+  onCoverErrorChange,
 }: ProgramAuthoringStepContentProps) {
   const milestoneFileSnapshots = useRef(new Map<string, Map<string, File>>());
   const shared = { state, issues, dispatch };
@@ -51,7 +54,12 @@ export function ProgramAuthoringStepContent({
   };
   switch (step) {
     case 'basic':
-      return <ProgramAuthoringBasicStep {...shared} />;
+      return (
+        <ProgramAuthoringBasicStep
+          {...shared}
+          onCoverErrorChange={onCoverErrorChange}
+        />
+      );
     case 'schedule':
       return <ProgramAuthoringScheduleStep {...shared} />;
     case 'milestones':

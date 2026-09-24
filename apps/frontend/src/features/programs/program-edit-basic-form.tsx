@@ -26,6 +26,8 @@ import { ProgramDeadlineControl } from './program-deadline-control';
 interface ProgramEditBasicFormProps {
   readonly coverSelection?: ProgramCoverSelection;
   readonly onCoverChange: (selection: ProgramCoverSelection) => void;
+  /** 대표 이미지 칸이 스스로 띄운 파일 오류(R-16 요약 개수용). */
+  readonly onCoverErrorChange?: (message: string | null) => void;
   readonly isSaving?: boolean;
   readonly program: EditableProgram;
   readonly form: ProgramEditForm;
@@ -39,6 +41,7 @@ interface ProgramEditBasicFormProps {
 export function ProgramEditBasicForm({
   coverSelection,
   onCoverChange,
+  onCoverErrorChange,
   isSaving,
   program,
   form,
@@ -93,6 +96,7 @@ export function ProgramEditBasicForm({
           disabled={isSaving}
           serverError={errors.coverUploadId}
           onChange={onCoverChange}
+          onLocalErrorChange={onCoverErrorChange}
         />
         <Field>
           <FieldLabel htmlFor="program-organizer">주관기관 *</FieldLabel>

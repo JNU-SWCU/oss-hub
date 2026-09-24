@@ -7,6 +7,7 @@ import { AlertCircle, MessageSquare, Pin, RotateCcw } from 'lucide-react';
 import {
   DataTable,
   EmptyState,
+  FormErrorSummary,
   PageHeader,
   ParticipantOnlyNotice,
   StatusBadge,
@@ -191,6 +192,9 @@ export function BoardListContent({
       {newPostOpen ? (
         <Card>
           <CardContent className="grid gap-4 pt-6">
+            <FormErrorSummary
+              count={Number(showTitleError) + Number(showBodyError)}
+            />
             <Field data-invalid={showTitleError || undefined}>
               <FieldLabel htmlFor="board-new-post-title">제목</FieldLabel>
               <Input

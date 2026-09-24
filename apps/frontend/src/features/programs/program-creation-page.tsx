@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { FormErrorSummary } from '@/components';
 import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
 import { ApiError } from '@/lib/api-client';
 import {
@@ -37,6 +38,7 @@ import {
   validateProgramAuthoringStep,
   type ProgramAuthoringIssue,
 } from './program-authoring-validation';
+import { visibleAuthoringIssueCount } from './program-authoring-validation-helpers';
 import { useProgramExitGuard } from './use-program-exit-guard';
 
 export function ProgramCreationPage({
@@ -57,6 +59,9 @@ export function ProgramCreationPage({
   const [dirty, setDirty] = useState(false);
   const [issues, setIssues] = useState<readonly ProgramAuthoringIssue[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
+  // 대표 이미지 칸이 스스로 띄운 파일 오류. 이 칸은 `issues`에 없으므로
+  // 요약 개수를 셀 때 한 줄을 따로 더한다.
+  const [coverError, setCoverError] = useState<string | null>(null);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [fileUpload, setFileUpload] = useState<SubmissionUploadLimit | null>(
@@ -255,6 +260,12 @@ export function ProgramCreationPage({
         tabIndex={-1}
         className="grid gap-8 outline-none"
       >
+        <FormErrorSummary
+          count={
+            visibleAuthoringIssueCount(issues, state.currentStep) +
+            Number(state.currentStep === 'basic' && coverError !== null)
+          }
+        />
         <ProgramAuthoringStepContent
           fileUpload={fileUpload}
           step={state.currentStep}
@@ -264,6 +275,7 @@ export function ProgramCreationPage({
           files={filesRef.current}
           runtime={runtimeRef.current}
           newId={newAuthoringId}
+          onCoverErrorChange={setCoverError}
         />
         <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-6">
           {serverError ? (

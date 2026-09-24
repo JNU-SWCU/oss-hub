@@ -363,6 +363,54 @@ describe('BoardDetailContent', () => {
     expect(openingTag(html, 'board-edit-title')).not.toContain(
       'aria-invalid="true"',
     );
+    // 오류가 하나뿐이면 상단 요약은 없다(R-16).
+    expect(html).not.toContain('data-slot="form-error-summary"');
+  });
+
+  it('수정 폼의 두 칸이 모두 비면 맨 위에 개수 요약이 선다', () => {
+    const html = renderToStaticMarkup(
+      <BoardDetailContent
+        {...baseProps({
+          state: { kind: 'ready', post },
+          editing: true,
+          editTitle: '',
+          editBody: '',
+          editErrors: {
+            title: '제목을 입력해 주세요.',
+            body: '내용을 입력해 주세요.',
+          },
+          editShowFieldErrors: true,
+        })}
+      />,
+    );
+
+    expect(html).toContain('고칠 칸이 2개 있습니다');
+    expect(html.indexOf('data-slot="form-error-summary"')).toBeGreaterThan(-1);
+    expect(html.indexOf('data-slot="form-error-summary"')).toBeLessThan(
+      html.indexOf('id="board-edit-title"'),
+    );
+    // 요약은 칸 옆 문구를 다시 적지 않는다.
+    expect(html.split('제목을 입력해 주세요.').length - 1).toBe(1);
+  });
+
+  it('수정 폼은 저장을 누르기 전에는 두 칸이 비어도 요약을 그리지 않는다', () => {
+    const html = renderToStaticMarkup(
+      <BoardDetailContent
+        {...baseProps({
+          state: { kind: 'ready', post },
+          editing: true,
+          editTitle: '',
+          editBody: '',
+          editErrors: {
+            title: '제목을 입력해 주세요.',
+            body: '내용을 입력해 주세요.',
+          },
+          editShowFieldErrors: false,
+        })}
+      />,
+    );
+
+    expect(html).not.toContain('data-slot="form-error-summary"');
   });
 
   it('수정의 서버 실패는 경고 상자에만 남고 칸은 오류 상태가 아니다', () => {

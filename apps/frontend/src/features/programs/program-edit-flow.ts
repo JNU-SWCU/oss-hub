@@ -75,6 +75,30 @@ export interface ProgramEditErrors {
   readonly general?: string;
 }
 
+/**
+ * 프로그램 정보 폼에 실제로 보이는 필드 오류 줄 수 — R-16 상단 요약의 개수다.
+ * `general`은 필드 오류가 아니라 저장 버튼 옆에 따로 서므로 세지 않는다.
+ * 운영 기간은 시작·종료 오류를 한 줄(`startAt ?? endAt`)로 보이므로 하나로
+ * 센다. 팀 인원은 입력이 둘이어도 오류 줄은 하나다.
+ */
+export function visibleProgramEditErrorCount(
+  errors: ProgramEditErrors,
+  coverLocalError: string | null = null,
+): number {
+  return [
+    errors.name,
+    // 대표 이미지 칸은 스스로 띄운 파일 오류와 서버 오류를 한 줄
+    // (`error ?? serverError`)로 보인다.
+    errors.coverUploadId ?? coverLocalError,
+    errors.organizer,
+    errors.trackType,
+    errors.team,
+    errors.description,
+    errors.period,
+    errors.startAt ?? errors.endAt,
+  ].filter(Boolean).length;
+}
+
 export interface ProgramMilestoneForm {
   readonly id: string | null;
   readonly name: string;

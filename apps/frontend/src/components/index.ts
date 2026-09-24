@@ -54,3 +54,6 @@ export type { FilterChipGroupProps, FilterChipProps } from './filter-chip';
 
 export { FailureState } from './failure-state';
 export type { FailureStateProps } from './failure-state';
+
+export { FormErrorSummary } from './form-error-summary';
+export type { FormErrorSummaryProps } from './form-error-summary';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ImageIcon } from 'lucide-react';
 import { ProgramCoverPreview } from './program-cover-preview';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,13 @@ export interface ProgramCoverFieldProps {
   readonly disabled?: boolean;
   readonly serverError?: string;
   readonly onChange: (file: File | null | undefined) => void;
+  /**
+   * 이 칸이 스스로 띄운 파일 오류(형식·크기)를 부모에게 알린다 — 이 오류는
+   * 부모의 오류 상태에 없으므로, 폼 맨 위 요약(R-16)이 보이는 오류 줄을 셀 때
+   * 이 값으로 한 줄을 더한다. 언마운트될 때 `null`을 한 번 더 알린다. 상태
+   * setter처럼 안정된 함수를 넘긴다.
+   */
+  readonly onLocalErrorChange?: (message: string | null) => void;
 }
 
 export function ProgramCoverField({
@@ -44,10 +51,16 @@ export function ProgramCoverField({
   disabled,
   serverError,
   onChange,
+  onLocalErrorChange,
 }: ProgramCoverFieldProps) {
   const id = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setLocalError] = useState<string | null>(null);
+  const setError = (message: string | null) => {
+    setLocalError(message);
+    onLocalErrorChange?.(message);
+  };
+  useEffect(() => () => onLocalErrorChange?.(null), [onLocalErrorChange]);
   const shownError = error ?? serverError;
   const hasImage = Boolean(
     selection || (selection === undefined && currentImageUrl),

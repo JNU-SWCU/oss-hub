@@ -52,7 +52,53 @@ const fieldErrors: ProgramEditErrors = {
   period: '신청 기간을 확인해 주세요.',
 };
 
+function renderEditView(errors: ProgramEditErrors): string {
+  return renderToStaticMarkup(
+    <ProgramEditView
+      onCoverChange={() => undefined}
+      program={editableProgram}
+      form={toProgramEditForm(editableProgram)}
+      errors={errors}
+      toastMessage={null}
+      generalAlert={null}
+      isSaving={false}
+      milestoneEditor={{ mode: 'closed' }}
+      deleteTarget={null}
+      isMilestoneBusy={false}
+      {...lifecycleActionProps}
+      onFieldChange={noOp}
+      onSubmit={vi.fn()}
+      onAddMilestone={noOp}
+      onEditMilestone={noOp}
+      onCancelMilestone={noOp}
+      onMilestoneFieldChange={noOp}
+      onSaveMilestone={vi.fn()}
+      onRequestDeleteMilestone={noOp}
+      onCancelDelete={noOp}
+      onConfirmDelete={vi.fn()}
+    />,
+  );
+}
+
 describe('ProgramEditView contract', () => {
+  it('상단 요약은 보이는 필드 오류 줄만 센다 — 저장 버튼 옆 일반 오류는 빼고, 운영 기간은 한 줄', () => {
+    // 필드 오류 하나 + 일반 오류: 보이는 필드 줄은 하나라 요약이 없다.
+    expect(
+      renderEditView({
+        name: '프로그램 이름을 입력해 주세요.',
+        general: '실패',
+      }),
+    ).not.toContain('data-slot="form-error-summary"');
+    // 운영 시작·종료 둘 + 이름: 보이는 줄은 둘(운영 기간 한 줄, 이름 한 줄).
+    expect(
+      renderEditView({
+        name: '프로그램 이름을 입력해 주세요.',
+        startAt: '운영 시작을 확인해 주세요.',
+        endAt: '운영 종료를 확인해 주세요.',
+      }),
+    ).toContain('고칠 칸이 2개 있습니다');
+  });
+
   it('불러오기 실패에서도 사용자가 계속 이동할 경로를 알려 준다', () => {
     const html = renderToStaticMarkup(
       <ProgramEditLoadFailure
@@ -115,6 +161,12 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('aria-invalid="true"');
     expect(html).toContain('aria-describedby="application-schedule-error"');
     expect(html).toContain('신청 기간을 확인해 주세요.');
+    // 프로그램명·신청 기간 두 줄이 틀렸으므로 폼 맨 위에 개수 요약이 선다(R-16).
+    // 요약은 폼 안의 첫 요소라 기본 정보보다 앞에 있다.
+    expect(html).toContain('고칠 칸이 2개 있습니다');
+    expect(html.indexOf('data-slot="form-error-summary"')).toBeLessThan(
+      html.indexOf('id="program-name"'),
+    );
     expect(html).not.toContain('시간 변경');
     expect(html).not.toContain('신청·운영·마일스톤 일정');
     expect(html).not.toContain('날짜 선택 달력');

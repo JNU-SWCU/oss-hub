@@ -1,4 +1,5 @@
 ﻿import Link from 'next/link';
+import { useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +17,7 @@ import { ProgramEditScheduleEditor } from './program-edit-schedule-editor';
 import { ProgramEditDangerZoneSection } from './program-edit-danger-zone-section';
 import { ProgramEditMilestones } from './program-edit-milestones';
 import {
+  visibleProgramEditErrorCount,
   type ProgramEditableField,
   type ProgramEditErrors,
   type ProgramEditForm,
@@ -25,7 +27,12 @@ import {
 } from './program-edit-flow';
 import { programHref } from './program-paths';
 import { editScheduleEvents } from './program-schedule-overview-model';
-import { FormSection, PageBody, PageHeader } from '@/components';
+import {
+  FormErrorSummary,
+  FormSection,
+  PageBody,
+  PageHeader,
+} from '@/components';
 
 /** 폼 화면은 읽기 폭을 좁게 잡는다 — 본문 여백·최대폭의 나머지는 PageBody가 갖는다. */
 const FORM_WIDTH = 'max-w-4xl';
@@ -159,6 +166,9 @@ export function ProgramEditView({
   onCancelDelete,
   onConfirmDelete,
 }: ProgramEditViewProps) {
+  // 대표 이미지 칸이 스스로 띄운 파일 오류. `errors`에 없으므로 요약 개수를
+  // 셀 때 따로 넘긴다.
+  const [coverError, setCoverError] = useState<string | null>(null);
   return (
     <PageBody className={FORM_WIDTH}>
       {/*
@@ -203,9 +213,13 @@ export function ProgramEditView({
           </Alert>
         ) : null}
         <form className="grid min-w-0 gap-10" onSubmit={onSubmit}>
+          <FormErrorSummary
+            count={visibleProgramEditErrorCount(errors, coverError)}
+          />
           <ProgramEditBasicForm
             coverSelection={coverSelection}
             onCoverChange={onCoverChange}
+            onCoverErrorChange={setCoverError}
             isSaving={isSaving}
             program={program}
             form={form}

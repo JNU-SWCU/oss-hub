@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, ChevronLeft, Pin, PinOff, RotateCcw } from 'lucide-react';
-import { PageHeader, StatusBadge } from '@/components';
+import { FormErrorSummary, PageHeader, StatusBadge } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -194,6 +194,9 @@ export function BoardDetailContent({
       ) : editing ? (
         <Card>
           <CardContent className="grid gap-4 pt-6">
+            <FormErrorSummary
+              count={Number(showEditTitleError) + Number(showEditBodyError)}
+            />
             <Field data-invalid={showEditTitleError || undefined}>
               <FieldLabel htmlFor="board-edit-title">제목</FieldLabel>
               <Input
