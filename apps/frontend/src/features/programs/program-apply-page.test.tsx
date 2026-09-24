@@ -578,15 +578,14 @@ describe('ProgramApply views', () => {
 
     expect(html).not.toContain('반려 사유');
     expect(html).not.toContain('되돌리기 전 남아 있던 사유');
-    expect(html).toContain('신청서 내용 수정 제한');
-    expect(html).toContain('[&amp;_p]:whitespace-pre-line');
+    expect(html).toContain('수정할 수 없는 신청입니다');
     expect(html).toMatch(/data-slot="empty-state"[^>]*class="[^"]*break-keep/);
-    expect(html).not.toContain('수정할 수 없는 신청입니다');
     // 프로그램 식별자가 없으면 팀 관리 목적지를 만들지 않는다.
     expect(html).not.toContain('/my-team');
   });
 
-  it('승인된 신청에 programId가 있으면 저장소 URL을 별도로 관리한다', () => {
+  // #1133 — 저장소 URL은 우리 팀 화면 한 곳에서 바꾼다. 신청 화면에 편집기 사본을 두지 않는다.
+  it('승인된 신청의 막힌 화면은 저장소를 고치지 않고 우리 팀으로 보낸다', () => {
     const html = renderToStaticMarkup(
       <BlockedView
         reason="already-applied"
@@ -598,9 +597,10 @@ describe('ProgramApply views', () => {
       />,
     );
 
-    expect(html).toContain('신청서 내용 수정 제한');
-    expect(html).toContain('저장소 URL은 별도로 관리합니다');
-    expect(html).not.toContain('수정할 수 없는 신청입니다');
+    expect(html).toContain('수정할 수 없는 신청입니다');
+    expect(html).not.toContain('프로젝트 저장소');
+    expect(html).not.toContain('저장소 URL');
+    expect(html).not.toContain('신청서 내용 수정 제한');
     expect(html).toContain('href="/programs/program-1/my-team"');
   });
 
