@@ -105,6 +105,7 @@ After 전체 화면: [desktop 1440x900](https://github.com/JNU-SWCU/oss-hub/rele
 | AP-21 좁은 화면에서 본문과 메타가 부딪힘 | 위반 → 고침 | 390x844에서 본문이 이름 옆에서 잘려 머리 아래로 내렸다 |
 | AP-22 같은 질문을 다른 말로 다시 지은 확인창 | 해당 없음 | 이 화면에 확인창이 없다 |
 | AP-23 현재 값과 변경 결과가 모호한 컨트롤 | 해당 없음 | 커밋된 값과 제안된 행동이 갈라 보인다 |
+| AP-24 품사가 섞인 선택지 | 해당 없음 | 이 화면의 선택지가 모두 상태 명사다 |
 
 ## 흐름 다이어그램
 
@@ -220,12 +221,12 @@ awk '
 # AP 행 22개 — AP-21 행을 지운다
 grep -v '^| AP-21 ' "$fixture_dir/full-pass.md" >"$fixture_dir/ap-missing-21.md"
 
-# 옛 스무 줄 본문 — AP-21·AP-22·AP-23이 없다
+# 옛 스무 줄 본문 — AP-21·AP-22·AP-23이 없다(AP-24는 남아 세 줄만 보고되는지 본다)
 grep -vE '^\| AP-2[123] ' "$fixture_dir/full-pass.md" >"$fixture_dir/ap-20-rows.md"
 
-# 스물세 줄이 <details> 안에 있고 summary와 표 사이에 빈 줄이 없다
+# 스물네 줄이 <details> 안에 있고 summary와 표 사이에 빈 줄이 없다
 awk '
-  /^## UX 안티패턴 점검$/ { print; print ""; print "<details><summary>스물세 줄 판정 표</summary>"; skip_blank=1; next }
+  /^## UX 안티패턴 점검$/ { print; print ""; print "<details><summary>스물네 줄 판정 표</summary>"; skip_blank=1; next }
   skip_blank && /^$/ { next }
   /^## 흐름 다이어그램$/ { print "</details>"; print ""; skip_blank=0 }
   { print }
@@ -304,7 +305,7 @@ After 전체 화면: [desktop 1440x900](https://github.com/JNU-SWCU/oss-hub/rele
 
 ## UX 안티패턴 점검
 
-<!-- skills/submit-pr-evidence/references/ux-antipatterns.md의 스물세 줄 판정 표 형식 그대로 채운다. AP-21~23을 포함한다. -->
+<!-- skills/submit-pr-evidence/references/ux-antipatterns.md의 스물네 줄 판정 표 형식 그대로 채운다. AP-21~24를 포함한다. -->
 
 | # | 판정 | 근거 |
 | --- | --- | --- |
@@ -331,6 +332,7 @@ After 전체 화면: [desktop 1440x900](https://github.com/JNU-SWCU/oss-hub/rele
 | AP-21 좁은 화면에서 본문과 메타가 부딪힘 | 위반 → 고침 | 390x844에서 본문이 이름 옆에서 잘려 머리 아래로 내렸다 |
 | AP-22 같은 질문을 다른 말로 다시 지은 확인창 | 해당 없음 | 이 화면에 확인창이 없다 |
 | AP-23 현재 값과 변경 결과가 모호한 컨트롤 | 해당 없음 | 커밋된 값과 제안된 행동이 갈라 보인다 |
+| AP-24 품사가 섞인 선택지 | 해당 없음 | 이 화면의 선택지가 모두 상태 명사다 |
 
 ## 흐름 다이어그램
 
@@ -481,7 +483,7 @@ expect_fail 'Closes 줄 없음' "$fixture_dir/no-closes.md"
 expect_fail 'Before/After 이미지도 예외 문구도 없음' "$fixture_dir/before-after-empty.md"
 expect_fail 'Before/After 이미지 있는데 요소 행 없음' "$fixture_dir/image-no-header.md"
 missing21_err=$(bash "$checker" "$fixture_dir/ap-missing-21.md" 2>&1 >/dev/null || true)
-if grep -qF 'AP-21' <<<"$missing21_err" && ! grep -qE 'AP-2[23]' <<<"$missing21_err"; then
+if grep -qF 'AP-21' <<<"$missing21_err" && ! grep -qE 'AP-2[234]' <<<"$missing21_err"; then
   printf 'ok - %s\n' '없는 AP-21만 위반 목록에 있다'
   passed=$((passed + 1))
 else
@@ -496,7 +498,7 @@ else
   printf 'not ok - %s (%s)\n' '옛 스무 줄 본문 위반이 AP-21, AP-22, AP-23을 나열한다' "$old20_err" >&2
   failed=$((failed + 1))
 fi
-expect_pass '스물세 줄이 details 안에 있고 summary 바로 아래 표여도 통과' "$fixture_dir/ap-details.md"
+expect_pass '스물네 줄이 details 안에 있고 summary 바로 아래 표여도 통과' "$fixture_dir/ap-details.md"
 expect_fail '근거 없이 통과만 적힌 AP 행' "$fixture_dir/ap-no-evidence.md"
 expect_fail '로컬 경로 이미지' "$fixture_dir/local-path-image.md"
 expect_fail '자리표시자(TODO) 남음' "$fixture_dir/placeholder.md"

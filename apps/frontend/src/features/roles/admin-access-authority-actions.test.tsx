@@ -105,9 +105,9 @@ describe('independent admin authority controls', () => {
       expect(html).not.toContain('role="radiogroup"');
       expect(html).not.toContain('<button');
       expect(html.match(/<select/g)).toHaveLength(3);
-      // 「없음」·「허용됨」은 두 묶음의 선택지로 각각 두 번씩 늘 그려지고,
+      // 「없음」·「있음」은 두 묶음의 선택지로 각각 두 번씩 늘 그려지고,
       // 지금 값만 `selected`로 선다.
-      expect(html.match(/허용됨/g) ?? []).toHaveLength(2);
+      expect(html.match(/있음/g) ?? []).toHaveLength(2);
       expect(html.match(/없음/g) ?? []).toHaveLength(2);
       expect(html).not.toContain('canonical 관리 API');
     },
