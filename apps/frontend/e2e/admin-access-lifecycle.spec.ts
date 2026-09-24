@@ -75,18 +75,28 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     const search = adminPage.getByLabel('이름 또는 GitHub 닉네임 검색');
     await search.fill('seed-auth-admin-second');
     await adminPage.getByRole('button', { name: '검색', exact: true }).click();
+    // 검색은 주소를 바꿔 커밋된다. 그 커밋을 기다리지 않고 행을 누르면 목록이
+    // 아직 검색 전 주소에 서 있어, 이 테스트가 검사하려는 「검색 상태를 들고
+    // 상세로 간다」가 아예 일어나지 않는다.
+    await adminPage.waitForURL(/query=seed-auth-admin-second/);
+    await expect(adminPage.locator('table tbody tr')).toHaveCount(1);
 
     // When: 목록 링크를 소프트 클릭하면 intercepting route가 상세 오버레이를
     // 연다. 주소는 표준 상세 URL이라 공유하거나 새로고침할 수 있어야 한다.
     await adminPage
       .getByRole('link', { name: '합성 두 번째 관리자', exact: true })
       .click();
+    // 상세 주소는 목록이 서 있던 질의를 그대로 달고 있다 — 그래야 오버레이
+    // 뒤에 깔린 목록이 같은 주소를 다시 읽어도 검색 결과를 잃지 않는다.
     await expect(adminPage).toHaveURL(
       new RegExp(
-        `/dashboard/users/${encodeURIComponent(seedId('auth', 'admin-second'))}$`,
+        `/dashboard/users/${encodeURIComponent(seedId('auth', 'admin-second'))}\\?query=seed-auth-admin-second$`,
       ),
     );
     await expect(adminPage.getByRole('dialog')).toBeVisible();
+    // 뒤 목록이 검색 상태 그대로 서 있다(검색어와 결과 한 줄).
+    await expect(search).toHaveValue('seed-auth-admin-second');
+    await expect(adminPage.locator('table tbody tr')).toHaveCount(1);
     await expect(
       adminPage.getByRole('dialog').getByRole('heading', {
         name: '합성 두 번째 관리자',

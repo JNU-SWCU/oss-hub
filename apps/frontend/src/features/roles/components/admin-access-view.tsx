@@ -29,6 +29,8 @@ export interface AdminAccessViewProps {
   readonly pendingCount: number;
   readonly isLoading: boolean;
   readonly errorMessage: string | null;
+  /** 상세로 들고 갈 목록 질의(직렬화된 searchParams). */
+  readonly listSearch?: string;
   readonly onQueryChange: (query: string) => void;
   readonly onSearch: () => void;
   readonly onRoleChange: (role: AdminAccessRoleFilter | '') => void;
@@ -85,6 +87,7 @@ export function AdminAccessView(props: AdminAccessViewProps) {
       />
       <AdminAccessTable
         workspace={props.workspace}
+        listSearch={props.listSearch}
         items={props.items}
         sort={props.sort}
         direction={props.direction}

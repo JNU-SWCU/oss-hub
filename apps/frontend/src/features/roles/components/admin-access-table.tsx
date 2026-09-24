@@ -26,6 +26,8 @@ interface AdminAccessTableProps {
   readonly emptyState: ReactNode;
   readonly onSortToggle: (field: AdminAccessSortField) => void;
   readonly onRowClick: (item: AdminAccessListItem) => void;
+  /** 상세로 들고 갈 목록 질의. 주지 않으면 지금까지처럼 질의 없는 주소가 된다. */
+  readonly listSearch?: string;
 }
 
 function sortAriaValue(
@@ -124,7 +126,11 @@ function adminAccessColumns(
       },
       cellClassName: 'whitespace-normal',
       cell: (item) => (
-        <AdminAccessUserCell item={item} workspace={props.workspace} />
+        <AdminAccessUserCell
+          item={item}
+          workspace={props.workspace}
+          listSearch={props.listSearch}
+        />
       ),
     },
   ];

@@ -14,4 +14,16 @@ describe('accessDetailPath — 작업공간별 표준 상세 주소를 만든다
       '/dashboard/applicants/users/user%2F42',
     );
   });
+
+  it('목록이 서 있던 질의를 받으면 상세 주소에 그대로 얹는다', () => {
+    expect(
+      accessDetailPath('directory', 'user/42', 'query=%EA%B9%80&page=2'),
+    ).toBe('/dashboard/users/user%2F42?query=%EA%B9%80&page=2');
+  });
+
+  it('질의가 비어 있으면 물음표를 붙이지 않는다', () => {
+    expect(accessDetailPath('directory', 'user/42', '')).toBe(
+      '/dashboard/users/user%2F42',
+    );
+  });
 });
