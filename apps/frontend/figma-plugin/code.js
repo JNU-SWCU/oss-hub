@@ -3,8 +3,9 @@
  * OSS Hub 디자인 라이브러리 플러그인.
  *
  * 저장소의 `docs/design-tokens/tokens.json`(원본은 globals.css)과 vault 스펙 시트의 수치대로
- * Figma 변수(Light·Dark) · 텍스트 스타일 · 컴포넌트(Button · Badge · FilterChip · Dialog ·
- * Form Field · Table · Card · FailureState · SkeletonBlock)를 만든다.
+ * Figma 변수(Light·Dark) · 텍스트 스타일 · 컴포넌트(Button · Badge · FilterChip · Dialog
+ * (저장·확인) · Form Field · Form Textarea · Table · Card · FailureState · SkeletonBlock)를
+ * 만든다.
  * 사람이 그리는 대신 코드가 그린다 — 코드가 원본이고
  * Figma는 거울이라는 design.md R-36의 연장이다.
  *
@@ -603,6 +604,12 @@ const BUTTON_SIZES = {
   xs: { padding: 12, text: 13, icon: 14 },
   lg: { padding: 32, text: 16, icon: 16 },
   icon: { padding: 0, text: 0, icon: 16 },
+  /*
+   * 크기를 바깥이 정하는 자리 — 표 칸·달력 날짜처럼 격자가 높이를 정하는 면이다.
+   * 코드는 `block h-auto rounded-none border-0 font-normal`이라 44 고정 높이·모서리·
+   * 굵은 글자를 전부 내용과 호출부에 돌려준다. 좌우 여백도 호출부 몫이라 0이다.
+   */
+  content: { padding: 0, text: 16, icon: 16, free: true },
 };
 
 const BUTTON_VARIANTS = {
@@ -637,6 +644,13 @@ const BUTTON_VARIANTS = {
     pill: true,
     hover: { fill: 'muted' },
   },
+  /*
+   * 표면을 칠하지 않는 「누를 수 있는 면」(메뉴 줄, 표 칸, 달력 날짜, 표 머리글 정렬).
+   * 배경·hover·눌림 표시를 전부 호출부가 소유하므로 여기서는 글자만 둔다.
+   * 비활성이어도 흐려지지 않는다(`disabled:opacity-100`) — 그 자리들은 못 쓰는 상태를
+   * 제 방식(회색 칸·점선)으로 말한다. 코드는 `size="content"`와 함께 쓴다.
+   */
+  bare: { text: 'foreground', hover: {}, disabledOpacity: 1 },
 };
 
 async function buttonNode(variantName, sizeName, state, label) {
@@ -652,27 +666,31 @@ async function buttonNode(variantName, sizeName, state, label) {
       gap: 8,
       padding: [0, size.padding, 0, size.padding],
       mainSizing: sizeName === 'icon' ? 'FIXED' : 'AUTO',
-      crossSizing: 'FIXED',
-      radius: variant.pill ? 999 : 8,
+      crossSizing: size.free ? 'AUTO' : 'FIXED',
+      radius: size.free ? 0 : variant.pill ? 999 : 8,
       fill: fillPath ? paintFor(fillPath, fillOpacity) : undefined,
       stroke: variant.stroke ? paintFor(variant.stroke) : undefined,
     },
   );
-  node.resize(sizeName === 'icon' ? 44 : 100, 44);
-  bindNumber(node, 'height', 'control-height');
+  // size=content 는 높이를 재지도 변수로 묶지도 않는다 — 내용이 정하는 값이다.
+  if (!size.free) {
+    node.resize(sizeName === 'icon' ? 44 : 100, 44);
+    bindNumber(node, 'height', 'control-height');
+  }
   if (sizeName === 'icon') {
     node.appendChild(await icon('pencil', size.icon, variant.text));
   } else {
     const text = await makeText(label, {
       size: size.text,
-      weight: 'semibold',
+      // content 는 `font-normal`에 `whitespace-normal`이라 굵기와 줄 간격이 본문이다.
+      weight: size.free ? 'regular' : 'semibold',
       color: variant.text,
-      lineHeight: 100,
+      lineHeight: size.free ? 150 : 100,
     });
     if (variant.underline) text.textDecoration = 'UNDERLINE';
     node.appendChild(text);
   }
-  if (state === 'disabled') node.opacity = 0.5;
+  if (state === 'disabled') node.opacity = variant.disabledOpacity ?? 0.5;
   return node;
 }
 
@@ -687,6 +705,7 @@ async function buildButtons() {
     destructive: '삭제',
     link: '자세히',
     toggle: '모집중',
+    bare: '표 칸',
   };
   for (const variantName of Object.keys(BUTTON_VARIANTS)) {
     for (const state of ['default', 'hover', 'disabled']) {
@@ -701,7 +720,7 @@ async function buildButtons() {
   const set = figma.combineAsVariants(nodes, page);
   set.name = 'Button';
   set.description =
-    '높이 44 고정(control-height). variant 7 × size 5 × state 3. 코드: components/ui/button.tsx';
+    'variant 8 × size 6 × state 3 = 144변형. 높이는 control-height 44 고정이고 size=content 만 예외로 내용이 정한다. variant=bare 는 표면을 칠하지 않아 배경·hover·눌림을 호출부가 소유한다. 코드가 실제로 쓰는 조합은 bare × content 6곳(메뉴 줄·표 칸·달력 날짜·행 선택기·표 머리글 정렬)과 link × content 1곳(일정 편집의 「시간 변경」 펼치기)이다. 격자를 채우느라 코드에 아직 없는 조합(default × content, bare × icon 등)도 함께 그린다. 코드: components/ui/button.tsx';
   log(`Button ${nodes.length}변형`);
   return set;
 }
@@ -722,16 +741,22 @@ async function badgeNode(variantName, sizeName) {
     mainAlign: 'CENTER',
     gap: 6,
     // 좌우 10 = 코드 기본 `px-2.5`. 12px 글자에 8은 너무 빡빡하다(동규 2026-09-19).
+    // lg 는 `px-4 py-2`라 좌우 16 · 위아래 8이다.
     padding: large ? [8, 16, 8, 16] : [0, 10, 0, 10],
     mainSizing: 'AUTO',
-    crossSizing: large ? 'AUTO' : 'FIXED',
+    crossSizing: 'FIXED',
     radius: 999,
     fill: paintFor(`status.${variantName}.bg`),
   });
-  if (!large) {
-    node.resize(60, 26);
-    bindNumber(node, 'height', 'tag-height');
-  }
+  /*
+   * 높이 26(tag-height)은 기본 클래스에 있고 lg 가 덮지 않으므로 두 크기가 같다.
+   * lg 가 더하는 것은 `min-w-24`(96) 하나다. 위아래 여백 8 + 글자 한 줄 24 = 40 이
+   * 26 에 들어가지 않아 lg 는 글자가 여백을 파고든 모양이 된다 — 코드가 브라우저에서
+   * 그렇게 그려지므로 거울도 그대로 둔다. 코드 쪽을 고칠지는 별도 티켓이다.
+   */
+  node.resize(large ? 96 : 60, 26);
+  bindNumber(node, 'height', 'tag-height');
+  if (large) node.minWidth = 96;
   const dot = figma.createEllipse();
   dot.name = 'dot';
   dot.resize(6, 6);
@@ -742,8 +767,8 @@ async function badgeNode(variantName, sizeName) {
       size: large ? 16 : 12,
       weight: 'semibold',
       color: `status.${variantName}.fg`,
-      // text-badge 의 줄 간격 16px = 133.3% (TEXT_STYLES 의 text/badge 와 같다)
-      lineHeight: 133.3,
+      // 기본은 text-badge 12px/16px = 133.3%, lg 는 `text-base` 16px/24px = 150%다.
+      lineHeight: large ? 150 : 133.3,
     }),
   );
   return node;
@@ -789,7 +814,7 @@ async function buildBadges() {
   const set = figma.combineAsVariants(nodes, page);
   set.name = 'StatusBadge';
   set.description =
-    '높이 26(tag-height). 색·글자·점 세 신호. 코드: components/status-badge.tsx, 어휘: lib/status-vocabulary';
+    '높이 26(tag-height)은 두 크기가 같다 — lg 가 더하는 것은 글자 16px(줄 간격 150%) · 좌우 여백 16 · 최소 폭 96뿐이다. 그래서 lg 는 글자가 위아래 여백을 파고든다(코드가 브라우저에서 그리는 모양 그대로이고, 지금 이 크기를 쓰는 화면은 0곳이다). 색·글자·점 세 신호. 코드: components/status-badge.tsx, 어휘: lib/status-vocabulary';
 
   const sheet = frame('용어 사전 — 같은 상태는 같은 말·같은 색', {
     direction: 'VERTICAL',
@@ -885,8 +910,13 @@ async function buildChips() {
 
 // ---------- Dialog · Form ----------
 
-async function formField(label, placeholder, help) {
-  const field = component('Form/Field', {
+/**
+ * 라벨 · 입력 · 도움말 한 벌. `multiline`이면 한 줄 입력(Input) 대신 여러 줄
+ * 입력(Textarea)을 둔다 — 테두리·모서리·좌우 여백은 같은 조작 규격이고 높이만
+ * 다르다(textarea.tsx가 Input·Select와 같은 규격을 쓴다고 적어 둔 그대로다).
+ */
+async function formField(label, placeholder, help, multiline = false) {
+  const field = component(multiline ? 'Form/Textarea' : 'Form/Field', {
     direction: 'VERTICAL',
     crossAlign: 'MIN',
     gap: 8,
@@ -895,15 +925,21 @@ async function formField(label, placeholder, help) {
   field.resize(400, 10);
   field.primaryAxisSizingMode = 'AUTO';
   field.appendChild(await makeText(label, { size: 13, weight: 'semibold' }));
-  const input = frame('input', {
-    padding: [0, 12, 0, 12],
+  const input = frame(multiline ? 'textarea' : 'input', {
+    // 좌우 여백 16 = 코드의 `px-4`(input.tsx · textarea.tsx). 여러 줄은 위아래 8
+    // (`py-2`)이 더 붙고 글이 맨 위에서 시작한다 — 한 줄은 세로 가운데다.
+    direction: multiline ? 'VERTICAL' : 'HORIZONTAL',
+    crossAlign: multiline ? 'MIN' : 'CENTER',
+    padding: multiline ? [8, 16, 8, 16] : [0, 16, 0, 16],
     crossSizing: 'FIXED',
     mainSizing: 'FIXED',
     radius: 8,
     fill: paintFor('background'),
     stroke: paintFor('input'),
   });
-  input.resize(400, 44);
+  // 한 줄은 control-height 44, 여러 줄은 `min-h-20` 80이다. 80은 최소값이라 글이
+  // 늘면 함께 늘고, 게시판 글쓰기·수정은 `min-h-28`(112)로 덮어 쓴다.
+  input.resize(400, multiline ? 80 : 44);
   input.appendChild(
     await makeText(placeholder, { size: 16, color: 'muted-foreground' }),
   );
@@ -923,9 +959,41 @@ async function buttonInstance(buttonSet, variant, label, size = 'default') {
   return instance;
 }
 
-async function dialogNode(size, buttonSet, fieldComponent) {
-  const width = size === 'md' ? 576 : 672;
-  const node = component(`Dialog/${size}`, {
+/*
+ * 창 세 가지. 폭은 코드의 `max-w-*`다 — 껍데기 기본 md 는 `max-w-xl`(576), lg 는
+ * `max-w-2xl`(672)이다(dialog-shell.tsx SIZE_CLASS). 되돌릴 수 없는 일을 묻는 확인창은
+ * 호출부가 직접 좁히는데, 여섯 곳 중 다섯이 `max-w-lg`(512)이고 신청 판정 창만
+ * `max-w-md`(448)다 — 흔한 쪽인 512 로 그린다.
+ */
+const DIALOG_KINDS = {
+  md: {
+    width: 576,
+    fields: 1,
+    title: '팀 이름 변경',
+    description: '새 이름을 입력하세요.',
+    confirm: { variant: 'default', label: '저장' },
+  },
+  lg: {
+    width: 672,
+    fields: 2,
+    title: '팀 이름 변경',
+    description: '새 이름을 입력하세요.',
+    confirm: { variant: 'default', label: '저장' },
+  },
+  alert: {
+    width: 512,
+    fields: 0,
+    title: '팀을 삭제할까요?',
+    description:
+      '가팀 팀과 연결된 데이터를 삭제합니다. 이 작업은 되돌릴 수 없습니다.',
+    note: '연결된 GitHub 저장소는 삭제하지 않고 연결만 해제합니다.',
+    confirm: { variant: 'destructive', label: '삭제' },
+  },
+};
+
+async function dialogNode(kind, buttonSet, fieldComponent) {
+  const spec = DIALOG_KINDS[kind];
+  const node = component(`Dialog/${kind}`, {
     direction: 'VERTICAL',
     crossAlign: 'MIN',
     gap: 20,
@@ -935,7 +1003,7 @@ async function dialogNode(size, buttonSet, fieldComponent) {
     fill: paintFor('background'),
     stroke: paintFor('border'),
   });
-  node.resize(width, 10);
+  node.resize(spec.width, 10);
   node.primaryAxisSizingMode = 'AUTO';
   node.effects = [
     {
@@ -954,31 +1022,42 @@ async function dialogNode(size, buttonSet, fieldComponent) {
     gap: 4,
   });
   head.appendChild(
-    await makeText('팀 이름 변경', { size: 18, weight: 'semibold' }),
+    await makeText(spec.title, { size: 18, weight: 'semibold' }),
   );
   head.appendChild(
-    await makeText('새 이름을 입력하세요.', {
+    await makeText(spec.description, {
       size: 13,
       color: 'muted-foreground',
     }),
   );
   node.appendChild(head);
-  const body = frame('body (위→아래 폼)', {
+  const body = frame('body (위→아래)', {
     direction: 'VERTICAL',
     crossAlign: 'MIN',
     gap: 20,
   });
   node.appendChild(body);
   body.layoutSizingHorizontal = 'FILL';
-  for (const count of size === 'lg' ? [1, 2] : [1]) {
+  for (let count = 1; count <= spec.fields; count += 1) {
     const field = fieldComponent.createInstance();
     field.name = `field ${count}`;
     body.appendChild(field);
     field.layoutSizingHorizontal = 'FILL';
   }
+  if (spec.note) {
+    const note = await makeText(spec.note, {
+      size: 13,
+      color: 'muted-foreground',
+    });
+    body.appendChild(note);
+    note.textAutoResize = 'HEIGHT';
+    note.layoutSizingHorizontal = 'FILL';
+  }
   const footer = frame('footer', { mainAlign: 'MAX', gap: 8 });
   footer.appendChild(await buttonInstance(buttonSet, 'outline', '취소'));
-  footer.appendChild(await buttonInstance(buttonSet, 'default', '저장'));
+  footer.appendChild(
+    await buttonInstance(buttonSet, spec.confirm.variant, spec.confirm.label),
+  );
   node.appendChild(footer);
   footer.layoutSizingHorizontal = 'FILL';
   return node;
@@ -992,14 +1071,31 @@ async function buildDialogs(buttonSet) {
     '2~30자. 다른 팀과 겹치면 저장되지 않습니다.',
   );
   page.appendChild(field);
+  const textarea = await formField(
+    '내용',
+    '내용',
+    '10,000자까지 쓸 수 있습니다.',
+    true,
+  );
+  textarea.description =
+    '여러 줄 입력. 테두리·모서리·좌우 여백은 한 줄 입력과 같고 높이만 다르다 — `min-h-20`(80)이 최소이고 글이 늘면 함께 늘어난다. 게시판 글쓰기·글 수정은 `min-h-28`(112)로 덮어 쓰고, 팀 삭제 안내 칸은 기본값을 그대로 쓴다. 코드: components/ui/textarea.tsx';
+  page.appendChild(textarea);
   const md = await dialogNode('md', buttonSet, field);
   const lg = await dialogNode('lg', buttonSet, field);
+  const alert = await dialogNode('alert', buttonSet, field);
+  alert.description =
+    '되돌릴 수 없는 일을 묻는 확인창. 저장 창(576)보다 좁은 512(max-w-lg)이고(신청 판정 창만 448), 낭독기에는 `alertdialog`로 알린다. 바깥을 잘못 눌러도 닫히지 않고 Escape·취소로만 빠져나간다 — 열릴 때 초점도 본문이 아니라 「취소」에 간다. 확정 버튼은 destructive 이고, 요청이 도는 동안에는 닫기를 막는다. 코드: components/dialog-shell.tsx 의 kind="alert" (팀·프로그램 삭제, 신청 판정, 서류 재제출 등이 쓴다)';
   page.appendChild(md);
   page.appendChild(lg);
+  page.appendChild(alert);
   field.x = 0;
+  textarea.x = 0;
+  textarea.y = field.height + 48;
   md.x = 480;
   lg.x = 480;
   lg.y = md.height + 48;
+  alert.x = 480;
+  alert.y = lg.y + lg.height + 48;
   const overlay = frame('오버레이 (foreground 35%, 흐림 없음)', {
     crossSizing: 'FIXED',
     mainSizing: 'FIXED',
@@ -1007,9 +1103,9 @@ async function buildDialogs(buttonSet) {
   overlay.fills = [paintFor('foreground', 0.35)];
   overlay.resize(200, 120);
   overlay.x = 0;
-  overlay.y = field.height + 48;
+  overlay.y = textarea.y + textarea.height + 48;
   page.appendChild(overlay);
-  log('Dialog md·lg + Form/Field + 오버레이 견본');
+  log('Dialog md·lg·alert + Form/Field · Form/Textarea + 오버레이 견본');
 }
 
 // ---------- Table ----------
