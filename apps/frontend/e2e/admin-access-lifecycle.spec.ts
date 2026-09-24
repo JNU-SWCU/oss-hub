@@ -384,4 +384,60 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     await expect(requestHistory).toContainText('회수');
     await expect(requestHistory).toContainText('seed-auth-admin-second');
   });
+
+  // 이슈 1411 — 교직원·관리자 접근은 CAS 가 없는 정본 명령이라, 오래된 화면에서
+  // 이미 꺼진 접근을 다시 회수하면 예전에는 서버가 아무것도 쓰지 않고 200 을
+  // 돌려줘 「처리를 완료했습니다」가 떴다. 이제 409 ROL_013 으로 거절되고, 화면은
+  // 계정 상태 충돌과 같은 안내를 띄운 뒤 두 접근 값을 다시 읽는다.
+  test('교직원 접근의 오래된 화면에서 이미 꺼진 접근을 회수하면 완료가 아니라 충돌 안내로 수렴한다', async ({
+    adminPage,
+    authSeedPage,
+    expectAdminResourceStatusError,
+  }, testInfo) => {
+    // Given: 첫 관리자는 교직원 접근이 켜진 상세를 보고 있다.
+    await openDetail(adminPage, STAFF_REVOCABLE, '합성 활성 교직원');
+    await expect(
+      adminPage.getByLabel('교직원 접근', { exact: true }),
+    ).toHaveValue('GRANTED');
+
+    // When: 두 번째 관리자가 먼저 같은 계정의 교직원 접근을 화면에서 회수한다.
+    const secondAdminPage = await authSeedPage('admin-second');
+    await openDetail(secondAdminPage, STAFF_REVOCABLE, '합성 활성 교직원');
+    await chooseAuthority(secondAdminPage, '교직원 접근', '회수');
+    await secondAdminPage.getByRole('button', { name: '회수 확정' }).click();
+    await expect(
+      secondAdminPage.getByLabel('교직원 접근', { exact: true }),
+    ).toHaveValue('NONE');
+
+    // Then: 첫 관리자의 오래된 화면에서 같은 회수를 확정하면 409 로 거절되고,
+    // 완료 문구 대신 충돌 안내가 서며 드롭다운이 서버 값으로 돌아온다.
+    expectAdminResourceStatusError(409);
+    await chooseAuthority(adminPage, '교직원 접근', '회수');
+    await adminPage.getByRole('button', { name: '회수 확정' }).click();
+    await expect(
+      adminPage.getByText(
+        '다른 처리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.',
+      ),
+    ).toBeVisible();
+    await expect(adminPage.getByText(/처리를 완료했습니다/)).toHaveCount(0);
+    await expect(
+      adminPage.getByLabel('교직원 접근', { exact: true }),
+    ).toHaveValue('NONE');
+    // 다시 읽은 이력에는 먼저 회수한 두 번째 관리자의 한 줄이 보인다.
+    const requestHistory = adminPage
+      .getByRole('heading', { name: '요청 이력' })
+      .locator('..');
+    await expect(requestHistory).toContainText('seed-auth-admin-second');
+    await attachStateScreenshot(
+      adminPage,
+      testInfo,
+      'stale-authority-conflict',
+    );
+
+    // 공유 시드이므로 교직원 접근을 다시 켜 둔다.
+    await grantAuthority(adminPage, '교직원 접근');
+    await expect(
+      adminPage.getByLabel('교직원 접근', { exact: true }),
+    ).toHaveValue('GRANTED');
+  });
 });
