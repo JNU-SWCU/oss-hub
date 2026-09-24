@@ -277,7 +277,7 @@ export function ProgramMyTeamView({
         />
       ) : null}
 
-      {application !== null ? (
+      {application !== null && stage === 'approved' ? (
         <TeamRepositoryPanel
           /*
            * 서버가 편집 권한을 다시 계산하는 사실(계정·팀장·신청·종료일)이 바뀌면

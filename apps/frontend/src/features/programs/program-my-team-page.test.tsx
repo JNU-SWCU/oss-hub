@@ -402,12 +402,9 @@ describe('ProgramMyTeamPage 신청 상태', () => {
       stageCard().querySelector('[data-slot="card-content"]'),
     ).not.toBeNull();
     expect(host.textContent).not.toContain(SLOT_TEXT);
-    // 저장소 줄과 활동은 신청이 있으면 같은 조회로 선다 — 연결 전이면 그렇다고 말한다.
-    expect(host.textContent).toContain('아직 연결한 저장소가 없습니다');
-    expect(getTeamActivity).toHaveBeenCalledExactlyOnceWith(
-      'program-1',
-      'team-1',
-    );
+    // 저장소 패널은 승인 전에는 서지 않는다 — 연결은 승인 후에만 할 수 있다(PR5 이전과 같다).
+    expect(host.textContent).not.toContain('프로젝트 저장소');
+    expect(getTeamActivity).not.toHaveBeenCalled();
   });
 
   it('반려는 서버가 남긴 사유를 그대로 전한다', async () => {
@@ -422,6 +419,8 @@ describe('ProgramMyTeamPage 신청 상태', () => {
     expect(headerBadge()?.textContent).toBe('반려');
     expect(host.textContent).toContain('팀 최소 인원을 채우지 못했습니다.');
     expect(host.textContent).not.toContain(SLOT_TEXT);
+    // 반려된 신청도 저장소 패널을 열지 않는다 — 열쇠는 승인 하나뿐이다.
+    expect(getTeamActivity).not.toHaveBeenCalled();
   });
 
   it('신청서가 있다는 팀의 빈 신청 조회를 「신청 없음」으로 접지 않는다', async () => {
