@@ -1,6 +1,9 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { ExecutionContext, INestApplication } from '@nestjs/common';
-import { GUARDS_METADATA } from '@nestjs/common/constants';
+import {
+  GUARDS_METADATA,
+  INTERCEPTORS_METADATA,
+} from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 import { Readable } from 'node:stream';
 import { OriginGuard } from '../auth/origin.guard';
@@ -74,12 +77,14 @@ const upload = jest.fn().mockResolvedValue({
   size: 14,
   expiresAt: '2028-01-01T00:00:00.000Z',
 });
+const check = jest.fn().mockResolvedValue(undefined);
 
 beforeEach(() => {
   create.mockClear();
   resubmit.mockClear();
   download.mockClear();
   upload.mockClear();
+  check.mockClear();
 });
 
 beforeAll(async () => {
@@ -97,7 +102,7 @@ beforeAll(async () => {
       },
       {
         provide: SubmissionFilesService,
-        useValue: { download, upload },
+        useValue: { download, upload, check },
       },
     ],
   })
@@ -386,9 +391,37 @@ it('정수가 아닌 baseRevision은 서비스 호출 전에 거절한다', asyn
   expect(resubmit).not.toHaveBeenCalled();
 });
 
+it('파일 판정은 고른 파일만 서비스 판정에 넘기고 본문 없는 204로 끝난다', async () => {
+  // Given: 제출 전에 압축 파일 하나만 보낸다(#1108).
+  const body = new FormData();
+  body.append(
+    'file',
+    new Blob([Buffer.from('PK\x03\x04')], { type: 'application/zip' }),
+    'archive.zip',
+  );
+
+  // When
+  const response = await fetch(`${baseUrl}/api/v1/submission-files/checks`, {
+    method: 'POST',
+    body,
+  });
+
+  // Then: 판정만 하고 업로드(저장)는 부르지 않는다.
+  expect(response.status).toBe(204);
+  await expect(response.text()).resolves.toBe('');
+  expect(check).toHaveBeenCalledWith(
+    expect.objectContaining({
+      originalname: 'archive.zip',
+      mimetype: 'application/zip',
+    }),
+  );
+  expect(upload).not.toHaveBeenCalled();
+});
+
 function readGuards(
   prototype: object,
   propertyKey: string,
+  metadataKey: string = GUARDS_METADATA,
 ): readonly unknown[] {
   const handler: unknown = Object.getOwnPropertyDescriptor(
     prototype,
@@ -397,7 +430,7 @@ function readGuards(
   if (typeof handler !== 'function') {
     throw new Error(`Missing controller handler: ${propertyKey}`);
   }
-  const metadata: unknown = Reflect.getMetadata(GUARDS_METADATA, handler);
+  const metadata: unknown = Reflect.getMetadata(metadataKey, handler);
   return Array.isArray(metadata) ? metadata : [];
 }
 
@@ -412,4 +445,14 @@ it('체크리스트는 세션 가드를, 재제출은 세션+Origin 가드를 �
     SessionGuard,
     OriginGuard,
   ]);
+});
+
+it('파일 판정은 업로드와 같은 세션+Origin 가드와 multipart 한도를 쓴다', () => {
+  const files = SubmissionFilesController.prototype;
+  expect(readGuards(files, 'check')).toEqual([SessionGuard, OriginGuard]);
+  expect(readGuards(files, 'check')).toEqual(readGuards(files, 'upload'));
+  expect(readGuards(files, 'check', INTERCEPTORS_METADATA)).toHaveLength(1);
+  expect(readGuards(files, 'check', INTERCEPTORS_METADATA)).toEqual(
+    readGuards(files, 'upload', INTERCEPTORS_METADATA),
+  );
 });

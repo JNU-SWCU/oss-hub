@@ -229,6 +229,35 @@ async function admissionOutcome(buffer: Buffer) {
   };
 }
 
+/** 제출 없이 판정만 묻는 경로(#1108). 저장소·DB는 읽기조차 하지 않아야 한다. */
+async function checkOutcome(buffer: Buffer) {
+  const { repository, service, storage } = setup();
+  const [check] = await Promise.allSettled([
+    service.check({
+      buffer,
+      originalname: 'archive.zip',
+      mimetype: 'application/zip',
+      size: buffer.byteLength,
+    }),
+  ]);
+
+  const rejection =
+    check?.status === 'rejected' && check.reason instanceof DomainException
+      ? check.reason
+      : null;
+  const callCount = (mocks: Record<string, jest.Mock>) =>
+    Object.values(mocks).reduce((sum, mock) => sum + mock.mock.calls.length, 0);
+
+  return {
+    code: rejection?.errorCode.code ?? null,
+    httpStatus: rejection?.errorCode.status ?? null,
+    message: rejection?.errorCode.message ?? null,
+    repositoryCalls: callCount(repository),
+    status: check?.status,
+    storageCalls: callCount(storage),
+  };
+}
+
 describe('SubmissionFilesService ZIP metadata admission', () => {
   it.each(HAZARDOUS_ARCHIVES)(
     'rejects $scenario with $code before persistence or storage',
@@ -291,6 +320,55 @@ describe('SubmissionFilesService ZIP metadata admission', () => {
       persistenceCalls: 1,
       status: 'fulfilled',
       storageCalls: 1,
+    });
+  });
+});
+
+/*
+ * #1108 인터뷰 — 학생은 거절 사유를 보려고 제출을 눌러야 했다. 파일을 고르자마자 묻는
+ * 판정(`check`)은 제출과 **같은** 코드·상태·문장이어야 하고, 아무것도 남기지 않는다.
+ */
+describe('SubmissionFilesService file check before submission', () => {
+  it.each(HAZARDOUS_ARCHIVES)(
+    'answers $scenario with the submission code $code and touches neither repository nor storage',
+    async ({ build, code }) => {
+      // Given
+      const archive = build();
+
+      // When
+      const [checked, submitted] = await Promise.all([
+        checkOutcome(archive),
+        admissionOutcome(archive),
+      ]);
+
+      // Then
+      expect(checked).toEqual({
+        code,
+        httpStatus: submitted.httpStatus,
+        message: submitted.message,
+        repositoryCalls: 0,
+        status: 'rejected',
+        storageCalls: 0,
+      });
+      expect(checked.code).toBe(submitted.code);
+    },
+  );
+
+  it('passes a valid archive and still touches neither repository nor storage', async () => {
+    // Given
+    const archive = signatureValidZip([{ name: 'valid.txt' }]);
+
+    // When
+    const outcome = await checkOutcome(archive);
+
+    // Then
+    expect(outcome).toEqual({
+      code: null,
+      httpStatus: null,
+      message: null,
+      repositoryCalls: 0,
+      status: 'fulfilled',
+      storageCalls: 0,
     });
   });
 });
