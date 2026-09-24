@@ -134,19 +134,33 @@ describe('DataTable', () => {
     expect(html).not.toContain('cursor-pointer');
   });
 
-  it('onRowClick이 있으면 행에 cursor-pointer/hover 클래스를 준다', () => {
-    const html = renderToStaticMarkup(
-      <DataTable
-        columns={columns}
-        data={rows}
-        rowKey={(row) => row.id}
-        onRowClick={() => undefined}
-      />,
-    );
+  it('눌리는 행과 안 눌리는 행의 클래스 차이는 cursor-pointer 하나다', () => {
+    const bodyRowClasses = (onRowClick?: () => void) => {
+      const html = renderToStaticMarkup(
+        <DataTable
+          columns={columns}
+          data={rows}
+          rowKey={(row) => row.id}
+          onRowClick={onRowClick}
+        />,
+      );
+      const bodyRow = /<tbody[^>]*>\s*<tr[^>]*class="([^"]*)"/.exec(html);
+      expect(bodyRow).not.toBeNull();
+      return new Set((bodyRow?.[1] ?? '').split(' ').filter(Boolean));
+    };
 
-    expect(html).toMatch(
-      /<tr[^>]*class="[^"]*cursor-pointer[^"]*hover:bg-muted\/50[^"]*"/,
-    );
+    const plain = bodyRowClasses();
+    const clickable = bodyRowClasses(() => undefined);
+
+    // hover 배경은 `TableRow` 기본이라 양쪽에 다 있다(#1368). 눌리는 행이
+    // 더 얹는 것은 손 모양 하나뿐이어야 한다 — 같은 클래스를 두 번 적어
+    // 두면 이 단언이 깨지지는 않지만, 읽는 사람이 규칙을 오해한다.
+    expect(plain.has('hover:bg-muted/50')).toBe(true);
+    expect(clickable.has('hover:bg-muted/50')).toBe(true);
+    expect([...clickable].filter((name) => !plain.has(name))).toEqual([
+      'cursor-pointer',
+    ]);
+    expect([...plain].filter((name) => !clickable.has(name))).toEqual([]);
   });
 
   it('headProps로 넘긴 aria-sort가 해당 컬럼의 th에 그대로 전달된다', () => {
