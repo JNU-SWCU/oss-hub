@@ -84,6 +84,12 @@ export function AdminAccessScreen({
     }
   }, [state.query]);
 
+  // 목록이 지금 서 있는 질의. 상세로 갈 때 이 문자열을 그대로 주소에 얹어,
+  // 오버레이 뒤에 깔린 목록이 같은 주소를 다시 읽어도 검색·필터·페이지를
+  // 잃지 않게 한다. 화면이 따로 만든 직렬화가 아니라 URL 그 자체를 쓰므로
+  // 링크의 href 와 오버레이가 되돌릴 초점 대상이 어긋나지 않는다.
+  const listSearch = searchParams.toString();
+
   const navigate = useCallback(
     (next: AdminAccessListFilterState) => {
       const search = (
@@ -129,6 +135,7 @@ export function AdminAccessScreen({
   return (
     <AdminAccessView
       workspace={workspace}
+      listSearch={listSearch}
       items={items}
       query={queryInput}
       role={state.role}
@@ -166,7 +173,7 @@ export function AdminAccessScreen({
       onRetry={() => void load()}
       onResetFilters={resetFilters}
       onRowClick={(item) =>
-        router.push(accessDetailPath(workspace, item.id), {
+        router.push(accessDetailPath(workspace, item.id, listSearch), {
           scroll: false,
         })
       }

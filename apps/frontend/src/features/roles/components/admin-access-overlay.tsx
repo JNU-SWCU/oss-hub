@@ -89,7 +89,11 @@ function adminAccessOverlayTriggerSelector(
   workspace: AccessWorkspace,
   userId: string,
 ): string {
-  return `a[href="${accessDetailPath(workspace, userId)}"]`;
+  // 목록 링크는 그 순간의 검색·필터를 질의로 달고 있다. 질의가 없을 때와
+  // 있을 때를 모두 집되, `?` 를 요구해 다른 사용자 id 의 앞자리가 우연히
+  // 겹치는 링크는 집지 않는다.
+  const base = accessDetailPath(workspace, userId);
+  return `a[href="${base}"], a[href^="${base}?"]`;
 }
 
 const RESTORE_INTERVAL_MS = 50;
