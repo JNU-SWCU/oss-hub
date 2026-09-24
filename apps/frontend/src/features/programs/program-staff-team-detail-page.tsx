@@ -426,7 +426,7 @@ export function ProgramStaffTeamDetailPage({
           programId={programId}
           teamId={teamId}
           activityTitle="팀 활동"
-          lockedHint="승인된 팀만 프로그램 종료 전까지 바꿀 수 있습니다."
+          lockedHint="승인된 팀만 프로그램 종료 전까지 변경할 수 있습니다."
           saveRepositoryUrl={(repositoryUrl) =>
             updateTeamRepositoryUrl(programId, teamId, { repositoryUrl })
           }

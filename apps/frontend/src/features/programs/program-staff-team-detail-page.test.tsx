@@ -601,7 +601,7 @@ describe('ProgramStaffTeamDetailPage', () => {
       );
       expect(pencil?.disabled).toBe(true);
       expect(container.textContent).toContain(
-        '승인된 팀만 프로그램 종료 전까지 바꿀 수 있습니다.',
+        '승인된 팀만 프로그램 종료 전까지 변경할 수 있습니다.',
       );
     });
   });
