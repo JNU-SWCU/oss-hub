@@ -90,7 +90,8 @@ describe('대기 중인 요청 결정 카드 — 접근 변경 카드 위에 조
     );
     expect(html).toContain('대기 중인 요청');
     expect(html).not.toContain('접근 변경');
-    expect(html).not.toContain('>수정<');
+    // 프로필 카드의 연필도 큐에서는 나오지 않는다.
+    expect(html).not.toContain('프로필 수정');
   });
 
   it('결정 카드의 승인 버튼 클릭은 mutation.onRequestAction을 APPROVE로 호출한다', () => {
@@ -128,7 +129,7 @@ describe('대기 중인 요청 결정 카드 — 접근 변경 카드 위에 조
 });
 
 describe('독립 접근 컨트롤 통합', () => {
-  it('교직원 허용 버튼은 GRANT_STAFF_ACCESS로 전달된다', () => {
+  it('교직원 접근을 「허용됨」으로 고르면 GRANT_STAFF_ACCESS로 전달된다', () => {
     const onRequestAction = vi.fn();
     act(() => {
       root.render(
@@ -148,15 +149,18 @@ describe('독립 접근 컨트롤 통합', () => {
       );
     });
 
-    const staffButton = container
-      .querySelector('#admin-staff-access-control-label')
-      ?.closest('div')
-      ?.querySelector('button');
-    expect(staffButton?.textContent).toBe('교직원 접근 허용');
+    const staffControl = container.querySelector('#admin-staff-access-control');
+    if (!(staffControl instanceof HTMLSelectElement)) {
+      throw new TypeError('교직원 접근 드롭다운을 찾지 못했습니다');
+    }
+    expect(staffControl.value).toBe('NONE');
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLSelectElement.prototype,
+      'value',
+    )?.set;
     act(() => {
-      staffButton?.dispatchEvent(
-        new MouseEvent('click', { bubbles: true, cancelable: true }),
-      );
+      setter?.call(staffControl, 'GRANTED');
+      staffControl.dispatchEvent(new Event('change', { bubbles: true }));
     });
     expect(onRequestAction).toHaveBeenCalledWith('GRANT_STAFF_ACCESS');
   });

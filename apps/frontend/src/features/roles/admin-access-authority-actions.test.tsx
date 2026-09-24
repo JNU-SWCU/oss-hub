@@ -67,15 +67,22 @@ function render(source: CanonicalAdminAccessDetail, onRequestAction = vi.fn()) {
 }
 
 /**
- * #1365 이후 묶음마다 버튼은 하나다 — 「허용」과 「회수」 중 지금 값의 반대만
- * 그려지므로, 찾은 버튼의 글자가 기대한 행동인지까지 확인한다.
+ * 묶음마다 드롭다운 하나다 — 지금 값이 선택돼 있고, 나머지 값이 후행 상태로 선다.
+ * 값을 고르는 일이 곧 변경 요청이므로 테스트도 `change`로 고른다.
  */
-function authorityButton(labelId: string, action: '허용' | '회수') {
-  const button = container
-    .querySelector(`#${labelId}`)
-    ?.closest('div')
-    ?.querySelector('button');
-  return button?.textContent?.endsWith(action) ? button : undefined;
+function chooseAuthority(controlId: string, value: 'GRANTED' | 'NONE') {
+  const select = container.querySelector(`#${controlId}`);
+  if (!(select instanceof HTMLSelectElement)) {
+    throw new TypeError(`드롭다운을 찾지 못했습니다: ${controlId}`);
+  }
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLSelectElement.prototype,
+    'value',
+  )?.set;
+  act(() => {
+    setter?.call(select, value);
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
 }
 
 describe('independent admin authority controls', () => {
@@ -94,14 +101,14 @@ describe('independent admin authority controls', () => {
           onRequestAction={() => {}}
         />,
       );
-      // #1365 — 묶음마다 지금 값 글자 하나와 행동 버튼 하나. 라디오는 없다.
+      // 라디오도, 상태 문자열을 담은 버튼도 없다 — 묶음마다 `<select>` 하나다.
       expect(html).not.toContain('role="radiogroup"');
-      expect(html.match(/<button/g)).toHaveLength(3);
-      const grantedCount = [hasStaffAccess, hasAdminAccess].filter(
-        Boolean,
-      ).length;
-      expect(html.match(/허용됨/g) ?? []).toHaveLength(grantedCount);
-      expect(html.match(/없음/g) ?? []).toHaveLength(2 - grantedCount);
+      expect(html).not.toContain('<button');
+      expect(html.match(/<select/g)).toHaveLength(3);
+      // 「없음」·「허용됨」은 두 묶음의 선택지로 각각 두 번씩 늘 그려지고,
+      // 지금 값만 `selected`로 선다.
+      expect(html.match(/허용됨/g) ?? []).toHaveLength(2);
+      expect(html.match(/없음/g) ?? []).toHaveLength(2);
       expect(html).not.toContain('canonical 관리 API');
     },
   );
@@ -114,9 +121,7 @@ describe('independent admin authority controls', () => {
         hasAdminAccess: true,
       }),
     );
-    act(() =>
-      authorityButton('admin-staff-access-control-label', '회수')?.click(),
-    );
+    chooseAuthority('admin-staff-access-control', 'NONE');
     expect(request).toHaveBeenCalledWith('REVOKE_STAFF_ACCESS');
   });
 
@@ -128,35 +133,23 @@ describe('independent admin authority controls', () => {
         hasAdminAccess: true,
       }),
     );
-    act(() =>
-      authorityButton('admin-admin-access-control-label', '회수')?.click(),
-    );
+    chooseAuthority('admin-admin-access-control', 'NONE');
     expect(request).toHaveBeenCalledWith('REVOKE_ADMIN_ACCESS');
   });
 
   it('grants staff and admin with separate exact commands', () => {
     const request = render(detail());
-    act(() =>
-      authorityButton('admin-staff-access-control-label', '허용')?.click(),
-    );
-    act(() =>
-      authorityButton('admin-admin-access-control-label', '허용')?.click(),
-    );
+    chooseAuthority('admin-staff-access-control', 'GRANTED');
+    chooseAuthority('admin-admin-access-control', 'GRANTED');
     expect(request.mock.calls).toEqual([
       ['GRANT_STAFF_ACCESS'],
       ['GRANT_ADMIN_ACCESS'],
     ]);
   });
 
-  it('같은 값으로 가는 컨트롤은 아예 그려지지 않는다', () => {
+  it('이미 가진 값을 다시 골라도 쓰기 요청은 나가지 않는다', () => {
     const request = render(detail({ hasAdminAccess: true }));
-    // 이미 허용된 묶음에는 「허용」 버튼이 없고, 「회수」 하나만 선다.
-    expect(
-      authorityButton('admin-admin-access-control-label', '허용'),
-    ).toBeUndefined();
-    expect(
-      authorityButton('admin-admin-access-control-label', '회수'),
-    ).toBeInstanceOf(HTMLButtonElement);
+    chooseAuthority('admin-admin-access-control', 'GRANTED');
     expect(request).not.toHaveBeenCalled();
   });
 });

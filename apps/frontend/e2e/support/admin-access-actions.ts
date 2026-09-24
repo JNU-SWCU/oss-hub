@@ -50,7 +50,7 @@ export async function openApplicantDetail(
  * #759 가 그 셀렉트를 없애고 라디오그룹과 승인/반려 버튼으로 쪼갰으며, Task 11이
  * 다시 역할 라디오그룹을 지우고 교직원·관리자 접근을 독립 컨트롤로 나눠놓았다.
  * 그쪽은 이 헬퍼가 아니라 `chooseAuthority`·`chooseAccountStatus` 가 맡는다 —
- * 묶음마다 행동 버튼 하나를 직접 누르는 방식이라 "작업 이름 고르기" 추상화에
+ * 묶음마다 제 값의 드롭다운을 직접 고르는 방식이라 "작업 이름 고르기" 추상화에
  * 맞지 않는다.
  */
 export async function chooseMutation(
@@ -69,15 +69,15 @@ export async function chooseMutation(
 }
 
 /**
- * 접근 변경 카드에서 교직원·관리자 접근을 허용/회수하고 확인 다이얼로그를
- * 띄운다(확정은 호출자가 누른다 — 다이얼로그 문구를 먼저 단언하는 것이 이
- * 흐름의 핵심이다).
+ * 접근 변경 카드에서 교직원·관리자 접근 값을 골라 확인 다이얼로그를 띄운다
+ * (확정은 호출자가 누른다 — 다이얼로그 문구를 먼저 단언하는 것이 이 흐름의
+ * 핵심이다).
  *
- * Task 11이 단일 「역할」 라디오그룹을 지우고 교직원 접근·관리자 접근을
- * 각각 독립 컨트롤로 쪼갰고, #1365가 다시 묶음 안의 라디오 두 개를 「지금 값은
- * 글자, 버튼은 행동 하나」로 바꿨다. 그래서 지금 값의 반대 행동 버튼만 존재하고,
- * 버튼의 접근성 이름은 sr-only 묶음 이름(「교직원 접근」)과 보이는 행동
- * (「허용」/「회수」)이 띄어쓰기로 이어진 값이다.
+ * Task 11이 단일 「역할」 라디오그룹을 지우고 교직원 접근·관리자 접근을 각각
+ * 독립 컨트롤로 쪼갰고, #1365가 묶음 안의 라디오 두 개를 「지금 값은 글자,
+ * 버튼은 행동 하나」로 바꿨다가, 지금은 묶음마다 드롭다운 하나다 — 지금 값이
+ * 선택돼 있고 후행 상태가 목록에 이름으로 서 있다. 그래서 조작은 「행동 이름을
+ * 누르기」가 아니라 「되고 싶은 상태를 고르기」다.
  */
 export async function chooseAuthority(
   page: Page,
@@ -85,23 +85,23 @@ export async function chooseAuthority(
   next: '허용' | '회수',
 ): Promise<void> {
   await page
-    .getByRole('button', { name: `${authority} ${next}`, exact: true })
-    .click();
+    .getByLabel(authority, { exact: true })
+    .selectOption(next === '허용' ? 'GRANTED' : 'NONE');
 }
 
 /**
  * 접근 변경 카드의 「계정 상태」 컨트롤 — Task 11 이후도 여전히 레거시 CAS
  * 리소스(`expectedRole` 포함)를 통해 쓰는 유일한 화면 경로라, 낙관적 잠금
- * 충돌(409 `ROL_013`)을 화면에서 만들어 볼 수 있는 지점이다. #1365 이후 이
- * 묶음에도 sr-only 묶음 이름 「계정 상태」가 붙어 행동으로 읽힌다.
+ * 충돌(409 `ROL_013`)을 화면에서 만들어 볼 수 있는 지점이다. 이 묶음도 같은
+ * 드롭다운 규격이라 「비활성화」는 곧 「비활성」 값을 고르는 일이다.
  */
 export async function chooseAccountStatus(
   page: Page,
   action: '재활성화' | '비활성화',
 ): Promise<void> {
   await page
-    .getByRole('button', { name: `계정 상태 ${action}`, exact: true })
-    .click();
+    .getByLabel('계정 상태', { exact: true })
+    .selectOption(action === '재활성화' ? 'ACTIVE' : 'DEACTIVATED');
 }
 
 /**

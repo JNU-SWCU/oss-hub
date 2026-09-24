@@ -455,27 +455,27 @@ test('unioned menus cover student, staff, student-admin, staff-admin, student-st
     `/dashboard/users/${encodeURIComponent(seedId('auth', 'admin-second'))}`,
   );
   await expect(
-    adminPage.locator('#admin-staff-access-control-label'),
-  ).toHaveText('교직원 접근');
+    adminPage.getByLabel('교직원 접근', { exact: true }),
+  ).toBeVisible();
   await expect(
-    adminPage.locator('#admin-admin-access-control-label'),
-  ).toHaveText('관리자 접근');
+    adminPage.getByLabel('관리자 접근', { exact: true }),
+  ).toBeVisible();
   await captureResponsivePage(adminPage, testInfo, 'admin-only-controls');
   await adminPage.goto(
     `/dashboard/users/${encodeURIComponent(seedId('auth', 'staff-revocable'))}`,
   );
   await expect(
-    adminPage.locator('#admin-staff-access-control-label'),
-  ).toHaveText('교직원 접근');
+    adminPage.getByLabel('교직원 접근', { exact: true }),
+  ).toBeVisible();
   await expect(
-    adminPage.locator('#admin-admin-access-control-label'),
-  ).toHaveText('관리자 접근');
-  const deactivate = adminPage.getByRole('button', {
-    name: '계정 상태 비활성화',
-    exact: true,
-  });
-  await deactivate.focus();
-  await expect(deactivate).toBeFocused();
+    adminPage.getByLabel('관리자 접근', { exact: true }),
+  ).toBeVisible();
+  // 계정 상태도 같은 드롭다운 규격이다 — 지금 값이 선택돼 있고 후행 상태가
+  // 목록에 이름으로 서 있다.
+  const accountStatus = adminPage.getByLabel('계정 상태', { exact: true });
+  await expect(accountStatus).toHaveValue('ACTIVE');
+  await accountStatus.focus();
+  await expect(accountStatus).toBeFocused();
   await captureResponsivePage(adminPage, testInfo, 'staff-only-controls');
   adminAudit.assertClean();
 });

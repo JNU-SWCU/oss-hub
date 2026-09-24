@@ -110,12 +110,12 @@ async function click(name: string) {
 }
 
 describe('보기 모드', () => {
-  it('이름·학번·학과를 보여주고 "수정" 버튼을 그린다', async () => {
+  it('이름·학번·학과를 보여주고 연필 버튼을 그린다', async () => {
     await render();
     expect(container.textContent).toContain('합성 사용자');
     expect(container.textContent).toContain('260001');
     expect(container.textContent).toContain('소프트웨어공학과');
-    expect(() => button('수정')).not.toThrow();
+    expect(() => button('프로필 수정')).not.toThrow();
   });
 
   it('값이 없는 필드는 "미등록"으로 보여준다', async () => {
@@ -137,9 +137,9 @@ describe('보기 모드', () => {
 });
 
 describe('수정 모드 진입/취소', () => {
-  it('"수정" 클릭은 저장된 값으로 채워진 입력란을 연다', async () => {
+  it('연필 클릭은 저장된 값으로 채워진 입력란을 연다', async () => {
     await render();
-    await click('수정');
+    await click('프로필 수정');
     const name = container.querySelector('#admin-profile-name');
     const studentId = container.querySelector('#admin-profile-student-id');
     expect(name).toBeInstanceOf(HTMLInputElement);
@@ -149,7 +149,7 @@ describe('수정 모드 진입/취소', () => {
 
   it('"취소"는 API를 부르지 않고 보기 모드로 되돌아간다', async () => {
     await render();
-    await click('수정');
+    await click('프로필 수정');
     await type('#admin-profile-name', '바뀐 이름');
     await click('취소');
     expect(container.textContent).toContain('합성 사용자');
@@ -160,7 +160,7 @@ describe('수정 모드 진입/취소', () => {
 describe('검증 — 백엔드가 null로 지울 수 없는 필드를 미리 막는다', () => {
   it('이름을 비우고 저장하면 인라인 오류를 보여주고 API를 부르지 않는다', async () => {
     await render();
-    await click('수정');
+    await click('프로필 수정');
     await type('#admin-profile-name', '');
     await click('저장');
     expect(container.textContent).toContain('이름을 입력해 주세요.');
@@ -169,7 +169,7 @@ describe('검증 — 백엔드가 null로 지울 수 없는 필드를 미리 막
 
   it('이미 저장된 학번을 비우고 저장하면 인라인 오류를 보여준다', async () => {
     await render();
-    await click('수정');
+    await click('프로필 수정');
     await type('#admin-profile-student-id', '');
     await click('저장');
     expect(container.textContent).toContain(
@@ -182,7 +182,7 @@ describe('검증 — 백엔드가 null로 지울 수 없는 필드를 미리 막
 describe('저장 — 바뀐 필드만 담아 patchAdminUserProfile을 부른다', () => {
   it('바뀐 게 없으면 API를 부르지 않고 바로 보기 모드로 돌아간다', async () => {
     await render();
-    await click('수정');
+    await click('프로필 수정');
     await click('저장');
     expect(patchAdminUserProfileMock).not.toHaveBeenCalled();
     expect(container.textContent).toContain('합성 사용자');
@@ -196,7 +196,7 @@ describe('저장 — 바뀐 필드만 담아 patchAdminUserProfile을 부른다'
       department: '소프트웨어공학과',
     });
     const { onSaved } = await render();
-    await click('수정');
+    await click('프로필 수정');
     await type('#admin-profile-student-id', '260099');
     await click('저장');
 
@@ -218,7 +218,7 @@ describe('저장 — 바뀐 필드만 담아 patchAdminUserProfile을 부른다'
       }),
     );
     const { onSaved } = await render();
-    await click('수정');
+    await click('프로필 수정');
     await type('#admin-profile-student-id', '269999');
     await click('저장');
 
