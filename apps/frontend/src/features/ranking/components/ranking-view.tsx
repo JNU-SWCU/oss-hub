@@ -43,30 +43,29 @@ const EMPTY_CELL = '-';
 const RANKING_METRIC_DESCRIPTION =
   'Commit · PR · Issue · Repo를 합산합니다. Star는 계정 전체 누적입니다.';
 
-const IDENTITY_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
-  {
-    id: 'rank',
-    header: '순위',
-    cell: (item) => item.rank,
-    headClassName: 'w-8',
-  },
-  {
-    id: 'member',
-    header: '참여자',
-    cell: (item) => (
-      <a
-        href={`https://github.com/${item.githubLogin}`}
-        target="_blank"
-        rel="noreferrer"
-        aria-label={`${item.githubLogin}의 GitHub 프로필 (새 탭에서 열림)`}
-        className="break-keep whitespace-normal hover:underline"
-      >
-        {item.githubLogin}
-      </a>
-    ),
-    headClassName: 'w-24',
-  },
-];
+const RANK_COLUMN: DataTableColumn<PublicRankingItem> = {
+  id: 'rank',
+  header: '순위',
+  cell: (item) => item.rank,
+  headClassName: 'w-8',
+};
+
+const MEMBER_COLUMN: DataTableColumn<PublicRankingItem> = {
+  id: 'member',
+  header: '참여자',
+  cell: (item) => (
+    <a
+      href={`https://github.com/${item.githubLogin}`}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`${item.githubLogin}의 GitHub 프로필 (새 탭에서 열림)`}
+      className="break-keep whitespace-normal hover:underline"
+    >
+      {item.githubLogin}
+    </a>
+  ),
+  headClassName: 'w-24',
+};
 
 /** 비로그인에게도 나가는 지표. */
 const OPEN_METRIC_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
@@ -124,7 +123,8 @@ const MEMBER_METRIC_COLUMNS: DataTableColumn<MemberRankingItem>[] = [
 ];
 
 const PUBLIC_RANKING_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
-  ...IDENTITY_COLUMNS,
+  RANK_COLUMN,
+  MEMBER_COLUMN,
   ...OPEN_METRIC_COLUMNS,
 ];
 
@@ -134,7 +134,7 @@ const MEMBER_RANKING_COLUMNS: DataTableColumn<MemberRankingItem>[] = [
 ];
 
 const STAFF_RANKING_COLUMNS: DataTableColumn<StaffRankingItem>[] = [
-  IDENTITY_COLUMNS[0]!,
+  RANK_COLUMN,
   {
     id: 'name',
     header: '이름',
@@ -150,7 +150,7 @@ const STAFF_RANKING_COLUMNS: DataTableColumn<StaffRankingItem>[] = [
       ),
     headClassName: 'w-24',
   },
-  IDENTITY_COLUMNS[1]!,
+  MEMBER_COLUMN,
   {
     id: 'department',
     header: '학과',
