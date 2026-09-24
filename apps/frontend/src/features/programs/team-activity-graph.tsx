@@ -331,31 +331,35 @@ function WeeklyChart({
           마지막 수집 {formatSeoulDate(activity.lastSuccessAt)}
         </p>
       ) : null}
-      <table className="sr-only">
-        <caption>{`${label} — 주별 ${metricLabel}`}</caption>
-        <thead>
-          <tr>
-            <th scope="col">주</th>
-            {series.map((item) => (
-              <th key={item.member.userId} scope="col">
-                @{item.member.githubLogin}
-              </th>
-            ))}
-            <th scope="col">팀 합계</th>
-          </tr>
-        </thead>
-        <tbody>
-          {weeks.map((week, index) => (
-            <tr key={week}>
-              <th scope="row">{weekLabel(week)}</th>
+      {/* `sr-only`를 표에 직접 주면 폭 1px·넘침 숨김이 표 배치에 먹지 않아 머리글 폭만큼
+          화면이 가로로 넘친다(390폭 447px) — 숨김은 감싸는 div가 맡는다. */}
+      <div className="sr-only">
+        <table>
+          <caption>{`${label} — 주별 ${metricLabel}`}</caption>
+          <thead>
+            <tr>
+              <th scope="col">주</th>
               {series.map((item) => (
-                <td key={item.member.userId}>{valueAt(item, index)}</td>
+                <th key={item.member.userId} scope="col">
+                  @{item.member.githubLogin}
+                </th>
               ))}
-              <td>{teamTotal(index)}</td>
+              <th scope="col">팀 합계</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {weeks.map((week, index) => (
+              <tr key={week}>
+                <th scope="row">{weekLabel(week)}</th>
+                {series.map((item) => (
+                  <td key={item.member.userId}>{valueAt(item, index)}</td>
+                ))}
+                <td>{teamTotal(index)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
