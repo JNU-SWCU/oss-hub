@@ -1,9 +1,10 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Pencil } from 'lucide-react';
 
+import { FormErrorSummary } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -72,6 +73,21 @@ export function AdminAccessProfileSection({
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // 검증에 막힌 저장 시도마다 하나씩 올린다 — 이미 오류가 보이는 채로 다시
+  // 눌러도 첫 오류 칸으로 돌아가게 하려고 표시 여부 대신 횟수를 본다.
+  const [invalidSubmitCount, setInvalidSubmitCount] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // 오류가 그려져 칸에 aria-invalid 가 붙은 뒤에 첫 오류 칸으로 커서를 옮긴다.
+  useEffect(() => {
+    if (invalidSubmitCount === 0) return;
+    const firstInvalidField =
+      formRef.current?.querySelector<HTMLElement>(
+        '[aria-invalid="true"]:not(:disabled)',
+      ) ?? null;
+    firstInvalidField?.focus({ preventScroll: true });
+    firstInvalidField?.scrollIntoView?.({ block: 'center' });
+  }, [invalidSubmitCount]);
 
   function startEdit() {
     setValues(createAdminProfileEditValues(profile));
@@ -91,7 +107,10 @@ export function AdminAccessProfileSection({
     setShowValidationErrors(true);
     setSubmitError(null);
     const command = toAdminProfileUpdateCommand(values, profile);
-    if (!command) return;
+    if (!command) {
+      setInvalidSubmitCount((count) => count + 1);
+      return;
+    }
     // 바뀐 항목이 없으면 API를 부르지 않고 바로 보기 모드로 돌아간다.
     if (Object.keys(command).length === 0) {
       setMode('view');
@@ -190,10 +209,22 @@ export function AdminAccessProfileSection({
       </CardHeader>
       <CardContent>
         <form
+          ref={formRef}
           className="grid gap-4"
           noValidate
           onSubmit={(event) => void handleSubmit(event)}
         >
+          {/*
+            학과는 선택 상자와 「기타」 입력이 오류 한 줄을 함께 쓰므로 한 줄로 센다.
+            저장 버튼 위 서버 실패 경고는 칸 오류가 아니라 세지 않는다.
+          */}
+          <FormErrorSummary
+            count={
+              Number(showNameError) +
+              Number(showStudentIdError) +
+              Number(showDepartmentError)
+            }
+          />
           <Field data-invalid={showNameError || undefined}>
             <FieldLabel htmlFor="admin-profile-name">이름</FieldLabel>
             <Input
