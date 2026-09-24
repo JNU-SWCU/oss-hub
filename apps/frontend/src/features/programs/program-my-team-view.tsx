@@ -2,12 +2,7 @@
 
 import Link from 'next/link';
 import type { ReactNode, RefObject } from 'react';
-import {
-  PageBody,
-  PageHeader,
-  SectionHeading,
-  StatusBadge,
-} from '@/components';
+import { PageBody, PageHeader, StatusBadge } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,12 +15,12 @@ import {
 import { programApplyHref } from '@/lib/program-route';
 import type { ProgramTeam } from './api';
 import { ApplicationTeamDeparture } from './application-team-departure';
-import { ActivityGraphContent } from './components/activity-graph-panel';
 import { formatSeoulDate } from './program-detail-format';
 import type { StudentApplication } from './student-application-api';
-import { RepositoryUrlEditor } from './repository-url-editor';
+import { updateRepositoryUrl } from './repository-url-api';
 import { TeamInvitePanel } from './team-invite-panel';
 import { TeamMembersPanel } from './team-members-panel';
+import { TeamRepositoryPanel } from './team-repository-panel';
 import type { ProgramDetail } from './types';
 import type { TeamInvitationManagement } from './use-team-invitation-management';
 
@@ -258,13 +253,6 @@ export function ProgramMyTeamView({
         application={application}
       />
 
-      {application !== null ? (
-        <RepositoryUrlEditor
-          key={`${programId}:${sessionNickname}`}
-          programId={programId}
-        />
-      ) : null}
-
       {/*
         명단이 자기 행동을 모두 가진다 — 초대 버튼도, 대기 중인 초대 행도
         팀원 목록 안에 있다. 화면 머리에는 상태만 남는다.
@@ -289,19 +277,27 @@ export function ProgramMyTeamView({
         />
       ) : null}
 
-      {stage === 'approved' && application !== null ? (
-        <section
-          className="flex flex-col gap-3"
-          aria-labelledby="my-team-activity"
-        >
-          <SectionHeading id="my-team-activity" title="우리 팀 활동" />
-          {/* 프로그램이 바뀌면 이전 프로그램의 활동을 그대로 두지 않는다. */}
-          <ActivityGraphContent
-            key={`${programId}:${application.id}`}
-            programId={programId}
-            applicationId={application.id}
-          />
-        </section>
+      {application !== null ? (
+        <TeamRepositoryPanel
+          /*
+           * 서버가 편집 권한을 다시 계산하는 사실(계정·팀장·신청·종료일)이 바뀌면
+           * 새로 읽는다 — 조용한 재조회로 팀장이 바뀌어도 연필이 옛 권한에 머물지 않는다.
+           */
+          key={[
+            sessionNickname,
+            team.isLeader,
+            application.id,
+            application.status,
+            program.operatingPeriod?.endsAt,
+          ].join('|')}
+          programId={programId}
+          teamId={team.id}
+          activityTitle="우리 팀 활동"
+          lockedHint="승인된 팀의 팀장만 프로그램 종료 전까지 변경할 수 있습니다."
+          saveRepositoryUrl={(repositoryUrl) =>
+            updateRepositoryUrl(programId, { repositoryUrl })
+          }
+        />
       ) : null}
 
       {stage === 'approved' ? submissionContent : null}

@@ -5,76 +5,81 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
 import { RepositoryUrlEditor } from './repository-url-editor';
 import {
-  getRepositoryUrl,
   RepositoryUrlResponseError,
-  updateRepositoryUrl,
   type RepositoryUrlState,
 } from './repository-url-api';
 
-vi.mock('./repository-url-api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./repository-url-api')>()),
-  getRepositoryUrl: vi.fn(),
-  updateRepositoryUrl: vi.fn(),
-}));
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
   value: true,
 });
 
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
+const LOCKED_HINT =
+  '승인된 팀의 팀장만 프로그램 종료 전까지 변경할 수 있습니다.';
+
+function rejected(): ApiError {
+  return new ApiError({
+    type: 'about:blank',
+    title: '요청 처리 실패',
+    status: 400,
+    detail: '서버가 거절한 합성 오류입니다.',
+    instance: '/programs/program-1',
+    code: 'VAL_001',
   });
-  return { promise, resolve, reject };
 }
 
 describe('RepositoryUrlEditor', () => {
   let container: HTMLDivElement;
   let root: Root;
-  const initial = {
+  const initial: RepositoryUrlState = {
     repositoryUrl: 'https://github.com/synthetic/original',
     canEditRepositoryUrl: true,
   };
+  const save = vi.fn<(repositoryUrl: string) => Promise<RepositoryUrlState>>();
+  const reload = vi.fn<() => Promise<boolean>>();
   beforeEach(() => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
-    vi.mocked(getRepositoryUrl).mockReset().mockResolvedValue(initial);
-    vi.mocked(updateRepositoryUrl).mockReset();
+    save.mockReset();
+    reload.mockReset().mockResolvedValue(true);
   });
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
   });
-  async function render(programId = 'program-1') {
+  /** 부모(`TeamRepositoryPanel`)가 서버를 새로 읽을 때마다 새 객체를 내려 주는 것과 같다. */
+  async function render(repository: RepositoryUrlState = initial) {
     await act(async () =>
-      root.render(<RepositoryUrlEditor programId={programId} />),
+      root.render(
+        <RepositoryUrlEditor
+          repository={repository}
+          save={save}
+          reload={reload}
+          lockedHint={LOCKED_HINT}
+        />,
+      ),
     );
   }
-  async function click(label: string) {
-    const button = Array.from(document.body.querySelectorAll('button')).find(
+  function button(label: string): HTMLButtonElement {
+    const found = Array.from(document.body.querySelectorAll('button')).find(
       (element) =>
         (element.getAttribute('aria-label') ?? element.textContent) === label,
     );
-    if (!button) throw new Error(`Missing button ${label}`);
-    await act(async () => button.click());
+    if (!found) throw new Error(`Missing button ${label}`);
+    return found;
   }
-  async function fill(selector: string, value: string) {
-    const input = container.querySelector(selector);
-    if (!(
-      input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement
-    ))
-      throw new Error('Missing input');
-    const prototype =
-      input instanceof HTMLInputElement
-        ? HTMLInputElement.prototype
-        : HTMLTextAreaElement.prototype;
-    const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+  async function click(label: string) {
+    await act(async () => button(label).click());
+  }
+  async function fill(value: string) {
+    const input = container.querySelector<HTMLInputElement>('#repository-url');
+    if (!input) throw new Error('Missing input');
     await act(async () => {
-      setter?.call(input, value);
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(input, value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
   }
@@ -86,275 +91,136 @@ describe('RepositoryUrlEditor', () => {
       ),
     );
   }
+  function input(): HTMLInputElement | null {
+    return container.querySelector<HTMLInputElement>('#repository-url');
+  }
+  function link(): string | null | undefined {
+    return container.querySelector('a')?.getAttribute('href');
+  }
+
   it('makes no mutation when the editor is cancelled', async () => {
-    // Given
     await render();
     await click('저장소 URL 수정');
-    // When
     await click('취소');
-    // Then
-    expect(updateRepositoryUrl).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
     expect(container.querySelector('form')).toBeNull();
   });
-  it.each([['#repository-url', 'https://github.com/synthetic/replacement']])(
-    'preserves dirty %s until discard is confirmed',
-    async (selector, value) => {
-      await render();
-      await click('저장소 URL 수정');
-      await fill(selector, value);
-      await click('취소');
-      expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
-      expect(updateRepositoryUrl).not.toHaveBeenCalled();
-      await click('이어서 수정하기');
-      expect(document.querySelector('[role="alertdialog"]')).toBeNull();
-      expect(container.querySelector<HTMLInputElement>(selector)?.value).toBe(
-        value,
-      );
-      await click('취소');
-      await click('변경사항 버리기');
-      expect(container.querySelector('form')).toBeNull();
-      expect(updateRepositoryUrl).not.toHaveBeenCalled();
-      await click('저장소 URL 수정');
-      expect(
-        container.querySelector<HTMLInputElement>('#repository-url')?.value,
-      ).toBe(initial.repositoryUrl);
-      expect(container.querySelector('textarea')).toBeNull();
-    },
-  );
-  it('puts keep-editing before the destructive discard in the confirmation footer', async () => {
-    // Given
+  it('preserves a dirty URL until discard is confirmed', async () => {
+    const value = 'https://github.com/synthetic/replacement';
     await render();
     await click('저장소 URL 수정');
-    await fill('#repository-url', 'https://github.com/synthetic/replacement');
-    // When
+    await fill(value);
     await click('취소');
-    // Then
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+    await click('이어서 수정하기');
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(input()?.value).toBe(value);
+    await click('취소');
+    await click('변경사항 버리기');
+    expect(container.querySelector('form')).toBeNull();
+    expect(save).not.toHaveBeenCalled();
+    await click('저장소 URL 수정');
+    expect(input()?.value).toBe(initial.repositoryUrl);
+  });
+  it('puts keep-editing before the destructive discard in the confirmation footer', async () => {
+    await render();
+    await click('저장소 URL 수정');
+    await fill('https://github.com/synthetic/replacement');
+    await click('취소');
     const buttons = Array.from(
       document.querySelectorAll<HTMLElement>(
         '[role="alertdialog"] [data-slot="button"]',
       ),
     );
-    expect(buttons.map((button) => button.textContent)).toEqual([
+    expect(buttons.map((item) => item.textContent)).toEqual([
       '이어서 수정하기',
       '변경사항 버리기',
     ]);
-    expect(buttons.map((button) => button.dataset.variant)).toEqual([
+    expect(buttons.map((item) => item.dataset.variant)).toEqual([
       'outline',
       'destructive',
     ]);
   });
-  it('opens the URL input without a redundant change notice', async () => {
-    // Given
+  it('saves only the URL through the route the screen chose and applies the answer without a reload', async () => {
+    const replacement = {
+      ...initial,
+      repositoryUrl: 'https://github.com/synthetic/replacement',
+    };
+    save.mockResolvedValue(replacement);
     await render();
-    // When
     await click('저장소 URL 수정');
-    // Then
-    expect(container.querySelector('#repository-url')).not.toBeNull();
     expect(container.querySelector('form [role="alert"]')).toBeNull();
-    expect(container.textContent).not.toContain('저장소 변경 안내');
-  });
-  it('saves with only a repository URL and no reason field', async () => {
-    // Given
-    await render();
-    await click('저장소 URL 수정');
-    vi.mocked(updateRepositoryUrl).mockResolvedValue(initial);
-    // When
-    await submit();
-    // Then
-    expect(updateRepositoryUrl).toHaveBeenCalledWith('program-1', {
-      repositoryUrl: initial.repositoryUrl,
-    });
     expect(container.querySelector('textarea')).toBeNull();
-  });
-  it('retains the URL when saving fails', async () => {
-    // Given
-    vi.mocked(updateRepositoryUrl).mockRejectedValue(
-      new ApiError({
-        type: 'about:blank',
-        title: '요청 처리 실패',
-        status: 400,
-        detail: '서버가 거절한 합성 오류입니다.',
-        instance: '/programs/program-1',
-        code: 'VAL_001',
-      }),
+    await fill(replacement.repositoryUrl);
+    await submit();
+    expect(save).toHaveBeenCalledExactlyOnceWith(replacement.repositoryUrl);
+    expect(reload).not.toHaveBeenCalled();
+    expect(link()).toBe(replacement.repositoryUrl);
+    expect(container.querySelector('form')).toBeNull();
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      '저장소 변경을 저장했습니다.',
     );
+  });
+  it('retains the URL and retry path when the server rejects the change', async () => {
+    save.mockRejectedValue(rejected());
     await render();
     await click('저장소 URL 수정');
-    await fill('#repository-url', 'https://github.com/synthetic/replacement');
-    // When
+    await fill('https://github.com/synthetic/replacement');
     await submit();
-    // Then
-    expect(
-      container.querySelector<HTMLInputElement>('#repository-url')?.value,
-    ).toBe('https://github.com/synthetic/replacement');
+    expect(input()?.value).toBe('https://github.com/synthetic/replacement');
     expect(container.textContent).toContain('서버가 거절한 합성 오류입니다.');
     expect(container.textContent).toContain('재시도하세요');
     expect(
       container.querySelector<HTMLButtonElement>('button[type="submit"]')
         ?.disabled,
     ).toBe(false);
-    expect(getRepositoryUrl).toHaveBeenCalledTimes(1);
-    const errorDescription = container.querySelector(
+    const description = container.querySelector(
       'section > [role="alert"] [data-slot="alert-description"]',
     );
-    expect(errorDescription?.className).toContain('grid');
-    expect(errorDescription?.firstElementChild?.tagName).toBe('P');
-    expect(errorDescription?.className).toContain('text-wrap');
-    expect(errorDescription?.firstElementChild?.className).toContain(
+    expect(description?.className).toContain('text-wrap');
+    expect(description?.firstElementChild?.className).toContain(
       'whitespace-pre-line',
     );
   });
-  it('applies the PATCH body without a follow-up GET', async () => {
-    // Given
-    const replacement = {
-      ...initial,
-      repositoryUrl: 'https://github.com/synthetic/replacement',
-    };
-    vi.mocked(updateRepositoryUrl).mockResolvedValue(replacement);
+  it('disables editing and says who may edit when the server denies it', async () => {
+    await render({ ...initial, canEditRepositoryUrl: false });
+    expect(button('저장소 URL 수정').disabled).toBe(true);
+    expect(container.textContent).toContain(LOCKED_HINT);
+  });
+  it('follows permission the screen re-reads — a leader change closes the open editor', async () => {
+    // Given: the leader is editing.
     await render();
     await click('저장소 URL 수정');
-    await fill('#repository-url', replacement.repositoryUrl);
-    // When
-    await submit();
+    await fill('https://github.com/synthetic/draft');
+    // When: the screen reads the server again and leadership has moved.
+    await render({ ...initial, canEditRepositoryUrl: false });
     // Then
-    expect(updateRepositoryUrl).toHaveBeenCalledWith('program-1', {
-      repositoryUrl: replacement.repositoryUrl,
-    });
-    expect(getRepositoryUrl).toHaveBeenCalledTimes(1);
-    expect(container.querySelector('a')?.getAttribute('href')).toBe(
-      replacement.repositoryUrl,
-    );
     expect(container.querySelector('form')).toBeNull();
+    expect(button('저장소 URL 수정').disabled).toBe(true);
+    // When: approval (or a new leader) grants it back on the next read.
+    await render({ ...initial });
+    expect(button('저장소 URL 수정').disabled).toBe(false);
+    expect(container.textContent).not.toContain(LOCKED_HINT);
   });
-  it('disables editing when the server denies capability after end or for a member', async () => {
-    // Given
-    vi.mocked(getRepositoryUrl).mockResolvedValue({
-      ...initial,
-      canEditRepositoryUrl: false,
-    });
-    // When
-    await render();
-    // Then
-    expect(container.querySelector('button')?.disabled).toBe(true);
-  });
-  it('does not keep the previous program URL, draft, or edit permission while the next program loads', async () => {
-    const next = deferred<RepositoryUrlState>();
-    vi.mocked(getRepositoryUrl)
-      .mockResolvedValueOnce(initial)
-      .mockReturnValueOnce(next.promise);
-    await render('program-1');
-    await click('저장소 URL 수정');
-    await fill('#repository-url', 'https://github.com/synthetic/draft');
-    await render('program-2');
-    expect(container.textContent).toContain('저장소를 불러오는 중');
-    expect(container.querySelector('form')).toBeNull();
-    expect(container.querySelector('a')).toBeNull();
-    expect(container.textContent).not.toContain(initial.repositoryUrl);
-    expect(container.textContent).not.toContain(
-      'https://github.com/synthetic/draft',
-    );
-    await act(async () => {
-      next.resolve({
-        repositoryUrl: 'https://github.com/synthetic/other',
-        canEditRepositoryUrl: false,
-      });
-      await next.promise;
-    });
-    expect(container.querySelector('a')?.getAttribute('href')).toBe(
-      'https://github.com/synthetic/other',
-    );
-    expect(container.querySelector('button')?.disabled).toBe(true);
-  });
-  it('does not let a delayed GET replace the current program or a confirmed save', async () => {
-    const first = deferred<RepositoryUrlState>();
-    const second = deferred<RepositoryUrlState>();
-    const saved = {
-      repositoryUrl: 'https://github.com/synthetic/program-2',
-      canEditRepositoryUrl: true,
-    };
-    vi.mocked(getRepositoryUrl).mockImplementation((programId) =>
-      programId === 'program-1' ? first.promise : second.promise,
-    );
-    vi.mocked(updateRepositoryUrl).mockResolvedValue(saved);
-    await render('program-1');
-    await render('program-2');
-    expect(container.textContent).toContain('저장소를 불러오는 중');
-    expect(container.querySelector('a')).toBeNull();
-    await act(async () => {
-      second.resolve({
-        repositoryUrl: 'https://github.com/synthetic/program-2-original',
-        canEditRepositoryUrl: true,
-      });
-      await second.promise;
-    });
-    await click('저장소 URL 수정');
-    await fill('#repository-url', saved.repositoryUrl);
-    await submit();
-    expect(container.querySelector('a')?.getAttribute('href')).toBe(
-      saved.repositoryUrl,
-    );
-    await act(async () => {
-      first.resolve(initial);
-      await first.promise;
-    });
-    expect(container.querySelector('a')?.getAttribute('href')).toBe(
-      saved.repositoryUrl,
-    );
-    expect(container.textContent).not.toContain(initial.repositoryUrl);
-  });
-  it('does not apply a delayed reload over a later confirmed save', async () => {
-    const delayed = deferred<RepositoryUrlState>();
-    const replacement = {
-      ...initial,
-      repositoryUrl: 'https://github.com/synthetic/replacement',
-    };
-    vi.mocked(getRepositoryUrl)
-      .mockResolvedValueOnce(initial)
-      .mockReturnValueOnce(delayed.promise);
-    vi.mocked(updateRepositoryUrl)
-      .mockRejectedValueOnce(
-        new ApiError({
-          type: 'about:blank',
-          title: '요청 처리 실패',
-          status: 400,
-          detail: '서버가 거절한 합성 오류입니다.',
-          instance: '/programs/program-1',
-          code: 'VAL_001',
-        }),
-      )
-      .mockResolvedValueOnce(replacement);
+  it('keeps a draft when a re-read does not change permission', async () => {
     await render();
     await click('저장소 URL 수정');
-    await fill('#repository-url', replacement.repositoryUrl);
-    await submit();
-    expect(container.textContent).toContain('서버가 거절한 합성 오류입니다.');
-    expect(container.textContent).toContain('재시도하세요');
-    await click('다시 불러오기');
-    await submit();
-    expect(container.querySelector('a')?.getAttribute('href')).toBe(
-      replacement.repositoryUrl,
-    );
-    expect(container.querySelector('form')).toBeNull();
-    await act(async () => {
-      delayed.resolve(initial);
-      await delayed.promise;
-    });
-    expect(container.querySelector('a')?.getAttribute('href')).toBe(
-      replacement.repositoryUrl,
-    );
+    await fill('https://github.com/synthetic/draft');
+    await render({ ...initial });
+    expect(input()?.value).toBe('https://github.com/synthetic/draft');
   });
-  it('retains an unconfirmed save and does not PATCH again until the current state is read back', async () => {
+  it('retains an unconfirmed save and does not save again until the state is read back', async () => {
     const replacement = 'https://github.com/synthetic/replacement';
-    vi.mocked(updateRepositoryUrl).mockRejectedValue(
-      new RepositoryUrlResponseError(),
-    );
+    save.mockRejectedValue(new RepositoryUrlResponseError());
+    reload.mockImplementation(async () => {
+      await render({ ...initial, repositoryUrl: replacement });
+      return true;
+    });
     await render();
     await click('저장소 URL 수정');
-    await fill('#repository-url', replacement);
+    await fill(replacement);
     await submit();
-    expect(
-      container.querySelector<HTMLInputElement>('#repository-url')?.value,
-    ).toBe(replacement);
+    expect(input()?.value).toBe(replacement);
     expect(container.textContent).toContain('저장 결과를 확인할 수 없습니다');
     expect(container.textContent).toContain(
       '다시 불러와 현재 상태를 확인한 뒤에만 저장하세요',
@@ -365,19 +231,33 @@ describe('RepositoryUrlEditor', () => {
         ?.disabled,
     ).toBe(true);
     await submit();
-    expect(updateRepositoryUrl).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledTimes(1);
     await click('다시 불러오기');
+    expect(reload).toHaveBeenCalledOnce();
     expect(container.textContent).not.toContain(
       '저장 결과를 확인할 수 없습니다',
     );
-    expect(
-      container.querySelector<HTMLInputElement>('#repository-url')?.value,
-    ).toBe(replacement);
+    expect(link()).toBe(replacement);
+    expect(input()?.value).toBe(replacement);
     expect(
       container.querySelector<HTMLButtonElement>('button[type="submit"]')
         ?.disabled,
     ).toBe(false);
     await submit();
-    expect(updateRepositoryUrl).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+  it('says the reload failed and keeps saving blocked', async () => {
+    save.mockRejectedValue(new RepositoryUrlResponseError());
+    reload.mockRejectedValue(new Error('Synthetic failure'));
+    await render();
+    await click('저장소 URL 수정');
+    await fill('https://github.com/synthetic/replacement');
+    await submit();
+    await click('다시 불러오기');
+    expect(container.textContent).toContain('다시 불러오지 못했습니다');
+    expect(
+      container.querySelector<HTMLButtonElement>('button[type="submit"]')
+        ?.disabled,
+    ).toBe(true);
   });
 });

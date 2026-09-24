@@ -5,6 +5,7 @@ import {
   parseRepositoryUrlState,
   RepositoryUrlResponseError,
   updateRepositoryUrl,
+  updateTeamRepositoryUrl,
 } from './repository-url-api';
 
 vi.mock('@/lib/api-client', () => ({ apiClient: vi.fn() }));
@@ -36,6 +37,28 @@ describe('repository URL contracts', () => {
       );
     },
   );
+  it('sends the staff change to the team route with the same body', async () => {
+    // Given
+    const response = {
+      repositoryUrl: 'https://github.com/synthetic/repo',
+      canEditRepositoryUrl: true,
+    };
+    vi.mocked(apiClient).mockResolvedValue(response);
+    // When
+    const saved = await updateTeamRepositoryUrl('program/1', 'team/1', {
+      repositoryUrl: ' https://github.com/synthetic/repo ',
+    });
+    // Then
+    expect(saved).toEqual(response);
+    expect(apiClient).toHaveBeenLastCalledWith(
+      'programs/program%2F1/teams/team%2F1/repository-url',
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repositoryUrl: response.repositoryUrl }),
+      },
+    );
+  });
   it.each([
     null,
     {},
