@@ -72,24 +72,44 @@ describe('마일스톤 폼 상단 오류 요약(R-16)', () => {
     },
   );
 
-  it('요약은 폼의 첫 칸(일정 달력)보다 앞에 선다', () => {
-    const container = renderForm({
-      name: '마일스톤 이름을 입력해 주세요.',
-      dueAt: '유효한 마감일을 입력해 주세요.',
-    });
-    const summary = summaryOf(container);
-    const firstField = container.querySelector(
-      '[data-testid="program-schedule-calendar-scroll"]',
-    );
-    if (summary === null || firstField === null) {
-      throw new TypeError('요약이나 첫 칸이 없다.');
-    }
-    expect(container.querySelector('form')?.contains(summary)).toBe(true);
-    expect(
-      summary.compareDocumentPosition(firstField) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
+  it.each(['card', 'dialog'] as const)(
+    '%s — 요약은 폼의 첫 칸(일정 달력)보다 앞에 선다',
+    (layout) => {
+      const container = renderForm(
+        {
+          name: '마일스톤 이름을 입력해 주세요.',
+          dueAt: '유효한 마감일을 입력해 주세요.',
+        },
+        { layout },
+      );
+      const summary = summaryOf(container);
+      const firstField = container.querySelector(
+        '[data-testid="program-schedule-calendar-scroll"]',
+      );
+      if (summary === null || firstField === null) {
+        throw new TypeError('요약이나 첫 칸이 없다.');
+      }
+      expect(container.querySelector('form')?.contains(summary)).toBe(true);
+      expect(
+        summary.compareDocumentPosition(firstField) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    },
+  );
+
+  it.each(['startAt', 'dueAt'] as const)(
+    '일정 줄은 %s 하나만 틀려도 한 줄로 센다',
+    (key) => {
+      expect(
+        summaryOf(
+          renderForm({
+            name: '마일스톤 이름을 입력해 주세요.',
+            [key]: '일정을 확인해 주세요.',
+          }),
+        )?.textContent,
+      ).toBe('고칠 칸이 2개 있습니다');
+    },
+  );
 
   it('보이는 오류가 한 줄이면 요약이 없다 — 시작·마감이 함께 틀려도 일정은 한 줄이다', () => {
     expect(

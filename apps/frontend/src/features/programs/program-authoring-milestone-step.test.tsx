@@ -495,6 +495,43 @@ describe('ProgramAuthoringMilestoneStep', () => {
     expect(summaryOf(dialog())?.textContent).toBe('고칠 칸이 2개 있습니다');
   });
 
+  it('제출물 칸이 이름을 고치는 동안 스스로 띄운 오류도 센다', async () => {
+    await render();
+    await addBlankDraft();
+    await selectFile(
+      input('[aria-label="첨부파일 추가"]'),
+      new File(['pdf'], 'guide.pdf', { type: 'application/pdf' }),
+    );
+    await act(async () =>
+      dialog()
+        .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')!
+        .click(),
+    );
+    await change(input('[aria-label="파일 제출물 이름"]'), '');
+    // 저장 전에는 칸 안의 한 줄뿐이라 요약이 없다.
+    expect(summaryOf(dialog())).toBeNull();
+
+    await pressSave();
+    // 이름·기간·첨부파일 세 줄은 창의 FieldError, 한 줄은 제출물 칸 안에 있다.
+    expect(dialog().querySelectorAll('[data-slot="field-error"]')).toHaveLength(
+      3,
+    );
+    expect(dialog().textContent).toContain('제출 항목 이름을 입력해 주세요.');
+    expect(summaryOf(dialog())?.textContent).toBe('고칠 칸이 4개 있습니다');
+  });
+
+  it('저장에 실패한 뒤 다른 칸을 고쳐도 포커스를 첫 오류 칸으로 되돌리지 않는다', async () => {
+    await render();
+    await addBlankDraft();
+    await pressSave();
+    expect(document.activeElement).toBe(input('[aria-label="시작일"]'));
+
+    const name = input('#test-1-name');
+    await act(async () => name.focus());
+    await change(name, '중간 점검');
+    expect(document.activeElement).toBe(name);
+  });
+
   it('saves a valid zero-attachment draft and immediately shows it in the calendar and list', async () => {
     const view = await render();
     await addBlankDraft();

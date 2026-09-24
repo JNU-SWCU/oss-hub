@@ -273,15 +273,29 @@ describe('settings form view', () => {
       savedStudentId: '',
       phone: '',
     });
+    const errors = validateSettingsForm(formValues, true, null);
+    // 전제: 감춰진 칸에도 학번 오류는 만들어져 있다.
+    expect(errors.studentId).toBeTruthy();
     const html = renderForm(formValues, {
       role: 'ADMIN',
       showValidationErrors: true,
-      errors: validateSettingsForm(formValues, true, null),
+      errors,
     });
 
     expect(html).not.toContain('settings-student-id');
     expect(fieldErrorCount(html)).toBe(2);
     expect(html).toContain('고칠 칸이 2개 있습니다');
+  });
+
+  it('저장 버튼 옆 서버 실패 경고는 요약 개수에 세지 않는다', () => {
+    const html = renderForm(values({ notificationEmail: 'not-an-email' }), {
+      showValidationErrors: true,
+      submitError: '잠시 후 다시 시도해 주세요.',
+    });
+
+    expect(fieldErrorCount(html)).toBe(1);
+    expect(html).toContain('잠시 후 다시 시도해 주세요.');
+    expect(html).not.toContain('data-slot="form-error-summary"');
   });
 
   it('이메일 오류를 입력 필드와 연결한다', () => {

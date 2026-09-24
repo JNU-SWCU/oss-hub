@@ -14,6 +14,7 @@ import { isLocalMilestoneDocumentsDirty } from './milestone-document-editor-flow
 import type { ProgramScheduleCalendarEvent } from './program-schedule-calendar-model';
 import type { EditableMilestoneEditSnapshot } from './api';
 import { LocalMilestoneDocumentsEditor } from './milestone-document-editor';
+import { useSubmissionItemErrorCount } from './program-authoring-submission-item';
 import {
   toProgramMilestoneDraft,
   toDateTimeLocal,
@@ -65,6 +66,8 @@ export function ProgramEditMilestoneDialog({
   readonly onDocumentsDirtyChange?: (dirty: boolean) => void;
 }) {
   const [discardOpen, setDiscardOpen] = useState(false);
+  const [documentErrorCount, reportDocumentErrors] =
+    useSubmissionItemErrorCount();
   const contentRef = useRef<HTMLDivElement>(null);
   const editorFocusRef = useRef<HTMLElement | null>(null);
   const discardingRef = useRef(false);
@@ -192,6 +195,7 @@ export function ProgramEditMilestoneDialog({
               ]}
               isBusy={isBusy}
               isSaveDisabled={Boolean(editor.blocked)}
+              documentErrorCount={documentErrorCount}
               layout="dialog"
               onCancel={requestClose}
               onFieldChange={onFieldChange}
@@ -213,6 +217,7 @@ export function ProgramEditMilestoneDialog({
                     milestoneId={draft.id}
                     documents={draft.documents}
                     fileUpload={snapshot.fileUpload}
+                    onItemErrorCountChange={reportDocumentErrors}
                     onChange={(documents) =>
                       setDraft((current) =>
                         current === null ? current : { ...current, documents },

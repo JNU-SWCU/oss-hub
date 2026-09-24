@@ -274,6 +274,65 @@ describe('ProgramEditMilestoneDialog', () => {
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
   });
 
+  it('제출 항목 칸의 오류도 요약 개수에 더하고, 한 칸에 같은 문장이 두 번 서면 하나로 센다', async () => {
+    await act(async () =>
+      root.render(
+        <ProgramEditMilestoneDialog
+          {...passiveProps}
+          snapshot={{
+            ...passiveProps.snapshot,
+            documents: [
+              {
+                id: 'document-1',
+                name: '기획서',
+                required: true,
+                sortOrder: 1,
+                templateFileName: null,
+              },
+            ],
+          }}
+          editor={{
+            mode: 'edit',
+            form,
+            initialForm: form,
+            errors: { name: '마일스톤 이름을 입력해 주세요.' },
+          }}
+        />,
+      ),
+    );
+    const summary = () =>
+      document.querySelector('[data-slot="form-error-summary"]');
+    expect(summary()).toBeNull();
+
+    await act(async () =>
+      document
+        .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')
+        ?.click(),
+    );
+    const input = document.querySelector<HTMLInputElement>(
+      '[aria-label="파일 제출물 이름"]',
+    )!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )!.set!.call(input, '');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // 이름 줄과 아래 줄이 같은 문장을 말한다 — 한 칸의 한 오류다.
+    const itemLines = Array.from(
+      document.querySelectorAll(
+        '[role="group"][aria-label$="제출 항목"] [role="alert"]',
+      ),
+    ).map((line) => line.textContent);
+    expect(itemLines).toEqual([
+      '제출 항목 이름을 입력해 주세요.',
+      '제출 항목 이름을 입력해 주세요.',
+    ]);
+    expect(summary()?.textContent).toBe('고칠 칸이 2개 있습니다');
+  });
+
   it('closes a clean editor with one Escape and returns focus to its exact origin', async () => {
     const onCancel = vi.fn();
     await act(async () =>

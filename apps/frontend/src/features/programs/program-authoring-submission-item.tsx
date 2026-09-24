@@ -1,5 +1,11 @@
 import { Check, Pencil, RefreshCw, Trash2, X } from 'lucide-react';
-import { useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatFileSize } from '@/lib/format-file-size';
@@ -37,6 +43,7 @@ export function ProgramAuthoringSubmissionItem({
   error,
   deleteLabel = '첨부파일 삭제',
   nameConfirmLabel = '제출물 이름 저장',
+  onVisibleErrorCountChange,
 }: {
   readonly milestoneId: string;
   readonly requirement: SubmissionItemValue;
@@ -61,6 +68,10 @@ export function ProgramAuthoringSubmissionItem({
   readonly error?: string;
   readonly deleteLabel?: string;
   readonly nameConfirmLabel?: string;
+  readonly onVisibleErrorCountChange?: (
+    requirementId: string,
+    count: number,
+  ) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingName, setEditingName] = useState(false);
@@ -74,10 +85,22 @@ export function ProgramAuthoringSubmissionItem({
       : requirement.name.trim().length > 200
         ? '제출 항목 이름은 200자 이하여야 합니다.'
         : null;
+  // R-16 상단 요약이 세도록 이 칸이 스스로 띄운 오류 문장 수를 알린다.
+  // 이름 줄과 아래 줄에 같은 문장이 서면 한 칸의 한 오류라 하나로 센다.
+  const visibleErrorCount = new Set(
+    [editingName ? nameError : null, selectionError || error || null].filter(
+      Boolean,
+    ),
+  ).size;
   const uploadLabel =
     selectedFile || requirement.persistedTemplateFileName
       ? '첨부파일 재업로드'
       : '첨부파일 업로드';
+
+  useEffect(() => {
+    onVisibleErrorCountChange?.(requirement.id, visibleErrorCount);
+    return () => onVisibleErrorCountChange?.(requirement.id, 0);
+  }, [onVisibleErrorCountChange, requirement.id, visibleErrorCount]);
 
   function saveName() {
     if (nameError !== null) return;
@@ -247,6 +270,25 @@ export function ProgramAuthoringSubmissionItem({
       </div>
     </TooltipProvider>
   );
+}
+
+/**
+ * 제출 항목 칸들이 알린 오류 문장 수의 합과, 칸에 넘길 알림 함수를 준다.
+ * 알림 함수는 렌더마다 같아야 칸의 effect 가 다시 돌지 않는다.
+ */
+export function useSubmissionItemErrorCount() {
+  const [counts, setCounts] = useState<Readonly<Record<string, number>>>({});
+  const report = useCallback(
+    (requirementId: string, count: number) =>
+      setCounts((current) =>
+        current[requirementId] === count
+          ? current
+          : { ...current, [requirementId]: count },
+      ),
+    [],
+  );
+  const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  return [total, report] as const;
 }
 
 function IconAction({

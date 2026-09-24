@@ -18,6 +18,8 @@ interface ProgramEditMilestoneFormProps {
   readonly contextEvents: readonly ProgramScheduleCalendarEvent[];
   readonly isBusy: boolean;
   readonly isSaveDisabled?: boolean;
+  /** 폼 안 제출 항목 칸들이 스스로 띄운 오류 문장 수 — R-16 요약 개수에 더한다. */
+  readonly documentErrorCount?: number;
   readonly layout?: 'card' | 'dialog';
   readonly children?: React.ReactNode;
   readonly onCancel: () => void;
@@ -32,6 +34,7 @@ export function ProgramEditMilestoneForm({
   contextEvents,
   isBusy,
   isSaveDisabled = false,
+  documentErrorCount = 0,
   layout = 'card',
   children,
   onCancel,
@@ -55,7 +58,9 @@ export function ProgramEditMilestoneForm({
         <fieldset disabled={isBusy} className="min-w-0">
           <FieldGroup>
             <FormErrorSummary
-              count={visibleMilestoneErrorCount(editor.errors)}
+              count={
+                visibleMilestoneErrorCount(editor.errors) + documentErrorCount
+              }
             />
             <ProgramMilestoneFields
               id="milestone"

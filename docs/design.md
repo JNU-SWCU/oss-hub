@@ -48,7 +48,7 @@
 | R-18, R-19, R-22 | 이 문서 | 없음 — 리뷰로 유지 |
 | R-20 | 이 문서 | 런타임-테스트 경계 lint |
 | R-03, R-05, R-07, R-15, R-21, R-24, R-25 | 이 문서 | 없음 — 리뷰로 유지 |
-| R-16 | 이 문서 | 요약이 아직 없는 폼 — 현황은 §수용된 부채 R-16 행 |
+| R-16 | 이 문서 | 없음 — 리뷰로 유지 |
 | R-26 ~ R-33 | 이 문서 (§화면별 결정 기록 → 학생 팀 구성·신청·초대 상호작용) | 없음 — 리뷰로 유지 |
 | R-34 | 이 문서 | 없음 — 리뷰로 유지 |
 | R-35, R-36, R-37 | 이 문서 | 없음 — 리뷰로 유지 |
@@ -341,7 +341,7 @@ error는 toast 단독으로 절대 쓰지 않는다.
 **R-16** 폼 검증 실패는 필드 옆 `FieldError`를 보이고 첫 오류로 포커스를 옮긴다.
 남은 오류가 둘 이상이면 상단 요약으로 그 **개수**를 함께 보이고, 하나뿐이면 필드 옆 오류와 포커스 이동만 쓴다.
 요약은 `FormErrorSummary`(§컴포넌트 카드)로 폼 맨 위에 그린다.
-개수는 화면에 **보이는 오류 줄 수**다 — 시작·종료를 한 줄로 보이는 기간은 하나로 세고, 저장 버튼 옆에 따로 서는 일반 오류와 창 안에 뜨는 오류는 세지 않으며, 칸이 스스로 띄운 오류(대표 이미지의 파일 오류)는 센다.
+개수는 화면에 **보이는 오류 줄 수**다 — 시작·종료를 한 줄로 보이는 기간은 하나로 세고, 저장 버튼 옆에 따로 서는 일반 오류와 창 안에 뜨는 오류는 세지 않으며, 칸이 스스로 띄운 오류(대표 이미지의 파일 오류, 마일스톤 제출 항목 칸의 이름·파일 오류)는 센다. 한 칸이 같은 문장을 두 자리에 띄우면 하나로 센다.
 요약의 다음 행동(R-15)은 문구의 「고칠」과 첫 오류 칸으로 옮겨 간 포커스가 함께 말하므로, inline 행의 「다음 행동 링크」를 따로 두지 않는다.
 첫 오류 칸이 요약에서 멀리 아래에 있으면 포커스 이동이 화면을 그 칸으로 옮기고 요약은 화면 밖에 남는다 — 이것은 의도한 동작이며, 요약 쪽으로 스크롤하거나 요약을 화면 위에 고정하지 않는다(2026-09-24 결정: 프로그램 편집을 1440·390에서 잰 결과 전자는 틀린 칸을 화면 밖으로 밀어내고 후자는 스크롤 내내 내용을 가렸다).
 요약의 내용은 개수이지 오류 목록이 아니다 — 목록은 필드 옆 `FieldError`가 이미 그 자리에서 말하고 있고, 요약이 그것을 복제하면 같은 문장이 화면에 두 번 선다.
@@ -429,7 +429,7 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 | 2026-09-03 | local-review 하네스가 `apps/frontend/test-support/local-review/fixture-response.ts`에서 feature fixture를 소비 | R-20 | 예외 없음. 런타임→테스트 의존은 경계 lint가 거부한다. 이 행은 당시 결합의 기록이며 해소는 런타임 제거 작업이다 |
 | 2026-09-19 | 차트 낭독 전용 `sr-only` `<table>` 2곳 — `apps/frontend/src/features/staff-insights/insights-panels.tsx` ActivityPanel, `apps/frontend/src/features/staff-insights/participation-panel.tsx` | R-07 | 예외로 확정. DataTable은 초점을 받는 스크롤 영역과 빈 상태 행을 그리므로 보이지 않는 낭독 전용 표에 맞지 않는다. 시맨틱 `<table>`을 유지한다 |
 | 2026-09-24 | 오류가 둘 이상이어도 개수를 적은 상단 요약이 어느 폼에도 없다 — 프로그램 만들기(`programs/new` 기본 정보 단계)·프로그램 편집이 필수값을 모두 비우면 각각 오류 4개, 게시판 글 작성·편집이 각각 2개(제목·본문)를 필드 옆에만 보인다 | R-16 | 2026-09-24 해소 — 네 폼에 `FormErrorSummary`를 넣었다(#1416). 프로그램 만들기는 일정 단계에도 같은 요약이 선다 |
-| 2026-09-24 | 오류가 둘 이상 동시에 뜨는데 상단 요약이 없는 폼이 다섯 곳 더 있다 — 가입 프로필 입력(`features/profile/components/profile-onboarding-form.tsx`, 학생 최대 4개)·설정(`features/profile/settings/components/settings-form.tsx`, 최대 5개)·관리자의 프로필 수정 카드(`features/roles/components/admin-access-profile-section.tsx`, 3개)·프로그램 만들기의 마일스톤 추가 창(`features/programs/program-authoring-milestone-dialog.tsx`)·프로그램 편집의 마일스톤 폼(`features/programs/program-edit-milestone-form.tsx`). 설정·관리자 프로필 수정·마일스톤 추가 창은 첫 오류 칸으로 포커스를 옮기는 동작(R-16 첫 문장)도 없다 | R-16 | 후속 이슈 #1415 |
+| 2026-09-24 | 오류가 둘 이상 동시에 뜨는데 상단 요약이 없는 폼이 다섯 곳 더 있다 — 가입 프로필 입력(`features/profile/components/profile-onboarding-form.tsx`, 학생 최대 4개)·설정(`features/profile/settings/components/settings-form.tsx`, 최대 5개)·관리자의 프로필 수정 카드(`features/roles/components/admin-access-profile-section.tsx`, 3개)·프로그램 만들기의 마일스톤 추가 창(`features/programs/program-authoring-milestone-dialog.tsx`)·프로그램 편집의 마일스톤 폼(`features/programs/program-edit-milestone-form.tsx`). 설정·관리자 프로필 수정·마일스톤 추가 창은 첫 오류 칸으로 포커스를 옮기는 동작(R-16 첫 문장)도 없다 | R-16 | 2026-09-25 해소(#1415) — 다섯 폼에 `FormErrorSummary`를 넣고, 설정·관리자 프로필 수정·마일스톤 추가 창에는 첫 오류 칸 포커스도 넣었다. 가입 프로필 입력은 치는 도중에도 칸 옆 오류가 뜨지만 요약은 「가입 마치기」를 누른 뒤에만 선다 — 다른 폼처럼 누른 뒤에 개수를 알린다 |
 | 2026-09-19 | 서류 수합 행렬 — `apps/frontend/src/features/programs/milestone-document-collection-view.tsx`가 `ui/table`을 직접 조합 | R-07 | sticky 팀 열·`colSpan` 판정 행·행 펼침을 DataTable의 columns·data 모델이 담지 못한다. DataTable에 행 펼침 slot이 생기면 옮긴다 |
 | 2026-09-23 | 읽기 전용 표 줄도 마우스를 올리면 배경이 바뀐다 — `apps/frontend/src/components/ui/table.tsx` 97의 `TableRow` 기본 `hover:bg-muted/50`가 머리글·빈 상태 줄까지 전 줄에 걸린다 | R-31 | 예외로 확정(#1368). 흰 바탕 위 계산값이 `oklab(0.976 0 0 / 0.5)` = rgb(251, 251, 251)로 흰색과 255단계 중 4 차이라 「눌린다」는 잘못된 신호가 화면에서 거의 보이지 않고, 넓은 표에서 줄을 따라가는 보조로 남긴다. 목록 줄은 반대다 — `ListRow`는 #1352에서 hover를 기본에서 뺐고 줄 전체를 누르는 자리에서만 호출부가 얹는다. 표에서 누를 수 있는 줄은 `DataTable`이 `cursor-pointer`로 가른다 |
 

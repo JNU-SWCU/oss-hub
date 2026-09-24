@@ -5,7 +5,10 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { DialogShell, FormErrorSummary } from '@/components';
 import type { ProgramAuthoringMilestone } from './program-authoring-model';
-import { ProgramAuthoringSubmissionItem } from './program-authoring-submission-item';
+import {
+  ProgramAuthoringSubmissionItem,
+  useSubmissionItemErrorCount,
+} from './program-authoring-submission-item';
 import { ProgramAuthoringSortableAttachments } from './program-authoring-sortable-attachments';
 import { dateKey } from './program-schedule-calendar-model';
 import { validateTemplateFile } from './program-authoring-validation';
@@ -69,15 +72,17 @@ export function ProgramAuthoringMilestoneDialog({
   const minDate = dateKey(operationStartAt) ?? undefined;
   const maxDate = dateKey(operationEndAt) ?? undefined;
   const errors = validationErrors(milestone, operationStartAt, operationEndAt);
-  // 창에 보이는 오류 줄 수 — R-16 상단 요약의 개수다. 기간은 시작·마감이 한 줄이다.
-  // 제출물 칸이 이름을 고치는 동안 스스로 띄우는 오류는 그 칸 안에만 있어 세지 못한다.
-  const visibleErrorCount = [
-    saveAttempted ? errors.name : null,
-    saveAttempted ? errors.period : null,
-    fileError,
-    attachmentValidationMessage,
-    saveAttempted ? errors.attachments : null,
-  ].filter(Boolean).length;
+  const [itemErrorCount, reportItemErrors] = useSubmissionItemErrorCount();
+  // 창에 보이는 오류 줄 수 — R-16 상단 요약의 개수다. 기간은 시작·마감이 한 줄이고,
+  // 제출물 칸이 이름을 고치는 동안 스스로 띄우는 오류는 그 칸이 알려 준다.
+  const visibleErrorCount =
+    [
+      saveAttempted ? errors.name : null,
+      saveAttempted ? errors.period : null,
+      fileError,
+      attachmentValidationMessage,
+      saveAttempted ? errors.attachments : null,
+    ].filter(Boolean).length + itemErrorCount;
   // DialogShell 은 본문 ref 를 내주지 않아, 레이아웃을 바꾸지 않는 `contents`
   // 감싸개로 저장 뒤 첫 오류 칸을 찾을 범위를 잡는다.
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -206,6 +211,7 @@ export function ProgramAuthoringMilestoneDialog({
                   onNameChange={(_, requirementId, name) =>
                     onAttachmentNameChange(requirementId, name)
                   }
+                  onVisibleErrorCountChange={reportItemErrors}
                 />
               )}
             </ProgramAuthoringSortableAttachments>

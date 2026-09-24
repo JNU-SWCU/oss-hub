@@ -112,11 +112,13 @@ export function LocalMilestoneDocumentsEditor({
   documents,
   fileUpload,
   onChange,
+  onItemErrorCountChange,
 }: {
   readonly milestoneId: string;
   readonly documents: LocalMilestoneDocuments;
   readonly fileUpload: MilestoneDocumentUploadPolicy;
   readonly onChange: (documents: LocalMilestoneDocuments) => void;
+  readonly onItemErrorCountChange?: (localId: string, count: number) => void;
 }) {
   const pendingDeletionNames = documents.baseline
     .filter(
@@ -161,6 +163,7 @@ export function LocalMilestoneDocumentsEditor({
             }
             deleteLabel="제출 항목 삭제"
             nameConfirmLabel="제출물 이름 적용"
+            onVisibleErrorCountChange={onItemErrorCountChange}
             reorderHandle={reorderHandle}
             onNameChange={(_, localId, name) =>
               onChange(
