@@ -129,7 +129,7 @@ describe('대기 중인 요청 결정 카드 — 접근 변경 카드 위에 조
 });
 
 describe('독립 접근 컨트롤 통합', () => {
-  it('교직원 접근을 「허용됨」으로 고르면 GRANT_STAFF_ACCESS로 전달된다', () => {
+  it('교직원 접근을 「있음」으로 고르면 GRANT_STAFF_ACCESS로 전달된다', () => {
     const onRequestAction = vi.fn();
     act(() => {
       root.render(

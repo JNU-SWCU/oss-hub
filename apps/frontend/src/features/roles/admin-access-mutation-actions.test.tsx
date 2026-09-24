@@ -148,11 +148,11 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
 
     expect(optionsOf(STAFF)).toEqual([
       ['없음', false],
-      ['허용됨', false],
+      ['있음', false],
     ]);
     expect(optionsOf(ADMIN)).toEqual([
       ['없음', false],
-      ['허용됨', false],
+      ['있음', false],
     ]);
     expect(optionsOf(STATUS)).toEqual([
       ['활성', false],
@@ -223,7 +223,7 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
       />,
     );
 
-    expect(html).toContain('허용됨');
+    expect(html).toContain('있음');
     expect(html).toContain('없음');
     expect(html).toContain('활성');
     // R-31 검출 신호 — 상태 문자열을 담은 `disabled` 버튼이 애초에 생기지 않는다.
@@ -281,7 +281,7 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
     ).toEqual([true, true, true]);
   });
 
-  it('프로필이 미완료면 「허용됨」 선택지만 막고 이유를 한 번 설명한다', () => {
+  it('프로필이 미완료면 「있음」 선택지만 막고 이유를 한 번 설명한다', () => {
     act(() => {
       root.render(
         <AdminAccessMutationActions
@@ -303,15 +303,15 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
     expect(container.textContent).toContain(
       '프로필(이름·학번·학과) 완성 전에는 부여할 수 없습니다.',
     );
-    // 교직원은 이미 「허용됨」이라 그 값이 지금 값이므로 막히지 않는다 —
-    // 아직 받지 않은 관리자 접근의 「허용됨」 하나만 고를 수 없다.
+    // 교직원은 이미 「있음」이라 그 값이 지금 값이므로 막히지 않는다 —
+    // 아직 받지 않은 관리자 접근의 「있음」 하나만 고를 수 없다.
     expect(optionsOf(STAFF)).toEqual([
       ['없음', false],
-      ['허용됨', false],
+      ['있음', false],
     ]);
     expect(optionsOf(ADMIN)).toEqual([
       ['없음', false],
-      ['허용됨', true],
+      ['있음', true],
     ]);
   });
 
@@ -401,7 +401,7 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
 
     expect(optionsOf(ADMIN)).toEqual([
       ['없음', true],
-      ['허용됨', false],
+      ['있음', false],
     ]);
     // 계정 상태 쪽 가드 문장과 같은 자리·같은 모양이다.
     const reason = control(ADMIN).parentElement?.querySelector(
@@ -426,7 +426,7 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
 
     expect(optionsOf(ADMIN)).toEqual([
       ['없음', false],
-      ['허용됨', false],
+      ['있음', false],
     ]);
     choose(ADMIN, 'NONE');
     expect(onRequestAction).toHaveBeenCalledWith('REVOKE_ADMIN_ACCESS');
@@ -435,7 +435,7 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
     );
   });
 
-  it('본인 계정이어도 관리자 접근이 없으면 「허용됨」이 열려 있고 이유 문장도 없다', () => {
+  it('본인 계정이어도 관리자 접근이 없으면 「있음」이 열려 있고 이유 문장도 없다', () => {
     act(() => {
       root.render(
         <AdminAccessMutationActions
@@ -449,7 +449,7 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
     // 회수 가드는 회수 방향에만 걸린다 — 계정 상태의 「활성」과 같은 규칙이다.
     expect(optionsOf(ADMIN)).toEqual([
       ['없음', false],
-      ['허용됨', false],
+      ['있음', false],
     ]);
     expect(container.textContent).not.toContain(
       '자기 계정의 관리자 접근은 회수할 수 없습니다.',
