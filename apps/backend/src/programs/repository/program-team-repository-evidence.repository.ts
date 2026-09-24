@@ -7,11 +7,19 @@ import type {
   TeamRepositoryContributionsView,
   RepositoryUrlHistoryPage,
   RepositoryUrlHistoryCursor,
+  RepositoryUrlHistoryView,
 } from '../program-team-repository-evidence.types';
 import {
   APPLICATION_REPOSITORY_URL_CHANGED,
   parseApplicationRepositoryUrlAuditMetadata,
 } from '../../audit-log/application-repository-url-audit-metadata';
+import {
+  REPOSITORY_CONNECTION_AUDIT_ACTIONS,
+  parseRepositoryConnectionAuditMetadata,
+} from '../../audit-log/repository-program-audit-metadata';
+
+const REPOSITORY_CONNECTION_CHANGED =
+  REPOSITORY_CONNECTION_AUDIT_ACTIONS.REPOSITORY_CONNECTION_CHANGED;
 
 interface ApplicationRepositorySource {
   readonly repository: {
@@ -55,43 +63,58 @@ export class ProgramTeamRepositoryEvidenceRepository {
   ): Promise<RepositoryUrlHistoryPage> {
     const rows = await this.prisma.auditLog.findMany({
       where: {
-        action: APPLICATION_REPOSITORY_URL_CHANGED,
         targetType: 'APPLICATION',
         targetId: scope.applicationId,
         AND: [
-          { metadata: { path: ['programId'], equals: scope.programId } },
-          { metadata: { path: ['teamId'], equals: scope.teamId } },
+          {
+            OR: [
+              {
+                action: APPLICATION_REPOSITORY_URL_CHANGED,
+                AND: [
+                  {
+                    metadata: { path: ['programId'], equals: scope.programId },
+                  },
+                  { metadata: { path: ['teamId'], equals: scope.teamId } },
+                ],
+              },
+              // 걷어 낸 교직원 연결 endpoint가 남긴 옛 기록도 같은 이력이다 — 한 줄로 섞어
+              // 시간순 한 커서로 넘긴다.
+              {
+                action: REPOSITORY_CONNECTION_CHANGED,
+                metadata: {
+                  path: ['applicationId'],
+                  equals: scope.applicationId,
+                },
+              },
+            ],
+          },
+          ...(cursor
+            ? [
+                {
+                  OR: [
+                    { occurredAt: { lt: cursor.occurredAt } },
+                    { occurredAt: cursor.occurredAt, id: { lt: cursor.id } },
+                  ],
+                },
+              ]
+            : []),
         ],
-        ...(cursor
-          ? {
-              OR: [
-                { occurredAt: { lt: cursor.occurredAt } },
-                { occurredAt: cursor.occurredAt, id: { lt: cursor.id } },
-              ],
-            }
-          : {}),
       },
-      select: { id: true, occurredAt: true, metadata: true },
+      select: {
+        id: true,
+        action: true,
+        occurredAt: true,
+        metadata: true,
+        actor: { select: { nickname: true } },
+      },
       orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
       take: 21,
     });
-    const items = rows.slice(0, 20).map((row) => {
-      const metadata = parseApplicationRepositoryUrlAuditMetadata(row.metadata);
-      if (
-        !metadata ||
-        metadata.programId !== scope.programId ||
-        metadata.teamId !== scope.teamId
-      ) {
-        throw new InvalidRepositoryUrlHistoryError();
-      }
-      return {
-        id: row.id,
-        occurredAt: row.occurredAt.toISOString(),
-        actorGithubLogin: metadata.actorGithubLogin,
-        previousRepositoryUrl: metadata.before.repositoryUrl,
-        newRepositoryUrl: metadata.after.repositoryUrl,
-      };
-    });
+    const items = rows.slice(0, 20).map((row) => ({
+      id: row.id,
+      occurredAt: row.occurredAt.toISOString(),
+      ...repositoryUrlChange(row, scope),
+    }));
     const last = items.at(-1);
     return {
       items,
@@ -282,6 +305,50 @@ function collectionStatus(repository: {
 }): 'NOT_COLLECTED' | 'COLLECTED' | 'ERROR' {
   if (repository.failureCount > 0) return 'ERROR';
   return repository.lastSuccessAt ? 'COLLECTED' : 'NOT_COLLECTED';
+}
+
+function repositoryUrlChange(
+  row: {
+    readonly action: string;
+    readonly metadata: unknown;
+    readonly actor: { readonly nickname: string };
+  },
+  scope: {
+    readonly programId: string;
+    readonly teamId: string;
+    readonly applicationId: string;
+  },
+): Omit<RepositoryUrlHistoryView, 'id' | 'occurredAt'> {
+  if (row.action !== REPOSITORY_CONNECTION_CHANGED) {
+    const metadata = parseApplicationRepositoryUrlAuditMetadata(row.metadata);
+    if (
+      metadata?.programId === scope.programId &&
+      metadata.teamId === scope.teamId
+    )
+      return {
+        actorGithubLogin: metadata.actorGithubLogin,
+        previousRepositoryUrl: metadata.before.repositoryUrl,
+        newRepositoryUrl: metadata.after.repositoryUrl,
+      };
+    throw new InvalidRepositoryUrlHistoryError();
+  }
+  // 옛 기록은 행위자 login을 담지 않아 감사 행의 행위자(지금 login)로 읽는다. 주소는 새
+  // 기록과 같게 걸린 저장소의 owner/name에서 만든다.
+  const metadata = parseRepositoryConnectionAuditMetadata(row.metadata);
+  if (
+    metadata?.applicationId !== scope.applicationId ||
+    !metadata.after.nameWithOwner
+  )
+    throw new InvalidRepositoryUrlHistoryError();
+  return {
+    actorGithubLogin: row.actor.nickname,
+    previousRepositoryUrl: metadata.before.nameWithOwner
+      ? repositoryUrlFromNameWithOwner(metadata.before.nameWithOwner)
+      : null,
+    newRepositoryUrl: repositoryUrlFromNameWithOwner(
+      metadata.after.nameWithOwner,
+    ),
+  };
 }
 
 class InvalidRepositoryUrlHistoryError extends Error {

@@ -334,3 +334,112 @@ describe('B가 수집된 뒤', () => {
     });
   });
 });
+
+it('변경 이력은 옛 연결 기록과 새 URL 기록을 한 시간순 커서로 함께 넘긴다', async () => {
+  // Given — 교직원이 옛 endpoint로 A를 걸었고(REPOSITORY_CONNECTION_CHANGED), 팀장이 A→B로 바꿨다.
+  const legacyMetadata = {
+    schemaVersion: 1,
+    applicationId,
+    before: {
+      repositoryId: null,
+      nameWithOwner: null,
+      connectionMode: 'NEW',
+      repositoryUrl: null,
+    },
+    after: {
+      repositoryId: repositoryA,
+      nameWithOwner: 'synthetic/a',
+      connectionMode: 'NEW',
+      repositoryUrl: null,
+    },
+  };
+  await prisma.auditLog.createMany({
+    data: [
+      {
+        id: `${prefix}-connected`,
+        actorId: people.staff.id,
+        action: 'REPOSITORY_CONNECTION_CHANGED',
+        targetType: 'APPLICATION',
+        targetId: applicationId,
+        occurredAt: new Date('2026-08-02T00:00:00Z'),
+        metadata: legacyMetadata,
+      },
+      {
+        id: `${prefix}-relinked`,
+        actorId: people.leader.id,
+        action: 'APPLICATION_REPOSITORY_URL_CHANGED',
+        targetType: 'APPLICATION',
+        targetId: applicationId,
+        occurredAt: new Date('2026-08-10T00:00:00Z'),
+        metadata: {
+          schemaVersion: 2,
+          programId,
+          teamId,
+          programName: 'Synthetic program',
+          actorGithubLogin: 'lead-at-change',
+          before: {
+            repositoryId: repositoryA,
+            repositoryUrl: 'https://github.com/synthetic/a',
+          },
+          after: {
+            repositoryId: repositoryB,
+            repositoryUrl: 'https://github.com/synthetic/b',
+          },
+        },
+      },
+      // 다른 신청을 가리키는 옛 기록·같은 신청의 다른 감사는 이력이 아니다.
+      {
+        id: `${prefix}-foreign`,
+        actorId: people.staff.id,
+        action: 'REPOSITORY_CONNECTION_CHANGED',
+        targetType: 'APPLICATION',
+        targetId: applicationId,
+        occurredAt: new Date('2026-08-05T00:00:00Z'),
+        metadata: { ...legacyMetadata, applicationId: `${prefix}-other` },
+      },
+      {
+        id: `${prefix}-submitted`,
+        actorId: people.leader.id,
+        action: 'APPLICATION_SUBMITTED',
+        targetType: 'APPLICATION',
+        targetId: applicationId,
+        occurredAt: new Date('2026-08-06T00:00:00Z'),
+        metadata: {},
+      },
+    ],
+  });
+  // When
+  const first = await service.getRepositoryUrlHistory(
+    people.quiet.githubId,
+    programId,
+    teamId,
+  );
+  const afterNewest = await service.getRepositoryUrlHistory(
+    people.quiet.githubId,
+    programId,
+    teamId,
+    { occurredAt: new Date('2026-08-10T00:00:00Z'), id: `${prefix}-relinked` },
+  );
+  // Then
+  const connected = {
+    id: `${prefix}-connected`,
+    occurredAt: '2026-08-02T00:00:00.000Z',
+    actorGithubLogin: 'staff',
+    previousRepositoryUrl: null,
+    newRepositoryUrl: 'https://github.com/synthetic/a',
+  };
+  expect(first).toEqual({
+    items: [
+      {
+        id: `${prefix}-relinked`,
+        occurredAt: '2026-08-10T00:00:00.000Z',
+        actorGithubLogin: 'lead-at-change',
+        previousRepositoryUrl: 'https://github.com/synthetic/a',
+        newRepositoryUrl: 'https://github.com/synthetic/b',
+      },
+      connected,
+    ],
+    nextCursor: null,
+  });
+  expect(afterNewest).toEqual({ items: [connected], nextCursor: null });
+});

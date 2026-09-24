@@ -87,10 +87,13 @@ it('continues history with timestamp and ID tie-breaking inside the same scope',
   expect(page).toEqual({ items: [], nextCursor: null });
   const historyQuery: unknown = auditFindMany.mock.calls[0]?.[0];
   expect(historyQuery).toHaveProperty('where.targetId', 'application');
-  expect(historyQuery).toHaveProperty('where.OR', [
-    { occurredAt: { lt: new Date('2026-08-15Z') } },
-    { occurredAt: new Date('2026-08-15Z'), id: { lt: 'change-11' } },
-  ]);
+  expect(historyQuery).toHaveProperty(
+    ['where', 'AND', 1, 'OR'],
+    [
+      { occurredAt: { lt: new Date('2026-08-15Z') } },
+      { occurredAt: new Date('2026-08-15Z'), id: { lt: 'change-11' } },
+    ],
+  );
   expect(historyQuery).toHaveProperty('take', 21);
 });
 
@@ -154,12 +157,24 @@ it('returns only application-scoped URL history with the actor snapshot', async 
   expect(auditFindMany).toHaveBeenCalledWith(
     expect.objectContaining({
       where: {
-        action: 'APPLICATION_REPOSITORY_URL_CHANGED',
         targetType: 'APPLICATION',
         targetId: 'application',
         AND: [
-          { metadata: { path: ['programId'], equals: 'program' } },
-          { metadata: { path: ['teamId'], equals: 'team' } },
+          {
+            OR: [
+              {
+                action: 'APPLICATION_REPOSITORY_URL_CHANGED',
+                AND: [
+                  { metadata: { path: ['programId'], equals: 'program' } },
+                  { metadata: { path: ['teamId'], equals: 'team' } },
+                ],
+              },
+              {
+                action: 'REPOSITORY_CONNECTION_CHANGED',
+                metadata: { path: ['applicationId'], equals: 'application' },
+              },
+            ],
+          },
         ],
       },
     }),
