@@ -7,6 +7,10 @@ import {
   getRepositoryHistory,
   type StaffRepositoryEvidence,
 } from './staff-repository-evidence';
+import {
+  isProgramEndDateUndecided,
+  PROGRAM_END_AT_UNDECIDED_LABEL,
+} from './program-end-at';
 import type { StaffProgramTeamMember } from './types';
 
 const STATUS_LABEL = {
@@ -80,7 +84,11 @@ function StaffRepositoryEvidenceHistory({
         ) : (
           <>
             <p className="text-sm text-muted-foreground">
-              {activity.window.from} ~ {activity.window.to} · 한국 시간 기준
+              {activity.window.from} ~{' '}
+              {isProgramEndDateUndecided(activity.window.to)
+                ? PROGRAM_END_AT_UNDECIDED_LABEL
+                : activity.window.to}{' '}
+              · 한국 시간 기준
             </p>
             <p className="text-sm">{STATUS_LABEL[activity.collectionStatus]}</p>
             {activity.lastSuccessAt ? (

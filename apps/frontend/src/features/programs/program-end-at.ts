@@ -33,6 +33,16 @@ export function isProgramEndAtUndecided(value: string | null): boolean {
 }
 
 /**
+ * 서울 날짜(`YYYY-MM-DD`)로 받은 종료일이 「미정」인가.
+ *
+ * 센티널을 서울 날짜로 옮기면 연도가 다섯 자리를 넘는다(`+010000-01-01`). 네 자리를
+ * 넘는 연도는 센티널에서만 나오므로, 날짜 문자열은 확장 연도 표기로 가른다.
+ */
+export function isProgramEndDateUndecided(seoulDate: string): boolean {
+  return seoulDate.startsWith('+');
+}
+
+/**
  * 종료일을 화면 문구로 바꾼다. 미정이면 `미정`, 아니면 넘긴 포매터의 결과다.
  *
  * 포매터를 주입받는 이유는 화면마다 형식이 다르기 때문이다 — 상세 팩트 바는

@@ -118,6 +118,30 @@ describe('staff repository evidence view', () => {
     expect(container.textContent).toContain(history.actorGithubLogin);
     expect(container.textContent).not.toContain('변경 사유');
   });
+  it('names an undecided program end as 미정 instead of the sentinel date', async () => {
+    // Given — a program without an end date reaches the view as the Seoul date +010000-01-01.
+    const activity = evidence.repositoryContributions;
+    if (activity === null) throw new Error('fixture contributions required');
+    // When
+    await render({
+      evidence: {
+        ...evidence,
+        repositoryContributions: {
+          ...activity,
+          window: {
+            ...activity.window,
+            from: '2026-07-31',
+            to: '+010000-01-01',
+          },
+        },
+      },
+    });
+    // Then
+    expect(container.textContent).toContain(
+      '2026-07-31 ~ 미정 · 한국 시간 기준',
+    );
+    expect(container.textContent).not.toContain('+010000');
+  });
   it('labels lastSuccessAt as the last successful collection, not a generic as-of time', async () => {
     // Given
     const lastSuccessAt = '2026-09-01T00:00:00.000Z';
