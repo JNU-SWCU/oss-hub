@@ -879,43 +879,6 @@ enum RepositoryVisibility {
   PUBLIC
 }
 
-/// 공개 쿼리는 이 두 테이블만 조회한다(#126/#134); private 원본 join 금지.
-/// todo 16 — ADR-003 공개 strict-read 예외 이후 신규 공개 read(`public-projects` 모듈)는
-/// 이 규칙 대상이 아니다 — 전용 repository가 명시적 select로 `Repository` 원본을 직접 읽는다.
-/// 이 두 테이블은 todo 20까지 유지되는 레거시 writer(`ShowcaseProjectionService`) 전용으로 남는다.
-model PublicShowcaseRepository {
-  repositoryId            String          @id
-  githubRepositoryId      BigInt          @unique
-  repositoryName          String
-  repositoryUrl           String
-  publishedAt             DateTime
-  programId               String
-  programName             String
-  programCategory         ProgramCategory
-  programEndAt            DateTime
-  teamName                String?
-  displayName             String
-  approvedSubmissionCount Int
-  projectedAt             DateTime        @updatedAt
-
-  contributors PublicShowcaseContributor[]
-
-  @@index([programId])
-}
-
-/// 공개 쿼리는 이 두 테이블만 조회한다(#126/#134); private 원본 join 금지.
-model PublicShowcaseContributor {
-  id             String                   @id @default(cuid())
-  repositoryId   String
-  repository     PublicShowcaseRepository @relation(fields: [repositoryId], references: [repositoryId], onDelete: Cascade)
-  userId         String
-  githubNickname String
-  avatarUrl      String?
-
-  @@unique([repositoryId, userId])
-  @@index([userId])
-}
-
 enum RepositoryInvitationStatus {
   PENDING
   SUCCEEDED
@@ -1108,51 +1071,6 @@ model AuditLog {
   occurredAt DateTime @default(now())
 
   @@index([actorId])
-}
-
-enum CollectionTrigger {
-  SELF
-  BATCH
-}
-
-enum CollectionRunStatus {
-  RUNNING
-  SUCCEEDED
-  FAILED
-  RATE_LIMITED
-}
-
-enum ObservationSourceType {
-  PROFILE
-  REPO
-  EVENT
-}
-
-model CollectionRun {
-  id               String                 @id @default(cuid())
-  targetGithubId   BigInt
-  targetLogin      String
-  trigger          CollectionTrigger
-  status           CollectionRunStatus
-  profileCount     Int                    @default(0)
-  repoCount        Int                    @default(0)
-  eventCount       Int                    @default(0)
-  retryNotBeforeAt DateTime?
-  startedAt        DateTime               @default(now())
-  finishedAt       DateTime?
-  observations     GithubRawObservation[]
-}
-
-model GithubRawObservation {
-  id         String                @id @default(cuid())
-  runId      String
-  run        CollectionRun         @relation(fields: [runId], references: [id])
-  sourceType ObservationSourceType
-  sourceId   String
-  payload    Json
-  fetchedAt  DateTime              @default(now())
-
-  @@unique([runId, sourceType, sourceId])
 }
 
 enum CollectionRepositoryPresence {
