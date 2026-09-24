@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, LoaderCircle, Pencil } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
@@ -44,6 +44,7 @@ export function RepositoryUrlEditor({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
+  const hintId = useId();
   if (lastRead !== repository) {
     // 화면이 서버를 새로 읽었다. 권한이 닫혔으면 입력도 닫고, 확인하지 못한 저장은
     // 이제 확인된 것이다 — 이 값이 이 편집기가 아는 어떤 값보다 새롭다.
@@ -94,6 +95,7 @@ export function RepositoryUrlEditor({
             aria-label="저장소 URL 수정"
             title="저장소 URL 수정"
             disabled={!editable}
+            aria-describedby={!editable && lockedHint ? hintId : undefined}
             onClick={() => {
               setUrl(shown.repositoryUrl ?? '');
               if (!needsVerification) setError(null);
@@ -165,7 +167,9 @@ export function RepositoryUrlEditor({
         </form>
       ) : null}
       {!editable && lockedHint ? (
-        <p className="text-sm text-muted-foreground">{lockedHint}</p>
+        <p id={hintId} className="text-sm text-muted-foreground">
+          {lockedHint}
+        </p>
       ) : null}
       {saved ? (
         <p role="status" className="text-sm">

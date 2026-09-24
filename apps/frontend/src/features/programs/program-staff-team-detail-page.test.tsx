@@ -587,6 +587,23 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(container.textContent).toContain('연결된 저장소가 없습니다.');
       expect(container.textContent).toContain('저장소 발급 요청 전');
     });
+
+    it('바꿀 수 없으면 연필을 잠그고 이유를 URL 줄 아래에 말한다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      vi.mocked(getTeamActivity).mockResolvedValue({
+        ...teamActivity,
+        canEditRepositoryUrl: false,
+      });
+      await render();
+
+      const pencil = container.querySelector<HTMLButtonElement>(
+        'button[aria-label="저장소 URL 수정"]',
+      );
+      expect(pencil?.disabled).toBe(true);
+      expect(container.textContent).toContain(
+        '승인된 팀만 프로그램 종료 전까지 바꿀 수 있습니다.',
+      );
+    });
   });
 
   /**

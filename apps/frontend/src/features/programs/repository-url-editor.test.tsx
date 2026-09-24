@@ -184,8 +184,15 @@ describe('RepositoryUrlEditor', () => {
   });
   it('disables editing and says who may edit when the server denies it', async () => {
     await render({ ...initial, canEditRepositoryUrl: false });
-    expect(button('저장소 URL 수정').disabled).toBe(true);
+    const edit = button('저장소 URL 수정');
+    expect(edit.disabled).toBe(true);
     expect(container.textContent).toContain(LOCKED_HINT);
+    // 잠긴 이유는 화면에 보이기만 하지 않고 연필의 접근 가능한 설명으로도 연결된다.
+    const describedBy = edit.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy ?? '')?.textContent).toBe(
+      LOCKED_HINT,
+    );
   });
   it('follows permission the screen re-reads — a leader change closes the open editor', async () => {
     // Given: the leader is editing.
