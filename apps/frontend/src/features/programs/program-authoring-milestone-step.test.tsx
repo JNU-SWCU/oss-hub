@@ -393,6 +393,108 @@ describe('ProgramAuthoringMilestoneStep', () => {
     expect(document.body.textContent).toContain('마일스톤 추가');
   });
 
+  // 사용자가 저장 버튼을 누른 것처럼 포커스를 버튼에 두고 누른다 — 창이 열릴 때
+  // 첫 칸에 선 자동 포커스와 저장 뒤 포커스 이동을 구별하려는 것이다.
+  async function pressSave() {
+    const save = button('저장');
+    await act(async () => {
+      save.focus();
+      save.click();
+    });
+  }
+
+  function summaryOf(scope: ParentNode) {
+    return scope.querySelector('[data-slot="form-error-summary"]');
+  }
+
+  it('빈 초안을 저장하면 창 맨 위에 보이는 오류 줄 수를 알리고 첫 오류 칸으로 포커스를 옮긴다(R-16)', async () => {
+    await render();
+    await addBlankDraft();
+    await pressSave();
+
+    const summary = summaryOf(dialog());
+    const visible = dialog().querySelectorAll('[data-slot="field-error"]');
+    // 이름·기간 두 줄. 기간은 시작·마감이 한 줄이다.
+    expect(visible.length).toBe(2);
+    expect(summary?.textContent).toBe(`고칠 칸이 ${visible.length}개 있습니다`);
+    // 요약은 칸 옆 문구를 다시 적지 않는다.
+    expect(summary?.textContent).not.toContain('기간을 입력해 주세요.');
+    // 요약은 창의 첫 칸(기간의 시작일)보다 앞에 서고 포커스는 가져가지 않는다.
+    const start = input('[aria-label="시작일"]');
+    expect(summary).not.toBeNull();
+    expect(
+      summary!.compareDocumentPosition(start) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(document.activeElement).toBe(start);
+  });
+
+  it('오류가 하나뿐이면 요약 없이 그 칸으로 포커스만 옮긴다', async () => {
+    await render();
+    await addBlankDraft();
+    await change(input('[aria-label="시작일"]'), '2026-09-03');
+    await change(input('[aria-label="마감일"]'), '2026-09-05');
+    await pressSave();
+
+    expect(dialog().querySelectorAll('[data-slot="field-error"]')).toHaveLength(
+      1,
+    );
+    expect(summaryOf(dialog())).toBeNull();
+    expect(document.activeElement).toBe(input('#test-1-name'));
+  });
+
+  it('저장을 누르기 전에는 빈 초안이어도 요약을 그리지 않는다', async () => {
+    await render();
+    await addBlankDraft();
+
+    // 이름·기간은 이미 틀린 값이지만 아직 보이지 않는다.
+    expect(dialog().querySelector('[data-slot="field-error"]')).toBeNull();
+    expect(summaryOf(dialog())).toBeNull();
+
+    await pressSave();
+    expect(summaryOf(dialog())?.textContent).toBe('고칠 칸이 2개 있습니다');
+  });
+
+  it('첨부파일 칸이 스스로 띄운 파일 오류도 한 줄로 센다', async () => {
+    await render();
+    await addBlankDraft();
+    await selectFile(
+      input('[aria-label="첨부파일 추가"]'),
+      new File(['text'], 'guide.txt', { type: 'text/plain' }),
+    );
+    // 파일 오류 한 줄뿐이면 요약은 없다.
+    expect(summaryOf(dialog())).toBeNull();
+
+    await pressSave();
+    const visible = dialog().querySelectorAll('[data-slot="field-error"]');
+    // 이름·기간 + 파일 형식 오류. 파일 오류는 창의 검증 결과에 없다.
+    expect(visible.length).toBe(3);
+    expect(summaryOf(dialog())?.textContent).toBe('고칠 칸이 3개 있습니다');
+  });
+
+  it('페이지 검증이 창 안 첨부파일 칸에 띄운 오류도 센다', async () => {
+    await render(
+      {
+        ...completedAuthoringState(),
+        milestones: [
+          { ...milestoneWithRequirements('milestone-1', 21), name: '' },
+        ],
+      },
+      [
+        {
+          path: 'requirements.milestone-1',
+          step: 'milestones',
+          message: '마일스톤마다 제출 항목은 최대 20개입니다.',
+        },
+      ],
+    );
+
+    const visible = dialog().querySelectorAll('[data-slot="field-error"]');
+    // 이름 + 페이지가 넘긴 첨부파일 개수 오류.
+    expect(visible.length).toBe(2);
+    expect(summaryOf(dialog())?.textContent).toBe('고칠 칸이 2개 있습니다');
+  });
+
   it('saves a valid zero-attachment draft and immediately shows it in the calendar and list', async () => {
     const view = await render();
     await addBlankDraft();
