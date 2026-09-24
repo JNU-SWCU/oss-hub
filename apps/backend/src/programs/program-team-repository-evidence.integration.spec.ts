@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProgramActivityRepository } from './repository/program-activity.repository';
+import { ProgramActivitySummaryRepository } from './repository/program-activity-summary.repository';
 import { ProgramTeamsRepository } from './repository/program-teams.repository';
+import { ProgramActivitySummaryService } from './service/program-activity-summary.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -269,5 +272,32 @@ it('reads contributions of a program that never set an end date', async () => {
   expect(detail?.repositoryContributions).toMatchObject({
     window: { from: '2026-07-31', to: '+010000-01-01', timeZone: 'Asia/Seoul' },
     members: [{ userId: `${scope}-member`, commitCount: 3 }],
+  });
+});
+
+it('counts only the currently linked repository in program totals after a relink', async () => {
+  // Given — the first test left a relinked team: the old organization repository kept
+  // programId after losing applicationId, and the current repository is linked.
+  await prisma.collectionCommitFact.createMany({
+    data: [
+      { repositoryId: oldRepositoryId, sha: `${prefix}-old-1` },
+      { repositoryId, sha: `${prefix}-current-1` },
+      { repositoryId, sha: `${prefix}-current-2` },
+    ].map((fact) => ({
+      ...fact,
+      committedAt: new Date('2026-08-05T00:00:00Z'),
+      authorGithubId: githubId,
+    })),
+  });
+  // When
+  const [summary] = await new ProgramActivitySummaryService(
+    new ProgramActivitySummaryRepository(prisma),
+    new ProgramActivityRepository(prisma),
+  ).summarize([programId]);
+  // Then
+  expect(summary).toMatchObject({
+    programId,
+    repositoryCount: 1,
+    commitCount: 2,
   });
 });
