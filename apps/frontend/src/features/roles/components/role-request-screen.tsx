@@ -103,7 +103,25 @@ function statusPresentation(
   request: StaffAccessRequestView,
 ): StatusPresentation {
   switch (request.status) {
+    /**
+     * `APPROVED`가 `PENDING`과 같은 자리에 선다.
+     *
+     * 이 화면에 서는 사람은 `OnboardingGate`가 미배정(`unassigned`)으로 판정한
+     * 사람뿐이고, 미배정은 곧 **열 수 있는 업무 화면이 하나도 없다**는 뜻이다
+     * (`app/_shell/use-session-role.ts`의 `hasUsableSurface`). 그래서 여기 오는
+     * `APPROVED`는 요청 원장(`StaffAccessRequest.status`)과 권한 플래그
+     * (`hasStaffAccess`)가 갈라진 내부 불일치이지 제품이 회원에게 주는 상태가 아니다.
+     *
+     * 그 불일치를 회원 화면에 적으면 관리자 장부를 회원에게 읽어 주는 것이 된다.
+     * 이 화면의 책임은 대기뿐이므로 승인 기록만 남은 사람도 대기 안내 한 곳에
+     * 세운다 — 회원이 읽을 것은 「아직 기다리는 중」 하나다.
+     *
+     * 정직한 종료 상태는 회수가 `REVOKED` 행을 남긴 뒤의 회수 화면이고,
+     * 그 전이는 #1399가 이미 넣었다. 이 갈래에 남는 것은 그 전이 이전에 회수된
+     * 계정뿐이다.
+     */
     case 'PENDING':
+    case 'APPROVED':
       return {
         icon: <Clock3 className="size-8" />,
         title: '교직원 승인을 기다리고 있습니다',
@@ -120,32 +138,6 @@ function statusPresentation(
         title: '교직원 역할 요청이 반려되었습니다',
         description: '반려 사유를 확인한 뒤 다시 승인을 요청할 수 있습니다.',
         badge: <StatusBadge variant="rejected">반려</StatusBadge>,
-      };
-    /**
-     * 승인 기록은 남아 있는데 지금 권한은 없는 사람 — 이 화면의 `APPROVED`는 그 뜻뿐이다.
-     *
-     * 이 화면에 서는 사람은 `OnboardingGate`가 미배정(`unassigned`)으로 판정한 사람뿐이고,
-     * 미배정은 곧 **열 수 있는 업무 화면이 하나도 없다**는 뜻이다
-     * (`app/_shell/use-session-role.ts`의 `hasUsableSurface`). 권한이 살아 있는 사람은
-     * 그 게이트가 자기 역할 홈으로 내보내므로 여기까지 오지 못한다.
-     *
-     * 그래서 "이제 프로그램을 개설할 수 있습니다"라고 말하던 예전 문구는 이 자리에서
-     * 반드시 거짓이었다. 그 문구 대신 화면은 이동을 걸었고(`/dashboard`), 대시보드는
-     * 면이 없는 그를 다시 여기로 돌려보내 두 화면이 서로를 가리켰다. 사실을 말하면
-     * 이동할 이유가 사라진다 — 지금 권한이 없다는 것이 이 사람에 대한 사실이다.
-     */
-    case 'APPROVED':
-      return {
-        icon: <TriangleAlert className="size-8" />,
-        title: '승인 기록은 있지만 지금은 교직원 권한이 없습니다',
-        // 원인이 둘이라 둘 다 적는다. 관리자가 권한을 회수했을 수도 있고, 승인이
-        // 방금 끝나 이 브라우저가 들고 있는 로그인 정보에 아직 반영되지 않았을 수도
-        // 있다. 둘을 가리는 수단은 아래 버튼 하나뿐이지만 그 버튼이 무엇을 하는지는
-        // 버튼이 스스로 말하므로 문장은 다시 적지 않고, 다시 확인해도 같을 때 갈 곳만
-        // 알려 준다.
-        description:
-          '관리자가 권한을 회수했거나, 승인이 아직 이 브라우저의 로그인 정보에 반영되지 않은 상태입니다. 다시 확인해도 그대로면 사업단 관리자에게 문의해 주세요.',
-        badge: <StatusBadge variant="closed">권한 없음</StatusBadge>,
       };
     case 'REVOKED':
       return {
@@ -165,6 +157,11 @@ export function StaffAccessRequestStatusView({
   onRetry,
 }: StaffAccessRequestStatusViewProps) {
   const presentation = statusPresentation(request);
+  // 승인을 기다리는 자리는 하나다 — 안내문도 버튼도 두 상태가 같이 쓴다.
+  // 갈라지면 회원이 보는 화면에서 둘을 구분할 수 있게 되고, 그것이 곧
+  // 요청 원장과 권한 플래그가 갈라졌다는 내부 사실을 회원 경계 밖으로 내보내는 일이다.
+  const isAwaitingApproval =
+    request.status === 'PENDING' || request.status === 'APPROVED';
 
   return (
     <div data-status={request.status}>
@@ -208,15 +205,8 @@ export function StaffAccessRequestStatusView({
               </Button>
             ) : null}
 
-            {request.status === 'PENDING' ||
-            request.status === 'REJECTED' ||
-            request.status === 'APPROVED' ? (
-              // `APPROVED`도 함께 낸다. 승인 기록만 남은 사람에게 이 버튼은 유일하게
-              // 결과가 달라질 수 있는 행동이다 — 공용 스냅샷을 다시 읽어 세션이 뒤늦게
-              // 권한을 물어 왔는지 확인한다. 그래도 그대로면 남은 길은 문의뿐이고,
-              // 그 사실은 위 설명이 말한다.
-              //
-              // 재요청이 날아가 있는 동안에는 잠근다. 그 사이 새로고침을 누르면
+            {isAwaitingApproval || request.status === 'REJECTED' ? (
+              // 재요청이 날아가 있는 동안에는 잠그다. 그 사이 새로고침을 누르면
               // 경고를 지웠다가, 뒤늦게 도착한 재요청 실패가 그 위에 다시 경고를
               // 그린다 — 사용자에게는 눌러서 사라진 것이 저절로 되살아난 것으로
               // 보인다. 애초에 쓰기 요청이 진행 중일 때 같은 대상을 다시 읽어
@@ -232,16 +222,13 @@ export function StaffAccessRequestStatusView({
               </Button>
             ) : null}
 
-            {/* 승인 대기(`PENDING`)에서만 낸다 — 설정 화면의 문(`app/settings/
+            {/* 승인을 기다리는 두 갈래에서 낸다 — 설정 화면의 문(`app/settings/
                 settings-access.ts`의 `isSettingsOpenForStaffAwaitingRole`)이 열리는
-                갈래와 같아야 한다. 반려·회수는 그 문이 닫혀 있어 링크를 내면 눌러도
-                이 화면으로 되돌아오는 제자리 걸음이 된다. 승인 기록만 남은 사람
-                (`APPROVED`)에게는 설정 문이 열려 있지만(#581) 링크는 내지 않는다 —
-                그가 지금 해야 할 일은 이름을 고치는 것이 아니라 상태를 확인하고
-                문의하는 것이라, 셋째 버튼을 세우면 진짜 다음 행동이 묻힌다.
-                두 곳이 갈라지지 않도록
+                갈래와 같아야 한다. 그 문은 `PENDING`과 `APPROVED` 둘 다에 열려
+                있고(#581), 반려·회수는 닫혀 있어 링크를 내면 눌러도 이 화면으로
+                되돌아오는 제자리 걷음이 된다. 두 곳이 갈라지지 않도록
                 `app/onboarding/pending/profile-edit-path.test.ts`가 못박는다. */}
-            {request.status === 'PENDING' ? (
+            {isAwaitingApproval ? (
               // 링크 문구는 고칠 수 있는 항목을 그대로 적는다 — 학번은 한 번
               // 저장하면 잠기므로(`users.service.ts`의 `STUDENT_ID_IMMUTABLE`)
               // 여기에 넣으면 고치러 갔다가 잠긴 칸을 보고 고장으로 읽는다.
@@ -303,7 +290,8 @@ export function StaffAccessRequestScreen({
     switch (staffAccessRequestStatus) {
       // `APPROVED`가 여기 함께 선다. 예전에는 `/dashboard`로 내보내며 세션을 새로
       // 읽게 했는데, 이 화면에 오는 `APPROVED`는 **권한이 없는** 사람뿐이라
-      // (`statusPresentation`) 대시보드 게이트가 그를 곧바로 여기로 돌려보냈다.
+      // (`OnboardingGate`가 면이 있는 사람을 여기까지 보내지 않는다)
+      // 대시보드 게이트가 그를 곧바로 여기로 돌려보냈다.
       // 두 화면이 서로를 가리키는 동안 사용자가 본 것은 양쪽의 `확인 중…`뿐이었고,
       // 한 바퀴마다 세션 재조회가 한 번씩 더 나갔다.
       //

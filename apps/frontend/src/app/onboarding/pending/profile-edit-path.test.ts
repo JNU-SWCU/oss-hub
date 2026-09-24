@@ -34,13 +34,16 @@ describe('승인 대기 화면이 가리키는 프로필 수정 경로', () => {
     expect(PENDING_PROFILE_EDIT_PATH).toBe('/settings');
   });
 
-  it('링크를 내주는 승인 대기 교직원에게 그 화면이 열려 있다', () => {
-    // Given — 이 링크가 실제로 그려지는 유일한 갈래
-    const pending = state({ staffAccessRequestStatus: 'PENDING' });
+  it.each(['PENDING', 'APPROVED'] as const)(
+    '링크를 내주는 %s 교직원에게 그 화면이 열려 있다',
+    (staffAccessRequestStatus) => {
+      // Given — 이 링크가 실제로 그려지는 두 갈래(승인을 기다리는 자리)
+      const awaiting = state({ staffAccessRequestStatus });
 
-    // When / Then
-    expect(isSettingsOpenForStaffAwaitingRole(pending)).toBe(true);
-  });
+      // When / Then
+      expect(isSettingsOpenForStaffAwaitingRole(awaiting)).toBe(true);
+    },
+  );
 
   it.each(['REJECTED', 'REVOKED'] as const)(
     '%s 상태에는 그 화면이 닫혀 있다 — 그래서 링크도 그리지 않는다',
@@ -48,7 +51,7 @@ describe('승인 대기 화면이 가리키는 프로필 수정 경로', () => {
       // Given
       const closed = state({ staffAccessRequestStatus });
 
-      // When / Then — 열려 있다면 링크 조건(`PENDING`만)이 너무 좁다는 뜻이다
+      // When / Then — 열려 있다면 링크 조건이 너무 좁다는 뜻이다
       expect(isSettingsOpenForStaffAwaitingRole(closed)).toBe(false);
     },
   );
