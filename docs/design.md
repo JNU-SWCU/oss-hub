@@ -303,7 +303,7 @@ R-08a·R-08b·R-38은 `pnpm --filter frontend lint`가 강제한다. 기존 위�
 
 | type | 트리거·범위 | 허용 kind | 소유 프리미티브 | 배치 | role / aria-live | 포커스 동작 | 소멸·지속 | 필수 액션 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| field | 필드 단위 검증 실패 | error | FieldError | 컨트롤 바로 아래 | `role="alert"` | 첫 오류로 포커스 이동 | 사용자가 고칠 때까지 지속 | 상단 요약과 쌍(R-16) |
+| field | 필드 단위 검증 실패 | error | FieldError | 컨트롤 바로 아래 | `role="alert"` | 첫 오류로 포커스 이동 | 사용자가 고칠 때까지 지속 | 긴 폼만 상단 요약(R-16) |
 | inline | 작업 중인 영역의 결과 | success·info·warning·error | Alert | 그 영역 안 | 동적 error=`role="alert"`, 그 외 동적 갱신=`role="status"`+`aria-live="polite"`, 정적 초기 렌더=live region 없음 | 포커스 이동 없음 | 화면을 떠날 때까지 | error면 다음 행동 링크(R-15) |
 | page | 화면 전체를 막는 실패·권한 | error·warning | `FailureState` | 본문 최상단 | 상호작용 중 발생한 동적 error만 `role="alert"`, 초기·정적 warning·접근 권한·안내는 live region 없음, 동적 non-error=`role="status"`/`aria-live="polite"` | 첫 액션으로 포커스 | 지속 | 재시도 또는 대체 경로 |
 | toast | 화면을 넘어가는 일회성 결과 | success·info | 전역 notification primitive(미구현 → §수용된 부채 R-13 행) | 뷰포트 고정 | `role="status"`+`aria-live="polite"` | 포커스 이동 없음 | 자동 소멸 허용, critical 금지(R-14) | 없음 |
@@ -322,7 +322,7 @@ R-08a·R-08b·R-38은 `pnpm --filter frontend lint`가 강제한다. 기존 위�
 현재 미구현 — §수용된 부채 R-13 행.
 **R-14** critical 메시지는 타이머로 사라지지 않는다.
 **R-15** 오류 문구는 다음 행동을 포함한다.
-필드 검증 실패는 field와 상단 요약을 함께 쓴다.
+필드 검증 실패는 field를 쓴다.
 작업 지역 결과는 inline 또는 page를 쓴다.
 화면을 넘어가는 비critical 일회성 결과는 toast를 쓴다.
 차단 결정은 dialog를 쓴다.
@@ -333,7 +333,8 @@ error는 toast 단독으로 절대 쓰지 않는다.
 `Field` + `FieldLabel` + `FieldDescription` + `FieldError` 조합을 표준 패턴으로 쓴다.
 에러는 `FieldError`가 `role="alert"`로 렌더링해 스크린 리더에 즉시 통지한다.
 
-**R-16** 폼 검증 실패는 필드 옆 `FieldError`와 상단 요약을 함께 보이고 첫 오류로 포커스를 옮긴다.
+**R-16** 폼 검증 실패는 필드 옆 `FieldError`를 보이고 첫 오류로 포커스를 옮긴다.
+첫 오류가 화면 밖으로 밀려 스크롤해야 보이는 길이의 폼에서만 상단 요약을 함께 보이고, 한 화면에 다 들어오는 폼은 필드 옆 오류와 포커스 이동만 쓴다.
 **오류는 `FieldDescription`을 대체하지 않고 함께 남는다** — 「숫자 6자리」 같은 형식 안내가 가장 필요한 순간이 틀렸을 때인데, 그때 안내를 지우면 다시 확인할 방법이 화면에서 사라진다.
 컨트롤의 `aria-describedby`는 안내 id에 오류 id를 덧붙이는 형태(`` `${helpId}${err ? ` ${errId}` : ''}` ``)로 쓴다. `aria-invalid`만 걸면 낭독기가 「유효하지 않음」만 말하고 왜인지는 말하지 않는다.
 제출 중에는 중복 제출을 막고 버튼의 busy 상태를 노출한다.
