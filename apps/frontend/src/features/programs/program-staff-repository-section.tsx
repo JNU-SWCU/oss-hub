@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState, type ReactElement } from 'react';
-import { RepositoryPublishCard, StatusBadge } from '@/components';
+import { RepositoryPublishCard } from '@/components';
 import { ApiError } from '@/lib/api-client';
 import { publishRepository } from '@/lib/repository-publication';
 import { PROVISIONING_LABELS } from './application-presentation';
@@ -52,7 +52,7 @@ export function ProgramStaffRepositorySection({
     );
   }
 
-  // 주소는 바로 위 URL 줄이 말한다(`RepositoryUrlEditor`). 여기는 공개 여부·발급·공개 전환만 남는다.
+  // 주소는 바로 위 URL 줄이 말한다(`RepositoryUrlEditor`). 여기는 발급·공개만 남는다.
   return (
     <>
       {repository === null ? (
@@ -60,11 +60,7 @@ export function ProgramStaffRepositorySection({
           저장소 발급{' '}
           {PROVISIONING_LABELS[application.repositoryProvisioning.jobStatus]}
         </p>
-      ) : (
-        <StatusBadge variant="closed">
-          {repository.visibility === 'PUBLIC' ? '공개' : '비공개'}
-        </StatusBadge>
-      )}
+      ) : null}
 
       {application.repositoryConnectionMode === 'NEW' && repository !== null ? (
         <RepositoryPublishCard
