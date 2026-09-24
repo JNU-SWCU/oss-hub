@@ -68,7 +68,7 @@ function serviceStub(
     listForStaff: jest.fn(),
     getForStaff: jest.fn(),
     getActivity: jest.fn(),
-    getRepositoryUrlHistoryForStaff: jest.fn(),
+    getRepositoryUrlHistory: jest.fn(),
     rename: jest.fn(),
     deleteForStaff: jest.fn(),
     removeMemberForStaff: jest.fn(),
@@ -424,11 +424,8 @@ describe('ProgramTeamsController', () => {
     expect(response).toEqual(view);
   });
 
-  it('repositoryUrlHistory 에 SessionGuard·ProgramTeamsStaffGuard 를 적용한다', () => {
-    expect(readGuards('repositoryUrlHistory')).toEqual([
-      SessionGuard,
-      ProgramTeamsStaffGuard,
-    ]);
+  it('repositoryUrlHistory 는 SessionGuard 만 적용한다 — activity 와 같은 문이다', () => {
+    expect(readGuards('repositoryUrlHistory')).toEqual([SessionGuard]);
   });
 
   it('repositoryUrlHistory 를 detail(:teamId) 보다 뒤에 선언한다', () => {
@@ -440,25 +437,27 @@ describe('ProgramTeamsController', () => {
     );
   });
 
-  it('repositoryUrlHistory 는 cursor 를 service 로 넘기고 DTO 페이지를 반환한다', async () => {
-    const getRepositoryUrlHistoryForStaff = jest.fn().mockResolvedValue({
+  it('repositoryUrlHistory 는 세션·cursor 를 service 로 넘기고 DTO 페이지를 반환한다', async () => {
+    const getRepositoryUrlHistory = jest.fn().mockResolvedValue({
       items: [],
       nextCursor: null,
     });
     const controller = new ProgramTeamsController(
-      serviceStub({ getRepositoryUrlHistoryForStaff }),
+      serviceStub({ getRepositoryUrlHistory }),
     );
     const query = Object.assign(new RepositoryUrlHistoryQueryRequestDto(), {
       cursor: '2026-08-15T00:00:00.000Z_change-11',
     });
 
     const response = await controller.repositoryUrlHistory(
+      { sessionGithubId: 42n },
       'program-1',
       'team-1',
       query,
     );
 
-    expect(getRepositoryUrlHistoryForStaff).toHaveBeenCalledWith(
+    expect(getRepositoryUrlHistory).toHaveBeenCalledWith(
+      42n,
       'program-1',
       'team-1',
       {

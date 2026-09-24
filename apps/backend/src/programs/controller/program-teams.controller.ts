@@ -50,7 +50,7 @@ type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
  * GET    /api/v1/programs/:programId/teams          (교직원 전용)
  * GET    /api/v1/programs/:programId/teams/:teamId  (교직원 전용)
  * GET    /api/v1/programs/:programId/teams/:teamId/activity  (그 팀 팀원 또는 교직원)
- * GET    /api/v1/programs/:programId/teams/:teamId/repository-url-history  (교직원 전용)
+ * GET    /api/v1/programs/:programId/teams/:teamId/repository-url-history  (그 팀 팀원 또는 교직원)
  * PATCH  /api/v1/programs/:programId/teams/:teamId  (팀장 또는 교직원)
  * DELETE /api/v1/programs/:programId/teams/:teamId  (교직원 전용)
  * DELETE /api/v1/programs/:programId/teams/:teamId/members/:userId  (교직원 전용)
@@ -69,7 +69,7 @@ export class ProgramTeamsController {
       | 'listForStaff'
       | 'getForStaff'
       | 'getActivity'
-      | 'getRepositoryUrlHistoryForStaff'
+      | 'getRepositoryUrlHistory'
       | 'rename'
       | 'deleteForStaff'
       | 'removeMemberForStaff'
@@ -181,15 +181,18 @@ export class ProgramTeamsController {
     );
   }
 
+  /** 저장소 URL 변경 이력 — `activity`와 같은 문이라 교직원 전용 가드를 붙이지 않는다. */
   @Get(':teamId/repository-url-history')
-  @UseGuards(SessionGuard, ProgramTeamsStaffGuard)
+  @UseGuards(SessionGuard)
   async repositoryUrlHistory(
+    @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
     @Param('teamId') teamId: string,
     @Query() query: RepositoryUrlHistoryQueryRequestDto,
   ): Promise<RepositoryUrlHistoryResponseDto> {
     return RepositoryUrlHistoryResponseDto.from(
-      await this.service.getRepositoryUrlHistoryForStaff(
+      await this.service.getRepositoryUrlHistory(
+        request.sessionGithubId,
         programId,
         teamId,
         query.toCursor(),

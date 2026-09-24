@@ -572,10 +572,7 @@ export class ProgramTeamsService {
 
   /**
    * 팀 저장소 활동(#1133) — 학생(지금 그 팀 팀원 누구나)과 교직원·관리자가 같은 문으로
-   * 같은 값을 읽는다. 가드를 두지 않는 이유는 `rename`과 같다 — 팀원도 이 문을 지나야 한다.
-   *
-   * 팀 밖의 학생·비활성 계정·없는 팀·다른 프로그램의 팀은 전부 같은 404다 — 구분하면
-   * 남의 프로그램에 그 id의 팀이 있다는 사실이 샌다. 활동 행은 판정을 통과한 뒤에만 읽는다.
+   * 같은 값을 읽는다. 활동 행은 읽기 판정(`requireTeamReader`)을 통과한 뒤에만 읽는다.
    */
   async getActivity(
     githubId: bigint,
@@ -583,18 +580,11 @@ export class ProgramTeamsService {
     teamId: string,
     now: Date = new Date(),
   ): Promise<TeamActivityView> {
-    const actor = await this.repository.findActorAuthorityByGithubId(githubId);
-    const team = actor
-      ? await this.repository.findTeamActivityScope(programId, teamId)
-      : null;
-    if (
-      !actor ||
-      !team ||
-      (!actor.isStaff &&
-        !team.members.some((member) => member.userId === actor.id))
-    ) {
-      throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
-    }
+    const { actor, team } = await this.requireTeamReader(
+      githubId,
+      programId,
+      teamId,
+    );
     return {
       ...(await this.repository.readTeamActivity(team)),
       // 역할이 가르는 유일한 칸 — 쓰기 경로와 같은 판정이라 버튼과 저장이 어긋나지 않는다.
@@ -611,11 +601,14 @@ export class ProgramTeamsService {
     };
   }
 
-  async getRepositoryUrlHistoryForStaff(
+  /** 저장소 URL 변경 이력 — 활동과 같은 문이다(팀원 누구나 또는 교직원·관리자). */
+  async getRepositoryUrlHistory(
+    githubId: bigint,
     programId: string,
     teamId: string,
     cursor?: RepositoryUrlHistoryCursor,
   ): Promise<RepositoryUrlHistoryPage> {
+    await this.requireTeamReader(githubId, programId, teamId);
     const history = await this.repository.findStaffRepositoryUrlHistory(
       programId,
       teamId,
@@ -623,6 +616,34 @@ export class ProgramTeamsService {
     );
     if (!history) throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
     return history;
+  }
+
+  /**
+   * 팀 저장소 화면을 읽을 수 있는 사람 — 지금 그 팀의 팀원(팀장이 아니어도)이거나
+   * ACTIVE 교직원·관리자다. 가드를 두지 않는 이유는 `rename`과 같다 — 팀원도 이 문을
+   * 지나야 한다.
+   *
+   * 팀 밖의 학생·비활성 계정·없는 팀·다른 프로그램의 팀은 전부 같은 404다 — 구분하면
+   * 남의 프로그램에 그 id의 팀이 있다는 사실이 샌다.
+   */
+  private async requireTeamReader(
+    githubId: bigint,
+    programId: string,
+    teamId: string,
+  ) {
+    const actor = await this.repository.findActorAuthorityByGithubId(githubId);
+    const team = actor
+      ? await this.repository.findTeamActivityScope(programId, teamId)
+      : null;
+    if (
+      !actor ||
+      !team ||
+      (!actor.isStaff &&
+        !team.members.some((member) => member.userId === actor.id))
+    ) {
+      throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
+    }
+    return { actor, team };
   }
 
   private toStaffTeamView(team: StaffTeamRecord): StaffTeamView {

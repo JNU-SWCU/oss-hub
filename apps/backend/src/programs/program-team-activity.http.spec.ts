@@ -20,10 +20,10 @@ import { ProgramTeamsRepository } from './repository/program-teams.repository';
 import { ProgramTeamsService } from './service/program-teams.service';
 
 /**
- * `GET /programs/:programId/teams/:teamId/activity`(#1133)를 실제 HTTP 파이프라인으로
- * 확인한다. controller·service·repository는 진짜이고 그 아래 Prisma만 합성 값이다 —
- * 같은 팀·같은 시각이면 팀장·팀원·교직원이 `canEditRepositoryUrl` 말고는 같은 본문을
- * 받는지, 팀 밖 사람과 없는 팀이 같은 404인지 본다.
+ * 팀 저장소 화면의 두 조회(#1133) — `activity`와 `repository-url-history` — 를 실제 HTTP
+ * 파이프라인으로 확인한다. controller·service·repository는 진짜이고 그 아래 Prisma만
+ * 합성 값이다. 같은 팀·같은 시각이면 팀장·팀원·교직원이 `canEditRepositoryUrl` 말고는
+ * 같은 본문을 받는지, 팀 밖 사람과 없는 팀이 같은 404인지 본다.
  */
 const sessionSecret = new Uint8Array(32).fill(7);
 const PROGRAM_ID = 'synthetic-program';
@@ -52,12 +52,14 @@ const findUnique = jest.fn(
 );
 const findFirst = jest.fn();
 const findMany = jest.fn();
+const auditFindMany = jest.fn();
 
 let application: INestApplication | undefined;
 let baseUrl = '';
 
-async function getActivity(
+async function getTeamPath(
   actor: keyof typeof ACTORS,
+  path: string,
   teamId = TEAM_ID,
 ): Promise<Response> {
   const token = await issueSessionToken(
@@ -66,7 +68,7 @@ async function getActivity(
     0,
   );
   return fetch(
-    `${baseUrl}/api/v1/programs/${PROGRAM_ID}/teams/${teamId}/activity`,
+    `${baseUrl}/api/v1/programs/${PROGRAM_ID}/teams/${teamId}/${path}`,
     {
       headers: {
         connection: 'close',
@@ -74,6 +76,13 @@ async function getActivity(
       },
     },
   );
+}
+
+function getActivity(
+  actor: keyof typeof ACTORS,
+  teamId = TEAM_ID,
+): Promise<Response> {
+  return getTeamPath(actor, 'activity', teamId);
 }
 
 beforeAll(async () => {
@@ -115,6 +124,12 @@ beforeAll(async () => {
           user: { findUnique },
           team: { findFirst },
           contribution: { findMany },
+          application: {
+            findFirst: jest
+              .fn()
+              .mockResolvedValue({ id: 'synthetic-application' }),
+          },
+          auditLog: { findMany: auditFindMany },
         },
       },
     ],
@@ -136,6 +151,27 @@ beforeAll(async () => {
 beforeEach(() => {
   findFirst.mockReset();
   findMany.mockReset();
+  auditFindMany.mockReset();
+  auditFindMany.mockResolvedValue([
+    {
+      id: 'change-1',
+      action: 'APPLICATION_REPOSITORY_URL_CHANGED',
+      occurredAt: new Date('2026-08-15T00:00:00Z'),
+      actor: { nickname: 'lead' },
+      metadata: {
+        schemaVersion: 2,
+        programId: PROGRAM_ID,
+        teamId: TEAM_ID,
+        programName: 'Synthetic program',
+        actorGithubLogin: 'lead',
+        before: { repositoryId: null, repositoryUrl: null },
+        after: {
+          repositoryId: 'synthetic-repository',
+          repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
+        },
+      },
+    },
+  ]);
   findFirst.mockImplementation(
     ({ where }: { readonly where: { readonly id: string } }) =>
       Promise.resolve(
@@ -272,3 +308,47 @@ it.each([
     expect(findMany).not.toHaveBeenCalled();
   },
 );
+
+describe('저장소 URL 변경 이력', () => {
+  it.each(['leader', 'member', 'staff'] as const)(
+    '%s는 같은 이력 쪽을 200으로 받는다',
+    async (actor) => {
+      // When
+      const response = await getTeamPath(actor, 'repository-url-history');
+      // Then
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({
+        items: [
+          {
+            id: 'change-1',
+            occurredAt: '2026-08-15T00:00:00.000Z',
+            actorGithubLogin: 'lead',
+            previousRepositoryUrl: null,
+            newRepositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
+          },
+        ],
+        nextCursor: null,
+      });
+    },
+  );
+
+  it('팀 밖의 학생은 404(TEAM_010)이고 이력을 읽지 않는다', async () => {
+    // When
+    const response = await getTeamPath('outsider', 'repository-url-history');
+    // Then
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'TEAM_010' });
+    expect(auditFindMany).not.toHaveBeenCalled();
+  });
+
+  it('형식이 틀린 커서는 경계에서 400이다', async () => {
+    // When
+    const response = await getTeamPath(
+      'member',
+      'repository-url-history?cursor=invalid',
+    );
+    // Then
+    expect(response.status).toBe(400);
+    expect(auditFindMany).not.toHaveBeenCalled();
+  });
+});
