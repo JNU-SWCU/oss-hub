@@ -24,6 +24,14 @@ interface SettingsProfileSectionProps {
   readonly onChange: (patch: Partial<SettingsFormValues>) => void;
 }
 
+/** 학번 칸은 학생이거나 이미 저장된 학번이 있을 때만 그린다. */
+export function isStudentIdFieldShown(
+  memberKind: ProfileMemberKind | null,
+  values: SettingsFormValues,
+): boolean {
+  return memberKind === 'STUDENT' || hasSavedStudentId(values);
+}
+
 export function SettingsProfileSection({
   memberKind,
   values,
@@ -45,7 +53,7 @@ export function SettingsProfileSection({
    */
   const describedBy = (helpId: string, errorId: string, hasError: boolean) =>
     hasError ? `${helpId} ${errorId}` : helpId;
-  const showStudentId = memberKind === 'STUDENT' || isStudentIdLocked;
+  const showStudentId = isStudentIdFieldShown(memberKind, values);
 
   return (
     <FormSection title="프로필">

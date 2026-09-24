@@ -200,6 +200,43 @@ describe('설정 화면', () => {
     expect(container.querySelector('#settings-student-id')).toBeNull();
   });
 
+  it('저장을 누르면 첫 오류 칸으로 포커스를 옮기고, 오류가 둘 이상이면 맨 위에 개수를 알린다(R-16)', async () => {
+    // 저장된 학번·전화번호가 없는 학생이다. 학생에게는 둘 다 필수다.
+    await render({
+      status: 'assigned',
+      ...accessFor('STUDENT'),
+      isProfileComplete: true,
+    });
+    const submit = () =>
+      act(async () => {
+        container
+          .querySelector('form')
+          ?.dispatchEvent(
+            new Event('submit', { bubbles: true, cancelable: true }),
+          );
+      });
+
+    await submit();
+
+    const visible = container.querySelectorAll('[data-slot="field-error"]');
+    expect(visible.length).toBe(2);
+    expect(
+      container.querySelector('[data-slot="form-error-summary"]')?.textContent,
+    ).toBe(`고칠 칸이 ${visible.length}개 있습니다`);
+    // 첫 칸(이름)이 아니라 첫 오류 칸이다 — 요약은 포커스를 가져가지 않는다.
+    expect(document.activeElement?.id).toBe('settings-student-id');
+
+    // 학번을 고쳐 다시 누르면 남은 하나로 옮겨 가고, 하나뿐이라 요약은 내려간다.
+    await type(field('settings-student-id'), '123456');
+    await submit();
+
+    expect(
+      container.querySelector('[data-slot="form-error-summary"]'),
+    ).toBeNull();
+    expect(document.activeElement?.id).toBe('settings-phone');
+    expect(requests.some((request) => request.method === 'PATCH')).toBe(false);
+  });
+
   it.each(['STUDENT', 'STAFF', 'ADMIN'] as const)(
     '역할이 배정된 %s는 안내 없이 설정을 그대로 연다',
     async (role) => {

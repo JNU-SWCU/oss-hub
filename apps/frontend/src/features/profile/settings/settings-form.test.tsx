@@ -11,7 +11,7 @@ import {
   validateSettingsForm,
 } from './settings-state';
 import type { ProfileRole } from '../profile-requirements';
-import type { SettingsFormValues } from './types';
+import type { SettingsFormErrors, SettingsFormValues } from './types';
 
 const noOp = () => undefined;
 const TEN_DIGIT_PHONE = '1'.repeat(10);
@@ -42,6 +42,7 @@ function renderForm(
     readonly toastMessage?: string | null;
     readonly notificationAvailable?: boolean;
     readonly isRetryingNotification?: boolean;
+    readonly errors?: SettingsFormErrors;
   } = {},
 ) {
   const notificationAvailable = options.notificationAvailable ?? true;
@@ -52,7 +53,10 @@ function renderForm(
       memberKind={memberKind}
       hasAdminAccess={role === 'ADMIN'}
       values={formValues}
-      errors={validateSettingsForm(formValues, notificationAvailable, role)}
+      errors={
+        options.errors ??
+        validateSettingsForm(formValues, notificationAvailable, role)
+      }
       showValidationErrors={options.showValidationErrors ?? false}
       notificationLoad={
         notificationAvailable
@@ -71,6 +75,11 @@ function renderForm(
       onSubmit={noOp}
     />,
   );
+}
+
+/** 화면에 실제로 선 칸 옆 오류 줄 수. */
+function fieldErrorCount(html: string): number {
+  return html.split('data-slot="field-error"').length - 1;
 }
 
 describe('settings form view', () => {
@@ -207,9 +216,72 @@ describe('settings form view', () => {
     expect(html).toContain('전화번호는 숫자 10~11자리로 입력해 주세요.');
     expect(html).toContain('학과를 선택하거나 입력해 주세요.');
     expect(html).toContain('이메일 형식이 올바르지 않습니다.');
+    // 네 줄이 틀렸으므로 폼 맨 위에 그 개수가 선다(R-16). 기타 소속 입력은
+    // 소속 줄 하나를 함께 쓰므로 따로 세지 않는다.
+    expect(fieldErrorCount(html)).toBe(4);
+    expect(html).toContain('고칠 칸이 4개 있습니다');
+    expect(html.indexOf('data-slot="form-error-summary"')).toBeGreaterThan(-1);
+    expect(html.indexOf('data-slot="form-error-summary"')).toBeLessThan(
+      html.indexOf('id="settings-name"'),
+    );
+    // 요약은 칸 옆 문구를 다시 적지 않는다.
+    expect(html.split('이름을 입력해 주세요.').length - 1).toBe(1);
     // 무효 값이어도 클릭해 검증 메시지를 볼 수 있어야 한다. disabled는 저장 중만.
     expect(html).toContain('>저장</button>');
     expect(html).not.toMatch(/type="submit"[^>]*disabled/);
+  });
+
+  it('저장을 누르기 전에는 오류값이 넷이어도 요약을 그리지 않는다', () => {
+    const html = renderForm(
+      values({
+        name: ' ',
+        phone: '1'.repeat(3),
+        departmentOption: OTHER_DEPARTMENT,
+        otherDepartment: '',
+        notificationEmail: 'not-an-email',
+      }),
+      { showValidationErrors: false },
+    );
+
+    expect(fieldErrorCount(html)).toBe(0);
+    expect(html).not.toContain('data-slot="form-error-summary"');
+  });
+
+  it('학번을 아직 저장하지 않은 학생은 다섯 칸이 모두 틀릴 수 있고 요약도 다섯을 센다', () => {
+    const html = renderForm(
+      values({
+        name: ' ',
+        studentId: '',
+        savedStudentId: '',
+        phone: '',
+        departmentOption: '',
+        notificationEmail: 'not-an-email',
+      }),
+      { showValidationErrors: true },
+    );
+
+    expect(fieldErrorCount(html)).toBe(5);
+    expect(html).toContain('고칠 칸이 5개 있습니다');
+  });
+
+  it('학번 칸이 감춰진 동안의 학번 오류는 요약 개수에서 뺀다', () => {
+    // 회원 유형이 없는 관리자(null)를 화면은 학생 기준으로 검증해 학번 오류를
+    // 만들지만, 학번 칸은 학생에게만 그리므로 그 오류 줄은 화면에 없다.
+    const formValues = values({
+      name: ' ',
+      studentId: '',
+      savedStudentId: '',
+      phone: '',
+    });
+    const html = renderForm(formValues, {
+      role: 'ADMIN',
+      showValidationErrors: true,
+      errors: validateSettingsForm(formValues, true, null),
+    });
+
+    expect(html).not.toContain('settings-student-id');
+    expect(fieldErrorCount(html)).toBe(2);
+    expect(html).toContain('고칠 칸이 2개 있습니다');
   });
 
   it('이메일 오류를 입력 필드와 연결한다', () => {
@@ -224,6 +296,9 @@ describe('settings form view', () => {
     );
     expect(invalidHtml).toContain('id="settings-notification-email-error"');
     expect(validHtml).not.toContain('settings-notification-email-error');
+    // 오류가 하나뿐이면 칸 옆 오류와 포커스 이동만 쓰고 요약은 없다(R-16).
+    expect(fieldErrorCount(invalidHtml)).toBe(1);
+    expect(invalidHtml).not.toContain('data-slot="form-error-summary"');
   });
 
   it('이름·기타 학과 길이 제한과 오류 메시지를 표시한다', () => {

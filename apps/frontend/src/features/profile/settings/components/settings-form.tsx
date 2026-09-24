@@ -1,5 +1,10 @@
-import type { FormEvent } from 'react';
-import { FormSection, PageBody, PageHeader } from '@/components';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import {
+  FormErrorSummary,
+  FormSection,
+  PageBody,
+  PageHeader,
+} from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
@@ -13,7 +18,10 @@ import type {
   SettingsNotificationLoadState,
 } from '../types';
 import { AccountDeactivationSection } from './account-deactivation-section';
-import { SettingsProfileSection } from './settings-profile-section';
+import {
+  isStudentIdFieldShown,
+  SettingsProfileSection,
+} from './settings-profile-section';
 
 interface SettingsFormProps {
   readonly memberKind: ProfileMemberKind | null;
@@ -57,13 +65,41 @@ export function SettingsForm({
   onRetryNotification,
   onSubmit,
 }: SettingsFormProps) {
+  const formRef = useRef<HTMLFormElement>(null);
+  // 저장을 누를 때마다 올린다. 칸의 aria-invalid 는 이 제출이 그리는 다음
+  // 렌더에 붙으므로, 첫 오류 칸으로 옮기는 포커스(R-16)는 그 렌더 뒤에 한다.
+  const [submitCount, setSubmitCount] = useState(0);
+
+  useEffect(() => {
+    if (submitCount === 0) return;
+    const firstInvalidField =
+      formRef.current?.querySelector<HTMLElement>(
+        '[aria-invalid="true"]:not(:disabled)',
+      ) ?? null;
+    firstInvalidField?.focus({ preventScroll: true });
+    firstInvalidField?.scrollIntoView?.({ block: 'center' });
+  }, [submitCount]);
+
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
+    setSubmitCount((count) => count + 1);
     onSubmit();
   }
 
   const showEmailError =
     showValidationErrors && errors.notificationEmail !== null;
+  // R-16 상단 요약의 개수 — 화면에 보이는 오류 줄만 센다. 학번 칸이 감춰진
+  // 동안의 학번 오류는 보이지 않으므로 빼고, 기타 소속 입력은 소속 줄 하나를
+  // 함께 쓴다.
+  const visibleErrorCount = showValidationErrors
+    ? [
+        errors.name,
+        isStudentIdFieldShown(memberKind, values) ? errors.studentId : null,
+        errors.phone,
+        errors.department,
+        errors.notificationEmail,
+      ].filter(Boolean).length
+    : 0;
 
   return (
     <PageBody className="max-w-2xl">
@@ -84,7 +120,13 @@ export function SettingsForm({
         </div>
       ) : null}
 
-      <form className="flex flex-col gap-16" noValidate onSubmit={handleSubmit}>
+      <form
+        ref={formRef}
+        className="flex flex-col gap-16"
+        noValidate
+        onSubmit={handleSubmit}
+      >
+        <FormErrorSummary count={visibleErrorCount} />
         <SettingsProfileSection
           memberKind={memberKind}
           values={values}
