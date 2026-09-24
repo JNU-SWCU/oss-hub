@@ -276,7 +276,19 @@ describe('role onboarding views', () => {
     expect(html).toContain('다시 승인 요청하기');
   });
 
-  it('승인된 요청은 교직원 화면 이동 경로를 제공한다', () => {
+  /**
+   * 이 화면의 `APPROVED`는 **승인 기록만 남고 권한은 없는 사람**이다.
+   *
+   * 이 뷰를 여는 화면(`StaffAccessRequestScreen`)은 `OnboardingGate` 아래에만 서고,
+   * 그 게이트는 열 수 있는 업무 화면이 하나도 없는 사람에게만 자식을 그린다. 그래서
+   * 여기서 "이제 프로그램을 개설할 수 있습니다"라고 말하면 반드시 거짓이고, 예전의
+   * `교직원 화면으로 이동`은 대시보드가 그를 이 화면으로 되돌려보내는 왕복이 됐다.
+   *
+   * 그렇다고 「승인 기록은 있는데 권한은 없다」를 회원에게 적지도 않는다. 그것은
+   * 요청 원장과 권한 플래그가 갈라졌다는 관리자 장부의 사실이다. 이 화면의 책임은
+   * 대기뿐이므로 두 상태는 구분되지 않는 한 자리에 선다.
+   */
+  it('승인 기록만 남은 요청도 같은 대기 안내에 서고 내부 불일치를 적지 않는다', () => {
     // Given
     const approved = staffAccessRequest({
       status: 'APPROVED',
@@ -294,9 +306,16 @@ describe('role onboarding views', () => {
       />,
     );
 
-    // Then
+    // Then — 회원이 읽는 것은 승인 대기에 선 `PENDING`과 같은 문장이다.
     expect(html).toContain('data-status="APPROVED"');
-    expect(html).toContain('href="/dashboard"');
+    expect(html).toContain('교직원 승인을 기다리고 있습니다');
+    expect(html).toContain('상태 새로고침');
+    // 내부 불일치를 회원 경계 밖으로 내보내는 문구는 하나도 남지 않는다.
+    expect(html).not.toContain('권한이 없습니다');
+    expect(html).not.toContain('권한 없음');
+    expect(html).not.toContain('권한을 회수했거나');
+    // 되돌아올 문은 내지 않는다 — 면이 없는 그를 `/dashboard`가 다시 이리로 보낸다.
+    expect(html).not.toContain('href="/dashboard"');
   });
 
   /**
