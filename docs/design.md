@@ -307,7 +307,7 @@ R-08a·R-08b·R-38은 `pnpm --filter frontend lint`가 강제한다. 기존 위�
 
 | type | 트리거·범위 | 허용 kind | 소유 프리미티브 | 배치 | role / aria-live | 포커스 동작 | 소멸·지속 | 필수 액션 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| field | 필드 단위 검증 실패 | error | FieldError | 컨트롤 바로 아래 | `role="alert"` | 첫 오류로 포커스 이동 | 사용자가 고칠 때까지 지속 | 긴 폼만 상단 요약(R-16) |
+| field | 필드 단위 검증 실패 | error | FieldError | 컨트롤 바로 아래 | `role="alert"` | 첫 오류로 포커스 이동 | 사용자가 고칠 때까지 지속 | 오류가 둘 이상이면 개수 요약(R-16) |
 | inline | 작업 중인 영역의 결과 | success·info·warning·error | Alert | 그 영역 안 | 동적 error=`role="alert"`, 그 외 동적 갱신=`role="status"`+`aria-live="polite"`, 정적 초기 렌더=live region 없음 | 포커스 이동 없음 | 화면을 떠날 때까지 | error면 다음 행동 링크(R-15) |
 | page | 화면 전체를 막는 실패·권한 | error·warning | `FailureState` | 본문 최상단 | 상호작용 중 발생한 동적 error만 `role="alert"`, 초기·정적 warning·접근 권한·안내는 live region 없음, 동적 non-error=`role="status"`/`aria-live="polite"` | 첫 액션으로 포커스 | 지속 | 재시도 또는 대체 경로 |
 | toast | 화면을 넘어가는 일회성 결과 | success·info | 전역 notification primitive(미구현 → §수용된 부채 R-13 행) | 뷰포트 고정 | `role="status"`+`aria-live="polite"` | 포커스 이동 없음 | 자동 소멸 허용, critical 금지(R-14) | 없음 |
@@ -338,9 +338,12 @@ error는 toast 단독으로 절대 쓰지 않는다.
 에러는 `FieldError`가 `role="alert"`로 렌더링해 스크린 리더에 즉시 통지한다.
 
 **R-16** 폼 검증 실패는 필드 옆 `FieldError`를 보이고 첫 오류로 포커스를 옮긴다.
-첫 오류가 화면 밖으로 밀려 스크롤해야 보이는 길이의 폼에서만 상단 요약을 함께 보이고, 한 화면에 다 들어오는 폼은 필드 옆 오류와 포커스 이동만 쓴다.
+남은 오류가 둘 이상이면 상단 요약으로 그 **개수**를 함께 보이고, 하나뿐이면 필드 옆 오류와 포커스 이동만 쓴다.
+요약의 내용은 개수이지 오류 목록이 아니다 — 목록은 필드 옆 `FieldError`가 이미 그 자리에서 말하고 있고, 요약이 그것을 복제하면 같은 문장이 화면에 두 번 선다.
 **오류는 `FieldDescription`을 대체하지 않고 함께 남는다** — 「숫자 6자리」 같은 형식 안내가 가장 필요한 순간이 틀렸을 때인데, 그때 안내를 지우면 다시 확인할 방법이 화면에서 사라진다.
 컨트롤의 `aria-describedby`는 안내 id에 오류 id를 덧붙이는 형태(`` `${helpId}${err ? ` ${errId}` : ''}` ``)로 쓴다. `aria-invalid`만 걸면 낭독기가 「유효하지 않음」만 말하고 왜인지는 말하지 않는다.
+2026-09-24 결정(#1406): R-16의 상단 요약 조건을 「폼의 길이」에서 「남은 오류 개수」로 바꿨다. 이전 문구는 첫 오류가 화면 밖으로 밀리는 길이를 기준으로 삼았는데, 프로그램 만들기·편집 두 폼을 1440×900과 390×844에서 각각 재어 보니 그 기준으로는 판정이 서지 않았다 — 첫 필드가 틀렸을 때는 오류가 화면 안에 있고(여유 459px·399px), 아래쪽 필드만 틀렸을 때는 화면 밖 324~595px에 있다. 같은 폼이 입력 상태에 따라 양쪽을 오간다. 게다가 제출 직후 제품이 첫 오류에 `scrollIntoView({ block: 'center' })`를 걸어 두어, 자동 스크롤을 막고 잰 경우에만 오류가 화면 밖에 남았다(측정 10회 전부 자동 스크롤 뒤에는 보였다). 그래서 포커스 이동이 대신하지 못하는 정보는 「몇 개가 남았는가」 하나이고, 필수값을 모두 비우면 두 화면 모두 오류가 4개다. 조건도 내용도 그 개수로 맞춘다.
+
 제출 중에는 중복 제출을 막고 버튼의 busy 상태를 노출한다.
 버튼 정렬은 `docs/rules/frontend.md`를 따른다.
 
@@ -420,6 +423,7 @@ builder는 필수가 아니며 같은 엔티티를 여러 테스트가 반복해
 | 2026-09-03 | `apps/frontend/src/features/**`에 fixture 9파일 1,022 LOC | 당시 R-18·R-19 | 현재 규칙은 최소 인라인 데이터와 수명 기반 공유다. 파일명 금지는 폐지했고 미사용 카탈로그만 줄인다 |
 | 2026-09-03 | local-review 하네스가 `apps/frontend/test-support/local-review/fixture-response.ts`에서 feature fixture를 소비 | R-20 | 예외 없음. 런타임→테스트 의존은 경계 lint가 거부한다. 이 행은 당시 결합의 기록이며 해소는 런타임 제거 작업이다 |
 | 2026-09-19 | 차트 낭독 전용 `sr-only` `<table>` 2곳 — `apps/frontend/src/features/staff-insights/insights-panels.tsx` ActivityPanel, `apps/frontend/src/features/staff-insights/participation-panel.tsx` | R-07 | 예외로 확정. DataTable은 초점을 받는 스크롤 영역과 빈 상태 행을 그리므로 보이지 않는 낭독 전용 표에 맞지 않는다. 시맨틱 `<table>`을 유지한다 |
+| 2026-09-24 | 오류가 둘 이상이어도 개수를 적은 상단 요약이 어느 폼에도 없다 — 프로그램 만들기(`programs/new` 기본 정보 단계)·프로그램 편집이 필수값을 모두 비우면 각각 오류 4개, 게시판 글 작성·편집이 각각 2개(제목·본문)를 필드 옆에만 보인다 | R-16 | 상단 요약 PR |
 | 2026-09-19 | 서류 수합 행렬 — `apps/frontend/src/features/programs/milestone-document-collection-view.tsx`가 `ui/table`을 직접 조합 | R-07 | sticky 팀 열·`colSpan` 판정 행·행 펼침을 DataTable의 columns·data 모델이 담지 못한다. DataTable에 행 펼침 slot이 생기면 옮긴다 |
 | 2026-09-23 | 읽기 전용 표 줄도 마우스를 올리면 배경이 바뀐다 — `apps/frontend/src/components/ui/table.tsx` 97의 `TableRow` 기본 `hover:bg-muted/50`가 머리글·빈 상태 줄까지 전 줄에 걸린다 | R-31 | 예외로 확정(#1368). 흰 바탕 위 계산값이 `oklab(0.976 0 0 / 0.5)` = rgb(251, 251, 251)로 흰색과 255단계 중 4 차이라 「눌린다」는 잘못된 신호가 화면에서 거의 보이지 않고, 넓은 표에서 줄을 따라가는 보조로 남긴다. 목록 줄은 반대다 — `ListRow`는 #1352에서 hover를 기본에서 뺐고 줄 전체를 누르는 자리에서만 호출부가 얹는다. 표에서 누를 수 있는 줄은 `DataTable`이 `cursor-pointer`로 가른다 |
 
