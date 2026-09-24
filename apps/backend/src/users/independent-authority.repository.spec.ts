@@ -1,4 +1,9 @@
-import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { resolveIndependentAuthorityTransition } from './independent-authority-transition';
@@ -62,5 +67,39 @@ it('locks the target and dual-writes the deterministic rollback projection', asy
       hasStaffAccess: true,
       hasAdminAccess: false,
     },
+  });
+});
+
+it('교직원 회수 이력을 옛 CAS 경로와 같은 모양으로 같은 트랜잭션에 넣는다', async () => {
+  // Given
+  const create = jest.fn().mockResolvedValue({ id: 'revoked-request' });
+  const transaction = { staffAccessRequest: { create } };
+  const prisma = Object.assign(new PrismaService(), {
+    $transaction: <T>(
+      operation: (store: typeof transaction) => Promise<T>,
+    ): Promise<T> => operation(transaction),
+  });
+  const repository = new IndependentAuthorityRepository(prisma);
+  const decidedAt = new Date('2026-09-23T00:00:00.000Z');
+
+  // When
+  const inserted = await repository.withTransaction((store) =>
+    store.insertRevokedRequest({
+      userId: 'target',
+      actorId: 'actor',
+      decidedAt,
+    }),
+  );
+
+  // Then
+  expect(inserted).toEqual({ id: 'revoked-request' });
+  expect(create).toHaveBeenCalledWith({
+    data: {
+      userId: 'target',
+      status: StaffAccessRequestStatus.REVOKED,
+      decidedById: 'actor',
+      decidedAt,
+    },
+    select: { id: true },
   });
 });
