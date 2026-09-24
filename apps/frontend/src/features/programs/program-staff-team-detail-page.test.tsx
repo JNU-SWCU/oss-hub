@@ -473,6 +473,37 @@ describe('ProgramStaffTeamDetailPage', () => {
     expect(container.textContent).not.toContain('GitHub 저장소 공개 전환');
   });
 
+  it.each([
+    ['PUBLIC', '공개'],
+    ['PRIVATE', '비공개'],
+  ] as const)(
+    'OWN 저장소도 공개 여부(%s)를 중립 배지로 보여준다',
+    async (visibility, label) => {
+      getStaffProgramTeamDetailMock.mockResolvedValue({
+        ...withApplication,
+        application: {
+          ...withApplication.application!,
+          repositoryConnectionMode: 'OWN',
+          repository: {
+            id: 'repository-own',
+            url: 'https://github.com/student/repo',
+            visibility,
+            publishEligible: true,
+            blockedReasons: [],
+          },
+        },
+      });
+      await render();
+
+      const badge = [
+        ...container.querySelectorAll('[data-slot="status-badge"]'),
+      ].find((element) => element.textContent === label);
+      expect(badge).toBeTruthy();
+      // 판정 색이 아니라 중립색이다 — 공개도 비공개도 같은 변형을 쓴다.
+      expect(badge?.getAttribute('data-variant')).toBe('closed');
+    },
+  );
+
   it('없는 팀(404)이면 찾을 수 없다는 안내를 보여준다', async () => {
     getStaffProgramTeamDetailMock.mockRejectedValue(
       new ApiError(problem(404, 'TEAM_010')),
