@@ -81,6 +81,11 @@ describe('card components', () => {
     expect(html).toContain('px-4');
     expect(html).toContain('py-2');
     expect(html).toContain('text-base');
+    // lg 가 적어 둔 위아래 8px 여백은 높이가 풀려 있어야 실제로 쓰인다.
+    // 기본 `h-tag`(26px)가 남으면 16px 글자(줄 높이 24px)에 여백을 더한
+    // 40px 이 26px 상자에 눌려, 적어 둔 값이 한 픽셀도 그려지지 않는다(#1400).
+    expect(html).toContain('h-auto');
+    expect(html).not.toContain('h-tag');
   });
 
   // 이전 ProgramCard는 `statusPlacement="body-center"` + `footer`로 상태를
