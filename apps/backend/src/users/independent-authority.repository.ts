@@ -10,8 +10,13 @@ import {
   ADMIN_ACCESS_USER_SELECT,
   toAdminAccessUserRecord,
 } from './admin-access-user-projection.repository';
-import type { AdminAccessActor } from './admin-access.repository.types';
+import type {
+  AdminAccessActor,
+  AdminAccessInsertedRequest,
+  AdminAccessRevokedRequestInsert,
+} from './admin-access.repository.types';
 import type { IndependentAuthorityTransition } from './independent-authority-transition';
+import { insertRevokedStaffAccessRequest } from './staff-access-revocation-write';
 
 export type IndependentAuthorityUserRecord = ReturnType<
   typeof toAdminAccessUserRecord
@@ -32,6 +37,12 @@ export interface IndependentAuthorityTransactionStore {
     userId: string,
     transition: IndependentAuthorityTransition,
   ): Promise<void>;
+  /**
+   * 교직원 접근을 끈 전이가 남기는 회수 이력 한 행. 옛 CAS 경로와 같은 쓰기를 공유한다.
+   */
+  insertRevokedRequest(
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest>;
 }
 
 export interface IndependentAuthorityRepositoryPort {
@@ -85,6 +96,12 @@ class PrismaIndependentAuthorityStore implements IndependentAuthorityTransaction
         hasAdminAccess: transition.hasAdminAccess,
       },
     });
+  }
+
+  insertRevokedRequest(
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest> {
+    return insertRevokedStaffAccessRequest(this.transaction, input);
   }
 }
 
