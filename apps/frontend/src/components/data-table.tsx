@@ -62,8 +62,10 @@ interface DataTableProps<TRow> extends Omit<
   /**
    * `onRowClick`이 있어도 특정 행을 클릭 대상에서 뺄 때 쓴다. 안 주면(기본)
    * `onRowClick`이 있는 한 모든 행이 클릭 대상이다 — 기존 호출부는 이 prop이
-   * 없으므로 동작이 그대로다. 눌러도 아무 일도 없는 행은 hover/cursor 표시도
-   * 하지 않아야 한다 — 눌리는 것처럼 보이는데 반응이 없는 행은 만들지 않는다.
+   * 없으므로 동작이 그대로다. 빠진 행에서 달라지는 것은 `cursor-pointer`와
+   * `onClick` 하나씩이다. hover 배경은 `TableRow`의 기본 클래스라 머리글·빈
+   * 상태를 포함한 모든 줄에 남는다(#1368 에서 현행 유지로 정했고 그 예외는
+   * `docs/design.md` §수용된 부채가 들고 있다).
    */
   isRowClickable?: (row: TRow, rowIndex: number) => boolean;
   /**
@@ -184,9 +186,10 @@ function DataTable<TRow>({
                 <TableRow
                   key={rowKey(row, rowIndex)}
                   className={
-                    clickable
-                      ? 'cursor-pointer hover:bg-muted/50 transition-colors'
-                      : undefined
+                    // hover 배경과 transition 은 `TableRow` 기본 클래스가
+                    // 이미 준다 — 여기서 다시 얹으면 같은 클래스가 두 번
+                    // 들어가고, 눌리는 행의 차이가 무엇인지 흐려진다.
+                    clickable ? 'cursor-pointer' : undefined
                   }
                   onClick={
                     clickable && handleRowClick
