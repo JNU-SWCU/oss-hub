@@ -553,6 +553,11 @@ describe('ProgramEditPage 컴포넌트', () => {
     expect(container.textContent).toContain('마일스톤 이름을 입력해 주세요.');
     expect(container.textContent).toContain('유효한 시작일을 입력해 주세요.');
     expect(container.textContent).toContain('유효한 마감일을 입력해 주세요.');
+    // 시작·마감은 일정 한 줄로 보이므로 보이는 오류는 이름·일정 두 줄이다(R-16).
+    // 요약은 포커스를 받지 않아 초점은 그대로 달력에 있다.
+    expect(
+      container.querySelector('[data-slot="form-error-summary"]')?.textContent,
+    ).toBe('고칠 칸이 2개 있습니다');
     expect(document.activeElement).toBe(
       container.querySelector(
         '[data-testid="program-schedule-calendar-scroll"][aria-invalid="true"]',

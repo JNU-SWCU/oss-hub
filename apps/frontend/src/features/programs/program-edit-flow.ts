@@ -150,6 +150,22 @@ export interface ProgramMilestoneErrors {
   readonly general?: string;
 }
 
+/**
+ * 마일스톤 폼에 실제로 보이는 필드 오류 줄 수 — R-16 상단 요약의 개수다.
+ * `general`은 저장 버튼 옆에 따로 서므로 세지 않는다. 일정 칸은 시작·마감
+ * 오류를 한 줄로 합쳐 보이므로 하나로 센다. 수정 창의 서버 실패 경로는 값이
+ * `undefined`인 키를 넣으므로 키가 아니라 값이 있는 줄만 센다.
+ */
+export function visibleMilestoneErrorCount(
+  errors: ProgramMilestoneErrors,
+): number {
+  return [
+    errors.name,
+    errors.startAt || errors.dueAt,
+    errors.instructions,
+  ].filter(Boolean).length;
+}
+
 export type ProgramMilestoneEditor =
   | { readonly mode: 'closed' }
   | {

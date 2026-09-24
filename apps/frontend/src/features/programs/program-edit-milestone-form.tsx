@@ -1,7 +1,9 @@
 ﻿import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError, FieldGroup } from '@/components/ui/field';
+import { FormErrorSummary } from '@/components';
 import {
+  visibleMilestoneErrorCount,
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
 } from './program-edit-flow';
@@ -52,6 +54,9 @@ export function ProgramEditMilestoneForm({
       >
         <fieldset disabled={isBusy} className="min-w-0">
           <FieldGroup>
+            <FormErrorSummary
+              count={visibleMilestoneErrorCount(editor.errors)}
+            />
             <ProgramMilestoneFields
               id="milestone"
               noticeId="milestone-instructions"
