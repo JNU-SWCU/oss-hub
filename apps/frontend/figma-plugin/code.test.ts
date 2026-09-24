@@ -95,7 +95,11 @@ function createFakeFigma(
       createInstance() {
         const instance = node('INSTANCE', { name: self.name });
         for (const child of self.children) instance.appendChild(child.clone());
-        instance.setProperties = () => {};
+        // 어느 변형을 꽂았는지 남긴다 — 인스턴스는 글자만 보면 표면 색이 안 보인다.
+        instance.properties = {} as Record<string, string>;
+        instance.setProperties = (props: Record<string, string>) => {
+          Object.assign(instance.properties, props);
+        };
         return instance;
       },
       ...extra,
@@ -280,6 +284,34 @@ describe('figma plugin code.js', () => {
     expect(fake.pages).toHaveLength(3);
   });
 
+  it('두 번 실행해도 변수·스타일·부품이 늘지 않는다', async () => {
+    const fake = createFakeFigma();
+    const shape = () => {
+      const nodes = fake.pages.flatMap((p) => p.children);
+      return {
+        variables: fake.variables.length,
+        styles: fake.textStyles.length,
+        pages: fake.pages.map((p: AnyNode) => p.name),
+        components: nodes
+          .filter(
+            (n: AnyNode) =>
+              n.type === 'COMPONENT_SET' || n.type === 'COMPONENT',
+          )
+          .map((n: AnyNode) => n.name)
+          .sort(),
+        buttons: nodes.find((n: AnyNode) => n.name === 'Button')?.children
+          .length,
+      };
+    };
+    await runPlugin(fake);
+    const first = shape();
+    await runPlugin(fake);
+
+    expect(fake.logs.find((line) => line.startsWith('실패'))).toBeUndefined();
+    // 같은 이름의 변수·스타일은 다시 쓰고, 페이지는 비우고 다시 그린다.
+    expect(shape()).toEqual(first);
+  });
+
   it('모드를 하나만 허용하는 요금제면 다크 값을 별도 컬렉션에 둔다', async () => {
     const fake = createFakeFigma({ singleMode: true });
     await runPlugin(fake);
@@ -374,12 +406,19 @@ describe('figma plugin code.js', () => {
       fake.pages
         .flatMap((p) => p.children)
         .find((n) => n.type === 'COMPONENT_SET' && n.name === name);
-    expect(setNamed('Button')?.children).toHaveLength(7 * 5 * 3);
+    // 「누를 수 있는 면」(bare × content)은 따로 두지 않고 같은 격자를 넓혔다.
+    expect(setNamed('Button')?.children).toHaveLength(8 * 6 * 3);
     expect(setNamed('StatusBadge')?.children).toHaveLength(10);
     expect(setNamed('FilterChip')?.children).toHaveLength(3);
     const dialogPage = fake.pages.find((p) => p.name === '05 Dialog · Form');
     expect(dialogPage?.children.map((n: AnyNode) => n.name)).toEqual(
-      expect.arrayContaining(['Form/Field', 'Dialog/md', 'Dialog/lg']),
+      expect.arrayContaining([
+        'Form/Field',
+        'Form/Textarea',
+        'Dialog/md',
+        'Dialog/lg',
+        'Dialog/alert',
+      ]),
     );
 
     // 실패 표면은 버튼 있는 것·없는 것 둘, 뼈대는 한 칸짜리 컴포넌트 하나다.
@@ -395,6 +434,131 @@ describe('figma plugin code.js', () => {
       (n: AnyNode) => n.type === 'COMPONENT' && n.name === 'SkeletonBlock',
     );
     expect(block?.description).toContain('animate-pulse');
+
+    // 부품 목록을 통째로 고정한다 — 하나가 늘거나 이름이 바뀌면 여기서 깨진다.
+    const inventory = fake.pages
+      .flatMap((p) => p.children)
+      .filter(
+        (n: AnyNode) => n.type === 'COMPONENT_SET' || n.type === 'COMPONENT',
+      )
+      .map((n: AnyNode) => n.name)
+      .sort();
+    expect(inventory).toEqual([
+      'Button',
+      'Card',
+      'Dialog/alert',
+      'Dialog/lg',
+      'Dialog/md',
+      'FailureState',
+      'FilterChip',
+      'Form/Field',
+      'Form/Textarea',
+      'SkeletonBlock',
+      'StatusBadge',
+      'Table/Cell',
+      'Table/HeaderCell',
+      'Table/RowHeaderCell',
+    ]);
+
+    /*
+     * 버튼처럼 안 생긴 면: 표면을 칠하지 않고(fills·strokes 없음), 모서리도 44 높이도
+     * 내용에 돌려주며, 비활성이어도 흐려지지 않는다(`disabled:opacity-100`).
+     */
+    const buttonNamed = (name: string) =>
+      setNamed('Button')?.children.find((n: AnyNode) => n.name === name);
+    const bareContent = buttonNamed(
+      'variant=bare, size=content, state=disabled',
+    );
+    expect(bareContent?.fills).toEqual([]);
+    expect(bareContent?.strokes).toEqual([]);
+    expect(bareContent?.cornerRadius).toBe(0);
+    expect(bareContent?.opacity).toBe(1);
+    expect(bareContent?.height).not.toBe(44);
+    expect(
+      bareContent?.findOne((n: AnyNode) => n.type === 'TEXT')?.fontName,
+    ).toEqual({ family: 'Inter', style: 'Regular' });
+    // 같은 bare 라도 content 가 아닌 크기는 44 고정을 그대로 지킨다.
+    expect(
+      buttonNamed('variant=bare, size=default, state=disabled')?.height,
+    ).toBe(44);
+    // 표면을 칠하는 변형의 비활성은 그대로 반투명이다.
+    expect(
+      buttonNamed('variant=default, size=default, state=disabled')?.opacity,
+    ).toBe(0.5);
+
+    const dialogComponent = (name: string) =>
+      dialogPage?.children.find((n: AnyNode) => n.name === name);
+    const dialogChild = (component: string, child: string) =>
+      dialogComponent(component)?.children.find(
+        (n: AnyNode) => n.name === child,
+      );
+
+    // 한 줄 입력은 control-height 44 에 좌우 여백이 코드의 `px-4`(16)다.
+    const inputBox = dialogChild('Form/Field', 'input');
+    expect(inputBox?.height).toBe(44);
+    expect([inputBox?.paddingTop, inputBox?.paddingLeft]).toEqual([0, 16]);
+
+    // 여러 줄 입력은 `min-h-20`(80)에 `px-4 py-2`다 — 좌우 여백은 한 줄과 같다.
+    const textareaBox = dialogChild('Form/Textarea', 'textarea');
+    expect(textareaBox?.height).toBe(80);
+    expect([textareaBox?.paddingTop, textareaBox?.paddingLeft]).toEqual([
+      8, 16,
+    ]);
+
+    // 확인창은 저장 창(576)보다 좁고, 확정 버튼이 「삭제」다. 낭독기 역할·바깥 클릭
+    // 규칙은 그림에 안 보이므로 컴포넌트 설명에 적는다.
+    const alertDialog = dialogComponent('Dialog/alert');
+    expect(alertDialog?.width).toBe(512);
+    expect(alertDialog?.description).toContain('alertdialog');
+    const alertFooter = dialogChild('Dialog/alert', 'footer')?.children;
+    expect(
+      alertFooter?.map(
+        (n: AnyNode) =>
+          n.findOne((c: AnyNode) => c.type === 'TEXT')?.characters,
+      ),
+    ).toEqual(['취소', '삭제']);
+    // 확정 버튼의 destructive 표면이 「되돌릴 수 없다」의 시각 신호다 — 글자만
+    // 고정하면 주 행동 색(default)으로 바뀌어도 이 테스트가 통과해 버린다(R-34).
+    expect(alertFooter?.map((n: AnyNode) => n.properties.variant)).toEqual([
+      'outline',
+      'destructive',
+    ]);
+    // 저장 창의 확정은 그대로 주 행동 색이다.
+    expect(
+      dialogChild('Dialog/md', 'footer')?.children.map(
+        (n: AnyNode) => n.properties.variant,
+      ),
+    ).toEqual(['outline', 'default']);
+    /*
+     * 큰 배지는 코드 값 그대로다 — 최소 폭 96(`min-w-24`)과 글자 16px 만 lg 가 더하고,
+     * 높이 26 은 기본 클래스라 lg 가 덮지 않는다. 내용에 맞춰 늘리면 거울이 다시 어긋난다.
+     */
+    const badgeNamed = (name: string) =>
+      setNamed('StatusBadge')?.children.find((n: AnyNode) => n.name === name);
+    const badgeLarge = badgeNamed('variant=recruiting, size=lg');
+    expect([badgeLarge?.height, badgeLarge?.minWidth]).toEqual([26, 96]);
+    expect(badgeLarge?.counterAxisSizingMode).toBe('FIXED');
+    const badgeLargeText = badgeLarge?.findOne(
+      (n: AnyNode) => n.type === 'TEXT',
+    );
+    expect([badgeLargeText?.fontSize, badgeLargeText?.lineHeight]).toEqual([
+      16,
+      { unit: 'PERCENT', value: 150 },
+    ]);
+    // 기본 크기는 12px 글자에 133.3% 그대로이고 최소 폭이 없다.
+    const badgeDefault = badgeNamed('variant=recruiting, size=default');
+    expect([badgeDefault?.height, badgeDefault?.minWidth]).toEqual([
+      26,
+      undefined,
+    ]);
+
+    // 저장 창은 1·2칸짜리 폼 그대로다.
+    expect(dialogChild('Dialog/md', 'body (위→아래)')?.children).toHaveLength(
+      1,
+    );
+    expect(dialogChild('Dialog/lg', 'body (위→아래)')?.children).toHaveLength(
+      2,
+    );
 
     // 색을 변수로 묶었는지 — 어긋난 칸이 다시 생기지 않게 값이 아니라 변수로 본다.
     const variableId = (name: string) =>
