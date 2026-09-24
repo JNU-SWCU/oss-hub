@@ -557,7 +557,7 @@ Do·Don't: 목록 grid를 feature마다 복제하지 않는다.
 Use when: 짧은 상태 kind를 시각적으로 표시할 때 쓴다.
 Don't use when: 다음 행동이 필요한 피드백이면 대신 Alert를 쓴다.
 Slots·Props: 미export — §수용된 부채(R-04).
-States: variant는 `recruiting`·`closed`·`pending`·`approved`·`rejected` 다섯 개다.
+States: variant는 `recruiting`·`closed`·`pending`·`approved`·`rejected` 다섯 개다. 크기는 기본과 `lg` 둘이며, `lg`는 배지가 그 블록의 주 정보로 혼자 설 때만 쓴다(카드 가운데처럼). 목록·표·행 안에서 다른 정보에 붙는 상태는 기본 크기다 — 2026-09-24 기준 `lg`를 주는 화면은 없다.
 Accessibility: 색만으로 상태를 전달하지 않고 라벨 텍스트가 상태를 말한다.
 Do·Don't: 도메인 상태는 다섯 variant에 매핑하고 새 색 조합을 호출자가 만들지 않는다. 라벨과 variant는 `lib/status-vocabulary`의 맵에서 가져온다(R-35, §상태 어휘).
 

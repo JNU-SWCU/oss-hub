@@ -18,7 +18,11 @@ const statusBadgeVariants = cva(
     variants: {
       size: {
         default: 'py-0.5 text-badge',
-        lg: 'min-w-24 justify-center px-4 py-2 text-base font-semibold',
+        // 기본 높이 `h-tag`(26px)를 풀어 준다 — lg 는 16px 글자(줄 높이
+        // 24px)에 위아래 8px 여백을 주므로 내용이 40px 이다. 높이를 26px 로
+        // 묶어 두면 적어 둔 여백이 한 픽셀도 쓰이지 않고 글자만 알약에
+        // 끼인다(#1400).
+        lg: 'h-auto min-w-24 justify-center px-4 py-2 text-base font-semibold',
       },
       variant: {
         recruiting: 'bg-status-recruiting-bg text-status-recruiting-fg',
