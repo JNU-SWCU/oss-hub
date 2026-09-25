@@ -1212,13 +1212,62 @@ describe('CollectionAppClient author-filtered commit history (GraphQL)', () => {
       ).resolveUserNodeId('octocat'),
     ).resolves.toEqual('MDQ6VXNlcjc=');
     expect(sentPayload(found).variables).toEqual({ login: 'octocat' });
+    // GitHub는 없는 login에 `data.user: null`과 함께 NOT_FOUND 오류를 돌려준다.
     await expect(
       new CollectionAppClient(
         graphqlConfig,
         tokenProvider,
-        fetchMock().mockResolvedValue(json({ data: { user: null } })),
+        fetchMock().mockResolvedValue(
+          json({
+            data: { user: null },
+            errors: [
+              {
+                type: 'NOT_FOUND',
+                path: ['user'],
+                message:
+                  "Could not resolve to a User with the login of 'ghost'.",
+              },
+            ],
+          }),
+        ),
       ).resolveUserNodeId('ghost'),
     ).resolves.toBeNull();
+  });
+
+  it.each([
+    [
+      [
+        { type: 'NOT_FOUND', path: ['user'] },
+        { message: 'Something went wrong' },
+      ],
+    ],
+    [[{ message: 'Something went wrong' }]],
+  ])(
+    'still throws when a login lookup carries any error other than NOT_FOUND',
+    async (errors) => {
+      await expect(
+        new CollectionAppClient(
+          graphqlConfig,
+          tokenProvider,
+          fetchMock().mockResolvedValue(json({ data: { user: null }, errors })),
+        ).resolveUserNodeId('ghost'),
+      ).rejects.toMatchObject({ kind: 'GRAPHQL_ERROR' });
+    },
+  );
+
+  it('keeps NOT_FOUND fatal outside the login lookup', async () => {
+    await expect(
+      new CollectionAppClient(
+        graphqlConfig,
+        tokenProvider,
+        fetchMock().mockResolvedValue(
+          json({
+            data: { repository: null },
+            errors: [{ type: 'NOT_FOUND', path: ['repository'] }],
+          }),
+        ),
+      ).listDefaultBranchCommitsByAuthor('o', 'r', 'main', 'NODE'),
+    ).rejects.toMatchObject({ kind: 'GRAPHQL_ERROR' });
   });
 
   it('reads the repo-wide default-branch commit total without requesting any commit node', async () => {
