@@ -252,7 +252,7 @@ describe('SubmissionFileStorageConfig', () => {
     expectConfigurationError();
   });
 
-  it.each(['', 'unknown', 'LOCAL', 'managed '])(
+  it.each(['', 'unknown', 'minio', 'LOCAL', 'managed '])(
     '알 수 없거나 누락된 storage mode %j는 CONFIGURATION 에러를 던진다',
     (mode) => {
       setValidEnvironment({
