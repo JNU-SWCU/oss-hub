@@ -65,6 +65,9 @@ export function ProgramEditMilestoneDialog({
   readonly onDocumentsDirtyChange?: (dirty: boolean) => void;
 }) {
   const [discardOpen, setDiscardOpen] = useState(false);
+  // 「최신 서버 상태로 다시 시작」은 제출 항목 칸을 새로 그려, 칸 안에 남은 파일 선택
+  // 오류·이름 편집 상태를 버린다. 같은 id 로 다시 그리면 그 상태가 살아남는다.
+  const [draftVersion, setDraftVersion] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const editorFocusRef = useRef<HTMLElement | null>(null);
   const discardingRef = useRef(false);
@@ -210,6 +213,7 @@ export function ProgramEditMilestoneDialog({
               {draft !== null && snapshot !== null && snapshot !== undefined ? (
                 <div>
                   <LocalMilestoneDocumentsEditor
+                    key={draftVersion}
                     milestoneId={draft.id}
                     documents={draft.documents}
                     fileUpload={snapshot.fileUpload}
@@ -230,6 +234,7 @@ export function ProgramEditMilestoneDialog({
                   variant="outline"
                   onClick={() => {
                     setDraft(toProgramMilestoneDraft(latestSnapshot));
+                    setDraftVersion((version) => version + 1);
                     onRestartFromLatest?.(latestSnapshot);
                   }}
                 >
