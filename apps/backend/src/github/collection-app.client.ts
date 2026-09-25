@@ -285,13 +285,16 @@ export class CollectionAppClient {
    * Resolves a GitHub login to its GraphQL node ID, or `null` when no such
    * user exists. `history(author: { id: })` matches on the node ID, not the
    * REST `databaseId`, so this is the required first step of
-   * {@link listDefaultBranchCommitsByAuthor}.
+   * {@link listDefaultBranchCommitsByAuthor}. GitHub answers an unknown
+   * (renamed or deleted) login with `data.user: null` plus a `NOT_FOUND`
+   * error, so only here is that error read as data rather than a failure.
    */
   async resolveUserNodeId(login: string): Promise<string | null> {
-    const body = await this.graphql({
-      query: USER_NODE_ID_QUERY,
-      variables: { login },
-    });
+    const body = await this.graphql(
+      { query: USER_NODE_ID_QUERY, variables: { login } },
+      undefined,
+      true,
+    );
     const user = this.record(body.data).user;
     if (user === null || user === undefined) return null;
     return this.string(this.record(user).id);
@@ -863,6 +866,7 @@ export class CollectionAppClient {
   private async graphql(
     payload: { query: string; variables: Record<string, unknown> },
     deadline: number = this.now() + this.config.deadlineMs,
+    notFoundIsData = false,
   ): Promise<Record<string, unknown>> {
     const url = this.config.graphqlUrl ?? DEFAULT_GRAPHQL_URL;
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -923,6 +927,17 @@ export class CollectionAppClient {
       }
       const body = this.record(json);
       if (Array.isArray(body.errors) && body.errors.length > 0) {
+        if (
+          notFoundIsData &&
+          body.errors.every(
+            (e) =>
+              typeof e === 'object' &&
+              e !== null &&
+              (e as Record<string, unknown>).type === 'NOT_FOUND',
+          )
+        ) {
+          return body;
+        }
         const rateLimited = body.errors.some(
           (e) =>
             typeof e === 'object' &&
