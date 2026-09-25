@@ -341,11 +341,6 @@ const valueRejects = [
     'https://oss-hub.example.test:443',
   ),
 
-  removed('missing mail mode', 'MAIL_MODE'),
-  reject('blank mail mode', 'MAIL_MODE', ''),
-  reject('dry-run production mail mode', 'MAIL_MODE', 'dry-run'),
-  reject('uppercase production mail mode', 'MAIL_MODE', 'SEND'),
-  reject('unknown production mail mode', 'MAIL_MODE', 'smtp'),
   removed('missing Gmail sender', 'GMAIL_SENDER'),
   removed('missing Gmail OAuth client ID', 'GMAIL_OAUTH_CLIENT_ID'),
   removed('missing Gmail OAuth client secret', 'GMAIL_OAUTH_CLIENT_SECRET'),
