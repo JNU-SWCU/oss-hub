@@ -17,7 +17,6 @@ if [[ $# -eq 0 ]]; then
   compose_file="$repo_root/compose.yml"
   dockerfiles=(
     "$repo_root/apps/backend/Dockerfile"
-    "$repo_root/apps/frontend/Dockerfile"
   )
 elif [[ $# -ge 2 ]]; then
   compose_file=$1
