@@ -47,7 +47,7 @@ export class RankingService {
         pageSize,
         total: entries.length,
         dataAsOf,
-        viewerClass: RANKING_VIEWER_CLASSES.PUBLIC,
+        viewerClass,
         nextCycleAt,
       };
     }

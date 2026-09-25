@@ -2203,3 +2203,17 @@
 - 화면 정리 셋: 프로그램 편집을 `titleAction`에서 페이지 액션으로 옮겼다 — 그 슬롯은 제목 **자체**를 다루는 액션의 자리이고, 제목 옆 연필은 「이름을 고친다」로 읽힌다. 아이콘만 두지 않고 「편집」을 함께 둔다. 편집 화면의 신청서 양식·버전 블록은 지웠다(바꿀 수 없는 것을 편집 화면이 설명하고 있었다). 「기존 공지로 빠르게 시작하기」는 여는 창과 같은 「공지에서 가져오기」로 바꿨다.
 - e2e 3건을 현재 화면으로 옮겼다 — 지워진 `/applicants` 경로, 재제출이 열리며 거짓이 된 문구, 버튼에서 드롭다운으로 바뀐 판정 입구.
 - 검증: frontend 374 files / 3,723 tests, backend 356 suites / 4,443 tests, browser 102 passed(전체 실행에서 `deadline-digest-preview` 1건이 부하로 흔들렸고 격리 실행은 통과), typecheck·lint(오류 0건)·build·format 통과.
+
+## 2026-09-24 — 랭킹 응답에 구성원 계층을 더했다
+
+- 상태: review
+- Issue: -
+- PR: #1414
+- blocker: 없음
+- 배포본에서 로그아웃 상태로 `/ranking`을 열면 Issue·Repo·Star·합계가 그대로 나갔다. 계층이 `public`·`staff` 둘뿐이라 「로그인 구성원에게 보인다」를 표현할 자리가 `public`밖에 없었고, #1313이 그 자리에 구현되며 외부 노출이 됐다.
+- 로그인 게이트를 걸지 않고 계층을 셋으로 갈랐다. `@Public()`과 `/ranking`의 공개 접근성은 그대로이고 응답 투영만 갈린다 — 비로그인 4키, 로그인 구성원 8키(신원 0개), 교직원 종전과 같음.
+- `findViewerClass`는 fail-closed다. 계정이 실재하고 `ACTIVE`일 때만 계층을 올리고, 세션에 githubId가 있는데 행이 없는 비정상 상태·비ACTIVE·익명은 전부 `public`으로 떨어진다. staff/admin 판정을 member보다 먼저 한다 — 권한자도 member 조건을 만족하므로 순서가 결과를 정한다. staff 이름 조회 실패 시 `public`으로 강등되는 기존 동작은 그대로 뒀다.
+- 분기가 늘지 않고 줄었다. 계층마다 열 배열 하나가 1:1 대응하고 `hasNoActivity`는 각 계층에 실제로 그려지는 지표로만 판정한다 — public/staff 땜질 분기를 걷었다.
+- 캐시: public만 `no-store`, member·staff는 `private, no-store` + `Vary: Cookie`.
+- 범위 밖으로 남긴 것: 동의 정책 문서와 `CONSENT_POLICY_VERSION`(외부 노출이 4열로 줄어 기존 문구 안에 들어온다), `rankingTotal`의 star 합산과 정렬 기준, `Star (누적)` 열의 제거·이동·표기, 지표 설명문, ADR-010, DB 스키마·마이그레이션·수집 파이프라인.
+- 검증: backend 357 suites / 4,425 tests 통과, frontend 3,812 통과(잔여 2건은 `auth/login-destination`으로 main에서도 동일 재현되는 선재 결함), `ranking-export` e2e가 신규 member 케이스 포함 통과, 양쪽 typecheck·format·public-safe 통과.

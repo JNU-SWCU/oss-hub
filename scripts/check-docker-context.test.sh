@@ -43,10 +43,16 @@ make_context() {
   local name=$1
   local context="$fixture_dir/$name"
 
-  mkdir -p "$context/apps/backend" "$context/apps/frontend"
+  mkdir -p "$context/apps/backend" "$context/apps/worker"
   cp "$repo_root/.dockerignore" "$context/.dockerignore"
   cp "$repo_root/apps/backend/Dockerfile" "$context/apps/backend/Dockerfile"
-  cp "$repo_root/apps/frontend/Dockerfile" "$context/apps/frontend/Dockerfile"
+  # 실제 apps/worker는 없다 — COPY 경계 검사에 쓰는 두 번째 Dockerfile의 synthetic fixture다.
+  cat >"$context/apps/worker/Dockerfile" <<'DOCKERFILE'
+FROM node:24-alpine
+WORKDIR /workspace
+COPY package.json ./
+CMD ["node", "index.js"]
+DOCKERFILE
   printf '%s' "$context"
 }
 
@@ -103,7 +109,7 @@ printf '%s\n' 'COPY . .' >>"$ctx/apps/backend/Dockerfile"
 expect_fail 'context root 전체 COPY' "$ctx"
 
 ctx=$(make_context broad-copy-dot-slash)
-printf '%s\n' 'COPY ./ /workspace' >>"$ctx/apps/frontend/Dockerfile"
+printf '%s\n' 'COPY ./ /workspace' >>"$ctx/apps/worker/Dockerfile"
 expect_fail './ 전체 COPY' "$ctx"
 
 ctx=$(make_context broad-copy-parent)
@@ -119,7 +125,7 @@ printf 'COPY \\\n. .\n' >>"$ctx/apps/backend/Dockerfile"
 expect_fail '줄 연속으로 숨긴 전체 COPY' "$ctx"
 
 ctx=$(make_context add-instruction)
-printf '%s\n' 'ADD context.tar /tmp/' >>"$ctx/apps/frontend/Dockerfile"
+printf '%s\n' 'ADD context.tar /tmp/' >>"$ctx/apps/worker/Dockerfile"
 expect_fail 'ADD instruction 사용' "$ctx"
 
 ctx=$(make_context exec-form-copy)
@@ -127,7 +133,7 @@ printf '%s\n' 'COPY [".", "/app"]' >>"$ctx/apps/backend/Dockerfile"
 expect_fail 'exec form COPY로 우회' "$ctx"
 
 ctx=$(make_context glob-copy)
-printf '%s\n' 'COPY * /app/' >>"$ctx/apps/frontend/Dockerfile"
+printf '%s\n' 'COPY * /app/' >>"$ctx/apps/worker/Dockerfile"
 expect_fail 'glob(*) 소스 COPY' "$ctx"
 
 ctx=$(make_context multi-source-broad-dot)
@@ -139,7 +145,7 @@ printf '%s\n' 'COPY package.json ../secret /app/' >>"$ctx/apps/backend/Dockerfil
 expect_fail '다중 source 중 후속 상위 경로 우회' "$ctx"
 
 ctx=$(make_context multi-source-broad-glob)
-printf '%s\n' 'COPY package.json * /app/' >>"$ctx/apps/frontend/Dockerfile"
+printf '%s\n' 'COPY package.json * /app/' >>"$ctx/apps/worker/Dockerfile"
 expect_fail '다중 source 중 후속 glob 우회' "$ctx"
 
 ctx=$(make_context malformed-copy)
@@ -151,7 +157,7 @@ printf '%s\n' 'COPY ./. /app' >>"$ctx/apps/backend/Dockerfile"
 expect_fail '루트 동치 표기 ./. 우회' "$ctx"
 
 ctx=$(make_context dot-slash-glob)
-printf '%s\n' 'COPY ./* /app' >>"$ctx/apps/frontend/Dockerfile"
+printf '%s\n' 'COPY ./* /app' >>"$ctx/apps/worker/Dockerfile"
 expect_fail './ 접두 glob 우회' "$ctx"
 
 ctx=$(make_context absolute-root)
@@ -159,7 +165,7 @@ printf '%s\n' 'COPY / /app' >>"$ctx/apps/backend/Dockerfile"
 expect_fail '절대경로 / 우회' "$ctx"
 
 ctx=$(make_context single-char-glob)
-printf '%s\n' 'COPY ? /app' >>"$ctx/apps/frontend/Dockerfile"
+printf '%s\n' 'COPY ? /app' >>"$ctx/apps/worker/Dockerfile"
 expect_fail '단일문자 wildcard ? 우회' "$ctx"
 
 ctx=$(make_context mid-path-traversal)
@@ -171,7 +177,7 @@ printf '%s\n' 'COPY $CONTEXT_SOURCE /app' >>"$ctx/apps/backend/Dockerfile"
 expect_fail '환경변수 확장 source 우회' "$ctx"
 
 ctx=$(make_context env-expansion-braced)
-printf '%s\n' 'COPY ${CONTEXT_SOURCE} /app' >>"$ctx/apps/frontend/Dockerfile"
+printf '%s\n' 'COPY ${CONTEXT_SOURCE} /app' >>"$ctx/apps/worker/Dockerfile"
 expect_fail '중괄호 환경변수 확장 source 우회' "$ctx"
 
 ctx=$(make_context commented-broad-copy)
@@ -191,7 +197,7 @@ printf '%s\n' 'COPY --from=builder . /app' >>"$ctx/apps/backend/Dockerfile"
 expect_pass 'stage 간 복사는 context 아님 (--from)' "$ctx"
 
 ctx=$(make_context no-dockerfiles)
-rm "$ctx/apps/backend/Dockerfile" "$ctx/apps/frontend/Dockerfile"
+rm "$ctx/apps/backend/Dockerfile" "$ctx/apps/worker/Dockerfile"
 expect_fail 'Dockerfile 전부 부재 (fail-closed)' "$ctx"
 
 printf '%s passed, %s failed\n' "$passed" "$failed"

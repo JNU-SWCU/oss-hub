@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import {
   RANKING_VIEWER_CLASSES,
   type RankingPage,
+  type MemberRankingItem,
   type PublicRankingItem,
   type StaffRankingItem,
 } from '../types';
@@ -42,29 +43,32 @@ const EMPTY_CELL = '-';
 const RANKING_METRIC_DESCRIPTION =
   'Commit · PR · Issue · Repo를 합산합니다. Star는 계정 전체 누적입니다.';
 
-const PUBLIC_RANKING_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
-  {
-    id: 'rank',
-    header: '순위',
-    cell: (item) => item.rank,
-    headClassName: 'w-8',
-  },
-  {
-    id: 'member',
-    header: '참여자',
-    cell: (item) => (
-      <a
-        href={`https://github.com/${item.githubLogin}`}
-        target="_blank"
-        rel="noreferrer"
-        aria-label={`${item.githubLogin}의 GitHub 프로필 (새 탭에서 열림)`}
-        className="break-keep whitespace-normal hover:underline"
-      >
-        {item.githubLogin}
-      </a>
-    ),
-    headClassName: 'w-24',
-  },
+const RANK_COLUMN: DataTableColumn<PublicRankingItem> = {
+  id: 'rank',
+  header: '순위',
+  cell: (item) => item.rank,
+  headClassName: 'w-8',
+};
+
+const MEMBER_COLUMN: DataTableColumn<PublicRankingItem> = {
+  id: 'member',
+  header: '참여자',
+  cell: (item) => (
+    <a
+      href={`https://github.com/${item.githubLogin}`}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`${item.githubLogin}의 GitHub 프로필 (새 탭에서 열림)`}
+      className="break-keep whitespace-normal hover:underline"
+    >
+      {item.githubLogin}
+    </a>
+  ),
+  headClassName: 'w-24',
+};
+
+/** 비로그인에게도 나가는 지표. */
+const OPEN_METRIC_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
   {
     id: 'commit',
     header: 'Commit',
@@ -79,6 +83,10 @@ const PUBLIC_RANKING_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
     cellClassName: 'text-right tabular-nums',
     headClassName: 'w-12 text-right',
   },
+];
+
+/** 로그인 구성원부터 보이는 지표. */
+const MEMBER_METRIC_COLUMNS: DataTableColumn<MemberRankingItem>[] = [
   {
     id: 'issue',
     header: 'Issue',
@@ -114,13 +122,19 @@ const PUBLIC_RANKING_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
   },
 ];
 
+const PUBLIC_RANKING_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
+  RANK_COLUMN,
+  MEMBER_COLUMN,
+  ...OPEN_METRIC_COLUMNS,
+];
+
+const MEMBER_RANKING_COLUMNS: DataTableColumn<MemberRankingItem>[] = [
+  ...PUBLIC_RANKING_COLUMNS,
+  ...MEMBER_METRIC_COLUMNS,
+];
+
 const STAFF_RANKING_COLUMNS: DataTableColumn<StaffRankingItem>[] = [
-  {
-    id: 'rank',
-    header: '순위',
-    cell: (item) => item.rank,
-    headClassName: 'w-8',
-  },
+  RANK_COLUMN,
   {
     id: 'name',
     header: '이름',
@@ -136,22 +150,7 @@ const STAFF_RANKING_COLUMNS: DataTableColumn<StaffRankingItem>[] = [
       ),
     headClassName: 'w-24',
   },
-  {
-    id: 'member',
-    header: '참여자',
-    cell: (item) => (
-      <a
-        href={`https://github.com/${item.githubLogin}`}
-        target="_blank"
-        rel="noreferrer"
-        aria-label={`${item.githubLogin}의 GitHub 프로필 (새 탭에서 열림)`}
-        className="break-keep whitespace-normal hover:underline"
-      >
-        {item.githubLogin}
-      </a>
-    ),
-    headClassName: 'w-24',
-  },
+  MEMBER_COLUMN,
   {
     id: 'department',
     header: '학과',
@@ -165,54 +164,63 @@ const STAFF_RANKING_COLUMNS: DataTableColumn<StaffRankingItem>[] = [
       ),
     headClassName: 'w-20',
   },
-  {
-    id: 'commit',
-    header: 'Commit',
-    cell: (item) => item.commitCount,
-    cellClassName: 'text-right tabular-nums',
-    headClassName: 'w-12 text-right',
-  },
-  {
-    id: 'pr',
-    header: 'PR',
-    cell: (item) => item.pullRequestCount,
-    cellClassName: 'text-right tabular-nums',
-    headClassName: 'w-12 text-right',
-  },
-  {
-    id: 'issue',
-    header: 'Issue',
-    cell: (item) => item.issueCount,
-    cellClassName: 'text-right tabular-nums',
-    headClassName: 'w-12 text-right',
-  },
-  {
-    id: 'repository',
-    header: 'Repo',
-    cell: (item) => item.repositoryCount,
-    cellClassName: 'text-right tabular-nums',
-    headClassName: 'w-12 text-right',
-  },
-  {
-    id: 'star',
-    header: (
-      <span className="inline-flex flex-col items-end leading-tight">
-        <span>Star</span>
-        <span className="font-normal text-muted-foreground">(누적)</span>
-      </span>
-    ),
-    cell: (item) => item.starCount,
-    cellClassName: 'text-right tabular-nums',
-    headClassName: 'w-12 text-right',
-  },
-  {
-    id: 'total',
-    header: '합계',
-    cell: (item) => item.total,
-    cellClassName: 'text-right font-semibold tabular-nums',
-    headClassName: 'w-12 text-right',
-  },
+  ...OPEN_METRIC_COLUMNS,
+  ...MEMBER_METRIC_COLUMNS,
 ];
+
+const RANKING_TABLE_CLASS = cn(
+  '[&_[data-slot=table-cell]]:px-1 [&_[data-slot=table-cell]]:text-xs',
+  '[&_[data-slot=table-head]]:px-1 [&_[data-slot=table-head]]:text-xs',
+  'sm:[&_[data-slot=table-cell]]:px-2 sm:[&_[data-slot=table-cell]]:text-sm',
+  'sm:[&_[data-slot=table-head]]:px-2 sm:[&_[data-slot=table-head]]:text-sm',
+);
+
+/** 계층 하나에 컬럼 배열 하나. 화면은 받은 계층대로 그린다. */
+function RankingTable({
+  ranking,
+  isLoading,
+}: {
+  readonly ranking: RankingPage | null;
+  readonly isLoading: boolean;
+}) {
+  const shared = {
+    className: RANKING_TABLE_CLASS,
+    scrollRegionLabel: '활동 랭킹 표',
+    rowKey: (item: PublicRankingItem) => item.rank,
+    isLoading,
+    loadingSlot: '랭킹을 불러오는 중입니다…',
+    emptyState: '표시할 데이터가 없습니다.',
+  };
+  if (ranking === null) {
+    return <DataTable {...shared} columns={PUBLIC_RANKING_COLUMNS} data={[]} />;
+  }
+  switch (ranking.viewerClass) {
+    case RANKING_VIEWER_CLASSES.PUBLIC:
+      return (
+        <DataTable
+          {...shared}
+          columns={PUBLIC_RANKING_COLUMNS}
+          data={[...ranking.items]}
+        />
+      );
+    case RANKING_VIEWER_CLASSES.MEMBER:
+      return (
+        <DataTable
+          {...shared}
+          columns={MEMBER_RANKING_COLUMNS}
+          data={[...ranking.items]}
+        />
+      );
+    case RANKING_VIEWER_CLASSES.STAFF:
+      return (
+        <DataTable
+          {...shared}
+          columns={STAFF_RANKING_COLUMNS}
+          data={[...ranking.items]}
+        />
+      );
+  }
+}
 
 function formatDataAsOf(at: Date): string {
   return new Intl.DateTimeFormat('ko-KR', {
@@ -232,6 +240,8 @@ function collectionNotice(
         '표의 0은 활동 실적이 아닌 임시값입니다. 첫 수집이 끝나면 집계 결과와 기준 시각이 표시됩니다.',
     };
   }
+  // 계층마다 자기 화면에 있는 열로 판단한다 — 공개 화면에는 합계 열이 없으므로
+  // 합계로 재면 화면에 없는 숫자를 근거로 안내를 띄우게 된다.
   const hasNoActivity =
     ranking.viewerClass === RANKING_VIEWER_CLASSES.PUBLIC
       ? ranking.items.every(
@@ -347,37 +357,10 @@ export function RankingView({
               title="집계된 활동 데이터가 없습니다"
               description="참여자의 공개 GitHub 활동이 수집되면 이곳에 표시됩니다."
             />
-          ) : ranking?.viewerClass === RANKING_VIEWER_CLASSES.STAFF ? (
-            <DataTable
-              className={cn(
-                '[&_[data-slot=table-cell]]:px-1 [&_[data-slot=table-cell]]:text-xs',
-                '[&_[data-slot=table-head]]:px-1 [&_[data-slot=table-head]]:text-xs',
-                'sm:[&_[data-slot=table-cell]]:px-2 sm:[&_[data-slot=table-cell]]:text-sm',
-                'sm:[&_[data-slot=table-head]]:px-2 sm:[&_[data-slot=table-head]]:text-sm',
-              )}
-              scrollRegionLabel="활동 랭킹 표"
-              columns={STAFF_RANKING_COLUMNS}
-              data={[...ranking.items]}
-              rowKey={(item) => item.rank}
-              isLoading={false}
-              loadingSlot="랭킹을 불러오는 중입니다…"
-              emptyState="표시할 데이터가 없습니다."
-            />
           ) : (
-            <DataTable
-              className={cn(
-                '[&_[data-slot=table-cell]]:px-1 [&_[data-slot=table-cell]]:text-xs',
-                '[&_[data-slot=table-head]]:px-1 [&_[data-slot=table-head]]:text-xs',
-                'sm:[&_[data-slot=table-cell]]:px-2 sm:[&_[data-slot=table-cell]]:text-sm',
-                'sm:[&_[data-slot=table-head]]:px-2 sm:[&_[data-slot=table-head]]:text-sm',
-              )}
-              scrollRegionLabel="활동 랭킹 표"
-              columns={PUBLIC_RANKING_COLUMNS}
-              data={ranking === null ? [] : [...ranking.items]}
-              rowKey={(item) => item.rank}
+            <RankingTable
+              ranking={ranking}
               isLoading={state.kind === 'loading'}
-              loadingSlot="랭킹을 불러오는 중입니다…"
-              emptyState="표시할 데이터가 없습니다."
             />
           )}
         </>
