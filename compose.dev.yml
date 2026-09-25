@@ -15,57 +15,33 @@ services:
       timeout: 5s
       retries: 5
 
-  minio:
-    image: quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z
-    command: server /data
+  object-storage:
+    image: adobe/s3mock:5.2.3@sha256:ab01a6946750f451ca215a47e91030695b260e4003b8a5a6201d25029b8fca92
+    # 이미지 기본 사용자(uid 1000)는 root 소유로 새로 생기는 마운트 지점 /data에 쓰지 못해
+    # PutObject가 500으로 실패한다. 로컬·CI 전용 substitute라 root로 실행한다.
+    user: '0:0'
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-oss-hub-local}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-oss-hub-local-synthetic-secret}
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: ${SUBMISSION_FILE_S3_BUCKET:-oss-hub-submission-files-local}
+      COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: /data
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: 'true'
     ports:
-      - '${MINIO_BIND_HOST:-127.0.0.1}:${MINIO_PORT:-9000}:9000'
+      - '${OBJECT_STORAGE_BIND_HOST:-127.0.0.1}:${OBJECT_STORAGE_PORT:-9000}:9090'
     volumes:
-      - minio_data_dev:/data
+      - object_storage_data_dev:/data
     healthcheck:
       test:
         [
           'CMD',
-          'curl',
-          '--fail',
-          '--silent',
-          'http://localhost:9000/minio/health/ready',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:9090/favicon.ico',
         ]
       interval: 2s
       timeout: 5s
       retries: 15
 
-  minio-bucket:
-    image: quay.io/minio/mc:RELEASE.2025-07-21T05-28-08Z
-    depends_on:
-      minio:
-        condition: service_healthy
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-oss-hub-local}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-oss-hub-local-synthetic-secret}
-      SUBMISSION_FILE_S3_BUCKET: ${SUBMISSION_FILE_S3_BUCKET:-oss-hub-submission-files-local}
-    # 마커는 컨테이너 재시작 시 유지되지만 --force-recreate 시 사라지므로 entrypoint에서 다시 만든다.
-    entrypoint:
-      - /bin/sh
-      - -eu
-      - -c
-      - >-
-        rm -f /tmp/bucket-ready &&
-        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null &&
-        mc mb --ignore-existing "local/$${SUBMISSION_FILE_S3_BUCKET}" >/dev/null &&
-        mc anonymous set none "local/$${SUBMISSION_FILE_S3_BUCKET}" >/dev/null &&
-        touch /tmp/bucket-ready &&
-        exec sleep infinity
-    healthcheck:
-      test: ['CMD-SHELL', 'test -f /tmp/bucket-ready']
-      interval: 2s
-      timeout: 3s
-      retries: 15
-      start_period: 10s
-
 volumes:
   pgdata_dev:
-  minio_data_dev:
+  object_storage_data_dev:
