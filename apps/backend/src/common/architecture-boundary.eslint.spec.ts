@@ -283,8 +283,8 @@ export async function useFixture(prisma: PrismaService): Promise<unknown> {
       // When: lint한다.
       const messages = boundaryMessages(lintFixture(mutatedPath));
 
-      // Then: 셀렉터가 "prisma 사용" 전체가 아니라 canonical*/collectionRun/
-      // githubRawObservation이라는 정확한 property 이름에서만 발화함을 증명한다.
+      // Then: 셀렉터가 "prisma 사용" 전체가 아니라 canonical*라는 정확한
+      // property 이름에서만 발화함을 증명한다.
       expect(messages).toHaveLength(0);
     });
 
