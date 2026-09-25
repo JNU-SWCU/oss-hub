@@ -11,11 +11,9 @@
 /docs/decisions/ @GoBeromsu
 /.github/        @GoBeromsu
 /scripts/         @GoBeromsu
-/scripts/_compose-lib.sh                     @GoBeromsu
 /scripts/check-env-example-coverage*.mjs     @GoBeromsu
 /scripts/check-host-nginx*.sh                @GoBeromsu
 /scripts/check-submission-upload-route*.sh   @GoBeromsu
-/scripts/docker-verify-local*.sh             @GoBeromsu
 /scripts/probe-nginx-callback-log.sh          @GoBeromsu
 /scripts/check-jenkinsfile.sh      @GoBeromsu
 /scripts/check-jenkinsfile.test.sh @GoBeromsu

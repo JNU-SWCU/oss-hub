@@ -76,7 +76,6 @@ jobs:
               - '.github/workflows/**'
             nginx:
               - 'deploy/nginx/**'
-              - 'deploy/nginx-local/**'
               - 'deploy/host-nginx/**'
               - 'scripts/probe-nginx-callback-log.sh'
               - 'scripts/check-host-nginx*.sh'
@@ -84,15 +83,10 @@ jobs:
               - '.github/workflows/**'
             production_compose:
               - 'compose.yml'
-              - 'compose.local.yml'
-              - 'deploy/nginx-local/**'
               - '.env.example'
               - 'scripts/check-env-example-coverage.mjs'
               - 'scripts/check-env-example-coverage-lib.mjs'
               - 'scripts/check-env-example-coverage.test.mjs'
-              - 'scripts/docker-verify-local.sh'
-              - 'scripts/docker-verify-local.test.sh'
-              - 'scripts/_compose-lib.sh'
               - 'apps/backend/src/**'
               - 'apps/frontend/src/**'
               - '.github/workflows/**'
@@ -205,7 +199,7 @@ jobs:
         run: |
           docker run --rm \
             --add-host backend:127.0.0.1 \
-            --volume "$PWD/deploy/nginx-local/nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
+            --volume "$PWD/deploy/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
             nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 nginx -t
           bash scripts/probe-nginx-callback-log.sh
           bash scripts/check-host-nginx.test.sh
@@ -245,10 +239,6 @@ jobs:
         run: |
           node --test scripts/check-env-example-coverage.test.mjs
           node scripts/check-env-example-coverage.mjs --require-docker
-
-      - name: 로컬 두 파일 compose 계약 회귀 테스트
-        if: ${{ steps.scope.outputs.production_compose == 'true' }}
-        run: bash scripts/docker-verify-local.test.sh
 
       - name: prettier 포맷 검사
         if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' }}

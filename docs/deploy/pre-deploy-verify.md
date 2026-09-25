@@ -1,11 +1,13 @@
 # 배포 전 단계 검증 (pre-deploy verification)
 
-첫 GitHub Release 배포 전에 **로컬 랩탑 → 배포 EC2 서버-로컬 드라이런** 순서로 단계 검증한다.
+첫 GitHub Release 배포 전에 필요한 경우 파괴적 이관 리허설을 거쳐 **배포 EC2 서버-로컬 드라이런** 순서로 단계 검증한다.
 앞 단계가 통과해야 다음으로 넘어간다. 목적은 회귀 위험(첫 배포는 `PREV_TAG`가 없어 자동 rollback 불가)을 사전 차단하는 것이다.
 서버 접속·설치·job 절차는 [server-runbook](./server-runbook.md)이 원본이며, 이 문서는 검증 절차만 다룬다.
 
-프로덕션 스택 정의는 저장소 루트 `compose.yml`(nginx / backend / postgres)이 원본이다. Local object-storage substitute는 `compose.local.yml`에서만 추가된다.
+프로덕션 스택 정의는 저장소 루트 `compose.yml`(nginx / backend / postgres)이 원본이다.
 Compose nginx는 `127.0.0.1:8081`에만 bind한다. 공인 `80/443`은 host nginx 계약이다.
+
+production-like 통합 검증은 CI required check(`ci`·`public-safe`)와 [server-runbook](./server-runbook.md) M7의 Jenkins release 경로(image build, `prisma migrate deploy`, `nginx -t`, health/rollback smoke)가 담당한다. 로컬에 별도의 compose 기반 통합 검증 절차는 두지 않는다.
 
 ## 표기 규약
 
@@ -61,21 +63,9 @@ bash scripts/rehearse-user-phone-column.sh negative
    복원 후에는 이관이 지운 것이 실제로 돌아왔는지 확인한다 — legacy-submission 이관이라면 `Submission`·`SubmissionRevision`·`Review` 세 테이블과 `SubmissionFile."submissionRevisionId"` 칸이다.
    복원 뒤에도 `_prisma_migrations` 정리는 1과 같다.
 
-## ① 로컬 랩탑 검증
+## ① 배포 서버 검증
 
-로컬 통합 검증은 production Compose를 수동 변형하지 않고 저장소가 소유한 두 파일 계약을 그대로 사용한다.
-
-1. `.env.example`을 기준으로 추적하지 않는 `.env`를 준비한다. Local object-storage 값은 합성 개발 값만 사용하고 운영 credential을 복사하지 않는다.
-2. `pnpm local:verify`를 실행한다. 이 명령은 `compose.yml + compose.local.yml`로 backend를 현재 source에서 build하고 PostgreSQL·object-storage·local nginx를 기동한 뒤 migration, root/health, API health와 object-store lifecycle을 확인한다.
-3. Root는 production과 같이 404, `/api/v1/health`는 PostgreSQL을 포함한 200이어야 한다. 제출 파일 미인증 `POST /api/v1/submission-files`는 401이어야 한다.
-4. 실패 로그는 `pnpm local:up`과 같은 고정 project/two-file boundary 안에서 확인한다. 운영 프로젝트나 volume을 조작하지 않는다.
-5. 정리는 `pnpm local:down`만 사용한다. 이 명령의 `down -v`는 격리된 local project에만 허용되며 production에서는 금지한다.
-
-세부 포트·OAuth origin·host hot reload 선택은 [local-dev](../rules/local-dev.md)가 원본이다.
-
-## ② 배포 서버 검증
-
-로컬 검증이 통과한 뒤 docker 권한이 있는 운영 세션에서 현재 상태를 읽기 전용으로 확인한다.
+docker 권한이 있는 운영 세션에서 현재 상태를 읽기 전용으로 확인한다.
 
 ```sh
 container_id="$(docker ps -q \
@@ -108,7 +98,7 @@ require_status 401 GET  http://127.0.0.1:8081/api/v1/submission-files/1
 - 이 검증은 컨테이너·volume·image를 변경하지 않는다. Production에서 `down -v`를 사용하지 않는다.
 - Docker 권한이 없으면 Jenkins build의 exact Release/Image ID receipt를 사용하고, process 시작 시각만으로 OCI identity를 증명했다고 기록하지 않는다.
 
-## ③ 다음 단계
+## ② 다음 단계
 
-⓪①②가 모두 통과한 뒤에만 [server-runbook](./server-runbook.md) M7의 parameterless Release 배포 또는 no-op 재실행으로 넘어간다.
+⓪①이 모두 통과한 뒤에만 [server-runbook](./server-runbook.md) M7의 parameterless Release 배포 또는 no-op 재실행으로 넘어간다.
 자동 트리거 계약은 [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)가 원본이다.
