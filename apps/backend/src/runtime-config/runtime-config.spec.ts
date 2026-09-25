@@ -38,7 +38,6 @@ describe('loadRuntimeConfig', () => {
     expect(config.SESSION_SECRET).toBe('  padded-secret  ');
     expect(config.FRONTEND_URL).toBe('');
     expect(config.PORT).toBeUndefined();
-    expect(config.NODE_ENV).toBe('synthetic-node_env');
     expect(config.MAIL_MODE).toBe('synthetic-mail_mode');
     expect(config.GITHUB_COLLECTION_APP_SMOKE_PUBLIC_ALIASES).toBe(
       'synthetic-github_collection_app_smoke_public_aliases',
@@ -66,12 +65,10 @@ describe('loadRuntimeConfig', () => {
     // When
     const config = loadRuntimeConfig(env);
     env.GITHUB_OAUTH_CLIENT_SECRET = 'synthetic-mutated-secret';
-    env.NODE_ENV = 'synthetic-mutated-node-env';
     env.MAIL_MODE = 'synthetic-mutated-mail-mode';
 
     // Then
     expect(config.GITHUB_OAUTH_CLIENT_SECRET).toBe('synthetic-original-secret');
-    expect(config.NODE_ENV).toBe('synthetic-node_env');
     expect(config.MAIL_MODE).toBe('synthetic-mail_mode');
   });
 
@@ -82,9 +79,9 @@ describe('loadRuntimeConfig', () => {
     // Then
     expect(Object.isFrozen(config)).toBe(true);
     expect(() => {
-      (config as { NODE_ENV: string }).NODE_ENV = 'mutated';
+      (config as { MAIL_MODE: string }).MAIL_MODE = 'mutated';
     }).toThrow(TypeError);
-    expect(config.NODE_ENV).toBe('synthetic-node_env');
+    expect(config.MAIL_MODE).toBe('synthetic-mail_mode');
   });
 
   it('matches the literal key manifest exactly', () => {
@@ -94,7 +91,7 @@ describe('loadRuntimeConfig', () => {
 
     // Then: same members and same order as the durable G003+G004 manifest
     expect(loadedKeys).toEqual([...RUNTIME_CONFIG_KEYS]);
-    expect(RUNTIME_CONFIG_KEYS).toHaveLength(36);
+    expect(RUNTIME_CONFIG_KEYS).toHaveLength(35);
     expect(RUNTIME_CONFIG_KEYS).toContain('MAIL_MODE');
 
     const expected: RuntimeConfig = Object.freeze(

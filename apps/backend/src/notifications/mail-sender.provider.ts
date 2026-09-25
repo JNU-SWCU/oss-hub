@@ -29,14 +29,10 @@ function gmailConfigFromRuntime(
 }
 
 /**
- * MAIL_MODE is the sole mail behavior authority outside production.
- * Production requires explicit Gmail delivery configuration and rejects dry-run.
+ * MAIL_MODE is the sole mail behavior authority.
  */
 export function resolveMailSender(runtimeConfig: RuntimeConfig): MailSender {
   const mode = runtimeConfig.MAIL_MODE;
-  if (runtimeConfig.NODE_ENV === 'production' && mode !== 'send') {
-    throw new Error('Production requires MAIL_MODE=send.');
-  }
   if (mode !== 'send' && mode !== 'dry-run') {
     throw new Error(
       `MAIL_MODE must be "send" or "dry-run" (received ${mode === undefined || mode.trim() === '' ? 'missing/blank' : JSON.stringify(mode)}).`,
