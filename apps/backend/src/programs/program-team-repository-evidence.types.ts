@@ -3,6 +3,7 @@ export interface RepositoryContributorView {
   readonly commitCount: number;
   readonly pullRequestCount: number;
   readonly releaseCount: number;
+  readonly issueCount: number;
 }
 
 export interface TeamRepositoryContributionsView {
@@ -19,7 +20,13 @@ export interface TeamRepositoryContributionsView {
     readonly userId: string;
     readonly hasObservations: boolean;
   })[];
-  readonly unmatchedContributors: readonly RepositoryContributorView[];
+  /**
+   * 저장소에 기여했지만 지금 팀원이 아닌 가입자 — 교직원 팀 상세의 「웹 참여자와 연결되지
+   * 않음」. 기여 집계는 가입자만 쌓으므로 login은 대개 있다.
+   */
+  readonly unmatchedContributors: readonly (RepositoryContributorView & {
+    readonly githubLogin: string | null;
+  })[];
 }
 
 export interface RepositoryUrlHistoryView {

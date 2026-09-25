@@ -43,6 +43,11 @@ export interface TeamRepositoryPanelProps {
   readonly onSaved?: () => void;
   /** 저장소 카드 안 URL 줄 아래에 붙는 화면 고유 내용. */
   readonly children?: ReactNode;
+  /**
+   * 활동 카드 안, 그래프와 변경 이력 사이에 붙는 화면 고유 내용(교직원 전용 목록 등).
+   * 그래프처럼 첫 수집을 끝낸 뒤에만 붙는다 — 끝나지 않은 첫 수집의 일부를 보이지 않는다.
+   */
+  readonly activityExtra?: ReactNode;
 }
 
 /**
@@ -69,6 +74,7 @@ function TeamRepositoryPanelBody({
   lockedHint,
   onSaved,
   children,
+  activityExtra,
 }: TeamRepositoryPanelProps) {
   const [repository, setRepository] = useState<RepositoryUrlState | null>(null);
   const [graph, setGraph] = useState<GraphState>({ kind: 'loading' });
@@ -165,6 +171,9 @@ function TeamRepositoryPanelBody({
               label={activityTitle}
             />
           )}
+          {graph.kind === 'ready' && graph.activity.lastSuccessAt !== null
+            ? activityExtra
+            : null}
           <Collapsible className="border-t border-border pt-2">
             <CollapsibleTrigger asChild>
               <Button
