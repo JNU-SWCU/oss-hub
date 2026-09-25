@@ -4,6 +4,10 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { APPLICATION_REPOSITORY_URL_CHANGED } from '../audit-log/application-repository-url-audit-metadata';
 import { DomainException } from '../common/error-code';
 import { ConsentsService } from '../consents/consents.service';
+import {
+  COLLECTION_TRIGGER_PORT,
+  type CollectionTriggerPort,
+} from '../github/collection-trigger.port';
 import { GithubOperationsError } from '../github/github-app.error';
 import {
   OwnRepositoryUrlValidationService,
@@ -66,6 +70,8 @@ export class StudentRepositoryUrlService {
     private readonly consents: Pick<ConsentsService, 'requireCurrent'>,
     @Inject(AuditLogService)
     private readonly audit: Pick<AuditLogService, 'record'>,
+    @Inject(COLLECTION_TRIGGER_PORT)
+    private readonly collection: CollectionTriggerPort,
   ) {}
 
   async getMine(
@@ -115,48 +121,62 @@ export class StudentRepositoryUrlService {
     if (resolution.kind === 'EXTERNAL')
       await this.consents.requireCurrent(context.applicant.githubId);
     try {
-      return await this.repository.withTransaction(async (store) => {
-        const current = await store.lockTeamContext(
-          programId,
-          teamId,
-          githubId,
-        );
-        this.requireEditable(current);
-        if (
-          current.repository?.githubRepositoryId ===
-            resolution.repository.githubRepositoryId &&
-          this.url(current)?.toLowerCase() ===
-            `https://github.com/${resolution.repository.nameWithOwner}`.toLowerCase()
-        )
-          return {
-            repositoryUrl: this.url(current),
-            canEditRepositoryUrl: true,
-          };
-        const repositoryId = await store.relink(current, resolution);
-        const repositoryUrl = `https://github.com/${resolution.repository.nameWithOwner}`;
-        await this.audit.record(
-          {
-            actorGithubId: githubId,
-            action: APPLICATION_REPOSITORY_URL_CHANGED,
-            targetType: 'APPLICATION',
-            targetId: current.id,
-            metadata: {
-              schemaVersion: 2,
-              programId,
-              teamId: current.teamId,
-              programName: current.program.name,
-              actorGithubLogin: current.editor.nickname,
-              before: {
-                repositoryId: current.repository?.id ?? null,
+      const { view, relinked } = await this.repository.withTransaction(
+        async (store) => {
+          const current = await store.lockTeamContext(
+            programId,
+            teamId,
+            githubId,
+          );
+          this.requireEditable(current);
+          if (
+            current.repository?.githubRepositoryId ===
+              resolution.repository.githubRepositoryId &&
+            this.url(current)?.toLowerCase() ===
+              `https://github.com/${resolution.repository.nameWithOwner}`.toLowerCase()
+          )
+            return {
+              view: {
                 repositoryUrl: this.url(current),
+                canEditRepositoryUrl: true,
               },
-              after: { repositoryId, repositoryUrl },
+              relinked: false,
+            };
+          const repositoryId = await store.relink(current, resolution);
+          const repositoryUrl = `https://github.com/${resolution.repository.nameWithOwner}`;
+          await this.audit.record(
+            {
+              actorGithubId: githubId,
+              action: APPLICATION_REPOSITORY_URL_CHANGED,
+              targetType: 'APPLICATION',
+              targetId: current.id,
+              metadata: {
+                schemaVersion: 2,
+                programId,
+                teamId: current.teamId,
+                programName: current.program.name,
+                actorGithubLogin: current.editor.nickname,
+                before: {
+                  repositoryId: current.repository?.id ?? null,
+                  repositoryUrl: this.url(current),
+                },
+                after: { repositoryId, repositoryUrl },
+              },
             },
-          },
-          store.auditLogWriter,
+            store.auditLogWriter,
+          );
+          return {
+            view: { repositoryUrl, canEditRepositoryUrl: true },
+            relinked: true,
+          };
+        },
+      );
+      // 커밋된 새 연결만 바로 수집한다 — 같은 URL 재저장·충돌·롤백은 여기 오지 않는다.
+      if (relinked)
+        this.collection.collectRepository(
+          resolution.repository.githubRepositoryId,
         );
-        return { repositoryUrl, canEditRepositoryUrl: true };
-      });
+      return view;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

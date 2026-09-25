@@ -63,8 +63,9 @@ const streamErrorCode = (error: unknown): string =>
     ? `PROVIDER_${error.kind}`
     : DEFAULT_STREAM_ERROR_CODE;
 
+/** `SKIPPED`는 저장소 1건 run(`runRepository`)이 그 저장소를 수집 대상으로 보지 않았다는 뜻이다. */
 export type CollectionSyncRunStatus =
-  'SKIPPED_LEASE_HELD' | 'COMPLETED' | 'FAILED';
+  'SKIPPED' | 'SKIPPED_LEASE_HELD' | 'COMPLETED' | 'FAILED';
 
 export interface CollectionSyncRunResult {
   runId: string;
@@ -80,6 +81,28 @@ export interface CollectionSyncRunResult {
    */
   insertedFactCount: number;
 }
+
+/** 저장소를 하나도 처리하지 않은 run의 결과. */
+const idleRunResult = (
+  runId: string,
+  status: CollectionSyncRunStatus,
+): CollectionSyncRunResult => ({
+  runId,
+  status,
+  inventoryComplete: null,
+  processedRepositoryCount: 0,
+  cycleCompleted: false,
+  stoppedForBudget: false,
+  insertedFactCount: 0,
+});
+
+/** `syncOne`이 저장소 하나를 수집한 결과. */
+type RepositorySyncOutcome =
+  | { readonly kind: 'PROCESSED' }
+  | { readonly kind: 'FAILED'; readonly errorName: string }
+  | { readonly kind: 'STOPPED_FOR_BUDGET' }
+  /** 수집 직전에 다시 읽어 보니 더 이상 수집 대상이 아니다(연결이 풀림). */
+  | { readonly kind: 'SKIPPED' };
 
 type SyncRepository = Pick<
   CollectionIncrementalRepository,
@@ -103,6 +126,7 @@ type SyncRepository = Pick<
   | 'getSyncCursor'
   | 'upsertSyncCursor'
   | 'recordSweepHistory'
+  | 'findRepositoryByLogicalKey'
   | 'acquireSyncLease'
   | 'heartbeatSyncLease'
   | 'releaseSyncLease'
@@ -165,6 +189,16 @@ const isTeamMemberAuthor = (
   authorGithubId: string | null,
   memberIds: ReadonlySet<bigint>,
 ): boolean => authorGithubId !== null && memberIds.has(BigInt(authorGithubId));
+
+/**
+ * 수집 대상 규칙 — 신청에 연결된 저장소이거나, 팀·프로그램 이력이 전혀 없는 독립 저장소다.
+ * `listExternalRepositories`의 SQL 조건과 한 벌이다. 연결이 풀려 이전 팀·프로그램 이력만 남은
+ * 저장소는 그 이력을 보존만 하고 새 fact는 받지 않는다 — 계속 수집하면 팀이 떠난 저장소의 활동이
+ * 그 이력을 타고 프로그램 실적에 계속 쌓인다. 인벤토리·presence 관찰은 이 규칙과 무관하다.
+ */
+const isCollectionTarget = (repository: CollectionRepositoryRow): boolean =>
+  repository.applicationId != null ||
+  (repository.programId == null && repository.teamId == null);
 
 interface SweepInventory {
   readonly complete: boolean;
@@ -250,12 +284,7 @@ export class CollectionSyncService {
     ownerId: string,
     runId?: string,
   ): Promise<CollectionSyncRunResult> {
-    if (!this.externalRuntimeFactory) {
-      throw new Error(
-        'collection sync: external runtime not configured (runExternal requires an externalRuntimeFactory)',
-      );
-    }
-    const runtime = await this.externalRuntimeFactory();
+    const runtime = await this.externalRuntime();
     return this.runSweep({
       source: 'EXTERNAL_PUBLIC',
       scope: EXTERNAL_SCOPE,
@@ -266,6 +295,86 @@ export class CollectionSyncService {
       discoverInventory: (lease, deadline) =>
         this.syncExternalInventory(runtime, lease, deadline),
     });
+  }
+
+  /**
+   * 방금 연결한 저장소 하나를 매시 sweep을 기다리지 않고 바로 수집한다(#1133). 그 저장소의
+   * sweep과 같은 scope lease 아래에서 sweep 루프와 같은 `syncOne`을 돌리므로 두 경로가 같은
+   * 저장소를 동시에 쓰지 않는다. sweep cursor와 sweep history는 건드리지 않는다 — 다음 sweep은
+   * 평소대로 이 저장소까지 다시 훑는다.
+   *
+   * 수집 대상이 아니거나, 사라졌거나, 기본 브랜치를 아직 모르거나(조직 저장소는 sweep 인벤토리가
+   * 채운다), 조직 밖인데 공개가 아니면 provider를 부르지 않고 `SKIPPED`다. lease를 sweep이
+   * 쥐고 있으면 `SKIPPED_LEASE_HELD`다 — 도는 중이거나 다음 sweep이 이 저장소를 수집한다.
+   *
+   * ponytail: 이 run이 scope lease를 쥔 사이에 매시 cron이 오면 그 scope는 한 tick을 건너뛴다.
+   * 트리거가 프로세스 안에 있어 저장과 실행 사이에 재시작하면 수집은 매시 sweep으로 밀린다.
+   * 둘 다 문제가 되면 연결 이벤트를 durable 큐로 옮긴다.
+   */
+  async runRepository(
+    ownerId: string,
+    githubRepositoryId: bigint,
+    runId: string = this.createRunId(),
+  ): Promise<CollectionSyncRunResult> {
+    const repository =
+      await this.incrementalRepository.findRepositoryByLogicalKey(
+        githubRepositoryId,
+      );
+    if (
+      repository === null ||
+      !isCollectionTarget(repository) ||
+      repository.presence !== 'PRESENT' ||
+      repository.defaultBranch === null ||
+      (repository.source === 'EXTERNAL_PUBLIC' &&
+        repository.visibility !== 'PUBLIC')
+    ) {
+      return idleRunResult(runId, 'SKIPPED');
+    }
+    const external = repository.source === 'EXTERNAL_PUBLIC';
+    const runtime = external
+      ? await this.externalRuntime()
+      : await this.runtimeFactory();
+    const key = {
+      appId: BigInt(runtime.appId),
+      scope: external ? EXTERNAL_SCOPE : orgScope(runtime.organizationLogin),
+    };
+    return this.withSyncLease(key, ownerId, runId, async (lease) => {
+      const deadline = this.now().getTime() + RUN_DEADLINE_MS;
+      const identitySnapshot =
+        await this.incrementalRepository.listRegisteredGithubIds();
+      let insertedFactCount = 0;
+      // sweep 루프와 같은 rate budget 정지 조건이다.
+      const outcome: RepositorySyncOutcome = runtime.queue.shouldStop()
+        ? { kind: 'STOPPED_FOR_BUDGET' }
+        : await this.syncOne(
+            runtime,
+            lease,
+            repository,
+            identitySnapshot,
+            deadline,
+            runId,
+            (_streamType, insertedCount) => {
+              insertedFactCount += insertedCount;
+            },
+          );
+      await this.incrementalRepository.releaseSyncLease(lease, this.now());
+      return {
+        ...idleRunResult(runId, 'COMPLETED'),
+        processedRepositoryCount: outcome.kind === 'PROCESSED' ? 1 : 0,
+        stoppedForBudget: outcome.kind === 'STOPPED_FOR_BUDGET',
+        insertedFactCount,
+      };
+    });
+  }
+
+  private externalRuntime():
+    CollectionSyncRuntime | Promise<CollectionSyncRuntime> {
+    if (!this.externalRuntimeFactory) {
+      throw new Error(
+        'collection sync: external runtime not configured (runExternal requires an externalRuntimeFactory)',
+      );
+    }
+    return this.externalRuntimeFactory();
   }
 
   private async runSweep(params: {
@@ -295,6 +404,25 @@ export class CollectionSyncService {
     } = params;
     const key = { appId, scope };
     const runId = params.runId ?? this.createRunId();
+    return this.withSyncLease(key, ownerId, runId, (lease) =>
+      this.syncSweep(
+        runtime,
+        lease,
+        key,
+        runId,
+        discoverInventory,
+        registeredGithubIds,
+      ),
+    );
+  }
+
+  /** scope lease를 잡고 heartbeat 안에서 `work`를 돌린다. 못 잡으면 `SKIPPED_LEASE_HELD`다. */
+  private async withSyncLease(
+    key: { appId: bigint; scope: string },
+    ownerId: string,
+    runId: string,
+    work: (lease: SyncLeaseToken) => Promise<CollectionSyncRunResult>,
+  ): Promise<CollectionSyncRunResult> {
     const acquiredAt = this.now();
     const lease = await this.incrementalRepository.acquireSyncLease({
       ...key,
@@ -303,48 +431,21 @@ export class CollectionSyncService {
       now: acquiredAt,
       expiresAt: new Date(acquiredAt.getTime() + LEASE_MS),
     });
-    if (!lease) {
-      return {
-        runId,
-        status: 'SKIPPED_LEASE_HELD',
-        inventoryComplete: null,
-        processedRepositoryCount: 0,
-        cycleCompleted: false,
-        stoppedForBudget: false,
-        insertedFactCount: 0,
-      };
-    }
+    if (!lease) return idleRunResult(runId, 'SKIPPED_LEASE_HELD');
 
     try {
-      return await this.withHeartbeat(lease, () =>
-        this.syncSweep(
-          runtime,
-          lease,
-          key,
-          runId,
-          discoverInventory,
-          registeredGithubIds,
-        ),
-      );
+      return await this.withHeartbeat(lease, () => work(lease));
     } catch (error) {
       this.logger.error({
         event: 'collection.sync.failed',
         runId,
-        scope,
+        scope: key.scope,
         errorName: error instanceof Error ? error.name : 'UnknownError',
       });
       await this.incrementalRepository
         .releaseSyncLease(lease, this.now())
         .catch(() => undefined);
-      return {
-        runId,
-        status: 'FAILED',
-        inventoryComplete: null,
-        processedRepositoryCount: 0,
-        cycleCompleted: false,
-        stoppedForBudget: false,
-        insertedFactCount: 0,
-      };
+      return idleRunResult(runId, 'FAILED');
     }
   }
 
@@ -398,6 +499,7 @@ export class CollectionSyncService {
 
     const sweepStartedAt = this.now();
     const ordered = [...inventory.repositories]
+      .filter(isCollectionTarget)
       .filter(
         (repository) =>
           startAfter === null ||
@@ -441,84 +543,53 @@ export class CollectionSyncService {
         stoppedForBudget = true;
         break;
       }
-      try {
-        attemptedRepositoryCount += 1;
-        await this.syncRepository(
-          runtime,
-          lease,
-          repository,
-          identitySnapshot,
-          deadline,
-          (streamType, insertedCount) => {
-            insertedFactCount += insertedCount;
-            switch (streamType) {
-              case 'COMMIT':
-                insertedCommitCount += insertedCount;
-                break;
-              case 'PULL_REQUEST':
-                insertedPullRequestCount += insertedCount;
-                break;
-              case 'RELEASE':
-                insertedReleaseCount += insertedCount;
-                break;
-            }
-          },
-        );
-        // 성공하면 실패 이력을 지우고 다음 정기 차례로 되돌린다.
-        await this.incrementalRepository.recordRepositorySuccess(
-          repository.githubRepositoryId,
-          this.now(),
-        );
+      attemptedRepositoryCount += 1;
+      const outcome = await this.syncOne(
+        runtime,
+        lease,
+        repository,
+        identitySnapshot,
+        deadline,
+        runId,
+        (streamType, insertedCount) => {
+          insertedFactCount += insertedCount;
+          switch (streamType) {
+            case 'COMMIT':
+              insertedCommitCount += insertedCount;
+              break;
+            case 'PULL_REQUEST':
+              insertedPullRequestCount += insertedCount;
+              break;
+            case 'RELEASE':
+              insertedReleaseCount += insertedCount;
+              break;
+          }
+        },
+      );
+      if (outcome.kind === 'STOPPED_FOR_BUDGET') {
+        stoppedForBudget = true;
+        break;
+      }
+      if (outcome.kind === 'PROCESSED') {
         // 성공한 저장소만 센다. 실패해도 커서는 아래에서 전진하지만
         // "처리했다"고 말하지는 않는다.
         processedRepositoryCount += 1;
-      } catch (error) {
-        if (error instanceof RunDeadlineError) {
-          // 예산 소진은 실패가 아니다(#546) — stream에 오류 코드를 남기면
-          // system-status가 정상적인 budget stop을 FAILED로 잘못 판정한다.
-          stoppedForBudget = true;
-          break;
-        }
-        if (
-          repository.source === 'EXTERNAL_PUBLIC' &&
-          error instanceof CollectionAppClientError &&
-          (error.kind === 'NOT_FOUND' || error.kind === 'PERMISSION')
-        ) {
-          const observedAt = this.now();
-          await this.incrementalRepository.runInTransaction(async (repo) => {
-            await repo.assertSyncLeaseValid(lease, observedAt);
-            await repo.markExternalRepositoryUnavailable(
-              repository.githubRepositoryId,
-              error.kind === 'NOT_FOUND' ? 'ABSENT' : 'PRIVATE',
-              observedAt,
-            );
-          });
-        }
-        lastError = error instanceof Error ? error.name : 'UnknownError';
+      } else if (outcome.kind === 'FAILED') {
+        lastError = outcome.errorName;
         failedRepositoryCount += 1;
-        this.logger.warn({
-          event: 'collection.sync.repository_failed',
-          runId,
-          githubRepositoryId: repository.githubRepositoryId.toString(),
-          errorName: lastError,
-        });
-        // 실패해도 커서를 전진시킨다(DD1).
-        //
-        // 예전에는 여기서 break 해 커서를 세웠다. 그러면 영구 실패 저장소 하나가
-        // 뒤의 모든 저장소를 굶긴다 — 다음 run 도 같은 자리에서 멈추기 때문이다.
-        //
-        // 단순히 전진시키기만 하면 반대 문제가 생긴다. 사이클이 닫혀야 커서가
-        // 리셋되는데 실패가 있으면 안 닫히던 시절에는, 전진 = 그 저장소를
-        // 영영 버리는 것이었다. 그래서 둘을 같이 바꾼다:
-        //   (1) 실패를 `failureCount` + `nextRunAt` 백오프로 기록해 되돌아올
-        //       약속을 남기고
-        //   (2) 아래 `cycleCompleted` 에서 실패를 사이클 완료의 방해로 보지 않는다.
-        // 실패 저장소는 백오프가 지나면 다음 사이클에서 다시 시도된다.
-        await this.incrementalRepository.recordRepositoryFailure(
-          repository.githubRepositoryId,
-          this.now(),
-        );
       }
+      // 실패해도 커서를 전진시킨다(DD1).
+      //
+      // 예전에는 실패에서 break 해 커서를 세웠다. 그러면 영구 실패 저장소 하나가
+      // 뒤의 모든 저장소를 굶긴다 — 다음 run 도 같은 자리에서 멈추기 때문이다.
+      //
+      // 단순히 전진시키기만 하면 반대 문제가 생긴다. 사이클이 닫혀야 커서가
+      // 리셋되는데 실패가 있으면 안 닫히던 시절에는, 전진 = 그 저장소를
+      // 영영 버리는 것이었다. 그래서 둘을 같이 바꾼다:
+      //   (1) `syncOne` 이 실패를 `failureCount` + `nextRunAt` 백오프로 기록해
+      //       되돌아올 약속을 남기고
+      //   (2) 아래 `cycleCompleted` 에서 실패를 사이클 완료의 방해로 보지 않는다.
+      // 실패 저장소는 백오프가 지나면 다음 사이클에서 다시 시도된다.
       await this.incrementalRepository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(lease, this.now());
         await repo.upsertSyncCursor({
@@ -764,6 +835,84 @@ export class CollectionSyncService {
     }
 
     return { complete, repositories };
+  }
+
+  /**
+   * 저장소 하나를 수집하고 그 결과를 저장소 행에 남긴다. 저장소 단위 실패는 여기서 백오프로
+   * 기록하고 삼킨다. lease 상실처럼 기록 자체가 실패하면 그대로 던져 run을 끝낸다.
+   */
+  private async syncOne(
+    runtime: CollectionSyncRuntime,
+    lease: SyncLeaseToken,
+    repository: CollectionRepositoryRow,
+    registeredGithubIds: RegisteredGithubIdSet,
+    deadline: number,
+    runId: string,
+    onStreamInserted: (
+      streamType: CollectionStreamType,
+      insertedCount: number,
+    ) => void,
+  ): Promise<RepositorySyncOutcome> {
+    // sweep은 시작할 때 읽은 목록을 몇 분에 걸쳐 돈다. 그사이 팀이 저장소를 바꿨으면 떼어 낸
+    // 저장소에 새 fact를 쓰지 않도록 수집 직전에 행을 다시 읽는다.
+    // ponytail: 이 확인과 적재 사이(저장소 하나를 수집하는 몇 초)에 바뀐 연결은 그 run의 fact가
+    // 옛 저장소에 남는다. 문제가 되면 checkpoint 트랜잭션에서 저장소 행을 잠그고 다시 확인한다.
+    const current = await this.incrementalRepository.findRepositoryByLogicalKey(
+      repository.githubRepositoryId,
+    );
+    if (current !== null && !isCollectionTarget(current)) {
+      return { kind: 'SKIPPED' };
+    }
+    try {
+      await this.syncRepository(
+        runtime,
+        lease,
+        repository,
+        registeredGithubIds,
+        deadline,
+        onStreamInserted,
+      );
+      // 성공하면 실패 이력을 지우고 다음 정기 차례로 되돌린다.
+      await this.incrementalRepository.recordRepositorySuccess(
+        repository.githubRepositoryId,
+        this.now(),
+      );
+      return { kind: 'PROCESSED' };
+    } catch (error) {
+      if (error instanceof RunDeadlineError) {
+        // 예산 소진은 실패가 아니다(#546) — stream에 오류 코드를 남기면
+        // system-status가 정상적인 budget stop을 FAILED로 잘못 판정한다.
+        return { kind: 'STOPPED_FOR_BUDGET' };
+      }
+      if (
+        repository.source === 'EXTERNAL_PUBLIC' &&
+        error instanceof CollectionAppClientError &&
+        (error.kind === 'NOT_FOUND' || error.kind === 'PERMISSION')
+      ) {
+        const observedAt = this.now();
+        await this.incrementalRepository.runInTransaction(async (repo) => {
+          await repo.assertSyncLeaseValid(lease, observedAt);
+          await repo.markExternalRepositoryUnavailable(
+            repository.githubRepositoryId,
+            error.kind === 'NOT_FOUND' ? 'ABSENT' : 'PRIVATE',
+            observedAt,
+          );
+        });
+      }
+      const errorName = error instanceof Error ? error.name : 'UnknownError';
+      this.logger.warn({
+        event: 'collection.sync.repository_failed',
+        runId,
+        githubRepositoryId: repository.githubRepositoryId.toString(),
+        errorName,
+      });
+      // 실패를 `failureCount` + `nextRunAt` 백오프로 기록해 되돌아올 약속을 남긴다(DD1).
+      await this.incrementalRepository.recordRepositoryFailure(
+        repository.githubRepositoryId,
+        this.now(),
+      );
+      return { kind: 'FAILED', errorName };
+    }
   }
 
   /**

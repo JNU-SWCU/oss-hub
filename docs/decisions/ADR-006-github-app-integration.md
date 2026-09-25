@@ -419,6 +419,14 @@ rollback은 M3 schedule 중지, C2 current pointer를 마지막 검증된 comple
 - 조직 전체 REST read 권한과 platform-managed repository write/admin 권한의 credential과 installation을 분리한다.
 - 학생이 조직 밖에서 작업한 public repository의 commit/PR/release 실체를 org와 동일한 REST 상세 수집 경로로 확보할 수 있다. GraphQL은 그 대상 repository 목록을 얻는 discovery 전용으로만 쓰인다.
 
+> **2026-09-24 amendment (#1133).**
+> 위 "매시간과 `ADMIN` manual trigger"는 이제 트리거 두 개가 아니라 세 개다.
+> 신청 쪽에서 저장소 URL 연결이 실제로 바뀌어 커밋되면 `CollectionSchedulerService.collectRepository`가 그 저장소 하나만 커밋 직후 one-shot으로 수집한다(`CollectionSyncService.runRepository`).
+> 이 one-shot은 그 저장소의 sweep과 같은 scope lease 아래에서 돈다.
+> 매시 cron이 이 one-shot과 lease를 다투면 그 scope는 tick 하나를 건너뛴다.
+> 저장과 실행 사이 프로세스가 재시작되면 그 저장소는 다음 매시 sweep으로 되돌아간다.
+> skip 조건(수집 대상 아님·`PRESENT` 아님·default branch 미확인·조직 밖 비공개)은 [ADR-010](ADR-010-contribution-tracking-context.md) §6·§10 amendment가 함께 다룬다.
+
 ### Costs / trade-offs
 
 - test와 production에서 역할별 App 등록·private key를 따로 운영하고 각각 org owner 승인을 받아야 한다.
@@ -473,6 +481,12 @@ rollback은 M3 schedule 중지, C2 current pointer를 마지막 검증된 comple
 
 ## Changelog
 
+- 2026-09-24: #1133 PR2(저장소 URL 링크 직후 수집)가 "Consequences → Enables"의 "매시간과 `ADMIN` manual trigger" 문장을 낡게 만들어 그 자리에 날짜 amendment를 덧붙였다(기존 문장 삭제 없음).
+  저장소 URL 연결이 실제로 바뀌어 커밋되면 `CollectionSchedulerService.collectRepository`가 그 저장소 하나만 매시 sweep을 기다리지 않고 커밋 직후 one-shot으로 수집하는 세 번째 트리거가 생겼다.
+  이 one-shot은 그 저장소의 sweep과 같은 scope lease 아래에서 돈다.
+  매시 cron이 이 one-shot과 lease를 다투면 그 scope는 tick 하나를 건너뛴다.
+  저장과 실행 사이 프로세스가 재시작되면 그 저장소는 다음 매시 sweep으로 되돌아간다.
+  대응하는 [ADR-010](ADR-010-contribution-tracking-context.md) §6·§7·§10 amendment도 같은 PR에서 함께 갱신했다.
 - 2026-08-19: "GraphQL의 역할은 discovery뿐이다" 문장의 범위를 넓히는 개정 노트를 덧붙였다(기존 문단 삭제 없음). ADR-010이 랭킹을 사람 축으로 옮기면서 GraphQL이 discovery뿐 아니라 사람 축 지표 조회(`contributionsCollection` + `repositories(star)`)에도 쓰인다. 자격증명은 기존 서비스 계정 PAT `GITHUB_PUBLIC_READ_TOKEN` 하나 그대로고, public 전용 수집·학생 access token 미저장·token pooling 금지 경계는 변하지 않는다.
 - 2026-09-13: 현재 자격증명 분기의 원본을 은퇴한 `collection/AGENTS.md` 갱신 대기에서 [`apps/backend/src/github/AGENTS.md`](../../apps/backend/src/github/AGENTS.md) Authority 절로 옮겼다. 2026-08-04 changelog의 당시 Purpose 인용은 역사 기록으로 남긴다.
 - 2026-08-11: "동의 범위 게이트" 절과 "New constraints"의 두 인용이 `2026-07-21.html`을 "현재 라이브 동의 문서"로 지칭하던 stale 참조를 정정했다 — 이 두 곳이 실제로 커밋된 시점(`464c7b11`, 19:39)에도 이미 `6ff4ccb3`(19:22)가 `CONSENT_POLICY_VERSION`을 `2026-08-04`로 올려둔 뒤였다. `docs/ranking-exposure-policy` PR이 동의 문서를 `2026-08-11`로 재게시하고 `CONSENT_POLICY_VERSION`을 함께 올렸으므로, 두 참조를 그 최신 버전으로 정정했다. **정정은 참조 버전 문자열에 한정된다** — "조직 밖 public repository 자동 discovery는 별도 동의 개정 전까지 비활성"이라는 게이트의 실질 내용은 그대로 유지했다. 이번 `2026-08-11` 동의 문서 개정은 org 저장소 집계 범위(가입자 전원 노출·private org 저장소 활동의 공개 랭킹 합산)에 관한 것이며, 조직 밖 개인 public 저장소 자동 discovery를 여는 별개 사안이 아니다.

@@ -35,6 +35,10 @@ describe('CollectionSchedulerService', () => {
   let service: CollectionSchedulerService;
   const run = jest.fn<Promise<CollectionSyncRunResult>, [string]>();
   const runExternal = jest.fn<Promise<CollectionSyncRunResult>, [string]>();
+  const runRepository = jest.fn<
+    Promise<CollectionSyncRunResult>,
+    [string, bigint, string]
+  >();
   const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
   const runUserActivity = jest.fn<
     Promise<CollectionUserActivitySweepResult>,
@@ -51,6 +55,10 @@ describe('CollectionSchedulerService', () => {
       failedUserCount: 0,
     });
     runExternal.mockReset();
+    runRepository.mockReset();
+    runRepository.mockResolvedValue(
+      completedRun({ inventoryComplete: null, cycleCompleted: false }),
+    );
     runExternal.mockResolvedValue(
       completedRun({ runId: 'synthetic-external-run-id' }),
     );
@@ -60,7 +68,10 @@ describe('CollectionSchedulerService', () => {
       imports: [ScheduleModule.forRoot()],
       providers: [
         CollectionSchedulerService,
-        { provide: CollectionSyncService, useValue: { run, runExternal } },
+        {
+          provide: CollectionSyncService,
+          useValue: { run, runExternal, runRepository },
+        },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
         {
           provide: CollectionUserActivityService,
@@ -316,6 +327,49 @@ describe('CollectionSchedulerService', () => {
     );
     expect(logger).not.toHaveBeenCalledWith(
       expect.objectContaining({ event: 'collection.scheduler.sync_failed' }),
+    );
+  });
+
+  it('연결 직후 수집은 스케줄러 소유자로 저장소 1건만 돌리고 완료를 로그 1줄로 남긴다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+
+    expect(service.collectRepository(555n)).toBeUndefined();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(runRepository).toHaveBeenCalledWith(
+      expect.stringMatching(/^scheduler:/),
+      555n,
+      expect.any(String),
+    );
+    expect(run).not.toHaveBeenCalled();
+    expect(runExternal).not.toHaveBeenCalled();
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'collection.scheduler.completed',
+        scope: 'repository',
+        syncStatus: 'COMPLETED',
+      }),
+    );
+  });
+
+  it('quiesce 중에는 연결 직후 수집을 돌리지 않고 호출자 대신 로그로 거부를 남긴다', async () => {
+    const logger = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    isQuiesced.mockResolvedValue(true);
+
+    expect(() => service.collectRepository(555n)).not.toThrow();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(runRepository).not.toHaveBeenCalled();
+    expect(logger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'collection.scheduler.repository_sync_failed',
+        scope: 'repository',
+        errorName: 'DomainException',
+      }),
     );
   });
 });

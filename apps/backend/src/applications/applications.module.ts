@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthModule } from '../auth/auth.module';
+import { CollectionModule } from '../github/collection.module';
 import { RepositoriesModule } from '../github/repositories.module';
 import { ProgramsModule } from '../programs/programs.module';
 import { SubmissionsModule } from '../submissions/submissions.module';
@@ -33,6 +34,8 @@ import { StudentRepositoryUrlRepository } from './student-repository-url.reposit
     ConsentsModule,
     AuditLogModule,
     AuthModule,
+    // 저장소 URL을 바꾼 직후 수집을 시작하는 port만 쓴다(#1133).
+    CollectionModule,
     RepositoriesModule,
     ProgramsModule,
     SubmissionsModule,

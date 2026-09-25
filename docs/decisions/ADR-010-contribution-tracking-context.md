@@ -123,6 +123,13 @@ Accepted
 
 **다만 그 행을 만드는 것은 아직 프로비저닝이 아니다.** 프로비저닝은 `Repository`를, 수집은 `GithubRepository`를 쓰며 두 모델이 별개다. `GithubRepository` 행은 sweep의 인벤토리 관측(`recordRepositoryObservation`)에서만 생긴다. 그래서 `NEW` 생성이나 `OWN` 연결 직후가 아니라 **다음 인벤토리 관측에서** 수집이 시작된다. 조직 저장소는 매 sweep이 재발견하므로 지연이 한 주기지만, 조직 밖 저장소는 인벤토리에 잡히지 않아 수동 등록 전까지 영영 들어오지 않는다 — 이것이 현재 `EXTERNAL_PUBLIC`이 0개인 이유이며 자동 discovery가 필요한 이유다.
 
+> **2026-09-24 amendment (#1133).**
+> 위 "다음 인벤토리 관측에서 수집이 시작된다"는 저장소 URL 연결(변경)에는 더 이상 그대로 맞지 않는다.
+> 신청 쪽 저장소 URL이 실제로 바뀌어 트랜잭션이 커밋되면 `CollectionSchedulerService.collectRepository`가 그 저장소 하나만 곧바로 one-shot으로 수집한다(`CollectionSyncService.runRepository`).
+> 이 즉시 수집은 수집 대상이 아니거나 `PRESENT`가 아니거나 default branch를 아직 모르거나 조직 밖 저장소인데 public이 아니면 GitHub를 부르지 않고 조용히 skip한다.
+> sweep이 같은 scope lease를 이미 쥐고 있어도 이 즉시 수집은 물러난다.
+> 이런 skip과 저장·실행 사이 프로세스 재시작에서는 위 문단이 말하는 다음 인벤토리 관측(다음 정기 sweep)이 여전히 수집을 채운다.
+
 ### 7. `github/`가 밖으로 여는 기여 추적 port는 3개다
 
 기여 집계 / 공개 자격 / 건강. 질문의 종류도, 변하는 주기도, 보는 사람도 셋이다.
@@ -130,6 +137,13 @@ Accepted
 **프로비저닝 port(`REPOSITORIES_READ_PORT`)는 별도 등재한다.** 답하는 질문이 "내 저장소 준비됐나"이고 신청 직후 몇 분 동안만 바뀌며 학생 본인만 본다 — 기여 추적 셋과 다른 종류다. `ADR-003` DEC-42의 "새 Port를 만들지 않는다"는 이 ADR로 개정된다.
 
 port는 entity가 아니라 결과 타입을 돌려준다. `nextRunAt`·`failureCount`가 밖으로 새지 않는다.
+
+> **2026-09-24 amendment (#1133).**
+> `github/`가 밖으로 여는 port가 하나 늘었다.
+> 기여 추적 셋·프로비저닝 하나에 이어 `COLLECTION_TRIGGER_PORT`(`apps/backend/src/github/collection-trigger.port.ts`)가 추가됐다.
+> 이 port는 질문에 답하지 않고 명령만 받는다 — `applications` 도메인이 저장소 URL 연결 직후 "이 저장소를 지금 수집해라"만 던지고 결과를 기다리지 않는다.
+> `CollectionModule`이 `CollectionSchedulerService`를 이 port로 내보내고 `StudentRepositoryUrlService`가 유일한 호출자다.
+> 프로비저닝 port와 마찬가지로 기여 추적 셋에는 넣지 않는다 — 질문의 종류(집계·자격·건강이 아니라 트리거)도 응답 모양(결과 타입이 아니라 없음)도 다르다.
 
 ### 8. 폴더는 Domain-first + Layered다
 
@@ -174,6 +188,14 @@ fact 가 줄면 집계도 준다. 그러나 **fact 자체를 지우는 경로는
 ### 10. 갱신은 매시 1회이고 화면이 갱신 시각을 말한다
 
 webhook 기반 실시간을 만들지 않는다(`ADR-006` 이벤트 최소주의 유지). 대신 **두 화면 모두 마지막 갱신 시각을 표시한다.** 이번 사고의 본질이 "멈췄는데 아무도 몰랐다"였으므로, 다시 멈추면 화면이 먼저 말해야 한다.
+
+> **2026-09-24 amendment (#1133).**
+> 위 "갱신은 매시 1회"는 이제 기본값이지 절대 규칙이 아니다.
+> 저장소 URL 연결이 실제로 바뀌어 커밋되면 그 저장소 하나는 매시 sweep을 기다리지 않고 커밋 직후 one-shot으로 먼저 수집된다.
+> 이 즉시 수집도 webhook은 아니다 — GitHub webhook 구독 없이 backend 내부 호출로만 트리거되므로 위 이벤트 최소주의는 그대로다.
+> 매시 cron이 이 one-shot과 같은 scope lease를 다투면 그 scope는 tick 하나를 건너뛴다.
+> 저장과 실행 사이 프로세스가 재시작되면 그 저장소는 다음 매시 sweep으로 되돌아간다.
+> 트리거·skip 조건의 원본은 [ADR-006](ADR-006-github-app-integration.md) Enables amendment다.
 
 ### 11. 검증은 화면 기준이다
 
@@ -274,6 +296,12 @@ webhook 기반 실시간을 만들지 않는다(`ADR-006` 이벤트 최소주의
 
 ## Changelog
 
+- 2026-09-24: #1133 PR2(저장소 URL 링크 직후 수집)가 §6·§7·§10 일부를 낡게 만들어 각 절에 날짜 amendment를 덧붙였다(기존 본문 삭제 없음).
+  §6은 저장소 URL 연결이 실제로 바뀌어 커밋되면 다음 인벤토리 관측을 기다리지 않고 `CollectionSchedulerService.collectRepository`가 one-shot 즉시 수집을 시작할 수 있음을 기록했다.
+  §7은 새 트리거 port `COLLECTION_TRIGGER_PORT`가 기여 추적 셋·프로비저닝 port에 이어 추가됐음을 기록했다.
+  §10은 "매시 1회" 갱신이 이제 기본값이고 링크 직후 one-shot이 더해졌음을 기록했다.
+  이 one-shot은 skip 조건에 걸리거나 sweep과 lease가 충돌하거나 저장과 실행 사이 재시작되면 기존 매시 sweep으로 되돌아간다.
+  대응하는 [ADR-006](ADR-006-github-app-integration.md) Enables amendment도 같은 PR에서 함께 갱신했다.
 - 2026-08-20: §1에 `?year=` 부재=올해는 이 절, 영속 타입 경계와 학생 활성 기본(부재=전체)은 [ADR-011](ADR-011-query-filter-type-boundary.md)임을 교차 기록했다.
 - 2026-09-13: 제품 결정 원본 안내를 [`AGENTS.md` Important Files](../../AGENTS.md#important-files)로 고쳤다. 2026-08-19 changelog의 `AGENTS.md` §2 인용은 당시 기록으로 둔다.
 - 2026-08-19: 두 축이 각자 획득을 갖게 된 형태를 개정 노트로 덧붙였다(기존 본문 삭제 없음). 사람 축은 `GithubUserActivityHistory`를 `contributionsCollection` + `repositories(star)` GraphQL 조회로 채우고 입자는 `(githubId, year)`이며, 랭킹 지표는 commit·PR·issue·repo·star 5종과 그 단순 합으로 바뀌었다 — `D7`의 3종 합계를 이 노트가 개정한다. `release`는 ② 프로그램 화면 전속이 됐다(사람 축이 release를 세지 않으므로 저장소 축이 유일 출처). 5종 구성의 제품 결정 원본은 관리자 요청을 받은 Notion Decision Log이며(`AGENTS.md` §2) 이 ADR은 기술적 귀결만 기록한다. `star`·`repository` 수가 본인 조작에 열려 있다는 성질을 명시했고, `D15`는 폐기가 아니라 "`githubLogin`과 `department`"로 문구를 정정했다. 테이블 형태·명명·FK 부재 근거는 `docs/rules/data-modeling.md`가 원본이라 여기서 중복 서술하지 않는다.
