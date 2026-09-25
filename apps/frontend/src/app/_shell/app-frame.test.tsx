@@ -83,6 +83,13 @@ function render(
   );
 }
 
+/** `#main-content` 여는 태그만 잘라 낸다. */
+function mainContentTag(html: string): string {
+  const id = html.indexOf('id="main-content"');
+  if (id === -1) throw new Error('#main-content 가 없습니다');
+  return html.slice(html.lastIndexOf('<', id), html.indexOf('>', id) + 1);
+}
+
 describe('AppFrame', () => {
   it('모든 라우트에 공통 상단 NavBar가 있다', () => {
     for (const path of ['/', '/signup', '/dashboard', '/programs']) {
@@ -201,6 +208,22 @@ describe('AppFrame', () => {
     expect(render('/')).toContain('id="main-content"');
     expect(render('/dashboard')).toContain('id="main-content"');
   });
+
+  // 가입 화면은 본문 전체가 우주 바탕이다. 무대가 서기 전·실패했을 때 인증·온보딩 게이트가
+  // 이 자리에 바로 그리는 「확인 중…」·오류 문구도 어두운 바탕용 색을 받아야 한다(#1436).
+  it.each(['/signup', '/consent', '/onboarding/role', '/onboarding/profile'])(
+    '%s 는 본문 전체를 반전 표면으로 둔다',
+    (path) => {
+      expect(mainContentTag(render(path))).toContain('data-surface="inverted"');
+    },
+  );
+
+  it.each(['/', '/onboarding/pending', '/dashboard'])(
+    '%s 는 흰 화면이라 본문에 반전 표면을 두지 않는다',
+    (path) => {
+      expect(mainContentTag(render(path))).not.toContain('data-surface=');
+    },
+  );
 
   it('회원 셸 그리드는 사이드바 토큰을 쓴다', () => {
     const html = render('/dashboard');

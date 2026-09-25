@@ -721,7 +721,7 @@ PR 제출 전에는 변경된 사용자 흐름의 UX 리뷰를 반드시 완료�
 - 진행도는 `-journey.getBoundingClientRect().top / (journey.offsetHeight - window.innerHeight)`를 0~1로 자른 값이다. 스크롤을 가로채거나 관성을 바꾸지 않고 네이티브 스크롤을 읽기만 한다.
 - 화면에 반영되는 값은 목표 진행도를 프레임마다 `+= (목표 - 현재) * 0.09`로 따라가고, 차이가 `0.0002` 미만이면 목표에 붙인다. 스크롤을 멈추면 카메라도 곧 멈춘다.
 - 무대 안 층 순서는 canvas → 비네트(z 2) → 스크림(3) → 패널(4) → 범례·진행 표시·SCROLL 힌트(5) → 건너뛰기 링크(8)다.
-- 상단 헤더는 전 화면에서 기본 흰 바다(`app/_shell/shell-nav.tsx`). 랜딩에서만 `fixed inset-x-0 top-0 z-40`으로 떠 있어 560vh 여정 동안 메뉴가 남는다. 가입 본문의 우주 반전(`data-surface="inverted"`)은 `SignupStage` 등 본문 스코프에만 둔다. 헤더를 숨기거나 스크롤에 따라 표면을 바꾸는 스크립트는 없다.
+- 상단 헤더는 전 화면에서 기본 흰 바다(`app/_shell/shell-nav.tsx`). 랜딩에서만 `fixed inset-x-0 top-0 z-40`으로 떠 있어 560vh 여정 동안 메뉴가 남는다. 가입 본문의 우주 반전(`data-surface="inverted"`)은 본문 스코프에만 둔다 — 우주 바탕 경로(`COSMOS_GROUND_PATHS`)에서는 AppFrame이 본문 전체(`#main-content`)에 걸고 `SignupStage`도 스스로 건다. 무대가 서기 전·실패했을 때 인증·온보딩 게이트(AuthGate·OnboardingGate)가 그리는 「확인 중…」과 오류 문구가 무대 밖 본문에 바로 그려지기 때문이다(#1436). 헤더를 숨기거나 스크롤에 따라 표면을 바꾸는 스크립트는 없다.
 
 #### 다섯 장면
 

@@ -18,8 +18,8 @@ interface ShellNavProps {
 
 /**
  * 전 화면 상단 nav. 색 톤은 경로와 무관하게 `/archive`와 같은 흰 바다.
- * 가입 본문의 우주 반전(`SignupStage`의 `data-surface="inverted"`)은 이 컴포넌트
- * 밖이고, 여기서는 표면을 뒤집지 않는다.
+ * 가입 본문의 우주 반전(AppFrame 의 `#main-content`와 `SignupStage`에 거는
+ * `data-surface="inverted"`)은 이 컴포넌트 밖이고, 여기서는 표면을 뒤집지 않는다.
  *
  * 위치만 랜딩(`/`)이 다르다. 여정이 560vh sticky 무대라 문서 흐름이면 스크롤
  * 중 메뉴가 사라지므로 그 경로만 `fixed`로 띄운다. 가입 화면은 한 화면짜리

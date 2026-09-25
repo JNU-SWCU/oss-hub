@@ -20,8 +20,11 @@ import { SignupStarfield } from './signup-starfield';
  *
  * `data-surface="inverted"`가 핵심이다. 이 스코프 안에서는 shadcn 부품(Button ·
  * Input · Checkbox · Alert)이 어두운 바탕 기준으로 다시 색칠된다. 화면마다 색을
- * 직접 칠하면 대비가 갈라지므로 여기서 한 번만 선언한다 — 그 토큰들은 #275가
- * 히어로 위에서 대비를 이미 검증했다.
+ * 직접 칠하면 대비가 갈라지므로 반전 스코프 한 벌로만 선언한다 — 그 토큰들은 #275가
+ * 히어로 위에서 대비를 이미 검증했다. 우주 바탕 경로에서는 AppFrame 이 본문
+ * 전체(`#main-content`)에 같은 스코프를 먼저 건다. 이 무대가 서기 전·실패했을 때
+ * 인증·온보딩 게이트가 무대 밖에 그리는 문구까지 덮으려는 것이다(#1436). 이 무대의
+ * 선언은 무대만 따로 그려질 때(테스트 등)에도 색이 유지되게 남겨 둔다.
  */
 export function SignupStage({
   step,
