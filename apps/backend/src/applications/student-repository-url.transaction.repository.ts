@@ -1,6 +1,4 @@
-import { randomUUID } from 'node:crypto';
 import {
-  AccountStatus,
   CollectionRepositoryPresence,
   Prisma,
   RepositoryConnectionMode,
@@ -9,20 +7,12 @@ import {
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
 import type { OwnGithubRepositoryResolution } from '../github/service/own-repository-url-validation.service';
+import { parseRepositoryProvisionEvent } from '../github/repository-provision-event';
+import { settleProvisionGenerationForSynchronousConnection } from '../prisma/repository-provision-generation';
 import {
-  REPOSITORY_PROVISION_EVENT_TYPE,
-  canonicalGithubLogins,
-  parseRepositoryProvisionEvent,
-} from '../github/repository-provision-event';
-import {
-  settleProvisionGenerationForSynchronousConnection,
-  transferProvisionGeneration,
-} from '../prisma/repository-provision-generation';
-import { STUDENT_MEMBER_WHERE } from '../profiles/user-profile-read';
-import { programApplicationManagerWhere } from '../programs/program-participant';
-import {
-  STUDENT_REPOSITORY_URL_SELECT,
+  readTeamRepositoryUrlContext,
   type StudentRepositoryUrlContext,
+  type TeamRepositoryUrlContext,
 } from './student-repository-url.repository';
 import { repositoryUrlError } from './student-repository-url.errors';
 
@@ -32,35 +22,24 @@ export class StudentRepositoryUrlTransaction {
     return this.transaction;
   }
 
-  async lockContext(
+  async lockTeamContext(
     programId: string,
-    studentId: string,
-  ): Promise<StudentRepositoryUrlContext | null> {
+    teamId: string,
+    actorGithubId: bigint,
+  ): Promise<TeamRepositoryUrlContext | null> {
     await this.transaction
       .$queryRaw`SELECT "id" FROM "Program" WHERE "id" = ${programId} FOR UPDATE`;
-    const candidate = await this.transaction.application.findFirst({
-      where: { programId, ...programApplicationManagerWhere(studentId) },
-      select: { id: true, teamId: true },
-    });
-    if (!candidate) return null;
     // 팀장 승계·탈퇴와 같은 팀 행을 잠근 뒤 현재 권한을 다시 읽는다.
     await this.transaction
-      .$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${candidate.teamId} FOR UPDATE`;
+      .$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} AND "programId" = ${programId} FOR UPDATE`;
     await this.transaction
-      .$queryRaw`SELECT "id" FROM "Application" WHERE "id" = ${candidate.id} FOR UPDATE`;
-    const actor = await this.transaction.user.findFirst({
-      where: {
-        id: studentId,
-        accountStatus: AccountStatus.ACTIVE,
-        ...STUDENT_MEMBER_WHERE,
-      },
-      select: { id: true },
-    });
-    if (!actor) return null;
-    return this.transaction.application.findFirst({
-      where: { programId, ...programApplicationManagerWhere(studentId) },
-      select: STUDENT_REPOSITORY_URL_SELECT,
-    });
+      .$queryRaw`SELECT "id" FROM "Application" WHERE "programId" = ${programId} AND "teamId" = ${teamId} FOR UPDATE`;
+    return readTeamRepositoryUrlContext(
+      this.transaction,
+      programId,
+      teamId,
+      actorGithubId,
+    );
   }
 
   async relink(
@@ -78,17 +57,8 @@ export class StudentRepositoryUrlTransaction {
     const metadata = resolution.repository;
     const existing = await tx.githubRepository.findUnique({
       where: { githubRepositoryId: metadata.githubRepositoryId },
-      select: { id: true, applicationId: true, programId: true, teamId: true },
+      select: { id: true },
     });
-    if (
-      existing &&
-      ((existing.applicationId !== null &&
-        existing.applicationId !== context.id) ||
-        (existing.programId !== null &&
-          existing.programId !== context.programId) ||
-        (existing.teamId !== null && existing.teamId !== context.teamId))
-    )
-      throw repositoryUrlError('conflict');
     if (context.repository) {
       await tx.githubRepository.update({
         where: { id: context.repository.id },
@@ -118,8 +88,17 @@ export class StudentRepositoryUrlTransaction {
     };
     let repositoryId: string;
     if (existing) {
+      // 다른 신청이 쥐고 있거나 다른 팀의 이력을 든 저장소는 가져오지 않는다.
+      // 읽은 뒤에 다른 요청이 바꿔도 같은 UPDATE가 최신 행으로 다시 판정한다.
       const result = await tx.githubRepository.updateMany({
-        where: { id: existing.id, applicationId: null },
+        where: {
+          id: existing.id,
+          applicationId: null,
+          AND: [
+            { OR: [{ programId: null }, { programId: context.programId }] },
+            { OR: [{ teamId: null }, { teamId: context.teamId }] },
+          ],
+        },
         data,
       });
       if (result.count !== 1) throw repositoryUrlError('conflict');
@@ -132,58 +111,21 @@ export class StudentRepositoryUrlTransaction {
       repositoryId = created.id;
     }
     const repositoryUrl = `https://github.com/${metadata.nameWithOwner}`;
-    const now = new Date();
+    // 연결 방식·포인터·URL은 한 묶음으로 바뀐다 — 직접 고른 저장소는 OWN이다.
     await tx.application.update({
       where: { id: context.id },
-      data: { repositoryUrl },
-    });
-    // 학생이 직접 다시 연결한 순간 이 연결이 현재이다 — 진행 중이던 발급
-    // 요청은 그 자리에서 끝난다. 세대를 닫지 않고 job만 재무장하면 낡은 요청의
-    // payload를 들고 온 worker가 방금 학생이 고른 저장소를 덮어쓴다.
-    if (resolution.kind !== 'ORGANIZATION') {
-      await settleProvisionGenerationForSynchronousConnection(
-        tx,
-        { applicationId: context.id, repositoryId, now },
-        parseRepositoryProvisionEvent,
-      );
-      return repositoryId;
-    }
-
-    // 조직 저장소는 연결만으로 끝나지 않는다 — worker가 초대를 이어서 조정해야 하므로
-    // 「지금 이 연결」을 가리키는 새 요청 세대를 만든다. 세대 없이 PENDING만 두면
-    // claim이 fail-closed로 건너뛰고, 이전 세대를 그대로 두면 낡은 목표로 실행된다.
-    const members = await tx.teamMember.findMany({
-      where: { teamId: context.teamId },
-      select: { user: { select: { nickname: true } } },
-    });
-    const collaboratorGithubLogins = canonicalGithubLogins(
-      members.map((member) => member.user.nickname),
-    );
-    if (collaboratorGithubLogins.length === 0) {
-      throw repositoryUrlError('conflict');
-    }
-    const event = await tx.outboxEvent.create({
       data: {
-        type: REPOSITORY_PROVISION_EVENT_TYPE,
-        aggregateType: 'Application',
-        aggregateId: context.id,
-        idempotencyKey: `repository-url:${context.id}:${randomUUID()}`,
-        payload: {
-          applicationId: context.id,
-          programId: context.programId,
-          teamId: context.teamId,
-          requestedAt: now.toISOString(),
-          collaboratorGithubLogins,
-          repositoryConnectionMode: RepositoryConnectionMode.OWN,
-          repositoryUrl,
-        },
-        availableAt: now,
+        repositoryConnectionMode: RepositoryConnectionMode.OWN,
+        repositoryUrl,
       },
-      select: { id: true },
     });
-    await transferProvisionGeneration(
+    // 직접 연결은 연결하고 수집할 뿐이다 — 조직 저장소여도 저장소를 만들거나 초대하지
+    // 않는다. 진행 중이던 발급 요청은 SUPERSEDED로 닫고 job은 새 세대 없이 완료로
+    // 둔다(currentEventId=null이라 worker가 다시 집지 않는다). 세대를 닫지 않고
+    // 재무장하면 낡은 요청을 든 worker가 방금 고른 저장소를 덮어쓴다.
+    await settleProvisionGenerationForSynchronousConnection(
       tx,
-      { applicationId: context.id, newEventId: event.id, now },
+      { applicationId: context.id, repositoryId, now: new Date() },
       parseRepositoryProvisionEvent,
     );
     return repositoryId;

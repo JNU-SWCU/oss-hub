@@ -17,6 +17,7 @@ import {
 import {
   StudentRepositoryUrlRepository,
   type StudentRepositoryUrlContext,
+  type TeamRepositoryUrlContext,
 } from './student-repository-url.repository';
 import { repositoryUrlError } from './student-repository-url.errors';
 
@@ -49,7 +50,7 @@ export class StudentRepositoryUrlService {
     @Inject(StudentRepositoryUrlRepository)
     private readonly repository: Pick<
       StudentRepositoryUrlRepository,
-      'findContext' | 'withTransaction'
+      'findContext' | 'findTeamContext' | 'withTransaction'
     >,
     @Inject(ApplicationsRepository)
     private readonly applications: Pick<
@@ -87,21 +88,50 @@ export class StudentRepositoryUrlService {
   ): Promise<StudentRepositoryUrlView> {
     const actor = await this.requireActor(githubId);
     const context = await this.repository.findContext(programId, actor.id);
-    this.requireEditable(context, actor.id);
+    if (!context)
+      throw new DomainException(
+        APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.APPLICATION_NOT_FOUND],
+      );
+    return this.updateForTeam(githubId, programId, context.teamId, input);
+  }
+
+  /**
+   * 팀 저장소 URL을 바꾸는 유일한 쓰기 경로 — 팀장과 교직원이 같은 규칙과 같은
+   * 감사 기록을 쓴다. 권한은 GitHub를 묻기 전에 한 번, 잠근 뒤에 다시 판정한다.
+   */
+  async updateForTeam(
+    githubId: bigint,
+    programId: string,
+    teamId: string,
+    input: UpdateStudentRepositoryUrlInput,
+  ): Promise<StudentRepositoryUrlView> {
+    const context = await this.repository.findTeamContext(
+      programId,
+      teamId,
+      githubId,
+    );
+    this.requireEditable(context);
     const resolution = await this.resolve(input.repositoryUrl);
     if (resolution.kind === 'EXTERNAL')
       await this.consents.requireCurrent(context.applicant.githubId);
     try {
       return await this.repository.withTransaction(async (store) => {
-        const current = await store.lockContext(programId, actor.id);
-        this.requireEditable(current, actor.id);
+        const current = await store.lockTeamContext(
+          programId,
+          teamId,
+          githubId,
+        );
+        this.requireEditable(current);
         if (
           current.repository?.githubRepositoryId ===
             resolution.repository.githubRepositoryId &&
           this.url(current)?.toLowerCase() ===
             `https://github.com/${resolution.repository.nameWithOwner}`.toLowerCase()
         )
-          return this.view(current, actor.id);
+          return {
+            repositoryUrl: this.url(current),
+            canEditRepositoryUrl: true,
+          };
         const repositoryId = await store.relink(current, resolution);
         const repositoryUrl = `https://github.com/${resolution.repository.nameWithOwner}`;
         await this.audit.record(
@@ -115,7 +145,7 @@ export class StudentRepositoryUrlService {
               programId,
               teamId: current.teamId,
               programName: current.program.name,
-              actorGithubLogin: actor.nickname,
+              actorGithubLogin: current.editor.nickname,
               before: {
                 repositoryId: current.repository?.id ?? null,
                 repositoryUrl: this.url(current),
@@ -163,14 +193,21 @@ export class StudentRepositoryUrlService {
   }
 
   private requireEditable(
-    context: StudentRepositoryUrlContext | null,
-    studentId: string,
-  ): asserts context is StudentRepositoryUrlContext {
-    if (!context || context.team.leaderId !== studentId)
+    context: TeamRepositoryUrlContext | null,
+  ): asserts context is TeamRepositoryUrlContext {
+    const isManager =
+      context !== null && (context.editor.isLeader || context.editor.isStaff);
+    // 팀원·다른 팀·비활성 계정은 신청이 없는 경우와 같은 404로 답한다.
+    if (!context || !isManager)
       throw new DomainException(
         APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.APPLICATION_NOT_FOUND],
       );
-    if (!this.view(context, studentId).canEditRepositoryUrl)
+    if (
+      !canEditStudentRepositoryUrl(
+        { status: context.status, endAt: context.program.endAt, isManager },
+        new Date(),
+      )
+    )
       throw repositoryUrlError('closed');
   }
 

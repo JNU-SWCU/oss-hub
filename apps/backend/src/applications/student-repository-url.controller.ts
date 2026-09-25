@@ -43,12 +43,12 @@ export class UpdateStudentRepositoryUrlRequestDto {
   declare readonly repositoryUrl: string;
 }
 
-@Controller('programs/:programId/applications/me/repository-url')
+@Controller('programs/:programId')
 @UseGuards(SessionGuard)
 export class StudentRepositoryUrlController {
   constructor(private readonly service: StudentRepositoryUrlService) {}
 
-  @Get()
+  @Get('applications/me/repository-url')
   @Header('Cache-Control', 'private, no-store')
   getMine(
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
@@ -57,7 +57,7 @@ export class StudentRepositoryUrlController {
     return this.service.getMine(request.sessionGithubId, programId);
   }
 
-  @Patch()
+  @Patch('applications/me/repository-url')
   @UseGuards(OriginGuard)
   updateMine(
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
@@ -67,5 +67,22 @@ export class StudentRepositoryUrlController {
     return this.service.updateMine(request.sessionGithubId, programId, {
       repositoryUrl: body.repositoryUrl,
     });
+  }
+
+  /** 팀장과 교직원이 같은 문을 쓴다 — 권한은 service가 판정한다. */
+  @Patch('teams/:teamId/repository-url')
+  @UseGuards(OriginGuard)
+  updateForTeam(
+    @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
+    @Param('programId') programId: string,
+    @Param('teamId') teamId: string,
+    @Body() body: UpdateStudentRepositoryUrlRequestDto,
+  ): Promise<StudentRepositoryUrlView> {
+    return this.service.updateForTeam(
+      request.sessionGithubId,
+      programId,
+      teamId,
+      { repositoryUrl: body.repositoryUrl },
+    );
   }
 }

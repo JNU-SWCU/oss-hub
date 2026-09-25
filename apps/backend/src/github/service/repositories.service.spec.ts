@@ -434,6 +434,45 @@ describe('RepositoriesService.getMyRepositories', () => {
       }).getMyRepositories(123n),
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
+  it('classifies a direct link to an organization repository as OWN when the application records OWN', async () => {
+    // 직접 연결은 조직 저장소여도 발급·초대가 없다(#1133). source만 보고 NEW로 읽으면
+    // 초대 행이 없는 성공을 대시보드가 「초대 실패」로 그린다.
+    const { repository, github, auditLog } = dependencies();
+    repository.listOwnedProvisionJobs.mockResolvedValue([
+      job({
+        application: {
+          id: 'synthetic-direct-link-application',
+          teamId: 'synthetic-direct-link-team',
+          repositoryConnectionMode: RepositoryConnectionMode.OWN,
+          applicant: { nickname: 'synthetic-leader' },
+          program: { name: 'Synthetic program' },
+          team: { name: 'Synthetic direct team', _count: { members: 3 } },
+          repository: {
+            id: 'synthetic-direct-org-repository',
+            name: 'synthetic-direct-org',
+            url: 'https://github.com/synthetic-org/synthetic-direct-org',
+            visibility: RepositoryVisibility.PUBLIC,
+            source: RepositorySource.ORG_PROVISIONED,
+            invitations: [],
+          },
+        },
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+      }),
+    ]);
+
+    const [result] = await serviceFrom({
+      ...dependencies(),
+      repository,
+      github,
+      auditLog,
+    }).getMyRepositories(123n);
+
+    expect(result).toMatchObject({
+      repositoryId: 'synthetic-direct-org-repository',
+      connectionMode: RepositoryConnectionMode.OWN,
+      invitationStatus: null,
+    });
+  });
   it('classifies a valid external relink from persisted source on an immutable NEW application', async () => {
     const { repository, github, auditLog } = dependencies();
     const externalUrl =
