@@ -520,9 +520,9 @@ export type Fixture = RepositoryOutboxConsumer;
     });
   });
 
-  // PR-3 — 운영 코드(src의 테스트가 아닌 파일)가 테스트 코드를 다시 알게 되는
+  // #1427 — 운영 코드(src의 테스트가 아닌 파일)가 테스트 코드를 다시 알게 되는
   // 것을 lint로 막는다. 세 규칙(a/b/c)마다 위반·허용 fixture를 한 쌍씩 고정한다.
-  describe('규칙 7 — 운영 코드는 테스트 코드를 참조하지 않는다 (PR-3)', () => {
+  describe('규칙 7 — 운영 코드는 테스트 코드를 참조하지 않는다 (#1427)', () => {
     describe('a. boundary/module-zone testBoundary — apps/backend/test/** import 금지', () => {
       it('RED: 운영 파일이 apps/backend/test/e2e-program-authoring을 import하면 그 import 노드에서 실패한다', () => {
         // Given: programs 모듈의 운영 파일이 E2E 전용 외부 포트를 직접 끌어온다.
@@ -542,9 +542,7 @@ export const fixture = e2eProgramAuthoringExternalPorts;
         expect(messages).toHaveLength(1);
         expect(messages[0]?.ruleId).toBe('boundary/module-zone');
         expect(messages[0]?.line).toBe(1);
-        expect(messages[0]?.message).toContain(
-          '테스트 코드를 참조하지 않는다',
-        );
+        expect(messages[0]?.message).toContain('테스트 코드를 참조하지 않는다');
       });
 
       it('GREEN: 테스트 파일(.spec.ts) 자신이 같은 경로를 import하면 면제된다', () => {

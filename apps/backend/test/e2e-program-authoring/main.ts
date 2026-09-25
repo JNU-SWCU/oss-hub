@@ -18,7 +18,9 @@ import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
  */
 async function bootstrap(): Promise<void> {
   if (process.env.NODE_ENV !== 'test') {
-    throw new Error('E2E program authoring entry point requires NODE_ENV=test.');
+    throw new Error(
+      'E2E program authoring entry point requires NODE_ENV=test.',
+    );
   }
 
   const ports = e2eProgramAuthoringExternalPorts;

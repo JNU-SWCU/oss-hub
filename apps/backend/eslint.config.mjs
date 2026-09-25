@@ -15,7 +15,7 @@ import moduleZoneBoundary from './eslint-rules/module-zone-boundary.mjs';
 const srcDir = path.join(import.meta.dirname, 'src');
 const sharedDirs = new Set(['common', 'prisma']);
 
-// PR-3 — 테스트 파일 판정을 한 곳에 둔다. `.spec.ts`·`*fixture(s).ts`·
+// #1427 — 테스트 파일 판정을 한 곳에 둔다. `.spec.ts`·`*fixture(s).ts`·
 // `*support.ts`는 테스트 파일이다. `boundary/module-zone`에는 정규식 소스
 // 문자열로 넘기고(RegExp 리터럴은 JSON schema를 못 통과한다), 파일 단위로
 // 규칙 블록을 빼는 곳(no-restricted-imports 등)에는 같은 판정을 glob으로 쓴다.
@@ -135,14 +135,14 @@ const moduleZoneBoundaryOptions = {
         'service 는 Prisma 를 직접 부르지 않는다 — repository 계층으로 위임한다 (ADR-010 §8).',
     },
   ],
-  // PR-3 — 운영 코드는 테스트 코드를 모른다. import 대상이 `apps/backend/test/**`
+  // #1427 — 운영 코드는 테스트 코드를 모른다. import 대상이 `apps/backend/test/**`
   // 이거나 테스트 파일(`.spec.ts`/fixture/support)로 해석되면 zone 판정보다
   // 먼저 막는다. 이 규칙은 이미 import를 절대경로로 해석하므로 깊이와 무관하다.
   testBoundary: {
     testDir: path.join(import.meta.dirname, 'test'),
     basenamePattern: testFileBasenamePattern,
     message:
-      '운영 코드는 테스트 코드를 참조하지 않는다 — E2E 대역은 test/e2e-program-authoring/main.ts에서만 끼운다 (PR-3).',
+      '운영 코드는 테스트 코드를 참조하지 않는다 — E2E 대역은 test/e2e-program-authoring/main.ts에서만 끼운다 (#1427).',
   },
 };
 
@@ -159,7 +159,7 @@ const envRestrictedSyntax = [
     message:
       '환경변수는 runtime-config manifest를 거쳐 읽는다 — process.env 구조분해 금지.',
   },
-  // PR-3 — 운영 코드는 지금 테스트 중인지 묻지 않는다. `process.env.NODE_ENV`뿐
+  // #1427 — 운영 코드는 지금 테스트 중인지 묻지 않는다. `process.env.NODE_ENV`뿐
   // 아니라 파싱된 RuntimeConfig의 `.NODE_ENV`를 `'test'`와 비교하는 것도 막는다
   // (E2E 분기는 test/e2e-program-authoring/main.ts 같은 별도 진입점에서만 한다).
   // 양쪽 피연산자 순서를 모두 잡도록 selector 두 개를 둔다.
@@ -167,13 +167,13 @@ const envRestrictedSyntax = [
     selector:
       "BinaryExpression[operator=/^(===|!==|==|!=)$/][left.property.name='NODE_ENV'][right.value='test']",
     message:
-      '운영 코드는 지금 테스트 중인지 묻지 않는다 — NODE_ENV를 test와 비교해 분기하지 않는다 (PR-3).',
+      '운영 코드는 지금 테스트 중인지 묻지 않는다 — NODE_ENV를 test와 비교해 분기하지 않는다 (#1427).',
   },
   {
     selector:
       "BinaryExpression[operator=/^(===|!==|==|!=)$/][left.value='test'][right.property.name='NODE_ENV']",
     message:
-      '운영 코드는 지금 테스트 중인지 묻지 않는다 — NODE_ENV를 test와 비교해 분기하지 않는다 (PR-3).',
+      '운영 코드는 지금 테스트 중인지 묻지 않는다 — NODE_ENV를 test와 비교해 분기하지 않는다 (#1427).',
   },
 ];
 
@@ -212,7 +212,7 @@ export default tseslint.config(
       'boundary/module-zone': ['error', moduleZoneBoundaryOptions],
     },
   },
-  // PR-3 — 운영 코드는 E2E 조립 도구(`@nestjs/testing`)를 모른다. 그 도구는
+  // #1427 — 운영 코드는 E2E 조립 도구(`@nestjs/testing`)를 모른다. 그 도구는
   // test/e2e-program-authoring/main.ts 같은 별도 composition root 전용이다.
   // 테스트 파일 자신은 당연히 이 도구를 쓰므로 제외한다.
   //
@@ -232,7 +232,7 @@ export default tseslint.config(
             {
               name: '@nestjs/testing',
               message:
-                '운영 코드는 @nestjs/testing을 참조하지 않는다 — E2E 조립은 test/e2e-program-authoring/main.ts에서만 한다 (PR-3).',
+                '운영 코드는 @nestjs/testing을 참조하지 않는다 — E2E 조립은 test/e2e-program-authoring/main.ts에서만 한다 (#1427).',
             },
           ],
           patterns: [

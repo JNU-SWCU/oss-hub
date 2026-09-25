@@ -107,7 +107,7 @@ const rule = {
               additionalProperties: false,
             },
           },
-          // PR-3 — 운영 코드(src 비-테스트 파일)는 테스트 코드를 참조하지 않는다.
+          // #1427 — 운영 코드(src 비-테스트 파일)는 테스트 코드를 참조하지 않는다.
           testBoundary: {
             type: 'object',
             properties: {
@@ -173,7 +173,7 @@ const rule = {
       }
       const targetAbs = path.resolve(path.dirname(filename), specifierValue);
 
-      // PR-3 — 운영 코드는 테스트 코드를 모른다. zone/역할 판정보다 먼저 본다.
+      // #1427 — 운영 코드는 테스트 코드를 모른다. zone/역할 판정보다 먼저 본다.
       if (testBoundary && !selfIsTestFile) {
         const relativeToTestDir = path.relative(
           testBoundary.testDir,
