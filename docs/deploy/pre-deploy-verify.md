@@ -4,7 +4,7 @@
 앞 단계가 통과해야 다음으로 넘어간다. 목적은 회귀 위험(첫 배포는 `PREV_TAG`가 없어 자동 rollback 불가)을 사전 차단하는 것이다.
 서버 접속·설치·job 절차는 [server-runbook](./server-runbook.md)이 원본이며, 이 문서는 검증 절차만 다룬다.
 
-프로덕션 스택 정의는 저장소 루트 `compose.yml`(nginx / backend / postgres)이 원본이다. Local frontend·MinIO substitute는 `compose.local.yml`에서만 추가된다.
+프로덕션 스택 정의는 저장소 루트 `compose.yml`(nginx / backend / postgres)이 원본이다. Local frontend·object-storage substitute는 `compose.local.yml`에서만 추가된다.
 Compose nginx는 `127.0.0.1:8081`에만 bind한다. 공인 `80/443`은 host nginx 계약이다.
 
 ## 표기 규약
@@ -65,8 +65,8 @@ bash scripts/rehearse-user-phone-column.sh negative
 
 로컬 통합 검증은 production Compose를 수동 변형하지 않고 저장소가 소유한 두 파일 계약을 그대로 사용한다.
 
-1. `.env.example`을 기준으로 추적하지 않는 `.env`를 준비한다. Local frontend·MinIO 값은 합성 개발 값만 사용하고 운영 credential을 복사하지 않는다.
-2. `pnpm local:verify`를 실행한다. 이 명령은 `compose.yml + compose.local.yml`로 backend·frontend를 현재 source에서 build하고 PostgreSQL·MinIO·local nginx를 기동한 뒤 migration, root/frontend, API health와 object-store lifecycle을 확인한다.
+1. `.env.example`을 기준으로 추적하지 않는 `.env`를 준비한다. Local frontend·object-storage 값은 합성 개발 값만 사용하고 운영 credential을 복사하지 않는다.
+2. `pnpm local:verify`를 실행한다. 이 명령은 `compose.yml + compose.local.yml`로 backend·frontend를 현재 source에서 build하고 PostgreSQL·object-storage·local nginx를 기동한 뒤 migration, root/frontend, API health와 object-store lifecycle을 확인한다.
 3. Root는 local frontend 200, `/api/v1/health`는 PostgreSQL을 포함한 200이어야 한다. 제출 파일 미인증 `POST /api/v1/submission-files`는 401이어야 한다.
 4. 실패 로그는 `pnpm local:up`과 같은 고정 project/two-file boundary 안에서 확인한다. 운영 프로젝트나 volume을 조작하지 않는다.
 5. 정리는 `pnpm local:down`만 사용한다. 이 명령의 `down -v`는 격리된 local project에만 허용되며 production에서는 금지한다.

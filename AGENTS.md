@@ -3,7 +3,7 @@
 ## Project Overview
 
 OSS Hub는 오픈소스 프로그램 탐색·신청·제출·리뷰, 역할 기반 운영, GitHub 저장소·활동 수집을 제공하는 한국어 웹 서비스다.
-이 저장소는 PUBLIC monorepo이며 Next.js frontend(Vercel), NestJS backend, PostgreSQL, private managed R2, nginx와 배포 계약을 함께 관리한다(MinIO는 `compose.local.yml`의 local substitute만).
+이 저장소는 PUBLIC monorepo이며 Next.js frontend(Vercel), NestJS backend, PostgreSQL, private managed R2, nginx와 배포 계약을 함께 관리한다(object-storage는 `compose.local.yml`의 local substitute만).
 작업 전 루트부터 대상 경로까지의 `AGENTS.md`를 순서대로 읽고 가장 가까운 규칙을 우선한다.
 상세 규칙은 이 문서에 복제하지 않고 `docs/rules/`, `docs/decisions/`, 해당 경로의 `AGENTS.md`를 따른다.
 
@@ -57,13 +57,13 @@ Node.js 24 이상과 pnpm 11.0.0을 사용하고 `corepack enable`로 pnpm을 �
 | Formatting | `pnpm format:check` (`pnpm format` only when formatting is intended) |
 
 **일상 개발의 기본 진입점은 반드시 `pnpm dev`다.**
-frontend·backend 애플리케이션은 호스트에서 hot reload로 실행하고, Docker는 PostgreSQL·MinIO 같은 개발 인프라에만 사용한다.
+frontend·backend 애플리케이션은 호스트에서 hot reload로 실행하고, Docker는 PostgreSQL·object-storage 같은 개발 인프라에만 사용한다.
 에이전트는 일반 구현·디버깅·UI 확인을 위해 앱 컨테이너를 빌드하거나 `pnpm local:up`을 실행하지 않는다.
 앱까지 Docker로 실행하는 `pnpm local:up`·`pnpm local:verify`는 배포 전 production-like 통합 검증, 컨테이너·nginx·Compose 계약 변경, 또는 사용자가 명시적으로 요청한 경우에만 사용한다.
 실제 production은 frontend는 Vercel, backend는 Docker Compose/Jenkins이므로 “배포는 전부 Docker”로 표현하지 않는다.
 
 `pnpm dev`는 `.envrc`와 host `localhost` 경계를, `pnpm local:*`은 `.env`와 Compose service DNS 경계를 사용한다.
-두 환경의 DB/MinIO 주소를 복사하지 말고 상세 선택 기준은 `docs/rules/local-dev.md`를 따른다.
+두 환경의 DB/object-storage 주소를 복사하지 말고 상세 선택 기준은 `docs/rules/local-dev.md`를 따른다.
 `compose.yml`은 prebuilt release image와 production secret을 요구하므로 local development entry point로 사용하지 않는다.
 코드·설정을 바꾸는 세션에서는 관련 open PR을 한 번 확인하고 `bash scripts/setup-hooks.sh`로 repository hooks를 활성화한다.
 정보 질의·기획·보고만 하는 작업은 이 선행을 실행하지 않는다.
