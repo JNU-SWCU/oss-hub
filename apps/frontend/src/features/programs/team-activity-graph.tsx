@@ -181,7 +181,9 @@ function WeeklyChart({
   }
 
   return (
-    <div className="grid gap-4">
+    // `relative`: 아래 낭독용 표(`sr-only` = absolute)의 기준을 여기에 둔다. 기준이 없으면
+    // body가 기준이 되어, 본문 스크롤 영역 밖에서 문서 높이가 늘고 페이지가 한 번 더 스크롤된다.
+    <div className="relative grid gap-4">
       <FilterChipGroup aria-label="지표">
         {METRICS.map((item) => (
           <FilterChip
