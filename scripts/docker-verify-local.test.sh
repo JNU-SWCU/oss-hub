@@ -186,7 +186,8 @@ local_compose_config_without_caller_image_tag_or_gmail_credentials() {
       config --format json
   )" || return 1
   printf '%s' "$config_json" | grep -Fq '"dockerfile": "apps/backend/Dockerfile"' || return 1
-  printf '%s' "$config_json" | grep -Fq '"dockerfile": "apps/frontend/Dockerfile"' || return 1
+  # frontend 컨테이너는 운영에 없으므로 로컬 compose에도 service 자체가 없어야 한다
+  ! printf '%s' "$config_json" | grep -Fq '"frontend": {' || return 1
   # image reset: services should not keep a prebuilt image tag dependency
   ! printf '%s' "$config_json" | grep -Eq '"image": "oss-hub-backend:' || return 1
   ! printf '%s' "$config_json" | grep -Eq '"image": "oss-hub-frontend:' || return 1

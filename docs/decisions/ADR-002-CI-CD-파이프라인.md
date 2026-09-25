@@ -52,7 +52,7 @@ Smoke는 rollout과 rollback의 Compose ingress에서 `/` 404와 `/api/v1/health
 
 제출 파일 storage의 production 선택값은 exact `managed` 하나다. Backend는 `SUBMISSION_FILE_S3_*`를 읽고 credential pair는 Jenkins username/password binding으로만 주입하며 env file에 두지 않는다. Candidate와 실행 중 backend의 non-secret storage tuple이 다르면 backup·build·rollout 전에 fail-closed한다.
 
-Configured endpoint와 bucket을 확인한 SDK object backup, manifest SHA-256, PostgreSQL backup, previous backend image rollback은 유지한다. MinIO mode·credential·backup·migration hold와 frontend image build/rollback은 cleanup 완료 뒤 production 계약에서 제거됐다. 로컬 개발용 object-storage와 frontend는 `compose.local.yml`의 substitute이며 production Compose에 포함되지 않는다.
+Configured endpoint와 bucket을 확인한 SDK object backup, manifest SHA-256, PostgreSQL backup, previous backend image rollback은 유지한다. MinIO mode·credential·backup·migration hold와 frontend image build/rollback은 cleanup 완료 뒤 production 계약에서 제거됐다. 로컬 개발용 object-storage는 `compose.local.yml`의 substitute이며 production Compose에 포함되지 않는다. 로컬 frontend UI 개발은 `pnpm dev`가 호스트에서 담당하며 Compose 컨테이너를 쓰지 않는다.
 
 ### Anti-pattern: 애플리케이션 권한 검증을 CD에 두기
 

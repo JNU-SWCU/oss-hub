@@ -71,7 +71,7 @@ main() {
   # 호스트 쉘 env는 Compose의 --env-file보다 우선하므로, .env가 소유해야 할 값은 먼저 비운다.
   # scripts/run-backend-integration.sh와 동일한 방어다.
   # 호출자 IMAGE_TAG는 무시하고 로컬 전용 interpolation placeholder만 넣는다.
-  # compose.local.yml이 backend·frontend image를 !reset 하므로 이 값은 선택되지 않는다.
+  # compose.local.yml이 backend image를 !reset 하므로 이 값은 선택되지 않는다.
   unset IMAGE_TAG
   unset DATABASE_URL FRONTEND_URL GITHUB_OAUTH_CALLBACK_URL
   unset POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB

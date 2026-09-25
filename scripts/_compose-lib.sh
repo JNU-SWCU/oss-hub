@@ -35,7 +35,10 @@ db_smoke() {
 }
 
 http_smoke() {
-  curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:${LOCAL_INGRESS_PORT:-3000}/ >/dev/null
+  local root_status
+  # frontend 없이 nginx가 root를 운영과 같이 404로 막는지 확인한다.
+  root_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --retry 5 --retry-connrefused http://127.0.0.1:${LOCAL_INGRESS_PORT:-3000}/)
+  [[ "$root_status" == 404 ]]
   curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:${LOCAL_INGRESS_PORT:-3000}/api/v1/health >/dev/null
 }
 
