@@ -18,8 +18,8 @@ import type {
   E2eProgramAuthoringGraph,
   E2eProgramAuthoringState,
 } from './e2e-program-authoring.types';
-import { PrismaService } from '../prisma/prisma.service';
-import { CONSENT_POLICY_VERSION } from '../consents/consents.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import { CONSENT_POLICY_VERSION } from '../../src/consents/consents.service';
 
 const PREFIX = 'e2e:program-authoring:';
 export const E2E_PROGRAM_ID = `${PREFIX}program`;

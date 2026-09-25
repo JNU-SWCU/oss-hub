@@ -19,7 +19,7 @@
 
 ## 파일 계약
 
-- 저장소 경계는 `submission-file-storage.port.ts`의 `SUBMISSION_FILE_STORAGE`다. 구현체는 `s3-submission-file.storage.ts`; E2E 외부 포트 선택은 `submissions.module.ts`의 factory만 바꾼다.
+- 저장소 경계는 `submission-file-storage.port.ts`의 `SUBMISSION_FILE_STORAGE`다. 구현체는 `s3-submission-file.storage.ts`; E2E 대역 교체는 `apps/backend/test/e2e-program-authoring/main.ts`의 `overrideProvider`만 쓴다.
 - 업로드는 5 MiB 제한, 파일명 정규화, 허용 content type·signature, ZIP metadata 검사 후 pending 행을 만들고 객체를 저장한다. 검증 또는 pending TTL을 우회하지 않는다.
 - 파일 교체도 제출 재제출과 같은 상태·마감·revision 조건을 적용한다. upload와 `SubmissionsService.assertResubmittable`의 규칙을 벌어지게 만들지 않는다.
 - 다운로드는 `SubmissionFilesRepository.findDownloadableFile` 권한·만료 결과가 없으면 동일한 not-found로 처리하고 `private, no-store` 및 안전한 attachment filename을 유지한다.

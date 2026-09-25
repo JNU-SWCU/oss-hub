@@ -3,11 +3,11 @@ import {
   type CollaboratorOutcome,
   type GithubPublicRepositoryMetadata,
   type GithubRepositoryMetadata,
-} from '../github/github-app.client';
+} from '../../src/github/github-app.client';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
-} from '../github/github-app.error';
+} from '../../src/github/github-app.error';
 import {
   E2E_EXTERNAL_FAILURE_OPERATIONS,
   type E2eExternalFailureOperation,
@@ -42,10 +42,6 @@ export class E2eFakeGithubAppClient {
   }
 
   get organization(): string {
-    return this.organizationName;
-  }
-
-  get configuredOrganization(): string {
     return this.organizationName;
   }
 

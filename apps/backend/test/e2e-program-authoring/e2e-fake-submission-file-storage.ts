@@ -5,8 +5,8 @@ import {
   type StoredSubmissionFile,
   SubmissionFileStorageError,
   type SubmissionFileStoragePort,
-} from '../submissions/submission-file-storage.port';
-import { sanitizeSubmissionFileOriginalName } from '../submissions/submission-file-name';
+} from '../../src/submissions/submission-file-storage.port';
+import { sanitizeSubmissionFileOriginalName } from '../../src/submissions/submission-file-name';
 import {
   E2E_EXTERNAL_FAILURE_OPERATIONS,
   type E2eExternalPortRegistry,

@@ -9,8 +9,8 @@ const source = readFileSync(
 describe('E2eProgramAuthoringAdapter orchestration boundary', () => {
   it('uses application, outbox, worker, and deadline services for approval', () => {
     expect(source).toContain('this.applications.decide(');
-    expect(source).toContain('this.repositories.consumeNext(');
-    expect(source).toContain('this.repositories.runNext(');
+    expect(source).toContain('outbox.consumeNext(');
+    expect(source).toContain('worker.runNext(');
     expect(source).toContain('this.deadlines.sendProgramFromPreview(');
   });
 

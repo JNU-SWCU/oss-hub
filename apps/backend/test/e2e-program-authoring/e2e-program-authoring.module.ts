@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { AuthModule } from '../auth/auth.module';
-import { ApplicationsModule } from '../applications/applications.module';
-import { RepositoriesModule } from '../github/repositories.module';
-import { MilestoneDocumentsModule } from '../milestone-documents/milestone-documents.module';
-import { NotificationsModule } from '../notifications/notifications.module';
-import { PrismaModule } from '../prisma/prisma.module';
-import { ProgramsModule } from '../programs/programs.module';
-import { SubmissionsModule } from '../submissions/submissions.module';
+import { AuthModule } from '../../src/auth/auth.module';
+import { ApplicationsModule } from '../../src/applications/applications.module';
+import { RepositoriesModule } from '../../src/github/repositories.module';
+import { MilestoneDocumentsModule } from '../../src/milestone-documents/milestone-documents.module';
+import { NotificationsModule } from '../../src/notifications/notifications.module';
+import { PrismaModule } from '../../src/prisma/prisma.module';
+import { ProgramsModule } from '../../src/programs/programs.module';
+import { SubmissionsModule } from '../../src/submissions/submissions.module';
 import {
   E2E_PROGRAM_AUTHORING_PORT,
   E2eProgramAuthoringAdapter,

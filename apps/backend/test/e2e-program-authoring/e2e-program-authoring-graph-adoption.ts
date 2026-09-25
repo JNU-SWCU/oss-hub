@@ -1,6 +1,6 @@
 import { MilestoneDocumentKind, MilestoneSubmissionType } from '@prisma/client';
 import type { E2eProgramAuthoringGraph } from './e2e-program-authoring.types';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 
 type E2eProgramAdoptionDocument = {

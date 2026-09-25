@@ -1,5 +1,5 @@
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
 
 export type E2eProgramAuthoringActors = {
   readonly staffId: string;
