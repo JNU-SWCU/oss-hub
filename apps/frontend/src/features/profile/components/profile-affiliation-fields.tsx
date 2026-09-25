@@ -41,6 +41,13 @@ export function ProfileAffiliationFields({
           <Select
             id="profile-affiliation-kind"
             name="affiliationKind"
+            // 열린 목록은 브라우저가 시스템 바탕(흰색) 위에 그린다. 가입 무대가 물려준
+            // 흰 글자를 그대로 두면 윈도우 Chrome·Edge 에서 흰 바탕에 흰 글자가 된다
+            // (#1435, 아래 학과 칸의 QA34 와 같은 원인).
+            className={cn(
+              '[&_optgroup]:bg-popover [&_optgroup]:text-popover-foreground',
+              '[&_option]:bg-popover [&_option]:text-popover-foreground',
+            )}
             value={values.affiliationKind}
             onChange={(event) =>
               onChange({
