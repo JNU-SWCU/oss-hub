@@ -1,54 +1,32 @@
 # 로컬 전용 override이며 운영 배포는 compose.yml만 사용한다.
 # 앱 이미지는 base의 IMAGE_TAG 치환을 쓰지 않고 저장소 Dockerfile로 직접 빌드한다.
 services:
-  # MinIO is a local/integration substitute only. Production compose.yml has no
-  # MinIO service and always uses the managed object-store tuple.
-  minio:
-    image: quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z@sha256:d249d1fb6966de4d8ad26c04754b545205ff15a62e4fd19ebd0f26fa5baacbc0
+  # s3mock is a local/integration substitute only. Production compose.yml has no
+  # object-storage service and always uses the managed object-store tuple.
+  object-storage:
+    image: adobe/s3mock:5.2.3@sha256:ab01a6946750f451ca215a47e91030695b260e4003b8a5a6201d25029b8fca92
+    # 이미지 기본 사용자(uid 1000)는 root 소유로 새로 생기는 마운트 지점 /data에 쓰지 못해
+    # PutObject가 500으로 실패한다. 로컬·CI 전용 substitute라 root로 실행한다.
+    user: '0:0'
     restart: unless-stopped
-    command: server /data
     environment:
-      MINIO_ROOT_USER: ${ROLLBACK_MINIO_ACCESS_KEY_ID:?ROLLBACK_MINIO_ACCESS_KEY_ID is required}
-      MINIO_ROOT_PASSWORD: ${ROLLBACK_MINIO_SECRET_ACCESS_KEY:?ROLLBACK_MINIO_SECRET_ACCESS_KEY is required}
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: ${SUBMISSION_FILE_S3_BUCKET:?SUBMISSION_FILE_S3_BUCKET is required}
+      COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: /data
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: 'true'
+      # smoke 점검이 사이드카 없이 컨테이너 내부에서 버킷 이름을 읽기 위한 값이다.
+      SUBMISSION_FILE_S3_BUCKET: ${SUBMISSION_FILE_S3_BUCKET:?SUBMISSION_FILE_S3_BUCKET is required}
     volumes:
-      - minio_data:/data
+      - object_storage_data:/data
     healthcheck:
       test:
         [
           'CMD',
-          'curl',
-          '--fail',
-          '--silent',
-          'http://localhost:9000/minio/health/ready',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:9090/favicon.ico',
         ]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-      start_period: 10s
-
-  minio-bucket:
-    image: quay.io/minio/mc:RELEASE.2025-07-21T05-28-08Z@sha256:fb8f773eac8ef9d6da0486d5dec2f42f219358bcb8de579d1623d518c9ebd4cc
-    restart: unless-stopped
-    depends_on:
-      minio:
-        condition: service_healthy
-    environment:
-      MINIO_ROOT_USER: ${ROLLBACK_MINIO_ACCESS_KEY_ID:?ROLLBACK_MINIO_ACCESS_KEY_ID is required}
-      MINIO_ROOT_PASSWORD: ${ROLLBACK_MINIO_SECRET_ACCESS_KEY:?ROLLBACK_MINIO_SECRET_ACCESS_KEY is required}
-      ROLLBACK_MINIO_BUCKET: ${ROLLBACK_MINIO_BUCKET:?ROLLBACK_MINIO_BUCKET is required}
-    entrypoint:
-      - /bin/sh
-      - -eu
-      - -c
-      - >-
-        rm -f /tmp/bucket-ready &&
-        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" >/dev/null &&
-        mc mb --ignore-existing "local/$${ROLLBACK_MINIO_BUCKET}" >/dev/null &&
-        mc anonymous set none "local/$${ROLLBACK_MINIO_BUCKET}" >/dev/null &&
-        touch /tmp/bucket-ready &&
-        exec sleep infinity
-    healthcheck:
-      test: ['CMD-SHELL', 'test -f /tmp/bucket-ready']
       interval: 5s
       timeout: 5s
       retries: 12
@@ -60,7 +38,7 @@ services:
       context: .
       dockerfile: apps/backend/Dockerfile
     depends_on:
-      minio-bucket:
+      object-storage:
         condition: service_healthy
 
   frontend:
@@ -92,4 +70,4 @@ services:
       - ./deploy/nginx-local:/etc/nginx/conf.d:ro
 
 volumes:
-  minio_data:
+  object_storage_data:

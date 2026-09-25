@@ -181,7 +181,7 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
     시 `update`경로로 새 prefix로 마이그레이션된다. `sizeBytes`는 호출부가 대는 값이
     아니라 PUT이 반환한 실제 `contentLength`를 그대로 쓴다(가짜 크기가 실제 객체와
     어긋나지 않게). 이 경로는 `SUBMISSION_FILE_S3_*` env가 설정된 환경(dev/staging/
-    production, `compose.dev.yml`의 MinIO 포함)에서만 실제 S3 호출을 한다 — `demo`
+    production, `compose.dev.yml`의 object-storage 포함)에서만 실제 S3 호출을 한다 — `demo`
     profile 외 다른 profile은 storage를 전혀 사용하지 않으므로 영향이 없다.
   - **teardown(TODO 15)**: `--teardown` 플래그로 이 profile이 만든 `seed:demo:*` 행 전부를
     의존성 순서(SubmissionFile→Review→SubmissionRevision→Submission→BoardComment→BoardPost→

@@ -488,9 +488,9 @@ const valueRejects = [
   reject('IP-shaped S3 bucket', 'SUBMISSION_FILE_S3_BUCKET', '192.168.1.1'),
   removed('missing storage mode', 'SUBMISSION_FILE_STORAGE_MODE'),
   reject(
-    'retired MinIO storage mode',
+    'retired local storage mode',
     'SUBMISSION_FILE_STORAGE_MODE',
-    'minio',
+    'local',
     'SUBMISSION_FILE_STORAGE_MODE',
   ),
   rawReject(

@@ -185,7 +185,7 @@ stat -c '%a %U %G %n' /var/lib/oss-hub/backups
 
 첫 Release e2e 전에 [pre-deploy-verify](./pre-deploy-verify.md)의 ① 로컬 랩탑 검증과 ② 배포 EC2 서버-로컬 드라이런을 순서대로 통과시킨다. 앞 단계가 통과해야 다음으로 넘어간다.
 
-- 검증: ①은 `compose.yml + compose.local.yml`의 local frontend·MinIO substitute를 검증한다. ②는 배포 서버의 현재 backend image metadata와 loopback root 404, `/api/v1/health` 200, 제출 파일 인증 경계를 읽기 전용으로 확인한다. 업로드 기대값의 원본은 `Jenkinsfile` rollout smoke다.
+- 검증: ①은 `compose.yml + compose.local.yml`의 local frontend·object-storage substitute를 검증한다. ②는 배포 서버의 현재 backend image metadata와 loopback root 404, `/api/v1/health` 200, 제출 파일 인증 경계를 읽기 전용으로 확인한다. 업로드 기대값의 원본은 `Jenkinsfile` rollout smoke다.
 
 ## M7. 첫 Release 수동 트리거 e2e
 
@@ -222,7 +222,7 @@ curl -fsS \
 4. Candidate와 실행 중 backend의 non-secret storage tuple이 다르면 backup·build·rollout 전에 fail-closed한다.
 5. Release는 configured endpoint/bucket을 사용하는 SDK object backup과 manifest SHA-256, PostgreSQL backup을 만든 뒤 backend image를 교체한다.
 6. Rollback은 captured previous backend image ID·version·revision이 exact match할 때만 허용한다. Object storage mode를 되돌리는 rollback은 없다.
-7. Production Compose root와 비API path는 404이고 `/api/v1/`와 exact OAuth callback만 backend로 전달한다. Local frontend와 MinIO substitute는 `compose.local.yml`에서만 존재한다.
+7. Production Compose root와 비API path는 404이고 `/api/v1/`와 exact OAuth callback만 backend로 전달한다. Local frontend와 object-storage substitute는 `compose.local.yml`에서만 존재한다.
 
 과거 G0–G9 migration 절차와 수용 deviation은 [Cloudflare R2 readiness](../handoff/cloudflare-r2-readiness.md)와 Issue #1113 receipt가 기록 원본이다. 완료된 migration 명령을 production runbook 절차로 다시 실행하지 않는다.
 

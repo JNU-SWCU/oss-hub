@@ -46,7 +46,7 @@ printf 'docker|%s|POSTGRES_PORT=%s|POSTGRES_DB=%s|POSTGRES_BIND_HOST=%s|DATABASE
 if [[ " $* " == *" port postgres 5432 "* ]]; then
   printf '127.0.0.1:49152\n'
 fi
-if [[ " $* " == *" port minio 9000 "* ]]; then
+if [[ " $* " == *" port object-storage 9090 "* ]]; then
   printf '127.0.0.1:49153\n'
 fi
 if [[ " $* " == *" down -v --remove-orphans "* ]]; then
@@ -99,7 +99,7 @@ grep -F '|DATABASE_URL=|RUNNER=' "$command_log" >/dev/null
 grep -F 'DATABASE_URL=postgresql://oss:oss-dev@127.0.0.1:49152/oss_hub_test?schema=public' "$command_log" >/dev/null
 grep -F 'S3_ENDPOINT=http://127.0.0.1:49153' "$command_log" >/dev/null
 grep -F 'S3_BUCKET=submission-files-' "$command_log" >/dev/null
-test "$(grep -Fc '|STORAGE_MODE=minio|' "$command_log")" -eq 2
+test "$(grep -Fc '|STORAGE_MODE=local|' "$command_log")" -eq 2
 test "$(grep -Fc '|RUNNER=oss-hub-isolated-integration-v1' "$command_log")" -eq 2
 if grep -F 'inherited.invalid' "$command_log" >/dev/null; then
   echo 'integration contract: 호출자의 DATABASE_URL이 하위 프로세스에 전달됐습니다.' >&2

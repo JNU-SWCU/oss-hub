@@ -18,10 +18,10 @@ unset AUTH_INITIAL_ROLES
 export POSTGRES_BIND_HOST=127.0.0.1
 export POSTGRES_PORT=0
 export POSTGRES_DB=oss_hub_test
-export MINIO_BIND_HOST=127.0.0.1
-export MINIO_PORT=0
-export MINIO_ROOT_USER="integration-$RANDOM-$$"
-export MINIO_ROOT_PASSWORD="synthetic-$RANDOM-$RANDOM-$$"
+export OBJECT_STORAGE_BIND_HOST=127.0.0.1
+export OBJECT_STORAGE_PORT=0
+export OBJECT_STORAGE_ACCESS_KEY_ID="integration-$RANDOM-$$"
+export OBJECT_STORAGE_SECRET_ACCESS_KEY="synthetic-$RANDOM-$RANDOM-$$"
 export SUBMISSION_FILE_S3_BUCKET="submission-files-$RANDOM-$$"
 
 cleanup() {
@@ -66,43 +66,43 @@ published_endpoint="$(
 )"
 published_port="${published_endpoint##*:}"
 
-minio_endpoint="$(docker compose -p "$project_name" -f "$compose_file" port minio 9000)"
-minio_endpoint="${minio_endpoint%%$'\n'*}"
-minio_port="${minio_endpoint##*:}"
+object_storage_endpoint="$(docker compose -p "$project_name" -f "$compose_file" port object-storage 9090)"
+object_storage_endpoint="${object_storage_endpoint%%$'\n'*}"
+object_storage_port="${object_storage_endpoint##*:}"
 
 if ! [[ "$published_port" =~ ^[0-9]+$ ]]; then
   echo 'backend integration: PostgreSQL 임시 포트를 확인할 수 없습니다.' >&2
   exit 1
 fi
 
-if ! [[ "$minio_port" =~ ^[0-9]+$ ]]; then
-  echo 'backend integration: MinIO 임시 포트를 확인할 수 없습니다.' >&2
+if ! [[ "$object_storage_port" =~ ^[0-9]+$ ]]; then
+  echo 'backend integration: object-storage 임시 포트를 확인할 수 없습니다.' >&2
   exit 1
 fi
 
 integration_database_url="postgresql://oss:oss-dev@127.0.0.1:${published_port}/oss_hub_test?schema=public"
-integration_storage_endpoint="http://127.0.0.1:${minio_port}"
+integration_storage_endpoint="http://127.0.0.1:${object_storage_port}"
 
 (
   cd "$backend_directory"
   OSS_HUB_INTEGRATION_RUNNER=oss-hub-isolated-integration-v1 \
     DATABASE_URL="$integration_database_url" \
-    SUBMISSION_FILE_STORAGE_MODE=minio \
+    SUBMISSION_FILE_STORAGE_MODE=local \
     SUBMISSION_FILE_S3_ENDPOINT="$integration_storage_endpoint" \
     SUBMISSION_FILE_S3_REGION=us-east-1 \
     SUBMISSION_FILE_S3_BUCKET="$SUBMISSION_FILE_S3_BUCKET" \
-    SUBMISSION_FILE_S3_ACCESS_KEY_ID="$MINIO_ROOT_USER" \
-    SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$MINIO_ROOT_PASSWORD" \
+    SUBMISSION_FILE_S3_ACCESS_KEY_ID="$OBJECT_STORAGE_ACCESS_KEY_ID" \
+    SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$OBJECT_STORAGE_SECRET_ACCESS_KEY" \
     SUBMISSION_FILE_S3_FORCE_PATH_STYLE=true \
     pnpm exec prisma migrate deploy
   OSS_HUB_INTEGRATION_RUNNER=oss-hub-isolated-integration-v1 \
     DATABASE_URL="$integration_database_url" \
-    SUBMISSION_FILE_STORAGE_MODE=minio \
+    SUBMISSION_FILE_STORAGE_MODE=local \
     SUBMISSION_FILE_S3_ENDPOINT="$integration_storage_endpoint" \
     SUBMISSION_FILE_S3_REGION=us-east-1 \
     SUBMISSION_FILE_S3_BUCKET="$SUBMISSION_FILE_S3_BUCKET" \
-    SUBMISSION_FILE_S3_ACCESS_KEY_ID="$MINIO_ROOT_USER" \
-    SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$MINIO_ROOT_PASSWORD" \
+    SUBMISSION_FILE_S3_ACCESS_KEY_ID="$OBJECT_STORAGE_ACCESS_KEY_ID" \
+    SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$OBJECT_STORAGE_SECRET_ACCESS_KEY" \
     SUBMISSION_FILE_S3_FORCE_PATH_STYLE=true \
     TEAM_JOIN_CODE_SECRET=synthetic-integration-join-code-secret \
     pnpm exec jest \
