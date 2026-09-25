@@ -2,7 +2,6 @@ import { ApiError, apiClient } from '@/lib/api-client';
 import { PROGRAM_EDIT_ERROR_CODES } from './program-edit-error-codes';
 import type { ProgramTrackType } from './program-templates';
 import { parseStaffDashboardSummary } from './staff-dashboard-parser';
-import { parseStaffRepositoryEvidence } from './staff-repository-evidence';
 import type {
   ApplicationFormField,
   ApplicationFormFieldKey,
@@ -767,10 +766,9 @@ export async function getStaffProgramTeamDetail(
   programId: string,
   teamId: string,
 ): Promise<StaffTeamDetail> {
-  const detail = await apiClient<StaffTeamDetail>(
+  return apiClient<StaffTeamDetail>(
     `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
   );
-  return { ...detail, ...parseStaffRepositoryEvidence(detail) };
 }
 
 /**

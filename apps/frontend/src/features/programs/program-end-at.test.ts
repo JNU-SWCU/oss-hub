@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   formatProgramEndAt,
   isProgramEndAtUndecided,
-  isProgramEndDateUndecided,
   PROGRAM_END_AT_UNDECIDED,
 } from './program-end-at';
 
@@ -26,13 +25,6 @@ describe('프로그램 종료일 「미정」 경계', () => {
   // 1밀리초만 달라도 그 프로그램은 실제로 끝나는 프로그램이다.
   it('센티널에서 1밀리초 이른 시각은 미정이 아니다', () => {
     expect(isProgramEndAtUndecided('9999-12-31T23:59:59.998Z')).toBe(false);
-  });
-
-  // 교직원 팀 상세의 기여 기간은 순간이 아니라 서울 날짜로 온다(`+010000-01-01`).
-  it('서울 날짜로 옮긴 센티널은 미정이고 네 자리 연도는 아니다', () => {
-    expect(isProgramEndDateUndecided('+010000-01-01')).toBe(true);
-    expect(isProgramEndDateUndecided('9999-12-31')).toBe(false);
-    expect(isProgramEndDateUndecided('2026-12-31')).toBe(false);
   });
 
   it('파싱할 수 없는 값은 미정이 아니다', () => {

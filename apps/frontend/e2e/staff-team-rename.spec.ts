@@ -132,7 +132,10 @@ test.describe('좁은 화면', () => {
     await staff.waitForURL(/\/teams\/[^/]+$/);
     await capture(staff, testInfo, 'after-mobile-team-detail');
 
-    const trigger = staff.getByRole('button', { name: /수정$/ });
+    // 팀 상세에는 저장소 줄의 「저장소 URL 수정」 연필도 있다 — 팀명 버튼만 고른다.
+    const trigger = staff.getByRole('button', {
+      name: /^(?!저장소 URL 수정$).+ 수정$/,
+    });
     await expect(trigger).toBeVisible();
     await trigger.click();
     const dialog = staff.getByRole('dialog');

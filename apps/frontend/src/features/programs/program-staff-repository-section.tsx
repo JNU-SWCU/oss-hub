@@ -52,26 +52,15 @@ export function ProgramStaffRepositorySection({
     );
   }
 
+  // 주소는 바로 위 URL 줄이 말한다(`RepositoryUrlEditor`). 여기는 발급·공개만 남는다.
   return (
     <>
-      {repository !== null ? (
-        <p className="text-small">
-          저장소{' '}
-          <a
-            className="font-semibold break-all underline underline-offset-4"
-            href={repository.url}
-            rel="noreferrer noopener"
-            target="_blank"
-          >
-            {repository.url}
-          </a>{' '}
-          ({repository.visibility === 'PUBLIC' ? '공개' : '비공개'})
-        </p>
-      ) : (
+      {repository === null ? (
         <p className="text-small text-muted-foreground">
+          저장소 발급{' '}
           {PROVISIONING_LABELS[application.repositoryProvisioning.jobStatus]}
         </p>
-      )}
+      ) : null}
 
       {application.repositoryConnectionMode === 'NEW' && repository !== null ? (
         <RepositoryPublishCard
