@@ -2,6 +2,7 @@ import { apiClient } from '@/lib/api-client';
 import {
   RANKING_VIEWER_CLASSES,
   RANKING_YEAR_ALL,
+  type MemberRankingItem,
   type PublicRankingItem,
   type RankingPage,
   type RankingViewerClass,
@@ -67,6 +68,7 @@ function isOptionalIsoInstant(value: unknown): boolean {
 function isViewerClass(value: unknown): value is RankingViewerClass {
   return (
     value === RANKING_VIEWER_CLASSES.PUBLIC ||
+    value === RANKING_VIEWER_CLASSES.MEMBER ||
     value === RANKING_VIEWER_CLASSES.STAFF
   );
 }
@@ -87,30 +89,22 @@ function readOptionalName(value: unknown): string | null | undefined {
  * 닫아 두고 목록 밖 키가 하나만 와도 페이지 전체를 거부해서, 백엔드가 칸을
  * 하나 더 붙이는 순간 랭킹 화면이 통째로 죽었다.
  *
- * Public items carry the consent-aligned metric projection — identity stays
- * out (`name`·`department`), and omitted metrics read as zero so a frontend
- * deployed ahead of the backend still renders. Staff items keep the richer
- * operational fields on the same tolerant rule.
+ * Public items carry the anonymous projection — 순위·참여자·Commit·PR 뿐이고
+ * 신원(`name`·`department`)은 물론 Issue·Repo·Star·합계도 오지 않는다. Member
+ * items add the metric columns, staff items add the identity columns; 어느
+ * 계층이든 모르는 칸은 무시한다.
  */
 function parsePublicRankingItem(value: unknown): PublicRankingItem | null {
   if (!isRecord(value)) {
     return null;
   }
 
-  const issueCount = readOptionalCount(value.issueCount);
-  const repositoryCount = readOptionalCount(value.repositoryCount);
-  const starCount = readOptionalCount(value.starCount);
-  const total = readOptionalCount(value.total);
   if (
     'name' in value ||
     !isPositiveInteger(value.rank) ||
     typeof value.githubLogin !== 'string' ||
     !isNonNegativeInteger(value.commitCount) ||
-    !isNonNegativeInteger(value.pullRequestCount) ||
-    issueCount === null ||
-    repositoryCount === null ||
-    starCount === null ||
-    total === null
+    !isNonNegativeInteger(value.pullRequestCount)
   ) {
     return null;
   }
@@ -120,11 +114,29 @@ function parsePublicRankingItem(value: unknown): PublicRankingItem | null {
     githubLogin: value.githubLogin,
     commitCount: value.commitCount,
     pullRequestCount: value.pullRequestCount,
-    issueCount,
-    repositoryCount,
-    starCount,
-    total,
   };
+}
+
+function parseMemberRankingItem(value: unknown): MemberRankingItem | null {
+  const base = parsePublicRankingItem(value);
+  if (base === null || !isRecord(value)) {
+    return null;
+  }
+
+  const issueCount = readOptionalCount(value.issueCount);
+  const repositoryCount = readOptionalCount(value.repositoryCount);
+  const starCount = readOptionalCount(value.starCount);
+  const total = readOptionalCount(value.total);
+  if (
+    issueCount === null ||
+    repositoryCount === null ||
+    starCount === null ||
+    total === null
+  ) {
+    return null;
+  }
+
+  return { ...base, issueCount, repositoryCount, starCount, total };
 }
 
 function parseStaffRankingItem(value: unknown): StaffRankingItem | null {
@@ -226,6 +238,12 @@ export function parseRankingPage(value: unknown): RankingPage {
         ...envelope,
         viewerClass,
         items: parseRankingItems(value.items, parsePublicRankingItem),
+      };
+    case RANKING_VIEWER_CLASSES.MEMBER:
+      return {
+        ...envelope,
+        viewerClass,
+        items: parseRankingItems(value.items, parseMemberRankingItem),
       };
     case RANKING_VIEWER_CLASSES.STAFF:
       return {

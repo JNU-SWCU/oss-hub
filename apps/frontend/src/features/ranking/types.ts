@@ -18,6 +18,7 @@ export type RankingPeriod =
 
 export const RANKING_VIEWER_CLASSES = {
   PUBLIC: 'public',
+  MEMBER: 'member',
   STAFF: 'staff',
 } as const;
 
@@ -26,14 +27,18 @@ export type RankingViewerClass =
   (typeof RANKING_VIEWER_CLASSES)[keyof typeof RANKING_VIEWER_CLASSES];
 
 /**
- * Consent-aligned public ranking row.
- * These are the only item keys present in a public wire response.
+ * 비로그인 랭킹 행 — 순위·참여자·Commit·PR 뿐이다.
+ * Issue·Repo·Star·합계는 로그인 구성원부터 내려온다.
  */
 export interface PublicRankingItem {
   readonly rank: number;
   readonly githubLogin: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;
+}
+
+/** 로그인 구성원 행 — 지표 전부, 신원은 없다. */
+export interface MemberRankingItem extends PublicRankingItem {
   readonly issueCount: number;
   readonly repositoryCount: number;
   readonly starCount: number;
@@ -58,7 +63,8 @@ export interface StaffRankingItem {
   readonly total: number;
 }
 
-export type RankingItem = PublicRankingItem | StaffRankingItem;
+export type RankingItem =
+  PublicRankingItem | MemberRankingItem | StaffRankingItem;
 
 interface RankingPageEnvelope {
   readonly year: RankingYear;
@@ -78,12 +84,18 @@ export interface PublicRankingPage extends RankingPageEnvelope {
   readonly items: readonly PublicRankingItem[];
 }
 
+export interface MemberRankingPage extends RankingPageEnvelope {
+  readonly viewerClass: typeof RANKING_VIEWER_CLASSES.MEMBER;
+  readonly items: readonly MemberRankingItem[];
+}
+
 export interface StaffRankingPage extends RankingPageEnvelope {
   readonly viewerClass: typeof RANKING_VIEWER_CLASSES.STAFF;
   readonly items: readonly StaffRankingItem[];
 }
 
-export type RankingPage = PublicRankingPage | StaffRankingPage;
+export type RankingPage =
+  PublicRankingPage | MemberRankingPage | StaffRankingPage;
 
 export interface RankingYears {
   readonly years: readonly number[];

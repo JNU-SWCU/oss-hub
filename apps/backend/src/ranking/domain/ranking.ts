@@ -27,8 +27,16 @@ export const RANKING_PERIODS = LEGACY_RANKING_PERIODS;
 /** @deprecated Use `RankingYear`. */
 export type RankingPeriod = LegacyRankingPeriod;
 
+/**
+ * 응답 투영 계층. 세션 역할이 아니라 "이 응답에 무엇을 싣는가"다.
+ *
+ * `member`가 없던 동안 "로그인 구성원에게 보인다"를 표현할 자리가 `public`뿐이라
+ * 비로그인 외부인에게까지 Issue·Repo·Star·합계가 나갔다. 계층을 셋으로 가르면
+ * 투영이 계층마다 하나씩 대응된다.
+ */
 export const RANKING_VIEWER_CLASSES = {
   PUBLIC: 'public',
+  MEMBER: 'member',
   STAFF: 'staff',
 } as const;
 

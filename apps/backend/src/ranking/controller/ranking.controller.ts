@@ -41,11 +41,11 @@ export class RankingController {
       query.pageSize,
       githubIdFrom(request),
     );
-    if (page.viewerClass === RANKING_VIEWER_CLASSES.STAFF) {
+    if (page.viewerClass === RANKING_VIEWER_CLASSES.PUBLIC) {
+      response.setHeader('Cache-Control', 'no-store');
+    } else {
       response.setHeader('Cache-Control', 'private, no-store');
       response.setHeader('Vary', 'Cookie');
-    } else {
-      response.setHeader('Cache-Control', 'no-store');
     }
     return RankingPageResponseDto.from(page);
   }
