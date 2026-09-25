@@ -10,8 +10,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { SessionGuard } from '../auth/session.guard';
-import type { AuthenticatedRequest } from '../auth/session.guard';
+import { SessionGuard } from '../../src/auth/session.guard';
+import type { AuthenticatedRequest } from '../../src/auth/session.guard';
 import {
   E2eControlError,
   E2eProgramAuthoringService,

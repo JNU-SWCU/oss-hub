@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
-import { GithubOperationsError } from '../github/github-app.error';
-import { SubmissionFileStorageError } from '../submissions/submission-file-storage.port';
+import { GithubOperationsError } from '../../src/github/github-app.error';
+import { SubmissionFileStorageError } from '../../src/submissions/submission-file-storage.port';
 import {
   E2E_EXTERNAL_FAILURE_OPERATIONS,
   E2eExternalPortFailure,

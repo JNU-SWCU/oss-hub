@@ -10,7 +10,7 @@ import {
   E2eProgramAuthoringFixture,
 } from './e2e-program-authoring-fixture';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
 import { removeAdoptedGraph } from './e2e-program-authoring-graph-cleanup';
 import { seedE2eRepositoryEvidence } from './e2e-repository-evidence.fixture';
 

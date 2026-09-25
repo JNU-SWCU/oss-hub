@@ -519,4 +519,146 @@ export type Fixture = RepositoryOutboxConsumer;
       expect(messages[0]?.message).toContain('concrete repository');
     });
   });
+
+  // #1427 — 운영 코드(src의 테스트가 아닌 파일)가 테스트 코드를 다시 알게 되는
+  // 것을 lint로 막는다. 세 규칙(a/b/c)마다 위반·허용 fixture를 한 쌍씩 고정한다.
+  describe('규칙 7 — 운영 코드는 테스트 코드를 참조하지 않는다 (#1427)', () => {
+    describe('a. boundary/module-zone testBoundary — apps/backend/test/** import 금지', () => {
+      it('RED: 운영 파일이 apps/backend/test/e2e-program-authoring을 import하면 그 import 노드에서 실패한다', () => {
+        // Given: programs 모듈의 운영 파일이 E2E 전용 외부 포트를 직접 끌어온다.
+        const redPath = 'src/programs/__lint_fixture_red_test_boundary.ts';
+        writeFixture(
+          redPath,
+          `import { e2eProgramAuthoringExternalPorts } from '../../test/e2e-program-authoring/e2e-external-ports';
+
+export const fixture = e2eProgramAuthoringExternalPorts;
+`,
+        );
+
+        // When: 실제 eslint.config.mjs로 lint한다.
+        const messages = boundaryMessages(lintFixture(redPath));
+
+        // Then: boundary/module-zone이 1행(import 노드)에서 발화한다.
+        expect(messages).toHaveLength(1);
+        expect(messages[0]?.ruleId).toBe('boundary/module-zone');
+        expect(messages[0]?.line).toBe(1);
+        expect(messages[0]?.message).toContain('테스트 코드를 참조하지 않는다');
+      });
+
+      it('GREEN: 테스트 파일(.spec.ts) 자신이 같은 경로를 import하면 면제된다', () => {
+        // Given: 같은 import를 테스트 파일에 두면 self-exemption이 적용된다 —
+        // 테스트가 테스트(E2E 대역)를 참조하는 건 정상이다.
+        const greenPath =
+          'src/programs/__lint_fixture_green_test_boundary.spec.ts';
+        writeFixture(
+          greenPath,
+          `import { e2eProgramAuthoringExternalPorts } from '../../test/e2e-program-authoring/e2e-external-ports';
+
+describe('fixture', () => {
+  it('imports the e2e port', () => {
+    expect(e2eProgramAuthoringExternalPorts).toBeDefined();
+  });
+});
+`,
+        );
+
+        // When: lint한다.
+        const messages = boundaryMessages(lintFixture(greenPath));
+
+        // Then: 테스트 파일은 testBoundary 대상이 아니므로 위반이 없다.
+        expect(messages).toHaveLength(0);
+      });
+    });
+
+    describe('b. no-restricted-imports — @nestjs/testing 금지', () => {
+      it('RED: 운영 파일이 @nestjs/testing을 import하면 실패한다', () => {
+        // Given: programs 모듈의 운영 파일이 E2E 조립 도구를 직접 끌어온다.
+        const redPath = 'src/programs/__lint_fixture_red_nestjs_testing.ts';
+        writeFixture(
+          redPath,
+          `import { Test } from '@nestjs/testing';
+
+export const fixture = Test;
+`,
+        );
+
+        // When: lint한다.
+        const messages = boundaryMessages(lintFixture(redPath));
+
+        // Then: no-restricted-imports가 1행(import 노드)에서 발화한다.
+        expect(messages).toHaveLength(1);
+        expect(messages[0]?.ruleId).toBe('no-restricted-imports');
+        expect(messages[0]?.line).toBe(1);
+        expect(messages[0]?.message).toContain('@nestjs/testing');
+      });
+
+      it('GREEN: 테스트 파일(.spec.ts)은 @nestjs/testing을 import해도 된다', () => {
+        // Given: 같은 import를 테스트 파일에 둔다.
+        const greenPath =
+          'src/programs/__lint_fixture_green_nestjs_testing.spec.ts';
+        writeFixture(
+          greenPath,
+          `import { Test } from '@nestjs/testing';
+
+describe('fixture', () => {
+  it('uses Test', () => {
+    expect(Test).toBeDefined();
+  });
+});
+`,
+        );
+
+        // When: lint한다.
+        const messages = boundaryMessages(lintFixture(greenPath));
+
+        // Then: 테스트 파일은 제외 대상이므로 위반이 없다.
+        expect(messages).toHaveLength(0);
+      });
+    });
+
+    describe("c. no-restricted-syntax — NODE_ENV를 'test'와 비교하는 분기 금지", () => {
+      it("RED: 운영 파일이 NODE_ENV를 'test'와 비교하면 그 BinaryExpression에서 실패한다", () => {
+        // Given: programs 모듈의 운영 파일이 "지금 테스트 중인가"로 분기한다.
+        const redPath = 'src/programs/__lint_fixture_red_node_env_test.ts';
+        writeFixture(
+          redPath,
+          `export function useFixture(config: { NODE_ENV: string }): boolean {
+  return config.NODE_ENV === 'test';
+}
+`,
+        );
+
+        // When: lint한다.
+        const messages = boundaryMessages(lintFixture(redPath));
+
+        // Then: no-restricted-syntax가 2행(비교식)에서 발화한다.
+        expect(messages).toHaveLength(1);
+        expect(messages[0]?.ruleId).toBe('no-restricted-syntax');
+        expect(messages[0]?.line).toBe(2);
+        expect(messages[0]?.message).toContain('NODE_ENV');
+      });
+
+      it("GREEN: 테스트 파일(.spec.ts)은 NODE_ENV를 'test'와 비교해도 된다", () => {
+        // Given: 같은 비교식을 테스트 파일에 둔다 — 환경 조립·복원은 테스트의 일이다.
+        const greenPath =
+          'src/programs/__lint_fixture_green_node_env_test.spec.ts';
+        writeFixture(
+          greenPath,
+          `describe('fixture', () => {
+  it('compares NODE_ENV', () => {
+    const config = { NODE_ENV: 'test' };
+    expect(config.NODE_ENV === 'test').toBe(true);
+  });
+});
+`,
+        );
+
+        // When: lint한다.
+        const messages = boundaryMessages(lintFixture(greenPath));
+
+        // Then: 테스트 파일은 no-restricted-syntax 대상이 아니므로 위반이 없다.
+        expect(messages).toHaveLength(0);
+      });
+    });
+  });
 });

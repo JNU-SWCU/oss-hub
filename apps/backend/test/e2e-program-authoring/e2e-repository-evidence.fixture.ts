@@ -1,4 +1,4 @@
-import type { PrismaService } from '../prisma/prisma.service';
+import type { PrismaService } from '../../src/prisma/prisma.service';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import type { E2eProgramAuthoringGraph } from './e2e-program-authoring.types';
 import {

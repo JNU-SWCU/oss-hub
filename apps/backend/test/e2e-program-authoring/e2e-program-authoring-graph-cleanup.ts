@@ -1,5 +1,5 @@
 import type { E2eProgramAuthoringGraph } from './e2e-program-authoring.types';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
 
 export async function removeAdoptedGraph(
   prisma: PrismaService,

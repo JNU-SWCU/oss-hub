@@ -1,22 +1,21 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { ApplicationStatus } from '@prisma/client';
-import { ApplicationsService } from '../applications/applications.service';
-import { MilestoneDocumentCurrentFileService } from '../milestone-documents/milestone-document-current-file.service';
-import { MilestoneDocumentFilesService } from '../milestone-documents/milestone-document-files.service';
-import { MilestoneDocumentsService } from '../milestone-documents/milestone-documents.service';
+import { ApplicationsService } from '../../src/applications/applications.service';
+import { RepositoryOutboxConsumer } from '../../src/github/repository-outbox.consumer';
+import { RepositoryProvisionWorker } from '../../src/github/repository-provision.worker';
+import { MilestoneDocumentCurrentFileService } from '../../src/milestone-documents/milestone-document-current-file.service';
+import { MilestoneDocumentFilesService } from '../../src/milestone-documents/milestone-document-files.service';
+import { MilestoneDocumentsService } from '../../src/milestone-documents/milestone-documents.service';
 import {
   DeadlineDigestService,
   type DeadlineDigestSendRequest,
-} from '../notifications/deadline-digest.service';
-import { ProgramAuthoringService } from '../programs/program-authoring.service';
-import { ProgramAuthoringUploadMaintenanceService } from '../programs/program-authoring-upload-maintenance.service';
-import { ProgramAuthoringUploadService } from '../programs/program-authoring-upload.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { SubmissionFileCleanupService } from '../submissions/submission-file-cleanup.service';
-import {
-  REPOSITORY_E2E_ORCHESTRATION_PORT,
-  type RepositoryE2eOrchestrationPort,
-} from './repository-e2e-orchestration.port';
+} from '../../src/notifications/deadline-digest.service';
+import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
+import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/program-authoring-upload-maintenance.service';
+import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
+import { SubmissionFileCleanupService } from '../../src/submissions/submission-file-cleanup.service';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import {
   configureFailure,
@@ -58,9 +57,8 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly moduleRef: ModuleRef,
     private readonly applications: ApplicationsService,
-    @Inject(REPOSITORY_E2E_ORCHESTRATION_PORT)
-    private readonly repositories: RepositoryE2eOrchestrationPort,
     private readonly deadlines: DeadlineDigestService,
     private readonly uploads: ProgramAuthoringUploadService,
     private readonly uploadMaintenance: ProgramAuthoringUploadMaintenanceService,
@@ -177,12 +175,18 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
 
   private async consumeProvisionEvent(): Promise<void> {
     const workerId = 'e2e-program-authoring-worker';
-    const consumed = await this.repositories.consumeNext(workerId, E2E_NOW);
+    const outbox = this.moduleRef.get(RepositoryOutboxConsumer, {
+      strict: false,
+    });
+    const consumed = await outbox.consumeNext(workerId, E2E_NOW);
     if (consumed.kind !== 'CONSUMED') throw new E2eAdapterError(409);
   }
 
   private async runProvisionWorker(now: Date): Promise<void> {
-    const provisioned = await this.repositories.runNext(
+    const worker = this.moduleRef.get(RepositoryProvisionWorker, {
+      strict: false,
+    });
+    const provisioned = await worker.runNext(
       'e2e-program-authoring-worker',
       now,
     );

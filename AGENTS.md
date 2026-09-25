@@ -16,7 +16,7 @@ OSS Hub는 오픈소스 프로그램 탐색·신청·제출·리뷰, 역할 기�
   `apiPath`, `apiClient`, `apiFileClient`를 사용하고 `/api/v1`, `fetch`, 다운로드 파일명 파싱을 callsite에서 재구현하지 않는다.
 - `apps/backend/src/main.ts`는 `api/v1` prefix, transform + whitelist validation, global ProblemDetail filter를 설치한다.
 - backend 기능은 `AppModule`에 Nest module로 조립하고 runtime 설정은 `RUNTIME_CONFIG` DI token으로 받는다.
-  주석으로 정한 module import 순서와 E2E 전용 feature gate를 보존한다.
+  주석으로 정한 module import 순서를 보존한다. E2E 대역은 `apps/backend/test/e2e-program-authoring/main.ts`에서만 끼운다.
 - 업무 계층은 Controller → Service → Repository → Prisma다.
   PostgreSQL 직접 접근은 backend repository만 하며 controller와 일반 service의 Prisma 접근을 금지한다.
 - 공개 endpoint가 private table을 읽을 때는 owner-approved public query repository에서 명시적 `select`, public DTO allowlist, private/nonexistent 동일 404를 적용한다.

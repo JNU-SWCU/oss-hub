@@ -1,5 +1,5 @@
 import { ProgramTrackType } from '@prisma/client';
-import { buildProgramAuthoringPlan } from '../programs/program-authoring-plan';
+import { buildProgramAuthoringPlan } from '../../src/programs/program-authoring-plan';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import {
   adoptPersistedE2eProgramGraph,

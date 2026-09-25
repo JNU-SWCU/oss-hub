@@ -14,7 +14,7 @@ import {
   E2E_STAFF_ID,
   E2eProgramAuthoringFixture,
 } from './e2e-program-authoring-fixture';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../src/prisma/prisma.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
