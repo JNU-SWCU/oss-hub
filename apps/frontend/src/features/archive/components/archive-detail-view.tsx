@@ -125,8 +125,8 @@ function DetailContent({ archive }: { readonly archive: ArchiveDetail }) {
                           @{contributor.githubLogin}
                         </a>
                         <span className="text-xs text-muted-foreground">
-                          커밋 {contributor.commitCount} · PR{' '}
-                          {contributor.pullRequestCount} · 릴리스{' '}
+                          Commit {contributor.commitCount} · PR{' '}
+                          {contributor.pullRequestCount} · Release{' '}
                           {contributor.releaseCount}
                         </span>
                       </li>

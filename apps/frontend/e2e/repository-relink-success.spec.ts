@@ -219,10 +219,10 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 �
   await expect(
     activity
       .getByRole('list', { name: '팀원별 활동' })
-      .getByText('커밋 7 · PR 2 · 릴리스 1', { exact: true }),
+      .getByText('Commit 7 · PR 2 · Release 1', { exact: true }),
   ).toBeVisible();
   await expect(
-    activity.getByText('GitHub ID 8199999 · 커밋 5 · PR 1 · 릴리스 0', {
+    activity.getByText('GitHub ID 8199999 · Commit 5 · PR 1 · Release 0', {
       exact: true,
     }),
   ).toBeVisible();

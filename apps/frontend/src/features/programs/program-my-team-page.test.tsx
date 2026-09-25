@@ -474,7 +474,7 @@ describe('ProgramMyTeamPage 신청 상태', () => {
     await renderPage();
     expect(host.textContent).toContain('표시할 팀이 없습니다');
     expect(host.textContent).not.toContain('데이터 기준');
-    expect(host.textContent).not.toContain('커밋');
+    expect(host.textContent).not.toContain('Commit');
   });
 });
 

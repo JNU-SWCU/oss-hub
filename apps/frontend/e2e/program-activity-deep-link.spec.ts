@@ -260,7 +260,7 @@ for (const viewport of [
     await expect(card.getByRole('meter')).toHaveCount(6);
     await expect(
       card
-        .getByRole('meter', { name: '합성 팀 B 커밋', exact: true })
+        .getByRole('meter', { name: '합성 팀 B Commit', exact: true })
         .locator('div'),
     ).toHaveAttribute('style', 'width: 50%;');
     const disclosure = card.locator('summary').first();

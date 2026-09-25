@@ -110,9 +110,9 @@ describe('staff repository evidence view', () => {
     // Then
     const members = container.querySelector('[aria-label="팀원별 활동"]');
     expect(members?.textContent).toContain('@synthetic-member');
-    expect(members?.textContent).toContain('커밋 2 · PR 3 · 릴리스 1');
+    expect(members?.textContent).toContain('Commit 2 · PR 3 · Release 1');
     expect(members?.textContent).not.toContain('999');
-    expect(container.textContent).toContain('GitHub ID 999 · 커밋 7');
+    expect(container.textContent).toContain('GitHub ID 999 · Commit 7');
     expect(container.textContent).toContain(history.previousRepositoryUrl);
     expect(container.textContent).toContain(history.newRepositoryUrl);
     expect(container.textContent).toContain(history.actorGithubLogin);
