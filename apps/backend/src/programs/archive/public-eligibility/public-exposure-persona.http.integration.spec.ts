@@ -392,19 +392,33 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     ];
 
     const allBodies: unknown[] = [];
-    // Public class (anonymous · STUDENT) — 실명 금지 검사는 이쪽에만 건다.
+    // Public class(익명) · Member class(ACTIVE, 교직·관리 권한 없는 STUDENT) —
+    // 실명 금지 검사는 이 둘에만 건다.
     const publicClassRankingItemLists: Record<string, unknown>[][] = [];
+    const memberClassRankingItemLists: Record<string, unknown>[][] = [];
     const staffClassRankingItemLists: Record<string, unknown>[][] = [];
-    // 공개(익명·STUDENT) 랭킹 wire 는 딱 이 네 칸이다 — 닉네임과 commit/PR 집계뿐이고
-    // 학과·이슈·저장소·스타·합계·표시명은 공개 표면에서 제거됐다(공격 표면 축소).
+    // 공개(익명) 랭킹 wire 는 딱 이 네 칸이다 — 닉네임과 commit/PR 집계뿐이고
+    // 학과·이슈·저장소·스타·합계·표시명은 공개 표면에서 제거됐다(공격 표면 축소, #1414).
     /*
-     * 공개 랭킹 항목의 키 집합. **정확히 일치**를 요구한다 — 새 필드가 공개 표면에
-     * 새면 이 줄이 먼저 깨진다.
-     *
-     * 이슈·저장소·스타·합계는 #1234로 의도적으로 넓혔다. 커밋·PR과 같은 활동 집계라
-     * 같은 등급이며, 사람을 가리키는 값(이름·학과·표시명)은 아래에서 계속 막는다.
+     * 공개(익명) 랭킹 항목의 키 집합. **정확히 일치**를 요구한다 — 새 필드가 공개
+     * 표면에 새면 이 줄이 먼저 깨진다.
      */
     const publicItemKeys = [
+      'commitCount',
+      'githubLogin',
+      'pullRequestCount',
+      'rank',
+    ];
+    // 로그인 구성원(ACTIVE, 교직·관리 권한 없음) 랭킹 wire — 지표 전부를 더하지만
+    // 사람을 가리키는 값(이름·학과·표시명)은 여전히 없다.
+    /*
+     * 구성원 랭킹 항목의 키 집합. **정확히 일치**를 요구한다.
+     *
+     * 이슈·저장소·스타·합계는 #1234로 공개 표면에 의도적으로 넓혔다가 #1414로
+     * 구성원 계층 전용이 됐다. 커밋·PR과 같은 활동 집계라 같은 등급이며, 사람을
+     * 가리키는 값(이름·학과·표시명)은 아래에서 계속 막는다.
+     */
+    const memberItemKeys = [
       'commitCount',
       'githubLogin',
       'issueCount',
@@ -458,8 +472,10 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         profile.json(),
       ])) as readonly [WireBody, WireBody, WireBody];
       allBodies.push(listBody, detailBody, profileBody);
-      if (githubId === undefined || githubId === studentPersona.githubId) {
+      if (githubId === undefined) {
         publicClassRankingItemLists.push(ranking.items);
+      } else if (githubId === studentPersona.githubId) {
+        memberClassRankingItemLists.push(ranking.items);
       } else {
         staffClassRankingItemLists.push(ranking.items);
       }
@@ -496,17 +512,34 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       expect(rankedLogins).not.toContain(adminPersona.nickname);
     }
 
-    // 공개 항목은 4칸뿐이다 — 실명·학과·표시명·이슈·저장소·스타·합계는 전부 빠진다.
+    // 공개(익명) 항목은 4칸뿐이다 — 실명·학과·표시명·이슈·저장소·스타·합계는 전부 빠진다.
+    // 구성원 항목은 지표 전부를 더하지만 사람을 가리키는 값은 여전히 빠진다.
     // 교직원 항목은 `name`·`department`·전 지표를 더하고 displayName 은 여전히 githubLogin 이다.
     for (const items of publicClassRankingItemLists) {
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {
         expect(Object.keys(item).sort()).toEqual(publicItemKeys);
-        // 막아야 하는 것은 사람을 가리키는 값이다. 활동 집계(`total` 포함)는
-        // #1234로 공개 표면에 들어왔고 위 키 집합이 그 범위를 정확히 고정한다.
         expect(item).not.toHaveProperty('name');
         expect(item).not.toHaveProperty('department');
         expect(item).not.toHaveProperty('displayName');
+      }
+    }
+    for (const items of memberClassRankingItemLists) {
+      expect(items.length).toBeGreaterThan(0);
+      for (const item of items) {
+        expect(Object.keys(item).sort()).toEqual(memberItemKeys);
+        // 막아야 하는 것은 사람을 가리키는 값이다. 활동 집계(`total` 포함)는
+        // #1414로 구성원 계층까지 더해졌고 위 키 집합이 그 범위를 정확히 고정한다.
+        expect(item).not.toHaveProperty('name');
+        expect(item).not.toHaveProperty('department');
+        expect(item).not.toHaveProperty('displayName');
+        expect(item.total).toBe(
+          (item.commitCount as number) +
+            (item.pullRequestCount as number) +
+            (item.issueCount as number) +
+            (item.repositoryCount as number) +
+            (item.starCount as number),
+        );
       }
     }
     for (const items of staffClassRankingItemLists) {
@@ -552,9 +585,30 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     }
     const publicRankingSerialized = JSON.stringify(publicClassRankingItemLists);
     for (const forbiddenKey of [
-      // 사람을 가리키는 값과 계정 정보만 막는다. 이슈·저장소·스타·합계는 #1234로
-      // 공개 표면에 의도적으로 들어왔고, 그 범위는 위 `publicItemKeys` 정확 일치가
-      // 고정한다 — 여기에 다시 적으면 두 곳이 서로 다른 계약을 말하게 된다.
+      // 사람을 가리키는 값·계정 정보·구성원 전용 지표를 막는다. 범위는 위
+      // `publicItemKeys` 정확 일치가 고정한다 — 여기에 다시 적으면 두 곳이 서로
+      // 다른 계약을 말하게 된다.
+      '"name"',
+      '"studentId"',
+      '"department"',
+      '"displayName"',
+      '"email"',
+      '"role"',
+      '"accountStatus"',
+      '"githubId"',
+      '"releaseCount"',
+      '"issueCount"',
+      '"repositoryCount"',
+      '"starCount"',
+      '"total"',
+    ]) {
+      expect(publicRankingSerialized).not.toContain(forbiddenKey);
+    }
+    const memberRankingSerialized = JSON.stringify(memberClassRankingItemLists);
+    for (const forbiddenKey of [
+      // 사람을 가리키는 값과 계정 정보만 막는다. 이슈·저장소·스타·합계는 #1414로
+      // 구성원 계층에 의도적으로 들어왔고, 그 범위는 위 `memberItemKeys` 정확
+      // 일치가 고정한다.
       '"name"',
       '"studentId"',
       '"department"',
@@ -565,7 +619,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       '"githubId"',
       '"releaseCount"',
     ]) {
-      expect(publicRankingSerialized).not.toContain(forbiddenKey);
+      expect(memberRankingSerialized).not.toContain(forbiddenKey);
     }
     const staffRankingSerialized = JSON.stringify(staffClassRankingItemLists);
     for (const forbiddenKey of [
@@ -578,8 +632,10 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     ]) {
       expect(staffRankingSerialized).not.toContain(forbiddenKey);
     }
-    // DB 에 실명이 채워져 있는 persona 인데도 공개 계층 응답 바디에는 그 값이 없다.
+    // DB 에 실명이 채워져 있는 persona 인데도 공개·구성원 계층 응답 바디에는 그
+    // 값이 없다.
     expect(publicRankingSerialized).not.toContain(NAMED_PERSONA_REAL_NAME);
+    expect(memberRankingSerialized).not.toContain(NAMED_PERSONA_REAL_NAME);
   });
 
   it('같은 /ranking URL 이 계층별로 다른 표기를 내린다 — 교직원·관리자만 실명을 본다 (todo 15)', async () => {
@@ -597,9 +653,12 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       admin.response.status,
     ]).toEqual([200, 200, 200, 200]);
 
-    // (g) 인증(교직원·관리자) 응답은 공유 캐시에 남지 않는다.
+    // (g) 인증(구성원·교직원·관리자) 응답은 공유 캐시에 남지 않는다.
     expect(anonymous.response.headers.get('cache-control')).toBe('no-store');
-    expect(student.response.headers.get('cache-control')).toBe('no-store');
+    expect(student.response.headers.get('cache-control')).toBe(
+      'private, no-store',
+    );
+    expect(student.response.headers.get('vary')).toBe('Cookie');
     expect(staff.response.headers.get('cache-control')).toBe(
       'private, no-store',
     );
@@ -628,8 +687,23 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       NAMED_PERSONA_DEPARTMENT,
     );
 
-    // (b) STUDENT 세션 응답은 비로그인과 바이트 동일하다.
-    expect(JSON.stringify(student.items)).toBe(JSON.stringify(anonymous.items));
+    // (b) STUDENT 세션 응답은 구성원 계층이다 — 지표 전부를 담지만 신원 값(이름·
+    // 학과·표시명)은 없고, 공개(익명) 응답과는 다른 모양이다.
+    const studentEntry = student.items.find(
+      (item) => item.githubLogin === studentPersona.nickname,
+    );
+    expect(studentEntry).toMatchObject({
+      githubLogin: studentPersona.nickname,
+      commitCount: 10,
+      pullRequestCount: 4,
+      issueCount: 3,
+      repositoryCount: 2,
+      starCount: 1,
+      total: 20,
+    });
+    expect(studentEntry).not.toHaveProperty('department');
+    expect(studentEntry).not.toHaveProperty('name');
+    expect(studentEntry).not.toHaveProperty('displayName');
 
     // (c)(d) STAFF·ADMIN keep displayName as githubLogin and put 실명 on `name`.
     for (const staffClassItems of [staff.items, admin.items]) {
@@ -673,30 +747,30 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
   });
 
   it('연도 질의는 그 해 관측만 합산한다 — 지난 연도 행이 있어도 섞이지 않는다', async () => {
-    const ranking = await fetchRankingPages(
-      `/ranking?year=${RANKING_FIXTURE_YEAR}`,
-      undefined,
-    );
+    const path = `/ranking?year=${RANKING_FIXTURE_YEAR}`;
+    const [ranking, memberRanking] = await Promise.all([
+      fetchRankingPages(path, undefined),
+      fetchRankingPages(path, studentPersona.githubId),
+    ]);
     expect(ranking.response.status).toBe(200);
+    expect(memberRanking.response.status).toBe(200);
     const entry = ranking.items.find(
       (item) => item.githubLogin === studentPersona.nickname,
     );
-    // fixture 는 올해 10/4/3/2/1, 지난해 1000×5 를 심었다 — 공개 wire 는 commit/PR
-    // 집계만 노출하므로 올해 값이 그대로 보이고(지난해가 새면 12가 아니라 2012가 된다),
-    // 학과·표시명 같은 사람 정보는 공개 표면에 없다.
+    // fixture 는 올해 10/4/3/2/1, 지난해 1000×5 를 심었다 — 공개(익명) wire 는 commit/PR
+    // 집계만 노출하므로 올해 값이 그대로 보이고(지난해가 새면 12가 아니라 2012가 된다).
     //
-    // ⚠ 이슈·저장소·스타·합계는 #1234로 공개 표면에 **의도적으로** 들어왔다. 커밋·PR과
-    //   같은 활동 집계라 같은 등급이며, 여기서 막아야 하는 것은 그 수가 아니라 사람을
-    //   가리키는 값이다. 그 가드는 아래 네 줄이 계속 지킨다.
+    // 이슈·저장소·스타·합계·학과·표시명은 #1414로 구성원 계층 전용이 됐다 — 공개(익명)
+    // 응답에는 아예 없어야 한다. 그 가드는 아래 네 줄이 지킨다.
     expect(entry).toMatchObject({
       githubLogin: studentPersona.nickname,
       commitCount: 10,
       pullRequestCount: 4,
-      issueCount: 3,
     });
-    expect(entry).toHaveProperty('repositoryCount');
-    expect(entry).toHaveProperty('starCount');
-    expect(entry).toHaveProperty('total');
+    expect(entry).not.toHaveProperty('issueCount');
+    expect(entry).not.toHaveProperty('repositoryCount');
+    expect(entry).not.toHaveProperty('starCount');
+    expect(entry).not.toHaveProperty('total');
     expect(entry).not.toHaveProperty('department');
     expect(entry).not.toHaveProperty('displayName');
     expect(JSON.stringify(ranking.items)).not.toContain(
@@ -705,6 +779,16 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     expect(JSON.stringify(ranking.items)).not.toContain(
       NAMED_PERSONA_DEPARTMENT,
     );
+
+    // 구성원 계층도 연도 질의는 그 해 관측만 합산한다 — 이슈 집계가 지난해 1000이
+    // 아니라 올해 3으로 보이면 연도 필터가 구성원 지표에도 적용된다는 증거다.
+    const memberEntry = memberRanking.items.find(
+      (item) => item.githubLogin === studentPersona.nickname,
+    );
+    expect(memberEntry).toMatchObject({
+      githubLogin: studentPersona.nickname,
+      issueCount: 3,
+    });
   });
 
   it('POST /repositories/:id/publish — 익명은 401, STUDENT는 403, STAFF/ADMIN은 200이다(실제 SessionGuard+SubmissionReviewsStaffGuard)', async () => {
