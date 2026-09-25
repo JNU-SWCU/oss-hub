@@ -520,6 +520,42 @@ describe('ProgramAuthoringMilestoneStep', () => {
     expect(summaryOf(dialog())?.textContent).toBe('고칠 칸이 4개 있습니다');
   });
 
+  async function emptyNameOfLastItem() {
+    const items = dialog().querySelectorAll<HTMLElement>(
+      '[role="group"][aria-label$="제출 항목"]',
+    );
+    const item = items[items.length - 1]!;
+    await act(async () =>
+      item
+        .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')!
+        .click(),
+    );
+    await change(
+      item.querySelector<HTMLInputElement>('[aria-label="파일 제출물 이름"]')!,
+      '',
+    );
+  }
+
+  it('저장 전에는 파일 오류와 제출물 칸 오류가 함께 떠도 요약을 그리지 않는다', async () => {
+    await render();
+    await addBlankDraft();
+    await selectFile(
+      input('[aria-label="첨부파일 추가"]'),
+      new File(['pdf'], 'guide.pdf', { type: 'application/pdf' }),
+    );
+    await emptyNameOfLastItem();
+    await selectFile(
+      input('[aria-label="첨부파일 추가"]'),
+      new File(['text'], 'guide.txt', { type: 'text/plain' }),
+    );
+    // 칸 안 이름 오류 + 파일 형식 오류, 두 줄이 이미 보인다.
+    expect(dialog().querySelectorAll('[data-slot="field-error"]')).toHaveLength(
+      1,
+    );
+    expect(dialog().textContent).toContain('제출 항목 이름을 입력해 주세요.');
+    expect(summaryOf(dialog())).toBeNull();
+  });
+
   it('저장에 실패한 뒤 다른 칸을 고쳐도 포커스를 첫 오류 칸으로 되돌리지 않는다', async () => {
     await render();
     await addBlankDraft();

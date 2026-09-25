@@ -252,6 +252,8 @@ describe('가입 프로필 입력의 상단 오류 요약(R-16)', () => {
     );
     // 요약은 칸 옆 문구를 다시 적지 않는다.
     expect(html.split('학과를 선택하거나 입력해 주세요.').length - 1).toBe(1);
+    // 가입 무대는 어두운 반전 표면이다 — 흰 카드 바탕이면 옅은 붉은 글자가 묻힌다.
+    expect(html).toMatch(/data-slot="form-error-summary"[^>]*bg-transparent/);
   });
 
   it('교직원은 이름·학과 두 칸이 비면 2개로 요약한다', () => {

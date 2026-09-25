@@ -101,6 +101,7 @@ export function ProfileOnboardingForm({
           센다 — 다른 폼들과 같이 「제출이 막혔을 때」의 개수다(R-16).
         */}
         <FormErrorSummary
+          surface="inverted"
           count={
             showRequiredErrors
               ? Number(showNameError) +

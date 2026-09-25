@@ -75,14 +75,16 @@ export function ProgramAuthoringMilestoneDialog({
   const [itemErrorCount, reportItemErrors] = useSubmissionItemErrorCount();
   // 창에 보이는 오류 줄 수 — R-16 상단 요약의 개수다. 기간은 시작·마감이 한 줄이고,
   // 제출물 칸이 이름을 고치는 동안 스스로 띄우는 오류는 그 칸이 알려 준다.
-  const visibleErrorCount =
-    [
-      saveAttempted ? errors.name : null,
-      saveAttempted ? errors.period : null,
-      fileError,
-      attachmentValidationMessage,
-      saveAttempted ? errors.attachments : null,
-    ].filter(Boolean).length + itemErrorCount;
+  // 요약은 저장을 누른 뒤부터 센다 — 파일·제출물 오류는 그 전에도 칸 옆에 뜬다.
+  const visibleErrorCount = saveAttempted
+    ? [
+        errors.name,
+        errors.period,
+        fileError,
+        attachmentValidationMessage,
+        errors.attachments,
+      ].filter(Boolean).length + itemErrorCount
+    : 0;
   // DialogShell 은 본문 ref 를 내주지 않아, 레이아웃을 바꾸지 않는 `contents`
   // 감싸개로 저장 뒤 첫 오류 칸을 찾을 범위를 잡는다.
   const bodyRef = useRef<HTMLDivElement>(null);

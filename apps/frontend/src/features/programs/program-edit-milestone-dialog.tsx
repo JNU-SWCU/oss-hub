@@ -68,6 +68,11 @@ export function ProgramEditMilestoneDialog({
   const [discardOpen, setDiscardOpen] = useState(false);
   const [documentErrorCount, reportDocumentErrors] =
     useSubmissionItemErrorCount();
+  // 제출 항목 칸의 오류는 저장 전에도 뜨지만, 요약(R-16)은 저장을 누른 뒤부터 센다.
+  const [saveAttempted, setSaveAttempted] = useState(false);
+  // 「최신 서버 상태로 다시 시작」은 제출 항목 칸을 새로 그려, 칸 안에 남은 파일 선택
+  // 오류·이름 편집 상태를 버린다. 같은 id 로 다시 그리면 그 상태가 살아남는다.
+  const [draftVersion, setDraftVersion] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const editorFocusRef = useRef<HTMLElement | null>(null);
   const discardingRef = useRef(false);
@@ -195,11 +200,14 @@ export function ProgramEditMilestoneDialog({
               ]}
               isBusy={isBusy}
               isSaveDisabled={Boolean(editor.blocked)}
-              documentErrorCount={documentErrorCount}
+              documentErrorCount={saveAttempted ? documentErrorCount : 0}
               layout="dialog"
               onCancel={requestClose}
               onFieldChange={onFieldChange}
-              onSave={(event) => onSave(event, draft?.documents)}
+              onSave={(event) => {
+                setSaveAttempted(true);
+                onSave(event, draft?.documents);
+              }}
             >
               {editor.blocked ? (
                 <Button
@@ -214,6 +222,7 @@ export function ProgramEditMilestoneDialog({
               {draft !== null && snapshot !== null && snapshot !== undefined ? (
                 <div>
                   <LocalMilestoneDocumentsEditor
+                    key={draftVersion}
                     milestoneId={draft.id}
                     documents={draft.documents}
                     fileUpload={snapshot.fileUpload}
@@ -235,6 +244,7 @@ export function ProgramEditMilestoneDialog({
                   variant="outline"
                   onClick={() => {
                     setDraft(toProgramMilestoneDraft(latestSnapshot));
+                    setDraftVersion((version) => version + 1);
                     onRestartFromLatest?.(latestSnapshot);
                   }}
                 >

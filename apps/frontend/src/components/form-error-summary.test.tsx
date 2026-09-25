@@ -17,6 +17,17 @@ describe('FormErrorSummary — 오류가 둘 이상일 때만 개수를 알린�
     expect(html).toContain('role="alert"');
   });
 
+  it('반전 표면에서는 흰 카드 바탕을 비우고 붉은 테두리만 남긴다', () => {
+    const html = renderToStaticMarkup(
+      <FormErrorSummary count={2} surface="inverted" />,
+    );
+    expect(html).toContain('bg-transparent');
+    expect(html).not.toContain('bg-card');
+    expect(renderToStaticMarkup(<FormErrorSummary count={2} />)).toContain(
+      'bg-card',
+    );
+  });
+
   it('호출부 className 을 root 에 합친다(R-04)', () => {
     const html = renderToStaticMarkup(
       <FormErrorSummary count={2} className="mb-2" />,

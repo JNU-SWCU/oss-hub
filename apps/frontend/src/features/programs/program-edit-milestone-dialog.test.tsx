@@ -291,6 +291,7 @@ describe('ProgramEditMilestoneDialog', () => {
               },
             ],
           }}
+          onSave={(event) => event.preventDefault()}
           editor={{
             mode: 'edit',
             form,
@@ -330,7 +331,92 @@ describe('ProgramEditMilestoneDialog', () => {
       '제출 항목 이름을 입력해 주세요.',
       '제출 항목 이름을 입력해 주세요.',
     ]);
+    // 저장을 누르기 전에는 세지 않는다.
+    expect(summary()).toBeNull();
+
+    await act(async () => getButton('마일스톤 저장').click());
     expect(summary()?.textContent).toBe('고칠 칸이 2개 있습니다');
+  });
+
+  it('저장 전에는 제출 항목 칸의 오류가 둘이어도 요약을 그리지 않는다', async () => {
+    await act(async () =>
+      root.render(
+        <ProgramEditMilestoneDialog
+          {...passiveProps}
+          onSave={(event) => event.preventDefault()}
+          editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
+        />,
+      ),
+    );
+    await act(async () => getButton('제출 항목 추가').click());
+    await act(async () => getButton('제출 항목 추가').click());
+    const summary = () =>
+      document.querySelector('[data-slot="form-error-summary"]');
+    expect(
+      document.querySelectorAll(
+        '[role="group"][aria-label$="제출 항목"] [role="alert"]',
+      ),
+    ).toHaveLength(2);
+    expect(summary()).toBeNull();
+
+    await act(async () => getButton('마일스톤 저장').click());
+    expect(summary()?.textContent).toBe('고칠 칸이 2개 있습니다');
+
+    // 칸 하나를 지우면 그 칸이 알린 오류도 개수에서 빠진다.
+    await act(async () =>
+      document
+        .querySelector<HTMLButtonElement>('[aria-label="제출 항목 삭제"]')
+        ?.click(),
+    );
+    expect(summary()).toBeNull();
+  });
+
+  it('「최신 서버 상태로 다시 시작」은 제출 항목 칸에 남은 파일 선택 오류를 버린다', async () => {
+    const snapshot = {
+      ...passiveProps.snapshot,
+      documents: [
+        {
+          id: 'document-1',
+          name: '기획서',
+          required: true,
+          sortOrder: 1,
+          templateFileName: null,
+        },
+      ],
+    };
+    await act(async () =>
+      root.render(
+        <ProgramEditMilestoneDialog
+          {...passiveProps}
+          snapshot={snapshot}
+          latestSnapshot={snapshot}
+          editor={{
+            mode: 'edit',
+            form,
+            initialForm: form,
+            errors: { general: '다른 변경과 충돌했습니다.' },
+          }}
+        />,
+      ),
+    );
+    const fileInput = document.querySelector<HTMLInputElement>(
+      '[role="group"][aria-label$="제출 항목"] input[type="file"]',
+    )!;
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [new File(['text'], 'guide.txt', { type: 'text/plain' })],
+      });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const itemAlerts = () =>
+      document.querySelectorAll(
+        '[role="group"][aria-label$="제출 항목"] [role="alert"]',
+      );
+    expect(itemAlerts()).toHaveLength(1);
+
+    await act(async () => getButton('최신 서버 상태로 다시 시작').click());
+    expect(itemAlerts()).toHaveLength(0);
   });
 
   it('closes a clean editor with one Escape and returns focus to its exact origin', async () => {
