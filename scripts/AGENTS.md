@@ -12,7 +12,7 @@
 - `check-*.sh` and `check-*.mjs` are static or contract checks; pair external-facing behavior with the adjacent `*.test.sh` or `*.test.mjs` fixture-based coverage.
 - Contract tests use synthetic inputs only: never connect fixtures to production, GitHub write APIs, live secrets, or real personal data.
 - `run-backend-integration.sh` creates isolated integration infrastructure; preserve its explicit `BACKEND_INTEGRATION_TEST_PATTERN` boundary.
-- `docker-verify-local.sh`, `_compose-lib.sh`, and `dev.sh` can start or modify local infrastructure; make side effects explicit and fail closed.
+- `dev.sh` can start or modify local infrastructure; make side effects explicit and fail closed.
 - `diagnose-collection.sh` and related helpers are read-only diagnostics; do not print repository identifiers, student identifiers, credentials, or connection values.
 - `setup-hooks.sh` changes local Git hook configuration; `tidy-branches.sh` changes local branch state—do not fold either into validation scripts.
 
@@ -27,7 +27,6 @@
 - `check-jenkinsfile.sh` — Jenkinsfile contract inspection.
 - `check-public-safe.sh` — tracked-content public-safety scan.
 - `run-backend-integration.sh` — isolated backend integration entry point.
-- `docker-verify-local.sh` — local Compose verification boundary.
 - `prune-deploy-backups.sh` — Jenkins-only destructive backup retention action.
 - `../docs/rules/ci-path-verification.md` — canonical changed-path verification mapping.
 <!-- /init:managed id=craft-init-4.0.0-scripts -->

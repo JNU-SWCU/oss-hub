@@ -21,7 +21,7 @@ export const ENV_CONTRACT_EXEMPTIONS = Object.freeze([
   Object.freeze({
     key: 'NODE_ENV',
     checks: Object.freeze([CHECK.runtimeDeclaration, CHECK.backendInjection]),
-    reason: 'Dockerfile과 compose.local.yml이 소유한다.',
+    reason: 'Dockerfile이 소유한다.',
   }),
   Object.freeze({
     key: 'DIGEST_FORCE_TO',
