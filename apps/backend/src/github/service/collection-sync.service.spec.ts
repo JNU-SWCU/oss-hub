@@ -1625,7 +1625,9 @@ interface SeedMember {
 
 /**
  * `Repository`(#449) 소유 행 + 그 팀의 `TeamMember`(join된 `User`) 시드. `teamId`가 null이면
- * 팀을 특정할 수 없는 저장소가 되어 production이 저장소 전량 경로로 떨어진다.
+ * 팀을 특정할 수 없는 저장소가 되어 production이 저장소 전량 경로로 떨어진다. 팀이 있으면
+ * 실제 스키마처럼 신청 연결(`applicationId`)도 함께 둔다 — 연결 없이 팀 이력만 남은 행은
+ * 떼어 낸 저장소라 수집 대상이 아니다.
  */
 const seedOwningRepository = (
   box: { store: Store },
@@ -1636,6 +1638,7 @@ const seedOwningRepository = (
   box.store.owningRepositories.set(repoKey(githubRepositoryId), {
     githubRepositoryId,
     teamId,
+    ...(teamId === null ? {} : { applicationId: `application:${teamId}` }),
   });
   members.forEach((member, index) => {
     const id = `${String(githubRepositoryId)}:${index}`;
@@ -2961,6 +2964,60 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
     expect(providerCallCount(client)).toBe(0);
     expect(box.store.repositories.get(repoKey(100n))?.lastSuccessAt).toBe(
       undefined,
+    );
+  });
+
+  it('sweep 도중 연결이 풀린 저장소는 시작할 때 읽은 목록에 있어도 수집하지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    box.store.repositories.set(
+      repoKey(100n),
+      linkedRow({ id: 'repo-a', nameWithOwner: 'synthetic-org/repo-a' }),
+    );
+    box.store.repositories.set(
+      repoKey(200n),
+      linkedRow({
+        id: 'repo-b',
+        githubRepositoryId: 200n,
+        nameWithOwner: 'synthetic-org/repo-b',
+        applicationId: 'application-b',
+        teamId: 'team-b',
+      }),
+    );
+    const client = createClient([
+      providerRepository({ name: 'repo-a', fullName: 'synthetic-org/repo-a' }),
+      providerRepository({
+        id: '200',
+        name: 'repo-b',
+        fullName: 'synthetic-org/repo-b',
+      }),
+    ]);
+    client.listNewPullRequests.mockImplementation((_owner, repo) => {
+      // A를 수집하는 동안 B의 팀이 저장소를 바꿔 B의 연결이 풀린다(팀 이력은 남는다).
+      if (repo === 'repo-a') {
+        box.store.repositories.set(repoKey(200n), {
+          ...box.store.repositories.get(repoKey(200n)),
+          applicationId: null,
+        });
+      }
+      return Promise.resolve({
+        pullRequests: [],
+        newFrontier: null,
+        fingerprint: fingerprint('/repos/o/r/pulls'),
+      });
+    });
+
+    const result = await createService(db, client).run('owner-1');
+
+    expect(result).toMatchObject({
+      status: 'COMPLETED',
+      processedRepositoryCount: 1,
+    });
+    expect(
+      client.listNewPullRequests.mock.calls.map(([, repo]) => repo),
+    ).toEqual(['repo-a']);
+    // 떼어 낸 B는 실패로 세지 않는다 — 백오프도 걸지 않는다.
+    expect(box.store.repositories.get(repoKey(200n))?.failureCount ?? 0).toBe(
+      0,
     );
   });
 });

@@ -100,7 +100,9 @@ const idleRunResult = (
 type RepositorySyncOutcome =
   | { readonly kind: 'PROCESSED' }
   | { readonly kind: 'FAILED'; readonly errorName: string }
-  | { readonly kind: 'STOPPED_FOR_BUDGET' };
+  | { readonly kind: 'STOPPED_FOR_BUDGET' }
+  /** 수집 직전에 다시 읽어 보니 더 이상 수집 대상이 아니다(연결이 풀림). */
+  | { readonly kind: 'SKIPPED' };
 
 type SyncRepository = Pick<
   CollectionIncrementalRepository,
@@ -572,7 +574,7 @@ export class CollectionSyncService {
         // 성공한 저장소만 센다. 실패해도 커서는 아래에서 전진하지만
         // "처리했다"고 말하지는 않는다.
         processedRepositoryCount += 1;
-      } else {
+      } else if (outcome.kind === 'FAILED') {
         lastError = outcome.errorName;
         failedRepositoryCount += 1;
       }
@@ -851,6 +853,16 @@ export class CollectionSyncService {
       insertedCount: number,
     ) => void,
   ): Promise<RepositorySyncOutcome> {
+    // sweep은 시작할 때 읽은 목록을 몇 분에 걸쳐 돈다. 그사이 팀이 저장소를 바꿨으면 떼어 낸
+    // 저장소에 새 fact를 쓰지 않도록 수집 직전에 행을 다시 읽는다.
+    // ponytail: 이 확인과 적재 사이(저장소 하나를 수집하는 몇 초)에 바뀐 연결은 그 run의 fact가
+    // 옛 저장소에 남는다. 문제가 되면 checkpoint 트랜잭션에서 저장소 행을 잠그고 다시 확인한다.
+    const current = await this.incrementalRepository.findRepositoryByLogicalKey(
+      repository.githubRepositoryId,
+    );
+    if (current !== null && !isCollectionTarget(current)) {
+      return { kind: 'SKIPPED' };
+    }
     try {
       await this.syncRepository(
         runtime,
