@@ -46,10 +46,10 @@ Vercel 토큰·조직 ID·프로젝트 ID는 로컬 env 대상이 아니다.
 
 1. `pnpm install` — 의존성 설치. `postinstall`에서 backend의 `prisma generate`가 자동 실행된다.
 2. `.env` 준비 — `.env.example`을 기준으로 값을 채운다. compose 경로로 띄우므로 서비스 DNS를 쓴다: `DATABASE_URL`의 호스트는 `postgres`, `SUBMISSION_FILE_S3_ENDPOINT`는 `http://object-storage:9090`이다. `FRONTEND_URL`은 ingress와 같은 `http://localhost:3000`이어야 한다. 이 값은 dev GitHub OAuth App에 이미 등록된 콜백 origin과 일치해야 한다.
-3. `pnpm local:up` — `compose.yml` + `compose.local.yml` 두 파일을 조합하고 저장소 Dockerfile로 backend·frontend 이미지를 빌드해 postgres·object-storage·backend·frontend·nginx를 띄운다. `IMAGE_TAG`는 필요하지 않는다.
+3. `pnpm local:up` — `compose.yml` + `compose.local.yml` 두 파일을 조합하고 저장소 Dockerfile로 backend 이미지를 빌드해 postgres·object-storage·backend·nginx를 띄운다. `IMAGE_TAG`는 필요하지 않는다.
 4. `pnpm local:verify` — 위 빌드·기동에 더해 마이그레이션 적용, DB·HTTP·object-storage smoke, `object-storage` 재시작·재생성 검증까지 수행한다.
 
-접속은 nginx ingress인 `http://localhost:3000`이다. `/`는 프론트, `/api/v1/*`는 backend로 라우팅된다.
+접속은 nginx ingress인 `http://localhost:3000`이다. production과 같이 `/`는 404이고 `/api/v1/*`만 backend로 라우팅된다. 로컬 frontend UI 개발은 `pnpm dev`를 쓴다.
 
 ## GitHub OAuth 로컬 로그인
 
