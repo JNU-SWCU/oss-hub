@@ -2753,7 +2753,7 @@ describe('CollectionSyncService — Issue stream(#1133)', () => {
     });
   });
 
-  it('Issue stream이 권한 오류로 실패해도 앞 stream의 적재는 남고 오류는 ISSUE 행에만 기록된다', async () => {
+  it('Issue 권한이 없으면 오류는 ISSUE 행에만 남고 저장소는 실패로 세지 않는다', async () => {
     const { db, box } = createFakeDb();
     const repository = providerRepository();
     const client = createClient([repository]);
@@ -2770,12 +2770,16 @@ describe('CollectionSyncService — Issue stream(#1133)', () => {
     const result = await createService(db, client).run('owner-1');
 
     expect(result.status).toBe('COMPLETED');
-    expect(result.processedRepositoryCount).toBe(0);
+    expect(result.processedRepositoryCount).toBe(1);
     expect([...box.store.commitFacts.values()].map((fact) => fact.sha)).toEqual(
       ['sha-kept'],
     );
     expect(box.store.streams.get('repo-1:ISSUE')?.lastErrorCode).toBe(
       'PROVIDER_PERMISSION',
+    );
+    // 저장소 백오프가 걸리지 않아 Commit·PR·Release는 다음 정각에도 그대로 돈다.
+    expect(box.store.repositories.get(repoKey(100n))?.failureCount ?? 0).toBe(
+      0,
     );
     expect(box.store.streams.get('repo-1:COMMIT')?.lastErrorCode ?? null).toBe(
       null,
@@ -2784,6 +2788,22 @@ describe('CollectionSyncService — Issue stream(#1133)', () => {
     expect(box.store.repositories.get(repoKey(100n))?.visibility).toBe(
       'PUBLIC',
     );
+  });
+
+  it('Issue 목록의 다른 오류는 다른 stream처럼 저장소 실패로 센다', async () => {
+    const { db, box } = createFakeDb();
+    const client = createClient([providerRepository()]);
+    client.listNewIssues.mockRejectedValue(
+      new CollectionAppClientError('UPSTREAM'),
+    );
+
+    const result = await createService(db, client).run('owner-1');
+
+    expect(result.processedRepositoryCount).toBe(0);
+    expect(box.store.streams.get('repo-1:ISSUE')?.lastErrorCode).toBe(
+      'PROVIDER_UPSTREAM',
+    );
+    expect(box.store.repositories.get(repoKey(100n))?.failureCount).toBe(1);
   });
 });
 

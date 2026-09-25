@@ -1022,24 +1022,35 @@ export class CollectionSyncService {
         ),
     );
     onStreamInserted('RELEASE', releaseCount);
-    // Issue는 마지막이다. 새로 생긴 stream이 실패해도(예: installation이 아직 Issues 권한을
-    // 승인하지 않음) 앞 세 stream의 checkpoint는 이미 커밋된 뒤다.
-    const issueCount = await this.trackStreamOutcome(
-      lease,
-      repository.id,
-      'ISSUE',
-      () =>
-        this.syncIssueStream(
-          runtime,
-          lease,
-          repository,
-          owner,
-          name,
-          teamMembers,
-          registeredGithubIds,
-          deadline,
-        ),
-    );
+    // Issue는 마지막이다. 새로 생긴 stream이 실패해도 앞 세 stream의 checkpoint는 이미 커밋된
+    // 뒤다. `Issues: read`는 선택 권한이라, installation이 아직 승인하지 않은 권한 오류는 ISSUE
+    // 행에만 남기고 저장소를 실패로 돌리지 않는다 — 실패로 돌리면 저장소 백오프에 걸려 Commit·
+    // PR·Release까지 몇 시간씩 쉰다.
+    let issueCount = 0;
+    try {
+      issueCount = await this.trackStreamOutcome(
+        lease,
+        repository.id,
+        'ISSUE',
+        () =>
+          this.syncIssueStream(
+            runtime,
+            lease,
+            repository,
+            owner,
+            name,
+            teamMembers,
+            registeredGithubIds,
+            deadline,
+          ),
+      );
+    } catch (error) {
+      if (!(
+        error instanceof CollectionAppClientError && error.kind === 'PERMISSION'
+      )) {
+        throw error;
+      }
+    }
     onStreamInserted('ISSUE', issueCount);
   }
 
