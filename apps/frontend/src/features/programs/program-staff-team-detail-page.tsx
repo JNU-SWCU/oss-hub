@@ -424,6 +424,16 @@ export function ProgramStaffTeamDetailPage({
          * 서버가 준 편집 권한뿐이다. 발급·공개 상태는 교직원에게만 있는 줄이라 URL 줄 아래에 붙인다.
          */}
         <TeamRepositoryPanel
+          /*
+           * 판정이나 팀원 구성이 바뀌면 새로 읽는다 — 상세를 다시 읽는 동안 스켈레톤이 그려지지
+           * 않을 만큼 응답이 빨라도, 연필이 옛 판정에·그래프가 옛 명단에 머물지 않는다(학생
+           * 「우리 팀」과 같은 규칙). 저장소 저장 뒤 조용한 재조회는 key를 바꾸지 않는다.
+           */
+          key={[
+            application?.id,
+            application?.status,
+            detail.members.map((member) => member.userId).join(','),
+          ].join('|')}
           programId={programId}
           teamId={teamId}
           activityTitle="팀 활동"

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import { ProgramStaffTeamDetailPage } from './program-staff-team-detail-page';
 import { updateTeamRepositoryUrl } from './repository-url-api';
+import { removeStaffTeamMember } from './staff-team-members-api';
 import { getTeamActivity, type TeamActivity } from './team-activity-api';
 import type { ApplicationDetail, StaffTeamDetail } from './types';
 
@@ -59,6 +60,11 @@ vi.mock('./team-activity-api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./team-activity-api')>()),
   getTeamActivity: vi.fn(),
   getRepositoryHistory: vi.fn(),
+}));
+
+vi.mock('./staff-team-members-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./staff-team-members-api')>()),
+  removeStaffTeamMember: vi.fn(),
 }));
 
 vi.mock('./repository-url-api', async (importOriginal) => ({
@@ -211,6 +217,7 @@ describe('ProgramStaffTeamDetailPage', () => {
     decideApplicationMock.mockResolvedValue({});
     vi.mocked(getTeamActivity).mockReset().mockResolvedValue(teamActivity);
     vi.mocked(updateTeamRepositoryUrl).mockReset();
+    vi.mocked(removeStaffTeamMember).mockReset();
   });
 
   afterEach(() => {
@@ -601,6 +608,73 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(container.textContent).toContain(
         '연결되지 않은 기여자가 없습니다.',
       );
+    });
+
+    /**
+     * 팀원을 빼면 상세(목록)만이 아니라 그래프(활동 조회)도 새 명단으로 다시 읽는다 — 응답이
+     * 빨라 스켈레톤이 한 번도 그려지지 않아도 그렇다. 둘이 서로 다른 명단을 말하지 않는다.
+     */
+    it('팀원을 빼면 목록과 함께 그래프도 새 명단으로 다시 읽는다', async () => {
+      getStaffProgramTeamDetailMock
+        .mockResolvedValueOnce(withApplication)
+        .mockResolvedValue({
+          ...withApplication,
+          memberCount: 1,
+          members: withApplication.members.slice(0, 1),
+        });
+      vi.mocked(getTeamActivity).mockResolvedValue(collected);
+      vi.mocked(removeStaffTeamMember).mockResolvedValue(undefined);
+      await render();
+      expect(getTeamActivity).toHaveBeenCalledTimes(1);
+
+      await act(async () =>
+        container
+          .querySelector<HTMLButtonElement>(
+            'button[aria-label="login-b 팀에서 제외"]',
+          )
+          ?.click(),
+      );
+      await act(async () =>
+        [...document.querySelectorAll<HTMLButtonElement>('button')]
+          .find((button) => button.textContent?.trim() === '팀에서 제외')
+          ?.click(),
+      );
+
+      expect(removeStaffTeamMember).toHaveBeenCalledExactlyOnceWith(
+        'program-1',
+        'team-1',
+        'user-b',
+      );
+      expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(2);
+      expect(getTeamActivity).toHaveBeenCalledTimes(2);
+    });
+
+    it('판정이 바뀌면 연필 권한을 새로 받도록 저장소 카드를 다시 읽는다', async () => {
+      getStaffProgramTeamDetailMock
+        .mockResolvedValueOnce(withApplication)
+        .mockResolvedValue({
+          ...withApplication,
+          application: {
+            ...withApplication.application!,
+            status: 'APPROVED',
+          },
+        });
+      vi.mocked(getTeamActivity).mockResolvedValue(collected);
+      await render();
+      expect(getTeamActivity).toHaveBeenCalledTimes(1);
+
+      const select = container.querySelector<HTMLSelectElement>(
+        '#team-detail-application-status',
+      );
+      await act(async () => {
+        if (select === null) return;
+        select.value = 'APPROVED';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+
+      expect(decideApplicationMock).toHaveBeenCalledTimes(1);
+      expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(2);
+      expect(getTeamActivity).toHaveBeenCalledTimes(2);
     });
 
     it('첫 수집을 끝내기 전에는 그래프처럼 그 줄도 보이지 않는다', async () => {
