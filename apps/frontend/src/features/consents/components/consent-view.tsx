@@ -27,9 +27,9 @@ export { ConsentPolicyInline } from './consent-policy-document';
 /**
  * 이 화면의 패널 바탕 — 어두운 우주 바탕 위에 뜨는 반투명 유리 한 겹.
  *
- * 예전에는 `Card`를 썼는데, `Card`의 `bg-card`는 반전 스코프(`data-surface="inverted"`)가
- * 되돌리는 토큰 집합에 들어 있지 않아 어두운 바탕 위에서 흰 판으로 남았다. 색을 직접
- * 지어내지 않고 랜딩이 쓰는 `--cosmos-*` 토큰만 조합해 같은 계열의 유리로 만든다.
+ * 예전에는 `Card`를 썼는데, 당시 `bg-card`가 반전 스코프(`data-surface="inverted"`)가
+ * 덮는 토큰 집합에 없어 어두운 바탕 위에서 흰 판으로 남았다. 지금은 스코프가 `--card`도
+ * 덮지만(흰 8% 유리), 이 화면은 더 옅은 유리(5%)가 맞아 `--cosmos-*` 조합을 유지한다.
  */
 const consentPanelClassName =
   'rounded-card border border-cosmos-border bg-cosmos-muted/5';

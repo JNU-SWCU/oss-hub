@@ -138,6 +138,14 @@ describe("globals.css의 [data-surface='inverted'] 반전/리셋 불변식", () 
     expect([...invertedNames].sort()).toEqual([...resetNames].sort());
   });
 
+  // 집합 비교는 두 블록에서 함께 빠지는 경우를 못 잡는다. 빠지면 무대 위 Alert가
+  // 흰 판에 옅은 분홍 글자(1.53:1)로 뜬다 — 가입 화면 오류 상자 네 곳이 실제로 그랬다.
+  it('반전 블록은 카드 표면도 덮는다 — 가입 무대의 Alert 바탕', () => {
+    expect([...invertedNames]).toEqual(
+      expect.arrayContaining(['--card', '--card-foreground']),
+    );
+  });
+
   it('두 블록 모두 자기 스코프에서 color: var(--foreground)를 선언한다', () => {
     expect(
       declaresForegroundColor(invertedDeclarations),

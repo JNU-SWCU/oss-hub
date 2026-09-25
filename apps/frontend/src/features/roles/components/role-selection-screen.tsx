@@ -249,11 +249,12 @@ function RoleGuidanceSlot({
  * 사유는 길이를 자른다(`clampRejectionReason`). 문구나 구조를 늘릴 때는 위 표를
  * 다시 재라 — 지금 상태가 "허용한 최대"이지 "여유"가 아니다.
  *
- * shadcn `Alert`를 쓰지 않는다 — 카드와 같은 이유다. `bg-card`·`bg-background`는
- * 반전 스코프가 덮는 변수 집합에 없어서(globals.css의 `[data-surface='inverted']`)
- * 어두운 무대 위에 흰 상자로 뜬다. 대비가 검증된 `--cosmos-*` 안에서, 바로 아래
- * `errorMessage` 상자와 같은 조형(`rounded-card` · `px-4 py-3` · 두 줄 위계)으로
- * 짓는다 — 같은 화면에서 경고가 두 가지 모양을 하면 위계가 무너진다.
+ * shadcn `Alert`를 쓰지 않는다. 처음 지을 때는 반전 스코프(globals.css의
+ * `[data-surface='inverted']`)가 `--card`를 덮지 않아 `Alert`가 어두운 무대 위에 흰 상자로
+ * 떴다. 지금은 덮지만, 이 상자는 위 높이 실측에 맞춘 조형이라 그대로 둔다. 대비가
+ * 검증된 `--cosmos-*` 안에서, 바로 아래 `errorMessage` 상자와 같은 조형(`rounded-card` ·
+ * `px-4 py-3` · 두 줄 위계)으로 짓는다 — 같은 화면에서 경고가 두 가지 모양을 하면
+ * 위계가 무너진다.
  *
  * `RoleGuidanceSlot` 근처가 아니라 카드 **위**에 세운다. 그 슬롯은 높이를 실측해
  * 고정한 자리라(그 함수의 주석) 곁에 요소가 늘면 `선택 완료` 버튼이 밀린다.
@@ -374,9 +375,9 @@ export function RoleSelectionForm({
                   checked={isSelected}
                   onChange={() => onSelect(option.role)}
                 />
-                {/* shadcn `Card`를 쓰지 않는다 — `bg-card`는 반전 스코프가 덮는 변수 집합에
-                  없어서(globals.css의 `[data-surface='inverted']`) 어두운 무대 위에 흰
-                  상자로 뜬다. 무대와 같은 --cosmos-* 로 직접 짓는다. */}
+                {/* shadcn `Card`를 쓰지 않는다 — 지을 당시 `bg-card`가 반전 스코프
+                  (globals.css의 `[data-surface='inverted']`) 밖이라 흰 상자로 떴다. 지금은
+                  덮지만, 선택 표시까지 무대와 같은 --cosmos-* 로 직접 지은 조형을 유지한다. */}
                 <div
                   className={cn(
                     'flex h-full flex-col gap-2 rounded-card border border-cosmos-border',
