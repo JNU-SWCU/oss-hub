@@ -15,12 +15,14 @@ const STREAM_TYPES: readonly CollectionStreamType[] = [
   'COMMIT',
   'PULL_REQUEST',
   'RELEASE',
+  'ISSUE',
 ];
 
 const STREAM_TYPE_LABEL: Record<CollectionStreamType, string> = {
   COMMIT: 'Commit',
   PULL_REQUEST: 'PR',
   RELEASE: 'Release',
+  ISSUE: 'Issue',
 };
 
 /**

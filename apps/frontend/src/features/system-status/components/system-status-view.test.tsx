@@ -415,7 +415,7 @@ describe('SystemStatusView', () => {
       // org "Stream 진행 상황" 카드는 여전히 org의 2개를 보여준다 — external의
       // 5개로 덮어써지지 않는다.
       expect(html).toContain(
-        '저장소 2개에서 Commit·PR·Release를 각각 수집합니다.',
+        '저장소 2개에서 Commit·PR·Release·Issue를 각각 수집합니다.',
       );
       expect(html).toContain('5개 추적 중');
     });
@@ -520,7 +520,7 @@ describe('SystemStatusView', () => {
       });
       expect(html).toContain('완료 0 / 6개 (0%)');
       expect(html).toContain(
-        '저장소 2개에서 Commit·PR·Release를 각각 수집합니다.',
+        '저장소 2개에서 Commit·PR·Release·Issue를 각각 수집합니다.',
       );
     });
 

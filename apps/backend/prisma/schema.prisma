@@ -1222,6 +1222,7 @@ model GithubRepository {
   commits       CollectionCommitFact[]
   pullRequests  CollectionPullRequestFact[]
   releases      CollectionReleaseFact[]
+  issues        GithubIssueHistory[]
   contributions Contribution[]
   invitations   RepositoryInvitation[]
   provisionJobs RepositoryProvisionJob[]
@@ -1246,8 +1247,8 @@ model GithubRepository {
 /// 롤오버 작업도, 당해 연도를 0으로 초기화하는 특수 처리도 필요 없다.
 /// 연도로 접으면 랭킹이, 저장소로 접으면 팀 기여도가 같은 바닥에서 나온다.
 ///
-/// 집계 수치만 담는다. 커밋 메시지·PR 제목/본문·릴리스 본문은 저장하지 않으며,
-/// 개별 식별자(`sha`·PR id·릴리스 id)도 보존하지 않는다 —
+/// 집계 수치만 담는다. 커밋 메시지·PR 제목/본문·릴리스 본문·이슈 제목/본문은 저장하지 않으며,
+/// 개별 식별자(`sha`·PR id·릴리스 id·이슈 id)도 보존하지 않는다 —
 /// "무엇을 했는지"가 아니라 "얼마나 했는지"만 남는다(ADR-006 저장 field inventory).
 model Contribution {
   repositoryId String
@@ -1263,6 +1264,7 @@ model Contribution {
   commitCount      Int @default(0)
   pullRequestCount Int @default(0)
   releaseCount     Int @default(0)
+  issueCount       Int @default(0)
 
   updatedAt DateTime @updatedAt
 
@@ -1320,6 +1322,7 @@ enum CollectionStreamType {
   COMMIT
   PULL_REQUEST
   RELEASE
+  ISSUE
 }
 
 enum CollectionStreamStatus {
@@ -1329,7 +1332,7 @@ enum CollectionStreamStatus {
   VERIFYING
 }
 
-/// stream(commit/PR/release)별 safe frontier + exact-request fingerprint/ETag를 보존해
+/// stream(commit/PR/release/issue)별 safe frontier + exact-request fingerprint/ETag를 보존해
 /// 재순회 없이 다음 증분 수집 시작점을 복원한다(ADR-006).
 model CollectionRepositoryStream {
   id String @id @default(cuid())
@@ -1416,6 +1419,29 @@ model CollectionReleaseFact {
 
   @@unique([repositoryId, githubReleaseId])
   @@index([repositoryId, publishedAt])
+  @@index([authorGithubId])
+}
+
+/// 저장소에 issue가 열린 이력 — 관측한 issue마다 한 행을 쌓는다(`createdAt` 축, `data-modeling.md` §4).
+/// (repositoryId, githubIssueId) + createdAt만 보존한다 — title/body는 저장하지 않는다(ADR-006).
+/// GitHub issues 목록에 섞여 오는 PR은 여기 적재하지 않는다 — PR은 `CollectionPullRequestFact`가 센다.
+model GithubIssueHistory {
+  id String @id @default(cuid())
+
+  repositoryId String
+  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  githubIssueId BigInt
+  state         String
+  createdAt     DateTime
+
+  authorGithubId    BigInt?
+  authorGithubLogin String?
+
+  observedAt DateTime @default(now())
+
+  @@unique([repositoryId, githubIssueId])
+  @@index([repositoryId, createdAt])
   @@index([authorGithubId])
 }
 

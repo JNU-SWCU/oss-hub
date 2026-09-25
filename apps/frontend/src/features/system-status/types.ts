@@ -27,7 +27,8 @@ export interface SystemStatus {
   readonly safeReason: SystemStatusSafeReason | null;
 }
 
-export type CollectionStreamType = 'COMMIT' | 'PULL_REQUEST' | 'RELEASE';
+export type CollectionStreamType =
+  'COMMIT' | 'PULL_REQUEST' | 'RELEASE' | 'ISSUE';
 
 /** 집계 카운트(readyStreamCount 등)와 같은 4구간. */
 export type CollectionStreamBucket =

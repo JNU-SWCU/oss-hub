@@ -105,6 +105,9 @@ it('collects new facts only on the replacement when an external application repo
   jest
     .spyOn(client, 'listChangedPublishedReleases')
     .mockResolvedValue({ releases: [], fingerprint });
+  jest
+    .spyOn(client, 'listNewIssues')
+    .mockResolvedValue({ issues: [], newFrontier: null, fingerprint });
   const runtime = () => ({
     appId: '8133',
     organizationLogin: 'synthetic',
@@ -280,6 +283,9 @@ function syntheticProvider() {
       fingerprint,
       etag: 'synthetic-etag',
     }),
+    jest
+      .spyOn(client, 'listNewIssues')
+      .mockResolvedValue({ issues: [], newFrontier: null, fingerprint }),
   ];
   const resolveUserNodeId = jest
     .spyOn(client, 'resolveUserNodeId')

@@ -19,6 +19,7 @@ export const COLLECTION_STREAM_TYPES = [
   'COMMIT',
   'PULL_REQUEST',
   'RELEASE',
+  'ISSUE',
 ] as const;
 export type CollectionStreamType = (typeof COLLECTION_STREAM_TYPES)[number];
 
@@ -109,6 +110,14 @@ export interface PullRequestFactInput {
 export interface ReleaseFactInput {
   githubReleaseId: bigint;
   publishedAt: Date;
+  authorGithubId?: bigint | null;
+  authorGithubLogin?: string | null;
+}
+
+export interface IssueFactInput {
+  githubIssueId: bigint;
+  state: string;
+  createdAt: Date;
   authorGithubId?: bigint | null;
   authorGithubLogin?: string | null;
 }

@@ -97,6 +97,10 @@ Accepted
 
 ② 데이터는 `Contribution` 한 장에 담는다. `@@id([repositoryId, githubId, date])`이며 칸은 `commitCount`·`pullRequestCount`·`releaseCount`다.
 
+> **2026-09-24 개정(#1133)** — `issueCount` 칸이 늘었다. 저장소 축에 issue 이력(`GithubIssueHistory`)이 생겼고, 재계산은 건드린 칸의 네 값을 fact 세 테이블과 issue 이력에서 함께 다시 센다.
+> §3의 합계 정의는 이 개정으로 바뀌지 않는다 — `issueCount`를 읽는 화면은 후속 작업이다.
+> issue만 연 날도 행이 생기므로, `issueCount`를 보이지 않는 사람 목록(팀 저장소 증거·공개 프로젝트 기여자)은 읽는 범위(프로그램 기간·누적)의 commit·PR·release 합이 0인 사람을 올리지 않는다 — 그 사람을 "커밋 0 · PR 0 · 릴리스 0"으로 세우지 않기 위해서다.
+
 **읽는 쪽은 아직 둘로 갈려 있다.** 지표 조회 네 곳(`getRepositoryMetrics`·`getContributorMetrics`와 각 누적판)은 `Contribution`을 읽지만, 활동 **타임라인**(`findRepositoryActivity`)은 여전히 fact 테이블 관계를 직접 읽는다 — 타임라인은 날짜별 점 하나하나가 필요해서 집계 칸으로는 만들 수 없다. 두 경로가 같은 사실을 보되 입자가 다르다.
 
 - 저장에 연도 개념이 없다. 읽을 때 `WHERE date` 범위로만 자르므로 **새해에 롤오버 작업이 없다.** 기존 `*YearAggregate`는 매년 1/1에 당해 연도 값을 0으로 안전하게 읽는 특수 처리를 요구했다
@@ -296,6 +300,8 @@ webhook 기반 실시간을 만들지 않는다(`ADR-006` 이벤트 최소주의
 
 ## Changelog
 
+- 2026-09-24: §4 개정 노트에 issue만 연 사람의 표시 규칙을 더했다 — `issueCount`를 보이지 않는 사람 목록은 읽는 범위(프로그램 기간·누적)의 commit·PR·release 합이 0인 사람을 올리지 않는다(#1133).
+- 2026-09-24: §4에 `Contribution.issueCount` 개정 노트를 덧붙였다(기존 본문 삭제 없음). 저장소 축 issue 수집(#1133)의 저장 칸이며, 합계 정의는 바꾸지 않았다.
 - 2026-09-24: #1133 PR2(저장소 URL 링크 직후 수집)가 §6·§7·§10 일부를 낡게 만들어 각 절에 날짜 amendment를 덧붙였다(기존 본문 삭제 없음).
   §6은 저장소 URL 연결이 실제로 바뀌어 커밋되면 다음 인벤토리 관측을 기다리지 않고 `CollectionSchedulerService.collectRepository`가 one-shot 즉시 수집을 시작할 수 있음을 기록했다.
   §7은 새 트리거 port `COLLECTION_TRIGGER_PORT`가 기여 추적 셋·프로비저닝 port에 이어 추가됐음을 기록했다.

@@ -100,6 +100,78 @@ describe('Contribution 재계산 (실 Postgres)', () => {
     expect(rows.every((row) => row.commitCount === 1)).toBe(true);
   });
 
+  it('Issue도 KST 자정에서 날짜가 갈린다 — 14:59:59Z 는 그날, 15:00:00Z 는 다음 날이다', async () => {
+    await repository.recordIssueFacts(
+      REPO_ID,
+      [
+        {
+          githubIssueId: 1n,
+          state: 'open',
+          createdAt: new Date('2026-03-15T14:59:59.000Z'),
+          authorGithubId: MEMBER,
+        },
+        {
+          githubIssueId: 2n,
+          state: 'closed',
+          createdAt: new Date('2026-03-15T15:00:00.000Z'),
+          authorGithubId: MEMBER,
+        },
+      ],
+      await repository.listRegisteredGithubIds(),
+    );
+
+    const rows = await prisma.contribution.findMany({
+      where: { repositoryId: REPO_ID },
+      orderBy: { date: 'asc' },
+      select: { date: true, commitCount: true, issueCount: true },
+    });
+
+    expect(
+      rows.map((row) => [
+        row.date.toISOString().slice(0, 10),
+        row.commitCount,
+        row.issueCount,
+      ]),
+    ).toEqual([
+      ['2026-03-15', 0, 1],
+      ['2026-03-16', 0, 1],
+    ]);
+  });
+
+  it('커밋만 다시 센 재계산도 같은 칸의 issueCount 를 지우지 않는다', async () => {
+    const registeredGithubIds = await repository.listRegisteredGithubIds();
+    await repository.recordIssueFacts(
+      REPO_ID,
+      [
+        {
+          githubIssueId: 1n,
+          state: 'open',
+          createdAt: new Date('2026-03-15T01:00:00.000Z'),
+          authorGithubId: MEMBER,
+        },
+      ],
+      registeredGithubIds,
+    );
+    // 같은 (사람, 날짜) 칸을 커밋 적재가 다시 센다 — 칸을 지우고 네 fact 를 모두 다시 센다.
+    await repository.recordCommitFacts(
+      REPO_ID,
+      [
+        {
+          sha: 'same-day-commit',
+          committedAt: new Date('2026-03-15T02:00:00.000Z'),
+          authorGithubId: MEMBER,
+        },
+      ],
+      registeredGithubIds,
+    );
+
+    const rows = await prisma.contribution.findMany({
+      where: { repositoryId: REPO_ID },
+      select: { commitCount: true, issueCount: true },
+    });
+    expect(rows).toEqual([{ commitCount: 1, issueCount: 1 }]);
+  });
+
   it('미가입자 기여는 행이 만들어지지 않는다', async () => {
     await repository.recordCommitFacts(
       REPO_ID,
