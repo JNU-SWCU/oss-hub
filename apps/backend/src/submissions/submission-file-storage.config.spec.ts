@@ -40,8 +40,8 @@ describe('SubmissionFileStorageConfig', () => {
   function setValidEnvironment(
     overrides: Partial<Record<EnvKey, string | undefined>> = {},
   ) {
-    process.env.SUBMISSION_FILE_STORAGE_MODE = 'minio';
-    process.env.SUBMISSION_FILE_S3_ENDPOINT = 'http://minio:9000';
+    process.env.SUBMISSION_FILE_STORAGE_MODE = 'local';
+    process.env.SUBMISSION_FILE_S3_ENDPOINT = 'http://object-storage:9000';
     process.env.SUBMISSION_FILE_S3_REGION = 'synthetic-region';
     process.env.SUBMISSION_FILE_S3_BUCKET = 'synthetic-bucket';
     process.env.SUBMISSION_FILE_S3_ACCESS_KEY_ID = 'synthetic-access-key';
@@ -67,13 +67,13 @@ describe('SubmissionFileStorageConfig', () => {
     );
   }
 
-  it('minio mode에서 6개 application storage 값과 private HTTP endpoint를 반환한다', () => {
+  it('local mode에서 6개 application storage 값과 private HTTP endpoint를 반환한다', () => {
     setValidEnvironment();
 
     const settings = new SubmissionFileStorageConfig().requireSettings();
 
     expect(settings).toEqual({
-      endpoint: 'http://minio:9000',
+      endpoint: 'http://object-storage:9000',
       region: 'synthetic-region',
       bucket: 'synthetic-bucket',
       accessKeyId: 'synthetic-access-key',
@@ -147,20 +147,20 @@ describe('SubmissionFileStorageConfig', () => {
 
   it.each([
     // Compose 내부 서비스 호스트명(정확 일치)과 loopback/사설 http.
-    ['minio', 'http://minio:9000'],
-    ['minio', 'http://127.0.0.1:9000'],
-    ['minio', 'http://localhost:9000'],
-    ['minio', 'http://10.1.2.3:9000'],
-    ['minio', 'http://192.168.0.5:9000'],
-    ['minio', 'http://[::1]:9000'],
+    ['local', 'http://object-storage:9000'],
+    ['local', 'http://127.0.0.1:9000'],
+    ['local', 'http://localhost:9000'],
+    ['local', 'http://10.1.2.3:9000'],
+    ['local', 'http://192.168.0.5:9000'],
+    ['local', 'http://[::1]:9000'],
     // RFC1918 172.16/12 경계 양끝.
-    ['minio', 'http://172.16.0.1:9000'],
-    ['minio', 'http://172.31.255.254:9000'],
+    ['local', 'http://172.16.0.1:9000'],
+    ['local', 'http://172.31.255.254:9000'],
     // IPv6 ULA·link-local.
-    ['minio', 'http://[fd00::1]:9000'],
-    ['minio', 'http://[fe80::1]:9000'],
+    ['local', 'http://[fd00::1]:9000'],
+    ['local', 'http://[fe80::1]:9000'],
     // URL 파서가 127.0.0.1로 정규화하는 십진 표기.
-    ['minio', 'http://2130706433:9000'],
+    ['local', 'http://2130706433:9000'],
     ['managed', R2_ENDPOINT],
   ] as const)(
     '%s mode의 %s는 허용된 endpoint라서 설정을 반환한다',
@@ -181,18 +181,18 @@ describe('SubmissionFileStorageConfig', () => {
   it.each([
     // 공개 http·비허용 scheme·비URL.
     'http://s3.example.com',
-    // minio mode는 외부 HTTPS endpoint도 허용하지 않는다.
+    // local mode는 외부 HTTPS endpoint도 허용하지 않는다.
     'https://s3.example.com',
     'http://8.8.8.8:9000',
-    'ftp://minio:9000',
+    'ftp://object-storage:9000',
     'not-a-url',
-    // 다른 단일 라벨 호스트는 Compose 서비스명 minio가 아니므로 거부.
+    // 다른 단일 라벨 호스트는 Compose 서비스명 object-storage가 아니므로 거부.
     'http://redis:9000',
     'http://postgres:9000',
     // credentials/query/fragment는 http·https 모두 protocol 수락 전 거부.
-    'http://user:pass@minio:9000',
-    'http://minio:9000?x=1',
-    'http://minio:9000#frag',
+    'http://user:pass@object-storage:9000',
+    'http://object-storage:9000?x=1',
+    'http://object-storage:9000#frag',
     'https://user:pass@s3.example.com',
     'https://s3.example.com?x=1',
     'https://s3.example.com#frag',
@@ -200,19 +200,19 @@ describe('SubmissionFileStorageConfig', () => {
     'https://s3.example.com?',
     'https://s3.example.com#',
     'https://s3.example.com?#',
-    'http://minio:9000?',
-    'http://minio:9000#',
+    'http://object-storage:9000?',
+    'http://object-storage:9000#',
     'https://@s3.example.com',
     'https://:@s3.example.com',
-    'http://@minio:9000',
-    'http://:@minio:9000',
+    'http://@object-storage:9000',
+    'http://:@object-storage:9000',
     // WHATWG가 허용하는 slashless/backslash special URL도 canonical 입력이 아니다.
-    'http:minio:9000?',
+    'http:object-storage:9000?',
     'https:s3.example.com?',
     'https:@s3.example.com',
-    'http:\\\\minio:9000?',
+    'http:\\\\object-storage:9000?',
     // userinfo에 사설 호스트를 숨겨도 credentials가 있으면 거부.
-    'http://minio:9000@s3.example.com/',
+    'http://object-storage:9000@s3.example.com/',
     // 사설 IP를 앞에 붙인 공개 호스트명.
     'http://127.0.0.1.s3.example.com:9000',
     // RFC1918 172.16/12 바로 바깥.
@@ -223,7 +223,7 @@ describe('SubmissionFileStorageConfig', () => {
     // 공개 IPv6, 그리고 IPv4-mapped 형태로 우회 시도.
     'http://[2001:db8::1]:9000',
     'http://[::ffff:8.8.8.8]:9000',
-  ])('%s는 minio mode에서 CONFIGURATION 에러를 던진다', (endpoint) => {
+  ])('%s는 local mode에서 CONFIGURATION 에러를 던진다', (endpoint) => {
     setValidEnvironment({ SUBMISSION_FILE_S3_ENDPOINT: endpoint });
 
     expectConfigurationError();
@@ -231,7 +231,7 @@ describe('SubmissionFileStorageConfig', () => {
 
   it.each([
     'http://s3.example.com',
-    'https://minio:9000',
+    'https://object-storage:9000',
     'https://postgres:9000',
     'https://redis:9000',
     'https://127.0.0.1:9000',
@@ -252,7 +252,7 @@ describe('SubmissionFileStorageConfig', () => {
     expectConfigurationError();
   });
 
-  it.each(['', 'unknown', 'MINIO', 'managed '])(
+  it.each(['', 'unknown', 'LOCAL', 'managed '])(
     '알 수 없거나 누락된 storage mode %j는 CONFIGURATION 에러를 던진다',
     (mode) => {
       setValidEnvironment({
@@ -268,12 +268,12 @@ describe('SubmissionFileStorageConfig', () => {
     `${R2_ENDPOINT}/%23not-hash`,
     `${R2_ENDPOINT}/path%3Fstill-path`,
     `${R2_ENDPOINT}/path%23still-path`,
-    'http://minio:9000/%3Fnot-query',
+    'http://object-storage:9000/%3Fnot-query',
   ])('%s는 origin-only endpoint가 아니므로 거부한다', (endpoint) => {
     setValidEnvironment({
       SUBMISSION_FILE_STORAGE_MODE: endpoint.startsWith('https:')
         ? 'managed'
-        : 'minio',
+        : 'local',
       SUBMISSION_FILE_S3_ENDPOINT: endpoint,
       SUBMISSION_FILE_S3_REGION: endpoint.startsWith('https:')
         ? 'auto'
@@ -309,9 +309,9 @@ describe('SubmissionFileStorageConfig', () => {
     expectConfigurationError();
   });
 
-  it('NODE_ENV=production에서도 minio mode의 http://minio:9000을 허용한다', () => {
+  it('NODE_ENV=production에서도 local mode의 http://object-storage:9000을 허용한다', () => {
     setValidEnvironment({
-      SUBMISSION_FILE_S3_ENDPOINT: 'http://minio:9000',
+      SUBMISSION_FILE_S3_ENDPOINT: 'http://object-storage:9000',
       NODE_ENV: 'production',
     });
 

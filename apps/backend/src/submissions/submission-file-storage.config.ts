@@ -18,7 +18,7 @@ export interface SubmissionFileStorageSettings {
   forcePathStyle: boolean;
 }
 
-type SubmissionFileStorageMode = 'minio' | 'managed';
+type SubmissionFileStorageMode = 'local' | 'managed';
 
 @Injectable()
 export class SubmissionFileStorageConfig {
@@ -78,7 +78,7 @@ export class SubmissionFileStorageConfig {
 function storageModeValue(
   raw: string | undefined,
 ): SubmissionFileStorageMode | null {
-  if (raw === 'minio' || raw === 'managed') return raw;
+  if (raw === 'local' || raw === 'managed') return raw;
   return null;
 }
 
@@ -97,7 +97,7 @@ function booleanConfigValue(raw: string | undefined): boolean | null {
 // Endpoint 허용은 mode와 노출 면으로 판정한다.
 // - credentials/query/fragment는 protocol 수락 전에 항상 거부
 //   (WHATWG getters는 present-empty `?`/`#`/`@` 형태를 빈 문자열로 정규화하므로 raw 입력도 본다)
-// - minio는 loopback·사설/링크로컬 주소와 Compose 내부 서비스명 `minio`의 http만 허용
+// - local은 loopback·사설/링크로컬 주소와 Compose 내부 서비스명 `object-storage`의 http만 허용
 // - managed는 account label만 가변인 Cloudflare R2 HTTPS endpoint만 허용
 function isAllowedEndpointForMode(
   endpoint: string,
@@ -118,7 +118,7 @@ function isAllowedEndpointForMode(
     ) {
       return false;
     }
-    if (mode === 'minio') {
+    if (mode === 'local') {
       return url.protocol === 'http:' && isAllowedHttpHost(url.hostname);
     }
     return (
@@ -157,7 +157,7 @@ function isExternalManagedHost(hostname: string): boolean {
 }
 
 function isAllowedHttpHost(hostname: string): boolean {
-  if (hostname === 'localhost' || hostname === 'minio') return true;
+  if (hostname === 'localhost' || hostname === 'object-storage') return true;
   if (hostname.startsWith('[') && hostname.endsWith(']')) {
     return isPrivateIPv6(hostname.slice(1, -1));
   }
