@@ -747,6 +747,59 @@ it('re-reads repository permission when a quiet reload moves leadership', async 
   );
 });
 
+/**
+ * 팀원이 나가거나 들어와도 신청·팀장은 그대로일 수 있다. 조용한 재조회로 명단이 바뀌면
+ * 그래프도 새 명단으로 다시 읽는다 — 예전에는 나간 팀원이 새로고침 전까지 범례에 남았다
+ * (#1446 리뷰).
+ */
+it('re-reads the graph when a quiet reload changes the member list', async () => {
+  const collected = (logins: readonly string[]): TeamActivity => ({
+    ...activity,
+    repository: { id: 'repo-1', url: 'https://github.com/synthetic/team' },
+    status: 'COLLECTED',
+    lastSuccessAt: '2026-08-16T00:00:00Z',
+    canEditRepositoryUrl: true,
+    members: logins.map((githubLogin, index) => ({
+      userId: `user-${index}`,
+      githubLogin,
+      totals: { commitCount: 1, pullRequestCount: 0, issueCount: 0 },
+      points: [
+        {
+          date: '2026-08-04',
+          commitCount: 1,
+          pullRequestCount: 0,
+          issueCount: 0,
+        },
+      ],
+    })),
+  });
+  vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+  vi.mocked(getMyApplication).mockResolvedValue({
+    ...application,
+    status: 'APPROVED',
+  });
+  vi.mocked(getTeamActivity).mockResolvedValue(
+    collected(['synthetic-leader', 'synthetic-member']),
+  );
+  await renderPage();
+  const legend = () =>
+    host.querySelector('ul[aria-label="팀원"]')?.textContent ?? '';
+  expect(legend()).toContain('@synthetic-member');
+
+  vi.mocked(getMyTeam).mockResolvedValue({
+    ...team,
+    hasApplication: true,
+    memberCount: 1,
+    members: team.members.filter((member) => member.isLeader),
+  });
+  vi.mocked(getTeamActivity).mockResolvedValue(collected(['synthetic-leader']));
+  await act(async () => window.dispatchEvent(new Event('focus')));
+
+  expect(getTeamActivity).toHaveBeenCalledTimes(2);
+  expect(legend()).toContain('@synthetic-leader');
+  expect(legend()).not.toContain('@synthetic-member');
+});
+
 it('saves the student change through my application route', async () => {
   vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
   vi.mocked(getMyApplication).mockResolvedValue({

@@ -280,8 +280,9 @@ export function ProgramMyTeamView({
       {application !== null && stage === 'approved' ? (
         <TeamRepositoryPanel
           /*
-           * 서버가 편집 권한을 다시 계산하는 사실(계정·팀장·신청·종료일)이 바뀌면
-           * 새로 읽는다 — 조용한 재조회로 팀장이 바뀌어도 연필이 옛 권한에 머물지 않는다.
+           * 서버가 편집 권한을 다시 계산하는 사실(계정·팀장·신청·종료일)이나 그래프가 그리는
+           * 팀원이 바뀌면 새로 읽는다 — 조용한 재조회로 팀장이 바뀌어도 연필이 옛 권한에,
+           * 팀원이 나가도 그래프가 옛 명단에 머물지 않는다.
            */
           key={[
             sessionNickname,
@@ -289,6 +290,7 @@ export function ProgramMyTeamView({
             application.id,
             application.status,
             program.operatingPeriod?.endsAt,
+            team.members.map((member) => member.userId).join(','),
           ].join('|')}
           programId={programId}
           teamId={team.id}
