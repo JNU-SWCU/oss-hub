@@ -198,6 +198,7 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'OPTIONAL_SESSION POST /api/v1/auth/logout',
   'PROTECTED POST /api/v1/consents',
   'PROTECTED POST /api/v1/milestone-document-files',
+  'PROTECTED POST /api/v1/milestone-document-files/checks',
   'PROTECTED POST /api/v1/milestones/:milestoneId/documents',
   'PROTECTED POST /api/v1/milestones/:milestoneId/documents/:documentId/applications/:applicationId/reviews',
   'PROTECTED POST /api/v1/milestones/:milestoneId/documents/:documentId/submissions',

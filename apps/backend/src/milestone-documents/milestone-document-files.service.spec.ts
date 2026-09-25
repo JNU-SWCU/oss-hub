@@ -826,6 +826,90 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
   });
 });
 
+/*
+ * #1108 인터뷰 — 서류 화면도 거절 사유를 보려면 제출을 눌러야 했다. 파일을 고르자마자 묻는
+ * 판정(`check`)은 업로드와 **같은** 코드·상태·문장이어야 하고, 아무것도 남기지 않는다.
+ */
+describe('MilestoneDocumentFilesService.check (학생, 제출 전 판정)', () => {
+  function setup() {
+    const { mocks: repositoryMocks, repository } = buildRepository();
+    const { mocks: submissionFileMocks, submissionFiles } =
+      buildSubmissionFiles();
+    const { mocks: storageMocks, storage } = buildStorage();
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      storage,
+      submissionFiles,
+    );
+    const callCount = () =>
+      [repositoryMocks, submissionFileMocks, storageMocks]
+        .flatMap((mocks) => Object.values(mocks))
+        .reduce((sum, mock) => sum + (mock?.mock.calls.length ?? 0), 0);
+    return { callCount, service };
+  }
+
+  const zipUpload = (buffer: Buffer): MilestoneDocumentFileUpload => ({
+    buffer,
+    originalname: '제출묶음.zip',
+    mimetype: 'application/zip',
+    size: buffer.byteLength,
+  });
+
+  it.each(ZIP_REJECTIONS)(
+    '%s .zip은 업로드와 같은 %s로 답하고 저장소·DB에 닿지 않는다',
+    async (_scenario, expectedCode, build) => {
+      // Given
+      const archive = build();
+      const checking = setup();
+      const uploading = setup();
+
+      // When
+      const [checked, uploaded] = await Promise.allSettled([
+        checking.service.check(zipUpload(archive)),
+        uploading.service.upload(
+          1n,
+          syntheticMilestoneId,
+          syntheticDocumentId,
+          zipUpload(archive),
+          UPLOAD_NOW,
+        ),
+      ]);
+
+      // Then
+      expect(checked).toMatchObject({
+        status: 'rejected',
+        reason: {
+          errorCode:
+            MILESTONE_DOCUMENTS_ERROR_CODES[
+              expectedCode as MilestoneDocumentsErrorCode
+            ],
+        },
+      });
+      expect(uploaded).toMatchObject({
+        status: 'rejected',
+        reason: {
+          errorCode:
+            MILESTONE_DOCUMENTS_ERROR_CODES[
+              expectedCode as MilestoneDocumentsErrorCode
+            ],
+        },
+      });
+      expect(checking.callCount()).toBe(0);
+    },
+  );
+
+  it('통과한 .zip도 저장소·DB에 닿지 않는다', async () => {
+    // Given
+    const { callCount, service } = setup();
+
+    // When
+    await service.check(zipUpload(signatureValidZip([{ name: 'valid.txt' }])));
+
+    // Then
+    expect(callCount()).toBe(0);
+  });
+});
+
 describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올리기"/"양식 교체")', () => {
   it.each([
     ['template.jpg', Buffer.from([0xff, 0xd8, 0xff])],

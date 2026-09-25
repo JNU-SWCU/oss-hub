@@ -207,6 +207,15 @@ export class MilestoneDocumentFilesService {
     };
   }
 
+  /**
+   * 학생 — 고른 파일에 업로드와 **같은** 판정만 돌려준다(#1108). 거절 사유를 보려고 제출을
+   * 눌러야 했던 것을 없애려는 경로다. 판정은 `validateOriginalFileName` 하나를 업로드와 함께
+   * 쓰고, 이 경로는 저장소에도 DB에도 닿지 않는다 — 제출 때 같은 검사가 다시 돈다.
+   */
+  async check(file: MilestoneDocumentFileUpload | undefined): Promise<void> {
+    await this.validateOriginalFileName(file);
+  }
+
   /** 교직원 — 서류 항목의 양식 파일을 올리거나 교체한다("양식 올리기"/"양식 교체"). */
   async uploadTemplate(
     actorId: string,
