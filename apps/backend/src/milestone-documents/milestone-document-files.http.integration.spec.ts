@@ -24,7 +24,7 @@ async function upload(
   return fixture.request('milestone-document-files', { method: 'POST', body });
 }
 
-describe('QA152 current file HTTP + PostgreSQL + MinIO', () => {
+describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
   beforeAll(() => fixture.start());
   beforeEach(() => fixture.reset());
   afterAll(() => fixture.stop());

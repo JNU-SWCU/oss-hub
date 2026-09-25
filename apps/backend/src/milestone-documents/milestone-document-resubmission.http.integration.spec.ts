@@ -35,7 +35,7 @@ async function review(
   });
 }
 
-describe('QA152 current item submission HTTP + PostgreSQL + MinIO', () => {
+describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () => {
   beforeAll(() => fixture.start());
   beforeEach(() => fixture.reset());
   afterAll(() => fixture.stop());
