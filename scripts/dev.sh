@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 호스트 hot reload 개발 실행기 — `pnpm dev`의 구현.
 #
-# 인프라(postgres·minio)는 Docker가, 앱(backend·frontend)은 호스트 프로세스가 담당한다.
+# 인프라(postgres·object-storage)는 Docker가, 앱(backend·frontend)은 호스트 프로세스가 담당한다.
 # env 원본은 direnv가 주입하는 `.envrc`다(compose 경로의 `.env`와 별개 — docs/rules/local-dev.md).
 #
 # 방어 순서: env 확인 → 포트 preflight → 인프라 기동 → 마이그레이션 → watcher 2개.
@@ -82,7 +82,7 @@ GUIDE
 }
 
 start_infrastructure() {
-  log '인프라 기동 (postgres·minio) — 멱등'
+  log '인프라 기동 (postgres·object-storage) — 멱등'
   pnpm db:up
 }
 

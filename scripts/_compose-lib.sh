@@ -35,12 +35,17 @@ db_smoke() {
 }
 
 http_smoke() {
-  curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:${LOCAL_INGRESS_PORT:-3000}/ >/dev/null
+  local root_status
+  # frontend 없이 nginx가 root를 운영과 같이 404로 막는지 확인한다.
+  root_status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --retry 5 --retry-connrefused http://127.0.0.1:${LOCAL_INGRESS_PORT:-3000}/)
+  [[ "$root_status" == 404 ]]
   curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:${LOCAL_INGRESS_PORT:-3000}/api/v1/health >/dev/null
 }
 
-minio_smoke() {
-  "${COMPOSE_ARGV[@]}" exec -T minio-bucket sh -eu -c 'mc ls "local/$SUBMISSION_FILE_S3_BUCKET"' >/dev/null
+object_storage_smoke() {
+  "${COMPOSE_ARGV[@]}" exec -T object-storage sh -eu -c \
+    'wget -q -O - "http://localhost:9090/$SUBMISSION_FILE_S3_BUCKET?list-type=2"' \
+    | grep -F '<ListBucketResult' >/dev/null
 }
 
 verify_lock_release() {

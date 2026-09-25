@@ -8,7 +8,7 @@
 # - `.envrc` → `pnpm dev`. backend·frontend가 **호스트 프로세스**로 돌고 인프라만 Docker다.
 #   따라서 모든 호스트명이 `localhost`이고 포트는 compose.dev.yml이 publish한 것을 쓴다.
 # - `.env`    → `pnpm local:up` / `pnpm local:verify`. 앱까지 컨테이너로 돌므로 호스트명이
-#   서비스 DNS(`postgres`, `minio`)다. 두 파일의 값을 서로 복사하면 연결이 깨진다.
+#   서비스 DNS(`postgres`, `object-storage`)다. 두 파일의 값을 서로 복사하면 연결이 깨진다.
 #
 # 자세한 실행 순서는 docs/rules/local-dev.md를 따른다.
 
@@ -26,7 +26,9 @@
 # 그 경로를 쓸 때는 이 override를 남겨두지 않는다.
 export DATABASE_URL=postgresql://oss:oss-dev@localhost:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-oss_hub}
 
-# compose.dev.yml:22-23,49의 MinIO 기본값과 일치해야 한다.
+# compose.dev.yml:21,25의 object-storage 기본값과 일치해야 한다.
+# s3mock은 자격증명을 검증하지 않지만 AWS SDK 클라이언트가 값 존재를 요구하므로 placeholder를 채운다.
+export SUBMISSION_FILE_STORAGE_MODE=local
 export SUBMISSION_FILE_S3_ENDPOINT=http://localhost:9000
 export SUBMISSION_FILE_S3_REGION=us-east-1
 export SUBMISSION_FILE_S3_BUCKET=oss-hub-submission-files-local

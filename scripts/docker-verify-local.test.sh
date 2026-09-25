@@ -16,6 +16,7 @@ printf '%q ' "$@" >>"$DOCKER_STUB_LOG"
 printf '\n' >>"$DOCKER_STUB_LOG"
 for argument in "$@"; do
   [[ "$argument" == postgres ]] && { printf '1\n'; break; }
+  [[ "$argument" == object-storage ]] && { printf '<ListBucketResult></ListBucketResult>\n'; break; }
 done
 exit 0
 EOF
@@ -61,6 +62,7 @@ printf '%q ' "$@" >>"$DOCKER_STUB_LOG"
 printf '\n' >>"$DOCKER_STUB_LOG"
 for argument in "$@"; do
   [[ "$argument" == postgres ]] && { printf '1\n'; break; }
+  [[ "$argument" == object-storage ]] && { printf '<ListBucketResult></ListBucketResult>\n'; break; }
 done
 exit 0
 EOF
@@ -161,16 +163,13 @@ GITHUB_OAUTH_CLIENT_SECRET=local-oauth-secret
 GITHUB_COLLECTION_APP_ID=1
 GITHUB_APP_ORG=local-org
 GITHUB_OPERATIONS_APP_ID=2
-SUBMISSION_FILE_STORAGE_MODE=minio
-SUBMISSION_FILE_S3_ENDPOINT=http://minio:9000
+SUBMISSION_FILE_STORAGE_MODE=local
+SUBMISSION_FILE_S3_ENDPOINT=http://object-storage:9090
 SUBMISSION_FILE_S3_REGION=us-east-1
 SUBMISSION_FILE_S3_BUCKET=oss-hub-submission-files
 SUBMISSION_FILE_S3_ACCESS_KEY_ID=oss-hub-local
 SUBMISSION_FILE_S3_SECRET_ACCESS_KEY=oss-hub-local-synthetic-secret
 SUBMISSION_FILE_S3_FORCE_PATH_STYLE=true
-ROLLBACK_MINIO_ACCESS_KEY_ID=oss-hub-local
-ROLLBACK_MINIO_SECRET_ACCESS_KEY=oss-hub-local-synthetic-secret
-ROLLBACK_MINIO_BUCKET=oss-hub-submission-files
 MAIL_MODE=dry-run
 EOF
 }
@@ -187,7 +186,8 @@ local_compose_config_without_caller_image_tag_or_gmail_credentials() {
       config --format json
   )" || return 1
   printf '%s' "$config_json" | grep -Fq '"dockerfile": "apps/backend/Dockerfile"' || return 1
-  printf '%s' "$config_json" | grep -Fq '"dockerfile": "apps/frontend/Dockerfile"' || return 1
+  # frontend 컨테이너는 운영에 없으므로 로컬 compose에도 service 자체가 없어야 한다
+  ! printf '%s' "$config_json" | grep -Fq '"frontend": {' || return 1
   # image reset: services should not keep a prebuilt image tag dependency
   ! printf '%s' "$config_json" | grep -Eq '"image": "oss-hub-backend:' || return 1
   ! printf '%s' "$config_json" | grep -Eq '"image": "oss-hub-frontend:' || return 1
