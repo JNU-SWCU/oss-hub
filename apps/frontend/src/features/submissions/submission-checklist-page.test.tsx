@@ -516,6 +516,28 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
     expect(checkSubmissionFile).toHaveBeenCalledTimes(1);
   });
 
+  it('판정 요청이 판정이 아닌 이유로 실패하면 파일 입력에 아무 말도 붙이지 않는다', async () => {
+    // Given: 세션이 끝나 판정 대신 인증 실패가 돌아온다(#1108 — 이때는 조용히 둔다).
+    vi.mocked(checkSubmissionFile).mockRejectedValueOnce(
+      new ApiError(problem('AUTH_001', '로그인이 필요합니다.')),
+    );
+    await renderReadyPage();
+
+    // When
+    currentViewProps().onFileChange(
+      new File(['PK'], 'bundle.zip', { type: 'application/zip' }),
+    );
+    renderPage();
+    await flushAsyncWork();
+    renderPage();
+
+    // Then: 제출 때 같은 검사가 다시 돈다 — 여기서는 대기도 문장도 없다.
+    expect(checkSubmissionFile).toHaveBeenCalledTimes(1);
+    expect(currentViewProps().fileChecking).toBe(false);
+    expect(currentViewProps().fileError).toBeNull();
+    expect(currentViewProps().serverError).toBeNull();
+  });
+
   it('keeps the cached upload id for other retryable create-resubmission server errors', async () => {
     // Given
     vi.mocked(uploadSubmissionFile).mockResolvedValue(uploaded('file-first'));
