@@ -37,6 +37,7 @@ const backendOnlyPaths = [
   'scripts/check-member-authority-contract.sh',
   'scripts/rehearse-member-authority-contract*',
   'scripts/rehearse-legacy-submission-migrations*',
+  'scripts/rehearse-legacy-table-drop*',
 ];
 
 /** 계약 정적 계약은 Prisma migration contract 단계가 required CI에서 돌린다. */
@@ -47,6 +48,8 @@ const contractTests = [
   // 파괴적 legacy-submission 이관 리허설의 정적 계약 — 컨테이너 리허설 자체는
   // PostgreSQL이 필요해 required CI가 아니라 릴리스 준비 단계에서 손으로 돈다.
   'scripts/rehearse-legacy-submission-migrations.test.mjs',
+  // 옛 표 네 개 삭제 이관 리허설의 정적 계약(#1133) — 위와 같은 이유로 손으로 돈다.
+  'scripts/rehearse-legacy-table-drop.test.mjs',
 ];
 
 const deploymentHardeningPaths = [

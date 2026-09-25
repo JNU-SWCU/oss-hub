@@ -352,6 +352,11 @@ constraints_before=$(constraint_digest)
 indexes_before=$(index_digest)
 enums_before=$(enum_digest)
 migrations_before=$(migrations_row_count)
+# migrate 레인이 비교할 기대값 — 네 표와 세 enum을 뺀 나머지 스키마의 지문. 이관 **전에**
+# 잡아야 한다. 이관 뒤에 잡으면 기대값과 비교값이 같은 카탈로그에서 나와 늘 같다.
+expected_constraints=$(constraint_digest 'excluding-dropped')
+expected_indexes=$(index_digest 'excluding-dropped')
+expected_enums=$(enum_digest 'excluding-dropped')
 [[ -n "$snapshot_before" ]] ||
   fail 'pre-migration table snapshot came back empty — the digest query itself is broken'
 [[ -n "$constraints_before" && -n "$indexes_before" && -n "$enums_before" ]] ||
@@ -407,15 +412,12 @@ if [[ $scenario == 'migrate' ]]; then
   before: $snapshot_before
   after:  $snapshot_after"
 
-  expected_constraints=$(constraint_digest 'excluding-dropped')
   [[ "$(constraint_digest)" == "$expected_constraints" ]] ||
     fail 'a constraint outside the four dropped tables changed'
 
-  expected_indexes=$(index_digest 'excluding-dropped')
   [[ "$(index_digest)" == "$expected_indexes" ]] ||
     fail 'an index outside the four dropped tables changed'
 
-  expected_enums=$(enum_digest 'excluding-dropped')
   [[ "$(enum_digest)" == "$expected_enums" ]] ||
     fail 'an enum other than the three this migration owns changed'
 

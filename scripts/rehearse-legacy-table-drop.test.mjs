@@ -241,6 +241,25 @@ test('migrate lane proves the drop and that everything else is byte-for-byte unc
   );
 });
 
+test('migrate lane takes its schema expectations before the migration runs', () => {
+  // 이관 뒤에 기대값을 잡으면 비교 두 쪽이 같은 카탈로그에서 나와 늘 같다(#1445 리뷰).
+  const deploy = rehearsal.indexOf('# --- run the migration');
+  assert.ok(deploy > 0);
+  for (const kind of ['constraint', 'index', 'enum']) {
+    const expected = rehearsal.indexOf(`$(${kind}_digest 'excluding-dropped')`);
+    assert.ok(expected > 0, `${kind} expectation is missing`);
+    assert.ok(
+      expected < deploy,
+      `${kind} expectation is taken after the migration`,
+    );
+    assert.equal(
+      rehearsal.lastIndexOf(`$(${kind}_digest 'excluding-dropped')`),
+      expected,
+      `${kind} expectation is recomputed after the migration`,
+    );
+  }
+});
+
 test('negative lane proves the gate blocks and leaves a failed, unfinished ledger row', () => {
   assert.match(rehearsal, /fail 'negative-lane fixture row did not land'/);
   assert.match(

@@ -69,6 +69,7 @@ jobs:
               - 'scripts/rehearse-member-authority-migrations*'
               - 'scripts/rehearse-member-authority-contract*'
               - 'scripts/rehearse-legacy-submission-migrations*'
+              - 'scripts/rehearse-legacy-table-drop*'
               - 'scripts/check-member-authority-production*'
               - 'scripts/member-authority-production-report.mjs'
               - 'scripts/member-authority-jenkins-contract.test.mjs'
