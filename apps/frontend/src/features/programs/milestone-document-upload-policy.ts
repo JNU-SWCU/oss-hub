@@ -36,6 +36,32 @@ export function milestoneDocumentUploadRejection(
   return null;
 }
 
+/**
+ * 압축 파일 **내용** 때문에 막힌 서류 업로드 코드(#1108). 형식·서명 거절(MSD_010)과 갈라져 있다.
+ *
+ * 고칠 대상이 파일이므로 이 코드는 고를 때든 제출 때든 파일 입력의 오류 자리 하나에만
+ * 선다 — 제출 화면의 `SUBMISSION_ARCHIVE_ERROR_CODES`와 같은 규칙이다. 문장은 서버가
+ * 소유하므로 여기 적지 않는다.
+ *
+ * 목록이 backend 레지스트리와 어긋나면 `milestone-document-archive-error-codes.drift.test.ts`가
+ * 실패한다 — 낡으면 새 코드가 다시 폼 아래 줄로 밀려나 같은 문장이 두 번 뜬다.
+ */
+export const MILESTONE_DOCUMENT_ARCHIVE_ERROR_CODES: ReadonlySet<string> =
+  new Set([
+    'MSD_037',
+    'MSD_038',
+    'MSD_039',
+    'MSD_040',
+    'MSD_041',
+    'MSD_042',
+    'MSD_043',
+    'MSD_044',
+  ]);
+
+export function isMilestoneDocumentArchiveErrorCode(code: string): boolean {
+  return MILESTONE_DOCUMENT_ARCHIVE_ERROR_CODES.has(code);
+}
+
 function acceptsFileName(fileName: string, accept: string): boolean {
   const dot = fileName.lastIndexOf('.');
   // `dot > 0` — 이름 없이 점으로 시작하는 파일(`.zip`)을 확장자만 있는 파일로 읽지 않는다.

@@ -4,6 +4,7 @@ import { isValidElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import {
+  checkSubmissionFile,
   createResubmission,
   getSubmissionChecklist,
   uploadSubmissionFile,
@@ -135,6 +136,7 @@ vi.mock('react', async (importOriginal) => {
 });
 
 vi.mock('./api', () => ({
+  checkSubmissionFile: vi.fn(),
   createResubmission: vi.fn(),
   getSubmissionChecklist: vi.fn(),
   uploadSubmissionFile: vi.fn(),
@@ -213,12 +215,12 @@ function uploaded(fileId: string) {
   };
 }
 
-function problem(code: string): ProblemDetail {
+function problem(code: string, detail: string = code): ProblemDetail {
   return {
     type: 'about:blank',
     title: code,
     status: 503,
-    detail: code,
+    detail,
     instance: '/synthetic/submissions/submission-1/resubmissions',
     code,
   };
@@ -313,7 +315,9 @@ beforeEach(() => {
   vi.mocked(getSubmissionChecklist).mockReset();
   vi.mocked(uploadSubmissionFile).mockReset();
   vi.mocked(createResubmission).mockReset();
+  vi.mocked(checkSubmissionFile).mockReset();
   vi.mocked(getSubmissionChecklist).mockResolvedValue(CHECKLIST);
+  vi.mocked(checkSubmissionFile).mockResolvedValue(undefined);
 });
 
 describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
@@ -444,6 +448,94 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
       content: { type: 'FILE', fileId: 'file-second' },
       comment: '',
     });
+  });
+
+  /*
+   * #1108 — 정상 형식인 `.zip`이 압축 안의 내용 때문에 막혔을 때, 화면이 형식 안내를
+   * 보여 주면 학생은 고칠 곳을 찾지 못한 채 같은 파일을 다시 낸다. 압축 내용 거절은
+   * 파일 입력 옆에 서버가 준 갈래별 문장을 그대로 세운다.
+   */
+  it('압축 파일 내용 거절은 서버 문장을 파일 입력 옆에 세운다', async () => {
+    // Given
+    const detail =
+      '압축 파일 안에 또 다른 압축 파일이 있습니다. 안쪽 압축을 풀고 다시 압축해 주세요.';
+    vi.mocked(uploadSubmissionFile).mockRejectedValueOnce(
+      new ApiError(problem('SUB_027', detail)),
+    );
+
+    // When
+    await renderReadyPage();
+    await selectFileAndSubmit(FILE);
+
+    // Then
+    expect(currentViewProps().fileError).toBe(detail);
+    expect(currentViewProps().fileError).not.toBe(
+      'PDF, HWP, ZIP 파일만 제출할 수 있습니다.',
+    );
+  });
+
+  /*
+   * #1108 인터뷰 — 보완 재제출 화면도 ZIP을 고르자마자 판정을 묻는다. 업로드·재제출은
+   * 나가지 않고, 판정 대기와 거절 문장이 파일 입력 자리로 간다.
+   */
+  it('ZIP을 고르면 재제출을 누르지 않아도 판정 대기와 거절 문장을 파일 입력에 넘긴다', async () => {
+    // Given
+    const detail =
+      '비밀번호가 걸린 압축 파일은 제출할 수 없습니다. 비밀번호 없이 다시 압축해 주세요.';
+    vi.mocked(checkSubmissionFile).mockRejectedValueOnce(
+      new ApiError(problem('SUB_028', detail)),
+    );
+    const locked = new File(['PK'], 'locked.zip', { type: 'application/zip' });
+    await renderReadyPage();
+
+    // When: 파일만 고른다.
+    currentViewProps().onFileChange(locked);
+    renderPage();
+
+    // Then: 판정을 기다리는 중이다.
+    expect(currentViewProps().fileChecking).toBe(true);
+    expect(currentViewProps().fileError).toBeNull();
+
+    // When: 판정이 돌아온다.
+    await flushAsyncWork();
+    renderPage();
+
+    // Then: 제출 없이 거절 문장이 파일 입력으로 간다.
+    expect(checkSubmissionFile).toHaveBeenCalledWith(locked);
+    expect(currentViewProps().fileChecking).toBe(false);
+    expect(currentViewProps().fileError).toBe(detail);
+    expect(uploadSubmissionFile).not.toHaveBeenCalled();
+    expect(createResubmission).not.toHaveBeenCalled();
+
+    // When: 다른 파일(PDF)로 바꾼다.
+    currentViewProps().onFileChange(FILE);
+    renderPage();
+
+    // Then: 지난 문장은 사라지고 PDF는 판정을 묻지 않는다.
+    expect(currentViewProps().fileError).toBeNull();
+    expect(checkSubmissionFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('판정 요청이 판정이 아닌 이유로 실패하면 파일 입력에 아무 말도 붙이지 않는다', async () => {
+    // Given: 세션이 끝나 판정 대신 인증 실패가 돌아온다(#1108 — 이때는 조용히 둔다).
+    vi.mocked(checkSubmissionFile).mockRejectedValueOnce(
+      new ApiError(problem('AUTH_001', '로그인이 필요합니다.')),
+    );
+    await renderReadyPage();
+
+    // When
+    currentViewProps().onFileChange(
+      new File(['PK'], 'bundle.zip', { type: 'application/zip' }),
+    );
+    renderPage();
+    await flushAsyncWork();
+    renderPage();
+
+    // Then: 제출 때 같은 검사가 다시 돈다 — 여기서는 대기도 문장도 없다.
+    expect(checkSubmissionFile).toHaveBeenCalledTimes(1);
+    expect(currentViewProps().fileChecking).toBe(false);
+    expect(currentViewProps().fileError).toBeNull();
+    expect(currentViewProps().serverError).toBeNull();
   });
 
   it('keeps the cached upload id for other retryable create-resubmission server errors', async () => {

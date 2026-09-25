@@ -3,33 +3,52 @@ import { DomainException } from '../common/error-code';
 import type { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { signatureValidZip } from './submission-zip-test-builder';
+import {
+  SUBMISSIONS_ERROR_CODES,
+  SubmissionsErrorCode,
+} from './submissions-error-code.enum';
 
 const MIB = 1024 * 1024;
 
+/** 전통 방식 암호화가 자료 앞에 덧붙이는 머리 크기. 이만큼을 더해야 진짜 암호화 자료다. */
+const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;
+
 type ArchiveCase = {
   readonly scenario: string;
+  /**
+   * 이 압축 파일이 받아야 할 코드. `UNSUPPORTED_FILE_TYPE`(SUB_018)은 여기 없어야 한다 —
+   * `.zip`은 허용 형식이고, 막힌 이유는 형식이 아니라 그 안에 담긴 것이다(#1108).
+   * 열거형 이름이 아니라 응답에 실리는 문자열로 적는다 — 화면(`submission-form.ts`)이 이
+   * 값을 그대로 알아보므로 번호가 바뀌면 여기서 먼저 깨져야 한다.
+   */
+  readonly code: string;
   readonly build: () => Buffer;
 };
 
 const HAZARDOUS_ARCHIVES = [
   {
     scenario: 'a relative traversal entry',
+    code: 'SUB_025',
     build: () => signatureValidZip([{ name: '../outside.txt' }]),
   },
   {
     scenario: 'an absolute path entry',
+    code: 'SUB_025',
     build: () => signatureValidZip([{ name: '/absolute.txt' }]),
   },
   {
     scenario: 'a backslash traversal entry',
+    code: 'SUB_025',
     build: () => signatureValidZip([{ name: '..\\outside.txt' }]),
   },
   {
     scenario: 'an entry name containing NUL',
+    code: 'SUB_026',
     build: () => signatureValidZip([{ name: 'nul\u0000name.txt' }]),
   },
   {
     scenario: 'a Unix symlink entry',
+    code: 'SUB_026',
     build: () =>
       signatureValidZip([
         {
@@ -41,19 +60,31 @@ const HAZARDOUS_ARCHIVES = [
   },
   {
     scenario: 'an encrypted entry flag',
-    build: () => signatureValidZip([{ name: 'encrypted.txt', flags: 0x0001 }]),
+    code: 'SUB_028',
+    build: () =>
+      signatureValidZip([
+        {
+          name: 'encrypted.txt',
+          flags: 0x0001,
+          compressedSize: 1 + TRADITIONAL_ENCRYPTION_HEADER_BYTES,
+          uncompressedSize: 1,
+        },
+      ]),
   },
   {
     scenario: 'an unsupported compression method',
+    code: 'SUB_029',
     build: () =>
       signatureValidZip([{ name: 'unsupported.txt', compressionMethod: 99 }]),
   },
   {
     scenario: 'a nested archive entry',
+    code: 'SUB_027',
     build: () => signatureValidZip([{ name: 'nested.ZIP' }]),
   },
   {
     scenario: 'more than 1,000 entries',
+    code: 'SUB_030',
     build: () =>
       signatureValidZip(
         Array.from({ length: 1_001 }, (_, index) => ({
@@ -63,6 +94,7 @@ const HAZARDOUS_ARCHIVES = [
   },
   {
     scenario: 'one entry declaring more than 100 MiB',
+    code: 'SUB_031',
     build: () =>
       signatureValidZip([
         {
@@ -75,6 +107,7 @@ const HAZARDOUS_ARCHIVES = [
   },
   {
     scenario: 'entries declaring more than 200 MiB in aggregate',
+    code: 'SUB_031',
     build: () =>
       signatureValidZip(
         Array.from({ length: 3 }, (_, index) => ({
@@ -87,6 +120,7 @@ const HAZARDOUS_ARCHIVES = [
   },
   {
     scenario: 'one entry exceeding a 100:1 compression ratio',
+    code: 'SUB_032',
     build: () =>
       signatureValidZip([
         {
@@ -99,6 +133,7 @@ const HAZARDOUS_ARCHIVES = [
   },
   {
     scenario: 'an aggregate compression ratio over 100:1',
+    code: 'SUB_032',
     build: () =>
       signatureValidZip(
         Array.from({ length: 3 }, (_, index) => ({
@@ -111,6 +146,7 @@ const HAZARDOUS_ARCHIVES = [
   },
   {
     scenario: 'a malformed central-directory offset',
+    code: 'SUB_025',
     build: () => {
       const archive = signatureValidZip([{ name: 'malformed.txt' }]);
       archive.writeUInt32LE(0xffffffff, archive.byteLength - 6);
@@ -119,6 +155,7 @@ const HAZARDOUS_ARCHIVES = [
   },
   {
     scenario: 'a truncated end-of-central-directory record',
+    code: 'SUB_025',
     build: () => {
       const archive = signatureValidZip([{ name: 'truncated.txt' }]);
       return archive.subarray(0, archive.byteLength - 1);
@@ -176,19 +213,55 @@ async function admissionOutcome(buffer: Buffer) {
     }),
   ]);
 
+  const rejection =
+    upload?.status === 'rejected' && upload.reason instanceof DomainException
+      ? upload.reason
+      : null;
+
   return {
-    domainRejected:
-      upload?.status === 'rejected' && upload.reason instanceof DomainException,
+    code: rejection?.errorCode.code ?? null,
+    domainRejected: rejection !== null,
+    httpStatus: rejection?.errorCode.status ?? null,
+    message: rejection?.errorCode.message ?? null,
     persistenceCalls: repository.createPending.mock.calls.length,
     status: upload?.status,
     storageCalls: storage.put.mock.calls.length,
   };
 }
 
+/** 제출 없이 판정만 묻는 경로(#1108). 저장소·DB는 읽기조차 하지 않아야 한다. */
+async function checkOutcome(buffer: Buffer) {
+  const { repository, service, storage } = setup();
+  const [check] = await Promise.allSettled([
+    service.check({
+      buffer,
+      originalname: 'archive.zip',
+      mimetype: 'application/zip',
+      size: buffer.byteLength,
+    }),
+  ]);
+
+  const rejection =
+    check?.status === 'rejected' && check.reason instanceof DomainException
+      ? check.reason
+      : null;
+  const callCount = (mocks: Record<string, jest.Mock>) =>
+    Object.values(mocks).reduce((sum, mock) => sum + mock.mock.calls.length, 0);
+
+  return {
+    code: rejection?.errorCode.code ?? null,
+    httpStatus: rejection?.errorCode.status ?? null,
+    message: rejection?.errorCode.message ?? null,
+    repositoryCalls: callCount(repository),
+    status: check?.status,
+    storageCalls: callCount(storage),
+  };
+}
+
 describe('SubmissionFilesService ZIP metadata admission', () => {
   it.each(HAZARDOUS_ARCHIVES)(
-    'rejects $scenario before persistence or storage',
-    async ({ build }) => {
+    'rejects $scenario with $code before persistence or storage',
+    async ({ build, code }) => {
       // Given
       const archive = build();
 
@@ -197,11 +270,37 @@ describe('SubmissionFilesService ZIP metadata admission', () => {
 
       // Then
       expect(outcome).toEqual({
+        code,
         domainRejected: true,
+        httpStatus: 422,
+        message: SUBMISSIONS_ERROR_CODES[code as SubmissionsErrorCode]?.message,
         persistenceCalls: 0,
         status: 'rejected',
         storageCalls: 0,
       });
+    },
+  );
+
+  /**
+   * #1108의 핵심 — 압축 안을 들여다본 뒤 막은 것과 형식·서명 때문에 막은 것은 서로 다른
+   * 코드여야 한다. 하나로 뭉개면 허용 형식인 `.zip`을 낸 학생이 「지원하지 않는 파일
+   * 형식입니다」를 읽고, 고칠 곳이 압축 안인데 형식만 다시 손보게 된다.
+   */
+  it.each(HAZARDOUS_ARCHIVES)(
+    'does not answer $scenario with the unsupported-format code',
+    async ({ build }) => {
+      // Given
+      const archive = build();
+
+      // When
+      const outcome = await admissionOutcome(archive);
+
+      // Then
+      expect(outcome.code).not.toBe(SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE);
+      expect(outcome.message).not.toBe(
+        SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE]
+          .message,
+      );
     },
   );
 
@@ -214,10 +313,62 @@ describe('SubmissionFilesService ZIP metadata admission', () => {
 
     // Then
     expect(outcome).toEqual({
+      code: null,
       domainRejected: false,
+      httpStatus: null,
+      message: null,
       persistenceCalls: 1,
       status: 'fulfilled',
       storageCalls: 1,
+    });
+  });
+});
+
+/*
+ * #1108 인터뷰 — 학생은 거절 사유를 보려고 제출을 눌러야 했다. 파일을 고르자마자 묻는
+ * 판정(`check`)은 제출과 **같은** 코드·상태·문장이어야 하고, 아무것도 남기지 않는다.
+ */
+describe('SubmissionFilesService file check before submission', () => {
+  it.each(HAZARDOUS_ARCHIVES)(
+    'answers $scenario with the submission code $code and touches neither repository nor storage',
+    async ({ build, code }) => {
+      // Given
+      const archive = build();
+
+      // When
+      const [checked, submitted] = await Promise.all([
+        checkOutcome(archive),
+        admissionOutcome(archive),
+      ]);
+
+      // Then
+      expect(checked).toEqual({
+        code,
+        httpStatus: submitted.httpStatus,
+        message: submitted.message,
+        repositoryCalls: 0,
+        status: 'rejected',
+        storageCalls: 0,
+      });
+      expect(checked.code).toBe(submitted.code);
+    },
+  );
+
+  it('passes a valid archive and still touches neither repository nor storage', async () => {
+    // Given
+    const archive = signatureValidZip([{ name: 'valid.txt' }]);
+
+    // When
+    const outcome = await checkOutcome(archive);
+
+    // Then
+    expect(outcome).toEqual({
+      code: null,
+      httpStatus: null,
+      message: null,
+      repositoryCalls: 0,
+      status: 'fulfilled',
+      storageCalls: 0,
     });
   });
 });
