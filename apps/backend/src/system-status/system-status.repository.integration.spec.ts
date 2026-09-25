@@ -25,7 +25,8 @@ it('drops a detached organization repository from the tracked set so its missing
   // Then
   const after = await status.getIncrementalStatusSnapshot();
   expect(after.trackedRepositoryCount).toBe(before.trackedRepositoryCount - 1);
-  expect(after.partialStreamCount).toBe(before.partialStreamCount - 3);
+  // 저장소마다 Commit·PR·Release·Issue 네 stream이 빠진다.
+  expect(after.partialStreamCount).toBe(before.partialStreamCount - 4);
 });
 
 it('counts the new external link instead of the detached external one', async () => {

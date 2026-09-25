@@ -283,6 +283,9 @@ function syntheticProvider() {
       fingerprint,
       etag: 'synthetic-etag',
     }),
+    jest
+      .spyOn(client, 'listNewIssues')
+      .mockResolvedValue({ issues: [], newFrontier: null, fingerprint }),
   ];
   const resolveUserNodeId = jest
     .spyOn(client, 'resolveUserNodeId')
