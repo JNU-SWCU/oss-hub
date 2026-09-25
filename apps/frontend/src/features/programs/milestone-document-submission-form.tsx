@@ -14,6 +14,7 @@ import {
   milestoneDocumentUploadHint,
   milestoneDocumentUploadRejection,
 } from './milestone-document-upload-policy';
+import { useMilestoneDocumentFileCheck } from './use-milestone-document-file-check';
 
 /**
  * 제출·재제출 폼.
@@ -58,7 +59,8 @@ export function MilestoneDocumentSubmissionForm({
     readonly name: string;
     readonly reason: string;
   } | null>(null);
-  const fileError = rejectedFile?.reason ?? null;
+  const fileCheck = useMilestoneDocumentFileCheck(file);
+  const fileError = rejectedFile?.reason ?? fileCheck.message;
   const hasText = text.trim().length > 0;
   const hasFile = file !== null;
   const helpId = `${documentId}-submission-help`;
@@ -145,8 +147,18 @@ export function MilestoneDocumentSubmissionForm({
                 ? null
                 : { name: selected.name, reason: rejection },
             );
+            // ZIP이면 제출 전에 서버 판정을 묻는다(#1108). 걸린 파일은 위에서 이미 말했다.
+            fileCheck.start(rejection === null ? selected : null);
           }}
         />
+        {fileCheck.checking ? (
+          <FieldDescription role="status" aria-live="polite">
+            파일 확인 중…
+          </FieldDescription>
+        ) : null}
+        {fileCheck.message === null ? null : (
+          <FieldError id={fileErrorId}>{fileCheck.message}</FieldError>
+        )}
         {rejectedFile === null ? null : (
           <div className="grid min-w-0 gap-2 rounded-control border border-destructive/35 bg-destructive/5 p-3">
             <span

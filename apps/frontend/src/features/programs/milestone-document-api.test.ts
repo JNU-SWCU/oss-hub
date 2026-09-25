@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
 import { milestoneDocumentUploadPolicy } from '../../../test-support/milestone-document-upload-policy';
 import {
+  checkMilestoneDocumentFile,
   getMilestoneDocumentParticipantHistory,
   listMilestoneDocuments,
   milestoneDocumentTemplateHref,
@@ -113,6 +114,28 @@ describe('uploadMilestoneDocumentFile', () => {
     expect(body.get('milestoneId')).toBe('milestone-1');
     expect(body.get('documentId')).toBe('document-1');
     expect(body.get('file')).toBe(file);
+  });
+});
+
+describe('checkMilestoneDocumentFile', () => {
+  it('파일 하나만 판정 경로로 보내고 본문 없는 204를 통과로 받는다', async () => {
+    // Given: 판정 경로는 저장하지 않으므로 식별자 없이 파일만 보낸다(#1108).
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const file = new File(['PK'], 'bundle.zip', { type: 'application/zip' });
+
+    // When / Then
+    await expect(checkMilestoneDocumentFile(file)).resolves.toBeUndefined();
+    const [calledPath, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(calledPath).toBe(apiPath('milestone-document-files/checks'));
+    expect(init.method).toBe('POST');
+    if (!(init.body instanceof FormData)) {
+      throw new Error('expected FormData body');
+    }
+    expect([...init.body.keys()]).toEqual(['file']);
+    expect(init.body.get('file')).toBe(file);
   });
 });
 
