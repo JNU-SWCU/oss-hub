@@ -428,6 +428,17 @@ describe('ProgramAuthoringMilestoneStep', () => {
     expect(document.activeElement).toBe(input('#test-1-name'));
   });
 
+  it('오류가 보이는 채로 다시 저장해도 첫 오류 칸으로 돌아간다', async () => {
+    await render();
+    await addBlankDraft();
+    await pressSave();
+    // pressSave 가 커서를 저장 버튼으로 옮긴 뒤 누르므로, 첫 오류 칸에 다시 서려면
+    // 두 번째 저장에서도 포커스 이동이 돌아야 한다.
+    await pressSave();
+
+    expect(document.activeElement).toBe(input('[aria-label="시작일"]'));
+  });
+
   it('저장에 실패한 뒤 다른 칸을 고쳐도 포커스를 첫 오류 칸으로 되돌리지 않는다', async () => {
     await render();
     await addBlankDraft();
