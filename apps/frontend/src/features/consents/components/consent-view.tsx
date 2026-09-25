@@ -130,8 +130,9 @@ export function ConsentForm({
                   /*
                     `accent-primary`(남색 #003399)는 이 어두운 바탕 위에서 체크 표시가
                     바탕에 묻혀 켜졌는지 알 수 없었다 — 반전 스코프는 `--primary`를
-                    되돌리지 않는다. 초점 표시도 같은 이유로 `--ring`(남색) 대신 흰색을
-                    쓴다. 둘 다 랜딩이 쓰는 토큰이라 새 색을 만들지 않는다.
+                    되돌리지 않는다. 초점 표시는 흰색이다(지을 당시에는 `--ring`이 남색이라
+                    직접 바꿨고, 지금은 반전 스코프가 `--ring`도 흰색으로 덮는다). 둘 다
+                    랜딩이 쓰는 토큰이라 새 색을 만들지 않는다.
                   */
                   className="size-5 shrink-0 accent-cosmos-repository outline-none focus-visible:ring-3 focus-visible:ring-cosmos-copy/60"
                   type="checkbox"

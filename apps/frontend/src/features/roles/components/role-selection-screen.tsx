@@ -363,8 +363,8 @@ export function RoleSelectionForm({
                 data-role={option.role}
                 data-selected={isSelected}
                 // 라디오는 sr-only라 포커스 테두리를 스스로 그리지 못한다. 링을 이 껍데기가
-                // 대신 그린다 — 어두운 바탕에서는 기본 `--ring`(navy-400)이 거의 안 보여
-                // 흰색을 쓴다.
+                // 대신 그린다 — 흰색이다(지을 당시 기본 `--ring`은 navy-400이라 어두운
+                // 바탕에서 거의 안 보였다. 지금은 반전 스코프가 `--ring`도 흰색으로 덮는다).
                 className="cursor-pointer rounded-card outline-none focus-within:ring-2 focus-within:ring-cosmos-copy"
               >
                 <input

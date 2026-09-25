@@ -980,7 +980,7 @@ nav는 조회 실패에서 종전대로 링크를 숨긴다(`role-home-link.tsx`
 | 왼쪽 사이드 패널 | **컨텍스트형** — 프로그램 `?status=` · 아카이브 `?year=` · 랭킹 `?year=` · 대시보드 역할 메뉴(학생: 저장소·활동 / 교직원: 운영 대시보드·학생 활성·가입 신청 / 관리자: 교직원 그룹(운영·학생 활성·가입 신청) + 사용자 목록·감사·시스템). 입구 URL은 `/dashboard` 하나이고 ADMIN 본문도 운영 대시보드다. 필터는 flat 피어(네스트 트리 금지). 카운트 뱃지 0도 표시. 사이드 패널에는 생성 waypoint를 두지 않는다. 프로그램 섹션에서는 프로필을 마친 교직원·관리자에게 목록 `PageHeader` CTA를 제공하며, 운영 대시보드의 화면 고유 CTA는 유지한다 |
 | 모바일(&lt;900px) | 좌측 패널 숨김. 본문 칩으로 동일 필터 |
 | 레이아웃 | 전체 폭 Nav 아래 `[사이드 \| 본문]`(≥900px). 랜딩·가입은 패널 없음 |
-| 표면 톤 | 상단 Nav는 전 화면 기본 흰 바. `data-surface="inverted"`는 가입 본문 무대만(동의 창 안쪽 패널 포함). 이 스코프가 덮는 var는 background·foreground·muted(-foreground)·accent(-foreground)·border·card(-foreground)·destructive(-on-tint)다. `--popover`·`--primary`는 덮지 않는다 — 학과 select의 열린 목록과 흰 주 버튼의 남색 글자가 `:root` 값에 기댄다 |
+| 표면 톤 | 상단 Nav는 전 화면 기본 흰 바. `data-surface="inverted"`는 가입 본문 무대(`SignupStage`)와 동의 창 두 곳 — 동의 필요 창의 안쪽 패널(흰 화면인 `/onboarding/pending`에서도 뜬다)과 약관 전문 창 전체 — 에만 둔다. 이 스코프가 덮는 var는 background·foreground·muted(-foreground)·accent(-foreground)·border·card(-foreground)·ring·destructive(-on-tint)다. `--popover`·`--primary`는 덮지 않는다 — 학과 select의 열린 목록과 흰 주 버튼의 남색 글자가 `:root` 값에 기댄다 |
 | 설정 | 계정 드롭다운. 본문 PageHeader에 사이드와 같은 waypoint CTA를 두지 않는다 |
 | 강조색 | 남색을 유지하되, 한 화면에서 주 행동 하나에만 쓴다 |
 
