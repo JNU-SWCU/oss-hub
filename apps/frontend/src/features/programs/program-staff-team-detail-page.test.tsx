@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import { ProgramStaffTeamDetailPage } from './program-staff-team-detail-page';
 import { updateTeamRepositoryUrl } from './repository-url-api';
+import { removeStaffTeamMember } from './staff-team-members-api';
 import { getTeamActivity, type TeamActivity } from './team-activity-api';
 import type { ApplicationDetail, StaffTeamDetail } from './types';
 
@@ -59,6 +60,11 @@ vi.mock('./team-activity-api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./team-activity-api')>()),
   getTeamActivity: vi.fn(),
   getRepositoryHistory: vi.fn(),
+}));
+
+vi.mock('./staff-team-members-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./staff-team-members-api')>()),
+  removeStaffTeamMember: vi.fn(),
 }));
 
 vi.mock('./repository-url-api', async (importOriginal) => ({
@@ -160,6 +166,7 @@ const withApplication: StaffTeamDetail = {
       safeErrorClass: null,
     },
   },
+  repositoryContributions: null,
   deletionScope: {
     applications: 1,
     members: 2,
@@ -179,6 +186,7 @@ const withoutApplication: StaffTeamDetail = {
     { userId: 'user-c', name: '마바사', nickname: 'login-c', isLeader: true },
   ],
   application: null,
+  repositoryContributions: null,
   deletionScope: {
     applications: 0,
     members: 1,
@@ -209,6 +217,7 @@ describe('ProgramStaffTeamDetailPage', () => {
     decideApplicationMock.mockResolvedValue({});
     vi.mocked(getTeamActivity).mockReset().mockResolvedValue(teamActivity);
     vi.mocked(updateTeamRepositoryUrl).mockReset();
+    vi.mocked(removeStaffTeamMember).mockReset();
   });
 
   afterEach(() => {
@@ -521,7 +530,181 @@ describe('ProgramStaffTeamDetailPage', () => {
       );
       expect(container.textContent).toContain('첫 수집을 기다리는 중입니다');
       expect(container.textContent).not.toContain('현재 저장소 활동');
-      expect(container.textContent).not.toContain('웹 참여자와 연결되지 않음');
+    });
+
+    const collected: TeamActivity = {
+      ...connected,
+      status: 'COLLECTED',
+      lastSuccessAt: '2026-08-17T01:00:00.000Z',
+    };
+
+    /** 교직원만 보는 줄 — 저장소에 기여했지만 지금 팀원이 아닌 가입자(#1133). */
+    function unmatchedTrigger(): HTMLButtonElement | undefined {
+      return [
+        ...container.querySelectorAll<HTMLButtonElement>(
+          '[data-slot="collapsible-trigger"]',
+        ),
+      ].find((trigger) =>
+        trigger.textContent?.includes('웹 참여자와 연결되지 않음'),
+      );
+    }
+
+    it('팀원이 아닌 기여자를 활동 카드 안에 접어 두고, 펼치면 login과 네 수를 보인다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue({
+        ...withApplication,
+        repositoryContributions: {
+          unmatchedContributors: [
+            {
+              githubId: '999',
+              githubLogin: 'outside-contributor',
+              commitCount: 3,
+              pullRequestCount: 1,
+              issueCount: 2,
+              releaseCount: 0,
+            },
+            {
+              githubId: '1000',
+              githubLogin: null,
+              commitCount: 0,
+              pullRequestCount: 0,
+              issueCount: 0,
+              releaseCount: 1,
+            },
+          ],
+        },
+      } satisfies StaffTeamDetail);
+      vi.mocked(getTeamActivity).mockResolvedValue(collected);
+      await render();
+
+      const trigger = unmatchedTrigger();
+      expect(trigger?.textContent).toContain('2명');
+      expect(
+        trigger?.closest('[role="region"]')?.querySelector('h2')?.textContent,
+      ).toBe('팀 활동');
+      expect(container.textContent).not.toContain('@outside-contributor');
+
+      await act(async () => trigger?.click());
+
+      const rows = [
+        ...(trigger?.parentElement?.querySelectorAll('li') ?? []),
+      ].map((row) => row.textContent);
+      expect(rows).toEqual([
+        '@outside-contributorCommit 3 · PR 1 · Issue 2 · Release 0',
+        'GitHub ID 1000Commit 0 · PR 0 · Issue 0 · Release 1',
+      ]);
+    });
+
+    it('연결되지 않은 기여자가 없으면 펼쳤을 때 없다고 말한다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue({
+        ...withApplication,
+        repositoryContributions: { unmatchedContributors: [] },
+      } satisfies StaffTeamDetail);
+      vi.mocked(getTeamActivity).mockResolvedValue(collected);
+      await render();
+
+      const trigger = unmatchedTrigger();
+      expect(trigger?.textContent).toContain('0명');
+      await act(async () => trigger?.click());
+      expect(container.textContent).toContain(
+        '연결되지 않은 기여자가 없습니다.',
+      );
+    });
+
+    /**
+     * 팀원을 빼면 상세(목록)만이 아니라 그래프(활동 조회)도 새 명단으로 다시 읽는다 — 응답이
+     * 빨라 스켈레톤이 한 번도 그려지지 않아도 그렇다. 둘이 서로 다른 명단을 말하지 않는다.
+     */
+    it('팀원을 빼면 목록과 함께 그래프도 새 명단으로 다시 읽는다', async () => {
+      getStaffProgramTeamDetailMock
+        .mockResolvedValueOnce(withApplication)
+        .mockResolvedValue({
+          ...withApplication,
+          memberCount: 1,
+          members: withApplication.members.slice(0, 1),
+        });
+      vi.mocked(getTeamActivity).mockResolvedValue(collected);
+      vi.mocked(removeStaffTeamMember).mockResolvedValue(undefined);
+      await render();
+      expect(getTeamActivity).toHaveBeenCalledTimes(1);
+
+      await act(async () =>
+        container
+          .querySelector<HTMLButtonElement>(
+            'button[aria-label="login-b 팀에서 제외"]',
+          )
+          ?.click(),
+      );
+      await act(async () =>
+        [...document.querySelectorAll<HTMLButtonElement>('button')]
+          .find((button) => button.textContent?.trim() === '팀에서 제외')
+          ?.click(),
+      );
+
+      expect(removeStaffTeamMember).toHaveBeenCalledExactlyOnceWith(
+        'program-1',
+        'team-1',
+        'user-b',
+      );
+      expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(2);
+      expect(getTeamActivity).toHaveBeenCalledTimes(2);
+    });
+
+    it('판정이 바뀌면 연필 권한을 새로 받도록 저장소 카드를 다시 읽는다', async () => {
+      getStaffProgramTeamDetailMock
+        .mockResolvedValueOnce(withApplication)
+        .mockResolvedValue({
+          ...withApplication,
+          application: {
+            ...withApplication.application!,
+            status: 'APPROVED',
+          },
+        });
+      vi.mocked(getTeamActivity).mockResolvedValue(collected);
+      await render();
+      expect(getTeamActivity).toHaveBeenCalledTimes(1);
+
+      const select = container.querySelector<HTMLSelectElement>(
+        '#team-detail-application-status',
+      );
+      await act(async () => {
+        if (select === null) return;
+        select.value = 'APPROVED';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+
+      expect(decideApplicationMock).toHaveBeenCalledTimes(1);
+      expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(2);
+      expect(getTeamActivity).toHaveBeenCalledTimes(2);
+    });
+
+    it('첫 수집을 끝내기 전에는 그래프처럼 그 줄도 보이지 않는다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue({
+        ...withApplication,
+        repositoryContributions: {
+          unmatchedContributors: [
+            {
+              githubId: '999',
+              githubLogin: 'outside-contributor',
+              commitCount: 1,
+              pullRequestCount: 0,
+              issueCount: 0,
+              releaseCount: 0,
+            },
+          ],
+        },
+      } satisfies StaffTeamDetail);
+      vi.mocked(getTeamActivity).mockResolvedValue(connected);
+      await render();
+
+      expect(container.textContent).toContain('첫 수집을 기다리는 중입니다');
+      expect(unmatchedTrigger()).toBeUndefined();
+    });
+
+    it('저장소가 없어 기여 요약이 없으면 그 줄을 그리지 않는다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      await render();
+
+      expect(unmatchedTrigger()).toBeUndefined();
     });
 
     it('연필로 바꾸면 팀 경로로 저장하고 상세를 조용히 다시 읽는다', async () => {

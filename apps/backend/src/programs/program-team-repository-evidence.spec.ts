@@ -1,4 +1,5 @@
 import {
+  userFindMany,
   teamFindFirst,
   applicationFindFirst,
   contributionGroupBy,
@@ -237,6 +238,7 @@ it('matches numeric GitHub identities and preserves members without observations
           commitCount: 3,
           pullRequestCount: 2,
           releaseCount: 1,
+          issueCount: 0,
           hasObservations: true,
         },
         {
@@ -245,15 +247,18 @@ it('matches numeric GitHub identities and preserves members without observations
           commitCount: 0,
           pullRequestCount: 0,
           releaseCount: 0,
+          issueCount: 0,
           hasObservations: false,
         },
       ],
       unmatchedContributors: [
         {
           githubId: '999',
+          githubLogin: 'outside-contributor',
           commitCount: 4,
           pullRequestCount: 0,
           releaseCount: 0,
+          issueCount: 2,
         },
       ],
     },
@@ -297,4 +302,43 @@ it('does not query contributions or history for an absent or differently scoped 
   expect(detail).toBeNull();
   expect(contributionGroupBy).not.toHaveBeenCalled();
   expect(auditFindMany).not.toHaveBeenCalled();
+});
+
+it('names outside contributors by login and asks for no logins when everyone is a member', async () => {
+  // Given: 999 is not on the team; its login is resolved in one query.
+  const repository = givenRepository();
+  // When
+  const detail = await repository.findStaffTeamDetail('program', 'team');
+  // Then
+  expect(userFindMany).toHaveBeenCalledTimes(1);
+  expect(userFindMany).toHaveBeenCalledWith({
+    where: { githubId: { in: [999n] } },
+    select: { githubId: true, nickname: true },
+  });
+  expect(
+    detail?.repositoryContributions?.unmatchedContributors.map(
+      (contributor) => contributor.githubLogin,
+    ),
+  ).toEqual(['outside-contributor']);
+
+  // Given: only team members contributed.
+  userFindMany.mockClear();
+  contributionGroupBy.mockResolvedValue([
+    {
+      githubId: 101n,
+      _sum: {
+        commitCount: 1,
+        pullRequestCount: 0,
+        releaseCount: 0,
+        issueCount: 0,
+      },
+    },
+  ]);
+  // When
+  const onlyMembers = await repository.findStaffTeamDetail('program', 'team');
+  // Then
+  expect(onlyMembers?.repositoryContributions?.unmatchedContributors).toEqual(
+    [],
+  );
+  expect(userFindMany).not.toHaveBeenCalled();
 });

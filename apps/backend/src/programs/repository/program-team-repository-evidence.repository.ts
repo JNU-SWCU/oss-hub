@@ -133,14 +133,20 @@ export class ProgramTeamRepositoryEvidenceRepository {
     const rows = await this.prisma.contribution.groupBy({
       by: ['githubId'],
       where: { repositoryId: repository.id, date: windowDates(window) },
-      _sum: { commitCount: true, pullRequestCount: true, releaseCount: true },
-      // Issue만 연 날은 세 칸이 모두 0인 행을 남긴다(#1133). 이 화면은 issue 수를 보이지
-      // 않으므로 창 안 합계가 0인 사람을 "커밋 0 · PR 0 · 릴리스 0"으로 세우지 않는다.
+      _sum: {
+        commitCount: true,
+        pullRequestCount: true,
+        releaseCount: true,
+        issueCount: true,
+      },
+      // 창 안에서 네 수가 모두 0인 사람(기여 행만 남은 사람)은 세우지 않는다. Issue만 연
+      // 사람은 교직원 화면이 Issue 수를 보이므로(#1133) 목록에 오른다.
       having: {
         OR: [
           { commitCount: { _sum: { gt: 0 } } },
           { pullRequestCount: { _sum: { gt: 0 } } },
           { releaseCount: { _sum: { gt: 0 } } },
+          { issueCount: { _sum: { gt: 0 } } },
         ],
       },
       orderBy: { githubId: 'asc' },
@@ -153,10 +159,17 @@ export class ProgramTeamRepositoryEvidenceRepository {
           commitCount: row._sum.commitCount ?? 0,
           pullRequestCount: row._sum.pullRequestCount ?? 0,
           releaseCount: row._sum.releaseCount ?? 0,
+          issueCount: row._sum.issueCount ?? 0,
         },
       ]),
     );
     const memberIds = new Set(members.map((member) => member.user.githubId));
+    const unmatched = [...contributors].filter(
+      ([githubId]) => !memberIds.has(githubId),
+    );
+    const logins = await this.githubLogins(
+      unmatched.map(([githubId]) => githubId),
+    );
     return {
       repositoryId: repository.id,
       repositoryUrl: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
@@ -171,12 +184,26 @@ export class ProgramTeamRepositoryEvidenceRepository {
           commitCount: 0,
           pullRequestCount: 0,
           releaseCount: 0,
+          issueCount: 0,
         }),
       })),
-      unmatchedContributors: [...contributors]
-        .filter(([githubId]) => !memberIds.has(githubId))
-        .map(([, contributor]) => contributor),
+      unmatchedContributors: unmatched.map(([githubId, contributor]) => ({
+        ...contributor,
+        githubLogin: logins.get(githubId) ?? null,
+      })),
     };
+  }
+
+  /** GitHub 숫자 id → 가입자 login. 없으면 빈 지도를 돌려주고 조회하지 않는다. */
+  private async githubLogins(
+    githubIds: readonly bigint[],
+  ): Promise<Map<bigint, string>> {
+    if (githubIds.length === 0) return new Map();
+    const users = await this.prisma.user.findMany({
+      where: { githubId: { in: [...githubIds] } },
+      select: { githubId: true, nickname: true },
+    });
+    return new Map(users.map((user) => [user.githubId, user.nickname]));
   }
 
   /**

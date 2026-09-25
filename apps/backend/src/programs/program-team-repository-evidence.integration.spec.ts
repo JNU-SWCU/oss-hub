@@ -170,15 +170,18 @@ it('projects only linked repository facts inside the program window while retain
       commitCount: 7,
       pullRequestCount: 0,
       releaseCount: 0,
+      issueCount: 0,
       hasObservations: true,
     },
   ]);
   expect(detail?.repositoryContributions?.unmatchedContributors).toEqual([
     {
       githubId: (githubId + 99n).toString(),
+      githubLogin: null,
       commitCount: 5,
       pullRequestCount: 0,
       releaseCount: 0,
+      issueCount: 0,
     },
   ]);
   expect(detail?.repositoryUrlHistory.items).toHaveLength(1);
@@ -302,8 +305,8 @@ it('counts only the currently linked repository in program totals after a relink
   });
 });
 
-it('does not show a person who only opened issues in the window as zero commits, PRs and releases', async () => {
-  // Given — #1133: a day with only issues leaves a Contribution row whose three shown counts are 0.
+it('counts issues for team members and outside contributors, so an issue-only person is listed with issues', async () => {
+  // Given — #1133: the staff screen now shows Commit·PR·Issue, so a day with only issues counts.
   const scope = `staff-evidence-issue-${randomUUID()}`;
   const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
   const activeId = `${scope}-active`;
@@ -374,10 +377,10 @@ it('does not show a person who only opened issues in the window as zero commits,
   await prisma.contribution.createMany({
     data: [
       { githubId: base, date: new Date('2026-08-01Z'), commitCount: 2 },
-      // An issue-only day of someone with commits keeps their sums unchanged.
+      // An issue-only day adds to the member's issue count.
       { githubId: base, date: new Date('2026-08-02Z'), issueCount: 5 },
       { githubId: base + 1n, date: new Date('2026-08-01Z'), issueCount: 1 },
-      // Outside the team: the issue-only person drops out, the PR author stays.
+      // Outside the team: both the issue-only person and the PR author are listed.
       { githubId: base + 3n, date: new Date('2026-08-03Z'), issueCount: 4 },
       {
         githubId: base + 4n,
@@ -403,6 +406,7 @@ it('does not show a person who only opened issues in the window as zero commits,
       commitCount: 2,
       pullRequestCount: 0,
       releaseCount: 0,
+      issueCount: 5,
       hasObservations: true,
     },
     {
@@ -411,15 +415,28 @@ it('does not show a person who only opened issues in the window as zero commits,
       commitCount: 0,
       pullRequestCount: 0,
       releaseCount: 0,
-      hasObservations: false,
+      issueCount: 1,
+      hasObservations: true,
     },
   ]);
+  // 기여 집계는 가입자만 쌓으므로 운영에서는 login이 있다. 이 테스트는 User 행 없이
+  // 기여 행만 넣어 login이 없을 때(null) 숫자 id로 남는지를 본다.
   expect(detail?.repositoryContributions?.unmatchedContributors).toEqual([
     {
+      githubId: (base + 3n).toString(),
+      githubLogin: null,
+      commitCount: 0,
+      pullRequestCount: 0,
+      releaseCount: 0,
+      issueCount: 4,
+    },
+    {
       githubId: (base + 4n).toString(),
+      githubLogin: null,
       commitCount: 0,
       pullRequestCount: 1,
       releaseCount: 0,
+      issueCount: 0,
     },
   ]);
 });
