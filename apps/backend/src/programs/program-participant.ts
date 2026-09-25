@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import { ApplicationStatus, type Prisma } from '@prisma/client';
 
 /**
  * 신청서를 **읽을 수 있는** 사람 — 지금 그 팀에 속해 있는 사람뿐이다.
@@ -51,6 +51,26 @@ export function isProgramApplicationManager(
   application: { readonly teamLeaderId: string },
 ): boolean {
   return application.teamLeaderId === userId;
+}
+
+/**
+ * 팀 저장소 URL을 바꿀 수 있는지 — 쓰기 경로(`PATCH .../teams/:teamId/repository-url`)와
+ * 그 버튼을 켜는 읽기 경로가 같은 판정을 쓴다. 한쪽만 고치면 버튼은 보이는데 누르면
+ * 거절당한다. `isManager`는 지금 그 팀의 팀장이거나 교직원·관리자인지다.
+ */
+export function canEditStudentRepositoryUrl(
+  context: {
+    readonly status: ApplicationStatus;
+    readonly endAt: Date;
+    readonly isManager: boolean;
+  },
+  now: Date,
+): boolean {
+  return (
+    context.isManager &&
+    context.status === ApplicationStatus.APPROVED &&
+    now < context.endAt
+  );
 }
 
 export function programParticipantGithubIds(

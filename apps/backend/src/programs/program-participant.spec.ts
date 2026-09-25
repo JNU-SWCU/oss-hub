@@ -1,5 +1,5 @@
 import { ApplicationStatus } from '@prisma/client';
-import { canEditStudentRepositoryUrl } from './student-repository-url.service';
+import { canEditStudentRepositoryUrl } from './program-participant';
 
 describe('student repository URL edit permission', () => {
   const endAt = new Date('2026-09-01T00:00:00Z');

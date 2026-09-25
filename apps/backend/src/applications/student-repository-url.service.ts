@@ -1,8 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ApplicationStatus, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { APPLICATION_REPOSITORY_URL_CHANGED } from '../audit-log/application-repository-url-audit-metadata';
 import { DomainException } from '../common/error-code';
+import { canEditStudentRepositoryUrl } from '../programs/program-participant';
 import { ConsentsService } from '../consents/consents.service';
 import {
   COLLECTION_TRIGGER_PORT,
@@ -32,21 +33,6 @@ export type StudentRepositoryUrlView = {
 export type UpdateStudentRepositoryUrlInput = {
   readonly repositoryUrl: string;
 };
-
-export function canEditStudentRepositoryUrl(
-  context: {
-    readonly status: ApplicationStatus;
-    readonly endAt: Date;
-    readonly isManager: boolean;
-  },
-  now: Date,
-): boolean {
-  return (
-    context.isManager &&
-    context.status === ApplicationStatus.APPROVED &&
-    now < context.endAt
-  );
-}
 
 @Injectable()
 export class StudentRepositoryUrlService {

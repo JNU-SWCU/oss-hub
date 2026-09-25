@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
+import {
+  ProgramTeamRepositoryEvidenceRepository,
+  type TeamActivityScope,
+} from './program-team-repository-evidence.repository';
 import type {
+  TeamActivityView,
   TeamRepositoryEvidenceView,
   RepositoryUrlHistoryCursor,
   RepositoryUrlHistoryPage,
@@ -649,6 +653,58 @@ export class ProgramTeamsRepository {
     return new ProgramTeamRepositoryEvidenceRepository(this.prisma).history(
       { programId, teamId, applicationId: application.id },
       cursor,
+    );
+  }
+
+  /**
+   * 팀 저장소 활동(#1133)의 대상. 읽어도 되는 사람인지는 service가 이 값으로 먼저
+   * 판정한다 — 없는 팀과 다른 프로그램의 팀은 같은 null이다. 저장소는 신청을 거쳐서만
+   * 읽으므로 떨어져 나간 옛 저장소(`applicationId` 없음)는 여기 걸리지 않는다.
+   */
+  async findTeamActivityScope(
+    programId: string,
+    teamId: string,
+  ): Promise<TeamActivityScope | null> {
+    const team = await this.prisma.team.findFirst({
+      where: { id: teamId, programId },
+      select: {
+        leaderId: true,
+        program: { select: { startAt: true, endAt: true } },
+        members: {
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          select: {
+            userId: true,
+            user: { select: { githubId: true, nickname: true } },
+          },
+        },
+        applications: {
+          where: { programId },
+          take: 1,
+          select: {
+            id: true,
+            status: true,
+            repository: {
+              select: {
+                id: true,
+                nameWithOwner: true,
+                lastSuccessAt: true,
+                failureCount: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!team) return null;
+    const { applications, ...scope } = team;
+    return { ...scope, application: applications[0] ?? null };
+  }
+
+  readTeamActivity(
+    team: TeamActivityScope,
+  ): Promise<Omit<TeamActivityView, 'canEditRepositoryUrl'>> {
+    return new ProgramTeamRepositoryEvidenceRepository(this.prisma).activity(
+      team,
     );
   }
 
