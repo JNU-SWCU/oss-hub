@@ -181,7 +181,7 @@ describe('CollectionStreamsTable', () => {
     expect(tableText()).not.toContain('알 수 없음');
   });
 
-  it('ISSUE stream의 오류는 이슈 열에서 어느 stream인지 드러난다', async () => {
+  it('ISSUE stream의 오류는 Issue 열에서 어느 stream인지 드러난다', async () => {
     await renderTable([
       {
         repositoryName: 'jnu-oss/epsilon',
@@ -197,7 +197,7 @@ describe('CollectionStreamsTable', () => {
         ],
       },
     ]);
-    // 열 순서상 이슈는 index 5, 문제는 index 6이다.
+    // 열 순서상 Issue는 index 5, 문제는 index 6이다.
     const cells = container.querySelectorAll('tbody td');
     expect(cells[5]?.textContent).toContain('재시도 대기');
     expect(cells[6]?.textContent).toContain('저장소 접근 권한 없음');
