@@ -41,7 +41,7 @@ assertIsolatedIntegrationDatabase({
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 
 // demo profile이 실제로 쓰는 객체와 동일한 포트/설정을 재사용해 실제 업로드된 객체가
-// 조회 가능한지 직접 S3(MinIO)로 검증한다(#910/#913 파인딩 4).
+// 조회 가능한지 직접 S3(object-storage)로 검증한다(#910/#913 파인딩 4).
 const demoStorageConfig = new SubmissionFileStorageConfig();
 const demoStorage = new S3SubmissionFileStorage(demoStorageConfig);
 let demoStorageS3Client: S3Client | undefined;

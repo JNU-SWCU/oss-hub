@@ -74,7 +74,7 @@ export interface DownloadedMilestoneDocumentSubmissionFile {
 
 /**
  * 마일스톤 서류 항목의 파일 업로드/양식 파일 업로드·다운로드를 담당한다. 저장 스택은
- * submissions/의 SubmissionFile·S3(MinIO) 경로를 그대로 재사용한다(새 업로드 스택을 만들지 않는다) —
+ * submissions/의 SubmissionFile·S3(object-storage) 경로를 그대로 재사용한다(새 업로드 스택을 만들지 않는다) —
  * submission-file-name.ts/submission-file-content-type.ts/submission-file-storage.port.ts는
  * 읽기 전용으로 import만 하고 수정하지 않는다.
  */

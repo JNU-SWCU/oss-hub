@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { e2eProgramAuthoringControlEnabled } from '../e2e-program-authoring/e2e-program-authoring.config';
 import { e2eProgramAuthoringExternalPorts } from '../e2e-program-authoring/e2e-external-ports';
-// 파일 저장 스택은 submissions/의 SubmissionFile·S3(MinIO) 경로를 그대로 재사용한다 —
+// 파일 저장 스택은 submissions/의 SubmissionFile·S3(object-storage) 경로를 그대로 재사용한다 —
 // submissions.module.ts와 동일한 provider 구성을 이 모듈에도 등록한다(새 업로드 스택 금지).
 import { S3SubmissionFileStorage } from '../submissions/s3-submission-file.storage';
 import { SubmissionFileStorageConfig } from '../submissions/submission-file-storage.config';

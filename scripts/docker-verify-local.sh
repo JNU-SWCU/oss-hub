@@ -11,7 +11,7 @@ readonly LOCAL_IMAGE_TAG_PLACEHOLDER='__local_compose_interpolation_only__'
 
 PERSISTENT_STACK=0
 INITIAL_WAIT_TIMEOUT=120
-MINIO_WAIT_TIMEOUT=60
+OBJECT_STORAGE_WAIT_TIMEOUT=60
 
 cleanup() {
   local status=$?
@@ -78,7 +78,6 @@ main() {
   unset SUBMISSION_FILE_STORAGE_MODE SUBMISSION_FILE_S3_ENDPOINT SUBMISSION_FILE_S3_REGION
   unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
   unset SUBMISSION_FILE_S3_FORCE_PATH_STYLE AUTH_INITIAL_ROLES
-  unset ROLLBACK_MINIO_ACCESS_KEY_ID ROLLBACK_MINIO_SECRET_ACCESS_KEY ROLLBACK_MINIO_BUCKET
   unset SESSION_SECRET TEAM_JOIN_CODE_SECRET
   unset MAIL_MODE GMAIL_SENDER GMAIL_OAUTH_CLIENT_ID GMAIL_OAUTH_CLIENT_SECRET GMAIL_OAUTH_REFRESH_TOKEN
   unset GITHUB_OAUTH_CLIENT_ID GITHUB_OAUTH_CLIENT_SECRET
@@ -88,16 +87,13 @@ main() {
   unset COLLECTION_CRON_EXPRESSION PORT
 
   export IMAGE_TAG="$LOCAL_IMAGE_TAG_PLACEHOLDER"
-  export SUBMISSION_FILE_STORAGE_MODE=minio
-  export SUBMISSION_FILE_S3_ENDPOINT=http://minio:9000
+  export SUBMISSION_FILE_STORAGE_MODE=local
+  export SUBMISSION_FILE_S3_ENDPOINT=http://object-storage:9090
   export SUBMISSION_FILE_S3_REGION=us-east-1
   export SUBMISSION_FILE_S3_ACCESS_KEY_ID=oss-hub-local
   export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY=oss-hub-local-synthetic-secret
   export SUBMISSION_FILE_S3_BUCKET="submission-files-$RANDOM-$$"
   export SUBMISSION_FILE_S3_FORCE_PATH_STYLE=true
-  export ROLLBACK_MINIO_ACCESS_KEY_ID="$SUBMISSION_FILE_S3_ACCESS_KEY_ID"
-  export ROLLBACK_MINIO_SECRET_ACCESS_KEY="$SUBMISSION_FILE_S3_SECRET_ACCESS_KEY"
-  export ROLLBACK_MINIO_BUCKET="$SUBMISSION_FILE_S3_BUCKET"
   export COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-$repo_root/.env}"
   compose_argv
 
@@ -113,12 +109,12 @@ main() {
   fi
   run_step 'PostgreSQL smoke' db_smoke
   run_step 'HTTP smoke' http_smoke
-  run_step 'MinIO smoke' minio_smoke
-  run_step 'MinIO restart' "${COMPOSE_ARGV[@]}" restart minio-bucket
-  run_step 'MinIO restart wait' "${COMPOSE_ARGV[@]}" up -d --wait --wait-timeout "$MINIO_WAIT_TIMEOUT"
-  run_step 'MinIO restart smoke' minio_smoke
-  run_step 'MinIO recreation' "${COMPOSE_ARGV[@]}" up -d --force-recreate --wait --wait-timeout "$MINIO_WAIT_TIMEOUT" minio-bucket
-  run_step 'MinIO recreation smoke' minio_smoke
+  run_step 'object-storage smoke' object_storage_smoke
+  run_step 'object-storage restart' "${COMPOSE_ARGV[@]}" restart object-storage
+  run_step 'object-storage restart wait' "${COMPOSE_ARGV[@]}" up -d --wait --wait-timeout "$OBJECT_STORAGE_WAIT_TIMEOUT"
+  run_step 'object-storage restart smoke' object_storage_smoke
+  run_step 'object-storage recreation' "${COMPOSE_ARGV[@]}" up -d --force-recreate --wait --wait-timeout "$OBJECT_STORAGE_WAIT_TIMEOUT" object-storage
+  run_step 'object-storage recreation smoke' object_storage_smoke
 }
 
 main "$@"

@@ -133,7 +133,7 @@ async function createSubmissionHistory(
 }
 
 describeIntegration(
-  'submission file lifecycle PostgreSQL + MinIO integration',
+  'submission file lifecycle PostgreSQL + object-storage integration',
   () => {
     beforeAll(async () => {
       await prisma.$connect();
@@ -166,7 +166,7 @@ describeIntegration(
       await prisma.$disconnect();
     });
 
-    it('performs a real PUT and idempotent delete against MinIO', async () => {
+    it('performs a real PUT and idempotent delete against object-storage', async () => {
       const objectKey = `${PREFIX}/put-delete`;
       const body = Buffer.from('%PDF-synthetic');
 
