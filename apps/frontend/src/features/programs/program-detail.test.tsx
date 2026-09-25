@@ -289,9 +289,9 @@ describe('ActivityPanelBody', () => {
       />,
     );
 
-    expect(html).toContain('aria-label="학생 커밋"');
+    expect(html).toContain('aria-label="학생 Commit"');
     expect(html).toContain('aria-label="학생 PR"');
-    expect(html).toContain('aria-label="학생 릴리스"');
+    expect(html).toContain('aria-label="학생 Release"');
     expect(html).toContain('aria-valuenow="2"');
     expect(html).toContain('aria-valuenow="3"');
     expect(html).toContain('aria-valuenow="4"');

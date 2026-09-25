@@ -112,8 +112,8 @@ function StaffRepositoryEvidenceHistory({
                   </strong>
                   {member.hasObservations ? (
                     <p className="text-sm">
-                      커밋 {member.commitCount} · PR {member.pullRequestCount} ·
-                      릴리스 {member.releaseCount}
+                      Commit {member.commitCount} · PR {member.pullRequestCount}{' '}
+                      · Release {member.releaseCount}
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground">
@@ -132,8 +132,8 @@ function StaffRepositoryEvidenceHistory({
               <ul className="grid gap-2">
                 {activity.unmatchedContributors.map((person) => (
                   <li key={person.githubId} className="break-all text-sm">
-                    GitHub ID {person.githubId} · 커밋 {person.commitCount} · PR{' '}
-                    {person.pullRequestCount} · 릴리스 {person.releaseCount}
+                    GitHub ID {person.githubId} · Commit {person.commitCount} ·
+                    PR {person.pullRequestCount} · Release {person.releaseCount}
                   </li>
                 ))}
               </ul>

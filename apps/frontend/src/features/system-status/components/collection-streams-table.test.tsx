@@ -127,14 +127,14 @@ describe('CollectionStreamsTable', () => {
     );
   }
 
-  it('저장소 한 줄에 프로그램·커밋·PR·릴리즈·문제 열을 표시한다', async () => {
+  it('저장소 한 줄에 프로그램·Commit·PR·Release·문제 열을 표시한다', async () => {
     await renderTable([beta]);
     expect(tableText()).toContain('jnu-oss/beta');
     expect(tableText()).toContain('저장소');
     expect(tableText()).toContain('프로그램');
-    expect(tableText()).toContain('커밋');
+    expect(tableText()).toContain('Commit');
     expect(tableText()).toContain('PR');
-    expect(tableText()).toContain('릴리즈');
+    expect(tableText()).toContain('Release');
     expect(tableText()).toContain('문제');
     // PULL_REQUEST stream이 없는 저장소는 em-dash로 표시한다.
     expect(tableText()).toContain('—');

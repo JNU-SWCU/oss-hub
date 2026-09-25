@@ -16,7 +16,7 @@ import type { ActivityPoint } from '../types';
 
 // 선 색은 semantic 차트 토큰(design.md R-08b). 다크 모드에서도 토큰이 알아서 바뀐다.
 const series = [
-  { key: 'commitCount', label: '커밋', color: 'var(--chart-1)' },
+  { key: 'commitCount', label: 'Commit', color: 'var(--chart-1)' },
   { key: 'prCount', label: 'Pull Request', color: 'var(--chart-2)' },
   { key: 'releaseCount', label: 'Release', color: 'var(--chart-3)' },
   { key: 'total', label: '합계', color: 'var(--foreground)' },
@@ -36,7 +36,7 @@ const TABLE_COLUMNS: DataTableColumn<ActivityPoint>[] = [
   },
   {
     id: 'commitCount',
-    header: '커밋',
+    header: 'Commit',
     cell: (point) => point.commitCount,
     ...NUMBER_COLUMN,
   },
