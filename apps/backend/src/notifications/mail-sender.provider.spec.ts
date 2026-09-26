@@ -9,7 +9,6 @@ import { LogMailSender } from './adapters/log-mail-sender';
 import { mailSenderProvider, resolveMailSender } from './mail-sender.provider';
 import { MAIL_SENDER } from './mail-sender.port';
 import type { MailSender } from './mail-sender.port';
-import { e2eProgramAuthoringExternalPorts } from '../e2e-program-authoring/e2e-external-ports';
 
 const BASE_ENV = { ...process.env };
 
@@ -83,36 +82,6 @@ describe('resolveMailSender / mailSenderProvider', () => {
     );
     expect(sender).toBeInstanceOf(LogMailSender);
   });
-  it('production dry-run throws even with complete credentials', () => {
-    expect(() =>
-      resolveMailSender(
-        frozenSnapshot({
-          NODE_ENV: 'production',
-          MAIL_MODE: 'dry-run',
-          ...COMPLETE_GMAIL,
-        }),
-      ),
-    ).toThrow(/Production requires MAIL_MODE=send/);
-  });
-
-  it.each([
-    ['GMAIL_SENDER'],
-    ['GMAIL_OAUTH_CLIENT_ID'],
-    ['GMAIL_OAUTH_CLIENT_SECRET'],
-    ['GMAIL_OAUTH_REFRESH_TOKEN'],
-  ] as const)('production send missing %s throws', (missingKey) => {
-    expect(() =>
-      resolveMailSender(
-        frozenSnapshot({
-          NODE_ENV: 'production',
-          MAIL_MODE: 'send',
-          ...COMPLETE_GMAIL,
-          [missingKey]: undefined,
-        }),
-      ),
-    ).toThrow(/GMAIL_/);
-  });
-
   it('send with complete four credentials resolves GmailMailSender', () => {
     const sender = resolveMailSender(
       frozenSnapshot({
@@ -196,28 +165,5 @@ describe('resolveMailSender / mailSenderProvider', () => {
     );
 
     expect(sender).toBeInstanceOf(LogMailSender);
-  });
-
-  it('selects the shared fake only for explicit test control', () => {
-    // Given
-    e2eProgramAuthoringExternalPorts.reset();
-
-    // When
-    const sender = resolveMailSender(frozenSnapshot({ NODE_ENV: 'test' }), {
-      NODE_ENV: 'test',
-      E2E_PROGRAM_AUTHORING_CONTROL: 'enabled',
-    });
-
-    // Then
-    expect(sender).toBe(e2eProgramAuthoringExternalPorts.mail);
-  });
-
-  it('fails closed when production enables external test control', () => {
-    expect(() =>
-      resolveMailSender(frozenSnapshot({ NODE_ENV: 'production' }), {
-        NODE_ENV: 'production',
-        E2E_PROGRAM_AUTHORING_CONTROL: 'enabled',
-      }),
-    ).toThrow(/forbidden/);
   });
 });

@@ -27,6 +27,8 @@ export interface SubmissionInputProps {
   readonly disabled?: boolean;
   readonly file?: File | null;
   readonly fileError?: string | null;
+  /** 고른 ZIP의 판정을 서버에서 기다리는 중(#1108) — 결과가 설 자리에 대기를 보인다. */
+  readonly fileChecking?: boolean;
   readonly onTextChange: (value: string) => void;
   readonly onFileChange?: (file: File | null) => void;
 }
@@ -53,6 +55,7 @@ export function SubmissionInput({
   disabled,
   file,
   fileError,
+  fileChecking,
   onTextChange,
   onFileChange,
 }: SubmissionInputProps) {
@@ -128,6 +131,11 @@ export function SubmissionInput({
               <FieldDescription id="submission-file-description">
                 PDF, HWP, ZIP · 최대 {fileUpload.maxLabel}
               </FieldDescription>
+              {fileChecking ? (
+                <FieldDescription role="status" aria-live="polite">
+                  파일 확인 중…
+                </FieldDescription>
+              ) : null}
               <FieldError id="submission-file-error">{fileMessage}</FieldError>
             </Field>
           </div>

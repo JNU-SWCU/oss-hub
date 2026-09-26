@@ -78,9 +78,14 @@ it('화면이 쓰는 회수 API는 REVOKED 행을 남겨 당사자를 역할 선
   });
   expect(requests[1]?.decidedAt).not.toBeNull();
 
-  // 같은 회수를 한 번 더 보내도 이력은 한 줄만 늘어난 채로 있다.
-  await authority.patchStaffAccess(actor.githubId, target.id, {
-    command: STAFF_ACCESS_COMMANDS.REVOKE,
+  // 같은 회수를 한 번 더 보내면 낡은 화면의 요청으로 보고 409 ROL_013 으로
+  // 거절한다(#1411). 이력은 한 줄만 늘어난 채로 있다.
+  await expect(
+    authority.patchStaffAccess(actor.githubId, target.id, {
+      command: STAFF_ACCESS_COMMANDS.REVOKE,
+    }),
+  ).rejects.toMatchObject({
+    errorCode: { code: 'ROL_013', status: 409 },
   });
   await expect(
     prisma.staffAccessRequest.count({

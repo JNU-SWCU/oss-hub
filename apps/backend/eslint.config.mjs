@@ -15,6 +15,18 @@ import moduleZoneBoundary from './eslint-rules/module-zone-boundary.mjs';
 const srcDir = path.join(import.meta.dirname, 'src');
 const sharedDirs = new Set(['common', 'prisma']);
 
+// #1427 — 테스트 파일 판정을 한 곳에 둔다. `.spec.ts`·`*fixture(s).ts`·
+// `*support.ts`는 테스트 파일이다. `boundary/module-zone`에는 정규식 소스
+// 문자열로 넘기고(RegExp 리터럴은 JSON schema를 못 통과한다), 파일 단위로
+// 규칙 블록을 빼는 곳(no-restricted-imports 등)에는 같은 판정을 glob으로 쓴다.
+const testFileBasenamePattern = '(\\.spec|fixtures?|support)\\.ts$';
+const testFileGlobs = [
+  'src/**/*.spec.ts',
+  'src/**/*fixture.ts',
+  'src/**/*fixtures.ts',
+  'src/**/*support.ts',
+];
+
 // ADR-003 DEC-42 — github 모듈(옛 collection)의 공개 surface는 모듈·스케줄
 // 헬퍼·프로비저닝 파일뿐이다. 소비자 Service는 github concrete repository를
 // import하지 않고, 소비자 Repository는 Prisma를 쓴다.
@@ -26,6 +38,8 @@ const sharedDirs = new Set(['common', 'prisma']);
 const collectionPublicFiles = [
   // 수집 쪽 공개 surface — DEC-42.
   'collection.module',
+  // 저장소 연결 직후 수집을 시작하는 port(#1133). 수집 구현은 github 안에 남는다.
+  'collection-trigger.port',
   // 프로비저닝 쪽 공개 surface.
   //
   // 합병 전 `repositories/` 는 캡슐화 대상이 아니었으므로 아래 파일들은 원래
@@ -123,6 +137,15 @@ const moduleZoneBoundaryOptions = {
         'service 는 Prisma 를 직접 부르지 않는다 — repository 계층으로 위임한다 (ADR-010 §8).',
     },
   ],
+  // #1427 — 운영 코드는 테스트 코드를 모른다. import 대상이 `apps/backend/test/**`
+  // 이거나 테스트 파일(`.spec.ts`/fixture/support)로 해석되면 zone 판정보다
+  // 먼저 막는다. 이 규칙은 이미 import를 절대경로로 해석하므로 깊이와 무관하다.
+  testBoundary: {
+    testDir: path.join(import.meta.dirname, 'test'),
+    basenamePattern: testFileBasenamePattern,
+    message:
+      '운영 코드는 테스트 코드를 참조하지 않는다 — E2E 대역은 test/e2e-program-authoring/main.ts에서만 끼운다 (#1427).',
+  },
 };
 
 const envRestrictedSyntax = [
@@ -138,17 +161,31 @@ const envRestrictedSyntax = [
     message:
       '환경변수는 runtime-config manifest를 거쳐 읽는다 — process.env 구조분해 금지.',
   },
+  // #1427 — 운영 코드는 지금 테스트 중인지 묻지 않는다. `process.env.NODE_ENV`뿐
+  // 아니라 파싱된 RuntimeConfig의 `.NODE_ENV`를 `'test'`와 비교하는 것도 막는다
+  // (E2E 분기는 test/e2e-program-authoring/main.ts 같은 별도 진입점에서만 한다).
+  // 양쪽 피연산자 순서를 모두 잡도록 selector 두 개를 둔다.
+  {
+    selector:
+      "BinaryExpression[operator=/^(===|!==|==|!=)$/][left.property.name='NODE_ENV'][right.value='test']",
+    message:
+      '운영 코드는 지금 테스트 중인지 묻지 않는다 — NODE_ENV를 test와 비교해 분기하지 않는다 (#1427).',
+  },
+  {
+    selector:
+      "BinaryExpression[operator=/^(===|!==|==|!=)$/][left.value='test'][right.property.name='NODE_ENV']",
+    message:
+      '운영 코드는 지금 테스트 중인지 묻지 않는다 — NODE_ENV를 test와 비교해 분기하지 않는다 (#1427).',
+  },
 ];
 
-// ADR-003 DEC-42 — canonical* 계열과 legacy inert 테이블(collectionRun,
-// githubRawObservation)은 collection 구현만 만질 수 있는 Prisma delegate다.
-// 속성 이름만 보는 AST 셀렉터라 어떤 변수명(prisma/this.prisma/db 등)으로
-// 접근하든 잡아낸다.
+// ADR-003 DEC-42 — canonical* 계열은 collection 구현만 만질 수 있는 Prisma
+// delegate다. 속성 이름만 보는 AST 셀렉터라 어떤 변수명(prisma/this.prisma/db
+// 등)으로 접근하든 잡아낸다.
 const collectionDelegateRestrictedSyntax = {
-  selector:
-    'MemberExpression[property.name=/^(canonical[A-Z]|collectionRun|githubRawObservation)/]',
+  selector: 'MemberExpression[property.name=/^canonical[A-Z]/]',
   message:
-    'collection Prisma delegate(canonical*/collectionRun/githubRawObservation)는 collection 구현 밖에서 접근하지 않는다 (ADR-003 DEC-42).',
+    'collection Prisma delegate(canonical*)는 collection 구현 밖에서 접근하지 않는다 (ADR-003 DEC-42).',
 };
 
 export default tseslint.config(
@@ -177,6 +214,61 @@ export default tseslint.config(
       'boundary/module-zone': ['error', moduleZoneBoundaryOptions],
     },
   },
+  // #1427 — 운영 코드는 E2E 조립 도구(`@nestjs/testing`)를 모른다. 그 도구는
+  // test/e2e-program-authoring/main.ts 같은 별도 composition root 전용이다.
+  // 테스트 파일 자신은 당연히 이 도구를 쓰므로 제외한다.
+  //
+  // main.ts는 파일 끝에서 bootstrap()을 실행한다. 어디서든 `**/main`을
+  // import하면 그 부수효과(운영 서버 기동)가 같이 실행된다 — 실제로 이
+  // 버그로 E2E 진입점이 운영 bootstrap과 포트를 두고 경합했다. 공유 로직은
+  // bootstrap 부수효과가 없는 별도 파일(`common/configure-http-app.ts`)에
+  // 두고 그 파일을 import한다.
+  {
+    files: ['src/**/*.ts'],
+    ignores: testFileGlobs,
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@nestjs/testing',
+              message:
+                '운영 코드는 @nestjs/testing을 참조하지 않는다 — E2E 조립은 test/e2e-program-authoring/main.ts에서만 한다 (#1427).',
+            },
+          ],
+          patterns: [
+            {
+              group: ['**/main'],
+              message:
+                'main.ts는 하단에서 bootstrap()을 실행한다 — 공유 로직은 부수효과 없는 파일로 옮기고 그 파일을 import한다.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // 위와 같은 이유로 test/** 에서도 main.ts를 import하지 않는다.
+  // test/e2e-program-authoring/main.ts 자신이 바로 그 부수효과 버그의
+  // 발생 지점이었다 — `../../src/main`을 import해 운영 bootstrap을
+  // 함께 실행시켰다.
+  {
+    files: ['test/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/main'],
+              message:
+                'main.ts는 하단에서 bootstrap()을 실행한다 — 공유 로직은 부수효과 없는 파일로 옮기고 그 파일을 import한다.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   // 환경변수 소비 지점은 runtime-config manifest 하나로 고정한다. 키를 직접
   // 읽는 것만 금지하며, process.env 객체 전체를 loadRuntimeConfig에 넘기는
   // 것은 manifest가 키 목록을 소유하므로 허용한다. 이 규칙이 소비 계약을
@@ -187,10 +279,10 @@ export default tseslint.config(
       'no-restricted-syntax': ['error', ...envRestrictedSyntax],
     },
   },
-  // collection 구현 밖에서는 canonical*/collectionRun/githubRawObservation
-  // Prisma delegate를 직접 만질 수 없다 (ADR-003 DEC-42). collection 폴더는
-  // 제외되므로(config 병합 규칙상 이 config가 collection 파일에는 매치되지
-  // 않아 위 env 규칙만 남는다) 구현 내부에서는 그대로 delegate를 쓸 수 있다.
+  // collection 구현 밖에서는 canonical* Prisma delegate를 직접 만질 수 없다
+  // (ADR-003 DEC-42). collection 폴더는 제외되므로(config 병합 규칙상 이
+  // config가 collection 파일에는 매치되지 않아 위 env 규칙만 남는다) 구현
+  // 내부에서는 그대로 delegate를 쓸 수 있다.
   {
     files: ['src/**/*.ts'],
     ignores: ['src/github/**/*.ts'],

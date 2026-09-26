@@ -49,6 +49,14 @@ export interface SyntheticReleaseSeed {
   authorLogin: string | null;
 }
 
+export interface SyntheticIssueSeed {
+  id: number;
+  createdAt: string;
+  state: 'open' | 'closed';
+  authorId: number | null;
+  authorLogin: string | null;
+}
+
 export interface SyntheticRepositorySeed {
   /** synthetic githubRepositoryId — kept well under Number.MAX_SAFE_INTEGER. */
   id: number;
@@ -60,6 +68,12 @@ export interface SyntheticRepositorySeed {
   commits: SyntheticCommitSeed[];
   pullRequests: SyntheticPullRequestSeed[];
   releases: SyntheticReleaseSeed[];
+  /**
+   * The issue listing also serves every pull request (GitHub interleaves them
+   * with a `pull_request` key), reusing the PR id — so issue ids must not
+   * collide with this repository's pull request ids.
+   */
+  issues?: SyntheticIssueSeed[];
   /** never emit an ETag for this repo's probes — forces a full re-check every run. */
   noEtag?: boolean;
 }
@@ -69,6 +83,7 @@ type RequestKind =
   | 'commit-probe'
   | 'commit-list'
   | 'pull-list'
+  | 'issue-list'
   | 'release-probe'
   | 'release-list';
 
@@ -83,6 +98,7 @@ const emptyByKind = (): Record<RequestKind, number> => ({
   'commit-probe': 0,
   'commit-list': 0,
   'pull-list': 0,
+  'issue-list': 0,
   'release-probe': 0,
   'release-list': 0,
 });
@@ -232,6 +248,33 @@ export class SyntheticGithubProvider {
       return this.paginated(url, sorted, (pr) => this.pullRequestJson(pr));
     }
 
+    const issuesMatch = /^\/repos\/([^/]+)\/([^/]+)\/issues$/.exec(
+      url.pathname,
+    );
+    if (issuesMatch) {
+      const [, owner, name] = issuesMatch as unknown as [
+        string,
+        string,
+        string,
+      ];
+      const repo = this.repositoryFor(owner, name);
+      this.record('issue-list', `${owner}/${name}`);
+      const listing = [
+        ...(repo.issues ?? []).map((issue) => ({
+          ...issue,
+          pullRequest: false,
+        })),
+        ...repo.pullRequests.map((pr) => ({ ...pr, pullRequest: true })),
+      ].sort((a, b) =>
+        a.createdAt === b.createdAt
+          ? b.id - a.id
+          : a.createdAt < b.createdAt
+            ? 1
+            : -1,
+      );
+      return this.paginated(url, listing, (item) => this.issueJson(item));
+    }
+
     const releasesMatch = /^\/repos\/([^/]+)\/([^/]+)\/releases$/.exec(
       url.pathname,
     );
@@ -343,6 +386,24 @@ export class SyntheticGithubProvider {
           ? null
           : { id: pr.authorId, login: pr.authorLogin },
       html_url: `https://example.invalid/pull/${pr.id}`,
+    };
+  }
+
+  private issueJson(
+    item: SyntheticIssueSeed & { pullRequest: boolean },
+  ): unknown {
+    return {
+      id: item.id,
+      number: item.id,
+      state: item.state,
+      created_at: item.createdAt,
+      user:
+        item.authorId === null
+          ? null
+          : { id: item.authorId, login: item.authorLogin },
+      ...(item.pullRequest
+        ? { pull_request: { url: `https://example.invalid/pull/${item.id}` } }
+        : {}),
     };
   }
 

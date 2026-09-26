@@ -9,6 +9,7 @@ import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,
 } from '../collection-error-code.enum';
+import type { CollectionTriggerPort } from '../collection-trigger.port';
 import {
   CollectionSyncService,
   type CollectionSyncRunResult,
@@ -34,6 +35,13 @@ export const COLLECTION_CRON_EXPRESSION =
   PROCESS_RUNTIME_CONFIG.COLLECTION_CRON_EXPRESSION?.trim() ||
   DEFAULT_COLLECTION_CRON_EXPRESSION;
 
+/** 실패 이벤트 이름 — org·external은 이미 걸린 경보가 있어 이름을 바꾸지 않는다. */
+const SYNC_FAILED_EVENTS = {
+  org: 'collection.scheduler.sync_failed',
+  external: 'collection.scheduler.external_sync_failed',
+  repository: 'collection.scheduler.repository_sync_failed',
+} as const;
+
 /**
  * todo 14 원자 전환: 유일하게 배선된 트리거 경로가 old writer에서 new writer
  * (`CollectionSyncService`)로 전환됐고, 그 old writer는 보존 기간이 끝나 `Canonical*` 8개
@@ -43,7 +51,7 @@ export const COLLECTION_CRON_EXPRESSION =
  * 트리거를 명시적으로 거부한다 — silent skip이 아니라 별도 에러 코드로 reject한다.
  */
 @Injectable()
-export class CollectionSchedulerService {
+export class CollectionSchedulerService implements CollectionTriggerPort {
   private readonly logger = new Logger(CollectionSchedulerService.name);
   private readonly ownerId = `scheduler:${randomUUID()}`;
 
@@ -102,6 +110,28 @@ export class CollectionSchedulerService {
   }
 
   /**
+   * 저장소 연결 직후 수집(#1133). 저장 요청을 붙잡지 않도록 기다리지 않고, 실패도 호출자에게
+   * 던지지 않는다 — quiesce 거부를 포함한 모든 결과는 `observeSweep`이 로그 1줄로 남긴다.
+   */
+  collectRepository(githubRepositoryId: bigint): void {
+    const runId = randomUUID();
+    const startedAt = Date.now();
+    this.observeSweep(
+      'repository',
+      runId,
+      startedAt,
+      this.cutover.isQuiesced(new Date()).then((quiesced) => {
+        if (quiesced) {
+          throw new DomainException(
+            COLLECTION_ERROR_CODES[CollectionErrorCode.COLLECTION_QUIESCED],
+          );
+        }
+        return this.sync.runRepository(this.ownerId, githubRepositoryId, runId);
+      }),
+    );
+  }
+
+  /**
    * #511 — 실패 이벤트만 남던 자리에 성공 1줄을 추가한다. 운영자가 로그만으로
    * "이번 정각 tick이 실제로 돌았는가"를 판정할 수 있어야 하며, DB 직접 조회가
    * 정상/무동작 구분의 유일한 수단이어서는 안 된다.
@@ -114,7 +144,7 @@ export class CollectionSchedulerService {
    * 분류만 남긴다.
    */
   private observeSweep(
-    scope: 'org' | 'external',
+    scope: keyof typeof SYNC_FAILED_EVENTS,
     runId: string,
     startedAt: number,
     sweep: Promise<CollectionSyncRunResult>,
@@ -136,10 +166,7 @@ export class CollectionSchedulerService {
       },
       (error: unknown) => {
         this.logger.error({
-          event:
-            scope === 'org'
-              ? 'collection.scheduler.sync_failed'
-              : 'collection.scheduler.external_sync_failed',
+          event: SYNC_FAILED_EVENTS[scope],
           scope,
           runId,
           errorName: error instanceof Error ? error.name : 'UnknownError',

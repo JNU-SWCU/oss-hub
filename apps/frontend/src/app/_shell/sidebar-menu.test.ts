@@ -712,7 +712,7 @@ describe('programScopeSidebarGroups', () => {
       viewerRole: 'STUDENT',
     });
     expect(groups[0]?.items[0]?.href).toBe('/programs/prog-1');
-    expect(groups[0]?.items[1]?.href).toBe('/programs/prog-1/my-team');
+    expect(groups[0]?.items[1]?.href).toBe('/programs/prog-1/team');
     expect(groups[0]?.items[2]?.href).toBe('/programs/prog-1/teams');
     expect(groups[2]?.items[0]?.href).toBe('/programs/prog-1/board');
   });
@@ -930,7 +930,7 @@ describe('programScopeSidebarGroups — 우리 팀(#1269)', () => {
       '참여 팀',
     ]);
     expect(overview?.items[1]).toMatchObject({
-      href: '/programs/seed%3A1/my-team',
+      href: '/programs/seed%3A1/team',
       depth: 0,
     });
     expect(overview?.items[1]?.href).toBe(programMyTeamHref('seed:1'));
@@ -985,7 +985,7 @@ describe('programScopeSidebarGroups — 우리 팀(#1269)', () => {
   it('현재 메뉴 강조는 우리 팀 경로에서만 켜진다', () => {
     const href = programMyTeamHref('prog-1');
 
-    expect(isCurrentSidebarItem('/programs/prog-1/my-team', href)).toBe(true);
+    expect(isCurrentSidebarItem('/programs/prog-1/team', href)).toBe(true);
     expect(isCurrentSidebarItem('/programs/prog-1/teams', href)).toBe(false);
     expect(isCurrentSidebarItem('/programs/prog-1/apply', href)).toBe(false);
     expect(

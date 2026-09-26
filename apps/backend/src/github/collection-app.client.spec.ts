@@ -64,6 +64,23 @@ const prFixture = (id: number, createdAt: string) => ({
   user: null,
   html_url: `https://github.test/pr/${id}`,
 });
+/** An item of the issue listing — `pullRequest` adds the `pull_request` key GitHub uses to mark PRs. */
+const issueListFixture = (
+  id: number,
+  createdAt: string,
+  pullRequest = false,
+) => ({
+  id,
+  number: id,
+  state: 'closed',
+  created_at: createdAt,
+  user: { id: 7, login: 'octocat' },
+  title: 'excluded',
+  body: 'excluded',
+  ...(pullRequest
+    ? { pull_request: { url: `https://github.test/pr/${id}` } }
+    : {}),
+});
 const releaseFixture = (
   id: number,
   draft: boolean,
@@ -823,6 +840,22 @@ describe('CollectionAppClient incremental contract', () => {
       });
     });
 
+    it('treats the stored cursor as already read although it was saved with milliseconds', async () => {
+      // The collector rebuilds the cursor from a DB timestamp (`.000Z`); GitHub writes the same
+      // instant without milliseconds. Nothing new means nothing read — not the cursor again.
+      const fetcher = fetchMock().mockResolvedValue(
+        json([
+          prFixture(7, '2026-01-01T00:00:00Z'),
+          prFixture(6, '2025-01-01T00:00:00Z'),
+        ]),
+      );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      const frontier = { createdAt: '2026-01-01T00:00:00.000Z', id: '7' };
+      const result = await client.listNewPullRequests('o', 'r', frontier);
+      expect(result.pullRequests).toEqual([]);
+      expect(result.newFrontier).toEqual(frontier);
+    });
+
     it('reads every page when the frontier is null (first-ever backfill)', async () => {
       const fetcher = fetchMock().mockResolvedValue(
         json([prFixture(1, '2026-01-01T00:00:00Z')]),
@@ -856,6 +889,83 @@ describe('CollectionAppClient incremental contract', () => {
       await expect(
         client.listNewPullRequests('o', 'r', null),
       ).rejects.toMatchObject({ kind: 'RATE_LIMITED' });
+    });
+  });
+
+  describe('listNewIssues', () => {
+    it('drops pull_request items but takes the new frontier from the first raw item even when it is a PR', async () => {
+      const fetcher = fetchMock()
+        .mockResolvedValueOnce(
+          json(
+            [
+              issueListFixture(30, '2026-01-03T00:00:00Z', true),
+              issueListFixture(29, '2026-01-02T00:00:00Z'),
+            ],
+            { headers: { link: '<https://api.github.test/next>; rel="next"' } },
+          ),
+        )
+        .mockResolvedValueOnce(
+          json([
+            issueListFixture(28, '2026-01-02T00:00:00Z', true),
+            issueListFixture(27, '2026-01-01T00:00:00Z'),
+          ]),
+        );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      const result = await client.listNewIssues('o', 'r', {
+        createdAt: '2026-01-01T00:00:00Z',
+        id: '27',
+      });
+
+      expect(fetcher.mock.calls[0]?.[0]).toEqual(
+        expect.stringContaining(
+          '/repos/o/r/issues?state=all&sort=created&direction=desc&per_page=100',
+        ),
+      );
+      // Only the issue survives, reduced to the stored fields (no title/body).
+      expect(result.issues).toEqual([
+        {
+          id: '29',
+          state: 'closed',
+          createdAt: '2026-01-02T00:00:00Z',
+          authorLogin: 'octocat',
+          authorGithubId: '7',
+        },
+      ]);
+      expect(result.newFrontier).toEqual({
+        createdAt: '2026-01-03T00:00:00Z',
+        id: '30',
+      });
+    });
+
+    it('keeps the input frontier only when nothing newer was read', async () => {
+      const tie = { createdAt: '2026-01-03T00:00:00Z', id: '30' };
+      const client = new CollectionAppClient(
+        config,
+        tokenProvider,
+        fetchMock().mockResolvedValue(
+          json([issueListFixture(30, '2026-01-03T00:00:00Z', true)]),
+        ),
+      );
+      const result = await client.listNewIssues('o', 'r', tie);
+      expect(result.issues).toEqual([]);
+      expect(result.newFrontier).toBe(tie);
+    });
+
+    it('reads 410 (issues disabled) as an empty listing instead of an error, only on the issue listing', async () => {
+      const gone = () =>
+        json({ message: 'Issues are disabled for this repo' }, { status: 410 });
+      const client = new CollectionAppClient(
+        config,
+        tokenProvider,
+        fetchMock().mockImplementation(() => Promise.resolve(gone())),
+      );
+
+      await expect(client.listNewIssues('o', 'r', null)).resolves.toMatchObject(
+        { issues: [], newFrontier: null },
+      );
+      await expect(
+        client.listNewPullRequests('o', 'r', null),
+      ).rejects.toMatchObject({ kind: 'UPSTREAM' });
     });
   });
 
@@ -1118,16 +1228,65 @@ describe('CollectionAppClient author-filtered commit history (GraphQL)', () => {
       ).resolveUserNodeId('octocat'),
     ).resolves.toEqual('MDQ6VXNlcjc=');
     expect(sentPayload(found).variables).toEqual({ login: 'octocat' });
+    // GitHub는 없는 login에 `data.user: null`과 함께 NOT_FOUND 오류를 돌려준다.
     await expect(
       new CollectionAppClient(
         graphqlConfig,
         tokenProvider,
-        fetchMock().mockResolvedValue(json({ data: { user: null } })),
+        fetchMock().mockResolvedValue(
+          json({
+            data: { user: null },
+            errors: [
+              {
+                type: 'NOT_FOUND',
+                path: ['user'],
+                message:
+                  "Could not resolve to a User with the login of 'ghost'.",
+              },
+            ],
+          }),
+        ),
       ).resolveUserNodeId('ghost'),
     ).resolves.toBeNull();
   });
 
-  it('reads the repo-wide default-branch commit total without requesting any commit node', async () => {
+  it.each([
+    [
+      [
+        { type: 'NOT_FOUND', path: ['user'] },
+        { message: 'Something went wrong' },
+      ],
+    ],
+    [[{ message: 'Something went wrong' }]],
+  ])(
+    'still throws when a login lookup carries any error other than NOT_FOUND',
+    async (errors) => {
+      await expect(
+        new CollectionAppClient(
+          graphqlConfig,
+          tokenProvider,
+          fetchMock().mockResolvedValue(json({ data: { user: null }, errors })),
+        ).resolveUserNodeId('ghost'),
+      ).rejects.toMatchObject({ kind: 'GRAPHQL_ERROR' });
+    },
+  );
+
+  it('keeps NOT_FOUND fatal outside the login lookup', async () => {
+    await expect(
+      new CollectionAppClient(
+        graphqlConfig,
+        tokenProvider,
+        fetchMock().mockResolvedValue(
+          json({
+            data: { repository: null },
+            errors: [{ type: 'NOT_FOUND', path: ['repository'] }],
+          }),
+        ),
+      ).listDefaultBranchCommitsByAuthor('o', 'r', 'main', 'NODE'),
+    ).rejects.toMatchObject({ kind: 'GRAPHQL_ERROR' });
+  });
+
+  it('counts default-branch commits inside the program window without requesting any commit node', async () => {
     const fetcher = fetchMock().mockResolvedValue(
       json({
         data: {
@@ -1140,59 +1299,52 @@ describe('CollectionAppClient author-filtered commit history (GraphQL)', () => {
         graphqlConfig,
         tokenProvider,
         fetcher,
-      ).countDefaultBranchCommits('JNU-SWCU', 'oss-hub', 'main'),
+      ).countDefaultBranchCommitsBetween(
+        'JNU-SWCU',
+        'oss-hub',
+        'main',
+        '2026-07-09T15:00:00Z',
+        '2026-09-26T05:00:00Z',
+      ),
     ).resolves.toEqual(42);
     const payload = sentPayload(fetcher);
     expect(payload.variables).toEqual({
       owner: 'JNU-SWCU',
       name: 'oss-hub',
       branch: 'main',
+      since: '2026-07-09T15:00:00Z',
+      until: '2026-09-26T05:00:00Z',
     });
-    // No author filter (this is the *whole* repository) and — critically —
-    // no `nodes` selection, so no contributor identity is ever transferred.
+    // No author filter (every author in the window) and no `nodes`, so no
+    // contributor identity is ever transferred.
+    expect(payload.query).toContain('history(since: $since, until: $until)');
     expect(payload.query).toContain('totalCount');
     expect(payload.query).not.toContain('nodes');
     expect(payload.query).not.toContain('author');
   });
 
-  it('reports a zero-commit branch as 0 and a missing branch as null', async () => {
-    await expect(
+  it('reports a missing branch as null and rejects a malformed total', async () => {
+    const count = (body: unknown) =>
       new CollectionAppClient(
         graphqlConfig,
         tokenProvider,
-        fetchMock().mockResolvedValue(
-          json({
-            data: {
-              repository: { ref: { target: { history: { totalCount: 0 } } } },
-            },
-          }),
-        ),
-      ).countDefaultBranchCommits('o', 'r', 'main'),
-    ).resolves.toEqual(0);
+        fetchMock().mockResolvedValue(json(body)),
+      ).countDefaultBranchCommitsBetween(
+        'o',
+        'r',
+        'main',
+        '2026-07-09T15:00:00Z',
+        '2026-09-26T05:00:00Z',
+      );
     await expect(
-      new CollectionAppClient(
-        graphqlConfig,
-        tokenProvider,
-        fetchMock().mockResolvedValue(
-          json({ data: { repository: { ref: null } } }),
-        ),
-      ).countDefaultBranchCommits('o', 'r', 'missing'),
+      count({ data: { repository: { ref: null } } }),
     ).resolves.toBeNull();
-  });
-
-  it('rejects a malformed totalCount instead of reporting a bogus total', async () => {
     await expect(
-      new CollectionAppClient(
-        graphqlConfig,
-        tokenProvider,
-        fetchMock().mockResolvedValue(
-          json({
-            data: {
-              repository: { ref: { target: { history: { totalCount: -1 } } } },
-            },
-          }),
-        ),
-      ).countDefaultBranchCommits('o', 'r', 'main'),
+      count({
+        data: {
+          repository: { ref: { target: { history: { totalCount: -1 } } } },
+        },
+      }),
     ).rejects.toMatchObject({ kind: 'RESPONSE' });
   });
 

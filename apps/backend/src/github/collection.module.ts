@@ -18,6 +18,7 @@ import { CollectionAdminGuard } from './collection-admin.guard';
 import { CollectionPublicTokenProvider } from './collection-public.token';
 import { CollectionReadService } from './service/collection-read.service';
 import { CollectionSchedulerService } from './service/collection-scheduler.service';
+import { COLLECTION_TRIGGER_PORT } from './collection-trigger.port';
 import { CollectionUserActivityService } from './service/collection-user-activity.service';
 import { ProviderRequestQueue } from './collection-provider-queue';
 import {
@@ -41,6 +42,11 @@ import {
     CollectionAdminGuard,
     ContributionInvariants,
     CollectionSchedulerService,
+    // 저장소 연결 직후 수집(#1133) — 신청 쪽이 부르는 유일한 수집 표면이다.
+    {
+      provide: COLLECTION_TRIGGER_PORT,
+      useExisting: CollectionSchedulerService,
+    },
     CollectionIncrementalRepository,
     CollectionCutoverRepository,
     CollectionReadService,
@@ -198,6 +204,6 @@ import {
       },
     },
   ],
-  exports: [],
+  exports: [COLLECTION_TRIGGER_PORT],
 })
 export class CollectionModule {}

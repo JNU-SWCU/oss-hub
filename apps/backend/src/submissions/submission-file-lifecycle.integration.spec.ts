@@ -1,6 +1,7 @@
 import {
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   S3Client,
 } from '@aws-sdk/client-s3';
 import {
@@ -67,6 +68,26 @@ function s3Client(): S3Client {
       secretAccessKey: settings.secretAccessKey,
     },
   });
+}
+
+/** 판정 전용 경로(#1108)가 남길 수 있는 흔적 전부 — 제출 파일 행·감사·아웃박스·버킷 객체. */
+async function persistedFootprint() {
+  const client = s3Client();
+  try {
+    const objects = await client.send(
+      new ListObjectsV2Command({
+        Bucket: storageConfig.requireSettings().bucket,
+      }),
+    );
+    return {
+      submissionFiles: await prisma.submissionFile.count(),
+      auditLogs: await prisma.auditLog.count(),
+      outboxEvents: await prisma.outboxEvent.count(),
+      storedObjects: objects.KeyCount ?? 0,
+    };
+  } finally {
+    client.destroy();
+  }
 }
 
 async function createPending(options: {
@@ -479,6 +500,56 @@ describeIntegration(
         contentType: 'application/zip',
         contentLength: archive.byteLength,
       });
+    });
+
+    it('판정만 하는 요청은 제출과 같은 코드로 거절하고 행·감사·아웃박스·객체를 남기지 않는다', async () => {
+      // Given: 비밀번호 걸린 압축과 압축 안의 압축(#1108). 암호화 항목은 12바이트 머리를 더한다.
+      const filesService = new SubmissionFilesService(files, storage);
+      const zipUpload = (buffer: Buffer) => ({
+        buffer,
+        originalname: 'plan.zip',
+        mimetype: 'application/zip',
+        size: buffer.byteLength,
+      });
+      const rejected = [
+        [
+          signatureValidZip([
+            {
+              name: 'plan.txt',
+              flags: 0x0001,
+              compressedSize: 1 + 12,
+              uncompressedSize: 1,
+            },
+          ]),
+          'SUB_028',
+        ],
+        [signatureValidZip([{ name: 'inner.zip' }]), 'SUB_027'],
+      ] as const;
+      const before = await persistedFootprint();
+
+      // When / Then: 판정은 제출(업로드)과 같은 코드·상태로 거절한다.
+      for (const [archive, code] of rejected) {
+        const expected = { errorCode: { code, status: 422 } };
+        await expect(
+          filesService.upload(
+            seedGithubId(USER_ID),
+            APPLICATION_ID,
+            MILESTONE_ID,
+            zipUpload(archive),
+          ),
+        ).rejects.toMatchObject(expected);
+        await expect(
+          filesService.check(zipUpload(archive)),
+        ).rejects.toMatchObject(expected);
+      }
+      await expect(
+        filesService.check(
+          zipUpload(signatureValidZip([{ name: 'plan.txt' }])),
+        ),
+      ).resolves.toBeUndefined();
+
+      // Then: 통과한 판정까지 포함해 아무것도 남지 않는다.
+      await expect(persistedFootprint()).resolves.toEqual(before);
     });
   },
 );

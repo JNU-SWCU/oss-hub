@@ -1,30 +1,11 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { Readable } from 'node:stream';
-import { e2eProgramAuthoringExternalPorts } from '../e2e-program-authoring/e2e-external-ports';
 import { SUBMISSION_DASHBOARD_SUMMARY_PORT } from './submission-dashboard-summary.port';
 import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
 import { SubmissionFileCleanupFailuresController } from './submission-file-cleanup-failures.controller';
 import { SubmissionFileCleanupFailuresService } from './submission-file-cleanup-failures.service';
-import {
-  SUBMISSION_FILE_STORAGE,
-  type SubmissionFileStoragePort,
-} from './submission-file-storage.port';
-import {
-  resolveSubmissionFileStorage,
-  SubmissionsModule,
-} from './submissions.module';
-
-const incumbentStorage: SubmissionFileStoragePort = {
-  put: (input) =>
-    Promise.resolve({
-      objectKey: input.objectKey ?? 'incumbent-key',
-      originalName: input.originalName,
-      contentLength: input.body.byteLength,
-      contentType: input.contentType,
-    }),
-  get: () => Promise.resolve(Readable.from([])),
-  delete: () => Promise.resolve(),
-};
+import { S3SubmissionFileStorage } from './s3-submission-file.storage';
+import { SUBMISSION_FILE_STORAGE } from './submission-file-storage.port';
+import { SubmissionsModule } from './submissions.module';
 
 const getMetadataArray = (key: string): unknown[] => {
   const metadata = Reflect.getMetadata(key, SubmissionsModule) as unknown;
@@ -33,7 +14,7 @@ const getMetadataArray = (key: string): unknown[] => {
 };
 
 describe('SubmissionsModule storage provider', () => {
-  it('binds the storage token through a factory', () => {
+  it('binds the storage token directly to the S3 adapter', () => {
     // Given
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
 
@@ -47,12 +28,12 @@ describe('SubmissionsModule storage provider', () => {
     );
 
     // Then
-    expect(storageProvider).toBeDefined();
-    expect(
-      typeof storageProvider === 'object' &&
-        storageProvider !== null &&
-        'useFactory' in storageProvider,
-    ).toBe(true);
+    expect(storageProvider).toEqual(
+      expect.objectContaining({
+        provide: SUBMISSION_FILE_STORAGE,
+        useExisting: S3SubmissionFileStorage,
+      }),
+    );
   });
 
   it('exports the dashboard summary read port without exporting the concrete service', () => {
@@ -78,44 +59,5 @@ describe('SubmissionsModule storage provider', () => {
 
     expect(controllers).toContain(SubmissionFileCleanupFailuresController);
     expect(providers).toContain(SubmissionFileCleanupFailuresService);
-  });
-
-  it.each(['development', 'test', 'production'] as const)(
-    'keeps incumbent storage in %s without external test control',
-    (nodeEnvironment) => {
-      // Given
-      e2eProgramAuthoringExternalPorts.reset();
-
-      // When
-      const storage = resolveSubmissionFileStorage(incumbentStorage, {
-        NODE_ENV: nodeEnvironment,
-      });
-
-      // Then
-      expect(storage).toBe(incumbentStorage);
-    },
-  );
-
-  it('selects shared fake storage only for explicit test control', () => {
-    // Given
-    e2eProgramAuthoringExternalPorts.reset();
-
-    // When
-    const storage = resolveSubmissionFileStorage(incumbentStorage, {
-      NODE_ENV: 'test',
-      E2E_PROGRAM_AUTHORING_CONTROL: 'enabled',
-    });
-
-    // Then
-    expect(storage).toBe(e2eProgramAuthoringExternalPorts.storage);
-  });
-
-  it('fails closed when production enables external test control', () => {
-    expect(() =>
-      resolveSubmissionFileStorage(incumbentStorage, {
-        NODE_ENV: 'production',
-        E2E_PROGRAM_AUTHORING_CONTROL: 'enabled',
-      }),
-    ).toThrow(/forbidden/);
   });
 });

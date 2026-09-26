@@ -26,7 +26,6 @@ import { TeamInvitePanel } from './team-invite-panel';
 import { TeamMembersPanel } from './team-members-panel';
 import type { TeamInvitationManagement } from './use-team-invitation-management';
 import type { StudentApplication } from './student-application-api';
-import { RepositoryUrlEditor } from './repository-url-editor';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
 export type ApplicationFormMode = 'create' | 'edit';
@@ -123,21 +122,11 @@ export function BlockedView({
   return (
     <PageBody className="max-w-3xl">
       <RejectionReasonAlert application={application} />
-      {application?.status === 'APPROVED' && programId !== undefined ? (
-        <RepositoryUrlEditor programId={programId} />
-      ) : null}
+      {/* 저장소 URL은 우리 팀 화면에서 바꾼다(#1133) — 신청 화면에 사본을 두지 않는다. */}
       <EmptyState
-        className="break-keep [overflow-wrap:anywhere] [&_p]:whitespace-pre-line"
-        title={
-          application?.status === 'APPROVED'
-            ? '신청서 내용 수정 제한'
-            : content.title
-        }
-        description={
-          application?.status === 'APPROVED'
-            ? '신청서 수정·취소는 제한됩니다.\n저장소 URL은 별도로 관리합니다.'
-            : content.description
-        }
+        className="break-keep"
+        title={content.title}
+        description={content.description}
         action={
           showMyTeam ? (
             <Button asChild variant="outline">
@@ -152,7 +141,7 @@ export function BlockedView({
 
 /**
  * 제출 직후 화면. 「우리 팀 보기」는 방금 신청한 그 프로그램의 팀 화면
- * (`/programs/:id/my-team`)으로 간다 — 팀 id를 화면이 만들어 붙이지 않는다.
+ * (`/programs/:id/team`)으로 간다 — 팀 id를 화면이 만들어 붙이지 않는다.
  * 팀 화면 자체가 서버 응답으로 팀 유무를 말하므로 여기서 미리 감추지 않는다.
  */
 export function ProgramApplySuccessView({

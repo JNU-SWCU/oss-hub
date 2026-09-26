@@ -331,7 +331,7 @@ describe('TeamInvitationNotifications', () => {
     await settleUntil(() => {
       expect(mocks.acceptInvitation).toHaveBeenCalledWith('inv-1');
     });
-    expect(mocks.push).toHaveBeenCalledWith('/programs/prog%3A1/my-team');
+    expect(mocks.push).toHaveBeenCalledWith('/programs/prog%3A1/team');
     expect(mocks.push).not.toHaveBeenCalledWith(
       expect.stringContaining('/apply'),
     );
@@ -372,7 +372,7 @@ describe('TeamInvitationNotifications', () => {
     });
 
     await settleUntil(() => {
-      expect(mocks.push).toHaveBeenCalledWith('/programs/program-1/my-team');
+      expect(mocks.push).toHaveBeenCalledWith('/programs/program-1/team');
     });
     expect(events.programIds).toEqual(['program-1']);
     expect(mocks.refresh).toHaveBeenCalled();
@@ -404,7 +404,7 @@ describe('TeamInvitationNotifications', () => {
     const hrefs = [...document.querySelectorAll('a')].map((anchor) =>
       anchor.getAttribute('href'),
     );
-    expect(hrefs).not.toContain('/programs/prog%3A1/my-team');
+    expect(hrefs).not.toContain('/programs/prog%3A1/team');
     expect(hrefs.some((href) => href?.includes('/apply') === true)).toBe(false);
   });
 

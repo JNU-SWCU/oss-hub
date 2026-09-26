@@ -145,7 +145,7 @@ describe('activity timeline', () => {
     expect(html).toContain('캡스톤 2026');
     expect(html).toContain('월별');
     expect(html).toContain('연도별');
-    expect(html).toContain('커밋');
+    expect(html).toContain('Commit');
     expect(html).toContain('Pull Request');
     expect(html).toContain('Release');
     expect(html).toContain('데이터 기준 시각');
@@ -318,7 +318,7 @@ describe('activity timeline', () => {
     expect(html).toContain('<table');
     expect(html).not.toContain('<table class="sr-only">');
     expect(html).toContain('scope="col">기간</th>');
-    expect(html).toContain('scope="col">커밋</th>');
+    expect(html).toContain('scope="col">Commit</th>');
     expect(html).toContain('scope="row">2026-01</th>');
     expect(html).toContain('text-right">12</td>');
     expect(html).toContain(

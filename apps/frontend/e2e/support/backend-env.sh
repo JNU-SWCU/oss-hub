@@ -36,6 +36,5 @@ e2e_backend_server_env() {
     GITHUB_OAUTH_CLIENT_SECRET=synthetic-e2e-client-secret \
     PORT="$backend_port" \
     MAIL_MODE=dry-run \
-    E2E_PROGRAM_AUTHORING_CONTROL=enabled \
     "$@"
 }

@@ -46,12 +46,15 @@ const resolver = {
     },
   }),
 };
+// 연결 직후 수집 port — 호출만 잡아 두고, 수집을 볼 스펙이 직접 이어서 돌린다.
+const collectionTrigger = { collectRepository: jest.fn<void, [bigint]>() };
 const service = new StudentRepositoryUrlService(
   repository,
   applications,
   resolver,
   { requireCurrent: jest.fn().mockResolvedValue(undefined) },
   audit,
+  collectionTrigger,
 );
 const input = {
   repositoryUrl: 'https://github.com/synthetic/target',
@@ -79,6 +82,7 @@ beforeAll(async () => {
   });
 });
 beforeEach(async () => {
+  collectionTrigger.collectRepository.mockClear();
   caseNumber += 1;
   programId = `${prefix}-${caseNumber}-program`;
   applicationId = `${prefix}-${caseNumber}-application`;
@@ -181,6 +185,7 @@ export {
   applications,
   audit,
   resolver,
+  collectionTrigger,
   githubId,
   programId,
   applicationId,

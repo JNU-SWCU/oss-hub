@@ -57,7 +57,7 @@ flowchart LR
   Back --> R2[(private managed R2)]
 ```
 
-production backend storage mode는 exact `managed` 하나다. `SUBMISSION_FILE_S3_*` 설정을 사용하고 credential pair는 Jenkins masked binding으로만 주입한다. 로컬 개발의 object-storage substitute는 `compose.local.yml`이 별도로 소유하며 production 계약에 포함되지 않는다.
+production backend storage mode는 exact `managed` 하나다. `SUBMISSION_FILE_S3_*` 설정을 사용하고 credential pair는 Jenkins masked binding으로만 주입한다. 로컬 개발의 object-storage substitute는 `compose.dev.yml`이 별도로 소유하며 production 계약에 포함되지 않는다.
 
 ## 핵심 흐름
 

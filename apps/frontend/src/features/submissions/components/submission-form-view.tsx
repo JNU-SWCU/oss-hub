@@ -39,6 +39,8 @@ export interface SubmissionFormViewProps {
   readonly submitting: boolean;
   readonly file: File | null;
   readonly fileError: string | null;
+  /** 고른 ZIP의 판정을 기다리는 중(#1108). */
+  readonly fileChecking?: boolean;
   readonly submissionPhase: 'uploading' | 'creating' | null;
   readonly onTextChange: (value: string) => void;
   readonly onFileChange: (file: File | null) => void;
@@ -119,6 +121,7 @@ export function SubmissionFormView(props: SubmissionFormViewProps) {
                 errors={props.errors}
                 file={props.file}
                 fileError={props.fileError}
+                fileChecking={props.fileChecking}
                 disabled={props.submitting}
                 onTextChange={props.onTextChange}
                 onFileChange={props.onFileChange}

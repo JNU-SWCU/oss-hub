@@ -127,14 +127,15 @@ describe('CollectionStreamsTable', () => {
     );
   }
 
-  it('저장소 한 줄에 프로그램·커밋·PR·릴리즈·문제 열을 표시한다', async () => {
+  it('저장소 한 줄에 프로그램·Commit·PR·Release·Issue·문제 열을 표시한다', async () => {
     await renderTable([beta]);
     expect(tableText()).toContain('jnu-oss/beta');
     expect(tableText()).toContain('저장소');
     expect(tableText()).toContain('프로그램');
-    expect(tableText()).toContain('커밋');
+    expect(tableText()).toContain('Commit');
     expect(tableText()).toContain('PR');
-    expect(tableText()).toContain('릴리즈');
+    expect(tableText()).toContain('Release');
+    expect(tableText()).toContain('Issue');
     expect(tableText()).toContain('문제');
     // PULL_REQUEST stream이 없는 저장소는 em-dash로 표시한다.
     expect(tableText()).toContain('—');
@@ -162,8 +163,8 @@ describe('CollectionStreamsTable', () => {
 
   it('오류가 없는 저장소의 문제 열은 em-dash를 표시한다', async () => {
     await renderTable([beta]);
-    // 열 순서: 저장소, 프로그램, 커밋, PR, 릴리즈, 문제 — 문제 열은 5번째(index 5).
-    const problemCell = container.querySelectorAll('tbody td')[5];
+    // 열 순서: 저장소, 프로그램, 커밋, PR, 릴리즈, 이슈, 문제 — 문제 열은 index 6.
+    const problemCell = container.querySelectorAll('tbody td')[6];
     expect(problemCell?.textContent).toBe('—');
   });
 
@@ -178,6 +179,28 @@ describe('CollectionStreamsTable', () => {
     // "알 수 없음" 같은 오류처럼 보이는 문구는 쓰지 않는다 — 연결이 없는 것은
     // 정상 상태다.
     expect(tableText()).not.toContain('알 수 없음');
+  });
+
+  it('ISSUE stream의 오류는 Issue 열에서 어느 stream인지 드러난다', async () => {
+    await renderTable([
+      {
+        repositoryName: 'jnu-oss/epsilon',
+        programName: null,
+        streams: [
+          {
+            streamType: 'ISSUE',
+            bucket: 'RETRY_PENDING',
+            lastSuccessAt: null,
+            lastErrorCode: 'PROVIDER_PERMISSION',
+            lastErrorAt: '2026-08-10T08:30:00.000Z',
+          },
+        ],
+      },
+    ]);
+    // 열 순서상 Issue는 index 5, 문제는 index 6이다.
+    const cells = container.querySelectorAll('tbody td');
+    expect(cells[5]?.textContent).toContain('재시도 대기');
+    expect(cells[6]?.textContent).toContain('저장소 접근 권한 없음');
   });
 
   it('버킷별 배지 라벨을 표시한다', async () => {

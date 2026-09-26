@@ -752,6 +752,36 @@ describe('SubmissionChecklistView 선택 패널', () => {
     expect(html).not.toMatch(/revision/i);
   });
 
+  it('보완 재제출 폼은 고른 ZIP의 판정을 기다리는 동안 파일 입력 자리에 대기를 보인다', () => {
+    // Given: FILE 마일스톤이 보완 요청 상태이고, 고른 ZIP의 판정을 기다린다(#1108).
+    const planItem = ITEMS[0];
+    if (!planItem) throw new Error('expected file checklist fixture');
+    const fileItem: SubmissionChecklistItem = {
+      ...planItem,
+      submission: submission({
+        id: 'submission-plan',
+        status: 'CHANGES_REQUESTED',
+        decision: 'CHANGES_REQUESTED',
+        canResubmit: true,
+      }),
+    };
+
+    // When
+    const html = render({
+      checklist: { ...CHECKLIST, items: [fileItem] },
+      selectedMilestoneId: 'milestone-plan',
+      fileChecking: true,
+    });
+
+    // Then: 대기 문장은 파일 입력의 안내 뒤, 결과가 설 자리에 있다.
+    const status = html.indexOf(
+      'role="status" aria-live="polite">파일 확인 중…',
+    );
+    expect(status).toBeGreaterThan(
+      html.indexOf('id="submission-file-description"'),
+    );
+  });
+
   it('미제출 선택 시 #115 제출 화면으로 안내한다', () => {
     const html = render({ selectedMilestoneId: 'milestone-final' });
     expect(html).toContain('아직 제출 전입니다');

@@ -4,7 +4,7 @@ import {
 } from './program-activity-summary.repository';
 
 describe('ProgramActivitySummaryRepository', () => {
-  it('returns linked repositories without applying an archived filter', async () => {
+  it('returns currently linked repositories without applying an archived filter', async () => {
     // Given
     const findMany = jest
       .fn()
@@ -22,7 +22,10 @@ describe('ProgramActivitySummaryRepository', () => {
 
     // Then
     expect(findMany).toHaveBeenCalledWith({
-      where: { programId: { in: ['program-archived'] } },
+      where: {
+        programId: { in: ['program-archived'] },
+        applicationId: { not: null },
+      },
       select: { programId: true, githubRepositoryId: true },
     });
     expect(result).toEqual([

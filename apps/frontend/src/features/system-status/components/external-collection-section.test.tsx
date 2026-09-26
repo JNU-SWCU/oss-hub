@@ -165,13 +165,13 @@ describe('ExternalCollectionSection', () => {
     expect(sectionText()).toContain('수집 대상 학생 개인 저장소가 없습니다');
   });
 
-  it('탐색된 저장소가 있으면 추적 수와 누적 커밋·PR·릴리즈 합계를 표시한다', async () => {
+  it('탐색된 저장소가 있으면 추적 수와 누적 Commit·PR·Release 합계를 표시한다', async () => {
     await renderSection(withDiscoveredRepositories);
     expect(sectionText()).toContain('3개 추적 중');
     expect(sectionText()).toContain('3개');
-    expect(sectionText()).toContain('커밋 21');
+    expect(sectionText()).toContain('Commit 21');
     expect(sectionText()).toContain('PR 5');
-    expect(sectionText()).toContain('릴리즈 1');
+    expect(sectionText()).toContain('Release 1');
     expect(sectionText()).not.toContain(
       '수집 대상 학생 개인 저장소가 없습니다',
     );

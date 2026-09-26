@@ -28,6 +28,7 @@ interface MockDb {
     count: jest.Mock;
     findFirst: jest.Mock;
   };
+  githubIssueHistory: { createMany: jest.Mock };
   contribution: { deleteMany: jest.Mock };
   $executeRaw: jest.Mock;
   user: { findMany: jest.Mock };
@@ -74,6 +75,9 @@ const createDb = (): MockDb => {
       createMany: jest.fn().mockResolvedValue({ count: 0 }),
       count: jest.fn().mockResolvedValue(0),
       findFirst: jest.fn().mockResolvedValue(null),
+    },
+    githubIssueHistory: {
+      createMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     // ADR-010 §4 — 재계산은 집합 SQL 두 문(삭제 + INSERT…SELECT)이라
     // 셀 단위 upsert 가 없다. 트랜잭션 안 N+1 을 만들지 않기 위해서다.
@@ -596,6 +600,46 @@ describe('CollectionIncrementalRepository — release facts (parity)', () => {
 
     expect(result).toEqual({ acceptedCount: 0, insertedCount: 0 });
     expect(db.collectionReleaseFact.createMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('CollectionIncrementalRepository — issue facts (parity)', () => {
+  it('가입자 issue만 createMany(skipDuplicates)로 넣고 rebuild로 집계를 덮어쓴다', async () => {
+    const db = createDb();
+    db.githubIssueHistory.createMany.mockResolvedValue({ count: 1 });
+    const createdAt = new Date('2026-05-01T00:00:00.000Z');
+
+    const result = await repositoryFor(db).recordIssueFacts(
+      'repo-1',
+      [
+        {
+          githubIssueId: 11n,
+          state: 'open',
+          createdAt,
+          authorGithubId: 42n,
+          authorGithubLogin: 'octocat',
+        },
+        // 가입자 snapshot 밖의 작성자는 fact로도 남지 않는다.
+        { githubIssueId: 12n, state: 'open', createdAt, authorGithubId: 7n },
+      ],
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
+
+    expect(result).toEqual({ acceptedCount: 1, insertedCount: 1 });
+    expect(db.githubIssueHistory.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          repositoryId: 'repo-1',
+          githubIssueId: 11n,
+          state: 'open',
+          createdAt,
+          authorGithubId: 42n,
+          authorGithubLogin: 'octocat',
+        },
+      ],
+      skipDuplicates: true,
+    });
+    expect(db.$executeRaw).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -1150,7 +1194,7 @@ describe('CollectionIncrementalRepository — #546 stream 오류 표시', () => 
   it('오류 기록은 upsert라 stream 행이 아직 없어도 남고, frontier/status는 건드리지 않는다', async () => {
     const db = createDb();
 
-    await repositoryFor(db).markStreamErrorState('repo-1', 'COMMIT', {
+    await repositoryFor(db).markStreamOutcome('repo-1', 'COMMIT', {
       lastErrorAt: at,
       lastErrorCode: 'PROVIDER_UPSTREAM',
     });
@@ -1170,22 +1214,17 @@ describe('CollectionIncrementalRepository — #546 stream 오류 표시', () => 
     });
   });
 
-  it('오류 해제는 표시가 남아 있는 행만 갱신하고 새 행을 만들지 않는다', async () => {
+  it('성공은 확인한 시각을 남기고 오류 표시를 지우되, 새 행을 만들지 않는다', async () => {
     const db = createDb();
 
-    await repositoryFor(db).markStreamErrorState('repo-1', 'RELEASE', {
-      lastErrorAt: null,
-      lastErrorCode: null,
+    await repositoryFor(db).markStreamOutcome('repo-1', 'RELEASE', {
+      checkedAt: at,
     });
 
     expect(db.collectionRepositoryStream.upsert).not.toHaveBeenCalled();
     expect(db.collectionRepositoryStream.updateMany).toHaveBeenCalledWith({
-      where: {
-        repositoryId: 'repo-1',
-        streamType: 'RELEASE',
-        lastErrorCode: { not: null },
-      },
-      data: { lastErrorAt: null, lastErrorCode: null },
+      where: { repositoryId: 'repo-1', streamType: 'RELEASE' },
+      data: { lastRunAt: at, lastErrorAt: null, lastErrorCode: null },
     });
   });
 });

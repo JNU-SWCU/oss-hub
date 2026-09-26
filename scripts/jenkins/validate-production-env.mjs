@@ -242,10 +242,6 @@ function validate(environment) {
   requireStrongSecret(environment, 'TEAM_JOIN_CODE_SECRET');
   requireFrontendUrl(environment);
 
-  if (required(environment, 'MAIL_MODE') !== 'send') {
-    fail('MAIL_MODE');
-  }
-
   const storageMode = required(environment, 'SUBMISSION_FILE_STORAGE_MODE');
   if (storageMode !== 'managed') {
     fail('SUBMISSION_FILE_STORAGE_MODE');

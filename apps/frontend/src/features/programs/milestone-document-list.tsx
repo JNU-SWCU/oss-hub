@@ -49,6 +49,7 @@ import {
 import { MilestoneDocumentHistoryTimeline } from './milestone-document-history-timeline';
 import { MilestoneDocumentResubmissionDialog } from './milestone-document-resubmission-dialog';
 import { MilestoneDocumentSubmissionForm } from './milestone-document-submission-form';
+import { isMilestoneDocumentArchiveErrorCode } from './milestone-document-upload-policy';
 import type { ViewerRole } from './types';
 
 export type MilestoneDocumentSectionState =
@@ -516,6 +517,15 @@ function StudentDocumentRow({
   } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * 제출 때 압축 파일 **내용** 때문에 막힌 사유(#1108). 폼 아래 줄(`error`)이 아니라 폼의
+   * 파일 입력 오류 자리에 선다 — 고를 때 받은 판정과 같은 자리라 문장이 한 번만 뜬다.
+   * 그 파일에 묶여 있어 다른 파일을 고르면 폼이 더는 보이지 않는다.
+   */
+  const [fileRejection, setFileRejection] = useState<{
+    readonly file: File;
+    readonly message: string;
+  } | null>(null);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [history, setHistory] = useState<
     readonly MilestoneDocumentCollectionHistory[]
@@ -727,6 +737,7 @@ function StudentDocumentRow({
     }): Promise<boolean> => {
       setSubmitting(true);
       setError(null);
+      setFileRejection(null);
       setSyncNotice(null);
       try {
         const uploaded =
@@ -739,9 +750,25 @@ function StudentDocumentRow({
               );
         return finish({ text: input.text, fileId: uploaded?.fileId ?? null });
       } catch (uploadError: unknown) {
-        setError(
-          submitErrorMessage(uploadError, '파일 업로드에 실패했습니다.'),
-        );
+        /*
+         * 압축 파일 안의 내용 때문에 막힌 경우(#1108)는 고칠 것이 파일이므로 파일 입력 옆에
+         * 세운다. 폼 아래 줄에도 두면 고를 때 이미 뜬 같은 문장이 두 번 읽힌다. 제출 화면의
+         * `isSubmissionArchiveErrorCode` 갈래와 같은 규칙이고, 그 밖의 실패는 지금 자리 그대로다.
+         */
+        if (
+          input.file !== null &&
+          uploadError instanceof ApiError &&
+          isMilestoneDocumentArchiveErrorCode(uploadError.problem.code)
+        ) {
+          setFileRejection({
+            file: input.file,
+            message: uploadError.problem.detail,
+          });
+        } else {
+          setError(
+            submitErrorMessage(uploadError, '파일 업로드에 실패했습니다.'),
+          );
+        }
         setSubmitting(false);
         return false;
       }
@@ -914,6 +941,7 @@ function StudentDocumentRow({
           currentFileName={viewerSubmission?.currentFileName ?? null}
           isResubmission={submitted}
           submitting={submitting}
+          fileRejection={fileRejection}
           onCancel={() => setEditing(false)}
           onSubmit={submitDraft}
         />

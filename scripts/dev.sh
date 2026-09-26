@@ -72,9 +72,8 @@ preflight_ports() {
   if [ "${#occupied[@]}" -gt 0 ]; then
     printf 'dev: 포트가 이미 사용 중입니다: %s\n' "${occupied[*]}" >&2
     cat >&2 <<'GUIDE'
-dev: 컨테이너 경로(pnpm local:up)가 떠 있으면 같은 ingress 포트를 씁니다 — 동시 실행은 불가합니다.
-dev: 그 스택을 내린 뒤 다시 시도하세요:
-dev:   pnpm local:down
+dev: 그 포트를 쓰는 프로세스를 종료한 뒤 다시 시도하세요:
+dev:   lsof -nP -iTCP:<포트> -sTCP:LISTEN
 GUIDE
     exit 1
   fi

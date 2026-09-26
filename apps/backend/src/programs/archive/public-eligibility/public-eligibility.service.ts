@@ -4,7 +4,7 @@ import { isPublicEligible } from './domain/public-eligibility';
 
 /**
  * todo 15 — 이미 platform eligibility가 확정된(managed publish) 저장소 하나.
- * `publishedAt`은 그 발행 결정이 내려진 시각이다(예: `PublicShowcaseRepository.publishedAt`).
+ * `publishedAt`은 그 발행 결정이 내려진 시각이다(예: `Repository.publishedAt`).
  */
 export interface PublicEligibilityCandidate {
   readonly githubRepositoryId: bigint;

@@ -168,7 +168,10 @@ describe('independent authority HTTP contracts', () => {
     },
   );
 
-  it('treats a same-state command as an idempotent HTTP success', async () => {
+  // #1411 — 이미 그 상태인 명령은 보낸 쪽이 본 값이 낡았다는 뜻이다. 레거시 CAS 와
+  // 같은 409 ROL_013 과 현재 접근 상태를 ProblemDetail 로 돌려 화면이 충돌 안내를
+  // 띄우게 하고, 아무것도 쓰지 않는다.
+  it('rejects a same-state command as a stale-view conflict', async () => {
     store.target = targetUser({ role: 'ADMIN', hasAdminAccess: true });
 
     const response = await request(
@@ -178,7 +181,11 @@ describe('independent authority HTTP contracts', () => {
       allowedOrigin,
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'ROL_013',
+      currentAccess: { role: 'ADMIN' },
+    });
     expect(store.updates).toHaveLength(0);
   });
 

@@ -6,6 +6,7 @@ import type {
   CollectionSyncRunTrigger,
   CollectionSyncStreamSummary,
   CommitFactInput,
+  IssueFactInput,
   PullRequestFactInput,
   RecordFactsResult,
   RecordRepositoryObservationInput,
@@ -305,6 +306,38 @@ export class CollectionIncrementalRepository {
     return { acceptedCount: acceptedFacts.length, insertedCount };
   }
 
+  async recordIssueFacts(
+    repositoryId: string,
+    facts: readonly IssueFactInput[],
+    registeredGithubIds: RegisteredGithubIdSet,
+  ): Promise<RecordFactsResult> {
+    if (facts.length === 0) return { acceptedCount: 0, insertedCount: 0 };
+    const acceptedFacts = this.onlyRegisteredFacts(facts, registeredGithubIds);
+    if (acceptedFacts.length === 0) {
+      return { acceptedCount: 0, insertedCount: 0 };
+    }
+    const { count: insertedCount } =
+      await this.db.githubIssueHistory.createMany({
+        data: acceptedFacts.map((fact) => ({
+          repositoryId,
+          githubIssueId: fact.githubIssueId,
+          state: fact.state,
+          createdAt: fact.createdAt,
+          authorGithubId: fact.authorGithubId ?? null,
+          authorGithubLogin: fact.authorGithubLogin ?? null,
+        })),
+        skipDuplicates: true,
+      });
+    await this.rebuildAffectedContributions(
+      repositoryId,
+      acceptedFacts.map((fact) => ({
+        date: asiaSeoulDate(fact.createdAt),
+        githubId: fact.authorGithubId ?? null,
+      })),
+    );
+    return { acceptedCount: acceptedFacts.length, insertedCount };
+  }
+
   async listRegisteredGithubIds(): Promise<RegisteredGithubIdSet> {
     const users = await this.db.user.findMany({ select: { githubId: true } });
     return new Set(users.map((user) => user.githubId));
@@ -519,11 +552,13 @@ export class CollectionIncrementalRepository {
     // fact 테이블에서 (사람, 날짜)별 합계를 만들어 한 번에 넣는다. githubIds는 이 run/import가
     // 시작할 때 고정한 가입자 snapshot을 이미 통과한 acceptedFacts에서만 왔다. 여기서 live
     // User를 다시 JOIN하면 도중의 가입/상태 변화로 fact와 Contribution의 기준이 갈라진다.
-    // 세 fact 를 UNION ALL 로 모아 한 번만 그룹핑하며, 누적이 아니라 그대로 덮어쓴다.
+    // 네 fact 를 UNION ALL 로 모아 한 번만 그룹핑하며, 누적이 아니라 그대로 덮어쓴다.
+    // 어느 fact 가 칸을 건드렸든 네 값을 모두 다시 센다 — 위에서 칸을 통째로 지웠으므로
+    // 한 갈래라도 빠지면 그 값이 0 으로 덮인다.
     await this.db.$executeRaw`
       INSERT INTO "Contribution" (
         "repositoryId", "githubId", "date",
-        "commitCount", "pullRequestCount", "releaseCount", "updatedAt"
+        "commitCount", "pullRequestCount", "releaseCount", "issueCount", "updatedAt"
       )
       SELECT
         f."repositoryId",
@@ -532,6 +567,7 @@ export class CollectionIncrementalRepository {
         SUM(f."commit")::int,
         SUM(f."pr")::int,
         SUM(f."release")::int,
+        SUM(f."issue")::int,
         NOW()
       FROM (
         -- fact 시각 칸은 timestamp WITHOUT time zone 이라 저장값이 UTC 다.
@@ -539,20 +575,26 @@ export class CollectionIncrementalRepository {
         -- UTC 로 한 번 붙인 뒤 서울로 옮겨야 KST 자정에서 날짜가 갈린다.
         SELECT "repositoryId", "authorGithubId" AS "githubId",
                ((("committedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul')::date) AS "day",
-               1 AS "commit", 0 AS "pr", 0 AS "release"
+               1 AS "commit", 0 AS "pr", 0 AS "release", 0 AS "issue"
           FROM "CollectionCommitFact"
          WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
         UNION ALL
         SELECT "repositoryId", "authorGithubId",
                ((("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul')::date),
-               0, 1, 0
+               0, 1, 0, 0
           FROM "CollectionPullRequestFact"
          WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
         UNION ALL
         SELECT "repositoryId", "authorGithubId",
                ((("publishedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul')::date),
-               0, 0, 1
+               0, 0, 1, 0
           FROM "CollectionReleaseFact"
+         WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
+        UNION ALL
+        SELECT "repositoryId", "authorGithubId",
+               ((("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul')::date),
+               0, 0, 0, 1
+          FROM "GithubIssueHistory"
          WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
       ) AS f
       WHERE f."githubId" = ANY(${githubIds})
@@ -562,6 +604,7 @@ export class CollectionIncrementalRepository {
         "commitCount" = EXCLUDED."commitCount",
         "pullRequestCount" = EXCLUDED."pullRequestCount",
         "releaseCount" = EXCLUDED."releaseCount",
+        "issueCount" = EXCLUDED."issueCount",
         "updatedAt" = NOW()
     `;
   }
@@ -690,35 +733,43 @@ export class CollectionIncrementalRepository {
   }
 
   /**
-   * #546 — stream 하나의 오류 표시만 갱신한다. frontier/status/ETag는 건드리지 않는다:
-   * 실패했다고 해서 이미 확립한 safe frontier를 되돌리면 다음 run이 전체 이력을 다시
-   * 훑게 되고(ADR-006 증분 계약 위반), 성공했다고 status를 올리는 것도 여기 책임이 아니다
-   * (그건 checkpoint가 한다).
+   * #546·#1133 — stream 하나의 결과(오류 표시·확인 시각)만 갱신한다. frontier/status/ETag는
+   * 건드리지 않는다: 실패했다고 해서 이미 확립한 safe frontier를 되돌리면 다음 run이 전체
+   * 이력을 다시 훑게 되고(ADR-006 증분 계약 위반), 성공했다고 status를 올리는 것도 여기
+   * 책임이 아니다(그건 checkpoint가 한다).
    *
-   * 기록은 upsert다 — 신규 저장소의 첫 backfill이 실패하면 아직 stream 행 자체가 없는데,
+   * 실패 기록은 upsert다 — 신규 저장소의 첫 backfill이 실패하면 아직 stream 행 자체가 없는데,
    * 그때야말로 오류가 보여야 한다. 생성되는 행은 `PENDING`(기본값)이라 진행 집계의 의미도
    * 바뀌지 않는다(행 없는 stream도 이미 partial로 세고 있다).
    *
-   * 해제는 반대로 `updateMany` + `lastErrorCode: { not: null }` 가드다 — 표시가 남아 있을
-   * 때만 쓰고, 없는 행을 새로 만들지 않는다.
+   * 성공 기록은 `updateMany`다 — 확인한 시각(`lastRunAt`)을 남기고 오류 표시를 지우되, 없는
+   * 행을 새로 만들지 않는다(아직 적재한 적 없는 stream은 그대로 「기록 없음」). 새것이 없어
+   * checkpoint를 쓰지 않은 확인도 성공이라, 시스템 상태의 「N분 전」·「가장 오래된 실행 시각」이
+   * 마지막으로 확인한 시각이 된다.
    */
-  async markStreamErrorState(
+  async markStreamOutcome(
     repositoryId: string,
     streamType: StreamFrontierInput['streamType'],
-    state: { lastErrorAt: Date | null; lastErrorCode: string | null },
+    outcome:
+      | { readonly checkedAt: Date }
+      | { readonly lastErrorAt: Date; readonly lastErrorCode: string },
   ): Promise<void> {
-    if (state.lastErrorCode !== null) {
+    if ('lastErrorCode' in outcome) {
       await this.upsertStreamFrontier({
         repositoryId,
         streamType,
-        lastErrorAt: state.lastErrorAt,
-        lastErrorCode: state.lastErrorCode,
+        lastErrorAt: outcome.lastErrorAt,
+        lastErrorCode: outcome.lastErrorCode,
       });
       return;
     }
     await this.db.collectionRepositoryStream.updateMany({
-      where: { repositoryId, streamType, lastErrorCode: { not: null } },
-      data: { lastErrorAt: null, lastErrorCode: null },
+      where: { repositoryId, streamType },
+      data: {
+        lastRunAt: outcome.checkedAt,
+        lastErrorAt: null,
+        lastErrorCode: null,
+      },
     });
   }
 
@@ -929,6 +980,86 @@ export class CollectionIncrementalRepository {
         githubRepositoryId: { notIn: [...presentGithubRepositoryIds] },
       },
       data: { presence: 'ABSENT', lastCompleteInventoryObservedAt: observedAt },
+    });
+  }
+
+  /**
+   * 「팀원이 아닌 사람의 기여」(#1133)를 셀 기준 — 이 저장소가 지금 신청으로 연결된 프로그램과
+   * 그 기간. 신청 연결이 풀렸거나 프로그램이 없으면 `null`이다(세지 않는다). 수집 run이 들고 온
+   * 행이 아니라 지금 행을 읽는다 — sweep 도중 연결이 바뀌어도 옛 프로그램 기간으로 세지 않는다.
+   *
+   * `countedThrough`는 같은 기준(신청·프로그램·기간)으로 마지막에 센 시각이다. 기준이 달라졌거나
+   * 센 적이 없으면 `null`이다 — 끝난 프로그램을 끝난 뒤 한 번 셌으면 다시 세지 않게 쓴다.
+   */
+  async findOutsiderCountingWindow(repositoryId: string): Promise<{
+    applicationId: string;
+    programId: string;
+    startAt: Date;
+    endAt: Date;
+    countedThrough: Date | null;
+  } | null> {
+    const row = await this.db.githubRepository.findUnique({
+      where: { id: repositoryId },
+      select: {
+        applicationId: true,
+        program: { select: { id: true, startAt: true, endAt: true } },
+        outsider: true,
+      },
+    });
+    if (!row || row.applicationId === null || row.program === null) return null;
+    const counted = row.outsider;
+    const sameBasis =
+      counted !== null &&
+      counted.applicationId === row.applicationId &&
+      counted.programId === row.program.id &&
+      counted.windowStartAt.getTime() === row.program.startAt.getTime() &&
+      counted.windowEndAt.getTime() === row.program.endAt.getTime();
+    return {
+      applicationId: row.applicationId,
+      programId: row.program.id,
+      startAt: row.program.startAt,
+      endAt: row.program.endAt,
+      countedThrough: sameBasis ? counted.observedAt : null,
+    };
+  }
+
+  /**
+   * ADR-009 「외부 = 전체 − 팀원합」의 우변 — 이 저장소에서 `[since, until]`에 커밋된 지금 팀원의
+   * 커밋 수. 같은 run의 COMMIT stream이 팀원별 전체 이력을 먼저 적재하므로 fact가 곧 최신이다.
+   */
+  async countTeamCommitsBetween(
+    repositoryId: string,
+    memberGithubIds: readonly bigint[],
+    since: Date,
+    until: Date,
+  ): Promise<number> {
+    if (memberGithubIds.length === 0) return 0;
+    return this.db.collectionCommitFact.count({
+      where: {
+        repositoryId,
+        authorGithubId: { in: [...memberGithubIds] },
+        committedAt: { gte: since, lte: until },
+      },
+    });
+  }
+
+  /** 저장소마다 한 행 — 새로 센 값으로 통째로 덮어쓴다. */
+  async saveOutsiderContribution(input: {
+    repositoryId: string;
+    applicationId: string;
+    programId: string;
+    windowStartAt: Date;
+    windowEndAt: Date;
+    commitCount: number;
+    pullRequestCount: number;
+    issueCount: number;
+    observedAt: Date;
+  }): Promise<void> {
+    const { repositoryId, ...values } = input;
+    await this.db.githubRepositoryOutsiderContribution.upsert({
+      where: { repositoryId },
+      create: input,
+      update: values,
     });
   }
 
