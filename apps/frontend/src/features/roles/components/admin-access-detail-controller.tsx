@@ -17,6 +17,7 @@ import {
   adminAccessMutationSuccessMessage,
   applyAdminAccessConflictProjection,
   applyAdminAccessDecidedRequestToHistory,
+  isIndependentAuthorityMutationAction,
   type AdminAccessMutationAction,
 } from '../admin-access-mutation-policy';
 import {
@@ -160,11 +161,20 @@ export function AdminAccessDetailView({
     } catch (error) {
       const projection = parseAdminAccessConflictProjection(error);
       if (projection) {
-        setState({
-          kind: 'ready',
-          detail: applyAdminAccessConflictProjection(detail, projection),
-          history: state.history,
-        });
+        if (isIndependentAuthorityMutationAction(action)) {
+          // 교직원·관리자 접근 명령의 충돌(#1411)은 드롭다운이 읽는 두 접근 값이
+          // 낡았다는 뜻인데, 충돌 본문(`currentAccess`)은 역할·계정 상태만 담는다 —
+          // 역할 「관리자」는 관리자만인 경우와 교직원+관리자인 경우를 한 이름으로
+          // 접어 두 값을 되살릴 수 없다. 그래서 덮어쓰지 않고 최신 값을 다시 읽는다.
+          // 다른 처리자가 남긴 회수 이력 줄도 이때 함께 보인다.
+          retry();
+        } else {
+          setState({
+            kind: 'ready',
+            detail: applyAdminAccessConflictProjection(detail, projection),
+            history: state.history,
+          });
+        }
         setConfirmAction(null);
         setRejectReason('');
         setSuccessMessage(null);

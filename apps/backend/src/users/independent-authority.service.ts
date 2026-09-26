@@ -7,7 +7,7 @@ import {
   createIndependentAuthorityAudit,
   type IndependentAuthorityCommand,
 } from './independent-authority-audit';
-import { roleError } from './admin-access-mutation-policy';
+import { roleError, staleAccessError } from './admin-access-mutation-policy';
 import {
   ADMIN_ACCESS_COMMANDS,
   STAFF_ACCESS_COMMANDS,
@@ -100,31 +100,42 @@ export class IndependentAuthorityService {
       ) {
         throw roleError(RolesErrorCode.SELF_ADMIN_REVOKE_FORBIDDEN);
       }
+      // 이미 그 상태인 명령은 보낸 쪽이 본 값이 낡았다는 뜻이다. 화면의 드롭다운은
+      // 같은 값을 다시 보내지 않으므로(StateControl) 이 요청은 다른 처리자나 다른
+      // 창이 먼저 바꾼 뒤에만 나온다. 예전에는 아무것도 쓰지 않고 200 을 돌려줘
+      // 화면이 「…처리를 완료했습니다」라고 말했다(#1411). 레거시 CAS 경로와 같은
+      // 409 `ROL_013` 과 현재 접근 상태로 돌려, 화면이 충돌 안내를 띄우고 최신
+      // 값을 다시 읽게 한다. 던지면 트랜잭션이 롤백되므로 쓰기는 하나도 없다.
+      const current =
+        target === AUTHORITY_TARGETS.STAFF
+          ? before.hasStaffAccess
+          : before.hasAdminAccess;
+      if (current === enabled) {
+        throw staleAccessError(before);
+      }
       const transition = resolveIndependentAuthorityTransition(
         before,
         target,
         enabled,
       );
-      if (authorityChanged(before, transition)) {
-        await store.updateAuthority(userId, transition);
-        if (revokesStaffAccess(before, transition)) {
-          await store.insertRevokedRequest({
-            userId: before.id,
-            actorId: actor.id,
-            decidedAt: new Date(),
-          });
-        }
-        await this.auditLog.record(
-          createIndependentAuthorityAudit({
-            actorGithubId,
-            actor,
-            before,
-            after: transition,
-            command,
-          }),
-          store.auditLogWriter,
-        );
+      await store.updateAuthority(userId, transition);
+      if (revokesStaffAccess(before, transition)) {
+        await store.insertRevokedRequest({
+          userId: before.id,
+          actorId: actor.id,
+          decidedAt: new Date(),
+        });
       }
+      await this.auditLog.record(
+        createIndependentAuthorityAudit({
+          actorGithubId,
+          actor,
+          before,
+          after: transition,
+          command,
+        }),
+        store.auditLogWriter,
+      );
       return {
         id: before.id,
         role: transition.role,
@@ -160,24 +171,12 @@ async function requireTarget(
  * 관리자 접근 전이는 교직원 신청 표를 건드리지 않는다 — 관리자 접근 전이는
  * `hasStaffAccess`를 그대로 두므로 이 판정이 켜지지 않는다.
  *
- * 명령 이름이 아니라 **전이 결과**로 본다. 이미 꺼져 있는 접근에 회수를 다시 보내면
- * `before`와 `transition`이 같아 아무 행도 늘지 않는다(멱등).
+ * 명령 이름이 아니라 **전이 결과**로 본다. 이미 꺼져 있는 접근에 회수를 다시 보내는
+ * 요청은 여기까지 오지 않는다 — 위에서 409 `ROL_013`으로 거절한다(#1411).
  */
 function revokesStaffAccess(
   before: IndependentAuthorityUserRecord,
   transition: IndependentAuthorityTransition,
 ): boolean {
   return before.hasStaffAccess && !transition.hasStaffAccess;
-}
-
-function authorityChanged(
-  before: IndependentAuthorityUserRecord,
-  transition: IndependentAuthorityTransition,
-): boolean {
-  return (
-    before.hasStaffAccess !== transition.hasStaffAccess ||
-    before.hasAdminAccess !== transition.hasAdminAccess ||
-    before.role !== transition.role ||
-    before.selectedMemberKind !== transition.selectedMemberKind
-  );
 }

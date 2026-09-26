@@ -32,6 +32,7 @@ vi.mock('./admin-access-mutation-execution', () => ({
   executeAdminAccessMutation,
 }));
 
+import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import type { AdminAccessHistory } from './admin-access-api';
 import type { AccessWorkspace } from './admin-access-list-query';
 import { AdminAccessDetailNotFoundError } from './admin-access-detail-api';
@@ -180,6 +181,72 @@ describe('관리자 명부(directory) 결정 — 재조회로 최신 감사 필�
     expect(container.textContent).toContain('재조회된 사용자');
     expect(container.textContent).toContain('seed-auth-admin');
     expect(container.textContent).not.toContain('대기 중인 요청');
+  });
+});
+
+// 이슈 1411 — 같은 상태 명령을 서버가 409 로 거절한 뒤의 화면.
+describe('교직원·관리자 접근 — 낡은 화면에서 이미 그 상태인 값을 고르면', () => {
+  it('완료했다고 말하지 않고 충돌 안내를 띄운 뒤 최신 값을 다시 읽는다', async () => {
+    // Given: 화면은 교직원 접근이 켜진 것으로 알지만, 다른 처리자가 이미 껐다.
+    const history = decidedHistory(
+      'APPROVED',
+      '2026-08-22T00:00:00.000Z',
+      'seed-auth-admin',
+    );
+    loadAdminAccessDetail
+      .mockResolvedValueOnce({
+        detail: adminDetail({ hasStaffAccess: true, pendingRequest: null }),
+        history,
+      })
+      .mockResolvedValueOnce({
+        detail: adminDetail({ hasStaffAccess: false, pendingRequest: null }),
+        history,
+      });
+    const conflict: ProblemDetail & { readonly currentAccess: unknown } = {
+      type: 'about:blank',
+      title: 'Conflict',
+      status: 409,
+      detail: '접근 상태가 변경되었습니다.',
+      instance: '/users/target/staff-access',
+      code: 'ROL_013',
+      currentAccess: {
+        id: 'target',
+        role: 'STAFF',
+        accountStatus: 'ACTIVE',
+        pendingRequest: null,
+      },
+    };
+    executeAdminAccessMutation.mockRejectedValue(new ApiError(conflict));
+    await mount('directory');
+
+    // When: 낡은 화면에서 「없음」을 고르고 회수를 확정한다.
+    const select = container.querySelector('#admin-staff-access-control');
+    if (!(select instanceof HTMLSelectElement)) {
+      throw new TypeError('교직원 접근 드롭다운을 찾지 못했습니다.');
+    }
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLSelectElement.prototype,
+        'value',
+      )?.set?.call(select, 'NONE');
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      await flush();
+    });
+    await act(async () => {
+      clickButton(document.body, '회수 확정');
+      await flush();
+    });
+
+    // Then: 성공 문구 대신 충돌 안내가 서고, 상세를 다시 읽어 드롭다운이 서버 값으로 선다.
+    expect(executeAdminAccessMutation).toHaveBeenCalledTimes(1);
+    expect(loadAdminAccessDetail).toHaveBeenCalledTimes(2);
+    expect(document.body.textContent).toContain(
+      '다른 처리자가 먼저 변경했습니다',
+    );
+    expect(document.body.textContent).not.toContain('처리를 완료했습니다');
+    const refreshed = container.querySelector('#admin-staff-access-control');
+    expect(refreshed).toBeInstanceOf(HTMLSelectElement);
+    expect((refreshed as HTMLSelectElement).value).toBe('NONE');
   });
 });
 
