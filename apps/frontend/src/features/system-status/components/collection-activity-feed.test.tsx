@@ -101,9 +101,9 @@ describe('CollectionActivityFeed', () => {
   it('건수·저장소 처리·완료 배지를 표시한다', async () => {
     await renderFeed([completedOrgSweep]);
     expect(feedText()).toContain('조직');
-    expect(feedText()).toContain('커밋 12');
+    expect(feedText()).toContain('Commit 12');
     expect(feedText()).toContain('PR 3');
-    expect(feedText()).toContain('릴리즈 1');
+    expect(feedText()).toContain('Release 1');
     expect(feedText()).toContain('저장소 8/8');
     expect(feedText()).toContain('전체 순회 완료');
     expect(feedText()).not.toContain('실패');

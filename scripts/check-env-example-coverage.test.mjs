@@ -564,16 +564,12 @@ test('AUTH_INITIAL_ROLES는 manifest와 무관하게 명시 mapping이 필요하
   );
 });
 
-test('면제 원장은 필요한 7개 key만 좁은 check에 등록한다', () => {
+test('면제 원장은 필요한 6개 key만 좁은 check에 등록한다', () => {
   const ledger = Object.fromEntries(
     ENV_CONTRACT_EXEMPTIONS.map((entry) => [entry.key, [...entry.checks]]),
   );
 
   assert.deepEqual(ledger.IMAGE_TAG, ['compose-declaration']);
-  assert.deepEqual(ledger.NODE_ENV, [
-    'runtime-declaration',
-    'backend-injection',
-  ]);
   assert.deepEqual(ledger.DIGEST_FORCE_TO, [
     'runtime-declaration',
     'backend-injection',
@@ -593,11 +589,11 @@ test('면제 원장은 필요한 7개 key만 좁은 check에 등록한다', () =
   assert.equal('OSS_HUB_INTEGRATION_RUNNER' in ledger, false);
 });
 
-test('NODE_ENV·DIGEST_FORCE_TO는 문서화와 backend 주입을 면제한다', () => {
+test('DIGEST_FORCE_TO는 문서화와 backend 주입을 면제한다', () => {
   const result = evaluateFixture({
     composeText: 'services: {}\n',
     envText: '',
-    runtimeText: runtimeConfigSource(['NODE_ENV', 'DIGEST_FORCE_TO']),
+    runtimeText: runtimeConfigSource(['DIGEST_FORCE_TO']),
     composeConfig: composeModel(['AUTH_INITIAL_ROLES']),
   });
 

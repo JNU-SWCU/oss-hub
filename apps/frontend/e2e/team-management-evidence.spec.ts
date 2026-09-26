@@ -258,14 +258,26 @@ test('반려된 학생 신청 화면이 Before/After 에서 같은지 찍는다'
       [`GET /api/v1/programs/${PROGRAM_ID}/applications/me`]: (route: Route) =>
         fulfillJson(route, application),
       /*
-       * 「우리 팀」·신청 화면이 저장소 URL 관리를 함께 읽는다(#1287). 이 레인의
+       * 「우리 팀」은 저장소 줄·활동 그래프를 팀 활동 한 조회로 읽는다(#1133). 이 레인의
        * 라우터는 **정확 일치**라 스텁이 없으면 요청 자체가 실패로 잡힌다 — 그게
        * 화면에 새 조회가 생겼다는 사실을 알려 주는 장치이므로 느슨하게 풀지 않고
        * 여기에 적는다.
        */
-      [`GET /api/v1/programs/${PROGRAM_ID}/applications/me/repository-url`]: (
-        route: Route,
-      ) => fulfillJson(route, { repositoryUrl: null, canEdit: false }),
+      [`GET /api/v1/programs/${PROGRAM_ID}/teams/${STUDENT_TEAM.id}/activity`]:
+        (route: Route) =>
+          fulfillJson(route, {
+            applicationId: APPLICATION_ID,
+            repository: null,
+            status: 'NOT_CONNECTED',
+            lastSuccessAt: null,
+            window: {
+              from: '2026-08-05',
+              to: '2026-12-31',
+              timeZone: 'Asia/Seoul',
+            },
+            canEditRepositoryUrl: false,
+            members: [],
+          }),
       'GET /api/v1/team-invitations/received': (route: Route) =>
         fulfillJson(route, []),
       [`GET /api/v1/team-invitations/teams/${STUDENT_TEAM.id}/sent`]: (
@@ -274,7 +286,7 @@ test('반려된 학생 신청 화면이 Before/After 에서 같은지 찍는다'
     };
   });
 
-  await page.goto(`/programs/${PROGRAM_ID}/my-team`);
+  await page.goto(`/programs/${PROGRAM_ID}/team`);
 
   const main = page.locator('main');
   /*
@@ -322,15 +334,6 @@ test('반려 상태 학생 신청 화면이 Before/After 에서 같은지 찍는
         fulfillJson(route, { ...PROGRAM_OVERVIEW, viewerRole: 'STUDENT' }),
       [`GET /api/v1/programs/${PROGRAM_ID}/applications/me`]: (route: Route) =>
         fulfillJson(route, application),
-      /*
-       * 「우리 팀」·신청 화면이 저장소 URL 관리를 함께 읽는다(#1287). 이 레인의
-       * 라우터는 **정확 일치**라 스텁이 없으면 요청 자체가 실패로 잡힌다 — 그게
-       * 화면에 새 조회가 생겼다는 사실을 알려 주는 장치이므로 느슨하게 풀지 않고
-       * 여기에 적는다.
-       */
-      [`GET /api/v1/programs/${PROGRAM_ID}/applications/me/repository-url`]: (
-        route: Route,
-      ) => fulfillJson(route, { repositoryUrl: null, canEdit: false }),
       'GET /api/v1/team-invitations/received': (route: Route) =>
         fulfillJson(route, []),
     };

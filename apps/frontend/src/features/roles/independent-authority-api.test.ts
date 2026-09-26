@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiClient } from '@/lib/api-client';
+import { ApiError, apiClient } from '@/lib/api-client';
 import {
   fetchCanonicalAdminAccessDetail,
   parseCanonicalAdminAccessDetail,
@@ -41,7 +41,11 @@ function detail(overrides: Record<string, unknown> = {}) {
 }
 
 describe('Task 8 independent authority API', () => {
-  beforeEach(() => vi.mocked(apiClient).mockReset());
+  // 화살표가 모의 함수를 돌려주면 vitest 가 그것을 정리 함수로 여겨 테스트 뒤에
+  // 한 번 더 부른다 — 거절하도록 세운 테스트에서는 그 호출이 처리되지 않은 거절이 된다.
+  beforeEach(() => {
+    vi.mocked(apiClient).mockReset();
+  });
 
   it.each([
     ['student-admin', 'STUDENT', false, true],
@@ -139,7 +143,9 @@ describe('Task 8 independent authority API', () => {
     });
   });
 
-  it('preserves a same-state grant response idempotently', async () => {
+  // 관리자만 가진 계정(memberKind 없음)의 부여 응답을 다섯 칸 그대로 읽는다.
+  // 같은 상태 명령은 #1411 부터 서버가 409 로 거절하므로 이 응답은 실제 변경 뒤의 것이다.
+  it('parses an admin-only grant response exactly', async () => {
     vi.mocked(apiClient).mockResolvedValue({
       id: 'target',
       role: 'ADMIN',
@@ -156,5 +162,21 @@ describe('Task 8 independent authority API', () => {
       hasStaffAccess: false,
       hasAdminAccess: true,
     });
+  });
+
+  // 이슈 1411 — 같은 상태 명령은 서버가 409 로 거절한다.
+  it('같은 상태 명령의 409 충돌은 삼키지 않고 그대로 던진다', async () => {
+    const conflict = new ApiError({
+      type: 'about:blank',
+      title: 'Conflict',
+      status: 409,
+      detail: '접근 상태가 변경되었습니다.',
+      instance: '/users/target/staff-access',
+      code: 'ROL_013',
+    });
+    vi.mocked(apiClient).mockRejectedValue(conflict);
+    await expect(
+      patchStaffAccess('target', 'REVOKE_STAFF_ACCESS'),
+    ).rejects.toBe(conflict);
   });
 });

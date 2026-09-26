@@ -121,25 +121,34 @@ export class ContributionInvariants {
    * 그게 `Contribution` 의 적재 기준이기 때문이다.
    */
   private async checkInternalSumConsistency(): Promise<ContributionInvariantResult> {
-    const [contributionSums, commitCount, pullRequestCount, releaseCount] =
-      await Promise.all([
-        this.prisma.contribution.aggregate({
-          _sum: {
-            commitCount: true,
-            pullRequestCount: true,
-            releaseCount: true,
-          },
-        }),
-        this.prisma.collectionCommitFact.count({
-          where: { authorGithubId: { not: null } },
-        }),
-        this.prisma.collectionPullRequestFact.count({
-          where: { authorGithubId: { not: null } },
-        }),
-        this.prisma.collectionReleaseFact.count({
-          where: { authorGithubId: { not: null } },
-        }),
-      ]);
+    const [
+      contributionSums,
+      commitCount,
+      pullRequestCount,
+      releaseCount,
+      issueCount,
+    ] = await Promise.all([
+      this.prisma.contribution.aggregate({
+        _sum: {
+          commitCount: true,
+          pullRequestCount: true,
+          releaseCount: true,
+          issueCount: true,
+        },
+      }),
+      this.prisma.collectionCommitFact.count({
+        where: { authorGithubId: { not: null } },
+      }),
+      this.prisma.collectionPullRequestFact.count({
+        where: { authorGithubId: { not: null } },
+      }),
+      this.prisma.collectionReleaseFact.count({
+        where: { authorGithubId: { not: null } },
+      }),
+      this.prisma.githubIssueHistory.count({
+        where: { authorGithubId: { not: null } },
+      }),
+    ]);
 
     // 가입자 필터 때문에 `Contribution` 쪽이 fact 보다 **작거나 같아야** 한다.
     // 크면 fact 없이 만들어진 행이 있다는 뜻이라 명백한 위반이다.
@@ -153,6 +162,7 @@ export class ContributionInvariants {
     compare('commit', contributionSums._sum.commitCount, commitCount);
     compare('pr', contributionSums._sum.pullRequestCount, pullRequestCount);
     compare('release', contributionSums._sum.releaseCount, releaseCount);
+    compare('issue', contributionSums._sum.issueCount, issueCount);
 
     return {
       name: '내부 합계 정합',
@@ -179,6 +189,7 @@ export class ContributionInvariants {
           { commitCount: { lt: 0 } },
           { pullRequestCount: { lt: 0 } },
           { releaseCount: { lt: 0 } },
+          { issueCount: { lt: 0 } },
         ],
       },
     });

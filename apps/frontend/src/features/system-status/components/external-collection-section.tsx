@@ -123,8 +123,8 @@ export function ExternalCollectionSection({
                     과거 sweep은 반영되지 않는다(collection-read.port.ts 참고). */}
                 <dt className="text-muted-foreground">누적 수집 활동</dt>
                 <dd className="mt-1 font-medium">
-                  커밋 {status.cumulativeCommitCount} · PR{' '}
-                  {status.cumulativePullRequestCount} · 릴리즈{' '}
+                  Commit {status.cumulativeCommitCount} · PR{' '}
+                  {status.cumulativePullRequestCount} · Release{' '}
                   {status.cumulativeReleaseCount}
                 </dd>
               </div>

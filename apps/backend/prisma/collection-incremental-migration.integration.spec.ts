@@ -70,9 +70,24 @@ describe('collection incremental migration — DB invariants', () => {
     await prisma.$disconnect();
   });
 
-  it('기존 legacy 관측 테이블은 이 migration 이후에도 그대로 존재한다', async () => {
-    await expect(tableExists('CollectionRun')).resolves.toBe(true);
-    await expect(tableExists('GithubRawObservation')).resolves.toBe(true);
+  /**
+   * `PublicShowcaseRepository`·`PublicShowcaseContributor`·`CollectionRun`·
+   * `GithubRawObservation` 4종은 #1133 PR6a가 backend 코드 참조를 걷어낸 뒤
+   * production 실측 0행(2026-09-23)을 확인하고 `20260924120000_drop_legacy_projection_tables`가
+   * 물리적으로 제거했다. 이 단언은 그 제거가 실제 Postgres에 반영됐는지를 고정한다 —
+   * 스키마에서 model만 지우고 migration을 빠뜨리면 여기서 걸린다.
+   */
+  it('writer 0곳이던 legacy 관측 테이블 4종은 물리적으로 존재하지 않는다', async () => {
+    const dropped = [
+      'PublicShowcaseRepository',
+      'PublicShowcaseContributor',
+      'CollectionRun',
+      'GithubRawObservation',
+    ];
+
+    for (const table of dropped) {
+      await expect(tableExists(table)).resolves.toBe(false);
+    }
   });
 
   /**

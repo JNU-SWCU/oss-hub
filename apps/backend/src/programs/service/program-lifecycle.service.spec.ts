@@ -561,9 +561,6 @@ function createPurgeService(
   const countMany = (key: string, fallback = 1) =>
     jest.fn().mockResolvedValue({ count: count(key, fallback) });
 
-  const publicShowcaseRepositoryDeleteMany = countMany(
-    'publicShowcaseRepositories',
-  );
   const outboxEventDeleteMany = jest.fn().mockResolvedValue({ count: 1 });
   const applicationIds = overrides.applicationIds ?? ['application-1'];
   const applicationFindMany = jest
@@ -632,9 +629,6 @@ function createPurgeService(
       delete: programCoverDelete,
     },
     program: { findUnique: programFindUnique, delete: programDelete },
-    publicShowcaseRepository: {
-      deleteMany: publicShowcaseRepositoryDeleteMany,
-    },
     outboxEvent: { deleteMany: outboxEventDeleteMany },
     notification: {
       findMany: notificationFindMany,
@@ -698,7 +692,6 @@ function createPurgeService(
     prismaTransaction,
     programCoverDelete,
     queryRaw,
-    publicShowcaseRepositoryDeleteMany,
     outboxEventDeleteMany,
     applicationFindMany,
     notificationFindMany,
@@ -1109,27 +1102,22 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
   // 안전장치 회귀 (#1095): 권한만 넓혔지 확인 절차는 그대로다. 교직원이 눌러도
   // 확인 화면 이후 데이터가 생기면 트랜잭션을 통째로 중단한다(409 PRG_014).
   it('STAFF의 purge도 expectedScope가 어긋나면 409 PRG_014로 중단하고 아무것도 지우지 않는다', async () => {
-    const {
-      service,
-      applicationFindMany,
-      publicShowcaseRepositoryDeleteMany,
-      programDelete,
-      record,
-    } = createPurgeService({
-      user: {
-        hasStaffAccess: true,
-        hasAdminAccess: false,
-        accountStatus: AccountStatus.ACTIVE,
-      },
-      currentScopeCounts: {
-        applications: 1,
-        teams: 0,
-        boardPosts: 0,
-        submissions: 0,
-        submissionEvents: 0,
-        scopeFingerprint: 'staff-drifted-scope-fingerprint',
-      },
-    });
+    const { service, applicationFindMany, programDelete, record } =
+      createPurgeService({
+        user: {
+          hasStaffAccess: true,
+          hasAdminAccess: false,
+          accountStatus: AccountStatus.ACTIVE,
+        },
+        currentScopeCounts: {
+          applications: 1,
+          teams: 0,
+          boardPosts: 0,
+          submissions: 0,
+          submissionEvents: 0,
+          scopeFingerprint: 'staff-drifted-scope-fingerprint',
+        },
+      });
 
     await expect(
       service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
@@ -1143,7 +1131,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
       },
     });
     expect(applicationFindMany).not.toHaveBeenCalled();
-    expect(publicShowcaseRepositoryDeleteMany).not.toHaveBeenCalled();
     expect(programDelete).not.toHaveBeenCalled();
     expect(record).not.toHaveBeenCalled();
   });
@@ -1200,22 +1187,17 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
   // TOCTOU(#F2): 확인 화면과 purge 사이에 생긴 행을 관리자가 못 보고 지우지 않도록,
   // 클라이언트가 보낸 expectedScope와 트랜잭션이 다시 읽은 현재 범위를 비교한다.
   it('expectedScope가 현재 범위와 다르면 409 PRG_014로 거부하고 자식 삭제를 시작하지 않는다', async () => {
-    const {
-      service,
-      applicationFindMany,
-      publicShowcaseRepositoryDeleteMany,
-      programDelete,
-      record,
-    } = createPurgeService({
-      currentScopeCounts: {
-        applications: 1,
-        teams: 0,
-        boardPosts: 0,
-        submissions: 0,
-        submissionEvents: 0,
-        scopeFingerprint: '11111111111111111111111111111111',
-      },
-    });
+    const { service, applicationFindMany, programDelete, record } =
+      createPurgeService({
+        currentScopeCounts: {
+          applications: 1,
+          teams: 0,
+          boardPosts: 0,
+          submissions: 0,
+          submissionEvents: 0,
+          scopeFingerprint: '11111111111111111111111111111111',
+        },
+      });
 
     await expect(
       service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS),
@@ -1236,7 +1218,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
 
     // 비교에서 이미 막혔으므로 실제 자식 삭제 단계는 하나도 시작하지 않는다 — 부분 삭제 없음.
     expect(applicationFindMany).not.toHaveBeenCalled();
-    expect(publicShowcaseRepositoryDeleteMany).not.toHaveBeenCalled();
     expect(programDelete).not.toHaveBeenCalled();
     expect(record).not.toHaveBeenCalled();
   });

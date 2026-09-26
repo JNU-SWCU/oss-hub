@@ -134,7 +134,7 @@ e2e_stack_profile_run_deadline_digest "$stack_profile" run_deadline_digest
     "$sanitized_home" \
     "$database_url" \
     ./node_modules/.bin/tsc \
-    -p tsconfig.build.json \
+    -p tsconfig.e2e.json \
     --outDir "$backend_dist" \
     --incremental false
 )
@@ -148,7 +148,7 @@ e2e_stack_profile_run_deadline_digest "$stack_profile" run_deadline_digest
     "$session_secret" \
     "$frontend_origin" \
     "$backend_port" \
-    node "$backend_dist/src/main.js"
+    node "$backend_dist/test/e2e-program-authoring/main.js"
 ) &
 backend_pid=$!
 

@@ -317,7 +317,7 @@ describe('SystemStatusView', () => {
     const activityIndex = html.indexOf('aria-label="최근 수집 활동"');
     expect(streamsIndex).toBeGreaterThan(-1);
     expect(activityIndex).toBeGreaterThan(streamsIndex);
-    expect(html).toContain('커밋 12');
+    expect(html).toContain('Commit 12');
   });
 
   describe('외부 저장소 수집 section', () => {
@@ -393,9 +393,9 @@ describe('SystemStatusView', () => {
       });
       expect(html).toContain('5개 추적 중');
       expect(html).toContain('5개');
-      expect(html).toContain('커밋 40');
+      expect(html).toContain('Commit 40');
       expect(html).toContain('PR 6');
-      expect(html).toContain('릴리즈 2');
+      expect(html).toContain('Release 2');
       expect(html).toContain('저장소 5/5');
       expect(html).not.toContain('수집 대상 학생 개인 저장소가 없습니다');
     });
@@ -415,7 +415,7 @@ describe('SystemStatusView', () => {
       // org "Stream 진행 상황" 카드는 여전히 org의 2개를 보여준다 — external의
       // 5개로 덮어써지지 않는다.
       expect(html).toContain(
-        '저장소 2개에서 커밋·PR·릴리즈를 각각 수집합니다.',
+        '저장소 2개에서 Commit·PR·Release·Issue를 각각 수집합니다.',
       );
       expect(html).toContain('5개 추적 중');
     });
@@ -520,7 +520,7 @@ describe('SystemStatusView', () => {
       });
       expect(html).toContain('완료 0 / 6개 (0%)');
       expect(html).toContain(
-        '저장소 2개에서 커밋·PR·릴리즈를 각각 수집합니다.',
+        '저장소 2개에서 Commit·PR·Release·Issue를 각각 수집합니다.',
       );
     });
 

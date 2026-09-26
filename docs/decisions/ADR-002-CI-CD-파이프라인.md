@@ -52,7 +52,7 @@ Smoke는 rollout과 rollback의 Compose ingress에서 `/` 404와 `/api/v1/health
 
 제출 파일 storage의 production 선택값은 exact `managed` 하나다. Backend는 `SUBMISSION_FILE_S3_*`를 읽고 credential pair는 Jenkins username/password binding으로만 주입하며 env file에 두지 않는다. Candidate와 실행 중 backend의 non-secret storage tuple이 다르면 backup·build·rollout 전에 fail-closed한다.
 
-Configured endpoint와 bucket을 확인한 SDK object backup, manifest SHA-256, PostgreSQL backup, previous backend image rollback은 유지한다. MinIO mode·credential·backup·migration hold와 frontend image build/rollback은 cleanup 완료 뒤 production 계약에서 제거됐다. 로컬 개발용 object-storage는 `compose.local.yml`의 substitute이며 production Compose에 포함되지 않는다. 로컬 frontend UI 개발은 `pnpm dev`가 호스트에서 담당하며 Compose 컨테이너를 쓰지 않는다.
+Configured endpoint와 bucket을 확인한 SDK object backup, manifest SHA-256, PostgreSQL backup, previous backend image rollback은 유지한다. MinIO mode·credential·backup·migration hold와 frontend image build/rollback은 cleanup 완료 뒤 production 계약에서 제거됐다. 로컬 개발용 object-storage는 `compose.dev.yml`의 substitute이며 production Compose에 포함되지 않는다. 로컬 frontend UI 개발은 `pnpm dev`가 호스트에서 담당하며 Compose 컨테이너를 쓰지 않는다.
 
 ### Anti-pattern: 애플리케이션 권한 검증을 CD에 두기
 
@@ -116,7 +116,7 @@ Builds #160/#161은 verified release가 있어도 test artifact 또는 domain fi
 - tag commit은 main ancestry를 통과한 exact SHA여야 한다. 태그 조작 방어는 세 가지 fail-closed 검사의 합이다: Jenkins가 자체 조회한 latest full Release만 대상으로 삼고, tag는 full `vMAJOR.MINOR.PATCH`여야 하며, 그 tag가 가리키는 exact SHA가 main 이력에 포함되어야 한다. 실행 중 SemVer가 같거나 더 높으면 no-op이라 임의 tag 재작성으로 하위 버전을 밀어 넣을 수 없다. 영속 배포 상태 파일은 두지 않으며 판정 근거는 실행 중인 컨테이너 label이다.
 - Jenkins는 Docker 권한을 가진 `oss-hub-production` 전용 executor에서만 실행하고 동시 실행을 금지한다. 운영 환경 파일은 Credentials Store의 file credential로 실행 시점에만 주입한다. GitHub App 개인키도 같은 방식의 file credential로 주입하되 env 값이 아니라 파일로 전달한다 — env 값은 `docker compose config`·`docker inspect`·프로세스 env 덤프에 평문으로 드러난다. 파이프라인은 주입받은 키를 `SECRETS_DIR` 아래 build별 generation 디렉터리에 `0640`으로 설치하고 `current` symlink를 원자 교체하며, compose는 그 경로를 secret source로 읽는다. 설치는 compose를 처음 호출하는 stage보다 앞에 있어야 한다.
 - Compose는 `COMPOSE_PROJECT_NAME`을 고정하며 `pgdata`와 기존 데이터를 삭제하는 `down -v`를 사용하지 않는다.
-- Production Compose는 backend, PostgreSQL과 `127.0.0.1:8081`의 API-only nginx로 구성되며 object storage는 managed R2다. Canonical·loopback Host만 받고 root와 비API path는 404, `/api/v1/`와 exact OAuth callback만 backend로 전달한다. Frontend와 object-storage substitute는 `compose.local.yml`에서만 사용한다.
+- Production Compose는 backend, PostgreSQL과 `127.0.0.1:8081`의 API-only nginx로 구성되며 object storage는 managed R2다. Canonical·loopback Host만 받고 root와 비API path는 404, `/api/v1/`와 exact OAuth callback만 backend로 전달한다. 로컬 개발의 object-storage substitute는 `compose.dev.yml`에서만 사용한다.
 - Public API origin은 exact DNS Host와 domain certificate를 사용한다. Unknown Host/TLS SNI, 비API path, direct unauthenticated request와 unintended method는 거절한다. Vercel route가 browser `Authorization`을 덮어쓴 뒤 host-only Basic verifier와 짝을 이루는 sensitive credential을 주입하고, host nginx는 origin credential과 Vercel identity header를 backend 전달 전에 제거한다. Rate limit은 authenticated Vercel client header를 key로 사용한다.
 - Compose nginx의 설정은 **디렉터리 마운트**(`./deploy/nginx:/etc/nginx/conf.d:ro`)로 주입한다. 단일 파일 bind mount는 컨테이너 생성 시점의 inode를 고정하는데 Jenkins는 배포마다 git checkout으로 그 파일을 교체하므로, 수명이 긴 nginx 컨테이너가 저장소와 무관한 옛 설정을 계속 서빙한다. 디렉터리를 마운트하면 컨테이너가 매번 현재 파일을 읽는다.
 - 저장소 파일만 읽는 검사는 실행 중 설정이 저장소와 같다는 증거가 되지 못한다. 실행 중 설정에 대한 계약은 Compose ingress를 실제로 호출하는 배포 smoke가 증명한다.
@@ -125,6 +125,7 @@ Builds #160/#161은 verified release가 있어도 test artifact 또는 domain fi
 
 ## Changelog
 
+- 2026-09-25: production-like 로컬 Docker 스택(`pnpm local:up`/`local:verify`/`local:down`, `compose.local.yml`, `deploy/nginx-local/`)을 걷어냈다. 이 스택이 검증하던 backend image build·`prisma migrate deploy`·`nginx -t`는 Jenkins release 경로가 배포마다 다시 검증하고, 유일한 고유 점검이던 object-storage smoke는 production `compose.yml`에 없는 서비스를 대상으로 했으며, CI는 fake docker로 인자 형태만 확인할 뿐 이 스택을 실제로 띄운 적이 없었다. 또한 `.env.example`의 `MAIL_MODE=dry-run`이 backend image의 고정 `NODE_ENV=production`과 충돌해 로컬 실행에는 실제 Gmail credential이 필요했다. 배포 전 production-like 통합 검증은 CI required check와 Jenkins release 경로(M7)로 대체됐다.
 - 2026-09-25: 로컬·CI 전용 `compose.local.yml`/`compose.dev.yml`의 object storage substitute를 MinIO에서 `adobe/s3mock`(서비스명 `object-storage`)으로 교체했다. `quay.io/minio` 이미지가 401을 반환해 CI backend integration test가 실패한 문제의 root cause 대응이며, production managed R2 계약과 storage mode 문자열(`local`/`managed`)의 SSRF 방지 허용 목록 구조는 바뀌지 않았다.
 - 2026-09-04: frontend Git 자동배포를 저장소 계약으로 금지했다. `apps/frontend/vercel.json`의 `git.deploymentEnabled: false`가 원본이고, production CLI는 Release → `frontend-release-deploy`만 허용한다. `VERCEL_*`는 GitHub secret에만 두며 로컬 env에 두지 않는다. 대시보드 auto-deploy off는 병합 전 부트스트랩이다.
 - 2026-09-03: frontend 배포 주체를 개인 머신의 수동 `vercel --prod`에서 required가 아닌 `frontend-release-deploy` job으로 옮겼다. 조사 시점 Vercel production 배포 5건이 모두 `source=cli`였고 어떤 커밋이 배포됐는지 파이프라인이 증명하지 못했다. 배포 인가는 GitHub Release 발행으로 통일하고, 직전 full SemVer 릴리스 태그와의 diff로 배포 대상을 좁혀 frontend 무변경 릴리스는 no-op으로 남긴다. 워크플로 파일은 늘리지 않고 단일 `ci.yml` 안의 별도 job으로 넣었으며 required check 이름(`ci`·`public-safe`)과 Jenkins backend 수렴 동작은 그대로다 ([#1172](https://github.com/JNU-SWCU/oss-hub/issues/1172)).

@@ -96,7 +96,7 @@ const resetNames = customPropertyNames(resetDeclarations);
 
 describe("globals.css의 [data-surface='inverted'] 반전/리셋 불변식", () => {
   // 파싱 자체가 죽었는지만 본다. 실제 불변식은 아래 집합 비교가 담당한다.
-  // 임계값을 현재 개수(8)에 맞추면 두 블록에서 var를 정당하게 줄일 때도 실패하면서
+  // 임계값을 현재 개수에 맞추면 두 블록에서 var를 정당하게 줄일 때도 실패하면서
   // "파싱이 깨졌다"는 잘못된 진단을 내놓는다. 정상 파싱이면 여유롭게 넘고 깨지면
   // 0에 가까워지는 값을 쓴다.
   const PARSE_SANITY_MIN = 4;
@@ -136,6 +136,15 @@ describe("globals.css의 [data-surface='inverted'] 반전/리셋 불변식", () 
     ).toEqual([]);
 
     expect([...invertedNames].sort()).toEqual([...resetNames].sort());
+  });
+
+  // 집합 비교는 두 블록에서 함께 빠지는 경우를 못 잡는다. --card 가 빠지면 무대 위
+  // Alert가 흰 판에 옅은 분홍 글자(1.53:1)로 뜨고(가입 화면 오류 상자 네 곳이 실제로
+  // 그랬다), --ring 이 빠지면 그 안 「다시 시도」의 초점 테두리가 2.53:1로 떨어진다.
+  it('반전 블록은 카드 표면과 초점 링도 덮는다 — 가입 무대의 Alert', () => {
+    expect([...invertedNames]).toEqual(
+      expect.arrayContaining(['--card', '--card-foreground', '--ring']),
+    );
   });
 
   it('두 블록 모두 자기 스코프에서 color: var(--foreground)를 선언한다', () => {

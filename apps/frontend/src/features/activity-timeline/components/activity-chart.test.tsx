@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('recharts', () => ({
   CartesianGrid: () => null,
   Legend: ({ formatter }: { formatter: (value: string) => ReactNode }) => (
-    <div data-legend>{formatter('커밋')}</div>
+    <div data-legend>{formatter('Commit')}</div>
   ),
   Line: ({
     isAnimationActive,
@@ -44,7 +44,7 @@ describe('ActivityChart visual stability', () => {
   it('범례 글자를 본문색으로 표시하고 모든 선 애니메이션을 끈다', () => {
     const html = renderToStaticMarkup(<ActivityChart points={points} />);
 
-    expect(html).toContain('<span class="text-foreground">커밋</span>');
+    expect(html).toContain('<span class="text-foreground">Commit</span>');
     expect(html.match(/data-animation-active="false"/g)).toHaveLength(4);
   });
 });

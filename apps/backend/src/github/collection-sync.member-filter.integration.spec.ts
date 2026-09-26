@@ -7,6 +7,7 @@ import { ProviderRequestQueue } from './collection-provider-queue';
 import type {
   CollectionAppClient,
   CollectionCommit,
+  CollectionIssue,
   CollectionPullRequest,
   CollectionRelease,
   CollectionRepository as ProviderRepository,
@@ -117,12 +118,13 @@ const createClient = (
   pullRequests: readonly CollectionPullRequest[],
   releases: readonly CollectionRelease[],
   commits: readonly CollectionCommit[] = [],
+  issues: readonly CollectionIssue[] = [],
 ): CollectionAppClient =>
   ({
     listInstallationRepositories: () => Promise.resolve([providerRepository()]),
     resolveUserNodeId: (login: string) => Promise.resolve(`node:${login}`),
     listDefaultBranchCommitsByAuthor: () => Promise.resolve([]),
-    countDefaultBranchCommits: () => Promise.resolve(null),
+    countDefaultBranchCommitsBetween: () => Promise.resolve(null),
     probeDefaultBranchHead: () =>
       Promise.resolve({
         changed: true as const,
@@ -155,6 +157,14 @@ const createClient = (
       Promise.resolve({
         releases: [...releases],
         fingerprint: fingerprint('/repos/o/r/releases'),
+      }),
+    listNewIssues: () =>
+      Promise.resolve({
+        issues: [...issues],
+        newFrontier: issues[0]
+          ? { createdAt: issues[0].createdAt, id: issues[0].id }
+          : null,
+        fingerprint: fingerprint('/repos/o/r/issues'),
       }),
   }) as unknown as CollectionAppClient;
 
@@ -297,6 +307,23 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
         }),
         release({ id: '9000000680301' }),
       ],
+      [],
+      [
+        {
+          id: '9000000680402',
+          state: 'open',
+          createdAt: '2026-08-01T01:00:00.000Z',
+          authorLogin: 'synthetic-outsider',
+          authorGithubId: OUTSIDER_GITHUB_ID,
+        },
+        {
+          id: '9000000680401',
+          state: 'closed',
+          createdAt: '2026-08-01T00:30:00.000Z',
+          authorLogin: 'synthetic-member',
+          authorGithubId: MEMBER_GITHUB_ID.toString(),
+        },
+      ],
     );
 
     const result = await createService(client).run(OWNER_ID);
@@ -323,6 +350,15 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
     expect(releaseFacts[0]?.githubReleaseId).toBe(9_000_000_680_301n);
     expect(releaseFacts[0]?.authorGithubId).toBe(MEMBER_GITHUB_ID);
 
+    await expect(
+      prisma.githubIssueHistory.findMany({
+        where: { repositoryId: collected.id },
+        select: { githubIssueId: true, authorGithubId: true },
+      }),
+    ).resolves.toEqual([
+      { githubIssueId: 9_000_000_680_401n, authorGithubId: MEMBER_GITHUB_ID },
+    ]);
+
     // 비팀원 id로 조회하면 어느 테이블에도 행이 없다.
     await expect(
       prisma.collectionPullRequestFact.count({
@@ -342,12 +378,14 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
         githubId: true,
         pullRequestCount: true,
         releaseCount: true,
+        issueCount: true,
       },
     });
     expect(aggregates).toHaveLength(1);
     expect(aggregates[0]?.githubId).toBe(MEMBER_GITHUB_ID);
     expect(aggregates[0]?.pullRequestCount).toBe(1);
     expect(aggregates[0]?.releaseCount).toBe(1);
+    expect(aggregates[0]?.issueCount).toBe(1);
 
     // 커서는 거른 항목(가장 새 PR = 비팀원 것) 위에 선다 — 다음 run이 그 아래를 다시 받지 않는다.
     const stream = await prisma.collectionRepositoryStream.findUniqueOrThrow({

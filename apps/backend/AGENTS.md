@@ -36,4 +36,5 @@ pnpm --filter backend db:seed
 - `prisma/schema.prisma` — PostgreSQL schema source of truth.
 - `prisma/migrations/` — ordered migration history.
 - `prisma/seed.ts` — Prisma seed hook entry point.
+- `test/e2e-program-authoring/main.ts` — E2E composition root; the only place production providers are overridden with test doubles.
 <!-- /init:managed id=craft-init-backend -->

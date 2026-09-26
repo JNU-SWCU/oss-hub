@@ -19,6 +19,7 @@ export const COLLECTION_STREAM_TYPES = [
   'COMMIT',
   'PULL_REQUEST',
   'RELEASE',
+  'ISSUE',
 ] as const;
 export type CollectionStreamType = (typeof COLLECTION_STREAM_TYPES)[number];
 
@@ -75,6 +76,10 @@ export interface CollectionRepositoryRow {
   nextRunAt?: Date | null;
   /** 연속 실패 횟수. 0이면 백오프 대상이 아니다. */
   failureCount?: number;
+  /** 수집 대상 판정의 입력 — 신청 연결과 그 행에 남은 팀·프로그램 이력. */
+  applicationId?: string | null;
+  programId?: string | null;
+  teamId?: string | null;
 }
 
 /**
@@ -105,6 +110,14 @@ export interface PullRequestFactInput {
 export interface ReleaseFactInput {
   githubReleaseId: bigint;
   publishedAt: Date;
+  authorGithubId?: bigint | null;
+  authorGithubLogin?: string | null;
+}
+
+export interface IssueFactInput {
+  githubIssueId: bigint;
+  state: string;
+  createdAt: Date;
   authorGithubId?: bigint | null;
   authorGithubLogin?: string | null;
 }

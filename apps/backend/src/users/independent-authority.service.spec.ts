@@ -99,18 +99,42 @@ it.each([
   },
 );
 
-it('treats a same-state grant as an idempotent success without writing', async () => {
-  const store = new AuthorityStore();
-  store.target = target({ hasAdminAccess: true, role: 'ADMIN' });
-  const service = new IndependentAuthorityService(store, noopAuditLog());
+/**
+ * #1411 — 이미 그 상태인 명령은 보낸 쪽이 본 값이 낡았다는 뜻이다. 예전에는 아무것도
+ * 쓰지 않고 성공으로 답해 화면이 「처리를 완료했습니다」라고 말했다. 레거시 CAS 와
+ * 같은 409 `ROL_013` 과 현재 접근 상태로 거절하고, 여전히 아무것도 쓰지 않는다.
+ */
+it.each([
+  [
+    '이미 켜진 관리자 접근에 다시 보낸 부여',
+    ADMIN_ACCESS_COMMANDS.GRANT,
+    target({ hasAdminAccess: true, role: 'ADMIN' }),
+  ],
+  [
+    '이미 꺼진 교직원 접근에 다시 보낸 회수',
+    STAFF_ACCESS_COMMANDS.REVOKE,
+    target({ hasStaffAccess: false }),
+  ],
+] as const)(
+  '%s는 409 ROL_013 으로 거절하고 아무것도 쓰지 않는다',
+  async (_label, command, before) => {
+    const store = new AuthorityStore();
+    store.target = before;
+    const service = new IndependentAuthorityService(store, noopAuditLog());
 
-  await expect(
-    service.patchAdminAccess(actorGithubId, 'target', {
-      command: ADMIN_ACCESS_COMMANDS.GRANT,
-    }),
-  ).resolves.toMatchObject({ hasAdminAccess: true, hasStaffAccess: false });
-  expect(store.updates).toHaveLength(0);
-});
+    const request =
+      command === ADMIN_ACCESS_COMMANDS.GRANT
+        ? service.patchAdminAccess(actorGithubId, 'target', { command })
+        : service.patchStaffAccess(actorGithubId, 'target', { command });
+
+    await expect(request).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.ACCESS_STATE_MISMATCH, status: 409 },
+      extensions: { currentAccess: { id: before.id, role: before.role } },
+    });
+    expect(store.updates).toHaveLength(0);
+    expect(store.revokedInserts).toEqual([]);
+  },
+);
 
 it('rejects a non-admin actor before writing', async () => {
   const store = new AuthorityStore();
@@ -175,13 +199,6 @@ it.each([
     '관리자 접근을 끄는 전이',
     ADMIN_ACCESS_COMMANDS.REVOKE,
     target({ hasStaffAccess: true, hasAdminAccess: true, role: 'ADMIN' }),
-  ],
-  [
-    '이미 꺼져 있는 접근에 다시 보낸 회수',
-    STAFF_ACCESS_COMMANDS.REVOKE,
-    // 권한 전이는 아니지만 `selectedMemberKind`·역할 표기가 바뀌어 사용자 행은 갱신된다.
-    // 그래도 회수는 일어나지 않았으므로 이력이 늘면 안 된다.
-    target({ hasStaffAccess: false, memberKind: null }),
   ],
 ] as const)(
   '%s는 교직원 신청 표를 건드리지 않는다',

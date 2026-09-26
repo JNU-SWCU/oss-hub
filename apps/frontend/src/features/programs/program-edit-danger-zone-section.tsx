@@ -43,7 +43,6 @@ const PURGE_COUNT_LABELS: Readonly<Record<string, string>> = {
   programCreateRequests: '프로그램 작성 요청',
   repositoryProvisionJobs: '저장소 발급 작업',
   githubRepositoriesDetached: '분리된 GitHub 저장소 연결',
-  publicShowcaseRepositories: '공개 아카이브 저장소',
   outboxEvents: '이벤트 대기열',
   notifications: '알림',
   programPurgeFileTombstones: '파일 삭제 대기',
