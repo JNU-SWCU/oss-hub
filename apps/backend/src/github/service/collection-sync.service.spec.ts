@@ -419,8 +419,8 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
           box.store.streams.get(`${k.repositoryId}:${k.streamType}`) ?? null
         );
       },
-      // #546 — 오류 해제 전용 부분 갱신. 행이 없으면 0건이고, `lastErrorCode: { not: null }`
-      // 가드 때문에 실제로 표시가 남아 있을 때만 쓴다(없는 행을 새로 만들지 않는다).
+      // #546·#1133 — stream 성공 기록(확인 시각·오류 해제) 전용 부분 갱신. 행이 없으면 0건이다
+      // (없는 행을 새로 만들지 않는다). `lastErrorCode: { not: null }` 가드도 흉내 낸다.
       updateMany: ({
         where,
         data,
@@ -1260,6 +1260,95 @@ describe('CollectionSyncService — READY repository conditional polling', () =>
     const stream = box.store.streams.get('repo-1:COMMIT');
     expect(stream?.status).toBe('READY');
     expect(stream?.frontierSha).toBe('known-head');
+  });
+});
+
+describe('CollectionSyncService — 새것이 없는 확인도 확인 시각을 남긴다(#1133)', () => {
+  it('네 stream 모두 checkpoint 없이 조기 반환해도 lastRunAt은 이번 확인 시각이 된다', async () => {
+    const NOW = new Date('2026-08-01T00:00:00.000Z');
+    const PREVIOUS = new Date('2026-07-01T00:00:00.000Z');
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    const client = createClient([repository]);
+    box.store.repositories.set(repoKey(BigInt(repository.id)), {
+      id: 'repo-1',
+      githubOrganizationId: GITHUB_ORG_ID,
+      githubRepositoryId: BigInt(repository.id),
+      nameWithOwner: repository.fullName,
+      defaultBranch: repository.defaultBranch,
+      archived: false,
+      visibility: 'PUBLIC',
+      presence: 'PRESENT',
+      source: 'ORG_PROVISIONED',
+      lastCompleteInventoryObservedAt: PREVIOUS,
+    });
+    const ready = (streamType: string, frontier: Row) =>
+      box.store.streams.set(`repo-1:${streamType}`, {
+        repositoryId: 'repo-1',
+        streamType,
+        status: 'READY',
+        frontierSha: null,
+        frontierCreatedAt: null,
+        frontierEntityId: null,
+        requestFingerprint: 'fp',
+        etag: null,
+        lastRunAt: PREVIOUS,
+        lastErrorAt: PREVIOUS,
+        lastErrorCode: DEFAULT_STREAM_ERROR_CODE,
+        ...frontier,
+      });
+    ready('COMMIT', { frontierSha: 'known-head', etag: 'etag-known' });
+    ready('PULL_REQUEST', {
+      frontierCreatedAt: new Date('2026-07-20T00:00:00.000Z'),
+      frontierEntityId: 7n,
+    });
+    ready('RELEASE', { etag: 'etag-release' });
+    ready('ISSUE', {
+      frontierCreatedAt: new Date('2026-07-21T00:00:00.000Z'),
+      frontierEntityId: 9n,
+    });
+    client.probeDefaultBranchHead.mockResolvedValue({
+      changed: false,
+      fingerprint: fingerprint('/repos/o/r/commits'),
+      etag: 'etag-known',
+    });
+    client.probeLatestRelease.mockResolvedValue({
+      changed: false,
+      fingerprint: fingerprint('/repos/o/r/releases'),
+      etag: 'etag-release',
+    });
+    client.listNewPullRequests.mockResolvedValue({
+      pullRequests: [],
+      newFrontier: { createdAt: '2026-07-20T00:00:00.000Z', id: '7' },
+      fingerprint: fingerprint('/repos/o/r/pulls'),
+    });
+    client.listNewIssues.mockResolvedValue({
+      issues: [],
+      newFrontier: { createdAt: '2026-07-21T00:00:00.000Z', id: '9' },
+      fingerprint: fingerprint('/repos/o/r/issues'),
+    });
+
+    await createService(db, client, { now: () => NOW }).run('owner-1');
+
+    for (const streamType of ['COMMIT', 'PULL_REQUEST', 'RELEASE', 'ISSUE']) {
+      expect(box.store.streams.get(`repo-1:${streamType}`)).toMatchObject({
+        status: 'READY',
+        lastRunAt: NOW,
+        lastErrorAt: null,
+        lastErrorCode: null,
+      });
+    }
+    // 확인 시각만 바뀐다 — 커서와 적재는 그대로다.
+    expect(box.store.streams.get('repo-1:COMMIT')?.frontierSha).toBe(
+      'known-head',
+    );
+    expect(box.store.streams.get('repo-1:PULL_REQUEST')).toMatchObject({
+      frontierCreatedAt: new Date('2026-07-20T00:00:00.000Z'),
+      frontierEntityId: 7n,
+    });
+    expect(box.store.pullRequestFacts.size).toBe(0);
+    expect(client.listCommitsUntilKnownSha).not.toHaveBeenCalled();
+    expect(client.listChangedPublishedReleases).not.toHaveBeenCalled();
   });
 });
 

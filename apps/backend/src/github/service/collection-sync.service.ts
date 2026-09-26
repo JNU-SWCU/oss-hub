@@ -109,7 +109,7 @@ type SyncRepository = Pick<
   | 'runInTransaction'
   | 'getStreamFrontier'
   | 'upsertStreamFrontier'
-  | 'markStreamErrorState'
+  | 'markStreamOutcome'
   | 'recordCommitFacts'
   | 'recordPullRequestFacts'
   | 'recordReleaseFacts'
@@ -696,7 +696,7 @@ export class CollectionSyncService {
 
   /**
    * 시스템 상태 관측성 2단계 — sweep-history 기록은 bookkeeping이라 실패해도 sweep
-   * 자체(원래 결과)를 막지 않는다. `writeStreamErrorState`와 같은 best-effort 원칙이다.
+   * 자체(원래 결과)를 막지 않는다. `writeStreamOutcome`과 같은 best-effort 원칙이다.
    */
   private async recordSweepHistoryBestEffort(
     input: RecordSweepHistoryInput,
@@ -1098,11 +1098,12 @@ export class CollectionSyncService {
    * #546 — repo 단위 실패가 `CollectionRepositoryStream.lastErrorCode`에 남지 않아
    * `system-status`가 FAILED로 판정할 근거를 얻지 못하고, 공개 사용자는 stale 값만 봤다.
    * 이 래퍼가 stream 하나의 결과를 그 stream 행에 반영한다 — 실패면 오류 코드를 기록하고
-   * 원래 예외를 그대로 다시 던지며, 성공이면 남아 있던 오류 표시를 지운다.
+   * 원래 예외를 그대로 다시 던지며, 성공이면 확인한 시각을 남기고 오류 표시를 지운다.
    *
-   * 성공 시의 해제가 checkpoint 안이 아니라 여기 있는 이유: 변경 없는 READY stream은
+   * 성공 기록이 checkpoint 안이 아니라 여기 있는 이유: 변경 없는 READY stream은
    * checkpoint를 아예 쓰지 않고 조기 반환하므로, checkpoint에만 두면 한 번 실패한 저장소가
-   * 내용이 바뀔 때까지 영구히 FAILED로 남는다.
+   * 내용이 바뀔 때까지 영구히 FAILED로 남고, 확인 시각도 마지막으로 바뀐 시각에 멈춘다
+   * (#1133 — 시스템 상태 Issue 칸이 매시 수집 중에도 「12시간 전」으로 보였다).
    *
    * `RunDeadlineError`는 오류가 아니라 run budget 소진이므로 기록하지 않는다.
    *
@@ -1121,34 +1122,35 @@ export class CollectionSyncService {
       outcome = await operation();
     } catch (error) {
       if (!(error instanceof RunDeadlineError)) {
-        await this.writeStreamErrorState(lease, repositoryId, streamType, {
+        await this.writeStreamOutcome(lease, repositoryId, streamType, {
           lastErrorAt: this.now(),
           lastErrorCode: streamErrorCode(error),
         });
       }
       throw error;
     }
-    await this.writeStreamErrorState(lease, repositoryId, streamType, {
-      lastErrorAt: null,
-      lastErrorCode: null,
+    await this.writeStreamOutcome(lease, repositoryId, streamType, {
+      checkedAt: this.now(),
     });
     return outcome;
   }
 
   /**
-   * 오류 표시는 bookkeeping이라 실패해도 원래 결과·예외를 덮지 않는다 — lease를 이미 잃은
+   * 결과 표시는 bookkeeping이라 실패해도 원래 결과·예외를 덮지 않는다 — lease를 이미 잃은
    * run이라면 fenced 트랜잭션이 거부하는 것이 정상이고, 그 경우 조용히 넘어간다.
    */
-  private async writeStreamErrorState(
+  private async writeStreamOutcome(
     lease: SyncLeaseToken,
     repositoryId: string,
     streamType: CollectionStreamType,
-    state: { lastErrorAt: Date | null; lastErrorCode: string | null },
+    outcome: Parameters<
+      CollectionIncrementalRepository['markStreamOutcome']
+    >[2],
   ): Promise<void> {
     try {
       await this.incrementalRepository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(lease, this.now());
-        await repo.markStreamErrorState(repositoryId, streamType, state);
+        await repo.markStreamOutcome(repositoryId, streamType, outcome);
       });
     } catch (error) {
       this.logger.warn({

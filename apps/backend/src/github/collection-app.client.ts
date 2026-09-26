@@ -641,10 +641,11 @@ export class CollectionAppClient {
     frontier: PullRequestFrontier,
   ): boolean {
     const r = this.record(raw);
-    const createdAt = this.date(r.created_at);
-    if (createdAt !== frontier.createdAt) {
-      return Date.parse(createdAt) < Date.parse(frontier.createdAt);
-    }
+    // 시각은 값으로 비교한다 — 저장했다 읽은 커서는 `…00.000Z`, GitHub는 `…00Z`로 같은 순간을
+    // 다르게 쓴다. 글자로 비교하면 커서 항목을 새것으로 보고 매 run 다시 읽는다.
+    const createdAt = Date.parse(this.date(r.created_at));
+    const frontierCreatedAt = Date.parse(frontier.createdAt);
+    if (createdAt !== frontierCreatedAt) return createdAt < frontierCreatedAt;
     return BigInt(this.id(r.id)) <= BigInt(frontier.id);
   }
 
