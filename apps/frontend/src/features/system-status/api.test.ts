@@ -5,7 +5,7 @@ import { fetchSystemStatus, triggerCollection } from './api';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('system status api', () => {
-  it('구버전 백엔드가 종류·Issue 칸을 안 주면 순회·0으로 채운다(#1133 배포 사이)', async () => {
+  it('구버전 백엔드가 종류·Issue 칸을 안 주면 순회·0으로 채운다(배포 사이)', async () => {
     const oldActivity = {
       sweepFinishedAt: '2026-07-25T10:00:00.000Z',
       cycleStartedAt: null,

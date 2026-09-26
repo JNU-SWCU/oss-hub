@@ -44,8 +44,15 @@ it('counts the new external link instead of the detached external one', async ()
 });
 
 it('adds link-time collections and issues to the external totals while the last run stays a full sweep', async () => {
-  // Given: an external sweep, then a link-time collection of one repository (#1133).
+  // Given: an external sweep, then a link-time collection of one repository (#1133) — both later
+  // than any row other specs left (some run their clock in 2099), so they are the newest.
   const before = await status.getExternalCollectionStatus();
+  const newest = await prisma.collectionSweepHistory.aggregate({
+    _max: { sweepFinishedAt: true },
+  });
+  const sweepAt = new Date(
+    Math.max(newest._max.sweepFinishedAt?.getTime() ?? 0, Date.now()) + 60_000,
+  );
   const base = {
     appId: 1n,
     scope: 'external',
@@ -57,7 +64,7 @@ it('adds link-time collections and issues to the external totals while the last 
     data: {
       ...base,
       kind: 'SWEEP',
-      sweepFinishedAt: new Date('2099-01-01T00:00:00Z'),
+      sweepFinishedAt: sweepAt,
       insertedCommitCount: 1,
       insertedPullRequestCount: 0,
       insertedReleaseCount: 0,
@@ -71,7 +78,7 @@ it('adds link-time collections and issues to the external totals while the last 
     data: {
       ...base,
       kind: 'REPOSITORY_LINK',
-      sweepFinishedAt: new Date('2099-01-01T00:30:00Z'),
+      sweepFinishedAt: new Date(sweepAt.getTime() + 30 * 60_000),
       insertedCommitCount: 141,
       insertedPullRequestCount: 13,
       insertedReleaseCount: 0,

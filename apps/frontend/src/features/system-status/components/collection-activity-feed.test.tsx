@@ -148,7 +148,7 @@ describe('CollectionActivityFeed', () => {
     expect(failedNode?.className).toContain('text-destructive');
   });
 
-  it('연결 즉시 수집은 순회 상태 대신 「연결 즉시 수집」으로, Issue까지 건수를 보인다(#1133)', async () => {
+  it('연결 즉시 수집은 순회 상태 대신 「연결 즉시 수집」으로, Issue까지 건수를 보인다', async () => {
     await renderFeed([linkCollection]);
     expect(feedText()).toContain('외부');
     expect(feedText()).toContain('연결 즉시 수집');
@@ -163,7 +163,7 @@ describe('CollectionActivityFeed', () => {
     expect(badge?.getAttribute('data-variant')).toBe('approved');
   });
 
-  it('실패한 연결 즉시 수집은 같은 이름을 빨간 배지로 보인다', async () => {
+  it('실패한 연결 즉시 수집은 「연결 즉시 수집 실패」를 빨간 배지로 보인다', async () => {
     await renderFeed([
       {
         ...linkCollection,
@@ -175,7 +175,7 @@ describe('CollectionActivityFeed', () => {
       },
     ]);
     const badge = [...container.querySelectorAll('[data-variant]')].find(
-      (el) => el.textContent?.trim() === '연결 즉시 수집',
+      (el) => el.textContent?.trim() === '연결 즉시 수집 실패',
     );
     expect(badge?.getAttribute('data-variant')).toBe('rejected');
     expect(feedText()).toContain('실패 1');

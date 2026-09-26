@@ -2,6 +2,7 @@ import { Users } from 'lucide-react';
 import { EmptyState, SectionHeading } from '@/components';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ExternalCollectionStatus } from '../types';
+import { MetricCounts } from './collection-activity-feed';
 
 /**
  * 시스템 상태 3단계 — 조직(org) 수집과 별개로 학생 개인 공개 GitHub 저장소를
@@ -123,10 +124,14 @@ export function ExternalCollectionSection({
                     과거 sweep은 반영되지 않는다(collection-read.port.ts 참고). */}
                 <dt className="text-muted-foreground">누적 수집 활동</dt>
                 <dd className="mt-1 font-medium">
-                  Commit {status.cumulativeCommitCount} · PR{' '}
-                  {status.cumulativePullRequestCount} · Release{' '}
-                  {status.cumulativeReleaseCount} · Issue{' '}
-                  {status.cumulativeIssueCount}
+                  <MetricCounts
+                    counts={[
+                      ['Commit', status.cumulativeCommitCount],
+                      ['PR', status.cumulativePullRequestCount],
+                      ['Release', status.cumulativeReleaseCount],
+                      ['Issue', status.cumulativeIssueCount],
+                    ]}
+                  />
                 </dd>
               </div>
               {status.lastSweep ? (
