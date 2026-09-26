@@ -10,7 +10,6 @@ import { ContributionInvariants } from '../contribution-invariants';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminGuard } from '../collection-admin.guard';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
-import { CollectionExternalDiscoveryService } from '../service/collection-external-discovery.service';
 import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import type { CollectionSyncRunRow } from '../collection-incremental.types';
 import { CollectionSyncService } from '../service/collection-sync.service';
@@ -35,15 +34,6 @@ describe('CollectionAdminController', () => {
     Promise<CollectionSyncRunRow[]>,
     [Date, number]
   >();
-  const discoverForStudent = jest.fn<
-    Promise<{
-      githubLogin: string;
-      discoveredCount: number;
-      upsertedCount: number;
-      skippedOrgProvisionedCount: number;
-    }>,
-    [string]
-  >();
   const record = jest.fn<Promise<AuditLogRecord>, [unknown]>();
   const runUserActivity = jest.fn<
     Promise<CollectionUserActivitySweepResult>,
@@ -62,7 +52,6 @@ describe('CollectionAdminController', () => {
     isQuiesced.mockResolvedValue(false);
     listSyncRuns.mockReset();
     listSyncRuns.mockResolvedValue([]);
-    discoverForStudent.mockReset();
     record.mockReset();
     record.mockResolvedValue({} as AuditLogRecord);
     runUserActivity.mockReset();
@@ -81,10 +70,6 @@ describe('CollectionAdminController', () => {
         { provide: CollectionSyncService, useValue: { run, runExternal } },
         { provide: ContributionInvariants, useValue: { check } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
-        {
-          provide: CollectionExternalDiscoveryService,
-          useValue: { discoverForStudent },
-        },
         {
           provide: CollectionIncrementalRepository,
           useValue: { listSyncRuns },
@@ -120,7 +105,6 @@ describe('CollectionAdminController', () => {
     const controller = new CollectionAdminController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
@@ -149,7 +133,6 @@ describe('CollectionAdminController', () => {
     const controller = new CollectionAdminController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
@@ -180,7 +163,6 @@ describe('CollectionAdminController', () => {
     const controller = new CollectionAdminController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
@@ -207,7 +189,6 @@ describe('CollectionAdminController', () => {
     const controller = new CollectionAdminController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
@@ -230,7 +211,6 @@ describe('CollectionAdminController', () => {
     const controller = new CollectionAdminController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
@@ -271,61 +251,12 @@ describe('CollectionAdminController', () => {
     expect(statusCode).toBe(202);
   });
 
-  it('학생 GitHub login으로 외부 discovery를 호출하고 집계 결과를 200으로 반환한다', async () => {
-    discoverForStudent.mockResolvedValue({
-      githubLogin: 'octocat',
-      discoveredCount: 3,
-      upsertedCount: 2,
-      skippedOrgProvisionedCount: 1,
-    });
-    const controller = new CollectionAdminController(
-      { run, runExternal } as unknown as CollectionSyncService,
-      { isQuiesced } as unknown as CollectionCutoverRepository,
-      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
-      { listSyncRuns } as unknown as CollectionIncrementalRepository,
-      { record } as unknown as AuditLogService,
-      { check } as unknown as ContributionInvariants,
-      { run: runUserActivity } as unknown as CollectionUserActivityService,
-    );
-
-    const result = await controller.discoverExternal({
-      githubLogin: 'octocat',
-    });
-
-    expect(discoverForStudent).toHaveBeenCalledWith('octocat');
-    expect(result.status).toBe('COMPLETED');
-    expect(result.githubLogin).toBe('octocat');
-    expect(result.discoveredCount).toBe(3);
-    expect(result.upsertedCount).toBe(2);
-    expect(result.skippedOrgProvisionedCount).toBe(1);
-  });
-
-  it('discover-external은 세션, ADMIN 역할, origin 순서로 보호하고 HTTP 200을 선언한다', () => {
-    const handler: unknown = Object.getOwnPropertyDescriptor(
-      CollectionAdminController.prototype,
-      'discoverExternal',
-    )?.value;
-    expect(typeof handler).toBe('function');
-    if (typeof handler !== 'function') {
-      return;
-    }
-    const guards: unknown = Reflect.getMetadata(GUARDS_METADATA, handler);
-    const statusCode: unknown = Reflect.getMetadata(
-      HTTP_CODE_METADATA,
-      handler,
-    );
-
-    expect(guards).toEqual([SessionGuard, CollectionAdminGuard, OriginGuard]);
-    expect(statusCode).toBe(200);
-  });
-
   // #546 — 202로 돌려준 runId와 내부 run의 runId가 달라 조회가 불가능했다.
   it('202로 돌려준 runId를 그대로 내부 sync run에 넘긴다', async () => {
     run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
     const controller = new CollectionAdminController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
@@ -344,7 +275,6 @@ describe('CollectionAdminController', () => {
     const controller = new CollectionAdminController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
@@ -368,7 +298,6 @@ describe('CollectionAdminController', () => {
     const controller = new CollectionAdminController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
@@ -404,7 +333,6 @@ describe('CollectionAdminController', () => {
     const controller = new CollectionAdminController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
@@ -458,7 +386,6 @@ describe('CollectionAdminController', () => {
     const controller = new CollectionAdminController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { discoverForStudent } as unknown as CollectionExternalDiscoveryService,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
       { record } as unknown as AuditLogService,
       { check } as unknown as ContributionInvariants,
@@ -512,7 +439,6 @@ describe('CollectionAdminController — 기여 불변식 검사', () => {
     const controller = new CollectionAdminController(
       {} as unknown as CollectionSyncService,
       {} as unknown as CollectionCutoverRepository,
-      {} as unknown as CollectionExternalDiscoveryService,
       {} as unknown as CollectionIncrementalRepository,
       {} as unknown as AuditLogService,
       { check: checkInvariants } as unknown as ContributionInvariants,
@@ -539,7 +465,6 @@ describe('CollectionAdminController — 기여 불변식 검사', () => {
     const controller = new CollectionAdminController(
       {} as unknown as CollectionSyncService,
       {} as unknown as CollectionCutoverRepository,
-      {} as unknown as CollectionExternalDiscoveryService,
       {} as unknown as CollectionIncrementalRepository,
       {} as unknown as AuditLogService,
       { check: checkInvariants } as unknown as ContributionInvariants,

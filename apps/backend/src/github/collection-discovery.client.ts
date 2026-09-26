@@ -24,15 +24,6 @@ export interface CollectionDiscoveryTokenProvider {
 export interface CollectionDiscoveryClientConfig {
   /** GraphQL endpoint. Defaults to `https://api.github.com/graphql`. */
   readonly apiUrl?: string;
-  /**
-   * Passed verbatim as the `maxRepositories` GraphQL argument. GitHub's
-   * schema default is 25 — this client requires an explicit value rather
-   * than silently relying on that default. The true upper bound is
-   * undocumented (community reports, unverified, suggest values up to
-   * ~100 are accepted); if GitHub rejects the configured value, the error
-   * surfaces to the caller rather than being silently retried lower.
-   */
-  readonly maxRepositories: number;
   readonly deadlineMs?: number;
 }
 
@@ -56,30 +47,6 @@ export class CollectionDiscoveryClientError extends Error {
   }
 }
 
-export interface CollectionDiscoveryRepository {
-  readonly databaseId: string;
-  readonly nameWithOwner: string;
-  readonly ownerLogin: string;
-  readonly defaultBranch: string | null;
-  readonly archived: boolean;
-}
-
-export interface CollectionDiscoveryResult {
-  readonly repositories: CollectionDiscoveryRepository[];
-  /**
-   * Count of contributions GitHub attributes to private repositories in
-   * the requested window. Private contributions are only ever exposed
-   * through this aggregate — `contributionsCollection` never lists a
-   * private repository in the per-repository breakdown fields
-   * (`commitContributionsByRepository`,
-   * `pullRequestReviewContributionsByRepository`). That is the API-level
-   * guarantee that this client only ever sees public repositories; the
-   * `isPrivate` filter below is a defensive belt-and-suspenders check on
-   * top of it, not the primary mechanism.
-   */
-  readonly restrictedContributionsCount: number;
-}
-
 /**
  * Person-axis (not repository-axis) activity observation for one GitHub
  * login. `starCount` is cumulative across the account's public owned
@@ -92,51 +59,6 @@ export interface CollectionUserActivityMetrics {
   readonly repositoryCount: number;
   readonly starCount: number;
 }
-
-interface RawRepository {
-  readonly databaseId: string;
-  readonly nameWithOwner: string;
-  readonly ownerLogin: string;
-  readonly defaultBranch: string | null;
-  readonly archived: boolean;
-  readonly isPrivate: boolean;
-}
-
-const REPOSITORY_FIELDS = `
-    databaseId
-    nameWithOwner
-    isPrivate
-    isArchived
-    defaultBranchRef { name }
-    owner { login }
-`;
-
-/**
- * Discovery-only query: returns repository identities a user contributed
- * commits or pull request reviews to within `[from, to)`, plus the
- * restricted (private) contribution count. Deliberately does not fetch
- * commit/PR/release facts — `CollectionAppClient`
- * (`collection-app.client.ts`) remains the sole fact collector.
- */
-const DISCOVERY_QUERY = `
-  query CollectionDiscovery($login: String!, $from: DateTime!, $to: DateTime!, $max: Int!) {
-    user(login: $login) {
-      contributionsCollection(from: $from, to: $to) {
-        restrictedContributionsCount
-        commitContributionsByRepository(maxRepositories: $max) {
-          repository {
-${REPOSITORY_FIELDS}
-          }
-        }
-        pullRequestReviewContributionsByRepository(maxRepositories: $max) {
-          repository {
-${REPOSITORY_FIELDS}
-          }
-        }
-      }
-    }
-  }
-`;
 
 /**
  * Person-axis activity query: one call answers "how much did this person do
@@ -187,26 +109,12 @@ const USER_ACTIVITY_QUERY = `
  */
 const MAX_ACTIVITY_PAGES = 50;
 
-function dedupeByKey<T>(items: readonly T[], key: (item: T) => string): T[] {
-  const seen = new Set<string>();
-  const result: T[] = [];
-  for (const item of items) {
-    const k = key(item);
-    if (seen.has(k)) continue;
-    seen.add(k);
-    result.push(item);
-  }
-  return result;
-}
-
 /**
- * External-repository discovery client (GraphQL, discovery only). Returns
- * a list of repository identities a GitHub user contributed to over a
- * date window — this is the only official API shape that can answer that
- * question (see module docs / ADR-010 for why REST cannot: `/search/
- * commits` only searches a repo's default branch and is capped at 30 req/
- * min, `/users/{u}/events/public` is retained 30 days, and `/user/repos`
- * returns only the caller's own repos).
+ * Person-axis GraphQL client: asks how much public activity one GitHub user
+ * did in a window (`fetchUserActivityMetrics`). The repository discovery
+ * query that fed the admin-only external registration was removed with that
+ * path (#1453) — repositories outside the organization are collected only
+ * while a program application links them.
  *
  * Mirrors the structure and conventions of `CollectionAppClient`
  * (`collection-app.client.ts`): raw `fetch` via an injectable `Fetcher`,
@@ -220,45 +128,6 @@ export class CollectionDiscoveryClient {
     private readonly fetcher: Fetcher = globalThis.fetch,
     private readonly now: () => number = Date.now,
   ) {}
-
-  async discoverContributedRepositories(
-    login: string,
-    from: string,
-    to: string,
-  ): Promise<CollectionDiscoveryResult> {
-    const body = await this.request({
-      query: DISCOVERY_QUERY,
-      variables: { login, from, to, max: this.config.maxRepositories },
-    });
-    const data = this.record(body.data);
-    const user = data.user;
-    if (user === null || user === undefined) {
-      throw new CollectionDiscoveryClientError('USER_NOT_FOUND');
-    }
-    const collection = this.record(this.record(user).contributionsCollection);
-    const restrictedContributionsCount = this.count(
-      collection.restrictedContributionsCount,
-    );
-    const raw = dedupeByKey(
-      [
-        ...this.repositoryList(collection.commitContributionsByRepository),
-        ...this.repositoryList(
-          collection.pullRequestReviewContributionsByRepository,
-        ),
-      ],
-      (r) => r.databaseId,
-    );
-    const repositories: CollectionDiscoveryRepository[] = raw
-      .filter((r) => !r.isPrivate)
-      .map((r) => ({
-        databaseId: r.databaseId,
-        nameWithOwner: r.nameWithOwner,
-        ownerLogin: r.ownerLogin,
-        defaultBranch: r.defaultBranch,
-        archived: r.archived,
-      }));
-    return { repositories, restrictedContributionsCount };
-  }
 
   /**
    * Person-axis activity metrics for one GitHub login over `[from, to)`.
@@ -399,34 +268,6 @@ export class CollectionDiscoveryClient {
     throw new CollectionDiscoveryClientError('AUTH');
   }
 
-  private repositoryList(container: unknown): RawRepository[] {
-    if (!Array.isArray(container)) this.invalid();
-    const result: RawRepository[] = [];
-    for (const edge of container) {
-      const repository = this.record(edge).repository;
-      if (repository === null || repository === undefined) continue;
-      result.push(this.repository(repository));
-    }
-    return result;
-  }
-
-  private repository(v: unknown): RawRepository {
-    const r = this.record(v);
-    const owner = this.record(r.owner);
-    const branch = r.defaultBranchRef;
-    return {
-      databaseId: this.id(r.databaseId),
-      nameWithOwner: this.string(r.nameWithOwner),
-      ownerLogin: this.string(owner.login),
-      defaultBranch:
-        branch === null || branch === undefined
-          ? null
-          : this.string(this.record(branch).name),
-      archived: this.boolean(r.isArchived),
-      isPrivate: this.boolean(r.isPrivate),
-    };
-  }
-
   private retryAfter(headers: Headers): number | undefined {
     const value = headers.get('retry-after');
     if (!value) return undefined;
@@ -443,13 +284,6 @@ export class CollectionDiscoveryClient {
 
   private record(v: unknown): Record<string, unknown> {
     if (this.isRecord(v)) return v;
-    return this.invalid();
-  }
-
-  private id(v: unknown): string {
-    if (typeof v === 'number' && Number.isSafeInteger(v) && v > 0) {
-      return String(v);
-    }
     return this.invalid();
   }
 

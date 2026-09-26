@@ -43,6 +43,29 @@ it('counts the new external link instead of the detached external one', async ()
   expect(after.trackedRepositoryCount).toBe(before.trackedRepositoryCount);
 });
 
+it('drops an external repository from the tracked count once deletion clears its links', async () => {
+  // Given: A is the linked, present external repository.
+  await prisma.githubRepository.update({
+    where: { id: oldId },
+    data: {
+      source: 'EXTERNAL_PUBLIC',
+      presence: 'PRESENT',
+      visibility: 'PUBLIC',
+    },
+  });
+  const linked = await status.getExternalCollectionStatus();
+  // When: program or team deletion clears all three links.
+  await prisma.githubRepository.update({
+    where: { id: oldId },
+    data: { applicationId: null, programId: null, teamId: null },
+  });
+  // Then
+  const cleared = await status.getExternalCollectionStatus();
+  expect(cleared.trackedRepositoryCount).toBe(
+    linked.trackedRepositoryCount - 1,
+  );
+});
+
 it('adds link-time collections and issues to the external totals while the last run stays a full sweep', async () => {
   // Given: an external sweep, then a link-time collection of one repository (#1133) — both later
   // than any row other specs left (some run their clock in 2099), so they are the newest.

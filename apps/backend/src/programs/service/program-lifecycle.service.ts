@@ -398,7 +398,8 @@ export class ProgramLifecycleService {
       where: { programId },
     });
 
-    // EXTERNAL_PUBLIC과 ORG_PROVISIONED 모두 전역 수집 자산으로 보존한다.
+    // EXTERNAL_PUBLIC과 ORG_PROVISIONED 모두 행과 수집 이력을 보존한다. 연결이 풀린 조직 저장소는
+    // 독립 저장소로 계속 모이지만, 조직 밖 저장소는 더 모으지 않는다(`isCollectionTarget`).
     // publicProjects.repository.ts(공개 아카이브)는 publishedAt이 설정된 행이면 항상
     // program/application 관계가 존재한다고 가정한다(provisioning이 만든 행만 발행되므로).
     // detach로 그 관계를 끊으면서 publishedAt을 그대로 두면 이 불변식이 깨져 공개

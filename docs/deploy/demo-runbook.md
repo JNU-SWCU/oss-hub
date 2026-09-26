@@ -179,48 +179,12 @@ sudo docker run --rm --network oss-hub_default \
 - 중단: `SEED_DEMO_ALLOW_PRODUCTION=1` 없이 거부되는 것은 정상 게이트다 — 게이트를 우회하는 다른 방법을 쓰지 않는다.
 - 사용을 마친 `<production-env-file>`은 즉시 삭제한다.
 
-## D7. Econovation 2026 공개 repo 수집 등록
+## D7. Econovation 2026 공개 repo 수집 등록 (폐기)
 
-등록 대상은 JNU-econovation 조직의 공개 저장소 8개다: `eco-knock-be-central`, `eco-knock-fe`, `eco-knock-ai`, `plover-be`, `PLOBER-FE`, `Geharbang-AI`, `econo-passport`, `clean_alba-BE`.
-수집·랭킹 테이블에 합성 데이터를 직접 넣지 않는다 — 등록은 ADMIN discovery 경로, 적재는 실제 sweep으로만 한다.
+2026-09-27에 폐기했다(#1453). 이 절이 쓰던 관리자 등록 주소(`POST /api/v1/admin/collection/discover-external`)를 없앴다.
 
-```sh
-# 1) 저장소 기여자 중 가입·동의를 마친 학생 login으로 외부 공개 repo를 탐색·등록한다 (repo가 커버될 때까지 반복)
-curl -s -X POST "https://<public-host>/api/v1/admin/collection/discover-external" \
-  -H "Content-Type: application/json" \
-  -H "Origin: https://<public-host>" \
-  -H "Cookie: __Host-oss_session=<admin-session-cookie>" \
-  -d '{"githubLogin":"<student-github-login>"}'
-```
-
-- 예상 출력: `discoveredCount`·`upsertedCount`가 0보다 큰 JSON.
-- 아직 가입·동의한 기여자가 없는 저장소는 이 경로로 등록되지 않는다 — 그 저장소는 D10 리허설의 지원(OWN repo URL 연결) 승인 시점에 자동 등록되는 경로를 쓴다.
-
-```sh
-# 2) 8개 저장소가 EXTERNAL_PUBLIC으로 등록됐는지 확인
-sudo docker exec -i "$postgres_id" sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
-SELECT "nameWithOwner", source FROM "GithubRepository"
-WHERE "nameWithOwner" IN (
-  'JNU-econovation/eco-knock-be-central', 'JNU-econovation/eco-knock-fe',
-  'JNU-econovation/eco-knock-ai', 'JNU-econovation/plover-be',
-  'JNU-econovation/PLOBER-FE', 'JNU-econovation/Geharbang-AI',
-  'JNU-econovation/econo-passport', 'JNU-econovation/clean_alba-BE');
-SQL
-
-# 3) 실제 sweep 실행 (org·external 두 sweep이 함께 돈다)
-curl -s -X POST "https://<public-host>/api/v1/admin/collection/trigger" \
-  -H "Origin: https://<public-host>" \
-  -H "Cookie: __Host-oss_session=<admin-session-cookie>"
-
-# 4) 실행 결과 확인 (scope별 최근 실행 1건)
-curl -s "https://<public-host>/api/v1/admin/collection/runs" \
-  -H "Cookie: __Host-oss_session=<admin-session-cookie>"
-```
-
-- 예상 출력: 3)이 202와 `runId`, 4)의 external scope가 성공 상태.
-- 검증: `https://<public-host>/ranking`에 수집 결과가 반영돼 노출된다(표시명은 `githubLogin`만, [security](../rules/security.md)).
-- 중단: sweep이 실패 상태면 backend 로그의 `collection.admin.*` 이벤트로 원인을 확인하고, 재트리거 전에는 랭킹 반영을 판정하지 않는다.
-- 복구: discovery·sweep은 upsert 기반이라 재실행이 안전하다.
+- 랭킹은 2026-08-19부터 가입 학생마다 GitHub 공개 활동 합계를 직접 묻는다([ADR-010](../decisions/ADR-010-contribution-tracking-context.md) 2026-08-19 개정 노트). 저장소를 등록하지 않아도 조직 밖 공개 저장소 활동이 랭킹에 반영된다.
+- 프로그램 화면에 쓰는 저장소 기록은 팀장이나 교직원이 팀 화면에서 저장소를 연결한 동안만 모은다. 조직 밖 저장소를 연결 없이 수집 목록에 올리는 경로는 없다.
 
 ## D8. 스토리지 고아 객체 점검·정리 (QA60)
 
@@ -270,11 +234,11 @@ sudo docker run --rm --network oss-hub_default \
 | 1 | 학생 계정 가입 (GitHub OAuth → 온보딩 → 동의) | 사람 | `/signup` → `/onboarding` → `/consent` | 대시보드 진입, 역할 STUDENT |
 | 2 | 대회 지원: 팀 생성·초대 + OWN repo URL 연결 | 사람 | `/programs/<program-id>` → 신청 | 지원 완료 상태 표시, 잘못된 URL은 필드 오류로 거부 |
 | 3 | 교직원 승인 | 사람(STAFF/ADMIN) | staff 지원서 관리 화면 | 지원 상태가 승인으로 전환 |
-| 4 | 수집 등록 확인 | 에이전트 가능(읽기 전용) | D7의 SQL 또는 admin collection 화면 | 해당 repo가 `EXTERNAL_PUBLIC`으로 존재 |
+| 4 | 수집 대상 확인 | 에이전트 가능(읽기 전용) | admin 시스템 상태 「외부 저장소 수집」 | 팀에 연결한 조직 밖 repo가 추적 수에 들어감 |
 | 5 | 랭킹 노출 확인 | 에이전트 가능(읽기 전용) | `/ranking` | 가입 학생의 `githubLogin`이 노출(기여 0이어도 0으로 표시) |
 | 6 | 프로그램 내 수집·활성화 현황 확인 | 에이전트 가능(읽기 전용) | 프로그램 staff 현황 화면 | 연결 repo·수집 상태가 의미 있게 표시 |
 
-- 4~6이 비어 있으면 D7의 sweep을 다시 트리거하고 `runs`로 완료를 확인한 뒤 재판정한다.
+- 4~6이 비어 있으면 관리자 시스템 상태의 「지금 수집 실행」(`POST /api/v1/admin/collection/trigger`)으로 수집을 다시 돌리고 `GET /api/v1/admin/collection/runs`로 완료를 확인한 뒤 재판정한다.
 - 중단: 2에서 승인 이후에도 repo가 등록되지 않으면 provision worker 로그(`repositories.provision.failed`)를 확인하고 리허설을 멈춘다.
 - 리허설 중 만든 임시 계정·팀·지원서는 시연에 그대로 쓰지 않을 경우 매니페스트에 등재한 뒤에만 정리한다.
 
