@@ -6,7 +6,7 @@ export const applicationFindFirst = jest.fn();
 export const contributionGroupBy = jest.fn();
 export const auditFindMany = jest.fn<Promise<unknown[]>, [unknown]>();
 export const provisionFindUnique = jest.fn();
-export const userFindMany = jest.fn();
+export const outsiderFindUnique = jest.fn();
 jest.mock('../prisma/prisma.service', () => ({
   PrismaService: jest.fn().mockImplementation(() => ({
     team: { findFirst: teamFindFirst },
@@ -15,7 +15,7 @@ jest.mock('../prisma/prisma.service', () => ({
     auditLog: { findMany: auditFindMany },
     outboxEvent: { findUnique: jest.fn().mockResolvedValue(null) },
     repositoryProvisionJob: { findUnique: provisionFindUnique },
-    user: { findMany: userFindMany },
+    githubRepositoryOutsiderContribution: { findUnique: outsiderFindUnique },
   })),
 }));
 
@@ -84,8 +84,6 @@ export function givenRepository(
       },
     },
   ]);
-  userFindMany.mockResolvedValue([
-    { githubId: 999n, nickname: 'outside-contributor' },
-  ]);
+  outsiderFindUnique.mockResolvedValue(null);
   return new ProgramTeamsRepository(new PrismaService());
 }

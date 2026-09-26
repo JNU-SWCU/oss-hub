@@ -538,76 +538,66 @@ describe('ProgramStaffTeamDetailPage', () => {
       lastSuccessAt: '2026-08-17T01:00:00.000Z',
     };
 
-    /** 교직원만 보는 줄 — 저장소에 기여했지만 지금 팀원이 아닌 가입자(#1133). */
-    function unmatchedTrigger(): HTMLButtonElement | undefined {
-      return [
-        ...container.querySelectorAll<HTMLButtonElement>(
-          '[data-slot="collapsible-trigger"]',
-        ),
-      ].find((trigger) =>
-        trigger.textContent?.includes('웹 참여자와 연결되지 않음'),
+    /** 교직원만 보는 한 줄 — 지금 팀원이 아닌 사람의 기여 수(#1133). 사람 목록은 없다. */
+    function outsiderLine(): HTMLParagraphElement | undefined {
+      return [...container.querySelectorAll<HTMLParagraphElement>('p')].find(
+        (line) => line.textContent?.startsWith('팀원이 아닌 사람의 기여'),
       );
     }
 
-    it('팀원이 아닌 기여자를 활동 카드 안에 접어 두고, 펼치면 login과 네 수를 보인다', async () => {
+    it('팀원이 아닌 사람의 기여를 활동 카드 안 한 줄에 수로만 보인다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue({
         ...withApplication,
         repositoryContributions: {
-          unmatchedContributors: [
-            {
-              githubId: '999',
-              githubLogin: 'outside-contributor',
-              commitCount: 3,
-              pullRequestCount: 1,
-              issueCount: 2,
-              releaseCount: 0,
-            },
-            {
-              githubId: '1000',
-              githubLogin: null,
-              commitCount: 0,
-              pullRequestCount: 0,
-              issueCount: 0,
-              releaseCount: 1,
-            },
-          ],
+          outsiderContributions: {
+            commitCount: 12,
+            pullRequestCount: 3,
+            issueCount: 5,
+          },
         },
       } satisfies StaffTeamDetail);
       vi.mocked(getTeamActivity).mockResolvedValue(collected);
       await render();
 
-      const trigger = unmatchedTrigger();
-      expect(trigger?.textContent).toContain('2명');
+      const line = outsiderLine();
+      expect(line?.textContent).toBe(
+        '팀원이 아닌 사람의 기여Commit 12 · PR 3 · Issue 5',
+      );
       expect(
-        trigger?.closest('[role="region"]')?.querySelector('h2')?.textContent,
+        line?.closest('[role="region"]')?.querySelector('h2')?.textContent,
       ).toBe('팀 활동');
-      expect(container.textContent).not.toContain('@outside-contributor');
-
-      await act(async () => trigger?.click());
-
-      const rows = [
-        ...(trigger?.parentElement?.querySelectorAll('li') ?? []),
-      ].map((row) => row.textContent);
-      expect(rows).toEqual([
-        '@outside-contributorCommit 3 · PR 1 · Issue 2 · Release 0',
-        'GitHub ID 1000Commit 0 · PR 0 · Issue 0 · Release 1',
-      ]);
+      // 사람을 가리키는 것은 아무것도 없다 — 목록도, 펼침도 없다.
+      expect(line?.closest('[role="region"]')?.textContent).not.toContain(
+        '웹 참여자와 연결되지 않음',
+      );
     });
 
-    it('연결되지 않은 기여자가 없으면 펼쳤을 때 없다고 말한다', async () => {
+    it('팀원이 아닌 사람의 기여가 없으면 「없음」이라고 말한다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue({
         ...withApplication,
-        repositoryContributions: { unmatchedContributors: [] },
+        repositoryContributions: {
+          outsiderContributions: {
+            commitCount: 0,
+            pullRequestCount: 0,
+            issueCount: 0,
+          },
+        },
       } satisfies StaffTeamDetail);
       vi.mocked(getTeamActivity).mockResolvedValue(collected);
       await render();
 
-      const trigger = unmatchedTrigger();
-      expect(trigger?.textContent).toContain('0명');
-      await act(async () => trigger?.click());
-      expect(container.textContent).toContain(
-        '연결되지 않은 기여자가 없습니다.',
-      );
+      expect(outsiderLine()?.textContent).toBe('팀원이 아닌 사람의 기여없음');
+    });
+
+    it('아직 세지 않았으면 그 줄을 그리지 않는다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue({
+        ...withApplication,
+        repositoryContributions: { outsiderContributions: null },
+      } satisfies StaffTeamDetail);
+      vi.mocked(getTeamActivity).mockResolvedValue(collected);
+      await render();
+
+      expect(outsiderLine()).toBeUndefined();
     });
 
     /**
@@ -681,30 +671,25 @@ describe('ProgramStaffTeamDetailPage', () => {
       getStaffProgramTeamDetailMock.mockResolvedValue({
         ...withApplication,
         repositoryContributions: {
-          unmatchedContributors: [
-            {
-              githubId: '999',
-              githubLogin: 'outside-contributor',
-              commitCount: 1,
-              pullRequestCount: 0,
-              issueCount: 0,
-              releaseCount: 0,
-            },
-          ],
+          outsiderContributions: {
+            commitCount: 1,
+            pullRequestCount: 0,
+            issueCount: 0,
+          },
         },
       } satisfies StaffTeamDetail);
       vi.mocked(getTeamActivity).mockResolvedValue(connected);
       await render();
 
       expect(container.textContent).toContain('첫 수집을 기다리는 중입니다');
-      expect(unmatchedTrigger()).toBeUndefined();
+      expect(outsiderLine()).toBeUndefined();
     });
 
     it('저장소가 없어 기여 요약이 없으면 그 줄을 그리지 않는다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       await render();
 
-      expect(unmatchedTrigger()).toBeUndefined();
+      expect(outsiderLine()).toBeUndefined();
     });
 
     it('연필로 바꾸면 팀 경로로 저장하고 상세를 조용히 다시 읽는다', async () => {

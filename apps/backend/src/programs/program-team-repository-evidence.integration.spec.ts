@@ -174,16 +174,8 @@ it('projects only linked repository facts inside the program window while retain
       hasObservations: true,
     },
   ]);
-  expect(detail?.repositoryContributions?.unmatchedContributors).toEqual([
-    {
-      githubId: (githubId + 99n).toString(),
-      githubLogin: null,
-      commitCount: 5,
-      pullRequestCount: 0,
-      releaseCount: 0,
-      issueCount: 0,
-    },
-  ]);
+  // 팀원이 아닌 사람의 기여는 수집이 세어 둔 값만 보인다 — 기여 행이 있어도 아직 세지 않았으면 없다.
+  expect(detail?.repositoryContributions?.outsiderContributions).toBeNull();
   expect(detail?.repositoryUrlHistory.items).toHaveLength(1);
   expect(detail?.repositoryUrlHistory.items[0]?.actorGithubLogin).toBe(
     'actor-before-rename',
@@ -193,6 +185,112 @@ it('projects only linked repository facts inside the program window while retain
       where: { repositoryId: oldRepositoryId },
     }),
   ).toBe(1);
+});
+
+it('shows the outsider totals only while they were counted for this program window', async () => {
+  // Given — its own program, team and repository, so no other test's totals move.
+  const scope = `staff-evidence-outsider-${randomUUID()}`;
+  const memberGithubId = BigInt(
+    `0x${randomUUID().replaceAll('-', '').slice(0, 12)}`,
+  );
+  const scoped = {
+    member: `${scope}-member`,
+    program: `${scope}-program`,
+    team: `${scope}-team`,
+    application: `${scope}-application`,
+    repository: `${scope}-current`,
+  };
+  const startAt = new Date('2026-07-31T15:00:00Z');
+  const endAt = new Date('2026-08-31T14:59:59Z');
+  await prisma.user.create({
+    data: {
+      id: scoped.member,
+      githubId: memberGithubId,
+      nickname: 'synthetic-outsider-member',
+    },
+  });
+  await prisma.program.create({
+    data: {
+      id: scoped.program,
+      name: 'Synthetic program',
+      organizer: 'Synthetic',
+      category: 'BASIC',
+      applicationTemplateKey: 'synthetic',
+      applicationTemplateVersion: 1,
+      description: 'Synthetic',
+      applicationStartAt: new Date('2026-07-01Z'),
+      applicationEndAt: new Date('2026-07-31Z'),
+      startAt,
+      endAt,
+    },
+  });
+  await prisma.team.create({
+    data: {
+      id: scoped.team,
+      programId: scoped.program,
+      name: 'Synthetic team',
+      joinCodeDigest: scope,
+      leaderId: scoped.member,
+    },
+  });
+  await prisma.teamMember.create({
+    data: {
+      teamId: scoped.team,
+      programId: scoped.program,
+      userId: scoped.member,
+    },
+  });
+  await prisma.application.create({
+    data: {
+      id: scoped.application,
+      programId: scoped.program,
+      teamId: scoped.team,
+      applicantId: scoped.member,
+      answers: {},
+      applicationTemplateVersion: 1,
+    },
+  });
+  await prisma.githubRepository.create({
+    data: {
+      id: scoped.repository,
+      githubRepositoryId: memberGithubId + 1n,
+      nameWithOwner: 'synthetic/outsider-current',
+      source: 'EXTERNAL_PUBLIC',
+      applicationId: scoped.application,
+      programId: scoped.program,
+      teamId: scoped.team,
+      lastSuccessAt: new Date('2026-09-01Z'),
+    },
+  });
+  // When — the collector counted this repository for this program's window (it overwrites one row).
+  await prisma.githubRepositoryOutsiderContribution.create({
+    data: {
+      repositoryId: scoped.repository,
+      programId: scoped.program,
+      windowStartAt: startAt,
+      windowEndAt: endAt,
+      commitCount: 3,
+      pullRequestCount: 1,
+      issueCount: 2,
+      observedAt: new Date('2026-09-01T00:00:00Z'),
+    },
+  });
+  const teams = new ProgramTeamsRepository(prisma);
+  const detail = await teams.findStaffTeamDetail(scoped.program, scoped.team);
+  // Then
+  expect(detail?.repositoryContributions?.outsiderContributions).toEqual({
+    commitCount: 3,
+    pullRequestCount: 1,
+    issueCount: 2,
+  });
+
+  // When the program window is edited, the old count is not shown until it is counted again.
+  await prisma.program.update({
+    where: { id: scoped.program },
+    data: { startAt: new Date('2026-07-01T15:00:00Z') },
+  });
+  const edited = await teams.findStaffTeamDetail(scoped.program, scoped.team);
+  expect(edited?.repositoryContributions?.outsiderContributions).toBeNull();
 });
 
 it('reads contributions of a program that never set an end date', async () => {
@@ -305,8 +403,8 @@ it('counts only the currently linked repository in program totals after a relink
   });
 });
 
-it('counts issues for team members and outside contributors, so an issue-only person is listed with issues', async () => {
-  // Given — #1133: the staff screen now shows Commit·PR·Issue, so a day with only issues counts.
+it('counts issues for team members, so an issue-only member has observations', async () => {
+  // Given — #1133: activity counts Commit·PR·Issue, so a day with only issues counts.
   const scope = `staff-evidence-issue-${randomUUID()}`;
   const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
   const activeId = `${scope}-active`;
@@ -380,13 +478,6 @@ it('counts issues for team members and outside contributors, so an issue-only pe
       // An issue-only day adds to the member's issue count.
       { githubId: base, date: new Date('2026-08-02Z'), issueCount: 5 },
       { githubId: base + 1n, date: new Date('2026-08-01Z'), issueCount: 1 },
-      // Outside the team: both the issue-only person and the PR author are listed.
-      { githubId: base + 3n, date: new Date('2026-08-03Z'), issueCount: 4 },
-      {
-        githubId: base + 4n,
-        date: new Date('2026-08-03Z'),
-        pullRequestCount: 1,
-      },
     ].map((row) => ({ ...row, repositoryId: scopedRepositoryId })),
   });
   // When
@@ -417,26 +508,6 @@ it('counts issues for team members and outside contributors, so an issue-only pe
       releaseCount: 0,
       issueCount: 1,
       hasObservations: true,
-    },
-  ]);
-  // 기여 집계는 가입자만 쌓으므로 운영에서는 login이 있다. 이 테스트는 User 행 없이
-  // 기여 행만 넣어 login이 없을 때(null) 숫자 id로 남는지를 본다.
-  expect(detail?.repositoryContributions?.unmatchedContributors).toEqual([
-    {
-      githubId: (base + 3n).toString(),
-      githubLogin: null,
-      commitCount: 0,
-      pullRequestCount: 0,
-      releaseCount: 0,
-      issueCount: 4,
-    },
-    {
-      githubId: (base + 4n).toString(),
-      githubLogin: null,
-      commitCount: 0,
-      pullRequestCount: 1,
-      releaseCount: 0,
-      issueCount: 0,
     },
   ]);
 });

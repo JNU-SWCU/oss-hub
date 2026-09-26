@@ -4,6 +4,7 @@ import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity
 import type {
   TeamActivityCounts,
   TeamActivityView,
+  TeamOutsiderContributionsView,
   TeamRepositoryContributionsView,
   RepositoryUrlHistoryPage,
   RepositoryUrlHistoryCursor,
@@ -28,7 +29,11 @@ interface ApplicationRepositorySource {
     readonly lastSuccessAt: Date | null;
     readonly failureCount: number;
   } | null;
-  readonly program: { readonly startAt: Date; readonly endAt: Date };
+  readonly program: {
+    readonly id: string;
+    readonly startAt: Date;
+    readonly endAt: Date;
+  };
 }
 
 interface TeamRepositoryMember {
@@ -163,13 +168,6 @@ export class ProgramTeamRepositoryEvidenceRepository {
         },
       ]),
     );
-    const memberIds = new Set(members.map((member) => member.user.githubId));
-    const unmatched = [...contributors].filter(
-      ([githubId]) => !memberIds.has(githubId),
-    );
-    const logins = await this.githubLogins(
-      unmatched.map(([githubId]) => githubId),
-    );
     return {
       repositoryId: repository.id,
       repositoryUrl: repositoryUrlFromNameWithOwner(repository.nameWithOwner),
@@ -187,23 +185,37 @@ export class ProgramTeamRepositoryEvidenceRepository {
           issueCount: 0,
         }),
       })),
-      unmatchedContributors: unmatched.map(([githubId, contributor]) => ({
-        ...contributor,
-        githubLogin: logins.get(githubId) ?? null,
-      })),
+      outsiderContributions: await this.outsiderContributions(
+        repository.id,
+        application.program,
+      ),
     };
   }
 
-  /** GitHub 숫자 id → 가입자 login. 없으면 빈 지도를 돌려주고 조회하지 않는다. */
-  private async githubLogins(
-    githubIds: readonly bigint[],
-  ): Promise<Map<bigint, string>> {
-    if (githubIds.length === 0) return new Map();
-    const users = await this.prisma.user.findMany({
-      where: { githubId: { in: [...githubIds] } },
-      select: { githubId: true, nickname: true },
-    });
-    return new Map(users.map((user) => [user.githubId, user.nickname]));
+  /**
+   * 수집이 세어 둔 「팀원이 아닌 사람의 기여」 — 센 기준(프로그램·기간)이 지금과 같을 때만 쓴다.
+   * 기간을 고쳤거나 저장소가 다른 프로그램에서 넘어왔으면 다음 수집이 다시 셀 때까지 보이지 않는다.
+   */
+  private async outsiderContributions(
+    repositoryId: string,
+    program: ApplicationRepositorySource['program'],
+  ): Promise<TeamOutsiderContributionsView | null> {
+    const row =
+      await this.prisma.githubRepositoryOutsiderContribution.findUnique({
+        where: { repositoryId },
+      });
+    if (
+      row === null ||
+      row.programId !== program.id ||
+      row.windowStartAt.getTime() !== program.startAt.getTime() ||
+      row.windowEndAt.getTime() !== program.endAt.getTime()
+    )
+      return null;
+    return {
+      commitCount: row.commitCount,
+      pullRequestCount: row.pullRequestCount,
+      issueCount: row.issueCount,
+    };
   }
 
   /**

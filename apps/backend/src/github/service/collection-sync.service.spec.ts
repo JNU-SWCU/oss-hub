@@ -679,9 +679,9 @@ interface ClientMock {
     Promise<CollectionCommit[]>,
     [string, string, string, string, (string | undefined)?]
   >;
-  countDefaultBranchCommits: jest.Mock<
+  countDefaultBranchCommitsBetween: jest.Mock<
     Promise<number | null>,
-    [string, string, string]
+    [string, string, string, string, string]
   >;
 }
 
@@ -753,8 +753,8 @@ function createClient(repositories: ProviderRepository[]): ClientMock {
         [string, string, string, string, (string | undefined)?]
       >()
       .mockResolvedValue([]),
-    countDefaultBranchCommits: jest
-      .fn<Promise<number | null>, [string, string, string]>()
+    countDefaultBranchCommitsBetween: jest
+      .fn<Promise<number | null>, [string, string, string, string, string]>()
       .mockResolvedValue(null),
   };
 }
@@ -1832,81 +1832,261 @@ describe('CollectionSyncService — 팀원 단위 author-scoped 커밋 수집', 
       box.store.streams.get('repo-1:COMMIT')?.lastErrorCode ?? null,
     ).toBeNull();
   });
+});
 
-  it('외부 기여자를 `전체 − 팀원합` 수치로만 관측하고 개인 식별자는 남기지 않는다', async () => {
+/**
+ * 「팀원이 아닌 사람의 기여」(#1133) — 팀 저장소에서 프로그램 기간 안 Commit·PR·Issue 가운데
+ * 작성자가 지금 팀원도 봇도 아닌 GitHub 계정인 것의 수만 센다. 누가 했는지는 남기지 않는다.
+ */
+describe('CollectionSyncService — 팀원이 아닌 사람의 기여(#1133)', () => {
+  const NOW = new Date('2026-08-01T00:00:00.000Z');
+  const WINDOW = {
+    programId: 'program-1',
+    startAt: new Date('2026-07-09T15:00:00.000Z'),
+    endAt: new Date('9999-12-31T23:59:59.999Z'),
+  };
+  const pullRequestItem = (
+    id: string,
+    createdAt: string,
+    authorLogin: string | null,
+    authorGithubId: string | null,
+  ): CollectionPullRequest => ({
+    id,
+    number: Number(id),
+    state: 'open',
+    draft: false,
+    mergedAt: null,
+    createdAt,
+    updatedAt: createdAt,
+    authorLogin,
+    authorGithubId,
+    htmlUrl: `https://example.invalid/pull/${id}`,
+  });
+  const issueItem = (
+    id: string,
+    createdAt: string,
+    authorLogin: string | null,
+    authorGithubId: string | null,
+  ): CollectionIssue => ({
+    id,
+    state: 'open',
+    createdAt,
+    authorLogin,
+    authorGithubId,
+  });
+  /** 기간 시작을 커서로 준 호출(`id: '0'`)만 이 합계의 조회다 — stream 조회와 가른다. */
+  const isWindowCall = (frontier: unknown): boolean =>
+    (frontier as { id?: string } | null)?.id === '0';
+
+  const seedTeamRepository = () => {
     const { db, box } = createFakeDb();
     const repository = providerRepository();
     seedOwningRepository(box, BigInt(repository.id), 'team-1', [
       { githubId: 11n, nickname: 'alice' },
     ]);
-    const client = createClient([repository]);
-    client.listDefaultBranchCommitsByAuthor.mockResolvedValue([
-      authoredCommit('sha-a', 'alice', '11'),
-      authoredCommit('sha-b', 'alice', '11'),
-    ]);
-    client.countDefaultBranchCommits.mockResolvedValue(7);
-    const logged = jest
-      .spyOn(Logger.prototype, 'log')
-      .mockImplementation(() => undefined);
+    return { db, box, client: createClient([repository]) };
+  };
 
-    const service = createService(db, client);
-    await service.run('owner-1');
+  afterEach(() => jest.restoreAllMocks());
 
-    expect(client.countDefaultBranchCommits).toHaveBeenCalledWith(
+  const spyWindow = (window: typeof WINDOW | null = WINDOW) =>
+    jest
+      .spyOn(
+        CollectionIncrementalRepository.prototype,
+        'findOutsiderCountingWindow',
+      )
+      .mockResolvedValue(window);
+  const spyTeamCommits = (count: number) =>
+    jest
+      .spyOn(
+        CollectionIncrementalRepository.prototype,
+        'countTeamCommitsBetween',
+      )
+      .mockResolvedValue(count);
+  const spySave = () =>
+    jest
+      .spyOn(
+        CollectionIncrementalRepository.prototype,
+        'saveOutsiderContribution',
+      )
+      .mockResolvedValue();
+
+  it('커밋은 기간 전체 − 팀원합으로, PR·Issue는 팀원도 봇도 아닌 계정의 것만 세어 한 행으로 덮어쓴다', async () => {
+    const { db, client } = seedTeamRepository();
+    client.countDefaultBranchCommitsBetween.mockResolvedValue(7);
+    const pullRequests = [
+      pullRequestItem('7', '2026-07-20T00:00:00Z', 'outsider', '99'),
+      pullRequestItem('6', '2026-07-19T00:00:00Z', 'alice', '11'),
+      pullRequestItem('5', '2026-07-18T00:00:00Z', 'renovate[bot]', '2740'),
+    ];
+    client.listNewPullRequests.mockImplementation((_o, _r, frontier) =>
+      Promise.resolve({
+        pullRequests: isWindowCall(frontier) ? pullRequests : [],
+        newFrontier: null,
+        fingerprint: fingerprint('/repos/o/r/pulls'),
+      }),
+    );
+    const issues = [
+      issueItem('9', '2026-07-21T00:00:00Z', 'outsider-2', '98'),
+      issueItem('8', '2026-07-21T00:00:00Z', 'alice', '11'),
+      issueItem('10', '2026-07-22T00:00:00Z', null, null),
+    ];
+    client.listNewIssues.mockImplementation((_o, _r, frontier) =>
+      Promise.resolve({
+        issues: isWindowCall(frontier) ? issues : [],
+        newFrontier: null,
+        fingerprint: fingerprint('/repos/o/r/issues'),
+      }),
+    );
+    spyWindow();
+    const team = spyTeamCommits(5);
+    const save = spySave();
+
+    await createService(db, client, { now: () => NOW }).run('owner-1');
+
+    expect(client.countDefaultBranchCommitsBetween).toHaveBeenCalledWith(
       'synthetic-org',
       'repo',
       'main',
+      '2026-07-09T15:00:00Z',
+      '2026-08-01T00:00:00Z',
     );
-    const observed = logged.mock.calls
-      .map(([payload]) => payload as Record<string, unknown>)
-      .find(
-        (payload) =>
-          payload?.event === 'collection.sync.external_contribution_observed',
-      );
-    expect(observed).toMatchObject({
-      totalCommitCount: 7,
-      teamCommitCount: 2,
-      externalCommitCount: 5,
+    expect(team).toHaveBeenCalledWith(
+      'repo-1',
+      [11n],
+      new Date('2026-07-09T15:00:00.000Z'),
+      NOW,
+    );
+    expect(client.listNewPullRequests).toHaveBeenCalledWith(
+      'synthetic-org',
+      'repo',
+      { createdAt: '2026-07-09T15:00:00.000Z', id: '0' },
+    );
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledWith({
+      repositoryId: 'repo-1',
+      programId: 'program-1',
+      windowStartAt: WINDOW.startAt,
+      windowEndAt: WINDOW.endAt,
+      commitCount: 2,
+      pullRequestCount: 1,
+      issueCount: 1,
+      observedAt: NOW,
     });
-    // 수치만 남는다 — 외부 기여자의 login/githubId는 어디에도 없다.
-    expect(Object.keys(observed ?? {})).not.toContain('authorLogin');
-    // 저장 위치가 정해지지 않았으므로 fact로도 남기지 않는다.
-    expect([...box.store.commitFacts.values()]).toHaveLength(2);
-    logged.mockRestore();
   });
 
-  it('브랜치가 없거나(전체 null) 팀원합보다 전체가 작으면 외부 수치를 계산하지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: 11n, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    client.listDefaultBranchCommitsByAuthor.mockResolvedValue([
-      authoredCommit('sha-a', 'alice', '11'),
-      authoredCommit('sha-b', 'alice', '11'),
-    ]);
-    const logged = jest
-      .spyOn(Logger.prototype, 'log')
+  it('끝난 프로그램은 종료 시각까지만 센다', async () => {
+    const { db, client } = seedTeamRepository();
+    const endAt = new Date('2026-07-20T14:59:59.999Z');
+    client.listNewPullRequests.mockImplementation((_o, _r, frontier) =>
+      Promise.resolve({
+        pullRequests: isWindowCall(frontier)
+          ? [
+              pullRequestItem('8', '2026-07-25T00:00:00Z', 'outsider', '99'),
+              pullRequestItem('7', '2026-07-19T00:00:00Z', 'outsider', '99'),
+            ]
+          : [],
+        newFrontier: null,
+        fingerprint: fingerprint('/repos/o/r/pulls'),
+      }),
+    );
+    spyWindow({ ...WINDOW, endAt });
+    spyTeamCommits(0);
+    const save = spySave();
+
+    await createService(db, client, { now: () => NOW }).run('owner-1');
+
+    expect(client.countDefaultBranchCommitsBetween).toHaveBeenCalledWith(
+      'synthetic-org',
+      'repo',
+      'main',
+      '2026-07-09T15:00:00Z',
+      '2026-07-20T14:59:59Z',
+    );
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ pullRequestCount: 1, windowEndAt: endAt }),
+    );
+  });
+
+  it('기본 브랜치가 없으면 커밋은 0으로, 전체가 팀원합보다 작으면 옛 값을 둔다', async () => {
+    const first = seedTeamRepository();
+    first.client.countDefaultBranchCommitsBetween.mockResolvedValue(null);
+    spyWindow();
+    spyTeamCommits(0);
+    const save = spySave();
+    await createService(first.db, first.client, { now: () => NOW }).run(
+      'owner-1',
+    );
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ commitCount: 0 }),
+    );
+
+    // 관측 시점이 어긋나 전체(1) < 팀원합(2) — 음수를 남기거나 0으로 뭉개지 않는다.
+    save.mockClear();
+    const second = seedTeamRepository();
+    second.client.countDefaultBranchCommitsBetween.mockResolvedValue(1);
+    spyTeamCommits(2);
+    await createService(second.db, second.client, { now: () => NOW }).run(
+      'owner-1',
+    );
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('신청 연결이 없는 저장소는 세지 않는다', async () => {
+    const { db, client } = seedTeamRepository();
+    spyWindow(null);
+    const save = spySave();
+
+    await createService(db, client, { now: () => NOW }).run('owner-1');
+
+    expect(client.countDefaultBranchCommitsBetween).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('팀이 없는 저장소는 기준 프로그램도 찾지 않는다', async () => {
+    const { db } = createFakeDb();
+    const client = createClient([providerRepository()]);
+    const find = spyWindow();
+
+    await createService(db, client, { now: () => NOW }).run('owner-1');
+
+    expect(find).not.toHaveBeenCalled();
+    expect(client.countDefaultBranchCommitsBetween).not.toHaveBeenCalled();
+  });
+
+  it('세다가 실패해도 저장소 수집은 성공으로 두고 옛 값을 건드리지 않는다', async () => {
+    const { db, box, client } = seedTeamRepository();
+    client.listNewIssues.mockImplementation((_o, _r, frontier) =>
+      isWindowCall(frontier)
+        ? Promise.reject(new Error('synthetic outsider failure'))
+        : Promise.resolve({
+            issues: [],
+            newFrontier: null,
+            fingerprint: fingerprint('/repos/o/r/issues'),
+          }),
+    );
+    spyWindow();
+    spyTeamCommits(0);
+    const save = spySave();
+    const warned = jest
+      .spyOn(Logger.prototype, 'warn')
       .mockImplementation(() => undefined);
-    const externalEvents = (): unknown[] =>
-      logged.mock.calls.filter(
-        ([payload]) =>
-          (payload as Record<string, unknown> | undefined)?.event ===
-          'collection.sync.external_contribution_observed',
-      );
 
-    // 전체 = null(브랜치 없음)
-    client.countDefaultBranchCommits.mockResolvedValue(null);
-    await createService(db, client).run('owner-1');
-    expect(externalEvents()).toHaveLength(0);
+    await createService(db, client, { now: () => NOW }).run('owner-1');
 
-    // 전체(1) < 팀원합(2) — 음수를 남기거나 0으로 뭉개지 않고 건너뛴다.
-    client.countDefaultBranchCommits.mockResolvedValue(1);
-    await createService(db, client).run('owner-1');
-    expect(externalEvents()).toHaveLength(0);
-    expect(box.store.commitFacts.size).toBe(2);
-    logged.mockRestore();
+    expect(save).not.toHaveBeenCalled();
+    expect(
+      warned.mock.calls.map(
+        ([payload]) => (payload as Record<string, unknown>).event,
+      ),
+    ).toContain('collection.sync.outsider_contribution_failed');
+    expect(
+      box.store.streams.get('repo-1:ISSUE')?.lastErrorCode ?? null,
+    ).toBeNull();
+    expect(
+      box.store.repositories.get(repoKey(BigInt(providerRepository().id)))
+        ?.failureCount ?? 0,
+    ).toBe(0);
   });
 });
 

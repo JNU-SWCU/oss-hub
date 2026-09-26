@@ -80,6 +80,7 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
       'GithubRepository->CollectionPullRequestFact',
       'GithubRepository->CollectionReleaseFact',
       'GithubRepository->GithubIssueHistory',
+      'GithubRepository->GithubRepositoryOutsiderContribution',
     ],
   },
   {

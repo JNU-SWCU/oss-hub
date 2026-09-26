@@ -976,6 +976,70 @@ export class CollectionIncrementalRepository {
   }
 
   /**
+   * 「팀원이 아닌 사람의 기여」(#1133)를 셀 기준 — 이 저장소가 지금 신청으로 연결된 프로그램과
+   * 그 기간. 신청 연결이 풀렸거나 프로그램이 없으면 `null`이다(세지 않는다). 수집 run이 들고 온
+   * 행이 아니라 지금 행을 읽는다 — sweep 도중 연결이 바뀌어도 옛 프로그램 기간으로 세지 않는다.
+   */
+  async findOutsiderCountingWindow(repositoryId: string): Promise<{
+    programId: string;
+    startAt: Date;
+    endAt: Date;
+  } | null> {
+    const row = await this.db.githubRepository.findUnique({
+      where: { id: repositoryId },
+      select: {
+        applicationId: true,
+        program: { select: { id: true, startAt: true, endAt: true } },
+      },
+    });
+    if (!row || row.applicationId === null || row.program === null) return null;
+    return {
+      programId: row.program.id,
+      startAt: row.program.startAt,
+      endAt: row.program.endAt,
+    };
+  }
+
+  /**
+   * ADR-009 「외부 = 전체 − 팀원합」의 우변 — 이 저장소에서 `[since, until]`에 커밋된 지금 팀원의
+   * 커밋 수. 같은 run의 COMMIT stream이 팀원별 전체 이력을 먼저 적재하므로 fact가 곧 최신이다.
+   */
+  async countTeamCommitsBetween(
+    repositoryId: string,
+    memberGithubIds: readonly bigint[],
+    since: Date,
+    until: Date,
+  ): Promise<number> {
+    if (memberGithubIds.length === 0) return 0;
+    return this.db.collectionCommitFact.count({
+      where: {
+        repositoryId,
+        authorGithubId: { in: [...memberGithubIds] },
+        committedAt: { gte: since, lte: until },
+      },
+    });
+  }
+
+  /** 저장소마다 한 행 — 새로 센 값으로 통째로 덮어쓴다. */
+  async saveOutsiderContribution(input: {
+    repositoryId: string;
+    programId: string;
+    windowStartAt: Date;
+    windowEndAt: Date;
+    commitCount: number;
+    pullRequestCount: number;
+    issueCount: number;
+    observedAt: Date;
+  }): Promise<void> {
+    const { repositoryId, ...values } = input;
+    await this.db.githubRepositoryOutsiderContribution.upsert({
+      where: { repositoryId },
+      create: input,
+      update: values,
+    });
+  }
+
+  /**
    * partial inventory(이번 run의 provider listing 실패) 시 stream sync가 이어갈 이전 관찰.
    * `source: 'ORG_PROVISIONED'`를 명시한다(GR-6) — org installation listing 실패로부터
    * 복구하는 partial-inventory 경로이므로 external 저장소는 이 조회 대상이 아니다.

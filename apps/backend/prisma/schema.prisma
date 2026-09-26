@@ -1142,6 +1142,7 @@ model GithubRepository {
   releases      CollectionReleaseFact[]
   issues        GithubIssueHistory[]
   contributions Contribution[]
+  outsider      GithubRepositoryOutsiderContribution?
   invitations   RepositoryInvitation[]
   provisionJobs RepositoryProvisionJob[]
 
@@ -1361,6 +1362,26 @@ model GithubIssueHistory {
   @@unique([repositoryId, githubIssueId])
   @@index([repositoryId, createdAt])
   @@index([authorGithubId])
+}
+
+/// 팀 저장소의 「팀원이 아닌 사람의 기여」 합계(#1133) — 저장소마다 한 행, 수집할 때마다 덮어쓴다.
+/// 누가 했는지는 저장하지 않고 프로그램 기간 안 수만 남긴다(ADR-006·ADR-009). Commit은 ADR-009의
+/// `전체 − 팀원합`이고, PR·Issue는 작성자가 지금 팀원도 봇도 아닌 GitHub 계정인 것의 수다.
+/// 어느 프로그램·기간으로 셌는지 함께 남겨, 연결이나 기간이 바뀌면 읽는 쪽이 옛 값을 버린다.
+model GithubRepositoryOutsiderContribution {
+  repositoryId String           @id
+  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  /// 센 기준. FK가 아니다 — 프로그램이 지워지거나 기간이 바뀌면 읽는 쪽이 이 값을 비교해 버린다.
+  programId     String
+  windowStartAt DateTime
+  windowEndAt   DateTime
+
+  commitCount      Int
+  pullRequestCount Int
+  issueCount       Int
+
+  observedAt DateTime
 }
 
 /// installation 재순회의 fair 연속 커서 — org 전체를 한 번에 처리하지 않고 rate-limit 인지 상태로
