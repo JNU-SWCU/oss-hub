@@ -95,7 +95,6 @@ host_paths = {
     'location = /api/v1/auth/github {': 'GET',
     'location = /api/v1/auth/github/callback {': 'GET',
     'location = /api/v1/admin/collection/trigger {': 'POST',
-    'location = /api/v1/admin/collection/discover-external {': 'POST',
     'location /api/v1/ {': 'GET HEAD POST PATCH DELETE',
 }
 for marker, methods in host_paths.items():
@@ -124,7 +123,6 @@ compose_paths = {
     'location = /api/v1/auth/github {': ('GET', 'oauth'),
     'location = /api/v1/auth/github/callback {': ('GET', 'oauth'),
     'location = /api/v1/admin/collection/trigger {': ('POST', 'admin_collection'),
-    'location = /api/v1/admin/collection/discover-external {': ('POST', 'admin_collection'),
     'location /api/v1/ {': ('GET HEAD POST PATCH DELETE', 'api'),
 }
 for marker, (methods, zone) in compose_paths.items():
@@ -273,7 +271,6 @@ host_effective = {
     ('=', '/api/v1/auth/github'): ('GET',),
     ('=', '/api/v1/auth/github/callback'): ('GET',),
     ('=', '/api/v1/admin/collection/trigger'): ('POST',),
-    ('=', '/api/v1/admin/collection/discover-external'): ('POST',),
     ('/api/v1/',): ('GET', 'HEAD', 'POST', 'PATCH', 'DELETE'),
 }
 for location_args, methods in host_effective.items():
@@ -293,7 +290,6 @@ compose_effective = {
     ('=', '/api/v1/auth/github'): (('GET',), 'oauth'),
     ('=', '/api/v1/auth/github/callback'): (('GET',), 'oauth'),
     ('=', '/api/v1/admin/collection/trigger'): (('POST',), 'admin_collection'),
-    ('=', '/api/v1/admin/collection/discover-external'): (('POST',), 'admin_collection'),
     ('/api/v1/',): (('GET', 'HEAD', 'POST', 'PATCH', 'DELETE'), 'api'),
 }
 for location_args, (methods, zone) in compose_effective.items():
