@@ -22,6 +22,7 @@ const neverSweptNoTargets: ExternalCollectionStatus = {
   cumulativeCommitCount: 0,
   cumulativePullRequestCount: 0,
   cumulativeReleaseCount: 0,
+  cumulativeIssueCount: 0,
 };
 
 // 탐색된 저장소는 없지만 external sweep 자체는 정상적으로 한 번 끝난 상태 —
@@ -32,9 +33,11 @@ const sweepRanWithNoTargets: ExternalCollectionStatus = {
     sweepFinishedAt: '2026-08-10T09:00:00.000Z',
     cycleStartedAt: '2026-08-10T08:55:00.000Z',
     scope: 'external',
+    kind: 'SWEEP',
     insertedCommitCount: 0,
     insertedPullRequestCount: 0,
     insertedReleaseCount: 0,
+    insertedIssueCount: 0,
     attemptedRepositoryCount: 0,
     processedRepositoryCount: 0,
     failedRepositoryCount: 0,
@@ -44,6 +47,7 @@ const sweepRanWithNoTargets: ExternalCollectionStatus = {
   cumulativeCommitCount: 0,
   cumulativePullRequestCount: 0,
   cumulativeReleaseCount: 0,
+  cumulativeIssueCount: 0,
 };
 
 // 탐색된 저장소는 있지만(대상은 채워졌지만) sweep은 여태 한 번도 끝난 적이
@@ -55,6 +59,7 @@ const targetsExistButNeverSwept: ExternalCollectionStatus = {
   cumulativeCommitCount: 0,
   cumulativePullRequestCount: 0,
   cumulativeReleaseCount: 0,
+  cumulativeIssueCount: 0,
 };
 
 // 탐색된 저장소가 있고 sweep도 정상적으로 한 번 끝난 상태.
@@ -64,9 +69,11 @@ const withDiscoveredRepositories: ExternalCollectionStatus = {
     sweepFinishedAt: '2026-08-10T09:00:00.000Z',
     cycleStartedAt: '2026-08-10T08:55:00.000Z',
     scope: 'external',
+    kind: 'SWEEP',
     insertedCommitCount: 7,
     insertedPullRequestCount: 2,
     insertedReleaseCount: 0,
+    insertedIssueCount: 0,
     attemptedRepositoryCount: 3,
     processedRepositoryCount: 3,
     failedRepositoryCount: 0,
@@ -76,6 +83,7 @@ const withDiscoveredRepositories: ExternalCollectionStatus = {
   cumulativeCommitCount: 21,
   cumulativePullRequestCount: 5,
   cumulativeReleaseCount: 1,
+  cumulativeIssueCount: 7,
 };
 
 // 저장소는 탐색됐지만 sweep이 일부 실패한 상태 — 실패 건수가 표시돼야 한다.
@@ -85,9 +93,11 @@ const withFailedSweep: ExternalCollectionStatus = {
     sweepFinishedAt: '2026-08-10T08:00:00.000Z',
     cycleStartedAt: '2026-08-10T07:00:00.000Z',
     scope: 'external',
+    kind: 'SWEEP',
     insertedCommitCount: 3,
     insertedPullRequestCount: 0,
     insertedReleaseCount: 0,
+    insertedIssueCount: 0,
     attemptedRepositoryCount: 4,
     processedRepositoryCount: 2,
     failedRepositoryCount: 2,
@@ -97,6 +107,7 @@ const withFailedSweep: ExternalCollectionStatus = {
   cumulativeCommitCount: 3,
   cumulativePullRequestCount: 0,
   cumulativeReleaseCount: 0,
+  cumulativeIssueCount: 0,
 };
 
 describe('ExternalCollectionSection', () => {
@@ -165,13 +176,11 @@ describe('ExternalCollectionSection', () => {
     expect(sectionText()).toContain('수집 대상 학생 개인 저장소가 없습니다');
   });
 
-  it('탐색된 저장소가 있으면 추적 수와 누적 Commit·PR·Release 합계를 표시한다', async () => {
+  it('탐색된 저장소가 있으면 추적 수와 누적 Commit·PR·Release·Issue 합계를 표시한다', async () => {
     await renderSection(withDiscoveredRepositories);
     expect(sectionText()).toContain('3개 추적 중');
     expect(sectionText()).toContain('3개');
-    expect(sectionText()).toContain('Commit 21');
-    expect(sectionText()).toContain('PR 5');
-    expect(sectionText()).toContain('Release 1');
+    expect(sectionText()).toContain('Commit 21 · PR 5 · Release 1 · Issue 7');
     expect(sectionText()).not.toContain(
       '수집 대상 학생 개인 저장소가 없습니다',
     );

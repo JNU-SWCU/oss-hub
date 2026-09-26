@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import {
   EmptyState,
   ListPanel,
@@ -5,6 +6,11 @@ import {
   SectionHeading,
   StatusBadge,
 } from '@/components';
+import {
+  COLLECTION_RUN_STATUS_BADGE,
+  COLLECTION_RUN_STATUS_LABEL,
+  type CollectionRunStatusKey,
+} from '@/lib/status-vocabulary';
 import { formatRelativeTime } from '../format-relative-time';
 import type { CollectionActivityEntry } from '../types';
 
@@ -38,11 +44,33 @@ const DATE_TIME_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   timeStyle: 'short',
 });
 
+/**
+ * 「Commit 3 · PR 2 · Release 0 · Issue 1」 — 좁은 화면에서도 이름과 숫자가 다른 줄로 갈리지 않게
+ * 「이름 숫자 ·」 묶음 사이에서만 줄을 바꾼다.
+ */
+export function MetricCounts({
+  counts,
+}: {
+  readonly counts: readonly (readonly [label: string, count: number])[];
+}) {
+  // 묶음 사이 띄어쓰기는 묶음 밖에 둔다 — 안에 두면 줄을 바꿀 자리가 사라져 한 줄로 넘친다.
+  return counts.map(([label, count], index) => (
+    <Fragment key={label}>
+      <span className="whitespace-nowrap">
+        {label} {count}
+        {index < counts.length - 1 ? ' ·' : ''}
+      </span>
+      {index < counts.length - 1 ? ' ' : ''}
+    </Fragment>
+  ));
+}
+
 function CountsSummary({ entry }: { readonly entry: CollectionActivityEntry }) {
   const total =
     entry.insertedCommitCount +
     entry.insertedPullRequestCount +
-    entry.insertedReleaseCount;
+    entry.insertedReleaseCount +
+    entry.insertedIssueCount;
   if (total === 0) {
     return (
       <span className="text-sm text-muted-foreground">신규 데이터 없음</span>
@@ -50,8 +78,14 @@ function CountsSummary({ entry }: { readonly entry: CollectionActivityEntry }) {
   }
   return (
     <span className="text-sm">
-      Commit {entry.insertedCommitCount} · PR {entry.insertedPullRequestCount} ·
-      Release {entry.insertedReleaseCount}
+      <MetricCounts
+        counts={[
+          ['Commit', entry.insertedCommitCount],
+          ['PR', entry.insertedPullRequestCount],
+          ['Release', entry.insertedReleaseCount],
+          ['Issue', entry.insertedIssueCount],
+        ]}
+      />
     </span>
   );
 }
@@ -79,19 +113,28 @@ function RepositoryProgress({
  * `cycleCompleted`가 우선이다 — 완료된 사이클이면 이번 sweep이 예산 때문에
  * 멈췄었는지는 더 이상 중요하지 않다. `stoppedForBudget`은 사이클이 아직
  * 진행 중임을 전제로 한 상태이므로("사이클 진행 중" 의미) 그 다음으로 본다.
+ * 저장소 연결 즉시 수집은 사이클이 아니라 저장소 하나라 끝났는지만 말한다(#1133).
  */
+function runStatus(entry: CollectionActivityEntry): CollectionRunStatusKey {
+  if (entry.kind === 'REPOSITORY_LINK' && !entry.stoppedForBudget) {
+    return entry.failedRepositoryCount > 0 ? 'LINK_FAILED' : 'LINK_COLLECTED';
+  }
+  if (entry.cycleCompleted) return 'CYCLE_COMPLETED';
+  if (entry.stoppedForBudget) return 'BUDGET_STOPPED';
+  return 'IN_PROGRESS';
+}
+
 function CycleStatusBadge({
   entry,
 }: {
   readonly entry: CollectionActivityEntry;
 }) {
-  if (entry.cycleCompleted) {
-    return <StatusBadge variant="approved">전체 순회 완료</StatusBadge>;
-  }
-  if (entry.stoppedForBudget) {
-    return <StatusBadge variant="pending">수집 한도에 도달</StatusBadge>;
-  }
-  return <StatusBadge variant="recruiting">진행 중</StatusBadge>;
+  const status = runStatus(entry);
+  return (
+    <StatusBadge variant={COLLECTION_RUN_STATUS_BADGE[status]}>
+      {COLLECTION_RUN_STATUS_LABEL[status]}
+    </StatusBadge>
+  );
 }
 
 function ActivityRow({ entry }: { readonly entry: CollectionActivityEntry }) {

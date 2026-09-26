@@ -1436,8 +1436,17 @@ model CollectionCutoverLease {
   @@id([appId, scope])
 }
 
+/// 수집 한 번이 무엇이었는지(#1133). `SWEEP`은 대상 저장소를 한 바퀴 도는 정시·수동 순회,
+/// `REPOSITORY_LINK`는 저장소를 연결하자마자 그 저장소 하나만 모은 즉시 수집이다.
+enum CollectionRunKind {
+  SWEEP
+  REPOSITORY_LINK
+}
+
 /// 시스템 상태 관측성 2단계 — sweep 1회(예산 중단으로 사이클을 여러 sweep에 걸쳐 나눠 처리할 수 있어
-/// 사이클이 아니라 sweep이 행 단위다) 종료 시점의 활동 이력을 append-only로 남긴다. `data-modeling.md`
+/// 사이클이 아니라 sweep이 행 단위다) 종료 시점의 활동 이력을 append-only로 남긴다. 저장소를 연결하자마자
+/// 도는 즉시 수집도 저장소 하나짜리 수집으로 한 행을 남긴다(`kind`, #1133) — 남기지 않으면 그 수집이 넣은
+/// 기록이 「최근 수집 활동」과 외부 저장소 누적 합계에서 빠진다. `data-modeling.md`
 /// §4의 두 모델링 축(user↔repository, repository↔history) 중 어디에도 정확히 들어맞지 않지만,
 /// `CollectionSyncCursor`(같은 appId+scope 프로세스 키, 같은 운영 bookkeeping 목적)가 이미 그 축 밖에서
 /// 인정된 선례라 같은 예외로 취급한다. repository 이름은 담지 않는다(집계 전용 — `collection-read.port.ts`
@@ -1454,6 +1463,7 @@ model CollectionSweepHistory {
   insertedCommitCount      Int
   insertedPullRequestCount Int
   insertedReleaseCount     Int
+  insertedIssueCount       Int @default(0)
 
   attemptedRepositoryCount Int
   processedRepositoryCount Int
@@ -1461,6 +1471,8 @@ model CollectionSweepHistory {
 
   cycleCompleted   Boolean
   stoppedForBudget Boolean
+
+  kind CollectionRunKind @default(SWEEP)
 
   @@index([sweepFinishedAt])
 }

@@ -16,9 +16,11 @@ const completedOrgSweep: CollectionActivityEntry = {
   sweepFinishedAt: '2026-08-10T09:00:00.000Z',
   cycleStartedAt: '2026-08-10T08:55:00.000Z',
   scope: 'org:jnu-swcu',
+  kind: 'SWEEP',
   insertedCommitCount: 12,
   insertedPullRequestCount: 3,
   insertedReleaseCount: 1,
+  insertedIssueCount: 0,
   attemptedRepositoryCount: 8,
   processedRepositoryCount: 8,
   failedRepositoryCount: 0,
@@ -31,9 +33,11 @@ const budgetStoppedExternalSweep: CollectionActivityEntry = {
   sweepFinishedAt: '2026-08-10T08:00:00.000Z',
   cycleStartedAt: '2026-08-10T07:00:00.000Z',
   scope: 'external',
+  kind: 'SWEEP',
   insertedCommitCount: 4,
   insertedPullRequestCount: 0,
   insertedReleaseCount: 0,
+  insertedIssueCount: 0,
   attemptedRepositoryCount: 10,
   processedRepositoryCount: 6,
   failedRepositoryCount: 2,
@@ -46,9 +50,11 @@ const emptySweep: CollectionActivityEntry = {
   sweepFinishedAt: '2026-08-10T07:00:00.000Z',
   cycleStartedAt: '2026-08-10T06:55:00.000Z',
   scope: 'org:jnu-swcu',
+  kind: 'SWEEP',
   insertedCommitCount: 0,
   insertedPullRequestCount: 0,
   insertedReleaseCount: 0,
+  insertedIssueCount: 0,
   attemptedRepositoryCount: 5,
   processedRepositoryCount: 5,
   failedRepositoryCount: 0,
@@ -61,13 +67,32 @@ const unknownScopeSweep: CollectionActivityEntry = {
   sweepFinishedAt: '2026-08-10T06:00:00.000Z',
   cycleStartedAt: null,
   scope: 'unknown-scope',
+  kind: 'SWEEP',
   insertedCommitCount: 1,
   insertedPullRequestCount: 0,
   insertedReleaseCount: 0,
+  insertedIssueCount: 0,
   attemptedRepositoryCount: 1,
   processedRepositoryCount: 1,
   failedRepositoryCount: 0,
   cycleCompleted: true,
+  stoppedForBudget: false,
+};
+
+// 저장소를 연결하자마자 그 저장소 하나만 모은 수집(#1133) — 순회가 아니다.
+const linkCollection: CollectionActivityEntry = {
+  sweepFinishedAt: '2026-08-10T09:30:00.000Z',
+  cycleStartedAt: null,
+  scope: 'external',
+  kind: 'REPOSITORY_LINK',
+  insertedCommitCount: 141,
+  insertedPullRequestCount: 13,
+  insertedReleaseCount: 0,
+  insertedIssueCount: 2,
+  attemptedRepositoryCount: 1,
+  processedRepositoryCount: 1,
+  failedRepositoryCount: 0,
+  cycleCompleted: false,
   stoppedForBudget: false,
 };
 
@@ -121,6 +146,46 @@ describe('CollectionActivityFeed', () => {
       (el) => el.textContent?.trim() === '실패 2',
     );
     expect(failedNode?.className).toContain('text-destructive');
+  });
+
+  it('연결 즉시 수집은 순회 상태 대신 「연결 즉시 수집」으로, Issue까지 건수를 보인다', async () => {
+    await renderFeed([linkCollection]);
+    expect(feedText()).toContain('외부');
+    expect(feedText()).toContain('연결 즉시 수집');
+    expect(feedText()).toContain('Commit 141 · PR 13 · Release 0 · Issue 2');
+    expect(feedText()).toContain('저장소 1/1');
+    // 사이클이 아니므로 순회 상태 말을 붙이지 않는다.
+    expect(feedText()).not.toContain('진행 중');
+    expect(feedText()).not.toContain('전체 순회 완료');
+    const badge = [...container.querySelectorAll('[data-variant]')].find(
+      (el) => el.textContent?.trim() === '연결 즉시 수집',
+    );
+    expect(badge?.getAttribute('data-variant')).toBe('approved');
+  });
+
+  it('실패한 연결 즉시 수집은 「연결 즉시 수집 실패」를 빨간 배지로 보인다', async () => {
+    await renderFeed([
+      {
+        ...linkCollection,
+        insertedCommitCount: 0,
+        insertedPullRequestCount: 0,
+        insertedIssueCount: 0,
+        processedRepositoryCount: 0,
+        failedRepositoryCount: 1,
+      },
+    ]);
+    const badge = [...container.querySelectorAll('[data-variant]')].find(
+      (el) => el.textContent?.trim() === '연결 즉시 수집 실패',
+    );
+    expect(badge?.getAttribute('data-variant')).toBe('rejected');
+    expect(feedText()).toContain('실패 1');
+    expect(feedText()).toContain('신규 데이터 없음');
+  });
+
+  it('Issue만 새로 모은 순회도 「신규 데이터 없음」이 아니다', async () => {
+    await renderFeed([{ ...emptySweep, insertedIssueCount: 3 }]);
+    expect(feedText()).toContain('Commit 0 · PR 0 · Release 0 · Issue 3');
+    expect(feedText()).not.toContain('신규 데이터 없음');
   });
 
   it('완료되지 않았고 수집 한도에 도달도 아니면 「진행 중」을 표시한다', async () => {

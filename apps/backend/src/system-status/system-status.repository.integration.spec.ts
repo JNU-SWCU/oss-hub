@@ -42,3 +42,74 @@ it('counts the new external link instead of the detached external one', async ()
   const after = await status.getExternalCollectionStatus();
   expect(after.trackedRepositoryCount).toBe(before.trackedRepositoryCount);
 });
+
+it('adds link-time collections and issues to the external totals while the last run stays a full sweep', async () => {
+  // Given: an external sweep, then a link-time collection of one repository (#1133) — both later
+  // than any row other specs left (some run their clock in 2099), so they are the newest.
+  const before = await status.getExternalCollectionStatus();
+  const newest = await prisma.collectionSweepHistory.aggregate({
+    _max: { sweepFinishedAt: true },
+  });
+  const sweepAt = new Date(
+    Math.max(newest._max.sweepFinishedAt?.getTime() ?? 0, Date.now()) + 60_000,
+  );
+  const base = {
+    appId: 1n,
+    scope: 'external',
+    cycleStartedAt: null,
+    failedRepositoryCount: 0,
+    stoppedForBudget: false,
+  };
+  const sweep = await prisma.collectionSweepHistory.create({
+    data: {
+      ...base,
+      kind: 'SWEEP',
+      sweepFinishedAt: sweepAt,
+      insertedCommitCount: 1,
+      insertedPullRequestCount: 0,
+      insertedReleaseCount: 0,
+      insertedIssueCount: 2,
+      attemptedRepositoryCount: 3,
+      processedRepositoryCount: 3,
+      cycleCompleted: true,
+    },
+  });
+  const link = await prisma.collectionSweepHistory.create({
+    data: {
+      ...base,
+      kind: 'REPOSITORY_LINK',
+      sweepFinishedAt: new Date(sweepAt.getTime() + 30 * 60_000),
+      insertedCommitCount: 141,
+      insertedPullRequestCount: 13,
+      insertedReleaseCount: 0,
+      insertedIssueCount: 0,
+      attemptedRepositoryCount: 1,
+      processedRepositoryCount: 1,
+      cycleCompleted: false,
+    },
+  });
+  try {
+    // When
+    const after = await status.getExternalCollectionStatus();
+    const recent = await status.getRecentSweepActivity(2);
+    // Then: both kinds add up, issues included — the next sweep never recounts what a link-time
+    // collection stored.
+    expect(after.cumulativeCommitCount - before.cumulativeCommitCount).toBe(
+      142,
+    );
+    expect(
+      after.cumulativePullRequestCount - before.cumulativePullRequestCount,
+    ).toBe(13);
+    expect(after.cumulativeIssueCount - before.cumulativeIssueCount).toBe(2);
+    // 「최근 외부 수집 실행」 speaks for the sweep: the newer one-repository run is not it.
+    expect(after.lastSweep).toMatchObject({
+      kind: 'SWEEP',
+      attemptedRepositoryCount: 3,
+    });
+    expect(recent.map((row) => row.kind)).toEqual(['REPOSITORY_LINK', 'SWEEP']);
+  } finally {
+    await prisma.collectionSweepHistory.deleteMany({
+      where: { id: { in: [sweep.id, link.id] } },
+    });
+  }
+});

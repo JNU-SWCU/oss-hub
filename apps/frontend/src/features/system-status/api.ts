@@ -1,5 +1,7 @@
 import { apiClient } from '@/lib/api-client';
 import type {
+  CollectionActivityEntry,
+  CollectionActivityWire,
   ExternalCollectionStatus,
   SystemStatusData,
   SystemStatusResponse,
@@ -18,7 +20,17 @@ const DEFAULT_EXTERNAL_COLLECTION: ExternalCollectionStatus = {
   cumulativeCommitCount: 0,
   cumulativePullRequestCount: 0,
   cumulativeReleaseCount: 0,
+  cumulativeIssueCount: 0,
 };
+
+/** 구버전 백엔드의 활동 한 줄에는 종류·Issue 칸이 없다 — 그때 있던 기록은 전부 순회였다. */
+function toActivity(entry: CollectionActivityWire): CollectionActivityEntry {
+  return {
+    ...entry,
+    kind: entry.kind ?? 'SWEEP',
+    insertedIssueCount: entry.insertedIssueCount ?? 0,
+  };
+}
 
 export async function fetchSystemStatus(): Promise<SystemStatusData> {
   const response = await apiClient<SystemStatusResponse>('system-status');
@@ -30,10 +42,18 @@ export async function fetchSystemStatus(): Promise<SystemStatusData> {
     collectionStreams: response.collectionStreams ?? [],
     // collectionActivity도 같은 배포 window 문제를 겪는다(2단계) — 구버전
     // 백엔드는 이 필드 자체를 보내지 않는다.
-    collectionActivity: response.collectionActivity ?? [],
+    collectionActivity: (response.collectionActivity ?? []).map(toActivity),
     // externalCollection도 같은 배포 window 문제를 겪는다(3단계).
-    externalCollection:
-      response.externalCollection ?? DEFAULT_EXTERNAL_COLLECTION,
+    externalCollection: response.externalCollection
+      ? {
+          ...response.externalCollection,
+          lastSweep: response.externalCollection.lastSweep
+            ? toActivity(response.externalCollection.lastSweep)
+            : null,
+          cumulativeIssueCount:
+            response.externalCollection.cumulativeIssueCount ?? 0,
+        }
+      : DEFAULT_EXTERNAL_COLLECTION,
   };
 }
 
