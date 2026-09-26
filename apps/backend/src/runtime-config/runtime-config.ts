@@ -4,7 +4,6 @@
  */
 
 export const RUNTIME_CONFIG_KEYS = [
-  'NODE_ENV',
   'AUTH_INITIAL_ROLES',
   'SESSION_SECRET',
   'FRONTEND_URL',
@@ -54,7 +53,6 @@ export type RuntimeConfig = Readonly<{
  */
 export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
   return Object.freeze({
-    NODE_ENV: env.NODE_ENV,
     AUTH_INITIAL_ROLES: env.AUTH_INITIAL_ROLES,
     SESSION_SECRET: env.SESSION_SECRET,
     FRONTEND_URL: env.FRONTEND_URL,

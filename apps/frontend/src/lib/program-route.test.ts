@@ -37,15 +37,15 @@ describe('program-route href helpers', () => {
 
   it('우리 팀 경로는 programId를 인코딩한다', () => {
     expect(programMyTeamHref('program:basic')).toBe(
-      '/programs/program%3Abasic/my-team',
+      '/programs/program%3Abasic/team',
     );
-    expect(programMyTeamHref('a/b')).toBe('/programs/a%2Fb/my-team');
+    expect(programMyTeamHref('a/b')).toBe('/programs/a%2Fb/team');
   });
 
   it('우리 팀 경로는 신청·참여 팀 목록 어느 쪽도 아니다', () => {
     const href = programMyTeamHref('prog-1');
 
-    expect(href).toBe('/programs/prog-1/my-team');
+    expect(href).toBe('/programs/prog-1/team');
     expect(href).not.toContain('/apply');
     expect(href).not.toBe(programApplyHref('prog-1'));
     // 공개 참여 팀 디렉터리(`/teams`)와도 다른 주소다.

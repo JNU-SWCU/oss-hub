@@ -107,7 +107,6 @@ type Fixture = {
   readonly collectionCommitFactId: string;
   readonly collectionPullRequestFactId: string;
   readonly collectionReleaseFactId: string;
-  readonly publicShowcaseContributorId: string;
   readonly publishedRepositoryId: string;
   readonly publishedGithubRepositoryId: bigint;
 };
@@ -259,9 +258,6 @@ async function cleanup(): Promise<void> {
   });
   await prisma.milestone.deleteMany({
     where: { program: { id: { startsWith: PREFIX } } },
-  });
-  await prisma.publicShowcaseRepository.deleteMany({
-    where: { programId: { startsWith: PREFIX } },
   });
   // Program을 가리키는 OutboxEvent(aggregateType='PROGRAM', aggregateId=programId)와
   // Application을 가리키는 OutboxEvent(aggregateType='Application', aggregateId=applicationId)를
@@ -777,35 +773,6 @@ async function seedFullChildGraph(
     },
   });
 
-  await prisma.publicShowcaseRepository.create({
-    data: {
-      repositoryId: provisionedRepositoryId,
-      githubRepositoryId: provisionedGithubRepositoryId,
-      repositoryName: `${label}-provisioned`,
-      repositoryUrl: `https://github.com/purge7-org/${label}-provisioned`,
-      publishedAt: NOW,
-      programId,
-      programName: `합성 purge 대상 프로그램 ${label}`,
-      programCategory: ProgramCategory.CAPSTONE,
-      programEndAt: new Date('2026-09-30T00:00:00.000Z'),
-      teamName: `합성 팀 ${label}`,
-      displayName: `synthetic-purge7-applicant-${label}`,
-      approvedSubmissionCount: 1,
-    },
-  });
-
-  // PublicShowcaseRepository의 실제 FK Cascade 자식 — publicShowcaseRepository 삭제 시
-  // 별도 코드 없이 DB가 함께 지우는지 검증한다.
-  const publicShowcaseContributorId = p('public-showcase-contributor');
-  await prisma.publicShowcaseContributor.create({
-    data: {
-      id: publicShowcaseContributorId,
-      repositoryId: provisionedRepositoryId,
-      userId: applicantId,
-      githubNickname: `synthetic-purge7-applicant-${label}`,
-    },
-  });
-
   await prisma.outboxEvent.create({
     data: {
       id: p('outbox-event'),
@@ -912,7 +879,6 @@ async function seedFullChildGraph(
     collectionCommitFactId,
     collectionPullRequestFactId,
     collectionReleaseFactId,
-    publicShowcaseContributorId,
     publishedRepositoryId,
     publishedGithubRepositoryId,
   };
@@ -976,7 +942,6 @@ async function programChildRowCounts(
     repositoryProvisionJobs,
     programCreateRequests,
     programAuthoringUploadsAttached,
-    publicShowcaseRepositories,
     programOutboxEvents,
     applicationOutboxEvents,
     programLinkedNotifications,
@@ -1034,7 +999,6 @@ async function programChildRowCounts(
     prisma.programAuthoringUpload.count({
       where: { createRequest: { is: { programId } } },
     }),
-    prisma.publicShowcaseRepository.count({ where: { programId } }),
     prisma.outboxEvent.count({
       where: { aggregateType: 'PROGRAM', aggregateId: programId },
     }),
@@ -1079,7 +1043,6 @@ async function programChildRowCounts(
     repositoryProvisionJobs,
     programCreateRequests,
     programAuthoringUploadsAttached,
-    publicShowcaseRepositories,
     outboxEvents: programOutboxEvents + applicationOutboxEvents,
     programLinkedNotifications,
   };
@@ -1103,7 +1066,6 @@ const ALL_ZERO = {
   repositoryProvisionJobs: 0,
   programCreateRequests: 0,
   programAuthoringUploadsAttached: 0,
-  publicShowcaseRepositories: 0,
   outboxEvents: 0,
   programLinkedNotifications: 0,
 };
@@ -1216,13 +1178,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(before.outboxEvents).toBe(2); // program-scoped 1 + application-scoped 1
     expect(before.programLinkedNotifications).toBe(2); // APPLICATION_DECISION + DEADLINE_DIGEST
 
-    // purge 전: PublicShowcaseContributor, RepositoryInvitation, 수집 손자, ACKNOWLEDGED
-    // 알림이 전부 존재한다.
-    await expect(
-      prisma.publicShowcaseContributor.findUnique({
-        where: { id: fixture.publicShowcaseContributorId },
-      }),
-    ).resolves.not.toBeNull();
+    // purge 전: RepositoryInvitation, 수집 손자, ACKNOWLEDGED 알림이 전부 존재한다.
     await expect(
       prisma.repositoryInvitation.findUnique({
         where: { id: fixture.repositoryInvitationId },
@@ -1326,13 +1282,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       outcome: RepositoryIssuanceOutcome.SUCCEEDED,
       repositoryId: fixture.provisionedRepositoryId,
     });
-
-    // PublicShowcaseContributor는 PublicShowcaseRepository FK의 ON DELETE CASCADE로 함께 지워진다.
-    await expect(
-      prisma.publicShowcaseContributor.findUnique({
-        where: { id: fixture.publicShowcaseContributorId },
-      }),
-    ).resolves.toBeNull();
 
     // GithubRepository는 detach만 되고 삭제되지 않으므로, 그 아래 수집/초대 손자 행은
     // 그대로 보존된다(PRESERVE) — matrix의 명시적 분류와 일치.

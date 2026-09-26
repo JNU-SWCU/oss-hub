@@ -37,6 +37,7 @@ const backendOnlyPaths = [
   'scripts/check-member-authority-contract.sh',
   'scripts/rehearse-member-authority-contract*',
   'scripts/rehearse-legacy-submission-migrations*',
+  'scripts/rehearse-legacy-table-drop*',
 ];
 
 /** 계약 정적 계약은 Prisma migration contract 단계가 required CI에서 돌린다. */
@@ -47,6 +48,8 @@ const contractTests = [
   // 파괴적 legacy-submission 이관 리허설의 정적 계약 — 컨테이너 리허설 자체는
   // PostgreSQL이 필요해 required CI가 아니라 릴리스 준비 단계에서 손으로 돈다.
   'scripts/rehearse-legacy-submission-migrations.test.mjs',
+  // 옛 표 네 개 삭제 이관 리허설의 정적 계약(#1133) — 위와 같은 이유로 손으로 돈다.
+  'scripts/rehearse-legacy-table-drop.test.mjs',
 ];
 
 const deploymentHardeningPaths = [
@@ -74,9 +77,8 @@ const deploymentHardeningCommands = [
   'bash scripts/prune-deploy-backups.test.sh',
 ];
 
-const localNginxPath = 'deploy/nginx-local/**';
-const localNginxCommand =
-  '$PWD/deploy/nginx-local/nginx.conf:/etc/nginx/conf.d/default.conf:ro';
+const nginxSyntaxCommand =
+  '$PWD/deploy/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro';
 
 function validate(workflowSource, docsSource) {
   const backend = section(
@@ -150,30 +152,14 @@ function validateDeploymentHardening(workflowSource, docsSource) {
   }
 }
 
-function validateLocalNginx(workflowSource, docsSource) {
-  const nginx = section(
-    workflowSource,
-    '            nginx:',
-    '            production_compose:',
-  );
-  const productionCompose = section(
-    workflowSource,
-    '            production_compose:',
-    '            jenkins:',
-  );
-  assert.match(nginx, new RegExp(escapeRegex(`'${localNginxPath}'`)));
-  assert.match(
-    productionCompose,
-    new RegExp(escapeRegex(`'${localNginxPath}'`)),
-  );
-  assert.match(docsSource, new RegExp(escapeRegex(localNginxPath)));
-
+// 운영 배포는 로컬 stack 없이 이 nginx -t 하나로 ingress 설정 문법을 검증한다.
+function validateNginxSyntaxCheck(workflowSource) {
   const nginxStep = section(
     workflowSource,
     '      - name: nginx ingress 계약 검사',
     '      - name: Jenkins 배포 계약 회귀 테스트',
   );
-  assert.match(nginxStep, new RegExp(escapeRegex(localNginxCommand)));
+  assert.match(nginxStep, new RegExp(escapeRegex(nginxSyntaxCommand)));
   assert.match(nginxStep, /nginx -t/);
 }
 
@@ -185,8 +171,8 @@ test('deployment hardening paths run production env and image contracts', () => 
   validateDeploymentHardening(workflow, docs);
 });
 
-test('local nginx path selects syntax and local-compose validation', () => {
-  validateLocalNginx(workflow, docs);
+test('production nginx 설정으로 syntax 검사가 돈다', () => {
+  validateNginxSyntaxCheck(workflow);
 });
 
 test('deployment hardening path and command drift fail closed', () => {
@@ -205,15 +191,9 @@ test('deployment hardening path and command drift fail closed', () => {
   }
 });
 
-test('local nginx path and syntax command drift fail closed', () => {
+test('nginx syntax 검사 command drift fail closed', () => {
   assert.throws(() =>
-    validateLocalNginx(workflow.replaceAll(`'${localNginxPath}'`, ''), docs),
-  );
-  assert.throws(() =>
-    validateLocalNginx(workflow, docs.replaceAll(localNginxPath, '')),
-  );
-  assert.throws(() =>
-    validateLocalNginx(workflow.replace(localNginxCommand, ''), docs),
+    validateNginxSyntaxCheck(workflow.replace(nginxSyntaxCommand, '')),
   );
 });
 

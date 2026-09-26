@@ -43,7 +43,7 @@ test('신청도 팀도 없는 학생의 프로그램 화면에는 4xx와 콘솔 
   // 시드 id에는 `:`가 들어가 요청 경로에서는 인코딩된 채로 보인다.
   const encoded = encodeURIComponent(programId);
   const scoped = `/programs/${encoded}`;
-  for (const route of [scoped, `${scoped}/apply`, `${scoped}/my-team`]) {
+  for (const route of [scoped, `${scoped}/apply`, `${scoped}/team`]) {
     await student.goto(route);
     await student.waitForLoadState('networkidle');
   }

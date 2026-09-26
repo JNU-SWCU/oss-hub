@@ -434,6 +434,23 @@ export class MilestoneDocumentFilesController {
       file,
     );
   }
+
+  /**
+   * 고른 파일을 제출 전에 판정만 한다(#1108). 통과는 204, 거절은 업로드와 같은 코드·상태다.
+   * 가드와 multipart 한도는 `upload`와 같고, 파일을 저장하지 않으며 DB에도 쓰지 않는다.
+   * 제출 파일 판정(`POST /submission-files/checks`)과 경로를 나눈 것은 두 업로드가 오류 코드
+   * 체계(SUB·MSD)와 multipart 한도가 서로 다르기 때문이다 — 한 경로로 합치면 요청마다
+   * 종류를 받아 두 레지스트리를 갈라야 한다.
+   */
+  @Post('checks')
+  @HttpCode(204)
+  @UseGuards(SessionGuard, OriginGuard)
+  @UseInterceptors(MilestoneDocumentFileUploadInterceptor)
+  check(
+    @UploadedFile() file: MilestoneDocumentFileUpload | undefined,
+  ): Promise<void> {
+    return this.service.check(file);
+  }
 }
 
 /** 실패 로그가 「어느 내려받기였는가」를 말하기 위해 필요한 것. 응답에는 쓰지 않는다. */

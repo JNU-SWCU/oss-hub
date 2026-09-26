@@ -107,6 +107,21 @@ const rule = {
               additionalProperties: false,
             },
           },
+          // #1427 — 운영 코드(src 비-테스트 파일)는 테스트 코드를 참조하지 않는다.
+          testBoundary: {
+            type: 'object',
+            properties: {
+              // `apps/backend/test` 절대경로. import 대상이 이 아래면 테스트 코드다.
+              testDir: { type: 'string' },
+              // basename이 이 정규식 소스 문자열에 매치되면 테스트 파일이다
+              // (`.spec.ts`/`*fixture(s).ts`/`*support.ts`). RegExp 리터럴은 JSON
+              // schema를 통과하지 못하므로 문자열로 받아 rule 안에서 컴파일한다.
+              basenamePattern: { type: 'string' },
+              message: { type: 'string' },
+            },
+            required: ['testDir', 'basenamePattern'],
+            additionalProperties: false,
+          },
         },
         required: ['srcRoot'],
         additionalProperties: false,
@@ -118,6 +133,7 @@ const rule = {
       encapsulated: '{{message}}',
       reverse: '{{message}}',
       rolePath: '{{message}}',
+      testBoundary: '{{message}}',
     },
   },
 
@@ -133,6 +149,10 @@ const rule = {
     const encapsulated = options.encapsulated ?? [];
     const reverseDeny = options.reverseDeny ?? [];
     const rolePathDeny = options.rolePathDeny ?? [];
+    const testBoundary = options.testBoundary ?? null;
+    const testBasenameRegex = testBoundary
+      ? new RegExp(testBoundary.basenamePattern)
+      : null;
 
     const filename = context.filename;
     const self = toZone(filename, srcRoot);
@@ -140,6 +160,11 @@ const rule = {
     if (self === null) {
       return {};
     }
+    // 이 파일 자체가 테스트 파일이면(예: `*.spec.ts`가 같은 zone의 fixture를
+    // import) testBoundary를 면제한다 — 테스트가 테스트를 참조하는 건 정상이다.
+    const selfIsTestFile =
+      testBasenameRegex !== null &&
+      testBasenameRegex.test(path.basename(filename));
 
     function checkSpecifier(node, specifierValue) {
       // 상대 경로만 본다. 패키지 import 는 이 규칙의 관심사가 아니다.
@@ -147,6 +172,34 @@ const rule = {
         return;
       }
       const targetAbs = path.resolve(path.dirname(filename), specifierValue);
+
+      // #1427 — 운영 코드는 테스트 코드를 모른다. zone/역할 판정보다 먼저 본다.
+      if (testBoundary && !selfIsTestFile) {
+        const relativeToTestDir = path.relative(
+          testBoundary.testDir,
+          targetAbs,
+        );
+        const underTestDir =
+          relativeToTestDir !== '' &&
+          !relativeToTestDir.startsWith('..') &&
+          !path.isAbsolute(relativeToTestDir);
+        const targetIsTestFile = testBasenameRegex.test(
+          path.basename(targetAbs),
+        );
+        if (underTestDir || targetIsTestFile) {
+          context.report({
+            node,
+            messageId: 'testBoundary',
+            data: {
+              message:
+                testBoundary.message ??
+                '운영 코드는 테스트 코드를 참조하지 않는다.',
+            },
+          });
+          return;
+        }
+      }
+
       const target = toZone(targetAbs, srcRoot);
       if (target === null) {
         return;

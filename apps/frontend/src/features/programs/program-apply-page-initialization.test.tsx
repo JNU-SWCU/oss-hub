@@ -567,7 +567,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     });
     expect(createApplicationMock).toHaveBeenCalledOnce();
     const myTeamLink = container.querySelector<HTMLAnchorElement>(
-      'a[href="/programs/program-alone/my-team"]',
+      'a[href="/programs/program-alone/team"]',
     );
     expect(myTeamLink?.textContent).toContain('우리 팀 보기');
     expect(pushMock).not.toHaveBeenCalled();
@@ -1107,7 +1107,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(createApplicationMock).toHaveBeenCalledOnce();
     expect(createTeamMock).not.toHaveBeenCalled();
     const myTeamLink = container.querySelector<HTMLAnchorElement>(
-      'a[href="/programs/program-done/my-team"]',
+      'a[href="/programs/program-done/team"]',
     );
     expect(myTeamLink?.textContent).toContain('우리 팀 보기');
     expect(pushMock).not.toHaveBeenCalled();

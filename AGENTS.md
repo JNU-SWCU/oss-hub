@@ -3,7 +3,7 @@
 ## Project Overview
 
 OSS Hub는 오픈소스 프로그램 탐색·신청·제출·리뷰, 역할 기반 운영, GitHub 저장소·활동 수집을 제공하는 한국어 웹 서비스다.
-이 저장소는 PUBLIC monorepo이며 Next.js frontend(Vercel), NestJS backend, PostgreSQL, private managed R2, nginx와 배포 계약을 함께 관리한다(object-storage는 `compose.local.yml`의 local substitute만).
+이 저장소는 PUBLIC monorepo이며 Next.js frontend(Vercel), NestJS backend, PostgreSQL, private managed R2, nginx와 배포 계약을 함께 관리한다(object-storage는 `compose.dev.yml`의 local substitute만).
 작업 전 루트부터 대상 경로까지의 `AGENTS.md`를 순서대로 읽고 가장 가까운 규칙을 우선한다.
 상세 규칙은 이 문서에 복제하지 않고 `docs/rules/`, `docs/decisions/`, 해당 경로의 `AGENTS.md`를 따른다.
 
@@ -16,7 +16,7 @@ OSS Hub는 오픈소스 프로그램 탐색·신청·제출·리뷰, 역할 기�
   `apiPath`, `apiClient`, `apiFileClient`를 사용하고 `/api/v1`, `fetch`, 다운로드 파일명 파싱을 callsite에서 재구현하지 않는다.
 - `apps/backend/src/main.ts`는 `api/v1` prefix, transform + whitelist validation, global ProblemDetail filter를 설치한다.
 - backend 기능은 `AppModule`에 Nest module로 조립하고 runtime 설정은 `RUNTIME_CONFIG` DI token으로 받는다.
-  주석으로 정한 module import 순서와 E2E 전용 feature gate를 보존한다.
+  주석으로 정한 module import 순서를 보존한다. E2E 대역은 `apps/backend/test/e2e-program-authoring/main.ts`에서만 끼운다.
 - 업무 계층은 Controller → Service → Repository → Prisma다.
   PostgreSQL 직접 접근은 backend repository만 하며 controller와 일반 service의 Prisma 접근을 금지한다.
 - 공개 endpoint가 private table을 읽을 때는 owner-approved public query repository에서 명시적 `select`, public DTO allowlist, private/nonexistent 동일 404를 적용한다.
@@ -49,8 +49,6 @@ Node.js 24 이상과 pnpm 11.0.0을 사용하고 `corepack enable`로 pnpm을 �
 | Install | `pnpm install` |
 | Host hot reload | `pnpm dev` |
 | Development DB only | `pnpm db:up` |
-| Production-like local stack | `pnpm local:up` |
-| Verify / stop local stack | `pnpm local:verify` / `pnpm local:down` |
 | Create development migration | `pnpm db:migrate:dev` |
 | Focused package check | `pnpm --filter frontend <script>` or `pnpm --filter backend <script>` |
 | Whole workspace | `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm test` |
@@ -58,12 +56,11 @@ Node.js 24 이상과 pnpm 11.0.0을 사용하고 `corepack enable`로 pnpm을 �
 
 **일상 개발의 기본 진입점은 반드시 `pnpm dev`다.**
 frontend·backend 애플리케이션은 호스트에서 hot reload로 실행하고, Docker는 PostgreSQL·object-storage 같은 개발 인프라에만 사용한다.
-에이전트는 일반 구현·디버깅·UI 확인을 위해 앱 컨테이너를 빌드하거나 `pnpm local:up`을 실행하지 않는다.
-앱까지 Docker로 실행하는 `pnpm local:up`·`pnpm local:verify`는 배포 전 production-like 통합 검증, 컨테이너·nginx·Compose 계약 변경, 또는 사용자가 명시적으로 요청한 경우에만 사용한다.
+에이전트는 일반 구현·디버깅·UI 확인을 위해 앱 컨테이너를 빌드하지 않는다.
 실제 production은 frontend는 Vercel, backend는 Docker Compose/Jenkins이므로 “배포는 전부 Docker”로 표현하지 않는다.
+배포 전 production-like 통합 검증은 CI required check와 Jenkins release 경로(image build, `prisma migrate deploy`, `nginx -t`, health/rollback smoke)가 맡으며 로컬에 별도 절차를 두지 않는다.
 
-`pnpm dev`는 `.envrc`와 host `localhost` 경계를, `pnpm local:*`은 `.env`와 Compose service DNS 경계를 사용한다.
-두 환경의 DB/object-storage 주소를 복사하지 말고 상세 선택 기준은 `docs/rules/local-dev.md`를 따른다.
+`pnpm dev`는 `.envrc`와 host `localhost` 경계를 사용한다. 상세 선택 기준은 `docs/rules/local-dev.md`를 따른다.
 `compose.yml`은 prebuilt release image와 production secret을 요구하므로 local development entry point로 사용하지 않는다.
 코드·설정을 바꾸는 세션에서는 관련 open PR을 한 번 확인하고 `bash scripts/setup-hooks.sh`로 repository hooks를 활성화한다.
 정보 질의·기획·보고만 하는 작업은 이 선행을 실행하지 않는다.
@@ -112,7 +109,7 @@ PUBLIC safety:
 | `apps/backend/src/app.module.ts` | backend module/DI composition root |
 | `apps/backend/prisma/schema.prisma` | current persistence model; migrations remain historical source |
 | `.env.example` | environment variable names only; no values |
-| `compose.dev.yml`, `compose.local.yml`, `compose.yml` | development DB, local integration, production runtime contracts |
+| `compose.dev.yml`, `compose.yml` | development DB, production runtime contracts |
 | `.github/workflows/ci.yml` | always-created required checks와 inner path-selective lanes |
 | `Jenkinsfile` | stable GitHub Release → exact main SHA production deployment |
 | `docs/rules/ci-path-verification.md` | changed path별 required verification matrix |
@@ -139,7 +136,7 @@ repo 스킬 다섯 개(`run-release-qa`, `manage-qa-tickets`, `submit-pr-evidenc
 ## Testing & QA
 
 - 경로별 검증 명령은 `docs/rules/ci-path-verification.md`가 원본이다.
-  로컬 실행 경로(`pnpm dev` 대 `pnpm local:*`)는 `docs/rules/local-dev.md`가 원본이다.
+  로컬 실행 경로는 `docs/rules/local-dev.md`가 원본이다.
 - frontend unit/helper는 Vitest 기본 Node environment다.
   DOM이 필요한 파일만 happy-dom을 명시한다.
 - browser spec은 `apps/frontend/e2e/**/*.spec.ts`의 Playwright 소유이고 `e2e/support/**/*.test.ts`는 Vitest 소유다.
@@ -152,7 +149,7 @@ repo 스킬 다섯 개(`run-release-qa`, `manage-qa-tickets`, `submit-pr-evidenc
   integration은 `pnpm --filter backend test:integration`의 isolated runner만 사용하고 임의 PostgreSQL에 붙이지 않는다.
   focused script가 integration/E2E wrapper를 부르면 cheap test로 간주하지 않는다.
 - observable behavior, edge values, branch conditions, error handling을 검증하고 default/tautology test를 추가하지 않는다.
-- `pnpm local:verify`는 production-like 통합이 필요할 때만 쓴다.
+- production-like 통합 검증은 CI required check와 Jenkins release 경로가 맡는다.
   backup pruning과 Jenkins deploy helper는 승인된 Jenkins 경로 밖에서 수동 실행하지 않는다.
 - PR에는 실제 실행한 검증만 기록하며 warning이나 test를 숨겨 통과시키지 않는다.
   적용되는 증거가 없으면 제출하지 않는다.

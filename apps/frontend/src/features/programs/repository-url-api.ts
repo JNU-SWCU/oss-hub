@@ -40,30 +40,40 @@ export function parseRepositoryUrlState(value: unknown): RepositoryUrlState {
   };
 }
 
-export async function getRepositoryUrl(
-  programId: string,
-): Promise<RepositoryUrlState> {
-  return parseRepositoryUrlState(
-    await apiClient<unknown>(
-      `programs/${encodeURIComponent(programId)}/applications/me/repository-url`,
-    ),
-  );
-}
-
-export async function updateRepositoryUrl(
-  programId: string,
+async function patchRepositoryUrl(
+  path: string,
   input: RepositoryUrlInput,
 ): Promise<RepositoryUrlState> {
   return parseRepositoryUrlState(
-    await apiClient<unknown>(
-      `programs/${encodeURIComponent(programId)}/applications/me/repository-url`,
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          repositoryUrl: input.repositoryUrl.trim(),
-        }),
-      },
-    ),
+    await apiClient<unknown>(path, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        repositoryUrl: input.repositoryUrl.trim(),
+      }),
+    }),
+  );
+}
+
+/** 학생 팀장 — 내 신청의 저장소를 바꾼다. */
+export function updateRepositoryUrl(
+  programId: string,
+  input: RepositoryUrlInput,
+): Promise<RepositoryUrlState> {
+  return patchRepositoryUrl(
+    `programs/${encodeURIComponent(programId)}/applications/me/repository-url`,
+    input,
+  );
+}
+
+/** 교직원 — 팀 상세에서 같은 본문으로 그 팀의 저장소를 바꾼다(#1133). */
+export function updateTeamRepositoryUrl(
+  programId: string,
+  teamId: string,
+  input: RepositoryUrlInput,
+): Promise<RepositoryUrlState> {
+  return patchRepositoryUrl(
+    `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}/repository-url`,
+    input,
   );
 }

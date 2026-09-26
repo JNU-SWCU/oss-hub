@@ -10,11 +10,13 @@ import { CollectionAppClientError } from '../collection-app.client';
 import type {
   CollectionAppClient,
   CollectionCommit,
+  CollectionIssue,
   CollectionPullRequest,
   CollectionRelease,
   CollectionRepository as ProviderRepository,
   CommitHeadProbeResult,
   CommitTraversalResult,
+  IssueIncrementalResult,
   PullRequestIncrementalResult,
   ReleaseListingResult,
   ReleaseProbeResult,
@@ -65,6 +67,7 @@ interface Store {
   commitFacts: Map<string, Row>;
   pullRequestFacts: Map<string, Row>;
   releaseFacts: Map<string, Row>;
+  issueFacts: Map<string, Row>;
   contributions: Map<string, Row>;
   recomputeCalls: number;
   streams: Map<string, Row>;
@@ -93,6 +96,7 @@ const emptyStore = (): Store => ({
   commitFacts: new Map(),
   pullRequestFacts: new Map(),
   releaseFacts: new Map(),
+  issueFacts: new Map(),
   contributions: new Map(),
   recomputeCalls: 0,
   streams: new Map(),
@@ -108,6 +112,7 @@ const cloneStore = (store: Store): Store => ({
   commitFacts: new Map(store.commitFacts),
   pullRequestFacts: new Map(store.pullRequestFacts),
   releaseFacts: new Map(store.releaseFacts),
+  issueFacts: new Map(store.issueFacts),
   contributions: new Map(store.contributions),
   recomputeCalls: store.recomputeCalls,
   streams: new Map(store.streams),
@@ -327,6 +332,27 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
               (a.publishedAt as Date).getTime(),
           );
         return rows[0] ?? null;
+      },
+    },
+    githubIssueHistory: {
+      createMany: ({
+        data,
+      }: {
+        data: ReadonlyArray<
+          Row & { repositoryId: string; githubIssueId: bigint }
+        >;
+      }): { count: number } => {
+        let count = 0;
+        for (const item of data) {
+          const key = `${item.repositoryId}:${String(item.githubIssueId)}`;
+          if (box.store.issueFacts.has(key)) continue; // skipDuplicates
+          box.store.issueFacts.set(key, {
+            id: `issue-${box.store.issueFacts.size + 1}`,
+            ...item,
+          });
+          count += 1;
+        }
+        return { count };
       },
     },
     contribution: {
@@ -647,14 +673,15 @@ interface ClientMock {
     Promise<ReleaseListingResult>,
     unknown[]
   >;
+  listNewIssues: jest.Mock<Promise<IssueIncrementalResult>, unknown[]>;
   resolveUserNodeId: jest.Mock<Promise<string | null>, [string]>;
   listDefaultBranchCommitsByAuthor: jest.Mock<
     Promise<CollectionCommit[]>,
     [string, string, string, string, (string | undefined)?]
   >;
-  countDefaultBranchCommits: jest.Mock<
+  countDefaultBranchCommitsBetween: jest.Mock<
     Promise<number | null>,
-    [string, string, string]
+    [string, string, string, string, string]
   >;
 }
 
@@ -709,6 +736,13 @@ function createClient(repositories: ProviderRepository[]): ClientMock {
         releases: [],
         fingerprint: fingerprint('/repos/o/r/releases'),
       } satisfies ReleaseListingResult),
+    listNewIssues: jest
+      .fn<Promise<IssueIncrementalResult>, unknown[]>()
+      .mockResolvedValue({
+        issues: [],
+        newFrontier: null,
+        fingerprint: fingerprint('/repos/o/r/issues'),
+      } satisfies IssueIncrementalResult),
     // author-scoped 기본값: 모든 login이 `node:<login>`으로 해석되고 커밋은 없다.
     resolveUserNodeId: jest
       .fn<Promise<string | null>, [string]>()
@@ -719,8 +753,8 @@ function createClient(repositories: ProviderRepository[]): ClientMock {
         [string, string, string, string, (string | undefined)?]
       >()
       .mockResolvedValue([]),
-    countDefaultBranchCommits: jest
-      .fn<Promise<number | null>, [string, string, string]>()
+    countDefaultBranchCommitsBetween: jest
+      .fn<Promise<number | null>, [string, string, string, string, string]>()
       .mockResolvedValue(null),
   };
 }
@@ -1625,7 +1659,9 @@ interface SeedMember {
 
 /**
  * `Repository`(#449) 소유 행 + 그 팀의 `TeamMember`(join된 `User`) 시드. `teamId`가 null이면
- * 팀을 특정할 수 없는 저장소가 되어 production이 저장소 전량 경로로 떨어진다.
+ * 팀을 특정할 수 없는 저장소가 되어 production이 저장소 전량 경로로 떨어진다. 팀이 있으면
+ * 실제 스키마처럼 신청 연결(`applicationId`)도 함께 둔다 — 연결 없이 팀 이력만 남은 행은
+ * 떼어 낸 저장소라 수집 대상이 아니다.
  */
 const seedOwningRepository = (
   box: { store: Store },
@@ -1636,6 +1672,7 @@ const seedOwningRepository = (
   box.store.owningRepositories.set(repoKey(githubRepositoryId), {
     githubRepositoryId,
     teamId,
+    ...(teamId === null ? {} : { applicationId: `application:${teamId}` }),
   });
   members.forEach((member, index) => {
     const id = `${String(githubRepositoryId)}:${index}`;
@@ -1795,81 +1832,302 @@ describe('CollectionSyncService — 팀원 단위 author-scoped 커밋 수집', 
       box.store.streams.get('repo-1:COMMIT')?.lastErrorCode ?? null,
     ).toBeNull();
   });
+});
 
-  it('외부 기여자를 `전체 − 팀원합` 수치로만 관측하고 개인 식별자는 남기지 않는다', async () => {
+/**
+ * 「팀원이 아닌 사람의 기여」(#1133) — 팀 저장소에서 프로그램 기간 안 Commit·PR·Issue 가운데
+ * 작성자가 지금 팀원도 봇도 아닌 GitHub 계정인 것의 수만 센다. 누가 했는지는 남기지 않는다.
+ */
+describe('CollectionSyncService — 팀원이 아닌 사람의 기여(#1133)', () => {
+  const NOW = new Date('2026-08-01T00:00:00.000Z');
+  const WINDOW = {
+    applicationId: 'application-1',
+    programId: 'program-1',
+    startAt: new Date('2026-07-09T15:00:00.000Z'),
+    endAt: new Date('9999-12-31T23:59:59.999Z'),
+    countedThrough: null as Date | null,
+  };
+  const pullRequestItem = (
+    id: string,
+    createdAt: string,
+    authorLogin: string | null,
+    authorGithubId: string | null,
+  ): CollectionPullRequest => ({
+    id,
+    number: Number(id),
+    state: 'open',
+    draft: false,
+    mergedAt: null,
+    createdAt,
+    updatedAt: createdAt,
+    authorLogin,
+    authorGithubId,
+    htmlUrl: `https://example.invalid/pull/${id}`,
+  });
+  const issueItem = (
+    id: string,
+    createdAt: string,
+    authorLogin: string | null,
+    authorGithubId: string | null,
+  ): CollectionIssue => ({
+    id,
+    state: 'open',
+    createdAt,
+    authorLogin,
+    authorGithubId,
+  });
+  /** 기간 시작을 커서로 준 호출(`id: '0'`)만 이 합계의 조회다 — stream 조회와 가른다. */
+  const isWindowCall = (frontier: unknown): boolean =>
+    (frontier as { id?: string } | null)?.id === '0';
+
+  const seedTeamRepository = () => {
     const { db, box } = createFakeDb();
     const repository = providerRepository();
     seedOwningRepository(box, BigInt(repository.id), 'team-1', [
       { githubId: 11n, nickname: 'alice' },
     ]);
-    const client = createClient([repository]);
-    client.listDefaultBranchCommitsByAuthor.mockResolvedValue([
-      authoredCommit('sha-a', 'alice', '11'),
-      authoredCommit('sha-b', 'alice', '11'),
-    ]);
-    client.countDefaultBranchCommits.mockResolvedValue(7);
-    const logged = jest
-      .spyOn(Logger.prototype, 'log')
-      .mockImplementation(() => undefined);
+    return { db, box, client: createClient([repository]) };
+  };
 
-    const service = createService(db, client);
-    await service.run('owner-1');
+  afterEach(() => jest.restoreAllMocks());
 
-    expect(client.countDefaultBranchCommits).toHaveBeenCalledWith(
+  const spyWindow = (window: typeof WINDOW | null = WINDOW) =>
+    jest
+      .spyOn(
+        CollectionIncrementalRepository.prototype,
+        'findOutsiderCountingWindow',
+      )
+      .mockResolvedValue(window);
+  const spyTeamCommits = (count: number) =>
+    jest
+      .spyOn(
+        CollectionIncrementalRepository.prototype,
+        'countTeamCommitsBetween',
+      )
+      .mockResolvedValue(count);
+  const spySave = () =>
+    jest
+      .spyOn(
+        CollectionIncrementalRepository.prototype,
+        'saveOutsiderContribution',
+      )
+      .mockResolvedValue();
+
+  it('커밋은 기간 전체 − 팀원합으로, PR·Issue는 팀원도 봇도 아닌 계정의 것만 세어 한 행으로 덮어쓴다', async () => {
+    const { db, client } = seedTeamRepository();
+    client.countDefaultBranchCommitsBetween.mockResolvedValue(7);
+    const pullRequests = [
+      pullRequestItem('7', '2026-07-20T00:00:00Z', 'outsider', '99'),
+      pullRequestItem('6', '2026-07-19T00:00:00Z', 'alice', '11'),
+      pullRequestItem('5', '2026-07-18T00:00:00Z', 'renovate[bot]', '2740'),
+    ];
+    client.listNewPullRequests.mockImplementation((_o, _r, frontier) =>
+      Promise.resolve({
+        pullRequests: isWindowCall(frontier) ? pullRequests : [],
+        newFrontier: null,
+        fingerprint: fingerprint('/repos/o/r/pulls'),
+      }),
+    );
+    const issues = [
+      issueItem('9', '2026-07-21T00:00:00Z', 'outsider-2', '98'),
+      issueItem('8', '2026-07-21T00:00:00Z', 'alice', '11'),
+      issueItem('10', '2026-07-22T00:00:00Z', null, null),
+    ];
+    client.listNewIssues.mockImplementation((_o, _r, frontier) =>
+      Promise.resolve({
+        issues: isWindowCall(frontier) ? issues : [],
+        newFrontier: null,
+        fingerprint: fingerprint('/repos/o/r/issues'),
+      }),
+    );
+    spyWindow();
+    const team = spyTeamCommits(5);
+    const save = spySave();
+
+    await createService(db, client, { now: () => NOW }).run('owner-1');
+
+    expect(client.countDefaultBranchCommitsBetween).toHaveBeenCalledWith(
       'synthetic-org',
       'repo',
       'main',
+      '2026-07-09T15:00:00Z',
+      '2026-08-01T00:00:00Z',
     );
-    const observed = logged.mock.calls
-      .map(([payload]) => payload as Record<string, unknown>)
-      .find(
-        (payload) =>
-          payload?.event === 'collection.sync.external_contribution_observed',
-      );
-    expect(observed).toMatchObject({
-      totalCommitCount: 7,
-      teamCommitCount: 2,
-      externalCommitCount: 5,
+    expect(team).toHaveBeenCalledWith(
+      'repo-1',
+      [11n],
+      new Date('2026-07-09T15:00:00.000Z'),
+      NOW,
+    );
+    expect(client.listNewPullRequests).toHaveBeenCalledWith(
+      'synthetic-org',
+      'repo',
+      { createdAt: '2026-07-09T15:00:00.000Z', id: '0' },
+    );
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledWith({
+      repositoryId: 'repo-1',
+      applicationId: 'application-1',
+      programId: 'program-1',
+      windowStartAt: WINDOW.startAt,
+      windowEndAt: WINDOW.endAt,
+      commitCount: 2,
+      pullRequestCount: 1,
+      issueCount: 1,
+      observedAt: NOW,
     });
-    // 수치만 남는다 — 외부 기여자의 login/githubId는 어디에도 없다.
-    expect(Object.keys(observed ?? {})).not.toContain('authorLogin');
-    // 저장 위치가 정해지지 않았으므로 fact로도 남기지 않는다.
-    expect([...box.store.commitFacts.values()]).toHaveLength(2);
-    logged.mockRestore();
   });
 
-  it('브랜치가 없거나(전체 null) 팀원합보다 전체가 작으면 외부 수치를 계산하지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: 11n, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    client.listDefaultBranchCommitsByAuthor.mockResolvedValue([
-      authoredCommit('sha-a', 'alice', '11'),
-      authoredCommit('sha-b', 'alice', '11'),
-    ]);
-    const logged = jest
-      .spyOn(Logger.prototype, 'log')
+  it('끝난 프로그램은 종료 시각까지만 센다', async () => {
+    const { db, client } = seedTeamRepository();
+    const endAt = new Date('2026-07-20T14:59:59.999Z');
+    client.listNewPullRequests.mockImplementation((_o, _r, frontier) =>
+      Promise.resolve({
+        pullRequests: isWindowCall(frontier)
+          ? [
+              pullRequestItem('8', '2026-07-25T00:00:00Z', 'outsider', '99'),
+              pullRequestItem('7', '2026-07-19T00:00:00Z', 'outsider', '99'),
+            ]
+          : [],
+        newFrontier: null,
+        fingerprint: fingerprint('/repos/o/r/pulls'),
+      }),
+    );
+    spyWindow({ ...WINDOW, endAt });
+    spyTeamCommits(0);
+    const save = spySave();
+
+    await createService(db, client, { now: () => NOW }).run('owner-1');
+
+    expect(client.countDefaultBranchCommitsBetween).toHaveBeenCalledWith(
+      'synthetic-org',
+      'repo',
+      'main',
+      '2026-07-09T15:00:00Z',
+      '2026-07-20T14:59:59Z',
+    );
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ pullRequestCount: 1, windowEndAt: endAt }),
+    );
+  });
+
+  it('끝난 프로그램을 끝난 뒤 이미 셌다면 다시 세지 않는다', async () => {
+    const endAt = new Date('2026-07-20T14:59:59.999Z');
+    // 프로그램이 도는 중에 센 값은 기간이 아직 열려 있을 때의 값이다 — 끝난 뒤 한 번 더 센다.
+    const running = seedTeamRepository();
+    spyWindow({
+      ...WINDOW,
+      endAt,
+      countedThrough: new Date('2026-07-20T00:00:00Z'),
+    });
+    spyTeamCommits(0);
+    const save = spySave();
+    await createService(running.db, running.client, { now: () => NOW }).run(
+      'owner-1',
+    );
+    expect(save).toHaveBeenCalledTimes(1);
+
+    jest.restoreAllMocks();
+    const closed = seedTeamRepository();
+    spyWindow({
+      ...WINDOW,
+      endAt,
+      countedThrough: new Date('2026-07-21T00:00:00Z'),
+    });
+    const skipped = spySave();
+    await createService(closed.db, closed.client, { now: () => NOW }).run(
+      'owner-1',
+    );
+    expect(
+      closed.client.countDefaultBranchCommitsBetween,
+    ).not.toHaveBeenCalled();
+    expect(closed.client.listNewPullRequests).not.toHaveBeenCalledWith(
+      'synthetic-org',
+      'repo',
+      expect.objectContaining({ id: '0' }),
+    );
+    expect(skipped).not.toHaveBeenCalled();
+  });
+
+  it('기본 브랜치가 없으면 커밋은 0으로, 전체가 팀원합보다 작으면 옛 값을 둔다', async () => {
+    const first = seedTeamRepository();
+    first.client.countDefaultBranchCommitsBetween.mockResolvedValue(null);
+    spyWindow();
+    spyTeamCommits(0);
+    const save = spySave();
+    await createService(first.db, first.client, { now: () => NOW }).run(
+      'owner-1',
+    );
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({ commitCount: 0 }),
+    );
+
+    // 관측 시점이 어긋나 전체(1) < 팀원합(2) — 음수를 남기거나 0으로 뭉개지 않는다.
+    save.mockClear();
+    const second = seedTeamRepository();
+    second.client.countDefaultBranchCommitsBetween.mockResolvedValue(1);
+    spyTeamCommits(2);
+    await createService(second.db, second.client, { now: () => NOW }).run(
+      'owner-1',
+    );
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('신청 연결이 없는 저장소는 세지 않는다', async () => {
+    const { db, client } = seedTeamRepository();
+    spyWindow(null);
+    const save = spySave();
+
+    await createService(db, client, { now: () => NOW }).run('owner-1');
+
+    expect(client.countDefaultBranchCommitsBetween).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('팀이 없는 저장소는 기준 프로그램도 찾지 않는다', async () => {
+    const { db } = createFakeDb();
+    const client = createClient([providerRepository()]);
+    const find = spyWindow();
+
+    await createService(db, client, { now: () => NOW }).run('owner-1');
+
+    expect(find).not.toHaveBeenCalled();
+    expect(client.countDefaultBranchCommitsBetween).not.toHaveBeenCalled();
+  });
+
+  it('세다가 실패해도 저장소 수집은 성공으로 두고 옛 값을 건드리지 않는다', async () => {
+    const { db, box, client } = seedTeamRepository();
+    client.listNewIssues.mockImplementation((_o, _r, frontier) =>
+      isWindowCall(frontier)
+        ? Promise.reject(new Error('synthetic outsider failure'))
+        : Promise.resolve({
+            issues: [],
+            newFrontier: null,
+            fingerprint: fingerprint('/repos/o/r/issues'),
+          }),
+    );
+    spyWindow();
+    spyTeamCommits(0);
+    const save = spySave();
+    const warned = jest
+      .spyOn(Logger.prototype, 'warn')
       .mockImplementation(() => undefined);
-    const externalEvents = (): unknown[] =>
-      logged.mock.calls.filter(
-        ([payload]) =>
-          (payload as Record<string, unknown> | undefined)?.event ===
-          'collection.sync.external_contribution_observed',
-      );
 
-    // 전체 = null(브랜치 없음)
-    client.countDefaultBranchCommits.mockResolvedValue(null);
-    await createService(db, client).run('owner-1');
-    expect(externalEvents()).toHaveLength(0);
+    await createService(db, client, { now: () => NOW }).run('owner-1');
 
-    // 전체(1) < 팀원합(2) — 음수를 남기거나 0으로 뭉개지 않고 건너뛴다.
-    client.countDefaultBranchCommits.mockResolvedValue(1);
-    await createService(db, client).run('owner-1');
-    expect(externalEvents()).toHaveLength(0);
-    expect(box.store.commitFacts.size).toBe(2);
-    logged.mockRestore();
+    expect(save).not.toHaveBeenCalled();
+    expect(
+      warned.mock.calls.map(
+        ([payload]) => (payload as Record<string, unknown>).event,
+      ),
+    ).toContain('collection.sync.outsider_contribution_failed');
+    expect(
+      box.store.streams.get('repo-1:ISSUE')?.lastErrorCode ?? null,
+    ).toBeNull();
+    expect(
+      box.store.repositories.get(repoKey(BigInt(providerRepository().id)))
+        ?.failureCount ?? 0,
+    ).toBe(0);
   });
 });
 
@@ -2547,6 +2805,229 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터(ADR-00
   });
 });
 
+describe('CollectionSyncService — Issue stream(#1133)', () => {
+  type ListingItem = CollectionIssue & { pullRequest?: boolean };
+
+  const issue = (overrides: Partial<ListingItem> = {}): ListingItem => ({
+    id: '800',
+    state: 'open',
+    createdAt: '2026-08-01T00:00:00.000Z',
+    authorLogin: 'alice',
+    authorGithubId: '11',
+    ...overrides,
+  });
+
+  /**
+   * `CollectionAppClient.listNewIssues`의 계약을 흉내 낸다 — tie frontier보다 새 항목만
+   * 새 것부터 읽고, 커서는 **첫 원본 항목(PR 포함)**에서 뽑은 뒤 PR을 버린다.
+   */
+  const serveIssueListing =
+    (listing: readonly ListingItem[]) =>
+    (...args: unknown[]): Promise<IssueIncrementalResult> => {
+      const tie = args[2] as { createdAt: string; id: string } | null;
+      const fresh = [...listing]
+        .sort((a, b) => {
+          const byCreatedAt = Date.parse(b.createdAt) - Date.parse(a.createdAt);
+          return byCreatedAt !== 0
+            ? byCreatedAt
+            : Number(BigInt(b.id) - BigInt(a.id));
+        })
+        .filter(
+          (item) =>
+            tie === null ||
+            (Date.parse(item.createdAt) === Date.parse(tie.createdAt)
+              ? BigInt(item.id) > BigInt(tie.id)
+              : Date.parse(item.createdAt) > Date.parse(tie.createdAt)),
+        );
+      return Promise.resolve({
+        issues: fresh.filter((item) => !item.pullRequest),
+        newFrontier: fresh[0]
+          ? { createdAt: fresh[0].createdAt, id: fresh[0].id }
+          : tie,
+        fingerprint: fingerprint('/repos/o/r/issues'),
+      });
+    };
+
+  const storedIssueIds = (box: { store: Store }): string[] =>
+    [...box.store.issueFacts.values()]
+      .map((fact) => String(fact.githubIssueId))
+      .sort();
+
+  it('팀원 issue만 적재하고 비팀원·작성자 불명 issue는 fact로 남기지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    client.listNewIssues.mockImplementation(
+      serveIssueListing([
+        issue({ id: '800' }),
+        // 99는 가입자지만 이 저장소 팀원이 아니다 — 가입자 경계가 아니라 팀원 필터가 거른다.
+        issue({ id: '801', authorLogin: 'outsider', authorGithubId: '99' }),
+        issue({ id: '802', authorLogin: null, authorGithubId: null }),
+      ]),
+    );
+
+    const result = await createService(db, client).run('owner-1');
+
+    expect(storedIssueIds(box)).toEqual(['800']);
+    expect([...box.store.issueFacts.values()][0]).toMatchObject({
+      authorGithubId: 11n,
+      state: 'open',
+      createdAt: new Date('2026-08-01T00:00:00.000Z'),
+    });
+    // Issue 적재 수는 run 합계에만 들어간다(sweep 이력에는 칸이 없다).
+    expect(result.insertedFactCount).toBe(1);
+    const stream = box.store.streams.get('repo-1:ISSUE');
+    expect(stream?.status).toBe('READY');
+    // 커서는 거른 항목 위(가장 새 원본 항목)에 선다.
+    expect(stream?.frontierEntityId).toBe(802n);
+  });
+
+  it('새로 읽힌 원본이 PR뿐이어도 Issue 커서가 전진해 다음 sweep이 같은 페이지를 다시 받지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    const listing = [issue({ id: '800' })];
+    client.listNewIssues.mockImplementation(serveIssueListing(listing));
+    const service = createService(db, client);
+
+    await service.run('owner-1');
+    expect(box.store.streams.get('repo-1:ISSUE')?.frontierEntityId).toBe(800n);
+
+    // 두 번째 sweep 전까지 PR 두 개만 열렸다 — issue 목록에는 PR 항목으로 섞여 온다.
+    listing.push(
+      issue({
+        id: '801',
+        createdAt: '2026-08-02T00:00:00.000Z',
+        pullRequest: true,
+      }),
+      issue({
+        id: '802',
+        createdAt: '2026-08-03T00:00:00.000Z',
+        pullRequest: true,
+      }),
+    );
+    await service.run('owner-1');
+    const afterPullRequests = box.store.streams.get('repo-1:ISSUE');
+    expect(afterPullRequests?.frontierEntityId).toBe(802n);
+    expect(afterPullRequests?.frontierCreatedAt).toEqual(
+      new Date('2026-08-03T00:00:00.000Z'),
+    );
+    expect(storedIssueIds(box)).toEqual(['800']);
+
+    // 세 번째 sweep은 전진한 커서부터 읽는다 — PR 페이지를 다시 받지 않는다.
+    await service.run('owner-1');
+    expect(client.listNewIssues.mock.calls[2]?.[2]).toEqual({
+      createdAt: '2026-08-03T00:00:00.000Z',
+      id: '802',
+    });
+  });
+
+  it('팀원 구성이 바뀐 sweep은 Issue 커서를 버리고 한 번 전부 다시 읽은 뒤 증분으로 돌아간다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    const client = createClient([repository]);
+    client.listNewIssues.mockImplementation(
+      serveIssueListing([
+        issue({ id: '800' }),
+        issue({
+          id: '790',
+          createdAt: '2026-07-01T00:00:00.000Z',
+          authorLogin: 'carol',
+          authorGithubId: '33',
+        }),
+      ]),
+    );
+    const service = createService(db, client);
+
+    await service.run('owner-1');
+    expect(client.listNewIssues.mock.calls[0]?.[2]).toBeNull();
+    expect(storedIssueIds(box)).toEqual(['800']);
+
+    // carol이 팀에 합류한다.
+    box.store.teamMembers.set('later', {
+      id: 'later',
+      teamId: 'team-1',
+      createdAt: new Date(Date.UTC(2026, 6, 15)),
+      user: { githubId: 33n, nickname: 'carol' },
+    });
+    await service.run('owner-1');
+    // 저장된 커서가 있어도 팀원 표식이 달라졌으므로 처음부터 다시 읽는다.
+    expect(client.listNewIssues.mock.calls[1]?.[2]).toBeNull();
+    expect(storedIssueIds(box)).toEqual(['790', '800']);
+    expect(box.store.streams.get('repo-1:ISSUE')?.frontierSha).toMatch(
+      /^team-members:v1:[0-9a-f]{64}$/,
+    );
+
+    await service.run('owner-1');
+    expect(client.listNewIssues.mock.calls[2]?.[2]).toEqual({
+      createdAt: '2026-08-01T00:00:00.000Z',
+      id: '800',
+    });
+  });
+
+  it('Issue 권한이 없으면 오류는 ISSUE 행에만 남고 저장소는 실패로 세지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    const client = createClient([repository]);
+    client.listCommitsUntilKnownSha.mockResolvedValue({
+      commits: [commit({ sha: 'sha-kept' })],
+      disconnectedFullScan: true,
+      fingerprint: fingerprint('/repos/o/r/commits'),
+    });
+    // installation이 아직 Issues 권한을 승인하지 않은 조직 저장소를 흉내 낸다.
+    client.listNewIssues.mockRejectedValue(
+      new CollectionAppClientError('PERMISSION'),
+    );
+
+    const result = await createService(db, client).run('owner-1');
+
+    expect(result.status).toBe('COMPLETED');
+    expect(result.processedRepositoryCount).toBe(1);
+    expect([...box.store.commitFacts.values()].map((fact) => fact.sha)).toEqual(
+      ['sha-kept'],
+    );
+    expect(box.store.streams.get('repo-1:ISSUE')?.lastErrorCode).toBe(
+      'PROVIDER_PERMISSION',
+    );
+    // 저장소 백오프가 걸리지 않아 Commit·PR·Release는 다음 정각에도 그대로 돈다.
+    expect(box.store.repositories.get(repoKey(100n))?.failureCount ?? 0).toBe(
+      0,
+    );
+    expect(box.store.streams.get('repo-1:COMMIT')?.lastErrorCode ?? null).toBe(
+      null,
+    );
+    // 조직 저장소는 권한 오류로 공개 상태가 회수되지 않는다(외부 저장소만 회수 대상이다).
+    expect(box.store.repositories.get(repoKey(100n))?.visibility).toBe(
+      'PUBLIC',
+    );
+  });
+
+  it('Issue 목록의 다른 오류는 다른 stream처럼 저장소 실패로 센다', async () => {
+    const { db, box } = createFakeDb();
+    const client = createClient([providerRepository()]);
+    client.listNewIssues.mockRejectedValue(
+      new CollectionAppClientError('UPSTREAM'),
+    );
+
+    const result = await createService(db, client).run('owner-1');
+
+    expect(result.processedRepositoryCount).toBe(0);
+    expect(box.store.streams.get('repo-1:ISSUE')?.lastErrorCode).toBe(
+      'PROVIDER_UPSTREAM',
+    );
+    expect(box.store.repositories.get(repoKey(100n))?.failureCount).toBe(1);
+  });
+});
+
 /**
  * DD1 — 저장소 하나의 실패가 나머지를 굶기지 않는다.
  *
@@ -2816,5 +3297,205 @@ describe('CollectionSyncService — 시스템 상태 관측성 2단계: sweep-hi
       );
     expect(observed).toMatchObject({ scope: 'org:synthetic-org' });
     warned.mockRestore();
+  });
+});
+
+describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepository)', () => {
+  const NOW = new Date('2026-08-01T00:00:00.000Z');
+  const ORG_LEASE = cursorKey(1n, 'org:synthetic-org');
+  const linkedRow = (overrides: Row = {}): Row => ({
+    id: 'repo-linked',
+    githubOrganizationId: GITHUB_ORG_ID,
+    githubRepositoryId: 100n,
+    nameWithOwner: 'synthetic-org/linked',
+    defaultBranch: 'main',
+    archived: false,
+    visibility: 'PRIVATE',
+    presence: 'PRESENT',
+    source: 'ORG_PROVISIONED',
+    lastCompleteInventoryObservedAt: new Date('2026-07-01T00:00:00.000Z'),
+    applicationId: 'application-1',
+    programId: 'program-1',
+    teamId: 'team-1',
+    ...overrides,
+  });
+  const providerCallCount = (client: ClientMock): number =>
+    (Object.values(client) as jest.Mock[]).reduce<number>(
+      (total, mock) => total + mock.mock.calls.length,
+      0,
+    );
+
+  it('연결된 조직 저장소를 sweep cursor·이력 없이 바로 수집하고 성공을 기록한다', async () => {
+    const { db, box } = createFakeDb();
+    box.store.repositories.set(repoKey(100n), linkedRow());
+    seedOwningRepository(box, 100n, 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    const client = createClient([]);
+    client.listDefaultBranchCommitsByAuthor.mockResolvedValue([
+      commit({ sha: 'sha-linked', authorLogin: 'alice', authorGithubId: '11' }),
+    ]);
+
+    const result = await createService(db, client).runRepository(
+      'owner-link',
+      100n,
+    );
+
+    expect(result).toMatchObject({
+      status: 'COMPLETED',
+      processedRepositoryCount: 1,
+      insertedFactCount: 1,
+    });
+    expect(client.listInstallationRepositories).not.toHaveBeenCalled();
+    expect([...box.store.commitFacts.values()]).toEqual([
+      expect.objectContaining({
+        repositoryId: 'repo-linked',
+        sha: 'sha-linked',
+      }),
+    ]);
+    expect(box.store.repositories.get(repoKey(100n))).toMatchObject({
+      failureCount: 0,
+      lastSuccessAt: NOW,
+    });
+    expect(box.store.cursors.size).toBe(0);
+    expect(box.store.sweepHistory.size).toBe(0);
+    // 끝나면 lease를 바로 풀어 다음 sweep이 기다리지 않는다.
+    expect(box.store.leases.get(ORG_LEASE)).toMatchObject({ expiresAt: NOW });
+  });
+
+  it('sweep이 scope lease를 쥐고 있으면 provider를 부르지 않고 SKIPPED_LEASE_HELD다', async () => {
+    const { db, box } = createFakeDb();
+    box.store.repositories.set(repoKey(100n), linkedRow());
+    box.store.leases.set(ORG_LEASE, {
+      appId: 1n,
+      scope: 'org:synthetic-org',
+      ownerId: 'scheduler:sweep',
+      epoch: 1n,
+      runId: 'sweep-run',
+      expiresAt: new Date(NOW.getTime() + 60_000),
+    });
+    const client = createClient([]);
+
+    const result = await createService(db, client).runRepository(
+      'owner-link',
+      100n,
+    );
+
+    expect(result.status).toBe('SKIPPED_LEASE_HELD');
+    expect(providerCallCount(client)).toBe(0);
+    expect(box.store.leases.get(ORG_LEASE)).toMatchObject({
+      runId: 'sweep-run',
+    });
+  });
+
+  it.each([
+    [
+      '조직 밖 비공개 저장소',
+      {
+        source: 'EXTERNAL_PUBLIC',
+        visibility: 'PRIVATE',
+        githubOrganizationId: null,
+      },
+    ],
+    ['기본 브랜치를 아직 모르는 저장소', { defaultBranch: null }],
+    ['연결이 풀리고 팀 이력만 남은 저장소', { applicationId: null }],
+    ['사라진 저장소', { presence: 'ABSENT' }],
+  ])(
+    '%s는 lease도 provider도 건드리지 않고 SKIPPED다',
+    async (_label, overrides) => {
+      const { db, box } = createFakeDb();
+      box.store.repositories.set(repoKey(100n), linkedRow(overrides));
+      const client = createClient([]);
+
+      const result = await createServiceWithExternal(db, client).runRepository(
+        'owner-link',
+        100n,
+      );
+
+      expect(result.status).toBe('SKIPPED');
+      expect(providerCallCount(client)).toBe(0);
+      expect(box.store.leases.size).toBe(0);
+    },
+  );
+
+  it('rate budget이 바닥이면 sweep 루프처럼 provider를 부르지 않고 멈춘다', async () => {
+    const { db, box } = createFakeDb();
+    box.store.repositories.set(repoKey(100n), linkedRow());
+    const client = createClient([]);
+    const runtime = runtimeFor(client);
+    jest.spyOn(runtime.queue, 'shouldStop').mockReturnValue(true);
+    const service = new CollectionSyncService(
+      new CollectionIncrementalRepository(db),
+      () => runtime,
+      () => Promise.resolve(GITHUB_ORG_ID),
+      () => NOW,
+      () => 'run-1',
+    );
+
+    const result = await service.runRepository('owner-link', 100n);
+
+    expect(result).toMatchObject({
+      status: 'COMPLETED',
+      processedRepositoryCount: 0,
+      stoppedForBudget: true,
+    });
+    expect(providerCallCount(client)).toBe(0);
+    expect(box.store.repositories.get(repoKey(100n))?.lastSuccessAt).toBe(
+      undefined,
+    );
+  });
+
+  it('sweep 도중 연결이 풀린 저장소는 시작할 때 읽은 목록에 있어도 수집하지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    box.store.repositories.set(
+      repoKey(100n),
+      linkedRow({ id: 'repo-a', nameWithOwner: 'synthetic-org/repo-a' }),
+    );
+    box.store.repositories.set(
+      repoKey(200n),
+      linkedRow({
+        id: 'repo-b',
+        githubRepositoryId: 200n,
+        nameWithOwner: 'synthetic-org/repo-b',
+        applicationId: 'application-b',
+        teamId: 'team-b',
+      }),
+    );
+    const client = createClient([
+      providerRepository({ name: 'repo-a', fullName: 'synthetic-org/repo-a' }),
+      providerRepository({
+        id: '200',
+        name: 'repo-b',
+        fullName: 'synthetic-org/repo-b',
+      }),
+    ]);
+    client.listNewPullRequests.mockImplementation((_owner, repo) => {
+      // A를 수집하는 동안 B의 팀이 저장소를 바꿔 B의 연결이 풀린다(팀 이력은 남는다).
+      if (repo === 'repo-a') {
+        box.store.repositories.set(repoKey(200n), {
+          ...box.store.repositories.get(repoKey(200n)),
+          applicationId: null,
+        });
+      }
+      return Promise.resolve({
+        pullRequests: [],
+        newFrontier: null,
+        fingerprint: fingerprint('/repos/o/r/pulls'),
+      });
+    });
+
+    const result = await createService(db, client).run('owner-1');
+
+    expect(result).toMatchObject({
+      status: 'COMPLETED',
+      processedRepositoryCount: 1,
+    });
+    expect(
+      client.listNewPullRequests.mock.calls.map(([, repo]) => repo),
+    ).toEqual(['repo-a']);
+    // 떼어 낸 B는 실패로 세지 않는다 — 백오프도 걸지 않는다.
+    expect(box.store.repositories.get(repoKey(200n))?.failureCount ?? 0).toBe(
+      0,
+    );
   });
 });

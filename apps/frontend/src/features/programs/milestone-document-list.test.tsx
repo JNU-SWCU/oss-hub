@@ -1460,3 +1460,115 @@ describe('열어 둔 화면에서 재제출 기한이 지나는 순간', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+/*
+ * #1108 — 고를 때의 판정이 파일 입력 아래에 세운 문장을, 그 파일 그대로 제출했을 때 폼 아래
+ * 줄에 또 세우면 같은 문장이 두 번 읽힌다(AP-1). 압축 내용 거절은 제출 때에도 파일 입력의
+ * 그 오류 자리 하나에만 선다 — 제출 화면의 `isSubmissionArchiveErrorCode` 갈래와 같다.
+ */
+describe('압축 내용 거절은 파일 입력 한 자리에만 선다', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  const lockedDetail =
+    '비밀번호가 걸린 압축 파일은 제출할 수 없습니다. 비밀번호 없이 다시 압축해 주세요.';
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+  });
+
+  function rejection(): Response {
+    return new Response(
+      JSON.stringify({
+        type: 'about:blank',
+        title: 'Unprocessable Content',
+        status: 422,
+        detail: lockedDetail,
+        instance: '/x',
+        code: 'MSD_040',
+      }),
+      { status: 422, headers: { 'Content-Type': 'application/problem+json' } },
+    );
+  }
+
+  function button(text: string): HTMLButtonElement | null {
+    return (
+      Array.from(container.querySelectorAll('button')).find(
+        (candidate) => candidate.textContent?.trim() === text,
+      ) ?? null
+    );
+  }
+
+  it('거절된 ZIP을 그대로 제출해도 문장은 파일 입력 아래에 한 번만 뜬다', async () => {
+    // Given: 판정 경로와 업로드가 같은 압축 내용 거절(MSD_040)을 돌려준다.
+    const fetchMock = vi.fn((target: RequestInfo | URL) =>
+      Promise.resolve(
+        String(target).includes('/milestone-document-files')
+          ? rejection()
+          : jsonResponse(documentListBody([milestoneDocument])),
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await act(async () => {
+      root.render(
+        <MilestoneDocumentSection
+          milestoneId="milestone-1"
+          viewerRole="STUDENT"
+          closed={false}
+          submissionAccess={access('STUDENT', 'APPROVED')}
+        />,
+      );
+    });
+    await vi.waitFor(() => {
+      expect(button('올리기')).not.toBeNull();
+    });
+    await act(async () => button('올리기')?.click());
+    const input = container.querySelector('input[type="file"]');
+    if (!(input instanceof HTMLInputElement))
+      throw new TypeError('Missing file input.');
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [new File(['PK'], 'locked.zip', { type: 'application/zip' })],
+    });
+    await act(async () =>
+      input.dispatchEvent(new Event('change', { bubbles: true })),
+    );
+    await vi.waitFor(() => {
+      expect(
+        container.querySelector('#document-1-submission-file-error')
+          ?.textContent,
+      ).toBe(lockedDetail);
+    });
+
+    // When: 그 파일 그대로 제출한다.
+    await act(async () => {
+      container
+        .querySelector('form')
+        ?.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true }),
+        );
+    });
+    await vi.waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([target]) =>
+          String(target).endsWith('/milestone-document-files'),
+        ),
+      ).toBe(true);
+    });
+    await act(async () => {});
+
+    // Then: 문장은 파일 입력의 오류 자리 하나에만 있고, 폼 아래 줄에는 없다.
+    expect(container.textContent?.split(lockedDetail)).toHaveLength(2);
+    expect(
+      container.querySelector('#document-1-submission-file-error')?.textContent,
+    ).toBe(lockedDetail);
+    expect(container.querySelectorAll('[role="alert"]')).toHaveLength(1);
+  });
+});

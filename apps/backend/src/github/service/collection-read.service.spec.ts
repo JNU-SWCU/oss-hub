@@ -206,6 +206,41 @@ describe('CollectionReadService — getContributorMetrics', () => {
     expect(result).toEqual([]);
   });
 
+  it('omits a contributor who only opened issues that year (#1133)', async () => {
+    const db = createDb();
+    const updatedAt = new Date('2026-07-31T00:00:00.000Z');
+    db.user.findMany.mockResolvedValue([
+      { githubId: 1n, nickname: 'alice' },
+      { githubId: 2n, nickname: 'bob' },
+    ]);
+    db.contribution.findMany.mockResolvedValue([
+      {
+        githubId: 1n,
+        commitCount: 0,
+        pullRequestCount: 1,
+        releaseCount: 0,
+        updatedAt,
+        repository: { githubRepositoryId: 101n },
+      },
+      // An issue-only day leaves commit, PR and release counts at 0.
+      {
+        githubId: 2n,
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
+        updatedAt,
+        repository: { githubRepositoryId: 101n },
+      },
+    ]);
+
+    const result = await serviceFor(db).getContributorMetrics({
+      repositoryIds: [101n],
+      year: 2026,
+    });
+
+    expect(result.map((row) => row.githubLogin)).toEqual(['alice']);
+  });
+
   it('GR-13: excludes a contributor row belonging to an EXTERNAL_PUBLIC repository even when its id is explicitly requested alongside an ORG_PROVISIONED one', async () => {
     const db = createDb();
     const asOf = new Date('2026-07-31T00:00:00.000Z');

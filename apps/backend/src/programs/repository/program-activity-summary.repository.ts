@@ -10,7 +10,8 @@ export interface ProgramActivitySummaryDataSource {
   readonly githubRepository: {
     findMany(args: {
       readonly where: {
-        readonly programId: { readonly in: readonly string[] };
+        readonly programId: { readonly in: string[] };
+        readonly applicationId: { readonly not: null };
       };
       readonly select: {
         readonly programId: true;
@@ -34,7 +35,12 @@ export class ProgramActivitySummaryRepository {
   ): Promise<readonly ProgramRepositoryLink[]> {
     if (programIds.length === 0) return [];
     const rows = await this.prisma.githubRepository.findMany({
-      where: { programId: { in: [...programIds] } },
+      // 지금 신청에 걸린 저장소만 센다. 팀이 A→B로 바꾸면 A는 `applicationId`만 비고
+      // `programId`는 이력으로 남는다 — 그대로 세면 A의 수가 프로그램 합계에 계속 더해진다.
+      where: {
+        programId: { in: [...programIds] },
+        applicationId: { not: null },
+      },
       select: { programId: true, githubRepositoryId: true },
     });
     // where절이 programId IN (...)을 강제하므로 null programId 행은 매칭될 수 없다

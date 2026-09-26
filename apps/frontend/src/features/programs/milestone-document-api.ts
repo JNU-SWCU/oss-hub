@@ -189,6 +189,19 @@ export function uploadMilestoneDocumentFile(
   });
 }
 
+/**
+ * 학생 — 고른 파일에 서류 업로드와 같은 판정만 받는다(#1108). 서버는 저장하지 않는다.
+ * 통과면 본문 없이 끝나고, 거절이면 업로드 때와 같은 코드의 `ApiError`를 던진다.
+ */
+export async function checkMilestoneDocumentFile(file: File): Promise<void> {
+  const body = new FormData();
+  body.append('file', file);
+  await apiClient<null>('milestone-document-files/checks', {
+    method: 'POST',
+    body,
+  });
+}
+
 /** 학생 — 서류 제출/재제출. */
 export function submitMilestoneDocument(
   milestoneId: string,

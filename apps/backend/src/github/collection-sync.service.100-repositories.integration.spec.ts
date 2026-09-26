@@ -6,6 +6,7 @@ import {
   SYNTHETIC_APP_ID,
   SYNTHETIC_ORG_LOGIN,
   type SyntheticCommitSeed,
+  type SyntheticIssueSeed,
   type SyntheticPullRequestSeed,
   type SyntheticReleaseSeed,
   type SyntheticRepositorySeed,
@@ -105,6 +106,19 @@ function buildPullRequests(
   }));
 }
 
+/** Issue ids live apart from the PR ids above — both share the issue listing. */
+function buildIssues(repoIndex: number, count: number): SyntheticIssueSeed[] {
+  return Array.from({ length: count }, (_, n) => ({
+    id: 9_000_000_700_000 + repoIndex * 100 + n,
+    createdAt: new Date(
+      ANCHOR - (repoIndex * 1000 + n) * HOUR - HOUR / 2,
+    ).toISOString(),
+    state: n % 2 === 0 ? 'open' : ('closed' as const),
+    authorId: 9_000_000_400 + (n % 5),
+    authorLogin: `synthetic-contributor-${n % 5}`,
+  }));
+}
+
 function buildReleases(
   repoIndex: number,
   count: number,
@@ -130,18 +144,23 @@ function uniquePullRequestCount(seed: SyntheticRepositorySeed): number {
 function uniqueReleaseCount(seed: SyntheticRepositorySeed): number {
   return new Set(seed.releases.map((r) => r.id)).size;
 }
+function issueCount(seed: SyntheticRepositorySeed): number {
+  return seed.issues?.length ?? 0;
+}
 
 /** Exact first-ever-backfill request cost for one repository: the commit
  * stream skips its probe entirely on backfill (one paginated list only), the
- * PR stream always does exactly one paginated list, and the release stream
+ * PR stream always does exactly one paginated list, the release stream
  * always probes once and (since there is no prior ETag yet) always follows
- * with one paginated list. */
+ * with one paginated list, and the issue stream pages the issue listing —
+ * which also carries every pull request — once. */
 function firstBackfillRequestCost(seed: SyntheticRepositorySeed): number {
   return (
     syntheticPageCount(seed.commits.length) +
     syntheticPageCount(seed.pullRequests.length) +
     1 +
-    syntheticPageCount(seed.releases.length)
+    syntheticPageCount(seed.releases.length) +
+    syntheticPageCount(issueCount(seed) + seed.pullRequests.length)
   );
 }
 
@@ -275,6 +294,7 @@ function buildSeeds(): SyntheticRepositorySeed[] {
       commits: buildCommits(index, 1 + (index % 5)),
       pullRequests: buildPullRequests(index, index % 3),
       releases: buildReleases(index, index % 2),
+      issues: buildIssues(index, index % 7),
     });
   }
   return seeds;
@@ -327,6 +347,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
   const commitWrites: number[] = [];
   const pullRequestWrites: number[] = [];
   const releaseWrites: number[] = [];
+  const issueWrites: number[] = [];
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -402,6 +423,26 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
           registeredGithubIds,
         );
         releaseWrites.push(result.insertedCount);
+        return result;
+      });
+    const originalIssue =
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      CollectionIncrementalRepository.prototype.recordIssueFacts;
+    jest
+      .spyOn(CollectionIncrementalRepository.prototype, 'recordIssueFacts')
+      .mockImplementation(async function (
+        this: CollectionIncrementalRepository,
+        repositoryId,
+        facts,
+        registeredGithubIds,
+      ) {
+        const result = await originalIssue.call(
+          this,
+          repositoryId,
+          facts,
+          registeredGithubIds,
+        );
+        issueWrites.push(result.insertedCount);
         return result;
       });
   }, 60_000);
@@ -514,6 +555,13 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     expect(releaseCount).toBe(
       seeds.reduce((sum, s) => sum + uniqueReleaseCount(s), 0),
     );
+    // Issues arrive interleaved with every PR on the same listing — only the
+    // issues become facts, and the PRs are not double-counted as issues.
+    await expect(
+      prisma.githubIssueHistory.count({
+        where: { repository: { githubOrganizationId: GITHUB_ORGANIZATION_ID } },
+      }),
+    ).resolves.toBe(seeds.reduce((sum, s) => sum + issueCount(s), 0));
 
     // The duplicate-commit repo specifically dedupes its cross-page replay.
     const duplicateSeed = seeds.find((s) => s.name === DUPLICATE_COMMIT_NAME);
@@ -583,6 +631,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     const commitWritesBefore = commitWrites.length;
     const pullRequestWritesBefore = pullRequestWrites.length;
     const releaseWritesBefore = releaseWrites.length;
+    const issueWritesBefore = issueWrites.length;
     const noEtagKey = `${ORG_LOGIN}/${NO_ETAG_NAME}`;
     const stableKey = `${ORG_LOGIN}/${STABLE_CONTRAST_NAME}`;
     const tiesKey = `${ORG_LOGIN}/${PR_TIES_NAME}`;
@@ -605,9 +654,13 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     const releaseWritesThisRun = releaseWrites
       .slice(releaseWritesBefore)
       .reduce((a, b) => a + b, 0);
+    const issueWritesThisRun = issueWrites
+      .slice(issueWritesBefore)
+      .reduce((a, b) => a + b, 0);
     expect(commitWritesThisRun).toBe(0);
     expect(pullRequestWritesThisRun).toBe(0);
     expect(releaseWritesThisRun).toBe(0);
+    expect(issueWritesThisRun).toBe(0);
 
     // Only conditional-style requests: no full commit/release listing
     // anywhere except the no-ETag repository (which can never 304 and so
@@ -618,20 +671,23 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     expect(kindDeltaThisRun['commit-probe']).toBe(REPO_COUNT);
     expect(kindDeltaThisRun['release-probe']).toBe(REPO_COUNT);
     expect(kindDeltaThisRun['pull-list']).toBe(REPO_COUNT);
+    // issue-list: like pull-list, one first page per repository that stops at
+    // the stored `(createdAt, id)` frontier.
+    expect(kindDeltaThisRun['issue-list']).toBe(REPO_COUNT);
     // commit-list: only the no-ETag repo's mandatory minimal re-check.
     expect(kindDeltaThisRun['commit-list']).toBe(1);
     // release-list: only the no-ETag repo's mandatory full re-list.
     expect(kindDeltaThisRun['release-list']).toBe(1);
 
     // Per-repository contrast: an ETag-capable unchanged repo costs exactly
-    // 3 requests this run (commit-probe + pull-list + release-probe); the
-    // no-ETag repository — correct, but unable to use a 304 fast path —
-    // costs exactly 5 (adds one minimal commit-list and one full
+    // 4 requests this run (commit-probe + pull-list + release-probe +
+    // issue-list); the no-ETag repository — correct, but unable to use a 304
+    // fast path — costs exactly 6 (adds one minimal commit-list and one full
     // release-list).
     const noEtagAfter = repoKindSnapshot(provider, noEtagKey);
     const stableAfter = repoKindSnapshot(provider, stableKey);
-    expect(totalKindDelta(stableBefore, stableAfter)).toBe(3);
-    expect(totalKindDelta(noEtagBefore, noEtagAfter)).toBe(5);
+    expect(totalKindDelta(stableBefore, stableAfter)).toBe(4);
+    expect(totalKindDelta(noEtagBefore, noEtagAfter)).toBe(6);
 
     // The tied-PR repository still has exactly its original 2 facts.
     const tiesSeed = seeds.find((s) => s.name === PR_TIES_NAME);

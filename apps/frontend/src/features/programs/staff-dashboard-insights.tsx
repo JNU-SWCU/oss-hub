@@ -41,9 +41,9 @@ export function StaffActivityInsights({
     <div className="grid gap-2">
       <dl className="grid gap-1">
         <Metric label="저장소" value={activity.repositories} />
-        <Metric label="커밋" value={activity.commits} />
+        <Metric label="Commit" value={activity.commits} />
         <Metric label="PR" value={activity.pullRequests} />
-        <Metric label="릴리스" value={activity.releases} />
+        <Metric label="Release" value={activity.releases} />
       </dl>
       <p className="text-xs text-muted-foreground">
         {activityCaption(activity)}

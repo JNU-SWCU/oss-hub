@@ -92,7 +92,6 @@ describe('readTeamDeletionScopeCounts', () => {
       '"MilestoneDocumentTemplateFile"',
       '"ProgramCreateRequest"',
       '"ProgramAuthoringUpload"',
-      '"PublicShowcaseRepository"',
       '"ProgramCover"',
     ]) {
       expect(sql).not.toContain(programOnly);

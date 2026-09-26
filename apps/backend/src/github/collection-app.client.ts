@@ -1,5 +1,6 @@
 import { CollectionAppConfigValues } from './collection-app.config';
 import {
+  IssueFrontier,
   PullRequestFrontier,
   ReleaseFrontier,
   RequestFingerprint,
@@ -56,19 +57,17 @@ const AUTHOR_COMMIT_HISTORY_QUERY = `
 `;
 
 /**
- * 저장소 default branch의 **전체** 커밋 수. 노드를 하나도 받지 않고 `totalCount`만 읽어
- * 비용을 최소로 유지한다(작성자 필터 없음 — 팀원·외부 기여자를 모두 포함한 총량).
- * `first`를 주지 않는다 — `first`는 페이지 크기일 뿐 `totalCount`와 무관하므로
- * (`first: 1`이어도 총계는 그대로다) 붙이면 "커밋을 받는다"고 오해를 부른다.
- * `외부 기여 = 전체 − 팀원합` 계산의 좌변이며, 개인 식별자는 어떤 필드로도 요청하지 않는다.
+ * default branch에서 `[since, until]`에 커밋된 커밋 **수** — 노드를 하나도 받지 않고 `totalCount`만
+ * 읽는다(작성자 필터 없음, 1점). ADR-009 「외부 = 전체 − 팀원합」의 좌변을 프로그램 기간으로 자른
+ * 값이며, 개인 식별자는 어떤 필드로도 요청하지 않는다.
  */
 const DEFAULT_BRANCH_COMMIT_COUNT_QUERY = `
-  query CollectionDefaultBranchCommitCount($owner: String!, $name: String!, $branch: String!) {
+  query CollectionDefaultBranchCommitCount($owner: String!, $name: String!, $branch: String!, $since: GitTimestamp!, $until: GitTimestamp!) {
     repository(owner: $owner, name: $name) {
       ref(qualifiedName: $branch) {
         target {
           ... on Commit {
-            history { totalCount }
+            history(since: $since, until: $until) { totalCount }
           }
         }
       }
@@ -154,6 +153,13 @@ export interface CollectionRelease {
   authorGithubId: string | null;
   htmlUrl: string;
 }
+export interface CollectionIssue {
+  id: string;
+  state: 'open' | 'closed';
+  createdAt: string;
+  authorLogin: string | null;
+  authorGithubId: string | null;
+}
 
 /**
  * Result of a lightweight (`per_page=1`) default-branch head probe. When
@@ -192,6 +198,18 @@ export interface CommitTraversalResult {
 export interface PullRequestIncrementalResult {
   pullRequests: CollectionPullRequest[];
   newFrontier: PullRequestFrontier | null;
+  fingerprint: RequestFingerprint;
+}
+
+/**
+ * Result of reading issues strictly newer than `(createdAt, id)`. Pull
+ * requests the listing interleaves are already dropped from `issues`, but
+ * `newFrontier` still comes from the first raw item — PR or issue — so it
+ * equals the input frontier only when nothing newer was read at all.
+ */
+export interface IssueIncrementalResult {
+  issues: CollectionIssue[];
+  newFrontier: IssueFrontier | null;
   fingerprint: RequestFingerprint;
 }
 
@@ -265,13 +283,16 @@ export class CollectionAppClient {
    * Resolves a GitHub login to its GraphQL node ID, or `null` when no such
    * user exists. `history(author: { id: })` matches on the node ID, not the
    * REST `databaseId`, so this is the required first step of
-   * {@link listDefaultBranchCommitsByAuthor}.
+   * {@link listDefaultBranchCommitsByAuthor}. GitHub answers an unknown
+   * (renamed or deleted) login with `data.user: null` plus a `NOT_FOUND`
+   * error, so only here is that error read as data rather than a failure.
    */
   async resolveUserNodeId(login: string): Promise<string | null> {
-    const body = await this.graphql({
-      query: USER_NODE_ID_QUERY,
-      variables: { login },
-    });
+    const body = await this.graphql(
+      { query: USER_NODE_ID_QUERY, variables: { login } },
+      undefined,
+      true,
+    );
     const user = this.record(body.data).user;
     if (user === null || user === undefined) return null;
     return this.string(this.record(user).id);
@@ -336,21 +357,22 @@ export class CollectionAppClient {
   }
 
   /**
-   * Total default-branch commit count (every author), or `null` when the
-   * branch — or its commit target — does not exist. `null` is deliberately
-   * distinct from `0`: "the branch has no commits" and "there is no branch"
-   * are different facts, and subtracting a team total from the latter would
-   * produce a negative external-contributor figure. Costs one rate-limit
-   * point and transfers no commit nodes at all.
+   * Default-branch commit **count** committed in `[since, until]` (every
+   * author), or `null` when the branch — or its commit target — does not
+   * exist. Costs one rate-limit point and transfers no commit node, so no
+   * contributor identity is ever read: the left side of ADR-009's
+   * `outsiders = total − team`, cut to the program window.
    */
-  async countDefaultBranchCommits(
+  async countDefaultBranchCommitsBetween(
     owner: string,
     repo: string,
     defaultBranch: string,
+    since: string,
+    until: string,
   ): Promise<number | null> {
     const body = await this.graphql({
       query: DEFAULT_BRANCH_COMMIT_COUNT_QUERY,
-      variables: { owner, name: repo, branch: defaultBranch },
+      variables: { owner, name: repo, branch: defaultBranch, since, until },
     });
     const repository = this.record(body.data).repository;
     if (repository === null || repository === undefined) this.invalid();
@@ -437,7 +459,7 @@ export class CollectionAppClient {
       (raw) => knownShas.has(this.string(this.record(raw).sha)),
       (v) => this.commit(v),
       undefined,
-      true,
+      { emptyRepositoryIsEmpty: true },
     );
     return {
       commits: dedupeByKey(items, (commit) => commit.sha),
@@ -469,6 +491,46 @@ export class CollectionAppClient {
       ? { createdAt: pullRequests[0].createdAt, id: pullRequests[0].id }
       : tieFrontier;
     return { pullRequests, newFrontier, fingerprint };
+  }
+
+  /**
+   * Reads issues `state=all&sort=created&direction=desc` until the
+   * `(createdAt, id)` tie frontier is met, the same traversal as
+   * {@link listNewPullRequests}. GitHub interleaves pull requests here (items
+   * carrying a `pull_request` key): the new frontier is taken from the first
+   * raw item before they are dropped, so a page of nothing but pull requests
+   * still advances it. A `410` (issues disabled) reads as an empty listing.
+   */
+  async listNewIssues(
+    owner: string,
+    repo: string,
+    tieFrontier: IssueFrontier | null,
+  ): Promise<IssueIncrementalResult> {
+    const { items } = await this.traverseUntil(
+      `/repos/${this.segment(owner)}/${this.segment(repo)}/issues?state=all&sort=created&direction=desc&per_page=100`,
+      (raw) =>
+        tieFrontier !== null &&
+        this.isAtOrBeforePullRequestFrontier(raw, tieFrontier),
+      (v) => this.issueListItem(v),
+      undefined,
+      { goneIsEmpty: true },
+    );
+    return {
+      issues: dedupeByKey(
+        items.flatMap((item) => (item.issue ? [item.issue] : [])),
+        (issue) => issue.id,
+      ),
+      newFrontier: items[0]?.frontier ?? tieFrontier,
+      fingerprint: {
+        endpoint: `/repos/${owner}/${repo}/issues`,
+        ref: null,
+        query: 'state=all',
+        order: 'sort=created&direction=desc',
+        pageSize: 100,
+        accept: ACCEPT,
+        apiVersion: API_VERSION,
+      },
+    };
   }
 
   /**
@@ -623,13 +685,9 @@ export class CollectionAppClient {
     emptyRepositoryIsEmpty = false,
   ): Promise<T[]> {
     return (
-      await this.traverseUntil(
-        path,
-        () => false,
-        normalize,
-        envelope,
+      await this.traverseUntil(path, () => false, normalize, envelope, {
         emptyRepositoryIsEmpty,
-      )
+      })
     ).items;
   }
 
@@ -646,7 +704,7 @@ export class CollectionAppClient {
     shouldStop: (raw: unknown) => boolean,
     normalize: (value: unknown) => T,
     envelope?: string,
-    emptyRepositoryIsEmpty = false,
+    emptyWhen: { emptyRepositoryIsEmpty?: boolean; goneIsEmpty?: boolean } = {},
   ): Promise<{ items: T[]; exhausted: boolean }> {
     const deadline = this.now() + this.config.deadlineMs;
     const result: T[] = [];
@@ -660,9 +718,7 @@ export class CollectionAppClient {
         throw new CollectionAppClientError('PAGINATION');
       if (seen.has(next)) throw new CollectionAppClientError('PAGINATION');
       seen.add(next);
-      const response = await this.request(next, deadline, {
-        emptyRepositoryIsEmpty,
-      });
+      const response = await this.request(next, deadline, emptyWhen);
       const container = envelope
         ? this.record(response.body)[envelope]
         : response.body;
@@ -679,7 +735,12 @@ export class CollectionAppClient {
   private async request(
     url: string,
     deadline: number,
-    options?: { emptyRepositoryIsEmpty?: boolean; ifNoneMatch?: string | null },
+    options?: {
+      emptyRepositoryIsEmpty?: boolean;
+      /** `410 Gone`(issue 비활성 저장소)을 빈 목록으로 읽는다. */
+      goneIsEmpty?: boolean;
+      ifNoneMatch?: string | null;
+    },
   ): Promise<{
     body: unknown;
     link: string | null;
@@ -749,6 +810,14 @@ export class CollectionAppClient {
           };
         }
       }
+      if (options?.goneIsEmpty && response.status === 410) {
+        return {
+          body: [],
+          link: null,
+          etag: response.headers.get('etag'),
+          notModified: false,
+        };
+      }
       if (!response.ok) {
         if (
           response.status === 429 ||
@@ -796,6 +865,7 @@ export class CollectionAppClient {
   private async graphql(
     payload: { query: string; variables: Record<string, unknown> },
     deadline: number = this.now() + this.config.deadlineMs,
+    notFoundIsData = false,
   ): Promise<Record<string, unknown>> {
     const url = this.config.graphqlUrl ?? DEFAULT_GRAPHQL_URL;
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -856,6 +926,17 @@ export class CollectionAppClient {
       }
       const body = this.record(json);
       if (Array.isArray(body.errors) && body.errors.length > 0) {
+        if (
+          notFoundIsData &&
+          body.errors.every(
+            (e) =>
+              typeof e === 'object' &&
+              e !== null &&
+              (e as Record<string, unknown>).type === 'NOT_FOUND',
+          )
+        ) {
+          return body;
+        }
         const rateLimited = body.errors.some(
           (e) =>
             typeof e === 'object' &&
@@ -974,6 +1055,26 @@ export class CollectionAppClient {
       publishedAt: this.date(r.published_at),
       ...this.actor(r.author),
       htmlUrl: this.string(r.html_url),
+    };
+  }
+  /** Issue listing item → its frontier, plus the issue itself unless it is a pull request. */
+  private issueListItem(v: unknown): {
+    frontier: IssueFrontier;
+    issue: CollectionIssue | null;
+  } {
+    const r = this.record(v);
+    const frontier = { createdAt: this.date(r.created_at), id: this.id(r.id) };
+    if (r.pull_request) return { frontier, issue: null };
+    const state = this.string(r.state);
+    if (state !== 'open' && state !== 'closed') this.invalid();
+    return {
+      frontier,
+      issue: {
+        id: frontier.id,
+        state,
+        createdAt: frontier.createdAt,
+        ...this.actor(r.user),
+      },
     };
   }
   private actor(v: unknown): {

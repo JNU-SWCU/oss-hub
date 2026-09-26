@@ -429,8 +429,8 @@ describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => 
 
     expect(html).toContain('@synthetic-outcome2-owner-login');
     expect(html).toContain('@synthetic-outcome2-other-login');
-    expect(html).toContain('커밋 5 · PR 2 · 릴리스 1');
-    expect(html).toContain('커밋 3 · PR 1 · 릴리스 0');
+    expect(html).toContain('Commit 5 · PR 2 · Release 1');
+    expect(html).toContain('Commit 3 · PR 1 · Release 0');
     expect(html).toContain('<strong class="text-2xl">8</strong>');
     expect(html).toContain('<strong class="text-2xl">3</strong>');
     expect(html).toContain('<strong class="text-2xl">1</strong>');

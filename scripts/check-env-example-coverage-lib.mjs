@@ -19,11 +19,6 @@ export const ENV_CONTRACT_EXEMPTIONS = Object.freeze([
     reason: 'Jenkins가 주입하는 production image 치환 키이다.',
   }),
   Object.freeze({
-    key: 'NODE_ENV',
-    checks: Object.freeze([CHECK.runtimeDeclaration, CHECK.backendInjection]),
-    reason: 'Dockerfile과 compose.local.yml이 소유한다.',
-  }),
-  Object.freeze({
     key: 'DIGEST_FORCE_TO',
     checks: Object.freeze([CHECK.runtimeDeclaration, CHECK.backendInjection]),
     reason: 'notifications CLI 전용 키이다.',
