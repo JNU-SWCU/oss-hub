@@ -1,4 +1,5 @@
-// 학과 선택 목록(`<select>`)의 **열린 목록** 대비를 계산으로 지킨다(QA34).
+// 가입 프로필의 선택 목록(`<select>` — 학과, 교직원의 소속 유형)의 **열린 목록** 대비를
+// 계산으로 지킨다(QA34, #1435).
 //
 // 여기서 대비가 무너지는 방식은 화면 안 요소와 다르다. 열린 목록은 페이지가 아니라
 // 브라우저가 그린다 — 페이지가 정하는 것은 `option`·`optgroup`의 글자색·배경색뿐이고,
@@ -151,35 +152,55 @@ function tokenOfUtility(utility: string): string {
   return `--${utility.replace(/^(?:bg|text)-/, '')}`;
 }
 
-/** 학과 `<Select>`가 실제로 입는 클래스 목록. */
-function readDepartmentSelectClassName(): string {
-  const start = screenSource.indexOf('<Select');
-  if (start === -1) {
-    throw new Error(
-      'profile-affiliation-fields.tsx에서 <Select>를 찾지 못했습니다',
-    );
-  }
-  const rest = screenSource.slice(start);
+/** 여는 태그 안에서 호출부가 덧댄 클래스 목록. 없으면 빈 문자열. */
+function classNameOf(tag: string): string {
   // 클래스 목록은 한 줄 문자열이거나 `cn('…', '…')` 묶음이다(R-08a로 120자에서 나눈다).
   // 어느 쪽이든 유틸리티 목록 자체는 같으므로 공백 하나로 이어 붙여 같은 값을 만든다.
-  const grouped = /className=\{cn\(([\s\S]*?)\)\}/.exec(rest);
+  const grouped = /className=\{cn\(([\s\S]*?)\)\}/.exec(tag);
   if (grouped) {
     const parts = [...grouped[1]!.matchAll(/'([^']+)'/g)].map(
       (part) => part[1]!,
     );
     if (parts.length === 0) {
-      throw new Error('학과 <Select>의 className 묶음이 비어 있습니다');
+      throw new Error('<Select>의 className 묶음이 비어 있습니다');
     }
     return parts.join(' ');
   }
-  const match = /className="([^"]+)"/.exec(rest);
-  if (!match) {
-    throw new Error('학과 <Select>의 className을 찾지 못했습니다');
-  }
-  return match[1]!;
+  return /className="([^"]+)"/.exec(tag)?.[1] ?? '';
 }
 
-const selectClassName = readDepartmentSelectClassName();
+/**
+ * 이 파일의 `<Select>` 마다 id 와 실제로 입는 클래스 목록.
+ *
+ * 여는 태그의 속성만 읽는다 — 첫 자식 `<option` 앞까지. 파일 끝까지 읽으면
+ * className 이 없는 `<Select>`가 다음 `<Select>`의 클래스를 주워 와 통과해 버린다
+ * (「소속 유형」이 그렇게 목록 색 없이 이 테스트를 지나갔다, #1435).
+ */
+function readSelects(): ReadonlyArray<{
+  readonly id: string;
+  readonly className: string;
+}> {
+  const selects: { id: string; className: string }[] = [];
+  let from = 0;
+  for (;;) {
+    const start = screenSource.indexOf('<Select', from);
+    if (start === -1) break;
+    const firstChild = screenSource.indexOf('<option', start);
+    const end = firstChild === -1 ? screenSource.length : firstChild;
+    const tag = screenSource.slice(start, end);
+    const id = /\bid="([^"]+)"/.exec(tag)?.[1];
+    if (!id) {
+      throw new Error(
+        'profile-affiliation-fields.tsx에 id 없는 <Select>가 있습니다',
+      );
+    }
+    selects.push({ id, className: classNameOf(tag) });
+    from = end;
+  }
+  return selects;
+}
+
+const selects = readSelects();
 
 /**
  * 닫힌 칸의 글자색 토큰.
@@ -188,10 +209,10 @@ const selectClassName = readDepartmentSelectClassName();
  * 닫힌 칸의 색이다. 없으면 무대가 상속시키는 `--foreground`로 떨어진다. 목록 항목도
  * 스스로 색을 정하지 않으면 이 값을 그대로 물려받으므로 아래에서 함께 쓴다.
  */
-const closedControlToken = (() => {
+function closedControlToken(selectClassName: string): string {
   const override = /(?:^|\s)text-([\w-]+)/.exec(selectClassName);
   return override ? tokenOfUtility(`text-${override[1]!}`) : '--foreground';
-})();
+}
 
 /**
  * 목록 항목이 **실제로 입는** 색 유틸리티.
@@ -201,7 +222,10 @@ const closedControlToken = (() => {
  * 시스템 Canvas가 그대로 비친다. 고친 클래스를 지웠을 때 이 테스트가 조용히
  * 통과하지 않도록 그 상태를 그대로 재현한다.
  */
-function optionHex(element: 'option' | 'optgroup'): {
+function optionHex(
+  selectClassName: string,
+  element: 'option' | 'optgroup',
+): {
   readonly text: string;
   readonly background: string;
 } {
@@ -214,7 +238,9 @@ function optionHex(element: 'option' | 'optgroup'): {
 
   return {
     text: resolveInvertedHex(
-      text ? tokenOfUtility(`text-${text[1]!}`) : closedControlToken,
+      text
+        ? tokenOfUtility(`text-${text[1]!}`)
+        : closedControlToken(selectClassName),
     ),
     background: resolveInvertedHex(
       background ? tokenOfUtility(`bg-${background[1]!}`) : CANVAS_PALETTE,
@@ -222,11 +248,19 @@ function optionHex(element: 'option' | 'optgroup'): {
   };
 }
 
-describe('학과 선택 열린 목록 대비', () => {
+// 파싱이 두 칸을 모두 읽는지부터 본다 — 하나만 읽으면 아래 검사가 조용히 줄어든다.
+it('가입 프로필의 선택 상자를 모두 읽는다(학과·소속 유형)', () => {
+  expect(selects.map((select) => select.id).sort()).toEqual([
+    'profile-affiliation-kind',
+    'profile-department',
+  ]);
+});
+
+describe.each(selects)('$id 열린 목록 대비', ({ className }) => {
   it.each(['option', 'optgroup'] as const)(
     '%s 이 자기 배경 위에서 AA를 만족한다',
     (element) => {
-      const { text, background } = optionHex(element);
+      const { text, background } = optionHex(className, element);
 
       expect(contrast(text, background)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
     },
@@ -237,9 +271,7 @@ describe('학과 선택 열린 목록 대비', () => {
   it.each(['option', 'optgroup'] as const)(
     '%s 이 배경을 스스로 정한다',
     (element) => {
-      expect(selectClassName).toMatch(
-        new RegExp(`\\[&_${element}\\]:bg-[\\w-]+`),
-      );
+      expect(className).toMatch(new RegExp(`\\[&_${element}\\]:bg-[\\w-]+`));
     },
   );
 
@@ -251,7 +283,7 @@ describe('학과 선택 열린 목록 대비', () => {
     if (!groundUtility) {
       throw new Error('app-frame.tsx에서 우주 바탕 유틸리티를 찾지 못했습니다');
     }
-    const text = resolveInvertedHex(closedControlToken);
+    const text = resolveInvertedHex(closedControlToken(className));
 
     expect(
       contrast(text, resolveInvertedHex(`--${groundUtility}`)),

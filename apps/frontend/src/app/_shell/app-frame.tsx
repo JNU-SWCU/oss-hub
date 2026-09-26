@@ -79,10 +79,15 @@ export function AppFrame({
           }
         >
           <ShellNav brand={brand} items={navItems} actions={actions} />
+          {/* 우주 바탕 위 본문 전체를 반전 표면으로 둔다. 가입 무대(SignupStage)가 스스로
+              반전을 걸지만, 그 무대가 서기 전·실패했을 때 인증·온보딩 게이트
+              (AuthGate·OnboardingGate)가 그리는 「확인 중…」과 오류 문구는 무대 밖
+              이 자리에 그려져 흰 화면용 색으로 남았다(#1436). */}
           <div
             className={
               onCosmosGround ? 'flex min-h-0 flex-1 flex-col' : undefined
             }
+            data-surface={onCosmosGround ? 'inverted' : undefined}
             id="main-content"
             tabIndex={-1}
           >
