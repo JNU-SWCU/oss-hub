@@ -1,6 +1,5 @@
 import type { ProgramCategory, ProgramTrackType } from './program-templates';
 import type { PublishBlockedReason } from '@/lib/repository-publication';
-import type { StaffRepositoryEvidence } from './staff-repository-evidence';
 
 export type ViewerRole = 'STUDENT' | 'STAFF' | 'ADMIN' | 'PENDING' | null;
 export type ApplicationStatus = 'SUBMITTED' | 'APPROVED' | 'REJECTED';
@@ -361,7 +360,7 @@ export interface DeletedTeamResult {
   readonly deletedCounts: TeamDeletedCounts;
 }
 
-export interface StaffTeamDetail extends StaffRepositoryEvidence {
+export interface StaffTeamDetail {
   readonly teamId: string;
   readonly name: string;
   readonly memberCount: number;
@@ -372,6 +371,20 @@ export interface StaffTeamDetail extends StaffRepositoryEvidence {
    * 누를 때 이 값이 그대로 `expectedScope` 로 돌아간다.
    */
   readonly deletionScope: TeamDeletionScope;
+  /** 저장소 기여 요약 — 저장소가 없으면 null. 화면은 「팀원이 아닌 사람의 기여」 한 줄만 쓴다. */
+  readonly repositoryContributions: {
+    readonly outsiderContributions: StaffOutsiderContributions | null;
+  } | null;
+}
+
+/**
+ * 「팀원이 아닌 사람의 기여」(#1133) — 이 저장소에서 프로그램 기간 안 지금 팀원이 아닌 사람의
+ * Commit·PR·Issue 수. 누가 했는지는 서버도 담지 않는다. 수집이 아직 세지 않았으면 null이다.
+ */
+export interface StaffOutsiderContributions {
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
 }
 
 /**

@@ -14,6 +14,7 @@ import {
   milestoneDocumentUploadHint,
   milestoneDocumentUploadRejection,
 } from './milestone-document-upload-policy';
+import { useMilestoneDocumentFileCheck } from './use-milestone-document-file-check';
 
 /**
  * 제출·재제출 폼.
@@ -35,6 +36,7 @@ export function MilestoneDocumentSubmissionForm({
   currentFileName,
   isResubmission = false,
   submitting,
+  fileRejection = null,
   onCancel,
   onSubmit,
 }: {
@@ -46,6 +48,14 @@ export function MilestoneDocumentSubmissionForm({
   readonly currentFileName: string | null;
   readonly isResubmission?: boolean;
   readonly submitting: boolean;
+  /**
+   * 제출 때 압축 파일 **내용** 때문에 막힌 사유(#1108). 그 파일을 그대로 들고 있는 동안만
+   * 고를 때의 판정과 **같은** 오류 자리에 선다 — 한 문장이 두 자리에 겹치지 않는다.
+   */
+  readonly fileRejection?: {
+    readonly file: File;
+    readonly message: string;
+  } | null;
   readonly onCancel: () => void;
   readonly onSubmit: (input: {
     readonly text: string | null;
@@ -58,7 +68,12 @@ export function MilestoneDocumentSubmissionForm({
     readonly name: string;
     readonly reason: string;
   } | null>(null);
-  const fileError = rejectedFile?.reason ?? null;
+  const fileCheck = useMilestoneDocumentFileCheck(file);
+  const fileVerdict =
+    (fileRejection !== null && fileRejection.file === file
+      ? fileRejection.message
+      : null) ?? fileCheck.message;
+  const fileError = rejectedFile?.reason ?? fileVerdict;
   const hasText = text.trim().length > 0;
   const hasFile = file !== null;
   const helpId = `${documentId}-submission-help`;
@@ -145,8 +160,18 @@ export function MilestoneDocumentSubmissionForm({
                 ? null
                 : { name: selected.name, reason: rejection },
             );
+            // ZIP이면 제출 전에 서버 판정을 묻는다(#1108). 걸린 파일은 위에서 이미 말했다.
+            fileCheck.start(rejection === null ? selected : null);
           }}
         />
+        {fileCheck.checking ? (
+          <FieldDescription role="status" aria-live="polite">
+            파일 확인 중…
+          </FieldDescription>
+        ) : null}
+        {fileVerdict === null ? null : (
+          <FieldError id={fileErrorId}>{fileVerdict}</FieldError>
+        )}
         {rejectedFile === null ? null : (
           <div className="grid min-w-0 gap-2 rounded-control border border-destructive/35 bg-destructive/5 p-3">
             <span

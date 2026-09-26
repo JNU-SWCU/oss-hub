@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus } from '@prisma/client';
+import { AccountStatus, type Prisma } from '@prisma/client';
 import { nextScheduledCollectionAt } from '../github/collection-schedule';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -9,7 +9,12 @@ export interface SystemStatusActor {
   accountStatus: AccountStatus;
 }
 
-const COLLECTION_STREAM_TYPES = ['COMMIT', 'PULL_REQUEST', 'RELEASE'] as const;
+const COLLECTION_STREAM_TYPES = [
+  'COMMIT',
+  'PULL_REQUEST',
+  'RELEASE',
+  'ISSUE',
+] as const;
 type CollectionStreamType = (typeof COLLECTION_STREAM_TYPES)[number];
 type CollectionStreamStatus = 'PENDING' | 'BACKFILLING' | 'READY' | 'VERIFYING';
 
@@ -74,14 +79,25 @@ export interface CollectionExternalCollectionStatusDto {
   readonly cumulativeReleaseCount: number;
 }
 
+/**
+ * 수집 대상 규칙 — 수집 sweep(`CollectionSyncService`)과 한 벌이다. 연결이 풀려 팀·프로그램
+ * 이력만 남은 저장소는 더 수집하지 않으므로 추적 집합에서도 뺀다. 세면 멈춘 stream이 영영
+ * 미완(PARTIAL)으로 읽힌다.
+ */
+const COLLECTION_TARGET = {
+  OR: [{ applicationId: { not: null } }, { programId: null, teamId: null }],
+} satisfies Prisma.GithubRepositoryWhereInput;
+
 const PRESENT_REPOSITORY = {
   presence: 'PRESENT',
   source: 'ORG_PROVISIONED',
+  ...COLLECTION_TARGET,
 } as const;
 
 const PRESENT_EXTERNAL_REPOSITORY = {
   presence: 'PRESENT',
   source: 'EXTERNAL_PUBLIC',
+  ...COLLECTION_TARGET,
 } as const;
 
 const EXTERNAL_SWEEP_SCOPE = 'external';
@@ -180,7 +196,10 @@ export class SystemStatusRepository {
     const readyStreamCount = countFor('READY');
     const backfillingStreamCount = countFor('BACKFILLING');
     const knownPartialStreamCount = countFor('PENDING') + countFor('VERIFYING');
-    const expectedStreamCount = trackedRepositoryCount * 3;
+    // 저장소마다 stream 종류 수만큼 행이 있어야 한다. 아직 행이 없는 stream(새 저장소,
+    // 새로 생긴 stream 종류)은 부분(PARTIAL)으로 센다.
+    const expectedStreamCount =
+      trackedRepositoryCount * COLLECTION_STREAM_TYPES.length;
     const observedStreamCount =
       readyStreamCount + backfillingStreamCount + knownPartialStreamCount;
     const partialStreamCount =

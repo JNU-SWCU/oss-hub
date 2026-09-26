@@ -21,6 +21,81 @@ import { SubmissionMembershipChangedError } from '../submissions/submission-memb
 import { signatureValidZip } from '../submissions/submission-zip-test-builder';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
 
+const MIB = 1024 * 1024;
+
+/** 전통 방식 암호화가 자료 앞에 덧붙이는 머리 크기. 이만큼을 더해야 진짜 암호화 자료다. */
+const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;
+
+/**
+ * 티켓이 헤아린 여섯 갈래(중첩·비밀번호·항목 수·용량·압축률·압축 방식)를 서류 경로에서
+ * 그대로 확인한다. 제출 경로의 같은 표는
+ * `submissions/submission-files.archive-admission.spec.ts`에 있고, 두 표가 같은 사유에
+ * 같은 판정을 내리는지는 `submissions/submission-zip-rejection-parity.spec.ts`가 지킨다.
+ * 기대 코드는 열거형 이름이 아니라 응답에 실리는 문자열로 적는다 — 번호가 곧 API 계약이다.
+ */
+const ZIP_REJECTIONS: ReadonlyArray<readonly [string, string, () => Buffer]> = [
+  [
+    '안에 또 다른 압축 파일이 있는',
+    'MSD_039',
+    () => signatureValidZip([{ name: 'nested.zip' }]),
+  ],
+  [
+    '비밀번호가 걸린',
+    'MSD_040',
+    () =>
+      signatureValidZip([
+        {
+          name: 'encrypted.txt',
+          flags: 0x0001,
+          compressedSize: 1 + TRADITIONAL_ENCRYPTION_HEADER_BYTES,
+          uncompressedSize: 1,
+        },
+      ]),
+  ],
+  [
+    '항목 수가 한도를 넘는',
+    'MSD_042',
+    () =>
+      signatureValidZip(
+        Array.from({ length: 1_001 }, (_, index) => ({
+          name: `entry-${index}.txt`,
+        })),
+      ),
+  ],
+  [
+    '풀었을 때 용량이 한도를 넘는',
+    'MSD_043',
+    () =>
+      signatureValidZip([
+        {
+          name: 'entry-expansion.txt',
+          compressionMethod: 8,
+          compressedSize: 2 * MIB,
+          uncompressedSize: 100 * MIB + 1,
+        },
+      ]),
+  ],
+  [
+    '압축률이 한도를 넘는',
+    'MSD_044',
+    () =>
+      signatureValidZip([
+        {
+          name: 'entry-ratio.txt',
+          compressionMethod: 8,
+          compressedSize: 1_024,
+          uncompressedSize: 101 * 1_024,
+        },
+      ]),
+  ],
+  [
+    '지원하지 않는 압축 방식으로 만든',
+    'MSD_041',
+    () =>
+      signatureValidZip([{ name: 'unsupported.txt', compressionMethod: 99 }]),
+  ],
+];
+
 // 합성 데이터만 사용한다 (docs/rules/security.md)
 /**
  * 이 스펙이 서는 고정 시각. 기본 마일스톤 `dueAt`(2026-09-19T09:00:00Z)보다 앞이라
@@ -616,33 +691,47 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
   /**
    * ZIP 입장 검사도 제출물 경로와 같은 계약이어야 한다 — 서명(PK\x03\x04)만 맞는
    * 압축 폭탄·중첩 아카이브를 학생 서류 경로로 넣을 수 있으면 검사 자체가 무의미해진다.
+   *
+   * 거절 **사유를 가르는 것**도 같은 계약이다(#1108). 한쪽만 고치면 같은 압축 파일이
+   * 제출 화면에서는 고칠 방법을 듣고 서류 화면에서는 「지원하지 않는 파일 형식입니다」를
+   * 듣는다 — 학생 입장에서는 어느 화면에서 냈는지에 따라 안내가 달라지는 셈이다.
    */
-  it('메타데이터 검사를 통과하지 못하는 .zip은 UNSUPPORTED_FILE_TYPE으로 거부한다', async () => {
-    // Given: 서명은 진짜 집이지만 안에 또 다른 집이 들어 있다(중첩 아카이브).
-    const nestedArchive = signatureValidZip([{ name: 'nested.zip' }]);
-    const { mocks: submissionFileMocks, submissionFiles } =
-      buildSubmissionFiles();
-    const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(
-      buildRepository().repository,
-      storage,
-      submissionFiles,
-    );
+  it.each(ZIP_REJECTIONS)(
+    '%s .zip은 %s로 거부한다',
+    async (_scenario, expectedCode, build) => {
+      // Given
+      const archive = build();
+      const { mocks: submissionFileMocks, submissionFiles } =
+        buildSubmissionFiles();
+      const { mocks: storageMocks, storage } = buildStorage();
+      const service = new MilestoneDocumentFilesService(
+        buildRepository().repository,
+        storage,
+        submissionFiles,
+      );
 
-    // When / Then
-    await expect(
-      service.upload(1n, syntheticMilestoneId, syntheticDocumentId, {
-        buffer: nestedArchive,
-        originalname: '제출묶음.zip',
-        mimetype: 'application/zip',
-        size: nestedArchive.byteLength,
-      }),
-    ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE },
-    });
-    expect(submissionFileMocks.createPending).not.toHaveBeenCalled();
-    expect(storageMocks.put).not.toHaveBeenCalled();
-  });
+      // When / Then
+      await expect(
+        service.upload(1n, syntheticMilestoneId, syntheticDocumentId, {
+          buffer: archive,
+          originalname: '제출묶음.zip',
+          mimetype: 'application/zip',
+          size: archive.byteLength,
+        }),
+      ).rejects.toMatchObject({
+        errorCode: {
+          code: expectedCode,
+          message:
+            MILESTONE_DOCUMENTS_ERROR_CODES[
+              expectedCode as MilestoneDocumentsErrorCode
+            ]?.message,
+          status: 422,
+        },
+      });
+      expect(submissionFileMocks.createPending).not.toHaveBeenCalled();
+      expect(storageMocks.put).not.toHaveBeenCalled();
+    },
+  );
 
   it('메타데이터 검사를 통과한 .zip은 그대로 받아들인다', async () => {
     // Given
@@ -734,6 +823,90 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE },
     });
+  });
+});
+
+/*
+ * #1108 인터뷰 — 서류 화면도 거절 사유를 보려면 제출을 눌러야 했다. 파일을 고르자마자 묻는
+ * 판정(`check`)은 업로드와 **같은** 코드·상태·문장이어야 하고, 아무것도 남기지 않는다.
+ */
+describe('MilestoneDocumentFilesService.check (학생, 제출 전 판정)', () => {
+  function setup() {
+    const { mocks: repositoryMocks, repository } = buildRepository();
+    const { mocks: submissionFileMocks, submissionFiles } =
+      buildSubmissionFiles();
+    const { mocks: storageMocks, storage } = buildStorage();
+    const service = new MilestoneDocumentFilesService(
+      repository,
+      storage,
+      submissionFiles,
+    );
+    const callCount = () =>
+      [repositoryMocks, submissionFileMocks, storageMocks]
+        .flatMap((mocks) => Object.values(mocks))
+        .reduce((sum, mock) => sum + (mock?.mock.calls.length ?? 0), 0);
+    return { callCount, service };
+  }
+
+  const zipUpload = (buffer: Buffer): MilestoneDocumentFileUpload => ({
+    buffer,
+    originalname: '제출묶음.zip',
+    mimetype: 'application/zip',
+    size: buffer.byteLength,
+  });
+
+  it.each(ZIP_REJECTIONS)(
+    '%s .zip은 업로드와 같은 %s로 답하고 저장소·DB에 닿지 않는다',
+    async (_scenario, expectedCode, build) => {
+      // Given
+      const archive = build();
+      const checking = setup();
+      const uploading = setup();
+
+      // When
+      const [checked, uploaded] = await Promise.allSettled([
+        checking.service.check(zipUpload(archive)),
+        uploading.service.upload(
+          1n,
+          syntheticMilestoneId,
+          syntheticDocumentId,
+          zipUpload(archive),
+          UPLOAD_NOW,
+        ),
+      ]);
+
+      // Then
+      expect(checked).toMatchObject({
+        status: 'rejected',
+        reason: {
+          errorCode:
+            MILESTONE_DOCUMENTS_ERROR_CODES[
+              expectedCode as MilestoneDocumentsErrorCode
+            ],
+        },
+      });
+      expect(uploaded).toMatchObject({
+        status: 'rejected',
+        reason: {
+          errorCode:
+            MILESTONE_DOCUMENTS_ERROR_CODES[
+              expectedCode as MilestoneDocumentsErrorCode
+            ],
+        },
+      });
+      expect(checking.callCount()).toBe(0);
+    },
+  );
+
+  it('통과한 .zip도 저장소·DB에 닿지 않는다', async () => {
+    // Given
+    const { callCount, service } = setup();
+
+    // When
+    await service.check(zipUpload(signatureValidZip([{ name: 'valid.txt' }])));
+
+    // Then
+    expect(callCount()).toBe(0);
   });
 });
 

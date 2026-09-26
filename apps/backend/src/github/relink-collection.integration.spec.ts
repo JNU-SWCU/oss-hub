@@ -3,6 +3,7 @@ import {
   prisma,
   service,
   resolver,
+  collectionTrigger,
   githubId,
   programId,
   applicationId,
@@ -89,7 +90,9 @@ it('collects new facts only on the replacement when an external application repo
       htmlUrl: 'https://example.invalid/commit/new-after-relink',
     },
   ]);
-  jest.spyOn(client, 'countDefaultBranchCommits').mockResolvedValue(null);
+  jest
+    .spyOn(client, 'countDefaultBranchCommitsBetween')
+    .mockResolvedValue(null);
   jest.spyOn(client, 'listNewPullRequests').mockResolvedValue({
     pullRequests: [],
     newFrontier: null,
@@ -104,6 +107,9 @@ it('collects new facts only on the replacement when an external application repo
   jest
     .spyOn(client, 'listChangedPublishedReleases')
     .mockResolvedValue({ releases: [], fingerprint });
+  jest
+    .spyOn(client, 'listNewIssues')
+    .mockResolvedValue({ issues: [], newFrontier: null, fingerprint });
   const runtime = () => ({
     appId: '8133',
     organizationLogin: 'synthetic',
@@ -234,4 +240,186 @@ it('keeps a detached organization repository in organization inventory', async (
       expect.objectContaining({ id: oldId, applicationId: null }),
     ]),
   );
+});
+
+/** provider 없이 도는 합성 runtime — 저장소별 stream 호출을 셀 수 있게 전부 spy로 잡는다. */
+function syntheticProvider() {
+  const tokens = {
+    getToken: () => Promise.resolve('synthetic-unused'),
+    clear: jest.fn(),
+  };
+  const client = new CollectionAppClient(
+    {
+      appId: '8133',
+      orgLogin: 'synthetic',
+      privateKey: 'synthetic-unused',
+      apiBaseUrl: 'https://example.invalid',
+      maxPages: 1,
+      deadlineMs: 1000,
+    },
+    tokens,
+    () => Promise.reject(new Error('Unexpected provider request')),
+  );
+  const repositoryCalls = [
+    jest.spyOn(client, 'probeDefaultBranchHead').mockResolvedValue({
+      changed: false,
+      fingerprint,
+      etag: 'synthetic-etag',
+    }),
+    jest.spyOn(client, 'listCommitsUntilKnownSha').mockResolvedValue({
+      commits: [],
+      disconnectedFullScan: true,
+      fingerprint,
+    }),
+    jest
+      .spyOn(client, 'listDefaultBranchCommitsByAuthor')
+      .mockResolvedValue([]),
+    jest
+      .spyOn(client, 'countDefaultBranchCommitsBetween')
+      .mockResolvedValue(null),
+    jest.spyOn(client, 'listNewPullRequests').mockResolvedValue({
+      pullRequests: [],
+      newFrontier: null,
+      fingerprint,
+    }),
+    jest.spyOn(client, 'probeLatestRelease').mockResolvedValue({
+      changed: false,
+      fingerprint,
+      etag: 'synthetic-etag',
+    }),
+    jest
+      .spyOn(client, 'listNewIssues')
+      .mockResolvedValue({ issues: [], newFrontier: null, fingerprint }),
+  ];
+  const resolveUserNodeId = jest
+    .spyOn(client, 'resolveUserNodeId')
+    .mockResolvedValue('synthetic-node');
+  const getRepository = jest.spyOn(client, 'getRepository');
+  const runtime = () => ({
+    appId: '8133',
+    organizationLogin: 'synthetic',
+    tokens,
+    client,
+    queue: new ProviderRequestQueue(),
+  });
+  return {
+    client,
+    runtime,
+    resolveUserNodeId,
+    getRepository,
+    /** stream 호출이 가리킨 저장소 이름(`owner/name`의 name) 목록. */
+    streamedNames: () =>
+      repositoryCalls.flatMap((spy) =>
+        spy.mock.calls.map((call: readonly unknown[]) => call[1]),
+      ),
+  };
+}
+
+it('collects a repository linked into an empty slot right after the team route saves it', async () => {
+  // Given: the team has no repository yet.
+  await prisma.githubRepository.delete({ where: { id: oldId } });
+  const provider = syntheticProvider();
+  jest
+    .spyOn(provider.client, 'listDefaultBranchCommitsByAuthor')
+    .mockResolvedValue([
+      {
+        sha: 'collected-right-after-link',
+        authorLogin: 'synthetic-relink-user',
+        authorGithubId: githubId.toString(),
+        committedAt: '2026-08-02T00:00:00Z',
+        htmlUrl: 'https://example.invalid/commit/collected-right-after-link',
+      },
+    ]);
+  const sync = new CollectionSyncService(
+    collection,
+    provider.runtime,
+    () => Promise.resolve(8133n),
+    () => observedAt,
+    () => 'synthetic-link-run',
+    provider.runtime,
+  );
+  // When: the leader saves B through the team route, and the captured trigger runs on the real database.
+  await service.updateForTeam(githubId, programId, teamId, input);
+  const linked = collectionTrigger.collectRepository.mock.calls.map(
+    ([id]) => id,
+  );
+  expect(linked).toEqual([targetGithubId]);
+  const results = await Promise.all(
+    linked.map((id) => sync.runRepository('synthetic-link', id)),
+  );
+  // Then: B has facts and a Contribution row now, without an inventory re-read.
+  expect(results).toEqual([
+    expect.objectContaining({
+      status: 'COMPLETED',
+      processedRepositoryCount: 1,
+      insertedFactCount: 1,
+    }),
+  ]);
+  expect(provider.getRepository).not.toHaveBeenCalled();
+  expect(
+    await prisma.collectionCommitFact.findMany({
+      where: { repositoryId: targetId },
+    }),
+  ).toEqual([expect.objectContaining({ sha: 'collected-right-after-link' })]);
+  expect(
+    await prisma.contribution.findMany({ where: { repositoryId: targetId } }),
+  ).toEqual([expect.objectContaining({ githubId, commitCount: 1 })]);
+  expect(
+    await prisma.githubRepository.findUnique({ where: { id: targetId } }),
+  ).toMatchObject({ lastSuccessAt: observedAt, failureCount: 0 });
+});
+
+it('stops streaming a detached organization repository in the organization sweep', async () => {
+  // Given: organization repository A was replaced by B, and C is an ordinary organization repository.
+  await service.updateMine(githubId, programId, input);
+  const organizationId = targetGithubId; // 이 케이스에만 쓰는 조직 id
+  const listing = (id: bigint, name: string) => ({
+    id: id.toString(),
+    name,
+    fullName: `synthetic/${name}`,
+    private: true,
+    archived: false,
+    defaultBranch: 'main',
+    ownerLogin: 'synthetic',
+    htmlUrl: `https://example.invalid/synthetic/${name}`,
+    updatedAt: observedAt.toISOString(),
+  });
+  const provider = syntheticProvider();
+  jest
+    .spyOn(provider.client, 'listInstallationRepositories')
+    .mockResolvedValue([
+      listing(targetGithubId + 1n, 'old'),
+      listing(targetGithubId + 2n, 'normal'),
+    ]);
+  const sync = new CollectionSyncService(
+    collection,
+    provider.runtime,
+    () => Promise.resolve(organizationId),
+    () => observedAt,
+    () => 'synthetic-org-sweep-run',
+  );
+  // When
+  const result = await sync.run('synthetic-org-sweep');
+  // Then: C is streamed as before; A is still observed but no longer streamed.
+  expect(result).toMatchObject({
+    status: 'COMPLETED',
+    inventoryComplete: true,
+    processedRepositoryCount: 1,
+  });
+  expect(provider.streamedNames()).toContain('normal');
+  expect(provider.streamedNames()).not.toContain('old');
+  expect(provider.resolveUserNodeId).not.toHaveBeenCalled();
+  expect(
+    await prisma.githubRepository.findUnique({ where: { id: oldId } }),
+  ).toMatchObject({
+    presence: 'PRESENT',
+    githubOrganizationId: organizationId,
+    applicationId: null,
+    teamId,
+    programId,
+    lastSuccessAt: null,
+  });
+  expect(
+    await prisma.contribution.findMany({ where: { repositoryId: oldId } }),
+  ).toEqual([expect.objectContaining({ commitCount: 7 })]);
 });

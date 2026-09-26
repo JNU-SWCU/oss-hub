@@ -304,8 +304,8 @@ function StreamProgressCard({ status }: { readonly status: SystemStatus }) {
             완료 {status.readyStreamCount} / {total}개 ({pct}%)
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            저장소 {status.trackedRepositoryCount}개에서 커밋·PR·릴리즈를 각각
-            수집합니다.
+            저장소 {status.trackedRepositoryCount}개에서
+            Commit·PR·Release·Issue를 각각 수집합니다.
           </p>
         </div>
         <StreamProgressBar

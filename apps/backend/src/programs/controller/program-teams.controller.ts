@@ -26,6 +26,7 @@ import {
   RepositoryUrlHistoryResponseDto,
 } from '../dto/team-detail-response.dto';
 import { RepositoryUrlHistoryQueryRequestDto } from '../dto/repository-url-history-query.dto';
+import { TeamActivityResponseDto } from '../dto/team-activity-response.dto';
 import {
   CreateTeamResponseDto,
   DeleteTeamResponseDto,
@@ -48,7 +49,8 @@ type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
  * DELETE /api/v1/programs/:programId/teams/me/members/:userId  (팀장의 팀원 제외)
  * GET    /api/v1/programs/:programId/teams          (교직원 전용)
  * GET    /api/v1/programs/:programId/teams/:teamId  (교직원 전용)
- * GET    /api/v1/programs/:programId/teams/:teamId/repository-url-history  (교직원 전용)
+ * GET    /api/v1/programs/:programId/teams/:teamId/activity  (그 팀 팀원 또는 교직원)
+ * GET    /api/v1/programs/:programId/teams/:teamId/repository-url-history  (그 팀 팀원 또는 교직원)
  * PATCH  /api/v1/programs/:programId/teams/:teamId  (팀장 또는 교직원)
  * DELETE /api/v1/programs/:programId/teams/:teamId  (교직원 전용)
  * DELETE /api/v1/programs/:programId/teams/:teamId/members/:userId  (교직원 전용)
@@ -66,7 +68,8 @@ export class ProgramTeamsController {
       | 'removeMember'
       | 'listForStaff'
       | 'getForStaff'
-      | 'getRepositoryUrlHistoryForStaff'
+      | 'getActivity'
+      | 'getRepositoryUrlHistory'
       | 'rename'
       | 'deleteForStaff'
       | 'removeMemberForStaff'
@@ -158,15 +161,38 @@ export class ProgramTeamsController {
     );
   }
 
+  /**
+   * 팀 저장소 활동(#1133) — 팀원(팀장이 아니어도)과 교직원이 같은 문을 쓴다. 그래서
+   * `ProgramTeamsStaffGuard`를 붙이지 않고 권한은 service가 판정한다(`rename`과 같은 이유).
+   */
+  @Get(':teamId/activity')
+  @UseGuards(SessionGuard)
+  async activity(
+    @Req() request: TeamSessionRequest,
+    @Param('programId') programId: string,
+    @Param('teamId') teamId: string,
+  ): Promise<TeamActivityResponseDto> {
+    return TeamActivityResponseDto.from(
+      await this.service.getActivity(
+        request.sessionGithubId,
+        programId,
+        teamId,
+      ),
+    );
+  }
+
+  /** 저장소 URL 변경 이력 — `activity`와 같은 문이라 교직원 전용 가드를 붙이지 않는다. */
   @Get(':teamId/repository-url-history')
-  @UseGuards(SessionGuard, ProgramTeamsStaffGuard)
+  @UseGuards(SessionGuard)
   async repositoryUrlHistory(
+    @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
     @Param('teamId') teamId: string,
     @Query() query: RepositoryUrlHistoryQueryRequestDto,
   ): Promise<RepositoryUrlHistoryResponseDto> {
     return RepositoryUrlHistoryResponseDto.from(
-      await this.service.getRepositoryUrlHistoryForStaff(
+      await this.service.getRepositoryUrlHistory(
+        request.sessionGithubId,
         programId,
         teamId,
         query.toCursor(),

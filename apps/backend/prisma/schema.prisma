@@ -879,43 +879,6 @@ enum RepositoryVisibility {
   PUBLIC
 }
 
-/// 공개 쿼리는 이 두 테이블만 조회한다(#126/#134); private 원본 join 금지.
-/// todo 16 — ADR-003 공개 strict-read 예외 이후 신규 공개 read(`public-projects` 모듈)는
-/// 이 규칙 대상이 아니다 — 전용 repository가 명시적 select로 `Repository` 원본을 직접 읽는다.
-/// 이 두 테이블은 todo 20까지 유지되는 레거시 writer(`ShowcaseProjectionService`) 전용으로 남는다.
-model PublicShowcaseRepository {
-  repositoryId            String          @id
-  githubRepositoryId      BigInt          @unique
-  repositoryName          String
-  repositoryUrl           String
-  publishedAt             DateTime
-  programId               String
-  programName             String
-  programCategory         ProgramCategory
-  programEndAt            DateTime
-  teamName                String?
-  displayName             String
-  approvedSubmissionCount Int
-  projectedAt             DateTime        @updatedAt
-
-  contributors PublicShowcaseContributor[]
-
-  @@index([programId])
-}
-
-/// 공개 쿼리는 이 두 테이블만 조회한다(#126/#134); private 원본 join 금지.
-model PublicShowcaseContributor {
-  id             String                   @id @default(cuid())
-  repositoryId   String
-  repository     PublicShowcaseRepository @relation(fields: [repositoryId], references: [repositoryId], onDelete: Cascade)
-  userId         String
-  githubNickname String
-  avatarUrl      String?
-
-  @@unique([repositoryId, userId])
-  @@index([userId])
-}
-
 enum RepositoryInvitationStatus {
   PENDING
   SUCCEEDED
@@ -1110,51 +1073,6 @@ model AuditLog {
   @@index([actorId])
 }
 
-enum CollectionTrigger {
-  SELF
-  BATCH
-}
-
-enum CollectionRunStatus {
-  RUNNING
-  SUCCEEDED
-  FAILED
-  RATE_LIMITED
-}
-
-enum ObservationSourceType {
-  PROFILE
-  REPO
-  EVENT
-}
-
-model CollectionRun {
-  id               String                 @id @default(cuid())
-  targetGithubId   BigInt
-  targetLogin      String
-  trigger          CollectionTrigger
-  status           CollectionRunStatus
-  profileCount     Int                    @default(0)
-  repoCount        Int                    @default(0)
-  eventCount       Int                    @default(0)
-  retryNotBeforeAt DateTime?
-  startedAt        DateTime               @default(now())
-  finishedAt       DateTime?
-  observations     GithubRawObservation[]
-}
-
-model GithubRawObservation {
-  id         String                @id @default(cuid())
-  runId      String
-  run        CollectionRun         @relation(fields: [runId], references: [id])
-  sourceType ObservationSourceType
-  sourceId   String
-  payload    Json
-  fetchedAt  DateTime              @default(now())
-
-  @@unique([runId, sourceType, sourceId])
-}
-
 enum CollectionRepositoryPresence {
   PRESENT
   ABSENT
@@ -1222,7 +1140,9 @@ model GithubRepository {
   commits       CollectionCommitFact[]
   pullRequests  CollectionPullRequestFact[]
   releases      CollectionReleaseFact[]
+  issues        GithubIssueHistory[]
   contributions Contribution[]
+  outsider      GithubRepositoryOutsiderContribution?
   invitations   RepositoryInvitation[]
   provisionJobs RepositoryProvisionJob[]
 
@@ -1246,8 +1166,8 @@ model GithubRepository {
 /// 롤오버 작업도, 당해 연도를 0으로 초기화하는 특수 처리도 필요 없다.
 /// 연도로 접으면 랭킹이, 저장소로 접으면 팀 기여도가 같은 바닥에서 나온다.
 ///
-/// 집계 수치만 담는다. 커밋 메시지·PR 제목/본문·릴리스 본문은 저장하지 않으며,
-/// 개별 식별자(`sha`·PR id·릴리스 id)도 보존하지 않는다 —
+/// 집계 수치만 담는다. 커밋 메시지·PR 제목/본문·릴리스 본문·이슈 제목/본문은 저장하지 않으며,
+/// 개별 식별자(`sha`·PR id·릴리스 id·이슈 id)도 보존하지 않는다 —
 /// "무엇을 했는지"가 아니라 "얼마나 했는지"만 남는다(ADR-006 저장 field inventory).
 model Contribution {
   repositoryId String
@@ -1263,6 +1183,7 @@ model Contribution {
   commitCount      Int @default(0)
   pullRequestCount Int @default(0)
   releaseCount     Int @default(0)
+  issueCount       Int @default(0)
 
   updatedAt DateTime @updatedAt
 
@@ -1320,6 +1241,7 @@ enum CollectionStreamType {
   COMMIT
   PULL_REQUEST
   RELEASE
+  ISSUE
 }
 
 enum CollectionStreamStatus {
@@ -1329,7 +1251,7 @@ enum CollectionStreamStatus {
   VERIFYING
 }
 
-/// stream(commit/PR/release)별 safe frontier + exact-request fingerprint/ETag를 보존해
+/// stream(commit/PR/release/issue)별 safe frontier + exact-request fingerprint/ETag를 보존해
 /// 재순회 없이 다음 증분 수집 시작점을 복원한다(ADR-006).
 model CollectionRepositoryStream {
   id String @id @default(cuid())
@@ -1417,6 +1339,51 @@ model CollectionReleaseFact {
   @@unique([repositoryId, githubReleaseId])
   @@index([repositoryId, publishedAt])
   @@index([authorGithubId])
+}
+
+/// 저장소에 issue가 열린 이력 — 관측한 issue마다 한 행을 쌓는다(`createdAt` 축, `data-modeling.md` §4).
+/// (repositoryId, githubIssueId) + createdAt만 보존한다 — title/body는 저장하지 않는다(ADR-006).
+/// GitHub issues 목록에 섞여 오는 PR은 여기 적재하지 않는다 — PR은 `CollectionPullRequestFact`가 센다.
+model GithubIssueHistory {
+  id String @id @default(cuid())
+
+  repositoryId String
+  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  githubIssueId BigInt
+  state         String
+  createdAt     DateTime
+
+  authorGithubId    BigInt?
+  authorGithubLogin String?
+
+  observedAt DateTime @default(now())
+
+  @@unique([repositoryId, githubIssueId])
+  @@index([repositoryId, createdAt])
+  @@index([authorGithubId])
+}
+
+/// 팀 저장소의 「팀원이 아닌 사람의 기여」 합계(#1133) — 저장소마다 한 행, 수집할 때마다 덮어쓴다.
+/// 누가 했는지는 저장하지 않고 프로그램 기간 안 수만 남긴다(ADR-006·ADR-009). Commit은 ADR-009의
+/// `전체 − 팀원합`이고, PR·Issue는 작성자가 지금 팀원도 봇도 아닌 GitHub 계정인 것의 수다.
+/// 어느 프로그램·기간으로 셌는지 함께 남겨, 연결이나 기간이 바뀌면 읽는 쪽이 옛 값을 버린다.
+model GithubRepositoryOutsiderContribution {
+  repositoryId String           @id
+  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  /// 센 기준. FK가 아니다 — 연결(신청)이 바뀌거나 프로그램이 지워지거나 기간이 바뀌면 읽는 쪽이
+  /// 이 값을 비교해 버린다.
+  applicationId String
+  programId     String
+  windowStartAt DateTime
+  windowEndAt   DateTime
+
+  commitCount      Int
+  pullRequestCount Int
+  issueCount       Int
+
+  observedAt DateTime
 }
 
 /// installation 재순회의 fair 연속 커서 — org 전체를 한 번에 처리하지 않고 rate-limit 인지 상태로

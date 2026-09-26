@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './admin-session.fixture';
 import { parseRepositoryUrlState } from '../src/features/programs/repository-url-api';
+import { parseTeamActivity } from '../src/features/programs/team-activity-api';
 import { expectApiStatus } from './support/program-authoring-flow';
 import {
   fixtureProgramId,
@@ -8,6 +9,7 @@ import {
   resetProgramAuthoringControl,
 } from './support/program-authoring-ui';
 import {
+  applicationTeamId,
   capture,
   captureRegion,
   RelinkEvidenceError,
@@ -38,7 +40,7 @@ test('수정 중 취소는 입력을 보존하고 명시적으로 버린 경우�
   authSeedPage,
   programAuthoringActorPage,
 }, testInfo) => {
-  // Given: the approved student opens the existing repository editor.
+  // Given: the approved student opens the repository editor on the team page.
   const programId = await provisionApplication(
     await authSeedPage('admin-confirmed'),
   );
@@ -56,7 +58,7 @@ test('수정 중 취소는 입력을 보존하고 명시적으로 버린 경우�
       writes.push(request.url());
     }
   });
-  await student.goto(`/programs/${encodeURIComponent(programId)}/apply`);
+  await student.goto(`/programs/${encodeURIComponent(programId)}/team`);
   const editor = student.getByRole('region', {
     name: '프로젝트 저장소',
     exact: true,
@@ -117,7 +119,7 @@ test('비공개 저장소 변경 실패는 URL을 보존하고 기존 연결을 
   const initialResponse = await student.request.get(repositoryPath);
   await expectApiStatus(initialResponse, 200);
   const initial = parseRepositoryUrlState(await initialResponse.json());
-  await student.goto(`/programs/${encodeURIComponent(programId)}/apply`);
+  await student.goto(`/programs/${encodeURIComponent(programId)}/team`);
   await student.getByRole('button', { name: '저장소 URL 수정' }).click();
   const privateUrl = 'https://github.com/external-owner/private-repository';
   await student.getByLabel('새 저장소 URL').fill(privateUrl);
@@ -154,12 +156,21 @@ test('확인되지 않은 저장 결과는 입력을 유지하고 다시 불러�
   authSeedPage,
   programAuthoringActorPage,
 }, testInfo) => {
-  // Given: the approved student opens the existing repository editor.
+  // Given: the approved student opens the repository editor on the team page.
   const programId = await provisionApplication(
     await authSeedPage('admin-confirmed'),
   );
   const student = await programAuthoringActorPage('student');
-  const repositoryPath = `/api/v1/programs/${encodeURIComponent(programId)}/applications/me/repository-url`;
+  const apiRoot = `/api/v1/programs/${encodeURIComponent(programId)}`;
+  const repositoryPath = `${apiRoot}/applications/me/repository-url`;
+  const applicationResponse = await student.request.get(
+    `${apiRoot}/applications/me`,
+  );
+  await expectApiStatus(applicationResponse, 200);
+  // 저장소 줄은 팀 활동 조회에서 온다 — 「다시 불러오기」도 그 조회를 다시 읽는다.
+  const activityPath = `${apiRoot}/teams/${encodeURIComponent(
+    applicationTeamId(await applicationResponse.json()),
+  )}/activity`;
   const initialResponse = await student.request.get(repositoryPath);
   await expectApiStatus(initialResponse, 200);
   const initial = parseRepositoryUrlState(await initialResponse.json());
@@ -176,7 +187,7 @@ test('확인되지 않은 저장 결과는 입력을 유지하고 다시 불러�
       repositoryRequests.push(request.method());
     }
   });
-  await student.goto(`/programs/${encodeURIComponent(programId)}/apply`);
+  await student.goto(`/programs/${encodeURIComponent(programId)}/team`);
   const editor = student.getByRole('region', {
     name: '프로젝트 저장소',
     exact: true,
@@ -264,18 +275,19 @@ test('확인되지 않은 저장 결과는 입력을 유지하고 다시 불러�
     student.waitForResponse(
       (candidate) =>
         candidate.request().method() === 'GET' &&
-        new URL(candidate.url()).pathname === repositoryPath,
+        new URL(candidate.url()).pathname === activityPath,
     ),
     outcome.getByRole('button', { name: '다시 불러오기', exact: true }).click(),
   ]);
   expect(reloadResponse.status()).toBe(200);
-  expect(
-    parseRepositoryUrlState(await reloadResponse.json()).repositoryUrl,
-  ).toBe(replacementUrl);
+  expect(parseTeamActivity(await reloadResponse.json()).repository?.url).toBe(
+    replacementUrl,
+  );
+  // 다시 읽기는 쓰기 경로를 건드리지 않는다.
   expect(repositoryRequests.filter((method) => method === 'PATCH')).toEqual([
     'PATCH',
   ]);
-  expect(repositoryRequests.slice(requestsBeforeReload)).toEqual(['GET']);
+  expect(repositoryRequests.slice(requestsBeforeReload)).toEqual([]);
   await expect(outcome).toBeHidden();
   await expect(save).toBeEnabled();
   await expect(editor.locator('#repository-url')).toHaveValue(replacementUrl);

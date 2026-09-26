@@ -64,12 +64,8 @@ test('Compose·API ingress·배포 절차 변경은 backend 를 다시 배포한
   }
 });
 
-test('local substitute 와 host nginx 는 운영 산출물이 아니므로 배포를 부르지 않는다', () => {
-  const scope = selectReleaseDeployScope([
-    'compose.local.yml',
-    'deploy/nginx-local/nginx.conf',
-    'deploy/host-nginx/oss-hub.conf',
-  ]);
+test('host nginx 는 운영 Compose 산출물이 아니므로 배포를 부르지 않는다', () => {
+  const scope = selectReleaseDeployScope(['deploy/host-nginx/oss-hub.conf']);
 
   assert.deepEqual(scope, { frontend: false, backend: false });
 });

@@ -14,13 +14,16 @@ import {
   resetProgramAuthoringControl,
 } from './support/program-authoring-ui';
 import { parseRepositoryUrlState } from '../src/features/programs/repository-url-api';
-import { parseStaffRepositoryEvidence } from '../src/features/programs/staff-repository-evidence';
+import {
+  parseRepositoryHistory,
+  parseTeamActivity,
+} from '../src/features/programs/team-activity-api';
 
 test.use({ timezoneId: 'Asia/Seoul' });
 
 const replacementUrl = 'https://github.com/external-owner/relinked-public';
 
-test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 교직원 변경 이력에 반영된다', async ({
+test('팀장이 우리 팀 화면에서 저장소를 변경하면 학생·교직원이 같은 그래프와 변경 이력을 본다', async ({
   authSeedPage,
   programAuthoringActorPage,
 }, testInfo) => {
@@ -57,7 +60,7 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 �
   const before = parseRepositoryUrlState(await beforeResponse.json());
   expect(before.canEditRepositoryUrl).toBe(true);
   expect(before.repositoryUrl).toMatch(/^https:\/\/github\.com\/e2e-org\//);
-  await student.goto(`/programs/${encodeURIComponent(programId)}/my-team`);
+  await student.goto(`/programs/${encodeURIComponent(programId)}/team`);
   await student.setViewportSize({ width: 1440, height: 900 });
   await expect(student.getByRole('radio', { name: /저장소/ })).toHaveCount(0);
   const editor = student.getByRole('region', {
@@ -151,33 +154,43 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 �
   ).toEqual(oldFacts.facts);
 
   const staff = await programAuthoringActorPage('staff');
-  const detailPath = `${apiRoot}/teams/${encodeURIComponent(teamId)}`;
-  const detailResponse = await staff.request.get(detailPath);
-  await expectApiStatus(detailResponse, 200);
-  const evidence = parseStaffRepositoryEvidence(await detailResponse.json());
-  expect(evidence.repositoryContributions?.repositoryUrl).toBe(replacementUrl);
-  expect(evidence.repositoryContributions?.repositoryId).toBe(
-    newFacts.currentRepositoryId,
+  const teamRoot = `${apiRoot}/teams/${encodeURIComponent(teamId)}`;
+  // 학생과 교직원은 같은 조회로 같은 시계열을 본다(#1133). 역할은 편집 권한만 가른다.
+  const [studentActivityResponse, staffActivityResponse] = await Promise.all([
+    student.request.get(`${teamRoot}/activity`),
+    staff.request.get(`${teamRoot}/activity`),
+  ]);
+  await expectApiStatus(studentActivityResponse, 200);
+  await expectApiStatus(staffActivityResponse, 200);
+  const studentActivity = parseTeamActivity(
+    await studentActivityResponse.json(),
   );
-  expect(evidence.repositoryContributions?.members).toEqual([
+  const staffActivity = parseTeamActivity(await staffActivityResponse.json());
+  expect({
+    ...staffActivity,
+    canEditRepositoryUrl: studentActivity.canEditRepositoryUrl,
+  }).toEqual(studentActivity);
+  expect(staffActivity.repository).toEqual({
+    id: newFacts.currentRepositoryId,
+    url: replacementUrl,
+  });
+  expect(staffActivity.status).toBe('COLLECTED');
+  // 팀원만 그린다 — 연결되지 않은 외부 기여자(8199999)는 사람 수를 늘리지 않는다.
+  expect(staffActivity.members).toEqual([
     expect.objectContaining({
-      githubId: '8100002',
-      commitCount: 7,
-      pullRequestCount: 2,
-      releaseCount: 1,
-      hasObservations: true,
+      githubLogin: 'e2e-program-authoring-student',
+      totals: { commitCount: 7, pullRequestCount: 2, issueCount: 0 },
     }),
   ]);
-  expect(evidence.repositoryContributions?.unmatchedContributors).toEqual([
-    {
-      githubId: '8199999',
-      commitCount: 5,
-      pullRequestCount: 1,
-      releaseCount: 0,
-    },
-  ]);
-  expect(evidence.repositoryUrlHistory.items).toHaveLength(1);
-  const [change] = evidence.repositoryUrlHistory.items;
+  const historyResponse = await staff.request.get(
+    `${teamRoot}/repository-url-history`,
+  );
+  await expectApiStatus(historyResponse, 200);
+  const repositoryUrlHistory = parseRepositoryHistory(
+    await historyResponse.json(),
+  );
+  expect(repositoryUrlHistory.items).toHaveLength(1);
+  const [change] = repositoryUrlHistory.items;
   if (change === undefined)
     throw new RelinkEvidenceError('Missing change history.');
   expect(change).toMatchObject({
@@ -191,7 +204,19 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 �
   await staff.goto(
     `/programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
   );
-  const history = staff.getByRole('region', {
+  const activity = staff.getByRole('region', { name: '팀 활동', exact: true });
+  await expect(activity.getByRole('list', { name: '팀원' })).toContainText(
+    '@e2e-program-authoring-student',
+  );
+  // 숫자는 초점을 줄 때만 보인다.
+  const readout = activity.locator('[data-slot="team-activity-readout"]');
+  await expect(readout).toHaveCount(0);
+  await activity.getByRole('group', { name: /팀 활동 그래프/ }).focus();
+  await expect(readout).toContainText('팀 합계');
+  await activity
+    .getByRole('button', { name: '저장소 URL 변경 이력', exact: true })
+    .click();
+  const history = activity.getByRole('region', {
     name: '저장소 URL 변경 이력',
     exact: true,
   });
@@ -212,20 +237,6 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 �
     change.occurredAt,
   );
   await expect(history.locator('time')).not.toBeEmpty();
-  const activity = staff.getByRole('region', {
-    name: '현재 저장소 활동',
-    exact: true,
-  });
-  await expect(
-    activity
-      .getByRole('list', { name: '팀원별 활동' })
-      .getByText('커밋 7 · PR 2 · 릴리스 1', { exact: true }),
-  ).toBeVisible();
-  await expect(
-    activity.getByText('GitHub ID 8199999 · 커밋 5 · PR 1 · 릴리스 0', {
-      exact: true,
-    }),
-  ).toBeVisible();
   await capture(staff, testInfo, '03-staff-desktop-viewport');
   await captureRegion(activity, testInfo, '04-staff-activity-desktop');
   await captureRegion(history, testInfo, '05-staff-history-desktop');
@@ -245,7 +256,9 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 재조회와 �
       {
         before,
         after: replacementUrl,
-        evidence,
+        studentActivity,
+        staffActivity,
+        repositoryUrlHistory,
         oldFacts,
         newFacts,
         contributionSource:

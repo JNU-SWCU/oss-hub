@@ -1,4 +1,5 @@
 import {
+  outsiderFindUnique,
   teamFindFirst,
   applicationFindFirst,
   contributionGroupBy,
@@ -11,7 +12,7 @@ import { ProgramTeamRepositoryEvidenceRepository } from './repository/program-te
 
 afterEach(() => jest.clearAllMocks());
 
-it('preserves legacy program date boundaries using valid ISO calendar dates', async () => {
+it('keeps the sentinel window but bounds the query by the last queryable day', async () => {
   // Given
   givenRepository();
   const repository = new ProgramTeamRepositoryEvidenceRepository(
@@ -20,6 +21,7 @@ it('preserves legacy program date boundaries using valid ISO calendar dates', as
   // When
   const view = await repository.contributions(
     {
+      id: 'application',
       repository: {
         id: 'current-repo',
         nameWithOwner: 'synthetic/current',
@@ -27,6 +29,7 @@ it('preserves legacy program date boundaries using valid ISO calendar dates', as
         failureCount: 0,
       },
       program: {
+        id: 'program',
         startAt: new Date('0001-01-01T00:00:00.000Z'),
         endAt: new Date('9999-12-31T23:59:59.999Z'),
       },
@@ -45,7 +48,7 @@ it('preserves legacy program date boundaries using valid ISO calendar dates', as
         repositoryId: 'current-repo',
         date: {
           gte: new Date('0001-01-01T00:00:00.000Z'),
-          lte: new Date('+010000-01-01T00:00:00.000Z'),
+          lte: new Date('9999-12-31T00:00:00.000Z'),
         },
       },
     }),
@@ -87,10 +90,13 @@ it('continues history with timestamp and ID tie-breaking inside the same scope',
   expect(page).toEqual({ items: [], nextCursor: null });
   const historyQuery: unknown = auditFindMany.mock.calls[0]?.[0];
   expect(historyQuery).toHaveProperty('where.targetId', 'application');
-  expect(historyQuery).toHaveProperty('where.OR', [
-    { occurredAt: { lt: new Date('2026-08-15Z') } },
-    { occurredAt: new Date('2026-08-15Z'), id: { lt: 'change-11' } },
-  ]);
+  expect(historyQuery).toHaveProperty(
+    ['where', 'AND', 1, 'OR'],
+    [
+      { occurredAt: { lt: new Date('2026-08-15Z') } },
+      { occurredAt: new Date('2026-08-15Z'), id: { lt: 'change-11' } },
+    ],
+  );
   expect(historyQuery).toHaveProperty('take', 21);
 });
 
@@ -154,12 +160,24 @@ it('returns only application-scoped URL history with the actor snapshot', async 
   expect(auditFindMany).toHaveBeenCalledWith(
     expect.objectContaining({
       where: {
-        action: 'APPLICATION_REPOSITORY_URL_CHANGED',
         targetType: 'APPLICATION',
         targetId: 'application',
         AND: [
-          { metadata: { path: ['programId'], equals: 'program' } },
-          { metadata: { path: ['teamId'], equals: 'team' } },
+          {
+            OR: [
+              {
+                action: 'APPLICATION_REPOSITORY_URL_CHANGED',
+                AND: [
+                  { metadata: { path: ['programId'], equals: 'program' } },
+                  { metadata: { path: ['teamId'], equals: 'team' } },
+                ],
+              },
+              {
+                action: 'REPOSITORY_CONNECTION_CHANGED',
+                metadata: { path: ['applicationId'], equals: 'application' },
+              },
+            ],
+          },
         ],
       },
     }),
@@ -222,6 +240,7 @@ it('matches numeric GitHub identities and preserves members without observations
           commitCount: 3,
           pullRequestCount: 2,
           releaseCount: 1,
+          issueCount: 0,
           hasObservations: true,
         },
         {
@@ -230,17 +249,11 @@ it('matches numeric GitHub identities and preserves members without observations
           commitCount: 0,
           pullRequestCount: 0,
           releaseCount: 0,
+          issueCount: 0,
           hasObservations: false,
         },
       ],
-      unmatchedContributors: [
-        {
-          githubId: '999',
-          commitCount: 4,
-          pullRequestCount: 0,
-          releaseCount: 0,
-        },
-      ],
+      outsiderContributions: null,
     },
   });
   expect(contributionGroupBy).toHaveBeenCalledWith(
@@ -282,4 +295,47 @@ it('does not query contributions or history for an absent or differently scoped 
   expect(detail).toBeNull();
   expect(contributionGroupBy).not.toHaveBeenCalled();
   expect(auditFindMany).not.toHaveBeenCalled();
+});
+
+it('shows the outsider totals only while they were counted for this application, program and window', async () => {
+  // Given: the collector counted this repository for this application and program's current window.
+  const repository = givenRepository();
+  const counted = {
+    repositoryId: 'current-repo',
+    applicationId: 'application',
+    programId: 'program',
+    windowStartAt: new Date('2026-07-31T15:00:00Z'),
+    windowEndAt: new Date('2026-08-31T14:59:59Z'),
+    commitCount: 4,
+    pullRequestCount: 1,
+    issueCount: 2,
+    observedAt: new Date('2026-08-31T00:00:00Z'),
+  };
+  outsiderFindUnique.mockResolvedValue(counted);
+  // When
+  const detail = await repository.findStaffTeamDetail('program', 'team');
+  // Then
+  expect(outsiderFindUnique).toHaveBeenCalledWith({
+    where: { repositoryId: 'current-repo' },
+  });
+  expect(detail?.repositoryContributions?.outsiderContributions).toEqual({
+    commitCount: 4,
+    pullRequestCount: 1,
+    issueCount: 2,
+  });
+
+  // A count made for another team's application or another program, or before the window was
+  // edited, is not shown.
+  for (const stale of [
+    { ...counted, applicationId: 'previous-application' },
+    { ...counted, programId: 'other-program' },
+    { ...counted, windowStartAt: new Date('2026-07-01T15:00:00Z') },
+    { ...counted, windowEndAt: new Date('2026-12-31T14:59:59Z') },
+  ]) {
+    outsiderFindUnique.mockResolvedValue(stale);
+    const staleDetail = await repository.findStaffTeamDetail('program', 'team');
+    expect(
+      staleDetail?.repositoryContributions?.outsiderContributions,
+    ).toBeNull();
+  }
 });

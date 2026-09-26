@@ -315,10 +315,6 @@ export class ProgramLifecycleService {
       })
     ).map((application) => application.id);
 
-    const publicShowcaseRepositories =
-      await transaction.publicShowcaseRepository.deleteMany({
-        where: { programId },
-      });
     const programOutboxEvents = await transaction.outboxEvent.deleteMany({
       where: { aggregateType: 'PROGRAM', aggregateId: programId },
     });
@@ -575,7 +571,6 @@ export class ProgramLifecycleService {
       programCreateRequests: programCreateRequests.count,
       repositoryProvisionJobs: repositoryProvisionJobs.count,
       githubRepositoriesDetached: githubRepositoriesDetached.count,
-      publicShowcaseRepositories: publicShowcaseRepositories.count,
       outboxEvents: outboxEvents.count,
       notifications: notifications.count,
       programPurgeFileTombstones: templateFiles.length + programCovers,
@@ -704,7 +699,6 @@ export type ProgramPurgeDeletedCounts = {
   readonly programCreateRequests: number;
   readonly repositoryProvisionJobs: number;
   readonly githubRepositoriesDetached: number;
-  readonly publicShowcaseRepositories: number;
   readonly outboxEvents: number;
   readonly notifications: number;
   readonly programPurgeFileTombstones: number;

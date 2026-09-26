@@ -15,9 +15,9 @@ export type ActivityState =
   | { readonly kind: 'ready'; readonly activities: readonly ProgramActivity[] };
 
 const metrics = [
-  { key: 'commitCount', label: '커밋', color: 'bg-primary' },
+  { key: 'commitCount', label: 'Commit', color: 'bg-primary' },
   { key: 'pullRequestCount', label: 'PR', color: 'bg-accent' },
-  { key: 'releaseCount', label: '릴리스', color: 'bg-foreground' },
+  { key: 'releaseCount', label: 'Release', color: 'bg-foreground' },
 ] as const;
 
 export function ActivityPanelBody({

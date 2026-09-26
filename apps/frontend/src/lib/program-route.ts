@@ -36,7 +36,7 @@ export function programApplyHref(programId: string): string {
  * 링크를 감추지 않고, 화면이 서버 응답(`getMyTeam`)으로 팀 없음 상태를 직접 말한다.
  */
 export function programMyTeamHref(programId: string): string {
-  return `/programs/${encodeURIComponent(programId)}/my-team`;
+  return `/programs/${encodeURIComponent(programId)}/team`;
 }
 
 export function programNewHref(): string {

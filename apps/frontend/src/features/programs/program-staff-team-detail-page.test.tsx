@@ -6,6 +6,9 @@ import type { Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
 import { ProgramStaffTeamDetailPage } from './program-staff-team-detail-page';
+import { updateTeamRepositoryUrl } from './repository-url-api';
+import { removeStaffTeamMember } from './staff-team-members-api';
+import { getTeamActivity, type TeamActivity } from './team-activity-api';
 import type { ApplicationDetail, StaffTeamDetail } from './types';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -53,6 +56,39 @@ vi.mock('./api', () => ({
   decideApplication: decideApplicationMock,
 }));
 
+vi.mock('./team-activity-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./team-activity-api')>()),
+  getTeamActivity: vi.fn(),
+  getRepositoryHistory: vi.fn(),
+}));
+
+vi.mock('./staff-team-members-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./staff-team-members-api')>()),
+  removeStaffTeamMember: vi.fn(),
+}));
+
+vi.mock('./repository-url-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./repository-url-api')>()),
+  updateTeamRepositoryUrl: vi.fn(),
+}));
+
+/** recharts는 크기를 재야 그린다 — 이 화면 테스트는 그래프가 서는지만 본다. */
+vi.mock('recharts', () => {
+  const Pass = ({ children }: { children?: React.ReactNode }) => (
+    <div data-chart="">{children}</div>
+  );
+  const Nothing = () => null;
+  return {
+    CartesianGrid: Nothing,
+    Line: Nothing,
+    LineChart: Pass,
+    ReferenceLine: Nothing,
+    ResponsiveContainer: Pass,
+    XAxis: Nothing,
+    YAxis: Nothing,
+  };
+});
+
 vi.mock('@/lib/repository-publication', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/repository-publication')>()),
   publishRepository: publishRepositoryMock,
@@ -99,9 +135,18 @@ const APPLICATION_DETAIL = {
   ],
 } as unknown as ApplicationDetail;
 
+/** 학생 「우리 팀」과 같은 조회 — 교직원은 저장 경로와 편집 권한만 다르다. */
+const teamActivity: TeamActivity = {
+  applicationId: 'app-1',
+  repository: null,
+  status: 'NOT_CONNECTED',
+  lastSuccessAt: null,
+  window: { from: '2026-08-03', to: '2026-08-16', timeZone: 'Asia/Seoul' },
+  canEditRepositoryUrl: true,
+  members: [],
+};
+
 const withApplication: StaffTeamDetail = {
-  repositoryContributions: null,
-  repositoryUrlHistory: { items: [], nextCursor: null },
   teamId: 'team-1',
   name: '오픈소스팀',
   memberCount: 2,
@@ -121,6 +166,7 @@ const withApplication: StaffTeamDetail = {
       safeErrorClass: null,
     },
   },
+  repositoryContributions: null,
   deletionScope: {
     applications: 1,
     members: 2,
@@ -133,8 +179,6 @@ const withApplication: StaffTeamDetail = {
 };
 
 const withoutApplication: StaffTeamDetail = {
-  repositoryContributions: null,
-  repositoryUrlHistory: { items: [], nextCursor: null },
   teamId: 'team-2',
   name: '무신청팀',
   memberCount: 1,
@@ -142,6 +186,7 @@ const withoutApplication: StaffTeamDetail = {
     { userId: 'user-c', name: '마바사', nickname: 'login-c', isLeader: true },
   ],
   application: null,
+  repositoryContributions: null,
   deletionScope: {
     applications: 0,
     members: 1,
@@ -170,6 +215,9 @@ describe('ProgramStaffTeamDetailPage', () => {
     getApplicationDetailWithHistoryMock.mockResolvedValue(APPLICATION_DETAIL);
     decideApplicationMock.mockReset();
     decideApplicationMock.mockResolvedValue({});
+    vi.mocked(getTeamActivity).mockReset().mockResolvedValue(teamActivity);
+    vi.mocked(updateTeamRepositoryUrl).mockReset();
+    vi.mocked(removeStaffTeamMember).mockReset();
   });
 
   afterEach(() => {
@@ -187,6 +235,15 @@ describe('ProgramStaffTeamDetailPage', () => {
         />,
       );
     });
+  }
+
+  /** 접힌 줄은 둘이다(저장소 URL 변경 이력·검토 이력) — 검토 이력은 글자로 찾는다. */
+  function reviewHistoryTrigger(): HTMLButtonElement | undefined {
+    return [
+      ...container.querySelectorAll<HTMLButtonElement>(
+        '[data-slot="collapsible-trigger"]',
+      ),
+    ].find((trigger) => trigger.textContent?.includes('검토 이력'));
   }
 
   /**
@@ -252,9 +309,7 @@ describe('ProgramStaffTeamDetailPage', () => {
     );
     expect(reviewLink).toBeUndefined();
 
-    const historyTrigger = container.querySelector(
-      '[data-slot="collapsible-trigger"]',
-    );
+    const historyTrigger = reviewHistoryTrigger();
     expect(historyTrigger).toBeInstanceOf(HTMLButtonElement);
     expect(historyTrigger?.getAttribute('aria-expanded')).toBe('false');
   });
@@ -277,17 +332,14 @@ describe('ProgramStaffTeamDetailPage', () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
     await render();
 
-    const trigger = container.querySelector<HTMLButtonElement>(
-      '[data-slot="collapsible-trigger"]',
-    );
-    expect(trigger?.textContent).toContain('검토 이력');
+    const trigger = reviewHistoryTrigger();
     expect(trigger?.getAttribute('aria-expanded')).toBe('false');
 
     await act(async () => trigger?.click());
 
     expect(trigger?.getAttribute('aria-expanded')).toBe('true');
-    const history = container.querySelector(
-      '[data-slot="collapsible-content"]',
+    const history = document.getElementById(
+      trigger?.getAttribute('aria-controls') ?? '',
     );
     const text = history?.textContent ?? '';
     // 서버가 최신순으로 준다 — 화면이 다시 정렬하면 이 순서가 뒤집힌다.
@@ -444,6 +496,282 @@ describe('ProgramStaffTeamDetailPage', () => {
     await render();
 
     expect(container.textContent).toContain('팀 상세를 열 수 없습니다');
+  });
+
+  describe('저장소 카드 — 학생과 같은 조회', () => {
+    const connected: TeamActivity = {
+      ...teamActivity,
+      repository: { id: 'repository-1', url: 'https://github.com/org/repo' },
+      status: 'NOT_COLLECTED',
+    };
+
+    it('학생과 같은 조회로 URL 줄·그래프를 그리고 목록형 활동은 두지 않는다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      vi.mocked(getTeamActivity).mockResolvedValue(connected);
+      await render();
+
+      expect(getTeamActivity).toHaveBeenCalledExactlyOnceWith(
+        'program-1',
+        'team-1',
+      );
+      const card = container.querySelector(
+        'section[aria-label="프로젝트 저장소"]',
+      );
+      expect(card?.querySelector('a')?.getAttribute('href')).toBe(
+        'https://github.com/org/repo',
+      );
+      expect(
+        card?.querySelector<HTMLButtonElement>(
+          'button[aria-label="저장소 URL 수정"]',
+        )?.disabled,
+      ).toBe(false);
+      expect(container.querySelector('[role="region"] h2')?.textContent).toBe(
+        '팀 활동',
+      );
+      expect(container.textContent).toContain('첫 수집을 기다리는 중입니다');
+      expect(container.textContent).not.toContain('현재 저장소 활동');
+    });
+
+    const collected: TeamActivity = {
+      ...connected,
+      status: 'COLLECTED',
+      lastSuccessAt: '2026-08-17T01:00:00.000Z',
+    };
+
+    /** 교직원만 보는 한 줄 — 지금 팀원이 아닌 사람의 기여 수(#1133). 사람 목록은 없다. */
+    function outsiderLine(): HTMLParagraphElement | undefined {
+      return [...container.querySelectorAll<HTMLParagraphElement>('p')].find(
+        (line) => line.textContent?.startsWith('팀원이 아닌 사람의 기여'),
+      );
+    }
+
+    it('팀원이 아닌 사람의 기여를 활동 카드 안 한 줄에 수로만 보인다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue({
+        ...withApplication,
+        repositoryContributions: {
+          outsiderContributions: {
+            commitCount: 12,
+            pullRequestCount: 3,
+            issueCount: 5,
+          },
+        },
+      } satisfies StaffTeamDetail);
+      vi.mocked(getTeamActivity).mockResolvedValue(collected);
+      await render();
+
+      const line = outsiderLine();
+      expect(line?.textContent).toBe(
+        '팀원이 아닌 사람의 기여Commit 12 · PR 3 · Issue 5',
+      );
+      expect(
+        line?.closest('[role="region"]')?.querySelector('h2')?.textContent,
+      ).toBe('팀 활동');
+      // 사람을 가리키는 것은 아무것도 없다 — 목록도, 펼침도 없다.
+      expect(line?.closest('[role="region"]')?.textContent).not.toContain(
+        '웹 참여자와 연결되지 않음',
+      );
+    });
+
+    it('팀원이 아닌 사람의 기여가 없으면 「없음」이라고 말한다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue({
+        ...withApplication,
+        repositoryContributions: {
+          outsiderContributions: {
+            commitCount: 0,
+            pullRequestCount: 0,
+            issueCount: 0,
+          },
+        },
+      } satisfies StaffTeamDetail);
+      vi.mocked(getTeamActivity).mockResolvedValue(collected);
+      await render();
+
+      expect(outsiderLine()?.textContent).toBe('팀원이 아닌 사람의 기여없음');
+    });
+
+    it('아직 세지 않았으면 그 줄을 그리지 않는다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue({
+        ...withApplication,
+        repositoryContributions: { outsiderContributions: null },
+      } satisfies StaffTeamDetail);
+      vi.mocked(getTeamActivity).mockResolvedValue(collected);
+      await render();
+
+      expect(outsiderLine()).toBeUndefined();
+    });
+
+    /**
+     * 팀원을 빼면 상세(목록)만이 아니라 그래프(활동 조회)도 새 명단으로 다시 읽는다 — 응답이
+     * 빨라 스켈레톤이 한 번도 그려지지 않아도 그렇다. 둘이 서로 다른 명단을 말하지 않는다.
+     */
+    it('팀원을 빼면 목록과 함께 그래프도 새 명단으로 다시 읽는다', async () => {
+      getStaffProgramTeamDetailMock
+        .mockResolvedValueOnce(withApplication)
+        .mockResolvedValue({
+          ...withApplication,
+          memberCount: 1,
+          members: withApplication.members.slice(0, 1),
+        });
+      vi.mocked(getTeamActivity).mockResolvedValue(collected);
+      vi.mocked(removeStaffTeamMember).mockResolvedValue(undefined);
+      await render();
+      expect(getTeamActivity).toHaveBeenCalledTimes(1);
+
+      await act(async () =>
+        container
+          .querySelector<HTMLButtonElement>(
+            'button[aria-label="login-b 팀에서 제외"]',
+          )
+          ?.click(),
+      );
+      await act(async () =>
+        [...document.querySelectorAll<HTMLButtonElement>('button')]
+          .find((button) => button.textContent?.trim() === '팀에서 제외')
+          ?.click(),
+      );
+
+      expect(removeStaffTeamMember).toHaveBeenCalledExactlyOnceWith(
+        'program-1',
+        'team-1',
+        'user-b',
+      );
+      expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(2);
+      expect(getTeamActivity).toHaveBeenCalledTimes(2);
+    });
+
+    it('판정이 바뀌면 연필 권한을 새로 받도록 저장소 카드를 다시 읽는다', async () => {
+      getStaffProgramTeamDetailMock
+        .mockResolvedValueOnce(withApplication)
+        .mockResolvedValue({
+          ...withApplication,
+          application: {
+            ...withApplication.application!,
+            status: 'APPROVED',
+          },
+        });
+      vi.mocked(getTeamActivity).mockResolvedValue(collected);
+      await render();
+      expect(getTeamActivity).toHaveBeenCalledTimes(1);
+
+      const select = container.querySelector<HTMLSelectElement>(
+        '#team-detail-application-status',
+      );
+      await act(async () => {
+        if (select === null) return;
+        select.value = 'APPROVED';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+
+      expect(decideApplicationMock).toHaveBeenCalledTimes(1);
+      expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(2);
+      expect(getTeamActivity).toHaveBeenCalledTimes(2);
+    });
+
+    it('첫 수집을 끝내기 전에는 그래프처럼 그 줄도 보이지 않는다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue({
+        ...withApplication,
+        repositoryContributions: {
+          outsiderContributions: {
+            commitCount: 1,
+            pullRequestCount: 0,
+            issueCount: 0,
+          },
+        },
+      } satisfies StaffTeamDetail);
+      vi.mocked(getTeamActivity).mockResolvedValue(connected);
+      await render();
+
+      expect(container.textContent).toContain('첫 수집을 기다리는 중입니다');
+      expect(outsiderLine()).toBeUndefined();
+    });
+
+    it('저장소가 없어 기여 요약이 없으면 그 줄을 그리지 않는다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      await render();
+
+      expect(outsiderLine()).toBeUndefined();
+    });
+
+    it('연필로 바꾸면 팀 경로로 저장하고 상세를 조용히 다시 읽는다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      vi.mocked(getTeamActivity)
+        .mockResolvedValueOnce(connected)
+        .mockResolvedValue({
+          ...connected,
+          repository: {
+            id: 'repository-2',
+            url: 'https://github.com/org/next',
+          },
+        });
+      vi.mocked(updateTeamRepositoryUrl).mockResolvedValue({
+        repositoryUrl: 'https://github.com/org/next',
+        canEditRepositoryUrl: true,
+      });
+      await render();
+
+      await act(async () =>
+        container
+          .querySelector<HTMLButtonElement>(
+            'button[aria-label="저장소 URL 수정"]',
+          )
+          ?.click(),
+      );
+      const input =
+        container.querySelector<HTMLInputElement>('#repository-url');
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          'value',
+        )?.set?.call(input, 'https://github.com/org/next');
+        input?.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await act(async () =>
+        container
+          .querySelector('form')
+          ?.dispatchEvent(
+            new Event('submit', { bubbles: true, cancelable: true }),
+          ),
+      );
+
+      expect(updateTeamRepositoryUrl).toHaveBeenCalledExactlyOnceWith(
+        'program-1',
+        'team-1',
+        { repositoryUrl: 'https://github.com/org/next' },
+      );
+      // 발급·공개 카드가 옛 저장소를 가리키지 않게 상세를 다시 읽되, 스켈레톤으로 갈지 않는다.
+      expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(2);
+      expect(container.textContent).toContain('저장소 변경을 저장했습니다.');
+      expect(
+        container
+          .querySelector('section[aria-label="프로젝트 저장소"] a')
+          ?.getAttribute('href'),
+      ).toBe('https://github.com/org/next');
+    });
+
+    it('발급 전 팀은 URL 줄 아래에 발급 상태를 말한다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      await render();
+
+      expect(container.textContent).toContain('연결된 저장소가 없습니다.');
+      expect(container.textContent).toContain('저장소 발급 요청 전');
+    });
+
+    it('바꿀 수 없으면 연필을 잠그고 이유를 URL 줄 아래에 말한다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      vi.mocked(getTeamActivity).mockResolvedValue({
+        ...teamActivity,
+        canEditRepositoryUrl: false,
+      });
+      await render();
+
+      const pencil = container.querySelector<HTMLButtonElement>(
+        'button[aria-label="저장소 URL 수정"]',
+      );
+      expect(pencil?.disabled).toBe(true);
+      expect(container.textContent).toContain(
+        '승인된 팀만 프로그램 종료 전까지 변경할 수 있습니다.',
+      );
+    });
   });
 
   /**

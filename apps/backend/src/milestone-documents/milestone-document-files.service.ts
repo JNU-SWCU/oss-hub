@@ -22,11 +22,12 @@ import {
   SubmissionFilesRepository,
 } from '../submissions/submission-files.repository';
 import { SubmissionMembershipChangedError } from '../submissions/submission-membership.repository';
-import { isSafeSubmissionZipMetadata } from '../submissions/submission-zip-admission';
+import { inspectSubmissionZipMetadata } from '../submissions/submission-zip-admission';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
 import { milestoneDocumentSubmissionBlock } from './domain/milestone-document-submission-window';
 import { milestoneDocumentDownloadFileName } from './milestone-document-download-file-name';
 import {
+  MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES,
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.enum';
@@ -204,6 +205,15 @@ export class MilestoneDocumentFilesService {
       size: created.sizeBytes,
       expiresAt: created.expiresAt!.toISOString(),
     };
+  }
+
+  /**
+   * 학생 — 고른 파일에 업로드와 **같은** 판정만 돌려준다(#1108). 거절 사유를 보려고 제출을
+   * 눌러야 했던 것을 없애려는 경로다. 판정은 `validateOriginalFileName` 하나를 업로드와 함께
+   * 쓰고, 이 경로는 저장소에도 DB에도 닿지 않는다 — 제출 때 같은 검사가 다시 돈다.
+   */
+  async check(file: MilestoneDocumentFileUpload | undefined): Promise<void> {
+    await this.validateOriginalFileName(file);
   }
 
   /** 교직원 — 서류 항목의 양식 파일을 올리거나 교체한다("양식 올리기"/"양식 교체"). */
@@ -407,11 +417,18 @@ export class MilestoneDocumentFilesService {
     if (!valid) {
       throw this.error(MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE);
     }
-    if (
-      normalizedFileName.toLowerCase().endsWith('.zip') &&
-      !(await isSafeSubmissionZipMetadata(file.buffer))
-    ) {
-      throw this.error(MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE);
+    /*
+     * 거절 사유를 갈래별 코드로 옮기는 것도 제출 경로와 같은 계약이다(#1108). 한쪽만
+     * 고치면 같은 압축 파일이 제출 화면에서는 고칠 방법을 듣고 서류 화면에서는 「지원하지
+     * 않는 파일 형식입니다」를 듣는다.
+     */
+    if (normalizedFileName.toLowerCase().endsWith('.zip')) {
+      const zipRejection = await inspectSubmissionZipMetadata(file.buffer);
+      if (zipRejection !== null) {
+        throw this.error(
+          MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES[zipRejection],
+        );
+      }
     }
     return sanitizeSubmissionFileOriginalName(normalizedFileName);
   }

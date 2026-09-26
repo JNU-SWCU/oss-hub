@@ -17,6 +17,7 @@ import {
 import {
   focusSubmissionField,
   getSubmissionFileErrorMessage,
+  isSubmissionArchiveErrorCode,
   SubmissionFileUploadCache,
   type SubmissionFormErrors,
   type SubmissionFormInput,
@@ -30,6 +31,7 @@ import {
 } from './components/submission-checklist-view';
 import { useSubmissionChecklistInitialSubmissionFlow } from './submission-checklist-initial-submission';
 import type { SubmissionChecklist } from './types';
+import { useSubmissionFileCheck } from './use-submission-file-check';
 
 type ChecklistPageState =
   | { readonly kind: 'loading' }
@@ -88,6 +90,7 @@ export function SubmissionChecklistPage({
     useState<ResubmissionPhase | null>(null);
   const uploadedFile = useRef(new SubmissionFileUploadCache());
   const resubmitInFlight = useRef(false);
+  const fileCheck = useSubmissionFileCheck(input.file);
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -227,6 +230,15 @@ export function SubmissionChecklistPage({
       setComment('');
     } catch (error: unknown) {
       if (error instanceof ApiError) {
+        /*
+         * 압축 파일 안의 내용 때문에 막힌 경우(#1108). 갈래별 문장은 서버가 소유하므로
+         * 그대로 파일 입력 옆에 세운다. 이 갈래를 알려 주지 않으면 아래 `resubmissionFailure`가
+         * 「알 수 없는 코드」로 보고 화면 전체 알림으로 밀어낸다.
+         */
+        if (isSubmissionArchiveErrorCode(error.problem.code)) {
+          setFileError(error.problem.detail);
+          return;
+        }
         const uploadMessage = getSubmissionFileErrorMessage(
           error.problem.code,
           checklist.fileUpload,
@@ -301,7 +313,8 @@ export function SubmissionChecklistPage({
       input={input}
       comment={comment}
       errors={errors}
-      fileError={fileError}
+      fileError={fileError ?? fileCheck.message}
+      fileChecking={fileCheck.checking}
       serverError={serverError}
       staleNotice={staleNotice}
       toastMessage={toastMessage}
@@ -315,6 +328,7 @@ export function SubmissionChecklistPage({
         setFileError(null);
         setErrors({});
         uploadedFile.current.discardUnless(file);
+        fileCheck.start(file, state.data.fileUpload);
       }}
       onCommentChange={setComment}
       onResubmit={() => void resubmit(state.data)}

@@ -1,5 +1,8 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
-import { GUARDS_METADATA } from '@nestjs/common/constants';
+import {
+  GUARDS_METADATA,
+  INTERCEPTORS_METADATA,
+} from '@nestjs/common/constants';
 import { AccountStatus } from '@prisma/client';
 import type {
   ExecutionContext,
@@ -159,6 +162,7 @@ const upload = jest.fn().mockResolvedValue({
   size: 14,
   expiresAt: '2028-01-01T00:00:00.000Z',
 });
+const check = jest.fn().mockResolvedValue(undefined);
 
 // MilestoneDocumentArchiveService 목
 // 마일스톤 이름과 마감일이 붙은 한글 ZIP 이름 — RFC 5987 인코딩이 실제로 걸리는지 본다.
@@ -197,6 +201,7 @@ beforeEach(() => {
   downloadTemplate.mockClear();
   downloadSubmissionFile.mockClear();
   upload.mockClear();
+  check.mockClear();
   review.mockClear();
 });
 
@@ -230,6 +235,7 @@ beforeAll(async () => {
           downloadTemplate,
           downloadSubmissionFile,
           upload,
+          check,
         },
       },
       {
@@ -584,6 +590,56 @@ it('/milestone-document-files는 201로 끝나고 milestoneId/documentId를 함�
     'synthetic-milestone',
     'synthetic-document',
     expect.objectContaining({ originalname: 'synthetic.pdf' }),
+  );
+});
+
+it('/milestone-document-files/checks는 고른 파일만 판정에 넘기고 본문 없는 204로 끝난다', async () => {
+  // Given: 제출 전에 압축 파일 하나만 보낸다(#1108).
+  const body = new FormData();
+  body.append(
+    'file',
+    new Blob([Buffer.from('PK\x03\x04')], { type: 'application/zip' }),
+    'bundle.zip',
+  );
+
+  // When
+  const response = await fetch(
+    `${baseUrl}/api/v1/milestone-document-files/checks`,
+    { method: 'POST', body },
+  );
+
+  // Then: 판정만 하고 업로드(저장)는 부르지 않는다.
+  expect(response.status).toBe(204);
+  await expect(response.text()).resolves.toBe('');
+  expect(check).toHaveBeenCalledWith(
+    expect.objectContaining({
+      originalname: 'bundle.zip',
+      mimetype: 'application/zip',
+    }),
+  );
+  expect(upload).not.toHaveBeenCalled();
+});
+
+it('서류 파일 판정은 업로드와 같은 세션+Origin 가드와 multipart 한도를 쓴다', () => {
+  const metadata = (key: string, handler: 'check' | 'upload'): unknown =>
+    Reflect.getMetadata(
+      key,
+      Object.getOwnPropertyDescriptor(
+        MilestoneDocumentFilesController.prototype,
+        handler,
+      )?.value as object,
+    );
+
+  expect(metadata(GUARDS_METADATA, 'check')).toEqual([
+    SessionGuard,
+    OriginGuard,
+  ]);
+  expect(metadata(GUARDS_METADATA, 'check')).toEqual(
+    metadata(GUARDS_METADATA, 'upload'),
+  );
+  expect(metadata(INTERCEPTORS_METADATA, 'check')).toHaveLength(1);
+  expect(metadata(INTERCEPTORS_METADATA, 'check')).toEqual(
+    metadata(INTERCEPTORS_METADATA, 'upload'),
   );
 });
 

@@ -10,15 +10,8 @@ type RelationEdge = {
   readonly child: string;
 };
 
-/**
- * Program에서 실제 FK로는 닿지 않지만 purge가 논리적으로 자식 취급하는 모델.
- * 이 모델들의 FK 부모 관계도 계속 순회해야 그 아래 실제 FK 손자(예:
- * PublicShowcaseContributor)가 스키마 회귀 테스트에서 빠짐없이 드러난다.
- */
-const LOGICAL_PROGRAM_CHILD_MODELS = ['PublicShowcaseRepository'] as const;
-
 function schemaProgramChildGraph(schema: string): readonly string[] {
-  return schemaChildGraph(schema, ['Program', ...LOGICAL_PROGRAM_CHILD_MODELS]);
+  return schemaChildGraph(schema, ['Program']);
 }
 
 function schemaChildGraph(
@@ -84,7 +77,6 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
       expect.arrayContaining([
         'logical:Program->OutboxEvent',
         'logical:Application->OutboxEvent',
-        'logical:Program->PublicShowcaseRepository',
       ]),
     );
   });
@@ -196,8 +188,6 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
       'Program->GithubRepository',
       'Program->Application',
       'logical:Program->OutboxEvent',
-      'logical:Program->PublicShowcaseRepository',
-      'PublicShowcaseRepository->PublicShowcaseContributor',
       'logical:Program->Notification[DEADLINE_DIGEST,idempotencyKey]',
     ]) {
       expect(teamCovers).not.toContain(programOnly);

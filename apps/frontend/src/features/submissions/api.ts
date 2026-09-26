@@ -98,6 +98,16 @@ export function uploadSubmissionFile(
   });
 }
 
+/**
+ * #1108 고른 파일에 제출과 같은 판정만 받는다 — 서버는 저장하지 않는다.
+ * 통과면 본문 없이 끝나고, 거절이면 제출 때와 같은 코드의 `ApiError`를 던진다.
+ */
+export async function checkSubmissionFile(file: File): Promise<void> {
+  const body = new FormData();
+  body.append('file', file);
+  await apiClient<null>('submission-files/checks', { method: 'POST', body });
+}
+
 export function createSubmission(input: {
   readonly applicationId: string;
   readonly milestoneId: string;

@@ -3,8 +3,15 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from '@/lib/api-client';
 import { milestoneDocumentUploadPolicy } from '../../../test-support/milestone-document-upload-policy';
+import { checkMilestoneDocumentFile } from './milestone-document-api';
 import { MilestoneDocumentSubmissionForm } from './milestone-document-submission-form';
+
+vi.mock('./milestone-document-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./milestone-document-api')>()),
+  checkMilestoneDocumentFile: vi.fn(),
+}));
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -16,6 +23,8 @@ describe('MilestoneDocumentSubmissionForm', () => {
   let root: Root;
 
   beforeEach(() => {
+    vi.mocked(checkMilestoneDocumentFile).mockReset();
+    vi.mocked(checkMilestoneDocumentFile).mockResolvedValue(undefined);
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -206,6 +215,136 @@ describe('MilestoneDocumentSubmissionForm', () => {
       );
       expect(submit).toHaveProperty('disabled', false);
       expect(onSubmit).not.toHaveBeenCalled();
+    });
+  });
+
+  /*
+   * #1108 인터뷰 — 서류 화면도 ZIP을 고르자마자 업로드와 같은 판정을 묻는다. 기다리는 동안과
+   * 거절 문장은 파일 입력 바로 아래에 선다. 제출 버튼은 막지 않는다(제출 때 같은 검사가 돈다).
+   */
+  describe('ZIP을 고른 즉시 서버 판정', () => {
+    const lockedDetail =
+      '비밀번호가 걸린 압축 파일은 제출할 수 없습니다. 비밀번호 없이 다시 압축해 주세요.';
+
+    function problem(code: string, detail: string) {
+      return new ApiError({
+        type: 'about:blank',
+        title: code,
+        status: 422,
+        detail,
+        instance: '/synthetic/milestone-document-files/checks',
+        code,
+      });
+    }
+
+    async function renderForm() {
+      const onSubmit = vi.fn().mockResolvedValue(true);
+      await act(async () => {
+        root.render(
+          <MilestoneDocumentSubmissionForm
+            documentName="프로젝트 계획"
+            documentId="document-1"
+            fileUpload={milestoneDocumentUploadPolicy()}
+            currentFileName={null}
+            submitting={false}
+            onCancel={vi.fn()}
+            onSubmit={onSubmit}
+          />,
+        );
+      });
+      return onSubmit;
+    }
+
+    async function pick(file: File) {
+      const input = container.querySelector('input[type="file"]');
+      if (!(input instanceof HTMLInputElement))
+        throw new TypeError('Missing file input.');
+      Object.defineProperty(input, 'files', {
+        configurable: true,
+        value: [file],
+      });
+      await act(async () =>
+        input.dispatchEvent(new Event('change', { bubbles: true })),
+      );
+      return input;
+    }
+
+    function submitButton() {
+      return [...container.querySelectorAll('button')].find(
+        (button) => button.textContent?.trim() === '제출',
+      );
+    }
+
+    it('기다리는 동안 대기를, 거절이면 서버 문장을 파일 입력 아래에 세우고 제출은 막지 않는다', async () => {
+      // Given: 판정이 아직 돌아오지 않았다.
+      let rejectCheck: (reason: unknown) => void = () => undefined;
+      vi.mocked(checkMilestoneDocumentFile).mockReturnValueOnce(
+        new Promise<void>((_resolve, reject) => {
+          rejectCheck = reject;
+        }),
+      );
+      const onSubmit = await renderForm();
+
+      // When: 파일만 고른다.
+      const input = await pick(
+        new File(['PK'], 'locked.zip', { type: 'application/zip' }),
+      );
+
+      // Then: 결과가 설 자리에 대기가 보인다.
+      expect(container.querySelector('[role="status"]')?.textContent).toBe(
+        '파일 확인 중…',
+      );
+
+      // When: 서버가 비밀번호를 이유로 거절한다.
+      await act(async () => rejectCheck(problem('MSD_040', lockedDetail)));
+
+      // Then: 제출 없이 문장이 파일 입력 아래에 서고, 대기는 사라진다.
+      const error = container.querySelector(
+        '#document-1-submission-file-error',
+      );
+      expect(error?.textContent).toBe(lockedDetail);
+      expect(error?.getAttribute('role')).toBe('alert');
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expect(input.getAttribute('aria-describedby')).toContain(
+        'document-1-submission-file-error',
+      );
+      expect(container.querySelector('[role="status"]')).toBeNull();
+      expect(submitButton()).toHaveProperty('disabled', false);
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it('다른 파일을 고르면 지난 판정 문장을 지우고, ZIP이 아니면 판정을 묻지 않는다', async () => {
+      // Given: 고른 ZIP이 거절됐다.
+      vi.mocked(checkMilestoneDocumentFile).mockRejectedValueOnce(
+        problem('MSD_040', lockedDetail),
+      );
+      await renderForm();
+      await pick(new File(['PK'], 'locked.zip', { type: 'application/zip' }));
+      expect(container.textContent).toContain(lockedDetail);
+
+      // When: PDF로 바꾼다.
+      await pick(new File(['%PDF'], '계획서.pdf', { type: 'application/pdf' }));
+
+      // Then
+      expect(container.textContent).not.toContain(lockedDetail);
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+      expect(checkMilestoneDocumentFile).toHaveBeenCalledTimes(1);
+    });
+
+    it('판정 요청이 판정이 아닌 이유로 실패하면 아무 말도 붙이지 않는다', async () => {
+      // Given: 세션이 끝나 판정 대신 인증 실패가 돌아온다.
+      vi.mocked(checkMilestoneDocumentFile).mockRejectedValueOnce(
+        problem('AUTH_001', '로그인이 필요합니다.'),
+      );
+      await renderForm();
+
+      // When
+      await pick(new File(['PK'], 'bundle.zip', { type: 'application/zip' }));
+
+      // Then: 제출 때 같은 검사가 다시 돈다 — 여기서는 조용하다.
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+      expect(container.querySelector('[role="status"]')).toBeNull();
+      expect(submitButton()).toHaveProperty('disabled', false);
     });
   });
 

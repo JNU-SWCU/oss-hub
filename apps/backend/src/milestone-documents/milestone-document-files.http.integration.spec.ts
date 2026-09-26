@@ -24,6 +24,29 @@ async function upload(
   return fixture.request('milestone-document-files', { method: 'POST', body });
 }
 
+/** 제출 전 판정(#1108) — 식별자 없이 파일만 보낸다. */
+async function check(bytes: Buffer): Promise<Response> {
+  const body = new FormData();
+  body.append(
+    'file',
+    new Blob([new Uint8Array(bytes)], { type: 'application/zip' }),
+    'bundle.zip',
+  );
+  return fixture.request('milestone-document-files/checks', {
+    method: 'POST',
+    body,
+  });
+}
+
+/** 판정 경로가 남길 수 있는 흔적 — 제출 파일 행·감사 로그·아웃박스. */
+async function footprint() {
+  return {
+    submissionFiles: await fixture.prisma.submissionFile.count(),
+    auditLogs: await fixture.prisma.auditLog.count(),
+    outboxEvents: await fixture.prisma.outboxEvent.count(),
+  };
+}
+
 describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
   beforeAll(() => fixture.start());
   beforeEach(() => fixture.reset());
@@ -133,6 +156,46 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       ).toBe(0);
     },
   );
+
+  it('checks a ZIP with the upload codes over real guards and stores nothing', async () => {
+    // Given: 비밀번호 걸린 압축과 압축 안의 압축(#1108). 암호화 항목은 12바이트 머리를 더한다.
+    const locked = signatureValidZip([
+      {
+        name: 'plan.txt',
+        flags: 0x0001,
+        compressedSize: 1 + 12,
+        uncompressedSize: 1,
+      },
+    ]);
+    const nested = signatureValidZip([{ name: 'inner.zip' }]);
+    const put = jest.spyOn(fixture.storage, 'put');
+    const before = await footprint();
+
+    // When / Then: 판정은 업로드와 같은 상태·코드·문장으로 거절한다.
+    for (const [archive, code] of [
+      [locked, MilestoneDocumentsErrorCode.ZIP_PASSWORD_PROTECTED],
+      [nested, MilestoneDocumentsErrorCode.ZIP_NESTED],
+    ] as const) {
+      const checked = await check(archive);
+      const uploaded = await upload('bundle.zip', 'application/zip', archive);
+      expect(checked.status).toBe(422);
+      expect(uploaded.status).toBe(422);
+      const uploadedProblem: unknown = await uploaded.json();
+      expect(uploadedProblem).toMatchObject({ code });
+      expect(await checked.json()).toMatchObject({
+        code,
+        detail: (uploadedProblem as { detail: string }).detail,
+      });
+    }
+    expect(
+      (await check(signatureValidZip([{ name: 'plan.txt' }]))).status,
+    ).toBe(204);
+
+    // Then: 통과한 판정까지 포함해 저장소·DB에 아무것도 남지 않는다.
+    expect(put).not.toHaveBeenCalled();
+    expect(await footprint()).toEqual(before);
+    put.mockRestore();
+  });
 
   it('keeps an existing image downloadable without changing retention', async () => {
     // Given: 정책 변경 전에 저장된 파일을 합성 데이터로 만든다.

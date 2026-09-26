@@ -61,7 +61,7 @@ grep -rn "prisma\.<모델명 camelCase>\." apps/backend/src --include='*.ts'
 
 기존 모델도 이 규칙을 따르도록 개명한다. 다만 개명은 동작 변경과 섞이므로 **개명만 담는 별도 PR**로 다루고(`pr-scope.md:9`), 마이그레이션은 직렬로 넣는다([AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)).
 
-지우기로 결정된 테이블은 개명 대상에서 제외한다 — 개명하지 않고 지운다. `Canonical*` 8개(todo 14 전환으로 authority 상실)가 그 선례다 — ADR-006이 정한 보존 기간(1개 릴리스)을 넘기고 전 테이블 0행을 실측한 뒤 `20260820000000_drop_canonical_generation_tables`가 단일 FK 클러스터를 통째로 드롭해 **제거가 완료됐다**. 아직 남은 건 `PublicShowcase*`(writer 0건, Issue #463)이다.
+지우기로 결정된 테이블은 개명 대상에서 제외한다 — 개명하지 않고 지운다. `Canonical*` 8개(todo 14 전환으로 authority 상실)가 그 선례다 — ADR-006이 정한 보존 기간(1개 릴리스)을 넘기고 전 테이블 0행을 실측한 뒤 `20260820000000_drop_canonical_generation_tables`가 단일 FK 클러스터를 통째로 드롭해 **제거가 완료됐다**. 남아 있던 `PublicShowcase*`와 옛 수집 기록(`CollectionRun`·`GithubRawObservation`)도 참조를 먼저 걷어 배포한 뒤 `20260924120000_drop_legacy_projection_tables`가 0행 확인 가드와 함께 지웠다(#1133).
 
 ## 5. 외부 API 전제는 문서 기억이 아니라 실측으로 확정한다
 

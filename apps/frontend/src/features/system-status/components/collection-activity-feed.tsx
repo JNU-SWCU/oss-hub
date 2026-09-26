@@ -50,8 +50,8 @@ function CountsSummary({ entry }: { readonly entry: CollectionActivityEntry }) {
   }
   return (
     <span className="text-sm">
-      커밋 {entry.insertedCommitCount} · PR {entry.insertedPullRequestCount} ·
-      릴리즈 {entry.insertedReleaseCount}
+      Commit {entry.insertedCommitCount} · PR {entry.insertedPullRequestCount} ·
+      Release {entry.insertedReleaseCount}
     </span>
   );
 }

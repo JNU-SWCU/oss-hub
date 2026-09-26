@@ -182,15 +182,18 @@ it('교직원 회수는 권한 갱신과 감사 로그 사이, 같은 트랜잭�
   ]);
 });
 
-it('does not write a phantom audit for an idempotent same-state command', async () => {
+it('does not write a phantom audit for a same-state command it rejects', async () => {
   const store = new AuditAuthorityStore();
   store.target = targetUser({ role: 'ADMIN', hasAdminAccess: true });
   const record = jest.fn();
   const service = new IndependentAuthorityService(store, { record });
 
-  await service.patchAdminAccess(actorGithubId, 'target', {
-    command: ADMIN_ACCESS_COMMANDS.GRANT,
-  });
+  // #1411 부터 같은 상태 명령은 409 로 거절된다. 거절돼도 감사 기록은 없다.
+  await expect(
+    service.patchAdminAccess(actorGithubId, 'target', {
+      command: ADMIN_ACCESS_COMMANDS.GRANT,
+    }),
+  ).rejects.toMatchObject({ errorCode: { status: 409 } });
 
   expect(store.updates).toHaveLength(0);
   expect(record).not.toHaveBeenCalled();

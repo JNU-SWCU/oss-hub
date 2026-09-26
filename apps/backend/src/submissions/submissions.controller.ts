@@ -189,6 +189,18 @@ export class SubmissionFilesController {
       baseRevision,
     );
   }
+
+  /**
+   * 고른 파일을 제출 전에 판정만 한다(#1108). 통과는 204, 거절은 제출과 같은 코드·상태다.
+   * 가드와 multipart 한도는 `upload`와 같고, 파일을 저장하지 않으며 DB에도 쓰지 않는다.
+   */
+  @Post('checks')
+  @HttpCode(204)
+  @UseGuards(SessionGuard, OriginGuard)
+  @UseInterceptors(SubmissionFileUploadInterceptor)
+  check(@UploadedFile() file: SubmissionFileUpload | undefined): Promise<void> {
+    return this.service.check(file);
+  }
 }
 
 function attachmentDisposition(fileName: string): string {

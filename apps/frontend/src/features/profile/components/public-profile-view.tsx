@@ -95,7 +95,7 @@ function ProjectMetricsSummary({
   return (
     <dl className="grid grid-cols-3 gap-2 text-center text-sm">
       <div className="grid gap-0.5">
-        <dt className="text-xs text-muted-foreground">커밋</dt>
+        <dt className="text-xs text-muted-foreground">Commit</dt>
         <dd className="font-medium tabular-nums">{metrics.commitCount}</dd>
       </div>
       <div className="grid gap-0.5">
@@ -103,7 +103,7 @@ function ProjectMetricsSummary({
         <dd className="font-medium tabular-nums">{metrics.pullRequestCount}</dd>
       </div>
       <div className="grid gap-0.5">
-        <dt className="text-xs text-muted-foreground">릴리스</dt>
+        <dt className="text-xs text-muted-foreground">Release</dt>
         <dd className="font-medium tabular-nums">{metrics.releaseCount}</dd>
       </div>
     </dl>
