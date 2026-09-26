@@ -3597,6 +3597,32 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
     ]);
   });
 
+  it('수집 직전에 다시 읽어 보니 연결이 풀려 있으면 수집도 이력도 남기지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    box.store.repositories.set(repoKey(100n), linkedRow());
+    const client = createClient([]);
+    const detached = { ...linkedRow(), applicationId: null };
+    const read = jest
+      .spyOn(
+        CollectionIncrementalRepository.prototype,
+        'findRepositoryByLogicalKey',
+      )
+      // 시작할 때는 연결돼 있었고, 수집 직전 다시 읽을 때는 풀렸다.
+      .mockResolvedValueOnce(linkedRow() as never)
+      .mockResolvedValueOnce(detached as never);
+
+    const result = await createService(db, client).runRepository(
+      'owner-link',
+      100n,
+    );
+
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(result.processedRepositoryCount).toBe(0);
+    expect(providerCallCount(client)).toBe(0);
+    expect(box.store.sweepHistory.size).toBe(0);
+    read.mockRestore();
+  });
+
   it('sweep 도중 연결이 풀린 저장소는 시작할 때 읽은 목록에 있어도 수집하지 않는다', async () => {
     const { db, box } = createFakeDb();
     box.store.repositories.set(

@@ -418,22 +418,25 @@ export class CollectionSyncService {
           )
         : { kind: 'STOPPED_FOR_BUDGET' };
       await this.incrementalRepository.releaseSyncLease(lease, this.now());
-      await this.recordSweepHistoryBestEffort({
-        appId: key.appId,
-        scope: key.scope,
-        kind: 'REPOSITORY_LINK',
-        sweepFinishedAt: this.now(),
-        cycleStartedAt: null,
-        insertedCommitCount: inserted.counts.commit,
-        insertedPullRequestCount: inserted.counts.pullRequest,
-        insertedReleaseCount: inserted.counts.release,
-        insertedIssueCount: inserted.counts.issue,
-        attemptedRepositoryCount: attempted ? 1 : 0,
-        processedRepositoryCount: outcome.kind === 'PROCESSED' ? 1 : 0,
-        failedRepositoryCount: outcome.kind === 'FAILED' ? 1 : 0,
-        cycleCompleted: false,
-        stoppedForBudget: outcome.kind === 'STOPPED_FOR_BUDGET',
-      });
+      // 수집 직전에 다시 읽어 보니 연결이 풀려 있었다면(`SKIPPED`) 아무것도 모으지 않았다 —
+      // 한 줄을 남기면 화면이 「연결 즉시 수집」(성공)으로 읽는다. 시작 전에 건너뛸 때처럼 남기지 않는다.
+      if (outcome.kind !== 'SKIPPED')
+        await this.recordSweepHistoryBestEffort({
+          appId: key.appId,
+          scope: key.scope,
+          kind: 'REPOSITORY_LINK',
+          sweepFinishedAt: this.now(),
+          cycleStartedAt: null,
+          insertedCommitCount: inserted.counts.commit,
+          insertedPullRequestCount: inserted.counts.pullRequest,
+          insertedReleaseCount: inserted.counts.release,
+          insertedIssueCount: inserted.counts.issue,
+          attemptedRepositoryCount: attempted ? 1 : 0,
+          processedRepositoryCount: outcome.kind === 'PROCESSED' ? 1 : 0,
+          failedRepositoryCount: outcome.kind === 'FAILED' ? 1 : 0,
+          cycleCompleted: false,
+          stoppedForBudget: outcome.kind === 'STOPPED_FOR_BUDGET',
+        });
       return {
         ...idleRunResult(runId, 'COMPLETED'),
         processedRepositoryCount: outcome.kind === 'PROCESSED' ? 1 : 0,
