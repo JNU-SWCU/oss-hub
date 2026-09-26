@@ -812,8 +812,8 @@ export class CollectionIncrementalRepository {
   }
 
   /**
-   * 시스템 상태 관측성 2단계 — sweep 1회 종료 시점의 결과를 append-only로 남긴다
-   * (`CollectionSweepHistory`). 호출자(`CollectionSyncService.syncSweep`)가 best-effort로
+   * 시스템 상태 관측성 2단계 — sweep 1회(또는 연결 즉시 수집 1회) 종료 시점의 결과를 append-only로
+   * 남긴다(`CollectionSweepHistory`). 호출자(`CollectionSyncService`)가 best-effort로
    * 감싸므로 여기서는 단순 insert만 한다 — 실패해도 sweep 자체를 막지 않는 책임은
    * 호출자에 있다.
    */
@@ -822,11 +822,13 @@ export class CollectionIncrementalRepository {
       data: {
         appId: input.appId,
         scope: input.scope,
+        kind: input.kind,
         sweepFinishedAt: input.sweepFinishedAt,
         cycleStartedAt: input.cycleStartedAt,
         insertedCommitCount: input.insertedCommitCount,
         insertedPullRequestCount: input.insertedPullRequestCount,
         insertedReleaseCount: input.insertedReleaseCount,
+        insertedIssueCount: input.insertedIssueCount,
         attemptedRepositoryCount: input.attemptedRepositoryCount,
         processedRepositoryCount: input.processedRepositoryCount,
         failedRepositoryCount: input.failedRepositoryCount,

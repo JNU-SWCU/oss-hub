@@ -71,6 +71,7 @@ const baseExternalCollection: SystemStatusData['externalCollection'] = {
   cumulativeCommitCount: 0,
   cumulativePullRequestCount: 0,
   cumulativeReleaseCount: 0,
+  cumulativeIssueCount: 0,
 };
 
 function statusData(status: SystemStatus): SystemStatusData {

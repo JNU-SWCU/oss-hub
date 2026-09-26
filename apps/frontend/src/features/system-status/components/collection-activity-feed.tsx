@@ -42,7 +42,8 @@ function CountsSummary({ entry }: { readonly entry: CollectionActivityEntry }) {
   const total =
     entry.insertedCommitCount +
     entry.insertedPullRequestCount +
-    entry.insertedReleaseCount;
+    entry.insertedReleaseCount +
+    entry.insertedIssueCount;
   if (total === 0) {
     return (
       <span className="text-sm text-muted-foreground">신규 데이터 없음</span>
@@ -51,7 +52,7 @@ function CountsSummary({ entry }: { readonly entry: CollectionActivityEntry }) {
   return (
     <span className="text-sm">
       Commit {entry.insertedCommitCount} · PR {entry.insertedPullRequestCount} ·
-      Release {entry.insertedReleaseCount}
+      Release {entry.insertedReleaseCount} · Issue {entry.insertedIssueCount}
     </span>
   );
 }
@@ -79,12 +80,22 @@ function RepositoryProgress({
  * `cycleCompleted`가 우선이다 — 완료된 사이클이면 이번 sweep이 예산 때문에
  * 멈췄었는지는 더 이상 중요하지 않다. `stoppedForBudget`은 사이클이 아직
  * 진행 중임을 전제로 한 상태이므로("사이클 진행 중" 의미) 그 다음으로 본다.
+ * 저장소 연결 즉시 수집은 사이클이 아니라 저장소 하나라 끝났는지만 말한다(#1133).
  */
 function CycleStatusBadge({
   entry,
 }: {
   readonly entry: CollectionActivityEntry;
 }) {
+  if (entry.kind === 'REPOSITORY_LINK' && !entry.stoppedForBudget) {
+    return (
+      <StatusBadge
+        variant={entry.failedRepositoryCount > 0 ? 'rejected' : 'approved'}
+      >
+        연결 즉시 수집
+      </StatusBadge>
+    );
+  }
   if (entry.cycleCompleted) {
     return <StatusBadge variant="approved">전체 순회 완료</StatusBadge>;
   }

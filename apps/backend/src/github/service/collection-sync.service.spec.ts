@@ -3299,11 +3299,13 @@ describe('CollectionSyncService — 시스템 상태 관측성 2단계: sweep-hi
     expect(rows[0]).toMatchObject({
       appId: 1n,
       scope: 'org:synthetic-org',
+      kind: 'SWEEP',
       sweepFinishedAt: now,
       cycleStartedAt: now,
       insertedCommitCount: 1,
       insertedPullRequestCount: 1,
       insertedReleaseCount: 1,
+      insertedIssueCount: 0,
       attemptedRepositoryCount: 1,
       processedRepositoryCount: 1,
       failedRepositoryCount: 0,
@@ -3334,6 +3336,39 @@ describe('CollectionSyncService — 시스템 상태 관측성 2단계: sweep-hi
       failedRepositoryCount: 1,
       cycleCompleted: true,
     });
+  });
+
+  it('순회가 넣은 Issue 수도 이력에 남긴다(#1133)', async () => {
+    const { db, box, client } = seedRepositoryWithOneOfEachStream();
+    client.listNewIssues.mockResolvedValue({
+      issues: [
+        {
+          id: '700',
+          state: 'open',
+          createdAt: '2026-08-01T00:00:00.000Z',
+          authorLogin: 'alice',
+          authorGithubId: '11',
+        },
+      ],
+      newFrontier: { createdAt: '2026-08-01T00:00:00.000Z', id: '700' },
+      fingerprint: fingerprint('/repos/o/r/issues'),
+    });
+    const service = createService(db, client, {
+      now: () => new Date('2026-08-01T12:00:00.000Z'),
+    });
+
+    const result = await service.run('owner-1');
+
+    expect(result.insertedFactCount).toBe(4);
+    expect([...box.store.sweepHistory.values()]).toEqual([
+      expect.objectContaining({
+        kind: 'SWEEP',
+        insertedCommitCount: 1,
+        insertedPullRequestCount: 1,
+        insertedReleaseCount: 1,
+        insertedIssueCount: 1,
+      }),
+    ]);
   });
 
   it('진행 중이던 사이클(커서가 이미 어느 저장소까지 진행함)에서는 그 cycleStartedAt을 그대로 이어 기록한다', async () => {
@@ -3414,7 +3449,7 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
       0,
     );
 
-  it('연결된 조직 저장소를 sweep cursor·이력 없이 바로 수집하고 성공을 기록한다', async () => {
+  it('연결된 조직 저장소를 sweep cursor 없이 바로 수집하고, 이력에는 연결 즉시 수집 한 줄을 남긴다', async () => {
     const { db, box } = createFakeDb();
     box.store.repositories.set(repoKey(100n), linkedRow());
     seedOwningRepository(box, 100n, 'team-1', [
@@ -3447,7 +3482,25 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
       lastSuccessAt: NOW,
     });
     expect(box.store.cursors.size).toBe(0);
-    expect(box.store.sweepHistory.size).toBe(0);
+    // 이 수집이 넣은 기록은 다음 sweep이 다시 세지 않는다 — 여기서 한 줄로 남겨야
+    // 「최근 수집 활동」과 누적 합계에 들어간다(#1133).
+    expect([...box.store.sweepHistory.values()]).toEqual([
+      expect.objectContaining({
+        appId: 1n,
+        scope: 'org:synthetic-org',
+        kind: 'REPOSITORY_LINK',
+        cycleStartedAt: null,
+        insertedCommitCount: 1,
+        insertedPullRequestCount: 0,
+        insertedReleaseCount: 0,
+        insertedIssueCount: 0,
+        attemptedRepositoryCount: 1,
+        processedRepositoryCount: 1,
+        failedRepositoryCount: 0,
+        cycleCompleted: false,
+        stoppedForBudget: false,
+      }),
+    ]);
     // 끝나면 lease를 바로 풀어 다음 sweep이 기다리지 않는다.
     expect(box.store.leases.get(ORG_LEASE)).toMatchObject({ expiresAt: NOW });
   });
@@ -3472,6 +3525,7 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
 
     expect(result.status).toBe('SKIPPED_LEASE_HELD');
     expect(providerCallCount(client)).toBe(0);
+    expect(box.store.sweepHistory.size).toBe(0);
     expect(box.store.leases.get(ORG_LEASE)).toMatchObject({
       runId: 'sweep-run',
     });
@@ -3504,6 +3558,7 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
       expect(result.status).toBe('SKIPPED');
       expect(providerCallCount(client)).toBe(0);
       expect(box.store.leases.size).toBe(0);
+      expect(box.store.sweepHistory.size).toBe(0);
     },
   );
 
@@ -3532,6 +3587,14 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
     expect(box.store.repositories.get(repoKey(100n))?.lastSuccessAt).toBe(
       undefined,
     );
+    expect([...box.store.sweepHistory.values()]).toEqual([
+      expect.objectContaining({
+        kind: 'REPOSITORY_LINK',
+        attemptedRepositoryCount: 0,
+        processedRepositoryCount: 0,
+        stoppedForBudget: true,
+      }),
+    ]);
   });
 
   it('sweep 도중 연결이 풀린 저장소는 시작할 때 읽은 목록에 있어도 수집하지 않는다', async () => {

@@ -119,7 +119,7 @@ export class SystemStatusCollectionStreamsResponseDto {
 }
 
 /**
- * 시스템 상태 관측성 2단계 — sweep 1회 종료 시점의 활동 이력(`CollectionSweepHistory`)을
+ * 시스템 상태 관측성 2단계 — sweep 1회(또는 저장소 연결 즉시 수집 1회) 종료 시점의 활동 이력(`CollectionSweepHistory`)을
  * `sweepFinishedAt` 내림차순, 최대 20건으로 노출한다. `collectionStreams`와 달리 이
  * 필드는 repository 이름을 담지 않는다 — 집계 전용이다(`collection-read.port.ts`의
  * `CollectionSweepActivityDto` 참고).
@@ -129,9 +129,12 @@ export class SystemStatusCollectionActivityResponseDto {
     readonly sweepFinishedAt: string,
     readonly cycleStartedAt: string | null,
     readonly scope: string,
+    /** `SWEEP`(정시·수동 순회) 또는 `REPOSITORY_LINK`(저장소 연결 즉시 수집, #1133). */
+    readonly kind: 'SWEEP' | 'REPOSITORY_LINK',
     readonly insertedCommitCount: number,
     readonly insertedPullRequestCount: number,
     readonly insertedReleaseCount: number,
+    readonly insertedIssueCount: number,
     readonly attemptedRepositoryCount: number,
     readonly processedRepositoryCount: number,
     readonly failedRepositoryCount: number,
@@ -154,6 +157,7 @@ export class SystemStatusExternalCollectionResponseDto {
     readonly cumulativeCommitCount: number,
     readonly cumulativePullRequestCount: number,
     readonly cumulativeReleaseCount: number,
+    readonly cumulativeIssueCount: number,
   ) {}
 }
 

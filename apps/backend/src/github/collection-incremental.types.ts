@@ -23,6 +23,12 @@ export const COLLECTION_STREAM_TYPES = [
 ] as const;
 export type CollectionStreamType = (typeof COLLECTION_STREAM_TYPES)[number];
 
+/**
+ * 수집 한 번의 종류(`CollectionSweepHistory.kind`, #1133) — 대상 저장소를 한 바퀴 도는 정시·수동
+ * 순회인지, 저장소를 연결하자마자 그 저장소 하나만 모은 즉시 수집인지.
+ */
+export type CollectionRunKind = 'SWEEP' | 'REPOSITORY_LINK';
+
 export const COLLECTION_STREAM_STATUSES = [
   'PENDING',
   'BACKFILLING',
@@ -225,11 +231,13 @@ export interface SyncCursorRow {
 export interface RecordSweepHistoryInput {
   appId: bigint;
   scope: string;
+  kind: CollectionRunKind;
   sweepFinishedAt: Date;
   cycleStartedAt: Date | null;
   insertedCommitCount: number;
   insertedPullRequestCount: number;
   insertedReleaseCount: number;
+  insertedIssueCount: number;
   attemptedRepositoryCount: number;
   processedRepositoryCount: number;
   failedRepositoryCount: number;

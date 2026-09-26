@@ -46,9 +46,11 @@ describe('SystemStatusController', () => {
           sweepFinishedAt: '2026-07-25T11:00:00.000Z',
           cycleStartedAt: '2026-07-25T10:55:00.000Z',
           scope: 'org:JNU-SWCU',
+          kind: 'SWEEP' as const,
           insertedCommitCount: 3,
           insertedPullRequestCount: 1,
           insertedReleaseCount: 0,
+          insertedIssueCount: 0,
           attemptedRepositoryCount: 2,
           processedRepositoryCount: 2,
           failedRepositoryCount: 0,
@@ -62,6 +64,7 @@ describe('SystemStatusController', () => {
         cumulativeCommitCount: 0,
         cumulativePullRequestCount: 0,
         cumulativeReleaseCount: 0,
+        cumulativeIssueCount: 0,
       },
     };
     const getStatus = jest.fn<

@@ -96,6 +96,31 @@ const idleRunResult = (
   insertedFactCount: 0,
 });
 
+/**
+ * 수집 한 번이 stream별로 새로 넣은 수. 순회와 연결 즉시 수집이 같은 칸으로 이력을 남긴다
+ * (`CollectionSweepHistory`, #1133).
+ */
+function insertedCounter() {
+  const counts = { commit: 0, pullRequest: 0, release: 0, issue: 0 };
+  const add = (streamType: CollectionStreamType, insertedCount: number) => {
+    switch (streamType) {
+      case 'COMMIT':
+        counts.commit += insertedCount;
+        break;
+      case 'PULL_REQUEST':
+        counts.pullRequest += insertedCount;
+        break;
+      case 'RELEASE':
+        counts.release += insertedCount;
+        break;
+      case 'ISSUE':
+        counts.issue += insertedCount;
+        break;
+    }
+  };
+  return { counts, add };
+}
+
 /** `syncOne`이 저장소 하나를 수집한 결과. */
 type RepositorySyncOutcome =
   | { readonly kind: 'PROCESSED' }
@@ -331,8 +356,9 @@ export class CollectionSyncService {
   /**
    * 방금 연결한 저장소 하나를 매시 sweep을 기다리지 않고 바로 수집한다(#1133). 그 저장소의
    * sweep과 같은 scope lease 아래에서 sweep 루프와 같은 `syncOne`을 돌리므로 두 경로가 같은
-   * 저장소를 동시에 쓰지 않는다. sweep cursor와 sweep history는 건드리지 않는다 — 다음 sweep은
-   * 평소대로 이 저장소까지 다시 훑는다.
+   * 저장소를 동시에 쓰지 않는다. sweep cursor는 건드리지 않는다 — 다음 sweep은 평소대로 이
+   * 저장소까지 다시 훑는다. 이력은 `REPOSITORY_LINK` 한 행으로 남긴다 — 남기지 않으면 이 수집이
+   * 넣은 기록이 「최근 수집 활동」과 외부 저장소 누적 합계에서 빠진다(다음 sweep은 새것이 없다).
    *
    * 수집 대상이 아니거나, 사라졌거나, 기본 브랜치를 아직 모르거나(조직 저장소는 sweep 인벤토리가
    * 채운다), 조직 밖인데 공개가 아니면 provider를 부르지 않고 `SKIPPED`다. lease를 sweep이
@@ -374,21 +400,40 @@ export class CollectionSyncService {
       const identitySnapshot =
         await this.incrementalRepository.listRegisteredGithubIds();
       let insertedFactCount = 0;
+      const inserted = insertedCounter();
       // sweep 루프와 같은 rate budget 정지 조건이다.
-      const outcome: RepositorySyncOutcome = runtime.queue.shouldStop()
-        ? { kind: 'STOPPED_FOR_BUDGET' }
-        : await this.syncOne(
+      const attempted = !runtime.queue.shouldStop();
+      const outcome: RepositorySyncOutcome = attempted
+        ? await this.syncOne(
             runtime,
             lease,
             repository,
             identitySnapshot,
             deadline,
             runId,
-            (_streamType, insertedCount) => {
+            (streamType, insertedCount) => {
               insertedFactCount += insertedCount;
+              inserted.add(streamType, insertedCount);
             },
-          );
+          )
+        : { kind: 'STOPPED_FOR_BUDGET' };
       await this.incrementalRepository.releaseSyncLease(lease, this.now());
+      await this.recordSweepHistoryBestEffort({
+        appId: key.appId,
+        scope: key.scope,
+        kind: 'REPOSITORY_LINK',
+        sweepFinishedAt: this.now(),
+        cycleStartedAt: null,
+        insertedCommitCount: inserted.counts.commit,
+        insertedPullRequestCount: inserted.counts.pullRequest,
+        insertedReleaseCount: inserted.counts.release,
+        insertedIssueCount: inserted.counts.issue,
+        attemptedRepositoryCount: attempted ? 1 : 0,
+        processedRepositoryCount: outcome.kind === 'PROCESSED' ? 1 : 0,
+        failedRepositoryCount: outcome.kind === 'FAILED' ? 1 : 0,
+        cycleCompleted: false,
+        stoppedForBudget: outcome.kind === 'STOPPED_FOR_BUDGET',
+      });
       return {
         ...idleRunResult(runId, 'COMPLETED'),
         processedRepositoryCount: outcome.kind === 'PROCESSED' ? 1 : 0,
@@ -557,9 +602,7 @@ export class CollectionSyncService {
 
     let processedRepositoryCount = 0;
     let insertedFactCount = 0;
-    let insertedCommitCount = 0;
-    let insertedPullRequestCount = 0;
-    let insertedReleaseCount = 0;
+    const inserted = insertedCounter();
     let stoppedForBudget = false;
     let lastError: string | null = null;
     let failedRepositoryCount = 0;
@@ -584,18 +627,7 @@ export class CollectionSyncService {
         runId,
         (streamType, insertedCount) => {
           insertedFactCount += insertedCount;
-          switch (streamType) {
-            case 'COMMIT':
-              insertedCommitCount += insertedCount;
-              break;
-            case 'PULL_REQUEST':
-              insertedPullRequestCount += insertedCount;
-              break;
-            case 'RELEASE':
-              insertedReleaseCount += insertedCount;
-              break;
-            // ISSUE는 insertedFactCount에만 더한다 — sweep 이력에는 칸이 없다.
-          }
+          inserted.add(streamType, insertedCount);
         },
       );
       if (outcome.kind === 'STOPPED_FOR_BUDGET') {
@@ -671,11 +703,13 @@ export class CollectionSyncService {
     await this.recordSweepHistoryBestEffort({
       appId: key.appId,
       scope: key.scope,
+      kind: 'SWEEP',
       sweepFinishedAt: this.now(),
       cycleStartedAt,
-      insertedCommitCount,
-      insertedPullRequestCount,
-      insertedReleaseCount,
+      insertedCommitCount: inserted.counts.commit,
+      insertedPullRequestCount: inserted.counts.pullRequest,
+      insertedReleaseCount: inserted.counts.release,
+      insertedIssueCount: inserted.counts.issue,
       attemptedRepositoryCount,
       processedRepositoryCount,
       failedRepositoryCount,

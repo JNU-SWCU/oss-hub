@@ -65,9 +65,12 @@ export interface CollectionActivityEntry {
   readonly sweepFinishedAt: string;
   readonly cycleStartedAt: string | null;
   readonly scope: string;
+  /** 정시·수동 순회(`SWEEP`)인지, 저장소를 연결하자마자 그 저장소 하나만 모은 수집(`REPOSITORY_LINK`)인지(#1133). */
+  readonly kind: 'SWEEP' | 'REPOSITORY_LINK';
   readonly insertedCommitCount: number;
   readonly insertedPullRequestCount: number;
   readonly insertedReleaseCount: number;
+  readonly insertedIssueCount: number;
   readonly attemptedRepositoryCount: number;
   readonly processedRepositoryCount: number;
   readonly failedRepositoryCount: number;
@@ -88,15 +91,31 @@ export interface ExternalCollectionStatus {
   readonly cumulativeCommitCount: number;
   readonly cumulativePullRequestCount: number;
   readonly cumulativeReleaseCount: number;
+  readonly cumulativeIssueCount: number;
 }
+
+/** 배포 window에는 구버전 백엔드가 `kind`·`insertedIssueCount`를 보내지 않는다(#1133) — api.ts가 채운다. */
+export type CollectionActivityWire = Omit<
+  CollectionActivityEntry,
+  'kind' | 'insertedIssueCount'
+> &
+  Partial<Pick<CollectionActivityEntry, 'kind' | 'insertedIssueCount'>>;
+
+export type ExternalCollectionStatusWire = Omit<
+  ExternalCollectionStatus,
+  'lastSweep' | 'cumulativeIssueCount'
+> & {
+  readonly lastSweep: CollectionActivityWire | null;
+  readonly cumulativeIssueCount?: number;
+};
 
 export interface SystemStatusResponse {
   readonly collection: SystemStatus;
   readonly collectionStreams: readonly CollectionStreamRepository[];
   /** 배포 window에는 구버전 백엔드가 이 필드 자체를 보내지 않을 수 있다. */
-  readonly collectionActivity?: readonly CollectionActivityEntry[];
+  readonly collectionActivity?: readonly CollectionActivityWire[];
   /** collectionActivity와 같은 배포 window 문제 — 구버전 백엔드는 이 필드를 보내지 않는다. */
-  readonly externalCollection?: ExternalCollectionStatus;
+  readonly externalCollection?: ExternalCollectionStatusWire;
 }
 
 export interface SystemStatusData {

@@ -5,6 +5,55 @@ import { fetchSystemStatus, triggerCollection } from './api';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('system status api', () => {
+  it('구버전 백엔드가 종류·Issue 칸을 안 주면 순회·0으로 채운다(#1133 배포 사이)', async () => {
+    const oldActivity = {
+      sweepFinishedAt: '2026-07-25T10:00:00.000Z',
+      cycleStartedAt: null,
+      scope: 'external',
+      insertedCommitCount: 4,
+      insertedPullRequestCount: 1,
+      insertedReleaseCount: 0,
+      attemptedRepositoryCount: 3,
+      processedRepositoryCount: 3,
+      failedRepositoryCount: 0,
+      cycleCompleted: true,
+      stoppedForBudget: false,
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            collection: {},
+            collectionStreams: [],
+            collectionActivity: [oldActivity],
+            externalCollection: {
+              trackedRepositoryCount: 3,
+              lastSweep: oldActivity,
+              cumulativeCommitCount: 40,
+              cumulativePullRequestCount: 6,
+              cumulativeReleaseCount: 2,
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      ),
+    );
+
+    const result = await fetchSystemStatus();
+
+    const filled = { ...oldActivity, kind: 'SWEEP', insertedIssueCount: 0 };
+    expect(result.collectionActivity).toEqual([filled]);
+    expect(result.externalCollection).toEqual({
+      trackedRepositoryCount: 3,
+      lastSweep: filled,
+      cumulativeCommitCount: 40,
+      cumulativePullRequestCount: 6,
+      cumulativeReleaseCount: 2,
+      cumulativeIssueCount: 0,
+    });
+  });
+
   it('GET system-status의 정확한 DTO를 반환한다', async () => {
     const dto = {
       health: 'DELAYED',
@@ -56,9 +105,11 @@ describe('system status api', () => {
         sweepFinishedAt: '2026-07-25T10:00:00.000Z',
         cycleStartedAt: '2026-07-25T09:55:00.000Z',
         scope: 'org:jnu-swcu',
+        kind: 'SWEEP',
         insertedCommitCount: 12,
         insertedPullRequestCount: 3,
         insertedReleaseCount: 1,
+        insertedIssueCount: 0,
         attemptedRepositoryCount: 8,
         processedRepositoryCount: 8,
         failedRepositoryCount: 0,
@@ -72,9 +123,11 @@ describe('system status api', () => {
         sweepFinishedAt: '2026-07-25T10:00:00.000Z',
         cycleStartedAt: '2026-07-25T09:55:00.000Z',
         scope: 'external',
+        kind: 'SWEEP',
         insertedCommitCount: 4,
         insertedPullRequestCount: 1,
         insertedReleaseCount: 0,
+        insertedIssueCount: 0,
         attemptedRepositoryCount: 3,
         processedRepositoryCount: 3,
         failedRepositoryCount: 0,
@@ -84,6 +137,7 @@ describe('system status api', () => {
       cumulativeCommitCount: 40,
       cumulativePullRequestCount: 6,
       cumulativeReleaseCount: 2,
+      cumulativeIssueCount: 0,
     };
     const request = vi.fn().mockResolvedValue(
       new Response(
@@ -146,6 +200,7 @@ describe('system status api', () => {
         cumulativeCommitCount: 0,
         cumulativePullRequestCount: 0,
         cumulativeReleaseCount: 0,
+        cumulativeIssueCount: 0,
       },
     });
   });
@@ -194,6 +249,7 @@ describe('system status api', () => {
         cumulativeCommitCount: 0,
         cumulativePullRequestCount: 0,
         cumulativeReleaseCount: 0,
+        cumulativeIssueCount: 0,
       },
     });
   });
@@ -244,6 +300,7 @@ describe('system status api', () => {
         cumulativeCommitCount: 0,
         cumulativePullRequestCount: 0,
         cumulativeReleaseCount: 0,
+        cumulativeIssueCount: 0,
       },
     });
   });

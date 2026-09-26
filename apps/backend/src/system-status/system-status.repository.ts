@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, type Prisma } from '@prisma/client';
+import {
+  AccountStatus,
+  type CollectionRunKind,
+  type Prisma,
+} from '@prisma/client';
 import { nextScheduledCollectionAt } from '../github/collection-schedule';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -61,9 +65,12 @@ export interface CollectionSweepActivityDto {
   readonly sweepFinishedAt: Date;
   readonly cycleStartedAt: Date | null;
   readonly scope: string;
+  /** 정시·수동 순회(`SWEEP`)인지, 저장소 연결 즉시 수집(`REPOSITORY_LINK`)인지(#1133). */
+  readonly kind: CollectionRunKind;
   readonly insertedCommitCount: number;
   readonly insertedPullRequestCount: number;
   readonly insertedReleaseCount: number;
+  readonly insertedIssueCount: number;
   readonly attemptedRepositoryCount: number;
   readonly processedRepositoryCount: number;
   readonly failedRepositoryCount: number;
@@ -77,6 +84,7 @@ export interface CollectionExternalCollectionStatusDto {
   readonly cumulativeCommitCount: number;
   readonly cumulativePullRequestCount: number;
   readonly cumulativeReleaseCount: number;
+  readonly cumulativeIssueCount: number;
 }
 
 /**
@@ -116,9 +124,11 @@ function toSweepActivity(row: {
   sweepFinishedAt: Date;
   cycleStartedAt: Date | null;
   scope: string;
+  kind: CollectionRunKind;
   insertedCommitCount: number;
   insertedPullRequestCount: number;
   insertedReleaseCount: number;
+  insertedIssueCount: number;
   attemptedRepositoryCount: number;
   processedRepositoryCount: number;
   failedRepositoryCount: number;
@@ -129,9 +139,11 @@ function toSweepActivity(row: {
     sweepFinishedAt: row.sweepFinishedAt,
     cycleStartedAt: row.cycleStartedAt,
     scope: row.scope,
+    kind: row.kind,
     insertedCommitCount: row.insertedCommitCount,
     insertedPullRequestCount: row.insertedPullRequestCount,
     insertedReleaseCount: row.insertedReleaseCount,
+    insertedIssueCount: row.insertedIssueCount,
     attemptedRepositoryCount: row.attemptedRepositoryCount,
     processedRepositoryCount: row.processedRepositoryCount,
     failedRepositoryCount: row.failedRepositoryCount,
@@ -320,16 +332,19 @@ export class SystemStatusRepository {
         this.prisma.githubRepository.count({
           where: PRESENT_EXTERNAL_REPOSITORY,
         }),
+        // 「최근 외부 수집 실행」은 순회의 건강을 말한다 — 저장소 하나짜리 연결 즉시 수집은 뺀다.
         this.prisma.collectionSweepHistory.findFirst({
-          where: { scope: EXTERNAL_SWEEP_SCOPE },
+          where: { scope: EXTERNAL_SWEEP_SCOPE, kind: 'SWEEP' },
           orderBy: { sweepFinishedAt: 'desc' },
         }),
+        // 누적 합계는 두 종류를 모두 더한다 — 연결 즉시 수집이 넣은 기록은 뒤 순회가 다시 세지 않는다.
         this.prisma.collectionSweepHistory.aggregate({
           where: { scope: EXTERNAL_SWEEP_SCOPE },
           _sum: {
             insertedCommitCount: true,
             insertedPullRequestCount: true,
             insertedReleaseCount: true,
+            insertedIssueCount: true,
           },
         }),
       ]);
@@ -341,6 +356,7 @@ export class SystemStatusRepository {
       cumulativePullRequestCount:
         sweepTotals._sum.insertedPullRequestCount ?? 0,
       cumulativeReleaseCount: sweepTotals._sum.insertedReleaseCount ?? 0,
+      cumulativeIssueCount: sweepTotals._sum.insertedIssueCount ?? 0,
     };
   }
 

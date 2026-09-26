@@ -96,6 +96,7 @@ export class SystemStatusService {
       status.cumulativeCommitCount,
       status.cumulativePullRequestCount,
       status.cumulativeReleaseCount,
+      status.cumulativeIssueCount,
     );
   }
 
@@ -125,9 +126,11 @@ export class SystemStatusService {
       sweep.sweepFinishedAt.toISOString(),
       sweep.cycleStartedAt?.toISOString() ?? null,
       sweep.scope,
+      sweep.kind,
       sweep.insertedCommitCount,
       sweep.insertedPullRequestCount,
       sweep.insertedReleaseCount,
+      sweep.insertedIssueCount,
       sweep.attemptedRepositoryCount,
       sweep.processedRepositoryCount,
       sweep.failedRepositoryCount,

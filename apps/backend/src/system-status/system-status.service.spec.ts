@@ -42,6 +42,7 @@ function externalStatus(
     cumulativeCommitCount: 0,
     cumulativePullRequestCount: 0,
     cumulativeReleaseCount: 0,
+    cumulativeIssueCount: 0,
     ...overrides,
   };
 }
@@ -112,6 +113,7 @@ describe('SystemStatusService', () => {
         cumulativeCommitCount: 0,
         cumulativePullRequestCount: 0,
         cumulativeReleaseCount: 0,
+        cumulativeIssueCount: 0,
       },
     });
     expect(findActor).toHaveBeenCalledWith(ACTOR_ID);
@@ -293,15 +295,17 @@ describe('SystemStatusService', () => {
     ]);
   });
 
-  it('최근 sweep 활동 이력을 Date -> ISO 변환해 collectionActivity로 옮긴다', async () => {
+  it('최근 수집 활동 이력(순회·연결 즉시 수집, Issue 수 포함)을 Date -> ISO 변환해 collectionActivity로 옮긴다', async () => {
     const activity: readonly CollectionSweepActivityDto[] = [
       {
         sweepFinishedAt: new Date('2026-07-25T11:00:00.000Z'),
         cycleStartedAt: new Date('2026-07-25T10:55:00.000Z'),
         scope: 'org:JNU-SWCU',
+        kind: 'SWEEP',
         insertedCommitCount: 3,
         insertedPullRequestCount: 1,
         insertedReleaseCount: 0,
+        insertedIssueCount: 0,
         attemptedRepositoryCount: 2,
         processedRepositoryCount: 2,
         failedRepositoryCount: 0,
@@ -312,9 +316,11 @@ describe('SystemStatusService', () => {
         sweepFinishedAt: new Date('2026-07-25T10:00:00.000Z'),
         cycleStartedAt: null,
         scope: 'external',
+        kind: 'REPOSITORY_LINK',
         insertedCommitCount: 0,
         insertedPullRequestCount: 0,
         insertedReleaseCount: 0,
+        insertedIssueCount: 4,
         attemptedRepositoryCount: 1,
         processedRepositoryCount: 0,
         failedRepositoryCount: 1,
@@ -331,9 +337,11 @@ describe('SystemStatusService', () => {
         sweepFinishedAt: '2026-07-25T11:00:00.000Z',
         cycleStartedAt: '2026-07-25T10:55:00.000Z',
         scope: 'org:JNU-SWCU',
+        kind: 'SWEEP',
         insertedCommitCount: 3,
         insertedPullRequestCount: 1,
         insertedReleaseCount: 0,
+        insertedIssueCount: 0,
         attemptedRepositoryCount: 2,
         processedRepositoryCount: 2,
         failedRepositoryCount: 0,
@@ -344,9 +352,11 @@ describe('SystemStatusService', () => {
         sweepFinishedAt: '2026-07-25T10:00:00.000Z',
         cycleStartedAt: null,
         scope: 'external',
+        kind: 'REPOSITORY_LINK',
         insertedCommitCount: 0,
         insertedPullRequestCount: 0,
         insertedReleaseCount: 0,
+        insertedIssueCount: 4,
         attemptedRepositoryCount: 1,
         processedRepositoryCount: 0,
         failedRepositoryCount: 1,
@@ -388,6 +398,7 @@ describe('SystemStatusService', () => {
         cumulativeCommitCount: 0,
         cumulativePullRequestCount: 0,
         cumulativeReleaseCount: 0,
+        cumulativeIssueCount: 0,
       });
     });
 
@@ -399,9 +410,11 @@ describe('SystemStatusService', () => {
             sweepFinishedAt: new Date('2026-07-25T10:00:00.000Z'),
             cycleStartedAt: new Date('2026-07-25T09:55:00.000Z'),
             scope: 'external',
+            kind: 'SWEEP',
             insertedCommitCount: 5,
             insertedPullRequestCount: 2,
             insertedReleaseCount: 0,
+            insertedIssueCount: 0,
             attemptedRepositoryCount: 3,
             processedRepositoryCount: 3,
             failedRepositoryCount: 0,
@@ -411,6 +424,7 @@ describe('SystemStatusService', () => {
           cumulativeCommitCount: 42,
           cumulativePullRequestCount: 7,
           cumulativeReleaseCount: 1,
+          cumulativeIssueCount: 9,
         }),
       );
 
@@ -422,9 +436,11 @@ describe('SystemStatusService', () => {
           sweepFinishedAt: '2026-07-25T10:00:00.000Z',
           cycleStartedAt: '2026-07-25T09:55:00.000Z',
           scope: 'external',
+          kind: 'SWEEP',
           insertedCommitCount: 5,
           insertedPullRequestCount: 2,
           insertedReleaseCount: 0,
+          insertedIssueCount: 0,
           attemptedRepositoryCount: 3,
           processedRepositoryCount: 3,
           failedRepositoryCount: 0,
@@ -434,6 +450,7 @@ describe('SystemStatusService', () => {
         cumulativeCommitCount: 42,
         cumulativePullRequestCount: 7,
         cumulativeReleaseCount: 1,
+        cumulativeIssueCount: 9,
       });
       // external 값이 무엇이든 org 집계(`collection`)는 스냅샷 fixture 값 그대로다.
       expect(result.collection.trackedRepositoryCount).toBe(2);

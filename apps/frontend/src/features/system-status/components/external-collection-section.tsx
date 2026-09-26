@@ -125,7 +125,8 @@ export function ExternalCollectionSection({
                 <dd className="mt-1 font-medium">
                   Commit {status.cumulativeCommitCount} · PR{' '}
                   {status.cumulativePullRequestCount} · Release{' '}
-                  {status.cumulativeReleaseCount}
+                  {status.cumulativeReleaseCount} · Issue{' '}
+                  {status.cumulativeIssueCount}
                 </dd>
               </div>
               {status.lastSweep ? (

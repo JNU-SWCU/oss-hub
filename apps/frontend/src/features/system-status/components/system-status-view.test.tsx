@@ -33,6 +33,7 @@ const emptyExternalCollection: ExternalCollectionStatus = {
   cumulativeCommitCount: 0,
   cumulativePullRequestCount: 0,
   cumulativeReleaseCount: 0,
+  cumulativeIssueCount: 0,
 };
 
 /**
@@ -302,9 +303,11 @@ describe('SystemStatusView', () => {
           sweepFinishedAt: '2026-08-10T09:00:00.000Z',
           cycleStartedAt: '2026-08-10T08:55:00.000Z',
           scope: 'org:jnu-swcu',
+          kind: 'SWEEP',
           insertedCommitCount: 12,
           insertedPullRequestCount: 3,
           insertedReleaseCount: 1,
+          insertedIssueCount: 0,
           attemptedRepositoryCount: 8,
           processedRepositoryCount: 8,
           failedRepositoryCount: 0,
@@ -377,9 +380,11 @@ describe('SystemStatusView', () => {
             sweepFinishedAt: '2026-08-10T09:00:00.000Z',
             cycleStartedAt: '2026-08-10T08:55:00.000Z',
             scope: 'external',
+            kind: 'SWEEP',
             insertedCommitCount: 4,
             insertedPullRequestCount: 1,
             insertedReleaseCount: 0,
+            insertedIssueCount: 0,
             attemptedRepositoryCount: 5,
             processedRepositoryCount: 5,
             failedRepositoryCount: 0,
@@ -389,6 +394,7 @@ describe('SystemStatusView', () => {
           cumulativeCommitCount: 40,
           cumulativePullRequestCount: 6,
           cumulativeReleaseCount: 2,
+          cumulativeIssueCount: 0,
         },
       });
       expect(html).toContain('5개 추적 중');
@@ -410,6 +416,7 @@ describe('SystemStatusView', () => {
           cumulativeCommitCount: 0,
           cumulativePullRequestCount: 0,
           cumulativeReleaseCount: 0,
+          cumulativeIssueCount: 0,
         },
       });
       // org "Stream 진행 상황" 카드는 여전히 org의 2개를 보여준다 — external의
