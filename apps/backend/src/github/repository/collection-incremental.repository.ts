@@ -733,23 +733,19 @@ export class CollectionIncrementalRepository {
   }
 
   /**
-   * #546 — stream 하나의 오류 표시만 갱신한다. frontier/status/ETag는 건드리지 않는다:
-   * 실패했다고 해서 이미 확립한 safe frontier를 되돌리면 다음 run이 전체 이력을 다시
-   * 훑게 되고(ADR-006 증분 계약 위반), 성공했다고 status를 올리는 것도 여기 책임이 아니다
-   * (그건 checkpoint가 한다).
+   * #546·#1133 — stream 하나의 결과(오류 표시·확인 시각)만 갱신한다. frontier/status/ETag는
+   * 건드리지 않는다: 실패했다고 해서 이미 확립한 safe frontier를 되돌리면 다음 run이 전체
+   * 이력을 다시 훑게 되고(ADR-006 증분 계약 위반), 성공했다고 status를 올리는 것도 여기
+   * 책임이 아니다(그건 checkpoint가 한다).
    *
-   * 기록은 upsert다 — 신규 저장소의 첫 backfill이 실패하면 아직 stream 행 자체가 없는데,
+   * 실패 기록은 upsert다 — 신규 저장소의 첫 backfill이 실패하면 아직 stream 행 자체가 없는데,
    * 그때야말로 오류가 보여야 한다. 생성되는 행은 `PENDING`(기본값)이라 진행 집계의 의미도
    * 바뀌지 않는다(행 없는 stream도 이미 partial로 세고 있다).
    *
-   * 해제는 반대로 `updateMany` + `lastErrorCode: { not: null }` 가드다 — 표시가 남아 있을
-   * 때만 쓰고, 없는 행을 새로 만들지 않는다.
-   */
-  /**
-   * stream 하나의 결과를 그 행에 남긴다. 실패면 오류 표시를(행이 없어도 만든다), 성공이면 확인한
-   * 시각(`lastRunAt`)을 남기고 오류 표시를 지운다. 새것이 없어 checkpoint를 쓰지 않은 확인도
-   * 성공이다 — 시스템 상태의 「N분 전」·「가장 오래된 실행 시각」이 마지막으로 확인한 시각이 된다.
-   * 성공은 행을 새로 만들지 않는다(아직 적재한 적 없는 stream은 그대로 「기록 없음」).
+   * 성공 기록은 `updateMany`다 — 확인한 시각(`lastRunAt`)을 남기고 오류 표시를 지우되, 없는
+   * 행을 새로 만들지 않는다(아직 적재한 적 없는 stream은 그대로 「기록 없음」). 새것이 없어
+   * checkpoint를 쓰지 않은 확인도 성공이라, 시스템 상태의 「N분 전」·「가장 오래된 실행 시각」이
+   * 마지막으로 확인한 시각이 된다.
    */
   async markStreamOutcome(
     repositoryId: string,
