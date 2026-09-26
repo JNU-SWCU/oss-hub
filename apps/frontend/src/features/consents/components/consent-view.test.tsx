@@ -67,7 +67,8 @@ describe('ConsentForm', () => {
     expect(renderForm()).toContain('bg-cosmos-copy');
   });
 
-  // 어두운 바탕 위에 흰 판(`bg-card`)이 뜨면 화면이 두 동강 난다. 유리 한 겹으로 둔다.
+  // 동의 항목 패널은 무대의 `--card`(흰 8% 유리)보다 옅은 5% 유리(`bg-cosmos-muted/5`)를
+  // 쓴다. 이 단언은 준비 상태만 그리므로 오류 상태의 `Alert`(bg-card)는 여기 없다.
   it('동의 항목은 우주 바탕 위 유리 카드 하나에 담는다', () => {
     const html = renderForm();
 
