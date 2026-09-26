@@ -10,7 +10,6 @@ import { CollectionAppConfig } from './collection-app.config';
 import { CollectionAppTokenProvider } from './collection-app.token';
 import { CollectionCutoverRepository } from './repository/collection-cutover.repository';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
-import { CollectionExternalDiscoveryService } from './service/collection-external-discovery.service';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { CollectionAdminController } from './controller/collection-admin.controller';
 import { ContributionInvariants } from './contribution-invariants';
@@ -64,44 +63,16 @@ import {
         new CollectionPublicTokenProvider(runtimeConfig),
     },
     {
-      // GraphQL `contributionsCollection` discovery client — 조직 밖 public
-      // 저장소를 찾는 유일한 경로(E4). `CollectionPublicTokenProvider`가
-      // 이 client의 `CollectionDiscoveryTokenProvider` 표면(getToken/clear)을
-      // 구조적으로 만족한다 — `CollectionAppTokenProvider`(installation
+      // GraphQL `contributionsCollection` 사람 축 client — 학생 한 명의 한 해 공개 활동
+      // 합계를 묻는다. 조직 밖 저장소를 찾아 등록하던 관리자 경로는 없앴다(#1453).
+      // `CollectionPublicTokenProvider`가 이 client의 `CollectionDiscoveryTokenProvider`
+      // 표면(getToken/clear)을 구조적으로 만족한다 — `CollectionAppTokenProvider`(installation
       // JWT)는 이 client에 배선하지 않는다(client 자체 문서에 금지 명시).
-      // `maxRepositories`는 GitHub GraphQL 스키마 기본값(25)보다 넉넉히 잡은
-      // 안전한 상한이다(client 문서: 상한은 undocumented, 초과분은 GitHub
-      // 오류로 그대로 전파된다).
       provide: CollectionDiscoveryClient,
       inject: [CollectionPublicTokenProvider],
       useFactory: (
         tokens: CollectionPublicTokenProvider,
-      ): CollectionDiscoveryClient =>
-        new CollectionDiscoveryClient({ maxRepositories: 50 }, tokens),
-    },
-    {
-      // 학생 GitHub login → discovery → `GithubRepository`
-      // `source: 'EXTERNAL_PUBLIC'` upsert(E4). `GITHUB_PUBLIC_READ_TOKEN`이
-      // 없어도 이 provider 등록 자체는 실패하지 않는다 — fail-closed 검증은
-      // `CollectionPublicTokenProvider.getToken()`을 거치는 첫 discovery 호출
-      // 시점으로 미룬다(조직 collection이 이 키 없이도 계속 동작해야 한다는
-      // 계약은 여기서도 동일하게 지킨다).
-      provide: CollectionExternalDiscoveryService,
-      inject: [
-        PrismaService,
-        CollectionIncrementalRepository,
-        CollectionDiscoveryClient,
-      ],
-      useFactory: (
-        prisma: PrismaService,
-        incrementalRepository: CollectionIncrementalRepository,
-        discoveryClient: CollectionDiscoveryClient,
-      ): CollectionExternalDiscoveryService =>
-        new CollectionExternalDiscoveryService(
-          prisma,
-          incrementalRepository,
-          discoveryClient,
-        ),
+      ): CollectionDiscoveryClient => new CollectionDiscoveryClient({}, tokens),
     },
     {
       // 사람 축(person-axis) 활동 수집 — 스케줄러·관리자 트리거의 세 번째 sweep.

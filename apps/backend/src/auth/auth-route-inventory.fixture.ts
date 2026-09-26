@@ -194,7 +194,6 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED PATCH /api/v1/users/me/notification-email',
   'PROTECTED PATCH /api/v1/users/me/notifications/application-decisions/:notificationId/read',
   'PROTECTED PATCH /api/v1/users/me/profile',
-  'PROTECTED POST /api/v1/admin/collection/discover-external',
   'PROTECTED POST /api/v1/admin/collection/trigger',
   'OPTIONAL_SESSION POST /api/v1/auth/logout',
   'PROTECTED POST /api/v1/consents',

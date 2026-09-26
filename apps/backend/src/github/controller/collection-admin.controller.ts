@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Get,
   HttpCode,
@@ -29,7 +28,6 @@ import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,
 } from '../collection-error-code.enum';
-import { CollectionExternalDiscoveryService } from '../service/collection-external-discovery.service';
 import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import {
   CollectionSyncService,
@@ -39,8 +37,6 @@ import {
   CollectionUserActivityService,
   type CollectionUserActivitySweepResult,
 } from '../service/collection-user-activity.service';
-import { CollectionExternalDiscoveryRequestDto } from '../dto/collection-external-discovery-request.dto';
-import { CollectionExternalDiscoveryResponseDto } from '../dto/collection-external-discovery-response.dto';
 import { CollectionRunListResponseDto } from '../dto/collection-run-list-response.dto';
 import { CollectionTriggerResponseDto } from '../dto/collection-trigger-response.dto';
 
@@ -59,7 +55,6 @@ export class CollectionAdminController {
   constructor(
     private readonly sync: CollectionSyncService,
     private readonly cutover: CollectionCutoverRepository,
-    private readonly externalDiscovery: CollectionExternalDiscoveryService,
     private readonly incrementalRepository: CollectionIncrementalRepository,
     private readonly auditLog: AuditLogService,
     private readonly invariants: ContributionInvariants,
@@ -218,29 +213,5 @@ export class CollectionAdminController {
       COLLECTION_RUN_LIST_LIMIT,
     );
     return CollectionRunListResponseDto.from(runs);
-  }
-
-  /**
-   * 학생 1명의 조직 밖 public 저장소를 즉시 탐색·적재한다(E4). 전체 조직
-   * 수집(`trigger`)과 달리 GraphQL 호출 1건 규모라 백그라운드로 미루지 않고
-   * 요청 안에서 완료해 결과 집계를 그대로 응답한다. 동의 게이트·private
-   * 필터는 `CollectionExternalDiscoveryService`가 강제한다 — 이 컨트롤러는
-   * 권한(ADMIN 세션)만 확인한다.
-   */
-  @Post('discover-external')
-  @HttpCode(200)
-  @UseGuards(SessionGuard, CollectionAdminGuard, OriginGuard)
-  async discoverExternal(
-    @Body() body: CollectionExternalDiscoveryRequestDto,
-  ): Promise<CollectionExternalDiscoveryResponseDto> {
-    const result = await this.externalDiscovery.discoverForStudent(
-      body.githubLogin,
-    );
-    return new CollectionExternalDiscoveryResponseDto(
-      result.githubLogin,
-      result.discoveredCount,
-      result.upsertedCount,
-      result.skippedOrgProvisionedCount,
-    );
   }
 }

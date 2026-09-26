@@ -153,8 +153,9 @@ it('collects new facts only on the replacement when an external application repo
   ).toEqual([expect.objectContaining({ commitCount: 7 })]);
 });
 
-it('keeps independently discovered private or absent external repositories eligible for recovery', async () => {
-  // Given: discovery tracks a repository independently of an application.
+it('keeps a linked private or absent external repository eligible for recovery', async () => {
+  // Given: B is the linked external repository and was last seen private or gone.
+  await service.updateMine(githubId, programId, input);
   await prisma.githubRepository.update({
     where: { id: targetId },
     data: { visibility: 'PRIVATE', presence: 'ABSENT' },
@@ -167,14 +168,28 @@ it('keeps independently discovered private or absent external repositories eligi
   );
 });
 
-it('does not revive detached application tracking when discovery observes the same repository again', async () => {
+it('stops selecting a linked external repository once deletion clears every link', async () => {
+  // Given: B is linked to the application, then program or team deletion clears all three links
+  // (program-lifecycle.service.ts purge, program-team-deletion.repository.ts detach).
+  await service.updateMine(githubId, programId, input);
+  await prisma.githubRepository.update({
+    where: { id: targetId },
+    data: { applicationId: null, programId: null, teamId: null },
+  });
+  // When
+  const selected = await collection.listExternalRepositories();
+  // Then: the student's own repository is no longer collected once no application links it.
+  expect(selected.some((row) => row.id === targetId)).toBe(false);
+});
+
+it('does not revive a detached external repository when it is enrolled again', async () => {
   // Given: the external application target has been replaced.
   await prisma.githubRepository.update({
     where: { id: oldId },
     data: { source: 'EXTERNAL_PUBLIC' },
   });
   await service.updateMine(githubId, programId, input);
-  // When: public discovery observes the historical identity again.
+  // When: enrollment (the OWN provisioning path) observes the historical identity again.
   await collection.enrollExternalRepository({
     githubRepositoryId: targetGithubId + 1n,
     nameWithOwner: 'synthetic/old',
