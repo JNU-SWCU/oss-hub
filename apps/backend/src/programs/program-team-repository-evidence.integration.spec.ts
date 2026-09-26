@@ -266,6 +266,7 @@ it('shows the outsider totals only while they were counted for this program wind
   await prisma.githubRepositoryOutsiderContribution.create({
     data: {
       repositoryId: scoped.repository,
+      applicationId: scoped.application,
       programId: scoped.program,
       windowStartAt: startAt,
       windowEndAt: endAt,
@@ -282,6 +283,18 @@ it('shows the outsider totals only while they were counted for this program wind
     commitCount: 3,
     pullRequestCount: 1,
     issueCount: 2,
+  });
+
+  // When it was counted for another application (the repository moved teams), it is not shown.
+  await prisma.githubRepositoryOutsiderContribution.update({
+    where: { repositoryId: scoped.repository },
+    data: { applicationId: `${scope}-previous-application` },
+  });
+  const moved = await teams.findStaffTeamDetail(scoped.program, scoped.team);
+  expect(moved?.repositoryContributions?.outsiderContributions).toBeNull();
+  await prisma.githubRepositoryOutsiderContribution.update({
+    where: { repositoryId: scoped.repository },
+    data: { applicationId: scoped.application },
   });
 
   // When the program window is edited, the old count is not shown until it is counted again.

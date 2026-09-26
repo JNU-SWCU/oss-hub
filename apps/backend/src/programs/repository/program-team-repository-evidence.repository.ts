@@ -23,6 +23,7 @@ const REPOSITORY_CONNECTION_CHANGED =
   REPOSITORY_CONNECTION_AUDIT_ACTIONS.REPOSITORY_CONNECTION_CHANGED;
 
 interface ApplicationRepositorySource {
+  readonly id: string;
   readonly repository: {
     readonly id: string;
     readonly nameWithOwner: string;
@@ -187,25 +188,27 @@ export class ProgramTeamRepositoryEvidenceRepository {
       })),
       outsiderContributions: await this.outsiderContributions(
         repository.id,
-        application.program,
+        application,
       ),
     };
   }
 
   /**
-   * 수집이 세어 둔 「팀원이 아닌 사람의 기여」 — 센 기준(프로그램·기간)이 지금과 같을 때만 쓴다.
-   * 기간을 고쳤거나 저장소가 다른 프로그램에서 넘어왔으면 다음 수집이 다시 셀 때까지 보이지 않는다.
+   * 수집이 세어 둔 「팀원이 아닌 사람의 기여」 — 센 기준(신청·프로그램·기간)이 지금과 같을 때만 쓴다.
+   * 기간을 고쳤거나 저장소가 다른 팀·프로그램에서 넘어왔으면 다음 수집이 다시 셀 때까지 보이지 않는다.
    */
   private async outsiderContributions(
     repositoryId: string,
-    program: ApplicationRepositorySource['program'],
+    application: Pick<ApplicationRepositorySource, 'id' | 'program'>,
   ): Promise<TeamOutsiderContributionsView | null> {
+    const { program } = application;
     const row =
       await this.prisma.githubRepositoryOutsiderContribution.findUnique({
         where: { repositoryId },
       });
     if (
       row === null ||
+      row.applicationId !== application.id ||
       row.programId !== program.id ||
       row.windowStartAt.getTime() !== program.startAt.getTime() ||
       row.windowEndAt.getTime() !== program.endAt.getTime()

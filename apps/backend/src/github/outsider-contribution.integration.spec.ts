@@ -104,9 +104,11 @@ afterAll(async () => {
 
 it('counts against the linked program window and not for a detached repository', async () => {
   expect(await collection.findOutsiderCountingWindow(ids.linked)).toEqual({
+    applicationId: ids.application,
     programId: ids.program,
     startAt,
     endAt,
+    countedThrough: null,
   });
   expect(await collection.findOutsiderCountingWindow(ids.detached)).toBeNull();
   expect(
@@ -155,6 +157,7 @@ it('counts the team side of `outsiders = total − team` from current members in
 it('keeps one row per repository, overwritten by each count', async () => {
   const base = {
     repositoryId: ids.linked,
+    applicationId: ids.application,
     programId: ids.program,
     windowStartAt: startAt,
     windowEndAt: endAt,
@@ -184,4 +187,31 @@ it('keeps one row per repository, overwritten by each count', async () => {
       issueCount: 2,
     }),
   ]);
+});
+
+it('remembers when it last counted only while the application and window stay the same', async () => {
+  const observedAt = new Date('2026-09-02T00:00:00Z');
+  await collection.saveOutsiderContribution({
+    repositoryId: ids.linked,
+    applicationId: ids.application,
+    programId: ids.program,
+    windowStartAt: startAt,
+    windowEndAt: endAt,
+    commitCount: 0,
+    pullRequestCount: 0,
+    issueCount: 0,
+    observedAt,
+  });
+  expect(
+    (await collection.findOutsiderCountingWindow(ids.linked))?.countedThrough,
+  ).toEqual(observedAt);
+
+  // Counted for another team's application (the repository was relinked) — count again from scratch.
+  await prisma.githubRepositoryOutsiderContribution.update({
+    where: { repositoryId: ids.linked },
+    data: { applicationId: `${scope}-previous-application` },
+  });
+  expect(
+    (await collection.findOutsiderCountingWindow(ids.linked))?.countedThrough,
+  ).toBeNull();
 });

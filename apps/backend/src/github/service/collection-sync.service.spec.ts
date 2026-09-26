@@ -1841,9 +1841,11 @@ describe('CollectionSyncService — 팀원 단위 author-scoped 커밋 수집', 
 describe('CollectionSyncService — 팀원이 아닌 사람의 기여(#1133)', () => {
   const NOW = new Date('2026-08-01T00:00:00.000Z');
   const WINDOW = {
+    applicationId: 'application-1',
     programId: 'program-1',
     startAt: new Date('2026-07-09T15:00:00.000Z'),
     endAt: new Date('9999-12-31T23:59:59.999Z'),
+    countedThrough: null as Date | null,
   };
   const pullRequestItem = (
     id: string,
@@ -1965,6 +1967,7 @@ describe('CollectionSyncService — 팀원이 아닌 사람의 기여(#1133)', (
     expect(save).toHaveBeenCalledTimes(1);
     expect(save).toHaveBeenCalledWith({
       repositoryId: 'repo-1',
+      applicationId: 'application-1',
       programId: 'program-1',
       windowStartAt: WINDOW.startAt,
       windowEndAt: WINDOW.endAt,
@@ -2006,6 +2009,44 @@ describe('CollectionSyncService — 팀원이 아닌 사람의 기여(#1133)', (
     expect(save).toHaveBeenCalledWith(
       expect.objectContaining({ pullRequestCount: 1, windowEndAt: endAt }),
     );
+  });
+
+  it('끝난 프로그램을 끝난 뒤 이미 셌다면 다시 세지 않는다', async () => {
+    const endAt = new Date('2026-07-20T14:59:59.999Z');
+    // 프로그램이 도는 중에 센 값은 기간이 아직 열려 있을 때의 값이다 — 끝난 뒤 한 번 더 센다.
+    const running = seedTeamRepository();
+    spyWindow({
+      ...WINDOW,
+      endAt,
+      countedThrough: new Date('2026-07-20T00:00:00Z'),
+    });
+    spyTeamCommits(0);
+    const save = spySave();
+    await createService(running.db, running.client, { now: () => NOW }).run(
+      'owner-1',
+    );
+    expect(save).toHaveBeenCalledTimes(1);
+
+    jest.restoreAllMocks();
+    const closed = seedTeamRepository();
+    spyWindow({
+      ...WINDOW,
+      endAt,
+      countedThrough: new Date('2026-07-21T00:00:00Z'),
+    });
+    const skipped = spySave();
+    await createService(closed.db, closed.client, { now: () => NOW }).run(
+      'owner-1',
+    );
+    expect(
+      closed.client.countDefaultBranchCommitsBetween,
+    ).not.toHaveBeenCalled();
+    expect(closed.client.listNewPullRequests).not.toHaveBeenCalledWith(
+      'synthetic-org',
+      'repo',
+      expect.objectContaining({ id: '0' }),
+    );
+    expect(skipped).not.toHaveBeenCalled();
   });
 
   it('기본 브랜치가 없으면 커밋은 0으로, 전체가 팀원합보다 작으면 옛 값을 둔다', async () => {

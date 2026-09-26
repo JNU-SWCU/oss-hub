@@ -21,6 +21,7 @@ it('keeps the sentinel window but bounds the query by the last queryable day', a
   // When
   const view = await repository.contributions(
     {
+      id: 'application',
       repository: {
         id: 'current-repo',
         nameWithOwner: 'synthetic/current',
@@ -296,11 +297,12 @@ it('does not query contributions or history for an absent or differently scoped 
   expect(auditFindMany).not.toHaveBeenCalled();
 });
 
-it('shows the outsider totals only while they were counted for this program and window', async () => {
-  // Given: the collector counted this repository for this program's current window.
+it('shows the outsider totals only while they were counted for this application, program and window', async () => {
+  // Given: the collector counted this repository for this application and program's current window.
   const repository = givenRepository();
   const counted = {
     repositoryId: 'current-repo',
+    applicationId: 'application',
     programId: 'program',
     windowStartAt: new Date('2026-07-31T15:00:00Z'),
     windowEndAt: new Date('2026-08-31T14:59:59Z'),
@@ -322,8 +324,10 @@ it('shows the outsider totals only while they were counted for this program and 
     issueCount: 2,
   });
 
-  // A count made for another program, or before the window was edited, is not shown.
+  // A count made for another team's application or another program, or before the window was
+  // edited, is not shown.
   for (const stale of [
+    { ...counted, applicationId: 'previous-application' },
     { ...counted, programId: 'other-program' },
     { ...counted, windowStartAt: new Date('2026-07-01T15:00:00Z') },
     { ...counted, windowEndAt: new Date('2026-12-31T14:59:59Z') },

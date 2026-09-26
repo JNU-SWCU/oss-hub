@@ -979,24 +979,39 @@ export class CollectionIncrementalRepository {
    * 「팀원이 아닌 사람의 기여」(#1133)를 셀 기준 — 이 저장소가 지금 신청으로 연결된 프로그램과
    * 그 기간. 신청 연결이 풀렸거나 프로그램이 없으면 `null`이다(세지 않는다). 수집 run이 들고 온
    * 행이 아니라 지금 행을 읽는다 — sweep 도중 연결이 바뀌어도 옛 프로그램 기간으로 세지 않는다.
+   *
+   * `countedThrough`는 같은 기준(신청·프로그램·기간)으로 마지막에 센 시각이다. 기준이 달라졌거나
+   * 센 적이 없으면 `null`이다 — 끝난 프로그램을 끝난 뒤 한 번 셌으면 다시 세지 않게 쓴다.
    */
   async findOutsiderCountingWindow(repositoryId: string): Promise<{
+    applicationId: string;
     programId: string;
     startAt: Date;
     endAt: Date;
+    countedThrough: Date | null;
   } | null> {
     const row = await this.db.githubRepository.findUnique({
       where: { id: repositoryId },
       select: {
         applicationId: true,
         program: { select: { id: true, startAt: true, endAt: true } },
+        outsider: true,
       },
     });
     if (!row || row.applicationId === null || row.program === null) return null;
+    const counted = row.outsider;
+    const sameBasis =
+      counted !== null &&
+      counted.applicationId === row.applicationId &&
+      counted.programId === row.program.id &&
+      counted.windowStartAt.getTime() === row.program.startAt.getTime() &&
+      counted.windowEndAt.getTime() === row.program.endAt.getTime();
     return {
+      applicationId: row.applicationId,
       programId: row.program.id,
       startAt: row.program.startAt,
       endAt: row.program.endAt,
+      countedThrough: sameBasis ? counted.observedAt : null,
     };
   }
 
@@ -1023,6 +1038,7 @@ export class CollectionIncrementalRepository {
   /** 저장소마다 한 행 — 새로 센 값으로 통째로 덮어쓴다. */
   async saveOutsiderContribution(input: {
     repositoryId: string;
+    applicationId: string;
     programId: string;
     windowStartAt: Date;
     windowEndAt: Date;

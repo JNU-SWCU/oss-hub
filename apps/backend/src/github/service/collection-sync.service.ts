@@ -1332,6 +1332,9 @@ export class CollectionSyncService {
    * Commit·PR·Issue **수만** 세어 저장소 행 하나로 덮어쓴다. 누가 했는지는 저장하지 않는다.
    *
    * 매 run 기간 전체를 다시 센다 — 팀원이 바뀌거나 기간이 바뀌어도 다음 run이 저절로 맞춘다.
+   * 단, 끝난 프로그램을 끝난 뒤 한 번 셌으면 더는 세지 않는다.
+   * ponytail: 프로그램이 끝난 뒤 팀원을 바꾸면 그 합계에 반영되지 않는다 — 필요해지면 센 기준에
+   * 팀원 명단의 지문을 더한다.
    * 네 stream과 달리 실패해도 저장소 수집을 실패로 돌리지 않는다: 이 합계는 교직원 화면의 보조
    * 한 줄이라, 여기서 난 오류로 Commit·PR·Issue 수집이 백오프에 걸리면 안 된다. 실패하면 옛 값을
    * 둔다(읽는 쪽이 기준 프로그램·기간이 맞을 때만 보인다).
@@ -1350,6 +1353,13 @@ export class CollectionSyncService {
           repository.id,
         );
       if (window === null) return;
+      // 끝난 프로그램을 끝난 뒤 이미 셌다면 기간이 닫혀 수가 바뀌지 않는다 — 다시 세면 프로그램이
+      // 끝난 뒤 쌓인 PR·Issue까지 매시간 처음부터 거슬러 읽게 된다.
+      if (
+        window.countedThrough !== null &&
+        window.countedThrough.getTime() >= window.endAt.getTime()
+      )
+        return;
       const observedAt = this.now();
       const since = Math.max(window.startAt.getTime(), GITHUB_EPOCH_MS);
       const until = Math.min(window.endAt.getTime(), observedAt.getTime());
@@ -1421,6 +1431,7 @@ export class CollectionSyncService {
       }
       await this.incrementalRepository.saveOutsiderContribution({
         repositoryId: repository.id,
+        applicationId: window.applicationId,
         programId: window.programId,
         windowStartAt: window.startAt,
         windowEndAt: window.endAt,

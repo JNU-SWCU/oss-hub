@@ -2,7 +2,7 @@
 --
 -- 전부 additive다 — 기존 표·컬럼을 바꾸지 않으므로 이 마이그레이션이 배포된 뒤에도 직전 이미지가
 -- 그대로 동작한다. 저장소마다 한 행이며, 팀 저장소를 수집할 때마다 덮어쓴다. 누가 했는지는 담지
--- 않는다(Commit·PR·Issue 수와 센 기준 프로그램·기간만). 과거 값은 따로 채우지 않는다 — 배포 뒤
+-- 않는다(Commit·PR·Issue 수와 센 기준 신청·프로그램·기간만). 과거 값은 따로 채우지 않는다 — 배포 뒤
 -- 첫 정시 수집이 팀 저장소마다 한 행씩 만든다.
 --
 -- 이 파일은 `prisma migrate diff`(직전 커밋 schema → 현재 schema)로 생성했다
@@ -11,6 +11,7 @@
 -- CreateTable
 CREATE TABLE "GithubRepositoryOutsiderContribution" (
     "repositoryId" TEXT NOT NULL,
+    "applicationId" TEXT NOT NULL,
     "programId" TEXT NOT NULL,
     "windowStartAt" TIMESTAMP(3) NOT NULL,
     "windowEndAt" TIMESTAMP(3) NOT NULL,

@@ -1372,7 +1372,9 @@ model GithubRepositoryOutsiderContribution {
   repositoryId String           @id
   repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
 
-  /// 센 기준. FK가 아니다 — 프로그램이 지워지거나 기간이 바뀌면 읽는 쪽이 이 값을 비교해 버린다.
+  /// 센 기준. FK가 아니다 — 연결(신청)이 바뀌거나 프로그램이 지워지거나 기간이 바뀌면 읽는 쪽이
+  /// 이 값을 비교해 버린다.
+  applicationId String
   programId     String
   windowStartAt DateTime
   windowEndAt   DateTime
