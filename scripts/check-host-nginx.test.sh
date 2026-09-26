@@ -72,5 +72,13 @@ expect_fail 'rejects generic OPTIONS at Compose' "$host_source" "$fixture_dir/ge
 mutate "$compose_source" "$fixture_dir/wildcard-host" 'server_name jnu-oss-hub.com localhost 127.0.0.1 [::1];' 'server_name _;'
 expect_fail 'rejects Compose wildcard host' "$host_source" "$fixture_dir/wildcard-host"
 
+mutate "$host_source" "$fixture_dir/retired-host" 'location /api/v1/ {' 'location = /api/v1/admin/collection/discover-external { limit_except POST { deny all; } proxy_pass http://oss_hub_compose; }
+    location /api/v1/ {'
+expect_fail 'rejects retired admin discovery route at host' "$fixture_dir/retired-host" "$compose_source"
+
+mutate "$compose_source" "$fixture_dir/retired-compose" 'location /api/v1/ {' 'location = /api/v1/admin/collection/discover-external { limit_except POST { deny all; } limit_req zone=admin_collection burst=1 nodelay; proxy_pass http://backend:4000; }
+    location /api/v1/ {'
+expect_fail 'rejects retired admin discovery route at Compose' "$host_source" "$fixture_dir/retired-compose"
+
 printf '%s host nginx contract tests passed; %s failed\n' "$passed" "$failed"
 (( failed == 0 ))
