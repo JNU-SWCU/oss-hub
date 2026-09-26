@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma, StaffAccessRequestStatus } from '@prisma/client';
+import { MemberKind, Prisma, StaffAccessRequestStatus } from '@prisma/client';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { DomainException } from '../common/error-code';
+import { SystemErrorCode } from '../common/system-error-code.enum';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   fillStudentIdIfEmpty,
@@ -10,7 +12,9 @@ import { requestStaffAccess } from '../roles/staff-access-request';
 import {
   USER_PHONE_AUDIT_TRANSITIONS,
   USER_PROFILE_AUDIT_ACTIONS,
+  USER_PROFILE_AUDIT_FIELDS,
   createUserPhoneAuditMetadata,
+  createUserProfileAuditMetadata,
 } from '../audit-log/audit-log-metadata';
 import type {
   CompleteUserProfileInput,
@@ -38,6 +42,7 @@ const PROFILE_MEMBER_SELECT = {
       memberKind: true,
       affiliationKind: true,
       affiliationName: true,
+      staffNumber: true,
     },
   },
   staffAccessRequests: {
@@ -188,12 +193,16 @@ export class UsersRepository implements UsersRepositoryPort {
     });
   }
 
-  /** 이름·소속만 갱신한다 — 학번은 이 경로로 오지 않는다(`fillStudentId`). */
+  /** 이름·소속과 본인 식별자를 갱신한다 — 학번은 이 경로로 오지 않는다(`fillStudentId`). */
   async updateProfileFields(
     expected: UserProfileRecord,
     fields: UpdateProfileFieldsInput,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
+      const staffNumberBefore =
+        fields.staffNumber === undefined
+          ? undefined
+          : await lockStaffNumber(transaction, expected.id);
       await transaction.userProfile.update({
         where: { userId: expected.id },
         data: {
@@ -203,8 +212,20 @@ export class UsersRepository implements UsersRepositoryPort {
           ...(fields.affiliationKind === undefined
             ? {}
             : { affiliationKind: fields.affiliationKind }),
+          ...(fields.staffNumber === undefined
+            ? {}
+            : { staffNumber: fields.staffNumber }),
         },
       });
+      if (fields.staffNumber !== undefined) {
+        await writeStaffNumberAuditIfChanged(
+          transaction,
+          this.auditLog,
+          expected,
+          staffNumberBefore ?? null,
+          fields.staffNumber,
+        );
+      }
       await writeUserPhoneIfChanged(
         transaction,
         this.auditLog,
@@ -274,6 +295,79 @@ async function writeUserPhoneIfChanged(
   );
 }
 
+/**
+ * 본인 식별자 갱신은 프로필 행의 잠금 뒤 실제 값을 기준으로 감사한다.
+ *
+ * 호출자가 읽어 둔 스냅샷은 동시 PATCH가 끝난 뒤의 값일 수 있으므로 감사의 before로
+ * 사용하지 않는다. UserProfile 행을 잠그면 값 비교와 UPDATE가 한 트랜잭션 안에서
+ * 이어져 실제 전이만 원장에 남는다.
+ */
+async function lockStaffNumber(
+  transaction: Prisma.TransactionClient,
+  userId: string,
+): Promise<string | null> {
+  await transaction.$queryRaw(
+    Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`,
+  );
+  const rows = await transaction.$queryRaw<
+    { staffNumber: string | null; memberKind: MemberKind }[]
+  >(
+    Prisma.sql`SELECT "staffNumber", "memberKind" FROM "UserProfile" WHERE "userId" = ${userId} FOR UPDATE`,
+  );
+  const row = rows.at(0);
+  if (!row) {
+    throw new Error('Staff number updates require an existing profile row.');
+  }
+  if (row.memberKind !== MemberKind.STAFF) {
+    throw new DomainException({
+      code: SystemErrorCode.VALIDATION_FAILED,
+      status: 400,
+      message: '교직원 번호는 교직원만 수정할 수 있습니다.',
+    });
+  }
+  return row.staffNumber;
+}
+
+async function writeStaffNumberAuditIfChanged(
+  transaction: Prisma.TransactionClient,
+  auditLog: Pick<AuditLogService, 'record'>,
+  user: UserProfileRecord,
+  before: string | null,
+  after: string | null,
+): Promise<void> {
+  if (before === after) {
+    return;
+  }
+  if (
+    typeof user.githubId !== 'bigint' ||
+    typeof user.githubLogin !== 'string'
+  ) {
+    throw new TypeError(
+      'Staff number updates require a full user profile record for auditing.',
+    );
+  }
+  await auditLog.record(
+    {
+      actorGithubId: user.githubId,
+      action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
+      targetType: 'USER',
+      targetId: user.id,
+      metadata: createUserProfileAuditMetadata({
+        actor: { displayName: user.name, githubLogin: user.githubLogin },
+        target: { displayName: user.name, githubLogin: user.githubLogin },
+        changes: [
+          {
+            field: USER_PROFILE_AUDIT_FIELDS.STAFF_NUMBER,
+            before,
+            after,
+          },
+        ],
+      }),
+    },
+    transaction,
+  );
+}
+
 function toUserProfileRecord(user: ProfileMemberRow): UserProfileRecord {
   const profile = user.profile;
   return {
@@ -284,6 +378,7 @@ function toUserProfileRecord(user: ProfileMemberRow): UserProfileRecord {
     studentId: profile?.studentId ?? null,
     department: profile?.department ?? null,
     phone: user.phone ?? null,
+    staffNumber: profile?.staffNumber ?? null,
     selectedMemberKind: user.selectedMemberKind,
     memberKind: profile?.memberKind ?? null,
     affiliationKind: profile?.affiliationKind ?? null,
@@ -303,6 +398,7 @@ function sameProfileSnapshot(
     current.studentId === expected.studentId &&
     current.department === expected.department &&
     current.phone === expected.phone &&
+    (current.staffNumber ?? null) === (expected.staffNumber ?? null) &&
     current.selectedMemberKind === expected.selectedMemberKind &&
     current.memberKind === expected.memberKind &&
     current.affiliationKind === expected.affiliationKind &&

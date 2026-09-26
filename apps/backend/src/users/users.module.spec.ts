@@ -7,6 +7,7 @@ import { AdminAccessService } from './admin-access.service';
 import { IndependentAuthorityController } from './independent-authority.controller';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
+import { MemberKindController } from './member-kind.controller';
 import { UsersController } from './users.controller';
 import { UsersModule } from './users.module';
 
@@ -54,6 +55,7 @@ describe('UsersModule admin access wiring', () => {
       UsersController,
       AdminAccessController,
       IndependentAuthorityController,
+      MemberKindController,
     ]);
   });
 

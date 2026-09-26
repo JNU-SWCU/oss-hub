@@ -300,6 +300,241 @@ describe('UsersRepository profile field updates', () => {
   });
 });
 
+describe('UsersRepository staff number updates', () => {
+  const expected = profileRecord('user-staff-number', {
+    name: '기존 이름',
+    selectedMemberKind: MemberKind.STAFF,
+    studentId: null,
+    memberKind: MemberKind.STAFF,
+    affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+    affiliationName: '인공지능학부',
+    department: '인공지능학부',
+    staffNumber: null,
+  });
+
+  it('학생 canonical 프로필은 교직원 번호를 수정할 수 없다', async () => {
+    const student = profileRecord('user-staff-number-student', {
+      name: '학생',
+      memberKind: MemberKind.STUDENT,
+      affiliationKind: AffiliationKind.DEPARTMENT,
+      affiliationName: '인공지능학부',
+      department: '인공지능학부',
+    });
+    const { repository, userProfileUpdate, auditRecord } = harness(student);
+
+    await expect(
+      repository.updateProfileFields(student, {
+        name: student.name!,
+        department: student.department!,
+        staffNumber: '접근-불가',
+      }),
+    ).rejects.toMatchObject({
+      errorCode: { code: 'SYS_003', status: 400 },
+    });
+    expect(userProfileUpdate).not.toHaveBeenCalled();
+    expect(auditRecord).not.toHaveBeenCalled();
+  });
+
+  it('현재 UserProfile 값을 잠근 뒤 번호를 저장하고 USER_PROFILE_UPDATED를 남긴다', async () => {
+    const { repository, userProfileUpdate, auditRecord, transaction } =
+      harness(expected);
+
+    await repository.updateProfileFields(expected, {
+      name: expected.name!,
+      department: expected.department!,
+      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+      affiliationName: expected.department!,
+      staffNumber: '교직원-𐐀',
+    });
+
+    expect(userProfileUpdate).toHaveBeenCalledWith({
+      where: { userId: expected.id },
+      data: {
+        name: expected.name,
+        department: expected.department,
+        affiliationName: expected.department,
+        affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+        staffNumber: '교직원-𐐀',
+      },
+    });
+    expect(auditRecord).toHaveBeenCalledWith(
+      {
+        actorGithubId: expected.githubId,
+        action: 'USER_PROFILE_UPDATED',
+        targetType: 'USER',
+        targetId: expected.id,
+        metadata: {
+          schemaVersion: 1,
+          actor: {
+            displayName: expected.name,
+            githubLogin: expected.githubLogin,
+          },
+          target: {
+            displayName: expected.name,
+            githubLogin: expected.githubLogin,
+          },
+          changes: [
+            {
+              field: 'staffNumber',
+              before: null,
+              after: '교직원-𐐀',
+            },
+          ],
+        },
+      },
+      transaction,
+    );
+  });
+
+  it('번호를 null로 바꾸면 현재 값을 before로 감사한다', async () => {
+    const current = profileRecord('user-staff-number-clear', {
+      name: '기존 이름',
+      department: '인공지능학부',
+      memberKind: MemberKind.STAFF,
+      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+      affiliationName: '인공지능학부',
+      staffNumber: '현재-번호',
+    });
+    const { repository, auditRecord, transaction } = harness(current);
+
+    await repository.updateProfileFields(current, {
+      name: current.name!,
+      department: current.department!,
+      staffNumber: null,
+    });
+
+    expect(auditRecord.mock.calls).toMatchObject([
+      [
+        {
+          action: 'USER_PROFILE_UPDATED',
+          metadata: {
+            changes: [
+              { field: 'staffNumber', before: '현재-번호', after: null },
+            ],
+          },
+        },
+        transaction,
+      ],
+    ]);
+  });
+
+  it('호출자 스냅샷보다 잠긴 현재 값을 감사 before로 사용한다', async () => {
+    const current = profileRecord('user-staff-number-concurrent', {
+      name: '기존 이름',
+      department: '인공지능학부',
+      memberKind: MemberKind.STAFF,
+      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+      affiliationName: '인공지능학부',
+      staffNumber: '현재-번호',
+    });
+    const stale = { ...current, staffNumber: '오래된-스냅샷' };
+    const { repository, auditRecord, transaction } = harness(current);
+    transaction.$queryRaw
+      .mockResolvedValueOnce([{ id: current.id }])
+      .mockResolvedValueOnce([
+        {
+          staffNumber: '잠금-직전-번호',
+          memberKind: MemberKind.STAFF,
+        },
+      ]);
+
+    await repository.updateProfileFields(stale, {
+      name: current.name!,
+      department: current.department!,
+      staffNumber: '새-번호',
+    });
+
+    expect(auditRecord.mock.calls[0]?.[0].metadata).toMatchObject({
+      changes: [
+        {
+          field: 'staffNumber',
+          before: '잠금-직전-번호',
+          after: '새-번호',
+        },
+      ],
+    });
+  });
+
+  it('번호를 생략하면 기존 값을 보존하고 감사하지 않는다', async () => {
+    const current = profileRecord('user-staff-number-omitted', {
+      name: '기존 이름',
+      department: '인공지능학부',
+      memberKind: MemberKind.STAFF,
+      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+      affiliationName: '인공지능학부',
+      staffNumber: '기존-번호',
+    });
+    const { repository, userProfileUpdate, auditRecord, transaction } =
+      harness(current);
+
+    await repository.updateProfileFields(current, {
+      name: current.name!,
+      department: current.department!,
+    });
+
+    expect(userProfileUpdate).toHaveBeenCalledWith({
+      where: { userId: current.id },
+      data: {
+        name: current.name,
+        department: current.department,
+        affiliationName: current.department,
+      },
+    });
+    expect(auditRecord).not.toHaveBeenCalled();
+    expect(transaction.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it('같은 번호를 다시 보내면 감사하지 않는다', async () => {
+    const current = profileRecord('user-staff-number-noop', {
+      name: '기존 이름',
+      department: '인공지능학부',
+      memberKind: MemberKind.STAFF,
+      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+      affiliationName: '인공지능학부',
+      staffNumber: '같은-번호',
+    });
+    const { repository, auditRecord } = harness(current);
+
+    await repository.updateProfileFields(current, {
+      name: current.name!,
+      department: current.department!,
+      staffNumber: '같은-번호',
+    });
+
+    expect(auditRecord).not.toHaveBeenCalled();
+  });
+
+  it('번호 감사 실패는 프로필 갱신 트랜잭션도 실패시킨다', async () => {
+    const current = profileRecord('user-staff-number-rollback', {
+      name: '기존 이름',
+      department: '인공지능학부',
+      memberKind: MemberKind.STAFF,
+      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+      affiliationName: '인공지능학부',
+      staffNumber: '기존-번호',
+    });
+    const { repository, auditRecord, transaction } = harness(current);
+    auditRecord.mockRejectedValue(new Error('synthetic audit failure'));
+
+    await expect(
+      repository.updateProfileFields(current, {
+        name: current.name!,
+        department: current.department!,
+        staffNumber: '새-번호',
+      }),
+    ).rejects.toThrow('synthetic audit failure');
+
+    const [auditInput, auditTransaction] = auditRecord.mock.calls[0] ?? [];
+    expect(auditInput?.action).toBe('USER_PROFILE_UPDATED');
+    expect(auditInput?.metadata).toMatchObject({
+      changes: [
+        { field: 'staffNumber', before: '기존-번호', after: '새-번호' },
+      ],
+    });
+    expect(auditTransaction).toBe(transaction);
+  });
+});
+
 describe('UsersRepository 학번 최초 저장', () => {
   const phoneDigits = '9'.repeat(11);
   const expected = {

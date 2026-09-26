@@ -25,6 +25,7 @@ export interface UserProfile {
   readonly studentId: string | null;
   readonly department: string | null;
   readonly phone: string | null;
+  readonly staffNumber: string | null;
   readonly isComplete: boolean;
 }
 
@@ -58,6 +59,7 @@ export interface PatchUserProfileInput {
   readonly studentId?: string;
   readonly department?: string;
   readonly phone?: string;
+  readonly staffNumber?: string | null;
   readonly affiliationKind?: AffiliationKind;
   readonly affiliationName?: string;
 }
@@ -73,6 +75,7 @@ export interface UpdateProfileFieldsInput {
   readonly name: string;
   readonly department: string;
   readonly phone?: string;
+  readonly staffNumber?: string | null;
   readonly affiliationKind?: AffiliationKind;
   readonly affiliationName?: string;
 }
@@ -83,6 +86,7 @@ export function toUserProfile(record: UserProfileRecord): UserProfile {
     studentId: record.studentId,
     department: record.department,
     phone: record.phone ?? null,
+    staffNumber: record.staffNumber ?? null,
     isComplete: isCompleteUserProfile(record),
   };
 }

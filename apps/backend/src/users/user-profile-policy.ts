@@ -23,6 +23,11 @@ export interface UserProfileRecord {
   readonly department: string | null;
   readonly phone?: string | null;
   /**
+   * Optional personal identifier. It is deliberately independent of member kind,
+   * access flags, and completion requirements.
+   */
+  readonly staffNumber?: string | null;
+  /**
    * 승인을 기다리는 교직원 접근 요청이 있는가.
    *
    * 교직원은 관리자가 승인해야 `hasStaffAccess`가 켜진다. 승인을 기다리는 동안

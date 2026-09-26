@@ -24,16 +24,21 @@ const validBody = {
   phone: '7'.repeat(10),
 };
 const completeProfile = { ...validBody, isComplete: true };
+const completeProfileResponse = {
+  ...completeProfile,
+  staffNumber: null,
+};
 const usersService = {
   getMyProfile: jest.fn().mockResolvedValue({
     name: 'GitHub 합성 이름',
     studentId: null,
     department: null,
     phone: null,
+    staffNumber: null,
     isComplete: false,
   }),
-  completeMyProfile: jest.fn().mockResolvedValue(completeProfile),
-  patchMyProfile: jest.fn().mockResolvedValue(completeProfile),
+  completeMyProfile: jest.fn().mockResolvedValue(completeProfileResponse),
+  patchMyProfile: jest.fn().mockResolvedValue(completeProfileResponse),
 };
 
 let application: INestApplication;
@@ -130,6 +135,18 @@ it('인증된 GET 프로필 응답은 private no-store 캐시 제어를 설정�
   expect(response.headers.get('cache-control')).toBe('private, no-store');
 });
 
+it('인증된 GET 프로필 응답은 staffNumber를 nullable 필드로 포함한다', async () => {
+  const response = await fetch(`${baseUrl}/api/v1/users/me/profile`, {
+    headers: {
+      connection: 'close',
+      cookie: sessionCookie,
+    },
+  });
+
+  expect(response.status).toBe(200);
+  await expect(response.json()).resolves.toHaveProperty('staffNumber', null);
+});
+
 it('유효한 POST를 정규화해 가입을 마친다', async () => {
   const response = await post({
     ...validBody,
@@ -137,7 +154,7 @@ it('유효한 POST를 정규화해 가입을 마친다', async () => {
   });
 
   expect(response.status).toBe(201);
-  await expect(response.json()).resolves.toEqual(completeProfile);
+  await expect(response.json()).resolves.toEqual(completeProfileResponse);
   expect(usersService.completeMyProfile).toHaveBeenCalledWith(
     githubId,
     validBody,
@@ -151,8 +168,55 @@ it('유효한 PATCH를 정규화해 갱신한다', async () => {
   });
 
   expect(response.status).toBe(200);
-  await expect(response.json()).resolves.toEqual(completeProfile);
+  await expect(response.json()).resolves.toEqual(completeProfileResponse);
   expect(usersService.patchMyProfile).toHaveBeenCalledWith(githubId, validBody);
+});
+
+it('null staffNumber PATCH는 삭제 의미로 서비스에 전달한다', async () => {
+  const response = await patch({
+    ...validBody,
+    staffNumber: null,
+  });
+
+  expect(response.status).toBe(200);
+  await expect(response.json()).resolves.toEqual(completeProfileResponse);
+  expect(usersService.patchMyProfile).toHaveBeenCalledWith(githubId, {
+    ...validBody,
+    staffNumber: null,
+  });
+});
+
+it.each([
+  ['빈 문자열', ''],
+  ['공백 문자열', '   '],
+])(
+  'staffNumber %s PATCH는 삭제 의미로 서비스에 전달한다',
+  async (_name, staffNumber) => {
+    const response = await patch({
+      ...validBody,
+      staffNumber,
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual(completeProfileResponse);
+    expect(usersService.patchMyProfile).toHaveBeenCalledWith(githubId, {
+      ...validBody,
+      staffNumber: null,
+    });
+  },
+);
+
+it('공백과 결합 문자가 있는 Unicode staffNumber를 trim NFC 정규화해 전달한다', async () => {
+  const response = await patch({
+    ...validBody,
+    staffNumber: '  é-𐐀  ',
+  });
+
+  expect(response.status).toBe(200);
+  expect(usersService.patchMyProfile).toHaveBeenCalledWith(githubId, {
+    ...validBody,
+    staffNumber: 'é-𐐀',
+  });
 });
 
 it('연락처 구분자가 있는 PATCH 입력을 400 SYS_003으로 거부한다', async () => {
@@ -192,6 +256,11 @@ it.each([
   { name: '학번 5자리', body: { ...validBody, studentId: '1'.repeat(5) } },
   { name: '학번 7자리', body: { ...validBody, studentId: '1'.repeat(7) } },
   { name: '학번 비숫자', body: { ...validBody, studentId: 'ABCDEF' } },
+  { name: 'staffNumber 비문자열', body: { ...validBody, staffNumber: 12345 } },
+  {
+    name: 'staffNumber 100코드포인트 초과',
+    body: { ...validBody, staffNumber: '𐐀'.repeat(101) },
+  },
   { name: '연락처 9자리', body: { ...validBody, phone: '1'.repeat(9) } },
   { name: '연락처 12자리', body: { ...validBody, phone: '1'.repeat(12) } },
   {

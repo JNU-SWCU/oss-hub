@@ -137,7 +137,7 @@ export class RolesService {
 
     return this.repository.withTransaction(async (store) => {
       const user = await this.requireUser(store, githubId);
-      if (user.hasStaffAccess) {
+      if (user.hasStaffAccess || user.memberKind === MemberKind.STUDENT) {
         throw new DomainException(
           ROLES_ERROR_CODES[RolesErrorCode.ROLE_ALREADY_CONFIRMED],
         );

@@ -20,6 +20,7 @@ type StoredUser = {
   readonly id: string;
   readonly name: string | null;
   readonly studentId: string | null;
+  readonly staffNumber?: string | null;
   readonly department: string | null;
   readonly phone?: string | null;
   readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
@@ -45,6 +46,7 @@ function buildService(
           id: 'synthetic-user',
           name: 'GitHub 합성 이름',
           studentId: null,
+          staffNumber: null,
           department: null,
           phone: null,
           role: null,
@@ -85,6 +87,7 @@ describe('역할 변경 경계', () => {
         id: 'synthetic-user',
         name: input.name,
         studentId,
+        staffNumber: null,
         department: input.department ?? null,
         role: 'STAFF',
         selectedMemberKind: MemberKind.STUDENT,
@@ -96,6 +99,7 @@ describe('역할 변경 경계', () => {
     await expect(service.getMyProfile(githubId)).resolves.toEqual({
       name: input.name,
       studentId,
+      staffNumber: null,
       department: input.department,
       phone: null,
       isComplete: true,
@@ -112,6 +116,7 @@ describe('역할 변경 경계', () => {
         id: 'synthetic-user',
         name: input.name,
         studentId: null,
+        staffNumber: null,
         department: input.department ?? null,
         role: 'STUDENT',
         selectedMemberKind: MemberKind.STUDENT,
@@ -126,7 +131,11 @@ describe('역할 변경 경계', () => {
     const profile = await service.completeMyProfile(githubId, input);
 
     // Then — 학번이 아직 없었으므로 USR_003이 아니라 최초 저장으로 처리한다
-    expect(profile).toEqual({ ...input, isComplete: true });
+    expect(profile).toEqual({
+      ...input,
+      staffNumber: null,
+      isComplete: true,
+    });
     expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {
       name: input.name,
       studentId,
@@ -147,6 +156,7 @@ describe('역할 변경 경계', () => {
         id: 'synthetic-user',
         name: input.name,
         studentId: null,
+        staffNumber: null,
         department: null,
         role: 'STAFF',
         selectedMemberKind: MemberKind.STAFF,
@@ -167,6 +177,7 @@ describe('역할 변경 경계', () => {
     expect(profile).toEqual({
       name: input.name,
       studentId: null,
+      staffNumber: null,
       department: input.department,
       phone: null,
       isComplete: true,

@@ -631,6 +631,24 @@ describe('RolesService', () => {
     expect(store.requestCount()).toBe(1);
   });
 
+  it('학생으로 변경된 회원은 과거 회수 이력으로 교직원 재요청을 열 수 없다', async () => {
+    const revoked = staffAccessRequest(StaffAccessRequestStatus.REVOKED);
+    const { service, store } = createService(
+      'STUDENT',
+      [revoked],
+      true,
+      AccountStatus.ACTIVE,
+      COMPLETE_PROFILE,
+      'STUDENT',
+    );
+
+    await expect(service.retryStaffRequest(424242n)).rejects.toMatchObject({
+      errorCode: { code: RolesErrorCode.ROLE_ALREADY_CONFIRMED },
+    });
+    expect(store.currentSelectedRole()).toBe('STUDENT');
+    expect(store.requestCount()).toBe(1);
+  });
+
   it('비활성 교직원은 기존 온보딩·재요청 경로를 사용할 수 없다', async () => {
     const revoked = staffAccessRequest(StaffAccessRequestStatus.REVOKED);
     const { service, store } = createService(

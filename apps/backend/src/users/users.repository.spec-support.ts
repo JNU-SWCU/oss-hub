@@ -47,10 +47,17 @@ export function usersRepositoryHarness(
       Parameters<AuditLogService['record']>
     >()
     .mockResolvedValue(auditLogRecord);
-  // `$queryRaw`는 잠금 후 현재 전화번호를 읽는 경로이다. 기본값은 `current`와 같은
-  // 행이고, 동시 갱신 상황은 테스트에서 이 mock을 다른 값으로 바꿔 재현한다.
+  // `$queryRaw`는 잠금 후 현재 User/UserProfile 값을 읽는 경로이다. 기본값은
+  // `current`와 같은 행이고, 동시 갱신 상황은 테스트에서 이 mock을 다른 값으로
+  // 바꿔 재현한다.
   const transaction = {
-    $queryRaw: jest.fn().mockResolvedValue([{ phone: current.phone ?? null }]),
+    $queryRaw: jest.fn().mockResolvedValue([
+      {
+        phone: current.phone ?? null,
+        staffNumber: current.staffNumber ?? null,
+        memberKind: current.memberKind ?? null,
+      },
+    ]),
     user: {
       findUnique: transactionFindUnique,
       updateMany: userUpdateMany,
@@ -111,6 +118,7 @@ function toRow(record: UserProfileRecord) {
         ? {
             name: record.name ?? '',
             studentId: record.studentId,
+            staffNumber: record.staffNumber ?? null,
             department: record.department ?? record.affiliationName,
             memberKind: record.memberKind,
             affiliationKind: record.affiliationKind,

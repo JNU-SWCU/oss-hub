@@ -24,6 +24,7 @@ describe('UsersRepository canonical profile reads', () => {
       profile: {
         name: 'Profile Name',
         studentId: '222222',
+        staffNumber: 'SYNTHETIC-42',
         department: 'Profile Department',
         memberKind: 'STUDENT',
         affiliationKind: 'DEPARTMENT',
@@ -48,6 +49,7 @@ describe('UsersRepository canonical profile reads', () => {
       hasPendingStaffRequest: false,
       name: 'Profile Name',
       studentId: '222222',
+      staffNumber: 'SYNTHETIC-42',
       department: 'Profile Department',
       phone: syntheticPhone,
     });
@@ -85,6 +87,7 @@ describe('UsersRepository canonical profile reads', () => {
       hasPendingStaffRequest: false,
       name: null,
       studentId: null,
+      staffNumber: null,
       department: null,
       phone: null,
     });

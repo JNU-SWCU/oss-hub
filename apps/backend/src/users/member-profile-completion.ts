@@ -6,6 +6,7 @@ import type {
   PatchUserProfileInput,
   UpdateProfileFieldsInput,
 } from './domain/user-profile';
+import { isValidStaffNumber, normalizeStaffNumber } from './domain/member-kind';
 import {
   isStoredStudentId,
   isValidDepartment,
@@ -25,6 +26,9 @@ export function buildProfileCompletion(
   user: UserProfileRecord,
   input: PatchUserProfileInput,
 ): CompleteUserProfileInput {
+  if (input.staffNumber !== undefined) {
+    throw invalidProfile('교직원 번호는 가입 완료 후 수정할 수 있습니다.');
+  }
   const memberKind = user.selectedMemberKind ?? user.memberKind ?? null;
   if (memberKind === null) {
     throw invalidProfile('회원 유형을 먼저 선택해 주세요.');
@@ -54,6 +58,9 @@ export function buildProfileUpdate(
   user: UserProfileRecord,
   input: PatchUserProfileInput,
 ): UpdateProfileFieldsInput {
+  if (input.staffNumber !== undefined && user.memberKind !== MemberKind.STAFF) {
+    throw invalidProfile('교직원 번호는 교직원만 수정할 수 있습니다.');
+  }
   const name = normalizeProfileText(input.name);
   if (!isValidUserName(name)) {
     throw invalidProfile('이름 형식이 올바르지 않습니다.');
@@ -67,6 +74,7 @@ export function buildProfileUpdate(
     name,
     department: affiliation.name,
     ...patchPhone(input),
+    ...patchStaffNumber(input),
     ...(memberKind === null
       ? {}
       : {
@@ -100,6 +108,28 @@ function patchPhone(input: PatchUserProfileInput): { readonly phone?: string } {
     throw invalidProfile('연락처 형식이 올바르지 않습니다.');
   }
   return { phone: input.phone };
+}
+
+function patchStaffNumber(input: PatchUserProfileInput): {
+  readonly staffNumber?: string | null;
+} {
+  if (input.staffNumber === undefined) {
+    return {};
+  }
+  if (input.staffNumber === null) {
+    return { staffNumber: null };
+  }
+  if (typeof input.staffNumber !== 'string') {
+    throw invalidProfile('교직원 번호 형식이 올바르지 않습니다.');
+  }
+  const normalized = normalizeStaffNumber(input.staffNumber);
+  if (normalized === '') {
+    return { staffNumber: null };
+  }
+  if (!isValidStaffNumber(normalized)) {
+    throw invalidProfile('교직원 번호 형식이 올바르지 않습니다.');
+  }
+  return { staffNumber: normalized };
 }
 
 function resolveAffiliation(

@@ -124,6 +124,7 @@ export type AdminAccessListQuery = {
 export type AdminAccessProfile = {
   readonly name: string | null;
   readonly studentId: string | null;
+  readonly staffNumber: string | null;
   readonly department: string | null;
   readonly isComplete: boolean;
 };

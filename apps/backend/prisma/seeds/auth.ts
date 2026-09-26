@@ -45,8 +45,8 @@ async function upsertUser(
 /**
  * 시나리오 프로필을 만든다 — 프로필 행이 있다는 것이 곧 "가입을 마쳤다"는 뜻이다.
  *
- * 학번이 있으면 학생, 없으면 교직원이다. 계약 스키마가 그 대응을 CHECK로 강제하므로
- * (`UserProfile_studentId_memberKind_check`) 시드도 같은 규칙을 따른다.
+ * 이 합성 시나리오는 학번이 있으면 학생, 없으면 교직원으로 구성한다.
+ * 운영 회원 유형을 학번으로 추론하는 규칙은 아니다 — 교직원도 과거 학번을 보존한다.
  */
 async function setProfile(
   userId: string,

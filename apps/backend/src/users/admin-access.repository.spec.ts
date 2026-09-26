@@ -208,10 +208,11 @@ describe('AdminAccessRepository', () => {
     expect(user).toEqual(
       expect.objectContaining({
         id: 'target',
-        // 프로필 행이 없으면 세 칸이 모두 비어 있다 — legacy mirror가 사라졌다.
+        // 프로필 행이 없으면 식별자와 프로필 값이 모두 비어 있다.
         profile: {
           name: null,
           studentId: null,
+          staffNumber: null,
           department: null,
           isComplete: false,
         },

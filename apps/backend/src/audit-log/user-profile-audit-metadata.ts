@@ -15,6 +15,7 @@ export const USER_PROFILE_AUDIT_FIELDS = {
   NAME: 'name',
   STUDENT_ID: 'studentId',
   DEPARTMENT: 'department',
+  STAFF_NUMBER: 'staffNumber',
 } as const;
 export type UserProfileAuditFieldName =
   (typeof USER_PROFILE_AUDIT_FIELDS)[keyof typeof USER_PROFILE_AUDIT_FIELDS];

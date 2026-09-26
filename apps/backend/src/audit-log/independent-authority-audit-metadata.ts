@@ -1,6 +1,7 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
 import type { AuthorityLabel } from '../common/authority-label';
 import {
+  ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
   ACCESS_AUDIT_SCHEMA_VERSION,
   type AuditActorSnapshot,
@@ -9,14 +10,17 @@ import {
 } from './access-audit-metadata';
 import { hasExactKeys, isJsonObject } from './audit-metadata-validation';
 
-export const INDEPENDENT_AUTHORITY_AUDIT_COMMANDS = {
+export const INDEPENDENT_AUTHORITY_AUDIT_ACTIONS = {
   GRANT_STAFF_ACCESS: 'GRANT_STAFF_ACCESS',
   REVOKE_STAFF_ACCESS: 'REVOKE_STAFF_ACCESS',
   GRANT_ADMIN_ACCESS: 'GRANT_ADMIN_ACCESS',
   REVOKE_ADMIN_ACCESS: 'REVOKE_ADMIN_ACCESS',
+  SET_MEMBER_KIND: ACCESS_AUDIT_ACTIONS.DIRECT_ROLE_CHANGED,
 } as const;
-export const INDEPENDENT_AUTHORITY_AUDIT_ACTIONS =
-  INDEPENDENT_AUTHORITY_AUDIT_COMMANDS;
+export const INDEPENDENT_AUTHORITY_AUDIT_COMMANDS = {
+  ...INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
+  SET_MEMBER_KIND: 'SET_MEMBER_KIND',
+} as const;
 export type IndependentAuthorityAuditCommand =
   (typeof INDEPENDENT_AUTHORITY_AUDIT_COMMANDS)[keyof typeof INDEPENDENT_AUTHORITY_AUDIT_COMMANDS];
 export type IndependentAuthorityAuditAction =

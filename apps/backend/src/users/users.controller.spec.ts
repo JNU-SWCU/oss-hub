@@ -9,6 +9,7 @@ const githubId = 4242n;
 const profile = {
   name: '합성 사용자',
   studentId: '1'.repeat(6),
+  staffNumber: null,
   department: '인공지능학부',
   phone: '1'.repeat(11),
   isComplete: true,

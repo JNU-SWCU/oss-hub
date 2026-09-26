@@ -82,6 +82,7 @@ describe('admin access response DTO allowlists', () => {
       profile: {
         name: '합성 사용자',
         studentId: '123456',
+        staffNumber: 'synthetic-staff-number',
         department: '소프트웨어공학과',
         isComplete: true,
       },

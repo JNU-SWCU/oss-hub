@@ -22,6 +22,7 @@ type StoredUser = {
   readonly id: string;
   readonly name: string | null;
   readonly studentId: string | null;
+  readonly staffNumber?: string | null;
   readonly department: string | null;
   readonly phone?: string | null;
   readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
@@ -47,6 +48,7 @@ function buildService(
           id: 'synthetic-user',
           name: 'GitHub 합성 이름',
           studentId: null,
+          staffNumber: null,
           department: null,
           phone: null,
           role: null,
@@ -59,7 +61,9 @@ function buildService(
   const completeProfileIfUnchanged = jest
     .fn()
     .mockResolvedValue(overrides.completed ?? 'completed');
-  const updateProfileFields = jest.fn().mockResolvedValue(undefined);
+  const updateProfileFields = jest
+    .fn<Promise<void>, Parameters<UsersRepositoryPort['updateProfileFields']>>()
+    .mockResolvedValue(undefined);
   const fillStudentId = jest
     .fn()
     .mockResolvedValue(overrides.studentIdFill ?? 'filled');
@@ -98,6 +102,7 @@ it('완료된 프로필은 이름·학과만 갱신한다', async () => {
     id: 'synthetic-user',
     name: input.name,
     studentId,
+    staffNumber: null,
     department: input.department ?? null,
     phone: null,
     role: 'STUDENT' as const,
@@ -115,6 +120,7 @@ it('완료된 프로필은 이름·학과만 갱신한다', async () => {
   ).resolves.toEqual({
     name: '수정된 이름',
     studentId,
+    staffNumber: null,
     department: '소프트웨어공학과',
     phone: null,
     isComplete: true,
@@ -124,6 +130,65 @@ it('완료된 프로필은 이름·학과만 갱신한다', async () => {
     department: '소프트웨어공학과',
   });
   expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
+});
+
+describe('본인 교직원 번호 수정', () => {
+  const staff: StoredUser = {
+    id: 'synthetic-staff',
+    name: '합성 교직원',
+    studentId,
+    staffNumber: 'OLD-42',
+    department: '인공지능학부',
+    phone: null,
+    role: 'ADMIN',
+    memberKind: MemberKind.STAFF,
+    selectedMemberKind: MemberKind.STAFF,
+    hasAdminAccess: true,
+  };
+  const profileInput = {
+    name: '합성 교직원',
+    department: '인공지능학부',
+  };
+
+  it.each([
+    [' É-42 ', 'É-42'],
+    [null, null],
+    [undefined, 'OLD-42'],
+  ])('사번 %s 입력을 정규화·삭제·보존한다', async (staffNumber, expected) => {
+    const { service, updateProfileFields } = buildService({ user: staff });
+    const result = await service.patchMyProfile(githubId, {
+      ...profileInput,
+      ...(staffNumber === undefined ? {} : { staffNumber }),
+    });
+    expect(result).toMatchObject({ staffNumber: expected, studentId });
+    expect(updateProfileFields).toHaveBeenCalledTimes(1);
+    const fields = updateProfileFields.mock.calls[0]?.[1];
+    if (staffNumber === undefined) {
+      expect(fields).not.toHaveProperty('staffNumber');
+    } else {
+      expect(fields).toHaveProperty('staffNumber', expected);
+    }
+  });
+
+  it('학생 관리자는 사번을 수정할 수 없다', async () => {
+    const { service, updateProfileFields } = buildService({
+      user: { ...staff, memberKind: MemberKind.STUDENT },
+    });
+    const error = await captureDomainException(() =>
+      service.patchMyProfile(githubId, { ...profileInput, staffNumber: 'NEW' }),
+    );
+    expect(error.errorCode.status).toBe(400);
+    expect(updateProfileFields).not.toHaveBeenCalled();
+  });
+
+  it('가입 완료 요청의 사번을 조용히 버리지 않고 거절한다', async () => {
+    const { service, completeProfileIfUnchanged } = buildService();
+    const error = await captureDomainException(() =>
+      service.completeMyProfile(githubId, { ...input, staffNumber: 'NEW' }),
+    );
+    expect(error.errorCode.status).toBe(400);
+    expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
+  });
 });
 
 it('동시 저장에서 선점에 실패하면 덮어쓰지 않고 409로 거부한다', async () => {
