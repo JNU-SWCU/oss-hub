@@ -244,3 +244,40 @@ describe('오버레이 레이아웃', () => {
     expect(dl?.className).toContain('sm:grid-cols-2');
   });
 });
+
+describe('저장이 막히면 첫 오류 칸으로 포커스를 옮긴다(R-16)', () => {
+  it('칸 오류가 둘이면 커서를 첫 오류 칸에 둔다', async () => {
+    await render();
+    await click('프로필 수정');
+    await type('#admin-profile-name', '');
+    await type('#admin-profile-student-id', '');
+    await click('저장');
+
+    expect(
+      container.querySelectorAll('[data-slot="field-error"]'),
+    ).toHaveLength(2);
+    expect(document.activeElement?.id).toBe('admin-profile-name');
+  });
+
+  it('첫 칸이 아니어도 틀린 칸으로 간다', async () => {
+    await render();
+    await click('프로필 수정');
+    await type('#admin-profile-student-id', '12');
+    await click('저장');
+
+    expect(document.activeElement?.id).toBe('admin-profile-student-id');
+  });
+
+  it('이미 오류가 보이는 채로 다시 저장해도 첫 오류 칸으로 돌아간다', async () => {
+    await render();
+    await click('프로필 수정');
+    await type('#admin-profile-student-id', '12');
+    await click('저장');
+    await act(async () => {
+      button('저장').focus();
+    });
+    await click('저장');
+
+    expect(document.activeElement?.id).toBe('admin-profile-student-id');
+  });
+});

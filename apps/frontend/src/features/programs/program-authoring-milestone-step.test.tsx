@@ -393,6 +393,64 @@ describe('ProgramAuthoringMilestoneStep', () => {
     expect(document.body.textContent).toContain('마일스톤 추가');
   });
 
+  // 사용자가 저장 버튼을 누른 것처럼 포커스를 버튼에 두고 누른다 — 창이 열릴 때
+  // 첫 칸에 선 자동 포커스와 저장 뒤 포커스 이동을 구별하려는 것이다.
+  async function pressSave() {
+    const save = button('저장');
+    await act(async () => {
+      save.focus();
+      save.click();
+    });
+  }
+
+  it('빈 초안을 저장하면 첫 오류 칸(기간의 시작일)으로 포커스를 옮긴다(R-16)', async () => {
+    await render();
+    await addBlankDraft();
+    await pressSave();
+
+    // 이름·기간 두 줄. 기간은 시작·마감이 한 줄이다.
+    expect(dialog().querySelectorAll('[data-slot="field-error"]')).toHaveLength(
+      2,
+    );
+    expect(document.activeElement).toBe(input('[aria-label="시작일"]'));
+  });
+
+  it('첫 칸이 아니어도 남은 오류 칸으로 포커스를 옮긴다', async () => {
+    await render();
+    await addBlankDraft();
+    await change(input('[aria-label="시작일"]'), '2026-09-03');
+    await change(input('[aria-label="마감일"]'), '2026-09-05');
+    await pressSave();
+
+    expect(dialog().querySelectorAll('[data-slot="field-error"]')).toHaveLength(
+      1,
+    );
+    expect(document.activeElement).toBe(input('#test-1-name'));
+  });
+
+  it('오류가 보이는 채로 다시 저장해도 첫 오류 칸으로 돌아간다', async () => {
+    await render();
+    await addBlankDraft();
+    await pressSave();
+    // pressSave 가 커서를 저장 버튼으로 옮긴 뒤 누르므로, 첫 오류 칸에 다시 서려면
+    // 두 번째 저장에서도 포커스 이동이 돌아야 한다.
+    await pressSave();
+
+    expect(document.activeElement).toBe(input('[aria-label="시작일"]'));
+  });
+
+  it('저장에 실패한 뒤 다른 칸을 고쳐도 포커스를 첫 오류 칸으로 되돌리지 않는다', async () => {
+    await render();
+    await addBlankDraft();
+    await pressSave();
+    expect(document.activeElement).toBe(input('[aria-label="시작일"]'));
+
+    const name = input('#test-1-name');
+    await act(async () => name.focus());
+    await change(name, '중간 점검');
+    expect(document.activeElement).toBe(name);
+  });
+
   it('saves a valid zero-attachment draft and immediately shows it in the calendar and list', async () => {
     const view = await render();
     await addBlankDraft();

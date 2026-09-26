@@ -274,6 +274,54 @@ describe('ProgramEditMilestoneDialog', () => {
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
   });
 
+  it('「최신 서버 상태로 다시 시작」은 제출 항목 칸에 남은 파일 선택 오류를 버린다', async () => {
+    const snapshot = {
+      ...passiveProps.snapshot,
+      documents: [
+        {
+          id: 'document-1',
+          name: '기획서',
+          required: true,
+          sortOrder: 1,
+          templateFileName: null,
+        },
+      ],
+    };
+    await act(async () =>
+      root.render(
+        <ProgramEditMilestoneDialog
+          {...passiveProps}
+          snapshot={snapshot}
+          latestSnapshot={snapshot}
+          editor={{
+            mode: 'edit',
+            form,
+            initialForm: form,
+            errors: { general: '다른 변경과 충돌했습니다.' },
+          }}
+        />,
+      ),
+    );
+    const fileInput = document.querySelector<HTMLInputElement>(
+      '[role="group"][aria-label$="제출 항목"] input[type="file"]',
+    )!;
+    await act(async () => {
+      Object.defineProperty(fileInput, 'files', {
+        configurable: true,
+        value: [new File(['text'], 'guide.txt', { type: 'text/plain' })],
+      });
+      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const itemAlerts = () =>
+      document.querySelectorAll(
+        '[role="group"][aria-label$="제출 항목"] [role="alert"]',
+      );
+    expect(itemAlerts()).toHaveLength(1);
+
+    await act(async () => getButton('최신 서버 상태로 다시 시작').click());
+    expect(itemAlerts()).toHaveLength(0);
+  });
+
   it('closes a clean editor with one Escape and returns focus to its exact origin', async () => {
     const onCancel = vi.fn();
     await act(async () =>

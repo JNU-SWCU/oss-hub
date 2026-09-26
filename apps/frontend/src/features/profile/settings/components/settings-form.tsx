@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { FormSection, PageBody, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -57,8 +57,24 @@ export function SettingsForm({
   onRetryNotification,
   onSubmit,
 }: SettingsFormProps) {
+  const formRef = useRef<HTMLFormElement>(null);
+  // 저장을 누를 때마다 올린다. 칸의 aria-invalid 는 이 제출이 그리는 다음
+  // 렌더에 붙으므로, 첫 오류 칸으로 옮기는 포커스(R-16)는 그 렌더 뒤에 한다.
+  const [submitCount, setSubmitCount] = useState(0);
+
+  useEffect(() => {
+    if (submitCount === 0) return;
+    const firstInvalidField =
+      formRef.current?.querySelector<HTMLElement>(
+        '[aria-invalid="true"]:not(:disabled)',
+      ) ?? null;
+    firstInvalidField?.focus({ preventScroll: true });
+    firstInvalidField?.scrollIntoView?.({ block: 'center' });
+  }, [submitCount]);
+
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
+    setSubmitCount((count) => count + 1);
     onSubmit();
   }
 
@@ -84,7 +100,12 @@ export function SettingsForm({
         </div>
       ) : null}
 
-      <form className="flex flex-col gap-16" noValidate onSubmit={handleSubmit}>
+      <form
+        ref={formRef}
+        className="flex flex-col gap-16"
+        noValidate
+        onSubmit={handleSubmit}
+      >
         <SettingsProfileSection
           memberKind={memberKind}
           values={values}

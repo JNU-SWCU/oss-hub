@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { DialogShell } from '@/components';
@@ -69,6 +69,20 @@ export function ProgramAuthoringMilestoneDialog({
   const minDate = dateKey(operationStartAt) ?? undefined;
   const maxDate = dateKey(operationEndAt) ?? undefined;
   const errors = validationErrors(milestone, operationStartAt, operationEndAt);
+  // DialogShell 은 본문 ref 를 내주지 않아, 레이아웃을 바꾸지 않는 `contents`
+  // 감싸개로 저장 뒤 첫 오류 칸을 찾을 범위를 잡는다.
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [focusRequest, setFocusRequest] = useState(0);
+
+  useEffect(() => {
+    if (focusRequest === 0) return;
+    const firstInvalidField =
+      bodyRef.current?.querySelector<HTMLElement>(
+        '[aria-invalid="true"]:not(:disabled)',
+      ) ?? null;
+    firstInvalidField?.focus({ preventScroll: true });
+    firstInvalidField?.scrollIntoView?.({ block: 'center' });
+  }, [focusRequest]);
 
   function acceptFile(file: File, onValid: (value: File) => void) {
     const error = validateTemplateFile(file, fileUpload);
@@ -83,8 +97,10 @@ export function ProgramAuthoringMilestoneDialog({
       errors.period ||
       errors.attachments ||
       attachmentValidationMessage
-    )
+    ) {
+      setFocusRequest((count) => count + 1);
       return;
+    }
     onSave();
   }
 
@@ -96,124 +112,126 @@ export function ProgramAuthoringMilestoneDialog({
       onCancel={onCancel}
       onSave={save}
     >
-      <ProgramMilestoneFields
-        id={milestone.id}
-        name={milestone.name}
-        instructions={milestone.instructions}
-        nameError={saveAttempted ? errors.name : null}
-        schedule={
-          <Field>
-            <FieldLabel>기간 *</FieldLabel>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Input
-                aria-label="시작일"
-                aria-invalid={saveAttempted && Boolean(errors.period)}
-                type="date"
-                min={minDate}
-                max={maxDate}
-                value={startDate}
-                onChange={(event) =>
-                  onFieldChange(
-                    'startAt',
-                    boundaryDateTime(
-                      event.target.value,
-                      operationStartAt,
-                      '00:00',
-                    ),
-                  )
-                }
-              />
-              <Input
-                aria-label="마감일"
-                aria-invalid={saveAttempted && Boolean(errors.period)}
-                type="date"
-                min={minDate}
-                max={maxDate}
-                value={dueDate}
-                onChange={(event) =>
-                  onFieldChange(
-                    'dueAt',
-                    boundaryDateTime(
-                      event.target.value,
-                      operationEndAt,
-                      '23:59',
-                    ),
-                  )
-                }
-              />
-            </div>
-            <FieldError>{saveAttempted ? errors.period : null}</FieldError>
-          </Field>
-        }
-        onNameChange={(value) => onFieldChange('name', value)}
-        onInstructionsChange={(value) => onFieldChange('instructions', value)}
-      />
-      <Field>
-        <FieldLabel>첨부파일</FieldLabel>
-        <div className="grid gap-3">
-          <ProgramAuthoringSortableAttachments
-            milestoneId={milestone.id}
-            requirements={milestone.requirements}
-            onReorder={onAttachmentReorder}
-          >
-            {(requirement, reorderHandle) => (
-              <ProgramAuthoringSubmissionItem
-                milestoneId={milestone.id}
-                requirement={requirement}
-                reorderHandle={reorderHandle}
-                onFileChange={(_, requirementId, file) => {
-                  if (file === null) {
-                    onAttachmentFileChange(requirementId, null);
-                    return;
+      <div ref={bodyRef} className="contents">
+        <ProgramMilestoneFields
+          id={milestone.id}
+          name={milestone.name}
+          instructions={milestone.instructions}
+          nameError={saveAttempted ? errors.name : null}
+          schedule={
+            <Field>
+              <FieldLabel>기간 *</FieldLabel>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  aria-label="시작일"
+                  aria-invalid={saveAttempted && Boolean(errors.period)}
+                  type="date"
+                  min={minDate}
+                  max={maxDate}
+                  value={startDate}
+                  onChange={(event) =>
+                    onFieldChange(
+                      'startAt',
+                      boundaryDateTime(
+                        event.target.value,
+                        operationStartAt,
+                        '00:00',
+                      ),
+                    )
                   }
-                  acceptFile(file, (valid) =>
-                    onAttachmentFileChange(requirementId, valid),
-                  );
+                />
+                <Input
+                  aria-label="마감일"
+                  aria-invalid={saveAttempted && Boolean(errors.period)}
+                  type="date"
+                  min={minDate}
+                  max={maxDate}
+                  value={dueDate}
+                  onChange={(event) =>
+                    onFieldChange(
+                      'dueAt',
+                      boundaryDateTime(
+                        event.target.value,
+                        operationEndAt,
+                        '23:59',
+                      ),
+                    )
+                  }
+                />
+              </div>
+              <FieldError>{saveAttempted ? errors.period : null}</FieldError>
+            </Field>
+          }
+          onNameChange={(value) => onFieldChange('name', value)}
+          onInstructionsChange={(value) => onFieldChange('instructions', value)}
+        />
+        <Field>
+          <FieldLabel>첨부파일</FieldLabel>
+          <div className="grid gap-3">
+            <ProgramAuthoringSortableAttachments
+              milestoneId={milestone.id}
+              requirements={milestone.requirements}
+              onReorder={onAttachmentReorder}
+            >
+              {(requirement, reorderHandle) => (
+                <ProgramAuthoringSubmissionItem
+                  milestoneId={milestone.id}
+                  requirement={requirement}
+                  reorderHandle={reorderHandle}
+                  onFileChange={(_, requirementId, file) => {
+                    if (file === null) {
+                      onAttachmentFileChange(requirementId, null);
+                      return;
+                    }
+                    acceptFile(file, (valid) =>
+                      onAttachmentFileChange(requirementId, valid),
+                    );
+                  }}
+                  onRemove={(_, requirementId) =>
+                    onAttachmentRemove(requirementId)
+                  }
+                  onRequiredChange={(_, requirementId, required) =>
+                    onAttachmentRequiredChange(requirementId, required)
+                  }
+                  onNameChange={(_, requirementId, name) =>
+                    onAttachmentNameChange(requirementId, name)
+                  }
+                />
+              )}
+            </ProgramAuthoringSortableAttachments>
+            <label
+              className={`ml-auto w-fit text-small font-semibold underline-offset-4 focus-within:ring-2 focus-within:ring-ring ${attachmentLimitMessage === null ? 'cursor-pointer text-primary hover:underline' : 'cursor-not-allowed text-muted-foreground'}`}
+            >
+              첨부파일 추가
+              <input
+                className="sr-only"
+                aria-label="첨부파일 추가"
+                aria-invalid={fileError !== null}
+                aria-describedby={fileError ? fileErrorId : undefined}
+                type="file"
+                accept=".pdf,.hwp,.jpg,.jpeg,.png,.zip"
+                disabled={attachmentLimitMessage !== null}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) acceptFile(file, onAddAttachment);
+                  event.target.value = '';
                 }}
-                onRemove={(_, requirementId) =>
-                  onAttachmentRemove(requirementId)
-                }
-                onRequiredChange={(_, requirementId, required) =>
-                  onAttachmentRequiredChange(requirementId, required)
-                }
-                onNameChange={(_, requirementId, name) =>
-                  onAttachmentNameChange(requirementId, name)
-                }
               />
-            )}
-          </ProgramAuthoringSortableAttachments>
-          <label
-            className={`ml-auto w-fit text-small font-semibold underline-offset-4 focus-within:ring-2 focus-within:ring-ring ${attachmentLimitMessage === null ? 'cursor-pointer text-primary hover:underline' : 'cursor-not-allowed text-muted-foreground'}`}
-          >
-            첨부파일 추가
-            <input
-              className="sr-only"
-              aria-label="첨부파일 추가"
-              aria-invalid={fileError !== null}
-              aria-describedby={fileError ? fileErrorId : undefined}
-              type="file"
-              accept=".pdf,.hwp,.jpg,.jpeg,.png,.zip"
-              disabled={attachmentLimitMessage !== null}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) acceptFile(file, onAddAttachment);
-                event.target.value = '';
-              }}
-            />
-          </label>
-          {attachmentLimitMessage ? (
-            <p className="text-small text-muted-foreground" role="status">
-              {attachmentLimitMessage}
+            </label>
+            {attachmentLimitMessage ? (
+              <p className="text-small text-muted-foreground" role="status">
+                {attachmentLimitMessage}
+              </p>
+            ) : null}
+            <p className="text-small text-muted-foreground">
+              최대 {fileUpload.maxLabel}
             </p>
-          ) : null}
-          <p className="text-small text-muted-foreground">
-            최대 {fileUpload.maxLabel}
-          </p>
-        </div>
-        <FieldError id={fileErrorId}>{fileError}</FieldError>
-        <FieldError>{attachmentValidationMessage}</FieldError>
-        <FieldError>{saveAttempted ? errors.attachments : null}</FieldError>
-      </Field>
+          </div>
+          <FieldError id={fileErrorId}>{fileError}</FieldError>
+          <FieldError>{attachmentValidationMessage}</FieldError>
+          <FieldError>{saveAttempted ? errors.attachments : null}</FieldError>
+        </Field>
+      </div>
     </DialogShell>
   );
 }
