@@ -514,6 +514,7 @@ export class ProgramTeamsRepository {
         },
         program: {
           select: {
+            id: true,
             startAt: true,
             repositoryProvisioningEnabled: true,
             endAt: true,

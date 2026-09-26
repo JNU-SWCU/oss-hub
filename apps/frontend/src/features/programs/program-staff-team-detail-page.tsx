@@ -50,7 +50,7 @@ import { programHref } from './program-paths';
 import { ProgramStaffRepositorySection } from './program-staff-repository-section';
 import { updateTeamRepositoryUrl } from './repository-url-api';
 import { TeamRepositoryPanel } from './team-repository-panel';
-import { UnmatchedContributors } from './unmatched-contributors';
+import { OutsiderContributions } from './outsider-contributions';
 import { TeamDeleteDialog } from './team-delete-dialog';
 import { TeamNameDialog } from './team-name-dialog';
 import type {
@@ -443,13 +443,11 @@ export function ProgramStaffTeamDetailPage({
           }
           onSaved={() => void load({ quiet: true })}
           activityExtra={
-            detail.repositoryContributions === null ? null : (
-              <UnmatchedContributors
-                contributors={
-                  detail.repositoryContributions.unmatchedContributors
-                }
+            detail.repositoryContributions?.outsiderContributions ? (
+              <OutsiderContributions
+                counts={detail.repositoryContributions.outsiderContributions}
               />
-            )
+            ) : null
           }
         >
           <ProgramStaffRepositorySection

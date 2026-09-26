@@ -371,23 +371,20 @@ export interface StaffTeamDetail {
    * 누를 때 이 값이 그대로 `expectedScope` 로 돌아간다.
    */
   readonly deletionScope: TeamDeletionScope;
-  /** 저장소 기여 요약 — 저장소가 없으면 null. 화면은 「웹 참여자와 연결되지 않음」만 쓴다. */
+  /** 저장소 기여 요약 — 저장소가 없으면 null. 화면은 「팀원이 아닌 사람의 기여」 한 줄만 쓴다. */
   readonly repositoryContributions: {
-    readonly unmatchedContributors: readonly StaffUnmatchedContributor[];
+    readonly outsiderContributions: StaffOutsiderContributions | null;
   } | null;
 }
 
 /**
- * 저장소에 기여했지만 지금 팀원이 아닌 가입자(#1133). 기여 집계는 가입자만 쌓으므로
- * login은 대개 있고, 없으면 GitHub 숫자 id로 부른다.
+ * 「팀원이 아닌 사람의 기여」(#1133) — 이 저장소에서 프로그램 기간 안 지금 팀원이 아닌 사람의
+ * Commit·PR·Issue 수. 누가 했는지는 서버도 담지 않는다. 수집이 아직 세지 않았으면 null이다.
  */
-export interface StaffUnmatchedContributor {
-  readonly githubId: string;
-  readonly githubLogin: string | null;
+export interface StaffOutsiderContributions {
   readonly commitCount: number;
   readonly pullRequestCount: number;
   readonly issueCount: number;
-  readonly releaseCount: number;
 }
 
 /**

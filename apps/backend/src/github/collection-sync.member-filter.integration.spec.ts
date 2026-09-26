@@ -124,7 +124,7 @@ const createClient = (
     listInstallationRepositories: () => Promise.resolve([providerRepository()]),
     resolveUserNodeId: (login: string) => Promise.resolve(`node:${login}`),
     listDefaultBranchCommitsByAuthor: () => Promise.resolve([]),
-    countDefaultBranchCommits: () => Promise.resolve(null),
+    countDefaultBranchCommitsBetween: () => Promise.resolve(null),
     probeDefaultBranchHead: () =>
       Promise.resolve({
         changed: true as const,

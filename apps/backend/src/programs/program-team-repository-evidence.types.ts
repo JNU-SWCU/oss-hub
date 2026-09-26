@@ -21,12 +21,17 @@ export interface TeamRepositoryContributionsView {
     readonly hasObservations: boolean;
   })[];
   /**
-   * 저장소에 기여했지만 지금 팀원이 아닌 가입자 — 교직원 팀 상세의 「웹 참여자와 연결되지
-   * 않음」. 기여 집계는 가입자만 쌓으므로 login은 대개 있다.
+   * 「팀원이 아닌 사람의 기여」 — 이 저장소에서 프로그램 기간 안 지금 팀원이 아닌 사람의 Commit·PR·Issue
+   * 수(Commit은 ADR-009 `전체 − 팀원합`, PR·Issue는 봇 제외). 수집이 저장소마다 세어 두며, 누가 했는지는
+   * 담지 않는다. 아직 세지 않았거나, 센 기준(프로그램·기간)이 지금과 다르면 `null`이다.
    */
-  readonly unmatchedContributors: readonly (RepositoryContributorView & {
-    readonly githubLogin: string | null;
-  })[];
+  readonly outsiderContributions: TeamOutsiderContributionsView | null;
+}
+
+export interface TeamOutsiderContributionsView {
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
 }
 
 export interface RepositoryUrlHistoryView {

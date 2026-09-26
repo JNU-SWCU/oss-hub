@@ -1270,7 +1270,7 @@ describe('CollectionAppClient author-filtered commit history (GraphQL)', () => {
     ).rejects.toMatchObject({ kind: 'GRAPHQL_ERROR' });
   });
 
-  it('reads the repo-wide default-branch commit total without requesting any commit node', async () => {
+  it('counts default-branch commits inside the program window without requesting any commit node', async () => {
     const fetcher = fetchMock().mockResolvedValue(
       json({
         data: {
@@ -1283,59 +1283,52 @@ describe('CollectionAppClient author-filtered commit history (GraphQL)', () => {
         graphqlConfig,
         tokenProvider,
         fetcher,
-      ).countDefaultBranchCommits('JNU-SWCU', 'oss-hub', 'main'),
+      ).countDefaultBranchCommitsBetween(
+        'JNU-SWCU',
+        'oss-hub',
+        'main',
+        '2026-07-09T15:00:00Z',
+        '2026-09-26T05:00:00Z',
+      ),
     ).resolves.toEqual(42);
     const payload = sentPayload(fetcher);
     expect(payload.variables).toEqual({
       owner: 'JNU-SWCU',
       name: 'oss-hub',
       branch: 'main',
+      since: '2026-07-09T15:00:00Z',
+      until: '2026-09-26T05:00:00Z',
     });
-    // No author filter (this is the *whole* repository) and — critically —
-    // no `nodes` selection, so no contributor identity is ever transferred.
+    // No author filter (every author in the window) and no `nodes`, so no
+    // contributor identity is ever transferred.
+    expect(payload.query).toContain('history(since: $since, until: $until)');
     expect(payload.query).toContain('totalCount');
     expect(payload.query).not.toContain('nodes');
     expect(payload.query).not.toContain('author');
   });
 
-  it('reports a zero-commit branch as 0 and a missing branch as null', async () => {
-    await expect(
+  it('reports a missing branch as null and rejects a malformed total', async () => {
+    const count = (body: unknown) =>
       new CollectionAppClient(
         graphqlConfig,
         tokenProvider,
-        fetchMock().mockResolvedValue(
-          json({
-            data: {
-              repository: { ref: { target: { history: { totalCount: 0 } } } },
-            },
-          }),
-        ),
-      ).countDefaultBranchCommits('o', 'r', 'main'),
-    ).resolves.toEqual(0);
+        fetchMock().mockResolvedValue(json(body)),
+      ).countDefaultBranchCommitsBetween(
+        'o',
+        'r',
+        'main',
+        '2026-07-09T15:00:00Z',
+        '2026-09-26T05:00:00Z',
+      );
     await expect(
-      new CollectionAppClient(
-        graphqlConfig,
-        tokenProvider,
-        fetchMock().mockResolvedValue(
-          json({ data: { repository: { ref: null } } }),
-        ),
-      ).countDefaultBranchCommits('o', 'r', 'missing'),
+      count({ data: { repository: { ref: null } } }),
     ).resolves.toBeNull();
-  });
-
-  it('rejects a malformed totalCount instead of reporting a bogus total', async () => {
     await expect(
-      new CollectionAppClient(
-        graphqlConfig,
-        tokenProvider,
-        fetchMock().mockResolvedValue(
-          json({
-            data: {
-              repository: { ref: { target: { history: { totalCount: -1 } } } },
-            },
-          }),
-        ),
-      ).countDefaultBranchCommits('o', 'r', 'main'),
+      count({
+        data: {
+          repository: { ref: { target: { history: { totalCount: -1 } } } },
+        },
+      }),
     ).rejects.toMatchObject({ kind: 'RESPONSE' });
   });
 

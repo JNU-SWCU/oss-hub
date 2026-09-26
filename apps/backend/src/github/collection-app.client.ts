@@ -57,19 +57,17 @@ const AUTHOR_COMMIT_HISTORY_QUERY = `
 `;
 
 /**
- * 저장소 default branch의 **전체** 커밋 수. 노드를 하나도 받지 않고 `totalCount`만 읽어
- * 비용을 최소로 유지한다(작성자 필터 없음 — 팀원·외부 기여자를 모두 포함한 총량).
- * `first`를 주지 않는다 — `first`는 페이지 크기일 뿐 `totalCount`와 무관하므로
- * (`first: 1`이어도 총계는 그대로다) 붙이면 "커밋을 받는다"고 오해를 부른다.
- * `외부 기여 = 전체 − 팀원합` 계산의 좌변이며, 개인 식별자는 어떤 필드로도 요청하지 않는다.
+ * default branch에서 `[since, until]`에 커밋된 커밋 **수** — 노드를 하나도 받지 않고 `totalCount`만
+ * 읽는다(작성자 필터 없음, 1점). ADR-009 「외부 = 전체 − 팀원합」의 좌변을 프로그램 기간으로 자른
+ * 값이며, 개인 식별자는 어떤 필드로도 요청하지 않는다.
  */
 const DEFAULT_BRANCH_COMMIT_COUNT_QUERY = `
-  query CollectionDefaultBranchCommitCount($owner: String!, $name: String!, $branch: String!) {
+  query CollectionDefaultBranchCommitCount($owner: String!, $name: String!, $branch: String!, $since: GitTimestamp!, $until: GitTimestamp!) {
     repository(owner: $owner, name: $name) {
       ref(qualifiedName: $branch) {
         target {
           ... on Commit {
-            history { totalCount }
+            history(since: $since, until: $until) { totalCount }
           }
         }
       }
@@ -359,21 +357,22 @@ export class CollectionAppClient {
   }
 
   /**
-   * Total default-branch commit count (every author), or `null` when the
-   * branch — or its commit target — does not exist. `null` is deliberately
-   * distinct from `0`: "the branch has no commits" and "there is no branch"
-   * are different facts, and subtracting a team total from the latter would
-   * produce a negative external-contributor figure. Costs one rate-limit
-   * point and transfers no commit nodes at all.
+   * Default-branch commit **count** committed in `[since, until]` (every
+   * author), or `null` when the branch — or its commit target — does not
+   * exist. Costs one rate-limit point and transfers no commit node, so no
+   * contributor identity is ever read: the left side of ADR-009's
+   * `outsiders = total − team`, cut to the program window.
    */
-  async countDefaultBranchCommits(
+  async countDefaultBranchCommitsBetween(
     owner: string,
     repo: string,
     defaultBranch: string,
+    since: string,
+    until: string,
   ): Promise<number | null> {
     const body = await this.graphql({
       query: DEFAULT_BRANCH_COMMIT_COUNT_QUERY,
-      variables: { owner, name: repo, branch: defaultBranch },
+      variables: { owner, name: repo, branch: defaultBranch, since, until },
     });
     const repository = this.record(body.data).repository;
     if (repository === null || repository === undefined) this.invalid();

@@ -124,6 +124,9 @@ type SyncRepository = Pick<
   | 'listPresentRepositories'
   | 'listExternalRepositories'
   | 'listRepositoryTeamMembers'
+  | 'findOutsiderCountingWindow'
+  | 'countTeamCommitsBetween'
+  | 'saveOutsiderContribution'
   | 'getSyncCursor'
   | 'upsertSyncCursor'
   | 'recordSweepHistory'
@@ -190,6 +193,33 @@ const isTeamMemberAuthor = (
   authorGithubId: string | null,
   memberIds: ReadonlySet<bigint>,
 ): boolean => authorGithubId !== null && memberIds.has(BigInt(authorGithubId));
+
+/** GitHub App 봇 계정(`dependabot[bot]` 등) — REST는 봇에게도 `login` 끝에 `[bot]`을 붙인다. */
+const isBotLogin = (login: string | null): boolean =>
+  login !== null && login.toLowerCase().endsWith('[bot]');
+
+/**
+ * 「팀원이 아닌 사람의 기여」(#1133)로 셀 PR·Issue 작성자인가 — GitHub 계정이 확인됐고, 지금 팀원도
+ * 봇도 아니다. 작성자를 알 수 없는 항목은 팀원의 것일 수도 있어 세지 않는다. (Commit은 작성자를 받지
+ * 않고 ADR-009 `전체 − 팀원합`으로 센다.)
+ */
+const isOutsiderAuthor = (
+  item: {
+    readonly authorGithubId: string | null;
+    readonly authorLogin: string | null;
+  },
+  memberIds: ReadonlySet<bigint>,
+): boolean =>
+  item.authorGithubId !== null &&
+  !isTeamMemberAuthor(item.authorGithubId, memberIds) &&
+  !isBotLogin(item.authorLogin);
+
+/** GitHub가 생기기 전 시각(프로그램 시작일 기본값 0001-01-01 등)은 REST `since`에 넣지 않는다. */
+const GITHUB_EPOCH_MS = Date.UTC(2008, 0, 1);
+
+/** REST `since`·`until` 형식(`YYYY-MM-DDTHH:MM:SSZ`) — 밀리초를 떼어 문서 형식 그대로 보낸다. */
+const githubTimestamp = (at: Date): string =>
+  at.toISOString().replace(/\.\d{3}Z$/, 'Z');
 
 /**
  * 수집 대상 규칙 — 신청에 연결된 저장소이거나, 팀·프로그램 이력이 전혀 없는 독립 저장소다.
@@ -1052,6 +1082,16 @@ export class CollectionSyncService {
       }
     }
     onStreamInserted('ISSUE', issueCount);
+    if (teamMembers !== null) {
+      await this.observeOutsiderContributions(
+        runtime,
+        repository,
+        owner,
+        name,
+        teamMembers,
+        deadline,
+      );
+    }
   }
 
   /**
@@ -1276,16 +1316,6 @@ export class CollectionSyncService {
     }
 
     const teamCommits = [...bySha.values()];
-    await this.observeExternalContribution(
-      runtime,
-      repository,
-      owner,
-      name,
-      defaultBranch,
-      teamCommits.length,
-      deadline,
-    );
-
     return this.commitCheckpoint(
       lease,
       repository.id,
@@ -1298,37 +1328,126 @@ export class CollectionSyncService {
   }
 
   /**
-   * 외부(비팀원) 기여 **수치만** 관측한다 — `전체 − 팀원합`. 개인 식별자(login·githubId)는
-   * 요청도 저장도 하지 않는다: `countDefaultBranchCommits`는 커밋 노드를 하나도 받지 않고
-   * `totalCount`만 읽는다.
+   * 「팀원이 아닌 사람의 기여」(#1133) — 팀 저장소에서 프로그램 기간 안 지금 팀원이 아닌 사람의
+   * Commit·PR·Issue **수만** 세어 저장소 행 하나로 덮어쓴다. 누가 했는지는 저장하지 않는다.
    *
-   * 저장 위치는 아직 정하지 않았다. 지금은 관측해 로그로만 남기고 버린다 — 이 값을 담을
-   * 적절한 컬럼이 없으며, 추측으로 스키마를 늘리지 않는다.
-   *
-   * 전체가 `null`(브랜치 없음)이거나 팀원합보다 작으면(관측 시점 차이로 생기는 불일치)
-   * 계산 자체를 건너뛴다. 음수를 남기거나 0으로 뭉개는 것은 조용한 오답이다.
+   * 매 run 기간 전체를 다시 센다 — 팀원이 바뀌거나 기간이 바뀌어도 다음 run이 저절로 맞춘다.
+   * 단, 끝난 프로그램을 끝난 뒤 한 번 셌으면 더는 세지 않는다.
+   * ponytail: 프로그램이 끝난 뒤 팀원을 바꾸면 그 합계에 반영되지 않는다 — 필요해지면 센 기준에
+   * 팀원 명단의 지문을 더한다.
+   * 네 stream과 달리 실패해도 저장소 수집을 실패로 돌리지 않는다: 이 합계는 교직원 화면의 보조
+   * 한 줄이라, 여기서 난 오류로 Commit·PR·Issue 수집이 백오프에 걸리면 안 된다. 실패하면 옛 값을
+   * 둔다(읽는 쪽이 기준 프로그램·기간이 맞을 때만 보인다).
    */
-  private async observeExternalContribution(
+  private async observeOutsiderContributions(
     runtime: CollectionSyncRuntime,
     repository: CollectionRepositoryRow,
     owner: string,
     name: string,
-    defaultBranch: string,
-    teamCommitCount: number,
+    teamMembers: readonly RepositoryTeamMemberAccount[],
     deadline: number,
   ): Promise<void> {
-    const totalCommitCount = await this.beforeDeadline(
-      runtime.client.countDefaultBranchCommits(owner, name, defaultBranch),
-      deadline,
-    );
-    if (totalCommitCount === null || totalCommitCount < teamCommitCount) return;
-    this.logger.log({
-      event: 'collection.sync.external_contribution_observed',
-      githubRepositoryId: repository.githubRepositoryId.toString(),
-      totalCommitCount,
-      teamCommitCount,
-      externalCommitCount: totalCommitCount - teamCommitCount,
-    });
+    try {
+      const window =
+        await this.incrementalRepository.findOutsiderCountingWindow(
+          repository.id,
+        );
+      if (window === null) return;
+      // 끝난 프로그램을 끝난 뒤 이미 셌다면 기간이 닫혀 수가 바뀌지 않는다 — 다시 세면 프로그램이
+      // 끝난 뒤 쌓인 PR·Issue까지 매시간 처음부터 거슬러 읽게 된다.
+      if (
+        window.countedThrough !== null &&
+        window.countedThrough.getTime() >= window.endAt.getTime()
+      )
+        return;
+      const observedAt = this.now();
+      const since = Math.max(window.startAt.getTime(), GITHUB_EPOCH_MS);
+      const until = Math.min(window.endAt.getTime(), observedAt.getTime());
+      const memberIds = teamMemberGithubIds(teamMembers);
+      const counted = (
+        items: readonly {
+          readonly authorGithubId: string | null;
+          readonly authorLogin: string | null;
+          readonly createdAt: string;
+        }[],
+      ): number =>
+        items.filter(
+          (item) =>
+            Date.parse(item.createdAt) >= since &&
+            Date.parse(item.createdAt) <= until &&
+            isOutsiderAuthor(item, memberIds),
+        ).length;
+
+      let commitCount = 0;
+      let pullRequestCount = 0;
+      let issueCount = 0;
+      if (since < until) {
+        // 기간 시작 시각을 커서로 주면 목록이 그 앞에서 멈춘다(최신순이라 기간 안 항목만 읽는다).
+        const windowStart = {
+          createdAt: new Date(since).toISOString(),
+          id: '0',
+        };
+        // 커밋은 ADR-009 「외부 = 전체 − 팀원합」으로 센다 — 기간 전체 수는 노드 없는 1점 조회라
+        // 인기 저장소를 연결해도 이력을 페이지로 받지 않는다. 그래서 커밋만은 봇이나 계정에
+        // 연결되지 않은 이메일의 커밋을 가려내지 못하고 함께 센다(PR·Issue는 작성자로 가린다).
+        if (repository.defaultBranch !== null) {
+          const total = await this.beforeDeadline(
+            runtime.client.countDefaultBranchCommitsBetween(
+              owner,
+              name,
+              repository.defaultBranch,
+              githubTimestamp(new Date(since)),
+              githubTimestamp(new Date(until)),
+            ),
+            deadline,
+          );
+          const team = await this.incrementalRepository.countTeamCommitsBetween(
+            repository.id,
+            [...memberIds],
+            new Date(since),
+            new Date(until),
+          );
+          // 관측 시점이 어긋나 전체가 팀원합보다 작으면 이번 값은 믿을 수 없다 — 음수를 남기거나
+          // 0으로 뭉개지 않고 옛 값을 둔다.
+          if (total !== null && total < team) return;
+          commitCount = total === null ? 0 : total - team;
+        }
+        pullRequestCount = counted(
+          (
+            await this.beforeDeadline(
+              runtime.client.listNewPullRequests(owner, name, windowStart),
+              deadline,
+            )
+          ).pullRequests,
+        );
+        issueCount = counted(
+          (
+            await this.beforeDeadline(
+              runtime.client.listNewIssues(owner, name, windowStart),
+              deadline,
+            )
+          ).issues,
+        );
+      }
+      await this.incrementalRepository.saveOutsiderContribution({
+        repositoryId: repository.id,
+        applicationId: window.applicationId,
+        programId: window.programId,
+        windowStartAt: window.startAt,
+        windowEndAt: window.endAt,
+        commitCount,
+        pullRequestCount,
+        issueCount,
+        observedAt,
+      });
+    } catch (error) {
+      if (error instanceof RunDeadlineError) throw error;
+      this.logger.warn({
+        event: 'collection.sync.outsider_contribution_failed',
+        githubRepositoryId: repository.githubRepositoryId.toString(),
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    }
   }
 
   private async commitCheckpoint(

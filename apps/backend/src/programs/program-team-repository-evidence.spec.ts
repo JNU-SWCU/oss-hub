@@ -1,5 +1,5 @@
 import {
-  userFindMany,
+  outsiderFindUnique,
   teamFindFirst,
   applicationFindFirst,
   contributionGroupBy,
@@ -21,6 +21,7 @@ it('keeps the sentinel window but bounds the query by the last queryable day', a
   // When
   const view = await repository.contributions(
     {
+      id: 'application',
       repository: {
         id: 'current-repo',
         nameWithOwner: 'synthetic/current',
@@ -28,6 +29,7 @@ it('keeps the sentinel window but bounds the query by the last queryable day', a
         failureCount: 0,
       },
       program: {
+        id: 'program',
         startAt: new Date('0001-01-01T00:00:00.000Z'),
         endAt: new Date('9999-12-31T23:59:59.999Z'),
       },
@@ -251,16 +253,7 @@ it('matches numeric GitHub identities and preserves members without observations
           hasObservations: false,
         },
       ],
-      unmatchedContributors: [
-        {
-          githubId: '999',
-          githubLogin: 'outside-contributor',
-          commitCount: 4,
-          pullRequestCount: 0,
-          releaseCount: 0,
-          issueCount: 2,
-        },
-      ],
+      outsiderContributions: null,
     },
   });
   expect(contributionGroupBy).toHaveBeenCalledWith(
@@ -304,41 +297,45 @@ it('does not query contributions or history for an absent or differently scoped 
   expect(auditFindMany).not.toHaveBeenCalled();
 });
 
-it('names outside contributors by login and asks for no logins when everyone is a member', async () => {
-  // Given: 999 is not on the team; its login is resolved in one query.
+it('shows the outsider totals only while they were counted for this application, program and window', async () => {
+  // Given: the collector counted this repository for this application and program's current window.
   const repository = givenRepository();
+  const counted = {
+    repositoryId: 'current-repo',
+    applicationId: 'application',
+    programId: 'program',
+    windowStartAt: new Date('2026-07-31T15:00:00Z'),
+    windowEndAt: new Date('2026-08-31T14:59:59Z'),
+    commitCount: 4,
+    pullRequestCount: 1,
+    issueCount: 2,
+    observedAt: new Date('2026-08-31T00:00:00Z'),
+  };
+  outsiderFindUnique.mockResolvedValue(counted);
   // When
   const detail = await repository.findStaffTeamDetail('program', 'team');
   // Then
-  expect(userFindMany).toHaveBeenCalledTimes(1);
-  expect(userFindMany).toHaveBeenCalledWith({
-    where: { githubId: { in: [999n] } },
-    select: { githubId: true, nickname: true },
+  expect(outsiderFindUnique).toHaveBeenCalledWith({
+    where: { repositoryId: 'current-repo' },
   });
-  expect(
-    detail?.repositoryContributions?.unmatchedContributors.map(
-      (contributor) => contributor.githubLogin,
-    ),
-  ).toEqual(['outside-contributor']);
+  expect(detail?.repositoryContributions?.outsiderContributions).toEqual({
+    commitCount: 4,
+    pullRequestCount: 1,
+    issueCount: 2,
+  });
 
-  // Given: only team members contributed.
-  userFindMany.mockClear();
-  contributionGroupBy.mockResolvedValue([
-    {
-      githubId: 101n,
-      _sum: {
-        commitCount: 1,
-        pullRequestCount: 0,
-        releaseCount: 0,
-        issueCount: 0,
-      },
-    },
-  ]);
-  // When
-  const onlyMembers = await repository.findStaffTeamDetail('program', 'team');
-  // Then
-  expect(onlyMembers?.repositoryContributions?.unmatchedContributors).toEqual(
-    [],
-  );
-  expect(userFindMany).not.toHaveBeenCalled();
+  // A count made for another team's application or another program, or before the window was
+  // edited, is not shown.
+  for (const stale of [
+    { ...counted, applicationId: 'previous-application' },
+    { ...counted, programId: 'other-program' },
+    { ...counted, windowStartAt: new Date('2026-07-01T15:00:00Z') },
+    { ...counted, windowEndAt: new Date('2026-12-31T14:59:59Z') },
+  ]) {
+    outsiderFindUnique.mockResolvedValue(stale);
+    const staleDetail = await repository.findStaffTeamDetail('program', 'team');
+    expect(
+      staleDetail?.repositoryContributions?.outsiderContributions,
+    ).toBeNull();
+  }
 });
