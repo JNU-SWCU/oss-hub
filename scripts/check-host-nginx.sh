@@ -301,5 +301,14 @@ for location_args, (methods, zone) in compose_effective.items():
     one(children, 'proxy_set_header', ('Authorization', ''), f'Compose credential strip {location_args}')
     one(children, 'proxy_set_header', ('X-Vercel-Forwarded-For', ''), f'Compose client strip {location_args}')
 
+# #1453이 없앤 관리자 등록 주소. 전용 location이 돌아오면 폐기된 요청이 다시 수집 실행
+# rate-limit 예산을 쓰므로(#1455), 요구하지 않는 데서 그치지 않고 어느 server에서도 금지한다.
+retired_path = '/api/v1/admin/collection/discover-external'
+for label, nodes in (('host', host_tree), ('Compose', compose_tree)):
+    for server in direct(nodes, 'server'):
+        for location in direct(server.children or [], 'location'):
+            if any(retired_path in argument for argument in location.args):
+                fail(f'{label} still routes retired {retired_path}')
+
 print('host nginx contract: ok')
 PY
