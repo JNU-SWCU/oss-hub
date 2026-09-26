@@ -745,23 +745,35 @@ export class CollectionIncrementalRepository {
    * 해제는 반대로 `updateMany` + `lastErrorCode: { not: null }` 가드다 — 표시가 남아 있을
    * 때만 쓰고, 없는 행을 새로 만들지 않는다.
    */
-  async markStreamErrorState(
+  /**
+   * stream 하나의 결과를 그 행에 남긴다. 실패면 오류 표시를(행이 없어도 만든다), 성공이면 확인한
+   * 시각(`lastRunAt`)을 남기고 오류 표시를 지운다. 새것이 없어 checkpoint를 쓰지 않은 확인도
+   * 성공이다 — 시스템 상태의 「N분 전」·「가장 오래된 실행 시각」이 마지막으로 확인한 시각이 된다.
+   * 성공은 행을 새로 만들지 않는다(아직 적재한 적 없는 stream은 그대로 「기록 없음」).
+   */
+  async markStreamOutcome(
     repositoryId: string,
     streamType: StreamFrontierInput['streamType'],
-    state: { lastErrorAt: Date | null; lastErrorCode: string | null },
+    outcome:
+      | { readonly checkedAt: Date }
+      | { readonly lastErrorAt: Date; readonly lastErrorCode: string },
   ): Promise<void> {
-    if (state.lastErrorCode !== null) {
+    if ('lastErrorCode' in outcome) {
       await this.upsertStreamFrontier({
         repositoryId,
         streamType,
-        lastErrorAt: state.lastErrorAt,
-        lastErrorCode: state.lastErrorCode,
+        lastErrorAt: outcome.lastErrorAt,
+        lastErrorCode: outcome.lastErrorCode,
       });
       return;
     }
     await this.db.collectionRepositoryStream.updateMany({
-      where: { repositoryId, streamType, lastErrorCode: { not: null } },
-      data: { lastErrorAt: null, lastErrorCode: null },
+      where: { repositoryId, streamType },
+      data: {
+        lastRunAt: outcome.checkedAt,
+        lastErrorAt: null,
+        lastErrorCode: null,
+      },
     });
   }
 

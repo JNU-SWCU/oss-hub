@@ -1194,7 +1194,7 @@ describe('CollectionIncrementalRepository — #546 stream 오류 표시', () => 
   it('오류 기록은 upsert라 stream 행이 아직 없어도 남고, frontier/status는 건드리지 않는다', async () => {
     const db = createDb();
 
-    await repositoryFor(db).markStreamErrorState('repo-1', 'COMMIT', {
+    await repositoryFor(db).markStreamOutcome('repo-1', 'COMMIT', {
       lastErrorAt: at,
       lastErrorCode: 'PROVIDER_UPSTREAM',
     });
@@ -1214,22 +1214,17 @@ describe('CollectionIncrementalRepository — #546 stream 오류 표시', () => 
     });
   });
 
-  it('오류 해제는 표시가 남아 있는 행만 갱신하고 새 행을 만들지 않는다', async () => {
+  it('성공은 확인한 시각을 남기고 오류 표시를 지우되, 새 행을 만들지 않는다', async () => {
     const db = createDb();
 
-    await repositoryFor(db).markStreamErrorState('repo-1', 'RELEASE', {
-      lastErrorAt: null,
-      lastErrorCode: null,
+    await repositoryFor(db).markStreamOutcome('repo-1', 'RELEASE', {
+      checkedAt: at,
     });
 
     expect(db.collectionRepositoryStream.upsert).not.toHaveBeenCalled();
     expect(db.collectionRepositoryStream.updateMany).toHaveBeenCalledWith({
-      where: {
-        repositoryId: 'repo-1',
-        streamType: 'RELEASE',
-        lastErrorCode: { not: null },
-      },
-      data: { lastErrorAt: null, lastErrorCode: null },
+      where: { repositoryId: 'repo-1', streamType: 'RELEASE' },
+      data: { lastRunAt: at, lastErrorAt: null, lastErrorCode: null },
     });
   });
 });

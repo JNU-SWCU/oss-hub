@@ -840,6 +840,22 @@ describe('CollectionAppClient incremental contract', () => {
       });
     });
 
+    it('treats the stored cursor as already read although it was saved with milliseconds', async () => {
+      // The collector rebuilds the cursor from a DB timestamp (`.000Z`); GitHub writes the same
+      // instant without milliseconds. Nothing new means nothing read — not the cursor again.
+      const fetcher = fetchMock().mockResolvedValue(
+        json([
+          prFixture(7, '2026-01-01T00:00:00Z'),
+          prFixture(6, '2025-01-01T00:00:00Z'),
+        ]),
+      );
+      const client = new CollectionAppClient(config, tokenProvider, fetcher);
+      const frontier = { createdAt: '2026-01-01T00:00:00.000Z', id: '7' };
+      const result = await client.listNewPullRequests('o', 'r', frontier);
+      expect(result.pullRequests).toEqual([]);
+      expect(result.newFrontier).toEqual(frontier);
+    });
+
     it('reads every page when the frontier is null (first-ever backfill)', async () => {
       const fetcher = fetchMock().mockResolvedValue(
         json([prFixture(1, '2026-01-01T00:00:00Z')]),
