@@ -80,5 +80,13 @@ mutate "$compose_source" "$fixture_dir/retired-compose" 'location /api/v1/ {' 'l
     location /api/v1/ {'
 expect_fail 'rejects retired admin discovery route at Compose' "$host_source" "$fixture_dir/retired-compose"
 
+mutate "$host_source" "$fixture_dir/retired-host-nested" 'location /api/v1/ {' 'location /api/v1/ {
+        location = /api/v1/admin/collection/discover-external { limit_except POST { deny all; } proxy_pass http://oss_hub_compose; }'
+expect_fail 'rejects retired admin discovery route nested at host' "$fixture_dir/retired-host-nested" "$compose_source"
+
+mutate "$compose_source" "$fixture_dir/retired-compose-nested" 'location /api/v1/ {' 'location /api/v1/ {
+        location = /api/v1/admin/collection/discover-external { limit_except POST { deny all; } limit_req zone=admin_collection burst=1 nodelay; proxy_pass http://backend:4000; }'
+expect_fail 'rejects retired admin discovery route nested at Compose' "$host_source" "$fixture_dir/retired-compose-nested"
+
 printf '%s host nginx contract tests passed; %s failed\n' "$passed" "$failed"
 (( failed == 0 ))
