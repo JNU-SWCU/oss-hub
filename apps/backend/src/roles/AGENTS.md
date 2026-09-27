@@ -10,11 +10,12 @@
 
 ## 권한과 상태 모델
 
-- `selectedMemberKind`는 선택 기록이지 접근 권한 확정이 아니다. 확정 회원 유형은 프로필 생성 경로가 소유한다.
+- `selectedMemberKind`는 선택 기록이지 접근 권한 확정이 아니다. 최초 확정 회원 유형은 프로필 생성 경로가 소유하며, 이후 관리자 변경은 `users/`의 회원 유형 변경 경로가 소유한다.
 - 선택과 재요청 전에는 `ConsentsService.requireCurrent`를 통과해야 한다. 프로필 완성을 선택의 선행 조건으로 되돌리지 않는다.
 - 이미 확정된 동일 유형 선택은 멱등으로 허용하지만 다른 유형 변경은 `ROLE_ALREADY_CONFIRMED`다.
 - 교직원 선택은 완료된 프로필이면 같은 transaction에서 요청을 열 수 있다. 미완료 프로필을 pending 요청으로 승격하지 않는다.
 - 학생 선택은 pending 교직원 요청이 있으면 막는다. 교직원 재요청은 `REJECTED` 또는 `REVOKED` 이력에서만 새 pending 요청을 만들며 접근 권한을 직접 켜지 않는다.
+- 확정 회원 유형이 학생이면 과거 교직원 회수 이력이 있어도 교직원 재요청을 열지 않는다.
 - 요청 경쟁은 `RolesRepository.withTransaction()`과 `findUserByGithubId()`의 `FOR UPDATE` 잠금으로 직렬화한다. 읽기-검사-쓰기를 transaction 밖으로 분리하지 않는다.
 
 ## DTO와 오류 계약

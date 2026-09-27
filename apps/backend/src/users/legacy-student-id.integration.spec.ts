@@ -127,6 +127,7 @@ it('예전 형식 학번으로 가입을 마친 학생은 완료된 프로필로
   await expect(service.getMyProfile(githubId)).resolves.toEqual({
     name,
     studentId: LEGACY_STUDENT_ID,
+    staffNumber: null,
     department,
     phone: null,
     isComplete: true,

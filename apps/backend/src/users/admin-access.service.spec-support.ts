@@ -157,6 +157,7 @@ export class InMemoryAdminAccessRepository
             profile: {
               name: target.name,
               studentId: '123456',
+              staffNumber: null,
               department: '소프트웨어공학과',
               isComplete: target.isProfileComplete,
             },

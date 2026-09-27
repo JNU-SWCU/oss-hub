@@ -22,6 +22,7 @@ type StoredUser = {
   readonly id: string;
   readonly name: string | null;
   readonly studentId: string | null;
+  readonly staffNumber?: string | null;
   readonly department: string | null;
   readonly phone?: string | null;
   readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
@@ -47,6 +48,7 @@ function buildService(
           id: 'synthetic-user',
           name: 'GitHub 합성 이름',
           studentId: null,
+          staffNumber: null,
           department: null,
           phone: null,
           role: null,
@@ -91,6 +93,7 @@ function emptyUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null): StoredUser {
     id: 'synthetic-user',
     name: 'GitHub 합성 이름',
     studentId: null,
+    staffNumber: null,
     department: null,
     role,
     selectedMemberKind,
@@ -130,6 +133,7 @@ describe('역할별 필수 항목', () => {
     expect(profile).toEqual({
       name: input.name,
       studentId: null,
+      staffNumber: null,
       department: input.department,
       phone: null,
       isComplete: true,

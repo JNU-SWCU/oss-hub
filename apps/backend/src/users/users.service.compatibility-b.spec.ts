@@ -22,6 +22,7 @@ type StoredUser = {
   readonly id: string;
   readonly name: string | null;
   readonly studentId: string | null;
+  readonly staffNumber?: string | null;
   readonly department: string | null;
   readonly phone?: string | null;
   readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
@@ -47,6 +48,7 @@ function buildService(
           id: 'synthetic-user',
           name: 'GitHub 합성 이름',
           studentId: null,
+          staffNumber: null,
           department: null,
           phone: null,
           role: null,
@@ -141,6 +143,7 @@ describe('기존 데이터 호환 후속', () => {
         id: 'synthetic-user',
         name: input.name,
         studentId,
+        staffNumber: null,
         department: input.department ?? null,
         role: 'STUDENT',
       },
@@ -180,6 +183,7 @@ describe('기존 데이터 호환 후속', () => {
     expect(profile).toEqual({
       name: '수정된 이름',
       studentId,
+      staffNumber: null,
       department: input.department,
       phone: null,
       isComplete: true,

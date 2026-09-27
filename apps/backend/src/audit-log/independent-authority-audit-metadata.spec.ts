@@ -1,11 +1,14 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
 import {
+  createIndependentAuthorityAuditMetadata,
   INDEPENDENT_AUTHORITY_AUDIT_COMMANDS,
   InvalidAuditLogMetadataError,
   parseAuditLogMetadata,
-  type IndependentAuthorityAuditCommand,
 } from './audit-log-metadata';
-import { createIndependentAuthorityAudit } from '../users/independent-authority-audit';
+import {
+  createIndependentAuthorityAudit,
+  type IndependentAuthorityCommand,
+} from '../users/independent-authority-audit';
 import type { IndependentAuthorityUserRecord } from '../users/independent-authority.repository';
 
 const actorGithubId = 9_700_700_001n;
@@ -77,6 +80,39 @@ it.each([
   },
 );
 
+it('round-trips a member-kind command with every canonical state field', () => {
+  const stored = createIndependentAuthorityAuditMetadata({
+    command: INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.SET_MEMBER_KIND,
+    actor: {
+      displayName: '합성 관리자',
+      githubLogin: 'synthetic-admin',
+    },
+    target: {
+      displayName: '합성 학생',
+      githubLogin: 'synthetic-target',
+    },
+    before: {
+      memberKind: MemberKind.STUDENT,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      role: 'STUDENT',
+      accountStatus: AccountStatus.ACTIVE,
+    },
+    after: {
+      memberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
+      hasAdminAccess: false,
+      role: 'STAFF',
+      accountStatus: AccountStatus.ACTIVE,
+    },
+  });
+
+  expect(parseAuditLogMetadata(storageRoundTrip(stored))).toEqual({
+    legacy: false,
+    metadata: stored,
+  });
+});
+
 it.each([
   ['missing command', (metadata: MetadataFixture) => omit(metadata, 'command')],
   [
@@ -137,7 +173,7 @@ it.each([
 type MetadataFixture = ReturnType<typeof createStoredMetadata>;
 
 function createStoredMetadata(
-  command: IndependentAuthorityAuditCommand,
+  command: IndependentAuthorityCommand['command'],
   after: Partial<IndependentAuthorityUserRecord>,
 ) {
   const before = targetUser();

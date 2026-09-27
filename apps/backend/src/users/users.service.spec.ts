@@ -25,6 +25,7 @@ type StoredUser = {
   readonly id: string;
   readonly name: string | null;
   readonly studentId: string | null;
+  readonly staffNumber?: string | null;
   readonly department: string | null;
   readonly phone?: string | null;
   readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
@@ -50,6 +51,7 @@ function buildService(
           id: 'synthetic-user',
           name: 'GitHub 합성 이름',
           studentId: null,
+          staffNumber: null,
           department: null,
           phone: null,
           role: null,
@@ -102,6 +104,7 @@ it('현행 동의를 확인한 뒤 GitHub 이름과 빈 프로필을 반환한�
   await expect(service.getMyProfile(githubId)).resolves.toEqual({
     name: 'GitHub 합성 이름',
     studentId: null,
+    staffNumber: null,
     department: null,
     phone: null,
     isComplete: false,
@@ -115,6 +118,7 @@ it('이름이 비어 있으면 학번과 학과가 있어도 미완료로 반환
       id: 'synthetic-user',
       name: '',
       studentId,
+      staffNumber: null,
       department: input.department ?? null,
       phone: null,
       role: 'STUDENT',
@@ -124,6 +128,7 @@ it('이름이 비어 있으면 학번과 학과가 있어도 미완료로 반환
   await expect(service.getMyProfile(githubId)).resolves.toEqual({
     name: '',
     studentId,
+    staffNumber: null,
     department: input.department,
     phone: null,
     isComplete: false,
@@ -144,6 +149,7 @@ it('빈 프로필을 한 번만 저장하고 완료 응답을 반환한다', asy
 
   await expect(service.completeMyProfile(githubId, input)).resolves.toEqual({
     ...input,
+    staffNumber: null,
     isComplete: true,
   });
   expect(completeProfileIfUnchanged).toHaveBeenCalledWith(
@@ -213,6 +219,7 @@ it('완료된 프로필의 연락처를 PATCH로 변경한다', async () => {
     id: 'synthetic-user',
     name: input.name,
     studentId,
+    staffNumber: null,
     department: input.department ?? null,
     phone: initialPhone,
     role: 'STUDENT' as const,
@@ -230,6 +237,7 @@ it('완료된 프로필의 연락처를 PATCH로 변경한다', async () => {
   ).resolves.toEqual({
     name: input.name,
     studentId,
+    staffNumber: null,
     department: input.department,
     phone: changedPhone,
     isComplete: true,

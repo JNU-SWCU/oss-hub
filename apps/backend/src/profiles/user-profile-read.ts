@@ -33,8 +33,8 @@ export const USER_PROFILE_DEPARTMENT_SELECT = {
  * 프로필 값의 읽기 표현.
  *
  * 세 칸이 모두 nullable인 이유는 **행이 없을 수 있기** 때문이지 칸이 비어 있을 수
- * 있어서가 아니다 — 행이 존재하면 `name`·`department`는 NOT NULL이고 `studentId`는
- * 회원 유형이 정한다(`UserProfile_studentId_memberKind_check`).
+ * 있어서가 아니다 — 행이 존재하면 `name`·`department`는 NOT NULL이다.
+ * 학생은 학번이 필요하고, 교직원으로 전환해도 기존 학번은 보존한다.
  */
 export type UserProfileView = {
   readonly name: string | null;

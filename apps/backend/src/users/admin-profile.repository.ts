@@ -87,8 +87,8 @@ class PrismaAdminProfileTransactionStore implements AdminProfileTransactionStore
         userId,
         {
           ...fields,
-          // 학번이 실린 프로필은 학생이다 — 계약 CHECK가 그 대응을 강제한다
-          // (`UserProfile_studentId_memberKind_check`).
+          // 프로필이 없는 대상에 학번을 입력해 처음 생성하는 경로는 학생이다.
+          // 기존 프로필의 회원 유형 변경은 member-kind 경로에서만 처리한다.
           memberKind: MemberKind.STUDENT,
           affiliationKind: AffiliationKind.DEPARTMENT,
           affiliationName: fields.department,

@@ -39,6 +39,7 @@ export function profileRecord(
     hasAdminAccess: false,
     name: null,
     studentId: null,
+    staffNumber: null,
     department: null,
     phone: null,
     ...profile,

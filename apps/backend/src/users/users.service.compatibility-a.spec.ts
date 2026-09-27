@@ -21,6 +21,7 @@ type StoredUser = {
   readonly id: string;
   readonly name: string | null;
   readonly studentId: string | null;
+  readonly staffNumber?: string | null;
   readonly department: string | null;
   readonly phone?: string | null;
   readonly selectedMemberKind?: MemberKind | null;
@@ -45,6 +46,7 @@ function buildService(
           id: 'synthetic-user',
           name: 'GitHub 합성 이름',
           studentId: null,
+          staffNumber: null,
           department: null,
           phone: null,
           selectedMemberKind: MemberKind.STUDENT,
@@ -120,6 +122,7 @@ describe('기존 데이터 호환', () => {
       id: 'synthetic-user',
       name: input.name,
       studentId: null,
+      staffNumber: null,
       department: input.department ?? null,
       phone: null,
       memberKind: MemberKind.STAFF,
@@ -139,6 +142,7 @@ describe('기존 데이터 호환', () => {
     expect(profile).toEqual({
       name: '수정된 이름',
       studentId: null,
+      staffNumber: null,
       department: '소프트웨어공학과',
       phone: null,
       isComplete: true,

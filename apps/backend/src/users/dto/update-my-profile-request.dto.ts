@@ -3,6 +3,7 @@ import { AffiliationKind } from '@prisma/client';
 import { IsOptional, IsString, Matches, ValidateIf } from 'class-validator';
 import { DomainException } from '../../common/error-code';
 import { SystemErrorCode } from '../../common/system-error-code.enum';
+import { isValidStaffNumber } from '../domain/member-kind';
 import {
   isValidDepartment,
   isValidUserName,
@@ -45,6 +46,14 @@ export class UpdateMyProfileRequestDto {
   declare readonly phone?: string;
 
   @ValidateIf(
+    (_object, value: unknown) => value !== undefined && value !== null,
+  )
+  @Transform(transformStaffNumber)
+  @IsString()
+  @IsProfileText('isValidStaffNumber', isValidStaffNumber)
+  declare readonly staffNumber?: string | null;
+
+  @ValidateIf(
     (request: UpdateMyProfileRequestDto) =>
       request.affiliationKind === undefined &&
       request.affiliationName === undefined,
@@ -78,6 +87,9 @@ export class UpdateMyProfileRequestDto {
         ? { department: this.department }
         : {}),
       ...(typeof this.phone === 'string' ? { phone: this.phone } : {}),
+      ...(this.staffNumber !== undefined
+        ? { staffNumber: this.staffNumber }
+        : {}),
       ...(typeof this.affiliationKind === 'string'
         ? { affiliationKind: parseAffiliationKind(this.affiliationKind) }
         : {}),
@@ -86,6 +98,11 @@ export class UpdateMyProfileRequestDto {
         : {}),
     };
   }
+}
+
+function transformStaffNumber({ value }: { value: unknown }): unknown {
+  const normalized = transformProfileText({ value });
+  return normalized === '' ? null : normalized;
 }
 
 function parseAffiliationKind(value: string): AffiliationKind {

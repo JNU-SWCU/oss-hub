@@ -192,7 +192,10 @@ export function roleError(code: RolesErrorCode): DomainException {
 }
 
 export function staleAccessError(
-  current: AdminAccessUserRecord,
+  current: Pick<
+    AdminAccessUserRecord,
+    'id' | 'role' | 'accountStatus' | 'pendingRequest'
+  >,
 ): DomainException {
   return new DomainException(
     ROLES_ERROR_CODES[RolesErrorCode.ACCESS_STATE_MISMATCH],

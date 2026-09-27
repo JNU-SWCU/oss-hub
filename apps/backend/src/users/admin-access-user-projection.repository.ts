@@ -25,6 +25,12 @@ export const ADMIN_ACCESS_USER_SELECT = {
   hasAdminAccess: true,
   accountStatus: true,
   ...USER_PROFILE_SELECT,
+  profile: {
+    select: {
+      ...USER_PROFILE_SELECT.profile.select,
+      staffNumber: true,
+    },
+  },
   staffAccessRequests: {
     where: { status: StaffAccessRequestStatus.PENDING },
     orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }],
@@ -45,6 +51,14 @@ type PrismaAdminAccessUser = Prisma.UserGetPayload<{
 
 export type AdminAccessUserSource = Omit<PrismaAdminAccessUser, 'profile'> &
   UserProfileSource;
+
+type AdminAccessUserDetailSource = AdminAccessUserSource & {
+  readonly profile:
+    | (NonNullable<UserProfileSource['profile']> & {
+        readonly staffNumber: string | null;
+      })
+    | null;
+};
 
 export function toAdminAccessUserRecord(
   user: AdminAccessUserSource,
@@ -76,13 +90,14 @@ export function toAdminAccessUserRecord(
 }
 
 export function toAdminAccessUserDetailRecord(
-  user: AdminAccessUserSource,
+  user: AdminAccessUserDetailSource,
 ): AdminAccessUserDetailRecord {
   const profile = resolveUserProfile(user);
   return {
     ...toAdminAccessUserRecord(user),
     profile: {
       ...profile,
+      staffNumber: user.profile?.staffNumber ?? null,
       isComplete: isCompleteAdminAccessProfile(user, profile),
     },
   };
