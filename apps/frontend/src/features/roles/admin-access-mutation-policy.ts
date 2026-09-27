@@ -7,21 +7,25 @@ import type {
   AdminAccessDetail,
   AdminAccessHistory,
   AdminAccessPatchRequest,
-  AdminAccessRole,
 } from './admin-access-api';
+import type {
+  CanonicalAdminAccessDetail,
+  MemberKindMutationFields,
+  MemberKindMutationRequest,
+} from './independent-authority-api';
 
 /**
- * Frontend policy for the `/dashboard/users` write surface. 이전에는 GRANT/REVOKE
- * Authority changes use Task 8's independent staff/admin commands. The legacy
- * CAS resource remains only for request decisions and account status. Every
- * write is still validated by the backend.
+ * Frontend policy for the `/dashboard/users` write surface. Member-kind changes
+ * and admin authority changes use their independent mutation resources. The
+ * legacy CAS resource remains only for request decisions and account status.
+ * Every write is still validated by the backend.
  */
 
 export const ADMIN_ACCESS_MUTATION_ACTIONS = {
   APPROVE: 'APPROVE',
   REJECT: 'REJECT',
-  GRANT_STAFF_ACCESS: 'GRANT_STAFF_ACCESS',
-  REVOKE_STAFF_ACCESS: 'REVOKE_STAFF_ACCESS',
+  SET_MEMBER_STUDENT: 'SET_MEMBER_STUDENT',
+  SET_MEMBER_STAFF: 'SET_MEMBER_STAFF',
   GRANT_ADMIN_ACCESS: 'GRANT_ADMIN_ACCESS',
   REVOKE_ADMIN_ACCESS: 'REVOKE_ADMIN_ACCESS',
   SET_STATUS_ACTIVE: 'SET_STATUS_ACTIVE',
@@ -32,14 +36,16 @@ export type AdminAccessMutationAction =
   (typeof ADMIN_ACCESS_MUTATION_ACTIONS)[keyof typeof ADMIN_ACCESS_MUTATION_ACTIONS];
 
 export type IndependentAuthorityMutationAction =
-  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.GRANT_STAFF_ACCESS
-  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.REVOKE_STAFF_ACCESS
   | typeof ADMIN_ACCESS_MUTATION_ACTIONS.GRANT_ADMIN_ACCESS
   | typeof ADMIN_ACCESS_MUTATION_ACTIONS.REVOKE_ADMIN_ACCESS;
 
+export type MemberKindMutationAction =
+  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_MEMBER_STUDENT
+  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_MEMBER_STAFF;
+
 export type AdminAccessLegacyMutationAction = Exclude<
   AdminAccessMutationAction,
-  IndependentAuthorityMutationAction
+  IndependentAuthorityMutationAction | MemberKindMutationAction
 >;
 
 export type AdminAccessSetStatusAction =
@@ -49,12 +55,13 @@ export type AdminAccessSetStatusAction =
 export function isIndependentAuthorityMutationAction(
   action: AdminAccessMutationAction,
 ): action is IndependentAuthorityMutationAction {
-  return (
-    action === 'GRANT_STAFF_ACCESS' ||
-    action === 'REVOKE_STAFF_ACCESS' ||
-    action === 'GRANT_ADMIN_ACCESS' ||
-    action === 'REVOKE_ADMIN_ACCESS'
-  );
+  return action === 'GRANT_ADMIN_ACCESS' || action === 'REVOKE_ADMIN_ACCESS';
+}
+
+export function isMemberKindMutationAction(
+  action: AdminAccessMutationAction,
+): action is MemberKindMutationAction {
+  return action === 'SET_MEMBER_STUDENT' || action === 'SET_MEMBER_STAFF';
 }
 
 export function actionForAccountStatus(
@@ -69,9 +76,30 @@ export interface AdminAccessMutationExtra {
   readonly reason?: string;
 }
 
+export function buildMemberKindMutationRequest(
+  action: MemberKindMutationAction,
+  detail: CanonicalAdminAccessDetail,
+  fields: MemberKindMutationFields = {},
+): MemberKindMutationRequest {
+  if (!detail.memberKind) {
+    throw new TypeError(
+      'Member-kind mutation requires an existing canonical member kind.',
+    );
+  }
+  return {
+    memberKind:
+      action === ADMIN_ACCESS_MUTATION_ACTIONS.SET_MEMBER_STUDENT
+        ? 'STUDENT'
+        : 'STAFF',
+    expectedMemberKind: detail.memberKind,
+    expectedHasStaffAccess: detail.hasStaffAccess,
+    ...fields,
+  };
+}
+
 /**
  * Builds the legacy CAS PATCH body for request decisions and account status.
- * Independent authority actions never pass through this resource.
+ * Member-kind and admin authority actions never pass through this resource.
  */
 export function buildAdminAccessPatchRequest(
   action: AdminAccessLegacyMutationAction,
@@ -205,8 +233,8 @@ export function adminAccessMutationErrorMessage(error: unknown): string {
 const ACTION_SUCCESS_LABEL: Record<AdminAccessMutationAction, string> = {
   APPROVE: '요청 승인',
   REJECT: '요청 반려',
-  GRANT_STAFF_ACCESS: '교직원 접근 허용',
-  REVOKE_STAFF_ACCESS: '교직원 접근 회수',
+  SET_MEMBER_STUDENT: '학생 유형 적용',
+  SET_MEMBER_STAFF: '교직원 유형 적용',
   GRANT_ADMIN_ACCESS: '관리자 접근 허용',
   REVOKE_ADMIN_ACCESS: '관리자 접근 회수',
   SET_STATUS_ACTIVE: '계정 재활성화',

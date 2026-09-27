@@ -23,6 +23,7 @@ import {
 const INCOMPLETE_PROFILE = {
   name: 'GitHub 합성 이름',
   studentId: null,
+  staffNumber: null,
   department: null,
   phone: null,
   isComplete: false,

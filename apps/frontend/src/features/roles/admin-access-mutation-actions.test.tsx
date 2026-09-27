@@ -16,19 +16,6 @@ import {
   AdminAccessPendingRequestCard,
 } from './components/admin-access-mutation-actions';
 
-/**
- * PR04G 재설계 — "접근 변경"이 교직원 접근·관리자 접근·계정 상태 세 묶음과, 대기
- * 요청이 있을 때만 뜨는 별도 결정 카드로 갈라졌다. 묶음의 모양은 두 번 바뀌었다:
- * 세그먼트 버튼 그룹(`role="radiogroup"`)→「지금 값은 글자, 버튼은 행동 하나」
- * (#1365, 지금 값이 채운 `disabled` 버튼이던 옛 모양이 R-31 검출 신호였다)→
- * 지금 값이 선택된 드롭다운. 마지막 한 걸음이 되돌린 것은 R-31이 아니라 **후행
- * 상태의 보이지 않음**이다 — 버튼 하나는 지금 고를 수 있는 행동만 말하고, 그 값이
- * 애초에 몇 가지이며 고르면 어느 상태가 되는지는 말하지 않았다.
- *
- * 상호작용은 `admin-access-overlay.test.tsx`와 같은 happy-dom + createRoot/act
- * 패턴을 쓴다.
- */
-
 function detail(
   overrides: Partial<CanonicalAdminAccessDetail> = {},
 ): CanonicalAdminAccessDetail {
@@ -50,6 +37,7 @@ function detail(
       name: '합성 사용자',
       studentId: '202601',
       department: '인공지능학부',
+      staffNumber: null,
       isComplete: true,
     },
     ...overrides,
@@ -70,43 +58,127 @@ afterEach(() => {
   container.remove();
 });
 
-function control(id: string): HTMLSelectElement {
+function control(id: string): HTMLButtonElement {
   const found = container.querySelector(`#${id}`);
-  if (!(found instanceof HTMLSelectElement)) {
+  if (
+    !(found instanceof HTMLButtonElement) ||
+    found.getAttribute('role') !== 'combobox'
+  ) {
     throw new TypeError(`드롭다운을 찾지 못했습니다: ${id}`);
   }
   return found;
 }
 
+function openControl(
+  id: string,
+  method: 'pointer' | 'keyboard' = 'pointer',
+): HTMLElement {
+  const trigger = control(id);
+  act(() => {
+    if (method === 'keyboard') {
+      trigger.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          code: 'Enter',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    } else {
+      trigger.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          button: 0,
+          bubbles: true,
+          cancelable: true,
+          pointerType: 'mouse',
+        }),
+      );
+      trigger.dispatchEvent(
+        new PointerEvent('pointerup', {
+          button: 0,
+          bubbles: true,
+          cancelable: true,
+          pointerType: 'mouse',
+        }),
+      );
+      trigger.click();
+    }
+  });
+
+  const listboxId = trigger.getAttribute('aria-controls');
+  const listbox = listboxId
+    ? document.getElementById(listboxId)
+    : document.querySelector<HTMLElement>(
+        '[role="listbox"][data-state="open"]',
+      );
+  if (!listbox) {
+    throw new TypeError(`목록을 열지 못했습니다: ${id}`);
+  }
+  if (listbox.getAttribute('data-state') !== 'open') {
+    throw new TypeError(`목록을 열지 못했습니다: ${id}`);
+  }
+  return listbox;
+}
+
+function controlValue(id: string): string {
+  return (
+    control(id)
+      .querySelector<HTMLElement>('[data-slot="select-value"]')
+      ?.textContent?.trim() ?? ''
+  );
+}
+
 /** 목록에 선 값과, 그중 고를 수 없는 값. */
 function optionsOf(id: string): readonly (readonly [string, boolean])[] {
-  return Array.from(control(id).options).map(
-    (option) => [option.textContent ?? '', option.disabled] as const,
+  return Array.from(openControl(id).querySelectorAll('[role="option"]')).map(
+    (option) =>
+      [
+        option.textContent?.trim() ?? '',
+        option.getAttribute('aria-disabled') === 'true' ||
+          option.hasAttribute('data-disabled'),
+      ] as const,
   );
 }
 
 function choose(id: string, value: string) {
-  const select = control(id);
-  const setter = Object.getOwnPropertyDescriptor(
-    HTMLSelectElement.prototype,
-    'value',
-  )?.set;
+  const listbox = openControl(id);
+  const labels: Record<string, string> = {
+    UNCONFIRMED: '미지정',
+    STUDENT: '학생',
+    STAFF: '교직원',
+    NONE: '비허용',
+    GRANTED: '허용',
+    ACTIVE: '활성',
+    DEACTIVATED: '비활성',
+  };
+  const option = Array.from(
+    listbox.querySelectorAll<HTMLElement>('[role="option"]'),
+  ).find((candidate) => candidate.textContent?.trim() === labels[value]);
+  if (!option) {
+    throw new TypeError(`선택지를 찾지 못했습니다: ${id}=${value}`);
+  }
   act(() => {
-    setter?.call(select, value);
-    select.dispatchEvent(new Event('change', { bubbles: true }));
+    option.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
   });
 }
 
-const STAFF = 'admin-staff-access-control';
+const MEMBER_KIND = 'admin-member-kind-control';
 const ADMIN = 'admin-admin-access-control';
 const STATUS = 'admin-access-status-control';
 
-describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다운', () => {
+describe('AdminAccessMutationActions — 회원 유형/관리자 접근/계정 상태', () => {
   it('묶음마다 드롭다운 하나가 서고, 고른 값이 지금 값이다', () => {
     act(() => {
       root.render(
         <AdminAccessMutationActions
-          // 교직원 접근 있음 / 관리자 접근 없음 / 활성 — 세 묶음이 서로 다른 값이다.
+          // 회원 유형 교직원 / 관리자 접근 비허용 / 활성 — 세 값이 서로 다르다.
           detail={detail({
             hasStaffAccess: true,
             hasAdminAccess: false,
@@ -118,19 +190,36 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
       );
     });
 
-    expect(container.querySelectorAll('select')).toHaveLength(3);
+    expect(container.querySelectorAll('[role="combobox"]')).toHaveLength(3);
     expect([
-      control(STAFF).value,
-      control(ADMIN).value,
-      control(STATUS).value,
-    ]).toEqual(['GRANTED', 'NONE', 'ACTIVE']);
+      controlValue(MEMBER_KIND),
+      controlValue(ADMIN),
+      controlValue(STATUS),
+    ]).toEqual(['교직원', '비허용', '활성']);
   });
 
-  /**
-   * 이 화면을 드롭다운으로 바꾼 이유가 이 단언이다. 버튼 하나(「허용」)만 서 있으면
-   * 그 값이 애초에 몇 가지인지, 누르면 어느 상태가 되는지가 문구에서만 유추된다.
-   * 목록은 후행 상태를 **이름으로** 보여준다.
-   */
+  it('포인터 클릭과 키보드로 실제 listbox가 열리고 선택지가 보인다', () => {
+    act(() => {
+      root.render(
+        <AdminAccessMutationActions
+          detail={detail()}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
+      );
+    });
+
+    const pointerListbox = openControl(MEMBER_KIND, 'pointer');
+    expect(control(MEMBER_KIND).getAttribute('aria-expanded')).toBe('true');
+    expect(pointerListbox.getAttribute('role')).toBe('listbox');
+    expect(pointerListbox.querySelectorAll('[role="option"]')).toHaveLength(3);
+
+    const keyboardListbox = openControl(STATUS, 'keyboard');
+    expect(control(STATUS).getAttribute('aria-expanded')).toBe('true');
+    expect(keyboardListbox.getAttribute('role')).toBe('listbox');
+    expect(keyboardListbox.querySelectorAll('[role="option"]')).toHaveLength(2);
+  });
+
   it('선택지는 그 값이 가질 수 있는 상태 전부다 — 후행 상태가 목록에 이름으로 선다', () => {
     act(() => {
       root.render(
@@ -146,13 +235,15 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
       );
     });
 
-    expect(optionsOf(STAFF)).toEqual([
-      ['없음', false],
-      ['있음', false],
+    // canonical member-kind values
+    expect(optionsOf(MEMBER_KIND)).toEqual([
+      ['미지정', true],
+      ['학생', false],
+      ['교직원', false],
     ]);
     expect(optionsOf(ADMIN)).toEqual([
-      ['없음', false],
-      ['있음', false],
+      ['비허용', false],
+      ['허용', false],
     ]);
     expect(optionsOf(STATUS)).toEqual([
       ['활성', false],
@@ -176,18 +267,18 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
       );
     });
 
-    choose(STAFF, 'NONE');
+    choose(MEMBER_KIND, 'STUDENT');
     choose(ADMIN, 'GRANTED');
     choose(STATUS, 'DEACTIVATED');
 
     expect(onRequestAction.mock.calls.flat()).toEqual([
-      'REVOKE_STAFF_ACCESS',
+      'SET_MEMBER_STUDENT',
       'GRANT_ADMIN_ACCESS',
       'SET_STATUS_DEACTIVATED',
     ]);
   });
 
-  it('지금 값을 다시 골라도 쓰기 요청은 나가지 않는다', () => {
+  it('현재 회원 유형을 다시 선택해도 쓰기 요청은 나가지 않는다', () => {
     const onRequestAction = vi.fn();
     act(() => {
       root.render(
@@ -203,32 +294,83 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
       );
     });
 
-    choose(STAFF, 'GRANTED');
+    choose(MEMBER_KIND, 'STAFF');
     choose(ADMIN, 'NONE');
     choose(STATUS, 'ACTIVE');
 
     expect(onRequestAction).not.toHaveBeenCalled();
   });
 
-  it('상태는 고르는 것이지 누르는 것이 아니다 — 이 카드에 버튼은 남지 않는다', () => {
-    const html = renderToStaticMarkup(
-      <AdminAccessMutationActions
-        detail={detail({
-          hasStaffAccess: true,
-          hasAdminAccess: false,
-          accountStatus: 'ACTIVE',
-        })}
-        processingAction={null}
-        onRequestAction={() => {}}
-      />,
-    );
+  it('교직원 유형에는 별도 정보 수정 버튼을 만들지 않는다', () => {
+    act(() => {
+      root.render(
+        <AdminAccessMutationActions
+          detail={detail({
+            memberKind: 'STAFF',
+            hasStaffAccess: true,
+          })}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
+      );
+    });
 
-    expect(html).toContain('있음');
-    expect(html).toContain('없음');
-    expect(html).toContain('활성');
-    // R-31 검출 신호 — 상태 문자열을 담은 `disabled` 버튼이 애초에 생기지 않는다.
-    expect(html).not.toContain('<button');
-    expect(html).not.toContain('data-variant="default"');
+    expect(
+      Array.from(container.querySelectorAll('button')).find(
+        (button) => button.textContent?.trim() === '교직원 정보 수정',
+      ),
+    ).toBeUndefined();
+    expect(controlValue(MEMBER_KIND)).toBe('교직원');
+  });
+
+  it('canonical 회원 유형이 없으면 교직원 접근에서 추론하지 않고 미지정으로 둔다', () => {
+    act(() => {
+      root.render(
+        <AdminAccessMutationActions
+          detail={detail({
+            role: 'ADMIN',
+            memberKind: null,
+            hasStaffAccess: true,
+          })}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
+      );
+    });
+
+    expect(controlValue(MEMBER_KIND)).toBe('미지정');
+    expect(control(MEMBER_KIND).disabled).toBe(true);
+    expect(document.querySelector('[role="listbox"]')).toBeNull();
+  });
+
+  it('회원 유형과 권한 상태의 선택지가 화면에 함께 드러난다', () => {
+    act(() => {
+      root.render(
+        <AdminAccessMutationActions
+          detail={detail({
+            hasStaffAccess: true,
+            hasAdminAccess: false,
+            accountStatus: 'ACTIVE',
+          })}
+          processingAction={null}
+          onRequestAction={() => {}}
+        />,
+      );
+    });
+
+    expect(optionsOf(MEMBER_KIND)).toEqual([
+      ['미지정', true],
+      ['학생', false],
+      ['교직원', false],
+    ]);
+    expect(optionsOf(ADMIN)).toEqual([
+      ['비허용', false],
+      ['허용', false],
+    ]);
+    expect(optionsOf(STATUS)).toEqual([
+      ['활성', false],
+      ['비활성', false],
+    ]);
   });
 
   it('드롭다운마다 제 이름표가 `htmlFor`로 묶여 읽힌다', () => {
@@ -248,13 +390,13 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
         label.textContent,
       ]),
     ).toEqual([
-      [STAFF, '교직원 접근'],
+      [MEMBER_KIND, '회원 유형'],
       [ADMIN, '관리자 접근'],
       [STATUS, '계정 상태'],
     ]);
   });
 
-  it('대기 중인 요청이 있으면 세 드롭다운이 모두 잠기고 안내문이 뜬다', () => {
+  it('대기 중인 요청이 있으면 회원 유형만 잠기고 안내문이 뜬다', () => {
     act(() => {
       root.render(
         <AdminAccessMutationActions
@@ -275,22 +417,25 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
       '대기 중인 요청을 먼저 처리해 주세요.',
     );
     expect(
-      Array.from(container.querySelectorAll('select')).map(
-        (select) => select.disabled,
+      Array.from(container.querySelectorAll('[role="combobox"]')).map(
+        (trigger) => (trigger as HTMLButtonElement).disabled,
       ),
-    ).toEqual([true, true, true]);
+    ).toEqual([true, false, false]);
   });
 
-  it('프로필이 미완료면 「있음」 선택지만 막고 이유를 한 번 설명한다', () => {
+  it('프로필이 미완료면 회원 유형 변경이 막히고 이유를 설명한다', () => {
     act(() => {
       root.render(
         <AdminAccessMutationActions
           detail={detail({
             role: 'STUDENT',
+            memberKind: 'STUDENT',
+            hasStaffAccess: false,
             profile: {
               name: null,
               studentId: null,
               department: null,
+              staffNumber: null,
               isComplete: false,
             },
           })}
@@ -301,21 +446,16 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
     });
 
     expect(container.textContent).toContain(
-      '프로필(이름·학번·학과) 완성 전에는 부여할 수 없습니다.',
+      '프로필(이름·학과·학번) 완성 후 회원 유형을 적용할 수 있습니다.',
     );
-    // 교직원은 이미 「있음」이라 그 값이 지금 값이므로 막히지 않는다 —
-    // 아직 받지 않은 관리자 접근의 「있음」 하나만 고를 수 없다.
-    expect(optionsOf(STAFF)).toEqual([
-      ['없음', false],
-      ['있음', false],
-    ]);
+    expect(control(MEMBER_KIND).disabled).toBe(true);
     expect(optionsOf(ADMIN)).toEqual([
-      ['없음', false],
-      ['있음', true],
+      ['비허용', false],
+      ['허용', true],
     ]);
   });
 
-  it('두 접근이 이미 허용됐으면 프로필 미완료여도 막힌 선택지도 이유 문장도 없다', () => {
+  it('관리자 접근은 프로필 미완료와 독립적으로 회수할 수 있다', () => {
     // 시드로 만든 첫 관리자 계정이 프로필을 채우기 전까지 정확히 이 상태다
     // (`apps/backend/src/auth/auth.repository.ts`가 profile 없는 계정에 권한을 켠다).
     act(() => {
@@ -328,6 +468,7 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
               name: null,
               studentId: null,
               department: null,
+              staffNumber: null,
               isComplete: false,
             },
           })}
@@ -337,15 +478,15 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
       );
     });
 
-    expect(container.textContent).not.toContain('부여할 수 없습니다');
-    expect(
-      Array.from(container.querySelectorAll('option')).some(
-        (option) => option.disabled,
-      ),
-    ).toBe(false);
+    expect(control(MEMBER_KIND).disabled).toBe(true);
+    expect(optionsOf(ADMIN)).toEqual([
+      ['비허용', false],
+      ['허용', false],
+    ]);
+    expect(optionsOf(STATUS).some(([, disabled]) => disabled)).toBe(false);
   });
 
-  it('본인 계정이면 「비활성」 선택지만 막히고 안내문이 뜬다', () => {
+  it('본인 계정의 비활성화 안내는 트리거에 포커스할 때만 뜬다', () => {
     act(() => {
       root.render(
         <AdminAccessMutationActions
@@ -356,9 +497,16 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
       );
     });
 
-    expect(container.textContent).toContain(
+    expect(container.textContent).not.toContain(
       '자기 계정은 비활성화할 수 없습니다.',
     );
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+    act(() => control(STATUS).focus());
+    expect(document.querySelector('[role="tooltip"]')?.textContent).toContain(
+      '자기 계정은 비활성화할 수 없습니다.',
+    );
+    act(() => control(STATUS).blur());
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
     expect(optionsOf(STATUS)).toEqual([
       ['활성', false],
       ['비활성', true],
@@ -386,7 +534,7 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
     );
   });
 
-  it('본인 계정의 관리자 접근 회수는 「없음」 선택지가 막히고 같은 묶음에 이유가 붙는다', () => {
+  it('본인 관리자 접근은 비허용을 막고 포커스 툴팁으로 이유를 알린다', () => {
     // #1382 — 성공하면 누른 사람이 이 화면을 읽을 권한을 잃어 결과를 확인할 수
     // 없다. 서버도 `ROL_022`로 거절한다.
     act(() => {
@@ -399,20 +547,25 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
       );
     });
 
-    expect(optionsOf(ADMIN)).toEqual([
-      ['없음', true],
-      ['있음', false],
-    ]);
-    // 계정 상태 쪽 가드 문장과 같은 자리·같은 모양이다.
-    const reason = control(ADMIN).parentElement?.querySelector(
-      'p.text-sm.text-muted-foreground',
-    );
-    expect(reason?.textContent).toBe(
+    expect(container.textContent).not.toContain(
       '자기 계정의 관리자 접근은 회수할 수 없습니다.',
     );
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+    act(() => control(ADMIN).focus());
+    const reason = document.querySelector('[role="tooltip"]');
+    expect(reason?.textContent).toContain(
+      '자기 계정의 관리자 접근은 회수할 수 없습니다.',
+    );
+    expect(control(ADMIN).getAttribute('aria-describedby')).toBe(reason?.id);
+    act(() => control(ADMIN).blur());
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+    expect(optionsOf(ADMIN)).toEqual([
+      ['비허용', true],
+      ['허용', false],
+    ]);
   });
 
-  it('남의 계정이면 관리자 접근 「없음」을 그대로 고를 수 있고 이유 문장도 없다', () => {
+  it('남의 계정이면 관리자 접근 「비허용」을 그대로 고를 수 있고 이유 문장도 없다', () => {
     const onRequestAction = vi.fn();
     act(() => {
       root.render(
@@ -425,8 +578,8 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
     });
 
     expect(optionsOf(ADMIN)).toEqual([
-      ['없음', false],
-      ['있음', false],
+      ['비허용', false],
+      ['허용', false],
     ]);
     choose(ADMIN, 'NONE');
     expect(onRequestAction).toHaveBeenCalledWith('REVOKE_ADMIN_ACCESS');
@@ -435,7 +588,7 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
     );
   });
 
-  it('본인 계정이어도 관리자 접근이 없으면 「있음」이 열려 있고 이유 문장도 없다', () => {
+  it('본인 계정이어도 관리자 접근이 없으면 「허용」이 열려 있고 이유 문장도 없다', () => {
     act(() => {
       root.render(
         <AdminAccessMutationActions
@@ -448,8 +601,8 @@ describe('AdminAccessMutationActions — 독립 접근/계정 상태 드롭다�
 
     // 회수 가드는 회수 방향에만 걸린다 — 계정 상태의 「활성」과 같은 규칙이다.
     expect(optionsOf(ADMIN)).toEqual([
-      ['없음', false],
-      ['있음', false],
+      ['비허용', false],
+      ['허용', false],
     ]);
     expect(container.textContent).not.toContain(
       '자기 계정의 관리자 접근은 회수할 수 없습니다.',

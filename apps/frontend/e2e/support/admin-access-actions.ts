@@ -46,12 +46,9 @@ export async function openApplicantDetail(
  * 대기 중인 요청 카드의 「승인」/「반려」를 눌러 확인 다이얼로그가 뜨는
  * 지점까지만 진행한다.
  *
- * 예전에는 `접근 변경 작업 선택` 셀렉트 하나에서 작업을 고르고 `실행` 을 눌렀다.
- * #759 가 그 셀렉트를 없애고 라디오그룹과 승인/반려 버튼으로 쪼갰으며, Task 11이
- * 다시 역할 라디오그룹을 지우고 교직원·관리자 접근을 독립 컨트롤로 나눠놓았다.
- * 그쪽은 이 헬퍼가 아니라 `chooseAuthority`·`chooseAccountStatus` 가 맡는다 —
- * 묶음마다 제 값의 드롭다운을 직접 고르는 방식이라 "작업 이름 고르기" 추상화에
- * 맞지 않는다.
+ * 예전에는 `접근 변경 작업 선택` 셀렉트 하나에서 작업을 고르고 `실행`을 눌렀다.
+ * 지금은 대기 요청의 승인·반려 버튼만 이 헬퍼가 소유한다. 회원 유형과 관리자
+ * 접근·계정 상태는 각각 정본 컨트롤에서 고른 뒤 확인 다이얼로그를 연다.
  */
 export async function chooseMutation(
   page: Page,
@@ -68,25 +65,117 @@ export async function chooseMutation(
   throw new Error(`알 수 없는 접근 변경 작업: ${optionName}`);
 }
 
+async function chooseRoleOption(
+  page: Page,
+  label: string,
+  optionName: string,
+): Promise<void> {
+  const trigger = page.getByLabel(label, { exact: true });
+  await expect(trigger).toHaveAttribute('role', 'combobox');
+  await trigger.click();
+  const listbox = page.getByRole('listbox');
+  await expect(listbox).toBeVisible();
+  const option = listbox.getByRole('option', {
+    name: optionName,
+    exact: true,
+  });
+  await expect(option).toBeVisible();
+  await option.click();
+}
+
 /**
- * 접근 변경 카드에서 교직원·관리자 접근 값을 골라 확인 다이얼로그를 띄운다
- * (확정은 호출자가 누른다 — 다이얼로그 문구를 먼저 단언하는 것이 이 흐름의
- * 핵심이다).
- *
- * Task 11이 단일 「역할」 라디오그룹을 지우고 교직원 접근·관리자 접근을 각각
- * 독립 컨트롤로 쪼갰고, #1365가 묶음 안의 라디오 두 개를 「지금 값은 글자,
- * 버튼은 행동 하나」로 바꿨다가, 지금은 묶음마다 드롭다운 하나다 — 지금 값이
- * 선택돼 있고 후행 상태가 목록에 이름으로 서 있다. 그래서 조작은 「행동 이름을
- * 누르기」가 아니라 「되고 싶은 상태를 고르기」다.
+ * 관리자 접근 값을 골라 확인 다이얼로그를 띄운다(확정은 호출자가 누른다 —
+ * 다이얼로그 문구를 먼저 단언하는 흐름에서만 사용한다). 교직원 접근은 이제
+ * 회원 유형 전환 명령이 정본이므로 이 브라우저 헬퍼의 범위에서 제외한다.
  */
 export async function chooseAuthority(
   page: Page,
-  authority: '교직원 접근' | '관리자 접근',
+  authority: '관리자 접근',
   next: '허용' | '회수',
 ): Promise<void> {
-  await page
-    .getByLabel(authority, { exact: true })
-    .selectOption(next === '허용' ? 'GRANTED' : 'NONE');
+  await chooseRoleOption(page, authority, next === '허용' ? '허용' : '비허용');
+}
+
+export type MemberKind = 'STUDENT' | 'STAFF';
+
+export interface MemberKindChangeInput {
+  readonly memberKind: MemberKind;
+  readonly expectedMemberKind: MemberKind;
+  readonly expectedHasStaffAccess: boolean;
+  readonly studentId?: string;
+  readonly department?: string;
+  readonly staffNumber?: string | null;
+}
+
+/**
+ * 회원 유형 변경의 관리자 전용 준비·복구 경계. 브라우저 UI 여정의 전제만
+ * 만들고 본인(학생/교직원) 세션에서 프로필을 덮어쓰지 않는다.
+ */
+export function requestMemberKindChange(
+  page: Page,
+  targetId: string,
+  input: MemberKindChangeInput,
+) {
+  const {
+    memberKind,
+    expectedMemberKind,
+    expectedHasStaffAccess,
+    studentId,
+    department,
+    staffNumber,
+  } = input;
+  return page.request.patch(
+    `${e2eEnvironment.baseUrl}/api/v1/users/${encodeURIComponent(targetId)}/member-kind`,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: e2eEnvironment.baseUrl,
+      },
+      data: {
+        memberKind,
+        expectedMemberKind,
+        expectedHasStaffAccess,
+        ...(studentId === undefined ? {} : { studentId }),
+        ...(department === undefined ? {} : { department }),
+        ...(staffNumber === undefined ? {} : { staffNumber }),
+      },
+    },
+  );
+}
+
+export function requestStaffAccessGrant(page: Page, targetId: string) {
+  return page.request.patch(
+    `${e2eEnvironment.baseUrl}/api/v1/users/${encodeURIComponent(targetId)}/staff-access`,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        Origin: e2eEnvironment.baseUrl,
+      },
+      data: { command: 'GRANT_STAFF_ACCESS' },
+    },
+  );
+}
+
+export function getAdminAccessDetail(page: Page, targetId: string) {
+  return page.request.get(
+    `${e2eEnvironment.baseUrl}/api/v1/users/${encodeURIComponent(targetId)}/access`,
+    { headers: { Origin: e2eEnvironment.baseUrl } },
+  );
+}
+
+/**
+ * 회원 유형 컨트롤에서 다음 정본 유형을 고른다. 확정 버튼과 프로필 필드는
+ * 시나리오가 독립적으로 단언할 수 있게 여기서 누르지 않는다.
+ */
+export async function chooseMemberKind(
+  page: Page,
+  next: MemberKind,
+): Promise<void> {
+  await chooseRoleOption(
+    page,
+    '회원 유형',
+    next === 'STUDENT' ? '학생' : '교직원',
+  );
 }
 
 /**
@@ -99,19 +188,20 @@ export async function chooseAccountStatus(
   page: Page,
   action: '재활성화' | '비활성화',
 ): Promise<void> {
-  await page
-    .getByLabel('계정 상태', { exact: true })
-    .selectOption(action === '재활성화' ? 'ACTIVE' : 'DEACTIVATED');
+  await chooseRoleOption(
+    page,
+    '계정 상태',
+    action === '재활성화' ? '활성' : '비활성',
+  );
 }
 
 /**
- * 허용 → 「허용 확정」까지 한 번에 누르는 기계적 조작 묶음. 다이얼로그 문구를
- * 단언할 일이 없는 지점(예: 공유 시드 원상 복구)에서만 쓴다 — 선택과 확정
- * 사이에 단언이 끼는 흐름은 `chooseAuthority`를 직접 쓰고 확정을 따로 누른다.
+ * 관리자 접근 허용 → 「허용 확정」까지 한 번에 누르는 기계적 조작 묶음.
+ * 다이얼로그 문구를 단언할 일이 없는 지점에서만 쓴다.
  */
 export async function grantAuthority(
   page: Page,
-  authority: '교직원 접근' | '관리자 접근',
+  authority: '관리자 접근',
 ): Promise<void> {
   await chooseAuthority(page, authority, '허용');
   await page.getByRole('button', { name: '허용 확정' }).click();

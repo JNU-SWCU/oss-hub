@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { ApiError } from '@/lib/api-client';
 import {
   fetchAdminAccessHistory,
   parseAdminAccessConflictProjection,
@@ -18,8 +19,10 @@ import {
   applyAdminAccessConflictProjection,
   applyAdminAccessDecidedRequestToHistory,
   isIndependentAuthorityMutationAction,
+  isMemberKindMutationAction,
   type AdminAccessMutationAction,
 } from '../admin-access-mutation-policy';
+import type { MemberKindMutationFields } from '../independent-authority-api';
 import {
   AdminAccessDetailContentForState,
   type AdminAccessDetailState,
@@ -102,6 +105,15 @@ export function AdminAccessDetailView({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    setConfirmAction(null);
+    setRejectReason('');
+    setProcessingAction(null);
+    setDialogError(null);
+    setConflictNotice(null);
+    setSuccessMessage(null);
+  }, [userId]);
+
+  useEffect(() => {
     if (!successMessage) return;
     const timeout = window.setTimeout(() => setSuccessMessage(null), 4_000);
     return () => window.clearTimeout(timeout);
@@ -113,19 +125,30 @@ export function AdminAccessDetailView({
     setDialogError(null);
   };
 
-  const confirmMutation = async () => {
+  const confirmMutation = async (
+    memberKindFields?: MemberKindMutationFields,
+  ) => {
     if (state.kind !== 'ready' || !confirmAction) return;
     const action = confirmAction;
     const detail = state.detail;
     setProcessingAction(action);
     setDialogError(null);
+    setSuccessMessage(null);
     try {
-      const result = await executeAdminAccessMutation(
-        userId,
-        action,
-        detail,
-        rejectReason,
-      );
+      const result = isMemberKindMutationAction(action)
+        ? await executeAdminAccessMutation(
+            userId,
+            action,
+            detail,
+            rejectReason,
+            memberKindFields,
+          )
+        : await executeAdminAccessMutation(
+            userId,
+            action,
+            detail,
+            rejectReason,
+          );
       setConfirmAction(null);
       setRejectReason('');
       setConflictNotice(null);
@@ -159,6 +182,21 @@ export function AdminAccessDetailView({
         retry();
       }
     } catch (error) {
+      if (
+        isMemberKindMutationAction(action) &&
+        error instanceof ApiError &&
+        error.problem.status === 409
+      ) {
+        setConfirmAction(null);
+        setRejectReason('');
+        setDialogError(null);
+        setSuccessMessage(null);
+        setConflictNotice(
+          '다른 처리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.',
+        );
+        retry();
+        return;
+      }
       const projection = parseAdminAccessConflictProjection(error);
       if (projection) {
         if (isIndependentAuthorityMutationAction(action)) {
@@ -200,9 +238,11 @@ export function AdminAccessDetailView({
       setConfirmAction(action);
       setRejectReason('');
       setDialogError(null);
+      setConflictNotice(null);
+      setSuccessMessage(null);
     },
     onCancel: cancelAction,
-    onConfirm: () => void confirmMutation(),
+    onConfirm: (fields) => void confirmMutation(fields),
     onReasonChange: setRejectReason,
   };
 

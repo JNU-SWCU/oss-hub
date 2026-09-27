@@ -78,13 +78,102 @@ async function mount(workspace: AccessWorkspace): Promise<void> {
   });
 }
 
+function chooseRoleOption(id: string, label: string): void {
+  const trigger = container.querySelector(`#${id}`);
+  if (
+    !(trigger instanceof HTMLButtonElement) ||
+    trigger.getAttribute('role') !== 'combobox'
+  ) {
+    throw new TypeError(`드롭다운을 찾지 못했습니다: ${id}`);
+  }
+
+  act(() => {
+    trigger.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        button: 0,
+        bubbles: true,
+        cancelable: true,
+        pointerType: 'mouse',
+      }),
+    );
+    trigger.dispatchEvent(
+      new PointerEvent('pointerup', {
+        button: 0,
+        bubbles: true,
+        cancelable: true,
+        pointerType: 'mouse',
+      }),
+    );
+    trigger.click();
+  });
+
+  expect(trigger.getAttribute('aria-expanded')).toBe('true');
+  const listboxId = trigger.getAttribute('aria-controls');
+  const listbox = listboxId
+    ? document.getElementById(listboxId)
+    : document.querySelector<HTMLElement>(
+        '[role="listbox"][data-state="open"]',
+      );
+  if (
+    !listbox ||
+    listbox.getAttribute('role') !== 'listbox' ||
+    listbox.getAttribute('data-state') !== 'open'
+  ) {
+    throw new TypeError(`목록을 열지 못했습니다: ${id}`);
+  }
+
+  const option = Array.from(
+    listbox.querySelectorAll<HTMLElement>('[role="option"]'),
+  ).find((candidate) => candidate.textContent?.trim() === label);
+  if (!option) {
+    throw new TypeError(`선택지를 찾지 못했습니다: ${label}`);
+  }
+
+  act(() => {
+    option.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        button: 0,
+        bubbles: true,
+        cancelable: true,
+        pointerType: 'mouse',
+      }),
+    );
+    option.dispatchEvent(
+      new PointerEvent('pointermove', {
+        bubbles: true,
+        cancelable: true,
+        pointerType: 'mouse',
+        clientX: 100,
+        clientY: 100,
+      }),
+    );
+    option.dispatchEvent(
+      new PointerEvent('pointerup', {
+        button: 0,
+        bubbles: true,
+        cancelable: true,
+        pointerType: 'mouse',
+      }),
+    );
+    option.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    option.click();
+  });
+}
+
 async function approve(): Promise<void> {
   await act(async () => {
     clickButton(container, '승인');
     await flush();
   });
   await act(async () => {
-    clickButton(container, '승인 확정');
+    clickButton(document.body, '승인 확정');
     await flush();
   });
 }
@@ -184,22 +273,45 @@ describe('관리자 명부(directory) 결정 — 재조회로 최신 감사 필�
   });
 });
 
-// 이슈 1411 — 같은 상태 명령을 서버가 409 로 거절한 뒤의 화면.
-describe('교직원·관리자 접근 — 낡은 화면에서 이미 그 상태인 값을 고르면', () => {
-  it('완료했다고 말하지 않고 충돌 안내를 띄운 뒤 최신 값을 다시 읽는다', async () => {
-    // Given: 화면은 교직원 접근이 켜진 것으로 알지만, 다른 처리자가 이미 껐다.
+// 회원 유형 명령도 낡은 detail projection에 대해 409를 반환한다.
+describe('회원 유형 — 낡은 화면에서 이미 변경된 값을 고르면', () => {
+  it('확인한 입력을 보내고 성공을 말하지 않은 채 최신 상세를 다시 읽는다', async () => {
+    // Given: 화면은 교직원 유형으로 알지만, 다른 처리자가 학생으로 바꿨다.
     const history = decidedHistory(
       'APPROVED',
       '2026-08-22T00:00:00.000Z',
       'seed-auth-admin',
     );
+    const staleDetail = adminDetail({
+      memberKind: 'STAFF',
+      hasStaffAccess: true,
+      pendingRequest: null,
+      profile: {
+        name: '홍길동',
+        studentId: '202601',
+        department: '인공지능학부',
+        staffNumber: 'STAFF-1',
+        isComplete: true,
+      },
+    });
     loadAdminAccessDetail
       .mockResolvedValueOnce({
-        detail: adminDetail({ hasStaffAccess: true, pendingRequest: null }),
+        detail: staleDetail,
         history,
       })
       .mockResolvedValueOnce({
-        detail: adminDetail({ hasStaffAccess: false, pendingRequest: null }),
+        detail: adminDetail({
+          memberKind: 'STUDENT',
+          hasStaffAccess: false,
+          pendingRequest: null,
+          profile: {
+            name: '홍길동',
+            studentId: '202601',
+            department: '인공지능학부',
+            staffNumber: null,
+            isComplete: true,
+          },
+        }),
         history,
       });
     const conflict: ProblemDetail & { readonly currentAccess: unknown } = {
@@ -207,11 +319,11 @@ describe('교직원·관리자 접근 — 낡은 화면에서 이미 그 상태�
       title: 'Conflict',
       status: 409,
       detail: '접근 상태가 변경되었습니다.',
-      instance: '/users/target/staff-access',
+      instance: '/users/target/member-kind',
       code: 'ROL_013',
       currentAccess: {
         id: 'target',
-        role: 'STAFF',
+        role: 'STUDENT',
         accountStatus: 'ACTIVE',
         pendingRequest: null,
       },
@@ -219,34 +331,44 @@ describe('교직원·관리자 접근 — 낡은 화면에서 이미 그 상태�
     executeAdminAccessMutation.mockRejectedValue(new ApiError(conflict));
     await mount('directory');
 
-    // When: 낡은 화면에서 「없음」을 고르고 회수를 확정한다.
-    const select = container.querySelector('#admin-staff-access-control');
-    if (!(select instanceof HTMLSelectElement)) {
-      throw new TypeError('교직원 접근 드롭다운을 찾지 못했습니다.');
-    }
+    // When: 학생 유형을 고르면 기존 식별자를 다시 입력하지 않고 바로 확인한다.
+    chooseRoleOption('admin-member-kind-control', '학생');
+    expect(document.querySelector('#admin-member-kind-student-id')).toBeNull();
+    expect(document.querySelector('#admin-member-kind-department')).toBeNull();
     await act(async () => {
-      Object.getOwnPropertyDescriptor(
-        HTMLSelectElement.prototype,
-        'value',
-      )?.set?.call(select, 'NONE');
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-      await flush();
-    });
-    await act(async () => {
-      clickButton(document.body, '회수 확정');
+      const dialog = document.querySelector('[role="dialog"]');
+      if (!(dialog instanceof HTMLElement)) {
+        throw new TypeError('회원 유형 확인 다이얼로그를 찾지 못했습니다.');
+      }
+      const buttons = Array.from(dialog.querySelectorAll('button'));
+      const confirmButton = buttons.at(-1);
+      if (!(confirmButton instanceof HTMLButtonElement)) {
+        throw new TypeError('회원 유형 확정 버튼을 찾지 못했습니다.');
+      }
+      confirmButton.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
       await flush();
     });
 
-    // Then: 성공 문구 대신 충돌 안내가 서고, 상세를 다시 읽어 드롭다운이 서버 값으로 선다.
+    // Then: 잘못된 성공 문구 대신 충돌 안내가 서고, 최신 상세로 다시 읽는다.
     expect(executeAdminAccessMutation).toHaveBeenCalledTimes(1);
+    expect(executeAdminAccessMutation).toHaveBeenCalledWith(
+      'target',
+      'SET_MEMBER_STUDENT',
+      staleDetail,
+      '',
+      { department: '인공지능학부' },
+    );
     expect(loadAdminAccessDetail).toHaveBeenCalledTimes(2);
     expect(document.body.textContent).toContain(
       '다른 처리자가 먼저 변경했습니다',
     );
     expect(document.body.textContent).not.toContain('처리를 완료했습니다');
-    const refreshed = container.querySelector('#admin-staff-access-control');
-    expect(refreshed).toBeInstanceOf(HTMLSelectElement);
-    expect((refreshed as HTMLSelectElement).value).toBe('NONE');
+    const refreshed = container.querySelector('#admin-member-kind-control');
+    expect(refreshed).toBeInstanceOf(HTMLButtonElement);
+    expect(refreshed?.getAttribute('role')).toBe('combobox');
+    expect(refreshed?.textContent).toContain('학생');
   });
 });
 

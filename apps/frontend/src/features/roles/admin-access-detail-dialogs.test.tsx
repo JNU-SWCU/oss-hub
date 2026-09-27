@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act } from 'react';
+import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -30,9 +30,18 @@ afterEach(() => {
   container.remove();
 });
 
+function renderDialog(content: ReactNode): HTMLElement {
+  act(() => root.render(content));
+  const dialog = document.querySelector('[data-slot="dialog-shell"]');
+  if (!(dialog instanceof HTMLElement)) {
+    throw new TypeError('공용 확인 다이얼로그를 찾지 못했습니다.');
+  }
+  return dialog;
+}
+
 describe('요청/계정 상태 확인 다이얼로그', () => {
   it('SET_STATUS_DEACTIVATED는 "계정 비활성화" 다이얼로그를 destructive로 띄운다', () => {
-    const html = renderToStaticMarkup(
+    const dialog = renderDialog(
       <AdminAccessDetailContentForState
         state={{
           kind: 'ready',
@@ -45,13 +54,13 @@ describe('요청/계정 상태 확인 다이얼로그', () => {
         })}
       />,
     );
-    expect(html).toContain('계정 비활성화');
-    expect(html).toContain('octocat님의 계정을 비활성화합니다.');
-    expect(html).toContain('비활성화 확정');
+    expect(dialog.textContent).toContain('계정 비활성화');
+    expect(dialog.textContent).toContain('octocat님의 계정을 비활성화합니다.');
+    expect(dialog.textContent).toContain('비활성화 확정');
   });
 
   it('SET_STATUS_ACTIVE는 "계정 재활성화" 다이얼로그를 non-destructive로 띄운다', () => {
-    const html = renderToStaticMarkup(
+    const dialog = renderDialog(
       <AdminAccessDetailContentForState
         state={{
           kind: 'ready',
@@ -64,12 +73,12 @@ describe('요청/계정 상태 확인 다이얼로그', () => {
         })}
       />,
     );
-    expect(html).toContain('계정 재활성화');
-    expect(html).toContain('재활성화 확정');
+    expect(dialog.textContent).toContain('계정 재활성화');
+    expect(dialog.textContent).toContain('재활성화 확정');
   });
 
   it('APPROVE는 승인 확정 다이얼로그를 띄운다', () => {
-    const html = renderToStaticMarkup(
+    const dialog = renderDialog(
       <AdminAccessDetailContentForState
         state={{
           kind: 'ready',
@@ -88,8 +97,8 @@ describe('요청/계정 상태 확인 다이얼로그', () => {
         })}
       />,
     );
-    expect(html).toContain('요청 승인');
-    expect(html).toContain('승인 확정');
+    expect(dialog.textContent).toContain('요청 승인');
+    expect(dialog.textContent).toContain('승인 확정');
   });
 
   it('다이얼로그의 취소 버튼은 mutation.onCancel을, 확정 버튼은 mutation.onConfirm을 호출한다', () => {
@@ -113,10 +122,10 @@ describe('요청/계정 상태 확인 다이얼로그', () => {
       );
     });
 
-    const cancelButton = Array.from(container.querySelectorAll('button')).find(
+    const cancelButton = Array.from(document.querySelectorAll('button')).find(
       (button) => button.textContent === '취소',
     );
-    const confirmButton = Array.from(container.querySelectorAll('button')).find(
+    const confirmButton = Array.from(document.querySelectorAll('button')).find(
       (button) => button.textContent === '비활성화 확정',
     );
     act(() => {
@@ -222,7 +231,7 @@ describe('배너 — 충돌 알림·성공 메시지·다이얼로그 에러 (�
   });
 
   it('dialogError가 있으면 열려 있는 다이얼로그 안에 에러를 그린다', () => {
-    const html = renderToStaticMarkup(
+    const dialog = renderDialog(
       <AdminAccessDetailContentForState
         state={{
           kind: 'ready',
@@ -236,6 +245,8 @@ describe('배너 — 충돌 알림·성공 메시지·다이얼로그 에러 (�
         })}
       />,
     );
-    expect(html).toContain('활성 관리자 계정을 최소 한 개 유지해야 합니다.');
+    expect(dialog.textContent).toContain(
+      '활성 관리자 계정을 최소 한 개 유지해야 합니다.',
+    );
   });
 });

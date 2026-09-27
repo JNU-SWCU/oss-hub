@@ -25,6 +25,7 @@ function validValues(
     name: '합성 사용자',
     studentId: '1'.repeat(6),
     savedStudentId: '1'.repeat(6),
+    staffNumber: 'STAFF-42',
     phone: TEN_DIGIT_PHONE,
     departmentOption: '인공지능학부',
     otherDepartment: '',
@@ -41,6 +42,7 @@ describe('settings form state', () => {
         {
           name: '합성 사용자',
           studentId: '1'.repeat(6),
+          staffNumber: 'STAFF-42',
           department: '합성 융합전공',
           phone: TEN_DIGIT_PHONE,
           isComplete: true,
@@ -54,6 +56,7 @@ describe('settings form state', () => {
       name: '합성 사용자',
       studentId: '1'.repeat(6),
       savedStudentId: '1'.repeat(6),
+      staffNumber: 'STAFF-42',
       phone: TEN_DIGIT_PHONE,
       departmentOption: OTHER_DEPARTMENT,
       otherDepartment: '합성 융합전공',
@@ -68,13 +71,35 @@ describe('settings form state', () => {
         {
           name: '합성 교직원',
           studentId: null,
+          staffNumber: null,
           department: '인공지능학부',
           phone: null,
           isComplete: true,
         },
         null,
       ),
-    ).toMatchObject({ studentId: '', savedStudentId: '', phone: '' });
+    ).toMatchObject({
+      studentId: '',
+      savedStudentId: '',
+      staffNumber: '',
+      phone: '',
+    });
+  });
+
+  it('저장된 사번을 초기 폼에 그대로 불러온다', () => {
+    expect(
+      createInitialSettingsForm(
+        {
+          name: '합성 교직원',
+          studentId: null,
+          staffNumber: 'EMP-042',
+          department: '인공지능학부',
+          phone: null,
+          isComplete: true,
+        },
+        null,
+      ),
+    ).toMatchObject({ staffNumber: 'EMP-042' });
   });
 
   it('이미 저장된 학번은 갱신 요청에 넣지 않는다', () => {
@@ -86,6 +111,9 @@ describe('settings form state', () => {
     expect(
       toSettingsProfileRequest(validValues(), 'STUDENT'),
     ).not.toHaveProperty('studentId');
+    expect(
+      toSettingsProfileRequest(validValues(), 'STUDENT'),
+    ).not.toHaveProperty('staffNumber');
   });
 
   it('교직원이 학번을 비워 두면 오류 없이 통과한다', () => {
@@ -93,11 +121,52 @@ describe('settings form state', () => {
     const errors = validateSettingsForm(empty, true, 'STAFF');
 
     expect(errors.studentId).toBeNull();
+    expect(errors.staffNumber).toBeNull();
     expect(errors.phone).toBeNull();
     expect(isSettingsFormValid(errors)).toBe(true);
     expect(toSettingsProfileRequest(empty, 'STAFF')).not.toHaveProperty(
       'studentId',
     );
+  });
+
+  it('교직원 사번은 숫자 제한 없이 trim·NFC 정규화해 저장한다', () => {
+    const decomposed = '  émployee-A  ';
+    const values = validValues({ staffNumber: decomposed });
+    const errors = validateSettingsForm(values, true, 'STAFF');
+
+    expect(errors.staffNumber).toBeNull();
+    expect(toSettingsProfileRequest(values, 'STAFF')).toMatchObject({
+      staffNumber: 'émployee-A',
+    });
+  });
+
+  it('교직원 사번이 100 code point를 넘으면 오류를 만든다', () => {
+    const values = validValues({ staffNumber: '가'.repeat(101) });
+
+    const errors = validateSettingsForm(values, true, 'STAFF');
+
+    expect(errors.staffNumber).toContain('100');
+    expect(isSettingsFormValid(errors)).toBe(false);
+    expect(toSettingsProfileRequest(values, 'STAFF')).toBeNull();
+  });
+
+  it('교직원 사번은 UTF-16 길이가 아닌 code point 100개까지 허용한다', () => {
+    const staffNumber = '𐐀'.repeat(100);
+    const values = validValues({ staffNumber });
+
+    expect(validateSettingsForm(values, true, 'STAFF').staffNumber).toBeNull();
+    expect(toSettingsProfileRequest(values, 'STAFF')).toMatchObject({
+      staffNumber,
+    });
+  });
+
+  it('교직원 사번을 비우면 null로 지운다', () => {
+    const values = validValues({ staffNumber: '   ' });
+
+    expect(validateSettingsForm(values, true, 'STAFF').staffNumber).toBeNull();
+    expect(toSettingsProfileRequest(values, 'STAFF')).toMatchObject({
+      staffNumber: null,
+    });
   });
 
   it('학생은 전화번호를 비워 두면 저장할 수 없다', () => {

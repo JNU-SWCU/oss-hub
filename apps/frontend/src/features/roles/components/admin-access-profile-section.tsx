@@ -25,7 +25,7 @@ import { DEPARTMENT_GROUPS, OTHER_DEPARTMENT } from '@/lib/departments';
 import { cn } from '@/lib/utils';
 
 import { patchAdminUserProfile } from '../admin-access-api';
-import type { AdminAccessProfile } from '../admin-access-api';
+import type { CanonicalAdminAccessDetail } from '../independent-authority-api';
 import {
   ADMIN_PROFILE_DEPARTMENT_MAX_LENGTH,
   ADMIN_PROFILE_NAME_MAX_LENGTH,
@@ -59,7 +59,7 @@ export function AdminAccessProfileSection({
   onSaved,
 }: {
   readonly userId: string;
-  readonly profile: AdminAccessProfile;
+  readonly profile: CanonicalAdminAccessDetail['profile'];
   readonly headingTag: 'h2' | 'h3';
   readonly isOverlay: boolean;
   readonly allowEdit: boolean;
@@ -188,6 +188,10 @@ export function AdminAccessProfileSection({
             <div>
               <dt className="text-muted-foreground">학번</dt>
               <dd>{profile.studentId ?? '미등록'}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">교직원 번호</dt>
+              <dd>{profile.staffNumber ?? '미등록'}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">학과</dt>

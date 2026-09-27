@@ -74,6 +74,7 @@ const ADMIN_SESSION = {
 const INCOMPLETE_PROFILE = {
   name: '',
   studentId: null,
+  staffNumber: null,
   department: null,
   phone: null,
   isComplete: false,
@@ -82,6 +83,7 @@ const INCOMPLETE_PROFILE = {
 const SETTINGS_PROFILE = {
   name: '합성 학생',
   studentId: '260901',
+  staffNumber: null,
   department: '인공지능학부',
   phone: '1'.repeat(10),
   isComplete: true,

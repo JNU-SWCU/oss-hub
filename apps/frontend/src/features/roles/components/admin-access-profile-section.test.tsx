@@ -5,8 +5,10 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
 
-import type { AdminAccessProfile } from '../admin-access-api';
+import type { CanonicalAdminAccessDetail } from '../independent-authority-api';
 import { AdminAccessProfileSection } from './admin-access-profile-section';
+
+type AdminAccessProfile = CanonicalAdminAccessDetail['profile'];
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -34,6 +36,7 @@ function profile(
   return {
     name: '합성 사용자',
     studentId: '260001',
+    staffNumber: null,
     department: '소프트웨어공학과',
     isComplete: true,
     ...overrides,

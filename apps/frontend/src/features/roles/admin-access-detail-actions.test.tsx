@@ -30,6 +30,95 @@ afterEach(() => {
   container.remove();
 });
 
+function chooseRoleOption(id: string, label: string): void {
+  const trigger = container.querySelector(`#${id}`);
+  if (
+    !(trigger instanceof HTMLButtonElement) ||
+    trigger.getAttribute('role') !== 'combobox'
+  ) {
+    throw new TypeError(`드롭다운을 찾지 못했습니다: ${id}`);
+  }
+
+  act(() => {
+    trigger.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        button: 0,
+        bubbles: true,
+        cancelable: true,
+        pointerType: 'mouse',
+      }),
+    );
+    trigger.dispatchEvent(
+      new PointerEvent('pointerup', {
+        button: 0,
+        bubbles: true,
+        cancelable: true,
+        pointerType: 'mouse',
+      }),
+    );
+    trigger.click();
+  });
+
+  expect(trigger.getAttribute('aria-expanded')).toBe('true');
+  const listboxId = trigger.getAttribute('aria-controls');
+  const listbox = listboxId
+    ? document.getElementById(listboxId)
+    : document.querySelector<HTMLElement>(
+        '[role="listbox"][data-state="open"]',
+      );
+  if (
+    !listbox ||
+    listbox.getAttribute('role') !== 'listbox' ||
+    listbox.getAttribute('data-state') !== 'open'
+  ) {
+    throw new TypeError(`목록을 열지 못했습니다: ${id}`);
+  }
+
+  const option = Array.from(
+    listbox.querySelectorAll<HTMLElement>('[role="option"]'),
+  ).find((candidate) => candidate.textContent?.trim() === label);
+  if (!option) {
+    throw new TypeError(`선택지를 찾지 못했습니다: ${label}`);
+  }
+
+  act(() => {
+    option.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        button: 0,
+        bubbles: true,
+        cancelable: true,
+        pointerType: 'mouse',
+      }),
+    );
+    option.dispatchEvent(
+      new PointerEvent('pointermove', {
+        bubbles: true,
+        cancelable: true,
+        pointerType: 'mouse',
+        clientX: 100,
+        clientY: 100,
+      }),
+    );
+    option.dispatchEvent(
+      new PointerEvent('pointerup', {
+        button: 0,
+        bubbles: true,
+        cancelable: true,
+        pointerType: 'mouse',
+      }),
+    );
+    option.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    option.click();
+  });
+}
+
 describe('대기 중인 요청 결정 카드 — 접근 변경 카드 위에 조건부로 뜬다', () => {
   it('대기 요청이 없으면 결정 카드를 그리지 않는다', () => {
     const html = renderToStaticMarkup(
@@ -129,7 +218,7 @@ describe('대기 중인 요청 결정 카드 — 접근 변경 카드 위에 조
 });
 
 describe('독립 접근 컨트롤 통합', () => {
-  it('교직원 접근을 「있음」으로 고르면 GRANT_STAFF_ACCESS로 전달된다', () => {
+  it('회원 유형을 교직원으로 고르면 SET_MEMBER_STAFF로 전달된다', () => {
     const onRequestAction = vi.fn();
     act(() => {
       root.render(
@@ -139,7 +228,7 @@ describe('독립 접근 컨트롤 통합', () => {
             detail: adminDetail({
               role: 'STUDENT',
               memberKind: 'STUDENT',
-              hasStaffAccess: false,
+              hasStaffAccess: true,
             }),
             history: adminHistory(),
           }}
@@ -149,19 +238,7 @@ describe('독립 접근 컨트롤 통합', () => {
       );
     });
 
-    const staffControl = container.querySelector('#admin-staff-access-control');
-    if (!(staffControl instanceof HTMLSelectElement)) {
-      throw new TypeError('교직원 접근 드롭다운을 찾지 못했습니다');
-    }
-    expect(staffControl.value).toBe('NONE');
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLSelectElement.prototype,
-      'value',
-    )?.set;
-    act(() => {
-      setter?.call(staffControl, 'GRANTED');
-      staffControl.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-    expect(onRequestAction).toHaveBeenCalledWith('GRANT_STAFF_ACCESS');
+    chooseRoleOption('admin-member-kind-control', '교직원');
+    expect(onRequestAction).toHaveBeenCalledWith('SET_MEMBER_STAFF');
   });
 });

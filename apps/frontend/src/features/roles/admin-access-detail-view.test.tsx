@@ -177,6 +177,7 @@ describe('프로필 섹션 — "기본 정보 입력" dt/dd 제거, 미완료 �
             profile: {
               name: null,
               studentId: null,
+              staffNumber: null,
               department: null,
               isComplete: false,
             },

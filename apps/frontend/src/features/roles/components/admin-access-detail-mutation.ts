@@ -1,8 +1,11 @@
-import type { AdminAccessDetail } from '../admin-access-api';
 import {
   isIndependentAuthorityMutationAction,
   type AdminAccessMutationAction,
 } from '../admin-access-mutation-policy';
+import type {
+  CanonicalAdminAccessDetail,
+  MemberKindMutationFields,
+} from '../independent-authority-api';
 
 export interface AdminAccessDetailMutationController {
   readonly confirmAction: AdminAccessMutationAction | null;
@@ -13,16 +16,16 @@ export interface AdminAccessDetailMutationController {
   readonly successMessage: string | null;
   readonly onRequestAction: (action: AdminAccessMutationAction) => void;
   readonly onCancel: () => void;
-  readonly onConfirm: () => void;
+  readonly onConfirm: (fields?: MemberKindMutationFields) => void;
   readonly onReasonChange: (reason: string) => void;
 }
 
 export function adminAccessMutationDialogCopy(
   action: Exclude<AdminAccessMutationAction, 'REJECT'>,
-  detail: AdminAccessDetail,
+  detail: CanonicalAdminAccessDetail,
 ): {
   readonly title: string;
-  readonly description: string;
+  readonly description: string | null;
   readonly confirmLabel: string;
   readonly destructive: boolean;
 } {
@@ -34,10 +37,25 @@ export function adminAccessMutationDialogCopy(
       destructive: false,
     };
   }
+  if (action === 'SET_MEMBER_STUDENT') {
+    return {
+      title: '학생으로 변경',
+      description: '교직원 접근 권한이 해제됩니다.',
+      confirmLabel: '변경',
+      destructive: true,
+    };
+  }
+  if (action === 'SET_MEMBER_STAFF') {
+    return {
+      title: '교직원으로 변경',
+      description: '교직원 접근 권한이 부여됩니다.',
+      confirmLabel: '변경',
+      destructive: false,
+    };
+  }
   if (isIndependentAuthorityMutationAction(action)) {
-    const staff = action.endsWith('STAFF_ACCESS');
     const grant = action.startsWith('GRANT_');
-    const authority = staff ? '교직원 접근' : '관리자 접근';
+    const authority = '관리자 접근';
     return {
       title: grant ? `${authority} 허용` : `${authority} 회수`,
       description: `${detail.githubLogin}님의 ${authority}을 ${

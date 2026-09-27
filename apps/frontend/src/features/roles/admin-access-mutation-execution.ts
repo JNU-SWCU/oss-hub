@@ -1,16 +1,19 @@
 import {
   patchAdminAccess,
-  type AdminAccessDetail,
   type AdminAccessMutationResponse,
 } from './admin-access-api';
 import {
   buildAdminAccessPatchRequest,
+  buildMemberKindMutationRequest,
   isIndependentAuthorityMutationAction,
+  isMemberKindMutationAction,
   type AdminAccessMutationAction,
 } from './admin-access-mutation-policy';
 import {
   patchAdminAuthority,
-  patchStaffAccess,
+  patchMemberKind,
+  type CanonicalAdminAccessDetail,
+  type MemberKindMutationFields,
 } from './independent-authority-api';
 
 /**
@@ -21,15 +24,19 @@ import {
 export async function executeAdminAccessMutation(
   userId: string,
   action: AdminAccessMutationAction,
-  detail: AdminAccessDetail,
+  detail: CanonicalAdminAccessDetail,
   reason: string,
+  memberKindFields?: MemberKindMutationFields,
 ): Promise<AdminAccessMutationResponse | null> {
+  if (isMemberKindMutationAction(action)) {
+    await patchMemberKind(
+      userId,
+      buildMemberKindMutationRequest(action, detail, memberKindFields),
+    );
+    return null;
+  }
   if (isIndependentAuthorityMutationAction(action)) {
     switch (action) {
-      case 'GRANT_STAFF_ACCESS':
-      case 'REVOKE_STAFF_ACCESS':
-        await patchStaffAccess(userId, action);
-        return null;
       case 'GRANT_ADMIN_ACCESS':
       case 'REVOKE_ADMIN_ACCESS':
         await patchAdminAuthority(userId, action);

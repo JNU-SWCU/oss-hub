@@ -1,16 +1,18 @@
 import { expect, test } from './admin-session.fixture';
 import {
   attachStateScreenshot,
-  chooseAuthority,
+  chooseMemberKind,
   chooseMutation,
   chooseStaffRole,
   deactivateAccount,
-  grantAuthority,
+  getAdminAccessDetail,
   openApplicantDetail,
   openDetail,
+  requestMemberKindChange,
+  requestStaffAccessGrant,
   requestStaffRoleRevocation,
 } from './support/admin-access-actions';
-import { seedId } from './support/session-cookie';
+import { ADMIN_SEED_USER_ID, seedId } from './support/session-cookie';
 
 const STAFF_PENDING = seedId('auth', 'staff-pending');
 const STAFF_PENDING_SECOND = seedId('auth', 'staff-pending-second');
@@ -20,6 +22,43 @@ const REJECTION_REASON =
   '합성 E2E 반려 사유 — 담당 프로그램 소속을 다시 확인해 주세요.';
 
 test.describe.serial('관리자 접근 권한 lifecycle', () => {
+  test('본인 계정의 제한은 선택지를 막고 hover와 포커스로만 안내한다', async ({
+    adminPage,
+  }) => {
+    await adminPage.goto(
+      `/dashboard/users/${encodeURIComponent(ADMIN_SEED_USER_ID)}`,
+    );
+    const adminAccess = adminPage.locator('#admin-admin-access-control');
+    await expect(adminAccess).toHaveText('허용');
+    const reason = '자기 계정의 관리자 접근은 회수할 수 없습니다.';
+    await expect(adminPage.getByText(reason, { exact: true })).toHaveCount(0);
+
+    await adminAccess.hover();
+    await expect(adminPage.getByRole('tooltip')).toHaveText(reason);
+    await adminPage.mouse.move(0, 0, { steps: 5 });
+    await expect(adminPage.getByRole('tooltip')).toHaveCount(0);
+    await adminAccess.focus();
+    await expect(adminPage.getByRole('tooltip')).toHaveText(reason);
+    await adminAccess.press('Escape');
+    await expect(adminPage.getByRole('tooltip')).toHaveCount(0);
+
+    const writes: string[] = [];
+    adminPage.on('request', (request) => {
+      if (request.method() === 'PATCH' && request.url().includes('/users/')) {
+        writes.push(request.url());
+      }
+    });
+    await adminAccess.click();
+    await expect(
+      adminPage.getByRole('option', { name: '비허용', exact: true }),
+    ).toHaveAttribute('aria-disabled', 'true');
+    await adminPage.keyboard.press('ArrowUp');
+    await adminPage.keyboard.press('Enter');
+    await expect(adminAccess).toHaveText('허용');
+    await expect(adminPage.getByRole('dialog')).toHaveCount(0);
+    expect(writes).toEqual([]);
+  });
+
   test('사용자 목록에서 검색과 페이지네이션을 통과한다', async ({
     adminPage,
   }, testInfo) => {
@@ -247,88 +286,257 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     ).toHaveCount(0);
   });
 
-  test('교직원 접근을 회수하면 즉시 접근이 막히고, API 회수는 역할 재선택으로 이어진다', async ({
+  test('관리자가 회원 유형을 전환하면 교직원 번호·학번을 보존하고 취소는 쓰지 않는다', async ({
     adminPage,
     authSeedPage,
   }, testInfo) => {
-    // Given: 회수 전 교직원 접근을 가진 세션은 운영 대시보드에 접근한다.
-    const staffPage = await authSeedPage('staff-revocable');
-    await staffPage.goto('/dashboard');
-    await expect(
-      staffPage.getByRole('heading', { name: '운영 대시보드' }),
-    ).toBeVisible();
-
-    // When: 관리자가 독립 권한 컨트롤에서 교직원 접근만 회수한다. Task 11이
-    // 단일 역할 라디오그룹을 지우고 교직원 접근·관리자 접근을 각각 독립
-    // 컨트롤로 쪼갰으므로, 이제 "학생으로 낮춘다"가 아니라 "교직원 접근을
-    // 회수한다"가 정본 조작이다. 다이얼로그가 다른 접근 권한은 그대로라고
-    // 명시하는지까지 본다 — 독립성이 이 화면의 계약이다.
-    await openDetail(adminPage, STAFF_REVOCABLE, '합성 활성 교직원');
-    await chooseAuthority(adminPage, '교직원 접근', '회수');
-    const revokeDialog = adminPage.getByRole('dialog');
-    await expect(revokeDialog).toContainText('교직원 접근 회수');
-    await expect(revokeDialog).toContainText(
-      'seed-auth-staff-revocable님의 교직원 접근을 회수합니다. 다른 접근 권한은 변경되지 않습니다.',
-    );
-    await adminPage.getByRole('button', { name: '회수 확정' }).click();
-    // 회수 뒤 표시용 역할은 memberKind(학생)만 남아 「학생」으로 접힌다
-    // (`authority-label.ts`) — 계정이 사라진 것이 아니라 교직원 접근만 빠졌다.
-    await expect(
-      adminPage.getByText('학생', { exact: true }).first(),
-    ).toBeVisible();
-    await attachStateScreenshot(adminPage, testInfo, 'staff-access-revoked');
-
-    // Then: 같은 세션은 교직원 전용 화면에서 즉시 거부된다.
-    await staffPage.goto('/programs/new');
-    await expect(
-      staffPage.getByText('접근 권한이 없습니다', { exact: true }),
-    ).toBeVisible();
-    await attachStateScreenshot(staffPage, testInfo, 'revoked-denied');
-
-    // And: 학생 정체성은 유지된다 — 내 대시보드는 그대로 열리고 역할 재선택으로
-    // 튕기지 않는다. 역할이 null이 되는 아래 API 회수와 갈라지는 지점이다.
-    await staffPage.goto('/dashboard');
-    await expect(staffPage).not.toHaveURL(/\/onboarding\/role$/);
-    await expect(
-      staffPage.getByRole('heading', { name: '내 대시보드' }),
-    ).toBeVisible();
-
-    // seed-auth-staff-revocable은 deadline-digest.spec.ts가 교직원으로 재사용하는
-    // 공유 시드다. 회수한 채로 두면 그 스펙이 운영 대시보드를 못 찾고 깨진다
-    // (describe.serial이라 스펙 간 시드 초기화가 없다). adminPage는 여전히 이
-    // 사용자의 상세 화면에 있으니 같은 독립 권한 컨트롤로 원상 복구한다 —
-    // 삭제된 역할 컨트롤이 아니라 정본 명령으로 되돌려야 뒤 스펙이 격리된다.
-    await grantAuthority(adminPage, '교직원 접근');
-    await expect(
-      adminPage.getByText('교직원', { exact: true }).first(),
-    ).toBeVisible();
-
-    // Given: 첫 테스트에서 승인되어 여전히 STAFF인 별도 사용자(seed-auth-
-    // staff-pending)로, null 회수·REVOKED 이력은 API 로만 여전히 도달할 수
-    // 있는 실제 기능임을 검증한다.
-    const revocationResponse = await requestStaffRoleRevocation(
+    // Given: 이 공유 시드는 이전 계약에서 학번을 가진 STAFF 역할로 만들어져
+    // canonical memberKind가 STUDENT인 채 남을 수 있다. 표시 역할을 해석하지
+    // 않고 access projection의 정본 필드만 읽어 관리자 API로 STAFF 전제를 만든다.
+    const originalResponse = await getAdminAccessDetail(
       adminPage,
-      STAFF_PENDING,
+      STAFF_REVOCABLE,
     );
-    expect(revocationResponse.status()).toBe(200);
-    expect(
-      (await revocationResponse.json()) as { readonly role: unknown },
-    ).toMatchObject({ role: null });
+    expect(originalResponse.status()).toBe(200);
+    const original = (await originalResponse.json()) as {
+      readonly memberKind: 'STUDENT' | 'STAFF';
+      readonly hasStaffAccess: boolean;
+      readonly profile: {
+        readonly studentId: string | null;
+        readonly department: string | null;
+        readonly staffNumber: string | null;
+      };
+    };
+    expect(['STUDENT', 'STAFF']).toContain(original.memberKind);
+    expect(original.hasStaffAccess).toBe(true);
+    if (original.memberKind === 'STUDENT') {
+      const preparation = await requestMemberKindChange(
+        adminPage,
+        STAFF_REVOCABLE,
+        {
+          memberKind: 'STAFF',
+          expectedMemberKind: 'STUDENT',
+          expectedHasStaffAccess: true,
+          staffNumber: null,
+        },
+      );
+      expect(preparation.status()).toBe(200);
+    }
+    const preparedResponse = await getAdminAccessDetail(
+      adminPage,
+      STAFF_REVOCABLE,
+    );
+    expect(preparedResponse.status()).toBe(200);
+    const prepared = (await preparedResponse.json()) as {
+      readonly memberKind: 'STUDENT' | 'STAFF';
+      readonly hasStaffAccess: boolean;
+      readonly profile: {
+        readonly studentId: string | null;
+        readonly department: string | null;
+        readonly staffNumber: string | null;
+      };
+    };
+    expect(prepared).toMatchObject({
+      memberKind: 'STAFF',
+      hasStaffAccess: true,
+    });
+    expect(prepared.profile.studentId).toBe(original.profile.studentId);
+    expect(prepared.profile.department).toBe(original.profile.department);
 
-    // Then: 회수된 본인 세션은 즉시 역할 재선택으로 튕기고, 별도 재신청
-    // 버튼 없이 STAFF를 다시 고를 수 있다.
-    const revokedStaffPage = await authSeedPage('staff-pending');
-    await revokedStaffPage.goto('/dashboard');
-    await expect(revokedStaffPage).toHaveURL(/\/onboarding\/role$/);
+    await openDetail(adminPage, STAFF_REVOCABLE, '합성 활성 교직원');
+    const memberKind = adminPage.getByLabel('회원 유형', { exact: true });
+    await expect(memberKind).toHaveText('교직원');
+
+    // 사번 수정은 관리자의 접근 변경이 아니라 본인 프로필의 저장 동작이다.
     await expect(
-      revokedStaffPage.getByRole('heading', { name: '어떤 역할로 쓰시나요' }),
+      adminPage.getByRole('button', { name: '교직원 정보 수정', exact: true }),
+    ).toHaveCount(0);
+    const staffPage = await authSeedPage('staff-revocable');
+    await staffPage.goto('/settings');
+    const ownStaffNumber = staffPage.getByLabel('교직원 번호 (선택)', {
+      exact: true,
+    });
+    await expect(ownStaffNumber).toBeVisible();
+    const maximumLengthStaffNumber = '𐐀'.repeat(100);
+    const notificationEmail = staffPage.getByLabel('수신 이메일', {
+      exact: true,
+    });
+    if (
+      (await notificationEmail.count()) > 0 &&
+      (await notificationEmail.inputValue()) === ''
+    ) {
+      await notificationEmail.fill('staff-profile@example.test');
+    }
+    async function saveOwnStaffNumber(value: string) {
+      await ownStaffNumber.fill(value);
+      await expect(ownStaffNumber).toHaveValue(value);
+      const response = staffPage.waitForResponse(
+        (candidate) =>
+          candidate.url().endsWith('/api/v1/users/me/profile') &&
+          candidate.request().method() === 'PATCH',
+      );
+      const save = staffPage.getByRole('button', { name: '저장', exact: true });
+      await save.click();
+      expect((await response).status()).toBe(200);
+      await expect(save).toBeEnabled();
+      await staffPage.reload();
+      await expect(ownStaffNumber).toHaveValue(value.trim().normalize('NFC'));
+    }
+    await saveOwnStaffNumber(maximumLengthStaffNumber);
+    await saveOwnStaffNumber('');
+    await saveOwnStaffNumber('E2E-STAFF-42');
+
+    // 저장된 staffNumber는 상세를 다시 열어도 canonical projection에서 읽혀야 한다.
+    await adminPage.reload();
+    await expect(memberKind).toHaveText('교직원');
+    await expect(
+      adminPage.getByText('E2E-STAFF-42', { exact: true }),
     ).toBeVisible();
-    await chooseStaffRole(revokedStaffPage);
-    await attachStateScreenshot(
-      revokedStaffPage,
-      testInfo,
-      'null-revoked-reapplied',
+    const savedStaffResponse = await getAdminAccessDetail(
+      adminPage,
+      STAFF_REVOCABLE,
     );
+    expect(savedStaffResponse.status()).toBe(200);
+    expect(
+      (await savedStaffResponse.json()) as {
+        readonly profile: { readonly staffNumber: string | null };
+      },
+    ).toMatchObject({ profile: { staffNumber: 'E2E-STAFF-42' } });
+
+    // 취소는 정본을 바꾸지 않는다. GET projection을 취소 전후로 비교해
+    // 버튼 클릭이 PATCH로 이어지지 않았음을 확인한다.
+    const beforeCancelResponse = await getAdminAccessDetail(
+      adminPage,
+      STAFF_REVOCABLE,
+    );
+    expect(beforeCancelResponse.status()).toBe(200);
+    const beforeCancel = await beforeCancelResponse.json();
+    await chooseMemberKind(adminPage, 'STUDENT');
+    const cancelledDialog = adminPage.getByRole('dialog');
+    await expect(cancelledDialog).toContainText('학생으로 변경');
+    await cancelledDialog
+      .getByRole('button', { name: '취소', exact: true })
+      .click();
+    await expect(cancelledDialog).toHaveCount(0);
+    await expect(memberKind).toBeFocused();
+    const afterCancelResponse = await getAdminAccessDetail(
+      adminPage,
+      STAFF_REVOCABLE,
+    );
+    expect(afterCancelResponse.status()).toBe(200);
+    expect(await afterCancelResponse.json()).toEqual(beforeCancel);
+
+    // 교직원 → 학생은 기존 학번·학과를 다시 입력하지 않는다. 기존 legacy
+    // 학번은 명령에서 생략하고, 확인 다이얼로그는 저장된 값을 증거로 보여 준다.
+    expect(prepared.profile.studentId).not.toBeNull();
+    expect(prepared.profile.department).not.toBeNull();
+    const preservedStudentId = prepared.profile.studentId as string;
+    const preservedDepartment = prepared.profile.department as string;
+    await chooseMemberKind(adminPage, 'STUDENT');
+    const studentDialog = adminPage.getByRole('dialog');
+    await expect(studentDialog.getByLabel('학번', { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(studentDialog.getByLabel('학과', { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(studentDialog).toContainText(preservedStudentId);
+    await expect(studentDialog).toContainText(preservedDepartment);
+    await studentDialog
+      .getByRole('button', { name: '변경', exact: true })
+      .click();
+    await expect(memberKind).toHaveText('학생');
+    await expect(
+      adminPage.getByText(preservedStudentId, { exact: true }),
+    ).toBeVisible();
+    await adminPage.reload();
+    await expect(memberKind).toHaveText('학생');
+    await expect(
+      adminPage.getByText(preservedStudentId, { exact: true }),
+    ).toBeVisible();
+    const savedStudentResponse = await getAdminAccessDetail(
+      adminPage,
+      STAFF_REVOCABLE,
+    );
+    expect(savedStudentResponse.status()).toBe(200);
+    expect(await savedStudentResponse.json()).toMatchObject({
+      memberKind: 'STUDENT',
+      hasStaffAccess: false,
+      profile: {
+        studentId: preservedStudentId,
+        department: preservedDepartment,
+      },
+    });
+    await attachStateScreenshot(adminPage, testInfo, 'member-kind-roundtrip');
+
+    // deadline-digest.spec.ts가 같은 합성 교직원 세션을 재사용한다. 원래
+    // memberKind/studentId/department/접근 플래그를 복구하고, 번호는 원래
+    // 값(null)을 다시 넣어 뒤 스펙에 변경을 남기지 않는다. 기존 학번은
+    // 복구 명령에서도 생략해 legacy 값을 보존한다.
+    if (original.memberKind === 'STUDENT') {
+      // member-kind STUDENT keeps the optional staffNumber unless the command
+      // explicitly clears it. Cycle through STAFF with the original value so
+      // the shared fixture returns to its exact canonical profile, then grant
+      // the independent staff access back.
+      const restoredStaff = await requestMemberKindChange(
+        adminPage,
+        STAFF_REVOCABLE,
+        {
+          memberKind: 'STAFF',
+          expectedMemberKind: 'STUDENT',
+          expectedHasStaffAccess: false,
+          staffNumber: original.profile.staffNumber,
+        },
+      );
+      expect(restoredStaff.status()).toBe(200);
+      expect(original.profile.studentId).not.toBeNull();
+      expect(original.profile.department).not.toBeNull();
+      const restoredStudent = await requestMemberKindChange(
+        adminPage,
+        STAFF_REVOCABLE,
+        {
+          memberKind: 'STUDENT',
+          expectedMemberKind: 'STAFF',
+          expectedHasStaffAccess: true,
+          department: original.profile.department as string,
+          staffNumber: original.profile.staffNumber,
+        },
+      );
+      expect(restoredStudent.status()).toBe(200);
+      if (original.hasStaffAccess) {
+        const restoredAccess = await requestStaffAccessGrant(
+          adminPage,
+          STAFF_REVOCABLE,
+        );
+        expect(restoredAccess.status()).toBe(200);
+      }
+    } else {
+      const restoredKind = await requestMemberKindChange(
+        adminPage,
+        STAFF_REVOCABLE,
+        {
+          memberKind: 'STAFF',
+          expectedMemberKind: 'STUDENT',
+          expectedHasStaffAccess: false,
+          staffNumber: original.profile.staffNumber,
+        },
+      );
+      expect(restoredKind.status()).toBe(200);
+    }
+    const restoredResponse = await getAdminAccessDetail(
+      adminPage,
+      STAFF_REVOCABLE,
+    );
+    expect(restoredResponse.status()).toBe(200);
+    expect(await restoredResponse.json()).toMatchObject({
+      memberKind: original.memberKind,
+      hasStaffAccess: original.hasStaffAccess,
+      profile: {
+        studentId: original.profile.studentId,
+        department: original.profile.department,
+        staffNumber: original.profile.staffNumber,
+      },
+    });
   });
 
   test('두 관리자의 오래된 화면은 409 뒤 최신 역할로 수렴한다', async ({
@@ -385,59 +593,176 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     await expect(requestHistory).toContainText('seed-auth-admin-second');
   });
 
-  // 이슈 1411 — 교직원·관리자 접근은 CAS 가 없는 정본 명령이라, 오래된 화면에서
-  // 이미 꺼진 접근을 다시 회수하면 예전에는 서버가 아무것도 쓰지 않고 200 을
-  // 돌려줘 「처리를 완료했습니다」가 떴다. 이제 409 ROL_013 으로 거절되고, 화면은
-  // 계정 상태 충돌과 같은 안내를 띄운 뒤 두 접근 값을 다시 읽는다.
-  test('교직원 접근의 오래된 화면에서 이미 꺼진 접근을 회수하면 완료가 아니라 충돌 안내로 수렴한다', async ({
+  // 회원 유형 전환도 expectedMemberKind + expectedHasStaffAccess를 함께 검사한다.
+  // 두 관리자가 같은 STAFF projection에서 출발하면 두 번째의 STUDENT 전환만
+  // 성공하고, 첫 번째의 오래된 전환은 409 뒤 최신 projection으로 수렴해야 한다.
+  test('회원 유형의 오래된 화면은 409 뒤 최신 유형과 회수 이력으로 수렴한다', async ({
     adminPage,
     authSeedPage,
     expectAdminResourceStatusError,
   }, testInfo) => {
-    // Given: 첫 관리자는 교직원 접근이 켜진 상세를 보고 있다.
-    await openDetail(adminPage, STAFF_REVOCABLE, '합성 활성 교직원');
-    await expect(
-      adminPage.getByLabel('교직원 접근', { exact: true }),
-    ).toHaveValue('GRANTED');
+    const originalResponse = await getAdminAccessDetail(
+      adminPage,
+      STAFF_REVOCABLE,
+    );
+    expect(originalResponse.status()).toBe(200);
+    const original = (await originalResponse.json()) as {
+      readonly memberKind: 'STUDENT' | 'STAFF';
+      readonly hasStaffAccess: boolean;
+      readonly profile: {
+        readonly studentId: string | null;
+        readonly department: string | null;
+        readonly staffNumber: string | null;
+      };
+    };
+    expect(original.hasStaffAccess).toBe(true);
+    if (original.memberKind === 'STUDENT') {
+      const preparation = await requestMemberKindChange(
+        adminPage,
+        STAFF_REVOCABLE,
+        {
+          memberKind: 'STAFF',
+          expectedMemberKind: 'STUDENT',
+          expectedHasStaffAccess: true,
+          staffNumber: original.profile.staffNumber,
+        },
+      );
+      expect(preparation.status()).toBe(200);
+    }
 
-    // When: 두 번째 관리자가 먼저 같은 계정의 교직원 접근을 화면에서 회수한다.
+    const staleStudentId = original.profile.studentId;
+    const staleDepartment = original.profile.department;
+    if (staleStudentId === null || staleDepartment === null) {
+      throw new TypeError(
+        '이 합성 시나리오는 저장된 학생 학번과 학과가 필요합니다.',
+      );
+    }
+
+    // Given: 첫 관리자는 STAFF 상세의 이전 projection을 보고 있다.
+    await openDetail(adminPage, STAFF_REVOCABLE, '합성 활성 교직원');
+    await expect(adminPage.getByLabel('회원 유형', { exact: true })).toHaveText(
+      '교직원',
+    );
+
+    // When: 두 번째 관리자가 먼저 같은 계정의 유형을 STUDENT로 전환한다.
     const secondAdminPage = await authSeedPage('admin-second');
     await openDetail(secondAdminPage, STAFF_REVOCABLE, '합성 활성 교직원');
-    await chooseAuthority(secondAdminPage, '교직원 접근', '회수');
-    await secondAdminPage.getByRole('button', { name: '회수 확정' }).click();
+    await chooseMemberKind(secondAdminPage, 'STUDENT');
+    const secondDialog = secondAdminPage.getByRole('dialog');
+    await expect(secondDialog.getByLabel('학번', { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(secondDialog.getByLabel('학과', { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(secondDialog).toContainText(staleStudentId);
+    await expect(secondDialog).toContainText(staleDepartment);
+    await secondDialog
+      .getByRole('button', { name: '변경', exact: true })
+      .click();
     await expect(
-      secondAdminPage.getByLabel('교직원 접근', { exact: true }),
-    ).toHaveValue('NONE');
+      secondAdminPage.getByLabel('회원 유형', { exact: true }),
+    ).toHaveText('학생');
 
-    // Then: 첫 관리자의 오래된 화면에서 같은 회수를 확정하면 409 로 거절되고,
-    // 완료 문구 대신 충돌 안내가 서며 드롭다운이 서버 값으로 돌아온다.
+    // Then: 첫 관리자의 오래된 화면에서 같은 전환을 확정하면 409로 거절되고,
+    // 완료 문구 대신 충돌 안내가 서며 유형 컨트롤이 서버 값으로 돌아온다.
     expectAdminResourceStatusError(409);
-    await chooseAuthority(adminPage, '교직원 접근', '회수');
-    await adminPage.getByRole('button', { name: '회수 확정' }).click();
+    await chooseMemberKind(adminPage, 'STUDENT');
+    const staleDialog = adminPage.getByRole('dialog');
+    await expect(staleDialog.getByLabel('학번', { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(staleDialog.getByLabel('학과', { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(staleDialog).toContainText(staleStudentId);
+    await expect(staleDialog).toContainText(staleDepartment);
+    await staleDialog
+      .getByRole('button', { name: '변경', exact: true })
+      .click();
     await expect(
       adminPage.getByText(
         '다른 처리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.',
       ),
     ).toBeVisible();
+    await expect(adminPage.getByRole('dialog')).toHaveCount(0);
     await expect(adminPage.getByText(/처리를 완료했습니다/)).toHaveCount(0);
-    await expect(
-      adminPage.getByLabel('교직원 접근', { exact: true }),
-    ).toHaveValue('NONE');
-    // 다시 읽은 이력에는 먼저 회수한 두 번째 관리자의 한 줄이 보인다.
+    await expect(adminPage.getByLabel('회원 유형', { exact: true })).toHaveText(
+      '학생',
+    );
+    // 다시 읽은 이력에는 먼저 전환한 두 번째 관리자의 회수 한 줄이 보인다.
     const requestHistory = adminPage
       .getByRole('heading', { name: '요청 이력' })
       .locator('..');
+    await expect(requestHistory).toContainText('회수');
     await expect(requestHistory).toContainText('seed-auth-admin-second');
     await attachStateScreenshot(
       adminPage,
       testInfo,
-      'stale-authority-conflict',
+      'stale-member-kind-conflict',
     );
 
-    // 공유 시드이므로 교직원 접근을 다시 켜 둔다.
-    await grantAuthority(adminPage, '교직원 접근');
-    await expect(
-      adminPage.getByLabel('교직원 접근', { exact: true }),
-    ).toHaveValue('GRANTED');
+    // 공유 시드이므로 원래 정체성과 접근을 다시 켜 둔다. 이 API는 관리자
+    // 세션으로만 호출하며 학생/교직원 토큰에서 profile을 쓰지 않는다.
+    if (original.memberKind === 'STUDENT') {
+      const restoredStaff = await requestMemberKindChange(
+        adminPage,
+        STAFF_REVOCABLE,
+        {
+          memberKind: 'STAFF',
+          expectedMemberKind: 'STUDENT',
+          expectedHasStaffAccess: false,
+          staffNumber: original.profile.staffNumber,
+        },
+      );
+      expect(restoredStaff.status()).toBe(200);
+      expect(original.profile.studentId).not.toBeNull();
+      expect(original.profile.department).not.toBeNull();
+      const restoredStudent = await requestMemberKindChange(
+        adminPage,
+        STAFF_REVOCABLE,
+        {
+          memberKind: 'STUDENT',
+          expectedMemberKind: 'STAFF',
+          expectedHasStaffAccess: true,
+          department: original.profile.department as string,
+          staffNumber: original.profile.staffNumber,
+        },
+      );
+      expect(restoredStudent.status()).toBe(200);
+      if (original.hasStaffAccess) {
+        const restoredAccess = await requestStaffAccessGrant(
+          adminPage,
+          STAFF_REVOCABLE,
+        );
+        expect(restoredAccess.status()).toBe(200);
+      }
+    } else {
+      const restoredKind = await requestMemberKindChange(
+        adminPage,
+        STAFF_REVOCABLE,
+        {
+          memberKind: 'STAFF',
+          expectedMemberKind: 'STUDENT',
+          expectedHasStaffAccess: false,
+          staffNumber: original.profile.staffNumber,
+        },
+      );
+      expect(restoredKind.status()).toBe(200);
+    }
+    const restoredResponse = await getAdminAccessDetail(
+      adminPage,
+      STAFF_REVOCABLE,
+    );
+    expect(restoredResponse.status()).toBe(200);
+    expect(await restoredResponse.json()).toMatchObject({
+      memberKind: original.memberKind,
+      hasStaffAccess: original.hasStaffAccess,
+      profile: {
+        studentId: original.profile.studentId,
+        department: original.profile.department,
+        staffNumber: original.profile.staffNumber,
+      },
+    });
   });
 });

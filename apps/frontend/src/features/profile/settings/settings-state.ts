@@ -1,4 +1,7 @@
-import type { ProfileRole } from '../profile-requirements';
+import {
+  normalizeProfileText,
+  type ProfileRole,
+} from '../profile-requirements';
 import {
   createInitialProfileForm,
   toUpdateProfileRequest,
@@ -12,6 +15,7 @@ import type {
 } from './types';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const STAFF_NUMBER_MAX_LENGTH = 100;
 
 /** 수신 이메일 형식 검증 — 백엔드 @IsEmail과 같은 계약을 화면에서 선검증한다. */
 export function isValidNotificationEmail(email: string): boolean {
@@ -30,6 +34,7 @@ export function createInitialSettingsForm(
     name: seed.name,
     studentId: seed.studentId,
     savedStudentId: profile.studentId ?? '',
+    staffNumber: profile.staffNumber ?? '',
     phone: seed.phone,
     departmentOption: seed.departmentOption,
     otherDepartment: seed.otherDepartment,
@@ -47,6 +52,7 @@ export function validateSettingsForm(
   return {
     name: profileErrors.name,
     studentId: profileErrors.studentId,
+    staffNumber: staffNumberError(values.staffNumber, memberKind),
     phone: profileErrors.phone,
     department: profileErrors.department,
     notificationEmail:
@@ -65,7 +71,31 @@ export function toSettingsProfileRequest(
   values: SettingsFormValues,
   memberKind: ProfileRole | null,
 ) {
-  return toUpdateProfileRequest(values, memberKind);
+  const request = toUpdateProfileRequest(values, memberKind);
+  if (!request || staffNumberError(values.staffNumber, memberKind) !== null) {
+    return null;
+  }
+  if (memberKind !== 'STAFF') {
+    return request;
+  }
+  const staffNumber = normalizeProfileText(values.staffNumber);
+  return {
+    ...request,
+    staffNumber: staffNumber.length > 0 ? staffNumber : null,
+  };
+}
+
+function staffNumberError(
+  staffNumber: string,
+  memberKind: ProfileRole | null,
+): string | null {
+  if (memberKind !== 'STAFF') {
+    return null;
+  }
+  const normalized = normalizeProfileText(staffNumber);
+  return Array.from(normalized).length > STAFF_NUMBER_MAX_LENGTH
+    ? `교직원 번호는 ${STAFF_NUMBER_MAX_LENGTH}자 이하로 입력해 주세요.`
+    : null;
 }
 
 export function toSettingsNotificationRequest(values: SettingsFormValues) {

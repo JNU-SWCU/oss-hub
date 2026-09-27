@@ -40,6 +40,7 @@ function detail(
     profile: {
       name: '합성 사용자',
       studentId: '202601',
+      staffNumber: null,
       department: '인공지능학부',
       isComplete: true,
     },
@@ -122,6 +123,7 @@ describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 �
         profile: {
           name: null,
           studentId: null,
+          staffNumber: null,
           department: null,
           isComplete: false,
         },
@@ -147,6 +149,7 @@ describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 �
         profile: {
           name: null,
           studentId: null,
+          staffNumber: null,
           department: null,
           isComplete: false,
         },
