@@ -54,7 +54,7 @@ Node.js 24 이상과 pnpm 11.0.0을 사용하고 `corepack enable`로 pnpm을 �
 | Whole workspace | `pnpm build`, `pnpm lint`, `pnpm typecheck`, `pnpm test` |
 | Formatting | `pnpm format:check` (`pnpm format` only when formatting is intended) |
 
-**일상 개발의 기본 진입점은 반드시 `pnpm dev`다.**
+일상 개발의 기본 진입점은 `pnpm dev`다.
 frontend·backend 애플리케이션은 호스트에서 hot reload로 실행하고, Docker는 PostgreSQL·object-storage 같은 개발 인프라에만 사용한다.
 에이전트는 일반 구현·디버깅·UI 확인을 위해 앱 컨테이너를 빌드하지 않는다.
 실제 production은 frontend는 Vercel, backend는 Docker Compose/Jenkins이므로 “배포는 전부 Docker”로 표현하지 않는다.
