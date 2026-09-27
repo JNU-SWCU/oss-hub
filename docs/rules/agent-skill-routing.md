@@ -109,7 +109,7 @@ craft 스킬은 설치돼 있지 않으면 그 표면의 repo 규칙 문서를 �
 최신 `init`으로 다시 inventory한 결과 root 1개와 child 25개가 기존 코드 entry/config 경계를 이미 덮고 있어 새 AGENTS placement는 만들지 않았다.
 root는 요청된 `Repository Guidelines` 구조의 사람 관리 canonical guide로 두고, child 25개는 사용자의 전수 init 승인에 따라 각각 하나의 hash-checked managed region으로 통합했다.
 core source, tests/QA, configs/build/deploy, scripts/docs를 canonical architect가 병렬 조사하고, frontend/backend/domain/shared-op cluster별 independent review와 correction pass를 거쳤다.
-root·frontend·backend의 `CLAUDE.md` 세 파일은 init의 exact adapter 계약인 `@AGENTS.md` + LF다.
+`CLAUDE.md` adapter는 두지 않으며 각 runtime은 `AGENTS.md`를 직접 로드한다.
 
 ---
 

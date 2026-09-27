@@ -253,7 +253,7 @@ PM 판단(2026-09-08): 되돌릴 수 없는 확정 앞의 두 번째 버튼이 �
 고치는 법: 반복되는 보조 컨트롤(닫기·내려받기·삭제)은 아이콘으로 두되 **접근 가능한 이름을 반드시 갖춘다**. 주 CTA는 가시 텍스트를 유지한다 — 아이콘 전용은 보편적으로 읽히는 소수에만 쓴다.
 근거는 이미 참고에 있는 NN/g Icon Usability다.
 
-아이콘 전용으로 바꿀 때 최소 요구는 `aria-label`이다 — 이 저장소에 이미 선례가 있다: 아이콘에 `aria-hidden="true"`를 주고 `size="icon"` 버튼에 `aria-label`을 다는 방식으로 `consent-view.tsx:399-410`(`aria-label="전문 닫기"`), `program-type-modal.tsx:51-60`, `submission-dialog.tsx:59-68`가 이미 그렇게 쓴다.
+아이콘 전용으로 바꿀 때 최소 요구는 `aria-label`이다 — 이 저장소에 이미 선례가 있다: 아이콘에 `aria-hidden="true"`를 주고 `size="icon"` 버튼에 `aria-label`을 다는 방식으로 `consent-policy-document.tsx:52-66`(`aria-label="전문 닫기"`), `program-type-modal.tsx:51-60`, `submission-dialog.tsx:59-68`가 이미 그렇게 쓴다.
 `Tooltip` primitive(`apps/frontend/src/components/ui/tooltip.tsx`)도 실사용처가 있다 — `program-milestone-card.tsx`의 아이콘 전용 수정·삭제 버튼이 `aria-label`과 `Tooltip`을 함께 단다.
 반복 아이콘에는 이 선례를 따라 `aria-label` + `Tooltip`을 함께 다는 것을 권장하고, 최소한 `aria-label`은 예외 없이 요구한다.
 
