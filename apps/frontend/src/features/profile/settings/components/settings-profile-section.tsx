@@ -33,6 +33,8 @@ export function SettingsProfileSection({
 }: SettingsProfileSectionProps) {
   const showNameError = showValidationErrors && errors.name !== null;
   const showStudentIdError = showValidationErrors && errors.studentId !== null;
+  const showStaffNumberError =
+    showValidationErrors && errors.staffNumber !== null;
   const showPhoneError = showValidationErrors && errors.phone !== null;
   const showDepartmentError =
     showValidationErrors && errors.department !== null;
@@ -101,6 +103,34 @@ export function SettingsProfileSection({
           {showStudentIdError ? (
             <FieldError id="settings-student-id-error">
               {errors.studentId}
+            </FieldError>
+          ) : null}
+        </Field>
+      ) : null}
+
+      {memberKind === 'STAFF' ? (
+        <Field data-invalid={showStaffNumberError || undefined}>
+          <FieldLabel htmlFor="settings-staff-number">
+            교직원 번호 (선택)
+          </FieldLabel>
+          <Input
+            id="settings-staff-number"
+            name="staffNumber"
+            value={values.staffNumber}
+            aria-invalid={showStaffNumberError}
+            aria-describedby={describedBy(
+              'settings-staff-number-description',
+              'settings-staff-number-error',
+              showStaffNumberError,
+            )}
+            onChange={(event) => onChange({ staffNumber: event.target.value })}
+          />
+          <FieldDescription id="settings-staff-number-description">
+            사번을 입력해 주세요.
+          </FieldDescription>
+          {showStaffNumberError ? (
+            <FieldError id="settings-staff-number-error">
+              {errors.staffNumber}
             </FieldError>
           ) : null}
         </Field>

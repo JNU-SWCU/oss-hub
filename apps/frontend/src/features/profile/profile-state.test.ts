@@ -102,6 +102,7 @@ describe('profile onboarding state', () => {
       createInitialProfileForm({
         name: '합성 사용자',
         studentId: null,
+        staffNumber: null,
         department: '합성 융합전공',
         phone: null,
         isComplete: false,
@@ -121,6 +122,7 @@ describe('profile onboarding state', () => {
         {
           name: '합성 사용자',
           studentId: '1'.repeat(6),
+          staffNumber: null,
           department: '인공지능학부',
           phone: TEN_DIGIT_PHONE,
           isComplete: true,
@@ -134,6 +136,7 @@ describe('profile onboarding state', () => {
         {
           name: 'GitHub 합성 이름',
           studentId: null,
+          staffNumber: null,
           department: null,
           phone: null,
           isComplete: false,

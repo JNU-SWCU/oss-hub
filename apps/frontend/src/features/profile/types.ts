@@ -3,6 +3,7 @@ export type AffiliationKind = 'DEPARTMENT' | 'PROGRAM_OFFICE';
 export interface UserProfile {
   readonly name: string;
   readonly studentId: string | null;
+  readonly staffNumber: string | null;
   readonly department: string | null;
   readonly phone: string | null;
   readonly isComplete: boolean;
@@ -30,6 +31,7 @@ export interface CompleteProfileRequest {
 export interface UpdateProfileRequest {
   readonly name: string;
   readonly studentId?: string;
+  readonly staffNumber?: string | null;
   readonly phone?: string;
   readonly department: string;
 }

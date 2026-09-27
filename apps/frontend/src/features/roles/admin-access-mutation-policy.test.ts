@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type {
-  AdminAccessDetail,
   AdminAccessHistory,
   AdminAccessLoginHistoryItem,
   AdminAccessStaffAccessRequestHistoryItem,
@@ -10,15 +9,23 @@ import {
   adminAccessMutationSuccessMessage,
   applyAdminAccessDecidedRequestToHistory,
   buildAdminAccessPatchRequest,
+  buildMemberKindMutationRequest,
   isIndependentAuthorityMutationAction,
+  isMemberKindMutationAction,
 } from './admin-access-mutation-policy';
+import type { CanonicalAdminAccessDetail } from './independent-authority-api';
 
-function detail(overrides: Partial<AdminAccessDetail> = {}): AdminAccessDetail {
+function detail(
+  overrides: Partial<CanonicalAdminAccessDetail> = {},
+): CanonicalAdminAccessDetail {
   return {
     id: 'target',
     githubLogin: 'synthetic-target',
     name: '합성 사용자',
     role: 'STAFF',
+    memberKind: 'STUDENT',
+    hasStaffAccess: false,
+    hasAdminAccess: false,
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
@@ -28,6 +35,7 @@ function detail(overrides: Partial<AdminAccessDetail> = {}): AdminAccessDetail {
     profile: {
       name: '합성 사용자',
       studentId: '202601',
+      staffNumber: null,
       department: '인공지능학부',
       isComplete: true,
     },
@@ -36,14 +44,20 @@ function detail(overrides: Partial<AdminAccessDetail> = {}): AdminAccessDetail {
 }
 
 describe('independent authority mutation policy', () => {
-  it.each([
-    'GRANT_STAFF_ACCESS',
-    'REVOKE_STAFF_ACCESS',
-    'GRANT_ADMIN_ACCESS',
-    'REVOKE_ADMIN_ACCESS',
-  ] as const)('classifies the exact Task 8 action %s', (action) => {
-    expect(isIndependentAuthorityMutationAction(action)).toBe(true);
-  });
+  it.each(['GRANT_ADMIN_ACCESS', 'REVOKE_ADMIN_ACCESS'] as const)(
+    'classifies the exact Task 8 action %s',
+    (action) => {
+      expect(isIndependentAuthorityMutationAction(action)).toBe(true);
+    },
+  );
+
+  it.each(['SET_MEMBER_STUDENT', 'SET_MEMBER_STAFF'] as const)(
+    'classifies member-kind action %s separately from admin authority',
+    (action) => {
+      expect(isMemberKindMutationAction(action)).toBe(true);
+      expect(isIndependentAuthorityMutationAction(action)).toBe(false);
+    },
+  );
 
   it.each(['APPROVE', 'REJECT', 'SET_STATUS_ACTIVE'] as const)(
     'does not classify legacy non-authority action %s',
@@ -51,6 +65,28 @@ describe('independent authority mutation policy', () => {
       expect(isIndependentAuthorityMutationAction(action)).toBe(false);
     },
   );
+
+  it('builds a member-kind payload from canonical fields only', () => {
+    expect(
+      buildMemberKindMutationRequest('SET_MEMBER_STAFF', detail(), {
+        staffNumber: 'staff-42',
+      }),
+    ).toEqual({
+      memberKind: 'STAFF',
+      expectedMemberKind: 'STUDENT',
+      expectedHasStaffAccess: false,
+      staffNumber: 'staff-42',
+    });
+  });
+
+  it('requires an explicit canonical member kind instead of inferring from role', () => {
+    expect(() =>
+      buildMemberKindMutationRequest(
+        'SET_MEMBER_STUDENT',
+        detail({ memberKind: null }),
+      ),
+    ).toThrow('existing canonical member kind');
+  });
 
   it('keeps account status on the legacy CAS resource', () => {
     expect(
@@ -87,11 +123,8 @@ describe('independent authority mutation policy', () => {
 
   it('uses independent authority success copy', () => {
     expect(
-      adminAccessMutationSuccessMessage(
-        'REVOKE_STAFF_ACCESS',
-        'synthetic-target',
-      ),
-    ).toContain('교직원 접근 회수');
+      adminAccessMutationSuccessMessage('SET_MEMBER_STAFF', 'synthetic-target'),
+    ).toContain('교직원 유형 적용');
   });
 });
 

@@ -11,6 +11,7 @@ import {
 const emptyProfile = {
   name: 'GitHub 합성 이름',
   studentId: null,
+  staffNumber: null,
   department: null,
   phone: null,
   isComplete: false,
@@ -27,6 +28,7 @@ const completeRequest = {
 const completeProfile = {
   name: completeRequest.name,
   studentId: completeRequest.studentId,
+  staffNumber: null,
   department: completeRequest.affiliationName,
   phone: completeRequest.phone,
 };
@@ -94,6 +96,32 @@ test('완료 사용자는 이름·학과·전화번호만 PATCH하고 학번은 
   expect(body).not.toHaveProperty('studentId');
 });
 
+test.each([null, 'STAFF-42'] as const)(
+  'PATCH 사번 %s는 선택적으로 그대로 전송한다',
+  async (staffNumber) => {
+    const response = { ...completeProfile, staffNumber, isComplete: true };
+    const updateRequest = {
+      name: completeProfile.name,
+      department: completeProfile.department,
+      phone: ELEVEN_DIGIT_PHONE,
+      staffNumber,
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(response), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(updateMyProfile(updateRequest)).resolves.toEqual(response);
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0] as [{}, { body: string }])[1].body,
+    ) as Record<string, unknown>;
+    expect(body).toMatchObject({ staffNumber });
+  },
+);
+
 test('학번·학과가 비어도 완료로 표시된 응답은 그대로 파싱한다', async () => {
   // 역할마다 필수 항목이 다르고 응답에는 역할이 없다 — 관리자·교직원의 정상 응답을
   // 파서가 모순으로 오판하면 안 된다.
@@ -111,8 +139,12 @@ test('학번·학과가 비어도 완료로 표시된 응답은 그대로 파싱
   await expect(getMyProfile()).resolves.toEqual(staffProfile);
 });
 
-test('네 필드를 모두 담은 서버 응답도 그대로 파싱한다', async () => {
-  const fullProfile = { ...completeProfile, isComplete: true };
+test('모든 프로필 필드를 담은 서버 응답도 그대로 파싱한다', async () => {
+  const fullProfile = {
+    ...completeProfile,
+    staffNumber: 'STAFF-42',
+    isComplete: true,
+  };
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue(
@@ -125,6 +157,39 @@ test('네 필드를 모두 담은 서버 응답도 그대로 파싱한다', asyn
 
   await expect(getMyProfile()).resolves.toEqual(fullProfile);
 });
+
+test('staffNumber가 없는 프로필 응답을 거부한다', async () => {
+  const { staffNumber: _staffNumber, ...profile } = emptyProfile;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(profile), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    ),
+  );
+
+  await expect(getMyProfile()).rejects.toBeInstanceOf(ProfileResponseError);
+});
+
+test.each([123, { value: 'STAFF-42' }, true] as const)(
+  'staffNumber가 %s인 프로필 응답을 거부한다',
+  async (staffNumber) => {
+    const profile = { ...emptyProfile, staffNumber };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(profile), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    await expect(getMyProfile()).rejects.toBeInstanceOf(ProfileResponseError);
+  },
+);
 
 test('완료 응답의 private extra 필드는 화면 DTO로 투영하지 않는다', async () => {
   const secret = 'synthetic-secret-profile-metadata';
@@ -158,7 +223,11 @@ test('공백 이름을 완료로 표시한 프로필 응답을 거부한다', as
     'fetch',
     vi.fn().mockResolvedValue(
       new Response(
-        JSON.stringify({ ...completeRequest, name: '   ', isComplete: true }),
+        JSON.stringify({
+          ...completeProfile,
+          name: '   ',
+          isComplete: true,
+        }),
         {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -185,7 +254,11 @@ test.each([
       'fetch',
       vi.fn().mockResolvedValue(
         new Response(
-          JSON.stringify({ ...completeRequest, ...override, isComplete: true }),
+          JSON.stringify({
+            ...completeProfile,
+            ...override,
+            isComplete: true,
+          }),
           {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -195,6 +268,24 @@ test.each([
     );
 
     await expect(getMyProfile()).rejects.toBeInstanceOf(ProfileResponseError);
+  },
+);
+
+test.each([null, 'STAFF-42'] as const)(
+  'staffNumber가 %s 응답은 파싱한다',
+  async (staffNumber) => {
+    const profile = { ...emptyProfile, staffNumber };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(profile), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+
+    await expect(getMyProfile()).resolves.toEqual(profile);
   },
 );
 

@@ -23,6 +23,7 @@ function values(
     name: '합성 사용자',
     studentId: '1'.repeat(6),
     savedStudentId: '1'.repeat(6),
+    staffNumber: 'STAFF-42',
     phone: TEN_DIGIT_PHONE,
     departmentOption: '인공지능학부',
     otherDepartment: '',
@@ -108,6 +109,8 @@ describe('settings form view', () => {
     });
 
     expect(html).not.toContain('settings-student-id');
+    expect(html).toContain('settings-staff-number');
+    expect(html).toContain('사번을 입력해 주세요.');
     expect(html).toContain('settings-phone');
     expect(html).toContain('settings-name');
     expect(html).toContain('settings-department');
@@ -122,6 +125,31 @@ describe('settings form view', () => {
     expect(html).toContain('1'.repeat(6));
     // 고정된 값에 "선택"을 붙이면 아직 고를 수 있다는 뜻이 된다.
     expect(html).not.toContain('>선택</span>');
+  });
+
+  it('교직원 사번 필드는 저장된 값을 보여 주고 숫자 입력 제약을 두지 않는다', () => {
+    const html = renderForm(values({ staffNumber: 'EMP-A-42' }), {
+      role: 'STAFF',
+    });
+
+    expect(html).toContain('id="settings-staff-number"');
+    expect(html).toContain('value="EMP-A-42"');
+    expect(html).toContain('사번을 입력해 주세요.');
+    expect(html).not.toMatch(
+      /id="settings-staff-number"[^>]*(?:maxLength|maxlength)=/,
+    );
+    expect(html).not.toMatch(
+      /id="settings-staff-number"[^>]*(?:inputmode="numeric"|type="number")/,
+    );
+  });
+
+  it('학생·관리자에게는 교직원 사번 필드를 보여 주지 않는다', () => {
+    expect(renderForm(values(), { role: 'STUDENT' })).not.toContain(
+      'settings-staff-number',
+    );
+    expect(renderForm(values(), { role: 'ADMIN' })).not.toContain(
+      'settings-staff-number',
+    );
   });
 
   it('관리자에게는 학번 칸만 감추고 학과는 받는다', () => {
@@ -179,6 +207,19 @@ describe('settings form view', () => {
     expect(html).toContain(
       'aria-describedby="settings-phone-description settings-phone-error"',
     );
+  });
+
+  it('사번 오류를 입력 필드와 연결한다', () => {
+    const html = renderForm(values({ staffNumber: '가'.repeat(101) }), {
+      role: 'STAFF',
+      showValidationErrors: true,
+    });
+
+    expect(html).toContain('교직원 번호는 100자 이하로 입력해 주세요.');
+    expect(html).toContain(
+      'aria-describedby="settings-staff-number-description settings-staff-number-error"',
+    );
+    expect(html).toContain('id="settings-staff-number-error"');
   });
 
   it('오류가 없으면 안내만 가리킨다', () => {

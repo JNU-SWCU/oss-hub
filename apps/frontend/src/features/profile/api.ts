@@ -30,6 +30,7 @@ function parseProfile(value: unknown): UserProfile {
     !isRecord(value) ||
     typeof value.name !== 'string' ||
     (value.studentId !== null && typeof value.studentId !== 'string') ||
+    (value.staffNumber !== null && typeof value.staffNumber !== 'string') ||
     (value.department !== null && typeof value.department !== 'string') ||
     (value.phone !== null && typeof value.phone !== 'string') ||
     typeof value.isComplete !== 'boolean' ||
@@ -48,6 +49,7 @@ function parseProfile(value: unknown): UserProfile {
   return {
     name: value.name,
     studentId: value.studentId,
+    staffNumber: value.staffNumber,
     department: value.department,
     phone: value.phone,
     isComplete: value.isComplete,

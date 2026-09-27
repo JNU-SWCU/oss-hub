@@ -110,10 +110,9 @@ export interface AdminAccessGuards {
  * 어느 쪽이든 비활성 계정의 승인은 통과하지 않으므로 누르기 전에 막는다.
  *
  * `adminRevokeBlockedReason`은 서버의 `ROL_022`와 같은 조건을 화면에서 미리
- * 보여 줄 뿐이다(#1382) — 회수가 성공하면 누른 사람이 이 화면을 읽을 권한을
- * 잃어 결과를 확인할 수 없어서, `deactivationBlockedReason`과 같은 모양으로
- * 버튼 아래에 이유를 둔다. 교직원 접근 회수는 이 출입증을 건드리지 않으므로
- * 여기서 막지 않는다.
+ * 보여 줄 뿐이다(#1382). 금지된 선택지는 비활성화하고, 이유는 계정 비활성화와
+ * 동일하게 드롭다운 트리거의 hover/focus 툴팁으로 알린다.
+ * 교직원 접근 회수는 이 출입증을 건드리지 않으므로 여기서 막지 않는다.
  *
  * `elevatedRoleBlockedReason`은 백엔드 정책보다 보수적이다 — 백엔드는
  * 대기 요청을 승인할 때만 프로필 완료를 요구하고(`admin-access-transition-table.ts`의

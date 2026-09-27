@@ -38,6 +38,7 @@ describe('프로필 온보딩 동의 다이얼로그', () => {
     return {
       name: '합성 학생',
       studentId: '9'.repeat(9),
+      staffNumber: null,
       department: '인공지능학부',
       phone: '1'.repeat(10),
       isComplete: true,

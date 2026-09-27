@@ -4,7 +4,7 @@ import {
   fetchCanonicalAdminAccessDetail,
   parseCanonicalAdminAccessDetail,
   patchAdminAuthority,
-  patchStaffAccess,
+  patchMemberKind,
 } from './independent-authority-api';
 
 vi.mock('@/lib/api-client', async () => {
@@ -33,6 +33,7 @@ function detail(overrides: Record<string, unknown> = {}) {
     profile: {
       name: '합성 사용자',
       studentId: '202601',
+      staffNumber: null,
       department: '인공지능학부',
       isComplete: true,
     },
@@ -72,6 +73,26 @@ describe('Task 8 independent authority API', () => {
     );
   });
 
+  it('rejects a canonical detail response with a malformed staff number', () => {
+    expect(() =>
+      parseCanonicalAdminAccessDetail(
+        detail({
+          profile: {
+            ...detail().profile,
+            staffNumber: 42,
+          },
+        }),
+      ),
+    ).toThrow('관리자 접근 API 응답 형식이 올바르지 않습니다.');
+  });
+
+  it('rejects a canonical detail response that omits staff number', () => {
+    const { staffNumber: _staffNumber, ...profile } = detail().profile;
+    expect(() => parseCanonicalAdminAccessDetail(detail({ profile }))).toThrow(
+      '관리자 접근 API 응답 형식이 올바르지 않습니다.',
+    );
+  });
+
   it('loads required canonical detail fields from the exact GET route', async () => {
     vi.mocked(apiClient).mockResolvedValue(detail({ hasAdminAccess: true }));
     await expect(
@@ -87,61 +108,49 @@ describe('Task 8 independent authority API', () => {
     );
   });
 
-  it('revoking staff from staff-admin leaves admin access', async () => {
+  it('patches member kind with explicit canonical fields', async () => {
     vi.mocked(apiClient).mockResolvedValue({
       id: 'target',
       role: 'ADMIN',
       memberKind: 'STAFF',
-      hasStaffAccess: false,
+      hasStaffAccess: true,
       hasAdminAccess: true,
     });
-    await expect(
-      patchStaffAccess('target', 'REVOKE_STAFF_ACCESS'),
-    ).resolves.toMatchObject({ hasStaffAccess: false, hasAdminAccess: true });
-    expect(apiClient).toHaveBeenCalledWith('users/target/staff-access', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command: 'REVOKE_STAFF_ACCESS' }),
-    });
-  });
-
-  it('revoking admin from staff-admin leaves staff access', async () => {
-    vi.mocked(apiClient).mockResolvedValue({
-      id: 'target',
-      role: 'STAFF',
+    const request = {
       memberKind: 'STAFF',
-      hasStaffAccess: true,
-      hasAdminAccess: false,
-    });
+      expectedMemberKind: 'STUDENT',
+      expectedHasStaffAccess: false,
+      studentId: '202601',
+      department: '인공지능학부',
+      staffNumber: 'staff-42',
+    } as const;
     await expect(
-      patchAdminAuthority('target', 'REVOKE_ADMIN_ACCESS'),
-    ).resolves.toMatchObject({ hasStaffAccess: true, hasAdminAccess: false });
-    expect(apiClient).toHaveBeenCalledWith('users/target/admin-access', {
+      patchMemberKind('target:user', request),
+    ).resolves.toMatchObject({ hasStaffAccess: true, hasAdminAccess: true });
+    expect(apiClient).toHaveBeenCalledWith('users/target%3Auser/member-kind', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command: 'REVOKE_ADMIN_ACCESS' }),
+      body: JSON.stringify(request),
     });
   });
 
-  it.each([
-    ['GRANT_STAFF_ACCESS', false] as const,
-    ['GRANT_ADMIN_ACCESS', true] as const,
-  ])('grant %s does not imply the other authority', async (command, admin) => {
-    vi.mocked(apiClient).mockResolvedValue({
-      id: 'target',
-      role: admin ? 'ADMIN' : 'STAFF',
-      memberKind: 'STUDENT',
-      hasStaffAccess: !admin,
-      hasAdminAccess: admin,
-    });
-    const result = admin
-      ? await patchAdminAuthority('target', command)
-      : await patchStaffAccess('target', command);
-    expect(result).toMatchObject({
-      hasStaffAccess: !admin,
-      hasAdminAccess: admin,
-    });
-  });
+  it.each([['GRANT_ADMIN_ACCESS', true] as const])(
+    'grant %s does not imply the other authority',
+    async (command, admin) => {
+      vi.mocked(apiClient).mockResolvedValue({
+        id: 'target',
+        role: admin ? 'ADMIN' : 'STAFF',
+        memberKind: 'STUDENT',
+        hasStaffAccess: !admin,
+        hasAdminAccess: admin,
+      });
+      const result = await patchAdminAuthority('target', command);
+      expect(result).toMatchObject({
+        hasStaffAccess: !admin,
+        hasAdminAccess: admin,
+      });
+    },
+  );
 
   // 관리자만 가진 계정(memberKind 없음)의 부여 응답을 다섯 칸 그대로 읽는다.
   // 같은 상태 명령은 #1411 부터 서버가 409 로 거절하므로 이 응답은 실제 변경 뒤의 것이다.
@@ -165,18 +174,18 @@ describe('Task 8 independent authority API', () => {
   });
 
   // 이슈 1411 — 같은 상태 명령은 서버가 409 로 거절한다.
-  it('같은 상태 명령의 409 충돌은 삼키지 않고 그대로 던진다', async () => {
+  it('admin authority 409 conflicts are not swallowed', async () => {
     const conflict = new ApiError({
       type: 'about:blank',
       title: 'Conflict',
       status: 409,
       detail: '접근 상태가 변경되었습니다.',
-      instance: '/users/target/staff-access',
+      instance: '/users/target/admin-access',
       code: 'ROL_013',
     });
     vi.mocked(apiClient).mockRejectedValue(conflict);
     await expect(
-      patchStaffAccess('target', 'REVOKE_STAFF_ACCESS'),
+      patchAdminAuthority('target', 'REVOKE_ADMIN_ACCESS'),
     ).rejects.toBe(conflict);
   });
 });

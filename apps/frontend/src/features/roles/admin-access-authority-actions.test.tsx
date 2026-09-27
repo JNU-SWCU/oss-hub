@@ -2,7 +2,6 @@
 
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CanonicalAdminAccessDetail } from './independent-authority-api';
 import { AdminAccessMutationActions } from './components/admin-access-mutation-actions';
@@ -33,6 +32,7 @@ function detail(
       name: '합성 사용자',
       studentId: '202601',
       department: '인공지능학부',
+      staffNumber: null,
       isComplete: true,
     },
     ...overrides,
@@ -66,90 +66,192 @@ function render(source: CanonicalAdminAccessDetail, onRequestAction = vi.fn()) {
   return onRequestAction;
 }
 
-/**
- * 묶음마다 드롭다운 하나다 — 지금 값이 선택돼 있고, 나머지 값이 후행 상태로 선다.
- * 값을 고르는 일이 곧 변경 요청이므로 테스트도 `change`로 고른다.
- */
-function chooseAuthority(controlId: string, value: 'GRANTED' | 'NONE') {
-  const select = container.querySelector(`#${controlId}`);
-  if (!(select instanceof HTMLSelectElement)) {
+function control(controlId: string): HTMLButtonElement {
+  const trigger = container.querySelector(`#${controlId}`);
+  if (
+    !(trigger instanceof HTMLButtonElement) ||
+    trigger.getAttribute('role') !== 'combobox'
+  ) {
     throw new TypeError(`드롭다운을 찾지 못했습니다: ${controlId}`);
   }
-  const setter = Object.getOwnPropertyDescriptor(
-    HTMLSelectElement.prototype,
-    'value',
-  )?.set;
+  return trigger;
+}
+
+function controlValue(controlId: string): string {
+  return (
+    control(controlId)
+      .querySelector<HTMLElement>('[data-slot="select-value"]')
+      ?.textContent?.trim() ?? ''
+  );
+}
+
+function openControl(
+  controlId: string,
+  method: 'pointer' | 'keyboard' = 'pointer',
+): HTMLElement {
+  const trigger = control(controlId);
   act(() => {
-    setter?.call(select, value);
-    select.dispatchEvent(new Event('change', { bubbles: true }));
+    if (method === 'keyboard') {
+      trigger.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          code: 'Enter',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    } else {
+      trigger.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          button: 0,
+          bubbles: true,
+          cancelable: true,
+          pointerType: 'mouse',
+        }),
+      );
+      trigger.dispatchEvent(
+        new PointerEvent('pointerup', {
+          button: 0,
+          bubbles: true,
+          cancelable: true,
+          pointerType: 'mouse',
+        }),
+      );
+      trigger.click();
+    }
+  });
+
+  const listboxId = trigger.getAttribute('aria-controls');
+  const listbox = listboxId
+    ? document.getElementById(listboxId)
+    : document.querySelector<HTMLElement>(
+        '[role="listbox"][data-state="open"]',
+      );
+  if (!listbox || listbox.getAttribute('data-state') !== 'open') {
+    throw new TypeError(`목록을 열지 못했습니다: ${controlId}`);
+  }
+  return listbox;
+}
+
+function choose(controlId: string, value: string) {
+  const labels: Record<string, string> = {
+    UNCONFIRMED: '미지정',
+    STUDENT: '학생',
+    STAFF: '교직원',
+    NONE: '비허용',
+    GRANTED: '허용',
+    ACTIVE: '활성',
+    DEACTIVATED: '비활성',
+  };
+  const listbox = openControl(controlId);
+  const option = Array.from(
+    listbox.querySelectorAll<HTMLElement>('[role="option"]'),
+  ).find((candidate) => candidate.textContent?.trim() === labels[value]);
+  if (!option) {
+    throw new TypeError(`선택지를 찾지 못했습니다: ${controlId}=${value}`);
+  }
+  act(() => {
+    option.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
   });
 }
 
 describe('independent admin authority controls', () => {
   it.each([
-    ['student-admin', 'STUDENT', false, true],
-    ['staff-only', 'STAFF', true, false],
-    ['staff-admin', 'STAFF', true, true],
-    ['admin-only', null, false, true],
+    ['student-kind-without-staff-flag', 'STUDENT', false, 'STUDENT'],
+    ['student-kind-with-staff-flag', 'STUDENT', true, 'STUDENT'],
+    ['staff-kind-with-staff-flag', 'STAFF', true, 'STAFF'],
   ] as const)(
-    'renders canonical %s without legacy role projection',
-    (_, memberKind, hasStaffAccess, hasAdminAccess) => {
-      const html = renderToStaticMarkup(
-        <AdminAccessMutationActions
-          detail={detail({ memberKind, hasStaffAccess, hasAdminAccess })}
-          processingAction={null}
-          onRequestAction={() => {}}
-        />,
+    'uses memberKind, not hasStaffAccess, as the member selector value (%s)',
+    (_, memberKind, hasStaffAccess, expectedValue) => {
+      render(detail({ memberKind, hasStaffAccess }));
+      const labels = {
+        STUDENT: '학생',
+        STAFF: '교직원',
+      } as const;
+      expect(controlValue('admin-member-kind-control')).toBe(
+        labels[expectedValue],
       );
-      // 라디오도, 상태 문자열을 담은 버튼도 없다 — 묶음마다 `<select>` 하나다.
-      expect(html).not.toContain('role="radiogroup"');
-      expect(html).not.toContain('<button');
-      expect(html.match(/<select/g)).toHaveLength(3);
-      // 「없음」·「있음」은 두 묶음의 선택지로 각각 두 번씩 늘 그려지고,
-      // 지금 값만 `selected`로 선다.
-      expect(html.match(/있음/g) ?? []).toHaveLength(2);
-      expect(html.match(/없음/g) ?? []).toHaveLength(2);
-      expect(html).not.toContain('canonical 관리 API');
     },
   );
 
-  it('staff-admin revoke staff requests only REVOKE_STAFF_ACCESS', () => {
-    const request = render(
-      detail({
-        memberKind: 'STAFF',
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-      }),
+  it('renders only canonical member-kind, admin, and status controls', () => {
+    render(detail({ memberKind: 'STAFF', hasStaffAccess: true }));
+    expect(container.querySelectorAll('[role="combobox"]')).toHaveLength(3);
+    expect(container.textContent).toContain('회원 유형');
+  });
+
+  it('opens listboxes through pointer and keyboard interaction', () => {
+    render(detail({ memberKind: 'STAFF', hasStaffAccess: true }));
+
+    const pointerListbox = openControl('admin-member-kind-control', 'pointer');
+    expect(pointerListbox.querySelectorAll('[role="option"]')).toHaveLength(3);
+
+    const keyboardListbox = openControl(
+      'admin-access-status-control',
+      'keyboard',
     );
-    chooseAuthority('admin-staff-access-control', 'NONE');
-    expect(request).toHaveBeenCalledWith('REVOKE_STAFF_ACCESS');
+    expect(keyboardListbox.querySelectorAll('[role="option"]')).toHaveLength(2);
   });
 
-  it('staff-admin revoke admin requests only REVOKE_ADMIN_ACCESS', () => {
+  it.each([
+    ['STUDENT', 'STAFF', 'SET_MEMBER_STAFF'],
+    ['STAFF', 'STUDENT', 'SET_MEMBER_STUDENT'],
+  ] as const)(
+    'selecting %s → %s requests the canonical member action',
+    (currentMemberKind, nextMemberKind, action) => {
+      const request = render(
+        detail({
+          memberKind: currentMemberKind,
+          hasStaffAccess: currentMemberKind === 'STAFF',
+        }),
+      );
+      choose('admin-member-kind-control', nextMemberKind);
+      expect(request).toHaveBeenCalledWith(action);
+    },
+  );
+
+  it('does not request a write when the current member kind is selected again', () => {
     const request = render(
-      detail({
-        memberKind: 'STAFF',
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-      }),
+      detail({ memberKind: 'STAFF', hasStaffAccess: true }),
     );
-    chooseAuthority('admin-admin-access-control', 'NONE');
-    expect(request).toHaveBeenCalledWith('REVOKE_ADMIN_ACCESS');
-  });
-
-  it('grants staff and admin with separate exact commands', () => {
-    const request = render(detail());
-    chooseAuthority('admin-staff-access-control', 'GRANTED');
-    chooseAuthority('admin-admin-access-control', 'GRANTED');
-    expect(request.mock.calls).toEqual([
-      ['GRANT_STAFF_ACCESS'],
-      ['GRANT_ADMIN_ACCESS'],
-    ]);
-  });
-
-  it('이미 가진 값을 다시 골라도 쓰기 요청은 나가지 않는다', () => {
-    const request = render(detail({ hasAdminAccess: true }));
-    chooseAuthority('admin-admin-access-control', 'GRANTED');
+    choose('admin-member-kind-control', 'STAFF');
     expect(request).not.toHaveBeenCalled();
+  });
+
+  it('keeps canonical STUDENT without a separate member-kind apply button', () => {
+    const request = render(
+      detail({ memberKind: 'STUDENT', hasStaffAccess: true }),
+    );
+    const applyButton = Array.from(container.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === '회원 유형 적용',
+    );
+    expect(applyButton).toBeUndefined();
+    expect(controlValue('admin-member-kind-control')).toBe('학생');
+    choose('admin-member-kind-control', 'STAFF');
+    expect(request).toHaveBeenCalledWith('SET_MEMBER_STAFF');
+  });
+
+  it('blocks an unconfirmed member kind instead of treating it as staff access', () => {
+    render(detail({ memberKind: null, hasStaffAccess: false }));
+    const trigger = control('admin-member-kind-control');
+    expect(controlValue('admin-member-kind-control')).toBe('미지정');
+    expect(trigger.disabled).toBe(true);
+    expect(document.querySelector('[role="listbox"]')).toBeNull();
+  });
+
+  it('keeps the controlled member kind after a pending change is cancelled', () => {
+    const request = render(
+      detail({ memberKind: 'STUDENT', hasStaffAccess: false }),
+    );
+    choose('admin-member-kind-control', 'STAFF');
+    expect(request).toHaveBeenCalledWith('SET_MEMBER_STAFF');
+    expect(controlValue('admin-member-kind-control')).toBe('학생');
   });
 });

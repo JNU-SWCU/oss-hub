@@ -54,6 +54,7 @@ const EMPTY_ADMIN_DIRECTORY = {
 const INCOMPLETE_PROFILE = {
   name: '합성 가입 사용자',
   studentId: null,
+  staffNumber: null,
   department: null,
   phone: null,
   isComplete: false,
@@ -62,6 +63,7 @@ const INCOMPLETE_PROFILE = {
 const COMPLETE_STAFF_PROFILE = {
   name: '합성 권한 사용자',
   studentId: null,
+  staffNumber: null,
   department: '합성 사업단',
   phone: null,
   isComplete: true,
@@ -349,6 +351,7 @@ test('student onboarding completes with affiliation and conditional student ID',
   expect(persisted.profile).toEqual({
     name: '합성 학생 회원',
     studentId: '260901',
+    staffNumber: null,
     department: '인공지능학부',
     phone: '1'.repeat(10),
     isComplete: true,
@@ -402,6 +405,7 @@ test('staff onboarding omits student ID and reaches pending approval', async ({
   expect(persisted.profile).toEqual({
     name: '합성 교직원 회원',
     studentId: null,
+    staffNumber: null,
     department: '합성 SW중심대학사업단',
     phone: null,
     isComplete: true,
@@ -455,7 +459,7 @@ test('unioned menus cover student, staff, student-admin, staff-admin, student-st
     `/dashboard/users/${encodeURIComponent(seedId('auth', 'admin-second'))}`,
   );
   await expect(
-    adminPage.getByLabel('교직원 접근', { exact: true }),
+    adminPage.getByLabel('회원 유형', { exact: true }),
   ).toBeVisible();
   await expect(
     adminPage.getByLabel('관리자 접근', { exact: true }),
@@ -465,7 +469,7 @@ test('unioned menus cover student, staff, student-admin, staff-admin, student-st
     `/dashboard/users/${encodeURIComponent(seedId('auth', 'staff-revocable'))}`,
   );
   await expect(
-    adminPage.getByLabel('교직원 접근', { exact: true }),
+    adminPage.getByLabel('회원 유형', { exact: true }),
   ).toBeVisible();
   await expect(
     adminPage.getByLabel('관리자 접근', { exact: true }),
@@ -473,8 +477,15 @@ test('unioned menus cover student, staff, student-admin, staff-admin, student-st
   // 계정 상태도 같은 드롭다운 규격이다 — 지금 값이 선택돼 있고 후행 상태가
   // 목록에 이름으로 서 있다.
   const accountStatus = adminPage.getByLabel('계정 상태', { exact: true });
-  await expect(accountStatus).toHaveValue('ACTIVE');
-  await accountStatus.focus();
+  await expect(accountStatus).toHaveText('활성');
+  await accountStatus.click();
+  await expect(adminPage.getByRole('listbox')).toBeVisible();
+  await expect(
+    adminPage.getByRole('option', { name: '비활성', exact: true }),
+  ).toBeVisible();
+  await adminPage.keyboard.press('Escape');
+  await expect(adminPage.getByRole('listbox')).toHaveCount(0);
+  await expect(accountStatus).toHaveText('활성');
   await expect(accountStatus).toBeFocused();
   await captureResponsivePage(adminPage, testInfo, 'staff-only-controls');
   adminAudit.assertClean();

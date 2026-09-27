@@ -27,6 +27,7 @@ export function adminDetail(
     profile: {
       name: '홍길동',
       studentId: '202601',
+      staffNumber: null,
       department: '인공지능학부',
       isComplete: true,
     },

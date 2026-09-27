@@ -52,7 +52,7 @@ function extractActionValues(exportName: string): string[] {
 
 const REQUIRED_ACTION_REGISTRIES = [
   'ACCESS_AUDIT_ACTIONS',
-  'INDEPENDENT_AUTHORITY_AUDIT_COMMANDS',
+  'INDEPENDENT_AUTHORITY_AUDIT_ACTIONS',
   'REPOSITORY_PUBLISH_AUDIT_ACTIONS',
   'PROGRAM_LIFECYCLE_AUDIT_ACTIONS',
   'PROGRAM_DELETION_AUDIT_ACTIONS',
@@ -67,7 +67,7 @@ const REQUIRED_ACTION_REGISTRIES = [
 
 function listAuditActionExportNames(): string[] {
   const names: string[] = [];
-  const pattern = /export const ([A-Z0-9_]+_AUDIT_(?:ACTIONS|COMMANDS)) = \{/g;
+  const pattern = /export const ([A-Z0-9_]+_AUDIT_ACTIONS) = \{/g;
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(source)) !== null) {
     names.push(match[1]);

@@ -7,9 +7,20 @@ import {
 } from './admin-access-api';
 
 export type AdminMemberKind = 'STUDENT' | 'STAFF';
-export type StaffAccessCommand = 'GRANT_STAFF_ACCESS' | 'REVOKE_STAFF_ACCESS';
 export type AdminAuthorityCommand =
   'GRANT_ADMIN_ACCESS' | 'REVOKE_ADMIN_ACCESS';
+
+export interface MemberKindMutationFields {
+  readonly studentId?: string;
+  readonly department?: string;
+  readonly staffNumber?: string | null;
+}
+
+export interface MemberKindMutationRequest extends MemberKindMutationFields {
+  readonly memberKind: AdminMemberKind;
+  readonly expectedMemberKind: AdminMemberKind;
+  readonly expectedHasStaffAccess: boolean;
+}
 
 export interface IndependentAuthority {
   readonly memberKind: AdminMemberKind | null;
@@ -17,8 +28,14 @@ export interface IndependentAuthority {
   readonly hasAdminAccess: boolean;
 }
 
+export type CanonicalAdminAccessProfile = AdminAccessDetail['profile'] & {
+  readonly staffNumber: string | null;
+};
+
 export interface CanonicalAdminAccessDetail
-  extends AdminAccessDetail, IndependentAuthority {}
+  extends Omit<AdminAccessDetail, 'profile'>, IndependentAuthority {
+  readonly profile: CanonicalAdminAccessProfile;
+}
 
 export interface IndependentAuthorityMutationResponse extends IndependentAuthority {
   readonly id: string;
@@ -52,7 +69,25 @@ function parseAuthority(value: unknown): IndependentAuthority {
 export function parseCanonicalAdminAccessDetail(
   value: unknown,
 ): CanonicalAdminAccessDetail {
-  return { ...parseAdminAccessDetail(value), ...parseAuthority(value) };
+  const detail = parseAdminAccessDetail(value);
+  if (
+    !isRecord(value) ||
+    !isRecord(value.profile) ||
+    !(
+      value.profile.staffNumber === null ||
+      typeof value.profile.staffNumber === 'string'
+    )
+  ) {
+    throw new AdminAccessResponseError();
+  }
+  return {
+    ...detail,
+    profile: {
+      ...detail.profile,
+      staffNumber: value.profile.staffNumber,
+    },
+    ...parseAuthority(value),
+  };
 }
 
 export function parseIndependentAuthorityMutationResponse(
@@ -89,10 +124,10 @@ export async function fetchCanonicalAdminAccessDetail(
   return parseCanonicalAdminAccessDetail(value);
 }
 
-async function patchAuthority(
+async function patchIndependentMutation(
   id: string,
-  path: 'staff-access' | 'admin-access',
-  command: StaffAccessCommand | AdminAuthorityCommand,
+  path: 'member-kind' | 'admin-access',
+  body: MemberKindMutationRequest | { readonly command: AdminAuthorityCommand },
   signal?: AbortSignal,
 ): Promise<IndependentAuthorityMutationResponse> {
   const value = await apiClient<unknown>(
@@ -100,19 +135,19 @@ async function patchAuthority(
     {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command }),
+      body: JSON.stringify(body),
       ...(signal ? { signal } : {}),
     },
   );
   return parseIndependentAuthorityMutationResponse(value);
 }
 
-export function patchStaffAccess(
+export function patchMemberKind(
   id: string,
-  command: StaffAccessCommand,
+  request: MemberKindMutationRequest,
   signal?: AbortSignal,
 ): Promise<IndependentAuthorityMutationResponse> {
-  return patchAuthority(id, 'staff-access', command, signal);
+  return patchIndependentMutation(id, 'member-kind', request, signal);
 }
 
 export function patchAdminAuthority(
@@ -120,5 +155,5 @@ export function patchAdminAuthority(
   command: AdminAuthorityCommand,
   signal?: AbortSignal,
 ): Promise<IndependentAuthorityMutationResponse> {
-  return patchAuthority(id, 'admin-access', command, signal);
+  return patchIndependentMutation(id, 'admin-access', { command }, signal);
 }
