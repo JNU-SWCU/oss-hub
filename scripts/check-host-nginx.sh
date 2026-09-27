@@ -95,7 +95,6 @@ host_paths = {
     'location = /api/v1/auth/github {': 'GET',
     'location = /api/v1/auth/github/callback {': 'GET',
     'location = /api/v1/admin/collection/trigger {': 'POST',
-    'location = /api/v1/admin/collection/discover-external {': 'POST',
     'location /api/v1/ {': 'GET HEAD POST PATCH DELETE',
 }
 for marker, methods in host_paths.items():
@@ -124,7 +123,6 @@ compose_paths = {
     'location = /api/v1/auth/github {': ('GET', 'oauth'),
     'location = /api/v1/auth/github/callback {': ('GET', 'oauth'),
     'location = /api/v1/admin/collection/trigger {': ('POST', 'admin_collection'),
-    'location = /api/v1/admin/collection/discover-external {': ('POST', 'admin_collection'),
     'location /api/v1/ {': ('GET HEAD POST PATCH DELETE', 'api'),
 }
 for marker, (methods, zone) in compose_paths.items():
@@ -273,7 +271,6 @@ host_effective = {
     ('=', '/api/v1/auth/github'): ('GET',),
     ('=', '/api/v1/auth/github/callback'): ('GET',),
     ('=', '/api/v1/admin/collection/trigger'): ('POST',),
-    ('=', '/api/v1/admin/collection/discover-external'): ('POST',),
     ('/api/v1/',): ('GET', 'HEAD', 'POST', 'PATCH', 'DELETE'),
 }
 for location_args, methods in host_effective.items():
@@ -293,7 +290,6 @@ compose_effective = {
     ('=', '/api/v1/auth/github'): (('GET',), 'oauth'),
     ('=', '/api/v1/auth/github/callback'): (('GET',), 'oauth'),
     ('=', '/api/v1/admin/collection/trigger'): (('POST',), 'admin_collection'),
-    ('=', '/api/v1/admin/collection/discover-external'): (('POST',), 'admin_collection'),
     ('/api/v1/',): (('GET', 'HEAD', 'POST', 'PATCH', 'DELETE'), 'api'),
 }
 for location_args, (methods, zone) in compose_effective.items():
@@ -304,6 +300,20 @@ for location_args, (methods, zone) in compose_effective.items():
     one(children, 'limit_req', (f'zone={zone}', 'burst=5' if zone == 'oauth' else 'burst=1' if zone == 'admin_collection' else 'burst=30', 'nodelay'), f'Compose rate {location_args}')
     one(children, 'proxy_set_header', ('Authorization', ''), f'Compose credential strip {location_args}')
     one(children, 'proxy_set_header', ('X-Vercel-Forwarded-For', ''), f'Compose client strip {location_args}')
+
+def descendants(nodes):
+    for node in nodes:
+        yield node
+        yield from descendants(node.children or [])
+
+# #1453이 없앤 관리자 등록 주소. 전용 location이 돌아오면 폐기된 요청이 다시 수집 실행
+# rate-limit 예산을 쓰므로(#1455), 요구하지 않는 데서 그치지 않고 금지한다. nginx는 location을
+# 다른 location 안에 중첩할 수 있으므로 server 바로 아래만이 아니라 모든 깊이를 본다.
+retired_path = '/api/v1/admin/collection/discover-external'
+for label, nodes in (('host', host_tree), ('Compose', compose_tree)):
+    for node in descendants(nodes):
+        if node.name == 'location' and any(retired_path in argument for argument in node.args):
+            fail(f'{label} still routes retired {retired_path}')
 
 print('host nginx contract: ok')
 PY

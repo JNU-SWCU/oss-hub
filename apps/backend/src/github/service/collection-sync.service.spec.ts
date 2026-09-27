@@ -911,6 +911,8 @@ describe('CollectionSyncService — GR-6 external 저장소는 org sweep에서 �
       presence: 'PRESENT',
       source: 'EXTERNAL_PUBLIC',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
+      // 조직 밖 저장소는 신청에 연결된 동안만 수집 대상이다.
+      applicationId: 'application-external',
     });
     const repoA = providerRepository({
       id: '100',
@@ -950,6 +952,8 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
       presence: 'PRESENT',
       source: 'EXTERNAL_PUBLIC',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
+      // 조직 밖 저장소는 신청에 연결된 동안만 수집 대상이다.
+      applicationId: 'application-external',
     });
 
     const client = createClient([]);
@@ -999,6 +1003,8 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
       presence: 'PRESENT',
       source: 'EXTERNAL_PUBLIC',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
+      // 조직 밖 저장소는 신청에 연결된 동안만 수집 대상이다.
+      applicationId: 'application-external',
     });
     const client = createClient([]);
     client.getRepository.mockRejectedValue(
@@ -1032,6 +1038,8 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
       presence: 'PRESENT',
       source: 'EXTERNAL_PUBLIC',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
+      // 조직 밖 저장소는 신청에 연결된 동안만 수집 대상이다.
+      applicationId: 'application-external',
     });
     const client = createClient([]);
     client.getRepository.mockResolvedValue(
@@ -1071,6 +1079,8 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
       presence: 'PRESENT',
       source: 'EXTERNAL_PUBLIC',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
+      // 조직 밖 저장소는 신청에 연결된 동안만 수집 대상이다.
+      applicationId: 'application-external',
     });
     const client = createClient([]);
     quietStreams(client);
@@ -1110,6 +1120,8 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
       presence: 'PRESENT',
       source: 'EXTERNAL_PUBLIC',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
+      // 조직 밖 저장소는 신청에 연결된 동안만 수집 대상이다.
+      applicationId: 'application-external',
     });
     const client = createClient([]);
     client.getRepository.mockRejectedValue(
@@ -3542,6 +3554,17 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
     ],
     ['기본 브랜치를 아직 모르는 저장소', { defaultBranch: null }],
     ['연결이 풀리고 팀 이력만 남은 저장소', { applicationId: null }],
+    [
+      '프로그램 삭제로 연결이 모두 풀린 조직 밖 저장소',
+      {
+        source: 'EXTERNAL_PUBLIC',
+        visibility: 'PUBLIC',
+        githubOrganizationId: null,
+        applicationId: null,
+        programId: null,
+        teamId: null,
+      },
+    ],
     ['사라진 저장소', { presence: 'ABSENT' }],
   ])(
     '%s는 lease도 provider도 건드리지 않고 SKIPPED다',

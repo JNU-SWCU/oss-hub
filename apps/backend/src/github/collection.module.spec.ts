@@ -9,7 +9,6 @@ import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { CollectionAdminController } from './controller/collection-admin.controller';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
-import { CollectionExternalDiscoveryService } from './service/collection-external-discovery.service';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { ProviderRequestQueue } from './collection-provider-queue';
 import { CollectionPublicTokenProvider } from './collection-public.token';
@@ -171,23 +170,6 @@ describe('CollectionModule', () => {
         expect.objectContaining({
           provide: CollectionDiscoveryClient,
           inject: [CollectionPublicTokenProvider],
-        }),
-      ]),
-    );
-  });
-
-  it('CollectionExternalDiscoveryService가 동의 서비스 없이 discovery client·증분 저장소만 주입받도록 배선한다', () => {
-    const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
-
-    expect(providers).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          provide: CollectionExternalDiscoveryService,
-          inject: [
-            PrismaService,
-            CollectionIncrementalRepository,
-            CollectionDiscoveryClient,
-          ],
         }),
       ]),
     );

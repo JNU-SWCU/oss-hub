@@ -324,7 +324,7 @@ describe('SystemStatusView', () => {
   });
 
   describe('외부 저장소 수집 section', () => {
-    it('탐색된 external 저장소가 0개면 이유와 다음 행동을 설명하는 빈 상태를 보여준다', () => {
+    it('연결된 external 저장소가 0개면 이유와 다음 행동을 설명하는 빈 상태를 보여준다', () => {
       const html = render({ kind: 'success', status: normal });
       expect(html).toContain('aria-label="외부 저장소 수집"');
       expect(html).toContain('수집 대상 학생 개인 저장소가 없습니다');
@@ -335,22 +335,14 @@ describe('SystemStatusView', () => {
       // 안 된다(QA57).
       expect(html).not.toContain('매시 정각 자동으로 실행되고 있습니다');
       expect(html).toContain('완료된 수집 기록도 없습니다');
-      // 대상을 채우는 두 경로(신청 승인 / 관리자 수동 탐색) 모두 설명해야
-      // 한다 — 탐색만 유일한 경로인 것처럼 안내하면 신청 승인 경로로 이미
-      // 채워진 경우도 잘못 안내하게 된다.
+      // 대상을 채우는 경로는 프로그램 팀 화면에서 연결하는 것 하나다(#1453) —
+      // 없앤 관리자 탐색이나 신청 화면에서 빠진 선택지를 안내하면 관리자가 없는
+      // 경로를 찾아 헤맨다.
       expect(html).toContain(
-        '학생이 프로그램 신청에서 ‘내 저장소 연결하기’를 선택',
+        '팀장이나 교직원이 프로그램 팀 화면에서 조직 밖 공개 저장소 주소를',
       );
-      // 신청 화면 라디오 라벨(program-apply-views.tsx) 그대로 써야 한다 —
-      // 내부 열거값 `OWN`을 노출하면 관리자가 무슨 뜻인지 알 수 없다.
       expect(html).not.toContain('>OWN<');
-      // 신청 승인 경로는 프로그램의 「신청 승인 시 GitHub 저장소 자동 생성」이
-      // 꺼져 있으면 동작하지 않는다(코드 리뷰 Major ① 대응) — 이 전제조건이
-      // 빠지면 관리자가 이 화면만 보고 "왜 안 잡히지"를 풀 수 없다.
-      expect(html).toContain(
-        '꺼져 있으면 승인해도 수집 대상에 추가되지 않습니다',
-      );
-      expect(html).toContain('관리자가 학생별로 저장소 탐색을 실행');
+      expect(html).not.toContain('저장소 탐색을 실행');
       // "왜 0인지"의 원인은 시스템이 알 수 없는 사실이라 단정하지 않는다 —
       // 관측 가능한 사실(대상 0개, 그래서 매시 수집도 처리할 저장소 없이
       // 끝남)만 문구에 남는다.
@@ -370,7 +362,7 @@ describe('SystemStatusView', () => {
       expect(html).toContain('aria-label="외부 저장소 수집"');
     });
 
-    it('탐색된 external 저장소가 있으면 추적 수·누적 활동·최근 실행 처리 결과를 표시한다', () => {
+    it('연결된 external 저장소가 있으면 추적 수·누적 활동·최근 실행 처리 결과를 표시한다', () => {
       const html = render({
         kind: 'success',
         status: normal,

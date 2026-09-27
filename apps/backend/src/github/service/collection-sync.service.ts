@@ -247,14 +247,19 @@ const githubTimestamp = (at: Date): string =>
   at.toISOString().replace(/\.\d{3}Z$/, 'Z');
 
 /**
- * 수집 대상 규칙 — 신청에 연결된 저장소이거나, 팀·프로그램 이력이 전혀 없는 독립 저장소다.
+ * 수집 대상 규칙 — 신청에 연결된 저장소이거나, 팀·프로그램 이력이 전혀 없는 조직 저장소다.
  * `listExternalRepositories`의 SQL 조건과 한 벌이다. 연결이 풀려 이전 팀·프로그램 이력만 남은
  * 저장소는 그 이력을 보존만 하고 새 fact는 받지 않는다 — 계속 수집하면 팀이 떠난 저장소의 활동이
- * 그 이력을 타고 프로그램 실적에 계속 쌓인다. 인벤토리·presence 관찰은 이 규칙과 무관하다.
+ * 그 이력을 타고 프로그램 실적에 계속 쌓인다. 조직 밖 저장소는 신청에 연결된 동안만 모은다 —
+ * 프로그램·팀 삭제로 연결이 모두 풀린 학생 개인 저장소를 계속 모으면 어느 화면에도 쓰이지 않는
+ * 추적이 된다(조직 저장소는 사업단 소유라 연결과 무관하게 모은다). 인벤토리·presence 관찰은 이
+ * 규칙과 무관하다.
  */
 const isCollectionTarget = (repository: CollectionRepositoryRow): boolean =>
   repository.applicationId != null ||
-  (repository.programId == null && repository.teamId == null);
+  (repository.source === 'ORG_PROVISIONED' &&
+    repository.programId == null &&
+    repository.teamId == null);
 
 interface SweepInventory {
   readonly complete: boolean;

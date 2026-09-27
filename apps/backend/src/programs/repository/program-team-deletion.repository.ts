@@ -279,7 +279,8 @@ async function deleteTeamTree(
   }
 
   // DETACH — 저장소 행은 지우지 않는다. 수집 이력(Contribution·CollectionCommitFact 등)이
-  // 그 아래 Cascade로 매달려 있어 행을 지우면 전역 수집 자산이 함께 사라진다.
+  // 그 아래 Cascade로 매달려 있어 행을 지우면 전역 수집 자산이 함께 사라진다. 연결이 풀린
+  // 조직 밖 저장소는 더 모으지 않는다(`isCollectionTarget`).
   // `publishedAt`을 함께 회수하는 이유는 purge와 같다: 공개 아카이브 조회
   // (public-projects.repository.ts)가 「발행된 행이면 program·application 관계가 있다」를
   // 불변식으로 쓰고 non-null 단언까지 하므로, 관계만 끊고 발행 표시를 남기면 500이 난다.

@@ -102,10 +102,11 @@ const PRESENT_REPOSITORY = {
   ...COLLECTION_TARGET,
 } as const;
 
+/** 조직 밖 저장소는 신청에 연결된 동안만 모은다 — `isCollectionTarget`과 한 벌. */
 const PRESENT_EXTERNAL_REPOSITORY = {
   presence: 'PRESENT',
   source: 'EXTERNAL_PUBLIC',
-  ...COLLECTION_TARGET,
+  applicationId: { not: null },
 } as const;
 
 const EXTERNAL_SWEEP_SCOPE = 'external';

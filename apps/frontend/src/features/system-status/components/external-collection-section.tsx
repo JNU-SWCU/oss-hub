@@ -10,7 +10,7 @@ import { MetricCounts } from './collection-activity-feed';
  * 진행 중인 pagination 작업)와 `collection-activity-feed.tsx`(이미 scope로
  * external을 다루는 활동 피드)는 건드리지 않고 완전히 새 섹션으로 분리한다.
  *
- * 이 섹션의 0값은 "탐색된 저장소가 없다"는 뜻이지 "파이프라인이 안 돈다"는 뜻이
+ * 이 섹션의 0값은 "연결된 저장소가 없다"는 뜻이지 "파이프라인이 안 돈다"는 뜻이
  * 아니다 — external sweep은 org sweep과 함께 매시 정각 자동 실행되도록
  * 설계돼 있다. 단, 이 말은 `status.lastSweep`이 non-null일 때만 근거가 있다
  * (QA57) — `lastSweep === null`은 sweep이 지금까지 단 한 번도 끝난 적이
@@ -18,32 +18,16 @@ import { MetricCounts } from './collection-activity-feed';
  * 실행되고 있다"고 단정하면 실제로 안 도는 스케줄러를 감추게 된다
  * (`system-status-response.dto.ts`의 `SystemStatusExternalCollectionResponseDto`
  * 참고). 어떤 저장소가 수집 대상(`GithubRepository.source = 'EXTERNAL_PUBLIC'`)이
- * 되는지는 자동으로 정해지지 않는다. **이 대상은 두 경로로만 채워진다**:
- *   ① 학생이 프로그램 신청에서 개인 저장소를 OWN 모드로 연결하고 그 신청이
- *      승인되는 경로 — 승인 시점에 `RepositoryProvisionWorker`가 편입한다.
- *      단, 프로그램의 `repositoryProvisioningEnabled`(관리자 화면 라벨은
- *      "신청 승인 시 GitHub 저장소 자동 생성")가 꺼져 있으면
- *      `applications.service.ts`가 OWN/NEW 구분 없이 편입 자체를 건너뛴다
- *      (outbox 이벤트도 job도 안 만든다, `repository-provision.worker.ts`도
- *      같은 조건을 `FEATURE_DISABLED`로 한 번 더 막는다) — 이 옵션이 꺼진
- *      프로그램에서는 학생이 OWN을 골라 신청하고 승인까지 받아도 ①로는
- *      채워지지 않는다. 그런데 학생용 신청 화면(`program-apply-views.tsx`)의
- *      OWN 선택지는 이 플래그와 무관하게 항상 보인다 — 그래서 문구에 이
- *      전제조건을 반드시 적어야 한다, 안 그러면 "OWN으로 신청해 승인까지
- *      받았는데 왜 안 잡히지"를 관리자가 이 화면만 보고는 풀 수 없다.
- *   ② 관리자가 학생별로 저장소 탐색(discovery)을 수동 실행하는 경로.
- * 두 경로는 코드상 같은 편입 함수(`enrollExternalRepository`)를 호출해 같은
- * `source`값으로 저장되므로 결과 행만 보고는 어느 경로로 들어왔는지 구분할 수
- * 없다. 예전 문구는 ②만 유일한 해법인 것처럼 적어 ①로 이미 채워진 경우조차
- * "학생별로 탐색을 실행해야 한다"고 잘못 안내했다 — 그래서 지금은 두 경로를
- * 모두 설명한다. 새 편입 경로가 추가되면 이 문구도 그 경로를 반영하는지 함께
- * 확인해야 같은 실수가 반복되지 않는다.
+ * 되는지는 자동으로 정해지지 않는다. **대상은 프로그램 신청에 연결된 조직 밖 저장소뿐이다** —
+ * 팀장이나 교직원이 프로그램 팀 화면(`TeamRepositoryPanel`)에서 저장소 주소를 연결하면 그때부터
+ * 모으고, 저장소를 바꾸거나 팀·프로그램을 삭제해 연결이 풀리면 더 모으지 않는다(#1453). 예전
+ * 문구는 신청 화면의 「내 저장소 연결하기」와 관리자 학생별 탐색을 경로로 안내했는데, 앞의 것은
+ * 신청 화면에서 빠졌고(#1446) 뒤의 것은 없앴다(#1453) — 새 연결 경로가 생기면 이 문구도 그
+ * 경로를 반영하는지 함께 확인해야 같은 실수가 반복되지 않는다.
  *
- * 단, "왜 0인지"의 원인(예: 지금까지 두 경로 모두 한 번도 실행되지 않았는지,
- * 실행은 됐지만 대상이 없었는지)은 코드 어디에도 기록되지 않는다 — 저장소 탐색
- * 실행 이력도, 신청 승인과 편입 결과를 잇는 인과 관계도 따로 남기지 않기
- * 때문에 구분할 근거가 없다. 그래서 문구는 관측 가능한 사실(탐색 대상 0개,
- * 대상은 위 두 경로로만 채워짐, `lastSweep`의 유무)만 단정하고, 0인 원인은
+ * 단, "왜 0인지"의 원인(예: 아무도 연결하지 않았는지, 연결했다가 풀었는지)은
+ * 이 섹션이 읽는 값으로 구분할 수 없다. 그래서 문구는 관측 가능한 사실(대상 0개,
+ * 대상은 위 연결로만 채워짐, `lastSweep`의 유무)만 단정하고, 0인 원인은
  * 단정하지 않는다.
  */
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat('ko-KR', {
@@ -78,27 +62,20 @@ export function ExternalCollectionSection({
             title="수집 대상 학생 개인 저장소가 없습니다"
             description={
               status.lastSweep
-                ? '최근 수집은 완료됐지만 대상 저장소가 0개입니다. 저장소를 등록하면 다음 수집 주기부터 집계합니다.'
+                ? '최근 수집은 완료됐지만 대상 저장소가 0개입니다. 저장소를 연결하면 바로 수집을 시작합니다.'
                 : '완료된 수집 기록도 없습니다. 먼저 스케줄러 실행과 런타임 설정을 확인해 주세요.'
             }
           />
           <div className="grid gap-2 text-sm">
             <p className="font-medium">수집 대상 추가 방법</p>
-            <ul className="list-disc space-y-3 pl-5 text-muted-foreground">
-              <li>
-                학생이 프로그램 신청에서 ‘내 저장소 연결하기’를 선택해 공개
-                저장소 주소를 입력하고, 운영자가 신청을 승인합니다.
-                <span className="mt-1 block">
-                  프로그램의 ‘신청 승인 시 GitHub 저장소 자동 생성’ 설정이 켜져
-                  있어야 합니다. 꺼져 있으면 승인해도 수집 대상에 추가되지
-                  않습니다.
-                </span>
-              </li>
-              <li>관리자가 학생별로 저장소 탐색을 실행합니다.</li>
-            </ul>
+            <p className="text-muted-foreground">
+              팀장이나 교직원이 프로그램 팀 화면에서 조직 밖 공개 저장소 주소를
+              연결합니다. 연결된 동안만 수집하고, 저장소를 바꾸거나
+              팀·프로그램을 삭제하면 더 수집하지 않습니다.
+            </p>
             <p className="text-muted-foreground">
               외부 수집은 조직 수집과 함께 매시 정각 실행하도록 설정되어
-              있습니다. 대상 저장소가 등록되고 스케줄러가 정상 동작하면 수집
+              있습니다. 대상 저장소가 연결되고 스케줄러가 정상 동작하면 수집
               결과가 표시됩니다.
             </p>
           </div>
@@ -114,7 +91,7 @@ export function ExternalCollectionSection({
           <CardContent>
             <dl className="grid grid-cols-2 gap-3 text-sm">
               <div>
-                <dt className="text-muted-foreground">탐색된 학생 저장소</dt>
+                <dt className="text-muted-foreground">연결된 학생 저장소</dt>
                 <dd className="mt-1 font-medium">
                   {status.trackedRepositoryCount}개
                 </dd>
