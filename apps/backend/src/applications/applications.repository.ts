@@ -108,7 +108,9 @@ export interface ApplicationsTransactionStore {
   /**
    * 되돌리기 시 진행 중이던 프로비저닝 요청을 지운다 — outbox 이벤트와 job 양쪽.
    * 남겨 두면 재승인이 기존 이벤트를 재사용해 새 job을 만들지 않아 저장소가
-   * 영영 만들어지지 않는다. 완료된 건은 상위 가드가 이미 409로 막는다.
+   * 영영 만들어지지 않는다. 판정이 미완료 snapshot을 읽은 뒤 워커가 완료를 커밋했을
+   * 수 있으므로, 잠근 job이 이미 완료(repositoryId 또는 SUCCEEDED)면 아무것도 지우거나
+   * DISCARDED로 닫지 않는다.
    */
   discardRepositoryProvisionRequest(
     applicationId: string,
@@ -465,12 +467,14 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
         readonly {
           readonly currentEventId: string | null;
           readonly repositoryId: string | null;
+          readonly status: RepositoryProvisionJobStatus;
           readonly repositorySource: RepositorySource | null;
         }[]
       >(Prisma.sql`
         SELECT
           job."currentEventId",
           job."repositoryId",
+          job."status",
           (
             SELECT repository."source"
             FROM "GithubRepository" AS repository
@@ -481,6 +485,15 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
         FOR UPDATE
       `)
     )[0];
+    // 판정의 snapshot은 잠금 전에 읽은 값이다. 그 사이 워커가 완료를 커밋했다면
+    // 완료된 요청은 보존한다(applications.service.ts의 isProvisioningCompleted와 같은 기준).
+    if (
+      job !== undefined &&
+      (job.repositoryId !== null ||
+        job.status === RepositoryProvisionJobStatus.SUCCEEDED)
+    ) {
+      return;
+    }
     const event = await this.transaction.outboxEvent.findUnique({
       where: { idempotencyKey: `repository-provision:${applicationId}` },
       select: { id: true },
