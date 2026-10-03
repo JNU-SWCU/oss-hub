@@ -8,7 +8,9 @@ import {
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { parseRepositoryProvisionEvent } from '../github/repository-provision-event';
 import { PrismaService } from '../prisma/prisma.service';
+import { writeRepositoryIssuanceHistory } from '../prisma/repository-provision-generation';
 import { APPLICATION_DECISION_ACTIONS } from './domain/application-decision';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsRepository } from './applications.repository';
@@ -55,6 +57,7 @@ const APPLICATION_IDS = [
   'synthetic-switch-reject-application',
   'synthetic-switch-approve-application',
   'synthetic-provisioned-application',
+  'synthetic-completion-race-application',
 ] as const;
 
 async function createApplication(
@@ -812,6 +815,138 @@ describe('ApplicationsService integration', () => {
     // 재제출이 없었으므로 회차는 전부 1이다.
     expect(history.every((row) => row.revision === 1)).toBe(true);
   });
+
+  it.each([
+    {
+      label: '반려',
+      action: {
+        action: APPLICATION_DECISION_ACTIONS.REJECT,
+        reason: '합성 경합 반려 사유',
+      },
+      kind: 'REJECTED',
+      status: ApplicationStatus.REJECTED,
+    },
+    {
+      label: '되돌림',
+      action: { action: APPLICATION_DECISION_ACTIONS.REVERT },
+      kind: 'REVERTED',
+      status: ApplicationStatus.SUBMITTED,
+    },
+  ] as const)(
+    '판정이 미완료 job을 읽은 뒤 워커가 완료하면 $label 판정은 완료된 요청을 지우지 않는다',
+    async ({ action, kind, status }) => {
+      // Given — 승인으로 미완료(PENDING) 요청이 생긴 신청
+      const applicationId = APPLICATION_IDS[11];
+      await createApplication(applicationId, true);
+      await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+        action: APPLICATION_DECISION_ACTIONS.APPROVE,
+      });
+      const event = await prisma.outboxEvent.findUniqueOrThrow({
+        where: { idempotencyKey: `repository-provision:${applicationId}` },
+      });
+      const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
+        where: { applicationId },
+      });
+      expect(job.status).toBe(RepositoryProvisionJobStatus.PENDING);
+
+      // 판정이 job snapshot을 읽고 전이 직전에 멈추도록 장벽을 둔다.
+      const originalWithTransaction =
+        repository.withTransaction.bind(repository);
+      let releaseDecision: (() => void) | undefined;
+      const decisionGate = new Promise<void>((resolve) => {
+        releaseDecision = resolve;
+      });
+      let markSnapshotTaken: (() => void) | undefined;
+      const snapshotTaken = new Promise<void>((resolve) => {
+        markSnapshotTaken = resolve;
+      });
+      jest
+        .spyOn(repository, 'withTransaction')
+        .mockImplementationOnce((operation) =>
+          originalWithTransaction((store) =>
+            operation({
+              auditLogWriter: store.auditLogWriter,
+              appendReviewHistory: (input) => store.appendReviewHistory(input),
+              findApplicationById: (id) => store.findApplicationById(id),
+              discardRepositoryProvisionRequest: (id, discardedAt) =>
+                store.discardRepositoryProvisionRequest(id, discardedAt),
+              findRepositoryProvisionJob: async (id) => {
+                const snapshot = await store.findRepositoryProvisionJob(id);
+                markSnapshotTaken?.();
+                await decisionGate;
+                return snapshot;
+              },
+              findRepositoryProvisionEvent: (key) =>
+                store.findRepositoryProvisionEvent(key),
+              transitionApplication: (input) =>
+                store.transitionApplication(input),
+              createApplicationDecisionNotifications: (input) =>
+                store.createApplicationDecisionNotifications(input),
+              createRepositoryProvisionEvent: (input) =>
+                store.createRepositoryProvisionEvent(input),
+            }),
+          ),
+        );
+
+      // When — 판정이 미완료 snapshot을 쥔 사이 워커가 완료를 커밋한다.
+      // 워커의 `completeJob`처럼 job을 SUCCEEDED로 닫고 SUCCEEDED 발급 이력을 남긴다.
+      const decision = service.decide(
+        ACTOR_ID,
+        applicationId,
+        ACTOR_GITHUB_ID,
+        action,
+      );
+      await snapshotTaken;
+      const completedAt = new Date('2026-07-15T00:00:00.000Z');
+      await prisma.$transaction(async (transaction) => {
+        await transaction.repositoryProvisionJob.update({
+          where: { applicationId },
+          data: {
+            status: RepositoryProvisionJobStatus.SUCCEEDED,
+            finishedAt: completedAt,
+          },
+        });
+        await writeRepositoryIssuanceHistory(
+          transaction,
+          {
+            requestId: event.id,
+            applicationId,
+            repositoryId: null,
+            source: null,
+            outcome: RepositoryIssuanceOutcome.SUCCEEDED,
+            closedAt: completedAt,
+          },
+          parseRepositoryProvisionEvent,
+        );
+      });
+      releaseDecision?.();
+
+      // Then — 판정은 들어가고, 완료된 job·outbox·발급 이력은 그대로 남는다.
+      await expect(decision).resolves.toMatchObject({ kind, status });
+      await expect(
+        prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
+      ).resolves.toMatchObject({ status });
+      await expect(
+        prisma.repositoryProvisionJob.findUnique({ where: { applicationId } }),
+      ).resolves.toMatchObject({
+        id: job.id,
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+      });
+      await expect(
+        prisma.outboxEvent.findUnique({
+          where: { idempotencyKey: `repository-provision:${applicationId}` },
+        }),
+      ).resolves.toMatchObject({ id: event.id });
+      await expect(
+        prisma.repositoryIssuanceHistory.findMany({
+          where: { applicationId },
+          select: { requestId: true, outcome: true },
+        }),
+      ).resolves.toEqual([
+        { requestId: event.id, outcome: RepositoryIssuanceOutcome.SUCCEEDED },
+      ]);
+    },
+  );
 
   it('판정 사전 조회 후 학생 취소가 먼저 완료되면 404를 반환한다', async () => {
     // Given
