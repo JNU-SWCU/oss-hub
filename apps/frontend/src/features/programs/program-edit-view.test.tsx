@@ -370,7 +370,7 @@ describe('ProgramEditView contract', () => {
       error = caught;
     }
 
-    expect(createFormMessage).toBe('운영 종료는 운영 시작보다 늦어야 합니다.');
+    expect(createFormMessage).toBe('운영 종료를 입력해 주세요.');
     expect(mapProgramEditError(error).endAt).toBe(createFormMessage);
   });
 

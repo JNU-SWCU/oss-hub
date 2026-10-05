@@ -330,7 +330,7 @@ export function validateProgramEditForm(
 
   if (endAt === null) {
     // 만들기 폼(program-authoring-validation.ts)이 빈 운영 종료에 쓰는 문구와 같다.
-    errors.endAt = '운영 종료는 운영 시작보다 늦어야 합니다.';
+    errors.endAt = '운영 종료를 입력해 주세요.';
   } else if (startAt !== null && startAt >= endAt) {
     errors.endAt = '프로그램 종료일은 운영 시작일 이후여야 합니다.';
   } else if (

@@ -156,7 +156,7 @@ describe('ProgramEditPage save payload', () => {
         validateProgramEditForm(
           toProgramEditForm({ ...editableProgram, endAt }),
         ).endAt,
-      ).toBe('운영 종료는 운영 시작보다 늦어야 합니다.');
+      ).toBe('운영 종료를 입력해 주세요.');
     }
 
     const input = buildProgramEditInput(
@@ -644,7 +644,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     expect(updateProgramMock).not.toHaveBeenCalled();
     expect(
       container.querySelector('#operation-schedule-error')?.textContent,
-    ).toBe('운영 종료는 운영 시작보다 늦어야 합니다.');
+    ).toBe('운영 종료를 입력해 주세요.');
 
     await act(async () =>
       container

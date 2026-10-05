@@ -209,7 +209,7 @@ describe('프로그램 편집 일정 dialog — 종료일은 실제 날짜만 �
       blocked = error;
     }
     expect(mapProgramEditError(blocked).endAt).toBe(
-      '운영 종료는 운영 시작보다 늦어야 합니다.',
+      '운영 종료를 입력해 주세요.',
     );
 
     await openOperation();
@@ -219,9 +219,7 @@ describe('프로그램 편집 일정 dialog — 종료일은 실제 날짜만 �
     expect(endDate?.value).toBe('');
     await act(async () => button('날짜 적용').click());
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
-    expect(document.body.textContent).toContain(
-      '운영 종료는 운영 시작보다 늦어야 합니다.',
-    );
+    expect(document.body.textContent).toContain('운영 종료를 입력해 주세요.');
     expect(dirty).toEqual([]);
 
     await act(async () => calendarDate('2026-08-17').click());

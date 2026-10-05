@@ -136,10 +136,11 @@ function validateSchedule(
     issues.push(
       issue('operationStartAt', 'schedule', '운영 시작을 입력해 주세요.'),
     );
-  if (
-    operationEnd === null ||
-    (operationStart !== null && operationStart >= operationEnd)
-  )
+  if (operationEnd === null)
+    issues.push(
+      issue('operationEndAt', 'schedule', '운영 종료를 입력해 주세요.'),
+    );
+  else if (operationStart !== null && operationStart >= operationEnd)
     issues.push(
       issue(
         'operationEndAt',
