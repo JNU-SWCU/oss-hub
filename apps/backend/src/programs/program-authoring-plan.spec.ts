@@ -232,6 +232,27 @@ describe('buildProgramAuthoringPlan', () => {
     expectValidationCodes({ ...request(), ...override }, [code]);
   });
 
+  // 「종료일 미정」 센티널은 DB 기본값으로만 남는다 — 새 프로그램의 종료일로는 받지 않는다(#1420).
+  it.each([
+    ['in UTC', '9999-12-31T23:59:59.999Z'],
+    ['as the same instant in another offset', '9999-12-31T22:59:59.999-01:00'],
+  ])(
+    'rejects the undecided end sentinel written %s on endAt',
+    (_case, endAt) => {
+      let thrown: unknown;
+      try {
+        buildProgramAuthoringPlan({ ...request(), endAt });
+      } catch (error: unknown) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(ProgramAuthoringValidationError);
+      expect(thrown).toMatchObject({
+        issues: [{ path: 'endAt', code: 'INVALID_DATE' }],
+      });
+    },
+  );
+
   it.each<readonly [string, Partial<ProgramAuthoringRequest>, string]>([
     [
       'more than 50 milestones',
