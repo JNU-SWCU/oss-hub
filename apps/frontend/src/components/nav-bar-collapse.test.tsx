@@ -22,9 +22,12 @@ function render() {
  * 320px에서 "아카이브"와 "GitHub으로 로그인"이 47.6px 겹쳤다(360px에서도 7.6px).
  * 메뉴는 `whitespace-nowrap`이라 줄지 않고 actions는 `shrink-0`이라 물러서지 않아
  * 서로를 파고들었다. 좁은 화면에서는 메뉴를 접어 자리를 다투지 않게 한다.
+ *
+ * 로그인하면 actions에 알림 벨·역할 배지·닉네임이 붙어 480px 위에서도 겹쳤다(#1421) —
+ * 그래서 접는 경계는 사이드바 드로어와 같은 900px이다.
  */
 describe('NavBar 좁은 화면 메뉴 접기', () => {
-  it('480px 미만에서만 접힌 메뉴를, 그 이상에서만 한 줄 메뉴를 보여 준다', () => {
+  it('900px 미만에서만 접힌 메뉴를, 그 이상에서만 한 줄 메뉴를 보여 준다', () => {
     const html = render();
     const menuClass = html.match(
       /data-slot="nav-bar-menu"[^>]*class="([^"]*)"/,
@@ -33,9 +36,11 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
       /data-slot="nav-bar-items"[^>]*class="([^"]*)"/,
     )?.[1];
 
-    expect(menuClass?.split(' ')).toContain('min-[480px]:hidden');
+    expect(menuClass?.split(' ')).toContain('min-[900px]:hidden');
     expect(itemsClass?.split(' ')).toContain('hidden');
-    expect(itemsClass?.split(' ')).toContain('min-[480px]:flex');
+    expect(itemsClass?.split(' ')).toContain('min-[900px]:flex');
+    expect(menuClass).not.toContain('min-[480px]');
+    expect(itemsClass).not.toContain('min-[480px]');
   });
 
   // feat/sidebar-drawer-below-900 — 900px 미만의 좌측 사이드바 도달 경로는 더 이상
