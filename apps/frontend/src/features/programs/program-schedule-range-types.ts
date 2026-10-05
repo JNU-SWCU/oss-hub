@@ -12,12 +12,7 @@ export type ProgramScheduleEditableRange = {
   readonly endInputId: string;
   readonly startError?: string;
   readonly endError?: string;
-  readonly endDisabled?: boolean;
-  readonly validate?: (
-    startAt: string,
-    endAt: string,
-    endDisabled: boolean,
-  ) => string | null;
+  readonly validate?: (startAt: string, endAt: string) => string | null;
   readonly onStartAtChange: (value: string) => void;
   readonly onEndAtChange: (value: string) => void;
 };

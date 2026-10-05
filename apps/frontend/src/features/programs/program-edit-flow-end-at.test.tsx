@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EditableProgram } from './api';
 import {
   buildProgramEditInput,
+  mapProgramEditError,
   toProgramEditForm,
   type ProgramEditableField,
   type ProgramEditForm,
@@ -87,7 +88,7 @@ function Harness({
   );
 }
 
-describe('프로그램 편집 일정 dialog — 종료일 미정', () => {
+describe('프로그램 편집 일정 dialog — 종료일은 실제 날짜만 받는다', () => {
   let container: HTMLDivElement;
   let root: Root;
   let form = toProgramEditForm(datedProgram);
@@ -137,74 +138,99 @@ describe('프로그램 편집 일정 dialog — 종료일 미정', () => {
     return value;
   }
 
-  it('local 종료일 미정은 종료 입력을 비활성화하고 취소하면 form/dirty를 바꾸지 않는다', async () => {
+  function calendarDate(date: string): HTMLButtonElement {
+    const value = document.body.querySelector<HTMLButtonElement>(
+      `[data-calendar-date="${date}"]`,
+    );
+    if (value === null) throw new TypeError(`Missing calendar date ${date}.`);
+    return value;
+  }
+
+  // #1420: 만들기 폼처럼 편집에서도 종료일을 「미정」으로 되돌릴 길이 없다.
+  it('운영 기간 dialog에 「종료일 미정」 선택지가 없고 종료 입력은 늘 열려 있다', async () => {
     await render();
     await openOperation();
-    const toggle = document.body.querySelector<HTMLInputElement>(
-      '#program-end-at-undecided',
-    );
-    const endDate = document.body.querySelector<HTMLInputElement>(
-      'input[aria-label="운영 기간 종료일"]',
-    );
-    if (toggle === null || endDate === null)
-      throw new TypeError('Missing end controls.');
+    const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
+    if (dialog === null) throw new TypeError('Missing dialog.');
 
-    await act(async () => toggle.click());
-    expect(endDate.disabled).toBe(true);
-    await act(async () => button('취소').click());
-
-    expect(form.endAtUndecided).toBe(false);
-    expect(form.endAt).toBe('2026-08-31T18:30');
-    expect(dirty).toEqual([]);
+    expect(document.body.querySelector('#program-end-at-undecided')).toBeNull();
+    expect(dialog.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(dialog.textContent).not.toContain('미정');
+    expect(
+      dialog.querySelector<HTMLInputElement>(
+        'input[aria-label="운영 기간 종료일"]',
+      )?.disabled,
+    ).toBe(false);
+    expect(
+      dialog.querySelector<HTMLInputElement>(
+        'input[aria-label="운영 기간 종료 시각"]',
+      )?.disabled,
+    ).toBe(false);
   });
 
   it('Escape는 local 변경을 버리고 같은 수정 버튼으로 초점을 돌린다', async () => {
     await render();
     await openOperation();
-    const toggle = document.body.querySelector<HTMLInputElement>(
-      '#program-end-at-undecided',
-    );
     const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
-    if (toggle === null || dialog === null)
-      throw new TypeError('Missing dialog.');
-    await act(async () => toggle.click());
+    if (dialog === null) throw new TypeError('Missing dialog.');
+    await act(async () => calendarDate('2026-08-17').click());
+    expect(
+      dialog.querySelector<HTMLInputElement>(
+        'input[aria-label="운영 기간 종료일"]',
+      )?.value,
+    ).toBe('2026-08-17');
     await act(async () =>
       dialog.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
       ),
     );
 
-    expect(form.endAtUndecided).toBe(false);
+    expect(form.startAt).toBe('2026-08-16T18:30');
+    expect(form.endAt).toBe('2026-08-31T18:30');
     expect(dirty).toEqual([]);
     expect(document.activeElement).toBe(
       container.querySelector('button[aria-label="운영 기간 수정"]'),
     );
   });
 
-  it('미정 적용은 센티널만 저장하고, 해제한 빈 종료일은 적용 전에 막는다', async () => {
-    await render();
-    await openOperation();
-    const toggle = document.body.querySelector<HTMLInputElement>(
-      '#program-end-at-undecided',
+  it('「미정」 센티널로 저장된 옛 프로그램은 빈 종료일로 열리고, 실제 날짜를 넣어야 적용·저장된다', async () => {
+    await render({ ...datedProgram, endAt: PROGRAM_END_AT_UNDECIDED });
+
+    // 요약에도 「미정」이 아니라 비어 있는 종료일이 보인다.
+    const summary = container.querySelector(
+      '[data-schedule-summary="operation"]',
     );
-    if (toggle === null) throw new TypeError('Missing undecided control.');
-    await act(async () => toggle.click());
-    await act(async () => button('날짜 적용').click());
-    expect(form.endAtUndecided).toBe(true);
-    expect(buildProgramEditInput(form, dirty).endAt).toBe(
-      PROGRAM_END_AT_UNDECIDED,
+    expect(summary?.textContent).toContain('→ 날짜를 선택해 주세요.');
+    expect(summary?.textContent).not.toContain('미정');
+    let blocked: unknown;
+    try {
+      buildProgramEditInput(form, dirty);
+    } catch (error) {
+      blocked = error;
+    }
+    expect(mapProgramEditError(blocked).endAt).toBe(
+      '운영 종료는 운영 시작보다 늦어야 합니다.',
     );
 
     await openOperation();
-    const reopenedToggle = document.body.querySelector<HTMLInputElement>(
-      '#program-end-at-undecided',
+    const endDate = document.body.querySelector<HTMLInputElement>(
+      'input[aria-label="운영 기간 종료일"]',
     );
-    if (reopenedToggle === null)
-      throw new TypeError('Missing reopened control.');
-    await act(async () => reopenedToggle.click());
+    expect(endDate?.value).toBe('');
     await act(async () => button('날짜 적용').click());
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
     expect(document.body.textContent).toContain(
-      '종료일을 정하거나 「종료일 미정」을 선택해 주세요.',
+      '운영 종료는 운영 시작보다 늦어야 합니다.',
+    );
+    expect(dirty).toEqual([]);
+
+    await act(async () => calendarDate('2026-08-17').click());
+    await act(async () => calendarDate('2026-08-31').click());
+    await act(async () => button('날짜 적용').click());
+
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    expect(buildProgramEditInput(form, dirty).endAt).toBe(
+      '2026-08-31T14:59:00.000Z',
     );
   });
 

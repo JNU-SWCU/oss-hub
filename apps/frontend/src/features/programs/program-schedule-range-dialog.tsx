@@ -38,17 +38,12 @@ export function ProgramScheduleRangeDialog({
   readonly showCalendarScrollHint?: boolean;
   readonly calendarEvents?: readonly ProgramScheduleCalendarEvent[];
   readonly onCancel: () => void;
-  readonly onSave: (
-    startAt: string,
-    endAt: string,
-    endDisabled?: boolean,
-  ) => void;
+  readonly onSave: (startAt: string, endAt: string) => void;
 }) {
   const [startDate, setStartDate] = useState(dateKey(range.startAt) ?? '');
   const [endDate, setEndDate] = useState(dateKey(range.endAt) ?? '');
   const [startTime, setStartTime] = useState(timePart(range.startAt));
   const [endTime, setEndTime] = useState(timePart(range.endAt));
-  const [endDisabled, setEndDisabled] = useState(Boolean(range.endDisabled));
   const [anchorDate, setAnchorDate] = useState<string | null>(null);
   const [monthKey, setMonthKey] = useState(() =>
     (
@@ -66,10 +61,10 @@ export function ProgramScheduleRangeDialog({
   const [attempted, setAttempted] = useState(false);
   const errorId = useId();
   const startAt = dateTime(startDate, startTime, '00:00');
-  const endAt = endDisabled ? '' : dateTime(endDate, endTime, '23:59');
+  const endAt = dateTime(endDate, endTime, '23:59');
   const error =
     range.validate !== undefined
-      ? range.validate(startAt, endAt, endDisabled)
+      ? range.validate(startAt, endAt)
       : rangeError(startAt, endAt, range.minDate, range.maxDate);
   const invalid = attempted && error !== null;
   const calendarRange = {
@@ -100,18 +95,14 @@ export function ProgramScheduleRangeDialog({
       currentEndAt: endAt,
     });
     setStartDate(dateKey(selection.startAt) ?? '');
-    if (!endDisabled) setEndDate(dateKey(selection.endAt) ?? '');
+    setEndDate(dateKey(selection.endAt) ?? '');
     setAnchorDate(selection.anchorDate);
   }
 
   function save() {
     setAttempted(true);
     if (error !== null) return;
-    if (range.endDisabled !== undefined) {
-      onSave(startAt, endAt, endDisabled);
-    } else {
-      onSave(startAt, endAt);
-    }
+    onSave(startAt, endAt);
   }
 
   return (
@@ -165,7 +156,6 @@ export function ProgramScheduleRangeDialog({
           min={range.minDate}
           max={range.maxDate}
           value={endDate}
-          disabled={endDisabled}
           onChange={(event) => setEndDate(event.target.value)}
         />
       </Field>
@@ -200,35 +190,11 @@ export function ProgramScheduleRangeDialog({
               aria-describedby={invalid ? errorId : undefined}
               type="time"
               value={endTime}
-              disabled={endDisabled}
               onChange={(event) => setEndTime(event.target.value)}
             />
           </div>
         </div>
       </Field>
-      {range.endDisabled !== undefined ? (
-        <Field orientation="horizontal">
-          <input
-            id={
-              range.id === 'operation'
-                ? 'program-end-at-undecided'
-                : `${range.id}-end-undecided`
-            }
-            type="checkbox"
-            checked={endDisabled}
-            onChange={(event) => setEndDisabled(event.target.checked)}
-          />
-          <FieldLabel
-            htmlFor={
-              range.id === 'operation'
-                ? 'program-end-at-undecided'
-                : `${range.id}-end-undecided`
-            }
-          >
-            종료일 미정
-          </FieldLabel>
-        </Field>
-      ) : null}
       <FieldError id={errorId}>{attempted ? error : null}</FieldError>
     </DialogShell>
   );

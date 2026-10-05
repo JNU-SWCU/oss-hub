@@ -251,7 +251,7 @@ export function ProgramEditView({
               editTriggerRef={milestoneEditTriggerRef}
               deleteTarget={deleteTarget}
               operationStartAt={form.startAt}
-              operationEndAt={form.endAtUndecided ? '' : form.endAt}
+              operationEndAt={form.endAt}
               contextEvents={editScheduleEvents(
                 form,
                 program.milestones,

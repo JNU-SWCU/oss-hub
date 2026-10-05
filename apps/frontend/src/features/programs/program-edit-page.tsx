@@ -320,9 +320,7 @@ export function ProgramEditPage({
             startAt:
               persistedProgramForm.originalStartAt ??
               persistedProgramForm.startAt,
-            endAt: persistedProgramForm.endAtUndecided
-              ? null
-              : persistedProgramForm.originalEndAt,
+            endAt: persistedProgramForm.originalEndAt,
           };
     const milestoneChanges = changedMilestoneFields(
       milestoneEditor.initialForm,

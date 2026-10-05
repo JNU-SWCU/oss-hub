@@ -64,9 +64,7 @@ export function ProgramEditScheduleEditor({
       kind: 'APPLICATION' as const,
       startAt: form.applicationStartAt,
       endAt: form.applicationEndAt,
-      maxDate: form.endAtUndecided
-        ? undefined
-        : (dateKey(form.endAt) ?? undefined),
+      maxDate: dateKey(form.endAt) ?? undefined,
       startInputId: 'program-application-start-at',
       endInputId: 'program-application-end-at',
       startError: applicationError,
@@ -78,7 +76,6 @@ export function ProgramEditScheduleEditor({
           program,
           startAt,
           endAt,
-          false,
         ),
       onStartAtChange: (value: string) =>
         onFieldChange('applicationStartAt', value),
@@ -90,21 +87,13 @@ export function ProgramEditScheduleEditor({
       label: '운영 기간',
       kind: 'OPERATION' as const,
       startAt: form.startAt,
-      endAt: form.endAtUndecided ? '' : form.endAt,
+      endAt: form.endAt,
       startInputId: 'program-start-at',
       endInputId: 'program-end-at',
       startError: errors.startAt,
       endError: errors.endAt,
-      endDisabled: form.endAtUndecided,
-      validate: (startAt: string, endAt: string, endDisabled: boolean) =>
-        validateBasicScheduleRange(
-          'operation',
-          form,
-          program,
-          startAt,
-          endAt,
-          endDisabled,
-        ),
+      validate: (startAt: string, endAt: string) =>
+        validateBasicScheduleRange('operation', form, program, startAt, endAt),
       onStartAtChange: (value: string) => onFieldChange('startAt', value),
       onEndAtChange: (value: string) => onFieldChange('endAt', value),
     },
@@ -128,7 +117,6 @@ export function ProgramEditScheduleEditor({
     rangeId: BasicScheduleRangeId,
     startAt: string,
     endAt: string,
-    endDisabled: boolean,
   ) {
     if (rangeId === 'application') {
       if (!sameLocalDateTime(form.applicationStartAt, startAt))
@@ -138,10 +126,7 @@ export function ProgramEditScheduleEditor({
     } else {
       if (!sameLocalDateTime(form.startAt, startAt))
         onFieldChange('startAt', startAt);
-      if (form.endAtUndecided !== endDisabled)
-        onFieldChange('endAtUndecided', endDisabled);
-      if (!endDisabled && !sameLocalDateTime(form.endAt, endAt))
-        onFieldChange('endAt', endAt);
+      if (!sameLocalDateTime(form.endAt, endAt)) onFieldChange('endAt', endAt);
     }
     closeRangeEditor();
   }
@@ -180,9 +165,7 @@ export function ProgramEditScheduleEditor({
               mode: 'closed',
             })}
             onCancel={closeRangeEditor}
-            onSave={(startAt, endAt, endDisabled = false) =>
-              applyRange(openRangeId, startAt, endAt, endDisabled)
-            }
+            onSave={(startAt, endAt) => applyRange(openRangeId, startAt, endAt)}
           />
         ) : null}
       </div>
@@ -204,11 +187,7 @@ function ScheduleSummary({
   readonly onOpen: () => void;
 }) {
   const errorId = `${range.id}-schedule-error`;
-  const summary = scheduleSummary(
-    range.startAt,
-    range.endAt,
-    Boolean(range.endDisabled),
-  );
+  const summary = scheduleSummary(range.startAt, range.endAt);
 
   return (
     <div className="grid gap-1" data-schedule-summary={range.id}>
@@ -245,13 +224,9 @@ function ScheduleSummary({
   );
 }
 
-function scheduleSummary(
-  startAt: string,
-  endAt: string,
-  endDisabled: boolean,
-): string {
+function scheduleSummary(startAt: string, endAt: string): string {
   const start = scheduleDateTime(startAt, '00:00');
-  const end = endDisabled ? '종료일 미정' : scheduleDateTime(endAt, '23:59');
+  const end = scheduleDateTime(endAt, '23:59');
   return `${start} → ${end}`;
 }
 
@@ -271,7 +246,6 @@ function validateBasicScheduleRange(
   program: EditableProgram,
   startAt: string,
   endAt: string,
-  endDisabled: boolean,
 ): string | null {
   const candidateForm: ProgramEditForm = {
     ...form,
@@ -280,7 +254,6 @@ function validateBasicScheduleRange(
     applicationEndAt: rangeId === 'application' ? endAt : form.applicationEndAt,
     startAt: rangeId === 'operation' ? startAt : form.startAt,
     endAt: rangeId === 'operation' ? endAt : form.endAt,
-    endAtUndecided: rangeId === 'operation' ? endDisabled : form.endAtUndecided,
     milestoneStartAts: program.milestones.map((milestone) => milestone.startAt),
     milestoneDueAts: program.milestones.map((milestone) => milestone.dueAt),
   };

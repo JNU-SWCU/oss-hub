@@ -21,7 +21,7 @@ export function editScheduleEvents(
       endAt: form.applicationEndAt,
     });
   }
-  if (form.startAt && form.endAt && !form.endAtUndecided) {
+  if (form.startAt && form.endAt) {
     events.push({
       id: 'operation',
       label: '운영 기간',

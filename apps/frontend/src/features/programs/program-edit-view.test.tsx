@@ -9,6 +9,8 @@ import {
 } from './program-edit-flow';
 import { PROGRAM_END_AT_UNDECIDED } from './program-end-at';
 import { ProgramEditLoadFailure, ProgramEditView } from './program-edit-view';
+import { validateProgramAuthoringStep } from './program-authoring-validation';
+import { completedAuthoringState } from './program-creation-test-fixtures';
 
 const noOp = () => undefined;
 
@@ -332,33 +334,34 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('교과/비교과');
     expect(html).not.toContain('유형을 변경할 수 없습니다');
   });
-  // 종료일이 없던 프로그램은 「미정」으로 열린다 — 날짜를 고르려면 체크를 먼저
-  // 풀어야 하고(화면에서는 그때까지 날짜 칸이 비활성이다), 그 뒤에 고른 날짜가 나간다.
-  it('allows a legacy undecided end to be set and emits the valid payload', () => {
-    const legacyProgram = { ...editableProgram, endAt: null };
-    expect(toProgramEditForm(legacyProgram).endAtUndecided).toBe(true);
-    const form = {
-      ...toProgramEditForm(legacyProgram),
-      endAtUndecided: false,
-      endAt: '2026-09-01T12:00',
-    };
+  // 종료일이 없거나(`null`) 「미정」 센티널인 옛 프로그램은 빈 종료일로 열리고,
+  // 교직원이 넣은 날짜가 나간다 — 센티널을 되돌려 보내지 않는다(#1420).
+  it.each([null, PROGRAM_END_AT_UNDECIDED])(
+    'opens a legacy end %s as an empty end and emits the date the staff enters',
+    (endAt) => {
+      const legacyProgram = { ...editableProgram, endAt };
+      expect(toProgramEditForm(legacyProgram).endAt).toBe('');
+      const form = {
+        ...toProgramEditForm(legacyProgram),
+        endAt: '2026-09-01T12:00',
+      };
 
-    const input = buildProgramEditInput(form, ['endAt']);
+      const input = buildProgramEditInput(form, []);
 
-    expect(input.endAt).toBe('2026-09-01T03:00:00.000Z');
-    expect(input.applicationEndAt).toBe(legacyProgram.applicationEndAt);
-    expect(input.teamMinSize).toBe(2);
-    expect(input.teamMaxSize).toBe(4);
-  });
+      expect(input.endAt).toBe('2026-09-01T03:00:00.000Z');
+      expect(input.applicationEndAt).toBe(legacyProgram.applicationEndAt);
+      expect(input.teamMinSize).toBe(2);
+      expect(input.teamMaxSize).toBe(4);
+    },
+  );
 
-  // 비어 있는 것과 「미정」은 다른 뜻이다 — 비어 있는 것은 아직 안 고른 상태이고,
-  // 안내는 두 갈래(날짜를 고르기·미정을 선택하기)를 모두 알려 준다.
-  it('forbids clearing an existing program end without choosing undecided', () => {
-    const form = {
-      ...toProgramEditForm(editableProgram),
-      endAt: '',
-      endAtUndecided: false,
-    };
+  // 빈 종료일은 만들기 폼과 같은 문구로 막는다(#1420) — 「미정」으로 되돌릴 길은 없다.
+  it('blocks an empty program end with the create-form wording', () => {
+    const createFormMessage = validateProgramAuthoringStep(
+      { ...completedAuthoringState(), operationEndAt: '' },
+      'schedule',
+    ).find((issue) => issue.path === 'operationEndAt')?.message;
+    const form = { ...toProgramEditForm(editableProgram), endAt: '' };
 
     let error: unknown;
     try {
@@ -367,22 +370,8 @@ describe('ProgramEditView contract', () => {
       error = caught;
     }
 
-    expect(mapProgramEditError(error).endAt).toBe(
-      '종료일을 정하거나 「종료일 미정」을 선택해 주세요.',
-    );
-  });
-
-  // 체크를 켜면 날짜 칸을 보지 않고 센티널로 되돌린다 — 화면에서 그 칸은 비활성이다.
-  it('emits the undecided sentinel when the staff checks undecided', () => {
-    const form = {
-      ...toProgramEditForm(editableProgram),
-      endAtUndecided: true,
-      endAt: '',
-    };
-
-    expect(buildProgramEditInput(form, ['endAtUndecided']).endAt).toBe(
-      PROGRAM_END_AT_UNDECIDED,
-    );
+    expect(createFormMessage).toBe('운영 종료는 운영 시작보다 늦어야 합니다.');
+    expect(mapProgramEditError(error).endAt).toBe(createFormMessage);
   });
 
   it('rejects moving program start after an existing milestone start on startAt', () => {

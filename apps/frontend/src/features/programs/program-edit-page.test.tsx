@@ -148,17 +148,16 @@ describe('ProgramEditPage save payload', () => {
     });
   });
 
-  // 종료일 없음을 뜻하는 표현이 하나로 모였다 — `null` 과 센티널은 같은 뜻이고
-  // 폼은 그것을 「미정」 체크박스로 나르며, 저장은 언제나 센티널로 되돌린다.
-  // 예전에는 이 자리에서 payload 가 `null` 로 나갔는데, 그 값을 받은 서버는
-  // `new Date(null)` 로 Invalid Date 를 만든다(program-editor.service.ts).
-  it('종료일 없는 프로그램은 센티널로 왕복하고, 날짜를 고르면 ISO 로 나간다', () => {
-    expect(
-      buildProgramEditInput(
-        toProgramEditForm({ ...editableProgram, endAt: null }),
-        [],
-      ).endAt,
-    ).toBe(PROGRAM_END_AT_UNDECIDED);
+  // 종료일 없음(`null`·「미정」 센티널)은 더 이상 센티널로 왕복하지 않는다(#1420) —
+  // 빈 종료일로 열려 날짜를 넣기 전까지 막히고, 날짜를 고르면 ISO 로 나간다.
+  it('종료일 없는 프로그램은 날짜를 넣기 전까지 막히고, 날짜를 고르면 ISO 로 나간다', () => {
+    for (const endAt of [null, PROGRAM_END_AT_UNDECIDED]) {
+      expect(
+        validateProgramEditForm(
+          toProgramEditForm({ ...editableProgram, endAt }),
+        ).endAt,
+      ).toBe('운영 종료는 운영 시작보다 늦어야 합니다.');
+    }
 
     const input = buildProgramEditInput(
       {
@@ -612,6 +611,72 @@ describe('ProgramEditPage 컴포넌트', () => {
     expect(routerReplaceMock).not.toHaveBeenCalled();
     expect(container.querySelector('[role="status"]')?.textContent).toBe(
       '저장되었습니다.',
+    );
+  });
+
+  // #1420: 「미정」으로 남은 옛 프로그램은 종료일을 넣기 전까지 저장 요청이 나가지 않는다.
+  it('「미정」 센티널 프로그램은 종료일을 넣기 전까지 저장하지 않고, 넣으면 그 날짜로 저장한다', async () => {
+    const legacyProgram = {
+      ...editableProgram,
+      endAt: PROGRAM_END_AT_UNDECIDED,
+    };
+    getEditableProgramMock.mockResolvedValue(legacyProgram);
+    updateProgramMock.mockResolvedValue({
+      ...legacyProgram,
+      endAt: '2026-08-31T14:59:00.000Z',
+    });
+
+    await act(async () => {
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).not.toContain('종료일 미정');
+    await act(async () => getButton('프로그램 정보 저장').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(updateProgramMock).not.toHaveBeenCalled();
+    expect(
+      container.querySelector('#operation-schedule-error')?.textContent,
+    ).toBe('운영 종료는 운영 시작보다 늦어야 합니다.');
+
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('button[aria-label="운영 기간 수정"]')
+        ?.click(),
+    );
+    expect(document.body.querySelector('#program-end-at-undecided')).toBeNull();
+    expect(
+      document.body.querySelector<HTMLInputElement>(
+        'input[aria-label="운영 기간 종료일"]',
+      )?.value,
+    ).toBe('');
+    await act(async () =>
+      document.body
+        .querySelector<HTMLButtonElement>('[data-calendar-date="2026-08-17"]')
+        ?.click(),
+    );
+    await act(async () =>
+      document.body
+        .querySelector<HTMLButtonElement>('[data-calendar-date="2026-08-31"]')
+        ?.click(),
+    );
+    await act(async () => getButton('날짜 적용').click());
+    await act(async () => getButton('프로그램 정보 저장').click());
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(updateProgramMock).toHaveBeenCalledTimes(1);
+    expect(updateProgramMock).toHaveBeenLastCalledWith(
+      'program-1',
+      expect.objectContaining({ endAt: '2026-08-31T14:59:00.000Z' }),
     );
   });
 
