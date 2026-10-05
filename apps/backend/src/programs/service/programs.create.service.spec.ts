@@ -241,6 +241,11 @@ describe('ProgramsService', () => {
     ['invalid', 'not-a-date'],
     ['equal to application end', input.applicationEndAt],
     ['before application end', '2026-08-15T23:59:58+09:00'],
+    ['the undecided sentinel', '9999-12-31T23:59:59.999Z'],
+    [
+      'the undecided sentinel in another offset',
+      '9999-12-31T22:59:59.999-01:00',
+    ],
   ])('rejects an endAt that is %s', async (_case, endAt) => {
     findUnique.mockResolvedValue({
       hasStaffAccess: true,
