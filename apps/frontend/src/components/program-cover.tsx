@@ -33,7 +33,7 @@ export function ProgramCover({
       )}
     >
       {available ? (
-        // eslint-disable-next-line @next/next/no-img-element
+        
         <img
           src={src}
           referrerPolicy="no-referrer"
@@ -93,7 +93,7 @@ export function ProgramCover({
               </Button>
             </Dialog.Close>
           </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          
           <img
             src={src}
             referrerPolicy="no-referrer"

@@ -1,5 +1,5 @@
 import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
-// @vitest-environment happy-dom
+
 
 import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';

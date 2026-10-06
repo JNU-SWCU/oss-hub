@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+
 
 /**
  * 마일스톤 목록의 **접기**를 고정한다.

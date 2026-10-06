@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+
 
 import { act, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';

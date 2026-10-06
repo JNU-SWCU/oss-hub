@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+
 
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';

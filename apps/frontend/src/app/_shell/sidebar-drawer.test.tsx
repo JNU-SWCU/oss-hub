@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+
 
 // SidebarDrawer의 dialog 접근성 계약을 실제 DOM 상호작용으로 검증한다.
 // `renderToStaticMarkup`은 이벤트·포커스를 낼 수 없어(nav-bar-escape.test.tsx와

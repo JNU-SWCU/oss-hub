@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+
 
 /**
  * 마일스톤 목록의 **경계**를 고정한다.

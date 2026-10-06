@@ -363,13 +363,13 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     // via `.call(this, ...)` inside the mock below, since `this` varies (a
     // fresh `CollectionIncrementalRepository` per `runInTransaction` call).
     const originalCommit =
-      // eslint-disable-next-line @typescript-eslint/unbound-method
+      
       CollectionIncrementalRepository.prototype.recordCommitFacts;
     const originalPullRequest =
-      // eslint-disable-next-line @typescript-eslint/unbound-method
+      
       CollectionIncrementalRepository.prototype.recordPullRequestFacts;
     const originalRelease =
-      // eslint-disable-next-line @typescript-eslint/unbound-method
+      
       CollectionIncrementalRepository.prototype.recordReleaseFacts;
     jest
       .spyOn(CollectionIncrementalRepository.prototype, 'recordCommitFacts')
@@ -426,7 +426,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         return result;
       });
     const originalIssue =
-      // eslint-disable-next-line @typescript-eslint/unbound-method
+      
       CollectionIncrementalRepository.prototype.recordIssueFacts;
     jest
       .spyOn(CollectionIncrementalRepository.prototype, 'recordIssueFacts')
@@ -496,7 +496,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     const cursorAdvances: bigint[] = [];
     // Rebound per call via `.call(this, ...)` below (see comment in `beforeAll`).
     const originalUpsertCursor =
-      // eslint-disable-next-line @typescript-eslint/unbound-method
+      
       CollectionIncrementalRepository.prototype.upsertSyncCursor;
     jest
       .spyOn(CollectionIncrementalRepository.prototype, 'upsertSyncCursor')

@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it, vi } from 'vitest';
 import { MatrixQuickFilterButtons } from './components/submission-matrix-controls';

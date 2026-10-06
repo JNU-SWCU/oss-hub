@@ -143,7 +143,7 @@ function ProjectCard({ project }: { readonly project: PublicProfileProject }) {
 function ProfileContent({ profile }: { readonly profile: PublicProfile }) {
   const avatar = profile.avatarUrl ? (
     // GitHub avatar CDN — next/image remotePatterns 없이 표시한다.
-    // eslint-disable-next-line @next/next/no-img-element -- 외부 avatar URL
+    
     <img
       src={profile.avatarUrl}
       alt=""

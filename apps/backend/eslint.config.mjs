@@ -4,6 +4,7 @@ import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import moduleZoneBoundary from './eslint-rules/module-zone-boundary.mjs';
+import noComments from './eslint-rules/no-comments.mjs';
 
 // ADR-003 — 각 기능 모듈의 domain·dto는 그 모듈의 내부 표현이며, 다른
 // 모듈이 직접 참조하지 않는다. common·prisma는 모듈이 아니라 전 모듈이
@@ -193,6 +194,9 @@ export default tseslint.config(
   ...tseslint.configs.recommendedTypeChecked,
   prettier,
   {
+    plugins: { local: { rules: { 'no-comments': noComments } } },
+  },
+  {
     languageOptions: {
       globals: {
         ...globals.node,
@@ -325,6 +329,16 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['eslint.config.mjs', 'dist', 'node_modules'],
+    files: ['eslint.config.mjs', 'eslint-rules/*.mjs'],
+    extends: [tseslint.configs.disableTypeChecked],
+  },
+  {
+    files: [
+      'src/github/collection-sync.service.100-repositories.integration.spec.ts',
+    ],
+    rules: { '@typescript-eslint/unbound-method': 'off' },
+  },
+  {
+    ignores: ['dist', 'node_modules'],
   },
 );

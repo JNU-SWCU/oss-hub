@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
 import {

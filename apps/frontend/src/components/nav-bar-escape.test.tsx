@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+
 
 // 접힌 메뉴의 Escape 닫기(QA12).
 //

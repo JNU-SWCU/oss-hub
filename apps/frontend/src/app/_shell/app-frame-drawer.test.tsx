@@ -1,4 +1,4 @@
-// @vitest-environment happy-dom
+
 
 // 900px 미만 사이드바 드로어의 통합 동작 — 세션·라우트에 따라 드로어 "안"에
 // 실제로 어떤 그룹/항목이 뜨는지는 `renderToStaticMarkup`(app-frame.test.tsx)으로는

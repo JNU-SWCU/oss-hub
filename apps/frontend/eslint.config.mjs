@@ -6,6 +6,7 @@ import prettier from 'eslint-config-prettier';
 import typescriptParser from '@typescript-eslint/parser';
 import runtimeTestBoundary from './eslint-rules/runtime-test-boundary.mjs';
 import designSystemRules from './eslint-rules/design-system.mjs';
+import noComments from './eslint-rules/no-comments.mjs';
 
 // docs/rules/frontend.md — 의존 방향은 app → features → lib 단방향이며,
 // feature는 다른 feature의 내부 경로에 직접 의존하지 않는다.
@@ -144,6 +145,14 @@ const designSystemConfig = {
 
 const designSystemExemptions = [
   {
+    files: [
+      'src/components/program-cover.tsx',
+      'src/features/auth/components/login-button.tsx',
+      'src/features/profile/components/public-profile-view.tsx',
+    ],
+    rules: { '@next/next/no-img-element': 'off' },
+  },
+  {
     // R-08b 규칙문의 예외 — canvas 전용 테마 상수
     files: ['src/features/landing/cosmos/cosmos-theme.ts'],
     rules: { 'local/design-no-hex-color': 'off' },
@@ -171,6 +180,7 @@ export default defineConfig([
       local: {
         rules: {
           'runtime-test-boundary': runtimeTestBoundary,
+          'no-comments': noComments,
           ...designSystemRules,
         },
       },
@@ -188,6 +198,6 @@ export default defineConfig([
   designSystemConfig,
   ...designSystemExemptions,
   {
-    ignores: ['.next/**', 'coverage/**', 'node_modules/**'],
+    ignores: ['.next/**', 'coverage/**', 'node_modules/**', 'next-env.d.ts'],
   },
 ]);

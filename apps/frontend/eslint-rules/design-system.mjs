@@ -12,7 +12,7 @@
 
 const MAX_CLASS_NAME_LENGTH = 120;
 // ponytail: `#1234` 같은 번호 문구도 4자리 hex로 잡힌다. 그런 문자열은 이유를 적은
-// eslint-disable-next-line으로 넘기고, 오탐이 잦아지면 앞뒤 문맥 검사로 올린다.
+
 const HEX_COLOR =
   /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![0-9a-zA-Z_-])/;
 const PALETTE_REFERENCE = /--palette-/;
