@@ -1,6 +1,7 @@
 import { ProgramCategory } from '@prisma/client';
 import { getProgramTemplate } from './program-template.registry';
 import { validateProgramCoverChoice } from './program-external-cover';
+import { isProgramEndAtUndecided } from './program-end-at';
 import {
   ProgramAuthoringValidationError,
   type ProgramAuthoringDocumentPlan,
@@ -41,7 +42,12 @@ export function buildProgramAuthoringPlan(
     'startAt',
     issues,
   );
-  const endAt = isoDate(request.endAt, 'endAt', issues);
+  let endAt = isoDate(request.endAt, 'endAt', issues);
+  // 「미정」 센티널은 실제 날짜가 아니다 — 읽을 수 없는 날짜처럼 거절한다(#1420).
+  if (endAt !== null && isProgramEndAtUndecided(endAt)) {
+    issues.push({ path: 'endAt', code: 'INVALID_DATE' });
+    endAt = null;
+  }
   if (
     applicationStartAt === null ||
     applicationEndAt === null ||

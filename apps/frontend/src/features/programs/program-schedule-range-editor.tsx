@@ -133,9 +133,7 @@ export function ProgramScheduleRangeEditor({
   const singleRange = ranges.length === 1;
   const hasEnabledTimeError =
     (Boolean(activeRange?.startError) && startDate !== null) ||
-    (Boolean(activeRange?.endError) &&
-      endDate !== null &&
-      !activeRange?.endDisabled);
+    (Boolean(activeRange?.endError) && endDate !== null);
   const timeControlsVisible =
     timeControlsOpenFor === activeRange?.id || hasEnabledTimeError;
   const startDateError =
@@ -468,7 +466,7 @@ function RangeTimeFields({
           id={range.endInputId}
           label="마감 시각"
           value={timePart(range.endAt)}
-          disabled={endDate === null || Boolean(range.endDisabled)}
+          disabled={endDate === null}
           error={endDate === null ? undefined : range.endError}
           onChange={(value) => {
             if (endDate !== null)

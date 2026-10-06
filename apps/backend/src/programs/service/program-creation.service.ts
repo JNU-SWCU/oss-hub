@@ -12,6 +12,7 @@ import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from '../program-error-code.enum';
+import { isProgramEndAtUndecided } from '../program-end-at';
 import { getProgramTemplate } from '../program-template.registry';
 
 const INVALID_END_AT_FIELD_ERROR = {
@@ -79,6 +80,7 @@ export class ProgramCreationService {
     if (
       typeof input.endAt !== 'string' ||
       !Number.isFinite(endAt.getTime()) ||
+      isProgramEndAtUndecided(endAt) ||
       !hasValidProgramPeriod
     ) {
       throw new DomainException(

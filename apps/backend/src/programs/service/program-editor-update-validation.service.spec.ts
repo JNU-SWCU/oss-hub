@@ -298,6 +298,55 @@ describe('ProgramEditorService update validation', () => {
     expect(store.updateProgram.mock.calls).toHaveLength(0);
   });
 
+  // 「종료일 미정」 센티널은 새 종료일로 받지 않는다(#1420) — 같은 순간을 다른 offset 으로 적어도 같다.
+  it.each(['9999-12-31T23:59:59.999Z', '9999-12-31T22:59:59.999-01:00'])(
+    'rejects the undecided end sentinel %s with the program end field error',
+    async (endAt) => {
+      const { service, store } = createProgramEditorServiceHarness();
+      store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
+
+      const exception = await expectDomainException(
+        service.updateProgram(101n, 'program-1', { ...updateInput, endAt }),
+      );
+
+      expect(exception.errorCode).toBe(
+        PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+      );
+      expect(exception.extensions.fieldErrors).toEqual([
+        expect.objectContaining({
+          field: 'endAt',
+          code: 'INVALID_PROGRAM_END',
+        }),
+      ]);
+      expect(store.updateProgram.mock.calls).toHaveLength(0);
+    },
+  );
+
+  // 생략은 「지금 값 유지」다 — 이미 「미정」으로 저장된 옛 프로그램도 다른 칸은 저장된다.
+  it('keeps a legacy undecided end when the request omits endAt', async () => {
+    const { service, store } = createProgramEditorServiceHarness();
+    const legacyProgram = {
+      ...editableProgram,
+      endAt: '9999-12-31T23:59:59.999Z',
+    };
+    store.findEditableProgramForUpdate.mockResolvedValue(legacyProgram);
+    store.updateProgram.mockResolvedValue(legacyProgram);
+
+    await service.updateProgram(101n, 'program-1', {
+      ...updateInput,
+      endAt: undefined,
+    });
+
+    expect(store.updateProgram.mock.calls).toEqual([
+      [
+        expect.objectContaining({
+          endAt: new Date('9999-12-31T23:59:59.999Z'),
+          liveFileExpiresAt: null,
+        }),
+      ],
+    ]);
+  });
+
   it('rejects moving program start after an existing milestone start on startAt', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findEditableProgramForUpdate.mockResolvedValue({

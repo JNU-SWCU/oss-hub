@@ -11,10 +11,7 @@ import type {
   UpdateProgramInput,
   UpsertMilestoneInput,
 } from './api';
-import {
-  isProgramEndAtUndecided,
-  PROGRAM_END_AT_UNDECIDED,
-} from './program-end-at';
+import { isProgramEndAtUndecided } from './program-end-at';
 import {
   PROGRAM_TRACK_TYPES,
   type ProgramTrackType,
@@ -34,14 +31,9 @@ export interface ProgramEditForm {
   readonly startAt: string;
   readonly originalStartAt: string;
   readonly endAt: string;
-  /**
-   * 종료일을 「미정」으로 둔다 — 켜져 있으면 `endAt` 입력은 비활성이고 저장 시
-   * 센티널로 바뀐다(`program-end-at.ts`). 센티널을 들고 있는 기존 프로그램은
-   * 편집 화면을 열 때 이 값이 켜진 채로 시작한다.
-   */
-  readonly endAtUndecided: boolean;
   readonly originalApplicationStartAt: string;
   readonly originalApplicationEndAt: string;
+  /** 저장된 종료일. 「미정」 센티널(`program-end-at.ts`)이었으면 `null` 이다. */
   readonly originalEndAt: string | null;
   readonly milestoneStartAts: readonly string[];
   readonly milestoneDueAts: readonly string[];
@@ -152,11 +144,11 @@ class ProgramEditValidationError extends Error {
 
 export function toProgramEditForm(program: EditableProgram): ProgramEditForm {
   /**
-   * 센티널은 폼 모델에 들어오기 전에 「미정」으로 갈린다 — 그 값을
-   * `toDateTimeLocal` 에 넘기면 KST 에서 연도가 `10000` 이 되고, 그 문자열은
-   * 되돌릴 수 없다(#826). 날짜 칸은 비워 두고 체크박스가 뜻을 나른다.
+   * 「미정」 센티널은 실제 날짜가 아니다 — 종료일 칸을 비운 채 열고, 교직원이 실제
+   * 날짜를 넣어야 저장된다(#1420). 그 값을 `toDateTimeLocal` 에 넘기면 KST 에서
+   * 연도가 `10000` 이 되고, 그 문자열은 되돌릴 수 없다(#826).
    */
-  const endAtUndecided = isProgramEndAtUndecided(program.endAt);
+  const endAt = isProgramEndAtUndecided(program.endAt) ? null : program.endAt;
   return {
     name: program.name,
     organizer: program.organizer,
@@ -165,11 +157,10 @@ export function toProgramEditForm(program: EditableProgram): ProgramEditForm {
     applicationEndAt: toDateTimeLocal(program.applicationEndAt),
     startAt: toDateTimeLocal(program.startAt ?? program.applicationEndAt),
     originalStartAt: program.startAt ?? program.applicationEndAt,
-    endAt: endAtUndecided ? '' : toDateTimeLocal(program.endAt as string),
-    endAtUndecided,
+    endAt: endAt === null ? '' : toDateTimeLocal(endAt),
     originalApplicationStartAt: program.applicationStartAt,
     originalApplicationEndAt: program.applicationEndAt,
-    originalEndAt: program.endAt,
+    originalEndAt: endAt,
     milestoneStartAts: program.milestones.map((milestone) => milestone.startAt),
     milestoneDueAts: program.milestones.map((milestone) => milestone.dueAt),
     repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
@@ -240,24 +231,13 @@ export function buildProgramEditInput(
   const startAt = dirtyFields.includes('startAt')
     ? toIsoString(form.startAt)
     : form.originalStartAt;
-  /**
-   * 「미정」이면 날짜 칸을 보지 않고 센티널로 되돌린다 — 폼에서 비어 있는 것과
-   * 「미정」은 다른 뜻이다. 비어 있는 것은 아직 고르지 않은 상태이고, 아래 분기가
-   * 그것을 막는다.
-   */
-  const endAt = form.endAtUndecided
-    ? PROGRAM_END_AT_UNDECIDED
-    : form.endAt === ''
-      ? null
-      : dirtyFields.includes('endAt') || form.originalEndAt === null
-        ? toIsoString(form.endAt)
-        : form.originalEndAt;
+  // 위 검증이 빈 종료일을 이미 막았다 — 「미정」이던 프로그램(originalEndAt null)은
+  // 교직원이 넣은 날짜로 나간다.
+  const endAt =
+    dirtyFields.includes('endAt') || form.originalEndAt === null
+      ? toIsoString(form.endAt)
+      : form.originalEndAt;
 
-  if (form.originalEndAt !== null && endAt === null) {
-    throw new ProgramEditValidationError({
-      endAt: '종료일을 정하거나 「종료일 미정」을 선택해 주세요.',
-    });
-  }
   // Same rule as the editor service: a later program start that leaves
   // milestone starts behind is a startAt error, not an endAt error.
   if (
@@ -270,15 +250,14 @@ export function buildProgramEditInput(
         '운영 시작일은 모든 마일스톤 시작일보다 이르거나 같아야 합니다. 마일스톤 시작일을 먼저 바꿔 주세요.',
     });
   }
-  if (endAt !== null && startAt >= endAt) {
+  if (startAt >= endAt) {
     throw new ProgramEditValidationError({
       endAt: '프로그램 종료일은 운영 시작일 이후여야 합니다.',
     });
   }
   if (
-    endAt !== null &&
-    (endAt < applicationEndAt ||
-      form.milestoneDueAts.some((dueAt) => endAt < dueAt))
+    endAt < applicationEndAt ||
+    form.milestoneDueAts.some((dueAt) => endAt < dueAt)
   ) {
     throw new ProgramEditValidationError({
       endAt:
@@ -310,7 +289,7 @@ export function validateProgramEditForm(
   const applicationStartAt = seoulDateTimeValue(form.applicationStartAt);
   const applicationEndAt = seoulDateTimeValue(form.applicationEndAt);
   const startAt = seoulDateTimeValue(form.startAt);
-  const endAt = form.endAtUndecided ? null : seoulDateTimeValue(form.endAt);
+  const endAt = seoulDateTimeValue(form.endAt);
   const errors: {
     name?: string;
     organizer?: string;
@@ -349,20 +328,19 @@ export function validateProgramEditForm(
       '운영 시작일은 모든 마일스톤 시작일보다 이르거나 같아야 합니다. 마일스톤 시작일을 먼저 바꿔 주세요.';
   }
 
-  if (!form.endAtUndecided) {
-    if (endAt === null) {
-      errors.endAt = '종료일을 정하거나 「종료일 미정」을 선택해 주세요.';
-    } else if (startAt !== null && startAt >= endAt) {
-      errors.endAt = '프로그램 종료일은 운영 시작일 이후여야 합니다.';
-    } else if (
-      (applicationEndAt !== null && endAt < applicationEndAt) ||
-      form.milestoneDueAts.some(
-        (milestoneDueAt) => endAt < Date.parse(milestoneDueAt),
-      )
-    ) {
-      errors.endAt =
-        '프로그램 종료일은 신청 종료일과 모든 마일스톤 마감과 같거나 이후여야 합니다.';
-    }
+  if (endAt === null) {
+    // 만들기 폼(program-authoring-validation.ts)이 빈 운영 종료에 쓰는 문구와 같다.
+    errors.endAt = '운영 종료를 입력해 주세요.';
+  } else if (startAt !== null && startAt >= endAt) {
+    errors.endAt = '프로그램 종료일은 운영 시작일 이후여야 합니다.';
+  } else if (
+    (applicationEndAt !== null && endAt < applicationEndAt) ||
+    form.milestoneDueAts.some(
+      (milestoneDueAt) => endAt < Date.parse(milestoneDueAt),
+    )
+  ) {
+    errors.endAt =
+      '프로그램 종료일은 신청 종료일과 모든 마일스톤 마감과 같거나 이후여야 합니다.';
   }
 
   return errors;

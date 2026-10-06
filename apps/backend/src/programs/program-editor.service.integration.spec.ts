@@ -1,5 +1,7 @@
 import { MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { updateInput } from '../../test/program-editor-service-fixtures';
+import { DomainException } from '../common/error-code';
 import { ProgramErrorCode } from './program-error-code.enum';
 import {
   cleanup,
@@ -19,8 +21,15 @@ assertIsolatedIntegrationDatabase({
 });
 
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
+const UNDECIDED_END_AT = '9999-12-31T23:59:59.999Z';
 
-describe('ProgramEditorService integration concurrency', () => {
+/** 「종료일 미정」으로 남은 옛 프로그램 — 종료일을 DB 기본값(센티널)으로 되돌린다. */
+async function createUndecidedEndProgram(programId: string): Promise<void> {
+  await createProgram(programId, false);
+  await prisma.$executeRaw`UPDATE "Program" SET "endAt" = DEFAULT WHERE "id" = ${programId}`;
+}
+
+describe('ProgramEditorService integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
   }, DATABASE_CONNECTION_TIMEOUT_MS);
@@ -94,5 +103,60 @@ describe('ProgramEditorService integration concurrency', () => {
       );
       expect(remaining[0]?.id).toBe(secondMilestoneId);
     }
+  });
+
+  it('saves a legacy undecided-end program when the request omits endAt', async () => {
+    // Given: the program end is still the DB default sentinel.
+    const programId = `${TEST_PREFIX}program:undecided-end-kept`;
+    await createUndecidedEndProgram(programId);
+
+    // When: staff saves other fields without sending endAt.
+    await editor.updateProgram(STAFF_GITHUB_ID, programId, {
+      ...updateInput,
+      repositoryProvisioningEnabled: false,
+      endAt: undefined,
+    });
+
+    // Then: the other fields are saved and the end stays as it was.
+    await expect(
+      prisma.program.findUniqueOrThrow({
+        where: { id: programId },
+        select: { name: true, endAt: true },
+      }),
+    ).resolves.toEqual({
+      name: 'Updated OSS',
+      endAt: new Date(UNDECIDED_END_AT),
+    });
+  });
+
+  it('rejects the undecided sentinel sent as a new end with the endAt field error', async () => {
+    // Given: a legacy undecided-end program.
+    const programId = `${TEST_PREFIX}program:undecided-end-sent`;
+    await createUndecidedEndProgram(programId);
+
+    // When: the request explicitly sends the sentinel as endAt.
+    const rejected = await editor
+      .updateProgram(STAFF_GITHUB_ID, programId, {
+        ...updateInput,
+        repositoryProvisioningEnabled: false,
+        endAt: UNDECIDED_END_AT,
+      })
+      .then(
+        () => null,
+        (error: unknown) => error,
+      );
+
+    // Then: the existing endAt field error is returned and nothing is written.
+    expect(rejected).toBeInstanceOf(DomainException);
+    expect(domainCode(rejected)).toBe(ProgramErrorCode.VALIDATION_ERROR);
+    expect((rejected as DomainException).extensions.fieldErrors).toEqual([
+      expect.objectContaining({ field: 'endAt', code: 'INVALID_PROGRAM_END' }),
+    ]);
+    await expect(
+      prisma.program.findUniqueOrThrow({
+        where: { id: programId },
+        select: { name: true },
+      }),
+    ).resolves.toEqual({ name: 'Issue 101 Same Name Program' });
   });
 });

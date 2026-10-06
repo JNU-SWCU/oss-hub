@@ -98,6 +98,28 @@ describe('program authoring validation', () => {
     ).toEqual([]);
   });
 
+  // 빈 운영 종료와 시작보다 이른 운영 종료는 다른 상황이라 다른 말로 안내한다(#1420).
+  it.each([
+    ['an empty operation end', '', '운영 종료를 입력해 주세요.'],
+    [
+      'an operation end before its start',
+      '2026-09-29T18:00',
+      '운영 종료는 운영 시작보다 늦어야 합니다.',
+    ],
+  ])('explains %s in its own words', (_case, operationEndAt, message) => {
+    const state = {
+      ...completedAuthoringState(),
+      operationStartAt: '2026-09-30T18:00',
+      operationEndAt,
+    };
+
+    expect(
+      validateProgramAuthoringStep(state, 'schedule')
+        .filter((issue) => issue.path === 'operationEndAt')
+        .map((issue) => issue.message),
+    ).toEqual([message]);
+  });
+
   it.each<readonly [string, Partial<ProgramAuthoringState>, string]>([
     [
       'a reversed application period',

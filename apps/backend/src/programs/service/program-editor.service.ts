@@ -22,6 +22,7 @@ import {
   type ProgramAuthoringUploadToken,
 } from '../program-authoring.types';
 import { validateProgramCoverChoice } from '../program-external-cover';
+import { isProgramEndAtUndecided } from '../program-end-at';
 import type {
   ProgramAuthority,
   ProgramEditorRepositoryPort,
@@ -189,7 +190,13 @@ export class ProgramEditorService {
           fieldErrors: [INVALID_PROGRAM_START_FIELD_ERROR],
         });
       }
-      if (!Number.isFinite(endAt.getTime()) || startAt >= endAt) {
+      if (
+        !Number.isFinite(endAt.getTime()) ||
+        startAt >= endAt ||
+        // 「미정」 센티널은 새 종료일로 받지 않는다(#1420). endAt 을 생략하면 지금 값을
+        // 그대로 두므로, 이미 「미정」인 옛 프로그램도 다른 칸은 계속 저장할 수 있다.
+        (input.endAt !== undefined && isProgramEndAtUndecided(endAt))
+      ) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
         });
