@@ -151,6 +151,7 @@ const designSystemExemptions = [
 export default defineConfig([
   {
     files: ['**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'],
+    linterOptions: { noInlineConfig: true },
     languageOptions: {
       parser: typescriptParser,
       parserOptions: {
@@ -172,6 +173,7 @@ export default defineConfig([
     rules: {
       ...nextPlugin.configs.recommended.rules,
       'local/runtime-test-boundary': 'error',
+      'local/no-comments': 'error',
     },
   },
   prettier,

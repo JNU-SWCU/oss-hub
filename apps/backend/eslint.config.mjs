@@ -143,6 +143,8 @@ export default tseslint.config(
   prettier,
   {
     plugins: { local: { rules: { 'no-comments': noComments } } },
+    linterOptions: { noInlineConfig: true },
+    rules: { 'local/no-comments': 'error' },
   },
   {
     languageOptions: {

@@ -173,7 +173,7 @@ PR의 평시 수집은 `(createdAt, id)` tie frontier를 유지한다. 다만 �
 
 #### 이미 있는 자산
 
-`collection-discovery.client.ts`가 user-side `contributionsCollection` GraphQL을 **이미 구현해 뒀다.** 주석에 REST로 왜 안 되는지(`/search/commits`는 기본 브랜치만·분당 30회, `/users/{u}/events/public`은 30일 보존)까지 적혀 있다.
+`collection-discovery.client.ts`가 user-side `contributionsCollection` GraphQL을 **이미 구현해 뒀다.**
 
 따라서 `OWN` 연결은 새 클라이언트가 필요 없다.
 
