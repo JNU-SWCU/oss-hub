@@ -184,6 +184,13 @@ export default defineConfig([
   designSystemConfig,
   ...designSystemExemptions,
   {
-    ignores: ['.next/**', 'coverage/**', 'node_modules/**', 'next-env.d.ts'],
+    ignores: [
+      '.next/**',
+      'coverage/**',
+      'node_modules/**',
+      'next-env.d.ts',
+      'index.d.ts',
+      'ds-types/**',
+    ],
   },
 ]);
