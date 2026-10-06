@@ -542,6 +542,7 @@ export function ProgramDetailReadyState({
   useActivityHashScroll();
 
   const badge = detailStatusBadge(program);
+  const meta = programDetailMeta(program);
 
   return (
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
@@ -561,7 +562,12 @@ export function ProgramDetailReadyState({
               <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
             </span>
           }
-          description={programDetailMeta(program)}
+          description={
+            <>
+              {`${meta.context} · `}
+              <span className="whitespace-nowrap">{meta.period}</span>
+            </>
+          }
           actions={
             <>
               {program.viewer.role === 'STAFF' ||

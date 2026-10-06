@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { formatSeoulShortRange, isPastDue } from './program-detail-format';
+import {
+  formatSeoulShortRange,
+  isPastDue,
+  programDetailMeta,
+} from './program-detail-format';
 
 describe('isPastDue', () => {
   const dueAt = '2026-09-19T18:00:00+09:00';
@@ -35,5 +39,38 @@ describe('formatSeoulShortRange', () => {
         '2027-01-01T14:59:00.000Z',
       ),
     ).toBe('27.01.01 – 27.01.01 23:59');
+  });
+});
+
+describe('programDetailMeta', () => {
+  const applicationPeriod = {
+    startsAt: '2026-10-04T15:00:00.000Z',
+    endsAt: '2026-10-16T14:59:00.000Z',
+  };
+
+  it('날짜 범위 앞에 무슨 기간인지 이름을 붙인다', () => {
+    expect(
+      programDetailMeta({
+        organizer: '운영기관',
+        trackType: 'EXTRACURRICULAR',
+        applicationPeriod,
+      }),
+    ).toEqual({
+      context: '운영기관 · 비교과',
+      period: '신청 기간 2026.10.05 ~ 2026.10.16',
+    });
+  });
+
+  it('유형이 없는 프로그램도 같은 이름을 붙인다', () => {
+    expect(
+      programDetailMeta({
+        organizer: '운영기관',
+        trackType: null,
+        applicationPeriod,
+      }),
+    ).toEqual({
+      context: '운영기관',
+      period: '신청 기간 2026.10.05 ~ 2026.10.16',
+    });
   });
 });
