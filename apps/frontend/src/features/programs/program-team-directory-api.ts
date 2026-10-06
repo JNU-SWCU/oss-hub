@@ -1,6 +1,5 @@
 import { apiClient } from '@/lib/api-client';
 
-/** 公開 roster에 허용된 표시 정보만 받는다. 저장소와 개인 프로필은 포함하지 않는다. */
 export interface ProgramTeamDirectoryMember {
   readonly userId: string;
   readonly displayName: string;

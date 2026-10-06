@@ -14,12 +14,6 @@ import { StudentDashboardReadRepository } from '../repository/student-dashboard-
 import { ProgramsService } from './programs.service';
 import { StudentDashboardService } from './student-dashboard.service';
 
-/**
- * 대시보드의 「다음 마일스톤」이 두 제출 축을 실제 DB에서 함께 보는지 확인한다(#1091).
- *
- * 이 확인은 단위 테스트로 대신할 수 없다 — 결함이 조회 조건 자체에 있었고, prisma를 mock 하면
- * `where` 가 무엇이든 fixture 가 그대로 돌아와 조건이 검증되지 않는다.
- */
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -97,7 +91,6 @@ function documentRow(
   };
 }
 
-/** 이 신청의 제출을 통째로 갈아 끼운다 — 테스트끼리 상태를 물려받지 않게 한다. */
 async function setSubmissions(
   applicationId: string,
   rows: readonly (readonly [string, SubmissionStatus])[],
@@ -153,7 +146,6 @@ async function seed(): Promise<void> {
   await prisma.program.createMany({ data: PROGRAM_IDS.map(programRow) });
   await prisma.milestone.createMany({
     data: [
-      // 새 방식 — `submissionType` 이 없고 서류 항목으로만 완료한다.
       {
         id: DOCUMENT_MILESTONE_FIRST,
         programId: DOCUMENT_PROGRAM,
@@ -168,7 +160,7 @@ async function seed(): Promise<void> {
         dueAt: new Date('2026-09-08T00:00:00.000Z'),
         submissionType: null,
       },
-      // 옛 방식 — 단일 제출 축만 쓴다.
+
       {
         id: LEGACY_MILESTONE,
         programId: LEGACY_PROGRAM,
@@ -176,7 +168,7 @@ async function seed(): Promise<void> {
         dueAt: new Date('2026-09-01T00:00:00.000Z'),
         submissionType: MilestoneSubmissionType.FILE,
       },
-      // #820 전환기 — 단일 제출 축과 필수 서류가 함께 살아 있다.
+
       {
         id: MIXED_MILESTONE,
         programId: LEGACY_PROGRAM,
@@ -313,10 +305,6 @@ describe('StudentDashboardService milestone axes integration', () => {
     expect(await nextMilestoneOf(LEGACY_APPLICATION)).toBeNull();
   });
 
-  /**
-   * 두 화면이 같은 말을 하는가. 대시보드가 옛 슬롯만 보던 동안 이 칸은 대시보드에서 승인,
-   * 프로그램 상세에서 제출됨으로 갈라졌다.
-   */
   it('reports the same status as the program detail for a two-axis milestone', async () => {
     await setSubmissions(LEGACY_APPLICATION, [
       [LEGACY_SLOT, SubmissionStatus.APPROVED],

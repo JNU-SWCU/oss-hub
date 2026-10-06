@@ -20,10 +20,9 @@ const ACTION_BADGE_VARIANTS = {
   TEAM_CREATED: 'approved',
   TEAM_JOINED: 'approved',
   TEAM_DELETED: 'closed',
-  // 탈퇴·내보내기는 합류와 반대로 구성이 줄어드는 변경이라 보관·삭제와 같은 톤을 쓴다.
+
   TEAM_MEMBERSHIP_CHANGED: 'closed',
-  // 이름만 바뀜을 뿐 팀이 늘지도 줄지도 않았다 — 생성과 같은 톤으로 읽히면
-  // 새 팀이 생긴 것처럼 보이므로 중립적인 변경 톤을 쓴다.
+
   TEAM_RENAMED: 'closed',
   COLLECTION_SYNC_TRIGGERED: 'closed',
   SUBMISSION_FILE_CLEANUP_RETRY_RESET: 'closed',
@@ -39,8 +38,6 @@ function isAuditLogAction(action: string): action is AuditLogAction {
   return Object.hasOwn(AUDIT_LOG_ACTION_LABELS, action);
 }
 
-// audit-log-view.tsx의 내용 열 배지가 이 매핑을 그대로 재사용한다 — 라벨·톤이
-// 화면 두 곳(과거 4열 표의 잔재 컴포넌트와 새 2열 표)에서 어긋나지 않게 한다.
 export function resolveAuditLogActionBadge(action: string): {
   readonly label: string;
   readonly variant: ActionBadgeVariant;

@@ -16,10 +16,8 @@ import { cn } from '@/lib/utils';
 import { DialogShell } from '@/components';
 import type { TeamInvitationManagement } from './use-team-invitation-management';
 
-/** 자동 검색이 붙는 최소 글자 수 — 힌트 문구도 이 값을 따른다(실제 요청 여부는 호출부가 정한다). */
 const MIN_QUERY_LENGTH = 2;
 
-/** 팀 구성원 목록의 대기 표시와 같은 문구 — 같은 사실을 다른 말로 부르지 않는다. */
 const PENDING_LABEL = '초대 대기';
 
 type ListboxState =
@@ -46,16 +44,6 @@ function optionId(listboxId: string, candidateId: string): string {
   return `${listboxId}-option-${candidateId}`;
 }
 
-/**
- * 초대 검색 레이어. 팀 구성원 목록의 「팀원 초대」에서만 열리는 조작 화면이라
- * 상태를 스스로 들지 않는다 — 공유 훅(`useTeamInvitationManagement`)의 계약
- * 하나를 그대로 받고, 열림 여부·닫기·초점 복귀는 화면(호출부)이 소유한다.
- *
- * 보낸 초대 목록은 여기에 없다. 대기 중인 초대는 팀 구성원 목록에 「초대 대기」로
- * 한 번만 나타난다 — 같은 사실을 두 자리에서 관리하지 않는다. 다만 검색 결과의
- * 어떤 후보가 이미 초대 대기인지는 그 후보 행에서 밝혀, 같은 사람에게 두 번
- * 초대를 보내 서버 거절(409)로 끝나는 조작을 애초에 내놓지 않는다.
- */
 export interface TeamInvitePanelProps {
   readonly invitation: TeamInvitationManagement;
   readonly open: boolean;
@@ -86,18 +74,14 @@ export function TeamInvitePanel({
   const [dismissed, setDismissed] = useState(false);
   const trimmedLength = query.trim().length;
 
-  // 새 검색 결과가 오면 이전 강조는 더 이상 유효하지 않다.
   useEffect(() => {
     setActiveIndex(-1);
   }, [candidates]);
 
-  // 입력을 다시 시작하면 Escape로 닫았던 목록을 다시 연다.
   useEffect(() => {
     setDismissed(false);
   }, [query]);
 
-  // 레이어가 어떤 경로로 닫히든 초점은 초대를 연 그 버튼으로 돌아간다 — 닫힘이
-  // 곧 이 컴포넌트의 언마운트라, 다이얼로그 내부 복원만으로는 자리를 잃는다.
   const wasOpen = useRef(false);
   useEffect(() => {
     if (open) {
@@ -109,11 +93,6 @@ export function TeamInvitePanel({
     returnFocusRef.current?.focus();
   }, [open, returnFocusRef]);
 
-  /**
-   * 이미 초대가 나가 있는 사람. 서버가 확인해 준 「보낸 초대」만 본다 —
-   * 눌렀다는 사실만으로 성공을 지어내지 않는다. 초대가 실제로 접수되면
-   * 호출부가 보낸 초대를 다시 읽고, 그때 이 목록의 그 후보가 대기로 바뀐다.
-   */
   const pendingInviteeIds = new Set(
     sentInvitations
       .filter((item) => item.status === 'PENDING')
@@ -129,7 +108,7 @@ export function TeamInvitePanel({
   const expanded = !dismissed && listboxState.kind !== 'none';
   const activeCandidate =
     activeIndex >= 0 ? (candidates[activeIndex] ?? null) : null;
-  // 초대가 실제로 나가는 동안에는 레이어를 닫지 않는다 — 결과를 볼 자리가 사라진다.
+
   const busy = invitingUserId !== null;
 
   if (!open) return null;
@@ -147,16 +126,14 @@ export function TeamInvitePanel({
       setActiveIndex((prev) => (prev <= 0 ? candidates.length - 1 : prev - 1));
     } else if (event.key === 'Enter') {
       if (activeCandidate) {
-        // 강조된 후보가 있으면 Enter는 선택이다 — 수동 재검색으로 넘기지 않는다.
         event.preventDefault();
         onInvite(activeCandidate);
         setActiveIndex(-1);
         return;
       }
-      // 강조된 후보가 없으면 기존처럼 수동 검색이 돈다(자동 검색과 같은 요청).
+
       onSearch();
     } else if (event.key === 'Escape' && expanded) {
-      // 목록이 열려 있는 동안의 Escape는 목록만 닫는다 — 레이어는 그대로 둔다.
       event.preventDefault();
       setDismissed(true);
       setActiveIndex(-1);
@@ -202,7 +179,7 @@ export function TeamInvitePanel({
               ? optionId(listboxId, activeCandidate.id)
               : undefined
           }
-          // 목록이 열려 있는 동안의 Escape를 레이어 닫기로 넘기지 않기 위한 표식.
+
           data-keep-dialog-on-escape={expanded ? '' : undefined}
         />
       </Field>
@@ -263,8 +240,6 @@ export function TeamInvitePanel({
                   ) : null}
                 </span>
                 {pendingInviteeIds.has(candidate.id) ? (
-                  // 이미 대기 중인 사람에게는 조작을 주지 않는다 — 다시 누르면
-                  // 서버가 409로 거절할 뿐이라, 버튼이 아니라 사실을 그린다.
                   <span
                     role="status"
                     className="whitespace-nowrap rounded-control border border-dashed border-border px-2 text-small text-muted-foreground"

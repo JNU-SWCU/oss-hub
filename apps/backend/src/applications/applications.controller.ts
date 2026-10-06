@@ -38,11 +38,6 @@ export class ApplicationsController {
     >,
   ) {}
 
-  /**
-   * #722 신청 상세. 조회 성격이므로 `ApplicationsStaffListGuard`(`APP_018`)를 쓴다 —
-   * 판정용 guard 와 권한 검사는 같고 실패 문구만 다르며, 그 구분이 이 모듈의 의도된
-   * 설계다(`applications-staff.guard.ts`).
-   */
   @Get(':id')
   @UseGuards(SessionGuard, ApplicationsStaffListGuard)
   async detail(

@@ -19,11 +19,7 @@ type CaptureInput = {
   readonly page: Page;
   readonly testInfo: TestInfo;
   readonly phase: CapturePhase;
-  /**
-   * Artifact filename prefix. Each evidence lane passes its own so one lane's
-   * screenshots can never be read as another's — a generic prefix would let a
-   * reviewer attribute the wrong run to a PR.
-   */
+
   readonly prefix: string;
   readonly name: string;
   readonly viewport: EvidenceViewport;
@@ -31,7 +27,6 @@ type CaptureInput = {
   readonly masks?: readonly Locator[];
 };
 
-/** Spec-owned UI responses. Keys are `METHOD /api/v1/...` with the query stripped. */
 export type EvidenceApiHandlers = {
   readonly [methodAndPath: string]: (route: Route) => Promise<void>;
 };
@@ -46,16 +41,6 @@ const PNG_SIGNATURE = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
 ]);
 
-/**
- * Evidence lane phase, read from the lane's own environment variable.
- *
- * Current-suite runs are After. A missing or empty value must not skip or hide the
- * spec — an evidence lane that silently does nothing is worse than a failing one.
- * `before` is only for an appropriate historical baseline. Any other value fails
- * the suite rather than guessing.
- *
- * Each lane owns its variable name so two lanes cannot be switched by one export.
- */
 export function capturePhase(variableName: string): CapturePhase {
   const phase = process.env[variableName];
   if (phase === undefined || phase === '') return 'after';
@@ -77,12 +62,6 @@ function unexpectedInterceptedApi(method: string, pathname: string): never {
   throw new Error(`Unexpected intercepted API request: ${method} ${pathname}`);
 }
 
-/**
- * Browser `/api/v1/**` router for this evidence spec.
- *
- * Unknown method/path throws. There is no catch-all 200. Intercepted bodies are
- * UI arrangement only and are not backend persistence, onboarding, or audit proof.
- */
 export async function installExactApiRouter(
   page: Page,
   handlers: () => EvidenceApiHandlers,

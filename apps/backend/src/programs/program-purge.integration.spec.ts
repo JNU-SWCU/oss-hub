@@ -54,7 +54,7 @@ const COVER_OBJECT_PREFIX = 'program-covers/integration-program-purge-7';
 const NOW = new Date('2026-08-12T00:00:00.000Z');
 const ADMIN_GITHUB_ID = 9_875_000_001n;
 const STAFF_GITHUB_ID = 9_875_000_002n;
-/** 권한이 없는 대조군 — #1095가 넓힌 것은 교직원까지이고 학생은 종전과 같이 403이다. */
+
 const STUDENT_GITHUB_ID = 9_875_000_003n;
 
 const prisma = new PrismaService();
@@ -73,8 +73,7 @@ const s3 = new S3Client({
   },
 });
 const storage = new S3SubmissionFileStorage(storageConfig, s3);
-// worker는 purge가 쓴 nextDeleteAttemptAt(실제 벥시개)을 따라잡아야 하므로 고정된 NOW가
-// 아니라 실제 시계를 쓴다.
+
 const purgeFileCleanup = new ProgramPurgeFileCleanupService(
   new ProgramPurgeFileCleanupRepository(prisma),
   storage,
@@ -165,8 +164,6 @@ async function cleanup(): Promise<void> {
   await storage.delete(`${OBJECT_PREFIX}/submission-file.pdf`).catch(() => {});
   await storage.delete(`${OBJECT_PREFIX}/template-file.pdf`).catch(() => {});
 
-  // AuditLog는 append-only로 DELETE가 DB 트리거로 차단된다(20260731130000) — 합성 actor가 남기는
-  // 행은 지우지 않고 다음 실행에서도 targetId로만 조회하므로 무해하다.
   await prisma.milestoneDocumentReviewHistory.deleteMany({
     where: {
       milestoneDocumentSubmission: {
@@ -217,9 +214,7 @@ async function cleanup(): Promise<void> {
   await prisma.repositoryIssuanceHistory.deleteMany({
     where: { applicationId: { startsWith: PREFIX } },
   });
-  // RepositoryInvitation은 GithubRepository로의 FK가 ON DELETE RESTRICT라 repo 삭제 전에
-  // 명시적으로 지워야 한다 — Contribution/CollectionRepositoryStream류는 ON DELETE CASCADE라
-  // GithubRepository 삭제 시 DB가 대신 지운다.
+
   await prisma.repositoryInvitation.deleteMany({
     where: { repository: { nameWithOwner: { startsWith: 'purge7-org/' } } },
   });
@@ -259,20 +254,16 @@ async function cleanup(): Promise<void> {
   await prisma.milestone.deleteMany({
     where: { program: { id: { startsWith: PREFIX } } },
   });
-  // Program을 가리키는 OutboxEvent(aggregateType='PROGRAM', aggregateId=programId)와
-  // Application을 가리키는 OutboxEvent(aggregateType='Application', aggregateId=applicationId)를
-  // 한 번에 지운다 — 둘 다 aggregateId가 PREFIX로 시작한다.
+
   await prisma.outboxEvent.deleteMany({
     where: { aggregateId: { startsWith: PREFIX } },
   });
-  // 프로그램에 붙은 Notification(APPLICATION_DECISION/ACKNOWLEDGED/DEADLINE_DIGEST)은
-  // userId가 RESTRICT FK라 사용자 삭제보다 먼저 지우지 않으면 아래 user.deleteMany가 실패한다.
+
   await prisma.notification.deleteMany({
     where: { user: { id: { startsWith: PREFIX } } },
   });
   await prisma.program.deleteMany({ where: { id: { startsWith: PREFIX } } });
-  // 전역 admin/staff-forbidden 액터는 AuditLog(append-only)가 actorId를 RESTRICT로
-  // 참조하므로 삭제하지 않고 재사용한다 — upsert가 멍등성을 보장한다.
+
   await prisma.user.deleteMany({
     where: {
       id: { startsWith: PREFIX },
@@ -480,8 +471,6 @@ async function seedFullChildGraph(
     },
   });
 
-  // 공개 아카이브에 발행된 저장소의 소유자 — GithubRepository.applicationId가 unique라 별도
-  // application으로 분리한다(단독 지원자, D5 1인 팀).
   await prisma.team.create({
     data: {
       id: p('published-team'),
@@ -513,7 +502,6 @@ async function seedFullChildGraph(
     },
   });
 
-  // ORG_PROVISIONED repository — provisioning artifact scoped to this application/team.
   const provisionedRepositoryId = p('provisioned-repo');
   const provisionedGithubRepositoryId = 9_875_400_000n + ordinal;
   await prisma.githubRepository.create({
@@ -554,8 +542,6 @@ async function seedFullChildGraph(
     },
   });
 
-  // GithubRepository 손자(수집 이력·초대 이력) — repo가 detach만 되고 삭제되지 않으므로
-  // purge 후에도 그대로 PRESERVE되어야 한다.
   const repositoryInvitationId = p('repository-invitation');
   await prisma.repositoryInvitation.create({
     data: {
@@ -613,7 +599,6 @@ async function seedFullChildGraph(
     },
   });
 
-  // EXTERNAL_PUBLIC repository — global collection asset, linked only via programId here.
   await prisma.githubRepository.create({
     data: {
       id: externalRepositoryId,
@@ -625,10 +610,6 @@ async function seedFullChildGraph(
     },
   });
 
-  // 공개 아카이브에 발행된 저장소 — provisioning이 만든 행(program/application 모두 설정)만
-  // publishedAt을 갖는다는 public-projects.repository.ts의 불변식을 그대로 재현한다.
-  // detach 후에도 publishedAt이 남으면 공개 아카이브 조회가 program/application이 없는 행을
-  // non-null 단언으로 역참조하다 500을 던진다(프로덕션에서 실제로 발생한 결함).
   await prisma.githubRepository.create({
     data: {
       id: publishedRepositoryId,
@@ -784,9 +765,6 @@ async function seedFullChildGraph(
     },
   });
 
-  // Application 범위 OutboxEvent(repository-provision 계열) — aggregateType='Application',
-  // aggregateId=applicationId로 적재되고 payload.programId를 품고 있다
-  // (applications.repository.ts createRepositoryProvisionEvent).
   const applicationOutboxEventId = p('application-outbox-event');
   await prisma.outboxEvent.create({
     data: {
@@ -799,8 +777,6 @@ async function seedFullChildGraph(
     },
   });
 
-  // APPLICATION_DECISION Notification — payload.programId로 프로그램에 묶는다
-  // (applications.repository.ts createApplicationDecisionNotifications).
   const applicationDecisionNotificationId = p(
     'application-decision-notification',
   );
@@ -822,8 +798,7 @@ async function seedFullChildGraph(
       },
     },
   });
-  // 그 응답 확인 기록 — idempotencyKey가 위 notification id를 참조한다
-  // (application-decision-notifications.repository.ts markRead).
+
   const applicationDecisionAcknowledgedNotificationId = p(
     'application-decision-acknowledged-notification',
   );
@@ -841,8 +816,7 @@ async function seedFullChildGraph(
       },
     },
   });
-  // DEADLINE_DIGEST Notification — idempotencyKey에 programId가 박혀 있고 payload에는 없다
-  // (notifications/deadline-digest.service.ts sendRecipient).
+
   const deadlineDigestNotificationId = p('deadline-digest-notification');
   await prisma.notification.create({
     data: {
@@ -909,11 +883,6 @@ async function seedStandaloneProgram(label: string): Promise<string> {
   return programId;
 }
 
-/**
- * ADMIN이 확인 화면에서 본 5종 범위 스냅샷을 재현한다 — GET edit과 같은 단일 스냅샷 쿼리를
- * 단순 읽기 트랜잭션으로 감싸 쓴다. 테스트가 purge 호출 직전 이 값을 expectedScope로 보내면
- * 실제 UI의 "확인한 범위를 그대로 보낸다" 계약과 같은 모양이 된다.
- */
 async function currentDeletionScopeCounts(programId: string) {
   return prisma.$transaction((transaction) =>
     readProgramDeletionScopeCounts(transaction, programId),
@@ -1170,15 +1139,14 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ]);
     expect(before.milestones).toBe(1);
     expect(before.programCovers).toBe(1);
-    // 원래 application의 단독 지원자 + 공개 아카이브 발행 저장소의 소유자 application 둘다.
+
     expect(before.applications).toBe(2);
     expect(before.milestoneDocumentSubmissions).toBe(1);
     expect(before.milestoneDocumentSubmissionHistories).toBe(1);
     expect(before.milestoneDocumentReviewHistories).toBe(1);
-    expect(before.outboxEvents).toBe(2); // program-scoped 1 + application-scoped 1
-    expect(before.programLinkedNotifications).toBe(2); // APPLICATION_DECISION + DEADLINE_DIGEST
+    expect(before.outboxEvents).toBe(2);
+    expect(before.programLinkedNotifications).toBe(2);
 
-    // purge 전: RepositoryInvitation, 수집 손자, ACKNOWLEDGED 알림이 전부 존재한다.
     await expect(
       prisma.repositoryInvitation.findUnique({
         where: { id: fixture.repositoryInvitationId },
@@ -1205,7 +1173,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       }),
     ).resolves.not.toBeNull();
 
-    // purge 전: 공개 아카이브가 발행된 저장소를 정상적으로 노출한다.
     const beforePurgePage = await publicProjects.listPage(null, 50);
     expect(
       beforePurgePage.some((row) => row.id === fixture.publishedRepositoryId),
@@ -1232,7 +1199,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       },
     });
 
-    // 오도된 성공 출력 방지 — 서비스 반환값이 아니라 DB를 직접 조회해 검증한다.
     const after = await programChildRowCounts(fixture.programId, [
       fixture.applicationId,
     ]);
@@ -1247,8 +1213,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       }),
     ).resolves.toEqual(applicantBefore);
 
-    // Notification: APPLICATION_DECISION 본체와 그 ACKNOWLEDGED 확인 기록, DEADLINE_DIGEST
-    // 모두 삭제된다.
     await expect(
       prisma.notification.findUnique({
         where: { id: fixture.applicationDecisionNotificationId },
@@ -1265,14 +1229,12 @@ describe('Program purge integration — full child graph, worker file deletion, 
       }),
     ).resolves.toBeNull();
 
-    // Application 범위 repository-provision OutboxEvent도 함께 지워진다.
     await expect(
       prisma.outboxEvent.findUnique({
         where: { id: fixture.applicationOutboxEventId },
       }),
     ).resolves.toBeNull();
-    // Issuance history deliberately has no Application FK: program purge must
-    // retain the completed request as a detached, queryable audit record.
+
     await expect(
       prisma.repositoryIssuanceHistory.findUnique({
         where: { id: fixture.repositoryIssuanceHistoryId },
@@ -1283,8 +1245,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       repositoryId: fixture.provisionedRepositoryId,
     });
 
-    // GithubRepository는 detach만 되고 삭제되지 않으므로, 그 아래 수집/초대 손자 행은
-    // 그대로 보존된다(PRESERVE) — matrix의 명시적 분류와 일치.
     await expect(
       prisma.repositoryInvitation.findUnique({
         where: { id: fixture.repositoryInvitationId },
@@ -1316,7 +1276,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       }),
     ).resolves.toMatchObject({ repositoryId: fixture.provisionedRepositoryId });
 
-    // SubmissionFile은 하드 삭제가 아니라 FK를 분리한 DELETE_PENDING 행으로 worker에 남는다.
     const orphanSubmissionFile = await prisma.submissionFile.findFirst({
       where: { storageKey: fixture.submissionFileStorageKey },
     });
@@ -1329,7 +1288,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
     expect(await objectExists(fixture.submissionFileStorageKey)).toBe(true);
 
-    // template file은 tombstone으로 옮겨져 있고, 원 storage 객체는 트랜잭션 중에는 지워지지 않는다.
     const tombstone = await prisma.programPurgeFileTombstone.findUnique({
       where: { storageKey: fixture.templateFileStorageKey },
     });
@@ -1346,7 +1304,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
     expect(await objectExists(fixture.coverStorageKey)).toBe(true);
 
-    // phase 2: worker가 실제 storage 객체를 지운다.
     const submissionFileCleanupClaims = await submissionFileCleanup.runDue();
     expect(submissionFileCleanupClaims).toBeGreaterThanOrEqual(1);
     const templateFileCleanupClaims = await purgeFileCleanup.runDue();
@@ -1375,7 +1332,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETED,
     });
 
-    // EXTERNAL_PUBLIC 저장소 행은 보존되고 program 연결만 해제된다 — 수집 이력 유지.
     const externalRepository = await prisma.githubRepository.findUnique({
       where: { id: fixture.externalRepositoryId },
     });
@@ -1385,7 +1341,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       source: RepositorySource.EXTERNAL_PUBLIC,
     });
 
-    // ORG_PROVISIONED 저장소도 삭제가 아니라 연결 해제 후 보존된다.
     const provisionedRepositories = await prisma.githubRepository.findMany({
       where: { nameWithOwner: { startsWith: 'purge7-org/full-provisioned' } },
     });
@@ -1397,8 +1352,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       source: RepositorySource.ORG_PROVISIONED,
     });
 
-    // 정극: PUBLIC + publishedAt이 설정된 저장소도 detach와 함께 publishedAt이 revoke되어
-    // 공개 아카이브의 불변식(publishedAt → program/application 존재)이 깨지 않는다.
     const publishedRepositoryAfter = await prisma.githubRepository.findUnique({
       where: { id: fixture.publishedRepositoryId },
     });
@@ -1411,14 +1364,11 @@ describe('Program purge integration — full child graph, worker file deletion, 
       githubRepositoryId: fixture.publishedGithubRepositoryId,
     });
 
-    // 공개 아카이브 조회는 500으로 망가리지 않고, purge된 저장소도 더 이상 노출되지 않는다
-    // (프로덕션 회귀 재현 — GET /api/v1/projects SYS_001).
     const afterPurgePage = await publicProjects.listPage(null, 50);
     expect(
       afterPurgePage.some((row) => row.id === fixture.publishedRepositoryId),
     ).toBe(false);
 
-    // 감사 이벤트가 기록됐다.
     const audit = await prisma.auditLog.findFirst({
       where: { targetType: 'PROGRAM', targetId: fixture.programId },
       orderBy: { occurredAt: 'desc' },
@@ -1554,8 +1504,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
   });
 
-  // #1095로 뒤집힌 계약: 종전에는 이 자리에서 STAFF가 403 PRG_011을 받는 것을 확인했다.
-  // 이제 교직원이 관리자 대신 직접 지운다 — 감사 로그의 행위자도 그 교직원이어야 한다.
   it('STAFF가 purge하면 실제로 지워지고 감사 로그의 행위자가 그 교직원이다', async () => {
     const fixture = await seedFullChildGraph('staff-allowed');
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
@@ -1583,8 +1531,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(audit?.actorId).toBe(staff.id);
   });
 
-  // 안전장치 회귀 (#1095): 권한만 넓혔지 확인 절차는 그대로다. 교직원이 눌러도, 확인
-  // 화면이 범위를 읽은 뒤 생긴 행이 있으면 트랜잭션 전체가 중단돼 아무것도 지워지지 않는다.
   it('STAFF의 purge도 확인 후 자식 행이 생기면 409 PRG_014로 중단하고 아무것도 지우지 않는다', async () => {
     const fixture = await seedFullChildGraph('staff-toctou-race');
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
@@ -1625,10 +1571,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(after.boardPosts).toBe(2);
   });
 
-  // 안전장치 회귀 (#1095): 삭제 보호는 권한과 무관하다 — 교직원도 두 경로 모두에서 막힌다.
-
-  // 안전장치 회귀 (#1095): 일반 삭제의 409 차단 조건도 그대로다 — 교직원이라고 학생
-  // 데이터가 붙은 프로그램을 강제로 지울 수 있게 되지 않는다.
   it('STAFF의 일반 삭제도 자식 데이터가 있으면 409 PRG_012로 막힌다', async () => {
     const fixture = await seedFullChildGraph('staff-blocked');
 
@@ -1645,7 +1587,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ).resolves.not.toBeNull();
   });
 
-  // 학생은 종전과 같이 두 경로 모두 403이다 — 넓힌 것은 교직원까지다.
   it('학생은 delete·purge 모두 403 PRG_011을 받고 프로그램은 그대로 남는다', async () => {
     const fixture = await seedFullChildGraph('student-forbidden');
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
@@ -1677,7 +1618,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
   it('stale_state: purge 이후 같은 프로그램에 대한 기존 가드 delete는 정지된 blockingCounts가 아니라 PROGRAM_NOT_FOUND를 던진다', async () => {
     const fixture = await seedFullChildGraph('stale-state');
 
-    // purge 전: 자식이 있으니 기존 가드 delete는 409 blockingCounts를 반환한다.
     await expect(
       lifecycle.delete(ADMIN_GITHUB_ID, fixture.programId),
     ).rejects.toMatchObject({
@@ -1696,7 +1636,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       staleStateExpectedScope,
     );
 
-    // purge 후: 프로그램 자체가 사라졌으므로 blockingCounts를 재사용하지 않고 404를 던져야 한다.
     await expect(
       lifecycle.delete(ADMIN_GITHUB_ID, fixture.programId),
     ).rejects.toMatchObject({
@@ -1734,7 +1673,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       failingLifecycle.purge(ADMIN_GITHUB_ID, fixture.programId, expectedScope),
     ).rejects.toThrow('induced audit failure');
 
-    // all-or-nothing: 감사 기록 실패로 트랜잭션 전체가 롤백돼 자식 행이 전부 그대로 남는다.
     await expect(
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.not.toBeNull();
@@ -1775,13 +1713,9 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ).resolves.toBeNull();
   });
 
-  // TOCTOU(#F2): 확인 화면(GET edit)이 전체 삭제 범위를 읽은 이후, purge가 불리기 전에 생긴
-  // 행이 관리자가 보지 못한 채 지워져서는 안 된다. 이 테스트는 두 요청이 분리된
-  // 실제 UI 흐름(getEditableProgram → confirm → purge)을 그대로 재현한다.
   it('race: 확인 후·purge 전에 생긴 자식 행이 있으면 409 PRG_014로 거부하고 아무것도 지우지 않는다', async () => {
     const fixture = await seedFullChildGraph('toctou-race');
 
-    // ADMIN이 확인 다이얼로그를 열어 GET edit이 보여준 범위를 쪽집한 순간(=이 snapshot).
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
     expect(expectedScope).toMatchObject({
       applications: 2,
@@ -1792,8 +1726,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
     expect(expectedScope.scopeFingerprint).toMatch(/^[0-9a-f]{32}$/);
 
-    // 확인 이후, purge 호출 이전에 학생이 게시글을 남긴다 — 관리자는 이 행을 확인 다이얼로그에서
-    // 본 적이 없다.
     const raceBoardPostId = `${fixture.programId}-race-board-post`;
     const applicant = await prisma.application.findUniqueOrThrow({
       where: { id: fixture.applicationId },
@@ -1810,8 +1742,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       },
     });
 
-    // 확인한 시점의 스냅샷(expectedScope)을 그대로 보내면 트랜잭션 안의 재확인이 이제는 다른
-    // boardPosts 카운트를 보고 거부해야 한다.
     await expect(
       lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId, expectedScope),
     ).rejects.toMatchObject({
@@ -1826,7 +1756,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       },
     });
 
-    // 거부된 후: Program과 모든 자식 행이 그대로 남아 있다 — 레이스로 데이터가 유실되지 않았다.
     await expect(
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.not.toBeNull();
@@ -1879,12 +1808,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ).resolves.not.toBeNull();
   });
 
-  // race: 확인-purge 사이 in-transaction scope read 뒤에 커밋되는 4종 자식 각각이
-  // 독립된 FK 경로를 갖는다(Application_programId_fkey/Team_programId_fkey/
-  // Milestone_programId_fkey를 거치는 Submission/BoardPost_programId_fkey) — 하나만
-  // 검증하면 나머지 경로의 SERIALIZABLE 충돌 형태(P2034 vs P2003)를 놓칠 수 있어
-  // 표로 4가지 모두를 구동한다. 각 케이스는 실제 PostgreSQL 위에서 커밋되는 합성
-  // 의존 행(신청자/리더/팀/신청/마일스톤)까지 함께 만든다.
   const IN_TRANSACTION_RACE_CASES: readonly {
     readonly scopeField:
       'applications' | 'teams' | 'boardPosts' | 'submissions';
@@ -1931,9 +1854,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       },
     },
     {
-      // Application@@unique([programId, teamId])를 피하기 위해 이 race 전용 팀을 새로 만든다
-      // (기존 fixture.teamId는 이미 신청 1건을 가진다). 새 팀을 만드는 만큼 teams scope도
-      // 함께 증가하므로 currentScopeCounts/after 비교에서 둘 다 반영한다.
       scopeField: 'applications',
       insertRacingChildRow: async (fixture, raceId) => {
         const applicant = await prisma.application.findUniqueOrThrow({
@@ -1964,9 +1884,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       },
     },
     {
-      // 기존 document와 (applicationId, milestoneDocumentId) unique를 피하기 위해
-      // 새 target document를 만든 뒤 target submission을 단다. 제출 수만 증가하고
-      // document 행은 요약 scope count 대상이 아니다.
       scopeField: 'submissions',
       insertRacingChildRow: async (fixture, raceId) => {
         const raceDocumentId = `${raceId}-document`;
@@ -2003,7 +1920,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
   it.each(IN_TRANSACTION_RACE_CASES)(
     'race: in-transaction 범위 재확인 뒤 커밋된 $scopeField는 409 PRG_014로 보존한다',
     async ({ scopeField, insertRacingChildRow }) => {
-      // Given — 확인 화면의 scope와 purge 안의 재확인이 모두 기존 자식 그래프를 본다.
       const fixture = await seedFullChildGraph(`in-tx-race-${scopeField}`);
       const before = await programChildRowCounts(fixture.programId, [
         fixture.applicationId,
@@ -2026,8 +1942,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       );
       const raceRowId = `${fixture.programId}-in-tx-race-${scopeField}`;
 
-      // When — 첫 Prisma 연결의 purge scope read가 끝난 뒤, 독립 PrismaService 연결이
-      // 자식 행을 commit하고서야 purge의 destructive writes를 재개한다.
       const purge = pausingLifecycle.purge(
         ADMIN_GITHUB_ID,
         fixture.programId,
@@ -2040,8 +1954,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
         resumePurge.resolve();
       }
 
-      // Then — 관리자가 확인하지 않은 committed row를 지우지 않고, 새 scope를 담아 재확인을
-      // 요구해야 한다.
       const expectedCurrentScopeCounts =
         scopeField === 'applications'
           ? {
@@ -2123,10 +2035,6 @@ function deferred(): {
   return { promise, resolve: () => resolve() };
 }
 
-/**
- * 실제 Prisma interactive transaction의 첫 scope query가 끝난 정확한 지점에서만 멈춘다.
- * production transaction options를 그대로 전달하고 production API에는 test hook을 추가하지 않는다.
- */
 function pausingScopeReadPrisma(
   onScopeRead: () => Promise<void>,
   captureOptions: (options: InteractiveTransactionOptions | undefined) => void,

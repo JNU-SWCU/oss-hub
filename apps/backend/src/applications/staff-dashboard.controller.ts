@@ -15,11 +15,6 @@ import { StaffDashboardService } from './staff-dashboard.service';
 import { parseInsightsYearQuery } from './staff-insights-year';
 import { StaffInsightsService } from './staff-insights.service';
 
-/**
- * 교직원 운영 대시보드 thin sibling — StudentDashboardController 미러.
- * GET /api/v1/dashboard/staff/summary (#117)
- * GET /api/v1/dashboard/staff/insights
- */
 @Controller('dashboard/staff')
 export class StaffDashboardController {
   constructor(

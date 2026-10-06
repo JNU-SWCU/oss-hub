@@ -1,5 +1,3 @@
-
-
 import { act, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
@@ -35,7 +33,6 @@ function ApplicationConfirmationDialogHarness({
   );
 }
 
-/** 부모가 확인창을 열고 닫는 실제 사용 형태(신청 실패 후 재시도 포함). */
 function ApplicationRetryHarness({
   onClose,
 }: {
@@ -53,7 +50,6 @@ function ApplicationRetryHarness({
       <button
         type="button"
         onClick={() => {
-          // 실패 응답 뒤 재시도: 이전 확인창을 버리고 새 확인창을 즉시 연다.
           setAttempt((current) => current + 1);
           setOpenKind('submit');
         }}
@@ -80,7 +76,6 @@ function ApplicationRetryHarness({
   );
 }
 
-/** Radix FocusScope는 언마운트 정리를 매크로태스크로 미룬다. 그 이후까지 기다린다. */
 async function flushDelayedUnmount() {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -117,8 +112,7 @@ describe('ApplicationConfirmationDialog', () => {
     await act(async () => root.unmount());
     container.remove();
     vi.restoreAllMocks();
-    // 이 파일은 테스트가 통과해도 act 경고를 남긴 적이 있다(QA27). 경고 자체도
-    // 회귀 신호로 취급해야 같은 비동기 경계가 다시 흐려지지 않는다.
+
     expect(consoleErrors).toEqual([]);
   });
 
@@ -151,7 +145,6 @@ describe('ApplicationConfirmationDialog', () => {
   });
 
   it('취소를 클릭해 닫아도 원래 저장 버튼에 포커스를 돌려준다', async () => {
-    // Given
     await act(async () =>
       root.render(<ApplicationConfirmationDialogHarness />),
     );
@@ -161,13 +154,11 @@ describe('ApplicationConfirmationDialog', () => {
       returnButton.addEventListener('focus', () => resolve(), { once: true });
     });
 
-    // When
     await act(async () => {
       cancelButton.click();
       await focusReturned;
     });
 
-    // Then
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
     expect(document.activeElement).toBe(returnButton);
   });

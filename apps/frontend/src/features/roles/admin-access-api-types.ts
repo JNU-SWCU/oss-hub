@@ -123,7 +123,6 @@ export type AdminAccessRequestDecisionInput =
   | { readonly decision: 'APPROVE' }
   | { readonly decision: 'REJECT'; readonly reason: string };
 
-/** CAS mutation body: `expected*` fields are the caller's last-known projection. */
 export interface AdminAccessPatchRequest {
   readonly expectedRole: AdminAccessRole | null;
   readonly desiredRole: AdminAccessRole | null;
@@ -146,7 +145,6 @@ export interface AdminAccessMutationResponse {
   readonly decidedRequest: AdminAccessDecidedRequest | null;
 }
 
-/** The backend's authoritative current-state projection returned on a 409 CAS conflict. */
 export interface AdminAccessConflictProjection {
   readonly id: string;
   readonly role: AdminAccessRole | null;

@@ -27,7 +27,7 @@ export function AccountDeactivationSection({
   onDeactivated = () => window.location.assign('/account-deactivated'),
 }: {
   readonly hasAdminAccess: boolean;
-  /** 테스트와 앱 경계를 위한 완료 이동. 기본값은 비활성화 완료 전용 화면이다. */
+
   readonly onDeactivated?: () => void;
 }) {
   const [open, setOpen] = useState(false);

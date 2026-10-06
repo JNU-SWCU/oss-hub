@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -81,7 +79,6 @@ describe('프로필 온보딩 동의 다이얼로그', () => {
   });
 
   it('동의가 필요하면 현재 프로필 주소에서 다이얼로그를 열고 완료 후 다시 판단한다', async () => {
-    // Given: 첫 프로필 조회는 필수 동의 오류이고, 동의 후 조회는 완료된 프로필이다.
     let profileReads = 0;
     profileResponder = (method) => {
       if (method === 'GET') {
@@ -91,7 +88,6 @@ describe('프로필 온보딩 동의 다이얼로그', () => {
       return jsonResponse(profile());
     };
 
-    // When: 프로필 주소에서 필수 동의를 완료한다.
     await act(async () => {
       root.render(
         <ProfileOnboardingScreen
@@ -114,18 +110,15 @@ describe('프로필 온보딩 동의 다이얼로그', () => {
     const completion = container.querySelector('button');
     await act(async () => completion?.click());
 
-    // Then: 동의 완료 콜백이 프로필을 다시 읽어 다음 단계로 보낸다.
     expect(mocks.replace).toHaveBeenCalledWith(NEXT_PATH);
   });
 
   it('동의가 필요할 때 닫기 요청만으로 스켈레톤에 남겨 두지 않는다', async () => {
-    // Given: profile loading ends in a required-consent error.
     profileResponder = (method) => {
       if (method === 'GET') throw consentRequiredError();
       return jsonResponse(profile());
     };
 
-    // When: the supplied dialog renderer asks to close before completion.
     await act(async () => {
       root.render(
         <ProfileOnboardingScreen
@@ -144,7 +137,6 @@ describe('프로필 온보딩 동의 다이얼로그', () => {
     const dismiss = container.querySelector('button');
     await act(async () => dismiss?.click());
 
-    // Then: the required-consent action stays visible with the loading shell.
     const loading = container.querySelector('[data-slot="skeleton"]');
     expect(loading).toBeInstanceOf(HTMLElement);
     expect(loading?.getAttribute('aria-busy')).toBe('true');

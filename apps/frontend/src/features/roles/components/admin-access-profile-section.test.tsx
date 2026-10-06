@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -22,13 +20,6 @@ const { patchAdminUserProfileMock } = vi.hoisted(() => ({
 vi.mock('../admin-access-api', () => ({
   patchAdminUserProfile: patchAdminUserProfileMock,
 }));
-
-/**
- * PR — 관리자용 프로필(이름·학번·학과) 보기/수정 섹션. CAS가 없는 단순 PATCH라
- * `admin-access-detail-view.test.tsx`(정적 마크업 스냅샷)와 달리 여기서는
- * 실제 편집 흐름(보기→수정→저장/취소, 검증 실패, API 실패)을 DOM 상호작용으로
- * 확인한다.
- */
 
 function profile(
   overrides: Partial<AdminAccessProfile> = {},
@@ -229,7 +220,7 @@ describe('저장 — 바뀐 필드만 담아 patchAdminUserProfile을 부른다'
       '이미 다른 사용자가 사용 중인 학번이라 수정할 수 없습니다.',
     );
     expect(onSaved).not.toHaveBeenCalled();
-    // 실패 후에도 여전히 편집 중이므로 입력란이 남아 있다.
+
     expect(container.querySelector('#admin-profile-student-id')).not.toBeNull();
   });
 });

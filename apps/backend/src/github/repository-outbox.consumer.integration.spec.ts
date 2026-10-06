@@ -198,15 +198,12 @@ describe('RepositoryOutboxConsumer integration', () => {
   });
 
   it('수락 때 세대가 이전된 event를 job 변경 없이 확인한다', async () => {
-    // Given: 승인된 신청의 PENDING outbox가 있다.
     const applicationId = APPLICATION_IDS[0];
     await createApprovedApplication(applicationId);
     const eventId = await createProvisionEvent(applicationId);
 
-    // When: consumer가 event를 처리한다.
     const result = await consumer.consumeNext('worker-a', NOW);
 
-    // Then: event는 처리되고 application당 job은 한 건 생성된다.
     const event = await prisma.outboxEvent.findUniqueOrThrow({
       where: { id: eventId },
     });
@@ -314,7 +311,6 @@ describe('RepositoryOutboxConsumer integration', () => {
   });
 
   it('lease가 만료된 PROCESSING event를 다시 claim한다', async () => {
-    // Given: 이전 worker lease가 만료된 event가 있다.
     const applicationId = APPLICATION_IDS[1];
     await createApprovedApplication(applicationId);
     const eventId = await createProvisionEvent(
@@ -323,15 +319,12 @@ describe('RepositoryOutboxConsumer integration', () => {
       new Date(NOW.getTime() - 10 * 60_000),
     );
 
-    // When: 새 worker가 event를 처리한다.
     const result = await consumer.consumeNext('worker-b', NOW);
 
-    // Then: stale event가 유실되지 않고 처리된다.
     expect(result).toMatchObject({ kind: 'CONSUMED', eventId });
   });
 
   it('유효한 lease의 PROCESSING event는 가로채지 않는다', async () => {
-    // Given: 다른 worker lease가 아직 유효한 event가 있다.
     const applicationId = APPLICATION_IDS[2];
     await createApprovedApplication(applicationId);
     const eventId = await createProvisionEvent(
@@ -340,10 +333,8 @@ describe('RepositoryOutboxConsumer integration', () => {
       new Date(NOW.getTime() - 60_000),
     );
 
-    // When: 새 worker가 claim을 시도한다.
     const result = await consumer.consumeNext('worker-c', NOW);
 
-    // Then: event와 job을 변경하지 않는다.
     expect(result).toEqual({ kind: 'EMPTY' });
     await expect(
       prisma.outboxEvent.findUniqueOrThrow({ where: { id: eventId } }),
@@ -357,7 +348,6 @@ describe('RepositoryOutboxConsumer integration', () => {
   });
 
   it('완료된 job은 권한 동기화 요청으로 다시 무장된다', async () => {
-    // Given: 이미 성공해 종료된 job과 새 권한 동기화 요청이 있다.
     const applicationId = APPLICATION_IDS[5];
     await createApprovedApplication(applicationId);
     await prisma.repositoryProvisionJob.create({
@@ -373,10 +363,8 @@ describe('RepositoryOutboxConsumer integration', () => {
     });
     const eventId = await createAccessSyncEvent(applicationId);
 
-    // When: consumer가 권한 동기화 event를 처리한다.
     const result = await consumer.consumeNext('worker-sync', NOW);
 
-    // Then: 같은 job이 지금 실행 대상으로 되살아나고 이전 실패 흔적이 지워진다.
     const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
       where: { applicationId },
     });
@@ -392,7 +380,6 @@ describe('RepositoryOutboxConsumer integration', () => {
   });
 
   it('권한 동기화 event가 중복돼도 job은 한 건으로 합쳐진다', async () => {
-    // Given: 같은 신청에 대한 권한 동기화 event가 두 건 쌓여 있다.
     const applicationId = APPLICATION_IDS[6];
     await createApprovedApplication(applicationId);
     const firstEventId = await createAccessSyncEvent(applicationId);
@@ -401,14 +388,12 @@ describe('RepositoryOutboxConsumer integration', () => {
       new Date(NOW.getTime() + 1_000),
     );
 
-    // When: consumer가 두 event를 모두 처리한다.
     const first = await consumer.consumeNext('worker-dup', NOW);
     const second = await consumer.consumeNext(
       'worker-dup',
       new Date(NOW.getTime() + 2_000),
     );
 
-    // Then: 두 event 모두 처리되지만 job은 하나이고 즉시 실행 시각을 유지한다.
     const jobs = await prisma.repositoryProvisionJob.findMany({
       where: { applicationId },
     });
@@ -433,7 +418,6 @@ describe('RepositoryOutboxConsumer integration', () => {
   });
 
   it('실행 중인 job의 lease를 권한 동기화 event가 빼앗지 않는다', async () => {
-    // Given: 다른 worker가 잡고 실행 중인 job이 있다.
     const applicationId = APPLICATION_IDS[7];
     await createApprovedApplication(applicationId);
     const lockedAt = new Date(NOW.getTime() - 30_000);
@@ -449,10 +433,8 @@ describe('RepositoryOutboxConsumer integration', () => {
     });
     const eventId = await createAccessSyncEvent(applicationId);
 
-    // When: consumer가 권한 동기화 event를 처리한다.
     const result = await consumer.consumeNext('worker-lease', NOW);
 
-    // Then: event는 소비되지만 진행 중 job의 상태와 lease는 그대로다.
     const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
       where: { applicationId },
     });
@@ -466,7 +448,6 @@ describe('RepositoryOutboxConsumer integration', () => {
   });
 
   it('계약 밖 권한 동기화 payload는 FAILED로 격리한다', async () => {
-    // Given: 계약에 없는 key가 섞인 권한 동기화 event가 있다.
     const applicationId = APPLICATION_IDS[8];
     await createApprovedApplication(applicationId);
     const eventId = await createAccessSyncEvent(applicationId, NOW, {
@@ -476,10 +457,8 @@ describe('RepositoryOutboxConsumer integration', () => {
       githubLogins: ['synthetic-applicant'],
     });
 
-    // When: consumer가 event를 처리한다.
     const result = await consumer.consumeNext('worker-sync-invalid', NOW);
 
-    // Then: job을 만들지 않고 정규화한 실패 코드만 남긴다.
     expect(result).toEqual({ kind: 'FAILED', eventId });
     await expect(
       prisma.outboxEvent.findUniqueOrThrow({ where: { id: eventId } }),
@@ -495,7 +474,6 @@ describe('RepositoryOutboxConsumer integration', () => {
   });
 
   it('승인 이벤트 parser는 권한 동기화 payload를 받아들이지 않는다', async () => {
-    // Given: type은 승인인데 payload가 권한 동기화 모양인 event가 있다.
     const applicationId = APPLICATION_IDS[4];
     await createApprovedApplication(applicationId);
     const eventId = await createProvisionEvent(applicationId);
@@ -510,10 +488,8 @@ describe('RepositoryOutboxConsumer integration', () => {
       },
     });
 
-    // When: consumer가 event를 처리한다.
     const result = await consumer.consumeNext('worker-grant', NOW);
 
-    // Then: 승인 계약은 그대로 엄격해 job을 만들지 않는다.
     expect(result).toEqual({ kind: 'FAILED', eventId });
     await expect(
       prisma.repositoryProvisionJob.count({ where: { applicationId } }),
@@ -521,7 +497,6 @@ describe('RepositoryOutboxConsumer integration', () => {
   });
 
   it('계약 밖 payload는 FAILED로 격리하고 수락 때 만든 job은 보존한다', async () => {
-    // Given: payload가 잘못된 PENDING event가 있다.
     const applicationId = APPLICATION_IDS[3];
     await createApprovedApplication(applicationId);
     const eventId = await createProvisionEvent(applicationId);
@@ -530,10 +505,8 @@ describe('RepositoryOutboxConsumer integration', () => {
       data: { payload: { applicationId } },
     });
 
-    // When: consumer가 event를 처리한다.
     const result = await consumer.consumeNext('worker-d', NOW);
 
-    // Then: 민감한 payload 없이 정규화한 실패 코드만 저장한다.
     expect(result).toEqual({ kind: 'FAILED', eventId });
     await expect(
       prisma.outboxEvent.findUniqueOrThrow({ where: { id: eventId } }),

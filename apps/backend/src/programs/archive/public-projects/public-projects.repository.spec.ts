@@ -36,8 +36,6 @@ function repositoryWith(overrides: {
   };
 }
 
-// PublicProjectsRepository의 PROJECT_ROW_SELECT와 동일한 모양 — wildcard include를 쓰지
-// 않는다는 계약을 테스트가 명시적으로 고정한다.
 const PROJECT_ROW_SELECT = {
   id: true,
   githubRepositoryId: true,

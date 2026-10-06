@@ -26,31 +26,14 @@ export interface RankingMetricsQuery {
   readonly currentYear?: number;
 }
 
-/**
- * 순위에 오를 자격. canonical `UserProfile.memberKind`가 STUDENT인 사람만이다.
- *
- * 권한(`Role`)으로 가르지 않는다 — 관리자 권한은 회원 유형과 독립이라 학생 관리자는
- * 학생으로 남고, 반대로 `role`만 보면 교직원 관리자가 학생 순위에 섞인다. 프로필이
- * 없거나 유형이 아직 비어 있는 행은 학생임이 확정되지 않았으므로 함께 빠진다.
- */
 const RANKING_ELIGIBLE_MEMBER: Prisma.UserWhereInput = {
   profile: { is: { memberKind: MemberKind.STUDENT } },
 };
 
-/**
- * Ranking read model. One query per screen question. Prisma stays here.
- *
- * Public rows never select name or studentId. Staff name is a separate
- * page-slice query so year-keyed public metrics cannot cache 실명.
- */
 @Injectable()
 export class RankingRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * 뷰어 계층. 세션이 없으면 `public`이고, 계정이 실재하고 ACTIVE 일 때만
-   * 위 계층으로 올린다 — 조회 실패·탈퇴·정지는 전부 `public`으로 떨어진다.
-   */
   async findViewerClass(githubId: bigint | null): Promise<RankingViewerClass> {
     if (githubId === null) {
       return 'public';

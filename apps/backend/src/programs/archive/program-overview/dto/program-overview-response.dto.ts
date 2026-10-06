@@ -21,10 +21,6 @@ export class RemainingMilestoneResponseDto {
   }
 }
 
-/**
- * 마일스톤별 서류 분해 — 프론트 `ProgramScopeMilestoneDocsSummary`와 동일 계약
- * (`milestoneId` / `title` / `completed` / `total`).
- */
 export class MilestoneDocumentSummaryResponseDto {
   readonly milestoneId: string;
   readonly title: string;
@@ -45,7 +41,6 @@ export class MilestoneDocumentSummaryResponseDto {
   }
 }
 
-/** `GET /programs/:programId/overview` 응답. */
 export class ProgramOverviewResponseDto {
   programId: string;
   name: string;
@@ -53,26 +48,20 @@ export class ProgramOverviewResponseDto {
   lifecycle: string;
   milestoneCount: number;
   boardPostCount: number;
-  /** 참여 학생 수(공개) — TeamMember distinct. */
+
   participantCount: number;
   teamCount: number;
   connectedRepositoryCount: number;
   remainingMilestones: RemainingMilestoneResponseDto[];
-  /** 아래 viewer 필드는 요청자 전용 — 역할별로 한쪽만 채워진다. */
+
   viewerRole: AuthorityLabel | null;
-  /**
-   * 학생 전용: "내 제출물" 부모 합계 N.
-   * 범위는 **프로그램 전체 서류** 합(현재 마일스톤만이 아님).
-   */
+
   viewerDocumentsCompleted: number | null;
-  /** 학생 전용: "내 제출물" 부모 합계 M — 프로그램 전체 서류 수. */
+
   viewerDocumentsTotal: number | null;
-  /** 교직원 전용: 팩트 바 "제출률"의 분자. 분모는 participantCount. */
+
   fullySubmittedParticipantCount: number | null;
-  /**
-   * 마일스톤별 서류 분해(viewer 전용, 서류 0개 마일스톤은 뺀다).
-   * 프론트 `programScopeSidebarGroups({ milestoneDocuments })` 입력과 동일 키.
-   */
+
   milestoneDocuments: MilestoneDocumentSummaryResponseDto[];
 
   private constructor(view: ProgramOverviewView) {

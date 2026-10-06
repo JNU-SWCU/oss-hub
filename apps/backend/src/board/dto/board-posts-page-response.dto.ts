@@ -1,7 +1,6 @@
 import { BoardPostsPageResult } from '../board.service';
 import { BoardPostResponseDto } from './board-post-response.dto';
 
-/** `GET /programs/:programId/board/posts` 응답 — 고정 글 우선 페이지네이션 목록. */
 export class BoardPostsPageResponseDto {
   items: BoardPostResponseDto[];
   total: number;

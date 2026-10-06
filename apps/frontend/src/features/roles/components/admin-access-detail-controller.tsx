@@ -89,7 +89,6 @@ export function AdminAccessDetailView({
         current.kind === 'ready' ? { ...current, history } : current,
       );
     } catch {
-      // Keep the currently visible history page; the same control retries.
     } finally {
       setHistoryLoading(false);
     }
@@ -155,13 +154,7 @@ export function AdminAccessDetailView({
       setSuccessMessage(
         adminAccessMutationSuccessMessage(action, detail.githubLogin),
       );
-      // 가입 신청(queue)은 결정과 동시에 대상을 볼 권한을 잃는다 — 백엔드
-      // `requireVisibleTarget`은 관리자가 아닌 STAFF에게 "대기 요청이 살아
-      // 있는 대상"만 열어 준다. 그래서 재조회 대신 PATCH가 돌려준 권위 있는
-      // projection으로만 화면을 갱신한다. 명부(directory)는 결정 뒤에도 대상을
-      // 읽을 수 있으므로 canonical 권한 플래그와 서버가 채운 감사 필드를 다시
-      // 읽는다. 세션 역할이 아닌 workspace로 갈라야 한다 — 관리자도 가입 신청
-      // 화면을 쓴다.
+
       if (workspace === 'queue' && result) {
         setState((current) =>
           current.kind === 'ready'
@@ -200,11 +193,6 @@ export function AdminAccessDetailView({
       const projection = parseAdminAccessConflictProjection(error);
       if (projection) {
         if (isIndependentAuthorityMutationAction(action)) {
-          // 교직원·관리자 접근 명령의 충돌(#1411)은 드롭다운이 읽는 두 접근 값이
-          // 낡았다는 뜻인데, 충돌 본문(`currentAccess`)은 역할·계정 상태만 담는다 —
-          // 역할 「관리자」는 관리자만인 경우와 교직원+관리자인 경우를 한 이름으로
-          // 접어 두 값을 되살릴 수 없다. 그래서 덮어쓰지 않고 최신 값을 다시 읽는다.
-          // 다른 처리자가 남긴 회수 이력 줄도 이때 함께 보인다.
           retry();
         } else {
           setState({

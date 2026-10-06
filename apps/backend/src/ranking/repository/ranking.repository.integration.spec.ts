@@ -16,18 +16,14 @@ const PREFIX = 'synthetic-ranking-student-only';
 const YEAR = 2116;
 const OBSERVED_AT = new Date('2116-03-04T00:00:00.000Z');
 
-/**
- * 한 축만 다른 6종 합성 계정. 회원 유형 외의 모든 칸(활성 상태·닉네임·관측)이 같아야
- * 순위에서 빠지는 이유가 `UserProfile.memberKind` 하나로 좁혀진다.
- */
 interface SyntheticMember {
   readonly key: string;
   readonly githubId: bigint;
-  /** 관리자 권한 — 회원 유형과 독립이라 별도 축이다(학생 관리자·교직원 관리자). */
+
   readonly hasAdminAccess?: boolean;
   readonly memberKind: MemberKind | null | 'no-profile';
   readonly commitCount: number;
-  /** 학생만 갖는 6자리 학번. 교직원·미지정은 null 이다. */
+
   readonly studentId: string | null;
 }
 
@@ -84,7 +80,6 @@ function login(member: SyntheticMember): string {
   return `${PREFIX}-${member.key}`;
 }
 
-/** canonical 프로필 하나만 심는다 — legacy mirror 칸은 계약 단계에서 사라졌다. */
 async function seed(member: SyntheticMember): Promise<void> {
   const userId = `${PREFIX}-${member.key}`;
   const name = `합성 ${member.key}`;
@@ -99,8 +94,7 @@ async function seed(member: SyntheticMember): Promise<void> {
         member.memberKind === 'no-profile' ? null : member.memberKind,
       hasStaffAccess: member.memberKind === MemberKind.STAFF,
       hasAdminAccess: member.hasAdminAccess ?? false,
-      // `no-profile`은 프로필 행 자체가 없고, `null`은 유형을 아직 고르지 않아
-      // 계약 스키마에서 프로필 행을 만들 수 없다 — 둘 다 순위에서 자연히 빠진다.
+
       ...(member.memberKind === 'no-profile' || member.memberKind === null
         ? {}
         : {
@@ -198,11 +192,6 @@ describe('RankingRepository.findMetrics — canonical STUDENT 경계', () => {
   });
 });
 
-/**
- * 같은 PostgreSQL 을 공유하는 형제 스펙도 canonical 학생을 정당하게 심는다 — 그래서 전역
- * 총계가 아니라 이 파일이 심은 cohort 만 본다. 전역 숫자를 박아 두면 실행 순서가 초록·빨강을
- * 가르는 defect 가 되고, 그러면서도 제외 대상이 한 명이라도 새면 여전히 빨강이다.
- */
 async function collectCohortItems(
   service: RankingService,
   githubId: bigint | null,

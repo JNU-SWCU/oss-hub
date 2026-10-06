@@ -8,11 +8,7 @@ const mocks = vi.hoisted(() => ({ useSessionRole: vi.fn() }));
 vi.mock('../../_shell/use-session-role', () => ({
   useSessionRole: mocks.useSessionRole,
 }));
-/**
- * `redirect`는 진짜를 그대로 쓴다 — 이동을 흉내 내면 이 라우트가 실제로 이동하는지는
- * 확인하지 못한다. `useRouter`만 대신 세워 준다. 자식 `ProfileOnboardingScreen`이
- * 저장 후 이동에 쓰는데, 서버 렌더에는 app router가 없어 그대로 두면 던진다.
- */
+
 vi.mock('next/navigation', async (importOriginal) => ({
   ...(await importOriginal<typeof import('next/navigation')>()),
   useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
@@ -23,15 +19,10 @@ import {
   profileOnboardingView,
 } from './profile-onboarding-route';
 
-/** 프로필 화면이 실제로 마운트됐을 때만 나오는 표시(`ProfileSkeleton`). */
 const PROFILE_SCREEN_MARK = '프로필을 불러오는 중';
-/** 학생 기준 폼에서만 나오는 필수 항목. */
+
 const STUDENT_ONLY_FIELD = '학번';
-/**
- * `redirect('/')`가 렌더를 중단시키며 남기는 표식. `next/navigation`을 그대로 쓰므로
- * 흉내 낸 값이 아니라 Next가 실제로 만드는 digest다 — `replace`라 뒤로 가기에 이
- * 화면이 남지 않는다(`AuthGate`의 `router.replace('/')`와 같은 성질).
- */
+
 const LANDING_REDIRECT_DIGEST = 'NEXT_REDIRECT;replace;/;307;';
 const ROLE_REDIRECT_DIGEST = 'NEXT_REDIRECT;replace;/onboarding/role;307;';
 
@@ -57,7 +48,6 @@ function render(overrides: Partial<SessionRoleState> = {}) {
   return renderToStaticMarkup(<ProfileOnboardingRoute />);
 }
 
-/** 렌더가 이동으로 끝났을 때 Next가 던지는 오류의 digest. 끝나지 않았으면 실패시킨다. */
 function renderRedirectDigest(overrides: Partial<SessionRoleState>) {
   try {
     render(overrides);
@@ -68,17 +58,12 @@ function renderRedirectDigest(overrides: Partial<SessionRoleState>) {
 }
 
 describe('profileOnboardingView', () => {
-  // 회귀 방지(PR #492 리뷰): 바깥 `AuthGate`가 통과시킨 뒤에도 이 라우트의
-  // `useSessionRole`은 새로 마운트되어 역할 요청을 다시 조회한다. 그 창에서 상태를
-  // 그대로 화면에 넘기면 role·staffAccessRequestStatus가 모두 null이라 화면이 학생 기준으로
-  // 되돌아간다 — 승인을 기다리는 교직원이 학번을 요구받는다.
   it('역할 조회 중에는 폼을 만들지 않는다', () => {
     expect(profileOnboardingView(state({ status: 'loading' }))).toEqual({
       kind: 'pending',
     });
   });
 
-  // 실패를 폼으로 흘리면 "역할을 모름"이 "역할이 없음"으로 접혀 같은 오진을 한다.
   it('역할 조회 실패는 폼 대신 오류로 드러낸다', () => {
     expect(profileOnboardingView(state({ status: 'error' }))).toEqual({
       kind: 'error',
@@ -98,7 +83,6 @@ describe('profileOnboardingView', () => {
     },
   );
 
-  // 확정된 뒤에는 기존 판단을 그대로 유지한다.
   it('승인 대기 중인 교직원 요청은 교직원 기준으로 묻고 대기 화면으로 보낸다', () => {
     expect(
       profileOnboardingView(
@@ -108,7 +92,7 @@ describe('profileOnboardingView', () => {
       kind: 'form',
       memberKind: 'STAFF',
       nextPath: '/onboarding/pending',
-      // 이미 확정된 사람이다. 되돌아가면 백엔드가 409로 막으므로 길을 열지 않는다.
+
       canChangeRole: false,
     });
   });
@@ -139,9 +123,6 @@ describe('profileOnboardingView', () => {
     });
   });
 
-  // 역할을 고르지 않은 사람은 가입을 마치지 않은 사람이다(#493). 폼을 열어 주면 역할을
-  // 모르는 채 학생 기준으로 그려져, 학번이 필요 없는 사람이 가짜 학번을 지어내야 넘어가고
-  // 백엔드가 그 값을 잠근다(`USR_003`). 비로그인과 같이 랜딩으로 되돌린다.
   it('고른 흔적이 하나도 없는 미배정 사용자는 랜딩으로 되돌린다', () => {
     expect(profileOnboardingView(state({ status: 'unassigned' }))).toEqual({
       kind: 'redirect',
@@ -149,13 +130,6 @@ describe('profileOnboardingView', () => {
     });
   });
 
-  /**
-   * #569 회귀 검사 — **고른 역할만 있는 사람은 되돌리지 않는다.**
-   *
-   * 확정을 `가입 마치기`로 미룬 뒤, 프로필을 처음 채우는 사람에게는 역할도 요청도
-   * 없고 고른 기록만 있다. 여기서 요청 유무만 보고 되돌리면 가입 동선이 프로필
-   * 단계에서 끊겨 아무도 가입을 마칠 수 없다.
-   */
   it.each(['STUDENT', 'STAFF'] as const)(
     '%s을 고른 사람은 요청이 없어도 폼을 연다',
     (selectedRole) => {
@@ -166,20 +140,13 @@ describe('profileOnboardingView', () => {
         memberKind: selectedRole,
         nextPath:
           selectedRole === 'STUDENT' ? '/dashboard' : '/onboarding/pending',
-        // 아직 확정 전이라 되돌아갈 수 있다.
+
         canChangeRole: true,
       });
     },
   );
 
-  /**
-   * #569 회귀 검사 ③ — 승인 대기 교직원의 필수 항목은 그대로 '학번 선택'이다.
-   *
-   * 판정 근거에 고른 역할이 하나 늘었는데(`effectiveProfileRole`) 우선순위가
-   * 어긋나면, 승인을 기다리는 교직원이 학생 기준으로 그려져 학번을 요구받는다.
-   */
   it('승인 대기 교직원은 고른 기록이 비어 있어도 교직원 기준이다', () => {
-    // Given — 마이그레이션 전에 신청한 사용자는 새 칸이 비어 있을 수 있다.
     const view = profileOnboardingView(
       state({
         status: 'unassigned',
@@ -188,15 +155,9 @@ describe('profileOnboardingView', () => {
       }),
     );
 
-    // Then
     expect(view).toMatchObject({ kind: 'form', memberKind: 'STAFF' });
   });
 
-  // 회수·반려는 살아 있는 신청이 없는 상태라 역할부터 다시 고른다(#535).
-  //
-  // 여기서 폼을 그리면 역할을 모르는 채 가장 엄격한 학생 기준이 적용돼 학번을
-  // 필수로 묻는다. 교직원이었다가 회수된 사람에게는 학번이 없어 지어내야 하고,
-  // 한 번 저장하면 백엔드가 그 값을 잠근다(`USR_003`).
   it.each(['REVOKED', 'REJECTED'] as const)(
     '살아 있는 신청이 없는 %s 사용자는 역할 선택으로 되돌린다',
     (staffAccessRequestStatus) => {
@@ -209,8 +170,6 @@ describe('profileOnboardingView', () => {
   );
 
   it('회수된 사용자에게는 학생 기준 폼 대신 역할 선택을 준다', () => {
-    // 이 자리가 #535 가 기록한 결함이다 — 코드는 `onboardingPathFor`로 "역할을
-    // 다시 골라야 한다"를 알면서도 화면은 폼을 그렸다.
     expect(
       profileOnboardingView(
         state({ status: 'unassigned', staffAccessRequestStatus: 'REVOKED' }),
@@ -239,9 +198,6 @@ describe('profileOnboardingView', () => {
     },
   );
 
-  // 반려도 회수와 같게 다룬다(#535). 두 상태 모두 살아 있는 신청이 없고, 사용자에게
-  // 남은 일이 같다 — 역할을 다시 고르는 것이다. 상태마다 목적지를 따로 두면 상태가
-  // 하나 늘 때마다 같은 논의를 반복하게 된다.
   it('반려된 사용자도 역할 선택으로 되돌린다', () => {
     expect(
       profileOnboardingView(
@@ -252,15 +208,12 @@ describe('profileOnboardingView', () => {
 });
 
 describe('ProfileOnboardingRoute', () => {
-  // 이동을 결정만 하고 실행하지 않으면 폼이 그대로 열린다. 결정과 실행을 함께 본다.
   it('역할을 고르지 않은 사용자는 폼을 그리기 전에 랜딩으로 이동한다', () => {
     expect(renderRedirectDigest({ status: 'unassigned' })).toBe(
       LANDING_REDIRECT_DIGEST,
     );
   });
 
-  // 승인 전 교직원은 세션 `role`이 비어 있을 뿐 역할을 고른 사람이다. 여기서 되돌리면
-  // 교직원 가입이 통째로 막힌다.
   it('승인 대기 중인 교직원은 되돌리지 않고 프로필 화면을 연다', () => {
     const html = render({
       status: 'unassigned',
@@ -271,8 +224,6 @@ describe('ProfileOnboardingRoute', () => {
     expect(html).not.toContain('확인 중…');
   });
 
-  // 결정만 바꾸고 실행하지 않으면 폼이 그대로 열린다. 여기서는 실제로 이동까지
-  // 일어나는지 본다(#535).
   it.each(['REVOKED', 'REJECTED'] as const)(
     '살아 있는 신청이 없는 %s 사용자는 폼을 그리기 전에 역할 선택으로 이동한다',
     (staffAccessRequestStatus) => {

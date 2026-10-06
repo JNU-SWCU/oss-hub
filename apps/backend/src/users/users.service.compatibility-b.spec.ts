@@ -81,7 +81,6 @@ function buildService(
   };
 }
 
-/** 아직 아무것도 채우지 않은 사용자. 역할만 갈아 끼운다. */
 function emptyUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null): StoredUser {
   const selectedMemberKind =
     role === 'STUDENT'
@@ -137,7 +136,6 @@ describe('기존 데이터 호환 후속', () => {
   });
 
   it('이미 학번이 있는 학생이 다른 값을 보내면 USR_003으로 거부한다', async () => {
-    // Given — 한 번 정해진 학적 식별자는 사용자가 바꿀 수 없다
     const { service, updateProfileFields } = buildService({
       user: {
         id: 'synthetic-user',
@@ -149,18 +147,15 @@ describe('기존 데이터 호환 후속', () => {
       },
     });
 
-    // When
     const error = await captureDomainException(() =>
       service.patchMyProfile(githubId, { ...input, studentId: '9'.repeat(6) }),
     );
 
-    // Then
     expect(error.errorCode.code).toBe(UsersErrorCode.STUDENT_ID_IMMUTABLE);
     expect(updateProfileFields).not.toHaveBeenCalled();
   });
 
   it('이미 있는 학번과 같은 값을 다시 보내면 통과하고 학번은 건드리지 않는다', async () => {
-    // Given — 폼이 현재 값을 그대로 싣는 정상 동작을 막지 않는다
     const existingUser = {
       id: 'synthetic-user',
       name: input.name,
@@ -173,13 +168,11 @@ describe('기존 데이터 호환 후속', () => {
       user: existingUser,
     });
 
-    // When
     const profile = await service.patchMyProfile(githubId, {
       ...input,
       name: '수정된 이름',
     });
 
-    // Then
     expect(profile).toEqual({
       name: '수정된 이름',
       studentId,

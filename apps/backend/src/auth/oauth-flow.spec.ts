@@ -43,7 +43,6 @@ describe('oauth-flow', () => {
   });
 
   it('code_challenge는 RFC 7636 S256 테스트 벡터와 일치한다', () => {
-    // RFC 7636 Appendix B
     expect(toCodeChallenge('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk')).toBe(
       'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM',
     );

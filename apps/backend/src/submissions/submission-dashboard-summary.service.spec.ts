@@ -34,7 +34,6 @@ class FakeSubmissionDashboardSummaryRepository implements SubmissionDashboardSum
 
 describe('SubmissionDashboardSummaryService', () => {
   it('counts submission states across approved applications and milestones', async () => {
-    // Given
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [
         { id: 'approved-personal', programId: 'program-a' },
@@ -87,10 +86,8 @@ describe('SubmissionDashboardSummaryService', () => {
     );
     const service = new SubmissionDashboardSummaryService(repository);
 
-    // When
     const summaries = await service.listByProgram(['program-a', 'program-b']);
 
-    // Then
     expect(repository.calls).toEqual([['program-a', 'program-b']]);
     expect(summaries).toEqual([
       {
@@ -119,7 +116,6 @@ describe('SubmissionDashboardSummaryService', () => {
   });
 
   it('keeps zero totals when applications or milestones are absent', async () => {
-    // Given
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [{ id: 'approved-without-milestone', programId: 'no-milestones' }],
       [
@@ -133,14 +129,12 @@ describe('SubmissionDashboardSummaryService', () => {
     );
     const service = new SubmissionDashboardSummaryService(repository);
 
-    // When
     const summaries = await service.listByProgram([
       'empty',
       'no-milestones',
       'no-applications',
     ]);
 
-    // Then
     expect(summaries).toEqual([
       emptySummary('empty'),
       { ...emptySummary('no-milestones'), approvedApplications: 1 },
@@ -149,7 +143,6 @@ describe('SubmissionDashboardSummaryService', () => {
   });
 
   it('ignores submissions outside same-program approved application cells', async () => {
-    // Given
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [{ id: 'approved-application', programId: 'program-a' }],
       [{ id: 'milestone-a', programId: 'program-a', submissionType: 'FILE' }],
@@ -172,10 +165,8 @@ describe('SubmissionDashboardSummaryService', () => {
     );
     const service = new SubmissionDashboardSummaryService(repository);
 
-    // When
     const summaries = await service.listByProgram(['program-a']);
 
-    // Then
     expect(summaries).toEqual([
       {
         ...emptySummary('program-a'),
@@ -188,8 +179,6 @@ describe('SubmissionDashboardSummaryService', () => {
   });
 
   it('서류만 받는 마일스톤도 진행으로 센다 (#820)', async () => {
-    // Given: 코드 제출이 없고 필수 서류 두 건만 있는 마일스톤. 한 팀은 둘 다 승인,
-    // 다른 팀은 한 건만 승인하고 나머지는 아직 안 냈다.
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [
         { id: 'team-done', programId: 'program-doc' },
@@ -235,10 +224,8 @@ describe('SubmissionDashboardSummaryService', () => {
     );
     const service = new SubmissionDashboardSummaryService(repository);
 
-    // When
     const summaries = await service.listByProgram(['program-doc']);
 
-    // Then: 예전에는 Submission 행이 없어 두 칸 모두 미제출이었다.
     expect(summaries).toEqual([
       {
         programId: 'program-doc',
@@ -255,7 +242,6 @@ describe('SubmissionDashboardSummaryService', () => {
   });
 
   it('서류가 다 승인이어도 코드 제출이 심사 중이면 승인으로 세지 않는다', async () => {
-    // Given: 두 축이 다 쓰인 마일스톤.
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [{ id: 'team-both', programId: 'program-both' }],
       [
@@ -293,10 +279,8 @@ describe('SubmissionDashboardSummaryService', () => {
     );
     const service = new SubmissionDashboardSummaryService(repository);
 
-    // When
     const summaries = await service.listByProgram(['program-both']);
 
-    // Then: 나쁜 쪽(심사 중)이 이긴다.
     expect(summaries[0]).toMatchObject({
       total: 1,
       approved: 0,
@@ -328,7 +312,6 @@ describe('SubmissionDashboardSummaryService', () => {
   });
 
   it('버킷 합은 언제나 total 과 같다', async () => {
-    // Given: 두 축이 섞인 프로그램.
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [
         { id: 'team-1', programId: 'p' },
@@ -360,12 +343,10 @@ describe('SubmissionDashboardSummaryService', () => {
     );
     const service = new SubmissionDashboardSummaryService(repository);
 
-    // When
     const summaries = await service.listByProgram(['p']);
     const summary = summaries[0];
     if (summary === undefined) throw new Error('요약이 없다');
 
-    // Then: 칸을 직접 돌기 때문에 어긋날 수 없다.
     expect(
       summary.notSubmitted +
         summary.submitted +

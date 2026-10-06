@@ -9,11 +9,6 @@ import {
 
 const SEOUL_TIME_ZONE = 'Asia/Seoul';
 
-/**
- * 카드 배지·클라이언트 그룹용 기간 해석.
- * 저장 상태 없음. backend `deriveProgramListStatus` 와 동일 우선순위:
- * ARCHIVED → endAt < now → upcoming → recruiting → in_progress.
- */
 export const PROGRAM_RECRUITMENT_STATES = [
   'upcoming',
   'recruiting',
@@ -37,7 +32,6 @@ export function getProgramRecruitmentState(
   const endAt =
     program.endAt === null ? null : new Date(program.endAt).getTime();
 
-  // backend: endAt IS NOT NULL AND endAt < now → ended (strict <)
   if (endAt !== null && !Number.isNaN(endAt) && endAt < nowTime) {
     return 'ended';
   }
@@ -63,7 +57,6 @@ function programYear(program: ProgramListItem): number {
   return yearInSeoul(new Date(program.applicationStartAt));
 }
 
-/** programFilter(상태) → 본문 H1. 사이드 패널이 보낸 status와 1:1. */
 const PROGRAM_LIST_HEADINGS = {
   all: '프로그램',
   recruiting: '모집중인 프로그램',
@@ -76,7 +69,6 @@ export function getProgramListHeading(status: ProgramListStatus): string {
   return PROGRAM_LIST_HEADINGS[status];
 }
 
-/** 페이지 부제 — 교직원/관리자만 다른 문구, 그 외(학생·미배정·비로그인)는 학생용 문구. */
 export function getProgramListSubtitle(role: ViewerRole): string {
   if (role === 'STAFF' || role === 'ADMIN') {
     return '내가 운영하는 프로그램과 전체 프로그램입니다';
@@ -84,7 +76,6 @@ export function getProgramListSubtitle(role: ViewerRole): string {
   return '지금 참여 중이거나 지원할 수 있는 프로그램입니다';
 }
 
-/** ProgramCard가 받는 `status`+`badgeText` 한 쌍. 카드 자체의 배지 색·openable은 status로 결정된다. */
 export interface ProgramListBadge {
   readonly status: ProgramCardStatus;
   readonly label: string;
@@ -105,7 +96,6 @@ const RECRUITMENT_STATE_BADGES: Readonly<
   ended: { status: 'ended', label: PROGRAM_LIST_STATUS_LABELS.ended },
 };
 
-/** 표시 문구만 신청·반려로 묶고 카드 권한에 쓰는 내부 상태는 유지한다. */
 const APPLICATION_STATUS_BADGES: Readonly<
   Record<ApplicationStatus, ProgramListBadge>
 > = {
@@ -114,12 +104,6 @@ const APPLICATION_STATUS_BADGES: Readonly<
   REJECTED: { status: 'rejected', label: '반려' },
 };
 
-/**
- * 카드 배지. 뷰어 본인 지원 상태(`viewerApplicationStatus`)가 있으면 모집 상태
- * 배지를 덮어쓴다 — 해커톤류 카드에서 학생 본인의 지원 결과가 우선한다.
- * 없으면(교직원, 또는 지원 절차가 없는 프로그램) 시간 기반 모집 상태를 그대로 쓴다.
- * 반환된 `status`는 그대로 `ProgramCard`의 `status`(openable 판정까지 겸함)로 넘긴다.
- */
 export function getProgramListBadge(
   program: ProgramListItem,
   now: Date,
@@ -130,7 +114,6 @@ export function getProgramListBadge(
   return RECRUITMENT_STATE_BADGES[getProgramRecruitmentState(program, now)];
 }
 
-/** 테스트·정렬 헬퍼 — 서울 연도 (과거 그룹 제거 후에도 export 유지 불필요 시 내부만) */
 export function programStartYear(program: ProgramListItem): number {
   return programYear(program);
 }

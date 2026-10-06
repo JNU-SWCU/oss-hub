@@ -15,11 +15,6 @@ afterEach(() => {
 const approvedItem = dashboardFixture.items[0];
 if (approvedItem === undefined) throw new Error('dashboard fixture is empty');
 
-/**
- * 키를 **아예 빼고** 보낸다. 빈 값과 없는 키는 서버 쪽 사고의 모양이 다르다 — 앞은
- * 팀 이름을 잃어버린 것이고 뒤는 그 칸을 아직 싣지 않는 옛 응답이다. 둘 중 하나만
- * 막으면 나머지 하나는 화면이 지어낸 문구로 덮인 채 정상처럼 보인다(#1269).
- */
 function itemWithout(key: string): Record<string, unknown> {
   const copy: Record<string, unknown> = { ...approvedItem };
   delete copy[key];
@@ -78,12 +73,6 @@ describe('fetchStudentDashboard', () => {
     await expect(fetchStudentDashboard()).resolves.toEqual(body);
   });
 
-  /**
-   * 판정이 끝나지 않았거나(`SUBMITTED`) 반려된(`REJECTED`) 신청은 신청서 화면으로 간다.
-   * 서버(`programs/service/student-dashboard.service.ts`의 `detailUrlFor`)와 한 벌인
-   * 규칙이라, 여기가 좁으면 서버가 옳은 주소를 보내도 `parseStudentDashboard` 가 던져서
-   * 그 학생의 대시보드가 통째로 오류 화면이 된다(#733).
-   */
   it.each(['SUBMITTED', 'REJECTED'] as const)(
     'accepts a %s application detail URL pointing to its apply form',
     async (applicationStatus) => {
@@ -106,11 +95,6 @@ describe('fetchStudentDashboard', () => {
     },
   );
 
-  /**
-   * 판정 전 신청에도 팀은 있다 — 1인 팀도 팀이라 서버는 팀 없는 항목을 만들지 않는다.
-   * 승인 항목에서만 팀 칸을 확인하면, 「제출은 됐는데 팀 이름이 비어 오는」 응답이
-   * 그대로 화면에 실려도 아무도 알아채지 못한다(#1269).
-   */
   it('판정 전 신청도 현재 팀 이름과 팀 화면 주소를 그대로 싣는다', async () => {
     const body = {
       items: [
@@ -131,11 +115,7 @@ describe('fetchStudentDashboard', () => {
 
   it.each([
     ['items가 배열이 아님', { items: null }],
-    /*
-     * 「지금 소속된 팀」이 이 응답의 계약이다. 이름이 비거나 아예 없이 오면 화면이
-     * 「이름 없는 팀」 같은 대체 문구를 지어내는 대신 응답을 거절해야 한다 — 기본값을
-     * 채워 넣으면 서버가 팀을 잃어버린 사고가 화면에서는 정상처럼 보인다(#1269).
-     */
+
     [
       '팀 이름이 공백뿐',
       {
@@ -170,11 +150,7 @@ describe('fetchStudentDashboard', () => {
         items: [itemWithout('teamUrl')],
       },
     ],
-    /*
-     * 팀 화면 주소도 서버가 만든 값을 쓰되 **정확히 이 한 경로**여야 한다. 임의의
-     * 외부/내부 주소를 그대로 버튼 href로 옮기면 응답 하나로 사용자를 아무 데나
-     * 보낼 수 있게 된다.
-     */
+
     [
       '팀 화면 주소가 외부 주소',
       {
@@ -197,10 +173,7 @@ describe('fetchStudentDashboard', () => {
         ],
       },
     ],
-    /*
-     * 주소만 보면 앱 안이라 안전해 보이지만, 카드에 적힌 프로그램과 버튼이 여는 팀이
-     * 서로 다른 상태다 — 항목 하나가 이상한 게 아니라 화면이 거짓말을 하게 된다.
-     */
+
     [
       '팀 화면 주소가 다른 프로그램의 팀을 가리킴',
       {
@@ -256,10 +229,7 @@ describe('fetchStudentDashboard', () => {
         ],
       },
     ],
-    // 아래 두 줄은 반대 방향의 어긋남을 각각 막는다. 위는 예전 규칙(반려를 프로그램
-    // 상세로 보내던 것)이 되살아나는 것을, 아래는 "전부 `/apply`로" 같은 거친 수정이
-    // 승인 카드까지 신청서 화면으로 끌고 가는 것을 잡는다. detailUrl 말고는 전부
-    // 유효한 항목이라 실패 원인이 그 한 곳으로 좁혀진다.
+
     [
       '반려 신청인데 신청서 화면이 아닌 곳을 가리킴',
       {

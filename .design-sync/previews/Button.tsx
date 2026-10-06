@@ -1,8 +1,5 @@
-// Button 프리뷰 — variant/size 축을 .d.ts의 실제 유니온 그대로 전개한다.
-// 문구는 이 repo의 화면에서 쓰는 것(로그인·상세 보기·신청)을 쓴다.
 import { Button } from 'frontend';
 
-// [&_svg] 규칙과 icon size를 확인하려면 실제 svg가 필요하다.
 function PlusIcon() {
   return (
     <svg

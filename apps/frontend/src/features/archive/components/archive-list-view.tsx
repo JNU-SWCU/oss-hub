@@ -61,7 +61,6 @@ function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   );
 }
 
-/** GitHub 브랜드 마크. lucide가 브랜드 아이콘을 제공하지 않아 직접 둔다. */
 function GithubMark() {
   return (
     <svg
@@ -189,10 +188,6 @@ export function ArchiveListContent({
   );
 }
 
-/**
- * 연도 필터는 **전역 사이드 패널**(공개 아카이브 메뉴)이 URL `?year=` 로 보낸다.
- * 이 페이지는 그 쿼리를 읽고 서버에 전달하며, 좁은 폭에서만 칩으로 같은 전환을 제공한다.
- */
 export function ArchiveListView() {
   const router = useRouter();
   const searchParams = useSearchParams();

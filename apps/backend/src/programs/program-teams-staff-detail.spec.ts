@@ -9,12 +9,6 @@ import { ProgramTeamsService } from './service/program-teams.service';
 import { stubTeamDeletionRepository } from './service/program-teams.service.test-support';
 import { TeamsErrorCode } from './teams-error-code.enum';
 
-/**
- * 교직원 전용 팀 상세(GET /programs/:programId/teams/:teamId, #874)의 응답 계약.
- * 팀원(실명 포함)에 신청 상태·저장소 발급 상태를 더한다. 없는 팀·다른 프로그램의
- * 팀은 구분 없이 같은 404다 — `findStaffTeamDetail`이 이미 `programId`로 걸러
- * 두 경우를 하나의 null 로 합친다(repository 테스트로 그 select 를 확인한다).
- */
 const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
 const JOIN_CODE_SECRET = 'synthetic-staff-detail-secret';
@@ -192,8 +186,7 @@ describe('ProgramTeamsService.getForStaff', () => {
           safeErrorClass: null,
         },
       },
-      // 삭제 확인 창이 「무엇이 함께 지워지는가」를 말하기 위해 읽는 개수만 담는다 —
-      // 누를 때 이 값이 그대로 `expectedScope` 로 돌아간다.
+
       deletionScope: {
         applications: 0,
         members: 0,
@@ -204,8 +197,7 @@ describe('ProgramTeamsService.getForStaff', () => {
         scopeFingerprint: '0'.repeat(32),
       },
     });
-    // repository/url 은 이 응답에서 의도적으로 담는 값이라 금지어에서 뺀다
-    // (team-detail-response.dto.ts 주석 참고).
+
     const serialized = JSON.stringify(payload);
     for (const forbidden of [
       'studentId',

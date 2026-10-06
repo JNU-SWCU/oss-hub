@@ -55,7 +55,6 @@ async function patchRepositoryUrl(
   );
 }
 
-/** 학생 팀장 — 내 신청의 저장소를 바꾼다. */
 export function updateRepositoryUrl(
   programId: string,
   input: RepositoryUrlInput,
@@ -66,7 +65,6 @@ export function updateRepositoryUrl(
   );
 }
 
-/** 교직원 — 팀 상세에서 같은 본문으로 그 팀의 저장소를 바꾼다(#1133). */
 export function updateTeamRepositoryUrl(
   programId: string,
   teamId: string,

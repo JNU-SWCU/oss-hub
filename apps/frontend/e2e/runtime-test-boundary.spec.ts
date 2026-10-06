@@ -102,7 +102,7 @@ test('retired persona cookie cannot replace anonymous backend traffic or navigat
   await attachOverview(page, testInfo, 'runtime-boundary-mobile-overview');
 
   await page.setViewportSize({ width: 1440, height: 900 });
-  // Keep this routing smoke independent of covers left by authoring mutations.
+
   const rankingResponses = Promise.all(
     ['/api/v1/ranking', '/api/v1/ranking/years'].map((pathname) =>
       page.waitForResponse(

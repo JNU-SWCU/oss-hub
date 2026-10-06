@@ -10,7 +10,6 @@ export interface SyntheticAuthority {
   readonly isProfileComplete?: boolean;
 }
 
-/** 스펙이 붙이는 UI 전용 응답. 키는 `METHOD /api/v1/...` 경로(쿼리 제외)다. */
 export type MemberAccessApiHandlers = {
   readonly [methodAndPath: string]: (route: Route) => Promise<void>;
 };
@@ -60,14 +59,6 @@ async function installExactApiRouter(
   });
 }
 
-/**
- * 세션 GET만 공유한다. 메뉴·셸·검증 화면이 추가로 읽는 본문은 스펙이
- * `extraHandlers`로 정확한 method/path를 선언한다.
- *
- * 가로챈 `/api/v1/**` 가운데 등록되지 않은 요청(잘못된 method 포함)은 200 `{}`
- * 나 404로 넘기지 않고 method/path를 담아 던진다. 여기서 돌리는 조회는 UI 전용이며
- * 서버 영속 증거가 아니다.
- */
 export async function installSyntheticAuthority(
   page: Page,
   authority: SyntheticAuthority,

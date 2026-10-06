@@ -36,20 +36,6 @@ import {
   type AdminProfileEditValues,
 } from '../admin-profile-edit-policy';
 
-/**
- * 프로필(이름·학번·학과) 보기/수정 — PR04G의 접근 변경(CAS, 확인 다이얼로그)과
- * 달리 낙관적 잠금이 없는 단순 PATCH라 다이얼로그 없이 이 섹션 안에서 바로
- * 편집·저장한다. 저장에 성공하면 `onSaved`가 부모의 `retry()`를 불러 상세 전체를
- * 다시 가져온다 — `isComplete`는 역할별 필수 항목 판정이 필요한데(features/profile
- * 소관, feature 간 의존 금지) 그 값을 여기서 다시 계산하지 않고 서버가 다시 계산한
- * 값을 그대로 받기 위해서다.
- *
- * 보기·수정 두 모드가 모두 카드 하나로 서서 이 섹션이 한 덩어리로 읽힌다 — 같은 열에
- * 서는 「대기 중인 요청」·「접근 변경」이 이미 카드이고, 이름·학번·학과만 테두리 없이
- * 떠있으면 이 세 덩어리가 같은 층으로 읽히지 않는다. 표제는 카드 안에서도 진짜
- * 제목 요소(`headingTag`)로 남긴다 — 이 화면은 상세·오버레이 두 곳에서 제목 순서가
- * 달라지고(h2/h3), 목차로 훑어다니는 사람이 이 카드를 건너뛰면 안 된다.
- */
 export function AdminAccessProfileSection({
   userId,
   profile,
@@ -72,12 +58,10 @@ export function AdminAccessProfileSection({
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // 검증에 막힌 저장 시도마다 하나씩 올린다 — 이미 오류가 보이는 채로 다시
-  // 눌러도 첫 오류 칸으로 돌아가게 하려고 표시 여부 대신 횟수를 본다.
+
   const [invalidSubmitCount, setInvalidSubmitCount] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
 
-  // 오류가 그려져 칸에 aria-invalid 가 붙은 뒤에 첫 오류 칸으로 커서를 옮긴다.
   useEffect(() => {
     if (invalidSubmitCount === 0) return;
     const firstInvalidField =
@@ -110,7 +94,7 @@ export function AdminAccessProfileSection({
       setInvalidSubmitCount((count) => count + 1);
       return;
     }
-    // 바뀐 항목이 없으면 API를 부르지 않고 바로 보기 모드로 돌아간다.
+
     if (Object.keys(command).length === 0) {
       setMode('view');
       return;
@@ -142,12 +126,6 @@ export function AdminAccessProfileSection({
           </CardTitle>
           {allowEdit ? (
             <CardAction>
-              {/*
-                「수정」이라는 글자 대신 연필을 둔다. 카드 몸이 이름·학번·학과 세 값뿐이라
-                머릿글에 글자 버튼을 두면 그 버튼이 제목과 같은 무게로 읽힌다. 낭독기·
-                검색을 위해 이름은 `sr-only`로 남기고, 무엇을 고치는지까지 적는다 —
-                같은 화면에 고칠 수 있는 덩어리가 여럿이라 「수정」만으로는 모자란다.
-              */}
               <Button
                 type="button"
                 variant="outline"
@@ -161,20 +139,12 @@ export function AdminAccessProfileSection({
           ) : null}
         </CardHeader>
         <CardContent className="grid gap-3">
-          {/*
-            「프로필 미완성」은 검증 실패가 아니라 상시 상태라 오류색을 쓰지 않는다.
-            같은 화면의 FieldError 와 같은 빨강이면 「지금 뭔 잘못 입력했다」로 읽힌다.
-          */}
           {!profile.isComplete ? (
             <p className="text-muted-foreground text-sm">
               프로필 미완성 — 교직원 승인·부여 불가
             </p>
           ) : null}
-          {/*
-            오버레이에서는 2열로 쪠개지 않는다 — `sm:`은 뷰포트 기준이라
-            768px·1280px에서도 켜지는데, 실제 렌더 폭은 400px 남짓이라
-            한 열이 200px 아래로 눌린다.
-          */}
+
           <dl
             className={cn(
               'grid gap-2 text-sm sm:grid-cols-2',
@@ -251,10 +221,7 @@ export function AdminAccessProfileSection({
               inputMode="numeric"
               value={values.studentId}
               aria-invalid={showStudentIdError}
-              /*
-               * 오류가 떠도 형식 안내를 남긴다 — 「숫자 6자리」가 필요한 순간이
-               * 바로 틀렸을 때다. 낭독기에는 안내 뒤에 오류를 덧붙여 읽힌다.
-               */
+
               aria-describedby={
                 showStudentIdError
                   ? 'admin-profile-student-id-description admin-profile-student-id-error'

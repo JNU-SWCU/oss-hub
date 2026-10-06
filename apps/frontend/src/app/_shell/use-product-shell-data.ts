@@ -27,16 +27,13 @@ export function useProductShellData({
   readonly section: ShellSection;
   readonly programDetailId: string | null;
   readonly member: boolean;
-  /** 좌측 패널을 학생 시야로 그리는 뷰어인지. 참여 여부 조회는 이때만 한다(#1099). */
+
   readonly studentViewer: boolean;
 }): {
   readonly facetData: SectionFacetData | undefined;
   readonly scopeOverview: ProgramOverview | undefined;
   readonly scopeMilestones: readonly ProgramNavigationMilestone[] | undefined;
-  /**
-   * 이 프로그램의 참여자(승인된 신청)인지. `undefined`는 「아직 모른다」이며 조회 전과
-   * 조회 실패를 함께 담는다 — 그 값으로 메뉴를 내리지 않는다(ADR-007).
-   */
+
   readonly scopeParticipant: boolean | undefined;
 } {
   const [facetData, setFacetData] = useState<SectionFacetData>();
@@ -89,9 +86,7 @@ export function useProductShellData({
     }
     const controller = new AbortController();
     setScopeMilestones(undefined);
-    // 실패는 형제 조회(facetData·scopeOverview)와 같은 모양으로 조용히 접는다.
-    // 좌측 패널은 갈 수 있는 곳을 보이는 곳이고, 한 조회가 실패했다는 사실과
-    // 재시도 버튼은 본문이 다룰 일이다.
+
     void getProgramNavigationMilestones(programDetailId)
       .then((milestones) => {
         if (!controller.signal.aborted) setScopeMilestones(milestones);
@@ -102,12 +97,6 @@ export function useProductShellData({
     return () => controller.abort();
   }, [programDetailId, member]);
 
-  /**
-   * 참여 여부는 개요가 답하지 않는다 — 개요의 `viewerDocuments*`는 승인 전 학생에게도
-   * 0/N을 채워 주므로 참여자와 구분되지 않는다. 게시판·제출물 두 관문이 실제로 요구하는
-   * 것과 **같은 사실**(승인된 신청)을 주는 응답은 `programs/:id/applications/me` 하나뿐이라
-   * 여기서 그것을 읽는다.
-   */
   useEffect(() => {
     if (
       !shouldLoadProgramParticipation(programDetailId, member, studentViewer)
@@ -120,13 +109,12 @@ export function useProductShellData({
     void getMyApplication(programDetailId)
       .then((application) => {
         if (controller.signal.aborted) return;
-        // 신청이 없으면 `null`이다 — 참여자가 아님이 확정된다(QA174 / #1303).
+
         setScopeParticipant(application?.status === 'APPROVED');
       })
       .catch(() => {
         if (controller.signal.aborted) return;
-        // 남은 실패(프로그램 없음·네트워크·5xx)는 「참여자가 아니다」가 아니라
-        // 「모른다」다. 추측으로 메뉴를 내리지 않는다.
+
         setScopeParticipant(undefined);
       });
     return () => controller.abort();

@@ -83,10 +83,6 @@ export class AdminAccessListRequestDto {
     };
   }
 
-  /**
-   * 가입 신청 큐 — 클라이언트 pendingRequest는 무시하고 항상 PENDING.
-   * 기본 정렬은 요청 시각(createdAt desc).
-   */
   toRequestQuery(): AdminAccessListQuery {
     return {
       query: this.query ?? '',

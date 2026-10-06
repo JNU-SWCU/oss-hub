@@ -30,8 +30,7 @@ describe('ShellNav', () => {
     expect(html).not.toContain('border-transparent');
     expect(html).not.toContain('data-landing-surface');
     expect(html).not.toContain('shadow-sm');
-    // 여정이 560vh 동안 sticky 무대로 이어지므로 헤더는 absolute가 아니라 fixed다.
-    // z-40 인 이유: 아래 흰 구간이 헤더를 덮어 메뉴가 사라지지 않게 한다.
+
     expect(html).toContain('fixed inset-x-0 top-0 z-40');
     expect(html).not.toContain('absolute inset-x-0 top-0');
   });
@@ -56,9 +55,6 @@ describe('ShellNav', () => {
       <ShellNav items={ITEMS} brand="OSS Hub" />,
     );
 
-    // 반전 스코프만 없으면 된다. NavBar 안의 접힌 메뉴 패널은 가입 본문 반전
-    // 표면 안에 중첩될 수 있어 항상 `data-surface="default"` 리셋을 달고 다닌다
-    // (globals.css의 `[data-surface='inverted'] [data-surface='default']`).
     expect(html).not.toContain('data-surface="inverted"');
     expect(html).not.toContain('fixed inset-x-0 top-0');
     expect(html).not.toContain('border-transparent');
@@ -75,8 +71,7 @@ describe('ShellNav', () => {
     expect(html).toContain('프로그램');
     expect(html).toContain('아카이브');
     expect(html).toContain('href="/archive"');
-    // 계정 메뉴 menuitem(설정·로그아웃)은 제외한다 — 설정 <a>에만
-    // justify-center가 걸리면 로그아웃과 정렬이 갈라진다.
+
     expect(html).toContain('[&amp;_a:not([role=menuitem])]:min-h-11');
     expect(html).toContain('[&amp;_a:not([role=menuitem])]:min-w-11');
     expect(html).toContain('[&amp;_a:not([role=menuitem])]:justify-center');

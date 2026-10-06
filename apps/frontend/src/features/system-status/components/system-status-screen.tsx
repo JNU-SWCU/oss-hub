@@ -54,8 +54,6 @@ export function SystemStatusScreen() {
     };
   }, [requestKey]);
 
-  // 트리거 성공 뒤에도 화면을 skeleton으로 되돌리지 않는다 — `retry`(requestKey 증가)를
-  // 쓰면 방금 띄운 성공 배너까지 로딩 화면에 가려진다. 최신 상태만 조용히 다시 받는다.
   const refreshQuietly = useCallback(async () => {
     try {
       const {
@@ -71,9 +69,7 @@ export function SystemStatusScreen() {
         collectionActivity,
         externalCollection,
       });
-    } catch {
-      // 트리거 자체는 성공했다 — 새로고침 실패로 전체 화면을 오류로 접지 않는다.
-    }
+    } catch {}
   }, []);
 
   const handleTrigger = useCallback(async () => {

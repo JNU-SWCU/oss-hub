@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
@@ -72,7 +70,6 @@ vi.mock('./repository-url-api', async (importOriginal) => ({
   updateTeamRepositoryUrl: vi.fn(),
 }));
 
-/** recharts는 크기를 재야 그린다 — 이 화면 테스트는 그래프가 서는지만 본다. */
 vi.mock('recharts', () => {
   const Pass = ({ children }: { children?: React.ReactNode }) => (
     <div data-chart="">{children}</div>
@@ -105,7 +102,6 @@ function problem(status: number, code: string): ProblemDetail {
   };
 }
 
-/** 신청서 본문과 검토 이력. 팀 상세 응답은 요약만 주므로 화면이 따로 읽는다. */
 const APPLICATION_DETAIL = {
   id: 'app-1',
   status: 'SUBMITTED',
@@ -135,7 +131,6 @@ const APPLICATION_DETAIL = {
   ],
 } as unknown as ApplicationDetail;
 
-/** 학생 「우리 팀」과 같은 조회 — 교직원은 저장 경로와 편집 권한만 다르다. */
 const teamActivity: TeamActivity = {
   applicationId: 'app-1',
   repository: null,
@@ -237,7 +232,6 @@ describe('ProgramStaffTeamDetailPage', () => {
     });
   }
 
-  /** 접힌 줄은 둘이다(저장소 URL 변경 이력·검토 이력) — 검토 이력은 글자로 찾는다. */
   function reviewHistoryTrigger(): HTMLButtonElement | undefined {
     return [
       ...container.querySelectorAll<HTMLButtonElement>(
@@ -246,10 +240,6 @@ describe('ProgramStaffTeamDetailPage', () => {
     ].find((trigger) => trigger.textContent?.includes('검토 이력'));
   }
 
-  /**
-   * 인원수는 명단이 있는 섹션이 말한다. 제목 아래에 두면 「한빛 팀 / 팀원 3명 /
-   * 팀원」으로 한 눈에 「팀」이 세 번 선다.
-   */
   it('인원수는 머리말이 아니라 팀원 섹션이 말한다', async () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
     await render();
@@ -268,15 +258,11 @@ describe('ProgramStaffTeamDetailPage', () => {
     await render();
 
     expect(container.textContent).toContain('가나다');
-    // 프로필이 비어 있는(name: null) 팀원은 GitHub 계정으로 떨어진다.
+
     expect(container.textContent).toContain('login-b');
     expect(container.textContent).toContain('팀장');
   });
 
-  /**
-   * 상태는 제목 옆 드롭다운 하나다. 별도 상세로 보내던 「검토하기」와 신청서
-   * 본문·지원 동기는 이 화면에 없다.
-   */
   it('신청이 있으면 제목 옆에서 상태를 바꾸고 검토 이력을 접어 둔다', async () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
     await render();
@@ -287,7 +273,7 @@ describe('ProgramStaffTeamDetailPage', () => {
     expect(select?.value).toBe('SUBMITTED');
     expect(select?.getAttribute('data-variant')).toBe('pending');
     expect(select?.className).toContain('bg-status-pending-bg');
-    // 누르는 컨트롤이라 Select 기본 44px(h-control)이다. 배지 높이(h-tag)가 섞이면 cn이 h-control을 지운다.
+
     expect(select?.className).toContain('h-control');
     expect(
       container.querySelector(
@@ -342,7 +328,7 @@ describe('ProgramStaffTeamDetailPage', () => {
       trigger?.getAttribute('aria-controls') ?? '',
     );
     const text = history?.textContent ?? '';
-    // 서버가 최신순으로 준다 — 화면이 다시 정렬하면 이 순서가 뒤집힌다.
+
     expect(text.indexOf('반려')).toBeLessThan(text.indexOf('제출'));
   });
 
@@ -383,12 +369,10 @@ describe('ProgramStaffTeamDetailPage', () => {
     expect(document.querySelector('[role="alertdialog"]')).toBeTruthy();
   });
 
-  // #1272 — 없는 신청에 상태를 달면 「대기 중인 신청」으로 읽힌다.
   it('신청이 없으면 상태 조작을 그리지 않고 「검토하기」 링크도 없다', async () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withoutApplication);
     await render();
 
-    // 헤더에 남는 것은 수정 아이콘뿐이다 — 상태를 말하는 조작은 없다.
     expect(
       container.querySelector('[data-slot="page-header-actions"]'),
     ).toBeNull();
@@ -538,7 +522,6 @@ describe('ProgramStaffTeamDetailPage', () => {
       lastSuccessAt: '2026-08-17T01:00:00.000Z',
     };
 
-    /** 교직원만 보는 한 줄 — 지금 팀원이 아닌 사람의 기여 수(#1133). 사람 목록은 없다. */
     function outsiderLine(): HTMLParagraphElement | undefined {
       return [...container.querySelectorAll<HTMLParagraphElement>('p')].find(
         (line) => line.textContent?.startsWith('팀원이 아닌 사람의 기여'),
@@ -566,7 +549,7 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(
         line?.closest('[role="region"]')?.querySelector('h2')?.textContent,
       ).toBe('팀 활동');
-      // 사람을 가리키는 것은 아무것도 없다 — 목록도, 펼침도 없다.
+
       expect(line?.closest('[role="region"]')?.textContent).not.toContain(
         '웹 참여자와 연결되지 않음',
       );
@@ -600,10 +583,6 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(outsiderLine()).toBeUndefined();
     });
 
-    /**
-     * 팀원을 빼면 상세(목록)만이 아니라 그래프(활동 조회)도 새 명단으로 다시 읽는다 — 응답이
-     * 빨라 스켈레톤이 한 번도 그려지지 않아도 그렇다. 둘이 서로 다른 명단을 말하지 않는다.
-     */
     it('팀원을 빼면 목록과 함께 그래프도 새 명단으로 다시 읽는다', async () => {
       getStaffProgramTeamDetailMock
         .mockResolvedValueOnce(withApplication)
@@ -738,7 +717,7 @@ describe('ProgramStaffTeamDetailPage', () => {
         'team-1',
         { repositoryUrl: 'https://github.com/org/next' },
       );
-      // 발급·공개 카드가 옛 저장소를 가리키지 않게 상세를 다시 읽되, 스켈레톤으로 갈지 않는다.
+
       expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(2);
       expect(container.textContent).toContain('저장소 변경을 저장했습니다.');
       expect(
@@ -774,15 +753,7 @@ describe('ProgramStaffTeamDetailPage', () => {
     });
   });
 
-  /**
-   * 팀명을 고치는 자리는 이 화면이다 — 제목이 곧바로 팀명이고, 팀을 단위로
-   * 다루는 유일한 화면이다. 창은 Portal로 나가므로 `document` 기준으로 찾는다.
-   */
   describe('팀명 수정', () => {
-    /**
-     * 보조 액션이라 글자가 아니라 아이콘이다(design.md R-27). 그래서 찾는 기준도
-     * 보이는 글자가 아니라 접근 가능한 이름이고, 그 이름은 팀마다 고유해야 한다.
-     */
     function renameTrigger(name = '오픈소스팀'): HTMLButtonElement | undefined {
       return [...container.querySelectorAll('button')].find(
         (button) => button.getAttribute('aria-label') === `${name} 수정`,
@@ -805,7 +776,7 @@ describe('ProgramStaffTeamDetailPage', () => {
       );
       await act(async () => {
         if (input === null) return;
-        // React가 듣는 것은 native setter 뒤에 오는 input 이벤트다.
+
         Object.getOwnPropertyDescriptor(
           HTMLInputElement.prototype,
           'value',
@@ -815,29 +786,22 @@ describe('ProgramStaffTeamDetailPage', () => {
     }
 
     it('신청이 없는 팀에도 수정 입구가 있다', async () => {
-      // 팀명은 신청과 무관하게 팀의 값이다 — 신청 전에도 고칠 수 있어야 한다.
       getStaffProgramTeamDetailMock.mockResolvedValue(withoutApplication);
       await render();
 
       expect(renameTrigger('무신청팀')).toBeTruthy();
     });
 
-    // 아이콘만 남기는 대신 이름을 잃으면 읽어 주는 도구에게는 빈 버튼이 된다.
     it('아이콘 버튼은 팀명을 담은 접근 가능한 이름을 갖는다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       await render();
 
       const trigger = renameTrigger();
       expect(trigger?.getAttribute('aria-label')).toBe('오픈소스팀 수정');
-      // 글자를 그리지 않는다 — 그렸다면 아이콘이 이미 말한 것을 또 말하는 것이다.
+
       expect(trigger?.textContent?.trim()).toBe('');
     });
 
-    /**
-     * 수정은 제목을 대상으로 하고 상태 조작은 신청을 말한다 — 가리키는 것이
-     * 다르므로 한 덩어리로 묶지 않는다. 묶으면 연필이 상태를 가리키는 것처럼
-     * 읽힌다.
-     */
     it('수정은 제목 옆에, 상태 조작은 우측 액션에 따로 선다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       await render();
@@ -856,13 +820,6 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(actions?.textContent).toContain('검토 대기');
     });
 
-    /**
-     * 창은 제목·입력칸·버튼만 갖는다. 설명문을 다시 넣으려면 이 시험이 먼저 저지한다 —
-     * 버튼이 하는 일을 문장으로 한 번 더 말하는 자리가 여기였다(AP-17).
-     *
-     * 보이는 라벨도 두지 않는다 — 제목이 「팀 이름 변경」이고 칸이 하나뿐이라 라벨은
-     * 제목을 다시 말하는 자리가 된다. 이름은 `aria-label`로 남는다.
-     */
     it('창은 설명문·보이는 라벨 없이 입력과 버튼만 갖는다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       await render();
@@ -885,7 +842,6 @@ describe('ProgramStaffTeamDetailPage', () => {
       await fill('  새팀이름  ');
       await act(async () => dialogButton('저장')?.click());
 
-      // 앞뒤 공백은 보내기 전에 떼다 — 백엔드가 trim 한 것과 같은 값이어야 한다.
       expect(renameProgramTeamMock).toHaveBeenCalledWith(
         'program-1',
         'team-1',
@@ -894,7 +850,7 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(container.textContent).toContain('팀 이름을 바꿨습니다');
       expect(container.textContent).toContain('새팀이름');
       expect(container.textContent).not.toContain('오픈소스팀');
-      // 이름 하나 바꾸려고 상세를 통째 다시 읽지 않는다(화면이 스켈레톤으로 돌아간다).
+
       expect(getStaffProgramTeamDetailMock).toHaveBeenCalledTimes(1);
     });
 
@@ -918,10 +874,6 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(container.textContent).not.toContain('팀 이름을 바꿨습니다');
     });
 
-    /**
-     * 누르기 전에 붉게 굴지 않는다. 누른 뒤에만 무엇이 모자란지 말한다 —
-     * 일정 창(`program-schedule-range-dialog`)이 쓰는 `attempted` 규칙과 같다.
-     */
     it('빈 이름으로 저장하면 창 안에서 이유를 말하고 요청하지 않는다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       await render();
@@ -936,14 +888,10 @@ describe('ProgramStaffTeamDetailPage', () => {
 
       expect(document.body.textContent).toContain('팀 이름을 입력해 주세요');
       expect(renameProgramTeamMock).not.toHaveBeenCalled();
-      // 창은 열려 있다 — 고칠 자리를 뺏지 않는다.
+
       expect(document.querySelector('[role="dialog"]')).toBeTruthy();
     });
 
-    /**
-     * 같은 이름은 바뀔 것이 없다. 백엔드도 같은 이름에는 쓰기도 감사도 남기지 않으므로
-     * 요청을 보내지 않고 창만 닫는 편이 그 판단과 같다.
-     */
     it('같은 이름으로 저장하면 요청 없이 창만 닫는다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       await render();
@@ -952,7 +900,7 @@ describe('ProgramStaffTeamDetailPage', () => {
 
       expect(renameProgramTeamMock).not.toHaveBeenCalled();
       expect(document.querySelector('[role="dialog"]')).toBeNull();
-      // 바뀐 것이 없으므로 「바꿨습니다」라고 말하지 않는다.
+
       expect(container.textContent).not.toContain('팀 이름을 바꿨습니다');
     });
   });

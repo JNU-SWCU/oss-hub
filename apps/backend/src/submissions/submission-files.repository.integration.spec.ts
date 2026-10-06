@@ -260,16 +260,12 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
   it.each(AUTHORIZED_DOWNLOADS)(
     '$scenario download access',
     async ({ githubId }) => {
-      // Given: the requester is authorized for an attached, unexpired file.
-
-      // When
       const file = await repository.findDownloadableFile(
         githubId,
         DOWNLOADABLE_FILE_ID,
         NOW,
       );
 
-      // Then
       expect(file).toEqual({
         id: DOWNLOADABLE_FILE_ID,
         storageKey: 'submission-files/issue-342/downloadable',
@@ -284,12 +280,8 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
   it.each(DENIED_DOWNLOADS)(
     '$scenario download access',
     async ({ githubId, fileId }) => {
-      // Given: the requester or file state does not satisfy download policy.
-
-      // When
       const file = repository.findDownloadableFile(githubId, fileId, NOW);
 
-      // Then
       await expect(file).resolves.toBeNull();
     },
   );

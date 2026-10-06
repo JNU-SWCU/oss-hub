@@ -36,12 +36,6 @@ const emptyExternalCollection: ExternalCollectionStatus = {
   cumulativeIssueCount: 0,
 };
 
-/**
- * 이 파일의 `render` 두 번째 인자는 실제 컴포넌트 prop 타입(`SystemStatusViewState`)이
- * 아니라 테스트 편의용 느슨한 타입이다 — success 상태에 `collectionStreams`·
- * `collectionActivity`·`externalCollection`을 매번 적지 않아도 되도록 기본값을
- * 채워 넣는다. 각각을 직접 검증하는 테스트만 해당 필드를 명시적으로 준다.
- */
 type LooseViewState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'error' }
@@ -81,7 +75,6 @@ function render(
   );
 }
 
-/** 텍스트 바로 앞의 `<button ...>` 시작 태그만 잘라내 `disabled` 여부를 확인한다. */
 function buttonTagContaining(html: string, label: string): string {
   const labelIndex = html.indexOf(label);
   if (labelIndex === -1) throw new Error(`label not found: ${label}`);
@@ -97,11 +90,7 @@ function findRetry(node: ReactNode): (() => void) | undefined {
     onRetry?: () => void;
     children?: ReactNode;
   }>;
-  /*
-   * 재시도는 공용 FailureState 가 그리므로 여기서는 버튼이 아니라 그 컴포넌트가
-   * 받은 onRetry 가 보인다. 둘 다 본다 — 이 테스트가 고정하려는 것은 「눌렀을 때
-   * 전달한 handler 가 불린다」이지 어느 태그가 그것을 들고 있느냐가 아니다.
-   */
+
   if (element.props.onRetry) return element.props.onRetry;
   if (element.props.onClick) return element.props.onClick;
   const children = element.props.children;
@@ -138,7 +127,7 @@ describe('SystemStatusView', () => {
       },
     });
     expect(html).toContain('아직 추적 중인 저장소가 없습니다');
-    // 빈 화면은 "없다"로 끝나지 않고 운영자가 어디를 봐야 하는지까지 말한다.
+
     expect(html).toContain(
       '사업단 GitHub 조직에 수집 연동 앱이 설치되어 있는지, 조직에 저장소가 등록되어 있는지 확인해 주세요.',
     );
@@ -157,7 +146,7 @@ describe('SystemStatusView', () => {
     });
 
     expect(html).toContain('수집 앱 설치·권한 확인');
-    // 개인 계정에 붙이는 앱과의 차이 + 확인할 위치가 문구에 있어야 한다.
+
     expect(html).toContain('개인 계정이 아닌 조직에 설치');
     expect(html).toContain('사업단 GitHub 조직의 Settings');
     expect(html).toContain('Settings → GitHub Apps');
@@ -232,9 +221,9 @@ describe('SystemStatusView', () => {
       });
       expect(html).toContain(label);
       expect(html).toContain(copy);
-      // 상태 서술만으로 끝나면 운영자는 다음에 무엇을 할지 알 수 없다.
+
       expect(html).toContain(nextAction);
-      // 정상이 아닌 상태에서는 GitHub App 설명이 함께 붙는다.
+
       expect(html).toContain('수집 앱 설치·권한 확인');
       expect(html).not.toContain('token');
       expect(html).not.toContain('githubId');
@@ -328,24 +317,16 @@ describe('SystemStatusView', () => {
       const html = render({ kind: 'success', status: normal });
       expect(html).toContain('aria-label="외부 저장소 수집"');
       expect(html).toContain('수집 대상 학생 개인 저장소가 없습니다');
-      // 0을 그냥 0으로 보여주지 않는다 — 왜 0인지, 무엇을 하면 채워지는지가
-      // 화면에서 읽혀야 한다는 이 화면의 핵심 요구사항. 이 fixture는
-      // `lastSweep: null`(emptyExternalCollection)이라 sweep이 한 번도 끝난
-      // 적이 없다는 뜻이다 — "매시 정각 자동으로 실행되고 있다"고 단정하면
-      // 안 된다(QA57).
+
       expect(html).not.toContain('매시 정각 자동으로 실행되고 있습니다');
       expect(html).toContain('완료된 수집 기록도 없습니다');
-      // 대상을 채우는 경로는 프로그램 팀 화면에서 연결하는 것 하나다(#1453) —
-      // 없앤 관리자 탐색이나 신청 화면에서 빠진 선택지를 안내하면 관리자가 없는
-      // 경로를 찾아 헤맨다.
+
       expect(html).toContain(
         '팀장이나 교직원이 프로그램 팀 화면에서 조직 밖 공개 저장소 주소를',
       );
       expect(html).not.toContain('>OWN<');
       expect(html).not.toContain('저장소 탐색을 실행');
-      // "왜 0인지"의 원인은 시스템이 알 수 없는 사실이라 단정하지 않는다 —
-      // 관측 가능한 사실(대상 0개, 그래서 매시 수집도 처리할 저장소 없이
-      // 끝남)만 문구에 남는다.
+
       expect(html).toContain('수집 대상 학생 개인 저장소가 없습니다');
       expect(html).not.toContain('탐색을 실행한 학생이 없어');
     });
@@ -411,8 +392,7 @@ describe('SystemStatusView', () => {
           cumulativeIssueCount: 0,
         },
       });
-      // org "Stream 진행 상황" 카드는 여전히 org의 2개를 보여준다 — external의
-      // 5개로 덮어써지지 않는다.
+
       expect(html).toContain(
         '저장소 2개에서 Commit·PR·Release·Issue를 각각 수집합니다.',
       );
@@ -441,8 +421,7 @@ describe('SystemStatusView', () => {
   it('평상시에는 수집 트리거 버튼이 활성화되어 있다', () => {
     const html = render({ kind: 'success', status: normal });
     const button = buttonTagContaining(html, '지금 수집 실행');
-    // Tailwind class에도 `disabled:` variant 문자열이 섞여 있어 속성 형태(`disabled=""`)로
-    // 정확히 확인한다 — 부분 문자열 `disabled`만 보면 class 때문에 항상 참이 된다.
+
     expect(button).not.toContain('disabled=""');
   });
 
@@ -548,13 +527,13 @@ describe('SystemStatusView', () => {
           retryPendingStreamCount: 2,
         },
       });
-      // 3 / 8 = 37.5% → round(37.5) = 38%
+
       expect(html).toContain('완료 3 / 8개 (38%)');
       expect(html).toContain('role="img"');
       expect(html).toContain(
         'aria-label="전체 8개 수집 항목 중 완료 3개, 과거 활동 수집 중 2개, 부분·대기 1개, 재시도 대기 2개입니다."',
       );
-      // 범례는 0인 구간도 표시한다.
+
       expect(html).toContain('완료');
       expect(html).toContain('과거 활동 수집 중');
       expect(html).toContain('부분·대기');

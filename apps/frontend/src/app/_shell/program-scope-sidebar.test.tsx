@@ -132,7 +132,7 @@ describe('ProgramScopeSidebar', () => {
     expect(html).not.toContain('내 제출물');
     expect(html).toContain('프로젝트 계획서 제출');
     expect(html).toContain('>2/47팀<');
-    // 교직원 스코프에는 신청 판정 입구가 사이드바에 있어야 한다.
+
     expect(html).toContain('팀 관리');
     expect(html).toContain('href="/programs/prog-1/teams"');
   });
@@ -215,11 +215,6 @@ describe('ProgramScopeSidebar', () => {
     );
   });
 
-  /**
-   * 좌측 패널은 갈 수 있는 곳을 보이는 곳이다. 단계 목록 조회가 실패하면 그 자식 항목이
-   * 없을 뿐, 오류 문구와 재시도 버튼을 내비게이션에 들이밀지 않는다 — 같은 훅의 형제
-   * 조회(facetData·scopeOverview)도 조용히 접는다.
-   */
   it('단계 목록이 비어도 오류 문구 없이 나머지 내비게이션을 그대로 그린다', () => {
     const html = render({ groups: staffGroups });
 

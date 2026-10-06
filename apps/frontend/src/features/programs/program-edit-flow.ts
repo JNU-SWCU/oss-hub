@@ -33,7 +33,7 @@ export interface ProgramEditForm {
   readonly endAt: string;
   readonly originalApplicationStartAt: string;
   readonly originalApplicationEndAt: string;
-  /** 저장된 종료일. 「미정」 센티널(`program-end-at.ts`)이었으면 `null` 이다. */
+
   readonly originalEndAt: string | null;
   readonly milestoneStartAts: readonly string[];
   readonly milestoneDueAts: readonly string[];
@@ -143,11 +143,6 @@ class ProgramEditValidationError extends Error {
 }
 
 export function toProgramEditForm(program: EditableProgram): ProgramEditForm {
-  /**
-   * 「미정」 센티널은 실제 날짜가 아니다 — 종료일 칸을 비운 채 열고, 교직원이 실제
-   * 날짜를 넣어야 저장된다(#1420). 그 값을 `toDateTimeLocal` 에 넘기면 KST 에서
-   * 연도가 `10000` 이 되고, 그 문자열은 되돌릴 수 없다(#826).
-   */
   const endAt = isProgramEndAtUndecided(program.endAt) ? null : program.endAt;
   return {
     name: program.name,
@@ -206,10 +201,6 @@ export function changedMilestoneFields(
   );
 }
 
-/**
- * 빈 칸은 `null`(= 서버에서 변경 없음)로 보낸다 — `Number('')`는 `0`이라 그대로 실으면
- * 정원을 0으로 바꾸라는 뜻이 되어 저장이 통째로 거부된다.
- */
 function teamSizeValue(value: string): number | null {
   return value.trim() === '' ? null : Number(value);
 }
@@ -231,15 +222,12 @@ export function buildProgramEditInput(
   const startAt = dirtyFields.includes('startAt')
     ? toIsoString(form.startAt)
     : form.originalStartAt;
-  // 위 검증이 빈 종료일을 이미 막았다 — 「미정」이던 프로그램(originalEndAt null)은
-  // 교직원이 넣은 날짜로 나간다.
+
   const endAt =
     dirtyFields.includes('endAt') || form.originalEndAt === null
       ? toIsoString(form.endAt)
       : form.originalEndAt;
 
-  // Same rule as the editor service: a later program start that leaves
-  // milestone starts behind is a startAt error, not an endAt error.
   if (
     form.milestoneStartAts.some(
       (milestoneStartAt) => milestoneStartAt < startAt,
@@ -329,7 +317,6 @@ export function validateProgramEditForm(
   }
 
   if (endAt === null) {
-    // 만들기 폼(program-authoring-validation.ts)이 빈 운영 종료에 쓰는 문구와 같다.
     errors.endAt = '운영 종료를 입력해 주세요.';
   } else if (startAt !== null && startAt >= endAt) {
     errors.endAt = '프로그램 종료일은 운영 시작일 이후여야 합니다.';
@@ -412,22 +399,12 @@ export function mapProgramEditError(error: unknown): ProgramEditErrors {
   return mapProgramProblem(error.problem);
 }
 
-/**
- * 저장 실패는 편집기를 열어 둔 채 errors만 채우므로(program-edit-page의 catch가
- * milestoneEditor의 form을 유지한다) 입력이 남아 있다고 단언할 수 있다.
- */
 export const MILESTONE_SAVE_FAILED_MESSAGE =
   '마일스톤을 저장하지 못했습니다. 입력한 내용은 그대로 남아 있으니 잠시 후 다시 저장해 주세요.';
 
-/** 삭제는 서버 상태가 갈릴 수 있어 남은 내용을 단언하지 않고 확인을 먼저 권한다. */
 export const MILESTONE_DELETE_FAILED_MESSAGE =
   '마일스톤을 삭제하지 못했습니다. 목록을 새로고침해 현재 상태를 확인한 뒤 다시 시도해 주세요.';
 
-/**
- * PRG_010의 실제 서버 규칙은 "저장소 자동 생성이 켜진 프로그램의 마일스톤 0개 금지"다
- * (program-editor.service의 updateProgram·deleteMilestone 검사).
- * 팀 여부와는 무관하므로 화면에서는 켜 둔 설정과 해야 할 일을 그대로 짚는다.
- */
 export const MILESTONE_REQUIRED_ON_SAVE_MESSAGE =
   '저장소 자동 생성을 켜려면 마일스톤이 1개 이상 있어야 합니다. 마일스톤을 추가한 뒤 다시 저장해 주세요.';
 
@@ -456,7 +433,6 @@ export function isMilestoneSubmissionConflict(error: unknown): boolean {
   );
 }
 
-/** 삭제 실패 문구를 한 곳에 모은다. 화면은 이 결과를 그대로 알림에 넣는다. */
 export function mapMilestoneDeleteError(error: unknown): string {
   if (isMilestoneSubmissionConflict(error)) {
     return '제출물이 있는 마일스톤은 삭제할 수 없습니다.';

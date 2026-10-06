@@ -62,7 +62,6 @@ export class ProgramNoticeFetchClient {
   }
 }
 
-// IPv4-only deliberately excludes IPv6 transition/mapped address bypasses.
 export function isPublicNoticeAddress(address: string): boolean {
   return isIPv4(address) && !blocked.check(address, 'ipv4');
 }

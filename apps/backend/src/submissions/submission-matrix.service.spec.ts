@@ -80,11 +80,9 @@ function query(
 
 describe('SubmissionMatrixService', () => {
   it('활성 STAFF·ADMIN이 아니면 403 STAFF_ONLY로 닫힌다', async () => {
-    // Given
     const repository = new FakeSubmissionMatrixRepository();
     const service = new SubmissionMatrixService(repository);
 
-    // When & Then
     await expect(
       service.matrix(OUTSIDER_GITHUB_ID, PROGRAM_ID, query()),
     ).rejects.toMatchObject({
@@ -94,11 +92,9 @@ describe('SubmissionMatrixService', () => {
   });
 
   it('프로그램이 없으면 404 PROGRAM_NOT_FOUND', async () => {
-    // Given
     const repository = new FakeSubmissionMatrixRepository();
     const service = new SubmissionMatrixService(repository);
 
-    // When & Then
     await expect(
       service.matrix(STAFF_GITHUB_ID, 'missing-program', query()),
     ).rejects.toMatchObject({
@@ -108,7 +104,6 @@ describe('SubmissionMatrixService', () => {
   });
 
   it('제출 셀은 현재 revision·reviewUrl, 미제출 셀은 NOT_SUBMITTED null들로 결합한다', async () => {
-    // Given: milestone 2개 × (개인 1행 + 팀 1행), 제출은 개인×m1 한 건뿐.
     const submittedAt = new Date('2026-08-19T01:00:00.000Z');
     const repository = new FakeSubmissionMatrixRepository({
       milestones: [
@@ -153,10 +148,8 @@ describe('SubmissionMatrixService', () => {
     });
     const service = new SubmissionMatrixService(repository);
 
-    // When
     const matrix = await service.matrix(STAFF_GITHUB_ID, PROGRAM_ID, query());
 
-    // Then
     expect(repository.submissionCalls).toEqual([
       ['application-personal', 'application-team'],
     ]);
@@ -234,7 +227,6 @@ describe('SubmissionMatrixService', () => {
   });
 
   it('개인형 displayName은 User.name이 없으면 nickname으로 대체한다', async () => {
-    // Given
     const repository = new FakeSubmissionMatrixRepository({
       applications: [
         {
@@ -246,10 +238,8 @@ describe('SubmissionMatrixService', () => {
     });
     const service = new SubmissionMatrixService(repository);
 
-    // When
     const matrix = await service.matrix(STAFF_GITHUB_ID, PROGRAM_ID, query());
 
-    // Then
     expect(matrix.rows[0]).toMatchObject({
       displayName: 'synthetic-nameless',
       githubLogins: ['synthetic-nameless'],
@@ -258,18 +248,15 @@ describe('SubmissionMatrixService', () => {
   });
 
   it('페이지네이션 skip/take를 계산하고 page·pageSize·total을 그대로 돌려준다', async () => {
-    // Given
     const repository = new FakeSubmissionMatrixRepository({ total: 42 });
     const service = new SubmissionMatrixService(repository);
 
-    // When
     const matrix = await service.matrix(
       STAFF_GITHUB_ID,
       PROGRAM_ID,
       query({ q: 'hong', applicationMode: 'TEAM', page: 3, pageSize: 5 }),
     );
 
-    // Then
     expect(repository.pageCalls).toEqual([
       {
         programId: PROGRAM_ID,
@@ -294,8 +281,6 @@ describe('submissionMatrixApplicationWhere', () => {
   });
 
   it('형태 필터(applicationMode)는 D5 이후 teamId 분기를 하지 않는다', () => {
-    // D5: 모든 신청이 Team을 갖고 개인 참여는 1인 팀이다. teamId 유무 필터는 폐지됐고
-    // PERSONAL/TEAM 값은 조용히 무시되어 승인 신청 전수와 같은 where를 쓴다.
     const base = {
       programId: PROGRAM_ID,
       status: ApplicationStatus.APPROVED,

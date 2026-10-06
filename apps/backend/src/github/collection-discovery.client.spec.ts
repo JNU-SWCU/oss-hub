@@ -243,8 +243,6 @@ describe('CollectionDiscoveryClient', () => {
     });
 
     it('surfaces the upstream one-year window rejection as GRAPHQL_ERROR', async () => {
-      // GitHub rejects a `contributionsCollection` span wider than one year
-      // with a hard VALIDATION error (HTTP 200 + top-level `errors`).
       const fetcher = fetchMock().mockResolvedValueOnce(
         json({
           data: null,

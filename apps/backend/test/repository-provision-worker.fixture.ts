@@ -24,7 +24,6 @@ export const PROVISION_REPOSITORY: ProvisionedRepository = {
   visibility: RepositoryVisibility.PRIVATE,
 };
 
-/** live TeamMember 목록을 그대로 담은 현재 팀원 GitHub login. */
 export const CURRENT_MEMBER_GITHUB_LOGINS = [
   'synthetic-leader',
   'synthetic-student',
@@ -32,7 +31,6 @@ export const CURRENT_MEMBER_GITHUB_LOGINS = [
 
 export const MEMBERSHIP_FINGERPRINT = 'synthetic-membership-fingerprint';
 
-/** 부여 대상 invitation work 행(신규 생성 직후 PENDING). */
 export function grantInvitationWork(
   overrides: Partial<RepositoryInvitationWork> = {},
 ): RepositoryInvitationWork {
@@ -45,7 +43,6 @@ export function grantInvitationWork(
   };
 }
 
-/** 팀에서 빠진 login의 회수 대상 work 행. */
 export function revokeInvitationWork(
   overrides: Partial<RepositoryInvitationWork> = {},
 ): RepositoryInvitationWork {

@@ -117,7 +117,6 @@ function setup() {
 
 describe('ProgramAuthoringService', () => {
   it('resolves the narrowed store through the concrete repository provider', async () => {
-    // Given
     const { repository } = setup();
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -127,10 +126,8 @@ describe('ProgramAuthoringService', () => {
       ],
     }).compile();
 
-    // When
     const service = moduleRef.get(ProgramAuthoringService);
 
-    // Then
     expect(
       Reflect.getMetadata('self:paramtypes', ProgramAuthoringService),
     ).toEqual([{ index: 0, param: ProgramAuthoringRepository }]);
@@ -139,7 +136,6 @@ describe('ProgramAuthoringService', () => {
   });
 
   it('creates ordered children and atomically attaches an owned pending template', async () => {
-    // Given
     const { transaction, service } = setup();
     transaction.lockUploads.mockResolvedValueOnce([
       {
@@ -154,10 +150,8 @@ describe('ProgramAuthoringService', () => {
       },
     ]);
 
-    // When
     const result = await service.create(GITHUB_ID, 'key', request('upload-id'));
 
-    // Then
     expect(result.id).toBe('program-id');
     expect(transaction.createTemplate.mock.calls).toEqual([
       [
@@ -173,7 +167,6 @@ describe('ProgramAuthoringService', () => {
   });
 
   it('rejects a foreign token before creating program rows', async () => {
-    // Given
     const { transaction, service } = setup();
     transaction.lockUploads.mockResolvedValueOnce([
       {
@@ -188,7 +181,6 @@ describe('ProgramAuthoringService', () => {
       },
     ]);
 
-    // When / Then
     await expect(
       service.create(GITHUB_ID, 'key', request('upload-id')),
     ).rejects.toMatchObject({ reason: 'NOT_OWNED' });

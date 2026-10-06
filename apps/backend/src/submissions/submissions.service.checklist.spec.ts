@@ -65,16 +65,13 @@ function buildService(
 }
 
 it('미제출 마일스톤은 submission=null로, 필드는 계약 형태로 직렬화한다', async () => {
-  // Given
   const { service, listChecklistMilestones } = buildService({
     milestones: [milestone()],
   });
   const now = new Date('2026-07-31T00:00:00.000Z');
 
-  // When
   const checklist = await service.checklist(githubId, 'program-1', now);
 
-  // Then
   expect(listChecklistMilestones).toHaveBeenCalledWith(
     'program-1',
     'application-1',
@@ -97,7 +94,6 @@ it('미제출 마일스톤은 submission=null로, 필드는 계약 형태로 직
 });
 
 it('팀형 신청은 applicationMode=TEAM으로 반환한다', async () => {
-  // Given
   const { service } = buildService({
     application: {
       id: 'application-team',
@@ -107,19 +103,15 @@ it('팀형 신청은 applicationMode=TEAM으로 반환한다', async () => {
     },
   });
 
-  // When
   const checklist = await service.checklist(
     githubId,
     'program-1',
     new Date('2026-07-31T00:00:00.000Z'),
   );
 
-  // Then
   expect(checklist.applicationMode).toBe('TEAM');
 });
 
-// 마감 전 SUBMITTED 는 교체할 수 있다(#블로커 6b) — 잘못 낸 파일을 마감 전에 고칠
-// 경로가 없던 것이 결함이었다. APPROVED·REJECTED 는 판정이 난 뒤라 교체하지 않는다.
 it.each([
   {
     label: 'SUBMITTED, 마감 전',
@@ -160,7 +152,6 @@ it.each([
 ])(
   '$label 상태의 canResubmit은 $canResubmit이다',
   async ({ status, now, canResubmit }) => {
-    // Given
     const { service } = buildService({
       milestones: [
         milestone({
@@ -175,10 +166,8 @@ it.each([
       ],
     });
 
-    // When
     const checklist = await service.checklist(githubId, 'program-1', now);
 
-    // Then
     expect(checklist.items[0]?.submission).toMatchObject({ canResubmit });
   },
 );
@@ -190,7 +179,6 @@ it.each([
 ])(
   '판정 %s과 코멘트를 본인 체크리스트에 반환한다',
   async (decision, status) => {
-    // Given
     const { service } = buildService({
       milestones: [
         milestone({

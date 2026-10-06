@@ -23,7 +23,7 @@ function validValues(
     name: '합성 사용자',
     studentId: '1'.repeat(6),
     phone: TEN_DIGIT_PHONE,
-    // 기본은 아직 학번이 저장되지 않은 상태 — 새로 입력하는 값이라 형식을 본다.
+
     savedStudentId: '',
     affiliationKind: 'DEPARTMENT',
     affiliationName: '',
@@ -33,7 +33,6 @@ function validValues(
   };
 }
 
-/** 설정 화면 값 — 기본은 학번이 이미 저장돼 있는(=수정 불가) 상태다. */
 function settingsValues(
   overrides: Partial<SettingsProfileFields> = {},
 ): SettingsProfileFields {
@@ -114,8 +113,6 @@ describe('profile onboarding state', () => {
   });
 
   it('이미 완료된 프로필만 다음 단계로 건너뛴다', () => {
-    // 프로필이 온보딩의 마지막 단계라 목적지가 역할마다 다르다 — app 계층이 넘긴
-    // 경로를 그대로 쓴다.
     const nextPath = '/programs';
     expect(
       getProfileRedirect(
@@ -213,7 +210,6 @@ describe('설정 화면 프로필 갱신', () => {
   });
 
   it('저장된 학번이 형식에 맞지 않아도 이름·학과 저장을 막지 않는다', () => {
-    // 예전에 들어간 값은 사용자가 고칠 수 없다. 그것 때문에 저장을 막으면 갇힌다.
     const values = settingsValues({
       studentId: '12A456',
       savedStudentId: '12A456',

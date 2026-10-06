@@ -62,11 +62,9 @@ describe('SubmissionReviewsService.review', () => {
   ] as const)(
     '%s 판정을 현재 제출 상태로 원자적으로 반영한다',
     async (decision, expectedStatus, comment) => {
-      // Given: 최신 revision이 아직 검토되지 않았다.
       const { store, repository, repositories } = reviewDependencies();
       const service = new SubmissionReviewsService(repository, repositories);
 
-      // When: 교직원이 판정을 저장한다.
       const result = await service.review(
         'reviewer-1',
         'submission-1',
@@ -74,7 +72,6 @@ describe('SubmissionReviewsService.review', () => {
         REVIEWED_AT,
       );
 
-      // Then: Review와 Submission 상태가 같은 트랜잭션에서 갱신된다.
       expect(store.createReview.mock.calls).toEqual([
         [
           {
@@ -105,18 +102,15 @@ describe('SubmissionReviewsService.review', () => {
   );
 
   it('요청 revision이 최신이 아니면 stale 오류로 거부한다', async () => {
-    // Given: 서버 최신 revision은 2다.
     const { store, repository, repositories } = reviewDependencies();
     const service = new SubmissionReviewsService(repository, repositories);
 
-    // When: revision 1 판정을 요청한다.
     const review = service.review('reviewer-1', 'submission-1', {
       revision: 1,
       decision: ReviewDecision.APPROVED,
       comment: null,
     });
 
-    // Then: Review를 만들지 않고 409 도메인 오류를 반환한다.
     await expect(review).rejects.toMatchObject({
       errorCode: { code: SubmissionReviewsErrorCode.STALE_REVISION },
     });
@@ -124,7 +118,6 @@ describe('SubmissionReviewsService.review', () => {
   });
 
   it('이미 검토된 revision의 중복 판정을 거부한다', async () => {
-    // Given: 최신 revision에 Review가 존재한다.
     const { target, store, repository, repositories } = reviewDependencies();
     store.findReviewTarget.mockResolvedValue({
       ...target,
@@ -132,14 +125,12 @@ describe('SubmissionReviewsService.review', () => {
     });
     const service = new SubmissionReviewsService(repository, repositories);
 
-    // When: 같은 revision을 다시 판정한다.
     const review = service.review('reviewer-1', 'submission-1', {
       revision: 2,
       decision: ReviewDecision.APPROVED,
       comment: null,
     });
 
-    // Then: 중복 Review 오류로 거부한다.
     await expect(review).rejects.toMatchObject({
       errorCode: { code: SubmissionReviewsErrorCode.ALREADY_REVIEWED },
     });
@@ -148,7 +139,6 @@ describe('SubmissionReviewsService.review', () => {
 
 describe('SubmissionReviewsService.publishRepository', () => {
   it('모든 마일스톤 승인 뒤 별도 액션으로 저장소를 공개한다', async () => {
-    // Given: provision 성공 및 모든 마일스톤 승인이 확인됐다.
     const { repository, repositories } = reviewDependencies();
     repository.findPublishEligibility.mockResolvedValue({
       repositoryId: 'repository-1',
@@ -168,14 +158,12 @@ describe('SubmissionReviewsService.publishRepository', () => {
     });
     const service = new SubmissionReviewsService(repository, repositories);
 
-    // When: 공개 버튼 액션을 실행한다.
     const result = await service.publishRepository(
       'repository-1',
       ACTOR_GITHUB_ID,
       REVIEWED_AT,
     );
 
-    // Then: #121 서비스에 repository id를 위임해 공개 상태로 수렴한다.
     expect(repositories.publish).toHaveBeenCalledWith(
       { repositoryId: 'repository-1' },
       ACTOR_GITHUB_ID,
@@ -189,7 +177,6 @@ describe('SubmissionReviewsService.publishRepository', () => {
   });
 
   it('필수 마일스톤 미승인 상태에서는 GitHub 호출을 막는다', async () => {
-    // Given: 저장소 준비는 끝났지만 미승인 제출이 있다.
     const { repository, repositories } = reviewDependencies();
     repository.findPublishEligibility.mockResolvedValue({
       repositoryId: 'repository-1',
@@ -201,14 +188,12 @@ describe('SubmissionReviewsService.publishRepository', () => {
     });
     const service = new SubmissionReviewsService(repository, repositories);
 
-    // When: 공개 전환을 요청한다.
     const publish = service.publishRepository(
       'repository-1',
       ACTOR_GITHUB_ID,
       REVIEWED_AT,
     );
 
-    // Then: 공개 조건 오류이며 외부 API는 호출하지 않는다.
     await expect(publish).rejects.toMatchObject({
       errorCode: {
         code: SubmissionReviewsErrorCode.REQUIRED_MILESTONES_NOT_APPROVED,
@@ -218,7 +203,6 @@ describe('SubmissionReviewsService.publishRepository', () => {
   });
 
   it('지원서가 저장소 공개를 계획하지 않았으면 GitHub 호출을 막는다', async () => {
-    // Given: 지원서 단계에서 공개를 원치 않는다고 표시했다.
     const { repository, repositories } = reviewDependencies();
     repository.findPublishEligibility.mockResolvedValue({
       repositoryId: 'repository-1',
@@ -230,14 +214,12 @@ describe('SubmissionReviewsService.publishRepository', () => {
     });
     const service = new SubmissionReviewsService(repository, repositories);
 
-    // When: 공개 전환을 요청한다.
     const publish = service.publishRepository(
       'repository-1',
       ACTOR_GITHUB_ID,
       REVIEWED_AT,
     );
 
-    // Then: 공개 계획 오류이며 외부 API는 호출하지 않는다.
     await expect(publish).rejects.toMatchObject({
       errorCode: {
         code: SubmissionReviewsErrorCode.REPOSITORY_PUBLICATION_NOT_PLANNED,
@@ -247,7 +229,6 @@ describe('SubmissionReviewsService.publishRepository', () => {
   });
 
   it('프로그램이 아직 진행 중이면 GitHub 호출을 막는다', async () => {
-    // Given: endAt이 아직 지나지 않았다.
     const { repository, repositories } = reviewDependencies();
     repository.findPublishEligibility.mockResolvedValue({
       repositoryId: 'repository-1',
@@ -259,14 +240,12 @@ describe('SubmissionReviewsService.publishRepository', () => {
     });
     const service = new SubmissionReviewsService(repository, repositories);
 
-    // When: 공개 전환을 요청한다.
     const publish = service.publishRepository(
       'repository-1',
       ACTOR_GITHUB_ID,
       REVIEWED_AT,
     );
 
-    // Then: 프로그램 미종료 오류이며 외부 API는 호출하지 않는다.
     await expect(publish).rejects.toMatchObject({
       errorCode: { code: SubmissionReviewsErrorCode.PROGRAM_NOT_ENDED },
     });
@@ -274,7 +253,6 @@ describe('SubmissionReviewsService.publishRepository', () => {
   });
 
   it('GitHub 공개 실패는 검토 트랜잭션과 분리된 502 오류다', async () => {
-    // Given: 공개 조건은 충족했지만 외부 공개 호출이 실패한다.
     const { repository, repositories } = reviewDependencies();
     repository.findPublishEligibility.mockResolvedValue({
       repositoryId: 'repository-1',
@@ -289,14 +267,12 @@ describe('SubmissionReviewsService.publishRepository', () => {
     );
     const service = new SubmissionReviewsService(repository, repositories);
 
-    // When: 공개 전환을 요청한다.
     const publish = service.publishRepository(
       'repository-1',
       ACTOR_GITHUB_ID,
       REVIEWED_AT,
     );
 
-    // Then: 별도 재시도 가능한 공개 실패로 변환한다.
     await expect(publish).rejects.toBeInstanceOf(DomainException);
     await expect(publish).rejects.toMatchObject({
       errorCode: { code: SubmissionReviewsErrorCode.GITHUB_PUBLISH_FAILED },

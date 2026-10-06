@@ -202,7 +202,6 @@ it('동시 저장에서 선점에 실패하면 덮어쓰지 않고 409로 거부
 });
 
 it('완료된 프로필은 역할 선택 가능 상태로 확인한다', async () => {
-  // Given
   const { service } = buildService({
     user: {
       id: 'synthetic-user',
@@ -213,7 +212,6 @@ it('완료된 프로필은 역할 선택 가능 상태로 확인한다', async (
     },
   });
 
-  // When / Then
   await expect(
     service.requireCompleteProfile(githubId),
   ).resolves.toBeUndefined();
@@ -227,7 +225,6 @@ it.each([
 ] as const)(
   '%s 프로필은 역할 선택 가능 상태가 아닌 것으로 거부한다',
   async (_label, name, storedStudentId, department) => {
-    // Given
     const { service } = buildService({
       user: {
         id: 'synthetic-user',
@@ -238,12 +235,10 @@ it.each([
       },
     });
 
-    // When
     const error = await captureDomainException(() =>
       service.requireCompleteProfile(githubId),
     );
 
-    // Then
     expect(error.errorCode).toMatchObject({ code: 'USR_002', status: 409 });
   },
 );

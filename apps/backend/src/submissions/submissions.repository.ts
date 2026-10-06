@@ -37,13 +37,6 @@ import {
   submissionPublicIdWhere,
 } from './submission-public-id';
 
-/**
- * 이 store는 트랜잭션 클라이언트를 좁히지 않고 그대로 들고 다닌다 — 쓰기 경계에서
- * 부를 공용 `lockSubmissionMembership`의 계약이 `Prisma.TransactionClient`로
- * 고정되었기 때문이다.
- * 예전의 `Pick<...>` 로 좁힌 필드는 그 함수에 그냥 넘길 수 없어 호출부마다 cast를
- * 만들어야 하고, 그 cast가 바로 새 잠금을 우회할 수 있는 자리가 된다.
- */
 type SubmissionsDatabase = Prisma.TransactionClient;
 
 export interface SubmissionActor {
@@ -64,7 +57,7 @@ export interface SubmissionApplication {
   readonly id: string;
   readonly programId: string;
   readonly teamId: string | null;
-  /** 개인 참여는 멤버 1명인 팀이다(D5·D6). 표시용 구분에 쓴다. */
+
   readonly teamMemberCount: number;
   readonly status: ApplicationStatus;
   readonly existingSubmission: {
@@ -82,7 +75,7 @@ export interface CreatedSubmission {
 export interface ChecklistApplication {
   readonly id: string;
   readonly teamId: string | null;
-  /** 개인 참여는 멤버 1명인 팀이다(D5·D6). 표시용 구분에 쓴다. */
+
   readonly teamMemberCount: number;
   readonly status: ApplicationStatus;
 }
@@ -117,9 +110,8 @@ export interface ChecklistMilestone {
 }
 
 export interface ResubmissionTarget {
-  /** 기존 프런트가 계속 쓰는 공개 id. */
   readonly id: string;
-  /** 신규 원장 header primary id. */
+
   readonly submissionRecordId: string;
   readonly applicationId: string;
   readonly milestoneId: string;
@@ -137,7 +129,7 @@ export interface CreateSubmissionRevisionInput {
   readonly baseStatus: SubmissionStatus;
   readonly content: SubmissionContentInput;
   readonly comment: string | null;
-  /** 지금 재제출하는 사람 — 이력 귀속과 멤버십 잠금 판정의 기준이 같은 값이다. */
+
   readonly submittedById: string;
   readonly applicationId: string;
   readonly milestoneId: string;
@@ -205,14 +197,8 @@ class LegacySubmissionSlotMissingError extends Error {
   override readonly name = 'LegacySubmissionSlotMissingError';
 }
 
-/** 내부 슬롯은 서류 목록의 맨 앞에 두어 일반 서류(0부터)와 섞이지 않게 한다. */
 const LEGACY_SUBMISSION_SLOT_SORT_ORDER = -1;
 
-/**
- * 이관이 쓴 것과 같은 결정적 id — `20260830100000_bridge_legacy_submissions` 의
- * `CONCAT('legacy_document_', MD5(milestone."id"))` 와 바이트 단위로 같아야 한다.
- * 해시는 신원 파생에만 쓰고 보안 용도가 아니다.
- */
 function legacySubmissionSlotIdFor(milestoneId: string): string {
   return `legacy_document_${createHash('md5').update(milestoneId).digest('hex')}`;
 }
@@ -300,21 +286,6 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     return programs[0]?.endAt ?? null;
   }
 
-  /**
-   * 옛 방식 마일스톤의 내부 제출 슬롯 id — 없으면 그 자리에서 만든다.
-   *
-   * 2026-08-30 이관은 **제출 기록이 이미 있던** 마일스톤에만 슬롯을 만들었다
-   * (`20260830100000_bridge_legacy_submissions`의 `FROM "Submission"`). 그래서 그때까지
-   * 아무도 내지 않은 옛 마일스톤은 슬롯이 없고, 첫 제출이 저장할 자리를 찾지 못했다(#1089).
-   *
-   * 슬롯은 이 흐름의 내부 저장 구조일 뿐 사용자가 만드는 것이 아니므로, 없으면 첫 제출이
-   * 만든다. id·이름·정렬값을 이관과 같은 모양으로 두어 이관된 슬롯과 구분되지 않게 한다 —
-   * 갈라 두면 나중에 슬롯을 세는 쪽이 두 모양을 모두 알아야 한다.
-   *
-   * `ON CONFLICT DO NOTHING` 은 같은 마일스톤에 첫 제출이 동시에 들어올 때를 위한 것이다.
-   * 부분 유일 인덱스(`MilestoneDocument_one_legacy_submission_slot_key`)가 한 개만 남기고,
-   * 진 쪽은 오류 없이 이긴 행을 다시 읽는다. 트랜잭션 안이라 예외가 나면 그 자리에서 끊긴다.
-   */
   private async legacySubmissionSlotId(milestoneId: string): Promise<string> {
     const existing = await this.findLegacySubmissionSlot(milestoneId);
     if (existing !== null) return existing;
@@ -361,18 +332,6 @@ class PrismaSubmissionsStore implements SubmissionsStore {
     return document?.id ?? null;
   }
 
-  /**
-   * 지금 이 신청의 팀원인지를 **쓰기 바로 앞에서** 잠금을 잡고 다시 본다.
-   *
-   * 사전 인가(`findApplicationForParticipant`·`findSubmissionForParticipant`)만 둔 동안은
-   * 그 사이에 팀원 제외가 커밋되면 탈퇴한 사람의 제출·이력이 그대로 들어간다(#1269).
-   * 공용 잠금 함수는 Program 다음 Team 순서로 행을 잠그고, 그 뒤에 멤버십을
-   * 다시 읽는다. 이 호출 뒤의 제출·revision·history·파일 쓰기는 모두 같은 잠금
-   * 아래에서 진행된다(트랜잭션 끝까지 유지).
-   *
-   * ⚠ 기준은 **지금 쓰는 사람**이다. 제출 행의 `submittedById`나 `Application.applicantId`는
-   * 과거 기록이므로 권한 판정에 다시 쓰지 않는다.
-   */
   private async lockCurrentMembership(
     applicationId: string,
     actorUserId: string,

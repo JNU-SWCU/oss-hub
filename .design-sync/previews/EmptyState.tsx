@@ -1,5 +1,3 @@
-// EmptyState 프리뷰 — ticket-stub.tsx / program-list-page.tsx / archive-detail-view.tsx의
-// 실제 빈 상태·에러 화면을 그대로 옮긴 것.
 import { Button, EmptyState } from 'frontend';
 
 function UsersIcon() {
@@ -27,7 +25,6 @@ function UsersIcon() {
   );
 }
 
-// program-list-page.tsx — 검색 조건에 맞는 결과가 없을 때(액션 없음).
 export function NoResults() {
   return (
     <EmptyState
@@ -37,7 +34,6 @@ export function NoResults() {
   );
 }
 
-// archive-detail-view.tsx NotFoundState — 아이콘 + 목록으로 돌아가기 액션.
 export function NotFound() {
   return (
     <EmptyState
@@ -49,7 +45,6 @@ export function NotFound() {
   );
 }
 
-// ticket-stub.tsx(#136) — 미구현 화면 스텁, 링크 액션(버튼이 아니라 밑줄 텍스트 링크).
 export function TicketStub() {
   return (
     <EmptyState
@@ -67,7 +62,6 @@ export function TicketStub() {
   );
 }
 
-// 텍스트 과다 케이스 — 설명이 두 줄 이상으로 줄바꿈될 때 gap·정렬을 본다.
 export function LongDescription() {
   return (
     <EmptyState

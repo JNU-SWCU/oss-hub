@@ -96,7 +96,6 @@ describe('program authoring submission', () => {
     expect(uploadFile).toHaveBeenCalledTimes(4);
   });
   it('ignores a duplicate click while one idempotent submit is in flight', async () => {
-    // Given
     let resolveCreate: ((value: { readonly id: string }) => void) | undefined;
     const create = vi.fn(
       () =>
@@ -117,11 +116,9 @@ describe('program authoring submission', () => {
       },
     };
 
-    // When
     const first = submitProgramAuthoring(options);
     const duplicate = await submitProgramAuthoring(options);
 
-    // Then
     expect(duplicate).toEqual({ kind: 'ignored' });
     expect(create).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledWith(expect.any(Object), 'request-1');
@@ -133,7 +130,6 @@ describe('program authoring submission', () => {
   });
 
   it('keeps File objects and automatically re-uploads them after a partial upload failure', async () => {
-    // Given
     const firstFile = pdfFile();
     const secondFile = pdfFile('result.pdf');
     const files = new Map([
@@ -161,11 +157,9 @@ describe('program authoring submission', () => {
       },
     };
 
-    // When
     const failed = await submitProgramAuthoring(options);
     const retried = await submitProgramAuthoring(options);
 
-    // Then
     expect(failed).toEqual(
       expect.objectContaining({ kind: 'failure', stage: 'upload' }),
     );
@@ -180,7 +174,6 @@ describe('program authoring submission', () => {
   });
 
   it('retries a failed aggregate with the same tokens and idempotency key', async () => {
-    // Given
     const uploadFile = vi.fn(() =>
       Promise.resolve({
         id: 'upload-a',
@@ -212,11 +205,9 @@ describe('program authoring submission', () => {
       },
     };
 
-    // When
     const failed = await submitProgramAuthoring(options);
     const retried = await submitProgramAuthoring(options);
 
-    // Then
     expect(failed).toEqual(
       expect.objectContaining({ kind: 'failure', stage: 'aggregate' }),
     );
@@ -270,7 +261,6 @@ describe('program authoring submission', () => {
   });
 
   it('maps a 409 conflict without clearing entered state or uploaded tokens', async () => {
-    // Given
     const runtime = createProgramSubmissionRuntime();
     const file = pdfFile();
     const createProgram = vi.fn(async () => {
@@ -284,7 +274,6 @@ describe('program authoring submission', () => {
       });
     });
 
-    // When
     const result = await submitProgramAuthoring({
       state: {
         ...stateWithFiles(),
@@ -305,7 +294,6 @@ describe('program authoring submission', () => {
       },
     });
 
-    // Then
     expect(result).toEqual({ kind: 'conflict' });
     expect(runtime.uploads.get('requirement-a')).toEqual({ id: 'upload-a' });
     expect(file.name).toBe('plan.pdf');

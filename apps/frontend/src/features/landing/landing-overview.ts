@@ -21,15 +21,6 @@ export interface LandingGraph {
   readonly edges: readonly LandingGraphEdge[];
 }
 
-/**
- * 그래프에 반영되지 못한 공개 데이터가 있는지.
- *
- * - `complete` — 반영해야 할 응답이 모두 반영됐다. 상세가 아직 도착하지 않은
- *   1단계 그래프도 여기 속한다. 기여자가 아직 0이라 화면이 `—`로 내보내므로
- *   틀린 수를 정확한 수처럼 보여 주는 일이 없다.
- * - `partial` — 상세 요청 일부가 전송 단계에서 실패해 기여자가 실제보다 적다.
- *   화면은 이 수를 정확한 값으로 내보이면 안 된다.
- */
 export type LandingGraphCompleteness = 'complete' | 'partial';
 
 export interface LandingProgram {
@@ -51,10 +42,7 @@ export interface LandingArchiveItem {
 
 export interface LandingArchiveDetail {
   readonly projectId: string;
-  /**
-   * 공개 아카이브 계약에는 이제 내부 사용자 id가 없다. 기여자를 가리키는 값은
-   * GitHub 로그인뿐이라 랜딩도 그 사람의 GitHub 프로필로 보낸다.
-   */
+
   readonly contributors: readonly { readonly githubLogin: string }[];
 }
 
@@ -85,11 +73,6 @@ function nonEmptyString(value: unknown): string {
   return invalidResponse();
 }
 
-/**
- * 공개 목록·상세 경로에 쓰는 id.
- * cuid 기본값과 로컬 seed id(`seed:intake:…`)를 모두 허용한다.
- * `../`·`/` 같은 경로 탈출 문자는 거부한다 — href는 encodeURIComponent로 붙인다.
- */
 function publicId(value: unknown): string {
   const parsed = nonEmptyString(value);
   if (/^[A-Za-z0-9_:-]+$/.test(parsed)) return parsed;
@@ -150,7 +133,7 @@ export function parseLandingArchivePage(
   if (!Array.isArray(page.items)) return invalidResponse();
   return page.items.slice(0, 3).map((item) => {
     const input = record(item);
-    // 목록 응답에는 detailUrl 이 없다 — 상세 경로는 화면 쪽 규칙이라 여기서 만든다.
+
     const projectId = publicId(input.projectId);
     return {
       projectId,

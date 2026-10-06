@@ -7,18 +7,8 @@ import {
   type CanonicalAdminAccessDetail,
 } from './independent-authority-api';
 
-/**
- * `/dashboard/users/[userId]` 직접 진입 상세(PR04E)의 fetch/파생 로직.
- * `admin-access-api.ts`(PR04B)의 `fetchAdminAccessDetail`·`fetchAdminAccessHistory`를
- * 그대로 쓰고, 이 파일은 두 호출의 조합·404 판별·화면 전용 파생값(가드·
- * 페이지 수)만 더한다. `public-profile-api.ts`의 `loadPublicProfile` 404 판별
- * 패턴을 따른다.
- */
-
-/** `RolesErrorCode.USER_NOT_FOUND` in `apps/backend/src/roles/roles-error-code.enum.ts`. */
 const USER_NOT_FOUND_CODE = 'ROL_010';
 
-/** 요청/로그인 이력 각각 첫 페이지만 불러오며, 한도는 목록 화면과 같은 20건이다. 이후 페이지 이동도 같은 한도를 쓴다. */
 export const ADMIN_ACCESS_DETAIL_HISTORY_LIMIT = 20;
 
 export class AdminAccessDetailNotFoundError extends Error {
@@ -48,12 +38,6 @@ function isNotFound(error: unknown): boolean {
   );
 }
 
-/**
- * 상세 + 요청/로그인 이력을 병렬로 불러온다. 404(`ROL_010`)는
- * `AdminAccessDetailNotFoundError`로, 그 외 실패는 `AdminAccessDetailLoadError`로
- * 수렴한다(파싱 실패 `AdminAccessResponseError` 포함) — 화면은 이 두 타입만
- * 구분하면 된다.
- */
 export async function loadAdminAccessDetail(
   userId: string,
   signal?: AbortSignal,
@@ -82,45 +66,17 @@ export async function loadAdminAccessDetail(
 }
 
 export interface AdminAccessGuards {
-  /** 대기 중인 요청이 있어 역할·상태 컨트롤 전체가 막혔을 때의 안내문. 없으면 `null`. */
   readonly controlBlockedReason: string | null;
-  /** 비활성 계정이라 대기 요청 승인이 서버에서 거절될 때의 안내문. 없으면 `null`. */
+
   readonly approvalBlockedReason: string | null;
-  /** 본인 계정이라 비활성화 선택지가 막혔을 때의 안내문. 없으면 `null`. */
+
   readonly deactivationBlockedReason: string | null;
-  /** 본인 계정이라 관리자 접근 회수가 막혔을 때의 안내문. 없으면 `null`. */
+
   readonly adminRevokeBlockedReason: string | null;
-  /** 프로필 미완료라 교직원·관리자 선택지가 막혔을 때의 안내문. 없으면 `null`. */
+
   readonly elevatedRoleBlockedReason: string | null;
 }
 
-/**
- * 접근 변경 카드의 화면 전용 가드 — 백엔드는 이 중 어느 것도 별도 필드로
- * 내려주지 않으므로 이미 응답에 있는 `pendingRequest`·`isSelf`·
- * `profile.isComplete`에서 읽기 전용으로 계산한다.
- *
- * `approvalBlockedReason`은 서버가 이 명령을 받지 않는다는 사실을 그대로 읽은
- * 것이다 — [승인]은 `desiredRole: 'STAFF'` + `desiredAccountStatus: 'ACTIVE'`를
- * 함께 보내며(`admin-access-mutation-policy.ts`), 비활성 계정에서 그 명령은 actor에
- * 따라 둘 중 하나로 끝난다. 관리자가 아닌 승인자(가입 신청 큐의 교직원)는 결정
- * 명령에 계정 상태 변경을 실을 수 없어 403 `ROL_004`로 막히고
- * (`admin-access-authorization.ts`의 `assertDecisionOnlyCommand`), 관리자는 역할과
- * 계정 상태를 한 번에 바꾸는 명령을 금지하는 전이표에 걸려 409 `ROL_014`를 받는다
- * (`admin-access-transition-table.ts`의 `changesRole && changesAccountStatus`).
- * 어느 쪽이든 비활성 계정의 승인은 통과하지 않으므로 누르기 전에 막는다.
- *
- * `adminRevokeBlockedReason`은 서버의 `ROL_022`와 같은 조건을 화면에서 미리
- * 보여 줄 뿐이다(#1382). 금지된 선택지는 비활성화하고, 이유는 계정 비활성화와
- * 동일하게 드롭다운 트리거의 hover/focus 툴팁으로 알린다.
- * 교직원 접근 회수는 이 출입증을 건드리지 않으므로 여기서 막지 않는다.
- *
- * `elevatedRoleBlockedReason`은 백엔드 정책보다 보수적이다 — 백엔드는
- * 대기 요청을 승인할 때만 프로필 완료를 요구하고(`admin-access-transition-table.ts`의
- * `requiresCompleteProfile: requestEffect === 'APPROVED'`) 직접 역할 부여에는
- * 이 조건이 없다. 그래도 프로필이 없는 사람에게 교직원·관리자를 직접
- * 부여하는 흐름은 굳이 열어 둘 이유가 없어, 프런트에서 먼저 막는다(모든
- * 쓰기는 여전히 서버에서 검증된다).
- */
 export function deriveAdminAccessGuards(
   detail: AdminAccessDetail,
 ): AdminAccessGuards {
@@ -144,17 +100,11 @@ export function deriveAdminAccessGuards(
   };
 }
 
-/** 요청/로그인 이력 한 페이지의 응답 shape — 둘 다 같은 모양이라 페이지 수 계산을 공유한다. */
 export interface AdminAccessHistoryPage {
   readonly limit: number;
   readonly total: number;
 }
 
-/**
- * `total`이 실제 DB 카운트로 응답에 담겨 오므로(`admin-access-history-response.dto.ts`)
- * hasNext 추론 없이 바로 페이지 수를 계산한다. `total`이 0이어도 최소 1페이지로
- * 본다 — "0 / 0 페이지" 같은 표시를 피하기 위해서다.
- */
 export function adminAccessHistoryPageCount(
   page: AdminAccessHistoryPage,
 ): number {

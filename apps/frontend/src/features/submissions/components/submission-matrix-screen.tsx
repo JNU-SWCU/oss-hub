@@ -24,7 +24,6 @@ const INITIAL_QUERY: MatrixQueryInput = {
   pageSize: MATRIX_PAGE_SIZE,
 };
 
-/** #124 제출 현황 매트릭스 — 검색·페이지는 서버 조회 조건(#124 query 계약). */
 export function SubmissionMatrixScreen({
   programId,
   selectedMilestoneId,
@@ -38,7 +37,7 @@ export function SubmissionMatrixScreen({
 }) {
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState<MatrixQueryInput>(INITIAL_QUERY);
-  // #619 스펙 3버튼 빠른 필터 — 서버 재조회 없이 로드된 페이지 행만 거른다.
+
   const [quickFilter, setQuickFilter] = useState<MatrixQuickFilter>('ALL');
   const [data, setData] = useState<SubmissionMatrixPage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,7 +50,7 @@ export function SubmissionMatrixScreen({
       setErrorMessage(null);
       try {
         const next = await getSubmissionMatrix(programId, input);
-        // 이전 조회 응답이 늦게 도착해도 최신 query 결과만 반영한다.
+
         if (requestId !== requestIdRef.current) return;
         setData(next);
       } catch (error) {

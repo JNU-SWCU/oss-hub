@@ -12,12 +12,6 @@ import {
   CollectionSyncService,
 } from '../service/collection-sync.service';
 
-/**
- * public-admin-exposure todo 10 — repository별 증분 동기화 CLI. inventory 관찰,
- * 신규/미검증 저장소 backfill, READY 저장소 조건부 poll을 한 fair serial provider
- * queue 위에서 lease-fenced로 수행한다. See `CollectionSyncService` for the
- * full contract.
- */
 async function main(): Promise<void> {
   const runtimeConfig = loadRuntimeConfig(process.env);
   const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);

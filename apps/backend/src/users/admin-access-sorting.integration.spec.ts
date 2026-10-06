@@ -150,12 +150,10 @@ it.each([
 ] as const)(
   'orders %s across tied pages without gaps or duplicates and keeps nulls last',
   async (_label, sort, direction, expectedOrder) => {
-    // Given
     const expectedIds = [...expectedOrder].map(
       (suffix) => `${prefix}${suffix}`,
     );
 
-    // When
     const pages = await Promise.all(
       [1, 2, 3].map((page) =>
         service.list(actorGithubId, {
@@ -170,7 +168,6 @@ it.each([
     const returnedItems = pages.flatMap((page) => page.items);
     const returnedIds = returnedItems.map((item) => item.id);
 
-    // Then
     expect(pages.map((page) => page.total)).toEqual([5, 5, 5]);
     expect(returnedIds).toEqual(expectedIds);
     expect(new Set(returnedIds).size).toBe(expectedIds.length);

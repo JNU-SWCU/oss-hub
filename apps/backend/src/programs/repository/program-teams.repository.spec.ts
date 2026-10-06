@@ -14,7 +14,6 @@ import {
   type TeamMembershipAuditEvent,
 } from './program-teams.repository';
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticTeamId = 'cuid-synthetic-team';
 const syntheticOtherTeamId = 'cuid-synthetic-other-team';
 const syntheticProgramId = 'program-synthetic';
@@ -44,7 +43,6 @@ function teamContext(leaderId: string) {
 
 type MembershipRow = { readonly teamId: string } | null;
 
-/** repository 가 불러야 하는 감사 콜백 계약 그대로의 mock. */
 type RecordAuditMock = jest.Mock<
   Promise<void>,
   Parameters<RecordTeamMembershipAudit>
@@ -57,18 +55,14 @@ function createRecordAuditMock(): RecordAuditMock {
 }
 
 interface TxOptions {
-  /** 잠금 전 스냅샷. `undefined` 면 행위자가 합성 팀에 소속된 상태. */
   readonly preLockMembership?: MembershipRow;
-  /** 잠근 뒤 재조회 값. `undefined` 면 팀장이 행위자인 합성 팀. */
+
   readonly lockedMembership?: ReturnType<typeof teamContext> | null;
   readonly targetMembership?: MembershipRow;
   readonly memberCount?: number;
   readonly application?: { readonly id: string } | null;
   readonly successor?: { readonly userId: string } | null;
-  /**
-   * 권한 동기화 대상 신청(APPROVED + NEW + 발급 켬 프로그램). 기본은 없음.
-   * 조건은 `findMany` where 절이 걸러내므로 fake 는 결과만 돌려준다.
-   */
+
   readonly accessSyncApplications?: readonly { readonly id: string }[];
   readonly recordAudit?: RecordAuditMock;
 }
@@ -641,10 +635,6 @@ describe('ProgramTeamsRepository.removeMember', () => {
   });
 });
 
-/**
- * 구성원이 실제로 빠졌을 때만, 그리고 같은 트랜잭션에서 outbox 행만 남긴다.
- * GitHub 호출·provision job 잠금은 worker 몫이라 이 트랜잭션에서는 일어나지 않는다.
- */
 describe('ProgramTeamsRepository 권한 동기화 이벤트 예약', () => {
   const syntheticApplicationId = 'cuid-synthetic-application';
   const NOW = new Date('2026-09-05T03:04:05.678Z');
@@ -686,7 +676,7 @@ describe('ProgramTeamsRepository 권한 동기화 이벤트 예약', () => {
     );
 
     expect(result).toBe('removed');
-    // 조건은 where 절이 지고 id 외에는 아무것도 읽지 않는다.
+
     expect(applicationFindMany).toHaveBeenCalledWith({
       where: {
         teamId: syntheticTeamId,
@@ -701,7 +691,7 @@ describe('ProgramTeamsRepository 권한 동기화 이벤트 예약', () => {
       data: [expectedRow()],
       skipDuplicates: true,
     });
-    // 구성원이 지워진 다음, 감사 기록과 같은 트랜잭션 안이다.
+
     expect(order(teamMemberDelete)).toBeLessThan(order(outboxCreateMany));
     expect(order(outboxCreateMany)).toBeLessThan(order(recordAudit));
   });
@@ -793,7 +783,7 @@ describe('ProgramTeamsRepository 권한 동기화 이벤트 예약', () => {
       expect(result).toBe('removed');
       expect(applicationFindMany).toHaveBeenCalledTimes(1);
       expect(outboxCreateMany).not.toHaveBeenCalled();
-      // 감사 기록은 그대로 남는다 — 이벤트가 없다고 구성원 변경을 되돌리지 않는다.
+
       expect(recordAudit).toHaveBeenCalledTimes(1);
     },
   );
@@ -902,7 +892,7 @@ describe('ProgramTeamsRepository 권한 동기화 이벤트 예약', () => {
         recordAudit,
       ),
     ).rejects.toBe(failure);
-    // 쓰기는 이미 불렸지만 같은 트랜잭션이므로 예외와 함께 무효화된다.
+
     expect(outboxCreateMany).toHaveBeenCalledTimes(1);
   });
 
@@ -919,7 +909,6 @@ describe('ProgramTeamsRepository 권한 동기화 이벤트 예약', () => {
       recordAudit,
     );
 
-    // fake tx 에 없는 표면을 불렀다면 위 호출이 TypeError 로 터졌을 것이다.
     expect(Object.keys(tx).sort()).toEqual([
       '$queryRaw',
       'application',

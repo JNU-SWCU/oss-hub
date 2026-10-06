@@ -33,9 +33,7 @@ export const E2E_STUDENT_GITHUB_ID = 8_100_002n;
 export const E2E_FOREIGN_STUDENT_GITHUB_ID = 8_100_003n;
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
-// 캘린더에 고정된 날짜 대신 프로세스 기동 시점(실행 시점 벽시계) 기준 +2시간을 고정 앵커로 삼는다 —
-// 실제 UI 상호작용이 끝날 때까지 신청 기간이 실행 중 닫히지 않을 만큼만 여유를 두고, 마감 알림
-// 대상 판정 창(deadlineWindow, `실행 시점~+24시간`)에 마일스톤 마감(앵커+9시간)이 들어오게 한다.
+
 export const E2E_NOW = new Date(Date.now() + 2 * ONE_HOUR_MS);
 
 export class E2eProgramAuthoringFixture {
@@ -107,12 +105,7 @@ export class E2eProgramAuthoringFixture {
       await transaction.team.deleteMany({
         where: { programId: E2E_PROGRAM_ID },
       });
-      /*
-       * 고정 id 하나만 지우면 마일스톤 삭제가 FK로 막혀 reset이 500이 된다 — 편집이
-       * 서버 생성 id로 새 서류 항목을 만들 수 있기 때문이다. 그래서 이 마일스톤에
-       * 달린 서류를 전부 지우고, 양식 파일은 그 부모 관계로 먼저 지운다.
-       * 범위는 여전히 합성 마일스톤 하나다.
-       */
+
       await transaction.milestoneDocumentTemplateFile.deleteMany({
         where: { milestoneDocument: { milestoneId: E2E_MILESTONE_ID } },
       });
@@ -155,8 +148,7 @@ export class E2eProgramAuthoringFixture {
           accountStatus: AccountStatus.ACTIVE,
           selectedMemberKind: MemberKind.STAFF,
           hasStaffAccess: true,
-          // 프로필 행이 없으면 RoleGate가 staffPage를 미완료로 보고
-          // /onboarding/profile로 되돌려, 이 화면 진입이 "확인 중…"에 갇힌다.
+
           profile: {
             create: {
               name: 'E2E Staff',

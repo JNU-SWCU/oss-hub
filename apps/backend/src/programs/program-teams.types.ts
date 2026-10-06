@@ -16,22 +16,11 @@ export interface CreatedTeamView {
   readonly memberCount: number;
 }
 
-/**
- * 이름 변경 응답 — 바뀐 사실만 돌려준다.
- *
- * 팀장과 교직원이 같은 endpoint를 쓰므로 여기에 신청·저장소를 싣지 않는다.
- * 교직원용 상세(`StaffTeamDetailView`)를 그대로 돌려주면 학생 팀장에게 저장소 URL이
- * 따라 나가고, 그건 이름을 바꾼 대가로 줄 것이 아니다.
- */
 export interface RenamedTeamView {
   readonly teamId: string;
   readonly name: string;
 }
 
-/**
- * 교직원 전용 팀 목록의 한 팀 — 팀원 전원의 실명을 포함한다.
- * 학번·학과·연락처·이메일·참여코드·저장소 URL 은 담지 않는다.
- */
 export interface StaffTeamView {
   readonly teamId: string;
   readonly name: string;
@@ -39,17 +28,6 @@ export interface StaffTeamView {
   readonly members: readonly TeamMemberView[];
 }
 
-/**
- * 로그인한 학생이 보는 내 팀 — 화면이 버튼을 켜고 끌 때 쓰는 능력을 서버가 계산해서
- * 내려준다. 과거의 `locked`(신청 제출 여부 하나로 모든 팀 편집을 잠그던 플래그)는
- * 없앴다: 신청이 있어도 팀장은 초대·제외를 계속할 수 있고, 팀원은 스스로 나갈 수
- * 있으며, 오직 "신청 이력이 있는 팀의 마지막 한 명"만 팀을 비울 수 없다.
- *
- * - `hasApplication`: 이 팀 이름으로 제출된 신청이 있는지(사실 표기용).
- * - `canInvite`: 팀장만 초대할 수 있다.
- * - `canRemoveMembers`: 팀장이고 자기 말고 다른 팀원이 있을 때만 제외할 수 있다.
- * - `canLeave`: 다른 팀원이 남아 있거나, 신청 이력이 없어 팀이 사라져도 되는 경우.
- */
 export interface ProgramTeamView {
   readonly id: string;
   readonly name: string;
@@ -64,12 +42,6 @@ export interface ProgramTeamView {
   readonly members: readonly TeamMemberView[];
 }
 
-/**
- * `applications.repository.ts`의 `RepositoryProvisioningJobStatus`/
- * `RepositoryProvisioningSafeErrorClass`와 값이 같은 로컬 재선언이다. import 하지
- * 않는 이유: `ApplicationsModule`이 이미 `ProgramsModule`을 import 하므로
- * `ProgramsModule`이 거꾸로 `ApplicationsModule`을 import 하면 순환 의존이 생긴다.
- */
 export type TeamRepositoryProvisioningJobStatus =
   | 'NOT_REQUESTED'
   | 'DISABLED'
@@ -83,14 +55,6 @@ export type TeamRepositoryProvisioningJobStatus =
 export type TeamRepositoryProvisioningSafeErrorClass =
   'AUTH' | 'RATE_LIMIT' | 'UPSTREAM_REJECTED' | 'UNKNOWN';
 
-/**
- * 팀 상세의 신청·저장소 발급 상태 — 팀 상세 화면이 한 요청으로 끝나도록
- * `Application`을 거쳐 함께 싣는다(#874). 신청이 없으면 전체가 null.
- *
- * 저장소는 `Application`을 거쳐서만 읽는다 — `Repository.applicationId`는
- * 필수+unique 라 빠짐이 없지만, `Repository.teamId`는 nullable이라 `Team.repositories`로
- * 조회하면 저장소가 실제로 있는데도 못 찾는 행이 생긴다.
- */
 export interface TeamApplicationView {
   readonly id: string;
   readonly status: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
@@ -110,14 +74,6 @@ export interface TeamApplicationView {
   };
 }
 
-/**
- * 교직원 전용 팀 상세(#874) — `listForStaff`의 한 팀에 신청·저장소 발급 상태를
- * 더한 모양이다. 학번·학과·연락처·이메일·참여코드는 여전히 담지 않는다.
- *
- * `deletionScope`는 삭제 확인 창이 「무엇이 함께 지워지는가」를 말하기 위해 읽는 스냅샷이고,
- * 화면은 본 그대로를 `expectedScope`로 돌려보낸다. 목록(`StaffTeamView`)에는 두지 않는다 —
- * 목록은 한 번에 여러 팀을 그리며, 누르기 전에 읽은 수치는 이미 낡은 것이다.
- */
 export interface StaffTeamDetailView extends TeamRepositoryEvidenceView {
   readonly teamId: string;
   readonly name: string;
@@ -127,10 +83,6 @@ export interface StaffTeamDetailView extends TeamRepositoryEvidenceView {
   readonly deletionScope: TeamDeletionScopeCounts;
 }
 
-/**
- * 삭제 결과 — 실제로 지운 수치를 돌려준다. 화면은 이 수치로 「무엇이 사라졌는지」를
- * 확인 창이 보여준 예고와 같은 말로 마무리한다.
- */
 export interface DeletedTeamView {
   readonly teamId: string;
   readonly deleted: true;

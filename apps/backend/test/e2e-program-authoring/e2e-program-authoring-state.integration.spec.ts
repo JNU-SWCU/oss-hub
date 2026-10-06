@@ -24,12 +24,10 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const fixture = new E2eProgramAuthoringFixture(prisma);
 
-// adapter의 exercisePrismaFailure가 재시도 성공 때 authoring.create로 만드는 프로그램과 같은
-// 모양이다 — fixture 프로그램 바깥에 있고, 첨부된 양식 업로드 하나를 자기 서류 항목에 건다.
 const AGGREGATE_PROGRAM_ID = `${E2E_PROGRAM_ID}:aggregate`;
 const AGGREGATE_MILESTONE_ID = `${AGGREGATE_PROGRAM_ID}-milestone`;
 const AGGREGATE_DOCUMENT_ID = `${AGGREGATE_PROGRAM_ID}-document`;
-const AGGREGATE_IDEMPOTENCY_KEY = 'e2e-state-scope'; // gitleaks:allow — 결정론적 테스트 상수
+const AGGREGATE_IDEMPOTENCY_KEY = 'e2e-state-scope';
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const AGGREGATE_APPLICATION_START_AT = new Date(
   E2E_NOW.getTime() - 24 * ONE_HOUR_MS,
@@ -88,18 +86,15 @@ describe('stateForE2eProgramGraph orphan accounting', () => {
   );
 
   it('프로그램 밖 aggregate에 첨부된 업로드를 고아로 세지 않는다', async () => {
-    // Given
     await fixture.reset();
     await fixture.ensure();
     const storageKey = await storeAggregateObject();
     await seedAggregateProgram(storageKey);
 
-    // When
     const state = await fixture.state(
       e2eProgramAuthoringExternalPorts.capture(),
     );
 
-    // Then
     expect(state).toMatchObject({
       programs: 1,
       attachedFiles: 1,
@@ -108,32 +103,26 @@ describe('stateForE2eProgramGraph orphan accounting', () => {
   });
 
   it('aggregate 업로드의 스토리지 객체가 사라지면 고아로 센다', async () => {
-    // Given
     await fixture.reset();
     await fixture.ensure();
     await seedAggregateProgram(`program-authoring/${randomUUID()}`);
 
-    // When
     const state = await fixture.state(
       e2eProgramAuthoringExternalPorts.capture(),
     );
 
-    // Then
     expect(state).toMatchObject({ attachedFiles: 1, orphanObjects: 1 });
   });
 
   it('어느 행도 소유하지 않는 스토리지 객체를 고아로 센다', async () => {
-    // Given
     await fixture.reset();
     await fixture.ensure();
     await storeAggregateObject();
 
-    // When
     const state = await fixture.state(
       e2eProgramAuthoringExternalPorts.capture(),
     );
 
-    // Then
     expect(state).toMatchObject({ attachedFiles: 0, orphanObjects: 1 });
   });
 });
@@ -218,8 +207,6 @@ async function seedAggregateProgram(storageKey: string): Promise<void> {
   });
 }
 
-// fixture.reset()은 fixture 프로그램만 되돌린다 — 이 스펙이 만든 aggregate 그래프는
-// adapter의 removePrismaAggregate와 같은 자식→부모 순서로 직접 지운다.
 async function removeAggregateProgram(): Promise<void> {
   await prisma.milestoneDocumentTemplateFile.deleteMany({
     where: {

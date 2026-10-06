@@ -63,20 +63,10 @@ const ADMIN_ACCESS_TRANSITION_ORACLE: readonly OracleCase[] =
     })),
   );
 
-/**
- * 프로덕션 로직을 독립 재구현한 오라클이다. **기대값은 프로덕션 상수를 쓰지 않고 문자열
- * 리터럴로 적는다** — `ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED`를 그대로 재사용하면 상수의
- * 값 자체가 잘못 바뀌어도(예: `REVOKED: StaffAccessRequestStatus.REJECTED`) 양쪽이 함께 움직여
- * 이 테스트가 초록으로 남는다. 이중 구현을 두는 이유가 바로 그 변이를 잡는 것이다.
- * 입력(역할·계정 상태·대기 상태·결정)은 `resolveAdminAccessTransition`의 인자 타입이라
- * 상수를 그대로 쓴다 — 그쪽은 기대값이 아니라 호출 규약이다.
- */
 function expectedTransitionOutcome(
   current: AdminAccessTableCurrentState,
   desired: AdminAccessTableDesiredState,
 ): AdminAccessTransitionOutcome {
-  // 회수(#184)만 확정된 역할을 다시 비운다. 오라클도 같은 규칙을 독립적으로 적는다 —
-  // 확정된 STAFF이고 대기 중 요청이 없을 때만 통과하고, 그 전이는 REVOKED 행을 남긴다.
   const revokesStaff =
     current.role === 'STAFF' &&
     current.pendingState === ADMIN_ACCESS_PENDING_STATES.NONE &&
@@ -168,13 +158,10 @@ function denied(
 
 describe('ADMIN access transition table', () => {
   it('materializes every cross-product entry exactly once', () => {
-    // Given
     const keys = ADMIN_ACCESS_TRANSITION_TABLE.map((entry) => entry.key);
 
-    // When
     const uniqueKeys = new Set(keys);
 
-    // Then
     expect(keys).toHaveLength(384);
     expect(uniqueKeys.size).toBe(384);
   });
@@ -182,10 +169,8 @@ describe('ADMIN access transition table', () => {
   it.each(ADMIN_ACCESS_TRANSITION_ORACLE)(
     'independently verifies the complete oracle: $name',
     ({ current, desired, expected }) => {
-      // When
       const resolved = resolveAdminAccessTransition(current, desired);
 
-      // Then
       expect(resolved.outcome.allowed).toBe(expected.allowed);
       expect(resolved.outcome.status).toBe(expected.status);
       expect(resolved.outcome.code).toBe(expected.code);
@@ -214,10 +199,8 @@ describe('ADMIN access transition table', () => {
   it.each(ADMIN_ACCESS_TRANSITION_FIXTURES)(
     '$name',
     ({ current, desired, expected }) => {
-      // When
       const resolved = resolveAdminAccessTransition(current, desired);
 
-      // Then
       expect(resolved.outcome).toEqual(expected);
     },
   );

@@ -1,6 +1,4 @@
-﻿
-
-import { act } from 'react';
+﻿import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
@@ -99,13 +97,10 @@ const editableProgram: EditableProgram = {
 
 describe('ProgramEditPage save payload', () => {
   it('preserves unchanged ISO timestamps with non-zero seconds when STAFF saves by canonical id', () => {
-    // Given
     const form = toProgramEditForm(editableProgram);
 
-    // When
     const input = buildProgramEditInput(form, []);
 
-    // Then
     expect(input).toMatchObject({
       trackType: 'EXTRACURRICULAR',
       applicationStartAt: editableProgram.applicationStartAt,
@@ -119,16 +114,13 @@ describe('ProgramEditPage save payload', () => {
   });
 
   it('submits a new ISO timestamp when STAFF edits the minute-precision datetime field', () => {
-    // Given
     const form = {
       ...toProgramEditForm(editableProgram),
       applicationStartAt: '2026-08-01T19:45',
     };
 
-    // When
     const input = buildProgramEditInput(form, ['applicationStartAt']);
 
-    // Then
     expect(input.applicationStartAt).toBe('2026-08-01T10:45:00.000Z');
     expect(input.applicationEndAt).toBe(editableProgram.applicationEndAt);
   });
@@ -148,8 +140,6 @@ describe('ProgramEditPage save payload', () => {
     });
   });
 
-  // 종료일 없음(`null`·「미정」 센티널)은 더 이상 센티널로 왕복하지 않는다(#1420) —
-  // 빈 종료일로 열려 날짜를 넣기 전까지 막히고, 날짜를 고르면 ISO 로 나간다.
   it('종료일 없는 프로그램은 날짜를 넣기 전까지 막히고, 날짜를 고르면 ISO 로 나간다', () => {
     for (const endAt of [null, PROGRAM_END_AT_UNDECIDED]) {
       expect(
@@ -286,7 +276,6 @@ describe('마일스톤 저장 전 검증', () => {
   });
 });
 
-// #355 — 마일스톤 실패 안내는 "입력이 남아 있는지"와 "다음에 무엇을 할지"를 말해야 한다.
 describe('마일스톤 실패 안내', () => {
   function apiError(code: string, status: number): ApiError {
     return new ApiError({
@@ -319,8 +308,6 @@ describe('마일스톤 실패 안내', () => {
     );
   });
 
-  // PRG_010 의 실제 서버 규칙은 저장소 자동 생성 설정이며 팀 여부와 무관하다.
-  // 화면이 "팀 프로그램" 을 원인으로 지목하면 교직원이 엉뚱한 곳을 고치게 된다.
   it('PRG_010 은 팀이 아니라 저장소 자동 생성 설정을 원인으로 지목한다', () => {
     const onSave = mapMilestoneError(apiError('PRG_010', 422)).general ?? '';
     expect(onSave).toBe(
@@ -340,8 +327,6 @@ describe('마일스톤 실패 안내', () => {
   });
 });
 
-// #867 — 저장은 화면에 머무르고(리다이렉트 없음), 삭제 성공은 나가기 가드를 우회해
-// 목록으로 이동한다. 이 두 가지는 페이지 컴포넌트를 실제로 렌더링해야 검증된다.
 describe('ProgramEditPage 컴포넌트', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -383,9 +368,7 @@ describe('ProgramEditPage 컴포넌트', () => {
         formatLabel: 'PDF',
       },
     });
-    // window.confirm은 이 화면에서 더 이상 쓰이지 않아야 한다 — 남아 있다면 호출을
-    // 잡아내되, 값을 돌려주지 않으면 뒤에 이어지는 로직이 확인 없이 막힐 수 있으니
-    // false로 고정해 "여전히 confirm에 의존한다"가 조용히 통과하지 않게 한다.
+
     originalConfirm = window.confirm;
     confirmMock = vi.fn().mockReturnValue(false);
     window.confirm = confirmMock;
@@ -614,7 +597,6 @@ describe('ProgramEditPage 컴포넌트', () => {
     );
   });
 
-  // #1420: 「미정」으로 남은 옛 프로그램은 종료일을 넣기 전까지 저장 요청이 나가지 않는다.
   it('「미정」 센티널 프로그램은 종료일을 넣기 전까지 저장하지 않고, 넣으면 그 날짜로 저장한다', async () => {
     const legacyProgram = {
       ...editableProgram,
@@ -801,21 +783,18 @@ describe('ProgramEditPage 컴포넌트', () => {
     });
 
     expect(updateProgramMock).toHaveBeenCalled();
-    // 입력값이 그대로다 — submit의 catch는 setForm으로 되돌리지 않는다.
+
     expect(
       container.querySelector<HTMLInputElement>('#program-name')?.value,
     ).toBe('저장 실패해도 남아야 하는 이름');
-    // 저장 버튼은 저장 중 상태에서 풀려나 다시 눌러 볼 수 있다.
+
     expect(getButton('프로그램 정보 저장')).toBeTruthy();
-    // 에러는 폼 옆(FieldError)에 뜬다 — 페이지 위쪽 generalAlert가 아니다.
+
     expect(container.textContent).toContain(
       '저장에 실패했습니다. 다시 시도해 주세요.',
     );
   });
 
-  // 리뷰에서 발견된 기본 폼만 지키던 간극 — 열려 있는 마일스톤 편집기에 저장
-  // 안 한 입력이 있어도 나가기 링크가 그냥 통과했다. #867 요건 7(나가기 보호)은
-  // 마일스톤 편집도 포함해야 한다.
   it('마일스톤 편집기에 저장 안 한 입력이 있으면 나가기가 확인창을 거친다', async () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 
@@ -854,12 +833,10 @@ describe('ProgramEditPage 컴포넌트', () => {
     });
 
     expect(confirmMock).toHaveBeenCalledWith(UNSAVED_PROGRAM_MESSAGE);
-    // confirmMock은 beforeEach에서 false를 돌려주므로 이동은 막힌다.
+
     expect(routerPushMock).not.toHaveBeenCalled();
   });
 
-  // canDeleteProgram은 셸(ProgramEditRoute)이 교직원 또는 관리자로 판정해 이
-  // 페이지로 넘기는 값이다. 페이지는 그 값을 그대로 위험 영역 노출에 사용한다.
   it('canDeleteProgram={true}면 위험 영역 섹션을 그린다', async () => {
     getEditableProgramMock.mockResolvedValue(editableProgram);
 

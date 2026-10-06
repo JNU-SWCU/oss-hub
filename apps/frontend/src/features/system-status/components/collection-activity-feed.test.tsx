@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -11,7 +9,6 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
-// 완료된 조직 sweep — 3종 모두 신규 데이터가 있고 저장소 처리도 모두 끝났다.
 const completedOrgSweep: CollectionActivityEntry = {
   sweepFinishedAt: '2026-08-10T09:00:00.000Z',
   cycleStartedAt: '2026-08-10T08:55:00.000Z',
@@ -28,7 +25,6 @@ const completedOrgSweep: CollectionActivityEntry = {
   stoppedForBudget: false,
 };
 
-// 예산 때문에 중단된 외부(external) sweep — 저장소 일부만 처리했고 실패도 있다.
 const budgetStoppedExternalSweep: CollectionActivityEntry = {
   sweepFinishedAt: '2026-08-10T08:00:00.000Z',
   cycleStartedAt: '2026-08-10T07:00:00.000Z',
@@ -45,7 +41,6 @@ const budgetStoppedExternalSweep: CollectionActivityEntry = {
   stoppedForBudget: true,
 };
 
-// 신규 데이터가 하나도 없는 sweep — 사이클은 아직 진행 중.
 const emptySweep: CollectionActivityEntry = {
   sweepFinishedAt: '2026-08-10T07:00:00.000Z',
   cycleStartedAt: '2026-08-10T06:55:00.000Z',
@@ -62,7 +57,6 @@ const emptySweep: CollectionActivityEntry = {
   stoppedForBudget: false,
 };
 
-// scope가 알려진 값(org: 접두사/external)이 아닌 경우 — 원문을 그대로 보여줘야 한다.
 const unknownScopeSweep: CollectionActivityEntry = {
   sweepFinishedAt: '2026-08-10T06:00:00.000Z',
   cycleStartedAt: null,
@@ -79,7 +73,6 @@ const unknownScopeSweep: CollectionActivityEntry = {
   stoppedForBudget: false,
 };
 
-// 저장소를 연결하자마자 그 저장소 하나만 모은 수집(#1133) — 순회가 아니다.
 const linkCollection: CollectionActivityEntry = {
   sweepFinishedAt: '2026-08-10T09:30:00.000Z',
   cycleStartedAt: null,
@@ -140,8 +133,7 @@ describe('CollectionActivityFeed', () => {
     expect(feedText()).toContain('수집 한도에 도달');
     expect(feedText()).toContain('저장소 6/10');
     expect(feedText()).toContain('실패 2');
-    // 「저장소 X/Y」를 감싸는 바깥 span도 자식의 텍스트를 포함해 '실패 2'와
-    // 매치되므로, 가장 안쪽(=문서 순서상 마지막) 일치 요소를 찾는다.
+
     const failedNode = [...container.querySelectorAll('span')].findLast(
       (el) => el.textContent?.trim() === '실패 2',
     );
@@ -154,7 +146,7 @@ describe('CollectionActivityFeed', () => {
     expect(feedText()).toContain('연결 즉시 수집');
     expect(feedText()).toContain('Commit 141 · PR 13 · Release 0 · Issue 2');
     expect(feedText()).toContain('저장소 1/1');
-    // 사이클이 아니므로 순회 상태 말을 붙이지 않는다.
+
     expect(feedText()).not.toContain('진행 중');
     expect(feedText()).not.toContain('전체 순회 완료');
     const badge = [...container.querySelectorAll('[data-variant]')].find(

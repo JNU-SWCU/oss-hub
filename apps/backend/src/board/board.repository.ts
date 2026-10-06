@@ -7,7 +7,6 @@ import {
   resolveUserProfileName,
 } from '../profiles/user-profile-read';
 
-/** 게시판 목록 화면 한 행 — 본문(body)은 목록에서 쓰지 않아 select에서 뺀다. */
 export interface BoardPostSummaryRecord {
   id: string;
   programId: string;
@@ -25,19 +24,17 @@ export interface BoardPostsPage {
   total: number;
 }
 
-/** 댓글 목록 화면 상세 조회에 쓰는 댓글 한 건. */
 export interface BoardCommentRecord {
   id: string;
   postId: string;
   authorId: string;
-  /** 작성자 표시 역할. 아무 사실도 없으면 학생으로 접는다. */
+
   authorRole: AuthorityLabel;
   authorName: string;
   body: string;
   createdAt: Date;
 }
 
-/** 게시글 상세 화면 — 본문과 댓글까지 포함한다. */
 export interface BoardPostDetailRecord {
   id: string;
   programId: string;
@@ -53,14 +50,12 @@ export interface BoardPostDetailRecord {
   comments: BoardCommentRecord[];
 }
 
-/** update/delete 권한 판정에만 쓰는 가벼운 참조 — 본문·댓글을 싣지 않는다. */
 export interface BoardPostRef {
   id: string;
   programId: string;
   authorId: string;
 }
 
-/** 댓글 delete 권한 판정에만 쓰는 가벼운 참조. */
 export interface BoardCommentRef {
   id: string;
   postId: string;
@@ -129,7 +124,6 @@ const postDetailSelect = {
 export class BoardRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** 고정 글이 항상 위, 그 안에서는 최신순 — 프로토타입 게시판 목록과 같은 정렬이다. */
   async findByProgramId(
     programId: string,
     page: number,
@@ -214,10 +208,6 @@ export class BoardRepository {
     return toDetailRecord(post);
   }
 
-  /**
-   * BoardComment.postId FK가 ON DELETE RESTRICT라 댓글을 먼저 지워야 글을 지울 수 있다
-   * (migration 20260804110314). 두 삭제를 한 트랜잭션으로 묶는다.
-   */
   async deleteWithComments(postId: string): Promise<void> {
     await this.prisma.$transaction([
       this.prisma.boardComment.deleteMany({ where: { postId } }),
@@ -304,7 +294,7 @@ function toCommentRecord(comment: CommentRow): BoardCommentRecord {
     id: comment.id,
     postId: comment.postId,
     authorId: comment.authorId,
-    // 유형 미확정 작성자는 게시판 접근 경로상 거의 없지만, 표시는 학생으로 접는다.
+
     authorRole:
       authorityLabel({
         memberKind: comment.author.profile?.memberKind ?? null,

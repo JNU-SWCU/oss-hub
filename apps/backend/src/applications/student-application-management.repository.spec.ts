@@ -8,11 +8,7 @@ const POLICY = {
   applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),
   applicationTemplateVersion: 1,
 };
-/**
- * 행위자(`student-1`)는 신청자가 **아니다.** 신청자는 `applicant-1`이고 지금 팀장은 행위자다 —
- * 신청 뒤 팀장 승계가 일어난 팀의 모습이다. 권한이 `applicantId`가 아니라 현재 팀 소속·팀장에서
- * 나온다는 것이 이 파일이 고정하는 것이다.
- */
+
 const APPLICATION = {
   id: 'application-1',
   programId: 'program-1',
@@ -46,10 +42,6 @@ const MANAGER_WHERE = {
 };
 
 describe('StudentApplicationManagementRepository', () => {
-  /**
-   * 읽기 범위는 **지금 그 팀에 속한 사람**이다. `applicantId` 절이나 멤버십 없는 `leaderId`
-   * 절을 남기면 팀을 떠난 원 신청자가 옛 팀의 답변·반려 사유를 계속 읽는다.
-   */
   it('scopes the owner read path to current team membership only', async () => {
     const findFirst = jest.fn().mockResolvedValue(APPLICATION);
     const repository = new StudentApplicationManagementRepository(
@@ -69,10 +61,6 @@ describe('StudentApplicationManagementRepository', () => {
     expect(JSON.stringify(where)).not.toContain('applicantId');
   });
 
-  /**
-   * 사유는 `Application.rejectionReason`에만 있고 알림·감사 로그에는 담지 않는다
-   * (`audit-log/audit-log-metadata.ts`). select가 빠뜨리면 학생에게 닿을 길이 없다(#722).
-   */
   it('selects the rejection reason on the owner read path', async () => {
     const findFirst = jest.fn().mockResolvedValue(APPLICATION);
     const repository = new StudentApplicationManagementRepository(
@@ -110,10 +98,6 @@ describe('StudentApplicationManagementRepository', () => {
     expect(result?.rejectionReason).toBe('합성 반려 사유');
   });
 
-  /**
-   * 원 신청자 정보는 **표시용으로 계속 실린다.** 권한에서 빼는 것과 기록을 지우는 것은
-   * 다른 이야기다 — 답변의 `applicantName`이 이 값으로 보정된다.
-   */
   it('keeps the original applicant on the read record while scoping by membership', async () => {
     const findFirst = jest.fn().mockResolvedValue(APPLICATION);
     const repository = new StudentApplicationManagementRepository(
@@ -134,13 +118,6 @@ describe('StudentApplicationManagementRepository', () => {
     expect(result?.teamLeaderId).toBe('student-1');
   });
 
-  /**
-   * ⚠ 쓰기는 읽기보다 좁다 — 위 읽기 범위는 **읽기만** 정당화한다(#1083).
-   * 같은 조건을 재사용하면 팀원 아무나 팀 전체의 신청을 고치거나 되돌릴 수 없게
-   * 지운다(하드 삭제라 복구 경로가 없다).
-   * `leaderId`와 멤버십을 **함께** 요구하는 것도 요점이다 — 승계는 두 곳을 함께 옮기므로
-   * 한쪽만 보는 조건은 그 사이 상태에서 갈린다.
-   */
   it.each(['update', 'delete'] as const)(
     'scopes the %s path to the current team leader only',
     async (operation) => {
@@ -171,11 +148,6 @@ describe('StudentApplicationManagementRepository', () => {
     },
   );
 
-  /**
-   * 잠금 순서는 `Program` → `Team` → `Application`이다. 신청 생성·초대 수락·탈퇴·제외가
-   * 모두 `Team` 행을 먼저 잡으므로, 이 경로만 `Application`을 먼저 잡으면 순서가 갈려
-   * 교착이 된다.
-   */
   it.each(['update', 'delete'] as const)(
     'locks Program then Team then Application on the %s path',
     async (operation) => {
@@ -203,10 +175,6 @@ describe('StudentApplicationManagementRepository', () => {
     },
   );
 
-  /**
-   * 팀 행을 잡기 **전에** 읽은 소속은 낡을 수 있다. 잠금 뒤에 다시 읽지 않으면 기다리는
-   * 사이에 커밋된 제외·승계를 못 보고 지나간다.
-   */
   it('re-reads the membership after the Team lock, not before it', async () => {
     const order: string[] = [];
     const membershipFindUnique = jest.fn(() => {
@@ -253,10 +221,6 @@ describe('StudentApplicationManagementRepository', () => {
     ]);
   });
 
-  /**
-   * 팀을 떠난 사람은 그가 **원 신청자였더라도** 쓰지 못한다. 여기서 멈추지 않으면
-   * `applicantId`가 다시 권한처럼 작동한다.
-   */
   it.each(['update', 'delete'] as const)(
     'rejects the %s of a departed member who is still the historical applicant',
     async (operation) => {
@@ -280,10 +244,6 @@ describe('StudentApplicationManagementRepository', () => {
     },
   );
 
-  /**
-   * 팀장 자리를 잃은 뒤에 잠금을 얻은 행위자는 거절된다 — 잠금 앞의 판정만 믿으면
-   * 「내가 팀장일 때 보낸 요청」이 팀장이 아닌 시점에 커밋된다(TOCTOU).
-   */
   it.each(['update', 'delete'] as const)(
     'rejects the %s when leadership moves away while the Team lock is awaited',
     async (operation) => {
@@ -310,12 +270,11 @@ describe('StudentApplicationManagementRepository', () => {
       expect(applicationFindFirst).not.toHaveBeenCalled();
       expect(transaction.application.update).not.toHaveBeenCalled();
       expect(transaction.application.delete).not.toHaveBeenCalled();
-      // Application 행은 잠그지 않는다 — 될 수 없는 요청이 남의 커밋을 세우지 않게 한다.
+
       expect(lockedTables(transaction)).toEqual(['Program', 'Team']);
     },
   );
 
-  /** 제외당한 사람은 팀 자체가 바뀌어 있을 수도 있다 — 잠근 팀과 다르면 그대로 거절한다. */
   it.each(['update', 'delete'] as const)(
     'rejects the %s when the actor moved to another team under the lock',
     async (operation) => {
@@ -534,7 +493,6 @@ function run(
       });
 }
 
-/** 태그드 템플릿의 정적 조각에서 `FOR UPDATE` 대상 table 이름을 뽑는다. */
 function tableOf(strings: { readonly raw: readonly string[] }): string {
   const sql = strings.raw.join('');
   return /FROM "(\w+)"/.exec(sql)?.[1] ?? sql;

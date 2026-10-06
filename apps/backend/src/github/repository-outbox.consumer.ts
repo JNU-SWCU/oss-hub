@@ -57,8 +57,7 @@ export class RepositoryOutboxConsumer {
               now,
             );
           }
-          // 세대 이전은 요청 수락 트랜잭션에서 이미 끝났다. match와 mismatch
-          // 모두 이벤트만 닫고 successor-owned job은 한 칸도 쓰지 않는다.
+
           await store.completeProvisionEvent(event.id, workerId, now);
           return { kind: 'CONSUMED', eventId: event.id, jobId: job.id };
         }
@@ -86,7 +85,6 @@ export class RepositoryOutboxConsumer {
   }
 }
 
-/// type으로만 dispatch한다 — 모르는 type은 계약 밖 payload와 같은 격리 경로로 보낸다.
 function parseEventPayload(
   type: string,
   payload: Prisma.JsonValue,

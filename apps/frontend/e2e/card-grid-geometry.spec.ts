@@ -2,20 +2,12 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { installBrowserAudit } from './support/browser-audit';
 
-/**
- * 카드 그리드 레이아웃만 본다. 가로채기 응답은 화면을 그리기 위한 UI 전용
- * 합성 데이터이며 백엔드 정확성·인가 증거가 아니다.
- *
- * 독립 한계: 18rem(288px)·22rem(352px) ±0.5px, 1px 정렬/트랙 허용, 가로
- * 스크롤 없음, 320px 강제 폭, 긴 한글 제목이 카드 안에 머무름.
- */
-
 const FIXTURE_TITLE = '합성 캡스톤 2026';
 const LONG_KOREAN_TITLE = '가나다라마바사아자차카타파하'.repeat(12);
 const BOUNDED_CARD_MIN_PX = 287.5;
 const BOUNDED_CARD_MAX_PX = 352.5;
 const LAYOUT_TOLERANCE_PX = 1;
-/** 신청 기간(2026-01-01–2026-12-31) 안의 고정 Date. 타이머는 그대로 흐른다. */
+
 const RECRUITING_NOW = new Date('2026-06-15T00:00:00.000Z');
 
 type GeometryMode = 'bounded' | 'available' | 'long-title';

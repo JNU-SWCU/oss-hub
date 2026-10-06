@@ -80,7 +80,6 @@ function renderContentCell(record: AuditLogRecord) {
         <AuditLogSentence segments={sentence} />
       </p>
       <p className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
-        {/* 높이는 배지 규격(26px)을 따른다 — #1335에서 화면을 보고 그대로 두기로 했다. */}
         <StatusBadge variant={variant} className="px-2">
           {label}
         </StatusBadge>

@@ -115,7 +115,6 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  // 요청 행은 `User`를 cascade 없이 참조한다 — 먼저 지우지 않으면 사용자 삭제가 FK로 막힌다.
   await prisma.staffAccessRequest.deleteMany({
     where: { userId: { startsWith: prefix } },
   });
@@ -124,7 +123,6 @@ afterAll(async () => {
 });
 
 it('orders profile and legacy display names across bounded pages without gaps or duplicates', async () => {
-  // Given
   const pages = await Promise.all(
     [1, 2, 3, 4].map((page) =>
       service.list(actorGithubId, {
@@ -135,19 +133,16 @@ it('orders profile and legacy display names across bounded pages without gaps or
     ),
   );
 
-  // When
   const returnedIds = pages.flatMap((page) =>
     page.items.map((item) => item.id),
   );
 
-  // Then
   expect(pages.map((page) => page.total)).toEqual([8, 8, 8, 8]);
   expect(returnedIds).toEqual(expectedUserIds);
   expect(new Set(returnedIds).size).toBe(expectedUserIds.length);
 });
 
 it('orders the pending request queue by request creation time, not account creation time', async () => {
-  // Given
   const olderAccountNewerRequest = await createUser({
     id: `${prefix}request-sort-older-account`,
     githubId: 8_003_900_001_010n,
@@ -181,7 +176,6 @@ it('orders the pending request queue by request creation time, not account creat
     ],
   });
 
-  // When
   const page = await service.listRequests(actorGithubId, {
     query: requestSortFragment,
     sort: 'createdAt',
@@ -190,7 +184,6 @@ it('orders the pending request queue by request creation time, not account creat
     limit: 2,
   });
 
-  // Then
   expect(page.items.map((item) => item.id)).toEqual([
     olderAccountNewerRequest.id,
     newerAccountOlderRequest.id,
@@ -209,10 +202,7 @@ type SyntheticUser = {
   readonly id: string;
   readonly githubId: bigint;
   readonly nickname: string;
-  /**
-   * 프로필 이름. `null`이면 프로필 행 자체를 만들지 않는다 — 아직 가입을 마치지
-   * 않은 사람이다. 계약 스키마에서는 "행은 있는데 이름만 비어 있는" 상태가 없다.
-   */
+
   readonly profileName: string | null;
   readonly role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly createdAt?: Date;

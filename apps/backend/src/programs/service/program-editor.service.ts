@@ -193,8 +193,6 @@ export class ProgramEditorService {
       if (
         !Number.isFinite(endAt.getTime()) ||
         startAt >= endAt ||
-        // 「미정」 센티널은 새 종료일로 받지 않는다(#1420). endAt 을 생략하면 지금 값을
-        // 그대로 두므로, 이미 「미정」인 옛 프로그램도 다른 칸은 계속 저장할 수 있다.
         (input.endAt !== undefined && isProgramEndAtUndecided(endAt))
       ) {
         this.fail(ProgramErrorCode.VALIDATION_ERROR, {
@@ -206,8 +204,7 @@ export class ProgramEditorService {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
         });
       }
-      // Milestone starts that fall before the new program start are a startAt
-      // problem. Reporting them on endAt made a later end date look invalid.
+
       if (
         existing.milestones.some((milestone) => milestone.startAt < startAt)
       ) {
@@ -297,7 +294,6 @@ export class ProgramEditorService {
     });
   }
 
-  /** EXPAND-only legacy metadata path; see the EXPAND removal ledger. */
   updateMilestone(
     githubId: bigint,
     milestoneId: string,
@@ -423,8 +419,7 @@ export class ProgramEditorService {
       await this.requireEditor(store, githubId);
       const milestone = await store.findMilestoneForDelete(milestoneId);
       if (milestone === null) this.fail(ProgramErrorCode.MILESTONE_NOT_FOUND);
-      // 제출물이 있으면 지우지 않는다 — 옛 Submission/SubmissionFile 경로든 서류 항목
-      // (MilestoneDocumentSubmission) 경로든 「제출물이 있다」는 뜻이 같아 같은 코드로 거부한다.
+
       if (milestone.documentSubmissionCount > 0) {
         this.fail(ProgramErrorCode.MILESTONE_HAS_SUBMISSIONS);
       }
@@ -596,19 +591,6 @@ function validPeriod(startAt: Date, endAt: Date): boolean {
   );
 }
 
-/**
- * 요청이 팀 인원을 싣지 않으면 **지금 저장된 값을 그대로 둔다.**
- *
- * 예전에는 템플릿 기본값(1명~1명)으로 대체했다. 그러면 "이 항목을 보내지 않았다"가
- * "기본값으로 되돌려라"로 읽힌다. 개인형 유형 프로그램은 수정 화면이 팀 인원 칸을
- * 렌더하지 않아 값을 실을 수 없었고, 그래서 교직원이 설명 한 줄만 고쳐 저장해도
- * 정원이 조용히 1로 깎였다(#936). 정원이 1이 되면 참여 코드 합류·팀 초대·초대 수락이
- * 전부 `TEAM_007`·`TIV_009`로 막힌다.
- *
- * 화면 쪽 원인(칸을 안 보여 주던 것)은 따로 고쳤지만, 그 화면만 고치면 다른 호출자가
- * 값을 생략하는 순간 같은 사고가 재현된다. 생략은 변경 없음이고, 정원을 바꾸려면
- * 값을 명시해야 한다.
- */
 function resolveTeamSize(
   input: Pick<UpdateProgramRequestDto, 'teamMinSize' | 'teamMaxSize'>,
   current: {

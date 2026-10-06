@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -115,13 +113,7 @@ describe('DataTable', () => {
       /<div[^>]*data-slot="data-table"[^>]*class="[^"]*min-w-0[^"]*\[&amp;_tbody_tr\]:relative[^"]*"/,
     );
     expect(html).not.toMatch(/<tr[^>]*class="[^"]*relative[^"]*"/);
-    // 행·칸은 컨트롤이 아니다 — 초점을 받아서는 안 된다.
-    //
-    // 종전에는 문서 전체에 `tabindex` 가 하나도 없는지 봤는데, 그 단언이
-    // **가로 스크롤 영역의 키보드 접근까지 막고 있었다**(QA14·QA15). 넘치는 표의
-    // 스크롤 영역은 초점을 받아야 하고(WCAG 2.1.1) 그건 이 테스트가 막으려던 것이
-    // 아니다. 검사 범위를 이 테스트가 실제로 말하는 대상(행·칸)으로 좁힌다.
-    // 스크롤 영역 쪽 계약은 `table-scroll-region.test.tsx` 가 따로 고정한다.
+
     expect(html).not.toMatch(/<t[rd][^>]*tabindex=/i);
     expect(html).not.toContain('aria-label="홍길동 열기"');
   });
@@ -152,9 +144,6 @@ describe('DataTable', () => {
     const plain = bodyRowClasses();
     const clickable = bodyRowClasses(() => undefined);
 
-    // hover 배경은 `TableRow` 기본이라 양쪽에 다 있다(#1368). 눌리는 행이
-    // 더 얹는 것은 손 모양 하나뿐이어야 한다 — 같은 클래스를 두 번 적어
-    // 두면 이 단언이 깨지지는 않지만, 읽는 사람이 규칙을 오해한다.
     expect(plain.has('hover:bg-muted/50')).toBe(true);
     expect(clickable.has('hover:bg-muted/50')).toBe(true);
     expect([...clickable].filter((name) => !plain.has(name))).toEqual([
@@ -186,9 +175,6 @@ describe('DataTable', () => {
   });
 });
 
-// pageSize는 opt-in이다 — 기존 호출부 9곳처럼 주지 않으면 지금 그대로 전량
-// 렌더해야 하고, 준 화면(수집 대상 상세)만 페이지가 나뉘어야 한다. 클릭
-// 상호작용을 확인해야 하므로 정적 마크업이 아니라 createRoot/act로 그린다.
 describe('DataTable pagination', () => {
   const manyRows: Applicant[] = Array.from({ length: 25 }, (_, i) => ({
     id: `${i + 1}`,
@@ -294,7 +280,7 @@ describe('DataTable pagination', () => {
       findButton('다음').click();
     });
     expect(container.textContent).toContain('3 / 3');
-    // 25행을 10개씩 나누면 마지막 페이지는 5행만 남는다.
+
     expect(bodyRowNames()).toEqual(
       manyRows.slice(20, 25).map((row) => row.name),
     );
@@ -321,11 +307,8 @@ describe('DataTable pagination', () => {
     expect(paginationNav()).toBeNull();
   });
 
-  // QA61 — 데이터가 줄어 페이지 state를 렌더 시점에 눌러 담은 뒤 데이터가 다시
-  // 늘어나면(regrow), 눌러 담기 전 페이지 state가 그대로 남아 있어 엉뚱한
-  // 페이지로 튀었다. state 자체가 축소 시점에 눌린 페이지를 따라가야 한다.
   it('데이터가 줄었다 다시 늘어나도 축소 시점에 눌린 페이지를 유지한다(페이지가 튀지 않는다)', async () => {
-    const shrunkRows = manyRows.slice(0, 15); // pageSize 10 → 2페이지
+    const shrunkRows = manyRows.slice(0, 15);
 
     await act(async () => {
       root.render(
@@ -347,7 +330,6 @@ describe('DataTable pagination', () => {
     });
     expect(container.textContent).toContain('3 / 3');
 
-    // 데이터가 2페이지 분량으로 줄어든다 — 렌더 시점 클램프로 2페이지에 눌린다.
     await act(async () => {
       root.render(
         <DataTable
@@ -361,9 +343,6 @@ describe('DataTable pagination', () => {
     });
     expect(container.textContent).toContain('2 / 2');
 
-    // 데이터가 원래대로(3페이지) 다시 늘어난다 — state가 3페이지였던 걸
-    // 기억하고 있으면 "3 / 3"으로 튀어야 하지만, 축소 시점에 state 자체가
-    // 2로 눌렸으므로 "2 / 3"이어야 한다.
     await act(async () => {
       root.render(
         <DataTable
@@ -383,9 +362,6 @@ describe('DataTable pagination', () => {
   });
 });
 
-// `onRowClick`의 두 가드(드래그 선택 중 무시, 셀 안 링크/버튼 클릭 무시)는
-// 정적 마크업으로는 확인할 수 없다 — 실제 클릭 이벤트가 있어야 한다. 그래서
-// 위 pagination 블록과 같은 createRoot/act 실제 마운트를 쓴다.
 describe('DataTable row click', () => {
   const clickableColumns: DataTableColumn<Applicant>[] = [
     { id: 'name', header: '이름', cell: (row) => row.name },
@@ -438,9 +414,6 @@ describe('DataTable row click', () => {
       );
     });
 
-    // happy-dom 은 Selection API를 지원하지만 아무것도 고르지 않은 채면
-    // `isCollapsed`가 참이다 — 실제로 아무것도 선택하지 않은 상태를 그대로
-    // 쓴다(스텁이 아니다).
     expect(window.getSelection()?.isCollapsed).not.toBe(false);
 
     await click(firstRow());
@@ -461,9 +434,6 @@ describe('DataTable row click', () => {
       );
     });
 
-    // 실제 드래그 선택을 흉내 낸다 — `window.getSelection`을 흉내 낸(stub)
-    // 값이 아니라, happy-dom의 진짜 Range/Selection으로 이름 칸의 글자를
-    // 고른다. happy-dom이 이 API를 지원하므로 스텁 없이도 된다.
     const nameCell = container.querySelector('tbody tr td');
     if (nameCell === null) throw new Error('셀을 찾지 못했다');
     const range = document.createRange();

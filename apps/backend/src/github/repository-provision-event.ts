@@ -12,20 +12,13 @@ export interface RepositoryProvisionEventPayload {
   readonly teamId: string | null;
   readonly requestedAt: string;
   readonly collaboratorGithubLogins: readonly string[];
-  /**
-   * 레거시 outbox row 호환: 없으면 NEW + null로 취급한다.
-   * OWN이면 repositoryUrl이 연결 대상이다.
-   */
+
   readonly repositoryConnectionMode: RepositoryProvisionConnectionMode;
   readonly repositoryUrl: string | null;
-  /** 연결 변경 요청 actor. 최초 승인·레거시 요청은 null이다. */
+
   readonly requestedByGithubId?: string | null;
 }
 
-/**
- * 승인된 신청의 현재 팀원 기준으로 저장소 권한을 다시 맞추라는 요청.
- * provision 요청과 같은 outbox/consumer/job을 쓰고 새 queue를 만들지 않는다.
- */
 export interface RepositoryAccessSyncEventPayload {
   readonly applicationId: string;
   readonly teamId: string;
@@ -88,7 +81,7 @@ export function parseRepositoryProvisionEvent(
     value,
     'repositoryUrl',
   );
-  // 구 이벤트는 두 필드 모두 없다. 하나만 오면 계약 밖이다.
+
   if (hasConnectionMode !== hasRepositoryUrl) {
     throw new InvalidRepositoryProvisionEventError();
   }
@@ -142,7 +135,6 @@ const ACCESS_SYNC_PAYLOAD_KEYS = [
   'requestedAt',
 ] as const;
 
-/// 계약 밖 key가 하나라도 있으면 거부한다 — 권한 동기화 payload는 확장 지점이 아니다.
 export function parseRepositoryAccessSyncEvent(
   value: unknown,
 ): RepositoryAccessSyncEventPayload {
@@ -163,15 +155,6 @@ export function parseRepositoryAccessSyncEvent(
   };
 }
 
-/**
- * 권한 동기화 대상 신청을 고르는 조건 — 「승인됨 + 새 저장소 발급 + 프로그램이
- * 발급을 켜 둔」 셋을 모두 만족하는 것만 우리가 권한을 쓰는 저장소를 갖는다.
- *
- * 팀 구성원을 바꾸는 주체가 `programs`(제거·탈퇴)와 `team-invitations`(합류) 둘이라
- * 이 조건이 양쪽에 같은 모양으로 복제돼 있었다. 정책은 발급 쪽 지식이므로 여기서
- * 한 벌로 소유하고, 조회·쓰기는 각 Repository가 자기 Prisma로 한다 — 이 모듈은
- * Prisma delegate를 들지 않는 순수 계약으로 남아야 경계를 넘어 공유될 수 있다.
- */
 export function repositoryAccessSyncTargetWhere(
   teamId: string,
 ): Prisma.ApplicationWhereInput {
@@ -183,10 +166,6 @@ export function repositoryAccessSyncTargetWhere(
   };
 }
 
-/**
- * 세 인자만으로 결정되는 순수 factory — 여기서 DB나 wall clock을 읽지 않는다.
- * 같은 (application, 시각)의 재시도만 idempotencyKey로 합쳐지고 이후 팀 변경은 새 row가 된다.
- */
 export function repositoryAccessSyncEventData(
   applicationId: string,
   teamId: string,
@@ -237,12 +216,6 @@ function isGithubLogin(value: unknown): value is string {
   );
 }
 
-/**
- * GitHub login 정규화 — trim + 소문자 + 빈 값 제거 + 중복 제거 + 사전순 정렬.
- * 이 payload 계약이 `collaboratorGithubLogins`에 바로 이 모양을 요구하므로
- * 정본을 계약과 같은 자리에 둔다. fingerprint 비교가 표기·순서 차이로 흔들리면
- * 완료 직전 재확인이 매번 거짓 불일치를 내고 job이 영원히 재무장된다.
- */
 export function canonicalGithubLogin(login: string | null | undefined): string {
   return (login ?? '').trim().toLowerCase();
 }

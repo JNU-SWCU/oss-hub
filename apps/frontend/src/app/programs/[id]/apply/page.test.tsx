@@ -29,7 +29,6 @@ vi.mock('./program-apply-route', () => ({
 
 import ProgramApplyRoutePage from './page';
 
-/** Next는 선언하지 않은 질의 문자열을 그대로 무시한다 — 그 사실을 증명하기 위한 캐스팅. */
 const pageWithUnknownQuery = ProgramApplyRoutePage as unknown as (props: {
   readonly params: Promise<{ readonly id: string }>;
   readonly searchParams?: Promise<Record<string, string>>;

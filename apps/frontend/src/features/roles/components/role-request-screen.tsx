@@ -14,27 +14,11 @@ import { ApiError } from '@/lib/api-client';
 import { requestStaffRole } from '../api';
 import type { StaffAccessRequest, StaffAccessRequestStatus } from '../types';
 
-/**
- * 재요청 제출이 실패했는데 **원인을 알 수 없을** 때의 안내.
- * 서버가 ProblemDetail을 돌려주지 못한 경우(연결 끊김, 형식이 다른 응답)라
- * 요청이 서버에 닿았는지조차 알 수 없다. 그래서 남은 상태를 단정하지 않고,
- * 지금 화면이 최신인지 확인할 수단(바로 아래 ‘상태 새로고침’)을 함께 준다.
- */
 export const ROLE_REQUEST_RETRY_FAILURE_MESSAGE =
   '교직원 승인 요청을 제출하지 못했습니다. 요청이 접수됐는지 확인되지 않았으니, 아래 ‘상태 새로고침’으로 지금 상태를 확인한 뒤 여전히 반려면 ‘다시 승인 요청하기’를 눌러 주세요.';
 
-/** 같은 버튼을 다시 눌러도 결과가 달라지는 실패인가 — 409는 서버 상태가 이미 다르다. */
 const ROLE_REQUEST_RETRY_CONFLICT_STATUS = 409;
 
-/**
- * 재요청 실패 안내를 만든다.
- *
- * 서버가 준 사유(`ProblemDetail.detail`)는 버리지 않는다. 이 엔드포인트의 실패는
- * “처리 중인 교직원 권한 요청이 이미 있습니다”, “이미 확정된 역할은 변경할 수
- * 없습니다” 처럼 사용자가 곧바로 이해하는 문장이라(`roles-error-code.enum.ts`),
- * 우리 문구로 덮으면 실제로 무슨 일이 일어났는지가 사라진다. 대신 서버 문장은
- * 원인만 말하고 다음 행동을 말해 주지 않으므로, 원인 뒤에 우리가 행동을 붙인다.
- */
 export function staffAccessRequestRetryFailureMessage(error: unknown): string {
   if (!(error instanceof ApiError)) {
     return ROLE_REQUEST_RETRY_FAILURE_MESSAGE;
@@ -45,8 +29,6 @@ export function staffAccessRequestRetryFailureMessage(error: unknown): string {
     return ROLE_REQUEST_RETRY_FAILURE_MESSAGE;
   }
 
-  // 409는 서버가 이미 다른 상태라는 뜻이다(대기 중 요청 존재·역할 확정 등).
-  // 같은 버튼을 다시 눌러도 같은 답만 돌아오므로 화면을 최신으로 맞추는 쪽을 준다.
   const nextAction =
     error.problem.status === ROLE_REQUEST_RETRY_CONFLICT_STATUS
       ? '이 화면의 상태가 오래됐을 수 있으니 아래 ‘상태 새로고침’을 눌러 확인해 주세요.'
@@ -55,28 +37,6 @@ export function staffAccessRequestRetryFailureMessage(error: unknown): string {
   return `${reason} ${nextAction}`;
 }
 
-/**
- * 승인을 기다리는 교직원이 자기 이름·학과를 고치러 가는 자리(#598).
- *
- * 고칠 **수단**은 이미 있었다 — 설정 화면이 그들에게 열려 있다(#581). 없던 것은
- * 그 화면으로 가는 **길**이다. 설정으로 가는 입구가 머리글 계정 메뉴 하나뿐이라
- * (2026-08-04 실측: 세 역할 × 세 폭 아홉 조합 모두 계정 메뉴 1개), 그 메뉴를 모르는
- * 사람에게는 이름의 오타 하나가 영영 고쳐지지 않았다. 그래서 이미 서 있는 자리에
- * 입구를 하나 더 낸다.
- *
- * 프로필 입력 단계(`/onboarding/profile`)로 보내지 않는다. 두 가지 이유다.
- *
- * 1. 그 화면은 `STEP 3 / 3`·`가입 마치기`를 말하는 **가입 절차의 마지막 칸**이다.
- *    이미 가입을 마치고 승인만 기다리는 사람에게 다시 열면 가입이 되돌아간 것으로
- *    읽힌다. 게다가 프로필이 이미 완료라 그 화면은 스스로 되돌아 나온다
- *    (`features/profile/profile-state.ts`의 `getProfileRedirect`).
- * 2. 설정 화면은 이 사람을 위해 만들어졌다 — 학번은 잠그고 이름·학과만 열며
- *    "가입이 아직 진행 중입니다" 안내를 함께 세운다
- *    (`app/settings/settings-onboarding-notice.tsx`).
- *
- * 역할 선택 단계는 여기서 **열지 않는다.** 승인 대기 중에 역할을 다시 고르면 요청이
- * 하나 더 만들어져 관리자 승인 목록에 같은 사람이 두 번 뜬다.
- */
 export const PENDING_PROFILE_EDIT_PATH = '/settings';
 
 type StaffAccessRequestView = Pick<
@@ -103,31 +63,12 @@ function statusPresentation(
   request: StaffAccessRequestView,
 ): StatusPresentation {
   switch (request.status) {
-    /**
-     * `APPROVED`가 `PENDING`과 같은 자리에 선다.
-     *
-     * 이 화면에 서는 사람은 `OnboardingGate`가 미배정(`unassigned`)으로 판정한
-     * 사람뿐이고, 미배정은 곧 **열 수 있는 업무 화면이 하나도 없다**는 뜻이다
-     * (`app/_shell/use-session-role.ts`의 `hasUsableSurface`). 그래서 여기 오는
-     * `APPROVED`는 요청 원장(`StaffAccessRequest.status`)과 권한 플래그
-     * (`hasStaffAccess`)가 갈라진 내부 불일치이지 제품이 회원에게 주는 상태가 아니다.
-     *
-     * 그 불일치를 회원 화면에 적으면 관리자 장부를 회원에게 읽어 주는 것이 된다.
-     * 이 화면의 책임은 대기뿐이므로 승인 기록만 남은 사람도 대기 안내 한 곳에
-     * 세운다 — 회원이 읽을 것은 「아직 기다리는 중」 하나다.
-     *
-     * 정직한 종료 상태는 회수가 `REVOKED` 행을 남긴 뒤의 회수 화면이고,
-     * 그 전이는 #1399가 이미 넣었다. 이 갈래에 남는 것은 그 전이 이전에 회수된
-     * 계정뿐이다.
-     */
     case 'PENDING':
     case 'APPROVED':
       return {
         icon: <Clock3 className="size-8" />,
         title: '교직원 승인을 기다리고 있습니다',
-        // 누가·언제·어떻게 알 수 있는지를 모두 적는다. 이 서비스는 승인 시
-        // 알림을 보내지 않으므로, 그 사실을 숨기면 사용자는 알림을 기다리며
-        // 무한정 대기하게 된다. 확인 방법을 명시하는 것이 정직하고 실행 가능하다.
+
         description:
           '사업단 관리자가 승인하면 프로그램을 개설·운영할 수 있습니다. 별도 알림은 보내지 않으니 이 화면에서 승인 상태를 확인해 주세요.',
         badge: <StatusBadge variant="pending">승인 대기</StatusBadge>,
@@ -157,9 +98,7 @@ export function StaffAccessRequestStatusView({
   onRetry,
 }: StaffAccessRequestStatusViewProps) {
   const presentation = statusPresentation(request);
-  // 승인을 기다리는 자리는 하나다 — 안내문도 버튼도 두 상태가 같이 쓴다.
-  // 갈라지면 회원이 보는 화면에서 둘을 구분할 수 있게 되고, 그것이 곧
-  // 요청 원장과 권한 플래그가 갈라졌다는 내부 사실을 회원 경계 밖으로 내보내는 일이다.
+
   const isAwaitingApproval =
     request.status === 'PENDING' || request.status === 'APPROVED';
 
@@ -206,11 +145,6 @@ export function StaffAccessRequestStatusView({
             ) : null}
 
             {isAwaitingApproval || request.status === 'REJECTED' ? (
-              // 재요청이 날아가 있는 동안에는 잠그다. 그 사이 새로고침을 누르면
-              // 경고를 지웠다가, 뒤늦게 도착한 재요청 실패가 그 위에 다시 경고를
-              // 그린다 — 사용자에게는 눌러서 사라진 것이 저절로 되살아난 것으로
-              // 보인다. 애초에 쓰기 요청이 진행 중일 때 같은 대상을 다시 읽어
-              // 화면을 갈아끼우는 것 자체가 상태를 흔든다.
               <Button
                 type="button"
                 variant="outline"
@@ -222,18 +156,7 @@ export function StaffAccessRequestStatusView({
               </Button>
             ) : null}
 
-            {/* 승인을 기다리는 두 갈래에서 낸다 — 설정 화면의 문(`app/settings/
-                settings-access.ts`의 `isSettingsOpenForStaffAwaitingRole`)이 열리는
-                갈래와 같아야 한다. 그 문은 `PENDING`과 `APPROVED` 둘 다에 열려
-                있고(#581), 반려·회수는 닫혀 있어 링크를 내면 눌러도 이 화면으로
-                되돌아오는 제자리 걷음이 된다. 두 곳이 갈라지지 않도록
-                `app/onboarding/pending/profile-edit-path.test.ts`가 못박는다. */}
             {isAwaitingApproval ? (
-              // 링크 문구는 고칠 수 있는 항목을 그대로 적는다 — 학번은 한 번
-              // 저장하면 잠기므로(`users.service.ts`의 `STUDENT_ID_IMMUTABLE`)
-              // 여기에 넣으면 고치러 갔다가 잠긴 칸을 보고 고장으로 읽는다.
-              // `~할 수 있습니다`도 쓰지 않는다: 375px에서 의존명사 `수` 앞뒤로
-              // 줄이 갈린다(`settings-onboarding-notice.tsx`와 같은 규칙).
               <Button asChild variant="ghost">
                 <Link href={PENDING_PROFILE_EDIT_PATH}>
                   <UserPen />
@@ -263,7 +186,7 @@ export function StaffAccessRequestScreen({
 }: {
   readonly staffAccessRequestStatus: StaffAccessRequestStatus | null;
   readonly staffAccessRequestRejectionReason: string | null;
-  /** 공통 셸의 세션·역할 요청 스냅샷을 함께 다시 읽는다. */
+
   readonly onRefresh: () => void;
 }) {
   const router = useRouter();
@@ -288,19 +211,6 @@ export function StaffAccessRequestScreen({
 
   useEffect(() => {
     switch (staffAccessRequestStatus) {
-      // `APPROVED`가 여기 함께 선다. 예전에는 `/dashboard`로 내보내며 세션을 새로
-      // 읽게 했는데, 이 화면에 오는 `APPROVED`는 **권한이 없는** 사람뿐이라
-      // (`OnboardingGate`가 면이 있는 사람을 여기까지 보내지 않는다)
-      // 대시보드 게이트가 그를 곧바로 여기로 돌려보냈다.
-      // 두 화면이 서로를 가리키는 동안 사용자가 본 것은 양쪽의 `확인 중…`뿐이었고,
-      // 한 바퀴마다 세션 재조회가 한 번씩 더 나갔다.
-      //
-      // 이동을 걷어 내도 잃는 것이 없다. 승인이 방금 끝난 사람은 세션이 갱신되는
-      // 순간 `assigned`가 되어 `OnboardingGate`가 역할 홈으로 내보내고, 그 갱신을
-      // 지금 일으키는 버튼(`상태 새로고침`)이 이 화면에 있다 — `router.refresh()`는
-      // 서버 컴포넌트만 다시 그릴 뿐 브라우저가 들고 있는 로그인 정보
-      // (`features/auth/session-store.ts`의 모듈 저장소)를 다시 읽지 않아 애초에
-      // 그 창을 닫지 못했다.
       case 'PENDING':
       case 'REJECTED':
       case 'APPROVED':
@@ -333,8 +243,7 @@ export function StaffAccessRequestScreen({
 
     try {
       await requestStaffRole();
-      // POST 응답만 로컬 화면에 얹으면 게이트·설정·헤더는 이전 상태를 계속 본다.
-      // 공통 owner를 갱신해 한 번의 새 스냅샷으로 모두 함께 전환한다.
+
       onRefresh();
     } catch (error) {
       setRetryError(staffAccessRequestRetryFailureMessage(error));
@@ -359,8 +268,6 @@ export function StaffAccessRequestScreen({
           isRetrying={isRetrying}
           errorMessage={retryError}
           onRefresh={() => {
-            // 재요청 실패 안내는 그때의 서버 상태를 말한다. 공통 스냅샷을 다시
-            // 읽기 시작하면 더 이상 지금을 설명하지 않으므로 함께 지운다.
             setRetryError(null);
             onRefresh();
           }}

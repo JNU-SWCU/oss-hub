@@ -1,9 +1,3 @@
-// env 계약 검사 entry.
-// compose/.env.example/runtime-config 세 선언 목록과 Docker 정규화 모델을 검사한다.
-// 일반 apps/*/src의 process.env 접근 금지는 ESLint가 소유한다.
-// 기존 세 번째 positional `scanRoot`는 호환성을 위해 유지하며,
-// 이제 canonical runtime-config 파일을 찾는 contract root를 뜻한다.
-
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -22,9 +16,6 @@ const COMMAND_TIMEOUT_MS = 60_000;
 const RUNTIME_CONFIG_RELATIVE_PATH =
   'apps/backend/src/runtime-config/runtime-config.ts';
 
-/**
- * @param {string[]} argv
- */
 export function parseArguments(argv) {
   let requireDocker = false;
   const positional = [];
@@ -54,12 +45,6 @@ export function parseArguments(argv) {
   };
 }
 
-/**
- * @param {string} composeFile
- * @param {string[]} requiredKeys
- * @param {{ requireDocker: boolean }} options
- * @returns {{ config: object|null, skipped: boolean, skipReason: string|null }}
- */
 export function loadComposeConfig(composeFile, requiredKeys, options) {
   const dockerRequired =
     options.requireDocker ||
@@ -114,7 +99,7 @@ export function loadComposeConfig(composeFile, requiredKeys, options) {
   } catch (error) {
     const stderr =
       error && typeof error === 'object' && 'stderr' in error
-        ? String(/** @type {{ stderr?: Buffer|string }} */ (error).stderr ?? '')
+        ? String(error.stderr ?? '')
         : '';
     const detail =
       stderr.trim() || (error instanceof Error ? error.message : String(error));
@@ -127,14 +112,6 @@ export function loadComposeConfig(composeFile, requiredKeys, options) {
   }
 }
 
-/**
- * @param {ReturnType<typeof parseArguments>} args
- * @param {{
- *   repoRoot?: string,
- *   stdout?: NodeJS.WritableStream,
- *   stderr?: NodeJS.WritableStream
- * }} [io]
- */
 export function runCheck(args, io = {}) {
   const stdout = io.stdout ?? process.stdout;
   const stderr = io.stderr ?? process.stderr;

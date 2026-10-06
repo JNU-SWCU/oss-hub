@@ -278,7 +278,7 @@ describe('acceptTeamInvitationTransaction', () => {
           accountStatus: AccountStatus.ACTIVE,
         }),
       },
-      // 승인된 NEW 신청이 없는 팀이 기본값이다 — 조회는 진짜로 일어나고 빈 목록을 돌려준다.
+
       application: { findMany: jest.fn().mockResolvedValue([]) },
       outboxEvent: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
       $queryRaw: jest.fn().mockResolvedValue([{ id: syntheticTeamId }]),
@@ -309,7 +309,7 @@ describe('acceptTeamInvitationTransaction', () => {
       teamId: syntheticTeamId,
       programId: syntheticProgramId,
     });
-    // 팀 행을 먼저 잠근 뒤에만 판정한다.
+
     expect(tx.$queryRaw).toHaveBeenCalled();
     expect(tx.teamMember.create).toHaveBeenCalledWith({
       data: {
@@ -318,7 +318,7 @@ describe('acceptTeamInvitationTransaction', () => {
         userId: syntheticUserId,
       },
     });
-    // 팀장은 그대로다 — 수락 경로는 Team 행을 갱신하지 않는다.
+
     expect(tx.team.update).not.toHaveBeenCalled();
   });
 

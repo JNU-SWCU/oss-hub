@@ -46,21 +46,19 @@ describe('application repository URL audit', () => {
   it.each([251, 500])(
     'accepts a reason with %i astral characters',
     (length) => {
-      // Given
       const input = { ...metadata, reason: '😀'.repeat(length) };
-      // When
+
       const result = parseAuditLogMetadata(input);
-      // Then
+
       expect(result).toEqual({ legacy: false, metadata: input });
     },
   );
 
   it('rejects a reason with 501 astral characters', () => {
-    // Given
     const input = { ...metadata, reason: '😀'.repeat(501) };
-    // When
+
     const parse = () => parseAuditLogMetadata(input);
-    // Then
+
     expect(parse).toThrow(InvalidAuditLogMetadataError);
   });
 });

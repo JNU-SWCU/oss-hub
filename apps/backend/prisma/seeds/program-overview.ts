@@ -17,16 +17,6 @@ import {
   upsertTracked,
 } from './helpers';
 
-/**
- * program-overview profile — 마일스톤별 서류 항목(#619)·게시판·팀 초대의 "프로토타입과 같은
- * 모양" 시나리오 전용 backbone이다. intake/milestones/repositories와 마찬가지로 자체
- * Program·User backbone을 만들며 다른 profile을 참조하지 않는다 — 빈 DB에서 단독 실행해도
- * 성공한다.
- *
- * 마일스톤 7개(#1 수강 신청·팀 등록 … #7 최종 발표·시연)는 프로토타입 스펙(`docs/design.md`)의
- * 제목을 그대로 쓰되 날짜는 SEED_NOW 기준 상대값(offsetDays)이다 — 다른 시드 파일과 달리
- * 이 profile은 실제 팀 일정을 반영하지 않는 합성 fixture다.
- */
 const PROGRAM_ID = seedId('program-overview', 'program');
 const STAFF_ID = seedId('program-overview', 'user', 'staff');
 const LEADER_ID = seedId('program-overview', 'user', 'team-leader');
@@ -150,7 +140,6 @@ async function upsertMilestoneDocumentTemplateFile(
   );
 }
 
-/** 서류 항목 제출 예시(#3의 첫 두 항목) — FILE 유형이라 SubmissionFile을 함께 붙인다. */
 async function upsertMilestoneDocumentSubmission(
   stats: SeedStats,
   params: {
@@ -542,7 +531,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     instructions: '팀별로 15분 발표합니다.',
   });
 
-  // #3 프로젝트 계획서 제출 — 서류 3종 (필수 2 · 선택 1).
   const m3Doc1 = seedId('program-overview', 'milestone-document', 'm3-d1');
   const m3Doc2 = seedId('program-overview', 'milestone-document', 'm3-d2');
   const m3Doc3 = seedId('program-overview', 'milestone-document', 'm3-d3');
@@ -582,7 +570,7 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     uploadedById: staff.id,
   });
-  // m3Doc3(팀 구성 확인서)는 프로토타입 스펙대로 양식 미등록 상태로 남긴다.
+
   await upsertMilestoneDocumentSubmission(stats, {
     id: seedId('program-overview', 'milestone-document-submission', 'm3-d1'),
     milestoneDocumentId: m3Doc1,
@@ -597,9 +585,7 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     submittedById: member.id,
     originalFileName: 'project-plan-draft.pdf',
   });
-  // m3Doc3(팀 구성 확인서)는 프로토타입 스펙대로 미제출 상태로 남긴다.
 
-  // #4 1차 중간 산출물 제출 — 서류 3종(필수 2 · 선택 1), 전부 미제출.
   const m4Doc1 = seedId('program-overview', 'milestone-document', 'm4-d1');
   const m4Doc2 = seedId('program-overview', 'milestone-document', 'm4-d2');
   const m4Doc3 = seedId('program-overview', 'milestone-document', 'm4-d3');
@@ -631,9 +617,7 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     mimeType: 'application/pdf',
     uploadedById: staff.id,
   });
-  // m4Doc2(발표자료)·m4Doc3(시연 영상 링크)는 프로토타입 스펙대로 양식 미등록 상태로 남긴다.
 
-  // 게시판 3건 — 공지 2(교직원) · 질문 1(학생).
   const post1 = seedId('program-overview', 'board-post', '1');
   const post2 = seedId('program-overview', 'board-post', '2');
   const post3 = seedId('program-overview', 'board-post', '3');

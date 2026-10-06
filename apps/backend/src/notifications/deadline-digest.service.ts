@@ -48,7 +48,7 @@ export type DeadlineDigestSendResult = DeadlineEligibilitySummary & {
   readonly staffRecipientCount: number;
   readonly sentAt: string;
   readonly previewVersion: string;
-  /** Counts remain student-only; staff outcomes remain in the notification ledger. */
+
   readonly sentCount: number;
   readonly duplicateCount: number;
   readonly failedCount: number;
@@ -114,7 +114,7 @@ export class DeadlineDigestService {
       eligibility.staffMilestones.length === 0
         ? []
         : await this.repository.findNotifiableStaff();
-    // Eligibility is current; relative headline wording stays identical to what was confirmed.
+
     const prepared = prepareDeadlineDigest(eligibility, staffRecipients, {
       ...preview,
       now: previewedAt,
@@ -136,7 +136,7 @@ export class DeadlineDigestService {
       },
       dependencies,
     );
-    // The existing manual-only staff summary follows the student batch; cron never calls it.
+
     await dispatchDeadlineDigest(
       {
         programId,

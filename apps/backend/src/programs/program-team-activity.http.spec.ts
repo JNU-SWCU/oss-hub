@@ -19,12 +19,6 @@ import { ProgramTeamDeletionRepository } from './repository/program-team-deletio
 import { ProgramTeamsRepository } from './repository/program-teams.repository';
 import { ProgramTeamsService } from './service/program-teams.service';
 
-/**
- * 팀 저장소 화면의 두 조회(#1133) — `activity`와 `repository-url-history` — 를 실제 HTTP
- * 파이프라인으로 확인한다. controller·service·repository는 진짜이고 그 아래 Prisma만
- * 합성 값이다. 같은 팀·같은 시각이면 팀장·팀원·교직원이 `canEditRepositoryUrl` 말고는
- * 같은 본문을 받는지, 팀 밖 사람과 없는 팀이 같은 404인지 본다.
- */
 const sessionSecret = new Uint8Array(32).fill(7);
 const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
@@ -231,14 +225,12 @@ afterAll(async () => {
 });
 
 it('팀장·팀원·교직원이 canEditRepositoryUrl 말고는 같은 본문을 받는다', async () => {
-  // Given — 승인된 신청이고 프로그램이 아직 끝나지 않았다.
-  // When
   const responses = await Promise.all([
     getActivity('leader'),
     getActivity('member'),
     getActivity('staff'),
   ]);
-  // Then
+
   expect(responses.map((response) => response.status)).toEqual([200, 200, 200]);
   const bodies = (await Promise.all(
     responses.map((response) => response.json()),
@@ -297,9 +289,8 @@ it.each([
 ] as const)(
   '%s은 같은 404(TEAM_010)를 받고 활동 행은 읽히지 않는다',
   async (_label, actor, teamId) => {
-    // When
     const response = await getActivity(actor, teamId);
-    // Then
+
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({
       status: 404,
@@ -313,9 +304,8 @@ describe('저장소 URL 변경 이력', () => {
   it.each(['leader', 'member', 'staff'] as const)(
     '%s는 같은 이력 쪽을 200으로 받는다',
     async (actor) => {
-      // When
       const response = await getTeamPath(actor, 'repository-url-history');
-      // Then
+
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({
         items: [
@@ -333,21 +323,19 @@ describe('저장소 URL 변경 이력', () => {
   );
 
   it('팀 밖의 학생은 404(TEAM_010)이고 이력을 읽지 않는다', async () => {
-    // When
     const response = await getTeamPath('outsider', 'repository-url-history');
-    // Then
+
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({ code: 'TEAM_010' });
     expect(auditFindMany).not.toHaveBeenCalled();
   });
 
   it('형식이 틀린 커서는 경계에서 400이다', async () => {
-    // When
     const response = await getTeamPath(
       'member',
       'repository-url-history?cursor=invalid',
     );
-    // Then
+
     expect(response.status).toBe(400);
     expect(auditFindMany).not.toHaveBeenCalled();
   });

@@ -2,10 +2,6 @@ import { expect, test } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
-/**
- * 렌더 증거 전용. 제품 회귀가 아니다 — 계층별 화면을 실제로 띄워 찍는다.
- * `EVIDENCE_PHASE=before|after`, `EVIDENCE_DIR=<절대경로>`.
- */
 const phase = process.env.EVIDENCE_PHASE ?? 'after';
 const evidenceDir = process.env.EVIDENCE_DIR ?? path.resolve('.evidence');
 
@@ -27,7 +23,6 @@ function row(rank: number, tier: Tier) {
     total: 391 - rank * 80,
   };
   if (tier === 'public') {
-    // before 는 계층이 둘뿐이던 코드다 — 그때 public 봉투가 실제로 8칸을 실었다.
     return phase === 'before' ? { ...base, ...metrics } : base;
   }
   if (tier === 'member') return { ...base, ...metrics };
@@ -67,7 +62,6 @@ async function install(page: import('@playwright/test').Page, tier: Tier) {
   });
 }
 
-// before 실행에는 member 계층이 존재하지 않는다 — 파서가 봉투를 거부한다.
 const tiers: readonly Tier[] =
   phase === 'before' ? ['public', 'staff'] : ['public', 'member', 'staff'];
 

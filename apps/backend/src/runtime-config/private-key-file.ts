@@ -1,14 +1,6 @@
 import { createPrivateKey } from 'node:crypto';
 import { readFileSync, statSync, type Stats } from 'node:fs';
 
-/**
- * GitHub App 개인키를 파일에서 읽는다.
- *
- * env 문자열 경로와 달리 파일 경로는 "설정된 것 자체가 의도"이므로, 읽기·파싱 실패를
- * legacy 경로로 조용히 fallback하지 않고 즉시 실패로 만든다(fail closed).
- * 오류에는 env 키 이름과 사유 코드만 담는다 — 경로와 키 내용은 로그·스택 어디에도 넣지 않는다.
- */
-
 const MAX_PRIVATE_KEY_FILE_BYTES = 65_536;
 const PEM_HEADER_PREFIX = '-----BEGIN';
 
@@ -47,7 +39,6 @@ export function readPrivateKeyFile(envKey: string, filePath: string): string {
     );
   }
 
-  // 크기를 먼저 본다 — 상한을 넘는 파일은 메모리로 읽지 않는다.
   if (stats.size > MAX_PRIVATE_KEY_FILE_BYTES) {
     throw new PrivateKeyFileError(
       envKey,
@@ -92,15 +83,10 @@ function readFile(envKey: string, filePath: string): string {
   }
 }
 
-/**
- * 헤더 문자열만 맞고 본문이 깨진 PEM은 토큰 요청 시점까지 발견되지 않는다.
- * 여기서 실제로 파싱해 기동·설정 단계에서 걸러낸다. PKCS#1과 PKCS#8을 모두 받는다.
- */
 function assertParsableKey(envKey: string, content: string): void {
   try {
     createPrivateKey(content);
   } catch {
-    // 원본 오류는 버린다 — OpenSSL 메시지에 입력 일부가 섞여 나올 수 있다.
     throw new PrivateKeyFileError(
       envKey,
       PRIVATE_KEY_FILE_ERROR_CODES.INVALID_KEY,

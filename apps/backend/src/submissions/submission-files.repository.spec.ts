@@ -33,10 +33,8 @@ describe('SubmissionFilesRepository exhausted cleanup query', () => {
   });
 
   it('selects only operator-safe columns and filters to retry-exhausted DELETE_PENDING rows', async () => {
-    // When
     await repository.findExhaustedCleanups();
 
-    // Then
     const calls = findMany.mock.calls as unknown[][];
     const args = calls[0]![0] as {
       where: Record<string, unknown>;
@@ -55,7 +53,6 @@ describe('SubmissionFilesRepository exhausted cleanup query', () => {
   });
 
   it('treats only ACTIVE administrators as authorized operators', async () => {
-    // Given / When / Then
     findUnique.mockResolvedValueOnce({
       hasStaffAccess: false,
       hasAdminAccess: true,
@@ -82,13 +79,6 @@ describe('SubmissionFilesRepository exhausted cleanup query', () => {
   });
 });
 
-/**
- * #1269 — 다운로드 권한을 실제 행 매칭으로 검증한다.
- *
- * `where`의 모양만 비교하면 "과거 업로더 OR 현재 팀원" 을 되살려도 통과할 수 있다.
- * 그래서 여기서는 Prisma가 해석할 필터를 그대로 평가하는 작은 매처를 쓰고,
- * 모르는 필터 키가 오면 던져서 조용한 권한 확장을 막는다.
- */
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const FUTURE = new Date('2027-01-01T00:00:00.000Z');
 const PAST = new Date('2026-01-01T00:00:00.000Z');
@@ -103,14 +93,13 @@ interface StoredFileRow {
   readonly originalFileName: string;
   readonly mimeType: string;
   readonly sizeBytes: number;
-  /** 신청이 매달린 팀의 현재 상태. 탈퇴는 members 에서 사라지는 것으로 표현한다. */
+
   readonly teamLeaderId: string;
   readonly teamMemberIds: readonly string[];
 }
 
 type Filter = Record<string, unknown>;
 
-/** `findDownloadableFile` 이 되돌려받는 열들만 담는다. */
 interface DownloadableFileRow {
   readonly id: string;
   readonly storageKey: string;
@@ -120,11 +109,6 @@ interface DownloadableFileRow {
   readonly expiresAt: Date | null;
 }
 
-/**
- * 참여 판정의 정본은 현재 `TeamMember` 행 하나다
- * (`programApplicationParticipantWhere`). `leaderId` 절이나 OR 분기가 다시 나타나면
- * 여기서 던진다 — 조용히 통과시키면 팀을 떠난 옛 팀장이 다시 새는 것을 놓친다.
- */
 function matchesTeam(teamWhere: Filter, row: StoredFileRow): boolean {
   const keys = Object.keys(teamWhere);
   if (keys.length !== 1 || keys[0] !== 'members') {
@@ -172,8 +156,7 @@ function matchesFile(where: Filter, row: StoredFileRow): boolean {
           throw new Error('Unsupported expiry filter.');
         return row.expiresAt !== null && row.expiresAt.getTime() > gt.getTime();
       }
-      // `uploaderId`·`OR` 는 의도적으로 다루지 않는다. 과거 업로더 절이 어떤 형태로든
-      // 되살아나면 default 로 떨어져 던진다 — fail closed.
+
       case 'application': {
         const inner = (value as { is?: Filter }).is;
         const team = inner?.team as Filter | undefined;
@@ -191,9 +174,9 @@ function matchesFile(where: Filter, row: StoredFileRow): boolean {
 describe('SubmissionFilesRepository.findDownloadableFile membership fence', () => {
   const FORMER_UPLOADER = 'user-former-uploader';
   const CURRENT_MEMBER = 'user-current-member';
-  /** 승계 도중의 잔류 — `Team.leaderId` 에만 남고 `TeamMember` 행은 이미 사라졌다. */
+
   const DEPARTED_LEADER = 'user-departed-leader';
-  /** 팀장이면서 자기 팀의 `TeamMember` 행을 그대로 가진 정상 상태. */
+
   const MEMBER_LEADER = 'user-member-leader';
 
   const attachedFile: StoredFileRow = {
@@ -201,7 +184,7 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
     lifecycle: SubmissionFileLifecycle.ATTACHED,
     milestoneDocumentSubmissionHistoryId: 'history-1',
     expiresAt: FUTURE,
-    // 귀속은 그대로다 — 나간 사람이 올린 파일이라는 사실은 계속 기록으로 남는다.
+
     uploaderId: FORMER_UPLOADER,
     storageKey: 'submission-files/private-key',
     originalFileName: 'report.pdf',
@@ -274,32 +257,26 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
   });
 
   it('denies an active former uploader who is no longer on the team', async () => {
-    // Given: 업로더는 계정은 살아 있지만 TeamMember 행이 사라졌다.
     requester({ id: FORMER_UPLOADER });
 
-    // When
     const file = await repository.findDownloadableFile(
       11n,
       'file-attached',
       NOW,
     );
 
-    // Then
     expect(file).toBeNull();
   });
 
   it('allows a current team member who never uploaded the file', async () => {
-    // Given
     requester({ id: CURRENT_MEMBER });
 
-    // When
     const file = await repository.findDownloadableFile(
       12n,
       'file-attached',
       NOW,
     );
 
-    // Then
     expect(file).toEqual({
       id: 'file-attached',
       storageKey: 'submission-files/private-key',
@@ -310,37 +287,27 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
     });
   });
 
-  // #1269 — 팀장 자리(`Team.leaderId`)는 기록이지 권한이 아니다. 승계·탈퇴는
-  // `TeamMember` 집합과 `leaderId` 를 함께 옮기므로, 그 사이 상태에서 leaderId 절을
-  // 남겨 두면 팀을 떠난 옛 팀장이 비공개 파일을 계속 받는다.
   it('denies a departed leader left only on the team leaderId column', async () => {
-    // Given: leaderId 에는 남았지만 TeamMember 행은 이미 사라졌다.
     requester({ id: DEPARTED_LEADER });
 
-    // When / Then
     await expect(
       repository.findDownloadableFile(13n, 'file-attached', NOW),
     ).resolves.toBeNull();
   });
 
   it('allows a leader who still holds the TeamMember row', async () => {
-    // Given: 팀장도 자기 팀의 TeamMember 행을 갖는다 — 멤버십 한 절로 통과한다.
     requester({ id: MEMBER_LEADER });
 
-    // When / Then
     await expect(
       repository.findDownloadableFile(16n, 'file-leader-team', NOW),
     ).resolves.toMatchObject({ id: 'file-leader-team' });
   });
 
   it('never puts the historical uploader into the non-staff authorization filter', async () => {
-    // Given
     requester({ id: CURRENT_MEMBER });
 
-    // When
     await repository.findDownloadableFile(12n, 'file-attached', NOW);
 
-    // Then
     const where = findFirst.mock.calls[0]![0].where;
     expect(where).toEqual({
       id: 'file-attached',
@@ -361,17 +328,14 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
   ])(
     'keeps the active %s exception without a participant filter',
     async (_label, access) => {
-      // Given: 교직원·관리자는 팀 소속과 무관하게 모든 첨부 파일을 받는다.
       requester({ id: 'user-staff', ...access });
 
-      // When
       const file = await repository.findDownloadableFile(
         14n,
         'file-attached',
         NOW,
       );
 
-      // Then
       expect(file).toMatchObject({ id: 'file-attached' });
       const where = findFirst.mock.calls[0]![0].where;
       expect(where).not.toHaveProperty('application');
@@ -383,14 +347,12 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
     ['a deactivated current member', CURRENT_MEMBER],
     ['a deactivated staff account', 'user-staff'],
   ])('denies %s before querying files', async (_label, id) => {
-    // Given
     requester({
       id,
       hasStaffAccess: id === 'user-staff',
       accountStatus: AccountStatus.DEACTIVATED,
     });
 
-    // When / Then
     await expect(
       repository.findDownloadableFile(15n, 'file-attached', NOW),
     ).resolves.toBeNull();
@@ -404,10 +366,8 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
   ])(
     'keeps %s indistinguishable from a denied file for a current member',
     async (_label, fileId) => {
-      // Given
       requester({ id: CURRENT_MEMBER });
 
-      // When / Then
       await expect(
         repository.findDownloadableFile(12n, fileId, NOW),
       ).resolves.toBeNull();
@@ -448,7 +408,7 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
     create.mockReset();
     lockMembership.mockReset();
     lockMembership.mockResolvedValue(true);
-    // 첫 raw 질의는 Program endAt, 두 번째는 uploader User 행 잠금이다.
+
     queryRaw
       .mockResolvedValueOnce([{ endAt: new Date('2027-02-28T09:30:00.000Z') }])
       .mockResolvedValueOnce([{ id: input.uploaderId }]);
@@ -466,16 +426,14 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
   });
 
   it('takes the shared Program→Team membership lock before any User or quota work', async () => {
-    // When
     await repository.createPending(input);
 
-    // Then
     expect(lockMembership).toHaveBeenCalledWith(
       transactionClient,
       input.applicationId,
       input.uploaderId,
     );
-    // Program → Team(공유 잠금) → User 순서를 지켜야 수락·승계 경로와 교착하지 않는다.
+
     const lockOrder = lockMembership.mock.invocationCallOrder[0]!;
     const rawOrders = queryRaw.mock.invocationCallOrder;
     const aggregateOrder = aggregate.mock.invocationCallOrder[0]!;
@@ -487,15 +445,13 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
   });
 
   it('rejects with SubmissionMembershipChangedError without creating a pending row', async () => {
-    // Given: 예약 transaction 안에서 다시 읽은 TeamMember 행이 사라졌다.
     lockMembership.mockResolvedValue(false);
 
-    // When / Then
     const rejection = await repository
       .createPending(input)
       .catch((caught: unknown) => caught);
     expect(rejection).toBeInstanceOf(SubmissionMembershipChangedError);
-    // 오류는 지금 이 예약의 신청·업로더를 그대로 들고 나간다.
+
     expect(rejection).toMatchObject({
       applicationId: input.applicationId,
       userId: input.uploaderId,
@@ -506,10 +462,8 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
   });
 
   it('still reserves the pending row with the retention expiry for a current member', async () => {
-    // When
     const created = await repository.createPending(input);
 
-    // Then
     expect(created).toMatchObject({ id: 'file-opaque' });
     const reservedData: unknown = expect.objectContaining({
       lifecycle: SubmissionFileLifecycle.PENDING,
@@ -522,11 +476,9 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
   });
 
   it('keeps the retention-unavailable branch when the locked Program row is missing', async () => {
-    // Given
     queryRaw.mockReset();
     queryRaw.mockResolvedValueOnce([]);
 
-    // When / Then
     await expect(repository.createPending(input)).rejects.toMatchObject({
       name: 'SubmissionFileRetentionUnavailableError',
     });
@@ -541,13 +493,11 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
       500 * 1024 * 1024,
     ],
   ])('keeps the quota branch when %s', async (_label, count, sizeBytes) => {
-    // Given
     aggregate.mockResolvedValue({
       _count: count,
       _sum: { sizeBytes },
     });
 
-    // When / Then
     await expect(repository.createPending(input)).rejects.toMatchObject({
       name: 'SubmissionFileQuotaExceededError',
     });

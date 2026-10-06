@@ -1,10 +1,6 @@
 import type { PrismaService } from '../prisma/prisma.service';
 import { SystemStatusRepository } from './system-status.repository';
 
-/**
- * ISSUE stream(#1133)이 생긴 뒤에도 진행 집계가 stream 종류 수를 따라가는지 본다.
- * 종류 수를 3으로 고정해 두면 ISSUE 행이 아직 없는 저장소가 부분(PARTIAL)으로 잡히지 않는다.
- */
 const repositoryWith = (
   streams: ReadonlyArray<{ streamType: string; status: string }>,
 ): SystemStatusRepository => {

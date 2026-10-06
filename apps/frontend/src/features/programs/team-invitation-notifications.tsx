@@ -21,7 +21,6 @@ import { notifyTeamMembershipChanged } from './team-membership-events';
 const POLL_INTERVAL_MS = 60_000;
 
 export interface TeamInvitationNotificationsProps {
-  /** 계정이 바뀌었을 때 이전 계정의 목록과 응답을 버리기 위한 식별자. */
   readonly identityKey?: string | null;
   readonly className?: string;
 }
@@ -234,7 +233,6 @@ export function TeamInvitationNotifications({
           return next;
         });
         if (accepted) {
-          // 같은 URL에 이미 있는 「우리 팀」 화면은 router.refresh()로 다시 읽지 않는다.
           notifyTeamMembershipChanged(accepted.programId);
           router.push(programMyTeamHref(accepted.programId));
           router.refresh();
@@ -434,7 +432,6 @@ export function TeamInvitationNotifications({
                         <div className="min-w-0">
                           <p className="font-semibold">{teamLabel}</p>
                           <p className="mt-1 text-small text-muted-foreground">
-                            {/* 수락 전에는 팀 화면이 없으므로 프로그램 개요만 연다. */}
                             <Link
                               href={programOverviewHref(invitation.programId)}
                               className="underline underline-offset-2 hover:text-foreground"

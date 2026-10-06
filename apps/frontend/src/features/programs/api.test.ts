@@ -22,7 +22,6 @@ describe('listPrograms', () => {
   });
 
   it('sends search, status, and pagination through the public list query', async () => {
-    // Given
     const response = {
       items: [],
       page: 2,
@@ -32,7 +31,6 @@ describe('listPrograms', () => {
     } satisfies ProgramListPage;
     vi.mocked(apiClient).mockResolvedValue(response);
 
-    // When
     const result = await listPrograms({
       page: 2,
       pageSize: 20,
@@ -40,7 +38,6 @@ describe('listPrograms', () => {
       status: 'ended',
     });
 
-    // Then
     expect(apiClient).toHaveBeenCalledWith(
       'programs?page=2&pageSize=20&search=%EB%8F%99%EB%AA%85+%ED%94%84%EB%A1%9C%EA%B7%B8%EB%9E%A8&status=ended',
     );
@@ -48,7 +45,6 @@ describe('listPrograms', () => {
   });
 
   it('카드 note·뷰어 신청 상태·교직원 집계 필드를 그대로 통과시킨다', async () => {
-    // Given — 학생: 본인 지원 상태 note, 교직원: 지원 건수 집계 note
     const response = {
       items: [
         {
@@ -84,7 +80,6 @@ describe('listPrograms', () => {
     } satisfies ProgramListPage;
     vi.mocked(apiClient).mockResolvedValue(response);
 
-    // When
     const result = await listPrograms({
       page: 1,
       pageSize: 20,
@@ -92,7 +87,6 @@ describe('listPrograms', () => {
       status: 'all',
     });
 
-    // Then
     expect(result).toEqual(response);
     expect(result.items[0]?.viewerApplicationStatus).toBe('SUBMITTED');
     expect(result.items[0]?.note?.text).toBe(
@@ -312,11 +306,6 @@ describe('decideApplication', () => {
   });
 });
 
-/**
- * 내 팀 응답은 화면이 다시 유추하지 않는 서버 계산 능력 플래그를 싣는다
- * (backend `ProgramTeamResponseDto`). 플래그가 빠졌을 때 기본값을 지어내면
- * 없는 버튼을 그렸다가 서버에서 거절당하거나, 있는 권한을 숨긴다.
- */
 describe('getMyTeam', () => {
   const backendTeam = {
     id: 'team-1',
@@ -428,7 +417,6 @@ describe('removeMyTeamMember', () => {
 
     await removeMyTeamMember('program/1', 'user 2');
 
-    // 인코딩하지 않으면 다른 경로를 두드려 엉뚱한 팀원을 지우거나 404가 된다.
     expect(apiClient).toHaveBeenCalledWith(
       'programs/program%2F1/teams/me/members/user%202',
       { method: 'DELETE' },
@@ -442,8 +430,6 @@ describe('getApplicationDetail', () => {
   });
 
   it('신청 상세를 판정과 같은 자원 경로로 읽는다', async () => {
-    // 상세 화면 테스트는 `./api` 를 통째로 mock 하므로, 경로가 바뀌어도 그쪽은
-    // 전부 초록이다. 경로를 못박는 자리는 여기뿐이다.
     vi.mocked(apiClient).mockResolvedValue({ id: 'app-1' });
 
     await getApplicationDetail('app-1');
@@ -456,7 +442,6 @@ describe('getApplicationDetail', () => {
 
     await getApplicationDetail('app/1');
 
-    // 인코딩하지 않으면 `applications/app/1` 이 되어 다른 경로를 두드린다.
     expect(apiClient).toHaveBeenCalledWith('applications/app%2F1');
   });
 });

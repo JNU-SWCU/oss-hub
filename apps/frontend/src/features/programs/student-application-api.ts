@@ -14,24 +14,14 @@ export interface StudentApplication {
   readonly submittedAt: string;
   readonly updatedAt: string;
   readonly isRepositoryPublicationPlanned: boolean;
-  /**
-   * 교직원이 반려하며 남긴 사유. 반려가 아니면 `null`이며 **키는 상태와 무관하게 항상
-   * 온다** — 없는 키와 `null`은 화면에서 다르게 읽히므로 백엔드가 키를 지우지 않는다
-   * (`student-applications.controller.ts`의 `StudentApplicationResponse`).
-   *
-   * 이 값이 학생에게 사유가 닿는 유일한 통로다 — 알림·감사 로그·메일에는 담기지 않는다.
-   */
+
   readonly rejectionReason: string | null;
-  /**
-   * 신청자 본인이거나 팀장이라 수정·취소 **권한**이 있는지. 기간·상태는 보지 않는다.
-   * 팀 신청서는 팀원 전원이 읽지만 고치고 취소하는 것은 이 둘뿐이다(#1083).
-   * `canManage`가 거짓일 때 「기간이 아니다」와 「권한이 아니다」를 가르는 근거다.
-   */
+
   readonly isManager: boolean;
   readonly canManage: boolean;
-  /** @deprecated Use canManage. */
+
   readonly canEdit: boolean;
-  /** @deprecated Use canManage. */
+
   readonly canCancel: boolean;
 }
 
@@ -40,10 +30,6 @@ export interface UpdateStudentApplicationInput {
   readonly applicationTemplateVersion: number;
 }
 
-/**
- * 신청이 없으면 `null`이다 — 「신청한 적 없음」은 오류가 아니다(QA174 / #1303).
- * 학생이 아니거나 프로그램 자체가 없으면 여전히 거절된다.
- */
 export function getMyApplication(
   programId: string,
 ): Promise<StudentApplication | null> {

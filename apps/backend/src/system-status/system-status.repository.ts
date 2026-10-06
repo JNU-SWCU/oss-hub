@@ -65,7 +65,7 @@ export interface CollectionSweepActivityDto {
   readonly sweepFinishedAt: Date;
   readonly cycleStartedAt: Date | null;
   readonly scope: string;
-  /** 정시·수동 순회(`SWEEP`)인지, 저장소 연결 즉시 수집(`REPOSITORY_LINK`)인지(#1133). */
+
   readonly kind: CollectionRunKind;
   readonly insertedCommitCount: number;
   readonly insertedPullRequestCount: number;
@@ -87,11 +87,6 @@ export interface CollectionExternalCollectionStatusDto {
   readonly cumulativeIssueCount: number;
 }
 
-/**
- * 수집 대상 규칙 — 수집 sweep(`CollectionSyncService`)과 한 벌이다. 연결이 풀려 팀·프로그램
- * 이력만 남은 저장소는 더 수집하지 않으므로 추적 집합에서도 뺀다. 세면 멈춘 stream이 영영
- * 미완(PARTIAL)으로 읽힌다.
- */
 const COLLECTION_TARGET = {
   OR: [{ applicationId: { not: null } }, { programId: null, teamId: null }],
 } satisfies Prisma.GithubRepositoryWhereInput;
@@ -102,7 +97,6 @@ const PRESENT_REPOSITORY = {
   ...COLLECTION_TARGET,
 } as const;
 
-/** 조직 밖 저장소는 신청에 연결된 동안만 모은다 — `isCollectionTarget`과 한 벌. */
 const PRESENT_EXTERNAL_REPOSITORY = {
   presence: 'PRESENT',
   source: 'EXTERNAL_PUBLIC',
@@ -209,8 +203,7 @@ export class SystemStatusRepository {
     const readyStreamCount = countFor('READY');
     const backfillingStreamCount = countFor('BACKFILLING');
     const knownPartialStreamCount = countFor('PENDING') + countFor('VERIFYING');
-    // 저장소마다 stream 종류 수만큼 행이 있어야 한다. 아직 행이 없는 stream(새 저장소,
-    // 새로 생긴 stream 종류)은 부분(PARTIAL)으로 센다.
+
     const expectedStreamCount =
       trackedRepositoryCount * COLLECTION_STREAM_TYPES.length;
     const observedStreamCount =
@@ -333,12 +326,12 @@ export class SystemStatusRepository {
         this.prisma.githubRepository.count({
           where: PRESENT_EXTERNAL_REPOSITORY,
         }),
-        // 「최근 외부 수집 실행」은 순회의 건강을 말한다 — 저장소 하나짜리 연결 즉시 수집은 뺀다.
+
         this.prisma.collectionSweepHistory.findFirst({
           where: { scope: EXTERNAL_SWEEP_SCOPE, kind: 'SWEEP' },
           orderBy: { sweepFinishedAt: 'desc' },
         }),
-        // 누적 합계는 두 종류를 모두 더한다 — 연결 즉시 수집이 넣은 기록은 뒤 순회가 다시 세지 않는다.
+
         this.prisma.collectionSweepHistory.aggregate({
           where: { scope: EXTERNAL_SWEEP_SCOPE },
           _sum: {

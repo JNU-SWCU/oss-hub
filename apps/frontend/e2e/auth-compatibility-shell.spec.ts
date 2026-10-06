@@ -9,7 +9,6 @@ import { captureResponsiveMenu } from './support/member-access-visual';
 test('미해결 호환 관리자도 변경 요청 없이 정상 인증 셸을 사용한다', async ({
   page,
 }, testInfo) => {
-  // Given
   const audit = installBrowserAudit(page);
   const postRequests: string[] = [];
   page.on('request', (request) => {
@@ -32,10 +31,8 @@ test('미해결 호환 관리자도 변경 요청 없이 정상 인증 셸을 �
     },
   );
 
-  // When
   await page.goto('/dashboard');
 
-  // Then
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(page.locator('[data-slot="nav-bar"]')).toBeVisible();
   await expect(page.locator('[data-slot="app-sidebar"]')).toBeVisible();

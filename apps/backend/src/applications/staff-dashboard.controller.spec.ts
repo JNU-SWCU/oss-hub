@@ -24,7 +24,6 @@ function readGuards(
 
 describe('StaffDashboardController', () => {
   it('applies route metadata, no-store cache, and staff list guards', () => {
-    // Given
     const summary: unknown = Object.getOwnPropertyDescriptor(
       StaffDashboardController.prototype,
       'summary',
@@ -33,7 +32,6 @@ describe('StaffDashboardController', () => {
       throw new TypeError('StaffDashboardController.summary is missing');
     }
 
-    // When / Then
     expect(Reflect.getMetadata(PATH_METADATA, StaffDashboardController)).toBe(
       'dashboard/staff',
     );
@@ -51,7 +49,6 @@ describe('StaffDashboardController', () => {
   it.each([null, 'https://sojoong.kr/wp-content/uploads/synthetic.jpg'])(
     'maps composed service summary with cover %s into the response DTO',
     async (imageUrl) => {
-      // Given
       const summary = jest.fn().mockResolvedValue({
         programs: [
           {
@@ -99,7 +96,6 @@ describe('StaffDashboardController', () => {
       const insights = { summarize: jest.fn() };
       const controller = new StaffDashboardController(service, insights);
 
-      // When / Then
       await expect(controller.summary()).resolves.toEqual({
         programs: [
           {

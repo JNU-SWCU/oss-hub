@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -82,10 +80,8 @@ describe('ProgramScheduleRangeCalendar', () => {
   });
 
   it('모바일 안내 문구는 한국어 어절 안에서 줄바꿈하지 않는다', async () => {
-    // Given / When
     await renderCalendar([]);
 
-    // Then
     const selectionHint = [...container.querySelectorAll('p')].find((element) =>
       element.textContent?.includes('선택할 수 없음'),
     );

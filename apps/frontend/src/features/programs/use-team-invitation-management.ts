@@ -15,7 +15,7 @@ import {
 } from './team-invitation-api';
 
 const INVITE_SEARCH_DEBOUNCE_MS = 300;
-/** `TeamInvitePanel`의 힌트 문구와 같은 기준 — 자동 검색이 붙는 최소 글자 수. */
+
 const MIN_INVITE_SEARCH_QUERY_LENGTH = 2;
 
 export const SENT_INVITATIONS_LOAD_FAILED_MESSAGE =
@@ -36,22 +36,12 @@ type SentInvitationsState =
     }
   | { readonly kind: 'failed'; readonly message: string };
 
-/**
- * 초대 관리 대상 — 팀장이 볼 수 있는 하나의 팀. `team`은 화면이 이미 읽어 둔
- * 내 팀 응답이고, 이 훅은 신청서나 팀 자체를 다시 읽지 않는다. `sessionKey`는
- * 로그인 사용자 신원(예: 닉네임)으로, 값이 바뀌면 진행 중이던 초대 요청 결과를
- * 새 사용자 화면에 흘리지 않기 위한 식별자다.
- */
 export interface TeamInvitationManagementInput {
   readonly programId: string;
   readonly team: Pick<ProgramTeam, 'id' | 'canInvite'> | null;
   readonly sessionKey: string | null;
 }
 
-/**
- * 신청 화면과 우리 팀 화면이 공유하는 초대 상태 계약. 두 화면이 각자 초대
- * 상태를 따로 들고 있지 않도록 이 객체 하나만 소비한다.
- */
 export interface TeamInvitationManagement {
   readonly sentInvitations: readonly SentTeamInvitation[];
   readonly sentLoading: boolean;
@@ -71,11 +61,6 @@ export interface TeamInvitationManagement {
   readonly reloadSent: () => Promise<void>;
 }
 
-/**
- * 초대를 실제로 보낼 수 있는 상태만 식별자를 만든다 — 프로그램·팀·세션·팀장
- * 권한 중 하나라도 달라지면 다른 식별자가 되고, 이전 요청의 성공·실패·정리는
- * 모두 버려진다. 팀원(초대 불가)이나 팀 없음은 `null`이라 아무 요청도 없다.
- */
 function resolveIdentityKey({
   programId,
   team,
@@ -126,7 +111,6 @@ export function useTeamInvitationManagement(
     };
   }, []);
 
-  /** 시작 시점의 신원이 그대로인가 — 아니면 어떤 상태도 건드리지 않는다. */
   const stillCurrent = useCallback(
     (epoch: number, key: string | null): boolean =>
       mountedRef.current &&
@@ -202,8 +186,6 @@ export function useTeamInvitationManagement(
     [stillCurrent],
   );
 
-  // 신원(프로그램·팀·세션·팀장 권한)이 바뀌면 이전 화면의 상태와 진행 중인
-  // 요청 표식을 모두 버리고, 초대 가능한 팀일 때만 보낸 초대를 다시 읽는다.
   useEffect(() => {
     epochRef.current += 1;
     sentSeqRef.current += 1;
@@ -236,7 +218,6 @@ export function useTeamInvitationManagement(
   }, [debouncedInviteQuery, performSearch]);
 
   const onInviteQueryChange = useCallback((value: string) => {
-    // 입력이 바뀐 순간 진행 중이던 검색은 이미 낡았다 — 2자 미만이어도 버린다.
     searchSeqRef.current += 1;
     setInviteQuery(value);
     setInviteCandidates(NO_CANDIDATES);
@@ -259,7 +240,7 @@ export function useTeamInvitationManagement(
       try {
         await createInvitation(targetTeamId, candidate.id);
         if (!stillCurrent(epoch, key)) return;
-        // 보낸 초대의 표시 이름은 서버 invitee projection이 authoritative다.
+
         await loadSent({ quiet: true });
         if (!stillCurrent(epoch, key)) return;
         if (

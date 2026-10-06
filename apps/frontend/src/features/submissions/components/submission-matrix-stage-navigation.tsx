@@ -30,7 +30,6 @@ function stageOptions(
   ];
 }
 
-/** 561–899px에서는 긴 목록을 다시 위로 찾지 않도록 본문 상단에 고정한다. */
 function TabletStageTabs(props: MatrixStageNavigationProps): ReactElement {
   const options = stageOptions(props.milestones);
 
@@ -59,7 +58,6 @@ function TabletStageTabs(props: MatrixStageNavigationProps): ReactElement {
   );
 }
 
-/** 560px 이하에서는 한 줄 라벨과 네이티브 선택 메뉴로 공간을 아낀다. */
 function MobileStageSelect(props: MatrixStageNavigationProps): ReactElement {
   return (
     <div className="sticky top-0 z-20 -mx-2 grid gap-2 border-y border-border bg-background/95 px-2 py-3 backdrop-blur min-[561px]:hidden">

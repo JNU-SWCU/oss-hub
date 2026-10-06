@@ -1,15 +1,14 @@
 import { Prisma } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
 
-/** 삭제 확인 화면(GET edit)과 purge 트랜잭션이 공유하는 자식 범위. */
 export type ProgramDeletionScopeCounts = {
   readonly applications: number;
   readonly teams: number;
   readonly boardPosts: number;
   readonly submissions: number;
-  /** 제출 헤더가 그대로여도 늘 수 있는 파일·제출 이력·검토 이력의 합계. */
+
   readonly submissionEvents: number;
-  /** 삭제·분리·tombstone 대상 전체 id 집합의 지문. */
+
   readonly scopeFingerprint: string;
 };
 
@@ -22,14 +21,6 @@ type DeletionScopeCountsRow = Readonly<{
   scopeFingerprint: string;
 }>;
 
-/**
- * 한 SQL 문장의 snapshot으로 삭제 범위를 읽는다.
- *
- * `program-editor.repository.ts`(GET edit 확인 화면)와 `program-lifecycle.service.ts`
- * (purge 트랜잭션의 재확인)가 **같은 쿼리**를 공유한다 — 두 곳이 각자 count를 세면 문장이
- * 갈라질 여지가 생기고, 그 틈이 다시 TOCTOU가 된다(#F2). 호출자는 반드시 같은 트랜잭션의
- * `TransactionClient`를 넘겨 단일 스냅샷을 보장해야 한다.
- */
 export async function readProgramDeletionScopeCounts(
   transaction: PrismaTypes.TransactionClient,
   programId: string,
@@ -235,7 +226,6 @@ export function sameProgramDeletionScopeCounts(
   );
 }
 
-/** 삭제 결과는 id를 잃었으므로 화면 요약에 보인 다섯 수치만 현재 snapshot과 대조한다. */
 export function sameProgramDeletionScopeCountValues(
   left: ProgramDeletionScopeCounts,
   right: Omit<ProgramDeletionScopeCounts, 'scopeFingerprint'>,

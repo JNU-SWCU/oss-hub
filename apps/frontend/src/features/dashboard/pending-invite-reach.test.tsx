@@ -1,20 +1,8 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { apiPath } from '@/lib/api-client';
-
-/**
- * 받은 팀 초대 조회·수락·거절은 헤더
- * (`programs/team-invitation-notifications.tsx`)가 소유한다. 대시보드가
- * `team-invitations/received` 나 프로그램·팀 이름 보강(directory fan-out)을
- * 다시 부르면 이 테스트가 실패해야 한다.
- *
- * 가짜는 **네트워크 경계 하나**에만 둔다. 초대 경로를 500으로 돌려도 대시보드
- * 본문은 성공해야 한다 — 그 실패를 catch 해서 조용히 접으면 회귀가 숨는다.
- */
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,

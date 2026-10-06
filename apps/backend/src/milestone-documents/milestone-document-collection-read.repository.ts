@@ -107,7 +107,7 @@ export class MilestoneDocumentCollectionReadStore {
     return submissions.map((submission) => ({
       milestoneDocumentId: submission.milestoneDocumentId,
       applicationId: submission.applicationId,
-      // 이관 행에 최초 이력이 없으면 보존된 최초 행 생성 시각만 사용한다.
+
       firstSubmittedAt:
         submission.histories[0]?.createdAt ?? submission.createdAt,
     }));
@@ -186,7 +186,6 @@ export class MilestoneDocumentCollectionReadRepository {
   withSnapshot<T>(
     operation: (store: MilestoneDocumentCollectionReadStore) => Promise<T>,
   ): Promise<T> {
-    // 필터·전체 집계·페이지의 현재 내용은 동시 재제출 중에도 한 시점을 가리켜야 한다.
     return this.prisma.$transaction(
       (transaction) =>
         operation(new MilestoneDocumentCollectionReadStore(transaction)),

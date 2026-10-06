@@ -2,16 +2,6 @@ import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import type { AuthorityLabel } from '../common/authority-label';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
 
-/**
- * 전이표가 읽는 접근 권한 — 이 모듈의 판정은 전부 이 두 칸을 거친다.
- *
- * 표의 좌표는 여전히 legacy `Role`이다 — 그것은 변경 명령의 선후 상태를 싣는
- * **외부 계약**(`AdminAccessMutationCommand`의 `expectedRole`·`desiredRole`)이라 임의로
- * 바꿀 수 없다. 바뀌는 것은 그 좌표를 **무엇으로 읽느냐**다: 역할 enum을 직접
- * 비교하는 대신, 그 역할이 뜻하는 canonical 접근 권한으로 환산해 판정한다. 그래야
- * 인가 판정(`admin-access-authorization.ts`)·쓰기 파생(`admin-access-authority-write.ts`)과
- * 같은 어휘를 쓰고, 좌표가 canonical 칸로 옮겨갈 때 본문을 다시 쓰지 않는다.
- */
 type AccessAuthority = {
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
@@ -29,7 +19,6 @@ function accessAuthorityOfRole(role: AuthorityLabel | null): AccessAuthority {
   }
 }
 
-/** 관리자 권한 없이 교직원 접근만 가진 상태 — 승인·회수가 다루는 바로 그 부여다. */
 export function isStaffOnlyAccess(role: AuthorityLabel | null): boolean {
   const authority = accessAuthorityOfRole(role);
   return authority.hasStaffAccess && !authority.hasAdminAccess;
@@ -50,9 +39,7 @@ export const ADMIN_ACCESS_REQUEST_EFFECTS = {
   UNCHANGED: 'UNCHANGED',
   APPROVED: StaffAccessRequestStatus.APPROVED,
   REJECTED: StaffAccessRequestStatus.REJECTED,
-  // 회수는 대기 중 요청을 결정하는 것이 아니라 **새 REVOKED 행을 남긴다**. 그래서
-  // APPROVED·REJECTED와 달리 기존 행 id가 없고, 쓰기 방식도 CAS가 아니라 INSERT다
-  // (`admin-access-mutation-policy.ts`의 요청 쓰기 계획이 그 차이를 담는다).
+
   REVOKED: StaffAccessRequestStatus.REVOKED,
 } as const;
 
@@ -121,30 +108,6 @@ const DECISIONS = [
   ADMIN_ACCESS_DECISION_KINDS.REJECT,
 ] as const;
 
-/**
- * Exhaustive transition contract (4 roles × 2 account states × 2 pending
- * states) × (4 desired roles × 2 desired account states × 3 decisions).
- *
- * | Current pending | Decision | Desired-state precondition | Outcome |
- * | --- | --- | --- | --- |
- * | none | none | role/status changes | allow |
- * | none | APPROVE/REJECT | — | ROL_016 / 400 |
- * | PENDING | none | no state change | ROL_019 / 400 |
- * | PENDING | none | any state change | ROL_015 / 409 |
- * | PENDING | APPROVE | STAFF + ACTIVE | approve atomically |
- * | PENDING | APPROVE | otherwise | ROL_016 / 400 |
- * | PENDING | REJECT | no contradictory direct STAFF grant | reject atomically |
- * | PENDING | REJECT | direct STAFF grant | ROL_016 / 400 |
- *
- * A non-null role can transition back to null in exactly one case — revoking an
- * active STAFF grant, which clears `User.role` and appends a `REVOKED` request
- * row (#184). Every other non-null → null transition stays ROL_014 / 409, and so
- * does STAFF → null while a request is still PENDING: the request must be decided
- * first, otherwise the account would end up role-less **without** a REVOKED row
- * and the login seed guard (`auth.repository.ts`) would grant the role back.
- * Contextual self-deactivation and last-active-ADMIN guards are flags on allowed
- * entries.
- */
 export const ADMIN_ACCESS_TRANSITION_TABLE: readonly AdminAccessTransitionTableEntry[] =
   currentStates().flatMap((current) =>
     desiredStates().map((desired) => ({
@@ -246,23 +209,6 @@ function classifyTransition(
   }
 }
 
-/**
- * 회수할 수 있는 현재 상태인가 — 확정된 STAFF이고 대기 중 요청이 없을 때만이다.
- *
- * PENDING을 함께 요구하는 이유는 결과물의 모양 때문이다. 회수는 `User.role`을 비우고
- * `REVOKED` 행을 남기는 한 쌍인데, 대기 중 요청이 있으면 그 요청의 결정(APPROVED·
- * REJECTED)이 같은 트랜잭션의 요청 쓰기 자리를 이미 차지한다. 그대로 통과시키면 역할만
- * 비고 `REVOKED` 행은 없는 계정이 생기고, 그런 계정은 로그인 시드 가드(`auth.repository.ts`의
- * `staffAccessRequests: { none: { status: REVOKED } }`)가 회수로 알아보지 못해 다음 로그인에
- * 권한이 되살아난다. 그래서 대기 중 요청은 먼저 결정하게 하고 회수는 그다음이다.
- */
-/**
- * 접힌 표시 역할을 낮추는 레거시 명령인가.
- *
- * STAFF→null 회수는 정본 교직원 칸을 실제로 비우므로 여기 넣지 않는다.
- * STAFF→STUDENT·ADMIN→STAFF/STUDENT는 정본을 바꾸지 못한 채 200을 주던
- * 거짓 강등이라 독립 권한 API로 보낸다. ADMIN에서 교직원을 추론하지 않는다.
- */
 function isLegacyDisplayRoleLowering(
   currentRole: AuthorityLabel | null,
   desiredRole: AuthorityLabel | null,
@@ -280,13 +226,6 @@ function isRevocable(current: AdminAccessTableCurrentState): boolean {
   );
 }
 
-/**
- * 대기 중 요청 없이 접근 상태를 직접 바꾸는 전이가 요청 이력에 남기는 것.
- *
- * STAFF를 회수하는 전이만 `REVOKED` 행을 새로 남기고 나머지 직접 변경은 이력을 건드리지
- * 않는다. 회수 이력은 화면 안내(#184)와 로그인 시드 가드가 모두 읽는 사실이라, 회수라는
- * 사실이 `User.role`이 비었다는 것만으로 표현되면 신규 가입자와 구분되지 않는다.
- */
 function directRequestEffect(
   current: AdminAccessTableCurrentState,
   desired: AdminAccessTableDesiredState,

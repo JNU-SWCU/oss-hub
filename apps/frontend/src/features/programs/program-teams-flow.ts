@@ -34,7 +34,6 @@ export function mapTeamActionError(error: unknown): string {
     : TEAM_REQUEST_FAILED_MESSAGE;
 }
 
-/** 초대의 실제 실패 원인을 보존한다. */
 export function mapInvitationError(problem: ProblemDetail): string {
   switch (problem.code) {
     case 'TIV_001':

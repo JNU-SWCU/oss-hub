@@ -120,7 +120,7 @@ describe('ProgramEditorRepository locking', () => {
             },
           }),
       },
-      // 서류 항목의 제출은 Milestone에서 한 단계 더 들어간 테이블이라 _count로 세지 못한다.
+
       milestoneDocumentSubmission: { count: jest.fn().mockResolvedValue(0) },
     };
     const prisma = {

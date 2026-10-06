@@ -158,7 +158,6 @@ describe('ProgramEditorService milestones', () => {
   });
 
   it('서류 항목에 제출물이 있으면 마일스톤을 지우지 않고 MILESTONE_HAS_SUBMISSIONS로 거부한다', async () => {
-    // Given: 서류 항목(MilestoneDocument)에 제출이 하나 있다.
     const { service, store } = createProgramEditorServiceHarness();
     store.findMilestoneForDelete.mockResolvedValue({
       id: 'cuid-synthetic-milestone',
@@ -168,7 +167,6 @@ describe('ProgramEditorService milestones', () => {
       programRepositoryProvisioningEnabled: false,
     });
 
-    // When / Then
     await expect(
       service.deleteMilestone(101n, 'cuid-synthetic-milestone'),
     ).rejects.toMatchObject<Partial<DomainException>>({
@@ -179,7 +177,6 @@ describe('ProgramEditorService milestones', () => {
   });
 
   it('서류 항목만 있고 제출물이 없으면 마일스톤을 지운다', async () => {
-    // Given: 교직원이 서류 항목만 만들어 둔 마일스톤 — 아직 아무 팀도 내지 않았다.
     const { service, store } = createProgramEditorServiceHarness();
     store.findMilestoneForDelete.mockResolvedValue({
       id: 'cuid-synthetic-milestone',
@@ -189,10 +186,8 @@ describe('ProgramEditorService milestones', () => {
       programRepositoryProvisioningEnabled: false,
     });
 
-    // When
     await service.deleteMilestone(101n, 'cuid-synthetic-milestone');
 
-    // Then: 서류 항목은 마일스톤 없이는 뜻이 없는 설정이라 함께 사라진다(리포지토리가 처리).
     expect(store.deleteMilestone.mock.calls).toEqual([
       ['cuid-synthetic-milestone'],
     ]);

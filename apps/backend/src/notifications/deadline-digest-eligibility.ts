@@ -53,11 +53,6 @@ export type EligibleDeadlineRecipient = {
   readonly milestones: readonly EligibleDeadlineMilestone[];
 };
 
-/**
- * 교직원 요약 메일이 쓰는 마일스톤별 미제출자 명단.
- * `recipients`는 발송 가능자만 남기지만 여기에는 비활성·수신 거부·이메일 없음으로
- * 제외된 사람도 사유를 붙여 남긴다 — 교직원은 「누가 안 냈는지」를 알아야 한다.
- */
 export type StaffDeadlineMilestone = EligibleDeadlineMilestone & {
   readonly missingNicknames: readonly string[];
 };
@@ -99,10 +94,6 @@ type CandidateClassification =
   | { readonly excluded: ExclusionReason }
   | { readonly excluded: null; readonly notificationEmail: string };
 
-/**
- * 집계·명단 표기·발송 가능 판정이 갈라지지 않도록 분류를 한곳에서 내린다.
- * 순서(비활성 → 수신 거부 → 이메일 없음)가 곧 `summary`의 배타적 집계 순서다.
- */
 function classifyCandidate(
   source: DeadlineRecipientSource,
 ): CandidateClassification {
@@ -213,7 +204,7 @@ export function buildDeadlineEligibility(
   for (const candidate of orderedCandidates) {
     const classification = classifyCandidate(candidate.source);
     const label = missingNickname(candidate.source, classification.excluded);
-    // 발송 여부와 무관하게 미제출 명단에는 남긴다(추가 조회 없이 여기서 만든다).
+
     for (const milestoneId of candidate.milestones.keys()) {
       missingNicknames.set(milestoneId, [
         ...(missingNicknames.get(milestoneId) ?? []),
@@ -246,13 +237,7 @@ export function buildDeadlineEligibility(
     optedOutCount: counts.optedOut,
     noEmailCount: counts.noEmail,
   };
-  // previewVersion에는 교직원 수신자를 넣지 않는다.
-  // 교직원 명단은 이 순수 함수의 입력(DeadlineProgramSource)에 없고 별도 조회로 온다.
-  // 넣으면 (1) 09시 cron 경로까지 교직원을 조회해야 하고, (2) 교직원 한 명이 알림
-  // 설정을 바꾼 것만으로 학생 발송 버튼이 409로 막힌다 — 누르는 사람이 화면에서
-  // 볼 수도 고칠 수도 없는 이유로. 반대로 stale이 되는 손해는 10분 TTL 안에 설정을
-  // 바꾼 교직원이 요약 메일을 한 통 더/덜 받는 것뿐이고, 교직원 발송은 별도 멱등
-  // 키로 잠기므로 중복도 나지 않는다. 되돌릴 수 없는 학생 팬아웃만 잠근다.
+
   const canonical = {
     programId: source.id,
     enabled: source.notifyOnDeadline,

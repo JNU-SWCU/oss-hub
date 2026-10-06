@@ -48,7 +48,7 @@ describe('program-route href helpers', () => {
     expect(href).toBe('/programs/prog-1/team');
     expect(href).not.toContain('/apply');
     expect(href).not.toBe(programApplyHref('prog-1'));
-    // 공개 참여 팀 디렉터리(`/teams`)와도 다른 주소다.
+
     expect(href).not.toBe('/programs/prog-1/teams');
   });
 

@@ -15,20 +15,6 @@ import type {
 import type { CollectionAppTokenProvider } from './collection-app.token';
 import type { RequestFingerprint } from './collection-app.frontier';
 
-/**
- * ADR-010 §2·§5 «가입한 학생의 활동만 적재한다»(#682)를 **실 Postgres**에 대해 확인한다.
- *
- * 단위 테스트(`collection-sync.service.spec.ts`)는 in-memory Prisma double 위에서 돈다.
- * 여기서만 확인할 수 있는 것은 세 가지다 —
- *   1. 필터의 기준이 되는 팀원 목록이 실제 스키마의 조인
- *      (`GithubRepository.teamId` → `TeamMember` → `User`, #617 단계 D 이후 한 테이블)으로
- *      제대로 풀리는가,
- *   2. 거른 항목이 세 원본 fact **테이블에** 진짜로 없는가,
- *   3. 그 결과 `Contribution`에 비팀원 행이 생기지 않는가.
- *
- * provider는 stub이다 — 이 suite가 재는 것은 HTTP 계층이 아니라 적재 경계다.
- */
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -110,10 +96,6 @@ const commit = (overrides: Partial<CollectionCommit>): CollectionCommit => ({
   ...overrides,
 });
 
-/**
- * 실제 GraphQL/REST 호출 없이 세 stream의 provider 응답만 고정한다. 팀이 있으면 커밋은
- * author-scoped GraphQL을 쓰고, 팀이 없으면 이 fixture의 저장소 전량 REST 응답을 쓴다.
- */
 const createClient = (
   pullRequests: readonly CollectionPullRequest[],
   releases: readonly CollectionRelease[],
@@ -186,13 +168,6 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
       () => 'synthetic-member-filter-run',
     );
 
-  /**
-   * 팀을 특정할 수 있는 저장소를 만들려면 `GithubRepository`행 자체가 `teamId`를 가리켜야
-   * 한다(#617 단계 D 이후 provision 컬럼도 같은 행에 있다). 그래서 Program → User → Team →
-   * TeamMember → Application → GithubRepository까지 전부 필요하다. 스윕(`service.run()`)이
-   * 같은 `githubRepositoryId`로 관찰 필드만 갱신하고 `teamId`는 절대 건드리지 않는다
-   * (recordRepositoryObservation은 provision 컬럼을 update절에서 제외한다).
-   */
   const seed = async (): Promise<void> => {
     await prisma.program.create({
       data: {
@@ -258,7 +233,6 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
   beforeAll(() => prisma.$connect(), 60_000);
 
   afterEach(async () => {
-    // GithubRepository → fact/aggregate/stream은 onDelete: Cascade라 부모 한 줄이면 지워진다.
     await prisma.githubRepository.deleteMany({
       where: { githubRepositoryId: GITHUB_REPOSITORY_ID },
     });
@@ -359,7 +333,6 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
       { githubIssueId: 9_000_000_680_401n, authorGithubId: MEMBER_GITHUB_ID },
     ]);
 
-    // 비팀원 id로 조회하면 어느 테이블에도 행이 없다.
     await expect(
       prisma.collectionPullRequestFact.count({
         where: { authorGithubId: BigInt(OUTSIDER_GITHUB_ID) },
@@ -371,7 +344,6 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
       }),
     ).resolves.toBe(0);
 
-    // facts에 없으니 집계 행도 팀원 하나뿐이다.
     const aggregates = await prisma.contribution.findMany({
       where: { repositoryId: collected.id },
       select: {
@@ -387,7 +359,6 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
     expect(aggregates[0]?.releaseCount).toBe(1);
     expect(aggregates[0]?.issueCount).toBe(1);
 
-    // 커서는 거른 항목(가장 새 PR = 비팀원 것) 위에 선다 — 다음 run이 그 아래를 다시 받지 않는다.
     const stream = await prisma.collectionRepositoryStream.findUniqueOrThrow({
       where: {
         repositoryId_streamType: {
@@ -405,8 +376,6 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
   });
 
   it('GithubRepository 행에 teamId가 없어 팀을 특정할 수 없어도 가입하지 않은 작성자는 적재하지 않는다', async () => {
-    // seed()를 부르지 않는다 — 가입자만 있고, 스윕이 처음 만드는 GithubRepository 행에는
-    // teamId가 비어 있는 상태(#617 단계 D 이후 provision 컬럼은 별도 신청 산출물이 아니다).
     await prisma.user.create({
       data: {
         id: MEMBER_USER_ID,

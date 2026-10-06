@@ -65,8 +65,7 @@ export function ProgramEditMilestoneDialog({
   readonly onDocumentsDirtyChange?: (dirty: boolean) => void;
 }) {
   const [discardOpen, setDiscardOpen] = useState(false);
-  // 「최신 서버 상태로 다시 시작」은 제출 항목 칸을 새로 그려, 칸 안에 남은 파일 선택
-  // 오류·이름 편집 상태를 버린다. 같은 id 로 다시 그리면 그 상태가 살아남는다.
+
   const [draftVersion, setDraftVersion] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const editorFocusRef = useRef<HTMLElement | null>(null);
@@ -266,16 +265,6 @@ export function ProgramEditMilestoneDialog({
               event.preventDefault();
             }}
           >
-            {/*
-              제목이 결과를 직접 말한다 — 「저장하지 않은 변경」이 사라진다는 사실이 제목에
-              들어 있으므로 같은 말을 반복하는 설명문을 따로 두지 않는다. 종전에는
-              제목·본문·버튼이 「변경사항」을 세 번 말했다.
-
-              단, 가역성 고지 자체를 없애지는 않는다 — 되돌릴 수 없는 행동은 그 사실을
-              반드시 알려야 한다. 그래서 제목이 「버릴까요」로 결과를 드러낸다.
-              `AlertDialog.Description` 은 radix 가 `aria-describedby` 로 쓰므로
-              제거하지 않고 버튼이 무엇을 하는지만 짧게 남긴다.
-            */}
             <AlertDialog.Title className="font-heading text-section font-semibold">
               저장하지 않은 변경을 버릴까요?
             </AlertDialog.Title>

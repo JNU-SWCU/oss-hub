@@ -39,23 +39,6 @@ import { ProgramTeamsService } from '../service/program-teams.service';
 
 type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
-/**
- * 팀 생성·내 팀 조회·교직원 팀 목록/상세/저장소 URL 이력 — ProgramsController 와 분리된 thin sibling.
- * 팀 합류는 초대 수락(`team-invitations`) 단독 경로다 — 참여코드로 합류하는
- * `POST teams/join` 은 초대 전용 규칙을 우회해서 제거했고 대체 경로도 두지 않는다.
- * POST   /api/v1/programs/:programId/teams
- * GET    /api/v1/programs/:programId/teams/me
- * DELETE /api/v1/programs/:programId/teams/me                  (본인 탈퇴)
- * DELETE /api/v1/programs/:programId/teams/me/members/:userId  (팀장의 팀원 제외)
- * GET    /api/v1/programs/:programId/teams          (교직원 전용)
- * GET    /api/v1/programs/:programId/teams/:teamId  (교직원 전용)
- * GET    /api/v1/programs/:programId/teams/:teamId/activity  (그 팀 팀원 또는 교직원)
- * GET    /api/v1/programs/:programId/teams/:teamId/repository-url-history  (그 팀 팀원 또는 교직원)
- * PATCH  /api/v1/programs/:programId/teams/:teamId  (팀장 또는 교직원)
- * DELETE /api/v1/programs/:programId/teams/:teamId  (교직원 전용)
- * DELETE /api/v1/programs/:programId/teams/:teamId/members/:userId  (교직원 전용)
- * PATCH  /api/v1/programs/:programId/teams/:teamId/leader            (교직원 전용)
- */
 @Controller('programs/:programId/teams')
 export class ProgramTeamsController {
   constructor(
@@ -113,11 +96,6 @@ export class ProgramTeamsController {
     await this.service.leave(request.sessionGithubId, programId);
   }
 
-  /**
-   * 팀장이 다른 팀원을 제외한다 — 행위자는 세션(`me`), 대상은 `:userId` 다.
-   * `me/members/:userId` 는 정적 `me` 아래라 교직원 동적 경로(`:teamId`)보다 먼저
-   * 선언해야 가로채이지 않는다. 권한(팀장 여부)·마지막 팀원 규칙은 service 가 판정한다.
-   */
   @Delete('me/members/:userId')
   @HttpCode(204)
   @UseGuards(SessionGuard, OriginGuard)
@@ -129,11 +107,6 @@ export class ProgramTeamsController {
     await this.service.removeMember(request.sessionGithubId, programId, userId);
   }
 
-  /**
-   * 교직원 전용 팀 목록 — 팀원 전원의 실명을 포함한다.
-   * 정적 형제 우선 규칙(`programs.controller.ts` 주석)에 따라 `GET me` 뒤에 선언한다.
-   * 학생도 쓰는 공개 로스터는 `GET /programs/:id/overview/teams` 로 그대로 남는다.
-   */
   @Get()
   @UseGuards(SessionGuard, ProgramTeamsStaffGuard)
   async list(
@@ -144,12 +117,6 @@ export class ProgramTeamsController {
     );
   }
 
-  /**
-   * 교직원 전용 팀 상세(#874) — 팀원·신청 상태·저장소 발급 상태를 한 요청으로 담는다.
-   * 동적 세그먼트라 위의 정적 형제(`me`, 빈 경로)보다 뒤에 선언한다
-   * (`programs.controller.ts` 정적 형제 우선 규칙과 동일).
-   * 없는 팀·다른 프로그램의 팀은 동일하게 404.
-   */
   @Get(':teamId')
   @UseGuards(SessionGuard, ProgramTeamsStaffGuard)
   async detail(
@@ -161,10 +128,6 @@ export class ProgramTeamsController {
     );
   }
 
-  /**
-   * 팀 저장소 활동(#1133) — 팀원(팀장이 아니어도)과 교직원이 같은 문을 쓴다. 그래서
-   * `ProgramTeamsStaffGuard`를 붙이지 않고 권한은 service가 판정한다(`rename`과 같은 이유).
-   */
   @Get(':teamId/activity')
   @UseGuards(SessionGuard)
   async activity(
@@ -181,7 +144,6 @@ export class ProgramTeamsController {
     );
   }
 
-  /** 저장소 URL 변경 이력 — `activity`와 같은 문이라 교직원 전용 가드를 붙이지 않는다. */
   @Get(':teamId/repository-url-history')
   @UseGuards(SessionGuard)
   async repositoryUrlHistory(
@@ -200,11 +162,6 @@ export class ProgramTeamsController {
     );
   }
 
-  /**
-   * 팀 이름 변경 — 해당 팀의 현재 팀장과 교직원·관리자가 같은 문을 쓴다.
-   * 그래서 `ProgramTeamsStaffGuard`를 붙이지 않는다 — 붙이면 팀장이 문 앞에서 막힌다.
-   * 권한은 service가 판정하고, 최종 판정은 팀 행을 잠그고 난 뒤에 repository가 다시 한다.
-   */
   @Patch(':teamId')
   @UseGuards(SessionGuard, OriginGuard)
   async rename(
@@ -223,23 +180,6 @@ export class ProgramTeamsController {
     );
   }
 
-  /**
-   * 교직원 팀 삭제 — 가드를 붙이지 않는 것은 바로 위 `rename`과 같은 이유다. 교직원
-   * 판정은 `ProgramLifecycleService.purge`와 같은 모양으로 service가 하고, 최종 판정은
-   * 팀 행을 잠그고 난 뒤에 repository가 다시 한다.
-   *
-   * 본문을 받는 DELETE다 — `DELETE /programs/:id/purge`와 같은 계약이며,
-   * `expectedScope`는 확인 창이 마지막으로 본 범위라 REQUIRED다.
-   */
-  /**
-   * 교직원의 팀원 제외 — 행위자는 그 팀 밖에 있다.
-   *
-   * 학생 경로(`me/members/:userId`)와 URL이 닮았지만 다른 문이다. 그쪽은 정적 `me`
-   * 아래라 이 동적 경로보다 먼저 선언돼 있어 서로 가로채지 않는다.
-   *
-   * 가드를 붙이지 않는 것은 `rename`·`remove`와 같은 이유다 — 교직원 판정을 service가
-   * 하고, 최종 판정은 팀 행을 잠근 뒤 repository가 다시 한다.
-   */
   @Delete(':teamId/members/:userId')
   @HttpCode(204)
   @UseGuards(SessionGuard, OriginGuard)
@@ -257,10 +197,6 @@ export class ProgramTeamsController {
     );
   }
 
-  /**
-   * 교직원의 팀장 변경 — 대상은 그 팀의 현재 구성원이어야 한다.
-   * 이미 그 사람이 팀장이면 아무것도 바꾸지 않고 204로 끝난다.
-   */
   @Patch(':teamId/leader')
   @HttpCode(204)
   @UseGuards(SessionGuard, OriginGuard)

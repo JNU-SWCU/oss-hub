@@ -57,9 +57,7 @@ export async function mutateAdminAccess(
         await store.findActorByGithubId(input.actorGithubId),
       );
       assertAccessMutationAllowed(unlockedActor, input.userId, input.command);
-      // ADMIN 쓰기는 마지막 관리자·강등 TOCTOU를 막기 위해 활성 ADMIN 집합을
-      // 먼저 잠근다. STAFF 승인/반려는 그 집합을 바꾸지 않으므로 잠그지 않고,
-      // 대상 행 잠금 뒤 actor를 다시 읽어 비활성·강등만 거절한다.
+
       const activeAdminCount = isAdminActor(unlockedActor)
         ? await store.lockActiveAdmins()
         : Number.MAX_SAFE_INTEGER;
@@ -213,9 +211,6 @@ async function applyRequestWrite(
       return { id: write.requestId, status: write.nextStatus };
     }
     case ADMIN_ACCESS_REQUEST_WRITE_KINDS.INSERT_REVOKED: {
-      // 역할을 비운 compare-and-swap과 **같은 트랜잭션**에서 넣는다. 두 쓰기가 갈리면
-      // "역할은 비었는데 회수 이력은 없는" 순간이 커밋 사이에 노출되고, 그 순간에 로그인이
-      // 끼면 시드가 권한을 되살린다(`auth.repository.ts`의 회수 이력 조건).
       const inserted = await store.insertRevokedRequest({
         userId: before.id,
         actorId: actor.id,

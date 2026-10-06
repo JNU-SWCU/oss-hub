@@ -1,6 +1,5 @@
 import { Readable } from 'node:stream';
 
-/** Reads actual, uncompressed ZIP central-directory entries, not the plan. */
 export function archiveEntries(archive: Buffer) {
   const entries: { name: string; body: Buffer }[] = [];
   for (let at = 0; at <= archive.length - 46; at += 1) {

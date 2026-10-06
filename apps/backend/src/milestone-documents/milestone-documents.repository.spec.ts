@@ -26,7 +26,6 @@ function firstCallArgument<T>(mock: jest.Mock): T {
   return argument as T;
 }
 
-/** 두 목의 선후를 비교할 때 쓴다 — 호출되지 않았으면 비교가 아니라 실패여야 한다. */
 function firstInvocationOrder(mock: jest.Mock): number {
   const [order] = mock.mock.invocationCallOrder;
   if (order === undefined) {
@@ -35,7 +34,6 @@ function firstInvocationOrder(mock: jest.Mock): number {
   return order;
 }
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticDocumentId = 'cuid-synthetic-document';
 const syntheticApplicationId = 'cuid-synthetic-application';
@@ -43,28 +41,16 @@ const syntheticUserId = 'cuid-synthetic-user';
 const syntheticFenceProgramId = 'cuid-synthetic-fence-program';
 const syntheticTeamId = 'cuid-synthetic-team';
 
-/** `Prisma.sql` 태그드 템플릿에서 이 스펙이 보는 부분만 적는다. */
 type RawQueryStatement = Readonly<{ strings: readonly string[] }>;
 type RawQueryFn = (sql: RawQueryStatement) => Promise<unknown>;
 
 type MembershipFence = Readonly<{
   applicationFindUnique: jest.Mock;
   applicationFindFirst: jest.Mock;
-  /** 공용 관문이 잡은 행을 잡은 순서대로. */
+
   locks: readonly string[];
 }>;
 
-/**
- * #1269 — 제출 쓰기 트랜잭션은 첫 문장으로 공용 `lockSubmissionMembership`을 지난다.
- * 가짜 트랜잭션을 **실제 관문이 동작하는 형태**로 확장한다 — 관문을 목으로 갈아끼워
- * 늘 통과시키면 이 파일의 시험은 울타리가 사라져도 모두 초록이 된다.
- *
- * ① `Program`·`Team` 잠금 SQL은 여기서 답하고, `Milestone`·`MilestoneDocument` 잠금은
- *   각 시험이 넘긴 `$queryRaw` 목에 그대로 넘긴다 — 기존 once-응답 순서와 호출 횟수
- *   단언이 뜻을 그대로 유지한다.
- * ② `application.findFirst`는 술어를 **평가**한다. 현재 `TeamMember` 절 없이 물으면 터지고,
- *   멤버 명단에 없는 행위자면 null을 돌려 관문이 실제로 닫힌다.
- */
 function attachMembershipFence(
   tx: { $queryRaw: unknown; application?: unknown },
   currentMemberIds: readonly string[] = [syntheticUserId],
@@ -122,7 +108,6 @@ function attachMembershipFence(
 
 describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
   it('REPEATABLE READ transaction store로 좌표와 상세를 같은 DB snapshot에서 읽는다', async () => {
-    // Given
     const transaction = {
       milestone: {
         findUnique: jest.fn().mockResolvedValue({
@@ -187,7 +172,6 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.withCollectionSnapshot(async (store) => {
       const milestone = await store.findMilestone(syntheticMilestoneId);
       const documents = await store.findByMilestoneId(syntheticMilestoneId);
@@ -205,7 +189,6 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
       return { coordinates, submissions };
     });
 
-    // Then
     expect($transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
     });
@@ -233,7 +216,6 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
 
 describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
   it('sortOrder 오름차순으로 조회하고 templateFile 유무를 templateFileId로 평탄화한다', async () => {
-    // Given
     const findMany = jest.fn().mockResolvedValue([
       {
         id: syntheticDocumentId,
@@ -260,10 +242,8 @@ describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findByMilestoneId(syntheticMilestoneId);
 
-    // Then
     expect(findMany).toHaveBeenCalledWith({
       where: {
         milestoneId: syntheticMilestoneId,
@@ -288,17 +268,14 @@ describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
 
 describe('MilestoneDocumentsRepository.findActiveUser', () => {
   it('githubId + ACTIVE 조건으로 id/role만 select한다', async () => {
-    // Given
     const findFirst = jest
       .fn()
       .mockResolvedValue({ id: syntheticUserId, role: 'STUDENT' });
     const prisma = { user: { findFirst } } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.findActiveUser(9001n);
 
-    // Then
     expect(findFirst).toHaveBeenCalledWith({
       where: { githubId: 9001n, accountStatus: AccountStatus.ACTIVE },
       select: { id: true, hasStaffAccess: true, hasAdminAccess: true },
@@ -308,15 +285,12 @@ describe('MilestoneDocumentsRepository.findActiveUser', () => {
 
 describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissionsByDocument', () => {
   it('승인된 신청 수를 센다', async () => {
-    // Given
     const count = jest.fn().mockResolvedValue(8);
     const prisma = { application: { count } } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.countApprovedApplications('cuid-program');
 
-    // Then
     expect(count).toHaveBeenCalledWith({
       where: { programId: 'cuid-program', status: ApplicationStatus.APPROVED },
     });
@@ -324,26 +298,22 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
   });
 
   it('documentIds가 비어 있으면 groupBy를 호출하지 않고 빈 맵을 돌려준다', async () => {
-    // Given
     const groupBy = jest.fn();
     const prisma = {
       milestoneDocumentSubmission: { groupBy },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.countSubmissionsByDocument(
       'cuid-program',
       [],
     );
 
-    // Then
     expect(groupBy).not.toHaveBeenCalled();
     expect(result.size).toBe(0);
   });
 
   it('서류별 제출 신청 수를 Map으로 돌려준다', async () => {
-    // Given
     const groupBy = jest
       .fn()
       .mockResolvedValue([
@@ -354,33 +324,24 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.countSubmissionsByDocument('cuid-program', [
       syntheticDocumentId,
     ]);
 
-    // Then
     expect(result.get(syntheticDocumentId)).toBe(6);
   });
 
-  /**
-   * #1100 — 분자도 분모와 같은 모집단(같은 프로그램의 승인된 신청)을 세는지 본다. 이 조건이
-   * 빠지면 승인을 되돌린 팀의 제출이 분자에만 남아 「1 / 0팀 제출」이 나온다.
-   */
   it('분자는 분모와 같은 모집단 — 같은 프로그램의 승인된 신청 제출만 센다', async () => {
-    // Given
     const groupBy = jest.fn().mockResolvedValue([]);
     const prisma = {
       milestoneDocumentSubmission: { groupBy },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.countSubmissionsByDocument('cuid-program', [
       syntheticDocumentId,
     ]);
 
-    // Then
     expect(groupBy).toHaveBeenCalledWith({
       by: ['milestoneDocumentId'],
       where: {
@@ -396,11 +357,6 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
 });
 
 describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
-  /**
-   * 교직원 쓰기 경로는 전부 `withTransaction`의 store를 지난다. 트랜잭션 밖 클라이언트에도 같은
-   * 이름의 메서드를 달아 두고 **그쪽이 호출되면 실패**하게 한다 — 잠금 없는 단발 경로가
-   * 되살아나는 것을 이 목이 잡는다.
-   */
   function buildStorePrisma() {
     const create = jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
@@ -412,7 +368,7 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
     const templateDeleteMany = jest.fn();
     const documentDelete = jest.fn();
     const count = jest.fn().mockResolvedValue(2);
-    // 생성은 잠금 아래에서 max+1을 계산한다 — 지금 마지막 항목이 2번이라는 뜻.
+
     const aggregate = jest.fn().mockResolvedValue({ _max: { sortOrder: 2 } });
     const direct = {
       create: jest.fn(),
@@ -444,11 +400,9 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
   }
 
   it('createDocument는 sortOrder를 잠금 아래에서 max+1로 정해 맨 뒤에 붙인다', async () => {
-    // Given: 순서는 서버가 정한다 — 요청 값을 믿으면 두 교직원이 동시에 추가할 때 겹친다.
     const { prisma, create, aggregate, direct } = buildStorePrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.withTransaction((store) =>
       store.createDocument(syntheticMilestoneId, {
         name: '새 서류',
@@ -456,7 +410,6 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
       }),
     );
 
-    // Then
     expect(aggregate).toHaveBeenCalledWith({
       where: {
         milestoneId: syntheticMilestoneId,
@@ -480,12 +433,10 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
   });
 
   it('createDocument는 첫 항목이면 sortOrder를 1로 정한다', async () => {
-    // Given: 아직 아무 항목도 없어 max가 null이다.
     const { prisma, create, aggregate } = buildStorePrisma();
     aggregate.mockResolvedValue({ _max: { sortOrder: null } });
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.withTransaction((store) =>
       store.createDocument(syntheticMilestoneId, {
         name: '첫 서류',
@@ -493,7 +444,6 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
       }),
     );
 
-    // Then
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: {
@@ -508,17 +458,14 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
   });
 
   it('deleteDocument는 같은 트랜잭션에서 양식 파일을 먼저 지우고 서류 항목을 지운다', async () => {
-    // Given
     const { prisma, templateDeleteMany, documentDelete, direct } =
       buildStorePrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.withTransaction((store) =>
       store.deleteDocument(syntheticDocumentId),
     );
 
-    // Then
     expect(templateDeleteMany).toHaveBeenCalledWith({
       where: { milestoneDocumentId: syntheticDocumentId },
     });
@@ -533,16 +480,13 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
   });
 
   it('countSubmissionsForDocument는 해당 서류의 제출 수를 트랜잭션 안에서 센다', async () => {
-    // Given
     const { prisma, count, direct } = buildStorePrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.withTransaction((store) =>
       store.countSubmissionsForDocument(syntheticDocumentId),
     );
 
-    // Then
     expect(count).toHaveBeenCalledWith({
       where: { milestoneDocumentId: syntheticDocumentId },
     });
@@ -554,13 +498,13 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
 describe('MilestoneDocumentsRepository.upsertSubmission', () => {
   function transactionPrisma(
     overrides: Record<string, unknown>,
-    /** 잠금 뒤 다시 읽은 최신 판정. 기본은 「아직 판정 없음」이다. */
+
     lockedLatestReview: { readonly id: string } | null = null,
-    /** 잠금 뒤 다시 읽은 현재 제출 행. 기본은 「보완 요청을 받고 아직 안 냈다」이다. */
+
     lockedSubmission: { readonly status: SubmissionStatus } | null = {
       status: SubmissionStatus.CHANGES_REQUESTED,
     },
-    /** 잠금 뒤 되읽은 현재 팀원 명단. 기본은 「제출자는 지금도 팀원」이다. */
+
     currentMemberIds: readonly string[] = [syntheticUserId],
   ) {
     const submissionUpsert = jest.fn().mockResolvedValue({
@@ -593,8 +537,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       submissionFile: { updateMany: fileUpdateMany, findMany: fileFindMany },
       ...overrides,
     };
-    // 쓰기 앞의 공용 관문이 지나갈 자리. Program·Team 잠금은 여기서 가로채고,
-    // 각 시험이 넘긴 `$queryRaw` 목은 서류 계열 잠금만 그대로 받는다.
+
     const fence = attachMembershipFence(tx, currentMemberIds);
     const prisma = {
       $transaction: jest.fn((callback: (transaction: unknown) => unknown) =>
@@ -616,11 +559,9 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
   }
 
   it('attachFile이 없으면(TEXT) 파일 붙이기를 건너뛴다', async () => {
-    // Given
     const { prisma, fileUpdateMany } = transactionPrisma({});
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
       applicationId: syntheticApplicationId,
@@ -631,7 +572,6 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       expectedLatestReviewId: null,
     });
 
-    // Then
     expect(fileUpdateMany).not.toHaveBeenCalled();
   });
 
@@ -695,19 +635,12 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     expect(queryRaw).toHaveBeenCalledTimes(2);
   });
 
-  /**
-   * #1097 후속. 같은 팀 두 사람이 마감 뒤 거의 동시에 내면 **둘 다** 트랜잭션 밖에서
-   * `CHANGES_REQUESTED`를 읽어 마감 예외를 미리 허락받는다. 첫 재제출은 판정을 새로 만들지
-   * 않으므로 두 번째 요청의 `expectedLatestReviewId`도 그대로 맞고, 판정 id만 재확인하던
-   * 옛 코드는 그 요청을 그대로 저장했다 — 「재제출은 한 번」이 두 번이 되고, 두 번째 사람의
-   * 내용이 첫 번째 사람의 내용을 덮었다.
-   */
   it('마감 뒤 재제출: 잠금 아래에서 제출 상태가 이미 바뀌었으면 덮어쓰지 않는다', async () => {
     const queryRaw = jest
       .fn()
       .mockResolvedValueOnce([{ dueAt: new Date('2026-09-19T09:00:00.000Z') }])
       .mockResolvedValueOnce([{ id: syntheticDocumentId }]);
-    // 팀원이 먼저 낸 뒤라 상태는 이미 SUBMITTED다. 최신 판정 id는 그대로 그 보완 요청이다.
+
     const { prisma, submissionUpsert, historyCreate } = transactionPrisma(
       { $queryRaw: queryRaw },
       { id: 'cuid-synthetic-review' },
@@ -735,10 +668,6 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     expect(historyCreate).not.toHaveBeenCalled();
   });
 
-  /**
-   * 상태 재확인은 **서류 행을 `FOR UPDATE`로 잡은 뒤에** 해야 뜻이 있다. 잠금 앞에서 읽으면
-   * 동시에 도착한 두 요청이 둘 다 옛 상태를 보고 지나간다 — 확인하는 시늉만 남는다.
-   */
   it('제출 상태 재확인은 서류 행 잠금 뒤에 한다', async () => {
     const order: string[] = [];
     const queryRaw = jest
@@ -787,10 +716,6 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     expect(order).toEqual(['lock', 'recheck']);
   });
 
-  /**
-   * 마감 **전** 교체는 몇 번이든 되는 일이다. 여기서까지 상태를 대조하면 팀원 둘이 이어서
-   * 고쳐 내는 지금 되는 흐름이 사라진다 — 재확인은 마감을 지나간 요청에만 붙는다.
-   */
   it('마감 전에는 제출 상태를 대조하지 않는다', async () => {
     const queryRaw = jest
       .fn()
@@ -822,7 +747,6 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
   });
 
   it('서류 행 존재를 FOR UPDATE로 잠근 다음에야 제출을 쓴다 — 삭제·판정·제출을 직렬화한다', async () => {
-    // Given: 이 잠금이 없으면 삭제가 제출 upsert와 교차해 끊어진 관계를 만들 수 있다.
     const order: string[] = [];
     const queryRaw = jest.fn(() => {
       order.push('lock');
@@ -843,7 +767,6 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     });
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
       applicationId: syntheticApplicationId,
@@ -854,9 +777,8 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       expectedLatestReviewId: null,
     });
 
-    // Then
     expect(order).toEqual(['lock', 'upsert']);
-    // #1269 — 공용 관문은 Program → Team 순으로, 그리고 서류 행 잠금보다 먼저 지난다.
+
     expect(fence.locks).toEqual(['Program', 'Team']);
     expect(firstInvocationOrder(fence.applicationFindFirst)).toBeLessThan(
       firstInvocationOrder(queryRaw),
@@ -921,7 +843,6 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
   });
 
   it('재제출 파일은 이전 파일을 지우지 않고 새 이력에 붙인다', async () => {
-    // Given
     const fileUpdateMany = jest.fn().mockResolvedValueOnce({ count: 1 });
     const { prisma } = transactionPrisma({
       submissionFile: {
@@ -939,7 +860,6 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     const repository = new MilestoneDocumentsRepository(prisma);
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
 
-    // When
     const result = await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
       applicationId: syntheticApplicationId,
@@ -954,7 +874,6 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       expectedLatestReviewId: null,
     });
 
-    // Then
     expect(fileUpdateMany).toHaveBeenCalledTimes(1);
     expect(fileUpdateMany).toHaveBeenCalledWith({
       where: {
@@ -976,14 +895,12 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
   });
 
   it('pending 파일이 만료·소유자 불일치로 1건 붙지 않으면 MilestoneDocumentPendingFileMissingError를 던진다', async () => {
-    // Given: pending → ATTACHED 갱신이 0건이다(만료됐거나 이미 다른 신청에 붙음).
     const fileUpdateMany = jest.fn().mockResolvedValueOnce({ count: 0 });
     const { prisma } = transactionPrisma({
       submissionFile: { updateMany: fileUpdateMany, findMany: jest.fn() },
     });
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When / Then
     await expect(
       repository.upsertSubmission({
         milestoneDocumentId: syntheticDocumentId,
@@ -1002,14 +919,12 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
   });
 
   it('잠근 뒤 다시 읽은 최신 판정이 기대와 다르면 제출을 쓰지 않는다', async () => {
-    // Given: 서비스가 「판정 없음」을 보고 허용했는데, 그 사이 교직원이 판정을 등록했다.
     const { prisma, submissionUpsert } = transactionPrisma(
       {},
       { id: 'cuid-synthetic-review' },
     );
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When / Then
     await expect(
       repository.upsertSubmission({
         milestoneDocumentId: syntheticDocumentId,
@@ -1025,14 +940,12 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
   });
 
   it('판정이 그대로면(기대값과 같은 id) 제출을 쓴다', async () => {
-    // Given: 보완 요청을 받고 다시 내는 정상 경로다.
     const { prisma, submissionUpsert } = transactionPrisma(
       {},
       { id: 'cuid-synthetic-review' },
     );
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
       applicationId: syntheticApplicationId,
@@ -1043,18 +956,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       expectedLatestReviewId: 'cuid-synthetic-review',
     });
 
-    // Then
     expect(submissionUpsert).toHaveBeenCalled();
   });
 
   it('재제출은 리비전을 DB에서 1 올린다 — 교직원이 본 버전과 갈라지는 유일한 표식이다', async () => {
-    // Given: 리비전을 올리지 않으면 같은 밀리초에 겹친 재제출이 submittedAt·행 id·리비전
-    // 어느 것도 바꾸지 않아, 판정 요청의 기대 버전 대조가 그대로 통과한다 — 교직원이 본 적
-    // 없는 내용이 승인된다.
     const { prisma, submissionUpsert } = transactionPrisma({});
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
       applicationId: syntheticApplicationId,
@@ -1065,8 +973,6 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       expectedLatestReviewId: null,
     });
 
-    // Then: `{ increment: 1 }`이어야 한다. 값을 읽어 와 더한 뒤 쓰면(예: `revision: 4`)
-    // 두 재제출이 같은 값을 읽어 같은 값을 써서 리비전이 한 번만 올라간다.
     const { update } = firstCallArgument<{
       update: Record<string, unknown>;
     }>(submissionUpsert);
@@ -1102,11 +1008,9 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
   });
 
   it('첫 제출은 리비전을 직접 쓰지 않는다 — 시작값 1은 스키마 기본값이 준다', async () => {
-    // Given: create가 값을 들고 있으면 시작값이 스키마와 코드 두 곳에 생겨 언젠가 갈린다.
     const { prisma, submissionUpsert } = transactionPrisma({});
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
       applicationId: syntheticApplicationId,
@@ -1117,7 +1021,6 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       expectedLatestReviewId: null,
     });
 
-    // Then
     const { create } = firstCallArgument<{
       create: Record<string, unknown>;
     }>(submissionUpsert);
@@ -1125,7 +1028,6 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
   });
 
   it('판정 재확인은 서류 행을 FOR SHARE로 잠근 뒤에 한다 — 잠금 전에 읽으면 재확인이 아니다', async () => {
-    // Given
     const order: string[] = [];
     const queryRaw = jest.fn(() => {
       order.push('lock');
@@ -1141,7 +1043,6 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     });
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
       applicationId: syntheticApplicationId,
@@ -1152,21 +1053,14 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       expectedLatestReviewId: null,
     });
 
-    // Then
     expect(order).toEqual(['lock', 'readLatestReview']);
   });
 
-  /**
-   * #1269 — 사전 인가와 쓰기 사이에 팀원 제외가 커밋되면, 잠금 뒤 되읽은 사실이
-   * 「이미 이 팀 사람이 아니다」가 된다. 제출·이력·첨부 어느 것도 남지 않아야 한다.
-   */
   it('잠금 뒤 현재 팀원이 아니면 제출·이력·첨부를 쓰지 않는다', async () => {
-    // Given: 멤버 명단에서 제출자가 빠졌다.
     const { prisma, submissionUpsert, historyCreate, fileUpdateMany, fence } =
       transactionPrisma({}, null, null, []);
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When / Then
     await expect(
       repository.upsertSubmission({
         milestoneDocumentId: syntheticDocumentId,
@@ -1269,7 +1163,6 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
 });
 
 describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
-  /** 판정 경로도 트랜잭션 밖 클라이언트를 따로 세어, 잠금 없는 단발 경로로 새면 잡는다. */
   function buildReviewStorePrisma(
     options: { latestReview?: { id: string } | null } = {},
   ) {
@@ -1335,11 +1228,9 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
   }
 
   it('findSubmissionForReview는 (서류, 신청) 복합 키로 제출 한 건을 찾는다', async () => {
-    // Given
     const { prisma, submissionFindUnique } = buildReviewStorePrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.withTransaction((store) =>
       store.findSubmissionForReview(
         syntheticDocumentId,
@@ -1347,7 +1238,6 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       ),
     );
 
-    // Then
     expect(submissionFindUnique).toHaveBeenCalledWith({
       where: {
         milestoneDocumentId_applicationId: {
@@ -1355,9 +1245,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
           applicationId: syntheticApplicationId,
         },
       },
-      // revision까지 읽는 것이 요점이다 — 서비스가 「검토자가 본 그 버전인가」를 이 값으로
-      // 대조한다. id만 읽으면 재제출로 내용이 바뀐 제출에 그대로 판정이 붙는다.
-      // submittedAt이 아닌 이유는 같은 밀리초의 재제출이 같은 시각을 갖기 때문이다.
+
       select: {
         id: true,
         revision: true,
@@ -1404,17 +1292,13 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
   });
 
   it('findLatestReviewIdForSubmission은 수합 표와 같은 정렬로 최신 한 건의 id만 읽는다', async () => {
-    // Given: 정렬이 갈라지면 화면이 본 「최신 판정」과 서버가 비교하는 「최신 판정」이 서로
-    // 다른 행을 가리켜, 대조가 통과해도 덮어쓰기가 그대로 일어난다.
     const { prisma, reviewFindFirst } = buildReviewStorePrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.withTransaction((store) =>
       store.findLatestReviewIdForSubmission('cuid-synthetic-submission'),
     );
 
-    // Then
     expect(reviewFindFirst).toHaveBeenCalledWith({
       where: { milestoneDocumentSubmissionId: 'cuid-synthetic-submission' },
       orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
@@ -1424,29 +1308,23 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
   });
 
   it('판정이 없으면 findLatestReviewIdForSubmission은 null이다', async () => {
-    // Given: 「아직 아무도 보지 않았다」를 요청의 기대값 null과 맞출 수 있어야 한다.
-    //  undefined가 새어 나가면 null 기대값과 어긋나 첫 판정이 전부 409가 된다.
     const { prisma } = buildReviewStorePrisma({ latestReview: null });
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.withTransaction((store) =>
       store.findLatestReviewIdForSubmission('cuid-synthetic-submission'),
     );
 
-    // Then
     expect(result).toBeNull();
   });
 
   it('createReview는 create로 판정을 쌓는다 — upsert/update로 덮어쓰지 않는다', async () => {
-    // Given: 덮어쓰면 지난 지적이 사라진다. 교직원이 바뀌어도 남아야 한다는 것이 요구다.
     const { prisma, reviewCreate, historyCreate, direct } =
       buildReviewStorePrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
     const resubmissionDueAt = new Date('2026-09-25T09:00:00.000Z');
 
-    // When
     const result = await repository.withTransaction((store) =>
       store.createReview({
         milestoneDocumentSubmissionId: 'cuid-synthetic-submission',
@@ -1460,7 +1338,6 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       }),
     );
 
-    // Then
     expect(reviewCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: {
@@ -1486,24 +1363,22 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       },
       select: { id: true },
     });
-    // 응답이 쓸 표시 이름은 관계에서 평탄화해 내보낸다(내부 reviewerId는 내보내지 않는다).
+
     expect(result).toEqual({
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
-      // 기한도 응답에 그대로 실린다 — 방금 저장한 보완 요청이 언제까지인지 화면이 바로 안다.
+
       resubmissionDueAt,
       reviewerNickname: 'synthetic-staff',
     });
   });
 
   it('updateSubmissionStatus는 트랜잭션 안에서 제출 상태만 갱신한다', async () => {
-    // Given
     const { prisma, submissionUpdate, direct } = buildReviewStorePrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.withTransaction((store) =>
       store.updateSubmissionStatus(
         'cuid-synthetic-submission',
@@ -1511,7 +1386,6 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       ),
     );
 
-    // Then
     expect(submissionUpdate).toHaveBeenCalledWith({
       where: { id: 'cuid-synthetic-submission' },
       data: { status: SubmissionStatus.CHANGES_REQUESTED },
@@ -1522,10 +1396,6 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
 });
 
 describe('MilestoneDocumentsRepository.withTransaction', () => {
-  /**
-   * 트랜잭션 클라이언트와 트랜잭션 밖 클라이언트를 따로 세는 가짜 Prisma. store의 문장이
-   * 트랜잭션 밖으로 새면(= 개별 연산으로 되돌아가면) direct 쪽이 호출된다.
-   */
   function buildTransactionPrisma() {
     const transactionQueryRaw = jest.fn().mockResolvedValue([
       {
@@ -1572,16 +1442,13 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
   }
 
   it('lockDocument는 대상 행을 FOR UPDATE로 잠그고 다시 읽는다', async () => {
-    // Given
     const { prisma, transactionQueryRaw } = buildTransactionPrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const locked = await repository.withTransaction((store) =>
       store.lockDocument(syntheticDocumentId),
     );
 
-    // Then
     const sql = firstCallArgument<{ strings: string[]; values: unknown[] }>(
       transactionQueryRaw,
     );
@@ -1594,28 +1461,23 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
   });
 
   it('lockDocument는 행이 없으면 null을 돌려준다', async () => {
-    // Given
     const { prisma, transactionQueryRaw } = buildTransactionPrisma();
     transactionQueryRaw.mockResolvedValue([]);
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const locked = await repository.withTransaction((store) =>
       store.lockDocument(syntheticDocumentId),
     );
 
-    // Then
     expect(locked).toBeNull();
   });
 
   it('store.upsertTemplateFile은 트랜잭션 클라이언트에만 양식 upsert를 위임한다', async () => {
-    // Given
     const { prisma, transactionTemplateUpsert, directTemplateUpsert } =
       buildTransactionPrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
     const uploadedAt = new Date('2026-09-01T00:00:00.000Z');
 
-    // When
     await repository.withTransaction((store) =>
       store.upsertTemplateFile({
         milestoneDocumentId: syntheticDocumentId,
@@ -1628,7 +1490,6 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
       }),
     );
 
-    // Then
     expect(transactionTemplateUpsert).toHaveBeenCalledWith({
       where: { milestoneDocumentId: syntheticDocumentId },
       update: {
@@ -1653,7 +1514,6 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
   });
 
   it('승인된 신청만 팀 이름 오름차순으로 조회하고 표시 이름 관례를 그대로 쓴다', async () => {
-    // Given
     const findMany = jest.fn().mockResolvedValue([
       {
         id: syntheticApplicationId,
@@ -1670,11 +1530,9 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
     const prisma = { application: { findMany } } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result =
       await repository.findApprovedApplicationsForCollection('cuid-program');
 
-    // Then
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
@@ -1695,15 +1553,12 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
   });
 
   it('팀원은 TeamMember createdAt 오름차순으로 조회한다', async () => {
-    // Given
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = { application: { findMany } } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.findApprovedApplicationsForCollection('cuid-program');
 
-    // Then
     const call = firstCallArgument<{
       select: { team: { select: { members: { orderBy: unknown } } } };
     }>(findMany);
@@ -1713,7 +1568,6 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
   });
 
   it('프로필이 있으면 프로필 이름을 신청자 이름으로 쓴다', async () => {
-    // Given: User.name과 Profile.name이 다르다.
     const findMany = jest.fn().mockResolvedValue([
       {
         id: syntheticApplicationId,
@@ -1724,11 +1578,9 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
     const prisma = { application: { findMany } } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result =
       await repository.findApprovedApplicationsForCollection('cuid-program');
 
-    // Then
     expect(result[0]?.applicantName).toBe('프로필 이름');
   });
 });
@@ -1737,23 +1589,19 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
   const now = new Date('2026-09-20T00:00:00.000Z');
 
   it('documentIds가 비어 있으면 조회하지 않는다', async () => {
-    // Given
     const findMany = jest.fn();
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmissionsForCollection([], now);
 
-    // Then
     expect(findMany).not.toHaveBeenCalled();
     expect(result).toEqual([]);
   });
 
   it('ATTACHED이고 아직 만료되지 않은 첨부만 붙인다', async () => {
-    // Given
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
@@ -1777,13 +1625,11 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmissionsForCollection(
       [syntheticDocumentId],
       now,
     );
 
-    // Then: 만료 필터가 빠지면 「목록엔 보이는데 받으면 실패」가 생긴다.
     const call = firstCallArgument<{
       select: {
         files: { where: unknown; orderBy: unknown; take: number };
@@ -1841,7 +1687,6 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
   });
 
   it('붙은 첨부가 없으면 file은 null이다', async () => {
-    // Given
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
@@ -1857,20 +1702,16 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmissionsForCollection(
       [syntheticDocumentId],
       now,
     );
 
-    // Then
     expect(result[0]?.file).toBeNull();
     expect(result[0]?.review).toBeNull();
   });
 
   it('칸에 리비전을 함께 싣는다 — 프런트가 판정 요청에 되돌려 보낼 값이다', async () => {
-    // Given: 이 값이 응답에 없으면 교직원 화면은 expectedRevision에 보낼 것이 없어 판정을
-    // 아예 못 하거나, 추측한 값으로 보내 늘 409를 받는다.
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
@@ -1888,21 +1729,17 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmissionsForCollection(
       [syntheticDocumentId],
       now,
     );
 
-    // Then
     const call = firstCallArgument<{ select: { revision: unknown } }>(findMany);
     expect(call.select.revision).toBe(true);
     expect(result[0]?.revision).toBe(2);
   });
 
   it('제출 상태를 판정과 함께 싣는다 — 재제출로 되돌아온 칸을 표가 알아야 한다', async () => {
-    // Given: 보완 요청에 응해 다시 낸 제출이다. 상태는 SUBMITTED로 되돌아왔지만 최신 판정은
-    // CHANGES_REQUESTED로 남아 있다. 상태를 싣지 않으면 표가 옛 판정으로만 칸을 그린다.
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
     const findMany = jest.fn().mockResolvedValue([
       {
@@ -1925,13 +1762,11 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmissionsForCollection(
       [syntheticDocumentId],
       now,
     );
 
-    // Then: 같은 조회에서 함께 읽는다(칸마다 다시 묻지 않는다).
     const call = firstCallArgument<{ select: { status: unknown } }>(findMany);
     expect(call.select.status).toBe(true);
     expect(findMany).toHaveBeenCalledTimes(1);
@@ -1940,7 +1775,6 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
   });
 
   it('수합 표는 이력을 싣지 않고 최신 판정 한 건만 붙인다', async () => {
-    // Given: 판정은 쌓이므로 정렬 없이 읽으면 어느 판정이 「지금 판정」인지 정해지지 않는다.
     const firstReviewedAt = new Date('2026-09-17T09:00:00.000Z');
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
     const findMany = jest.fn().mockResolvedValue([
@@ -1987,13 +1821,11 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmissionsForCollection(
       [syntheticDocumentId],
       now,
     );
 
-    // Then: 최신 한 건만 읽고, 전체 이력은 단건 cursor endpoint에 맡긴다.
     const call = firstCallArgument<{
       select: {
         reviewHistories: { orderBy: unknown; select: unknown };
@@ -2008,7 +1840,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       decision: true,
       comment: true,
       reviewedAt: true,
-      // 기한을 함께 읽지 않으면 표는 「언제까지」를 모른 채 배지만 그린다.
+
       resubmissionDueAt: true,
       reviewer: { select: { nickname: true } },
       submissionHistory: { select: { revision: true } },
@@ -2023,8 +1855,6 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
   });
 
   it('글 제출의 본문을 칸 재료에 함께 싣는다', async () => {
-    // Given: TEXT 서류는 첨부가 없다. content를 읽지 않으면 교직원이
-    // 제출 내용을 한 글자도 보지 못한 채 승인·반려하게 된다.
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
@@ -2041,13 +1871,11 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmissionsForCollection(
       [syntheticDocumentId],
       now,
     );
 
-    // Then
     const call = firstCallArgument<{ select: { content?: boolean } }>(findMany);
     expect(call.select.content).toBe(true);
     expect(result[0]?.content).toEqual({
@@ -2057,19 +1885,14 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
   });
 
   it('표 조회의 select에는 storageKey가 없다 — 스토리지 열쇠가 응답 DTO로 샐 길을 구조적으로 막는다', async () => {
-    // Given: 이 조회의 결과는 브라우저로 나가는 응답 본문이 된다. 여기에 열쇠가 실려 있으면
-    // 매핑을 한 번만 잘못해도 객체 키가 그대로 화면에 노출된다. ZIP 조회
-    // (findSubmissionsForArchive)를 따로 둔 이유가 그것이다.
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.findSubmissionsForCollection([syntheticDocumentId], now);
 
-    // Then
     const call = firstCallArgument<{
       select: { files: { select: Record<string, unknown> } };
     }>(findMany);
@@ -2086,23 +1909,19 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
   const now = new Date('2026-09-20T00:00:00.000Z');
 
   it('documentIds가 비어 있으면 조회하지 않는다', async () => {
-    // Given
     const findMany = jest.fn();
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmissionsForArchive([], now);
 
-    // Then: 서류 항목이 하나도 없는 마일스톤도 ZIP을 만들 수 있어야 한다(현황표만 담긴다).
     expect(findMany).not.toHaveBeenCalled();
     expect(result).toEqual([]);
   });
 
   it('첨부의 storageKey를 함께 뽑는다 — 표 조회와 갈라 둔 이유가 이 열쇠다', async () => {
-    // Given
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
@@ -2128,13 +1947,11 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmissionsForArchive(
       [syntheticDocumentId],
       now,
     );
 
-    // Then: 열쇠가 없으면 압축이 스토리지에서 파일을 꺼내 올 방법이 없다.
     const call = firstCallArgument<{
       select: { files: { select: Record<string, unknown> } };
     }>(findMany);
@@ -2189,17 +2006,14 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
   });
 
   it('현재 revision 증거를 판정하도록 최신 첨부 1건을 읽는다', async () => {
-    // Given
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.findSubmissionsForArchive([syntheticDocumentId], now);
 
-    // Then: 조건이 빠지면 이미 지워졌거나 아직 붙지 않은 파일을 열러 가 압축이 통째로 끊긴다.
     const call = firstCallArgument<{
       where: unknown;
       select: { files: { where?: unknown; orderBy: unknown; take: number } };
@@ -2256,7 +2070,6 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
   });
 
   it('붙은 첨부가 없으면 file은 null이다 — 글 제출은 본문으로 담는다', async () => {
-    // Given: TEXT 제출은 첨부가 없고 content만 있다.
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
@@ -2272,13 +2085,11 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmissionsForArchive(
       [syntheticDocumentId],
       now,
     );
 
-    // Then
     expect(result[0]?.file).toBeNull();
     expect(result[0]?.hasCurrentFileEvidence).toBe(false);
     expect(result[0]?.content).toEqual({
@@ -2288,17 +2099,14 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
   });
 
   it('ZIP이 쓰지 않는 판정 이력은 빼고, 현재 파일 대조용 revision만 뽑는다', async () => {
-    // Given: 압축 스트림은 그 값을 한 번도 쓰지 않는다. 조회에 남겨 두면 언젠가 쓰인다.
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.findSubmissionsForArchive([syntheticDocumentId], now);
 
-    // Then
     const call = firstCallArgument<{ select: Record<string, unknown> }>(
       findMany,
     );
@@ -2316,7 +2124,6 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
 
 describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
   it('제출 상태와 최신 판정을 한 번의 조회로 함께 싣는다 — 칸마다 다시 묻지 않는다', async () => {
-    // Given
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
     const findMany = jest.fn().mockResolvedValue([
@@ -2349,13 +2156,11 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmittedSummaries(
       syntheticApplicationId,
       [syntheticDocumentId],
     );
 
-    // Then
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(result[0]).toEqual({
       milestoneDocumentId: syntheticDocumentId,
@@ -2375,7 +2180,6 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
   });
 
   it('아직 아무도 판정하지 않았으면 review는 null이다', async () => {
-    // Given
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
@@ -2392,13 +2196,11 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmittedSummaries(
       syntheticApplicationId,
       [syntheticDocumentId],
     );
 
-    // Then
     expect(result[0]?.review).toBeNull();
     expect(result[0]?.historyComplete).toBe(true);
   });
@@ -2427,20 +2229,17 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
   });
 
   it('documentIds가 비어 있으면 조회하지 않는다', async () => {
-    // Given
     const findMany = jest.fn();
     const prisma = {
       milestoneDocumentSubmission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmittedSummaries(
       syntheticApplicationId,
       [],
     );
 
-    // Then
     expect(findMany).not.toHaveBeenCalled();
     expect(result).toEqual([]);
   });
@@ -2525,7 +2324,6 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
 
 describe('MilestoneDocumentsRepository.findLatestReview', () => {
   it('(서류, 신청) 제출의 최신 판정을 id·decision·재제출 기한만 뽑아 돌려준다', async () => {
-    // Given
     const findFirst = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.APPROVED,
@@ -2536,13 +2334,11 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findLatestReview(
       syntheticDocumentId,
       syntheticApplicationId,
     );
 
-    // Then: 재제출 가부 판단의 근거이자, 잠금 아래 재확인에 쓸 기대값(id)이다.
     expect(findFirst).toHaveBeenCalledWith({
       where: {
         milestoneDocumentSubmission: {
@@ -2551,10 +2347,7 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
         },
       },
       orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
-      /*
-       * 기한도 함께 읽는다. 이 값이 빠지면 제출·업로드 관문이 「보완 요청이면 언제든」으로
-       * 되돌아가 새 정책이 조용히 꺼진다 — 두 관문 모두 이 조회 하나를 근거로 삼는다.
-       */
+
       select: { id: true, decision: true, resubmissionDueAt: true },
     });
     expect(result).toEqual({
@@ -2565,14 +2358,12 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
   });
 
   it('판정이 없으면 null이다', async () => {
-    // Given
     const findFirst = jest.fn().mockResolvedValue(null);
     const prisma = {
       milestoneDocumentReviewHistory: { findFirst },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When / Then
     await expect(
       repository.findLatestReview(syntheticDocumentId, syntheticApplicationId),
     ).resolves.toBeNull();
@@ -2581,19 +2372,16 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
 
 describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
   it('신청의 programId만 select해 돌려준다', async () => {
-    // Given
     const findUnique = jest
       .fn()
       .mockResolvedValue({ programId: 'cuid-program' });
     const prisma = { application: { findUnique } } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findApplicationProgramId(
       syntheticApplicationId,
     );
 
-    // Then
     expect(findUnique).toHaveBeenCalledWith({
       where: { id: syntheticApplicationId },
       select: { programId: true },
@@ -2602,15 +2390,12 @@ describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
   });
 
   it('신청이 없으면 null이다', async () => {
-    // Given
     const findUnique = jest.fn().mockResolvedValue(null);
     const prisma = { application: { findUnique } } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findApplicationProgramId('cuid-none');
 
-    // Then
     expect(result).toBeNull();
   });
 });
@@ -2619,7 +2404,6 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
   const now = new Date('2026-09-20T00:00:00.000Z');
 
   it('ATTACHED이고 만료되지 않은 첨부 1개를 팀 이름과 함께 돌려준다', async () => {
-    // Given
     const findUnique = jest.fn().mockResolvedValue({
       application: { team: { name: '가나다팀' } },
       revision: 2,
@@ -2638,14 +2422,12 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmissionFileForStaffDownload(
       syntheticDocumentId,
       syntheticApplicationId,
       now,
     );
 
-    // Then: 만료 필터가 빠지면 이미 만료된 파일까지 내려받힌다.
     const call = firstCallArgument<{
       where: unknown;
       select: { files: { where: unknown; orderBy: unknown; take: number } };
@@ -2706,7 +2488,6 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
   });
 
   it('제출은 있으나 살아 있는 첨부가 없으면 null이다', async () => {
-    // Given: 만료됐거나 DELETE_PENDING으로 내려간 첨부뿐이다.
     const findUnique = jest.fn().mockResolvedValue({
       application: { team: { name: '가나다팀' } },
       files: [],
@@ -2716,49 +2497,32 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmissionFileForStaffDownload(
       syntheticDocumentId,
       syntheticApplicationId,
       now,
     );
 
-    // Then
     expect(result).toBeNull();
   });
 
   it('제출 자체가 없으면 null이다', async () => {
-    // Given
     const findUnique = jest.fn().mockResolvedValue(null);
     const prisma = {
       milestoneDocumentSubmission: { findUnique },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.findSubmissionFileForStaffDownload(
       syntheticDocumentId,
       syntheticApplicationId,
       now,
     );
 
-    // Then
     expect(result).toBeNull();
   });
 });
 
-/**
- * #1097 후속 — 「마감 뒤 재제출은 한 번」이 **동시에 도착한 두 요청**에서도 한 번인가.
- *
- * 서비스는 트랜잭션 밖에서 최신 판정과 제출 상태를 읽어 마감 예외를 허락한다. 같은 팀 두 사람이
- * 마감 뒤 거의 동시에 누르면 둘 다 그 읽기에서 「보완 요청 · 아직 안 냄」을 보고 예외를 얻는다.
- * 첫 재제출은 **판정을 새로 만들지 않으므로** 두 번째 요청의 기대 판정 id도 그대로 맞는다 —
- * 판정 id만 재확인하던 옛 코드에서는 두 번째 요청이 그대로 저장돼 첫 번째 사람의 내용을 덮었다.
- *
- * 아래 가짜 Prisma는 그 경합을 그대로 재현한다: 서류 행 `FOR UPDATE`가 앞 트랜잭션이 끝날
- * 때까지 두 번째를 세우고(실제 잠금과 같다), 첫 트랜잭션이 커밋한 뒤에야 두 번째가 상태를
- * 읽는다. 잠금 아래에서 제출 상태를 다시 보지 않으면 이 시험은 두 번 저장된다.
- */
 describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
   const firstId = 'cuid-synthetic-document-1';
   const secondId = 'cuid-synthetic-document-2';
@@ -2770,11 +2534,6 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
     select?: { id: true };
   }
 
-  /**
-   * 트랜잭션을 흉내 내는 가짜 Prisma. 트랜잭션 클라이언트로 온 쓰기는 staged에 모았다가
-   * 콜백이 끝날 때만 committed에 반영하고, 트랜잭션 밖(this.prisma) 쓰기는 곧바로 committed에
-   * 반영한다 — 「한 트랜잭션인가」와 「중간 실패 시 부분 반영이 남는가」를 구분하기 위해서다.
-   */
   function buildReorderPrisma(options: { failOnUpdateCall?: number } = {}) {
     const rows = [
       {
@@ -2822,12 +2581,11 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
         .sort((left, right) => left.sortOrder - right.sortOrder);
     }
 
-    // 트랜잭션 밖 경로 — 여기로 쓰이면 곧바로 커밋된다(= 롤백이 없다).
     const directUpdate = jest.fn((args: UpdateArgs) =>
       Promise.resolve(applyUpdate(committed, args)),
     );
     const directFindMany = jest.fn(() => Promise.resolve(readAll(committed)));
-    // 잠금과 갱신이 **어느 순서로** 일어났는지 보려고 한 배열에 함께 기록한다.
+
     const operations: string[] = [];
     const lockQueries: { strings: string[]; values: unknown[] }[] = [];
     const $transaction = jest.fn(
@@ -2839,7 +2597,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
           $queryRaw: (query: { strings: string[]; values: unknown[] }) => {
             operations.push('lock');
             lockQueries.push(query);
-            // 잠금 조회는 id 오름차순으로 행을 돌려준다.
+
             return Promise.resolve(
               [...rows]
                 .map((row) => ({ id: row.id }))
@@ -2876,12 +2634,10 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
   }
 
   it('요청 순서대로 sortOrder를 1부터 다시 매기고 같은 트랜잭션 안에서 새 목록을 읽는다', async () => {
-    // Given: 3개를 역순으로 보낸다.
     const { prisma, committed, directUpdate, $transaction } =
       buildReorderPrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     const result = await repository.withTransaction((store) =>
       store.applyDocumentOrder(syntheticMilestoneId, [
         thirdId,
@@ -2890,7 +2646,6 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
       ]),
     );
 
-    // Then: 구멍·중복 없이 1..N으로 정규화된다.
     expect($transaction).toHaveBeenCalledTimes(1);
     expect(directUpdate).not.toHaveBeenCalled();
     expect(result.map((document) => document.id)).toEqual([
@@ -2907,12 +2662,9 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
   });
 
   it('중간 갱신이 실패하면 아무 항목의 순서도 바뀌지 않는다 — 부분 반영을 남기지 않는다', async () => {
-    // Given: 두 번째 갱신에서 실패한다. 항목을 하나씩 따로 갱신하면 첫 항목만 바뀐 채로 남고,
-    // 그러면 sortOrder가 같은 두 항목이 생겨 다음 「위로」가 조용히 아무 일도 안 하게 된다.
     const { prisma, committed } = buildReorderPrisma({ failOnUpdateCall: 2 });
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When / Then
     await expect(
       repository.withTransaction((store) =>
         store.applyDocumentOrder(syntheticMilestoneId, [
@@ -2930,11 +2682,9 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
   });
 
   it('갱신 where에 milestoneId를 함께 걸어 다른 마일스톤 항목이 섞이는 경로를 막는다', async () => {
-    // Given
     const { prisma, transactionUpdateArgs } = buildReorderPrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.withTransaction((store) =>
       store.applyDocumentOrder(syntheticMilestoneId, [
         firstId,
@@ -2943,7 +2693,6 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
       ]),
     );
 
-    // Then
     expect(transactionUpdateArgs).toEqual([
       {
         where: {
@@ -2976,13 +2725,9 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
   });
 
   it('잠금과 갱신이 한 트랜잭션 안에서 이 순서로 나간다 — 잠근 뒤에만 갱신한다', async () => {
-    // Given: 같은 목록을 서로 반대 방향으로 재정렬하는 두 교직원이 A→B와 B→A로 엇갈려
-    // 잠그면 PostgreSQL이 한쪽을 교착으로 중단시킨다. 요청은 역순으로 보낸다.
-    // (서비스가 실제로 이 순서로 부른다는 것은 service.spec의 호출 순서 테스트가 지킨다.)
     const { prisma, operations, lockQueries } = buildReorderPrisma();
     const repository = new MilestoneDocumentsRepository(prisma);
 
-    // When
     await repository.withTransaction(async (store) => {
       await store.lockDocumentIdsOfMilestone(syntheticMilestoneId);
       return store.applyDocumentOrder(syntheticMilestoneId, [
@@ -2992,14 +2737,13 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
       ]);
     });
 
-    // Then: 갱신은 전부 잠금 뒤에 온다 — 요청 순서로 잠기는 행이 하나도 없어야 한다.
     expect(operations).toEqual([
       'lock',
       `update:${thirdId}`,
       `update:${secondId}`,
       `update:${firstId}`,
     ]);
-    // Then: 잠금은 요청 순서가 아니라 id 오름차순으로, 이 마일스톤의 일반 서류 행 전체를 한 번에 잡는다.
+
     expect(lockQueries).toHaveLength(1);
     const lockSql = String(lockQueries[0]?.strings);
     expect(lockSql).toContain('FROM "MilestoneDocument"');
@@ -3012,18 +2756,6 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
   });
 });
 
-/**
- * #1097 후속 — 「마감 뒤 재제출은 한 번」이 **동시에 도착한 두 요청**에서도 한 번인가.
- *
- * 서비스는 트랜잭션 밖에서 최신 판정과 제출 상태를 읽어 마감 예외를 허락한다. 같은 팀 두 사람이
- * 마감 뒤 거의 동시에 누르면 둘 다 그 읽기에서 「보완 요청 · 아직 안 냄」을 보고 예외를 얻는다.
- * 첫 재제출은 **판정을 새로 만들지 않으므로** 두 번째 요청의 기대 판정 id도 그대로 맞는다 —
- * 판정 id만 재확인하던 옛 코드에서는 두 번째 요청이 그대로 저장돼 첫 번째 사람의 내용을 덮었다.
- *
- * 아래 가짜 Prisma는 그 경합을 그대로 재현한다: 서류 행 `FOR UPDATE`가 앞 트랜잭션이 끝날
- * 때까지 두 번째를 세우고(실제 잠금과 같다), 첫 트랜잭션이 커밋한 뒤에야 두 번째가 상태를
- * 읽는다. 잠금 아래에서 제출 상태를 다시 보지 않으면 이 시험은 두 번 저장된다.
- */
 describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 재제출', () => {
   const dueAt = new Date('2026-09-19T09:00:00.000Z');
   const reviewId = 'cuid-synthetic-review';
@@ -3034,7 +2766,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
       revision: 1,
       content: { type: 'TEXT', text: '보완 요청을 받은 본문' } as unknown,
     };
-    /** 서류 행 잠금 — 앞 트랜잭션이 끝날 때까지 다음 트랜잭션을 세운다. */
+
     let lockChain: Promise<void> = Promise.resolve();
     const upsertCalls: unknown[] = [];
 
@@ -3073,7 +2805,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
               });
             },
           },
-          // 재제출은 판정을 만들지 않는다 — 두 요청 모두에게 최신 판정은 계속 이것이다.
+
           milestoneDocumentReviewHistory: {
             findFirst: () => Promise.resolve({ id: reviewId }),
           },
@@ -3086,7 +2818,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
             findMany: () => Promise.resolve([]),
           },
         };
-        // 공용 관문도 이 경합을 그대로 지난다 — 둘 다 팀원이므로 가르는 것은 서류 행 잠금뿐이다.
+
         attachMembershipFence(transaction);
         try {
           return await callback(transaction);
@@ -3110,7 +2842,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
       deadline: {
         milestoneId: syntheticMilestoneId,
         allowAfterDeadline: true,
-        // 둘 다 트랜잭션 밖에서 같은 것을 봤다 — 그것이 이 경합의 출발점이다.
+
         expectedSubmissionStatus: SubmissionStatus.CHANGES_REQUESTED,
       },
       content: { type: 'TEXT', text },
@@ -3135,7 +2867,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
     expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(
       MilestoneDocumentSubmissionChangedError,
     );
-    // 쓰기는 한 번뿐이고, 저장된 내용은 먼저 잠금을 얻은 쪽 것이다.
+
     expect(upsertCalls).toHaveLength(1);
     expect(submission.revision).toBe(2);
     expect(submission.content).toEqual(upsertCalls[0]);

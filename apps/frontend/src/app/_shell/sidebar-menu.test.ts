@@ -54,24 +54,18 @@ describe('shellSectionFromPathname', () => {
   });
 
   it('대시보드 하위 사용자 화면을 대시보드 섹션으로 인식한다', () => {
-    // Given: 대시보드 아래로 이전된 사용자 화면 경로.
     const pathname = '/dashboard/users';
 
-    // When: 현재 경로가 속한 셸 섹션을 판별한다.
     const section = shellSectionFromPathname(pathname);
 
-    // Then: 대시보드 좌측 메뉴가 선택된다.
     expect(section).toBe('dashboard');
   });
 
   it('역할을 드러내던 옛 경로를 셸 섹션으로 인식하지 않는다', () => {
-    // Given: 제거된 역할 접두사 아래의 접근 관리 경로.
     const pathname = ['', 'admin', 'access'].join('/');
 
-    // When: 현재 경로가 속한 셸 섹션을 판별한다.
     const section = shellSectionFromPathname(pathname);
 
-    // Then: 존재하지 않는 경로에 대시보드 선택 상태를 부여하지 않는다.
     expect(section).toBeNull();
   });
 });
@@ -160,12 +154,10 @@ describe('sidebarGroupsFor (context)', () => {
   });
 
   it('관리자 시스템 상태 메뉴는 pulse 아이콘을 사용한다', () => {
-    // Given: 교직원·관리자 권한을 함께 가진 회원.
-    // When: 대시보드 그룹에서 시스템 상태 메뉴를 찾는다.
     const systemStatusItem = sidebarGroupsFor('dashboard', STAFF_ADMIN)
       .flatMap((group) => group.items)
       .find((item) => item.href === '/dashboard/system-status');
-    // Then: 시스템 상태를 나타내는 pulse 아이콘을 사용한다.
+
     expect(systemStatusItem?.icon).toBe('pulse');
   });
 
@@ -202,22 +194,19 @@ describe('sidebarGroupsFor (context)', () => {
   ] satisfies readonly [string, MemberAccess, readonly string[]][])(
     '%s surface를 권한 함축 없이 합집합으로 보인다',
     (_, access, expected) => {
-      // Given: canonical 회원·권한 쌍.
-      // When: 대시보드 그룹을 조립한다.
       const actual = dashboardHrefs(access);
-      // Then: 정확히 그 합집합만 한 번씩 노출된다.
+
       expect(actual).toEqual(expected);
     },
   );
 
   it('교직원 회원이어도 교직원 권한이 없으면 운영 메뉴가 없다', () => {
-    // Given: 승인 대기·회수로 권한만 빠진 STAFF 회원.
     const pendingStaff: MemberAccess = {
       memberKind: 'STAFF',
       hasStaffAccess: false,
       hasAdminAccess: false,
     };
-    // When / Then: 열어 줄 업무 메뉴가 없다.
+
     expect(dashboardHrefs(pendingStaff)).toEqual([]);
   });
 
@@ -236,10 +225,8 @@ describe('sidebarGroupsFor (context)', () => {
   });
 
   it('교직원 업무 링크는 역할을 드러내지 않는 대시보드 경로를 사용한다', () => {
-    // Given: 교직원 권한으로 볼 수 있는 대시보드 메뉴.
     const hrefs = dashboardHrefs(STAFF);
 
-    // When / Then: 모든 링크가 공통 대시보드 입구 아래에 있다.
     expect(
       hrefs.every(
         (href) => href === '/dashboard' || href.startsWith('/dashboard/'),
@@ -348,17 +335,7 @@ describe('isCurrentSidebarItem', () => {
     );
   });
 
-  /**
-   * `/ranking` 은 `year` 가 없어도 **올해**를 보여 준다
-   * (ADR-010 §1, `parseRankingYearSearchParam`).
-   *
-   * 강조가 「전체」로 가면 사이드바는 전체라고 말하는데 표는 올해 수치를 낸다.
-   * 게다가 그 「전체」 링크(`?year=all`)를 실제로 누르면 다른 표가 나온다 —
-   * 같은 메뉴가 어디서 왔느냐에 따라 다른 결과를 보이는 셈이다.
-   */
   it('/ranking 은 전체가 아니라 올해 항목을 강조한다', () => {
-    // 본문과 같은 함수로 기대값을 만든다. 여기서 기기 연도를 따로 세면
-    // 기계 시간대가 KST 가 아닐 때 이 스펙 자체가 갈린다.
     const thisYear = String(currentRankingYear());
 
     expect(isCurrentSidebarItem('/ranking', '/ranking?year=all', '')).toBe(
@@ -367,29 +344,18 @@ describe('isCurrentSidebarItem', () => {
     expect(
       isCurrentSidebarItem('/ranking', `/ranking?year=${thisYear}`, ''),
     ).toBe(true);
-    // 명시적 전체는 그대로 전체를 강조한다.
+
     expect(
       isCurrentSidebarItem('/ranking', '/ranking?year=all', 'year=all'),
     ).toBe(true);
   });
 
-  /**
-   * 기기 시계가 KST 가 아니면 「올해」가 두 값으로 갈린다. 본문은 서울 연도
-   * (`currentRankingYear`)를 쓰는데 사이드바가 `new Date().getFullYear()` 로 따로
-   * 세면 기기 연도를 쓰기 때문이다. 연말·연초의 그 구간에서는 「전체」도 연도도
-   * 강조되지 않아, 지금 어느 연도의 표를 보는지 왼쪽 메뉴로 확인할 수 없다.
-   *
-   * 개발 기계와 CI 가 KST 라 두 값이 같아서 기본 환경에서는 이 갈림이 드러나지
-   * 않는다 — `process.env.TZ` 를 바꿔야 잡힌다
-   * (`features/programs/application-presentation.test.ts` 와 같은 이유).
-   */
   describe('`year` 부재 강조는 기기 시간대를 타지 않는다', () => {
     const originalTz = process.env.TZ;
 
     afterEach(() => {
       vi.useRealTimers();
-      // 원래 미설정이었으면 `= undefined` 가 문자열 "undefined" 를 넣어 기본
-      // 시간대가 UTC 로 떨어진다. 지워야 원래대로 돌아온다.
+
       if (originalTz === undefined) delete process.env.TZ;
       else process.env.TZ = originalTz;
     });
@@ -401,9 +367,8 @@ describe('isCurrentSidebarItem', () => {
     }
 
     it('UTC 기기에서 1월 1일 00:30 KST 면 서울 연도가 강조된다', () => {
-      // 2025-12-31T15:30Z = 서울 2026-01-01 00:30. UTC 기기는 아직 2025 다.
       freezeAt('UTC', '2025-12-31T15:30:00.000Z');
-      // 시간대 고정이 실제로 먹었는지 먼저 본다 — 안 먹으면 아래가 조용히 통과한다.
+
       expect(new Date().getFullYear()).toBe(2025);
 
       expect(isCurrentSidebarItem('/ranking', '/ranking?year=2026', '')).toBe(
@@ -418,7 +383,6 @@ describe('isCurrentSidebarItem', () => {
     });
 
     it('KST 보다 앞선 기기의 자정 직후에도 서울 연도가 강조된다', () => {
-      // 2026-12-31T10:10Z = UTC+14 기기로는 2027-01-01 00:10, 서울은 아직 2026-12-31.
       freezeAt('Pacific/Kiritimati', '2026-12-31T10:10:00.000Z');
       expect(new Date().getFullYear()).toBe(2027);
 
@@ -452,7 +416,7 @@ describe('isCurrentSidebarItem', () => {
     expect(
       isCurrentSidebarItem('/dashboard/users', '/dashboard/users', ''),
     ).toBe(true);
-    // 별 사이드 항목 — 홈의 자식으로 취급하지 않는다
+
     expect(isCurrentSidebarItem('/dashboard/activity', '/dashboard', '')).toBe(
       false,
     );
@@ -557,7 +521,7 @@ describe('programScopeSidebarGroups', () => {
       '참여 팀',
     ]);
     expect(overview?.items[2]?.count).toBe('47');
-    // 학생은 신청 판정 창구가 없다 — 개요 그룹에 「신청자」를 붙이지 않는다.
+
     expect(overview?.items.some((i) => i.label === '신청자')).toBe(false);
     expect(documents?.items[0]).toMatchObject({
       label: '내 제출물',
@@ -591,8 +555,7 @@ describe('programScopeSidebarGroups', () => {
       ],
     });
     const overview = groups[0];
-    // 승인·반려 입구는 「팀 관리」 하나다 — 팀:신청이 1:1이라 같은 대상을 두
-    // 이름으로 부르던 것을 합쳤다.
+
     expect(overview?.items.map((i) => i.label)).toEqual([
       '프로그램 개요',
       '팀 관리',
@@ -817,11 +780,6 @@ describe('programScopeSidebarGroups — 참여자 전용 항목(#1099)', () => {
     expect(staffWithFlag).toHaveLength(3);
   });
 
-  /*
-    회원 유형은 STUDENT인데 관리자 접근 권한을 가진 계정 — 권한 행렬이 명시적으로
-    지원하는 조합이다. 두 참여자 전용 화면의 관문이 서로 다른 것을 묻기 때문에 이 계정에서
-    처음으로 판정이 갈린다.
-  */
   describe('학생 관리자(미신청) — 두 그룹이 갈린다', () => {
     const studentAdmin = {
       ...notParticipant,
@@ -843,7 +801,7 @@ describe('programScopeSidebarGroups — 참여자 전용 항목(#1099)', () => {
       const groups = programScopeSidebarGroups(studentAdmin);
 
       expect(labels(groups)).not.toContain('내 제출물');
-      // 부모가 사라지면 단계 자식도 함께 사라진다.
+
       expect(labels(groups)).not.toContain('1차 계획서');
       expect(groups.map((group) => group.label)).toEqual([
         '프로그램',
@@ -1013,7 +971,6 @@ describe('isProgramScopedWorkspacePath', () => {
   });
 });
 
-// 복합 계정에서도 개인/운영 링크의 주소와 현재 표시가 갈라진다.
 it('학생 운영자는 개인 대시보드와 운영 대시보드를 구분한다', () => {
   const groups = sidebarGroupsFor('dashboard', {
     memberKind: 'STUDENT',

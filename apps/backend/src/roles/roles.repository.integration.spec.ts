@@ -61,7 +61,6 @@ describe('RolesRepository integration', () => {
   });
 
   it('동시 교직원 선택은 한 PENDING 요청으로 수렴한다', async () => {
-    // Given — 프로필을 마친 교직원. 접근은 아직 없다.
     const user = await prisma.user.create({
       data: {
         id: `${TEST_PREFIX}staff`,
@@ -74,13 +73,11 @@ describe('RolesRepository integration', () => {
       },
     });
 
-    // When
     const results = await Promise.all([
       service.selectMemberKind(STAFF_GITHUB_ID, 'STAFF'),
       service.selectMemberKind(STAFF_GITHUB_ID, 'STAFF'),
     ]);
 
-    // Then
     const pendingCount = await prisma.staffAccessRequest.count({
       where: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
     });
@@ -92,7 +89,6 @@ describe('RolesRepository integration', () => {
   });
 
   it('동시 학생·교직원 선택은 프로필이 없으면 아무것도 확정하지 않는다', async () => {
-    // Given — 유형만 고르는 중이라 프로필 행이 없다(#569)
     const user = await prisma.user.create({
       data: {
         id: `${TEST_PREFIX}mixed`,
@@ -103,13 +99,11 @@ describe('RolesRepository integration', () => {
       },
     });
 
-    // When
     const results = await Promise.allSettled([
       service.selectMemberKind(MIXED_GITHUB_ID, 'STUDENT'),
       service.selectMemberKind(MIXED_GITHUB_ID, 'STAFF'),
     ]);
 
-    // Then
     const [storedUser, requestCount, profile] = await Promise.all([
       prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
       prisma.staffAccessRequest.count({
@@ -130,18 +124,9 @@ describe('RolesRepository integration', () => {
     expect(profile).toBeNull();
   });
 
-  /**
-   * #569 회귀 검사 ① — 저장된 행으로 확인한다.
-   *
-   * 온보딩 순서가 약관 → 유형 → 프로필로 바뀌어, 유형을 고르는 시점에 프로필은 아직
-   * 비어 있는 것이 정상이다. 그 상태에서 확정까지 해 버리면 이름·소속이 빈 미완성
-   * 신청이 관리자 대기줄에 올라가고, 학생은 이름 없이 학생으로 확정된다. 고른 사실만
-   * `selectedMemberKind`에 남고 `memberKind`·`StaffAccessRequest`는 그대로여야 한다.
-   */
   it.each<MemberKind>(['STUDENT', 'STAFF'])(
     '프로필이 비어 있으면 %s 선택은 기록만 남기고 아무것도 확정하지 않는다',
     async (selectedMemberKind) => {
-      // Given
       const user = await prisma.user.create({
         data: {
           id: `${TEST_PREFIX}incomplete-${selectedMemberKind.toLowerCase()}`,
@@ -153,13 +138,11 @@ describe('RolesRepository integration', () => {
         },
       });
 
-      // When
       const result = await service.selectMemberKind(
         user.githubId,
         selectedMemberKind,
       );
 
-      // Then
       expect(result).toEqual({
         selectedMemberKind,
         redirectTo: '/onboarding/profile',
@@ -177,21 +160,6 @@ describe('RolesRepository integration', () => {
     },
   );
 
-  /**
-   * 회수된 사용자가 유형을 다시 고르고 교직원을 재신청할 수 있는가 (#184).
-   *
-   * ## 상태를 fixture로 직접 만드는 이유
-   *
-   * 회수를 **호출해서** 이 상태를 만들지 않는다. 이 파일은 회수 API를 건드리지
-   * 않는다. `hasStaffAccess: false` + 최신 `REVOKED` 행을 행 수준에서 직접 세운다.
-   * 이 계약이 회수 구현과 독립적으로 성립한다는 뜻이기도 하다 — 회수가 어느 코드에서
-   * 오든, **접근이 꺼져 있고 마지막 요청이 회수인 사용자**는 다시 고를 수 있어야
-   * 한다.
-   *
-   * `APPROVED` 행을 함께 남기는 이유는 실제 이력의 모양이 그렇기 때문이다: 회수는
-   * 기존 승인 행을 덮어쓰지 않고 새 `REVOKED` 행을 넣는다. 덮어쓰면 "누가 언제
-   * 승인했는가"가 사라지고, 그 숫자는 장학금 근거로 쓰인다.
-   */
   describe('회수된 사용자의 재선택·재요청 (#184)', () => {
     const REVOKED_AT = new Date('2026-02-02T00:00:00.000Z');
     const APPROVED_AT = new Date('2026-02-01T00:00:00.000Z');
@@ -235,13 +203,10 @@ describe('RolesRepository integration', () => {
     }
 
     it('회수돼 접근이 없어도 확정된 회원 유형은 바꿀 수 없다', async () => {
-      // Given — 확정의 근거는 접근 칸이 아니라 UserProfile.memberKind다.
       const user = await createRevokedStaff('revoked-student', 9_184_000_001n);
 
-      // When
       const promise = service.selectMemberKind(user.githubId, 'STUDENT');
 
-      // Then: 회수는 접근만 끄고 회원 유형은 지우지 않는다.
       await expect(promise).rejects.toMatchObject({
         errorCode: { code: RolesErrorCode.ROLE_ALREADY_CONFIRMED },
       });
@@ -257,27 +222,11 @@ describe('RolesRepository integration', () => {
       expect(requestCount).toBe(2);
     });
 
-    /**
-     * 회수된 교직원의 정식 재신청 경로는 **유형 선택 화면 하나**다.
-     *
-     * 보통은 유형을 고르는 것만으로 아무것도 확정되지 않지만(#569), 회수된 교직원은
-     * 프로필을 이미 마친 상태라 남은 단계가 없다 — 기록만 하고 끝내면 프로필 화면이
-     * "이미 완료"라며 그를 곧바로 내보내 확정이 영원히 오지 않는다. `selectMemberKind`가
-     * 그 경우를 알고 그 자리에서 확정하며(`roles.service.ts`), 교직원의 확정은 곧
-     * `PENDING` 요청이다. 이 검사가 없으면 #184의 "STAFF 재요청 가능"이 어느 화면에서
-     * 성립하는지 아무도 답할 수 없다.
-     *
-     * **여기서 만들어지는 것은 신청 한 건뿐이고 `hasStaffAccess`는 꺼져 있다** — 승인은
-     * 여전히 관리자 손에 있다는 전제를 행으로 확인한다.
-     */
     it('교직원을 다시 고르면 그 자리에서 신청 한 건이 만들어진다', async () => {
-      // Given
       const user = await createRevokedStaff('revoked-staff', 9_184_000_002n);
 
-      // When
       const result = await service.selectMemberKind(user.githubId, 'STAFF');
 
-      // Then
       const [stored, pendingCount, requestCount] = await Promise.all([
         prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
         prisma.staffAccessRequest.count({
@@ -293,15 +242,11 @@ describe('RolesRepository integration', () => {
     });
 
     it('교직원을 두 번 골라도 신청은 한 건이다', async () => {
-      // Given: '선택 완료'를 두 번 누른 상황. 두 번째가 대기줄에 같은 신청을 또
-      // 올리면 관리자는 같은 사람을 두 번 처리해야 한다.
       const user = await createRevokedStaff('revoked-twice', 9_184_000_006n);
 
-      // When
       await service.selectMemberKind(user.githubId, 'STAFF');
       await service.selectMemberKind(user.githubId, 'STAFF');
 
-      // Then
       const pendingCount = await prisma.staffAccessRequest.count({
         where: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
       });
@@ -309,13 +254,10 @@ describe('RolesRepository integration', () => {
     });
 
     it('교직원을 재요청하면 새 PENDING 행이 생기고 승인 이력은 남는다', async () => {
-      // Given
       const user = await createRevokedStaff('revoked-retry', 9_184_000_003n);
 
-      // When
       const result = await service.retryStaffRequest(user.githubId);
 
-      // Then
       const [stored, requests] = await Promise.all([
         prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
         prisma.staffAccessRequest.findMany({
@@ -324,30 +266,26 @@ describe('RolesRepository integration', () => {
         }),
       ]);
       expect(result.status).toBe(StaffAccessRequestStatus.PENDING);
-      // 새 행이지 덮어쓴 행이 아니다 — 옛 상태가 이 행에 실려 오면 이력이 지워진 것이다.
+
       expect(result.status).not.toMatch(/APPROVED|REVOKED/);
       expect(requests).toHaveLength(3);
       expect(requests[0]?.status).toBe(StaffAccessRequestStatus.APPROVED);
       expect(requests[1]?.status).toBe(StaffAccessRequestStatus.REVOKED);
       expect(requests[2]?.status).toBe(StaffAccessRequestStatus.PENDING);
-      // 승인은 여전히 관리자 손에 있다 — 재요청이 권한을 되돌리지 않는다.
+
       expect(stored.hasStaffAccess).toBe(false);
       expect(stored.hasAdminAccess).toBe(false);
       expect(stored.selectedMemberKind).toBe('STAFF');
     });
 
     it('동시 재요청 2건은 한 PENDING으로 수렴한다', async () => {
-      // Given
       const user = await createRevokedStaff('revoked-race', 9_184_000_004n);
 
-      // When
       const results = await Promise.allSettled([
         service.retryStaffRequest(user.githubId),
         service.retryStaffRequest(user.githubId),
       ]);
 
-      // Then: 행 잠금이 먼저 걸러도, 빠져나가면 partial unique
-      // (`StaffAccessRequest_userId_pending_key`)가 남은 1건을 막는다.
       const pendingCount = await prisma.staffAccessRequest.count({
         where: { userId: user.id, status: StaffAccessRequestStatus.PENDING },
       });
@@ -358,17 +296,14 @@ describe('RolesRepository integration', () => {
     });
 
     it('회수 이력이 있어도 유형이 확정된 사용자는 다시 고를 수 없다', async () => {
-      // Given: 회수된 뒤 재승인돼 교직원 접근이 켜진 사람. 이력에는 REVOKED가 그대로 남는다.
       const user = await createRevokedStaff(
         'reapproved-staff',
         9_184_000_005n,
         { hasStaffAccess: true },
       );
 
-      // When
       const promise = service.selectMemberKind(user.githubId, 'STUDENT');
 
-      // Then: 확정된 사람은 못 바꾼다는 불변식은 #184 이후에도 그대로다.
       await expect(promise).rejects.toMatchObject({
         errorCode: { code: RolesErrorCode.ROLE_ALREADY_CONFIRMED },
       });

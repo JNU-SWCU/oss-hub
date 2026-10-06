@@ -7,11 +7,6 @@ import type {
   RepositoryPublishTarget,
 } from './repository/repositories.repository';
 
-/**
- * todo 20 — admin-access.integration-support.ts의 barrier 패턴을 repository 수동 공개
- * CAS 경합에 그대로 옮긴다. 두 트랜잭션이 실제로 겹쳐 Postgres 행 잠금이 걸리도록,
- * CAS 직전에 barrier로 도착을 맞춘 뒤 함께 진행시킨다.
- */
 class TwoPartyBarrier {
   private arrivals = 0;
   private release: (() => void) | null = null;

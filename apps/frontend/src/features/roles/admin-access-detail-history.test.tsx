@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -186,7 +184,7 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
       />,
     );
     const disabledCount = html.match(/disabled=""/g)?.length ?? 0;
-    // 이력 섹션 두 곳 각각 이전/다음 2개씩 = 4개.
+
     expect(disabledCount).toBeGreaterThanOrEqual(4);
   });
 

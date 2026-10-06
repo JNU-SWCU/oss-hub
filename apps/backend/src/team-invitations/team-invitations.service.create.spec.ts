@@ -47,7 +47,6 @@ describe('TeamInvitationsService.create', () => {
       syntheticUserId,
     );
 
-    // programId·invitedById를 서비스가 정하지 않는다 — 잠근 팀 행에서 다시 읽는다.
     expect(createInvitation).toHaveBeenCalledWith({
       teamId: syntheticTeamId,
       actorId: syntheticLeaderId,
@@ -67,7 +66,6 @@ describe('TeamInvitationsService.create', () => {
     const { service, createInvitation } = outcomeService(
       { kind: 'ok', invitation: created },
       {
-        // 신청이 있는 팀의 예전 스냅샷(locked)이 와도 초대를 막지 않는다.
         findTeamContext: jest.fn().mockResolvedValue({
           teamId: syntheticTeamId,
           programId: syntheticProgramId,
@@ -182,7 +180,6 @@ describe('TeamInvitationsService.create', () => {
   );
 
   it('기다리는 사이 팀장이 바뀌면 사전 통과와 무관하게 TIV_003으로 거부한다', async () => {
-    // 사전 조회는 아직 이 사람을 팀장으로 본다. 팀 행을 잠근 트랜잭션만이 정본이다.
     const { service, createInvitation } = outcomeService({
       kind: 'not-team-leader',
     });

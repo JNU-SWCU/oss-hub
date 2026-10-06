@@ -40,8 +40,6 @@ assertIsolatedIntegrationDatabase({
 
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 
-// demo profile이 실제로 쓰는 객체와 동일한 포트/설정을 재사용해 실제 업로드된 객체가
-// 조회 가능한지 직접 S3(object-storage)로 검증한다(#910/#913 파인딩 4).
 const demoStorageConfig = new SubmissionFileStorageConfig();
 const demoStorage = new S3SubmissionFileStorage(demoStorageConfig);
 let demoStorageS3Client: S3Client | undefined;
@@ -85,7 +83,7 @@ const staffRevokedUserId = AUTH_SCENARIOS['staff-revoked'];
 const staffRevocableUserId = AUTH_SCENARIOS['staff-revocable'];
 const adminConfirmedUserId = AUTH_SCENARIOS['admin-confirmed'];
 const adminSecondUserId = AUTH_SCENARIOS['admin-second'];
-// displayName(4번째 세그먼트)은 합성 fixture 이름만 쓴다 — 실명은 절대 넣지 않는다.
+
 const OSS_HUB_TEAM_ACCOUNTS = [
   '9800000000000001:seed-operator-alpha:ADMIN:시드운영자알파',
   '9800000000000002:seed-operator-beta:ADMIN:시드운영자베타',
@@ -107,7 +105,7 @@ const OSS_HUB_APPLICATION_ID = seedId('oss-hub', 'application');
 const OSS_HUB_REPOSITORY_ID = seedId('oss-hub', 'repository');
 const OSS_HUB_PROVISION_JOB_ID = seedId('oss-hub', 'provision-job');
 const OSS_HUB_REPOSITORY_URL = 'https://github.com/JNU-SWCU/oss-hub';
-/** JNU-SWCU/oss-hub 공개 저장소의 실제 GitHub numeric id (GitHub REST API로 확인, public 정보). */
+
 const OSS_HUB_GITHUB_REPOSITORY_ID = 1297138137n;
 const OSS_HUB_PRACTICE_PROGRAM_ID = seedId('oss-hub-practice', 'program');
 const OSS_HUB_PRACTICE_TEAM_ID = seedId('oss-hub-practice', 'team');
@@ -122,7 +120,7 @@ const OSS_HUB_PRACTICE_PROVISION_JOB_ID = seedId(
 );
 const OSS_HUB_PRACTICE_REPOSITORY_URL =
   'https://github.com/JNU-SWCU/oss-hub-practice';
-/** JNU-SWCU/oss-hub-practice 공개 저장소의 실제 GitHub numeric id (GitHub REST API로 확인, public 정보). */
+
 const OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID = 1296567792n;
 const OSS_HUB_NOTICE_EXAMPLES = [
   '[모집홍보] 2026 오픈소스 개발자대회 모집 안내',
@@ -131,7 +129,6 @@ const OSS_HUB_NOTICE_EXAMPLES = [
   'https://sojoong.kr/notice/notice-board/?mod=document&uid=939',
 ] as const;
 
-/** #110 시드가 실제로 건드리는 전체 모델. 카운트가 두 실행 사이에 흔들리면 멱등성이 깨진 것이다. */
 const SEEDED_MODEL_COUNTERS: ReadonlyArray<
   [name: string, count: () => Promise<number>]
 > = [
@@ -267,29 +264,6 @@ async function countAllSeeded(): Promise<Record<string, number>> {
   return Object.fromEntries(entries);
 }
 
-/**
- * F4 QA 감사 — 이 describe가 `runProfile('all')`을 두 번 실행해 심는 `seed:` 행 전부를
- * 여기서 정리한다. 정리하지 않으면 이 파일이 남긴 PUBLIC Repository 등 fixture가 다른
- * integration spec(예: public-exposure-persona)의 assertion과 섞여 실행 순서에 따라
- * 간헐 실패한다. FK 자식→부모 순서로 지운다:
- *   SubmissionFile → MilestoneDocumentReviewHistory
- *   → MilestoneDocumentSubmissionHistory → MilestoneDocumentSubmission
- *   → RepositoryProvisionJob → RepositoryInvitation → OutboxEvent → Repository
- *   → MilestoneDocumentSubmission → MilestoneDocumentTemplateFile → MilestoneDocument
- *   → BoardComment → BoardPost → TeamInvitation
- *   → TeamMember → Milestone → Application → Team → Program
- *   → StaffAccessRequest → Consent → UserProfile → User
- *
- * program-overview 프로필은 서류 제출 예시를 위해 자신의 MilestoneDocumentSubmission을
- * 참조하는 SubmissionFile을 함께 심는다. 이 행은 milestoneDocumentSubmissionId FK가
- * ON DELETE SET NULL이라, 미리 지우지 않으면 부모 삭제 시 제출 헤더 참조가 NULL이 되어
- * lifecycle CHECK 제약을 위반한다.
- * 그 외 이 파일이 만들지 않는 AuditLog(append-only)·Notification·LoginHistory·
- * SubmissionFile은 다른 spec이 이 파일과 같은 `seed:` User/Application/Milestone을
- * actor·uploader·부모로 참조할 수 있고, 그 FK는 RESTRICT다. 그런 행을 참조당하는
- * 부모는 삭제 대상에서 제외해 다른 spec의 데이터를 건드리지 않으면서 FK violation
- * 없이 정리한다.
- */
 async function deleteAllSeeded(): Promise<void> {
   const seedPrefix = 'seed:';
   const seedIdFilter = { id: { startsWith: seedPrefix } } as const;
@@ -299,10 +273,7 @@ async function deleteAllSeeded(): Promise<void> {
       milestoneDocumentSubmissionId: { startsWith: seedPrefix },
     },
   });
-  // program-overview 프로필이 자신의 MilestoneDocumentSubmission에 붙여 심은
-  // SubmissionFile은 이 파일 자신의 Application/Milestone도 함께 가리킨다.
-  // protected*Ids 조회보다 먼저 지워야 그 조회가 이 행을 "다른 spec이 참조 중"으로
-  // 오인해 자신의 Milestone/Application을 보호 대상으로 남기지 않는다.
+
   await prisma.submissionFile.deleteMany({
     where: { milestoneDocumentSubmissionId: { startsWith: seedPrefix } },
   });
@@ -424,10 +395,8 @@ describe('seed profile=oss-hub contract (integration)', () => {
   });
 
   it('명시적 확인값 없이는 oss-hub profile 실행을 거부한다', async () => {
-    // Given: 격리 DB와 계정 설정은 있지만 운영자 확인값이 없다.
     delete process.env.OSS_HUB_SEED_CONFIRMATION;
 
-    // When & Then: import한 runProfile 경로도 DB 쓰기 전에 거부한다.
     await expect(runProfile('oss-hub', new SeedStats())).rejects.toThrow(
       /OSS_HUB_SEED_CONFIRMATION/,
     );
@@ -436,14 +405,11 @@ describe('seed profile=oss-hub contract (integration)', () => {
   it(
     '합성 auth 계정과 설정된 ADMIN 네 명의 프로그램 추적 데이터를 멱등하게 만든다',
     async () => {
-      // Given: 격리된 빈 DB와 공개 안전한 합성 운영자 계정 설정.
-      // When: oss-hub profile을 두 번 실행한다.
       await runProfile('oss-hub', new SeedStats());
       const countsAfterFirstRun = await countAllSeeded();
       await runProfile('oss-hub', new SeedStats());
       const countsAfterSecondRun = await countAllSeeded();
 
-      // Then: 기존 auth 역할 계정과 정확한 oss-hub 관계 shape가 유지된다.
       const [
         syntheticAdmin,
         syntheticStaff,
@@ -583,8 +549,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
       ]);
 
       expect(countsAfterSecondRun).toEqual(countsAfterFirstRun);
-      // 배타적 역할이 사라진 뒤에는 세 사실을 각각 본다 — 관리자 권한은 회원
-      // 정체성과 독립이라 한 칸으로 접어 확인할 수 없다.
+
       expect(syntheticAdmin.hasAdminAccess).toBe(true);
       expect(syntheticStaff.hasStaffAccess).toBe(true);
       expect(syntheticStudent.selectedMemberKind).toBe(MemberKind.STUDENT);
@@ -624,7 +589,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
           accountStatus: AccountStatus.ACTIVE,
         },
       ]);
-      // 관리자 권한은 회원 유형과 독립적이며 이름은 canonical UserProfile에 있다.
+
       expect(configuredUsers.map((user) => user.profile?.name)).toEqual([
         '시드운영자알파',
         '시드운영자베타',
@@ -634,8 +599,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
       for (const configuredUser of configuredUsers) {
         expect(configuredUser.hasAdminAccess).toBe(true);
         expect(configuredUser.hasStaffAccess).toBe(false);
-        // 계약 이후 이름의 정본은 `UserProfile`뿐이다 — `User`의 mirror 칸은 사라졌고,
-        // 시드는 운영 계정을 사업단 소속 교직원으로 분류한다.
+
         expect(configuredUser.profile).toMatchObject({
           memberKind: MemberKind.STAFF,
           affiliationKind: AffiliationKind.PROGRAM_OFFICE,
@@ -643,7 +607,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
           studentId: null,
         });
       }
-      // Consent — 4명 모두 현행 정책 버전으로 동의 완료 상태다.
+
       expect(configuredUsersConsentCount).toBe(4);
       expect([ossHubProgramCount, ossHubTeamCount, ossHubMemberCount]).toEqual([
         1, 1, 4,
@@ -652,9 +616,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         expect(program.description).toContain(noticeExample);
       }
       expect(program.repositoryProvisioningEnabled).toBe(true);
-      // 마일스톤 전체 arc(Notion "📅 Schedule" DB 기준, id asc 정렬): AWS Staging →
-      // Full-loop Dry-run → 구현 마감 → Intake 기능 동결 → Intake Gate → Full-loop Live Beta →
-      // Release Complete.
+
       expect(ossHubMilestoneCount).toBe(7);
       expect(program.milestones.map(({ id }) => id)).toEqual([
         seedId('oss-hub', 'milestone', 'aws-staging'),
@@ -690,7 +652,6 @@ describe('seed profile=oss-hub contract (integration)', () => {
         })),
       );
 
-      // 팀의 프로그램 신청 — 제출 원장·Repository·RepositoryProvisionJob이 매달리는 backbone.
       expect(ossHubApplicationCount).toBe(1);
       expect(application).toMatchObject({
         teamId: OSS_HUB_TEAM_ID,
@@ -698,7 +659,6 @@ describe('seed profile=oss-hub contract (integration)', () => {
         status: ApplicationStatus.APPROVED,
       });
 
-      // aws-staging: 승인 판정 이력까지 완료된 제출.
       expect(ossHubDocumentSubmissionCount).toBe(2);
       expect(ossHubSubmissionHistoryCount).toBe(3);
       expect(ossHubReviewHistoryCount).toBe(1);
@@ -713,7 +673,6 @@ describe('seed profile=oss-hub contract (integration)', () => {
         reviewerId: AUTH_SCENARIOS['staff-approved'],
       });
 
-      // intake-freeze: 제출은 있지만 아직 판정 대기 중(판정 이력 없음).
       expect(intakeFreezeSubmission).toMatchObject({
         status: SubmissionStatus.SUBMITTED,
         revision: 1,
@@ -721,7 +680,6 @@ describe('seed profile=oss-hub contract (integration)', () => {
       expect(intakeFreezeSubmission.histories).toHaveLength(1);
       expect(intakeFreezeSubmission.reviewHistories).toHaveLength(0);
 
-      // 저장소 — 실제 공개 저장소를 연결·공개 완료 상태로 추적한다.
       expect(ossHubRepositoryCount).toBe(1);
       expect(repository).toMatchObject({
         applicationId: OSS_HUB_APPLICATION_ID,
@@ -739,11 +697,6 @@ describe('seed profile=oss-hub contract (integration)', () => {
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       });
 
-      // oss-hub-practice — 별도 Program·Team·Application·Repository 체인(학생 fork/배포
-      // 퀘스트 실습용). `Application_programId_teamId_team_key` partial unique index(같은
-      // 팀은 같은 Program에 신청을 한 건만 낼 수 있다 — 마이그레이션 SQL에만 있고 Prisma
-      // schema에는 표현되지 않는다) 때문에 기존 oss-hub Program·Team을 재사용할 수 없어
-      // 같은 네 명의 ADMIN 계정으로 별도 Program·Team을 새로 만든다.
       expect(practiceProgram.repositoryProvisioningEnabled).toBe(true);
       expect(practiceTeam.leaderId).toBe(configuredUsers[0]?.id);
       expect(
@@ -787,9 +740,6 @@ describe('seed profile=oss-hub contract (integration)', () => {
   it(
     '이전 마일스톤 구성이 남긴 제출 원장·판정 이력이 있어도 FK 오류 없이 정리하고 새 7개로 수렴한다',
     async () => {
-      // Given: profile을 한 번 실행해 프로그램을 만든 뒤, 실제 배포 DB에 남아있을 법한
-      // "구버전 마일스톤 + 서류 항목 + 제출 원장 + 이력 + 판정 이력"을 수동으로 심는다.
-      // 이 자식들이 남아 있는 채로 마일스톤을 지우면 FK 위반이 나야 정상이다.
       await runProfile('oss-hub', new SeedStats());
       const staleMilestoneId = seedId('oss-hub', 'milestone', 'obsolete-plan');
       await prisma.milestone.create({
@@ -871,14 +821,10 @@ describe('seed profile=oss-hub contract (integration)', () => {
         },
       });
 
-      // When: oss-hub profile을 다시 실행한다 — 새 7개 마일스톤을 upsert하기 전에 stale
-      // 마일스톤과 그 자식(판정 이력 → 제출 이력 → 제출 원장 → 서류 항목)을 먼저 지워야 한다.
       await expect(
         runProfile('oss-hub', new SeedStats()),
       ).resolves.not.toThrow();
 
-      // Then: 구버전 마일스톤/서류 항목/제출 원장/이력/판정 이력이 모두 사라지고,
-      // 이 프로그램의 마일스톤은 새 7개만 남는다 — orphan도, FK 위반도 없다.
       const [
         staleMilestone,
         staleDocument,
@@ -911,16 +857,9 @@ describe('seed profile=oss-hub contract (integration)', () => {
   );
 });
 
-/**
- * qa-econovation-batch TODO 11 — demo profile 계약 검증.
- *   ① 두 번 실행해도 seed:demo: 행 수가 그대로다(멱등) ② GithubRepository·Contribution은
- *   이 profile이 절대 만들지 않는다(0건) ③ production에서는 SEED_DEMO_ALLOW_PRODUCTION=1 없이는
- *   거부되고, 있으면 허용된다(DB 쓰기 전에 거부하므로 실제 실행은 하지 않고 거부 여부만 단언).
- */
 describe('seed profile=demo 계약 (integration)', () => {
   const seedDemoPrefix = 'seed:demo:';
 
-  /** demo profile이 만지는 모든 테이블 — teardown 잔여 0건 검증(TODO 15)도 이 목록을 재사용한다. */
   async function countDemoSeeded(): Promise<Record<string, number>> {
     const [
       users,
@@ -975,8 +914,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       prisma.githubRepository.count({
         where: { id: { startsWith: seedDemoPrefix } },
       }),
-      // Contribution은 결정적 seedId 문자열 PK가 없다(repositoryId+githubId+date 복합키) —
-      // 이 profile이 만드는 seed:demo: User의 githubId로 존재 여부를 직접 확인한다.
+
       prisma.contribution.count({
         where: {
           githubId: {
@@ -1011,18 +949,14 @@ describe('seed profile=demo 계약 (integration)', () => {
 
   async function deleteDemoSeeded(): Promise<void> {
     const seedIdFilter = { id: { startsWith: seedDemoPrefix } } as const;
-    // DB row를 지우기 전에 storageKey를 먼저 읽어둔다 — 이 헬퍼는 teardownDemo를 호출하지
-    // 않고 row만 직접 지우므로, 여기서 storage 객체도 함께 정리하지 않으면
-    // 이 describe가 만든 객체가 같은 Jest 프로세스 내 다른 integration spec(reconciliation
-    // 등)으로 새어 오염된다(#910/#913 파인딩 4 회귀).
+
     const demoFileStorageKeys = (
       await prisma.submissionFile.findMany({
         where: seedIdFilter,
         select: { storageKey: true },
       })
     ).map((file) => file.storageKey);
-    // 파일은 제출 이력을 RESTRICT로 참조하므로 제출 이력보다 먼저 지운다.
-    // 판정 이력은 제출 이력을 참조할 수 있어 그보다 먼저 지운다.
+
     await prisma.milestoneDocumentReviewHistory.deleteMany({
       where: seedIdFilter,
     });
@@ -1068,8 +1002,6 @@ describe('seed profile=demo 계약 (integration)', () => {
   it(
     '같은 profile을 두 번 실행해도 seed:demo: 행 수가 그대로고, 수집/랭킹 테이블은 항상 0건이다',
     async () => {
-      // Given: 격리된 빈 DB.
-      // When: demo profile을 두 번 연속 실행한다.
       const firstRunStats = new SeedStats();
       await runProfile('demo', firstRunStats);
       const countsAfterFirstRun = await countDemoSeeded();
@@ -1078,37 +1010,32 @@ describe('seed profile=demo 계약 (integration)', () => {
       await runProfile('demo', secondRunStats);
       const countsAfterSecondRun = await countDemoSeeded();
 
-      // Then: 각 모델의 seed:demo: 행 수는 두 실행 사이에 변하지 않는다(멱등).
       expect(countsAfterSecondRun).toEqual(countsAfterFirstRun);
 
-      // And: "조용한 no-op"이 아니다 — 프로그램·학생·팀·게시판이 실제로 생긴다.
       expect(countsAfterFirstRun.Program).toBeGreaterThanOrEqual(3);
       expect(countsAfterFirstRun.Program).toBeLessThanOrEqual(4);
       expect(countsAfterFirstRun.User).toBeGreaterThan(0);
-      // 에코노베이션 연계 대회 프로그램이 팀 5개(TODO 15 다팀 그래프)를 만들고,
-      // 다른 세 프로그램이 각 1개씩 만들어 최소 6팀 이상이다.
+
       expect(countsAfterFirstRun.Team).toBeGreaterThanOrEqual(6);
       expect(countsAfterFirstRun.Application).toBeGreaterThanOrEqual(6);
       expect(countsAfterFirstRun.Milestone).toBeGreaterThan(0);
-      // 대회 프로그램은 팀당 데모데이 제출 1건 + 일부 팀은 최종 발표 제출까지 갖는다.
+
       expect(
         countsAfterFirstRun.MilestoneDocumentSubmission,
       ).toBeGreaterThanOrEqual(9);
       expect(countsAfterFirstRun.SubmissionFile).toBeGreaterThan(0);
-      // 승인/보완필요 판정 이력이 생기는 제출이 있어 이력도 0건이 아니다(사업단 톤이 실제 검토하는 모습).
+
       expect(
         countsAfterFirstRun.MilestoneDocumentReviewHistory,
       ).toBeGreaterThan(0);
       expect(countsAfterFirstRun.BoardPost).toBeGreaterThan(0);
       expect(countsAfterFirstRun.BoardComment).toBeGreaterThan(0);
 
-      // And: 수집/랭킹 테이블은 이 profile이 결코 쓰지 않는다 — 두 실행 모두 0건.
       expect(countsAfterFirstRun.GithubRepository).toBe(0);
       expect(countsAfterFirstRun.Contribution).toBe(0);
       expect(countsAfterSecondRun.GithubRepository).toBe(0);
       expect(countsAfterSecondRun.Contribution).toBe(0);
 
-      // And: 이름은 합성 한국식 학생이고 실명이 아니며, 이메일은 .invalid만 쓴다.
       const demoUsers = await prisma.user.findMany({
         where: { id: { startsWith: seedDemoPrefix } },
         select: {
@@ -1124,7 +1051,6 @@ describe('seed profile=demo 계약 (integration)', () => {
         true,
       );
 
-      // And: 프로그램은 사업단 톤의 합성 이름을 쓴다(실제 공지 문구 미복사).
       const demoPrograms = await prisma.program.findMany({
         where: { id: { startsWith: seedDemoPrefix } },
         select: { name: true, repositoryProvisioningEnabled: true },
@@ -1133,14 +1059,9 @@ describe('seed profile=demo 계약 (integration)', () => {
         demoPrograms.some((program) => program.name.includes('에코노베이션')),
       ).toBe(true);
       for (const program of demoPrograms) {
-        // 이 profile은 GithubRepository를 만들지 않으므로 저장소 프로비저닝도 켜지 않는다.
         expect(program.repositoryProvisioningEnabled).toBe(false);
       }
 
-      // And: 모든 시드 제출 원장은 자신이 속한 마일스톤의 submissionType과
-      // 동일한 content.type을 쓴다 — submissions.service.ts가
-      // content.type !== milestone.submissionType을 CONTENT_TYPE_MISMATCH로 거부하는
-      // 도메인 규칙을 시드가 우회하지 않았음을 직접 단언한다.
       const demoSubmissions = await prisma.milestoneDocumentSubmission.findMany(
         {
           where: { id: { startsWith: seedDemoPrefix } },
@@ -1161,9 +1082,7 @@ describe('seed profile=demo 계약 (integration)', () => {
           milestoneSubmissionType,
         );
       }
-      // And: FILE 타입 마일스톤(오픈소스 대회 데모데이)은 실제로 FILE content +
-      // ATTACHED SubmissionFile이 함께 있는지도 확인한다(시드가 문자열만 맞춰놓고 실제
-      // 파일 생명주기는 비워두지 않았는지 검증).
+
       const fileTypeSubmissions = demoSubmissions.filter(
         (submission) =>
           submission.milestoneDocument.milestone.submissionType === 'FILE',
@@ -1192,9 +1111,6 @@ describe('seed profile=demo 계약 (integration)', () => {
         expect(submissionFile.lifecycle).toBe('ATTACHED');
       }
 
-      // And: 대회 프로그램은 팀 5개 이상이 참여하고, 제출 상태가 제출됨(SUBMITTED)·
-      // 보완 필요(CHANGES_REQUESTED)·승인(APPROVED) 세 상태 모두로 섞여 있다(TODO 15 —
-      // '여러 팀이 참여해 기록이 쌓이는 모습'을 화면에서 보여주기 위한 계약).
       const contestProgramId = seedId(
         'demo',
         'program',
@@ -1230,7 +1146,6 @@ describe('seed profile=demo 계약 (integration)', () => {
       );
       expect(contestStatusSet.has(SubmissionStatus.APPROVED)).toBe(true);
 
-      // And: 실행 로그가 비어있지 않다(조용한 no-op 아님).
       expect(firstRunStats.report().length).toBeGreaterThan(0);
       expect(secondRunStats.report().length).toBeGreaterThan(0);
     },
@@ -1240,14 +1155,11 @@ describe('seed profile=demo 계약 (integration)', () => {
   it(
     '보강된 다팀 그래프도 teardown 없이 두 번째 실행에서 멱등하다(팀·지원서·마일스톤 제출 상태 포함)',
     async () => {
-      // Given & When: demo profile을 두 번 실행한다(위 테스트와 별도 시나리오로,
-      // teardown 전 순수 재실행 경로만 검증한다).
       await runProfile('demo', new SeedStats());
       const firstRun = await countDemoSeeded();
       await runProfile('demo', new SeedStats());
       const secondRun = await countDemoSeeded();
 
-      // Then: 팀·지원서·마일스톤 제출·리뷰까지 전부 행 수가 그대로다.
       expect(secondRun).toEqual(firstRun);
     },
     SEED_RUN_TIMEOUT_MS,
@@ -1256,12 +1168,6 @@ describe('seed profile=demo 계약 (integration)', () => {
   it(
     '한빛 팀 데모데이 제출 원장은 보존 id를 유지해 재시드해도 항목별 고유 제약을 깨드리지 않는다',
     async () => {
-      // Given: TODO 11(이미 병합된 기존 demo profile) 시점의 데이터 모양을 직접 심는다 —
-      // 그 시점은 한빛 팀이 유일한 참가팀이었고, 데모데이 제출(FILE)은 팀 접두사 없는
-      // target 원장 id로 만들어졌다(판정 이력 없음, SUBMITTED).
-      // Program·Milestone·Team·Application·User 부모는 현재 코드와 동일한 id를 쓰므로
-      // 정상 profile 실행으로 먼저 만들고, 그 다음 해당 제출만 지우고 예전 shape로 직접
-      // 재생성해 '이미 그 id로 시드된 DB'를 재현한다.
       await runProfile('demo', new SeedStats());
 
       const contestApplicationId = seedId(
@@ -1297,8 +1203,6 @@ describe('seed profile=demo 계약 (integration)', () => {
         contestMilestoneId,
       );
 
-      // 현재 코드는 한빛 팀 데모데이 제출을 APPROVED + 판정 이력으로 만드므로, 예전
-      // 모양(SUBMITTED, 판정 이력 없음)으로 재구성하기 전에 판정 이력부터 지워야 FK 위반이 없다.
       await prisma.milestoneDocumentReviewHistory.deleteMany({
         where: { milestoneDocumentSubmissionId: preservedSubmissionId },
       });
@@ -1354,15 +1258,8 @@ describe('seed profile=demo 계약 (integration)', () => {
         },
       });
 
-      // When: 현재 코드의 demo profile을 다시 실행한다 — 한빛 팀의 데모데이 제출을
-      // 팀 접두사가 붙은 새 id(`oss-contest-hanbit-demo-day`)로 만들려하면, 위에서 심은
-      // 보존 id 행과 같은 (milestoneDocumentId, applicationId) 쌍을 가지므로
-      // target 원장 고유 제약 위반으로 예외가 던져야 한다.
       await expect(runProfile('demo', new SeedStats())).resolves.not.toThrow();
 
-      // Then: (milestoneDocumentId, applicationId) 쌍에 제출 원장이 정확히 1건이고, 그 id는 여전히
-      // 보존 id다(현재 코드가 이 id를 재사용해 upsert했다는 증거 — 새 id로 중복 행을
-      // 만들지 않았다).
       const submissionsForPair =
         await prisma.milestoneDocumentSubmission.findMany({
           where: {
@@ -1373,8 +1270,6 @@ describe('seed profile=demo 계약 (integration)', () => {
       expect(submissionsForPair).toHaveLength(1);
       expect(submissionsForPair[0]?.id).toBe(preservedSubmissionId);
 
-      // And: 보존 id의 제출 이력·SubmissionFile도 그대로 재사용된다(새 id로
-      // 따로 만들어지지 않음).
       const [preservedHistory, preservedFile, teamSuffixedSubmission] =
         await Promise.all([
           prisma.milestoneDocumentSubmissionHistory.findUnique({
@@ -1401,7 +1296,6 @@ describe('seed profile=demo 계약 (integration)', () => {
   it(
     'teardown은 시드 후 모든 demo-touched 테이블에서 seed:demo: 행을 0건으로 만든다',
     async () => {
-      // Given: demo profile을 시드해 다팀 그래프·게시판까지 전부 채운다.
       await runProfile('demo', new SeedStats());
       const countsBeforeTeardown = await countDemoSeeded();
       expect(countsBeforeTeardown.User).toBeGreaterThan(0);
@@ -1414,11 +1308,8 @@ describe('seed profile=demo 계약 (integration)', () => {
         countsBeforeTeardown.MilestoneDocumentReviewHistory,
       ).toBeGreaterThan(0);
 
-      // When: teardown을 실행한다(이 테스트 자체가 afterEach의 deleteDemoSeeded와
-      // 별개로 teardownDemo 구현을 직접 검증한다 — afterEach는 이후에도 안전하게 no-op).
       await runTeardown('demo', new SeedStats());
 
-      // Then: seed:demo: 접두사를 가진 모든 테이블(GithubRepository·Contribution포함)이 0건이다.
       const countsAfterTeardown = await countDemoSeeded();
       for (const count of Object.values(countsAfterTeardown)) {
         expect(count).toBe(0);
@@ -1430,9 +1321,6 @@ describe('seed profile=demo 계약 (integration)', () => {
   it(
     'teardown은 seed:demo: 접두사가 아닌 비-demo 행을 절대 건드리지 않는다',
     async () => {
-      // Given: demo profile을 시드하고, seed:demo: 접두사가 아닌 별도 비-demo fixture
-      // 행(User→Program→Team→TeamMember→Application)을 직접 심는다 — teardown 대상
-      // 밖의 데이터가 살아남는지 증명하는 목적의 최소 그래프다.
       await runProfile('demo', new SeedStats());
 
       const survivorUserId = 'seed:demo-teardown-guard:user';
@@ -1495,16 +1383,13 @@ describe('seed profile=demo 계약 (integration)', () => {
       });
 
       try {
-        // When: demo profile teardown을 실행한다.
         await runTeardown('demo', new SeedStats());
 
-        // Then: seed:demo: 접두사 데모 데이터는 모두 사라졌지만,
         const demoCountsAfterTeardown = await countDemoSeeded();
         for (const count of Object.values(demoCountsAfterTeardown)) {
           expect(count).toBe(0);
         }
 
-        // And: seed:demo-teardown-guard: 접두사(비-demo) 행은 그대로 살아남는다.
         const [
           survivorUser,
           survivorProgram,
@@ -1523,8 +1408,6 @@ describe('seed profile=demo 계약 (integration)', () => {
         expect(survivorTeam).not.toBeNull();
         expect(survivorApplication).not.toBeNull();
       } finally {
-        // Cleanup: 이 테스트가 심은 비-demo fixture는 afterEach의 deleteDemoSeeded가
-        // (접두사가 다르므로) 지우지 않는다 — 직접 정리한다.
         await prisma.application.deleteMany({
           where: { id: survivorApplicationId },
         });
@@ -1539,20 +1422,11 @@ describe('seed profile=demo 계약 (integration)', () => {
     SEED_RUN_TIMEOUT_MS,
   );
 
-  /**
-   * #910/#913 파인딩 4 — ATTACHED SubmissionFile은 실제 검색 가능한 storage 객체를
-   * 동반해야 하고, 그 key는 reconciliation CLI 소유 prefix 안에 있어야 하며,
-   * 재시드는 객체를 중복으로 만들지 않고(멱등), teardown은 DB row와 객체를 둘 다
-   * 지운다.
-   */
   it(
     'ATTACHED SubmissionFile은 reconciliation 소유 prefix 아래의 실제 검색 가능한 객체를 가진다',
     async () => {
-      // Given & When: demo profile을 실행한다.
       await runProfile('demo', new SeedStats());
 
-      // Then: ATTACHED인 모든 SubmissionFile이 실제 객체를 가진다 — 404가 아니라
-      // 응답받을 수 있고, key는 reconciliation CLI가 인벤토리하는 prefix에 속한다.
       const demoFiles = await prisma.submissionFile.findMany({
         where: { id: { startsWith: seedDemoPrefix } },
         select: { id: true, storageKey: true, lifecycle: true },
@@ -1568,7 +1442,7 @@ describe('seed profile=demo 계약 (integration)', () => {
         await expect(demoStorageObjectExists(file.storageKey)).resolves.toBe(
           true,
         );
-        // 실제 get()으로도 검색할 수 있어야 한다(단순 HEAD가 아니라 실제 바이너리 본문 조회).
+
         const body = await demoStorage.get(file.storageKey);
         const chunks: Buffer[] = [];
         for await (const chunk of body as AsyncIterable<Buffer>) {
@@ -1583,7 +1457,6 @@ describe('seed profile=demo 계약 (integration)', () => {
   it(
     'demo profile을 두 번 실행해도 같은 storage 객체 key만 남고 새 객체가 늘지 않는다(멱등)',
     async () => {
-      // Given & When: demo profile을 두 번 연속 실행한다.
       await runProfile('demo', new SeedStats());
       const firstRunFiles = await prisma.submissionFile.findMany({
         where: { id: { startsWith: seedDemoPrefix } },
@@ -1597,7 +1470,6 @@ describe('seed profile=demo 계약 (integration)', () => {
         orderBy: { id: 'asc' },
       });
 
-      // Then: 같은 key 집합이고, 두 실행 뒤에도 각 객체가 여전히 실제로 존재한다.
       expect(secondRunFiles).toEqual(firstRunFiles);
       for (const file of secondRunFiles) {
         await expect(demoStorageObjectExists(file.storageKey)).resolves.toBe(
@@ -1611,7 +1483,6 @@ describe('seed profile=demo 계약 (integration)', () => {
   it(
     'teardown은 자신이 만든 storage 객체를 모두 지우고, 비-demo 객체는 건드리지 않는다',
     async () => {
-      // Given: demo profile을 시드해 실제 storage 객체까지 만든다.
       await runProfile('demo', new SeedStats());
       const demoFiles = await prisma.submissionFile.findMany({
         where: { id: { startsWith: seedDemoPrefix } },
@@ -1619,8 +1490,6 @@ describe('seed profile=demo 계약 (integration)', () => {
       });
       expect(demoFiles.length).toBeGreaterThan(0);
 
-      // And: teardown 대상이 아닌 비-demo 객체를 하나 별도로 심는다(reconciliation 소유
-      // prefix 안이지만 seed-demo 하위 네임스페이스 밖).
       const survivorKey = `submission-files/seed-demo-teardown-guard-${Date.now()}`;
       await demoStorage.put({
         objectKey: survivorKey,
@@ -1630,16 +1499,14 @@ describe('seed profile=demo 계약 (integration)', () => {
       });
 
       try {
-        // When: teardown을 실행한다.
         await runTeardown('demo', new SeedStats());
 
-        // Then: demo profile이 만든 모든 storage 객체가 사라졌다.
         for (const file of demoFiles) {
           await expect(demoStorageObjectExists(file.storageKey)).resolves.toBe(
             false,
           );
         }
-        // And: 비-demo 객체는 살아남는다.
+
         await expect(demoStorageObjectExists(survivorKey)).resolves.toBe(true);
       } finally {
         await demoStorage.delete(survivorKey);
@@ -1649,8 +1516,6 @@ describe('seed profile=demo 계약 (integration)', () => {
   );
 
   it('production에서는 SEED_DEMO_ALLOW_PRODUCTION=1 없이 거부된다', () => {
-    // Given & When & Then: DB 쓰기 전에 거부해야 한다 — assertSeedAllowed 자체를 직접 호출해
-    // 실제 seed 실행(격리 DB에도 영향을 주는) 없이 게이트 로직만 검증한다.
     const { assertSeedAllowed } =
       jest.requireActual<typeof import('./seeds/helpers')>('./seeds/helpers');
     expect(() => assertSeedAllowed('production', 'demo', undefined)).toThrow(
@@ -1679,13 +1544,6 @@ describe('seed profile=demo 계약 (integration)', () => {
   });
 });
 
-/**
- * #910/#913 파인딩 3 — production에서 demo profile을 돌리면 seed.ts가 post-seed
- * user-profile backfill을 호출하며(seed.ts:63-66), 이 경로의 backfill은 그 예외가
- * 만든 seed:demo:* 행만 만져야 한다. 이미 존재하는 비-demo production 사용자의
- * legacy 프로필 불일치(PROFILE_MISMATCH)가 demo 시드 실행을 실패시키거나 그 사용자의
- * 프로필을 쓰지 않아야 한다(실제 production 장애 재현).
- */
 describe('seed profile=all 멱등성 (integration)', () => {
   beforeAll(async () => {
     await prisma.$connect();
@@ -1699,9 +1557,6 @@ describe('seed profile=all 멱등성 (integration)', () => {
   it(
     '같은 profile을 두 번 실행해도 seed: 행 수가 그대로다',
     async () => {
-      // Given: 격리된 빈 DB(마이그레이션만 적용된 상태).
-
-      // When: profile=all을 두 번 연속 실행한다.
       const firstRunStats = new SeedStats();
       await runProfile('all', firstRunStats);
       const countsAfterFirstRun = await countAllSeeded();
@@ -1710,8 +1565,6 @@ describe('seed profile=all 멱등성 (integration)', () => {
       await runProfile('all', secondRunStats);
       const countsAfterSecondRun = await countAllSeeded();
 
-      // Then: 각 모델의 seed: 행 수는 두 실행 사이에 변하지 않고, 최소한 하나는 non-zero다
-      // (멱등성뿐 아니라 "조용한 no-op"이 아님도 함께 검증한다).
       expect(countsAfterSecondRun).toEqual(countsAfterFirstRun);
       const totalRows = Object.values(countsAfterSecondRun).reduce(
         (sum, count) => sum + count,
@@ -1754,7 +1607,6 @@ describe('seed profile=all 멱등성 (integration)', () => {
         ).toBe(true);
       }
 
-      // 두 실행 모두 created/updated 합계가 0보다 커야 한다 — stats 리포트 자체가 비어있지 않음을 보장.
       expect(firstRunStats.report().length).toBeGreaterThan(0);
       expect(secondRunStats.report().length).toBeGreaterThan(0);
     },
@@ -1779,7 +1631,6 @@ describe('issue-99 auth seed contract', () => {
   it(
     'auth profile은 미동의·현행 동의·과거 버전을 두 실행 뒤에도 보존한다',
     async () => {
-      // Given: 대상 사용자만 준비하고 동의 행은 과거 버전 하나로 초기화한다.
       const setupStats = new SeedStats();
       await upsertSeedUser(setupStats, {
         id: consentRequiredUserId,
@@ -1801,7 +1652,6 @@ describe('issue-99 auth seed contract', () => {
         },
       });
 
-      // When: auth profile을 두 번 실행한다.
       await runProfile('auth', new SeedStats());
       const firstCurrent = await prisma.consent.findUnique({
         where: {
@@ -1813,7 +1663,6 @@ describe('issue-99 auth seed contract', () => {
       });
       await runProfile('auth', new SeedStats());
 
-      // Then: 미동의 사용자는 비어 있고, 현행/과거 행은 중복·갱신 없이 남는다.
       const [
         consentRequiredCount,
         roleUnselectedRows,
@@ -1859,9 +1708,7 @@ describe('issue-99 auth seed contract', () => {
         studentId: ['20', '2601'].join(''),
         department: '인공지능학부',
       });
-      // 승인 대기·반려는 접근 권한만 가른다 — 회원 유형은 STAFF로 남아야 한다.
-      // 학번이 채워져 있으면 시드의 studentId→memberKind 규칙이 그 둘을 STUDENT로
-      // 뒤집어, 교직원 신청자가 세션상 학생 권한을 가진다.
+
       expect(staffPending).toMatchObject({
         memberKind: MemberKind.STAFF,
         studentId: null,
@@ -1887,17 +1734,9 @@ describe('issue-99 auth seed contract', () => {
   );
 });
 
-/**
- * #184 관리자 승인·거절·회수 e2e가 쓸 페르소나의 계약.
- *
- * 판정을 이 파일에서 다시 계산하지 않고 **실제 로그인 경로**(`AuthRepository.findByGithubId`
- * → `toDomain` → `isCompleteProfileFields`)로 확인한다. 세션이 실어 보내는 그 값이 곧
- * `role-gate.tsx`가 화면을 열지 말지 정하는 근거라서, 이름이 채워졌는지만 보면 게이트가
- * 실제로 열리는지는 여전히 모른다.
- */
 describe('#184 관리자 e2e 페르소나 (integration)', () => {
   const authPrisma = new PrismaService();
-  // findByGithubId는 초기 역할 시드를 쓰지 않는다(upsertUser 경로 전용).
+
   const authRepository = new AuthRepository(authPrisma, {
     resolveInitialRole: () => null,
   } as unknown as AuthConfig);
@@ -1915,11 +1754,9 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
   it(
     '관리자 두 명은 실제 로그인 경로에서 프로필 완료로 판정된다',
     async () => {
-      // Given & When: auth profile을 두 번 실행한다(멱등 무회귀도 같이 본다).
       await runProfile('auth', new SeedStats());
       await runProfile('auth', new SeedStats());
 
-      // Then: 세션이 싣는 값 자체가 완료여야 관리자 화면이 열린다.
       const [admin, adminSecond] = await Promise.all([
         authRepository.findByGithubId(seedGithubId(adminConfirmedUserId)),
         authRepository.findByGithubId(seedGithubId(adminSecondUserId)),
@@ -1935,7 +1772,6 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
       expect(adminSecond?.accountStatus).toBe(AccountStatus.ACTIVE);
       expect(adminSecond?.isProfileComplete).toBe(true);
 
-      // 결정 이력의 `decidedBy`가 두 사람을 구분하려면 이름이 서로 달라야 한다.
       const [adminRow, adminSecondRow] = await Promise.all([
         prisma.userProfile.findUniqueOrThrow({
           where: { userId: adminConfirmedUserId },
@@ -1947,8 +1783,6 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
       expect(adminRow.name).toBe('합성 관리자');
       expect(adminSecondRow.name).toBe('합성 두 번째 관리자');
 
-      // 관리자 권한은 회원 정체성과 독립이다 — 이 두 사람은 교직원으로 가입한
-      // 관리자라 학번이 없고 사업단 소속이다(계약 CHECK가 그 대응을 강제한다).
       expect(adminRow.studentId).toBeNull();
       expect(adminRow.memberKind).toBe(MemberKind.STAFF);
       expect(adminRow.affiliationKind).toBe(AffiliationKind.PROGRAM_OFFICE);
@@ -1959,10 +1793,8 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
   it(
     'staff-revocable은 회수를 누를 수 있는 ACTIVE·STAFF·승인 완료 상태다',
     async () => {
-      // Given & When
       await runProfile('auth', new SeedStats());
 
-      // Then: 로그인이 되고(ACTIVE) 화면이 열려야(프로필 완료) 회수 직후 화면을 볼 수 있다.
       const revocable = await authRepository.findByGithubId(
         seedGithubId(staffRevocableUserId),
       );
@@ -1971,7 +1803,6 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
       expect(revocable?.accountStatus).toBe(AccountStatus.ACTIVE);
       expect(revocable?.isProfileComplete).toBe(true);
 
-      // And: 회수의 출발점인 APPROVED 요청이 정확히 하나 있고 REVOKED 행은 아직 없다.
       const requests = await prisma.staffAccessRequest.findMany({
         where: { userId: staffRevocableUserId },
         orderBy: { createdAt: 'asc' },
@@ -1980,8 +1811,6 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
       expect(requests[0]?.status).toBe(StaffAccessRequestStatus.APPROVED);
       expect(requests[0]?.decidedById).toBe(adminConfirmedUserId);
 
-      // And: 기존 회수 페르소나는 그대로다 — 로그인 자체가 막히는 상태를 쓰는
-      // 다른 시나리오가 그것에 기대고 있다(#187, #188).
       const revoked = await prisma.user.findUniqueOrThrow({
         where: { id: staffRevokedUserId },
       });

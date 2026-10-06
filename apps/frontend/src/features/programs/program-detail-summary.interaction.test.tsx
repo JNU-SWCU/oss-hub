@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
@@ -70,13 +68,10 @@ afterAll(() => {
 
 describe('ProgramSummary disclosure', () => {
   it('설명이 있으면 안정적인 연결을 유지한 채 닫힌 상태로 시작한다', () => {
-    // Given
     const { container } = renderSummary(program);
 
-    // When
     const { content, contentId, trigger } = getDisclosure(container);
 
-    // Then
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
     expect(content.id).toBe(contentId);
     expect(content.getAttribute('data-state')).toBe('closed');
@@ -85,47 +80,39 @@ describe('ProgramSummary disclosure', () => {
   });
 
   it('닫힌 안내 트리거를 클릭하면 설명을 연다', () => {
-    // Given
     const { container } = renderSummary(program);
     const { content, trigger } = getDisclosure(container);
 
-    // When
     act(() => {
       trigger.click();
     });
 
-    // Then
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
     expect(content.getAttribute('data-state')).toBe('open');
   });
 
   it('열린 안내 트리거를 클릭하면 설명을 다시 닫는다', () => {
-    // Given
     const { container } = renderSummary(program);
     const { content, trigger } = getDisclosure(container);
     act(() => {
       trigger.click();
     });
 
-    // When
     act(() => {
       trigger.click();
     });
 
-    // Then
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
     expect(content.getAttribute('data-state')).toBe('closed');
   });
 
   it('열린 상태에서 프로그램 ID가 바뀌면 닫힌 상태로 초기화한다', () => {
-    // Given
     const { container, root } = renderSummary(program);
     const { trigger } = getDisclosure(container);
     act(() => {
       trigger.click();
     });
 
-    // When
     act(() => {
       root.render(
         <ProgramSummary
@@ -138,7 +125,6 @@ describe('ProgramSummary disclosure', () => {
       );
     });
 
-    // Then
     const nextDisclosure = getDisclosure(container);
     expect(nextDisclosure.trigger.getAttribute('aria-expanded')).toBe('false');
     expect(nextDisclosure.content.getAttribute('data-state')).toBe('closed');

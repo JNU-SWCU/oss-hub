@@ -57,7 +57,6 @@ export class SubmissionDashboardSummaryService implements SubmissionDashboardSum
       milestoneProgramById.set(milestone.id, milestone.programId);
     }
 
-    // 코드 축: (신청 × 마일스톤) 칸 → Submission 상태.
     const submissionByCell = new Map<string, SubmissionStatus>();
     for (const submission of records.submissions) {
       if (
@@ -69,15 +68,13 @@ export class SubmissionDashboardSummaryService implements SubmissionDashboardSum
       ) {
         continue;
       }
-      // 첫 행이 이긴다 — 스키마의 `@@unique([applicationId, milestoneId])` 상 둘일 수 없지만
-      // 예전 코드가 `countedCells` 로 지키던 성질이라 그대로 둔다.
+
       const cell = cellKey(submission.applicationId, submission.milestoneId);
       if (!submissionByCell.has(cell)) {
         submissionByCell.set(cell, submission.status);
       }
     }
 
-    // 서류 축 명부: 마일스톤 → 필수 서류 id 들.
     const requiredDocumentsByMilestone = new Map<string, string[]>();
     for (const document of records.milestoneDocuments) {
       if (
@@ -92,7 +89,6 @@ export class SubmissionDashboardSummaryService implements SubmissionDashboardSum
         requiredDocumentsByMilestone.set(document.milestoneId, [document.id]);
     }
 
-    // 서류 축 상태: (신청 × 서류항목) 칸 → 판정 상태.
     const documentStatusByCell = new Map<string, SubmissionStatus>();
     for (const submission of records.documentSubmissions) {
       if (
@@ -110,9 +106,6 @@ export class SubmissionDashboardSummaryService implements SubmissionDashboardSum
       );
     }
 
-    // 제출 축이 0개인 안내용 마일스톤은 제출 현황의 분모에 넣지 않는다.
-    // 신규 서류 항목 마일스톤은 submissionType=null이어도 필수 항목이 있으면
-    // 계속 집계한다.
     const activeMilestones = records.milestones.filter(
       (milestone) =>
         milestone.submissionType !== null ||
@@ -136,13 +129,6 @@ export class SubmissionDashboardSummaryService implements SubmissionDashboardSum
     );
     const applicationIdsByProgram = groupIdsByProgram(records.applications);
 
-    /**
-     * 칸마다 판정을 한 번씩 묻는다 — 승인된 신청 × 그 프로그램의 마일스톤 전부.
-     *
-     * 예전에는 제출 행을 훑으며 `notSubmitted` 를 깎았다. 그러면 제출 행이 있는 칸만 셀 수 있어
-     * 서류만 낸 칸이 영원히 미제출로 남았다. 이제 칸을 직접 돌기 때문에 버킷 합이 `total` 과
-     * 어긋날 수 없다.
-     */
     for (const summary of summaries) {
       summary.notSubmitted = 0;
       const milestoneIds = milestoneIdsByProgram.get(summary.programId) ?? [];
@@ -192,10 +178,6 @@ function groupIdsByProgram(
   return byProgram;
 }
 
-/**
- * 이 행이 정말 한 프로그램 안의 칸인가. 신청·마일스톤이 서로 다른 프로그램을 가리키면 버린다 —
- * 예전 코드가 세 갈래로 대조하던 것과 같은 조건이다.
- */
 function isConsistentCell(
   applicationProgramById: ReadonlyMap<string, string>,
   milestoneProgramById: ReadonlyMap<string, string>,

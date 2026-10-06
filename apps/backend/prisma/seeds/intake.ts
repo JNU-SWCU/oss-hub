@@ -9,11 +9,6 @@ import {
 } from './helpers';
 import { computeJoinCodeDigest } from '../../src/common/join-code-digest';
 
-/**
- * v1 신청 answers 예시 payload.
- * 필드 SSOT는 program-template.registry의 V1_APPLICATION_FIELDS이며,
- * 시드는 registry를 복제하지 않고 합성 예시만 넣는다.
- */
 function placeholderAnswers(scenarioId: string): Prisma.InputJsonObject {
   return {
     applicantName: `seed-applicant-${scenarioId}`,
@@ -105,8 +100,7 @@ async function upsertApplication(
   },
 ) {
   const answers = placeholderAnswers(params.scenarioId);
-  // 모든 신청이 Team을 갖는다(D5). 시나리오가 팀을 지정하지 않으면 프로덕션의 신청
-  // 경로와 같은 모양으로 신청자 1인 팀을 만들어 붙인다.
+
   const teamId =
     params.teamId ??
     (
@@ -114,8 +108,7 @@ async function upsertApplication(
         id: seedId('intake', params.scenarioId, 'solo-team'),
         programId: params.programId,
         name: `${params.scenarioId} 1인 팀`,
-        // 시나리오 전체를 써야 digest가 시나리오마다 달라진다. joinCodeDigest는
-        // @unique라 앞부분만 자르면 시나리오끼리 충돌한다.
+
         joinCode: `SEED-SOLO-${params.scenarioId.toUpperCase()}`,
         leaderId: params.applicantId,
       })
@@ -209,7 +202,6 @@ async function upsertTeamMember(
   );
 }
 
-/** application-team·team-locked이 공유하는 "팀 생성 + 신청 제출" 재사용 helper. */
 async function createTeamWithApplication(
   stats: SeedStats,
   params: {
@@ -259,17 +251,13 @@ const PROGRAM_WITH_APPLICATIONS_ID = seedId(
 );
 const PROGRAM_TEAM_TRACK_ID = seedId('intake', 'program-team-track');
 
-/** application-validation-error는 DB에 심지 않는다 — API 테스트 입력 전용 fixture다. */
 export const APPLICATION_VALIDATION_ERROR_FIXTURE = {
   scenarioId: 'application-validation-error',
-  // 필수 answer 누락 — 정상 template 계약을 위반하는 API 입력 예시.
+
   answers: { title: '' },
 };
 
 export async function seedIntake(stats: SeedStats): Promise<void> {
-  // --- programs -------------------------------------------------------
-  // empty-programs: 이 profile은 어떤 DB row도 만들지 않는다 — 완전히 빈 DB 상태 자체가
-  // 이 시나리오다(scenario id는 이 주석과 아래 noteFixtureOnly 기록으로 찾을 수 있다).
   stats.noteFixtureOnly('empty-programs');
 
   for (const category of ALL_CATEGORIES) {
@@ -325,7 +313,6 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
     teamMaxSize: 4,
   });
 
-  // --- 개인형 신청 지원 사용자 ------------------------------------------
   const applicantPersonal = await upsertSeedUser(stats, {
     id: seedId('intake', 'user', 'applicant-personal'),
     role: 'STUDENT',
@@ -347,7 +334,6 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
     role: 'STAFF',
   });
 
-  // application-personal: 개인형, teamId=null, 유효(placeholder) answers.
   await upsertApplication(stats, {
     id: seedId('intake', 'application-personal', 'application'),
     programId: PROGRAM_WITH_APPLICATIONS_ID,
@@ -356,8 +342,6 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
     scenarioId: 'application-personal',
   });
 
-  // application-pending: 제출 후 판정 대기(ApplicationStatus enum에 PENDING이 없다 —
-  // SUBMITTED가 곧 "판정 대기" 상태다. processedAt=null로 미판정임을 표현한다).
   await upsertApplication(stats, {
     id: seedId('intake', 'application-pending', 'application'),
     programId: PROGRAM_WITH_APPLICATIONS_ID,
@@ -387,16 +371,13 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
     scenarioId: 'application-rejected',
   });
 
-  // application-validation-error: DB 정상 레코드로 심지 않는다 — 위 export된 fixture만 제공.
   stats.noteFixtureOnly('application-validation-error');
 
-  // --- 팀형 신청 -------------------------------------------------------
   const teamEmptyUser = await upsertSeedUser(stats, {
     id: seedId('intake', 'user', 'team-empty-applicant'),
     role: 'STUDENT',
   });
-  // team-empty: team-track 프로그램은 있지만 이 사용자는 어떤 Team에도 속하지 않는다
-  // (Team/TeamMember row를 만들지 않는다 — 사용자의 "팀 없음" 상태 자체가 시나리오다).
+
   void teamEmptyUser;
 
   const teamLeaderFull = await upsertSeedUser(stats, {
@@ -411,7 +392,7 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
       }),
     ),
   );
-  // team-full: teamMaxSize(4) 도달 — leader 1 + member 3.
+
   const teamFullId = seedId('intake', 'team-full', 'team');
   await upsertTeam(stats, {
     id: teamFullId,
@@ -458,8 +439,7 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
     id: seedId('intake', 'user', 'team-locked-member'),
     role: 'STUDENT',
   });
-  // team-locked: 신청 제출 후 membership이 잠긴 팀 — application-team과 동일한 구성을
-  // 재사용 helper로 독립된 팀·신청 행에 적용한다.
+
   await createTeamWithApplication(stats, {
     scenarioId: 'team-locked',
     programId: PROGRAM_TEAM_TRACK_ID,

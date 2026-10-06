@@ -47,15 +47,6 @@ export class UsersService {
     }
   }
 
-  /**
-   * 가입 마치기 — 미완료 프로필을 이름·학과(학생은 학번)와 함께 한 번에 완료한다.
-   *
-   * **미완료 → 완료 저장이 곧 `가입 마치기`다(#569).** 그 순간 고른 역할이 확정된다 —
-   * 학생은 역할이 배정되고 교직원은 승인 요청이 만들어진다. 확정을 저장과 같은
-   * 트랜잭션에 묶는 일은 저장소가 한다(`completeProfileIfUnchanged`).
-   *
-   * 이미 완료된 프로필은 USR_001. 부분 수정(PATCH)으로는 이 경로에 들어오지 못한다.
-   */
   async completeMyProfile(
     githubId: bigint,
     input: PatchUserProfileInput,
@@ -85,13 +76,6 @@ export class UsersService {
     }
   }
 
-  /**
-   * 완료된 프로필의 이름·학과 갱신. 학번은 **아직 없을 때만** 처음 한 번 채울 수
-   * 있고, 이미 값이 있으면 바꿀 수 없다(USR_003).
-   *
-   * 미완료 프로필은 PATCH로 완료하지 않는다 — 스크립트가 이름만 보내 학과를
-   * null로 남기던 구멍이다. 가입은 `completeMyProfile`(POST)만 받는다.
-   */
   async patchMyProfile(
     githubId: bigint,
     input: PatchUserProfileInput,
@@ -164,14 +148,6 @@ export class UsersService {
     return user;
   }
 
-  /**
-   * 비어 있던 학번을 처음 채운다 — 유일성 제약이 걸린 UserProfile 행을 만드는 경로다.
-   *
-   * 예전에는 이름·학과와 같은 갱신 경로로 흘려보냈고, UserProfile 행이 없는 사용자
-   * (학번 없이 완료된 교직원)에게는 `updateMany`가 0행을 갱신한 뒤 제약이 없는 구버전
-   * `User.studentId` 컬럼에만 값이 남았다. 그래서 서로 다른 두 사람이 같은 학번을 가질 수
-   * 있었고, 한 사람의 동시 최초 저장 두 건이 모두 성공했다.
-   */
   private async fillStudentId(
     user: UserProfileRecord,
     next: {
@@ -199,8 +175,6 @@ export class UsersService {
           USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_TAKEN],
         );
       case 'conflict':
-        // 같은 계정을 다른 요청이 먼저 바꿨다. 학번은 이미 정해졌을 가능성이 높으므로
-        // 불변 규칙과 같은 답을 준다 — 다시 읽으면 현재 값이 보인다.
         throw new DomainException(
           USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_IMMUTABLE],
         );

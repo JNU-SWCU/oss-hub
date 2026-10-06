@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -11,11 +9,6 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
-// 연결된 학생 저장소가 하나도 없고, external sweep도 여태 단 한 번도 끝난 적이
-// 없는 상태 — 프로덕션의 실제 현재 상태와 같다(GithubRepository에
-// EXTERNAL_PUBLIC 행이 0개, CollectionSweepHistory에 external scope 행도 0개).
-// lastSweep이 null이므로 "파이프라인이 자동 실행되고 있다"고 단정하면 안 된다
-// (QA57) — 스케줄러가 아예 안 도는 것일 수 있다.
 const neverSweptNoTargets: ExternalCollectionStatus = {
   trackedRepositoryCount: 0,
   lastSweep: null,
@@ -25,8 +18,6 @@ const neverSweptNoTargets: ExternalCollectionStatus = {
   cumulativeIssueCount: 0,
 };
 
-// 연결된 저장소는 없지만 external sweep 자체는 정상적으로 한 번 끝난 상태 —
-// 대상 0개로 처리할 게 없었을 뿐 파이프라인은 정상 실행 중이다.
 const sweepRanWithNoTargets: ExternalCollectionStatus = {
   trackedRepositoryCount: 0,
   lastSweep: {
@@ -50,9 +41,6 @@ const sweepRanWithNoTargets: ExternalCollectionStatus = {
   cumulativeIssueCount: 0,
 };
 
-// 연결된 저장소는 있지만(대상은 채워졌지만) sweep은 여태 한 번도 끝난 적이
-// 없는 상태 — 비어있지 않은 카드에서도 lastSweep null을 정직하게 보여줘야
-// 한다("최근 종료" 값을 조용히 생략하면 수집이 잘 되는 것처럼 오독될 수 있다).
 const targetsExistButNeverSwept: ExternalCollectionStatus = {
   trackedRepositoryCount: 2,
   lastSweep: null,
@@ -62,7 +50,6 @@ const targetsExistButNeverSwept: ExternalCollectionStatus = {
   cumulativeIssueCount: 0,
 };
 
-// 연결된 저장소가 있고 sweep도 정상적으로 한 번 끝난 상태.
 const withDiscoveredRepositories: ExternalCollectionStatus = {
   trackedRepositoryCount: 3,
   lastSweep: {
@@ -86,7 +73,6 @@ const withDiscoveredRepositories: ExternalCollectionStatus = {
   cumulativeIssueCount: 7,
 };
 
-// 저장소는 연결됐지만 sweep이 일부 실패한 상태 — 실패 건수가 표시돼야 한다.
 const withFailedSweep: ExternalCollectionStatus = {
   trackedRepositoryCount: 4,
   lastSweep: {
@@ -140,14 +126,11 @@ describe('ExternalCollectionSection', () => {
   it('sweep이 단 한 번도 끝난 적이 없으면(lastSweep null) 파이프라인이 자동 실행 중이라고 단정하지 않고 스케줄러·설정 확인이 필요하다고 안내한다', async () => {
     await renderSection(neverSweptNoTargets);
     expect(sectionText()).toContain('수집 대상 학생 개인 저장소가 없습니다');
-    // QA57 — lastSweep이 null이면 sweep이 한 번도 끝난 적이 없다는 뜻이라
-    // "매시 정각 자동으로 실행되고 있다"고 단정하면 실제로 안 도는 스케줄러를
-    // 감추게 된다. 이 문구를 절대 포함해서는 안 된다.
+
     expect(sectionText()).not.toContain('매시 정각 자동으로 실행되고 있습니다');
     expect(sectionText()).toContain('완료된 수집 기록도 없습니다');
     expect(sectionText()).toContain('스케줄러 실행과 런타임 설정');
-    // 대상을 채우는 경로(프로그램 팀 화면에서 연결) 설명은 sweep 실행 여부와
-    // 무관하게 정확한 정보이므로 그대로 보인다. 없앤 관리자 탐색은 안내하지 않는다(#1453).
+
     expect(sectionText()).toContain(
       '팀장이나 교직원이 프로그램 팀 화면에서 조직 밖 공개 저장소 주소를',
     );
@@ -155,9 +138,9 @@ describe('ExternalCollectionSection', () => {
     expect(sectionText()).not.toContain('OWN');
     expect(sectionText()).not.toContain('저장소 탐색을 실행');
     expect(sectionText()).toContain('수집 대상 학생 개인 저장소가 없습니다');
-    // "왜 0인지"의 원인은 코드가 구분할 수 없는 사실이라 단정하지 않는다.
+
     expect(sectionText()).not.toContain('탐색을 실행한 학생이 없어');
-    // 빈 상태에서는 의미 없는 0값 카드를 보여주지 않는다.
+
     expect(sectionText()).not.toContain('누적 수집 활동');
     expect(container.querySelectorAll('ul > li')).toHaveLength(0);
   });
@@ -165,7 +148,7 @@ describe('ExternalCollectionSection', () => {
   it('대상 0개와 완료 이력을 구별하고 다음 수집 조건을 안내한다', async () => {
     await renderSection(sweepRanWithNoTargets);
     expect(sectionText()).toContain('수집 대상 학생 개인 저장소가 없습니다');
-    // 완료 이력만으로 현재 스케줄러가 정상 실행 중이라고 단정하지 않는다.
+
     expect(sectionText()).toContain(
       '최근 수집은 완료됐지만 대상 저장소가 0개입니다',
     );

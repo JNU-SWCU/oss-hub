@@ -22,7 +22,6 @@ const submissions = [
 ];
 
 it('counts the whole approved population before status filtering and pagination', () => {
-  // Given / When
   const page = buildMilestoneDocumentDeliveryPage(
     { documents, applications, submissions, dueAt },
     {
@@ -32,7 +31,7 @@ it('counts the whole approved population before status filtering and pagination'
       pageSize: 1,
     },
   );
-  // Then
+
   expect(page.rows.map((row) => row.application.applicationId)).toEqual([
     'early',
   ]);
@@ -51,7 +50,6 @@ it('counts the whole approved population before status filtering and pagination'
 });
 
 it('keeps review-independent first submission and optional omission out of missing', () => {
-  // Given / When
   const page = buildMilestoneDocumentDeliveryPage(
     { documents, applications, submissions, dueAt },
     {
@@ -60,7 +58,7 @@ it('keeps review-independent first submission and optional omission out of missi
       pageSize: 10,
     },
   );
-  // Then
+
   expect(page.rows.map((row) => row.deliveryStatus)).toEqual([
     'COMPLETE',
     'LATE',
@@ -69,7 +67,6 @@ it('keeps review-independent first submission and optional omission out of missi
 });
 
 it('represents no required items separately instead of claiming completion', () => {
-  // Given / When
   const page = buildMilestoneDocumentDeliveryPage(
     { documents: [], applications, submissions: [], dueAt },
     {
@@ -78,7 +75,7 @@ it('represents no required items separately instead of claiming completion', () 
       pageSize: 10,
     },
   );
-  // Then
+
   expect(page.deliveryCounts).toEqual({
     missing: 0,
     late: 0,

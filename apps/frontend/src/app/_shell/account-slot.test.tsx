@@ -18,9 +18,7 @@ vi.mock('./use-session-role', () => ({
 vi.mock('@/features/auth/use-session', () => ({
   useSession: mocks.useSession,
 }));
-// `LoginButton`은 공유 세션 저장소(`features/auth`)를 직접 구독한다 — 이 테스트는
-// 역할칩을 붙이는 조립 로직만 검증하면 되므로, 실제 세션 조회 부작용 없이 표식만
-// 남기는 대역으로 대체한다.
+
 vi.mock('@/features/auth/components/login-button', () => ({
   LoginButton: ({ accountRoles }: { readonly accountRoles?: string }) => (
     <div data-testid="login-button" data-account-roles={accountRoles}>
@@ -163,7 +161,6 @@ describe('AccountSlot', () => {
     expect(html).not.toContain('권한 1개');
   });
 
-  // PM 결정: ADMIN 전용 색을 새로 만들지 않고 STAFF와 같은 approved 톤을 재사용한다.
   it('관리자에게는 "관리자" 라벨과 교직원과 같은 approved 톤을 쓴다', () => {
     mocks.usePathname.mockReturnValue('/programs');
     mockSession({ status: 'assigned', role: 'ADMIN', isProfileComplete: true });
@@ -208,8 +205,6 @@ describe('AccountSlot', () => {
     expect(html).not.toContain('data-testid="team-invitation-notifications"');
   });
 
-  // 역할이 배정됐어도 프로필을 마치지 않은 사람은 아직 회원이 아니다
-  // (signup-completion.ts) — 역할칩도 그 판단을 그대로 따른다.
   it('역할은 배정됐지만 프로필을 마치지 않은 사용자에게는 역할칩을 붙이지 않는다', () => {
     mocks.usePathname.mockReturnValue('/onboarding/profile');
     mockSession({
@@ -225,8 +220,6 @@ describe('AccountSlot', () => {
     expect(html).not.toContain('data-testid="team-invitation-notifications"');
   });
 
-  // 승인 대기 교직원은 역할이 아직 없어도(`unassigned`) 이미 회원이다
-  // (signup-completion.ts) — 하지만 역할칩을 그릴 역할 자체가 없으므로 칩은 안 뜬다.
   it('승인 대기 교직원(unassigned)은 계정 슬롯은 뜨지만 역할칩은 없다', () => {
     mocks.usePathname.mockReturnValue('/programs');
     mockSession({

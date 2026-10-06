@@ -22,7 +22,7 @@ for (const width of [1440, 390]) {
     const names = ['가나다', '나다라', '다라마', '라마바'].map(
       (name) => `${prefix} ${name}`,
     );
-    // 가나다 순서와 기간·상태 순서가 서로 다른 합성 프로그램을 실제 API로 만든다.
+
     const periods = [
       [-3, 3, 10],
       [-20, -10, 10],
@@ -46,8 +46,7 @@ for (const width of [1440, 390]) {
       });
       expect(response.status(), await response.text()).toBe(201);
     }
-    // 앞선 대표 이미지 테스트의 저장소 장애 상태는 정렬과 무관하다.
-    // 이미지 바이트만 기존 합성 PNG로 격리하고 목록·정렬 요청은 실제 backend로 보낸다.
+
     await page.route('**/api/v1/programs/*/cover/*', (route) =>
       route.fulfill({ contentType: 'image/png', body: COVER_PNG }),
     );

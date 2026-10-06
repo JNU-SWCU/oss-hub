@@ -3,9 +3,6 @@
 import { FilterChip, FilterChipGroup } from '@/components';
 import { type ArchiveListFilter } from './types';
 
-/**
- * 좁은 폭용 연도 칩 — 데스크톱은 전역 사이드 패널 「공개 아카이브」가 담당.
- */
 export function ArchiveListYearChips({
   years,
   value,

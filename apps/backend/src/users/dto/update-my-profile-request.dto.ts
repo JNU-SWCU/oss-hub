@@ -19,13 +19,6 @@ import {
 
 export { USER_DEPARTMENT_MAX_LENGTH, USER_NAME_MAX_LENGTH };
 
-/**
- * 본인 프로필 쓰기 DTO — 이름·학과는 항상 필수, 학번은 있을 때만 형식을 본다.
- *
- * POST(가입 마치기)와 PATCH(설정 갱신)가 같은 본문을 쓴다. 스크립트가 이름만
- * 보내 학과를 null로 남기는 구멍을 여기서 막는다. 학번 필수 여부는 역할을 아는
- * 서비스가 판정한다 — DTO는 역할을 모른다.
- */
 export class UpdateMyProfileRequestDto {
   @Transform(transformProfileText)
   @IsString()

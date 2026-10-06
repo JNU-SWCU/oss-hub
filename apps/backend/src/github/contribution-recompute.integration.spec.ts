@@ -4,17 +4,6 @@ import { CollectionIncrementalRepository } from './repository/collection-increme
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import type { PrismaService } from '../prisma/prisma.service';
 
-/**
- * `Contribution` 재계산을 **실 Postgres** 로 검증한다 (ADR-010 §4·§5·§9).
- *
- * 단위 스펙은 Prisma 를 mock 하므로 집합 SQL 이 실제로 무엇을 넣는지 볼 수 없다.
- * 특히 두 가지는 mock 으로 절대 잡히지 않는다.
- *
- * 1. **날짜 경계** — 쓰기는 `AT TIME ZONE 'Asia/Seoul'` 로 접고 읽기는 UTC 경계로
- *    자른다. 한쪽이라도 어긋나면 연말·연초 하루가 통째로 밀린다.
- * 2. **질의 횟수** — 칸이 늘어도 질의가 늘지 않아야 한다. 늘어나면 checkpoint
- *    트랜잭션(기본 5초)을 넘겨 fact 적재까지 함께 롤백된다.
- */
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -70,7 +59,6 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 
   it('KST 자정 경계를 사이에 둔 두 커밋이 서로 다른 날짜 칸으로 간다', async () => {
-    // 둘 다 UTC 로는 2026-03-15 지만 KST 로는 하루가 갈린다.
     await repository.recordCommitFacts(
       REPO_ID,
       [
@@ -152,7 +140,7 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       ],
       registeredGithubIds,
     );
-    // 같은 (사람, 날짜) 칸을 커밋 적재가 다시 센다 — 칸을 지우고 네 fact 를 모두 다시 센다.
+
     await repository.recordCommitFacts(
       REPO_ID,
       [
@@ -220,8 +208,6 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       select: { githubId: true, date: true, commitCount: true },
     });
 
-    // 같은 배치를 다시 넣는다. fact 는 skipDuplicates 라 늘지 않고,
-    // 집계는 COUNT 재계산이라 같은 값이어야 한다.
     await repository.recordCommitFacts(REPO_ID, batch, registeredGithubIds);
     const second = await prisma.contribution.findMany({
       where: { repositoryId: REPO_ID },
@@ -249,11 +235,10 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       await prisma.contribution.count({ where: { repositoryId: REPO_ID } }),
     ).toBe(1);
 
-    // force-push 로 fact 가 사라진 상황을 만든다.
     await prisma.collectionCommitFact.deleteMany({
       where: { repositoryId: REPO_ID },
     });
-    // 같은 칸을 다시 건드리는 재계산이 돌면 0 인 행이 아니라 행 자체가 없어야 한다.
+
     await repository.recordCommitFacts(
       REPO_ID,
       [
@@ -284,13 +269,12 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       where: { repositoryId: REPO_ID },
       select: { commitCount: true },
     });
-    // 남은 fact 는 마지막 하나뿐이므로 값이 1이며, 사라진 것이 누적되지 않았다.
+
     expect(rows).toHaveLength(1);
     expect(rows[0]?.commitCount).toBe(1);
   });
 
   it('칸이 늘어도 질의 수가 늘지 않는다 — 트랜잭션 안 N+1 을 만들지 않는다', async () => {
-    // 60일 × 1명 = 60칸. 셀 단위 루프였다면 count×3 + upsert 로 240 질의였다.
     const facts = Array.from({ length: 60 }, (_, index) => ({
       sha: `bulk-${index}`,
       committedAt: new Date(Date.UTC(2026, 4, 1 + index, 3, 0, 0)),
@@ -321,8 +305,6 @@ describe('Contribution 재계산 (실 Postgres)', () => {
     });
     expect(rows).toBe(60);
 
-    // 삽입 1 + 가입자 조회 1 + 삭제 1 + 집합 insert 1 (+ 트랜잭션 프레임).
-    // 칸 수(60)에 비례해 늘지 않는다는 것이 요점이다.
     const dataQueries = queries.filter(
       (query) => !/^(BEGIN|COMMIT|ROLLBACK|DEALLOCATE)/u.test(query.trim()),
     );
@@ -330,12 +312,6 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 });
 
-/**
- * 실패 백오프가 **실제로 스케줄을 바꾸는지** 실 Postgres 로 본다 (ADR-010 §6).
- *
- * 단위 스펙의 fake 는 DB 기본값 `now()` 를 흉내내지 못해 "아직 차례가 안 온 행"을
- * 만들 수 없다. 기록만 하고 쓰이지 않는 칸은 있으나 마나이므로 여기서 확인한다.
- */
 describe('수집 편입 큐 백오프 (실 Postgres)', () => {
   const prisma = new PrismaClient();
   const repository = new CollectionIncrementalRepository(
@@ -376,7 +352,7 @@ describe('수집 편입 큐 백오프 (실 Postgres)', () => {
 
     expect(row.failureCount).toBe(0);
     expect(row.lastSuccessAt).toBeNull();
-    // 별도 편입 단계 없이 곧바로 차례가 지난 상태여야 한다.
+
     expect(row.nextRunAt.getTime()).toBeLessThanOrEqual(Date.now());
   });
 
@@ -389,7 +365,7 @@ describe('수집 편입 큐 백오프 (실 Postgres)', () => {
       select: { nextRunAt: true, failureCount: true },
     });
     expect(failed.failureCount).toBe(1);
-    // 밀리지 않으면 같은 저장소가 매 사이클 같은 비용을 다시 쓴다.
+
     expect(failed.nextRunAt.getTime()).toBeGreaterThan(at.getTime());
 
     await repository.recordRepositoryFailure(QUEUE_GITHUB_ID, at);
@@ -397,7 +373,7 @@ describe('수집 편입 큐 백오프 (실 Postgres)', () => {
       where: { githubRepositoryId: QUEUE_GITHUB_ID },
       select: { nextRunAt: true, failureCount: true },
     });
-    // 연속 실패는 더 뒤로 민다. 상한이 있어 영구 제외되지는 않는다.
+
     expect(twice.failureCount).toBe(2);
     expect(twice.nextRunAt.getTime()).toBeGreaterThan(
       failed.nextRunAt.getTime(),
@@ -408,7 +384,7 @@ describe('수집 편입 큐 백오프 (실 Postgres)', () => {
       where: { githubRepositoryId: QUEUE_GITHUB_ID },
       select: { nextRunAt: true, failureCount: true, lastSuccessAt: true },
     });
-    // 성공하면 즉시 다시 대상이 된다 — 주기는 스케줄러가 소유한다.
+
     expect(healed.failureCount).toBe(0);
     expect(healed.lastSuccessAt?.getTime()).toBe(at.getTime());
     expect(healed.nextRunAt.getTime()).toBe(at.getTime());

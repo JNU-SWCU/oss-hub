@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
@@ -66,8 +64,6 @@ describe('ProgramTeamsRouteView', () => {
     expect(container.textContent).toContain('학생 팀 구성 화면');
   });
 
-  // QA33: 사이드바가 교직원에게도 「참여 팀」을 내보내는데 누르면 학생 전용 게이트에
-  // 막혀 "접근 권한이 없는 페이지"가 뜨던 것이 이 결함이었다.
   it('교직원 접근이 있으면 참여 팀 목록을 주고 접근 거부 화면을 띄우지 않는다', () => {
     renderAs('STAFF');
 

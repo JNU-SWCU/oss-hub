@@ -13,7 +13,6 @@ import { AdminAccessRepository } from './admin-access.repository';
 
 describe('AdminAccessRepository', () => {
   it('builds the paged access read model and search-scoped facets', async () => {
-    // Given
     const queryRaw = jest.fn().mockResolvedValue([{ id: 'student' }]);
     const findMany = jest.fn().mockResolvedValue([
       userRow({
@@ -48,7 +47,6 @@ describe('AdminAccessRepository', () => {
       user: { findMany, count },
     } as unknown as PrismaService);
 
-    // When
     const result = await repository.list({
       query: 'synthetic',
       role: ADMIN_ACCESS_ROLE_FILTERS.STUDENT,
@@ -58,7 +56,6 @@ describe('AdminAccessRepository', () => {
       limit: 1,
     });
 
-    // Then
     expect(result).toEqual({
       items: [
         expect.objectContaining({
@@ -83,8 +80,6 @@ describe('AdminAccessRepository', () => {
     expect(queryRaw).toHaveBeenCalledTimes(1);
     expect(queryRaw).toHaveBeenCalledWith(
       expect.objectContaining({
-        // 표시 역할 필터는 canonical 컬럼 조건으로 되짚으므로 바인딩 값이 아니라
-        // SQL 리터럴이 된다 — 그래서 'STUDENT'가 values에서 빠진다.
         values: [
           '%synthetic%',
           '%synthetic%',
@@ -119,8 +114,7 @@ describe('AdminAccessRepository', () => {
       }),
     );
     expect(count).toHaveBeenCalledTimes(9);
-    // 1번 호출이 전체 필터를 그대로 건 total count다. facet count(2번 이후)는
-    // 각자 자기 차원을 빼고 세므로 여기서 비교하지 않는다.
+
     expect(count).toHaveBeenNthCalledWith(1, {
       where: studentPendingWhere,
     });
@@ -161,7 +155,6 @@ describe('AdminAccessRepository', () => {
   });
 
   it('maps detail and stable role-request/login histories', async () => {
-    // Given
     const detail = userRow({ id: 'target', role: 'STAFF' });
     const staffAccessRequestFindMany = jest.fn().mockResolvedValue([
       {
@@ -194,7 +187,6 @@ describe('AdminAccessRepository', () => {
       },
     } as unknown as PrismaService);
 
-    // When
     const [user, staffAccessRequests, logins] = await Promise.all([
       repository.findById('target'),
       repository.listStaffAccessRequestHistory('target', {
@@ -204,11 +196,10 @@ describe('AdminAccessRepository', () => {
       repository.listLoginHistory('target', { page: 2, limit: 10 }),
     ]);
 
-    // Then
     expect(user).toEqual(
       expect.objectContaining({
         id: 'target',
-        // 프로필 행이 없으면 식별자와 프로필 값이 모두 비어 있다.
+
         profile: {
           name: null,
           studentId: null,
@@ -254,7 +245,7 @@ describe('AdminAccessRepository', () => {
 
 function syntheticSearchConditions() {
   const contains = { contains: 'synthetic', mode: 'insensitive' as const };
-  // 이름의 정본은 프로필 행뿐이라 legacy fallback 갈래가 사라졌다.
+
   return [{ profile: { is: { name: contains } } }, { nickname: contains }];
 }
 

@@ -23,7 +23,6 @@ afterAll(async () => {
 });
 
 it('returns the complete authoritative RFC7807 projection for a stale CAS', async () => {
-  // Given
   const actor = await harness.createUser(
     'stale-projection-actor',
     'ADMIN',
@@ -35,7 +34,6 @@ it('returns the complete authoritative RFC7807 projection for a stale CAS', asyn
     AccountStatus.ACTIVE,
   );
 
-  // When
   const response = await harness.request(
     'PATCH',
     `/users/${target.id}/access`,
@@ -43,7 +41,6 @@ it('returns the complete authoritative RFC7807 projection for a stale CAS', asyn
     accessBody({ expectedRole: 'STUDENT', desiredRole: 'ADMIN' }),
   );
 
-  // Then
   expect(response.status).toBe(409);
   expect(response.headers.get('content-type')).toContain(
     'application/problem+json',
@@ -214,7 +211,6 @@ it('returns 400/ROL_021 when a legacy command tries to lower ADMIN display role'
 });
 
 it('revokes STAFF access through the real route, clearing the role and appending a REVOKED request', async () => {
-  // Given — 신청 이력이 없는 직접 부여 STAFF다. 회수 행은 조건 없이 생겨야 한다.
   const actor = await harness.createUser(
     'revoke-actor',
     'ADMIN',
@@ -226,7 +222,6 @@ it('revokes STAFF access through the real route, clearing the role and appending
     AccountStatus.ACTIVE,
   );
 
-  // When
   const response = await harness.request(
     'PATCH',
     `/users/${target.id}/access`,
@@ -234,7 +229,6 @@ it('revokes STAFF access through the real route, clearing the role and appending
     accessBody({ expectedRole: 'STAFF', desiredRole: null }),
   );
 
-  // Then
   expect(response.status).toBe(200);
   const body = (await response.json()) as {
     readonly role: unknown;
@@ -343,7 +337,6 @@ it.each([
 );
 
 it('deactivates and reactivates through the real route while preserving STAFF role', async () => {
-  // Given
   const actor = await harness.createUser(
     'status-actor',
     'ADMIN',
@@ -355,7 +348,6 @@ it('deactivates and reactivates through the real route while preserving STAFF ro
     AccountStatus.ACTIVE,
   );
 
-  // When
   const deactivateResponse = await harness.request(
     'PATCH',
     `/users/${target.id}/access`,
@@ -378,7 +370,6 @@ it('deactivates and reactivates through the real route while preserving STAFF ro
     }),
   );
 
-  // Then
   expect(deactivateResponse.status).toBe(200);
   await expect(deactivateResponse.json()).resolves.toMatchObject({
     id: target.id,

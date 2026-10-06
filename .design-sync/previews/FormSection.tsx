@@ -1,8 +1,3 @@
-// FormSection 프리뷰 — components/form-section.test.tsx의 정본 렌더와
-// features/programs/program-edit-basic-form.tsx, features/profile/settings/
-// components/settings-form.tsx의 실제 화면 조합을 옮긴 것이다. FormSection은
-// title(+description)을 FieldSet/FieldLegend/FieldGroup으로 감싸는 레이어라
-// Field와 함께 조합해야 실제 사용법이 드러난다.
 import {
   Field,
   FieldDescription,
@@ -12,7 +7,6 @@ import {
   Input,
 } from 'frontend';
 
-// program-edit-basic-form.tsx의 "기본 정보" 섹션 — description 없이 필드만.
 export function Default() {
   return (
     <FormSection title="기본 정보">
@@ -31,7 +25,6 @@ export function Default() {
   );
 }
 
-// settings-form.tsx의 "프로필" 섹션 — description과 읽기 전용 필드가 함께 온다.
 export function WithDescription() {
   return (
     <FormSection
@@ -56,7 +49,6 @@ export function WithDescription() {
   );
 }
 
-// form-section.test.tsx의 "description 없이 렌더" 케이스 — 비고 필드 하나.
 export function NoDescription() {
   return (
     <FormSection title="추가 정보">
@@ -68,8 +60,6 @@ export function NoDescription() {
   );
 }
 
-// settings-form.tsx의 "알림 수신" 섹션 — description이 길게 줄바꿈되는 케이스,
-// 필드 검증 에러도 함께 조합해 실제 폼 상태를 보여준다.
 export function LongDescriptionWithError() {
   return (
     <FormSection

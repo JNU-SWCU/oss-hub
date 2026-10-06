@@ -15,7 +15,6 @@ assertIsolatedIntegrationDatabase({
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const SEED_RUN_TIMEOUT_MS = 60_000;
 
-/** #110 auth seed 시나리오의 결정적 사용자 식별자 — 시드와 같은 파생 규칙을 쓴다. */
 const consentRequiredUserId = AUTH_SCENARIOS['consent-required'];
 const consentRequiredGithubId = seedGithubId(consentRequiredUserId);
 const alreadyConsentedUserId = AUTH_SCENARIOS['user-role-unselected'];
@@ -33,12 +32,11 @@ describe('ConsentsService integration (seed auth 시나리오)', () => {
 
   beforeAll(async () => {
     await prismaService.$connect();
-    // #110 seed 계약: consent-required는 로그인 완료 + 현행 정책 미동의 상태다.
+
     await runProfile('auth', new SeedStats());
   }, DATABASE_CONNECTION_TIMEOUT_MS + SEED_RUN_TIMEOUT_MS);
 
   afterEach(async () => {
-    // 테스트가 consent-required 사용자에 추가한 행만 되돌려 시나리오 계약(미동의)을 보존한다.
     await prisma.consent.deleteMany({
       where: { userId: consentRequiredUserId },
     });
@@ -93,7 +91,6 @@ describe('ConsentsService integration (seed auth 시나리오)', () => {
   });
 
   it('issue-99 concurrent consent convergence', async () => {
-    // Given: an older consent row and 12 requests held at the same start barrier.
     await prisma.consent.create({
       data: {
         userId: consentRequiredUserId,
@@ -113,13 +110,11 @@ describe('ConsentsService integration (seed auth 시나리오)', () => {
     );
     expect(startResolvers).toHaveLength(12);
 
-    // When: all requests cross the deterministic barrier together.
     for (const release of startResolvers) {
       release();
     }
     const grants = await Promise.all(accepts);
 
-    // Then: every request resolves to one current row/timestamp and the old row remains.
     const rows = await prisma.consent.findMany({
       where: { userId: consentRequiredUserId },
       orderBy: { policyVersion: 'asc' },
@@ -146,7 +141,6 @@ describe('ConsentsService integration (seed auth 시나리오)', () => {
   });
 
   it('과거 버전만 동의한 사용자는 미동의로 보이고, 새 버전 동의가 과거 행을 지우지 않는다', async () => {
-    // Given: 과거 정책 버전 동의만 있다.
     await prisma.consent.create({
       data: {
         userId: consentRequiredUserId,
@@ -154,17 +148,14 @@ describe('ConsentsService integration (seed auth 시나리오)', () => {
       },
     });
 
-    // When/Then: 현행 버전 기준으로는 미동의다 — 최신 정책을 다시 본다.
     const before = await service.getCurrent(consentRequiredGithubId);
     expect(before.consented).toBe(false);
 
-    // When: 현행 버전에 새로 동의한다.
     await service.accept(consentRequiredGithubId, {
       policyVersion: CURRENT_CONSENT_POLICY.policyVersion,
       acceptedItems: allRequiredKeys,
     });
 
-    // Then: append-only — 과거 행과 현행 행이 함께 남는다.
     const versions = await prisma.consent.findMany({
       where: { userId: consentRequiredUserId },
       select: { policyVersion: true },

@@ -19,7 +19,7 @@ import {
 
 interface LoginButtonViewProps {
   readonly session: AuthSession | null;
-  /** 지금 보고 있는 경로. 목적지와 같으면 진입 버튼을 내지 않는다. */
+
   readonly pathname: string;
   readonly accountRoles?: string;
   readonly logoutError: string | null;
@@ -31,8 +31,6 @@ interface LoginButtonViewProps {
 function AccountAvatar({ user }: { readonly user: Me }) {
   if (user.avatarUrl) {
     return (
-      // GitHub avatar CDN — next/image remotePatterns 없이 표시한다.
-      
       <img
         src={user.avatarUrl}
         alt=""
@@ -95,15 +93,6 @@ export function LoginButtonView({
 
   switch (session.isAuthenticated) {
     case false:
-      // 헤더도 랜딩 본문과 같은 `/signup`으로 보낸다. 여기서만 OAuth로 직행하면
-      // 헤더를 눌러 들어온 방문자는 랜딩에서 막 없앤 막다른 길 — 무슨 일이
-      // 일어나는지도, GitHub 계정이 없을 때 어디로 가야 하는지도 듣지 못한 채
-      // GitHub으로 던져지는 — 을 그대로 다시 만난다. 진입점이 둘이면 목적지는
-      // 하나여야 한다.
-      //
-      // 앱 내부 이동이므로 `Link`다. `<a href>`는 backend 경로(OAuth 시작)를 가리킬
-      // 때만 맞고, 그 자리는 이제 `/signup` 화면 하나뿐이다.
-      // 이미 그 화면에 서 있으면 버튼을 내지 않는다 — 눌러도 제자리라 고장으로 읽힌다.
       if (!shouldShowEntryLink(SIGNUP_ENTRY.href, pathname)) {
         return null;
       }
@@ -113,8 +102,6 @@ export function LoginButtonView({
             href={signupForDestination(pathname)}
             aria-label={SIGNUP_ENTRY.label}
           >
-            {/* nav actions는 `shrink-0`이라 좁은 화면에서 메뉴를 파고든다 —
-                640px 미만에서는 짧은 라벨을 쓴다(role-home-link의 nav 링크와 동일). */}
             <span className="sm:hidden">{SIGNUP_ENTRY.compactLabel}</span>
             <span className="hidden sm:inline">{SIGNUP_ENTRY.label}</span>
           </Link>
@@ -143,8 +130,7 @@ export function LoginButtonView({
               id={menuId}
               role="menu"
               aria-label="계정 메뉴"
-              // 반전 표면(랜딩 nav) 안에 중첩될 수 있는 밝은 패널 — data-surface="default"로
-              // globals.css의 리셋 스코프를 걸어 배경·텍스트 색을 :root 기준으로 되돌린다.
+
               data-surface="default"
               className="absolute top-full right-0 z-50 mt-1 w-56 overflow-hidden rounded-lg border border-border bg-background py-1 shadow-lg"
             >
@@ -159,13 +145,7 @@ export function LoginButtonView({
                   </p>
                 ) : null}
               </div>
-              {/*
-                `w-full` 은 로그아웃 줄과 넓이를 맞추려는 것이다. 없으면 이 링크가
-                글자 폭(실측 48px)만 차지해 **줄의 나머지 174px 이 눌리지 않는다** —
-                높이는 두 줄 다 44px 로 같아서 겉보기로는 구분되지 않고, 사용자에게는
-                "설정이 가끔 안 눌린다"로 느껴진다. 메뉴의 두 줄은 같은 목록의 항목이니
-                누를 수 있는 넓이도 같아야 한다.
-              */}
+
               <a
                 role="menuitem"
                 href="/settings"
@@ -209,9 +189,7 @@ export function LoginButton({
 }: { readonly accountRoles?: string } = {}) {
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  // 자체 조회를 두지 않고 공유 세션 저장소를 읽는다. 헤더와 본문이 각자 상태를
-  // 들고 있으면 본문에서 재시도해 복구해도 헤더는 갱신되지 않아 한 화면에서
-  // 인증 표시가 서로 모순된다.
+
   const sessionState = useSession();
   const session = toAccountMenuSession(sessionState);
   const pathname = usePathname();
@@ -233,12 +211,11 @@ export function LoginButton({
             const next = applyLogoutSuccess({ me, logoutError }, result);
             if (next.me === null) {
               clearLoginDestination(getLoginDestinationStorage());
-              // 새 문서로 이동해 모든 세션 소비자를 함께 초기화한다.
+
               window.location.assign('/');
               return;
             }
-            // 로그아웃이 확정되지 않았다면 세션은 아직 살아 있다. 지역 상태를
-            // 되돌리는 대신 공유 저장소를 다시 읽어 모든 소비자를 함께 맞춘다.
+
             refreshSession();
             setLogoutError(next.logoutError);
           })

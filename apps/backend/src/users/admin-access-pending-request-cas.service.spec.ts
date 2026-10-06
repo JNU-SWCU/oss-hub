@@ -12,7 +12,6 @@ import {
 
 describe('AdminAccessService pending request CAS', () => {
   it('returns the re-read projection when the pending-request CAS loses', async () => {
-    // Given
     const repository = new InMemoryAdminAccessRepository();
     repository.requestCasSucceeds = false;
     repository.target = accessUser({
@@ -23,7 +22,6 @@ describe('AdminAccessService pending request CAS', () => {
     const audit = auditLogHarness();
     const service = new AdminAccessService(repository, audit.service);
 
-    // When / Then
     await expect(
       service.patchAccess(ADMIN_GITHUB_ID, 'target', {
         expectedRole: null,

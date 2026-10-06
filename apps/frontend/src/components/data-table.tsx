@@ -18,12 +18,9 @@ interface DataTableColumn<TRow> {
   cell: (row: TRow, rowIndex: number) => React.ReactNode;
   headClassName?: string;
   cellClassName?: string;
-  /** 헤더 `<th>`에 그대로 전달되는 속성. 정렬 가능한 컬럼의 `aria-sort` 등에 쓴다. */
+
   headProps?: Pick<React.ComponentProps<'th'>, 'aria-sort'>;
-  /**
-   * true면 본문 셀을 `<th scope="row">`로 그린다. 기간·이름처럼 행을 대표하는
-   * 열에 켜면 보조기기가 각 셀을 읽을 때 행 제목을 함께 들려준다.
-   */
+
   rowHeader?: boolean;
 }
 
@@ -35,56 +32,23 @@ interface DataTableProps<TRow> extends Omit<
   data: TRow[];
   rowKey: (row: TRow, rowIndex: number) => React.Key;
   caption?: React.ReactNode;
-  /**
-   * true면 caption을 보조기기에만 읽힌다. 카드 제목이 이미 표 이름을 보여 주는
-   * 자리에서 쓴다 — caption을 아예 빼면 표 이름이 사라지고, 보이게 두면 같은
-   * 말이 두 번 보인다.
-   */
+
   hideCaption?: boolean;
-  /**
-   * 가로 스크롤 영역의 이름. 표가 넘칠 때 키보드 사용자가 초점을 옮겨 왔을 때
-   * 무슨 표인지 들리게 한다. 화면마다 다르므로 호출부가 준다.
-   */
+
   scrollRegionLabel?: string;
   isLoading?: boolean;
   loadingSlot?: React.ReactNode;
   emptyState?: React.ReactNode;
-  /**
-   * 주어지면 각 행 전체가 클릭 대상이 된다(마우스 보조 동선). 키보드 접근은
-   * 여전히 셀 안의 기존 링크/버튼이 담당하므로 행 자체에는 `tabIndex`를
-   * 주지 않는다.
-   *
-   * 텍스트 드래그 선택 중이거나 셀 안의 링크/버튼을 누른 경우는 걸러진다 —
-   * 전자는 선택하려던 사용자를 엉뚱한 곳으로 옮기고, 후자는 그 링크/버튼이
-   * 이미 처리하는 이동을 행 클릭이 다시 겹쳐 발화한다.
-   */
+
   onRowClick?: (row: TRow, rowIndex: number) => void;
-  /**
-   * `onRowClick`이 있어도 특정 행을 클릭 대상에서 뺄 때 쓴다. 안 주면(기본)
-   * `onRowClick`이 있는 한 모든 행이 클릭 대상이다 — 기존 호출부는 이 prop이
-   * 없으므로 동작이 그대로다. 빠진 행에서 달라지는 것은 `cursor-pointer`와
-   * `onClick` 하나씩이다. hover 배경은 `TableRow`의 기본 클래스라 머리글·빈
-   * 상태를 포함한 모든 줄에 남는다(#1368 에서 현행 유지로 정했고 그 예외는
-   * `docs/design.md` §수용된 부채가 들고 있다).
-   */
+
   isRowClickable?: (row: TRow, rowIndex: number) => boolean;
-  /**
-   * 주어지면 표가 이 크기로 페이지를 나눈다(opt-in). 주지 않으면 지금처럼
-   * `data`를 전량 렌더한다 — 기존 호출부 9곳의 동작은 이 prop이 없으면 100%
-   * 그대로다. 페이지 상태는 이 컴포넌트가 들고 있다(호출부가 이미 서버
-   * 페이지네이션을 하는 `programs` 화면과 달리, 여기 데이터는 이미 전량
-   * 로드돼 있어 클라이언트에서 자르기만 하면 되기 때문).
-   */
+
   pageSize?: number;
-  /**
-   * 페이지네이션 nav의 aria-label. `pageSize`를 줄 때만 쓰인다. 화면마다
-   * 달라야 하므로 호출부가 준다(`scrollRegionLabel`과 같은 원칙).
-   */
+
   paginationLabel?: string;
 }
 
-// 소비 화면이 컬럼·행 데이터를 주입하는 운영 데이터 테이블. 역할별 컬럼·액션 노출
-// 분기는 이 컴포넌트가 아니라 호출부(소비 화면)가 columns 구성으로 결정한다.
 function DataTable<TRow>({
   columns,
   data,
@@ -100,25 +64,17 @@ function DataTable<TRow>({
   pageSize,
   paginationLabel,
   className,
-  // 스크롤 안내는 **초점을 받는 요소**에 붙어야 읽힌다. 종전에는 호출부가 준
-  // `aria-describedby` 가 바깥 래퍼에 실렸는데 그 래퍼는 초점을 못 받아,
-  // 안내를 하고도 그대로 할 방법이 없었다.
+
   'aria-describedby': describedBy,
   ...props
 }: DataTableProps<TRow>) {
   const colSpan = columns.length || 1;
   const [page, setPage] = React.useState(1);
 
-  // `pageSize`가 없으면 totalPages는 항상 1 — nav는 그려지지 않고 아래
-  // `pageRows`도 `data`와 같아진다(전량 렌더, 기존 동작 그대로).
   const totalPages = pageSize
     ? Math.max(1, Math.ceil(data.length / pageSize))
     : 1;
-  // 데이터가 줄어 이전에 보던 페이지가 더는 없을 수 있다(예: 필터링). 렌더
-  // 시점에 범위 안으로 눌러 담는 것과 별개로, state 자체도 아래 effect로
-  // 눌러 담긴 값을 따라가게 한다 — 그래야 데이터가 다시 늘어나도(regrow)
-  // state에 남아있던 예전 페이지로 튀지 않고 축소 시점에 눌린 페이지를
-  // 유지한다.
+
   const currentPage = Math.min(Math.max(page, 1), totalPages);
   React.useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -185,23 +141,14 @@ function DataTable<TRow>({
               return (
                 <TableRow
                   key={rowKey(row, rowIndex)}
-                  className={
-                    // hover 배경과 transition 은 `TableRow` 기본 클래스가
-                    // 이미 준다 — 여기서 다시 얹으면 같은 클래스가 두 번
-                    // 들어가고, 눌리는 행의 차이가 무엇인지 흐려진다.
-                    clickable ? 'cursor-pointer' : undefined
-                  }
+                  className={clickable ? 'cursor-pointer' : undefined}
                   onClick={
                     clickable && handleRowClick
                       ? (event: React.MouseEvent<HTMLTableRowElement>) => {
-                          // 드래그로 글자를 고르는 중이면 마우스업이 클릭으로
-                          // 이어져도 이동하지 않는다.
                           const selection = window.getSelection();
                           if (selection !== null && !selection.isCollapsed)
                             return;
-                          // 셀 안 링크/버튼은 스스로 목적지를 처리한다 — 행
-                          // 클릭까지 겹치면 같은 곳으로 두 번 이동하거나 누른
-                          // 것과 다른 곳으로 간다.
+
                           const target = event.target;
                           if (
                             target instanceof Element &&

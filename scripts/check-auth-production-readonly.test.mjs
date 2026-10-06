@@ -29,7 +29,6 @@ let outputSequence = 0;
 mkdirSync(bin);
 writeFileSync(envFile, 'SYNTHETIC_ONLY=true\n');
 
-// curl 은 상태 코드만 돌려준다. 본문을 흉내내지 않아 행 값이 fixture 에 들어오지 않는다.
 writeExecutable(
   'curl',
   `#!/usr/bin/env bash
@@ -91,7 +90,7 @@ test('start captures an aggregate-only observation baseline', () => {
   assert.equal(report.aggregate.blankNames, 0);
   assert.equal(report.aggregate.staffAccessRequests.PENDING, 0);
   assert.equal(report.observation.elapsedSeconds, 0);
-  // 행 값이 담기는 필드는 애초에 report 로 넘어오지 않는다.
+
   assert.equal('rows' in report, false);
   assert.equal('legacyRoles' in report.aggregate, false);
 });
@@ -136,7 +135,6 @@ test('postdeploy validates one release and never accepts a start file', () => {
   assert.equal(ok.status, 0, ok.stderr);
   assert.equal(JSON.parse(readFileSync(output, 'utf8')).mode, 'postdeploy');
 
-  // Todo 12 의 start 파일을 Todo 14 가 재사용하려는 시도는 arity 에서 거부된다.
   const reused = runChecker([
     'postdeploy',
     tag,
@@ -244,7 +242,7 @@ test('strict arguments reject mode misuse and insecure URLs', () => {
     runChecker(['unknown', tag, sha, url, outputPath('x')]).status,
     2,
   );
-  // finish 는 baseline 이 반드시 있어야 하고, start 는 받으면 안 된다.
+
   assert.equal(
     runChecker(['finish', tag, sha, url, outputPath('y')]).status,
     2,

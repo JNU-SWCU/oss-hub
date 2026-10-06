@@ -16,7 +16,6 @@ import {
 
 describe('AdminAccessService reads', () => {
   it('returns paged users with actor-relative isSelf state', async () => {
-    // Given
     const repository = new InMemoryAdminAccessRepository();
     repository.target = accessUser({
       id: 'admin',
@@ -28,28 +27,24 @@ describe('AdminAccessService reads', () => {
       auditLogHarness().service,
     );
 
-    // When
     const result = await service.list(ADMIN_GITHUB_ID, {
       query: '',
       page: 1,
       limit: 20,
     });
 
-    // Then
     expect(result.items).toEqual([
       expect.objectContaining({ id: 'admin', isSelf: true }),
     ]);
   });
 
   it('returns facets and separately bounded role-request/login histories', async () => {
-    // Given
     const repository = new InMemoryAdminAccessRepository();
     const service = new AdminAccessService(
       repository,
       auditLogHarness().service,
     );
 
-    // When
     const [facets, history] = await Promise.all([
       service.facets(ADMIN_GITHUB_ID, { query: '', page: 1, limit: 20 }),
       service.getHistory(ADMIN_GITHUB_ID, 'target', {
@@ -58,7 +53,6 @@ describe('AdminAccessService reads', () => {
       }),
     ]);
 
-    // Then
     expect(facets.roles.student).toBe(1);
     expect(history).toEqual({
       staffAccessRequests: { items: [], page: 2, limit: 5, total: 0 },
@@ -83,7 +77,6 @@ describe('AdminAccessService reads', () => {
   ] as const)(
     'rejects %s actors before reading users',
     async (_, actor, code, status) => {
-      // Given
       const repository = new InMemoryAdminAccessRepository();
       repository.actor = actor;
       const service = new AdminAccessService(
@@ -91,7 +84,6 @@ describe('AdminAccessService reads', () => {
         auditLogHarness().service,
       );
 
-      // When / Then
       await expect(
         service.list(ADMIN_GITHUB_ID, { query: '', page: 1, limit: 20 }),
       ).rejects.toMatchObject({ errorCode: { code, status } });
@@ -99,7 +91,6 @@ describe('AdminAccessService reads', () => {
   );
 
   it('requires an existing user before returning detail or histories', async () => {
-    // Given
     const repository = new InMemoryAdminAccessRepository();
     repository.target = null;
     const service = new AdminAccessService(
@@ -107,7 +98,6 @@ describe('AdminAccessService reads', () => {
       auditLogHarness().service,
     );
 
-    // When / Then
     await expect(
       service.get(ADMIN_GITHUB_ID, 'missing-user'),
     ).rejects.toMatchObject({

@@ -9,7 +9,6 @@ import {
 
 describe('parseRepositoryProvisionEvent', () => {
   it('승인 시점 collaborator snapshot을 typed event로 파싱한다', () => {
-    // Given: #119가 남긴 유효한 개인형 payload가 있다.
     const payload = {
       applicationId: 'application-fixture-id',
       programId: 'program-fixture-id',
@@ -18,10 +17,8 @@ describe('parseRepositoryProvisionEvent', () => {
       collaboratorGithubLogins: ['student-a', 'student-b'],
     };
 
-    // When: outbox payload를 신뢰 경계에서 파싱한다.
     const result = parseRepositoryProvisionEvent(payload);
 
-    // Then: nullable team과 snapshot 순서를 보존하고, 레거시 row는 NEW + null로 정규화한다.
     expect(result).toEqual({
       ...payload,
       repositoryConnectionMode: 'NEW',
@@ -119,12 +116,10 @@ describe('parseRepositoryProvisionEvent', () => {
       },
     ],
   ])('불완전하거나 비정규화된 payload %p를 거부한다', (payload) => {
-    // When: 계약 밖 payload를 파싱한다.
     const parse = (): void => {
       parseRepositoryProvisionEvent(payload);
     };
 
-    // Then: 내부 타입으로 통과시키지 않는다.
     expect(parse).toThrow(InvalidRepositoryProvisionEventError);
   });
 });
@@ -136,14 +131,12 @@ const SYNC_REQUESTED_AT = '2026-09-01T12:34:56.789Z';
 
 describe('repositoryAccessSyncEventData', () => {
   it('세 인자만으로 outbox row 전체를 결정한다', () => {
-    // When: 구성원 변경 트랜잭션이 예약할 row 를 만든다.
     const row = repositoryAccessSyncEventData(
       SYNC_APPLICATION_ID,
       SYNC_TEAM_ID,
       SYNC_NOW,
     );
 
-    // Then: consumer 가 읽는 열이 모두 채워지고 payload 는 세 key 뿐이다.
     expect(row).toEqual({
       type: REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
       aggregateType: 'Application',
@@ -156,22 +149,19 @@ describe('repositoryAccessSyncEventData', () => {
       },
       availableAt: SYNC_NOW,
     });
-    // provision 요청과 같은 queue 를 쓰지만 type 은 절대 겹치지 않는다.
+
     expect(row.type).not.toBe(REPOSITORY_PROVISION_EVENT_TYPE);
   });
 
   it('호출 시점 wall clock 이 아니라 넘겨받은 시각에만 묶인다', () => {
-    // Given: 시스템 시계를 인자와 전혀 다른 시각으로 돌려 둔다.
     jest.useFakeTimers().setSystemTime(new Date('2030-01-01T00:00:00.000Z'));
     try {
-      // When
       const row = repositoryAccessSyncEventData(
         SYNC_APPLICATION_ID,
         SYNC_TEAM_ID,
         SYNC_NOW,
       );
 
-      // Then: 트랜잭션이 정한 시각만 남는다 — 시계를 읽었다면 2030 이 새어 나온다.
       expect(row.availableAt).toEqual(SYNC_NOW);
       expect(row.idempotencyKey).toBe(
         `repository-access-sync:${SYNC_APPLICATION_ID}:${SYNC_REQUESTED_AT}`,
@@ -295,10 +285,6 @@ describe('parseRepositoryAccessSyncEvent', () => {
     expect(parse).toThrow(InvalidRepositoryProvisionEventError);
   });
 
-  /**
-   * 두 이벤트는 같은 outbox 를 공유하므로 payload 를 서로 통과시키면
-   * worker 가 엉뚱한 작업을 한다. 양쪽 모두 상대 payload 를 거부해야 한다.
-   */
   it('provision payload 와 access sync payload 를 서로 통과시키지 않는다', () => {
     const provisionPayload = {
       applicationId: SYNC_APPLICATION_ID,

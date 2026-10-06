@@ -14,12 +14,6 @@ import { ApplicationsStaffGuard } from './applications-staff.guard';
 import { ApplicationsController } from './applications.controller';
 import { ApplicationsService } from './applications.service';
 
-/**
- * #414 DEC-33/34 — Application.isRepositoryPublicationPlanned 는 제출 시 1회 결정이고
- * 이후 수정 endpoint는 두지 않는다. 유일한 PATCH(decide)는 action/reason 만 whitelist
- * 되어 있으므로, 실제 ValidationPipe(forbidNonWhitelisted)를 통과한 요청은 이 필드를
- * 절대 건드릴 수 없다는 것을 실제 HTTP 파이프라인으로 증명한다.
- */
 const allowedOrigin = 'http://frontend.test';
 const syntheticGithubId = 424242n;
 const staffUserId = 'cuid-synthetic-staff-actor';

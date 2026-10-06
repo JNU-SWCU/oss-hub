@@ -1,11 +1,5 @@
 import type { AuditLogSentenceSegment } from './describe';
 
-// describe.ts는 문장을 데이터(조각 목록)로만 표현한다. 조각을 실제 강조 스타일로
-// 바꾸는 책임은 여기 — actor/target은 굵게, target 중 GitHub 로그인 스냅샷('handle')만
-// '@'을 접두해 사람 이름처럼 읽히게 하고, 이름 스냅샷·join 이름('name', 예: 프로그램
-// 이름)은 '@' 없이 굵게만 표시한다(그대로 '@'을 붙이면 "@프로그램이름"처럼 어색해진다).
-// 폴백('fallback', `targetType / targetId`)이나 미등록 action 원본 문자열은 코드체로
-// 남겨 "사람이 읽을 수 없는 값"이라는 신호를 유지한다.
 export function AuditLogSentence({
   segments,
 }: {

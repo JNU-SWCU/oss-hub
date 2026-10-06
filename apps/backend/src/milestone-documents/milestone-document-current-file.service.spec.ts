@@ -52,7 +52,6 @@ describe('MilestoneDocumentCurrentFileService', () => {
     'deleted-file',
     'expired-file',
   ])('%s를 존재하지 않는 파일과 같은 MSD_020 404로 감춘다', async () => {
-    // Given
     const get = jest.fn(() =>
       Promise.resolve(Readable.from(Buffer.from('unused'))),
     );
@@ -62,7 +61,6 @@ describe('MilestoneDocumentCurrentFileService', () => {
       storage,
     );
 
-    // When / Then
     await expect(
       service.download(34_290_000n, 'milestone-hidden', 'document-hidden'),
     ).rejects.toMatchObject({
@@ -75,7 +73,6 @@ describe('MilestoneDocumentCurrentFileService', () => {
   });
 
   it('현재 첨부가 교체되면 다음 다운로드는 새 bytes만 돌려준다', async () => {
-    // Given: 첫 제출 파일을 받은 뒤 같은 제출 행에 새 파일이 현재 첨부로 붙는다.
     let current = CURRENT_FILE;
     const reader: MilestoneDocumentCurrentFileReader = {
       findForParticipant: jest.fn(() => Promise.resolve(current)),
@@ -92,7 +89,6 @@ describe('MilestoneDocumentCurrentFileService', () => {
       buildStorage(get),
     );
 
-    // When: 첫 파일을 받고 현재 첨부를 교체한 뒤 다시 받는다.
     const first = await service.download(
       34_290_000n,
       'milestone-current',
@@ -110,7 +106,6 @@ describe('MilestoneDocumentCurrentFileService', () => {
       'document-current',
     );
 
-    // Then
     await expect(sha256(first.body)).resolves.toBe(
       createHash('sha256').update('current-bytes').digest('hex'),
     );
@@ -122,7 +117,6 @@ describe('MilestoneDocumentCurrentFileService', () => {
   });
 
   it('저장된 이름을 다시 위생 처리하고 내려주기 타입은 확장자로 고른다', async () => {
-    // Given
     const service = new MilestoneDocumentCurrentFileService(
       buildReader({
         ...CURRENT_FILE,
@@ -132,14 +126,12 @@ describe('MilestoneDocumentCurrentFileService', () => {
       buildStorage(),
     );
 
-    // When
     const result = await service.download(
       34_290_000n,
       'milestone-current',
       'document-current',
     );
 
-    // Then
     expect(result.fileName).toBe('current.pdf');
     expect(result.contentType).toBe('application/pdf');
     expect(result).not.toHaveProperty('storageKey');
@@ -148,13 +140,11 @@ describe('MilestoneDocumentCurrentFileService', () => {
   });
 
   it('스토리지 오류 원문을 노출하지 않고 MSD_012로 감싼다', async () => {
-    // Given
     const service = new MilestoneDocumentCurrentFileService(
       buildReader(CURRENT_FILE),
       buildStorage(() => Promise.reject(new Error('synthetic raw error'))),
     );
 
-    // When / Then
     await expect(
       service.download(34_290_000n, 'milestone-current', 'document-current'),
     ).rejects.toMatchObject({

@@ -28,10 +28,6 @@ import {
   SubmissionReviewsErrorCode,
 } from './submission-reviews-error-code.enum';
 
-/**
- * 공개 차단 사유를 교직원에게 나갈 오류 코드로 옮긴다.
- * `satisfies`가 완전성을 강제한다 — 사유가 늘면 여기에 코드를 주기 전까지 컴파일되지 않는다.
- */
 const PUBLISH_BLOCKED_ERROR_CODES = {
   REPOSITORY_NOT_READY: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY,
   REPOSITORY_PUBLICATION_NOT_PLANNED:
@@ -134,7 +130,7 @@ export class SubmissionReviewsService {
         ],
       );
     }
-    // 검토 화면(`toReviewContext`)과 같은 함수를 본다 — 여기서만 조건을 늘리면 화면이 다시 갈라진다.
+
     const [blockedReason] = publishBlockedReasons(eligibility, publishedAt);
     if (blockedReason !== undefined) {
       throw new DomainException(

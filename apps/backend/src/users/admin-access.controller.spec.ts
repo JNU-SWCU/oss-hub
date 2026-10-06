@@ -77,7 +77,6 @@ describe('AdminAccessController delegation', () => {
   ] as const)(
     'passes sort=%s&direction=%s to the service',
     async (sort, direction) => {
-      // Given
       const service = serviceHarness();
       const profileService = profileServiceHarness();
       const controller = new AdminAccessController(service, profileService);
@@ -86,10 +85,8 @@ describe('AdminAccessController delegation', () => {
         direction,
       });
 
-      // When
       await controller.list(REQUEST, query);
 
-      // Then
       expect(service.list).toHaveBeenCalledWith(REQUEST.sessionGithubId, {
         query: '',
         page: 1,
@@ -119,7 +116,6 @@ describe('AdminAccessController delegation', () => {
   });
 
   it('passes independent history pages to the service', async () => {
-    // Given
     const service = serviceHarness();
     const profileService = profileServiceHarness();
     const controller = new AdminAccessController(service, profileService);
@@ -130,10 +126,8 @@ describe('AdminAccessController delegation', () => {
       loginLimit: 10,
     });
 
-    // When
     await controller.getHistory(REQUEST, 'target-user', query);
 
-    // Then
     expect(service.getHistory).toHaveBeenCalledWith(
       REQUEST.sessionGithubId,
       'target-user',
@@ -145,7 +139,6 @@ describe('AdminAccessController delegation', () => {
   });
 
   it('passes the parsed CAS command to PATCH /users/:id/access', async () => {
-    // Given
     const service = serviceHarness();
     const profileService = profileServiceHarness();
     const controller = new AdminAccessController(service, profileService);
@@ -158,10 +151,8 @@ describe('AdminAccessController delegation', () => {
     } as const;
     const body = { toCommand: () => command } as PatchAdminAccessRequestDto;
 
-    // When
     await controller.patchAccess(REQUEST, 'target-user', body);
 
-    // Then
     expect(service.patchAccess).toHaveBeenCalledWith(
       REQUEST.sessionGithubId,
       'target-user',
@@ -170,7 +161,6 @@ describe('AdminAccessController delegation', () => {
   });
 
   it('passes the parsed command to PATCH /users/:id/profile', async () => {
-    // Given
     const service = serviceHarness();
     const profileService = profileServiceHarness();
     const controller = new AdminAccessController(service, profileService);
@@ -183,10 +173,8 @@ describe('AdminAccessController delegation', () => {
       toCommand: () => command,
     } as PatchAdminUserProfileRequestDto;
 
-    // When
     await controller.patchProfile(REQUEST, 'target-user', body);
 
-    // Then
     expect(profileService.patchProfile).toHaveBeenCalledWith(
       REQUEST.sessionGithubId,
       'target-user',
@@ -197,7 +185,6 @@ describe('AdminAccessController delegation', () => {
   it.each(['get', 'getHistory', 'patchAccess'] as const)(
     '%s rejects an invalid user id before service delegation',
     async (method) => {
-      // Given
       const service = serviceHarness();
       const profileService = profileServiceHarness();
       const controller = new AdminAccessController(service, profileService);
@@ -206,7 +193,6 @@ describe('AdminAccessController delegation', () => {
         toCommand: jest.fn(),
       } as unknown as PatchAdminAccessRequestDto;
 
-      // When
       const operation =
         method === 'get'
           ? controller.get(REQUEST, 'invalid id')
@@ -214,7 +200,6 @@ describe('AdminAccessController delegation', () => {
             ? controller.getHistory(REQUEST, 'invalid id', query)
             : controller.patchAccess(REQUEST, 'invalid id', body);
 
-      // Then
       await expect(operation).rejects.toMatchObject({
         errorCode: { code: RolesErrorCode.INVALID_USER_ID, status: 400 },
       });
@@ -223,7 +208,6 @@ describe('AdminAccessController delegation', () => {
   );
 
   it('patchProfile rejects an invalid user id before service delegation', async () => {
-    // Given
     const service = serviceHarness();
     const profileService = profileServiceHarness();
     const controller = new AdminAccessController(service, profileService);
@@ -231,10 +215,8 @@ describe('AdminAccessController delegation', () => {
       toCommand: jest.fn(),
     } as unknown as PatchAdminUserProfileRequestDto;
 
-    // When
     const operation = controller.patchProfile(REQUEST, 'invalid id', body);
 
-    // Then
     await expect(operation).rejects.toMatchObject({
       errorCode: { code: RolesErrorCode.INVALID_USER_ID, status: 400 },
     });
@@ -244,8 +226,6 @@ describe('AdminAccessController delegation', () => {
   it.each(['get', 'getHistory', 'patchAccess', 'patchProfile'] as const)(
     "%s rejects the reserved 'me' id even if it reaches this controller(#787)",
     async (method) => {
-      // Given — 'me'는 세션 사용자 예약어라 관리자 대리 조회/수정 대상이 될 수 없다.
-      // 라우트 등록 순서가 UsersController를 우선하더라도, 이 검사가 이중 방어로 남는다.
       const service = serviceHarness();
       const profileService = profileServiceHarness();
       const controller = new AdminAccessController(service, profileService);
@@ -255,7 +235,6 @@ describe('AdminAccessController delegation', () => {
       } as unknown as PatchAdminAccessRequestDto &
         PatchAdminUserProfileRequestDto;
 
-      // When
       const operation =
         method === 'get'
           ? controller.get(REQUEST, 'me')
@@ -265,7 +244,6 @@ describe('AdminAccessController delegation', () => {
               ? controller.patchAccess(REQUEST, 'me', body)
               : controller.patchProfile(REQUEST, 'me', body);
 
-      // Then
       await expect(operation).rejects.toMatchObject({
         errorCode: { code: RolesErrorCode.INVALID_USER_ID, status: 400 },
       });

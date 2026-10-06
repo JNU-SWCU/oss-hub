@@ -41,7 +41,6 @@ describe('listMilestoneDocuments', () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(body));
     vi.stubGlobal('fetch', fetchMock);
 
-    // 상한·허용 형식은 화면이 적어 두는 값이 아니라 이 응답이 실어 오는 값이다(#1107).
     await expect(listMilestoneDocuments('milestone-1')).resolves.toEqual(body);
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath('milestones/milestone-1/documents'),
@@ -119,14 +118,12 @@ describe('uploadMilestoneDocumentFile', () => {
 
 describe('checkMilestoneDocumentFile', () => {
   it('파일 하나만 판정 경로로 보내고 본문 없는 204를 통과로 받는다', async () => {
-    // Given: 판정 경로는 저장하지 않으므로 식별자 없이 파일만 보낸다(#1108).
     const fetchMock = vi
       .fn()
       .mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', fetchMock);
     const file = new File(['PK'], 'bundle.zip', { type: 'application/zip' });
 
-    // When / Then
     await expect(checkMilestoneDocumentFile(file)).resolves.toBeUndefined();
     const [calledPath, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(calledPath).toBe(apiPath('milestone-document-files/checks'));

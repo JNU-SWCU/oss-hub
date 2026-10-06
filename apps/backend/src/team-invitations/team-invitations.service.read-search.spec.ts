@@ -11,7 +11,6 @@ import {
   syntheticUserId,
 } from './team-invitations.service.test-support';
 
-/** 팀 맥락 스냅샷은 팀장·정원만 싣는다 — 신청 제출 여부를 담던 열은 없앴다. */
 function teamContext(leaderId: string) {
   return {
     teamId: syntheticTeamId,
@@ -149,10 +148,6 @@ describe('TeamInvitationsService.searchCandidates', () => {
     expect(result).toBe(candidates);
   });
 
-  /**
-   * 신청 제출은 초대 창구를 닫지 않는다 — 참여 중 팀 구성 관리의 게이트는
-   * 팀장 권한과 정원뿐이다. 신청 이력이 있는 팀장도 후보를 계속 검색한다.
-   */
   it('신청을 제출한 팀의 팀장도 후보 검색을 계속할 수 있다', async () => {
     const candidates = [
       {
@@ -185,7 +180,6 @@ describe('TeamInvitationsService.searchCandidates', () => {
     });
   });
 
-  /** 권한의 축은 소속이 아니라 팀장이다 — 구성원이어도 검색은 열리지 않는다. */
   it('팀 구성원이어도 팀장이 아니면 후보를 검색하지 않는다', async () => {
     const { service, repository } = buildService({
       findTeamContext: jest
@@ -233,11 +227,6 @@ describe('TeamInvitationsService.searchCandidates', () => {
   });
 });
 
-/**
- * 교직원은 그 팀의 구성원도 팀장도 아니다. 그런데도 초대를 관리할 수 있어야
- * 팀 구성을 고칠 수 있다 — 구성원 검사를 그대로 두면 교직원을 팀에 넣어야만
- * 초대할 수 있게 된다.
- */
 describe('교직원의 초대 관리 권한', () => {
   it('교직원은 구성원이 아니어도 보낸 초대를 본다', async () => {
     const sent = [sentInvitationRecord()];
@@ -271,7 +260,6 @@ describe('교직원의 초대 관리 권한', () => {
     expect(repository.searchCandidates).toHaveBeenCalled();
   });
 
-  /** 권한이 회수된 교직원은 다시 평범한 사용자다. */
   it('교직원이 아닌 사람은 여전히 막힌다', async () => {
     const { service } = buildService({
       findTeamContext: jest

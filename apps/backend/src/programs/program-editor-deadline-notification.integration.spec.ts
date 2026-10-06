@@ -33,14 +33,12 @@ const APPLICATION_ID = `${TEST_PREFIX}application`;
 const LEADER_ID = `${TEST_PREFIX}leader`;
 const MEMBER_ID = `${TEST_PREFIX}member`;
 
-/** 마일스톤 마감이 이 시각으로부터 12시간 뒤 — 24시간 창(`DEADLINE_LEAD_TIME_MS`) 안이다. */
 const NOW = new Date('2026-08-18T00:00:00.000Z');
 const MILESTONE_DUE_AT = new Date('2026-08-18T12:00:00.000Z');
 
 const prisma = new PrismaService();
 const editor = new ProgramEditorService(new ProgramEditorRepository(prisma));
 
-/** preview 는 메일을 보내지 않는다 — 실제로 안 부르는지 이 배열로 확인한다. */
 const sentMails: DeadlineDigestMail[] = [];
 const digest = new DeadlineDigestService(
   new DeadlineDigestRepository(prisma),
@@ -87,11 +85,6 @@ async function cleanup(): Promise<void> {
   await prisma.user.deleteMany({ where: { id: { startsWith: TEST_PREFIX } } });
 }
 
-/**
- * 시나리오 7 의 최소 재현 — 필수 서류가 달린 마감 임박 마일스톤 하나,
- * 승인된 신청 하나, 알림을 받을 수 있는 팀장·팀원 두 명.
- * 프로그램은 DB 기본값 그대로 `notifyOnDeadline` 이 꺼진 채로 만든다.
- */
 async function seed(): Promise<void> {
   await prisma.user.createMany({
     data: [
@@ -214,14 +207,12 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
   });
 
   it('꺼진 프로그램은 미제출 팀이 있어도 발송 대상 조회 자체가 막힌다', async () => {
-    // Given: 필수 서류를 아무도 안 냈지만 프로그램은 꺼져 있다.
     const stored = await prisma.program.findUnique({
       where: { id: PROGRAM_ID },
       select: { notifyOnDeadline: true },
     });
     expect(stored?.notifyOnDeadline).toBe(false);
 
-    // When / Then: 시나리오 7 이 여기서 멈춘다.
     const failure = await digest
       .previewProgram(STAFF_GITHUB_ID, PROGRAM_ID, NOW)
       .catch((caught: unknown) => caught);
@@ -229,14 +220,12 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
   });
 
   it('편집에서 켜면 미제출 팀원이 실제로 발송 대상으로 돌아온다', async () => {
-    // When: 교직원이 편집 화면에서 스위치를 켜 저장한다.
     await editor.updateProgram(
       STAFF_GITHUB_ID,
       PROGRAM_ID,
       updateRequest(true),
     );
 
-    // Then: 켜진 값이 저장되고, 미리보기가 팀장·팀원 두 명을 대상으로 센다.
     const stored = await prisma.program.findUnique({
       where: { id: PROGRAM_ID },
       select: { notifyOnDeadline: true },
@@ -256,19 +245,17 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
       optedOutCount: 0,
       noEmailCount: 0,
     });
-    // 미리보기는 조회일 뿐이다 — 메일은 send 에서만 나간다.
+
     expect(sentMails).toEqual([]);
   });
 
   it('필수 서류를 낸 팀은 켠 뒤에도 발송 대상에서 빠진다', async () => {
-    // Given: 스위치는 켜져 있다.
     await editor.updateProgram(
       STAFF_GITHUB_ID,
       PROGRAM_ID,
       updateRequest(true),
     );
 
-    // When: 팀이 필수 서류를 제출한다(선택 서류는 그대로 미제출).
     await prisma.milestoneDocumentSubmission.create({
       data: {
         milestoneDocumentId: DOCUMENT_REQUIRED_ID,
@@ -277,7 +264,6 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
       },
     });
 
-    // Then: 남은 대상이 없다 — 선택 서류는 알림을 만들지 않는다.
     const preview = await digest.previewProgram(
       STAFF_GITHUB_ID,
       PROGRAM_ID,
@@ -290,7 +276,6 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
   });
 
   it('편집에서 다시 끄면 발송 대상 조회가 다시 막힌다', async () => {
-    // Given: 켜서 대상이 잡히는 상태를 먼저 확인한다.
     await editor.updateProgram(
       STAFF_GITHUB_ID,
       PROGRAM_ID,
@@ -301,14 +286,12 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
         .recipientCount,
     ).toBe(2);
 
-    // When: 교직원이 체크를 풀고 저장한다.
     await editor.updateProgram(
       STAFF_GITHUB_ID,
       PROGRAM_ID,
       updateRequest(false),
     );
 
-    // Then
     const failure = await digest
       .previewProgram(STAFF_GITHUB_ID, PROGRAM_ID, NOW)
       .catch((caught: unknown) => caught);

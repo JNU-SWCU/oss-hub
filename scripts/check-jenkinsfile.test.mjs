@@ -24,51 +24,40 @@ function checkFixture(name, contents) {
 }
 
 test('Jenkins contract accepts serialized migrate deploy', () => {
-  // Given / When
   const result = spawnSync(checkerPath, [jenkinsfilePath], {
     encoding: 'utf8',
   });
 
-  // Then
   assert.equal(result.status, 0, result.stderr);
 });
 
 test('Jenkins contract rejects missing pipeline serialization', () => {
-  // Given
   const fixture = source.replace('disableConcurrentBuilds()', 'removed()');
 
-  // When
   const result = checkFixture('missing-concurrency', fixture);
 
-  // Then
   assert.equal(result.status, 1);
 });
 
 test('Jenkins contract rejects missing production migrate deploy', () => {
-  // Given
   const fixture = source.replace(
     'npx prisma migrate deploy',
     'npx prisma migrate status',
   );
 
-  // When
   const result = checkFixture('missing-migrate-deploy', fixture);
 
-  // Then
   assert.equal(result.status, 1);
 });
 
 test('Jenkins contract rejects missing greenfield host-clean guard', () => {
-  // Given
   const fixture = source.replace(
     'bash scripts/jenkins/assert-greenfield-host-clean.sh',
     'true',
   );
   assert.notEqual(fixture, source);
 
-  // When
   const result = checkFixture('missing-greenfield-host-clean', fixture);
 
-  // Then
   assert.equal(result.status, 1);
 });

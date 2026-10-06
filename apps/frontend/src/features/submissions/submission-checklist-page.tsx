@@ -36,7 +36,6 @@ import { useSubmissionFileCheck } from './use-submission-file-check';
 type ChecklistPageState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'failed'; readonly message: string }
-  /** 승인된 신청이 없어 이 프로그램의 제출물이 아직 열리지 않은 상태(#1099). */
   | { readonly kind: 'not-participant' }
   | { readonly kind: 'ready'; readonly data: SubmissionChecklist };
 
@@ -50,12 +49,6 @@ const STALE_NOTICE =
 
 const FILE_SUBMISSION_UNAVAILABLE_CODE = 'SUB_010';
 
-/**
- * 「아직 참여자가 아니다」를 뜻하는 체크리스트 응답 코드(`submissions.service.ts`의
- * `requireApprovedApplication`). 신청이 아예 없으면 `SUB_003`, 냈지만 아직 승인되지
- * 않았으면 `SUB_004`다 — 학생이 보기에는 둘 다 「승인 후에 열린다」 하나의 상태이고,
- * 어느 쪽도 「다시 시도」로 풀리지 않는다.
- */
 const PARTICIPATION_REQUIRED_CODES: readonly string[] = ['SUB_003', 'SUB_004'];
 
 function isParticipationRequired(error: unknown): boolean {
@@ -95,7 +88,7 @@ export function SubmissionChecklistPage({
 
   useEffect(() => {
     setNow(new Date());
-    // ponytail: 1초 갱신은 기존 countdown과 같다. 더 엄격한 UI 경계가 필요하면 deadline timer로 바꾼다.
+
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
@@ -149,7 +142,6 @@ export function SubmissionChecklistPage({
     void load();
   }, [load]);
 
-  // 선택 마일스톤(?milestoneId=)이 바뀌면 폼 입력·오류를 초기화한다.
   useEffect(() => {
     setInput(EMPTY_INPUT);
     setComment('');
@@ -204,8 +196,6 @@ export function SubmissionChecklistPage({
         onPhaseChange: setSubmissionPhase,
       });
       if (!result) {
-        // 예전에는 조용히 돌아섰다 — 요청도 안 나가고 화면도 그대로라 버튼이 죽은
-        // 것으로만 보인다. 막힌 이유를 말하고 끝낸다.
         setServerError(
           '제출 내용을 만들지 못했습니다. 파일을 다시 선택해 제출해 주세요.',
         );
@@ -230,11 +220,6 @@ export function SubmissionChecklistPage({
       setComment('');
     } catch (error: unknown) {
       if (error instanceof ApiError) {
-        /*
-         * 압축 파일 안의 내용 때문에 막힌 경우(#1108). 갈래별 문장은 서버가 소유하므로
-         * 그대로 파일 입력 옆에 세운다. 이 갈래를 알려 주지 않으면 아래 `resubmissionFailure`가
-         * 「알 수 없는 코드」로 보고 화면 전체 알림으로 밀어낸다.
-         */
         if (isSubmissionArchiveErrorCode(error.problem.code)) {
           setFileError(error.problem.detail);
           return;

@@ -50,7 +50,6 @@ describe('CollectionAdminGuard', () => {
     });
   });
 
-  // 교직원 접근은 관리자 문을 열지 않는다 — 두 권한은 서로 독립이다.
   it('교직원 접근만으로는 거부한다', async () => {
     findUnique.mockResolvedValue({
       hasStaffAccess: true,

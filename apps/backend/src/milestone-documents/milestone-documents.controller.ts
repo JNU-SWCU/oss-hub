@@ -66,10 +66,6 @@ import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-po
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
-/**
- * 압축을 흘려 보내다 실패한 것을 남기는 자리. 이 endpoint는 분 단위로 도는 유일한 경로라
- * **실패가 통째로 안 보이면** 「받다가 멈췄다」는 신고를 받고도 서버 쪽에 근거가 없다.
- */
 const archiveLogger = new Logger('MilestoneDocumentArchive');
 
 const MilestoneDocumentFileUploadOptions = {
@@ -79,12 +75,11 @@ const MilestoneDocumentFileUploadOptions = {
     fieldSize: 512,
     fields: 4,
     files: 1,
-    // busboy counts the closing boundary toward `parts` (필드 2개 + file => 4).
+
     parts: 4,
   },
 };
 
-/** submissions/submissions.controller.ts의 SubmissionFileUploadInterceptor와 같은 계약. */
 @Injectable()
 class MilestoneDocumentFileUploadInterceptor
   extends FileInterceptor('file', MilestoneDocumentFileUploadOptions)
@@ -134,11 +129,6 @@ export class MilestoneDocumentsController {
     private readonly collectionService: MilestoneDocumentCollectionService,
   ) {}
 
-  /**
-   * 서류 항목 목록. 업로드 규칙(`fileUpload`)을 **같은 응답에** 함께 싣는다 — 학생 제출,
-   * 교직원 양식 올리기, 마일스톤 편집 세 화면이 모두 이 응답으로 그려지므로, 여기 실어
-   * 두면 화면이 상한·허용 형식의 사본을 들 이유가 사라진다(#1107).
-   */
   @Get()
   @Header('Cache-Control', 'private, no-store')
   @UseGuards(SessionGuard)
@@ -151,7 +141,6 @@ export class MilestoneDocumentsController {
     );
   }
 
-  /** 교직원 서류 수합 표. `collection`은 고정 세그먼트라 `:documentId` 경로들과 겹치지 않는다. */
   @Get('collection')
   @Header('Cache-Control', 'private, no-store')
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard)
@@ -162,16 +151,6 @@ export class MilestoneDocumentsController {
     return this.collectionService.collectForStaff(milestoneId, query.toQuery());
   }
 
-  /**
-   * 교직원 — 마일스톤 **전체** 제출물을 ZIP 하나로 내려받는다. `collection/archive`도 고정
-   * 세그먼트라 `:documentId` 경로들과 겹치지 않는다.
-   *
-   * ⚠ 이 경로는 표와 달리 **필터·페이지를 받지 않는다**(`MilestoneDocumentArchiveQueryRequestDto`).
-   *
-   * 본문 길이를 아는 경우에만 `Content-Length`를 붙인다. 압축을 흘려 보내는 중에 스토리지가
-   * 끊기면 이미 200이 나간 뒤라 오류로 바꿀 수 없고, 그때 길이가 실려 있어야 브라우저가 잘린
-   * 내려받기를 실패로 판정한다.
-   */
   @Get('collection/archive')
   @Header('Cache-Control', 'private, no-store')
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard)
@@ -180,7 +159,6 @@ export class MilestoneDocumentsController {
     @Query() query: MilestoneDocumentArchiveQueryRequestDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
-    // 실패 로그가 어느 요청이었는지 말하려면 범위도 그 자리까지 가야 한다 — 아래 errorHandler.
     const scope = query.toScope();
     const archive = await this.archiveService.archiveForStaff(
       milestoneId,
@@ -194,37 +172,14 @@ export class MilestoneDocumentsController {
       'Content-Disposition',
       milestoneDocumentAttachmentDisposition(archive.fileName),
     );
-    /*
-     * 응답이 끊기면 압축도 끊는다. Nest의 Express 어댑터는 `stream.pipe(response)`만 하고,
-     * `pipe`는 받는 쪽이 닫혀도 **주는 쪽을 파괴하지 않는다**(unpipe만 한다). 그래서 여기서
-     * 이어 주지 않으면 교직원이 내려받기를 취소해도 서버는 남은 파일을 스토리지에서 끝까지
-     * 끌어온다. 정상 종료 때도 발화하지만 이미 끝난 스트림을 파괴하는 것은 아무 일도 아니다.
-     */
+
     response.once('close', () => archive.body.destroy());
-    /*
-     * ⚠ Nest의 기본 errorHandler를 **반드시** 덮는다. 기본 구현은
-     * `res.statusCode = 400; res.send(err.message)` 라서 이 저장소의 `ProblemDetailFilter`를
-     * 통과하지 않은 **오류 원문**이 그대로 본문이 된다. 게다가 헤더에는 이미 `application/zip`과
-     * 첨부 파일명이 붙어 있어 받는 쪽은 ZIP인 줄 알고 저장한다. 지금은 스토리지 어댑터가
-     * 오류를 자체 코드로 감싸 실제 비밀이 새지 않지만, 어댑터가 언젠가 SDK 오류를 그대로
-     * 올리면 그날 바로 본문으로 나간다 — 새는 길 자체를 막아 둔다.
-     *
-     * 인자로 받는 좁은 타입 대신 `@Res()`로 받은 express `Response`를 그대로 쓴다(같은 객체다).
-     * 헤더를 되돌리려면 좁은 타입에 없는 `removeHeader`가 필요하기 때문이다.
-     */
+
     return new StreamableFile(archive.body).setErrorHandler((error) =>
       respondWithArchiveFailure(error, response, { milestoneId, scope }),
     );
   }
 
-  /**
-   * EXPAND-only legacy document mutation route; see the EXPAND removal ledger
-   * in programs/controller/milestones.controller.ts.
-   *
-   * 교직원 서류 항목 순서 재부여. `order`도 고정 세그먼트라 아래 `@Patch(':documentId')`보다
-   * **먼저 선언해야** 한다 — Nest는 선언 순서대로 매칭하므로 뒤에 두면 `:documentId`가 먼저
-   * 잡아 `order`라는 id를 수정하려 든다(`collection`이 위에 있는 것과 같은 이유다).
-   */
   @Patch('order')
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
   reorder(
@@ -234,7 +189,6 @@ export class MilestoneDocumentsController {
     return this.service.reorderDocuments(milestoneId, body.documentIds);
   }
 
-  /** EXPAND-only legacy route; see the EXPAND removal ledger. */
   @Post()
   @HttpCode(201)
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
@@ -245,7 +199,6 @@ export class MilestoneDocumentsController {
     return this.service.createDocument(milestoneId, body.toInput());
   }
 
-  /** EXPAND-only legacy route; see the EXPAND removal ledger. */
   @Patch(':documentId')
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
   update(
@@ -256,7 +209,6 @@ export class MilestoneDocumentsController {
     return this.service.updateDocument(milestoneId, documentId, body.toInput());
   }
 
-  /** EXPAND-only legacy route; see the EXPAND removal ledger. */
   @Delete(':documentId')
   @HttpCode(204)
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
@@ -267,7 +219,6 @@ export class MilestoneDocumentsController {
     await this.service.deleteDocument(milestoneId, documentId);
   }
 
-  /** EXPAND-only direct template writer; see the EXPAND removal ledger. */
   @Post(':documentId/template')
   @HttpCode(201)
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
@@ -309,10 +260,6 @@ export class MilestoneDocumentsController {
     return new StreamableFile(file.body);
   }
 
-  /**
-   * 교직원 — 한 팀이 낸 서류 제출 파일 다운로드. 내려받는 이름은 학생이 올린 원본이 아니라
-   * `팀명_서류명.확장자`로 다시 붙인다(서비스가 결정한다).
-   */
   @Get(':documentId/applications/:applicationId/file')
   @Header('Cache-Control', 'private, no-store')
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard)
@@ -370,12 +317,6 @@ export class MilestoneDocumentsController {
     );
   }
 
-  /**
-   * 교직원 — 한 팀이 낸 서류 제출물 판정(승인 · 보완 요청 · 반려).
-   *
-   * 판정은 쌓인다(덮어쓰지 않는다) — 그래서 `POST`이고 매 호출이 새 판정 한 건을 만든다.
-   * 인가 사슬 1단계는 여기 가드가, 나머지 3단계는 서비스가 본다(제출 파일 다운로드와 같다).
-   */
   @Post(':documentId/applications/:applicationId/reviews')
   @HttpCode(201)
   @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
@@ -435,13 +376,6 @@ export class MilestoneDocumentFilesController {
     );
   }
 
-  /**
-   * 고른 파일을 제출 전에 판정만 한다(#1108). 통과는 204, 거절은 업로드와 같은 코드·상태다.
-   * 가드와 multipart 한도는 `upload`와 같고, 파일을 저장하지 않으며 DB에도 쓰지 않는다.
-   * 제출 파일 판정(`POST /submission-files/checks`)과 경로를 나눈 것은 두 업로드가 오류 코드
-   * 체계(SUB·MSD)와 multipart 한도가 서로 다르기 때문이다 — 한 경로로 합치면 요청마다
-   * 종류를 받아 두 레지스트리를 갈라야 한다.
-   */
   @Post('checks')
   @HttpCode(204)
   @UseGuards(SessionGuard, OriginGuard)
@@ -453,48 +387,22 @@ export class MilestoneDocumentFilesController {
   }
 }
 
-/** 실패 로그가 「어느 내려받기였는가」를 말하기 위해 필요한 것. 응답에는 쓰지 않는다. */
 interface ArchiveFailureRequest {
   readonly milestoneId: string;
   readonly scope: MilestoneDocumentArchiveScope;
 }
 
-/**
- * 끊긴 항목의 스토리지 열쇠.
- *
- * 항목을 지목할 수 없는 실패도 있다 — 교직원이 취소해 압축을 스스로 끊은 경우와, 항목이
- * 아니라 압축 자체가 낸 오류(예: 기록된 크기와 실제 객체가 어긋나 yazl이 내는 오류)다.
- * 그때는 「모른다」고 적는다. 아무 열쇠나 지어내면 조사를 엉뚱한 파일로 보낸다.
- */
 function failedStorageKey(error: Error): string {
   return error instanceof MilestoneDocumentArchiveEntryError
     ? error.storageKey
     : 'unknown';
 }
 
-/**
- * 압축을 흘려 보내다 실패했을 때의 응답.
- *
- * 이미 한 바이트라도 나갔으면 되돌릴 것이 없다. 그때는 **끊는 것이 유일하게 정직한 답**이다 —
- * 미리 실어 둔 `Content-Length`가 브라우저에게 「덜 받았다」를 말해 준다.
- */
 function respondWithArchiveFailure(
   error: Error,
   response: Response,
   request: ArchiveFailureRequest,
 ): void {
-  /*
-   * 이 한 줄만으로 사건이 지목돼야 한다 — 헤더가 이미 나간 뒤라면 응답에는 아무것도 실을 수
-   * 없어(아래) 로그가 유일한 근거다. 그래서 어느 마일스톤의, 전체/서류별 중 어느 요청이,
-   * 어느 객체에서 끊겼는지를 함께 적는다.
-   *
-   * ⚠ 싣는 값은 **팀·개인을 식별하지 않는 것**만 고른다. 팀 이름·학생이 올린 파일명·ZIP 안
-   * 경로는 적지 않는다 — 실패한 항목은 스토리지 열쇠(`submission-files/<uuid>`)만으로 정확히
-   * 지목되고, 마일스톤 id는 사람이 아니라 교직원이 만든 항목을 가리킨다.
-   *
-   * `error.message`는 자유 문장이라 **맨 뒤**에 둔다. 앞에 두면 그 안의 공백이 뒤따르는
-   * `key=value`를 삼켜 한 줄에서 값을 집어내기 어려워진다.
-   */
   archiveLogger.error(
     `서류 일괄 내려받기가 압축 도중 실패했다: milestoneId=${request.milestoneId} scope=${request.scope.kind} storageKey=${failedStorageKey(error)} error=${error.message}`,
   );
@@ -503,7 +411,7 @@ function respondWithArchiveFailure(
     response.end();
     return;
   }
-  // 성공을 전제로 미리 붙여 둔 헤더를 걷어낸다 — ZIP이 아닌 것을 ZIP이라고 말하지 않는다.
+
   response.removeHeader('Content-Length');
   response.removeHeader('Content-Disposition');
   const errorCode =

@@ -92,7 +92,6 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
   });
 
   it('rejects file 101 when 100 non-deleted files include DELETE_PENDING', async () => {
-    // Given
     await prisma.submissionFile.createMany({
       data: [
         ...Array.from({ length: 50 }, (_, index) =>
@@ -113,10 +112,8 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
       ],
     });
 
-    // When
     const outcome = await quotaOutcome(pendingInput('count-overflow'));
 
-    // Then
     expect(outcome).toEqual({
       retainedBytes: 100,
       retainedFiles: 100,
@@ -125,7 +122,6 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
   });
 
   it('rejects one additional byte at 500 MiB retained across 99 files', async () => {
-    // Given
     await prisma.submissionFile.createMany({
       data: [
         ...Array.from({ length: 98 }, (_, index) =>
@@ -135,10 +131,8 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
       ],
     });
 
-    // When
     const outcome = await quotaOutcome(pendingInput('bytes-overflow'));
 
-    // Then
     expect(outcome).toEqual({
       retainedBytes: RETAINED_BYTES_LIMIT,
       retainedFiles: 99,
@@ -147,7 +141,6 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
   });
 
   it('excludes DELETED rows from both retained count and retained bytes', async () => {
-    // Given
     await prisma.submissionFile.createMany({
       data: [
         ...Array.from({ length: 99 }, (_, index) =>
@@ -166,12 +159,10 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
       ],
     });
 
-    // When
     const reservation = repository.createPending(
       pendingInput('deleted-exclusion-allowed'),
     );
 
-    // Then
     await expect(reservation).resolves.toBeDefined();
     await expect(
       prisma.submissionFile.count({
@@ -185,7 +176,6 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
   });
 
   it('serializes two concurrent reservations so only one reaches file 100', async () => {
-    // Given
     await prisma.submissionFile.createMany({
       data: Array.from({ length: 99 }, (_, index) =>
         retainedFile(`concurrent-${index}`, 1),
@@ -198,11 +188,9 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
       return repository.createPending(pendingInput(`concurrent-${suffix}`));
     });
 
-    // When
     gate.emit('release');
     const results = await Promise.allSettled(reservations);
 
-    // Then
     expect(results.map(({ status }) => status).sort()).toEqual([
       'fulfilled',
       'rejected',

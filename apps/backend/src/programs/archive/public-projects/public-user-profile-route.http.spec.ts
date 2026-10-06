@@ -12,15 +12,6 @@ import { UsersService } from '../../../users/users.service';
 import { PublicProjectsService } from './public-projects.service';
 import { PublicUserProfileController } from './public-user-profile.controller';
 
-/**
- * Issue #551 — 공개 프로필 경로가 모듈 등록 순서에 의존하지 않는다는 회귀 고정.
- *
- * `UsersController`(`GET /users/me/profile`, SessionGuard 보호)와
- * `PublicUserProfileController`(익명 공개 read)는 서로 다른 모듈에 있고, NestJS/Express는
- * 컨트롤러를 등록 순서대로 매칭한다. 두 경로가 같은 자리에서 겹치면 등록 순서가 곧
- * 라우팅 계약이 되어, 모듈 import 한 줄만 옮겨도 `me`가 `:userId`로 흡수된다.
- * 그래서 이 스펙은 **양쪽 등록 순서 모두**에서 같은 결과를 요구한다.
- */
 const githubId = 4242n;
 const sessionSecret = new Uint8Array(32).fill(9);
 const allowedOrigin = 'http://frontend.test';
@@ -134,7 +125,7 @@ describe.each(controllerOrders)(
       expect(response.headers.get('cache-control')).toBe('private, no-store');
       await expect(response.json()).resolves.toEqual(myProfile);
       expect(usersService.getMyProfile).toHaveBeenCalledWith(githubId);
-      // `me`가 공개 프로필의 `:userId`로 해석되지 않았다는 직접 증거.
+
       expect(publicProjectsService.findProfile).not.toHaveBeenCalled();
     });
 
@@ -165,7 +156,7 @@ describe.each(controllerOrders)(
 
       expect(response.status).toBe(200);
       expect(publicProjectsService.findProfile).toHaveBeenCalledWith('me');
-      // 세션 쿠키를 보내도 내 프로필 서비스는 관여하지 않는다.
+
       expect(usersService.getMyProfile).not.toHaveBeenCalled();
     });
   },

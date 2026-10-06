@@ -9,7 +9,6 @@ import { AuthService } from './auth.service';
 import type { AuthUser } from './domain/auth-user';
 import { createFlowState, encodeFlowCookie } from './oauth-flow';
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticUser: AuthUser = {
   id: 'cuid-synthetic',
   githubId: 424242n,
@@ -85,7 +84,7 @@ describe('AuthService', () => {
       /^[A-Za-z0-9_-]{43}$/,
     );
     expect(url.searchParams.get('state')).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    // flow 쿠키의 state와 authorize URL의 state가 같은 쌍이어야 한다
+
     expect(redirect.flowCookieValue.split('.')[0]).toBe(
       url.searchParams.get('state'),
     );
@@ -129,7 +128,7 @@ describe('AuthService', () => {
     const emailCall = fetchMock.mock.calls[2] as
       [string, RequestInit] | undefined;
     expect(emailCall?.[0]).toBe('https://api.github.com/user/emails');
-    // code 교환 요청에 verifier가 포함됐는지
+
     const [, exchangeInit] = fetchMock.mock.calls[0] as [string, RequestInit];
     const exchangeBody = JSON.parse(exchangeInit.body as string) as Record<
       string,
@@ -171,7 +170,6 @@ describe('AuthService', () => {
   });
 
   it('getMe는 DB의 현재 active 계정·권한을 principal로 반환한다', async () => {
-    // Given: DB 조회가 현재 STAFF 권한의 active 계정을 반환한다.
     const staffUser: AuthUser = {
       ...syntheticUser,
       memberKind: 'STAFF',
@@ -179,10 +177,8 @@ describe('AuthService', () => {
     };
     findByGithubId.mockResolvedValueOnce(staffUser);
 
-    // When: HTTP 인증 경계가 principal을 요청한다.
     const principal = await service.getMe(staffUser.githubId);
 
-    // Then: 토큰이 아니라 DB의 현재 계정·권한이 보존된다.
     expect(principal).toEqual(staffUser);
     expect(principal.accountStatus).toBe(AccountStatus.ACTIVE);
   });

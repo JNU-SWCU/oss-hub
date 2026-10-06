@@ -1,11 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-/**
- * #414 todo 7 — 증분 수집 schema + Application 공개 예정 필드는 additive-only 계약이다
- * (기존 물리 테이블 무변경, DROP 금지). 이 migration이 실수로 destructive 문을 포함하면
- * 이 테스트가 실패해 additive-only 불변식 회귀를 잡아낸다("destructive-diff 실패 케이스").
- */
 const MIGRATION_SQL = readFileSync(
   join(
     __dirname,

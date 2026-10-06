@@ -42,13 +42,10 @@ describe('runDecisionWithRefetch — 판정 결과 축', () => {
   it.each(DECISION_CASES)(
     '판정이 %s 로 끝나도 재조회는 무조건 한다',
     async (_label, decide, expected) => {
-      // Given
       const p = ports(decide, () => Promise.resolve(APPLICATION));
 
-      // When
       const result = await runDecisionWithRefetch(p);
 
-      // Then: 어떤 결과든 그 행을 다시 읽는다 — f-row-decision-refresh.
       expect(p.refetch).toHaveBeenCalledTimes(1);
       expect(result.outcome.kind).toBe(expected);
       expect(result.kind).toBe('refreshed');
@@ -56,17 +53,14 @@ describe('runDecisionWithRefetch — 판정 결과 축', () => {
   );
 
   it('성공해도 응답 바디가 아니라 재조회 결과를 행 상태로 쓴다', async () => {
-    // Given: 판정 응답은 다른 값을 돌려주지만 화면은 그것을 쓰지 않는다.
     const refreshed = { id: 'synthetic-application' } as ApplicationListItem;
     const p = ports(
       () => Promise.resolve({ status: 'APPROVED' }),
       () => Promise.resolve(refreshed),
     );
 
-    // When
     const result = await runDecisionWithRefetch(p);
 
-    // Then
     expect(result.kind).toBe('refreshed');
     if (result.kind === 'refreshed') {
       expect(result.application).toBe(refreshed);
@@ -78,13 +72,10 @@ describe('runDecisionWithRefetch — 재조회 결과 축', () => {
   it.each(DECISION_CASES)(
     '판정이 %s 여도 재조회 404 면 행을 거둔다',
     async (_label, decide) => {
-      // Given
       const p = ports(decide, () => Promise.reject(problem(404)));
 
-      // When
       const result = await runDecisionWithRefetch(p);
 
-      // Then
       expect(result.kind).toBe('removed');
     },
   );
@@ -92,42 +83,33 @@ describe('runDecisionWithRefetch — 재조회 결과 축', () => {
   it.each(DECISION_CASES)(
     '판정이 %s 여도 재조회가 깨지면 확인 불가로 둔다',
     async (_label, decide) => {
-      // Given
       const p = ports(decide, () => Promise.reject(problem(500)));
 
-      // When
       const result = await runDecisionWithRefetch(p);
 
-      // Then
       expect(result.kind).toBe('refetch-failed');
     },
   );
 
   it('재조회가 네트워크로 깨져도 확인 불가다 — 404 만 행 제거다', async () => {
-    // Given
     const p = ports(
       () => Promise.resolve(undefined),
       () => Promise.reject(new TypeError('network')),
     );
 
-    // When
     const result = await runDecisionWithRefetch(p);
 
-    // Then
     expect(result.kind).toBe('refetch-failed');
   });
 
   it('판정 5xx 뒤 재조회가 성공하면 실패로 말하지 않는다', async () => {
-    // Given: 실제로는 적용됐을 수 있다 — 두 축을 합치면 이 경우를 놓친다.
     const p = ports(
       () => Promise.reject(problem(503)),
       () => Promise.resolve(APPLICATION),
     );
 
-    // When
     const result = await runDecisionWithRefetch(p);
 
-    // Then
     expect(result.kind).toBe('refreshed');
     expect(result.outcome.kind).toBe('unknown');
   });
@@ -167,7 +149,6 @@ describe('blocksFurtherDecisions', () => {
 
 describe('DECISION_OPTIONS', () => {
   it('세 상태를 담고 목록·상세가 같은 배열을 쓴다', () => {
-    // 각자 선언하면 한쪽에만 상태가 하나 늘어난다.
     expect(DECISION_OPTIONS).toEqual(['SUBMITTED', 'APPROVED', 'REJECTED']);
   });
 });
@@ -181,7 +162,6 @@ describe('decisionInputFor', () => {
   it.each(['', '   ', '\n\t'])(
     '반려는 사유가 비면(%j) 요청을 만들지 않는다',
     (reason) => {
-      // 사유 없는 반려를 서버까지 보내지 않는다 — 화면이 입력 오류로 먼저 막는다.
       expect(decisionInputFor('REJECTED', reason)).toBeNull();
     },
   );

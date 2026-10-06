@@ -6,10 +6,6 @@ import {
   type RankingYear,
 } from '../domain/ranking';
 
-/**
- * 비로그인 투영 — 순위·참여자·Commit·PR 네 칸뿐이다.
- * Issue·Repo·Star·합계는 구성원 계층부터다.
- */
 class PublicRankingEntryResponseDto {
   readonly rank: number;
   readonly githubLogin: string;
@@ -28,7 +24,6 @@ class PublicRankingEntryResponseDto {
   }
 }
 
-/** 로그인 구성원 투영 — 지표 전부. 신원(이름·학과)은 여전히 빠진다. */
 class MemberRankingEntryResponseDto {
   readonly rank: number;
   readonly githubLogin: string;
@@ -92,7 +87,6 @@ type RankingEntryResponseDto =
   | MemberRankingEntryResponseDto
   | StaffRankingEntryResponseDto;
 
-/** 계층 하나에 투영 하나. 계층이 늘면 여기서 컴파일이 깨져야 한다. */
 function projectItems(page: RankingPage): readonly RankingEntryResponseDto[] {
   switch (page.viewerClass) {
     case RANKING_VIEWER_CLASSES.PUBLIC:
@@ -122,7 +116,7 @@ export class RankingPageResponseDto {
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
-  /** Observation time for these numbers. Null when nothing was observed. */
+
   readonly dataAsOf: string | null;
   readonly viewerClass: RankingViewerClass;
   readonly nextCycleAt: string | null;

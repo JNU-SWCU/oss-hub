@@ -40,7 +40,6 @@ test('수정 중 취소는 입력을 보존하고 명시적으로 버린 경우�
   authSeedPage,
   programAuthoringActorPage,
 }, testInfo) => {
-  // Given: the approved student opens the repository editor on the team page.
   const programId = await provisionApplication(
     await authSeedPage('admin-confirmed'),
   );
@@ -75,7 +74,6 @@ test('수정 중 취소는 입력을 보존하고 명시적으로 버린 경우�
   await editor.getByLabel('새 저장소 URL').fill(draftUrl);
   await expect(editor.getByLabel('변경 사유')).toHaveCount(0);
 
-  // When: cancel is dismissed with the safe action or Escape, then explicitly confirmed.
   await cancel.click();
   await expect(dialog).toBeVisible();
   await expect(
@@ -94,7 +92,6 @@ test('수정 중 취소는 입력을 보존하고 명시적으로 버린 경우�
   await capture(student, testInfo, 'cancel-confirmation-mobile');
   await dialog.getByRole('button', { name: '변경사항 버리기' }).click();
 
-  // Then: reopening shows persisted values and the cancelled edit sent no mutation.
   await expect(edit).toBeVisible();
   await edit.click();
   await expect(editor.getByLabel('새 저장소 URL')).toHaveValue(
@@ -107,7 +104,6 @@ test('비공개 저장소 변경 실패는 URL을 보존하고 기존 연결을 
   authSeedPage,
   programAuthoringActorPage,
 }) => {
-  // Given: an approved application has a provisioned repository.
   const programId = await provisionApplication(
     await authSeedPage('admin-confirmed'),
   );
@@ -124,7 +120,6 @@ test('비공개 저장소 변경 실패는 URL을 보존하고 기존 연결을 
   const privateUrl = 'https://github.com/external-owner/private-repository';
   await student.getByLabel('새 저장소 URL').fill(privateUrl);
 
-  // When: the real API rejects the private repository.
   const [response] = await Promise.all([
     student.waitForResponse(
       (candidate) =>
@@ -136,7 +131,6 @@ test('비공개 저장소 변경 실패는 URL을 보존하고 기존 연결을 
       .click(),
   ]);
 
-  // Then: inputs remain recoverable and explicit discard returns to the unchanged repository.
   expect(response.status()).toBe(400);
   await expect(student.getByLabel('새 저장소 URL')).toHaveValue(privateUrl);
   await student.getByRole('button', { name: '취소', exact: true }).click();
@@ -156,7 +150,6 @@ test('확인되지 않은 저장 결과는 입력을 유지하고 다시 불러�
   authSeedPage,
   programAuthoringActorPage,
 }, testInfo) => {
-  // Given: the approved student opens the repository editor on the team page.
   const programId = await provisionApplication(
     await authSeedPage('admin-confirmed'),
   );
@@ -167,7 +160,7 @@ test('확인되지 않은 저장 결과는 입력을 유지하고 다시 불러�
     `${apiRoot}/applications/me`,
   );
   await expectApiStatus(applicationResponse, 200);
-  // 저장소 줄은 팀 활동 조회에서 온다 — 「다시 불러오기」도 그 조회를 다시 읽는다.
+
   const activityPath = `${apiRoot}/teams/${encodeURIComponent(
     applicationTeamId(await applicationResponse.json()),
   )}/activity`;
@@ -217,7 +210,6 @@ test('확인되지 않은 저장 결과는 입력을 유지하고 다시 불러�
     { times: 1 },
   );
 
-  // When: the browser form submits once and the first successful PATCH is fulfilled unsafely.
   const save = editor.getByRole('button', {
     name: '저장소 변경 저장',
     exact: true,
@@ -231,7 +223,6 @@ test('확인되지 않은 저장 결과는 입력을 유지하고 다시 불러�
     save.click(),
   ]);
 
-  // Then: the write persisted, the outcome is unknown, and reload is GET-only.
   expect(response.status()).toBe(200);
   expect(repositoryRequests.filter((method) => method === 'PATCH')).toEqual([
     'PATCH',
@@ -283,7 +274,7 @@ test('확인되지 않은 저장 결과는 입력을 유지하고 다시 불러�
   expect(parseTeamActivity(await reloadResponse.json()).repository?.url).toBe(
     replacementUrl,
   );
-  // 다시 읽기는 쓰기 경로를 건드리지 않는다.
+
   expect(repositoryRequests.filter((method) => method === 'PATCH')).toEqual([
     'PATCH',
   ]);

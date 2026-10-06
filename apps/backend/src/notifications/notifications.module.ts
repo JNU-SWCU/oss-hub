@@ -14,10 +14,6 @@ import { ApplicationDecisionNotificationsController } from './application-decisi
 import { ApplicationDecisionNotificationsRepository } from './application-decision-notifications.repository';
 import { ApplicationDecisionNotificationsService } from './application-decision-notifications.service';
 
-/**
- * ScheduleModule.forRoot()는 CollectionModule이 담당한다 — 여기서 재등록하지 않는다.
- * Cron provider(DeadlineDigestScheduler)는 AppModule이 Collection 이후 Notifications를 로드하면 동작한다.
- */
 @Module({
   imports: [AuthModule],
   controllers: [

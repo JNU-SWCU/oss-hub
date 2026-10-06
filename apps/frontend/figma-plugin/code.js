@@ -1,19 +1,3 @@
-/* global figma, __html__, fetch */
-/**
- * OSS Hub 디자인 라이브러리 플러그인.
- *
- * 저장소의 `docs/design-tokens/tokens.json`(원본은 globals.css)과 vault 스펙 시트의 수치대로
- * Figma 변수(Light·Dark) · 텍스트 스타일 · 컴포넌트(Button · Badge · FilterChip · Dialog
- * (저장·확인) · Form Field · Form Textarea · Table · Card · FailureState · SkeletonBlock)를
- * 만든다.
- * 사람이 그리는 대신 코드가 그린다 — 코드가 원본이고
- * Figma는 거울이라는 design.md R-36의 연장이다.
- *
- * 실행: Figma 데스크톱 → Plugins → Development → Import plugin from manifest → 이 폴더의
- * manifest.json → Run. 다시 실행하면 같은 이름의 변수·스타일은 재사용하고, 컴포넌트 페이지는
- * 비우고 다시 그린다.
- */
-
 const FONT_FAMILIES = ['Pretendard Variable', 'Pretendard', 'Inter'];
 const PAGE_NAMES = {
   cover: '00 Cover',
@@ -27,23 +11,19 @@ const PAGE_NAMES = {
   state: '08 실패 · 불러오는 중',
 };
 const COLLECTION_NAME = 'OSS Hub';
-/** Starter 요금제는 컬렉션당 모드가 하나뿐이라 다크 값을 따로 둘 때 쓰는 컬렉션. */
+
 const DARK_COLLECTION_NAME = 'OSS Hub Dark';
 const ICON_BASE = 'https://unpkg.com/lucide-static/icons/';
 
-/** @type {{ family: string, regular: string, semibold: string } | null} */
 let font = null;
-/** @type {Map<string, Variable>} 토큰 경로(점 표기) → Figma 변수 */
+
 const variablesByPath = new Map();
-/** @type {Map<string, TextStyle>} */
+
 const textStyles = new Map();
-/** 토큰 경로 → 토큰(primitive·dimension·light). alias를 풀어 실제 색을 얻을 때 쓴다. */
+
 let tokenIndex = new Map();
 let darkIndex = new Map();
-/**
- * 반투명 변형 변수(`semantic/destructive@10` 등). Figma는 변수를 묶은 채우기의 불투명도를
- * 변수의 알파로 정하므로, 코드의 `bg-destructive/10` 같은 변형은 알파를 가진 변수로 따로 둔다.
- */
+
 const tintVariables = new Map();
 const TINTS = [
   ['primary', 80],
@@ -60,8 +40,6 @@ let variableScope = null;
 function log(text) {
   figma.ui.postMessage({ type: 'log', text });
 }
-
-// ---------- 값 해석 ----------
 
 function hexToRgb(hex) {
   const value = hex.replace('#', '');
@@ -80,10 +58,6 @@ function hexToRgb(hex) {
   };
 }
 
-/**
- * CSS 값 → Figma RGBA. hex, `color-mix(in oklch, var(--palette-white) N%, transparent)`,
- * `rgb(var(--cosmos-scrim-rgb) / N%)`만 안다. 그 밖의 계산값은 null(건너뜀).
- */
 function parseCssColor(value) {
   if (/^#[0-9a-f]{3,6}$/i.test(value)) return { ...hexToRgb(value), a: 1 };
   const mix =
@@ -99,7 +73,6 @@ function parseCssColor(value) {
   return null;
 }
 
-/** '24px' → 24, '0.625rem' → 10, '200ms' → 200. 못 읽으면 null. */
 function parseNumber(value) {
   const match = /^(-?\d+(?:\.\d+)?)(px|rem|ms)?$/.exec(value);
   if (!match) return null;
@@ -123,7 +96,6 @@ function figmaName(path) {
   return path.replace(/\./g, '/');
 }
 
-/** alias 사슬을 따라가 실제 RGBA를 얻는다. 못 풀면 null. */
 function resolveCssColor(path, index) {
   const seen = new Set();
   let token = index.get(path) ?? tokenIndex.get(path);
@@ -137,13 +109,6 @@ function resolveCssColor(path, index) {
   return null;
 }
 
-// ---------- 변수 ----------
-
-/**
- * 컬렉션 「OSS Hub」의 Light 모드와, 다크 값을 둘 자리를 정한다. Professional 이상은 같은
- * 컬렉션의 Dark 모드에, 모드를 하나만 허용하는 Starter 요금제는 별도 컬렉션
- * 「OSS Hub Dark」에 둔다 — 값을 잃는 것보다 자리를 나누는 편이 낫다.
- */
 async function ensureCollection() {
   const collections = await figma.variables.getLocalVariableCollectionsAsync();
   let collection = collections.find((c) => c.name === COLLECTION_NAME);
@@ -292,8 +257,6 @@ async function createTints(existing) {
   log(`반투명 변수 ${tintVariables.size}개 (semantic/…@10 등)`);
 }
 
-// ---------- 폰트 · 텍스트 스타일 ----------
-
 async function resolveFont() {
   const available = await figma.listAvailableFontsAsync();
   for (const family of FONT_FAMILIES) {
@@ -317,14 +280,6 @@ async function resolveFont() {
   );
 }
 
-/*
- * 줄 간격·자간은 코드가 원본이다. 제목 두 단계는 PageHeader·SectionHeading 이
- * 쓰는 `leading-tight`(1.25)·`tracking-tight`(-2.5%) 와 같은 값을 적는다.
- * 앞서 120%·-1% 로 적혀 있던 것은 스펙 시트의 제안값이었고 화면에 반영된 적이
- * 없다 — 실측해 보니 코드와 어긋나 있었다(#1344).
- * 배지·표는 globals.css 의 `text-badge`(12px/16px)·`text-table`(14px/20px) 이고
- * 16/12·20/14 를 소수 한 자리로 적는다. 133·145 는 같은 스펙 시트의 제안값이었다.
- */
 const TEXT_STYLES = [
   {
     name: 'text/page',
@@ -387,14 +342,11 @@ async function createTextStyles() {
   log(`텍스트 스타일 ${TEXT_STYLES.length}개`);
 }
 
-// ---------- 그리기 도구 ----------
-
 function paintFor(path, opacity = 1) {
   const pct = Math.round(opacity * 100);
   const variable =
     pct < 100 ? tintVariables.get(`${path}@${pct}`) : variablesByPath.get(path);
   if (!variable) {
-    // 변수가 없으면 값이라도 맞춘다 — 색은 토큰에서 풀고 불투명도는 그대로 준다.
     const color = resolveCssColor(path, tokenIndex);
     return {
       type: 'SOLID',
@@ -416,9 +368,7 @@ function bindNumber(node, field, path) {
   if (!variable) return;
   try {
     node.setBoundVariable(field, variable);
-  } catch {
-    // 이 필드를 변수로 묶을 수 없는 노드면 값만 남긴다.
-  }
+  } catch {}
 }
 
 async function makeText(characters, options) {
@@ -477,13 +427,12 @@ async function icon(name, size = 16, color = 'foreground') {
   let node;
   try {
     const response = await fetch(`${ICON_BASE}${name}.svg`);
-    // 프레임을 나중에 줄이면(rescale) 오른쪽이 잘리는 경우가 있어, SVG의 크기 속성을
-    // 목표 크기로 바꿔 그 크기로 바로 들여온다. viewBox가 선을 비율대로 맞춘다.
+
     const svg = (await response.text())
       .replace(/\swidth="24"/, ` width="${size}"`)
       .replace(/\sheight="24"/, ` height="${size}"`);
     node = figma.createNodeFromSvg(svg);
-    // lucide는 stroke="currentColor"라 검정으로 들어온다 — 글자색 변수로 바꿔 묶는다.
+
     for (const child of node.findAll((n) => 'strokes' in n)) {
       if (child.strokes.length > 0) child.strokes = [paintFor(color)];
     }
@@ -494,12 +443,11 @@ async function icon(name, size = 16, color = 'foreground') {
     node.resize(size, size);
   }
   node.name = `icon/${name}`;
-  // 선 굵기가 프레임 밖으로 조금 나가도 잘리지 않게 한다.
+
   if ('clipsContent' in node) node.clipsContent = false;
   return node;
 }
 
-/** 아이콘만 있는 44×44 ghost 버튼(툴팁·aria-label은 코드가 맡는다). 카드·표 예시용. */
 async function iconButton(name) {
   const node = frame(`icon button/${name}`, {
     mainAlign: 'CENTER',
@@ -512,16 +460,10 @@ async function iconButton(name) {
   return node;
 }
 
-/** 페이지 대신 섹션으로 나눌 때(Starter는 파일당 페이지 3개) 쓰는 상태. */
 let pagesAllowed = true;
 let libraryPage = null;
 const sections = [];
 
-/**
- * 이름의 페이지를 비워서 돌려준다. 페이지를 더 못 만드는 요금제면 우리 것이 아닌 첫
- * 페이지를 「OSS Hub 라이브러리」로 삼고 그 안에 같은 이름의 섹션을 만든다 — 페이지든
- * 섹션이든 호출부는 똑같이 `appendChild`로 쓴다.
- */
 async function preparePage(name) {
   const pages = figma.root.children;
   let page = pages.find((p) => p.name === name);
@@ -562,7 +504,6 @@ async function preparePage(name) {
   return section;
 }
 
-/** 섹션을 안의 내용에 맞게 키우고 세로로 차례차례 놓는다. 페이지를 썼으면 할 일이 없다. */
 function layoutSections() {
   let y = 0;
   for (const section of sections) {
@@ -596,19 +537,13 @@ function grid(nodes, columns, gapX, gapY) {
   });
 }
 
-// ---------- Button ----------
-
 const BUTTON_SIZES = {
   default: { padding: 24, text: 16, icon: 16 },
   sm: { padding: 16, text: 13, icon: 16 },
   xs: { padding: 12, text: 13, icon: 14 },
   lg: { padding: 32, text: 16, icon: 16 },
   icon: { padding: 0, text: 0, icon: 16 },
-  /*
-   * 크기를 바깥이 정하는 자리 — 표 칸·달력 날짜처럼 격자가 높이를 정하는 면이다.
-   * 코드는 `block h-auto rounded-none border-0 font-normal`이라 44 고정 높이·모서리·
-   * 굵은 글자를 전부 내용과 호출부에 돌려준다. 좌우 여백도 호출부 몫이라 0이다.
-   */
+
   content: { padding: 0, text: 16, icon: 16, free: true },
 };
 
@@ -644,12 +579,7 @@ const BUTTON_VARIANTS = {
     pill: true,
     hover: { fill: 'muted' },
   },
-  /*
-   * 표면을 칠하지 않는 「누를 수 있는 면」(메뉴 줄, 표 칸, 달력 날짜, 표 머리글 정렬).
-   * 배경·hover·눌림 표시를 전부 호출부가 소유하므로 여기서는 글자만 둔다.
-   * 비활성이어도 흐려지지 않는다(`disabled:opacity-100`) — 그 자리들은 못 쓰는 상태를
-   * 제 방식(회색 칸·점선)으로 말한다. 코드는 `size="content"`와 함께 쓴다.
-   */
+
   bare: { text: 'foreground', hover: {}, disabledOpacity: 1 },
 };
 
@@ -672,7 +602,7 @@ async function buttonNode(variantName, sizeName, state, label) {
       stroke: variant.stroke ? paintFor(variant.stroke) : undefined,
     },
   );
-  // size=content 는 높이를 재지도 변수로 묶지도 않는다 — 내용이 정하는 값이다.
+
   if (!size.free) {
     node.resize(sizeName === 'icon' ? 44 : 100, 44);
     bindNumber(node, 'height', 'control-height');
@@ -682,7 +612,7 @@ async function buttonNode(variantName, sizeName, state, label) {
   } else {
     const text = await makeText(label, {
       size: size.text,
-      // content 는 `font-normal`에 `whitespace-normal`이라 굵기와 줄 간격이 본문이다.
+
       weight: size.free ? 'regular' : 'semibold',
       color: variant.text,
       lineHeight: size.free ? 150 : 100,
@@ -725,8 +655,6 @@ async function buildButtons() {
   return set;
 }
 
-// ---------- Badge ----------
-
 const BADGE_VARIANTS = {
   recruiting: '모집중',
   closed: '마감',
@@ -740,20 +668,14 @@ async function badgeNode(variantName, sizeName) {
   const node = component(`variant=${variantName}, size=${sizeName}`, {
     mainAlign: 'CENTER',
     gap: 6,
-    // 좌우 10 = 코드 기본 `px-2.5`. 12px 글자에 8은 너무 빡빡하다(동규 2026-09-19).
-    // lg 는 `px-4 py-2`라 좌우 16 · 위아래 8이다.
+
     padding: large ? [8, 16, 8, 16] : [0, 10, 0, 10],
     mainSizing: 'AUTO',
     crossSizing: 'FIXED',
     radius: 999,
     fill: paintFor(`status.${variantName}.bg`),
   });
-  /*
-   * 높이 26(tag-height)은 기본 클래스에 있고 lg 가 덮지 않으므로 두 크기가 같다.
-   * lg 가 더하는 것은 `min-w-24`(96) 하나다. 위아래 여백 8 + 글자 한 줄 24 = 40 이
-   * 26 에 들어가지 않아 lg 는 글자가 여백을 파고든 모양이 된다 — 코드가 브라우저에서
-   * 그렇게 그려지므로 거울도 그대로 둔다. 코드 쪽을 고칠지는 별도 티켓이다.
-   */
+
   node.resize(large ? 96 : 60, 26);
   bindNumber(node, 'height', 'tag-height');
   if (large) node.minWidth = 96;
@@ -767,7 +689,7 @@ async function badgeNode(variantName, sizeName) {
       size: large ? 16 : 12,
       weight: 'semibold',
       color: `status.${variantName}.fg`,
-      // 기본은 text-badge 12px/16px = 133.3%, lg 는 `text-base` 16px/24px = 150%다.
+
       lineHeight: large ? 150 : 133.3,
     }),
   );
@@ -852,8 +774,6 @@ async function buildBadges() {
   return set;
 }
 
-// ---------- Filter Chip ----------
-
 async function buildChips() {
   const page = await preparePage(PAGE_NAMES.chip);
   const nodes = [];
@@ -865,7 +785,7 @@ async function buildChips() {
       padding: [0, 16, 0, 16],
       crossSizing: 'FIXED',
       radius: 999,
-      // 눌림은 `aria-pressed`의 secondary 채움이다(button.tsx toggle 변형, #1358).
+
       fill: paintFor(
         pressed ? 'secondary' : state === 'hover' ? 'muted' : 'background',
       ),
@@ -908,13 +828,6 @@ async function buildChips() {
   return set;
 }
 
-// ---------- Dialog · Form ----------
-
-/**
- * 라벨 · 입력 · 도움말 한 벌. `multiline`이면 한 줄 입력(Input) 대신 여러 줄
- * 입력(Textarea)을 둔다 — 테두리·모서리·좌우 여백은 같은 조작 규격이고 높이만
- * 다르다(textarea.tsx가 Input·Select와 같은 규격을 쓴다고 적어 둔 그대로다).
- */
 async function formField(label, placeholder, help, multiline = false) {
   const field = component(multiline ? 'Form/Textarea' : 'Form/Field', {
     direction: 'VERTICAL',
@@ -926,8 +839,6 @@ async function formField(label, placeholder, help, multiline = false) {
   field.primaryAxisSizingMode = 'AUTO';
   field.appendChild(await makeText(label, { size: 13, weight: 'semibold' }));
   const input = frame(multiline ? 'textarea' : 'input', {
-    // 좌우 여백 16 = 코드의 `px-4`(input.tsx · textarea.tsx). 여러 줄은 위아래 8
-    // (`py-2`)이 더 붙고 글이 맨 위에서 시작한다 — 한 줄은 세로 가운데다.
     direction: multiline ? 'VERTICAL' : 'HORIZONTAL',
     crossAlign: multiline ? 'MIN' : 'CENTER',
     padding: multiline ? [8, 16, 8, 16] : [0, 16, 0, 16],
@@ -937,8 +848,7 @@ async function formField(label, placeholder, help, multiline = false) {
     fill: paintFor('background'),
     stroke: paintFor('input'),
   });
-  // 한 줄은 control-height 44, 여러 줄은 `min-h-20` 80이다. 80은 최소값이라 글이
-  // 늘면 함께 늘고, 게시판 글쓰기·수정은 `min-h-28`(112)로 덮어 쓴다.
+
   input.resize(400, multiline ? 80 : 44);
   input.appendChild(
     await makeText(placeholder, { size: 16, color: 'muted-foreground' }),
@@ -959,12 +869,6 @@ async function buttonInstance(buttonSet, variant, label, size = 'default') {
   return instance;
 }
 
-/*
- * 창 세 가지. 폭은 코드의 `max-w-*`다 — 껍데기 기본 md 는 `max-w-xl`(576), lg 는
- * `max-w-2xl`(672)이다(dialog-shell.tsx SIZE_CLASS). 되돌릴 수 없는 일을 묻는 확인창은
- * 호출부가 직접 좁히는데, 여섯 곳 중 다섯이 `max-w-lg`(512)이고 신청 판정 창만
- * `max-w-md`(448)다 — 흔한 쪽인 512 로 그린다.
- */
 const DIALOG_KINDS = {
   md: {
     width: 576,
@@ -1108,8 +1012,6 @@ async function buildDialogs(buttonSet) {
   log('Dialog md·lg·alert + Form/Field · Form/Textarea + 오버레이 견본');
 }
 
-// ---------- Table ----------
-
 async function tableCell(kind, text, align = 'LEFT') {
   const isHead = kind !== 'cell';
   const node = component(
@@ -1128,10 +1030,9 @@ async function tableCell(kind, text, align = 'LEFT') {
     await makeText(text, {
       size: isHead ? 12 : 14,
       weight: isHead ? 'semibold' : 'regular',
-      // 행 제목 칸도 `TableHead`(scope="row")라 열 머리글과 같은 클래스를 받는다
-      // — 회색 글자에 자간 2.5%다(data-table.tsx의 rowHeader 열).
+
       color: isHead ? 'muted-foreground' : 'foreground',
-      // 머리글은 `text-xs`(12px/16px)·`tracking-wide`(2.5%), 칸은 `text-table`(14px/20px)
+
       lineHeight: isHead ? 133.3 : 142.9,
       letter: isHead ? 2.5 : 0,
       align,
@@ -1231,8 +1132,6 @@ async function buildTable() {
   log('Table 셀 3종 + 예시 표');
 }
 
-// ---------- Card ----------
-
 async function buildCards(buttonSet) {
   const page = await preparePage(PAGE_NAMES.card);
   const card = component('Card', {
@@ -1262,8 +1161,7 @@ async function buildCards(buttonSet) {
     weight: 'semibold',
     letter: -1,
   });
-  // 동규 2026-09-19: 기간은 한 줄에 짧게 「26.08.05 – 26.08.06 01:58」(연도 두 자리,
-  // 마감 시각만 남김). 사이트 코드도 같은 규칙으로 맞춘다(후속 PR).
+
   const meta = await makeText('26.08.05 – 26.08.06 01:58', {
     size: 13,
     color: 'muted-foreground',
@@ -1277,8 +1175,7 @@ async function buildCards(buttonSet) {
   header.appendChild(actions);
   card.appendChild(header);
   header.layoutSizingHorizontal = 'FILL';
-  // 코드의 CardHeader는 grid-cols-[1fr_auto]다 — 제목 묶음이 남는 폭을 채우고 글이
-  // 줄바꿈하며, 오른쪽 액션은 제 크기를 지킨다. 안 그러면 긴 제목이 액션을 밀어내 잘린다.
+
   titles.layoutSizingHorizontal = 'FILL';
   for (const text of [title, meta]) {
     text.textAutoResize = 'HEIGHT';
@@ -1309,16 +1206,10 @@ async function buildCards(buttonSet) {
   log('Card (머리·내용·바닥·행 액션)');
 }
 
-// ---------- 실패 표면 · 로딩 뼈대 ----------
-
-/**
- * 불러오기에 실패한 자리. `Alert variant="destructive"` 표면이라 카드와 같은 여백 24 ·
- * 모서리 12에 배경은 card, 글자와 아이콘만 오류색이다. 설명은 destructive 90%다.
- */
 async function failureStateNode(buttonSet, withRetry) {
   const node = component(`retry=${withRetry}`, {
     crossAlign: 'MIN',
-    // grid-cols-[auto_1fr] 의 gap-x-2 — 아이콘과 글 사이 8
+
     gap: 8,
     padding: [24, 24, 24, 24],
     mainSizing: 'FIXED',
@@ -1327,10 +1218,10 @@ async function failureStateNode(buttonSet, withRetry) {
     fill: paintFor('card'),
     stroke: paintFor('border'),
   });
-  // 폭은 480 고정, 높이는 내용에 맞춘다 — Dialog와 같은 순서로 먼저 크기를 준다.
+
   node.resize(480, 10);
   node.counterAxisSizingMode = 'AUTO';
-  // lucide 의 circle-alert — 코드가 쓰는 `AlertCircle`이 같은 아이콘의 옛 이름이다.
+
   node.appendChild(await icon('circle-alert', 16, 'destructive'));
   const column = frame('text', {
     direction: 'VERTICAL',
@@ -1352,7 +1243,6 @@ async function failureStateNode(buttonSet, withRetry) {
     opacity: 0.9,
   });
   if (withRetry) {
-    // 버튼이 서면 설명 줄이 좌우로 갈라진다(flex justify-between, gap-3).
     const row = frame('description', {
       mainAlign: 'SPACE_BETWEEN',
       gap: 12,
@@ -1422,8 +1312,6 @@ async function buildStates(buttonSet) {
   page.appendChild(example);
   log('FailureState 2변형 + SkeletonBlock + 뼈대 예시');
 }
-
-// ---------- Tokens 페이지 · Cover ----------
 
 async function buildTokenSheet(tokens) {
   const page = await preparePage(PAGE_NAMES.tokens);
@@ -1518,8 +1406,6 @@ async function buildCover() {
   page.appendChild(cover);
 }
 
-// ---------- 실행 ----------
-
 async function loadTokens(url) {
   const response = await fetch(url);
   if (!response.ok)
@@ -1546,7 +1432,6 @@ async function run(url, steps) {
     await createVariables(tokens);
     await createTextStyles();
   } else {
-    // 컴포넌트만 다시 그릴 때도 기존 변수를 경로로 찾아 둔다.
     for (const variable of await figma.variables.getLocalVariablesAsync()) {
       const key = variable.name.replace(/^semantic\//, '').replace(/\//g, '.');
       if (key.includes('@')) tintVariables.set(key, variable);

@@ -109,7 +109,6 @@ export function upsertMilestone(
   };
 }
 
-/** dueAt ASC, then id ASC as a stable tie-break when createdAt is not on the DTO. */
 export function sortMilestones(
   milestones: readonly EditableMilestone[],
 ): EditableMilestone[] {

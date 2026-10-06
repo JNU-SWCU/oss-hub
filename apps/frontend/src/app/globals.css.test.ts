@@ -1,12 +1,3 @@
-// 이 테스트는 globals.css의 반전 표면(`[data-surface='inverted']`)과
-// 그 안에 중첩된 밝은 패널을 되돌리는 리셋(`[data-surface='inverted'] [data-surface='default']`)
-// 두 블록 사이의 불변식을 지킨다: 리셋은 반전 블록이 재정의한 커스텀 프로퍼티 집합을
-// **정확히 같은 이름 집합**으로 되돌려야 하고, 두 블록 모두 `color: var(--foreground)`를
-// 스스로 선언해야 한다(상속만으로는 조상의 이미 계산된 색이 바뀌지 않기 때문이다).
-// 이 vitest 설정은 `environment: 'node'`라 CSS를 실제로 평가하지 않으므로, 이 불변식이
-// 깨져도 기존 테스트는 전혀 알아채지 못한다 — 지금까지 이 형태의 결함이 두 번 실제로
-// 발생했고, 코드 주석 하나만이 이를 지키고 있었다. 그래서 globals.css를 텍스트로 읽어
-// 두 블록의 선언을 직접 파싱해서 비교한다.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -23,19 +14,10 @@ interface Declaration {
   value: string;
 }
 
-/** CSS 주석(`/* ... *\/`)을 모두 제거한다. 주석 안에 `--foo` 같은 프로퍼티 이름이
- * 설명 목적으로 등장하는 경우가 있어(예: "--destructive가 빠지면..."), 먼저
- * 제거하지 않으면 실제 선언이 아닌 산문에서 이름을 잘못 주워담게 된다. */
 function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
-/**
- * `selectorWithBrace`(예: `"[data-surface='inverted'] {"`)로 시작하는 블록의 본문을
- * 잘라낸다. 반전 셀렉터 `[data-surface='inverted']`는 리셋 셀렉터
- * `[data-surface='inverted'] [data-surface='default']`의 접두사이므로, 반드시 여는
- * 중괄호까지 포함한 리터럴로 검색해 두 선택자가 서로 잘못 매치되지 않게 한다.
- */
 function extractBlockBody(source: string, selectorWithBrace: string): string {
   const selectorIndex = source.indexOf(selectorWithBrace);
   if (selectorIndex === -1) {
@@ -53,11 +35,6 @@ function extractBlockBody(source: string, selectorWithBrace: string): string {
   return source.slice(braceOpen + 1, braceClose);
 }
 
-/**
- * 블록 본문에서 `property: value;` 선언들을 순서대로 뽑아낸다. 값에
- * `color-mix(in oklch, var(--palette-white) 8%, transparent)`처럼 중첩된 괄호와
- * 쉼표가 있어도, 값의 경계는 다음 `;`까지이므로 그대로 동작한다.
- */
 function extractDeclarations(blockBody: string): Declaration[] {
   const declarations: Declaration[] = [];
   const pattern = /([\w-]+)\s*:\s*([^;]+);/g;
@@ -95,10 +72,6 @@ const invertedNames = customPropertyNames(invertedDeclarations);
 const resetNames = customPropertyNames(resetDeclarations);
 
 describe("globals.css의 [data-surface='inverted'] 반전/리셋 불변식", () => {
-  // 파싱 자체가 죽었는지만 본다. 실제 불변식은 아래 집합 비교가 담당한다.
-  // 임계값을 현재 개수에 맞추면 두 블록에서 var를 정당하게 줄일 때도 실패하면서
-  // "파싱이 깨졌다"는 잘못된 진단을 내놓는다. 정상 파싱이면 여유롭게 넘고 깨지면
-  // 0에 가까워지는 값을 쓴다.
   const PARSE_SANITY_MIN = 4;
 
   it('선언 파싱이 살아 있다 (셀렉터·주석 처리 변경으로 조용히 공허해지지 않는다)', () => {
@@ -138,9 +111,6 @@ describe("globals.css의 [data-surface='inverted'] 반전/리셋 불변식", () 
     expect([...invertedNames].sort()).toEqual([...resetNames].sort());
   });
 
-  // 집합 비교는 두 블록에서 함께 빠지는 경우를 못 잡는다. --card 가 빠지면 무대 위
-  // Alert가 흰 판에 옅은 분홍 글자(1.53:1)로 뜨고(가입 화면 오류 상자 네 곳이 실제로
-  // 그랬다), --ring 이 빠지면 그 안 「다시 시도」의 초점 테두리가 2.53:1로 떨어진다.
   it('반전 블록은 카드 표면과 초점 링도 덮는다 — 가입 무대의 Alert', () => {
     expect([...invertedNames]).toEqual(
       expect.arrayContaining(['--card', '--card-foreground', '--ring']),
@@ -188,12 +158,6 @@ describe("globals.css의 [data-surface='inverted'] 반전/리셋 불변식", () 
   });
 });
 
-// 상태 뱃지(StatusBadge)는 5개 variant(recruiting/closed/pending/approved/rejected)를
-// `--status-*-bg`/`--status-*-fg` 토큰으로 구분한다. 두 variant가 같은 색 값을 쓰면
-// 화면에서 같은 알약으로 렌더링돼 사용자가 구별할 수 없다 — 실제로 recruiting과
-// approved가 둘 다 green-50/green-700이라 이 결함이 있었다. `.dark`는 라이트(:root)
-// 블록과 별도 값 집합이라 각각 독립적으로 검사한다. `.dark {`를 경계로 앞은 라이트
-// 블록, 뒤는 다크 블록으로 본다 — 이 두 셀렉터 사이에만 `--status-*` 선언이 있다.
 describe('globals.css의 --status-* 토큰은 variant마다 서로 다른 색을 쓴다', () => {
   const DARK_SELECTOR = '.dark {';
   const darkIndex = strippedCss.indexOf(DARK_SELECTOR);
@@ -262,21 +226,12 @@ describe('globals.css의 --status-* 토큰은 variant마다 서로 다른 색을
   });
 });
 
-// 미감 시안 v2가 정한 치수 규격이 토큰으로 남아 있는지 지킨다. 색과 달리 치수는
-// 화면마다 리터럴(`h-[44px]`, `p-[24px]`)을 쓰기 쉬워서, 토큰이 있어도 이름이
-// 사라지면 조용히 제각각이 된다. 이 테스트는 (1) 이름이 존재하고 (2) semantic
-// 계층이 primitive만 참조하며 (3) Tailwind 유틸리티로 매핑되는지를 본다.
 describe('globals.css의 시안 v2 치수 토큰', () => {
   const DIMENSION_DARK_SELECTOR = '.dark {';
   const dimensionDarkIndex = strippedCss.indexOf(DIMENSION_DARK_SELECTOR);
   const lightScope = strippedCss.slice(0, dimensionDarkIndex);
   const darkScope = strippedCss.slice(dimensionDarkIndex);
 
-  /**
-   * `--sidebar-current`가 `--color-sidebar-current`의 접미사이듯, 토큰 이름은 서로의
-   * 부분 문자열이다. 이름 앞이 식별자 문자가 아님을 확인하지 않으면 매핑 줄을 선언으로
-   * 잘못 읽는다.
-   */
   function declarationIn(scope: string, property: string): string | null {
     const match = new RegExp(`(?<![\\w-])${property}\\s*:\\s*([^;]+);`).exec(
       scope,
@@ -310,12 +265,11 @@ describe('globals.css의 시안 v2 치수 토큰', () => {
     expect(declarationValue('--step-section')).toBe('24px');
     expect(declarationValue('--step-body')).toBe('16px');
     expect(declarationValue('--step-small')).toBe('13px');
-    // 배지·표는 rem — 대신한 text-xs·text-sm처럼 브라우저 글자 크기 설정을 따른다
+
     expect(declarationValue('--step-badge')).toBe('0.75rem');
     expect(declarationValue('--step-table')).toBe('0.875rem');
   });
 
-  // 조작 가능한 사각형은 전부 같은 높이다. 배지만 예외(읽는 라벨이라 누르지 않는다).
   it('조작 높이는 44px 하나, 배지만 26px 예외다', () => {
     expect(declarationValue('--measure-44')).toBe('44px');
     expect(declarationValue('--control-height')).toBe('var(--measure-44)');
@@ -335,8 +289,6 @@ describe('globals.css의 시안 v2 치수 토큰', () => {
     expect(declarationValue('--measure-72')).toBe('72px');
   });
 
-  // 3-tier의 핵심 — semantic은 primitive만 가리킨다. 여기에 px가 새로 들어오면
-  // 램프를 우회한 값이 생겨 "척도 하나" 규칙이 무너진다.
   it('치수 semantic 토큰은 primitive(--space-*/--measure-*)만 참조한다', () => {
     const semanticNames = [
       '--control-height',
@@ -376,8 +328,7 @@ describe('globals.css의 시안 v2 치수 토큰', () => {
       '--text-page: var(--step-page)',
       '--text-small: var(--step-small)',
       '--text-badge: var(--step-badge)',
-      // 배지·표는 대신하는 `text-xs`·`text-sm`과 같은 줄 간격을 **비율로** 가진다.
-      // px로 바꾸면 칸 안에서 글자 크기만 바꾼 자손이 20px을 그대로 물려받는다.
+
       '--text-badge--line-height: calc(16 / 12)',
       '--text-table: var(--step-table)',
       '--text-table--line-height: calc(20 / 14)',
@@ -388,7 +339,6 @@ describe('globals.css의 시안 v2 치수 토큰', () => {
     }
   });
 
-  // 사이드바 현재 위치는 색 하나에 기대지 않지만, 색 자체는 팔레트 안에 있어야 한다.
   it('사이드바 현재 위치 토큰은 라이트·다크 모두 팔레트 primitive를 참조한다', () => {
     for (const scope of [lightScope, darkScope]) {
       for (const name of [

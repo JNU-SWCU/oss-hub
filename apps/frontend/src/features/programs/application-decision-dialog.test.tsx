@@ -1,5 +1,3 @@
-
-
 import { act, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
@@ -13,10 +11,6 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
-/**
- * 화면이 여는 판정은 승인·반려 둘뿐이다 — 「검토 대기로」는 사라졌고, 이미 판정된
- * 신청도 반대쪽 판정을 한 요청으로 바로 받는다.
- */
 type DialogAction = Exclude<ApplicationDecisionAction, 'REVERT'>;
 
 const TRIGGER_LABELS = {
@@ -24,10 +18,6 @@ const TRIGGER_LABELS = {
   REJECT: '반려',
 } as const satisfies Readonly<Record<DialogAction, string>>;
 
-/**
- * 두 화면(목록·상세)이 하는 일을 줄여 놓은 것 — 판정 버튼이 창을 열고,
- * 창이 닫히면 그 버튼으로 포커스가 돌아와야 한다.
- */
 function Harness({
   action = 'APPROVE',
   currentStatus,
@@ -76,10 +66,6 @@ function Harness({
   );
 }
 
-/**
- * 판정이 저장되어 창이 **스스로** 닫힌 뒤를 줄여 놓은 것 — 창을 연 버튼은 사라지고
- * 반대쪽 버튼만 남으며(「승인」→「반려」) 화면이 그 버튼으로 포커스를 옮긴다([#767]).
- */
 function SelfClosingHarness() {
   const [decided, setDecided] = useState(false);
   const triggerId = applicationDecisionTriggerId('APPROVE');
@@ -119,10 +105,6 @@ function SelfClosingHarness() {
   );
 }
 
-/**
- * Radix 는 창이 닫힐 때의 포커스 복귀를 `setTimeout` 안에서 뒤늦게 한다.
- * 그걸 흘려보내지 않으면 「덮어쓰지 않는다」를 확인할 수 없다.
- */
 async function flushCloseAutoFocus(): Promise<void> {
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -163,10 +145,7 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
       consoleErrors.push(args);
     });
-    // ⚠ 포커스가 문서 맨 앞인 상태에서 시작한다 — 앞 테스트가 문서에 **붙인 채로** 남긴
-    //   요소가 포커스를 쥐고 있으면, 「비어 있을 때만 옮긴다」 가드가 그 요소 때문에 갈려
-    //   복귀 규칙을 검사한 것이 아니게 된다. (떨어져 나간 노드는 happy-dom 이 스스로
-    //   `body` 로 되돌리므로 그쪽은 걱정할 것이 없다 — 실측으로 확인했다.)
+
     (document.activeElement as HTMLElement | null)?.blur();
     container = document.createElement('div');
     document.body.append(container);
@@ -177,9 +156,7 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     await act(async () => root.unmount());
     container.remove();
     vi.restoreAllMocks();
-    // React 의 act·상태 갱신 경고를 회귀 신호로 취급한다(형제 창 테스트와 같은 규칙).
-    // ⚠ Radix 의 Title·Description 누락 경고는 여기서 안 잡힌다 — 이 버전의
-    //   `WarningProvider` 는 아무것도 안 한다. 그래서 이름·설명은 위에서 직접 단언한다.
+
     expect(consoleErrors).toEqual([]);
   });
 
@@ -189,17 +166,12 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
   ] as const)(
     '%s 창의 이름이 창 안의 제목을 가리킨다',
     async (action, heading) => {
-      // Given: 확인창이 열렸다.
-      // ⚠ 「가리키는 요소가 있고 글자가 있다」만 보면 부족하다 — 창 **바깥**의 버튼을
-      //   가리켜도 그 조건은 만족한다. 창 안의 제목인지와 무슨 제목인지까지 봐야 한다.
       await act(async () => root.render(<Harness action={action} />));
 
-      // When: 창이 가리키는 이름을 따라간다.
       const opened = dialog();
       const labelledBy = opened?.getAttribute('aria-labelledby');
       const title = document.getElementById(labelledBy ?? '');
 
-      // Then: 창 안의 h2 이고, 그 판정의 제목이다.
       expect(title).not.toBeNull();
       expect(opened?.contains(title)).toBe(true);
       expect(title?.tagName).toBe('H2');
@@ -226,9 +198,6 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
   );
 
   it('저장 중에는 취소를 눌러도(클릭·Enter·Space) 창이 닫히지 않는다', async () => {
-    // Given: 확정을 눌러 저장이 날아가는 중이다.
-    // 취소는 포커스를 잃지 않으려고 `disabled` 대신 `aria-disabled` 다 — 그래서
-    // 실제로 닫히지 않는지는 입력 방식마다 따로 확인해야 한다.
     await act(async () => root.render(<Harness busyAfterConfirm />));
     await act(async () => getButton('승인 확정').click());
     const cancel = getButton('취소');
@@ -267,30 +236,23 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     );
     expect(description?.textContent).toContain('고쳐 다시 낼 수 있고');
     expect(description?.textContent).toContain('바로 승인할 수도 있습니다');
-    // 반려는 더 이상 종착점이 아니다 — 학생이 다시 내면 검토 대기로 돌아온다(R-1).
+
     expect(description?.textContent).toContain('검토 대기로 돌아옵니다');
   });
 
   it('사유를 비운 채 확정하면 오류를 읽어 주는 도구가 알아챈다', async () => {
-    // Given: 반려 사유 검증에 걸린 상태다.
-    // 포커스는 입력칸으로 가지 않으므로, 라이브 영역이 아니면 아무도 못 듣는다.
     await act(async () => root.render(<Harness action="REJECT" reasonError />));
 
-    // Then
     const error = dialog()?.querySelector('#reason-error');
     expect(error?.getAttribute('role')).toBe('alert');
     expect(error?.textContent).toContain('반려 사유를 입력해 주세요.');
   });
 
   it('저장하는 중에도 포커스가 창 밖으로 새지 않는다', async () => {
-    // Given: 확정을 눌러 저장이 날아가는 중이다.
-    // ⚠ 창 안의 조작을 전부 disabled 로 만들면 포커스를 둘 곳이 없어져 브라우저가
-    //   포커스를 창 밖으로 내보낸다 — 그때부터 읽어 주는 도구는 아무것도 못 읽는다.
     await act(async () => root.render(<Harness busyAfterConfirm />));
     await act(async () => getButton('승인 확정').click());
     expect(getButton('처리 중…').disabled).toBe(true);
 
-    // Then: 창 안에 포커스를 받을 수 있는 곳이 남아 있다.
     const focusable = dialog()?.querySelectorAll(
       'button:not([disabled]), textarea:not([disabled]), [href], input:not([disabled])',
     );
@@ -298,10 +260,8 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
   });
 
   it('열리면 포커스가 창 안으로 들어간다', async () => {
-    // Given: 판정 확인창이 열렸다.
     await act(async () => root.render(<Harness />));
 
-    // Then: 포커스가 창 바깥(뒤쪽 문서)에 남아 있지 않다.
     const opened = dialog();
     expect(opened).not.toBeNull();
     expect(document.activeElement).not.toBe(document.body);
@@ -311,7 +271,6 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
   it.each(['APPROVE', 'REJECT'] as const)(
     '%s 창을 Escape 로 닫으면 창을 연 버튼으로 포커스가 돌아온다',
     async (action) => {
-      // Given: 그 판정의 확인창이 열려 있다.
       await act(async () => root.render(<Harness action={action} />));
       const trigger = getButton(TRIGGER_LABELS[action]);
       const focusReturned = new Promise<void>((resolve) => {
@@ -319,84 +278,62 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
       });
       expect(dialog()).not.toBeNull();
 
-      // When: 키보드로 Escape 를 누른다.
       await act(async () => {
         pressEscape(getButton('취소'));
       });
       await focusReturned;
 
-      // Then: 창이 닫히고 포커스가 문서 맨 앞이 아니라 그 버튼으로 돌아온다.
       expect(dialog()).toBeNull();
       expect(document.activeElement).toBe(trigger);
     },
   );
 
   it('취소 버튼으로 닫아도 같은 자리로 돌아온다', async () => {
-    // Given: 확인창이 열려 있다.
     await act(async () => root.render(<Harness />));
     const trigger = getButton('승인');
     const focusReturned = new Promise<void>((resolve) => {
       trigger.addEventListener('focus', () => resolve(), { once: true });
     });
 
-    // When: 취소를 누른다.
     await act(async () => {
       getButton('취소').click();
       await focusReturned;
     });
 
-    // Then
     expect(dialog()).toBeNull();
     expect(document.activeElement).toBe(trigger);
   });
 
   it('창을 연 버튼이 사라진 채 닫히면 화면이 옮겨 둔 포커스를 덮지 않는다', async () => {
-    // Given: 승인이 저장되어 「승인」이 「반려」로 바뀌고, 화면이 그 새 버튼으로
-    //   포커스를 옮겼다.
-    // ⚠ 창이 닫힐 때의 포커스 복귀는 Radix 안의 `setTimeout` 에서 **뒤늦게** 일어난다 —
-    //   화면이 먼저 옮겨 둔 포커스를 그때 되돌려 버리면 교직원은 다시 문서 맨 앞으로
-    //   튕긴다. 그래서 늦은 복귀까지 흘려보낸 뒤에 본다([#767]).
     await act(async () => root.render(<SelfClosingHarness />));
     await act(async () => getButton('승인 확정').click());
     expect(dialog()).toBeNull();
     const replacement = getButton('반려');
     expect(document.activeElement).toBe(replacement);
 
-    // When: 창이 미뤄 둔 포커스 복귀가 뒤늦게 일어난다.
     await flushCloseAutoFocus();
 
-    // Then: 새 버튼에 그대로 있다.
     expect(document.activeElement).toBe(replacement);
   });
 
   it('저장하는 중에는 Escape 로 닫히지 않는다', async () => {
-    // Given: 확정을 눌러 저장이 날아가는 중이다.
-    // 여기서 창이 닫히면 적어 둔 사유를 잃고 무엇이 저장됐는지도 알 수 없다.
     await act(async () => root.render(<Harness busyAfterConfirm />));
     await act(async () => getButton('승인 확정').click());
     expect(getButton('처리 중…').disabled).toBe(true);
 
-    // When: Escape 를 누른다.
     await act(async () => {
       pressEscape(getButton('취소'));
     });
 
-    // Then: 창이 그대로 열려 있고, 포커스도 창 밖으로 새어 나가지 않는다.
-    // ⚠ 「열려 있다」만 보면 부족하다 — 창은 그대로인데 포커스만 뒤 버튼으로
-    //   돌아가 버리는 상태가 있고, 그건 키보드 사용자에게 창을 잃은 것과 같다.
     expect(dialog()).not.toBeNull();
     expect(dialog()?.contains(document.activeElement)).toBe(true);
     expect(document.activeElement).not.toBe(getButton('승인'));
   });
 
   it('창이 열려 있는 동안 뒤 화면은 읽어 주는 도구에서 감춰진다', async () => {
-    // Given: 확인창이 열렸다.
-    // 손으로 만든 옛 창은 `aria-modal`만 적어 두고 뒤 내용을 실제로 감추지 않아,
-    // 화면을 읽어 주는 도구가 창 뒤 목록을 계속 읽을 수 있었다.
     await act(async () => root.render(<Harness />));
     const trigger = getButton('승인');
 
-    // Then: 창을 연 버튼이 감춰져 있고, 그리로 포커스를 옮기려 해도 창 안으로 되돌아온다.
     expect(dialog()).not.toBeNull();
     expect(trigger.closest('[aria-hidden="true"]')).not.toBeNull();
 
@@ -405,14 +342,11 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
   });
 
   it('판정 저장 실패는 창 안에서 말한다 — 창 뒤에 그리면 못 본다', async () => {
-    // Given: 저장이 실패했는데 창은 열린 채다.
     const message = '입력과 현재 상태를 유지했습니다. 다시 시도해 주세요.';
     await act(async () => root.render(<Harness errorMessage={message} />));
 
-    // When: 교직원이 창을 본다.
     const opened = dialog();
 
-    // Then: 실패 안내가 창 **안에** 있다.
     expect(opened?.textContent).toContain(message);
     expect(opened?.querySelector('[role="alert"]')?.textContent).toContain(
       message,
@@ -420,16 +354,12 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
   });
 
   it('실패 안내가 없으면 창 안에 경고를 그리지 않는다', async () => {
-    // Given: 아직 아무것도 실패하지 않았다.
     await act(async () => root.render(<Harness />));
 
-    // Then
     expect(dialog()?.querySelector('[role="alert"]')).toBeNull();
   });
 
   describe('판정 대상 요약 — 무엇을 판정하는지 창 안에 말한다([#869])', () => {
-    // 목록의 행 단위 판정이 사라지면 이 창이 유일한 판정 지점이 된다 — 확정
-    // 버튼을 누르기 직전에 누구의 무엇인지가 창 안에 있어야 한다.
     it('팀 신청이면 신청자와 팀만 보이고 제거된 신청 제목은 보이지 않는다', async () => {
       await act(async () =>
         root.render(
@@ -444,11 +374,8 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     });
 
     it('개인 신청(team이 null)이면 팀 줄을 그리지 않는다', async () => {
-      // Given: teamName이 null이다 — 팀 신청과 달리 보여줄 팀이 없다.
       await act(async () => root.render(<Harness teamName={null} />));
 
-      // Then: 「팀」 라벨 자체가 없다. <dt> 개수를 세면 <dl> 구조가 바뀔 때마다
-      // 깨지므로, 라벨 부재로 직접 검증한다. 빈 값·"-" 같은 자리채움도 없다.
       const summary = document.getElementById('application-decision-summary');
       const labels = Array.from(summary?.querySelectorAll('dt') ?? []).map(
         (dt) => dt.textContent,
@@ -478,7 +405,6 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
 
   describe('판정을 반대쪽으로 바꾸는 창은 무엇이 바뀌는지를 그대로 말한다', () => {
     it('반려된 신청의 승인 창은 반려 사유가 지워진다고 미리 말한다', async () => {
-      // 눌러 놓고 뒤에 사유가 사라졌다는 것을 알면 교직원은 자기가 무엇을 눌렀는지 모른다.
       await act(async () =>
         root.render(<Harness action="APPROVE" currentStatus="REJECTED" />),
       );
@@ -491,7 +417,6 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     });
 
     it('승인된 신청의 반려 창은 검토 대기로 되돌린다고 말하지 않는다', async () => {
-      // 중간 상태를 거치는 것처럼 말하면 학생이 반려를 보는 시점을 잘못 잡는다.
       await act(async () =>
         root.render(<Harness action="REJECT" currentStatus="APPROVED" />),
       );
@@ -512,9 +437,6 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
   });
 
   describe('반려 확인창은 그 반려가 학생에게 무엇을 뜻하는지 말한다', () => {
-    // 반려된 신청은 학생 쪽에서 손댈 수 없고 다시 낼 수도 없다(수정·취소는
-    // SUBMITTED 에서만, 팀당 신청 1건, 신청 있는 팀은 탈퇴 잠김, 사람당 팀 1개).
-    // 교직원은 반려를 다시 승인할 수 있다. 둘 다 확정 버튼을 누르기 전에 있어야 한다.
     function consequence(): HTMLElement | null {
       return document.querySelector(
         '[data-testid="application-decision-reject-consequence"]',
@@ -522,10 +444,8 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     }
 
     it('학생이 스스로 다시 신청할 수 없다는 사실을 창 안에서 말한다', async () => {
-      // Given: 반려 확인창이 열렸다.
       await act(async () => root.render(<Harness action="REJECT" />));
 
-      // Then: 안내가 창 **안에** 있고, 그 사실을 말한다.
       const notice = consequence();
       expect(notice).not.toBeNull();
       expect(dialog()?.contains(notice)).toBe(true);
@@ -535,34 +455,28 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     });
 
     it('교직원이 다시 승인할 수 있다는 실제 복구 경로를 같은 자리에서 말한다', async () => {
-      // ⚠ 첫 문장만 남으면 교직원은 「잘못 눌렀으면 끝」으로 읽는다 — 사실이 아니다.
-      //   복구 경로가 빠지지 않도록 따로 고정한다.
       await act(async () => root.render(<Harness action="REJECT" />));
 
       expect(consequence()?.textContent).toContain('바로 승인할 수도 있습니다');
-      // 학생 쪽 복구 경로도 같은 자리에서 말한다 — 반려는 종착점이 아니다(R-1).
+
       expect(consequence()?.textContent).toContain('고쳐 다시 낼 수 있고');
     });
 
     it('겁주지 않는다 — 「영구히」·「되돌릴 수 없습니다」로 쓰지 않는다', async () => {
-      // 교직원이 다시 승인할 수 있으므로 그렇게 쓰면 거짓이다.
       await act(async () => root.render(<Harness action="REJECT" />));
 
-      // ⚠ 안내가 없을 때 조용히 통과하면 안 된다 — 있는지부터 본다.
       const notice = consequence();
       expect(notice).not.toBeNull();
       const text = notice?.textContent ?? '';
       expect(text).not.toContain('영구히');
       expect(text).not.toContain('되돌릴 수 없');
-      // 「다시 신청해 주세요」 계열도 안 된다 — 그 길이 실제로 없다.
+
       expect(text).not.toContain('다시 신청해');
     });
 
     it('승인 창에는 새어 나오지 않는다', async () => {
-      // Given: 반려가 아닌 판정 창이다. 「검토 대기로」 창은 화면에서 사라졌다.
       await act(async () => root.render(<Harness action="APPROVE" />));
 
-      // Then: 반려 안내가 아예 없다 — 잘못된 자리에 있으면 없는 결과를 약속한다.
       expect(consequence()).toBeNull();
       expect(dialog()?.textContent).not.toContain('고쳐 다시 낼 수 있고');
     });
@@ -580,7 +494,7 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
         opened?.getAttribute('aria-labelledby') ?? '',
       );
       expect(title?.textContent?.trim()).toBe('신청 반려');
-      // 입력칸의 설명도 늘어나지 않는다 — 사유 칸 이름·설명에 섞이면 안 된다.
+
       expect(
         document
           .getElementById('rejection-reason')
@@ -589,12 +503,11 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     });
 
     it('사유 입력칸과 확정 버튼보다 먼저 읽힌다', async () => {
-      // 결과를 알기 전에 사유부터 쓰게 두면 안내가 늦다.
       await act(async () => root.render(<Harness action="REJECT" />));
 
       const notice = consequence();
       const textarea = document.getElementById('rejection-reason');
-      // ⚠ 없으면 여기서 멈춘다 — 「먼저 읽힌다」를 없는 것으로 통과시키지 않는다.
+
       if (notice === null || textarea === null) {
         throw new TypeError('반려 안내 또는 사유 입력칸이 없다');
       }

@@ -1,6 +1,5 @@
 import { ProgramOverviewRepository } from './program-overview.repository';
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticProgramId = 'cuid-synthetic-program';
 
 describe('ProgramOverviewRepository', () => {
@@ -39,19 +38,17 @@ describe('ProgramOverviewRepository', () => {
 
   describe('countFullySubmittedTeamsByMilestone', () => {
     it('마일스톤이 여럿이어도 제출 groupBy는 1회이고 쿼리 수는 상수다', async () => {
-      // Given — 3개 마일스톤, 2팀(다인 팀 + 1인 팀)
       const applications = [
         { id: 'app-team-a', teamId: 'team-a' },
         { id: 'app-team-b', teamId: 'team-b' },
       ];
       const applicationFindMany = jest.fn().mockResolvedValue(applications);
       const submissionGroupBy = jest.fn().mockResolvedValue([
-        // team-a: m1 필수 전부(doc-1,doc-2) + m2 필수 전부(doc-4,doc-5)
         { milestoneDocumentId: 'doc-1', applicationId: 'app-team-a' },
         { milestoneDocumentId: 'doc-2', applicationId: 'app-team-a' },
         { milestoneDocumentId: 'doc-4', applicationId: 'app-team-a' },
         { milestoneDocumentId: 'doc-5', applicationId: 'app-team-a' },
-        // team-b(1인 팀): m1 필수 전부, m2 미완
+
         { milestoneDocumentId: 'doc-1', applicationId: 'app-team-b' },
         { milestoneDocumentId: 'doc-2', applicationId: 'app-team-b' },
       ]);
@@ -76,13 +73,11 @@ describe('ProgramOverviewRepository', () => {
         },
       ];
 
-      // When
       const result = await repository.countFullySubmittedTeamsByMilestone(
         syntheticProgramId,
         milestones,
       );
 
-      // Then — 상수 쿼리: application.findMany 1 + submission.groupBy 1
       expect(applicationFindMany).toHaveBeenCalledTimes(1);
       expect(submissionGroupBy).toHaveBeenCalledTimes(1);
       expect(submissionGroupBy).toHaveBeenCalledWith({
@@ -100,7 +95,7 @@ describe('ProgramOverviewRepository', () => {
           },
         },
       });
-      // m1: 두 팀 모두 필수 완료(1인 팀 포함). m2: team-a만. m3: 0.
+
       expect(result.get('m1')).toBe(2);
       expect(result.get('m2')).toBe(1);
       expect(result.get('m3')).toBe(0);

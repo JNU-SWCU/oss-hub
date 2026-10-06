@@ -193,11 +193,6 @@ export function ActivityPanelBody({
   );
 }
 
-/**
- * 실제 활동 집계를 읽어 그리는 본문. 카드도 제목도 두지 않는다 — 이미 제목이
- * 있는 자리(「우리 팀 활동」)에 놓이면 같은 말을 두 번 하는 머리가 되기 때문에,
- * 테두리와 제목은 그것이 필요한 호출부(`ActivityGraphPanel`)만 씌운다.
- */
 export function ActivityGraphContent({
   programId,
   applicationId,

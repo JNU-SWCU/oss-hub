@@ -32,9 +32,6 @@ describe('QA148 canonical user phone migration', () => {
   });
 
   it('moves the nullable phone column to User and removes TeamMember.phone', async () => {
-    // Given: every committed migration has been applied by the isolated runner.
-
-    // When
     const columns = await prisma.$queryRaw<
       readonly {
         readonly tableName: string;
@@ -53,16 +50,12 @@ describe('QA148 canonical user phone migration', () => {
       ORDER BY table_name
     `;
 
-    // Then
     expect(columns).toEqual([
       { tableName: 'User', columnName: 'phone', isNullable: 'YES' },
     ]);
   });
 
   it('keeps the canonical user phone constraint named and nullable', async () => {
-    // Given: every committed migration has been applied by the isolated runner.
-
-    // When
     const constraints = await prisma.$queryRaw<
       readonly {
         readonly constraintName: string;
@@ -80,7 +73,6 @@ describe('QA148 canonical user phone migration', () => {
         AND check_constraint.conname = ${CONSTRAINT_NAME}
     `;
 
-    // Then
     expect(constraints).toHaveLength(1);
     expect(constraints[0]?.constraintName).toBe(CONSTRAINT_NAME);
     expect(constraints[0]?.constraintDefinition).toBe(
@@ -94,13 +86,11 @@ describe('QA148 canonical user phone migration', () => {
   ])(
     'persists a runtime-built $label value',
     async ({ phone, expectedLength }) => {
-      // Given
       await prisma.$executeRaw`
       INSERT INTO "User" ("id", "githubId", "login", "phone", "createdAt", "updatedAt")
       VALUES (${USER_ID}, ${9_148_100_001}, ${`${TEST_PREFIX}valid`}, ${phone}, NOW(), NOW())
     `;
 
-      // When
       const rows = await prisma.$queryRaw<
         readonly {
           readonly phoneLength: number;
@@ -112,7 +102,6 @@ describe('QA148 canonical user phone migration', () => {
       WHERE "id" = ${USER_ID}
     `;
 
-      // Then
       expect(rows).toEqual([
         { phoneLength: expectedLength, hasOnlyDigits: true },
       ]);
@@ -120,13 +109,11 @@ describe('QA148 canonical user phone migration', () => {
   );
 
   it('persists a null phone value', async () => {
-    // Given
     await prisma.$executeRaw`
       INSERT INTO "User" ("id", "githubId", "login", "phone", "createdAt", "updatedAt")
       VALUES (${USER_ID}, ${9_148_100_002}, ${`${TEST_PREFIX}null`}, NULL, NOW(), NOW())
     `;
 
-    // When
     const rows = await prisma.$queryRaw<
       readonly { readonly phoneIsNull: boolean }[]
     >`
@@ -135,7 +122,6 @@ describe('QA148 canonical user phone migration', () => {
       WHERE "id" = ${USER_ID}
     `;
 
-    // Then
     expect(rows).toEqual([{ phoneIsNull: true }]);
   });
 
@@ -146,15 +132,11 @@ describe('QA148 canonical user phone migration', () => {
   ])(
     'rejects a runtime-built $label value through the named check',
     async ({ phone }) => {
-      // Given: the candidate value is built at runtime and is outside the contract.
-
-      // When
       const insert = prisma.$executeRaw`
       INSERT INTO "User" ("id", "githubId", "login", "phone", "createdAt", "updatedAt")
       VALUES (${USER_ID}, ${9_148_100_003}, ${`${TEST_PREFIX}invalid`}, ${phone}, NOW(), NOW())
     `;
 
-      // Then
       await expect(insert).rejects.toMatchObject({
         code: 'P2010',
         meta: { code: '23514' },

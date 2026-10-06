@@ -41,13 +41,7 @@ describe('useSharedSessionRole', () => {
     expect(received).toBe(SNAPSHOT);
   });
 
-  /**
-   * 회귀 방지: 컨텍스트가 없을 때 스스로 `useSessionRole()`을 부르는 fallback을 두면
-   * 조용히 두 번째 조회가 생기고, 게이트가 접근을 판단한 순간과 화면이 폼을 그리는
-   * 순간이 갈린다. 조합이 잘못됐으면 조용히 넘어가는 대신 즉시 드러내야 한다.
-   */
   it('게이트 밖에서 부르면 조용히 넘어가지 않고 던진다', () => {
-    // React가 렌더 중 예외를 콘솔로도 알린다 — 테스트 출력만 조용히 시킨다.
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
     function Orphan() {

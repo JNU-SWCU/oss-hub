@@ -70,13 +70,6 @@ describe('collection incremental migration — DB invariants', () => {
     await prisma.$disconnect();
   });
 
-  /**
-   * `PublicShowcaseRepository`·`PublicShowcaseContributor`·`CollectionRun`·
-   * `GithubRawObservation` 4종은 #1133 PR6a가 backend 코드 참조를 걷어낸 뒤
-   * production 실측 0행(2026-09-23)을 확인하고 `20260924120000_drop_legacy_projection_tables`가
-   * 물리적으로 제거했다. 이 단언은 그 제거가 실제 Postgres에 반영됐는지를 고정한다 —
-   * 스키마에서 model만 지우고 migration을 빠뜨리면 여기서 걸린다.
-   */
   it('writer 0곳이던 legacy 관측 테이블 4종은 물리적으로 존재하지 않는다', async () => {
     const dropped = [
       'PublicShowcaseRepository',
@@ -90,12 +83,6 @@ describe('collection incremental migration — DB invariants', () => {
     }
   });
 
-  /**
-   * `Canonical*` 8개는 ADR-006 "누적 저장소로의 1회 전환" 4·5항이 정한 한 릴리스
-   * read-only 보존 기간을 넘겨 후속 migration으로 제거됐다(전 테이블 0행 실측 후).
-   * 이 단언은 그 제거가 실제 Postgres에 반영됐는지를 고정한다 — 스키마에서 model만
-   * 지우고 migration을 빠뜨리면 여기서 걸린다.
-   */
   it('보존 기간이 끝난 canonical 세대 테이블 8개는 물리적으로 존재하지 않는다', async () => {
     const dropped = [
       'CanonicalCollectionRun',
@@ -129,16 +116,11 @@ describe('collection incremental migration — DB invariants', () => {
     await expect(
       indexExists('CollectionReleaseFact_authorGithubId_idx'),
     ).resolves.toBe(true);
-    // 옛 연도 집계는 드롭됐다(20260809140000). 지금 사실 테이블은 `Contribution`
-    // 하나이며 두 축을 각각 인덱스가 받친다(ADR-010 §4).
+
     await expect(indexExists('Contribution_githubId_date_idx')).resolves.toBe(
       true,
     );
     await expect(indexExists('Contribution_date_idx')).resolves.toBe(true);
-    // 옛 연도 집계의 물리 삭제는 `chore/drop-legacy-aggregates` 가 담당한다.
-    // 이 브랜치는 코드 레벨 참조만 걷어냈으므로 테이블은 아직 남아 있고,
-    // 여기서 부재를 단언하면 전환 순서(확장 → 재수집 → 읽기 전환 → 드롭)를
-    // 앞질러 검사하는 셈이 된다.
   });
 
   it('App installation 교체를 흉내내도 논리 저장소는 org+repo id 기준 한 행만 유지한다', async () => {
@@ -160,7 +142,7 @@ describe('collection incremental migration — DB invariants', () => {
       });
 
     await create();
-    await create(); // 두 번째 App installation이 다시 관측한 것을 흉내낸다.
+    await create();
 
     const rows = await prisma.githubRepository.findMany({
       where: { githubOrganizationId: ORG_ID, githubRepositoryId: REPO_ID },
@@ -213,7 +195,6 @@ describe('collection incremental migration — DB invariants', () => {
     });
 
     const rows = await prisma.contribution.findMany({
-      // 저장에 연도 칸이 없으므로 날짜 범위로 묻는다(ADR-010 §4).
       where: {
         repositoryId: repository.id,
         date: {

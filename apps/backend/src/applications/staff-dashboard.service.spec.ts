@@ -16,7 +16,6 @@ describe('StaffDashboardService', () => {
   ).toString('base64url');
 
   it('composes applications, activity, and submissions by program id', async () => {
-    // Given
     const applicationSummary = jest.fn().mockResolvedValue({
       programs: [
         {
@@ -84,10 +83,8 @@ describe('StaffDashboardService', () => {
       { listByProgram: submissionSummary },
     );
 
-    // When
     const summary = await service.summary();
 
-    // Then
     expect(summary.programs[0]).toEqual({
       id: 'program:1',
       name: 'Synthetic program',
@@ -131,7 +128,6 @@ describe('StaffDashboardService', () => {
   });
 
   it('compiles from real ApplicationsModule providers', async () => {
-    // Given
     const moduleRef = Test.createTestingModule({
       imports: [RuntimeConfigModule, PrismaModule, ApplicationsModule],
     })
@@ -151,10 +147,8 @@ describe('StaffDashboardService', () => {
       .overrideProvider(PrismaService)
       .useValue({});
 
-    // When
     const compiled = await moduleRef.compile();
 
-    // Then
     expect(compiled.get(StaffDashboardService)).toBeInstanceOf(
       StaffDashboardService,
     );

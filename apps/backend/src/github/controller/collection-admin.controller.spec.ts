@@ -115,7 +115,7 @@ describe('CollectionAdminController', () => {
 
     expect(runExternal).toHaveBeenCalledTimes(1);
     expect(runExternal.mock.calls[0]?.[0]).toMatch(/^admin:/);
-    // org sweep과 external sweep은 같은 ownerId를 공유한다(lease scope만 다르다).
+
     expect(runExternal.mock.calls[0]?.[0]).toBe(run.mock.calls[0]?.[0]);
   });
 
@@ -251,7 +251,6 @@ describe('CollectionAdminController', () => {
     expect(statusCode).toBe(202);
   });
 
-  // #546 — 202로 돌려준 runId와 내부 run의 runId가 달라 조회가 불가능했다.
   it('202로 돌려준 runId를 그대로 내부 sync run에 넘긴다', async () => {
     run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
     const controller = new CollectionAdminController(
@@ -269,7 +268,6 @@ describe('CollectionAdminController', () => {
     expect(run).toHaveBeenCalledWith(expect.any(String), response.runId);
   });
 
-  // #547 — actor가 명확한 권한 조작인데 AuditLog에 typed action 기록이 없었다.
   it('트리거를 typed audit action으로 기록한다(응답 계약은 그대로)', async () => {
     run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
     const controller = new CollectionAdminController(
@@ -309,7 +307,6 @@ describe('CollectionAdminController', () => {
     expect(record).not.toHaveBeenCalled();
   });
 
-  // #511 — ADMIN이 DB에 직접 붙지 않고 실행 이력을 볼 수 있어야 한다.
   it('runs는 sync 실행 이력 프로젝션을 ISO 문자열 응답으로 변환한다', async () => {
     listSyncRuns.mockResolvedValue([
       {
@@ -414,13 +411,6 @@ describe('CollectionAdminController', () => {
   });
 });
 
-/**
- * 불변식 전수 검사 endpoint (ADR-010 §11).
- *
- * ADR이 "기계로 전수 검사한다"고 약속했는데 호출자가 없으면 그 약속은 죽은 코드다.
- * 이 endpoint가 그 실행 경로이며, 여기서 보는 것은 두 가지다 —
- * read-only 인가, 그리고 응답이 식별자를 흘리지 않는가.
- */
 describe('CollectionAdminController — 기여 불변식 검사', () => {
   it('검사 결과를 그대로 돌려준다 — 고치지 않는다', async () => {
     const report = {
@@ -472,7 +462,7 @@ describe('CollectionAdminController — 기여 불변식 검사', () => {
     );
 
     const serialized = JSON.stringify(await controller.checkInvariants());
-    // ADMIN 전용이라도 조직 내부 정보다. 이 값이 로그·이슈로 옮겨질 수 있다.
+
     expect(serialized).not.toMatch(/githubId|githubLogin|nameWithOwner/u);
   });
 });

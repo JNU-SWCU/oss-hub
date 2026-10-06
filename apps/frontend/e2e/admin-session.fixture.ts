@@ -38,9 +38,6 @@ type InternalFixtures = {
   readonly adminSession: AuthenticatedPage;
 };
 
-// Chrome이 실패한 리소스 응답에 자동으로 남기는 정보성 로그다. PR04H
-// tombstone 테스트가 의도적으로 만든 410만 예외로 두고, 일반 세션의 404·500과
-// 애플리케이션 오류(pageerror·console.error)는 계속 잡아낸다.
 const RESOURCE_STATUS_ERROR_RE =
   /^Failed to load resource: the server responded with a status of (\d+)/;
 
@@ -65,20 +62,11 @@ function isExpectedResourceStatusError(
   );
 }
 
-// Chrome의 "Failed to load resource" 콘솔 메시지는 본문(text())에 URL을 담지
-// 않지만, message.location().url에는 실려 온다 — 아래에서 이 값을 텍스트에
-// 덧붙여 기록한다. 다만 이 리소스가 페이지의 request/response 이벤트를 거치지
-// 않는 경우(예: 브라우저 프로세스가 자체적으로 쏘는 /favicon.ico 프로브)가
-// 있어, 그때는 failedResponses에 대응 항목이 없다. 그런 상황까지 대비해
-// 응답을 따로 받아 URL과 status를 짝지어 둔다.
 interface FailedResponse {
   readonly status: number;
   readonly url: string;
 }
 
-// 진단 정보 전용이다. 이 목록으로 단언하지 않는다 — lifecycle 스펙은 권한 거부(403)와
-// 낙관적 잠금 충돌(409)을 의도적으로 만들어 검증하므로, 정상 통과 실행에도 4xx가 들어 있다.
-// 판정은 콘솔 오류가 계속 맡고, 이 목록은 그 판정이 깨졌을 때 URL을 보여주는 역할만 한다.
 function consoleErrorLabel(failedResponses: readonly FailedResponse[]): string {
   const label = 'browser console and page errors';
   if (failedResponses.length === 0) {

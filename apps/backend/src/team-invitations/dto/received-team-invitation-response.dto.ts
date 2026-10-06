@@ -1,13 +1,6 @@
 import { TeamInvitationStatus } from '@prisma/client';
 import { ReceivedTeamInvitationRecord } from '../team-invitations.repository';
 
-/**
- * `GET /team-invitations/received` 응답 목록 항목 하나.
- *
- * `TeamInvitationResponseDto`(초대 발송·취소 응답)의 필드를 모두 포함하고 팀·프로그램
- * 요약을 더한다 — 이미 이 경로를 쓰던 팀 화면은 늘어난 필드를 무시하므로 그대로 돈다.
- * 요약이 필요한 이유는 `ReceivedTeamInvitationRecord` 주석에 있다.
- */
 export class ReceivedTeamInvitationResponseDto {
   id: string;
   teamId: string;

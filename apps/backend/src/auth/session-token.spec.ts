@@ -8,7 +8,7 @@ import {
 
 const secret = new Uint8Array(randomBytes(32));
 const otherSecret = new Uint8Array(randomBytes(32));
-const githubId = 9007199254740993n; // Number로는 표현 불가한 값 — BigInt 경로 검증
+const githubId = 9007199254740993n;
 const validProfileIssuedAt = 4_000_000_000;
 
 function signSessionProfile(
@@ -81,8 +81,7 @@ describe('session-token', () => {
   it('각 segment 변조를 거부한다', async () => {
     const token = await issueSessionToken(secret, githubId, 0);
     const [header = '', payload = '', signature = ''] = token.split('.');
-    // 마지막 base64url 문자는 padding에 쓰이지 않는 bit만 바뀔 수 있다.
-    // 첫 문자를 바꿔 디코딩된 바이트가 반드시 달라지게 한다.
+
     const tamper = (value: string): string =>
       (value.startsWith('A') ? 'B' : 'A') + value.slice(1);
     for (const tampered of [

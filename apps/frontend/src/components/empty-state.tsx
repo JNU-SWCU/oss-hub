@@ -9,10 +9,6 @@ interface EmptyStateProps extends React.ComponentProps<'div'> {
   action?: React.ReactNode;
 }
 
-/**
- * 목록·그리드가 비었을 때의 안내 화면.
- * StyleGallery stack(수직 리듬) + center(폭 제한·가운데 정렬) 패턴 조합.
- */
 function EmptyState({
   icon,
   title,
@@ -24,8 +20,7 @@ function EmptyState({
   return (
     <div
       data-slot="empty-state"
-      // 시안 v2 `.empty` — 점선 테두리 + 카드 모서리. 비어 있음을 "아직 채워지지
-      // 않은 자리"로 보여 준다. 안쪽 글줄만 폭을 제한해 읽는 길이를 유지한다.
+
       className={cn(
         'grid justify-items-center gap-3 rounded-card border border-dashed border-border p-12 text-center',
         className,

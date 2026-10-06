@@ -1,7 +1,5 @@
 'use client';
 
-// allow: SIZE_OK — route-level async state orchestration is already split from form views.
-
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -52,7 +50,6 @@ type ProgramApplyPageState =
 
 const BACKGROUND_REFRESH_MS = 30_000;
 
-/** 팀 이름 없이는 팀을 만들 수 없다 — 서버에 빈 이름을 보내 보고 알아내지 않는다. */
 const TEAM_NAME_REQUIRED_MESSAGE = '팀 이름을 입력해 주세요.';
 
 function applicationAnswers(values: ProgramApplyFormValues) {
@@ -104,11 +101,7 @@ export function ProgramApplyPage({
   const loadSeqRef = useRef(0);
   const creatingTeamRef = useRef(false);
   const submittingRef = useRef(false);
-  /**
-   * 이 신원에서 팀을 이미 한 번 만들었는가. 신청 제출이 실패해 다시 시도할 때
-   * 같은 팀을 두 번 만들지 않기 위한 표식이다 — 표식이 서 있으면 다시 만들지 않고
-   * 서버가 가진 내 팀을 다시 읽어 그대로 쓴다(TEAM_006 되풀이를 만들지 않는다).
-   */
+
   const teamCreatedRef = useRef(false);
   const mountedRef = useRef(true);
   const stateRef = useRef(state);
@@ -121,11 +114,6 @@ export function ProgramApplyPage({
   sessionUserRef.current = sessionUser;
   createNameRef.current = createName;
 
-  /**
-   * 초대 관리를 실제로 그리는 때만 팀을 넘긴다. 수정 화면은 제출된 신청서를
-   * 고치는 자리라 초대 패널을 보이지 않으므로, `null`을 넘겨 보이지도 않는
-   * 보낸 초대 조회를 아예 만들지 않는다.
-   */
   const invitationTeam =
     state.kind === 'ready' && state.mode === 'create' ? state.team : null;
   const invitation = useTeamInvitationManagement({
@@ -150,7 +138,6 @@ export function ProgramApplyPage({
     );
   }
 
-  /** 신청서·팀 상태를 바꿔 놓고 다시 읽기 전까지, 진행 중이던 낡은 조회를 버린다. */
   function invalidateBackgroundReads(): void {
     loadSeqRef.current += 1;
   }
@@ -162,12 +149,6 @@ export function ProgramApplyPage({
     };
   }, []);
 
-  /**
-   * 방금 읽은 맥락을 그대로 돌려준다 — 화면에 반영하는 것과 별개로, 부른 쪽이
-   * 그 값을 바로 쓸 수 있어야 한다. `setState`는 다음 렌더에서야 `stateRef`에
-   * 닿으므로, 읽은 결과를 상태에서 되찾으려 하면 아직 비어 있는 이전 렌더를 본다.
-   * 신원이 바뀌었거나 화면이 사라진 경우에만 `null`이다.
-   */
   const load = useCallback(
     async (options?: {
       readonly quiet?: boolean;
@@ -181,7 +162,7 @@ export function ProgramApplyPage({
       );
       if (!mountedRef.current) return null;
       if (epoch !== identityEpochRef.current) return null;
-      // 더 새로운 조회가 이미 시작됐으면 화면은 그쪽에 맡기고 값만 돌려준다.
+
       if (seq !== loadSeqRef.current) return context;
       const current = stateRef.current;
       if (current.kind === 'success') return context;
@@ -199,8 +180,6 @@ export function ProgramApplyPage({
     [],
   );
 
-  // 프로그램·로그인 계정이 바뀌면 이전 화면의 입력·진행 중 표식을 모두 버린다.
-  // 초대 상태는 공유 훅이 같은 신원 변화로 스스로 다시 세운다 — 여기서 다시 지우지 않는다.
   useEffect(() => {
     identityEpochRef.current += 1;
     loadSeqRef.current += 1;
@@ -215,7 +194,7 @@ export function ProgramApplyPage({
     setErrors({});
     setCreateName('');
     setTeamError(null);
-    // 다른 프로그램·다른 계정은 다른 화면이다 — 열려 있던 초대 레이어도 함께 닫는다.
+
     setInviteOpen(false);
     void load();
     return () => {
@@ -224,10 +203,6 @@ export function ProgramApplyPage({
     };
   }, [load, programId, sessionUser]);
 
-  /**
-   * 배경에서만 도는 현황 새로고침 — 현재 팀 맥락(신청 문맥)과 공유 훅이 들고 있는
-   * 보낸 초대를 함께 다시 읽는다. 학생이 눌러야 하는 버튼은 만들지 않는다.
-   */
   const refreshLiveState = useCallback(async () => {
     const current = stateRef.current;
     if (current.kind !== 'ready') return;
@@ -257,14 +232,6 @@ export function ProgramApplyPage({
     };
   }, [refreshLiveState, state.kind]);
 
-  /**
-   * 저장된 내 팀을 확보한다. 이미 있으면 그대로 쓰고, 없을 때만 **명시적으로**
-   * 한 번 만든다 — 화면을 열었다는 이유로도, 검색·되돌아가기 때문에도 만들지 않는다.
-   *
-   * 만들기가 `TEAM_006`(이미 소속)으로 거절되면 서버에는 이미 내 팀이 있다는 뜻이라
-   * 실패로 보이지 않고 그 팀을 다시 읽어 이어 간다. 실패는 그대로 던져 호출부가
-   * 자기 자리(팀 이름 칸 / 제출 오류)에 남긴다.
-   */
   async function ensureTeam(
     started: MutationIdentity,
   ): Promise<ProgramTeam | null> {
@@ -285,7 +252,7 @@ export function ProgramApplyPage({
           throw error;
         }
       }
-      // 여기까지 왔으면 서버에 내 팀이 있다 — 다시 만들지 않는다.
+
       teamCreatedRef.current = true;
     }
 
@@ -296,10 +263,6 @@ export function ProgramApplyPage({
     return reloaded.kind === 'ready' ? reloaded.team : null;
   }
 
-  /**
-   * 초대(＋)를 눌렀을 때만 도는 준비 단계. 검색 API가 저장된 팀을 요구하므로,
-   * 실제 초대를 보내기 전에 학생이 적은 이름으로 팀을 딱 한 번 만들고 레이어를 연다.
-   */
   async function openInvite(): Promise<void> {
     const current = stateRef.current;
     if (current.kind !== 'ready' || current.mode !== 'create') return;
@@ -394,11 +357,7 @@ export function ProgramApplyPage({
         setConfirmation(null);
         return;
       }
-      /*
-        마지막 확인 한 번이 팀 확보와 신청 제출을 이어서 끝낸다. 혼자 신청하는
-        학생도 여기서 처음으로 팀이 만들어지고, 실패하면 만든 팀과 입력한 내용이
-        그대로 남아 다시 시도할 때 같은 팀을 다시 쓴다.
-      */
+
       if (state.team === null) {
         let ensured: ProgramTeam | null;
         try {
@@ -450,10 +409,9 @@ export function ProgramApplyPage({
   const teamProps = {
     programId,
     team: readyTeam,
-    // 공유 팀 컴포넌트가 「내 행」을 알아보는 기준. 라우트가 준 세션을 그대로 넘긴다.
+
     sessionNickname: sessionUser.nickname,
-    // 저장된 팀이 있을 때만 초대 컨트롤러를 넘긴다 — 아직 없는 팀에는 보낸 초대도,
-    // 검색도 존재하지 않는다(가짜 대기 행을 지어내지 않는다).
+
     invitation:
       state.kind === 'ready' && state.mode === 'create' && readyTeam !== null
         ? invitation

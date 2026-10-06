@@ -26,7 +26,7 @@ interface AdminAccessTableProps {
   readonly emptyState: ReactNode;
   readonly onSortToggle: (field: AdminAccessSortField) => void;
   readonly onRowClick: (item: AdminAccessListItem) => void;
-  /** 상세로 들고 갈 목록 질의. 주지 않으면 지금까지처럼 질의 없는 주소가 된다. */
+
   readonly listSearch?: string;
 }
 
@@ -59,8 +59,7 @@ function SortableColumnHeader({
       type="button"
       variant="bare"
       size="content"
-      // 머리글 글자 굵기는 `<th>`에서 물려받던 값이다. `content`가 굵기를 내용에
-      // 돌려주므로 여기서 다시 적어 지금 모양을 지킨다.
+
       className="inline-flex items-center gap-1 font-semibold whitespace-nowrap hover:text-foreground"
       onClick={() => onSortToggle(field)}
     >

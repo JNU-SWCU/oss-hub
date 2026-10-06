@@ -21,13 +21,6 @@ import { RankingService } from '../service/ranking.service';
 export class RankingController {
   constructor(private readonly rankingService: RankingService) {}
 
-  /**
-   * Public ranking — the global AuthenticationGuard attaches optional auth.
-   * Anonymous or invalid sessions yield `githubId: null` and the public
-   * envelope (200); authenticated sessions use the guard's live principal.
-   * Cache headers follow `page.viewerClass` so a fail-closed public page is
-   * never stored as a staff response.
-   */
   @Get()
   @OptionalSession()
   async findPage(
@@ -50,7 +43,6 @@ export class RankingController {
     return RankingPageResponseDto.from(page);
   }
 
-  /** Distinct years that have public ranking data (desc). Sidebar year list. */
   @Get('years')
   @Public()
   @Header('Cache-Control', 'no-store')

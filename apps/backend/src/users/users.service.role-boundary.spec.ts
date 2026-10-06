@@ -81,7 +81,6 @@ function buildService(
 
 describe('역할 변경 경계', () => {
   it('학생이 교직원이 되어도 학번은 남고 프로필은 완료로 유지된다', async () => {
-    // Given
     const { service } = buildService({
       user: {
         id: 'synthetic-user',
@@ -95,7 +94,6 @@ describe('역할 변경 경계', () => {
       },
     });
 
-    // When / Then
     await expect(service.getMyProfile(githubId)).resolves.toEqual({
       name: input.name,
       studentId,
@@ -110,7 +108,6 @@ describe('역할 변경 경계', () => {
   });
 
   it('학번 없는 교직원이 학생으로 바뀌면 미완료가 되고 학번을 다시 받는다', async () => {
-    // Given
     const { service, completeProfileIfUnchanged } = buildService({
       user: {
         id: 'synthetic-user',
@@ -124,13 +121,11 @@ describe('역할 변경 경계', () => {
       },
     });
 
-    // When
     await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
       isComplete: false,
     });
     const profile = await service.completeMyProfile(githubId, input);
 
-    // Then — 학번이 아직 없었으므로 USR_003이 아니라 최초 저장으로 처리한다
     expect(profile).toEqual({
       ...input,
       staffNumber: null,
@@ -150,7 +145,6 @@ describe('역할 변경 경계', () => {
   });
 
   it('이름만 있는 관리자가 교직원이 되면 학과만 추가로 받는다', async () => {
-    // Given
     const { service, completeProfileIfUnchanged } = buildService({
       user: {
         id: 'synthetic-user',
@@ -164,7 +158,6 @@ describe('역할 변경 경계', () => {
       },
     });
 
-    // When
     await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
       isComplete: false,
     });
@@ -173,7 +166,6 @@ describe('역할 변경 경계', () => {
       department: input.department,
     });
 
-    // Then
     expect(profile).toEqual({
       name: input.name,
       studentId: null,

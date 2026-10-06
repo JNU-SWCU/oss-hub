@@ -452,7 +452,7 @@ describe('SystemStatusService', () => {
         cumulativeReleaseCount: 1,
         cumulativeIssueCount: 9,
       });
-      // external 값이 무엇이든 org 집계(`collection`)는 스냅샷 fixture 값 그대로다.
+
       expect(result.collection.trackedRepositoryCount).toBe(2);
     });
   });

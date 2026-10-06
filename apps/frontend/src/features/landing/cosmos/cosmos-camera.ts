@@ -39,10 +39,6 @@ export function worldXform(node: CosmosNode, ang: number): CosmosWorldPoint {
   return { x, y: node.y * ct - z1 * st, z: node.y * st + z1 * ct };
 }
 
-/**
- * 다섯 장면의 카메라 안무 — 전체 그래프 → 프로그램 진입 → 내부 →
- * 개인 활동 포커스 → 다시 전체로 후퇴.
- */
 export function cameraAt(
   graph: CosmosGraph,
   p: number,
@@ -92,7 +88,6 @@ export function cameraAt(
   };
 }
 
-/** 패널이 떠 있는 진행도 구간 — 장면 수와 1:1로 대응한다 */
 export const PANEL_RANGES: readonly (readonly [number, number])[] = [
   [0.0, 0.16],
   [0.2, 0.38],

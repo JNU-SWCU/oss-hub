@@ -51,19 +51,16 @@ describe('login/logout/refresh current-session seam', () => {
   });
 
   it('current-session load uses only auth/session', async () => {
-    // Given
     const session = {
       isAuthenticated: true,
       user: syntheticUser,
     } satisfies AuthSession;
     vi.mocked(apiClient).mockResolvedValue(session);
 
-    // When
     const published = nextSnapshot('authenticated');
     ensureSessionLoaded();
     await published;
 
-    // Then
     expect(apiClient).toHaveBeenCalledOnce();
     expect(apiClient).toHaveBeenCalledWith('auth/session');
     expect(getSessionSnapshot()).toEqual({
@@ -73,18 +70,15 @@ describe('login/logout/refresh current-session seam', () => {
   });
 
   it('refresh uses only auth/session', async () => {
-    // Given
     vi.mocked(apiClient).mockResolvedValue({ isAuthenticated: false });
     const anonymous = nextSnapshot('anonymous');
     ensureSessionLoaded();
     await anonymous;
 
-    // When
     const refreshed = nextSnapshot('anonymous');
     refreshSession();
     await refreshed;
 
-    // Then
     expect(apiClient).toHaveBeenCalledTimes(2);
     expect(vi.mocked(apiClient).mock.calls).toEqual([
       ['auth/session'],

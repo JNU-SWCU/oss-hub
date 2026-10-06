@@ -38,7 +38,6 @@ type DocumentSubmissionRecord = {
   readonly status: SubmissionStatus;
 };
 
-/** 한 신청이 이 마일스톤에서 어디까지 왔는가 — 판정은 `milestoneCompletionStatus` 가 한다. */
 function milestoneStatusFor(
   milestone: {
     readonly id: string;
@@ -62,20 +61,18 @@ function milestoneStatusFor(
   });
 }
 
-/** 카드 하단 안내 문구. 값이 없으면 필드 자체를 생략한다(undefined). */
 export interface ProgramListItemNote {
   readonly text: string;
   readonly icon?: 'team';
 }
 
 export interface PersonalizedProgramListItem extends ProgramListRecord {
-  /** 뷰어(학생) 본인의 신청 상태 / 뷰어(교직원)용 집계 안내. */
   readonly note?: ProgramListItemNote;
-  /** 뷰어(학생) 본인의 신청 상태. 신청한 적 없으면 생략. */
+
   readonly viewerApplicationStatus?: ApplicationStatus;
-  /** 뷰어(교직원)용 — 전체 지원 건수 집계. */
+
   readonly applicationCount?: number;
-  /** 뷰어(교직원)용 — 승인 대기(SUBMITTED) 건수 집계. */
+
   readonly pendingApplicationCount?: number;
 }
 
@@ -146,10 +143,6 @@ export class ProgramsService {
     };
   }
 
-  /**
-   * 비인증 요청과 STAFF/ADMIN 이 아닌 뷰어에게는 개인화 필드를 절대 담지 않는다.
-   * programId in (...) 배치 조회 한 번으로 N+1 을 피한다.
-   */
   private async personalize(
     items: readonly ProgramListRecord[],
     viewer: ProgramViewer,
@@ -207,8 +200,6 @@ export class ProgramsService {
     try {
       const program = await this.repository.findProgramDetail(programId);
       if (!program) throw new DomainException(PROGRAM_ERROR_CODES.NOT_FOUND);
-      // ARCHIVED 도 공개 목록(ended)에 포함되므로 상세 읽기는 허용한다.
-      // 신청·편집 등 쓰기는 각 쓰기 경로에서 lifecycle 로 거부한다.
 
       const studentApplication =
         viewer.role === 'STUDENT' && viewer.userId

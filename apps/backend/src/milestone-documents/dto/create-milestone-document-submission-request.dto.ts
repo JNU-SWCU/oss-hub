@@ -12,7 +12,6 @@ import {
   parseMilestoneDocumentContent,
 } from '../domain/milestone-document-content';
 
-/** submissions/dto/create-submission-request.dto.ts의 SubmissionContentRequestDto와 같은 계약. */
 export class MilestoneDocumentSubmissionContentRequestDto {
   @IsOptional()
   @IsString()

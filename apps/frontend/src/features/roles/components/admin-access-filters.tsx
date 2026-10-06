@@ -20,7 +20,6 @@ import {
   SelectValue,
 } from './role-select';
 
-// 거르기 목록 순서: 미지정이 먼저다(역할을 아직 주지 않은 계정부터 살핀다).
 const ROLE_FILTER_LABEL: Record<AdminAccessRoleFilter, string> = {
   UNASSIGNED: UNASSIGNED_ROLE_LABEL,
   ...ROLE_LABEL,

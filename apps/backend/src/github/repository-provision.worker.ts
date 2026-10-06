@@ -80,12 +80,7 @@ export class RepositoryProvisionWorker {
       | 'findPublicRepository'
       | 'organization'
     >,
-    /**
-     * OWN 저장소를 수집 큐에 편입한다. 프로비저닝(recordRepository)과 수집 관찰은
-     * 같은 GithubRepository 행에 쓰지만 책임이 다르다(#617 단계 D 이후에도) —
-     * recordRepository는 provision 컬럼만, 이건 수집 관찰 필드만 갱신한다.
-     * 여기서 잇지 않으면 OWN 저장소는 수집 스윕 대상에서 영영 빠진다(ADR-010 §6).
-     */
+
     private readonly collectionEnrollment: Pick<
       RepositoryOwnEnrollmentService,
       'enrollExternalRepository'
@@ -110,9 +105,6 @@ export class RepositoryProvisionWorker {
       return { kind: 'EMPTY' };
     }
 
-    // 관리형 경로라고 확인된 뒤부터만 채운다. 실패 경로에서도 이 지문을
-    // 넘겨야, 처리 중 들어온 팀원 변경 깨우기를 오래된 의도의 최종 실패가
-    // 덮어쓰지 않는다 — fail 측이 live 지문과 비교해 달라졌으면 재무장한다.
     let membershipFingerprint: string | undefined;
     try {
       const claimed = await this.state.loadContext(
@@ -124,8 +116,6 @@ export class RepositoryProvisionWorker {
       let context = claimed;
       let prepared: PreparedRepository;
       if (claimed.repository === null) {
-        // NEW는 행이 생기기 전에도 관리형 실패 가드가 필요하다. OWN은
-        // 기록 뒤에 저장된 source가 관리형인지 봐야 지문을 채운다.
         if (originalIntent === 'NEW') {
           membershipFingerprint = claimed.membershipFingerprint;
         }
@@ -168,8 +158,7 @@ export class RepositoryProvisionWorker {
               PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
             );
           }
-          // 접근 경로는 기록된 source가 고른다. ownResolution.kind로
-          // 초대를 건너뛰지 않으며, 외부 편입 메타데이터만 여기서 쓴다.
+
           if (resolution.kind !== 'EXTERNAL') {
             throw finalProvisionFailure(
               PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
@@ -199,8 +188,7 @@ export class RepositoryProvisionWorker {
           repositoryId: repository.id,
         };
       }
-      // 권한의 authority는 live TeamMember 목록이다 — 이벤트 payload의
-      // collaboratorGithubLogins는 승인 시점 snapshot이라 탈퇴자를 영영 남긴다.
+
       await this.state.prepareInvitations(
         job.id,
         workerId,
@@ -224,9 +212,7 @@ export class RepositoryProvisionWorker {
         now,
       );
       const completedAt = now();
-      // 관리형 저장소는 대기 초대가 없어도 항상 다음 확인 시각을 남긴다 —
-      // 팀 이탈은 초대 상태를 바꾸지 않으므로, 여기서 끊으면 권한 회수가
-      // 다음 재조회 없이 영영 멈춘다.
+
       await this.state.completeJob(
         job.id,
         workerId,
@@ -283,8 +269,7 @@ export class RepositoryProvisionWorker {
               this.options.retryBaseMs,
             ),
         now: failedAt,
-        // context를 읽기 전이거나 계약 검증에 실패한 실패, 그리고 외부 경로는
-        // 비교할 기준이 없으므로 생략한다(compat fallback이 아니다).
+
         expectedMembershipFingerprint: membershipFingerprint,
       });
       this.logger.warn({
@@ -302,13 +287,6 @@ export class RepositoryProvisionWorker {
     }
   }
 
-  /**
-   * 이벤트는 "이 job이 이 신청·프로그램·팀의 것인가"와 원래 연결 의도만 증명한다.
-   * 누가 접근권을 가져야 하는가는 payload가 아니라 live 팀원 목록이 결정한다.
-   * 현재 행이 있으면 그 source가 초대/외부 skip을 고르고, 이벤트 의도는
-   * 행이 생기기 전에만 쓴다. 기록 뒤에는 원 이벤트를 바꾸지 않은 채
-   * claimed context를 다시 읽어 저장된 source로 고른다.
-   */
   private validateContext(context: RepositoryProvisionContext): {
     readonly originalIntent: 'NEW' | 'OWN';
     readonly repositoryUrl: string | null;
@@ -339,10 +317,6 @@ export class RepositoryProvisionWorker {
     throw finalProvisionFailure(PROVISION_ERROR_CODES.REPOSITORY_MISMATCH);
   }
 
-  /**
-   * 생성 직후 한 번만 다시 읽는다. 이미 현재 행이 있는 경로는 호출하지 않는다.
-   * 저장된 현재 행이 없거나 방금 기록한 행과 다르면 이벤트로 대체하지 않는다.
-   */
   private async reloadRecordedContext(
     jobId: string,
     workerId: string,
@@ -389,7 +363,7 @@ export class RepositoryProvisionWorker {
       connectionMode === 'OWN'
         ? await resolveOwnGithubRepository(
             this.github,
-            // 레거시/손상 payload 방어: OWN이면 URL 필수.
+
             repositoryUrl ?? '',
           )
         : null;
@@ -405,11 +379,7 @@ export class RepositoryProvisionWorker {
         }),
         buildRepositoryOwnershipMarker(context.applicationId),
       ));
-    // OWN + EXTERNAL(조직 밖 공개 저장소)만 EXTERNAL_PUBLIC이다. NEW든
-    // OWN + ORGANIZATION(조직 안 저장소를 자기 것으로 연결)이든 조직이 관리하는
-    // 저장소이므로 ORG_PROVISIONED다 — 여기서 잘못 찍으면 뒤이은
-    // enrollExternalRepository가 이 행을 "이미 다른 source로 있음"으로 보고
-    // 수집 관찰 필드를 갱신하지 않는다.
+
     const source =
       ownResolution?.kind === 'EXTERNAL'
         ? RepositorySource.EXTERNAL_PUBLIC
@@ -434,12 +404,6 @@ export class RepositoryProvisionWorker {
     return { repository, ownResolution };
   }
 
-  /**
-   * 회수를 먼저 끝까지 돌린 뒤에만 부여를 진행한다. 한 명의 회수 실패로
-   * 나머지 탈퇴자가 접근권을 유지하면 안 되므로, 첫 실패를 들고만 있다가
-   * 전체 회수 시도 뒤에 job 실패로 올린다. lease 상실은 다른 worker가 이미
-   * 같은 job을 잡았다는 뜻이라 즉시 중단한다.
-   */
   private async processInvitations(
     invitations: readonly RepositoryInvitationWork[],
     repository: ProvisionedRepository,
@@ -491,7 +455,6 @@ export class RepositoryProvisionWorker {
       }
     }
     if (retainedRevokeFailure !== null) {
-      // 회수가 남은 채 부여를 더 나가지 않는다 — job은 평소의 분류기로 재시도된다.
       throw retainedRevokeFailure.error;
     }
     for (const invitation of invitations) {

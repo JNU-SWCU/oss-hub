@@ -6,7 +6,6 @@ import type {
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../audit-log/audit-log.service';
 
-/** 이 스펙들은 판정 경로를 타지 않으므로 감사 기록기는 호출되지 않는다. */
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
 describe('ApplicationsService.staffSummary', () => {

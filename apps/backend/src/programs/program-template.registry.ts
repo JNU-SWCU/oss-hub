@@ -25,7 +25,6 @@ export interface FieldDef {
   readonly required: boolean;
 }
 
-/** v1 신청 필드 — 7종 템플릿 공통. 서버가 SSOT다. */
 export const V1_APPLICATION_FIELDS: readonly FieldDef[] = [
   {
     key: 'applicantName',

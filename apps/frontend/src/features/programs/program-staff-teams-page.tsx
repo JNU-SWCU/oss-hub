@@ -37,20 +37,6 @@ import type {
   TeamManagementListItem,
 } from './types';
 
-/**
- * 교직원 팀 관리 목록. 「참여 팀」과 「신청자」로 갈라져 있던 두 화면을 하나로 합친 자리다.
- *
- * 예전에는 팀 목록과 신청 목록을 **클라이언트에서 조인**했다. 신청을 20페이지까지 긁어
- * 팀에 붙이고, 넘치면 「일부만 불러왔습니다」를 띄웠다. 팀:신청이 1:1로 확정된 뒤로 그
- * 조인은 순수 비용이라 서버 페이지네이션 한 번으로 바꿨다 — 잘림 경고도 함께 사라진다.
- *
- * 「신청 없음」 상태도 사라졌다. 팀은 이제 신청이 만들므로 신청 없는 팀이 생기지 않는다.
- *
- * 정렬은 **서버가 준 순서를 그대로 렌더한다**. 클라이언트가 다시 정렬하면 페이지 경계에서
- * 순서가 어긋난다 — 한 페이지 안에서만 맞고 전체로는 틀린 순서가 된다.
- */
-
-/** 한 페이지 크기. backend DTO 의 `@Max(100)` 안이어야 400 을 받지 않는다. */
 const PAGE_SIZE = 20;
 
 type StatusFilter = ApplicationListStatus;
@@ -65,7 +51,6 @@ interface LoadedState {
 type ScreenState =
   { readonly kind: 'loading' } | { readonly kind: 'error' } | LoadedState;
 
-/** 행마다 남는 판정 안내. 재조회 실패는 그 행의 다음 판정을 막는 근거이기도 하다. */
 interface RowNotice {
   readonly message: string;
   readonly blocked: boolean;
@@ -100,7 +85,7 @@ export function ProgramStaffTeamsPage({
   } | null>(null);
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState(false);
-  /** 창 안에 남겨 둘 실패 안내. 적용된 판정에서는 항상 null 이다. */
+
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const cancelled = useRef(false);
 
@@ -134,7 +119,6 @@ export function ProgramStaffTeamsPage({
     };
   }, [load]);
 
-  /** 검색·필터를 바꾸면 1페이지로 돌아간다 — 3페이지를 보다 조건을 바꾸면 빈 표가 된다. */
   const applySearch = useCallback(() => {
     setPage(1);
     setSearch(searchInput.trim());
@@ -163,7 +147,7 @@ export function ProgramStaffTeamsPage({
         setReasonError(true);
         return;
       }
-      // 이 판정이 창에서 시작됐는가 — `onSelectStatus`의 확인 조건과 같아야 한다.
+
       const dialogOpen =
         next === 'REJECTED' ||
         (next === 'APPROVED' && item.status === 'REJECTED');
@@ -175,19 +159,9 @@ export function ProgramStaffTeamsPage({
       if (cancelled.current) return;
       setBusyId(null);
 
-      /*
-       * 판정이 적용되지 **않은** 때는 창과 입력을 그대로 둔다.
-       *
-       * 닫아 버리면 교직원이 방금 적은 반려 사유를 다시 타이핑해야 한다 — 서버가
-       * 5xx를 돌려준 것은 그 사람의 잘못이 아니다. 적용된 뒤에만 정리한다.
-       */
       const applied = result.outcome.kind === 'applied';
       const message = decisionNoticeFor(result);
-      /*
-       * 창이 떠 있는 채로 실패하면 안내는 **창 안에서만** 말한다. 같은 문구를 창과
-       * 행에 나란히 두면 어느 쪽이 지금 상황인지 한 번 더 생각하게 된다. 승인처럼
-       * 창이 없는 경로는 그대로 행에 남긴다.
-       */
+
       const keptOpen = !applied && dialogOpen;
       if (applied) {
         setPending(null);
@@ -210,7 +184,7 @@ export function ProgramStaffTeamsPage({
         return { ...current, [item.id]: notice };
       });
       if (blocksFurtherDecisions(result)) return;
-      // 재조회가 준 값이 진짜 상태다 — 목록 전체를 다시 읽어 서버 정렬도 같이 맞춘다.
+
       await load();
     },
     [load],
@@ -219,15 +193,7 @@ export function ProgramStaffTeamsPage({
   const onSelectStatus = useCallback(
     (item: TeamManagementListItem, next: ApplicationStatus) => {
       if (next === item.status) return;
-      /*
-       * 확인을 거치는 두 경우다.
-       *
-       * 1. 반려 — 사유가 필요하다.
-       * 2. 반려된 신청을 승인 — 지금 남아 있는 반려 사유가 **지워진다**.
-       *    누르고 나서 사유가 사라졌다는 것을 뒤에 알게 되면 교직원은 자기가 무엇을
-       *    눌렀는지 모른다. 창은 이미 그 문구를 가지고 있었고, 여기서 열어 주지 않아
-       *    닿지 않고 있었다.
-       */
+
       const needsConfirm =
         next === 'REJECTED' ||
         (next === 'APPROVED' && item.status === 'REJECTED');
@@ -295,8 +261,7 @@ export function ProgramStaffTeamsPage({
                 id={`team-management-status-${item.id}`}
                 aria-label={`${item.applicant.nickname} 신청 상태`}
                 value={item.status}
-                // 세 옵션은 어느 출발 상태에서도 전부 활성이다(AC-14).
-                // 진행 중이거나 재조회가 실패한 행만 막는다.
+
                 disabled={busyId === item.id || (notice?.blocked ?? false)}
                 onChange={(next) => onSelectStatus(item, next)}
               />
@@ -391,10 +356,7 @@ export function ProgramStaffTeamsPage({
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
         />
-        {/*
-         * 검색은 서버가 한다 — 타이핑마다 요청을 보내지 않고 확정했을 때 한 번 보낸다.
-         * 글자마다 보내면 페이지가 계속 1로 돌아가 사용자가 읽던 자리를 잃는다.
-         */}
+
         <Button type="submit" variant="outline">
           검색
         </Button>
@@ -457,8 +419,6 @@ export function ProgramStaffTeamsPage({
 
       {pending !== null ? (
         <ApplicationDecisionDialog
-          // 무엇을 확인하는 창인지는 **고른 상태**가 정한다 — 반려만 확인하던 시절의
-          // 고정값을 남겨 두면 승인 확인이 「신청 반려」라고 말한다.
           action={pending.next === 'REJECTED' ? 'REJECT' : 'APPROVE'}
           currentStatus={pending.item.status}
           applicantName={

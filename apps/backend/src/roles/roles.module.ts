@@ -10,7 +10,6 @@ import { RolesRepository } from './roles.repository';
 import { RolesService } from './roles.service';
 
 @Module({
-  // UsersModule은 더 이상 필요하지 않다 — 역할 배정이 프로필 완료를 요구하지 않는다.
   imports: [AuditLogModule, AuthModule, ConsentsModule],
   controllers: [OnboardingController, StaffAccessRequestsController],
   providers: [RolesRepository, RolesService],

@@ -64,14 +64,6 @@ export {
   parseAdminProfileUpdateResponse,
 };
 
-/**
- * Typed client for the unified `/users/access` admin resource.
- * Mirrors `apps/backend/src/users/admin-access.controller.ts`,
- * `dto/admin-access-query.dto.ts`, `dto/patch-admin-access.dto.ts`, and
- * `domain/admin-access.ts` (PR04A). Feature-local; does not replace the
- * legacy `./api.ts` client, which stays in place until PR04H's cutover.
- */
-
 export function serializeAdminAccessListQuery(
   params: AdminAccessListParams,
 ): string {
@@ -191,12 +183,6 @@ export async function patchAdminAccess(
   return parseAdminAccessMutationResponse(value);
 }
 
-/**
- * `PATCH /users/:id/profile` — 관리자가 다른 사용자의 이름·학번·학과를 대신 고친다
- * (admin-profile.service.ts, admin-profile-mutation.service.ts). CAS 접근 변경
- * (`patchAdminAccess`)과 달리 낙관적 잠금이 없는 단순 부분 갱신이라 `expected*` 필드가
- * 없다 — 요청 바디는 `admin-profile-edit-policy.ts`가 만드는 변경분만 담는다.
- */
 export async function patchAdminUserProfile(
   id: string,
   command: AdminProfileUpdateCommand,

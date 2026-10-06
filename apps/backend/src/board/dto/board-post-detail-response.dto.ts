@@ -2,7 +2,6 @@ import { BoardPostCategory } from '@prisma/client';
 import { BoardPostDetailResult } from '../board.service';
 import { BoardCommentResponseDto } from './board-comment-response.dto';
 
-/** `GET/POST/PATCH .../posts/:postId` 응답 — 본문과 댓글까지 포함한다. */
 export class BoardPostDetailResponseDto {
   id: string;
   programId: string;

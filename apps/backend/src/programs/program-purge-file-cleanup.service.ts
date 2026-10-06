@@ -24,10 +24,6 @@ type ProgramPurgeFileCleanupStore = Pick<
   'claimNextForDeletion' | 'markDeleted' | 'recordDeleteFailure'
 >;
 
-/**
- * Program purge가 만든 template-file tombstone의 2단계 storage cleanup worker.
- * purge 트랜잭션 안에서는 절대 storage port를 호출하지 않는다.
- */
 @Injectable()
 export class ProgramPurgeFileCleanupService {
   private readonly logger = new Logger(ProgramPurgeFileCleanupService.name);

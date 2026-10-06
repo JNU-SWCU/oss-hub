@@ -25,11 +25,6 @@ export class ConsentsRepository {
     return consent ? this.toDomain(consent) : null;
   }
 
-  /**
-   * Consent는 append-only다(schema 계약) — UPDATE/DELETE를 수행하지 않는다.
-   * 같은 (userId, policyVersion) 재요청은 unique 충돌(P2002)을 기존 행으로
-   * 수렴시켜 중복 레코드를 만들지 않는다(티켓 데이터 규칙).
-   */
   async createConsent(
     userId: string,
     policyVersion: string,

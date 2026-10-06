@@ -91,9 +91,9 @@ export class StaffDashboardProgramSummaryResponseDto {
     readonly startsAt: string;
     readonly endsAt: string;
   };
-  /** 종료일. 「미정」은 센티널 시각 그대로 나간다 — 공개 목록 응답과 같은 규칙이다. */
+
   readonly endAt: string;
-  /** 게시 축(PUBLISHED|ARCHIVED). 모집 기간 파생 상태가 아니다. */
+
   readonly lifecycle: ProgramLifecycle;
   readonly applications: StaffDashboardApplicationCountsResponseDto;
   readonly teamManagementPath: string;

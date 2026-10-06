@@ -1,4 +1,3 @@
-/** 서버 응답으로 받은 파일 크기 제한. 화면은 자체 기본값을 두지 않는다. */
 export interface SubmissionUploadLimit {
   readonly maxBytes: number;
   readonly maxLabel: string;

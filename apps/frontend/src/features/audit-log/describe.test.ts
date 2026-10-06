@@ -54,7 +54,7 @@ describe('describeAuditLog', () => {
       value: 'request-legacy',
       variant: 'fallback',
     });
-    // '님' 존칭이 코드체 폴백 값 뒤에 붙지 않고, targetType 한국어 라벨로 서술한다.
+
     expect(sentenceText(legacyRecord)).toBe(
       'synthetic-admin님이 권한 요청 request-legacy을(를) 승인했습니다',
     );
@@ -246,8 +246,6 @@ describe('describeAuditLog', () => {
     );
   });
 
-  // 팀 이름 변경은 target이 바뀐 **뒤**의 이름이라, 이전 이름이 문장에 함께
-  // 서야 「무엇에서 무엇으로」가 성립한다.
   it('TEAM_RENAMED는 이전 이름과 바뀐 이름을 한 문장에 담는다', () => {
     const record: AuditLogRecord = {
       id: 'audit-team-renamed',
@@ -265,7 +263,6 @@ describe('describeAuditLog', () => {
     );
   });
 
-  // metadata 검증에 실패한 행은 이전 이름을 지어내지 않고 빼고 말한다.
   it('TEAM_RENAMED에 이전 이름이 없으면 그 대목을 빼고 서술한다', () => {
     const record: AuditLogRecord = {
       id: 'audit-team-renamed-no-previous',
@@ -340,10 +337,6 @@ describe('describeAuditLog', () => {
     );
   });
 
-  // APPLICATION_APPROVED가 스냅샷/join으로 라벨을 받으면 target은 "프로그램 이름 ·
-  // @신청자 로그인" 합성 문자열이다(composeApplicationTargetLabel). 이미 '@'를
-  // 포함하므로 nameSegment(variant='name', 접두 없음)로 렌더되고, 뒤따르는 문구는
-  // 프로그램을 다시 언급하지 않는다("님의 신청을 승인했습니다").
   it('APPLICATION_APPROVED가 합성 라벨(프로그램 이름 · @신청자)을 받으면 그 라벨을 "@" 추가 접두 없이 서술한다', () => {
     const record: AuditLogRecord = {
       id: 'audit-application-approved-resolved',
@@ -399,10 +392,6 @@ describe('describeAuditLog', () => {
     );
   });
 
-  // TEAM_MEMBERSHIP_CHANGED: 백엔드가 남기는 실제 사건은 「자진 탈퇴」와 「팀원
-  // 내보내기」 두 종류이고, 같은 트랜잭션에서 팀장 승계 또는 팀 삭제가 함께 일어난다
-  // (apps/backend/src/audit-log/web-state-audit-metadata.ts). 문장은 그 사실만
-  // 말하고 user id는 렌더하지 않는다.
   function membershipRecord(
     teamMembership: TeamMembershipChangeSummary | undefined,
     overrides: Partial<AuditLogRecord> = {},

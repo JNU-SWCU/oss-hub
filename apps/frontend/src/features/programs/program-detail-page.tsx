@@ -22,7 +22,7 @@ export type DetailState =
   | {
       readonly kind: 'ready';
       readonly program: ProgramDetail;
-      /** 팩트 바 전용. 조회 실패(비로그인 등)해도 페이지 전체를 실패로 만들지 않는다. */
+
       readonly overview: ProgramOverview | null;
     };
 
@@ -32,16 +32,6 @@ export function detailFailure(error: unknown): DetailState {
     : { kind: 'failed' };
 }
 
-/**
- * 방문자에게 세션이 있는가. app 계층이 공유 세션 저장소를 읽어 넘긴다 — 이 feature는
- * `features/auth`를 import할 수 없다(feature 간 의존 금지).
- *
- * - `unknown`: 아직 모른다. 아무것도 부르지 않고 뼈대만 그린다.
- * - `anonymous`: 세션이 없다. 공개 상세만 부른다 — viewer·overview를 부르면 401이 나고
- *   화면은 그려지지만 콘솔에 오류 두 줄이 남는다(#1294).
- * - `present`: 세션이 있다(조회 실패로 모를 때도 여기다). viewer·overview를 부르고,
- *   viewer가 401이면 공개 상세로 내려간다.
- */
 export type ProgramDetailSession = 'unknown' | 'anonymous' | 'present';
 
 export function ProgramDetailPage({

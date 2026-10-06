@@ -10,11 +10,6 @@ import { AuthConfig } from '../../../auth/auth.config';
 import { AuthenticationGuard } from '../../../auth/authentication.guard';
 import { AuthService } from '../../../auth/auth.service';
 
-/**
- * `AuthService`의 공개 시그니처에서 principal 타입을 파생한다 — 다른 모듈의 `domain/*`을
- * 직접 import하면 ADR-003 module 경계 lint가 막으므로(이 harness 는 auth zone 밖에 있다)
- * 모듈-공개인 `AuthService.getMe` 반환 타입을 그대로 재사용한다.
- */
 type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
 import { sessionCookieName } from '../../../auth/cookies';
 import { OriginGuard } from '../../../auth/origin.guard';
@@ -41,21 +36,12 @@ import { ProgramMetricsRepository } from '../../repository/program-metrics.repos
 import { PublicEligibilityService } from './public-eligibility.service';
 
 const sessionSecret = new Uint8Array(32).fill(23);
-/**
- * QA40 — 공개 프로젝트 커서 키는 배포에서도 `SESSION_SECRET`에서 파생하므로, harness도
- * 위 세션 시크릿을 그대로 base64url로 넘겨 실제 배선과 같은 경로를 탄다.
- */
+
 const SYNTHETIC_SESSION_SECRET =
   Buffer.from(sessionSecret).toString('base64url');
 export const PUBLIC_EXPOSURE_PERSONA_ALLOWED_ORIGIN =
   'http://frontend-persona.test';
 
-/**
- * 실서비스 `AuthService.getMe`/`findActivePrincipal`가 돌려주는 principal을 흉내 낸다 —
- * 토큰이 검증한 githubId를 그대로 되울려주고 세션 버전은 harness가 발급하는 토큰과 같은
- * 0으로 고정한다. 역할(교직원·관리자) 판정은 `RankingService`가 시드된 DB 행에서 다시
- * 조회하므로 여기 역할 필드는 비활성이며 githubId만 진실이면 된다.
- */
 function makePersonaPrincipal(githubId: bigint): ActivePrincipal {
   return {
     id: `synthetic-${githubId.toString()}`,
@@ -72,13 +58,6 @@ function makePersonaPrincipal(githubId: bigint): ActivePrincipal {
   };
 }
 
-/**
- * 계획 todo 23 — HTTP 4-페르소나(익명/STUDENT/STAFF/ADMIN) 매트릭스 전용 harness.
- * `AdminAccessHttpHarness`(`../users/admin-access.http.integration-support.ts`)와 동일한
- * 관행을 따른다 — 서비스는 Nest DI 없이 직접 `new`로 조립해 `useValue`로 등록하고, 가드만
- * Nest DI로 실제 인스턴스화한다(guard mocking 없음, 실제 SessionGuard/OriginGuard/
- * SubmissionReviewsStaffGuard가 실제 쿠키/세션/역할을 검사한다).
- */
 export class PublicExposurePersonaHttpHarness {
   constructor(private readonly fixtureNamespace: string) {}
 
@@ -192,13 +171,6 @@ export class PublicExposurePersonaHttpHarness {
     await this.prisma.$disconnect();
   }
 
-  /**
-   * `memberKind`를 주면 canonical `UserProfile`까지 같이 심는다 — 순위 노출은 권한이
-   * 아니라 이 칸이 정하므로, 회원 유형을 입어야 persona가 랭킹을 대표할 수 있다.
-   *
-   * legacy 칸과 canonical 행을 반드시 같은 값으로 둔다 — 공유 PostgreSQL 을 쓰는 통합
-   * 실행에서 형제 스펙이 돌리는 backfill 불변식이 불일치 행 하나로 전체를 멈추기 때문이다.
-   */
   async createUser(
     label: string,
     role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
@@ -218,11 +190,7 @@ export class PublicExposurePersonaHttpHarness {
       data: {
         id: `${this.fixtureNamespace}-http-${label}-${this.sequence}`,
         githubId,
-        // id와 nickname을 의도적으로 다른 문자열로 둔다 — audit-log 응답의 `actor`는
-        // `AuditLog.actorId`가 가리키는 User의 **nickname**이지 raw internal id가 아니다
-        // (`audit-log.repository.ts`: `actor: log.actor.nickname`). id와 nickname이 같은
-        // 문자열이면 "actor가 raw id가 아니다"라는 단언이 항상 공허하게 실패해 이 구분을
-        // 증명하지 못한다.
+
         nickname: `${this.fixtureNamespace}-http-${label}-${this.sequence}-login`,
         ...authorityFactsFor(role),
         accountStatus: 'ACTIVE',

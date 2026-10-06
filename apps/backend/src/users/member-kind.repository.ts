@@ -143,8 +143,6 @@ class PrismaMemberKindTransactionStore implements MemberKindTransactionStore {
       return null;
     }
 
-    // Lock both rows before reading membership and identifiers so a profile-only
-    // writer cannot change them between this transaction's read and write.
     await this.transaction.$queryRaw(
       Prisma.sql`SELECT "userId" FROM "UserProfile" WHERE "userId" = ${userId} FOR UPDATE`,
     );

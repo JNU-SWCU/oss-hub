@@ -37,7 +37,6 @@ afterAll(async () => {
 });
 
 it('승인 이력이 있는 STAFF를 회수하면 역할이 비고 APPROVED 행은 그대로 남는다', async () => {
-  // Given
   const actor = await createUser('approved-actor', 'ADMIN');
   const target = await createUser('approved-target', 'STAFF');
   const approved = await prisma.staffAccessRequest.create({
@@ -49,7 +48,6 @@ it('승인 이력이 있는 STAFF를 회수하면 역할이 비고 APPROVED 행�
     },
   });
 
-  // When
   const result = await service.patchAccess(actor.githubId, target.id, {
     expectedRole: 'STAFF',
     desiredRole: null,
@@ -58,7 +56,6 @@ it('승인 이력이 있는 STAFF를 회수하면 역할이 비고 APPROVED 행�
     expectedPendingRequest: null,
   });
 
-  // Then
   expect(result.role).toBeNull();
   expect(result.decidedRequest?.status).toBe(StaffAccessRequestStatus.REVOKED);
   expect(result.decidedRequest?.id).not.toBe(approved.id);
@@ -68,7 +65,6 @@ it('승인 이력이 있는 STAFF를 회수하면 역할이 비고 APPROVED 행�
   expect(persisted.hasStaffAccess).toBe(false);
   expect(persisted.accountStatus).toBe(AccountStatus.ACTIVE);
 
-  // 승인 이력은 장학금 근거라 회수가 덮어쓰지 않는다 — "누가 언제 승인했는가"가 그대로다.
   const preservedApproval = await prisma.staffAccessRequest.findUniqueOrThrow({
     where: { id: approved.id },
   });
@@ -91,15 +87,12 @@ it('승인 이력이 있는 STAFF를 회수하면 역할이 비고 APPROVED 행�
 });
 
 it('신청 없이 직접 부여된 STAFF도 회수하면 REVOKED 행이 생긴다', async () => {
-  // Given — APPROVED 행이 하나도 없는 사람이다. 삽입을 "APPROVED가 있을 때만"으로
-  // 좁히면 이 사람만 회수 흔적 없이 역할을 잃고, 그러면 다음 로그인에 시드가 되살린다.
   const actor = await createUser('direct-actor', 'ADMIN');
   const target = await createUser('direct-target', 'STAFF');
   await expect(
     prisma.staffAccessRequest.count({ where: { userId: target.id } }),
   ).resolves.toBe(0);
 
-  // When
   const result = await service.patchAccess(actor.githubId, target.id, {
     expectedRole: 'STAFF',
     desiredRole: null,
@@ -108,7 +101,6 @@ it('신청 없이 직접 부여된 STAFF도 회수하면 REVOKED 행이 생긴�
     expectedPendingRequest: null,
   });
 
-  // Then
   expect(result.role).toBeNull();
   const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: target.id },
@@ -117,7 +109,6 @@ it('신청 없이 직접 부여된 STAFF도 회수하면 REVOKED 행이 생긴�
   expect(requests[0]?.status).toBe(StaffAccessRequestStatus.REVOKED);
   expect(requests[0]?.id).toBe(result.decidedRequest?.id);
 
-  // 이 행이 있어야 로그인 시드 가드(`auth.repository.ts`)가 회수된 계정으로 알아본다.
   await expect(
     prisma.staffAccessRequest.count({
       where: { userId: target.id, status: StaffAccessRequestStatus.REVOKED },
@@ -126,11 +117,9 @@ it('신청 없이 직접 부여된 STAFF도 회수하면 REVOKED 행이 생긴�
 });
 
 it('회수는 새 REVOKED 행을 대상으로 하는 감사 기록을 남긴다', async () => {
-  // Given
   const actor = await createUser('audit-actor', 'ADMIN');
   const target = await createUser('audit-target', 'STAFF');
 
-  // When
   const result = await service.patchAccess(actor.githubId, target.id, {
     expectedRole: 'STAFF',
     desiredRole: null,
@@ -139,7 +128,6 @@ it('회수는 새 REVOKED 행을 대상으로 하는 감사 기록을 남긴다'
     expectedPendingRequest: null,
   });
 
-  // Then
   const revokedRequestId = result.decidedRequest?.id ?? 'missing';
   const logs = await prisma.auditLog.findMany({
     where: { targetId: revokedRequestId },
@@ -168,11 +156,9 @@ it.each<[string, 'ADMIN' | 'STUDENT']>([
   ['ADMIN', 'ADMIN'],
   ['STUDENT', 'STUDENT'],
 ])('%s는 여전히 역할을 비울 수 없다', async (label, role) => {
-  // Given — ADMIN 회수는 마지막 관리자 가드와 무관하게 전이 자체가 막혀야 한다.
   const actor = await createUser(`not-allowed-actor-${label}`, 'ADMIN');
   const target = await createUser(`not-allowed-target-${label}`, role);
 
-  // When / Then
   await expect(
     service.patchAccess(actor.githubId, target.id, {
       expectedRole: role,
@@ -200,7 +186,6 @@ it.each<[string, 'ADMIN' | 'STUDENT']>([
 });
 
 it('두 관리자가 동시에 회수하면 한쪽만 성공하고 REVOKED 행도 하나만 남는다', async () => {
-  // Given
   const firstActor = await createUser('race-actor-a', 'ADMIN');
   const secondActor = await createUser('race-actor-b', 'ADMIN');
   const target = await createUser('race-target', 'STAFF');
@@ -212,13 +197,11 @@ it('두 관리자가 동시에 회수하면 한쪽만 성공하고 REVOKED 행�
     expectedPendingRequest: null,
   } as const;
 
-  // When
   const outcomes = await Promise.allSettled([
     service.patchAccess(firstActor.githubId, target.id, command),
     service.patchAccess(secondActor.githubId, target.id, command),
   ]);
 
-  // Then
   const fulfilled = outcomes.filter(
     (outcome) => outcome.status === 'fulfilled',
   );
@@ -236,8 +219,6 @@ it('두 관리자가 동시에 회수하면 한쪽만 성공하고 REVOKED 행�
 });
 
 it('REVOKED 행 삽입 직후 실패하면 역할 CAS까지 함께 되돌아간다', async () => {
-  // Given — 두 쓰기가 한 트랜잭션이라는 주장의 반대편이다. 삽입까지 끝난 뒤 터뜨려
-  // "역할은 비었는데 회수 이력은 없는" 상태가 커밋되지 않는지 본다.
   const actor = await createUser('rollback-insert-actor', 'ADMIN');
   const target = await createUser('rollback-insert-target', 'STAFF');
   const failingService = new AdminAccessService(
@@ -247,7 +228,6 @@ it('REVOKED 행 삽입 직후 실패하면 역할 CAS까지 함께 되돌아간�
     auditLog,
   );
 
-  // When / Then
   await expect(
     failingService.patchAccess(actor.githubId, target.id, {
       expectedRole: 'STAFF',
@@ -270,8 +250,6 @@ it('REVOKED 행 삽입 직후 실패하면 역할 CAS까지 함께 되돌아간�
 });
 
 it('감사 기록이 실패하면 역할 CAS와 REVOKED 행이 함께 되돌아간다', async () => {
-  // Given — 감사는 같은 트랜잭션의 writer로 쓴다. 그 규약이 깨지면 "회수됐는데 기록은
-  // 없는" 행이 남고, AuditLog는 append-only라 나중에 채워 넣을 수도 없다.
   const actor = await createUser('rollback-audit-actor', 'ADMIN');
   const target = await createUser('rollback-audit-target', 'STAFF');
   const failingAudit = {
@@ -279,7 +257,6 @@ it('감사 기록이 실패하면 역할 CAS와 REVOKED 행이 함께 되돌아�
   } as unknown as AuditLogService;
   const failingService = new AdminAccessService(repository, failingAudit);
 
-  // When / Then
   await expect(
     failingService.patchAccess(actor.githubId, target.id, {
       expectedRole: 'STAFF',
@@ -302,8 +279,6 @@ it('감사 기록이 실패하면 역할 CAS와 REVOKED 행이 함께 되돌아�
 });
 
 it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권한을 되살리지 못한다', async () => {
-  // Given — PR0(#675)이 남긴 알려진 한계를 닫는 자리다. 회수 트랜잭션이 두 쓰기를 마치고
-  // 커밋하기 전에 `AUTH_INITIAL_ROLES=STAFF` 로그인이 같은 User 행을 만지러 온다.
   const actor = await createUser('login-race-actor', 'ADMIN');
   const target = await createUser('login-race-target', 'STAFF');
   const approved = await prisma.staffAccessRequest.create({
@@ -314,8 +289,7 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
       decidedAt: new Date('2026-08-01T00:00:00.000Z'),
     },
   });
-  // 두 트랜잭션의 백엔드 PID를 각자의 트랜잭션 안에서 잡는다 — 나중에 "로그인이
-  // **회수에** 막혀 있다"를 pg_blocking_pids로 지목해 단언하기 위해서다.
+
   const revocationBackend = backendPid();
   const loginBackend = backendPid();
   const authRepository = new AuthRepository(
@@ -335,7 +309,6 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
     auditLog,
   );
 
-  // When
   const revocation = pausedService.patchAccess(actor.githubId, target.id, {
     expectedRole: 'STAFF',
     desiredRole: null,
@@ -353,9 +326,7 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
       email: null,
     }),
   );
-  // 로그인이 **회수 트랜잭션에** 막혀 있음을 지목해 확인한 뒤에만 놓아 준다. "무언가가
-  // 대기 중"으로는 부족하다 — 다른 세션의 대기로도 통과해 버리면 이 테스트는 자기가
-  // 주장하는 것을 증명하지 못한다.
+
   await waitUntilLoginIsBlockedByRevocation(
     await loginBackend.pid,
     await revocationBackend.pid,
@@ -363,7 +334,6 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
   releaseRevocation.resolve();
   const [revoked, loggedIn] = await Promise.all([revocation, login]);
 
-  // Then
   expect(revoked.role).toBeNull();
   expect(loggedIn.user.hasStaffAccess).toBe(false);
   const persisted = await prisma.user.findUniqueOrThrow({
@@ -374,7 +344,7 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
     where: { userId: target.id },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
-  // 시드가 이겼다면 여기에 `decidedById: null`인 APPROVED 행이 하나 더 있고 역할도 STAFF다.
+
   expect(requests).toHaveLength(2);
   expect(requests.map((request) => request.status)).toEqual([
     StaffAccessRequestStatus.APPROVED,
@@ -408,13 +378,6 @@ function deferred(): {
   return { promise, resolve: () => resolve() };
 }
 
-/**
- * 트랜잭션이 열리는 순간 그 트랜잭션을 실행하는 백엔드 PID를 잡아 두는 PrismaService 대역.
- *
- * 실 PrismaService를 그대로 위임하고 `$transaction`만 가로채 첫 문장으로
- * `pg_backend_pid()`를 실행한다 — 회수·로그인이 각각 어느 커넥션에서 도는지 알아야
- * "누가 누구를 막고 있는가"를 지목할 수 있다.
- */
 function pidCapturingPrisma(capture: (pid: number) => void): PrismaService {
   return new Proxy(prisma, {
     get(target, property, receiver) {
@@ -431,7 +394,7 @@ function pidCapturingPrisma(capture: (pid: number) => void): PrismaService {
           });
       }
       const value: unknown = Reflect.get(target, property, receiver);
-      // 메서드는 원본에 바인딩해 돌려준다 — Proxy를 `this`로 받으면 Prisma 내부가 깨진다.
+
       return typeof value === 'function'
         ? (value as (...args: readonly unknown[]) => unknown).bind(target)
         : value;
@@ -450,11 +413,6 @@ function backendPid(): {
   return { pid, capture: (value: number) => capture(value) };
 }
 
-/**
- * 로그인 백엔드가 **회수 백엔드에** 막혀 있음을 PostgreSQL에 직접 물어 확인한다.
- * `pg_blocking_pids`는 그 문장을 실제로 가로막고 있는 백엔드만 돌려주므로, 이 단언이
- * 통과했다는 것은 두 트랜잭션이 같은 행에서 겹쳤다는 뜻이다.
- */
 async function waitUntilLoginIsBlockedByRevocation(
   loginPid: number,
   revocationPid: number,

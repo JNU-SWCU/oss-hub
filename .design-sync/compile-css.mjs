@@ -1,5 +1,3 @@
-// design-sync: apps/frontend의 Tailwind v4(css-first) 스타일시트를 standalone CSS로 컴파일한다.
-// styles.css는 @import 목록일 뿐 CSS를 컴파일하지 않으므로 cssEntry가 가리킬 산출물을 여기서 만든다.
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';

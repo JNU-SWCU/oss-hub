@@ -73,13 +73,10 @@ describe('AuthController logout', () => {
   });
 
   it('유효한 세션의 로그아웃을 해당 사용자 이력으로 기록한다', async () => {
-    // Given: 전역 인증 경계가 현재 세대의 principal을 붙였다.
     findMe.mockResolvedValue(syntheticUser);
 
-    // When: 사용자가 로그아웃한다.
     const result = await controller.logout(request(true), response());
 
-    // Then: 본인 사용자 ID로 로그아웃 이력이 추가된다.
     expect(result).toEqual({ isAuthenticated: false });
     expect(incrementSessionVersion).toHaveBeenCalledWith(
       syntheticUser.githubId,
@@ -89,12 +86,8 @@ describe('AuthController logout', () => {
   });
 
   it('세션이 없는 기존 로그아웃 요청은 이력 없이 200 동작을 유지한다', async () => {
-    // Given: 세션 쿠키가 없다.
-
-    // When: 익명 사용자가 로그아웃한다.
     const result = await controller.logout(request(false), response());
 
-    // Then: 사용자 이력을 만들지 않고 기존 응답을 반환한다.
     expect(result).toEqual({ isAuthenticated: false });
     expect(incrementSessionVersion).not.toHaveBeenCalled();
     expect(findMe).not.toHaveBeenCalled();

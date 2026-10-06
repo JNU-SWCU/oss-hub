@@ -42,7 +42,6 @@ interface TeamRepositoryMember {
   readonly user: { readonly githubId: bigint };
 }
 
-/** 팀 저장소 활동을 그릴 재료 — 지금 팀원과 지금 신청에 걸린 저장소뿐이다. */
 export interface TeamActivityScope {
   readonly leaderId: string;
   readonly program: { readonly startAt: Date; readonly endAt: Date };
@@ -83,8 +82,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
                   { metadata: { path: ['teamId'], equals: scope.teamId } },
                 ],
               },
-              // 걷어 낸 교직원 연결 endpoint가 남긴 옛 기록도 같은 이력이다 — 한 줄로 섞어
-              // 시간순 한 커서로 넘긴다.
+
               {
                 action: REPOSITORY_CONNECTION_CHANGED,
                 metadata: {
@@ -145,8 +143,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
         releaseCount: true,
         issueCount: true,
       },
-      // 창 안에서 네 수가 모두 0인 사람(기여 행만 남은 사람)은 세우지 않는다. Issue만 연
-      // 사람은 교직원 화면이 Issue 수를 보이므로(#1133) 목록에 오른다.
+
       having: {
         OR: [
           { commitCount: { _sum: { gt: 0 } } },
@@ -193,10 +190,6 @@ export class ProgramTeamRepositoryEvidenceRepository {
     };
   }
 
-  /**
-   * 수집이 세어 둔 「팀원이 아닌 사람의 기여」 — 센 기준(신청·프로그램·기간)이 지금과 같을 때만 쓴다.
-   * 기간을 고쳤거나 저장소가 다른 팀·프로그램에서 넘어왔으면 다음 수집이 다시 셀 때까지 보이지 않는다.
-   */
   private async outsiderContributions(
     repositoryId: string,
     application: Pick<ApplicationRepositorySource, 'id' | 'program'>,
@@ -221,13 +214,6 @@ export class ProgramTeamRepositoryEvidenceRepository {
     };
   }
 
-  /**
-   * 팀 저장소 활동(#1133) — 지금 신청에 걸린 저장소의, 지금 팀원의, 프로그램 기간 안
-   * 일별 기여 행을 그대로 옮긴다. 저장소를 바꾸면 옛 저장소의 행은 여기서 사라진다.
-   *
-   * 수집을 한 번도 끝내지 못한 저장소는 행이 있어도 싣지 않는다 — 끝나지 않은 첫 수집의
-   * 일부를 「이만큼 했다」로 그릴 수 없다. 실패 중이어도 끝낸 적이 있으면 마지막 값을 싣는다.
-   */
   async activity(
     team: TeamActivityScope,
   ): Promise<Omit<TeamActivityView, 'canEditRepositoryUrl'>> {
@@ -241,7 +227,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
               in: team.members.map((member) => member.user.githubId),
             },
             date: windowDates(window),
-            // 릴리스만 있는 날은 이 화면이 세는 세 지표가 모두 0이다 — 점으로 찍지 않는다.
+
             OR: [
               { commitCount: { gt: 0 } },
               { pullRequestCount: { gt: 0 } },
@@ -300,10 +286,6 @@ const seoulCalendar = new Intl.DateTimeFormat('en-CA', {
   day: '2-digit',
 });
 
-/**
- * 프로그램 기간을 서울 달력 날짜로 옮긴다. 센티널 끝(`9999-12-31T23:59:59.999Z`)은
- * 서울에서 이미 다음 해라 `+010000-01-01`이 된다 — 자르지 않고 그대로 싣는다.
- */
 function programWindow(program: {
   readonly startAt: Date;
   readonly endAt: Date;
@@ -329,12 +311,10 @@ function programWindow(program: {
 
 const LAST_QUERYABLE_DAY = Date.UTC(9999, 11, 31);
 
-/** `Contribution.date`는 서울 날짜 칸이라 창의 두 끝 날짜와 그대로 비교한다. */
 function windowDates(window: { readonly from: string; readonly to: string }) {
   return {
     gte: new Date(`${window.from}T00:00:00Z`),
-    // Prisma는 네 자리 연도만 넘긴다. 센티널 끝(`+010000-01-01`)은 그 앞의 마지막
-    // 날로 비교한다 — 그보다 뒤 날짜의 기여 행은 없으니 결과가 같다.
+
     lte: new Date(
       Math.min(Date.parse(`${window.to}T00:00:00Z`), LAST_QUERYABLE_DAY),
     ),
@@ -374,8 +354,7 @@ function repositoryUrlChange(
       };
     throw new InvalidRepositoryUrlHistoryError();
   }
-  // 옛 기록은 행위자 login을 담지 않아 감사 행의 행위자(지금 login)로 읽는다. 주소는 새
-  // 기록과 같게 걸린 저장소의 owner/name에서 만든다.
+
   const metadata = parseRepositoryConnectionAuditMetadata(row.metadata);
   if (
     metadata?.applicationId !== scope.applicationId ||

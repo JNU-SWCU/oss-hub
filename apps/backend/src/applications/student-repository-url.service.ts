@@ -87,10 +87,6 @@ export class StudentRepositoryUrlService {
     return this.updateForTeam(githubId, programId, context.teamId, input);
   }
 
-  /**
-   * 팀 저장소 URL을 바꾸는 유일한 쓰기 경로 — 팀장과 교직원이 같은 규칙과 같은
-   * 감사 기록을 쓴다. 권한은 GitHub를 묻기 전에 한 번, 잠근 뒤에 다시 판정한다.
-   */
   async updateForTeam(
     githubId: bigint,
     programId: string,
@@ -157,7 +153,7 @@ export class StudentRepositoryUrlService {
           };
         },
       );
-      // 커밋된 새 연결만 바로 수집한다 — 같은 URL 재저장·충돌·롤백은 여기 오지 않는다.
+
       if (relinked)
         this.collection.collectRepository(
           resolution.repository.githubRepositoryId,
@@ -203,7 +199,7 @@ export class StudentRepositoryUrlService {
   ): asserts context is TeamRepositoryUrlContext {
     const isManager =
       context !== null && (context.editor.isLeader || context.editor.isStaff);
-    // 팀원·다른 팀·비활성 계정은 신청이 없는 경우와 같은 404로 답한다.
+
     if (!context || !isManager)
       throw new DomainException(
         APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.APPLICATION_NOT_FOUND],

@@ -45,7 +45,7 @@ function fixture(
     .spyOn(transaction, 'lockTeamContext')
     .mockResolvedValue(teamContext);
   const relink = jest.spyOn(transaction, 'relink').mockResolvedValue('target');
-  // 커밋과 수집 시작의 순서를 본다 — 수집은 커밋이 끝난 뒤에만 시작해야 한다.
+
   const events: string[] = [];
   const repository = {
     findContext: jest.fn().mockResolvedValue(context),

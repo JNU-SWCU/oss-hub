@@ -18,7 +18,6 @@ import {
 } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticDocumentId = 'cuid-synthetic-document-1';
@@ -37,7 +36,6 @@ function baseDocument(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
-/** 수합 조회 기본 쿼리 — 전체 필터, 1페이지, 기본 크기 20. */
 function collectionQuery(
   overrides: Partial<MilestoneDocumentCollectionQuery> = {},
 ): MilestoneDocumentCollectionQuery {
@@ -60,7 +58,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     findSubmittedSummaries: jest.fn().mockResolvedValue([]),
     findApplicationProgramId: jest.fn().mockResolvedValue(null),
     findSubmissionHistoryPage: jest.fn().mockResolvedValue(null),
-    // 기본은 「아직 아무도 판정하지 않았다」 — 그러면 재제출은 지금처럼 허용된다.
+
     findLatestReview: jest.fn().mockResolvedValue(null),
     findMySubmission: jest.fn().mockResolvedValue(null),
     findDocumentContext: jest.fn().mockResolvedValue({
@@ -91,11 +89,6 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     ...overrides,
   };
 
-  /**
-   * store를 거쳐 나간 문장만 순서대로 쌓는다. 같은 jest 목을 리포지토리 직접 호출 경로와
-   * 공유하므로, 「트랜잭션 밖에서 세고 안에서 갱신」 같은 변형은 호출 횟수가 아니라 이 순서
-   * 기록이 비어 있는 것으로 드러난다.
-   */
   const transactionCalls: string[] = [];
   const withTransaction = jest.fn(
     (operation: (store: unknown) => Promise<unknown>) =>
@@ -180,7 +173,6 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
 
 describe('MilestoneDocumentsService.listByMilestone', () => {
   it('milestoneId로 리포지토리를 조회해 그대로 반환한다', async () => {
-    // Given
     const documents = [baseDocument()];
     const findByMilestoneId = jest.fn().mockResolvedValue(documents);
     const repository = {
@@ -188,10 +180,8 @@ describe('MilestoneDocumentsService.listByMilestone', () => {
     } as unknown as MilestoneDocumentsRepository;
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.listByMilestone(syntheticMilestoneId);
 
-    // Then
     expect(findByMilestoneId).toHaveBeenCalledWith(syntheticMilestoneId);
     expect(result).toBe(documents);
   });
@@ -199,13 +189,11 @@ describe('MilestoneDocumentsService.listByMilestone', () => {
 
 describe('MilestoneDocumentsService.listForViewer', () => {
   it('마일스톤이 없으면 MILESTONE_NOT_FOUND를 던진다', async () => {
-    // Given
     const { repository } = buildRepository({
       findMilestone: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.listForViewer(1n, syntheticMilestoneId),
     ).rejects.toMatchObject({
@@ -214,7 +202,6 @@ describe('MilestoneDocumentsService.listForViewer', () => {
   });
 
   it('교직원 viewer는 서류별 팀 제출 집계(teamSubmissionCount)를 채운다', async () => {
-    // Given: 승인된 신청 8건 중 이 서류를 6건이 제출했다.
     const { repository, mocks } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
         id: 'staff-1',
@@ -228,10 +215,8 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.listForViewer(1n, syntheticMilestoneId);
 
-    // Then
     expect(result).toEqual([
       expect.objectContaining({
         id: syntheticDocumentId,
@@ -239,8 +224,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       }),
     ]);
     expect(result[0]?.viewerSubmission).toBeUndefined();
-    // 앞 수와 뒤 수는 같은 프로그램의 승인 신청 하나를 모집단으로 센다 — 두 조회가 같은
-    // programId를 받는 것이 그 계약이다(#1100).
+
     expect(mocks.countApprovedApplications).toHaveBeenCalledWith(
       syntheticProgramId,
     );
@@ -251,7 +235,6 @@ describe('MilestoneDocumentsService.listForViewer', () => {
   });
 
   it('학생 viewer는 자기 신청의 제출 여부(viewerSubmission)를 채운다', async () => {
-    // Given: 학생이 이 프로그램에 신청했고 서류를 이미 냈다.
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
     const { repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
@@ -279,10 +262,8 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.listForViewer(1n, syntheticMilestoneId);
 
-    // Then
     expect(result).toEqual([
       expect.objectContaining({
         id: syntheticDocumentId,
@@ -301,7 +282,6 @@ describe('MilestoneDocumentsService.listForViewer', () => {
   });
 
   it('학생 viewer는 지금 붙어 있는 첨부의 이름을 함께 받는다 — 재제출 폼의 경고 재료다', async () => {
-    // Given: 파일을 붙여 낸 뒤 아직 교직원이 판정하지 않은 제출.
     const { repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
         id: syntheticUserId,
@@ -327,12 +307,10 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       ]),
     });
 
-    // When
     const result = await new MilestoneDocumentsService(
       repository,
     ).listForViewer(1n, syntheticMilestoneId);
 
-    // Then: 이름이 없으면 화면은 「무엇이 빠지는지」를 말할 수 없다.
     expect(result[0]?.viewerSubmission).toEqual(
       expect.objectContaining({
         hasCurrentFile: true,
@@ -342,7 +320,6 @@ describe('MilestoneDocumentsService.listForViewer', () => {
   });
 
   it('학생 viewer는 되돌아온 이유를 알도록 최신 판정의 사유·시각을 함께 받는다', async () => {
-    // Given: 보완 요청을 받아 상태가 CHANGES_REQUESTED로 돌아온 서류.
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
     const { repository } = buildRepository({
@@ -376,10 +353,8 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.listForViewer(1n, syntheticMilestoneId);
 
-    // Then: 상태만으로는 무엇을 고쳐야 하는지 알 수 없다.
     expect(result[0]?.viewerSubmission).toEqual({
       submitted: true,
       submittedAt: submittedAt.toISOString(),
@@ -390,7 +365,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       review: {
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt: reviewedAt.toISOString(),
-        // 「언제까지 다시 낼 수 있는가」 — 상태만으로는 화면이 이 잠금을 계산할 수 없다.
+
         resubmissionDueAt: '2026-09-25T09:00:00.000Z',
       },
       history: { hasHistory: true, isComplete: true },
@@ -398,7 +373,6 @@ describe('MilestoneDocumentsService.listForViewer', () => {
   });
 
   it('학생 viewer가 아직 신청하지 않았으면 미제출(submitted:false)로 채운다', async () => {
-    // Given: 학생 계정이지만 이 프로그램에 신청한 이력이 없다.
     const { repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
         id: syntheticUserId,
@@ -409,10 +383,8 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.listForViewer(1n, syntheticMilestoneId);
 
-    // Then: 에러가 아니라 viewer 필드 없는 기본 목록만 돌려준다.
     expect(result).toEqual([
       expect.objectContaining({ id: syntheticDocumentId }),
     ]);
@@ -421,16 +393,13 @@ describe('MilestoneDocumentsService.listForViewer', () => {
   });
 
   it('세션 계정을 찾지 못하면 viewer 필드 없이 기본 목록만 돌려준다', async () => {
-    // Given: findActiveUser가 null(비활성/미존재 계정)을 돌려준다.
     const { repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.listForViewer(1n, syntheticMilestoneId);
 
-    // Then
     expect(result).toEqual([
       expect.objectContaining({ id: syntheticDocumentId }),
     ]);
@@ -441,7 +410,6 @@ describe('MilestoneDocumentsService.listForViewer', () => {
 
 describe('MilestoneDocumentsService CRUD (교직원)', () => {
   it('createDocument는 마일스톤을 잠근 뒤 추가하고 sortOrder를 그대로 넘긴다', async () => {
-    // Given: 생성은 순서를 처음 정하는 쪽이라 요청 값을 그대로 쓴다.
     const created = baseDocument({ id: 'cuid-synthetic-document-new' });
     const { mocks, transactionCalls, repository } = buildRepository({
       createDocument: jest.fn().mockResolvedValue(created),
@@ -453,11 +421,8 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       sortOrder: 2,
     };
 
-    // When
     const result = await service.createDocument(syntheticMilestoneId, input);
 
-    // Then: 삽입은 부모 잠금 뒤에만 일어난다 — 순서 재부여가 재번호를 매기는 사이에
-    // 새 항목이 끼어들면 그 항목만 빠져 sortOrder가 겹친다.
     expect(transactionCalls).toEqual(['lockMilestone', 'createDocument']);
     expect(mocks.createDocument).toHaveBeenCalledWith(syntheticMilestoneId, {
       name: '새 서류',
@@ -467,13 +432,11 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
   });
 
   it('createDocument는 마일스톤이 없으면 MILESTONE_NOT_FOUND를 던진다', async () => {
-    // Given: 잠금 조회가 아무 행도 못 잡았다.
     const { repository } = buildRepository({
       lockMilestone: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.createDocument(syntheticMilestoneId, {
         name: '새 서류',
@@ -486,7 +449,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
   });
 
   it('updateDocument는 서류가 그 마일스톤 소속이 아니면 DOCUMENT_NOT_FOUND를 던진다', async () => {
-    // Given: 잠그고 다시 읽은 행의 milestoneId가 요청 경로의 milestoneId와 다르다.
     const { mocks, repository } = buildRepository({
       lockDocument: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
@@ -495,7 +457,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.updateDocument(syntheticMilestoneId, syntheticDocumentId, {
         name: '수정된 이름',
@@ -509,13 +470,11 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
   });
 
   it('updateDocument는 잠금 대기 중 서류가 삭제되면 갱신하지 않고 DOCUMENT_NOT_FOUND를 던진다', async () => {
-    // Given: 대상 행 잠금은 삭제와 직렬화된다. 삭제가 먼저 커밋하면 잠금 조회는 행을 돌려주지 않는다.
     const { mocks, transactionCalls, repository } = buildRepository({
       lockDocument: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.updateDocument(syntheticMilestoneId, syntheticDocumentId, {
         name: '수정된 이름',
@@ -535,20 +494,17 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     await service.updateDocument(syntheticMilestoneId, syntheticDocumentId, {
       name: '개인정보 수집·이용 동의서',
       required: true,
       sortOrder: 1,
     });
 
-    // Then
     expect(withTransaction).toHaveBeenCalledTimes(1);
     expect(transactionCalls).toEqual(['lockDocument', 'updateDocument']);
   });
 
   it('updateDocument는 제출이 있어도 이름·필수여부 변경은 그대로 허용한다', async () => {
-    // Given: 제출이 2건 있다.
     const { mocks, repository } = buildRepository({
       countSubmissionsForDocument: jest.fn().mockResolvedValue(2),
       updateDocument: jest
@@ -559,7 +515,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.updateDocument(
       syntheticMilestoneId,
       syntheticDocumentId,
@@ -570,7 +525,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       },
     );
 
-    // Then: 제출 방식이 그대로면 제출 수를 셀 필요조차 없다.
     expect(mocks.countSubmissionsForDocument).not.toHaveBeenCalled();
     expect(mocks.updateDocument).toHaveBeenCalledWith(syntheticDocumentId, {
       name: '수정된 이름',
@@ -580,10 +534,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
   });
 
   it('updateDocument는 요청에 실려 온 sortOrder를 저장하지 않는다 — 순서는 order endpoint가 소유한다', async () => {
-    // Given: 교직원 A가 편집 화면을 열어 둔 사이 B가 순서를 바꿨다. A는 화면에 박혀 있던
-    // 낡은 sortOrder(1)를 그대로 실어 보내지만 지금 그 항목의 실제 순서는 3이다.
-    // 이 값을 저장하면 B의 새 순서를 덮어 sortOrder가 겹치고, 겹치면 다음 「위로」가
-    // 조용히 아무 일도 하지 않는다.
     const { mocks, repository } = buildRepository({
       updateDocument: jest
         .fn()
@@ -591,7 +541,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.updateDocument(
       syntheticMilestoneId,
       syntheticDocumentId,
@@ -602,7 +551,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       },
     );
 
-    // Then: 저장 대상에 sortOrder가 아예 없다.
     const [, savedInput] = mocks.updateDocument.mock.calls[0] as [
       string,
       Record<string, unknown>,
@@ -612,12 +560,11 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       name: '수정된 이름',
       required: true,
     });
-    // Then: 응답도 기존 행의 순서를 그대로 되돌려준다(요청 값 1이 아니다).
+
     expect(result.sortOrder).toBe(3);
   });
 
   it('deleteDocument는 제출이 있으면 DOCUMENT_HAS_SUBMISSIONS로 거부한다', async () => {
-    // Given
     const { mocks, repository } = buildRepository({
       lockDocumentIdsOfMilestone: jest
         .fn()
@@ -626,7 +573,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.deleteDocument(syntheticMilestoneId, syntheticDocumentId),
     ).rejects.toMatchObject({
@@ -651,8 +597,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
   });
 
   it('deleteDocument는 마일스톤·서류를 이 순서로 잠근 뒤 세고 지운다', async () => {
-    // Given: 삭제도 추가와 같은 관문(마일스톤 행)을 먼저 지나야 순서 재부여가 잠근 집합에서
-    // 행이 사라지는 일을 막는다. 잠금 순서는 Milestone → MilestoneDocument 고정이다.
     const secondDocumentId = 'cuid-synthetic-document-2';
     const { mocks, transactionCalls, repository } = buildRepository({
       lockDocumentIdsOfMilestone: jest
@@ -662,10 +606,8 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     await service.deleteDocument(syntheticMilestoneId, syntheticDocumentId);
 
-    // Then
     expect(transactionCalls).toEqual([
       'lockMilestone',
       'lockDocumentIdsOfMilestone',
@@ -677,7 +619,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
   });
 
   it('deleteDocument는 서류가 그 마일스톤 소속이 아니면 잠금 뒤에 DOCUMENT_NOT_FOUND로 막는다', async () => {
-    // Given: 잠그고 다시 읽은 행의 milestoneId가 요청 경로와 다르다.
     const { mocks, repository } = buildRepository({
       lockDocumentIdsOfMilestone: jest
         .fn()
@@ -689,7 +630,6 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.deleteDocument(syntheticMilestoneId, syntheticDocumentId),
     ).rejects.toMatchObject({
@@ -699,13 +639,11 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
   });
 
   it('deleteDocument는 마일스톤이 사라졌으면 DOCUMENT_NOT_FOUND를 던진다', async () => {
-    // Given: 마일스톤이 없으면 그 안의 서류도 없다 — 호출자에게는 그것이 사실이다.
     const { mocks, repository } = buildRepository({
       lockMilestone: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.deleteDocument(syntheticMilestoneId, syntheticDocumentId),
     ).rejects.toMatchObject({
@@ -720,7 +658,6 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
   const secondDocumentId = 'cuid-synthetic-document-2';
   const thirdDocumentId = 'cuid-synthetic-document-3';
 
-  /** 잠금 뒤 다시 읽은 집합 — 순서 재부여의 판단 근거는 오직 이 값이다. */
   const lockedIds = [syntheticDocumentId, secondDocumentId, thirdDocumentId];
 
   function reorderRepository(
@@ -728,8 +665,7 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
   ) {
     return buildRepository({
       lockDocumentIdsOfMilestone: jest.fn().mockResolvedValue(lockedIds),
-      // 트랜잭션 밖 목록 조회는 같은 집합을 돌려준다 — 두 값이 갈리는 상황은 아래 전용
-      // 테스트에서만 만든다.
+
       findByMilestoneId: jest.fn().mockResolvedValue([
         baseDocument({ sortOrder: 1 }),
         baseDocument({
@@ -748,13 +684,11 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
   }
 
   it('마일스톤이 없으면 MILESTONE_NOT_FOUND를 던진다', async () => {
-    // Given: 잠금 조회가 아무 행도 못 잡았다.
     const { mocks, repository } = reorderRepository({
       lockMilestone: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.reorderDocuments(syntheticMilestoneId, [syntheticDocumentId]),
     ).rejects.toMatchObject({
@@ -764,7 +698,6 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
   });
 
   it('전체 집합이 일치하면 요청 순서 그대로 리포지토리에 넘기고 새 순서를 돌려준다', async () => {
-    // Given: 3개를 역순으로 보낸다.
     const requested = [thirdDocumentId, secondDocumentId, syntheticDocumentId];
     const { mocks, repository } = reorderRepository({
       applyDocumentOrder: jest.fn().mockResolvedValue([
@@ -783,13 +716,11 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.reorderDocuments(
       syntheticMilestoneId,
       requested,
     );
 
-    // Then: sortOrder는 1부터 구멍 없이 다시 매겨진다.
     expect(mocks.applyDocumentOrder).toHaveBeenCalledWith(
       syntheticMilestoneId,
       requested,
@@ -799,8 +730,6 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
   });
 
   it('마일스톤·서류 행을 이 순서로 잠근 뒤에 집합을 대조하고 갱신한다', async () => {
-    // Given: 대조가 잠금보다 먼저면 대조와 갱신 사이가 열려 있다 — 그 틈에 삭제가 커밋되면
-    // 이어지는 update가 행을 못 찾아 500이 되고, 추가가 커밋되면 그 항목만 재번호에서 빠진다.
     const { transactionCalls, withTransaction, repository } = reorderRepository(
       {
         applyDocumentOrder: jest.fn().mockResolvedValue([]),
@@ -808,10 +737,8 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     );
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     await service.reorderDocuments(syntheticMilestoneId, lockedIds);
 
-    // Then
     expect(withTransaction).toHaveBeenCalledTimes(1);
     expect(transactionCalls).toEqual([
       'lockMilestone',
@@ -821,9 +748,6 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
   });
 
   it('잠그기 전 목록과 요청이 같아도, 잠근 뒤 집합이 달라졌으면 INVALID_REQUEST로 거절한다', async () => {
-    // Given: 요청은 트랜잭션 밖 목록(3개)과 정확히 일치한다. 그런데 잠금을 기다리는 사이
-    // 다른 교직원이 항목 하나를 더 추가해 실제 집합은 4개가 됐다. 낡은 목록으로 판단하면
-    // 그대로 통과해 새 항목만 재번호에서 빠지고 sortOrder가 겹친다.
     const { mocks, repository } = reorderRepository({
       lockDocumentIdsOfMilestone: jest
         .fn()
@@ -831,7 +755,6 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.reorderDocuments(syntheticMilestoneId, lockedIds),
     ).rejects.toMatchObject({
@@ -841,8 +764,6 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
   });
 
   it('요청에 있던 항목이 잠근 뒤 집합에서 사라졌으면 500이 아니라 INVALID_REQUEST가 된다', async () => {
-    // Given: 그 사이 다른 교직원이 항목 하나를 지웠다. 그대로 진행하면 그 id의 update가
-    // Prisma P2025로 터져 교직원 화면에는 아무 뜻 없는 500이 뜬다.
     const { mocks, repository } = reorderRepository({
       lockDocumentIdsOfMilestone: jest
         .fn()
@@ -850,7 +771,6 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.reorderDocuments(syntheticMilestoneId, lockedIds),
     ).rejects.toMatchObject({
@@ -860,11 +780,9 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
   });
 
   it('일부만 나열하면 INVALID_REQUEST로 거부한다 — 부분 갱신 자체를 불가능하게 만든다', async () => {
-    // Given: 3개 중 2개만 보냈다(맞바꾸기를 각각 PATCH하던 옛 방식의 흔적).
     const { mocks, repository } = reorderRepository();
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.reorderDocuments(syntheticMilestoneId, [
         secondDocumentId,
@@ -877,11 +795,9 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
   });
 
   it('개수는 맞아도 중복이 섞이면 INVALID_REQUEST로 거부한다', async () => {
-    // Given: 하나가 빠지고 다른 하나가 두 번 들어와 길이만 3이다.
     const { mocks, repository } = reorderRepository();
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.reorderDocuments(syntheticMilestoneId, [
         syntheticDocumentId,
@@ -895,11 +811,9 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
   });
 
   it('다른 마일스톤의 서류 id가 섞이면 INVALID_REQUEST로 거부한다', async () => {
-    // Given
     const { mocks, repository } = reorderRepository();
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.reorderDocuments(syntheticMilestoneId, [
         syntheticDocumentId,
@@ -917,7 +831,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
   const now = new Date('2026-09-16T14:22:00.000Z');
 
   it('학생이 아니면 STUDENT_ONLY로 거부한다', async () => {
-    // Given
     const { repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
         id: 'staff-1',
@@ -927,7 +840,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.submit(
         1n,
@@ -1082,7 +994,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
   });
 
   it('이 프로그램 신청이 없으면 NOT_APPLICATION_MEMBER로 거부한다', async () => {
-    // Given
     const { repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
         id: syntheticUserId,
@@ -1100,7 +1011,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.submit(
         1n,
@@ -1115,7 +1025,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
   });
 
   it('신청이 아직 승인 전이면 APPLICATION_APPROVAL_REQUIRED로 거부한다', async () => {
-    // Given
     const { repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
         id: syntheticUserId,
@@ -1137,7 +1046,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.submit(
         1n,
@@ -1154,7 +1062,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
   });
 
   it('TEXT 제출은 content를 JSON으로 저장하고 응답 DTO로 감싼다', async () => {
-    // Given
     const { mocks, repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
         id: syntheticUserId,
@@ -1183,7 +1090,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.submit(
       1n,
       syntheticMilestoneId,
@@ -1192,7 +1098,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       now,
     );
 
-    // Then
     expect(mocks.upsertSubmission).toHaveBeenCalledWith({
       milestoneDocumentId: syntheticDocumentId,
       applicationId: syntheticApplicationId,
@@ -1212,7 +1117,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
   });
 
   it('파일 제출은 attachFile을 채우고 content는 Prisma.JsonNull이다', async () => {
-    // Given
     const { mocks, repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
         id: syntheticUserId,
@@ -1248,7 +1152,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.submit(
       1n,
       syntheticMilestoneId,
@@ -1257,7 +1160,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       now,
     );
 
-    // Then
     expect(mocks.upsertSubmission).toHaveBeenCalledWith({
       milestoneDocumentId: syntheticDocumentId,
       applicationId: syntheticApplicationId,
@@ -1324,7 +1226,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
   });
 
   it('pending 파일이 만료·소유자 불일치로 붙지 않으면 PENDING_FILE_NOT_FOUND로 변환한다', async () => {
-    // Given
     const { repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
         id: syntheticUserId,
@@ -1349,7 +1250,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.submit(
         1n,
@@ -1405,7 +1305,6 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
   const now = new Date('2026-09-16T14:22:00.000Z');
 
-  /** 승인된 신청의 학생이 TEXT 서류를 다시 내는 상황. 최신 판정만 갈아 끼운다. */
   function resubmitRepository(
     latestReview: { id: string; decision: ReviewDecision } | null,
   ) {
@@ -1449,14 +1348,12 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
   }
 
   it('승인된 서류는 다시 낼 수 없다 — RESUBMISSION_NOT_ALLOWED로 막는다', async () => {
-    // Given: 막지 않으면 교직원이 승인한 내용이 조용히 다른 내용으로 바뀐다.
     const { mocks, repository } = resubmitRepository({
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.APPROVED,
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(resubmit(service)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED },
     });
@@ -1464,14 +1361,12 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
   });
 
   it('반려된 서류는 다시 낼 수 없다 — 끝난 판정이다', async () => {
-    // Given
     const { mocks, repository } = resubmitRepository({
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.REJECTED,
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(resubmit(service)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED },
     });
@@ -1479,17 +1374,14 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
   });
 
   it('보완 요청을 받은 서류는 다시 낼 수 있다 — 그것이 보완 요청의 뜻이다', async () => {
-    // Given
     const { mocks, repository } = resubmitRepository({
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.CHANGES_REQUESTED,
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     await resubmit(service);
 
-    // Then: 판단 근거였던 판정 id를 기대값으로 함께 넘긴다.
     expect(mocks.upsertSubmission).toHaveBeenCalledWith(
       expect.objectContaining({
         expectedLatestReviewId: 'cuid-synthetic-review',
@@ -1498,28 +1390,22 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
   });
 
   it('아직 판정이 없으면 지금처럼 허용한다', async () => {
-    // Given
     const { mocks, repository } = resubmitRepository(null);
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     await resubmit(service);
 
-    // Then
     expect(mocks.upsertSubmission).toHaveBeenCalledWith(
       expect.objectContaining({ expectedLatestReviewId: null }),
     );
   });
 
   it('최신 판정은 (서류, 신청) 짝으로 찾는다', async () => {
-    // Given
     const { mocks, repository } = resubmitRepository(null);
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     await resubmit(service);
 
-    // Then
     expect(mocks.findLatestReview).toHaveBeenCalledWith(
       syntheticDocumentId,
       syntheticApplicationId,
@@ -1527,7 +1413,6 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
   });
 
   it('제출을 쓰는 사이에 판정이 들어왔으면 REVIEW_CHANGED로 변환한다', async () => {
-    // Given: 서비스는 「판정 없음」을 보고 허용했지만, 잠금 아래 재확인에서 어긋났다.
     const { repository } = resubmitRepository(null);
     (
       repository as unknown as { upsertSubmission: jest.Mock }
@@ -1536,19 +1421,12 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       .mockRejectedValue(new MilestoneDocumentReviewChangedError());
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then: 「막혔다」가 아니라 「다시 확인하라」로 알린다 — 새 판정이 보완 요청이면
-    // 다시 시도했을 때 통과해야 하기 때문이다.
     await expect(resubmit(service)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_CHANGED },
     });
   });
 
-  /**
-   * #1269 — 사전 확인과 쓰기 사이에 팀원 제외·탈퇴가 커밋되면 저장소가 잉타입 오류로
-   * 트랜잭션을 되돌린다. 서비스는 그것을 「이 신청의 제출 권한이 없다」로 옮긴다.
-   */
   it('쓰기 직전에 팀원이 아니게 됐으면 NOT_APPLICATION_MEMBER로 닫는다', async () => {
-    // Given: 파일 없는 TEXT 제출도 같은 울타리를 지난다.
     const { mocks, repository } = resubmitRepository(null);
     mocks.upsertSubmission.mockRejectedValue(
       new SubmissionMembershipChangedError(
@@ -1558,24 +1436,20 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     );
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then: 없는 신청·비참여자와 같은 응답이라 제출물의 존재 여부가 새지 않는다.
     await expect(resubmit(service)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER },
     });
   });
 
   it('울타리 판정의 행위자로 **이번 요청의 학생**을 넘긴다', async () => {
-    // Given: 예전 제출자·최초 신청자가 아니라 지금 인증된 사람이 기준이다.
     const { mocks, repository } = resubmitRepository({
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.CHANGES_REQUESTED,
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     await resubmit(service);
 
-    // Then
     expect(mocks.upsertSubmission).toHaveBeenCalledWith(
       expect.objectContaining({
         applicationId: syntheticApplicationId,
@@ -1585,24 +1459,12 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
   });
 });
 
-/**
- * #1097 — 마감이 지난 마일스톤에서 보완 요청을 받은 학생의 재제출.
- *
- * 정해진 규칙은 두 가지다: **재제출은 한 번**, 그리고 **교직원이 검토하는 동안 내용은 바뀌지
- * 않는다**. 화면(`isMilestoneDocumentDeadlineLocked`)이 이미 그렇게 그리고 있었고, 서버만
- * 판정 하나로 이 자리를 계속 열어 두어 「버튼은 잠겼는데 서버는 받아 준다」가 됐다.
- */
 describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제출 (#1097)', () => {
-  /**
-   * 마감 시각은 고정하고 **제출 시각을 인자로 준다**. 서비스 기본값(`now = new Date()`)에
-   * 기대면 이 `dueAt`이 지나는 날 「마감 전」 테스트가 저절로 「마감 뒤」가 된다.
-   */
   const dueAt = new Date('2026-09-19T09:00:00.000Z');
   const beforeDeadline = new Date('2026-09-19T08:59:59.999Z');
   const afterDeadline = new Date('2026-09-19T09:00:00.001Z');
   const changeRequestReviewId = 'cuid-synthetic-review-changes-requested';
 
-  /** 보완 요청을 받은 서류. 달라지는 것은 **제출 상태 하나**뿐이다. */
   function changeRequestedRepository(submissionStatus: SubmissionStatus) {
     return buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
@@ -1651,24 +1513,19 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
   }
 
   it('아직 응하지 않은 보완 요청은 마감 뒤에도 받는다 — 그 요청이 뜻을 가지려면 한 번은 열려야 한다', async () => {
-    // Given: 교직원이 되돌려 보낸 그대로. 상태는 아직 보완 요청이다.
     const { mocks, repository } = changeRequestedRepository(
       SubmissionStatus.CHANGES_REQUESTED,
     );
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     await submitAt(service, afterDeadline);
 
-    // Then: 잠금 아래 재확인도 같은 예외를 알아야 한다 — 아니면 여기서 통과한 제출이
-    // 트랜잭션 안에서 마감으로 막힌다.
     expect(mocks.upsertSubmission).toHaveBeenCalledWith(
       expect.objectContaining({
         deadline: {
           milestoneId: syntheticMilestoneId,
           allowAfterDeadline: true,
-          // 예외를 허락한 **근거**도 함께 간다 — 잠금 아래에서 이 상태를 다시 읽어,
-          // 같은 팀의 다른 사람이 그 한 번을 먼저 쓴 경우를 잡는다.
+
           expectedSubmissionStatus: SubmissionStatus.CHANGES_REQUESTED,
         },
         expectedLatestReviewId: changeRequestReviewId,
@@ -1677,13 +1534,11 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
   });
 
   it('그 한 번을 이미 썼으면 마감 뒤 재제출을 RESUBMISSION_ALREADY_USED로 막는다', async () => {
-    // Given: 재제출이 상태를 SUBMITTED로 되돌려 놓았다. 판정 이력은 보완 요청 그대로다.
     const { mocks, repository } = changeRequestedRepository(
       SubmissionStatus.SUBMITTED,
     );
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then: 화면이 「수정」을 잠근 것과 같은 답이어야 한다.
     await expect(submitAt(service, afterDeadline)).rejects.toMatchObject({
       errorCode: {
         code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
@@ -1692,21 +1547,14 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     expect(mocks.upsertSubmission).not.toHaveBeenCalled();
   });
 
-  /**
-   * 잠그는 것은 마감이다. 마감 전 파일 교체는 지금도 되는 일이라, 여기까지 함께 조이면
-   * 기능이 하나 사라진다 — 화면도 마감 전에는 아무것도 잠그지 않는다.
-   */
   it('마감 전이면 이미 다시 낸 뒤에도 계속 고칠 수 있다', async () => {
-    // Given
     const { mocks, repository } = changeRequestedRepository(
       SubmissionStatus.SUBMITTED,
     );
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     await submitAt(service, beforeDeadline);
 
-    // Then: 마감 전이므로 마감 예외를 쓸 일이 없다 — 잠금 아래 재확인도 그대로 통과한다.
     expect(mocks.upsertSubmission).toHaveBeenCalledWith(
       expect.objectContaining({
         deadline: {
@@ -1718,17 +1566,7 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     );
   });
 
-  /**
-   * 같은 팀 두 사람이 마감 뒤 **거의 동시에** 눌렀다. 둘 다 트랜잭션 밖에서 「보완 요청 ·
-   * 아직 안 냄」을 보고 예외를 얻지만, 잠금 아래 재확인이 나중 것을 막는다
-   * (`MilestoneDocumentSubmissionChangedError`).
-   *
-   * 그 학생에게 하는 말은 **새로고침한 뒤 눌렀다면 들었을 말과 같아야** 한다 — 위의
-   * 「그 한 번을 이미 썼으면」 시험과 같은 MSD_031이다. 여기서 다른 코드를 내놓으면 같은
-   * 상황이 새로고침 여부에 따라 다른 화면이 된다.
-   */
   it('경합에서 진 요청도 새로고침했을 때와 같은 RESUBMISSION_ALREADY_USED를 받는다', async () => {
-    // Given: 화면·서비스가 보기엔 아직 「응하지 않은 보완 요청」이다.
     const { mocks, repository } = changeRequestedRepository(
       SubmissionStatus.CHANGES_REQUESTED,
     );
@@ -1737,7 +1575,6 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     );
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(submitAt(service, afterDeadline)).rejects.toMatchObject({
       errorCode: {
         code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
@@ -1783,13 +1620,11 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
   }
 
   it('마일스톤이 없으면 MILESTONE_NOT_FOUND를 던진다', async () => {
-    // Given
     const { repository } = buildRepository({
       findMilestone: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When / Then
     await expect(
       service.collectForStaff(syntheticMilestoneId, collectionQuery(), now),
     ).rejects.toMatchObject({
@@ -1798,27 +1633,23 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
   });
 
   it('마일스톤 요약과 서류 목록을 sortOrder 순 그대로 싣는다', async () => {
-    // Given
     const { repository } = collectionRepository();
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery(),
       now,
     );
 
-    // Then
     expect(result.milestone).toEqual({
       id: syntheticMilestoneId,
-      // 경로의 programId와 대조할 근거 — 이 값이 빠지면 다른 프로그램의 표인지 알 수 없다.
+
       programId: syntheticProgramId,
       name: '프로젝트 계획서 제출',
       dueAt: '2026-09-19T09:00:00.000Z',
     });
-    // 열의 필수 여부는 isRequired다 — ADR-004의 boolean `is` 접두사. 이미 발행된 목록 조회
-    // 응답(MilestoneDocumentResponseDto.required)은 그대로 두고 이 신규 응답만 규칙을 따른다.
+
     expect(result.documents).toEqual([
       {
         id: syntheticDocumentId,
@@ -1836,18 +1667,15 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
   });
 
   it('행은 승인된 신청 목록 순서(팀 이름 오름차순) 그대로다', async () => {
-    // Given
     const { mocks, repository } = collectionRepository();
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery(),
       now,
     );
 
-    // Then
     expect(mocks.findApprovedApplicationsForCollection).toHaveBeenCalledWith(
       syntheticProgramId,
     );
@@ -1863,26 +1691,22 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
   });
 
   it('제출이 없는 서류도 칸을 비우지 않고 isSubmitted:false로 채운다', async () => {
-    // Given: 제출이 하나도 없다.
     const { repository } = collectionRepository();
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery(),
       now,
     );
 
-    // Then: 프런트가 빈칸을 추측하지 않도록 모든 서류에 한 칸씩 채운다.
-    // 제출이 없으면 상태도 없다 — status는 「제출 행의 상태」이지 판정 결과가 아니다.
     for (const row of result.rows) {
       expect(row.cells).toEqual([
         {
           documentId: syntheticDocumentId,
           isSubmitted: false,
           submittedAt: null,
-          // 제출이 없으면 되돌려 보낼 버전도 없다 — 판정 자체가 SUBMISSION_NOT_FOUND로 막힌다.
+
           revision: null,
           file: null,
           content: null,
@@ -1904,7 +1728,6 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
   });
 
   it('제출한 칸만 isSubmitted:true가 되고 FILE 유형이면 파일 정보를 싣는다', async () => {
-    // Given
     const { repository } = collectionRepository({
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
@@ -1921,7 +1744,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           milestoneDocumentId: secondDocumentId,
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-17T10:00:00.000Z'),
-          // 두 번 낸 칸 — 프런트는 이 값을 판정 요청의 expectedRevision으로 되돌려 보낸다.
+
           revision: 2,
           status: SubmissionStatus.SUBMITTED,
           content: { type: 'TEXT', text: '3주차까지 인터뷰 8건을 마쳤습니다.' },
@@ -1932,23 +1755,21 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery(),
       now,
     );
 
-    // Then
     expect(result.rows[0]?.cells).toEqual([
       {
         documentId: syntheticDocumentId,
         isSubmitted: true,
         submittedAt: '2026-09-16T14:22:00.000Z',
-        // 칸이 리비전을 싣지 않으면 프런트가 되돌려 보낼 값이 없어 판정 자체가 불가능하다.
+
         revision: 1,
         file: { name: '최종_진짜최종.hwp', sizeBytes: 2048 },
-        // FILE 제출은 본문이 없다 — 내용은 위 file이 가리킨다.
+
         content: null,
         status: SubmissionStatus.SUBMITTED,
         review: null,
@@ -1959,7 +1780,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         submittedAt: '2026-09-17T10:00:00.000Z',
         revision: 2,
         file: null,
-        // 글 제출은 본문을 그대로 싣는다 — 이게 없으면 교직원이 내용을 못 보고 판정한다.
+
         content: {
           type: MilestoneSubmissionType.TEXT,
           text: '3주차까지 인터뷰 8건을 마쳤습니다.',
@@ -1968,12 +1789,11 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         review: null,
       },
     ]);
-    // 다른 팀의 칸이 섞이지 않는다.
+
     expect(result.rows[1]?.cells.every((cell) => !cell.isSubmitted)).toBe(true);
   });
 
   it('첨부가 만료돼 리포지토리가 file:null을 주면 목록에도 파일을 싣지 않는다', async () => {
-    // Given: 만료 필터가 걸러 낸 상태다 — 「목록엔 보이는데 받으면 실패」를 만들지 않는다.
     const { mocks, repository } = collectionRepository({
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
@@ -1989,14 +1809,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery(),
       now,
     );
 
-    // Then
     expect(mocks.findSubmissionsForCollection).toHaveBeenCalledWith(
       [syntheticDocumentId, secondDocumentId],
       now,
@@ -2014,8 +1832,6 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
   });
 
   it('본문이 길어도 자르지 않는다 — 일부만 보고 판정하는 것은 못 보고 판정하는 것과 같다', async () => {
-    // Given: 제출 요청이 이미 10,000자로 막고 있어 칸 하나의 크기는 유계다. 여기서 다시
-    // 잘라 버리면 잘린 뒤를 읽을 방법이 없다(교직원용 단건 조회 endpoint가 없다).
     const longText = '가'.repeat(10_000);
     const { repository } = collectionRepository({
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
@@ -2032,14 +1848,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery(),
       now,
     );
 
-    // Then
     expect(result.rows[0]?.cells[1]?.content).toEqual({
       type: MilestoneSubmissionType.TEXT,
       text: longText,
@@ -2047,7 +1861,6 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
   });
 
   it('저장된 본문 모양이 깨져 있으면 content만 null이 된다 — 표 전체를 500으로 만들지 않는다', async () => {
-    // Given: 한 팀의 Json 하나 때문에 수합 표 전체가 떨어지면 안 된다.
     const { repository } = collectionRepository({
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
@@ -2063,22 +1876,17 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery(),
       now,
     );
 
-    // Then: 칸은 제출로 남되 본문만 비운다.
     expect(result.rows[0]?.cells[1]?.isSubmitted).toBe(true);
     expect(result.rows[0]?.cells[1]?.content).toBeNull();
   });
 
   it('재제출로 되돌아온 칸은 status가 SUBMITTED이고 최신 판정은 그대로 남는다', async () => {
-    // Given: 학생이 보완 요청에 응해 다시 냈다. 제출 상태는 SUBMITTED로 되돌아왔지만 판정
-    // 이력은 되돌아가지 않는다. status를 싣지 않으면 화면이 옛 「보완 요청」 배지를 계속
-    // 보여 주고, 교직원이 다시 검토해야 할 건을 놓친다.
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
     const { repository } = collectionRepository({
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
@@ -2101,14 +1909,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery(),
       now,
     );
 
-    // Then: 배지는 status로, 지난 지적은 review로 갈린다 — 둘을 한 값으로 합치지 않는다.
     expect(result.rows[0]?.cells[0]).toEqual({
       documentId: syntheticDocumentId,
       isSubmitted: true,
@@ -2117,8 +1923,6 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       content: null,
       status: SubmissionStatus.SUBMITTED,
       review: {
-        // 프런트가 판정 요청에 되돌려 보낼 기대 버전이다 — 빠지면 「남의 판정을 덮었다」를
-        // 서버가 알아챌 근거가 사라진다.
         id: 'cuid-synthetic-review',
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '2쪽 서명이 빠졌습니다.',
@@ -2129,7 +1933,6 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
   });
 
   it('판정이 끝난 칸은 그 판정 상태를 그대로 싣는다', async () => {
-    // Given: 승인·반려·보완 요청이 각각 제출 상태로 옮겨져 있다.
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
     const { repository } = collectionRepository({
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
@@ -2165,14 +1968,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery(),
       now,
     );
 
-    // Then
     expect(result.rows[0]?.cells.map((cell) => cell.status)).toEqual([
       SubmissionStatus.APPROVED,
       SubmissionStatus.REJECTED,
@@ -2180,14 +1981,11 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
   });
 
   it('N+1을 만들지 않는다 — 서류·신청·제출을 각각 한 번씩만 조회한다', async () => {
-    // Given
     const { mocks, repository } = collectionRepository();
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     await service.collectForStaff(syntheticMilestoneId, collectionQuery(), now);
 
-    // Then
     expect(mocks.findByMilestoneId).toHaveBeenCalledTimes(1);
     expect(mocks.findApprovedApplicationsForCollection).toHaveBeenCalledTimes(
       1,
@@ -2199,8 +1997,6 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
   });
 
   it('좌표를 읽은 뒤 제출이 들어와도 같은 snapshot의 count·행·cell을 함께 반환한다', async () => {
-    // Given: 좌표 뒤에 새 제출이 커밋되는 창을 흉내 낸다. snapshot 밖 메서드는 새 값을
-    // 보지만, 수합 응답은 callback에 준 고정 store만 읽어야 한다.
     const oldCoordinates: readonly {
       applicationId: string;
       milestoneDocumentId: string;
@@ -2245,14 +2041,12 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     } as unknown as MilestoneDocumentsRepository;
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery(),
       now,
     );
 
-    // Then: 새 제출의 detail만 끼어드는 mixed response가 아니라, 이전 snapshot 전체다.
     expect(result.total).toBe(1);
     expect(result.documentTotals).toEqual([
       { documentId: syntheticDocumentId, submitted: 0, total: 1 },
@@ -2332,13 +2126,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     );
   });
 
-  /**
-   * 옛 계약은 「승인되지 않은 신청의 이력은 공개하지 않는다」였다. 되돌리기가 이력 행을
-   * 지우지 않으므로 그 문은 되돌려진 학생만 막았고, 같은 이력을 교직원은 승인 조건 없이
-   * 읽는다. 지금 계약은 **소유만 본다**.
-   */
   it('승인이 되돌려진 뒤에도 참여자에게 자기 이력을 그대로 준다', async () => {
-    // Given: 승인이 되돌려져 지금은 승인 상태가 아니지만, 승인 시절 남긴 이력 행은 그대로다.
     const { repository, mocks } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
         id: syntheticUserId,
@@ -2369,7 +2157,6 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.historyForParticipant(
       8_100_002n,
       syntheticMilestoneId,
@@ -2377,7 +2164,6 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
       query,
     );
 
-    // Then: 조회는 승인이 아니라 소유로 좁힌다 — 자기 신청 범위 그대로다.
     expect(result.items.map((item) => item.revision)).toEqual([1]);
     expect(result.isComplete).toBe(true);
     expect(mocks.findSubmissionHistoryPage).toHaveBeenCalledWith(
@@ -2388,13 +2174,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     );
   });
 
-  /**
-   * 목록과 이력은 같은 사실을 두 번 말한다. 목록이 「이력이 있다」고 답한 줄을 열었을 때
-   * 이력이 거절되면 학생 화면에는 지울 수 없는 오류 상자가 남는다(#1096). 두 조회가
-   * 갈라지지 않도록 한 테스트 안에서 같은 신청을 두 경로로 읽는다.
-   */
   it('승인이 아닌 상태에서도 목록의 hasHistory와 이력 조회가 어긋나지 않는다', async () => {
-    // Given: 되돌려진 신청 하나 — 제출 행도 이력 행도 남아 있다.
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
     const { repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue({
@@ -2437,7 +2217,6 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When: 화면이 실제로 쏘는 두 요청을 같은 순서로 부른다.
     const list = await service.listForViewer(8_100_002n, syntheticMilestoneId);
     const history = await service.historyForParticipant(
       8_100_002n,
@@ -2446,7 +2225,6 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
       query,
     );
 
-    // Then: 목록이 있다고 한 이력은 열린다.
     expect(list[0]?.viewerSubmission?.history).toEqual({
       hasHistory: true,
       isComplete: true,
@@ -2512,10 +2290,6 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     };
   }
 
-  /**
-   * 네 팀의 상태를 갈라 둔다 — 둘 다 냄 / 필수만 냄(선택 미제출) / 선택만 냄(필수 미제출) /
-   * 한 장도 안 냄. 「선택만 빠뜨린 팀」이 독촉 대상에 걸리지 않는지가 이 배치의 핵심이다.
-   */
   function filterRepository(
     overrides: Partial<Record<string, jest.Mock>> = {},
   ) {
@@ -2586,18 +2360,15 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
   }
 
   it('기본 쿼리는 page/pageSize와 필터 적용 후 행 수(total)를 함께 싣는다', async () => {
-    // Given
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery(),
       now,
     );
 
-    // Then
     expect(result.page).toBe(1);
     expect(result.pageSize).toBe(20);
     expect(result.total).toBe(4);
@@ -2605,11 +2376,9 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
   });
 
   it('페이지 경계는 팀 이름 asc → id asc 순서를 그대로 자른다', async () => {
-    // Given: 한 쪽에 2팀씩 담는다.
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const first = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery({ pageSize: 2 }),
@@ -2621,7 +2390,6 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       now,
     );
 
-    // Then: 경계가 흔들리면 같은 팀이 두 쪽에 겹치거나 사라진다.
     expect(first.rows.map((row) => row.teamName)).toEqual([
       '가나다팀',
       '라마바팀',
@@ -2631,7 +2399,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       '차카타팀',
     ]);
     expect(second.total).toBe(4);
-    // 쪽을 넘겨도 합계 행은 그대로다 — 페이지마다 다른 진척을 보여 주면 안 된다.
+
     expect(second.documentTotals).toEqual(first.documentTotals);
     expect(first.documentTotals).toEqual([
       { documentId: requiredDocumentId, submitted: 2, total: 4 },
@@ -2640,35 +2408,29 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
   });
 
   it('범위를 벗어난 페이지는 빈 행을 돌려주되 total은 그대로다', async () => {
-    // Given
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery({ page: 9, pageSize: 2 }),
       now,
     );
 
-    // Then
     expect(result.rows).toEqual([]);
     expect(result.total).toBe(4);
   });
 
   it('HAS_MISSING은 필수 서류를 빠뜨린 팀만 고른다 — 선택 서류만 안 낸 팀은 걸리지 않는다', async () => {
-    // Given: 라마바팀은 선택 서류만 안 냈다. 독촉 대상에 끼면 안 된다.
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery({ filter: 'HAS_MISSING' }),
       now,
     );
 
-    // Then
     expect(result.rows.map((row) => row.teamName)).toEqual([
       '사아자팀',
       '차카타팀',
@@ -2677,24 +2439,20 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
   });
 
   it('ZERO_SUBMISSION은 필수·선택을 가리지 않고 한 장도 안 낸 팀만 고른다', async () => {
-    // Given
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery({ filter: 'ZERO_SUBMISSION' }),
       now,
     );
 
-    // Then: 선택 서류 한 장만 낸 사아자팀은 「0건」이 아니다.
     expect(result.rows.map((row) => row.teamName)).toEqual(['차카타팀']);
     expect(result.total).toBe(1);
   });
 
   it('서류 항목이 0개면 ZERO_SUBMISSION에 아무 팀도 걸리지 않는다', async () => {
-    // Given: 「낼 것이 없다」를 「0건 제출」로 셈하지 않는다.
     const { repository } = filterRepository({
       findByMilestoneId: jest.fn().mockResolvedValue([]),
       findSubmissionsForCollection: jest.fn().mockResolvedValue([]),
@@ -2702,14 +2460,12 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery({ filter: 'ZERO_SUBMISSION' }),
       now,
     );
 
-    // Then
     expect(result.rows).toEqual([]);
     expect(result.total).toBe(0);
     expect(result.filterCounts.zeroSubmission).toBe(0);
@@ -2717,7 +2473,6 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
   });
 
   it('필수 서류가 하나도 없으면 HAS_MISSING에 아무 팀도 걸리지 않는다', async () => {
-    // Given: 선택 서류 한 개짜리 마일스톤. 아무도 안 냈어도 독촉 대상은 없다.
     const { repository } = filterRepository({
       findByMilestoneId: jest
         .fn()
@@ -2727,32 +2482,27 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery({ filter: 'HAS_MISSING' }),
       now,
     );
 
-    // Then
     expect(result.rows).toEqual([]);
     expect(result.filterCounts.hasMissing).toBe(0);
     expect(result.filterCounts.zeroSubmission).toBe(4);
   });
 
   it('filterCounts는 지금 고른 필터와 무관하게 세 갈래 모두를 전체 기준으로 센다', async () => {
-    // Given
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(repository);
 
-    // When: ZERO_SUBMISSION으로 좁혀 놓은 상태에서 읽는다.
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery({ filter: 'ZERO_SUBMISSION', pageSize: 1 }),
       now,
     );
 
-    // Then: 필터 칩의 건수는 화면을 좁혀도 흔들리지 않아야 한다.
     expect(result.filterCounts).toEqual({
       all: 4,
       hasMissing: 2,
@@ -2761,9 +2511,6 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
   });
 
   it('반려·보완 요청된 제출도 「제출했다」로 센다 — 필터·집계는 판정 상태를 보지 않는다', async () => {
-    // Given: 같은 배치인데 판정만 갈렸다. 라마바팀의 필수 서류는 반려, 사아자팀의 선택 서류는
-    // 보완 요청 상태다. 「미제출」 기준이 「제출 행이 없다」에서 「판정이 통과하지 않았다」로
-    // 조용히 바뀌면 독촉 대상 집계가 뜻을 잃는다 — 칸에 status를 실은 뒤에도 그 기준은 그대로다.
     const { repository } = filterRepository({
       findSubmissionsForCollection: jest
         .fn()
@@ -2784,14 +2531,12 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     });
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const result = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery(),
       now,
     );
 
-    // Then: 판정이 갈리기 전(위 다른 테스트들)과 같은 수를 센다.
     expect(result.filterCounts).toEqual({
       all: 4,
       hasMissing: 2,
@@ -2801,7 +2546,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       { documentId: requiredDocumentId, submitted: 2, total: 4 },
       { documentId: optionalDocumentId, submitted: 2, total: 4 },
     ]);
-    // 반려된 필수 서류를 낸 라마바팀은 여전히 독촉 대상이 아니다.
+
     const hasMissing = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery({ filter: 'HAS_MISSING' }),
@@ -2811,7 +2556,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       '사아자팀',
       '차카타팀',
     ]);
-    // 보완 요청 상태의 선택 서류 한 장을 낸 사아자팀도 「한 장도 안 낸 팀」이 아니다.
+
     const zeroSubmission = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery({ filter: 'ZERO_SUBMISSION' }),
@@ -2823,11 +2568,9 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
   });
 
   it('documentTotals는 필터·페이지가 아니라 전체 승인 신청 기준이다', async () => {
-    // Given: 필터를 ZERO_SUBMISSION으로 좁히고 페이지도 1행으로 줄인다.
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(repository);
 
-    // When
     const filtered = await service.collectForStaff(
       syntheticMilestoneId,
       collectionQuery({ filter: 'ZERO_SUBMISSION', pageSize: 1 }),
@@ -2839,8 +2582,6 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       now,
     );
 
-    // Then: 합계 행이 「지금 걸러 놓은 것」이 아니라 「이 마일스톤 전체 진척」을 말한다.
-    // 필터를 따라갔다면 ZERO_SUBMISSION에서 모든 열이 제출 0이 되어 뜻이 없어진다.
     expect(filtered.documentTotals).toEqual([
       { documentId: requiredDocumentId, submitted: 2, total: 4 },
       { documentId: optionalDocumentId, submitted: 2, total: 4 },

@@ -16,11 +16,6 @@ import type {
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
 
-/**
- * #547 — STAFF 승인·거절에 typed audit 기록이 없었다. 판정 전이와 같은 트랜잭션에서
- * 기록되는지, 그리고 기존 응답 계약이 그대로인지를 고정한다.
- * REVERT 경로(반려 취소·미완료 승인 되돌리기·완료 잠금·재승인 멱등)도 여기서 고정한다.
- */
 const APPLICATION_ID = 'synthetic-application';
 const ACTOR_ID = 'synthetic-actor';
 const PRIOR_PROCESSOR_ID = 'synthetic-prior-processor';
@@ -171,7 +166,7 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
       decision: ApplicationStatus.APPROVED,
     });
     expect(approvedNotification?.decidedAt).toBeInstanceOf(Date);
-    // 기존 응답 계약은 바뀌지 않는다.
+
     expect(result).toEqual({
       kind: 'APPROVED',
       applicationId: APPLICATION_ID,
@@ -217,7 +212,7 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
         recipientUserIds: ['synthetic-applicant'],
       }),
     );
-    // 응답 계약은 그대로다 — 사유는 응답과 `Application` 테이블에만 남는다.
+
     expect(result).toEqual({
       kind: 'REJECTED',
       applicationId: APPLICATION_ID,
@@ -226,11 +221,6 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
     });
   });
 
-  // 회귀 방지: 반려 사유 원문이 감사 기록 인자 어디로도 새어 나가면 안 된다.
-  // `GET /audit-logs`는 metadata JSON을 필드 선별 없이 그대로 실어 보내고(#621),
-  // `AuditLog`는 append-only 트리거로 UPDATE·DELETE가 막혀 있어 한 번 쓴 개인정보는
-  // 지울 수 없다. 노출 계약 통합 테스트(public-exposure-persona.http)가 잡는 것과
-  // 같은 누출을 DB 없이 여기서 먼저 잡는다.
   it('감사 기록 인자 어디에도 반려 사유 원문이 실리지 않는다', async () => {
     const { service, record } = createHarness();
 
@@ -397,9 +387,7 @@ describe('ApplicationsService.decide — REVERT', () => {
         processedBy: 'preserve',
       }),
     );
-    // 되돌리기는 진행 중이던 프로비저닝 요청도 지운다. 남겨 두면 워커가 집어 간 job이
-    // FAILED_FINAL이 되고, 재승인은 기존 이벤트를 재사용해 새 job을 만들지 않아
-    // 저장소가 영영 만들어지지 않는다.
+
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
@@ -432,7 +420,6 @@ describe('ApplicationsService.decide — REVERT', () => {
   ])(
     '생성된 저장소가 있어도 %s에서 되돌리기가 통과하고 완료된 요청은 보존한다',
     async (status) => {
-      // Given: 저장소가 이미 만들어졌다(repositoryId가 채워졌으면 완료다).
       const {
         service,
         record,
@@ -449,7 +436,6 @@ describe('ApplicationsService.decide — REVERT', () => {
         repositoryId: 'synthetic-repository',
       });
 
-      // When: 예전 APP_023이 막던 경로다.
       const result = await service.decide(
         ACTOR_ID,
         APPLICATION_ID,
@@ -457,7 +443,6 @@ describe('ApplicationsService.decide — REVERT', () => {
         { action: APPLICATION_DECISION_ACTIONS.REVERT },
       );
 
-      // Then: 전이도 감사도 이루어지고, 완료된 요청은 지우지 않는다.
       expect(result).toMatchObject({
         kind: 'REVERTED',
         status: ApplicationStatus.SUBMITTED,
@@ -469,7 +454,6 @@ describe('ApplicationsService.decide — REVERT', () => {
   );
 
   it('미완료 프로비저닝은 되돌리기가 여전히 거둔다', async () => {
-    // Given: 워커가 아직 저장소를 만들지 않았다.
     const {
       service,
       store,
@@ -484,12 +468,10 @@ describe('ApplicationsService.decide — REVERT', () => {
       repositoryId: null,
     });
 
-    // When
     await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.REVERT,
     });
 
-    // Then: 고아 job을 남기지 않는다.
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
@@ -525,7 +507,6 @@ describe('ApplicationsService.decide — REVERT', () => {
       discardRepositoryProvisionRequest,
     } = createHarness({ provisioningEnabled: true });
 
-    // 1) APPROVED + PENDING job → REVERT
     (store.findApplicationById as jest.Mock).mockResolvedValue(
       baseApplication({
         status: ApplicationStatus.APPROVED,
@@ -543,7 +524,6 @@ describe('ApplicationsService.decide — REVERT', () => {
       action: APPLICATION_DECISION_ACTIONS.REVERT,
     });
 
-    // 2) SUBMITTED 재승인 — 남은 요청을 지우고 새 이벤트를 발행한다
     (store.findApplicationById as jest.Mock).mockResolvedValue(
       baseApplication({
         status: ApplicationStatus.SUBMITTED,
@@ -567,8 +547,6 @@ describe('ApplicationsService.decide — REVERT', () => {
       { action: APPLICATION_DECISION_ACTIONS.APPROVE },
     );
 
-    // 되돌리기와 재승인이 각각 남은 요청을 지운다 — 고아 job이 FAILED_FINAL로
-    // 굳어 저장소가 영영 안 만들어지는 경로를 닫는다.
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledTimes(2);
     expect(createRepositoryProvisionEvent).toHaveBeenCalledTimes(1);
     expect(reapprove).toMatchObject({
@@ -623,7 +601,7 @@ describe('ApplicationsService.decide — REVERT', () => {
         processedBy: 'preserve',
       }),
     );
-    // 새 actor id가 processedBy로 실리지 않는다.
+
     const transitionCalls = transitionApplication.mock
       .calls as readonly (readonly unknown[])[];
     const firstTransition: unknown = transitionCalls[0]?.[0];
@@ -681,19 +659,12 @@ describe('ApplicationsService.decide — REVERT', () => {
       kind: 'REVERTED',
       status: ApplicationStatus.SUBMITTED,
     });
-    // 보존 여부를 정하려고 모드와 관계없이 job을 한 번 읽는다. OWN도 연결이 끝났으면
-    // 그 사실을 지우지 않는다 — 예전에는 OWN이 모드 가드로 조회를 건너뛰고 무조건 지웠다.
+
     expect(findRepositoryProvisionJob).toHaveBeenCalledWith(APPLICATION_ID);
     expect(discardRepositoryProvisionRequest).not.toHaveBeenCalled();
   });
 });
 
-/**
- * #1272 — 교직원이 판정을 바꿀 때 되돌리기 → 재판정 두 번을 요구하지 않는다.
- * PATCH 한 번이 기존 CAS 한 번으로 반대 판정까지 옳기는 것과, 같은 판정 재전송만
- * 409로 남는 것을 고정한다. 완료된 저장소 잠금(옵 APP_023)은 사라졌다 — 이제
- * 완료는 차단 사유가 아니라 보존 사유다.
- */
 describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
   it('APPROVED → REJECT: 기대 상태 APPROVED로 한 번에 전이하고 반려로 기록한다', async () => {
     const {
@@ -734,7 +705,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
       status: ApplicationStatus.REJECTED,
       rejectionReason: '합성 반려 사유',
     });
-    // 되돌리기를 거치지 않으므로 전이는 딱 한 번이고, 그 CAS의 기대 상태는 APPROVED다.
+
     expect(transitionApplication).toHaveBeenCalledTimes(1);
     expect(transitionApplication).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -744,7 +715,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
         rejectionReason: '합성 반려 사유',
       }),
     );
-    // 반려는 actor를 기록한다 — 되돌리기처럼 preserve로 두지 않는다.
+
     const rejectTransition = (
       transitionApplication.mock.calls as readonly (readonly unknown[])[]
     )[0]?.[0];
@@ -766,8 +737,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
     expect(createApplicationDecisionNotifications).toHaveBeenCalledWith(
       expect.objectContaining({ decision: ApplicationStatus.REJECTED }),
     );
-    // 승인을 푸는 이상 되돌리기와 똑같이 미완료 프로비저닝 요청을 같은 트랜잭션에서
-    // 지운다 — 남기면 워커가 집은 job이 FAILED_FINAL로 굳어버린다.
+
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
@@ -815,7 +785,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
         nextStatus: ApplicationStatus.APPROVED,
       }),
     );
-    // 재승인은 기존 경로 그대로 — 남은 요청을 지우고 같은 멱등키로 새로 발행한다.
+
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
@@ -877,7 +847,6 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
   ])(
     '생성된 NEW 저장소가 있어도 %s에서 반려가 통과하고 완료된 요청은 보존한다',
     async (status) => {
-      // Given
       const {
         service,
         record,
@@ -897,7 +866,6 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
         repositoryId: 'synthetic-repository',
       });
 
-      // When
       const result = await service.decide(
         ACTOR_ID,
         APPLICATION_ID,
@@ -908,7 +876,6 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
         },
       );
 
-      // Then: 반려는 들어가고, 이미 만들어진 저장소의 job·outbox는 그대로 남는다.
       expect(result).toMatchObject({
         kind: 'REJECTED',
         status: ApplicationStatus.REJECTED,
@@ -920,7 +887,6 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
   );
 
   it('미완료 NEW 프로비저닝은 승인→반려에서 여전히 거둔다', async () => {
-    // Given: 저장소가 아직 없다 — 고아 job이 될 수 있는 상태다.
     const {
       service,
       store,
@@ -938,13 +904,11 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
       repositoryId: null,
     });
 
-    // When
     await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.REJECT,
       reason: '합성 반려 사유',
     });
 
-    // Then
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledWith(
       APPLICATION_ID,
       expect.any(Date),
@@ -982,7 +946,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
       kind: 'REJECTED',
       status: ApplicationStatus.REJECTED,
     });
-    // 모드와 관계없이 job을 한 번 읽고, 연결이 끝난 OWN은 그 기록을 지우지 않는다.
+
     expect(findRepositoryProvisionJob).toHaveBeenCalledWith(APPLICATION_ID);
     expect(discardRepositoryProvisionRequest).not.toHaveBeenCalled();
   });
@@ -993,7 +957,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
       .mockResolvedValueOnce(
         baseApplication({ status: ApplicationStatus.APPROVED }),
       )
-      // CAS 실패 후 다시 읽은 최신 상태 — 다른 교직원이 먼저 반려했다.
+
       .mockResolvedValueOnce(
         baseApplication({ status: ApplicationStatus.REJECTED }),
       );
@@ -1021,11 +985,6 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
   });
 });
 
-/**
- * 판정 이력(`ApplicationReviewHistory`)은 상태 변경과 같은 트랜잭션에서 쌓인다.
- * 여기서는 「어떤 판정이 어떤 사건으로 기록되는가」와 「CAS가 밀린 요청은 아무것도
- * 남기지 않는가」를 고정한다. 트랜잭션 원자성 자체는 통합 테스트가 맡는다.
- */
 describe('ApplicationsService.decide — 판정 이력과 알림', () => {
   it.each([
     [
@@ -1043,18 +1002,15 @@ describe('ApplicationsService.decide — 판정 이력과 알림', () => {
   ] as const)(
     '%s 판정은 %s에서 %s 이력을 상태 변경과 같은 store로 남긴다',
     async (action, from, eventKind, rejectionReason) => {
-      // Given
       const { service, store, appendReviewHistory } = createHarness();
       (store.findApplicationById as jest.Mock).mockResolvedValue(
         baseApplication({ status: from }),
       );
 
-      // When
       await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
         action,
       });
 
-      // Then
       expect(appendReviewHistory).toHaveBeenCalledWith(
         expect.objectContaining({
           applicationId: APPLICATION_ID,
@@ -1063,7 +1019,7 @@ describe('ApplicationsService.decide — 판정 이력과 알림', () => {
           rejectionReason,
         }),
       );
-      // 사건 시각은 상태 전이·감사 기록과 같은 한 순간이다.
+
       expect(appendReviewHistory.mock.calls[0]?.[0].occurredAt).toBeInstanceOf(
         Date,
       );
@@ -1071,16 +1027,13 @@ describe('ApplicationsService.decide — 판정 이력과 알림', () => {
   );
 
   it('반려는 사유를 이력에 함께 남긴다 — 다음 판정이 덮어써도 그때의 지적이 남는다', async () => {
-    // Given
     const { service, appendReviewHistory } = createHarness();
 
-    // When
     await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.REJECT,
       reason: '서류가 비었습니다',
     });
 
-    // Then
     expect(appendReviewHistory).toHaveBeenCalledWith(
       expect.objectContaining({
         eventKind: 'REJECTED',
@@ -1090,19 +1043,16 @@ describe('ApplicationsService.decide — 판정 이력과 알림', () => {
   });
 
   it('되돌림도 학생에게 알린다 — 승인이 풀린 사실을 화면을 다시 열기 전에 알아야 한다', async () => {
-    // Given
     const { service, store, createApplicationDecisionNotifications } =
       createHarness();
     (store.findApplicationById as jest.Mock).mockResolvedValue(
       baseApplication({ status: ApplicationStatus.APPROVED }),
     );
 
-    // When
     await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.REVERT,
     });
 
-    // Then
     expect(createApplicationDecisionNotifications).toHaveBeenCalledWith(
       expect.objectContaining({
         applicationId: APPLICATION_ID,
@@ -1112,7 +1062,6 @@ describe('ApplicationsService.decide — 판정 이력과 알림', () => {
   });
 
   it('CAS가 밀린 요청은 이력도 알림도 남기지 않는다', async () => {
-    // Given: 다른 교직원이 먼저 판정했다.
     const {
       service,
       store,
@@ -1129,7 +1078,6 @@ describe('ApplicationsService.decide — 판정 이력과 알림', () => {
         baseApplication({ status: ApplicationStatus.APPROVED }),
       );
 
-    // When
     let thrown: unknown;
     try {
       await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
@@ -1139,7 +1087,6 @@ describe('ApplicationsService.decide — 판정 이력과 알림', () => {
       thrown = error;
     }
 
-    // Then
     expectDomainCode(thrown, ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED);
     expect(appendReviewHistory).not.toHaveBeenCalled();
     expect(createApplicationDecisionNotifications).not.toHaveBeenCalled();

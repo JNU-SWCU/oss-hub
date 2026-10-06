@@ -54,12 +54,6 @@ test.each([RANKING_YEAR_ALL, 2025, 2026] as const)(
   },
 );
 
-// 관용적 읽기 (Fowler tolerant reader).
-//
-// 백엔드가 칸을 늘리는 배포와 프런트 배포는 원자적이지 않다. 파서가 모르는
-// 칸을 거부하면 그 틈에 랭킹 화면이 통째로 죽는다 — 예전 파서가 정확히
-// 그랬다. 아래가 "모르는 것은 무시하고 쓰는 것만 본다"를 고정한다.
-
 test('모르는 필드가 섞여도 파싱한다 — 봉투와 항목 양쪽', () => {
   const base = rankingPage(2026);
   const page = parseRankingPage({
@@ -68,7 +62,6 @@ test('모르는 필드가 섞여도 파싱한다 — 봉투와 항목 양쪽', (
     items: [{ ...base.items[0], futureField: 'x', releaseCount: 9 }],
   });
 
-  // 공개 투영은 네 칸이다 — 봉투가 더 실어 보내도 화면 계약은 넓어지지 않는다.
   expect(page.items[0]).toEqual({
     rank: 1,
     githubLogin: 'mina',
@@ -118,9 +111,6 @@ test('공개 허용 목록 밖 구식 지표는 읽지 않는다', () => {
     ],
   });
 
-  // `releaseCount` 는 폐기된 지표다 — 공개 항목에 실리지 않는다.
-  // 빠진 새 지표는 0 으로 읽는다: 백엔드가 뒤따라 배포되는 동안에도
-  // 화면이 죽지 않아야 한다.
   expect(page.items[0]).toEqual({
     rank: 1,
     githubLogin: 'mina',
@@ -164,7 +154,7 @@ test('member 항목은 지표 여덟 칸을 읽고 빠진 지표는 0 으로 떨
     total: 15,
   });
   expect(sparse.items[0]).toHaveProperty('total', 0);
-  // 신원은 member 에도 실리지 않는다.
+
   for (const identity of ['name', 'department', 'displayName']) {
     expect(full.items[0]).not.toHaveProperty(identity);
   }
@@ -184,25 +174,24 @@ test('member 항목에 name 키가 있으면 거부한다 — 신원 가드는 �
 test('필수 필드는 형이 어긋나면 계속 거부한다', () => {
   const base = rankingPage(2026);
 
-  // rank — 화면이 행 key 로 쓴다.
   expect(() =>
     parseRankingPage({ ...base, items: [{ ...base.items[0], rank: '1' }] }),
   ).toThrow(RankingResponseError);
-  // githubLogin — 사람을 식별하는 유일한 칸.
+
   expect(() =>
     parseRankingPage({
       ...base,
       items: [{ ...base.items[0], githubLogin: 42 }],
     }),
   ).toThrow(RankingResponseError);
-  // pullRequestCount — 공개 화면이 쓰는 두 번째 수치.
+
   expect(() =>
     parseRankingPage({
       ...base,
       items: [{ ...base.items[0], pullRequestCount: '1' }],
     }),
   ).toThrow(RankingResponseError);
-  // 있으면서 형이 틀린 지표 칸은 기본값으로 감추지 않는다.
+
   expect(() =>
     parseRankingPage({
       ...base,
@@ -245,7 +234,7 @@ test('staff 학과는 문자열이면 그대로 읽고, 없거나 비어 있으�
   expect(read(null)).toBeNull();
   expect(read(undefined)).toBeNull();
   expect(read('   ')).toBeNull();
-  // 형이 어긋나도 페이지를 버리지 않는다 — 화면은 대시로 성립한다.
+
   expect(read(42)).toBeNull();
 });
 
@@ -263,20 +252,16 @@ test('연도 목록 응답을 파싱하고 모르는 필드는 무시한다', ()
 
 test('URL year 파싱과 href 생성', () => {
   expect(parseRankingYearSearchParam('2025')).toBe(2025);
-  // 값이 없으면 올해다 — 백엔드 기본과 같은 규칙이라야 링크 없이 연 화면과
-  // 서버가 같은 것을 본다(ADR-010 §1).
+
   expect(parseRankingYearSearchParam(null)).toBe(currentRankingYear());
   expect(parseRankingYearSearchParam('')).toBe(currentRankingYear());
-  // 전체 누적은 명시했을 때만이다.
+
   expect(parseRankingYearSearchParam('all')).toBe(RANKING_YEAR_ALL);
-  // 알 수 없는 값도 전체가 아니라 올해로 떨어뜨린다 — 기본이 바뀌었으므로
-  // 실수한 링크가 조용히 전체 누적을 여는 일이 없어야 한다.
+
   expect(parseRankingYearSearchParam('nope')).toBe(currentRankingYear());
   expect(rankingListHref(RANKING_YEAR_ALL)).toBe('/ranking?year=all');
   expect(rankingListHref(2025)).toBe('/ranking?year=2025');
 });
-
-// 갱신 시각 봉투 (ADR-010 §10).
 
 test('dataAsOf 가 없어도 파싱된다', () => {
   const { dataAsOf: _omitted, ...withoutDataAsOf } = rankingPage(2026);
@@ -332,7 +317,7 @@ test('public 항목은 네 키만 남기고 staff 항목은 richer shape을 유�
     'pullRequestCount',
     'rank',
   ]);
-  // 공개가 감추는 것은 지표가 아니라 신원이다.
+
   for (const identity of ['name', 'department', 'displayName']) {
     expect(publicPage.items[0]).not.toHaveProperty(identity);
   }

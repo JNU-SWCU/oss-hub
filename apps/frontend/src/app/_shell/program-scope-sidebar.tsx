@@ -13,14 +13,6 @@ import type {
 } from './sidebar-menu';
 import { ScopeSidebarLink } from './program-scope-sidebar-link';
 
-/**
- * 프로그램 상세(`/programs/:id` 하위) 전용 좌측 패널.
- * `AppSidebar`의 마크업·아이콘·current 마커(3px)·카운트 뱃지·접기 토글 규약을
- * 그대로 재사용한다(docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널) — 다만 브랜드 행이 "‹ 프로그램 목록" 백링크 +
- * 프로그램명으로 바뀌고, 마감 카운트다운 블록이 하단(footer 위)에 추가된다.
- * `AppSidebar` 자체는 건드리지 않는다 — 두 컴포넌트는 완전히 별개다(SidebarItem.count는
- * 숫자 전용이라 이 화면의 분수 뱃지("2/6", "12/47팀")를 표현할 수 없다).
- */
 export interface ProgramScopeSidebarProps {
   readonly programName: string;
   readonly groups: readonly ProgramScopeSidebarGroup[];
@@ -29,7 +21,7 @@ export interface ProgramScopeSidebarProps {
   readonly collapsed: boolean;
   readonly onToggle: () => void;
   readonly backHref: string;
-  /** 남은 마감 목록. undefined는 개요 미도착/실패, []는 모든 마감 종료를 뜻한다. */
+
   readonly remainingMilestones?: readonly CountdownMilestone[];
 }
 
@@ -83,9 +75,6 @@ export function ProgramScopeSidebar({
           aria-label={toggleLabel}
           title={toggleLabel}
           className={cn(
-            // Button의 ghost는 `aria-expanded`를 "이 버튼이 연 팝업이 열려 있음"으로 보고
-            // 눌린 표면(muted 채움)을 입힌다. 여기서 aria-expanded는 사이드바 영역이
-            // 펼쳐져 있다는 뜻이라 그 표면을 끈다.
             'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-foreground focus-visible:ring-sidebar-ring aria-expanded:bg-transparent aria-expanded:hover:bg-sidebar-accent aria-expanded:hover:text-sidebar-foreground',
             !collapsed &&
               'ml-auto border-sidebar-border text-muted-foreground aria-expanded:text-muted-foreground',
@@ -155,10 +144,6 @@ function stageHrefWithCurrentQuery(
   return `${targetPath}${query ? `?${query}` : ''}`;
 }
 
-/**
- * 그룹 렌더 본체 — `ProgramScopeSidebar`(데스크톱 rail)와 `SidebarDrawer`(900px 미만
- * 오버레이)가 공유한다. depth·아이콘·current 마커 규약을 한 곳에서만 유지한다.
- */
 export function ProgramScopeSidebarNav({
   groups,
   pathname,
@@ -176,8 +161,7 @@ export function ProgramScopeSidebarNav({
       (item) => (item.depth ?? 0) === 1 && item.href === requestedHref,
     ),
   );
-  // 삭제된/잘못된 milestoneId는 본문과 같은 안전한 기본값(모든 단계)으로 보인다.
-  // URL은 조용히 바꾸지 않아 사용자가 입력한 주소와 브라우저 이력을 보존한다.
+
   const focusedHref = hasRequestedStage ? requestedHref : pathname;
 
   return (
@@ -203,7 +187,6 @@ export function ProgramScopeSidebarNav({
           >
             {group.items.map((item, itemIndex) => (
               <ScopeSidebarLink
-                // 같은 이름의 마일스톤도 있으므로 안정적인 목록 순서와 href를 함께 쓴다.
                 key={`${itemIndex}-${item.href}`}
                 item={item}
                 href={stageHrefWithCurrentQuery(item, pathname, search)}

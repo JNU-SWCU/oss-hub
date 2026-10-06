@@ -53,10 +53,6 @@ describe('milestoneDocumentCellDisplay', () => {
     ).toBe('NOT_SUBMITTED');
   });
 
-  /**
-   * 계약상 미제출 칸에는 상태가 실리지 않지만, 어긋난 응답 한 건이 「안 낸 팀이 승인됨」
-   * 으로 보이면 교직원은 그 팀을 독촉 대상에서 뺀다. 순서를 뒤집지 마라.
-   */
   it('미제출 칸에 상태가 실려 와도 미제출로 읽는다', () => {
     expect(
       milestoneDocumentCellDisplay({
@@ -72,7 +68,6 @@ describe('milestoneDocumentCellDisplay', () => {
     ).toBe('PENDING');
   });
 
-  // 제출은 있는데 상태만 비어 온 응답에서 「미제출」이라고 말하면 그 건을 아무도 안 본다.
   it('상태가 비어 와도 낸 칸은 검토 대기다', () => {
     expect(
       milestoneDocumentCellDisplay({ isSubmitted: true, status: null }),
@@ -87,14 +82,6 @@ describe('milestoneDocumentCellDisplay', () => {
     }
   });
 
-  /**
-   * 여기가 이 함수의 요점이다. 보완 요청을 받아 **다시 낸** 칸은 상태만 `SUBMITTED`로
-   * 돌아오고 판정 기록은 그대로 남는다. 배지를 `review.decision`으로 되돌리면 그 칸이
-   * 계속 「보완 요청」으로 보여, 교직원이 다시 검토해야 할 건을 처리 끝난 것으로 읽는다.
-   *
-   * 칸을 **통째로** 넘긴다 — 판정이 실제로 손에 있는데도 무시하는지를 물어야 하기
-   * 때문이다. 상태만 넘겨서는 그 함수가 판정을 안 본다는 것을 확인할 수 없다.
-   */
   it('다시 낸 칸은 지난 보완 요청이 남아 있어도 검토 대기다', () => {
     const resubmitted: MilestoneDocumentCollectionCell = {
       documentId: 'd1',
@@ -127,11 +114,6 @@ describe('milestoneDocumentViewerDisplay', () => {
     ).toBe('NOT_SUBMITTED');
   });
 
-  /**
-   * 재제출이 상태를 SUBMITTED로 되돌린다. 보완 요청을 받아 다시 낸 학생에게 계속
-   * 「보완 요청」이라고 말하면 안 낸 것처럼 읽힌다.
-   */
-  // 제출본 번호는 라벨을 가르지 않는다 — 첫 제출과 재제출이 같은 「교직원 차례」다.
   it('제출됨은 제출본 번호와 무관하게 검토 대기다', () => {
     for (const revision of [1, 2, 7]) {
       expect(
@@ -165,16 +147,11 @@ describe('배지 표', () => {
     });
   });
 
-  /**
-   * 「아직 안 본 것」과 「되돌려 보낸 것」이 같은 색이면 독촉 대상을 눈으로 고를 수 없다.
-   * 색 자체가 아니라 **다섯이 서로 다르다**는 것을 고정한다.
-   */
   it('다섯 갈래의 색이 서로 겹치지 않는다', () => {
     const variants = Object.values(MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS);
     expect(new Set(variants).size).toBe(5);
   });
 
-  // 새 색을 발명하면 여기서 걸린다 — StatusBadge가 아는 변형은 이 다섯뿐이다.
   it('전부 기존 StatusBadge 변형이다', () => {
     const known = ['recruiting', 'closed', 'pending', 'approved', 'rejected'];
     for (const variant of Object.values(
@@ -201,11 +178,6 @@ describe('isMilestoneDocumentResubmittable', () => {
     ).toBe(true);
   });
 
-  /**
-   * 미제출(첫 제출)과 검토 대기(끝난 판정 없음)도 열려 있어야 한다. 「보완 요청일 때만」
-   * 으로 좁히면 아직 아무도 안 본 제출을 마감 전에 고칠 수 없게 되는데, 그것은 지금
-   * 되는 일을 하나 없애는 것이다.
-   */
   it('미제출과 검토 대기는 연다', () => {
     expect(
       isMilestoneDocumentResubmittable(
@@ -235,10 +207,6 @@ describe('isMilestoneDocumentDeadlineLocked', () => {
     expect(isMilestoneDocumentDeadlineLocked(false, undefined)).toBe(false);
   });
 
-  /**
-   * 마감 뒤에 「고쳐서 다시 내세요」라고 하는 것은 흔한 일이다. 화면이 여기까지 잠그면
-   * 교직원이 요청한 재제출을 학생이 낼 수 없어 그 요청 자체가 뜻을 잃는다 — 서버는 받는다.
-   */
   it('마감 뒤에도 보완 요청은 지나간다', () => {
     expect(
       isMilestoneDocumentDeadlineLocked(
@@ -248,11 +216,6 @@ describe('isMilestoneDocumentDeadlineLocked', () => {
     ).toBe(false);
   });
 
-  /**
-   * 나머지는 마감이 잠근다. 미제출·검토 대기까지 풀면 마감이 아무것도 막지 않는 표시가
-   * 된다. 승인·반려는 여기서 풀려도 `isMilestoneDocumentResubmittable`이 막지만, 마감
-   * 판정 자체가 흐트러지면 그 겹침을 믿고 한쪽을 지웠을 때 조용히 뚫린다.
-   */
   it('마감 뒤 나머지 상태는 그대로 잠근다', () => {
     for (const status of [null, 'SUBMITTED', 'APPROVED', 'REJECTED'] as const) {
       expect(isMilestoneDocumentDeadlineLocked(true, viewer({ status }))).toBe(
@@ -262,14 +225,6 @@ describe('isMilestoneDocumentDeadlineLocked', () => {
     expect(isMilestoneDocumentDeadlineLocked(true, undefined)).toBe(true);
   });
 
-  /**
-   * #1097 — 보완 요청에 응해 **한 번 다시 낸** 서류. 위 「나머지 상태」의 `SUBMITTED`와
-   * 값은 같지만 사연이 다르므로 따로 못 박는다: 재제출이 상태를 되돌려 놓았을 뿐
-   * 판정 이력에는 보완 요청이 남아 있다.
-   *
-   * 여기서 잠그는 것이 규칙이다 — 재제출은 한 번이고, 교직원이 검토하는 동안 내용은 바뀜지
-   * 않는다. 서버도 이 조합을 422(MSD_031)로 막으므로 화면과 서버가 같은 답을 낸다.
-   */
   it('마감 뒤, 보완 요청에 이미 응한 제출은 잠근 채로 둔다', () => {
     expect(
       isMilestoneDocumentDeadlineLocked(
@@ -287,10 +242,6 @@ describe('isMilestoneDocumentDeadlineLocked', () => {
     ).toBe(true);
   });
 
-  /**
-   * 잠그는 것은 **마감**이다. 같은 재제출이라도 마감 전이면 열려 있어야 한다 — 마감 전
-   * 파일 교체는 지금도 되는 일이고, 서버도 마감 전에는 이 조합을 받는다.
-   */
   it('마감 전이면 재제출도 잠기지 않는다', () => {
     expect(
       isMilestoneDocumentDeadlineLocked(
@@ -300,15 +251,7 @@ describe('isMilestoneDocumentDeadlineLocked', () => {
     ).toBe(false);
   });
 
-  /**
-   * 화면이 실제로 조작을 여는 자리 = `isMilestoneDocumentResubmittable` ∧
-   * `!isMilestoneDocumentDeadlineLocked`. 이 표는 서버의
-   * `milestoneDocumentSubmissionBlock` 스펙에 **같은 순서로** 한 벌 더 있다
-   * (`apps/backend/src/milestone-documents/domain/milestone-document-submission-window.spec.ts`).
-   * 두 표가 갈라지면 #1097이 그대로 돌아오므로, 한쪽을 고칠 때 다른 쪽도 함께 고친다.
-   */
   it.each([
-    // [마감 지남, 제출 상태, 리비전, 화면이 조작을 여는가]
     [false, null, null, true],
     [false, 'SUBMITTED', 1, true],
     [false, 'CHANGES_REQUESTED', 1, true],
@@ -373,10 +316,6 @@ describe('isMilestoneDocumentDeadlineLocked', () => {
     ).toBe(true);
   });
 
-  /**
-   * 기한 컬럼이 생기기 전에 저장된 보완 요청은 `null`로 온다. 「기한이 없으니 닫힌 것」으로
-   * 읽으면 배포 순간 이미 「고쳐서 다시 내세요」를 받은 학생이 낼 길을 잃는다.
-   */
   it('기한이 없는 옛 보완 요청은 앞 규칙대로 연다', () => {
     expect(
       isMilestoneDocumentDeadlineLocked(
@@ -387,10 +326,6 @@ describe('isMilestoneDocumentDeadlineLocked', () => {
     ).toBe(false);
   });
 
-  /**
-   * 재제출 기한은 마감이 닫은 것을 다시 여는 창만 좁힌다. 마감 전 교체까지 닫으면 지금
-   * 되는 일 하나가 사라진다 — 서버도 마감 전에는 기한을 보지 않는다.
-   */
   it('마감 전에는 기한이 지났어도 잠그지 않는다', () => {
     expect(
       isMilestoneDocumentDeadlineLocked(
@@ -403,11 +338,6 @@ describe('isMilestoneDocumentDeadlineLocked', () => {
 });
 
 describe('isMilestoneDocumentResubmissionFinal', () => {
-  /**
-   * 확인 창은 **되돌릴 수 없는 자리에서만** 뜬다. 마감 전 교체는 몇 번이든 되는 일이라 그
-   * 자리에서 「더 이상 바꿀 수 없습니다」는 거짓말이고, 거짓 경고를 매번 보는 사람은 곧
-   * 읽지 않고 누른다 — 그러면 정작 되돌릴 수 없는 자리에서도 안 읽는다.
-   */
   it('마감 뒤 아직 응하지 않은 보완 요청에서만 참이다', () => {
     expect(
       isMilestoneDocumentResubmissionFinal(
@@ -455,10 +385,6 @@ describe('milestoneDocumentResubmissionDueNotice', () => {
     ).toEqual({ kind: 'open', dueAt });
   });
 
-  /**
-   * 이 말이 없으면 「수정」 버튼이 사라진 이유를 학생이 알 수 없고, 그 문의가 곧 교직원에게
-   * 간다 — 이 티켓이 없애려던 문의가 모양만 바꿔 남는다.
-   */
   it('기한이 지났으면 지났다고 말한다', () => {
     expect(
       milestoneDocumentResubmissionDueNotice(
@@ -468,10 +394,6 @@ describe('milestoneDocumentResubmissionDueNotice', () => {
     ).toEqual({ kind: 'passed', dueAt });
   });
 
-  /**
-   * 판정 이력은 재제출로 되돌아가지 않는다. 판정을 보고 갈래를 정하면 **이미 다시 낸**
-   * 학생에게도 「언제까지 다시 내세요」가 계속 남는다.
-   */
   it('이미 다시 낸 서류에는 아무 말도 하지 않는다', () => {
     expect(
       milestoneDocumentResubmissionDueNotice(
@@ -500,10 +422,6 @@ describe('milestoneDocumentResubmissionDueAtError', () => {
     ).toBe('보완 요청은 재제출 기한을 정해 주세요.');
   });
 
-  /**
-   * 지난 시각을 그대로 저장하면 보완 요청이 만들어지는 순간 이미 닫혀 있어 **「다시
-   * 내세요」가 사실상 반려**가 된다. 서버도 같은 자리를 422(MSD_033)로 막는다.
-   */
   it('지난 시각은 거절하고 무엇을 고칠지 말한다', () => {
     expect(
       milestoneDocumentResubmissionDueAtError(
@@ -534,7 +452,6 @@ describe('milestoneDocumentResubmissionDueAtError', () => {
     ).toBeNull();
   });
 
-  /** 승인·반려에는 기한이라는 것이 없다 — 비어 있어도 막지 않는다. */
   it('승인·반려는 기한을 보지 않는다', () => {
     expect(
       milestoneDocumentResubmissionDueAtError('APPROVED', '', now),
@@ -546,15 +463,6 @@ describe('milestoneDocumentResubmissionDueAtError', () => {
 });
 
 describe('milestoneDocumentResubmissionDueAtPayload', () => {
-  /**
-   * `datetime-local`은 표준시대 없는 문자열을 준다. 그대로 보내면 서버가 어느 시각으로
-   * 읽을지 화면이 정하지 못한다 — 여기서 ISO로 굳혀야 교직원이 고른 그 순간이 저장된다.
-   */
-  /**
-   * 기대값을 `new Date('2026-09-26T18:00').toISOString()`으로 적으면 **시험이 구현을 그대로
-   * 따라 한다** — 브라우저 시간대로 읽는 옛 코드에서도 늘 통과한다. 서울 18:00에 해당하는
-   * 리터럴을 박아 두어야 시간대가 다른 곳에서 어긋나는 것을 잡는다.
-   */
   it('보완 요청의 서울 시각을 ISO로 굳혀 보낸다', () => {
     expect(
       milestoneDocumentResubmissionDueAtPayload(
@@ -592,13 +500,6 @@ describe('shouldHighlightMilestoneDocumentReview', () => {
   });
 });
 
-/**
- * 변이 검증 대상 — 승인 사유를 학생에게 보여 주는 규칙이 여기 있다.
- *
- * 판정 폼은 사유 칸에 「학생에게 그대로 보입니다」라고 적어 두고 승인에도 사유를 받는다.
- * 승인만 상자를 안 그리면 교직원이 적은 말이 어디에도 나오지 않아, **화면이 약속한 것을
- * 안 지키는 상태**가 된다.
- */
 describe('milestoneDocumentReviewNoticeTone', () => {
   it('보완 요청·반려는 사유 유무와 무관하게 경고 톤이다', () => {
     expect(
@@ -610,17 +511,13 @@ describe('milestoneDocumentReviewNoticeTone', () => {
     expect(
       milestoneDocumentReviewNoticeTone('REJECTED', '기한을 넘겼습니다.'),
     ).toBe('warning');
-    /*
-     * 사유가 필수인데도 비어 온 경우다(계약상 없지만 응답 하나가 어긋나면 난다).
-     * 여기서 상자를 지우면 학생은 **서류가 되돌아온 사실 자체**를 모른다.
-     */
+
     expect(milestoneDocumentReviewNoticeTone('CHANGES_REQUESTED', null)).toBe(
       'warning',
     );
     expect(milestoneDocumentReviewNoticeTone('REJECTED', null)).toBe('warning');
   });
 
-  // 같은 빨간 상자에 담으면 승인인데 문제가 있는 것처럼 읽힌다.
   it('사유를 적은 승인은 중립 톤으로 보여 준다', () => {
     expect(
       milestoneDocumentReviewNoticeTone(
@@ -630,13 +527,11 @@ describe('milestoneDocumentReviewNoticeTone', () => {
     ).toBe('neutral');
   });
 
-  // 승인은 사유가 선택이다 — 비어 있으면 배지가 이미 말한 「승인」 아래 빈 상자만 남는다.
   it('사유 없는 승인에는 상자를 세우지 않는다', () => {
     expect(milestoneDocumentReviewNoticeTone('APPROVED', null)).toBeNull();
     expect(milestoneDocumentReviewNoticeTone('APPROVED', '   ')).toBeNull();
   });
 
-  // 아직 판정이 없거나 다시 낸 뒤로 돌아온 자리에는 지난 지적을 다시 펴지 않는다.
   it('검토 대기·미제출에는 그리지 않는다', () => {
     expect(
       milestoneDocumentReviewNoticeTone('PENDING', '지난 지적'),
@@ -673,10 +568,6 @@ describe('milestoneDocumentReviewFormError', () => {
     );
   });
 
-  /**
-   * 서버가 `trim()` 후 빈 문자열을 `null`로 접어 422로 거절한다. 화면이 공백을
-   * 통과시키면 교직원은 「적었는데 안 된다」를 보게 된다.
-   */
   it('공백만 적은 사유는 안 적은 것으로 본다', () => {
     expect(milestoneDocumentReviewFormError('REJECTED', '   \n\t  ')).toBe(
       '보완 요청과 반려는 사유를 입력해 주세요.',
@@ -687,10 +578,6 @@ describe('milestoneDocumentReviewFormError', () => {
     expect(milestoneDocumentReviewFormError('APPROVED', '')).toBeNull();
   });
 
-  /**
-   * 사유만으로는 부족해졌다 — 보완 요청은 재제출 기한도 함께 정해야 저장된다. 기한 칸이
-   * 비면 이 함수가 그 사실을 먼저 말한다(서버도 422 MSD_032로 막는다).
-   */
   it('사유를 적어도 재제출 기한이 없는 보완 요청은 막는다', () => {
     expect(
       milestoneDocumentReviewFormError(
@@ -711,7 +598,6 @@ describe('milestoneDocumentReviewFormError', () => {
     ).toBeNull();
   });
 
-  /** 사유가 먼저다 — 둘 다 비었을 때 기한부터 말하면 교직원이 사유를 잊는다. */
   it('사유와 기한이 둘 다 비면 사유를 먼저 말한다', () => {
     expect(milestoneDocumentReviewFormError('CHANGES_REQUESTED', '')).toBe(
       '보완 요청과 반려는 사유를 입력해 주세요.',
@@ -741,17 +627,12 @@ describe('milestoneDocumentReviewCommentPayload', () => {
     );
   });
 
-  // `''`이 아니라 `undefined`여야 본문에서 키가 빠진다.
   it('공백만 남으면 아예 싣지 않는다', () => {
     expect(milestoneDocumentReviewCommentPayload('   ')).toBeUndefined();
     expect(milestoneDocumentReviewCommentPayload('')).toBeUndefined();
   });
 });
 
-/**
- * 판정을 「내가 본 그 제출물」에 묶는 값. 이것이 틀리면 서버의 대조가 뜻을 잃고,
- * 표를 그린 뒤 바뀐 제출물에 판정이 조용히 얹힌다.
- */
 describe('milestoneDocumentReviewVersionOf', () => {
   it('칸의 제출본 번호와 최신 판정 id를 그대로 뜬다', () => {
     expect(
@@ -771,11 +652,6 @@ describe('milestoneDocumentReviewVersionOf', () => {
     });
   });
 
-  /**
-   * 아직 아무도 판정하지 않은 칸은 **`null`을 명시해서** 보낸다. `undefined`가 되면
-   * `JSON.stringify`가 키를 통째로 지워 서버가 400으로 막는다 — 승인 한 번이 통째로
-   * 실패하는데 화면은 「요청 값을 확인해 주세요」만 말한다.
-   */
   it('판정이 없던 칸은 undefined가 아니라 null을 싣는다', () => {
     const version = milestoneDocumentReviewVersionOf({
       revision: 1,
@@ -783,29 +659,19 @@ describe('milestoneDocumentReviewVersionOf', () => {
     });
 
     expect(version?.expectedLatestReviewId).toBeNull();
-    // 키가 살아 있어야 한다 — `undefined`면 본문에서 사라진다.
+
     expect(JSON.parse(JSON.stringify(version))).toEqual({
       expectedRevision: 1,
       expectedLatestReviewId: null,
     });
   });
 
-  /**
-   * 지어낸 값은 대조를 통과하고, 그 통과는 거짓이다. 특히 `?? 1` 같은 기본값을 두면
-   * 「번호를 못 읽었다」가 「1번 제출본을 봤다」로 바뀌어 나간다 — 그 칸이 실제로 1번
-   * 제출본이면 서버는 순순히 통과시킨다.
-   */
   it('제출본 번호가 없는 칸에서는 아무 값도 지어내지 않는다', () => {
     expect(
       milestoneDocumentReviewVersionOf({ revision: null, review: null }),
     ).toBeNull();
   });
 
-  /**
-   * 첫 제출이 1이라 0·음수는 **어떤 제출도 가리키지 않는다**. 서버도 그렇게 보고 400으로
-   * 막는데(`@Min(1)`), 그 400은 교직원이 고칠 수 있는 것이 아니다 — 여기서 버려야
-   * 「표를 다시 불러 주세요」라고 말할 수 있다.
-   */
   it('1보다 작은 번호는 실어 보내지 않는다', () => {
     expect(
       milestoneDocumentReviewVersionOf({ revision: 0, review: null }),
@@ -815,7 +681,6 @@ describe('milestoneDocumentReviewVersionOf', () => {
     ).toBeNull();
   });
 
-  // 정상 범위는 그대로 지나간다 — 위 방어가 1번 제출까지 삼키면 첫 판정이 통째로 막힌다.
   it('첫 제출(1)은 그대로 실어 보낸다', () => {
     expect(
       milestoneDocumentReviewVersionOf({ revision: 1, review: null })
@@ -870,10 +735,6 @@ describe('nextMilestoneDocumentReviewState', () => {
     expect(nextMilestoneDocumentReviewState(open, target, version)).toBeNull();
   });
 
-  /**
-   * 앞 팀에 적던 사유가 다음 팀 칸에 남으면 그대로 저장돼 **엉뚱한 팀에 남의 지적이
-   * 붙는다** — 그 사유는 학생에게 그대로 보인다.
-   */
   it('다른 칸으로 옮기면 적어 둔 사유와 판정을 가져가지 않는다', () => {
     const open = {
       ...createMilestoneDocumentReviewFormState(target, version),
@@ -893,8 +754,7 @@ describe('nextMilestoneDocumentReviewState', () => {
     expect(next?.target).toEqual({ applicationId: 'a2', documentId: 'd1' });
     expect(next?.comment).toBe('');
     expect(next?.decision).toBeNull();
-    // 버전도 옮겨 간 칸의 것이어야 한다 — 앞 칸의 것을 물고 가면 남의 제출물에 대고
-    // 대조하게 되어 언제나 409다.
+
     expect(next?.version).toEqual({
       expectedRevision: 3,
       expectedLatestReviewId: 'review-2',
@@ -903,7 +763,6 @@ describe('nextMilestoneDocumentReviewState', () => {
 });
 
 describe('isSameMilestoneDocumentReviewTarget', () => {
-  // 팀만 같고 서류가 다른 칸을 같다고 보면 패널이 남의 열에 열린다.
   it('팀과 서류가 둘 다 같아야 같은 칸이다', () => {
     expect(
       isSameMilestoneDocumentReviewTarget(
@@ -926,12 +785,6 @@ describe('isSameMilestoneDocumentReviewTarget', () => {
   });
 });
 
-/**
- * 재제출 기한 칸(`datetime-local`)은 표준시대 없는 문자열을 준다. 그것을 **어느 시간대로
- * 읽는가**는 개발자 노트북과 CI가 대개 서울이라 눈에 띄지 않는다 — 그래서 여기서는 실제로
- * `process.env.TZ`를 바꿔 놓고 잰다. 바꾸지 않고 재면 브라우저 시간대로 읽는 옛 코드도
- * 그대로 통과한다.
- */
 describe('재제출 기한을 서울 시각으로 읽는다', () => {
   const originalTimeZone = process.env.TZ;
 
@@ -940,11 +793,6 @@ describe('재제출 기한을 서울 시각으로 읽는다', () => {
     else process.env.TZ = originalTimeZone;
   });
 
-  /**
-   * UTC로 맞춰 둔 브라우저의 교직원이 18:00을 골랐다. 브라우저 시간대로 읽으면 그것은
-   * 18:00Z = **서울 9월 27일 새벽 3시**가 되어, 저장하자마자 자기가 고르지 않은 시각이
-   * 화면에 뜬다(표시는 전부 서울 시각이다).
-   */
   it('UTC 브라우저가 고른 18:00도 서울 18:00으로 보낸다', () => {
     process.env.TZ = 'UTC';
 
@@ -967,13 +815,9 @@ describe('재제출 기한을 서울 시각으로 읽는다', () => {
     ).toBe('2026-09-26T09:00:00.000Z');
   });
 
-  /**
-   * 화면 검사와 보낼 값이 **같은 규칙**이어야 한다. 검사만 브라우저 시간대로 읽으면 UTC
-   * 교직원에게는 이미 지난 시각이 「미래」로 통과한 뒤, 서버가 422(MSD_033)로 거절한다.
-   */
   it('검사도 같은 규칙으로 읽어 지난 시각을 그 자리에서 막는다', () => {
     process.env.TZ = 'UTC';
-    // 서울 기준 2026-09-26 18:30. 고른 값(서울 18:00)은 이미 지났다.
+
     const now = Date.parse('2026-09-26T09:30:00.000Z');
 
     expect(
@@ -986,11 +830,6 @@ describe('재제출 기한을 서울 시각으로 읽는다', () => {
   });
 });
 
-/**
- * 화면을 열어 둔 채 기한을 넘기는 자리. 렌더 시점 계산이 다시 돌지 않으면 안내는 계속
- * 「기한 안입니다」라 말하고 「수정」도 눌리는 채로 남아, 누른 학생은 서버 422(MSD_034)만
- * 받는다. 언제 한 번 다시 그려야 하는지를 이 함수가 정한다.
- */
 describe('milestoneDocumentResubmissionDueTickDelay', () => {
   const dueAt = '2026-09-26T09:00:00.000Z';
 
@@ -1007,10 +846,6 @@ describe('milestoneDocumentResubmissionDueTickDelay', () => {
     });
   }
 
-  /**
-   * 「지났다」는 판정이 `now > dueAt`이라 정각에 깨면 답이 아직 뒤집히지 않는다 — 1밀리초
-   * 뒤를 겨냥해야 한 번 깨는 것으로 끝난다.
-   */
   it('기한이 지나는 순간 다음 1밀리초를 겨냥한다', () => {
     const now = Date.parse('2026-09-26T08:59:59.000Z');
 
@@ -1039,7 +874,6 @@ describe('milestoneDocumentResubmissionDueTickDelay', () => {
     ).toBeNull();
   });
 
-  /** 이미 다시 낸 서류·판정이 끝난 서류는 시간이 흘러도 답이 바뀌지 않는다. */
   it('보완 요청을 기다리는 자리가 아니면 타이머를 걸지 않는다', () => {
     const now = Date.parse('2026-09-26T08:00:00.000Z');
 
@@ -1050,10 +884,6 @@ describe('milestoneDocumentResubmissionDueTickDelay', () => {
     }
   });
 
-  /**
-   * `setTimeout`은 32비트를 넘는 지연을 **즉시** 부른다. 자르지 않으면 기한이 한 달 뒤인
-   * 보완 요청에서 타이머가 쉬지 않고 돈다.
-   */
   it('setTimeout이 감당하는 최대치를 넘지 않는다', () => {
     const now = Date.parse('2026-09-26T09:00:00.000Z');
     const farFuture = viewer({

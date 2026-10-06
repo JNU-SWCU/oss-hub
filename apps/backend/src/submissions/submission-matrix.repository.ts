@@ -48,7 +48,7 @@ export interface MatrixSubmissionRecord {
   readonly milestoneId: string;
   readonly status: SubmissionStatus;
   readonly currentRevision: number;
-  /** 최신 revision의 생성 시각. revision row가 없으면(비정상 데이터) null. */
+
   readonly submittedAt: Date | null;
 }
 
@@ -78,10 +78,6 @@ export interface SubmissionMatrixRepositoryPort {
   ): Promise<readonly MatrixDocumentFirstSubmission[]>;
 }
 
-/**
- * 승인 Application 전수 행 + 검색·형태 필터 — rows와 count가 같은 where를 공유한다(#124).
- * q는 신청자 이름·신청자 GitHub 핸들·팀명·팀원 GitHub 핸들을 대소문자 무시 contains로 찾는다.
- */
 export function submissionMatrixApplicationWhere(
   programId: string,
   filter: SubmissionMatrixFilter,
@@ -90,9 +86,7 @@ export function submissionMatrixApplicationWhere(
     programId,
     status: ApplicationStatus.APPROVED,
   };
-  // 참여 유형(개인형/팀형) 필터는 D6로 폐지됐다 — 모든 신청이 Team을 갖고 개인 참여는
-  // 1인 팀이라 teamId로는 더 이상 구분되지 않는다. 조용히 0건을 반환하는 필터를
-  // 남기지 않기 위해 여기서 제거한다.
+
   if (filter.q.length > 0) {
     const contains = { contains: filter.q, mode: 'insensitive' as const };
     where.OR = [

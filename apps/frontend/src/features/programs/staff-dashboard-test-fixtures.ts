@@ -6,7 +6,6 @@ import type {
 
 export const staffDashboardNow = new Date('2026-07-20T00:00:00.000Z');
 
-/** 기본형은 「모집중」이다 — 신청기간이 열려 있고 종료일은 미정, 내리지 않았다. */
 export function staffDashboardProgram(
   overrides: Partial<StaffDashboardProgramSummary>,
 ): StaffDashboardProgramSummary {

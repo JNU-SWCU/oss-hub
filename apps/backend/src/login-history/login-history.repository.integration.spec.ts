@@ -46,13 +46,9 @@ describe('LoginHistoryRepository integration', () => {
   });
 
   it('로그인과 로그아웃을 provider 고정값으로 저장한다', async () => {
-    // Given: 로그인한 사용자가 있다.
-
-    // When: 로그인과 로그아웃을 차례로 기록한다.
     await repository.create(firstUserId, LOGIN_HISTORY_EVENTS.LOGIN);
     await repository.create(firstUserId, LOGIN_HISTORY_EVENTS.LOGOUT);
 
-    // Then: GitHub provider의 성공 이력 두 건이 저장된다.
     const rows = await prisma.loginHistory.findMany({
       where: { userId: firstUserId },
     });
@@ -80,7 +76,6 @@ describe('LoginHistoryRepository integration', () => {
   });
 
   it('요청한 사용자 이력만 최신순으로 페이지 조회한다', async () => {
-    // Given: 두 사용자의 이력이 섞여 있다.
     await prisma.loginHistory.createMany({
       data: [
         {
@@ -104,10 +99,8 @@ describe('LoginHistoryRepository integration', () => {
       ],
     });
 
-    // When: 첫 번째 사용자의 두 번째 페이지를 조회한다.
     const result = await repository.findPage(firstUserId, 2, 1);
 
-    // Then: 다른 사용자는 제외하고 첫 번째 사용자의 이전 이력만 반환한다.
     expect(result.total).toBe(2);
     expect(result.page).toBe(2);
     expect(result.size).toBe(1);

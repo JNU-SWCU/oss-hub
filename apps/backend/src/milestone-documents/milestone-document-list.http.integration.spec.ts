@@ -6,10 +6,6 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/auth.service';
 
-/**
- * `AuthService`의 공개 시그니처에서 principal 타입을 파생한다 — 다른 모듈의 `domain/*`을
- * 직접 import하면 ADR-003 module 경계 lint가 막으므로 모듈-공개인 반환 타입을 재사용한다.
- */
 type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
 import { sessionCookieName } from '../auth/cookies';
 import { issueSessionToken } from '../auth/session-token';
@@ -74,9 +70,6 @@ describe('authenticated milestone document list filename contract', () => {
         {
           provide: AuthService,
           useValue: {
-            // 실서비스 `getMe`는 ACTIVE principal을 돌려주거나 401을 throw하며 undefined를
-            // 반환하지 않는다. SessionGuard가 `principal.sessionVersion`을 벼므로 토큰이
-            // 검증한 githubId를 그대로 되울려주며 세션 버전은 harness 토큰과 같은 0이다.
             getMe: jest
               .fn<Promise<ActivePrincipal>, [bigint]>()
               .mockImplementation((principalGithubId) =>
@@ -201,7 +194,7 @@ describe('authenticated milestone document list filename contract', () => {
         }),
       ]),
     );
-    // 화면은 이 값만 보고 파일 입력을 그린다 — 응답에서 빠지면 사본이 다시 생긴다(#1107).
+
     expect(body.fileUpload).toEqual({
       maxBytes: 5 * 1024 * 1024,
       maxLabel: '5 MB',

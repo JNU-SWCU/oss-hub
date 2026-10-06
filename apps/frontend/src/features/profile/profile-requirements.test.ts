@@ -101,7 +101,7 @@ describe('role-aware profile completion', () => {
         'STUDENT',
       ),
     ).toBe(false);
-    // 요구되지 않는 항목의 잘못된 값은 완성 판정을 막지 않는다.
+
     expect(isProfileComplete(fields({ studentId: '12A456' }), 'STAFF')).toBe(
       true,
     );
@@ -136,7 +136,6 @@ describe('server isComplete consistency', () => {
 
 describe('학번을 함께 저장할 때의 학과', () => {
   it('학과가 필수가 아닌 역할도 학번을 적으면 학과가 필요해진다', () => {
-    // Given / When / Then — 학번이 유일성 제약 아래 저장되는 행이 학과를 요구한다
     expect(isDepartmentRequiredForProfile('ADMIN', '')).toBe(false);
     expect(isDepartmentRequiredForProfile('ADMIN', '   ')).toBe(false);
     expect(isDepartmentRequiredForProfile('ADMIN', STUDENT_ID)).toBe(true);
@@ -150,10 +149,6 @@ describe('학번을 함께 저장할 때의 학과', () => {
   });
 });
 
-/**
- * Lockstep values with `user-profile-policy.spec.ts`.
- * Student IDs are synthetic local-unique fixtures, not roster data.
- */
 const PROFILE_UNICODE_CONTRACT = {
   asciiName: 'Synthetic User',
   hangulName: '합성가',

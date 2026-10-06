@@ -60,10 +60,7 @@ export type AdminAccessMutationCommand = {
   readonly desiredAccountStatus: AccountStatus;
   readonly expectedPendingRequest: AdminAccessExpectedPendingRequest | null;
   readonly requestDecision?: AdminAccessRequestDecision;
-  /**
-   * CAS 기준값. 표시 역할은 admin-only와 staff+admin을 같은 `ADMIN`으로 접으므로
-   * 이 두 칸이 있을 때만 신선도를 정본으로 비교한다.
-   */
+
   readonly expectedHasStaffAccess?: boolean;
   readonly expectedHasAdminAccess?: boolean;
 };
@@ -81,11 +78,6 @@ export type AdminAccessCasProjection = {
   readonly pendingRequest: AdminAccessPendingRequest | null;
 };
 
-/**
- * 이 변경이 요청 이력에 남긴 행. APPROVED·REJECTED는 대기 중이던 행을 결정한 결과이고,
- * REVOKED는 **새로 삽입한** 행이다(#184) — 회수는 기존 APPROVED 행을 덮어쓰지 않으므로
- * 여기 실리는 id는 방금 만들어진 행의 id다.
- */
 export type AdminAccessDecidedRequest = {
   readonly id: string;
   readonly status:

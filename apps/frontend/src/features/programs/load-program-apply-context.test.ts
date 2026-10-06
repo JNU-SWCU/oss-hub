@@ -55,13 +55,11 @@ const program = {
   milestones: [],
 } satisfies ProgramDetail;
 
-/** 신청 기간 판별은 실제 현재 시각(Date.now())을 쓴다 — 언제 돌려도 열려 있게 둔다. */
 const openPeriod = {
   startsAt: '2020-01-01T00:00:00.000Z',
   endsAt: '2099-12-31T23:59:59.000Z',
 } as const;
 
-/** #1269 이전의 「개인형」 템플릿. 지금은 이 양식도 자기 팀을 만들어 신청한다. */
 const template = {
   key: 'basic',
   version: 1,
@@ -80,7 +78,6 @@ const teamTemplate = {
   participation: 'team',
 } satisfies ApplicationFormTemplate;
 
-/** backend `GET /programs/:id/teams/me` 가 실제로 내려주는 모양(능력 플래그 포함). */
 const leaderTeam: ProgramTeam = {
   id: 'team-1',
   name: '기초스터디팀',
@@ -98,7 +95,6 @@ const leaderTeam: ProgramTeam = {
   ],
 };
 
-/** 초대를 받아 합류한 팀원 — 팀장이 아니므로 신청서를 쓰지 못한다. */
 const invitedMemberTeam: ProgramTeam = {
   ...leaderTeam,
   hasApplication: true,
@@ -140,14 +136,12 @@ function problem(status: number, code: string) {
   };
 }
 
-/** 서버는 「소속된 팀이 없음」을 null로 말한다(QA174 / #1303). */
 const NO_TEAM = null;
 
 function loadDefaultContext(): ReturnType<typeof loadProgramApplyContext> {
   return loadProgramApplyContext('program-1', sessionUser);
 }
 
-/** 신청 전(create) 갈래를 열어 두는 프로그램. */
 function openProgram(overrides: Partial<ProgramDetail> = {}): ProgramDetail {
   return {
     ...program,
@@ -171,13 +165,7 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getMyTeam).mockResolvedValue(NO_TEAM);
   });
 
-  /**
-   * 팀원은 신청서를 읽지만 고치거나 취소하지 못한다(#1083). 기간이 남아 있는데
-   * 「신청 기간이 아닙니다」라고 하면 기다리면 열릴 줄 알고, 팀장에게 말할 생각을
-   * 못 한다. 막는 이유를 서버가 실어 보낸 `isManager`로 가른다.
-   */
   it('blocks a team member who cannot manage the application', async () => {
-    // Given
     const memberApplication = {
       ...application,
       isManager: false,
@@ -185,10 +173,8 @@ describe('loadProgramApplyContext', () => {
     };
     vi.mocked(getMyApplication).mockResolvedValue(memberApplication);
 
-    // When
     const result = await loadDefaultContext();
 
-    // Then
     expect(result).toEqual({
       kind: 'blocked',
       reason: 'manage-not-allowed',
@@ -198,14 +184,11 @@ describe('loadProgramApplyContext', () => {
   });
 
   it('blocks a submitted application as period-closed when it cannot be edited', async () => {
-    // Given
     const readonlyApplication = { ...application, canManage: false };
     vi.mocked(getMyApplication).mockResolvedValue(readonlyApplication);
 
-    // When
     const result = await loadDefaultContext();
 
-    // Then
     expect(result).toEqual({
       kind: 'blocked',
       reason: 'period-closed',
@@ -215,7 +198,6 @@ describe('loadProgramApplyContext', () => {
   });
 
   it('blocks a decided application as already-applied even after the period closes', async () => {
-    // Given
     const decidedProgram = {
       ...program,
       viewer: { role: 'STUDENT', applicationStatus: 'APPROVED' },
@@ -228,10 +210,8 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getProgramDetail).mockResolvedValue(decidedProgram);
     vi.mocked(getMyApplication).mockResolvedValue(decidedApplication);
 
-    // When
     const result = await loadDefaultContext();
 
-    // Then
     expect(result).toEqual({
       kind: 'blocked',
       reason: 'already-applied',
@@ -241,16 +221,7 @@ describe('loadProgramApplyContext', () => {
     expect(getMyApplication).toHaveBeenCalledWith('program-1');
   });
 
-  /**
-   * 반려 사유는 `getMyApplication` 응답에만 실려 온다(#722). 예전에는 이 판정 직후
-   * 응답 객체를 버려서, 화면이 사유를 그리려 해도 꺼낼 곳이 없었다.
-   */
-  /**
-   * 반려된 신청은 학생이 고쳐 다시 낼 수 있다(R-1). 그러므로 막히는 것은 승인뿐이고,
-   * 반려는 권한·기간이 허락하면 수정 화면이 열린다.
-   */
   it('승인된 신청만 already-applied 로 막는다', async () => {
-    // Given
     const approvedProgram = {
       ...program,
       viewer: { role: 'STUDENT', applicationStatus: 'APPROVED' },
@@ -263,10 +234,8 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getProgramDetail).mockResolvedValue(approvedProgram);
     vi.mocked(getMyApplication).mockResolvedValue(approvedApplication);
 
-    // When
     const result = await loadDefaultContext();
 
-    // Then
     expect(result).toEqual({
       kind: 'blocked',
       reason: 'already-applied',
@@ -275,12 +244,7 @@ describe('loadProgramApplyContext', () => {
     });
   });
 
-  /**
-   * 반려 자체는 더 이상 수정을 막지 않는다(R-1). 이 fixture 가 막히는 이유는 신청
-   * 기간이 닫혔기 때문이고, 화면이 그것을 「이미 신청했다」로 뭉개지 않아야 한다.
-   */
   it('반려는 판정이 아니라 기간·권한으로만 막는다', async () => {
-    // Given
     const rejectedProgram = {
       ...program,
       viewer: { role: 'STUDENT', applicationStatus: 'REJECTED' },
@@ -294,32 +258,25 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getProgramDetail).mockResolvedValue(rejectedProgram);
     vi.mocked(getMyApplication).mockResolvedValue(rejectedApplication);
 
-    // When
     const result = await loadDefaultContext();
 
-    // Then
     expect(result).toEqual({
       kind: 'blocked',
-      // 기간이 닫혔다는 사실과 「이미 신청했다」는 다른 말이다 — 후자는 고칠 길이
-      // 없다는 뜻으로 읽힌다.
+
       reason: 'period-closed',
       program: rejectedProgram,
       application: rejectedApplication,
     });
   });
 
-  // 신청서를 조회하지도 않은 갈래는 `null`이다 — 없는 값을 지어내지 않는다.
   it('팀이 없으면 자기 팀을 만들 수 있는 상태로 열되 아무것도 쓰지 않는다', async () => {
-    // Given
     vi.mocked(listApplicationTemplates).mockResolvedValue([teamTemplate]);
     vi.mocked(getProgramDetail).mockResolvedValue(
       openProgram({ applicationTemplateKey: 'oss-contest' }),
     );
 
-    // When
     const result = await loadDefaultContext();
 
-    // Then
     expect(result).toMatchObject({
       kind: 'ready',
       mode: 'create',
@@ -328,7 +285,7 @@ describe('loadProgramApplyContext', () => {
       team: null,
       applicationId: null,
       rejectionReason: null,
-      // 팀이 없는 사람은 자기 팀의 팀장이 될 사람이다.
+
       canManage: true,
       initialValues: {
         isRepositoryPublicationPlanned: true,
@@ -336,25 +293,17 @@ describe('loadProgramApplyContext', () => {
       },
     });
     expect(getMyTeam).toHaveBeenCalledWith('program-1');
-    // 로더는 읽기만 한다 — 화면을 열었다는 이유로 팀이 생기지 않는다.
+
     expect(createTeam).not.toHaveBeenCalled();
     expect(removeMyTeamMember).not.toHaveBeenCalled();
   });
 
-  /**
-   * #1269: 예전 `individual` 템플릿은 팀 조회 자체를 건너뛰어, 팀 이름을 지은 뒤
-   * 새로고침하면 만든 팀이 사라진 것처럼 보였다. 이제 모든 양식이 같은 경로로
-   * 인증된 세션의 팀을 다시 읽어 이어서 진행한다.
-   */
   it('예전 개인형 양식도 인증된 팀 조회로 기존 팀을 이어받는다', async () => {
-    // Given — 기본(basic) 양식, 이미 만들어 둔 내 팀
     vi.mocked(getProgramDetail).mockResolvedValue(openProgram());
     vi.mocked(getMyTeam).mockResolvedValue(leaderTeam);
 
-    // When
     const result = await loadDefaultContext();
 
-    // Then
     expect(getMyTeam).toHaveBeenCalledWith('program-1');
     expect(result).toMatchObject({
       kind: 'ready',
@@ -368,8 +317,6 @@ describe('loadProgramApplyContext', () => {
   });
 
   it('팀형 프로그램의 새 신청 상태에는 GitHub handle과 현재 팀을 함께 담는다', async () => {
-    // `resolveProgramApplicationTemplate`는 program.applicationTemplateKey로
-    // 정의를 고르고 그 key와 일치하는 템플릿만 API 응답에서 받아들인다.
     const noApplicationProgram = openProgram({
       applicationTemplateKey: 'oss-contest',
     });
@@ -399,10 +346,6 @@ describe('loadProgramApplyContext', () => {
     });
   });
 
-  /**
-   * 초대로 합류한 팀원이 신청서를 또 쓰면 같은 팀 이름으로 신청이 둘 생긴다.
-   * 권한은 서버가 계산한 `isLeader` 하나로 판단하고 화면이 다시 유추하지 않는다.
-   */
   it('초대로 합류한 팀원은 신청서를 쓸 수 없는 상태로 연다', async () => {
     vi.mocked(getProgramDetail).mockResolvedValue(openProgram());
     vi.mocked(getMyTeam).mockResolvedValue(invitedMemberTeam);
@@ -420,13 +363,10 @@ describe('loadProgramApplyContext', () => {
   });
 
   it('returns edit state only when a submitted application can be edited', async () => {
-    // Given — 수정 권한은 서버 `canManage`가 정한다(과거 신청자였다는 사실이 아니라).
     vi.mocked(getMyTeam).mockResolvedValue(leaderTeam);
 
-    // When
     const result = await loadDefaultContext();
 
-    // Then
     expect(result).toEqual({
       kind: 'ready',
       mode: 'edit',
@@ -449,7 +389,6 @@ describe('loadProgramApplyContext', () => {
   });
 
   it('converges to create state when another tab already cancelled the application', async () => {
-    // 상세는 「신청이 있다」고 했는데 조회가 비었다 — 다른 탭이 그 사이 취소한 것이다.
     vi.mocked(getMyApplication).mockResolvedValue(null);
 
     const result = await loadDefaultContext();
@@ -460,10 +399,6 @@ describe('loadProgramApplyContext', () => {
     });
   });
 
-  /**
-   * 팀 조회가 실패했다는 것과 팀이 없다는 것은 다른 사실이다. 뭉뚱그리면 이미
-   * 팀에 속한 학생에게 팀 만들기를 권해, 서버 거절(TEAM_006)로 끝나는 길을 안내한다.
-   */
   it.each([
     ['서버 오류', problem(500, 'SYS_001')],
     ['프로그램 없음(404)', problem(404, 'TEAM_002')],
@@ -492,10 +427,6 @@ describe('loadProgramApplyContext', () => {
     });
   });
 
-  /**
-   * 템플릿 목록 실패를 삼키면 로컬 기본값(version 1)으로 만든 가짜 양식을 제출해
-   * 서버가 APP_016으로 되돌린다. 학생은 무엇이 잘못됐는지 알 수 없다.
-   */
   it('신청 양식 목록을 못 읽으면 로컬 기본 양식으로 대신하지 않는다', async () => {
     vi.mocked(getProgramDetail).mockResolvedValue(openProgram());
     vi.mocked(listApplicationTemplates).mockRejectedValue(

@@ -5,20 +5,10 @@ import {
 } from './submission-zip-admission';
 import { signatureValidZip } from './submission-zip-test-builder';
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
-
 const MIB = 1024 * 1024;
 
-/**
- * 비밀번호가 걸린 항목은 **크기까지 맞아야** 검사가 그 사실을 볼 수 있다.
- * 전통 방식 암호화는 저장된 자료 앞에 12바이트 머리를 덧붙이므로 무압축(0) 항목의
- * 압축 크기는 원래 크기 + 12다. 이 12를 빼먹은 합성 자료는 「비밀번호」가 아니라
- * 「크기가 맞지 않는 파일」로 먼저 걸려 읽기 단계에서 튕긴다 — 이 저장소의 옛 합성
- * 자료가 실제로 그랬고, 그래서 비밀번호 갈래는 한 번도 실행된 적이 없었다.
- */
 const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;
 
-/** 압축 파일에 담을 수 없는 문자. 소스에 그대로 적지 않는다. */
 const FORBIDDEN_NAME_CHARACTER = String.fromCharCode(0);
 
 const REJECTIONS: ReadonlyArray<
@@ -143,38 +133,27 @@ const REJECTIONS: ReadonlyArray<
 
 describe('inspectSubmissionZipMetadata — 거절 사유를 갈래별로 돌려준다', () => {
   it('중첩·비밀번호 없이 한도 안에 있는 .zip은 통과한다', async () => {
-    // Given
     const archive = signatureValidZip([{ name: 'valid.txt' }]);
 
-    // When
     const rejection = await inspectSubmissionZipMetadata(archive);
 
-    // Then: 참/거짓이 아니라 「막을 이유가 없다」는 뜻의 null이다.
     expect(rejection).toBeNull();
   });
 
   it.each(REJECTIONS)(
     '%s는 %s로 돌려준다',
     async (_scenario, expected, build) => {
-      // Given
       const archive = build();
 
-      // When
       const rejection = await inspectSubmissionZipMetadata(archive);
 
-      // Then
       expect(rejection).toBe(expected);
     },
   );
 });
 
-/**
- * #1108은 **알리는 방식**만 다룬다. 막는 기준을 슬쩍 완화하면 이 검사가 지키던 것이
- * 사라지므로, 경계 바로 안쪽이 통과하고 바로 바깥이 막히는 것을 양쪽에서 못 박는다.
- */
 describe('막는 기준은 그대로다', () => {
   it('항목 1,000개까지는 통과하고 1,001개부터 막는다', async () => {
-    // Given
     const build = (count: number) =>
       signatureValidZip(
         Array.from({ length: count }, (_, index) => ({
@@ -182,7 +161,6 @@ describe('막는 기준은 그대로다', () => {
         })),
       );
 
-    // When / Then
     expect(await inspectSubmissionZipMetadata(build(1_000))).toBeNull();
     expect(await inspectSubmissionZipMetadata(build(1_001))).toBe(
       SubmissionZipRejection.TOO_MANY_ENTRIES,
@@ -190,7 +168,6 @@ describe('막는 기준은 그대로다', () => {
   });
 
   it('항목 하나가 100 MiB까지는 통과하고 1바이트만 넘어도 막는다', async () => {
-    // Given
     const build = (uncompressedSize: number) =>
       signatureValidZip([
         {
@@ -201,7 +178,6 @@ describe('막는 기준은 그대로다', () => {
         },
       ]);
 
-    // When / Then
     expect(await inspectSubmissionZipMetadata(build(100 * MIB))).toBeNull();
     expect(await inspectSubmissionZipMetadata(build(100 * MIB + 1))).toBe(
       SubmissionZipRejection.CONTENT_TOO_LARGE,
@@ -209,7 +185,6 @@ describe('막는 기준은 그대로다', () => {
   });
 
   it('총합 200 MiB까지는 통과하고 넘으면 막는다', async () => {
-    // Given
     const build = (uncompressedSize: number) =>
       signatureValidZip(
         Array.from({ length: 2 }, (_, index) => ({
@@ -220,7 +195,6 @@ describe('막는 기준은 그대로다', () => {
         })),
       );
 
-    // When / Then
     expect(await inspectSubmissionZipMetadata(build(100 * MIB))).toBeNull();
     expect(await inspectSubmissionZipMetadata(build(100 * MIB + 1))).toBe(
       SubmissionZipRejection.CONTENT_TOO_LARGE,
@@ -228,7 +202,6 @@ describe('막는 기준은 그대로다', () => {
   });
 
   it('압축률 100배까지는 통과하고 넘으면 막는다', async () => {
-    // Given
     const build = (uncompressedSize: number) =>
       signatureValidZip([
         {
@@ -239,7 +212,6 @@ describe('막는 기준은 그대로다', () => {
         },
       ]);
 
-    // When / Then
     expect(await inspectSubmissionZipMetadata(build(100 * 1_024))).toBeNull();
     expect(await inspectSubmissionZipMetadata(build(100 * 1_024 + 1))).toBe(
       SubmissionZipRejection.EXPANDS_TOO_MUCH,
@@ -247,12 +219,10 @@ describe('막는 기준은 그대로다', () => {
   });
 
   it.each([0, 8])('압축 방식 %i은 그대로 받는다', async (compressionMethod) => {
-    // Given
     const archive = signatureValidZip([
       { name: 'entry.txt', compressionMethod },
     ]);
 
-    // When / Then
     expect(await inspectSubmissionZipMetadata(archive)).toBeNull();
   });
 });
@@ -261,7 +231,6 @@ describe('학생이 읽는 문장', () => {
   const messages = Object.values(SUBMISSION_ZIP_REJECTION_MESSAGES);
 
   it('갈래마다 다른 문장을 준다', () => {
-    // 여덟 갈래를 나눠 놓고 같은 말을 하면 코드만 늘고 학생이 얻는 것은 없다.
     expect(new Set(messages).size).toBe(messages.length);
   });
 
@@ -275,20 +244,16 @@ describe('학생이 읽는 문장', () => {
   );
 
   it('무엇을 하면 되는지가 문장에 있다', () => {
-    // 원인만 말하고 끝나면 학생은 같은 파일을 다시 낸다(#1108의 실제 증상).
     for (const message of messages) {
       expect(message).toMatch(/주세요\.$/);
     }
   });
 
   it('압축 안 항목의 이름을 밖으로 내보내지 않는다', async () => {
-    // Given: 이름이 그대로 새어 나가면 눈에 띄도록 특징적인 이름을 쓴다.
     const archive = signatureValidZip([{ name: '개인정보-동의서-원본.ZIP' }]);
 
-    // When
     const rejection = await inspectSubmissionZipMetadata(archive);
 
-    // Then
     expect(rejection).toBe(SubmissionZipRejection.NESTED_ARCHIVE);
     expect(
       SUBMISSION_ZIP_REJECTION_MESSAGES[SubmissionZipRejection.NESTED_ARCHIVE],

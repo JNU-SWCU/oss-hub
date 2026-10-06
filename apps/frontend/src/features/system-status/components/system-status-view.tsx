@@ -62,13 +62,6 @@ const RUN_STATUS = {
   { label: string; variant: 'closed' | 'recruiting' }
 >;
 
-/**
- * 운영자에게 보이는 사유 문구.
- * 각 문구는 "지금 무슨 상태인가" 다음에 반드시 "그래서 무엇을 보면 되는가"를 붙인다 —
- * 상태만 적힌 경고는 운영자를 화면 앞에 세워 두고 다음 행동을 알려 주지 않는다.
- * 내부 식별자·토큰·저장소 이름은 넣지 않는다(이 화면의 안전 사유 계약).
- */
-/** 빈 상태 화면은 제목이 이미 같은 문장을 말하므로 다음 행동만 따로 쓴다. */
 const NO_TRACKED_REPOSITORIES_ACTION =
   '사업단 GitHub 조직에 수집 연동 앱이 설치되어 있는지, 조직에 저장소가 등록되어 있는지 확인해 주세요.';
 
@@ -82,16 +75,10 @@ const SAFE_REASON_COPY = {
     '최근 데이터 수집이 지연되고 있습니다. 아래 ‘데이터 기준 시각’이 얼마나 오래됐는지 먼저 확인하고, 지연이 이어지면 수집 연동 앱의 설치·권한 상태를 점검해 주세요.',
 } as const satisfies Record<SystemStatusSafeReason, string>;
 
-/**
- * 이 화면의 ‘수집 연동 앱’이 무엇인지 모르는 운영자를 위한 설명.
- * 개인이 자기 GitHub 계정에 붙이는 앱과 헷갈리면 엉뚱한 곳(개인 설정)을 뒤지게 되므로
- * 설치 주체(조직)와 읽는 범위, 확인할 위치를 함께 적는다.
- */
 const COLLECTION_APP_TITLE = '수집 앱 설치·권한 확인';
 const COLLECTION_APP_DESCRIPTION =
   '사업단 GitHub 조직의 Settings → GitHub Apps에서 수집 앱 설치와 대상 저장소의 접근 권한을 확인해 주세요. 이 앱은 개인 계정이 아닌 조직에 설치하며, 접근을 승인한 저장소의 활동만 읽습니다.';
 
-/** 수집이 정상이 아닐 때만 띄운다 — 평소에는 운영자가 읽어야 할 것이 아니다. */
 function CollectionAppGuide() {
   return (
     <Alert>
@@ -137,11 +124,6 @@ function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   );
 }
 
-/**
- * Stream 진행 상황의 4구간(완료/Backfill 중/부분·대기/재시도 대기) — 세그먼트 바와
- * 범례가 같은 순서·같은 색을 공유하도록 한 곳에 정의한다. 프로젝트 디자인 토큰만
- * 사용한다(하드코딩 색상 금지, `status-badge.tsx`와 동일한 원칙).
- */
 const STREAM_SEGMENTS = [
   { key: 'ready', label: '완료', colorClass: 'bg-primary' },
   {
@@ -372,8 +354,7 @@ export function SystemStatusView({
   const { status, collectionStreams, collectionActivity, externalCollection } =
     state;
   const isEmpty = status.health === 'EMPTY';
-  // 이미 실행 중인 사이클에 두 번째 트리거를 보내 봐야 lease가 거절한다 — 요청을
-  // 보내기 전에 막아 관리자가 실패 응답을 받고서야 알게 되는 상황을 없앤다.
+
   const triggerDisabled =
     isTriggering || status.currentRunStatus === 'PROCESSING';
 
@@ -395,7 +376,6 @@ export function SystemStatusView({
         }
       />
 
-      {/* 트리거 결과 알림 — Alert의 role="alert"가 등장 즉시 스크린 리더에 통지한다. */}
       {triggerNotice ? (
         <Alert
           variant={triggerNotice.kind === 'error' ? 'destructive' : 'default'}
@@ -429,11 +409,8 @@ export function SystemStatusView({
         </>
       )}
 
-      {/* org 수집이 EMPTY여도 external은 독립된 파이프라인이라 항상 보여준다 —
-          org에 저장소가 없다고 external 수집 현황까지 감춰서는 안 된다. */}
       <ExternalCollectionSection status={externalCollection} />
 
-      {/* 정상일 때는 붙이지 않는다 — 문제가 없을 때 읽어야 할 안내가 아니다. */}
       {status.health === 'NORMAL' ? null : <CollectionAppGuide />}
     </main>
   );

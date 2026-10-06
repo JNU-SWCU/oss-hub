@@ -45,10 +45,6 @@ function requestWithCookie(cookie?: string): OptionalSessionRequest {
   });
 }
 
-/**
- * 표시 역할 한 단어를 canonical 세 사실로 펼친다.
- * ADMIN은 회원 유형을 남기지 않는다 — 관리자 권한은 정체성과 독립이다.
- */
 function accessFor(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
   return {
     memberKind: role === 'ADMIN' ? null : role,
@@ -163,8 +159,7 @@ describe('AuthController getSession', () => {
         hasStaffAccess: false,
         hasAdminAccess: false,
         memberKind: null,
-        // 화면 게이트가 "역할은 있는데 프로필이 비어 있는" 사용자를 프로필 단계로
-        // 되돌리려면 세션이 이 사실을 함께 실어야 한다.
+
         isProfileComplete: false,
       },
     });

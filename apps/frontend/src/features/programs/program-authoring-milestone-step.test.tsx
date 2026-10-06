@@ -1,6 +1,5 @@
 import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 
-
 import { act, useReducer, useRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -393,8 +392,6 @@ describe('ProgramAuthoringMilestoneStep', () => {
     expect(document.body.textContent).toContain('마일스톤 추가');
   });
 
-  // 사용자가 저장 버튼을 누른 것처럼 포커스를 버튼에 두고 누른다 — 창이 열릴 때
-  // 첫 칸에 선 자동 포커스와 저장 뒤 포커스 이동을 구별하려는 것이다.
   async function pressSave() {
     const save = button('저장');
     await act(async () => {
@@ -408,7 +405,6 @@ describe('ProgramAuthoringMilestoneStep', () => {
     await addBlankDraft();
     await pressSave();
 
-    // 이름·기간 두 줄. 기간은 시작·마감이 한 줄이다.
     expect(dialog().querySelectorAll('[data-slot="field-error"]')).toHaveLength(
       2,
     );
@@ -432,8 +428,7 @@ describe('ProgramAuthoringMilestoneStep', () => {
     await render();
     await addBlankDraft();
     await pressSave();
-    // pressSave 가 커서를 저장 버튼으로 옮긴 뒤 누르므로, 첫 오류 칸에 다시 서려면
-    // 두 번째 저장에서도 포커스 이동이 돌아야 한다.
+
     await pressSave();
 
     expect(document.activeElement).toBe(input('[aria-label="시작일"]'));

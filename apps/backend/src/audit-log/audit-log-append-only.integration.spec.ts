@@ -59,10 +59,4 @@ describe('AuditLog append-only database enforcement', () => {
       prisma.$executeRawUnsafe('TRUNCATE TABLE "AuditLog"'),
     ).rejects.toThrow(/AuditLog is append-only/);
   });
-
-  // 감사 삽입 실패가 같은 트랜잭션의 도메인 쓰기를 롤백하는지는
-  // admin-access.integration.spec.ts의
-  // 'rolls back the user CAS when PostgreSQL rejects the audit insert'가
-  // 통합 접근(AdminAccess) 경로로 이미 검증한다(PR04H, 레거시
-  // StaffAccessRequests 경로 제거로 대체).
 });

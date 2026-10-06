@@ -3,8 +3,6 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StaffProgramTeamMember } from './types';
 
-
-
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
   value: true,
@@ -113,7 +111,6 @@ async function click(button: HTMLButtonElement): Promise<void> {
   await act(async () => button.click());
 }
 
-/** 확인 창의 실행 버튼 — 문구로 찾는다. */
 async function confirm(text: string): Promise<void> {
   const found = [...document.querySelectorAll('button')].find(
     (button) => button.textContent?.trim() === text,
@@ -132,10 +129,6 @@ describe('StaffTeamMembersPanel', () => {
     expect(() => buttonByLabel('합성 팀원 팀장 변경')).not.toThrow();
   });
 
-  /**
-   * 누르자마자 지우지 않는다 — 사람을 팀에서 빼는 것은 되돌리기 어렵고,
-   * 명단에서 옆줄을 잘못 누르기 쉽다.
-   */
   it('제외는 확인을 거쳐야 요청이 나간다', async () => {
     await render();
 
@@ -164,10 +157,6 @@ describe('StaffTeamMembersPanel', () => {
     );
   });
 
-  /**
-   * 화면이 스스로 명단을 고치지 않는다 — 마지막 팀원 규칙이나 승계처럼 서버만
-   * 아는 결과가 있어서, 바뀐 뒤의 사실은 다시 읽어서 받는다.
-   */
   it('성공하면 화면에 다시 읽으라고 알린다', async () => {
     await render();
 
@@ -177,11 +166,6 @@ describe('StaffTeamMembersPanel', () => {
     expect(onChanged).toHaveBeenCalled();
   });
 
-  /**
-   * 실패해도 다시 읽는다. 요청이 오류로 끝난 것은 서버가 적용하지 않았다는 증거가
-   * 아니다 — 응답이 오기 전에 끊길 수 있다. 판정 재조회가 같은 이유로 응답이 아니라
-   * 다시 읽은 값을 화면 상태로 쓴다.
-   */
   it('실패해도 알리고 다시 읽는다 — 오류가 미적용을 뜻하지 않는다', async () => {
     removeStaffTeamMemberMock.mockRejectedValue(new Error('boom'));
     await render();
@@ -190,7 +174,7 @@ describe('StaffTeamMembersPanel', () => {
     await confirm('팀에서 제외');
 
     expect(onChanged).toHaveBeenCalled();
-    // 화면이 스스로 명단을 고치지는 않는다.
+
     expect(container.textContent).toContain('합성 팀원');
     expect(document.body.textContent).toContain('팀에서 제외 실패');
   });

@@ -98,10 +98,6 @@ export class SubmissionFilesService {
     }
     const now = new Date();
     if (resubmissionContext !== null) {
-      // 교체 허용 조건은 submissions.service.ts 의 assertResubmittable 과 같은 계약이다.
-      // 보완 요청은 마감과 무관하게 열리고, 아직 판정 전(SUBMITTED)이면 마감 전까지 교체할 수 있다.
-      // 여기서만 CHANGES_REQUESTED 로 좁히면 체크리스트가 canResubmit=true 로 안내하는데
-      // FILE 유형만 업로드 단계에서 막혀 학생이 잘못 낸 파일을 마감 전에 고칠 수 없다.
       const status = authorization.resubmissionStatus;
       const replaceableBeforeDue =
         status === SubmissionStatus.SUBMITTED &&
@@ -140,9 +136,6 @@ export class SubmissionFilesService {
     try {
       created = await this.repository.createPending(pendingInput);
     } catch (error) {
-      // 위의 preflight 이후 탈퇴·승계가 커밋되면 예약 transaction 안의 잠금이 이를
-      // 잡아낸다(#1269). 권한 없는 사용자는 preflight에서 걸린 것과 같은 403을 받고,
-      // 이 분기는 `storage.put` 앞이라 비공개 객체는 애초에 쓰이지 않는다.
       if (error instanceof SubmissionMembershipChangedError) {
         throw this.error(SubmissionsErrorCode.NOT_APPLICATION_MEMBER);
       }
@@ -175,11 +168,6 @@ export class SubmissionFilesService {
     };
   }
 
-  /**
-   * 고른 파일에 제출과 **같은** 판정만 돌려준다(#1108). 거절 사유를 보려고 제출을 눌러야
-   * 했던 것을 없애려는 경로다. 규칙은 `admitFile` 하나를 함께 쓰고, 이 경로는 저장소에도
-   * DB에도 닿지 않는다 — 제출 때 같은 검사가 다시 돌아 방어선은 그대로다.
-   */
   async check(file: SubmissionFileUpload | undefined): Promise<void> {
     if (file === undefined || !Buffer.isBuffer(file.buffer)) {
       throw this.error(SubmissionsErrorCode.INVALID_FILE_UPLOAD);
@@ -187,7 +175,6 @@ export class SubmissionFilesService {
     await this.admitFile(file);
   }
 
-  /** 크기 → 형식·서명 → 압축 내용 순서로 막고, 통과하면 정규화한 파일 이름을 돌려준다. */
   private async admitFile(file: SubmissionFileUpload): Promise<string> {
     if (file.size > MAX_FILE_BYTES || file.buffer.byteLength > MAX_FILE_BYTES) {
       throw this.error(SubmissionsErrorCode.FILE_TOO_LARGE);
@@ -199,12 +186,7 @@ export class SubmissionFilesService {
     ) {
       throw this.error(SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE);
     }
-    /*
-     * 여기서 막히는 것은 형식이 아니라 압축 파일 **안에 담긴 것**이다(#1108). 위의 확장자·
-     * 서명 검사와 같은 코드로 던지면, 허용 형식인 `.zip`을 낸 학생이 「지원하지 않는 파일
-     * 형식입니다」를 읽고 원인과 무관한 쪽(형식·재압축)으로 간다. 갈래마다 다른 코드로
-     * 던져야 화면이 「무엇을 고치면 되는지」를 말할 수 있다.
-     */
+
     if (normalizedFileName.toLowerCase().endsWith('.zip')) {
       const zipRejection = await inspectSubmissionZipMetadata(file.buffer);
       if (zipRejection !== null) {

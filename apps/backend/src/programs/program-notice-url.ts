@@ -56,7 +56,7 @@ export function parseProgramNoticeImageUrl(
     const url = new URL(
       `${ORIGIN}/wp-content/uploads/${segments.map(encodeURIComponent).join('/')}`,
     );
-    // Re-encoding raw non-ASCII names can exceed the 2048-character cover column.
+
     return url.href.length <= 2048 ? url : null;
   } catch (error) {
     if (error instanceof URIError) return null;

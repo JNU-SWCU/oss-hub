@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -128,7 +126,6 @@ function controlValue(id: string): string {
   );
 }
 
-/** 목록에 선 값과, 그중 고를 수 없는 값. */
 function optionsOf(id: string): readonly (readonly [string, boolean])[] {
   return Array.from(openControl(id).querySelectorAll('[role="option"]')).map(
     (option) =>
@@ -178,7 +175,6 @@ describe('AdminAccessMutationActions — 회원 유형/관리자 접근/계정 �
     act(() => {
       root.render(
         <AdminAccessMutationActions
-          // 회원 유형 교직원 / 관리자 접근 비허용 / 활성 — 세 값이 서로 다르다.
           detail={detail({
             hasStaffAccess: true,
             hasAdminAccess: false,
@@ -235,7 +231,6 @@ describe('AdminAccessMutationActions — 회원 유형/관리자 접근/계정 �
       );
     });
 
-    // canonical member-kind values
     expect(optionsOf(MEMBER_KIND)).toEqual([
       ['미지정', true],
       ['학생', false],
@@ -456,8 +451,6 @@ describe('AdminAccessMutationActions — 회원 유형/관리자 접근/계정 �
   });
 
   it('관리자 접근은 프로필 미완료와 독립적으로 회수할 수 있다', () => {
-    // 시드로 만든 첫 관리자 계정이 프로필을 채우기 전까지 정확히 이 상태다
-    // (`apps/backend/src/auth/auth.repository.ts`가 profile 없는 계정에 권한을 켠다).
     act(() => {
       root.render(
         <AdminAccessMutationActions
@@ -524,7 +517,6 @@ describe('AdminAccessMutationActions — 회원 유형/관리자 접근/계정 �
       );
     });
 
-    // ROL_017은 비활성화 방향에만 걸린다 — 「활성」으로 돌아가는 길은 열려 있다.
     expect(optionsOf(STATUS)).toEqual([
       ['활성', false],
       ['비활성', false],
@@ -535,8 +527,6 @@ describe('AdminAccessMutationActions — 회원 유형/관리자 접근/계정 �
   });
 
   it('본인 관리자 접근은 비허용을 막고 포커스 툴팁으로 이유를 알린다', () => {
-    // #1382 — 성공하면 누른 사람이 이 화면을 읽을 권한을 잃어 결과를 확인할 수
-    // 없다. 서버도 `ROL_022`로 거절한다.
     act(() => {
       root.render(
         <AdminAccessMutationActions
@@ -599,7 +589,6 @@ describe('AdminAccessMutationActions — 회원 유형/관리자 접근/계정 �
       );
     });
 
-    // 회수 가드는 회수 방향에만 걸린다 — 계정 상태의 「활성」과 같은 규칙이다.
     expect(optionsOf(ADMIN)).toEqual([
       ['비허용', false],
       ['허용', false],
@@ -719,8 +708,6 @@ describe('AdminAccessPendingRequestCard — 대기 요청 결정 카드', () => 
   });
 
   it('비활성 계정이면 [승인]만 꺼지고 왜 막혔는지와 다음 걸음이 뜬다', () => {
-    // #1381 — 비활성 계정에 [승인]을 보내면 서버가 반드시 거절한다(큐의 교직원
-    // 승인자는 403 `ROL_004`, 관리자는 409 `ROL_014`). 누르기 전에 막는다.
     act(() => {
       root.render(
         <AdminAccessPendingRequestCard

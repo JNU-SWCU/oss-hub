@@ -23,7 +23,6 @@ import {
   type CosmosTheme,
 } from './cosmos-theme';
 
-/** 라벨 문구 — 실제 사용자 데이터가 아니라 화면 구성 예시다 */
 const HERO_LABEL_SUB = '참여 프로그램 · 팀 저장소 · 제출 기록';
 const FOCUS_LABEL_SUB = '진행 중인 프로그램';
 
@@ -57,8 +56,7 @@ export function createCosmosRenderer({
   fontFamily = 'system-ui, sans-serif',
 }: CosmosRendererOptions): CosmosRenderer {
   const ctx = canvas.getContext('2d');
-  // 블룸 버퍼 — 밝은 코어만 1/3 해상도 버퍼에 따로 그려두고 마지막에 흐리게
-  // 덧씌운다. 전체 화면 후처리보다 훨씬 싸고, 글자는 번지지 않는다.
+
   const bloom = document.createElement('canvas');
   const bctx = bloom.getContext('2d');
   const proj: Projected[] = new Array<Projected>(graph.nodes.length);
@@ -96,11 +94,6 @@ export function createCosmosRenderer({
     ctx.globalAlpha = 1;
   }
 
-  /**
-   * 오로라 커튼 — 여러 겹의 흐린 천이 천천히 흔들린다. 배경을 "검은 하늘"이
-   * 아니라 "무언가 있는 하늘"로 만드는 층. 넓은 사각형으로 채우면 좌우 끝이
-   * 각져서 "띠"로 보이므로, 굵고 흐린 빗살 여러 개를 겹쳐 시트를 만든다.
-   */
   function drawAurora(
     w: number,
     h: number,
@@ -112,18 +105,9 @@ export function createCosmosRenderer({
     if (A < 0.004) return;
     ctx.globalCompositeOperation = 'screen';
 
-    // ⚠ 세로 줄무늬(#627). 커튼 하나를 세로 띠 여러 개로 그리는데, 띠끼리
-    // 겹치는 양이 자리마다 달라 겹이 두꺼운 열과 얇은 열이 번갈아 생긴다.
-    // 바탕이 검정이고 알파가 0.032 일 때는 그 차이가 눈에 안 띄지만, 바탕이
-    // 밝은 남색이고 알파가 0.09 로 오르면 'screen' 합성의 여유가 줄어
-    // 이음매가 세로줄로 드러난다. 띠를 촘촘히·넓게 겹치는 것만으로는 줄이
-    // 남는 것을 확인했고, 오로라 층에만 흐림을 거는 쪽이 실제로 듣는다.
-    //
-    // 흐림이 이음매를 지워 주므로 띠를 촘촘히 그릴 이유가 없다 —
-    // 26개에서 16개로 줄여 그리는 횟수를 오히려 예전보다 낮춘다.
     const STRIPS = 16;
     const OVERLAP = 3.4;
-    const EVEN = 1.9 / OVERLAP; // 겹침을 늘린 만큼 밝기를 되돌린다
+    const EVEN = 1.9 / OVERLAP;
     const previousFilter = ctx.filter;
     ctx.filter = `blur(${Math.max(5, Math.round(w * 0.009))}px)`;
 
@@ -137,7 +121,7 @@ export function createCosmosRenderer({
 
       for (let i = 0; i < STRIPS; i += 1) {
         const u = (i + 0.5) / STRIPS;
-        const bell = Math.sin(u * Math.PI); // 양끝 0, 가운데 1
+        const bell = Math.sin(u * Math.PI);
         const a = A * bell * bell * EVEN;
         if (a < 0.0008) continue;
 
@@ -178,8 +162,7 @@ export function createCosmosRenderer({
       const focused = i === FOCUS_PROGRAM;
       const base = Math.min(w, h) * 0.3 * P.sc * cam.zoom * 0.55;
       const radius = Math.max(40, Math.min(base, Math.max(w, h) * 1.4));
-      // 검정 배경에서는 성운 구름이 훨씬 잘 보인다. 진입 중인 성운만 밝히고
-      // 나머지는 존재만 암시하는 수준으로 낮춘다.
+
       const strength = focused
         ? 0.22 + cam.toNebula * 0.24
         : 0.12 * (1 - cam.dimOthers * 0.85);
@@ -246,7 +229,6 @@ export function createCosmosRenderer({
     }
   }
 
-  /** 항성(프로그램) — 코로나 + 회절 스파이크 */
   function drawStarBody(
     P: Projected,
     r: number,
@@ -256,7 +238,7 @@ export function createCosmosRenderer({
     if (!ctx) return;
     const core = theme.program;
     const glow = theme.programGlow;
-    // 항성마다 크기가 조금씩 다르되 시간에 따라 뛰지는 않는다 (맥동 제거)
+
     const pulse = 1 + 0.06 * Math.sin(ph);
 
     ctx.globalCompositeOperation = 'lighter';
@@ -292,7 +274,6 @@ export function createCosmosRenderer({
     ctx.arc(P.sx, P.sy, r * 2.4 * pulse, 0, 6.283);
     ctx.fill();
 
-    // 회절 스파이크 — 렌즈를 통해 본 밝은 별의 십자 빛
     const L = r * 7 * pulse;
     const spike = (
       dxu: number,
@@ -335,7 +316,6 @@ export function createCosmosRenderer({
     }
   }
 
-  /** 행성(저장소) — 광원 쪽으로 치우친 방사 그라디언트로 구 음영을 만든다 */
   function drawPlanet(
     P: Projected,
     r: number,
@@ -351,7 +331,7 @@ export function createCosmosRenderer({
       ctx.fill();
       return;
     }
-    // 대기 림 — 검정 배경에서 겹치면 초록 안개처럼 보여서 얕게 잡는다
+
     const rim = ctx.createRadialGradient(
       P.sx,
       P.sy,
@@ -368,7 +348,6 @@ export function createCosmosRenderer({
     ctx.arc(P.sx, P.sy, r * 1.55, 0, 6.283);
     ctx.fill();
 
-    // 본체 — 밝은 쪽으로 중심을 옮긴 그라디언트 = 구
     const gx = P.sx + ld.x * r * 0.55;
     const gy = P.sy + ld.y * r * 0.55;
     const gradient = ctx.createRadialGradient(
@@ -388,7 +367,6 @@ export function createCosmosRenderer({
     ctx.arc(P.sx, P.sy, r, 0, 6.283);
     ctx.fill();
 
-    // 반사 하이라이트
     if (r > 3.4) {
       const hx = P.sx + ld.x * r * 0.42;
       const hy = P.sy + ld.y * r * 0.42;
@@ -430,7 +408,6 @@ export function createCosmosRenderer({
       if (node.kind === 'p') {
         drawStarBody(P, (4.2 + 2.2 * node.degN) * d, alpha, node.ph);
       } else if (node.kind === 'r') {
-        // 광원 방향 — 자기 프로그램 항성 쪽 (화면 좌표에서)
         const S = proj[node.light];
         let lx = -0.55;
         let ly = -0.55;
@@ -445,7 +422,7 @@ export function createCosmosRenderer({
         drawPlanet(P, (1.7 + 1.5 * node.sz) * d, col, { x: lx, y: ly }, alpha);
       } else {
         const isHero = i === graph.hero;
-        // 반짝임 없음 — 별마다 고정 크기. 주인공만 상시 조금 크다.
+
         const tw = isHero ? 1.18 : 0.85 + 0.15 * Math.sin(node.ph);
         const r = (2.2 + 1.5 * node.degN) * d * (isHero ? 1.35 : 1) * tw;
         const col = mix(
@@ -454,7 +431,6 @@ export function createCosmosRenderer({
           P.fog,
         );
 
-        // 후광은 아주 얇게만. 별 하나하나가 번지면 그래프 구조가 안 보인다.
         ctx.globalCompositeOperation = 'lighter';
         const hg = ctx.createRadialGradient(P.sx, P.sy, 0, P.sx, P.sy, r * 2.4);
         hg.addColorStop(0, rgba(col, 0.13 * alpha));
@@ -470,7 +446,6 @@ export function createCosmosRenderer({
         ctx.arc(P.sx, P.sy, r, 0, 6.283);
         ctx.fill();
 
-        // 블룸에는 주인공만 남긴다 — 학생 전부를 넣으면 화면이 뿌예진다
         if (isHero && bctx) {
           bctx.fillStyle = rgba(col, alpha * 0.6);
           bctx.beginPath();
@@ -482,7 +457,6 @@ export function createCosmosRenderer({
     ctx.globalAlpha = 1;
   }
 
-  // 가까이 간 노드부터 이름이 떠오른다. 겹치면 뒤엣것을 버린다.
   function placeLabel(
     x: number,
     y: number,
@@ -508,7 +482,7 @@ export function createCosmosRenderer({
   function drawLabels(w: number, cam: CosmosCamera): void {
     if (!ctx) return;
     labelBoxes.length = 0;
-    const leftGuard = w > 900 ? w * 0.4 : 0; // 카피 위에는 라벨을 놓지 않는다
+    const leftGuard = w > 900 ? w * 0.4 : 0;
 
     const put = (
       P: Projected | undefined,
@@ -555,7 +529,6 @@ export function createCosmosRenderer({
       ctx.textAlign = 'left';
     };
 
-    // 1순위 — 주인공과 그 저장소
     if (cam.soloHero > 0.15) {
       put(
         proj[graph.hero],
@@ -566,8 +539,7 @@ export function createCosmosRenderer({
         theme.star,
         tintAt(theme.studentTints, 0),
       );
-      // 저장소 라벨은 주인공 반대쪽으로 뻗는다 — 전부 오른쪽에 놓으면
-      // 주인공 라벨과 겹쳐서 하나만 남는다.
+
       const H = proj[graph.hero];
       graph.heroRepos.forEach((index) => {
         const P = proj[index];
@@ -585,7 +557,6 @@ export function createCosmosRenderer({
       });
     }
 
-    // 2순위 — 진입 중인 프로그램
     const focusAlpha =
       Math.min(cam.toNebula, 1 - cam.back) * (1 - cam.soloHero * 0.8);
     put(
@@ -598,7 +569,6 @@ export function createCosmosRenderer({
       tintAt(theme.repoTints, 0),
     );
 
-    // 3순위 — 그 밖에 가까이 온 천체들이 스스로 이름을 밝힌다
     const candidates: number[] = [];
     for (let i = 0; i < proj.length; i += 1) {
       const P = proj[i];
@@ -606,7 +576,7 @@ export function createCosmosRenderer({
       if (i === graph.hero || i === FOCUS_PROGRAM) continue;
       const node = graph.nodes[i];
       if (!node) continue;
-      // 잔별까지 이름 붙이면 지저분하다
+
       if (node.kind === 's' && node.degN < 0.45) continue;
       candidates.push(i);
     }
@@ -631,7 +601,6 @@ export function createCosmosRenderer({
     }
   }
 
-  /** 빠르게 스크롤할수록 화면 가장자리로 빛줄기가 흐른다 */
   function drawStreaks(
     w: number,
     h: number,
@@ -692,7 +661,6 @@ export function createCosmosRenderer({
     const cy = h / 2;
     const R = Math.min(w, h) * 0.55;
 
-    // 투영 + 안개(거리에 따라 배경색으로 수렴)
     for (let i = 0; i < graph.nodes.length; i += 1) {
       const node = graph.nodes[i] as CosmosNode;
       const q = worldXform(node, cam.ang);
@@ -710,7 +678,7 @@ export function createCosmosRenderer({
         sc,
         sx: cx + X * R * sc,
         sy: cy + Y * R * sc,
-        fog: smoothstep(0.55, -2.6, Z), // Z가 작을수록(멀수록) 안개가 짙다
+        fog: smoothstep(0.55, -2.6, Z),
       };
     }
 
@@ -721,7 +689,6 @@ export function createCosmosRenderer({
     drawEdges(cam, t);
     drawNodes(cam);
 
-    // 블룸 합성
     const gain = theme.bloom;
     if (gain > 0.01) {
       ctx.save();
@@ -735,7 +702,6 @@ export function createCosmosRenderer({
 
     drawLabels(w, cam);
 
-    // 스크롤 속도 → 속도선
     const dp = Math.abs(p - lastP);
     lastP = p;
     const want = clamp01((dp - 0.0022) / 0.011);

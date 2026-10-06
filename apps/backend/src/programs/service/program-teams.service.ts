@@ -55,16 +55,8 @@ import type {
   StaffTeamView,
 } from '../program-teams.types';
 
-/** 팀 삭제 알림의 알림 종류. consumer가 이 값으로 외부 채널 전달을 고른다. */
 const TEAM_DELETED_NOTIFICATION_TYPE = 'TEAM_DELETED';
 
-/**
- * 삭제와 같은 트랜잭션에서 수신자당 한 행씩 알림을 enqueue한다.
- *
- * 먱등 수단은 `Notification.idempotencyKey`의 unique 제약이다. 키는 「삭제 작업 식별자 +
- * 수신자」로 잡는다 — 팀은 한 번만 삭제될 수 있고 cuid는 재사용되지 않으므로 팀 id가 곳
- * 그 작업 식별자다. 같은 요청이 재시도되어도 수신자당 행이 둘로 늘지 않는다.
- */
 async function recordTeamDeletionNotification(
   store: TeamDeletionNotificationStore,
   event: TeamDeletionNotificationEvent,
@@ -85,23 +77,18 @@ async function recordTeamDeletionNotification(
         teamName: event.teamName,
         programId: event.programId,
         programName: event.programName,
-        // 뱈 문구는 null로 접는다 — 「적지 않았다」와 「뱈 문자열을 적었다」를 가르지 않는다.
+
         message: message?.trim() ? message.trim() : null,
         deletedAt,
       },
     })),
-    // 같은 삭제 요청의 재시도는 조용히 지나간다. 중복 행을 만들거나 P2002로
-    // 삭제 전체를 넘기지 않는다.
+
     skipDuplicates: true,
   });
 }
 
 const JOIN_CODE_ATTEMPTS = 5;
 
-/**
- * `Team.joinCodeDigest` 는 아직 NOT NULL·UNIQUE 컬럼이라 생성 시점에 한 번 채운다.
- * 참여코드로 합류하는 경로는 제거됐으므로 이 값을 다시 읽는 소비자는 없다.
- */
 function generateJoinCode(): string {
   return randomBytes(6).toString('base64url').toUpperCase().slice(0, 10);
 }
@@ -185,7 +172,6 @@ export class ProgramTeamsService {
       throw new Error('join code digest collision retries exhausted');
     }
 
-    // joinCode is returned once; never logged.
     return {
       id: created.id,
       name: created.name,
@@ -194,14 +180,6 @@ export class ProgramTeamsService {
     };
   }
 
-  /**
-   * 조회는 「없음」을 오류로 보지 않는다.
-   *
-   * 팀을 아직 만들지 않은 학생에게 팀이 없는 것은 정상이다(QA174). 「내 팀 없음」만
-   * null이고 나머지는 그대로 던진다 — 학생이 아니면 403(`STUDENT_ONLY`), 프로그램
-   * 자체가 없으면 404(`PROGRAM_NOT_FOUND`). 탈퇴·팀원 제외 같은 변경은 여전히
-   * `TEAM_NOT_FOUND`를 던진다.
-   */
   async getMe(
     githubId: bigint,
     programId: string,
@@ -220,11 +198,6 @@ export class ProgramTeamsService {
     return this.toTeamView(detail, student.id);
   }
 
-  /**
-   * 본인 탈퇴 — 신청 제출 후에도, 신청 기간이 닫힌 뒤에도 허용한다. 팀장이 나가면
-   * 남은 팀원 중 선임자가 자동 승계하고, 신청 기록이 있는 팀의 마지막 구성원만
-   * 409로 막아 신청 이력을 보존한다.
-   */
   async leave(githubId: bigint, programId: string): Promise<void> {
     const student = await this.requireStudent(githubId);
     const result = await this.repository.leave(
@@ -240,10 +213,6 @@ export class ProgramTeamsService {
     }
   }
 
-  /**
-   * 팀장의 팀원 제외 — 팀장만 다른 현재 구성원을 제외한다. 본인 제외는 탈퇴가
-   * 승계까지 책임지므로 409로 돌려보낸다. 다른 팀원·없는 사용자는 구분 없는 404다.
-   */
   async removeMember(
     githubId: bigint,
     programId: string,
@@ -270,12 +239,6 @@ export class ProgramTeamsService {
     }
   }
 
-  /**
-   * 교직원의 팀원 제외 — 행위자가 그 팀에 속하지 않는다는 점이 학생용과 다르다.
-   *
-   * 가드를 따로 두지 않는 이유는 `rename`·`deleteForStaff`와 같다 — 교직원 판정을
-   * service가 하고, 최종 판정은 팀 행을 잠그고 난 뒤에 repository가 다시 한다.
-   */
   async removeMemberForStaff(
     githubId: bigint,
     programId: string,
@@ -306,12 +269,6 @@ export class ProgramTeamsService {
     }
   }
 
-  /**
-   * 교직원의 팀장 변경 — 대상은 그 팀의 현재 구성원이어야 한다.
-   *
-   * 이미 그 사람이 팀장이면 성공으로 끝난다 — 같은 요청을 두 번 보내는 것이 오류는
-   * 아니고, 바뀜 것이 없으므로 감사도 남지 않는다.
-   */
   async transferLeaderForStaff(
     githubId: bigint,
     programId: string,
@@ -341,16 +298,6 @@ export class ProgramTeamsService {
     }
   }
 
-  /**
-   * 팀 이름 변경 — 해당 팀의 현재 팀장 또는 교직원·관리자만 통과한다.
-   *
-   * 가드를 새로 두지 않는다 — `ProgramTeamsStaffGuard`는 교직원 전용이라 팀장을 막고,
-   * 교직원 판정은 `ProgramLifecycleService.purge`가 이미 service 안에서 하는 것과 같은
-   * 모양이다. 최종 권한은 팀 행을 잠그고 난 뒤에 repository가 다시 판정한다.
-   *
-   * 승인 뒤 이미 발급된 GitHub 저장소 이름은 따라가지 않는다. 그걸 이유로 막지 않는다 —
-   * 막으면 오타 하나를 영영 못 고친다. 화면이 그 사실을 적는 쪽이 맞다.
-   */
   async rename(
     githubId: bigint,
     programId: string,
@@ -380,10 +327,6 @@ export class ProgramTeamsService {
     }
   }
 
-  /**
-   * 이름 변경과 같은 트랜잭션에서 남기는 감사 기록. 실패하면 그대로 던져
-   * `Team.update`까지 롤백된다.
-   */
   private async recordRenameAudit(
     actorGithubId: bigint,
     store: TeamMembershipAuditStore,
@@ -405,10 +348,6 @@ export class ProgramTeamsService {
     );
   }
 
-  /**
-   * 멤버십 변경과 같은 트랜잭션에서 남기는 감사 기록. 실패하면 그대로 던져
-   * 멤버 삭제·팀장 승계까지 롤백된다.
-   */
   private async recordMembershipAudit(
     actorGithubId: bigint,
     store: TeamMembershipAuditStore,
@@ -433,10 +372,6 @@ export class ProgramTeamsService {
     );
   }
 
-  /**
-   * 교직원 전용 팀 목록 — 팀원 전원의 실명을 포함한다(권한 검사는 ProgramTeamsStaffGuard).
-   * 팀은 createdAt 오름차순, 멤버도 createdAt 오름차순이되 팀장만 맨 앞으로 끌어올린다.
-   */
   async listForStaff(programId: string): Promise<StaffTeamView[]> {
     const program = await this.repository.findProgramById(programId);
     if (!program) {
@@ -446,11 +381,6 @@ export class ProgramTeamsService {
     return teams.map((team) => this.toStaffTeamView(team));
   }
 
-  /**
-   * 교직원 전용 팀 상세(#874) — 팀원·신청 상태·저장소 발급 상태를 한 응답에 담는다.
-   * 없는 팀·다른 프로그램의 팀은 구분 없이 같은 404(`TEAM_NOT_FOUND`)로 응답한다 —
-   * repository 조회가 이미 `programId`로 걸러서 두 경우를 하나의 null로 합친다.
-   */
   async getForStaff(
     programId: string,
     teamId: string,
@@ -465,21 +395,6 @@ export class ProgramTeamsService {
     );
   }
 
-  /**
-   * 교직원 팀 삭제 — 팀과 그 아래 신청·초대·구성원·제출 이력을 한 번에 거둔다.
-   *
-   * 가드를 새로 두지 않는다 — 교직원 판정은 `ProgramLifecycleService.purge`와 같은
-   * 모양으로 service 안에서 한다(`rename`과 같은 `findActorAuthorityByGithubId`).
-   *
-   * 승인된 팀이라고 막지 않는다. 대신 확인 창이 본 범위(`expectedScope`)를 서버가 삭제
-   * 트랜잭션 안에서 다시 세서 대조한다 — 「지우지 말라」가 아니라 「누르는 사람이 본 것만
-   * 지운다」가 이 경로의 안전장치다. 차단 규칙을 두면 승인된 팀은 영영 정리할 수 없고,
-   * 그건 운영을 맡은 교직원에게서 가위를 뺏는 일이다.
-   *
-   * 한계: 이미 발급된 GitHub 저장소의 collaborator 권한은 함께 회수되지 않는다 —
-   * 회수 outbox 이벤트는 worker가 처리 시점에 Application을 다시 읽어야 하는데 그 행이
-   * 이 트랜잭션에서 사라진다. purge도 같은 성질이며, 화면이 그 사실을 적는 쪽이 맞다.
-   */
   async deleteForStaff(
     githubId: bigint,
     programId: string,
@@ -517,13 +432,6 @@ export class ProgramTeamsService {
     }
   }
 
-  /**
-   * 삭제와 같은 트랜잭션에서 남기는 감사 기록. 실패하면 그대로 던져 삭제 전체가 롤백된다.
-   *
-   * 사라진 이력 수치는 따로 적지 않는다 — 판정 이력(`ApplicationReviewHistory`)은 신청에
-   * `onDelete: Cascade`로 달려 있어 `deletedCounts.applications`가 곳 그 사실을 말한다.
-   * 독립 수치를 늘리면 확인 화면이 본 수치와 감사 수치의 축이 갈라진다.
-   */
   private async recordDeletionAudit(
     actorGithubId: bigint,
     store: TeamDeletionAuditStore,
@@ -570,10 +478,6 @@ export class ProgramTeamsService {
     };
   }
 
-  /**
-   * 팀 저장소 활동(#1133) — 학생(지금 그 팀 팀원 누구나)과 교직원·관리자가 같은 문으로
-   * 같은 값을 읽는다. 활동 행은 읽기 판정(`requireTeamReader`)을 통과한 뒤에만 읽는다.
-   */
   async getActivity(
     githubId: bigint,
     programId: string,
@@ -587,7 +491,7 @@ export class ProgramTeamsService {
     );
     return {
       ...(await this.repository.readTeamActivity(team)),
-      // 역할이 가르는 유일한 칸 — 쓰기 경로와 같은 판정이라 버튼과 저장이 어긋나지 않는다.
+
       canEditRepositoryUrl:
         team.application !== null &&
         canEditStudentRepositoryUrl(
@@ -601,7 +505,6 @@ export class ProgramTeamsService {
     };
   }
 
-  /** 저장소 URL 변경 이력 — 활동과 같은 문이다(팀원 누구나 또는 교직원·관리자). */
   async getRepositoryUrlHistory(
     githubId: bigint,
     programId: string,
@@ -618,14 +521,6 @@ export class ProgramTeamsService {
     return history;
   }
 
-  /**
-   * 팀 저장소 화면을 읽을 수 있는 사람 — 지금 그 팀의 팀원(팀장이 아니어도)이거나
-   * ACTIVE 교직원·관리자다. 가드를 두지 않는 이유는 `rename`과 같다 — 팀원도 이 문을
-   * 지나야 한다.
-   *
-   * 팀 밖의 학생·비활성 계정·없는 팀·다른 프로그램의 팀은 전부 같은 404다 — 구분하면
-   * 남의 프로그램에 그 id의 팀이 있다는 사실이 샌다.
-   */
   private async requireTeamReader(
     githubId: bigint,
     programId: string,
@@ -657,7 +552,7 @@ export class ProgramTeamsService {
       teamId: team.id,
       name: team.name,
       memberCount: members.length,
-      // createdAt 순서를 유지한 채 팀장만 앞으로 옮긴다(안정 분할).
+
       members: [
         ...members.filter((member) => member.isLeader),
         ...members.filter((member) => !member.isLeader),
@@ -687,10 +582,6 @@ export class ProgramTeamsService {
     return program;
   }
 
-  /**
-   * 권한 플래그는 서버가 계산한 미리보기일 뿐이다 — 실제 변경은 팀 행을 잠근 뒤
-   * 다시 판정하는 mutation 경로가 여전히 권위다.
-   */
   private toTeamView(
     detail: TeamDetailRecord,
     viewerUserId: string,

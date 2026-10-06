@@ -88,7 +88,6 @@ describe('SessionGuard', () => {
   ])(
     'wrong %s 토큰이면 generic 401을 반환한다',
     async (_, issuer, audience) => {
-      // Given: 서명은 유효하지만 발급자 또는 대상이 다른 토큰이다.
       const now = Math.floor(Date.now() / 1000);
       const token = await new SignJWT({})
         .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
@@ -99,8 +98,6 @@ describe('SessionGuard', () => {
         .setExpirationTime(now + 60)
         .sign(secret);
 
-      // When: 보호 경계가 토큰을 해석한다.
-      // Then: 어느 claim이 틀렸는지 노출하지 않고 동일한 401을 반환한다.
       await expectUnauthenticated(`${sessionCookieName(true)}=${token}`);
     },
   );

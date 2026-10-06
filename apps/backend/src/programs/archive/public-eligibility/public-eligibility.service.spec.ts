@@ -152,8 +152,7 @@ describe('PublicEligibilityService', () => {
       .mockResolvedValue([
         metric({
           repositoryId: 101n,
-          // partial run은 visibility/presence를 절대 갱신하지 않으므로 스키마 기본값(PRIVATE)이
-          // 신뢰할 수 없는 상태로 남아있을 수 있다 — observedAt이 null이면 이 값을 무시한다.
+
           visibility: 'PRIVATE',
           presence: 'PRESENT',
           visibilityObservedAt: null,
@@ -203,9 +202,6 @@ describe('PublicEligibilityService', () => {
       { githubRepositoryId: 102n, publishedAt },
     ]);
 
-    // 101n은 activity 집계가 지연됐어도 visibility 관측이 PUBLIC/PRESENT라 공개.
-    // 102n은 activity와 무관하게 private 관측(발행 이후)이라 비공개 — 둘 다 dataAsOf/count가
-    // 아니라 visibility/presence/visibilityObservedAt만으로 결정됨을 증명한다.
     expect(result).toEqual(new Set([101n]));
   });
 
@@ -225,7 +221,6 @@ describe('PublicEligibilityService', () => {
       ]);
     const service = serviceWith(getRepositoryMetrics);
 
-    // 999n은 platform eligibility가 없어 애초에 후보로 넘기지 않는다(호출자 책임).
     const result = await service.filterEligibleRepositoryIds([]);
 
     expect(result).toEqual(new Set());

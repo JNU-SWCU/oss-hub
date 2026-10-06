@@ -7,15 +7,6 @@ import type {
   AdminAccessSortField,
 } from './admin-access-api';
 
-/**
- * Pure list-query state → `fetchAdminAccessList` params mapping for the
- * `/dashboard/users` read-only screen (PR04C). Extracted so filter/sort/page
- * transitions are testable without a DOM (this repo's Vitest environment is
- * `node`; see `admin-access-list.test.tsx`). PR04D promotes this same state
- * shape into URL query params — this module intentionally stays free of
- * routing concerns so that reuse is a straight import.
- */
-
 export const ADMIN_ACCESS_LIST_LIMIT = 20;
 export const ADMIN_ACCESS_DEFAULT_SORT: AdminAccessSortField = 'name';
 export const ADMIN_ACCESS_DEFAULT_DIRECTION: AdminAccessSortDirection = 'asc';
@@ -62,13 +53,6 @@ export function accessListPath(workspace: AccessWorkspace): string {
   return workspace === 'queue' ? '/dashboard/applicants' : '/dashboard/users';
 }
 
-/**
- * 상세 주소에 **목록이 서 있던 검색·필터·정렬·페이지를 그대로 얹는다.**
- * 이 화면의 목록 상태는 URL 이 원본이라(`admin-access-url-state.ts`), 상세로
- * 갈 때 그 질의를 떨어뜨리면 오버레이 뒤에 깔린 목록이 같은 주소를 다시 읽어
- * 「검색 안 한 첫 화면」으로 되돌아간다. 상세 페이지는 이 질의를 읽지 않으므로
- * 얹어도 상세의 동작은 변하지 않고, 닫을 때(`router.back()`)의 복귀도 그대로다.
- */
 export function accessDetailPath(
   workspace: AccessWorkspace,
   userId: string,

@@ -264,7 +264,7 @@ describe('public archive views', () => {
         onRetry={callbacks.onRetry}
       />,
     );
-    // 서버가 year 로 이미 걸러 빈 페이지를 준 경우
+
     const filterEmptyHtml = renderToStaticMarkup(
       <ArchiveListContent
         state={{ kind: 'ready', page: emptyPage }}
@@ -337,11 +337,6 @@ describe('public archive views', () => {
   });
 });
 
-// F4 QA 감사 갭: outcome-1·2·4·5·8은 지금까지 backend 통합 테스트
-// (`public-exposure-matrix.integration.spec.ts`)에서만 증명됐다. 아래는 그 outcome들의
-// "사용자가 실제로 보는 화면" 절반을 frontend 레벨에서 고정한다. ranking 쪽 절반(outcome-2
-// 기여자 분리, outcome-4 stale 랭킹 제외, outcome-5 회수 시 사라짐)은
-// `ranking/components/ranking-view.test.tsx`가 동일한 synthetic 식별자로 짝을 맞춘다.
 describe('F4 gap — screen-level exposure outcomes (outcome-1/2/4/5/8)', () => {
   const callbacks = {
     onFilterChange: vi.fn(),

@@ -107,7 +107,6 @@ afterAll(async () => {
 });
 
 it('완료 행만 이관하고 전체-null·이름-only 행에는 프로필을 만들지 않는다', async () => {
-  // Given
   const completeStudentId = ['96', '00153201'].join('');
   await resetFixture([
     {
@@ -125,10 +124,8 @@ it('완료 행만 이관하고 전체-null·이름-only 행에는 프로필을 �
     },
   ]);
 
-  // When
   await inFixtureSchema(executeMigration);
 
-  // Then
   await expect(
     inFixtureSchema(
       (transaction) =>
@@ -149,7 +146,6 @@ it('완료 행만 이관하고 전체-null·이름-only 행에는 프로필을 �
 });
 
 it('astral Unicode 이름도 runtime profile policy와 같은 기준으로 이관한다', async () => {
-  // Given
   const before = [
     {
       id: 'astral-complete',
@@ -160,10 +156,8 @@ it('astral Unicode 이름도 runtime profile policy와 같은 기준으로 이�
   ] as const;
   await resetFixture(before);
 
-  // When
   await inFixtureSchema(executeMigration);
 
-  // Then
   await expect(
     inFixtureSchema(
       (transaction) =>
@@ -176,7 +170,6 @@ it('astral Unicode 이름도 runtime profile policy와 같은 기준으로 이�
 });
 
 it('불가능한 부분 조합은 DDL과 쓰기를 모두 롤백하고 legacy 데이터를 보존한다', async () => {
-  // Given
   const before = [
     {
       id: 'invalid-partial',
@@ -187,17 +180,14 @@ it('불가능한 부분 조합은 DDL과 쓰기를 모두 롤백하고 legacy �
   ] as const;
   await resetFixture(before);
 
-  // When
   const upgrade = inFixtureSchema(executeMigration);
 
-  // Then
   await expect(upgrade).rejects.toThrow(/impossible partial profile/);
   await expect(readLegacyRows()).resolves.toEqual(before);
   await expect(userProfileTableExists()).resolves.toBe(false);
 });
 
 it('필드는 모두 있지만 정책에 맞지 않는 행은 DDL과 쓰기를 모두 롤백한다', async () => {
-  // Given
   const before = [
     {
       id: 'invalid-complete',
@@ -208,17 +198,14 @@ it('필드는 모두 있지만 정책에 맞지 않는 행은 DDL과 쓰기를 �
   ] as const;
   await resetFixture(before);
 
-  // When
   const upgrade = inFixtureSchema(executeMigration);
 
-  // Then
   await expect(upgrade).rejects.toThrow(/policy-invalid complete profile/);
   await expect(readLegacyRows()).resolves.toEqual(before);
   await expect(userProfileTableExists()).resolves.toBe(false);
 });
 
 it('중복 학번은 DDL과 쓰기를 모두 롤백하고 legacy 데이터를 보존한다', async () => {
-  // Given
   const duplicateStudentId = ['96', '00153203'].join('');
   const before = [
     {
@@ -236,10 +223,8 @@ it('중복 학번은 DDL과 쓰기를 모두 롤백하고 legacy 데이터를 �
   ] as const;
   await resetFixture(before);
 
-  // When
   const upgrade = inFixtureSchema(executeMigration);
 
-  // Then
   await expect(upgrade).rejects.toMatchObject({
     code: 'P2010',
     meta: { code: '23505' },

@@ -16,11 +16,6 @@ import {
   type MemberKindMutationFields,
 } from './independent-authority-api';
 
-/**
- * 레거시 CAS PATCH는 결정 직후의 권위 있는 projection을 돌려준다 — 호출자가
- * 재조회 없이 화면을 갱신할 수 있도록 그대로 흘려보낸다. 독립 권한 명령은
- * 이 projection을 가지지 않으므로 `null`이다.
- */
 export async function executeAdminAccessMutation(
   userId: string,
   action: AdminAccessMutationAction,

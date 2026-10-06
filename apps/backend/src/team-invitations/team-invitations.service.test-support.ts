@@ -39,10 +39,6 @@ export function sentInvitationRecord(
   };
 }
 
-/**
- * repository의 현재 계약만 흉내 낸다 — 쓰기 경로는 예외가 아니라 판별 outcome을
- * 돌려주고, 신청 제출 여부(`locked`)로 팀 구성을 막는 열은 더 이상 없다.
- */
 export type MockRepository = TeamInvitationsRepository & {
   findUserIdByGithubId: jest.Mock;
   findByInviteeId: jest.Mock;
@@ -77,7 +73,7 @@ export function buildService(
       teamMaxSize: 4,
     }),
     isTeamMember: jest.fn().mockResolvedValue(true),
-    // 기본값은 비교직원이다 — 교직원 경로를 보는 테스트만 명시적으로 켠다.
+
     isActiveStaff: jest.fn().mockResolvedValue(false),
     getInviteeEligibility: jest.fn().mockResolvedValue('eligible'),
     searchCandidates: jest.fn().mockResolvedValue([]),
@@ -90,7 +86,7 @@ export function buildService(
     declinePendingInvitationAsInvitee: jest
       .fn()
       .mockResolvedValue({ kind: 'ok' }),
-    // 실제 트랜잭션처럼 성공 지점에서만 onOk(감사 기록)를 부른다.
+
     withAcceptTransaction: jest.fn(
       async (
         _invitationId: string,

@@ -30,8 +30,7 @@ export interface AuditLogViewProps {
 
 export function AuditLogView(props: AuditLogViewProps) {
   const lastPage = Math.max(1, Math.ceil(props.total / props.limit));
-  // 행마다 새 Date를 만들면 렌더 한 번 안에서도 상대 시각 기준이 미묘하게 어긋날 수
-  // 있어 렌더당 한 번만 고정한다.
+
   const columns = createAuditLogColumns(new Date());
 
   const update = (key: keyof AuditLogFilters, value: string) =>

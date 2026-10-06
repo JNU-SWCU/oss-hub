@@ -49,12 +49,11 @@ afterAll(async () => {
 });
 
 it('preserves the existing collection response, approved population and paging contract', async () => {
-  // Given
   await harness.prisma.application.update({
     where: { id: fixture.offApplication },
     data: { status: 'REJECTED' },
   });
-  // When
+
   const result = await service.collectForStaff(
     fixture.notifyMilestone,
     { ...query, pageSize: 2 },
@@ -66,7 +65,7 @@ it('preserves the existing collection response, approved population and paging c
     fixture.now,
   );
   const { deliveryCounts, rows, ...unchanged } = result;
-  // Then
+
   expect({
     ...unchanged,
     rows: rows.map(({ deliveryStatus, ...row }) => {
@@ -87,7 +86,6 @@ it('preserves the existing collection response, approved population and paging c
 });
 
 it('keeps an on-time first submission complete after a late resubmission and rejection', async () => {
-  // Given
   await harness.prisma.milestoneDocumentSubmission.update({
     where: { id: fixture.documentSubmission },
     data: {
@@ -113,13 +111,13 @@ it('keeps an on-time first submission complete after a late resubmission and rej
       },
     },
   });
-  // When
+
   const result = await service.collectForStaff(
     fixture.notifyMilestone,
     { ...query, deliveryStatus: 'COMPLETE' },
     fixture.now,
   );
-  // Then
+
   expect(result.total).toBe(1);
   expect(result.rows[0]).toMatchObject({
     deliveryStatus: 'COMPLETE',
@@ -141,31 +139,29 @@ it.each([
 ] as const)(
   'uses persisted header time without history: %s',
   async (_label, createdAt, deliveryStatus) => {
-    // Given
     await harness.prisma.milestoneDocumentSubmission.update({
       where: { id: fixture.documentSubmission },
       data: { createdAt, submittedAt: late },
     });
-    // When
+
     const result = await service.collectForStaff(
       fixture.notifyMilestone,
       { ...query, deliveryStatus },
       fixture.now,
     );
-    // Then
+
     expect(result.total).toBe(1);
     expect(result.rows[0]?.deliveryStatus).toBe(deliveryStatus);
   },
 );
 
 it('filters missing rows before pagination and keeps whole-population counts', async () => {
-  // Given / When
   const result = await service.collectForStaff(
     fixture.notifyMilestone,
     { ...query, deliveryStatus: 'MISSING', page: 2, pageSize: 1 },
     fixture.now,
   );
-  // Then
+
   expect(result.rows).toHaveLength(1);
   expect(result.rows[0]?.deliveryStatus).toBe('MISSING');
   expect(result.total).toBe(3);
@@ -181,18 +177,17 @@ it('filters missing rows before pagination and keeps whole-population counts', a
 });
 
 it('does not call optional-only milestones complete or missing', async () => {
-  // Given
   await harness.prisma.milestoneDocument.update({
     where: { id: fixture.notifyDocument },
     data: { required: false },
   });
-  // When
+
   const result = await service.collectForStaff(
     fixture.notifyMilestone,
     { ...query, deliveryStatus: 'NO_REQUIRED_ITEMS' },
     fixture.now,
   );
-  // Then
+
   expect(result.total).toBe(4);
   expect(result.deliveryCounts).toEqual({
     missing: 0,
@@ -204,7 +199,6 @@ it('does not call optional-only milestones complete or missing', async () => {
 });
 
 it('holds counts and visible details at one snapshot while another connection submits', async () => {
-  // Given / When
   const before = await repository.withSnapshot(async (store) => {
     const documents = await store.findDocuments(fixture.notifyMilestone);
     const applications = await store.findApplications(fixture.notifyProgram);
@@ -243,7 +237,7 @@ it('holds counts and visible details at one snapshot while another connection su
     query,
     fixture.now,
   );
-  // Then
+
   expect(before.page.deliveryCounts.complete).toBe(1);
   expect(before.details).toHaveLength(1);
   expect(

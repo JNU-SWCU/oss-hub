@@ -12,7 +12,6 @@ interface AdminAccessMutationRejectDialogProps {
   readonly onConfirm: () => void;
 }
 
-/** Reject is the only `/dashboard/users` action needing an extra reason field. */
 export function AdminAccessMutationRejectDialog({
   githubLogin,
   reason,
@@ -45,14 +44,7 @@ export function AdminAccessMutationRejectDialog({
         >
           반려 사유
         </label>
-        {/* 관리자가 무엇을 쓰는지 알고 쓰게 한다(#673). 이 값은 신청자의 역할 선택
-            화면에 뜬다 — 예전에는 어디에도 표시되지 않아, 필수 입력이면서 아무도 읽지
-            않는 칸이었다. 표시된다는 사실을 모르면 내부 메모처럼 쓰게 된다.
 
-            ⚠ **"그대로"라고 쓰지 마라.** 표시 쪽이 제어문자를 지우고 줄 수를 줄이고
-            길이를 자른다(`role-selection-screen.tsx`의 `clampRejectionReason`).
-            "그대로"라고 적으면 관리자는 긴 사유를 끝까지 읽힐 것으로 믿고 쓰는데
-            신청자는 앞부분만 본다 — 안내가 사실과 다르면 안내가 없느니만 못하다. */}
         <p
           id="admin-access-reject-reason-hint"
           className="mt-1 break-keep text-xs text-muted-foreground"

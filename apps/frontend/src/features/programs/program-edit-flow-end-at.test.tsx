@@ -1,5 +1,3 @@
-
-
 import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -146,7 +144,6 @@ describe('프로그램 편집 일정 dialog — 종료일은 실제 날짜만 �
     return value;
   }
 
-  // #1420: 만들기 폼처럼 편집에서도 종료일을 「미정」으로 되돌릴 길이 없다.
   it('운영 기간 dialog에 「종료일 미정」 선택지가 없고 종료 입력은 늘 열려 있다', async () => {
     await render();
     await openOperation();
@@ -196,7 +193,6 @@ describe('프로그램 편집 일정 dialog — 종료일은 실제 날짜만 �
   it('「미정」 센티널로 저장된 옛 프로그램은 빈 종료일로 열리고, 실제 날짜를 넣어야 적용·저장된다', async () => {
     await render({ ...datedProgram, endAt: PROGRAM_END_AT_UNDECIDED });
 
-    // 요약에도 「미정」이 아니라 비어 있는 종료일이 보인다.
     const summary = container.querySelector(
       '[data-schedule-summary="operation"]',
     );

@@ -13,25 +13,6 @@ import {
   type AdminAccessListFilterState,
 } from './admin-access-list-query';
 
-/**
- * URL `searchParams` <-> filter-state mapping for the `/dashboard/users`
- * screen (PR04D). `admin-access-list-query.ts` intentionally stays free of
- * routing concerns; this module is the one place that knows how the 7
- * filter/sort/page fields round-trip through the URL, so a refresh or a
- * Back/Forward navigation reproduces the same screen state.
- *
- * Invalid-value policy (applies uniformly to all 7 params): every param
- * silently falls back to its default instead of rendering an explicit
- * error state. A malformed value (`?sort=bogus`, `?page=-1`,
- * `?direction=upsidedown`, `?accountStatus=nonsense`, …) almost always
- * means a stale bookmark or a hand-edited URL rather than a state the user
- * deliberately reached, and the list always has a fully valid rendering to
- * fall back to (page 1, default sort, no filters) — refusing to render, or
- * branching to a dedicated error state, would only make the screen less
- * resilient without protecting anything. This mirrors how the 04C screen
- * already treated an absent filter as "all".
- */
-
 const ROLE_FILTER_VALUES: readonly AdminAccessRoleFilter[] = [
   'UNASSIGNED',
   'STUDENT',
@@ -55,7 +36,6 @@ const SORT_FIELD_VALUES: readonly AdminAccessSortField[] = [
 ];
 const DIRECTION_VALUES: readonly AdminAccessSortDirection[] = ['asc', 'desc'];
 
-/** page must be a positive integer with no leading zero/sign/decimal. */
 const PAGE_PATTERN = /^[1-9][0-9]*$/;
 
 function parseOptionalEnumParam<T extends string>(
@@ -87,7 +67,6 @@ function parsePageParam(raw: string | null): number {
     : ADMIN_ACCESS_DEFAULT_FILTER_STATE.page;
 }
 
-/** Reads the 7 filter/sort/page fields out of the current URL `searchParams`. */
 export function parseAdminAccessSearchParams(
   searchParams: URLSearchParams,
 ): AdminAccessListFilterState {
@@ -120,11 +99,6 @@ export function parseAdminAccessSearchParams(
   };
 }
 
-/**
- * Serializes filter/sort/page state back into `URLSearchParams`, omitting
- * any field that already equals its default so the canonical URL for the
- * default screen state has no query string at all.
- */
 export function buildAdminAccessSearchParams(
   state: AdminAccessListFilterState,
 ): URLSearchParams {

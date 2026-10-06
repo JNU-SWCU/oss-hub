@@ -49,12 +49,11 @@ describe('required-document delivery axis', () => {
       expected: 'MISSING',
     },
   ])('$label', ({ dates, dueAt: deadline, expected }) => {
-    // Given / When
     const status = documentDeliveryStatus({
       requiredFirstSubmissions: dates,
       dueAt: deadline,
     });
-    // Then
+
     expect(status).toBe(expected);
   });
 });

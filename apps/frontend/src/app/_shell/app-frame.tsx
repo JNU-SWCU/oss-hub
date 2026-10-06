@@ -15,22 +15,11 @@ import { COSMOS_GROUND_PATHS, PRE_MEMBER_PATHS } from './signup-routes';
 import { SessionRoleProvider } from './session-role-context';
 import { useSessionRole } from './use-session-role';
 
-/**
- * 상단 4번째 — 회원 공통 대시보드 입구. 가입 완료 시에만 붙인다.
- * href는 항상 `/dashboard`(역할 무관). 본문은 세션 `User.role`로 갈린다.
- * 비로그인·가입 미완료에게는 항목 자체를 붙이지 않으므로 AccessDenied가 날 입구가 아니다.
- */
 export const DASHBOARD_NAV_ITEM: NavItem = {
   label: '대시보드',
   href: '/dashboard',
 };
 
-/**
- * 전 화면 공통 셸.
- * - 상단: 공개 3 + (회원) 대시보드
- * - 좌측: **현재 섹션** 하위만 (컨텍스트형 ProductShell)
- * - initialSidebarCollapsed: 서버 cookies() 에서 읽어 전달 (F4, client 에선 cookies 불가)
- */
 export function AppFrame({
   brand,
   items = PUBLIC_MENU,
@@ -79,10 +68,7 @@ export function AppFrame({
           }
         >
           <ShellNav brand={brand} items={navItems} actions={actions} />
-          {/* 우주 바탕 위 본문 전체를 반전 표면으로 둔다. 가입 무대(SignupStage)가 스스로
-              반전을 걸지만, 그 무대가 서기 전·실패했을 때 인증·온보딩 게이트
-              (AuthGate·OnboardingGate)가 그리는 「확인 중…」과 오류 문구는 무대 밖
-              이 자리에 그려져 흰 화면용 색으로 남았다(#1436). */}
+
           <div
             className={
               onCosmosGround ? 'flex min-h-0 flex-1 flex-col' : undefined

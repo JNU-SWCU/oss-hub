@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -38,7 +36,7 @@ vi.mock('./load-program-apply-context', () => ({
 vi.mock('./api', () => ({
   createApplication: vi.fn(),
   createTeam: vi.fn(),
-  // 공유 구성원 패널이 직접 부르는 진짜 API다 — 패널 자체를 대체하지 않는다.
+
   removeMyTeamMember: vi.fn(),
 }));
 
@@ -145,8 +143,7 @@ function readyContext(
             minMembers: 1,
             maxMembers: 4,
             hasApplication: extras.mode === 'edit',
-            // 서버는 신청을 낸 뒤에도 팀장의 초대·제외·탈퇴 권한을 그대로 준다.
-            // 신청 화면이 그것을 그리지 않는 것은 화면의 선택이지 권한 부재가 아니다.
+
             canInvite: isLeader,
             canRemoveMembers: isLeader,
             canLeave: true,
@@ -276,7 +273,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
   }
 
   function button(name: string, inDialog = false): HTMLButtonElement {
-    // 공용 창 껍데기는 body 로 포털한다 — 창 안 버튼은 문서에서 찾는다.
     const scope = inDialog
       ? document.querySelector('[role="alertdialog"]')
       : container;
@@ -289,7 +285,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     return target;
   }
 
-  /** 초대(＋) 트리거 — 공유 구성원 패널이 로스터 머리에 두는 아이콘 버튼. */
   function inviteTrigger(): HTMLButtonElement {
     const target = container.querySelector('button[aria-label="팀원 초대"]');
     if (!(target instanceof HTMLButtonElement)) {
@@ -298,12 +293,10 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     return target;
   }
 
-  /** 초대 레이어는 Radix Dialog 포털이라 컨테이너 밖(document)에 열린다. */
   function inviteSearchInput(): HTMLInputElement | null {
     return document.querySelector<HTMLInputElement>('#invite-search');
   }
 
-  /** 지금 상태가 될 때까지 마이크로태스크를 흘려보낸다 — 고정 횟수 await로 추측하지 않는다. */
   async function settleUntil(
     predicate: () => boolean,
     label: string,
@@ -317,10 +310,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     throw new Error(`${label} 조건을 만족하지 못했다.`);
   }
 
-  /**
-   * 실제 네트워크처럼 매크로태스크 뒤에 끝나는 요청까지 흘려보낸다.
-   * 즉시 resolve된 mock은 커밋 순서를 가려 버리므로, 지연 경로는 이쪽으로 기다린다.
-   */
   async function settleDelayedUntil(
     predicate: () => boolean,
     label: string,
@@ -334,7 +323,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     throw new Error(`${label} 조건을 만족하지 못했다.`);
   }
 
-  /** 실제 요청처럼 한 틱 뒤에 끝나는 응답. */
   function afterMacrotask<T>(value: T): Promise<T> {
     return new Promise((resolve) => {
       setTimeout(() => resolve(value), 0);
@@ -369,7 +357,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(container.querySelector('#apply-team-name')).not.toBeNull();
     expect(container.querySelector('#personal-data-consent')).not.toBeNull();
     expect(button('신청 제출')).toBeTruthy();
-    // 화면을 열었다는 이유로 팀도, 신청도, 초대 조회도 생기지 않는다.
+
     expect(createTeamMock).not.toHaveBeenCalled();
     expect(createApplicationMock).not.toHaveBeenCalled();
     expect(listSentInvitationsMock).not.toHaveBeenCalled();
@@ -402,7 +390,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(createTeamMock).toHaveBeenCalledExactlyOnceWith('program-create', {
       name: '합성 팀',
     });
-    // 초대는 아직 하나도 보내지 않았다 — 준비만 했다.
+
     expect(createInvitationMock).not.toHaveBeenCalled();
     expect(createApplicationMock).not.toHaveBeenCalled();
   });
@@ -482,7 +470,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       '팀 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
     );
     expect(inviteSearchInput()).toBeNull();
-    // 입력은 남고 제출 경로도 그대로 살아 있다.
+
     expect(button('신청 제출')).toBeTruthy();
   });
 
@@ -615,8 +603,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       await Promise.resolve();
     });
 
-    // 팀이 지금 막 생겨 화면이 null→team으로 바뀌더라도, 진행 중이던 제출은
-    // 조용히 끊기지 않고 그대로 이어져 신청까지 끝난다.
     await settleDelayedUntil(
       () => container.textContent?.includes('신청이 접수되었습니다') === true,
       '지연 제출 성공 화면',
@@ -669,7 +655,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       '제출 실패 안내',
     );
 
-    // 만들어 둔 팀은 그대로 남아 이름 칸이 읽기 전용이 되고, 동의도 유지된다.
     expect(createTeamMock).toHaveBeenCalledTimes(1);
     expect(
       container.querySelector<HTMLInputElement>('#apply-team-name')?.value,
@@ -683,9 +668,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       button('신청 제출').click();
       await Promise.resolve();
     });
-    // 실패 뒤 부모가 닫은 앞 확인창은 한 틱 뒤에야 포커스 복귀 뒷정리를 마친다.
-    // 그 늦은 정리가 종료 통보로 새어나와 방금 연 확인창을 닫아 버리면
-    // 재시도가 영영 불가능해진다 — 부모가 내린 닫기는 통보를 남기지 않아야 한다.
+
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
@@ -700,7 +683,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       '재시도 성공 화면',
     );
 
-    // 재시도는 이미 만든 팀을 다시 쓴다 — 두 번째 생성도, TEAM_006 되풀이도 없다.
     expect(createTeamMock).toHaveBeenCalledTimes(1);
     expect(createApplicationMock).toHaveBeenCalledTimes(2);
   });
@@ -758,9 +740,9 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     ).toBeNull();
     expect(inviteSearchInput()).toBeNull();
     expect(container.querySelector('#apply-team-name')).toBeNull();
-    // 보이지 않는 패널을 위해 보낸 초대를 미리 읽지 않는다.
+
     expect(listSentInvitationsMock).not.toHaveBeenCalled();
-    // 신청 화면은 팀을 정리하는 자리가 아니다.
+
     expect(container.textContent).not.toContain('팀에서 제외');
     expect(container.textContent).not.toContain('팀 나가기');
   });
@@ -1063,7 +1045,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       await Promise.resolve();
     });
 
-    // 늦게 끝난 이전 요청이 현재 화면의 진행 중 표식을 풀어 두 번째 생성을 열지 않는다.
     await act(async () => {
       inviteTrigger().click();
       await Promise.resolve();

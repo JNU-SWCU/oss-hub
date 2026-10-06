@@ -71,7 +71,6 @@ describe('board-format', () => {
       });
     });
 
-    // 첫 오류 하나만 돌려주면 제목을 채우고 한 번 더 누른 뒤에야 내용 오류를 본다.
     it('제목·내용이 둘 다 비면 두 칸 모두 오류를 반환한다', () => {
       const errors = validateBoardPostInput({ title: '  ', body: '' });
       expect(errors).toEqual({

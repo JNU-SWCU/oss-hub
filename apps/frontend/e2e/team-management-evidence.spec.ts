@@ -8,22 +8,6 @@ import {
   type EvidenceApiHandlers,
 } from './support/evidence-capture';
 
-/**
- * 팀 관리 통합 backend 변경이 **소비 화면에서 무엇을 바꾸는가**를 찍는 증거 레인.
- *
- * 이 레인이 증명하는 것은 두 가지다.
- *
- * 1. 승인을 반려로 뒤집을 때 화면이 받던 409 잠금 안내가 사라지고 반려가 그대로
- *    처리된다(APP_023 은퇴).
- * 2. 신청 상세 응답에 검토 이력(`reviewHistory`)이 더해져도 화면은 **바이트 단위로
- *    같다**. 응답이 바뀌는데 화면이 같아 보인다는 사실 자체가 리뷰 정보이며, 그것을
- *    적기만 하지 않고 찍어서 보인다.
- *
- * 가로챈 응답은 화면 배치를 위한 것이고 backend 영속·감사 증거가 아니다. backend
- * 동작은 각 PR의 통합 테스트가 증명한다.
- */
-
-/** 이 레인의 phase 환경 변수와 증거 파일 접두사. 다른 레인과 섞이지 않게 여기서만 정한다. */
 const CAPTURE_PHASE_VARIABLE = 'TEAM_MANAGEMENT_CAPTURE_PHASE';
 const ARTIFACT_PREFIX = 'team-management';
 
@@ -44,7 +28,6 @@ const STAFF_SESSION = {
   },
 } as const;
 
-/** 저장소가 이미 만들어진 승인 — 예전에는 이 조합이 반려를 409로 막았다. */
 const APPROVED_APPLICATION = {
   id: APPLICATION_ID,
   programId: PROGRAM_ID,
@@ -78,7 +61,6 @@ const APPROVED_APPLICATION = {
   },
 } as const;
 
-/** After 응답은 여기에 검토 이력만 더한다 — 기존 키는 하나도 바뀌지 않는다. */
 const REVIEW_HISTORY = [
   {
     id: 'synthetic-history-2',
@@ -110,7 +92,6 @@ const REVERT_BLOCKED_PROBLEM = {
     'repository provision already succeeded; undo is locked to protect the provisioned repository',
 } as const;
 
-/** 셸이 함께 읽는 두 응답. 화면 배치용 최소 모양이며 backend 계약 증거가 아니다. */
 const PROGRAM_DETAIL = {
   id: PROGRAM_ID,
   name: '합성 프로그램',
@@ -181,9 +162,6 @@ const STUDENT_TEAM = {
   ],
 } as const;
 
-/**
- * 반려된 학생 신청. `canManage`만 phase 마다 다르다 — PR-C 가 여는 것이 정확히 그 값이다.
- */
 const REJECTED_STUDENT_APPLICATION = {
   id: APPLICATION_ID,
   programId: PROGRAM_ID,
@@ -199,7 +177,6 @@ const REJECTED_STUDENT_APPLICATION = {
   canCancel: false,
 } as const;
 
-/** 신청 양식 — 신청 화면이 폼을 그리는 데 쓴다. */
 const APPLICATION_TEMPLATES = {
   items: [
     {
@@ -239,7 +216,6 @@ test('반려된 학생 신청 화면이 Before/After 에서 같은지 찍는다'
   const browserAudit = installBrowserAudit(page);
 
   await installExactApiRouter(page, (): EvidenceApiHandlers => {
-    // PR-C 가 여는 것은 이 한 값이다. 화면이 그것을 쓰는지 보는 것이 이 장면의 전부다.
     const application = {
       ...REJECTED_STUDENT_APPLICATION,
       canManage: phase === 'after',
@@ -257,12 +233,7 @@ test('반려된 학생 신청 화면이 Before/After 에서 같은지 찍는다'
         fulfillJson(route, STUDENT_TEAM),
       [`GET /api/v1/programs/${PROGRAM_ID}/applications/me`]: (route: Route) =>
         fulfillJson(route, application),
-      /*
-       * 「우리 팀」은 저장소 줄·활동 그래프를 팀 활동 한 조회로 읽는다(#1133). 이 레인의
-       * 라우터는 **정확 일치**라 스텁이 없으면 요청 자체가 실패로 잡힌다 — 그게
-       * 화면에 새 조회가 생겼다는 사실을 알려 주는 장치이므로 느슨하게 풀지 않고
-       * 여기에 적는다.
-       */
+
       [`GET /api/v1/programs/${PROGRAM_ID}/teams/${STUDENT_TEAM.id}/activity`]:
         (route: Route) =>
           fulfillJson(route, {
@@ -289,11 +260,7 @@ test('반려된 학생 신청 화면이 Before/After 에서 같은지 찍는다'
   await page.goto(`/programs/${PROGRAM_ID}/team`);
 
   const main = page.locator('main');
-  /*
-   * 반려 사유는 두 phase 모두 보인다. 화면의 'rejected' 분기가 사유 Alert 하나만
-   * 그리고 `canManage` 를 읽지 않기 때문이다 — 그래서 backend 가 재제출을 열어도
-   * 학생에게는 아직 진입점이 없다. 그 진입점은 T-FE-12 가 만든다.
-   */
+
   await expect(main.getByText('반려 사유')).toBeVisible();
   await expect(main.getByText('제출 서류가 비어 있습니다.')).toBeVisible();
 
@@ -316,7 +283,6 @@ test('반려 상태 학생 신청 화면이 Before/After 에서 같은지 찍는
   const browserAudit = installBrowserAudit(page);
 
   await installExactApiRouter(page, (): EvidenceApiHandlers => {
-    // PR-C 가 여는 것은 canManage 한 값이다. 신청 화면이 그 값으로 무엇을 하는지 본다.
     const application = {
       ...REJECTED_STUDENT_APPLICATION,
       canManage: phase === 'after',
@@ -343,11 +309,7 @@ test('반려 상태 학생 신청 화면이 Before/After 에서 같은지 찍는
 
   const main = page.locator('main');
   await expect(main).toBeVisible();
-  /*
-   * `load-program-apply-context.ts` 가 `status !== 'SUBMITTED'` 를 already-applied 로
-   * 접기 때문에 backend 가 canManage 를 열어도 이 화면은 수정 모드로 가지 않는다.
-   * 그 분기를 여는 것이 T-FE-12 다.
-   */
+
   await captureBothViewports({
     page,
     testInfo,

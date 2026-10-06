@@ -48,13 +48,6 @@ export function YearLink({
   readonly current: boolean;
   readonly children: string;
 }): ReactElement {
-  /*
-   * 지금 보는 해를 주 행동 색(`default`)으로 칠하지 않는다 — 남색은 그 화면에서 누를
-   * 행동 하나의 몫이고, 지금 보는 해는 행동이 아니라 현재 위치다(R-34). 옆 「비교 관점」
-   * 칩과 같은 눌림 표면(`toggle`)을 써서 한 필터 줄 안의 「골랐다」가 한 가지 모양이 되게
-   * 한다. 연도는 `?year=` 주소로 가므로 진짜 링크로 남기고(R-31, 새 탭 열기·주소 복사),
-   * 링크이므로 눌림은 `aria-pressed`가 아니라 `aria-current="page"`로 말한다.
-   */
   return (
     <Button
       asChild
@@ -80,12 +73,6 @@ export function CutButton({
   readonly onCutChange: (cut: InsightsCut) => void;
   readonly children: string;
 }): ReactElement {
-  /*
-   * 고른 값을 주 행동 색(`default`)으로 칠하지 않는다. 화면에서 가장 눈에 띄는
-   * 것이 「지금 고른 것」이 되면 정작 눌러야 할 주 행동이 묻힌다(R-34).
-   * 거르는 선택은 FilterChip 이 맡는다 — 눌림을 표면이 아니라 aria-pressed 와
-   * 칩 변형으로 말하고, 화살표 좌우로 칩 사이를 옮길 수 있다.
-   */
   return (
     <FilterChip
       pressed={current === value}

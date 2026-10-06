@@ -108,11 +108,9 @@ describe('RepositoryProvisionJobRepository integration', () => {
   });
 
   it('동시 claim에서도 PENDING job을 한 worker에게만 임대한다', async () => {
-    // Given: 실행 가능한 job 한 건이 있다.
     const applicationId = APPLICATION_IDS[0];
     await createJob(applicationId, RepositoryProvisionJobStatus.PENDING, NOW);
 
-    // When: 두 worker가 동시에 claim한다.
     const claims = await Promise.all([
       repository.claimNext({
         workerId: 'worker-a',
@@ -126,7 +124,6 @@ describe('RepositoryProvisionJobRepository integration', () => {
       }),
     ]);
 
-    // Then: 한 worker만 claim하고 시도 횟수와 lease가 원자적으로 저장된다.
     expect(claims.filter((claim) => claim !== null)).toHaveLength(1);
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
@@ -230,21 +227,18 @@ describe('RepositoryProvisionJobRepository integration', () => {
   });
 
   it('backoff 전 FAILED_RETRYABLE job은 claim하지 않는다', async () => {
-    // Given: 다음 실행 시각이 아직 오지 않은 재시도 job이 있다.
     await createJob(
       APPLICATION_IDS[1],
       RepositoryProvisionJobStatus.FAILED_RETRYABLE,
       new Date(NOW.getTime() + 60_000),
     );
 
-    // When: worker가 현재 시각에 claim한다.
     const claim = await repository.claimNext({
       workerId: 'worker-c',
       now: NOW,
       leaseMs: LEASE_MS,
     });
 
-    // Then: backoff를 건너뛰지 않는다.
     expect(claim).toBeNull();
   });
 
@@ -291,7 +285,6 @@ describe('RepositoryProvisionJobRepository integration', () => {
   });
 
   it('만료된 PROCESSING lease만 회수한다', async () => {
-    // Given: 만료된 job과 아직 유효한 job이 있다.
     await createJob(
       APPLICATION_IDS[2],
       RepositoryProvisionJobStatus.PROCESSING,
@@ -305,14 +298,12 @@ describe('RepositoryProvisionJobRepository integration', () => {
       { lockedAt: new Date(NOW.getTime() - 60_000) },
     );
 
-    // When: 새 worker가 claim한다.
     const claim = await repository.claimNext({
       workerId: 'worker-d',
       now: NOW,
       leaseMs: LEASE_MS,
     });
 
-    // Then: stale job만 새 worker에게 넘어간다.
     expect(claim?.applicationId).toBe(APPLICATION_IDS[2]);
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
@@ -322,7 +313,6 @@ describe('RepositoryProvisionJobRepository integration', () => {
   });
 
   it('갱신한 lease는 보호하고 회수 뒤 이전 worker 갱신은 거절한다', async () => {
-    // Given: worker-a가 job을 claim한 뒤 외부 호출 직전에 lease를 갱신한다.
     const applicationId = APPLICATION_IDS[4];
     await createJob(applicationId, RepositoryProvisionJobStatus.PENDING, NOW);
     const claim = await repository.claimNext({
@@ -342,14 +332,12 @@ describe('RepositoryProvisionJobRepository integration', () => {
       renewedAt,
     );
 
-    // When: 최초 claim은 지났지만 갱신 lease가 유효한 시각에 다른 worker가 접근한다.
     const protectedClaim = await repository.claimNext({
       workerId: 'worker-b',
       now: new Date(NOW.getTime() + 6 * 60_000),
       leaseMs: LEASE_MS,
     });
 
-    // Then: 갱신 lease를 보호하고, 실제 만료·회수 뒤에는 이전 worker를 fence한다.
     expect(protectedClaim).toBeNull();
     const reclaimed = await repository.claimNext({
       workerId: 'worker-b',
@@ -368,7 +356,6 @@ describe('RepositoryProvisionJobRepository integration', () => {
   });
 
   it('대기 초대가 없어도 관리형 NEW 완료 job을 재조회 시각에 다시 임대한다', async () => {
-    // Given: 초대 행이 하나도 없는 성공 job의 재조회 시각이 도래했다.
     const applicationId = 'synthetic-job-recurring';
     await createJob(
       applicationId,
@@ -383,14 +370,12 @@ describe('RepositoryProvisionJobRepository integration', () => {
       data: { attemptCount: 5 },
     });
 
-    // When: 재조회 claim을 시도한다.
     const claim = await repository.claimNextReconciliation({
       workerId: 'worker-reconcile',
       now: NOW,
       leaseMs: LEASE_MS,
     });
 
-    // Then: 이전 주기의 실패 횟수와 무관하게 첫 시도부터 새 예산을 적용한다.
     expect(claim?.applicationId).toBe(applicationId);
     expect(claim?.attemptCount).toBe(1);
     await expect(
@@ -407,7 +392,6 @@ describe('RepositoryProvisionJobRepository integration', () => {
   });
 
   it('EXTERNAL_PUBLIC 연결·미프로비저닝 job은 재조회하지 않는다', async () => {
-    // Given: 권한 authority가 아닌 공개 외부 연결 job과 저장소가 없는 완료 job만 남아 있다.
     await createJob(
       'synthetic-job-own',
       RepositoryProvisionJobStatus.SUCCEEDED,
@@ -423,14 +407,12 @@ describe('RepositoryProvisionJobRepository integration', () => {
       NOW,
     );
 
-    // When: 재조회 claim을 시도한다.
     const claim = await repository.claimNextReconciliation({
       workerId: 'worker-reconcile-skip',
       now: NOW,
       leaseMs: LEASE_MS,
     });
 
-    // Then: 회수할 권한도 대상도 없는 job을 깨우지 않는다.
     expect(claim).toBeNull();
   });
 
@@ -459,7 +441,6 @@ describe('RepositoryProvisionJobRepository integration', () => {
   });
 
   it('동시 재조회 claim에서도 한 worker만 임대한다', async () => {
-    // Given: 재조회 대상 job 한 건이 있다.
     const applicationId = 'synthetic-job-race';
     await createJob(
       applicationId,
@@ -470,7 +451,6 @@ describe('RepositoryProvisionJobRepository integration', () => {
       },
     );
 
-    // When: 두 worker가 동시에 재조회 claim을 시도한다.
     const claims = await Promise.all([
       repository.claimNextReconciliation({
         workerId: 'worker-x',
@@ -484,7 +464,6 @@ describe('RepositoryProvisionJobRepository integration', () => {
       }),
     ]);
 
-    // Then: 한 worker만 lease를 잡고, 잃은 worker의 갱신은 fence된다.
     const claimed = claims.filter((claim) => claim !== null);
     expect(claimed).toHaveLength(1);
     const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({

@@ -77,7 +77,6 @@ export async function listAdminAccessFacets(
     none,
     pending,
   ] = await Promise.all([
-    // 표시 역할 집계는 canonical 세 사실을 `authorityLabel`과 같은 우선순위로 되짚는다.
     prisma.user.count({
       where: {
         AND: [
@@ -169,8 +168,7 @@ function adminAccessWhere(
       ],
     });
   }
-  // 표시 역할 필터는 canonical 세 사실을 `authorityLabel`과 같은 우선순위로 되짚는다.
-  // 검색어의 OR와 미배정 필터의 OR가 한 객체에서 덮어쓰지 않도록 AND로 묶는다.
+
   if (omitted !== 'role' && query.role !== undefined) {
     clauses.push(adminAccessRoleFilterWhere(query.role));
   }
@@ -194,7 +192,6 @@ function adminAccessWhere(
   return { AND: clauses };
 }
 
-/** 표시 역할 필터를 canonical 컬럼 조건으로 되짚는다. `authorityLabel`과 같은 우선순위다. */
 function adminAccessRoleFilterWhere(
   filter: NonNullable<AdminAccessListQuery['role']>,
 ): Prisma.UserWhereInput {

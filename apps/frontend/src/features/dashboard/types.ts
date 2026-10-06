@@ -23,13 +23,9 @@ export interface DashboardItem {
   readonly applicationId: string;
   readonly programId: string;
   readonly programName: string;
-  /**
-   * **지금** 소속된 팀의 이름. 1인 팀도 팀이라 이 값은 항상 있다 — 서버가 개인형이라는
-   * 개념 대신 팀 하나로 통일했고(#1269), 나갔거나 빠진 팀은 응답에 담기지 않는다.
-   * 그래서 화면은 "개인/팀"을 나누거나 사람 이름을 대신 그리지 않는다.
-   */
+
   readonly teamName: string;
-  /** 그 팀의 화면(`/programs/{programId}/my-team`). 서버가 만든 값을 그대로 쓴다. */
+
   readonly teamUrl: string;
   readonly applicationStatus: DashboardApplicationStatus;
   readonly nextMilestone: DashboardMilestone | null;
@@ -52,13 +48,7 @@ export interface ApplicationDecisionNotice {
   readonly applicationId: string;
   readonly programId: string;
   readonly programName: string;
-  /**
-   * 판정 결과. 되돌림 알림은 `SUBMITTED`(다시 검토 대기)로 온다 — backend 가 되돌림도
-   * 알리기 시작했으므로 이 셋을 모두 받아야 한다.
-   *
-   * ⚠ 둘만 받으면 되돌림 알림이 파서에서 조용히 걸러져, 학생은 자기 승인이 풀린
-   *   것을 화면 어디에서도 모른다.
-   */
+
   readonly decision: 'APPROVED' | 'REJECTED' | 'SUBMITTED';
   readonly decidedAt: string;
 }

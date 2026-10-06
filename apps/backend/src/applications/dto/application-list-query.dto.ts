@@ -36,18 +36,9 @@ export class ApplicationListQueryRequestDto {
   @IsIn(APPLICATION_LIST_STATUSES)
   readonly status: ApplicationListStatus = 'all';
 
-  /**
-   * 응답 projection 선택. 기본값이 `default`라 이 파라미터를 모르는 기존
-   * 클라이언트는 지금까지와 같은 응답을 받는다.
-   */
   @IsIn(APPLICATION_LIST_VIEWS)
   readonly view: ApplicationListView = 'default';
 
-  /**
-   * D6: 개인/팀 mode 필터 폐지. 전역 ValidationPipe가 whitelist+forbidNonWhitelisted
-   * 이라 선언을 지우면 구 클라이언트의 `?mode=` 가 400이 된다. 값은 수용만 하고
-   * toQuery()에는 넣지 않는다.
-   */
   @Allow()
   readonly mode?: unknown;
 

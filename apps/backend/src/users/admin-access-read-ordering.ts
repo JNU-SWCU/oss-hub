@@ -124,8 +124,6 @@ function adminAccessSqlWhere(query: AdminAccessListQuery): Prisma.Sql {
     `);
   }
   if (query.role !== undefined) {
-    // 표시 역할은 canonical 세 사실의 접힌 요약이다(`domain/authority-label.ts`).
-    // 필터도 같은 우선순위(관리자 → 교직원 → 학생)로 되짚어야 목록과 어긋나지 않는다.
     conditions.push(adminAccessRoleFilterSql(query.role));
   }
   if (query.accountStatus !== undefined) {
@@ -159,7 +157,6 @@ function adminAccessSqlWhere(query: AdminAccessListQuery): Prisma.Sql {
     : Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`;
 }
 
-/** 표시 역할 필터를 canonical 컬럼 조건으로 되짚는다. `authorityLabel`과 같은 우선순위다. */
 function adminAccessRoleFilterSql(
   filter: NonNullable<AdminAccessListQuery['role']>,
 ): Prisma.Sql {

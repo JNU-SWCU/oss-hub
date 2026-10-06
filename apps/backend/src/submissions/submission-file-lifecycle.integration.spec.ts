@@ -70,7 +70,6 @@ function s3Client(): S3Client {
   });
 }
 
-/** 판정 전용 경로(#1108)가 남길 수 있는 흔적 전부 — 제출 파일 행·감사·아웃박스·버킷 객체. */
 async function persistedFootprint() {
   const client = s3Client();
   try {
@@ -388,7 +387,6 @@ describeIntegration(
         }),
       ).resolves.toBeNull();
 
-      // 소진된 행은 스케줄러가 다시 집지 않으므로 운영자 조회에 반드시 떠야 한다(#545).
       const exhausted = (await files.findExhaustedCleanups()).find(
         (entry) => entry.id === row.id,
       );
@@ -396,7 +394,7 @@ describeIntegration(
         deleteAttemptCount: 6,
         lastDeleteError: 'STORAGE_DELETE_FAILED',
       });
-      // 파일명·저장소 키·업로더는 select 단계에서 이미 빠져 있어야 한다.
+
       expect(Object.keys(exhausted!).sort()).toEqual([
         'createdAt',
         'deleteAttemptCount',
@@ -408,7 +406,7 @@ describeIntegration(
       await expect(files.resetDeleteAttempts(row.id, resetAt)).resolves.toBe(
         true,
       );
-      // 운영자 재시도로 되살아난 행은 더 이상 소진 목록에 남지 않는다.
+
       await expect(
         files
           .findExhaustedCleanups()
@@ -503,7 +501,6 @@ describeIntegration(
     });
 
     it('판정만 하는 요청은 제출과 같은 코드로 거절하고 행·감사·아웃박스·객체를 남기지 않는다', async () => {
-      // Given: 비밀번호 걸린 압축과 압축 안의 압축(#1108). 암호화 항목은 12바이트 머리를 더한다.
       const filesService = new SubmissionFilesService(files, storage);
       const zipUpload = (buffer: Buffer) => ({
         buffer,
@@ -527,7 +524,6 @@ describeIntegration(
       ] as const;
       const before = await persistedFootprint();
 
-      // When / Then: 판정은 제출(업로드)과 같은 코드·상태로 거절한다.
       for (const [archive, code] of rejected) {
         const expected = { errorCode: { code, status: 422 } };
         await expect(
@@ -548,7 +544,6 @@ describeIntegration(
         ),
       ).resolves.toBeUndefined();
 
-      // Then: 통과한 판정까지 포함해 아무것도 남지 않는다.
       await expect(persistedFootprint()).resolves.toEqual(before);
     });
   },

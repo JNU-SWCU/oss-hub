@@ -16,10 +16,6 @@ import {
 } from '../matrix';
 import type { MatrixCell, MatrixMilestone } from '../types';
 
-/**
- * 제출이 있는 칸만 검토 화면으로 연결한다. 미제출 칸은 마감 상태를 함께 보여
- * 교직원이 다음 행동이 필요한 팀을 표 안에서 바로 구분할 수 있게 한다.
- */
 export function MatrixCellContent({
   cell,
   milestone,

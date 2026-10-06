@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -24,9 +22,6 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 });
 
 describe('RouteNotice', () => {
-  // 같은 처지의 전면 안내 셋(access-denied·login-required-notice·session-error)이 쓰는
-  // 치수를 그대로 따른다. 이 뼈대가 갈라지면 주소가 틀렸을 때와 권한이 없을 때가
-  // 서로 다른 서비스처럼 보인다.
   it('이웃 전면 안내와 같은 뼈대·폭·정렬을 쓴다', () => {
     const html = renderToStaticMarkup(
       <RouteNotice title="제목" description="설명" actions={null} />,
@@ -38,8 +33,6 @@ describe('RouteNotice', () => {
     expect(html).toContain('text-muted-foreground');
   });
 
-  // R-12(docs/design.md §피드백·알림) — live region은 상호작용 중 발생한 동적 error
-  // 전용이고, 이 화면은 그 route의 초기 렌더 콘텐츠다.
   it('정적 초기 콘텐츠에 live region을 두지 않는다', () => {
     const html = renderToStaticMarkup(
       <RouteNotice title="제목" description="설명" actions={null} />,

@@ -120,7 +120,7 @@ describe('CollectionSchedulerService', () => {
     expect(runExternal).toHaveBeenCalledTimes(2);
     expect(runExternal.mock.calls[0]?.[0]).toMatch(/^scheduler:/);
     expect(runExternal.mock.calls[1]?.[0]).toBe(runExternal.mock.calls[0]?.[0]);
-    // org sweep과 external sweep은 같은 ownerId를 공유한다(lease scope만 다르다).
+
     expect(runExternal.mock.calls[0]?.[0]).toBe(run.mock.calls[0]?.[0]);
   });
 
@@ -234,7 +234,6 @@ describe('CollectionSchedulerService', () => {
     );
   });
 
-  // #546 — 트리거가 돌려준 runId와 내부 run의 runId가 같아야 조회가 성립한다.
   it('트리거가 만든 runId를 그대로 내부 sync run에 넘긴다', async () => {
     run.mockResolvedValue(completedRun());
 
@@ -243,8 +242,6 @@ describe('CollectionSchedulerService', () => {
     expect(run).toHaveBeenCalledWith(expect.any(String), result.runId);
   });
 
-  // #511 — 성공 tick에도 로그가 1줄 남아야 한다. 이전에는 실패 이벤트만 기록돼
-  // "정상 실행됐는가"를 DB 직접 조회 없이 판정할 수 없었다.
   it('sync가 성공하면 소요 시간·대상 repo 수·신규 수집 건수를 담은 완료 로그를 남긴다', async () => {
     const logger = jest
       .spyOn(Logger.prototype, 'log')
@@ -278,7 +275,7 @@ describe('CollectionSchedulerService', () => {
       .mockImplementation(() => undefined);
     run.mockResolvedValue({
       ...completedRun(),
-      // 계약에 없는 필드를 결과에 섞어도 로그로 새지 않아야 한다.
+
       installationToken: 'must-not-be-logged',
       nameWithOwner: 'JNU-SWCU/secret-repo',
     } as CollectionSyncRunResult);

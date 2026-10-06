@@ -106,15 +106,14 @@ async function confirmedPreview(draft: object) {
 }
 
 it('renders, confirms, and sends separate escaped guidance through the real HTTP boundary', async () => {
-  // Given
   const draft = {
     studentGuidance: '<script>synthetic</script>\nstudent',
     staffGuidance: 'staff & only',
   };
   const preview = await confirmedPreview(draft);
-  // When
+
   const response = await post('send', preview);
-  // Then
+
   expect(response.status).toBe(201);
   expect(sender.sent).toHaveLength(3);
   const student = sender.sent.find(
@@ -131,16 +130,15 @@ it('renders, confirms, and sends separate escaped guidance through the real HTTP
 });
 
 it('rejects changed guidance with 409 before creating any notification', async () => {
-  // Given
   const preview = await confirmedPreview({
     studentGuidance: 'confirmed draft',
   });
-  // When
+
   const response = await post('send', {
     ...preview,
     studentGuidance: 'different draft',
   });
-  // Then
+
   expect(response.status).toBe(409);
   expect(sender.sent).toEqual([]);
   expect(
@@ -151,7 +149,6 @@ it('rejects changed guidance with 409 before creating any notification', async (
 });
 
 it('can refresh a drifted audience using the same draft without automatically sending', async () => {
-  // Given
   const draft = {
     studentGuidance: 'preserved draft',
     staffGuidance: 'preserved staff',
@@ -162,9 +159,9 @@ it('can refresh a drifted audience using the same draft without automatically se
     { notificationEmail: 'changed@example.com', notifyEnabled: true },
   );
   expect((await post('send', preview)).status).toBe(409);
-  // When
+
   const fresh = await confirmedPreview(draft);
-  // Then
+
   expect(fresh.previewVersion).not.toBe(preview.previewVersion);
   expect(sender.sent).toEqual([]);
   expect((await post('send', fresh)).status).toBe(201);
@@ -180,41 +177,37 @@ it.each([
   ['oversized guidance', { staffGuidance: 'x'.repeat(4001) }],
   ['protected subject', { subject: 'override' }],
 ] as const)('rejects unsupported draft input: %s', async (_label, draft) => {
-  // Given / When
   const response = await post('preview', draft);
-  // Then
+
   expect(response.status).toBe(400);
   expect(sender.sent).toEqual([]);
 });
 
 it('keeps student callers outside the staff preview endpoint', async () => {
-  // Given
   githubId = DIGEST_FIXTURE.studentMissingGithub;
-  // When
+
   const response = await post('preview', {});
-  // Then
+
   expect(response.status).toBe(403);
   expect(sender.sent).toEqual([]);
 });
 
 it('marks personalized previews as private and non-cacheable', async () => {
-  // Given / When
   const response = await post('preview', {});
-  // Then
+
   expect(response.headers.get('cache-control')).toBe('private, no-store');
 });
 
 it('retains same-day deduplication across automatic and guided manual sends', async () => {
-  // Given
   await harness.service(sender).sendDeadlineDigests();
   const preview = await confirmedPreview({
     studentGuidance: 'manual note',
     staffGuidance: 'staff note',
   });
-  // When
+
   const first = await post('send', preview);
   const repeated = await post('send', preview);
-  // Then
+
   expect(first.status).toBe(201);
   expect(await first.json()).toMatchObject({ sentCount: 0, duplicateCount: 1 });
   expect(repeated.status).toBe(201);
@@ -228,17 +221,16 @@ it('retains same-day deduplication across automatic and guided manual sends', as
 });
 
 it('does not claim or send when no milestone meets existing eligibility', async () => {
-  // Given
   await harness.prisma.milestoneDocument.update({
     where: { id: DIGEST_FIXTURE.notifyDocument },
     data: { required: false },
   });
-  // When
+
   const preview = await confirmedPreview({
     studentGuidance: 'unused guidance',
   });
   const response = await post('send', preview);
-  // Then
+
   expect(response.status).toBe(201);
   expect(await response.json()).toMatchObject({
     recipientCount: 0,

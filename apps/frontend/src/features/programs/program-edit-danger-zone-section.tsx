@@ -16,9 +16,9 @@ import { ProgramEditPurgeConfirmation } from './program-edit-purge-confirmation'
 interface ProgramEditDangerZoneSectionProps {
   readonly programId: string;
   readonly programName: string;
-  /** 삭제 권한이 있는 사용자(교직원 또는 관리자)만 삭제 액션을 본다. */
+
   readonly canDeleteProgram: boolean;
-  /** 삭제 완료 후 목록으로 이동하면서 전달할 확인 문구. */
+
   readonly onDeleted: (notice?: string) => void;
 }
 
@@ -116,13 +116,6 @@ export function ProgramEditDangerZoneSection({
     setIsPurgeScopeLoading(false);
   };
 
-  /**
-   * 화면이 마지막으로 보여준 `purgeCounts`를 그대로 expectedScope로 보낸다 — 재확인용
-   * 별도 GET 재조회를 먼저 하지 않는다(그 자체가 확인-purge 사이의 또 다른 요청이라
-   * TOCTOU를 재도입한다, #F2). 범위 비교는 백엔드 purge 트랜잭션 안에서만 일어난다.
-   * 409(PRG_014)가 오면 자동 재시도하지 않고 응답이 실은 현재 범위로 화면을 갱신해
-   * 누르는 사람이 명시적으로 다시 확인하게 한다.
-   */
   const confirmPurge = async () => {
     if (busy || isPurgeScopeLoading || !purgeCounts) {
       return;
@@ -194,7 +187,7 @@ export function ProgramEditDangerZoneSection({
 
 function formatDeletedCounts(counts: ProgramPurgeDeletedCounts): string {
   const items = (Object.entries(counts) as [string, number][])
-    // `submissions`가 기존 제출과 서류 제출의 합계이므로 서류 제출을 다시 더해 보여 주지 않는다.
+
     .filter(
       ([key, count]) => count > 0 && key !== 'milestoneDocumentSubmissions',
     )

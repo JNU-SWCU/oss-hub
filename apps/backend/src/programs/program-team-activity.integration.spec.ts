@@ -13,11 +13,6 @@ assertIsolatedIntegrationDatabase({
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 
-/**
- * 팀 저장소 활동(#1133)이 실제 DB에서 무엇을 싣고 무엇을 싣지 않는지 본다.
- * 장면: 팀이 조직 저장소 A를 쓰다 직접 고른 B로 바꿨다(A→B). A에는 기여 행이 쌓여 있고,
- * B는 방금 걸려 아직 한 번도 수집되지 않았다.
- */
 const prisma = new PrismaService();
 const service = new ProgramTeamsService(
   new ProgramTeamsRepository(prisma),
@@ -39,7 +34,7 @@ const people = {
   outsider: { id: `${prefix}-out`, githubId: base + 3n, nickname: 'outsider' },
   staff: { id: `${prefix}-staff`, githubId: base + 4n, nickname: 'staff' },
 };
-/** 프로그램이 진행 중인 시각 — 수정 가능 여부를 오늘 날짜에 묶지 않는다. */
+
 const duringProgram = new Date('2026-08-15T00:00:00Z');
 const emptyMembers = [
   ['leader', 'lead-now'],
@@ -71,7 +66,7 @@ beforeAll(async () => {
       description: 'Synthetic',
       applicationStartAt: new Date('2026-07-01Z'),
       applicationEndAt: new Date('2026-07-31Z'),
-      // 서울 2026-08-01 00:00 ~ 2026-08-31 23:59:59
+
       startAt: new Date('2026-07-31T15:00:00Z'),
       endAt: new Date('2026-08-31T14:59:59Z'),
     },
@@ -107,7 +102,6 @@ beforeAll(async () => {
   await prisma.githubRepository.createMany({
     data: [
       {
-        // A→B로 떨어진 옛 저장소 — 프로그램·팀 이력은 남고 신청 포인터만 비었다.
         id: repositoryA,
         githubRepositoryId: base + 100n,
         nameWithOwner: 'synthetic/a',
@@ -138,19 +132,17 @@ beforeAll(async () => {
   });
 });
 afterAll(async () => {
-  // The isolated runner removes the database without violating append-only audit history.
   await prisma.$disconnect();
 });
 
 it('A→B 직후 B가 아직 수집 전이면 NOT_COLLECTED이고 A의 행도 0 점도 싣지 않는다', async () => {
-  // When
   const activity = await service.getActivity(
     people.leader.githubId,
     programId,
     teamId,
     duringProgram,
   );
-  // Then
+
   expect(activity).toEqual({
     applicationId,
     repository: { id: repositoryB, url: 'https://github.com/synthetic/b' },
@@ -170,7 +162,6 @@ describe('B가 수집된 뒤', () => {
     });
     await prisma.contribution.createMany({
       data: [
-        // 서울 시작 전날·끝 다음 날은 창 밖이다.
         {
           githubId: people.leader.githubId,
           date: '2026-07-31',
@@ -192,14 +183,14 @@ describe('B가 수집된 뒤', () => {
           date: '2026-09-01',
           commitCount: 70,
         },
-        // 릴리스만 있는 날은 세 지표가 모두 0이라 점이 아니다.
+
         {
           githubId: people.leader.githubId,
           date: '2026-08-10',
           releaseCount: 1,
         },
         { githubId: people.issuer.githubId, date: '2026-08-05', issueCount: 3 },
-        // 팀 밖 사람의 행은 싣지 않는다.
+
         {
           githubId: people.outsider.githubId,
           date: '2026-08-05',
@@ -239,14 +230,13 @@ describe('B가 수집된 뒤', () => {
   ];
 
   it('서울 기간 안의 지금 팀원 행만 날짜별로 싣고 행이 없는 팀원도 남긴다', async () => {
-    // When
     const activity = await service.getActivity(
       people.leader.githubId,
       programId,
       teamId,
       duringProgram,
     );
-    // Then
+
     expect(activity).toMatchObject({
       status: 'COLLECTED',
       lastSuccessAt: '2026-08-20T01:00:00.000Z',
@@ -255,20 +245,19 @@ describe('B가 수집된 뒤', () => {
   });
 
   it('팀원·교직원은 canEditRepositoryUrl 말고 같은 값을 받고 팀 밖 학생은 404다', async () => {
-    // Given
     const leader = await service.getActivity(
       people.leader.githubId,
       programId,
       teamId,
       duringProgram,
     );
-    // When
+
     const [quiet, staff] = await Promise.all(
       [people.quiet, people.staff].map((person) =>
         service.getActivity(person.githubId, programId, teamId, duringProgram),
       ),
     );
-    // Then
+
     expect(quiet).toEqual({ ...leader, canEditRepositoryUrl: false });
     expect(staff).toEqual(leader);
     await expect(
@@ -282,19 +271,18 @@ describe('B가 수집된 뒤', () => {
   });
 
   it('수집이 실패 중이어도 마지막으로 끝낸 값을 그대로 싣는다', async () => {
-    // Given
     await prisma.githubRepository.update({
       where: { id: repositoryB },
       data: { failureCount: 2 },
     });
-    // When
+
     const activity = await service.getActivity(
       people.staff.githubId,
       programId,
       teamId,
       duringProgram,
     );
-    // Then
+
     expect(activity).toMatchObject({
       status: 'ERROR',
       members: collectedMembers,
@@ -306,18 +294,17 @@ describe('B가 수집된 뒤', () => {
   });
 
   it('끝나는 날을 정하지 않은 프로그램은 센티널 창을 그대로 싣고 시작 뒤의 날을 모두 싣는다', async () => {
-    // Given — 끝을 정하지 않은 프로그램의 기본값이다(서울로는 10000년 1월 1일).
     await prisma.program.update({
       where: { id: programId },
       data: { endAt: new Date('9999-12-31T23:59:59.999Z') },
     });
-    // When
+
     const activity = await service.getActivity(
       people.leader.githubId,
       programId,
       teamId,
     );
-    // Then
+
     expect(activity.window).toEqual({
       from: '2026-08-01',
       to: '+010000-01-01',
@@ -336,7 +323,6 @@ describe('B가 수집된 뒤', () => {
 });
 
 it('변경 이력은 옛 연결 기록과 새 URL 기록을 한 시간순 커서로 함께 넘긴다', async () => {
-  // Given — 교직원이 옛 endpoint로 A를 걸었고(REPOSITORY_CONNECTION_CHANGED), 팀장이 A→B로 바꿨다.
   const legacyMetadata = {
     schemaVersion: 1,
     applicationId,
@@ -387,7 +373,7 @@ it('변경 이력은 옛 연결 기록과 새 URL 기록을 한 시간순 커서
           },
         },
       },
-      // 다른 신청을 가리키는 옛 기록·같은 신청의 다른 감사는 이력이 아니다.
+
       {
         id: `${prefix}-foreign`,
         actorId: people.staff.id,
@@ -408,7 +394,7 @@ it('변경 이력은 옛 연결 기록과 새 URL 기록을 한 시간순 커서
       },
     ],
   });
-  // When
+
   const first = await service.getRepositoryUrlHistory(
     people.quiet.githubId,
     programId,
@@ -420,7 +406,7 @@ it('변경 이력은 옛 연결 기록과 새 URL 기록을 한 시간순 커서
     teamId,
     { occurredAt: new Date('2026-08-10T00:00:00Z'), id: `${prefix}-relinked` },
   );
-  // Then
+
   const connected = {
     id: `${prefix}-connected`,
     occurredAt: '2026-08-02T00:00:00.000Z',

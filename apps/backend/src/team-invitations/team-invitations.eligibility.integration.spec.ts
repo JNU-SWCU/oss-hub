@@ -212,16 +212,12 @@ describe('TeamInvitationsRepository eligibility integration', () => {
   });
 
   it('후보 검색에는 ACTIVE STUDENT만 노출한다', async () => {
-    // Given: 같은 검색어에 활성 학생·교직원·관리자·비활성 학생·역할 미정 사용자가 있다.
-
-    // When
     const candidates = await repository.searchCandidates(
       PROGRAM_ID,
       CANDIDATE_QUERY,
       LEADER_ID,
     );
 
-    // Then
     expect(candidates.map((candidate) => candidate.id)).toEqual([
       ACTIVE_STUDENT_ID,
     ]);
@@ -246,17 +242,14 @@ describe('TeamInvitationsRepository eligibility integration', () => {
     ],
     ['계정 비활성화', { accountStatus: AccountStatus.DEACTIVATED }],
   ] as const)('%s 후에는 기존 초대를 수락할 수 없다', async (_, update) => {
-    // Given: ACTIVE STUDENT일 때 받은 대기 중 초대가 있고 이후 자격이 바뀐다.
     await prisma.user.update({ where: { id: INVITEE_ID }, data: update });
 
-    // When
     const outcome = await repository.withAcceptTransaction(
       INVITATION_ID,
       INVITEE_ID,
       RESPONDED_AT,
     );
 
-    // Then
     const [invitation, membership] = await Promise.all([
       prisma.teamInvitation.findUniqueOrThrow({
         where: { id: INVITATION_ID },

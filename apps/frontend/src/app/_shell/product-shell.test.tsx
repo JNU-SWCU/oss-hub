@@ -31,8 +31,7 @@ vi.mock('next/link', () => ({
   ),
 }));
 vi.mock('./use-session-role', () => ({ useSessionRole: mocks.useSessionRole }));
-// 실제 fetch는 절대 안 일어난다(renderToStaticMarkup은 useEffect를 실행하지 않는다) —
-// 그래도 모듈 로드 시점에 네트워크 계층에 닿지 않도록 대역으로 막아 둔다.
+
 vi.mock('@/features/programs/program-overview-api', () => ({
   getProgramOverview: mocks.getProgramOverview,
 }));
@@ -76,7 +75,7 @@ function mockSession(
 
 function render(pathname: string) {
   mocks.usePathname.mockReturnValue(pathname);
-  mocks.getProgramOverview.mockReturnValue(new Promise(() => {})); // 절대 안 풀림 — 로딩 상태 고정
+  mocks.getProgramOverview.mockReturnValue(new Promise(() => {}));
   mocks.getProgramNavigationMilestones.mockReturnValue(new Promise(() => {}));
   mocks.getMyApplication.mockReturnValue(new Promise(() => {}));
   return renderToStaticMarkup(
@@ -149,7 +148,7 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
 
     expect(html).toContain('내 제출물');
     expect(html).not.toContain('서류 현황');
-    // 신청 판정 창구는 교직원 전용이다.
+
     expect(html).not.toContain('신청자');
   });
 
@@ -159,7 +158,7 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
       role: 'STUDENT',
       isProfileComplete: true,
     });
-    // render()가 `getMyApplication`을 영영 풀리지 않는 약속으로 고정한다.
+
     const html = render('/programs/prog-1');
 
     expect(html).toContain('href="/programs/prog-1/documents"');
@@ -172,8 +171,7 @@ describe('ProductShell — 프로그램 상세 스코프 배선', () => {
 
     expect(html).toContain('서류 현황');
     expect(html).not.toContain('내 제출물');
-    // 「참여 팀」과 「신청자」가 「팀 관리」 하나로 합쳐졌다 — 팀:신청이 1:1이라
-    // 같은 대상을 두 이름으로 부르고 있었다.
+
     expect(html).toContain('팀 관리');
     expect(html).not.toContain('신청자');
     expect(html).toContain('/programs/prog-1/teams');

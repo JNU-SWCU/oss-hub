@@ -30,7 +30,6 @@ describe('submission file content type policy', () => {
   ])(
     'rejects new image uploads while preserving stored %s downloads',
     (name, mime) => {
-      // Given / When / Then: 새 업로드 정책은 기존 첨부의 다운로드 타입을 바꾸지 않는다.
       expect(isAllowedSubmissionFileType(name)).toBe(false);
       expect(safeSubmissionFileContentType(name)).toBe(mime);
     },

@@ -67,10 +67,7 @@ export function ProgramEditPage({
   canDeleteProgram,
 }: {
   readonly programId: string;
-  /**
-   * 삭제 권한이 있는 사용자만 「위험 영역」(영구 삭제) 섹션을 본다 — 셸의
-   * `ProgramEditRoute`가 교직원 또는 관리자로 판정한다(#1095).
-   */
+
   readonly canDeleteProgram: boolean;
 }) {
   const cover = useProgramCoverEdit();
@@ -108,8 +105,7 @@ export function ProgramEditPage({
 
   const isDirty = dirtyFields.length > 0 || cover.selection !== undefined;
   const hasUnsavedMilestoneChanges = hasUnsavedMilestoneEdit(milestoneEditor);
-  // 훅은 조건부 이른 반환(state.kind === 'failed' 등)보다 위에서 호출해야 한다.
-  // 나가기 확인은 기본 정보뿐 아니라 마일스톤 편집기에 남은 입력도 지켜야 한다(#867).
+
   const { completeAndNavigate } = useProgramExitGuard(
     isDirty || hasUnsavedMilestoneChanges || hasUnsavedMilestoneDocuments,
   );
@@ -169,7 +165,7 @@ export function ProgramEditPage({
     setDirtyFields((current) => addDirtyField(current, field));
     setErrors({});
     setGeneralAlert(null);
-    // 다시 편집을 시작하면 방금 전 저장 성공 메시지는 더 이상 지금 상태를 말하지 않는다.
+
     setToastMessage(null);
   };
 
@@ -179,9 +175,7 @@ export function ProgramEditPage({
     if (form === null || state.kind !== 'ready') return;
     const currentScheduleForm = {
       ...form,
-      // 마일스톤을 방금 저장했을 때는 최초 로드 시점의 form 사본이 아니라
-      // 현재 화면의 일정으로 검증해야 한다. 아래 전송 직전에만 덞어쓰면 클라이언트
-      // 검증이 예전 마감으로 먼저 막아 요청 자체가 나가지 않는다.
+
       milestoneStartAts: state.program.milestones.map(
         (milestone) => milestone.startAt,
       ),

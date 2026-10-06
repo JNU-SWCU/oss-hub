@@ -107,13 +107,10 @@ describe('buildProgramAuthoringPlan', () => {
   });
 
   it('normalizes attachment filenames and preserves their required values', () => {
-    // Given: request strings, offsets, and optional fields are not canonical.
     const input = request();
 
-    // When: the request becomes the typed persistence plan.
     const plan = buildProgramAuthoringPlan(input);
 
-    // Then: values are canonical while caller order remains intact.
     expect(plan.program).toMatchObject({
       name: 'Synthetic Program',
       organizer: 'Synthetic Organizer',
@@ -127,8 +124,7 @@ describe('buildProgramAuthoringPlan', () => {
       teamMinSize: 1,
       teamMaxSize: 1,
       repositoryProvisioningEnabled: false,
-      // 저장소 발급은 생략하면 꺼지고, 마감 알림은 생략하면 켜진다 — 알림을 끄는
-      // 쪽만 명시적 선택이어야 하기 때문이다(program-authoring-plan.ts).
+
       notifyOnDeadline: true,
       description: 'Synthetic description',
     });
@@ -232,7 +228,6 @@ describe('buildProgramAuthoringPlan', () => {
     expectValidationCodes({ ...request(), ...override }, [code]);
   });
 
-  // 「종료일 미정」 센티널은 DB 기본값으로만 남는다 — 새 프로그램의 종료일로는 받지 않는다(#1420).
   it.each([
     ['in UTC', '9999-12-31T23:59:59.999Z'],
     ['as the same instant in another offset', '9999-12-31T22:59:59.999-01:00'],
@@ -288,10 +283,8 @@ describe('buildProgramAuthoringPlan', () => {
       'TOTAL_DOCUMENT_LIMIT_EXCEEDED',
     ],
   ])('rejects %s before persistence', (_case, override, code) => {
-    // Given: one aggregate limit is exceeded.
     const input = { ...request(), ...override };
 
-    // When / Then: the typed validation error identifies the violated limit.
     expectValidationCodes(input, [code]);
   });
 
@@ -305,7 +298,6 @@ describe('buildProgramAuthoringPlan', () => {
       'DUPLICATE_UPLOAD_TOKEN',
     ],
   ])('rejects %s', (_case, secondDocument, code) => {
-    // Given: document rules are violated inside one milestone.
     const firstMilestone = milestoneAt(request(), 0);
     const input: ProgramAuthoringRequest = {
       ...request(),
@@ -317,7 +309,6 @@ describe('buildProgramAuthoringPlan', () => {
       ],
     };
 
-    // When / Then: invalid document plans never reach persistence.
     expectValidationCodes(input, [code]);
   });
 
@@ -342,7 +333,6 @@ describe('buildProgramAuthoringPlan', () => {
   });
 
   it('rejects an out-of-window milestone and reversed team range together', () => {
-    // Given: all schedule and team checks can be evaluated without a transaction.
     const input: ProgramAuthoringRequest = {
       ...request(),
       teamMinSize: 4,
@@ -355,7 +345,6 @@ describe('buildProgramAuthoringPlan', () => {
       ],
     };
 
-    // When / Then: both independent violations are reported in one typed error.
     expectValidationCodes(input, [
       'INVALID_TEAM_RANGE',
       'INVALID_MILESTONE_SCHEDULE',

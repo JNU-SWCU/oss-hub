@@ -474,8 +474,7 @@ test('unioned menus cover student, staff, student-admin, staff-admin, student-st
   await expect(
     adminPage.getByLabel('관리자 접근', { exact: true }),
   ).toBeVisible();
-  // 계정 상태도 같은 드롭다운 규격이다 — 지금 값이 선택돼 있고 후행 상태가
-  // 목록에 이름으로 서 있다.
+
   const accountStatus = adminPage.getByLabel('계정 상태', { exact: true });
   await expect(accountStatus).toHaveText('활성');
   await accountStatus.click();
@@ -516,9 +515,6 @@ test('direct URL denial removes admin surfaces and backend denies staff', async 
 test('mixed student-staff seed reaches personal dashboard with distinct destinations', async ({
   authSeedPage,
 }, testInfo) => {
-  // Failed Chrome oracle (staff-o-c57bd): this persona is not staff-only.
-  // staff-revocable has a studentId, so the public session is STUDENT +
-  // hasStaffAccess and /dashboard/personal already renders.
   const page = await authSeedPage('staff-revocable');
   const audit = installBrowserAudit(page);
   const session = await page.request.get('/api/v1/auth/session');

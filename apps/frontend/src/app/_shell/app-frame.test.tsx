@@ -83,7 +83,6 @@ function render(
   );
 }
 
-/** `#main-content` 여는 태그만 잘라 낸다. */
 function mainContentTag(html: string): string {
   const id = html.indexOf('id="main-content"');
   if (id === -1) throw new Error('#main-content 가 없습니다');
@@ -122,7 +121,7 @@ describe('AppFrame', () => {
     expect(html).toContain('>대시보드<');
     expect(html).toContain('data-slot="app-sidebar"');
     expect(html).toContain('href="/my-repos"');
-    // 컨텍스트형: 대시보드 섹션에 프로그램 필터 없음
+
     expect(html).not.toContain('모집중');
   });
 
@@ -145,17 +144,13 @@ describe('AppFrame', () => {
       isProfileComplete: true,
     });
     expect(html).toContain('프로그램 메뉴');
-    expect(html).toContain('>대시보드<'); // top nav
-    // 상단 nav에는 역할 메뉴가 900px 미만 전용으로 섞이지만(QA54), 좌측
-    // 사이드바(현재 섹션 컨텍스트)에는 여전히 섞지 않는다.
+    expect(html).toContain('>대시보드<');
+
     const sidebar =
       html.match(/data-slot="app-sidebar"[\s\S]*?<\/aside>/)?.[0] ?? '';
     expect(sidebar).not.toContain('내 저장소');
   });
 
-  // 드로어 도입(feat/sidebar-drawer-below-900) 이후: 900px 미만에서 관리자·역할
-  // 메뉴는 상단 nav가 아니라 햄버거 드로어(SidebarDrawer)로 닿는다. 상단 nav의
-  // 항목 목록 자체는 role 무관하게 `items`(공개 메뉴) + 로그인 시 대시보드뿐이다.
   it('ADMIN 세션이어도 상단 nav 항목 목록에 역할 전용 메뉴(관리자 하위)를 섞지 않는다', () => {
     const html = render('/dashboard', {
       status: 'assigned',
@@ -196,7 +191,7 @@ describe('AppFrame', () => {
       hasAdminAccess: true,
       isProfileComplete: true,
     });
-    // 대시보드(공통) 항목만 있어야 한다 — role 메뉴는 더 이상 상단 nav에 섞이지 않는다.
+
     const navItemsList =
       html.match(/data-slot="nav-bar-items"[\s\S]*?<\/ul>/)?.[0] ?? '';
     const dashboardOccurrences =
@@ -209,8 +204,6 @@ describe('AppFrame', () => {
     expect(render('/dashboard')).toContain('id="main-content"');
   });
 
-  // 가입 화면은 본문 전체가 우주 바탕이다. 무대가 서기 전·실패했을 때 인증·온보딩 게이트가
-  // 이 자리에 바로 그리는 「확인 중…」·오류 문구도 어두운 바탕용 색을 받아야 한다(#1436).
   it.each(['/signup', '/consent', '/onboarding/role', '/onboarding/profile'])(
     '%s 는 본문 전체를 반전 표면으로 둔다',
     (path) => {
@@ -233,7 +226,6 @@ describe('AppFrame', () => {
   });
 
   it('미해결 호환 세션도 정상 인증 셸과 본문을 렌더한다', () => {
-    // Given
     const session = {
       status: 'assigned' as const,
       role: 'ADMIN' as const,
@@ -243,10 +235,8 @@ describe('AppFrame', () => {
       isProfileComplete: true,
     };
 
-    // When
     const html = render('/dashboard', session);
 
-    // Then
     expect(html).toContain('data-slot="nav-bar"');
     expect(html).toContain('>대시보드<');
     expect(html).toContain('data-slot="app-sidebar"');

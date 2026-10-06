@@ -20,7 +20,6 @@ const SCOPE = {
 let fetchMock: ReturnType<typeof vi.fn>;
 
 function lastRequest() {
-  // GET 은 init 없이 호출된다 — 없는 값을 있는 것처럼 읽지 않는다.
   const [input, init] = fetchMock.mock.calls[0] as [
     string,
     RequestInit | undefined,
@@ -56,16 +55,12 @@ describe('listTeamManagementApplications', () => {
     expect(url).toContain('view=team-management');
     expect(url).toContain('page=2');
     expect(url).toContain('status=SUBMITTED');
-    // 검색어는 인코딩돼 실린다 — 원문이 그대로 주소에 붙지 않는다.
+
     expect(url).not.toContain('가나다');
   });
 });
 
 describe('getApplicationDetailWithHistory', () => {
-  /*
-   * 프런트는 Vercel, backend 는 Jenkins 라 따로 배포된다. 프런트가 먼저 올라간 창에서
-   * 이 키를 모르는 backend 가 응답해도 화면이 죽지 않아야 한다.
-   */
   it.each([
     ['키가 없을 때', {}],
     ['null 일 때', { reviewHistory: null }],

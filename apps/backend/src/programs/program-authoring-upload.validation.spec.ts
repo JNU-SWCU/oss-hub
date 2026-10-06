@@ -53,13 +53,10 @@ describe('validateProgramAuthoringUpload', () => {
   ])(
     'accepts a matching extension and signature regardless of browser MIME for %s',
     async (name, mimeType, signature) => {
-      // Given
       const upload = file({ name, mimeType, signature });
 
-      // When
       const validated = await validateProgramAuthoringUpload(upload);
 
-      // Then
       expect(validated).toMatchObject({
         originalFileName: name,
         mimeType: mimeType.toLowerCase(),
@@ -69,10 +66,6 @@ describe('validateProgramAuthoringUpload', () => {
     },
   );
 
-  /**
-   * .zip은 서명만으로 받지 않는다 — 중앙 디렉터리까지 읽혀 입장 검사를 통과해야 한다.
-   * 그래서 상수 `PK\x03\x04` + 0으로 채운 버퍼는 더 이상 유효한 입력이 아니다.
-   */
   it.each([
     'application/zip',
     'application/x-zip-compressed',
@@ -80,10 +73,8 @@ describe('validateProgramAuthoringUpload', () => {
   ])(
     'accepts a real zip even when the browser labels it %s',
     async (mimetype) => {
-      // Given
       const archive = signatureValidZip([{ name: 'plan.pdf' }]);
 
-      // When
       const validated = await validateProgramAuthoringUpload({
         buffer: archive,
         originalname: 'bundle.zip',
@@ -91,7 +82,6 @@ describe('validateProgramAuthoringUpload', () => {
         size: archive.byteLength,
       });
 
-      // Then
       expect(validated).toMatchObject({
         originalFileName: 'bundle.zip',
         mimeType: mimetype,
@@ -102,10 +92,8 @@ describe('validateProgramAuthoringUpload', () => {
   );
 
   it('rejects a zip whose metadata fails archive admission', async () => {
-    // Given: 서명은 진짜 집이지만 안에 또 다른 집이 들어 있다(중첩 아카이브).
     const nested = signatureValidZip([{ name: 'nested.zip' }]);
 
-    // When / Then
     await expect(
       validateProgramAuthoringUpload({
         buffer: nested,
@@ -119,14 +107,12 @@ describe('validateProgramAuthoringUpload', () => {
   });
 
   it('rejects a zip signature that is not a parseable archive', async () => {
-    // Given: 예전 fixture — `PK\x03\x04` 뒤가 전부 0이라 중앙 디렉터리가 없다.
     const upload = file({
       name: 'bundle.zip',
       mimeType: 'application/zip',
       signature: Buffer.from([0x50, 0x4b, 0x03, 0x04]),
     });
 
-    // When / Then
     await expect(validateProgramAuthoringUpload(upload)).rejects.toMatchObject({
       code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.UNSUPPORTED_FILE_TYPE,
     });
@@ -147,7 +133,6 @@ describe('validateProgramAuthoringUpload', () => {
   });
 
   it('accepts the exact 5 MiB boundary using the actual buffer length', async () => {
-    // Given
     const upload = file({
       name: 'maximum.pdf',
       mimeType: 'application/pdf',
@@ -155,10 +140,8 @@ describe('validateProgramAuthoringUpload', () => {
       actualSize: PROGRAM_AUTHORING_UPLOAD_MAX_BYTES,
     });
 
-    // When
     const validated = await validateProgramAuthoringUpload(upload);
 
-    // Then
     expect(validated.sizeBytes).toBe(5 * 1024 * 1024);
   });
 
@@ -183,7 +166,6 @@ describe('validateProgramAuthoringUpload', () => {
       }),
     ],
   ])('rejects %s', async (_caseName, upload) => {
-    // When / Then
     await expect(validateProgramAuthoringUpload(upload)).rejects.toEqual(
       expect.objectContaining<Pick<ProgramAuthoringUploadError, 'code'>>({
         code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.INVALID_FILE,
@@ -192,7 +174,6 @@ describe('validateProgramAuthoringUpload', () => {
   });
 
   it('rejects one byte over 5 MiB even when the declared size matches', async () => {
-    // Given
     const upload = file({
       name: 'oversize.pdf',
       mimeType: 'application/pdf',
@@ -200,7 +181,6 @@ describe('validateProgramAuthoringUpload', () => {
       actualSize: PROGRAM_AUTHORING_UPLOAD_MAX_BYTES + 1,
     });
 
-    // When / Then
     await expect(validateProgramAuthoringUpload(upload)).rejects.toEqual(
       expect.objectContaining<Pick<ProgramAuthoringUploadError, 'code'>>({
         code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.FILE_TOO_LARGE,
@@ -224,10 +204,8 @@ describe('validateProgramAuthoringUpload', () => {
   ])(
     'rejects an unsupported extension or signature',
     async (name, mimeType, signature) => {
-      // Given
       const upload = file({ name, mimeType, signature });
 
-      // When / Then
       await expect(validateProgramAuthoringUpload(upload)).rejects.toEqual(
         expect.objectContaining<Pick<ProgramAuthoringUploadError, 'code'>>({
           code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.UNSUPPORTED_FILE_TYPE,

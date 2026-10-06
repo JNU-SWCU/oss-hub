@@ -53,8 +53,6 @@ beforeAll(async () => {
         useValue: { fromGithubId: jest.fn() },
       },
       {
-        // #875 — ProgramsController가 DELETE :id 라우트에서 새로 쓰는 의존성.
-        // 이 스펙은 그 라우트를 부르지 않으므로 실제 구현은 필요 없다.
         provide: ProgramLifecycleService,
         useValue: { delete: jest.fn() },
       },

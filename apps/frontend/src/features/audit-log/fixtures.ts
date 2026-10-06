@@ -1,9 +1,3 @@
-// apps/backend/src/audit-log/audit-log.repository.ts의 toAuditLogRecord가 실제로
-// 만드는 HTTP 응답 모양(legacy/metadata 판별 필드까지 포함)을 그대로 미러링한
-// fixture다. AuditLogRecord(features/audit-log/types.ts)는 이 중 라벨 필드(target)만
-// 쓰고 metadata는 parser.ts가 파싱 단계에서 버린다 — synthetic 값만 사용한다
-// (docs/rules/security.md의 public-safe 규칙: 실명·학번 금지).
-
 const ACCESS_METADATA_V2 = {
   schemaVersion: 2,
   eventKind: 'ROLE_REQUEST_APPROVED',
@@ -24,8 +18,6 @@ const REPOSITORY_PUBLISH_METADATA = {
   after: { visibility: 'PUBLIC', publishedAt: '2026-07-24T04:00:00.000Z' },
 } as const;
 
-// schemaVersion 2 — 전체 이름(owner/name) 스냅샷이 있어 join 없이 target을 그 이름으로
-// 계산한 경우를 미러링한다(REPOSITORY_PUBLISH_METADATA는 반대로 v1/폴백 경우다).
 const REPOSITORY_PUBLISH_METADATA_V2 = {
   schemaVersion: 2,
   repositoryId: 'repository-synthetic-2',
@@ -34,9 +26,6 @@ const REPOSITORY_PUBLISH_METADATA_V2 = {
   after: { visibility: 'PUBLIC', publishedAt: '2026-07-24T04:10:00.000Z' },
 } as const;
 
-// schemaVersion 2 — 프로그램 이름·신청자 로그인 스냅샷이 있어 join 없이 target을
-// composeApplicationTargetLabel 형태("프로그램 이름 · @로그인")로 계산한 경우를
-// 미러링한다.
 const APPLICATION_DECISION_METADATA_V2 = {
   schemaVersion: 2,
   programName: '합성 프로그램',
@@ -134,7 +123,6 @@ export const AUDIT_LOG_LEGACY_RECORD_FIXTURE = {
   metadata: null,
 } as const;
 
-/** `GET /api/v1/audit-logs`의 실제 응답 모양(`{ items, total, page, limit }`). */
 export const AUDIT_LOG_PAGE_RESPONSE_FIXTURE = {
   items: [
     AUDIT_LOG_ACCESS_RECORD_FIXTURE,

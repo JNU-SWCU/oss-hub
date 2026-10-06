@@ -28,8 +28,7 @@ async function main() {
   await prisma.notification.deleteMany({
     where: { userId: { in: [staffId, studentId] }, type: 'DEADLINE_DIGEST' },
   });
-  // 제출 원장은 Submission에서 MilestoneDocumentSubmission으로 이관됐다
-  // (20260830180000_contract_legacy_submissions가 옛 테이블을 지웠다).
+
   await prisma.milestoneDocumentSubmission.deleteMany({
     where: { applicationId },
   });
@@ -64,10 +63,7 @@ async function main() {
       submissionType: MilestoneSubmissionType.TEXT,
     },
   });
-  // 다이제스트 대상은 마일스톤이 아니라 **필수 서류 항목**이다. 이 행이 없으면
-  // findAutomaticProgramIds가 프로그램을 아예 고르지 않고 buildDeadlineEligibility도
-  // requiredDocumentIds가 비어 마일스톤을 버린다 — 시드는 성공하는데 알림이 0건이 된다.
-  // kind는 DOCUMENT여야 한다. LEGACY_MILESTONE_SUBMISSION 슬롯은 두 조회 모두 제외한다.
+
   await prisma.milestoneDocument.create({
     data: {
       id: documentId,

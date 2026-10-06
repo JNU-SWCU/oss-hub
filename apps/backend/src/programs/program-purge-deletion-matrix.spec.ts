@@ -31,9 +31,7 @@ function schemaChildGraph(
       const relation = `${edge.parent}->${edge.child}`;
       if (traversed.has(relation)) continue;
       traversed.add(relation);
-      // DETACH/PRESERVE 아래도 계속 순회한다 — 그래야 detach된 부모 밑에 조용히 새로
-      // 붙는 손자 관계가 matrix 갱신 없이 지나가지 않는다. DELETE/TOMBSTONE으로 부모가
-      // 사라지는 경우만 그 자식도 함께 사라지므로 계속 내려간다.
+
       queue.push(edge.child);
     }
   }
@@ -95,7 +93,7 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
         'GithubRepository->CollectionReleaseFact',
       ]),
     );
-    // 이 관계들은 다른 operation으로 이중 분류되지 않는다.
+
     const nonPreserveCovers = PROGRAM_PURGE_DELETION_ORDER.filter(
       (step) => step.operation !== 'PRESERVE',
     ).flatMap((step) => step.covers);
@@ -139,15 +137,12 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
     expect(new Set(teamIds).size).toBe(teamIds.length);
     expect(teamIds).toEqual(programIds.filter((id) => teamIds.includes(id)));
 
-    // operation 은 좁혀 담기면서 바뀔 수 있는 것이 아니다 — DETACH 가 DELETE 로
-    // 바뀌는 순간 수집 이력이 통째로 사라진다.
     for (const step of TEAM_PURGE_DELETION_ORDER) {
       const origin = PROGRAM_PURGE_DELETION_ORDER.find(
         (candidate) => candidate.id === step.id,
       );
       expect(origin?.operation).toBe(step.operation);
       for (const relation of step.covers) {
-        // 기계적으로 좁힌 관계는 그대로 있고, 논리 자식만 도달 경로가 바뀐다.
         if (!relation.startsWith('logical:')) {
           expect(origin?.covers).toContain(relation);
         }
@@ -171,10 +166,9 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
     ].sort();
 
     expect(covered).toEqual(actual);
-    // 지워지는 팀 행 자체도 마지막 단계로 명시된다.
+
     expect(teamCovers).toContain('Program->Team');
 
-    // 프로그램에만 매달린 것은 팀 삭제가 건드리지 않는다.
     for (const programOnly of [
       'Program->BoardPost',
       'BoardPost->BoardComment',
@@ -229,13 +223,11 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
     const position = (id: string) =>
       TEAM_PURGE_DELETION_ORDER.findIndex((step) => step.id === id);
 
-    // Application.team 의 onDelete: Restrict 는 삭제 금지가 아니라 순서 요구다.
     expect(position('applications')).toBeLessThan(position('team-invitations'));
     expect(position('team-invitations')).toBeLessThan(position('team-members'));
     expect(position('team-members')).toBeLessThan(position('teams'));
     expect(position('teams')).toBe(TEAM_PURGE_DELETION_ORDER.length - 1);
 
-    // 자식이 부모보다 먼저라는 bottom-up 규칙은 좁혀도 그대로다.
     expect(position('submission-files')).toBeLessThan(
       position('milestone-document-submission-histories'),
     );
@@ -245,20 +237,12 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
     expect(position('milestone-document-submissions')).toBeLessThan(
       position('applications'),
     );
-    // 저장소를 먼저 떼어내야 application 삭제가 FK 에 막히지 않는다.
+
     expect(position('github-repositories')).toBeLessThan(
       position('applications'),
     );
   });
 });
-
-/**
- * Notification/OutboxEvent는 Prisma FK가 아니라 payload JSON 필드나 idempotencyKey
- * 문자열에 programId(또는 applicationId 경유)를 박아 논리적으로 Program에 묶인다 — 스키마
- * 파싱만으로는 절대 드러나지 않는다. 이 섹션은 소스에서 실제 사용 중인 Notification
- * `type`/OutboxEvent `aggregateType` 리터럴을 전수 스캔해, 이미 알려진 값이 아니면
- * (=아직 purge가 분류하지 않은 새 논리적 program-linked 레코드가 생기면) 실패한다.
- */
 
 const SRC_ROOT = join(process.cwd(), 'src');
 
@@ -278,7 +262,6 @@ function listSourceFiles(dir: string): readonly string[] {
   return files;
 }
 
-/** `receiver.method(` 호출부터 괄호 깊이가 0으로 돌아오는 지점까지 원문을 잘라낸다. */
 function extractBalancedCallArguments(
   source: string,
   callStartIndex: number,
@@ -326,12 +309,6 @@ function scanLiterals(
   return literals;
 }
 
-/**
- * Program-linked classification per Notification `type`. 값이 없는 새 type이 소스에서
- * 발견되면 아래 allowlist 완전성 테스트가 실패한다 — 즉 새 논리적 program-linked
- * 레코드는 이 표를 갱신하고 program-lifecycle.service.ts의 purge 로직도 함께 갱신하지
- * 않으면 테스트가 막는다.
- */
 const NOTIFICATION_TYPE_CLASSIFICATION: Record<
   string,
   { readonly programLinked: boolean; readonly shape: string }
@@ -354,13 +331,11 @@ const NOTIFICATION_TYPE_CLASSIFICATION: Record<
     shape: 'payload.programId',
   },
   REPOSITORY_PROVISION_REQUESTED: {
-    // OutboxEvent 타입이지 Notification type이 아니다 — 아래 outbox 스캔에서 다룬다.
     programLinked: false,
     shape: 'n/a (not a Notification type)',
   },
 };
 
-/** OutboxEvent aggregateType별 program-linkage. */
 const OUTBOX_AGGREGATE_TYPE_CLASSIFICATION: Record<
   string,
   { readonly programLinked: boolean; readonly shape: string }

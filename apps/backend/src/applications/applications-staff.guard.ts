@@ -9,7 +9,6 @@ import {
   ApplicationsErrorCode,
 } from './applications-error-code.enum';
 
-/** 권한 판단은 canonical 컬럼만 읽는다 — 회원 정체성(이름·소속)은 끌고 오지 않는다. */
 const APPLICATIONS_STAFF_SELECT = {
   id: true,
   hasStaffAccess: true,
@@ -42,7 +41,6 @@ export class ApplicationsStaffGuard implements CanActivate {
     private readonly prisma: ApplicationsStaffStore,
   ) {}
 
-  /** PATCH decide 전용 — 판정 문구 유지. 목록은 ApplicationsStaffListGuard. */
   protected staffForbiddenError(): ErrorCode {
     return APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.STAFF_ONLY];
   }
@@ -58,7 +56,6 @@ export class ApplicationsStaffGuard implements CanActivate {
       throw new DomainException(this.staffForbiddenError());
     }
 
-    // 교직원 접근과 관리자 접근은 서로 독립이다 — 어느 한쪽만 있어도 이 문을 지난다.
     if (!user.hasStaffAccess && !user.hasAdminAccess) {
       throw new DomainException(this.staffForbiddenError());
     }
@@ -68,7 +65,6 @@ export class ApplicationsStaffGuard implements CanActivate {
   }
 }
 
-/** 신청자 목록 등 조회용 — generic 403 (판정-only 문구 금지). */
 @Injectable()
 export class ApplicationsStaffListGuard extends ApplicationsStaffGuard {
   protected override staffForbiddenError(): ErrorCode {

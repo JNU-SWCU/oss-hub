@@ -8,12 +8,6 @@ import { ActivityChart } from './components/activity-chart';
 import { ActivityTimelineView } from './components/activity-timeline-view';
 import type { ActivityTimeline } from './types';
 
-/**
- * 선 위의 몸통과 내부 표현을 갈라 둔다.
- *
- * 하나로 뭉쳐 두면 픽스처가 내부 이름을 쓰는 순간 파서가 선 위의 이름을
- * 안 읽어도 테스트가 통과한다 — #729 의 회귀가 정확히 그 통로로 새어나갔다.
- */
 const wireTimeline = {
   dataAsOf: '2026-08-01T00:00:00.000Z',
   programs: [
@@ -30,7 +24,7 @@ const wireTimeline = {
       {
         period: '2026-01',
         commitCount: 12,
-        // 백엔드 DTO 의 이름이다(`ActivityPointResponseDto`).
+
         pullRequestCount: 3,
         releaseCount: 1,
         total: 16,
@@ -107,7 +101,6 @@ describe('activity timeline', () => {
   });
 
   it('granularity를 current-user API query로 전달한다', async () => {
-    // 응답 몸통이므로 선 위의 형태여야 한다.
     const yearlyTimeline = {
       ...wireTimeline,
       series: {
@@ -219,9 +212,6 @@ describe('activity timeline', () => {
   });
 
   it('선 위의 pullRequestCount 를 내부 prCount 로 옮긴다', async () => {
-    // 백엔드 DTO 는 `pullRequestCount` 를 낸다. 픽스처가 내부 이름을 쓰고 있으면
-    // 파서가 선 위의 이름을 안 읽어도 테스트가 통과한다 — #729 의 회귀가
-    // 정확히 그렇게 통과했고 프로덕션에서만 화면이 통째로 에러였다.
     stubTimelineResponse(wireTimeline);
 
     await expect(fetchActivityTimeline('MONTH')).resolves.toEqual(timeline);

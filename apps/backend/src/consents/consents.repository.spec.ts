@@ -2,7 +2,6 @@ import { Consent as PrismaConsent, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConsentsRepository } from './consents.repository';
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticUserId = 'cuid-synthetic-consent-user';
 const syntheticVersion = 'privacy-activity-consent-v1';
 

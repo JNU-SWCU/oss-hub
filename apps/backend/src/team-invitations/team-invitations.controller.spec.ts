@@ -8,7 +8,6 @@ import { TeamInvitationsController } from './team-invitations.controller';
 
 const syntheticGithubId = 424242n;
 
-/** `GET /team-invitations/received` 한 항목의 원본 — 요약까지 채운 완전한 모양. */
 const receivedRecord = {
   id: 'cuid-invitation',
   teamId: 'cuid-team',
@@ -106,12 +105,6 @@ describe('TeamInvitationsController', () => {
     },
   );
 
-  /**
-   * 요약 필드는 **더한 것**이지 바꾼 것이 아니다. 이 경로에는 이미 소비자가 있고
-   * (`features/programs/team-invitation-api.ts`의 팀 화면), 그쪽 검증기는 아래
-   * 기존 필드들을 읽는다 — 하나라도 이름이 바뀌거나 빠지면 목록을 통째로 거절해
-   * "초대가 하나도 없다"로 보인다. 기대값을 전부 적어 두어 그 순간 빨간불이 뜨게 한다.
-   */
   it('listReceived는 service 결과를 팀·프로그램 요약까지 담은 DTO 배열로 반환한다', async () => {
     const { controller, mocks } = buildController({
       listReceived: jest.fn().mockResolvedValue([receivedRecord]),

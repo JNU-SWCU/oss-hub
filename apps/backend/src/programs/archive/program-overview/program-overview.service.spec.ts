@@ -9,7 +9,6 @@ import {
 } from './program-overview.repository';
 import { ProgramOverviewService } from './program-overview.service';
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticGithubId = 123456789n;
 const syntheticUserId = 'cuid-synthetic-user';
@@ -33,7 +32,6 @@ const currentMilestone: CurrentSubmissionMilestone = {
   requiredDocumentIds: ['doc-1', 'doc-2'],
 };
 
-/** 서류 0개 마일스톤(#1) + 서류 걸린 마일스톤 두 개. */
 const milestoneDocumentCatalog: MilestoneDocumentCatalogEntry[] = [
   {
     milestoneId: 'cuid-synthetic-milestone-1',
@@ -58,13 +56,11 @@ const milestoneDocumentCatalog: MilestoneDocumentCatalogEntry[] = [
 describe('ProgramOverviewService', () => {
   describe('getOverview', () => {
     it('프로그램이 없으면 POV_001로 거부한다', async () => {
-      // Given
       const repository = {
         findByProgramId: jest.fn().mockResolvedValue(null),
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
-      // When / Then
       await expect(
         service.getOverview(syntheticProgramId, syntheticGithubId),
       ).rejects.toMatchObject({
@@ -73,7 +69,6 @@ describe('ProgramOverviewService', () => {
     });
 
     it('학생이면서 서류 걸린 마일스톤이 있으면 프로그램 전체 내 제출 N/M과 마일스톤별 분해를 채운다', async () => {
-      // Given
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
         .fn()
@@ -87,7 +82,7 @@ describe('ProgramOverviewService', () => {
       const findMilestoneDocumentCatalog = jest
         .fn()
         .mockResolvedValue(milestoneDocumentCatalog);
-      // m3: doc-1,doc-2 / m4: doc-4 → parent completed=3, total=6
+
       const findSubmittedDocumentIds = jest
         .fn()
         .mockResolvedValue(new Set(['doc-1', 'doc-2', 'doc-4']));
@@ -103,13 +98,11 @@ describe('ProgramOverviewService', () => {
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
-      // When
       const result = await service.getOverview(
         syntheticProgramId,
         syntheticGithubId,
       );
 
-      // Then
       expect(findSubmittedDocumentIds).toHaveBeenCalledWith(
         syntheticApplicationId,
         ['doc-1', 'doc-2', 'doc-3', 'doc-4', 'doc-5', 'doc-6'],
@@ -140,7 +133,6 @@ describe('ProgramOverviewService', () => {
     });
 
     it('학생인데 이 프로그램에 신청이 없으면 완료 0으로 떨어진다', async () => {
-      // Given
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
         .fn()
@@ -165,13 +157,11 @@ describe('ProgramOverviewService', () => {
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
-      // When
       const result = await service.getOverview(
         syntheticProgramId,
         syntheticGithubId,
       );
 
-      // Then
       expect(findSubmittedDocumentIds).not.toHaveBeenCalled();
       expect(result.viewer).toEqual({
         role: 'STUDENT',
@@ -196,7 +186,6 @@ describe('ProgramOverviewService', () => {
     });
 
     it('서류 걸린 마일스톤이 하나도 없으면 학생 viewer 수치는 전부 null/빈 배열이다', async () => {
-      // Given
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
         .fn()
@@ -215,13 +204,11 @@ describe('ProgramOverviewService', () => {
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
-      // When
       const result = await service.getOverview(
         syntheticProgramId,
         syntheticGithubId,
       );
 
-      // Then
       expect(findViewerApplicationId).not.toHaveBeenCalled();
       expect(findMilestoneDocumentCatalog).not.toHaveBeenCalled();
       expect(result.viewer).toEqual({
@@ -234,7 +221,6 @@ describe('ProgramOverviewService', () => {
     });
 
     it('교직원이면 제출률 분자와 마일스톤별 분해(팀 수 기준)를 채운다', async () => {
-      // Given
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
         .fn()
@@ -264,18 +250,16 @@ describe('ProgramOverviewService', () => {
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
-      // When
       const result = await service.getOverview(
         syntheticProgramId,
         syntheticGithubId,
       );
 
-      // Then
       expect(countFullySubmittedParticipants).toHaveBeenCalledWith(
         syntheticProgramId,
         currentMilestone.requiredDocumentIds,
       );
-      // 서류 0개 마일스톤(#1)은 배치 호출에서도 빠진다.
+
       expect(countFullySubmittedTeamsByMilestone).toHaveBeenCalledWith(
         syntheticProgramId,
         [milestoneDocumentCatalog[1], milestoneDocumentCatalog[2]],
@@ -303,7 +287,6 @@ describe('ProgramOverviewService', () => {
     });
 
     it('ADMIN도 교직원과 같은 제출률·분해 경로를 탄다', async () => {
-      // Given
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
         .fn()
@@ -330,13 +313,11 @@ describe('ProgramOverviewService', () => {
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
-      // When
       const result = await service.getOverview(
         syntheticProgramId,
         syntheticGithubId,
       );
 
-      // Then
       expect(result.viewer.role).toBe('ADMIN');
       expect(result.viewer.fullySubmittedParticipantCount).toBe(10);
       expect(result.viewer.milestoneDocuments).toEqual([
@@ -356,7 +337,6 @@ describe('ProgramOverviewService', () => {
     });
 
     it('역할이 확정되지 않은 뷰어는 viewer 수치가 전부 null/빈 배열이다', async () => {
-      // Given
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest
         .fn()
@@ -371,13 +351,11 @@ describe('ProgramOverviewService', () => {
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
-      // When
       const result = await service.getOverview(
         syntheticProgramId,
         syntheticGithubId,
       );
 
-      // Then
       expect(findCurrentSubmissionMilestone).not.toHaveBeenCalled();
       expect(result.viewer).toEqual({
         role: null,
@@ -399,7 +377,6 @@ describe('ProgramOverviewService', () => {
         jest.useRealTimers();
       });
 
-      /** viewer 계산은 이 describe의 관심사가 아니므로 역할 미확정 뷰어로 고정한다. */
       function repositoryWithSchedules(
         schedules: MilestoneSchedule[],
       ): ProgramOverviewRepository {
@@ -413,7 +390,6 @@ describe('ProgramOverviewService', () => {
       }
 
       it('마감이 지나지 않은 마일스톤을 입력 순서와 무관하게 dueAt 오름차순으로 모두 반환한다', async () => {
-        // Given
         const farMilestone: MilestoneSchedule = {
           milestoneId: 'm-far',
           label: '늦은 마일스톤',
@@ -428,13 +404,11 @@ describe('ProgramOverviewService', () => {
           repositoryWithSchedules([farMilestone, nearMilestone]),
         );
 
-        // When
         const result = await service.getOverview(
           syntheticProgramId,
           syntheticGithubId,
         );
 
-        // Then
         expect(result).toEqual(
           expect.objectContaining({
             remainingMilestones: [
@@ -447,7 +421,6 @@ describe('ProgramOverviewService', () => {
       });
 
       it('마감이 지난 마일스톤과 지금 정확히 마감인 마일스톤은 제외한다', async () => {
-        // Given
         const pastMilestone: MilestoneSchedule = {
           milestoneId: 'm-past',
           label: '지난 마일스톤',
@@ -471,13 +444,11 @@ describe('ProgramOverviewService', () => {
           ]),
         );
 
-        // When
         const result = await service.getOverview(
           syntheticProgramId,
           syntheticGithubId,
         );
 
-        // Then
         expect(result).toEqual(
           expect.objectContaining({
             remainingMilestones: [
@@ -491,7 +462,6 @@ describe('ProgramOverviewService', () => {
       });
 
       it('동일 dueAt 마일스톤의 입력 순서를 보존하고 원본 배열을 정렬하지 않는다', async () => {
-        // Given
         const firstMilestone: MilestoneSchedule = {
           milestoneId: 'm-first',
           label: '동일 마감 A',
@@ -512,13 +482,11 @@ describe('ProgramOverviewService', () => {
           repositoryWithSchedules(schedules),
         );
 
-        // When
         const result = await service.getOverview(
           syntheticProgramId,
           syntheticGithubId,
         );
 
-        // Then
         expect(result).toEqual(
           expect.objectContaining({
             remainingMilestones: [
@@ -536,16 +504,13 @@ describe('ProgramOverviewService', () => {
       });
 
       it('다가오는 마일스톤이 없으면 빈 배열이다', async () => {
-        // Given
         const service = new ProgramOverviewService(repositoryWithSchedules([]));
 
-        // When
         const result = await service.getOverview(
           syntheticProgramId,
           syntheticGithubId,
         );
 
-        // Then
         expect(result).toEqual(
           expect.objectContaining({ remainingMilestones: [] }),
         );
@@ -555,7 +520,6 @@ describe('ProgramOverviewService', () => {
 
   describe('getPublicTeams', () => {
     it('프로그램이 없으면 POV_001로 거부한다', async () => {
-      // Given
       const listPublicTeams = jest.fn();
       const repository = {
         programExists: jest.fn().mockResolvedValue(false),
@@ -563,7 +527,6 @@ describe('ProgramOverviewService', () => {
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
-      // When / Then
       await expect(
         service.getPublicTeams(syntheticProgramId),
       ).rejects.toMatchObject({
@@ -573,7 +536,6 @@ describe('ProgramOverviewService', () => {
     });
 
     it('공개 팀 로스터를 그대로 반환한다', async () => {
-      // Given
       const teams: PublicTeamRow[] = [
         {
           teamId: 'cuid-synthetic-team-1',
@@ -599,10 +561,8 @@ describe('ProgramOverviewService', () => {
       } as unknown as ProgramOverviewRepository;
       const service = new ProgramOverviewService(repository);
 
-      // When
       const result = await service.getPublicTeams(syntheticProgramId);
 
-      // Then
       expect(listPublicTeams).toHaveBeenCalledWith(syntheticProgramId);
       expect(result).toBe(teams);
     });

@@ -32,11 +32,9 @@ export interface RepositoryProvisionContext {
   readonly teamId: string | null;
   readonly subjectName: string;
   readonly repository: ProvisionedRepository | null;
-  // 현재 연결 GithubRepository의 저장된 source. 행이 없으면 null.
-  // 이벤트 원 의도와 별개이며, 행이 있을 때만 초대/외부 skip을 고른다.
+
   readonly currentRepositorySource: RepositorySource | null;
-  // live TeamMember 행만으로 계산한다 — 신청자나 leader를 fallback으로 채워
-  // 넣으면 revoke 판정이 현재 authority를 잃는다.
+
   readonly currentMemberGithubLogins: readonly string[];
   readonly membershipFingerprint: string;
 }
@@ -60,9 +58,7 @@ export interface RecordProvisionedRepositoryInput {
   readonly currentConnectionMode: RepositoryConnectionMode;
   readonly currentRepositoryUrl: string | null;
   readonly auditActorGithubId?: bigint;
-  // OWN 연결이 조직 밖 저장소(EXTERNAL)로 판명되면 반드시 EXTERNAL_PUBLIC을 넘겨야
-  // 한다 — 그래야 이 행이 이미 있다고 보고 종료하는 enrollExternalRepository의
-  // updateMany(where: { source: 'EXTERNAL_PUBLIC' })가 같은 행을 잡는다(#617 단계 D).
+
   readonly source: RepositorySource;
   readonly metadata: GithubRepositoryMetadata;
 }
@@ -102,10 +98,7 @@ export interface FailRepositoryProvisionJobInput {
   readonly errorCode: string;
   readonly nextAttemptAt: Date;
   readonly now: Date;
-  // completeJob과 같은 기준이다 — 작업 중 팀 구성원이 바뀌었다면 실패로 닫지 않고
-  // 즉시 재무장한다. 최종 실패로 닫아 버리면 그 사이 도착한 멤버십 변경 신호가
-  // (outbox가 PROCESSING 행의 lease를 건드리지 않으므로) 통째로 사라진다.
-  // OWN 경로에서만 생략한다 — compat fallback으로 비워두지 않는다.
+
   readonly expectedMembershipFingerprint?: string;
 }
 
@@ -145,7 +138,7 @@ export interface RepositoryProvisionStateStore {
     repositoryId: string,
     now: Date,
     nextReconciliationAt?: Date,
-    // OWN 경로에서만 생략한다 — compat fallback으로 비워두지 않는다.
+
     expectedMembershipFingerprint?: string,
   ): Promise<void>;
   failJob(input: FailRepositoryProvisionJobInput): Promise<void>;

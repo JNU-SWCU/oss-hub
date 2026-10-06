@@ -56,12 +56,8 @@ function render(data: SubmissionFormData, file: File | null = null): string {
 
 describe('SubmissionFormView', () => {
   it('TEXT 마일스톤은 안내와 여러 줄 제출 입력을 표시한다', () => {
-    // Given: 제출 가능한 TEXT 폼.
-
-    // When
     const html = render(baseData);
 
-    // Then
     expect(html).not.toContain('<main');
     expect(html).not.toContain('<h1');
     expect(html).toMatch(/<h2[^>]*>제출 내용<\/h2>/);
@@ -74,13 +70,11 @@ describe('SubmissionFormView', () => {
   });
 
   it('FILE 마일스톤은 접근 가능한 파일 선택과 제한 안내를 표시한다', () => {
-    // Given / When
     const html = render({
       ...baseData,
       milestone: { ...baseData.milestone, submissionType: 'FILE' },
     });
 
-    // Then
     expect(html).toContain('id="submission-file"');
     expect(html).toContain('type="file"');
     expect(html).toContain('aria-required="true"');
@@ -112,7 +106,6 @@ describe('SubmissionFormView', () => {
   });
 
   it('FILE을 선택하면 네이티브 선택값과 React에 전달할 파일이 일치한다', () => {
-    // Given
     const file = new File(['report'], 'final-report.pdf', {
       type: 'application/pdf',
     });
@@ -121,27 +114,22 @@ describe('SubmissionFormView', () => {
       value: 'C:\\fakepath\\final-report.pdf',
     };
 
-    // When
     const selected = selectedFileFromControl(control);
 
-    // Then
     expect(selected).toBe(file);
     expect(control.value).toBe('C:\\fakepath\\final-report.pdf');
   });
 
   it('FILE을 선택하기 전에는 제출 단계를 완료로 표시하지 않는다', () => {
-    // Given / When
     const html = render({
       ...baseData,
       milestone: { ...baseData.milestone, submissionType: 'FILE' },
     });
 
-    // Then
     expect(html).not.toContain('lucide-check');
   });
 
   it('기존 제출은 최초 FILE 제출과 무관하게 fail-closed한다', () => {
-    // Given
     const existingData: SubmissionFormData = {
       ...baseData,
       milestone: { ...baseData.milestone, submissionType: 'FILE' },
@@ -155,10 +143,8 @@ describe('SubmissionFormView', () => {
       },
     };
 
-    // When
     const html = render(existingData);
 
-    // Then
     expect(html).not.toContain('type="file"');
     expect(html).toContain('제출 내용 확인');
     expect(html).toContain(
@@ -166,10 +152,7 @@ describe('SubmissionFormView', () => {
     );
   });
 
-  // #354 — "지원하지 않습니다"는 학생이 다음에 무엇을 할지 알려주지 않는다.
-  // 막힌 범위(이 마일스톤)와 물어볼 대상(담당 교직원)이 함께 있어야 한다.
   it('파일 제출이 막히면 막힌 범위와 문의 대상을 함께 안내한다', () => {
-    // Given
     const blockedData: SubmissionFormData = {
       ...baseData,
       milestone: { ...baseData.milestone, submissionType: 'FILE' },
@@ -177,14 +160,12 @@ describe('SubmissionFormView', () => {
       blockedReason: 'FILE_UPLOAD_UNAVAILABLE',
     };
 
-    // When
     const html = render(blockedData);
 
-    // Then
     expect(html).toContain('이 마일스톤에는 현재 파일을 제출할 수 없습니다');
     expect(html).toContain('담당 교직원');
     expect(html).toContain('다른 제출 방법을 문의');
-    // 옛 문구는 원인도 문의처도 없이 "지원하지 않습니다"로 끝났다.
+
     expect(html).not.toContain('파일 제출은 현재 지원하지 않습니다');
   });
 });

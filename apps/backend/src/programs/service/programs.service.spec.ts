@@ -99,9 +99,6 @@ describe('ProgramsService detail', () => {
     );
   });
 
-  // 조회는 이미 lifecycle 을 읽어 오지만(programs.repository.ts) 응답에서 떨어지면
-  // 상세 화면은 신청 기간만 보고 모집 여부를 정한다 — 내린 프로그램이 상세에서만
-  // 「모집중 + 신청하기」로 남는 원인이다(#1092).
   it.each(['PUBLISHED', 'ARCHIVED'] as const)(
     '%s 상세 응답에 게시 상태를 함께 싣는다',
     async (lifecycle) => {
@@ -114,8 +111,6 @@ describe('ProgramsService detail', () => {
     },
   );
 
-  // 화면의 「종료」는 두 값에서 나온다 — 게시 축(ARCHIVED)과 운영 종료일이다.
-  // 둘 중 하나만 응답에서 빠져도 상세는 다시 신청 기간만 보고 판단하게 된다(#1092).
   it('종료 판정이 쓰는 게시 상태와 운영 종료일을 함께 싣는다', async () => {
     const { service } = createService();
 
@@ -154,10 +149,7 @@ describe('ProgramsService detail', () => {
     expect(detail.milestones[1]?.viewerSubmissionStatus).toBe('NOT_SUBMITTED');
   });
 
-  // 상세 화면의 「내 신청 상태」는 지금 그 팀의 TeamMember 행 하나로만 갈린다 — 팀장도
-  // 자기 팀의 TeamMember 행을 항상 가지므로 이 한 절이 팀장·팀원을 모두 담는다(#1269).
   it('현재 팀원(팀장 포함)은 멤버십 절 하나로 자기 신청 상태를 조회한다', async () => {
-    // Given
     const { service, findFirst } = createService();
     findFirst.mockResolvedValue({
       id: 'application-1',
@@ -170,10 +162,8 @@ describe('ProgramsService detail', () => {
       role: 'STUDENT',
     };
 
-    // When
     const detail = await service.detail('program-1', viewer);
 
-    // Then
     expect(findFirst).toHaveBeenCalledWith({
       where: {
         programId: 'program-1',
@@ -195,9 +185,7 @@ describe('ProgramsService detail', () => {
     expect(detail.viewer.applicationStatus).toBe(ApplicationStatus.APPROVED);
   });
 
-  // 최초 신청자 절이 남아 있으면 팀을 떠난 사람이 옛 팀의 신청서·반려 사유를 계속 읽는다.
   it('팀을 떠난 사람의 조회에는 최초 신청자·맨 leaderId 절을 남기지 않는다', async () => {
-    // Given: 멤버십 절로 걸러 DB가 아무 행도 돌려주지 않는 상태.
     const { service, findFirst } = createService();
     findFirst.mockResolvedValue(null);
     const viewer: ProgramViewer = {
@@ -206,10 +194,8 @@ describe('ProgramsService detail', () => {
       role: 'STUDENT',
     };
 
-    // When
     const detail = await service.detail('program-1', viewer);
 
-    // Then
     const [{ where }] = findFirst.mock.calls[0] as [
       { where: Record<string, unknown> },
     ];
@@ -268,7 +254,6 @@ describe('ProgramsService detail', () => {
     });
   });
   it('교직원 제출 요약은 승인된 신청만 분모에 포함한다', async () => {
-    // Given
     const { service, findMany } = createService();
     findMany.mockResolvedValue([{ milestoneDocumentSubmissions: [] }]);
 
@@ -278,10 +263,8 @@ describe('ProgramsService detail', () => {
       role: 'STAFF',
     };
 
-    // When
     const detail = await service.detail('program-1', viewer);
 
-    // Then
     expect(findMany).toHaveBeenCalledWith({
       where: {
         programId: 'program-1',
@@ -304,7 +287,6 @@ describe('ProgramsService detail', () => {
   });
 
   it('서류만 받는 마일스톤도 학생 진행에 반영한다 (#820)', async () => {
-    // Given: 첫 마일스톤에 필수 서류 두 건이 달렸고 코드 제출은 없다.
     const { service, findUnique, findFirst } = createService();
     findUnique.mockResolvedValue(programWithRequiredDocuments());
     findFirst.mockResolvedValue({
@@ -335,15 +317,12 @@ describe('ProgramsService detail', () => {
       role: 'STUDENT',
     };
 
-    // When
     const detail = await service.detail('program-1', viewer);
 
-    // Then: 예전에는 Submission 행이 없어 늘 NOT_SUBMITTED 였다.
     expect(detail.milestones[0]?.viewerSubmissionStatus).toBe('APPROVED');
   });
 
   it('필수 서류 한 건이 미제출이면 학생 진행은 미제출이다', async () => {
-    // Given: 두 건 중 하나만 승인.
     const { service, findUnique, findFirst } = createService();
     findUnique.mockResolvedValue(programWithRequiredDocuments());
     findFirst.mockResolvedValue({
@@ -366,15 +345,12 @@ describe('ProgramsService detail', () => {
       role: 'STUDENT',
     };
 
-    // When
     const detail = await service.detail('program-1', viewer);
 
-    // Then
     expect(detail.milestones[0]?.viewerSubmissionStatus).toBe('NOT_SUBMITTED');
   });
 
   it('교직원 요약도 서류 축을 센다', async () => {
-    // Given: 한 팀은 서류를 다 냈고, 한 팀은 아무것도 안 냈다.
     const { service, findUnique, findMany } = createService();
     findUnique.mockResolvedValue(programWithRequiredDocuments());
     findMany.mockResolvedValue([
@@ -406,10 +382,8 @@ describe('ProgramsService detail', () => {
       role: 'STAFF',
     };
 
-    // When
     const detail = await service.detail('program-1', viewer);
 
-    // Then
     expect(detail.milestones[0]?.applicationSubmissionSummary).toEqual({
       notSubmitted: 1,
       submitted: 0,
@@ -454,7 +428,6 @@ describe('ProgramsService detail', () => {
   });
 });
 
-/** 첫 마일스톤에만 필수 서류 두 건을 단 프로그램. */
 function programWithRequiredDocuments() {
   return {
     ...publicProgram,

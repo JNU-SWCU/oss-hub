@@ -1,19 +1,5 @@
 import type { AffiliationKind, MemberKind } from '@prisma/client';
 
-/**
- * 회원 유형별 프로필 필수 항목 — 백엔드 판정 규칙의 단일 출처다(#439).
- *
- * | 회원 유형 | 이름 | 학번 | 소속 |
- * | --- | --- | --- | --- |
- * | 학생(STUDENT) | 필수 | 필수 | 필수 |
- * | 교직원(STAFF) | 필수 | — | 필수 |
- *
- * 관리자는 이 표에 없다. `hasAdminAccess`는 회원 정체성과 독립이라 학생 관리자는
- * 여전히 학생 기준으로 프로필을 채우고, 교직원 관리자는 교직원 기준으로 채운다.
- *
- * 프런트의 `features/profile/profile-requirements.ts`와 같은 표를 구현한다.
- * 한쪽만 바꾸면 화면과 저장이 어긋나므로 두 파일을 함께 고친다.
- */
 export interface UserProfileRecord {
   readonly id: string;
   readonly githubId?: bigint;
@@ -22,25 +8,11 @@ export interface UserProfileRecord {
   readonly studentId: string | null;
   readonly department: string | null;
   readonly phone?: string | null;
-  /**
-   * Optional personal identifier. It is deliberately independent of member kind,
-   * access flags, and completion requirements.
-   */
+
   readonly staffNumber?: string | null;
-  /**
-   * 승인을 기다리는 교직원 접근 요청이 있는가.
-   *
-   * 교직원은 관리자가 승인해야 `hasStaffAccess`가 켜진다. 승인을 기다리는 동안
-   * 프로필을 입력하는 사람이 바로 그 교직원이라, 이 값이 그를 학생 기준으로
-   * 되돌리지 않게 막는다. 조회하지 않은 호출자는 넘기지 않는다.
-   */
+
   readonly hasPendingStaffRequest?: boolean;
-  /**
-   * 가입 절차에서 고른 회원 유형 — 프로필이 만들어지기 전의 선택이다(#569).
-   *
-   * 프로필을 입력하는 동안에는 canonical `memberKind`가 아직 없으므로, 무엇을
-   * 물어야 할지 아는 근거가 이 값뿐이다 — 없으면 교직원이 학번을 요구받는다.
-   */
+
   readonly selectedMemberKind?: MemberKind | null;
   readonly memberKind?: MemberKind | null;
   readonly affiliationKind?: AffiliationKind | null;
@@ -59,31 +31,8 @@ export const USER_DEPARTMENT_MAX_LENGTH = 100;
 const STUDENT_ID_PATTERN = /^\d{6}$/;
 const PHONE_PATTERN = /^\d{10,11}$/;
 
-/**
- * 회원 유형을 아직 알 수 없는 사용자에게 적용할 기준 — fail-closed.
- *
- * 회원 유형을 조회하지 않은 호출자와 아직 아무것도 고르지 않은 사용자가 있어
- * 이 기본값이 필요하다. 그 경우 가장 엄격한 학생 기준으로 본다 — 여기서 완화하면
- * 학번 없이 완료 처리된 뒤 STUDENT가 확정되고, 그 이후에 프로필을 다시 검사하는
- * 곳이 없어 학번 없는 학생이 영구히 남는다.
- */
 export const DEFAULT_PROFILE_MEMBER_KIND = 'STUDENT' satisfies MemberKind;
 
-/**
- * 프로필 필수 항목을 판정할 때 쓰는 회원 유형.
- *
- * 세 근거를 이 순서로 본다.
- *
- * 1. **확정된 회원 유형** — 프로필 행에 적힌 사실이라 언제나 답이다.
- * 2. **살아 있는 교직원 요청** — 승인을 기다리는 교직원은 아직 프로필이 없을 수
- *    있지만 이미 가입 절차를 밟는 중이다. 학생 기준으로 되돌리면 그가 학번을
- *    요구받아 교직원 가입이 통째로 막힌다.
- * 3. **고른 회원 유형** — 프로필을 입력하는 동안에는 1도 2도 없고, 무엇을 물어야
- *    할지 아는 근거가 이것뿐이다(#569).
- *
- * 세 근거가 모두 없으면 `null`이고, 호출부는 가장 엄격한 학생 기준으로 본다
- * (`DEFAULT_PROFILE_MEMBER_KIND`).
- */
 export function effectiveProfileMemberKind(
   record: Pick<
     UserProfileRecord,
@@ -116,10 +65,6 @@ export function profileFieldRequirement(
   return REQUIREMENT_BY_MEMBER_KIND[memberKind ?? DEFAULT_PROFILE_MEMBER_KIND];
 }
 
-/**
- * 쓰기 경계 문자열: 바깥 공백을 자른 뒤 NFC. NFKC는 쓰지 않는다.
- * 코드 포인트 수는 `Array.from(value).length`로 센다.
- */
 export function normalizeProfileText(value: string): string {
   return value.trim().normalize('NFC');
 }
@@ -141,33 +86,8 @@ export function isValidPhone(phone: string): boolean {
   return PHONE_PATTERN.test(phone);
 }
 
-/**
- * 이미 저장돼 있을 수 있는 학번의 형식 — 지금 규칙과 그 이전 규칙을 함께 받는다.
- *
- * 형식이 6~10자리에서 정확히 6자리로 좁혀졌지만(#835) 기존 값은 그대로 남았다.
- * `STUDENT_ID_PATTERN`은 이 집합의 부분집합이라, 오늘 통과하는 값은 언제나 여기도
- * 통과한다. 형식을 또 좁힐 일이 생기면 **이 패턴은 좁히지 않는다** — 여기가 좁아지는
- * 순간 그 형식으로 가입한 사람들이 미완료로 되돌아간다.
- *
- * 계약 마이그레이션의 `UserProfile_studentId_memberKind_check`가 같은 형식을 DB
- * 경계에서 강제한다. "정확히 6자리"는 DB에 두지 않는다 — 보존 값과 신규 값을
- * 구분할 근거가 없기 때문이다.
- */
 const STORED_STUDENT_ID_PATTERN = /^\d{6,10}$/;
 
-/**
- * 이미 저장된 학번은 지금 형식으로 다시 재지 않는다.
- *
- * 저장된 값을 새 형식으로 재면 그때 가입한 학생의 프로필이 통째로 미완료로 뒤집힌다.
- * 그 판정은 세션의 `isProfileComplete`(`auth.repository.ts`)와 프로필 응답의
- * `isComplete`(`toUserProfile`)를 함께 뒤집어, 게이트가 그를 가입 마지막 단계로
- * 되돌린다 — 학번은 학적 식별자로 고정돼 바꿀 수 없으므로(`USR_003`) 그 화면에서
- * 빠져나갈 방법이 없다.
- *
- * 지금 형식(`isValidStudentId`)은 **새로 들어오는 값**에만 적용한다: DTO의
- * `@Matches`, 비어 있던 학번을 처음 채우는 검사, 요청에 실려 온 학번의 완료 저장
- * 검사가 그 자리다. 프런트도 같은 선을 긋는다(`profile-requirements.ts`).
- */
 export function isStoredStudentId(studentId: string): boolean {
   return STORED_STUDENT_ID_PATTERN.test(studentId);
 }
@@ -176,14 +96,6 @@ export function isValidDepartment(department: string): boolean {
   return isValidProfileText(department, USER_DEPARTMENT_MAX_LENGTH);
 }
 
-/**
- * 회원 유형이 요구하는 항목이 모두 채워졌는가.
- *
- * 요구하지 않는 항목은 비어 있어도 완료다. 저장된 학번은 형식이 아니라 존재만
- * 본다(`isStoredStudentId`) — 형식이 좁아지기 전에 저장된 값 때문에 이미 가입을
- * 마친 사람이 미완료로 되돌아가지 않게 하기 위해서다. 프런트 응답 파서
- * (`isConsistentCompleteProfile`)도 같은 기준으로 불변식을 검사한다.
- */
 export function isCompleteProfileFields(
   fields: UserProfileFields,
   memberKind: MemberKind | null | undefined,
@@ -201,13 +113,6 @@ export function isCompleteUserProfile(record: UserProfileRecord): boolean {
   return isCompleteProfileFields(record, effectiveProfileMemberKind(record));
 }
 
-/**
- * 세 항목이 모두 있고 유효한가 — 학생 기준이자 가장 엄격한 판정.
- *
- * 학번 형식은 여기서만 계속 엄격하게 본다. 완료 판정은 이미 저장된 값을 형식으로
- * 재지 않지만(`isStoredStudentId`), 이 함수가 정하는 것은 "이 값으로 **새 행을
- * 만들어도 되는가**"다.
- */
 export function isValidCompleteUserProfileFields(fields: {
   readonly name: string;
   readonly studentId: string;

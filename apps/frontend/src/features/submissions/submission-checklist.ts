@@ -13,16 +13,8 @@ import type {
   SubmissionType,
 } from './types';
 
-/** 체크리스트 행의 표시 상태 — 미제출(submission=null)을 포함한 5종. */
 export type ChecklistItemStatus = 'NOT_SUBMITTED' | ChecklistSubmissionStatus;
 
-// 라벨·배지 변형은 `@/lib/status-vocabulary`의 SUBMISSION_STATUS_* 하나다(R-35).
-
-/**
- * 창에 재제출 폼을 열지(그리고 재제출을 보낼지) 정하는 데만 쓴다. 마감 전 검토
- * 대기(canResubmit)도 제출물을 바꿀 수 있어 참이다. 배지 이름과 「보완 요청 N건」
- * 집계는 이 값이 아니라 서버 상태를 그대로 따른다(#1372, R-35).
- */
 export function isRevisionNeeded(
   submission: ChecklistSubmission | null,
 ): boolean {
@@ -53,11 +45,6 @@ function calendarDayNumber(value: Date): number {
   return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
 }
 
-/**
- * D-day는 dueAt으로 계산하는 표시 상태이며 Submission 상태 enum에 저장하지
- * 않는다. 규칙은 backend program-deadline.ts와 동일: Asia/Seoul 달력일 차이,
- * 라벨은 '마감 지남'/'오늘 마감'/'D-n'.
- */
 export function milestoneDeadline(
   dueAt: string,
   now: Date,
@@ -67,27 +54,11 @@ export function milestoneDeadline(
   return { dDay, label };
 }
 
-/**
- * 마감이 실제로 지났는지. 서버가 제출을 거절하는 기준(backend
- * program-deadline.ts의 hasProgramDeadlinePassed)과 같은 시각 비교다.
- *
- * milestoneDeadline의 dDay로 대신하지 않는다. dDay는 달력일 차이라 오늘
- * 오전 9시에 닫힌 마감도 그날이 끝날 때까지 0이다. 그 값으로 업로드 자리를
- * 열어 두면 화면은 낼 수 있다고 하는데 서버는 거절하는 어긋남이 생긴다.
- */
 export function hasMilestoneDeadlinePassed(dueAt: string, now: Date): boolean {
   const due = new Date(dueAt).getTime();
   return Number.isFinite(due) && now.getTime() > due;
 }
 
-/*
- * 마감 배지 variant(deadlineVariant)는 없애고 마감을 평범한 글로 적는다. 상태
- * 배지를 일정에도 쓰면 「마감 지남」의 빨간 배지가 승인된 제출물 옆에 서서
- * 심사 결과처럼 읽힌다. 배지는 제출·심사 상태 하나만 말한다
- * (components/submission-checklist-row.tsx).
- */
-
-/** 서버가 dueAt ASC를 보장하지만 epoch 수치 기준으로 방어 정렬한다. */
 export function sortChecklistItems(
   items: readonly SubmissionChecklistItem[],
 ): readonly SubmissionChecklistItem[] {
@@ -103,10 +74,6 @@ export interface ChecklistSubmittedCount {
   readonly revisionNeeded: number;
 }
 
-/**
- * "낼 서류 N건 중 M건 제출" 요약(#619 학생 제출물 스펙) — 좌측 사이드바 배지와
- * 같은 규칙: submission이 있으면(리뷰 상태와 무관) 제출로 센다.
- */
 export function checklistSubmittedCount(
   items: readonly SubmissionChecklistItem[],
 ): ChecklistSubmittedCount {
@@ -156,11 +123,6 @@ export interface SubmitResubmissionRevisionInput {
   readonly onPhaseChange?: (phase: ResubmissionPhase) => void;
 }
 
-/**
- * 재제출 실패 분기. 409는 코드와 무관하게 stale로 본다 — RESUBMISSION_NOT_ALLOWED
- * (SUB_013)와 STALE_SUBMISSION_REVISION(SUB_014) 모두 "내가 보던 체크리스트가
- * 낡았다"는 뜻이라 최신 상태를 다시 불러온다. field 오류 코드는 #115와 동일.
- */
 export function resubmissionFailure(
   problem: ProblemDetail,
   submissionType: SubmissionType,
@@ -176,7 +138,6 @@ export function resubmissionFailure(
   return { kind: 'alert', message: problem.detail };
 }
 
-/** 유형별 재제출 content — FILE은 업로드된 fileId가 있을 때 생성한다. */
 export function resubmissionContent(
   submissionType: SubmissionType,
   input: SubmissionFormInput,
@@ -231,21 +192,6 @@ export async function submitResubmissionRevision({
   });
 }
 
-/**
- * 재제출 성공(201)을 체크리스트에 반영 — 해당 행만 SUBMITTED로 갱신한다.
- *
- * 만들어 내는 행은 다음 조회가 돌려줄 행과 같아야 한다. 새로고침하면 달라지는
- * 화면이 곧 버그다. 재제출은 교직원 판정 이력을 지우지 않으므로(backend
- * createSubmissionRevision은 submission만 갱신한다) 서버는 다음 조회에서도
- * 지난 판정을 decision·lastReviewedAt·reviewComment로 그대로 다시 준다. 여기서
- * 비우면 「이전 검토 결과: 보완 요청」 줄과 창의 「최근 검토 결과」가 새로고침
- * 전까지만 사라진다 — 그 줄이 있어야 할 바로 그 순간에.
- *
- * canResubmit도 서버(submissions.service.ts toChecklistItem)와 같은 식으로
- * 다시 센다: 재제출 직후 상태는 늘 SUBMITTED이므로 마감 전이면 참이다.
- *
- * file은 뺀다 — 201 응답에 새 revision의 파일 정보가 없어 서버 값을 만들 수 없다.
- */
 export function applyResubmission(
   checklist: SubmissionChecklist,
   milestoneId: string,

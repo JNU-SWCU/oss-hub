@@ -69,10 +69,6 @@ export class AuthController {
     res.redirect(302, redirect.url);
   }
 
-  /**
-   * query의 code/state가 전역 필터 로그(originalUrl)로 새지 않도록, 이 핸들러는
-   * 어떤 실패도 예외로 흘리지 않고 frontend 고정 오류 경로로 redirect한다.
-   */
   @Get('github/callback')
   @Public()
   async githubCallback(
@@ -91,8 +87,6 @@ export class AuthController {
     });
 
     if (oauthError || !code || !state) {
-      // 사용자가 GitHub에서 거부(access_denied)했거나 필수 파라미터 누락.
-      // state가 현재 flow와 일치할 때만 flow 쿠키를 지워 unrelated flow를 보존한다.
       this.redirectWithError(
         res,
         this.shouldClearFlowCookie(state, cookies[flowCookieName(secure)])
@@ -119,14 +113,12 @@ export class AuthController {
       ]);
       res.redirect(302, loginLandingUrl(this.config.frontendUrl, login));
     } catch (error) {
-      // code·state는 로그에 남기지 않는다 — 오류 종류와 경로만.
       this.logger.warn(
         `GitHub OAuth callback 실패: ${
           error instanceof Error ? error.name : 'UnknownError'
         } @ ${req.path}`,
       );
-      // completeLogin은 state 불일치도 예외로 보고하므로, 공격자가 보낸 callback이
-      // unrelated flow를 취소하지 못하게 현재 flow와 일치할 때만 소비한다.
+
       this.redirectWithError(
         res,
         this.shouldClearFlowCookie(state, cookies[flowCookieName(secure)])
@@ -136,7 +128,6 @@ export class AuthController {
     }
   }
 
-  /** UI용 조회에서는 정상적인 익명 상태를 모두 200으로 반환한다. */
   @Get('session')
   @OptionalSession()
   getSession(

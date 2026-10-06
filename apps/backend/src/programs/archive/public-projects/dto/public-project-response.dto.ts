@@ -12,10 +12,6 @@ export enum PublicProjectApplicationMode {
   TEAM = 'TEAM',
 }
 
-/**
- * 개인 참여도 팀을 갖게 되면서(D5) 팀 유무로는 구분되지 않는다. 멤버가 1명뿐이면
- * 개인 참여로 읽는다 — 팀 유무로 가르면 모든 프로젝트가 TEAM이 된다.
- */
 function applicationMode(
   teamMemberCount: number,
 ): PublicProjectApplicationMode {
@@ -24,10 +20,6 @@ function applicationMode(
     : PublicProjectApplicationMode.PERSONAL;
 }
 
-/**
- * 공개 표시명. **실명을 넣지 않는다** — 이 응답은 무인증 공개 endpoint로 나간다.
- * 1인 팀은 자동 생성 팀명 대신 GitHub 닉네임을 보여 준다.
- */
 function displayNameOf(row: {
   readonly teamName: string | null;
   readonly teamMemberCount: number;
@@ -83,7 +75,6 @@ export class PublicProjectPageResponseDto {
   }
 }
 
-/** `GET /projects/years` — 좌측 아카이브 연도 메뉴. */
 export class PublicProjectYearsResponseDto {
   readonly years: readonly number[];
 

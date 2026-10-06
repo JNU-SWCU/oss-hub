@@ -45,27 +45,23 @@ const personalRow: MatrixRow = {
 
 describe('buildMatrixSearchParams', () => {
   it('빈 검색어는 query에서 생략하고 page·pageSize만 보낸다', () => {
-    // Given / When
     const params = buildMatrixSearchParams({
       q: '   ',
       page: 1,
       pageSize: 20,
     });
 
-    // Then
     expect(params.toString()).toBe('page=1&pageSize=20');
     expect(params.has('applicationMode')).toBe(false);
   });
 
   it('검색어는 trim해 보내고 applicationMode는 보내지 않는다', () => {
-    // Given / When
     const params = buildMatrixSearchParams({
       q: ' 홍길동 ',
       page: 2,
       pageSize: 50,
     });
 
-    // Then
     expect(params.get('q')).toBe('홍길동');
     expect(params.has('applicationMode')).toBe(false);
     expect(params.get('page')).toBe('2');
@@ -88,10 +84,8 @@ describe('cellForMilestone', () => {
   });
 
   it('cell이 누락되면 NOT_SUBMITTED 빈 cell로 방어한다', () => {
-    // Given / When
     const cell = cellForMilestone(personalRow, 'milestone-final');
 
-    // Then
     expect(cell).toEqual({
       milestoneId: 'milestone-final',
       submissionId: null,
@@ -108,46 +102,38 @@ describe('notSubmittedDeadline', () => {
   const dueAt = '2026-08-20T23:59:59+09:00';
 
   it('마감 전에는 Asia/Seoul 달력일 기준 D-n을 표시한다', () => {
-    // Given / When
     const result = notSubmittedDeadline(
       dueAt,
       new Date('2026-07-31T12:00:00+09:00'),
     );
 
-    // Then
     expect(result).toEqual({ overdue: false, label: 'D-20' });
   });
 
   it('마감 당일 마감 전에는 오늘 마감으로 표시한다', () => {
-    // Given / When
     const result = notSubmittedDeadline(
       dueAt,
       new Date('2026-08-20T09:00:00+09:00'),
     );
 
-    // Then
     expect(result).toEqual({ overdue: false, label: '오늘 마감' });
   });
 
   it('같은 날이라도 dueAt 시각이 지나면 마감 초과다', () => {
-    // Given / When
     const result = notSubmittedDeadline(
       '2026-08-20T09:00:00+09:00',
       new Date('2026-08-20T10:00:00+09:00'),
     );
 
-    // Then
     expect(result).toEqual({ overdue: true, label: '마감 초과' });
   });
 
   it('마감이 지난 날짜는 마감 초과 D+n을 표시한다', () => {
-    // Given / When
     const result = notSubmittedDeadline(
       dueAt,
       new Date('2026-08-22T00:30:00+09:00'),
     );
 
-    // Then
     expect(result).toEqual({ overdue: true, label: '마감 초과 D+2' });
   });
 });
@@ -170,7 +156,7 @@ describe('isMatrixFilterActive', () => {
 describe('formatSubmittedAt', () => {
   it('Asia/Seoul 기준 "MM.DD HH:MM"으로 표시한다', () => {
     expect(formatSubmittedAt('2026-08-19T10:00:00+09:00')).toBe('08.19 10:00');
-    // UTC로 저장된 시각도 Seoul 기준으로 변환한다(UTC 1:00 → Seoul 10:00).
+
     expect(formatSubmittedAt('2026-08-19T01:00:00Z')).toBe('08.19 10:00');
   });
 });
@@ -259,7 +245,6 @@ describe('matrixCellDisplay', () => {
   });
 
   it('검토 배지는 지각 제출 여부와 별도로 검토 대기를 표시한다', () => {
-    // Given — 마감 전 제출 → 검토 대기.
     expect(
       matrixCellDisplay(
         {
@@ -271,7 +256,6 @@ describe('matrixCellDisplay', () => {
       ),
     ).toBe('SUBMITTED');
 
-    // Given — 마감 후 제출 → 지각 제출.
     expect(
       matrixCellDisplay(
         {
@@ -286,7 +270,6 @@ describe('matrixCellDisplay', () => {
   });
 
   it('이미 검토를 거친 승인·반려는 지각 여부와 무관하게 판정 그대로 보여준다', () => {
-    // Given — 마감 후 제출됐지만 이미 승인된 셀.
     const lateApproved: MatrixCell = {
       ...submittedCell,
       status: 'APPROVED',
@@ -312,8 +295,6 @@ describe('matrixPageStats', () => {
   ];
 
   it('로드된 행 기준으로 채운 칸·빈 칸·미제출 팀·지각 건수를 센다', () => {
-    // Given: teamRow는 기획서만 제출(지각), 중간 보고는 미제출.
-    //        personalRow는 두 마일스톤 모두 미제출(한 장도 안 낸 팀).
     const late: MatrixRow = {
       ...teamRow,
       cells: [
@@ -325,10 +306,8 @@ describe('matrixPageStats', () => {
       ],
     };
 
-    // When
     const stats = matrixPageStats([late, personalRow], milestones);
 
-    // Then
     expect(stats).toEqual({
       totalCells: 4,
       filledCells: 1,

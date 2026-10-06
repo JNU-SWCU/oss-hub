@@ -10,7 +10,7 @@ describe('FailureState', () => {
     );
 
     expect(html).toContain('공개 아카이브를 불러오지 못했습니다');
-    // R-15 — 오류 문구는 다음 행동을 포함한다. 기본값이 그 역할을 한다.
+
     expect(html).toContain('잠시 후 다시 시도해 주세요.');
     expect(html).toContain('data-slot="failure-state"');
   });
@@ -18,13 +18,11 @@ describe('FailureState', () => {
   it('빈 상태가 아니라 오류로 알린다', () => {
     const html = renderToStaticMarkup(<FailureState title="실패했습니다" />);
 
-    // R-10 — EmptyState 의 점선 회색 상자로 실패를 그리지 않는다.
     expect(html).toContain('role="alert"');
     expect(html).not.toContain('border-dashed');
   });
 
   it('재시도를 줄 때만 재시도 버튼이 선다', () => {
-    // 기본 설명에도 「다시 시도」라는 말이 들어 있으므로 버튼으로 세야 한다.
     const countButtons = (html: string) => html.split('<button').length - 1;
 
     expect(

@@ -1,8 +1,3 @@
-// Card 프리뷰 — 파트 조합 3종을 이 repo의 실제 화면에서 그대로 옮겼다.
-// ProgramStatusCard는 student-dashboard-view.tsx의 참여 현황 카드(Header+Title+
-// Action+Content+Footer 전부 사용), RoleCard는 role-selection-screen.tsx의
-// 역할 선택 카드(size="sm"으로 축 스윕), PublishBlockedCard는
-// repository-publish-card.tsx의 "공개 불가 사유" 카드(텍스트 과다 케이스)다.
 import {
   Button,
   Card,
@@ -44,10 +39,6 @@ export function ProgramStatusCard() {
   );
 }
 
-// role-selection-screen.tsx: 아이콘 + 제목 + 설명 카드, size="sm"으로 Card의
-// size 축을 스윕한다(default 대비 카드 내부 여백이 줄어든다). 폭은 원본 화면과
-// 동일하게 grid sm:grid-cols-2로 잡는다 — w-64 같은 임의 폭 클래스는 이 repo
-// 소스에 없어 정적 Tailwind 빌드에 포함되지 않는다(NOTES.md 참고).
 export function RoleCard() {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
@@ -76,8 +67,6 @@ export function RoleCard() {
   );
 }
 
-// repository-publish-card.tsx: 공개 불가 사유 목록이 CardContent를 채우는
-// 텍스트 과다 케이스 — 설명·목록 길이로 카드 하단이 늘어나는 걸 확인한다.
 export function PublishBlockedCard() {
   return (
     <Card>

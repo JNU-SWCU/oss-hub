@@ -12,16 +12,9 @@ import {
   type EvidenceApiHandlers,
 } from './support/evidence-capture';
 
-/** 이 레인의 phase 환경 변수와 증거 파일 접두사. 다른 레인과 섞이지 않게 여기서만 정한다. */
 const QA148_CAPTURE_PHASE_VARIABLE = 'QA148_CAPTURE_PHASE';
 const QA148_ARTIFACT_PREFIX = 'qa148';
 
-/**
- * QA148 profile/admin visual evidence. Intercepted `/api/v1/**` bodies are UI-only
- * arrangements: they are not persisted onboarding, settings, admin-directory, or
- * audit proof. Real student/staff onboarding success belongs to
- * `auth-member-access` (M05 / 10-OnboardingMigration).
- */
 test.use({ locale: 'ko-KR', timezoneId: 'Asia/Seoul' });
 
 type EvidenceScene =

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TeamActivityMember } from './team-activity-api';
 import { weeklyActivity } from './team-activity-weeks';
 
-const NOW = Date.parse('2026-09-24T03:00:00Z'); // 2026-09-24(목) 12:00 KST
+const NOW = Date.parse('2026-09-24T03:00:00Z');
 
 function member(
   userId: string,
@@ -49,7 +49,7 @@ describe('weeklyActivity', () => {
   });
 
   it('오늘과 창의 끝을 서울 날짜로 읽는다 — UTC 일요일 밤은 서울 월요일이다', () => {
-    const sundayNightUtc = Date.parse('2026-09-20T15:30:00Z'); // 09-21(월) 00:30 KST
+    const sundayNightUtc = Date.parse('2026-09-20T15:30:00Z');
 
     const byNow = weeklyActivity(
       { window: activityWindow('2026-09-14', '9999-12-31'), members: [] },

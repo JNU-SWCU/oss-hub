@@ -1,14 +1,5 @@
-// NavBar 프리뷰 — app/layout.tsx(NAV_ITEMS: 홈/프로그램/아카이브)와
-// _shell/role-menus.ts(역할별 메뉴)의 실제 nav-config를 그대로 옮긴 것.
-//
-// 주의: 이 컴포넌트는 Next 라우터 밖(디자인 시스템 번들)에서도 이식 가능하도록
-// linkComponent가 미지정이면 순수 <a>로 폴백하는 것이 계약(nav-bar.tsx 주석
-// 참고) — 이 프리뷰가 linkComponent를 넘기지 않는 것은 워크어라운드가 아니라
-// 컴포넌트가 문서화한 정상 사용법이다. 실제 앱(app/layout.tsx)의 ShellNav만
-// 세션·라우팅을 아는 호출부 책임으로 next/link의 Link를 주입한다.
 import { Button, NavBar, StatusBadge } from 'frontend';
 
-// app/layout.tsx NAV_ITEMS — 기본 상단 내비게이션.
 export function Default() {
   return (
     <NavBar
@@ -23,7 +14,6 @@ export function Default() {
   );
 }
 
-// _shell/role-menus.ts ADMIN_MENU — 항목이 많을 때(overflow-x-clip 동작 확인).
 export function ManyItems() {
   return (
     <NavBar
@@ -41,7 +31,6 @@ export function ManyItems() {
   );
 }
 
-// brand 없이 items만 — brand가 선택(optional) 슬롯임을 확인.
 export function NoBrand() {
   return (
     <NavBar

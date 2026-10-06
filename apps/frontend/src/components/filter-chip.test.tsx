@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -63,7 +61,7 @@ describe('FilterChip', () => {
       'true',
       'false',
     ]);
-    // 공용 Button의 toggle 변형이다 — 시각은 여기 한 곳에서 정해진다.
+
     expect(chips.every((chip) => chip.dataset.variant === 'toggle')).toBe(true);
     expect(chips.every((chip) => chip.type === 'button')).toBe(true);
 

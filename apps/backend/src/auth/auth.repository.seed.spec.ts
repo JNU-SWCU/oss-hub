@@ -70,7 +70,6 @@ describe('AuthRepository.upsertUser seed requests', () => {
   });
 
   it('기존 사용자의 온보딩 이름은 GitHub 재로그인으로 덮어쓰지 않는다', async () => {
-    // 이름의 정본은 `UserProfile` 행이다 — GitHub 재로그인은 그 행을 건드리지 않는다.
     const { repository, update } = buildRepository(buildRow(), null);
 
     await upsertUser(repository, buildProfile({ name: 'GitHub 표시 이름' }));

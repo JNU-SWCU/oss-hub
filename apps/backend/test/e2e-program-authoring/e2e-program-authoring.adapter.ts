@@ -101,11 +101,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
   async stateFor(programId: string): Promise<E2eProgramAuthoringState> {
     if (programId !== this.fixtures.graph().programId)
       throw new E2eAdapterError(404);
-    // 제출물 교체는 구버전 SubmissionFile을 같은 트랜잭션에서 DELETE_PENDING으로
-    // 마킹만 해두고 실제 스토리지 삭제·DELETED 전환은 시간당 cron
-    // (SubmissionFileCleanupScheduler)에 위임한다(운영 정상 설계). E2E는 그 cron을
-    // 기다릴 수 없으므로, ProgramAuthoringUpload 쪽 uploadMaintenance.runDue()와
-    // 같은 패턴으로 orphan 집계 직전에 여기서 직접 배출시킨다.
+
     await this.submissionFileCleanup.runDue();
     return this.fixtures.state(e2eProgramAuthoringExternalPorts.capture());
   }
@@ -338,7 +334,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     const request = await this.prisma.programCreateRequest.findFirst({
       where: {
         actorId: E2E_STAFF_ID,
-        idempotencyKey: 'e2e-prisma-fault', // gitleaks:allow — 결정론적 테스트 상수
+        idempotencyKey: 'e2e-prisma-fault',
       },
       select: {
         actorId: true,

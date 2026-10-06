@@ -13,7 +13,6 @@ import {
 } from './team-delete-flow';
 import type { TeamDeletionScope } from './types';
 
-/** backend `DeleteTeamRequestDto` 의 `@MaxLength(500)` 과 같은 값이어야 400 을 받지 않는다. */
 const MAX_NOTIFICATION_MESSAGE_LENGTH = 500;
 
 const DISAPPEARING_ITEMS = [
@@ -30,16 +29,6 @@ const DISAPPEARING_ITEMS = [
   ]
 >;
 
-/**
- * 팀 삭제 확인 창.
- *
- * 껍데기는 공용 `DialogShell`의 `kind="alert"`다(R-06) — 되돌릴 수 없는 질문이라
- * 낭독기에 `alertdialog`로 알리고 바깥을 잘못 눌러 사라지지 않는다. 폭은 기존
- * 확인창 규격(`max-w-lg`)을 그대로 쓴다.
- *
- * 삭제는 이 창이 직접 한다. 화면에 마지막으로 보여 준 `scope`를 그대로 `expectedScope`로
- * 보낸다. 409(TEAM_019)가 오면 자동 재시도하지 않고 새 카운트로 다시 확인하게 한다.
- */
 export function TeamDeleteDialog({
   programId,
   teamId,
@@ -53,27 +42,17 @@ export function TeamDeleteDialog({
   readonly teamName: string;
   readonly scope: TeamDeletionScope;
   readonly onDeleted: (summary: string) => void;
-  /** 닫기·취소. 초점을 트리거로 되돌리는 것은 프로그램 삭제창처럼 부르는 화면이 맡는다. */
+
   readonly onCancel: () => void;
 }): ReactElement {
-  /**
-   * 확인 창이 지금 말하고 있는 범위.
-   * 409로 갱신되면 이 값이 다음 요청의 `expectedScope`가 된다.
-   */
   const [displayedScope, setDisplayedScope] = useState(scope);
   const [busy, setBusy] = useState(false);
   const [scopeChangedMessage, setScopeChangedMessage] = useState<string | null>(
     null,
   );
-  /**
-   * 실패는 창 **안에서** 말한다. 화면 위쪽 알림에 그리면 이 창 뒤에 가려
-   * 아무 일도 안 일어난 것처럼 보인다.
-   */
+
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  /**
-   * 팀원에게 함께 보낼 교직원 문구. 선택이다 — 비워도 삭제 사실은 알림으로 나간다.
-   * 여기 적는 것은 「무엇을 더 말할 것인가」일 뿐이다.
-   */
+
   const [notificationMessage, setNotificationMessage] = useState('');
 
   const disappearing = DISAPPEARING_ITEMS.filter(
@@ -115,14 +94,13 @@ export function TeamDeleteDialog({
       kind="alert"
       title="팀을 삭제할까요?"
       description={`${teamName} 팀과 연결된 데이터를 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
-      // 기존 확인창 규격(`ALERT_DIALOG_SHELL_CLASS`)과 같은 폭. 껍데기 기본(md)은 한 단계 넓다.
+
       className="max-w-lg"
-      // 삭제가 도는 동안에는 닫지 않는다 — 화면만 먼저 사라지면 결과를 볼 자리가 없다.
+
       busy={busy}
       onCancel={onCancel}
       footer={
         <>
-          {/* 껍데기 버튼은 스스로 닫지 않는다 — `AlertDialog.Cancel`이 하던 닫기를 여기서 부른다. */}
           <Button
             type="button"
             variant="outline"
@@ -131,7 +109,7 @@ export function TeamDeleteDialog({
           >
             취소
           </Button>
-          {/* 삭제는 일부러 닫지 않는다 — 409·실패를 이 창 안에서 다시 확인시켜야 한다. */}
+
           <Button
             type="button"
             variant="destructive"
@@ -162,10 +140,7 @@ export function TeamDeleteDialog({
         >
           팀원에게 보낼 안내 (선택)
         </label>
-        {/*
-         * 알림 자체는 선택이 아니다 — 백엔드가 삭제와 같은 커밋에서 남긴다.
-         * 비워 두면 삭제 사실만 가고, 적으면 그 문구가 함께 간다.
-         */}
+
         <Textarea
           id="team-delete-notification-message"
           maxLength={MAX_NOTIFICATION_MESSAGE_LENGTH}

@@ -87,17 +87,14 @@ describe('E2eProgramAuthoringFixture persistence', () => {
   );
 
   it('creates the sanitized graph after reset on an auth-seeded schema', async () => {
-    // Given
     await fixture.reset();
 
-    // When
     await fixture.ensure();
     const graph = fixture.graph();
     const state = await fixture.state(
       e2eProgramAuthoringExternalPorts.capture(),
     );
 
-    // Then
     expect(graph).toEqual({
       programId: E2E_PROGRAM_ID,
       milestoneId: E2E_MILESTONE_ID,
@@ -106,8 +103,7 @@ describe('E2eProgramAuthoringFixture persistence', () => {
     expect(state).toMatchObject({
       programs: 1,
       milestones: 1,
-      // The isolated one-milestone fixture still expects only its own document;
-      // the browser happy path separately proves the two-document program graph.
+
       documents: 1,
       applications: 0,
       notifications: 0,
@@ -143,7 +139,6 @@ describe('E2eProgramAuthoringFixture persistence', () => {
   });
 
   it('resets the graph while preserving append-only fixture actor history', async () => {
-    // Given
     await fixture.reset();
     await fixture.ensure();
     await prisma.auditLog.create({
@@ -156,10 +151,8 @@ describe('E2eProgramAuthoringFixture persistence', () => {
       },
     });
 
-    // When
     await fixture.reset();
 
-    // Then
     await expect(
       prisma.auditLog.count({ where: { actorId: E2E_STAFF_ID } }),
     ).resolves.toBe(1);
@@ -170,7 +163,6 @@ describe('E2eProgramAuthoringFixture persistence', () => {
 });
 
 it('removes detached fixture repository facts while preserving a neighboring program', async () => {
-  // Given: relink leaves the old repository attached to the program, not the application.
   await fixture.reset();
   await fixture.ensure();
   const neighborId = `${E2E_PROGRAM_ID}-repository-neighbor`;
@@ -216,10 +208,8 @@ it('removes detached fixture repository facts while preserving a neighboring pro
     })),
   });
 
-  // When
   await fixture.reset();
 
-  // Then
   expect(
     await prisma.githubRepository.findUnique({ where: { id: detachedId } }),
   ).toBeNull();
@@ -237,7 +227,6 @@ it('removes detached fixture repository facts while preserving a neighboring pro
 });
 
 it('seeds current observations idempotently without reassigning detached facts', async () => {
-  // Given
   await fixture.ensure();
   const teamId = `${E2E_PROGRAM_ID}-evidence-team`;
   const applicationId = `${E2E_PROGRAM_ID}-evidence-application`;
@@ -291,11 +280,9 @@ it('seeds current observations idempotently without reassigning detached facts',
     },
   });
 
-  // When
   const first = await seedE2eRepositoryEvidence(prisma, fixture.graph());
   const second = await seedE2eRepositoryEvidence(prisma, fixture.graph());
 
-  // Then
   expect(second).toEqual(first);
   expect(second.currentRepositoryId).toBe(currentId);
   expect(second.facts.filter((fact) => fact.repositoryId === oldId)).toEqual(
@@ -320,9 +307,8 @@ it('seeds current observations idempotently without reassigning detached facts',
 });
 
 it('rejects adopted graphs and missing approved applications without seeding facts', async () => {
-  // Given
   await fixture.ensure();
-  // When / Then
+
   await expect(
     seedE2eRepositoryEvidence(prisma, {
       ...fixture.graph(),

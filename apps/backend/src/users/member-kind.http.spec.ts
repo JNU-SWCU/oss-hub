@@ -97,8 +97,7 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
     const moduleBuilder = Test.createTestingModule({
       imports: [PrismaModule, UsersModule],
     });
-    // This HTTP suite replaces persistence; only the isolated integration suite
-    // may initialize a real Prisma connection.
+
     moduleBuilder.overrideProvider(PrismaService).useValue({});
     moduleBuilder.overrideProvider(MemberKindRepository).useValue(repository);
     moduleBuilder.overrideProvider(AuditLogService).useValue(audit);

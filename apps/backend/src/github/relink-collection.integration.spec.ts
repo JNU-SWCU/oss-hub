@@ -43,7 +43,6 @@ const fingerprint = {
 };
 
 it('collects new facts only on the replacement when an external application repository is relinked', async () => {
-  // Given: A is the active external target, with old facts, and is replaced by B.
   await prisma.githubRepository.update({
     where: { id: oldId },
     data: { source: 'EXTERNAL_PUBLIC' },
@@ -125,9 +124,9 @@ it('collects new facts only on the replacement when an external application repo
     () => 'synthetic-relink-collection-run',
     runtime,
   );
-  // When: the next external sweep runs against the real database.
+
   const result = await sync.runExternal('synthetic-relink-collection');
-  // Then: A is never fetched, its historical association/facts survive, and B receives new facts.
+
   expect(result.status).toBe('COMPLETED');
   expect(metadata.mock.calls).toEqual([['synthetic', 'target']]);
   expect(
@@ -154,42 +153,38 @@ it('collects new facts only on the replacement when an external application repo
 });
 
 it('keeps a linked private or absent external repository eligible for recovery', async () => {
-  // Given: B is the linked external repository and was last seen private or gone.
   await service.updateMine(githubId, programId, input);
   await prisma.githubRepository.update({
     where: { id: targetId },
     data: { visibility: 'PRIVATE', presence: 'ABSENT' },
   });
-  // When
+
   const selected = await collection.listExternalRepositories();
-  // Then
+
   expect(selected).toEqual(
     expect.arrayContaining([expect.objectContaining({ id: targetId })]),
   );
 });
 
 it('stops selecting a linked external repository once deletion clears every link', async () => {
-  // Given: B is linked to the application, then program or team deletion clears all three links
-  // (program-lifecycle.service.ts purge, program-team-deletion.repository.ts detach).
   await service.updateMine(githubId, programId, input);
   await prisma.githubRepository.update({
     where: { id: targetId },
     data: { applicationId: null, programId: null, teamId: null },
   });
-  // When
+
   const selected = await collection.listExternalRepositories();
-  // Then: the student's own repository is no longer collected once no application links it.
+
   expect(selected.some((row) => row.id === targetId)).toBe(false);
 });
 
 it('does not revive a detached external repository when it is enrolled again', async () => {
-  // Given: the external application target has been replaced.
   await prisma.githubRepository.update({
     where: { id: oldId },
     data: { source: 'EXTERNAL_PUBLIC' },
   });
   await service.updateMine(githubId, programId, input);
-  // When: enrollment (the OWN provisioning path) observes the historical identity again.
+
   await collection.enrollExternalRepository({
     githubRepositoryId: targetGithubId + 1n,
     nameWithOwner: 'synthetic/old',
@@ -197,7 +192,7 @@ it('does not revive a detached external repository when it is enrolled again', a
     archived: false,
     observedAt,
   });
-  // Then
+
   expect(
     (await collection.listExternalRepositories()).some(
       (row) => row.id === oldId,
@@ -206,7 +201,6 @@ it('does not revive a detached external repository when it is enrolled again', a
 });
 
 it('selects a historical external repository again when the application reattaches it', async () => {
-  // Given: A was detached in favor of B.
   await prisma.githubRepository.update({
     where: { id: oldId },
     data: { source: 'EXTERNAL_PUBLIC' },
@@ -225,12 +219,12 @@ it('selects a historical external repository again when the application reattach
       archived: false,
     },
   });
-  // When: the same application switches back to A.
+
   await service.updateMine(githubId, programId, {
     ...input,
     repositoryUrl: 'https://github.com/synthetic/old',
   });
-  // Then
+
   const selected = await collection.listExternalRepositories();
   expect(selected).toEqual(
     expect.arrayContaining([
@@ -241,15 +235,14 @@ it('selects a historical external repository again when the application reattach
 });
 
 it('keeps a detached organization repository in organization inventory', async () => {
-  // Given: the original organization repository was replaced by an external repository.
   await prisma.githubRepository.update({
     where: { id: oldId },
     data: { githubOrganizationId: 8133n, presence: 'PRESENT' },
   });
   await service.updateMine(githubId, programId, input);
-  // When
+
   const selected = await collection.listPresentRepositories(8133n);
-  // Then
+
   expect(selected).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ id: oldId, applicationId: null }),
@@ -257,7 +250,6 @@ it('keeps a detached organization repository in organization inventory', async (
   );
 });
 
-/** provider 없이 도는 합성 runtime — 저장소별 stream 호출을 셀 수 있게 전부 spy로 잡는다. */
 function syntheticProvider() {
   const tokens = {
     getToken: () => Promise.resolve('synthetic-unused'),
@@ -322,7 +314,7 @@ function syntheticProvider() {
     runtime,
     resolveUserNodeId,
     getRepository,
-    /** stream 호출이 가리킨 저장소 이름(`owner/name`의 name) 목록. */
+
     streamedNames: () =>
       repositoryCalls.flatMap((spy) =>
         spy.mock.calls.map((call: readonly unknown[]) => call[1]),
@@ -331,7 +323,6 @@ function syntheticProvider() {
 }
 
 it('collects a repository linked into an empty slot right after the team route saves it', async () => {
-  // Given: the team has no repository yet.
   await prisma.githubRepository.delete({ where: { id: oldId } });
   const provider = syntheticProvider();
   jest
@@ -353,7 +344,7 @@ it('collects a repository linked into an empty slot right after the team route s
     () => 'synthetic-link-run',
     provider.runtime,
   );
-  // When: the leader saves B through the team route, and the captured trigger runs on the real database.
+
   await service.updateForTeam(githubId, programId, teamId, input);
   const linked = collectionTrigger.collectRepository.mock.calls.map(
     ([id]) => id,
@@ -362,7 +353,7 @@ it('collects a repository linked into an empty slot right after the team route s
   const results = await Promise.all(
     linked.map((id) => sync.runRepository('synthetic-link', id)),
   );
-  // Then: B has facts and a Contribution row now, without an inventory re-read.
+
   expect(results).toEqual([
     expect.objectContaining({
       status: 'COMPLETED',
@@ -385,9 +376,8 @@ it('collects a repository linked into an empty slot right after the team route s
 });
 
 it('stops streaming a detached organization repository in the organization sweep', async () => {
-  // Given: organization repository A was replaced by B, and C is an ordinary organization repository.
   await service.updateMine(githubId, programId, input);
-  const organizationId = targetGithubId; // 이 케이스에만 쓰는 조직 id
+  const organizationId = targetGithubId;
   const listing = (id: bigint, name: string) => ({
     id: id.toString(),
     name,
@@ -413,9 +403,9 @@ it('stops streaming a detached organization repository in the organization sweep
     () => observedAt,
     () => 'synthetic-org-sweep-run',
   );
-  // When
+
   const result = await sync.run('synthetic-org-sweep');
-  // Then: C is streamed as before; A is still observed but no longer streamed.
+
   expect(result).toMatchObject({
     status: 'COMPLETED',
     inventoryComplete: true,

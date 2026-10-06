@@ -21,7 +21,6 @@ describe('ApplicationsStaffGuard', () => {
   ])(
     'canonical %s 접근권을 허용하고 처리자 ID를 붙인다',
     async (_label, access) => {
-      // Given
       findUnique.mockResolvedValue({
         id: 'synthetic-actor',
         ...access,
@@ -34,18 +33,14 @@ describe('ApplicationsStaffGuard', () => {
       const context = new ExecutionContextHost([request]);
       context.setType('http');
 
-      // When
       const allowed = await guard.canActivate(context);
 
-      // Then
       expect(allowed).toBe(true);
       expect(request.applicationActorId).toBe('synthetic-actor');
     },
   );
 
-  // 학생 관리자도 이 문을 지난다 — 관리자 접근은 회원 유형과 독립이다.
   it('학생 관리자는 관리자 접근만으로 통과한다', async () => {
-    // Given
     findUnique.mockResolvedValue({
       id: 'synthetic-actor',
       hasStaffAccess: false,
@@ -59,16 +54,13 @@ describe('ApplicationsStaffGuard', () => {
     const context = new ExecutionContextHost([request]);
     context.setType('http');
 
-    // When
     const allowed = await guard.canActivate(context);
 
-    // Then
     expect(allowed).toBe(true);
     expect(request.applicationActorId).toBe('synthetic-actor');
   });
 
   it('두 접근권이 모두 없으면 403으로 거부한다', async () => {
-    // Given
     findUnique.mockResolvedValue({
       id: 'synthetic-actor',
       hasStaffAccess: false,
@@ -78,10 +70,8 @@ describe('ApplicationsStaffGuard', () => {
     const context = new ExecutionContextHost([{ sessionGithubId: 1002n }]);
     context.setType('http');
 
-    // When
     const decision = guard.canActivate(context);
 
-    // Then
     await expect(decision).rejects.toMatchObject({
       errorCode: {
         code: ApplicationsErrorCode.STAFF_ONLY,
@@ -97,7 +87,6 @@ describe('ApplicationsStaffGuard', () => {
   });
 
   it('비활성 STAFF 계정을 403으로 거부한다', async () => {
-    // Given
     findUnique.mockResolvedValue({
       id: 'synthetic-actor',
       hasStaffAccess: true,
@@ -107,10 +96,8 @@ describe('ApplicationsStaffGuard', () => {
     const context = new ExecutionContextHost([{ sessionGithubId: 1003n }]);
     context.setType('http');
 
-    // When
     const decision = guard.canActivate(context);
 
-    // Then
     await expect(decision).rejects.toMatchObject({
       errorCode: {
         code: ApplicationsErrorCode.STAFF_ONLY,

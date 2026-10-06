@@ -13,8 +13,6 @@ import {
 
 describe('submission upload policy', () => {
   it('상한은 5 MiB 그대로이고 표기만 「5 MB」다', () => {
-    // 표기를 바꾼 것이지 상한을 바꾼 것이 아니다(#1107). 둘을 함께 못 박아 둔다 —
-    // 「MB로 통일했으니 값도 5,000,000으로」 같은 정리는 nginx 6m 짝을 깨뜨린다.
     expect(SUBMISSION_UPLOAD_MAX_BYTES).toBe(5 * 1024 * 1024);
     expect(SUBMISSION_UPLOAD_MAX_LABEL).toBe('5 MB');
     expect(SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE).toBe(
@@ -53,10 +51,6 @@ describe('submission upload policy', () => {
   });
 });
 
-/**
- * 이 값은 한때 여덟 곳에 같은 리터럴로 흩어져 있었고 표기가 갈라졌다(#1107). 다시 흩어지는
- * 것을 사람 눈이 아니라 검사가 막는다 — 새 업로드 경로가 자기 리터럴을 적으면 실패한다.
- */
 describe('상한 리터럴이 정본 밖으로 다시 퍼지지 않는다', () => {
   const SOURCE_ROOT = resolve(__dirname, '..');
   const OWNER = join(SOURCE_ROOT, 'submissions', 'submission-upload-policy.ts');

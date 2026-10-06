@@ -12,19 +12,19 @@ export class ProgramListResponseDto {
   readonly name: string;
   readonly organizer: string;
   readonly trackType: PersonalizedProgramListItem['trackType'];
-  /** 게시 축(PUBLISHED|ARCHIVED). 모집 기간 파생 상태가 아니다. */
+
   readonly lifecycle: PersonalizedProgramListItem['lifecycle'];
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
   readonly endAt: string;
   readonly description: string;
-  /** 카드 하단 안내. 인증되지 않은 요청·개인화 대상이 아닌 뷰어는 항상 생략된다. */
+
   readonly note?: ProgramListItemNote;
-  /** 뷰어(학생) 본인의 신청 상태. 신청한 적 없으면 생략. */
+
   readonly viewerApplicationStatus?: ApplicationStatus;
-  /** 뷰어(STAFF/ADMIN)용 — 전체 지원 건수 집계. 공개·학생 응답에는 절대 담기지 않는다. */
+
   readonly applicationCount?: number;
-  /** 뷰어(STAFF/ADMIN)용 — 승인 대기 건수 집계. 공개·학생 응답에는 절대 담기지 않는다. */
+
   readonly pendingApplicationCount?: number;
 
   private constructor(program: PersonalizedProgramListItem) {

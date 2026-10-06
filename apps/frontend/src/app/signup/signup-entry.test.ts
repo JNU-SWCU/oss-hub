@@ -17,8 +17,6 @@ describe('signupEntryDecision', () => {
     });
   });
 
-  // 온보딩을 끝내지 못한 사용자가 가입을 마칠 길은 이 화면뿐이다 — 랜딩에서는
-  // 아무도 되돌리지 않기로 했으므로(#144 → #147), 여기서 끊기면 길이 사라진다.
   it('온보딩 중이던 사용자는 멈춘 자리를 이어서 진행하게 한다', () => {
     const decision = signupEntryDecision('unassigned', EMPTY_MEMBER_ACCESS);
 
@@ -29,8 +27,6 @@ describe('signupEntryDecision', () => {
     });
   });
 
-  // 온보딩 입구는 backend가 로그인 직후 보내는 곳과 같아야 한다. 갈라지면 로그인으로
-  // 재개할 때와 이 화면으로 재개할 때 도착지가 달라진다.
   it('온보딩 입구는 필수 동의 화면이다', () => {
     expect(ONBOARDING_ENTRY_PATH).toBe('/consent');
   });
@@ -48,8 +44,6 @@ describe('signupEntryDecision', () => {
     },
   );
 
-  // 세션 조회가 실패했다고 오류 화면을 띄우면, GitHub 계정이 없는 방문자가 다시
-  // 갈 곳이 없어진다 — 이 화면이 막으려던 구멍을 이 화면이 다시 내는 셈이다.
   it('세션 조회에 실패해도 안내는 계속 보여 준다', () => {
     expect(signupEntryDecision('error', EMPTY_MEMBER_ACCESS)).toEqual({
       kind: 'invite',
@@ -57,7 +51,6 @@ describe('signupEntryDecision', () => {
   });
 });
 
-/** 표시 역할 한 단어를 canonical 세 사실로 펼친다. 관리자는 회원 유형을 남기지 않는다. */
 function accessFor(role: 'STUDENT' | 'STAFF' | 'ADMIN') {
   return {
     memberKind: role === 'ADMIN' ? null : role,

@@ -1,9 +1,3 @@
-// CardGrid 프리뷰 — Card 파트 조합과는 다른 실제 그리드 화면 2개를 옮겼다.
-// SystemStatusGrid는 system-status-view.tsx의 관리자 시스템 상태 요약(3장),
-// ProgramDashboardGrid는 student-dashboard-view.tsx의 학생 대시보드 참여 현황
-// 카드 그리드(3장, 상태별로 내용이 달라진다)다. 두 화면 다 lucide-react 아이콘을
-// 쓰지만 이미 승인된 프리뷰(Button.tsx)가 아이콘 라이브러리 대신 인라인 svg를
-// 쓰는 관례를 따라 여기서도 아이콘은 생략했다 — learnings에 기록.
 import {
   Button,
   Card,

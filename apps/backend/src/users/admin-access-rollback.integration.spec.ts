@@ -41,7 +41,6 @@ afterAll(async () => {
 });
 
 it('rolls back the user CAS when the pending-request CAS fails second', async () => {
-  // Given
   const actor = await createUser('ADMIN', 'actor');
   const target = await createUser(null, 'target');
   const profile = {
@@ -65,7 +64,6 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
     new AuditLogService(new AuditLogRepository(prisma)),
   );
 
-  // When / Then
   await expect(
     service.patchAccess(actor.githubId, target.id, {
       expectedRole: null,

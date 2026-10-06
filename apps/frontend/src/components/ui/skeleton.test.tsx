@@ -11,17 +11,16 @@ describe('Skeleton', () => {
       </Skeleton>,
     );
 
-    // 불러오는 중임을 말한다.
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('role="status"');
-    // 상태 안내는 바쁜 뼈대 영역의 형제라 낭독기가 놓치지 않는다.
+
     const statusIndex = html.indexOf('role="status"');
     const busyIndex = html.indexOf('aria-busy="true"');
     expect(statusIndex).toBeGreaterThanOrEqual(0);
     expect(statusIndex).toBeLessThan(busyIndex);
-    // 무엇을 불러오는지 낭독기가 읽을 이름이 있다.
+
     expect(html).toContain('프로그램 목록을 불러오는 중');
-    // 움직임을 줄이도록 설정한 사람에게는 깜빡임을 끈다.
+
     expect(html).toContain('motion-reduce:animate-none');
   });
 
@@ -33,7 +32,6 @@ describe('Skeleton', () => {
       </Skeleton>,
     );
 
-    // 회색 막대를 하나씩 읽어 주는 것은 아무에게도 도움이 안 된다.
     expect(html.split('aria-hidden="true"').length - 1).toBe(2);
   });
 
@@ -44,8 +42,6 @@ describe('Skeleton', () => {
       </Skeleton>,
     );
 
-    // 안쪽에 래퍼가 하나 더 생기면 grid 의 자식이 하나로 줄어 뼈대가 실제
-    // 화면과 다르게 쌓인다. 배치는 이 요소가 직접 맡는다.
     expect(html).toContain('class="grid gap-4"');
   });
 

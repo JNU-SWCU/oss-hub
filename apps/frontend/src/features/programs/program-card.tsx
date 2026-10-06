@@ -6,7 +6,6 @@ import type { VariantProps } from 'class-variance-authority';
 
 import { statusBadgeVariants } from '@/components/status-badge';
 
-/** 카드가 표현하는 업무 상태. 배지 팔레트를 결정한다. */
 export type ProgramCardStatus =
   | 'recruiting'
   | 'in_progress'
@@ -16,11 +15,6 @@ export type ProgramCardStatus =
   | 'ended'
   | 'upcoming';
 
-/**
- * 업무 상태 → 배지 색상 variant. ProgramCard.dc.html의 `MAP`을 그대로 옮긴다.
- * `ended`·`upcoming`은 둘 다 closed(회색) 톤을 쓴다 — 별도 팔레트가 정의돼
- * 있지 않다(program-list.md 미결 항목).
- */
 const STATUS_BADGE_VARIANT: Readonly<
   Record<ProgramCardStatus, VariantProps<typeof statusBadgeVariants>['variant']>
 > = {
@@ -37,30 +31,21 @@ interface ProgramCardProps extends Omit<
   React.ComponentProps<'div'>,
   'title' | 'children'
 > {
-  /** 프로그램 제목 */
   title: string;
   coverImageUrl?: string | null;
-  /** 카테고리 · 회차 문구 (예: "SW중심대학사업단 · 2026-2학기") */
+
   category?: string;
-  /** 모집·진행 기간 문구 */
+
   period?: string;
-  /** 업무 상태. 배지 팔레트를 결정한다. `ended`도 상세 열람은 허용된다 — 신청 등 쓰기만 백엔드 lifecycle이 막는다. */
+
   status: ProgramCardStatus;
-  /**
-   * 배지에 표시할 문구. status와 별개로 호출부가 정확한 텍스트를 정한다 —
-   * 같은 status라도 역할에 따라 문구가 갈릴 수 있다(학생 "승인 대기" vs
-   * 교직원 "모집중").
-   */
+
   badgeText: string;
-  /** 카드 하단 안내 문구. 없으면 표시하지 않는다. */
+
   note?: string;
-  /** note 앞에 붙는 아이콘. 프로토타입 스펙상 'team'만 존재한다. */
+
   noteIcon?: 'team';
-  /**
-   * 이동 경로. 넘기면 카드 전체가 링크가 된다 — `ended`를 포함해 status와
-   * 무관하게 href가 있으면 항상 openable이다(백엔드는 ARCHIVED 상세 읽기를
-   * 이미 허용한다; 신청 등 쓰기만 각 쓰기 경로에서 lifecycle로 거부한다).
-   */
+
   href?: string;
 }
 
@@ -85,7 +70,6 @@ function TeamIcon() {
   );
 }
 
-/** 프로그램 데이터와 상태 설명을 공용 목록 카드에 연결한다. */
 function ProgramCard({
   title,
   coverImageUrl,

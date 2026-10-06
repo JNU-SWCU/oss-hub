@@ -44,10 +44,6 @@ const REMOVE_FAILED_MESSAGE =
 const TRANSFER_FAILED_MESSAGE =
   '팀장을 바꾸지 못했습니다. 현재 팀 상태를 확인한 뒤 다시 시도해 주세요.';
 
-/**
- * 제외가 실제로 지우는 범위. 확인 레이어가 이 문장을 쓴다 —
- * 교직원이 "계정이 지워지나?"를 다이얼로그에서 되묻지 않아야 한다.
- */
 const REMOVAL_SCOPE_NOTICE =
   '팀 구성원 목록에서만 빠집니다. 이미 제출한 신청서와 제출 기록은 그대로 남고, 계정과 다른 프로그램 참여에는 영향이 없습니다.';
 
@@ -66,7 +62,6 @@ function inviteeNameOf(invitation: SentTeamInvitation): string {
   return invitation.invitee.name?.trim() || invitation.invitee.nickname;
 }
 
-/** 팀장 먼저, 그 외에는 백엔드가 준 순서 그대로(정렬은 안정적이다). */
 function orderedRoster(
   members: readonly StaffProgramTeamMember[],
 ): readonly StaffProgramTeamMember[] {
@@ -75,10 +70,6 @@ function orderedRoster(
   );
 }
 
-/**
- * 이 패널이 「누구의 어느 팀」을 다루는지. 프로그램·팀·로그인 계정 중
- * 하나라도 바뀌면 그것은 같은 화면이 아니라 다른 화면이다.
- */
 function contextKey(
   programId: string,
   teamId: string,
@@ -97,25 +88,11 @@ export interface StaffTeamMembersPanelProps {
   readonly teamName: string;
   readonly memberCount: number;
   readonly members: readonly StaffProgramTeamMember[];
-  /**
-   * 로그인을 확인한 라우트가 넣어 주는 현재 계정. 빈 값으로 대신하지 않는다.
-   * 세션이 아직 손에 없으면 `null`이며, 그때는 초대 요청을 시작하지 않는다.
-   */
+
   readonly sessionKey: string | null;
   readonly onChanged: () => void;
 }
 
-/**
- * 교직원 팀 상세의 구성원 관리. 명단 표시는 상세 페이지가 이미 하고,
- * 이 패널은 초대·제외·팀장 변경만 맡는다.
- *
- * 마지막 팀원 보호는 서버가 판정한다 — 화면이 버튼을 숨겨 같은 규칙을
- * 다시 유추하지 않는다(ADR-007). 초대한 사람은 수락하기 전에는 팀원이 아니다.
- *
- * 신원(`contextKey`)을 key로 쓰는 비공개 구현을 갈아끼운다. 신원이 바뀌는 순간
- * 이전 상태(확인 대상·진행·오류)와 요청 ref가 React에 의해 통째로 버려지므로,
- * 앞 신원의 답이 다음 신원을 건드릴 수 없다.
- */
 export function StaffTeamMembersPanel(props: StaffTeamMembersPanelProps) {
   return (
     <StaffTeamMembersPanelInstance

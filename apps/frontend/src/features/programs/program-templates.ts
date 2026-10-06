@@ -25,7 +25,6 @@ export const PROGRAM_TRACK_TYPE_LABELS = {
   EXTRACURRICULAR: '비교과',
 } as const satisfies Record<ProgramTrackType, string>;
 
-/** 서버 V1_APPLICATION_FIELDS와 동일 계약. 목록 API 병합 전 로컬 폴백. */
 export const V1_APPLICATION_FIELDS: readonly ApplicationFormField[] = [
   { key: 'applicantName', type: 'auto', label: '신청자', required: true },
 ];
@@ -101,7 +100,6 @@ export function resolveProgramApplicationTemplate(
   );
 }
 
-/** API 템플릿 fields를 카테고리 라벨 정의에 병합한다 (서버 fields SSOT). */
 export function mergeTemplateFieldsFromApi(
   definitions: readonly ProgramTemplateDefinition[],
   apiTemplates: readonly ApplicationFormTemplate[],

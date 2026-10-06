@@ -51,18 +51,14 @@ function runChecker(mode, currentPullRequest = '0') {
 }
 
 test('open Prisma migration mutex checker is executable', () => {
-  // Given
   const executableMode = constants.X_OK;
 
-  // When / Then
   assert.doesNotThrow(() => accessSync(checkerPath, executableMode));
 });
 
 test('mutex passes when open pull requests do not touch migration paths', () => {
-  // Given / When
   const result = runChecker('clear');
 
-  // Then
   assert.equal(result.status, 0);
   assert.deepEqual(JSON.parse(result.stdout), {
     status: 'clear',
@@ -71,10 +67,8 @@ test('mutex passes when open pull requests do not touch migration paths', () => 
 });
 
 test('mutex rejects a competing Prisma schema pull request', () => {
-  // Given / When
   const result = runChecker('competing');
 
-  // Then
   assert.equal(result.status, 1);
   assert.deepEqual(JSON.parse(result.stderr), {
     status: 'blocked',
@@ -83,10 +77,8 @@ test('mutex rejects a competing Prisma schema pull request', () => {
 });
 
 test('mutex rejects a competing authority backfill pull request', () => {
-  // Given / When
   const result = runChecker('backfill');
 
-  // Then
   assert.equal(result.status, 1);
   assert.deepEqual(JSON.parse(result.stderr), {
     status: 'blocked',
@@ -95,10 +87,8 @@ test('mutex rejects a competing authority backfill pull request', () => {
 });
 
 test('mutex excludes the current pull request from competition', () => {
-  // Given / When
   const result = runChecker('current', '44');
 
-  // Then
   assert.equal(result.status, 0);
   assert.deepEqual(JSON.parse(result.stdout), {
     status: 'clear',
@@ -107,10 +97,8 @@ test('mutex excludes the current pull request from competition', () => {
 });
 
 test('mutex fails closed when GitHub lookup fails', () => {
-  // Given / When
   const result = runChecker('failure');
 
-  // Then
   assert.equal(result.status, 1);
   assert.deepEqual(JSON.parse(result.stderr), {
     status: 'error',

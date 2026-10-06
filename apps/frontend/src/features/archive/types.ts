@@ -7,7 +7,6 @@ export const ARCHIVE_TRACK_TYPE_LABELS = {
   EXTRACURRICULAR: '비교과',
 } as const satisfies Record<ArchiveTrackType, string>;
 
-/** 사이드 패널·칩 공용. `all`은 쿼리 없이 `/archive`. */
 export type ArchiveListFilter = 'all' | number;
 
 export function archiveListHref(filter: ArchiveListFilter): string {
@@ -26,7 +25,6 @@ export function parseArchiveListFilter(
   return 'all';
 }
 
-/** `GET /projects/years` — 데이터가 있는 연도(최신순). */
 export type ArchiveYears = {
   readonly years: readonly number[];
 };

@@ -15,7 +15,6 @@ describe('SubmissionReviewsStaffGuard', () => {
     ['staff', { hasStaffAccess: true, hasAdminAccess: false }],
     ['admin', { hasStaffAccess: false, hasAdminAccess: true }],
   ])('%s 역할을 허용하고 reviewer id를 붙인다', async (_label, access) => {
-    // Given: 활성 승인 교직원 또는 관리자다.
     findUnique.mockResolvedValue({
       id: 'reviewer-1',
       ...access,
@@ -28,10 +27,8 @@ describe('SubmissionReviewsStaffGuard', () => {
     const context = new ExecutionContextHost([request]);
     context.setType('http');
 
-    // When: 검토 API 접근을 확인한다.
     const allowed = await guard.canActivate(context);
 
-    // Then: 접근을 허용하고 내부 reviewer id를 전달한다.
     expect(allowed).toBe(true);
     expect(request.submissionReviewerId).toBe('reviewer-1');
   });
@@ -41,15 +38,12 @@ describe('SubmissionReviewsStaffGuard', () => {
     [null, AccountStatus.ACTIVE],
     ['STAFF', AccountStatus.DEACTIVATED],
   ] as const)('%s/%s 계정은 403으로 거부한다', async (role, accountStatus) => {
-    // Given: 승인되지 않았거나 비활성인 사용자다.
     findUnique.mockResolvedValue({ id: 'user-1', role, accountStatus });
     const context = new ExecutionContextHost([{ sessionGithubId: 1002n }]);
     context.setType('http');
 
-    // When: 검토 API 접근을 시도한다.
     const decision = guard.canActivate(context);
 
-    // Then: STAFF 승인 필요 오류를 반환한다.
     await expect(decision).rejects.toMatchObject({
       errorCode: {
         code: SubmissionReviewsErrorCode.STAFF_APPROVAL_REQUIRED,

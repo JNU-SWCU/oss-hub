@@ -13,12 +13,11 @@ import { ProgramTeamRepositoryEvidenceRepository } from './repository/program-te
 afterEach(() => jest.clearAllMocks());
 
 it('keeps the sentinel window but bounds the query by the last queryable day', async () => {
-  // Given
   givenRepository();
   const repository = new ProgramTeamRepositoryEvidenceRepository(
     new PrismaService(),
   );
-  // When
+
   const view = await repository.contributions(
     {
       id: 'application',
@@ -36,7 +35,7 @@ it('keeps the sentinel window but bounds the query by the last queryable day', a
     },
     [],
   );
-  // Then
+
   expect(view?.window).toEqual({
     from: '0001-01-01',
     to: '+010000-01-01',
@@ -56,7 +55,6 @@ it('keeps the sentinel window but bounds the query by the last queryable day', a
 });
 
 it('reports an explicit repository relink as succeeded without inventing a provisioning outbox', async () => {
-  // Given
   const repository = givenRepository(
     new Date('2026-08-31Z'),
     0,
@@ -68,25 +66,24 @@ it('reports an explicit repository relink as succeeded without inventing a provi
     lastErrorCode: null,
     repositoryId: 'current-repo',
   });
-  // When
+
   const detail = await repository.findStaffTeamDetail('program', 'team');
-  // Then
+
   expect(detail?.application?.repositoryProvisioning.jobStatus).toBe(
     'SUCCEEDED',
   );
 });
 
 it('continues history with timestamp and ID tie-breaking inside the same scope', async () => {
-  // Given
   const repository = givenRepository();
   const cursor = { occurredAt: new Date('2026-08-15Z'), id: 'change-11' };
-  // When
+
   const page = await repository.findStaffRepositoryUrlHistory(
     'program',
     'team',
     cursor,
   );
-  // Then
+
   expect(page).toEqual({ items: [], nextCursor: null });
   const historyQuery: unknown = auditFindMany.mock.calls[0]?.[0];
   expect(historyQuery).toHaveProperty('where.targetId', 'application');
@@ -101,12 +98,11 @@ it('continues history with timestamp and ID tie-breaking inside the same scope',
 });
 
 it('returns an explicit empty evidence state when the team has no application', async () => {
-  // Given
   const repository = givenRepository();
   applicationFindFirst.mockResolvedValue(null);
-  // When
+
   const detail = await repository.findStaffTeamDetail('program', 'team');
-  // Then
+
   expect(detail).toMatchObject({
     repositoryContributions: null,
     repositoryUrlHistory: { items: [], nextCursor: null },
@@ -116,7 +112,6 @@ it('returns an explicit empty evidence state when the team has no application', 
 });
 
 it('returns only application-scoped URL history with the actor snapshot', async () => {
-  // Given
   const repository = givenRepository();
   auditFindMany.mockResolvedValue([
     {
@@ -140,9 +135,9 @@ it('returns only application-scoped URL history with the actor snapshot', async 
       },
     },
   ]);
-  // When
+
   const detail = await repository.findStaffTeamDetail('program', 'team');
-  // Then
+
   expect(detail).toMatchObject({
     repositoryUrlHistory: {
       items: [
@@ -185,7 +180,6 @@ it('returns only application-scoped URL history with the actor snapshot', async 
 });
 
 it('bounds the initial history page and provides a cursor for all remaining history', async () => {
-  // Given
   const repository = givenRepository();
   auditFindMany.mockResolvedValue(
     Array.from({ length: 21 }, (_, index) => ({
@@ -206,9 +200,9 @@ it('bounds the initial history page and provides a cursor for all remaining hist
       },
     })),
   );
-  // When
+
   const detail = await repository.findStaffTeamDetail('program', 'team');
-  // Then
+
   expect(detail?.repositoryUrlHistory).toMatchObject({
     nextCursor: '2026-08-15T00:00:00.000Z_change-11',
   });
@@ -222,11 +216,10 @@ it('bounds the initial history page and provides a cursor for all remaining hist
 });
 
 it('matches numeric GitHub identities and preserves members without observations', async () => {
-  // Given
   const repository = givenRepository();
-  // When
+
   const detail = await repository.findStaffTeamDetail('program', 'team');
-  // Then
+
   expect(detail).toMatchObject({
     repositoryContributions: {
       repositoryId: 'current-repo',
@@ -273,12 +266,11 @@ it.each([
 ] as const)(
   'distinguishes collection state when last success is %s and failures are %s',
   async (lastSuccessAt, failureCount, collectionStatus) => {
-    // Given
     const repository = givenRepository(lastSuccessAt, failureCount);
     contributionGroupBy.mockResolvedValue([]);
-    // When
+
     const detail = await repository.findStaffTeamDetail('program', 'team');
-    // Then
+
     expect(detail).toMatchObject({
       repositoryContributions: { collectionStatus },
     });
@@ -286,19 +278,17 @@ it.each([
 );
 
 it('does not query contributions or history for an absent or differently scoped team', async () => {
-  // Given
   const repository = givenRepository();
   teamFindFirst.mockResolvedValue(null);
-  // When
+
   const detail = await repository.findStaffTeamDetail('other-program', 'team');
-  // Then
+
   expect(detail).toBeNull();
   expect(contributionGroupBy).not.toHaveBeenCalled();
   expect(auditFindMany).not.toHaveBeenCalled();
 });
 
 it('shows the outsider totals only while they were counted for this application, program and window', async () => {
-  // Given: the collector counted this repository for this application and program's current window.
   const repository = givenRepository();
   const counted = {
     repositoryId: 'current-repo',
@@ -312,9 +302,9 @@ it('shows the outsider totals only while they were counted for this application,
     observedAt: new Date('2026-08-31T00:00:00Z'),
   };
   outsiderFindUnique.mockResolvedValue(counted);
-  // When
+
   const detail = await repository.findStaffTeamDetail('program', 'team');
-  // Then
+
   expect(outsiderFindUnique).toHaveBeenCalledWith({
     where: { repositoryId: 'current-repo' },
   });
@@ -324,8 +314,6 @@ it('shows the outsider totals only while they were counted for this application,
     issueCount: 2,
   });
 
-  // A count made for another team's application or another program, or before the window was
-  // edited, is not shown.
   for (const stale of [
     { ...counted, applicationId: 'previous-application' },
     { ...counted, programId: 'other-program' },

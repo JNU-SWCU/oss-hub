@@ -16,12 +16,6 @@ export interface OauthSettings {
 const MIN_SESSION_SECRET_BYTES = 32;
 const CALLBACK_PATH = '/api/v1/auth/github/callback';
 
-/**
- * auth 관련 env를 시작 시 한 번 검증해 고정한다.
- * 보안 정책은 NODE_ENV가 아니라 입력 값에서 파생한다.
- * - SESSION_SECRET·FRONTEND_URL·GitHub OAuth client ID/secret 누락 시 즉시 실패
- * - Secure cookie는 FRONTEND_URL scheme(https)에서만 켠다
- */
 @Injectable()
 export class AuthConfig {
   private readonly runtimeConfig: RuntimeConfig;
@@ -47,7 +41,6 @@ export class AuthConfig {
     );
   }
 
-  /** 초기 시드 대상이 아니면 null을 반환한다. */
   resolveInitialRole(githubId: bigint): InitialAccountSeed | null {
     return this.initialRoleMap.get(githubId) ?? null;
   }
@@ -112,7 +105,7 @@ export class AuthConfig {
 
   private parseCanonicalOrigin(raw: string, envName: string): URL {
     const url = this.parseAbsoluteUrl(raw, envName);
-    // WHATWG search/hash are empty for present-empty `?`/`#`; reject those via raw input.
+
     if (
       url.pathname !== '/' ||
       url.search !== '' ||
@@ -138,7 +131,7 @@ export class AuthConfig {
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       throw new Error(`${envName}은 http(s) URL이어야 합니다.`);
     }
-    // WHATWG getters collapse present-empty userinfo (`https://@host`, `https://:@host`).
+
     if (url.username || url.password || hasRawUserinfo(raw)) {
       throw new Error(`${envName}에는 credentials를 포함할 수 없습니다.`);
     }
@@ -146,10 +139,6 @@ export class AuthConfig {
   }
 }
 
-/**
- * Detect userinfo via the raw authority `@` delimiter.
- * Percent-encoded octets in the path are not authority userinfo.
- */
 function hasRawUserinfo(raw: string): boolean {
   const schemeSep = raw.indexOf('://');
   if (schemeSep < 0) {
@@ -162,10 +151,6 @@ function hasRawUserinfo(raw: string): boolean {
   return authority.includes('@');
 }
 
-/**
- * Detect query/fragment delimiters on the raw input.
- * WHATWG `search`/`hash` are empty for present-empty `?`/`#`.
- */
 function hasRawQueryOrFragment(raw: string): boolean {
   const schemeSep = raw.indexOf('://');
   if (schemeSep < 0) {

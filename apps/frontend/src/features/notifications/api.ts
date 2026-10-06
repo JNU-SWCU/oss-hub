@@ -65,7 +65,7 @@ export function classifyNotificationApiError(
   if (error.problem.status === 401) {
     return 'unauthorized';
   }
-  // Origin 거부(AUT_002)와 교직원 전용(NOT_001)을 구분한다.
+
   if (error.problem.status === 403 && error.problem.code === 'NOT_001') {
     return 'forbidden';
   }

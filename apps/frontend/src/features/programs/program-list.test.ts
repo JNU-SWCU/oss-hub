@@ -209,10 +209,6 @@ describe('getProgramListBadge', () => {
     ).toEqual({ status: 'rejected', label: '반려' });
   });
 
-  /**
-   * 학생이 읽는 문구는 둘로 줄였지만 그것이 상태를 지우진 않는다 — 카드 색과
-   * openable 판정을 겸하는 `status`는 서버 상태 그대로 갈라 있어야 한다.
-   */
   it('keeps SUBMITTED and APPROVED apart in status while both read 신청', () => {
     const submitted = getProgramListBadge(
       { ...hackathon, viewerApplicationStatus: 'SUBMITTED' },

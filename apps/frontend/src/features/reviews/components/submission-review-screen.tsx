@@ -8,7 +8,6 @@ import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { useReviewSession } from '../use-review-session';
 import { SubmissionReviewView } from './submission-review-view';
 
-/** 검토는 읽고 판단하는 화면이라 폭을 5xl로 둔다 — 나머지 여백은 PageBody가 갖는다. */
 const REVIEW_WIDTH = 'max-w-5xl';
 
 function ReviewSkeleton() {

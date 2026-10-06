@@ -6,10 +6,6 @@ import { PublicProjectsRepository } from './public-projects.repository';
 import { PublicProjectsService } from './public-projects.service';
 import { PublicUserProfileController } from './public-user-profile.controller';
 
-/**
- * `GET /projects`, `GET /projects/:projectId`, `GET /users/:userId/public-profile`.
- * Freshness fence and cumulative metrics come from PublicEligibilityModule.
- */
 @Module({
   imports: [PrismaModule, PublicEligibilityModule],
   controllers: [PublicProjectsController, PublicUserProfileController],

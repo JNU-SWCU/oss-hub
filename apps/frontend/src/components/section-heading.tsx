@@ -7,18 +7,12 @@ interface SectionHeadingProps extends Omit<
   'title'
 > {
   title: React.ReactNode;
-  /** 제목 옆의 보조 문구(개수 등). 제목과 같은 줄에서 작게 읽힌다. */
+
   meta?: React.ReactNode;
-  /** 오른쪽 끝 슬롯 — 보통 텍스트 링크 하나. 화면의 주 행동은 여기 두지 않는다. */
+
   action?: React.ReactNode;
 }
 
-/**
- * 섹션 머리. 제목 크기는 크기 계단의 두 번째 칸(`--step-section` = 24)이다.
- *
- * 화면마다 h2 크기를 직접 고르면 페이지 제목(40)과 본문(16) 사이가 화면마다
- * 달라진다. 섹션 제목은 크기 계단 여섯 칸 중 하나로 고정한다.
- */
 function SectionHeading({
   title,
   meta,

@@ -9,8 +9,6 @@ import { LandingFooter } from './components/landing-footer';
 import { LandingJourney } from './components/landing-journey';
 import { ProgramFlowSection } from './components/program-flow-section';
 
-// CSS module 클래스명은 vitest에서 해시(`_panel_417db4`)로 바뀌므로
-// 클래스 대신 data-panel / id / 텍스트로만 단언한다.
 const renderJourney = (
   props: Partial<Parameters<typeof LandingJourney>[0]> = {},
 ): string =>
@@ -21,8 +19,6 @@ const renderJourney = (
     />,
   );
 
-// 랜딩의 우주 여정/진행 프로그램/참여 흐름/하단 CTA/푸터가
-// 실제로 render 가능함을 증명하는 최소 스모크 테스트.
 describe('landing page sections', () => {
   it('renders all five journey panels of the cosmos scroll experience', () => {
     const html = renderJourney();
@@ -31,7 +27,7 @@ describe('landing page sections', () => {
     for (const index of [0, 1, 2, 3, 4]) {
       expect(html).toContain(`data-panel="${index}"`);
     }
-    // 각 패널은 aria-labelledby로 이름을 갖는 region이어야 한다.
+
     expect(html).toContain('aria-labelledby="landing-hero-heading"');
     expect(html).toContain('aria-labelledby="landing-program-heading"');
     expect(html).toContain('aria-labelledby="landing-flow-heading"');
@@ -59,7 +55,6 @@ describe('landing page sections', () => {
   it('lets the journey skip link point at the content anchor below the journey', () => {
     const html = renderJourney();
 
-    // solid "시작하기" 섹션을 제거한 뒤 첫 본문 구간은 모집 중 프로그램이다.
     expect(html).toContain('href="#current-programs"');
     expect(html).toContain('로그인·프로그램 정보로 건너뛰기');
   });
@@ -67,7 +62,6 @@ describe('landing page sections', () => {
   it('renders the legend, the progress ticks and the scroll hint', () => {
     const html = renderJourney();
 
-    // 색 외에 텍스트 라벨로도 세 노드 유형을 구분한다.
     expect(html).toContain('학생');
     expect(html).toContain('저장소');
     expect(html).toContain('프로그램');
@@ -227,9 +221,6 @@ describe('landing page sections', () => {
     expect(html).toContain('href="/login"');
   });
 
-  // <section>은 aria-labelledby로 이름이 있어야 ARIA region 랜드마크로 노출된다.
-  // 이름이 없으면 스크린리더 랜드마크 목록에서 사라지므로, 세 섹션 모두
-  // aria-labelledby와 그 값을 id로 갖는 제목이 함께 렌더되는지 잠근다.
   it('renders each landing section as a named region landmark', () => {
     const sections = [
       {

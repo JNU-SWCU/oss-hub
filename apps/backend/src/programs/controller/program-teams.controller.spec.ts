@@ -26,7 +26,6 @@ type ControllerMethodName =
   | 'rename'
   | 'remove';
 
-/** controller 가 실제로 주입받는 최소 능력 집합 — 계약이 바뀌면 여기서 먼저 깨진다. */
 type ControllerService = ConstructorParameters<
   typeof ProgramTeamsController
 >[0];
@@ -82,11 +81,6 @@ describe('ProgramTeamsController', () => {
     expect(readGuards('create')).toEqual([SessionGuard, OriginGuard]);
   });
 
-  /**
-   * 팀 합류는 초대 수락 단독 경로다 — 참여코드로 합류하던 `POST teams/join` 은
-   * 초대 전용 규칙을 우회하므로 handler 자체를 지우고, alias·410 대체 route 도
-   * 두지 않는다. 등록된 handler 가 없으면 Nest 가 표준 404 를 돌려준다.
-   */
   it('join handler 를 등록하지 않는다 — 초대 수락만 팀에 들어오는 경로다', () => {
     const prototype: object = ProgramTeamsController.prototype;
     expect(Object.getOwnPropertyNames(prototype)).not.toContain('join');
@@ -110,10 +104,6 @@ describe('ProgramTeamsController', () => {
     expect(readGuards('list')).toEqual([SessionGuard, ProgramTeamsStaffGuard]);
   });
 
-  /**
-   * 정적 형제 우선 규칙(`programs.controller.ts`) — `GET me` 가 `GET ''` 보다 먼저
-   * 선언돼 있어야 한다. Nest 는 선언 순서대로 라우트를 등록한다.
-   */
   it('GET me 를 GET (목록) 보다 먼저 선언한다', () => {
     expect(declarationOrder('me')).toBeLessThan(declarationOrder('list'));
     expect(readPath('me')).toBe('me');
@@ -136,10 +126,6 @@ describe('ProgramTeamsController', () => {
       expect(readGuards('removeMember')).toEqual([SessionGuard, OriginGuard]);
     });
 
-    /**
-     * `me/members/:userId` 는 정적 `me` 아래라, 교직원 동적 경로 `:teamId` 보다
-     * 먼저 선언돼야 `:teamId` 가 `me` 를 가로채지 않는다.
-     */
     it('교직원 동적 경로(:teamId) 보다 먼저 선언한다', () => {
       expect(declarationOrder('removeMember')).toBeLessThan(
         declarationOrder('detail'),
@@ -316,10 +302,6 @@ describe('ProgramTeamsController', () => {
       ]);
     });
 
-    /**
-     * 폐기된 `locked` 는 응답에서 사라졌다 — 프런트가 능력 플래그로만 판단한다.
-     * service 가 실수로 남긴 여분 필드도 DTO 명시 매핑이 걸러낸다.
-     */
     it('locked 등 view 밖의 여분 키를 응답에 싣지 않는다', async () => {
       const getMe = jest
         .fn()
@@ -344,10 +326,6 @@ describe('ProgramTeamsController', () => {
     ]);
   });
 
-  /**
-   * 동적 세그먼트(`:teamId`)는 정적 형제(`me`, 빈 경로)보다 뒤에 선언해야
-   * 한다 — 그렇지 않으면 `:teamId`가 그 정적 경로들을 가로챈다.
-   */
   it('detail(:teamId) 을 me·list 보다 뒤에 선언한다', () => {
     expect(declarationOrder('detail')).toBeGreaterThan(declarationOrder('me'));
     expect(declarationOrder('detail')).toBeGreaterThan(
@@ -472,10 +450,6 @@ describe('ProgramTeamsController', () => {
   });
 });
 
-/**
- * 이름 변경은 팀장과 교직원이 같은 문을 쓴다 — 교직원 전용 가드를 붙이면
- * 팀장이 문 앞에서 막힌다. 그 회귀를 여기서 고정한다.
- */
 describe('ProgramTeamsController.rename', () => {
   it('PATCH :teamId 이고 SessionGuard·OriginGuard 만 적용한다', () => {
     const method = methodOf('rename');
@@ -509,11 +483,6 @@ describe('ProgramTeamsController.rename', () => {
   });
 });
 
-/**
- * 팀 삭제도 새 Guard 클래스를 두지 않는다 — 교직원 판정은 `ProgramLifecycleService.purge`와
- * 같은 모양으로 service 가 한다. 동적 `:teamId` 는 정적 형제(`me`)보다 뒤에 선언돼야
- * `DELETE me` 가 가로채이지 않는다.
- */
 describe('ProgramTeamsController.remove', () => {
   it('DELETE :teamId 이고 SessionGuard·OriginGuard 만 적용한다', () => {
     const method = methodOf('remove');
@@ -566,7 +535,7 @@ describe('ProgramTeamsController.remove', () => {
       'program-1',
       'team-1',
       expectedScope,
-      // 알림 문구를 보내지 않았으므로 null 로 접혀 내려간다.
+
       null,
     );
     expect(response).toEqual({

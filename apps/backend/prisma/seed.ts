@@ -20,26 +20,10 @@ import { S3SubmissionFileStorage } from '../src/submissions/s3-submission-file.s
 import { SubmissionFileStorageConfig } from '../src/submissions/submission-file-storage.config';
 import type { SubmissionFileStoragePort } from '../src/submissions/submission-file-storage.port';
 
-/**
- * demo profile만 `S3SubmissionFileStorage`를 쓴다(#910/#913 파인딩 4) — 실제 앱이
- * SubmissionFile storage에 쓰는 같은 포트/어댑터를 재사용해 seed FILE 제출이 실제
- * 검색 가능한 객체를 갖도록 한다. `reconcile-storage-orphans.ts` CLI와 동일하게
- * Nest DI 밖에서 직접 생성한다 — Prisma 시드와 동일한 단독 스크립트 실행 문맥.
- */
 function createSubmissionFileStorage(): SubmissionFileStoragePort {
   return new S3SubmissionFileStorage(new SubmissionFileStorageConfig());
 }
 
-/**
- * #110 시드 진입점. 실행 계약:
- *   SEED_PROFILE=<profile> pnpm --filter backend prisma db seed
- *   pnpm --filter backend prisma db seed -- --profile <profile>
- * profile: auth | intake | milestones | repositories | program-overview | oss-hub | demo | all
- * (기본값 auth — 안전한 최소). 자세한 시나리오 카탈로그는 apps/backend/prisma/README.md 참조.
- *
- * `demo`는 `oss-hub`와 마찬가지로 `all`에 포함되지 않는다 — 명시적으로
- * `--profile demo`를 고를 때만 실행된다(qa-econovation-batch TODO 11).
- */
 export async function runProfile(
   profile: SeedProfile,
   stats: SeedStats,
@@ -77,11 +61,6 @@ export async function runProfile(
   }
 }
 
-/**
- * `--teardown`(TODO 15) 은 현재 `demo` profile만 지원한다. production에서도
- * 시드와 동일한 `assertSeedAllowed` 게이트(`SEED_DEMO_ALLOW_PRODUCTION=1`)를 통과해야
- * 실행된다 — 새 시드 예외를 추가하지 않는다.
- */
 export async function runTeardown(
   profile: SeedProfile,
   stats: SeedStats,
@@ -116,8 +95,6 @@ async function main(): Promise<void> {
   console.log(stats.report());
 }
 
-// require.main === module: CLI로 직접 실행될 때만 시드를 돌린다. 통합 테스트가
-// runProfile을 재사용하려고 이 파일을 import할 때는 부수효과(연결 해제 포함)가 없어야 한다.
 if (require.main === module) {
   main()
     .catch((error: unknown) => {

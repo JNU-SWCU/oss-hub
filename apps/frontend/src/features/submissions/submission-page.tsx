@@ -110,9 +110,6 @@ export function SubmissionPage({
     setServerError(null);
     setServerErrorKind('generic');
     if (Object.keys(nextErrors).length > 0 || nextFileError) {
-      // 제출 창은 세로로 스크롤된다 — 버튼은 바닥에 있고 오류 문구는 한참 위에 뜬다.
-      // 초점을 옮겨 주지 않으면 화면이 그 자리에 그대로 있어, 눌러도 아무 일이
-      // 일어나지 않은 것과 구분되지 않는다.
       focusSubmissionField(data.milestone.submissionType);
       return;
     }
@@ -134,8 +131,6 @@ export function SubmissionPage({
         content = resubmissionContent('FILE', input, fileId);
       }
       if (!content) {
-        // 예전에는 여기서 조용히 돌아섰다 — 요청도 안 나가고 화면도 그대로라
-        // 사용자에게는 버튼이 죽은 것으로만 보인다. 막힌 이유를 말하고 끝낸다.
         setServerError(
           '제출 내용을 만들지 못했습니다. 파일을 다시 선택해 제출해 주세요.',
         );
@@ -174,11 +169,6 @@ export function SubmissionPage({
         error instanceof ApiError &&
         isSubmissionArchiveErrorCode(error.problem.code)
       ) {
-        /*
-         * 압축 파일 안의 내용 때문에 막힌 경우다(#1108). 고칠 것이 파일이므로 화면 전체
-         * 오류가 아니라 파일 입력 옆에 세운다. 갈래별 문장은 서버가 준 것을 그대로 쓴다 —
-         * 화면이 여덟 문장을 다시 적으면 서버가 거절하며 하는 말과 갈라진다.
-         */
         setFileError(error.problem.detail);
       } else if (
         error instanceof ApiError &&

@@ -11,11 +11,6 @@ import {
   type RepositoryHistoryPage,
 } from './team-activity-api';
 
-/**
- * 저장소 URL 변경 이력 — 누가·언제·무엇에서 무엇으로. 펼칠 때 붙어 첫 쪽을 읽고,
- * 더 보기는 앞 쪽의 커서로 이어 붙인다. 부모가 프로그램·팀·저장 차수로 key를 주므로
- * 다른 팀의 이력이나 저장 전의 이력을 들고 있지 않는다.
- */
 export function RepositoryUrlHistory({
   programId,
   teamId,

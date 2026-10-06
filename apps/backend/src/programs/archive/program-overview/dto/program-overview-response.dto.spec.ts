@@ -35,13 +35,10 @@ const overviewView = {
 
 describe('ProgramOverviewResponseDto', () => {
   it('remainingMilestones를 ISO 문자열 배열로 직렬화하고 legacy nextMilestone은 내보내지 않는다', () => {
-    // Given
     const view = overviewView;
 
-    // When
     const response = ProgramOverviewResponseDto.from(view);
 
-    // Then
     expect(response).toEqual(
       expect.objectContaining({
         remainingMilestones: [
@@ -60,7 +57,6 @@ describe('ProgramOverviewResponseDto', () => {
   });
 
   it('remainingMilestones에 유효하지 않은 Date가 들어오면 기존 Date 직렬화 예외를 그대로 낸다', () => {
-    // Given
     const view = {
       ...overviewView,
       remainingMilestones: [
@@ -71,7 +67,6 @@ describe('ProgramOverviewResponseDto', () => {
       ],
     };
 
-    // When / Then
     expect(() => ProgramOverviewResponseDto.from(view)).toThrow(RangeError);
   });
 });

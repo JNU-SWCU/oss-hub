@@ -1,7 +1,3 @@
-// DetailPanelLayout 프리뷰 — [RENDER_THIN]으로 플래그됨: 실제 자식 없이는 그리드
-// 뼈대만 보이는 빈 카드가 된다. 조합은 archive-detail-view.tsx의 상세 화면
-// (DetailContent)과 role-panel-shell.tsx의 좌측 역할 메뉴 재구성을 그대로 옮긴 것 —
-// 모든 export가 primary/secondary에 실제 콘텐츠를 채운다.
 import {
   Button,
   Card,
@@ -12,8 +8,6 @@ import {
   PageHeader,
 } from 'frontend';
 
-// archive-detail-view.tsx DetailContent — 프로젝트 정보/기여자 카드(primary) +
-// 활동 요약 카드(secondary), 위에 PageHeader를 얹은 실제 상세 화면 조합.
 export function Default() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
@@ -79,9 +73,6 @@ export function Default() {
   );
 }
 
-// role-panel-shell.tsx — 좁은 메뉴(primary, 220px 고정 폭) + 넓은 본문(secondary).
-// 실사용은 next/link의 Link를 쓰지만, 이 프리뷰는 라우터 밖에서 렌더되므로 순수
-// <a>로 옮긴다(NavBar의 nav-config 원칙과 동일하게 라우팅은 호출부 책임).
 export function RoleMenu() {
   return (
     <DetailPanelLayout
@@ -116,7 +107,6 @@ export function RoleMenu() {
   );
 }
 
-// 텍스트 과다 케이스 — 상세 본문에 긴 한글 설명이 들어갈 때 줄바꿈을 확인한다.
 export function LongDescription() {
   return (
     <DetailPanelLayout

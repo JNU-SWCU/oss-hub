@@ -1,21 +1,16 @@
 import { Prisma } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
 
-/** 팀 삭제 확인 화면(교직원 팀 상세)과 삭제 트랜잭션이 공유하는 팀 범위. */
 export type TeamDeletionScopeCounts = {
   readonly applications: number;
   readonly members: number;
   readonly invitations: number;
   readonly submissions: number;
-  /** 제출 헤더가 그대로여도 늘 수 있는 파일·제출 이력·검토 이력의 합계. */
+
   readonly submissionEvents: number;
-  /**
-   * 함께 지워지지 않고 **연결만 끊기는** 저장소 수. 수집 이력이 그 아래 Cascade로
-   * 매달려 있어 행 자체는 보존한다 — 화면은 이 수를 「지워진다」가 아니라
-   * 「연결이 끊긴다」로 말해야 한다.
-   */
+
   readonly detachedRepositories: number;
-  /** 삭제·분리 대상 전체 id 집합의 지문. */
+
   readonly scopeFingerprint: string;
 };
 
@@ -29,17 +24,6 @@ type DeletionScopeCountsRow = Readonly<{
   scopeFingerprint: string;
 }>;
 
-/**
- * 한 SQL 문장의 snapshot으로 팀 삭제 범위를 읽는다.
- *
- * `program-deletion-scope.ts`와 같은 이유로 확인 화면과 삭제 트랜잭션이 **같은 쿼리**를
- * 공유한다 — 두 곳이 각자 count를 세면 문장이 갈라질 여지가 생기고, 그 틈이 다시
- * TOCTOU가 된다(#F2). 호출자는 반드시 같은 트랜잭션의 `TransactionClient`를 넘겨
- * 단일 스냅샷을 보장해야 한다.
- *
- * 범위는 `TEAM_PURGE_DELETION_ORDER`가 덮는 관계와 정확히 같아야 한다 — 세는 것과
- * 지우는 것이 어긋나면 재확인이 통과한 뒤에 사후 대조가 터진다.
- */
 export async function readTeamDeletionScopeCounts(
   transaction: PrismaTypes.TransactionClient,
   teamId: string,
@@ -180,7 +164,6 @@ export function sameTeamDeletionScopeCounts(
   );
 }
 
-/** 삭제 결과는 id를 잃었으므로 화면에 보인 수치만 확인된 범위와 대조한다. */
 export function sameTeamDeletionScopeCountValues(
   left: TeamDeletionScopeCounts,
   right: Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>,

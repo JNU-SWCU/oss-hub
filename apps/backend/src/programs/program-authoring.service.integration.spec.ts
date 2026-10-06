@@ -36,7 +36,6 @@ describe('ProgramAuthoringService integration', () => {
   });
 
   it('creates a complete ordered graph and replays the same key without another Program', async () => {
-    // Given
     const actor = await harness.createActor('graph');
     const templateId = await harness.seedUpload({
       actorId: actor.id,
@@ -73,11 +72,9 @@ describe('ProgramAuthoringService integration', () => {
       ]),
     ]);
 
-    // When
     const created = await service.create(actor.githubId, 'graph-key', request);
     const replayed = await service.create(actor.githubId, 'graph-key', request);
 
-    // Then
     expect(replayed.id).toBe(created.id);
     const graph = await harness.prisma.program.findUniqueOrThrow({
       where: { id: created.id },
@@ -142,14 +139,12 @@ describe('ProgramAuthoringService integration', () => {
   });
 
   it('rejects a changed payload under the same actor idempotency key', async () => {
-    // Given
     const actor = await harness.createActor('conflict');
     const initial = authoringRequest('conflict', [
       authoringMilestone('default-item', []),
     ]);
     await service.create(actor.githubId, 'conflict-key', initial);
 
-    // When / Then
     await expect(
       service.create(actor.githubId, 'conflict-key', {
         ...initial,
@@ -164,7 +159,6 @@ describe('ProgramAuthoringService integration', () => {
   ] as const)(
     'rejects a %s pending token without persisting a graph',
     async (kind, reason) => {
-      // Given
       const actor = await harness.createActor(`token-${kind}`);
       const owner =
         kind === 'foreign' ? await harness.createActor('other-owner') : actor;
@@ -174,7 +168,6 @@ describe('ProgramAuthoringService integration', () => {
         expiresAt: kind === 'expired' ? new Date(0) : futureExpiry(),
       });
 
-      // When / Then
       await expect(
         service.create(
           actor.githubId,
@@ -193,7 +186,6 @@ describe('ProgramAuthoringService integration', () => {
   );
 
   it('rejects duplicate and replayed upload tokens before a partial graph exists', async () => {
-    // Given
     const actor = await harness.createActor('replayed');
     const tokenId = await harness.seedUpload({
       actorId: actor.id,
@@ -209,7 +201,6 @@ describe('ProgramAuthoringService integration', () => {
       ]),
     ]);
 
-    // When / Then
     await expect(
       service.create(
         actor.githubId,
@@ -237,7 +228,6 @@ describe('ProgramAuthoringService integration', () => {
   });
 
   it('deletes an expired object through the leased maintenance transition', async () => {
-    // Given
     const actor = await harness.createActor('cleanup');
     const uploadId = await harness.seedUpload({
       actorId: actor.id,
@@ -251,10 +241,8 @@ describe('ProgramAuthoringService integration', () => {
         select: { storageKey: true },
       });
 
-    // When
     await expect(harness.maintenance.runDue()).resolves.toBe(1);
 
-    // Then
     await expect(harness.objectExists(before.storageKey)).resolves.toBe(false);
     const deleted =
       await harness.prisma.programAuthoringUpload.findUniqueOrThrow({

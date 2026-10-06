@@ -59,7 +59,6 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
   });
 
   it('allows one post-deadline revision while preserving history and staff conflict checks', async () => {
-    // Given: 교직원은 첫 제출을 보완 요청하고 검토 이력을 열어 둔다.
     expect((await fixture.submit('최초 제출')).status).toBe(201);
     expect(
       (
@@ -89,10 +88,8 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
     ).toBe(200);
     expect((await fixture.submit('첫 번째 보완')).status).toBe(201);
 
-    // When: 한 번 재제출해 SUBMITTED로 바뀐 뒤 다시 보완을 낸다.
     const response = await fixture.submit('두 번째 보완');
 
-    // Then
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({
       code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
@@ -137,7 +134,6 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
   it.each([ReviewDecision.APPROVED, ReviewDecision.REJECTED])(
     'blocks new revisions after final %s without deleting history',
     async (decision) => {
-      // Given
       await fixture.submit('최초 제출');
       await review(ReviewDecision.CHANGES_REQUESTED, {
         expectedRevision: 1,
@@ -164,7 +160,6 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
         ).status,
       ).toBe(201);
 
-      // When / Then
       const response = await fixture.submit('최종 판정 뒤 변경');
       expect(response.status).toBe(409);
       const body: unknown = await response.json();
@@ -175,11 +170,9 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
   );
 
   it('rejects a late revision without a changes request', async () => {
-    // Given
     await fixture.submit('최초 제출');
     await fixture.closeDeadline();
 
-    // When / Then
     const response = await fixture.submit('일반 마감 후 변경');
     expect(response.status).toBe(422);
     const body: unknown = await response.json();
@@ -189,7 +182,6 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
   });
 
   it('requires rejection reasons and exposes the accepted reason in student history', async () => {
-    // Given
     await fixture.submit('최초 제출');
     const version = {
       expectedRevision: 1,
@@ -199,7 +191,6 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
     const empty = await review(ReviewDecision.REJECTED, version);
     expect(empty.status).toBe(422);
 
-    // When
     expect(
       (
         await review(ReviewDecision.REJECTED, {
@@ -209,7 +200,6 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
       ).status,
     ).toBe(201);
 
-    // Then
     const history = await fixture.request(`${fixture.documentPath()}/history`);
     const body: unknown = await history.json();
     expect(body).toHaveProperty(
@@ -224,7 +214,6 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
   });
 
   it('rejects an empty submission', async () => {
-    // Given / When / Then
     expect((await fixture.submit('   ')).status).toBe(422);
   });
 });

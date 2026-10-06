@@ -22,10 +22,6 @@ export interface RepositoryPublishEligibility {
   readonly programEndAt: Date;
 }
 
-/**
- * 공개를 막는 사유를 서버 거절 순서대로 돌려준다. 제출 검토, 팀 상세, 실제 공개
- * 확정이 모두 이 함수만 사용해야 화면과 서버의 게이트가 갈라지지 않는다.
- */
 export function publishBlockedReasons(
   eligibility: Omit<RepositoryPublishEligibility, 'repositoryId'>,
   now: Date,

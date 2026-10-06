@@ -81,7 +81,6 @@ function buildService(
   };
 }
 
-/** 아직 아무것도 채우지 않은 사용자. 역할만 갈아 끼운다. */
 function emptyUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null): StoredUser {
   const selectedMemberKind =
     role === 'STUDENT'
@@ -118,18 +117,15 @@ async function captureDomainException(
 
 describe('역할별 필수 항목', () => {
   it('교직원은 학번 없이 이름·학과만으로 완료된다', async () => {
-    // Given
     const { service, completeProfileIfUnchanged } = buildService({
       user: emptyUser('STAFF'),
     });
 
-    // When
     const profile = await service.completeMyProfile(githubId, {
       name: input.name,
       department: input.department,
     });
 
-    // Then
     expect(profile).toEqual({
       name: input.name,
       studentId: null,
@@ -151,12 +147,10 @@ describe('역할별 필수 항목', () => {
   });
 
   it('학생은 연락처가 있어야 가입을 완료한다', async () => {
-    // Given
     const { service, completeProfileIfUnchanged } = buildService({
       user: emptyUser('STUDENT'),
     });
 
-    // When
     const error = await captureDomainException(() =>
       service.completeMyProfile(githubId, {
         name: input.name,
@@ -165,7 +159,6 @@ describe('역할별 필수 항목', () => {
       }),
     );
 
-    // Then
     expect(error.errorCode).toMatchObject({
       code: SystemErrorCode.VALIDATION_FAILED,
       status: 400,
@@ -174,12 +167,10 @@ describe('역할별 필수 항목', () => {
   });
 
   it('교직원이 학과를 빠뜨리면 400 검증 오류로 거부한다', async () => {
-    // Given
     const { service, completeProfileIfUnchanged } = buildService({
       user: emptyUser('STAFF'),
     });
 
-    // When
     const error = await captureDomainException(() =>
       service.completeMyProfile(githubId, {
         name: input.name,
@@ -187,7 +178,6 @@ describe('역할별 필수 항목', () => {
       }),
     );
 
-    // Then
     expect(error.errorCode).toMatchObject({
       code: SystemErrorCode.VALIDATION_FAILED,
       status: 400,
@@ -195,15 +185,7 @@ describe('역할별 필수 항목', () => {
     expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
   });
 
-  /**
-   * 형식이 좁아지기 전(#835)에 학번만 넣어 둔 학생 — 학과가 없어 아직 미완료다.
-   *
-   * 요청이 학번을 생략하면 저장돼 있던 값이 그대로 실린다. 그 값을 지금 형식으로
-   * 다시 재면 학과 하나를 채우려는 저장이 400에 막히고, 학번은 바꿀 수 없어
-   * 고칠 길이 없다. 형식은 **실려 온 값**에만 적용한다.
-   */
   it('저장돼 있던 예전 형식 학번은 형식 검사 없이 완료 저장에 실린다', async () => {
-    // Given
     const legacyStudentId = '9'.repeat(9);
     const { service, completeProfileIfUnchanged } = buildService({
       user: {
@@ -214,13 +196,11 @@ describe('역할별 필수 항목', () => {
       },
     });
 
-    // When
     const profile = await service.completeMyProfile(githubId, {
       name: input.name,
       department: input.department,
     });
 
-    // Then
     expect(profile).toMatchObject({
       studentId: legacyStudentId,
       phone: input.phone,
@@ -238,14 +218,11 @@ describe('역할별 필수 항목', () => {
     });
   });
 
-  /** 예외는 저장된 값에만 준다 — 이번 요청에 실려 온 학번은 그대로 6자리를 본다. */
   it('요청에 실려 온 학번의 형식이 틀리면 400으로 거부한다', async () => {
-    // Given
     const { service, completeProfileIfUnchanged } = buildService({
       user: emptyUser('STUDENT'),
     });
 
-    // When
     const error = await captureDomainException(() =>
       service.completeMyProfile(githubId, {
         name: input.name,
@@ -254,7 +231,6 @@ describe('역할별 필수 항목', () => {
       }),
     );
 
-    // Then
     expect(error.errorCode).toMatchObject({
       code: SystemErrorCode.VALIDATION_FAILED,
       status: 400,
@@ -263,12 +239,10 @@ describe('역할별 필수 항목', () => {
   });
 
   it('미분류 legacy 관리자는 회원 유형 추론 없이 완료를 거부한다', async () => {
-    // Given
     const { service, completeProfileIfUnchanged } = buildService({
       user: { ...emptyUser('ADMIN'), name: null },
     });
 
-    // When
     const error = await captureDomainException(() =>
       service.completeMyProfile(githubId, {
         name: input.name,
@@ -276,7 +250,6 @@ describe('역할별 필수 항목', () => {
       }),
     );
 
-    // Then
     expect(error.errorCode).toMatchObject({
       code: SystemErrorCode.VALIDATION_FAILED,
       status: 400,

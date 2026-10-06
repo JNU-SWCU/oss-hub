@@ -72,7 +72,6 @@ beforeEach(() => {
   updateForTeam.mockClear();
 });
 
-// 두 문은 같은 DTO와 같은 가드를 지나 같은 service 경로로 들어간다.
 describe.each([
   ['applications/me/repository-url', updateMine, ['program']],
   ['teams/team/repository-url', updateForTeam, ['program', 'team']],

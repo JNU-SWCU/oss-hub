@@ -53,7 +53,6 @@ afterAll(async () => {
 });
 
 it('소진된 정리 대상을 opaque id만으로 운영자에게 노출한다', async () => {
-  // Given
   listExhausted.mockResolvedValue([
     {
       fileId: 'submission-file-1',
@@ -63,12 +62,10 @@ it('소진된 정리 대상을 opaque id만으로 운영자에게 노출한다',
     },
   ]);
 
-  // When
   const response = await fetch(
     `${baseUrl}/api/v1/submission-files/cleanup/failures`,
   );
 
-  // Then
   expect(response.status).toBe(200);
   const body = await response.text();
   expect(JSON.parse(body)).toEqual([
@@ -86,17 +83,14 @@ it('소진된 정리 대상을 opaque id만으로 운영자에게 노출한다',
 });
 
 it('관리자가 아닌 세션은 403으로 막고 본문에 내부 상태를 싣지 않는다', async () => {
-  // Given
   listExhausted.mockRejectedValue(
     new ForbiddenException('Active administrator access is required'),
   );
 
-  // When
   const response = await fetch(
     `${baseUrl}/api/v1/submission-files/cleanup/failures`,
   );
 
-  // Then
   expect(response.status).toBe(403);
   expect(await response.text()).not.toMatch(/storageKey|originalFileName/);
 });

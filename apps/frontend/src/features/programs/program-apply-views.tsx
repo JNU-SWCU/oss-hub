@@ -42,13 +42,6 @@ export function ApplySkeleton() {
   );
 }
 
-/**
- * 반려 사유 상자 — 이 화면이 이미 약속한 것을 실제로 보여 주는 자리(#722).
- *
- * 사유가 실려 오는 곳은 `GET .../applications/me` 하나뿐이고,
- * `loadProgramApplyContext`가 그 응답을 이미 받아 두므로 여기서 꺼내 쓰기만 한다.
- * 사유가 비었거나 공백뿐이면 아무것도 그리지 않는다.
- */
 function RejectionReasonAlert({
   application,
 }: {
@@ -58,11 +51,6 @@ function RejectionReasonAlert({
   return <RejectionReason reason={application.rejectionReason} />;
 }
 
-/**
- * 반려 사유 상자. 사유 문자열 하나만 받는다 — 막힌 화면은 신청 객체를 들고 있고
- * 재제출 폼은 사유만 들고 있어서, 둘이 같은 상자를 쓰려면 여기가 좁아야 한다.
- * 사유가 비었거나 공백뿐이면 아무것도 그리지 않는다.
- */
 function RejectionReason({ reason: raw }: { readonly reason: string | null }) {
   const reason = sanitizeDisplayText(raw);
   if (reason === null) return null;
@@ -101,12 +89,6 @@ const BLOCKED_CONTENT: Record<
   },
 };
 
-/**
- * 신청을 더 진행할 수 없는 화면. 막힌 이유와 반려 사유는 그대로 보여 주고,
- * 되돌아갈 곳으로 **이미 있는 팀 화면**만 준다 — 팀이 아직 없는
- * `team-required`에는 링크를 붙이지 않는다(빈 화면으로 보내지 않는다).
- * `programId`가 없으면 어떤 주소도 지어내지 않는다.
- */
 export function BlockedView({
   reason,
   application,
@@ -122,7 +104,7 @@ export function BlockedView({
   return (
     <PageBody className="max-w-3xl">
       <RejectionReasonAlert application={application} />
-      {/* 저장소 URL은 우리 팀 화면에서 바꾼다(#1133) — 신청 화면에 사본을 두지 않는다. */}
+
       <EmptyState
         className="break-keep"
         title={content.title}
@@ -139,11 +121,6 @@ export function BlockedView({
   );
 }
 
-/**
- * 제출 직후 화면. 「우리 팀 보기」는 방금 신청한 그 프로그램의 팀 화면
- * (`/programs/:id/team`)으로 간다 — 팀 id를 화면이 만들어 붙이지 않는다.
- * 팀 화면 자체가 서버 응답으로 팀 유무를 말하므로 여기서 미리 감추지 않는다.
- */
 export function ProgramApplySuccessView({
   applicationId,
   programId,
@@ -186,11 +163,6 @@ export function ProgramApplySuccessView({
   );
 }
 
-/**
- * 팀 이름 칸. 아직 팀이 없으면 학생이 지금 적는 이름이고, 이미 팀이 있으면
- * 서버가 준 이름을 읽기 전용으로 보여 준다 — 이름 변경 API가 없으므로 고칠 수
- * 있는 것처럼 보이게 하지 않는다.
- */
 function TeamNameField({
   team,
   createName,
@@ -230,21 +202,10 @@ function TeamNameField({
   );
 }
 
-/**
- * 신청 화면이 팀 영역을 그리는 데 필요한 전부.
- *
- * 초대 컨트롤러(`invitation`)는 **서버에 저장된 팀이 있을 때만** 넘어온다.
- * 아직 팀이 없는 「앞으로 만들 내 팀」은 `null`이고, 그 상태의 초대(＋)는
- * `onOpenInvite`로 페이지에 되돌려 준다 — 팀 생성은 페이지가 명시적으로 한다.
- */
 export interface ProgramApplyTeamProps {
   readonly programId: string;
   readonly team: ProgramTeam | null;
-  /**
-   * 지금 로그인한 계정의 닉네임. 공유 팀 컴포넌트가 「내 행」을 가리려면
-   * 반드시 필요하다 — `features/programs`가 인증 모듈을 직접 읽지 않고
-   * 라우트가 준 세션을 그대로 내려보낸다.
-   */
+
   readonly sessionNickname: string;
   readonly invitation: TeamInvitationManagement | null;
   readonly inviteOpen: boolean;
@@ -266,10 +227,7 @@ interface ProgramApplyFormViewProps extends ProgramApplyTeamProps {
   readonly errors: ProgramApplyFormErrors;
   readonly serverError: string | null;
   readonly mode: ApplicationFormMode;
-  /**
-   * 반려 사유. 반려된 신청을 고쳐 다시 내는 경로에서 **왜 반려됐는지**를 같은 화면에
-   * 두기 위해 받는다 — 사유 없이 고치라고 하면 무엇을 고쳐야 하는지 알 수 없다.
-   */
+
   readonly rejectionReason: string | null;
   readonly canManage: boolean;
   readonly confirmation: ApplicationConfirmation;
@@ -284,9 +242,6 @@ interface ProgramApplyFormViewProps extends ProgramApplyTeamProps {
   readonly onConfirm: () => void;
 }
 
-/**
- * 개인정보 수집·이용 동의 — 필수.
- */
 function PersonalDataConsentField({
   checked,
   onToggle,
@@ -339,11 +294,6 @@ function ApplicationFields({
   );
 }
 
-/**
- * 팀원으로 합류한 사람의 대기 화면. 구성원 목록은 신청·우리 팀이 공유하는
- * `TeamMembersPanel` 하나를 그대로 쓴다 — 신청 화면에서는 초대도 제외도
- * 다루지 않으므로 `compose`로, 초대 컨트롤러 없이 그린다.
- */
 function MemberAwaitingView({
   programId,
   programName,
@@ -447,10 +397,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     return (
       <PageBody className="max-w-4xl">
         <PageHeader title={`${program.name} 신청`} />
-        {/*
-         * 반려 사유는 예전에 「막힌 화면」에만 있었다. 반려 재제출이 열리면서 학생은
-         * 더 이상 막히지 않으므로, 그 자리에만 두면 사유를 영영 볼 수 없다.
-         */}
+
         <RejectionReason reason={rejectionReason} />
         {team ? (
           <TeamMembersPanel
@@ -528,11 +475,6 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     );
   }
 
-  /*
-    새 신청서는 한 화면이다 — 프로필·팀 이름·팀 구성·저장소·동의를 그대로 훑고
-    마지막 「신청 제출」 확인 하나로 끝난다. 단계 이동(다음/이전)도, 화면이 임의로
-    부르는 새로고침 버튼도 없다.
-  */
   return (
     <PageBody className="max-w-4xl">
       <PageHeader title={`${program.name} 신청`} />

@@ -1,7 +1,6 @@
 import type { ProblemDetail } from '@/lib/api-client';
 import type { BoardAuthorRole, BoardPostCategory } from './types';
 
-/** 프로토타입 원문(`oss-hub-standalone-src.dc.html` boardRows/kindText)과 동일한 라벨. */
 export const BOARD_CATEGORY_LABELS: Readonly<
   Record<BoardPostCategory, string>
 > = {
@@ -16,28 +15,12 @@ export const BOARD_CATEGORY_BADGE_VARIANT: Readonly<
   QNA: 'pending',
 };
 
-/**
- * 글 작성자의 역할 라벨. `category`는 작성자 역할이 그대로 결정하므로(교직원→공지,
- * 학생→질문, `board.service.ts` `createPost`) 역산해 보여준다.
- *
- * 서버가 계산한 표시 이름과 함께 역할을 구분할 때 사용한다.
- */
 export function boardPostAuthorRoleLabel(category: BoardPostCategory): string {
   return category === 'NOTICE' ? '교직원' : '학생';
 }
 
-/**
- * 구 응답이나 로컬 fixture에 표시 이름이 없을 때 쓰는 자리 표시다.
- * 역할 구분은 `authorRole` 뱃지가 담당한다.
- */
 export const BOARD_COMMENT_AUTHOR_LABEL = '참여자';
 
-/**
- * 댓글 작성자 역할 라벨. 프로토타입은 학생/교직원 2종만 다루므로 ADMIN은
- * 교직원으로 접는다(게시판 접근·고정·공지 작성에서 ADMIN=교직원 권한과 동일).
- * 라벨 자체는 정적 표시 문구라 프런트 소유(ADR-008). 원본 `authorRole` 값은
- * 백엔드가 소유·전송한다.
- */
 export const BOARD_COMMENT_AUTHOR_ROLE_LABEL: Readonly<
   Record<BoardAuthorRole, string>
 > = {
@@ -46,10 +29,6 @@ export const BOARD_COMMENT_AUTHOR_ROLE_LABEL: Readonly<
   ADMIN: '교직원',
 };
 
-/**
- * 역할칩 색 — `account-slot.tsx`와 동일하게 StatusBadge 톤을 재사용한다.
- * 학생 = recruiting, 교직원·ADMIN = approved.
- */
 export const BOARD_COMMENT_AUTHOR_ROLE_VARIANT: Readonly<
   Record<BoardAuthorRole, 'recruiting' | 'approved'>
 > = {
@@ -62,7 +41,6 @@ export function boardCommentAuthorRoleLabel(role: BoardAuthorRole): string {
   return BOARD_COMMENT_AUTHOR_ROLE_LABEL[role];
 }
 
-/** 프로토타입 `writeLabel`(#619 board 화면). */
 export function boardWriteButtonLabel(isStaff: boolean): string {
   return isStaff ? '공지 쓰기' : '질문 쓰기';
 }
@@ -90,10 +68,6 @@ export interface BoardPostInputErrors {
   readonly body: string | null;
 }
 
-/**
- * 칸마다 오류를 돌려준다. 첫 오류 하나만 돌려주면 제목·내용을 둘 다 비웠을 때
- * 제목을 채우고 한 번 더 누른 뒤에야 내용 오류를 볼 수 있다.
- */
 export function validateBoardPostInput(input: {
   readonly title: string;
   readonly body: string;
@@ -112,7 +86,6 @@ export function validateBoardCommentInput(body: string): string | null {
   return body.trim() ? null : '댓글 내용을 입력해 주세요.';
 }
 
-/** `board-error-code.enum.ts`(BRD_00N) → 한국어 문구. */
 export function mapBoardError(problem: ProblemDetail): string {
   switch (problem.code) {
     case 'BRD_001':

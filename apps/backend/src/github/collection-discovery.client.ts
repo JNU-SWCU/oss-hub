@@ -4,25 +4,12 @@ const USER_AGENT = 'oss-hub-collection-discovery';
 
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
-/**
- * Minimal shape a token provider must satisfy to authenticate discovery
- * requests. Deliberately narrower than `CollectionAppTokenProvider`
- * (`collection-app.token.ts`) — this client must not depend on the
- * Collection App installation token, since whether an installation token
- * can query the top-level `user(login:)` field outside its installation
- * scope is undocumented either way (we deliberately avoid depending on it).
- * `CollectionPublicTokenProvider` (owned by a concurrent lane) is expected
- * to satisfy this shape structurally; `CollectionAppTokenProvider` already
- * does too (same `getToken`/`clear` signatures), but must not be wired
- * here.
- */
 export interface CollectionDiscoveryTokenProvider {
   getToken(signal?: AbortSignal): Promise<string>;
   clear(expectedToken?: string): void;
 }
 
 export interface CollectionDiscoveryClientConfig {
-  /** GraphQL endpoint. Defaults to `https://api.github.com/graphql`. */
   readonly apiUrl?: string;
   readonly deadlineMs?: number;
 }
@@ -47,11 +34,6 @@ export class CollectionDiscoveryClientError extends Error {
   }
 }
 
-/**
- * Person-axis (not repository-axis) activity observation for one GitHub
- * login. `starCount` is cumulative across the account's public owned
- * repositories, not "stars earned in the window".
- */
 export interface CollectionUserActivityMetrics {
   readonly commitCount: number;
   readonly pullRequestCount: number;
@@ -60,20 +42,6 @@ export interface CollectionUserActivityMetrics {
   readonly starCount: number;
 }
 
-/**
- * Person-axis activity query: one call answers "how much did this person do
- * in `[from, to)`" without going through any repository we track. The
- * window MUST be at most one year — GitHub rejects a longer
- * `contributionsCollection(from, to)` span with a hard `VALIDATION` GraphQL
- * error (verified against the live API, `docs/rules/data-modeling.md` §5),
- * so callers never widen it and this client never splits/retries it.
- *
- * `repositories(ownerAffiliations: OWNER, privacy: PUBLIC)` is paginated:
- * star totals are summed across pages while `pageInfo.hasNextPage` holds.
- * The contribution counters are read from the first page only — they do not
- * depend on the repository cursor, and re-reading them per page would let a
- * mid-pagination change silently double-count.
- */
 const USER_ACTIVITY_QUERY = `
   query CollectionUserActivity($login: String!, $from: DateTime!, $to: DateTime!, $after: String) {
     rateLimit {
@@ -101,26 +69,8 @@ const USER_ACTIVITY_QUERY = `
   }
 `;
 
-/**
- * Upper bound on `repositories` pages walked for one user. 100 nodes per
- * page × 50 pages = 5,000 owned public repositories, far above any
- * plausible student account; the bound exists so a server-side cursor bug
- * cannot spin this loop forever.
- */
 const MAX_ACTIVITY_PAGES = 50;
 
-/**
- * Person-axis GraphQL client: asks how much public activity one GitHub user
- * did in a window (`fetchUserActivityMetrics`). The repository discovery
- * query that fed the admin-only external registration was removed with that
- * path (#1453) — repositories outside the organization are collected only
- * while a program application links them.
- *
- * Mirrors the structure and conventions of `CollectionAppClient`
- * (`collection-app.client.ts`): raw `fetch` via an injectable `Fetcher`,
- * no GraphQL library, typed errors, constructor-injected config/token
- * provider. GraphQL has its own rate-limit bucket, separate from REST's.
- */
 export class CollectionDiscoveryClient {
   constructor(
     private readonly config: CollectionDiscoveryClientConfig,
@@ -129,15 +79,6 @@ export class CollectionDiscoveryClient {
     private readonly now: () => number = Date.now,
   ) {}
 
-  /**
-   * Person-axis activity metrics for one GitHub login over `[from, to)`.
-   *
-   * `from`/`to` must span at most one year (see `USER_ACTIVITY_QUERY`); a
-   * wider window is rejected upstream and surfaces as `GRAPHQL_ERROR`.
-   * `starCount` is a lifetime cumulative figure — GitHub does not expose
-   * "stars earned this year" cheaply — and is summed across every
-   * `repositories` page.
-   */
   async fetchUserActivityMetrics(
     login: string,
     from: string,
@@ -179,9 +120,6 @@ export class CollectionDiscoveryClient {
       const nodes = repositories.nodes;
       if (!Array.isArray(nodes)) this.invalid();
       for (const node of nodes) {
-        // GitHub returns `null` nodes for entries the token cannot see;
-        // they carry no star fact, so they are skipped rather than
-        // treated as a malformed page.
         if (node === null || node === undefined) continue;
         starCount += this.count(this.record(node).stargazerCount);
       }
@@ -251,10 +189,7 @@ export class CollectionDiscoveryClient {
         throw new CollectionDiscoveryClientError('RESPONSE');
       }
       const body = this.record(json);
-      // GraphQL reports failure as HTTP 200 with a top-level `errors`
-      // array (sometimes alongside partial/null `data`). Treating 200 as
-      // success regardless would let a real failure look identical to
-      // "no contributions" and silently zero out a student's ranking.
+
       if (Array.isArray(body.errors) && body.errors.length > 0) {
         const rateLimited = body.errors.some(
           (e) => this.isRecord(e) && e.type === 'RATE_LIMITED',

@@ -57,22 +57,19 @@ describe('member access surface matrix', () => {
   it.each(MATRIX)(
     'returns independent surfaces for %s',
     (_, access, expected) => {
-      // Given: one canonical member/access tuple.
-      // When: the presentational surface policy is evaluated.
       const actual = memberSurfaces(access);
-      // Then: only the independently earned surfaces are returned.
+
       expect(actual).toEqual(expected);
     },
   );
 
   it('does not infer staff access from admin access', () => {
-    // Given: an admin-only compatibility account.
     const access: MemberAccess = {
       memberKind: null,
       hasStaffAccess: false,
       hasAdminAccess: true,
     };
-    // When / Then: admin is present while staff remains absent.
+
     expect(memberSurfaces(access)).toEqual(['admin']);
   });
 });

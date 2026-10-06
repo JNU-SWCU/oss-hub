@@ -42,8 +42,6 @@ function detail(overrides: Record<string, unknown> = {}) {
 }
 
 describe('Task 8 independent authority API', () => {
-  // 화살표가 모의 함수를 돌려주면 vitest 가 그것을 정리 함수로 여겨 테스트 뒤에
-  // 한 번 더 부른다 — 거절하도록 세운 테스트에서는 그 호출이 처리되지 않은 거절이 된다.
   beforeEach(() => {
     vi.mocked(apiClient).mockReset();
   });
@@ -152,8 +150,6 @@ describe('Task 8 independent authority API', () => {
     },
   );
 
-  // 관리자만 가진 계정(memberKind 없음)의 부여 응답을 다섯 칸 그대로 읽는다.
-  // 같은 상태 명령은 #1411 부터 서버가 409 로 거절하므로 이 응답은 실제 변경 뒤의 것이다.
   it('parses an admin-only grant response exactly', async () => {
     vi.mocked(apiClient).mockResolvedValue({
       id: 'target',
@@ -173,7 +169,6 @@ describe('Task 8 independent authority API', () => {
     });
   });
 
-  // 이슈 1411 — 같은 상태 명령은 서버가 409 로 거절한다.
   it('admin authority 409 conflicts are not swallowed', async () => {
     const conflict = new ApiError({
       type: 'about:blank',

@@ -29,7 +29,6 @@ const NOTICE = {
   warnings: ['EXTERNAL_APPLICATION_LINK'],
 };
 
-// Preview and the remote poster stay synthetic at the browser boundary; saves and reloads use the real backend.
 async function routeNotice(target: Page | BrowserContext): Promise<void> {
   await target.route('**/api/v1/program-authoring/notice-preview', (route) =>
     route.fulfill({ json: NOTICE }),
@@ -174,7 +173,7 @@ test.describe('공지에서 가져오기', () => {
     } finally {
       await context.close();
     }
-    // Later specs share this stack DB without the image route; leave no program pointing at the real host.
+
     await staff.goto(`/programs/${encodeURIComponent(programId)}/edit`);
     await staff
       .locator('[data-slot="program-cover-field"]')

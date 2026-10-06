@@ -39,16 +39,11 @@ import { RepositoryProvisionWorker } from './repository-provision.worker';
 import { PROVISION_ERROR_CODES } from './repository-provision.failure';
 import { RepositoryOwnEnrollmentService } from './service/repository-own-enrollment.service';
 
-// allow: SIZE_OK — OWN 저장소 승인→편입 사슬이 하나의 격리 PostgreSQL lifecycle을 공유한다.
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 
-// 이 스펙은 applications 승인 판정과 github 편입 worker를 잇는 사슬을 검증한다.
-// applications/domain의 승인 액션(현재 리터럴 'APPROVE')은 github zone의
-// module-zone-boundary(ADR-003 DEC-42) 아래서 internalDirs로 막혀 import할 수
-// 없으므로, decide()의 contextual typing에 맡겨 리터럴을 그대로 쓴다.
 const prisma = new PrismaService();
 const repository = new ApplicationsRepository(prisma, {
   TEAM_JOIN_CODE_SECRET: 'synthetic-own-provision-chain-secret',
@@ -72,13 +67,10 @@ const NO_CONSENT_APPLICANT_ID = 'synthetic-own-chain-no-consent-applicant';
 const NO_CONSENT_APPLICANT_GITHUB_ID = 8_400_000_000_004n;
 const ORG_OWN_APPLICANT_ID = 'synthetic-own-chain-org-applicant';
 const ORG_OWN_APPLICANT_GITHUB_ID = 8_400_000_000_005n;
-// #9 QA econovation 배치 — 제출 시점 URL 사전 검증 감사용 신청자.
+
 const PRECHECK_APPLICANT_ID = 'synthetic-own-chain-precheck-applicant';
 const PRECHECK_APPLICANT_GITHUB_ID = 8_400_000_000_006n;
-// #9 QA econovation 배치 — 외부 ORGANIZATION이 소유한(Econovation식) 공개
-// repo를 자기 계정(nickname)과 다른 조직 이름으로 제출하는 신청자 — owner가
-// 신청자 자신의 개인 GitHub 계정이 아니라 제3자 org라는 점이 CHAIN_APPLICATION_ID
-// 시나리오(신청자 자신의 repo)와 갈린다.
+
 const ORG_OWNER_EXTERNAL_APPLICANT_ID =
   'synthetic-own-chain-org-owner-external-applicant';
 const ORG_OWNER_EXTERNAL_APPLICANT_GITHUB_ID = 8_400_000_000_007n;
@@ -111,17 +103,11 @@ const NO_CONSENT_NAME_WITH_OWNER =
   'synthetic-own-chain-student/synthetic-own-chain-no-consent-repo';
 const NO_CONSENT_REPOSITORY_URL = `https://github.com/${NO_CONSENT_NAME_WITH_OWNER}`;
 
-// mock github client의 organization과 같아야 ORGANIZATION 경로로 판정된다
-// (resolveOwnGithubRepository — repository-provision.github.ts:47).
 const ORG_OWN_ORGANIZATION = 'synthetic-own-chain-org';
 const ORG_GITHUB_REPOSITORY_ID = 8_520_100_003n;
 const ORG_OWN_NAME_WITH_OWNER = `${ORG_OWN_ORGANIZATION}/synthetic-own-chain-org-repo`;
 const ORG_OWN_REPOSITORY_URL = `https://github.com/${ORG_OWN_NAME_WITH_OWNER}`;
 
-// #9 QA econovation 배치 — 실제 계획의 Econovation 2026 외부 org 이름(JNU-econovation)을
-// 본뗐 시나리오로 쓴다 — 이 organization은 mock github client의 organization도,
-// 신청자의 nickname도 아닌 제3자라서 ORGANIZATION 경로(findRepository)가 아닌
-// EXTERNAL 경로(findPublicRepository)로만 판정된다.
 const ECONOVATION_ORGANIZATION = 'JNU-econovation';
 const ECONOVATION_GITHUB_REPOSITORY_ID = 8_520_100_004n;
 const ECONOVATION_NAME_WITH_OWNER = `${ECONOVATION_ORGANIZATION}/eco-knock-be-central`;
@@ -230,9 +216,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         }),
       ),
     );
-    // 편입은 현재 동의를 요구한다(RepositoryOwnEnrollmentService) — 정책 버전은
-    // 서비스가 알려주는 값을 쓴다. 상수를 복사하면 정책이 올라갈 때 이 스펙만
-    // 조용히 옛 버전을 붙들고 통과한다.
+
     const { policy } = await new ConsentsService(
       new ConsentsRepository(prisma),
     ).getCurrent(APPLICANT_GITHUB_ID);
@@ -245,7 +229,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         policyVersion: policy.policyVersion,
       },
     });
-    // NO_CONSENT_APPLICANT_ID는 의도적으로 동의 행을 만들지 않는다.
   });
 
   afterEach(async () => {
@@ -283,9 +266,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     await prisma.repositoryProvisionJob.deleteMany({
       where: { applicationId: { in: [...APPLICATION_IDS] } },
     });
-    // #617 단계 D 이후 applicationId로 만든 행과 githubRepositoryId로 만든 행이
-    // 같은 GithubRepository 테이블의 같은 행이다 — 위에서 이미 지웠으므로 여기서
-    // applicationId로 다시 지우는 건 중복이다(비어 있는 deleteMany는 안전한 no-op).
+
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
@@ -312,9 +293,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         userId: { in: [APPLICANT_ID, ORG_OWNER_EXTERNAL_APPLICANT_ID] },
       },
     });
-    // #547 이후 판정이 AuditLog 행을 남긴다 — append-only 트리거가 삭제를 막고
-    // actor를 FK(restrict)로 잡으므로 합성 사용자는 지우지 않는다. 통합 DB는
-    // run마다 버려지는 컨테이너다.
+
     await prisma.$disconnect();
   });
 
@@ -345,7 +324,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     '권한 확인→승인 판정→outbox 소비→worker 편입까지 실 DB로 완주해 ' +
       'owner/repo와 defaultBranch를 가진 수집 행을 남긴다',
     async () => {
-      // Given — STAFF actor가 권한 확인을 통과하고, OWN 신청이 승인 대기 중이다.
       const guardRequest: { sessionGithubId: bigint } = {
         sessionGithubId: STAFF_GITHUB_ID,
       };
@@ -359,7 +337,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         OWN_REPOSITORY_URL,
       );
 
-      // When — 실 서비스로 승인 판정을 내린다.
       const decision = await service.decide(
         STAFF_ACTOR_ID,
         CHAIN_APPLICATION_ID,
@@ -367,7 +344,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         { action: 'APPROVE' },
       );
 
-      // Then — outbox 이벤트가 생겼다.
       expect(decision.kind).toBe('APPROVED');
       if (decision.kind !== 'APPROVED') {
         throw new Error('fixture approval must succeed');
@@ -380,7 +356,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         }),
       ).resolves.toMatchObject({ status: 'PENDING' });
 
-      // When — outbox를 job으로 소비한다.
       const consumed = await consumeUntilProvisionEvent(
         decision.repositoryProvisioning.eventId,
         'own-chain-outbox-worker',
@@ -388,7 +363,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       expect(consumed).toMatchObject({ kind: 'CONSUMED' });
       const queueNow = consumed.queueNow;
 
-      // When — worker가 job을 처리한다(GitHub 경계만 mock, 편입 서비스는 real+real DB).
       const github = githubClient();
       github.findPublicRepository.mockResolvedValue(
         ownRepositoryMetadata(OWN_GITHUB_REPOSITORY_ID, OWN_NAME_WITH_OWNER),
@@ -404,7 +378,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         queueNow,
       );
 
-      // Then — 편입 서비스가 owner/repo, defaultBranch를 가진 수집 행을 real DB에 남긴다.
       expect(result.kind).toBe('SUCCEEDED');
       await expect(
         prisma.githubRepository.findFirstOrThrow({
@@ -416,8 +389,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         defaultBranch: 'main',
         presence: 'PRESENT',
       });
-      // recordRepository(provision)와 enrollExternalRepository(수집 관찰)가
-      // applicationId/githubRepositoryId로 각각 찾아도 같은 통합 행으로 수렴한다.
+
       await expect(
         prisma.githubRepository.findUniqueOrThrow({
           where: { applicationId: CHAIN_APPLICATION_ID },
@@ -439,15 +411,12 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     'Econovation식 외부 ORGANIZATION이 소유한 공개 repo(신청자 개인 계정과 다른 owner)로 ' +
       'OWN 지원 → 승인 → worker 편입까지 완주해 EXTERNAL_PUBLIC 행을 남긴다',
     async () => {
-      // Given — repo owner(JNU-econovation)가 신청자의 GitHub 로그인·설정된
-      // 내부 org(synthetic-own-chain-org) 어느 쪽과도 다른 제3자 조직이다.
       await createOwnApplication(
         ORG_OWNER_EXTERNAL_APPLICATION_ID,
         ORG_OWNER_EXTERNAL_APPLICANT_ID,
         ECONOVATION_REPOSITORY_URL,
       );
 
-      // When — 실 서비스로 승인 판정을 내린다.
       const decision = await service.decide(
         STAFF_ACTOR_ID,
         ORG_OWNER_EXTERNAL_APPLICATION_ID,
@@ -459,7 +428,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         throw new Error('fixture approval must succeed');
       }
 
-      // When — outbox를 job으로 소비한다.
       const consumed = await consumeUntilProvisionEvent(
         decision.repositoryProvisioning.eventId,
         'own-chain-org-owner-external-outbox-worker',
@@ -467,9 +435,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       expect(consumed).toMatchObject({ kind: 'CONSUMED' });
       const queueNow = consumed.queueNow;
 
-      // When — worker가 job을 처리한다. owner가 설정된 조직과 다르므로
-      // findPublicRepository(EXTERNAL 경로)만 호출되고 findRepository(ORGANIZATION
-      // 경로)는 호출되지 않는다.
       const github = githubClient();
       github.findPublicRepository.mockResolvedValue(
         ownRepositoryMetadata(
@@ -488,8 +453,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         queueNow,
       );
 
-      // Then — 외부 org 소유 공개 repo가 EXTERNAL_PUBLIC 수집 대상으로 등록된다
-      // (전역 랭킹·수집 스윕이 재사용하는 것과 같은 source 값).
       expect(result.kind).toBe('SUCCEEDED');
       expect(github.findRepository).not.toHaveBeenCalled();
       expect(github.findPublicRepository).toHaveBeenCalledWith(
@@ -518,7 +481,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
   );
 
   it('현재 동의가 없으면 job은 재시도 가능 실패로 끝나고 수집 관찰 필드는 채워지지 않는다', async () => {
-    // Given — 동의 없는 신청자의 OWN 신청이 승인되어 job까지 만들어졌다.
     await createOwnApplication(
       NO_CONSENT_APPLICATION_ID,
       NO_CONSENT_APPLICANT_ID,
@@ -553,18 +515,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       ownEnrollment(),
     );
 
-    // When
     const result = await worker.runNext(
       'own-chain-no-consent-provision-worker',
       queueNow,
     );
 
-    // Then — 동의 선행조건(RepositoryOwnEnrollmentService.requireCurrent)에 막혀
-    // job은 재시도 가능 실패로 끝난다. recordRepository(provision)는 동의 확인보다
-    // 먼저 실행되고 #617 단계 D 이후로는 provision과 수집 관찰이 같은
-    // GithubRepository 행을 쓰므로, 행 자체는 만들어진다 — 다만 뒤이은
-    // enrollExternalRepository가 동의 부재로 던지면서 수집 관찰 필드는 생성
-    // 시점 기본값(defaultBranch: null 등)에 머문다.
     expect(result.kind).toBe('FAILED_RETRYABLE');
     await expect(
       prisma.githubRepository.findFirstOrThrow({
@@ -590,8 +545,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       '연결이 채택해 성공한다(#617 단계 D 회귀 — recordRepository가 applicationId ' +
       '기준으로만 upsert하면 githubRepositoryId unique 제약과 충돌해 항상 실패했다)',
     async () => {
-      // Given — org 전체 sweep(collection-sync.service.ts)이 이 조직 저장소를
-      // 이미 관찰해 applicationId: null인 GithubRepository 행을 만들어 놨다.
       await prisma.githubRepository.create({
         data: {
           githubRepositoryId: ORG_GITHUB_REPOSITORY_ID,
@@ -625,9 +578,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       expect(consumed).toMatchObject({ kind: 'CONSUMED' });
       const queueNow = consumed.queueNow;
 
-      // When — worker가 job을 처리한다. ORGANIZATION 경로는 findRepository로 해석되고,
-      // 동의 확인(enrollExternalRepository)은 EXTERNAL 경로에서만 일어나므로 여기선
-      // consent 행이 없어도 된다.
       const github = githubClient();
       github.findRepository.mockResolvedValue(
         orgRepositoryMetadata(
@@ -646,7 +596,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         queueNow,
       );
 
-      // Then — 새 행을 만드는 대신 sweep이 만든 행을 채택해 성공한다.
       expect(result.kind).toBe('SUCCEEDED');
       await expect(
         prisma.githubRepository.findUniqueOrThrow({
@@ -702,8 +651,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       CHAIN_APPLICATION_ID,
       'synthetic-late-outbox',
     );
-    // 늦은 승인 outbox는 종료된 job을 다시 무장할 수 있다. 현재 연결 행을
-    // 새로 만들거나 덮어쓰면 안 된다.
+
     await new RepositoryProvisionWorker(
       jobs,
       state,
@@ -777,7 +725,7 @@ async function consumeApproval(
     where: { idempotencyKey: `repository-provision:${applicationId}` },
     select: { id: true, availableAt: true },
   });
-  // DB-generated eligibility and the worker must use the same clock in this test.
+
   await expect(
     outbox.consumeNext(workerId, event.availableAt),
   ).resolves.toMatchObject({

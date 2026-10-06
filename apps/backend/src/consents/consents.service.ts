@@ -9,8 +9,6 @@ import { ConsentsRepository } from './consents.repository';
 import { ConsentRecord, ConsentUser } from './domain/consent';
 import { ConsentPolicy, CURRENT_CONSENT_POLICY } from './domain/consent-policy';
 
-// consents 존 밖에서는 domain/을 직접 참조하지 않는다(ADR-003) — 현행 정책
-// 버전이 필요한 다른 모듈(예: E2E 시드)은 이 zone-root re-export를 거친다.
 export { CONSENT_POLICY_VERSION } from './domain/consent-policy';
 
 export interface ConsentStatus {
@@ -42,7 +40,6 @@ export class ConsentsService {
     return { policy: CURRENT_CONSENT_POLICY, consented: consent !== null };
   }
 
-  /** 역할 온보딩 등 후속 도메인이 현행 동의 선행조건을 중복 조회하지 않게 한다. */
   async requireCurrent(githubId: bigint): Promise<void> {
     const consent = await this.getCurrent(githubId);
     if (!consent.consented) {
@@ -52,10 +49,6 @@ export class ConsentsService {
     }
   }
 
-  /**
-   * 현행 정책 버전에 대한 1회 동의를 저장한다. 과거 버전만 동의한 사용자도
-   * 새 버전 행을 추가로 만든다 — 과거 동의는 삭제하지 않는다(append-only).
-   */
   async accept(
     githubId: bigint,
     input: AcceptConsentInput,
@@ -92,7 +85,6 @@ export class ConsentsService {
     };
   }
 
-  /** 세션은 유효하지만 사용자 행이 없으면 재로그인 대상이다 — 401로 수렴시킨다. */
   private async requireUser(githubId: bigint): Promise<ConsentUser> {
     const user = await this.repository.findUserByGithubId(githubId);
     if (!user || user.accountStatus !== AccountStatus.ACTIVE) {

@@ -1,12 +1,3 @@
-
-
-// 900px 미만 사이드바 드로어의 통합 동작 — 세션·라우트에 따라 드로어 "안"에
-// 실제로 어떤 그룹/항목이 뜨는지는 `renderToStaticMarkup`(app-frame.test.tsx)으로는
-// 볼 수 없다. `SidebarDrawer`는 `open`일 때만 콘텐츠를 그리는데, 열림은
-// `ShellNav`(햄버거)와 `ProductShell`(드로어) 사이를 context로 오가는 실제
-// 클릭 상호작용이라 정적 렌더에는 애초에 나타나지 않는다. 여기서는 `AppFrame`
-// 전체를 실제 DOM에 올려 햄버거를 눌러 본다.
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -143,9 +134,6 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
   }
 
   async function openDrawer(): Promise<void> {
-    // 실제 클릭은 버튼에 포커스를 남긴다(브라우저 기본 동작) — happy-dom의
-    // 합성 `.click()`은 그걸 흉내 내지 않으므로 직접 포커스를 맞춰 준다.
-    // 키보드로 여는 사용자는 애초에 이 버튼에 포커스가 있어 같은 상태가 된다.
     await act(async () => {
       trigger().focus();
       trigger().click();
@@ -234,7 +222,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
 
   it('프로그램 상세 경로에서는 ProgramScopeSidebar 그룹이 드로어에 뜬다', async () => {
     mockSession(STUDENT_SESSION);
-    mocks.getProgramOverview.mockReturnValue(new Promise(() => {})); // 로딩 고정
+    mocks.getProgramOverview.mockReturnValue(new Promise(() => {}));
     await renderFrame('/programs/prog-1');
 
     await openDrawer();

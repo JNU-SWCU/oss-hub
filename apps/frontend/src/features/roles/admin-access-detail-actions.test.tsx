@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -179,7 +177,7 @@ describe('대기 중인 요청 결정 카드 — 접근 변경 카드 위에 조
     );
     expect(html).toContain('대기 중인 요청');
     expect(html).not.toContain('접근 변경');
-    // 프로필 카드의 연필도 큐에서는 나오지 않는다.
+
     expect(html).not.toContain('프로필 수정');
   });
 

@@ -11,12 +11,6 @@ import {
 } from '../../../test/program-editor-service-fixtures';
 
 describe('ProgramEditorService update validation', () => {
-  /**
-   * 이 자리에는 원래 "생략하면 템플릿 기본값 1..1 로 되돌린다"는 반대 계약이 있었다.
-   * 그 계약이 #936 을 만들었다 — 개인형 유형 프로그램은 수정 화면이 팀 인원 칸을
-   * 렌더하지 않아 값을 실을 수 없었고, 교직원이 설명만 고쳐 저장해도 정원 3..5 가
-   * 1..1 로 깎여 아무도 팀에 합류할 수 없게 됐다. 생략은 변경 없음이다.
-   */
   it('요청이 팀 인원을 생략하면 지금 저장된 값을 그대로 둔다', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     const stored = { ...editableProgram, teamMinSize: 3, teamMaxSize: 5 };
@@ -298,7 +292,6 @@ describe('ProgramEditorService update validation', () => {
     expect(store.updateProgram.mock.calls).toHaveLength(0);
   });
 
-  // 「종료일 미정」 센티널은 새 종료일로 받지 않는다(#1420) — 같은 순간을 다른 offset 으로 적어도 같다.
   it.each(['9999-12-31T23:59:59.999Z', '9999-12-31T22:59:59.999-01:00'])(
     'rejects the undecided end sentinel %s with the program end field error',
     async (endAt) => {
@@ -322,7 +315,6 @@ describe('ProgramEditorService update validation', () => {
     },
   );
 
-  // 생략은 「지금 값 유지」다 — 이미 「미정」으로 저장된 옛 프로그램도 다른 칸은 저장된다.
   it('keeps a legacy undecided end when the request omits endAt', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     const legacyProgram = {

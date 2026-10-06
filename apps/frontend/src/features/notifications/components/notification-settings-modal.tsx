@@ -20,10 +20,6 @@ interface NotificationSettingsModalProps {
   readonly onSaved?: (settings: NotificationSettings) => void;
 }
 
-/**
- * #127 수신 이메일 설정 모달(도메인 위젯). 진입 연결은 운영 대시보드(#117) 병합 후 잇는다.
- * 발송 스케줄러·메일 발송 로직은 건드리지 않고, 설정 값만 저장한다.
- */
 export function NotificationSettingsModal({
   open,
   initialSettings,

@@ -90,11 +90,6 @@ export interface TeamDetailRecord {
   }[];
 }
 
-/**
- * 교직원 전용 팀 목록의 한 팀. 멤버 실명(`name`)을 포함하므로 학생도 쓰는 공개 로스터
- * (`program-overview`의 `listPublicTeams`)와 절대 섞지 않는다 — 그쪽은 nickname 만
- * 준다는 계약을 그대로 유지한다.
- */
 export interface StaffTeamRecord {
   readonly id: string;
   readonly name: string;
@@ -106,10 +101,6 @@ export interface StaffTeamRecord {
   }[];
 }
 
-/**
- * 교직원 전용 팀 상세(#874)의 한 팀 — `StaffTeamRecord`에 신청·저장소 발급 상태를
- * 더한 모양이다. 신청이 없으면 `application: null`.
- */
 export interface StaffTeamDetailRecord extends TeamRepositoryEvidenceView {
   readonly id: string;
   readonly name: string;
@@ -130,17 +121,9 @@ export class JoinCodeDigestConflictError extends Error {
   override readonly name = 'JoinCodeDigestConflictError';
 }
 
-/**
- * 탈퇴 결과. 실패 결과(`not-found`, `last-member-with-application`)는 아무것도 쓰지
- * 않고 audit 도 남기지 않는다.
- */
 export type TeamLeaveResult =
   'removed' | 'not-found' | 'last-member-with-application';
 
-/**
- * 팀장의 팀원 제외 결과. `actor-not-in-team`·`target-not-found` 는 다른 팀/없는 팀원을
- * 구분하지 않는 같은 404 로 흘러간다.
- */
 export type TeamRemoveMemberResult =
   | 'removed'
   | 'actor-not-in-team'
@@ -148,34 +131,14 @@ export type TeamRemoveMemberResult =
   | 'self-target'
   | 'target-not-found';
 
-/**
- * 교직원의 팀원 제외 결과.
- *
- * `not-found`는 없는 팀·다른 프로그램의 팀·그 팀에 없는 대상을 전부 같게 말한다 —
- * 구분해 응답하면 남의 프로그램에 그 id의 팀·사람이 있다는 사실이 새난다.
- *
- * `last-member-with-application`은 학생 탈퇴와 같은 규칙이다 — 신청이 매달린 팀의
- * 마지막 사람을 빼면 주인 없는 신청이 남는다. 교직원이라고 예외를 두지 않는다.
- */
 export type StaffRemoveMemberResult =
   'removed' | 'forbidden' | 'not-found' | 'last-member-with-application';
 
-/**
- * 교직원의 팀장 변경 결과. 이미 그 사람이 팀장이면 `unchanged`다 — 성공이지만
- * 쓰기도 audit도 없다. 바뀜 것이 없는데 「바꿨다」는 감사 사실을 만들면 원장이 거짓말을 한다
- * (`renameTeam`과 같은 규칙).
- */
 export type StaffTransferLeaderResult =
   'transferred' | 'unchanged' | 'forbidden' | 'not-found';
 
-/**
- * 이름 변경 결과. `not-found`는 없는 팀과 다른 프로그램의 팀을 구분하지 않는다 —
- * 구분해 응답하면 남의 프로그램에 그 id의 팀이 있다는 사실이 새난다.
- * 실패 결과는 아무것도 쓰지 않고 audit도 남기지 않는다.
- */
 export type TeamRenameResult = 'renamed' | 'not-found' | 'forbidden';
 
-/** 이름 변경 감사에 필요한 사실 — 팀 행을 잠그고 읽은 값만 담는다. */
 export interface TeamRenameAuditEvent {
   readonly teamId: string;
   readonly programName: string;
@@ -183,20 +146,11 @@ export interface TeamRenameAuditEvent {
   readonly nextName: string;
 }
 
-/**
- * 이름 변경과 같은 트랜잭션에서 감사를 남기는 필수 콜백. 콜백이 던지면 `Team.update`까지
- * 함께 롤백된다.
- */
 export type RecordTeamRenameAudit = (
   store: TeamMembershipAuditStore,
   event: TeamRenameAuditEvent,
 ) => Promise<void>;
 
-/**
- * 이름 변경 행위자. 조회 결과이면서 그대로 `renameTeam`의 입력이다 — 비활성·없는
- * 계정은 null로 접힌다. `isStaff`는 교직원·관리자 여부고, 팀장 여부는 여기 담지
- * 않는다 — 팀을 잠그고 난 **뒤에** 다시 묻는다(그 사이에 팀장이 바뀔 수 있다).
- */
 export interface TeamActorAuthority {
   readonly id: string;
   readonly isStaff: boolean;
@@ -204,16 +158,12 @@ export interface TeamActorAuthority {
 
 export type TeamMembershipOperation = 'LEAVE' | 'REMOVE' | 'TRANSFER_LEADER';
 
-/**
- * 멤버십 변경 감사에 필요한 사실 — 팀 행을 잠근 뒤 읽은 값만 담는다.
- * 팀이 통째로 삭제되는 마지막 1인 탈퇴에서만 `nextLeaderId` 가 null 이다.
- */
 export interface TeamMembershipAuditEvent {
   readonly teamId: string;
   readonly programName: string;
   readonly teamName: string;
   readonly operation: TeamMembershipOperation;
-  /** `TRANSFER_LEADER`는 구성원이 그대로라 null이다. */
+
   readonly removedUserId: string | null;
   readonly previousLeaderId: string;
   readonly nextLeaderId: string | null;
@@ -223,10 +173,6 @@ export interface TeamMembershipAuditStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
 }
 
-/**
- * 멤버십 변경과 같은 트랜잭션에서 감사 기록을 남기는 필수 콜백. 콜백이 던지면
- * 멤버 삭제·팀장 승계까지 함께 롤백된다(Prisma 도 여기서 예외를 그대로 올린다).
- */
 export type RecordTeamMembershipAudit = (
   store: TeamMembershipAuditStore,
   event: TeamMembershipAuditEvent,
@@ -271,13 +217,6 @@ export class ProgramTeamsRepository {
       : null;
   }
 
-  /**
-   * 이름 변경은 학생(팀장)과 교직원이 같은 endpoint를 쓰므로
-   * `findActiveStudentByGithubId`(학생 전용)로는 부족하다. 교직원 판정은
-   * `ProgramTeamsStaffGuard`·`ProgramLifecycleService.purge`와 동일하게
-   * ACTIVE + (hasStaffAccess || hasAdminAccess)다 — 가드를 새로 두지 않는 이유는
-   * 팀장도 같은 문을 지나야 하기 때문이다.
-   */
   async findActorAuthorityByGithubId(
     githubId: bigint,
   ): Promise<TeamActorAuthority | null> {
@@ -297,13 +236,6 @@ export class ProgramTeamsRepository {
     };
   }
 
-  /**
-   * 팀 이름 변경. 잠금 순서와 「잠근 뒤의 사실로 판정」 규칙은 `leave`·`removeMember`와
-   * 같다 — 잠금 전에 읽은 팀장은 권한의 정본이 아니다(#1269와 같은 이유).
-   *
-   * 같은 이름으로 바꾸는 요청은 성공이지만 쓰기도 audit도 없다 — 바뀐 것이 없는데
-   * 「바꿨다」는 감사 사실을 만들면 원장이 거짓말을 한다.
-   */
   async renameTeam(
     programId: string,
     teamId: string,
@@ -409,18 +341,6 @@ export class ProgramTeamsRepository {
     };
   }
 
-  /**
-   * 교직원 전용 팀 목록 — 명시적 select 만 쓰고 팀명·팀장·멤버(실명·nickname)만 읽는다.
-   * 참여코드(`joinCodeDigest`)·저장소(`repositories`)·`TeamMember`의 학과/연락처/이메일·
-   * `User.studentId` 는 이 select 에 절대 포함하지 않는다.
-   *
-   * 실명은 `USER_PROFILE_NAME_SELECT` + `resolveUserProfileName()` 로만 읽는다
-   * (`UserProfile.name` 과 legacy `User.name` 을 합치는 정식 경로). `TeamMember.name` 은
-   * 스키마 주석과 달리 아무 writer 도 채우지 않아 항상 null 이므로 쓰지 않는다.
-   *
-   * 정렬은 팀 `createdAt` 오름차순이고 멤버도 `createdAt` 오름차순이다(팀장을 맨 앞으로
-   * 끌어올리는 것은 service 가 한다).
-   */
   async listStaffTeams(programId: string): Promise<StaffTeamRecord[]> {
     const teams = await this.prisma.team.findMany({
       where: { programId },
@@ -455,16 +375,6 @@ export class ProgramTeamsRepository {
     }));
   }
 
-  /**
-   * 교직원 전용 팀 상세(#874) — `listStaffTeams`와 같은 select 원칙(참여코드·저장소·
-   * 학과/연락처/이메일·studentId 금지)에 신청·저장소 발급 상태를 더한다.
-   *
-   * 저장소는 `Application`을 거쳐서만 읽는다 — `GithubRepository.applicationId`는
-   * unique라 빠짐이 없지만, `GithubRepository.teamId`는 nullable이라
-   * `Team.repositories`로 조회하면 저장소가 실제로 있는데도 못 찾는 행이 생긴다.
-   * `programId`까지 함께 걸어 다른 프로그램의 teamId 는 애초에 조회되지 않게
-   * 한다(404 로 흘러간다).
-   */
   async findStaffTeamDetail(
     programId: string,
     teamId: string,
@@ -501,8 +411,7 @@ export class ProgramTeamsRepository {
         repositoryConnectionMode: true,
         repositoryUrl: true,
         isRepositoryPublicationPlanned: true,
-        // GithubRepository는 name/url 컬럼을 두지 않는다(#617 단계 D) —
-        // nameWithOwner에서 repository-identity.ts 헬퍼로 url을 유도한다.
+
         repository: {
           select: {
             id: true,
@@ -657,11 +566,6 @@ export class ProgramTeamsRepository {
     );
   }
 
-  /**
-   * 팀 저장소 활동(#1133)의 대상. 읽어도 되는 사람인지는 service가 이 값으로 먼저
-   * 판정한다 — 없는 팀과 다른 프로그램의 팀은 같은 null이다. 저장소는 신청을 거쳐서만
-   * 읽으므로 떨어져 나간 옛 저장소(`applicationId` 없음)는 여기 걸리지 않는다.
-   */
   async findTeamActivityScope(
     programId: string,
     teamId: string,
@@ -717,15 +621,6 @@ export class ProgramTeamsRepository {
     );
   }
 
-  /**
-   * 본인 탈퇴 — 신청 제출 여부나 신청 기간과 무관하게 허용한다. 유일한 제약은
-   * "신청 기록이 있는 팀의 마지막 구성원"이며 이때만 409로 막아 신청·제출·저장소의
-   * 소유 팀을 남긴다(`Application`은 절대 지우거나 옮기지 않는다).
-   *
-   * 잠금 순서는 초대 수락(`acceptTeamInvitationTransaction`)과 같은 Team 행
-   * `FOR UPDATE`가 먼저다. 잠금 전 스냅샷은 동시 수락/제출/탈퇴와 어긋날 수 있으므로
-   * 소속·팀장·인원·신청은 잠근 뒤에만 판정한다.
-   */
   async leave(
     programId: string,
     userId: string,
@@ -758,8 +653,7 @@ export class ProgramTeamsRepository {
 
       if (memberCount <= 1) {
         if (application !== null) return 'last-member-with-application';
-        // 미제출 1인 팀만 팀 자체가 사라진다. 대기 초대를 먼저 지워야 팀 삭제가
-        // composite FK에 막히지 않는다.
+
         await tx.teamMember.delete({
           where: { teamId_userId: { teamId, userId } },
         });
@@ -779,7 +673,6 @@ export class ProgramTeamsRepository {
 
       let nextLeaderId = previousLeaderId;
       if (previousLeaderId === userId) {
-        // 결정적 승계: 남은 팀원 중 가장 먼저 합류한 사람, 동시 합류는 id 오름차순.
         const successor = await tx.teamMember.findFirst({
           where: { teamId, userId: { not: userId } },
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
@@ -791,8 +684,7 @@ export class ProgramTeamsRepository {
           );
         }
         nextLeaderId = successor.userId;
-        // 팀장 이관이 본인 멤버 행 삭제보다 먼저다 — 반대 순서면 `Team.leaderId`가
-        // 잠깐 팀에 없는 사용자를 가리킨다.
+
         await tx.team.update({
           where: { id: teamId },
           data: { leaderId: nextLeaderId },
@@ -802,8 +694,7 @@ export class ProgramTeamsRepository {
       await tx.teamMember.delete({
         where: { teamId_userId: { teamId, userId } },
       });
-      // 외부 GitHub collaborator 회수는 outbox 이벤트로만 예약한다 — 실제 GitHub
-      // 호출·job 행 잠금은 worker 몫이고 이 트랜잭션 안에서는 아무것도 하지 않는다.
+
       await enqueueRepositoryAccessSyncEvents(tx, teamId, now);
       await recordAudit(
         { auditLogWriter: tx },
@@ -818,13 +709,6 @@ export class ProgramTeamsRepository {
     });
   }
 
-  /**
-   * 팀장의 팀원 제외 — 팀장만, 그리고 본인이 아닌 다른 현재 구성원만 제외할 수 있다.
-   * 본인 대상은 탈퇴(승계 규칙 포함)가 처리하므로 여기서 거절한다.
-   *
-   * `leave`와 같은 Team 행 `FOR UPDATE` → 행위자 소속·팀장 재조회 → 대상 재조회
-   * 순서를 지켜 초대 수락·동시 탈퇴와 직렬화한다.
-   */
   async removeMember(
     programId: string,
     actorUserId: string,
@@ -851,7 +735,7 @@ export class ProgramTeamsRepository {
       const now = new Date();
       const teamId = lockedActor.teamId;
       const leaderId = lockedActor.team.leaderId;
-      // 권한을 먼저 본다 — 팀장이 아닌 사람에게는 대상의 존재 여부를 알리지 않는다.
+
       if (leaderId !== actorUserId) return 'not-leader';
       if (targetUserId === actorUserId) return 'self-target';
 
@@ -866,8 +750,7 @@ export class ProgramTeamsRepository {
       await tx.teamMember.delete({
         where: { teamId_userId: { teamId, userId: targetUserId } },
       });
-      // 외부 GitHub collaborator 회수는 outbox 이벤트로만 예약한다 — 실제 GitHub
-      // 호출·job 행 잠금은 worker 몫이고 이 트랜잭션 안에서는 아무것도 하지 않는다.
+
       await enqueueRepositoryAccessSyncEvents(tx, teamId, now);
       await recordAudit(
         { auditLogWriter: tx },
@@ -882,16 +765,6 @@ export class ProgramTeamsRepository {
     });
   }
 
-  /**
-   * 교직원의 팀원 제외 — 행위자는 팀 밖에 있다.
-   *
-   * 학생용 `removeMember`와 갈라지는 지점은 세 개다. 행위자 소속을 보지 않고,
-   * 팀장도 제외할 수 있으며(승계는 `leave`와 같은 규칙으로 여기서 한다), 마지막
-   * 사람은 신청이 없을 때만 빠진다.
-   *
-   * 권한을 **잠금 안에서 다시 읽는다** — 잠금 전에 읽은 교직원 여부는 권한의 정본이
-   * 아니다(`renameTeam`·#1269와 같은 이유). 그 사이에 권한이 회수될 수 있다.
-   */
   async removeMemberForStaff(
     programId: string,
     teamId: string,
@@ -944,9 +817,6 @@ export class ProgramTeamsRepository {
 
       let nextLeaderId = previousLeaderId;
       if (previousLeaderId === targetUserId) {
-        // 팀장을 빼면 `leave`와 같은 결정적 승계를 한다 — 먼저 합류한 사람,
-        // 동시 합류는 id 오름차순. 두 곳이 다르면 같은 팀이 누가 지우느냐에 따라
-        // 다른 팀장을 갖게 된다.
         const successor = await tx.teamMember.findFirst({
           where: { teamId, userId: { not: targetUserId } },
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
@@ -958,8 +828,7 @@ export class ProgramTeamsRepository {
           );
         }
         nextLeaderId = successor.userId;
-        // 이관이 멤버 행 삭제보다 먼저다 — 반대 순서면 `Team.leaderId`가 잠긐
-        // 팀에 없는 사용자를 가리킨다.
+
         await tx.team.update({
           where: { id: teamId },
           data: { leaderId: nextLeaderId },
@@ -983,14 +852,6 @@ export class ProgramTeamsRepository {
     });
   }
 
-  /**
-   * 교직원의 팀장 변경 — 대상은 그 팀의 현재 구성원이어야 한다.
-   *
-   * 구성원이 아닌 사람을 팀장으로 세우면 `Team.leaderId`가 팀에 없는 사람을
-   * 가리키고, 그 순간 팀장 권한을 가진 사람이 팀에 없게 된다.
-   *
-   * 제외와 같은 이유로 권한을 잠금 안에서 다시 읽는다.
-   */
   async transferLeaderForStaff(
     programId: string,
     teamId: string,
@@ -1022,8 +883,7 @@ export class ProgramTeamsRepository {
         where: { id: teamId },
         data: { leaderId: targetUserId },
       });
-      // 구성원은 그대로다 — 저장소 접근권은 구성원 집합으로 결정되므로
-      // 동기화 이벤트를 예약하지 않는다.
+
       await recordAudit(
         { auditLogWriter: tx },
         membershipAuditEvent(target, {
@@ -1038,10 +898,6 @@ export class ProgramTeamsRepository {
   }
 }
 
-/**
- * 잠금 안에서 다시 본 교직원 권한. 기준은 `findActorAuthorityByGithubId`와 같다 —
- * ACTIVE + (staff || admin). 두 기준이 갈라지면 문 앞과 문 안이 다른 말을 한다.
- */
 async function isActiveStaff(
   tx: Pick<Prisma.TransactionClient, 'user'>,
   userId: string,
@@ -1095,16 +951,6 @@ type AccessSyncTx = Pick<
   'application' | 'outboxEvent'
 >;
 
-/**
- * 구성원 변경과 같은 트랜잭션에서 권한 동기화 outbox 이벤트를 예약한다.
- *
- * 대상 조건과 페이로드는 `github/repository-provision-event.ts`의 순수 계약을
- * 공유한다 — 같은 정책이 `team-invitations` 쪽에도 있어 복제돼 있었던 부분이다.
- * 조회·쓰기는 여기서 자기 Prisma로 한다(ADR-003 DEC-42) — 이 트랜잭션은
- * GitHub를 부르지 않고 provision job 행도 잠그지 않는다. 대상이 없으면 noop.
- * 같은 ms에 들어온 중복은 `skipDuplicates`로 접는다 — worker가 처리 시점의
- * 현재 구성원을 다시 읽으므로 한 번의 동기화가 그 순간의 변경을 모두 덮는다.
- */
 async function enqueueRepositoryAccessSyncEvents(
   tx: AccessSyncTx,
   teamId: string,
@@ -1212,11 +1058,6 @@ interface TeamProvisionJob {
   readonly lastErrorCode: string | null;
 }
 
-/**
- * `applications.repository.ts`의 `resolveRepositoryProvisioning`을 로컬로 다시 구현한
- * 것이다. import 하지 않는 이유는 파일 상단 주석과 같다(`ApplicationsModule` ↔
- * `ProgramsModule` 순환 의존).
- */
 function resolveTeamRepositoryProvisioning(
   applicationStatus: ApplicationStatus,
   enabled: boolean,

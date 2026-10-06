@@ -27,7 +27,7 @@ export interface SubmissionInputProps {
   readonly disabled?: boolean;
   readonly file?: File | null;
   readonly fileError?: string | null;
-  /** 고른 ZIP의 판정을 서버에서 기다리는 중(#1108) — 결과가 설 자리에 대기를 보인다. */
+
   readonly fileChecking?: boolean;
   readonly onTextChange: (value: string) => void;
   readonly onFileChange?: (file: File | null) => void;
@@ -43,10 +43,6 @@ export function selectedFileFromControl(
   return control.files?.item(0) ?? null;
 }
 
-/**
- * #115 유형별 제출 입력 — 최초 제출 폼과 #116 보완 재제출 폼이 공유한다.
- * FILE handler가 없는 보완 재제출 폼은 입력을 렌더하지 않아 fail-closed한다.
- */
 export function SubmissionInput({
   fileUpload,
   submissionType,
@@ -88,9 +84,7 @@ export function SubmissionInput({
       );
     case 'FILE': {
       if (!onFileChange) return null;
-      // `errors.file`도 함께 본다. 파일 오류를 담는 자리가 둘(`fileError`·`errors.file`)
-      // 인데 이 갈래는 앞의 것만 그려, 뒤의 것만 채운 호출부에서는 제출이 막히고도
-      // 화면에 아무 말이 없었다 — 눌러도 아무 일이 없는 것처럼 보인다.
+
       const selection = file ? validateSubmissionFile(file, fileUpload) : null;
       const fileMessage =
         selection && !selection.ok

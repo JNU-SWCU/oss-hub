@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -27,7 +25,6 @@ describe('useDebouncedValue', () => {
     vi.useRealTimers();
   });
 
-  /** 훅을 실제로 돌려 렌더될 때마다의 값을 기록한다. */
   function mount(initial: string, delayMs: number) {
     const renders: string[] = [];
 
@@ -89,7 +86,7 @@ describe('useDebouncedValue', () => {
     act(() => {
       vi.advanceTimersByTime(200);
     });
-    // 마지막 갱신 이후 200ms만 지났으므로 아직 300ms를 채우지 못했다.
+
     expect(renders.at(-1)).toBe('a');
 
     act(() => {

@@ -94,11 +94,6 @@ function booleanConfigValue(raw: string | undefined): boolean | null {
   return null;
 }
 
-// Endpoint 허용은 mode와 노출 면으로 판정한다.
-// - credentials/query/fragment는 protocol 수락 전에 항상 거부
-//   (WHATWG getters는 present-empty `?`/`#`/`@` 형태를 빈 문자열로 정규화하므로 raw 입력도 본다)
-// - local은 loopback·사설/링크로컬 주소와 Compose 내부 서비스명 `object-storage`의 http만 허용
-// - managed는 account label만 가변인 Cloudflare R2 HTTPS endpoint만 허용
 function isAllowedEndpointForMode(
   endpoint: string,
   mode: SubmissionFileStorageMode,
@@ -131,10 +126,6 @@ function isAllowedEndpointForMode(
   }
 }
 
-/**
- * Detect credentials/query/fragment delimiters on the raw input.
- * Percent-encoded path octets (`%3F`, `%23`) are not delimiters.
- */
 function hasRawCredentialsQueryOrFragment(raw: string): boolean {
   const schemeSep = raw.indexOf('://');
   if (schemeSep < 0) {

@@ -1,9 +1,3 @@
-/**
- * todo 12 — 이전 5개 값(NORMAL/DELAYED/FAILED 3-state)에서 증분 collection 진행 상황을
- * 반영하는 5-state로 breaking 마이그레이션한다(계획에서 명시적으로 승인된 DTO 호환성
- * 변경). EMPTY(추적 저장소 없음)·PARTIAL(일부 stream이 아직 backfill/미검증)이 새로 추가된
- * state다.
- */
 export const COLLECTION_HEALTH_VALUES = [
   'EMPTY',
   'NORMAL',
@@ -14,19 +8,10 @@ export const COLLECTION_HEALTH_VALUES = [
 export type CollectionHealthResponseDto =
   (typeof COLLECTION_HEALTH_VALUES)[number];
 
-/**
- * todo 12 — 증분 엔진(`CollectionSyncCursor`)에는 old 엔진의 PENDING(대기열) 개념이 없다 —
- * 사이클이 진행 중(PROCESSING)이거나 아니면 IDLE이다.
- */
 export const CURRENT_RUN_STATUS_VALUES = ['IDLE', 'PROCESSING'] as const;
 export type CurrentRunStatusResponseDto =
   (typeof CURRENT_RUN_STATUS_VALUES)[number];
 
-/**
- * todo 12 — old 엔진 전용 사유(`INSTALLATION_INVALID`/`PERMISSION_INVALID`/`RUN_FAILED`
- * 등, 새 증분 스냅샷에서 도출 불가)는 제거하고, 증분 스냅샷에서 직접 도출 가능한 4개로
- * 좁힌다. `STALE_DATA`만 이름을 그대로 유지한다(동일 의미).
- */
 export const SYSTEM_STATUS_SAFE_REASONS = [
   'NO_TRACKED_REPOSITORIES',
   'UPSTREAM_RATE_LIMITED',
@@ -36,18 +21,6 @@ export const SYSTEM_STATUS_SAFE_REASONS = [
 export type SystemStatusSafeReasonResponseDto =
   (typeof SYSTEM_STATUS_SAFE_REASONS)[number];
 
-/**
- * `CollectionReadPort#getIncrementalStatusSnapshot`을 그대로 반영한 공개 응답 — repository
- * 이름·visibility·raw payload·collection lease/frontier 같은 물리 스키마는 절대 포함하지
- * 않는다(count/checkpoint 시각만). health/safeReason 해석은 `SystemStatusService.decide`
- * 책임이다.
- *
- * 2026-08 owner 결정 — "repository 이름을 절대 포함하지 않는다"는 이 집계 object 한정
- * 경계로 남는다. 저장소 단위 상세가 필요해져 그 경계를 옮긴 곳은 이 DTO가 아니라 아래
- * `SystemStatusResponseDto`의 형제 필드 `collectionStreams`다 — 집계는 여전히 집계로만
- * 읽힌다. `nextCycleAt`은 새 필드지만 cron 표현식에서 계산한 시각일 뿐 물리 스키마가
- * 아니라 이 경계와 무관하다.
- */
 export class CollectionSystemStatusResponseDto {
   constructor(
     readonly health: CollectionHealthResponseDto,
@@ -99,17 +72,6 @@ export class CollectionRepositoryStreamResponseDto {
   ) {}
 }
 
-/**
- * 2026-08 owner 결정 — ADMIN 전용 system-status 화면에 한해 저장소 이름과 stream별 상세를
- * 노출한다. `CollectionSystemStatusResponseDto`(조직 전체 집계)가 지켜온 "repository 이름을
- * 담지 않는다" 경계를 이 필드가 의도적으로 넘는다 — 무엇이 언제 수집됐는지 저장소 단위로
- * 들여다볼 관측성이 필요해졌기 때문이다(`collection-read.port.ts`의 boundary 코멘트,
- * `apps/backend/src/github/AGENTS.md` 참고). ADMIN 가드 밖으로는 절대 재사용하지 않는다.
- *
- * `programName`은 이 저장소가 어느 프로그램 소속으로 편입됐는지 보여준다
- * (`CollectionRepositoryStreamsDto`의 port 코멘트 참고). 연결이 없으면(조직 저장소
- * 대부분, discovery로만 편입된 external 저장소) `null`이며 이는 정상이다.
- */
 export class SystemStatusCollectionStreamsResponseDto {
   constructor(
     readonly repositoryName: string,
@@ -118,18 +80,12 @@ export class SystemStatusCollectionStreamsResponseDto {
   ) {}
 }
 
-/**
- * 시스템 상태 관측성 2단계 — sweep 1회(또는 저장소 연결 즉시 수집 1회) 종료 시점의 활동 이력(`CollectionSweepHistory`)을
- * `sweepFinishedAt` 내림차순, 최대 20건으로 노출한다. `collectionStreams`와 달리 이
- * 필드는 repository 이름을 담지 않는다 — 집계 전용이다(`collection-read.port.ts`의
- * `CollectionSweepActivityDto` 참고).
- */
 export class SystemStatusCollectionActivityResponseDto {
   constructor(
     readonly sweepFinishedAt: string,
     readonly cycleStartedAt: string | null,
     readonly scope: string,
-    /** `SWEEP`(정시·수동 순회) 또는 `REPOSITORY_LINK`(저장소 연결 즉시 수집, #1133). */
+
     readonly kind: 'SWEEP' | 'REPOSITORY_LINK',
     readonly insertedCommitCount: number,
     readonly insertedPullRequestCount: number,
@@ -143,13 +99,6 @@ export class SystemStatusCollectionActivityResponseDto {
   ) {}
 }
 
-/**
- * 시스템 상태 3단계 — org sweep과 별개인 external(학생 개인 공개 저장소) 수집
- * 현황. `lastSweep`이 `null`이면 external sweep이 아직 한 번도 끝나지 않은
- * 것이다(collection-read.port.ts의 `CollectionExternalCollectionStatusDto`
- * 참고) — sweep 자체는 매시 자동 실행되므로 이 값이 계속 `null`이면 스케줄러가
- * 아예 안 도는 것이지 대상이 없어서가 아니다.
- */
 export class SystemStatusExternalCollectionResponseDto {
   constructor(
     readonly trackedRepositoryCount: number,

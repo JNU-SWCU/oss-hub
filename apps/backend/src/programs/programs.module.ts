@@ -49,7 +49,6 @@ import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 @Module({
   imports: [AuthModule, AuditLogModule, RepositoriesModule, SubmissionsModule],
   controllers: [
-    // static sibling first — programs/application-templates before programs/:id
     ApplicationTemplatesController,
     ProgramNoticePreviewController,
     ProgramAuthoringController,

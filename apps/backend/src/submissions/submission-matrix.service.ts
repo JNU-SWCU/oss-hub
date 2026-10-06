@@ -50,7 +50,7 @@ export class SubmissionMatrixService {
         query.pageSize,
       ),
     ]);
-    // N+1 금지: 페이지의 application id들로 현재 Submission을 일괄 조회해 메모리 결합한다.
+
     const applicationIds = applications.items.map(
       (application) => application.id,
     );
@@ -102,9 +102,6 @@ function cellKey(applicationId: string, milestoneId: string): string {
   return `${applicationId}::${milestoneId}`;
 }
 
-/**
- * 개인 참여는 멤버가 1명뿐인 팀이다(D5·D6). 팀 유무가 아니라 인원으로 가른다.
- */
 function isSoloTeam(application: MatrixApplicationRecord): boolean {
   const team = application.team;
   return team === null || team.memberNicknames.length <= 1;
@@ -121,8 +118,7 @@ function toMatrixRow(
 ): MatrixRowResponseDto {
   return {
     applicationId: application.id,
-    // 모든 신청이 Team을 갖게 되면서(D5) 팀 유무로는 개인 참여를 가려낼 수 없다.
-    // 멤버가 1명뿐이면 개인 참여로 읽고 사람 이름을 보여 준다 — 예전 표시와 같다.
+
     applicationMode: isSoloTeam(application) ? 'PERSONAL' : 'TEAM',
     displayName: isSoloTeam(application)
       ? (application.applicant.name ?? application.applicant.nickname)

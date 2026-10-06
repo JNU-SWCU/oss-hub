@@ -119,7 +119,6 @@ it('미완료 계정은 유효한 값으로 완료할 수 있다', async () => {
 });
 
 it('이미 생성된 UserProfile과 충돌하면 선점된 행은 바뀌지 않는다', async () => {
-  // Given
   const expected = await repository.findByGithubId(githubId);
   if (!expected) {
     throw new Error('합성 프로필 사용자가 존재해야 합니다.');
@@ -147,13 +146,11 @@ it('이미 생성된 UserProfile과 충돌하면 선점된 행은 바뀌지 않�
     },
   });
 
-  // When
   const completed = repository.completeProfileIfUnchanged(
     expected,
     canonicalCompletion(firstProfile),
   );
 
-  // Then — 선점된 프로필은 한 글자도 바뀌지 않는다
   await expect(completed).resolves.toBe('conflict');
   await expect(
     prisma.userProfile.findUniqueOrThrow({
@@ -171,7 +168,6 @@ it('이미 생성된 UserProfile과 충돌하면 선점된 행은 바뀌지 않�
 });
 
 it('동일한 완료 요청이 경쟁하면 한 요청만 성공하고 다른 요청은 CAS miss로 수렴한다', async () => {
-  // Given — 같은 스냅샷을 두 요청이 함께 들고 들어간다
   const expected = await repository.findByGithubId(githubId);
   if (!expected) {
     throw new Error('합성 프로필 사용자가 존재해야 합니다.');
@@ -182,10 +178,8 @@ it('동일한 완료 요청이 경쟁하면 한 요청만 성공하고 다른 �
       canonicalCompletion(firstProfile),
     );
 
-  // When
   const results = await Promise.all([complete(), complete()]);
 
-  // Then — 행 잠금이 둘을 직렬화하고, 진 쪽은 조용히 덮어쓰지 않는다
   expect(results.filter((outcome) => outcome === 'completed')).toHaveLength(1);
   expect(results.filter((outcome) => outcome === 'conflict')).toHaveLength(1);
   await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({

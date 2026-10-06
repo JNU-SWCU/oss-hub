@@ -27,7 +27,7 @@ export function ProgramMilestoneCard({
 }: {
   readonly name: string;
   readonly id?: string;
-  /** 기간 한 줄 — `formatSeoulShortRange`가 만든 「26.08.05 – 26.08.06 01:58」 */
+
   readonly period: string;
   readonly notice: string | null;
   readonly children: React.ReactNode;

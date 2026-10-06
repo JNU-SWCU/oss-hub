@@ -18,15 +18,6 @@ import {
 } from './consent-view';
 import { useConsentFlow } from './use-consent-flow';
 
-/**
- * 동의 화면(`/consent`)의 내용 — 배지·제목·리드와 본문. 정책을 불러오고, 선택을
- * 모으고, 저장하고, 다음 단계로 보낸다.
- *
- * 바깥 틀(우주 바탕 무대 · 왼쪽 진행 표시)은 여기 없다. `app/consent/page.tsx`가
- * `SignupStage`로 감싼다 — 의존 방향이 `app → features` 단방향이라 feature가 app의
- * 무대를 직접 가져다 쓸 수 없다. 글자 위계(`Signup*`)만 공용 표현 계층
- * `@/components`에 내려와 있어 여기서 쓸 수 있다.
- */
 export function ConsentFlow({
   onCompleted,
   policyPresentation,
@@ -34,25 +25,13 @@ export function ConsentFlow({
 }: {
   readonly onCompleted?: (nextUrl: string) => void;
   readonly policyPresentation?: ConsentPolicyPresentation;
-  /**
-   * 가입 중간이 아닌 곳에서 열리면 `dialog`를 넘긴다.
-   *
-   * 가입 흐름의 `STEP 1 / 3`·제목·리드는 다음 단계로 이동한다는 전제 위에 써있다.
-   * 동의 갱신 팝업은 가입 중이 아니고 완료 뒤에 원래 화면으로 돌아오므로, 그 세 줄을
-   * 그대로 두면 단계 수와 이동 안내가 모두 틀린 말이 된다. 팝업 쪽 제목은 `DialogHeader`가
-   * 이미 말하므로 여기서는 그리지 않는다.
-   */
+
   readonly headingPresentation?: 'signup' | 'dialog';
 }) {
   const { retryLoad, state, submit, toggleSelection } = useConsentFlow({
     onCompleted,
   });
 
-  /*
-    전문 열림 상태가 폼이 아니라 여기 있는 이유는 자리 때문이다 — 넓은 화면에서
-    전문은 폼 오른쪽 기둥, 즉 폼 바깥에 나타난다. 닫을 때 초점을 눌렀던 `전문 보기`로
-    되돌리려고 그 버튼 자체를 함께 들고 있는다.
-  */
   const [openPolicy, setOpenPolicy] = useState<ConsentRequiredItem | null>(
     null,
   );
@@ -140,48 +119,6 @@ export function ConsentFlow({
     }
   }
 
-  /*
-    예전에는 이 아래 전체를 Radix `Dialog`(Overlay + Content)로 감싸 화면을 덮었다.
-    걷어냈다. **다시 넣지 마라** — 여기는 모달이 될 수 없는 자리다.
-
-    모달은 "잠깐 위에 띄웠다가 원래 화면으로 돌아가는" 장치인데, 이 화면에는 돌아갈
-    화면이 없다(가입 동선의 한 단계다). 실제로 `open`이 고정이고 `onEscapeKeyDown`·
-    `onPointerDownOutside`를 모두 막아 **닫을 수 없는 모달**이었다. 일반 화면인데
-    팝업 옷만 입고 있었던 셈이다.
-
-    걷어내면서 결함 셋이 함께 사라진다. 되돌리면 셋 다 되살아난다.
-    1) 떠 있는 판이 왼쪽 진행 표시를 반쯤 덮어 몇 단계인지 보이지 않았다.
-    2) 화면에 `h1`이 없었다 — 제목을 `DialogPrimitive.Title`이 그렸는데 그건 `h2`로
-       나온다. 이제 `SignupTitle`(h1)이 그 자리를 맡는다.
-    3) 375px에서 동의 버튼이 첫 화면 밖(bottom = 812 = 창 높이)으로 잘려 나갔다.
-       판 높이가 `max-h-[calc(100dvh-2rem)]`로 묶여 있어 안쪽이 스크롤 영역이 됐고,
-       사용자는 스크롤할 것이 있다는 사실조차 알 수 없었다.
-
-    약관 전문 팝업(`consent-view.tsx`)은 그대로 둔다. 그건 읽고 닫으면 원래 자리로
-    돌아오는 진짜 팝업이다.
-  */
-  /*
-    두 기둥이다. 왼쪽은 동의 항목, 오른쪽은 펼친 전문(#517). 왼쪽 폭이 `max-w-2xl`로
-    고정이라 전문을 펼쳐도 항목이 움직이지 않는다. 닫혀 있는 동안 오른쪽 기둥은
-    아예 그리지 않는다 — 빈 자리에 안내 문구를 두지 않기로 했다.
-
-    행으로 바뀌는 폭은 `CONSENT_POLICY_INLINE_BREAKPOINT_PX`와 **같은 값**이어야 한다.
-    Tailwind는 소스의 글자를 그대로 읽으므로 상수를 끼워 넣을 수 없어 리터럴로 적고,
-    두 값이 갈라지지 않는지는 `consent-policy-breakpoint.test.ts`가 지킨다.
-
-    불변식 셋(#522).
-    1) **세로로 두 기둥은 서로 독립이다.** 행이 남은 높이를 통째로 받고(`flex-1`),
-       왼쪽은 그 안에서 자기만 가운데 정렬한다. 예전에는 무대(`main`)의
-       `justify-center`가 두 기둥을 **합친 덩어리**를 가운데 맞췄기 때문에, 전문을
-       열어 오른쪽이 길어지면 왼쪽 제목·버튼이 2560에서 209px 밀려 올라갔다.
-       오른쪽은 stretch로 행 높이를 받을 뿐 행 높이를 만들지 않는다.
-    2) 두 기둥의 합에 상한(1576 = 672 + 96 + 808)을 두고 가운데로 모은다. 2560에서
-       오른쪽에만 1072px가 몰리던 것이 좌우로 갈라진다.
-    3) 열 간격은 상한이 물리기 시작하는 폭부터만 벌어진다 — 1280·1440에서는
-       `100vw - 1392px`가 3rem 아래라 예전 48px 그대로이고, 1488부터 96px로 선다.
-       그 사이 구간에서는 늘어난 폭을 간격이 그대로 먹어 오른쪽 기둥이 576px로
-       유지된다(1440 실측값을 깎지 않는다).
-  */
   return (
     <div
       className={cn(

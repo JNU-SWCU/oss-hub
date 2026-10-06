@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -92,7 +90,6 @@ describe('OnboardingGate consent-required dialog', () => {
   });
 
   it('keeps the current onboarding URL and resumes the gate when consent is completed', async () => {
-    // Given: the profile check reports that consent is required, then succeeds.
     mocks.getMyProfile
       .mockRejectedValueOnce(consentRequiredError())
       .mockResolvedValueOnce({
@@ -103,7 +100,6 @@ describe('OnboardingGate consent-required dialog', () => {
         isComplete: false,
       });
 
-    // When: the role onboarding gate mounts.
     await act(async () => {
       root.render(
         <OnboardingGate target="role">
@@ -112,7 +108,6 @@ describe('OnboardingGate consent-required dialog', () => {
       );
     });
 
-    // Then: it opens the dialog instead of replacing the current URL.
     expect(container.textContent).toContain('동의 다이얼로그 완료');
     expect(mocks.replace).not.toHaveBeenCalledWith('/consent');
 
@@ -126,10 +121,8 @@ describe('OnboardingGate consent-required dialog', () => {
   });
 
   it('ignores required-consent dismiss requests while profile status is checking', async () => {
-    // Given: the profile check requires consent and has no complete result yet.
     mocks.getMyProfile.mockRejectedValueOnce(consentRequiredError());
 
-    // When: the required dialog asks to close before completion.
     await act(async () => {
       root.render(
         <OnboardingGate target="role">
@@ -142,7 +135,6 @@ describe('OnboardingGate consent-required dialog', () => {
     );
     await act(async () => dismiss?.click());
 
-    // Then: the gate still shows the required-consent recovery action.
     expect(container.textContent).toContain('동의 다이얼로그 닫기 시도');
     expect(container.textContent).toContain('확인 중…');
     expect(mocks.replace).not.toHaveBeenCalledWith('/consent');

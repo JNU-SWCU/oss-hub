@@ -50,10 +50,6 @@ describe('AppModule module exposure', () => {
     }
   });
 
-  // #551 — 공개 프로필 라우트는 더 이상 UsersModule과의 import 순서에 의존하지 않는다.
-  // 순서를 뒤집어도 `/users/me/profile`이 공개 컨트롤러로 새지 않는다는 증명은
-  // `public-projects/public-user-profile-route.http.spec.ts`가 실제 HTTP로 고정하므로,
-  // 여기서는 모듈 노출 횟수만 확인하고 순서 제약은 두지 않는다.
   it('PublicProjectsModule을 정확히 한 번 노출한다', () => {
     const imports = getImports();
 

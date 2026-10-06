@@ -22,7 +22,6 @@ describe('AuthRepository.findByGithubId', () => {
   });
 
   it('canonical principal keeps student membership and independent admin authority', async () => {
-    // Given
     const findUnique = jest.fn().mockResolvedValue({
       ...buildRow({
         hasAdminAccess: true,
@@ -43,10 +42,8 @@ describe('AuthRepository.findByGithubId', () => {
       buildAuthConfig(),
     );
 
-    // When
     const principal = await repository.findByGithubId(424_242n);
 
-    // Then
     expect(principal).toMatchObject({
       memberKind: 'STUDENT',
       hasStaffAccess: false,

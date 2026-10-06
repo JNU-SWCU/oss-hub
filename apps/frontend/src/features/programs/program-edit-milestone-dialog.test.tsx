@@ -1,5 +1,3 @@
-
-
 import { act, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -441,13 +439,6 @@ describe('ProgramEditMilestoneDialog', () => {
       ),
     );
 
-    /*
-     * 단일 범위 편집기는 `layout="simple"` 이라 달력이 날짜 입력의 자리를 대신하고
-     * 문서 순서상 먼저 농인다. 따라서 첫 무효 필드는 달력 스크롤 영역이다 —
-     * `tabIndex=0`·`aria-invalid`·`aria-describedby` 를 갖추고 있어 그 자리에서
-     * 키보드로 바로 날짜를 고칠 수 있다. 시각까지 고치려면 「일정 입력」이
-     * 여는 `ProgramScheduleRangeDialog` 로 간다.
-     */
     const calendarScroll = document.querySelector(
       '[data-testid="program-schedule-calendar-scroll"]',
     );
@@ -505,14 +496,6 @@ describe('ProgramEditMilestoneDialog', () => {
   });
 });
 
-/*
- * 단일 마일스톤 편집은 고를 범위가 하나뿐인데도 `aria-pressed` 선택기를 그렸고,
- * 호출부가 `onActiveIdChange={() => undefined}` 를 넘겨 **눌러도 아무 일도 일어나지
- * 않는 컨트롤**이었다. 스크린리더에는 눌린 버튼으로 읽히고 키보드 사용자는 탭 한 칸을
- * 잃었다. 근거: GOV.UK Question pages 의 "only ask for a piece of information once
- * within a single journey" 와 Norman 의 signifier — 작동하지 않는 것이 작동하는
- * 것처럼 보이면 안 된다.
- */
 describe('단일 범위 편집기의 죽은 선택기 제거', () => {
   let container: HTMLDivElement;
   let root: Root;

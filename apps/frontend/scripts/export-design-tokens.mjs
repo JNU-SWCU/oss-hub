@@ -1,18 +1,5 @@
 #!/usr/bin/env node
-/**
- * globals.css → docs/design-tokens/tokens.json (Figma Tokens Studio 단일 파일).
- *
- * 토큰의 원본은 `apps/frontend/src/app/globals.css` 하나다(design.md R-36). 이 스크립트는
- * 그 파일을 읽어 Figma가 읽는 형식으로 옮겨 적을 뿐, 값을 만들지 않는다.
- *
- *   pnpm --filter frontend tokens:export   # 생성
- *   pnpm --filter frontend tokens:check    # 저장된 파일이 원본과 같은지 검사(다르면 1)
- *
- * 내보내는 것: primitive(팔레트·치수·글자 크기 계단), semantic 라이트(`:root`)·다크(`.dark`).
- * 내보내지 않는 것: `@theme inline`(Tailwind 유틸리티 이름 매핑, 코드 전용), `@media`,
- * `[data-surface]` 반전 표면 스코프(화면 한 곳의 재정의). 계산값(`color-mix`·`rgb(var…)`·
- * `calc`)은 Figma가 풀 수 없어 CSS 문자열 그대로 두고 `description`에 수동 지정임을 적는다.
- */
+
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,15 +13,10 @@ export const OUT_PATH = resolve(
 
 const MANUAL_NOTE = 'CSS 계산값 — Figma에서 손으로 지정한다';
 
-/** 주석을 지운다. 값 안에 `/*`가 올 일은 없다. */
 export function stripComments(css) {
   return css.replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
-/**
- * 최상위 블록만 읽는다: `selector { body }`. 중첩 블록(`@media … { :root {…} }`)은
- * 통째로 하나의 최상위 블록이 되고, 그 selector가 `@`로 시작하므로 아래에서 걸러진다.
- */
 export function topLevelBlocks(css) {
   const blocks = [];
   let cursor = 0;
@@ -57,7 +39,6 @@ export function topLevelBlocks(css) {
   return blocks;
 }
 
-/** 블록 본문의 `--name: value;` 선언을 순서대로 돌려준다. */
 export function declarations(body) {
   const found = [];
   for (const match of body.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)) {
@@ -69,7 +50,6 @@ export function declarations(body) {
 const PRIMITIVE_PREFIXES = ['palette', 'space', 'step', 'measure'];
 const GROUPED_PREFIXES = ['sidebar', 'hero', 'cosmos', 'chart'];
 
-/** CSS 변수 이름 → 토큰 경로. `palette-navy-600` → `palette.navy.600`. */
 export function tokenPath(name) {
   const [head, ...rest] = name.split('-');
   if (head === 'step') return ['fontSize', ...rest].join('.');
@@ -97,7 +77,6 @@ export function tokenType(name) {
   return 'color';
 }
 
-/** `var(--x)` 하나뿐인 값은 alias, 그 밖의 var()·함수가 섞인 값은 계산값이다. */
 export function tokenValue(value) {
   const alias = /^var\(--([\w-]+)\)$/.exec(value);
   if (alias) return { value: `{${tokenPath(alias[1])}}` };

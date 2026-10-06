@@ -25,12 +25,10 @@ beforeAll(async () => {
   await prisma.$connect();
 });
 afterAll(async () => {
-  // The isolated runner removes the database without violating append-only audit history.
   await prisma.$disconnect();
 });
 
 it('projects only linked repository facts inside the program window while retaining old repository history', async () => {
-  // Given
   await prisma.user.create({
     data: { id: memberId, githubId, nickname: 'synthetic-member' },
   });
@@ -157,12 +155,12 @@ it('projects only linked repository facts inside the program window while retain
       },
     ],
   });
-  // When
+
   const detail = await new ProgramTeamsRepository(prisma).findStaffTeamDetail(
     programId,
     teamId,
   );
-  // Then
+
   expect(detail?.repositoryContributions?.members).toEqual([
     {
       userId: memberId,
@@ -174,7 +172,7 @@ it('projects only linked repository facts inside the program window while retain
       hasObservations: true,
     },
   ]);
-  // 팀원이 아닌 사람의 기여는 수집이 세어 둔 값만 보인다 — 기여 행이 있어도 아직 세지 않았으면 없다.
+
   expect(detail?.repositoryContributions?.outsiderContributions).toBeNull();
   expect(detail?.repositoryUrlHistory.items).toHaveLength(1);
   expect(detail?.repositoryUrlHistory.items[0]?.actorGithubLogin).toBe(
@@ -188,7 +186,6 @@ it('projects only linked repository facts inside the program window while retain
 });
 
 it('shows the outsider totals only while they were counted for this program window', async () => {
-  // Given — its own program, team and repository, so no other test's totals move.
   const scope = `staff-evidence-outsider-${randomUUID()}`;
   const memberGithubId = BigInt(
     `0x${randomUUID().replaceAll('-', '').slice(0, 12)}`,
@@ -262,7 +259,7 @@ it('shows the outsider totals only while they were counted for this program wind
       lastSuccessAt: new Date('2026-09-01Z'),
     },
   });
-  // When — the collector counted this repository for this program's window (it overwrites one row).
+
   await prisma.githubRepositoryOutsiderContribution.create({
     data: {
       repositoryId: scoped.repository,
@@ -278,14 +275,13 @@ it('shows the outsider totals only while they were counted for this program wind
   });
   const teams = new ProgramTeamsRepository(prisma);
   const detail = await teams.findStaffTeamDetail(scoped.program, scoped.team);
-  // Then
+
   expect(detail?.repositoryContributions?.outsiderContributions).toEqual({
     commitCount: 3,
     pullRequestCount: 1,
     issueCount: 2,
   });
 
-  // When it was counted for another application (the repository moved teams), it is not shown.
   await prisma.githubRepositoryOutsiderContribution.update({
     where: { repositoryId: scoped.repository },
     data: { applicationId: `${scope}-previous-application` },
@@ -297,7 +293,6 @@ it('shows the outsider totals only while they were counted for this program wind
     data: { applicationId: scoped.application },
   });
 
-  // When the program window is edited, the old count is not shown until it is counted again.
   await prisma.program.update({
     where: { id: scoped.program },
     data: { startAt: new Date('2026-07-01T15:00:00Z') },
@@ -307,8 +302,6 @@ it('shows the outsider totals only while they were counted for this program wind
 });
 
 it('reads contributions of a program that never set an end date', async () => {
-  // Given — endAt omitted keeps the 9999-12-31T23:59:59.999 sentinel, which Seoul reads as year 10000.
-  // The legacy write trigger moves an omitted startAt to applicationEndAt.
   const scope = `staff-evidence-sentinel-${randomUUID()}`;
   const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
   const scopedProgramId = `${scope}-program`;
@@ -377,12 +370,12 @@ it('reads contributions of a program that never set an end date', async () => {
       commitCount: 3,
     },
   });
-  // When
+
   const detail = await new ProgramTeamsRepository(prisma).findStaffTeamDetail(
     scopedProgramId,
     scopedTeamId,
   );
-  // Then
+
   expect(detail?.repositoryContributions).toMatchObject({
     window: { from: '2026-07-31', to: '+010000-01-01', timeZone: 'Asia/Seoul' },
     members: [{ userId: `${scope}-member`, commitCount: 3 }],
@@ -390,8 +383,6 @@ it('reads contributions of a program that never set an end date', async () => {
 });
 
 it('counts only the currently linked repository in program totals after a relink', async () => {
-  // Given — the first test left a relinked team: the old organization repository kept
-  // programId after losing applicationId, and the current repository is linked.
   await prisma.collectionCommitFact.createMany({
     data: [
       { repositoryId: oldRepositoryId, sha: `${prefix}-old-1` },
@@ -403,12 +394,12 @@ it('counts only the currently linked repository in program totals after a relink
       authorGithubId: githubId,
     })),
   });
-  // When
+
   const [summary] = await new ProgramActivitySummaryService(
     new ProgramActivitySummaryRepository(prisma),
     new ProgramActivityRepository(prisma),
   ).summarize([programId]);
-  // Then
+
   expect(summary).toMatchObject({
     programId,
     repositoryCount: 1,
@@ -417,7 +408,6 @@ it('counts only the currently linked repository in program totals after a relink
 });
 
 it('counts issues for team members, so an issue-only member has observations', async () => {
-  // Given — #1133: activity counts Commit·PR·Issue, so a day with only issues counts.
   const scope = `staff-evidence-issue-${randomUUID()}`;
   const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
   const activeId = `${scope}-active`;
@@ -488,17 +478,17 @@ it('counts issues for team members, so an issue-only member has observations', a
   await prisma.contribution.createMany({
     data: [
       { githubId: base, date: new Date('2026-08-01Z'), commitCount: 2 },
-      // An issue-only day adds to the member's issue count.
+
       { githubId: base, date: new Date('2026-08-02Z'), issueCount: 5 },
       { githubId: base + 1n, date: new Date('2026-08-01Z'), issueCount: 1 },
     ].map((row) => ({ ...row, repositoryId: scopedRepositoryId })),
   });
-  // When
+
   const detail = await new ProgramTeamsRepository(prisma).findStaffTeamDetail(
     scopedProgramId,
     scopedTeamId,
   );
-  // Then
+
   expect(
     [...(detail?.repositoryContributions?.members ?? [])].sort((a, b) =>
       a.userId.localeCompare(b.userId),

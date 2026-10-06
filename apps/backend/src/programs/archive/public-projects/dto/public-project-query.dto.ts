@@ -8,7 +8,6 @@ import {
   Min,
 } from 'class-validator';
 
-/** Inclusive calendar-year bounds for optional `?year=` (local copy — do not import ranking). */
 export const PUBLIC_PROJECT_YEAR_MIN = 2000;
 export const PUBLIC_PROJECT_YEAR_MAX = 2100;
 
@@ -24,7 +23,6 @@ export class PublicProjectQueryRequestDto {
   @Max(50)
   readonly pageSize: number = 20;
 
-  /** Asia/Seoul calendar year filter. Omit = all published projects. */
   @IsOptional()
   @Type(() => Number)
   @IsInt()

@@ -63,9 +63,6 @@ export interface CreatedSubmission {
   readonly submittedAt: string;
 }
 
-// ── #116 제출 체크리스트 ────────────────────────────────────────────────
-
-/** 저장되는 Submission 상태 — 미제출은 submission=null로 표현된다. */
 export type ChecklistSubmissionStatus =
   'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 export type ChecklistReviewDecision =
@@ -112,8 +109,6 @@ export interface CreatedResubmission {
   readonly status: 'SUBMITTED';
 }
 
-// #124 제출 현황 매트릭스 — GET /programs/{programId}/submissions/matrix 계약.
-
 export type MatrixApplicationMode = 'PERSONAL' | 'TEAM';
 
 export type MatrixCellStatus =
@@ -125,7 +120,6 @@ export interface MatrixMilestone {
   readonly dueAt: string;
 }
 
-/** 미제출 cell은 submissionId·revision·submittedAt·reviewUrl이 모두 null이다. */
 export interface MatrixCell {
   readonly deliveryStatus: DocumentDeliveryStatus;
   readonly milestoneId: string;
@@ -136,7 +130,6 @@ export interface MatrixCell {
   readonly reviewUrl: string | null;
 }
 
-/** 행은 팀이 아니라 승인된 Application이다(#124 계약 잠금). */
 export interface MatrixRow {
   readonly applicationId: string;
   readonly applicationMode: MatrixApplicationMode;

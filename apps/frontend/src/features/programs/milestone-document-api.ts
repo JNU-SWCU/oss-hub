@@ -1,69 +1,29 @@
 import { apiClient, apiPath } from '@/lib/api-client';
 import type { MilestoneDocumentHistoryPage } from './milestone-document-collection-api';
 
-/**
- * 학생 뷰의 제출 상태. ⚠ `types.ts`의 `SubmissionStatus`와 **다른 집합**이다 — 그쪽에는
- * `NOT_SUBMITTED`가 있지만 이 계약은 미제출을 `null`로 말한다(제출 행이 없으면 상태도 없다).
- * 같은 이름으로 묶으면 화면이 있지도 않은 `NOT_SUBMITTED`를 분기하게 된다.
- */
 export type MilestoneDocumentSubmissionStatus =
   'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 
-/**
- * 학생 뷰 — 이 서류에 붙은 **최신 판정 한 건**. 아직 아무도 판정하지 않았으면 `null`이다.
- *
- * ⚠ `decision`이 없는 것은 빠뜨린 것이 아니다. 같은 뜻이 옆의
- * `MilestoneDocumentViewerSubmission.status`에 이미 있다(판정 → 상태가 1:1이다).
- * 여기 있는 것은 화면이 「왜 되돌아왔는가」를 말하는 데 필요한 사유와 시각뿐이다.
- */
 export interface MilestoneDocumentViewerReview {
   readonly comment: string | null;
   readonly reviewedAt: string;
-  /**
-   * 이 보완 요청에 **언제까지** 응할 수 있는가(ISO 8601). 승인·반려는 `null`이고, 이 값이
-   * 생기기 전에 저장된 보완 요청도 `null`이다.
-   *
-   * ⚠ `null`을 「기한이 지났다」로 읽지 마라. 옛 보완 요청은 앞 규칙(재제출 한 번) 그대로
-   * 열려 있어야 한다 — 서버도 같은 답을 낸다
-   * (`domain/milestone-document-submission-window.ts`의
-   * `hasMilestoneDocumentResubmissionDueAtPassed`).
-   */
+
   readonly resubmissionDueAt: string | null;
 }
 
 export interface MilestoneDocumentViewerSubmission {
-  /**
-   * ⚠ 이름은 예전 그대로다(`isSubmitted`가 아니다). 이미 발행돼 학생 화면이 쓰는 계약이라
-   * 바꾸면 화면이 조용히 「전부 미제출」로 보인다 — 수합 표 계약의 `isSubmitted`와 다른
-   * 것은 의도된 비대칭이다(백엔드 `milestone-document-response.dto.ts` 주석과 같은 근거).
-   */
   readonly submitted: boolean;
   readonly submittedAt: string | null;
-  /** 현재 제출본 번호. 미제출이면 `null`. */
+
   readonly revision: number | null;
-  /**
-   * 최신 판정이 옮겨 놓은 제출 상태. 미제출이면 `null`.
-   *
-   * ⚠ `SUBMITTED`는 「아직 아무도 안 봤다」와 「보완 요청을 받고 다시 냈다」 **둘 다**를
-   * 뜻한다 — 재제출이 같은 행을 덮어써 상태를 `SUBMITTED`로 되돌리기 때문이다. 그래서
-   * 「지난 지적이 있었는가」는 `status`가 아니라 `review`로 봐야 한다.
-   */
+
   readonly status: MilestoneDocumentSubmissionStatus | null;
   readonly hasCurrentFile: boolean;
-  /**
-   * 지금 붙어 있는 첨부의 이름. 없으면 `null`이고 `hasCurrentFile`과 언제나 함께 움직인다.
-   *
-   * ⚠ 재제출 폼이 「이 파일이 이번 제출에서 빠진다」고 경고하는 데 쓴다. 파일을 다시
-   * 고르지 않은 재제출은 첨부를 옮겨 오지 않으므로(의도된 동작), 무엇이 빠지는지 이름으로
-   * 말해 주지 않으면 학생은 낸 파일이 사라진 것을 나중에야 안다.
-   */
+
   readonly currentFileName: string | null;
-  /** 아직 아무도 판정하지 않았으면 `null`. */
+
   readonly review: MilestoneDocumentViewerReview | null;
-  /**
-   * 이력 원장은 별도 cursor endpoint에서 읽는다. 목록 응답에 이력을 넣으면 여러 서류의
-   * 오래된 제출본까지 한꺼번에 실려 학생 화면을 열기만 해도 무한히 커진다.
-   */
+
   readonly history: {
     readonly hasHistory: boolean;
     readonly isComplete: boolean;
@@ -75,7 +35,6 @@ export interface MilestoneDocumentTeamSubmissionCount {
   readonly total: number;
 }
 
-/** `GET /milestones/:milestoneId/documents` 응답 항목 하나. */
 export interface MilestoneDocument {
   readonly id: string;
   readonly milestoneId: string;
@@ -84,9 +43,9 @@ export interface MilestoneDocument {
   readonly sortOrder: number;
   readonly hasTemplateFile: boolean;
   readonly templateFileName: string | null;
-  /** 학생 뷰에서만 채워진다. */
+
   readonly viewerSubmission?: MilestoneDocumentViewerSubmission;
-  /** 교직원 뷰에서만 채워진다. */
+
   readonly teamSubmissionCount?: MilestoneDocumentTeamSubmissionCount;
 }
 
@@ -105,21 +64,13 @@ export interface UploadedMilestoneDocumentTemplate {
   readonly uploadedAt: string;
 }
 
-/**
- * 화면이 파일을 **고르기 전에** 읽는 업로드 규칙. 서버가 목록 응답에 함께 실어 준다.
- *
- * ⚠ 화면은 이 값의 사본을 만들지 않는다. 상한 숫자가 화면 여러 곳에 흩어져 있다가 표기가
- *   갈라진 것이 이 티켓(#1107)의 원인이다 — 서버가 거절하는 상한과 화면이 약속하는 상한은
- *   같은 값에서 나와야 한다.
- */
 export interface MilestoneDocumentUploadPolicy {
-  /** 실제로 거절이 갈리는 경계(바이트). */
   readonly maxBytes: number;
-  /** 사람에게 보여 줄 표기. 「5 MB」 */
+
   readonly maxLabel: string;
-  /** `<input type="file" accept>`에 그대로 넣는 값. */
+
   readonly accept: string;
-  /** 「PDF, HWP, ZIP」 */
+
   readonly formatLabel: string;
 }
 
@@ -128,7 +79,6 @@ export type PreparedMilestoneDocumentUpload = {
   readonly uploadId: string;
 };
 
-/** `GET /milestones/:milestoneId/documents` 응답 — 항목 배열과 업로드 규칙 한 벌. */
 export interface MilestoneDocumentList {
   readonly documents: readonly MilestoneDocument[];
   readonly fileUpload: MilestoneDocumentUploadPolicy;
@@ -159,7 +109,6 @@ export function listMilestoneDocuments(
   return apiClient<MilestoneDocumentList>(documentsPath(milestoneId));
 }
 
-/** 학생 — 본인 제출 이력의 최신 cursor 페이지. 이전 페이지는 `cursor`로 이어 읽는다. */
 export function getMilestoneDocumentParticipantHistory(
   milestoneId: string,
   documentId: string,
@@ -173,7 +122,6 @@ export function getMilestoneDocumentParticipantHistory(
   );
 }
 
-/** 학생 — 제출용 파일을 먼저 올려 fileId를 받는다(제출 자체는 submitMilestoneDocument가 한다). */
 export function uploadMilestoneDocumentFile(
   milestoneId: string,
   documentId: string,
@@ -189,10 +137,6 @@ export function uploadMilestoneDocumentFile(
   });
 }
 
-/**
- * 학생 — 고른 파일에 서류 업로드와 같은 판정만 받는다(#1108). 서버는 저장하지 않는다.
- * 통과면 본문 없이 끝나고, 거절이면 업로드 때와 같은 코드의 `ApiError`를 던진다.
- */
 export async function checkMilestoneDocumentFile(file: File): Promise<void> {
   const body = new FormData();
   body.append('file', file);
@@ -202,7 +146,6 @@ export async function checkMilestoneDocumentFile(file: File): Promise<void> {
   });
 }
 
-/** 학생 — 서류 제출/재제출. */
 export function submitMilestoneDocument(
   milestoneId: string,
   documentId: string,
@@ -218,7 +161,6 @@ export function submitMilestoneDocument(
   );
 }
 
-/** `<a href>` 등에 직접 쓰는 양식 다운로드 경로 — apiPath가 baseURL의 유일한 소유자. */
 export function milestoneDocumentTemplateHref(
   milestoneId: string,
   documentId: string,

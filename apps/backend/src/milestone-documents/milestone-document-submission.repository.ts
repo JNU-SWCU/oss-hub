@@ -27,14 +27,6 @@ export class MilestoneDocumentDeadlineClosedError extends Error {
   override readonly name = 'MilestoneDocumentDeadlineClosedError';
 }
 
-/**
- * 마감 뒤 재제출 예외를 허락받은 근거(그때 본 제출 상태)가 잠금 아래에서 이미 바뀌어 있었다 —
- * 같은 팀의 다른 사람이 **그 한 번을 먼저 썼다**.
- *
- * 최신 판정 id 재확인(`MilestoneDocumentReviewChangedError`)으로는 이 자리를 잡지 못한다.
- * 재제출은 판정을 새로 만들지 않으므로 두 번째 요청에도 최신 판정은 여전히 그 보완 요청이고,
- * 기대값 대조는 그대로 통과한다. 바뀌는 것은 **제출 상태**뿐이다(CHANGES_REQUESTED → SUBMITTED).
- */
 export class MilestoneDocumentSubmissionChangedError extends Error {
   override readonly name = 'MilestoneDocumentSubmissionChangedError';
 }
@@ -50,38 +42,11 @@ const attachedFileSelect = {
   sizeBytes: true,
 } as const;
 
-/**
- * 학생 제출의 잠금·기대 버전 확인·append-only 이력 쓰기를 한 경계에 모은다. 이전 첨부는
- * 삭제하지 않고 자기 제출 이력에 연결된 채 보존하며, 현재 파일 판정은 최신 이력의 revision으로
- * 한다. 이 함수 밖의 목록/CRUD repository가 이 동시성 규칙을 다시 구현하지 않는다.
- *
- * 쓰기의 첫 문장은 「지금 이 신청의 팀 사람인가」를 되묻는 공용 관문이다(#1269) — 아래 첫
- * 주석에 그 이유와 잠금 순서가 있다.
- */
 export function upsertMilestoneDocumentSubmission(
   prisma: PrismaService,
   input: UpsertMilestoneDocumentSubmissionInput,
 ): Promise<MilestoneDocumentSubmissionDetail> {
   return prisma.$transaction(async (transaction) => {
-    /*
-     * 「이 사람이 **지금** 이 신청의 팀 사람인가」를 이 트랜잭션의 **첫 문장**으로 되묻는다(#1269).
-     *
-     * 서비스의 사전 확인(`findStudentApplication`)은 트랜잭션 밖의 읽기다. 그 읽기와 여기 쓰기
-     * 사이에 탈퇴·제외·승계가 커밋되면, 이미 팀에서 나간 사람의 제출·이력·첨부가 그대로 남는다.
-     * 권한의 정본은 잠금 뒤에 되읽은 현재 소속 하나이며, 판정 재확인(`expectedLatestReviewId`)이나
-     * 제출 상태 대조는 이 자리를 대신하지 못한다 — 둘 다 「누가 쓰는가」를 보지 않는다.
-     *
-     * 판정은 공용 `lockSubmissionMembership` 한 벌만 쓴다. 같은 판정을 여기 SQL로 다시 적으면
-     * 두 벌이 갈라지고, 갈라진 쪽이 곧 우회로가 된다.
-     *
-     * 자리가 맨 앞인 것도 의도다. 이 함수가 잡는 잠금은 `Milestone`(FOR SHARE) →
-     * `MilestoneDocument`이고 공용 관문은 `Program` → `Team`을 잡으므로, 앞에 두어야
-     * 전역 순서(`Program` → `Team` → `Milestone` → `MilestoneDocument`)의 부분집합으로 남는다.
-     * 뒤로 밀면 신청 경로(`Program` → `Team` → `Application`)와 엇갈려 교착이 된다.
-     *
-     * 권한은 **지금 소속**으로만 판정한다 — `submittedById`는 이 요청을 낸 인증된 학생이고,
-     * 예전 제출자·최초 신청자·팀장 자리는 어느 것도 여기서 권한이 되지 않는다.
-     */
     const stillMember = await lockSubmissionMembership(
       transaction,
       input.applicationId,
@@ -94,12 +59,6 @@ export function upsertMilestoneDocumentSubmission(
       );
     }
 
-    /**
-     * 마감이 지난 요청인가. 마감 시각 읽기(`FOR SHARE`)는 **서류 행 잠금보다 먼저** 해야 한다 —
-     * 삭제·순서 재부여가 「Milestone → MilestoneDocument」 순으로 잠그므로, 여기서만 순서를
-     * 뒤집으면 두 트랜잭션이 서로의 잠금을 기다리는 교착이 생긴다. 그래서 잠금은 그대로 먼저
-     * 잡고, **판정만** 잠금 아래로 미룬다.
-     */
     let afterDeadline = false;
     if (input.deadline !== undefined) {
       const milestone = await transaction.$queryRaw<readonly { dueAt: Date }[]>(
@@ -157,22 +116,6 @@ export function upsertMilestoneDocumentSubmission(
       throw new MilestoneDocumentReviewChangedError();
     }
 
-    /*
-     * 마감을 지나가는 예외를 쓴 요청은 **그 예외의 근거까지** 잠금 아래에서 다시 본다.
-     *
-     * 판정 id 재확인만으로는 「재제출은 한 번」이 지켜지지 않는다. 같은 팀 두 사람이 마감 뒤
-     * 거의 동시에 내면 둘 다 트랜잭션 밖에서 `CHANGES_REQUESTED`를 읽어 예외를 미리 허락받는데,
-     * 첫 재제출은 **판정을 새로 만들지 않으므로** 두 번째 요청의 기대 판정 id도 그대로 맞는다.
-     * 그 사이 실제로 바뀌는 것은 제출 상태 하나뿐이라(`CHANGES_REQUESTED` → `SUBMITTED`),
-     * 여기서 그것을 다시 읽어야 두 번째 요청이 먼저 낸 내용을 덮어쓰지 않는다.
-     *
-     * 서류 행을 `FOR UPDATE`로 잡은 **뒤**에 읽는 것이 요점이다. 그 잠금이 같은 서류의 제출을
-     * 직렬화하므로, 여기 도착한 시점에는 앞 트랜잭션이 이미 커밋돼 있고 READ COMMITTED가 그
-     * 결과를 보여 준다. 잠금 앞에서 읽으면 둘 다 옛 상태를 보고 지나간다.
-     *
-     * 마감 전에는 보지 않는다 — 검토 전 교체는 몇 번이든 되는 일이라, 여기서 함께 막으면
-     * 팀원 둘이 마감 전에 이어서 고쳐 내는 지금 되는 흐름이 사라진다.
-     */
     if (afterDeadline && input.deadline !== undefined) {
       const current = await transaction.milestoneDocumentSubmission.findUnique({
         where: {

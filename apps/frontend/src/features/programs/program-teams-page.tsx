@@ -76,7 +76,6 @@ type DirectoryPageState =
       readonly myTeamId: string | null;
     };
 
-/** 참여 팀은 공개 현황 조회만 소유한다. 개인 팀 구성과 초대는 신청 화면의 책임이다. */
 export function ProgramTeamsPage({
   programId,
 }: {

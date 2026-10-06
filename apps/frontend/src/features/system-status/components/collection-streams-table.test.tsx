@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -11,8 +9,6 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
-// 정상(healthy) 저장소 — PULL_REQUEST stream이 아예 없다(3종 중 2종만 존재하는 경우).
-// 프로그램 연결도 없다(discovery로만 편입된 경우) — em-dash로 보여야 한다.
 const beta: CollectionStreamRepository = {
   repositoryName: 'jnu-oss/beta',
   programName: null,
@@ -34,8 +30,6 @@ const beta: CollectionStreamRepository = {
   ],
 };
 
-// 알려진 오류 코드로 재시도 대기 중인 저장소. 프로그램 신청 OWN 경로로 편입된
-// 경우를 흉내내 programName이 채워져 있다.
 const alpha: CollectionStreamRepository = {
   repositoryName: 'jnu-oss/alpha',
   programName: '오픈소스 입문 프로그램',
@@ -64,7 +58,6 @@ const alpha: CollectionStreamRepository = {
   ],
 };
 
-// bucket은 READY로 회복했지만 알 수 없는(매핑되지 않은) 오류 코드가 남아 있는 저장소.
 const gamma: CollectionStreamRepository = {
   repositoryName: 'jnu-oss/gamma',
   programName: null,
@@ -79,7 +72,6 @@ const gamma: CollectionStreamRepository = {
   ],
 };
 
-// PARTIAL bucket이지만 오류 기록은 없는 저장소.
 const delta: CollectionStreamRepository = {
   repositoryName: 'jnu-oss/delta',
   programName: null,
@@ -137,13 +129,11 @@ describe('CollectionStreamsTable', () => {
     expect(tableText()).toContain('Release');
     expect(tableText()).toContain('Issue');
     expect(tableText()).toContain('문제');
-    // PULL_REQUEST stream이 없는 저장소는 em-dash로 표시한다.
+
     expect(tableText()).toContain('—');
   });
 
   it('문제(비-READY 버킷 또는 오류)가 있는 저장소를 먼저, 그다음 이름순으로 정렬한다', async () => {
-    // 알파벳순이면 alpha, beta, delta, gamma지만 문제 저장소(alpha, delta, gamma)가
-    // 먼저 오고, 정상인 beta는 맨 뒤로 밀려야 한다.
     await renderTable([beta, gamma, delta, alpha]);
     expect(repositoryRows()).toEqual([
       'jnu-oss/alpha',
@@ -163,21 +153,20 @@ describe('CollectionStreamsTable', () => {
 
   it('오류가 없는 저장소의 문제 열은 em-dash를 표시한다', async () => {
     await renderTable([beta]);
-    // 열 순서: 저장소, 프로그램, 커밋, PR, 릴리즈, 이슈, 문제 — 문제 열은 index 6.
+
     const problemCell = container.querySelectorAll('tbody td')[6];
     expect(problemCell?.textContent).toBe('—');
   });
 
   it('저장소가 프로그램에 연결돼 있으면 프로그램 이름을, 없으면 em-dash를 표시한다', async () => {
     await renderTable([alpha, beta]);
-    // 열 순서상 프로그램은 2번째(index 1) 열이다.
+
     const rows = [...container.querySelectorAll('tbody tr')];
     const programCellOf = (row: Element) =>
       row.querySelectorAll('td')[1]?.textContent;
     expect(programCellOf(rows[0]!)).toBe('오픈소스 입문 프로그램');
     expect(programCellOf(rows[1]!)).toBe('—');
-    // "알 수 없음" 같은 오류처럼 보이는 문구는 쓰지 않는다 — 연결이 없는 것은
-    // 정상 상태다.
+
     expect(tableText()).not.toContain('알 수 없음');
   });
 
@@ -197,7 +186,7 @@ describe('CollectionStreamsTable', () => {
         ],
       },
     ]);
-    // 열 순서상 Issue는 index 5, 문제는 index 6이다.
+
     const cells = container.querySelectorAll('tbody td');
     expect(cells[5]?.textContent).toContain('재시도 대기');
     expect(cells[6]?.textContent).toContain('저장소 접근 권한 없음');
@@ -218,7 +207,7 @@ describe('CollectionStreamsTable', () => {
       ),
     ).toBe(false);
     expect(tableText()).toContain('문제 3 / 전체 4');
-    // 토글이 없으니 모든 저장소가 (페이지 안에서) 항상 보인다.
+
     expect(tableText()).toContain('jnu-oss/beta');
     expect(tableText()).toContain('jnu-oss/alpha');
   });
@@ -235,9 +224,6 @@ describe('CollectionStreamsTable', () => {
   });
 
   it('저장소가 pageSize(10)를 넘으면 문제 저장소가 페이지를 넘기지 않아도 첫 페이지에서 보인다', async () => {
-    // 정상 저장소 12개(healthy1~12, 알파벳/사전순으로 문제 저장소보다 뒤에 옴) +
-    // 문제 저장소 1개(alpha). 토글 없이 pagination만으로도 문제 저장소가
-    // 3페이지가 아니라 1페이지에 보여야 한다(회귀 방지 — 이게 이 작업의 핵심 요구).
     const healthyRepos: CollectionStreamRepository[] = Array.from(
       { length: 12 },
       (_, i) => ({
@@ -258,12 +244,10 @@ describe('CollectionStreamsTable', () => {
     await renderTable([...healthyRepos, alpha]);
 
     expect(tableText()).toContain('문제 1 / 전체 13');
-    // 문제 저장소 alpha가 정렬로 맨 앞에 오고, 페이지 크기(10) 안에 들어와
-    // 토글 없이도 첫 페이지에서 곧바로 보인다.
+
     expect(repositoryRows()[0]).toBe('jnu-oss/alpha');
     expect(tableText()).toContain('jnu-oss/alpha');
 
-    // pagination nav도 함께 뜬다 — 13개를 10개씩 나누면 2페이지.
     const nav = container.querySelector('nav');
     expect(nav).not.toBeNull();
     expect(nav?.getAttribute('aria-label')).toBe('수집 대상 상세 페이지');

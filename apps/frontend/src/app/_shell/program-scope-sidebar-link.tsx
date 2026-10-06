@@ -26,9 +26,7 @@ export function ScopeSidebarLink({
   selected,
 }: ScopeSidebarLinkProps) {
   const depth = item.depth ?? 0;
-  // 상위 화면의 current와 그 안에서 고른 마일스톤의 selected는 서로 다른 상태다.
-  // 정확한 pathname만 current로 두어 프로그램 개요가 모든 하위 경로에서 강조되는
-  // prefix 오탐을 막는다.
+
   const current = depth === 0 && pathname === item.href;
   const showCount = !collapsed && item.count !== undefined;
   const collapsedLabel = `${item.label}${

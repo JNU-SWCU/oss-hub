@@ -32,7 +32,6 @@ export interface MilestoneDocumentsStaffRequest extends AuthenticatedRequest {
   milestoneDocumentActorId: string;
 }
 
-/** 서류 항목 CRUD·양식 업로드·집계 조회 등 교직원 전용 endpoint 앞단에 붙인다. */
 @Injectable()
 export class MilestoneDocumentsStaffGuard implements CanActivate {
   constructor(
@@ -56,8 +55,6 @@ export class MilestoneDocumentsStaffGuard implements CanActivate {
       throw this.staffOnly();
     }
 
-    // 교직원 접근과 관리자 접근은 서로 독립이다 — 어느 한쪽만 있어도 이 문을 지난다.
-    // 관리자가 곧 교직원은 아니지만, 이 화면은 두 권한 모두에게 열려 있던 자리다.
     if (!user.hasStaffAccess && !user.hasAdminAccess) {
       throw this.staffOnly();
     }

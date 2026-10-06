@@ -182,7 +182,6 @@ describe('system status api', () => {
       safeReason: null,
     };
     const request = vi.fn().mockResolvedValue(
-      // 구버전 백엔드 응답 그대로 — collectionStreams 필드 자체가 없다.
       new Response(JSON.stringify({ collection: dto }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -230,8 +229,6 @@ describe('system status api', () => {
       },
     ];
     const request = vi.fn().mockResolvedValue(
-      // collectionStreams는 이미 보내는(1단계 배포 완료) 구버전 백엔드 응답 —
-      // collectionActivity 필드만 없다.
       new Response(JSON.stringify({ collection: dto, collectionStreams }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -274,8 +271,6 @@ describe('system status api', () => {
     const collectionStreams: unknown[] = [];
     const collectionActivity: unknown[] = [];
     const request = vi.fn().mockResolvedValue(
-      // collectionStreams·collectionActivity는 이미 보내는(1·2단계 배포 완료) 구버전
-      // 백엔드 응답 — externalCollection 필드만 없다.
       new Response(
         JSON.stringify({
           collection: dto,

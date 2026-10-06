@@ -12,40 +12,26 @@ export enum ApplicationsErrorCode {
   PROGRAM_NOT_FOUND = 'APP_009',
   APPLICATION_PERIOD_CLOSED = 'APP_010',
   DUPLICATE_APPLICATION = 'APP_011',
-  // APP_012·APP_013은 참여 유형(TEAM_REQUIRED·TEAM_NOT_ALLOWED)이 쓰던 번호이고
-  // D6로 은퇴했다. 공개 계약이라 다른 의미로 재사용하지 않는다(ADR-004) —
-  // 구 클라이언트가 은퇴 코드를 옛 뜻으로 읽으면 오동작한다.
+
   TEAM_MEMBERSHIP_REQUIRED = 'APP_014',
   INVALID_ANSWERS = 'APP_015',
   TEMPLATE_VERSION_MISMATCH = 'APP_016',
   TEAM_NOT_FOUND = 'APP_017',
-  /** 목록·요약 등 조회용 — 판정 전용 문구 금지 (#106/#117). */
+
   STAFF_LIST_ONLY = 'APP_018',
   TEAM_MIN_SIZE_NOT_MET = 'APP_019',
   PROGRAM_ARCHIVED = 'APP_020',
-  /** SUBMITTED 등 판정 전이 아닌 상태에 REVERT를 시도. */
+
   APPLICATION_REVERT_INVALID_STATUS = 'APP_021',
-  /** OWN 연결인데 repositoryUrl이 정확한 GitHub 저장소 URL이 아닐 때. */
+
   OWN_REPOSITORY_URL_REQUIRED = 'APP_022',
-  // APP_023(APPLICATION_REVERT_BLOCKED)은 은퇴했다. 교직원이 드롭다운에서 고르는 세
-  // 상태는 어느 출발점에서도 항상 고를 수 있어야 해서, 프로비저닝 완료를 판정 차단
-  // 사유로 쓰지 않는다. 완료된 프로비저닝은 이제 보존 사유일 뿐이다
-  // (`applications.service.ts`의 `isProvisioningCompleted`).
-  // 번호는 재사용하지 않는다(ADR-004).
-  /** 신청 항목이 길이 상한을 넘었다 — 「올바르지 않다」와 갈라야 무엇을 줄일지 안다. */
+
   ANSWER_TOO_LONG = 'APP_024',
   REPOSITORY_CONNECTION_MODE_REQUIRED = 'APP_025',
   REPOSITORY_CONNECTION_MODE_FORBIDDEN = 'APP_026',
-  /**
-   * OWN 연결 URL의 형식은 유효하지만 GitHub에서 찾을 수 없거나 비공개다
-   * (제출 시점 사전 검증 — #9 QA econovation 배치). 형식 오류는 APP_022가 계속 맡는다.
-   */
+
   OWN_REPOSITORY_URL_UNREACHABLE = 'APP_027',
-  /**
-   * 이미 팀에 속한 학생의 신청은 **지금 그 팀의 팀장**만 제출할 수 있다(#1269).
-   * 팀원은 초대로 합류할 뿐 따로 신청하지 않는다. 새 번호를 쓴다 — 은퇴 코드도,
-   * 뜻이 다른 기존 APP_* 도 재사용하지 않는다(ADR-004).
-   */
+
   TEAM_LEADER_REQUIRED = 'APP_028',
 }
 

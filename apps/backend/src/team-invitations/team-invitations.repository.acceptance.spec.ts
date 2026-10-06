@@ -10,7 +10,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { AcceptInvitationOnOk } from './team-invitations.repository';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticTeamId = 'cuid-synthetic-team';
 const syntheticInviteeId = 'cuid-synthetic-invitee';
@@ -41,7 +40,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
 
   interface TxOptions {
     readonly invitation?: typeof invitationRow | null;
-    /** 팀 행을 잠근 뒤 다시 읽은 상태. */
+
     readonly lockedStatus?: { readonly status: string } | null;
     readonly invitee?: {
       readonly id: string;
@@ -52,10 +51,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     readonly memberCount?: number;
     readonly acceptedCount?: number;
     readonly create?: jest.Mock;
-    /**
-     * 팀의 「승인 + NEW + 발급 켜짐」 신청 목록. 기본은 빈 배열이다 —
-     * 조회 자체는 항상 일어나고, 대상이 없을 때만 outbox 쓰기가 없다.
-     */
+
     readonly approvedNewApplications?: readonly { readonly id: string }[];
     readonly createManyOutbox?: jest.Mock;
   }
@@ -174,7 +170,6 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     });
   });
 
-  /** 합류는 언제나 일반 구성원이다 — 이 트랜잭션은 팀장을 바꾸지 않는다. */
   it('만들어지는 TeamMember에 팀장 표식이 없고 Team.leaderId도 건드리지 않는다', async () => {
     const tx = buildTx();
 
@@ -198,10 +193,6 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     expect(tx.team.update).not.toHaveBeenCalled();
   });
 
-  /**
-   * 같은 프로그램의 남은 대기 초대만 종결한다 — 다른 프로그램의 PENDING 초대는
-   * `programId` 범위 밖이라 그대로 남는다.
-   */
   it('합류 뒤 같은 프로그램의 남은 PENDING 초대만 DECLINED로 종결한다', async () => {
     const tx = buildTx();
 
@@ -279,7 +270,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
       ],
       skipDuplicates: true,
     });
-    // 멤버 생성·감사 기록과 같은 트랜잭션 객체로만 쓴다 — 밖에서 다시 쓰지 않는다.
+
     expect(onOk).toHaveBeenCalledWith(
       { auditLogWriter: tx },
       expect.objectContaining({ teamId: syntheticTeamId }),
@@ -315,7 +306,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     const onOk = jest.fn().mockResolvedValue(undefined);
 
     await expect(accept(tx, syntheticInviteeId, onOk)).rejects.toBe(boom);
-    // 롤백 경계: 멤버 생성은 이미 호출됐지만 감사 기록은 남지 않는다.
+
     expect(tx.teamMember.create).toHaveBeenCalledTimes(1);
     expect(onOk).not.toHaveBeenCalled();
   });

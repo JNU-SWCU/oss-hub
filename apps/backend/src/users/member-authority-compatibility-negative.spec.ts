@@ -53,7 +53,6 @@ describe('member authority completion negative contract', () => {
   ] satisfies readonly (readonly [string, PatchUserProfileInput])[])(
     '%s fails closed',
     (_label, input) => {
-      // Given / When / Then
       expect(errorCode(() => buildProfileCompletion(student, input))).toBe(
         SystemErrorCode.VALIDATION_FAILED,
       );
@@ -61,10 +60,8 @@ describe('member authority completion negative contract', () => {
   );
 
   it('blank affiliation fails closed after normalization', () => {
-    // Given
     const input = { ...validStudentInput, department: '   ' };
 
-    // When / Then
     expect(errorCode(() => buildProfileCompletion(student, input))).toBe(
       SystemErrorCode.VALIDATION_FAILED,
     );
@@ -87,14 +84,12 @@ describe('member authority completion negative contract', () => {
     typeof student,
     PatchUserProfileInput,
   ])[])('%s fails closed', (_label, target, input) => {
-    // Given / When / Then
     expect(errorCode(() => buildProfileCompletion(target, input))).toBe(
       SystemErrorCode.VALIDATION_FAILED,
     );
   });
 
   it('duplicate student ID maps to the stable conflict code', async () => {
-    // Given
     const completeProfileIfUnchanged = jest
       .fn()
       .mockResolvedValue('student-id-taken');
@@ -108,10 +103,8 @@ describe('member authority completion negative contract', () => {
       requireCurrent: () => Promise.resolve(undefined),
     });
 
-    // When
     const completion = service.completeMyProfile(801020n, validStudentInput);
 
-    // Then
     await expect(completion).rejects.toMatchObject({
       errorCode: { code: 'USR_004', status: 409 },
     });

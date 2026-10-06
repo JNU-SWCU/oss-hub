@@ -92,10 +92,6 @@ beforeAll(async () => {
   await application.listen(0, '127.0.0.1');
   baseUrl = await application.getUrl();
 
-  // Isolated harness: real SessionGuard + ProblemDetailFilter so anonymous
-  // review-context requests prove the repository 401 contract without
-  // compromising the authenticated suite above. Staff guard is stubbed only
-  // for DI — SessionGuard rejects before it runs on anonymous requests.
   const unauthenticatedModuleRef = await Test.createTestingModule({
     controllers: [SubmissionReviewsController],
     providers: [

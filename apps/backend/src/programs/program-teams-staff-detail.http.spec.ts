@@ -16,13 +16,6 @@ import { ProgramTeamsController } from './controller/program-teams.controller';
 import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 import { ProgramTeamsService } from './service/program-teams.service';
 
-/**
- * 교직원 전용 팀 상세(GET /api/v1/programs/:programId/teams/:teamId, #874)를 실제
- * HTTP 파이프라인(SessionGuard + ProgramTeamsStaffGuard + ProblemDetailFilter)으로
- * 검증한다. 학생 토큰이 403 으로 막히는지, 없는 팀·다른 프로그램의 팀이 구분 없이
- * 404 로 응답하는지 본다. 응답 필드 allowlist 검증은
- * `program-teams-staff-detail-fields.http.spec.ts` 로 분리했다.
- */
 const allowedOrigin = 'http://frontend.test';
 const sessionSecret = new Uint8Array(32).fill(7);
 const PROGRAM_ID = 'synthetic-program';
@@ -112,7 +105,6 @@ afterAll(async () => {
 });
 
 it('ACTIVE STAFF 는 팀 상세를 200 으로 받는다', async () => {
-  // Given
   findUnique.mockResolvedValue({
     id: 'synthetic-staff',
     hasStaffAccess: true,
@@ -130,10 +122,8 @@ it('ACTIVE STAFF 는 팀 상세를 200 으로 받는다', async () => {
     deletionScope: DELETION_SCOPE,
   });
 
-  // When
   const response = await getTeamDetail(await sessionCookieFor(5001n));
 
-  // Then
   expect(response.status).toBe(200);
   await expect(response.json()).resolves.toEqual({
     teamId: TEAM_ID,
@@ -143,8 +133,7 @@ it('ACTIVE STAFF 는 팀 상세를 200 으로 받는다', async () => {
       { userId: 'user-a', name: '가나다', nickname: 'login-a', isLeader: true },
     ],
     application: null,
-    // 삭제 확인 창이 그대로 되돌려보낼 범위다 — 이 값이 응답에 없으면 화면은
-    // 무엇이 함께 지워지는지 말할 수 없고 `expectedScope` 를 지어낼 수도 없다.
+
     deletionScope: DELETION_SCOPE,
   });
   expect(getForStaff).toHaveBeenCalledWith(PROGRAM_ID, TEAM_ID);
@@ -157,13 +146,10 @@ it.each([
 ])(
   '%s 계정은 403 TEAM_003 으로 막히고 service 를 호출하지 않는다',
   async (_label, role, accountStatus) => {
-    // Given
     findUnique.mockResolvedValue({ id: 'synthetic-user', role, accountStatus });
 
-    // When
     const response = await getTeamDetail(await sessionCookieFor(5002n));
 
-    // Then
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
       type: 'about:blank',
@@ -176,7 +162,6 @@ it.each([
 );
 
 it('없는 팀·다른 프로그램의 팀은 구분 없이 404 TEAM_010 이다', async () => {
-  // Given
   findUnique.mockResolvedValue({
     id: 'synthetic-staff',
     hasStaffAccess: true,
@@ -187,10 +172,8 @@ it('없는 팀·다른 프로그램의 팀은 구분 없이 404 TEAM_010 이다'
     new DomainException(TEAMS_ERROR_CODES[TeamsErrorCode.TEAM_NOT_FOUND]),
   );
 
-  // When
   const response = await getTeamDetail(await sessionCookieFor(5003n));
 
-  // Then
   expect(response.status).toBe(404);
   await expect(response.json()).resolves.toMatchObject({
     type: 'about:blank',

@@ -64,7 +64,7 @@ const prFixture = (id: number, createdAt: string) => ({
   user: null,
   html_url: `https://github.test/pr/${id}`,
 });
-/** An item of the issue listing — `pullRequest` adds the `pull_request` key GitHub uses to mark PRs. */
+
 const issueListFixture = (
   id: number,
   createdAt: string,
@@ -841,8 +841,6 @@ describe('CollectionAppClient incremental contract', () => {
     });
 
     it('treats the stored cursor as already read although it was saved with milliseconds', async () => {
-      // The collector rebuilds the cursor from a DB timestamp (`.000Z`); GitHub writes the same
-      // instant without milliseconds. Nothing new means nothing read — not the cursor again.
       const fetcher = fetchMock().mockResolvedValue(
         json([
           prFixture(7, '2026-01-01T00:00:00Z'),
@@ -921,7 +919,7 @@ describe('CollectionAppClient incremental contract', () => {
           '/repos/o/r/issues?state=all&sort=created&direction=desc&per_page=100',
         ),
       );
-      // Only the issue survives, reduced to the stored fields (no title/body).
+
       expect(result.issues).toEqual([
         {
           id: '29',
@@ -1104,8 +1102,7 @@ describe('CollectionAppClient author-filtered commit history (GraphQL)', () => {
     expect(url).toEqual('https://api.github.test/graphql');
     expect(init?.method).toEqual('POST');
     const payload = sentPayload(fetcher);
-    // The whole point of this path: the server-side author filter must be
-    // on the wire, otherwise this degrades into a full-history scan.
+
     expect(payload.query).toContain('author: { id: $authorId }');
     expect(payload.variables).toMatchObject({
       owner: 'JNU-SWCU',
@@ -1141,8 +1138,6 @@ describe('CollectionAppClient author-filtered commit history (GraphQL)', () => {
   });
 
   it('stops at the configured page cap instead of looping forever', async () => {
-    // A single `Response` body can only be consumed once, so build a fresh
-    // one per call.
     const fetcher = fetchMock().mockImplementation(() =>
       Promise.resolve(
         historyBody([historyNode('abc')], {
@@ -1228,7 +1223,7 @@ describe('CollectionAppClient author-filtered commit history (GraphQL)', () => {
       ).resolveUserNodeId('octocat'),
     ).resolves.toEqual('MDQ6VXNlcjc=');
     expect(sentPayload(found).variables).toEqual({ login: 'octocat' });
-    // GitHub는 없는 login에 `data.user: null`과 함께 NOT_FOUND 오류를 돌려준다.
+
     await expect(
       new CollectionAppClient(
         graphqlConfig,
@@ -1315,8 +1310,7 @@ describe('CollectionAppClient author-filtered commit history (GraphQL)', () => {
       since: '2026-07-09T15:00:00Z',
       until: '2026-09-26T05:00:00Z',
     });
-    // No author filter (every author in the window) and no `nodes`, so no
-    // contributor identity is ever transferred.
+
     expect(payload.query).toContain('history(since: $since, until: $until)');
     expect(payload.query).toContain('totalCount');
     expect(payload.query).not.toContain('nodes');

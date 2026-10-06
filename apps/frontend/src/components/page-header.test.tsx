@@ -2,8 +2,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { PageHeader } from './page-header';
 
-// 기존 사용처(23곳)는 title/description만 넘긴다 — 새 props는 선택적이라
-// 넘기지 않아도 기존 렌더와 동일해야 한다.
 describe('PageHeader', () => {
   it('renders title and description unchanged when no override is given', () => {
     const html = renderToStaticMarkup(
@@ -56,10 +54,6 @@ describe('PageHeader', () => {
     expect(html).not.toContain('page-header-description');
   });
 
-  /**
-   * 제목 그 자체를 대상으로 하는 액션(예: 이름 수정)은 heading **밖**에 서야 한다.
-   * 안에 넣으면 버튼 라벨이 heading의 접근 가능한 이름에 섮인다.
-   */
   it('renders titleAction outside the heading element', () => {
     const html = renderToStaticMarkup(
       <PageHeader

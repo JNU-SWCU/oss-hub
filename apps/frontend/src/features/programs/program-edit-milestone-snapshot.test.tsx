@@ -1,5 +1,3 @@
-
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -215,11 +213,9 @@ describe('마일스톤 스냅샷 저장 상태', () => {
   }
 
   it('검증 실패후에도 폼과 초기 스냅샷의 dirty 판정을 유지한다', async () => {
-    // Given / When
     await editName('');
     await act(async () => button('마일스톤 저장').click());
 
-    // Then
     expect(nameInput().value).toBe('');
     expect(document.body.textContent).toContain(
       '마일스톤 이름을 입력해 주세요.',
@@ -228,25 +224,21 @@ describe('마일스톤 스냅샷 저장 상태', () => {
   });
 
   it('API 저장 실패 후에도 현재 폼과 dirty 상태를 유지한다', async () => {
-    // Given
     updateEditableMilestoneMock.mockRejectedValue(new TypeError('network'));
     await editName('저장 실패 기획서');
 
-    // When
     await act(async () => {
       button('마일스톤 저장').click();
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    // Then
     expect(nameInput().value).toBe('저장 실패 기획서');
     expect(document.body.textContent).toContain(
       '저장 결과를 확인할 수 없습니다. 입력은 유지됩니다.',
     );
     await assertExitGuarded();
 
-    // When: 실패 후 원래 이름으로 되돌린다.
     confirmMock.mockClear();
     await setName(milestone.name);
     const exitLink = Array.from(container.querySelectorAll('a')).find(
@@ -255,7 +247,6 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     if (exitLink === undefined) throw new TypeError('Missing exit link.');
     await act(async () => exitLink.click());
 
-    // Then: 저장 실패가 초기 스냅샷을 바꾸지 않아 exact revert는 clean 이다.
     expect(confirmMock).not.toHaveBeenCalled();
   });
 
@@ -406,7 +397,6 @@ describe('마일스톤 스냅샷 저장 상태', () => {
   });
 
   it('저장 성공은 편집기를 닫고 다시 열 때 저장된 스냅샷에서 clean으로 시작한다', async () => {
-    // Given
     const saved = { ...milestone, name: '저장된 기획서' };
     updateEditableMilestoneMock.mockResolvedValue({
       milestone: saved,
@@ -422,14 +412,12 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     });
     await editName(saved.name);
 
-    // When
     await act(async () => {
       button('마일스톤 저장').click();
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    // Then
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     getEditableMilestoneMock.mockResolvedValueOnce({
       milestone: saved,
@@ -454,24 +442,18 @@ describe('마일스톤 스냅샷 저장 상태', () => {
   });
 
   it('첫 편집의 변경사항을 취소하고 다른 마일스톤을 열면 두 번째 스냅샷에서 clean으로 시작한다', async () => {
-    // Given: 첫 마일스톤을 변경한 뒤 실제 닫기/변경사항 취소 동선을 따른다.
     await editName('취소할 기획서');
     await act(async () => button('취소').click());
     expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
     await act(async () => button('버리기').click());
     expect(document.querySelector('[role="dialog"]')).toBeNull();
 
-    // When: 두 번째 카드의 자신의 수정 버튼으로 연다.
     const secondEdit = editButton(secondMilestone.name);
     await act(async () => secondEdit.click());
     expect(nameInput().value).toBe(secondMilestone.name);
     const dialog = document.querySelector('[role="dialog"]');
     if (dialog === null) throw new TypeError('Missing milestone dialog.');
-    /*
-     * 단일 범위 편집기는 `layout="simple"` 이라 인라인 「시간 변경」 disclosure 가 없다.
-     * 날짜·시각은 「일정 입력」이 여는 `ProgramScheduleRangeDialog` 가 담당하고,
-     * 그 입력들은 id 가 아니라 `aria-label` 로 이름을 갖는다.
-     */
+
     const scheduleButton = dialog.querySelector<HTMLButtonElement>(
       `button[aria-label="${secondMilestone.name} 일정 입력"]`,
     );
@@ -483,7 +465,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
         ?.value;
     expect(timeValue(`${secondMilestone.name} 시작 시각`)).toBe('18:30');
     expect(timeValue(`${secondMilestone.name} 종료 시각`)).toBe('18:30');
-    // 중첩 다이얼로그만 닫는다 — 문서의 첫 「취소」는 마일스톤 다이얼로그 것이다.
+
     const openDialogs =
       document.querySelectorAll<HTMLElement>('[role="dialog"]');
     const rangeDialog = openDialogs[openDialogs.length - 1];
@@ -505,7 +487,6 @@ describe('마일스톤 스냅샷 저장 상태', () => {
         ?.getAttribute('aria-pressed'),
     ).toBe('true');
 
-    // Then: 열자마자 clean이고, 변경했다 정확히 되돌리면 다시 clean이다.
     expect(isBeforeUnloadGuarded()).toBe(false);
     await setName('임시 발표');
     expect(isBeforeUnloadGuarded()).toBe(true);

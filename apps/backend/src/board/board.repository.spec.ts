@@ -2,12 +2,11 @@ import { BoardPostCategory, MemberKind } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BoardRepository } from './board.repository';
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticPostId = 'cuid-synthetic-post';
 const syntheticCommentId = 'cuid-synthetic-comment';
 const syntheticAuthorId = 'cuid-synthetic-author';
-// 실명의 정본은 프로필 행뿐이다. 표시 역할은 canonical 세 사실에서 접는다.
+
 const expectedAuthorNameSelect = {
   nickname: true,
   hasStaffAccess: true,

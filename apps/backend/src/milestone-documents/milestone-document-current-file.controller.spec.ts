@@ -80,12 +80,10 @@ async function authenticatedHeaders(): Promise<{ readonly cookie: string }> {
 }
 
 it('같은 current bytes와 안전한 attachment 헤더 및 no-store를 반환한다', async () => {
-  // When
   const response = await fetch(currentFileUrl('synthetic-document'), {
     headers: await authenticatedHeaders(),
   });
 
-  // Then
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('private, no-store');
   expect(response.headers.get('content-type')).toBe('application/pdf');
@@ -106,7 +104,6 @@ it('같은 current bytes와 안전한 attachment 헤더 및 no-store를 반환�
 it.each(['cross-team', 'nonexistent'])(
   '%s 현재 파일을 같은 404 ProblemDetail로 감춘다',
   async (documentId) => {
-    // Given
     download.mockRejectedValueOnce(
       new DomainException(
         MILESTONE_DOCUMENTS_ERROR_CODES[
@@ -115,12 +112,10 @@ it.each(['cross-team', 'nonexistent'])(
       ),
     );
 
-    // When
     const response = await fetch(currentFileUrl(documentId), {
       headers: await authenticatedHeaders(),
     });
 
-    // Then
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({
       status: 404,
@@ -131,10 +126,8 @@ it.each(['cross-team', 'nonexistent'])(
 );
 
 it('미인증 요청은 current-file 조회 전에 AUT_003 401로 거부한다', async () => {
-  // When
   const response = await fetch(currentFileUrl('synthetic-document'));
 
-  // Then
   expect(response.status).toBe(401);
   expect(response.headers.get('cache-control')).toBe('private, no-store');
   await expect(response.json()).resolves.toMatchObject({
@@ -145,13 +138,11 @@ it('미인증 요청은 current-file 조회 전에 AUT_003 401로 거부한다',
 });
 
 it('SessionGuard만 붙여 미인증 요청을 401 경계에 둔다', () => {
-  // Given / When
   const handler: unknown = Object.getOwnPropertyDescriptor(
     MilestoneDocumentCurrentFileController.prototype,
     'downloadCurrentSubmissionFile',
   )?.value;
 
-  // Then
   expect(typeof handler).toBe('function');
   if (typeof handler !== 'function') return;
   expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([SessionGuard]);

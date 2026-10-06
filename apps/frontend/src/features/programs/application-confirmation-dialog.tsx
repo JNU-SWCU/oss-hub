@@ -15,19 +15,6 @@ export interface ApplicationActionDialogProps {
   readonly children?: ReactNode;
 }
 
-/**
- * 신청과 신청 전 팀 관리가 사용하는 동일한 확인 레이어. 되돌릴 수 없는 일을 묻기 때문에
- * 공용 껍데기의 `kind="alert"`를 쓴다(R-06).
- *
- * `onClose`는 사용자가 직접 닫은 경우(취소/Escape)에만 한 번 호출한다. 부모가 이
- * 컴포넌트를 언마운트해서 닫히는 경우에는 호출하지 않는다. Radix FocusScope는 언마운트
- * 정리를 매크로태스크로 미루기 때문에, 언마운트 시점에 `onClose`를 부르면 이미 새로 열린
- * 다이얼로그를 닫아 버린다(QA: 실패한 신청 재시도 확인창 소실).
- *
- * 확정 버튼은 누른다고 창을 닫지 않는다 — 처리 중 표시와 실패 알림을 이 창 안에서
- * 보여 줘야 하므로 닫는 시점은 부모가 정한다. 취소 버튼만 스스로 닫는다(예전
- * `AlertDialog.Cancel`이 하던 일을 손으로 메운 자리다).
- */
 export function ApplicationActionDialog({
   title,
   description,
@@ -53,9 +40,9 @@ export function ApplicationActionDialog({
       description={description}
       busy={submitting}
       returnFocusRef={returnFocusRef}
-      // 원래 폭(max-w-lg)을 유지한다 — 껍데기 기본값 md는 한 단계 넓다.
+
       className="max-w-lg"
-      // 본문이 없을 때 빈 칸이 한 줄 더 생기지 않게 한다(설명 ↔ 버튼 줄 간격 유지).
+
       bodyClassName={children ? undefined : 'mt-0'}
       onCancel={close}
       footer={

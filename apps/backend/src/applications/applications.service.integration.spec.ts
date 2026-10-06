@@ -18,7 +18,6 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { StudentApplicationManagementRepository } from './student-application-management.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
 
-// allow: SIZE_OK — 판정 트랜잭션 시나리오가 하나의 격리 PostgreSQL lifecycle을 공유한다.
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -159,8 +158,7 @@ describe('ApplicationsService integration', () => {
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
-    // 완료된 프로비저닝 보존 시나리오가 job을 직접 심는다. Application FK를 잡고 있으므로
-    // 신청보다 먼저 지우지 않으면 정리 자체가 실패한다.
+
     await prisma.repositoryProvisionJob.deleteMany({
       where: { applicationId: { in: [...APPLICATION_IDS] } },
     });
@@ -211,14 +209,10 @@ describe('ApplicationsService integration', () => {
   });
 
   afterAll(async () => {
-    // #547 이후 판정이 `AuditLog` 행을 남긴다. 그 원장은 append-only 트리거로 삭제가
-    // 금지돼 있고 actor를 FK(restrict)로 잡으므로, 여기서 actor를 지우면 정리 자체가
-    // 실패한다. 통합 DB는 run마다 버려지는 컨테이너라 합성 사용자 2명은 그대로 둔다.
     await prisma.$disconnect();
   });
 
   it('프로그램 최소 인원이 1보다 크면 1인 팀 자동 생성 신청을 거절한다', async () => {
-    // Given
     await prisma.program.create({
       data: {
         id: CREATE_PROGRAM_ID,
@@ -232,12 +226,11 @@ describe('ApplicationsService integration', () => {
         description: 'synthetic-description',
         teamMinSize: 2,
         teamMaxSize: 4,
-        // 저장소 연결 게이트(APP_026)를 지나 min-size 검사에 도달하도록 활성화한다.
+
         repositoryProvisioningEnabled: true,
       },
     });
 
-    // When
     const application = service.create(
       8_000_000_000_002n,
       CREATE_PROGRAM_ID,
@@ -250,7 +243,6 @@ describe('ApplicationsService integration', () => {
       new Date('2026-07-15T00:00:00.000Z'),
     );
 
-    // Then
     await expect(application).rejects.toMatchObject({
       errorCode: {
         code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET,
@@ -266,11 +258,9 @@ describe('ApplicationsService integration', () => {
     ).resolves.toBe(0);
   });
   it('신청을 승인하면 같은 트랜잭션에 outbox를 남긴다', async () => {
-    // Given
     const applicationId = APPLICATION_IDS[0];
     await createApplication(applicationId, true);
 
-    // When
     const result = await service.decide(
       ACTOR_ID,
       applicationId,
@@ -280,7 +270,6 @@ describe('ApplicationsService integration', () => {
       },
     );
 
-    // Then
     const application = await prisma.application.findUniqueOrThrow({
       where: { id: applicationId },
     });
@@ -318,7 +307,7 @@ describe('ApplicationsService integration', () => {
       lockedAt: null,
       lockedBy: null,
     });
-    // #547 — 판정과 같은 트랜잭션에서 typed audit이 실제 원장에 남는다.
+
     const auditLog = await prisma.auditLog.findFirstOrThrow({
       where: { targetType: 'APPLICATION', targetId: applicationId },
     });
@@ -327,8 +316,6 @@ describe('ApplicationsService integration', () => {
       action: 'APPLICATION_APPROVED',
     });
     expect(auditLog.metadata).toMatchObject({
-      // #736 — 감사 로그 target 라벨이 cuid 대신 프로그램 이름·신청자 핸들을
-      // 보여줄 수 있도록 판정 시점 스냅샷을 남긴다(schemaVersion 2).
       schemaVersion: 2,
       programName: `program-${applicationId}`,
       applicantGithubLogin: 'Synthetic-Applicant',
@@ -355,11 +342,9 @@ describe('ApplicationsService integration', () => {
   });
 
   it('저장소 기능이 꺼진 프로그램은 승인하고 outbox를 만들지 않는다', async () => {
-    // Given
     const applicationId = APPLICATION_IDS[1];
     await createApplication(applicationId, false);
 
-    // When
     const result = await service.decide(
       ACTOR_ID,
       applicationId,
@@ -369,7 +354,6 @@ describe('ApplicationsService integration', () => {
       },
     );
 
-    // Then
     expect(result).toMatchObject({
       status: ApplicationStatus.APPROVED,
       repositoryProvisioning: {
@@ -384,7 +368,6 @@ describe('ApplicationsService integration', () => {
   });
 
   it('팀 승인은 팀장과 팀원을 정규화한 snapshot으로 고정한다', async () => {
-    // Given
     const applicationId = APPLICATION_IDS[0];
     const programId = `${applicationId}-program`;
     const teamId = `${applicationId}-team`;
@@ -397,12 +380,10 @@ describe('ApplicationsService integration', () => {
       },
     });
 
-    // When
     await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
-    // Then
     const event = await prisma.outboxEvent.findUniqueOrThrow({
       where: { idempotencyKey: `repository-provision:${applicationId}` },
     });
@@ -418,11 +399,9 @@ describe('ApplicationsService integration', () => {
   });
 
   it('반려는 사유를 저장하고 outbox를 만들지 않는다', async () => {
-    // Given
     const applicationId = APPLICATION_IDS[2];
     await createApplication(applicationId, true);
 
-    // When
     await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.REJECT,
       reason: '합성 반려 사유',
@@ -431,7 +410,6 @@ describe('ApplicationsService integration', () => {
       where: { id: applicationId },
     });
 
-    // Then
     expect(application).toMatchObject({
       status: ApplicationStatus.REJECTED,
       rejectionReason: '합성 반려 사유',
@@ -451,11 +429,9 @@ describe('ApplicationsService integration', () => {
   });
 
   it('동시 승인은 상태와 idempotencyKey 기준 이벤트 한 건으로 수렴한다', async () => {
-    // Given
     const applicationId = APPLICATION_IDS[3];
     await createApplication(applicationId, true);
 
-    // When
     const decisions = await Promise.allSettled([
       service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
@@ -465,7 +441,6 @@ describe('ApplicationsService integration', () => {
       }),
     ]);
 
-    // Then
     expect(
       decisions.filter((result) => result.status === 'fulfilled'),
     ).toHaveLength(1);
@@ -480,11 +455,9 @@ describe('ApplicationsService integration', () => {
   });
 
   it('동시 반려는 CAS 승자 하나만 이력·알림을 남기고 패자는 부수효과가 0이다', async () => {
-    // Given: 두 교직원이 같은 검토대기 신청을 동시에 반려한다.
     const applicationId = APPLICATION_IDS[4];
     await createApplication(applicationId, false);
 
-    // When
     const decisions = await Promise.allSettled([
       service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
         action: APPLICATION_DECISION_ACTIONS.REJECT,
@@ -496,7 +469,6 @@ describe('ApplicationsService integration', () => {
       }),
     ]);
 
-    // Then: 한 쪽만 성공하고, 밀린 요청은 이력도 알림도 남기지 않는다.
     expect(
       decisions.filter((result) => result.status === 'fulfilled'),
     ).toHaveLength(1);
@@ -510,12 +482,11 @@ describe('ApplicationsService integration', () => {
         payload: { path: ['applicationId'], equals: applicationId },
       },
     });
-    // 수신자는 팀장 한 명이므로 정확히 한 건이다.
+
     expect(notifications).toBe(1);
   });
 
   it('남은 미완료 요청은 지우고 새 이벤트를 발행한다 — 먱등키 충돌 없음', async () => {
-    // Given
     const applicationId = APPLICATION_IDS[4];
     await createApplication(applicationId, true);
     const existing = await prisma.outboxEvent.create({
@@ -536,14 +507,10 @@ describe('ApplicationsService integration', () => {
       },
     });
 
-    // When
     const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
-    // Then — 승인은 항상 새 요청을 발행한다. 남은 이벤트를 재사용하면 컨슈머가
-    // 만든 고아 job이 FAILED_FINAL로 굳어 저장소가 영영 안 만들어질 수 있다.
-    // 멱등키가 유일하게 유지되므로 저장소가 두 번 만들어지지도 않는다.
     const approved = await decision;
     expect(approved).toMatchObject({
       kind: 'APPROVED',
@@ -579,7 +546,6 @@ describe('ApplicationsService integration', () => {
   });
 
   it('이미 판정된 신청은 409와 최신 상태를 반환한다', async () => {
-    // Given
     const applicationId = APPLICATION_IDS[5];
     await createApplication(applicationId, false);
     await prisma.application.update({
@@ -587,12 +553,10 @@ describe('ApplicationsService integration', () => {
       data: { status: ApplicationStatus.APPROVED },
     });
 
-    // When — #1272 이후 409는 **같은** 판정을 다시 보냈을 때만 난다.
     const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
-    // Then
     await expect(decision).rejects.toMatchObject({
       errorCode: {
         code: ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED,
@@ -603,7 +567,6 @@ describe('ApplicationsService integration', () => {
   });
 
   it('#1272 승인→반려: PATCH 한 번으로 전이하고 미완료 요청을 같은 트랜잭션에서 지운다', async () => {
-    // Given — 승인된 신청과 그때 남은 outbox 요청
     const applicationId = APPLICATION_IDS[8];
     await createApplication(applicationId, true);
     await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
@@ -613,7 +576,6 @@ describe('ApplicationsService integration', () => {
       prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
     ).resolves.toBe(1);
 
-    // When — 되돌리기 없이 곧바로 반려
     const result = await service.decide(
       ACTOR_ID,
       applicationId,
@@ -624,7 +586,6 @@ describe('ApplicationsService integration', () => {
       },
     );
 
-    // Then
     expect(result).toMatchObject({
       kind: 'REJECTED',
       status: ApplicationStatus.REJECTED,
@@ -637,11 +598,11 @@ describe('ApplicationsService integration', () => {
       rejectionReason: '합성 재판정 사유',
       processedById: ACTOR_ID,
     });
-    // 승인의 부수효과까지 거둔다 — 고아 job을 만들 수 있는 요청을 남기지 않는다.
+
     await expect(
       prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
     ).resolves.toBe(0);
-    // append-only 원장에 승인·반려 두 줄이 모두 남고, 반려의 before는 APPROVED다.
+
     const auditLogs = await prisma.auditLog.findMany({
       where: { targetType: 'APPLICATION', targetId: applicationId },
     });
@@ -667,7 +628,6 @@ describe('ApplicationsService integration', () => {
   });
 
   it('#1272 반려→승인: PATCH 한 번으로 전이하고 새 프로비저닝 이벤트를 발행한다', async () => {
-    // Given
     const applicationId = APPLICATION_IDS[9];
     await createApplication(applicationId, true);
     await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
@@ -675,7 +635,6 @@ describe('ApplicationsService integration', () => {
       reason: '합성 반려 사유',
     });
 
-    // When
     const result = await service.decide(
       ACTOR_ID,
       applicationId,
@@ -683,7 +642,6 @@ describe('ApplicationsService integration', () => {
       { action: APPLICATION_DECISION_ACTIONS.APPROVE },
     );
 
-    // Then
     const event = await prisma.outboxEvent.findUniqueOrThrow({
       where: { idempotencyKey: `repository-provision:${applicationId}` },
     });
@@ -703,12 +661,11 @@ describe('ApplicationsService integration', () => {
       status: ApplicationStatus.APPROVED,
       processedById: ACTOR_ID,
     });
-    // 반려 사유는 승인 전이에서 비워진다 — 승인된 신청이 사유를 들고 있으면 안 된다.
+
     expect(application.rejectionReason).toBeNull();
   });
 
   it('프로비저닝이 끝난 승인도 반려·되돌림·재승인이 다 되고 완료된 요청은 보존된다', async () => {
-    // Given — 승인 후 워커가 저장소를 실제로 만든 상태(job SUCCEEDED)
     const applicationId = APPLICATION_IDS[10];
     await createApplication(applicationId, true);
     await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
@@ -726,7 +683,6 @@ describe('ApplicationsService integration', () => {
       where: { idempotencyKey: `repository-provision:${applicationId}` },
     });
 
-    // When — 이전에 APP_023이 409로 막던 반려다.
     await expect(
       service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
         action: APPLICATION_DECISION_ACTIONS.REJECT,
@@ -734,7 +690,6 @@ describe('ApplicationsService integration', () => {
       }),
     ).resolves.toMatchObject({ kind: 'REJECTED' });
 
-    // Then — 반려는 들어가고, 이미 끝난 작업은 지워지 않는다.
     await expect(
       prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
     ).resolves.toMatchObject({ status: ApplicationStatus.REJECTED });
@@ -752,7 +707,6 @@ describe('ApplicationsService integration', () => {
       }),
     ).resolves.toMatchObject({ id: provisionedEvent.id });
 
-    // When — 되돌림도 같은 이유로 통과하고 보존한다.
     await expect(
       service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
         action: APPLICATION_DECISION_ACTIONS.REVERT,
@@ -764,7 +718,6 @@ describe('ApplicationsService integration', () => {
       }),
     ).resolves.toMatchObject({ id: provisionedJob.id });
 
-    // When — 재승인은 새 프로비저닝을 중복 발행하지 않는다.
     const reapproved = await service.decide(
       ACTOR_ID,
       applicationId,
@@ -772,7 +725,6 @@ describe('ApplicationsService integration', () => {
       { action: APPLICATION_DECISION_ACTIONS.APPROVE },
     );
 
-    // Then
     expect(reapproved).toMatchObject({
       kind: 'APPROVED',
       repositoryProvisioning: {
@@ -795,9 +747,6 @@ describe('ApplicationsService integration', () => {
       status: RepositoryProvisionJobStatus.SUCCEEDED,
     });
 
-    // 네 판정이 순서대로 쌓인다. 이 fixture는 `createApplication` 헬퍼가 Prisma로
-    // 직접 심어 생성 경로를 거치지 않으므로 SUBMITTED 사건은 없다 — 생성 경로의
-    // 최초 제출 이력은 `applications.create.service.spec.ts`가 따로 고정한다.
     const history = await prisma.applicationReviewHistory.findMany({
       where: { applicationId },
       orderBy: { occurredAt: 'asc' },
@@ -809,12 +758,11 @@ describe('ApplicationsService integration', () => {
       'REVERTED',
       'APPROVED',
     ]);
-    // 재제출이 없었으므로 회차는 전부 1이다.
+
     expect(history.every((row) => row.revision === 1)).toBe(true);
   });
 
   it('판정 사전 조회 후 학생 취소가 먼저 완료되면 404를 반환한다', async () => {
-    // Given
     const applicationId = APPLICATION_IDS[6];
     await createApplication(applicationId, false);
     const originalWithTransaction = repository.withTransaction.bind(repository);
@@ -831,8 +779,6 @@ describe('ApplicationsService integration', () => {
       .mockImplementationOnce((operation) =>
         originalWithTransaction((store) =>
           operation({
-            // #547 — 판정 전이와 감사 기록이 같은 트랜잭션에서 커밋되므로
-            // 경합 테스트의 대리 store도 감사 writer를 그대로 넘겨야 한다.
             auditLogWriter: store.auditLogWriter,
             appendReviewHistory: (input) => store.appendReviewHistory(input),
             findApplicationById: (id) => store.findApplicationById(id),
@@ -855,7 +801,6 @@ describe('ApplicationsService integration', () => {
         ),
       );
 
-    // When
     const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
@@ -867,7 +812,6 @@ describe('ApplicationsService integration', () => {
     );
     releaseDecision?.();
 
-    // Then
     await expect(decision).rejects.toMatchObject({
       errorCode: {
         code: ApplicationsErrorCode.APPLICATION_NOT_FOUND,
@@ -876,7 +820,6 @@ describe('ApplicationsService integration', () => {
     });
   });
   it('없는 신청은 404로 거부한다', async () => {
-    // When
     const decision = service.decide(
       ACTOR_ID,
       'synthetic-missing-application',
@@ -886,7 +829,6 @@ describe('ApplicationsService integration', () => {
       },
     );
 
-    // Then
     await expect(decision).rejects.toMatchObject({
       errorCode: {
         code: ApplicationsErrorCode.APPLICATION_NOT_FOUND,
@@ -896,7 +838,6 @@ describe('ApplicationsService integration', () => {
   });
 
   it('알림 기록 뒤 판정 트랜잭션 실패는 상태·감사·알림을 모두 롤백한다', async () => {
-    // Given
     const applicationId = APPLICATION_IDS[7];
     await createApplication(applicationId, true);
     const originalWithTransaction = repository.withTransaction.bind(repository);
@@ -926,12 +867,10 @@ describe('ApplicationsService integration', () => {
         ),
       );
 
-    // When
     const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
-    // Then
     await expect(decision).rejects.toMatchObject({
       errorCode: {
         code: ApplicationsErrorCode.DECISION_TRANSACTION_FAILED,

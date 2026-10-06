@@ -130,7 +130,7 @@ describe('RankingController', () => {
       'pullRequestCount',
       'rank',
     ]);
-    // 신원 여섯은 계층과 무관한 가드고, 구성원 지표 넷은 이 계층에서 빠진다.
+
     for (const excluded of [
       'department',
       'displayName',
@@ -201,7 +201,7 @@ describe('RankingController', () => {
       expect(body.items[0]).not.toHaveProperty(excluded);
     }
     expect(body.viewerClass).toBe('member');
-    // 세션에 딸린 응답은 공유 캐시에 담기면 안 된다.
+
     expect(headers.get('Cache-Control')).toBe('private, no-store');
     expect(headers.get('Vary')).toBe('Cookie');
   });

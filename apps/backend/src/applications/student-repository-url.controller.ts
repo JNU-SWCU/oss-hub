@@ -69,7 +69,6 @@ export class StudentRepositoryUrlController {
     });
   }
 
-  /** 팀장과 교직원이 같은 문을 쓴다 — 권한은 service가 판정한다. */
   @Patch('teams/:teamId/repository-url')
   @UseGuards(OriginGuard)
   updateForTeam(

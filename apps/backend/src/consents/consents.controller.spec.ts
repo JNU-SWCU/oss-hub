@@ -3,7 +3,6 @@ import { ConsentsController } from './consents.controller';
 import { ConsentsService } from './consents.service';
 import { CURRENT_CONSENT_POLICY } from './domain/consent-policy';
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticGithubId = 424242n;
 const request = {
   sessionGithubId: syntheticGithubId,

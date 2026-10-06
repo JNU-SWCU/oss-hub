@@ -1,7 +1,6 @@
 import { BoardPostCategory } from '@prisma/client';
 import { BoardPostSummaryResult } from '../board.service';
 
-/** `GET /programs/:programId/board/posts` 응답 목록 항목 하나. */
 export class BoardPostResponseDto {
   id: string;
   programId: string;

@@ -8,13 +8,6 @@ import {
   migrationStatements,
 } from './program-authoring-migration-test-support';
 
-/**
- * #1133 Issue 수집 마이그레이션이 두 출발점에서 모두 적용되는지 본다.
- *
- * - 새 DB: 격리 러너가 `prisma migrate deploy`로 전체 이력을 적용한 public 스키마.
- * - 직전 마이그레이션까지 적용된 DB: 이 마이그레이션이 건드리는 객체만 직전 모양으로 만든
- *   fixture 스키마에 마이그레이션 문장을 그대로 실행한다(`repository-release-removal` 선례).
- */
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -84,7 +77,6 @@ it('새 DB에 적용되면 ISSUE stream·issue 이력·issueCount가 스키마 �
   });
   expect(contribution.issueCount).toBe(0);
 
-  // 저장소가 지워지면 issue 이력도 다른 fact처럼 따라 지워진다.
   await prisma.githubRepository.delete({ where: { id: repository.id } });
   await expect(
     prisma.githubIssueHistory.count({
@@ -120,7 +112,6 @@ it('직전 마이그레이션까지 적용된 DB에 적용해도 기존 행을 �
     prisma,
     SCHEMA,
     async (transaction) => {
-      // ADD VALUE가 커밋된 뒤에는 기존 테이블에서 새 값을 바로 쓸 수 있다.
       await transaction.$executeRawUnsafe(
         `INSERT INTO "CollectionRepositoryStream" VALUES ('stream-issue', 'repository-before', 'ISSUE')`,
       );
@@ -138,7 +129,7 @@ it('직전 마이그레이션까지 적용된 DB에 적용해도 기존 행을 �
   );
 
   expect(after.labels).toEqual(STREAM_TYPES);
-  // 기존 집계 행은 그대로이고 새 칸만 0으로 채워진다.
+
   expect(after.contributions).toEqual([
     { commitCount: 3, pullRequestCount: 2, releaseCount: 1, issueCount: 0 },
   ]);

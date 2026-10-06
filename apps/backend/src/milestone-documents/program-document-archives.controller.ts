@@ -48,7 +48,7 @@ export class ProgramDocumentArchivesController {
       milestoneDocumentAttachmentDisposition(archive.fileName),
     );
     response.once('close', () => archive.body.destroy());
-    // Nest's default handler sends raw storage errors as a supposed ZIP.
+
     return new StreamableFile(archive.body).setErrorHandler((error) => {
       this.logger.error(
         `Program archive failed: programId=${programId} scope=${scope.kind}`,
@@ -56,7 +56,6 @@ export class ProgramDocumentArchivesController {
       );
       if (response.destroyed) return;
       if (response.headersSent) {
-        // end() can signal success for chunked output or wait for keep-alive with a short body.
         response.destroy();
         return;
       }

@@ -3,24 +3,6 @@ import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import type { Linter } from 'eslint';
 
-/**
- * ADR-003 DEC-42 — eslint.config.mjs가 강제하는 4가지 layered/collection 경계
- * 규칙을 실제 ESLint 설정(eslint.config.mjs)으로 검증한다. text grep이 아니라
- * ESLint Node API로 실제 파일을 실제 파서(AST)로 훑어 RED(위반 fixture가
- * 정확한 노드에서 실패)·GREEN(허용 패턴이 통과)·mutation(fixture를 살짝
- * 바꾸면 판정이 뒤집힘)을 함께 증명한다.
- *
- * fixture는 backend 루트(`{src,test,prisma}` 밖)가 아니라 실제 모듈 폴더
- * 안에 임시로 써야 glob(`src/<module>/**`)이 매치된다. 각 테스트가 파일을
- * 쓰고 lint한 뒤 즉시 지우므로 `pnpm lint`/`tsc`/`build`에는 절대 남지 않는다.
- *
- * Jest는 CJS/vm 샌드박스에서 실행되어 ESLint가 flat config(.mjs)를 로드할 때
- * 쓰는 동적 import()가 그 샌드박스 안에서는 실패한다
- * ("--experimental-vm-modules 없이 호출됐다"). 그래서 실제 lint 실행은
- * scripts/lint-fixture-runner.mjs를 평범한 Node 자식 프로세스로 띄워
- * 위임하고, 이 스펙은 결과 메시지만 JSON으로 받는다.
- */
-
 const backendRoot = path.join(__dirname, '..', '..');
 const runnerPath = path.join(backendRoot, 'scripts', 'lint-fixture-runner.mjs');
 const writtenFiles = new Set<string>();
@@ -74,13 +56,10 @@ export class LintFixtureRedControllerPrismaController {
 `;
 
     it('RED: controller가 PrismaService를 직접 import하면 정확히 그 import 노드에서 실패한다', () => {
-      // Given: programs 모듈의 controller가 PrismaService를 직접 주입받는다.
       writeFixture(redPath, redContent);
 
-      // When: 실제 eslint.config.mjs로 lint한다.
       const messages = boundaryMessages(lintFixture(redPath));
 
-      // Then: boundary/module-zone이 PrismaService import 줄(2행)에서 발화한다.
       expect(messages).toHaveLength(1);
       expect(messages[0]?.ruleId).toBe('boundary/module-zone');
       expect(messages[0]?.line).toBe(2);
@@ -90,7 +69,6 @@ export class LintFixtureRedControllerPrismaController {
     });
 
     it('mutation: 같은 import를 .service.ts로 옮기면(controller가 아니면) 위반이 사라진다', () => {
-      // Given: 정확히 같은 PrismaService import를 service 파일로만 옮긴다.
       const mutatedPath =
         'src/github/__lint_fixture_red_controller_prisma.mutated.service.ts';
       const mutatedContent = redContent
@@ -102,20 +80,12 @@ export class LintFixtureRedControllerPrismaController {
         );
       writeFixture(mutatedPath, mutatedContent);
 
-      // When: 같은 규칙으로 lint한다.
       const messages = boundaryMessages(lintFixture(mutatedPath));
 
-      // Then: 규칙이 "PrismaService import" 자체가 아니라 "controller 파일"이라는
-      // 정확한 노드/파일 컨텍스트에서만 발화함을 증명한다.
-      //
-      // fixture 를 `github` zone 에 두는 이유: service 계층의 Prisma 직접 사용은
-      // `programs`·`ranking` 에서 별도로 금지된다(ADR-010 §8). `github` 은 아직
-      // 그 이관이 끝나지 않아 규칙 대상이 아니므로, 여기서는 controller 규칙만 남는다.
       expect(messages).toHaveLength(0);
     });
 
     it('GREEN: controller가 service를 DTO 계약으로 참조하면 통과한다', () => {
-      // Given: controller가 Prisma가 아니라 같은 모듈의 service를 참조한다.
       writeFixture(
         'src/programs/__lint_fixture_green_service.ts',
         `export class LintFixtureGreenService {
@@ -144,10 +114,8 @@ export class LintFixtureGreenControllerServiceController {
 `,
       );
 
-      // When: lint한다.
       const messages = boundaryMessages(lintFixture(controllerPath));
 
-      // Then: controller→service DTO 경계는 위반이 없다.
       expect(messages).toHaveLength(0);
     });
   });
@@ -258,13 +226,10 @@ export async function useFixture(prisma: PrismaService): Promise<unknown> {
 `;
 
     it('RED: collection 밖에서 canonical* delegate에 직접 접근하면 그 MemberExpression 노드에서 실패한다', () => {
-      // Given: ranking이 CollectionReadPort를 거치지 않고 canonical delegate를 직접 만진다.
       writeFixture(redPath, redContent);
 
-      // When: lint한다.
       const messages = boundaryMessages(lintFixture(redPath));
 
-      // Then: no-restricted-syntax가 4행(prisma.canonicalOrganizationState)에서 발화한다.
       expect(messages).toHaveLength(1);
       expect(messages[0]?.ruleId).toBe('no-restricted-syntax');
       expect(messages[0]?.line).toBe(4);
@@ -272,7 +237,6 @@ export async function useFixture(prisma: PrismaService): Promise<unknown> {
     });
 
     it('mutation: 같은 자리에서 canonical delegate 대신 평범한 delegate(user)를 쓰면 위반이 사라진다', () => {
-      // Given: 속성 이름만 canonicalOrganizationState → user로 바꾼다.
       const mutatedPath = 'src/ranking/__lint_fixture_red_delegate.mutated.ts';
       const mutatedContent = redContent.replace(
         'prisma.canonicalOrganizationState',
@@ -280,16 +244,12 @@ export async function useFixture(prisma: PrismaService): Promise<unknown> {
       );
       writeFixture(mutatedPath, mutatedContent);
 
-      // When: lint한다.
       const messages = boundaryMessages(lintFixture(mutatedPath));
 
-      // Then: 셀렉터가 "prisma 사용" 전체가 아니라 canonical*라는 정확한
-      // property 이름에서만 발화함을 증명한다.
       expect(messages).toHaveLength(0);
     });
 
     it('GREEN: collection 구현 내부에서는 canonical* delegate 접근이 허용된다', () => {
-      // Given: collection 폴더 안(구현부)에 동일한 delegate 접근을 둔다.
       const insidePath = 'src/github/__lint_fixture_green_delegate_inside.ts';
       writeFixture(
         insidePath,
@@ -301,10 +261,8 @@ export async function useFixture(prisma: PrismaService): Promise<unknown> {
 `,
       );
 
-      // When: lint한다.
       const messages = boundaryMessages(lintFixture(insidePath));
 
-      // Then: collection 구현 내부는 예외이므로 위반 없음.
       expect(messages).toHaveLength(0);
     });
   });
@@ -319,13 +277,10 @@ export function useFixture(service: ProgramsService): ProgramsService {
 `;
 
     it('RED: collection 구현이 programs를 역참조하면 그 import 노드에서 실패한다', () => {
-      // Given: collection이 소비자 모듈(programs)을 거꾸로 import한다.
       writeFixture(redPath, redContent);
 
-      // When: lint한다.
       const messages = boundaryMessages(lintFixture(redPath));
 
-      // Then: boundary/module-zone이 1행에서 발화한다.
       expect(messages).toHaveLength(1);
       expect(messages[0]?.ruleId).toBe('boundary/module-zone');
       expect(messages[0]?.line).toBe(1);
@@ -333,7 +288,6 @@ export function useFixture(service: ProgramsService): ProgramsService {
     });
 
     it('mutation: 같은 collection 파일에서 실제로 의존하는 auth 모듈을 import하면 위반이 사라진다', () => {
-      // Given: collection이 실제로 의존하는 공유 모듈(auth)을 import하도록 바꾼다.
       const mutatedPath =
         'src/github/__lint_fixture_red_reverse_import.mutated.ts';
       const mutatedContent = `import { AuthModule } from '../auth/auth.module';
@@ -344,24 +298,12 @@ export function useFixture(): typeof AuthModule {
 `;
       writeFixture(mutatedPath, mutatedContent);
 
-      // When: lint한다.
       const messages = boundaryMessages(lintFixture(mutatedPath));
 
-      // Then: 규칙이 "다른 모듈 import 전체"가 아니라 programs/ranking/system-status라는
-      // 정확한 소비자 모듈 목록에서만 발화함을 증명한다.
       expect(messages).toHaveLength(0);
     });
   });
 
-  // 이 저장소가 실제로 겪은 실패 모드를 고정한다.
-  //
-  // 예전 경계는 `../other/domain/*`·`../../other/domain/*` 같은 상대경로 문자열이었다.
-  // 그래서 깊이 3 이상(`src/a/b/c/file.ts`)에서는 `../../../other/...`가 패턴에
-  // 매치되지 않아 **규칙이 조용히 통과했다.** 회귀 fixture도 깊이 1에 고정돼
-  // 있었으므로 테스트는 GREEN인 채로 경계만 사라지는 상태였다.
-  //
-  // 계층 폴더 도입(`controller/`·`service/`·`repository/`)은 파일을 정확히 그
-  // 깊이로 밀어넣는 작업이므로, 이 커버리지가 없으면 이동과 동시에 경계가 증발한다.
   describe('규칙 5 — 경계는 상대경로 깊이에 의존하지 않는다', () => {
     const cases = [
       { depth: 1, dir: 'src/ranking', up: '..' },
@@ -371,7 +313,6 @@ export function useFixture(): typeof AuthModule {
 
     for (const { depth, dir, up } of cases) {
       it(`RED: 깊이 ${depth}에서 다른 모듈의 domain을 참조하면 실패한다`, () => {
-        // Given: 같은 위반을 서로 다른 중첩 깊이에 놓는다.
         const relPath = `${dir}/__lint_fixture_depth${depth}_domain.ts`;
         writeFixture(
           relPath,
@@ -381,10 +322,8 @@ export type Fixture = ProgramStatus;
 `,
         );
 
-        // When: lint한다.
         const messages = boundaryMessages(lintFixture(relPath));
 
-        // Then: 깊이와 무관하게 같은 규칙이 같은 자리에서 발화한다.
         expect(messages).toHaveLength(1);
         expect(messages[0]?.ruleId).toBe('boundary/module-zone');
         expect(messages[0]?.line).toBe(1);
@@ -392,7 +331,6 @@ export type Fixture = ProgramStatus;
       });
 
       it(`RED: 깊이 ${depth}에서 collection concrete 구현을 참조하면 실패한다`, () => {
-        // Given: 캡슐화 위반도 같은 깊이 축으로 검사한다.
         const relPath = `${dir}/__lint_fixture_depth${depth}_collection.ts`;
         writeFixture(
           relPath,
@@ -402,10 +340,8 @@ export type Fixture = CollectionReadService;
 `,
         );
 
-        // When: lint한다.
         const messages = boundaryMessages(lintFixture(relPath));
 
-        // Then: 공개 surface allowlist 밖이므로 깊이와 무관하게 막힌다.
         expect(messages).toHaveLength(1);
         expect(messages[0]?.ruleId).toBe('boundary/module-zone');
         expect(messages[0]?.message).toContain('concrete repository');
@@ -446,17 +382,8 @@ export const fixture = nextScheduledCollectionAt;
     }
   });
 
-  // 멤버십 outbox 생산자(programs·team-invitations Repository)는 승인/권한 동기화
-  // 이벤트 payload를 직접 조립하지 않고 github의 **순수 이벤트 계약**
-  // (repository-provision-event: type 상수 + factory + parser)만 공유한다.
-  // 이 계약 파일은 Prisma delegate·GitHub client·concrete repository를 전혀
-  // 쓰지 않으므로 공개 surface지만, 같은 zone의 소비 구현(consumer/worker/
-  // concrete repository)은 여전히 비공개다. 아래 3개는 그 경계를 한 쌍의
-  // GREEN/RED로 고정한다 — allowlist가 파일 하나가 아니라 폴더 전체로
-  // 넓어지면 RED 두 건이 즉시 무너진다.
   describe('규칙 6 — provision 이벤트 순수 계약만 공개, 구현은 비공개', () => {
     it('GREEN: 생산자 Repository가 repository-provision-event 순수 계약을 import하면 통과한다', () => {
-      // Given: programs Repository가 outbox payload factory를 공유한다.
       const relPath =
         'src/programs/repository/__lint_fixture_provision_event.allowed.repository.ts';
       writeFixture(
@@ -467,15 +394,12 @@ export const fixture = repositoryAccessSyncEventData;
 `,
       );
 
-      // When: 실제 eslint.config.mjs로 lint한다.
       const messages = boundaryMessages(lintFixture(relPath));
 
-      // Then: 공개 surface allowlist에 있으므로 위반이 없다.
       expect(messages).toHaveLength(0);
     });
 
     it('RED: 같은 생산자가 이 이벤트를 쓰는 github concrete repository를 import하면 여전히 막힌다', () => {
-      // Given: 계약 대신 그 계약을 소비하는 구현(concrete repository)을 끌어온다.
       const relPath =
         'src/programs/repository/__lint_fixture_provision_event.concrete.repository.ts';
       writeFixture(
@@ -486,10 +410,8 @@ export type Fixture = RepositoryProvisionStateRepository;
 `,
       );
 
-      // When: lint한다.
       const messages = boundaryMessages(lintFixture(relPath));
 
-      // Then: 이벤트 계약 공개가 github 폴더 전체를 열지 않았음을 증명한다.
       expect(messages).toHaveLength(1);
       expect(messages[0]?.ruleId).toBe('boundary/module-zone');
       expect(messages[0]?.line).toBe(1);
@@ -497,8 +419,6 @@ export type Fixture = RepositoryProvisionStateRepository;
     });
 
     it('RED: 이벤트를 소비하는 github 내부 구현(outbox consumer)은 계속 비공개다', () => {
-      // Given: 같은 zone의 소비 구현을 import한다 — 파일 이름이 계약과 비슷해도
-      // allowlist는 정확한 파일 이름만 연다.
       const relPath =
         'src/programs/repository/__lint_fixture_provision_event.consumer.repository.ts';
       writeFixture(
@@ -509,10 +429,8 @@ export type Fixture = RepositoryOutboxConsumer;
 `,
       );
 
-      // When: lint한다.
       const messages = boundaryMessages(lintFixture(relPath));
 
-      // Then: prefix가 아니라 파일 단위 allowlist임을 고정한다.
       expect(messages).toHaveLength(1);
       expect(messages[0]?.ruleId).toBe('boundary/module-zone');
       expect(messages[0]?.line).toBe(1);
@@ -520,12 +438,9 @@ export type Fixture = RepositoryOutboxConsumer;
     });
   });
 
-  // #1427 — 운영 코드(src의 테스트가 아닌 파일)가 테스트 코드를 다시 알게 되는
-  // 것을 lint로 막는다. 세 규칙(a/b/c)마다 위반·허용 fixture를 한 쌍씩 고정한다.
   describe('규칙 7 — 운영 코드는 테스트 코드를 참조하지 않는다 (#1427)', () => {
     describe('a. boundary/module-zone testBoundary — apps/backend/test/** import 금지', () => {
       it('RED: 운영 파일이 apps/backend/test/e2e-program-authoring을 import하면 그 import 노드에서 실패한다', () => {
-        // Given: programs 모듈의 운영 파일이 E2E 전용 외부 포트를 직접 끌어온다.
         const redPath = 'src/programs/__lint_fixture_red_test_boundary.ts';
         writeFixture(
           redPath,
@@ -535,10 +450,8 @@ export const fixture = e2eProgramAuthoringExternalPorts;
 `,
         );
 
-        // When: 실제 eslint.config.mjs로 lint한다.
         const messages = boundaryMessages(lintFixture(redPath));
 
-        // Then: boundary/module-zone이 1행(import 노드)에서 발화한다.
         expect(messages).toHaveLength(1);
         expect(messages[0]?.ruleId).toBe('boundary/module-zone');
         expect(messages[0]?.line).toBe(1);
@@ -546,8 +459,6 @@ export const fixture = e2eProgramAuthoringExternalPorts;
       });
 
       it('GREEN: 테스트 파일(.spec.ts) 자신이 같은 경로를 import하면 면제된다', () => {
-        // Given: 같은 import를 테스트 파일에 두면 self-exemption이 적용된다 —
-        // 테스트가 테스트(E2E 대역)를 참조하는 건 정상이다.
         const greenPath =
           'src/programs/__lint_fixture_green_test_boundary.spec.ts';
         writeFixture(
@@ -562,17 +473,14 @@ describe('fixture', () => {
 `,
         );
 
-        // When: lint한다.
         const messages = boundaryMessages(lintFixture(greenPath));
 
-        // Then: 테스트 파일은 testBoundary 대상이 아니므로 위반이 없다.
         expect(messages).toHaveLength(0);
       });
     });
 
     describe('b. no-restricted-imports — @nestjs/testing 금지', () => {
       it('RED: 운영 파일이 @nestjs/testing을 import하면 실패한다', () => {
-        // Given: programs 모듈의 운영 파일이 E2E 조립 도구를 직접 끌어온다.
         const redPath = 'src/programs/__lint_fixture_red_nestjs_testing.ts';
         writeFixture(
           redPath,
@@ -582,10 +490,8 @@ export const fixture = Test;
 `,
         );
 
-        // When: lint한다.
         const messages = boundaryMessages(lintFixture(redPath));
 
-        // Then: no-restricted-imports가 1행(import 노드)에서 발화한다.
         expect(messages).toHaveLength(1);
         expect(messages[0]?.ruleId).toBe('no-restricted-imports');
         expect(messages[0]?.line).toBe(1);
@@ -593,7 +499,6 @@ export const fixture = Test;
       });
 
       it('GREEN: 테스트 파일(.spec.ts)은 @nestjs/testing을 import해도 된다', () => {
-        // Given: 같은 import를 테스트 파일에 둔다.
         const greenPath =
           'src/programs/__lint_fixture_green_nestjs_testing.spec.ts';
         writeFixture(
@@ -608,17 +513,14 @@ describe('fixture', () => {
 `,
         );
 
-        // When: lint한다.
         const messages = boundaryMessages(lintFixture(greenPath));
 
-        // Then: 테스트 파일은 제외 대상이므로 위반이 없다.
         expect(messages).toHaveLength(0);
       });
     });
 
     describe("c. no-restricted-syntax — NODE_ENV를 'test'와 비교하는 분기 금지", () => {
       it("RED: 운영 파일이 NODE_ENV를 'test'와 비교하면 그 BinaryExpression에서 실패한다", () => {
-        // Given: programs 모듈의 운영 파일이 "지금 테스트 중인가"로 분기한다.
         const redPath = 'src/programs/__lint_fixture_red_node_env_test.ts';
         writeFixture(
           redPath,
@@ -628,10 +530,8 @@ describe('fixture', () => {
 `,
         );
 
-        // When: lint한다.
         const messages = boundaryMessages(lintFixture(redPath));
 
-        // Then: no-restricted-syntax가 2행(비교식)에서 발화한다.
         expect(messages).toHaveLength(1);
         expect(messages[0]?.ruleId).toBe('no-restricted-syntax');
         expect(messages[0]?.line).toBe(2);
@@ -639,7 +539,6 @@ describe('fixture', () => {
       });
 
       it("GREEN: 테스트 파일(.spec.ts)은 NODE_ENV를 'test'와 비교해도 된다", () => {
-        // Given: 같은 비교식을 테스트 파일에 둔다 — 환경 조립·복원은 테스트의 일이다.
         const greenPath =
           'src/programs/__lint_fixture_green_node_env_test.spec.ts';
         writeFixture(
@@ -653,10 +552,8 @@ describe('fixture', () => {
 `,
         );
 
-        // When: lint한다.
         const messages = boundaryMessages(lintFixture(greenPath));
 
-        // Then: 테스트 파일은 no-restricted-syntax 대상이 아니므로 위반이 없다.
         expect(messages).toHaveLength(0);
       });
     });

@@ -57,7 +57,6 @@ async function requestMatrix(
 }
 
 it('exposes on-time delivery over the real route despite a late rejected revision', async () => {
-  // Given
   await harness.prisma.milestoneDocumentSubmission.update({
     where: { id: fixture.documentSubmission },
     data: {
@@ -89,9 +88,9 @@ it('exposes on-time delivery over the real route despite a late rejected revisio
       },
     },
   });
-  // When
+
   const response = await requestMatrix();
-  // Then
+
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('private, no-store');
   const body: unknown = await response.json();
@@ -127,14 +126,13 @@ it.each([
 ] as const)(
   'uses persisted creation time when first history is absent: %s',
   async (_, createdAt, deliveryStatus) => {
-    // Given
     await harness.prisma.milestoneDocumentSubmission.update({
       where: { id: fixture.documentSubmission },
       data: { createdAt },
     });
-    // When
+
     const response = await requestMatrix();
-    // Then
+
     expect(response.status).toBe(200);
     const body: unknown = await response.json();
     expect(body).toHaveProperty(
@@ -155,12 +153,11 @@ it.each([
 ] as const)(
   'does not require an %s item for delivery completion',
   async (_, required, kind) => {
-    // Given
     await harness.prisma.milestoneDocument.update({
       where: { id: fixture.notifyDocument },
       data: { required, kind },
     });
-    // When
+
     const matrix = await service.matrix(
       fixture.staffOnGithub,
       fixture.notifyProgram,
@@ -171,7 +168,7 @@ it.each([
         pageSize: 20,
       },
     );
-    // Then
+
     expect(matrix.rows).toHaveLength(4);
     expect(
       matrix.rows.flatMap((row) =>
@@ -182,7 +179,6 @@ it.each([
 );
 
 it('does not mistake an unrelated history event or later revision for the first submission', async () => {
-  // Given
   await harness.prisma.milestoneDocumentSubmission.update({
     where: { id: fixture.documentSubmission },
     data: {
@@ -205,7 +201,7 @@ it('does not mistake an unrelated history event or later revision for the first 
       },
     },
   });
-  // When
+
   const matrix = await service.matrix(
     fixture.staffOnGithub,
     fixture.notifyProgram,
@@ -216,7 +212,7 @@ it('does not mistake an unrelated history event or later revision for the first 
       pageSize: 20,
     },
   );
-  // Then
+
   expect(
     matrix.rows.find(
       (row) => row.applicationId === fixture.submittedApplication,
@@ -225,12 +221,11 @@ it('does not mistake an unrelated history event or later revision for the first 
 });
 
 it('excludes a rejected application and keeps the other program isolated', async () => {
-  // Given
   await harness.prisma.application.update({
     where: { id: fixture.submittedApplication },
     data: { status: 'REJECTED' },
   });
-  // When
+
   const matrix = await service.matrix(
     fixture.staffOnGithub,
     fixture.notifyProgram,
@@ -241,7 +236,7 @@ it('excludes a rejected application and keeps the other program isolated', async
       pageSize: 20,
     },
   );
-  // Then
+
   expect(matrix.total).toBe(3);
   expect(matrix.rows.map((row) => row.applicationId)).not.toContain(
     fixture.submittedApplication,
@@ -255,9 +250,8 @@ it('excludes a rejected application and keeps the other program isolated', async
 });
 
 it('blocks a student through real session and database role checks', async () => {
-  // Given / When
   const response = await requestMatrix(fixture.studentMissingGithub);
-  // Then
+
   expect(response.status).toBe(403);
   await expect(response.json()).resolves.toMatchObject({ code: 'SUB_015' });
 });

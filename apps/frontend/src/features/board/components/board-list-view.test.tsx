@@ -117,7 +117,7 @@ describe('BoardListContent', () => {
         })}
       />,
     );
-    // 정보 구조: 공지/질문이 한 목록, 제목·작성자·작성일·댓글 수
+
     expect(html).toContain('1차 중간 산출물 제출 안내');
     expect(html).toContain('제출 마감일 문의드립니다');
     expect(html).toContain('공지');
@@ -166,8 +166,6 @@ describe('BoardListContent', () => {
       />,
     );
 
-    // 문구가 화면 어딘가에 있는 것으로는 부족하다 — 그 칸이 가리키는 요소에 있어야
-    // 낭독기가 칸 이름 뒤에 이유를 읽는다.
     const title = openingTag(html, 'board-new-post-title');
     expect(title).toContain('aria-invalid="true"');
     expect(title).toContain('aria-describedby="board-new-post-title-error"');
@@ -255,8 +253,7 @@ describe('BoardListContent — 참여자가 아닌 학생(#1099)', () => {
     );
     expect(notParticipant).not.toContain('게시판을 불러오지 못했습니다');
     expect(notParticipant).not.toContain('다시 시도');
-    // 실패 경고 상자(Alert)도, 그것이 붙이는 `role="alert"`도 서지 않는다 —
-    // 이것은 실패가 아니라 정적으로 그려지는 상태다(docs/design.md §피드백·알림).
+
     expect(notParticipant).not.toContain('data-slot="alert"');
     expect(notParticipant).not.toContain('role="alert"');
   });

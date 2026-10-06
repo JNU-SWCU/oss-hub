@@ -236,7 +236,6 @@ test.describe('staff insights comparison UX', () => {
       ['tablet', 768],
       ['mobile', 375],
     ] as const) {
-      // Given: twelve long program names in the participation chart.
       await page.setViewportSize({ width, height: 1000 });
       await openInsights(page, insightsLong());
       await hideNextDevTools(page);
@@ -244,13 +243,11 @@ test.describe('staff insights comparison UX', () => {
         .getByText('참여 — 프로그램별', { exact: true })
         .locator('xpath=ancestor::*[@data-slot="card"][1]');
 
-      // When: the chart is rendered at each supported width.
       await card.scrollIntoViewIfNeeded();
       const chartViewport = card.locator(
         '[data-slot="participation-chart-viewport"]',
       );
 
-      // Then: all program labels remain separate without widening the page.
       await expectProgramChartLayout(page);
       const baseProgramLabelFontSize = await page
         .locator(PROGRAM_TICK_SELECTOR)

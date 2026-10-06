@@ -123,8 +123,6 @@ test.each([null, 'STAFF-42'] as const)(
 );
 
 test('학번·학과가 비어도 완료로 표시된 응답은 그대로 파싱한다', async () => {
-  // 역할마다 필수 항목이 다르고 응답에는 역할이 없다 — 관리자·교직원의 정상 응답을
-  // 파서가 모순으로 오판하면 안 된다.
   const staffProfile = { ...emptyProfile, isComplete: true };
   vi.stubGlobal(
     'fetch',
@@ -293,7 +291,7 @@ test.each([
   [401, 'AUT_003', 'unauthorized'],
   [422, 'CON_003', 'consent-required'],
   [409, 'USR_001', 'already-complete'],
-  // 재시도로 풀리지 않는 실패는 따로 분류해야 화면이 "잠시 후 다시"라고 말하지 않는다.
+
   [409, 'USR_004', 'student-id-taken'],
   [500, 'SYS_001', 'generic'],
 ] as const)(

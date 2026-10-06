@@ -22,10 +22,6 @@ import { TeamManagementListPageResponseDto } from './dto/team-management-list-re
 
 type ApplicationSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
-/**
- * 프로그램 신청 thin sibling — ProgramsController 와 분리.
- * POST 학생 신청 / GET 교직원 목록 (#104/#106)
- */
 @Controller('programs/:programId/applications')
 export class ProgramApplicationsController {
   constructor(
@@ -36,10 +32,6 @@ export class ProgramApplicationsController {
     >,
   ) {}
 
-  /**
-   * 교직원 목록. `view=team-management`면 팀 관리 화면용 lean projection을 돌려준다.
-   * 기본값은 `default`라 이 파라미터를 모르는 기존 클라이언트는 같은 응답을 받는다.
-   */
   @Get()
   @UseGuards(SessionGuard, ApplicationsStaffListGuard)
   async list(

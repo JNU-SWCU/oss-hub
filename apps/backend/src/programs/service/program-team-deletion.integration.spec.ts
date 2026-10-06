@@ -28,19 +28,6 @@ import { ProgramTeamsRepository } from '../repository/program-teams.repository';
 import { TeamsErrorCode } from '../teams-error-code.enum';
 import { ProgramTeamsService } from './program-teams.service';
 
-/**
- * 교직원 팀 삭제가 실제 DB에 남기는 사실을 확인한다.
- *
- * 왜 통합 테스트여야 하는가. 이 경로의 계약은 전부 PostgreSQL 의 실제 FK 와
- * 한 트랜잭션 안의 재확인이다 — `Application.team` 의 `onDelete: Restrict` 가 요구하는
- * 삭제 순서, `SubmissionFile.applicationId` 의 RESTRICT 를 DETACH 로 푸는 것,
- * `GithubRepository` 를 지우지 않아 그 아래 Cascade 수집 이력이 살아남는 것,
- * 그리고 확인 이후 범위가 움직이면 **아무것도** 지우지 않고 롤백되는 것. prisma 를
- * mock 하면 FK 도 롤백도 일어나지 않아 이 중 어느 것도 검증되지 않는다.
- *
- * 실제 writer 를 그대로 쓴다 — `ProgramTeamDeletionRepository` + `ProgramTeamsService`
- * + 진짜 `AuditLogService`/`AuditLogRepository`.
- */
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -70,10 +57,6 @@ const GITHUB_ID_BY_USER: ReadonlyMap<string, bigint> = new Map([
   [INVITEE_ID, INVITEE_GITHUB_ID],
 ]);
 
-/**
- * 감사 행은 지울 수 없으므로(`AuditLog` 는 DB 가 추가 전용을 강제한다) 팀 id 에 실행
- * nonce 를 붙여 지난 실행의 감사 행이 이번 실행의 단언에 섞이지 않게 한다.
- */
 const RUN_PREFIX = `${TEST_PREFIX}run-${randomUUID()}:`;
 
 const prisma = new PrismaService();
@@ -114,10 +97,6 @@ beforeEach(async () => {
   await cleanupTeamScope();
 });
 
-/**
- * 정리 순서가 곧 참조 순서다. `AuditLog` 와 그 actor 로 붙잡힌 사용자·프로그램은
- * 지우지 않고 격리 DB 폐기까지 남겨 둔다.
- */
 async function cleanupTeamScope(): Promise<void> {
   await prisma.notification.deleteMany({
     where: { userId: { startsWith: TEST_PREFIX } },
@@ -218,11 +197,6 @@ async function seedDurableFixturesOnce(): Promise<void> {
   });
 }
 
-/**
- * 승인된 팀 한 벌 — 팀·구성원 2명·대기 초대·승인된 신청·제출 헤더·불변 이력·판정 이력·
- * 첨부 파일·발급된 저장소(+수집 기여 1행)·provision job·outbox·판정 알림까지.
- * 「승인된 팀도 지울 수 있다」를 증명하려면 실제로 승인된 상태여야 한다.
- */
 async function seedApprovedTeam(
   programId: string = PROGRAM_ID,
 ): Promise<SeededTeam> {
@@ -332,7 +306,7 @@ async function seedApprovedTeam(
       publishedAt: new Date('2026-08-20T00:00:00.000Z'),
     },
   });
-  // DETACH 된 부모 아래에서 살아남아야 하는 수집 이력(onDelete: Cascade).
+
   await prisma.contribution.create({
     data: {
       repositoryId,
@@ -416,7 +390,7 @@ it('승인된 팀도 확인한 범위와 맞으면 팀과 그 아래가 함께 �
     members: 2,
     invitations: 1,
     submissions: 1,
-    // 첨부 파일 1 + 제출 이력 1 + 판정 이력 1.
+
     submissionEvents: 3,
     detachedRepositories: 1,
   });
@@ -490,8 +464,6 @@ it('승인된 팀도 확인한 범위와 맞으면 팀과 그 아래가 함께 �
   ).resolves.toBe(0);
 });
 
-// 이 저장소 행을 지우면 그 아래 수집 이력이 Cascade 로 함께 사라진다 — 팀 하나를
-// 지우려다 전역 수집 자산을 잃는다. 그래서 DELETE 가 아니라 DETACH 다.
 it('GithubRepository 는 지우지 않고 연결만 끊으며 수집 이력은 그대로 남는다', async () => {
   const fixture = await seedApprovedTeam();
 
@@ -516,8 +488,7 @@ it('GithubRepository 는 지우지 않고 연결만 끊으며 수집 이력은 �
     programId: null,
     applicationId: null,
     teamId: null,
-    // 공개 아카이브는 「발행된 행이면 program·application 이 있다」를 불변식으로 쓰고
-    // non-null 단언까지 한다 — 관계만 끊고 발행 표시를 남기면 그 조회가 500 이 된다.
+
     publishedAt: null,
     visibility: RepositoryVisibility.PUBLIC,
   });
@@ -558,7 +529,7 @@ it('첨부 파일은 지우지 않고 DELETE_PENDING 으로 넘기며 FK 를 모
     milestoneDocumentSubmissionHistoryId: null,
     deletedAt: null,
   });
-  // 실제 storage 삭제는 cleanup worker 몫이라 이 트랜잭션은 예약만 한다.
+
   expect(file.nextDeleteAttemptAt).not.toBeNull();
 });
 
@@ -593,14 +564,11 @@ it('감사에는 팀 이름과 함께 사라진 수치를 남긴다', async () =
       detachedRepositories: 1,
     },
   });
-  // 팀 이름은 seed 순번이 붙어 고정값이 아니므로 접두사만 본다.
-  // 매처를 객체 안에 섮지 않는 이유는 `expect.stringContaining` 이 any 를 돌려줘
-  // 타입 있는 metadata 모양으로 흐러들기 때문이다.
+
   const metadata = rows[0]?.metadata as { readonly teamName: string };
   expect(metadata.teamName).toContain('Team ');
 });
 
-// 확인 화면 이후에 생긴 행을 누르는 사람이 못 본 채 지우는 것을 막는다(409 TEAM_019).
 it('확인 이후 범위가 바뀌면 409 로 물러나고 아무것도 지우지 않는다', async () => {
   const fixture = await seedApprovedTeam();
   const staleScope = await currentScope(fixture.teamId);
@@ -660,7 +628,6 @@ it('409 는 화면이 다시 그릴 수 있도록 현재 범위를 함께 싣는
   }
 });
 
-// 구분해 응답하면 남의 프로그램에 그 id 의 팀이 있다는 사실이 샌다.
 it('다른 프로그램의 팀은 404 이고 그 팀은 그대로 남는다', async () => {
   const fixture = await seedApprovedTeam(OTHER_PROGRAM_ID);
   const expectedScope = await currentScope(fixture.teamId);
@@ -696,7 +663,6 @@ it('없는 팀도 같은 404 다', async () => {
   });
 });
 
-// 새 Guard 클래스를 두지 않으므로 이 판정이 유일한 문이다.
 it('팀장은 자기 팀도 지울 수 없다', async () => {
   const fixture = await seedApprovedTeam();
   const expectedScope = await currentScope(fixture.teamId);
@@ -716,11 +682,6 @@ it('팀장은 자기 팀도 지울 수 없다', async () => {
   ).resolves.toBe(1);
 });
 
-/**
- * 발급 이력은 신청·팀이 사라져도 남는다 — `applicationId` 를 FK 가 아닌 평범한
- * 컬럼으로 둔 이유다. FK 였다면 삭제가 막히거나 cascade 로 이력이 함께 사라졌을
- * 텐데, 그러면 이력이라고 부를 수 없다.
- */
 it('팀을 지워도 발급 이력은 남고 삭제를 막지도 않는다', async () => {
   const fixture = await seedApprovedTeam();
   const requestId = `${fixture.teamId}:issuance`;
@@ -752,7 +713,7 @@ it('팀을 지워도 발급 이력은 남고 삭제를 막지도 않는다', asy
     await expect(
       prisma.application.count({ where: { id: fixture.applicationId } }),
     ).resolves.toBe(0);
-    // 신청이 사라졌어도 그 신청을 가리키던 이력 행은 그대로 있다.
+
     const retained = await prisma.repositoryIssuanceHistory.findUnique({
       where: { requestId },
       select: { applicationId: true, outcome: true },
@@ -796,11 +757,6 @@ it('비활성 교직원도 막힌다', async () => {
   ).resolves.toBe(1);
 });
 
-/**
- * AC-21 — 팀 삭제는 팀원에게 반드시 알린다. 알림이 **삭제와 같은 커밋**에 들어가는지가
- * 이 절의 요점이다. 삭제가 먼저 커밋되고 알림이 나중에 실패하면 팀·신청·이력이 이미
- * 사라진 뒤라 수신자 원본조차 없어 재시도로도 복구되지 않는다(계획 시나리오 7).
- */
 function teamDeletedNotifications(teamId: string) {
   return prisma.notification.findMany({
     where: {
@@ -812,11 +768,9 @@ function teamDeletedNotifications(teamId: string) {
 }
 
 it('문구를 비우면 삭제 사실만 담은 알림이 팀원 전원에게 같은 커밋으로 남는다', async () => {
-  // Given
   const fixture = await seedApprovedTeam();
   const expectedScope = await currentScope(fixture.teamId);
 
-  // When
   await service.deleteForStaff(
     STAFF_GITHUB_ID,
     PROGRAM_ID,
@@ -824,7 +778,6 @@ it('문구를 비우면 삭제 사실만 담은 알림이 팀원 전원에게 �
     expectedScope,
   );
 
-  // Then: 팀장·팀원 두 명에게 한 행씩, 문구는 null 이다.
   const notifications = await teamDeletedNotifications(fixture.teamId);
   expect(notifications.map((row) => row.userId).sort()).toEqual(
     [LEADER_ID, MEMBER_ID].sort(),
@@ -835,18 +788,16 @@ it('문구를 비우면 삭제 사실만 담은 알림이 팀원 전원에게 �
     programId: PROGRAM_ID,
     message: null,
   });
-  // 팀은 실제로 사라졌다 — 알림만 남고 삭제가 안 된 게 아니다.
+
   await expect(
     prisma.team.findUnique({ where: { id: fixture.teamId } }),
   ).resolves.toBeNull();
 });
 
 it('문구를 채우면 그 문구가 알림 payload 에 함께 담긴다', async () => {
-  // Given
   const fixture = await seedApprovedTeam();
   const expectedScope = await currentScope(fixture.teamId);
 
-  // When
   await service.deleteForStaff(
     STAFF_GITHUB_ID,
     PROGRAM_ID,
@@ -855,7 +806,6 @@ it('문구를 채우면 그 문구가 알림 payload 에 함께 담긴다', asyn
     '  중복 신청이라 정리했습니다  ',
   );
 
-  // Then: 앞뒤 공백은 접어 저장한다.
   const notifications = await teamDeletedNotifications(fixture.teamId);
   expect(notifications).toHaveLength(2);
   for (const notification of notifications) {
@@ -866,7 +816,6 @@ it('문구를 채우면 그 문구가 알림 payload 에 함께 담긴다', asyn
 });
 
 it('알림 enqueue 가 실패하면 팀·신청·이력·감사가 하나도 사라지지 않는다', async () => {
-  // Given: 판정 이력까지 쌓아 둔 팀이다.
   const fixture = await seedApprovedTeam();
   await prisma.applicationReviewHistory.create({
     data: {
@@ -883,9 +832,6 @@ it('알림 enqueue 가 실패하면 팀·신청·이력·감사가 하나도 사
     where: { targetId: fixture.teamId },
   });
 
-  // When: enqueue 단계만 강제로 깨뜨린다. 서비스를 거치지 않고 repository 계약을 직접
-  //       본다 — 트랜잭션 client는 `prisma.notification`과 다른 객체라 전역 spy로는
-  //       그 안까지 닿지 않는다.
   const failure = await deletionRepository
     .deleteTeam(
       PROGRAM_ID,
@@ -913,7 +859,6 @@ it('알림 enqueue 가 실패하면 팀·신청·이력·감사가 하나도 사
     .then(() => null)
     .catch((caught: unknown) => caught);
 
-  // Then: 요청은 실패하고 아무것도 지워지지 않았다.
   expect(failure).not.toBeNull();
   await expect(
     prisma.team.findUnique({ where: { id: fixture.teamId } }),
@@ -933,7 +878,6 @@ it('알림 enqueue 가 실패하면 팀·신청·이력·감사가 하나도 사
 });
 
 it('같은 삭제를 재시도해도 수신자당 알림이 둘로 늘지 않는다', async () => {
-  // Given: 첫 삭제가 이미 알림을 남겼다.
   const fixture = await seedApprovedTeam();
   const expectedScope = await currentScope(fixture.teamId);
   await service.deleteForStaff(
@@ -945,7 +889,6 @@ it('같은 삭제를 재시도해도 수신자당 알림이 둘로 늘지 않는
   const first = await teamDeletedNotifications(fixture.teamId);
   expect(first).toHaveLength(2);
 
-  // When: 같은 팀 id 로 다시 지우려 한다(팀은 이미 없으므로 404 다).
   await expect(
     service.deleteForStaff(
       STAFF_GITHUB_ID,
@@ -955,15 +898,12 @@ it('같은 삭제를 재시도해도 수신자당 알림이 둘로 늘지 않는
     ),
   ).rejects.toBeDefined();
 
-  // Then: 멱등키가 수신자당 한 행을 고정한다.
   await expect(teamDeletedNotifications(fixture.teamId)).resolves.toHaveLength(
     2,
   );
 });
 
 it('수신자는 팀 행을 잠근 뒤의 실제 멤버십과 일치한다', async () => {
-  // Given: 팀원 한 명을 삭제 직전에 빼 둔다 — 잠금 앞 스냅샷을 쓰면 이 사람에게도
-  //        알림이 가고, 잠금 뒤에 읽으면 가지 않는다.
   const fixture = await seedApprovedTeam();
   const staleScope = await currentScope(fixture.teamId);
   await prisma.teamMember.deleteMany({
@@ -973,7 +913,6 @@ it('수신자는 팀 행을 잠근 뒤의 실제 멤버십과 일치한다', asy
   expect(staleScope.members).toBe(2);
   expect(currentScopeCounts.members).toBe(1);
 
-  // When
   await service.deleteForStaff(
     STAFF_GITHUB_ID,
     PROGRAM_ID,
@@ -981,13 +920,11 @@ it('수신자는 팀 행을 잠근 뒤의 실제 멤버십과 일치한다', asy
     currentScopeCounts,
   );
 
-  // Then
   const notifications = await teamDeletedNotifications(fixture.teamId);
   expect(notifications.map((row) => row.userId)).toEqual([LEADER_ID]);
 });
 
 it('팀 삭제는 그 팀의 판정 이력만 거두고 같은 프로그램의 다른 팀 이력은 남긴다', async () => {
-  // Given: 같은 프로그램에 두 팀이 각자 판정 이력을 갖는다.
   const target = await seedApprovedTeam();
   await prisma.teamMember.deleteMany({ where: { teamId: target.teamId } });
   const survivor = await seedApprovedTeam();
@@ -1008,7 +945,6 @@ it('팀 삭제는 그 팀의 판정 이력만 거두고 같은 프로그램의 �
   }
   const expectedScope = await currentScope(target.teamId);
 
-  // When
   await service.deleteForStaff(
     STAFF_GITHUB_ID,
     PROGRAM_ID,
@@ -1016,7 +952,6 @@ it('팀 삭제는 그 팀의 판정 이력만 거두고 같은 프로그램의 �
     expectedScope,
   );
 
-  // Then: 대상은 cascade 로 사라지고 비대상은 정확히 보존된다.
   await expect(
     prisma.applicationReviewHistory.count({
       where: { applicationId: target.applicationId },
