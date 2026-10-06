@@ -24,12 +24,20 @@ export function trackTypeLabel(trackType: ProgramTrackType): string {
   return PROGRAM_TRACK_TYPE_LABELS[trackType];
 }
 
-export function programDetailMeta(program: ProgramDetail): string {
-  const period = `${formatSeoulDateOnly(program.applicationPeriod.startsAt)} ~ ${formatSeoulDateOnly(program.applicationPeriod.endsAt)}`;
-  if (program.trackType === null) {
-    return `${program.organizer} · ${period}`;
-  }
-  return `${program.organizer} · ${trackTypeLabel(program.trackType)} · ${period}`;
+/**
+ * 상세 헤더 설명 줄의 두 조각. `period`는 무슨 기간인지 이름을 앞에 붙인
+ * 「신청 기간 시작 ~ 끝」 한 덩어리라, 화면은 이 조각을 줄바꿈 없이 묶어
+ * 그린다(#1464).
+ */
+export function programDetailMeta(
+  program: Pick<ProgramDetail, 'organizer' | 'trackType' | 'applicationPeriod'>,
+): { readonly context: string; readonly period: string } {
+  const context =
+    program.trackType === null
+      ? program.organizer
+      : `${program.organizer} · ${trackTypeLabel(program.trackType)}`;
+  const period = `신청 기간 ${formatSeoulDateOnly(program.applicationPeriod.startsAt)} ~ ${formatSeoulDateOnly(program.applicationPeriod.endsAt)}`;
+  return { context, period };
 }
 
 export function submissionLabel(status: SubmissionStatus): string {
