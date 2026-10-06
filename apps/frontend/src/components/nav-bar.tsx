@@ -58,8 +58,13 @@ interface NavBarProps extends Omit<React.ComponentProps<'nav'>, 'children'> {
  * actions는 `shrink-0`이라 서로 물러서지 않았기 때문이다. 폭을 나눠 갖게 만드는
  * 대신(그러면 둘 다 읽을 수 없게 잘린다) 좁은 화면에서는 메뉴를 접는다.
  *
- * 480px을 고른 이유: 실측상 겹침은 약 368px 아래에서 시작하고, 이 셸은 이미
- * 479px을 좁은 화면 경계로 쓰고 있다(shell-nav.tsx의 `max-[479px]:px-1`).
+ * 900px을 고른 이유(#1421): 처음엔 로그인 버튼 하나만 보고 480px로 정했는데, 로그인하면
+ * actions에 알림 벨·역할 배지·닉네임(768px 이상, 최대 112px)이 붙어 480px 위에서 다시
+ * 겹쳤다. 실측(main `f1a75d0c`, `/dashboard`)으로 교직원 480~515px, 학생 480~560px·
+ * 640~645px, 권한이 여럿인 계정 480~580px·640~670px·770~790px이었다. 900px은 이 셸이
+ * 사이드바를 드로어로 바꾸고 역할 배지를 「권한 N개」로 줄이는 좁은 화면 경계이고,
+ * 배지 셋·벨·최대 닉네임이 다 붙어도 900px에서 48px이 남는다. 폭이 아니라 내용으로
+ * 접힘을 정하려면 측정 코드가 필요해 고정 경계를 유지한다.
  *
  * 접힌 형태는 `<details>`/`<summary>`다 — 열림 상태를 브라우저가 들고 있어 이 컴포넌트가
  * 상태를 관리하지 않아도 되고, 여는 조작(클릭·Enter·Space)도 브라우저가 처리한다.
@@ -142,11 +147,11 @@ function NavBar({
           {brand}
         </div>
       ) : null}
-      {/* 좁은 화면(<480px) — 메뉴를 접어 actions와 자리를 다투지 않게 한다 */}
+      {/* 좁은 화면(<900px) — 메뉴를 접어 actions와 자리를 다투지 않게 한다 */}
       <details
         key={menuResetKey}
         data-slot="nav-bar-menu"
-        className="group relative min-w-0 flex-1 min-[480px]:hidden"
+        className="group relative min-w-0 flex-1 min-[900px]:hidden"
         // ⚠ `<details>`는 Escape로 닫히지 않는다 — `<dialog>`·popover와 달리 사양에
         // 그런 동작이 없다. 열어 둔 메뉴가 화면을 덮은 채 키보드로는 빠져나갈 수
         // 없어서, 포인터를 못 쓰는 사용자는 링크를 하나 눌러 화면을 옮기는 것 외에
@@ -216,7 +221,7 @@ function NavBar({
       </details>
       <ul
         data-slot="nav-bar-items"
-        className="hidden min-w-0 flex-1 items-center gap-0 min-[480px]:flex sm:gap-1"
+        className="hidden min-w-0 flex-1 items-center gap-0 min-[900px]:flex sm:gap-1"
       >
         {items.map((item) => (
           <li key={item.href}>
