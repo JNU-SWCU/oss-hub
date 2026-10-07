@@ -7,10 +7,6 @@ export const DEPARTMENT_COHORTS = {
 export type DepartmentCohort =
   (typeof DEPARTMENT_COHORTS)[keyof typeof DEPARTMENT_COHORTS];
 
-/**
- * Signup picker SW학과 group. Keep in lockstep with
- * `apps/frontend/src/lib/departments.ts`.
- */
 export const SW_MAJOR_DEPARTMENTS: readonly string[] = [
   '인공지능학부',
   '소프트웨어공학과',

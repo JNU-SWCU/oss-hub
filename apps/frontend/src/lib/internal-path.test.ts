@@ -12,8 +12,6 @@ describe('isInternalPath', () => {
     expect(isInternalPath(input)).toBe(true);
   });
 
-  // 여기부터가 이 검증기의 존재 이유다. 아래 형태가 하나라도 통과하면 우리
-  // 도메인에서 출발해 남의 사이트에 착지하는 open redirect가 열린다.
   it.each([
     ['절대 URL(https)', 'https://evil.example/login'],
     ['절대 URL(http)', 'http://evil.example'],

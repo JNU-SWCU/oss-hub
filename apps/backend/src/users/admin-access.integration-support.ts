@@ -51,13 +51,6 @@ class BarrierTransactionStore implements AdminAccessTransactionStore {
     return this.store.findActorByGithubId(githubId);
   }
 
-  /**
-   * 두 트랜잭션이 **잠금을 잡기 전에** 나란히 열려 있도록 만나게 한다.
-   *
-   * 배리어가 이보다 뒤에 있으면 안 된다 — `lockActiveAdmins`는 활성 ADMIN 행을 전부
-   * 잠그므로, 먼저 도착한 쪽이 잠금을 쥔 채 배리어에서 기다리면 다른 쪽은 그 잠금에
-   * 막혀 배리어에 영영 도착하지 못한다(교착).
-   */
   async lockActiveAdmins(): Promise<number> {
     await this.barrier.wait();
     return this.store.lockActiveAdmins();
@@ -128,13 +121,6 @@ export class BarrierAdminAccessRepository implements AdminAccessRepositoryPort {
   }
 }
 
-/**
- * 회수 트랜잭션을 **두 쓰기를 마친 뒤 커밋 직전**에 멈춰 세운다.
- *
- * 그 자리가 회수의 유일한 위험 구간이다 — `User.role`은 비었고 `REVOKED` 행도 들어갔지만
- * 아직 아무도 그 사실을 볼 수 없는 순간이라, 이때 로그인이 끼어들면 어떻게 되는지가
- * 실제로 확인해야 하는 것이다. 그래서 stub이 아니라 실 DB 잠금 위에서 멈춘다.
- */
 class RevocationPauseTransactionStore implements AdminAccessTransactionStore {
   constructor(
     private readonly store: AdminAccessTransactionStore,
@@ -226,14 +212,6 @@ export class PausingRevocationAdminAccessRepository implements AdminAccessReposi
   }
 }
 
-/**
- * TOCTOU 재검증 경쟁을 재현하기 위해 뮤테이션 트랜잭션을 두 지점에서 멈춰 세운다.
- *
- * `onFirstActorRead`는 잠금 이전의 unlocked 첫 actor 읽기 "직후"에, `onAfterLock`은
- * `lockActiveAdmins()` "직후"에 걸린다 — 재검증(두 번째 actor 읽기)은 절대 멈추지 않는다.
- * 두 훅이 각각 가리키는 것은 재검증이 막아야 하는 경쟁의 시작 지점과, 잠금이 실제로
- * 걸린 뒤의 경쟁이다.
- */
 class PausingActorRevalidationTransactionStore implements AdminAccessTransactionStore {
   private actorReadCount = 0;
 

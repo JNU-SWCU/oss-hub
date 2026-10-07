@@ -16,7 +16,7 @@ OSS Hub는 오픈소스 프로그램 탐색·신청·제출·리뷰, 역할 기�
   `apiPath`, `apiClient`, `apiFileClient`를 사용하고 `/api/v1`, `fetch`, 다운로드 파일명 파싱을 callsite에서 재구현하지 않는다.
 - `apps/backend/src/main.ts`는 `api/v1` prefix, transform + whitelist validation, global ProblemDetail filter를 설치한다.
 - backend 기능은 `AppModule`에 Nest module로 조립하고 runtime 설정은 `RUNTIME_CONFIG` DI token으로 받는다.
-  주석으로 정한 module import 순서를 보존한다. E2E 대역은 `apps/backend/test/e2e-program-authoring/main.ts`에서만 끼운다.
+  E2E 대역은 `apps/backend/test/e2e-program-authoring/main.ts`에서만 끼운다.
 - 업무 계층은 Controller → Service → Repository → Prisma다.
   PostgreSQL 직접 접근은 backend repository만 하며 controller와 일반 service의 Prisma 접근을 금지한다.
 - 공개 endpoint가 private table을 읽을 때는 owner-approved public query repository에서 명시적 `select`, public DTO allowlist, private/nonexistent 동일 404를 적용한다.
@@ -69,6 +69,7 @@ frontend·backend 애플리케이션은 호스트에서 hot reload로 실행하�
 
 - TypeScript 타입 경계를 유지하고 기존 feature/module 구조를 재사용한다.
   병렬 convention, speculative abstraction, silent compatibility fallback을 만들지 않는다.
+- 새 JS/TS 코드에 주석을 금지한다. `local/no-comments`는 `pnpm lint`가 검사하는 `apps/frontend`·`apps/backend` 경로에서만 강제하며 루트 `scripts/`·`.design-sync/`·`commitlint.config.cjs`는 lint 대상이 아니다. `.githooks/pre-commit`이 커밋될 내용(index) 중 두 앱의 lint 범위에 드는 파일에 같은 ESLint를 돌리고, eslint가 없으면 커밋을 막는다.
 - frontend는 화면/업무별 `features/`에 상태·타입·API를 가깝게 두고 여러 feature가 공유할 때만 `components/`나 `lib/`로 올린다.
 - browser-only 값은 hydration-safe effect에서 읽고 recoverable session failure는 명시적 retry UI로 보인다.
 - backend는 Nest DI와 module ownership을 사용하고 DTO validation, repository projection, ProblemDetail을 우회하지 않는다.

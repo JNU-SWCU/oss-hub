@@ -19,7 +19,7 @@ function isButtonDisabled(html: string, label: string): boolean {
   if (button === undefined) {
     throw new Error(`"${label}" 버튼을 찾지 못했습니다.`);
   }
-  // shadcn Button의 className에 `disabled:` 변형이 들어 있으므로 속성만 본다.
+
   return / disabled=""/.test(button);
 }
 
@@ -98,19 +98,16 @@ describe('AuditLogView', () => {
       />,
     );
 
-    // 서술문: 행위자·대상이 강조되고, target이 GitHub 로그인 형태라 '@' 접두가 붙는다.
     expect(html).toContain('synthetic-admin');
     expect(html).toContain('@synthetic-target');
     expect(html).toContain('님의 교직원 권한 요청을 승인했습니다');
-    // 2행: action 배지 + 한국어 targetType + target 라벨. 이 target(핸들)이 이미
-    // 풀린 값이라(isFallbackTarget이 false) 메타 라인도 targetId cuid 대신 그 라벨을
-    // 보여준다 — 서술문과 같은 값이 두 번 다른 모양(핸들 vs cuid)으로 겹치지 않는다.
+
     expect(html).toContain('data-variant="approved"');
     expect(html).toContain('승인');
     expect(html).toContain('권한 요청');
     expect(html).toContain('synthetic-target');
     expect(html).not.toContain('request-1');
-    // 발생 일시: 절대 시각은 항상 표시하고 <time dateTime>을 유지한다.
+
     expect(html).toContain('<time dateTime="2026-07-24T03:00:00.000Z"');
   });
 
@@ -167,7 +164,7 @@ describe('AuditLogView', () => {
     expect(html).toContain('권한 요청');
     expect(html).toContain('request-legacy');
     expect(html).not.toContain('@request-legacy');
-    // '님' 존칭이 코드체 폴백 값 뒤에 붙지 않는다(리뷰 지적 수정).
+
     expect(html).not.toContain('request-legacy님');
   });
 
@@ -216,10 +213,9 @@ describe('AuditLogView', () => {
       />,
     );
 
-    // 서술문: 이름이 보이고 '@' 접두는 붙지 않는다.
     expect(html).toContain('합성 프로그램 이름');
     expect(html).not.toContain('@합성 프로그램 이름');
-    // 메타 라인: 사용자가 지목한 지점 — 이름을 알면 cuid 원값 대신 이름을 보여준다.
+
     expect(html).not.toContain('cuid-synthetic-program-1');
   });
 
@@ -384,8 +380,7 @@ describe('AuditLogView', () => {
             action: 'COLLECTION_SYNC_TRIGGERED',
             targetType: 'COLLECTION_SYNC',
             targetId: 'run-synthetic-1',
-            // COLLECTION_SYNC는 스냅샷도 join도 없어 항상 이 폴백 형태다
-            // (resolveAuditTargetLabel 참고).
+
             target: 'COLLECTION_SYNC / run-synthetic-1',
             occurredAt: '2026-07-24T05:00:00.000Z',
           },
@@ -395,11 +390,8 @@ describe('AuditLogView', () => {
       />,
     );
 
-    // 문장에는 애초에 target이 없고(describe.test.ts에서 별도 검증), 메타
-    // 라인도 TARGETLESS_FALLBACK_TARGET_TYPES에 걸려 targetId(runId)를 아예
-    // 렌더하지 않는다 — 사람에게 의미 없는 실행 식별자를 그대로 노출하지 않는다.
     expect(html).not.toContain('run-synthetic-1');
-    // targetType 배지는 그대로 남아 이 행이 무엇에 대한 기록인지는 알 수 있다.
+
     expect(html).toContain('데이터 수집');
     expect(html).toContain('님이 데이터 수집을 수동 실행했습니다');
   });
@@ -424,9 +416,6 @@ describe('AuditLogView', () => {
       />,
     );
 
-    // PROGRAM은 TARGETLESS_FALLBACK_TARGET_TYPES에 없다 — 폴백이어도 targetId는
-    // 여전히 원본 참조값으로서 코드체로 남아야 한다(생략이 전체로 번지지 않았다는
-    // 부정 단언).
     expect(html).toContain('cuid-synthetic-program-3');
   });
 
@@ -576,8 +565,7 @@ describe('AuditLogView', () => {
             action: 'STAFF_ROLE_REQUEST_APPROVED',
             targetType: 'ROLE_REQUEST',
             targetId: 'request-1',
-            // 폴백 라벨(target === `${targetType} / ${targetId}`)로 둬서 이 테스트가
-            // 검증하려는 건 페이지네이션이지 target 라벨 로직이 아님을 명확히 한다.
+
             target: 'ROLE_REQUEST / request-1',
             occurredAt: '2026-07-24T03:00:00.000Z',
           },

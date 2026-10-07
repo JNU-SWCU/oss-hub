@@ -9,7 +9,6 @@ import { AdminAccessRepository } from './admin-access.repository';
 
 describe('AdminAccessRepository transaction store', () => {
   it('locks active admins deterministically before exposing CAS primitives', async () => {
-    // Given
     const operations: string[] = [];
     const updateUser = jest.fn().mockResolvedValue({ count: 1 });
     const updateRequest = jest.fn().mockResolvedValue({ count: 1 });
@@ -60,7 +59,6 @@ describe('AdminAccessRepository transaction store', () => {
     } as unknown as PrismaService);
     const decidedAt = new Date('2026-07-24T00:00:00.000Z');
 
-    // When
     const result = await repository.withTransaction(async (store) => ({
       activeAdminCount: await store.lockActiveAdmins(),
       target: await store.findUserForUpdate('target'),
@@ -88,7 +86,6 @@ describe('AdminAccessRepository transaction store', () => {
       auditWriter: store.auditLogWriter,
     }));
 
-    // Then
     expect(result).toMatchObject({
       activeAdminCount: 2,
       target: { id: 'target' },
@@ -127,7 +124,7 @@ describe('AdminAccessRepository transaction store', () => {
         decidedAt,
       },
     });
-    // 회수는 기존 행을 건드리지 않는다 — 새 REVOKED 행을 넣는 것이 전부다.
+
     expect(createRequest).toHaveBeenCalledWith({
       data: {
         userId: 'target',

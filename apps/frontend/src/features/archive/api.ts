@@ -123,14 +123,10 @@ function githubUrl(value: unknown, repositoryName: string): string {
     ) {
       return parsed;
     }
-  } catch {
-    // Invalid URLs are untrusted API data.
-  }
+  } catch {}
   return invalidResponse();
 }
 
-// GitHub username rule: alphanumeric or single hyphens, no leading/trailing
-// hyphen, max 39 chars — validated before building an external profile link.
 function githubLogin(value: unknown): string {
   const parsed = nonEmptyString(value);
   if (/^[A-Za-z0-9](?:-?[A-Za-z0-9]){0,38}$/.test(parsed)) return parsed;

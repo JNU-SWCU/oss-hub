@@ -31,10 +31,6 @@ export interface SubmissionRevisionFile {
   readonly downloadUrl: string;
 }
 
-/**
- * 백엔드 제출 본문 계약(`apps/backend/src/submissions/domain/submission-content.ts`)과
- * 한 벌이다. 서버는 이 두 형태 중 하나를 그대로 전달한다.
- */
 export interface SubmissionTextContent {
   readonly type: 'TEXT';
   readonly text: string;
@@ -57,10 +53,6 @@ export interface SubmissionRevision {
   readonly review: ReviewRecord | null;
 }
 
-/**
- * 공개 확정 게이트 2~5의 실패 사유.
- * 백엔드 `PUBLISH_BLOCKED_REASONS`(domain/submission-review.ts)와 한 벌이며 서버가 거절하는 조건과 같다.
- */
 export interface ReviewRepository extends RepositoryPublication {}
 
 export interface ReviewContext {

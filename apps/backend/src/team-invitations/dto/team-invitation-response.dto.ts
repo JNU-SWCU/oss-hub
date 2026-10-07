@@ -4,7 +4,6 @@ import type {
   TeamInvitationInvitee,
 } from '../team-invitations.repository';
 
-/** 보낸 초대 응답에 포함하는 초대 대상의 최소 표시 정보. */
 export class TeamInvitationInviteeResponseDto {
   id: string;
   nickname: string;
@@ -25,7 +24,6 @@ export class TeamInvitationInviteeResponseDto {
   }
 }
 
-/** `GET /team-invitations/teams/:teamId/sent` 및 생성 응답 항목 하나. */
 export class TeamInvitationResponseDto {
   id: string;
   teamId: string;

@@ -25,7 +25,6 @@ export class ProgramOverviewController {
     return ProgramOverviewResponseDto.from(overview);
   }
 
-  /** 프로그램 내 팀 목록 — 팀명·인원수·멤버 표시명·팀장 여부만. 저장소는 비공개. */
   @Get('teams')
   @Public()
   async listTeams(

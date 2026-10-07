@@ -14,21 +14,16 @@ import { useOptionalRankingNextCycleAt } from './ranking-cycle-context';
 import { ShellIcon } from './shell-icons';
 import { isCurrentSidebarItem, type SidebarGroup } from './sidebar-menu';
 
-/**
- * 데스크톱(≥900px) 전용 왼쪽 사이드 패널.
- * 모바일은 본문 칩/필터로 대체한다 — 가로 스크롤 아이콘 띠는 깨지기 쉽다.
- */
 interface AppSidebarProps {
   readonly groups: readonly SidebarGroup[];
   readonly pathname: string;
   readonly search?: string;
   readonly collapsed: boolean;
   readonly onToggle: () => void;
-  /** 브랜드 행. 없으면 첫 그룹 라벨. 대시보드 섹션은 `대시보드`로 고정한다. */
+
   readonly brandTitle?: string;
 }
 
-/** 사이드바 카운트 표시: 99 초과는 `99+`. 펼침 뱃지·툴팁/aria 공통. */
 export function formatSidebarCount(n: number): string {
   return n > 99 ? '99+' : String(n);
 }
@@ -66,7 +61,6 @@ export function AppSidebar({
       data-slot="app-sidebar"
       data-collapsed={collapsed ? 'true' : 'false'}
       className={cn(
-        // 모바일: 숨김 — 필터는 페이지 칩이 담당
         'hidden min-[900px]:flex min-[900px]:h-full min-[900px]:min-h-0 min-[900px]:flex-col min-[900px]:overflow-hidden',
         'border-sidebar-border bg-sidebar min-[900px]:border-r',
       )}
@@ -92,9 +86,6 @@ export function AppSidebar({
           aria-label={toggleLabel}
           title={toggleLabel}
           className={cn(
-            // Button의 ghost는 `aria-expanded`를 "이 버튼이 연 팝업이 열려 있음"으로 보고
-            // 눌린 표면(muted 채움)을 입힌다. 여기서 aria-expanded는 사이드바 영역이
-            // 펼쳐져 있다는 뜻이라 그 표면을 끈다.
             'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-foreground focus-visible:ring-sidebar-ring aria-expanded:bg-transparent aria-expanded:hover:bg-sidebar-accent aria-expanded:hover:text-sidebar-foreground',
             !collapsed &&
               'ml-auto border-sidebar-border text-muted-foreground aria-expanded:text-muted-foreground',
@@ -149,10 +140,6 @@ export interface AppSidebarNavProps {
   readonly brandTitle?: string;
 }
 
-/**
- * 그룹 렌더 본체 — `AppSidebar`(데스크톱 rail)와 `SidebarDrawer`(900px 미만 오버레이)가
- * 공유한다. 메뉴 데이터·아이콘·current 마커·aria-current 규약을 한 곳에서만 유지한다.
- */
 export function AppSidebarNav({
   groups,
   pathname,

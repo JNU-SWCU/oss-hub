@@ -18,32 +18,21 @@ import {
 } from '../../../audit-log/audit-log-metadata';
 import { PublicExposurePersonaHttpHarness } from './public-exposure-persona.http.integration-support';
 
-/**
- * 계획 todo 23 — public-exposure-matrix.integration.spec.ts(DB 레벨, 서비스 직접 조립)가
- * 미룬 "실제 wire-format" 증명을 real HTTP 응답 바디로 맡는다. 가드를 모킹하지 않고
- * 실제 SessionGuard/OriginGuard/SubmissionReviewsStaffGuard와 실제 AuditLogService의
- * ADMIN_ONLY 검사를 anonymous/STUDENT/STAFF/ADMIN 4-페르소나로 그대로 통과시킨다.
- */
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 
 const PREFIX = 'synthetic-exposure-persona';
-/** 실명이 채워진 persona — 공개 랭킹 응답에 이 문자열이 나오면 즉시 실패다. */
+
 const NAMED_PERSONA_REAL_NAME = 'synthetic-forbidden-persona-real-name';
 const NAMED_PERSONA_DEPARTMENT = 'synthetic-persona-department';
-/** 사람 축 관측 fixture 연도. 직전 연도에도 행을 심어 연도 필터를 증명한다. */
+
 const RANKING_FIXTURE_YEAR = 2026;
 const harness = new PublicExposurePersonaHttpHarness(PREFIX);
 
-// `harness.createUser`가 만드는 페르소나 nickname의 공통 접두사다(`${PREFIX}-http-<label>-<seq>-login`).
-// `GET /audit-logs`의 `actor` 필터는 `User.nickname`에 대한 contains라, 이 값 하나로 "이 파일의
-// 페르소나가 쓴 감사 행"만 남긴 창을 서버에서 만들 수 있다.
 const OWN_AUDIT_ACTOR_FILTER = `${PREFIX}-http-`;
 
-// #622 회귀 고정용 — 다른 스펙 파일이 같은 append-only AuditLog 테이블에 남기는 행을 흉내낸다.
-// `OWN_AUDIT_ACTOR_FILTER`에 일부러 걸리지 않는 이름을 쓴다(그래야 "이 파일 밖의 행"이 된다).
 const FOREIGN_SUITE_ACTOR_ID = 'synthetic-foreign-audit-suite-actor';
 const FOREIGN_SUITE_ROLE_REQUEST_ID =
   'synthetic-foreign-audit-suite-role-request';
@@ -51,7 +40,6 @@ const FOREIGN_SUITE_ROLE_REQUEST_ID =
 const PROGRAM_ID = `${PREFIX}-program`;
 const PUBLISHED_AT = new Date('2026-06-01T00:00:00.000Z');
 
-/** `GET /ranking` 이 허용하는 최대 pageSize(`ranking-query.dto.ts`). */
 const RANKING_MAX_PAGE_SIZE = 100;
 
 type RankingWireBody = {
@@ -59,17 +47,6 @@ type RankingWireBody = {
   readonly total: number;
 };
 
-/**
- * `GET /ranking` 응답 전 페이지를 실제 HTTP 로 모은다.
- *
- * 랭킹은 "canonical 학생 가입자는 전원이 행을 갖는다"가 제품 정책이라
- * (`ranking.repository.ts`), Postgres 를 공유하는 CI 에서는 형제 스펙이 심은 학생도
- * 같은 목록에 정당하게 들어온다. 기본
- * pageSize 는 20 이므로 첫 페이지만 보면 이 파일의 persona 가 0점 동률 뒤로 밀려
- * 보이지 않을 수 있다 — 실행 순서에 따라 초록/빨강이 갈리는 defect 다. 전 페이지를
- * 모으면 "이 persona 가 어떻게 보이는가"를 페이지 경계와 무관하게 못 박을 수 있고,
- * 그러면서도 persona 가 목록에서 통째로 빠지면 여전히 빨강이다.
- */
 async function fetchRankingPages(
   query: string,
   githubId?: bigint,
@@ -99,7 +76,7 @@ async function fetchRankingPages(
 }
 
 let studentPersona: Awaited<ReturnType<typeof harness.createUser>>;
-/** legacy `User.name` 이 비어 있는 두 번째 학생 — canonical 실명만 가진 행을 본다. */
+
 let canonicalOnlyStudentPersona: Awaited<ReturnType<typeof harness.createUser>>;
 let staffPersona: Awaited<ReturnType<typeof harness.createUser>>;
 let adminPersona: Awaited<ReturnType<typeof harness.createUser>>;
@@ -220,9 +197,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       },
     });
 
-    // 순위 노출은 권한이 아니라 canonical 회원 유형이 가른다 — 학생 persona만 STUDENT 유형을
-    // 달고, 교직원·관리자 persona는 STAFF 유형이라 같은 공개 라우트를 200으로 열면서도
-    // 순위 목록에는 실리지 않는다.
     studentPersona = await harness.createUser(
       'student',
       'STUDENT',
@@ -248,16 +222,13 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       MemberKind.STAFF,
     );
 
-    // 공개 라우트 4종(list/detail/profile/ranking)이 4-페르소나 모두에게 동일하게 열려
-    // 있음을 증명할 happy-path 공개 프로젝트.
     const published = await createRepositoryFixture({
       key: 'published',
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: PUBLISHED_AT,
     });
     publicProject = published;
-    // 같은 githubRepositoryId 행을 collection 관찰 필드로 갱신한다(#617 단계 D 이후
-    // applicationId 행과 collection 행은 같은 유일 행이라 별도 create가 P2002를 낸다).
+
     await harness.prisma.githubRepository.update({
       where: { id: published.repositoryId },
       data: {
@@ -279,16 +250,10 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         },
       ],
     });
-    // 옛 저장소 총계 행은 넣지 않는다 — `Contribution` 은 사람 축 하나이고
-    // 키가 (repositoryId, githubId, date) 라 위 행과 PK 가 충돌한다(ADR-010 §4).
 
-    // 공개 랭킹 실명 비노출을 실물 HTTP 응답으로 증명할 fixture — DB 에 실명이
-    // **채워져 있는데도** 응답에 나오지 않아야 한다. 동시에 연도가 둘인 사람 축 관측을
-    // 심어, 연도 질의가 요청한 해만 집계하는지(과거 연도 혼입 없음)도 같은 fixture 로 본다.
     await harness.prisma.user.update({
       where: { id: studentPersona.id },
       data: {
-        // 공개 응답의 실명과 소속은 canonical UserProfile에서 읽는다.
         profile: {
           update: {
             name: NAMED_PERSONA_REAL_NAME,
@@ -325,10 +290,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       ],
     });
 
-    // 4중 게이트를 전부 통과하는 PRIVATE 저장소 2개 — 하나는 STAFF가, 하나는 ADMIN이
-    // 실제 HTTP POST로 확정한다(둘 다 SubmissionReviewsStaffGuard를 통과해야 하는
-    // STAFF+ADMIN 게이트라는 걸 증명). AuditLog 라우트는 반대로 ADMIN 전용임을 별도로
-    // 증명한다 — 두 게이트의 범위가 다르다는 게 staff/admin regression의 핵심이다.
     gateRepoForStaff = await createRepositoryFixture({
       key: 'gate-staff',
       visibility: RepositoryVisibility.PRIVATE,
@@ -364,11 +325,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       await harness.prisma.team.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-      // AuditLog는 append-only다 — 이 파일이 만든 REPOSITORY_PUBLISHED 행은 지우지 않고,
-      // 그 행들이 actorId로 FK 참조하는 STAFF/ADMIN persona User도 `not: [...]`로 정리
-      // 대상에서 제외한다(`submission-reviews.integration.spec.ts`와 동일한 관행).
-      // 같은 이유로 `FOREIGN_SUITE_ACTOR_ID`도 남긴다 — 그 id는 `${PREFIX}-`로 시작하지
-      // 않으므로 아래 deleteMany의 대상이 아니다.
+
       await harness.prisma.user.deleteMany({
         where: {
           id: { startsWith: `${PREFIX}-` },
@@ -392,32 +349,18 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     ];
 
     const allBodies: unknown[] = [];
-    // Public class(익명) · Member class(ACTIVE, 교직·관리 권한 없는 STUDENT) —
-    // 실명 금지 검사는 이 둘에만 건다.
+
     const publicClassRankingItemLists: Record<string, unknown>[][] = [];
     const memberClassRankingItemLists: Record<string, unknown>[][] = [];
     const staffClassRankingItemLists: Record<string, unknown>[][] = [];
-    // 공개(익명) 랭킹 wire 는 딱 이 네 칸이다 — 닉네임과 commit/PR 집계뿐이고
-    // 학과·이슈·저장소·스타·합계·표시명은 공개 표면에서 제거됐다(공격 표면 축소, #1414).
-    /*
-     * 공개(익명) 랭킹 항목의 키 집합. **정확히 일치**를 요구한다 — 새 필드가 공개
-     * 표면에 새면 이 줄이 먼저 깨진다.
-     */
+
     const publicItemKeys = [
       'commitCount',
       'githubLogin',
       'pullRequestCount',
       'rank',
     ];
-    // 로그인 구성원(ACTIVE, 교직·관리 권한 없음) 랭킹 wire — 지표 전부를 더하지만
-    // 사람을 가리키는 값(이름·학과·표시명)은 여전히 없다.
-    /*
-     * 구성원 랭킹 항목의 키 집합. **정확히 일치**를 요구한다.
-     *
-     * 이슈·저장소·스타·합계는 #1234로 공개 표면에 의도적으로 넓혔다가 #1414로
-     * 구성원 계층 전용이 됐다. 커밋·PR과 같은 활동 집계라 같은 등급이며, 사람을
-     * 가리키는 값(이름·학과·표시명)은 아래에서 계속 막는다.
-     */
+
     const memberItemKeys = [
       'commitCount',
       'githubLogin',
@@ -428,7 +371,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       'starCount',
       'total',
     ];
-    // 교직원·관리자만 보는 rich 표 — 실명·학과·전 지표·합계를 싣는다.
+
     const staffItemKeys = [
       'commitCount',
       'department',
@@ -495,10 +438,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         userId: publicProject.applicantId,
         projects: [expect.objectContaining({ observed: true })],
       });
-      // 이 파일이 심은 persona 가 랭킹 목록에 실제로 있는지를 고정한다 — "뭔가 하나라도
-      // 있다"가 아니라 시드 코호트가 있다는 게 이 라우트가 열려 있다는 증거다.
-      // 순위에 오를 자격은 canonical 학생뿐이라, 같은 200 응답이더라도 교직·관리자
-      // persona 는 목록 안에 없어야 한다 — 라우트 개방과 행 자격은 다른 문제다.
+
       const rankedLogins = ranking.items.map(
         (item) => item.githubLogin as string,
       );
@@ -512,9 +452,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       expect(rankedLogins).not.toContain(adminPersona.nickname);
     }
 
-    // 공개(익명) 항목은 4칸뿐이다 — 실명·학과·표시명·이슈·저장소·스타·합계는 전부 빠진다.
-    // 구성원 항목은 지표 전부를 더하지만 사람을 가리키는 값은 여전히 빠진다.
-    // 교직원 항목은 `name`·`department`·전 지표를 더하고 displayName 은 여전히 githubLogin 이다.
     for (const items of publicClassRankingItemLists) {
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {
@@ -528,8 +465,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {
         expect(Object.keys(item).sort()).toEqual(memberItemKeys);
-        // 막아야 하는 것은 사람을 가리키는 값이다. 활동 집계(`total` 포함)는
-        // #1414로 구성원 계층까지 더해졌고 위 키 집합이 그 범위를 정확히 고정한다.
+
         expect(item).not.toHaveProperty('name');
         expect(item).not.toHaveProperty('department');
         expect(item).not.toHaveProperty('displayName');
@@ -558,10 +494,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       }
     }
 
-    // 동일 wire body가 4-페르소나 전부에서 반복 수집된다 — 아래 forbidden-key 검사는
-    // 이 실제 HTTP 직렬화 결과에 대해서만 의미가 있다(DB 레벨 파일은 raw 도메인 결과라
-    // githubId 등 내부 전용 필드가 남아 있어 이 검사를 미뤘다). `"department"` 는
-    // ranking 전용 공개 필드라 여기(list/detail/profile)에서는 여전히 금지다.
     const serialized = JSON.stringify(allBodies);
     for (const forbiddenKey of [
       '"name"',
@@ -585,9 +517,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     }
     const publicRankingSerialized = JSON.stringify(publicClassRankingItemLists);
     for (const forbiddenKey of [
-      // 사람을 가리키는 값·계정 정보·구성원 전용 지표를 막는다. 범위는 위
-      // `publicItemKeys` 정확 일치가 고정한다 — 여기에 다시 적으면 두 곳이 서로
-      // 다른 계약을 말하게 된다.
       '"name"',
       '"studentId"',
       '"department"',
@@ -606,9 +535,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     }
     const memberRankingSerialized = JSON.stringify(memberClassRankingItemLists);
     for (const forbiddenKey of [
-      // 사람을 가리키는 값과 계정 정보만 막는다. 이슈·저장소·스타·합계는 #1414로
-      // 구성원 계층에 의도적으로 들어왔고, 그 범위는 위 `memberItemKeys` 정확
-      // 일치가 고정한다.
       '"name"',
       '"studentId"',
       '"department"',
@@ -632,8 +558,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     ]) {
       expect(staffRankingSerialized).not.toContain(forbiddenKey);
     }
-    // DB 에 실명이 채워져 있는 persona 인데도 공개·구성원 계층 응답 바디에는 그
-    // 값이 없다.
+
     expect(publicRankingSerialized).not.toContain(NAMED_PERSONA_REAL_NAME);
     expect(memberRankingSerialized).not.toContain(NAMED_PERSONA_REAL_NAME);
   });
@@ -653,7 +578,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       admin.response.status,
     ]).toEqual([200, 200, 200, 200]);
 
-    // (g) 인증(구성원·교직원·관리자) 응답은 공유 캐시에 남지 않는다.
     expect(anonymous.response.headers.get('cache-control')).toBe('no-store');
     expect(student.response.headers.get('cache-control')).toBe(
       'private, no-store',
@@ -668,7 +592,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     );
     expect(admin.response.headers.get('vary')).toBe('Cookie');
 
-    // (a) 비로그인은 닉네임·commit/PR 집계만 보고 학과·실명은 보지 않는다.
     const anonymousEntry = anonymous.items.find(
       (item) => item.githubLogin === studentPersona.nickname,
     );
@@ -687,8 +610,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       NAMED_PERSONA_DEPARTMENT,
     );
 
-    // (b) STUDENT 세션 응답은 구성원 계층이다 — 지표 전부를 담지만 신원 값(이름·
-    // 학과·표시명)은 없고, 공개(익명) 응답과는 다른 모양이다.
     const studentEntry = student.items.find(
       (item) => item.githubLogin === studentPersona.nickname,
     );
@@ -705,7 +626,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     expect(studentEntry).not.toHaveProperty('name');
     expect(studentEntry).not.toHaveProperty('displayName');
 
-    // (c)(d) STAFF·ADMIN keep displayName as githubLogin and put 실명 on `name`.
     for (const staffClassItems of [staff.items, admin.items]) {
       const entry = staffClassItems.find(
         (item) => item.githubLogin === studentPersona.nickname,
@@ -717,11 +637,9 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         name: NAMED_PERSONA_REAL_NAME,
       });
     }
-    // ADMIN 응답은 STAFF 응답과 같다.
+
     expect(JSON.stringify(admin.items)).toBe(JSON.stringify(staff.items));
 
-    // (e) legacy `User.name` 이 비어 있어도 표기는 githubLogin 이고 실명 칸은 canonical
-    // 프로필을 그대로 실는다 — 순위에 오르는 행은 이제 전부 canonical 프로필을 갖는다.
     const canonicalOnlyProfile = await harness.prisma.userProfile.findUnique({
       where: { userId: canonicalOnlyStudentPersona.id },
       select: { name: true },
@@ -733,12 +651,11 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       displayName: canonicalOnlyStudentPersona.nickname,
       name: canonicalOnlyProfile?.name,
     });
-    // 교직원 persona 는 교직원 열람자 응답에서도 목록에 없다.
+
     expect(
       staff.items.some((item) => item.githubLogin === staffPersona.nickname),
     ).toBe(false);
 
-    // (f) 등수 순서는 네 계층이 완전히 같다 — 실명이 순서를 바트지 않는다.
     const order = (items: Record<string, unknown>[]) =>
       items.map((item) => `${String(item.rank)}:${String(item.githubLogin)}`);
     expect(order(student.items)).toEqual(order(anonymous.items));
@@ -757,11 +674,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     const entry = ranking.items.find(
       (item) => item.githubLogin === studentPersona.nickname,
     );
-    // fixture 는 올해 10/4/3/2/1, 지난해 1000×5 를 심었다 — 공개(익명) wire 는 commit/PR
-    // 집계만 노출하므로 올해 값이 그대로 보이고(지난해가 새면 12가 아니라 2012가 된다).
-    //
-    // 이슈·저장소·스타·합계·학과·표시명은 #1414로 구성원 계층 전용이 됐다 — 공개(익명)
-    // 응답에는 아예 없어야 한다. 그 가드는 아래 네 줄이 지킨다.
+
     expect(entry).toMatchObject({
       githubLogin: studentPersona.nickname,
       commitCount: 10,
@@ -780,8 +693,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       NAMED_PERSONA_DEPARTMENT,
     );
 
-    // 구성원 계층도 연도 질의는 그 해 관측만 합산한다 — 이슈 집계가 지난해 1000이
-    // 아니라 올해 3으로 보이면 연도 필터가 구성원 지표에도 적용된다는 증거다.
     const memberEntry = memberRanking.items.find(
       (item) => item.githubLogin === studentPersona.nickname,
     );
@@ -850,7 +761,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       visibility: RepositoryVisibility.PUBLIC,
     });
 
-    // 허용되지 않은 Origin은 SessionGuard를 통과해도 실제 OriginGuard가 별도로 막는다.
     const wrongOrigin = await harness.request(
       'POST',
       `/repositories/${gateRepoForAdmin.repositoryId}/publish`,
@@ -875,8 +785,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
   });
 
   it('GET /audit-logs — 익명은 401, STUDENT/STAFF는 403(ADMIN 전용), ADMIN만 200이고 action registry·no-forbidden-key를 만족한다', async () => {
-    // POST 테스트가 이미 REPOSITORY_PUBLISHED 행 2건을 만들어 뒀다(describe 블록 실행 순서
-    // 보장 — Jest는 같은 describe 안의 it을 정의 순서대로 순차 실행한다).
     const anonymous = await harness.request('GET', '/audit-logs');
     expect(anonymous.status).toBe(401);
     await expect(anonymous.json()).resolves.toMatchObject({ code: 'AUT_003' });
@@ -889,8 +797,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     expect(student.status).toBe(403);
     await expect(student.json()).resolves.toMatchObject({ code: 'AUD_001' });
 
-    // 핵심 회귀 포인트: 저장소 공개 확정은 STAFF도 되지만, 감사 로그 열람은 ADMIN 전용이다
-    // — 같은 "STAFF" 역할이 라우트에 따라 다른 결과를 받는다(staff/admin regression, todo 22).
     const staff = await harness.request(
       'GET',
       '/audit-logs',
@@ -899,17 +805,12 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     expect(staff.status).toBe(403);
     await expect(staff.json()).resolves.toMatchObject({ code: 'AUD_001' });
 
-    // #622 — 이 파일 밖의 스위트(`users/admin-access-mutation.integration.spec.ts`)가 같은
-    // append-only AuditLog 테이블에 남기는 행을 여기서 직접 재현한다. 그 스위트가 먼저 돌면
-    // 전역 "최근 N건" 창에 딱 이 모양의 행이 섞여 들어와 아래 금지 키 검사가 깨졌었다.
-    // 이 fixture 덕분에 "누가 먼저 도는가"와 무관하게 이 파일 하나로 격리를 증명한다.
     await harness.prisma.user.create({
       data: {
         id: FOREIGN_SUITE_ACTOR_ID,
         githubId: 8_970_000_000_001n,
         nickname: `${FOREIGN_SUITE_ACTOR_ID}-login`,
-        // 이 행의 actor 역할은 검사와 무관하다. append-only 원장이라 이 User는 FK 때문에
-        // 정리되지 않고 남으므로, 전역 ADMIN 수를 세는 다른 스펙과 얽히지 않게 STAFF로 둔다.
+
         selectedMemberKind: MemberKind.STAFF,
         hasStaffAccess: true,
       },
@@ -945,10 +846,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       },
     });
 
-    // 조회 창을 endpoint가 이미 제공하는 `actor` 필터로 이 파일의 페르소나가 쓴 행에 한정한다.
-    // 전역 최근 N건(`?limit=100`)을 그대로 보면 다른 스펙 파일이 만든 행이 창에 들어와 결과가
-    // 실행 순서에 좌우된다(#622). 좁히는 것은 "어느 데이터를 보는가"이며, 아래 금지 키 목록은
-    // 그대로 유지한다 — 노출 계약 자체는 조금도 무르게 하지 않는다.
     const admin = await harness.request(
       'GET',
       `/audit-logs?limit=100&actor=${encodeURIComponent(OWN_AUDIT_ACTOR_FILTER)}`,
@@ -960,9 +857,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       total: number;
     };
 
-    // 창이 실제로 닫혀 있다는 증거 — 방금 심은 외부 스위트 모방 행이 가장 최근 행인데도
-    // 응답에 없고, 이 파일이 만든 REPOSITORY_PUBLISHED 2건이 전부다. `limit=100`이 기대 건수보다
-    // 훨씬 넉넉하므로 이 2건은 잘려서가 아니라 필터로 좁혀진 결과다.
     expect(adminBody.total).toBe(2);
     expect([...adminBody.items].map((item) => item.targetId).sort()).toEqual(
       [gateRepoForAdmin.repositoryId, gateRepoForStaff.repositoryId].sort(),

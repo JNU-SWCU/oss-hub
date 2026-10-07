@@ -5,10 +5,6 @@ import type {
 } from './repository/ranking.repository';
 import { RankingService } from './service/ranking.service';
 
-/**
- * One person-axis observation. Unspecified metrics are 0; department is null
- * unless set — tests only fill the fields they care about.
- */
 export function activity(
   githubId: bigint,
   githubLogin: string,

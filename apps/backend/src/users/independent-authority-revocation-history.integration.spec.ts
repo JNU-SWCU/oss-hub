@@ -21,7 +21,7 @@ const authority = new IndependentAuthorityService(
   new IndependentAuthorityRepository(prisma),
   new AuditLogService(new AuditLogRepository(prisma)),
 );
-// 동의는 이 시나리오와 무관한 선행 조건이라 통과시킨다 — 회수 뒤 재신청이 열리는지만 본다.
+
 const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
   requireCurrent: jest.fn().mockResolvedValue(undefined),
 };
@@ -40,7 +40,6 @@ afterAll(async () => {
 });
 
 it('화면이 쓰는 회수 API는 REVOKED 행을 남겨 당사자를 역할 선택으로 되돌린다', async () => {
-  // Given — 승인받아 교직원이 된 사람. 회수 전에는 마지막 신청이 APPROVED다.
   const actor = await createUser('recovery-actor', 'ADMIN');
   const target = await createUser('recovery-target', 'STAFF');
   const approved = await prisma.staffAccessRequest.create({
@@ -53,12 +52,10 @@ it('화면이 쓰는 회수 API는 REVOKED 행을 남겨 당사자를 역할 선
     },
   });
 
-  // When — 「교직원 접근 해제」 버튼이 보내는 명령 그대로다.
   await authority.patchStaffAccess(actor.githubId, target.id, {
     command: STAFF_ACCESS_COMMANDS.REVOKE,
   });
 
-  // Then — 권한이 꺼지고, 옛 CAS 경로와 같은 모양의 회수 행이 한 줄 남는다.
   await expect(
     prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
   ).resolves.toMatchObject({ hasStaffAccess: false });
@@ -78,8 +75,6 @@ it('화면이 쓰는 회수 API는 REVOKED 행을 남겨 당사자를 역할 선
   });
   expect(requests[1]?.decidedAt).not.toBeNull();
 
-  // 같은 회수를 한 번 더 보내면 낡은 화면의 요청으로 보고 409 ROL_013 으로
-  // 거절한다(#1411). 이력은 한 줄만 늘어난 채로 있다.
   await expect(
     authority.patchStaffAccess(actor.githubId, target.id, {
       command: STAFF_ACCESS_COMMANDS.REVOKE,
@@ -93,13 +88,10 @@ it('화면이 쓰는 회수 API는 REVOKED 행을 남겨 당사자를 역할 선
     }),
   ).resolves.toBe(1);
 
-  // 당사자가 다시 로그인했을 때 보는 것 — `GET /api/v1/role-requests/me`.
   await expect(roles.getMyRequest(target.githubId)).resolves.toMatchObject({
     status: StaffAccessRequestStatus.REVOKED,
   });
 
-  // 다시 교직원으로 신청하는 문 — `POST /api/v1/role-requests`. 회수 행이 없으면
-  // 마지막 신청이 APPROVED로 읽혀 여기서 409(ROL_002)가 난다.
   await expect(roles.retryStaffRequest(target.githubId)).resolves.toMatchObject(
     { status: StaffAccessRequestStatus.PENDING },
   );

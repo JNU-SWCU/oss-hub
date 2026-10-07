@@ -1,5 +1,3 @@
-// 공개 메뉴는 상단 Nav 전담. 사이드바에 넣었다가 갈라지거나 로그인 후
-// 랭킹이 사라지던 사고(#513)를 막는다.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';

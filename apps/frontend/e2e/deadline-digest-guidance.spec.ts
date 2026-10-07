@@ -1,6 +1,5 @@
 import { expect, test } from './admin-session.fixture';
 
-// Tracing injects scripts into the deliberately script-disabled preview frames.
 test.use({ trace: 'off' });
 
 test('4000자 안내를 POST 평문으로 미리 보고 작은 화면에서 두 링크까지 이동한다', async ({

@@ -16,10 +16,6 @@ export interface ProgramRepositoryActivity {
   readonly releaseDates: readonly Date[];
 }
 
-/**
- * Program surfaces may read org-provisioned repositories, or external
- * public repositories only when an application link is proven.
- */
 function linkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
   return {
     OR: [

@@ -14,13 +14,6 @@ import type {
   MemberKindMutationRequest,
 } from './independent-authority-api';
 
-/**
- * Frontend policy for the `/dashboard/users` write surface. Member-kind changes
- * and admin authority changes use their independent mutation resources. The
- * legacy CAS resource remains only for request decisions and account status.
- * Every write is still validated by the backend.
- */
-
 export const ADMIN_ACCESS_MUTATION_ACTIONS = {
   APPROVE: 'APPROVE',
   REJECT: 'REJECT',
@@ -97,10 +90,6 @@ export function buildMemberKindMutationRequest(
   };
 }
 
-/**
- * Builds the legacy CAS PATCH body for request decisions and account status.
- * Member-kind and admin authority actions never pass through this resource.
- */
 export function buildAdminAccessPatchRequest(
   action: AdminAccessLegacyMutationAction,
   detail: AdminAccessDetail,
@@ -147,13 +136,6 @@ export function buildAdminAccessPatchRequest(
   }
 }
 
-/**
- * Replaces the stale local projection with the authoritative one the
- * backend returned alongside a `ROL_013` conflict. Only the CAS-relevant
- * fields (`role`/`accountStatus`/`pendingRequest`) come from the
- * conflict projection — profile/history/etc. are untouched, since the
- * conflict response does not carry them.
- */
 export function applyAdminAccessConflictProjection<T extends AdminAccessDetail>(
   detail: T,
   projection: AdminAccessConflictProjection,
@@ -166,13 +148,6 @@ export function applyAdminAccessConflictProjection<T extends AdminAccessDetail>(
   };
 }
 
-/**
- * 결정 직후, 이미 보고 있는 요청 이력 페이지에서 백엔드가 방금 닫은 행의
- * `status`만 갱신한다. `decidedAt`/`decidedBy`/`rejectionReason`은 서버 소유라
- * 지어내지 않고 서버가 남긴 값을 그대로 둔다 — 다음 재조회가 가능해지는
- * 순간(관리자 명부·새로고침) 그 값들이 채워진다. 보이는 페이지에 해당 행이
- * 없으면 그대로 둔다. 로그인 이력은 건드리지 않는다.
- */
 export function applyAdminAccessDecidedRequestToHistory(
   history: AdminAccessHistory,
   decided: AdminAccessDecidedRequest | null,
@@ -191,19 +166,12 @@ export function applyAdminAccessDecidedRequestToHistory(
   };
 }
 
-/** `RolesErrorCode.SELF_DEACTIVATION_FORBIDDEN` / `LAST_ACTIVE_ADMIN_REQUIRED`. */
 const SELF_DEACTIVATION_FORBIDDEN_CODE = 'ROL_017';
 const LAST_ACTIVE_ADMIN_REQUIRED_CODE = 'ROL_018';
 
 export type AdminAccessMutationBlockKind =
   'SELF_DEACTIVATION' | 'LAST_ACTIVE_ADMIN' | null;
 
-/**
- * Classifies a failed mutation as one of the two actor-relative guard
- * blocks, or `null` for anything else (including stale-CAS conflicts,
- * which callers should check separately via
- * `parseAdminAccessConflictProjection`).
- */
 export function classifyAdminAccessMutationBlock(
   error: unknown,
 ): AdminAccessMutationBlockKind {
@@ -218,13 +186,6 @@ export function classifyAdminAccessMutationBlock(
   }
 }
 
-/**
- * User-facing message for any failed mutation — sourced from the real
- * backend `ProblemDetail.detail` (already the correct Korean copy for
- * every `RolesErrorCode`, including the two block codes above, and the
- * last-active-admin guard), falling back to a generic message only for
- * non-`ApiError` failures (network errors, aborted requests, etc.).
- */
 export function adminAccessMutationErrorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.problem.detail;
   return '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';

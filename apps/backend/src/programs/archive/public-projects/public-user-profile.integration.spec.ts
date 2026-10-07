@@ -22,7 +22,6 @@ assertIsolatedIntegrationDatabase({
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 
-/** QA40 — 커서 암호화 키 파생용 합성 값. 실 배포 시크릿과 무관하다. */
 const SYNTHETIC_SESSION_SECRET = Buffer.from(
   'synthetic-public-projects-integration-secret',
 ).toString('base64url');
@@ -63,8 +62,6 @@ describe('PublicProjectsService.findProfile integration', () => {
       },
     });
 
-    // 프로필 소유자 — UserProfile(name/studentId/department)까지 함께 심어서 이 값들이
-    // 응답에 절대 새지 않는다는 걸 증명한다.
     await prisma.user.create({
       data: {
         id: OWNER_ID,
@@ -85,13 +82,6 @@ describe('PublicProjectsService.findProfile integration', () => {
       },
     });
 
-    // repo-a/repo-b: 소유자 기여가 있는 두 저장소(합산 정확성 검증용). repo-a에는 다른
-    // 기여자(OTHER_CONTRIBUTOR_GITHUB_ID)의 기여도 함께 심어 소유자 지표에 섞이지 않음을 본다.
-    // repo-c: eligible이지만 collection이 아직 관측하지 않은 저장소(unobserved).
-    // repo-d: collection이 관측했지만 소유자의 기여 행이 없는 저장소(observed-zero).
-    // repo-e(#893): presence: PRESENT라 observed:true지만 첫 inventory sweep 전이라
-    // lastCompleteInventoryObservedAt이 여전히 null인 저장소(pre-sweep) — repo-d와 달리
-    // observed는 true인데 hasCollectedData는 false로, "관측된 0"과 다시 구분된다.
     const repoKeys = ['a', 'b', 'c', 'd', 'e'] as const;
     const applicantIds = repoKeys.map((key) => `${PREFIX}-applicant-${key}`);
     await prisma.user.createMany({
@@ -140,15 +130,7 @@ describe('PublicProjectsService.findProfile integration', () => {
       d: 8_900_000_000_004n,
       e: 8_900_000_000_005n,
     };
-    // #617 단계 D 이후 platform(옛 Repository)과 collection 관측(옛 CollectionRepository)이
-    // 한 GithubRepository 행이다 — 더는 같은 githubRepositoryId를 공유하는 두 행을 따로 만들
-    // 수 없다(만들면 githubRepositoryId @unique 위반). repo-a/b/d는 관측됨(presence: PRESENT +
-    // lastCompleteInventoryObservedAt), repo-c는 미관측을 나타내려고 presence: ABSENT로 만든다 —
-    // `getRepositoryCumulativeMetrics`가 presence: PRESENT만 보므로 이 한 컬럼 차이가
-    // "관측-0(d)"과 "미관측(c)"을 여전히 구분 가능하게 한다.
-    // repo-e(#893)는 presence: PRESENT지만 lastCompleteInventoryObservedAt을 아예 쓰지 않는다
-    // (provisioning 직후, 첫 sweep 전) — presence 하나만으로는 "PRESENT는 되자마자 참"이라
-    // observed:true까지는 repo-a/b/d와 똑같이 나오고, hasCollectedData만 false로 갈린다.
+
     const observedKeys = ['a', 'b', 'd'] as const;
     const preSweepKeys = ['e'] as const;
     await prisma.githubRepository.createMany({
@@ -180,7 +162,6 @@ describe('PublicProjectsService.findProfile integration', () => {
       })),
     });
 
-    // 소유자를 네 저장소(a/b/d/e)의 팀 리더로 묶어 listForUser가 이 저장소들을 찾게 한다.
     for (const key of [...observedKeys, ...preSweepKeys]) {
       await prisma.team.create({
         data: {
@@ -194,7 +175,6 @@ describe('PublicProjectsService.findProfile integration', () => {
       });
     }
 
-    // repo-a: 소유자 기여(3/1/0) + 다른 기여자(999/999/999, 반드시 배제되어야 한다).
     await prisma.contribution.createMany({
       data: [
         {
@@ -215,7 +195,7 @@ describe('PublicProjectsService.findProfile integration', () => {
         },
       ],
     });
-    // repo-b: 소유자 기여(4/0/2) — 두 저장소 합산 정확성 검증용.
+
     await prisma.contribution.create({
       data: {
         repositoryId: `${PREFIX}-repository-b`,
@@ -226,7 +206,7 @@ describe('PublicProjectsService.findProfile integration', () => {
         releaseCount: 2,
       },
     });
-    // repo-d: 관측은 됐지만(연간 집계 행은 있으나) 소유자의 기여 행은 없다 — observed-zero.
+
     await prisma.contribution.create({
       data: {
         repositoryId: `${PREFIX}-repository-d`,
@@ -246,8 +226,7 @@ describe('PublicProjectsService.findProfile integration', () => {
           repositoryId: { startsWith: `${PREFIX}-repository` },
         },
       });
-      // Application.teamId / GithubRepository.teamId가 Team을 참조하므로(RESTRICT)
-      // repository·application을 team보다 먼저 지운다.
+
       await prisma.githubRepository.deleteMany({
         where: { programId: PROGRAM_ID },
       });
@@ -284,7 +263,6 @@ describe('PublicProjectsService.findProfile integration', () => {
       const repoD = byKey.get(`${PREFIX}-repository-d`);
       const repoE = byKey.get(`${PREFIX}-repository-e`);
 
-      // repo-a: 소유자 기여만 보이고, 다른 기여자의 999 값은 절대 섞이지 않는다.
       expect(repoA?.observed).toBe(true);
       expect(repoA?.hasCollectedData).toBe(true);
       expect(repoA?.metrics).toEqual({
@@ -301,12 +279,8 @@ describe('PublicProjectsService.findProfile integration', () => {
         releaseCount: 2,
       });
 
-      // repo-c는 애초에 listForUser 결과에 없다(팀 멤버로 묶지 않았다) — 그래서
-      // byKey에 존재하지 않는다는 사실 자체가 "이 사용자와 무관"임을 보여준다.
       expect(repoC).toBeUndefined();
 
-      // repo-d: collection이 관측은 했으나(observed: true) 소유자의 기여 행이 없어 0값이다 —
-      // "관측했지만 0"과 "미관측"이 서로 다른 상태임을 보여준다.
       expect(repoD?.observed).toBe(true);
       expect(repoD?.hasCollectedData).toBe(true);
       expect(repoD?.metrics).toEqual({
@@ -316,10 +290,6 @@ describe('PublicProjectsService.findProfile integration', () => {
       });
       expect(repoD?.dataAsOf).not.toBeNull();
 
-      // repo-e(#893): presence: PRESENT라 repo-d와 마찬가지로 observed: true / metrics
-      // 0값이지만, lastCompleteInventoryObservedAt이 아직 없어 hasCollectedData는 false다 —
-      // "관측된 0"(d)과 "첫 sweep 전"(e)이 observed만으로는 구분되지 않는다는 게 이 필드가
-      // 메꾸는 갭이다. dataAsOf는 fallback으로 채워지므로 null은 아니다.
       expect(repoE?.observed).toBe(true);
       expect(repoE?.hasCollectedData).toBe(false);
       expect(repoE?.metrics).toEqual({
@@ -329,8 +299,6 @@ describe('PublicProjectsService.findProfile integration', () => {
       });
       expect(repoE?.dataAsOf).not.toBeNull();
 
-      // 두 저장소(a/b) 합산 — 다른 기여자의 활동이나 observed-zero/pre-sweep 저장소는
-      // 포함하지 않는다.
       expect(result.observedTotals).toEqual({
         commitCount: 7,
         pullRequestCount: 1,
@@ -340,7 +308,6 @@ describe('PublicProjectsService.findProfile integration', () => {
   );
 
   it('unobserved 저장소를 사용자 목록에 포함시키면 observed:false, dataAsOf:null, metrics:null로 표현된다', async () => {
-    // repo-c도 소유자와 연결해 unobserved 케이스를 직접 확인한다.
     await prisma.team.create({
       data: {
         id: `${PREFIX}-team-c`,
@@ -362,7 +329,6 @@ describe('PublicProjectsService.findProfile integration', () => {
       expect(repoC?.dataAsOf).toBeNull();
       expect(repoC?.metrics).toBeNull();
     } finally {
-      // GithubRepository.teamId가 team-c를 참조하므로(RESTRICT) team 삭제 전 연결부터 끊는다.
       await prisma.githubRepository.update({
         where: { id: `${PREFIX}-repository-c` },
         data: { teamId: null },

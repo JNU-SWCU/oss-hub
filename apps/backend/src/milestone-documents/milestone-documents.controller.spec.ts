@@ -44,7 +44,6 @@ let application: INestApplication | undefined;
 let baseUrl = '';
 const SESSION_GITHUB_ID = 342_900_002n;
 
-// MilestoneDocumentsService 목
 const listForViewer = jest.fn().mockResolvedValue([
   {
     id: 'synthetic-document',
@@ -136,7 +135,6 @@ const reorderDocuments = jest.fn().mockResolvedValue([
 ]);
 const deleteDocument = jest.fn().mockResolvedValue(undefined);
 
-// MilestoneDocumentFilesService 목
 const uploadTemplate = jest.fn().mockResolvedValue({
   documentId: 'synthetic-document',
   hasTemplateFile: true,
@@ -164,11 +162,9 @@ const upload = jest.fn().mockResolvedValue({
 });
 const check = jest.fn().mockResolvedValue(undefined);
 
-// MilestoneDocumentArchiveService 목
-// 마일스톤 이름과 마감일이 붙은 한글 ZIP 이름 — RFC 5987 인코딩이 실제로 걸리는지 본다.
 const ARCHIVE_FILE_NAME = '1차 중간산출물_2026-08-20.zip';
 const ARCHIVE_BODY = 'zip-body';
-// 호출마다 새 스트림을 만든다 — 하나를 돌려쓰면 두 번째 요청이 이미 소진된 스트림을 받는다.
+
 const archiveForStaff = jest.fn((): Promise<MilestoneDocumentArchive> =>
   Promise.resolve({
     body: Readable.from(Buffer.from(ARCHIVE_BODY)),
@@ -178,7 +174,6 @@ const archiveForStaff = jest.fn((): Promise<MilestoneDocumentArchive> =>
   }),
 );
 
-// MilestoneDocumentReviewsService 목
 const review = jest.fn().mockResolvedValue({
   id: 'synthetic-review',
   decision: 'CHANGES_REQUESTED',
@@ -319,16 +314,13 @@ const legacyMutationRequests: readonly LegacyMutationRequest[] = [
 ];
 
 it('서류 목록은 브라우저·공유 캐시에 저장하지 않는다', async () => {
-  // Given / When
   const response = await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents`,
   );
 
-  // Then
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('private, no-store');
-  // 목록과 업로드 규칙이 한 응답으로 온다 — 화면이 상한·허용 형식의 사본을 들지 않게 하는
-  // 자리다(#1107). 규칙이 빠지면 세 업로드 화면이 파일 입력을 그릴 근거를 잃는다.
+
   await expect(response.json()).resolves.toMatchObject({
     documents: [
       { id: 'synthetic-document', viewerSubmission: { submitted: true } },
@@ -451,10 +443,8 @@ it.each([
 );
 
 it('학생 서류 제출은 내용과 파일을 함께 서비스에 전달한다', async () => {
-  // Given
   const body = { content: { text: '본문', fileId: 'synthetic-file' } };
 
-  // When
   const response = await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/submissions`,
     {
@@ -464,7 +454,6 @@ it('학생 서류 제출은 내용과 파일을 함께 서비스에 전달한다
     },
   );
 
-  // Then
   expect(response.status).toBe(201);
   await expect(response.json()).resolves.toMatchObject({
     id: 'synthetic-submission',
@@ -478,10 +467,8 @@ it('학생 서류 제출은 내용과 파일을 함께 서비스에 전달한다
 });
 
 it('내용만 있는 제출도 서비스에 전달한다', async () => {
-  // Given
   const body = { content: { text: '본문' } };
 
-  // When
   const response = await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/submissions`,
     {
@@ -491,7 +478,6 @@ it('내용만 있는 제출도 서비스에 전달한다', async () => {
     },
   );
 
-  // Then
   expect(response.status).toBe(201);
   expect(submit).toHaveBeenCalledWith(
     SESSION_GITHUB_ID,
@@ -516,7 +502,6 @@ it('내용과 파일이 모두 비어 있으면 서비스 호출 전에 422로 �
 });
 
 it('양식 업로드("양식 올리기"/"양식 교체")는 201로 끝나고 multipart 파일을 서비스에 전달한다', async () => {
-  // Given
   const body = new FormData();
   body.append(
     'file',
@@ -524,13 +509,11 @@ it('양식 업로드("양식 올리기"/"양식 교체")는 201로 끝나고 mul
     'synthetic-template.pdf',
   );
 
-  // When
   const response = await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/template`,
     { method: 'POST', body },
   );
 
-  // Then
   expect(response.status).toBe(201);
   await expect(response.json()).resolves.toMatchObject({
     hasTemplateFile: true,
@@ -544,12 +527,10 @@ it('양식 업로드("양식 올리기"/"양식 교체")는 201로 끝나고 mul
 });
 
 it('양식 다운로드("양식" 링크)는 attachment 스트림과 private no-store 헤더를 반환한다', async () => {
-  // When
   const response = await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/template`,
   );
 
-  // Then
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('private, no-store');
   expect(response.headers.get('content-type')).toBe('application/pdf');
@@ -564,7 +545,6 @@ it('양식 다운로드("양식" 링크)는 attachment 스트림과 private no-s
 });
 
 it('/milestone-document-files는 201로 끝나고 milestoneId/documentId를 함께 전달한다', async () => {
-  // Given
   const body = new FormData();
   body.append('milestoneId', 'synthetic-milestone');
   body.append('documentId', 'synthetic-document');
@@ -574,13 +554,11 @@ it('/milestone-document-files는 201로 끝나고 milestoneId/documentId를 함�
     'synthetic.pdf',
   );
 
-  // When
   const response = await fetch(`${baseUrl}/api/v1/milestone-document-files`, {
     method: 'POST',
     body,
   });
 
-  // Then
   expect(response.status).toBe(201);
   await expect(response.json()).resolves.toMatchObject({
     fileId: 'synthetic-file',
@@ -594,7 +572,6 @@ it('/milestone-document-files는 201로 끝나고 milestoneId/documentId를 함�
 });
 
 it('/milestone-document-files/checks는 고른 파일만 판정에 넘기고 본문 없는 204로 끝난다', async () => {
-  // Given: 제출 전에 압축 파일 하나만 보낸다(#1108).
   const body = new FormData();
   body.append(
     'file',
@@ -602,13 +579,11 @@ it('/milestone-document-files/checks는 고른 파일만 판정에 넘기고 본
     'bundle.zip',
   );
 
-  // When
   const response = await fetch(
     `${baseUrl}/api/v1/milestone-document-files/checks`,
     { method: 'POST', body },
   );
 
-  // Then: 판정만 하고 업로드(저장)는 부르지 않는다.
   expect(response.status).toBe(204);
   await expect(response.text()).resolves.toBe('');
   expect(check).toHaveBeenCalledWith(
@@ -644,12 +619,10 @@ it('서류 파일 판정은 업로드와 같은 세션+Origin 가드와 multipar
 });
 
 it('서류 수합 조회는 교직원 가드를 거치고 private no-store로 응답한다', async () => {
-  // Given / When
   const response = await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection`,
   );
 
-  // Then
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('private, no-store');
   await expect(response.json()).resolves.toMatchObject({
@@ -673,7 +646,7 @@ it('서류 수합 조회는 교직원 가드를 거치고 private no-store로 �
       { documentId: 'synthetic-document', submitted: 1, total: 1 },
     ],
   });
-  // 쿼리를 안 주면 1페이지 20건 · 전체 필터가 기본값이다(ADR-004 페이지네이션 계약).
+
   expect(collectForStaff).toHaveBeenCalledWith('synthetic-milestone', {
     page: 1,
     pageSize: 20,
@@ -682,12 +655,10 @@ it('서류 수합 조회는 교직원 가드를 거치고 private no-store로 �
 });
 
 it('서류 수합 조회는 page·pageSize·filter를 숫자·enum으로 바꿔 서비스에 전달한다', async () => {
-  // Given / When
   const response = await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection?page=2&pageSize=5&filter=HAS_MISSING`,
   );
 
-  // Then
   expect(response.status).toBe(200);
   expect(collectForStaff).toHaveBeenCalledWith('synthetic-milestone', {
     page: 2,
@@ -697,12 +668,10 @@ it('서류 수합 조회는 page·pageSize·filter를 숫자·enum으로 바꿔 
 });
 
 it('범위를 벗어난 pageSize는 서비스 호출 전에 400으로 거절한다', async () => {
-  // Given: 최대 100을 넘겼다.
   const response = await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection?pageSize=101`,
   );
 
-  // Then
   expect(response.status).toBe(400);
   expect(collectForStaff).not.toHaveBeenCalled();
 });
@@ -710,11 +679,10 @@ it('범위를 벗어난 pageSize는 서비스 호출 전에 400으로 거절한�
 it.each(['MISSING', 'LATE', 'COMPLETE', 'NO_REQUIRED_ITEMS'])(
   '서류 수합은 검토 상태와 별도의 제출 필터 %s를 전달한다',
   async (deliveryStatus) => {
-    // Given / When
     const response = await fetch(
       `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection?deliveryStatus=${deliveryStatus}`,
     );
-    // Then
+
     expect(response.status).toBe(200);
     expect(collectForStaff).toHaveBeenCalledWith('synthetic-milestone', {
       page: 1,
@@ -726,44 +694,37 @@ it.each(['MISSING', 'LATE', 'COMPLETE', 'NO_REQUIRED_ITEMS'])(
 );
 
 it('검토 상태는 제출 필터 값으로 받지 않는다', async () => {
-  // Given / When
   const response = await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection?deliveryStatus=REJECTED`,
   );
-  // Then
+
   expect(response.status).toBe(400);
   expect(collectForStaff).not.toHaveBeenCalled();
 });
 
 it('모르는 filter 값은 서비스 호출 전에 400으로 거절한다', async () => {
-  // Given / When
   const response = await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection?filter=SOMETHING_ELSE`,
   );
 
-  // Then
   expect(response.status).toBe(400);
   expect(collectForStaff).not.toHaveBeenCalled();
 });
 
 it('서류 수합 조회 경로(collection)는 :documentId 경로로 잘못 잡히지 않는다', async () => {
-  // Given / When
   await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection`,
   );
 
-  // Then: 서류 항목 상세 계열 핸들러가 아니라 수합 핸들러가 탄다.
   expect(collectForStaff).toHaveBeenCalledTimes(1);
   expect(downloadTemplate).not.toHaveBeenCalled();
 });
 
 it('제출 파일 다운로드는 다시 붙인 이름으로 attachment 스트림을 반환한다', async () => {
-  // Given / When
   const response = await fetch(
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/file`,
   );
 
-  // Then
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('private, no-store');
   expect(response.headers.get('content-type')).toBe('application/x-hwp');
@@ -786,10 +747,8 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
     `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/collection/archive${query}`;
 
   it('groupBy를 안 주면 팀별 묶기(TEAM)로 서비스를 부른다', async () => {
-    // Given / When
     const response = await fetch(archiveUrl());
 
-    // Then: 기본값은 DTO(toGrouping)가 정한다 — 서비스는 언제나 확정된 값을 받는다.
     expect(response.status).toBe(200);
     await expect(response.text()).resolves.toBe(ARCHIVE_BODY);
     expect(archiveForStaff).toHaveBeenCalledWith('synthetic-milestone', {
@@ -799,10 +758,8 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
   });
 
   it('groupBy=DOCUMENT는 그대로 서비스에 전달한다', async () => {
-    // Given / When
     const response = await fetch(archiveUrl('?groupBy=DOCUMENT'));
 
-    // Then
     expect(response.status).toBe(200);
     expect(archiveForStaff).toHaveBeenCalledWith('synthetic-milestone', {
       kind: 'ALL',
@@ -811,16 +768,14 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
   });
 
   it('ZIP 응답은 application/zip · attachment · private no-store로 나간다', async () => {
-    // Given / When
     const response = await fetch(archiveUrl());
 
-    // Then
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('application/zip');
     expect(response.headers.get('cache-control')).toBe('private, no-store');
     const disposition = response.headers.get('content-disposition') ?? '';
     expect(disposition).toContain('attachment');
-    // 한글 이름은 RFC 5987로 실어야 브라우저가 `_____.zip`이 아닌 제 이름으로 저장한다.
+
     expect(disposition).toContain(
       `filename*=UTF-8''${encodeURIComponent(ARCHIVE_FILE_NAME)}`,
     );
@@ -828,17 +783,14 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
   });
 
   it('길이를 아는 ZIP은 Content-Length를 실어 보낸다', async () => {
-    // Given / When
     const response = await fetch(archiveUrl());
 
-    // Then: 이 값이 있어야 브라우저가 중간에 끊긴 내려받기를 실패로 판정한다.
     expect(response.headers.get('content-length')).toBe(
       String(ARCHIVE_BODY.length),
     );
   });
 
   it('길이를 모르는 ZIP은 Content-Length를 아예 붙이지 않는다 — 청크 전송이다', async () => {
-    // Given: 크기를 미리 셀 수 없었던 압축(contentLength === null).
     archiveForStaff.mockResolvedValueOnce({
       body: Readable.from(Buffer.from(ARCHIVE_BODY)),
       fileName: ARCHIVE_FILE_NAME,
@@ -846,10 +798,8 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       contentLength: null,
     });
 
-    // When
     const response = await fetch(archiveUrl());
 
-    // Then: `String(null)`이 헤더로 나가면 받는 쪽이 길이를 0이나 오류로 읽는다.
     expect(response.status).toBe(200);
     expect(response.headers.get('content-length')).toBeNull();
     expect(response.headers.get('content-type')).toBe('application/zip');
@@ -857,10 +807,8 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
   });
 
   it('일괄 내려받기 경로(collection/archive)는 :documentId 경로로 잘못 잡히지 않는다', async () => {
-    // Given / When
     await fetch(archiveUrl());
 
-    // Then: 수합 표도, 서류 항목 상세 계열 핸들러도 아니라 일괄 내려받기 핸들러가 탄다.
     expect(archiveForStaff).toHaveBeenCalledTimes(1);
     expect(collectForStaff).not.toHaveBeenCalled();
     expect(downloadTemplate).not.toHaveBeenCalled();
@@ -869,13 +817,10 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
   it.each([['TEAMS'], ['team'], ['']])(
     'groupBy가 %p이면 서비스 호출 전에 400으로 거절한다',
     async (groupBy) => {
-      // Given: 오타·소문자·빈 값을 조용히 기본값으로 접으면 교직원은 팀별로 묶었다고 믿고
-      // 서류별로 묶인 ZIP을 받는다.
       const response = await fetch(
         archiveUrl(`?groupBy=${encodeURIComponent(groupBy)}`),
       );
 
-      // Then
       expect(response.status).toBe(400);
       expect(archiveForStaff).not.toHaveBeenCalled();
     },
@@ -892,10 +837,6 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
   });
 
   it('documentId와 groupBy를 함께 주면 400으로 거절한다', async () => {
-    /*
-     * 서류 하나짜리 ZIP에는 묶는 방식이 없다. 조용히 한쪽을 무시하면 `groupBy=DOCUMENT`를
-     * 보낸 사람은 「서류별로 묶어 받았다」고 믿은 채 남는다 — 되돌려 주는 편이 정직하다.
-     */
     const response = await fetch(
       archiveUrl('?documentId=doc-plan&groupBy=TEAM'),
     );
@@ -912,10 +853,8 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
   });
 
   it('groupBy를 배열로 보내면 400으로 거절한다', async () => {
-    // Given: `?groupBy=TEAM&groupBy=DOCUMENT`는 express가 배열로 파싱한다.
     const response = await fetch(archiveUrl('?groupBy=TEAM&groupBy=DOCUMENT'));
 
-    // Then
     expect(response.status).toBe(400);
     expect(archiveForStaff).not.toHaveBeenCalled();
   });
@@ -926,38 +865,22 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
   ])(
     '이 경로가 받지 않는 쿼리(%s)는 400으로 거절한다 — 필터·페이지는 계약에 없다',
     async (_name, query) => {
-      // Given: 「필수 서류 미제출」로 걸러 놓고 받은 ZIP을 그 팀들만 담긴 것으로 읽으면
-      // 안 되므로, 표의 쿼리가 이 경로에서 조용히 무시되는 대신 드러나게 막힌다.
       const response = await fetch(archiveUrl(`?${query}`));
 
-      // Then
       expect(response.status).toBe(400);
       expect(archiveForStaff).not.toHaveBeenCalled();
     },
   );
 
-  /**
-   * 압축을 흘려 보내다 실패했을 때.
-   *
-   * ⚠ 이 갈래를 덮지 않으면 Nest의 **기본 errorHandler**로 조용히 되돌아간다. 기본 구현은
-   * `res.statusCode = 400; res.send(err.message)`라서 이 저장소의 ProblemDetailFilter를 거치지
-   * 않은 **오류 원문**이 그대로 본문이 되고, 헤더에는 이미 `application/zip`과 첨부 파일명이
-   * 붙어 있어 받는 쪽은 ZIP인 줄 알고 저장한다.
-   *
-   * 오류는 스트림이 흐르는 도중에 나야 재현되므로 HTTP 요청으로는 시점을 고정할 수 없다.
-   * 대신 핸들러가 돌려준 StreamableFile에서 `errorHandler`를 꺼내 세 갈래(헤더 전·헤더 후·
-   * 파괴됨)를 그대로 부른다.
-   */
   describe('압축 도중 실패', () => {
     const ARCHIVE_REQUEST_PATH =
       '/api/v1/milestones/synthetic-milestone/documents/collection/archive';
     const STORAGE_ERROR_MESSAGE =
       'synthetic-bucket 연결이 끊겼다 (secret-token-would-leak-here)';
-    /** 끊긴 항목을 지목하는 값. 실제 열쇠도 `submission-files/<uuid>` 꼴이다. */
+
     const FAILED_STORAGE_KEY =
       'submission-files/00000000-0000-4000-8000-000000000001';
 
-    /** 컨트롤러가 실제로 손대는 express Response의 부분집합. */
     interface ArchiveResponseStub {
       headersSent: boolean;
       destroyed: boolean;
@@ -973,7 +896,7 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
 
     interface ArchiveResponseProbe {
       readonly response: Response;
-      /** 지금 응답에 실려 있는 헤더(소문자 이름 → 값). removeHeader가 실제로 지운다. */
+
       readonly headers: Map<string, string>;
       readonly closeListeners: (() => void)[];
       readonly written: {
@@ -1030,11 +953,6 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       };
     };
 
-    /**
-     * Nest가 errorHandler에 함께 넘기는 좁은 응답 객체. 컨트롤러의 핸들러는 이것을 **쓰지
-     * 않지만**, 기본 errorHandler는 여기에 400과 오류 원문을 쓴다 — 그래서 이 객체가
-     * 그대로인지가 「기본 동작으로 되돌아가지 않았다」의 증거가 된다.
-     */
     type NestStreamableResponse = Parameters<StreamableFile['errorHandler']>[1];
 
     const createNestStreamableProbe = (): {
@@ -1056,7 +974,6 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       };
     };
 
-    /** 서류 한 종류만 받는 요청. DTO의 필드는 `declare`라 인스턴스에 직접 얹는다. */
     const documentScopeQuery = (): MilestoneDocumentArchiveQueryRequestDto =>
       Object.assign(new MilestoneDocumentArchiveQueryRequestDto(), {
         documentId: 'synthetic-document',
@@ -1090,7 +1007,6 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
     });
 
     it('헤더가 나가기 전에 실패하면 503 problem+json으로 바꾸고 ZIP 헤더를 걷어 낸다', async () => {
-      // Given: 성공을 전제로 Content-Length·Content-Disposition이 이미 붙어 있다.
       const probe = createArchiveResponseProbe();
       const streamable = await streamArchive(probe);
       expect(probe.headers.get('content-length')).toBe(
@@ -1099,10 +1015,8 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       expect(probe.headers.has('content-disposition')).toBe(true);
       const nest = createNestStreamableProbe();
 
-      // When
       streamable.errorHandler(new Error(STORAGE_ERROR_MESSAGE), nest.response);
 
-      // Then: ZIP이 아닌 것을 ZIP이라고 말하지 않는다.
       expect(probe.headers.has('content-length')).toBe(false);
       expect(probe.headers.has('content-disposition')).toBe(false);
       expect(probe.written.status).toBe(503);
@@ -1111,7 +1025,7 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
         type: 'about:blank',
         title: 'Service Unavailable',
         status: 503,
-        // 오류 원문이 아니라 사람에게 보여 줄 문구가 나간다.
+
         detail: '파일 저장소를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
         instance: ARCHIVE_REQUEST_PATH,
         code: 'MSD_012',
@@ -1119,15 +1033,12 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
     });
 
     it('오류 원문을 본문으로 내보내지 않는다 — Nest 기본 errorHandler로 되돌아가면 샌다', async () => {
-      // Given
       const probe = createArchiveResponseProbe();
       const streamable = await streamArchive(probe);
       const nest = createNestStreamableProbe();
 
-      // When
       streamable.errorHandler(new Error(STORAGE_ERROR_MESSAGE), nest.response);
 
-      // Then: 기본 구현이었다면 statusCode가 400이 되고 send()로 원문이 나갔을 자리다.
       expect(nest.sent).toEqual([]);
       expect(nest.response.statusCode).toBe(200);
       expect(JSON.stringify(probe.written.body)).not.toContain(
@@ -1137,25 +1048,20 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
     });
 
     it('헤더가 이미 나갔으면 본문을 새로 쓰지 않고 끊는다', async () => {
-      // Given: 한 바이트라도 나갔으면 되돌릴 것이 없다 — 미리 실어 둔 Content-Length가
-      // 브라우저에게 「덜 받았다」를 말해 준다.
       const probe = createArchiveResponseProbe({ headersSent: true });
       const streamable = await streamArchive(probe);
       const nest = createNestStreamableProbe();
 
-      // When
       streamable.errorHandler(new Error(STORAGE_ERROR_MESSAGE), nest.response);
 
-      // Then
       expect(probe.written.ended).toBe(true);
       expect(probe.written.status).toBeUndefined();
       expect(probe.written.body).toBeUndefined();
-      // 이미 나간 헤더를 걷으려 들지 않는다(걷어도 소용없고 오류만 난다).
+
       expect(probe.headers.has('content-disposition')).toBe(true);
     });
 
     it('응답이 이미 파괴됐으면 아무것도 하지 않는다', async () => {
-      // Given: 교직원이 내려받기를 취소해 소켓이 이미 닫힌 뒤다.
       const probe = createArchiveResponseProbe({
         destroyed: true,
         headersSent: true,
@@ -1163,42 +1069,29 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       const streamable = await streamArchive(probe);
       const nest = createNestStreamableProbe();
 
-      // When
       streamable.errorHandler(new Error(STORAGE_ERROR_MESSAGE), nest.response);
 
-      // Then: 닫힌 소켓에 쓰면 잡을 곳 없는 예외가 된다.
       expect(probe.written.ended).toBe(false);
       expect(probe.written.status).toBeUndefined();
       expect(probe.written.body).toBeUndefined();
     });
 
     it('실패는 서버 로그에 남긴다 — 「받다가 멈췄다」 신고에 맞댈 근거가 된다', async () => {
-      // Given
       const probe = createArchiveResponseProbe({ destroyed: true });
       const streamable = await streamArchive(probe);
       const nest = createNestStreamableProbe();
 
-      // When
       streamable.errorHandler(new Error(STORAGE_ERROR_MESSAGE), nest.response);
 
-      // Then: 응답을 못 쓰는 갈래에서도 로그는 남는다.
       expect(loggedErrors).toHaveLength(1);
       expect(String(loggedErrors[0])).toContain(STORAGE_ERROR_MESSAGE);
     });
 
-    /**
-     * 신고를 받고 원인을 좁힐 수 있으려면 **그 한 줄만으로** 사건이 지목돼야 한다.
-     *
-     * 특히 헤더가 이미 나간 뒤의 실패는 응답 본문에 아무것도 실을 수 없어(위 갈래) 로그가
-     * 유일한 근거다. 그래서 이 확인은 그 갈래에서 한다.
-     */
     it('헤더가 나간 뒤의 실패 한 줄에 마일스톤·요청 범위·끊긴 항목이 함께 남는다', async () => {
-      // Given: 스토리지가 항목 하나를 못 읽어 압축이 끊겼다.
       const probe = createArchiveResponseProbe({ headersSent: true });
       const streamable = await streamArchive(probe);
       const nest = createNestStreamableProbe();
 
-      // When
       streamable.errorHandler(
         new MilestoneDocumentArchiveEntryError(
           FAILED_STORAGE_KEY,
@@ -1207,7 +1100,6 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
         nest.response,
       );
 
-      // Then
       expect(loggedErrors).toHaveLength(1);
       const line = String(loggedErrors[0]);
       expect(line).toContain('milestoneId=synthetic-milestone');
@@ -1217,12 +1109,10 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
     });
 
     it('서류 한 종류만 받는 요청은 로그에서 전체 내려받기와 구분된다', async () => {
-      // Given
       const probe = createArchiveResponseProbe({ headersSent: true });
       const streamable = await streamArchive(probe, documentScopeQuery());
       const nest = createNestStreamableProbe();
 
-      // When
       streamable.errorHandler(
         new MilestoneDocumentArchiveEntryError(
           FAILED_STORAGE_KEY,
@@ -1231,23 +1121,18 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
         nest.response,
       );
 
-      // Then
       expect(String(loggedErrors[0])).toContain('scope=DOCUMENT');
     });
 
     it('성공한 일괄 내려받기에서는 이 실패 로그가 남지 않는다', async () => {
-      // Given / When: 끊기지 않고 끝까지 나간 요청이다.
       const response = await fetch(archiveUrl());
 
-      // Then
       expect(response.status).toBe(200);
       await expect(response.text()).resolves.toBe(ARCHIVE_BODY);
       expect(loggedErrors).toEqual([]);
     });
 
     it('응답이 close를 내면 압축 스트림을 파괴한다 — 취소해도 서버가 계속 끌어오면 안 된다', async () => {
-      // Given: Nest의 Express 어댑터는 `stream.pipe(response)`만 하고, pipe는 받는 쪽이 닫혀도
-      // 주는 쪽을 파괴하지 않는다(unpipe만 한다).
       const body = Readable.from(Buffer.from(ARCHIVE_BODY));
       const destroy = jest.spyOn(body, 'destroy');
       archiveForStaff.mockResolvedValueOnce({
@@ -1258,39 +1143,27 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       });
       const probe = createArchiveResponseProbe();
 
-      // When
       await streamArchive(probe);
 
-      // Then
       expect(probe.closeListeners).toHaveLength(1);
       expect(destroy).not.toHaveBeenCalled();
 
-      // When: 교직원이 내려받기를 취소했다.
       for (const listener of probe.closeListeners) listener();
 
-      // Then
       expect(destroy).toHaveBeenCalledTimes(1);
     });
   });
 });
 
 describe('교직원 서류 제출물 판정', () => {
-  /**
-   * 수합 표 칸이 준 「본 그 버전」 — 프런트는 칸의 `revision`과 `review.id`를 그대로
-   * 되돌려 보낸다. 판정이 없던 칸은 `expectedLatestReviewId: null`이다.
-   */
   const seenVersion = {
     expectedRevision: 3,
     expectedLatestReviewId: null,
   };
-  /**
-   * 보완 요청이 함께 정하는 재제출 기한. 「지금보다 뒤인가」는 서비스가 판정 시각으로
-   * 재므로(잠금 뒤에 찍는다) 여기 컨트롤러 계약에서는 **있는지·모양이 맞는지**만 본다.
-   */
+
   const resubmissionDueAt = '2026-09-25T09:00:00.000Z';
 
   it('판정은 201로 끝나고 판정자 nickname까지 실어 돌려준다', async () => {
-    // Given
     const body = {
       decision: 'CHANGES_REQUESTED',
       comment: '2쪽 서명이 빠졌습니다.',
@@ -1298,7 +1171,6 @@ describe('교직원 서류 제출물 판정', () => {
       ...seenVersion,
     };
 
-    // When
     const response = await fetch(
       `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
       {
@@ -1308,7 +1180,6 @@ describe('교직원 서류 제출물 판정', () => {
       },
     );
 
-    // Then
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual({
       id: 'synthetic-review',
@@ -1318,7 +1189,7 @@ describe('교직원 서류 제출물 판정', () => {
       resubmissionDueAt: '2026-09-25T09:00:00.000Z',
       reviewerNickname: 'synthetic-staff',
     });
-    // 판정자는 세션이 아니라 가드가 확정한 교직원 id다.
+
     expect(review).toHaveBeenCalledWith(
       'synthetic-staff',
       'synthetic-milestone',
@@ -1327,9 +1198,9 @@ describe('교직원 서류 제출물 판정', () => {
       {
         decision: 'CHANGES_REQUESTED',
         comment: '2쪽 서명이 빠졌습니다.',
-        // 문자열은 여기서 Date로 굳어 서비스로 간다 — 시각 비교를 서비스가 하기 때문이다.
+
         resubmissionDueAt: new Date(resubmissionDueAt),
-        // 본문의 정수가 그대로 넘어간다 — 비교는 리비전 값으로 한다.
+
         expectedRevision: 3,
         expectedLatestReviewId: null,
       },
@@ -1337,10 +1208,8 @@ describe('교직원 서류 제출물 판정', () => {
   });
 
   it('승인은 사유 없이도 통과하고 comment는 null로 정규화된다', async () => {
-    // Given
     const body = { decision: 'APPROVED', ...seenVersion };
 
-    // When
     const response = await fetch(
       `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
       {
@@ -1350,7 +1219,6 @@ describe('교직원 서류 제출물 판정', () => {
       },
     );
 
-    // Then
     expect(response.status).toBe(201);
     expect(review).toHaveBeenCalledWith(
       'synthetic-staff',
@@ -1360,7 +1228,7 @@ describe('교직원 서류 제출물 판정', () => {
       {
         decision: 'APPROVED',
         comment: null,
-        // 승인에는 기한이라는 것이 없다 — 실려 왔어도 DTO가 떨어뜨린다.
+
         resubmissionDueAt: null,
         expectedRevision: 3,
         expectedLatestReviewId: null,
@@ -1369,14 +1237,12 @@ describe('교직원 서류 제출물 판정', () => {
   });
 
   it('보완 요청에 사유가 없으면 서비스 호출 전에 422로 거절한다', async () => {
-    // Given — 기한은 채웠다. 사유가 없다는 사실 하나만 남긴다.
     const body = {
       decision: 'CHANGES_REQUESTED',
       resubmissionDueAt,
       ...seenVersion,
     };
 
-    // When
     const response = await fetch(
       `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
       {
@@ -1386,17 +1252,14 @@ describe('교직원 서류 제출물 판정', () => {
       },
     );
 
-    // Then
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toMatchObject({ code: 'MSD_021' });
     expect(review).not.toHaveBeenCalled();
   });
 
   it('반려 사유가 공백뿐이면 422로 거절한다 — 학생 화면에 빈 사유가 남지 않게 한다', async () => {
-    // Given
     const body = { decision: 'REJECTED', comment: '   ', ...seenVersion };
 
-    // When
     const response = await fetch(
       `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
       {
@@ -1406,25 +1269,18 @@ describe('교직원 서류 제출물 판정', () => {
       },
     );
 
-    // Then
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toMatchObject({ code: 'MSD_021' });
     expect(review).not.toHaveBeenCalled();
   });
 
-  /**
-   * 새 정책의 관문. 사유 필수(MSD_021)와 **같은 자리**에서 막는다 — 저장된 뒤에 「기한이
-   * 없네」를 발견하면 그 보완 요청은 학생 화면에서 언제까지인지 말할 수 없는 채로 남는다.
-   */
   it('보완 요청에 재제출 기한이 없으면 서비스 호출 전에 422로 거절한다', async () => {
-    // Given
     const body = {
       decision: 'CHANGES_REQUESTED',
       comment: '2쪽 서명이 빠졌습니다.',
       ...seenVersion,
     };
 
-    // When
     const response = await fetch(
       `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
       {
@@ -1434,18 +1290,12 @@ describe('교직원 서류 제출물 판정', () => {
       },
     );
 
-    // Then
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toMatchObject({ code: 'MSD_032' });
     expect(review).not.toHaveBeenCalled();
   });
 
-  /**
-   * 반려는 「다시 내라」가 아니다. 기한이 실려 와도 저장하지 않는다 — 남겨 두면 나중에 그
-   * 값을 보고 「기한이 있는 반려」를 그리게 된다.
-   */
   it('반려에 실려 온 기한은 서비스로 넘기지 않는다', async () => {
-    // Given
     const body = {
       decision: 'REJECTED',
       comment: '기한을 넘겼습니다.',
@@ -1453,7 +1303,6 @@ describe('교직원 서류 제출물 판정', () => {
       ...seenVersion,
     };
 
-    // When
     const response = await fetch(
       `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
       {
@@ -1463,7 +1312,6 @@ describe('교직원 서류 제출물 판정', () => {
       },
     );
 
-    // Then
     expect(response.status).toBe(201);
     expect(review).toHaveBeenCalledWith(
       'synthetic-staff',
@@ -1481,10 +1329,8 @@ describe('교직원 서류 제출물 판정', () => {
   });
 
   it('알 수 없는 decision은 400으로 거절한다', async () => {
-    // Given
     const body = { decision: 'MAYBE', comment: '음', ...seenVersion };
 
-    // When
     const response = await fetch(
       `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
       {
@@ -1494,7 +1340,6 @@ describe('교직원 서류 제출물 판정', () => {
       },
     );
 
-    // Then
     expect(response.status).toBe(400);
     expect(review).not.toHaveBeenCalled();
   });
@@ -1505,13 +1350,11 @@ describe('교직원 서류 제출물 판정', () => {
   ])(
     '%s를 빼먹은 요청은 400으로 막는다 — 기대 버전 없이 판정이 통과하면 검사가 없는 것과 같다',
     async (_field, partialVersion) => {
-      // Given: 「보내면 검사하고 안 보내면 넘어간다」로 두면 요청 하나로 대조를 우회한다.
       const body = {
         decision: 'APPROVED',
         ...partialVersion,
       };
 
-      // When
       const response = await fetch(
         `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
         {
@@ -1521,7 +1364,6 @@ describe('교직원 서류 제출물 판정', () => {
         },
       );
 
-      // Then
       expect(response.status).toBe(400);
       expect(review).not.toHaveBeenCalled();
     },
@@ -1534,16 +1376,12 @@ describe('교직원 서류 제출물 판정', () => {
   ])(
     'expectedRevision이 %s이면 400으로 막는다 — 어떤 제출도 가리키지 못하는 값이다',
     async (_shape, expectedRevision) => {
-      // Given: 리비전은 1부터 시작하는 정수다. 느슨하게 받으면 대조가 언제나 어긋나 판정이
-      // 전부 409가 되고, 교직원에게는 「새로고침하라」만 반복된다 — 원인은 요청 값인데
-      // 화면은 경합이 일어났다고 말한다.
       const body = {
         decision: 'APPROVED',
         expectedRevision,
         expectedLatestReviewId: null,
       };
 
-      // When
       const response = await fetch(
         `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
         {
@@ -1553,7 +1391,6 @@ describe('교직원 서류 제출물 판정', () => {
         },
       );
 
-      // Then
       expect(response.status).toBe(400);
       expect(review).not.toHaveBeenCalled();
     },
@@ -1747,35 +1584,26 @@ describe('교직원 전용 endpoint의 가드 구성', () => {
   );
 
   it('서류 수합 조회는 SessionGuard + MilestoneDocumentsStaffGuard를 붙인다', () => {
-    // Given / When
     const guards = readHandlerGuards('collection');
 
-    // Then
     expect(guards).toEqual([SessionGuard, MilestoneDocumentsStaffGuard]);
   });
 
   it('서류 일괄 내려받기는 SessionGuard + MilestoneDocumentsStaffGuard를 붙인다', () => {
-    // Given / When
     const guards = readHandlerGuards('archive');
 
-    // Then: 마일스톤의 모든 제출물을 한 번에 내보내는 경로다 — 교직원 가드가 빠지면
-    // 학생 세션 하나로 전체 산출물을 통째로 가져갈 수 있다.
     expect(guards).toEqual([SessionGuard, MilestoneDocumentsStaffGuard]);
   });
 
   it('제출 파일 다운로드는 SessionGuard + MilestoneDocumentsStaffGuard를 붙인다', () => {
-    // Given / When
     const guards = readHandlerGuards('downloadSubmissionFile');
 
-    // Then: 인가 사슬 1번(ACTIVE + STAFF/ADMIN)은 이 가드가 담당한다.
     expect(guards).toEqual([SessionGuard, MilestoneDocumentsStaffGuard]);
   });
 
   it('제출물 판정은 SessionGuard + MilestoneDocumentsStaffGuard + OriginGuard를 붙인다', () => {
-    // Given / When
     const guards = readHandlerGuards('review');
 
-    // Then: 상태를 바꾸는 요청이라 CSRF 방어(OriginGuard)까지 붙는다.
     expect(guards).toEqual([
       SessionGuard,
       MilestoneDocumentsStaffGuard,

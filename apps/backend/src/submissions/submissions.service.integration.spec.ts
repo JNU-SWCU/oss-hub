@@ -29,7 +29,6 @@ import { signatureValidZip } from './submission-zip-test-builder';
 import { SubmissionsRepository } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
 
-// allow: SIZE_OK — 개인·팀·마감·중복·유형·저장소 시나리오가 하나의 격리 PostgreSQL lifecycle을 공유한다.
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -205,11 +204,9 @@ describe('SubmissionsService integration', () => {
   });
 
   it('개인 신청자와 현재 팀원이 각각 자신의 제출 폼을 조회한다', async () => {
-    // Given
     const [personalMilestoneId, teamMilestoneId] =
       MILESTONE_SCENARIOS['milestones-upcoming'];
 
-    // When
     const [personal, team] = await Promise.all([
       service.form(
         seedGithubId(PERSONAL_USER_ID),
@@ -225,7 +222,6 @@ describe('SubmissionsService integration', () => {
       ),
     ]);
 
-    // Then
     expect(personal).toMatchObject({
       applicationId: PERSONAL_APPLICATION_ID,
       applicationMode: 'PERSONAL',
@@ -240,10 +236,8 @@ describe('SubmissionsService integration', () => {
   });
 
   it('기존 제출은 #116의 milestone query 체크리스트 URL을 반환한다', async () => {
-    // Given
     const [milestoneId] = MILESTONE_SCENARIOS['submission-existing'];
 
-    // When
     const form = await service.form(
       seedGithubId(TEAM_MEMBER_ID),
       MILESTONES_PROGRAM_ID,
@@ -251,7 +245,6 @@ describe('SubmissionsService integration', () => {
       NOW,
     );
 
-    // Then
     expect(form.existingSubmission).toMatchObject({
       checklistUrl: `/programs/${MILESTONES_PROGRAM_ID}/submissions?milestoneId=${milestoneId}`,
     });
@@ -262,10 +255,8 @@ describe('SubmissionsService integration', () => {
   });
 
   it('다른 신청의 학생은 제출할 수 없다', async () => {
-    // Given
     const [milestoneId] = MILESTONE_SCENARIOS['milestones-upcoming'];
 
-    // When
     const submission = service.create(
       seedGithubId(TEAM_MEMBER_ID),
       {
@@ -277,18 +268,15 @@ describe('SubmissionsService integration', () => {
       NOW,
     );
 
-    // Then
     await expect(submission).rejects.toMatchObject({
       errorCode: { code: SubmissionsErrorCode.NOT_APPLICATION_MEMBER },
     });
   });
 
   it('비학생 계정은 제출 폼과 최초 제출을 모두 사용할 수 없다', async () => {
-    // Given
     const [milestoneId] = MILESTONE_SCENARIOS['milestones-upcoming'];
     const githubId = seedGithubId(NON_STUDENT_USER_ID);
 
-    // When
     const form = service.form(
       githubId,
       MILESTONES_PROGRAM_ID,
@@ -306,7 +294,6 @@ describe('SubmissionsService integration', () => {
       NOW,
     );
 
-    // Then
     await Promise.all([
       expect(form).rejects.toMatchObject({
         errorCode: { code: SubmissionsErrorCode.STUDENT_ONLY },
@@ -318,11 +305,9 @@ describe('SubmissionsService integration', () => {
   });
 
   it('승인되지 않은 신청은 제출 폼과 최초 제출을 모두 사용할 수 없다', async () => {
-    // Given
     const [milestoneId] = MILESTONE_SCENARIOS['milestones-upcoming'];
     const githubId = seedGithubId(UNAPPROVED_USER_ID);
 
-    // When
     const form = service.form(
       githubId,
       MILESTONES_PROGRAM_ID,
@@ -340,7 +325,6 @@ describe('SubmissionsService integration', () => {
       NOW,
     );
 
-    // Then
     await Promise.all([
       expect(form).rejects.toMatchObject({
         errorCode: {
@@ -356,7 +340,6 @@ describe('SubmissionsService integration', () => {
   });
 
   it('TEXT 최초 제출을 revision 1과 함께 저장하고 중복을 막는다', async () => {
-    // Given
     const [milestoneId] = MILESTONE_SCENARIOS['milestones-upcoming'];
     const input = {
       applicationId: PERSONAL_APPLICATION_ID,
@@ -368,7 +351,6 @@ describe('SubmissionsService integration', () => {
       comment: '합성 코멘트',
     } as const;
 
-    // When
     const submit = () =>
       service.create(seedGithubId(PERSONAL_USER_ID), input, NOW).then(
         (value) => ({ kind: 'fulfilled' as const, value }),
@@ -383,7 +365,6 @@ describe('SubmissionsService integration', () => {
 
     const results = await Promise.all([submit(), submit()]);
 
-    // Then
     const stored = await prisma.milestoneDocumentSubmission.findFirstOrThrow({
       where: {
         applicationId: PERSONAL_APPLICATION_ID,
@@ -419,10 +400,6 @@ describe('SubmissionsService integration', () => {
     });
   });
   it('이관이 슬롯을 만들지 않은 옛 마일스톤도 첫 제출을 저장한다 (#1089)', async () => {
-    // Given — 2026-08-30 이관은 제출 기록이 있던 마일스톤에만 슬롯을 만들었다.
-    // 그때까지 아무도 내지 않은 마일스톤의 상태를 그대로 재현한다.
-    // ⚠ 시드 마일스톤은 다른 통합 스펙과 같은 데이터베이스를 공유하므로,
-    //   지운 슬롯은 이 테스트가 끝날 때 원래 id 그대로 되돌린다.
     const [milestoneId] = MILESTONE_SCENARIOS['milestones-upcoming'];
     const original = await prisma.milestoneDocument.findFirstOrThrow({
       where: {
@@ -434,7 +411,6 @@ describe('SubmissionsService integration', () => {
     try {
       await prisma.milestoneDocument.delete({ where: { id: original.id } });
 
-      // When
       const created = await service.create(
         seedGithubId(PERSONAL_USER_ID),
         {
@@ -449,7 +425,6 @@ describe('SubmissionsService integration', () => {
         NOW,
       );
 
-      // Then — 제출이 저장되고, 슬롯은 이관이 만든 것과 같은 모양으로 생긴다.
       expect(created).toMatchObject({ status: 'SUBMITTED' });
       const slot = await prisma.milestoneDocument.findFirstOrThrow({
         where: {
@@ -468,7 +443,6 @@ describe('SubmissionsService integration', () => {
       expect(stored.milestoneDocumentId).toBe(slot.id);
       expect(stored.histories).toHaveLength(1);
     } finally {
-      // 공유 시드를 원래대로 되돌린다 — 제출·이력이 새 슬롯을 참조하므로 먼저 지운다.
       const slotWhere = {
         milestoneId,
         kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
@@ -537,11 +511,9 @@ describe('SubmissionsService integration', () => {
   });
 
   it('마감과 지정 유형 불일치를 서버 시각 기준으로 차단한다', async () => {
-    // Given
     const [overdueMilestoneId] = MILESTONE_SCENARIOS['milestones-overdue'];
     const [textMilestoneId] = MILESTONE_SCENARIOS['milestones-upcoming'];
 
-    // When & Then: 두 handler를 즉시 등록해 빠른 실패가 unhandled로 새지 않게 한다.
     await Promise.all([
       expect(
         service.create(
@@ -732,10 +704,8 @@ describe('SubmissionsService integration', () => {
   });
 
   it('FILE 보완 재제출은 replacement 파일을 새 revision에 붙이고 기존 파일을 보존한다', async () => {
-    // Given
     const fixture = await seedFileResubmissionFixture('success');
 
-    // When
     const result = await service.resubmit(
       seedGithubId(PERSONAL_USER_ID),
       fixture.submissionId,
@@ -749,7 +719,6 @@ describe('SubmissionsService integration', () => {
       },
     );
 
-    // Then
     expect(result).toEqual({
       submissionId: fixture.submissionId,
       revision: 2,
@@ -781,10 +750,8 @@ describe('SubmissionsService integration', () => {
   });
 
   it('FILE replacement attachment 실패는 revision 갱신을 롤백하고 기존 파일을 보존한다', async () => {
-    // Given
     const fixture = await seedFileResubmissionFixture('rollback');
 
-    // When
     const resubmission = service.resubmit(
       seedGithubId(PERSONAL_USER_ID),
       fixture.submissionId,
@@ -798,7 +765,6 @@ describe('SubmissionsService integration', () => {
       },
     );
 
-    // Then
     await expect(resubmission).rejects.toMatchObject({
       errorCode: { code: SubmissionsErrorCode.FILE_SUBMISSION_UNAVAILABLE },
     });
@@ -826,7 +792,6 @@ describe('SubmissionsService integration', () => {
   });
 
   it('교직원이 FILE 유형을 바꾸는 동안 대기한 재제출은 잠금 뒤 최신 유형으로 거절한다', async () => {
-    // Given
     const fixture = await seedFileResubmissionFixture('type-race');
     let releaseProgramLock: (() => void) | undefined;
     const programLockRelease = new Promise<void>((resolve) => {
@@ -852,7 +817,6 @@ describe('SubmissionsService integration', () => {
     });
     await staffUpdateReady;
 
-    // When
     const resubmission = service.resubmit(
       seedGithubId(PERSONAL_USER_ID),
       fixture.submissionId,
@@ -873,7 +837,6 @@ describe('SubmissionsService integration', () => {
     }
     await staffUpdate;
 
-    // Then
     await expect(resubmission).rejects.toMatchObject({
       errorCode: { code: SubmissionsErrorCode.CONTENT_TYPE_MISMATCH },
     });

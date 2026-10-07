@@ -7,7 +7,6 @@ import type { MailSender } from './mail-sender.port';
 export type DeadlineDeliveryOutcome = 'SENT' | 'DUPLICATE' | 'FAILED';
 const logger = new Logger('DeadlineDigestService');
 
-/** Preview and delivery share the same built mail; delivery alone owns claims and ledger results. */
 export async function dispatchDeadlineDigest(
   batch: {
     readonly programId: string;
@@ -27,7 +26,6 @@ export async function dispatchDeadlineDigest(
   }).format(batch.now);
   return Promise.all(
     batch.deliveries.map(async (delivery): Promise<DeadlineDeliveryOutcome> => {
-      // Existing prefixes isolate student/staff roles but share automatic/manual daily claims.
       const prefix =
         delivery.audience === 'STUDENT'
           ? 'deadline-digest'
@@ -42,7 +40,7 @@ export async function dispatchDeadlineDigest(
         ))
       )
         return 'DUPLICATE';
-      // no-excuse-ok: catch — external mail/ledger boundary preserves durable sanitized failure behavior.
+
       try {
         await dependencies.mailSender.send({
           to: delivery.to,

@@ -35,31 +35,17 @@ function isRankingYear(value: unknown): value is RankingYear {
   return typeof value === 'number' && Number.isInteger(value) && value >= 2000;
 }
 
-/**
- * 없으면 0, 있으면 형이 맞아야 한다.
- *
- * 지표 칸은 화면이 숫자로 그리는 값이라 문자열이 오면 조용히 깨진다. 반대로
- * 아직 내려오지 않는 칸은 0으로 두면 화면이 성립한다 — 백엔드가 지표를
- * 늘리거나 줄이는 동안 랭킹 화면이 통째로 죽지 않게 하는 것이 이 기본값이다.
- */
 function readOptionalCount(value: unknown): number | null {
   if (value === undefined) return 0;
   return isNonNegativeInteger(value) ? value : null;
 }
 
-/**
- * 학과 — 없을 수도, null 일 수도 있다.
- *
- * 화면이 자리를 대시로 채우면 성립하는 값이라 형이 어긋나도 페이지를 버리지
- * 않는다. 빈 문자열은 값이 없는 것과 같게 다뤄 화면에 빈칸이 남지 않게 한다.
- */
 function readOptionalDepartment(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
 
-/** Observation time — ISO string, null, or omitted. */
 function isOptionalIsoInstant(value: unknown): boolean {
   if (value === undefined || value === null) return true;
   return typeof value === 'string' && !Number.isNaN(Date.parse(value));
@@ -81,19 +67,6 @@ function readOptionalName(value: unknown): string | null | undefined {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-/**
- * 관용적 읽기(tolerant reader).
- *
- * **모르는 필드는 무시한다** — 봉투에 새 칸이 늘어나는 것은 백엔드가 앞서
- * 배포됐다는 뜻이지 응답이 틀렸다는 뜻이 아니다. 예전 파서는 키 목록을
- * 닫아 두고 목록 밖 키가 하나만 와도 페이지 전체를 거부해서, 백엔드가 칸을
- * 하나 더 붙이는 순간 랭킹 화면이 통째로 죽었다.
- *
- * Public items carry the anonymous projection — 순위·참여자·Commit·PR 뿐이고
- * 신원(`name`·`department`)은 물론 Issue·Repo·Star·합계도 오지 않는다. Member
- * items add the metric columns, staff items add the identity columns; 어느
- * 계층이든 모르는 칸은 무시한다.
- */
 function parsePublicRankingItem(value: unknown): PublicRankingItem | null {
   if (!isRecord(value)) {
     return null;

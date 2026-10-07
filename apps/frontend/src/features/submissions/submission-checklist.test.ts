@@ -40,30 +40,23 @@ function problem(overrides: Partial<ProblemDetail>): ProblemDetail {
 }
 
 describe('milestoneDeadline', () => {
-  // dueAt 2026-09-01T23:59:59+09:00 == 2026-09-01T14:59:59Z.
   const dueAt = '2026-09-01T14:59:59.000Z';
 
   it('Seoul 자정 직전에는 달력일 차이 그대로 D-2다', () => {
-    // Given: Seoul 2026-08-30 23:59:59.
     const now = new Date('2026-08-30T14:59:59Z');
 
-    // When / Then
     expect(milestoneDeadline(dueAt, now)).toEqual({ dDay: 2, label: 'D-2' });
   });
 
   it('Seoul 자정을 넘기면 UTC 날짜가 그대로여도 하루가 줄어든다', () => {
-    // Given: UTC로는 여전히 08-30이지만 Seoul은 08-31 00:00:00.
     const now = new Date('2026-08-30T15:00:00Z');
 
-    // When / Then
     expect(milestoneDeadline(dueAt, now)).toEqual({ dDay: 1, label: 'D-1' });
   });
 
   it('마감 당일은 오늘 마감이다', () => {
-    // Given: Seoul 2026-09-01 23:59:00.
     const now = new Date('2026-09-01T14:59:00Z');
 
-    // When / Then
     expect(milestoneDeadline(dueAt, now)).toEqual({
       dDay: 0,
       label: '오늘 마감',
@@ -71,21 +64,16 @@ describe('milestoneDeadline', () => {
   });
 
   it('UTC 날짜는 같아도 Seoul 기준 다음 날이면 마감 지남이다', () => {
-    // Given: UTC 2026-09-01 15:00 == Seoul 2026-09-02 00:00.
     const now = new Date('2026-09-01T15:00:00Z');
 
-    // When
     const deadline = milestoneDeadline(dueAt, now);
 
-    // Then: UTC 달력으로 계산하면 dDay 0이 나오는 경계 케이스.
     expect(deadline).toEqual({ dDay: -1, label: '마감 지남' });
   });
 
   it('+09:00 오프셋 표기도 같은 순간으로 계산한다', () => {
-    // Given
     const now = new Date('2026-08-30T15:00:00Z');
 
-    // When / Then
     expect(milestoneDeadline('2026-09-01T23:59:59+09:00', now)).toEqual({
       dDay: 1,
       label: 'D-1',
@@ -94,60 +82,47 @@ describe('milestoneDeadline', () => {
 });
 
 describe('hasMilestoneDeadlinePassed', () => {
-  // dueAt 2026-09-01T18:00:00+09:00 == 2026-09-01T09:00:00Z.
   const dueAt = '2026-09-01T09:00:00.000Z';
 
   it('같은 날이라도 마감 시각을 넘겼으면 지난 것이다', () => {
-    // Given: Seoul 2026-09-01 18:00:01. milestoneDeadline은 같은 달력일이라
-    // dDay 0('오늘 마감')을 주지만 서버는 이 시점의 제출을 거절한다.
     const now = new Date('2026-09-01T09:00:01Z');
 
-    // When / Then
     expect(milestoneDeadline(dueAt, now).dDay).toBe(0);
     expect(hasMilestoneDeadlinePassed(dueAt, now)).toBe(true);
   });
 
   it('같은 날 마감 시각 이전이면 아직 지나지 않았다', () => {
-    // Given: Seoul 2026-09-01 17:59:59.
     const now = new Date('2026-09-01T08:59:59Z');
 
-    // When / Then
     expect(hasMilestoneDeadlinePassed(dueAt, now)).toBe(false);
   });
 
   it('마감 시각과 같은 순간은 아직 지나지 않았다', () => {
-    // Given: 서버의 hasProgramDeadlinePassed도 초과(>)로만 판정한다.
     const now = new Date(dueAt);
 
-    // When / Then
     expect(hasMilestoneDeadlinePassed(dueAt, now)).toBe(false);
   });
 
   it('읽을 수 없는 dueAt은 지나지 않은 것으로 본다', () => {
-    // Given: 화면이 제출 자리를 임의로 막지 않도록 거절은 서버에 맡긴다.
     const now = new Date('2026-09-01T09:00:01Z');
 
-    // When / Then
     expect(hasMilestoneDeadlinePassed('not-a-date', now)).toBe(false);
   });
 });
 
 describe('sortChecklistItems', () => {
   it('문자열 표기가 아니라 epoch 수치로 정렬한다', () => {
-    // Given: 문자열 비교로는 Z 표기가 앞서지만 실제 순간은 +09:00 쪽이 빠르다.
     const later = checklistItem({
       milestoneId: 'milestone-later',
       dueAt: '2026-09-01T00:30:00Z',
     });
     const earlier = checklistItem({
       milestoneId: 'milestone-earlier',
-      dueAt: '2026-09-01T08:00:00+09:00', // == 2026-08-31T23:00:00Z
+      dueAt: '2026-09-01T08:00:00+09:00',
     });
 
-    // When
     const sorted = sortChecklistItems([later, earlier]);
 
-    // Then
     expect(sorted.map((item) => item.milestoneId)).toEqual([
       'milestone-earlier',
       'milestone-later',
@@ -155,7 +130,6 @@ describe('sortChecklistItems', () => {
   });
 
   it('dueAt이 같으면 서버가 준 순서를 유지하고 원본을 바꾸지 않는다', () => {
-    // Given
     const first = checklistItem({
       milestoneId: 'milestone-1',
       dueAt: '2026-09-01T14:59:59.000Z',
@@ -166,10 +140,8 @@ describe('sortChecklistItems', () => {
     });
     const items = [first, second];
 
-    // When
     const sorted = sortChecklistItems(items);
 
-    // Then
     expect(sorted.map((item) => item.milestoneId)).toEqual([
       'milestone-1',
       'milestone-2',
@@ -180,7 +152,6 @@ describe('sortChecklistItems', () => {
 
 describe('checklistSubmittedCount', () => {
   it('제출물이 있는 항목만 제출 수로 센다(리뷰 상태 무관)', () => {
-    // Given: 5개 중 4개는 제출(승인/보완필요/제출됨/최종반려), 1개는 미제출.
     const items: SubmissionChecklistItem[] = [
       checklistItem({
         milestoneId: 'm1',
@@ -199,7 +170,6 @@ describe('checklistSubmittedCount', () => {
       checklistItem({ milestoneId: 'm2', dueAt: '2026-09-02T00:00:00Z' }),
     ];
 
-    // When / Then
     expect(checklistSubmittedCount(items)).toEqual({
       total: 2,
       submitted: 1,
@@ -239,8 +209,6 @@ describe('checklistSubmittedCount', () => {
       }),
     ];
 
-    // Then: 마감 전 검토 대기(canResubmit)는 세지 않고, 보완 요청은
-    // canResubmit이 false여도 센다.
     expect(checklistSubmittedCount(items)).toEqual({
       total: 2,
       submitted: 2,
@@ -269,8 +237,6 @@ describe('checklistItemStatus', () => {
     ).toBe('NOT_SUBMITTED');
   });
 
-  // #1372 — canResubmit은 「지금 바꿔 낼 수 있는가」일 뿐이라 배지 이름과
-  // 「보완 요청 N건」을 바꾸지 않는다. 둘 다 서버 상태를 그대로 따른다(R-35).
   it.each([
     ['마감 전 검토 대기', 'SUBMITTED', null, true, 'SUBMITTED', 0],
     ['마감 뒤 검토 대기', 'SUBMITTED', null, false, 'SUBMITTED', 0],
@@ -293,7 +259,6 @@ describe('checklistItemStatus', () => {
   ] as const)(
     '%s(상태 %s, 지난 판정 %s, 재제출 가능 %s): 배지 %s, 보완 요청 %i건',
     (_label, status, decision, canResubmit, badge, revisionNeeded) => {
-      // Given
       const item = checklistItem({
         milestoneId: 'milestone-review',
         dueAt: '2026-09-01T14:59:59.000Z',
@@ -309,7 +274,6 @@ describe('checklistItemStatus', () => {
         },
       });
 
-      // When / Then
       expect(checklistItemStatus(item)).toBe(badge);
       expect(checklistSubmittedCount([item]).revisionNeeded).toBe(
         revisionNeeded,
@@ -322,10 +286,8 @@ describe('resubmissionFailure', () => {
   it.each(['SUB_013', 'SUB_014'])(
     '409 %s는 코드와 무관하게 최신 상태 다시 불러오기다',
     (code) => {
-      // Given: RESUBMISSION_NOT_ALLOWED(SUB_013)·STALE_SUBMISSION_REVISION(SUB_014).
       const conflict = problem({ status: 409, code });
 
-      // When / Then
       expect(resubmissionFailure(conflict, 'TEXT')).toEqual({ kind: 'stale' });
     },
   );
@@ -386,7 +348,6 @@ describe('submitResubmissionRevision', () => {
   });
 
   it('uploads FILE content first with resubmission context, then creates the next revision', async () => {
-    // Given
     const cache = new SubmissionFileUploadCache();
     const uploadSubmissionFile = vi
       .fn()
@@ -398,7 +359,6 @@ describe('submitResubmissionRevision', () => {
     });
     const phases: string[] = [];
 
-    // When
     const result = await submitResubmissionRevision({
       applicationId: 'application-1',
       milestoneId: 'milestone-file',
@@ -412,7 +372,6 @@ describe('submitResubmissionRevision', () => {
       onPhaseChange: (phase) => phases.push(phase),
     });
 
-    // Then
     expect(result).toEqual({
       submissionId: 'submission-1',
       revision: 4,
@@ -434,7 +393,6 @@ describe('submitResubmissionRevision', () => {
   });
 
   it('reuses the cached upload when revision creation fails and the same file is retried', async () => {
-    // Given
     const cache = new SubmissionFileUploadCache();
     const uploadSubmissionFile = vi
       .fn()
@@ -459,7 +417,6 @@ describe('submitResubmissionRevision', () => {
       createResubmission,
     };
 
-    // When / Then
     await expect(submitResubmissionRevision(input)).rejects.toThrow(
       'revision failed',
     );
@@ -510,15 +467,11 @@ describe('applyResubmission', () => {
     return { next, target, other };
   }
 
-  // 서버는 재제출해도 판정 이력을 지우지 않는다(submissions.service.ts의
-  // latestReview) — 낙관적 갱신이 비워 버리면 새로고침해야 지난 판정이 되돌아온다.
   it('마감 전 재제출은 지난 판정을 지우지 않고 다음 조회와 같은 행을 만든다', () => {
-    // Given: Seoul 2026-08-31 23:59:59 — 마감 하루 전.
     const { next, target, other } = resubmittedChecklist(
       new Date('2026-08-31T14:59:59.000Z'),
     );
 
-    // Then
     expect(next.items[0]?.submission).toEqual({
       id: 'submission-1',
       status: 'SUBMITTED',
@@ -526,20 +479,18 @@ describe('applyResubmission', () => {
       decision: 'CHANGES_REQUESTED',
       lastReviewedAt: '2026-08-28T01:00:00.000Z',
       reviewComment: '실행 화면을 추가해 주세요',
-      // 검토 대기 + 마감 전이면 서버도 교체를 허용한다.
+
       canResubmit: true,
       file: null,
     });
     expect(next.items[1]).toBe(other);
-    // 원본은 그대로 — 이전 상태를 덮어쓰지 않는다.
+
     expect(target.submission?.status).toBe('CHANGES_REQUESTED');
   });
 
   it('마감 뒤 재제출은 더 낼 수 없다고 표시한다', () => {
-    // Given: 마감 1초 뒤 — 보완 요청이라 재제출은 됐지만 이제 상태는 검토 대기다.
     const { next } = resubmittedChecklist(new Date('2026-09-01T15:00:00.000Z'));
 
-    // Then
     expect(next.items[0]?.submission?.canResubmit).toBe(false);
     expect(next.items[0]?.submission?.decision).toBe('CHANGES_REQUESTED');
   });

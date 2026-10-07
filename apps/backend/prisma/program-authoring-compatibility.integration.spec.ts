@@ -6,8 +6,6 @@ import {
   resetProgramAuthoringFixture,
 } from './program-authoring-migration-test-support';
 
-// allow: SIZE_OK — legacy writes, explicit boundaries, and migration locking share one isolated trigger fixture.
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -112,10 +110,8 @@ it('keeps a previous-image Milestone create writable with an omitted start', asy
 });
 
 it('normalizes an omitted Milestone start before its Program to one millisecond before dueAt', async () => {
-  // Given
   await migrateFixture();
 
-  // When
   await inProgramAuthoringFixtureSchema(
     prisma,
     SCHEMA,
@@ -126,7 +122,6 @@ it('normalizes an omitted Milestone start before its Program to one millisecond 
   `,
   );
 
-  // Then
   const stored = await inProgramAuthoringFixtureSchema(
     prisma,
     SCHEMA,
@@ -253,10 +248,8 @@ it('normalizes previous-image nullable Program updates without weakening stored 
 });
 
 it('advances stored startAt when a previous-image Program update advances applicationEndAt without startAt', async () => {
-  // Given
   await migrateFixture();
 
-  // When
   await inProgramAuthoringFixtureSchema(
     prisma,
     SCHEMA,
@@ -268,7 +261,6 @@ it('advances stored startAt when a previous-image Program update advances applic
     `,
   );
 
-  // Then
   const stored = await inProgramAuthoringFixtureSchema(
     prisma,
     SCHEMA,
@@ -289,10 +281,8 @@ it('advances stored startAt when a previous-image Program update advances applic
 });
 
 it('preserves an explicit valid Program startAt when applicationEndAt advances', async () => {
-  // Given
   await migrateFixture();
 
-  // When
   await inProgramAuthoringFixtureSchema(
     prisma,
     SCHEMA,
@@ -306,7 +296,6 @@ it('preserves an explicit valid Program startAt when applicationEndAt advances',
     `,
   );
 
-  // Then
   const stored = await inProgramAuthoringFixtureSchema(
     prisma,
     SCHEMA,
@@ -332,10 +321,8 @@ it.each([
 ] as const)(
   'rejects a previous-image Program applicationEndAt update that %s endAt after normalization',
   async (_boundary, applicationEndAt) => {
-    // Given
     await migrateFixture();
 
-    // When / Then
     await expect(
       inProgramAuthoringFixtureSchema(
         prisma,

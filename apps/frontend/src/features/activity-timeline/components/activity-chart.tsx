@@ -14,7 +14,6 @@ import { DataTable, type DataTableColumn } from '@/components';
 import { orderActivityPoints } from '../activity-point-order';
 import type { ActivityPoint } from '../types';
 
-// 선 색은 semantic 차트 토큰(design.md R-08b). 다크 모드에서도 토큰이 알아서 바뀐다.
 const series = [
   { key: 'commitCount', label: 'Commit', color: 'var(--chart-1)' },
   { key: 'prCount', label: 'Pull Request', color: 'var(--chart-2)' },

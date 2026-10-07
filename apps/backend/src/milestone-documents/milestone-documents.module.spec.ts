@@ -17,12 +17,6 @@ import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
 
-/**
- * MilestoneDocumentsController가 생성자에서 MilestoneDocumentFilesService를 요구하고,
- * MilestoneDocumentFilesService가 SUBMISSION_FILE_STORAGE를 요구하는데도 모듈 provider
- * 목록에서 빠져 있었던 회귀(부트스트랩 DI 실패)를 다시 만들지 않도록 메타데이터를 고정한다.
- * 같은 컨트롤러가 이제 MilestoneDocumentReviewsService도 요구하므로 함께 고정한다.
- */
 describe('MilestoneDocumentsModule', () => {
   const getMetadataArray = (key: string): unknown[] => {
     const metadata: unknown = Reflect.getMetadata(
@@ -58,12 +52,10 @@ describe('MilestoneDocumentsModule', () => {
         MilestoneDocumentCurrentFileService,
         MilestoneDocumentFilesService,
         MilestoneDocumentReviewsService,
-        // 일괄 내려받기(ZIP)도 같은 컨트롤러가 생성자에서 요구한다 — 빠지면 부트스트랩 DI가
-        // 실패한다(이 spec이 고정하는 회귀와 같은 모양이다).
+
         MilestoneDocumentArchiveService,
         MilestoneDocumentsStaffGuard,
-        // pending 행 생성은 submissions/ repository가 맡는다 — 보관 할당량 판정이 그
-        // 트랜잭션 안에 있으므로 빠지면 학생 경로가 한도를 우회하게 된다.
+
         SubmissionFilesRepository,
       ]),
     );

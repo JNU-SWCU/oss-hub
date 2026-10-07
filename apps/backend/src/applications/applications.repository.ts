@@ -87,12 +87,8 @@ type LockedProgramRow = Readonly<{ lifecycle: ProgramLifecycle }>;
 type LockedTeamRow = Readonly<{ id: string; leaderId: string }>;
 
 export interface ApplicationsTransactionStore {
-  /** #547 — 판정 전이와 감사 기록이 같은 트랜잭션에서 함께 커밋되도록 하는 writer. */
   readonly auditLogWriter: AuditLogTransactionWriter;
-  /**
-   * 판정 이력 한 행을 이 트랜잭션에 쌓는다. `transitionApplication`의 CAS가 성공한 뒤에만
-   * 부른다 — 패자 요청이 이력을 남기면 안 되기 때문이다.
-   */
+
   appendReviewHistory(
     input: AppendReviewHistoryInput,
   ): Promise<AppendedReviewHistory>;
@@ -105,11 +101,7 @@ export interface ApplicationsTransactionStore {
   findRepositoryProvisionEvent(
     idempotencyKey: string,
   ): Promise<RepositoryProvisionEvent | null>;
-  /**
-   * 되돌리기 시 진행 중이던 프로비저닝 요청을 지운다 — outbox 이벤트와 job 양쪽.
-   * 남겨 두면 재승인이 기존 이벤트를 재사용해 새 job을 만들지 않아 저장소가
-   * 영영 만들어지지 않는다. 완료된 건은 상위 가드가 이미 409로 막는다.
-   */
+
   discardRepositoryProvisionRequest(
     applicationId: string,
     discardedAt: Date,
@@ -208,12 +200,6 @@ export interface ApplicationRepositoryProvisioning {
   readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
 }
 
-/**
- * 신청자 목록의 저장소 주소 — 교직원 화면이 「공개 저장소 열기」/「비공개 저장소 확인」을
- * 가르는 데 쓴다. 출처는 `Application.repository` 1:1 관계다. `Team.repositories` 로 가지
- * 않는다 — 저장소 식별 단위는 application 이다(`schema.prisma` Repository 주석, #113).
- * 아직 프로비저닝되지 않았으면 null.
- */
 export interface ApplicationListRepository {
   readonly url: string;
   readonly visibility: RepositoryVisibility;
@@ -221,19 +207,15 @@ export interface ApplicationListRepository {
 
 export interface ApplicationListItem {
   readonly id: string;
-  /**
-   * 어느 프로그램의 신청인가. 상세 화면이 주소의 프로그램과 대조하는 데 쓴다 —
-   * `GET applications/:id`는 신청 id 하나로 도달하므로, 주소를 손으로 고치면
-   * 프로그램 A의 화면에서 프로그램 B의 신청을 판정하게 된다.
-   */
+
   readonly programId: string;
   readonly status: ApplicationStatus;
   readonly submittedAt: Date;
   readonly rejectionReason: string | null;
   readonly repositoryProvisioning: ApplicationRepositoryProvisioning;
-  /** 승인 시 저장소를 새로 만드는가(`NEW`), 낸 저장소를 잇는가(`OWN`). */
+
   readonly repositoryConnectionMode: RepositoryConnectionMode;
-  /** `OWN`일 때 이을 저장소 주소. `NEW`면 null. */
+
   readonly repositoryUrl: string | null;
   readonly repository: ApplicationListRepository | null;
   readonly isRepositoryPublicationPlanned: boolean;
@@ -259,21 +241,12 @@ export interface ApplicationListPage {
   readonly totalPages: number;
 }
 
-/** 팀 관리 목록의 「팀/구성」 칸을 채우는 구성원 표시 이름. 실명이 없으면 nickname으로 보인다. */
 export interface TeamManagementMember {
   readonly id: string;
   readonly name: string | null;
   readonly nickname: string;
 }
 
-/**
- * 팀 관리 화면이 소비하는 lean projection.
- *
- * 저장소 관련 필드(`repositoryConnectionMode`·`repositoryUrl`·`repository`·
- * `repositoryProvisioning`)를 **아예 담지 않는다** — 담았다가 화면에서 가리는 것은
- * fetch-then-redact라 금지다(루트 AGENTS.md). 기존 `ApplicationListItem`을 좀힌 것이
- * 아니라 별도 select로 병행 제공하므로, 이 타입이 바뎀도 기존 응답은 그대로다.
- */
 export interface TeamManagementListItem {
   readonly id: string;
   readonly programId: string;
@@ -301,10 +274,6 @@ export interface TeamManagementListPage {
   readonly totalPages: number;
 }
 
-/**
- * 교직원 검토 이력 한 줄. allowlist만 담는다 — actor는 표시 가능한 이름·계정까지고
- * 학번·소속·연락처는 애초에 읽지 않는다.
- */
 export interface ApplicationReviewHistoryEntry {
   readonly id: string;
   readonly eventKind: ApplicationReviewEventKind;
@@ -317,16 +286,11 @@ export interface ApplicationReviewHistoryEntry {
   readonly rejectionReason: string | null;
 }
 
-/**
- * 교직원 신청 상세. 기존 목록 항목에 검토 이력을 더한 모양이다 — 목록 항목 타입을
- * 공유하므로 「목록에서 보이던 값이 상세에서 사라지는」 어그러짐이 생길 여지가 없다.
- */
 export interface StaffApplicationDetail {
   readonly application: ApplicationListItem;
   readonly reviewHistory: readonly ApplicationReviewHistoryEntry[];
 }
 
-/** #117 운영 대시보드 — Application 단위 집계(제출 매트릭스 아님). */
 export interface StaffDashboardApplicationCounts {
   readonly total: number;
   readonly submitted: number;
@@ -344,9 +308,9 @@ export interface StaffDashboardProgramSummary {
     readonly startsAt: Date;
     readonly endsAt: Date;
   };
-  /** 종료일. 「미정」은 DB 기본값인 센티널 시각으로 온다. */
+
   readonly endAt: Date;
-  /** 게시 축. 신청기간만으로는 「내림」을 알 수 없어 함께 싣는다(#1093). */
+
   readonly lifecycle: ProgramLifecycle;
   readonly applications: StaffDashboardApplicationCounts;
   readonly teamManagementPath: string;
@@ -366,30 +330,20 @@ export class ApplicationJoinCodeDigestConflictError extends Error {
 
 export interface ApplicationCreateStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
-  /** 신청 생성과 같은 트랜잭션에서 최초 제출 이력을 쌓는다. */
+
   appendReviewHistory(
     input: AppendReviewHistoryInput,
   ): Promise<AppendedReviewHistory>;
   lockProgramForApply(programId: string): Promise<ProgramLifecycle | null>;
   findTeamMinSize(programId: string): Promise<number | null>;
-  /**
-   * 이 프로그램에서 학생이 이미 속한 팀 — 있으면 신청이 그 팀을 재사용한다.
-   * `TeamMember @@unique([programId, userId])` 때문에 많아야 하나다.
-   */
+
   findExistingTeamMembership(
     programId: string,
     userId: string,
   ): Promise<CreatedTeamForApplication | null>;
-  /**
-   * 팀 구성 변경과 신청 생성을 직렬화한다. 잠금 순서는 Program → Team이다.
-   *
-   * 잠그기만 하는 게 아니라 **잠근 뒤의 사실**로 신청 권한까지 되읽어 돌려준다 —
-   * `true`는 `userId`가 잠금 시점에 그 팀의 구성원이면서 팀장(`Team.leaderId`)일 때뿐이다.
-   * 잠금 전 스냅샷(`findExistingTeamMembership`)은 권한의 정본이 아니다 — 그 사이에
-   * 팀장이 바뀌거나 본인이 팀에서 빠졌을 수 있기 때문이다(#1269).
-   */
+
   lockTeamForApply(teamId: string, userId: string): Promise<boolean>;
-  /** 재사용할 팀의 최소 인원 검증용. */
+
   countTeamMembers(teamId: string): Promise<number>;
   createTeamWithLeader(
     input: CreateTeamForApplicationInput,
@@ -458,8 +412,6 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
     applicationId: string,
     discardedAt: Date,
   ): Promise<void> {
-    // 판정 전이가 Application을 먼저 잠근 뒤 이 메서드로 온다. 여기서 Job을
-    // history보다 먼저 잠가 worker의 Application → Job → History 순서와 맞춘다.
     const job = (
       await this.transaction.$queryRaw<
         readonly {
@@ -501,8 +453,6 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
       );
     }
 
-    // 이벤트의 정확한 payload를 DISCARDED 이력으로 먼저 닫은 뒤 queue 상태를 지운다.
-    // consumer가 아직 job을 만들지 않은 옛 행도 event만으로 이력이 남는다.
     await this.transaction.outboxEvent.deleteMany({
       where: { idempotencyKey: `repository-provision:${applicationId}` },
     });
@@ -661,8 +611,7 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
     if (!locked || locked.leaderId !== userId) {
       return false;
     }
-    // 팀장 자리만으로는 부족하다 — 구성원 행은 잠금 직전에도 지워질 수 있으므로
-    // 잠근 뒤의 현재 멤버십을 함께 확인한다.
+
     const membership = await this.database.teamMember.findUnique({
       where: { teamId_userId: { teamId, userId } },
       select: { id: true },
@@ -762,7 +711,6 @@ export class ApplicationsRepository {
     this.joinCodeSecret = resolveJoinCodeSecretFromConfig(runtimeConfig);
   }
 
-  /** program-teams.service.ts generateJoinCode 와 동일 규칙. 그 함수는 비export. */
   generateJoinCode(): string {
     return randomBytes(6).toString('base64url').toUpperCase().slice(0, 10);
   }
@@ -911,11 +859,6 @@ export class ApplicationsRepository {
     };
   }
 
-  /**
-   * 교직원 신청 상세(#722). 목록과 같은 `RepeatableRead` 트랜잭션 안에서 신청·outbox·
-   * provision job 을 함께 읽는다 — 셋을 따로 읽으면 그 사이에 판정이 끼어들어 「반려인데
-   * 저장소 작업이 진행 중」 같은 있을 수 없는 조합이 화면에 그려진다.
-   */
   async findApplicationForStaff(
     applicationId: string,
   ): Promise<ApplicationListItem | null> {
@@ -953,11 +896,6 @@ export class ApplicationsRepository {
     return toApplicationListItem(row, outbox ?? undefined, job ?? undefined);
   }
 
-  /**
-   * 교직원 검토 이력 — 최신순. 존재하지 않는 신청 id면 빈 배열이다.
-   * 호출자가 신청 자체를 따로 확인해 404를 가르므로, 여기서 존재 여부를 갈라
-   * 다른 응답을 만들지 않는다(비공개·부재 동일 404).
-   */
   async listReviewHistory(
     applicationId: string,
   ): Promise<readonly ApplicationReviewHistoryEntry[]> {
@@ -988,24 +926,12 @@ export class ApplicationsRepository {
     }));
   }
 
-  /**
-   * 팀 관리 목록의 lean projection. 기존 `listApplicationsForProgram`은 그대로 두고
-   * 병행 제공한다 — 중간 배포 구간에서 예전 화면이 계속 동작해야 하기 때문이다.
-   *
-   * 정렬 계약은 `SUBMITTED 우선 → submittedAt ASC → id ASC`다. Prisma `orderBy`로는
-   * 「한 상태만 앞으로」를 쓸 수 없다 — enum 정렬은 선언 순서라 상태로 **묶어**
-   * 버려서, 오래된 반려가 최근 승인보다 뒤로 밀린다. 그래서 두 버킷(검토대기 / 나머지)를
-   * 각각 `submittedAt ASC, id ASC`로 읽고 페이지 경계를 계산해 이어 붙인다. 검색·필터
-   * where는 Prisma 빌더 하나를 그대로 써서 raw SQL로 중복 구현하지 않는다.
-   */
   async listTeamManagementForProgram(
     programId: string,
     query: ApplicationListQuery,
   ): Promise<TeamManagementListPage> {
     const where = buildTeamManagementListWhere(programId, query);
-    // 「검토대기 먼저」는 상태를 골라 보지 않을 때만 의미가 있다. 하나로 좁혀 보는 중이면
-    // 앞세울 것이 없으므로 버킷을 나누지 않는다 — 나누면 상태 필터가 두 번째
-    // 버킷에서 덮여써져 걸러낸 상태 밖의 행까지 따라온다.
+
     const buckets: readonly Prisma.ApplicationWhereInput[] =
       query.status === 'all'
         ? [
@@ -1190,10 +1116,6 @@ function buildApplicationListWhere(
   };
 }
 
-/**
- * 팀 관리 목록의 검색 where. 기존 검색 축(신청자 이름·계정·팀이름·답변)에
- * **팀원 축**을 더한다 — 교직원은 대표 신청자가 아닌 팀원 이름으로도 팀을 찾는다(AC-3).
- */
 function buildTeamManagementListWhere(
   programId: string,
   query: ApplicationListQuery,
@@ -1227,16 +1149,11 @@ function buildTeamManagementListWhere(
   };
 }
 
-/** 버킷 안의 정렬. 버킷 순서(검토대기 먼저)는 호출부가 정한다. */
 const TEAM_MANAGEMENT_ORDER_BY = [
   { submittedAt: 'asc' },
   { id: 'asc' },
 ] as const satisfies Prisma.ApplicationOrderByWithRelationInput[];
 
-/**
- * 팀 관리 lean select. 저장소 관련 컬럼과 `answers`를 **읽지 않는다** — 응답에서
- * 빼는 것과 애초에 읽지 않는 것은 다르고, 이 목록은 후자다.
- */
 const TEAM_MANAGEMENT_LIST_SELECT = {
   id: true,
   programId: true,
@@ -1297,10 +1214,6 @@ function toTeamManagementListItem(
   };
 }
 
-/**
- * 목록과 단건 조회가 **같은 select**를 쓴다. 화면이 둘이라도 교직원이 보는 신청 한 건의
- * 모양은 하나여야 한다 — 한쪽만 필드를 늘리면 목록에서 보이던 값이 상세에서 사라진다.
- */
 const APPLICATION_LIST_SELECT = {
   id: true,
   programId: true,
@@ -1311,13 +1224,10 @@ const APPLICATION_LIST_SELECT = {
   teamId: true,
   answers: true,
   isRepositoryPublicationPlanned: true,
-  // 승인이 무엇을 하는지는 프로그램의 자동 생성 스위치 하나로 정해지지 않는다 —
-  // 신청자가 `OWN`을 골랐으면 새로 만드는 게 아니라 낸 저장소를 잇는다.
+
   repositoryConnectionMode: true,
   repositoryUrl: true,
-  // 1:1 Application.repository — 팀의 repositories 로 가지 않는다(#113).
-  // GithubRepository는 name/url 컬럼을 두지 않는다(#617 단계 D) — nameWithOwner에서
-  // repository-identity.ts 헬퍼로 url을 유도한다.
+
   repository: {
     select: { id: true, nameWithOwner: true, visibility: true },
   },
@@ -1592,8 +1502,7 @@ function toApplicationDecisionTarget(
     id: application.id,
     programId: application.programId,
     programName: application.program.name,
-    // applicant는 이미 위 include에서 select된 값이다(팀 신청 라벨 계산에도 쓰인다) —
-    // 추가 쿼리 없이 감사 로그 스냅샷에 그대로 흘려보낸다.
+
     applicantGithubLogin: application.applicant.nickname,
     teamId: application.teamId,
     status: application.status,

@@ -39,7 +39,7 @@ export interface SubmissionFormViewProps {
   readonly submitting: boolean;
   readonly file: File | null;
   readonly fileError: string | null;
-  /** 고른 ZIP의 판정을 기다리는 중(#1108). */
+
   readonly fileChecking?: boolean;
   readonly submissionPhase: 'uploading' | 'creating' | null;
   readonly onTextChange: (value: string) => void;

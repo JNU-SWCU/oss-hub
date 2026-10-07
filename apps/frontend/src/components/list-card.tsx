@@ -21,22 +21,16 @@ export interface ListCardProps extends Omit<
   badge?: {
     text: string;
     variant: ComponentProps<typeof StatusBadge>['variant'];
-    /**
-     * 있으면 배지 앞의 점을 대체한다. 점은 색각 이상 사용자용 비색 신호라
-     * 그냥 지우지 않고, 더 강한 비색 신호인 아이콘이 있을 때만 바뀜다.
-     */
+
     icon?: ReactNode;
   };
-  /** 제목 앞에서 읽을 상태 설명. 없으면 배지 문구를 그대로 읽는다. */
+
   statusDescription?: string;
-  /** cover·meta·details·note에는 링크나 버튼을 넣지 않는다: 카드가 유일한 탐색 지점이다. */
+
   cover?: ReactNode;
-  /** 라벨 없는 보조 한 줄(기간 등). */
+
   meta?: ReactNode;
-  /**
-   * 라벨·값 쌍. 두 줄의 색은 카드가 정한다 — 라벨은 muted, 값은 foreground.
-   * 호출부가 색을 다시 고르면 카드를 합친 이유가 없어진다.
-   */
+
   details?: ReadonlyArray<{
     readonly label?: string;
     readonly value: ReactNode;
@@ -45,13 +39,6 @@ export interface ListCardProps extends Omit<
   href?: string;
 }
 
-/**
- * 목록 항목의 공용 조합. 값이 없는 줄은 렌더하지 않는다.
- *
- * `href`가 있으면 발치에 「자세히 ›」 한 줄을 둬서 눌러야 하는 카드임을 알린다.
- * 이 줄은 `CardFooter`를 쓰지 않는다 — 그 primitive는 `border-t bg-muted/50`
- * 액션 바 표면이라 클릭 불가 텍스트에 얹으면 회색 띠만 남는다.
- */
 export function ListCard({
   title,
   subtitle,

@@ -4,7 +4,6 @@ import {
   programListStatusSortRank,
 } from './program-list-status-filter';
 
-/** SQL fragment 비교용 — 개행·중복 공백을 지운다. */
 function normalize(sql: string): string {
   return sql.replace(/\s+/g, ' ').trim();
 }

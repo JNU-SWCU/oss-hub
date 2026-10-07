@@ -1,10 +1,3 @@
-// 신청 항목 길이 상한이 backend/frontend 사이에서 어긋나면, 화면이 서버보다 느슨한
-// 쪽으로 갈렸을 때 학생은 다 쓰고 제출하는 **순간에야** 400을 만난다(무엇을 줄여야
-// 하는지도 모른 채). 반대로 화면이 더 엄격하면 서버가 받아 줄 글을 못 치게 막는다.
-// 모노레포에 공유 패키지가 없어 frontend가 apps/backend/src를 직접 import할 수 없으므로
-// (백엔드 모듈이 @nestjs/common·@prisma/client에 의존하고 frontend workspace에는 그
-// 의존성이 없다), 백엔드 소스를 텍스트로 읽어 숫자를 직접 뽑아 비교한다 —
-// features/audit-log/action-registry.test.ts와 같은 방식이다.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -30,7 +23,7 @@ export function parseBackendLimits(
       'application-answers.validator.ts에서 APPLICATION_ANSWER_MAX_LENGTHS 선언을 찾지 못했다',
     );
   }
-  // ⚠ 주석을 **먼저** 걷어 낸다 — 주석 안의 `} as const;` 로 뒤쪽 변경을 숨길 수 있다.
+
   const afterDeclaration = source
     .slice(start + declaration.length)
     .replaceAll(/\/\*[\s\S]*?\*\//g, '')
@@ -42,9 +35,6 @@ export function parseBackendLimits(
     );
   }
 
-  // ⚠ **읽어 낸 것만 믿지 않는다 — 못 읽은 것이 있으면 실패한다(fail-closed).**
-  //   `...SPREAD` 나 `['title']: 201` 같은 것을 그냥 넘기면, 백엔드 값이 실제로
-  //   달라졌는데도 이 테스트가 초록으로 통과한다(리뷰가 실제로 뚫어 보였다).
   const limits: Record<string, number> = {};
   for (const rawLine of afterDeclaration.slice(0, end).split('\n')) {
     const line = rawLine.trim();
@@ -81,7 +71,6 @@ describe('상한 선언 파서 — 읽지 못한 것은 실패로 처리한다',
   });
 
   it('spread 로 값을 덮어쓰면 통과시키지 않는다', () => {
-    // ⚠ 리뷰가 실제로 이 수법으로 뚫었다 — 백엔드 실제 값은 201 인데 파서는 200 만 읽었다.
     expect(() =>
       parseBackendLimits(
         wrap('  title: 200,\n  summary: 10_000,\n  ...OVERRIDE,'),

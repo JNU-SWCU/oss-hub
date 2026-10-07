@@ -25,14 +25,6 @@ export interface SubmissionFormErrors {
 export type SubmissionFileValidation =
   { readonly ok: true } | { readonly ok: false; readonly message: string };
 
-// SUB_017(INVALID_FILE_UPLOAD)은 원인이 하나가 아니다. 백엔드 발생 조건 전부:
-//   - 업로드 요청의 파일 부분이 없거나 읽을 수 없음
-//     (submission-files.service.ts: file === undefined || !Buffer.isBuffer)
-//   - 신청 ID·마일스톤 ID·제출 ID가 빈 문자열이거나 공백이 섞인 형태 (requiredOpaqueId)
-//   - 재제출 회차 값이 양의 정수가 아님 (requiredPositiveInteger)
-//   - multipart 파싱 한도 초과 (submissions.controller.ts: LIMIT_FIELD_* / LIMIT_*_COUNT)
-// 어느 것도 "만료"가 아니고, 서버 응답만으로는 이 중 무엇인지 특정할 수 없다.
-// 그러니 원인을 단정하지 말고 사용자가 실제로 할 수 있는 행동만 제시한다.
 const SUBMISSION_FILE_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   SUB_017:
     '제출 요청이 서버에 온전히 전달되지 않았습니다. 파일을 다시 선택해 제출해 보고, 그래도 안 되면 프로그램 상세에서 해당 마일스톤의 제출 화면을 다시 열어 주세요.',
@@ -42,18 +34,6 @@ const SUBMISSION_FILE_ERROR_MESSAGES: Readonly<Record<string, string>> = {
     '프로그램 종료일이 설정되지 않아 파일을 제출할 수 없습니다. 담당 교직원에게 확인해 주세요.',
 };
 
-/**
- * 압축 파일 **내용** 때문에 거절된 코드(#1108). 형식·서명 거절(SUB_018)과 갈라져 있다.
- *
- * 여기에 문장을 적지 않는 이유: 갈래가 여덟이고 갈래마다 학생이 할 일이 다르다. 화면이
- * 여덟 문장의 사본을 들면 서버가 거절하며 하는 말과 화면이 보여 주는 말이 갈라진다 —
- * #1107에서 상한 숫자로 실제로 겪은 일이다. 그래서 문구는 서버가 소유하고 화면은
- * 「이 코드는 파일 입력 옆에 서버 문장을 그대로 세운다」만 정한다(SUB_011과 같은 방식).
- *
- * 목록이 backend 레지스트리와 어긋나면 `submission-archive-error-codes.drift.test.ts`가
- * 실패한다 — 목록이 낡으면 새 코드가 다시 「알 수 없는 코드」로 떨어져 파일 입력이 아닌
- * 화면 전체 오류로 밀려난다.
- */
 export const SUBMISSION_ARCHIVE_ERROR_CODES: ReadonlySet<string> = new Set([
   'SUB_025',
   'SUB_026',
@@ -105,11 +85,6 @@ export function getSubmissionFileErrorMessage(
   return SUBMISSION_FILE_ERROR_MESSAGES[code] ?? null;
 }
 
-/**
- * 파일을 고르자마자 받은 판정(#1108)을 파일 입력 옆 문장으로 바꾼다 — 제출 때 같은 자리에
- * 서는 문장과 같다. 파일 판정이 아닌 코드(세션·권한·서버 장애)는 `null`이다. 그 실패는
- * 제출이 지금처럼 다시 만나 알린다.
- */
 export function submissionFileCheckMessage(
   problem: { readonly code: string; readonly detail: string },
   policy: SubmissionUploadLimit,
@@ -119,17 +94,11 @@ export function submissionFileCheckMessage(
     : getSubmissionFileErrorMessage(problem.code, policy);
 }
 
-/** 유형별 제출 입력의 DOM id. `SubmissionInput`이 실제로 쓰는 값과 같아야 한다. */
 export const SUBMISSION_FIELD_IDS = {
   FILE: 'submission-file',
   TEXT: 'submission-text',
 } as const satisfies Readonly<Record<SubmissionType, string>>;
 
-/**
- * 검증에 걸려 제출이 멈췄을 때 그 입력으로 초점을 옮긴다. 제출 창은 세로로 스크롤되고
- * 버튼은 바닥에 붙어 있어, 초점을 옮기지 않으면 한참 위에 뜬 오류 문구가 화면 밖에
- * 남는다 — 사용자에게는 버튼을 눌러도 아무 일이 없는 것과 같다.
- */
 export function focusSubmissionField(submissionType: SubmissionType): void {
   if (typeof document === 'undefined') return;
   const target = document.getElementById(SUBMISSION_FIELD_IDS[submissionType]);

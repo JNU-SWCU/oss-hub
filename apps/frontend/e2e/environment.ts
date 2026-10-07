@@ -7,8 +7,6 @@ const LEGACY_CONTRACTS = {
   staffRequests: '/api/v1/role-requests',
 } as const;
 
-// PR04 통합 경로는 `users/access`(목록·facets)와 `users/:id/access`(상세·이력·PATCH)
-// 두 형태를 모두 갖는다. 어느 쪽도 프런트엔드가 호출하지 않아야 한다.
 const UNIFIED_ACCESS_PATTERN = /^\/api\/v1\/users(?:\/[^/]+)?\/access(?:\/|$)/;
 
 type BrokenLegacyContract = 'users' | 'staff-requests' | null;

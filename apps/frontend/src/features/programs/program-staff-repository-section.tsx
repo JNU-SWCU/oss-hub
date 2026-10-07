@@ -52,7 +52,6 @@ export function ProgramStaffRepositorySection({
     );
   }
 
-  // 주소는 바로 위 URL 줄이 말한다(`RepositoryUrlEditor`). 여기는 발급·공개만 남는다.
   return (
     <>
       {repository === null ? (

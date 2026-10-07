@@ -3,7 +3,6 @@ import { programDocumentsHref } from '@/lib/program-route';
 import type { ProgramDeletionScopeCounts } from './api';
 import { programHref } from './program-paths';
 
-/** 백엔드 `ProblemDetailBlockingCounts` 미러 — 기존 guarded delete를 막는 4종 자식 수. */
 export interface ProgramDeleteBlockingCounts {
   readonly applications: number;
   readonly teams: number;
@@ -28,7 +27,6 @@ export type ProgramDeleteError =
 
 export const PROGRAM_DELETE_BLOCKED_CODE = 'PRG_012';
 
-/** purge 확인-재확인 사이에 범위가 바뀜(TOCTOU) 409 코드(#F2). */
 export const PROGRAM_PURGE_SCOPE_CHANGED_CODE = 'PRG_014';
 
 export const PROGRAM_DELETE_FAILED_MESSAGE =
@@ -59,10 +57,6 @@ function isProgramDeletionScopeCounts(
   );
 }
 
-/**
- * 409(PRG_014)에서 현재 범위(`currentScopeCounts`)를 꾼다. 있으면 재확인을 요구하는
- * 화면이 새 카운트를 보여줌 — 자동 재시도는 하지 않는다(#F2).
- */
 export function purgeScopeChangedCounts(
   error: unknown,
 ): ProgramDeletionScopeCounts | null {
@@ -80,7 +74,6 @@ export function purgeScopeChangedCounts(
     : null;
 }
 
-/** 409(PRG_012)의 차단 건수를 실제 교직원 관리 화면과 함께 전달한다. */
 export function mapProgramDeleteError(
   error: unknown,
   programId: string,

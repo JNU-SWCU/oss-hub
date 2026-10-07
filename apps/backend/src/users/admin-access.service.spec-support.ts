@@ -103,10 +103,7 @@ export class InMemoryAdminAccessRepository
   target: AdminAccessUserRecord | null = accessUser();
   authoritativeTarget: AdminAccessUserRecord | null = null;
   activeAdminCount = 2;
-  /**
-   * lockActiveAdmins() 호출 직후 이 값이 있으면 `actor`에 갈아 끼운다 — 잠금과 잠금 뒤
-   * 재조회 사이에 강등이 커밋되는 경쟁을 흉내 낸다.
-   */
+
   actorAfterLock: AdminAccessActor | null | undefined = undefined;
   userCasSucceeds = true;
   requestCasSucceeds = true;

@@ -1,16 +1,7 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProgramOverview } from '@/features/programs/program-overview-api';
-
-/**
- * `product-shell.test.tsx`는 `renderToStaticMarkup`으로 돌아 **effect가 실행되지 않는다** —
- * 참여 여부는 effect 안에서 읽으므로 그 파일에서는 언제나 「아직 모른다」에 머문다.
- * 참여자 전용 메뉴가 실제로 화면에서 사라지는지는 effect가 도는 이 파일에서만
- * 확인할 수 있다(#1099).
- */
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -74,7 +65,7 @@ const OVERVIEW: ProgramOverview = {
   teamCount: 0,
   connectedRepositoryCount: 0,
   viewerRole: 'STUDENT',
-  // 승인 전 학생에게도 개요는 0/2를 준다 — 이 값만으로는 참여자와 구분되지 않는다.
+
   viewerDocumentsCompleted: 0,
   viewerDocumentsTotal: 2,
   fullySubmittedParticipantCount: null,
@@ -98,10 +89,6 @@ function mockSession(role: 'STUDENT' | 'STAFF') {
   });
 }
 
-/**
- * 회원 유형은 학생인데 관리자 접근 권한을 가진 계정 — 권한 행렬이 명시적으로 지원하는
- * 조합이다. 교직원 권한은 없으므로 좌측 패널은 여전히 학생 면으로 그려진다.
- */
 function mockStudentAdminSession() {
   mocks.useSessionRole.mockReturnValue({
     status: 'assigned',
@@ -116,7 +103,6 @@ function mockStudentAdminSession() {
   });
 }
 
-/** 로그인하지 않은 방문자 — 좌측 패널은 `GUEST` 골격으로 갈린다(QA46). */
 function mockAnonymousSession() {
   mocks.useSessionRole.mockReturnValue({
     status: 'anonymous',
@@ -176,7 +162,6 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
     );
   }
 
-  /** 신청한 적 없는 학생에게 백엔드는 「없음」을 null로 답한다(QA174 / #1303). */
   const NOT_APPLIED = null;
 
   it('신청한 적 없는 학생에게는 두 메뉴가 아예 없다', async () => {
@@ -188,7 +173,7 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
     expect(sidebarText()).not.toContain('게시판');
     expect(hrefs()).not.toContain('/programs/prog-1/documents');
     expect(hrefs()).not.toContain('/programs/prog-1/board');
-    // 참여 전에도 열리는 두 화면은 남는다 — 막다른 패널로 만들지 않는다.
+
     expect(hrefs()).toContain('/programs/prog-1');
     expect(hrefs()).toContain('/programs/prog-1/teams');
   });
@@ -220,7 +205,7 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
     expect(hrefs()).toContain('/programs/prog-1/documents');
     expect(hrefs()).toContain('/programs/prog-1/board');
     expect(sidebarText()).toContain('0/2');
-    // 단계 자식도 그대로 펴진다.
+
     expect(sidebarText()).toContain('스터디 계획서');
   });
 
@@ -236,13 +221,6 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
     expect(hrefs()).toContain('/programs/prog-1/board');
   });
 
-  /*
-    학생 + 관리자 접근 + 미신청. 백엔드는 이 계정에게 게시판을 열어 주고
-    (`board/board-access.guard.ts` — `hasStaffAccess || hasAdminAccess`면 승인된 신청 없이도
-    통과), 제출물은 열어 주지 않는다(`submissions/submissions.service.ts`의
-    `requireApprovedApplication`은 관리자 권한을 보지 않는다). 좌측 패널도 그 둘을 따로
-    판정해야 열려 있는 화면으로 가는 길이 남는다.
-  */
   describe('학생 관리자(미신청)', () => {
     beforeEach(() => {
       mockStudentAdminSession();
@@ -272,7 +250,7 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
       expect(sidebarText()).not.toContain('팀 관리');
       expect(sidebarText()).toContain('참여 팀');
       expect(hrefs()).not.toContain('/programs/prog-1/applicants');
-      // 참여 전에도 열리는 화면은 그대로 남는다.
+
       expect(hrefs()).toContain('/programs/prog-1');
       expect(hrefs()).toContain('/programs/prog-1/teams');
     });

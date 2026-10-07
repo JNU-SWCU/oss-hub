@@ -192,7 +192,6 @@ const LEAVE_EVENT: TeamMembershipAuditEvent = {
   nextLeaderId: 'member-2',
 };
 
-/** repository 에 넘어간 감사 콜백을 트랜잭션 대신 직접 호출한다. */
 async function invokeAuditCallback(
   spy: { readonly mock: { readonly calls: readonly (readonly unknown[])[] } },
   event: TeamMembershipAuditEvent,
@@ -214,10 +213,6 @@ function expectCode(error: unknown, code: TeamsErrorCode) {
   expect((error as DomainException).errorCode.code).toBe(code);
 }
 
-/**
- * 조회가 「없음」을 null로 돌려주게 된 뒤(QA174 / #1303), **있어야 하는** 시나리오를
- * 좁힌다. 없으면 그 자체가 실패이므로 조용히 넘기지 않고 바로 터뜨린다.
- */
 function present<T>(value: T | null, what: string): T {
   if (value === null) throw new Error(`${what}이(가) 있어야 하는 시나리오다`);
   return value;
@@ -320,11 +315,6 @@ describe('ProgramTeamsService', () => {
     }
   });
 
-  /**
-   * 팀 합류는 초대 수락 단독 경로다 — 참여코드로 남의 팀에 들어가는 `join` 은
-   * 초대 전용 규칙을 우회하므로 service 표면에서 지웠다. 대체 호출 지점을 두지
-   * 않았음을 여기서 고정한다.
-   */
   it('참여코드 합류 표면을 노출하지 않는다', () => {
     const { service } = buildService({});
     const surface = service as unknown as Record<string, unknown>;
@@ -334,8 +324,6 @@ describe('ProgramTeamsService', () => {
     expect(methods).not.toContain('join');
   });
 
-  // 조회는 「없음」을 오류로 보지 않는다(QA174 / #1303). 팀을 아직 만들지 않은 학생에게
-  // 팀이 없는 것은 정상이다. 탈퇴·팀원 제외 같은 변경은 여전히 TEAM_010으로 닫는다.
   it('내 팀이 없으면 null', async () => {
     const { service } = buildService({ detail: null });
 
@@ -511,10 +499,6 @@ describe('ProgramTeamsService', () => {
     }
   });
 
-  /**
-   * 신청 기간은 탈퇴의 조건이 아니다 — 기간이 닫힌 뒤에도 프로그램 일정을 읽지 않고
-   * repository 판정으로 바로 간다.
-   */
   it('신청 기간이 닫혀도 탈퇴하며 일정을 조회하지 않는다', async () => {
     const { service, leave, findProgramById } = buildService({
       program: {
@@ -679,15 +663,7 @@ describe('ProgramTeamsService.removeMember', () => {
   });
 });
 
-/**
- * 권한 동기화 outbox 예약은 구성원 변경과 같은 repository 트랜잭션 안의
- * 책임이다. service 가 그것을 대신 부르거나 별도 인자로 넘기기 시작하면
- * 트랜잭션 밖으로 새어나가서 「구성원은 빠졌는데 권한은 그대로」가 된다.
- * 그래서 service 가 닿는 repository 표면과 인자 개수를 여기서 고정한다.
- */
 describe('ProgramTeamsService membership transaction boundary', () => {
-  // `findActiveStudentByGithubId` 는 순수 조회라 제외하고, 예약·발급·협업자
-  // 조작을 암시하는 이름만 잡는다.
   const EXTERNAL_SURFACE =
     /outbox|enqueue|provision|collaborator|revoke|accesssync|githubapp|repositorysync/i;
 
@@ -783,10 +759,6 @@ describe('ProgramTeamsService membership transaction boundary', () => {
   );
 });
 
-/**
- * 팀 이름 변경 — 팀장과 교직원이 같은 endpoint를 쓴다.
- * 권한 미리보기는 service가, 최종 판정은 팀 행을 잠근 repository가 한다.
- */
 describe('ProgramTeamsService.rename', () => {
   const TEAM_ID = 'synthetic-team';
   const RENAME_EVENT: TeamRenameAuditEvent = {
@@ -796,7 +768,6 @@ describe('ProgramTeamsService.rename', () => {
     nextName: '알잘딱팀',
   };
 
-  /** repository 에 넘어간 감사 콜백을 트랜잭션 대신 직접 호출한다. */
   async function invokeRenameAudit(spy: {
     readonly mock: { readonly calls: readonly (readonly unknown[])[] };
   }): Promise<void> {
@@ -908,10 +879,6 @@ describe('ProgramTeamsService.rename', () => {
   });
 });
 
-/**
- * 교직원 팀 삭제 — 새 Guard 없이 service 가 교직원을 판정하고, 무엇이 함께 지워지는지는
- * 확인 화면이 본 `expectedScope` 를 서버가 트랜잭션 안에서 다시 세서 맞춘다.
- */
 describe('ProgramTeamsService.deleteForStaff', () => {
   const TEAM_ID = 'synthetic-team';
   const STAFF_AUTHORITY = { id: 'staff-1', isStaff: true } as const;
@@ -986,7 +953,6 @@ describe('ProgramTeamsService.deleteForStaff', () => {
     }
   });
 
-  // 확인 이후 생긴 행이 누르는 사람 모르게 지워지는 것을 막는다(409 TEAM_019).
   it('범위가 어긋나면 409 와 함께 현재 범위를 돌려줌다', async () => {
     const currentScopeCounts = { ...EXPECTED_SCOPE, submissions: 2 };
     const { service } = buildService({
@@ -1011,8 +977,6 @@ describe('ProgramTeamsService.deleteForStaff', () => {
     }
   });
 
-  // 승인된 팀을 막는 차단 규칙을 두지 않기로 한 결정의 회귀 방지 — 막으면 운영을 맡은
-  // 교직원이 승인된 팀을 영영 정리할 수 없어진다. 안전장치는 범위 재확인이지 차단이 아니다.
   it('신청·제출이 있는 팀도 범위만 맞으면 지워진다', async () => {
     const heavyScope = {
       ...EMPTY_TEAM_DELETION_SCOPE,

@@ -108,9 +108,7 @@ function githubUrl(value: unknown, repositoryName: string): string {
     ) {
       return parsed;
     }
-  } catch {
-    // Invalid URLs are untrusted API data.
-  }
+  } catch {}
   return invalidResponse();
 }
 
@@ -145,17 +143,13 @@ function project(value: unknown): PublicProfileProject {
   const dataAsOf = nullableIsoDate(value.dataAsOf);
   const projectMetrics = nullableMetrics(value.metrics);
 
-  // observed/dataAsOf/metrics는 서로의 존재를 함께 증명한다 — 미관측이면 나머지 둘도
-  // 반드시 null이어야 하고, 관측이면 반드시 값이 있어야 한다("관측했지만 0"과 "미관측"의
-  // 구분이 서버-클라이언트 경계에서 깨지지 않도록 exact-key 파서가 이 관계까지 검증한다).
   if (
     isObserved === (dataAsOf === null) ||
     isObserved === (projectMetrics === null)
   ) {
     return invalidResponse();
   }
-  // #893 — hasCollectedData가 true면 반드시 observed도 true여야 한다(수집이 끝났는데
-  // 미관측일 수는 없다). observed가 false인데 hasCollectedData가 true인 조합은 계약 위반이다.
+
   if (hasCollectedData && !isObserved) {
     return invalidResponse();
   }
@@ -207,8 +201,6 @@ export async function loadPublicProfile(
   }
 
   try {
-    // 백엔드 공개 read 경로는 `users/:userId/public-profile`이다(#551) — `users/me/profile`
-    // (세션 보호)과 마지막 세그먼트를 다르게 둬서 모듈 등록 순서와 무관하게 매칭된다.
     return parsePublicProfile(
       await apiClient<unknown>(`users/${userId}/public-profile`),
     );

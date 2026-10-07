@@ -1,7 +1,3 @@
-// Table 프리뷰 — DataTable이 내부적으로 조합하는 원시 컴포넌트
-// (apps/frontend/src/components/data-table.tsx)를 직접 손으로 조립한 버전이다.
-// DataTable에는 없는 TableCaption·TableFooter까지 함께 써서 "프로그램별 모집 현황
-// 요약표"를 구성한다 — 합계 행이 있는 표는 DataTable로는 못 만든다(footer prop 없음).
 import {
   StatusBadge,
   Table,
@@ -86,10 +82,6 @@ export function Default() {
   );
 }
 
-// 프로그램명이 아주 길 때 셀이 줄바꿈되는지 — table-layout이 auto라 TableCell(td)
-// 자체에 max-width를 줘도 열 폭이 그대로 늘어난다. admin-users-view.tsx처럼 셀 안에
-// 블록 요소(div)를 하나 두고 거기에 max-width + whitespace-normal을 줘야 실제로
-// 줄바꿈된다.
 export function LongText() {
   return (
     <Table>

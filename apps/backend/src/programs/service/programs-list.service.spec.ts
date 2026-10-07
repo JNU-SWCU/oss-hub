@@ -106,7 +106,6 @@ describe('deriveProgramListStatus (period interpretation)', () => {
       ),
     ).toBe('recruiting');
 
-    // endAt === now 는 ended 가 아니다 (endAt < now 만 ended).
     expect(
       deriveProgramListStatus(
         baseProgram({
@@ -133,7 +132,6 @@ describe('deriveProgramListStatus (period interpretation)', () => {
   });
 
   it('prefers ended when apply window is still open but endAt passed (U4)', () => {
-    // seed:repositories:program 회귀 — 접수창 열림 ∩ endAt 과거
     const program = baseProgram({
       applicationStartAt: new Date('2026-06-25T00:00:00.000Z'),
       applicationEndAt: new Date('2026-06-30T00:00:00.000Z'),
@@ -345,8 +343,6 @@ describe('ProgramsRepository viewer personalization batch queries', () => {
     expect(statuses.has('program-c')).toBe(false);
   });
 
-  // 배치 조회는 「지금 그 팀 사람인가」만 묻는다 — 최초 신청자(applicantId)나 맨 leaderId
-  // 절이 남아 있으면 팀을 떠난 사람이 옛 팀의 신청 상태를 목록에서 계속 본다(#1269).
   it('findViewerApplicationStatuses 는 최초 신청자·맨 leaderId 절을 조건에 남기지 않는다', async () => {
     findMany.mockResolvedValue([]);
 
@@ -366,8 +362,6 @@ describe('ProgramsRepository viewer personalization batch queries', () => {
     });
   });
 
-  // 멤버십 절이 걸러 낸 결과(빈 행)는 상태 맵에도 남지 않아야 한다 — 남으면 화면이
-  // 떠난 팀의 신청 상태 뱃지를 계속 그린다.
   it('findViewerApplicationStatuses 는 멤버십에서 빠진 프로그램을 상태 맵에 담지 않는다', async () => {
     findMany.mockResolvedValue([
       { programId: 'program-a', status: 'APPROVED' },
@@ -806,10 +800,6 @@ describe('ProgramsService list', () => {
   });
 });
 
-/**
- * Prisma where 는 배타 기간 술어로 전개된다.
- * 모양 고정이 아니라 회귀 픽스처가 한 상태에만 속하는지 derive 와 맞춰 본다.
- */
 describe('status-counts consistency with list totalItems filters', () => {
   it('keeps all in the published+archived universe and ends U4 only once', () => {
     const now = new Date('2026-07-22T00:00:00.000Z');

@@ -73,7 +73,7 @@ function FormFieldControl({
   const readOnly = mode === 'preview' || field.type === 'auto';
   const inputId = `application-field-${field.key}`;
   const requiredMark = field.required ? ' *' : '';
-  // 서버가 막는 길이를 입력칸에도 알려 준다 — 안 알려 주면 제출 순간에야 400 을 만난다.
+
   const maxLength = applicationAnswerMaxLength(field.key);
 
   return (

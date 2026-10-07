@@ -1,10 +1,5 @@
 import type { ErrorCode } from '../common/error-code';
 
-/**
- * 은퇴한 코드(`TEAM_005`, `TEAM_008`, `TEAM_009`, `TEAM_011`)는 재사용하지 않는다 —
- * 구 클라이언트가 은퇴 코드를 옛 뜻으로 읽으면 오동작한다. 새 코드는 `TEAM_012`부터
- * 이어 붙인다.
- */
 export enum TeamsErrorCode {
   STUDENT_ONLY = 'TEAM_001',
   PROGRAM_NOT_FOUND = 'TEAM_002',
@@ -18,20 +13,11 @@ export enum TeamsErrorCode {
   SELF_REMOVAL_REQUIRES_LEAVE = 'TEAM_014',
   TARGET_MEMBER_NOT_FOUND = 'TEAM_015',
   TEAM_RENAME_FORBIDDEN = 'TEAM_016',
-  /**
-   * 지목한 팀이 없거나 다른 프로그램의 팀이다. `TEAM_010`(`소속된 팀이 없습니다`)과
-   * 나눠 둔다 — 그쪽은 「내 팀」 조회의 말이라 남의 팀을 다루는 자리에 쓰면 거짓말이 된다.
-   */
+
   TARGET_TEAM_NOT_FOUND = 'TEAM_017',
-  /**
-   * 팀 삭제는 교직원·관리자만 한다. `TEAM_016`(이름 변경)과 나눠 둔다 — 그쪽은
-   * 팀장도 통과하므로 같은 코드를 쓰면 팀장에게 「그럼 팀장이면 되겠구나」로 읽힌다.
-   */
+
   TEAM_DELETE_FORBIDDEN = 'TEAM_018',
-  /**
-   * 확인 화면이 본 범위와 서버가 삭제 트랜잭션 안에서 다시 센 범위가 다르다.
-   * 누르는 사람이 보지 못한 행이 함께 지워지는 것을 막는다(#F2 TOCTOU).
-   */
+
   TEAM_DELETE_SCOPE_CHANGED = 'TEAM_019',
 }
 

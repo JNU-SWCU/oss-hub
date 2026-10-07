@@ -10,9 +10,6 @@ jest.mock('@nestjs/core', () => ({
 }));
 jest.mock('../../app.module', () => ({ AppModule: class AppModule {} }));
 
-/**
- * #547 — ADMIN 파일 정리 재시도 reset은 actor가 명확한 권한 조작인데 감사 기록이 없었다.
- */
 const FILE_ID = 'synthetic-file-id';
 const OPERATOR_ID = 'synthetic-operator-id';
 

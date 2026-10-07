@@ -10,7 +10,6 @@ afterEach(() => {
 
 describe('reviews api', () => {
   it('submission id로 검토 문맥을 조회한다', async () => {
-    // Given
     const response = {
       submissionId: 'submission-existing',
       application: {
@@ -37,10 +36,8 @@ describe('reviews api', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    // When
     const result = await getReviewContext('submission-existing');
 
-    // Then
     expect(result).toEqual(response);
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath('submissions/submission-existing/review-context'),
@@ -49,7 +46,6 @@ describe('reviews api', () => {
   });
 
   it('현재 revision과 판정을 함께 저장한다', async () => {
-    // Given
     const response = {
       reviewId: 'review-synthetic',
       submissionStatus: 'CHANGES_REQUESTED',
@@ -62,14 +58,12 @@ describe('reviews api', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    // When
     const result = await createReview('submission-existing', {
       revision: 2,
       decision: 'CHANGES_REQUESTED',
       comment: '실행 화면을 추가해 주세요.',
     });
 
-    // Then
     expect(result).toEqual(response);
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath('submissions/submission-existing/reviews'),
@@ -86,7 +80,6 @@ describe('reviews api', () => {
   });
 
   it('repository id로 별도 공개 전환을 요청한다', async () => {
-    // Given
     const response = {
       repositoryId: 'repository-ready',
       visibility: 'PUBLIC',
@@ -100,10 +93,8 @@ describe('reviews api', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    // When
     const result = await publishRepository('repository-ready');
 
-    // Then
     expect(result).toEqual(response);
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath('repositories/repository-ready/publish'),

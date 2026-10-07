@@ -28,7 +28,6 @@ export interface ProgramArchiveReader {
   ): Promise<readonly MilestoneDocumentArchiveTeam[]>;
 }
 
-/** 프로그램 안에서 선택한 다운로드 범위만 읽는다. 제출 이력은 조회하지 않는다. */
 @Injectable()
 export class MilestoneDocumentArchiveRepository implements ProgramArchiveReader {
   constructor(private readonly prisma: PrismaService) {}

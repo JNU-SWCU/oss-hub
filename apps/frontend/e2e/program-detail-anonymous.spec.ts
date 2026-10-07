@@ -15,13 +15,6 @@ import { installBrowserAudit } from './support/browser-audit';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const PROGRAM_NAME = 'e2e:anonymous-detail:created';
 
-/**
- * 비로그인 방문자가 프로그램 상세를 열면 401 응답도 콘솔 오류도 없어야 한다(#1294).
- *
- * 화면은 전부터 공개 정보로 그려졌지만, 세션이 없는데도 viewer·overview를 불러 401을
- * 받고 콘솔에 오류 두 줄을 남겼다. 세션 쿠키 없이 진짜 요청으로 판정한다 — 합성
- * 세션을 끼우거나 API를 가로채면 검증 대상 자체가 사라진다.
- */
 async function createPublicProgram(
   page: Page,
   schedule: string,

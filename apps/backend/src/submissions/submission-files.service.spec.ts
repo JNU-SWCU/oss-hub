@@ -194,10 +194,8 @@ describe('SubmissionFilesService', () => {
   ])(
     'rejects a new %s upload before reserving or storing it',
     async (name, type) => {
-      // Given
       const { service, repository, storage } = setup();
 
-      // When / Then
       await expectCode(
         service.upload(1n, 'app', 'milestone', file(name, type)),
         SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE,
@@ -279,11 +277,6 @@ describe('SubmissionFilesService', () => {
     expect(rejected.storage.put).not.toHaveBeenCalled();
   });
 
-  // #1106 — 상한을 50 MiB에서 5 MiB로 내렸을 때 SUB_019 문구만 옛 숫자로 남아,
-  // 413으로 거절된 학생이 파일을 얼마나 줄여야 하는지 알 수 없었다.
-  // 문구의 숫자는 실제로 막는 상한에서 온다.
-  // #1107 — 단위 표기는 「MB」 하나로 통일했다(값은 그대로 MiB다). 「5MiB」와 「5MB」가
-  // 섞여 있어 같은 상한이 두 숫자처럼 읽혔다.
   it('states the enforced limit in the SUB_019 message', () => {
     expect(
       SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.FILE_TOO_LARGE].message,
@@ -322,18 +315,12 @@ describe('SubmissionFilesService', () => {
     expect(storage.put).not.toHaveBeenCalled();
   });
 
-  // #1269 — preflight 는 예약 시점에 이미 낡았다. 그 사이 탈퇴·승계가 커밋되면
-  // 예약 transaction 안의 공유 잠금이 이를 잡고, 서비스는 preflight 거절과 같은
-  // 403(NOT_APPLICATION_MEMBER)으로 돌려준다. 503 으로 뭉개면 학생에게는
-  // 「잠시 후 다시 시도」로 보여 권한 없는 재시도를 유도한다.
   it('maps a membership change inside the reservation to the same NOT_APPLICATION_MEMBER refusal', async () => {
-    // Given
     const { service, repository } = setup();
     repository.createPending.mockRejectedValue(
       new SubmissionMembershipChangedError('app', 'student-opaque'),
     );
 
-    // When / Then
     await expectCode(
       service.upload(1n, 'app', 'milestone', file()),
       SubmissionsErrorCode.NOT_APPLICATION_MEMBER,
@@ -341,18 +328,15 @@ describe('SubmissionFilesService', () => {
   });
 
   it('writes no private object when membership changed between preflight and the pending write', async () => {
-    // Given
     const { service, repository, storage } = setup();
     repository.createPending.mockRejectedValue(
       new SubmissionMembershipChangedError('app', 'student-opaque'),
     );
 
-    // When
     await service.upload(1n, 'app', 'milestone', file()).catch(() => undefined);
 
-    // Then: 예약이 거절됐으므로 저장소에는 아무 것도 쓰이지 않고 지울 것도 없다.
     expect(repository.createPending).toHaveBeenCalledTimes(1);
-    // 거절은 지금 이 예약이 쓰려던 신청·업로더를 그대로 가리킨다.
+
     expect(repository.createPending.mock.calls[0]![0]).toMatchObject({
       applicationId: 'app',
       uploaderId: 'student-opaque',
@@ -414,8 +398,6 @@ describe('SubmissionFilesService', () => {
     expect(storage.put).not.toHaveBeenCalled();
   });
 
-  // 마감 전 SUBMITTED 교체는 허용한다 — 체크리스트가 canResubmit=true 로 안내하는 경로이며,
-  // 여기서만 막으면 FILE 유형 학생은 잘못 낸 파일을 마감 전에 고칠 수 없다.
   it('allows a SUBMITTED replacement upload before the milestone deadline', async () => {
     const { service, repository, storage } = setup();
     repository.findUploadAuthorization.mockResolvedValue(
@@ -737,14 +719,10 @@ describe('SubmissionFilesService', () => {
     expect(storage.get).not.toHaveBeenCalled();
   });
 
-  // #1269 — 팀에서 나간 과거 업로더는 repository 권한 질의에서 걸러진다.
-  // 서비스는 그 결과를 비공개 파일이 없을 때와 똑같은 404 로 돌려주고, 저장소를 읽지 않는다.
   it('denies a departed uploader with the same not-found used for a missing file', async () => {
-    // Given
     const { service, repository, storage } = setup();
     repository.findDownloadableFile.mockResolvedValue(null);
 
-    // When
     const departed = await service
       .download(123n, 'file-opaque')
       .catch((caught: unknown) => caught);
@@ -752,7 +730,6 @@ describe('SubmissionFilesService', () => {
       .download(123n, 'file-missing')
       .catch((caught: unknown) => caught);
 
-    // Then
     expect((departed as DomainException).errorCode).toEqual(
       (missing as DomainException).errorCode,
     );

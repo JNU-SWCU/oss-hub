@@ -11,11 +11,6 @@ function dto(body: Record<string, unknown>): CreateApplicationRequestDto {
   });
 }
 
-/**
- * #414 DEC-33/34 — isRepositoryPublicationPlanned 는 구 클라이언트가 생략해도
- * true 로 기본 설정되고(old-client-omission), 명시적 false 는 그대로 왕복해야 한다.
- *
- */
 describe('CreateApplicationRequestDto.toInput', () => {
   it('구 클라이언트가 필드를 생략하면 true 로 기본 설정한다', () => {
     const body = Object.assign(new CreateApplicationRequestDto(), {
@@ -83,23 +78,21 @@ describe('CreateApplicationRequestDto validation', () => {
     { repositoryUrl: null },
     { repositoryUrl: 'https://github.com/synthetic/repository' },
   ])('rejects obsolete selection input %j', async (fields) => {
-    // Given
     const body = dto(fields);
-    // When
+
     const errors = await validate(body, {
       whitelist: true,
       forbidNonWhitelisted: true,
     });
-    // Then
+
     expect(errors).not.toHaveLength(0);
   });
 
   it('keeps repository selection out of the creation input', () => {
-    // Given
     const body = dto({});
-    // When
+
     const input = body.toInput();
-    // Then
+
     expect(input).toEqual({
       answers: { title: '제목' },
       teamName: null,
@@ -109,9 +102,8 @@ describe('CreateApplicationRequestDto validation', () => {
   });
 
   it('rejects team names longer than 100 characters', async () => {
-    // Given / When
     const errors = await validate(dto({ teamName: 'x'.repeat(101) }));
-    // Then
+
     expect(errors.some((error) => error.property === 'teamName')).toBe(true);
   });
 });

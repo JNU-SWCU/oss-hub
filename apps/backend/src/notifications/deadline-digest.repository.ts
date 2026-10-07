@@ -14,7 +14,6 @@ import type {
 
 export type DigestNotificationStatus = 'SENT' | 'FAILED';
 
-/** 교직원 요약 메일 수신자. `Program`에 담당 교직원 관계가 없어 전역 STAFF/ADMIN이다. */
 export type NotifiableStaffRecipient = {
   readonly id: string;
   readonly notificationEmail: string;
@@ -151,10 +150,6 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
     );
   }
 
-  /**
-   * `findActiveStaffOrAdmin`은 호출자 권한 판정용 boolean이라 재사용하지 않는다.
-   * 여기서는 실제 메일이 나갈 수 있는 교직원만 고른다.
-   */
   async findNotifiableStaff(): Promise<readonly NotifiableStaffRecipient[]> {
     const staff = await this.prisma.user.findMany({
       where: {

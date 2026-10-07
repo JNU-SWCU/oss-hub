@@ -69,8 +69,7 @@ export function ProgramAuthoringMilestoneDialog({
   const minDate = dateKey(operationStartAt) ?? undefined;
   const maxDate = dateKey(operationEndAt) ?? undefined;
   const errors = validationErrors(milestone, operationStartAt, operationEndAt);
-  // DialogShell 은 본문 ref 를 내주지 않아, 레이아웃을 바꾸지 않는 `contents`
-  // 감싸개로 저장 뒤 첫 오류 칸을 찾을 범위를 잡는다.
+
   const bodyRef = useRef<HTMLDivElement>(null);
   const [focusRequest, setFocusRequest] = useState(0);
 

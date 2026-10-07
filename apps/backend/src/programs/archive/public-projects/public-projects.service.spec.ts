@@ -122,11 +122,7 @@ describe('PublicProjectsService', () => {
   describe('findPage — 페이지 경계/커서', () => {
     it('lookahead(pageSize+1) 행을 요청하고 pageSize만큼만 잘라 반환한다', async () => {
       const pageSize = 2;
-      const rawRows = [
-        row({ id: 'a' }),
-        row({ id: 'b' }),
-        row({ id: 'c' }), // lookahead용 3번째 행 — 응답 아이템에는 포함되지 않는다.
-      ];
+      const rawRows = [row({ id: 'a' }), row({ id: 'b' }), row({ id: 'c' })];
       const listPage = jest.fn().mockResolvedValue(rawRows);
       const filterEligibleRepositoryIds = jest
         .fn()
@@ -178,8 +174,7 @@ describe('PublicProjectsService', () => {
         row({ id: 'c', publishedAt: new Date('2026-07-20T00:00:00.000Z') }),
       ];
       const listPage = jest.fn().mockResolvedValue(rawRows);
-      // 'b'만 eligible — 'a'는 fence에 걸려 페이지에서 사라지지만 커서는 여전히 마지막 raw
-      // 행('b')을 기준으로 계산돼야 한다(eligible 마지막 행이 아님).
+
       const filterEligibleRepositoryIds = jest
         .fn()
         .mockResolvedValue(new Set([rawRows[1]!.githubRepositoryId]));
@@ -191,9 +186,7 @@ describe('PublicProjectsService', () => {
       const page = await service.findPage(undefined, pageSize);
 
       expect(page.items.map((item) => item.id)).toEqual(['b']);
-      // QA40 이후 토큰은 서버 키로만 열리는 불투명 값이라 문자열 동등 비교가 성립하지 않는다
-      // (매번 IV가 다르다). 이 테스트가 지키려는 것은 토큰의 표기가 아니라 **경계 규칙**이므로
-      // 서버 키로 복호해 「마지막 raw 행」인지만 확인한다.
+
       expect(page.nextPageId).not.toBeNull();
       expect(decodePublicProjectCursor(page.nextPageId!, CURSOR_KEY)).toEqual({
         publishedAt: rawRows[1]!.publishedAt,
@@ -224,12 +217,6 @@ describe('PublicProjectsService', () => {
     });
   });
 
-  /**
-   * QA40 — 「공개 응답으로 숨겨진 저장소의 존재를 유추할 수 있다」의 부작용 두 가지.
-   * ①(커서 복원)은 여기서 막는다. ②(빈 페이지 오라클)는 `findPage = 상수 2 질의` 설계와
-   * 정면으로 부딪혀 막지 못했고, 아래 마지막 두 테스트가 **남아 있는 누출을 명시적으로 고정**한다
-   * — 그린이라고 해서 해결됐다는 뜻이 아니다.
-   */
   describe('QA40 — 커서를 통한 숨겨진 저장소 노출', () => {
     const HIDDEN = row({
       id: 'seed:hidden-repository-internal-cuid',
@@ -270,7 +257,7 @@ describe('PublicProjectsService', () => {
       expect(token.toString('utf8')).not.toContain(
         HIDDEN.publishedAt.toISOString(),
       );
-      // 평문 base64url(JSON) 커서였다면 여기서 `{p, i}`가 그대로 나왔다.
+
       expect(() => {
         JSON.parse(token.toString('utf8'));
       }).toThrow();
@@ -311,13 +298,6 @@ describe('PublicProjectsService', () => {
       );
     });
 
-    /**
-     * ② 미해결. `pageSize=1`로 훑으면 「items는 비었는데 nextPageId는 있다」가 그대로
-     * 관측되고, 이는 그 keyset 구간에 가려진 저장소가 정확히 1건 있다는 뜻이다.
-     * 막으려면 페이지가 찰 때까지 재조회해야 하는데 그것은 `public-projects/AGENTS.md`의
-     * 「findPage: 2 쿼리」·「반복문 안 쿼리 금지」와 부딪힌다. 이 테스트는 **현재 동작을
-     * 고정**해, 나중에 누가 페이지 채우기를 도입하면 여기서 걸려 의도적으로 갱신하게 한다.
-     */
     it('②(미해결) pageSize=1에서 그 행이 fence에 걸리면 items는 비고 nextPageId는 남는다', async () => {
       const listPage = jest.fn().mockResolvedValue([HIDDEN, TAIL]);
       const filterEligibleRepositoryIds = jest
@@ -334,11 +314,6 @@ describe('PublicProjectsService', () => {
       expect(page.nextPageId).not.toBeNull();
     });
 
-    /**
-     * ②의 일반형 — `pageSize=1`만의 문제가 아니다. 어떤 pageSize에서도
-     * `items.length < pageSize && nextPageId !== null`이면 그 구간의 가려진 건수가
-     * 정확히 `pageSize - items.length`다. ②를 「빈 페이지」로만 좁혀 보면 안 된다.
-     */
     it('②(미해결) 일반형 — 꽉 찬 창에서 items가 모자란 만큼이 곧 가려진 건수다', async () => {
       const listPage = jest
         .fn()
@@ -545,7 +520,7 @@ describe('PublicProjectsService', () => {
         repositoryIds: [found.githubRepositoryId],
       });
       expect(profile.identity).toEqual(identity);
-      // 아직 collection이 이 저장소를 관측하지 않았다 — 미관측(observed=false)이다.
+
       expect(profile.projects).toEqual([
         {
           row: found,
@@ -598,9 +573,7 @@ describe('PublicProjectsService', () => {
           releaseCount: 999,
         },
       ]);
-      // repositoryId 9101의 다른 기여자(githubUserId 999n)는 이 사용자(501n)의 합계에
-      // 절대 섞이지 않아야 한다 — repository 전체 합계(999)와 달리 이 사용자만의 기여만
-      // 카운트돼야 한다.
+
       const getContributorCumulativeMetrics = jest.fn().mockResolvedValue([
         {
           repositoryId: 9101n,
@@ -695,7 +668,7 @@ describe('PublicProjectsService', () => {
           releaseCount: 0,
         },
       ]);
-      // 이 사용자의 기여자 행이 없다(다른 사람만 기여했거나 아직 이 사용자 기여가 없다).
+
       const getContributorCumulativeMetrics = jest.fn().mockResolvedValue([]);
       const { service } = serviceWith({
         findUserIdentity,
@@ -741,8 +714,7 @@ describe('PublicProjectsService', () => {
         .fn()
         .mockResolvedValue(new Set([preSweep.githubRepositoryId]));
       const dataAsOf = new Date('2026-08-12T00:00:00.000Z');
-      // getRepositoryCumulativeMetrics는 presence: PRESENT면 첫 sweep 전이어도 행을 반환한다
-      // (#617 단계 D 이후 알려진 동작) — hasCollectedData만 false로 그 상태를 표시한다.
+
       const getRepositoryCumulativeMetrics = jest.fn().mockResolvedValue([
         {
           repositoryId: 9301n,

@@ -15,19 +15,6 @@ assertIsolatedIntegrationDatabase({
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 
-/**
- * 받은 초대 목록이 **카드에 그릴 요약까지** 실어 오는가.
- *
- * 왜 통합 테스트인가. 여기서 틀릴 수 있는 것은 매핑이 아니라 Prisma `include`의
- * 모양이다 — 관계를 하나 빠뜨리거나 `_count`를 잘못 걸면 mock 기반 단위 테스트는
- * 내가 지어낸 반환값을 내가 다시 확인하는 꼴이라 초록불이 뜬다. 실제 스키마에
- * 질의를 걸어야 잡힌다.
- *
- * 그리고 이 목록의 존재 이유가 **아직 참여하지 않은 프로그램의 초대를 찾아 주는
- * 것**이므로, 초대인이 프로그램에 참여하지 않은 상태로 두 프로그램의 초대를 함께
- * 받는 상황을 고정한다.
- */
-
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 const TEST_PREFIX = 'team-invitation-received-summary:';
 const PROGRAM_A_ID = `${TEST_PREFIX}program-a`;
@@ -113,8 +100,7 @@ async function seed(): Promise<void> {
       { id: INVITEE_ID, githubId: 9_200_000_004n, nickname: 'summary-invitee' },
     ],
   });
-  // 표시 이름의 정본은 프로필 행뿐이다 — 행이 없는 초대자는 GitHub handle로 떨어진다
-  // (`HANDLE_ONLY_LEADER`). 두 갈래를 모두 고정한다.
+
   await prisma.userProfile.createMany({
     data: [
       {
@@ -161,8 +147,7 @@ async function seed(): Promise<void> {
       },
     ],
   });
-  // A팀은 팀장 + 팀원 2명, B팀은 팀장 1명. 정원 대비 인원이 팀마다 달라야
-  // memberCount/teamMaxSize가 팀별로 읽히는지 확인할 수 있다.
+
   await prisma.teamMember.createMany({
     data: [
       { teamId: TEAM_A_ID, programId: PROGRAM_A_ID, userId: NAMED_LEADER_ID },
@@ -224,11 +209,8 @@ describe('TeamInvitationsRepository received invitation summary integration', ()
   });
 
   it('carries the team, program, inviter and capacity of every received invitation', async () => {
-    // When
     const invitations = await repository.findByInviteeId(INVITEE_ID);
 
-    // Then: 초대인은 두 프로그램 중 어디에도 참여하지 않았는데도 팀·프로그램
-    // 이름이 실려 온다 — 이 목록이 유일한 발견 경로이기 때문이다.
     const pendingA = invitations.find(
       (invitation) => invitation.id === PENDING_A_ID,
     );
@@ -249,22 +231,17 @@ describe('TeamInvitationsRepository received invitation summary integration', ()
   });
 
   it('falls back to the legacy name only when the inviter has no profile', async () => {
-    // When
     const invitations = await repository.findByInviteeId(INVITEE_ID);
     const legacyInvitation = invitations.find(
       (invitation) => invitation.id === DECLINED_A_ID,
     );
 
-    // Then
     expect(legacyInvitation?.invitedByDisplayName).toBe(LEGACY_LEADER_NAME);
   });
 
   it('reads capacity per team rather than reusing the first team', async () => {
-    // When
     const invitations = await repository.findByInviteeId(INVITEE_ID);
 
-    // Then: 정원·인원이 팀마다 다르게 읽혀야 한 팀의 값을 전부에 복사하는
-    // 실수가 드러난다.
     const pendingB = invitations.find(
       (invitation) => invitation.id === PENDING_B_ID,
     );
@@ -277,10 +254,8 @@ describe('TeamInvitationsRepository received invitation summary integration', ()
   });
 
   it('falls back to the GitHub handle when the inviter has no real name', async () => {
-    // When
     const invitations = await repository.findByInviteeId(INVITEE_ID);
 
-    // Then
     expect(
       invitations.find((invitation) => invitation.id === PENDING_B_ID)
         ?.invitedByDisplayName,
@@ -288,10 +263,8 @@ describe('TeamInvitationsRepository received invitation summary integration', ()
   });
 
   it('returns responded invitations too, newest first', async () => {
-    // When
     const invitations = await repository.findByInviteeId(INVITEE_ID);
 
-    // Then: 상태로 거르는 자리는 호출부다. 저장소는 발송 역순으로 전부 준다.
     expect(invitations.map((invitation) => invitation.id)).toEqual([
       PENDING_A_ID,
       PENDING_B_ID,

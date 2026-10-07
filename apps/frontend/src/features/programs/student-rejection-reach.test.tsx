@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,16 +6,6 @@ import { apiPath } from '@/lib/api-client';
 import { REJECTION_REASON_MAX_LINES } from '@/lib/display-text';
 import type { StudentApplication } from './student-application-api';
 import type { ProgramDetail } from './types';
-
-/**
- * 반려 사유가 **화면에 실제로 나타나는가**(#722·#733).
- *
- * `program-apply-page.test.tsx`는 `BlockedView`에 신청서를 직접 넘긴다.
- * `load-program-apply-context.test.ts`는 로더가 사유를 보존하는지만 본다.
- * 불러오기가 내 신청서 조회를 그만두거나 막힘 화면에 신청서를 넘기지 않아도
- * 그 둘은 초록불이다. 이 파일은 `/programs/{id}/apply`를 불러오기째 마운트하고
- * 네트워크 경계만 가짜로 둔다.
- */
 
 const PROGRAM_ID = 'program-rejected-reach';
 const SESSION_USER = {
@@ -167,14 +155,6 @@ describe('반려된 신청의 사유가 신청 상세 화면에 도달한다', (
     expect(text).not.toContain('…');
   });
 
-  /**
-   * 반려는 더 이상 종착점이 아니다 — 학생이 고쳐 다시 내면 검토 대기로 돌아온다(R-1).
-   * 그래서 이 화면은 「수정할 수 없다」고 말하지 않고 수정 화면을 연다.
-   */
-  /**
-   * 반려 자체는 더 이상 수정을 막지 않는다(R-1). 이 학생이 못 고치는 이유는 권한이지
-   * 판정이 아니며, 화면이 그 둘을 같은 말로 뭉개지 않아야 한다.
-   */
   it('고치지 못하는 이유를 판정이 아니라 권한으로 말한다', async () => {
     await act(async () => {
       root.render(

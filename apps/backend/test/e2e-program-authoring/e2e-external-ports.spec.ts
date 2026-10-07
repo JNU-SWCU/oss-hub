@@ -19,10 +19,8 @@ describe('e2eProgramAuthoringExternalPorts', () => {
   });
 
   it('creates deterministic private repositories and resolves configured and external visibility paths', async () => {
-    // Given
     const github = e2eProgramAuthoringExternalPorts.github;
 
-    // When
     const created = await github.createRepository(
       'new-repository',
       'description',
@@ -42,7 +40,6 @@ describe('e2eProgramAuthoringExternalPorts', () => {
       'inaccessible-repository',
     );
 
-    // Then
     expect(created).toMatchObject({
       name: 'new-repository',
       visibility: 'PRIVATE',
@@ -56,11 +53,9 @@ describe('e2eProgramAuthoringExternalPorts', () => {
   });
 
   it('keeps collaborator invitation outcomes idempotent', async () => {
-    // Given
     const github = e2eProgramAuthoringExternalPorts.github;
     await github.createRepository('new-repository', 'description');
 
-    // When
     const first = await github.ensureCollaborator(
       'new-repository',
       'synthetic-user',
@@ -70,16 +65,13 @@ describe('e2eProgramAuthoringExternalPorts', () => {
       'synthetic-user',
     );
 
-    // Then
     expect(first).toBe('PENDING');
     expect(second).toBe('PENDING');
   });
 
   it('stores deterministic bytes while exposing only sanitized mail and storage captures', async () => {
-    // Given
     const body = Buffer.from('deterministic-content');
 
-    // When
     const stored = await e2eProgramAuthoringExternalPorts.storage.put({
       body,
       contentType: 'text/plain',
@@ -95,7 +87,6 @@ describe('e2eProgramAuthoringExternalPorts', () => {
     });
     const capture = e2eProgramAuthoringExternalPorts.capture();
 
-    // Then
     expect(stored).toMatchObject({
       contentLength: body.byteLength,
       contentType: 'text/plain',
@@ -117,7 +108,6 @@ describe('e2eProgramAuthoringExternalPorts', () => {
   });
 
   it('consumes each configured failure once per port call', async () => {
-    // Given
     e2eProgramAuthoringExternalPorts.failures.configure(
       E2E_EXTERNAL_FAILURE_OPERATIONS.STORAGE_PUT,
       2,
@@ -128,12 +118,10 @@ describe('e2eProgramAuthoringExternalPorts', () => {
       originalName: 'fixture.txt',
     };
 
-    // When
     const first = e2eProgramAuthoringExternalPorts.storage.put(input);
     const second = e2eProgramAuthoringExternalPorts.storage.put(input);
     const third = e2eProgramAuthoringExternalPorts.storage.put(input);
 
-    // Then
     await expect(first).rejects.toBeInstanceOf(SubmissionFileStorageError);
     await expect(second).rejects.toBeInstanceOf(SubmissionFileStorageError);
     await expect(third).resolves.toMatchObject({ contentLength: 21 });
@@ -145,7 +133,6 @@ describe('e2eProgramAuthoringExternalPorts', () => {
   });
 
   it('limits failure configuration and routes smtp and GitHub failures through their ports', async () => {
-    // Given
     e2eProgramAuthoringExternalPorts.failures.configure(
       E2E_EXTERNAL_FAILURE_OPERATIONS.SMTP_SEND,
       1,
@@ -155,7 +142,6 @@ describe('e2eProgramAuthoringExternalPorts', () => {
       1,
     );
 
-    // When
     const mail = e2eProgramAuthoringExternalPorts.mail.send({
       to: 'synthetic-recipient@example.test',
       subject: 'digest',
@@ -166,7 +152,6 @@ describe('e2eProgramAuthoringExternalPorts', () => {
       'description',
     );
 
-    // Then
     await expect(mail).rejects.toBeInstanceOf(E2eExternalPortFailure);
     await expect(github).rejects.toBeInstanceOf(GithubOperationsError);
     expect(() =>
@@ -178,7 +163,6 @@ describe('e2eProgramAuthoringExternalPorts', () => {
   });
 
   it('consumes storage get and delete failures independently', async () => {
-    // Given
     const stored = await e2eProgramAuthoringExternalPorts.storage.put({
       body: Buffer.from('deterministic-content'),
       contentType: 'text/plain',
@@ -193,7 +177,6 @@ describe('e2eProgramAuthoringExternalPorts', () => {
       1,
     );
 
-    // When
     const failedGet = e2eProgramAuthoringExternalPorts.storage.get(
       stored.objectKey,
     );
@@ -207,7 +190,6 @@ describe('e2eProgramAuthoringExternalPorts', () => {
       stored.objectKey,
     );
 
-    // Then
     await expect(failedGet).rejects.toBeInstanceOf(SubmissionFileStorageError);
     await expect(successfulGet).resolves.toBeInstanceOf(Readable);
     await expect(failedDelete).rejects.toBeInstanceOf(
@@ -217,7 +199,6 @@ describe('e2eProgramAuthoringExternalPorts', () => {
   });
 
   it('clears configured failures without discarding cleanup evidence', async () => {
-    // Given
     const stored = await e2eProgramAuthoringExternalPorts.storage.put({
       body: Buffer.from('deterministic-content'),
       contentType: 'text/plain',
@@ -228,10 +209,8 @@ describe('e2eProgramAuthoringExternalPorts', () => {
       1,
     );
 
-    // When
     e2eProgramAuthoringExternalPorts.resetFailures();
 
-    // Then
     await expect(
       e2eProgramAuthoringExternalPorts.storage.get(stored.objectKey),
     ).resolves.toBeInstanceOf(Readable);

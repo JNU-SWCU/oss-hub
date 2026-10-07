@@ -87,16 +87,6 @@ function phoneTransition(
   return userPhoneAuditTransition(metadata.transition);
 }
 
-// 백엔드 AuditLogRecord(apps/backend/src/audit-log/audit-log.repository.ts)는
-// discriminated union이라 매 행에 `legacy`·`metadata`가 함께 실려 온다. exact-key
-// 검증은 이 실제 wire shape 그대로 받아들이되, 반환값에는 화면이 쓰는 라벨 필드(`target`)만
-// 남기고 `metadata`(이벤트 원문 스냅샷)는 파싱 즉시 버린다 — 화면에 raw metadata가
-// 흘러갈 경로 자체를 parser 레벨에서 차단한다.
-// apps/backend/src/audit-log/web-state-audit-metadata.ts의 TEAM_MEMBERSHIP_CHANGED
-// 계약(schemaVersion 1 / programName / teamName / operation / removedUserId /
-// previousLeaderId / nextLeaderId)을 그대로 검증한다. 검증을 통과해도 화면으로
-// 내려보내는 건 "어떤 종류의 변경이었고 팀장 권한이 어떻게 됐는지"만이다 — user id와
-// 이름은 투영하지 않아 화면이 조회·팬아웃을 시도할 경로 자체를 만들지 않는다.
 const TEAM_MEMBERSHIP_ACTION = 'TEAM_MEMBERSHIP_CHANGED';
 const TEAM_MEMBERSHIP_SCHEMA_VERSION = 1;
 const TEAM_MEMBERSHIP_OPERATIONS: readonly TeamMembershipOperation[] = [
@@ -110,9 +100,6 @@ function isTeamMembershipOperation(
   return TEAM_MEMBERSHIP_OPERATIONS.some((operation) => operation === value);
 }
 
-// 모양이 어긋나면 응답 전체를 거절하지 않고 undefined를 돌려준다 — 문장은
-// describe.ts의 "상세 내용 없음" 경로로 명시적으로 떨어지며, 나머지 행과 목록은
-// 그대로 보인다(감사 기록을 통째로 감추지 않는다).
 function teamMembershipSummary(
   action: string,
   metadata: unknown,
@@ -140,9 +127,6 @@ function teamMembershipSummary(
   };
 }
 
-// TEAM_RENAMED는 바뀜기 전 이름만 더 잎는다 — 바뀐 뒤 이름은 이미 `target`에 합성돼
-// 있다(audit-log.repository.ts의 composeTeamTargetLabel). 모양이 어긋나면 목록을 통째
-// 거절하지 않고 undefined를 돌려, 문장이 이전 이름 없이 서술하게 둔다(팀 구성 변경과 같은 규칙).
 const TEAM_RENAMED_ACTION = 'TEAM_RENAMED';
 const TEAM_RENAMED_SCHEMA_VERSION = 1;
 
@@ -199,7 +183,7 @@ function auditLogRecord(value: unknown): AuditLogRecord {
     targetId: nonEmptyString(value.targetId),
     target: nonEmptyString(value.target),
     targetHandle: nullableHandle(value.targetHandle),
-    // 검증을 통과한 행에만 키를 달아 나머지 action의 모양은 그대로 유지한다.
+
     ...(teamMembership === undefined ? {} : { teamMembership }),
     ...(previousName === undefined ? {} : { teamPreviousName: previousName }),
     occurredAt: isoTimestamp(value.occurredAt),
@@ -211,11 +195,6 @@ function auditLogRecord(value: unknown): AuditLogRecord {
 
 const PAGE_KEYS = ['items', 'total', 'page', 'limit'] as const;
 
-/**
- * `GET /api/v1/audit-logs` 응답을 `{ items, total, page, limit }` 정확한 키 집합으로
- * 검증한다. 과거 프런트가 응답을 배열로 가정해 표가 렌더링되지 않던 계약 불일치를
- * 다시 만들지 않도록, 배열이나 다른 모양이 오면 조용히 통과시키지 않고 던진다.
- */
 export function parseAuditLogPage(value: unknown): AuditLogPage {
   if (
     !isRecord(value) ||

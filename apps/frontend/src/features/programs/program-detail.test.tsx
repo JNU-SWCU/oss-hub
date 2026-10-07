@@ -25,10 +25,6 @@ import type {
   ViewerRole,
 } from './types';
 
-/**
- * 마일스톤 줄과 제출 항목 블록이 화면에서 나눠 갖는 그 판정을 테스트도 그대로 쓴다 —
- * 여기서 값을 손으로 지어내면 위아래를 한 값으로 묶은 것이 검증되지 않는다.
- */
 function access(
   role: ViewerRole,
   applicationStatus: ApplicationStatus | null = null,
@@ -64,8 +60,7 @@ describe('MilestoneRow', () => {
     expect(html).toContain('기획서 제출');
     expect(html).toContain('D-5');
     expect(html).toContain('가입 후 확인');
-    // 이 갈래에는 GitHub만 연결하고 프로필을 못 채운 사람도 들어오므로, 이미 로그인한
-    // 그에게 거짓이 되는 "로그인" 안내가 되살아나지 않게 못 박는다.
+
     expect(html).not.toContain('로그인');
     expect(html).not.toContain('>반려<');
   });
@@ -152,14 +147,6 @@ describe('MilestoneRow', () => {
     expect(html).not.toContain('아래 제출 항목에서 내용이나 파일을 제출하세요');
   });
 
-  /**
-   * 반려된 신청은 이 티켓이 다루지 않는다(#1098) — **#1098 이전 화면 그대로**여야 한다.
-   * 옛 화면은 승인되지 않은 학생에게 제출 상태 대신 이 한 줄만 보여 줬고, 마감 전
-   * 미제출이어도 「제출하기」를 세우지 않았다.
-   *
-   * 변이 검증 대상 — 반려를 승인과 같은 열린 상태로 취급하면 상태 배지와 제출 버튼이
-   * 되살아나 여기가 깨진다. 반대로 신청 전·승인 대기와 묶으면 반려 문구가 새로 생긴다.
-   */
   it('반려된 신청에는 #1098 이전 문구를 그대로 보여준다', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
@@ -355,9 +342,6 @@ describe('ProgramDetailPage states', () => {
     vi.useRealTimers();
   });
 
-  // 승인된 학생 전용 체크리스트로 마일스톤 섹션을 통째로 갈아 끼우던 이전 분기는
-  // milestone documents API 기반 인라인 서류 제출로 대체됐다 — approvedStudentMilestones가
-  // 넘어와도 이제는 무시하고 항상 ProgramMilestones(팩트 바 + 서류 제출 행)를 그린다.
   it('승인된 학생에게도 approvedStudentMilestones 대신 항상 마일스톤 목록을 그린다', () => {
     const html = renderToStaticMarkup(
       <ProgramDetailReadyState
@@ -386,9 +370,6 @@ describe('ProgramDetailPage states', () => {
     expect(html).toContain('aria-label="활동 상세"');
   });
 
-  // 모집 배지는 카드 안이 아니라 제목 옆(PageHeader)에 붙고, 주관기관·유형·신청
-  // 기간은 그 아래 설명 줄 한 곳에서만 표시된다(#865) — 「프로그램 안내」 카드와
-  // 팩트 바에서는 더 이상 중복해서 그리지 않는다.
   it('제목 줄에 모집 배지가 붙고, 주관기관·유형·신청 기간은 헤더 설명 줄에 한 번만 표시된다', () => {
     const html = renderToStaticMarkup(
       <ProgramDetailReadyState program={programWithoutMilestones} />,
@@ -401,7 +382,6 @@ describe('ProgramDetailPage states', () => {
     expect(titleSlot).toContain('OSS 경진대회');
     expect(titleSlot).toContain('모집중');
 
-    // 「신청 기간 … ~ …」은 한 덩어리로 묶여 좁은 화면에서도 함께 줄을 바꾼다(#1464).
     const description =
       '운영기관 · 비교과 · <span class="whitespace-nowrap">신청 기간 2026.07.01 ~ 2026.08.31</span>';
     expect(html.split(description)).toHaveLength(2);
@@ -409,8 +389,6 @@ describe('ProgramDetailPage states', () => {
     expect(html).not.toContain('<strong>신청기간</strong>');
   });
 
-  // 신청자 목록은 프로그램 스코프 사이드바에 이미 있는 목적지라, 헤더에서는
-  // 중복 노출하지 않는다(#865). 편집은 큰 글자 CTA가 아니라 제목 옆 연필이다.
   it.each(['STAFF', 'ADMIN'] as const)(
     '%s에게 제목 옆 프로그램 편집 입구만 노출하고 신청자 목록·미구현 #124 경로는 숨긴다',
     (role) => {
@@ -424,7 +402,7 @@ describe('ProgramDetailPage states', () => {
       );
       expect(html).toContain('data-slot="page-header-actions"');
       expect(html).toContain('href="/programs/program-1/edit"');
-      // 연필만 두지 않는다 — 글자가 함께 있어야 무엇을 고치는지 남는다.
+
       expect(html).toContain('편집');
       expect(html).toContain('lucide-pencil');
       expect(html).not.toContain('신청자 목록');
@@ -451,8 +429,7 @@ describe('ProgramDetailPage states', () => {
           }}
         />,
       );
-      // 편집 입구 자체가 없어야 한다 — 페이지 액션 영역은 다른 것도 쓰므로
-      // 그 슬롯의 부재가 아니라 편집 링크의 부재로 판정한다.
+
       expect(html).not.toContain('/edit"');
     },
   );
@@ -471,8 +448,6 @@ describe('ProgramDetailPage states', () => {
     expect(html).not.toContain('신청자 목록');
   });
 
-  // 이 갈래에는 비로그인 방문자와 "GitHub만 연결하고 프로필을 안 채운 사람"이 함께
-  // 들어온다. 뒤쪽은 이미 로그인한 상태라 예전 문구·목적지(랜딩)가 둘 다 틀렸었다.
   it('역할 없는 사람을 랜딩이 아니라 가입 진입점으로 보낸다', () => {
     const html = renderToStaticMarkup(
       <ProgramActions
@@ -482,28 +457,19 @@ describe('ProgramDetailPage states', () => {
         }}
       />,
     );
-    // 비로그인도 학생과 같은 「신청하기」 버튼을 보고, 목적지만 가입 입구로 갈린다.
+
     expect(html).toContain('신청하기');
     expect(html).toContain('href="/signup"');
     expect(html).not.toContain('로그인');
     expect(html).not.toContain('href="/"');
   });
 
-  /**
-   * 학생 화면의 「종료」(#1092). 두 갈래가 같은 자리로 모인다 — 교직원이 내린
-   * 프로그램(저장된 `ARCHIVED`)과 운영 종료일이 지난 프로그램(날짜에서 파생되는
-   * 종료)이다. 예전에는 상세가 신청 기간 하나로만 판단해 둘 다 「모집중 +
-   * 신청하기」로 남겼고, 학생은 신청서를 다 채운 뒤에야 서버의 거절을 만났다.
-   * 학생에게 「종료」와 「내림」을 갈라 보여 주지 않는 것이 확정된 방향이다.
-   */
   describe('종료된 프로그램 상세', () => {
     const studentViewer = {
       role: 'STUDENT',
       applicationStatus: null,
     } as const satisfies ProgramDetail['viewer'];
 
-    // 세 갈래 모두 신청 기간(2026-07-01~08-31)은 열려 있다 — 지금은 08-15다.
-    // 종료 판정이 신청 기간을 앞선다는 것을 이 겹침이 보장한다.
     const archived: ProgramDetail = {
       ...programWithoutMilestones,
       lifecycle: 'ARCHIVED',
@@ -543,7 +509,6 @@ describe('ProgramDetailPage states', () => {
       );
     }
 
-    /** 상세와 나란히 놓고 볼 목록 항목 — 같은 프로그램을 목록이 받는 모양으로 옮긴다. */
     function asListItem(program: ProgramDetail): ProgramListItem {
       return {
         id: program.id,
@@ -581,8 +546,6 @@ describe('ProgramDetailPage states', () => {
       },
     );
 
-    // 버튼을 지우지 않는다 — 입구가 사라지면 학생은 자기가 잘못 들어온 줄 안다.
-    // 흐리게 두고(`disabled`) 왜 못 누르는지를 같은 자리에 적는다.
     it.each(
       endedCases.flatMap(({ kind, program }) =>
         [
@@ -615,8 +578,7 @@ describe('ProgramDetailPage states', () => {
         expect(html).toContain(label);
         expect(html).toContain('disabled=""');
         expect(html).toContain('종료된 프로그램이라 신청을 받지 않습니다.');
-        // 이유는 툴팁이 아니라 화면에 남는다 — disabled 버튼은 포인터 이벤트를
-        // 받지 못해 툴팁으로는 전할 수 없다.
+
         expect(html).toContain('aria-describedby=');
         expect(html).not.toContain(`href="${href}"`);
       },
@@ -633,8 +595,6 @@ describe('ProgramDetailPage states', () => {
       expect(actions).not.toContain('disabled=""');
     });
 
-    // 운영 기간을 싣지 않던 응답이 「종료」로 잘못 접히면 멀쩡한 프로그램의 신청이
-    // 막힌다 — 종료일을 모르는 것은 끝났다는 뜻이 아니다.
     it('운영 기간이 없는 응답은 종료로 접지 않는다', () => {
       const withoutOperatingPeriod: ProgramDetail = {
         ...programWithoutMilestones,
@@ -719,8 +679,6 @@ const overviewBase: ProgramOverview = {
 };
 
 describe('ProgramFactBar', () => {
-  // 주관기관·신청 기간은 헤더 설명 줄로 옮겼다(#865) — overview가 없으면(비로그인
-  // 등 조회 실패) 보여줄 숫자 지표가 없으므로 팩트 바 자체를 그리지 않는다.
   it('overview 조회 실패 시(null) 아무것도 그리지 않는다', () => {
     const html = renderToStaticMarkup(
       <ProgramFactBar program={programWithoutMilestones} overview={null} />,
@@ -751,8 +709,6 @@ describe('ProgramFactBar', () => {
     expect(html).not.toContain('신청 기간');
   });
 
-  // QA47 — "제출률"만으로는 마일스톤 카드·매트릭스와 다른 숫자가 나오는
-  // 이유를 알 수 없었다. 라벨과 캡션으로 측정 범위(현재 마일스톤)를 명시한다.
   it('교직원에게는 내 제출 대신 이번 마일스톤 완주율과 측정 기준 캡션을 보여준다', () => {
     const html = renderToStaticMarkup(
       <ProgramFactBar
@@ -895,11 +851,6 @@ describe('MilestoneDocumentSectionBody', () => {
     expect(html).toContain('target="_blank"');
   });
 
-  /**
-   * 배지 문구가 「제출함」에서 판정 기준 라벨로 바뀌었다(2026-08 서류 판정). 아직 아무도
-   * 보지 않은 제출은 「검토 대기」다 — 낸 것과 승인된 것을 같은 말로 부르지 않는다.
-   * 제출 시각은 배지에서 떼어 옆에 남는다.
-   */
   it('학생에게는 검토 대기 배지와 제출 시각, 재제출 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentSectionBody

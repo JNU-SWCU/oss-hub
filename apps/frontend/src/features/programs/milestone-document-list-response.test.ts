@@ -59,11 +59,6 @@ describe('requireMilestoneDocumentList', () => {
     },
   );
 
-  /*
-   * 업로드 규칙이 빠졌거나 형태가 어긋나면 목록 조회 자체를 실패로 만든다. 여기서 기본값을
-   * 메워 주면 그 기본값이 곧 아홉 번째 사본이 되고, 서버가 실제로 거절하는 상한과 화면이
-   * 약속하는 상한이 다시 갈라진다(#1107).
-   */
   it.each([
     ['규칙이 없는 응답', { documents: [document] }],
     ['규칙이 null인 응답', { documents: [document], fileUpload: null }],

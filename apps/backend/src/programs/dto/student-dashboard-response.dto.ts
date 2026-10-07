@@ -21,9 +21,9 @@ export interface StudentDashboardItemResponseDto {
   readonly applicationId: string;
   readonly programId: string;
   readonly programName: string;
-  /** 지금 그 팀의 이름. 개인 참여도 1인 팀이므로 항상 있다(D5). */
+
   readonly teamName: string;
-  /** `/programs/{id}/my-team` — 팀원 전원이 같은 주소를 받는다. */
+
   readonly teamUrl: string;
   readonly applicationStatus: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
   readonly nextMilestone: StudentDashboardMilestoneResponseDto | null;

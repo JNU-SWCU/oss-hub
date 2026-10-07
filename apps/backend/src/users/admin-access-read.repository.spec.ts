@@ -24,16 +24,8 @@ import {
 } from './domain/admin-access';
 import { UsersErrorCode } from './users-error-code.enum';
 
-/**
- * 관리자 목록·상세의 프로필 완료 판정은 역할 맥락 위에서 이뤄져야 한다(#577).
- *
- * 교직원은 관리자가 승인해야 `role`에 STAFF가 붙는다. 승인 전에는 `role`이 null이라
- * 역할 맥락 없이 판정하면 전원이 가장 엄격한 학생 기준으로 떨어지고, 화면 안내대로
- * 학번을 비워 둔 교직원이 미완료로 판정돼 승인 자체가 막힌다.
- */
 describe('admin access read profile completeness', () => {
   it('treats a pending staff request without a student id as complete', async () => {
-    // Given
     const prisma = prismaReturning(
       userRow({
         id: 'pending-staff',
@@ -45,10 +37,8 @@ describe('admin access read profile completeness', () => {
       }),
     );
 
-    // When
     const detail = await findAdminAccessUserById(prisma, 'pending-staff');
 
-    // Then
     expect(detail).toMatchObject({
       id: 'pending-staff',
       role: null,
@@ -63,7 +53,6 @@ describe('admin access read profile completeness', () => {
   });
 
   it('keeps a student without a student id incomplete', async () => {
-    // Given
     const prisma = prismaReturning(
       userRow({
         id: 'student',
@@ -75,10 +64,8 @@ describe('admin access read profile completeness', () => {
       }),
     );
 
-    // When
     const detail = await findAdminAccessUserById(prisma, 'student');
 
-    // Then
     expect(detail).toMatchObject({
       isProfileComplete: false,
       profile: { isComplete: false },
@@ -86,7 +73,6 @@ describe('admin access read profile completeness', () => {
   });
 
   it('keeps an unassigned user without a live request on the student baseline', async () => {
-    // Given — 역할도 없고 살아 있는 요청도 없으면 기준 역할을 알 수 없다(fail-closed).
     const prisma = prismaReturning(
       userRow({
         id: 'unassigned',
@@ -98,35 +84,20 @@ describe('admin access read profile completeness', () => {
       }),
     );
 
-    // When
     const detail = await findAdminAccessUserById(prisma, 'unassigned');
 
-    // Then
     expect(detail).toMatchObject({
       isProfileComplete: false,
       profile: { isComplete: false },
     });
   });
 
-  /**
-   * 회수된 교직원은 **관리자 화면에서도 완료다** (#184).
-   *
-   * 그는 세 근거 중 앞의 둘에 걸리지 않는다 — `role`은 회수로 비었고 살아 있는 요청도
-   * 없다. 남은 근거인 고른 역할을 넘기지 않으면 학번 없는 그의 프로필이 학생 기준으로
-   * 떨어져 미완료로 뜨는데, 본인 화면은 완료로 보여 준다. 한 사람이 두 화면에서 다르게
-   * 보이는 그 어긋남을 이 검사가 막는다.
-   *
-   * 위 `keeps an unassigned user without a live request on the student baseline`와
-   * 짝이다 — 고른 역할까지 **없는** 사람은 여전히 학생 기준(fail-closed)이다.
-   */
   it('treats a revoked staff member without a student id as complete', async () => {
-    // Given: 회수 직후의 행 — 역할은 비었고, 대기 요청도 없고, 고른 역할만 남아 있다.
     const prisma = prismaReturning(
       userRow({
         id: 'revoked-staff',
         role: null,
-        // 회수는 고른 유형을 비우지 않는다(#184) — 그 기록이 남아 있어야
-        // 한 글자도 바뀌지 않은 프로필이 갑자기 미완료로 읽히지 않는다.
+
         selectedRole: 'STAFF',
         name: '가나다 교직원',
         studentId: null,
@@ -135,10 +106,8 @@ describe('admin access read profile completeness', () => {
       }),
     );
 
-    // When
     const detail = await findAdminAccessUserById(prisma, 'revoked-staff');
 
-    // Then
     expect(detail).toMatchObject({
       id: 'revoked-staff',
       role: null,
@@ -147,12 +116,7 @@ describe('admin access read profile completeness', () => {
     });
   });
 
-  /**
-   * 고른 역할이 학생이면 학번은 여전히 필수다 — 셋째 근거를 넘긴 것이지 판정을 느슨하게
-   * 한 것이 아니다.
-   */
   it('keeps a user who selected the student role without a student id incomplete', async () => {
-    // Given
     const prisma = prismaReturning(
       userRow({
         id: 'selected-student',
@@ -164,26 +128,15 @@ describe('admin access read profile completeness', () => {
       }),
     );
 
-    // When
     const detail = await findAdminAccessUserById(prisma, 'selected-student');
 
-    // Then
     expect(detail).toMatchObject({
       isProfileComplete: false,
       profile: { isComplete: false },
     });
   });
 
-  /**
-   * `ADMIN_ACCESS_USER_SELECT`를 넓힌 것이 `staffAccessRequests` 소비자를 건드리지 않았다.
-   *
-   * 그 배열은 PENDING만 골라 오고 두 곳이 읽는다 — 하나는 `pendingRequest`(승인·반려
-   * 버튼의 근거이며 status를 PENDING으로 하드코딩한다), 다른 하나는
-   * `hasPendingStaffRequest`다. 회수된 교직원은 대기 요청이 없으므로 **승인 대기가
-   * 아닌 사람에게 결정 버튼이 뜨면 안 된다.**
-   */
   it('leaves the pending-request projection untouched for a revoked staff member', async () => {
-    // Given
     const prisma = prismaReturning(
       userRow({
         id: 'revoked-staff-projection',
@@ -195,22 +148,18 @@ describe('admin access read profile completeness', () => {
       }),
     );
 
-    // When
     const detail = await findAdminAccessUserById(
       prisma,
       'revoked-staff-projection',
     );
 
-    // Then
     expect(detail?.pendingRequest).toBeNull();
   });
 
   it('projects the account creation time separately from a pending request time', () => {
-    // Given
     const accountCreatedAt = new Date('2026-07-18T00:00:00.000Z');
     const requestCreatedAt = new Date('2026-07-23T00:00:00.000Z');
 
-    // When
     const record = toAdminAccessUserRecord(
       userRow({
         id: 'pending-staff-created-at',
@@ -223,13 +172,11 @@ describe('admin access read profile completeness', () => {
       }),
     );
 
-    // Then
     expect(record.createdAt).toEqual(accountCreatedAt);
     expect(record.pendingRequest?.createdAt).toEqual(requestCreatedAt);
   });
 
   it('lets an admin approve a pending staff request that has no student id', () => {
-    // Given
     const before = toAdminAccessUserRecord(
       userRow({
         id: 'pending-staff',
@@ -242,7 +189,6 @@ describe('admin access read profile completeness', () => {
     );
     const approval = approveStaffTransition();
 
-    // When / Then
     expect(approval.outcome.requiresCompleteProfile).toBe(true);
     expect(() =>
       enforceAdminAccessGuards(
@@ -255,18 +201,9 @@ describe('admin access read profile completeness', () => {
     ).not.toThrow();
   });
 
-  /**
-   * 승인 게이트는 셋째 근거를 더해도 그대로다.
-   *
-   * `requiresCompleteProfile`은 요청을 승인하는 전이 하나에만 붙고 그 전이는 PENDING
-   * 요청을 전제한다. 그런 사용자는 둘째 근거(`hasPendingStaffRequest`)로 이미 교직원
-   * 기준을 받고 있었으므로, 고른 역할이 무엇이든 판정이 달라질 수 없다 — 이 검사가
-   * 없으면 "게이트가 느슨해지지 않았다"는 주장이 코드 어디에도 적혀 있지 않다.
-   */
   it.each<'STAFF' | 'STUDENT' | null>([null, 'STAFF', 'STUDENT'])(
     'keeps the approval gate identical when the selected role is %s',
     (selectedRole) => {
-      // Given: 학과가 빠진 승인 대기 교직원 — 게이트가 막아야 하는 사람이다.
       const before = toAdminAccessUserRecord(
         userRow({
           id: 'pending-staff-gate',
@@ -279,7 +216,6 @@ describe('admin access read profile completeness', () => {
         }),
       );
 
-      // Then
       expect(before.isProfileComplete).toBe(false);
       expect(() =>
         enforceAdminAccessGuards(
@@ -294,7 +230,6 @@ describe('admin access read profile completeness', () => {
   );
 
   it('still blocks approval when the staff profile misses a required field', () => {
-    // Given — 학과는 교직원에게도 필수다. 가드를 없앤 것이 아니라 기준 역할만 바로잡았다.
     const before = toAdminAccessUserRecord(
       userRow({
         id: 'pending-staff-no-department',
@@ -307,7 +242,6 @@ describe('admin access read profile completeness', () => {
     );
     const approval = approveStaffTransition();
 
-    // When
     let thrown: unknown;
     try {
       enforceAdminAccessGuards(
@@ -321,7 +255,6 @@ describe('admin access read profile completeness', () => {
       thrown = error;
     }
 
-    // Then
     expect(before.isProfileComplete).toBe(false);
     expect(thrown).toBeInstanceOf(DomainException);
     expect(thrown).toMatchObject({
@@ -395,16 +328,10 @@ type UserRowOptions = {
   readonly createdAt?: Date;
 };
 
-/**
- * 프로필 행은 이름·소속이 모두 있을 때만 만든다 — 계약 스키마에서 세 canonical 칸이
- * NOT NULL이라 "행은 있는데 이름만 비어 있는" 상태가 존재하지 않는다.
- */
 function userRow(options: UserRowOptions) {
   const facts = authorityFactsFor(options.role);
   const hasProfile = options.name !== null && options.department !== null;
-  // 회원 유형은 시나리오가 정한다 — 확정 역할, 고른 역할, 살아 있는 요청 순이다.
-  // 학번 유무로 되짚으면 "학번 없는 학생"(미완료여야 하는 상태)이 교직원으로
-  // 오분류돼 검사가 헛돈다.
+
   const memberKind =
     options.role === 'STAFF' ||
     options.selectedRole === 'STAFF' ||

@@ -20,7 +20,7 @@ export type ProgramDeadlinePreview = {
   readonly inactiveCount: number;
   readonly optedOutCount: number;
   readonly noEmailCount: number;
-  // 학생 기준인 recipientCount와 별개다. 합산하지 않는다.
+
   readonly staffRecipientCount: number;
   readonly previewedAt: string;
   readonly expiresAt: string;

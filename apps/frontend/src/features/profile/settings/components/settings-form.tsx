@@ -58,8 +58,7 @@ export function SettingsForm({
   onSubmit,
 }: SettingsFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
-  // 저장을 누를 때마다 올린다. 칸의 aria-invalid 는 이 제출이 그리는 다음
-  // 렌더에 붙으므로, 첫 오류 칸으로 옮기는 포커스(R-16)는 그 렌더 뒤에 한다.
+
   const [submitCount, setSubmitCount] = useState(0);
 
   useEffect(() => {

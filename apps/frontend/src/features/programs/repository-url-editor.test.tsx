@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -48,7 +47,7 @@ describe('RepositoryUrlEditor', () => {
     act(() => root.unmount());
     container.remove();
   });
-  /** 부모(`TeamRepositoryPanel`)가 서버를 새로 읽을 때마다 새 객체를 내려 주는 것과 같다. */
+
   async function render(repository: RepositoryUrlState = initial) {
     await act(async () =>
       root.render(
@@ -187,7 +186,7 @@ describe('RepositoryUrlEditor', () => {
     const edit = button('저장소 URL 수정');
     expect(edit.disabled).toBe(true);
     expect(container.textContent).toContain(LOCKED_HINT);
-    // 잠긴 이유는 화면에 보이기만 하지 않고 연필의 접근 가능한 설명으로도 연결된다.
+
     const describedBy = edit.getAttribute('aria-describedby');
     expect(describedBy).toBeTruthy();
     expect(document.getElementById(describedBy ?? '')?.textContent).toBe(
@@ -195,16 +194,15 @@ describe('RepositoryUrlEditor', () => {
     );
   });
   it('follows permission the screen re-reads — a leader change closes the open editor', async () => {
-    // Given: the leader is editing.
     await render();
     await click('저장소 URL 수정');
     await fill('https://github.com/synthetic/draft');
-    // When: the screen reads the server again and leadership has moved.
+
     await render({ ...initial, canEditRepositoryUrl: false });
-    // Then
+
     expect(container.querySelector('form')).toBeNull();
     expect(button('저장소 URL 수정').disabled).toBe(true);
-    // When: approval (or a new leader) grants it back on the next read.
+
     await render({ ...initial });
     expect(button('저장소 URL 수정').disabled).toBe(false);
     expect(container.textContent).not.toContain(LOCKED_HINT);

@@ -62,8 +62,6 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
   test('사용자 목록에서 검색과 페이지네이션을 통과한다', async ({
     adminPage,
   }, testInfo) => {
-    // Given: auth seed 사용자가 있는 관리자 전용 사용자 목록. 가입 신청 탭은
-    // `/dashboard/applicants`로 분리됐으므로 여기서는 검색·페이지네이션만 본다.
     await adminPage.goto('/dashboard/users');
     await expect(
       adminPage.getByRole('heading', { name: '사용자 목록' }),
@@ -78,7 +76,6 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
       adminPage.getByText(/1 \/ \d+ 페이지 \(총 \d+명\)/),
     ).toBeVisible();
 
-    // When: GitHub ID 검색과 빈 결과/초기화까지 실제 목록 제어를 통과한다.
     const search = adminPage.getByLabel('이름 또는 GitHub 닉네임 검색');
     await search.fill('seed-auth-admin-second');
     await adminPage.getByRole('button', { name: '검색', exact: true }).click();
@@ -92,8 +89,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
 
     const nextPage = adminPage.getByRole('button', { name: '다음' });
     await expect(nextPage).toBeEnabled();
-    // Next.js 개발 오버레이 토글이 우하단 버튼의 포인터를 가릴 수 있다. 실제
-    // 키보드 사용자 경로로 이동해 접근성과 페이지 전이를 함께 검증한다.
+
     await nextPage.press('Enter');
     await expect(adminPage).toHaveURL(/(?:\?|&)page=2(?:&|$)/);
     await expect(
@@ -109,31 +105,25 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
   test('목록에서 연 상세는 오버레이이고 새로고침하면 표준 상세가 된다', async ({
     adminPage,
   }) => {
-    // Given: 관리자 전용 사용자 목록에서 대상 사용자를 검색한다.
     await adminPage.goto('/dashboard/users');
     const search = adminPage.getByLabel('이름 또는 GitHub 닉네임 검색');
     await search.fill('seed-auth-admin-second');
     await adminPage.getByRole('button', { name: '검색', exact: true }).click();
-    // 검색은 주소를 바꿔 커밋된다. 그 커밋을 기다리지 않고 행을 누르면 목록이
-    // 아직 검색 전 주소에 서 있어, 이 테스트가 검사하려는 「검색 상태를 들고
-    // 상세로 간다」가 아예 일어나지 않는다.
+
     await adminPage.waitForURL(/query=seed-auth-admin-second/);
     await expect(adminPage.locator('table tbody tr')).toHaveCount(1);
 
-    // When: 목록 링크를 소프트 클릭하면 intercepting route가 상세 오버레이를
-    // 연다. 주소는 표준 상세 URL이라 공유하거나 새로고침할 수 있어야 한다.
     await adminPage
       .getByRole('link', { name: '합성 두 번째 관리자', exact: true })
       .click();
-    // 상세 주소는 목록이 서 있던 질의를 그대로 달고 있다 — 그래야 오버레이
-    // 뒤에 깔린 목록이 같은 주소를 다시 읽어도 검색 결과를 잃지 않는다.
+
     await expect(adminPage).toHaveURL(
       new RegExp(
         `/dashboard/users/${encodeURIComponent(seedId('auth', 'admin-second'))}\\?query=seed-auth-admin-second$`,
       ),
     );
     await expect(adminPage.getByRole('dialog')).toBeVisible();
-    // 뒤 목록이 검색 상태 그대로 서 있다(검색어와 결과 한 줄).
+
     await expect(search).toHaveValue('seed-auth-admin-second');
     await expect(adminPage.locator('table tbody tr')).toHaveCount(1);
     await expect(
@@ -143,7 +133,6 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
       }),
     ).toBeVisible();
 
-    // Then: 같은 URL을 새로고침하면 오버레이가 아닌 전체 상세 페이지가 열린다.
     await adminPage.reload();
     await expect(adminPage.getByRole('dialog')).toHaveCount(0);
     await expect(
@@ -158,14 +147,12 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     adminPage,
     authSeedPage,
   }, testInfo) => {
-    // Given: 두 번째 PENDING 사용자의 관리자 상세 화면.
     await openDetail(
       adminPage,
       STAFF_PENDING_SECOND,
       '합성 두 번째 대기 사용자',
     );
 
-    // When: 관리자가 합성 사유를 적어 반려한다.
     await chooseMutation(adminPage, '요청 반려');
     await adminPage.getByLabel('반려 사유').fill(REJECTION_REASON);
     await adminPage.getByRole('button', { name: '반려 확정' }).click();
@@ -174,7 +161,6 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     ).toContainText(REJECTION_REASON);
     await attachStateScreenshot(adminPage, testInfo, 'pending-rejected');
 
-    // Then: 사용자는 반려 사유를 읽고 별도 재신청 버튼 없이 STAFF를 다시 고른다.
     const applicantPage = await authSeedPage('staff-pending-second');
     await applicantPage.goto('/dashboard');
     await expect(applicantPage).toHaveURL(/\/onboarding\/role$/);
@@ -192,17 +178,15 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
   test('STAFF는 사용자 목록과 역할 변경 API를 즉시 거부된다', async ({
     authSeedPage,
   }) => {
-    // Given: 아직 회수되지 않은 ACTIVE STAFF 세션.
     const staffPage = await authSeedPage('staff-revocable');
 
-    // When / Then: 명부 화면은 권한 안내를, 명부·역할 변경 API는 403을 반환한다.
     await staffPage.goto('/dashboard/users');
     await expect(
       staffPage.getByText('접근 권한이 없습니다', {
         exact: true,
       }),
     ).toBeVisible();
-    // baseURL(`playwright.config.ts`의 `use.baseURL`)은 page.request에도 적용된다.
+
     const response = await staffPage.request.get('/api/v1/users/access');
     expect(response.status()).toBe(403);
     const mutationResponse = await requestStaffRoleRevocation(
@@ -268,13 +252,10 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
   test('학생이 감사 로그 주소로 직접 들어가면 같은 주소에서 접근 거부를 본다', async ({
     authSeedPage,
   }) => {
-    // Given: 가입을 마친 학생 세션.
     const studentPage = await authSeedPage('profile-complete');
 
-    // When: 학생이 관리자 전용 감사 로그의 역할 비노출 주소를 직접 연다.
     await studentPage.goto('/dashboard/audit-logs');
 
-    // Then: 다른 화면으로 보내지 않고 같은 주소에서 접근 거부를 보여 준다.
     await expect(studentPage).toHaveURL(/\/dashboard\/audit-logs$/);
     await expect(
       studentPage.getByText('접근 권한이 없습니다', {
@@ -290,9 +271,6 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     adminPage,
     authSeedPage,
   }, testInfo) => {
-    // Given: 이 공유 시드는 이전 계약에서 학번을 가진 STAFF 역할로 만들어져
-    // canonical memberKind가 STUDENT인 채 남을 수 있다. 표시 역할을 해석하지
-    // 않고 access projection의 정본 필드만 읽어 관리자 API로 STAFF 전제를 만든다.
     const originalResponse = await getAdminAccessDetail(
       adminPage,
       STAFF_REVOCABLE,
@@ -347,7 +325,6 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     const memberKind = adminPage.getByLabel('회원 유형', { exact: true });
     await expect(memberKind).toHaveText('교직원');
 
-    // 사번 수정은 관리자의 접근 변경이 아니라 본인 프로필의 저장 동작이다.
     await expect(
       adminPage.getByRole('button', { name: '교직원 정보 수정', exact: true }),
     ).toHaveCount(0);
@@ -386,7 +363,6 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     await saveOwnStaffNumber('');
     await saveOwnStaffNumber('E2E-STAFF-42');
 
-    // 저장된 staffNumber는 상세를 다시 열어도 canonical projection에서 읽혀야 한다.
     await adminPage.reload();
     await expect(memberKind).toHaveText('교직원');
     await expect(
@@ -403,8 +379,6 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
       },
     ).toMatchObject({ profile: { staffNumber: 'E2E-STAFF-42' } });
 
-    // 취소는 정본을 바꾸지 않는다. GET projection을 취소 전후로 비교해
-    // 버튼 클릭이 PATCH로 이어지지 않았음을 확인한다.
     const beforeCancelResponse = await getAdminAccessDetail(
       adminPage,
       STAFF_REVOCABLE,
@@ -426,8 +400,6 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     expect(afterCancelResponse.status()).toBe(200);
     expect(await afterCancelResponse.json()).toEqual(beforeCancel);
 
-    // 교직원 → 학생은 기존 학번·학과를 다시 입력하지 않는다. 기존 legacy
-    // 학번은 명령에서 생략하고, 확인 다이얼로그는 저장된 값을 증거로 보여 준다.
     expect(prepared.profile.studentId).not.toBeNull();
     expect(prepared.profile.department).not.toBeNull();
     const preservedStudentId = prepared.profile.studentId as string;
@@ -469,15 +441,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     });
     await attachStateScreenshot(adminPage, testInfo, 'member-kind-roundtrip');
 
-    // deadline-digest.spec.ts가 같은 합성 교직원 세션을 재사용한다. 원래
-    // memberKind/studentId/department/접근 플래그를 복구하고, 번호는 원래
-    // 값(null)을 다시 넣어 뒤 스펙에 변경을 남기지 않는다. 기존 학번은
-    // 복구 명령에서도 생략해 legacy 값을 보존한다.
     if (original.memberKind === 'STUDENT') {
-      // member-kind STUDENT keeps the optional staffNumber unless the command
-      // explicitly clears it. Cycle through STAFF with the original value so
-      // the shared fixture returns to its exact canonical profile, then grant
-      // the independent staff access back.
       const restoredStaff = await requestMemberKindChange(
         adminPage,
         STAFF_REVOCABLE,
@@ -544,14 +508,10 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     authSeedPage,
     expectAdminResourceStatusError,
   }, testInfo) => {
-    // Given: 첫 관리자가 STAFF 상세의 이전 projection을 보고 있다.
     await openDetail(adminPage, STAFF_APPROVED, '이름 미등록');
     const secondAdminPage = await authSeedPage('admin-second');
     await secondAdminPage.goto('/dashboard/users');
 
-    // When: 두 번째 관리자가 먼저 같은 STAFF를 API로 null 회수한다 — null
-    // 회수는 여전히 REVOKED 이력을 남기는 실제 기능이고, 이제 API 전용
-    // 경로다(위 테스트 참고).
     const response = await requestStaffRoleRevocation(
       secondAdminPage,
       STAFF_APPROVED,
@@ -563,12 +523,6 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
       },
     );
 
-    // Then: 첫 관리자의 화면은 아직 STAFF를 보여주고 있다 — 그 stale 화면에서
-    // 계정 상태를 바꾸면 expectedRole이 실제(null)와 어긋나 409이며 화면
-    // projection이 즉시 최신화된다. Task 11 이후 교직원·관리자 접근은 CAS가 없는
-    // 정본 명령으로 빠졌고, 레거시 CAS 리소스(`expectedRole` 포함)를 타는 화면
-    // 경로는 계정 상태 컨트롤만 남았다 — 낙관적 잠금 충돌을 화면에서 만들 수 있는
-    // 유일한 지점이라 여기로 옮긴다(`matchesExpectedAccessState`의 레거시 분기).
     expectAdminResourceStatusError(409);
     await deactivateAccount(adminPage);
     await expect(
@@ -593,9 +547,6 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     await expect(requestHistory).toContainText('seed-auth-admin-second');
   });
 
-  // 회원 유형 전환도 expectedMemberKind + expectedHasStaffAccess를 함께 검사한다.
-  // 두 관리자가 같은 STAFF projection에서 출발하면 두 번째의 STUDENT 전환만
-  // 성공하고, 첫 번째의 오래된 전환은 409 뒤 최신 projection으로 수렴해야 한다.
   test('회원 유형의 오래된 화면은 409 뒤 최신 유형과 회수 이력으로 수렴한다', async ({
     adminPage,
     authSeedPage,
@@ -638,13 +589,11 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
       );
     }
 
-    // Given: 첫 관리자는 STAFF 상세의 이전 projection을 보고 있다.
     await openDetail(adminPage, STAFF_REVOCABLE, '합성 활성 교직원');
     await expect(adminPage.getByLabel('회원 유형', { exact: true })).toHaveText(
       '교직원',
     );
 
-    // When: 두 번째 관리자가 먼저 같은 계정의 유형을 STUDENT로 전환한다.
     const secondAdminPage = await authSeedPage('admin-second');
     await openDetail(secondAdminPage, STAFF_REVOCABLE, '합성 활성 교직원');
     await chooseMemberKind(secondAdminPage, 'STUDENT');
@@ -664,8 +613,6 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
       secondAdminPage.getByLabel('회원 유형', { exact: true }),
     ).toHaveText('학생');
 
-    // Then: 첫 관리자의 오래된 화면에서 같은 전환을 확정하면 409로 거절되고,
-    // 완료 문구 대신 충돌 안내가 서며 유형 컨트롤이 서버 값으로 돌아온다.
     expectAdminResourceStatusError(409);
     await chooseMemberKind(adminPage, 'STUDENT');
     const staleDialog = adminPage.getByRole('dialog');
@@ -690,7 +637,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
     await expect(adminPage.getByLabel('회원 유형', { exact: true })).toHaveText(
       '학생',
     );
-    // 다시 읽은 이력에는 먼저 전환한 두 번째 관리자의 회수 한 줄이 보인다.
+
     const requestHistory = adminPage
       .getByRole('heading', { name: '요청 이력' })
       .locator('..');
@@ -702,8 +649,6 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
       'stale-member-kind-conflict',
     );
 
-    // 공유 시드이므로 원래 정체성과 접근을 다시 켜 둔다. 이 API는 관리자
-    // 세션으로만 호출하며 학생/교직원 토큰에서 profile을 쓰지 않는다.
     if (original.memberKind === 'STUDENT') {
       const restoredStaff = await requestMemberKindChange(
         adminPage,

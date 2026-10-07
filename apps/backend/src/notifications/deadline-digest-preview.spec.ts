@@ -40,56 +40,52 @@ const eligibility = buildDeadlineEligibility(source, deadlineWindow(now));
 
 describe('confirmed rendered deadline digest', () => {
   it('changes the confirmation when guidance changes', () => {
-    // Given
     const original = prepareDeadlineDigest(eligibility, staff, {
       ...context,
       studentGuidance: 'first',
     });
-    // When
+
     const changed = prepareDeadlineDigest(eligibility, staff, {
       ...context,
       studentGuidance: 'second',
     });
-    // Then
+
     expect(changed.previewVersion).not.toBe(original.previewVersion);
   });
 
   it('changes the confirmation when staff recipients change', () => {
-    // Given
     const original = prepareDeadlineDigest(eligibility, staff, context);
-    // When
+
     const changed = prepareDeadlineDigest(
       eligibility,
       [...staff, { id: 'staff-2', notificationEmail: 'other@example.com' }],
       context,
     );
-    // Then
+
     expect(changed.previewVersion).not.toBe(original.previewVersion);
   });
 
   it('changes the confirmation when protected programme facts change', () => {
-    // Given
     const original = prepareDeadlineDigest(eligibility, staff, context);
     const changedSource = buildDeadlineEligibility(
       { ...source, name: 'Changed programme' },
       deadlineWindow(now),
     );
-    // When
+
     const changed = prepareDeadlineDigest(changedSource, staff, context);
-    // Then
+
     expect(changed.previewVersion).not.toBe(original.previewVersion);
   });
 
   it('exposes rendered personalized mail without private recipient metadata', () => {
-    // Given
     const draft = {
       ...context,
       studentGuidance: 'student note',
       staffGuidance: 'staff note',
     };
-    // When
+
     const prepared = prepareDeadlineDigest(eligibility, staff, draft);
-    // Then
+
     expect(prepared.studentPreviews[0]?.text).toContain(
       source.applications[0]?.applicant.nickname,
     );
@@ -107,23 +103,21 @@ describe('confirmed rendered deadline digest', () => {
   });
 
   it('produces no mail when no required document is eligible', () => {
-    // Given
     const empty = buildDeadlineEligibility(
       { ...source, milestones: [] },
       deadlineWindow(now),
     );
-    // When
+
     const prepared = prepareDeadlineDigest(empty, [], context);
-    // Then
+
     expect(prepared.studentPreviews).toEqual([]);
     expect(prepared.staffPreview).toBeNull();
     expect(prepared.deliveries).toEqual([]);
   });
 
   it('keeps actionable safe links and identical HTML in each preview and delivery', () => {
-    // Given / When
     const prepared = prepareDeadlineDigest(eligibility, staff, context);
-    // Then
+
     expect(prepared.studentPreviews[0]?.html).toContain(
       'href="https://oss.example/programs/program-1#milestone-milestone-1-name" target="_blank" rel="noopener noreferrer"',
     );

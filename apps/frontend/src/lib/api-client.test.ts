@@ -29,11 +29,6 @@ describe('apiClient', () => {
     });
   });
 
-  /**
-   * Nest는 handler가 `null`을 돌려주면 본문 없이 200을 보낸다. 실배포의
-   * `role-requests/me`가 그 경우이고, 여기서 거절하면 역할 요청이 아직 없는
-   * 신규 가입자가 첫 화면에서 통째로 오류로 접혔다.
-   */
   it('본문이 빈 성공 응답을 null로 읽는다', async () => {
     const fetchMock = vi
       .fn()
@@ -95,12 +90,6 @@ describe('apiClient', () => {
     }
   });
 
-  /*
-   * #1107 — ProblemDetail이 아닌 응답(nginx의 413 HTML 등)을 감쌀 때 `detail`에 개발자용
-   * 진단 문장을 두면 그대로 사용자 화면에 붙는다. 실제로 붙어서, 서류를 내려던 학생이 본
-   * 것은 「API 오류 응답이 ProblemDetail 형식이 아닙니다.」였다. 진단은 이 문장이 아니라
-   * `code`·`status`·`instance`로 한다.
-   */
   it('ProblemDetail이 아닌 실패를 사람이 읽는 문장으로 감싼다', async () => {
     vi.stubGlobal(
       'fetch',
@@ -123,7 +112,7 @@ describe('apiClient', () => {
         '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
       );
       expect(problem.detail).not.toContain('ProblemDetail');
-      // 진단은 문장이 아니라 코드·상태·경로에 남는다.
+
       expect(problem.code).toBe('API_000');
       expect(problem.status).toBe(413);
       expect(problem.instance).toBe('/api/v1/milestone-document-files');
@@ -138,7 +127,6 @@ describe('apiFileClient', () => {
   });
 
   it('binary body와 RFC 5987 파일명을 함께 반환한다', async () => {
-    // Given
     const fetchMock = vi.fn().mockResolvedValue(
       new Response('current-bytes', {
         status: 200,
@@ -151,16 +139,13 @@ describe('apiFileClient', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    // When
     const result = await apiFileClient('current/file');
 
-    // Then
     await expect(result.blob.text()).resolves.toBe('current-bytes');
     expect(result.fileName).toBe('현재.pdf');
   });
 
   it('ProblemDetail 실패를 JSON API와 같은 ApiError로 변환한다', async () => {
-    // Given
     const problem = {
       type: 'about:blank',
       title: 'Not Found',
@@ -179,7 +164,6 @@ describe('apiFileClient', () => {
       ),
     );
 
-    // When / Then
     await expect(apiFileClient('current/file')).rejects.toMatchObject({
       problem,
     });

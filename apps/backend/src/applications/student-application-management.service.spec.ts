@@ -17,9 +17,7 @@ const STUDENT = {
   name: '합성 학생',
   nickname: 'synthetic-student',
 } as const;
-// 기본 행위자(STUDENT)는 신청자가 아니라 **지금의 팀장**이다 — 신청을 낸 사람이 떠나고
-// 승계로 팀장이 된 팀의 모습이다. 관리 권한은 `applicantId`가 아니라 현재 팀장에서
-// 나온다는 것을 기본값으로 고정한다(#1083).
+
 const APPLICATION = {
   id: 'application-1',
   programId: 'program-1',
@@ -101,10 +99,6 @@ async function expectDomainCode(
   }
 }
 
-/**
- * 조회가 「없음」을 null로 돌려주게 된 뒤(QA174 / #1303), **있어야 하는** 시나리오를
- * 좁힌다. 없으면 그 자체가 실패이므로 조용히 넘기지 않고 바로 터뜨린다.
- */
 function present<T>(value: T | null, what: string): T {
   if (value === null) throw new Error(`${what}이(가) 있어야 하는 시나리오다`);
   return value;
@@ -112,20 +106,17 @@ function present<T>(value: T | null, what: string): T {
 
 describe('StudentApplicationManagementService', () => {
   it('신청 기간 내 승인 대기 신청을 조회한다', async () => {
-    // Given
     const { repository, applicationsRepository } = createRepository();
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
     );
 
-    // When
     const result = present(
       await service.getMine(4242n, 'program-1', NOW),
       '신청',
     );
 
-    // Then
     expect(result).toEqual({
       id: APPLICATION.id,
       programId: APPLICATION.programId,
@@ -145,15 +136,7 @@ describe('StudentApplicationManagementService', () => {
     });
   });
 
-  /**
-   * 반려 사유가 학생에게 닿는 유일한 경로다(#722).
-   *
-   * 사유는 `Application.rejectionReason`에만 있고 알림·감사 로그·메일에는 담지
-   * 않는다(`audit-log/audit-log-metadata.ts`). 이 조회가 빠뜨리면 학생은 왜
-   * 반려됐는지 어디서도 알 수 없다.
-   */
   it('반려된 신청은 사유를 함께 돌려준다', async () => {
-    // Given
     const { repository, applicationsRepository, findOwnedApplication } =
       createRepository();
     findOwnedApplication.mockResolvedValue({
@@ -166,25 +149,18 @@ describe('StudentApplicationManagementService', () => {
       applicationsRepository,
     );
 
-    // When
     const result = present(
       await service.getMine(4242n, 'program-1', NOW),
       '신청',
     );
 
-    // Then
     expect(result.rejectionReason).toBe('합성 반려 사유');
     expect(result.status).toBe(ApplicationStatus.REJECTED);
   });
 
-  /**
-   * 반려가 아닌 신청에도 **키는 있고 값이 `null`이다.**
-   * 반려일 때만 키를 실으면 클라이언트에서 "없는 키"와 "null"이 다르게 읽힌다.
-   */
   it.each([ApplicationStatus.APPROVED, ApplicationStatus.SUBMITTED] as const)(
     '%s 신청의 사유는 키를 지우지 않고 null로 싣는다',
     async (status) => {
-      // Given
       const { repository, applicationsRepository, findOwnedApplication } =
         createRepository();
       findOwnedApplication.mockResolvedValue({ ...APPLICATION, status });
@@ -193,20 +169,17 @@ describe('StudentApplicationManagementService', () => {
         applicationsRepository,
       );
 
-      // When
       const result = present(
         await service.getMine(4242n, 'program-1', NOW),
         '신청',
       );
 
-      // Then
       expect(result).toHaveProperty('rejectionReason');
       expect(result.rejectionReason).toBeNull();
     },
   );
 
   it('신청 기간 내 승인 대기 신청 내용을 수정한다', async () => {
-    // Given
     const { repository, applicationsRepository, updatePendingApplication } =
       createRepository();
     const service = new StudentApplicationManagementService(
@@ -214,7 +187,6 @@ describe('StudentApplicationManagementService', () => {
       applicationsRepository,
     );
 
-    // When
     const result = await service.updateMine(
       4242n,
       'program-1',
@@ -225,7 +197,6 @@ describe('StudentApplicationManagementService', () => {
       NOW,
     );
 
-    // Then
     expect(updatePendingApplication.mock.calls).toEqual([
       [
         {
@@ -243,7 +214,6 @@ describe('StudentApplicationManagementService', () => {
   });
 
   it('팀장이 조회하고 수정해도 원 신청자 이름을 유지한다', async () => {
-    // Given
     const { repository, applicationsRepository, updatePendingApplication } =
       createRepository();
     const service = new StudentApplicationManagementService(
@@ -251,7 +221,6 @@ describe('StudentApplicationManagementService', () => {
       applicationsRepository,
     );
 
-    // When
     const beforeUpdate = present(
       await service.getMine(4242n, 'program-1', NOW),
       '신청',
@@ -266,7 +235,6 @@ describe('StudentApplicationManagementService', () => {
       NOW,
     );
 
-    // Then
     expect(beforeUpdate.answers.applicantName).toBe('합성 신청자');
     expect(updatePendingApplication.mock.calls[0]?.[0].answers).toEqual({
       applicantName: '합성 신청자',
@@ -275,15 +243,9 @@ describe('StudentApplicationManagementService', () => {
     expect(afterUpdate.answers.applicantName).toBe('합성 신청자');
   });
 
-  /**
-   * 팀 신청서의 수정·취소는 **지금의 팀장**만 한다(#1083). 그 전에는 읽기 범위를
-   * 그대로 써서 팀원 아무나 팀 전체의 신청을 하드 삭제할 수 있었다.
-   * 거절 코드는 repository가 돌려주는 실패와 같은 APP_001로 맞춘다.
-   */
   it.each(['update', 'cancel'] as const)(
     '팀장이 아닌 팀원의 %s 요청을 거절한다',
     async (operation) => {
-      // Given
       const {
         repository,
         applicationsRepository,
@@ -300,7 +262,6 @@ describe('StudentApplicationManagementService', () => {
         applicationsRepository,
       );
 
-      // When / Then
       await expectDomainCode(
         operation === 'update'
           ? service.updateMine(
@@ -320,12 +281,7 @@ describe('StudentApplicationManagementService', () => {
     },
   );
 
-  /**
-   * 읽기는 좁히지 않는다 — 판정 사유·답변은 팀원 전원이 읽는다(#570). 화면이
-   * 「신청 취소」·「수정 내용 저장」을 감출 근거는 `canManage`뿐이라 여기서 내려간다.
-   */
   it('팀원의 조회는 열어 두되 canManage를 내린다', async () => {
-    // Given
     const { repository, applicationsRepository, findOwnedApplication } =
       createRepository();
     findOwnedApplication.mockResolvedValue({
@@ -338,26 +294,19 @@ describe('StudentApplicationManagementService', () => {
       applicationsRepository,
     );
 
-    // When
     const result = present(
       await service.getMine(4242n, 'program-1', NOW),
       '신청',
     );
 
-    // Then
     expect(result.answers.title).toBe('기존 제목');
     expect(result.isManager).toBe(false);
     expect(result.canManage).toBe(false);
   });
 
-  /**
-   * 신청을 낸 사람이라는 것은 권한이 아니다. 신청 뒤 팀장을 넘기고 팀원으로 남은 사람은
-   * 읽기만 유지하고 팀 전체의 신청을 되돌릴 수 없게 지우지 못한다.
-   */
   it.each(['update', 'cancel'] as const)(
     '팀장이 아닌 원 신청자의 %s 요청을 거절한다',
     async (operation) => {
-      // Given
       const {
         repository,
         applicationsRepository,
@@ -375,7 +324,6 @@ describe('StudentApplicationManagementService', () => {
         applicationsRepository,
       );
 
-      // When / Then
       await expectDomainCode(
         operation === 'update'
           ? service.updateMine(
@@ -395,9 +343,7 @@ describe('StudentApplicationManagementService', () => {
     },
   );
 
-  /** 원 신청자여도 팀원으로 남아 있는 동안은 읽기가 열려 있다. */
   it('팀장이 아닌 원 신청자의 조회는 열어 두되 isManager를 내린다', async () => {
-    // Given
     const { repository, applicationsRepository, findOwnedApplication } =
       createRepository();
     findOwnedApplication.mockResolvedValue({
@@ -410,26 +356,18 @@ describe('StudentApplicationManagementService', () => {
       applicationsRepository,
     );
 
-    // When
     const result = present(
       await service.getMine(4242n, 'program-1', NOW),
       '신청',
     );
 
-    // Then
     expect(result.isManager).toBe(false);
     expect(result.canManage).toBe(false);
   });
 
-  /**
-   * 팀을 떠난 사람은 원 신청자였더라도 제 신청을 되찾지 못한다 — repository가 현재
-   * 멤버십으로 좁혀 `null`을 돌려준다. **변경**(update·cancel)은 APP_001로 닫고,
-   * **조회**는 QA174 뒤로 「보여줄 신청이 없다」는 뜻의 null을 돌려준다(아래 별도 테스트).
-   */
   it.each(['update', 'cancel'] as const)(
     '팀을 떠난 원 신청자의 %s 요청을 거절한다',
     async (operation) => {
-      // Given
       const {
         repository,
         applicationsRepository,
@@ -443,7 +381,6 @@ describe('StudentApplicationManagementService', () => {
         applicationsRepository,
       );
 
-      // When / Then
       const operations = {
         update: () =>
           service.updateMine(
@@ -466,12 +403,7 @@ describe('StudentApplicationManagementService', () => {
     },
   );
 
-  /**
-   * 조회는 「없음」을 오류로 보지 않는다(QA174 / #1303). 신청한 적이 없든 팀을 떠나
-   * 보여줄 것이 없든, 조회자에게는 둘 다 「없다」이고 응답에 새로 실리는 정보도 없다.
-   */
   it('보여줄 신청이 없으면 조회는 null을 돌려준다', async () => {
-    // Given
     const { repository, applicationsRepository, findOwnedApplication } =
       createRepository();
     findOwnedApplication.mockResolvedValue(null);
@@ -480,26 +412,18 @@ describe('StudentApplicationManagementService', () => {
       applicationsRepository,
     );
 
-    // When
     const result = await service.getMine(4242n, 'program-1', NOW);
 
-    // Then
     expect(result).toBeNull();
   });
 
-  /**
-   * 승계로 팀장이 된 사람은 신청자가 아니어도 관리한다 — 단, 기간·상태 창은 그대로다.
-   * 권한과 창을 갈라 두어야 화면이 「기간이 지났다」와 「당신 권한이 아니다」를 갈라 말한다.
-   */
   it('승계된 팀장은 기간 밖에서도 isManager를 유지하고 canManage만 내린다', async () => {
-    // Given — 행위자는 신청자가 아니고 지금 팀장이다(APPLICATION 기본값).
     const { repository, applicationsRepository } = createRepository();
     const service = new StudentApplicationManagementService(
       repository,
       applicationsRepository,
     );
 
-    // When
     const result = present(
       await service.getMine(
         4242n,
@@ -509,13 +433,11 @@ describe('StudentApplicationManagementService', () => {
       '신청',
     );
 
-    // Then
     expect(result.isManager).toBe(true);
     expect(result.canManage).toBe(false);
   });
 
   it('승인된 신청은 수정하지 않는다', async () => {
-    // Given
     const {
       repository,
       applicationsRepository,
@@ -531,7 +453,6 @@ describe('StudentApplicationManagementService', () => {
       applicationsRepository,
     );
 
-    // When / Then
     await expectDomainCode(
       service.updateMine(
         4242n,
@@ -548,7 +469,6 @@ describe('StudentApplicationManagementService', () => {
   });
 
   it('신청 기간 내 승인 대기 신청을 취소한다', async () => {
-    // Given
     const { repository, applicationsRepository, deletePendingApplication } =
       createRepository();
     const service = new StudentApplicationManagementService(
@@ -556,10 +476,8 @@ describe('StudentApplicationManagementService', () => {
       applicationsRepository,
     );
 
-    // When
     const result = await service.cancelMine(4242n, 'program-1', NOW);
 
-    // Then
     expect(deletePendingApplication.mock.calls).toEqual([
       [{ programId: 'program-1', studentId: 'student-1' }],
     ]);
@@ -567,7 +485,6 @@ describe('StudentApplicationManagementService', () => {
   });
 
   it('신청 기간이 끝나면 취소하지 않는다', async () => {
-    // Given
     const { repository, applicationsRepository, deletePendingApplication } =
       createRepository();
     const service = new StudentApplicationManagementService(
@@ -575,7 +492,6 @@ describe('StudentApplicationManagementService', () => {
       applicationsRepository,
     );
 
-    // When / Then
     await expectDomainCode(
       service.cancelMine(
         4242n,
@@ -587,7 +503,6 @@ describe('StudentApplicationManagementService', () => {
     expect(deletePendingApplication.mock.calls).toHaveLength(0);
   });
   it('uses the repository-resolved applicant name instead of the current actor nickname', async () => {
-    // Given
     const {
       repository,
       applicationsRepository,
@@ -617,29 +532,21 @@ describe('StudentApplicationManagementService', () => {
       applicationsRepository,
     );
 
-    // When
     const result = present(
       await service.getMine(4242n, 'program-1', NOW),
       '신청',
     );
 
-    // Then
     expect(result.answers.applicantName).toBe('Profile Applicant');
   });
 });
 
-/**
- * R-1 — 재제출 허용 상태는 SUBMITTED(현행) + REJECTED(신규)다. APPROVED는 계속 막힌다.
- * 허용 집합을 부정형(`!== APPROVED`)으로 쓰면 상태가 하나 늘 때 조용히 열리므로,
- * 세 상태를 각각 입력으로 주어 경계를 고정한다.
- */
 describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)', () => {
   it.each([
     [ApplicationStatus.SUBMITTED, true],
     [ApplicationStatus.REJECTED, true],
     [ApplicationStatus.APPROVED, false],
   ] as const)('%s 신청의 수정 허용은 %s다', async (status, allowed) => {
-    // Given
     const {
       repository,
       applicationsRepository,
@@ -659,7 +566,6 @@ describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)',
         NOW,
       );
 
-    // When / Then
     if (allowed) {
       await expect(update()).resolves.toBeDefined();
       expect(updatePendingApplication.mock.calls).toHaveLength(1);
@@ -673,7 +579,6 @@ describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)',
   });
 
   it('반려 상태에서도 신청 기간이 닫혔으면 기간 오류로 막는다', async () => {
-    // Given: 반려는 허용 상태지만 기간 조건은 그대로 남는다.
     const {
       repository,
       applicationsRepository,
@@ -689,7 +594,6 @@ describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)',
       applicationsRepository,
     );
 
-    // When / Then
     await expectDomainCode(
       service.updateMine(
         4242n,
@@ -703,7 +607,6 @@ describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)',
   });
 
   it('반려 신청은 조회에서 수정 가능으로 보인다 — 화면이 재제출 진입점을 연다', async () => {
-    // Given
     const { repository, applicationsRepository, findOwnedApplication } =
       createRepository();
     findOwnedApplication.mockResolvedValue({
@@ -716,18 +619,15 @@ describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)',
       applicationsRepository,
     );
 
-    // When
     const result = present(
       await service.getMine(4242n, 'program-1', NOW),
       '신청',
     );
 
-    // Then
     expect(result.canManage).toBe(true);
   });
 
   it('신청 취소는 반려 상태로 열리지 않는다 — 명세가 재제출만 확장했다', async () => {
-    // Given
     const {
       repository,
       applicationsRepository,
@@ -743,7 +643,6 @@ describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)',
       applicationsRepository,
     );
 
-    // When / Then
     await expectDomainCode(
       service.cancelMine(4242n, 'program-1', NOW),
       ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED,

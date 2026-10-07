@@ -9,7 +9,6 @@ const IMAGE_SIGNATURES: Readonly<Record<string, Buffer>> = {
 export const SUBMISSION_TEMPLATE_ACCEPT = '.pdf,.hwp,.jpg,.jpeg,.png,.zip';
 export const SUBMISSION_TEMPLATE_FORMAT_LABEL = 'PDF, HWP, JPG, PNG, ZIP';
 
-/** Staff templates retain images; student admission never calls this policy. */
 export function hasValidSubmissionTemplateSignature(
   buffer: Buffer,
   fileName: string,

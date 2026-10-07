@@ -72,7 +72,7 @@ describe('AuthConfig', () => {
     ['hash', 'https://oss.example#frag'],
     ['path', 'https://oss.example/app'],
     ['non-http', 'ftp://oss.example'],
-    // present-empty components: WHATWG getters collapse these to empty strings.
+
     ['empty-query', 'https://oss.example?'],
     ['empty-hash', 'https://oss.example#'],
     ['empty-query-hash', 'https://oss.example?#'],
@@ -90,8 +90,6 @@ describe('AuthConfig', () => {
     },
   );
   it.each([
-    // percent-encoded path-looking octets must not be treated as query/hash delimiters,
-    // but a path still disqualifies a canonical origin.
     ['percent-encoded-question', 'https://oss.example/%3Fnot-query'],
     ['percent-encoded-hash', 'https://oss.example/%23not-hash'],
   ])(
@@ -150,7 +148,7 @@ describe('AuthConfig', () => {
     ['hash', 'https://oss.example/api/v1/auth/github/callback#fragment'],
     ['credentials', credentialUrl('/api/v1/auth/github/callback')],
     ['non-http', 'ftp://oss.example/api/v1/auth/github/callback'],
-    // present-empty components must not equal the derived callback after WHATWG normalization.
+
     ['empty-query', 'https://oss.example/api/v1/auth/github/callback?'],
     ['empty-hash', 'https://oss.example/api/v1/auth/github/callback#'],
     ['empty-userinfo', 'https://@oss.example/api/v1/auth/github/callback'],

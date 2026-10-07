@@ -14,19 +14,6 @@ import { ProgramTeamsController } from './controller/program-teams.controller';
 import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 import { ProgramTeamsService } from './service/program-teams.service';
 
-/**
- * 교직원 전용 팀 상세(GET /api/v1/programs/:programId/teams/:teamId, #874) 응답의
- * 필드 allowlist 전용 테스트 — 403/404/service-logic 은
- * `program-teams-staff-detail.http.spec.ts` 로 분리했다(이 저장소는 두 관심사를
- * 한 파일에 섞은 전례가 없다).
- *
- * ⚠ 이 응답은 `repository`(url·visibility)를 **의도적으로 포함**한다 — 같은
- * 교직원이 신청 목록/상세(`ApplicationListItemResponseDto.repository`)에서 이미
- * 보는 값이고, 팀 상세가 저장소 상태까지 한 요청으로 끝내야 한다는 이슈 요구
- * 때문이다(`team-detail-response.dto.ts` 주석 참고). 그래서 아래 금지어 목록에는
- * `repository`/`url`을 넣지 않는다 — `listStaffTeams`(팀 목록) 쪽 forbidden-field
- * 테스트와 의도적으로 다르다.
- */
 const allowedOrigin = 'http://frontend.test';
 const sessionSecret = new Uint8Array(32).fill(7);
 const PROGRAM_ID = 'synthetic-program';
@@ -103,7 +90,6 @@ afterAll(async () => {
 });
 
 it('금지 필드(학번·학과·연락처·이메일·참여코드)는 신청·저장소가 있어도 응답에 없다', async () => {
-  // Given
   findUnique.mockResolvedValue({
     id: 'synthetic-staff',
     hasStaffAccess: true,
@@ -134,10 +120,8 @@ it('금지 필드(학번·학과·연락처·이메일·참여코드)는 신청�
     },
   });
 
-  // When
   const response = await getTeamDetail(await sessionCookieFor(6001n));
 
-  // Then
   expect(response.status).toBe(200);
   const body: unknown = await response.json();
   const serialized = JSON.stringify(body);
@@ -151,7 +135,7 @@ it('금지 필드(학번·학과·연락처·이메일·참여코드)는 신청�
   ]) {
     expect(serialized).not.toContain(forbidden);
   }
-  // repository.url 은 의도적으로 실린다 — 저장소 상태 확인에 필요하다.
+
   expect(serialized).toContain('synthetic-repo');
 });
 

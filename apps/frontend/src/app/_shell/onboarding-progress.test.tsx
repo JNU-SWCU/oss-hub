@@ -33,7 +33,6 @@ describe('OnboardingProgress', () => {
     },
   );
 
-  // 완료 여부를 색으로만 구분하면 색각 이상 사용자에게 전달되지 않는다.
   it('완료된 단계에는 텍스트 대안을 붙인다', () => {
     const first = renderToStaticMarkup(<OnboardingProgress current={1} />);
     const last = renderToStaticMarkup(<OnboardingProgress current={3} />);

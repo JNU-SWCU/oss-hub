@@ -17,7 +17,6 @@ const rehearsalPath = new URL(
 );
 
 test('expand schema and migration encode only nullable authority and affiliation additions', () => {
-  // Given
   assert.equal(
     existsSync(migrationPath),
     true,
@@ -26,16 +25,11 @@ test('expand schema and migration encode only nullable authority and affiliation
   const schema = readFileSync(schemaPath, 'utf8');
   const migration = readFileSync(migrationPath, 'utf8');
 
-  // When
   const executableSql = migration
     .split('\n')
     .filter((line) => !line.trimStart().startsWith('--'))
     .join('\n');
 
-  // Then — 이 검사는 **expand 마이그레이션 파일**만 잠근다. 그때의 스키마 모양
-  // (nullable canonical 칸, legacy Role)은 계약 단계가 이미 지웠으므로 여기서
-  // 요구하면 영원히 거짓이 된다. 계약 단계의 스키마는
-  // `member-authority-contract-contract.mjs`가 따로 잠근다.
   assert.match(schema, /enum MemberKind \{\s+STUDENT\s+STAFF\s+\}/);
   assert.match(
     schema,
@@ -50,14 +44,11 @@ test('expand schema and migration encode only nullable authority and affiliation
 });
 
 test('expand rehearsal covers fresh apply, legacy upgrade, and legacy boot without psql', () => {
-  // Given
   const rehearsal = readFileSync(rehearsalPath, 'utf8');
 
-  // When
   const deployCount =
     rehearsal.match(/npx prisma migrate deploy/g)?.length ?? 0;
 
-  // Then
   assert.equal(deployCount, 3);
   assert.match(rehearsal, /08419aec35492abd3a416795f091997dfbe1f712/);
   assert.match(rehearsal, /up -d fresh-db upgrade-db --wait/);
@@ -68,28 +59,22 @@ test('expand rehearsal covers fresh apply, legacy upgrade, and legacy boot witho
 });
 
 test('expand contract rejects a non-null authority column', () => {
-  // Given
   const schema = readFileSync(schemaPath, 'utf8');
   const migration = readFileSync(migrationPath, 'utf8').replace(
     'ADD COLUMN "hasStaffAccess" BOOLEAN,',
     'ADD COLUMN "hasStaffAccess" BOOLEAN NOT NULL DEFAULT false,',
   );
 
-  // When
   const issues = validateExpandContract(schema, migration);
 
-  // Then
   assert.deepEqual(issues, ['migration:unexpected-statements']);
 });
 
 test('expand contract rejects data mutation', () => {
-  // Given
   const schema = readFileSync(schemaPath, 'utf8');
   const migration = `${readFileSync(migrationPath, 'utf8')}\nUPDATE "User" SET "hasStaffAccess" = false;\n`;
 
-  // When
   const issues = validateExpandContract(schema, migration);
 
-  // Then
   assert.deepEqual(issues, ['migration:unexpected-statements']);
 });

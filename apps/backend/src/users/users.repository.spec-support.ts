@@ -47,9 +47,7 @@ export function usersRepositoryHarness(
       Parameters<AuditLogService['record']>
     >()
     .mockResolvedValue(auditLogRecord);
-  // `$queryRaw`는 잠금 후 현재 User/UserProfile 값을 읽는 경로이다. 기본값은
-  // `current`와 같은 행이고, 동시 갱신 상황은 테스트에서 이 mock을 다른 값으로
-  // 바꿔 재현한다.
+
   const transaction = {
     $queryRaw: jest.fn().mockResolvedValue([
       {

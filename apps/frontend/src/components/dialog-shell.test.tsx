@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -56,11 +54,6 @@ describe('DialogShell', () => {
   }
 
   it('기본은 dialog 역할을 지키고 alert 는 alertdialog 가 된다', async () => {
-    /*
-     * Radix 는 자기 `role: 'dialog'` 뒤에 전달 props 를 펼친다. 껍데기가
-     * `role={undefined}` 를 넘기면 기본 역할이 지워져 앱의 모든 창이 역할을
-     * 잃는다 — 이 테스트가 그것을 막는다.
-     */
     await render();
     expect(document.querySelector('[role="dialog"]')).not.toBeNull();
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
@@ -92,7 +85,7 @@ describe('DialogShell', () => {
     expect(dialog?.textContent).toContain('팀 이름 변경');
     expect(dialog?.textContent).toContain('새 이름을 입력하세요.');
     expect(dialog?.querySelector('[aria-label="팀 이름"]')).not.toBeNull();
-    // 껍데기는 X 아이콘을 두지 않는다 — 닫기는 바닥 줄의 「취소」 하나다.
+
     expect(dialog?.querySelector('[aria-label="닫기"]')).toBeNull();
 
     await act(async () => button('저장')?.click());

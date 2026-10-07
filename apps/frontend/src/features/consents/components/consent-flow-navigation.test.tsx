@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -67,20 +65,16 @@ describe('ConsentFlow completion navigation', () => {
   });
 
   it('replaces the route when rendered as the direct consent page', async () => {
-    // Given: the standalone consent route has already been accepted.
     await act(async () => {
       root.render(<ConsentFlow policyPresentation="dialog" />);
     });
 
-    // When: the initial consent query resolves.
     await flushEffects();
 
-    // Then: the standalone flow owns navigation to the next onboarding route.
     expect(mocks.router.replace).toHaveBeenCalledWith('/onboarding/role');
   });
 
   it('calls the host callback instead of navigating when embedded', async () => {
-    // Given: an embedded consent flow delegates completion to its host.
     const onCompleted = vi.fn();
     await act(async () => {
       root.render(
@@ -88,10 +82,8 @@ describe('ConsentFlow completion navigation', () => {
       );
     });
 
-    // When: the initial consent query resolves.
     await flushEffects();
 
-    // Then: the host receives completion and the embedded flow does not navigate.
     expect(onCompleted).toHaveBeenCalledWith('/onboarding/role');
     expect(mocks.router.replace).not.toHaveBeenCalled();
   });

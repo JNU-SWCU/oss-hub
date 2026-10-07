@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -37,18 +35,11 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
-/**
- * 조합된 화면을 실제로 마운트해 본다.
- *
- * 규칙 하나(`settings-access.test.ts`)와 게이트 하나(`_shell/role-gate.test.tsx`)가
- * 각각 옳아도, `page.tsx`가 규칙을 게이트에 물려주지 않으면 화면은 그대로 뚫린다.
- * 여기서 보는 것은 그 배선과, 열린 다음 사용자가 실제로 저장까지 가는지다.
- */
 describe('설정 화면', () => {
   let container: HTMLDivElement;
   let root: Root;
   let requests: { url: string; method: string; body: unknown }[];
-  /** 알림 채널 응답을 호출별로 바꿔 조회 실패 → 재시도 성공을 재현한다. */
+
   let notificationResponder: () => Response;
 
   function jsonResponse(value: unknown): Response {
@@ -134,7 +125,6 @@ describe('설정 화면', () => {
     return element;
   }
 
-  /** React가 듣는 것은 네이티브 input 이벤트라 setter를 직접 호출해 값을 넣는다. */
   async function type(input: HTMLInputElement, value: string): Promise<void> {
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
@@ -146,22 +136,11 @@ describe('설정 화면', () => {
     });
   }
 
-  /**
-   * 신고 그대로의 재현: 역할을 기다리는 교직원이 설정을 열어 이름을 고친다.
-   *
-   * 안내가 떴는지까지만 보면 부족하다 — 사용자가 원한 것은 안내가 아니라 수정이고,
-   * 되돌려보내기를 걷어내도 폼이 학생 기준(학번 필수)으로 그려지면 저장이 막힌 채
-   * 증상만 모양을 바꾼다. 그래서 폼에 값을 넣고 저장까지 눌러 PATCH 본문을 확인한다.
-   *
-   * `APPROVED`도 함께 본다. 결재가 끝나고 세션에 역할이 아직 오지 않은 사람이 겪는
-   * 일은 `PENDING`과 똑같고, 유지보수자가 그 창도 열기로 정했다(2026-08-04).
-   */
   it.each(['PENDING', 'APPROVED'] as const)(
     '역할 요청이 %s 인 교직원은 안내와 함께 폼에 도달하고, 고친 이름이 저장된다',
     async (staffAccessRequestStatus) => {
       await renderStaffAwaitingRole(staffAccessRequestStatus);
 
-      // 되돌려보내지 않는다 — 신고된 증상("다시 이 창으로 돌아와지더라구요")이다.
       expect(mocks.replace).not.toHaveBeenCalled();
       expect(container.textContent).toContain(
         SETTINGS_ONBOARDING_NOTICE_HEADING,
@@ -186,22 +165,13 @@ describe('설정 화면', () => {
     },
   );
 
-  /**
-   * 역할을 세션의 `role`(=null)로만 읽으면 가장 엄격한 학생 기준이 적용돼 학번이
-   * 필수가 된다. 학번 없이 가입한 교직원은 이름 한 글자를 고치려 해도 저장이
-   * 막히므로, 화면을 열어 준 것만으로는 신고가 해결되지 않는다.
-   */
   it('역할을 기다리는 교직원에게 학번 칸을 보여 주지 않는다', async () => {
-    // 학번은 학생만 가질 수 있다 — 아직 확정 전이라도 고른 역할이 교직원이면
-    // 요청에 studentId를 실어 봐야 백엔드가 400으로 거절하므로, 화면은 애초에
-    // 입력받지 않는다(users.service.ts).
     await renderStaffAwaitingRole();
 
     expect(container.querySelector('#settings-student-id')).toBeNull();
   });
 
   it('저장을 누르면 첫 오류 칸으로 포커스를 옮기고, 고친 뒤 다시 누르면 남은 오류 칸으로 옮긴다(R-16)', async () => {
-    // 저장된 학번·전화번호가 없는 학생이다. 학생에게는 둘 다 필수다.
     await render({
       status: 'assigned',
       ...accessFor('STUDENT'),
@@ -221,7 +191,7 @@ describe('설정 화면', () => {
     expect(
       container.querySelectorAll('[data-slot="field-error"]'),
     ).toHaveLength(2);
-    // 첫 칸(이름)이 아니라 첫 오류 칸이다.
+
     expect(document.activeElement?.id).toBe('settings-student-id');
 
     await type(field('settings-student-id'), '123456');
@@ -248,14 +218,6 @@ describe('설정 화면', () => {
     },
   );
 
-  /**
-   * 회귀 방지 — 이 PR 직전의 결함이다.
-   *
-   * 안내를 준 화면이 곧 "모든 미배정 사용자에게 열린 화면"이던 때에는, 아래 넷이
-   * 전부 설정에 들어왔다. 가입을 마치기 전에는 프로필·알림을 고칠 수 없다는 예전
-   * 계약(`ed2a187`)이 그대로 뒤집혔던 자리다. #581이 요구한 사람은 승인 대기
-   * 교직원 하나뿐이다.
-   */
   it.each([
     ['역할 요청이 없는 사용자', '/onboarding/role', {}],
     [
@@ -269,7 +231,6 @@ describe('설정 화면', () => {
       { selectedRole: 'STAFF' as const },
     ],
     [
-      // 반려는 살아 있는 신청이 없어 역할 선택으로 되돌린다(#535).
       '반려된 사용자',
       '/onboarding/role',
       { staffAccessRequestStatus: 'REJECTED' as StaffAccessRequestStatus },
@@ -300,8 +261,6 @@ describe('설정 화면', () => {
     expect(container.textContent).toContain('로그인이 필요합니다');
   });
 
-  // 회귀 방지: 조회 실패를 미배정으로 오인하면, 역할을 모르는 채로 프로필 폼이
-  // 열려 학생 기준(학번 필수)으로 그려진다.
   it('세션 조회 실패는 어디로도 보내지 않고 설정도 열지 않는다', async () => {
     await render({ status: 'error' });
 
@@ -318,7 +277,6 @@ describe('설정 화면', () => {
   });
 });
 
-/** 표시 역할 한 단어를 canonical 세 사실로 펼친다. 관리자는 회원 유형을 남기지 않는다. */
 function accessFor(role: 'STUDENT' | 'STAFF' | 'ADMIN') {
   return {
     memberKind: role === 'ADMIN' ? null : role,

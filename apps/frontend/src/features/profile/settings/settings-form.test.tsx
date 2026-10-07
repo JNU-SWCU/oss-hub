@@ -102,8 +102,6 @@ describe('settings form view', () => {
   });
 
   it('학번이 없는 교직원에게는 학번 칸을 아예 보여 주지 않는다', () => {
-    // 학번은 학생만 가질 수 있다 — 교직원이 요청에 studentId를 실으면
-    // 백엔드가 400으로 거절하므로(users.service.ts), 화면은 애초에 입력받지 않는다.
     const html = renderForm(values({ studentId: '', savedStudentId: '' }), {
       role: 'STAFF',
     });
@@ -123,7 +121,7 @@ describe('settings form view', () => {
     expect(html).toContain('aria-readonly="true"');
     expect(html).toContain('학번은 변경할 수 없습니다.');
     expect(html).toContain('1'.repeat(6));
-    // 고정된 값에 "선택"을 붙이면 아직 고를 수 있다는 뜻이 된다.
+
     expect(html).not.toContain('>선택</span>');
   });
 
@@ -192,7 +190,6 @@ describe('settings form view', () => {
       { showValidationErrors: true },
     );
 
-    // 안내가 오류에 밀려나지 않는다 — 「숫자 6자리」가 필요한 순간이 틀렸을 때다.
     expect(html).toContain('숫자 6자리 · 사용자가 입력한 식별 정보');
     expect(html).toContain('학번은 숫자 6자리로 입력해 주세요.');
     expect(html).toContain(
@@ -200,7 +197,6 @@ describe('settings form view', () => {
     );
     expect(html).toContain('전화번호는 숫자 10~11자리로 입력해 주세요.');
 
-    // 낭독기가 안내와 오류를 둘 다 읽도록 컨트롤이 두 id를 함께 가리킨다.
     expect(html).toContain(
       'aria-describedby="settings-student-id-description settings-student-id-error"',
     );
@@ -248,7 +244,7 @@ describe('settings form view', () => {
     expect(html).toContain('전화번호는 숫자 10~11자리로 입력해 주세요.');
     expect(html).toContain('학과를 선택하거나 입력해 주세요.');
     expect(html).toContain('이메일 형식이 올바르지 않습니다.');
-    // 무효 값이어도 클릭해 검증 메시지를 볼 수 있어야 한다. disabled는 저장 중만.
+
     expect(html).toContain('>저장</button>');
     expect(html).not.toMatch(/type="submit"[^>]*disabled/);
   });
@@ -293,16 +289,15 @@ describe('settings form view', () => {
     expect(html).toContain(notificationUnavailableMessage('forbidden'));
     expect(html).not.toContain('settings-notification-email');
     expect(html).not.toContain('이메일 형식이 올바르지 않습니다.');
-    // 프로필 필드는 유효하므로 저장 버튼은 활성(disabled 없음 on submit)
+
     expect(html).toContain('>저장</button>');
   });
 
-  // 조회 실패를 표시만 하고 끝내면 전체 새로고침 전까지 복구할 길이 없다.
   it('알림 조회 실패 자리에 알림만 다시 불러오는 버튼을 둔다', () => {
     const html = renderForm(values(), { notificationAvailable: false });
 
     expect(html).toContain('알림 설정 다시 불러오기');
-    // form 안의 버튼이므로 submit으로 새지 않아야 한다.
+
     expect(html).toContain('type="button"');
   });
 

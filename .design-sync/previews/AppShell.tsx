@@ -1,8 +1,3 @@
-// AppShell 프리뷰 — apps/frontend/src/components/layout.test.tsx의 3슬롯(header/body/
-// footer) 스모크 조합을, 이 repo의 실제 화면 조각(app/layout.tsx의 NavBar 배선 +
-// program-list-page.tsx / student-dashboard-view.tsx의 본문)으로 채운 것. AppShell은
-// 아직 실제 라우트에 직접 붙어 있지 않은 레이아웃 뼈대이므로, 빈 본문으로 남기지 않고
-// 이 repo에서 실제로 쓰이는 화면 콘텐츠를 그대로 조합해 넣는다.
 import {
   AppShell,
   Button,
@@ -17,8 +12,6 @@ import {
   StatusBadge,
 } from 'frontend';
 
-// app/layout.tsx의 NAV_ITEMS(홈/프로그램/아카이브) + program-list-page.tsx의
-// 프로그램 목록 본문 + 간단한 푸터. header/body/footer 세 슬롯을 모두 채운 기본형.
 export function Default() {
   return (
     <AppShell
@@ -73,8 +66,6 @@ export function Default() {
   );
 }
 
-// footer 없이 header + body만(레이아웃.test.tsx의 optional-footer 회귀 케이스) —
-// student-dashboard-view.tsx의 대시보드 카드 본문으로 채운다.
 export function WithoutFooter() {
   return (
     <AppShell
@@ -112,7 +103,6 @@ export function WithoutFooter() {
   );
 }
 
-// 텍스트 과다 케이스 — 긴 한글 공고 제목 + 하단 안내 문구가 줄바꿈될 때를 본다.
 export function LongNotice() {
   return (
     <AppShell

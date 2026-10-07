@@ -1,10 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-/**
- * Amicro fade-up entrance (copy-to-code). Quantity stays in the child;
- * this wrapper only delays opacity/translate. Honors reduced motion.
- */
 export function FadeUp({
   children,
   delayMs,

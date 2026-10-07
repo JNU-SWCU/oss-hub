@@ -12,14 +12,14 @@ import type {
 
 export class ApplicationListItemResponseDto {
   readonly id: string;
-  /** 상세 화면이 주소의 프로그램과 대조하는 데 쓴다(#722). */
+
   readonly programId: string;
   readonly status: ApplicationStatus;
   readonly submittedAt: string;
   readonly rejectionReason: string | null;
-  /** 승인이 저장소를 새로 만드는지(`NEW`) 낸 것을 잇는지(`OWN`). */
+
   readonly repositoryConnectionMode: RepositoryConnectionMode;
-  /** `OWN`일 때 이을 저장소 주소. */
+
   readonly repositoryUrl: string | null;
   readonly repositoryProvisioning: {
     readonly enabled: boolean;
@@ -27,10 +27,7 @@ export class ApplicationListItemResponseDto {
     readonly updatedAt: string;
     readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
   };
-  /**
-   * 프로비저닝된 저장소 주소·공개 여부. 화면이 「공개 저장소 열기」/「비공개 저장소 확인」을
-   * 가르는 데 쓴다(submission-reviews 검토 화면과 같은 계약). 아직 없으면 null.
-   */
+
   readonly repository: ApplicationListRepository | null;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly participation: 'INDIVIDUAL' | 'TEAM';
@@ -50,7 +47,6 @@ export class ApplicationListItemResponseDto {
     readonly summary: string;
   };
 
-  /** 상세 DTO(`ApplicationDetailResponseDto`)가 이 모양을 이어받아 `reviewHistory`만 더한다. */
   protected constructor(item: ApplicationListItem) {
     this.id = item.id;
     this.programId = item.programId;

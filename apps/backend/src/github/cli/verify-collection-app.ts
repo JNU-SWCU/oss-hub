@@ -26,7 +26,6 @@ function parseAlias(
   return { label, repository, visibility };
 }
 
-/** Typed projection from a RuntimeConfig snapshot. */
 export function aliasesFromRuntimeConfig(
   config: RuntimeConfig,
 ): CollectionLiveSmokeAlias[] {
@@ -43,7 +42,6 @@ export function aliasesFromRuntimeConfig(
   ];
 }
 
-/** Compatibility façade — one snapshot via loadRuntimeConfig, then project. */
 export function aliasesFromEnv(
   env: NodeJS.ProcessEnv,
 ): CollectionLiveSmokeAlias[] {

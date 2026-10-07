@@ -42,7 +42,7 @@ Accepted
 
 다만 이 조사가 드러낸 구조적 사실은 그대로다 — **랭킹이 조직 저장소 sweep의 건강에 종속돼 있어 sweep이 멈추면 학생이 보는 화면이 같이 멈춘다.**
 
-동시에 `ADR-009`가 이미 확정한 것이 있다. 학생이 신청 폼에서 `OWN`으로 연결한 조직 밖 저장소의 활동을 **프로그램 실적으로 센다.** 그리고 현재 수집은 조직 밖 공개 저장소 기여를 이미 랭킹에 섞고 있다(`collection-read.service.ts`의 `getPublicRankingMetrics` 주석: *"학생 개인 이력을 의도적으로 섞는다(org 밖 저장소도 포함)"*).
+동시에 `ADR-009`가 이미 확정한 것이 있다. 학생이 신청 폼에서 `OWN`으로 연결한 조직 밖 저장소의 활동을 **프로그램 실적으로 센다.** 그리고 현재 수집은 조직 밖 공개 저장소 기여를 이미 랭킹에 섞고 있다(`collection-read.service.ts`의 `getPublicRankingMetrics`).
 
 기존 수집 구조는 세 곳에 흩어져 있었다. GitHub App 클라이언트가 2벌(`repositories/github-app.client.ts` 205줄, `collection/collection-app.client.ts` 1030줄), 토큰 provider가 3벌, octokit을 만지는 모듈이 3곳(`auth`·`collection`·`repositories`)이다. rate limit 한도는 계정 단위인데 클라이언트가 둘이라 각자 자기 사용량만 알고, 페이싱 큐가 둘이면 페이싱이 성립하지 않는다.
 
@@ -73,7 +73,7 @@ Accepted
 
 **집계 축 — 누구의 활동을 세는가.** 가입한 학생의 활동을 센다. 저장소 축(`Application` 연결 여부)으로 거르지 않는다.
 
-저장소 축으로 fail-closed 하면 현재 랭킹이 통째로 사라진다 — 지금 수치의 지배적 원천이 `Application` 없는 조직 저장소(`oss-hub` 자신 포함)이기 때문이다(`collection-sync.service.ts`의 `#682` 경고 주석). 사람 축(`githubId ∈ User`)으로 거르면 제3자만 빠지고 가입 학생의 활동은 남는다.
+저장소 축으로 fail-closed 하면 현재 랭킹이 통째로 사라진다 — 지금 수치의 지배적 원천이 `Application` 없는 조직 저장소(`oss-hub` 자신 포함)이기 때문이다(`collection-sync.service.ts`). 사람 축(`githubId ∈ User`)으로 거르면 제3자만 빠지고 가입 학생의 활동은 남는다.
 
 **표시 축 — 누구를 화면에 보여주는가.** 가입자 전원을 보여준다. 기여가 0이어도 화면에서 빠지지 않고 0/0/0으로 표시된다(PM 결정, 2026-08-11) — 위 집계 축이 "합산 대상"을 정하는 것과 달리, 표시 축은 그 합산 결과가 0인 사람도 계속 화면에 남긴다는 별개의 결정이다.
 

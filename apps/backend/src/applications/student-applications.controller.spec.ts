@@ -47,10 +47,6 @@ function createService() {
   >;
 }
 
-/**
- * 조회가 「없음」을 null로 돌려주게 된 뒤(QA174 / #1303), **있어야 하는** 시나리오를
- * 좁힌다. 없으면 그 자체가 실패이므로 조용히 넘기지 않고 바로 터뜨린다.
- */
 function present<T>(value: T | null, what: string): T {
   if (value === null) throw new Error(`${what}이(가) 있어야 하는 시나리오다`);
   return value;
@@ -67,17 +63,14 @@ describe('StudentApplicationsController', () => {
   });
 
   it('내 신청을 ISO 날짜 응답으로 조회한다', async () => {
-    // Given
     const service = createService();
     const controller = new StudentApplicationsController(service);
 
-    // When
     const result = present(
       await controller.getMine({ sessionGithubId: 4242n }, 'program-1'),
       '신청',
     );
 
-    // Then
     expect(service.getMine).toHaveBeenCalledWith(4242n, 'program-1');
     expect(result).toMatchObject({
       id: 'application-1',
@@ -89,12 +82,7 @@ describe('StudentApplicationsController', () => {
     });
   });
 
-  /**
-   * 반려 사유는 응답 계약의 일부다(#722). 상태와 무관하게 키가 있어야 클라이언트가
-   * "아직 안 왔다"와 "없다"를 구분하지 않고 값 하나만 본다.
-   */
   it('반려 사유를 응답에 그대로 싣는다', async () => {
-    // Given
     const service = createService();
     service.getMine.mockResolvedValue({
       ...APPLICATION,
@@ -104,34 +92,28 @@ describe('StudentApplicationsController', () => {
     });
     const controller = new StudentApplicationsController(service);
 
-    // When
     const result = present(
       await controller.getMine({ sessionGithubId: 4242n }, 'program-1'),
       '신청',
     );
 
-    // Then
     expect(result.rejectionReason).toBe('합성 반려 사유');
   });
 
   it('반려가 아닌 신청도 사유 키를 null로 남긴다', async () => {
-    // Given
     const service = createService();
     const controller = new StudentApplicationsController(service);
 
-    // When
     const result = present(
       await controller.getMine({ sessionGithubId: 4242n }, 'program-1'),
       '신청',
     );
 
-    // Then
     expect(result).toHaveProperty('rejectionReason');
     expect(result.rejectionReason).toBeNull();
   });
 
   it('수정 본문을 서비스에 전달한다', async () => {
-    // Given
     const service = createService();
     const controller = new StudentApplicationsController(service);
     const body = Object.assign(new UpdateStudentApplicationRequestDto(), {
@@ -139,10 +121,8 @@ describe('StudentApplicationsController', () => {
       applicationTemplateVersion: 1,
     });
 
-    // When
     await controller.updateMine({ sessionGithubId: 4242n }, 'program-1', body);
 
-    // Then
     expect(service.updateMine).toHaveBeenCalledWith(4242n, 'program-1', {
       answers: { title: '수정 제목' },
       applicationTemplateVersion: 1,
@@ -150,17 +130,14 @@ describe('StudentApplicationsController', () => {
   });
 
   it('취소 요청을 서비스에 전달한다', async () => {
-    // Given
     const service = createService();
     const controller = new StudentApplicationsController(service);
 
-    // When
     const result = await controller.cancelMine(
       { sessionGithubId: 4242n },
       'program-1',
     );
 
-    // Then
     expect(service.cancelMine).toHaveBeenCalledWith(4242n, 'program-1');
     expect(result).toEqual({ cancelled: true });
   });

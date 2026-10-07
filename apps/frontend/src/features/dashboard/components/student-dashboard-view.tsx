@@ -14,13 +14,6 @@ import type {
 import { StudentDashboardCard } from './student-dashboard-card';
 import { ApplicationDecisionNotices } from './application-decision-notices';
 
-/**
- * 채운 남색은 화면당 주 행동 하나에만 쓴다. 카드마다 "제출 체크리스트"를 채운
- * 버튼으로 두면 카드 수만큼 주 행동이 늘어 어디부터 볼지 시선이 갈라진다.
- * 그래서 마감이 가장 급한 카드 하나만 채운 버튼으로 남기고 나머지는 낮춘다.
- * 급한 순서는 다음 마일스톤 마감이 이른 쪽이며, 이미 지난 마감이 가장 급하다.
- * 승인 대기·반려 카드는 아직 제출할 것이 없어 후보에서 뺀다.
- */
 function primaryActionApplicationId(
   items: readonly DashboardItem[],
 ): string | null {
@@ -43,8 +36,6 @@ function primaryActionApplicationId(
       soonest = { id: item.applicationId, dueAt };
   }
 
-  // 마감이 잡힌 카드가 하나도 없으면(전부 완료) 첫 참여 카드를 주 행동으로 둔다 —
-  // 채운 버튼이 0개가 되면 이번엔 무엇부터 할지가 사라진다.
   return soonest?.id ?? fallback;
 }
 
@@ -52,20 +43,13 @@ interface StudentDashboardViewProps {
   data: StudentDashboard | null;
   status: StudentDashboardStatus;
   now?: Date;
-  /**
-   * 방금 가입을 마치고 이 화면에 처음 도착했는가. 판단은 화면(screen)이 하고
-   * 여기서는 받은 값만 그린다 — 브라우저 저장소를 보는 쪽과 그리는 쪽을 섞지 않는다.
-   */
+
   showSignupCompleteNotice?: boolean;
   applicationDecisionNotices?: readonly ApplicationDecisionNotice[];
   onRetry: () => void;
 }
 
 function DashboardSkeleton() {
-  /*
-    `Skeleton`은 `CardGrid` 바깥에 둔다 — 안에 넣으면 그리드의 자식이 하나로 줄어
-    `CardGrid`가 자식에게 주는 타일 너비·최소 높이를 뼈대 칸이 못 받고 세로로 쌓인다.
-  */
   return (
     <Skeleton label="대시보드를 불러오는 중">
       <CardGrid>
@@ -96,12 +80,6 @@ export function StudentDashboardView({
         description="신청한 프로그램과 다음 제출 일정을 확인합니다."
       />
 
-      {/*
-        가입 완료는 화면 제목이 아니라 이 일회성 안내가 말한다. 제목("내 대시보드")은
-        3년 뒤 다시 들어온 사람도 보는 자리라 축하 문구를 놓을 수 없다. 이 안내는
-        프로필 저장 직후의 첫 도착 한 번만 뜨고 그 뒤로는 사라진다 — 조건의 출처는
-        `lib/signup-completion-notice.ts`.
-      */}
       {showSignupCompleteNotice ? (
         <Alert>
           <CircleCheck aria-hidden="true" />

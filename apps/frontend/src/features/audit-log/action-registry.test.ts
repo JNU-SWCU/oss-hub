@@ -1,10 +1,3 @@
-// 감사 로그 action registry가 backend/frontend 사이에서 어긋나면 관리자가 필터에서
-// 특정 action을 아예 조회할 수 없다(REPOSITORY_PUBLISHED가 병합된 뒤에도 프런트
-// 필터 목록에는 반영되지 않았던 사례가 실제로 있었다). 모노레포에 공유 패키지가 없어
-// frontend가 apps/backend/src를 직접 import할 수 없으므로(백엔드 모듈이
-// @nestjs/common·@prisma/client에 의존하고 frontend workspace에는 그 의존성이 없다),
-// apps/backend/src/audit-log/*-audit-metadata.ts를 텍스트로 읽어 action 문자열
-// 값을 직접 추출해 비교한다 — apps/frontend/src/app/globals.css.test.ts와 같은 방식이다.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -60,8 +53,7 @@ const REQUIRED_ACTION_REGISTRIES = [
   'SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS',
   'APPLICATION_DECISION_AUDIT_ACTIONS',
   'USER_PROFILE_AUDIT_ACTIONS',
-  // 팀 구성 변경(#1269) 감사. 백엔드가 이 레지스트리 이름을 바꾸면 아래 동기화
-  // 검증이 조용히 공허해지므로 필수 목록에 명시한다.
+
   'TEAM_MEMBERSHIP_AUDIT_ACTIONS',
 ] as const;
 
@@ -83,8 +75,6 @@ const WAVE1_ACTIONS = [
   'APPLICATION_SUBMITTED',
 ] as const;
 
-// Task 8가 먼저 병합한 독립 권한 감사 action. Task 9의 전역 감사 로그 필터 확장은
-// 별도 화면 범위이므로 이 네 action만 backend-ahead로 명시하고 나머지는 계속 막는다.
 const INDEPENDENT_AUTHORITY_BACKEND_AHEAD = [
   'GRANT_STAFF_ACCESS',
   'REVOKE_STAFF_ACCESS',
@@ -137,7 +127,7 @@ describe('감사 로그 action registry가 backend와 동기화되어 있다', (
     const extraInFrontend = frontendActions.filter(
       (action) => !backendActions.includes(action),
     );
-    // Wave 1 frontend literals may land before the matching backend consts.
+
     const allowedFrontendAhead = WAVE1_ACTIONS.filter(
       (action) => !backendActions.includes(action),
     );
@@ -160,9 +150,6 @@ describe('감사 로그 action registry가 backend와 동기화되어 있다', (
     expect(AUDIT_LOG_ACTIONS).toContain('REPOSITORY_PUBLISHED');
   });
 
-  // 백엔드가 실제로 남기기 시작한 TEAM_MEMBERSHIP_CHANGED를 프런트가 따라잡았는지를
-  // 구현으로 증명한다 — backend-ahead 허용 목록에 넣어 검사를 끌 수도 있었지만,
-  // 그러면 관리자가 팀 탈퇴·내보내기 기록을 필터로 조회할 수 없는 상태가 그대로 남는다.
   it('TEAM_MEMBERSHIP_CHANGED가 backend·frontend 양쪽 registry에 모두 있다(#1269)', () => {
     expect(backendActions).toContain('TEAM_MEMBERSHIP_CHANGED');
     expect(AUDIT_LOG_ACTIONS).toContain('TEAM_MEMBERSHIP_CHANGED');

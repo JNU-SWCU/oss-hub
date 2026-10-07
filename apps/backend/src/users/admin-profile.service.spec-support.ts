@@ -23,23 +23,18 @@ export function profileTarget(
   };
 }
 
-/**
- * 실제 Prisma 트랜잭션 대신 메모리에서 `AdminProfileTransactionStore` 계약을
- * 흉내낸다 — `InMemoryAdminAccessRepository`(admin-access.service.spec-support.ts)와
- * 같은 패턴이다.
- */
 export class InMemoryAdminProfileRepository
   implements AdminProfileRepositoryPort, AdminProfileTransactionStore
 {
   readonly auditLogWriter = {} as AuditLogTransactionWriter;
   actor: AdminAccessActor | null = adminActor();
   target: AdminProfileTargetRecord | null = profileTarget();
-  /** 호출 순서 기록 — actor 조회가 잠금 **뒤에** 있는지 단언하는 데 쓴다(#687). */
+
   operations: string[] = [];
   applyOutcome: AdminProfileApplyOutcome = 'applied';
   legacyFieldsApplied: AdminProfileLegacyFields[] = [];
   profileFieldsApplied: AdminProfileWriteFields[] = [];
-  /** `applyProfile`의 `changedFields` 인자 — 커맨드에 실제로 실린 필드만 담겨야 한다(lost-update 회귀 테스트용). */
+
   profileChangedFieldsApplied: Partial<AdminProfileWriteFields>[] = [];
 
   withTransaction<T>(

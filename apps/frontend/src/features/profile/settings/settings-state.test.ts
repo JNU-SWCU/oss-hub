@@ -217,7 +217,6 @@ describe('settings form state', () => {
     ).toBeNull();
   });
 
-  // 판정 기준은 존댓말이 아니라 "읽은 사람이 다음에 무엇을 할 수 있는가"다.
   it.each(['forbidden', 'not-found', 'generic'] as const)(
     '알림 조회 실패(%s) 안내는 프로필 편집 가능 여부와 다음 행동을 함께 말한다',
     (kind) => {
@@ -229,11 +228,10 @@ describe('settings form state', () => {
   );
 
   it('알림 조회 실패 안내는 원인별로 다른 다음 행동을 제시한다', () => {
-    // 권한이 없는 경우 재시도만 반복해도 풀리지 않는다 — 문의처를 준다.
     expect(notificationUnavailableMessage('forbidden')).toContain(
       '사업단 관리자에게 문의해 주세요',
     );
-    // 일시적 실패는 그 자리에서 다시 불러오면 된다.
+
     expect(notificationUnavailableMessage('generic')).toContain(
       '알림 설정만 아래 다시 불러오기로 다시 시도할 수 있습니다',
     );
@@ -248,11 +246,6 @@ describe('settings form state', () => {
     },
   );
 
-  /**
-   * 입력 보존을 말하는 것은 "다시 눌러 보라"는 뜻이다. 그래서 다시 눌러 결과가
-   * 달라질 수 있는 경우에만 말한다 — 권한이 없는 사람에게 입력이 남아 있다고
-   * 알려 봐야 할 수 있는 일이 없고, 오히려 재시도를 권하는 것으로 읽힌다.
-   */
   it.each(['not-found', 'generic'] as const)(
     '다시 시도할 수 있는 실패(%s)에만 입력이 남아 있음을 알린다',
     (kind) => {
@@ -278,15 +271,6 @@ describe('settings form state', () => {
     );
   });
 
-  /**
-   * 회귀 방지 — 안내가 **거짓일 수 있는 최종 상태를 단정하지 않는가**.
-   *
-   * 백엔드는 값을 먼저 쓰고(`notification-settings.repository.ts`의 `user.updateMany`)
-   * 그 뒤에 다시 읽어 응답을 만든다. 그래서 오류를 받았다고 해서 값이 안 바뀐 것이
-   * 아니다. 아래 셋은 모두 **저장이 이미 끝났을 수 있는** 실제 오류 객체다.
-   * 여기서 "이전 값으로 남아 있다"고 말하면 사용자는 화면과 다른 서버 상태를
-   * 사실로 믿고 넘어간다 — 안내가 없는 것보다 나쁘다.
-   */
   it.each([
     [
       '쓰기 뒤 조회가 터진 500',
@@ -303,24 +287,17 @@ describe('settings form state', () => {
       const kind = classifyNotificationChannelApiError(error);
       expect(kind).toBe('generic');
 
-      // 화면은 'unauthorized'를 먼저 걸러 첫 화면으로 보낸 뒤에야 이 문구를 만든다
-      // (settings-screen.tsx). 테스트도 같은 좁히기를 거쳐 실제 호출 경로를 흉내낸다.
       if (kind === 'unauthorized') throw new Error('unreachable');
       const message = notificationSaveFailureMessage(kind);
 
-      // 단정 금지 — "저장되지 않았다"도 "이전 값으로 남아 있다"도 참이 아닐 수 있다.
       expect(message).not.toContain('이전 값으로 남아 있습니다');
       expect(message).not.toContain('저장되지 않아');
-      // 대신 불명임을 말하고, 지금 값을 확인할 방법을 준다.
+
       expect(message).toContain('저장 여부는 확인하지 못했습니다');
       expect(message).toContain('설정 화면을 새로 열어 저장된 값을 확인');
     },
   );
 
-  /**
-   * 반대쪽 못박기 — 단정할 수 있는 경로까지 뭉뚱그리지 않는다.
-   * 403은 저장 단계에 닿기 전에 guard가 막으므로 값은 확실히 그대로다.
-   */
   it('권한 거절(403 NOT_001)에는 이전 값 그대로임을 단정해도 된다', () => {
     const kind = classifyNotificationChannelApiError(
       new ApiError(problemDetail(403, 'NOT_001')),

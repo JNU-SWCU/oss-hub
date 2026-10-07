@@ -19,16 +19,6 @@ export class RepositoryUrlHistoryResponseDto {
   }
 }
 
-/**
- * 교직원 전용 팀 상세(#874) 응답 — 팀원(실명 포함)·신청 상태·저장소 발급 상태를
- * 한 요청으로 담는다. 학번·학과·연락처·이메일·참여코드는 담지 않는다.
- *
- * `repository`(url·visibility)는 의도적으로 포함한다 — 같은 교직원이 신청 목록/상세
- * (`ApplicationListItemResponseDto.repository`)에서 이미 보는 값이라, 팀 상세에서
- * 감추면 저장소 상태를 보려고 다시 신청 화면으로 돌아가야 해서 "한 요청으로 끝나야
- * 한다"는 이슈 요구를 어긴다. forbidden-field 테스트는 이 결정에 맞춰 `repository`·
- * `url`을 금지어에서 제외한다(PR 본문 참고).
- */
 export class TeamApplicationResponseDto {
   readonly id: string;
   readonly status: TeamApplicationView['status'];
@@ -65,10 +55,7 @@ export class StaffTeamDetailResponseDto {
   readonly application: TeamApplicationResponseDto | null;
   readonly repositoryContributions: StaffTeamDetailView['repositoryContributions'];
   readonly repositoryUrlHistory: StaffTeamDetailView['repositoryUrlHistory'];
-  /**
-   * 삭제 확인 창이 「무엇이 함께 지워지는가」를 말하기 위해 읽는 수치이고, 누를 때
-   * 그대로 `expectedScope`로 돌아간다. 개인정보가 아니라 개수만 담긴다.
-   */
+
   readonly deletionScope: StaffTeamDetailView['deletionScope'];
 
   private constructor(view: StaffTeamDetailView) {

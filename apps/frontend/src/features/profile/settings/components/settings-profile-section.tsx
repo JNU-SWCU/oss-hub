@@ -39,12 +39,7 @@ export function SettingsProfileSection({
   const showDepartmentError =
     showValidationErrors && errors.department !== null;
   const isStudentIdLocked = hasSavedStudentId(values);
-  /*
-   * 오류가 떠도 형식 안내는 남긴다. 「숫자 6자리」가 필요한 순간이 바로
-   * 틀렸을 때인데, 예전에는 그때 안내가 DOM 에서 사라졌다.
-   * 낭독기에는 안내 id 뒤에 오류 id 를 덧붙여 둘 다 읽히게 한다
-   * (program-requirement-editor 가 쓰는 형태와 같다).
-   */
+
   const describedBy = (helpId: string, errorId: string, hasError: boolean) =>
     hasError ? `${helpId} ${errorId}` : helpId;
   const showStudentId = memberKind === 'STUDENT' || isStudentIdLocked;

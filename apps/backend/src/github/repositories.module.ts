@@ -24,7 +24,6 @@ import { OwnRepositoryUrlValidationService } from './service/own-repository-url-
   imports: [AuthModule, AuditLogModule, ConsentsModule],
   controllers: [RepositoriesController],
   providers: [
-    // OWN 저장소를 수집 큐에 편입하기 위해 필요하다(ADR-010 §6).
     CollectionIncrementalRepository,
     {
       provide: RepositoryOwnEnrollmentService,

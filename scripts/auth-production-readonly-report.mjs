@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// check-auth-production-readonly.sh 의 판정·직렬화 경계.
-// 셸은 관측을 모으고, 판정과 sanitize 는 여기서 한다.
+
 import { readFile, writeFile } from 'node:fs/promises';
 
 const MODES = new Set(['start', 'finish', 'postdeploy']);
@@ -39,7 +38,7 @@ async function main() {
       throw new TypeError('Invalid auth production readonly report arguments');
     }
   }
-  // finish 만 baseline 을 받는다. 나머지 모드에서 값이 오면 호출 계약이 깨진 것이다.
+
   if ((mode === 'finish') !== Boolean(startPath)) {
     throw new TypeError('Observation baseline is only valid for finish');
   }
@@ -88,11 +87,6 @@ async function readBaseline(startPath) {
   return baseline;
 }
 
-/**
- * finish 는 "같은 이미지가 24시간 이상 계속 살아 있었다"만 증명한다.
- * tag/SHA 뿐 아니라 image ID 까지 비교해야 같은 태그로 다시 빌드된 이미지를
- * 연속 관측으로 오인하지 않는다.
- */
 function finishObservation(baseline, current, minObservationSeconds) {
   if (
     !Number.isSafeInteger(minObservationSeconds) ||
@@ -129,10 +123,6 @@ function finishObservation(baseline, current, minObservationSeconds) {
   };
 }
 
-/**
- * 익명 관측이 route-manifest 3분류와 일치하는지 본다.
- * PROTECTED 가 401 이 아니면 기본 거부 경계가 무너진 것이므로 즉시 실패한다.
- */
 function parseRoutes(healthStatus, sessionStatus, protectedStatus) {
   const routes = {
     public: Number(healthStatus),
@@ -149,11 +139,6 @@ function parseRoutes(healthStatus, sessionStatus, protectedStatus) {
   return routes;
 }
 
-/**
- * 집계만 통과시킨다 — 행 값이 담긴 필드는 애초에 report 로 옮기지 않는다.
- * 미해결 member kind 나 호환 전용 admin 권한이 남아 있으면 인증 경계가
- * 아직 canonical 상태가 아니므로 실패한다.
- */
 function parseAggregate(aggregate) {
   const totalUsers = requireCount(aggregate?.totalUsers);
   const totalProfiles = requireCount(aggregate?.totalProfiles);
@@ -190,8 +175,6 @@ function requireCount(value) {
   return value;
 }
 
-// 운영 게이트의 실패 사유는 한 줄로 낸다 — 스택 트레이스는 내부 경로를
-// CI 로그에 흘리고 읽는 사람에게 아무 정보도 더 주지 않는다.
 try {
   await main();
 } catch (error) {

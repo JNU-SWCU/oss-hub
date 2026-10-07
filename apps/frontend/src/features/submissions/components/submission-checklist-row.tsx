@@ -33,31 +33,16 @@ export function ChecklistRow({
 }) {
   const status = checklistItemStatus(item);
   const deadline = milestoneDeadline(item.dueAt, now);
-  // 최초 제출은 마감(dueAt)이 지났으면 막는다 — 보완 요청의 재제출 예외는 보존한다.
-  // 서버가 거절하는 기준과 같은 시각 비교로 판정한다. deadline.dDay는 달력일
-  // 차이라 라벨에만 쓴다. "시작 전" 판정은 마일스톤에 시작 시각 데이터가 없어
-  // 여기서는 낼 수 없다(스펙 Open Question #4 참고).
-  //
-  // 이때 열 화면이 없다 — 제출물이 없으니 볼 것도 없고, 열면 제출 폼이 나온다.
-  // 그래서 링크를 걸지 않고 그 사실만 문장으로 적는다. 돌아올 포커스 자리는
-  // 그대로 남겨야 해서(딥링크로 열린 창이 닫힐 때) 같은 id를 프로그램적으로만
-  // 포커스되는 자리에 둔다.
+
   const lateBlocked =
     status === 'NOT_SUBMITTED' && hasMilestoneDeadlinePassed(item.dueAt, now);
-  // 보완 요청을 받고 고쳐서 다시 낸 서류다. 지금 학생이 할 일은 없어서 배지는
-  // 검토 대기지만(#1372), 배지만 두면 보완 요청을 받았던 일 자체가 없던 일처럼
-  // 읽힌다. 지난 판정은 「이전」이라는 이름을 달고 지난 일로만 적는다 — 지금
-  // 상태를 말하는 것은 배지 하나뿐이다. 창을 열면 같은 사실이 교직원 코멘트와
-  // 함께 「최근 검토 결과」로 다시 나온다.
+
   const previousChangesRequested =
     item.submission?.status === 'SUBMITTED' &&
     item.submission.decision === 'CHANGES_REQUESTED';
   const triggerId = submissionTriggerId(item.milestoneId);
   const submissionHref = programDocumentsHref(programId, item.milestoneId);
   return (
-    // 마일스톤 제출물은 서로 독립된 대상이 아니라 순서대로 이어지는 같은 성격의
-    // 항목이다 — 항목마다 카드를 두면 테두리가 개수만큼 생겨 목록의 윤곽이
-    // 사라진다(program-detail-view의 마일스톤 목록과 같은 규약).
     <ListRow role="listitem" className="min-w-0" data-testid="checklist-row">
       <div className="grid w-full min-w-0 flex-1 gap-1">
         {lateBlocked ? (
@@ -69,12 +54,6 @@ export function ChecklistRow({
             {item.name}
           </span>
         ) : (
-          /*
-            줄의 목적지는 「이 마일스톤의 제출 내역」이다. 상태마다 이름이 바뀌는
-            버튼 모양 앵커(보기·올리기·다시 제출)는 같은 목적지를 세 이름으로
-            부르면서 지역 동작처럼 보이게 했다 — 실제 제출·재제출 버튼은 열린
-            창 안에 있다. 여기서는 이름 자체가 목적지 링크다.
-          */
           <Link
             href={submissionHref}
             id={triggerId}
@@ -106,11 +85,7 @@ export function ChecklistRow({
             {item.name}
           </Link>
         )}
-        {/*
-          마감은 일정이지 심사 결과가 아니다. 예전에는 마감도 StatusBadge라
-          「마감 지남」의 빨간 배지가 승인된 제출물 옆에 서서 실패한 제출처럼
-          읽혔다. 배지는 제출 상태 하나만 쓰고 일정은 평범한 글로 적는다.
-        */}
+
         <p className="text-small break-keep text-muted-foreground">
           마감 {formatDeadline(item.dueAt)} ·{' '}
           <span className="whitespace-nowrap">{deadline.label}</span> ·{' '}

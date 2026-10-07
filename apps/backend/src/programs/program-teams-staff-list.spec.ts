@@ -11,11 +11,6 @@ import { ProgramTeamsService } from './service/program-teams.service';
 import { stubTeamDeletionRepository } from './service/program-teams.service.test-support';
 import { TeamsErrorCode } from './teams-error-code.enum';
 
-/**
- * 교직원 전용 팀 목록(GET /programs/:programId/teams)의 응답 계약.
- * 학생도 쓰는 공개 로스터(`program-overview`의 `listPublicTeams`)와 달리 실명을 담지만,
- * 학번·학과·연락처·이메일·참여코드·저장소 URL 은 담지 않는다.
- */
 const PROGRAM_ID = 'synthetic-program';
 const JOIN_CODE_SECRET = 'synthetic-staff-list-secret';
 
@@ -54,7 +49,6 @@ function buildService(overrides: {
 
 describe('ProgramTeamsService.listForStaff', () => {
   it('팀 순서를 유지하고 각 팀에서 팀장을 멤버 배열 맨 앞으로 올린다', async () => {
-    // Given: 팀장이 두 번째로 합류한(=createdAt 중간) 팀.
     const { service } = buildService({
       teams: [
         {
@@ -76,12 +70,10 @@ describe('ProgramTeamsService.listForStaff', () => {
       ],
     });
 
-    // When
     const teams = await service.listForStaff(PROGRAM_ID);
 
-    // Then: 팀은 repository 가 준 순서(createdAt asc) 그대로다.
     expect(teams.map((team) => team.teamId)).toEqual(['team-1', 'team-2']);
-    // 팀장이 맨 앞, 나머지는 createdAt asc 순서를 유지한다.
+
     expect(teams[0]?.members.map((member) => member.userId)).toEqual([
       'user-b',
       'user-a',
@@ -97,7 +89,6 @@ describe('ProgramTeamsService.listForStaff', () => {
   });
 
   it('멤버의 실명을 그대로 담고 프로필이 없는 계정은 name: null 로 떨어진다', async () => {
-    // Given
     const { service } = buildService({
       teams: [
         {
@@ -112,10 +103,8 @@ describe('ProgramTeamsService.listForStaff', () => {
       ],
     });
 
-    // When
     const teams = await service.listForStaff(PROGRAM_ID);
 
-    // Then
     expect(teams[0]?.members).toEqual([
       { userId: 'user-a', name: '가나다', nickname: 'login-a', isLeader: true },
       { userId: 'user-b', name: null, nickname: 'login-b', isLeader: false },
@@ -138,7 +127,6 @@ describe('ProgramTeamsService.listForStaff', () => {
   });
 
   it('응답 DTO 는 계약 필드만 담고 금지 필드를 섞지 않는다', async () => {
-    // Given
     const { service } = buildService({
       teams: [
         {
@@ -150,7 +138,6 @@ describe('ProgramTeamsService.listForStaff', () => {
       ],
     });
 
-    // When: 컨트롤러가 내보내는 것과 동일한 직렬화 결과를 본다.
     const payload: unknown = JSON.parse(
       JSON.stringify(
         StaffProgramTeamResponseDto.fromAll(
@@ -159,7 +146,6 @@ describe('ProgramTeamsService.listForStaff', () => {
       ),
     );
 
-    // Then: 모양이 정확히 계약과 같다.
     expect(payload).toEqual([
       {
         teamId: 'team-1',
@@ -175,7 +161,7 @@ describe('ProgramTeamsService.listForStaff', () => {
         ],
       },
     ]);
-    // 그리고 금지 필드는 문자열 어디에도 없다(중첩 깊이 무관).
+
     const serialized = JSON.stringify(payload);
     for (const forbidden of [
       'studentId',
@@ -194,7 +180,6 @@ describe('ProgramTeamsService.listForStaff', () => {
 });
 
 describe('ProgramTeamsRepository.listStaffTeams', () => {
-  /** jest.fn() 의 호출 인자는 any 라 명시적으로 좁혀 읽는다. */
   function readCallArgs(spy: jest.Mock): { select: Record<string, unknown> } {
     const calls = spy.mock.calls as unknown as {
       select: Record<string, unknown>;
@@ -216,7 +201,6 @@ describe('ProgramTeamsRepository.listStaffTeams', () => {
   }
 
   it('팀·멤버를 createdAt 오름차순으로 요청하고 실명을 정식 경로로 합친다', async () => {
-    // Given: 한 명은 UserProfile.name, 다른 한 명은 legacy User.name, 나머지는 둘 다 없다.
     const { repository, findMany } = buildRepository([
       {
         id: 'team-1',
@@ -239,10 +223,8 @@ describe('ProgramTeamsRepository.listStaffTeams', () => {
       },
     ]);
 
-    // When
     const teams = await repository.listStaffTeams(PROGRAM_ID);
 
-    // Then: 실명의 정본은 UserProfile.name 하나다. 행이 없으면 null이다.
     expect(teams).toEqual([
       {
         id: 'team-1',
@@ -268,13 +250,10 @@ describe('ProgramTeamsRepository.listStaffTeams', () => {
   });
 
   it('금지 필드를 select 하지 않는다 (학번·학과·연락처·이메일·참여코드·저장소)', async () => {
-    // Given
     const { repository, findMany } = buildRepository([]);
 
-    // When
     await repository.listStaffTeams(PROGRAM_ID);
 
-    // Then
     const args = readCallArgs(findMany);
     for (const forbidden of [
       'joinCodeDigest',
@@ -295,7 +274,7 @@ describe('ProgramTeamsRepository.listStaffTeams', () => {
     ]) {
       expect(serializedSelect).not.toContain(forbidden);
     }
-    // TeamMember.name 은 아무 writer 도 채우지 않는 죽은 컬럼이라 멤버 select 에 없다.
+
     const members: { select: Record<string, unknown> } = args.select
       .members as never;
     expect(members.select).not.toHaveProperty('name');

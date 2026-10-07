@@ -1,5 +1,4 @@
 import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
-// @vitest-environment happy-dom
 
 import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -126,7 +125,6 @@ describe('SubmissionInput native file selection', () => {
   });
 
   it('파일 오류를 `errors.file`로만 받아도 화면에 띄운다', async () => {
-    // Given: 파일 오류를 담는 자리가 둘인데 뒤의 것만 채운 호출부.
     await act(async () =>
       root.render(
         <SubmissionInput
@@ -142,7 +140,6 @@ describe('SubmissionInput native file selection', () => {
       ),
     );
 
-    // Then: 말없이 넘어가지 않고 그 문구가 보인다.
     const error = container.querySelector('#submission-file-error');
     expect(error?.textContent).toBe('제출할 파일을 선택해 주세요.');
   });

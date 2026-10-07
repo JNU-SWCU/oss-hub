@@ -7,8 +7,6 @@ interface ProgramListPaginationProps {
   readonly onPageChange: (page: number) => void;
 }
 
-// 공용 `PaginationNav`(components/pagination-nav.tsx)의 얇은 래퍼 — 이 화면 고유의
-// aria-label만 고정한다. 호출부(program-list-page 등)의 props·출력은 그대로다.
 function ProgramListPagination(
   props: ProgramListPaginationProps,
 ): ReactElement | null {

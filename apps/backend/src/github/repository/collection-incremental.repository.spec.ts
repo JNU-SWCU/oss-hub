@@ -50,7 +50,6 @@ interface MockDb {
   $executeRawUnsafe: jest.Mock;
 }
 
-/** 기본값은 "빈 DB"(COUNT 0, 최신 fact 없음) — 각 테스트가 필요한 만큼만 override한다. */
 const createDb = (): MockDb => {
   const db: MockDb = {
     githubRepository: {
@@ -79,12 +78,10 @@ const createDb = (): MockDb => {
     githubIssueHistory: {
       createMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
-    // ADR-010 §4 — 재계산은 집합 SQL 두 문(삭제 + INSERT…SELECT)이라
-    // 셀 단위 upsert 가 없다. 트랜잭션 안 N+1 을 만들지 않기 위해서다.
+
     contribution: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
     $executeRaw: jest.fn().mockResolvedValue(1),
-    // 기본은 "요청된 사람은 모두 가입자". 각 테스트의 주제는 rebuild 결정성이므로
-    // 가입자 필터는 아래 전용 describe 가 따로 증명한다.
+
     user: {
       findMany: jest.fn(
         ({ where }: { where: { githubId: { in: readonly bigint[] } } }) =>
@@ -117,13 +114,6 @@ const repositoryFor = (db: MockDb): CollectionIncrementalRepository =>
   new CollectionIncrementalRepository(db as unknown as PrismaService);
 const DEFAULT_REGISTERED_GITHUB_IDS = new Set([1n, 2n, 42n, 99n]);
 
-/**
- * `where` 절을 얕은 동등 비교 + `{ notIn }` 연산자만 지원하는 최소 Prisma 흉내로
- * 매칭한다. GR-6 회귀 테스트가 "실제로 실패할 수 있는" 테스트가 되려면 mock이 호출
- * 인자를 그대로 기록하는 것으로는 부족하다 — production 코드가 `source` 필터를
- * where 절에서 빠뜨리면 이 fake가 그 실수를 그대로 반영해 external 행도 갱신/조회
- * 대상에 포함시켜야 테스트가 fail한다.
- */
 interface FakeRepoRow {
   id: string;
   githubOrganizationId: bigint | null;
@@ -381,8 +371,7 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
 
   it('rebuild는 createMany 삽입 개수가 아니라 facts 테이블 실제 COUNT로 집계를 덮어쓴다 — 중복 재시도에도 불변', async () => {
     const db = createDb();
-    // 이번 배치는 신규 1건뿐이라고 보고하지만(재시도로 나머지는 이미 존재),
-    // DB에는 이미 해당 연도에 총 5건이 쌓여 있다고 가정한다.
+
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
     db.collectionCommitFact.count.mockResolvedValue(5);
 
@@ -398,9 +387,6 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
       DEFAULT_REGISTERED_GITHUB_IDS,
     );
 
-    // 삽입 개수(1)가 아니라 fact 테이블 실제 COUNT(5)로 덮어쓴다 —
-    // 중복 재시도에도 값이 불변인 이유다.
-    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
@@ -442,11 +428,10 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
       DEFAULT_REGISTERED_GITHUB_IDS,
     );
 
-    // 날짜 입자라 (사람, 날짜) 조합마다 한 칸씩 — 두 사람이 서로 다른 날에 하나씩.
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
-    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
+
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
-    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
+
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
@@ -461,7 +446,6 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
       DEFAULT_REGISTERED_GITHUB_IDS,
     );
 
-    // 귀속 대상 칸이 하나도 없으므로 재계산이 시작되지 않는다.
     expect(db.contribution.deleteMany).not.toHaveBeenCalled();
     expect(db.$executeRaw).not.toHaveBeenCalled();
   });
@@ -469,19 +453,18 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
   it('날짜 경계를 넘나드는 배치는 각 날짜의 칸을 따로 재계산한다(Asia/Seoul 기준)', async () => {
     const db = createDb();
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 2 });
-    // 각 날짜 칸에 1건씩 있다고 본다 — 0이면 그 칸은 삭제 경로로 간다.
+
     db.collectionCommitFact.count.mockResolvedValue(1);
 
     await repositoryFor(db).recordCommitFacts(
       'repo-1',
       [
-        // KST 2025-12-31 23:30 -> 2025-12-31
         {
           sha: 'y2025',
           committedAt: new Date('2025-12-31T14:30:00.000Z'),
           authorGithubId: 1n,
         },
-        // KST 2026-01-01 00:30 -> 2026-01-01
+
         {
           sha: 'y2026',
           committedAt: new Date('2025-12-31T15:30:00.000Z'),
@@ -491,11 +474,8 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
       DEFAULT_REGISTERED_GITHUB_IDS,
     );
 
-    // UTC 로는 같은 날이지만 KST 로는 해가 갈린다. 경계 해석이 한 곳에 있으므로
-    // 두 칸이 각각 만들어진다.
-    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
-    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
+
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
   });
@@ -535,7 +515,7 @@ describe('CollectionIncrementalRepository — pull request facts (parity)', () =
       ],
       skipDuplicates: true,
     });
-    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
+
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
@@ -585,7 +565,7 @@ describe('CollectionIncrementalRepository — release facts (parity)', () => {
       ],
       skipDuplicates: true,
     });
-    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
+
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
@@ -619,7 +599,7 @@ describe('CollectionIncrementalRepository — issue facts (parity)', () => {
           authorGithubId: 42n,
           authorGithubLogin: 'octocat',
         },
-        // 가입자 snapshot 밖의 작성자는 fact로도 남지 않는다.
+
         { githubIssueId: 12n, state: 'open', createdAt, authorGithubId: 7n },
       ],
       DEFAULT_REGISTERED_GITHUB_IDS,
@@ -692,12 +672,6 @@ describe('CollectionIncrementalRepository — transactional scope (todo 8 import
 
 describe('CollectionIncrementalRepository — 새해 특수 처리가 사라졌다', () => {
   it('연도 집계 reader 가 더 이상 존재하지 않는다', () => {
-    // 옛 설계는 연도 집계 행이 grain 이라, 1월 1일에 당해 연도 행이 아직 없으면
-    // "0으로 채운 기본값"을 만들어 주는 특수 처리가 필요했다.
-    //
-    // `Contribution` 은 저장에 연도 개념이 없다(ADR-010 §4). 읽을 때 `date` 범위로만
-    // 자르므로 행이 없으면 자연히 결과가 비고, 새해 롤오버도 0-채움도 필요 없다.
-    // 그 특수 처리가 되살아나면 grain 이 다시 연도로 굳었다는 신호다.
     const repository = repositoryFor(createDb()) as unknown as Record<
       string,
       unknown
@@ -818,15 +792,6 @@ describe('CollectionIncrementalRepository — todo 10 sync cursor/inventory', ()
 });
 
 describe('CollectionIncrementalRepository — GR-6 external 저장소는 org ABSENT sweep에서 살아남는다', () => {
-  /**
-   * 회귀 테스트: `markAbsentRepositories`/`listPresentRepositories`의 `where` 절에서
-   * `source: 'ORG_PROVISIONED'` 필터를 빼면 이 테스트가 fail한다. mock을 단순히
-   * "어떤 인자로 호출됐는지"만 기록하는 게 아니라, seed된 행 배열에 대해 실제로
-   * `where` 절을 적용하는 fake Prisma delegate(`createFakeGithubRepositoryStore`)를
-   * 써서 검증한다 — external 행의 `githubOrganizationId`를 org sweep과 **똑같은 값**으로
-   * seed해, 이 테스트가 "external 행은 githubOrganizationId가 null이라서 우연히 살아남는다"가
-   * 아니라 "source 필터가 실제로 막아준다"를 증명하도록 한다.
-   */
   it('markAbsentRepositories는 organization installation listing에 없는 EXTERNAL_PUBLIC 저장소를 ABSENT로 바꾸지 않는다', async () => {
     const store = createFakeGithubRepositoryStore([
       {
@@ -845,7 +810,7 @@ describe('CollectionIncrementalRepository — GR-6 external 저장소는 org ABS
       },
       {
         id: 'ext-untouched',
-        githubOrganizationId: 10n, // org sweep과 동일한 조직 id로 seed — source 필터만이 이 행을 지킨다.
+        githubOrganizationId: 10n,
         githubRepositoryId: 99n,
         presence: 'PRESENT',
         source: 'EXTERNAL_PUBLIC',
@@ -854,8 +819,6 @@ describe('CollectionIncrementalRepository — GR-6 external 저장소는 org ABS
     const db = createDb();
     db.githubRepository.updateMany = store.updateMany;
 
-    // 이번 org installation listing에는 repo 1만 관찰됨(repo 2는 조직에서 제거됨).
-    // external 행(99)은 애초에 org listing에 나타나지 않으므로 관찰 목록에서 빠진다.
     await repositoryFor(db).markAbsentRepositories(
       10n,
       [1n],
@@ -1067,7 +1030,6 @@ describe('CollectionIncrementalRepository — todo 10 sync lease (epoch fencing)
   });
 });
 
-// #511 — sync 실행 이력을 신규 테이블 없이 lease/cursor/stream 프로젝션으로 답한다.
 describe('CollectionIncrementalRepository — #511 실행 이력 프로젝션', () => {
   const at = new Date('2026-08-04T01:00:00.000Z');
 
@@ -1185,7 +1147,6 @@ describe('CollectionIncrementalRepository — #511 실행 이력 프로젝션', 
   });
 });
 
-// #546 — repo 단위 실패가 stream에 남아야 system-status가 FAILED를 판정할 수 있다.
 describe('CollectionIncrementalRepository — #546 stream 오류 표시', () => {
   const at = new Date('2026-08-04T01:00:00.000Z');
 
@@ -1227,16 +1188,6 @@ describe('CollectionIncrementalRepository — #546 stream 오류 표시', () => 
   });
 });
 
-/**
- * 가입자 필터 (ADR-010 §5 · #682).
- *
- * 옛 경로는 fact 에 나타난 모든 계정에 집계 행을 만들었다. 조직 저장소만 볼 때는
- * 그게 곧 "우리 학생"이었지만, 조직 밖 공개 저장소가 들어오는 순간 우리 플랫폼을
- * 모르는 제3자의 활동 프로필이 쌓인다.
- *
- * 표시에서 거르는 것으로는 부족하다 — 표시 규칙은 언제든 바뀌지만 쌓인 데이터는
- * 되돌릴 수 없기 때문이다. 그래서 **적재에서 자른다.**
- */
 describe('CollectionIncrementalRepository — 가입자만 적재한다', () => {
   it('ORG 저장소도 가입하지 않았거나 작성자를 모르는 기여는 행을 만들지 않는다', async () => {
     const db = createDb();
@@ -1276,7 +1227,7 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
       ],
       skipDuplicates: true,
     });
-    // 재계산은 집합 SQL 1문이다 — 칸 수와 무관하게 호출이 늘지 않는다.
+
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
@@ -1355,7 +1306,7 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
   it('상류에서 사라진 기여는 행도 사라진다 — 비운 뒤 채우지 않으면 그대로 없다', async () => {
     const db = createDb();
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 0 });
-    // force-push 로 커밋이 사라져 COUNT 가 0이 됐다.
+
     db.collectionCommitFact.count.mockResolvedValue(0);
 
     await repositoryFor(db).recordCommitFacts(
@@ -1370,7 +1321,6 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
       new Set([1n]),
     );
 
-    // 0 인 행을 남기면 "활동 없음"과 "0건으로 관측됨"이 구분되지 않는다.
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
     expect(db.contribution.deleteMany).toHaveBeenCalledTimes(1);
   });

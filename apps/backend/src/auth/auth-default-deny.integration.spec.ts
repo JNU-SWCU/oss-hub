@@ -152,54 +152,42 @@ describe('global default-deny authentication boundary', () => {
   });
 
   it('returns 401 when an unannotated route is anonymous', async () => {
-    // Given: an unannotated route and no session cookie.
-    // When: the route is requested through the real Nest HTTP pipeline.
     const response = await fetch(
       `${baseUrl}/api/v1/auth-boundary-fixture/unannotated`,
     );
 
-    // Then: the global boundary denies it before the controller runs.
     expect(response.status).toBe(401);
   });
 
   it('honors public metadata for an anonymous request', async () => {
-    // Given: an explicitly public route.
-    // When: the route is requested without a session cookie.
     const response = await fetch(
       `${baseUrl}/api/v1/auth-boundary-fixture/public`,
     );
 
-    // Then: the route preserves its anonymous success contract.
     expect(response.status).toBe(200);
   });
 
   it('honors optional-session metadata for an anonymous request', async () => {
-    // Given: an explicitly optional-session route.
-    // When: the route is requested without a session cookie.
     const response = await fetch(
       `${baseUrl}/api/v1/auth-boundary-fixture/optional`,
     );
 
-    // Then: the route succeeds with private no-store session semantics.
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('private, no-store');
   });
 
   it('passes a database-backed active principal to a representative service', async () => {
-    // Given: a valid identity token and current mutable authority from the DB seam.
     currentUser = {
       ...activeUser,
       memberKind: MemberKind.STAFF,
       hasStaffAccess: true,
     };
 
-    // When: the unannotated route is requested with the same identity token.
     const response = await fetch(
       `${baseUrl}/api/v1/auth-boundary-fixture/unannotated`,
       { headers: { cookie: sessionCookie } },
     );
 
-    // Then: the service receives the current account principal, including access facts.
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       userId: activeUser.id,
@@ -211,14 +199,11 @@ describe('global default-deny authentication boundary', () => {
   });
 
   it('returns 403 when an authenticated principal lacks route authority', async () => {
-    // Given: a valid authenticated STUDENT principal.
-    // When: the staff-only route is requested.
     const response = await fetch(
       `${baseUrl}/api/v1/auth-boundary-fixture/staff`,
       { headers: { cookie: sessionCookie } },
     );
 
-    // Then: authentication succeeds and authority denial remains 403.
     expect(response.status).toBe(403);
   });
 });

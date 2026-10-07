@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,9 +13,6 @@ import type {
 import { milestoneSubmissionAccess } from './milestone-submission-access';
 import type { ApplicationStatus, ViewerRole } from './types';
 
-/**
- * 화면이 쓰는 그 판정을 테스트도 그대로 쓴다 — 승인된 학생과 교직원은 둘 다 열린 문이다.
- */
 function access(
   role: ViewerRole,
   applicationStatus: ApplicationStatus | null = null,
@@ -40,7 +35,6 @@ const milestoneDocument: MilestoneDocument = {
   templateFileName: null,
 };
 
-/** 목록 응답 봉투 — 화면은 이 안의 `fileUpload`로 파일 입력을 그린다(#1107). */
 function documentListBody(documents: readonly MilestoneDocument[]): unknown {
   return { documents, fileUpload: milestoneDocumentUploadPolicy() };
 }
@@ -122,13 +116,6 @@ describe('MilestoneDocumentSection response recovery', () => {
   });
 });
 
-/**
- * 학생이 다시 내는 사이에 교직원 판정이 먼저 커밋된 경우 — 백엔드가 409(MSD_024)를 준다.
- *
- * 실제 fetch를 태워 보는 이유는 **화면이 다시 부르는지**가 이 갈래의 전부이기 때문이다.
- * 오류 문구만 갈아 끼우면 화면은 여전히 「보완 요청」으로 알아 제출 입력을 열어 두고,
- * 그 판정이 승인이었다면 학생은 이미 금지된 조작을 계속 보며 누를 때마다 409를 다시 받는다.
- */
 describe('제출과 판정이 부딪혔을 때', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -219,7 +206,6 @@ describe('제출과 판정이 부딪혔을 때', () => {
     return found instanceof HTMLTextAreaElement ? found : null;
   }
 
-  /** 보완 요청을 받은 서류를 다시 낸다 — 두 번째 fetch가 그 제출이다. */
   async function resubmit() {
     await act(async () => {
       root.render(
@@ -241,7 +227,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
 
     const input = submissionInput();
     if (input === null) throw new TypeError('제출 입력 칸을 찾지 못했습니다.');
-    // React가 값 변경을 감지하도록 네이티브 setter로 넣고 input 이벤트를 올린다.
+
     const setter = Object.getOwnPropertyDescriptor(
       window.HTMLTextAreaElement.prototype,
       'value',
@@ -259,17 +245,12 @@ describe('제출과 판정이 부딪혔을 때', () => {
     });
   }
 
-  /**
-   * 재제출 폼은 첨부를 옮겨 오지 않는다 — 학생이 제출을 누르기 전에 무엇이 빠지는지
-   * 알아야 한다(#1090). 목록이 폼에 현재 첨부 이름을 넘기지 않으면 여기가 깨진다.
-   */
   it('재제출 폼을 열면 지금 붙어 있는 첨부가 빠진다고 알린다', async () => {
     const withFile = documentWithViewer({
       submitted: true,
       submittedAt: '2026-08-01T05:22:00.000Z',
       revision: 1,
-      // 교직원이 아직 아무 문제도 지적하지 않은 검토 대기 — 보완 요청과 함께 첨부가
-      // 빠지는 두 경로 중 하나다.
+
       status: 'SUBMITTED',
       hasCurrentFile: true,
       currentFileName: '1차_계획서.pdf',
@@ -303,10 +284,6 @@ describe('제출과 판정이 부딪혔을 때', () => {
     expect(container.textContent).toContain('이번 제출에서 빠집니다');
   });
 
-  /**
-   * 변이 검증 대상 — MSD_024 뒤의 재조회가 사라지면 여기가 깨진다. 화면은 「보완 요청」인
-   * 채로 남아 승인된 서류에 제출 입력을 계속 열어 둔다.
-   */
   it('409(MSD_024)를 받으면 상태를 다시 불러와 금지된 조작을 걷는다', async () => {
     const fetchMock = vi
       .fn()
@@ -325,11 +302,9 @@ describe('제출과 판정이 부딪혔을 때', () => {
 
     await resubmit();
     await vi.waitFor(() => {
-      // 승인된 서류에는 제출 입력이 남지 않는다 — 다시 부르지 않으면 그대로 열려 있다.
       expect(button('수정')).toBeNull();
     });
 
-    // 목록을 실제로 다시 불렀다 — 조회 · 제출 · 재조회.
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(submissionInput()).toBeNull();
     expect(container.textContent).toContain(
@@ -345,10 +320,6 @@ describe('제출과 판정이 부딪혔을 때', () => {
     expect(notice?.textContent).toContain('다시 불러왔습니다');
   });
 
-  /**
-   * 다시 부르는 것까지 실패한 경우. 「다시 불러왔습니다」라고 적어 두면 학생은 지금 화면이
-   * 최신이라고 믿는다 — 못 불러왔다고 말하고 되돌릴 길을 준다.
-   */
   it('다시 부르는 것도 실패하면 못 불러왔다고 말한다', async () => {
     const fetchMock = vi
       .fn()
@@ -369,7 +340,6 @@ describe('제출과 판정이 부딪혔을 때', () => {
 
     await resubmit();
     await vi.waitFor(() => {
-      // 못 불러온 목록은 그대로 두지 않는다 — 되돌릴 길만 남는다.
       expect(container.textContent).toContain(
         '제출 항목을 불러오지 못했습니다.',
       );
@@ -382,10 +352,6 @@ describe('제출과 판정이 부딪혔을 때', () => {
     expect(button('다시 시도')).not.toBeNull();
   });
 
-  /**
-   * 마감·권한처럼 상태가 낡아서 나는 것이 아닌 실패는 지금처럼 문구만 보여 준다. 여기까지
-   * 다시 부르면 학생이 적어 둔 내용이 이유 없이 사라진다.
-   */
   it('다른 오류는 문구만 보여 주고 다시 부르지 않는다', async () => {
     const fetchMock = vi
       .fn()
@@ -410,7 +376,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(submitNotice()).toBeNull();
-    // 적어 둔 내용은 그대로 남는다.
+
     expect(submissionInput()?.value).toBe('고쳐서 다시 냅니다.');
   });
 
@@ -643,11 +609,6 @@ describe('제출과 판정이 부딪혔을 때', () => {
   });
 });
 
-/**
- * 학생 행의 판정 표시. 실제 DOM에서 확인하는 이유는 **없어야 할 것이 없는지**를 묻기
- * 때문이다 — 마크업 문자열을 `not.toContain('수정')`으로 훑으면 다른 자리의 같은 글자에
- * 걸려 조용히 통과하거나, 반대로 버튼이 남아 있어도 못 잡는다.
- */
 describe('학생 행이 판정을 읽는 방식', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -711,7 +672,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
     );
   }
 
-  /** 잠김은 문자열이 아니라 **그 버튼의 DOM boolean**으로 본다. */
   function actionButton(text: string): HTMLButtonElement {
     const found = Array.from(container.querySelectorAll('button')).find(
       (button) => button.textContent?.trim() === text,
@@ -1086,10 +1046,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(buttonTexts()).toContain('다시 시도');
   });
 
-  /**
-   * 변이 검증 대상 3 — 사유 표시가 사라지면 여기가 깨진다. 사유가 없으면 학생은 배지만
-   * 보고 「안 됐구나」까지만 읽고 닫고, 같은 서류가 같은 이유로 또 되돌아온다.
-   */
   it('보완 요청·반려는 사유를 날짜와 함께 경고 톤으로 보여 준다', async () => {
     await renderRow(
       viewer({
@@ -1107,7 +1063,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(box?.textContent).toContain('표지의 이름이 신청서와 다릅니다.');
     expect(box?.textContent).toContain('보완 요청');
     expect(box?.textContent).toContain('2026년 8월 2일');
-    // 경고 톤이어야 눈에 띈다 — 평범한 회색 문단이면 학생이 지나친다.
+
     expect(box?.closest('[data-slot="alert"]')?.className).toContain(
       'text-destructive',
     );
@@ -1128,13 +1084,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(notice()?.textContent).toContain('제출 기한을 두 주 넘겼습니다.');
   });
 
-  /**
-   * 변이 검증 대상 1 — 승인 사유 표시가 사라지면 여기가 깨진다.
-   *
-   * 판정 폼은 사유 칸에 「학생에게 그대로 보입니다」라고 적어 두고 **승인에도** 사유를
-   * 받는다. 그런데 승인만 상자를 안 그리면 교직원이 적은 「잘 받았습니다, 다음 단계
-   * 안내드릴게요」는 학생에게 닿지 않는다 — 화면이 약속한 것을 안 지키는 상태다.
-   */
   it('승인에 적은 사유도 날짜와 함께 학생에게 보인다', async () => {
     await renderRow(
       viewer({
@@ -1156,7 +1105,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(box?.textContent).toContain('2026년 8월 2일');
   });
 
-  // 되돌려 보내는 말이 아니다 — 같은 빨간 상자에 담으면 승인인데 문제가 있는 것처럼 읽힌다.
   it('승인 사유는 경고 톤으로 키우지 않는다', async () => {
     await renderRow(
       viewer({
@@ -1174,7 +1122,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
     );
   });
 
-  // 승인은 사유가 선택이다 — 비면 배지가 이미 말한 「승인」 아래 빈 상자만 남는다.
   it('사유 없는 승인에는 상자를 세우지 않는다', async () => {
     await renderRow(
       viewer({
@@ -1190,10 +1137,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(notice()).toBeNull();
   });
 
-  /**
-   * 변이 검증 대상 2 — 「보완 요청일 때만 재제출」이 항상 허용으로 바뀌면 여기가 깨진다.
-   * 승인·반려된 서류에 제출 칸이 열려 있으면 눌러 봐야 409(MSD_023)만 돌아온다.
-   */
   it('승인·반려된 서류에는 제출 입력을 열지 않는다', async () => {
     await renderRow(viewer({ status: 'APPROVED' }));
     expect(buttonTexts()).not.toContain('수정');
@@ -1225,11 +1168,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(buttonTexts()).toContain('올리기');
   });
 
-  /**
-   * 마감이 지난 마일스톤. 교직원이 마감 **뒤에** 「고쳐서 다시 내세요」라고 하는 것은 흔한
-   * 일이라, 화면이 그 항목까지 잠그면 학생은 요청받은 재제출을 낼 방법이 없다 — 서버는
-   * 받아 주는데 화면만 막는 상태가 된다.
-   */
   it('마감이 지나도 보완 요청은 다시 낼 수 있다', async () => {
     await renderRow(viewer({ status: 'CHANGES_REQUESTED' }), true);
     const editButton = actionButton('수정');
@@ -1242,10 +1180,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
     ).not.toBeNull();
   });
 
-  /**
-   * 마감이 푸는 것은 **아직 응하지 않은** 보완 요청 하나뿐이다. 미제출·검토 대기까지 열면
-   * 마감이 아무것도 막지 않는 표시가 된다 — 마감 전 교체와 마감 뒤 재제출은 다른 일이다.
-   */
   it('마감 뒤 미제출·검토 대기는 그대로 잠근다', async () => {
     await renderRow(
       viewer({ submitted: false, submittedAt: null, status: null }),
@@ -1257,14 +1191,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(actionButton('수정').disabled).toBe(true);
   });
 
-  /**
-   * #1097 — 보완 요청에 응해 한 번 다시 낸 줄. 배지는 「보완 요청」이 아니라 「검토 대기」로
-   * 돌아가 있고, 「수정」은 잠긴 채다.
-   *
-   * 잠근 채로 두는 것이 규칙이다: 재제출은 한 번이고, 교직원이 검토하는 동안 내용은 바뀌지
-   * 않는다. 서버도 같은 조합을 422(MSD_031)로 막으므로 눌러 봐야 오류만 돌아오는 버튼이
-   * 아니다 — 예전에는 서버만 열려 있어 화면과 서버가 어긋나 있었다.
-   */
   it('마감 뒤, 보완 요청에 이미 응한 제출은 잠근 채로 둔다', async () => {
     await renderRow(
       viewer({
@@ -1283,7 +1209,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
     expect(actionButton('수정').disabled).toBe(true);
   });
 
-  // 마감 전에는 예전 그대로다 — 마감 규칙을 고치면서 평상시를 함께 흔들지 않는다.
   it('마감 전에는 검토 대기도 잠기지 않는다', async () => {
     await renderRow(viewer({ status: 'SUBMITTED' }));
 
@@ -1315,16 +1240,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
   });
 });
 
-/**
- * 학생이 화면을 **열어 둔 채** 재제출 기한을 넘기는 자리.
- *
- * 렌더 시점 계산은 다시 돌지 않는다 — 아무도 다시 그려 주지 않으면 안내는 계속 「기한
- * 안입니다」라고 말하고 「수정」 버튼도 눌리는 채로 남는다. 누른 학생은 서버 422(MSD_034)를
- * 받고, 화면이 열어 준 것을 서버가 거절하는 모양이 된다.
- *
- * 겨냥한 타이머 **하나**로 그 순간만 다시 그린다. 주기 타이머(1초마다 등)로 화면 전체를
- * 다시 그리지 않는 것이 요점이라, 그 사실도 함께 잰다.
- */
 describe('열어 둔 화면에서 재제출 기한이 지나는 순간', () => {
   const resubmissionDueAt = '2026-09-26T09:00:00.000Z';
   let container: HTMLDivElement;
@@ -1408,16 +1323,13 @@ describe('열어 둔 화면에서 재제출 기한이 지나는 순간', () => {
   it('안내와 「수정」 버튼이 스스로 잠긴다', () => {
     renderRow();
 
-    // Given: 아직 기한 안이다 — 열려 있고, 언제까지인지 말한다.
     expect(editButton().disabled).toBe(false);
     expect(dueText()).toContain('까지');
 
-    // When: 다시 부르지도, 만지지도 않은 채 기한이 지난다.
     act(() => {
       vi.advanceTimersByTime(1001);
     });
 
-    // Then: 새로고침 없이도 잠기고, 왜 잠겼는지 말한다.
     expect(editButton().disabled).toBe(true);
     expect(dueText()).toContain('지났습니다');
   });
@@ -1443,11 +1355,6 @@ describe('열어 둔 화면에서 재제출 기한이 지나는 순간', () => {
     expect(editButton().disabled).toBe(true);
   });
 
-  /**
-   * 겨냥한 타이머 하나뿐이다 — 기한이 지나고 나면 아무것도 남지 않는다. 주기 타이머로
-   * 고쳤다면 여기서 걸린다: 아무 일도 없는 초마다 목록 전체를 다시 그리고, 학생이 입력
-   * 중인 폼과도 겹친다.
-   */
   it('기한을 겨냥한 타이머 하나만 걸고, 지나면 스스로 걷힌다', () => {
     renderRow();
 
@@ -1461,11 +1368,6 @@ describe('열어 둔 화면에서 재제출 기한이 지나는 순간', () => {
   });
 });
 
-/*
- * #1108 — 고를 때의 판정이 파일 입력 아래에 세운 문장을, 그 파일 그대로 제출했을 때 폼 아래
- * 줄에 또 세우면 같은 문장이 두 번 읽힌다(AP-1). 압축 내용 거절은 제출 때에도 파일 입력의
- * 그 오류 자리 하나에만 선다 — 제출 화면의 `isSubmissionArchiveErrorCode` 갈래와 같다.
- */
 describe('압축 내용 거절은 파일 입력 한 자리에만 선다', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -1507,7 +1409,6 @@ describe('압축 내용 거절은 파일 입력 한 자리에만 선다', () => 
   }
 
   it('거절된 ZIP을 그대로 제출해도 문장은 파일 입력 아래에 한 번만 뜬다', async () => {
-    // Given: 판정 경로와 업로드가 같은 압축 내용 거절(MSD_040)을 돌려준다.
     const fetchMock = vi.fn((target: RequestInfo | URL) =>
       Promise.resolve(
         String(target).includes('/milestone-document-files')
@@ -1547,7 +1448,6 @@ describe('압축 내용 거절은 파일 입력 한 자리에만 선다', () => 
       ).toBe(lockedDetail);
     });
 
-    // When: 그 파일 그대로 제출한다.
     await act(async () => {
       container
         .querySelector('form')
@@ -1564,7 +1464,6 @@ describe('압축 내용 거절은 파일 입력 한 자리에만 선다', () => 
     });
     await act(async () => {});
 
-    // Then: 문장은 파일 입력의 오류 자리 하나에만 있고, 폼 아래 줄에는 없다.
     expect(container.textContent?.split(lockedDetail)).toHaveLength(2);
     expect(
       container.querySelector('#document-1-submission-file-error')?.textContent,

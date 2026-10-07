@@ -27,7 +27,6 @@ import { programHref } from './program-paths';
 import { editScheduleEvents } from './program-schedule-overview-model';
 import { FormSection, PageBody, PageHeader } from '@/components';
 
-/** 폼 화면은 읽기 폭을 좁게 잡는다 — 본문 여백·최대폭의 나머지는 PageBody가 갖는다. */
 const FORM_WIDTH = 'max-w-4xl';
 
 const SECTIONS = 'flex min-w-0 flex-col gap-16';
@@ -52,7 +51,7 @@ interface ProgramEditViewProps {
     string,
     readonly EditableMilestoneDocument[]
   >;
-  /** 삭제 권한(교직원 또는 관리자)이 있는 사용자만 「위험 영역」(영구 삭제)을 본다(#1095). */
+
   readonly canDeleteProgram: boolean;
   readonly onProgramDeleted: (notice?: string) => void;
   readonly onFieldChange: (
@@ -161,22 +160,12 @@ export function ProgramEditView({
 }: ProgramEditViewProps) {
   return (
     <PageBody className={FORM_WIDTH}>
-      {/*
-        페이지에서 나가는 길은 제목 위의 이 링크 하나다. 폼 안에 두면 「기본 정보」
-        섹션의 변경을 취소하는 것처럼 읽히는데, 이 페이지는 그 아래에서 마일스톤도
-        편집한다 — 한 섹션의 액션이 페이지 전체를 떠나게 하면 안 된다.
-      */}
       <div className="flex flex-col gap-4">
         <Button asChild variant="ghost" size="sm" className="self-start">
           <Link href={programHref(program.id)}>← 프로그램 개요</Link>
         </Button>
         <div className="grid items-start gap-6">
           <div className="grid min-w-0 gap-6">
-            {/*
-             * 신청서 양식·버전은 이 화면에 두지 않는다 — 프로그램 유형이 정하고
-             * 여기서 바꿀 수 없다. 편집 화면이 바꿀 수 없는 것을 설명하고 있으면
-             * 고칠 수 있는 것과 아닌 것을 매번 갈라내야 한다.
-             */}
             <PageHeader title="프로그램 편집" description={program.name} />
           </div>
         </div>

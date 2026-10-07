@@ -47,8 +47,6 @@ describe('RankingRepository.findViewerClass', () => {
     ).resolves.toBe('staff');
   });
 
-  // 계층을 올리는 조건이 불확실하면 내린다 — 세션이 있다는 사실만으로
-  // 구성원 지표를 내보내면 정지·탈퇴 계정이 그대로 통과한다.
   it('ACTIVE 가 아니면 권한이 있어도 public 으로 떨어진다', async () => {
     for (const accountStatus of Object.values(AccountStatus).filter(
       (status) => status !== AccountStatus.ACTIVE,

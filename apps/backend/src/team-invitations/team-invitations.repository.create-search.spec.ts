@@ -2,7 +2,6 @@ import { Prisma, TeamInvitationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticTeamId = 'cuid-synthetic-team';
 const syntheticInviteeId = 'cuid-synthetic-invitee';
@@ -80,7 +79,7 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
         accountStatus: 'ACTIVE',
         OR: [
           { nickname: { contains: 'octo', mode: 'insensitive' } },
-          // 이름의 정본은 프로필 행뿐이라 legacy fallback 갈래가 사라졌다.
+
           {
             profile: {
               is: { name: { contains: 'octo', mode: 'insensitive' } },
@@ -139,7 +138,6 @@ describe('TeamInvitationsRepository.findByTeamId', () => {
 
 describe('TeamInvitationsRepository.createInvitation', () => {
   interface TxOptions {
-    /** 팀 행을 잠근 뒤 다시 읽은 팀. `null`이면 사라진 팀이다. */
     readonly team?: {
       readonly id: string;
       readonly programId: string;
@@ -185,8 +183,7 @@ describe('TeamInvitationsRepository.createInvitation', () => {
         create:
           options.create ?? jest.fn().mockResolvedValue(selectedInvitationRow),
       },
-      // 잠금 안의 교직원 확인이 읽는 자리. 기본값은 비교직원이라 기존 팀장 경로가
-      // 그대로 판정된다.
+
       user: {
         findUnique: jest.fn().mockResolvedValue({
           hasStaffAccess: false,
@@ -244,10 +241,6 @@ describe('TeamInvitationsRepository.createInvitation', () => {
     ]);
   });
 
-  /**
-   * 신청 제출 여부는 더 이상 초대 생성의 조건이 아니다 — 트랜잭션은 Application을
-   * 조회조차 하지 않는다.
-   */
   it('신청을 제출한 팀도 Application을 조회하지 않고 초대를 만든다', async () => {
     const findFirst = jest.fn().mockResolvedValue({ id: 'cuid-application' });
     const tx = { ...buildTx(), application: { findFirst } };
@@ -288,7 +281,6 @@ describe('TeamInvitationsRepository.createInvitation', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  /** 승계로 팀장이 바뀐 뒤라면 잠금 전 스냅샷이 무엇이었든 통과하지 못한다. */
   it('잠근 뒤 팀장이 아니면 대상의 소속을 조회하지 않고 not-team-leader를 반환한다', async () => {
     const create = jest.fn();
     const tx = buildTx({

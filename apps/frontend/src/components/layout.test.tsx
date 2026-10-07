@@ -6,8 +6,6 @@ import { NavBar } from './nav-bar';
 import { PageHeader } from './page-header';
 import { StatusMessagePage } from './status-message-page';
 
-// 레이아웃형 공용 컴포넌트 4종(AppShell/NavBar/PageHeader/StatusMessagePage)이
-// 실제로 import·렌더 가능함을 증명하는 최소 스모크 테스트.
 describe('layout components', () => {
   it('renders AppShell with header/body/footer slots', () => {
     const html = renderToStaticMarkup(
@@ -68,9 +66,6 @@ describe('layout components', () => {
     expect(actionsClass).not.toContain('max-[479px]:order-last');
   });
 
-  // linkComponent 미지정 시 순수 <a>로 폴백한다는 nav-config 계약(라우터는
-  // 호출부 책임) 회귀 방지 — Next 라우터 없이도(디자인 시스템 번들 등) items가
-  // 실제 이동 가능한 앵커로 렌더된다.
   it('renders NavBar items as plain <a> anchors when no linkComponent is injected', () => {
     const html = renderToStaticMarkup(
       <NavBar
@@ -137,14 +132,6 @@ describe('layout components', () => {
     expect(html).toContain('새로고침');
   });
 
-  /**
-   * 셸이 이미 채운 뷰포트를 한 번 더 요구하지 않는가(#598).
-   *
-   * 모든 라우트가 `app/layout.tsx` → `AppFrame`(`h-dvh`) 안에 서고 그 위에
-   * 머리글이 얹힌다. 이 부품이 `min-h-dvh`를 다시 걸면 머리글 높이만큼 내용이 없는
-   * 빈 스크롤이 남는다 — chromium 실측으로 1440x900·768x1024·375x812 모두 56px이
-   * 넘쳤고, `min-h-[50svh]`에서는 세 폭 모두 0px이다.
-   */
   it('keeps StatusMessagePage from demanding a second viewport', () => {
     const html = renderToStaticMarkup(<StatusMessagePage title="안내" />);
 
@@ -157,8 +144,6 @@ describe('layout components', () => {
   });
 });
 
-// header/footer가 선택(optional)인 grid 레이아웃에서, DOM 순서 기반 auto-placement에
-// 의존하지 않고 각 슬롯이 명시적 row-start로 고정 트랙에 배치되는지 회귀 방지.
 describe('AppShell grid row placement with optional header/footer', () => {
   it('keeps body on row-start-2 when header is omitted', () => {
     const html = renderToStaticMarkup(

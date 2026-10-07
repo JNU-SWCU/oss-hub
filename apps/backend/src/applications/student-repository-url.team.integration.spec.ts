@@ -100,19 +100,18 @@ async function expectCurrentLinkKept() {
 }
 
 it('saves a staff link on a provisioning-off program and shows it in the staff history', async () => {
-  // Given: 발급이 꺼진 프로그램이고 교직원은 그 팀의 구성원이 아니다.
   await prisma.program.update({
     where: { id: programId },
     data: { repositoryProvisioningEnabled: false },
   });
-  // When
+
   await expect(
     service.updateForTeam(staffGithubId, programId, teamId, input),
   ).resolves.toEqual({
     repositoryUrl: input.repositoryUrl,
     canEditRepositoryUrl: true,
   });
-  // Then: 연결은 바뀌고, 교직원 이력 화면이 읽는 원장에 교직원 login으로 남는다.
+
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
   ).toMatchObject({ applicationId, programId, teamId });
@@ -201,7 +200,6 @@ it('rolls back a staff link when the audit write fails', async () => {
 });
 
 it('answers a non-leader member with 404 before GitHub', async () => {
-  // Given: 픽스처 학생은 팀에 남고 팀장만 다른 사람에게 넘어갔다.
   const successor = await prisma.user.create({
     data: { githubId: targetGithubId + 5n, nickname: 'synthetic-successor' },
   });

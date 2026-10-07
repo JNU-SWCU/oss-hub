@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
@@ -149,7 +147,7 @@ describe('TeamDeleteDialog', () => {
     await flush();
 
     expect(deleteStaffProgramTeamMock).toHaveBeenCalledTimes(1);
-    // 문구를 적지 않으면 빈 문자열이 그대로 간다 — 키를 빼는 판단은 api 층이 한다.
+
     expect(deleteStaffProgramTeamMock).toHaveBeenCalledWith(
       'program-1',
       'team-1',

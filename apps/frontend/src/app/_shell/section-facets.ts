@@ -9,10 +9,6 @@ import {
   rankingSidebarGroup,
 } from './sidebar-menu';
 
-/**
- * 섹션 패싯(프로그램·아카이브·랭킹) 공통 로드 결과.
- * product-shell 옵션 / load() 가 채운다. rankingCounts 는 백엔드 미제공 시 비움(Q4).
- */
 export type SectionFacetData = {
   readonly programCounts?: Partial<Record<ProgramListStatus, number>>;
   readonly archiveYears?: readonly number[];
@@ -23,7 +19,7 @@ export type SectionFacetData = {
 export interface SectionFacetSpec {
   readonly groupLabel: string;
   readonly param: 'status' | 'year';
-  /** Optional: load counts/years. Prefer AbortSignal; if feature API lacks signal, call API then check signal.aborted. */
+
   readonly load?: (signal: AbortSignal) => Promise<SectionFacetData>;
   readonly items: (
     data: SectionFacetData | undefined,
@@ -59,10 +55,6 @@ async function loadRankingFacets(
   return { rankingYears };
 }
 
-/**
- * programs / archive / ranking 피어 필터 레지스트리.
- * dashboard 는 역할 메뉴이므로 여기 넣지 않는다.
- */
 export const SECTION_FACETS: Partial<
   Record<Exclude<ShellSection, null>, SectionFacetSpec>
 > = {
@@ -87,7 +79,6 @@ export const SECTION_FACETS: Partial<
   },
 };
 
-/** 사이드바 항목 href 경로 → 패싯 섹션 (목록 루트만). */
 export function facetSectionFromHrefPath(
   hrefPath: string,
 ): 'programs' | 'archive' | 'ranking' | null {
@@ -97,22 +88,11 @@ export function facetSectionFromHrefPath(
   return null;
 }
 
-/**
- * `/programs/:id`(하위 전부 포함, 예: `/programs/:id/teams`)에서 프로그램 id를 뽑는다.
- * `/programs` 목록 루트(쿼리 포함)는 `null` — 그 경우는 여전히 `programSidebarGroup`
- * 상태 필터가 좌측 패널을 채운다(§sidebarGroupsFor, 기존 계약 그대로).
- *
- * 목록 루트가 아닌 `/programs/*` 는 프로그램 상세 스코프로 판정해 좌측 패널을
- * `programScopeSidebarGroups()` + `ProgramScopeSidebar`로 바꿔야 한다는 신호다
- * (docs/design.md §업무 화면 내비게이션 › 프로그램 스코프 좌측 패널). 그 전환(어느 컴포넌트를 렌더할지 고르는
- * 지점)은 `ProductShell`이 담당— 이 함수는 판정에 필요한 순수 로직만 제공한다.
- * 실제 프로그램 개요/서류/게시판 데이터 로딩은 이 레인 범위 밖이다.
- */
 export function programDetailIdFromPathname(pathname: string): string | null {
   if (pathname === '/programs' || pathname === '/programs/new') return null;
   const match = /^\/programs\/([^/]+)(?:\/.*)?$/.exec(pathname);
   if (!match) return null;
-  // 정적 세그먼트 `new`는 프로그램 생성 라우트 — 동적 [id] 스코프로 새지 않는다.
+
   if (match[1] === 'new') return null;
   try {
     return decodeURIComponent(match[1] as string);

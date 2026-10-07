@@ -26,9 +26,6 @@ export default function HomePage() {
     setSerializedSearchParams(window.location.search);
   }, []);
 
-  // 어두운 표면(우주 여정·하단 CTA)은 반전 버튼을 쓴다.
-  // 밝은 본문의 로그인 CTA는 journey panel 4·ClosingCta에만 둔다 — solid
-  // "시작하기" 섹션은 journey 진입 CTA와 중복이라 두지 않는다.
   const entryAction = (
     <LandingEntryActionView
       hasAuthError={Boolean(authErrorMessage)}
@@ -49,11 +46,6 @@ export default function HomePage() {
           primaryAction={entryAction}
         />
 
-        {/*
-          우주 연출은 첫 화면에서 끝난다. 여기부터는 실제 업무 화면과 같은 밝은
-          레이아웃이다. 헤더는 전 화면 흰 바로 고정되어 있고(z-40), 이 구간이
-          메뉴를 덮지 않는다.
-        */}
         <div className="relative z-10 bg-background">
           {status === 'error' ? <SessionError onRetry={retry} /> : null}
           <CurrentProgramSection />

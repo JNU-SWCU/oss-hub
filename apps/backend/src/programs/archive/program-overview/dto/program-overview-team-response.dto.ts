@@ -1,10 +1,5 @@
 import type { PublicTeamRow } from '../program-overview.repository';
 
-/**
- * `GET /programs/:programId/overview/teams` 응답 항목 하나. public DTO allowlist —
- * 저장소 URL·학번·연락처·이메일·실명은 절대 포함하지 않는다(repository의
- * `listPublicTeams` select와 짝을 이루는 계약).
- */
 export class ProgramOverviewTeamMemberResponseDto {
   readonly userId: string;
   readonly displayName: string;

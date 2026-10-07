@@ -156,14 +156,8 @@ function parseKnownAuditLogMetadata(
     parseRepositoryPublishAuditMetadata(value) ??
     parseProgramLifecycleAuditMetadata(value) ??
     parseProgramDeletionAuditMetadata(value) ??
-    // 팀 구성 변경은 TEAM_CREATED/TEAM_JOINED보다 먼저 본다 — 세 계약 모두
-    // programName·teamName을 공유하므로 뒤에 두면 탈퇴·승계 필드가 통째로 잘려나간다.
     parseTeamMembershipAuditMetadata(value) ??
-    // 이름 변경도 같은 이유로 TEAM_CREATED/TEAM_JOINED보다 먼저 본다 — 뒤에 두면
-    // `previousName`이 잘려 「팀이 생성됐다」는 다른 사실로 읽힌다.
     parseTeamRenamedAuditMetadata(value) ??
-    // 삭제도 같은 이유로 먼저 본다 — 뒤에 두면 `deletedCounts`가 잘려 「팀이 생성됐다」는
-    // 정반대 사실로 읽히고, 함께 사라진 것의 수치가 원장에서 통째로 없어진다.
     parseTeamDeletedAuditMetadata(value) ??
     parseTeamCreatedAuditMetadata(value) ??
     parseTeamJoinedAuditMetadata(value) ??

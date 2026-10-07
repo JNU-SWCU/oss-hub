@@ -14,8 +14,6 @@ import {
 } from './audit-log-metadata';
 import { AuditLogRepository } from './audit-log.repository';
 
-// REPOSITORY_PUBLISH v1 metadata — repositoryFullName 스냅샷이 없어 join이 필요한
-// 과거 행 시나리오를 만드는 데 쓴다(PROGRAM v1 테스트와 같은 패턴).
 const LEGACY_REPOSITORY_PUBLISH_V1_METADATA = {
   schemaVersion: 1,
   repositoryId: 'repository-legacy',
@@ -23,8 +21,6 @@ const LEGACY_REPOSITORY_PUBLISH_V1_METADATA = {
   after: { visibility: 'PUBLIC', publishedAt: '2026-07-24T04:00:00.000Z' },
 } as const;
 
-// APPLICATION_DECISION v1 metadata — applicantGithubLogin/programName 스냅샷이
-// 없어 join이 필요한 과거 행 시나리오를 만드는 데 쓴다.
 const LEGACY_APPLICATION_DECISION_V1_METADATA = {
   schemaVersion: 1,
   before: { status: 'SUBMITTED' },
@@ -591,8 +587,6 @@ describe('AuditLogRepository', () => {
   });
 
   it('v1 APPLICATION join select는 applicant를 절대 요청하지 않고, 신청자 로그인이 있어도 라벨에 새지 않는다(ADR-007)', async () => {
-    // applicant를 select에 넣지 않았는데도 Prisma mock이 실수로 돌려주는 상황을 가정해
-    // resolveApplicationLabels가 그 값을 라벨 합성에 쓰지 않는다는 것까지 확인한다.
     const applicationFindMany = jest
       .fn<Promise<unknown>, [Prisma.ApplicationFindManyArgs]>()
       .mockResolvedValue([

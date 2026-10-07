@@ -67,11 +67,6 @@ export class ProgramsController {
     private readonly lifecycle: ProgramLifecycleService,
   ) {}
 
-  /**
-   * 공개 목록 — 인증 없이 열려 있다(가드 없음). 세션 쿠키가 있으면 뷰어를
-   * 해석해 개인화 필드(note/viewerApplicationStatus/집계)를 붙이고, 쿠키가
-   * 없거나 무효하면 익명으로 취급해 공개 필드만 반환한다(getSession과 동일 패턴).
-   */
   @Get()
   @OptionalSession()
   async list(
@@ -88,7 +83,6 @@ export class ProgramsController {
     );
   }
 
-  /** static sibling before programs/:id — 사이드바 상태 뱃지용 공개 집계. */
   @Get('status-counts')
   @Public()
   async statusCounts(): Promise<ProgramStatusCountsResponseDto> {
@@ -138,11 +132,6 @@ export class ProgramsController {
     );
   }
 
-  /**
-   * 교직원·관리자의 전체 삭제(#1095) — 연결 자식 행은 명시 순서로 정리하고 파일은 worker에 위임한다.
-   * `expectedScope`는 클라이언트가 확인 화면에서 마지막으로 본 삭제 범위이며 REQUIRED다
-   * (#F2) — purge 트랜잭션이 같은 스냅샷 쿼리로 재확인해 어긋나면 409 PRG_014로 막는다.
-   */
   @Delete(':id/purge')
   @UseGuards(SessionGuard, OriginGuard)
   purge(
@@ -157,10 +146,6 @@ export class ProgramsController {
     );
   }
 
-  /**
-   * 교직원·관리자의 영구 삭제 — #875의 「STAFF 403」을 #1095가 뒤집었다. 자식 데이터가
-   * 하나라도 있으면 여전히 409로 막힌다(차단 조건은 그대로다).
-   */
   @Delete(':id')
   @UseGuards(SessionGuard, OriginGuard)
   delete(

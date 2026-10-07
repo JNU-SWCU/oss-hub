@@ -71,10 +71,7 @@ function Section({
   children,
 }: {
   readonly title: string;
-  /**
-   * 머리말 오른쪽에 붙는 수·단위. 공용 `SectionHeading`의 `meta`와 같은 역할이고
-   * 같은 키울을 쓴다 — 이 페이지는 카드 안 머리말이라 제목 크기만 다르다.
-   */
+
   readonly meta?: string;
   readonly children: React.ReactNode;
 }): ReactElement {
@@ -91,14 +88,6 @@ function Section({
   );
 }
 
-/**
- * 교직원 전용 팀 상세(#874). 참여 팀 목록(`ProgramStaffTeamsPage`)의 팀명에서
- * 들어오는 문맥 경로다.
- *
- * 데이터는 백엔드가 **한 요청으로** 팀원·신청 상태·저장소 발급 상태를 합쳐 준다
- * (`getStaffProgramTeamDetail`) — 참여 팀 목록처럼 팀 목록과 신청 목록을 따로
- * 불러 클라이언트에서 잇지 않는다.
- */
 export function ProgramStaffTeamDetailPage({
   programId,
   teamId,
@@ -106,21 +95,15 @@ export function ProgramStaffTeamDetailPage({
 }: {
   readonly programId: string;
   readonly teamId: string;
-  /**
-   * 로그인 신원(닉네임). 구성 변경 요청이 도는 동안 사람이 바뀜면 그 결과를
-   * 새 사용자 화면에 흘리지 않기 위한 식별자다 — 조합 계층인 route가 내려 준다.
-   */
+
   readonly sessionKey: string | null;
 }): ReactElement {
   const [loadState, setLoadState] = useState<LoadState>({ kind: 'loading' });
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  /**
-   * 이번 방문에서 이름을 바꿨는지. 바뀐 이름 자체는 `detail.name`이 이미 들고
-   * 있어 여기에 다시 담지 않는다 — 같은 값을 두 곳에 두면 어느 쪽이 참인지 갈린다.
-   */
+
   const [justRenamed, setJustRenamed] = useState(false);
-  /** 신청서 본문과 검토 이력. 팀 상세 응답은 요약만 주므로 따로 읽는다. */
+
   const [applicationDetail, setApplicationDetail] =
     useState<ApplicationDetail | null>(null);
   const [decisionBusy, setDecisionBusy] = useState(false);
@@ -130,16 +113,11 @@ export function ProgramStaffTeamDetailPage({
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState(false);
   const cancelled = useRef(false);
-  /** 창이 닫힐 때 초점을 돌려줄 자리. 공용 창 껍데기가 이 ref를 받는다. */
+
   const renameTriggerRef = useRef<HTMLButtonElement | null>(null);
   const deleteTriggerRef = useRef<HTMLButtonElement | null>(null);
   const router = useRouter();
 
-  /**
-   * `quiet`는 보이는 화면을 스켈레톤으로 갈아 끼우지 않고 값만 새로 받는다 — 저장소를
-   * 바꾼 직후 발급·공개 카드가 옛 저장소를 가리키지 않게 할 때 쓴다. 실패하면 보이던
-   * 화면을 그대로 둔다.
-   */
   const load = useCallback(
     async (options?: { readonly quiet?: boolean }): Promise<void> => {
       const quiet = options?.quiet === true;
@@ -188,7 +166,6 @@ export function ProgramStaffTeamDetailPage({
       const detail = await getApplicationDetailWithHistory(applicationId);
       if (!cancelled.current) setApplicationDetail(detail);
     } catch {
-      // 신청서를 못 읽어도 팀 정보는 그대로 보인다 — 이 화면 전체를 실패로 접지 않는다.
       if (!cancelled.current) setApplicationDetail(null);
     }
   }, [applicationId]);
@@ -226,8 +203,7 @@ export function ProgramStaffTeamDetailPage({
         return;
       }
       if (blocksFurtherDecisions(result)) return;
-      // 판정은 팀 상세의 요약 배지도 바꾼다 — 둘을 같이 다시 읽어야 한 화면이 두
-      // 이야기를 하지 않는다.
+
       await Promise.all([loadApplication(), load()]);
     },
     [applicationId, loadApplication, load],
@@ -304,8 +280,6 @@ export function ProgramStaffTeamDetailPage({
   };
 
   return (
-    // 툴팁 지연은 마일스톤 카드와 같은 200ms다 — 같은 종류의 보조 액션이 화면마다
-    // 다른 속도로 뜨면 같은 조작이 다르게 느껴진다.
     <TooltipProvider delayDuration={200}>
       <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
         <Button asChild variant="ghost" size="sm">
@@ -313,16 +287,7 @@ export function ProgramStaffTeamDetailPage({
         </Button>
         <PageHeader
           title={detail.name}
-          /*
-           * 인원수를 제목 아래에 두지 않는다 — 「한빛 팀 / 팀원 3명 / 팀원」으로 한
-           * 눈에 「팀」이 세 번 서고, 정작 그 수를 설명하는 명단은 아래 섹션에 있다.
-           * 수는 그 명단의 머리말이 말한다(`섹션 title·meta`).
-           */
-          /*
-           * 수정은 제목 문자열을 대상으로 하므로 제목 옆이다. 우측 `actions`는
-           * 신청 상태를 바꾸는 자리라 둘을 한 덩어리로 묶으면 연필이 상태를
-           * 가리키는 것처럼 읽힌다.
-           */
+
           titleAction={
             <Tooltip>
               <TooltipTrigger asChild>
@@ -340,11 +305,7 @@ export function ProgramStaffTeamDetailPage({
               <TooltipContent>{`${detail.name} 수정`}</TooltipContent>
             </Tooltip>
           }
-          /*
-           * 신청이 없으면 상태 조작 자체를 그리지 않는다(#1272). 없는 신청에
-           * 상태를 달면 대기 중인 신청처럼 읽혀 교직원이 처리할 것이 있다고
-           * 오해한다 — 상태가 아니라 상태가 없는 것이므로 헤더는 조용히 비운다.
-           */
+
           actions={
             currentStatus === null ? undefined : (
               <div className="grid justify-items-end gap-1">
@@ -369,10 +330,6 @@ export function ProgramStaffTeamDetailPage({
           }
         />
 
-        {/*
-         * 바뀐 이름을 여기서 다시 말하지 않는다 — 바로 위 제목이 그 이름이다.
-         * 이 줄이 말하는 것은 「저장됐다」는 사실 하나다.
-         */}
         {justRenamed ? (
           <Alert>
             <AlertTitle>팀 이름을 바꿨습니다</AlertTitle>
@@ -402,11 +359,6 @@ export function ProgramStaffTeamDetailPage({
           </ul>
         </Section>
 
-        {/*
-         * 명단 바로 아래에 둔다 — 누가 있는지 보고 바로 고치는 자리다.
-         * 팀원 추가는 여전히 초대·수락이다 — 교직원이라고 남의 계정을 팀에
-         * 집어넣지 않는다.
-         */}
         <StaffTeamMembersPanel
           programId={programId}
           teamId={teamId}
@@ -419,16 +371,7 @@ export function ProgramStaffTeamDetailPage({
           }}
         />
 
-        {/*
-         * 학생 「우리 팀」과 같은 조회·같은 그래프다(#1133). 역할이 가르는 것은 저장 경로와
-         * 서버가 준 편집 권한뿐이다. 발급·공개 상태는 교직원에게만 있는 줄이라 URL 줄 아래에 붙인다.
-         */}
         <TeamRepositoryPanel
-          /*
-           * 판정이나 팀원 구성이 바뀌면 새로 읽는다 — 상세를 다시 읽는 동안 스켈레톤이 그려지지
-           * 않을 만큼 응답이 빨라도, 연필이 옛 판정에·그래프가 옛 명단에 머물지 않는다(학생
-           * 「우리 팀」과 같은 규칙). 저장소 저장 뒤 조용한 재조회는 key를 바꾸지 않는다.
-           */
           key={[
             application?.id,
             application?.status,
@@ -456,11 +399,6 @@ export function ProgramStaffTeamDetailPage({
           />
         </TeamRepositoryPanel>
 
-        {/*
-         * 신청서 본문·지원 동기는 이 화면에 두지 않는다. 상태는 제목 옆에서
-         * 바꾸고, 검토 이력만 접어 둔다. 이력은 신청 상세 조회가 준 값이다 —
-         * 그 조회를 빼면 이력이 비고 판정 재조회도 끊긴다.
-         */}
         {applicationDetail !== null ? (
           <Collapsible defaultOpen={false}>
             <section className="grid gap-0 rounded-card border border-border">
@@ -555,11 +493,7 @@ export function ProgramStaffTeamDetailPage({
             onRenamed={(name) => {
               setRenaming(false);
               setJustRenamed(true);
-              /*
-               * 바뀐 이름만 덮어 쓴다 — 상세를 다시 불러오면 화면이 스켈레톤으로
-               * 갈아끼워져, 바꾼 사실을 확인하려는 사람 앞에서 화면이 한 번 비운다.
-               * 이름 밖의 값은 이 요청이 바꾸지 않는다.
-               */
+
               setLoadState((current) =>
                 current.kind === 'ready'
                   ? { ...current, detail: { ...current.detail, name } }
@@ -579,11 +513,6 @@ export function ProgramStaffTeamDetailPage({
               requestAnimationFrame(() => deleteTriggerRef.current?.focus());
             }}
             onDeleted={() => {
-              /*
-               * 참여 팀 목록은 아직 삭제 결과 알림을 읽지 않는다.
-               * 쿼리만 붙이면 아무도 읽지 않는 죽은 값이 되고, `purged` 키는
-               * 프로그램 전체 삭제 말투라 여기 쓰지 않는다.
-               */
               router.push(teamsHref);
             }}
           />

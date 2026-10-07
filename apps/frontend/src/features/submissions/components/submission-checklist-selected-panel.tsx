@@ -32,7 +32,7 @@ export interface SelectedMilestonePanelProps {
   readonly comment: string;
   readonly errors: SubmissionFormErrors;
   readonly fileError: string | null;
-  /** 고른 ZIP의 판정을 기다리는 중(#1108). */
+
   readonly fileChecking?: boolean;
   readonly submitting: boolean;
   readonly submissionPhase: 'uploading' | 'creating' | null;
@@ -45,9 +45,7 @@ export interface SelectedMilestonePanelProps {
 
 export function SelectedMilestonePanel(props: SelectedMilestonePanelProps) {
   const { item } = props;
-  // 닫기 핸들러가 있으면 뷰(submission-checklist-view)가 이 패널을
-  // SubmissionDialog 안에 넣은 것이고, 창 제목이 이미 마일스톤 이름을 말한다.
-  // 닫기가 없는 단독 사용처에서는 이 패널이 유일한 제목이라 카드를 그대로 둔다.
+
   const embedded = props.onCloseSelected !== undefined;
   if (!item.submission) {
     return (
@@ -69,8 +67,6 @@ export function SelectedMilestonePanel(props: SelectedMilestonePanelProps) {
   }
   switch (submission.status) {
     case 'APPROVED':
-      // 승인은 배지와 검토 결과로 이미 두 번 적혔다 — 거기에 "승인되었습니다"를
-      // 더하면 같은 말을 세 번 읽힌다. 제출본 번호는 검토 메타가 한 번 말한다.
       return (
         <PanelCard item={item} status="APPROVED" embedded={embedded}>
           <SubmissionReviewMeta submission={submission} />
@@ -86,9 +82,6 @@ export function SelectedMilestonePanel(props: SelectedMilestonePanelProps) {
         </PanelCard>
       );
     case 'SUBMITTED':
-      // 상태는 배지가 말하고, 글은 그 상태가 무엇을 막는지만 덧붙인다.
-      // 누를 수 없는 「검토 대기 중」 버튼은 없앴다 — 누르는 자리처럼 생겼지만
-      // 아무 일도 하지 않고, 세 번째로 같은 상태를 다시 적을 뿐이다.
       return (
         <PanelCard item={item} status="SUBMITTED" embedded={embedded}>
           <p className="text-sm text-muted-foreground">
@@ -120,8 +113,7 @@ function ResubmissionForm(
   },
 ) {
   const { item, submission } = props;
-  // form이 카드를 감싼다 — 마지막 줄(취소·재제출)은 카드 밖에 있어야 스크롤 상자
-  // 바닥에 붙는다. 카드는 `overflow-hidden`이라 그 안에서는 sticky가 걸리지 않는다.
+
   return (
     <form
       className="grid min-w-0 gap-5"
@@ -222,8 +214,6 @@ function PanelCard({
     </>
   );
   if (embedded) {
-    // 창 안에 서 카드를 또 세우면 마일스톤 이름이 바로 위아래로 두 번 적히고,
-    // 모바일에서는 테두리 안에 테두리가 들어 있는 모양이 된다.
     return (
       <div
         data-testid={testId ?? 'milestone-panel'}

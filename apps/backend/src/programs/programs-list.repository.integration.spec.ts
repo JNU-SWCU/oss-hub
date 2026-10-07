@@ -34,7 +34,6 @@ describe('ProgramsRepository list ordering integration', () => {
   });
 
   it('returns the nearest recruiting deadline on page one across a 21-row boundary', async () => {
-    // Given: twenty later deadlines have newer start dates than one urgent row.
     await prisma.program.createMany({
       data: [
         ...Array.from({ length: 20 }, (_, index) => ({
@@ -72,13 +71,11 @@ describe('ProgramsRepository list ordering integration', () => {
       ],
     });
 
-    // When: the first page is fetched at the public page size.
     const [items, totalItems] = await repository.listPrograms(
       { page: 1, pageSize: 20, search: 'Page boundary', status: 'all' },
       NOW,
     );
 
-    // Then: pagination happens after the urgent deadline is ordered first.
     expect(totalItems).toBe(21);
     expect(items).toHaveLength(20);
     expect(items[0]?.id).toBe(`${TEST_PREFIX}urgent`);
@@ -136,7 +133,6 @@ describe('ProgramsRepository list ordering integration', () => {
           description: 'in_progress fixture',
         },
         {
-          // U4: apply window open but endAt already past → ended only
           id: `${TEST_PREFIX}ended-overlap`,
           name: 'Partition ended overlap',
           organizer: 'OSS Hub',
@@ -172,19 +168,17 @@ describe('ProgramsRepository list ordering integration', () => {
       ],
     });
 
-    // I1: 전역 파티션 합 = all (다른 행이 있어도 성립해야 한다)
     const counts = await repository.countProgramsByStatus(NOW);
     expect(counts.all).toBe(
       counts.recruiting + counts.in_progress + counts.upcoming + counts.ended,
     );
 
-    // I2: 이 픽스처 5행만 검색해 status 별 totalItems 고정
     const expectedByStatus = {
       all: 5,
       recruiting: 1,
       upcoming: 1,
       in_progress: 1,
-      ended: 2, // date-ended + ARCHIVED
+      ended: 2,
     } as const;
     for (const status of [
       'all',
@@ -200,7 +194,6 @@ describe('ProgramsRepository list ordering integration', () => {
       expect(totalItems).toBe(expectedByStatus[status]);
     }
 
-    // U4: 접수창 열림 ∩ endAt 과거 → ended only
     const [endedItems] = await repository.listPrograms(
       { page: 1, pageSize: 50, search: 'Partition ended', status: 'ended' },
       NOW,
@@ -223,7 +216,6 @@ describe('ProgramsRepository list ordering integration', () => {
   });
 
   it('sort=name — 전체 데이터셋을 이름 오름차순으로, 페이지 경계에서도 중복·누락 없이 정렬한다', async () => {
-    // Given: 25건, 이름을 무작위 순서로 심어 정렬이 애플리케이션이 아니라 SQL에서 일어남을 검증한다.
     const count = 25;
     const shuffledIndexes = Array.from(
       { length: count },
@@ -248,7 +240,6 @@ describe('ProgramsRepository list ordering integration', () => {
       })),
     });
 
-    // When: 페이지 크기 20으로 두 페이지를 모두 읽는다.
     const [page1] = await repository.listPrograms(
       {
         page: 1,
@@ -272,7 +263,6 @@ describe('ProgramsRepository list ordering integration', () => {
       NOW,
     );
 
-    // Then: 이름순으로 정렬되고, 두 페이지에 걸쳐 중복·누락 없이 전부 나온다.
     const names = [...page1, ...page2].map((row) => row.name);
     expect(names).toEqual([...names].sort());
     expect(page1).toHaveLength(20);
@@ -576,7 +566,6 @@ describe('ProgramsRepository list ordering integration', () => {
       NOW,
     );
 
-    // status=recruiting이 ended를 걸러내고, sort=name이 남은 둘을 이름순으로 낸다.
     expect(totalItems).toBe(2);
     expect(items.map((row) => row.id)).toEqual([
       `${TEST_PREFIX}combo-recruiting-a`,

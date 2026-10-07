@@ -102,7 +102,7 @@ describe('deriveAdminAccessGuards — 대기 요청·본인 여부·프로필 �
     expect(guards.deactivationBlockedReason).toBe(
       '자기 계정은 비활성화할 수 없습니다.',
     );
-    // #1382 — 서버의 `ROL_022`와 같은 조건을 화면이 미리 말한다.
+
     expect(guards.adminRevokeBlockedReason).toBe(
       '자기 계정의 관리자 접근은 회수할 수 없습니다.',
     );

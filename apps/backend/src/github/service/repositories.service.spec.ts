@@ -79,11 +79,6 @@ function serviceFrom(deps: ReturnType<typeof dependencies>) {
   );
 }
 
-/**
- * 저장소는 `application` 아래에 둔다 — 현재 연결의 정본이 신청이라는 것을
- * 테스트 데이터에서도 그대로 보이게 한다. `application` override는 기본값과
- * 병합하므로 저장소만 바꾸려면 `application: { repository: ... }`만 주면 된다.
- */
 function job(
   overrides: Partial<Omit<OwnedProvisionJob, 'application'>> & {
     readonly application?: Partial<OwnedProvisionJob['application']>;
@@ -93,14 +88,12 @@ function job(
   return {
     application: {
       id: 'synthetic-application',
-      // D5: 개인 참여도 항상 1인 팀을 갖는다. teamId/team은 null이 아니다.
+
       teamId: 'synthetic-solo-team',
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
       applicant: { nickname: 'synthetic-applicant' },
       program: { name: 'Synthetic program' },
-      // team.name은 일부러 nickname과 다르게 둔다(팀 생성 기본명 "{닉네임}의 팀").
-      // 두 값이 같으면 displayName이 memberCount로 게이트되지 않아도 우연히
-      // 같은 문자열이 나와 회귀를 못 잡는다.
+
       team: { name: 'synthetic-applicant의 팀', _count: { members: 1 } },
       repository: null,
       ...application,
@@ -215,7 +208,7 @@ describe('RepositoriesService.getMyRepositories', () => {
       job({
         application: {
           id: 'synthetic-own-application',
-          // D5: 개인 참여도 항상 1인 팀을 갖는다. teamId/team은 null이 아니다.
+
           teamId: 'synthetic-own-solo-team',
           repositoryConnectionMode: RepositoryConnectionMode.OWN,
           applicant: { nickname: 'synthetic-applicant' },
@@ -383,14 +376,6 @@ describe('RepositoriesService.getMyRepositories', () => {
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
 
-  /**
-   * 「다른 신청의 저장소를 가리키면 닫힌다」는 단위 테스트 둘은 여기 있었다.
-   * 저장소를 `Application.repository`로 읽게 되면 그 상태를 만들 수가 없다 —
-   * 관계가 곳 그 신청의 저장소라 불일치를 주입할 지점이 없기 때문이다.
-   * 보증은 사라진 게 아니라 쿼리로 옮겨갔고, 신청을 거쳐 읽는다는 사실은
-   * `repositories.repository.integration.spec.ts`가 실제 DB로 증명한다.
-   */
-
   it.each([
     [
       'wrong organization',
@@ -435,8 +420,6 @@ describe('RepositoriesService.getMyRepositories', () => {
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
   it('classifies a direct link to an organization repository as OWN when the application records OWN', async () => {
-    // 직접 연결은 조직 저장소여도 발급·초대가 없다(#1133). source만 보고 NEW로 읽으면
-    // 초대 행이 없는 성공을 대시보드가 「초대 실패」로 그린다.
     const { repository, github, auditLog } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({

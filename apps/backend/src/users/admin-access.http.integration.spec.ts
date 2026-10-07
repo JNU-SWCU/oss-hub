@@ -24,7 +24,6 @@ afterAll(async () => {
 });
 
 it('serves all four bounded read routes with explicit response DTOs', async () => {
-  // Given
   const actor = await harness.createUser(
     'reads-actor',
     'ADMIN',
@@ -47,7 +46,6 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
     },
   });
 
-  // When
   const [list, facets, detail, history] = await Promise.all([
     harness.request(
       'GET',
@@ -67,7 +65,6 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
     ),
   ]);
 
-  // Then
   expect([list.status, facets.status, detail.status, history.status]).toEqual([
     200, 200, 200, 200,
   ]);
@@ -98,7 +95,6 @@ it('serves all four bounded read routes with explicit response DTOs', async () =
 });
 
 it('executes PATCH /users/:id/access through the real transaction and audit path', async () => {
-  // Given
   const actor = await harness.createUser(
     'patch-actor',
     'ADMIN',
@@ -110,7 +106,6 @@ it('executes PATCH /users/:id/access through the real transaction and audit path
     AccountStatus.ACTIVE,
   );
 
-  // When
   const response = await harness.request(
     'PATCH',
     `/users/${target.id}/access`,
@@ -118,7 +113,6 @@ it('executes PATCH /users/:id/access through the real transaction and audit path
     accessBody({ desiredRole: 'STAFF' }),
   );
 
-  // Then
   expect(response.status).toBe(200);
   await expect(response.json()).resolves.toMatchObject({
     id: target.id,
@@ -131,7 +125,6 @@ it('executes PATCH /users/:id/access through the real transaction and audit path
 });
 
 it('레거시 GET /users(목록)·PATCH /users/:id/role은 원자적 전환 이후 리다이렉트 없이 404를 반환한다(PR04H)', async () => {
-  // Given
   const actor = await harness.createUser(
     'legacy-tombstone-actor',
     'ADMIN',
@@ -143,7 +136,6 @@ it('레거시 GET /users(목록)·PATCH /users/:id/role은 원자적 전환 이�
     AccountStatus.ACTIVE,
   );
 
-  // When
   const [listResponse, roleResponse] = await Promise.all([
     harness.request('GET', '/users', actor.githubId),
     harness.request('PATCH', `/users/${target.id}/role`, actor.githubId, {
@@ -151,8 +143,6 @@ it('레거시 GET /users(목록)·PATCH /users/:id/role은 원자적 전환 이�
     }),
   ]);
 
-  // Then — 원자적 전환(PR04H)으로 AdminUsersController가 모듈 등록에서
-  // 빠졌으므로 플레인 404가 나온다(별도 리다이렉트 핸들러 없음).
   expect(listResponse.status).toBe(404);
   expect(listResponse.redirected).toBe(false);
   expect(roleResponse.status).toBe(404);
@@ -206,20 +196,12 @@ it.each([
   await expectProblem(response, 403, RolesErrorCode.ADMIN_ONLY);
 });
 
-/**
- * 쓰기 경로의 관리자 게이트를 실 라우트에서 못 박는다(#687).
- *
- * 여기가 비어 있었다 — 읽기 목록에만 403 검사가 있어서 두 PATCH 라우트의 관리자 검사를
- * 통째로 지워도 모든 테스트가 통과했다. 권한 검증을 잠금 뒤로 옮기는 이번 변경이 그
- * 검사를 실수로 무력화하면 이 테스트가 먼저 무너진다.
- */
 it.each([
   ['access', (id: string) => `/users/${id}/access`],
   ['profile', (id: string) => `/users/${id}/profile`],
 ] as const)(
   'returns 403/ROL_004 for a non-admin PATCH /users/:id/%s',
   async (route, path) => {
-    // Given
     const actor = await harness.createUser(
       `forbidden-patch-${route}-actor`,
       'STAFF',
@@ -235,7 +217,6 @@ it.each([
         ? accessBody({ desiredRole: 'STAFF' })
         : { name: '합성 새 이름' };
 
-    // When
     const response = await harness.request(
       'PATCH',
       path(target.id),
@@ -243,7 +224,6 @@ it.each([
       body,
     );
 
-    // Then
     await expectProblem(response, 403, RolesErrorCode.ADMIN_ONLY);
     await expect(
       harness.prisma.user.findUniqueOrThrow({ where: { id: target.id } }),

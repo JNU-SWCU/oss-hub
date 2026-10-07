@@ -33,24 +33,11 @@ import { SubmissionReviewsRepository } from '../../../submission-reviews/submiss
 import { SubmissionReviewsService } from '../../../submission-reviews/submission-reviews.service';
 import { PublicEligibilityService } from './public-eligibility.service';
 
-/**
- * 계획 todo 23 — W4 최종 통합 검증. todos 15–22가 각각 증명한 조각(순수 eligibility fence,
- * 공개 projects keyset 질의, 공개 프로필, ranking 공개 라우트, 수동 공개 확정 4중 게이트+CAS,
- * 감사 로그)을 하나의 synthetic fixture 매트릭스로 다시 조립해 outcome 1–9로 증명한다.
- *
- * 이 파일은 서비스를 Nest DI 없이 직접 `new`로 조립한다(기존 통합 테스트 관행 — 예:
- * `submission-reviews.integration.spec.ts`, `public-user-profile.integration.spec.ts`).
- * HTTP 레벨 4-페르소나 매트릭스는 `public-exposure-persona.http.integration.spec.ts`가 별도로 맡는다.
- *
- * 실 GitHub org/repo/user 데이터는 전혀 쓰지 않는다 — 모든 id는 `PREFIX` 네임스페이스의
- * 합성 값이다.
- */
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 
-/** QA40 — 커서 암호화 키 파생용 합성 값. 실 배포 시크릿과 무관하다. */
 const SYNTHETIC_SESSION_SECRET = Buffer.from(
   'synthetic-public-projects-integration-secret',
 ).toString('base64url');
@@ -87,13 +74,6 @@ const submissionReviewsService = new SubmissionReviewsService(
 const PREFIX = 'synthetic-exposure-matrix';
 const now = () => new Date();
 
-/**
- * 랭킹은 "가입자 전원이 행을 가진다"가 제품 정책이라(`ranking.service.ts`), 한
- * Postgres를 공유하는 CI에서는 형제 스펙이 심은 가입자도 같은 목록에 들어온다.
- * 그래서 첫 페이지만 보면 이 스펙의 fixture가 0점 동률 뒤로 밀려 보이지 않을 수
- * 있다 — 순서 의존이다. 목록 전체를 페이징해 모으면 "이 fixture가 랭킹에 있다/
- * 없다"를 페이지 경계와 무관하게 같은 강도로 말할 수 있다.
- */
 const RANKING_PAGE_SIZE = 100;
 
 async function collectRankingEntries(): Promise<
@@ -122,10 +102,6 @@ async function collectRankingEntries(): Promise<
 const PROGRAM_ENDED_ID = `${PREFIX}-program-ended`;
 const PROGRAM_NOT_ENDED_ID = `${PREFIX}-program-not-ended`;
 
-// 수동 공개 확정을 호출하는 "심사자/관리자" actor는 시나리오 지원자와 완전히 분리된
-// 전용 User다(고정 id/githubId, `nextGithubId()` 시퀀스 밖). append-only AuditLog가
-// `actorId`로 이 User를 FK 참조하게 되므로, `afterAll`에서도 이 User만은 지우지 않는다
-// — `submission-reviews.integration.spec.ts`의 REVIEWER_ID 관행과 동일하다.
 const REVIEWER_ID = `${PREFIX}-reviewer`;
 const REVIEWER_GITHUB_ID = 8_999_000_000_000n;
 
@@ -146,9 +122,6 @@ function nextGithubRepositoryId(): bigint {
 
 let studentIdSequence = 910_000;
 
-/**
- * 순위에 오를 학생 fixture 한 명분 — canonical UserProfile을 반환한다.
- */
 function canonicalStudentFields(name: string, department: string) {
   studentIdSequence += 1;
   const studentId = String(studentIdSequence);
@@ -181,18 +154,6 @@ function contributorProfileFields(githubId: bigint) {
   );
 }
 
-/**
- * 시나리오 하나(applicant/application/repository)를 만든다. 기본은 platform-private, 미발행.
- *
- * #617 단계 D 이후 `Repository`와 `GithubRepository`는 한 테이블이다 — platform 발행 상태
- * (applicationId/programId/visibility/publishedAt)와 collection 관측 상태
- * (presence/lastCompleteInventoryObservedAt/…)가 같은 행, 같은 컬럼을 공유한다. 이 함수는
- * 실제 provisioning writer(`recordRepository()`, `repository-provision-state.repository.ts`)를
- * 그대로 미러링해 행을 만든다 — 그 writer는 create에서 `presence: PRESENT`를 항상 쓰므로
- * (인벤토리 스윕이 한 번도 안 돈 채로 생성됐다는 사실을 아직 "부재"로 표현할 길이 없다),
- * 여기서도 동일하게 PRESENT로 만든다. outcome-3의 "미관측" 기대치가 이 사실 때문에
- * 달라지는 지점은 그 테스트 본문의 주석에서 별도로 설명한다.
- */
 async function createScenario(params: {
   readonly key: string;
   readonly programId: string;
@@ -215,7 +176,7 @@ async function createScenario(params: {
       githubId: nextGithubId(),
       nickname: `${PREFIX}-${params.key}-applicant-login`,
       selectedMemberKind: MemberKind.STUDENT,
-      // 순위 자격은 canonical `UserProfile.memberKind`가 정한다.
+
       ...applicantProfileFields(params.key),
     },
   });
@@ -292,16 +253,6 @@ async function createScenario(params: {
   };
 }
 
-/**
- * 저장소 하나의 collection 관측(visibility/presence/observedAt)을 **기존 행에** 반영한다.
- *
- * #617 단계 D 이전에는 `observeCollection`이 `createScenario`와 별개 행(별개 id, 같은
- * `githubRepositoryId`)을 만들었다 — 단일 테이블이 된 지금은 `githubRepositoryId` 가 전역
- * unique라 그렇게 하면 P2002가 난다. 실제 인벤토리 스윕(`recordRepositoryObservation()`,
- * `collection-incremental.repository.ts`)도 `githubRepositoryId`로 upsert하는 같은 행을
- * 갱신할 뿐이므로, 여기서도 `update()`로 그 패턴을 그대로 미러링한다 — provisioning 컬럼
- * (applicationId/programId/teamId/publishedAt)은 손대지 않는다.
- */
 async function observeCollection(params: {
   readonly githubRepositoryId: bigint;
   readonly visibility: RepositoryVisibility;
@@ -321,13 +272,6 @@ async function observeCollection(params: {
   });
 }
 
-/**
- * 기여자 2명(소유자 + 다른 기여자)을 저장소 하나에 심는다.
- *
- * 표시명 원본이 `User` 로 바뀌었으므로(ADR-010 §4) 기여 행만 심으면
- * `githubLogin` 이 빈 문자열로 나온다. 가입자만 적재한다는 불변식(§5)상
- * 모든 `Contribution.githubId` 는 `User` 에 있어야 하므로, fixture 도 그렇게 심는다.
- */
 async function seedContributors(
   repositoryId: string,
   ownerGithubId: bigint,
@@ -372,10 +316,6 @@ async function seedContributors(
       },
     ],
   });
-  // 옛 스키마는 기여자 집계와 저장소 총계가 다른 테이블이라 같은 (저장소, 날짜)에
-  // 두 행이 공존했다. `Contribution` 은 사람 축 하나뿐이고 키가
-  // (repositoryId, githubId, date) 이므로 저장소 총계 행을 따로 넣지 않는다 —
-  // 넣으면 소유자 행과 PK 가 충돌한다. 총계가 필요하면 읽을 때 합친다.
 }
 
 const PUBLISHED_AT = new Date('2026-06-01T00:00:00.000Z');
@@ -437,7 +377,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       },
     });
 
-    // outcome-1: platform-private, 발행된 적 없음(publishedAt null) — 공개 계획 ON, 프로그램 종료.
     outcome1 = await createScenario({
       key: 'outcome-1',
       programId: PROGRAM_ENDED_ID,
@@ -446,7 +385,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       publishedAt: null,
     });
 
-    // outcome-2: 발행 완료 + collection이 발행 "이후"에 PUBLIC/PRESENT로 관측(happy path).
     outcome2 = await createScenario({
       key: 'outcome-2',
       programId: PROGRAM_ENDED_ID,
@@ -468,14 +406,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       `${PREFIX}-outcome-2-other-login`,
     );
 
-    // outcome-3: 발행 완료했지만 collection이 아직 한 번도 (재)관측하지 않음(unknown ≠ revoke).
-    // 알려진 갭 — #617 이전에는 "CollectionRepository 행 자체가 없다"가 미관측의 증거였다.
-    // 단일 테이블이 된 지금은 provisioning writer(`recordRepository()`)가 create에서
-    // `presence: PRESENT`를 항상 쓰므로, 행이 생기는 순간 이미 PRESENT다 — 인벤토리 스윕이
-    // 한 번도 안 돌았다는 사실을 표현할 별도 축이 없다. `observed`(=profile projection)의
-    // 실제 계산(`getRepositoryCumulativeMetrics`)은 `visibility: PUBLIC, presence: PRESENT`만
-    // 보고 `lastCompleteInventoryObservedAt`은 보지 않으므로, 이 시나리오는 이제 observed:
-    // true로 판정된다 — "그래야 한다"가 아니라 "지금 그렇다"의 characterization이다.
     outcome3 = await createScenario({
       key: 'outcome-3',
       programId: PROGRAM_ENDED_ID,
@@ -483,16 +413,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: PUBLISHED_AT,
     });
-    // 의도적으로 observeCollection을 호출하지 않는다 — 그래도 presence는 provisioning
-    // 기본값(PRESENT)이다. Contribution도 심지 않으므로 지표는 여전히 0/0/0이다.
 
-    // outcome-4: 발행 완료 + collection이 private로 관측했지만 그 관측이 발행 "이전"(stale) —
-    // 회수하지 않는다(stale-allow). 단일 visibility 컬럼에서는 "나중에 쓴 쪽이 이긴다"가 곧
-    // staleness 해소 메커니즘이다 — 그래서 이 fixture는 실제 사건 순서(제공 당시 private →
-    // 스윕이 이전 상태를 stale하게 재확인 → platform이 나중에 발행)대로 세 번 쓴다. 마지막
-    // 쓰기(발행)가 이겨서 최종 상태는 PUBLIC이다. `isPublicEligible`의 관측-시각 비교 분기는
-    // 이제 이 경로에서 도달 불가능해졌지만(바깥 질의가 이미 visibility: PUBLIC만 통과시키므로),
-    // list/detail/profile 노출이라는 관측 가능한 결과는 동일하게 보존된다.
     outcome4 = await createScenario({
       key: 'outcome-4',
       programId: PROGRAM_ENDED_ID,
@@ -513,8 +434,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         publishedAt: PUBLISHED_AT,
       },
     });
-    // ranking 배제가 "현재 관측(presence PRESENT)"을 실제로 반영하는지 의미 있게 증명하려면
-    // 기여자 데이터가 존재해야 한다 — 없으면 배제 단언이 트리비얼하게 참이 되어버린다.
+
     await seedContributors(
       outcome4.repositoryId,
       GITHUB_ID_BASE + 900_005n,
@@ -523,10 +443,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       `${PREFIX}-outcome-4-other-login`,
     );
 
-    // outcome-5: 발행 완료 + collection이 private/missing으로 관측했고 그 관측이 발행
-    // "이후"(out-of-band 변경) — 즉시 회수한다. observeCollection이 createScenario 이후에
-    // 실행되므로(사건 순서: 발행 → 스윕이 나중에 회수를 확인) 마지막 쓰기(스윕)가 이겨서
-    // 최종 상태는 PRIVATE/ABSENT다.
     outcome5 = await createScenario({
       key: 'outcome-5',
       programId: PROGRAM_ENDED_ID,
@@ -548,14 +464,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       `${PREFIX}-outcome-5-other-login`,
     );
 
-    // outcome-6: 공개 계획 OFF — 4중 게이트 중 REPOSITORY_PUBLICATION_NOT_PLANNED에서 막힌다.
-    // 알려진 갭 — #617 이전에는 별도 observeCollection 호출로 "collection은 이미 PUBLIC/PRESENT로
-    // 본다"는 platform 결정과의 어긋남을 fixture로 만들 수 있었다. 단일 visibility 컬럼이 된
-    // 지금은 그 어긋남 자체를 동시에 표현할 수 없다(한 컬럼에 두 값이 동시에 있을 수 없다) —
-    // 그런데 그 어긋남을 표현할 필요도 없어졌다: ranking은 사람 축만 읽어 저장소 관측
-    // 상태를 아예 참조하지 않으므로, 어느 쪽 값이든 랭킹 결과가 달라지지 않는다. 그래서
-    // observeCollection 호출을 아예 지운다 — platform Repository는 PRIVATE로 남고,
-    // ranking은 여전히 platform 결정과 무관하게 가입자 행을 노출한다.
     outcome6 = await createScenario({
       key: 'outcome-6',
       programId: PROGRAM_ENDED_ID,
@@ -571,9 +479,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       `${PREFIX}-outcome-6-other-login`,
     );
 
-    // outcome-7: 공개 계획 ON이지만 프로그램 미종료 — PROGRAM_NOT_ENDED에서 막힌다.
-    // outcome-6과 동일한 이유로 별도 observeCollection 호출이 필요 없다(presence는 provisioning
-    // 기본값으로 이미 PRESENT다).
     outcome7 = await createScenario({
       key: 'outcome-7',
       programId: PROGRAM_NOT_ENDED_ID,
@@ -589,14 +494,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       `${PREFIX}-outcome-7-other-login`,
     );
 
-    // outcome-8: 4중 게이트 전부 통과 — 수동 공개 확정이 성공한다. program-ended에는
-    // milestone이 없으므로 requiredMilestonesApproved는 공집합 전칭으로 참이다.
-    // "collection unchanged" 차원(platform 수동 공개는 collection 관측 컬럼을 건드리지
-    // 않는다)은 이제 별도 observeCollection 호출로 증명할 수 없다 — 같은 행의 같은
-    // visibility 컬럼에 미리 PUBLIC을 써 두면 아래 CAS의 "PRIVATE → PUBLIC" 전이 전제
-    // 자체가 깨진다(이미 PUBLIC이라 no-op이 되어 정확히 1건 전이라는 단언이 무너진다).
-    // presence는 provisioning 기본값(PRESENT)만으로 이미 발행 후 list/detail/profile 노출에
-    // 충분하므로, observeCollection 없이도 커버리지 손실이 없다.
     outcome8 = await createScenario({
       key: 'outcome-8',
       programId: PROGRAM_ENDED_ID,
@@ -621,7 +518,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       await prisma.repositoryProvisionJob.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-      // #617 단계 D 이후 platform 상태와 collection 관측이 한 행이므로 정리도 한 번이면 된다.
+
       await prisma.githubRepository.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
@@ -634,10 +531,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       await prisma.team.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-      // AuditLog는 append-only(트리거로 삭제/수정을 막는다) — 이 테스트가 만든 synthetic
-      // REPOSITORY_PUBLISHED 행은 의도적으로 지우지 않는다(다른 append-only 통합 테스트와
-      // 동일한 관행). 그 행들이 `actorId`로 REVIEWER_ID를 FK 참조하므로, REVIEWER_ID User는
-      // `${PREFIX}-` 정리 대상에서 제외한다 — 지우면 FK 위반으로 cleanup 자체가 실패한다.
+
       await prisma.user.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` }, NOT: { id: REVIEWER_ID } },
       });
@@ -673,11 +567,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         errorCode: { code: PublicProjectsErrorCode.USER_PROFILE_NOT_FOUND },
       });
 
-      // PM 확정 정책 — 닉네임을 가진 canonical 학생 가입자는 전원 ranking에 행을 갖는다
-      // (`ranking.service.ts`의 `buildEntries`, `total > 0` 필터 없음). ranking은 이제
-      // 사람 축(`GithubUserActivityHistory`)만 읽으므로 저장소 축 기여(`Contribution`)는
-      // 어느 저장소에 있든 랭킹 수치에 들어오지 않는다 — 이 fixture는 사람 축 관측을
-      // 심지 않았으니 행은 존재하되 5종 전부 0이어야 한다.
       const rankingEntries = await collectRankingEntries();
       const outcome1Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-1-applicant-login`,
@@ -750,24 +639,16 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         outcome3.applicantId,
       );
       expect(profile.projects).toHaveLength(1);
-      // #617 단계 D 이전에는 이 저장소가 "미관측"이라 observed: false / metrics: null이었다.
-      // 단계 D 이후 presence는 provisioning 시점(recordRepository)부터 PRESENT로 고정되고
-      // getRepositoryCumulativeMetrics는 lastCompleteInventoryObservedAt을 필터링에 쓰지
-      // 않으므로, 실제 inventory sweep이 한 번도 없었어도 observed: true가 된다. 기여자를
-      // seedContributors로 심지 않았으니 own contribution이 없어 수치는 0/0/0이다.
+
       expect(profile.projects[0]?.observed).toBe(true);
       expect(profile.projects[0]?.metrics).toEqual({
         commitCount: 0,
         pullRequestCount: 0,
         releaseCount: 0,
       });
-      // #893 — observed는 위 characterization대로 여전히 true지만(이 갭 자체는 고치지 않는다),
-      // lastCompleteInventoryObservedAt이 없으므로 hasCollectedData는 false다. 프런트는
-      // observed 단독이 아니라 이 필드로 "첫 sweep 전" 상태를 "관측된 0"과 구분해서 보여준다.
+
       expect(profile.projects[0]?.hasCollectedData).toBe(false);
 
-      // ranking은 저장소 관측 상태를 아예 보지 않는다(사람 축 전환). PM 확정 정책상
-      // canonical 학생 가입자는 전원 ranking에 행을 갖고, 사람 축 관측이 없으니 5종 전부 0이다.
       const rankingEntries = await collectRankingEntries();
       const outcome3Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-3-applicant-login`,
@@ -800,11 +681,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         ),
       ).resolves.toMatchObject({ row: { id: outcome4.repositoryId } });
 
-      // 두 축 MECE의 실물 증거다. fixture는 이 PRIVATE 저장소에 저장소 축 기여
-      // (`Contribution` — commit 5 / PR 2 / release 1)를 심었지만, ranking은 사람 축
-      // (`GithubUserActivityHistory`)만 읽으므로 그 수치가 공개 랭킹에 단 하나도 나타나지
-      // 않는다. 가입자라 행 자체는 있고 값이 전부 0이다 — "행이 없다"가 아니라 "행은 있고
-      // 0이다"가 비공개 저장소 활동 비노출의 증거다.
       const rankingEntries = await collectRankingEntries();
       const outcome4Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-4-applicant-login`,
@@ -845,9 +721,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         errorCode: { code: PublicProjectsErrorCode.USER_PROFILE_NOT_FOUND },
       });
 
-      // ranking은 저장소 관측(presence/visibility)을 아예 참조하지 않는다 — outcome-4와
-      // 결과가 같은 이유가 바로 그것이다. PM 확정 정책상 가입자는 전원 ranking에 행을
-      // 가지므로 "행이 없다"가 아니라 "행은 있고 0이다"로 증명한다.
       const rankingEntries = await collectRankingEntries();
       const outcome5Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-5-applicant-login`,
@@ -899,10 +772,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         errorCode: { code: PublicProjectsErrorCode.PROJECT_NOT_FOUND },
       });
 
-      // ranking은 platform publish 상태도 저장소 관측 상태도 전혀 참조하지 않는다
-      // (`getPublicRankingMetrics`는 사람 축 `GithubUserActivityHistory`와 가입자 목록만
-      // 읽는다). 그래서 가입자인 이상 이 지원자도 랭킹 목록에는 행을 갖는다 — 수치가
-      // 아니라 "행의 존재"만 여기서 고정한다.
       const rankingEntries = await collectRankingEntries();
       expect(
         rankingEntries.some(
@@ -963,8 +832,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       REVIEWER_GITHUB_ID,
       publishedAt,
     );
-    // 중복 확인(같은 저장소를 다시 확인 클릭) — 이미 PUBLIC이므로 no-op으로 같은 상태를
-    // 반환하고 GitHub API도, 두 번째 audit도 만들지 않는다.
+
     const second = await submissionReviewsService.publishRepository(
       outcome8.repositoryId,
       REVIEWER_GITHUB_ID,
@@ -1010,7 +878,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         githubId: nextGithubId(),
         nickname: `${PREFIX}-outcome-9-bystander-login`,
         selectedMemberKind: MemberKind.STUDENT,
-        // 금지 키 누출 검사용 canonical 학생 fixture.
+
         profile: {
           create: {
             name: 'synthetic-forbidden-real-name',
@@ -1036,19 +904,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         errorCode: { code: PublicProjectsErrorCode.USER_PROFILE_NOT_FOUND },
       });
 
-      // 이 파일은 ADR-003 모듈 경계상 다른 모듈의 dto/domain을 직접 import할 수 없어(모듈
-      // 밖 서비스 조합 테스트라 public-eligibility 모듈 소속), 여기서는 서비스가 반환하는
-      // 원본 결과(response DTO로 변환되기 이전의 내부 표현)에 대해 금지 키 부재를 증명한다 —
-      // repository select가 애초에 그 필드들을 읽지 않는다는 더 강한 증거다. 실제 wire-format
-      // (controller가 최종 직렬화하는 JSON)에 대한 동등한 증명은
-      // `public-exposure-persona.http.integration.spec.ts`가 real HTTP 응답 바디로 맡는다.
-      //
-      // 주의: `"githubId"`는 여기서는 검사하지 않는다 — `PublicUserIdentity.githubId`(raw
-      // bigint)는 프로필 조회 내부에서 다른 collection 조인 키로 쓰기 위해 의도적으로
-      // 내부 표현에 남아 있고, 실제로 wire에 노출되지 않도록 걷어내는 건 DTO 계층의 책임이다
-      // (`PublicUserProfileResponseDto`는 githubId를 절대 노출하지 않는다). 그 경계는 raw
-      // 도메인 결과가 아니라 DTO/wire-format에서만 의미 있게 검증되므로, 그 증명 역시
-      // `public-exposure-persona.http.integration.spec.ts`로 미룬다.
       const page = await publicProjectsService.findPage(undefined, 50);
       const detail = await publicProjectsService.findDetail(
         outcome2.githubRepositoryId.toString(),
@@ -1058,9 +913,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       );
       const rankingEntries = await collectRankingEntries();
 
-      // raw 도메인 결과에는 bigint 필드(githubRepositoryId/githubId)가 그대로 남아 있어
-      // 기본 JSON.stringify는 TypeError를 던진다 — bigint를 문자열로 바꾸는 replacer로
-      // 우회한다(직렬화 가능하게 만들 뿐, 값 자체를 숨기거나 왜곡하지 않는다).
       const bigintSafeStringify = (value: unknown): string =>
         JSON.stringify(value, (_key: string, val: unknown) =>
           typeof val === 'bigint' ? val.toString() : val,
@@ -1072,13 +924,9 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         bigintSafeStringify(rankingEntries),
       ].join('\n');
 
-      // 실명·학번은 어느 공개 표면에도 없다 — 이 불변식은 사람 축 전환 이후에도 그대로다.
       expect(serialized).not.toContain('synthetic-forbidden-real-name');
       expect(serialized).not.toContain(`${PREFIX}-forbidden-student-id`);
-      // ranking은 이제 학과를 의도적으로 내려준다(owner 결정 2026-08-19 — 학과는 공개
-      // 가능 정보). 그래서 `"department"` 키 금지는 list/detail/profile에만 적용하고,
-      // ranking에는 "이 사용자의 학과가 정확히 그 값으로 나온다"를 따로 고정한다 —
-      // 금지 목록에서 빼기만 하면 무엇이 나가는지 아무도 안 보게 된다.
+
       const serializedWithoutRanking = [
         bigintSafeStringify(page),
         bigintSafeStringify(detail),
@@ -1111,9 +959,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         '"watermark"',
         '"cursor"',
         '"runId"',
-        // #617 단계 D 이후 GithubRepository 한 테이블에 collection-control 메타데이터
-        // (nextRunAt/lastSuccessAt/failureCount/presence)가 platform 노출 컬럼과 함께
-        // 있으니, public 직렬화 결과에 이들이 새지 않는다는 걸 명시적으로 고정한다.
+
         '"nextRunAt"',
         '"lastSuccessAt"',
         '"failureCount"',

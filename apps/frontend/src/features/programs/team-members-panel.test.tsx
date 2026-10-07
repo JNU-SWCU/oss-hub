@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -18,10 +17,6 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
-/**
- * 백엔드 순서를 일부러 팀장이 가운데 오도록 둔다 — 화면이 팀장을 맨 위로 올리되
- * 나머지 순서는 서버가 준 그대로 유지하는지 보기 위해서다.
- */
 const team: ProgramTeam = {
   id: 'team-1',
   name: '합성 팀',
@@ -115,9 +110,6 @@ const inviteTriggerRef: { current: HTMLButtonElement | null } = {
 };
 
 beforeEach(() => {
-  // `clearAllMocks`는 호출 기록만 지우고 `mockResolvedValueOnce` 큐는 남긴다 — 앞
-  // 테스트가 중간에 끊기면 쓰이지 않은 큐가 다음 테스트의 응답을 가로채,
-  // 진행 중이어야 할 요청이 곧바로 끝나 확인 레이어가 사라졌다. 구현까지 초기화한다.
   vi.resetAllMocks();
   inviteTriggerRef.current = null;
   host = document.createElement('div');
@@ -135,11 +127,10 @@ interface RenderOptions {
   readonly sessionNickname?: string;
   readonly mode?: TeamMembersPanelMode;
   readonly invitation?: TeamInvitationManagement | null;
-  /** 초대 진입점이 없는 표면(제출된 신청서 보기 등)은 두 값을 모두 null로 준다. */
+
   readonly inviteEntry?: null;
 }
 
-/** 로그인을 확인한 라우트가 넣어 주는 계정 — 기본값은 팀장 본인이다. */
 async function render(
   overrides: Partial<ProgramTeam> = {},
   sessionNickname = 'synthetic-leader',
@@ -169,7 +160,6 @@ async function render(
   );
 }
 
-/** 팀원과 대기 중인 초대는 하나의 목록이다 — 구분은 행 안의 표시가 맡는다. */
 function listRows(): readonly HTMLLIElement[] {
   const list = host.querySelector('ul[aria-label="팀 구성원과 초대"]');
   return Array.from(list?.querySelectorAll('li') ?? []);
@@ -187,7 +177,6 @@ function pendingRows(): readonly HTMLLIElement[] {
   );
 }
 
-/** 행의 제외 조작은 아이콘이라 이름표(aria-label)로만 식별한다. */
 function removeButtons(): readonly HTMLButtonElement[] {
   return Array.from(
     host.querySelectorAll<HTMLButtonElement>(
@@ -203,7 +192,6 @@ function inviteTrigger(): HTMLButtonElement | null {
 }
 
 function dialogButton(text: string): HTMLButtonElement {
-  // 공용 창 껍데기는 body 로 포털한다 — 호스트 안이 아니라 문서에서 찾는다.
   const scope = document.querySelector('[role="alertdialog"]');
   if (!scope) throw new Error('확인 레이어 없음');
   const found = Array.from(scope.querySelectorAll('button')).find(
@@ -213,7 +201,6 @@ function dialogButton(text: string): HTMLButtonElement {
   return found as HTMLButtonElement;
 }
 
-/** 끝나는 시점을 테스트가 잡는 요청. */
 function deferred() {
   let resolve!: () => void;
   let reject!: (cause: unknown) => void;
@@ -247,7 +234,7 @@ describe('TeamMembersPanel', () => {
     const text = rosterRows().map((row) => row.textContent ?? '');
     expect(text[0]).toContain('팀장');
     expect(text[0]).toContain('synthetic-leader');
-    // 이름이 없으면 닉네임 하나만 — 같은 값을 두 번 그리지 않는다.
+
     expect(text[0]?.split('synthetic-leader').length).toBe(2);
     expect(text[1]).toContain('먼저 합류');
     expect(text[2]).toContain('나중 합류');
@@ -262,7 +249,7 @@ describe('TeamMembersPanel', () => {
     expect(rosterRows()[0]?.querySelector('button')).toBeNull();
 
     await act(async () => removeButtons()[0]?.click());
-    // 확인 전에는 아무것도 지우지 않는다.
+
     expect(removeMyTeamMember).not.toHaveBeenCalled();
     expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
 
@@ -303,7 +290,6 @@ describe('TeamMembersPanel', () => {
   });
 
   it('서버가 제외 권한을 줌에도 지금 계정 본인 행에는 붙이지 않는다', async () => {
-    // 팀장이 아닌 계정이 제외 권한을 받은 경계 상황에서도 자기 자신은 제외 대상이 아니다.
     await render({}, 'synthetic-member');
     expect(
       removeButtons().map((item) => item.getAttribute('aria-label')),
@@ -320,8 +306,7 @@ describe('TeamMembersPanel', () => {
     await act(async () => removeButtons()[0]?.click());
     await act(async () => dialogButton('팀에서 제외').click());
     expect(onChanged).not.toHaveBeenCalled();
-    // 공유 문구(`mapTeamError`)가 이 코드의 실제 원인을 말한다.
-    // 실패 문구는 창 안에 선다. 창은 body 로 포털된다.
+
     expect(document.body.textContent).toContain(
       '이 팀의 구성원을 찾을 수 없습니다. 팀 현황을 다시 확인해 주세요.',
     );
@@ -372,7 +357,7 @@ describe('TeamMembersPanel', () => {
     await render();
     await act(async () => removeButtons()[0]?.click());
     await act(async () => dialogButton('팀에서 제외').click());
-    // 라우트가 바뀐 계정을 넣어 준다 — 앞 계정의 답은 이제 이 화면의 것이 아니다.
+
     await render({}, 'other-account');
     await act(async () => resolve());
     expect(onChanged).not.toHaveBeenCalled();
@@ -394,19 +379,15 @@ describe('TeamMembersPanel', () => {
   });
 });
 
-/**
- * 목록 머리의 「+」 하나가 초대의 유일한 시작점이다. 패널은 초대를 직접 만들지
- * 않고(팀이 아직 없을 수도 있다) 화면에 그 사실만 알린다.
- */
 describe('TeamMembersPanel — 초대 시작', () => {
   it('초대 아이콘은 이름표와 설명을 갖고, 누르면 화면의 준비 절차만 부른다', async () => {
     await render();
     const plus = inviteTrigger();
     expect(plus).not.toBeNull();
     expect(plus?.getAttribute('aria-haspopup')).toBe('dialog');
-    // 화면이 초점을 되돌릴 수 있도록 트리거를 그대로 넘겨 받는다.
+
     expect(inviteTriggerRef.current).toBe(plus);
-    // 조작 사각형은 44px 토큰(`w-control`/`h-control`)을 그대로 쓴다.
+
     expect(plus?.className).toContain('h-control');
     expect(plus?.className).toContain('w-control');
 
@@ -443,15 +424,14 @@ describe('TeamMembersPanel — 초대 시작', () => {
   });
 });
 
-/** 아직 팀이 없는 자리 — 지어낸 팀 id·권한·합류한 팀원을 만들지 않는다. */
 describe('TeamMembersPanel — 팀 없음', () => {
   it('내 닉네임만 예정으로 보여 주고 아무 것도 쓰지 않는다', async () => {
     await render({}, 'synthetic-leader', { team: null, invitation: null });
     expect(rosterRows()).toHaveLength(1);
     expect(rosterRows()[0]?.textContent).toContain('synthetic-leader');
-    // 지어낸 팀 id·권한 없이 「아직 팀장이 될 사람」이라는 사실만 짧게 붙는다.
+
     expect(rosterRows()[0]?.textContent).toContain('팀장 예정');
-    // 빈 자리를 설명하는 안내 문장을 더 놓지 않는다.
+
     expect(host.textContent).not.toContain('팀을 만들면');
     expect(host.textContent).not.toContain('아직 만들어지지 않았습니다');
     expect(host.textContent).not.toContain('/4명');
@@ -467,7 +447,6 @@ describe('TeamMembersPanel — 팀 없음', () => {
   });
 });
 
-/** 대기 중인 초대는 팀원이 아니다 — 목록에는 함께, 인원수에는 따로. */
 describe('TeamMembersPanel — 초대 대기', () => {
   it('대기 초대를 팀원과 구분해 보여 주고 인원수에 섞지 않는다', async () => {
     await render({}, 'synthetic-leader', {
@@ -488,28 +467,27 @@ describe('TeamMembersPanel — 초대 대기', () => {
         ],
       }),
     });
-    // 대기 중인 초대만 남는다 — 수락된 초대는 이미 구성원 목록이 말한다.
+
     expect(pendingRows()).toHaveLength(1);
     expect(pendingRows()[0]?.textContent).toContain('합성 초대 대상');
     expect(pendingRows()[0]?.textContent).toContain('synthetic-one');
     expect(pendingRows()[0]?.textContent).toContain('초대 대기');
     expect(rosterRows()).toHaveLength(3);
     expect(host.textContent).toContain('팀원 3명');
-    // 따로 떨어진 「보낸 초대」 카드는 더 이상 없다.
+
     expect(host.textContent).not.toContain('보낸 초대가 없습니다');
-    // 목록은 하나다 — 팀원과 대기 초대가 같은 줄들로 이어진다.
+
     expect(host.querySelectorAll('ul')).toHaveLength(1);
     expect(listRows()).toHaveLength(4);
-    // 순서도 고정이다 — 합류한 사람이 먼저, 기다리는 사람이 뒤에.
+
     expect(listRows()[3]?.textContent).toContain('초대 대기');
-    // 줄이 서로 붙지 않도록 항목 사이에 같은 토큰의 구분선을 긋는다.
+
     const list = host.querySelector('ul[aria-label="팀 구성원과 초대"]');
     expect(list?.className).toContain('[&>li+li]:border-t');
     expect(list?.className).toContain('[&>li+li]:border-border/50');
   });
 
   it('이미 합류한 사람의 대기 초대는 같은 목록에 두 번 내지 않는다', async () => {
-    // 팀과 보낸 초대는 서로 다른 조회라 잠시 어긍나는 순간이 생긴다.
     await render({}, 'synthetic-leader', {
       invitation: invitationManagement({
         sentInvitations: [
@@ -531,7 +509,7 @@ describe('TeamMembersPanel — 초대 대기', () => {
     expect(
       host.querySelector('button[aria-label="먼저 합류 초대 취소"]'),
     ).toBeNull();
-    // 그 사람은 이미 팀원 행으로 한 번만 있다.
+
     expect(rosterRows()).toHaveLength(3);
   });
 
@@ -588,7 +566,6 @@ describe('TeamMembersPanel — 초대 대기', () => {
     await act(async () => cancel?.click());
     expect(onCancelInvitation).toHaveBeenCalledExactlyOnceWith('inv-1');
 
-    // 훅이 실패를 돌려준다 — 초대 레이어는 닫혀 있는 「우리 팀」 화면이다.
     await render({}, 'synthetic-leader', {
       invitation: invitationManagement({
         sentInvitations: [sentInvitation()],
@@ -602,7 +579,6 @@ describe('TeamMembersPanel — 초대 대기', () => {
       '이미 응답한 초대는 취소할 수 없습니다.',
     );
 
-    // 다시 시도는 새 조작이 아니라 같은 취소다.
     const retry = Array.from(host.querySelectorAll('button')).find(
       (item) => item.textContent === '다시 시도',
     );
@@ -610,7 +586,7 @@ describe('TeamMembersPanel — 초대 대기', () => {
     await act(async () => retry?.click());
     expect(onCancelInvitation).toHaveBeenCalledTimes(2);
     expect(onCancelInvitation).toHaveBeenLastCalledWith('inv-1');
-    // 목록의 조작은 그대로 살아 있다.
+
     expect(
       host.querySelector<HTMLButtonElement>(
         'button[aria-label="합성 초대 대상 초대 취소"]',
@@ -659,13 +635,12 @@ describe('TeamMembersPanel — 초대 대기', () => {
   });
 });
 
-/** 신청 전 구성 화면(`compose`)에는 제외라는 조작이 존재하지 않는다. */
 describe('TeamMembersPanel — 화면 모드', () => {
   it('compose에서는 서버가 제외 권한을 주더라도 제외를 그리지 않는다', async () => {
     await render({}, 'synthetic-leader', { mode: 'compose' });
     expect(removeButtons()).toHaveLength(0);
     expect(removeMyTeamMember).not.toHaveBeenCalled();
-    // 대신 초대 시작은 그대로 있다 — 구성 화면의 목적이 팀을 채우는 일이다.
+
     expect(inviteTrigger()).not.toBeNull();
   });
 
@@ -675,13 +650,6 @@ describe('TeamMembersPanel — 화면 모드', () => {
   });
 });
 
-/**
- * 같은 자리에 남아 있는 컴포넌트가 다른 신원을 맞을 때의 경계.
- *
- * 늦게 도착한 응답을 무시하는 것만으로는 부족하다 — 앞 신원의 확인 레이어·진행
- * 표식·오류가 새 신원의 화면에 그대로 남아 있으면, 다른 사람을 지우려는 확인
- * 창을 새 계정이 물려받는 셈이다.
- */
 describe('TeamMembersPanel — 신원 경계', () => {
   it('세션이 바뀌면 앞 계정의 확인 레이어·진행 표식을 그 자리에서 버린다', async () => {
     const first = deferred();
@@ -691,7 +659,6 @@ describe('TeamMembersPanel — 신원 경계', () => {
     await act(async () => dialogButton('팀에서 제외').click());
     expect(dialog()).not.toBeNull();
 
-    // 팀은 그대로고 계정만 바뀐다.
     await render({}, 'other-leader');
 
     expect(dialog()).toBeNull();
@@ -711,7 +678,6 @@ describe('TeamMembersPanel — 신원 경계', () => {
     await act(async () => dialogButton('팀에서 제외').click());
     await render({}, 'other-leader');
 
-    // 새 신원이 자기 요청을 시작한다.
     await act(async () => removeButtons()[0]?.click());
     await act(async () => dialogButton('팀에서 제외').click());
     expect(removeMyTeamMember).toHaveBeenCalledTimes(2);
@@ -722,7 +688,6 @@ describe('TeamMembersPanel — 신원 경계', () => {
     expect(dialogButton('처리 중…').disabled).toBe(true);
     expect(host.textContent).not.toContain('팀에서 제외 실패');
 
-    // 새 신원의 요청만이 새 신원을 움직인다.
     await act(async () => second.resolve());
     expect(onChanged).toHaveBeenCalledOnce();
   });
@@ -783,7 +748,6 @@ describe('TeamMembersPanel — 신원 경계', () => {
     await act(async () => first.resolve());
     expect(onChanged).not.toHaveBeenCalled();
 
-    // 권한이 돌아와도 앞 요청의 진행·오류가 되살아나지 않는다.
     await render({ canRemoveMembers: true });
     expect(dialog()).toBeNull();
     expect(host.textContent).not.toContain('팀에서 제외 실패');

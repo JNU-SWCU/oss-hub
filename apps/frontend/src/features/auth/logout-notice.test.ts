@@ -19,8 +19,6 @@ describe('hasLogoutNotice', () => {
     expect(hasLogoutNotice(input)).toBe(false);
   });
 
-  // 로그아웃 안내와 로그인 실패는 서로 다른 표식이며 섞이면 안 된다 —
-  // 로그아웃했는데 오류가 뜨거나 그 반대가 되면 사용자가 상태를 오해한다.
   it('로그인 실패 표식과 서로 섞이지 않는다', () => {
     expect(hasLogoutNotice('authError=1')).toBe(false);
     expect(hasAuthError(`${LOGOUT_NOTICE_PARAM}=1`)).toBe(false);

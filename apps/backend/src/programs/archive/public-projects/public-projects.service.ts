@@ -23,20 +23,8 @@ import { PublicProjectsRepository } from './public-projects.repository';
 import type { RuntimeConfig } from '../../../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../../../runtime-config/runtime-config.module';
 
-/**
- * todo 16 — list/detail/profile 행 선택이 todo 15의 `PublicEligibilityService` 하나를
- * 공유한다. 이 서비스가 하는 일은 (1) 전용 repository로 platform-public 후보를 읽고,
- * (2) eligibility fence를 배치로 적용하고, (3) 필요할 때만 `ProgramMetricsRepository`로 지표/
- * 기여자를 배치 조회하는 것뿐이다 — 페이지 크기가 커져도 페이지당 질의 개수는 상수다.
- */
 @Injectable()
 export class PublicProjectsService {
-  /**
-   * QA40 — 커서 암복호 키. `SESSION_SECRET`에서 파생하며 부팅(=DI 인스턴스화) 시점에 한 번만
-   * 만든다. 비었거나 짧으면 여기서 즉시 실패한다(fail-closed) — 평문 커서로 되돌아가는
-   * 폴백은 두지 않는다. `AuthConfig`가 같은 env를 이미 필수로 강제하므로 앱이 뜨는 환경에서는
-   * 이 실패가 나올 수 없다.
-   */
   private readonly cursorKey: PublicProjectCursorKey;
 
   constructor(
@@ -49,17 +37,6 @@ export class PublicProjectsService {
     this.cursorKey = resolvePublicProjectCursorKey(runtimeConfig);
   }
 
-  /**
-   * 페이지 경계는 원본 keyset 조회(`pageSize + 1` lookahead)만으로 결정되고, eligibility
-   * 필터링은 그 경계 안에서 항목을 지울 뿐 다음 페이지로 밀어내지 않는다 — freshness fence가
-   * 드물게 저장소를 회수하면 그 페이지가 `pageSize`보다 적게 보일 수 있다(의도된 trade-off).
-   * 페이지당 질의: 원본 조회 1개 + eligibility의 연결 증명·관찰 2개 = 최대 3개,
-   * pageSize와 무관하다.
-   *
-   * QA40 — 커서는 여전히 **필터 전 마지막 raw 행**으로 만든다(경계를 밀지 않는다는 위 규칙을
-   * 그대로 둔다). 대신 그 페이로드를 서버 키로 인증 암호화해서, 그 raw 행이 fence에 가려진
-   * 저장소일 때 내부 `Repository.id`·공개 시각이 토큰에서 복원되지 않게 한다.
-   */
   async findPage(
     pageId: string | undefined,
     pageSize: number,
@@ -102,10 +79,6 @@ export class PublicProjectsService {
     return this.repository.listYears();
   }
 
-  /**
-   * 페이지당 질의: 원본 1 + eligibility의 연결 증명·관찰 2 + 지표별 연결 증명·조회 4 +
-   * 기여자 login 1, 최대 8개로 상수다. private/미존재 저장소는 항상 같은 404다.
-   */
   async findDetail(projectId: string): Promise<PublicProjectDetailResult> {
     const row = await this.repository.findById(projectId);
     if (row === null) {
@@ -152,11 +125,6 @@ export class PublicProjectsService {
     };
   }
 
-  /**
-   * 존재하지 않는 사용자와 공개 가능한 프로젝트가 하나도 없는 사용자를 항상 동일한 404로
-   * 응답한다. 페이지당 질의: 신원·후보 2 + eligibility의 연결 증명·관찰 2 + 지표별
-   * 연결 증명·조회 4 + 기여자 login 1, 최대 9개로 사용자가 참여한 저장소 개수와 무관하다.
-   */
   async findProfile(userId: string): Promise<PublicUserProfileResult> {
     const [identity, rows] = await Promise.all([
       this.repository.findUserIdentity(userId),
@@ -197,9 +165,7 @@ export class PublicProjectsService {
         metric,
       ]),
     );
-    // 이 사용자의 githubId와 정확히 일치하는 기여자 행만 남긴다 — 다른 기여자(null author를
-    // 포함해 애초에 이 집계 테이블에 행이 생기지 않는 경우도 마찬가지)의 활동은 절대 섞이지
-    // 않는다.
+
     const ownContributionByRepository = new Map(
       contributorRows
         .filter((contributor) => contributor.githubUserId === identity.githubId)

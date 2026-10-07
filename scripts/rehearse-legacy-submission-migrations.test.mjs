@@ -14,10 +14,6 @@ const fixture = readFileSync(
   'utf8',
 );
 
-/**
- * contract 마이그레이션이 파괴적 DDL 앞에 세운 preflight 게이트 아홉 개.
- * 문구는 `20260830180000_contract_legacy_submissions/migration.sql`의 RAISE 메시지 원문이다.
- */
 const GATES = [
   'legacy submission source orphan requires reconciliation',
   'legacy submission current revision requires reconciliation',
@@ -31,7 +27,6 @@ const GATES = [
 ];
 
 test('rehearsal initializes disposable paths before the EXIT trap', () => {
-  // Given — `set -u` 아래에서 trap이 먼저 서면 미초기화 변수 참조로 정리가 죽는다.
   const trap = rehearsal.indexOf('trap cleanup EXIT');
   for (const name of ["staged=''", "backup=''", "port=''"]) {
     const init = rehearsal.indexOf(name);
@@ -44,7 +39,6 @@ test('rehearsal initializes disposable paths before the EXIT trap', () => {
 });
 
 test('rehearsal cleanup removes the container with its volumes and both tmp trees', () => {
-  // 컨테이너만 지우면 익명 볼륨이 남는다 — `-v`가 그것을 함께 지운다.
   assert.match(rehearsal, /docker rm -f -v "\$container"/);
   assert.match(
     rehearsal,
@@ -65,22 +59,17 @@ test('rehearsal cleanup removes the container with its volumes and both tmp tree
 });
 
 test('rehearsal owns a disposable database and never reads an ambient DATABASE_URL', () => {
-  // 운영·개발 DB에 붙을 수 있는 유일한 경로는 호출자가 넘긴 DATABASE_URL이다.
   assert.doesNotMatch(rehearsal, /\$\{?DATABASE_URL:-/);
   assert.match(rehearsal, /-p 0:5432 postgres:17-alpine/);
 });
 
 test('rehearsal database is not named oss_hub_test so the bridge fences stay live', () => {
-  // bridge가 심는 두 트리거는 `current_database() = 'oss_hub_test'`에서 스스로 비켜선다.
-  // 그 이름을 쓰면 fence가 꺼진 채로 도는 리허설이 되어 아무것도 증명하지 못한다.
   assert.doesNotMatch(rehearsal, /POSTGRES_DB=oss_hub_test/);
   assert.match(rehearsal, /POSTGRES_DB=legacy_submission_rehearsal/);
   assert.match(rehearsal, /database='legacy_submission_rehearsal'/);
 });
 
 test('rehearsal stages the three migrations one stage at a time', () => {
-  // 세 단계를 한 번의 deploy로 몰면 bridge와 contract 사이에 데이터를 흔들 자리가 없어
-  // preflight 게이트를 하나도 겨눌 수 없다.
   assert.doesNotMatch(rehearsal, /PRISMA_MIGRATIONS_PATH/);
   assert.doesNotMatch(rehearsal, /<\(/);
   assert.match(
@@ -97,7 +86,6 @@ test('rehearsal stages the three migrations one stage at a time', () => {
 });
 
 test('rehearsal seeds the source fixture before any destructive DDL', () => {
-  // 빈 데이터베이스 위에서는 preflight도 bridge 복사도 아무것도 증명하지 못한다.
   assert.match(rehearsal, /legacy-submission-rehearsal\.sql/);
   const seed = rehearsal.indexOf('\nseed_fixture\n');
   const contract = rehearsal.indexOf('stage "$contract_dir"');
@@ -109,10 +97,9 @@ test('rehearsal seeds the source fixture before any destructive DDL', () => {
 });
 
 test('the fixture carries both reserved seed graphs and production-shaped graphs', () => {
-  // 게이트 아홉 개는 `seed:` 예약 접두사 유무로 갈린다 — 둘 다 없으면 절반은 잠들어 있다.
   assert.match(fixture, /'seed:/);
   assert.match(fixture, /synthetic/);
-  // 다중 revision과 review가 없으면 이력 매핑 게이트가 볼 것이 없다.
+
   assert.match(fixture, /INSERT INTO "SubmissionRevision"/);
   assert.match(fixture, /INSERT INTO "Review"/);
   assert.match(fixture, /INSERT INTO "SubmissionFile"/);
@@ -150,12 +137,10 @@ test('migrate lane proves the three source tables are gone and control rows are 
 });
 
 test('migrate lane proves the bridge write fence is live before contract', () => {
-  // fence가 꺼져 있으면 bridge 이후 원본이 계속 갈라져도 아무도 모른다.
   assert.match(rehearsal, /legacy submission source is read only after bridge/);
 });
 
 test('migrate lane proves the pre-contract backup restores the dropped tables', () => {
-  // Prisma에는 down 마이그레이션이 없다 — 이 백업이 되돌릴 유일한 근거다.
   assert.match(
     rehearsal,
     /pg_dump -U migration -d legacy_submission_rehearsal --format=custom/,
@@ -167,8 +152,6 @@ test('migrate lane proves the pre-contract backup restores the dropped tables', 
 });
 
 test('negative lane names all nine preflight gates by their own message', () => {
-  // 어느 게이트가 걸렸는지 문구로 확인하지 않으면 "게이트 하나가 걸렸다"만 알 뿐
-  // 아홉 개 각각이 살아 있다는 증거가 되지 못한다.
   for (const gate of GATES) {
     assert.ok(
       rehearsal.includes(gate),
@@ -179,12 +162,10 @@ test('negative lane names all nine preflight gates by their own message', () => 
 });
 
 test('every negative lane restores the post-bridge snapshot before perturbing', () => {
-  // 앞 레인의 위반이 남아 있으면 그 게이트가 먼저 걸려 뒤 게이트는 검증되지 않는다.
   assert.match(rehearsal, /restore_post_bridge/);
 });
 
 test('every negative lane re-proves the rollback surface survived the abort', () => {
-  // 거부된 뒤에도 세 테이블과 source FK 칸이 남아 있어야 직전 이미지로 되돌아갈 수 있다.
   assert.match(
     rehearsal,
     /for surviving in 'Submission' 'SubmissionRevision' 'Review'/,

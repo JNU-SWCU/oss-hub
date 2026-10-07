@@ -188,6 +188,10 @@ jobs:
         if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
         run: bash scripts/check-pr-body.test.sh
 
+      - name: pre-commit 훅 파일명 전달 회귀 테스트
+        if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
+        run: bash scripts/check-pre-commit-hook.test.sh
+
       - name: Node script 문법 검사
         if: ${{ steps.scope.outputs.node_scripts == 'true' }}
         run: |

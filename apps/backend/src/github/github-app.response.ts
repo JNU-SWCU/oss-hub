@@ -127,10 +127,6 @@ export function parseGithubPublicRepository(
   };
 }
 
-/**
- * repository invitation 목록에서 취소에 필요한 최소 field만 allowlist로 뽑는다.
- * raw payload·초대 email 등 나머지 field는 보관하지도 반환하지도 않는다(ADR-006).
- */
 export function parseRepositoryInvitations(
   value: unknown,
 ): readonly GithubRepositoryInvitation[] {

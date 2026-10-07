@@ -8,32 +8,16 @@ import {
 
 const API_VERSION = '2022-11-28';
 const ACCEPT = 'application/vnd.github+json';
-/**
- * GraphQL endpoint default. Deliberately separate from
- * `CollectionAppConfigValues.apiBaseUrl` (a REST base): GitHub serves
- * GraphQL from a single `/graphql` endpoint, not from a path under the
- * REST base. Overridable via `CollectionAppConfigValues.graphqlUrl`,
- * mirroring `CollectionDiscoveryClientConfig.apiUrl`.
- */
+
 const DEFAULT_GRAPHQL_URL = 'https://api.github.com/graphql';
 const USER_AGENT = 'oss-hub-collection-app';
 
-/** login → GraphQL node ID. `history(author:{id:})` takes a node ID. */
 const USER_NODE_ID_QUERY = `
   query CollectionUserNodeId($login: String!) {
     user(login: $login) { id }
   }
 `;
 
-/**
- * Author-filtered default-branch history. The `author: { id: $authorId }`
- * argument is the whole point of this path: REST `/repos/{o}/{r}/commits`
- * has no server-side author filter that GitHub bills cheaply, so the REST
- * path must page the entire branch history (e.g. ~217 requests for
- * `facebook/react`) to find one user's commits, while this returns only
- * that user's commits — typically a single request costing 1 rate-limit
- * point.
- */
 const AUTHOR_COMMIT_HISTORY_QUERY = `
   query CollectionAuthorCommits($owner: String!, $name: String!, $branch: String!, $authorId: ID!, $since: GitTimestamp, $cursor: String) {
     repository(owner: $owner, name: $name) {
@@ -56,11 +40,6 @@ const AUTHOR_COMMIT_HISTORY_QUERY = `
   }
 `;
 
-/**
- * default branch에서 `[since, until]`에 커밋된 커밋 **수** — 노드를 하나도 받지 않고 `totalCount`만
- * 읽는다(작성자 필터 없음, 1점). ADR-009 「외부 = 전체 − 팀원합」의 좌변을 프로그램 기간으로 자른
- * 값이며, 개인 식별자는 어떤 필드로도 요청하지 않는다.
- */
 const DEFAULT_BRANCH_COMMIT_COUNT_QUERY = `
   query CollectionDefaultBranchCommitCount($owner: String!, $name: String!, $branch: String!, $since: GitTimestamp!, $until: GitTimestamp!) {
     repository(owner: $owner, name: $name) {
@@ -76,18 +55,6 @@ const DEFAULT_BRANCH_COMMIT_COUNT_QUERY = `
 `;
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
-/**
- * Minimal shape a token provider must satisfy to authenticate Collection
- * App requests. Deliberately narrower than `CollectionAppTokenProvider`
- * (`collection-app.token.ts`) — TS treats that class nominally (private
- * fields), so a structurally-identical but differently-declared provider
- * (e.g. `CollectionPublicTokenProvider`, `collection-public.token.ts`) can
- * never satisfy the class type, only this narrower structural shape.
- * Mirrors `CollectionDiscoveryTokenProvider`
- * (`collection-discovery.client.ts:19-22`) for the identical reason. Both
- * `CollectionAppTokenProvider` and `CollectionPublicTokenProvider` already
- * provide this exact `getToken`/`clear` shape.
- */
 export interface CollectionAppClientTokenProvider {
   getToken(signal?: AbortSignal): Promise<string>;
   clear(expectedToken?: string): void;
@@ -161,12 +128,6 @@ export interface CollectionIssue {
   authorGithubId: string | null;
 }
 
-/**
- * Result of a lightweight (`per_page=1`) default-branch head probe. When
- * `changed` is `false` the conditional GET returned `304` against the
- * supplied ETag and no further request is needed. `headSha` is `null` for
- * an empty repository.
- */
 export type CommitHeadProbeResult =
   | { changed: false; fingerprint: RequestFingerprint; etag: string }
   | {
@@ -176,44 +137,24 @@ export type CommitHeadProbeResult =
       etag: string | null;
     };
 
-/**
- * Result of traversing the default branch newest-to-oldest until a known
- * SHA is met. `disconnectedFullScan` is `true` only when pagination reached
- * the true end of the branch history without ever meeting a known SHA
- * (including the first-ever backfill, where `knownShas` is empty) — the
- * caller may promote the frontier only when this is `true` or a known SHA
- * was met.
- */
 export interface CommitTraversalResult {
   commits: CollectionCommit[];
   disconnectedFullScan: boolean;
   fingerprint: RequestFingerprint;
 }
 
-/**
- * Result of reading pull requests strictly newer than `(createdAt, id)`.
- * `newFrontier` is the frontier to persist for the next call; it equals the
- * input frontier when nothing new was found.
- */
 export interface PullRequestIncrementalResult {
   pullRequests: CollectionPullRequest[];
   newFrontier: PullRequestFrontier | null;
   fingerprint: RequestFingerprint;
 }
 
-/**
- * Result of reading issues strictly newer than `(createdAt, id)`. Pull
- * requests the listing interleaves are already dropped from `issues`, but
- * `newFrontier` still comes from the first raw item — PR or issue — so it
- * equals the input frontier only when nothing newer was read at all.
- */
 export interface IssueIncrementalResult {
   issues: CollectionIssue[];
   newFrontier: IssueFrontier | null;
   fingerprint: RequestFingerprint;
 }
 
-/** Result of a lightweight (`per_page=1`) latest-release probe. */
 export type ReleaseProbeResult =
   | { changed: false; fingerprint: RequestFingerprint; etag: string }
   | {
@@ -223,7 +164,6 @@ export type ReleaseProbeResult =
       etag: string | null;
     };
 
-/** Complete published-release listing, deduped by stable release ID. */
 export interface ReleaseListingResult {
   releases: CollectionRelease[];
   fingerprint: RequestFingerprint;
@@ -279,14 +219,6 @@ export class CollectionAppClient {
     );
   }
 
-  /**
-   * Resolves a GitHub login to its GraphQL node ID, or `null` when no such
-   * user exists. `history(author: { id: })` matches on the node ID, not the
-   * REST `databaseId`, so this is the required first step of
-   * {@link listDefaultBranchCommitsByAuthor}. GitHub answers an unknown
-   * (renamed or deleted) login with `data.user: null` plus a `NOT_FOUND`
-   * error, so only here is that error read as data rather than a failure.
-   */
   async resolveUserNodeId(login: string): Promise<string | null> {
     const body = await this.graphql(
       { query: USER_NODE_ID_QUERY, variables: { login } },
@@ -298,14 +230,6 @@ export class CollectionAppClient {
     return this.string(this.record(user).id);
   }
 
-  /**
-   * Default-branch commits authored by exactly one user, newest-to-oldest,
-   * optionally bounded below by `since` (ISO-8601). Returns the same
-   * `CollectionCommit[]` shape as {@link listDefaultBranchCommits} so the
-   * two are interchangeable at the call site; an unknown branch (`ref`
-   * resolves to `null`) yields an empty array. Paging is capped by
-   * `config.maxPages`, the same bound the REST traversal uses.
-   */
   async listDefaultBranchCommitsByAuthor(
     owner: string,
     repo: string,
@@ -339,9 +263,6 @@ export class CollectionAppClient {
       const target =
         ref === null || ref === undefined ? null : this.record(ref).target;
       if (target === null || target === undefined) {
-        // Branch (or its commit target) does not exist. Only meaningful on
-        // the first page — disappearing mid-pagination would silently
-        // truncate history, so treat that as a malformed response.
         if (page > 0) this.invalid();
         return [];
       }
@@ -356,13 +277,6 @@ export class CollectionAppClient {
     return dedupeByKey(commits, (commit) => commit.sha);
   }
 
-  /**
-   * Default-branch commit **count** committed in `[since, until]` (every
-   * author), or `null` when the branch — or its commit target — does not
-   * exist. Costs one rate-limit point and transfers no commit node, so no
-   * contributor identity is ever read: the left side of ADR-009's
-   * `outsiders = total − team`, cut to the program window.
-   */
   async countDefaultBranchCommitsBetween(
     owner: string,
     repo: string,
@@ -412,11 +326,6 @@ export class CollectionAppClient {
     return dedupeByKey(releases, (release) => release.id);
   }
 
-  /**
-   * Static default-branch head probe (`per_page=1`, conditional GET). The
-   * caller compares the previous frontier's ETag/SHA against this result and
-   * only invokes {@link listCommitsUntilKnownSha} when it actually changed.
-   */
   async probeDefaultBranchHead(
     owner: string,
     repo: string,
@@ -441,12 +350,6 @@ export class CollectionAppClient {
     return { changed: true, headSha, fingerprint, etag: response.etag };
   }
 
-  /**
-   * Reads the default branch newest-to-oldest until any SHA in `knownShas`
-   * is met, deduping by SHA. When no known SHA intersects, pagination
-   * continues to the true end of the branch history (exceptional recovery
-   * scan for a disconnected history) rather than stopping early.
-   */
   async listCommitsUntilKnownSha(
     owner: string,
     repo: string,
@@ -468,11 +371,6 @@ export class CollectionAppClient {
     };
   }
 
-  /**
-   * Reads pull requests `state=all&sort=created&direction=desc` until the
-   * `(createdAt, githubPullRequestId)` tie frontier is met, deduping by ID.
-   * A `null` frontier reads every pull request (first-ever backfill).
-   */
   async listNewPullRequests(
     owner: string,
     repo: string,
@@ -493,14 +391,6 @@ export class CollectionAppClient {
     return { pullRequests, newFrontier, fingerprint };
   }
 
-  /**
-   * Reads issues `state=all&sort=created&direction=desc` until the
-   * `(createdAt, id)` tie frontier is met, the same traversal as
-   * {@link listNewPullRequests}. GitHub interleaves pull requests here (items
-   * carrying a `pull_request` key): the new frontier is taken from the first
-   * raw item before they are dropped, so a page of nothing but pull requests
-   * still advances it. A `410` (issues disabled) reads as an empty listing.
-   */
   async listNewIssues(
     owner: string,
     repo: string,
@@ -533,10 +423,6 @@ export class CollectionAppClient {
     };
   }
 
-  /**
-   * Static latest-release probe (`per_page=1`, conditional GET). The caller
-   * only invokes {@link listChangedPublishedReleases} when this changed.
-   */
   async probeLatestRelease(
     owner: string,
     repo: string,
@@ -559,11 +445,6 @@ export class CollectionAppClient {
     return { changed: true, frontier, fingerprint, etag: response.etag };
   }
 
-  /**
-   * Complete published-release pagination for a repository whose probe
-   * changed, deduped by stable release ID. Reuses {@link listPublishedReleases}
-   * so a previously-draft release that has since published is included.
-   */
   async listChangedPublishedReleases(
     owner: string,
     repo: string,
@@ -641,8 +522,7 @@ export class CollectionAppClient {
     frontier: PullRequestFrontier,
   ): boolean {
     const r = this.record(raw);
-    // 시각은 값으로 비교한다 — 저장했다 읽은 커서는 `…00.000Z`, GitHub는 `…00Z`로 같은 순간을
-    // 다르게 쓴다. 글자로 비교하면 커서 항목을 새것으로 보고 매 run 다시 읽는다.
+
     const createdAt = Date.parse(this.date(r.created_at));
     const frontierCreatedAt = Date.parse(frontier.createdAt);
     if (createdAt !== frontierCreatedAt) return createdAt < frontierCreatedAt;
@@ -692,14 +572,6 @@ export class CollectionAppClient {
     ).items;
   }
 
-  /**
-   * Pages through `path` until either `shouldStop` reports the current raw
-   * item as already-known (returns collected items so far, `exhausted:
-   * false`) or pagination reaches the true end of the list (`exhausted:
-   * true`) — the only two states from which a caller may promote a
-   * frontier. Hitting the page limit without either is a `PAGINATION`
-   * error, never a silent "exhausted".
-   */
   private async traverseUntil<T>(
     path: string,
     shouldStop: (raw: unknown) => boolean,
@@ -738,7 +610,7 @@ export class CollectionAppClient {
     deadline: number,
     options?: {
       emptyRepositoryIsEmpty?: boolean;
-      /** `410 Gone`(issue 비활성 저장소)을 빈 목록으로 읽는다. */
+
       goneIsEmpty?: boolean;
       ifNoneMatch?: string | null;
     },
@@ -854,15 +726,6 @@ export class CollectionAppClient {
     throw new CollectionAppClientError('AUTH');
   }
 
-  /**
-   * Single GraphQL POST against `config.graphqlUrl`. Mirrors
-   * `CollectionDiscoveryClient.request` (`collection-discovery.client.ts`):
-   * POST + bearer token, one 401 retry after clearing the token, typed
-   * rate-limit/permission classification, and — critically — treating a
-   * `200 OK` body carrying a non-empty top-level `errors` array as a
-   * failure. GraphQL reports errors that way, so returning such a body
-   * would make a real failure indistinguishable from "no commits".
-   */
   private async graphql(
     payload: { query: string; variables: Record<string, unknown> },
     deadline: number = this.now() + this.config.deadlineMs,
@@ -1010,12 +873,7 @@ export class CollectionAppClient {
       htmlUrl: this.string(r.html_url),
     };
   }
-  /**
-   * GraphQL `Commit` history node → the same `CollectionCommit` shape the
-   * REST mapper produces. `author.user` is `null` for commits whose email
-   * is not linked to a GitHub account; `databaseId` is stringified so the
-   * stored identifier stays byte-identical to the REST path's.
-   */
+
   private historyCommit(v: unknown): CollectionCommit {
     const r = this.record(v);
     const author = r.author;
@@ -1058,7 +916,7 @@ export class CollectionAppClient {
       htmlUrl: this.string(r.html_url),
     };
   }
-  /** Issue listing item → its frontier, plus the issue itself unless it is a pull request. */
+
   private issueListItem(v: unknown): {
     frontier: IssueFrontier;
     issue: CollectionIssue | null;
@@ -1104,7 +962,7 @@ export class CollectionAppClient {
     if (typeof v === 'number' && Number.isSafeInteger(v) && v > 0) return v;
     return this.invalid();
   }
-  /** Non-negative counter (`totalCount`) — unlike {@link integer}, 0 is valid. */
+
   private count(v: unknown): number {
     if (typeof v === 'number' && Number.isSafeInteger(v) && v >= 0) return v;
     return this.invalid();

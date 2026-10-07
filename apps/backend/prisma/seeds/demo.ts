@@ -22,21 +22,12 @@ import {
   upsertTracked,
 } from './helpers';
 
-/**
- * demo profile이 만드는 SubmissionFile storage key 접두사 — reconciliation CLI가
- * 소유하는 prefix(`submission-files/`, `KNOWN_STORAGE_PREFIXES`) 안에 있어야 고아 객체
- * 인벤토리가 이 객체를 누락하지 않는다(#910/#913 파인딩 4). `seed-demo/` 하위로
- * 네임스페이스해 실제 업로드 파일과 시각적으로도 구별된다.
- */
 const DEMO_SUBMISSION_FILE_STORAGE_PREFIX = 'submission-files/seed-demo/';
 
 function demoSubmissionFileStorageKey(fileId: string): string {
   return `${DEMO_SUBMISSION_FILE_STORAGE_PREFIX}${fileId}`;
 }
 
-/** placeholder 객체 본문 — 실제 다운로드가 404가 아니라서 응답받게만 하면 된다(TODO 15 생산 QA 지적).
- * 실제 제출물이 아니라 시연용 플레이스홀더임을 본문에 명시한다.
- */
 function demoSubmissionFilePlaceholderBody(originalFileName: string): Buffer {
   return Buffer.from(
     `이 파일은 oss-hub demo profile이 만든 시연용 placeholder입니다.\n` +
@@ -44,29 +35,6 @@ function demoSubmissionFilePlaceholderBody(originalFileName: string): Buffer {
     'utf-8',
   );
 }
-
-/**
- * demo profile — 내일 시연을 위한 "사업단이 실제 운영하는 느낌"의 합성 데이터 전용
- * backbone이다(qa-econovation-batch TODO 11·15). 다른 profile을 참조하지 않고 자체
- * Program·User·Team backbone을 만든다 — 빈 DB에서 단독 실행해도 성공한다.
- *
- * 프로그램 4개는 전남대 SW중심대학사업단이 실제로 공개 운영하는 프로그램 **유형**
- * (하계 SW인턴십 연계 · 오픈소스 SW개발자 대회 · 신입생 SW역량 강화 · 소중마일리지
- * 연계 비교과)을 모델로 한 이름·설명이되, 일정·참가자·팀·게시글은 전부 합성값이다.
- * 실제 사업단 공지의 문구·날짜를 복사하지 않는다(`prisma/AGENTS.md` 시드 규칙 #3·#4).
- * 설명·마일스톤 문구의 "모집 배경/지원 대상/운영 방식/문의 안내" 구성은 사업단 공개
- * 페이지(sojoong.kr)의 톤·용어를 참고했을 뿐 본문을 그대로 옮기지 않았다(TODO 15).
- *
- * GithubRepository·Contribution 등 수집/랭킹 테이블은 이 profile이 절대 만들지 않는다
- * (`prisma/AGENTS.md` 시드 규칙 #5) — Econovation 2026 저장소 등록은 실제 ADMIN
- * discovery/enrollment 경로 + 실제 sweep으로만 이뤄진다(TODO 12).
- *
- * production 실행은 기본적으로 `assertSeedAllowed`가 거부한다. 이 profile만 예외로,
- * 소유자 승인(@GoBeromsu, 본 플랜 — qa-econovation-batch TODO 11·15) 하에
- * `SEED_DEMO_ALLOW_PRODUCTION=1`을 명시했을 때만 production에서 실행할 수 있다
- * (`assertDemoSeedAllowedInProduction`, `seed.ts`). 같은 플래그 하에 `--teardown`
- * CLI 플래그로 이 profile이 만든 `seed:demo:*` 행 전부를 일괄 삭제할 수도 있다.
- */
 
 type DemoStudent = {
   readonly slug: string;
@@ -76,7 +44,6 @@ type DemoStudent = {
   readonly emailLocalPart: string;
 };
 
-/** 합성 한국식 학생 14명 — 실존 인물 아님. `.invalid` 이메일(RFC 2606)만 쓴다. */
 const DEMO_STUDENTS: readonly DemoStudent[] = [
   {
     slug: 'kim-doyoon',
@@ -180,7 +147,7 @@ const DEMO_STUDENTS: readonly DemoStudent[] = [
 
 const DEMO_STAFF_NAME = '합성 사업단 담당자';
 const DEMO_STAFF_DEPARTMENT = '오픈소스 SW 개발 사업단';
-/** 문의 안내에 쓰는 합성 담당자 이메일 — 실제 사업단 연락처가 아니다(.invalid). */
+
 const DEMO_STAFF_CONTACT_EMAIL = 'sw-center.inquiry@demo.invalid';
 
 async function upsertDemoStudent(
@@ -384,12 +351,10 @@ type DemoSubmissionContent =
     }
   | {
       readonly kind: typeof MilestoneSubmissionType.FILE;
-      /** FILE 제출의 진행 상황을 설명하는 보조 코멘트. */
+
       readonly comment: string;
       readonly originalFileName: string;
       readonly mimeType: string;
-      // sizeBytes는 여기서 받지 않는다 — 실제 storage.put()이 쓴 placeholder 객체의
-      // 바이트 수를 그대로 쓴다(#910/#913 파인딩 4, 가짜 크기가 실제 객체와 어긋나지 않게).
     };
 
 type DemoReview = {
@@ -399,17 +364,6 @@ type DemoReview = {
   readonly reviewedAt: Date;
 };
 
-/**
- * 마일스톤 제출 1건 — `status`로 제출됨(SUBMITTED, 리뷰 없음)·보완 필요
- * (CHANGES_REQUESTED, 리뷰 있음)·승인(APPROVED, 리뷰 있음) 세 상태를 모두 표현한다
- * (TODO 15 — 여러 팀의 기록이 상태별로 섞여 쌓인 화면을 만들기 위함).
- *
- * `content.kind`는 호출부가 넘긴 마일스톤의 `submissionType`과 항상 일치해야 한다 —
- * `submissions.service.ts`가 `content.type !== milestone.submissionType`을
- * CONTENT_TYPE_MISMATCH로 거부하는 도메인 규칙을 시드가 우회해서는 안 된다.
- * FILE 타입은 실제 서비스 생성물과 동일한 최종 상태(SubmissionFile.lifecycle=ATTACHED,
- * 제출 헤더·이력 연결)로 만든다.
- */
 async function upsertDemoSubmission(
   stats: SeedStats,
   storage: SubmissionFileStoragePort,
@@ -527,9 +481,7 @@ async function upsertDemoSubmission(
   const fileContent = params.content;
   if (fileContent.kind === MilestoneSubmissionType.FILE) {
     const storageKey = demoSubmissionFileStorageKey(fileId);
-    // 실제 storage 객체를 먼저 쓴다 — PUT은 같은 key로 몇 번을 다시 놀려도 덮어쓰기만
-    // 하므로 멱등하다(#910/#913 파인딩 4) — DB row upsert 여부와 무관하게 항상 실행해
-    // 이미 객체가 있는 재실행에서도 객체가 사라지지 않았는지를 보장한다.
+
     const storedFile = await storage.put({
       objectKey: storageKey,
       originalName: fileContent.originalFileName,
@@ -759,15 +711,13 @@ async function upsertDemoProgram(
           teamMinSize: params.teamMinSize,
           teamMaxSize: params.teamMaxSize,
           description: params.description,
-          // 이 profile은 GithubRepository/Contribution을 절대 만들지 않으므로 저장소
-          // 프로비저닝도 켜지 않는다 — 실제 수집 파이프라인과의 경계를 명확히 한다.
+
           repositoryProvisioningEnabled: false,
         },
       }),
   );
 }
 
-/** 문의 안내 문단 — 4개 프로그램 설명이 공통으로 붙이는 마무리 문구(합성 담당자 연락처). */
 function inquiryParagraph(): string {
   return (
     `문의 안내: 프로그램 운영·일정 관련 문의는 담당자 이메일(${DEMO_STAFF_CONTACT_EMAIL}, 시연용 ` +
@@ -790,8 +740,6 @@ export async function seedDemo(
   const studentId = (slug: DemoStudent['slug']): string =>
     students.get(slug)!.id;
 
-  // ── 프로그램 1: 하계 SW 현장실습 연계 프로그램 (CORPORATE_INTERNSHIP) ────────
-  // 일정은 전부 합성값이다(실제 사업단 인턴십 공고 일정을 복사하지 않음).
   const internshipProgramId = seedId('demo', 'program', 'summer-internship');
   await upsertDemoProgram(stats, {
     id: internshipProgramId,
@@ -899,10 +847,6 @@ export async function seedDemo(
     createdAt: offsetDays(-8),
   });
 
-  // ── 프로그램 2: 2026 오픈소스 SW개발자 대회 (에코노베이션 연계, OSS_CONTEST) ──
-  // 다팀 그래프(TODO 15) — 참가팀 5개가 승인된 지원서와 마일스톤 제출 기록을 쌓아
-  // '여러 팀이 참여해 기록이 쌓이는 모습'을 보여준다. GithubRepository/Contribution은
-  // 이 시드가 아니라 실제 ADMIN 수집 경로로만 등록된다(운영 절차, TODO 12).
   const contestProgramId = seedId('demo', 'program', 'oss-developer-contest');
   await upsertDemoProgram(stats, {
     id: contestProgramId,
@@ -938,17 +882,17 @@ export async function seedDemo(
     readonly summary: string;
     readonly submittedAt: Date;
     readonly processedAt: Date;
-    /** 데모데이 원장의 결정적 id에 쓰는 slug. */
+
     readonly demoDaySubmissionSlug?: string;
-    /** 원래 id와 함께 보존해야 하는 파일명(기본값 `${teamSlug}-demo-day-draft.pdf`). */
+
     readonly demoDayOriginalFileName?: string;
-    /** 데모데이 마일스톤(FILE) 제출 상태 — 팀마다 섞어 보완 필요/승인/제출됨을 모두 보여준다. */
+
     readonly demoDaySubmission: {
       readonly status: SubmissionStatus;
       readonly comment: string;
       readonly review?: DemoReview;
     };
-    /** 최종 발표 마일스톤(TEXT) 제출 상태 — 아직 제출 전인 팀도 있어 진행 단계 차이를 보여준다. */
+
     readonly finalSubmission?: {
       readonly status: SubmissionStatus;
       readonly text: string;
@@ -967,8 +911,7 @@ export async function seedDemo(
         '학사 일정 알림을 구독형으로 제공하는 오픈소스 프로젝트(합성 fixture).',
       submittedAt: offsetDays(-32),
       processedAt: offsetDays(-29),
-      // TODO 11(병합된 기존 demo profile)이 이 팀의 데모데이 제출을 팀 접두사 없는
-      // `oss-contest-demo-day` slug로 이미 만들어둥다 — 원래 id를 깨드리지 않게 명시 유지한다.
+
       demoDaySubmissionSlug: 'oss-contest-demo-day',
       demoDayOriginalFileName: 'oss-contest-demo-day-draft.pdf',
       demoDaySubmission: {
@@ -1208,7 +1151,6 @@ export async function seedDemo(
     createdAt: offsetDays(-1),
   });
 
-  // ── 프로그램 3: 2026 신입생 SW역량 강화 캠프 (SW_VALUE_SPREAD) ──────────────
   const freshmenProgramId = seedId('demo', 'program', 'freshmen-sw-bootcamp');
   await upsertDemoProgram(stats, {
     id: freshmenProgramId,
@@ -1305,7 +1247,6 @@ export async function seedDemo(
     createdAt: offsetDays(-11),
   });
 
-  // ── 프로그램 4: 2026 소중마일리지 연계 오픈소스 비교과 (BASIC) ───────────────
   const mileageProgramId = seedId('demo', 'program', 'sojoong-mileage');
   await upsertDemoProgram(stats, {
     id: mileageProgramId,
@@ -1418,20 +1359,6 @@ export async function seedDemo(
   });
 }
 
-/**
- * demo profile teardown(TODO 15) — 이 profile이 만든 `seed:demo:*` 행 전부를 의존성
- * 순서로 일괄 삭제한다. `seed:demo:` 접두사가 아닌 행은 절대 건드리지 않는다 — 모든
- * delete가 `startsWith: 'seed:demo:'` 필터를 강제한다(비-demo 데이터 삭제 가능성 절대
- * 금지, prisma/AGENTS.md 시드 규칙). production에서는 `assertSeedAllowed`와 동일한
- * `SEED_DEMO_ALLOW_PRODUCTION=1` 게이트를 통과해야 `seed.ts`가 이 함수를 호출한다.
- *
- * 삭제 순서(자식 → 부모, 전부 RESTRICT/기본 FK — cascade 없음):
- *   MilestoneDocumentReviewHistory → SubmissionFile →
- *   MilestoneDocumentSubmissionHistory → MilestoneDocumentSubmission →
- *   MilestoneDocument → BoardComment → BoardPost → TeamMember → Milestone →
- *   Application → Team → Program →
- *   Consent → UserProfile → User.
- */
 export async function teardownDemo(
   stats: SeedStats,
   storage: SubmissionFileStoragePort,
@@ -1456,9 +1383,7 @@ export async function teardownDemo(
       },
     }),
   );
-  // DB row를 지우기 전에 이 profile이 만든 storage 객체 key를 먼저 읽어둔다 —
-  // deleteMany 이후에는 key를 조회할 방법이 없다(#910/#913 파인딩 4, teardown이
-  // DB row와 storage 객체 둘 다 정리해야 한다).
+
   const demoSubmissionFiles = await prisma.submissionFile.findMany({
     where: seedIdFilter,
     select: { storageKey: true },

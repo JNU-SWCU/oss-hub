@@ -121,15 +121,7 @@ export function ProgramScheduleRangeEditor({
   const startDate = activeRange ? dateKey(activeRange.startAt) : null;
   const endDate = activeRange ? dateKey(activeRange.endAt) : null;
   const simpleLayout = layout === 'simple';
-  /**
-   * 범위가 하나뿐이면 고를 것이 없다. 그래도 선택기를 그리면 `aria-pressed="true"`
-   * 인 버튼이 남는데, 마일스톤 편집처럼 `onActiveIdChange` 가 no-op 인 호출부에서는
-   * **눌러도 아무 일도 일어나지 않는다**. 스크린리더에는 눌린 버튼으로 읽히고
-   * 키보드 사용자는 탭 한 칸을 잃는다.
-   *
-   * 이미 정해진 대상을 다시 고르게 하는 것이기도 하다 — GOV.UK Question pages 의
-   * "only ask for a piece of information once within a single journey".
-   */
+
   const singleRange = ranges.length === 1;
   const hasEnabledTimeError =
     (Boolean(activeRange?.startError) && startDate !== null) ||

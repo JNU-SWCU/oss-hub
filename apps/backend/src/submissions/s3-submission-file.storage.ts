@@ -86,11 +86,6 @@ export class S3SubmissionFileStorage implements SubmissionFileStoragePort {
     const { client, bucket } = this.requireClient();
     const objects: StoredObjectMetadata[] = [];
     try {
-      // 이 메서드의 유일 호출자는 orphan reconciliation이다. 버킷 전체가 아니라
-      // 이 CLI가 소유하는 prefix에만 listing을 scope해야, 같은 버킷을 공유하는
-      // 다른 서브시스템(다른 통합 테스트 스위트 등)의 객체가 안전 가드를 오작동으로
-      // 트리거하지 않는다. prefix 내부의 미지 key는 여전히 나열되어
-      // assertKnownObjects가 중단시킨다.
       for (const prefix of KNOWN_STORAGE_PREFIXES) {
         objects.push(
           ...(await this.listObjectsByPrefix(client, bucket, prefix)),

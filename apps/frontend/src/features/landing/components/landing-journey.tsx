@@ -23,7 +23,7 @@ export interface LandingJourneyProps {
   readonly authErrorMessage?: string;
   readonly notice?: ReactNode;
   readonly primaryAction: ReactNode;
-  /** 여정이 끝나고 이어지는 일반 페이지 구간의 앵커 */
+
   readonly contentAnchor?: string;
 }
 
@@ -35,7 +35,6 @@ const FLOW_STEPS: readonly (readonly [string, string, string])[] = [
   ['STEP 4', '공개 아카이브', '— 연도별 아카이브에 남음'],
 ];
 
-/** 프로그램 항성의 이름만 공개 프로그램명으로 바꾼다 — 배치는 다시 잡지 않는다 */
 function applyProgramNames(graph: CosmosGraph, names: readonly string[]): void {
   if (names.length === 0) return;
   let cursor = 0;
@@ -70,8 +69,7 @@ export function LandingJourney({
         .map((node) => node.label),
     [publicGraph],
   );
-  // 표시 파생은 컴포넌트 밖의 순수 함수가 쥔다 — 부분 실패 표기의 경계라
-  // 렌더가 아니라 인접 단위 테스트로 못 박는다(`landing-stats.test.ts`).
+
   const stats = useMemo(
     () => deriveLandingStats(publicGraph, completeness),
     [publicGraph, completeness],
@@ -85,7 +83,6 @@ export function LandingJourney({
     return () => query.removeEventListener('change', sync);
   }, []);
 
-  // 공개 프로그램명이 도착하면 항성 라벨만 갈아 끼운다
   useEffect(() => {
     programNamesRef.current = programNames;
     if (graphRef.current) applyProgramNames(graphRef.current, programNames);
@@ -150,10 +147,6 @@ export function LandingJourney({
     };
 
     if (reducedMotion) {
-      // 여정 모드에서 붙여 둔 aria-hidden·inert 를 반드시 걷어낸다. 축소 모드는
-      // 다섯 장면을 문서 흐름에 모두 펼치는데, 속성이 남아 있으면 눈에는 보이지만
-      // 스크린리더와 키보드에는 없는 화면이 된다. 사용자가 도중에 설정을 바꿔
-      // 이 분기로 들어오는 경우가 실제로 있다.
       for (const panel of panels) {
         if (!panel) continue;
         panel.removeAttribute('aria-hidden');
@@ -231,8 +224,6 @@ export function LandingJourney({
       document.removeEventListener('visibilitychange', syncActivity);
       renderer.dispose();
     };
-    // programNames 를 의존에 넣으면 공개 데이터가 늦게 도착할 때 renderer 가 다시
-    // 만들어져 스크롤 도중 장면이 처음으로 튄다. 라벨 갱신은 위의 별도 effect 담당이다.
   }, [reducedMotion]);
 
   const setPanelRef =

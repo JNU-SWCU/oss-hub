@@ -1,8 +1,3 @@
-/**
- * G003 durable production env snapshot.
- * Raw values only — no trim/default/validate; façades keep per-key semantics.
- */
-
 export const RUNTIME_CONFIG_KEYS = [
   'AUTH_INITIAL_ROLES',
   'SESSION_SECRET',
@@ -47,10 +42,6 @@ export type RuntimeConfig = Readonly<{
   [K in RuntimeEnvKey]: string | undefined;
 }>;
 
-/**
- * Pure snapshot of production env keys. Explicit `env.KEY` reads keep the
- * AST contract scanner aligned with RUNTIME_CONFIG_KEYS as the manifest.
- */
 export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
   return Object.freeze({
     AUTH_INITIAL_ROLES: env.AUTH_INITIAL_ROLES,

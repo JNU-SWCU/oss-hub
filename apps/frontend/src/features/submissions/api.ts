@@ -21,15 +21,6 @@ function milestoneDocumentsPath(milestoneId: string): string {
   return `milestones/${encodeURIComponent(milestoneId)}/documents`;
 }
 
-/**
- * ⚠ 이 endpoint는 항목 배열이 아니라 **봉투**를 돌려준다 — `{ documents, fileUpload }`
- * (백엔드 `MilestoneDocumentListResponseDto`, #1107). 화면이 쓰는 것은 항목뿐이라
- * 여기서 벗겨 낸다.
- *
- * 봉투가 아닌 응답은 빈 목록으로 삼키지 않고 던진다. 조용히 빈 칸을 그리면
- * 계약이 다시 갈리는 날 화면은 「난 파일이 없다」고 말하고 아무도 모른다
- * (같은 이유로 `requireSubmissionUploadLimit`도 던진다).
- */
 export async function listMilestoneDocumentCurrentFiles(
   milestoneId: string,
 ): Promise<readonly MilestoneDocumentCurrentFileItem[]> {
@@ -63,7 +54,6 @@ export async function getSubmissionForm(
   };
 }
 
-/** #124 제출 현황 매트릭스 조회 — 접근: APPROVED STAFF·ADMIN. */
 export function getSubmissionMatrix(
   programId: string,
   query: MatrixQueryInput,
@@ -98,10 +88,6 @@ export function uploadSubmissionFile(
   });
 }
 
-/**
- * #1108 고른 파일에 제출과 같은 판정만 받는다 — 서버는 저장하지 않는다.
- * 통과면 본문 없이 끝나고, 거절이면 제출 때와 같은 코드의 `ApiError`를 던진다.
- */
 export async function checkSubmissionFile(file: File): Promise<void> {
   const body = new FormData();
   body.append('file', file);
@@ -121,7 +107,6 @@ export function createSubmission(input: {
   });
 }
 
-/** #116 내 체크리스트 — 프로그램 전체 마일스톤과 내 제출 상태. */
 export async function getSubmissionChecklist(
   programId: string,
 ): Promise<SubmissionChecklist> {
@@ -134,7 +119,6 @@ export async function getSubmissionChecklist(
   };
 }
 
-/** #116 보완 재제출 — baseRevision으로 오래된 탭의 중복 제출을 막는다. */
 export function createResubmission(input: {
   readonly submissionId: string;
   readonly baseRevision: number;

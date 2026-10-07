@@ -1,11 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose';
 
-/**
- * 세션 토큰 profile (고정):
- * - HS256만 허용, 필수 클레임은 sub/iss/aud/iat/exp/sessionVersion
- * - sub = githubId의 10진 문자열 (Number 변환 금지 — BigInt로만 다룬다)
- * - 수명 7일 초과 토큰은 서명이 유효해도 거부
- */
 const ISSUER = 'oss-hub';
 const AUDIENCE = 'oss-hub-web';
 export const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
@@ -40,7 +34,6 @@ export async function issueSessionToken(
     .sign(secret);
 }
 
-/** 검증 실패는 종류와 무관하게 null — 호출부는 전부 동일한 미인증(AUT_003)으로 처리한다. */
 export async function verifySessionToken(
   secret: Uint8Array,
   token: string,

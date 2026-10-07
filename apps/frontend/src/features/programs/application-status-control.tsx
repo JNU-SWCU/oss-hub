@@ -17,14 +17,6 @@ const STATUS_SURFACE: Readonly<Record<ApplicationStatus, string>> = {
   REJECTED: 'bg-status-rejected-bg text-status-rejected-fg',
 };
 
-/**
- * 신청 상태를 한 곳에서 바꾸고 읽는다. 목록과 상세가 같은 컨트롤을 쓴다 —
- * 배지와 드롭다운을 나란히 두면 같은 상태가 두 번 선다.
- *
- * 네이티브 `<select>`를 유지한다. 열림 UI를 직접 그리면 모바일 기본 피커와
- * 키보드 조작을 잃는다. 색은 StatusBadge와 같은 `--status-*` 토큰이고, 글자와
- * 셰브론이 색이 아닌 신호다.
- */
 export function ApplicationStatusControl({
   value,
   disabled,

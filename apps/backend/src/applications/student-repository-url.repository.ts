@@ -38,7 +38,6 @@ export type StudentRepositoryUrlContext = {
   } | null;
 };
 
-/** 바꾸려는 사람이 이 팀에 대해 가진 사실. 허용 여부는 service가 정한다. */
 export type TeamRepositoryUrlContext = StudentRepositoryUrlContext & {
   readonly editor: {
     readonly nickname: string;
@@ -47,11 +46,6 @@ export type TeamRepositoryUrlContext = StudentRepositoryUrlContext & {
   };
 };
 
-/**
- * 팀장은 그 팀의 현재 팀장인 ACTIVE 학생이고, 교직원은 ACTIVE이면서 교직원·관리자
- * 접근이 있는 사람이다. 잠그기 전 확인과 잠근 뒤 재확인이 같은 판정이어야 해서
- * 한 함수로 둔다.
- */
 export async function readTeamRepositoryUrlContext(
   db: Prisma.TransactionClient,
   programId: string,

@@ -21,13 +21,6 @@ const PREFIX = 'test:staff-read-paths:';
 const PROGRAM_ID = `${PREFIX}program`;
 const STAFF_ID = `${PREFIX}staff`;
 
-/**
- * 네 팀의 제출 시각과 상태를 일부러 엇갈리게 둔다.
- *
- * `SUBMITTED 우선 → submittedAt ASC → id ASC` 계약과 「상태 enum 선언 순서로 묶는」
- * 구현을 **가르는** 배치다. 후자면 APPROVED(01-04)가 REJECTED(01-02)보다 앞서지만,
- * 계약대로면 검토대기 뒤는 상태와 무관하게 제출 시각 순이다.
- */
 const FIXTURES = [
   { key: 'a', status: ApplicationStatus.SUBMITTED, submittedAt: '2026-01-03' },
   { key: 'b', status: ApplicationStatus.SUBMITTED, submittedAt: '2026-01-01' },
@@ -42,7 +35,6 @@ const EXPECTED_ORDER = [
   `${PREFIX}application-c`,
 ];
 
-/** 팀 c 에만 있는 팀원 — 대표 신청자가 아니라 팀원 축으로만 검색에 걸린다. */
 const SEARCH_ONLY_MEMBER_NAME = '검색전용팀원이름';
 const SEARCH_ONLY_MEMBER_NICKNAME = 'search-only-login';
 
@@ -213,26 +205,22 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
   });
 
   it('검토대기를 앞세우되 그 뒤는 상태가 아니라 제출 시각 순이다', async () => {
-    // When
     const page = await repository.listTeamManagementForProgram(
       PROGRAM_ID,
       query(),
     );
 
-    // Then
     expect(page.items.map((item) => item.id)).toEqual(EXPECTED_ORDER);
     expect(page.totalItems).toBe(4);
     expect(page.totalPages).toBe(1);
   });
 
   it('상태 필터와 결합해도 같은 정렬이 유지된다', async () => {
-    // When
     const page = await repository.listTeamManagementForProgram(
       PROGRAM_ID,
       query({ status: 'SUBMITTED' }),
     );
 
-    // Then
     expect(page.items.map((item) => item.id)).toEqual([
       `${PREFIX}application-b`,
       `${PREFIX}application-a`,
@@ -241,7 +229,6 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
   });
 
   it('페이지를 나눠도 전체 순서가 이어지고 count 와 어긋나지 않는다', async () => {
-    // When
     const [first, second] = await Promise.all([
       repository.listTeamManagementForProgram(
         PROGRAM_ID,
@@ -253,7 +240,6 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
       ),
     ]);
 
-    // Then: 두 페이지를 이어 붙이면 단일 페이지 순서와 같다 — 중복도 누락도 없다.
     expect([
       ...first.items.map((item) => item.id),
       ...second.items.map((item) => item.id),
@@ -264,39 +250,33 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
   });
 
   it('팀원 이름으로만 일치하는 팀도 검색 결과에 들어온다', async () => {
-    // When: 대표 신청자가 아니라 팀원의 실명이다.
     const page = await repository.listTeamManagementForProgram(
       PROGRAM_ID,
       query({ search: SEARCH_ONLY_MEMBER_NAME }),
     );
 
-    // Then
     expect(page.items.map((item) => item.id)).toEqual([
       `${PREFIX}application-c`,
     ]);
   });
 
   it('팀원 GitHub 계정으로만 일치하는 팀도 대소문자 무관하게 들어온다', async () => {
-    // When
     const page = await repository.listTeamManagementForProgram(
       PROGRAM_ID,
       query({ search: SEARCH_ONLY_MEMBER_NICKNAME.toUpperCase() }),
     );
 
-    // Then
     expect(page.items.map((item) => item.id)).toEqual([
       `${PREFIX}application-c`,
     ]);
   });
 
   it('팀 구성원 표시 이름 목록을 실어 「팀/구성」 열을 채운다', async () => {
-    // When
     const page = await repository.listTeamManagementForProgram(
       PROGRAM_ID,
       query({ search: SEARCH_ONLY_MEMBER_NAME }),
     );
 
-    // Then
     expect(page.items[0]?.team).toMatchObject({
       name: '팀 c',
       memberCount: 2,
@@ -308,13 +288,11 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
   });
 
   it('lean projection 은 저장소 어휘를 아예 담지 않는다', async () => {
-    // When
     const page = await repository.listTeamManagementForProgram(
       PROGRAM_ID,
       query(),
     );
 
-    // Then: 응답에서 지우는 게 아니라 애초에 읽지 않는다.
     const serialized = JSON.stringify(page);
     for (const forbidden of [
       'repositoryConnectionMode',
@@ -331,13 +309,11 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
   });
 
   it('기존 목록 projection 의 응답 모양은 그대로다 — 중간 배포에서 옛 화면이 산다', async () => {
-    // When
     const page = await repository.listApplicationsForProgram(
       PROGRAM_ID,
       query({ view: 'default' }),
     );
 
-    // Then: 저장소 필드가 여전히 있다(제거는 PR3 몫이다).
     expect(page.items[0]).toEqual(
       expect.objectContaining({
         repositoryConnectionMode: expect.any(String) as unknown,
@@ -349,7 +325,6 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
   });
 
   it('검토 이력을 최신순으로 돌려주고 표시 가능한 actor 값만 싣는다', async () => {
-    // Given: 같은 신청에 세 사건이 쌓였다.
     const applicationId = `${PREFIX}application-a`;
     await prisma.applicationReviewHistory.createMany({
       data: [
@@ -381,10 +356,8 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
       ],
     });
 
-    // When
     const history = await repository.listReviewHistory(applicationId);
 
-    // Then
     expect(history.map((entry) => entry.eventKind)).toEqual([
       'RESUBMITTED',
       'REJECTED',
@@ -395,7 +368,7 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
       rejectionReason: '서류 미비',
       actor: { name: '합성 교직원', nickname: 'staff-reviewer' },
     });
-    // 학번·소속·연락처는 projection 이 읽지 않는다.
+
     const serialized = JSON.stringify(history);
     for (const forbidden of ['studentId', 'department', 'githubId', 'email']) {
       expect(serialized).not.toContain(forbidden);
@@ -403,7 +376,6 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
   });
 
   it('다른 신청의 이력은 섞이지 않는다', async () => {
-    // Given
     await prisma.applicationReviewHistory.create({
       data: {
         id: `${PREFIX}history-other`,
@@ -415,7 +387,6 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
       },
     });
 
-    // When / Then
     await expect(
       repository.listReviewHistory(`${PREFIX}application-a`),
     ).resolves.toEqual([]);
@@ -425,7 +396,6 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
   });
 
   it('없는 신청은 이력도 빈 배열이고 신청 조회도 null 이다 — 부재와 비공개가 같은 모양이다', async () => {
-    // When / Then
     await expect(
       repository.listReviewHistory(`${PREFIX}application-missing`),
     ).resolves.toEqual([]);
@@ -435,7 +405,6 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
   });
 
   it('다른 프로그램의 신청은 목록에 섞이지 않는다', async () => {
-    // Given: 같은 모양의 신청이 다른 프로그램에 있다.
     const otherProgramId = `${PREFIX}program-other`;
     const otherLeaderId = `${PREFIX}leader-other`;
     await createStudent(
@@ -484,13 +453,11 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
       },
     });
 
-    // When
     const page = await repository.listTeamManagementForProgram(
       PROGRAM_ID,
       query(),
     );
 
-    // Then
     expect(page.items.map((item) => item.id)).toEqual(EXPECTED_ORDER);
   });
 });

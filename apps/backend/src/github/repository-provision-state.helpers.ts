@@ -48,8 +48,6 @@ interface LockedRepositoryClaimTarget {
   readonly source: RepositorySource;
 }
 
-/// GithubRepository는 name/url 컬럼을 두지 않는다(#617 단계 D) — nameWithOwner를 select하고
-/// toProvisionedRepository로 name/url을 유도해 기존 ProvisionedRepository 계약 모양을 유지한다.
 export const repositorySelection = {
   id: true,
   applicationId: true,
@@ -70,8 +68,6 @@ export function toProvisionedRepository(
   row: ProvisionedRepositoryRow,
 ): ProvisionedRepository {
   if (row.applicationId === null) {
-    // recordRepository/loadContext는 applicationId로 조회하므로 이 경로로 온 행은 항상
-    // applicationId를 가진다 — null이면 인벤토리 스윕이 만든 무관한 행을 잘못 짚은 것이다.
     throw new RepositoryProvisionLeaseLostError();
   }
   return {
@@ -103,13 +99,6 @@ export async function assertProvisionLease(
   assertSingleProvisionUpdate(count);
 }
 
-/**
- * worker가 잡은 lease와 요청 세대를 한 행 잠금 아래에서 함께 확인한다.
- *
- * 세대 검사를 먼저 한다. 새 요청이 같은 job을 재무장하면 옛 worker의 lease도
- * 사라지는데, 그때 단순 lease-loss로 읽으면 옛 요청을 SUPERSEDED 이력으로 닫을
- * 수 없다. 반대로 세대가 같을 때만 기존 lease-loss 의미를 유지한다.
- */
 export async function assertCurrentRequest(
   transaction: Prisma.TransactionClient,
   jobId: string,
@@ -182,10 +171,6 @@ export async function lockApplicationForRepositoryClaim(
   }
 }
 
-/**
- * Application.repository 포인터와 mode/url을 한 current tuple로 바꾼다.
- * 기존 행을 먼저 지우지 않고 detach하므로 활동·초대 이력은 보존된다.
- */
 export async function claimGithubRepositoryForApplication(
   transaction: Prisma.TransactionClient,
   input: {
@@ -306,9 +291,7 @@ export async function claimGithubRepositoryForApplication(
           before: {
             repositoryId: current?.id ?? null,
             nameWithOwner: current?.nameWithOwner ?? null,
-            // caller only supplies actor for first-class connection changes.
-            // The current mode/url are read by that caller under the same
-            // Application lock and supplied separately below.
+
             connectionMode: input.currentConnectionMode,
             repositoryUrl: input.currentRepositoryUrl,
           },
@@ -325,15 +308,9 @@ export async function claimGithubRepositoryForApplication(
   return repository;
 }
 
-/**
- * 현재 팀 구성원을 확인할 수 없는데도 NEW 저장소를 계속 조정하면, 빈 목록이
- * "전원 회수"로 해석돼 살아있는 팀의 접근을 통째로 끊는다 — 신청자/리더로
- * 목록을 대신 채우지 않고 여기서 최종 실패로 멈춘다.
- */
 export const PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE =
   'REPOSITORY_PROVISION_MEMBERSHIP_UNAVAILABLE';
 
-/** 회수 축 상태 — 이 상태의 행은 GRANT 축 재시도 대상이 아니다. */
 export const REVOCATION_INVITATION_STATUSES = [
   RepositoryInvitationStatus.REVOKE_REQUIRED,
   RepositoryInvitationStatus.REVOKED,
@@ -351,16 +328,12 @@ export function invitationIntent(
     : 'GRANT';
 }
 
-// login 정규화는 outbox payload 계약이 요구하는 모양(중복 없음·정렬)과 같은
-// 규칙이라 그 계약을 가진 순수 모듈이 정본을 든다 — 여기서는 다시 내보낼 뿐이다.
 export { canonicalGithubLogin, canonicalGithubLogins };
 
-/** 정규화된 login 목록 그대로가 지문이다 — 별도 해시를 두지 않는다. */
 export function membershipFingerprint(logins: readonly string[]): string {
   return JSON.stringify(logins);
 }
 
-/** live TeamMember 행에서만 login을 읽는다(신청자/리더 fallback 금지). */
 export const teamMemberLoginSelection = {
   user: { select: { nickname: true } },
 } as const;
@@ -371,12 +344,6 @@ export function loginsFromTeamMembers(
   return canonicalGithubLogins(members.map((member) => member.user.nickname));
 }
 
-/**
- * claim한 job 행만 잠근다. Team → Job 순서로 잠그는 쓰기 경로(멤버십 변경이
- * outbox/job을 건드리는 경로)가 있으므로 여기서 Job을 잡은 뒤 Team을 잠그면
- * 순환 대기가 된다 — 이 함수로 Job 행만 잠그고 멤버십은 잠금 없이 MVCC로 다시
- * 읽는다.
- */
 export async function lockClaimedProvisionJob(
   transaction: Prisma.TransactionClient,
   jobId: string,

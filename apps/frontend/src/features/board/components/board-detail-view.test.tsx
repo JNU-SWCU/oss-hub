@@ -80,18 +80,9 @@ function baseProps(
   };
 }
 
-/**
- * 공백이 하나도 없는 200자. 붙여넣은 저장소 주소나 해시가 이 모양이다.
- * 본문과 댓글을 따로 집어야 해서 두 값을 다르게 둔다.
- */
 const UNBROKEN_POST_BODY = `postbody${'0123456789'.repeat(19)}`;
 const UNBROKEN_COMMENT_BODY = `commentbody${'0123456789'.repeat(19)}`;
 
-/**
- * `text`를 직접 감싼 요소의 class를 꺼낸다.
- * 줄바꿈 규칙은 텍스트를 감싼 그 요소에 걸려야 뜻이 있으므로,
- * 문서 전체를 훑는 `expect(html).toContain(...)`으로는 어느 요소인지 구분되지 않는다.
- */
 function classesWrapping(html: string, text: string): string {
   const textIndex = html.indexOf(text);
   expect(textIndex).toBeGreaterThan(-1);
@@ -135,11 +126,11 @@ describe('BoardDetailContent', () => {
     expect(html).toContain('합성 질문자');
     expect(html).toContain('합성 교직원');
     expect(html).toContain('합성 학생');
-    expect(html).toContain('학생'); // 작성자(QNA) 역할 라벨
+    expect(html).toContain('학생');
     expect(html).toContain('질문');
     expect(html).toContain('댓글 2');
     expect(html).toContain('10월 17일 18시까지입니다.');
-    expect(html).toContain('교직원'); // 교직원 댓글 역할 태그
+    expect(html).toContain('교직원');
     expect(html).toContain('감사합니다.');
     expect(html).toContain('수정');
     expect(html).toContain('삭제');
@@ -359,7 +350,7 @@ describe('BoardDetailContent', () => {
     expect(body).toContain('aria-invalid="true"');
     expect(body).toContain('aria-describedby="board-edit-body-error"');
     expect(textOf(html, 'board-edit-body-error')).toBe('내용을 입력해 주세요.');
-    // 채워 둔 제목 칸은 함께 빨개지지 않는다.
+
     expect(openingTag(html, 'board-edit-title')).not.toContain(
       'aria-invalid="true"',
     );
@@ -407,7 +398,7 @@ describe('BoardDetailContent', () => {
     );
     expect(html).toContain('aria-describedby="board-comment-error"');
     expect(html).toContain('aria-invalid="true"');
-    // 입력 누락은 상자를 세우지 않는다.
+
     expect(html).not.toContain('data-slot="alert"');
   });
 
@@ -419,7 +410,7 @@ describe('BoardDetailContent', () => {
           deleteError: '작성자만 수정·삭제할 수 있습니다.',
           pinError: '교직원만 게시글을 고정할 수 있습니다.',
           commentSubmitError: '댓글을 찾을 수 없습니다.',
-          // 댓글 삭제 실패 뒤에도 빈 댓글 칸이 빨개지지 않는다.
+
           commentDraftError: '댓글 내용을 입력해 주세요.',
           commentShowDraftError: false,
         })}
@@ -448,8 +439,6 @@ describe('BoardDetailContent', () => {
       />,
     );
 
-    // 접을 자리를 주지 않으면 상자를 넘치고, 넘친 부분은 카드(`card.tsx`의
-    // `overflow-hidden`)가 잘라 낸다 — 가로 스크롤도 생기지 않아 아예 못 읽는다.
     expect(classesWrapping(html, UNBROKEN_POST_BODY)).toContain(
       '[overflow-wrap:anywhere]',
     );
@@ -465,13 +454,10 @@ describe('BoardDetailContent', () => {
     const bodyClasses = classesWrapping(html, post.body);
     const commentClasses = classesWrapping(html, post.comments[0]!.body);
 
-    // 저장된 값 자체는 자르거나 가공하지 않는다.
     expect(html).toContain(post.body);
-    // 작성자가 넣은 줄바꿈을 살리는 자리는 그대로 둔다.
+
     expect(bodyClasses).toContain('whitespace-pre-wrap');
 
-    // `word-break`(`break-all`·`break-keep`)는 넘치지 않는 한글에도 줄바꿈 자리를
-    // 옮긴다. 이 티켓은 넘쳐서 잘리는 것만 고치므로 그 자리는 건드리지 않는다.
     for (const classes of [bodyClasses, commentClasses]) {
       expect(classes).not.toContain('break-all');
       expect(classes).not.toContain('break-keep');

@@ -16,19 +16,6 @@ import {
 } from './milestone-document-upload-policy';
 import { useMilestoneDocumentFileCheck } from './use-milestone-document-file-check';
 
-/**
- * 제출·재제출 폼.
- *
- * ⚠ 재제출은 **첨부를 옮겨 오지 않는다**(#1090에서 확정한 동작). 파일을 다시 고르지
- * 않으면 지금 붙어 있는 첨부가 이번 제출에서 빠지고, 교직원의 수합 표·개별 내려받기·
- * 마일스톤 ZIP 세 곳에서 함께 사라진다. 그래서 이 폼은 **누르기 전에** 무엇이 빠지는지를
- * 말해야 한다.
- *
- * ⚠ 경고는 재제출이 열리는 **모든 상태**에 둔다 — 보완 요청(CHANGES_REQUESTED)뿐 아니라
- * 교직원이 아직 판정하지 않은 검토 대기(SUBMITTED)도 같은 폼으로 다시 내며, 후자는
- * 아무도 문제 삼지 않은 파일이 사라지는 경로다. 그 판단을 상태로 하지 않고 「지금 붙어
- * 있는 첨부가 있는가」 하나로 하는 이유가 그것이다.
- */
 export function MilestoneDocumentSubmissionForm({
   documentName,
   documentId,
@@ -42,16 +29,13 @@ export function MilestoneDocumentSubmissionForm({
 }: {
   readonly documentName: string;
   readonly documentId: string;
-  /** 상한·허용 형식은 서버가 목록 응답으로 준 값을 그대로 쓴다(#1107). */
+
   readonly fileUpload: MilestoneDocumentUploadPolicy;
-  /** 지금 이 서류에 붙어 있는 첨부의 이름. 없으면 `null`. */
+
   readonly currentFileName: string | null;
   readonly isResubmission?: boolean;
   readonly submitting: boolean;
-  /**
-   * 제출 때 압축 파일 **내용** 때문에 막힌 사유(#1108). 그 파일을 그대로 들고 있는 동안만
-   * 고를 때의 판정과 **같은** 오류 자리에 선다 — 한 문장이 두 자리에 겹치지 않는다.
-   */
+
   readonly fileRejection?: {
     readonly file: File;
     readonly message: string;
@@ -80,11 +64,7 @@ export function MilestoneDocumentSubmissionForm({
   const fileHelpId = `${documentId}-submission-file-help`;
   const fileErrorId = `${documentId}-submission-file-error`;
   const currentFileHelpId = `${documentId}-submission-current-file`;
-  /*
-   * 파일 입력이 가리키는 설명은 둘이 서로 독립으로 늘고 준다 — 기존 첨부가 빠진다는
-   * 경고(#1090)와 상한·형식에 걸렸다는 안내(#1107). 한쪽 조건으로 문자열을 통째로
-   * 갈아 끼우면 다른 쪽이 조용히 지워지므로, 있는 것만 모아 잇는다.
-   */
+
   const fileDescribedBy = [
     helpId,
     fileHelpId,
@@ -149,10 +129,7 @@ export function MilestoneDocumentSubmissionForm({
               selected === null
                 ? null
                 : milestoneDocumentUploadRejection(selected, fileUpload);
-            /*
-             * 걸린 파일은 받아 두지 않는다 — 받아 두면 「제출」이 눌리고, 그 요청은
-             * 반드시 실패한다. 고른 것을 지워야 학생이 다시 고를 수 있다.
-             */
+
             if (rejection !== null) event.target.value = '';
             setFile(rejection === null ? selected : null);
             setRejectedFile(
@@ -160,7 +137,7 @@ export function MilestoneDocumentSubmissionForm({
                 ? null
                 : { name: selected.name, reason: rejection },
             );
-            // ZIP이면 제출 전에 서버 판정을 묻는다(#1108). 걸린 파일은 위에서 이미 말했다.
+
             fileCheck.start(rejection === null ? selected : null);
           }}
         />
@@ -210,7 +187,7 @@ export function MilestoneDocumentSubmissionForm({
               </span>
             </span>
           )}
-          {/* 실패한 뒤가 아니라 파일을 고르기 전에 상한과 허용 형식을 읽을 수 있어야 한다. */}
+
           <span>{milestoneDocumentUploadHint(fileUpload)}</span>
         </FieldDescription>
         {currentFileName === null ? null : (
@@ -230,10 +207,7 @@ export function MilestoneDocumentSubmissionForm({
                 {currentFileName}
               </span>
             </span>
-            {/*
-             * 새 파일을 고른 순간 이 경고는 사라진다 — 그때는 빠지는 것이 아니라
-             * 바뀌는 것이라, 같은 문구를 계속 두면 학생이 무엇을 걱정해야 하는지 흐려진다.
-             */}
+
             {hasFile ? null : (
               <span className="text-foreground">
                 새 파일을 고르지 않으면 이 파일은 이번 제출에서 빠집니다. 그대로

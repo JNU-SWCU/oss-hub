@@ -29,7 +29,6 @@ export class ConsentsController {
     return ConsentCurrentResponseDto.from(status);
   }
 
-  /** 같은 요청 반복도 200으로 수렴한다(멱등) — 201 대신 200을 쓴다(티켓 계약). */
   @Post()
   @UseGuards(SessionGuard, OriginGuard)
   @HttpCode(200)

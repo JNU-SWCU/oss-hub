@@ -22,7 +22,6 @@ import { SubmissionMatrixRepository } from './submission-matrix.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { SubmissionsErrorCode } from './submissions-error-code.enum';
 
-// allow: SIZE_OK — 권한 4종·개인/팀/미제출 행·5개 상태·검색·형태·페이지네이션이 하나의 격리 PostgreSQL lifecycle을 공유한다.
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -46,7 +45,6 @@ const PENDING_REQUEST_ID = 'synthetic-matrix-pending-request';
 const ROWHOLDER_ID = 'synthetic-matrix-rowholder';
 const UNSUBMITTED_APPLICATION_ID = 'synthetic-matrix-unsubmitted-application';
 
-/** dueAt ASC(동률 createdAt ASC) 기대 순서 — 시드 offsetDays: -3, +4, +5, +6, +8, +10, +12, +15. */
 const EXPECTED_MILESTONE_ORDER = [
   MILESTONE_SCENARIOS['milestones-overdue'][0],
   MILESTONE_SCENARIOS['submission-rejected'][0],
@@ -226,14 +224,12 @@ describe('SubmissionMatrixService integration', () => {
   });
 
   it('STAFF가 개인·팀·미제출 행을 dueAt ASC 매트릭스로 조회한다', async () => {
-    // When
     const matrix = await service.matrix(
       seedGithubId(STAFF_VIEWER_ID),
       PROGRAM_ID,
       query(),
     );
 
-    // Then: milestones는 dueAt ASC — 시드 8개가 기대 순서를 유지한다.
     const dueTimes = matrix.milestones.map((milestone) =>
       new Date(milestone.dueAt).getTime(),
     );
@@ -245,7 +241,6 @@ describe('SubmissionMatrixService integration', () => {
         .filter((id) => seedMilestoneIds.has(id)),
     ).toEqual(EXPECTED_MILESTONE_ORDER);
 
-    // Then: rows는 application createdAt ASC — 제출 0건 행도 빠지지 않는다.
     expect(matrix.rows.map((row) => row.applicationId)).toEqual([
       PERSONAL_APPLICATION_ID,
       TEAM_APPLICATION_ID,
@@ -257,7 +252,6 @@ describe('SubmissionMatrixService integration', () => {
     const team = rowFor(matrix.rows, TEAM_APPLICATION_ID);
     const unsubmitted = rowFor(matrix.rows, UNSUBMITTED_APPLICATION_ID);
 
-    // 개인 행: 표시 이름은 canonical UserProfile.name이다.
     expect(personal).toMatchObject({
       applicationMode: 'PERSONAL',
       displayName: '합성 개인 신청자',
@@ -296,12 +290,11 @@ describe('SubmissionMatrixService integration', () => {
       submittedAt: null,
       reviewUrl: null,
     });
-    // 팀의 제출은 개인 행에 결합되지 않는다.
+
     expect(
       cellFor(personal, MILESTONE_SCENARIOS['submission-existing'][0]).status,
     ).toBe('NOT_SUBMITTED');
 
-    // 팀 행: 팀명 displayName + 팀원 GitHub 핸들 전원.
     expect(team).toMatchObject({
       applicationMode: 'TEAM',
       displayName: 'seed-milestones-team',
@@ -321,7 +314,6 @@ describe('SubmissionMatrixService integration', () => {
       cellFor(team, MILESTONE_SCENARIOS['submission-approved'][0]).status,
     ).toBe('NOT_SUBMITTED');
 
-    // 제출 0건 행: 모든 cell이 미제출이고 개인형 displayName은 User.name 우선.
     expect(unsubmitted).toMatchObject({
       applicationMode: 'PERSONAL',
       displayName: 'Synthetic Nameholder',
@@ -339,14 +331,12 @@ describe('SubmissionMatrixService integration', () => {
   });
 
   it('ADMIN도 같은 매트릭스를 조회한다', async () => {
-    // When
     const matrix = await service.matrix(
       seedGithubId(ADMIN_VIEWER_ID),
       PROGRAM_ID,
       query(),
     );
 
-    // Then
     expect(matrix.total).toBe(3);
     expect(matrix.rows).toHaveLength(3);
   });
@@ -384,14 +374,12 @@ describe('SubmissionMatrixService integration', () => {
   ] as const)(
     '검색은 %s을(를) 대소문자 무시로 필터하고 total도 같은 필터를 쓴다',
     async (_, q, expectedIds) => {
-      // When
       const matrix = await service.matrix(
         seedGithubId(STAFF_VIEWER_ID),
         PROGRAM_ID,
         query({ q }),
       );
 
-      // Then
       expect(matrix.rows.map((row) => row.applicationId)).toEqual([
         ...expectedIds,
       ]);
@@ -400,10 +388,6 @@ describe('SubmissionMatrixService integration', () => {
   );
 
   it('참여 유형 필터는 더 이상 행을 가르지 않는다', async () => {
-    // 모든 신청이 Team을 갖고 개인 참여는 1인 팀이므로(D5·D6) 개인형/팀형 구분이
-    // 사라졌다. 예전 필터를 그대로 두면 조용히 0건을 반환하므로 필터링을 제거했고,
-    // 어떤 값을 넣어도 전체 행이 그대로 나오는 것이 새 계약이다.
-    // 쿼리 파라미터 자체의 제거는 표시 계층 정리에서 이어서 한다.
     const [personalOnly, teamOnly, noFilter] = await Promise.all([
       service.matrix(
         seedGithubId(STAFF_VIEWER_ID),
@@ -418,7 +402,6 @@ describe('SubmissionMatrixService integration', () => {
       service.matrix(seedGithubId(STAFF_VIEWER_ID), PROGRAM_ID, query({})),
     ]);
 
-    // Then
     expect(personalOnly.rows.map((row) => row.applicationId)).toEqual(
       noFilter.rows.map((row) => row.applicationId),
     );
@@ -435,7 +418,6 @@ describe('SubmissionMatrixService integration', () => {
   });
 
   it('페이지네이션은 안정 정렬을 유지하고 total은 페이지와 무관하다', async () => {
-    // When
     const [secondPage, beyondPage] = await Promise.all([
       service.matrix(
         seedGithubId(STAFF_VIEWER_ID),
@@ -449,7 +431,6 @@ describe('SubmissionMatrixService integration', () => {
       ),
     ]);
 
-    // Then
     expect(secondPage.rows.map((row) => row.applicationId)).toEqual([
       TEAM_APPLICATION_ID,
     ]);

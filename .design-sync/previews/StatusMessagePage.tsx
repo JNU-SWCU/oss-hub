@@ -1,6 +1,3 @@
-// StatusMessagePage 프리뷰 — role-request-screen.tsx(RoleRequestStatusView, 상태별
-// 아이콘·배지)와 role-selection-screen.tsx(action 슬롯에 전체 폼을 넣는 실제 사용법)를
-// 그대로 옮긴 것.
 import {
   Alert,
   AlertDescription,
@@ -31,7 +28,6 @@ function ClockIcon() {
   );
 }
 
-// role-request-screen.tsx PENDING 상태 — icon + title + description + action(배지·버튼).
 export function PendingApproval() {
   return (
     <StatusMessagePage
@@ -50,7 +46,6 @@ export function PendingApproval() {
   );
 }
 
-// role-selection-screen.tsx — action 슬롯에 전체 폼(역할 카드 선택)을 넣는 실제 사용법.
 export function RoleSelection() {
   return (
     <StatusMessagePage
@@ -103,7 +98,6 @@ export function RoleSelection() {
   );
 }
 
-// 텍스트 과다 케이스 — 중앙 정렬 설명이 길어질 때 줄바꿈과 액션 카드 폭을 본다.
 export function LoadFailed() {
   return (
     <StatusMessagePage

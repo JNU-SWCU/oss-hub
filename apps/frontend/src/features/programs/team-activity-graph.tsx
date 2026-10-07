@@ -27,7 +27,6 @@ const METRICS = [
   readonly label: string;
 }[];
 
-/** 팀원 색은 차트 토큰 다섯 개를 돌려 쓰고, 여섯 번째부터는 점선으로 구분한다. */
 const SERIES_COLORS = [
   'var(--chart-1)',
   'var(--chart-2)',
@@ -38,7 +37,6 @@ const SERIES_COLORS = [
 
 const TICK = { fill: 'var(--muted-foreground)', fontSize: 12 } as const;
 
-/** `2026-09-21` → 축은 `09.21`, 표·말풍선은 `2026.09.21 주`. */
 function axisLabel(week: string): string {
   return week.slice(5).replace('-', '.');
 }
@@ -66,18 +64,12 @@ function Swatch({
   );
 }
 
-/**
- * 학생 팀 화면과 교직원 팀 상세가 같은 조회(`getTeamActivity`)로 그리는 한 그래프(#1133).
- *
- * 숫자는 가리키거나 초점을 줄 때만 말풍선으로 보인다. 같은 숫자는 보이지 않는 표로
- * 낭독기에 남는다. 아직 모으지 못한 것은 0으로 그리지 않는다.
- */
 export function TeamActivityGraph({
   activity,
   label,
 }: {
   readonly activity: TeamActivity;
-  /** 이 그래프가 놓인 카드의 제목. 초점을 받는 그래프의 이름이 된다. */
+
   readonly label: string;
 }) {
   switch (activity.status) {
@@ -145,7 +137,7 @@ function WeeklyChart({
   }));
   const metricLabel =
     METRICS.find((item) => item.key === metric)?.label ?? metric;
-  /** `active`는 다시 읽기 전의 칸일 수 있다 — 범위 밖이면 말풍선이 닫혀 이 0은 그려지지 않는다. */
+
   const valueAt = (item: (typeof series)[number], week: number) =>
     item.weeks[week]?.[metric] ?? 0;
   const teamTotal = (week: number) =>
@@ -181,8 +173,6 @@ function WeeklyChart({
   }
 
   return (
-    // `relative`: 아래 낭독용 표(`sr-only` = absolute)의 기준을 여기에 둔다. 기준이 없으면
-    // body가 기준이 되어, 본문 스크롤 영역 밖에서 문서 높이가 늘고 페이지가 한 번 더 스크롤된다.
     <div className="relative grid gap-4">
       <FilterChipGroup aria-label="지표">
         {METRICS.map((item) => (
@@ -206,7 +196,6 @@ function WeeklyChart({
         onMouseLeave={() => setActive(null)}
         onKeyDown={onKeyDown}
       >
-        {/* 흐리게 두는 것은 선과 범례뿐이다 — 칩과 말풍선의 숫자는 또렷하게 읽힌다. */}
         <div
           aria-hidden="true"
           data-slot="team-activity-plot"
@@ -333,8 +322,7 @@ function WeeklyChart({
           마지막 수집 {formatSeoulDate(activity.lastSuccessAt)}
         </p>
       ) : null}
-      {/* `sr-only`를 표에 직접 주면 폭 1px·넘침 숨김이 표 배치에 먹지 않아 머리글 폭만큼
-          화면이 가로로 넘친다(390폭 447px) — 숨김은 감싸는 div가 맡는다. */}
+
       <div className="sr-only">
         <table>
           <caption>{`${label} — 주별 ${metricLabel}`}</caption>

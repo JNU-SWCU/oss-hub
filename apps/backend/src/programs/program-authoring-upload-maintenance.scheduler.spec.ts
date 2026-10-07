@@ -18,7 +18,6 @@ function deferred(): {
 
 describe('ProgramAuthoringUploadMaintenanceScheduler', () => {
   it('skips an overlapping hourly run', async () => {
-    // Given
     const pending = deferred();
     const maintenance: jest.Mocked<
       Pick<ProgramAuthoringUploadMaintenanceService, 'runDue'>
@@ -27,18 +26,15 @@ describe('ProgramAuthoringUploadMaintenanceScheduler', () => {
       maintenance,
     );
 
-    // When
     const first = scheduler.run();
     await scheduler.run();
     pending.resolve(1);
     await first;
 
-    // Then
     expect(maintenance.runDue).toHaveBeenCalledTimes(1);
   });
 
   it('logs only a fixed safe code when a run fails', async () => {
-    // Given
     const maintenance: jest.Mocked<
       Pick<ProgramAuthoringUploadMaintenanceService, 'runDue'>
     > = {
@@ -51,10 +47,8 @@ describe('ProgramAuthoringUploadMaintenanceScheduler', () => {
       maintenance,
     );
 
-    // When
     await scheduler.run();
 
-    // Then
     expect(alert).toHaveBeenCalledWith({
       event: 'program-authoring-upload.cleanup.run.failed',
       errorCode: 'MAINTENANCE_RUN_FAILED',

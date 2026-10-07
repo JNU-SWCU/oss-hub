@@ -28,13 +28,13 @@ export interface SubmissionChecklistViewProps {
   readonly initialSubmission?: React.ReactNode;
   readonly checklist: SubmissionChecklist;
   readonly selectedMilestoneId: string | null;
-  /** D-day 계산 기준 시각 — 테스트에서 고정할 수 있도록 주입한다. */
+
   readonly now: Date;
   readonly input: SubmissionFormInput;
   readonly comment: string;
   readonly errors: SubmissionFormErrors;
   readonly fileError: string | null;
-  /** 고른 ZIP의 판정을 기다리는 중(#1108). */
+
   readonly fileChecking?: boolean;
   readonly serverError: string | null;
   readonly staleNotice: string | null;
@@ -68,11 +68,6 @@ export function SubmissionChecklistView(props: SubmissionChecklistViewProps) {
   const count = checklistSubmittedCount(items);
   const content = (
     <>
-      {/*
-        예전에는 같은 수를 두 번 적었다 — 설명 없는 「4/5」와 그걸 풀어 쓴 문장.
-        분수는 어느 쪽이 무엇인지 말하지 않고, 다 낸 사람에게도 항상 보인다.
-        지금 할 일이 있을 때만, 그 일을 이름으로 부른다.
-      */}
       <SectionHeading
         title="제출 현황"
         meta={
@@ -189,13 +184,6 @@ export function ChecklistSkeleton() {
   );
 }
 
-/**
- * 승인된 신청이 없는 학생이 `/programs/:id/documents`에 **주소로 직접** 들어왔을 때(#1099).
- *
- * 서버는 `SUB_003`·`SUB_004` 403으로 「참여자가 아니다」를 정확히 말하는데 예전에는 그
- * 답이 `ChecklistLoadFailure`(빨간 상자 + 「다시 시도」)로 접혔다. 그 버튼은 몇 번을 눌러도
- * 같은 403을 되풀이한다 — 재시도로 풀릴 수 있는 실패가 아니기 때문이다.
- */
 export function ChecklistParticipationRequired({
   programId,
 }: {

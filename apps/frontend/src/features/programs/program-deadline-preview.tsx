@@ -184,7 +184,7 @@ function DeadlineMailBody({
         발송 대상이 없어 {label} 메일 본문이 없습니다.
       </p>
     );
-  // The sandbox keeps the server-rendered template isolated; links open separately so the draft remains here.
+
   return (
     <div className="grid min-w-0 gap-3">
       <p className="break-words text-small">

@@ -31,65 +31,38 @@ const TEAM_ID = seedId('oss-hub', 'team');
 const APPLICATION_ID = seedId('oss-hub', 'application');
 const REPOSITORY_ID = seedId('oss-hub', 'repository');
 const PROVISION_JOB_ID = seedId('oss-hub', 'provision-job');
-/**
- * JNU-SWCU/oss-hub 플랫폼 자체의 공개 저장소 — 실제 nameWithOwner 참조는 허용된다
- * (`AGENTS.md` antipattern #2: 실존 대상은 실제 공개 메타데이터를 그대로 쓴다). #617 단계 D
- * 이후 GithubRepository는 name/url 컬럼이 없고 nameWithOwner에서 파생하므로
- * (`repository-identity.ts`), 여기서도 url 대신 nameWithOwner를 저장한다.
- */
+
 const OSS_HUB_REPOSITORY_NAME_WITH_OWNER = 'JNU-SWCU/oss-hub';
 const PROGRAM_NAME = '오픈소스 플랫폼 구축';
 const PROGRAM_ORGANIZER = '오픈소스 SW 개발 사업단';
-/** JNU-SWCU/oss-hub 공개 저장소의 실제 GitHub numeric id (GitHub REST API로 확인, public 정보). */
+
 const OSS_HUB_GITHUB_REPOSITORY_ID = 1297138137n;
 const PROGRAM_DESCRIPTION =
   '오픈소스 SW 개발 사업단이 주관하는 오픈소스 플랫폼 구축 프로그램. 참여 팀은 마일스톤별로 진행 상황과 산출물을 제출하고, GitHub 저장소를 통해 결과물을 공개한다. 공지 예시: [모집홍보] 2026 오픈소스 개발자대회 모집 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=922); ｢모집홍보｣ 『LLMOps 파이프라인 개발』 교육 2026학년 2학기 자유학기(자유교과목) 신청 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=939).';
 
-// oss-hub-practice — 별도 Program·Team·Application·GithubRepository 체인(#113:
-// GithubRepository는 applicationId당 최대 한 건(#617 단계 D 이후), #164: 같은 팀은 같은
-// Program에 신청을 한 건만 낼 수 있다 —
-// `Application_programId_teamId_team_key` partial unique index, Prisma schema에는 표현되지
-// 않고 마이그레이션 SQL이 원본이다. 그래서 기존 oss-hub Program·Team을 재사용할 수 없고,
-// 같은 네 명의 ADMIN 계정으로 별도 Program·Team을 새로 만든다).
 const PRACTICE_PROGRAM_ID = seedId('oss-hub-practice', 'program');
 const PRACTICE_TEAM_ID = seedId('oss-hub-practice', 'team');
 const PRACTICE_APPLICATION_ID = seedId('oss-hub-practice', 'application');
 const PRACTICE_REPOSITORY_ID = seedId('oss-hub-practice', 'repository');
 const PRACTICE_PROVISION_JOB_ID = seedId('oss-hub-practice', 'provision-job');
 const PRACTICE_PROGRAM_NAME = '오픈소스 실습 배포 퀘스트';
-/** JNU-SWCU/oss-hub-practice 학생 실습용 공개 저장소 — 실제 공개 URL 참조는 허용된다. */
+
 const OSS_HUB_PRACTICE_REPOSITORY_URL =
   'https://github.com/JNU-SWCU/oss-hub-practice';
-/**
- * #617 단계 D 이후 GithubRepository는 name/url 컬럼이 없고 nameWithOwner에서 파생하므로
- * (`repository-identity.ts`), 저장소 행 생성에는 url 대신 이 값을 쓴다. 위 URL 상수는 설명
- * 문구(`PRACTICE_PROGRAM_DESCRIPTION`)에서 계속 쓰인다.
- */
+
 const OSS_HUB_PRACTICE_NAME_WITH_OWNER = 'JNU-SWCU/oss-hub-practice';
-/** JNU-SWCU/oss-hub-practice 공개 저장소의 실제 GitHub numeric id (GitHub REST API로 확인, public 정보). */
+
 const OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID = 1296567792n;
-/** 실제 GitHub 저장소 생성일(2026-07-10, public 정보) — Asia/Seoul 자정 기준. */
+
 const OSS_HUB_PRACTICE_CREATED_AT = kstMidnight('2026-07-10');
 const OSS_HUB_PRACTICE_DESCRIPTION =
   'JNU OSS Hub practice repository for student fork and deployment quests (학생 fork/배포 퀘스트 실습용). 기본 브랜치는 main입니다.';
 const PRACTICE_PROGRAM_DESCRIPTION = `학생이 ${OSS_HUB_PRACTICE_REPOSITORY_URL}를 fork하고 배포까지 완료하는 실습 퀘스트 프로그램입니다. ${OSS_HUB_PRACTICE_DESCRIPTION}`;
 
-/**
- * Notion "📅 Schedule" DB의 실제 프로젝트 마일스톤 날짜를 그대로 반영하는 고정 UTC Date.
- * `isoDate`는 Asia/Seoul 자정 기준이다 — offsetDays(SEED_NOW 상대)를 쓰지 않는다.
- */
 function kstMidnight(isoDate: string): Date {
   return new Date(`${isoDate}T00:00:00+09:00`);
 }
 
-/**
- * 설정된 ADMIN 계정을 실제 온보딩 완료 사용자와 동일한 DB 상태로 만든다 — role=ADMIN,
- * accountStatus=ACTIVE, Consent 완료, (제공된 경우) name까지 채워 로그인 시 온보딩/동의
- * 화면으로 되돌아가지 않게 한다(`auth.repository.ts`의 `isProfileComplete` 계약과 동일).
- *
- * displayName은 canonical UserProfile.name에만 쓴다. User의 dropped mirror 컬럼은
- * 시드에서 갱신하지 않는다.
- */
 async function upsertConfiguredUser(
   stats: SeedStats,
   account: OssHubTeamAccount,
@@ -116,8 +89,7 @@ async function upsertConfiguredUser(
         },
       }),
   );
-  // 좁힌 값을 지역 const로 받는다 — `account.displayName`을 클로저 안에서 다시 읽으면
-  // 위의 `!== undefined` 좁힘이 풀려 `string | undefined`가 된다.
+
   const displayName = account.displayName;
   if (displayName !== undefined) {
     const affiliationName = '오픈소스 SW 개발 사업단';
@@ -128,8 +100,7 @@ async function upsertConfiguredUser(
       () =>
         prisma.userProfile.upsert({
           where: { userId: user.id },
-          // 계약 이후 canonical 세 칸은 NOT NULL이다. 이미 있는 행도 함께 다시 써서
-          // 재시드가 그 칸을 비워 두지 않게 한다. 소속명은 학과의 사본이다(계약 CHECK).
+
           update: {
             name: displayName,
             memberKind: MemberKind.STAFF,
@@ -141,7 +112,7 @@ async function upsertConfiguredUser(
             userId: user.id,
             name: displayName,
             department: affiliationName,
-            // 운영 계정은 사업단 소속 교직원이다 — 학번을 갖지 않는다(계약 CHECK).
+
             memberKind: MemberKind.STAFF,
             affiliationKind: AffiliationKind.PROGRAM_OFFICE,
             affiliationName,
@@ -240,8 +211,6 @@ export async function seedOssHub(
       }),
   );
 
-  // 팀의 프로그램 신청 — Repository·RepositoryProvisionJob이 이 Application에 매달린다
-  // (신청당 최대 한 건인 Repository/ProvisionJob 계약, #113).
   await upsertTracked(
     stats,
     'Application',
@@ -270,9 +239,6 @@ export async function seedOssHub(
       }),
   );
 
-  // 마일스톤 전체 arc: 팀 Notion "📅 Schedule" DB의 실제 프로젝트 일정 7건이다(고정 날짜,
-  // Asia/Seoul 자정 기준). AWS Staging → Intake 기능 동결 → Intake Gate → 구현 마감 →
-  // Full-loop Dry-run → Full-loop Live Beta → Release Complete.
   const milestones: readonly OssHubMilestoneSeed[] = [
     {
       id: seedId('oss-hub', 'milestone', 'aws-staging'),
@@ -337,11 +303,7 @@ export async function seedOssHub(
         '릴리스 체크리스트·운영 문서·복구 연습·최종 QA를 모두 완료합니다.',
     },
   ] as const;
-  // 과거 profile 실행이 남긴 다른 마일스톤 구성(예: 이전 4개 arc인 계획서 제출/중간 점검/
-  // 기능 시연/최종 발표, 또는 kickoff 같은 실험용 이름)을 정리한다. 연결된 파일은 RESTRICT라
-  // 먼저 판정 이력 → 제출 이력 → 제출 헤더 → 서류 정의 순으로 지운다. SubmissionFile이 남아
-  // 있으면 이 삭제는 의도적으로 실패한다 — 그 경우 시드가 아니라 운영자가 직접 처리해야 한다는
-  // 신호로 취급한다.
+
   const newMilestoneIds = milestones.map((milestone) => milestone.id);
   const staleMilestones = await prisma.milestone.findMany({
     where: { programId: PROGRAM_ID, id: { notIn: newMilestoneIds } },
@@ -443,7 +405,6 @@ export async function seedOssHub(
     text: '프로그램 조회·신청·팀 구성·저장소 흐름의 happy/failure 경로 테스트를 마치고 기능을 동결했습니다 (seed fixture).',
   };
 
-  // aws-staging: 팀장이 staging 배포 결과를 제출하고 STAFF가 승인 판정을 남긴 상태.
   const awsStagingDocumentId = seedId(
     'oss-hub',
     'milestone-document',
@@ -589,7 +550,6 @@ export async function seedOssHub(
       }),
   );
 
-  // intake-freeze: 다른 팀원이 기능 동결 요약을 제출했고 아직 판정 대기 중.
   const intakeFreezeDocumentId = seedId(
     'oss-hub',
     'milestone-document',
@@ -680,7 +640,6 @@ export async function seedOssHub(
       }),
   );
 
-  // 저장소 추적 — 실제 공개 저장소(github.com/JNU-SWCU/oss-hub)를 연결·공개 완료 상태로 표현한다.
   await upsertTracked(
     stats,
     'GithubRepository',
@@ -728,9 +687,6 @@ export async function seedOssHub(
       }),
   );
 
-  // oss-hub-practice — 별도 Program·Team(학생 fork/배포 퀘스트 실습용). 같은 팀은 같은
-  // Program에 신청을 한 건만 낼 수 있어(#164 partial unique index) 기존 oss-hub Program·Team을
-  // 재사용할 수 없다 — 같은 네 명의 ADMIN 계정으로 새 Program·Team을 만든다.
   await upsertTracked(
     stats,
     'Program',
@@ -850,8 +806,6 @@ export async function seedOssHub(
       }),
   );
 
-  // 저장소 추적 — 실제 공개 저장소(github.com/JNU-SWCU/oss-hub-practice)를 연결·공개
-  // 완료 상태로 표현한다. githubRepositoryId는 GitHub API로 확인한 실제 numeric id다.
   await upsertTracked(
     stats,
     'GithubRepository',

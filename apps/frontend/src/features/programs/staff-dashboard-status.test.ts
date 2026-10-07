@@ -14,7 +14,6 @@ import {
 } from './staff-dashboard-test-fixtures';
 import type { ProgramListItem } from './types';
 
-/** 신청기간·종료일이 모두 지난 프로그램. 공개 목록에서는 「종료」다. */
 const endedProgram = staffDashboardProgram({
   id: 'program:ended',
   name: '종료된 프로그램',
@@ -25,14 +24,12 @@ const endedProgram = staffDashboardProgram({
   endAt: '2025-12-31T23:59:59.000Z',
 });
 
-/** 신청기간은 열려 있지만 운영자가 내린 프로그램. 게시 축이 기간을 이긴다. */
 const archivedProgram = staffDashboardProgram({
   id: 'program:archived',
   name: '내린 프로그램',
   lifecycle: 'ARCHIVED',
 });
 
-/** 종료일 미정 + 신청기간만 지남 → 지금도 앞으로도 「진행중」이어야 한다. */
 const undecidedEndProgram = staffDashboardProgram({
   id: 'program:undecided-end',
   name: '종료일 미정 프로그램',
@@ -43,7 +40,6 @@ const undecidedEndProgram = staffDashboardProgram({
   endAt: PROGRAM_END_AT_UNDECIDED,
 });
 
-/** 내렸지만 종료일은 아직 멀었다 — 날짜만 보면 「진행중」이 될 프로그램이다. */
 const archivedWithFutureEndProgram = staffDashboardProgram({
   id: 'program:archived-future-end',
   name: '내렸지만 종료일이 남은 프로그램',
@@ -55,7 +51,6 @@ const archivedWithFutureEndProgram = staffDashboardProgram({
   lifecycle: 'ARCHIVED',
 });
 
-/** 기본형 — 신청기간이 열려 있다. */
 const recruitingProgram = staffDashboardProgram({
   id: 'program:recruiting',
   name: '모집중 프로그램',
@@ -134,8 +129,6 @@ describe('교직원 대시보드 모집 상태', () => {
   });
 
   it('내린 프로그램은 날짜가 무엇이든 「종료」 한 칸에만 센다', () => {
-    // 게시 축을 먼저 보지 않으면 이 둘은 날짜만으로 각각 「모집중」·「진행중」에
-    // 들어간다. 거기 세고 「종료」에도 더하면 카드 합이 프로그램 수를 넘는다.
     expect(getStaffProgramRecruitmentState(archivedProgram, now)).toBe('ended');
     expect(
       getStaffProgramRecruitmentState(archivedWithFutureEndProgram, now),
@@ -154,11 +147,11 @@ describe('교직원 대시보드 모집 상태', () => {
       ended: 2,
       archived: 2,
     });
-    // 세 카드의 합이 프로그램 수와 같아야 한 프로그램을 두 번 세지 않는다.
+
     expect(summary.recruiting + summary.inProgress + summary.ended).toBe(
       programs.length,
     );
-    // 「종료 N개 / 내림 M개」가 부분집합으로 읽히려면 M ≤ N이어야 한다.
+
     expect(summary.archived).toBeLessThanOrEqual(summary.ended);
   });
 

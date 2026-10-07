@@ -49,11 +49,6 @@ function memberKindDialogTarget(
   return null;
 }
 
-/**
- * Shared confirmation dialog for access/status writes. Member-kind actions add
- * only the fields owned by that action; all other actions retain the existing
- * confirmation-only surface.
- */
 export function AdminAccessMutationConfirmDialog({
   action,
   title,

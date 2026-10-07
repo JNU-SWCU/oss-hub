@@ -113,11 +113,6 @@ export function SettingsScreen({
     return () => controller.abort();
   }, [loadSettings]);
 
-  /**
-   * 알림 설정만 다시 불러온다.
-   * 프로필은 이미 화면에 있고 사용자가 고쳐 놓았을 수도 있으므로 전체 재조회로
-   * 폼을 날리지 않는다 — 실패한 조각만 제자리에서 복구한다.
-   */
   const retryNotificationLoad = useCallback(async (): Promise<void> => {
     if (notificationRetryInFlight.current) {
       return;
@@ -182,8 +177,6 @@ export function SettingsScreen({
     try {
       await updateMyProfile(profileRequest);
 
-      // 방금 처음 채운 학번은 그 자리에서 고정한다 — 다시 불러오기 전에 또 고치면
-      // 백엔드가 USR_003으로 막고, 사용자는 이유를 알 수 없는 실패를 보게 된다.
       const savedStudentId = profileRequest.studentId;
       if (savedStudentId) {
         setValues(
@@ -210,7 +203,7 @@ export function SettingsScreen({
             window.location.assign('/');
             return;
           }
-          // 폼 값은 그대로 둔다 — 안내가 "입력한 값은 그대로 두었다"고 약속하기 때문이다.
+
           setSubmitError(notificationSaveFailureMessage(kind));
           return;
         }

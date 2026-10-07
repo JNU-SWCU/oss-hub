@@ -98,7 +98,6 @@ describe('Program authoring canonical payload hash', () => {
   });
 
   it('gives semantically equivalent normalized requests one schemaVersion 1 hash', () => {
-    // Given: equivalent requests use different whitespace, offsets, and default spelling.
     const implicit = buildProgramAuthoringPlan(request());
     const explicit = buildProgramAuthoringPlan({
       ...request(),
@@ -112,9 +111,7 @@ describe('Program authoring canonical payload hash', () => {
       teamMinSize: 1,
       teamMaxSize: 1,
       repositoryProvisioningEnabled: false,
-      // 생략했을 때의 기본값을 그대로 적은 것이다 — 마감 알림의 기본은 켜짐이다
-      // (program-authoring-plan.ts). 값이 다르면 같은 요청이 다른 해시가 되어
-      // 재시도가 중복 생성으로 갈린다.
+
       notifyOnDeadline: true,
       milestones: request().milestones.map((milestone) => ({
         ...milestone,
@@ -128,18 +125,15 @@ describe('Program authoring canonical payload hash', () => {
       })),
     });
 
-    // When: both plans are serialized and hashed.
     const implicitHash = hashProgramAuthoringPayload(implicit);
     const explicitHash = hashProgramAuthoringPayload(explicit);
 
-    // Then: canonical payload version and digest are identical.
     expect(canonicalProgramAuthoringPayload(implicit).schemaVersion).toBe(1);
     expect(implicitHash).toMatch(/^[0-9a-f]{64}$/);
     expect(explicitHash).toBe(implicitHash);
   });
 
   it('preserves milestone order, document order, and token identity in the hash', () => {
-    // Given: three payloads differ by exactly one ordered or identity-bearing value.
     const original = request();
     const reversedMilestones: ProgramAuthoringRequest = {
       ...original,
@@ -178,7 +172,6 @@ describe('Program authoring canonical payload hash', () => {
       buildProgramAuthoringPlan(original),
     );
 
-    // When / Then: each contract-bearing difference changes the digest.
     expect(
       hashProgramAuthoringPayload(
         buildProgramAuthoringPlan(reversedMilestones),

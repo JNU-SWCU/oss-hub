@@ -8,7 +8,6 @@ import { ProgramActivitySummaryService } from './program-activity-summary.servic
 
 describe('ProgramActivitySummaryService', () => {
   it('aggregates collection authority activity for every requested program', async () => {
-    // Given
     const findRepositoryLinks = jest.fn().mockResolvedValue([
       { programId: 'program-1', githubRepositoryId: 101n },
       { programId: 'program-1', githubRepositoryId: 102n },
@@ -40,13 +39,11 @@ describe('ProgramActivitySummaryService', () => {
       findRepositoryActivity,
     } satisfies Pick<ProgramActivityRepository, 'findRepositoryActivity'>;
 
-    // When
     const result = await new ProgramActivitySummaryService(
       repository,
       collection,
     ).summarize(['program-1', 'program-2', 'program-empty']);
 
-    // Then
     expect(result).toEqual([
       {
         programId: 'program-1',
@@ -87,7 +84,6 @@ describe('ProgramActivitySummaryService', () => {
   });
 
   it('uses collection authority for linked archived repository summaries', async () => {
-    // Given
     const findRepositoryLinks = jest
       .fn()
       .mockResolvedValue([
@@ -117,13 +113,11 @@ describe('ProgramActivitySummaryService', () => {
       findRepositoryActivity,
     } satisfies Pick<ProgramActivityRepository, 'findRepositoryActivity'>;
 
-    // When
     const result = await new ProgramActivitySummaryService(
       repository,
       collection,
     ).summarize(['program-archived']);
 
-    // Then
     expect(result).toEqual([
       {
         programId: 'program-archived',
@@ -141,7 +135,6 @@ describe('ProgramActivitySummaryService', () => {
   });
 
   it('uses the same latest collection record as program activity detail', async () => {
-    // Given
     const findRepositoryLinks = jest
       .fn()
       .mockResolvedValue([
@@ -169,10 +162,8 @@ describe('ProgramActivitySummaryService', () => {
         { findRepositoryActivity },
       );
 
-    // When
     const result = await service.summarize(['program-1']);
 
-    // Then
     expect(result).toEqual([
       {
         programId: 'program-1',
@@ -187,7 +178,6 @@ describe('ProgramActivitySummaryService', () => {
   });
 
   it('skips repository reads when there are no programs', async () => {
-    // Given
     const findRepositoryLinks = jest.fn();
     const findRepositoryActivity = jest.fn();
     const repository = {
@@ -197,13 +187,11 @@ describe('ProgramActivitySummaryService', () => {
       findRepositoryActivity,
     } satisfies Pick<ProgramActivityRepository, 'findRepositoryActivity'>;
 
-    // When
     const result = await new ProgramActivitySummaryService(
       repository,
       collection,
     ).summarize([]);
 
-    // Then
     expect(result).toEqual([]);
     expect(findRepositoryLinks).not.toHaveBeenCalled();
     expect(findRepositoryActivity).not.toHaveBeenCalled();

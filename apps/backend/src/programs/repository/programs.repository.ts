@@ -48,7 +48,6 @@ export type ProgramListRecord = Pick<
   readonly coverExternalImageUrl?: string | null;
 };
 
-/** GET /programs 뷰어 개인화 배치 조회 결과. */
 export interface ProgramApplicationCounts {
   readonly total: number;
   readonly pending: number;
@@ -96,10 +95,6 @@ export class ProgramsRepository {
     ]);
   }
 
-  /**
-   * 공개 목록 status 필터와 동일 규칙의 5키 카운트.
-   * 목록 `totalItems` 와 키가 항상 일치해야 사이드바 뱃지가 신뢰된다.
-   */
   async countProgramsByStatus(now: Date): Promise<ProgramStatusCounts> {
     const rows = await this.prisma.$queryRaw<
       readonly {
@@ -154,7 +149,7 @@ export class ProgramsRepository {
                 },
               },
             },
-            // ⚠ 필수 서류만 — 선택 서류가 섞이면 안 낸 선택 서류가 진행을 0으로 잡아 둔다.
+
             documents: {
               where: {
                 required: true,
@@ -197,10 +192,6 @@ export class ProgramsRepository {
     return applications.map(toTargetSubmissionAxes);
   }
 
-  /**
-   * 목록 뷰어(학생) 개인화 배치 조회 — programId in (...) 한 번으로 N+1을 피한다.
-   * 신청자 본인뿐 아니라 팀장/팀원으로 참여한 신청도 포함한다(상세 화면과 동일 규칙).
-   */
   async findViewerApplicationStatuses(
     programIds: readonly string[],
     userId: string,
@@ -221,10 +212,6 @@ export class ProgramsRepository {
     );
   }
 
-  /**
-   * 목록 뷰어(교직원) 개인화 배치 조회 — programId in (...) + status groupBy 한 번.
-   * pending 은 SUBMITTED(승인 대기) 건수, total 은 상태 무관 전체 건수다.
-   */
   async countApplicationsByProgram(
     programIds: readonly string[],
   ): Promise<ReadonlyMap<string, ProgramApplicationCounts>> {
@@ -284,8 +271,7 @@ export class ProgramsRepository {
         },
       },
     });
-    // programId로 걸러진 행은 항상 provisioning이 만든 행이라 application을 갖는다 —
-    // 인벤토리 스윕이 만든 행(programId null)은 이 where절에 애초에 매칭되지 않는다.
+
     return repositories
       .filter((repository) => repository.application !== null)
       .map((repository) => ({

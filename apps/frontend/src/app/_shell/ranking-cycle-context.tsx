@@ -9,10 +9,6 @@ import {
   type ReactNode,
 } from 'react';
 
-/**
- * nextCycleAt from the ranking page fetch. ProductShell must not GET /ranking.
- * RankingScreen publishes after its list request; the sidebar only reads.
- */
 interface RankingCycleContextValue {
   readonly nextCycleAt: string | null;
   readonly setNextCycleAt: (nextCycleAt: string | null) => void;
@@ -56,7 +52,6 @@ export function useRankingCycle(): RankingCycleContextValue {
   return value;
 }
 
-/** Safe read for AppSidebar tests that render without the provider. */
 export function useOptionalRankingNextCycleAt(): string | null {
   return useContext(RankingCycleContext)?.nextCycleAt ?? null;
 }

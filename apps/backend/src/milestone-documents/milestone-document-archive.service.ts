@@ -38,18 +38,8 @@ export type {
   ProgramDocumentArchiveScope,
 } from './milestone-document-archive.types';
 
-/**
- * 한 번에 흘려 보낼 수 있는 최대 크기. 제출 파일 한 건은 5MB로 막혀 있지만 (팀 수 × 서류 수)는
- * 막혀 있지 않아, 상한이 없으면 마일스톤 하나가 서버 대역과 교직원의 인내를 통째로 가져간다.
- * 2GiB는 「팀 100 × 서류 4 × 5MB」를 넉넉히 넘겨 잡은 값이라 정상 사용에서는 닿지 않는다.
- */
 const MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024;
 
-/**
- * `@types/yazl`의 `end` 선언이 런타임보다 낡았다 — 실제 구현(`index.js`의
- * `calculatedTotalSizeCallback`)은 콜백에 **최종 크기**를 넘기는데 타입에는 인자가 없다.
- * 좁힌 선언을 여기 한 곳에만 두고, 왜 단언이 필요한지도 여기서만 설명한다.
- */
 interface ZipFileFinalSize {
   end(
     options: { forceZip64Format: boolean; comment: string },
@@ -57,21 +47,6 @@ interface ZipFileFinalSize {
   ): void;
 }
 
-/**
- * 압축 도중 항목 하나를 못 읽었다 — **어느 항목이었는지**를 함께 지고 올라가는 오류.
- *
- * 스토리지가 돌려주는 오류는 자기 코드(`SUBMISSION_FILE_STORAGE_GET_FAILED`)만 담고 어느
- * 객체였는지는 담지 않는다. 그런데 헤더가 이미 나간 뒤의 실패는 응답으로 아무것도 전할 수
- * 없어 **서버 로그 한 줄이 유일한 근거**이고, 그 줄을 남기는 곳은 스트림 저 끝의 컨트롤러다.
- * 스트림 위에서 값을 건네는 길은 오류에 실어 보내는 것뿐이라 여기서 감싼다.
- *
- * ⚠ 싣는 값은 **`storageKey` 하나**다. ZIP 안 경로(`entry.path`)는 팀 이름·서류 이름·학생이
- * 올린 원본 파일명으로 만들어져 로그에 남기면 팀과 개인을 식별하는 기록이 된다. 스토리지
- * 열쇠는 `submission-files/<uuid>`(`createSubmissionFileObjectKey`)라 그 자체로는 누구의
- * 것인지 말하지 않으면서 실패한 객체 하나를 정확히 지목한다.
- *
- * 원래 오류의 메시지는 그대로 물려받는다 — 실패 원인의 단서가 그것뿐이다.
- */
 export class MilestoneDocumentArchiveEntryError extends Error {
   override readonly name = 'MilestoneDocumentArchiveEntryError';
 
@@ -83,17 +58,6 @@ export class MilestoneDocumentArchiveEntryError extends Error {
   }
 }
 
-/**
- * 교직원 서류 **일괄 내려받기(ZIP)**. 무엇을 담고 어디에 놓을지는 도메인
- * (`domain/milestone-document-archive.ts`)이 정하고, 여기서는 **흘려 보내기만** 한다.
- *
- * 압축은 `yazl`을 쓴다. 직접 짜면 의존성은 안 늘지만 한글 파일명을 위한 UTF-8 플래그
- * (general purpose bit 11)를 손으로 다뤄야 하고, 그것을 빠뜨리면 macOS에서는 멀쩡하고
- * **Windows 탐색기에서만** 이름이 깨진다 — 받는 사람 대부분이 Windows다.
- *
- * ⚠ 모든 항목이 `compress: false`다. 제출 파일은 이미 압축된 형식(pdf·hwp·jpg·png·zip)이라
- * 다시 압축해도 거의 줄지 않고, 무압축이라야 **최종 크기를 미리 셀 수 있다**(`contentLength`).
- */
 @Injectable()
 export class MilestoneDocumentArchiveService {
   constructor(
@@ -166,11 +130,6 @@ export class MilestoneDocumentArchiveService {
       ),
     ]);
 
-    /*
-     * 좁히기는 **이 마일스톤이 요구하는 서류 목록 안에서만** 한다. 경로로 남의 마일스톤 서류
-     * id 를 넣어도 여기서 못 찾아 404 로 끝난다 — 조용히 빈 ZIP 을 주면 교직원은 「아무도 안
-     * 냈구나」로 읽는다. 없는 것과 안 낸 것은 다른 사실이다.
-     */
     const documents =
       scope.kind === 'DOCUMENT'
         ? allDocuments.filter((document) => document.id === scope.documentId)
@@ -209,51 +168,26 @@ export class MilestoneDocumentArchiveService {
     fileName: string,
     now: Date,
   ): MilestoneDocumentArchive {
-    // 파일과 글 본문을 **함께** 센다 — 파일만 세면 글로만 이루어진 마일스톤은 상한이 없다.
     if (plan.storedBytes + plan.inlineBytes > MAX_ARCHIVE_BYTES) {
       throw this.error(MilestoneDocumentsErrorCode.ARCHIVE_TOO_LARGE);
     }
 
     const zip = new ZipFile();
-    // yazl의 `outputStream`은 실제로 PassThrough지만 타입은 `NodeJS.ReadableStream`이라
-    // `destroyed`·`destroy`가 없다. 한 번만 좁혀 두고 아래에서 이것만 쓴다.
+
     const output = zip.outputStream as Readable;
-    /*
-     * ⚠ **이 핸들러가 없으면 프로세스가 죽는다.** yazl은 파일을 여는 데 실패하면 자기 자신에
-     * `error`를 emit하는데(EventEmitter), 듣는 사람이 없는 `error`는 Node에서 throw다.
-     * 게다가 yazl은 그때 출력 스트림을 끝내지 않으므로, 여기서 끊어 주지 않으면 교직원의
-     * 내려받기는 **영원히 끝나지 않는다**.
-     */
+
     zip.on('error', (error: unknown) => {
       output.destroy(error instanceof Error ? error : new Error(String(error)));
     });
-    /*
-     * 출력 스트림에도 듣는 사람을 하나 세워 둔다. 스트림의 `error`도 듣는 사람이 없으면
-     * Node에서 throw이고, 여기서 오류가 나는 시점은 **응답이 이 스트림을 받아 가기 전**일 수
-     * 있다 — DB에 적힌 크기와 스토리지의 실제 객체 크기가 다르면 yazl이 바로 그 자리에서
-     * 오류를 낸다(파일이 밖에서 바뀌면 실제로 일어난다).
-     *
-     * 여기서 삼키는 것이 아니다: 스트림은 이미 오류 상태로 파괴돼 있어서, 나중에 읽으러 오는
-     * 쪽은 첫 읽기에서 같은 오류를 그대로 받는다. 이 줄은 「아무도 없는 사이에 난 오류가
-     * 프로세스를 죽이는 것」만 막는다.
-     */
+
     output.on('error', () => undefined);
 
-    /*
-     * 지금 스토리지에서 읽고 있는 파일. 출력이 끊기면(교직원이 취소하거나 연결이 죽으면)
-     * 이것도 함께 끊어야 한다 — 안 끊으면 아무도 받지 않는 응답을 스토리지에서 끝까지 끌어와
-     * 연결과 대역을 붙들고 있는다.
-     */
     let activeBody: Readable | null = null;
     output.once('close', () => {
       activeBody?.destroy();
       activeBody = null;
     });
 
-    /*
-     * 현황표를 **맨 앞에** 넣는다. 압축을 푸는 프로그램 대부분이 넣은 순서대로 보여 주므로,
-     * 뒤에 두면 팀 폴더 수십 개 밑으로 밀려 「누가 안 냈는가」가 눈에 안 띈다.
-     */
     zip.addBuffer(
       Buffer.from(
         milestoneDocumentArchiveManifestCsv({
@@ -274,32 +208,17 @@ export class MilestoneDocumentArchiveService {
         });
         continue;
       }
-      /*
-       * `addReadStream`이 아니라 **Lazy**를 쓴다. 먼저 열어 두면 파일 수만큼의 스토리지 연결이
-       * 한꺼번에 서고, 뒤쪽 것들은 자기 차례가 올 때까지 한 바이트도 읽지 않은 채 기다리다
-       * 끊긴다. Lazy는 yazl이 그 항목을 쓸 차례가 됐을 때 비로소 부르므로 **연결이 언제나 하나**다.
-       */
+
       zip.addReadStreamLazy(
         entry.path,
         { mtime: entry.modifiedAt, size: entry.sizeBytes, compress: false },
         (openStream) => {
-          /*
-           * 교직원이 내려받기를 취소하면 컨트롤러가 이 출력 스트림을 끊는다. 그때도 남은
-           * 파일을 계속 스토리지에서 끌어오면 아무도 받지 않는 바이트를 끝까지 나른다 —
-           * 취소가 취소로 동작하지 않는다.
-           */
           if (output.destroyed) {
             openStream(new Error('archive stream closed'), undefined as never);
             return;
           }
           this.storage.get(entry.storageKey).then(
             (body) => {
-              /*
-               * ⚠ **여기서 한 번 더 본다.** 위의 검사는 `get()`을 *부르기 전*의 상태이고, 그
-               * 사이에 교직원이 취소했으면 출력의 `close`는 **붙들고 있는 스트림이 없는 채로**
-               * 이미 지나갔다. 그때 도착한 이 스트림을 그대로 yazl에 넘기면 닫힌 압축으로 들어가
-               * 아무도 안 끊는다 — 느린 스토리지 + 성급한 취소가 반복되면 연결 풀이 마른다.
-               */
               if (output.destroyed) {
                 body.destroy();
                 openStream(
@@ -308,18 +227,8 @@ export class MilestoneDocumentArchiveService {
                 );
                 return;
               }
-              /*
-               * ⚠ **여는 데 성공한 것과 끝까지 읽는 데 성공한 것은 다르다.** S3 연결이 읽는
-               * 중에 끊기면 이 스트림이 `error`를 내는데, yazl은 `pipe`로만 이어 붙이므로
-               * 그 오류를 **자기 것으로 옮기지 않는다**(`zip.on('error')`가 아예 안 불린다).
-               * 여기서 잡지 않으면 듣는 사람 없는 `error`가 되어 프로세스가 죽거나, 더 흔하게는
-               * **압축이 영원히 끝나지 않아** 교직원의 내려받기가 멈춘 채로 남는다.
-               * (실측으로 후자를 확인했다 — 20초 넘게 아무것도 끝나지 않았다.)
-               */
+
               body.once('error', (error: unknown) => {
-                // 끊는 방식은 그대로 두고 **어느 항목이었는지만** 실어 보낸다. 이 오류는
-                // 스토리지 어댑터를 거치지 않아 코드 문자열조차 없어서, 항목을 여기서
-                // 붙이지 않으면 컨트롤러의 실패 한 줄에 남는 단서가 아무것도 없다.
                 output.destroy(
                   new MilestoneDocumentArchiveEntryError(
                     entry.storageKey,
@@ -333,8 +242,7 @@ export class MilestoneDocumentArchiveService {
               });
               openStream(null, body);
             },
-            // 여는 데 실패한 경우도 같다 — `SUBMISSION_FILE_STORAGE_GET_FAILED`만으로는
-            // 어느 객체를 못 읽었는지 알 수 없다.
+
             (error: unknown) =>
               openStream(
                 new MilestoneDocumentArchiveEntryError(entry.storageKey, error),
@@ -345,11 +253,6 @@ export class MilestoneDocumentArchiveService {
       );
     }
 
-    /*
-     * `end()`는 「더 넣을 것이 없다」는 선언이고, 그 자리에서 최종 크기를 되돌려 준다 —
-     * 항목의 크기를 전부 알고 무압축일 때만 셀 수 있어서(모르면 부르지 않는다) 위의
-     * `compress: false`와 한 벌이다. 아직 아무 파일도 열지 않은 시점이라 헤더를 먼저 확정할 수 있다.
-     */
     let contentLength: number | null = null;
     (zip as unknown as ZipFileFinalSize).end(
       {
@@ -377,24 +280,6 @@ export class MilestoneDocumentArchiveService {
   }
 }
 
-/**
- * ZIP 꼬리표(end of central directory)를 zip64 형식으로 **강제해야 하는가**.
- *
- * ⚠ 이건 우리 취향이 아니라 **yazl 3.3.1의 버그를 비켜 가는 장치**다. 크기를 미리 셀 때는
- * 중앙 디렉터리가 64KiB(`0xffff`)만 넘으면 zip64 꼬리표(76바이트)를 더하는데, 실제로 쓸 때는
- * 4GiB(`0xffffffff`)를 넘어야 더한다. 두 조건이 갈리는 구간에서는 **미리 말한 길이가 실제보다
- * 정확히 76바이트 크고**, 그러면 `Content-Length`를 채우지 못한 응답이 되어 브라우저가
- * **매번 「다운로드 실패」로 버린다.** 본문은 멀쩡한 ZIP인데 영영 못 받는다.
- *
- * 한글 경로는 한 항목이 64바이트 안팎이라 그 구간이 멀지 않다 — 팀 100여 개 × 서류 4장이면
- * 닿는다. 즉 **정상 규모에서 터진다.**
- *
- * 강제해 두면 예측·기록 두 갈래가 같은 길을 타 어긋날 수 없다. 작은 ZIP은 지금처럼 옛 형식
- * 그대로 두어(임계 아래에서는 두 갈래가 이미 일치한다) 이미 확인한 동작을 바꾸지 않는다.
- *
- * 중앙 디렉터리 한 항목의 크기 = 고정 46 + 경로 UTF-8 바이트 + Info-ZIP 시각 확장 9
- * (파일 주석은 안 쓰고, 항목이 zip64가 되는 4GiB 파일은 크기 상한이 먼저 막는다).
- */
 function needsZip64Eocd(paths: readonly string[]): boolean {
   const centralDirectoryBytes = paths.reduce(
     (total, path) => total + 46 + Buffer.byteLength(path, 'utf8') + 9,

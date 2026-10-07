@@ -5,22 +5,6 @@ import type {
   ProgramListQueryStatus,
 } from './program-list-query';
 
-/**
- * 공개 목록 기간 필터 — 저장 상태 없음, 요청 시각(now)으로만 해석.
- * Prisma where · raw SQL WHERE · status-counts · ORDER BY 정렬 가중치의 **단일 원본**.
- *
- * 공개 모수(universe) = PUBLISHED | ARCHIVED
- * 배타 우선순위 (첫 매치 승, CASE와 동일):
- *   1. ARCHIVED                         → ended
- *   2. endAt < now                       → ended
- *   3. applicationStartAt > now         → upcoming
- *   4. applicationEndAt >= now          → recruiting
- *   5. 그 외                            → in_progress
- *
- * all = universe 전체. 나머지 넷은 위 파티션이라 all === sum(parts).
- * `?status=` 키는 URL 필터 라벨이지 DB 컬럼이 아니다.
- */
-
 export type ProgramListDerivedStatus = Exclude<ProgramListQueryStatus, 'all'>;
 
 export type ProgramListStatusInput = {
@@ -30,7 +14,6 @@ export type ProgramListStatusInput = {
   readonly endAt: Date;
 };
 
-/** 기간 해석 순수 함수 — SQL CASE / Prisma where 와 동일 우선순위. 저장하지 않는다. */
 export function deriveProgramListStatus(
   program: ProgramListStatusInput,
   now: Date,
@@ -42,7 +25,6 @@ export function deriveProgramListStatus(
   return 'in_progress';
 }
 
-/** 목록 정렬 표시 순서 — 판정 우선순위와 별개 (모집중 → 접수대기 → 진행중 → 종료). */
 export function programListSortRank(
   status: ProgramListDerivedStatus,
 ): 0 | 1 | 2 | 3 {
@@ -104,7 +86,6 @@ export function programListPrismaWhere(
   return whereByStatus[status];
 }
 
-/** 공유 CASE 식 — 필터·집계·정렬이 전부 이것을 쓴다. */
 export function programListStatusCaseSql(now: Date): Prisma.Sql {
   return Prisma.sql`
     CASE
@@ -127,7 +108,6 @@ export function programListSqlStatusPredicate(
   return Prisma.sql`(${programListStatusCaseSql(now)}) = ${status}`;
 }
 
-/** recruiting → 0 … ended → 3. 레거시(기본) 표시 정렬 순서 (§3.2). */
 export function programListSortRankSql(now: Date): Prisma.Sql {
   return Prisma.sql`
     CASE (${programListStatusCaseSql(now)})
@@ -139,11 +119,6 @@ export function programListSortRankSql(now: Date): Prisma.Sql {
   `;
 }
 
-/**
- * `?sort=status` 명시 정렬 순서 — 모집중 → 진행중 → 예정 → 종료.
- * 레거시 기본 정렬(`programListSortRankSql`, 모집중 → 예정 → 진행중 → 종료)과
- * 순서가 달라 별도 함수로 둔다 — 기본 정렬은 `sort` 파라미터가 없을 때만 쓰인다.
- */
 export function programListStatusSortRank(
   status: ProgramListDerivedStatus,
 ): 0 | 1 | 2 | 3 {
@@ -170,11 +145,6 @@ export function programListStatusSortRankSql(now: Date): Prisma.Sql {
   `;
 }
 
-/**
- * `GET /programs` 목록 ORDER BY 단일 원본.
- * `sort`가 없으면(undefined) 변경 전과 동일한 레거시 순서를 그대로 낸다.
- * 모든 분기에 결정적 tiebreak(`id` 오름차순)를 둬 페이지네이션 중복·누락을 막는다.
- */
 export function programListOrderBySql(
   sort: ProgramListQuerySort | undefined,
   direction: ProgramListQueryDirection | undefined,
@@ -223,10 +193,6 @@ export type ProgramStatusCounts = {
   readonly ended: number;
 };
 
-/**
- * universe 한 번 읽고 CASE로 파티션 집계.
- * all = COUNT(*) 이므로 부분 합과 항상 같다.
- */
 export function programStatusCountsSql(now: Date): Prisma.Sql {
   const statusCase = programListStatusCaseSql(now);
   return Prisma.sql`

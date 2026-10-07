@@ -15,12 +15,6 @@ import type {
   StaffAccessRequestTarget,
 } from './staff-access-request';
 
-/**
- * 회원 유형 판단에 필요한 사용자 필드.
- *
- * 프로필 값까지 함께 읽는다 — 선택 화면이 "여기서 요청을 열지"를 판단하려면 지금
- * 프로필이 완료돼 있는지 알아야 한다(`domain/member-onboarding.ts`의 `MemberUser.profile`).
- */
 const MEMBER_USER_SELECT = {
   id: true,
   selectedMemberKind: true,
@@ -43,10 +37,7 @@ type MemberUserRow = PrismaTypes.UserGetPayload<{
 
 export interface RolesTransactionStore {
   findUserByGithubId(githubId: bigint): Promise<MemberUser | null>;
-  /**
-   * 고른 회원 유형을 기록한다 — 확정이 아니다(#569).
-   * 확정은 프로필이 만들어질 때 일어난다.
-   */
+
   updateSelectedMemberKind(
     userId: string,
     memberKind: MemberKind,
@@ -54,12 +45,7 @@ export interface RolesTransactionStore {
   findPendingRequest(userId: string): Promise<StaffAccessRequestRecord | null>;
   findLatestRequest(userId: string): Promise<StaffAccessRequestRecord | null>;
   createPendingRequest(userId: string): Promise<StaffAccessRequestRecord>;
-  /**
-   * 교직원 접근 요청을 연다 — 규칙은 `staff-access-request.ts`가 하나로 들고 있다.
-   *
-   * 트랜잭션 클라이언트를 그대로 내놓지 않고 이 문 하나로 감싸는 이유는, 내놓는 순간
-   * 호출부가 규칙을 우회해 요청을 직접 만드는 길이 열리기 때문이다.
-   */
+
   requestStaffAccess(
     target: StaffAccessRequestTarget,
   ): Promise<StaffAccessRequestOutcome>;

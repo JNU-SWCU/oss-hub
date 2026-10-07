@@ -37,9 +37,7 @@ export interface IndependentAuthorityTransactionStore {
     userId: string,
     transition: IndependentAuthorityTransition,
   ): Promise<void>;
-  /**
-   * 교직원 접근을 끈 전이가 남기는 회수 이력 한 행. 옛 CAS 경로와 같은 쓰기를 공유한다.
-   */
+
   insertRevokedRequest(
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest>;

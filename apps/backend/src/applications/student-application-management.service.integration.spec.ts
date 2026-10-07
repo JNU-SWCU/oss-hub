@@ -24,7 +24,7 @@ const service = new StudentApplicationManagementService(
 );
 const STUDENT_ID = 'student-application-race-student';
 const GITHUB_ID = 8_000_000_000_101n;
-/** 신청자도 팀장도 아닌 일반 팀원 — #1083 재현의 행위자. */
+
 const MEMBER_ID = 'student-application-race-member';
 const MEMBER_GITHUB_ID = 8_000_000_000_102n;
 const PROGRAM_ID = 'student-application-race-program';
@@ -90,10 +90,6 @@ async function expectDomainCode(
   }
 }
 
-/**
- * 조회가 「없음」을 null로 돌려주게 된 뒤(QA174 / #1303), **있어야 하는** 시나리오를
- * 좁힌다. 없으면 그 자체가 실패이므로 조용히 넘기지 않고 바로 터뜨린다.
- */
 function present<T>(value: T | null, what: string): T {
   if (value === null) throw new Error(`${what}이(가) 있어야 하는 시나리오다`);
   return value;
@@ -154,11 +150,6 @@ describe('StudentApplicationManagementService integration races', () => {
     await prisma.$disconnect();
   });
 
-  /**
-   * #1083 재현 — 팀장이 낸 신청서를 일반 팀원이 취소하면 팀 전체의 신청서가
-   * **하드 삭제**됐다. 쓰기가 읽기와 같은 참가자 범위를 재사용한 탓이다.
-   * 행이 남아 있는지까지 본다 — 거절 코드만 보면 지운 뒤 던지는 회귀를 놓친다.
-   */
   it('일반 팀원의 취소를 거절하고 신청서 행을 남긴다', async () => {
     await expectDomainCode(
       service.cancelMine(MEMBER_GITHUB_ID, PROGRAM_ID, NOW),
@@ -191,10 +182,6 @@ describe('StudentApplicationManagementService integration races', () => {
     expect(stored?.answers).toMatchObject({ title: 'Original title' });
   });
 
-  /**
-   * 읽기는 좁히지 않는다 — 판정 사유·답변을 팀원 전원이 읽는 것은 의도된
-   * 범위이고 판정 알림 수신자와 같은 집합이다(#570). 쓰기만 좁힌 것을 고정한다.
-   */
   it('일반 팀원의 조회는 그대로 열어 두되 관리 권한은 내린다', async () => {
     const view = present(
       await service.getMine(MEMBER_GITHUB_ID, PROGRAM_ID, NOW),
@@ -330,14 +317,10 @@ describe('StudentApplicationManagementService integration races', () => {
   });
 });
 
-/**
- * R-1 — 반려된 신청서를 학생이 고쳐 다시 내면 검토대기로 돌아간다.
- * 상태 복귀·이력 append·회차 증가가 **한 커밋**에 함께 들어가는지가 요점이다.
- */
 describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => {
   beforeAll(async () => {
     await prisma.$connect();
-    // `seedApplication`이 팀원 두 명을 넣으므로 둘 다 있어야 한다.
+
     for (const student of [
       {
         id: STUDENT_ID,
@@ -396,7 +379,6 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
   });
 
   it('반려 신청을 고쳐 내면 검토대기로 돌아가고 재제출 이력이 정확히 1행 는다', async () => {
-    // When
     const updated = await service.updateMine(
       GITHUB_ID,
       PROGRAM_ID,
@@ -404,7 +386,6 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
       NOW,
     );
 
-    // Then: 상태가 돌아가고 지난 반려 사유는 헤더에서 지워진다.
     expect(updated.status).toBe('SUBMITTED');
     expect(updated.rejectionReason).toBeNull();
     const stored = await prisma.application.findUniqueOrThrow({
@@ -417,7 +398,6 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
       revision: 2,
     });
 
-    // 이력은 학생 행위자로 정확히 한 행이다.
     const history = await prisma.applicationReviewHistory.findMany({
       where: { applicationId: APPLICATION_ID },
     });
@@ -431,13 +411,11 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
   });
 
   it('검토대기 신청의 수정은 이력도 회차도 건드리지 않는다', async () => {
-    // Given: 아직 판정 전이다.
     await prisma.application.update({
       where: { id: APPLICATION_ID },
       data: { status: 'SUBMITTED', rejectionReason: null },
     });
 
-    // When
     await service.updateMine(
       GITHUB_ID,
       PROGRAM_ID,
@@ -445,7 +423,6 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
       NOW,
     );
 
-    // Then: 재제출이 아니라 단순 수정이다.
     await expect(
       prisma.applicationReviewHistory.count({
         where: { applicationId: APPLICATION_ID },
@@ -460,7 +437,6 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
   });
 
   it('신청 기간이 닫힌 뒤의 반려 재제출은 기간 오류로 막히고 아무것도 바뀌지 않는다', async () => {
-    // When
     await expectDomainCode(
       service.updateMine(
         GITHUB_ID,
@@ -471,7 +447,6 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
       ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED,
     );
 
-    // Then
     await expect(
       prisma.application.findUniqueOrThrow({
         where: { id: APPLICATION_ID },
@@ -486,20 +461,18 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
   });
 
   it('연속 재제출은 회차가 1씩 전진하고 이력이 쌓인다', async () => {
-    // Given: 한 번 재제출한다.
     await service.updateMine(
       GITHUB_ID,
       PROGRAM_ID,
       { answers: { title: '첫 수정' }, applicationTemplateVersion: 1 },
       NOW,
     );
-    // 교직원이 다시 반려한 상태를 만든다.
+
     await prisma.application.update({
       where: { id: APPLICATION_ID },
       data: { status: 'REJECTED', rejectionReason: '아직 부족합니다' },
     });
 
-    // When
     await service.updateMine(
       GITHUB_ID,
       PROGRAM_ID,
@@ -507,7 +480,6 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
       NOW,
     );
 
-    // Then
     const history = await prisma.applicationReviewHistory.findMany({
       where: { applicationId: APPLICATION_ID },
       orderBy: { revision: 'asc' },

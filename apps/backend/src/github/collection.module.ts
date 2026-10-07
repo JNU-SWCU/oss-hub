@@ -26,14 +26,6 @@ import {
   CollectionSyncService,
 } from './service/collection-sync.service';
 
-/**
- * todo 14 원자 전환(ADR-006)으로 live writer는 `CollectionSyncService` 하나다 — 스케줄러/관리자
- * 트리거 모두 이 writer만 부른다. 전환 이후 한 릴리스 동안 rollback 참조용으로 남겨 두었던 old
- * canonical writer/전환 orchestration은 `Canonical*` 8개 테이블과 함께 제거됐다(ADR-006 "누적
- * 저장소로의 1회 전환" 5항의 후속 migration) — 되돌리기는 이전 릴리스 재배포 + 백업 restore라는
- * 순수 운영 절차다. `CollectionCutoverRepository`는 남는다 — 그건 별개 테이블(`CollectionCutoverLease`)
- * 의 quiesce 게이트이고 scheduler/admin 트리거가 매번 확인한다.
- */
 @Module({
   imports: [ScheduleModule.forRoot(), AuditLogModule, AuthModule],
   controllers: [CollectionAdminController],
@@ -41,7 +33,7 @@ import {
     CollectionAdminGuard,
     ContributionInvariants,
     CollectionSchedulerService,
-    // 저장소 연결 직후 수집(#1133) — 신청 쪽이 부르는 유일한 수집 표면이다.
+
     {
       provide: COLLECTION_TRIGGER_PORT,
       useExisting: CollectionSchedulerService,
@@ -50,11 +42,6 @@ import {
     CollectionCutoverRepository,
     CollectionReadService,
     {
-      // 외부 public 저장소 수집용 서비스 계정 PAT provider. GITHUB_PUBLIC_READ_TOKEN이
-      // 없어도 이 factory 자체는 실패하지 않는다 — fail-closed 검증은
-      // CollectionPublicTokenProvider.getToken() 최초 호출 시점으로 미룬다(조직
-      // collection이 이 키 없이도 계속 동작해야 한다). 소비자는 아래
-      // CollectionDiscoveryClient 하나뿐이다(E4).
       provide: CollectionPublicTokenProvider,
       inject: [RUNTIME_CONFIG],
       useFactory: (
@@ -63,11 +50,6 @@ import {
         new CollectionPublicTokenProvider(runtimeConfig),
     },
     {
-      // GraphQL `contributionsCollection` 사람 축 client — 학생 한 명의 한 해 공개 활동
-      // 합계를 묻는다. 조직 밖 저장소를 찾아 등록하던 관리자 경로는 없앴다(#1453).
-      // `CollectionPublicTokenProvider`가 이 client의 `CollectionDiscoveryTokenProvider`
-      // 표면(getToken/clear)을 구조적으로 만족한다 — `CollectionAppTokenProvider`(installation
-      // JWT)는 이 client에 배선하지 않는다(client 자체 문서에 금지 명시).
       provide: CollectionDiscoveryClient,
       inject: [CollectionPublicTokenProvider],
       useFactory: (
@@ -75,9 +57,6 @@ import {
       ): CollectionDiscoveryClient => new CollectionDiscoveryClient({}, tokens),
     },
     {
-      // 사람 축(person-axis) 활동 수집 — 스케줄러·관리자 트리거의 세 번째 sweep.
-      // 자격증명은 external discovery와 같은 `CollectionDiscoveryClient`(서비스
-      // 계정 PAT)를 재사용한다 — installation token이 아니다.
       provide: CollectionUserActivityService,
       inject: [PrismaService, CollectionDiscoveryClient],
       useFactory: (
@@ -98,19 +77,11 @@ import {
         runtimeConfig: RuntimeConfig,
         publicTokens: CollectionPublicTokenProvider,
       ): CollectionSyncService => {
-        // Hoisted separately from `runtimeFactory` (rather than destructured
-        // off its returned runtime, as before) because `CollectionSyncRuntime.tokens`
-        // is now the narrow `CollectionAppClientTokenProvider` shape
-        // (`collection-app.client.ts`) and no longer exposes
-        // `getInstallationIdentity()`. `run()` always calls `runtimeFactory()`
-        // before `resolveGithubOrganizationId()`, so in practice `orgTokens`
-        // is already set by the time it's read below; the lazy fallback here
-        // only guards a hypothetical standalone call.
         let orgTokens: CollectionAppTokenProvider | undefined;
         let runtime: CollectionSyncRuntime | undefined;
         const runtimeFactory: CollectionSyncRuntimeFactory = () => {
           if (runtime) return runtime;
-          // Lazy: credentials validated on first run, not module bootstrap.
+
           const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
           orgTokens = new CollectionAppTokenProvider(config);
           const queue = new ProviderRequestQueue();
@@ -135,17 +106,7 @@ import {
           const identity = await orgTokens.getInstallationIdentity();
           return BigInt(identity.organizationId);
         };
-        // E1 — external (student-registered public repo) sweep runtime,
-        // provisioned independently of the org runtime above. `client` is a
-        // `CollectionAppClient` built from the org's existing
-        // `CollectionAppConfigValues` — it reads only `apiBaseUrl`/
-        // `maxPages`/`deadlineMs` off it, never `appId`/`orgLogin`/
-        // `privateKey`, since `publicTokens` (a service-account PAT, not an
-        // installation token) authenticates every request here. `queue` is
-        // a NEW, separate `ProviderRequestQueue` — org and external
-        // credentials carry independent 5,000/hr rate-limit budgets, so
-        // sharing a queue would conflate them and needlessly pace external
-        // requests behind org ones.
+
         let externalRuntime: CollectionSyncRuntime | undefined;
         const externalRuntimeFactory: CollectionSyncRuntimeFactory = () => {
           if (externalRuntime) return externalRuntime;

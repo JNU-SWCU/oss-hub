@@ -122,9 +122,6 @@ describe('landing public overview boundary', () => {
     expect(graph.edges).toHaveLength(2);
   });
 
-  // 예전에는 응답이 준 detailUrl 을 그대로 썼기 때문에 바깥 주소가 섞여 들어올
-  // 수 있었다. 이제 상세 경로를 id 에서 직접 만들므로, 막아야 할 것은 링크가
-  // 아니라 id 자체다.
   it('rejects archive ids that could escape the public app routes', () => {
     expect(() =>
       parseLandingArchivePage({

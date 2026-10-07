@@ -59,20 +59,11 @@ export type DeadlinePreview = {
   readonly noEmailCount: number;
 };
 
-/**
- * `PROGRAM_AUTHORING_E2E.seoulNow`(또는 그 오프셋)를 `datetime-local` 입력 필드에
- * 그대로 채워 넣을 수 있는 `YYYY-MM-DDTHH:mm` 문자열로 변환한다. 브라우저 컨텍스트가
- * `timezoneId: 'Asia/Seoul'`로 고정되어 있으므로 값도 서울 로컬 시각으로 맞춰야 한다.
- */
 export function seoulLocalInput(isoInstant: string, offsetMs = 0): string {
   const instant = new Date(new Date(isoInstant).getTime() + offsetMs);
   return formatSeoulDatetimeLocal(instant);
 }
 
-/**
- * Returns the KST calendar date whose 23:59 deadline is the first one strictly
- * after `anchor` and no more than 24 hours later.
- */
 export function seoulDeadlineDate(anchor: Date): string {
   const date = formatSeoulDatetimeLocal(anchor).slice(0, 10);
   const deadline = new Date(`${date}T23:59:00+09:00`);
@@ -99,7 +90,7 @@ function formatSeoulDatetimeLocal(date: Date): string {
   }).formatToParts(date);
   const get = (type: string): string =>
     parts.find((part) => part.type === type)?.value ?? '';
-  // 일부 ICU 구현은 hour12:false에서 자정을 "24"로 표기한다 — "00"으로 정규화한다.
+
   const hour = get('hour') === '24' ? '00' : get('hour');
   return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}`;
 }
@@ -176,18 +167,11 @@ export function expectCleanState(
   state: E2eProgramAuthoringState,
   expectedApplications = 1,
   expectedMilestones = 1,
-  // Application.teamId는 non-null이라 신청마다 팀이 하나씩 붙는다(개인형도 1인 팀,
-  // D5) — 취소된 신청은 Application만 하드 삭제되고 Team은 onDelete: Restrict로
-  // 남으므로, 시나리오에 취소가 섞이면 teams가 applications보다 커질 수 있다.
+
   expectedTeams = expectedApplications,
-  // 수동 발송(`sendProgramFromPreview`)은 미제출 학생 리마인드와 교직원 요약을
-  // 각각 한 통씩 보낸다 — 내용이 다르므로 봉투도 해시도 갈린다. 기본값 1은
-  // 교직원이 수신 대상이 아닌(비활성·수신 거부·이메일 없음) 시나리오 기준이고,
-  // 교직원이 실제로 받는 시나리오는 호출부에서 2를 넘긴다.
+
   expectedMailEnvelopes = 1,
-  // State counts documents across the entire program. Fixtures with only the
-  // required milestone retain their own one-document expectation; the full
-  // authoring flow explicitly proves both milestone documents below.
+
   expectedDocuments = 1,
   expectedRepositoryGraphs = 1,
 ): void {

@@ -1,6 +1,5 @@
 import type { ProgramStatusCounts } from '../program-list-status-filter';
 
-/** GET /programs/status-counts — 사이드바 뱃지용. 5키 항상 존재(0 허용). */
 export class ProgramStatusCountsResponseDto {
   readonly all: number;
   readonly recruiting: number;

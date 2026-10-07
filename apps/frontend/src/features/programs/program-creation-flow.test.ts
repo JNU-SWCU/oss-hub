@@ -14,19 +14,16 @@ import { completedAuthoringState } from './program-creation-test-fixtures';
 
 describe('program authoring reducer', () => {
   it('defaults the team range to 1..1 and permits free step navigation', () => {
-    // Given
     const initial = createInitialProgramAuthoringState({
       idempotencyKey: 'request-1',
       milestoneId: 'milestone-1',
     });
 
-    // When
     const navigated = programAuthoringReducer(initial, {
       type: 'go_to_step',
       step: 'operations',
     });
 
-    // Then
     expect(navigated.teamMinSize).toBe('1');
     expect(navigated.teamMaxSize).toBe('1');
     expect(navigated.repositoryProvisioningEnabled).toBe(false);
@@ -66,7 +63,6 @@ describe('program authoring reducer', () => {
   });
 
   it('keeps requirement file metadata while marking the in-memory file selected', () => {
-    // Given
     const initial = completedAuthoringState();
     const requirement = createRequirementDraft('requirement-file');
     const withRequirement = {
@@ -79,7 +75,6 @@ describe('program authoring reducer', () => {
       ],
     };
 
-    // When
     const next = programAuthoringReducer(withRequirement, {
       type: 'set_requirement_file',
       milestoneId: 'milestone-1',
@@ -91,7 +86,6 @@ describe('program authoring reducer', () => {
       },
     });
 
-    // Then
     expect(next.milestones[0]?.requirements[0]?.templateFile).toEqual({
       name: 'plan.pdf',
       size: 1024,
@@ -104,16 +98,13 @@ describe('program authoring reducer', () => {
 
 describe('program authoring validation', () => {
   it('validates only the current step when Next is used', () => {
-    // Given
     const incomplete = createInitialProgramAuthoringState({
       idempotencyKey: 'request-1',
       milestoneId: 'milestone-1',
     });
 
-    // When
     const basicIssues = validateProgramAuthoringStep(incomplete, 'basic');
 
-    // Then
     expect(basicIssues.map((issue) => issue.path)).toEqual([
       'name',
       'organizer',
@@ -123,17 +114,14 @@ describe('program authoring validation', () => {
   });
 
   it('requires a milestone but permits milestones without attachments', () => {
-    // Given
     const completed = completedAuthoringState();
 
-    // When
     const noMilestoneIssues = validateProgramAuthoringManifest({
       ...completed,
       milestones: [],
     });
     const completedIssues = validateProgramAuthoringManifest(completed);
 
-    // Then
     expect(noMilestoneIssues).toContainEqual(
       expect.objectContaining({ path: 'milestones', step: 'milestones' }),
     );
@@ -165,10 +153,8 @@ describe('program authoring validation', () => {
   });
 
   it('matches the server overlap, milestone, and team range rules', () => {
-    // Given
     const completed = completedAuthoringState();
 
-    // When
     const issues = validateProgramAuthoringManifest({
       ...completed,
       applicationEndAt: '2026-09-02T09:01',
@@ -184,7 +170,6 @@ describe('program authoring validation', () => {
       ],
     });
 
-    // Then
     expect(issues.map((issue) => issue.path)).toEqual(
       expect.arrayContaining([
         'teamMinSize',
@@ -196,7 +181,6 @@ describe('program authoring validation', () => {
   });
 
   it('requires a refreshed template file to be reselected', () => {
-    // Given
     const completed = completedAuthoringState();
     const requirement = {
       ...createRequirementDraft('requirement-file'),
@@ -209,13 +193,11 @@ describe('program authoring validation', () => {
       },
     };
 
-    // When
     const issues = validateProgramAuthoringManifest({
       ...completed,
       milestones: [{ ...completed.milestones[0], requirements: [requirement] }],
     });
 
-    // Then
     expect(issues).toContainEqual(
       expect.objectContaining({
         path: 'requirements.requirement-file.templateFile',
@@ -274,7 +256,6 @@ describe('program authoring validation', () => {
 
 describe('program authoring manifest', () => {
   it('converts Seoul wall-clock values to stable ISO instants and attaches upload tokens', () => {
-    // Given
     const completed = completedAuthoringState();
     const requirement = {
       ...createRequirementDraft('requirement-file'),
@@ -293,13 +274,11 @@ describe('program authoring manifest', () => {
       milestones: [{ ...completed.milestones[0], requirements: [requirement] }],
     };
 
-    // When
     const manifest = buildProgramAuthoringManifest(
       state,
       new Map([['requirement-file', 'upload-token']]),
     );
 
-    // Then
     expect(seoulDateTimeToIso('2026-09-01T09:00')).toBe(
       '2026-09-01T00:00:00.000Z',
     );

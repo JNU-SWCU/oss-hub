@@ -219,7 +219,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
                   select: {
                     id: true,
                     submissionType: true,
-                    // ⚠ 필수 서류만 — 집합은 REVIEW_CONTEXT_SELECT 와 같아야 한다.
+
                     documents: {
                       where: {
                         required: true,
@@ -243,9 +243,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         },
       },
     });
-    // application은 #617 단계 D 이후 GithubRepository에서 nullable이지만(인벤토리 스윕이
-    // 만든 행은 applicationId가 없다), 검토 대상 저장소는 항상 recordRepository가 만든
-    // 행이라 application을 가진다 — null이면 잘못된 repositoryId다.
+
     if (repository === null || repository.application === null) return null;
     const job = repository.application.provisionJob;
     return {

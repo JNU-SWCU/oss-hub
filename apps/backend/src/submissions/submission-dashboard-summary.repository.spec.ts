@@ -26,7 +26,6 @@ class FakeFindManyDelegate<TArgs, TRow> {
 
 describe('SubmissionDashboardSummaryRepository', () => {
   it('queries approved applications, milestones, and current submissions once for all programs', async () => {
-    // Given
     const applications = new FakeFindManyDelegate<
       Parameters<
         SubmissionDashboardSummaryDataSource['application']['findMany']
@@ -102,10 +101,8 @@ describe('SubmissionDashboardSummaryRepository', () => {
     } satisfies SubmissionDashboardSummaryDataSource;
     const repository = new SubmissionDashboardSummaryRepository(prisma);
 
-    // When
     const records = await repository.listRecords(['program-a', 'program-b']);
 
-    // Then
     expect(records).toEqual({
       applications: [
         { id: 'approved-application', programId: 'program-a' },
@@ -163,7 +160,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
       where: { programId: { in: ['program-a', 'program-b'] } },
       select: { id: true, programId: true, submissionType: true },
     });
-    // ⚠ 필수 서류만 읽어야 한다 — 선택 서류가 섞이면 칸이 영영 미제출로 남는다.
+
     expect(milestoneDocuments.calls[0]).toEqual({
       where: {
         required: true,
@@ -216,7 +213,6 @@ describe('SubmissionDashboardSummaryRepository', () => {
   });
 
   it('returns empty records without database fan-out when no program ids are requested', async () => {
-    // Given
     const applications = new FakeFindManyDelegate<
       Parameters<
         SubmissionDashboardSummaryDataSource['application']['findMany']
@@ -248,12 +244,10 @@ describe('SubmissionDashboardSummaryRepository', () => {
       milestoneDocumentSubmission: documentSubmissions,
     } satisfies SubmissionDashboardSummaryDataSource;
 
-    // When
     const records = await new SubmissionDashboardSummaryRepository(
       prisma,
     ).listRecords([]);
 
-    // Then
     expect(records).toEqual({
       applications: [],
       milestones: [],

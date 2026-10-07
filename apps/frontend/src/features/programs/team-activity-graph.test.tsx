@@ -1,11 +1,9 @@
-// @vitest-environment happy-dom
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TeamActivity, TeamActivityMember } from './team-activity-api';
 import { TeamActivityGraph } from './team-activity-graph';
 
-/** recharts는 크기를 재야 그린다. 선·기준선만 남겨 이 화면이 무엇을 넘기는지 본다. */
 const chart = vi.hoisted(() => ({
   onMouseMove: undefined as
     undefined | ((state: { readonly activeTooltipIndex?: unknown }) => void),
@@ -79,7 +77,6 @@ function member(
   };
 }
 
-/** 끝난 프로그램의 두 주 — 오늘과 무관하게 `2026-08-03`·`2026-08-10` 두 주가 된다. */
 const collected: TeamActivity = {
   applicationId: 'application-1',
   repository: { id: 'repo-1', url: 'https://github.com/synthetic/team' },
@@ -283,7 +280,6 @@ describe('TeamActivityGraph', () => {
     expect(readout()).toContain('2026.08.03 주');
     expect(readout()).toContain('팀 합계3');
 
-    // 첫 주에서 더 왼쪽은 없다.
     await act(async () => {
       chartGroup.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }),

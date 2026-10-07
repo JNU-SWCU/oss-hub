@@ -15,11 +15,6 @@ import { ProgramTeamsController } from './controller/program-teams.controller';
 import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 import { ProgramTeamsService } from './service/program-teams.service';
 
-/**
- * 교직원 전용 팀 목록(GET /api/v1/programs/:programId/teams)을 실제 HTTP 파이프라인
- * (SessionGuard + ProgramTeamsStaffGuard + ProblemDetailFilter)으로 검증한다.
- * 학생·미인증·비활성 계정이 실제로 막히는지, 통과한 응답에 금지 필드가 없는지 본다.
- */
 const allowedOrigin = 'http://frontend.test';
 const sessionSecret = new Uint8Array(32).fill(7);
 const PROGRAM_ID = 'synthetic-program';
@@ -95,7 +90,6 @@ afterAll(async () => {
 });
 
 it('ACTIVE STAFF 는 팀 목록 배열을 200 으로 받는다', async () => {
-  // Given
   findUnique.mockResolvedValue({
     id: 'synthetic-staff',
     hasStaffAccess: true,
@@ -124,10 +118,8 @@ it('ACTIVE STAFF 는 팀 목록 배열을 200 으로 받는다', async () => {
     },
   ]);
 
-  // When
   const response = await getTeams(await sessionCookieFor(5001n));
 
-  // Then
   expect(response.status).toBe(200);
   const body: unknown = await response.json();
   expect(body).toEqual([
@@ -146,7 +138,7 @@ it('ACTIVE STAFF 는 팀 목록 배열을 200 으로 받는다', async () => {
       ],
     },
   ]);
-  // 금지 필드는 응답 어디에도 없다.
+
   const serialized = JSON.stringify(body);
   for (const forbidden of [
     'studentId',
@@ -186,13 +178,10 @@ it.each([
 ])(
   '%s 계정은 403 TEAM_003 로 막히고 service 를 호출하지 않는다',
   async (_label, role, accountStatus) => {
-    // Given
     findUnique.mockResolvedValue({ id: 'synthetic-user', role, accountStatus });
 
-    // When
     const response = await getTeams(await sessionCookieFor(5003n));
 
-    // Then
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toMatchObject({
       type: 'about:blank',

@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -124,11 +122,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
     expect(label?.className).toContain('[overflow-wrap:anywhere]');
     expect(label?.parentElement?.className).toContain('min-w-0');
   });
-  /*
-   * #1107 — 파일을 고르는 시점에 걸러지지 않아, 상한을 넘은 파일이 그대로 전송되고 학생
-   * 화면에는 「API 오류 응답이 ProblemDetail 형식이 아닙니다.」가 떴다. 상한과 허용 형식은
-   * 실패한 뒤가 아니라 고르기 전에 읽을 수 있어야 한다.
-   */
+
   describe('파일을 고르기 전과 고른 직후', () => {
     async function renderForm(onSubmit = vi.fn().mockResolvedValue(true)) {
       await act(async () => {
@@ -184,7 +178,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
       const alert = container.querySelector('[role="alert"]');
       expect(alert?.textContent).toBe('파일은 5 MB 이하여야 합니다.');
       expect(alert?.textContent).not.toContain('ProblemDetail');
-      // 받아 두면 「제출」이 눌리고, 그 요청은 반드시 실패한다.
+
       expect(container.textContent).toContain('계획서.pdf');
       const submit = [...container.querySelectorAll('button')].find(
         (button) => button.textContent?.trim() === '제출',
@@ -218,10 +212,6 @@ describe('MilestoneDocumentSubmissionForm', () => {
     });
   });
 
-  /*
-   * #1108 인터뷰 — 서류 화면도 ZIP을 고르자마자 업로드와 같은 판정을 묻는다. 기다리는 동안과
-   * 거절 문장은 파일 입력 바로 아래에 선다. 제출 버튼은 막지 않는다(제출 때 같은 검사가 돈다).
-   */
   describe('ZIP을 고른 즉시 서버 판정', () => {
     const lockedDetail =
       '비밀번호가 걸린 압축 파일은 제출할 수 없습니다. 비밀번호 없이 다시 압축해 주세요.';
@@ -276,7 +266,6 @@ describe('MilestoneDocumentSubmissionForm', () => {
     }
 
     it('기다리는 동안 대기를, 거절이면 서버 문장을 파일 입력 아래에 세우고 제출은 막지 않는다', async () => {
-      // Given: 판정이 아직 돌아오지 않았다.
       let rejectCheck: (reason: unknown) => void = () => undefined;
       vi.mocked(checkMilestoneDocumentFile).mockReturnValueOnce(
         new Promise<void>((_resolve, reject) => {
@@ -285,20 +274,16 @@ describe('MilestoneDocumentSubmissionForm', () => {
       );
       const onSubmit = await renderForm();
 
-      // When: 파일만 고른다.
       const input = await pick(
         new File(['PK'], 'locked.zip', { type: 'application/zip' }),
       );
 
-      // Then: 결과가 설 자리에 대기가 보인다.
       expect(container.querySelector('[role="status"]')?.textContent).toBe(
         '파일 확인 중…',
       );
 
-      // When: 서버가 비밀번호를 이유로 거절한다.
       await act(async () => rejectCheck(problem('MSD_040', lockedDetail)));
 
-      // Then: 제출 없이 문장이 파일 입력 아래에 서고, 대기는 사라진다.
       const error = container.querySelector(
         '#document-1-submission-file-error',
       );
@@ -314,7 +299,6 @@ describe('MilestoneDocumentSubmissionForm', () => {
     });
 
     it('다른 파일을 고르면 지난 판정 문장을 지우고, ZIP이 아니면 판정을 묻지 않는다', async () => {
-      // Given: 고른 ZIP이 거절됐다.
       vi.mocked(checkMilestoneDocumentFile).mockRejectedValueOnce(
         problem('MSD_040', lockedDetail),
       );
@@ -322,26 +306,21 @@ describe('MilestoneDocumentSubmissionForm', () => {
       await pick(new File(['PK'], 'locked.zip', { type: 'application/zip' }));
       expect(container.textContent).toContain(lockedDetail);
 
-      // When: PDF로 바꾼다.
       await pick(new File(['%PDF'], '계획서.pdf', { type: 'application/pdf' }));
 
-      // Then
       expect(container.textContent).not.toContain(lockedDetail);
       expect(container.querySelector('[role="alert"]')).toBeNull();
       expect(checkMilestoneDocumentFile).toHaveBeenCalledTimes(1);
     });
 
     it('판정 요청이 판정이 아닌 이유로 실패하면 아무 말도 붙이지 않는다', async () => {
-      // Given: 세션이 끝나 판정 대신 인증 실패가 돌아온다.
       vi.mocked(checkMilestoneDocumentFile).mockRejectedValueOnce(
         problem('AUTH_001', '로그인이 필요합니다.'),
       );
       await renderForm();
 
-      // When
       await pick(new File(['PK'], 'bundle.zip', { type: 'application/zip' }));
 
-      // Then: 제출 때 같은 검사가 다시 돈다 — 여기서는 조용하다.
       expect(container.querySelector('[role="alert"]')).toBeNull();
       expect(container.querySelector('[role="status"]')).toBeNull();
       expect(submitButton()).toHaveProperty('disabled', false);
@@ -418,13 +397,6 @@ describe('MilestoneDocumentSubmissionForm', () => {
     expect(container.textContent).not.toContain('이번 제출에서 빠집니다');
   });
 
-  /*
-   * 두 안내가 **한 속성**을 나눠 쓴다 — 기존 첨부가 빠진다는 경고(#1090)와 상한·형식에
-   * 걸렸다는 사유(#1107)는 둘 다 파일 입력의 `aria-describedby`에 실린다. 이 둘은 서로
-   * 다른 갈래에서 들어왔고 rebase 때마다 같은 줄에서 부딪히므로, 한쪽 조건으로 문자열을
-   * 통째로 갈아 끼우면 다른 쪽이 화면에는 남고 스크린리더에서만 조용히 사라진다.
-   * 그 상태를 눈으로 못 잡으니 여기서 고정한다.
-   */
   it('걸린 파일과 빠질 첨부를 동시에 안고도 두 안내를 모두 가리킨다', async () => {
     await act(async () => {
       root.render(
@@ -463,7 +435,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
     for (const id of describedBy) {
       expect(container.querySelector(`#${id}`)).not.toBeNull();
     }
-    // 걸린 파일은 받아 두지 않았으므로 첨부는 여전히 빠질 참이다.
+
     expect(container.textContent).toContain('이번 제출에서 빠집니다');
     expect(container.textContent).toContain('파일은 5 MB 이하여야 합니다.');
   });

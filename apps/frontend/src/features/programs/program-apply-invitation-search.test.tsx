@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -165,7 +163,6 @@ function pendingInvitation(id: string, nickname: string): SentTeamInvitation {
   };
 }
 
-/** 나중에 원하는 시점에 결착시킬 수 있는, 아직 처리되지 않은 요청 응답. */
 function deferred<T>(): {
   promise: Promise<T>;
   resolve: (value: T) => void;
@@ -217,7 +214,6 @@ async function waitForCondition(
   throw new Error(`${label} 조건을 만족하지 못했다.`);
 }
 
-/** 초대 레이어는 Radix Dialog 포털이라 컨테이너 밖(document)에 열린다. */
 function searchInput(): HTMLInputElement | null {
   return document.querySelector<HTMLInputElement>('#invite-search');
 }
@@ -252,7 +248,6 @@ function buttonByLabel(label: string): HTMLButtonElement {
   return found;
 }
 
-/** React가 듣는 것은 네이티브 input 이벤트라 setter를 직접 호출해 값을 넣는다. */
 function typeInto(input: HTMLInputElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(
     HTMLInputElement.prototype,
@@ -268,7 +263,6 @@ function typeQuery(value: string): void {
   typeInto(requireSearchInput(), value);
 }
 
-/** 디바운스(300ms)를 흘려보내 실제 검색 한 번을 돌린다 — 화면에 검색 버튼은 없다. */
 async function runDebouncedSearch(): Promise<void> {
   await act(async () => {
     vi.advanceTimersByTime(300);
@@ -293,7 +287,6 @@ async function renderPage(): Promise<void> {
   );
 }
 
-/** 저장된 팀이 있는 화면에서 초대 레이어를 연다. */
 async function openInviteDialog(): Promise<void> {
   await act(async () => {
     inviteTrigger().click();
@@ -339,7 +332,6 @@ describe('ProgramApplyPage — 초대 검색', () => {
     ]);
     await renderPage();
 
-    // 팀이 없는 동안에는 보낸 초대도 검색도 없다.
     expect(listSentInvitationsMock).not.toHaveBeenCalled();
 
     const teamNameInput =
@@ -360,7 +352,7 @@ describe('ProgramApplyPage — 초대 검색', () => {
       'oc',
     );
     expect(document.body.textContent).toContain('octo9');
-    // 검색까지 왔어도 초대는 아직 보내지 않았고 신청도 만들지 않았다.
+
     expect(createInvitationMock).not.toHaveBeenCalled();
   });
 
@@ -381,7 +373,6 @@ describe('ProgramApplyPage — 초대 검색', () => {
     });
     typeQuery('oct');
 
-    // 아직 300ms(마지막 입력 기준)가 지나지 않았으니 요청이 나가지 않는다.
     expect(searchInvitationCandidatesMock).not.toHaveBeenCalled();
 
     await runDebouncedSearch();
@@ -430,7 +421,6 @@ describe('ProgramApplyPage — 초대 검색', () => {
       'bb',
     );
 
-    // 최신 검색(두 번째)이 먼저 응답한다.
     await act(async () => {
       second.resolve([candidate('u2', 'octo2')]);
       await Promise.resolve();
@@ -438,7 +428,6 @@ describe('ProgramApplyPage — 초대 검색', () => {
     });
     expect(document.body.textContent).toContain('octo2');
 
-    // 이전 검색(첫 번째)이 뒤늦게 도착해도 이미 보여준 최신 결과를 덮어쓰지 않는다.
     await act(async () => {
       first.resolve([candidate('u1', 'octo1-stale')]);
       await Promise.resolve();
@@ -477,7 +466,7 @@ describe('ProgramApplyPage — 초대 검색', () => {
       'team-1',
       'u9',
     );
-    // 표시 이름은 서버의 invitee projection이 정답이라 다시 읽는다.
+
     expect(listSentInvitationsMock).toHaveBeenLastCalledWith('team-1');
   });
 
@@ -501,7 +490,7 @@ describe('ProgramApplyPage — 초대 검색', () => {
     );
 
     expect(cancelInvitationMock).toHaveBeenCalledExactlyOnceWith('inv-1');
-    // 대기 행은 로스터의 것이다 — 검색 레이어는 아직 열리지도 않았다.
+
     expect(searchInput()).toBeNull();
   });
 
@@ -562,7 +551,6 @@ describe('ProgramApplyPage — 초대 검색', () => {
     await runDebouncedSearch();
     expect(document.body.textContent).toContain('octo2');
 
-    // 이전(폐기된) 요청이 뒤늦게 실패해도 화면은 조용히 무시한다 — 에러로 보이지 않는다.
     await act(async () => {
       first.reject(new Error('stale network failure'));
       await Promise.resolve().catch(() => undefined);

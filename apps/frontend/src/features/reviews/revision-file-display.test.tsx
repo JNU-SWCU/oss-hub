@@ -21,23 +21,19 @@ function revision(overrides: Partial<SubmissionRevision>): SubmissionRevision {
 
 describe('RevisionCard file display', () => {
   it('does not render revision file links when file metadata is absent', () => {
-    // Given
     const input = revision({});
 
-    // When
     const html = renderToStaticMarkup(<RevisionCard revision={input} />);
 
-    // Then
     expect(html).not.toContain('report.pdf');
     expect(html).not.toContain(CURRENT_FILE_DOWNLOAD_URL);
-    // QA48 — FILE 유형인데 첨부까지 없으면 raw JSON 대신 짧은 안내를 보여준다.
+
     expect(html).toContain('파일 제출');
     expect(html).not.toContain('"type"');
     expect(html).not.toContain('"fileId"');
   });
 
   it('renders each attached file name, size, and download link', () => {
-    // Given
     const input = revision({
       files: [
         {
@@ -59,10 +55,8 @@ describe('RevisionCard file display', () => {
       ],
     });
 
-    // When
     const html = renderToStaticMarkup(<RevisionCard revision={input} />);
 
-    // Then
     expect(html).toContain('report.pdf');
     expect(html).toContain('1.5 KB');
     expect(html).toContain(`href="${CURRENT_FILE_DOWNLOAD_URL}"`);

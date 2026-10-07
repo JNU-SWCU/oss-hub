@@ -19,24 +19,14 @@ export {
 } from './program-countdown-time';
 export type { RemainingTime } from './program-countdown-time';
 
-/**
- * Sidebar countdown — next milestone (programs) or next collection (ranking).
- * Data is props only. The caller chooses what "next" means.
- *
- * Server "now" and hydration "now" always differ, so the first render is an
- * empty placeholder. The live clock starts after mount.
- */
 export interface SingleCountdownProps {
   readonly mode?: 'single';
   readonly nextMilestoneLabel: string;
-  /** ISO8601. */
+
   readonly dueAt: string;
-  /** Test-only — skip the live clock and render this instant. */
+
   readonly now?: Date;
-  /**
-   * Line under the date. When omitted, `${nextMilestoneLabel} 마감까지`.
-   * Ranking passes `다음 수집까지`.
-   */
+
   readonly untilLabel?: string;
 }
 

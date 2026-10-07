@@ -11,8 +11,6 @@ const firstFile = '운영 결과보고서 최종본 2026.pdf';
 const replacementFile =
   '운영 결과보고서_최종_수정본_교직원_검토완료_증빙자료_모음_2026년도_오픈소스_프로젝트_v12.pdf';
 
-// 현행 편집기는 모달의 한 번 저장으로 파일을 반영한다. 행의 다운로드와
-// 재업로드 후 reload 보존을 실제 API와 저장된 바이트로 확인한다.
 test('마일스톤 행 파일 동작은 실제 Chrome에서 계약을 지킨다', async ({
   authSeedPage,
   programAuthoringActorPage,

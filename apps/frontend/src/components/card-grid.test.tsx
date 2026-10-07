@@ -4,13 +4,11 @@ import { CardGrid } from './card-grid';
 
 describe('CardGrid', () => {
   it('preserves its bounded layout contract while merging custom classes', () => {
-    // Given
     const children = [
       <article key="first">첫 번째 프로그램</article>,
       <article key="second">두 번째 프로그램</article>,
     ];
 
-    // When
     const html = renderToStaticMarkup(
       <CardGrid aria-label="프로그램" className="gap-8">
         {children}
@@ -21,7 +19,6 @@ describe('CardGrid', () => {
     )?.[1];
     const classes = className?.split(' ') ?? [];
 
-    // Then
     expect(html).toContain('data-slot="card-grid"');
     expect(classes).toContain('gap-8');
     expect(classes).not.toContain('gap-4');

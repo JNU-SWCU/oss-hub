@@ -7,10 +7,6 @@ interface AppShellProps extends React.ComponentProps<'div'> {
   footer?: React.ReactNode;
 }
 
-/**
- * 전체 화면 뼈대(viewport-shell 패턴) — 헤더(보통 NavBar)가 고정되고
- * 본문 영역만 뷰포트 안에서 스크롤된다. footer는 선택이다.
- */
 function AppShell({
   header,
   footer,

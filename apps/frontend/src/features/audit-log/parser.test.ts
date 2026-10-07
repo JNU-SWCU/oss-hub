@@ -258,9 +258,6 @@ describe('parseAuditLogPage', () => {
     });
   });
 
-  // TEAM_MEMBERSHIP_CHANGED 행은 백엔드 metadata에 팀장 승계 사실까지 봉인되어 온다
-  // (apps/backend/src/audit-log/web-state-audit-metadata.ts). 파서는 그 중 문장에 쓸
-  // 사실만 검증해 투영하고 user id와 원본 metadata는 그대로 버린다.
   function membershipWireRecord(metadata: unknown) {
     return {
       id: 'audit-team-membership',
@@ -370,10 +367,6 @@ describe('parseAuditLogPage', () => {
     expect(item).not.toHaveProperty('teamMembership');
   });
 
-  /**
-   * TEAM_RENAMED의 `target`은 바뀐 뒤의 이름이라, 바뀜기 전 이름은 metadata에서
-   * 따로 잃어야 「무엇에서 무엇으로」를 말할 수 있다.
-   */
   it('TEAM_RENAMED 행은 바뀜기 전 이름을 투영한다', () => {
     const item = parseOne({
       ...membershipWireRecord({

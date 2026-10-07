@@ -38,27 +38,16 @@ import {
   type UpsertMilestoneDocumentSubmissionInput,
 } from './milestone-documents.repository';
 
-/**
- * #619 마일스톤별 서류 항목(MilestoneDocument/MilestoneDocumentTemplateFile/
- * MilestoneDocumentSubmission) 서비스. 목록 조회(viewer 역할별 분기) · 학생 제출/재제출 ·
- * 교직원 CRUD를 담당한다. 파일 업로드/양식 다운로드는 MilestoneDocumentFilesService 소관이다.
- */
 @Injectable()
 export class MilestoneDocumentsService {
   constructor(private readonly repository: MilestoneDocumentsRepository) {}
 
-  /** 원본 조회 — sortOrder 순 목록만, viewer 정보 없음(레포지토리 값 그대로 위임). */
   async listByMilestone(
     milestoneId: string,
   ): Promise<MilestoneDocumentRecord[]> {
     return this.repository.findByMilestoneId(milestoneId);
   }
 
-  /**
-   * `GET /milestones/:milestoneId/documents` — viewer 역할에 따라 응답이 갈린다.
-   * 학생: 서류별 제출 여부·시각. 교직원: 서류별 팀 제출 집계. 계정을 특정할 수 없거나
-   * 학생인데 이 프로그램 신청이 없으면 viewer 필드 없이 기본 목록만 돌려준다(에러 아님).
-   */
   async listForViewer(
     sessionGithubId: bigint,
     milestoneId: string,
@@ -73,9 +62,6 @@ export class MilestoneDocumentsService {
     const viewer = await this.repository.findActiveUser(sessionGithubId);
 
     if (viewer?.hasStaffAccess === true || viewer?.hasAdminAccess === true) {
-      // 배지는 「이 프로그램의 승인된 신청」 하나를 모집단으로 앞뒤 수를 센다 — 앞 수는 그중
-      // 이 서류를 낸 신청 수, 뒤 수는 승인된 신청 수다. 두 조회가 같은 programId를 받는 것이
-      // 그 계약이며, 서류 수합 표 합계 행도 같은 모집단을 센다(#1100).
       const [total, submittedByDocument] = await Promise.all([
         this.repository.countApprovedApplications(milestone.programId),
         this.repository.countSubmissionsByDocument(
@@ -108,7 +94,6 @@ export class MilestoneDocumentsService {
           summaries.map((summary) => [summary.milestoneDocumentId, summary]),
         );
         return documents.map((document) => {
-          // 제출 행이 없으면 미제출이다 — 판정은 제출에 붙으므로 함께 null이 된다.
           const summary = summaryByDocument.get(document.id) ?? null;
           return MilestoneDocumentResponseDto.from(document, {
             viewerSubmission: {
@@ -142,22 +127,6 @@ export class MilestoneDocumentsService {
     );
   }
 
-  /**
-   * `GET /milestones/:milestoneId/documents/collection` — 교직원 서류 수합 표.
-   * 행은 승인된 신청만(팀 이름 오름차순 → id 오름차순), 칸은 모든 서류 항목에 대해 한 칸씩 채운다.
-   *
-   * N+1 금지: 서류 목록·신청 목록·제출 목록을 각각 한 번씩만 조회하고 결합은
-   * `buildMilestoneDocumentCollectionPage`가 메모리에서 한다
-   * (submissions/submission-matrix.service.ts의 cellIndex와 같은 방식).
-   *
-   * 필터 판정·집계·페이지 자르기는 그 도메인 함수가 소유한다 — DTO는 결과를 직렬화만 한다
-   * (ADR-003: 업무 규칙은 DTO가 아니라 service/도메인에 둔다).
-   *
-   * 페이지네이션(ADR-004 §「모든 목록 조회는 페이지네이션을 제공한다」)도 SQL이 아니라 그 메모리
-   * 단계에서 한다 — 필터가 「필수 서류 중 미제출」처럼 서류·제출을 함께 봐야 정해지는 파생
-   * 조건이라 SQL로 내리면 조회가 갈라지기 때문이다. 한계: 응답 크기는 pageSize로 유계가 되지만
-   * 서버 메모리는 여전히 전체 승인 신청 수에 비례한다. 수백 행을 넘어가면 SQL 쪽으로 내려야 한다.
-   */
   async collectForStaff(
     milestoneId: string,
     query: MilestoneDocumentCollectionQuery,
@@ -248,19 +217,6 @@ export class MilestoneDocumentsService {
     };
   }
 
-  /**
-   * 학생 — 자기 신청의 제출 이력. 여는 문은 **소유**다: 활성 사용자인가, 서류가 그
-   * 마일스톤 소속인가, 이 프로그램 신청의 참여자인가. **지금 승인 상태인가는 묻지 않는다.**
-   *
-   * 승인 되돌리기는 순수한 상태 전이라 제출 행도 이력 행도 지우지 않는다(지우는 곳은
-   * 프로그램 전체 삭제 하나뿐이다). 그래서 목록의 `hasHistory`는 제출 행의 존재만 보고
-   * 참을 말하는데(`listForViewer`), 여기서 승인까지 물으면 되돌려진 학생만 「이력이 있다」는
-   * 답을 받고 그 이력을 열면 403이 나는 어긋남이 생긴다. 같은 이력을 교직원은 이미 승인
-   * 조건 없이 읽는다(`historyForStaff`) — 되돌리기가 장부를 봉인하는 것이 아니다.
-   *
-   * 쓰기(제출·업로드)의 승인 요구는 그대로다. 그쪽이 `APPLICATION_APPROVAL_REQUIRED`
-   * (「승인된 신청만 제출할 수 있습니다」)의 제자리다.
-   */
   async historyForParticipant(
     sessionGithubId: bigint,
     milestoneId: string,
@@ -303,16 +259,6 @@ export class MilestoneDocumentsService {
     };
   }
 
-  /**
-   * 교직원 — 서류 항목 추가("낼 서류 항목 ＋ 서류 항목 추가"). 생성은 요청의 `sortOrder`를
-   * 그대로 쓴다(새 항목은 목록 끝에 붙는다). 순서를 **처음 정하는** 쪽이라 수정과 다르다.
-   *
-   * 마일스톤 존재 확인을 트랜잭션 밖 조회가 아니라 **잠금**으로 한다. 존재 확인만이라면 잠금이
-   * 필요 없지만 이 잠금은 다른 일을 한다 — 순서 재부여가 행 전부를 잠그고 1..N을 다시 매기는
-   * 사이에 새 항목이 커밋되면 그 항목만 재번호에서 빠져 sortOrder가 겹친다. `FOR UPDATE`는
-   * **존재하는 행만** 잠그므로 삽입은 자식 행 잠금으로 막을 수 없다. 삽입하는 이쪽이 부모
-   * (마일스톤)를 함께 잡아야 비로소 두 경로가 한 줄로 선다.
-   */
   async createDocument(
     milestoneId: string,
     input: UpsertMilestoneDocumentInput,
@@ -330,35 +276,12 @@ export class MilestoneDocumentsService {
     return MilestoneDocumentResponseDto.from(record);
   }
 
-  /**
-   * 교직원 — 서류 항목 수정(이름/필수여부). **`sortOrder`는 요청에 있어도 무시한다.**
-   *
-   * 순서의 소유자는 `PATCH .../documents/order` 하나다. 수정이 요청받은 순서를 함께 저장하면
-   * 소유자가 둘이 되고, 그러면 경합이랄 것도 없이 깨진다 — 교직원 A가 편집 화면을 열어 둔 사이
-   * B가 순서를 바꾸고, A가 **이름만** 고쳐 저장하면 A 화면에 박혀 있던 낡은 sortOrder가 B의 새
-   * 순서를 덮어 sortOrder가 겹친다. 겹치면 다음 「위로」가 조용히 아무 일도 하지 않는다(같은
-   * 값끼리 맞바꿔도 순서가 그대로다) — 앞서 없앤 그 덫이 그대로 다시 열린다.
-   *
-   * 요청 본문 계약(`UpsertMilestoneDocumentRequestDto`)은 생성과 공유하므로 그대로 두고, 대신
-   * store로 넘기는 타입(`UpdateMilestoneDocumentInput`)에서 잘라낸다. 「조심해서 안 쓴다」가
-   * 아니라 **쓸 수 없게** 만드는 쪽이다.
-   *
-   * 「잠근다 → 판단한다 → 갱신한다」가 **한 트랜잭션**이어야 한다(ADR-003 — 트랜잭션 경계는
-   * service가 소유한다). 잠금의 상대편은 `upsertSubmission`의 `FOR SHARE`다.
-   *
-   * 여기서는 마일스톤 행을 잡지 않는다 — 이 경로는 서류 항목을 만들지도 지우지도 않아 **집합을
-   * 바꾸지 않기** 때문이다. 이미 있는 한 행만 만지므로 그 행의 `FOR UPDATE`로 충분하고, 순서
-   * 재부여도 같은 행을 `FOR UPDATE`로 잡으므로 둘은 그 지점에서 직렬화된다. 잠금 순서
-   * (`Milestone` → `MilestoneDocument`)의 부분집합만 잡는 것이라 교착도 만들지 않는다.
-   */
   async updateDocument(
     milestoneId: string,
     documentId: string,
     input: UpsertMilestoneDocumentInput,
   ): Promise<MilestoneDocumentResponseDto> {
     const record = await this.repository.withTransaction(async (store) => {
-      // 마일스톤 소속 확인도 잠금 뒤의 값으로 한다 — 트랜잭션 밖에서 미리 읽어 두면 그 값이
-      // 판단 시점에 이미 낡아 있을 수 있다.
       const locked = await store.lockDocument(documentId);
       if (locked === null || locked.milestoneId !== milestoneId) {
         throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
@@ -368,21 +291,6 @@ export class MilestoneDocumentsService {
     return MilestoneDocumentResponseDto.from(record);
   }
 
-  /**
-   * 교직원 — 서류 항목 순서 재부여(`PATCH .../documents/order`).
-   *
-   * documentIds는 이 마일스톤의 서류 **전체 집합과 정확히 일치**해야 한다(누락·중복·다른
-   * 마일스톤 id 섞임 전부 거부). 이걸 강제하면 부분 갱신 자체가 불가능해지고, 그래야 sortOrder가
-   * 같은 두 항목이 남는 상태(다음 「위로」가 조용히 아무 일도 안 하는 덫)를 만들 수 없다.
-   *
-   * **그 대조를 트랜잭션 안, 잠금 뒤에 한다.** 밖에서 읽은 목록으로 판단하면 대조와 갱신 사이가
-   * 열려 있다. 그 사이에 다른 교직원의 추가·삭제가 커밋되면 두 가지가 각각 벌어진다 —
-   * 요청에 있던 id가 삭제됐으면 이어지는 update가 행을 못 찾아 Prisma P2025로 터지고(500), 새로
-   * 생긴 항목은 재번호에서 빠져 sortOrder가 겹친다. 잠근 뒤 집합을 **다시 읽어** 대조하면 둘 다
-   * 「그 사이 목록이 바뀌었다」는 뜻이 있는 거절(INVALID_REQUEST)이 된다.
-   *
-   * 잠금 순서는 `Milestone` → `MilestoneDocument`(id asc) — locks 파일의 전역 규칙 그대로다.
-   */
   async reorderDocuments(
     milestoneId: string,
     documentIds: readonly string[],
@@ -401,18 +309,10 @@ export class MilestoneDocumentsService {
     return records.map((record) => MilestoneDocumentResponseDto.from(record));
   }
 
-  /**
-   * 교직원 — 서류 항목 삭제. 제출이 하나라도 있으면 거부한다.
-   *
-   * 추가와 같은 관문(마일스톤 행 잠금)을 먼저 지난다 — 순서 재부여가 잠근 집합에서 행이 사라지면
-   * 그 update가 P2025로 떨어지기 때문이다. 그다음 서류 행을 잠그고, 「소속 확인 → 제출 수 세기 →
-   * 삭제」를 그 잠금 아래에서 한다. 세기와 삭제가 갈라져 있으면 그 사이에 도착한 제출이 카운트를
-   * 피해 들어오고, 제출이 딸린 항목이 지워진다.
-   */
   async deleteDocument(milestoneId: string, documentId: string): Promise<void> {
     await this.repository.withTransaction(async (store) => {
       const milestone = await store.lockMilestone(milestoneId);
-      // 마일스톤이 없으면 그 안의 서류도 없다 — 호출자에게는 「서류를 못 찾았다」가 맞다.
+
       if (milestone === null) {
         throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
       }
@@ -436,19 +336,6 @@ export class MilestoneDocumentsService {
     });
   }
 
-  /**
-   * 학생 — 서류 제출/재제출("올리기"/"수정"). 현재 상태 헤더는 upsert하지만 매 제출은
-   * `MilestoneDocumentSubmissionHistory`에 append한다. 판정 역시 사건 원장과
-   * `MilestoneDocumentReviewHistory`에 쌓이며 재제출해도 지워지지 않는다.
-   *
-   * 재제출 가부는 최신 판정과 현재 제출 상태가 **함께** 정한다
-   * (`domain/milestone-document-submission-window.ts`). 승인·반려면 마감과 무관하게 거부하고,
-   * 마감 전이면 그대로 허용하며, 마감 뒤에는 **아직 응하지 않은 보완 요청 하나**가 **교직원이
-   * 정한 재제출 기한 안에서만** 지나간다. 판정만 보면(#1097) 그 한 번이 무제한이 된다 — 판정
-   * 이력은 재제출로 되돌아가지 않기 때문이다. 왜 상태가 아니라 판정을 축으로 삼는지는
-   * `domain/milestone-document-review.ts`의 `isResubmissionAllowedAfter`에 있고, 옛 제출물
-   * 재제출(`submissions/submissions.service.ts`의 `assertResubmittable`)과 뜻이 같다.
-   */
   async submit(
     sessionGithubId: bigint,
     milestoneId: string,
@@ -525,39 +412,23 @@ export class MilestoneDocumentsService {
         submittedAt: now,
         deadline: {
           milestoneId,
-          // 잠금 아래의 마감 재확인이 **위와 같은 규칙**으로 예외를 판단하게 한다. 여기서
-          // 조건을 한 벌 더 적으면 두 판단이 갈라져, 위에서 막은 것이 아래에서 통과한다 —
-          // 기한이 지난 재제출이 그대로 저장되는 자리가 정확히 여기다.
+
           allowAfterDeadline: isPostDeadlineResubmissionOpen({
             latestDecision,
             submissionStatus,
             resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
             now,
           }),
-          /*
-           * 그 예외를 허락한 **근거**도 함께 넘긴다. 판정 id만으로는 「재제출은 한 번」이
-           * 지켜지지 않는다 — 같은 팀 두 사람이 마감 뒤 거의 동시에 내면 둘 다 여기서
-           * `CHANGES_REQUESTED`를 읽어 예외를 얻는데, 첫 재제출은 판정을 새로 만들지 않아
-           * 두 번째 요청의 `expectedLatestReviewId`도 그대로 맞는다(#1097 후속). 잠금 아래에서
-           * 다시 읽어 달라진 것은 상태 하나뿐이므로, 그 상태를 대조해야 두 번째가 막힌다.
-           */
+
           expectedSubmissionStatus: submissionStatus,
         },
         content: submissionContent,
         attachFile,
-        // 재제출 가부 판단도 같은 이유로 트랜잭션 밖의 읽기다 — 그 사이 교직원이 판정할 수 있다.
-        // 판단의 근거였던 판정 id를 넘겨 잠금 아래에서 최신 판정이 아직 그것인지 확인한다.
+
         expectedLatestReviewId: latestReview?.id ?? null,
       });
       return MilestoneDocumentSubmissionResponseDto.from(detail);
     } catch (error) {
-      /*
-       * 사전 인가 뒤에 팀원 제외·탈퇴가 커밋된 경우다(#1269). 이미 팀 사람이 아닌 것과
-       * 같은 결로 닫는다 — 위의 사전 확인이 내놓는 답(`NOT_APPLICATION_MEMBER`)과 같아야
-       * 새로고침 여부에 따라 다른 화면이 되지 않고, 없는 신청과 똑같은 응답이라 제출물의
-       * 존재 여부도 새지 않는다. 이 분기는 트랜잭션이 되돌려진 뒤라 제출·이력·첨부 어느
-       * 것도 남지 않는다.
-       */
       if (error instanceof SubmissionMembershipChangedError) {
         throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
       }
@@ -570,16 +441,7 @@ export class MilestoneDocumentsService {
       if (error instanceof MilestoneDocumentReviewChangedError) {
         throw this.error(MilestoneDocumentsErrorCode.REVIEW_CHANGED);
       }
-      /*
-       * 마감 뒤 재제출을 같은 팀의 다른 사람이 먼저 썼다. **MSD_031을 그대로 쓴다** —
-       * 이 학생이 새로고침한 뒤 다시 눌렀다면 `milestoneDocumentSubmissionBlock`이
-       * 내놓았을 답이 정확히 그것이다(보완 요청 · 상태는 이미 SUBMITTED · 마감 지남 =
-       * 「이미 다시 냈다」). 두 경로가 다른 말을 하면 같은 상황이 새로고침 여부에 따라
-       * 다른 화면이 된다.
-       *
-       * 여기서 상태가 달라질 수 있는 길은 그 하나뿐이다: 교직원의 새 판정은 판정 id를
-       * 바꿔 바로 위 MSD_024에서 먼저 걸리고, 승인·반려는 애초에 예외를 받지 못한다.
-       */
+
       if (error instanceof MilestoneDocumentSubmissionChangedError) {
         throw this.error(MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED);
       }
@@ -623,15 +485,6 @@ export class MilestoneDocumentsService {
   }
 }
 
-/**
- * 이력에 붙는 첨부 다운로드 주소. 학생 본인 다운로드 API가 이미 있고 권한 검사도
- * 그쪽이 소유한다(`submissions`의 `GET /submission-files/:fileId` — 교직원·관리자 전부,
- * 그 밖에는 올린 본인이거나 같은 팀원). 그래서 이 화면을 위한 새 endpoint를 만들지 않고
- * 주소만 실어 보낸다.
- *
- * 살아 있는 첨부인지는 repository가 이미 판정해 `downloadableFileId`로 준다 — 여기서
- * 다시 판정하지 않는다.
- */
 function submissionFileDownloadUrl(fileId: string | null): string | null {
   return fileId === null ? null : `/api/v1/submission-files/${fileId}`;
 }
@@ -646,11 +499,6 @@ function studentHistoryActorLabel(
     : '담당 교직원';
 }
 
-/**
- * 수정이 실제로 저장할 필드만 남긴다 — `sortOrder`를 여기서 떨어뜨린다. 필드를 하나씩 적는 것은
- * 실수가 아니라 의도다: 나중에 순서 관련 필드가 늘어도 이 함수를 고치지 않는 한 수정 경로로
- * 새어 나가지 않는다. 순서의 소유자는 `PATCH .../documents/order`다.
- */
 function toUpdateInput(
   input: UpsertMilestoneDocumentInput,
 ): UpdateMilestoneDocumentInput {
@@ -660,10 +508,6 @@ function toUpdateInput(
   };
 }
 
-/**
- * 요청한 id 나열이 지금 잠근 서류 집합과 정확히 같은지 — 누락·중복·외부 id를 모두 잡는다.
- * 길이 비교만으로는 「하나 빠지고 하나 중복」이 통과하므로 Set 크기까지 함께 본다.
- */
 function isExactDocumentIdSet(
   existingIds: readonly string[],
   documentIds: readonly string[],

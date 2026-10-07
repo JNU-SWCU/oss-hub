@@ -117,7 +117,7 @@ function buildService(overrides: {
       .mockResolvedValue(ProgramLifecycle.PUBLISHED),
     findTeamMinSize: jest.fn().mockResolvedValue(null),
     findExistingTeamMembership: jest.fn().mockResolvedValue(null),
-    // 잠금 뒤 되읽은 권한 — 기본값은 「현재 팀장 본인」이다.
+
     lockTeamForApply: jest.fn().mockResolvedValue(true),
     countTeamMembers: jest.fn().mockResolvedValue(1),
     createTeamWithLeader,
@@ -481,13 +481,12 @@ describe('ApplicationsService.create', () => {
   it.each([true, false])(
     'creates server-owned NEW/null when provisioning is %s',
     async (repositoryProvisioningEnabled) => {
-      // Given
       const { service, createApplication } = buildService({
         program: { ...OPEN_PROGRAM, repositoryProvisioningEnabled },
       });
-      // When
+
       await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
-      // Then
+
       expect(createApplication).toHaveBeenCalledWith(
         expect.objectContaining({
           repositoryConnectionMode: RepositoryConnectionMode.NEW,
@@ -497,7 +496,6 @@ describe('ApplicationsService.create', () => {
     },
   );
   it('이미 팀에 속해 있으면 새 팀을 만들지 않고 그 팀으로 신청한다', async () => {
-    // Given — /teams 에서 팀을 먼저 만든 학생.
     const lockTeamForApply = jest.fn().mockResolvedValue(true);
     const { service, createApplication, createTeamWithLeader } = buildService({
       store: {
@@ -509,11 +507,8 @@ describe('ApplicationsService.create', () => {
       },
     });
 
-    // When
     await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
 
-    // Then — 새 팀을 만들지 않는다. 만들면 TeamMember unique 에 걸려
-    // 학생이 영영 신청하지 못한다.
     expect(createTeamWithLeader).not.toHaveBeenCalled();
     expect(lockTeamForApply).toHaveBeenCalledWith('existing-team', STUDENT.id);
     expect(createApplication).toHaveBeenCalledWith(
@@ -522,7 +517,6 @@ describe('ApplicationsService.create', () => {
   });
 
   it('재사용할 팀이 최소 인원에 못 미치면 실제 인원으로 거절한다', async () => {
-    // Given — 최소 2인 프로그램에 1인 팀만 가진 학생.
     const { service } = buildService({
       store: {
         findTeamMinSize: jest.fn().mockResolvedValue(2),
@@ -533,7 +527,6 @@ describe('ApplicationsService.create', () => {
       },
     });
 
-    // When / Then
     await expect(
       service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toMatchObject({
@@ -543,7 +536,6 @@ describe('ApplicationsService.create', () => {
   });
 
   it('재사용할 팀이 최소 인원을 채웠으면 신청을 허용한다', async () => {
-    // Given — 초대로 2인이 된 팀.
     const { service, createApplication } = buildService({
       store: {
         findTeamMinSize: jest.fn().mockResolvedValue(2),
@@ -554,10 +546,8 @@ describe('ApplicationsService.create', () => {
       },
     });
 
-    // When
     await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
 
-    // Then
     expect(createApplication).toHaveBeenCalledWith(
       expect.objectContaining({ teamId: 'existing-team' }),
     );
@@ -640,11 +630,6 @@ describe('ApplicationsService.create', () => {
   });
 });
 
-/**
- * #1269 — 팀 신청의 제출 권한은 **현재 팀장**에게만 있다. 초대받은 팀원은 합류만 하고
- * 따로 신청하지 않는다. 권한 판정의 정본은 팀을 FOR UPDATE로 잠근 뒤 되읽은
- * `store.lockTeamForApply(teamId, userId)` 결과이며, 잠금 전 멤버십 스냅샷이 아니다.
- */
 describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만', () => {
   const EXISTING_TEAM = { id: 'existing-team', name: '함께 만든 팀' };
 
@@ -673,7 +658,6 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
   }
 
   it('팀원(비팀장)은 팀 신청을 만들 수 없다 — APP_028 403', async () => {
-    // Given — 초대로 합류만 한 팀원. 잠금 뒤 되읽은 팀장이 본인이 아니다.
     const {
       service,
       createApplication,
@@ -681,7 +665,6 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
       lockTeamForApply,
     } = buildTeamService({ leaderAfterLock: false });
 
-    // When / Then
     await expect(
       service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toMatchObject({
@@ -691,30 +674,27 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
       },
     });
     expect(lockTeamForApply).toHaveBeenCalledWith(EXISTING_TEAM.id, STUDENT.id);
-    // 팀원에게 따로 1인 팀을 만들어 주지도 않는다 — 신청은 팀당 한 건이다.
+
     expect(createTeamWithLeader).not.toHaveBeenCalled();
     expect(createApplication).not.toHaveBeenCalled();
   });
 
   it('잠금 전에는 팀장이었어도 잠근 뒤 팀장이 아니면 거부한다 — 스냅샷은 정본이 아니다', async () => {
-    // Given — 스냅샷 시점엔 팀장이었지만, 잠금 직전 팀장이 승계된 신청자.
     const { service, createApplication, lockTeamForApply, countTeamMembers } =
       buildTeamService({ leaderAfterLock: false });
 
-    // When / Then
     await expect(
       service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toMatchObject({
       errorCode: { code: ApplicationsErrorCode.TEAM_LEADER_REQUIRED },
     });
-    // 권한은 잠금 직후에 판정한다 — 최소 인원 계산까지 가지 않는다.
+
     expect(countTeamMembers).not.toHaveBeenCalled();
     expect(lockTeamForApply).toHaveBeenCalledTimes(1);
     expect(createApplication).not.toHaveBeenCalled();
   });
 
   it('팀장을 승계한 사람은 그 팀으로 신청할 수 있다', async () => {
-    // Given — 잠근 뒤 되읽은 팀장이 본인인 승계자.
     const { service, createApplication, lockTeamForApply, countTeamMembers } =
       buildTeamService({
         leaderAfterLock: true,
@@ -722,7 +702,6 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
         memberCount: 2,
       });
 
-    // When
     const result = await service.create(
       GITHUB_ID,
       PROGRAM_ID,
@@ -730,7 +709,6 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
       NOW,
     );
 
-    // Then — 잠금 → 권한 → 최소 인원 → 생성 순서를 지킨다.
     expect(result.teamId).toBe(EXISTING_TEAM.id);
     expect(createApplication).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -746,14 +724,12 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
   });
 
   it('잠금 직전에 팀에서 빠진 사람은 신청이 쓰이기 전에 막힌다', async () => {
-    // Given — 최소 인원은 충족하지만 잠금 뒤 본인의 구성원 자격이 사라진 경우.
     const { service, createApplication, countTeamMembers } = buildTeamService({
       leaderAfterLock: false,
       teamMinSize: 2,
       memberCount: 3,
     });
 
-    // When / Then
     await expect(
       service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toMatchObject({
@@ -764,7 +740,6 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
   });
 
   it('팀이 없던 신청자는 그대로 본인이 팀장인 팀을 만들고 팀 잠금 권한 판정을 거치지 않는다', async () => {
-    // Given — 이 프로그램에 아직 팀이 없는 학생(기존 경로).
     const lockTeamForApply = jest.fn().mockResolvedValue(true);
     const { service, createApplication, createTeamWithLeader } = buildService({
       store: {
@@ -773,10 +748,8 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
       },
     });
 
-    // When
     await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
 
-    // Then
     expect(lockTeamForApply).not.toHaveBeenCalled();
     expect(createTeamWithLeader).toHaveBeenCalledWith(
       expect.objectContaining({ leaderId: STUDENT.id }),
@@ -790,14 +763,12 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
   });
 
   it('팀장이어도 최소 인원 미달이면 APP_019로 막고 신청을 만들지 않는다', async () => {
-    // Given — 팀장이지만 2인 프로그램에 1인 팀.
     const { service, createApplication } = buildTeamService({
       leaderAfterLock: true,
       teamMinSize: 2,
       memberCount: 1,
     });
 
-    // When / Then
     await expect(
       service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toMatchObject({
@@ -808,7 +779,6 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
   });
 
   it('팀장의 중복 신청은 계속 APP_011로 매핑한다', async () => {
-    // Given — 팀장이지만 같은 팀 신청이 이미 있는 경우(P2002).
     const lockTeamForApply = jest.fn().mockResolvedValue(true);
     const { service } = buildService({
       createThrows: new ApplicationDuplicateError(),
@@ -819,7 +789,6 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
       },
     });
 
-    // When / Then
     await expect(
       service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toMatchObject({
@@ -830,13 +799,10 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
 
 describe('ApplicationsService.create — 최초 제출 이력', () => {
   it('신청 생성과 같은 트랜잭션 store로 SUBMITTED 이력을 남긴다', async () => {
-    // Given
     const { service, appendReviewHistory } = buildService({});
 
-    // When
     await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
 
-    // Then: 행위자는 교직원이 아니라 제출한 학생이고, 시각은 신청의 submittedAt이다.
     expect(appendReviewHistory).toHaveBeenCalledWith({
       applicationId: CREATED.id,
       eventKind: 'SUBMITTED',
@@ -847,19 +813,16 @@ describe('ApplicationsService.create — 최초 제출 이력', () => {
   });
 
   it('신청이 만들어지지 않으면 이력도 남기지 않는다', async () => {
-    // Given: 내린 프로그램이라 생성 자체가 막힌다.
     const { service, appendReviewHistory } = buildService({
       program: { ...OPEN_PROGRAM, lifecycle: ProgramLifecycle.ARCHIVED },
     });
 
-    // When
     await expect(
       service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toMatchObject({
       errorCode: { code: ApplicationsErrorCode.PROGRAM_ARCHIVED },
     });
 
-    // Then
     expect(appendReviewHistory).not.toHaveBeenCalled();
   });
 });

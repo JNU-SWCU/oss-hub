@@ -1,8 +1,3 @@
-/**
- * 설정 화면이 쓰는 알림 채널 API.
- * notifications feature 내부를 import하지 않고 api-client 계약만 공유한다
- * (docs/rules/frontend.md — feature 간 직접 의존 금지).
- */
 import { ApiError, apiClient } from '@/lib/api-client';
 
 export interface NotificationChannelSettings {

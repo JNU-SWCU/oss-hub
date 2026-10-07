@@ -25,10 +25,6 @@ export class CreateTeamResponseDto {
   }
 }
 
-/**
- * 이름 변경 응답 — 바뀐 이름만 돌려준다.
- * 팀장과 교직원이 같은 endpoint를 쓰므로 신청·저장소를 여기에 싣지 않는다.
- */
 export class RenameTeamResponseDto {
   readonly teamId: string;
   readonly name: string;
@@ -43,10 +39,6 @@ export class RenameTeamResponseDto {
   }
 }
 
-/**
- * 삭제 응답 — 실제로 거둔 수치를 확인 창이 보여준 것과 같은 축으로 돌려준다.
- * `detachedRepositories`는 지운 수가 아니라 연결만 끊은 저장소 수다.
- */
 export class DeleteTeamResponseDto {
   readonly teamId: string;
   readonly deleted: true;
@@ -63,10 +55,6 @@ export class DeleteTeamResponseDto {
   }
 }
 
-/**
- * 교직원 전용 팀 목록 항목 — 팀원 전원의 실명(`members[].name`)을 담는다.
- * 학번·학과·연락처·이메일·참여코드·저장소 URL 은 이 DTO 에 넣지 않는다.
- */
 export class StaffProgramTeamResponseDto {
   readonly teamId: string;
   readonly name: string;
@@ -91,11 +79,6 @@ export class StaffProgramTeamResponseDto {
   }
 }
 
-/**
- * 내 팀 응답 — view 의 필드를 하나씩 명시적으로 옮긴다(spread 금지).
- * 능력 플래그(`canInvite`/`canRemoveMembers`/`canLeave`)는 서버 계산 결과이며
- * 프런트가 같은 규칙을 다시 유추하지 않는다. 과거 `locked` 키는 내려주지 않는다.
- */
 export class ProgramTeamResponseDto {
   readonly id: string;
   readonly name: string;

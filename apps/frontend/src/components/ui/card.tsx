@@ -12,9 +12,6 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        // 시안 v2 — 카드는 안쪽 여백 24(`--card-padding`) · 모서리 12(`--card-radius`).
-        // 여백을 `--card-spacing` 한 변수로 흘려보내므로 Header/Content/Footer가
-        // 같은 값을 따라온다. `size="sm"`은 그 안에서 한 단계(16) 좁힌다.
         'group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-card bg-card py-(--card-spacing) text-body text-card-foreground ring-1 ring-foreground/10 [--card-spacing:var(--card-padding)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(4)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-card *:[img:last-child]:rounded-b-card',
         className,
       )}
@@ -87,8 +84,6 @@ function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="card-footer"
       className={cn(
-        // 카드 발치의 액션 줄. 시안의 `.card-foot`처럼 항상 바닥에 붙어(`mt-auto`)
-        // 같은 줄 카드끼리 버튼 높이가 어긋나지 않는다.
         'mt-auto flex items-center rounded-b-card border-t bg-muted/50 p-(--card-spacing)',
         className,
       )}

@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -53,7 +51,6 @@ const leaderTeam: ProgramTeam = {
   members: [{ userId: 'u1', nickname: 'leader', name: '팀장', isLeader: true }],
 };
 
-/** 초대를 받아 합류한 팀원 — 서버가 초대 권한을 주지 않는다. */
 const memberTeam: ProgramTeam = {
   ...leaderTeam,
   canInvite: false,
@@ -97,7 +94,6 @@ function problem(code: string, status = 403): ProblemDetail {
   };
 }
 
-/** 원하는 시점에 결착시킬 수 있는, 아직 처리되지 않은 요청 응답. */
 function deferred<T>(): {
   promise: Promise<T>;
   resolve: (value: T) => void;
@@ -342,7 +338,6 @@ describe('useTeamInvitationManagement — 신원 경합', () => {
     await flush();
     expect(current().invitingUserId).toBeNull();
 
-    // 새 팀에서 다시 초대를 시작한 뒤, 이전 팀의 요청이 뒤늦게 실패한다.
     const nextPending = deferred<SentTeamInvitation>();
     createInvitationMock.mockImplementationOnce(() => nextPending.promise);
     await act(async () => {
@@ -375,7 +370,6 @@ describe('useTeamInvitationManagement — 검색', () => {
     });
     expect(searchInvitationCandidatesMock).toHaveBeenCalledWith('team-1', 'aa');
 
-    // 2자 미만으로 지워도 진행 중이던 검색은 즉시 무효가 된다.
     await act(async () => {
       current().onInviteQueryChange('a');
     });
@@ -533,7 +527,7 @@ describe('useTeamInvitationManagement — 초대 생성·취소', () => {
     expect(current().sentInvitations.map((item) => item.invitee.name)).toEqual([
       '실제 이름',
     ]);
-    // 초대 성공 뒤 후보 목록도 현재 검색어로 다시 읽는다.
+
     expect(searchInvitationCandidatesMock).toHaveBeenCalledWith(
       'team-1',
       'octo',
@@ -553,7 +547,6 @@ describe('useTeamInvitationManagement — 초대 생성·취소', () => {
     expect(current().inviteActionError).toBe(INVITATION_CREATE_FAILED_MESSAGE);
     expect(current().invitingUserId).toBeNull();
 
-    // 표식이 풀렸으니 같은 후보를 다시 초대할 수 있다.
     createInvitationMock.mockResolvedValue(
       sentInvitation('inv-1', { nickname: 'octo2', name: null }),
     );

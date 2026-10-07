@@ -14,7 +14,6 @@ describe('formatClock / formatCountdownDate', () => {
   });
 
   it('formats yyyy.mm.dd (요일)', () => {
-    // 2026-08-04 is a Tuesday.
     expect(formatCountdownDate(new Date('2026-08-04T19:35:43+09:00'))).toBe(
       '2026.08.04 (화)',
     );

@@ -1,11 +1,3 @@
-/**
- * 셸 아이콘 — 사이드바 메뉴마다 하나씩. 접힌 사이드바에서는 사용자가 이것만 보고
- * 이동하므로 장식이 아니라 식별 수단이다.
- *
- * 확정된 미감 시안 v2의 path 데이터를 그대로 옮겼다. `lucide-react`를 쓰지 않는
- * 이유는 시안이 정한 stroke-width(1.7)·viewBox·모양을 그대로 재현하기 위해서다.
- */
-
 const ICON_PATHS = {
   home: (
     <>
@@ -68,7 +60,7 @@ const ICON_PATHS = {
       <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" />
     </>
   ),
-  /** 모집 중 — 확성기 */
+
   megaphone: (
     <>
       <path d="M3 11v2a1 1 0 0 0 1 1h2l6 4V6L6 10H4a1 1 0 0 0-1 1z" />
@@ -76,28 +68,28 @@ const ICON_PATHS = {
       <path d="M17.5 7a7 7 0 0 1 0 10" />
     </>
   ),
-  /** 진행 중 — 재생 */
+
   play: (
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="M10 8.5v7l6-3.5z" />
     </>
   ),
-  /** 대기 — 시계 */
+
   clock: (
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v5l3 2" />
     </>
   ),
-  /** 종료 — 체크 원 */
+
   checkCircle: (
     <>
       <circle cx="12" cy="12" r="9" />
       <path d="M8.5 12.5l2.5 2.5 4.5-5" />
     </>
   ),
-  /** 레이어 / 융합 */
+
   layers: (
     <>
       <path d="M12 3 3 8l9 5 9-5-9-5z" />
@@ -105,7 +97,7 @@ const ICON_PATHS = {
       <path d="M3 16l9 5 9-5" />
     </>
   ),
-  /** 지구 / 글로벌 */
+
   globe: (
     <>
       <circle cx="12" cy="12" r="9" />
@@ -113,7 +105,7 @@ const ICON_PATHS = {
       <path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z" />
     </>
   ),
-  /** 코드 브라켓 */
+
   code: (
     <>
       <path d="M8 8 4 12l4 4" />
@@ -121,7 +113,7 @@ const ICON_PATHS = {
       <path d="M14 6l-4 12" />
     </>
   ),
-  /** 건물 / 기업 */
+
   building: (
     <>
       <path d="M4 21V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v16" />
@@ -130,7 +122,7 @@ const ICON_PATHS = {
       <path d="M2 21h20" />
     </>
   ),
-  /** 트로피 / 경진 */
+
   trophy: (
     <>
       <path d="M8 4h8v4a4 4 0 0 1-8 0z" />
@@ -146,9 +138,6 @@ const ICON_PATHS = {
 
 export type ShellIconName = keyof typeof ICON_PATHS;
 
-/**
- * `aria-hidden`이 기본이다 — 아이콘 옆에는 항상 이름표 또는 툴팁이 함께 있다.
- */
 export function ShellIcon({
   name,
   className,

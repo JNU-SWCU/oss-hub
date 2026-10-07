@@ -160,13 +160,10 @@ afterAll(async () => {
 });
 
 it('returns 401 AUT_003 ProblemDetail for an unauthenticated GET', async () => {
-  // Given: no session cookie.
-  // When: the current-consent endpoint is requested over the real listener.
   const response = await fetch(`${baseUrl}/api/v1/consents/current`, {
     headers: { connection: 'close' },
   });
 
-  // Then: the session boundary returns the auth ProblemDetail contract.
   await expectProblemDetail(response, {
     status: 401,
     code: 'AUT_003',
@@ -175,13 +172,10 @@ it('returns 401 AUT_003 ProblemDetail for an unauthenticated GET', async () => {
 });
 
 it('returns exact issue-99 metadata and URLs for an authenticated GET', async () => {
-  // Given: a valid synthetic session with no current consent.
-  // When: the current-consent endpoint is requested over the real listener.
   const response = await fetch(`${baseUrl}/api/v1/consents/current`, {
     headers: { connection: 'close', cookie: sessionCookie },
   });
 
-  // Then: the response is the independent Issue #99 contract.
   expect(response.status).toBe(200);
   expect(await readJson(response)).toEqual({
     policyVersion: expectedPolicyVersion,
@@ -208,14 +202,11 @@ it('returns exact issue-99 metadata and URLs for an authenticated GET', async ()
 });
 
 it('returns 200 and exact issue-99 metadata for a valid POST', async () => {
-  // Given: the exact current policy version and accepted-item set.
-  // When: consent is submitted over the real listener.
   const response = await postConsent({
     policyVersion: expectedPolicyVersion,
     acceptedItems: requiredItems,
   });
 
-  // Then: the stored consent response matches the public contract.
   expect(response.status).toBe(200);
   expect(await readJson(response)).toEqual({
     policyVersion: expectedPolicyVersion,
@@ -269,11 +260,8 @@ it.each([
   readonly origin: string;
   readonly expected: { readonly status: number; readonly code: string };
 }[])('$name', async ({ body, origin, expected }) => {
-  // Given: an authenticated request that is invalid at one boundary.
-  // When: the request crosses the real HTTP pipeline.
   const response = await postConsent(body, origin);
 
-  // Then: it is a ProblemDetail response and persistence is untouched.
   await expectProblemDetail(response, {
     ...expected,
     instance: '/api/v1/consents',

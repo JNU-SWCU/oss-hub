@@ -14,11 +14,9 @@ import {
 
 describe('seedId', () => {
   it('같은 인자는 항상 같은 slug를 만든다', () => {
-    // Given & When
     const first = seedId('auth', 'staff-pending');
     const second = seedId('auth', 'staff-pending');
 
-    // Then
     expect(first).toBe(second);
     expect(first).toBe('seed:auth:staff-pending');
   });
@@ -39,7 +37,6 @@ describe('seedGithubId / seedRepositoryId', () => {
   });
 
   it('실제 GitHub numeric id 대역과 겹치지 않는 고정 대역을 쓴다', () => {
-    // 2026년 기준 실제 GitHub 계정·저장소 numeric id는 10^10 미만이다.
     expect(seedGithubId('any-slug')).toBeGreaterThan(9_000_000_000_000_000n);
     expect(seedRepositoryId('any-slug')).toBeGreaterThan(
       9_000_000_000_000_000n,

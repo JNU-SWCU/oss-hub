@@ -3,12 +3,6 @@ import { ProviderRequestQueue } from './collection-provider-queue';
 const jsonResponse = (headers: Record<string, string> = {}): Response =>
   new Response('{}', { status: 200, headers });
 
-/**
- * Deterministic fake clock: `now()` reads the mutable cursor; `sleep()`
- * advances it by exactly the requested amount instead of using real timers.
- * Starts well above 0 — like the real `Date.now()` epoch — so it never
- * collides with the queue's `lastDispatchAt = 0` initial sentinel.
- */
 function fakeClock(): {
   now: () => number;
   sleep: (ms: number) => Promise<void>;
@@ -77,7 +71,7 @@ describe('ProviderRequestQueue', () => {
     expect(dispatchTimes).toHaveLength(3);
     const [first, second, third] = dispatchTimes as [number, number, number];
     expect(second - first).toBeGreaterThanOrEqual(250);
-    // The failed second dispatch must not let the third jump the queue.
+
     expect(third - second).toBeGreaterThanOrEqual(250);
   });
 
@@ -100,7 +94,7 @@ describe('ProviderRequestQueue', () => {
       ),
     );
     await wrapped('https://api.github.com/a');
-    // floor = max(100, 5000*0.2=1000) = 1000; remaining 250 <= 1000
+
     expect(queue.shouldStop()).toBe(true);
   });
 
@@ -118,7 +112,7 @@ describe('ProviderRequestQueue', () => {
       ),
     );
     await wrapped('https://api.github.com/a');
-    // floor = max(100, 300*0.2=60) = 100; remaining 150 > 100
+
     expect(queue.shouldStop()).toBe(false);
   });
 

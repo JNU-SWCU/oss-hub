@@ -23,7 +23,6 @@ import { SubmissionsErrorCode } from './submissions-error-code.enum';
 import { SubmissionsRepository } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
 
-// allow: SIZE_OK — 체크리스트 개인/팀/비멤버 + 재제출 성공·보존·마감후·stale 시나리오가 하나의 격리 PostgreSQL lifecycle을 공유한다.
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -46,7 +45,6 @@ const CLEANUP_MILESTONE_IDS = [
   FILE_METADATA_MILESTONE_ID,
 ];
 
-/** CHANGES_REQUESTED 상태를 target submission history와 review history로 직접 seed한다. */
 async function seedChangesRequestedSubmission(params: {
   readonly id: string;
   readonly milestoneId: string;
@@ -142,7 +140,7 @@ describe('SubmissionsService checklist/resubmission integration', () => {
         affiliationName: '합성 학과',
       },
     });
-    // 마감이 지난 TEXT 마일스톤 — 보완 재제출이 dueAt 이후에도 허용됨을 검증한다.
+
     await prisma.milestone.createMany({
       data: [
         {
@@ -207,18 +205,15 @@ describe('SubmissionsService checklist/resubmission integration', () => {
   });
 
   it('개인형 신청자는 프로그램 전체 마일스톤을 dueAt 오름차순으로 조회한다', async () => {
-    // Given
     const [upcomingId] = MILESTONE_SCENARIOS['milestones-upcoming'];
     const [approvedId] = MILESTONE_SCENARIOS['submission-approved'];
     const [rejectedId] = MILESTONE_SCENARIOS['submission-rejected'];
 
-    // When
     const checklist = await service.checklist(
       seedGithubId(PERSONAL_USER_ID),
       MILESTONES_PROGRAM_ID,
     );
 
-    // Then
     expect(checklist.applicationId).toBe(PERSONAL_APPLICATION_ID);
     expect(checklist.applicationMode).toBe('PERSONAL');
     const dueAts = checklist.items.map((item) => Date.parse(item.dueAt));
@@ -235,7 +230,7 @@ describe('SubmissionsService checklist/resubmission integration', () => {
     expect(approved?.submission).toMatchObject({
       status: SubmissionStatus.APPROVED,
       currentRevision: 1,
-      // 승인된 제출물은 마감 전이어도 교체 진입을 열지 않는다 — 판정 무결성 보호.
+
       canResubmit: false,
     });
     expect(approved?.submission?.lastReviewedAt).not.toBeNull();
@@ -251,19 +246,16 @@ describe('SubmissionsService checklist/resubmission integration', () => {
   });
 
   it('팀원은 마감 전 제출물과 CHANGES_REQUESTED 제출을 교체할 수 있다', async () => {
-    // Given
     const [changesRequestedId] =
       MILESTONE_SCENARIOS['submission-changes-requested'];
     const [existingId] = MILESTONE_SCENARIOS['submission-existing'];
     const [approvedId] = MILESTONE_SCENARIOS['submission-approved'];
 
-    // When
     const checklist = await service.checklist(
       seedGithubId(TEAM_MEMBER_ID),
       MILESTONES_PROGRAM_ID,
     );
 
-    // Then
     expect(checklist.applicationId).toBe(TEAM_APPLICATION_ID);
     expect(checklist.applicationMode).toBe('TEAM');
 
@@ -288,7 +280,6 @@ describe('SubmissionsService checklist/resubmission integration', () => {
       reviewComment: null,
     });
 
-    // 개인 신청의 제출은 팀 체크리스트에 나타나지 않는다.
     const approved = checklist.items.find(
       (item) => item.milestoneId === approvedId,
     );
@@ -296,20 +287,17 @@ describe('SubmissionsService checklist/resubmission integration', () => {
   });
 
   it('승인된 신청이 없는 학생의 체크리스트 조회는 403이다', async () => {
-    // When
     const checklist = service.checklist(
       seedGithubId(OUTSIDER_USER_ID),
       MILESTONES_PROGRAM_ID,
     );
 
-    // Then
     await expect(checklist).rejects.toMatchObject({
       errorCode: { code: SubmissionsErrorCode.NOT_APPLICATION_MEMBER },
     });
   });
 
   it('체크리스트는 현재 revision의 ATTACHED·미만료 파일만 안전한 메타데이터로 노출한다', async () => {
-    // Given
     const targetDocumentId = `${FILE_METADATA_MILESTONE_ID}-legacy-document`;
     await prisma.milestoneDocument.upsert({
       where: { id: targetDocumentId },
@@ -390,14 +378,12 @@ describe('SubmissionsService checklist/resubmission integration', () => {
       ],
     });
 
-    // When
     const checklist = await service.checklist(
       seedGithubId(PERSONAL_USER_ID),
       MILESTONES_PROGRAM_ID,
       new Date('2026-07-31T00:00:00.000Z'),
     );
 
-    // Then
     const fileMilestone = checklist.items.find(
       (item) => item.milestoneId === FILE_METADATA_MILESTONE_ID,
     );
@@ -415,7 +401,6 @@ describe('SubmissionsService checklist/resubmission integration', () => {
   });
 
   it('마감 후에도 보완 재제출은 revision을 추가하고 이전 기록을 보존한다', async () => {
-    // Given: dueAt이 지난 마일스톤의 CHANGES_REQUESTED 제출.
     const submissionId = 'synthetic-checklist-resubmit-target';
     await seedChangesRequestedSubmission({
       id: submissionId,
@@ -424,7 +409,6 @@ describe('SubmissionsService checklist/resubmission integration', () => {
       submittedById: PERSONAL_USER_ID,
     });
 
-    // When
     const result = await service.resubmit(
       seedGithubId(PERSONAL_USER_ID),
       submissionId,
@@ -435,7 +419,6 @@ describe('SubmissionsService checklist/resubmission integration', () => {
       },
     );
 
-    // Then
     expect(result).toEqual({
       submissionId,
       revision: 2,
@@ -474,7 +457,6 @@ describe('SubmissionsService checklist/resubmission integration', () => {
   });
 
   it('오래된 baseRevision 재제출은 409 STALE_SUBMISSION_REVISION이다', async () => {
-    // Given: currentRevision 2인 CHANGES_REQUESTED 제출과 오래된 탭의 baseRevision 1.
     const [upcomingId] = MILESTONE_SCENARIOS['milestones-upcoming'];
     const submissionId = 'synthetic-checklist-stale-target';
     await seedChangesRequestedSubmission({
@@ -485,7 +467,6 @@ describe('SubmissionsService checklist/resubmission integration', () => {
       revisionCount: 2,
     });
 
-    // When
     const resubmission = service.resubmit(
       seedGithubId(PERSONAL_USER_ID),
       submissionId,
@@ -496,7 +477,6 @@ describe('SubmissionsService checklist/resubmission integration', () => {
       },
     );
 
-    // Then
     await expect(resubmission).rejects.toMatchObject({
       errorCode: { code: SubmissionsErrorCode.STALE_SUBMISSION_REVISION },
     });
@@ -544,8 +524,7 @@ describe('SubmissionsService checklist/resubmission integration', () => {
     ).rejects.toMatchObject({
       errorCode: { code: SubmissionsErrorCode.SUBMISSION_REPLACEMENT_CLOSED },
     });
-    // APPROVED 는 마감과 무관하게 교체하지 않는다 — 교직원 판정이 옛 revision 을
-    // 가리킨 채 남기 때문에 SUBMISSION_REPLACEMENT_CLOSED 보다 앞서 거부한다.
+
     await expect(
       service.resubmit(
         seedGithubId(PERSONAL_USER_ID),
@@ -569,7 +548,6 @@ describe('SubmissionsService checklist/resubmission integration', () => {
   });
 
   it('남의 제출 재제출은 403, 없는 제출은 404다', async () => {
-    // Given: 팀 신청의 CHANGES_REQUESTED 제출과 개인 신청자.
     const teamSubmissionId = seedId(
       'milestones',
       'submission-changes-requested',
@@ -584,7 +562,6 @@ describe('SubmissionsService checklist/resubmission integration', () => {
       comment: null,
     } as const;
 
-    // When & Then
     await expect(
       service.resubmit(seedGithubId(PERSONAL_USER_ID), teamSubmissionId, input),
     ).rejects.toMatchObject({

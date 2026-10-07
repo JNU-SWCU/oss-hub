@@ -7,9 +7,6 @@ import {
   type ProgramListStatus,
 } from './types';
 
-/**
- * 좁은 폭용 상태 칩 — 데스크톱은 전역 사이드 패널 「프로그램 메뉴」가 담당.
- */
 export function ProgramListStatusChips({
   value,
   onChange,

@@ -65,7 +65,6 @@ export interface DownloadedMilestoneDocumentTemplate {
   readonly contentLength: number;
 }
 
-/** 교직원 다운로드 — fileName은 학생이 올린 원본이 아니라 `팀명_서류명.확장자`로 다시 붙인 이름이다. */
 export interface DownloadedMilestoneDocumentSubmissionFile {
   readonly body: Readable;
   readonly fileName: string;
@@ -73,12 +72,6 @@ export interface DownloadedMilestoneDocumentSubmissionFile {
   readonly contentLength: number;
 }
 
-/**
- * 마일스톤 서류 항목의 파일 업로드/양식 파일 업로드·다운로드를 담당한다. 저장 스택은
- * submissions/의 SubmissionFile·S3(object-storage) 경로를 그대로 재사용한다(새 업로드 스택을 만들지 않는다) —
- * submission-file-name.ts/submission-file-content-type.ts/submission-file-storage.port.ts는
- * 읽기 전용으로 import만 하고 수정하지 않는다.
- */
 @Injectable()
 export class MilestoneDocumentFilesService {
   constructor(
@@ -88,7 +81,6 @@ export class MilestoneDocumentFilesService {
     private readonly submissionFiles: SubmissionFilesRepository,
   ) {}
 
-  /** 학생 — 제출에 선택적으로 붙일 파일을 pending 상태로 올린다. */
   async upload(
     sessionGithubId: bigint,
     milestoneId: unknown,
@@ -137,8 +129,7 @@ export class MilestoneDocumentFilesService {
         application.applicationId,
       ),
     ]);
-    // 업로드 관문은 제출 관문과 **같은 판단**이어야 한다 — 여기만 열려 있으면 학생은 파일을
-    // 올린 뒤 제출에서 막히고, 여기만 잠기면 낼 수 있는 서류에 파일을 붙이지 못한다.
+
     const blocked = milestoneDocumentSubmissionBlock({
       dueAt: documentContext.dueAt,
       now,
@@ -166,11 +157,6 @@ export class MilestoneDocumentFilesService {
         pendingExpiresAt: new Date(now.getTime() + PENDING_TTL_MS),
       });
     } catch (error) {
-      // 위 preflight(`findStudentApplication`)는 잠금 없이 읽은 낡은 사실이다(#1269).
-      // `createPending`이 팀 행을 잠근 뒤 되읽어 「이미 팀 사람이 아님」을 알렸다면, 그것은
-      // 저장소 장애가 아니라 **권한**이 사라진 것이다 — preflight가 같은 사실을 먼저 봤을 때
-      // 내는 `NOT_APPLICATION_MEMBER`와 같은 응답으로 옮긴다. 여기서 storage 장애로 뭉개면
-      // 학생은 「잠시 뒤 다시」라는 안내를 받고 영원히 재시도한다.
       if (error instanceof SubmissionMembershipChangedError) {
         throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
       }
@@ -207,16 +193,10 @@ export class MilestoneDocumentFilesService {
     };
   }
 
-  /**
-   * 학생 — 고른 파일에 업로드와 **같은** 판정만 돌려준다(#1108). 거절 사유를 보려고 제출을
-   * 눌러야 했던 것을 없애려는 경로다. 판정은 `validateOriginalFileName` 하나를 업로드와 함께
-   * 쓰고, 이 경로는 저장소에도 DB에도 닿지 않는다 — 제출 때 같은 검사가 다시 돈다.
-   */
   async check(file: MilestoneDocumentFileUpload | undefined): Promise<void> {
     await this.validateOriginalFileName(file);
   }
 
-  /** 교직원 — 서류 항목의 양식 파일을 올리거나 교체한다("양식 올리기"/"양식 교체"). */
   async uploadTemplate(
     actorId: string,
     milestoneId: string,
@@ -277,7 +257,6 @@ export class MilestoneDocumentFilesService {
     };
   }
 
-  /** 양식 다운로드("양식" 링크) — 교직원은 항상, 학생은 해당 프로그램 신청 참여자만 허용한다. */
   async downloadTemplate(
     sessionGithubId: bigint,
     milestoneId: string,
@@ -327,27 +306,12 @@ export class MilestoneDocumentFilesService {
     };
   }
 
-  /**
-   * 교직원 — 한 팀이 낸 서류 제출 파일을 내려받는다
-   * (`GET /milestones/:milestoneId/documents/:documentId/applications/:applicationId/file`).
-   *
-   * 일반 `GET /submission-files/:fileId`와 달리, 이 endpoint는 교직원 수합 화면의
-   * (마일스톤, 서류 항목, 신청) 경로 자체를 검증하고 그 경로의 현재 첨부를 찾는다.
-   *
-   * 인가는 순서대로 전부 검사한다.
-   * 1. ACTIVE + STAFF/ADMIN — MilestoneDocumentsStaffGuard가 endpoint 앞단에서 본다.
-   * 2. 서류 항목이 이 마일스톤 소속인가.
-   * 3. 신청이 이 마일스톤의 프로그램 소속인가 — 가드가 역할만 보므로(프로그램 단위 소유권 컬럼이
-   *    스키마에 없다) 경로를 위조해 다른 프로그램 데이터를 끌어오는 것을 여기서 막는다.
-   * 4. 그 (서류, 신청) 제출에 ATTACHED이고 아직 만료되지 않은 첨부가 있는가.
-   */
   async downloadSubmissionFile(
     milestoneId: string,
     documentId: string,
     applicationId: string,
     now: Date = new Date(),
   ): Promise<DownloadedMilestoneDocumentSubmissionFile> {
-    // 2. 서류 항목이 이 마일스톤 소속인가.
     const documentContext =
       await this.repository.findDocumentContext(documentId);
     if (
@@ -357,14 +321,12 @@ export class MilestoneDocumentFilesService {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
     }
 
-    // 3. 신청이 이 마일스톤의 프로그램 소속인가.
     const applicationProgramId =
       await this.repository.findApplicationProgramId(applicationId);
     if (applicationProgramId !== documentContext.programId) {
       throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND);
     }
 
-    // 4. ATTACHED이고 만료되지 않은 첨부가 있는가.
     const file = await this.repository.findSubmissionFileForStaffDownload(
       documentId,
       applicationId,
@@ -393,11 +355,6 @@ export class MilestoneDocumentFilesService {
     };
   }
 
-  /**
-   * 검사 순서를 submissions/submission-files.service.ts와 같게 둔다 — 확장자 → 서명 →
-   * (.zip이면) 아카이브 메타데이터 입장 검사. 둘은 같은 저장 스택으로 들어가므로
-   * 한쪽만 느슨하면 그쪽이 계약을 우회하는 입구가 된다.
-   */
   private async validateOriginalFileName(
     file: MilestoneDocumentFileUpload | undefined,
     purpose: 'STUDENT' | 'TEMPLATE' = 'STUDENT',
@@ -417,11 +374,7 @@ export class MilestoneDocumentFilesService {
     if (!valid) {
       throw this.error(MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE);
     }
-    /*
-     * 거절 사유를 갈래별 코드로 옮기는 것도 제출 경로와 같은 계약이다(#1108). 한쪽만
-     * 고치면 같은 압축 파일이 제출 화면에서는 고칠 방법을 듣고 서류 화면에서는 「지원하지
-     * 않는 파일 형식입니다」를 듣는다.
-     */
+
     if (normalizedFileName.toLowerCase().endsWith('.zip')) {
       const zipRejection = await inspectSubmissionZipMetadata(file.buffer);
       if (zipRejection !== null) {

@@ -60,8 +60,6 @@ describe('submissions api', () => {
   });
 
   it('마일스톤 서류 목록과 현재 파일 endpoint에서 식별자를 모두 인코딩한다', async () => {
-    // Given
-    // 응답은 배열이 아니라 봉투다 — 여기에 빈 배열을 두어 진짜 계약이 가려졌었다.
     const listResponse = jsonResponse(
       { documents: [currentFileDocument], fileUpload: uploadPolicy },
       200,
@@ -79,11 +77,9 @@ describe('submissions api', () => {
       .mockResolvedValueOnce(fileResponse);
     vi.stubGlobal('fetch', request);
 
-    // When
     const documents = await listMilestoneDocumentCurrentFiles('milestone/1');
     await downloadMilestoneDocumentCurrentFile('milestone/1', 'document/1');
 
-    // Then
     expect(documents).toEqual([currentFileDocument]);
     expect(request).toHaveBeenNthCalledWith(
       1,
@@ -131,7 +127,6 @@ describe('submissions api', () => {
   });
 
   it('file resubmission upload context is sent as FormData fields', async () => {
-    // Given
     const uploaded = {
       fileId: 'file-2',
       fileName: 'replacement.pdf',
@@ -145,7 +140,6 @@ describe('submissions api', () => {
       type: 'application/pdf',
     });
 
-    // When
     const result = await uploadSubmissionFile(
       'application-1',
       'milestone-1',
@@ -153,7 +147,6 @@ describe('submissions api', () => {
       { submissionId: 'submission-1', baseRevision: 3 },
     );
 
-    // Then
     expect(result).toEqual(uploaded);
     const init = request.mock.calls[0]?.[1];
     expect(init?.headers).toBeUndefined();
@@ -169,14 +162,12 @@ describe('submissions api', () => {
   });
 
   it('파일 판정은 파일 하나만 판정 경로로 보내고 본문 없는 204를 통과로 받는다', async () => {
-    // Given: 판정 경로는 저장하지 않으므로 식별자 없이 파일만 보낸다(#1108).
     const request = vi
       .fn()
       .mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal('fetch', request);
     const file = new File(['PK'], 'bundle.zip', { type: 'application/zip' });
 
-    // When / Then
     await expect(checkSubmissionFile(file)).resolves.toBeUndefined();
     const [url, init] = request.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(apiPath('submission-files/checks'));
@@ -189,7 +180,6 @@ describe('submissions api', () => {
     expect(init.body.get('file')).toBe(file);
   });
   it('program과 milestone 식별자를 인코딩해 폼을 조회한다', async () => {
-    // Given
     const response = {
       applicationId: 'application-1',
       applicationMode: 'PERSONAL',
@@ -216,10 +206,8 @@ describe('submissions api', () => {
     );
     vi.stubGlobal('fetch', request);
 
-    // When
     const result = await getSubmissionForm('program/1', 'milestone/1');
 
-    // Then
     expect(result).toEqual(response);
     expect(request).toHaveBeenCalledWith(
       apiPath('programs/program%2F1/milestones/milestone%2F1/submission-form'),
@@ -228,7 +216,6 @@ describe('submissions api', () => {
   });
 
   it('최초 제출 계약을 JSON body로 전송한다', async () => {
-    // Given
     const created = {
       submissionId: 'submission-1',
       status: 'SUBMITTED',
@@ -248,10 +235,8 @@ describe('submissions api', () => {
       comment: '합성 코멘트',
     };
 
-    // When
     const result = await createSubmission(input);
 
-    // Then
     expect(result).toEqual(created);
     expect(request).toHaveBeenCalledWith(apiPath('submissions'), {
       method: 'POST',
@@ -261,7 +246,6 @@ describe('submissions api', () => {
   });
 
   it('program 식별자를 인코딩해 내 체크리스트를 조회한다', async () => {
-    // Given
     const checklist = {
       applicationId: 'application-personal',
       applicationMode: 'PERSONAL',
@@ -284,10 +268,8 @@ describe('submissions api', () => {
     );
     vi.stubGlobal('fetch', request);
 
-    // When
     const result = await getSubmissionChecklist('program/1');
 
-    // Then
     expect(result).toEqual(checklist);
     expect(request).toHaveBeenCalledWith(
       apiPath('programs/program%2F1/submissions/me'),
@@ -296,7 +278,6 @@ describe('submissions api', () => {
   });
 
   it('재제출은 baseRevision을 body에 담아 resubmissions로 보낸다', async () => {
-    // Given
     const created = {
       submissionId: 'submission/1',
       revision: 2,
@@ -310,7 +291,6 @@ describe('submissions api', () => {
     );
     vi.stubGlobal('fetch', request);
 
-    // When
     const result = await createResubmission({
       submissionId: 'submission/1',
       baseRevision: 1,
@@ -318,7 +298,6 @@ describe('submissions api', () => {
       comment: '보완 완료',
     });
 
-    // Then: submissionId는 URL로만, baseRevision·content·comment는 body로.
     expect(result).toEqual(created);
     expect(request).toHaveBeenCalledWith(
       apiPath('submissions/submission%2F1/resubmissions'),
@@ -335,7 +314,6 @@ describe('submissions api', () => {
   });
 
   it('매트릭스 조회는 programId를 인코딩하고 #124 query 계약대로 직렬화한다', async () => {
-    // Given
     const page = {
       milestones: [],
       rows: [],
@@ -351,14 +329,12 @@ describe('submissions api', () => {
     );
     vi.stubGlobal('fetch', request);
 
-    // When
     const result = await getSubmissionMatrix('program/1', {
       q: ' 홍길동 ',
       page: 2,
       pageSize: 20,
     });
 
-    // Then
     expect(result).toEqual(page);
     const expectedQuery = new URLSearchParams({
       q: '홍길동',
@@ -372,7 +348,6 @@ describe('submissions api', () => {
   });
 
   it('매트릭스 조회에서 빈 검색어는 query에 넣지 않는다', async () => {
-    // Given
     const request = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -387,14 +362,12 @@ describe('submissions api', () => {
     );
     vi.stubGlobal('fetch', request);
 
-    // When
     await getSubmissionMatrix('program-1', {
       q: '  ',
       page: 1,
       pageSize: 20,
     });
 
-    // Then
     expect(request).toHaveBeenCalledWith(
       apiPath('programs/program-1/submissions/matrix?page=1&pageSize=20'),
       undefined,

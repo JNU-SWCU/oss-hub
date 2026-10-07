@@ -98,7 +98,6 @@ function setup() {
 
 describe('DeadlineDigestService Program preview and send', () => {
   it('sends exactly the confirmed personalized bodies across a headline time boundary', async () => {
-    // Given
     const { findDeadlineProgram, send, service } = setup();
     findDeadlineProgram.mockResolvedValue({
       ...source(),
@@ -112,14 +111,14 @@ describe('DeadlineDigestService Program preview and send', () => {
       staffGuidance: 'staff-only note',
     };
     const preview = await service.previewProgram(101n, 'program-1', NOW, draft);
-    // When
+
     await service.sendProgramFromPreview(
       101n,
       'program-1',
       { ...preview, ...draft },
       new Date(NOW.getTime() + 6 * 60_000),
     );
-    // Then
+
     expect(send.mock.calls[0]?.[0]).toEqual({
       to: 'student-1@example.com',
       subject: preview.studentPreviews[0]?.subject,
@@ -136,7 +135,6 @@ describe('DeadlineDigestService Program preview and send', () => {
   });
 
   it('preserves guidance when re-previewing after expiry but never sends automatically or saves it', async () => {
-    // Given
     const { claimNotification, send, service } = setup();
     const draft = {
       studentGuidance: 'temporary student guidance',
@@ -144,7 +142,7 @@ describe('DeadlineDigestService Program preview and send', () => {
     };
     const preview = await service.previewProgram(101n, 'program-1', NOW, draft);
     const later = new Date(NOW.getTime() + 10 * 60_000 + 1);
-    // When
+
     await expect(
       service.sendProgramFromPreview(
         101n,
@@ -155,7 +153,7 @@ describe('DeadlineDigestService Program preview and send', () => {
     ).rejects.toMatchObject({ errorCode: { status: 409 } });
     const fresh = await service.previewProgram(101n, 'program-1', later, draft);
     const independent = await service.previewProgram(101n, 'program-1', later);
-    // Then
+
     expect(fresh.studentPreviews[0]?.text).toContain(draft.studentGuidance);
     expect(fresh.staffPreview?.text).toContain(draft.staffGuidance);
     expect(independent.studentPreviews[0]?.text).not.toContain(
@@ -167,13 +165,10 @@ describe('DeadlineDigestService Program preview and send', () => {
   });
 
   it('returns rendered preview metadata without private recipient identities or addresses', async () => {
-    // Given
     const { service } = setup();
 
-    // When
     const preview = await service.previewProgram(101n, 'program-1', NOW);
 
-    // Then
     expect(preview).toMatchObject({
       applicationCount: 1,
       milestoneCount: 1,
@@ -201,11 +196,9 @@ describe('DeadlineDigestService Program preview and send', () => {
   });
 
   it('recomputes the matching preview, sends multipart mail, and claims the Program-recipient daily key', async () => {
-    // Given
     const { claimNotification, send, service } = setup();
     const preview = await service.previewProgram(101n, 'program-1', NOW);
 
-    // When
     const result = await service.sendProgramFromPreview(
       101n,
       'program-1',
@@ -216,7 +209,6 @@ describe('DeadlineDigestService Program preview and send', () => {
       new Date(NOW.getTime() + 60_000),
     );
 
-    // Then
     expect(result).toMatchObject({
       sentCount: 1,
       duplicateCount: 0,
@@ -234,11 +226,9 @@ describe('DeadlineDigestService Program preview and send', () => {
   });
 
   it('교직원 요약을 미제출자 명단과 함께 학생과 다른 멱등 키로 보낸다', async () => {
-    // Given
     const { claimNotification, send, service } = setup();
     const preview = await service.previewProgram(101n, 'program-1', NOW);
 
-    // When
     const result = await service.sendProgramFromPreview(
       101n,
       'program-1',
@@ -246,7 +236,6 @@ describe('DeadlineDigestService Program preview and send', () => {
       new Date(NOW.getTime() + 60_000),
     );
 
-    // Then
     expect(result.staffRecipientCount).toBe(1);
     expect(claimNotification).toHaveBeenCalledWith(
       'staff-1',
@@ -261,7 +250,6 @@ describe('DeadlineDigestService Program preview and send', () => {
   });
 
   it('미제출 명단에 비활성·수신 거부·이메일 없음으로 제외된 사람도 사유와 함께 남긴다', async () => {
-    // Given
     const { findDeadlineProgram, send, service } = setup();
     findDeadlineProgram.mockResolvedValue(
       source([
@@ -297,7 +285,6 @@ describe('DeadlineDigestService Program preview and send', () => {
     );
     const preview = await service.previewProgram(101n, 'program-1', NOW);
 
-    // When
     await service.sendProgramFromPreview(
       101n,
       'program-1',
@@ -305,7 +292,6 @@ describe('DeadlineDigestService Program preview and send', () => {
       new Date(NOW.getTime() + 60_000),
     );
 
-    // Then
     const staffMail = send.mock.calls
       .map((call) => call[0])
       .find((mail) => mail.to === 'staff-1@example.com');
@@ -315,14 +301,12 @@ describe('DeadlineDigestService Program preview and send', () => {
   });
 
   it('교직원이 같은 프로그램의 팀원을 겸해도 두 통이 각자의 멱등 키로 나간다', async () => {
-    // Given: 교직원 계정 id가 학생 수신자 id와 같다.
     const { claimNotification, findNotifiableStaff, send, service } = setup();
     findNotifiableStaff.mockResolvedValue([
       { id: 'student-1', notificationEmail: 'student-1@example.com' },
     ]);
     const preview = await service.previewProgram(101n, 'program-1', NOW);
 
-    // When
     await service.sendProgramFromPreview(
       101n,
       'program-1',
@@ -330,7 +314,6 @@ describe('DeadlineDigestService Program preview and send', () => {
       new Date(NOW.getTime() + 60_000),
     );
 
-    // Then
     expect(send).toHaveBeenCalledTimes(2);
     expect(claimNotification.mock.calls.map((call) => call[1])).toEqual(
       expect.arrayContaining([
@@ -341,17 +324,14 @@ describe('DeadlineDigestService Program preview and send', () => {
   });
 
   it('교직원 수신자가 바뀌면 확인하지 않은 메일을 보내지 않는다', async () => {
-    // Given
     const { findNotifiableStaff, service, send } = setup();
     const preview = await service.previewProgram(101n, 'program-1', NOW);
 
-    // When: 미리보기 이후 교직원 한 명이 수신을 켰다.
     findNotifiableStaff.mockResolvedValue([
       { id: 'staff-1', notificationEmail: 'staff-1@example.com' },
       { id: 'staff-2', notificationEmail: 'staff-2@example.com' },
     ]);
 
-    // Then: 새 수신 범위를 다시 확인하기 전까지 학생 메일도 보내지 않는다.
     await expect(
       service.sendProgramFromPreview(
         101n,
@@ -364,11 +344,9 @@ describe('DeadlineDigestService Program preview and send', () => {
   });
 
   it('rejects a preview after ten minutes or when canonical eligibility changed', async () => {
-    // Given
     const { claimNotification, findDeadlineProgram, send, service } = setup();
     const preview = await service.previewProgram(101n, 'program-1', NOW);
 
-    // When / Then: exactly ten minutes remains valid; after it is stale.
     claimNotification.mockResolvedValue(false);
     await expect(
       service.sendProgramFromPreview(
@@ -406,14 +384,11 @@ describe('DeadlineDigestService Program preview and send', () => {
   });
 
   it('returns 403 before reading Program eligibility for a student caller', async () => {
-    // Given
     const { findActiveStaffOrAdmin, findDeadlineProgram, service } = setup();
     findActiveStaffOrAdmin.mockResolvedValue(false);
 
-    // When
     const result = service.previewProgram(202n, 'program-1', NOW);
 
-    // Then
     await expect(result).rejects.toBeInstanceOf(DomainException);
     await expect(result).rejects.toMatchObject({ errorCode: { status: 403 } });
     expect(findDeadlineProgram).not.toHaveBeenCalled();
@@ -422,7 +397,6 @@ describe('DeadlineDigestService Program preview and send', () => {
 
 describe('DeadlineDigestService delivery isolation and automatic sharing', () => {
   it('shares Program eligibility with automatic delivery and continues after one SMTP failure', async () => {
-    // Given
     const recipients = [
       {
         id: 'student-1',
@@ -446,10 +420,8 @@ describe('DeadlineDigestService delivery isolation and automatic sharing', () =>
       new Error('SMTP leaked-recipient@example.test token=provider-secret'),
     );
 
-    // When
     await service.sendDeadlineDigests(NOW);
 
-    // Then
     expect(send).toHaveBeenCalledTimes(2);
     expect(completeNotification).toHaveBeenCalledWith(
       'deadline-digest:2026-08-14:program-1:student-1',
@@ -471,13 +443,10 @@ describe('DeadlineDigestService delivery isolation and automatic sharing', () =>
   });
 
   it('자동 발송은 교직원 요약을 만들지도 보내지도 않는다', async () => {
-    // Given
     const { claimNotification, findNotifiableStaff, send, service } = setup();
 
-    // When
     await service.sendDeadlineDigests(NOW);
 
-    // Then
     expect(findNotifiableStaff).not.toHaveBeenCalled();
     expect(send.mock.calls.map((call) => call[0].to)).toEqual([
       'student-1@example.com',

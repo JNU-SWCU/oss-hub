@@ -10,19 +10,8 @@ import { CollectionAppTokenProvider } from '../src/github/collection-app.token';
 import { ProviderRequestQueue } from '../src/github/collection-provider-queue';
 import type { CollectionSyncRuntime } from '../src/github/service/collection-sync.service';
 
-/**
- * Fetcher-level synthetic GitHub REST provider for the public-admin-exposure
- * todo 13 100-repository scale/idempotency integration suite. Unlike a
- * client-level double (which stubs `CollectionAppClient`'s
- * methods directly), this fixture answers at the `Fetcher` boundary
- * (`(input, init) => Promise<Response>`) so the *real* `CollectionAppClient`
- * pagination, conditional-GET (ETag/304), and Link-header traversal all run
- * against synthetic data — no live GitHub call is ever made.
- */
-
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
-/** Small page size so a handful of synthetic items already exercise real multi-page traversal. */
 export const SYNTHETIC_PAGE_SIZE = 4;
 
 export const SYNTHETIC_API_BASE_URL = 'https://api.collection-scale-suite.test';
@@ -58,23 +47,18 @@ export interface SyntheticIssueSeed {
 }
 
 export interface SyntheticRepositorySeed {
-  /** synthetic githubRepositoryId — kept well under Number.MAX_SAFE_INTEGER. */
   id: number;
   name: string;
   owner: string;
   private: boolean;
   defaultBranch: string;
-  /** newest-first, matching GitHub's default branch commit order. */
+
   commits: SyntheticCommitSeed[];
   pullRequests: SyntheticPullRequestSeed[];
   releases: SyntheticReleaseSeed[];
-  /**
-   * The issue listing also serves every pull request (GitHub interleaves them
-   * with a `pull_request` key), reusing the PR id — so issue ids must not
-   * collide with this repository's pull request ids.
-   */
+
   issues?: SyntheticIssueSeed[];
-  /** never emit an ETag for this repo's probes — forces a full re-check every run. */
+
   noEtag?: boolean;
 }
 
@@ -103,7 +87,6 @@ const emptyByKind = (): Record<RequestKind, number> => ({
   'release-list': 0,
 });
 
-/** Deterministic pages-required count for `n` items at `SYNTHETIC_PAGE_SIZE` — a full listing always issues at least one request even for zero items. */
 export const syntheticPageCount = (itemCount: number): number =>
   Math.max(1, Math.ceil(itemCount / SYNTHETIC_PAGE_SIZE));
 
@@ -125,9 +108,7 @@ export class SyntheticGithubProvider {
     for (const seed of seeds) {
       this.repositories.set(`${seed.owner}/${seed.name}`, seed);
     }
-    // Deliberately serve installation listing in reverse of seed/id order so
-    // fair-cursor-order assertions exercise the service's own sort rather
-    // than an incidentally-already-sorted provider response.
+
     this.installationOrder = [...this.repositories.values()].reverse();
     this.rateLimit = options.rateLimit ?? 5000;
     this.rateRemaining = options.rateRemaining ?? this.rateLimit;
@@ -424,9 +405,6 @@ export class SyntheticGithubProvider {
   }
 }
 
-/** Exposed so callers can key lease/cursor rows to the exact same identity
- * the runtime's `CollectionAppClient` actually uses — avoids a drifted
- * duplicate constant going out of sync with `syntheticAppConfig` below. */
 export const SYNTHETIC_APP_ID = '9000000000002001';
 export const SYNTHETIC_ORG_LOGIN = 'synthetic-scale-org';
 
@@ -446,14 +424,6 @@ function createSyntheticTokenProvider(): CollectionAppTokenProvider {
   } as unknown as CollectionAppTokenProvider;
 }
 
-/**
- * Builds a real `CollectionSyncRuntime` whose `client` is backed by the
- * synthetic provider's fetcher, wrapped through a real `ProviderRequestQueue`
- * (pacing + rate-limit-aware dynamic stop) — no method of `CollectionAppClient`
- * or `ProviderRequestQueue` is stubbed. `fetcherMiddleware` lets a caller
- * observe dispatch order/timing (e.g. to assert serial pacing) without
- * altering behavior.
- */
 export function createSyntheticSyncRuntime(
   provider: SyntheticGithubProvider,
   queue: ProviderRequestQueue,

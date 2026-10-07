@@ -19,11 +19,6 @@ const dashboardMilestoneSelect = {
   submissionType: true,
 } as const;
 
-/**
- * 서류 축의 **명부** — 이 프로그램들의 필수 서류 항목이 어느 마일스톤에 몇 개 달렸는가.
- *
- * 제출 행만으로는 「필수 서류가 있는데 아무도 안 냈다」를 알 수 없어서 명부를 따로 읽는다.
- */
 const dashboardMilestoneDocumentSelect = {
   id: true,
   milestoneId: true,
@@ -107,7 +102,6 @@ export interface SubmissionDashboardSubmissionRecord {
   readonly status: SubmissionStatus;
 }
 
-/** 필수 서류 항목 하나. `milestoneProgramId` 는 제출 행과 같은 프로그램 대조를 위해 싣는다. */
 export interface SubmissionDashboardMilestoneDocumentRecord {
   readonly id: string;
   readonly milestoneId: string;
@@ -171,7 +165,7 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
           where: { programId: programFilter },
           select: dashboardMilestoneSelect,
         }),
-        // ⚠ 필수 서류만 — 선택 서류가 섞이면 안 낸 선택 서류가 칸을 미제출로 잡아 둔다.
+
         this.prisma.milestoneDocument.findMany({
           where: {
             required: true,

@@ -76,7 +76,7 @@ const APPLICATION_IDS = [
   'synthetic-worker-own-org-create',
 ] as const;
 const APPLICANT_LOGIN = 'synthetic-worker-applicant';
-/** 표기가 섞인 회원 — 정규화 없이 비교하면 같은 사람을 둘로 읽는다. */
+
 const MEMBER_USER = {
   id: 'synthetic-worker-member-id',
   githubId: 8_300_000_000_002n,
@@ -138,9 +138,7 @@ describe('RepositoryProvisionWorker integration', () => {
         },
       ],
     });
-    // OWN 편입은 현재 동의를 요구한다 — 동의 없이 수집 행을 만들지 않는다.
-    // 버전은 서비스가 알려주는 값을 쓴다. 상수를 복사하면 정책이 올라갈 때
-    // 이 스펙만 조용히 옛 버전을 붙들고 통과한다.
+
     const { policy } = await new ConsentsService(
       new ConsentsRepository(prisma),
     ).getCurrent(APPLICANT_GITHUB_ID);
@@ -216,7 +214,7 @@ describe('RepositoryProvisionWorker integration', () => {
 
   afterAll(async () => {
     await prisma.consent.deleteMany({ where: { userId: APPLICANT_ID } });
-    // connection actor는 append-only AuditLog FK가 잡으므로 격리 DB 수명까지 남긴다.
+
     await prisma.user.deleteMany({
       where: { id: { in: [APPLICANT_ID, MEMBER_USER.id, GHOST_USER.id] } },
     });
@@ -224,7 +222,6 @@ describe('RepositoryProvisionWorker integration', () => {
   });
 
   it('과거 outbox 명단 대신 현재 팀원에게 저장소 접근을 부여한다', async () => {
-    // Given: 승인된 신청 outbox가 job으로 변환됐다.
     const applicationId = APPLICATION_IDS[0];
     await createApplicationAndEvent(applicationId, [
       'synthetic-leader',
@@ -247,10 +244,8 @@ describe('RepositoryProvisionWorker integration', () => {
       enrollExternalRepository: jest.fn(),
     });
 
-    // When: provision worker가 job을 처리한다.
     const result = await worker.runNext('provision-worker-a', NOW);
 
-    // Then: private repository 한 건과 현재 팀원별 invitation이 저장된다.
     expect(result.kind).toBe('SUCCEEDED');
     const repository = await prisma.githubRepository.findUniqueOrThrow({
       where: { applicationId },
@@ -368,8 +363,7 @@ describe('RepositoryProvisionWorker integration', () => {
     });
     const claimedR1 = await claimJobFor(applicationId, 'worker-r1');
     const r2At = new Date(NOW.getTime() + 1_000);
-    // R2는 걷어 낸 교직원 NEW 요청이 남겼을 수 있는 모양(requestedByGithubId 포함)
-    // 그대로다 — 이미 쌓인 그런 요청도 worker가 끝까지 처리해야 한다.
+
     await prisma.$transaction(async (transaction) => {
       const event = await transaction.outboxEvent.create({
         data: {
@@ -465,8 +459,6 @@ describe('RepositoryProvisionWorker integration', () => {
   });
 
   it('다른 관리형 private 저장소로 바꾸면 현재 저장소에만 초대를 보내고 이전 성공 초대는 쓰지 않는다', async () => {
-    // Given: NEW 승인 job이 있고, 이전 관리형 저장소의 성공 초대는 분리된 행에
-    // 남으며 현재 연결만 application.repository다.
     const applicationId = 'synthetic-worker-current-relink';
     await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
     await outbox.consumeNext('outbox-worker-current-relink', NOW);
@@ -512,10 +504,8 @@ describe('RepositoryProvisionWorker integration', () => {
       enrollExternalRepository: jest.fn(),
     });
 
-    // When: 현재 연결 저장소로 provision job을 실행한다.
     const result = await worker.runNext('provision-worker-current-relink', NOW);
 
-    // Then: 현재 저장소에만 초대를 보내고 이전 성공 행은 그대로다.
     expect(result.kind).toBe('SUCCEEDED');
     expect(github.createRepository.mock.calls).toHaveLength(0);
     expect(github.ensureCollaborator.mock.calls).toEqual([
@@ -545,7 +535,6 @@ describe('RepositoryProvisionWorker integration', () => {
     ]);
   });
   it('원래 NEW 이벤트여도 현재 EXTERNAL_PUBLIC 행이면 관리형 초대를 건너뛴다', async () => {
-    // Given: 승인 이벤트는 NEW이고 현재 연결만 외부 공개 저장소다.
     const applicationId = 'synthetic-worker-new-external-current';
     await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
     await outbox.consumeNext('outbox-worker-new-external', NOW);
@@ -576,10 +565,8 @@ describe('RepositoryProvisionWorker integration', () => {
       enrollExternalRepository: jest.fn(),
     });
 
-    // When
     const result = await worker.runNext('provision-worker-new-external', NOW);
 
-    // Then: 이벤트 NEW를 쓰지 않고 현재 외부 행에 초대를 보내지 않는다.
     expect(result.kind).toBe('SUCCEEDED');
     expect(github.createRepository.mock.calls).toHaveLength(0);
     expect(github.ensureCollaborator.mock.calls).toHaveLength(0);
@@ -596,7 +583,6 @@ describe('RepositoryProvisionWorker integration', () => {
   });
 
   it('원래 OWN 이벤트여도 현재 ORG_PROVISIONED 행이면 현재 저장소에 초대한다', async () => {
-    // Given: 승인 이벤트는 OWN이고 현재 연결은 관리형 private 저장소다.
     const applicationId = 'synthetic-worker-own-managed-current';
     await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN], {
       connectionMode: 'OWN',
@@ -627,10 +613,8 @@ describe('RepositoryProvisionWorker integration', () => {
       enrollExternalRepository: jest.fn(),
     });
 
-    // When
     const result = await worker.runNext('provision-worker-own-managed', NOW);
 
-    // Then: 현재 행에만 초대하고 완료 전까지 관리형 경로를 유지한다.
     expect(result.kind).toBe('SUCCEEDED');
     expect(github.createRepository.mock.calls).toHaveLength(0);
     expect(github.findPublicRepository.mock.calls).toHaveLength(0);
@@ -658,7 +642,6 @@ describe('RepositoryProvisionWorker integration', () => {
     });
   });
   it('처음 OWN+행 없음이 조직 저장소로 기록되면 초대를 보내고 재조회를 남긴다', async () => {
-    // Given: OWN 승인에 현재 행이 없고 조직 안 저장소가 App으로 확인된다.
     const applicationId = 'synthetic-worker-own-org-create';
     const repositoryUrl = `https://github.com/synthetic-org/${applicationId}`;
     await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN], {
@@ -681,10 +664,8 @@ describe('RepositoryProvisionWorker integration', () => {
       enrollExternalRepository,
     });
 
-    // When: 현재 행 없이 첫 provision을 실행한다.
     const result = await worker.runNext('provision-worker-own-org-create', NOW);
 
-    // Then: 기록된 ORG_PROVISIONED가 초대를 만들고 관리형 재조회를 남긴다.
     expect(result.kind).toBe('SUCCEEDED');
     expect(github.findPublicRepository.mock.calls).toHaveLength(0);
     expect(github.createRepository.mock.calls).toHaveLength(0);
@@ -724,7 +705,6 @@ describe('RepositoryProvisionWorker integration', () => {
   });
 
   it('일부 초대 재시도에서 repository를 다시 만들지 않는다', async () => {
-    // Given: 첫 실행에서 두 번째 invitation만 일시 실패한다.
     const applicationId = APPLICATION_IDS[1];
     await createApplicationAndEvent(applicationId, [
       'synthetic-leader',
@@ -743,7 +723,6 @@ describe('RepositoryProvisionWorker integration', () => {
     });
     await worker.runNext('provision-worker-b', NOW);
 
-    // When: backoff 뒤 같은 job을 재시도한다.
     github.ensureCollaborator.mockResolvedValue(
       COLLABORATOR_OUTCOMES.SUCCEEDED,
     );
@@ -752,7 +731,6 @@ describe('RepositoryProvisionWorker integration', () => {
       new Date(NOW.getTime() + 60_000),
     );
 
-    // Then: 실패 대상만 다시 초대하고 repository와 job은 한 건으로 수렴한다.
     expect(result.kind).toBe('SUCCEEDED');
     expect(github.createRepository.mock.calls).toHaveLength(1);
     expect(github.ensureCollaborator.mock.calls.map((call) => call[1])).toEqual(
@@ -771,7 +749,6 @@ describe('RepositoryProvisionWorker integration', () => {
     });
   });
   it('작업을 재조회해도 확인 상한에 도달한 invitation은 재발송하지 않는다', async () => {
-    // Given: 발송 후 확인 상한에 도달한 PENDING invitation이 있다.
     const applicationId = APPLICATION_IDS[2];
     await createApplicationAndEvent(applicationId, ['synthetic-student']);
     await outbox.consumeNext('outbox-worker-cap', NOW);
@@ -791,7 +768,6 @@ describe('RepositoryProvisionWorker integration', () => {
       },
     });
 
-    // When: 다음 확인 시각에 worker를 실행한다.
     const result = await worker.runNext(
       'provision-worker-cap-reconcile',
       new Date(
@@ -799,12 +775,10 @@ describe('RepositoryProvisionWorker integration', () => {
       ),
     );
 
-    // Then: 멤버십 재조회는 완료하지만 상한 invitation은 다시 확인하지 않는다.
     expect(result.kind).toBe('SUCCEEDED');
     expect(github.ensureCollaborator).toHaveBeenCalledTimes(1);
   });
   it('마지막 확인에서도 수락되지 않으면 invitation을 최종 실패로 종료한다', async () => {
-    // Given: 확인 예산을 한 번 남긴 PENDING invitation이 있다.
     const applicationId = APPLICATION_IDS[3];
     await createApplicationAndEvent(applicationId, ['synthetic-student']);
     await outbox.consumeNext('outbox-worker-exhaust', NOW);
@@ -825,7 +799,6 @@ describe('RepositoryProvisionWorker integration', () => {
       },
     });
 
-    // When: 마지막 확인을 수행한다(여전히 수락되지 않은 상태).
     await worker.runNext(
       'provision-worker-exhaust-reconcile',
       new Date(
@@ -833,8 +806,6 @@ describe('RepositoryProvisionWorker integration', () => {
       ),
     );
 
-    // Then: PENDING 으로 남지 않고 최종 실패로 종료한다.
-    // 종료하지 않으면 학생 화면이 「초대 수락 대기」를 영구히 보여 준다.
     await expect(
       prisma.repositoryInvitation.findFirstOrThrow({
         where: { repositoryId: repository.id },
@@ -846,22 +817,13 @@ describe('RepositoryProvisionWorker integration', () => {
     });
   });
 
-  /**
-   * OWN 편입은 프로덕션 표본이 0건이라 화면 대조로 잡히지 않는다 — 그래서
-   * `nameWithOwner` 에 bare repo name 이 들어가도 배포까지 갔다. 편입은 되는데
-   * external 스윕이 그 행에서 `throw` 하는 조용히 실패하는 경로였다.
-   *
-   * mock 이 아니라 실제 편입 서비스와 실 Postgres 로 값의 모양까지 고정한다
-   * (ADR-010 §11 대체 acceptance).
-   */
   it('OWN 승인이 owner/repo 와 실제 defaultBranch 로 수집 행을 만든다', async () => {
-    // Given: OWN 으로 승인된 신청과 현재 동의가 있다.
     const applicationId = APPLICATION_IDS[4];
     await createApplicationAndEvent(applicationId, ['synthetic-student'], {
       connectionMode: 'OWN',
       repositoryUrl: OWN_REPOSITORY_URL,
     });
-    // 소비 결과를 단언한다 — 여기서 조용히 EMPTY 가 나면 아래 실패의 원인이 안 보인다.
+
     await expect(
       outbox.consumeNext('outbox-worker-own', NOW),
     ).resolves.toMatchObject({ kind: 'CONSUMED' });
@@ -871,8 +833,7 @@ describe('RepositoryProvisionWorker integration', () => {
       nameWithOwner: OWN_NAME_WITH_OWNER,
       defaultBranch: 'trunk',
       archived: false,
-      // `name` 은 owner 없는 bare 이름이다 — 이 칸을 `nameWithOwner` 로 착각한
-      // 것이 원래 결함이었으므로 값을 일부러 다르게 둔다.
+
       name: 'synthetic-own-repo',
       url: OWN_REPOSITORY_URL,
       visibility: RepositoryVisibility.PUBLIC,
@@ -885,10 +846,8 @@ describe('RepositoryProvisionWorker integration', () => {
       ownEnrollment(),
     );
 
-    // When: worker 가 OWN job 을 처리한다.
     const result = await worker.runNext('provision-worker-own', NOW);
 
-    // Then: 수집 행이 external 스윕 계약을 만족하는 모양으로 남는다.
     expect(result.kind).toBe('SUCCEEDED');
     const enrolled = await prisma.githubRepository.findFirstOrThrow({
       where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID },
@@ -900,9 +859,9 @@ describe('RepositoryProvisionWorker integration', () => {
       presence: 'PRESENT',
       visibility: 'PUBLIC',
     });
-    // `/` 가 없으면 스윕이 죽는다 — 값의 존재가 아니라 모양이 계약이다.
+
     expect(enrolled.nameWithOwner).toContain('/');
-    // 신청 연결도 DB 로 증명된다 — 프로그램 화면의 노출 조건이다.
+
     await expect(
       prisma.githubRepository.findUniqueOrThrow({ where: { applicationId } }),
     ).resolves.toMatchObject({
@@ -1015,7 +974,6 @@ describe('RepositoryProvisionWorker integration', () => {
   });
 
   it('부여→탈퇴 회수→재합류를 같은 행에서 이력을 남기며 수렴한다', async () => {
-    // Given: 세 명이 속한 팀에 부여가 끝난 상태다.
     const applicationId = 'synthetic-worker-revoke-lifecycle';
     await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
     await addTeamMember(applicationId, MEMBER_USER.id, 'member');
@@ -1028,7 +986,7 @@ describe('RepositoryProvisionWorker integration', () => {
       'state-worker-revoke',
       job.requestId,
     );
-    // 현재 TeamMember만이 authority다 — 신청자/리더 fallback이 섞이면 여기서 깨진다.
+
     expect(granted.currentMemberGithubLogins).toEqual([
       APPLICANT_LOGIN,
       GHOST_USER.login,
@@ -1051,7 +1009,6 @@ describe('RepositoryProvisionWorker integration', () => {
       repositoryId,
     );
 
-    // When: 두 명이 팀을 떠난 뒤 다시 조정한다.
     await prisma.teamMember.deleteMany({
       where: {
         teamId: teamIdFor(applicationId),
@@ -1078,7 +1035,6 @@ describe('RepositoryProvisionWorker integration', () => {
       repositoryId,
     );
 
-    // Then: 남은 구성원은 건드리지 않고 탈퇴자만 회수 축으로, 그것도 먼저 나온다.
     expect(
       revokeWork.map((work) => [work.githubLogin, work.intent, work.status]),
     ).toEqual([
@@ -1092,7 +1048,6 @@ describe('RepositoryProvisionWorker integration', () => {
       repositoryId,
     );
 
-    // And: 한 명만 실제로 다시 합류한다.
     await addTeamMember(applicationId, MEMBER_USER.id, 'member-rejoin');
     const afterRejoin = await state.loadContext(
       job.id,
@@ -1107,15 +1062,12 @@ describe('RepositoryProvisionWorker integration', () => {
       afterRejoin.currentMemberGithubLogins,
     );
 
-    // Then: 재합류자만 부여 대기로 돌아오고, 돌아오지 않은 사람의 회수 이력 행은
-    // 지워지지 않고 REVOKED로 남는다(초대 행은 사람당 한 건 그대로다).
     await expect(invitationRows(repositoryId)).resolves.toEqual([
       [APPLICANT_LOGIN, RepositoryInvitationStatus.SUCCEEDED, 0],
       [GHOST_USER.login, RepositoryInvitationStatus.REVOKED, 0],
       [MEMBER_USER.login, RepositoryInvitationStatus.PENDING, 0],
     ]);
-    // And: 회수 이력 행은 매 사이클 재확인 대상으로 다시 나온다 — 만료된 worker의
-    // 늦은 부여가 GitHub 쪽에만 살아남는 경로를 닫는다.
+
     const reverify = await state.findInvitationWork(
       job.id,
       'state-worker-revoke',
@@ -1128,7 +1080,7 @@ describe('RepositoryProvisionWorker integration', () => {
       [GHOST_USER.login, 'REVOKE', RepositoryInvitationStatus.REVOKED],
       [MEMBER_USER.login, 'GRANT', RepositoryInvitationStatus.PENDING],
     ]);
-    // And: 재확인은 멱등하다 — 같은 상태로 다시 닫아도 이력이 흔들리지 않는다.
+
     await state.completeInvitation({
       jobId: job.id,
       workerId: 'state-worker-revoke',
@@ -1151,7 +1103,6 @@ describe('RepositoryProvisionWorker integration', () => {
   });
 
   it('작업 중 멤버십이 바뀌었으면 job을 닫지 않고 재무장한다', async () => {
-    // Given: 두 명의 멤버십 지문으로 작업을 시작했다.
     const applicationId = 'synthetic-worker-stale-membership';
     await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
     await addTeamMember(applicationId, MEMBER_USER.id, 'member');
@@ -1167,7 +1118,6 @@ describe('RepositoryProvisionWorker integration', () => {
       NOW.getTime() + DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
     );
 
-    // When: GitHub 호출이 끝난 뒤, 완료 직전에 한 명이 탈퇴한다.
     await prisma.teamMember.deleteMany({
       where: { teamId: teamIdFor(applicationId), userId: MEMBER_USER.id },
     });
@@ -1181,8 +1131,6 @@ describe('RepositoryProvisionWorker integration', () => {
       context.membershipFingerprint,
     );
 
-    // Then: SUCCEEDED로 닫히지 않고 지금 실행 가능한 새 사이클로 돌아간다 —
-    // 닫아 버리면 방금 탈퇴한 구성원의 접근이 다음 정기 사이클까지 살아있다.
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
         where: { applicationId },
@@ -1195,7 +1143,6 @@ describe('RepositoryProvisionWorker integration', () => {
       finishedAt: null,
     });
 
-    // And: 지문이 맞는 다음 사이클은 정상적으로 닫힌다.
     const retry = await claimJobFor(applicationId, 'state-worker-stale-2');
     const fresh = await state.loadContext(
       retry.id,
@@ -1222,7 +1169,6 @@ describe('RepositoryProvisionWorker integration', () => {
   });
 
   it('멤버십이 바뀐 뒤의 최종 실패는 job을 닫지 않고 재무장한다', async () => {
-    // Given: 작업 도중 구성원이 바뀌었고 그 뒤 GitHub 호출이 최종 실패했다.
     const applicationId = 'synthetic-worker-final-failure-rearm';
     await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
     await addTeamMember(applicationId, MEMBER_USER.id, 'member');
@@ -1237,7 +1183,6 @@ describe('RepositoryProvisionWorker integration', () => {
       where: { teamId: teamIdFor(applicationId), userId: MEMBER_USER.id },
     });
 
-    // When: 오래된 지문을 들고 최종 실패를 기록한다.
     await state.failJob({
       jobId: job.id,
       workerId: 'state-worker-final',
@@ -1249,8 +1194,6 @@ describe('RepositoryProvisionWorker integration', () => {
       expectedMembershipFingerprint: context.membershipFingerprint,
     });
 
-    // Then: FAILED_FINAL로 닫히지 않는다 — outbox는 PROCESSING job의 lease를
-    // 건드리지 않고 지나가므로, 여기서 닫으면 멤버십 변경 신호가 통째로 사라진다.
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
         where: { applicationId },
@@ -1266,7 +1209,6 @@ describe('RepositoryProvisionWorker integration', () => {
   });
 
   it('늦게 도착한 부여 결과나 남의 lease는 회수 지시를 덮지 못한다', async () => {
-    // Given: 부여 대기 행을 읽은 뒤 그 구성원이 팀을 떠났다.
     const applicationId = 'synthetic-worker-invitation-cas';
     await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
     await outbox.consumeNext('outbox-worker-cas', NOW);
@@ -1296,7 +1238,6 @@ describe('RepositoryProvisionWorker integration', () => {
       [],
     );
 
-    // When/Then: 읽을 때의 상태가 아니므로 늦은 완료는 거부된다.
     await expect(
       state.completeInvitation({
         jobId: job.id,
@@ -1309,7 +1250,7 @@ describe('RepositoryProvisionWorker integration', () => {
         now: NOW,
       }),
     ).rejects.toBeInstanceOf(RepositoryProvisionLeaseLostError);
-    // And: lease를 가지지 않은 worker는 아무 상태도 쓰지 못한다.
+
     await expect(
       state.failInvitation({
         jobId: job.id,
@@ -1349,10 +1290,6 @@ async function addTeamMember(
   });
 }
 
-/**
- * 조정 로직만 실 Postgres로 고정하기 위해 저장소 행은 직접 만든다 — 여기서 검증하는
- * 것은 GitHub 호출이 아니라 초대/회수 행의 전이와 job 재무장이다.
- */
 async function createProvisionedRepository(
   applicationId: string,
 ): Promise<string> {
@@ -1390,7 +1327,6 @@ async function claimJobFor(
   return job;
 }
 
-/** 현재 일감을 그대로 성공 처리한다(부여는 SUCCEEDED, 회수는 REVOKED). */
 async function settleWork(
   jobId: string,
   workerId: string,
@@ -1437,12 +1373,6 @@ function programId(applicationId: string): string {
   return `${applicationId}-program`;
 }
 
-/**
- * 실제 편입 서비스를 실 Postgres 에 물린다.
- *
- * mock 을 주입하면 호출 여부만 볼 수 있고 저장된 값의 모양은 못 본다 —
- * 이 결함이 배포까지 간 이유가 정확히 그것이다.
- */
 function ownEnrollment(): RepositoryOwnEnrollmentService {
   return new RepositoryOwnEnrollmentService(
     new ConsentsService(new ConsentsRepository(prisma)),
@@ -1549,12 +1479,11 @@ async function createApplicationAndEvent(
         payload: {
           applicationId,
           programId: program,
-          // legacy outbox payload may still carry null teamId (worker accepts it).
+
           teamId: null,
           requestedAt: NOW.toISOString(),
           collaboratorGithubLogins,
-          // OWN 여부는 outbox payload 가 원본이다 — Application 칸만 바꾸면
-          // worker 는 여전히 NEW 로 처리한다.
+
           ...(own === undefined
             ? {}
             : {

@@ -42,7 +42,6 @@ describe('readSearchParam', () => {
     expect(readSearchParam(input, 'returnTo')).toBeNull();
   });
 
-  // 뒤에 붙인 값이 이기면 검사받은 앞의 값을 덮어쓰는 우회가 열린다.
   it('같은 키가 반복되면 세 입력 형태 모두 첫 값을 준다', () => {
     const query = 'returnTo=%2Franking&returnTo=%2Fsettings';
 
@@ -55,7 +54,6 @@ describe('readSearchParam', () => {
     ).toBe('/ranking');
   });
 
-  // 값을 넣은 적 없는 자리에서 프로토타입의 무언가가 나오면 안 된다.
   it('객체 입력에서 프로토타입 체인을 타지 않는다', () => {
     expect(readSearchParam({}, 'constructor')).toBeNull();
     expect(readSearchParam({}, 'toString')).toBeNull();

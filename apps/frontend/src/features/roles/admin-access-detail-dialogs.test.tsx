@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';

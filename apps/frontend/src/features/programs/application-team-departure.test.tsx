@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -13,7 +12,6 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
-/** 혼자 있고 신청 이력이 없는 팀장 — 서버가 계산해 내려주는 능력 플래그 그대로. */
 const team: ProgramTeam = {
   id: 'team-1',
   name: '합성 팀',
@@ -40,9 +38,6 @@ let root: Root;
 const onDeparted = vi.fn();
 
 beforeEach(() => {
-  // `clearAllMocks`는 호출 기록만 지우고 `mockResolvedValueOnce` 큐는 남긴다 —
-  // 앞 테스트가 중간에 끊기면 남은 큐가 다음 테스트의 응답을 가로채 「그 테스트만
-  // 홀로 돌리면 통과」하는 유령 실패를 만든다. 구현까지 초기화한다.
   vi.resetAllMocks();
   host = document.createElement('div');
   document.body.append(host);
@@ -54,7 +49,6 @@ afterEach(async () => {
   host.remove();
 });
 
-/** 로그인을 확인한 라우트가 넣어 주는 계정 — 기본값은 이 팀의 팀장이다. */
 async function render(
   overrides: Partial<ProgramTeam> = {},
   sessionNickname = 'synthetic-leader',
@@ -74,7 +68,6 @@ async function render(
 }
 
 function button(text: string, dialog = false): HTMLButtonElement {
-  // 공용 창 껍데기는 body 로 포털한다 — 호스트 안이 아니라 문서에서 찾는다.
   const scope = dialog ? document.querySelector('[role="alertdialog"]') : host;
   const found = Array.from(scope?.querySelectorAll('button') ?? []).find(
     (item) => item.textContent === text,
@@ -83,7 +76,6 @@ function button(text: string, dialog = false): HTMLButtonElement {
   return found as HTMLButtonElement;
 }
 
-/** 끝나는 시점을 테스트가 잡는 요청. */
 function deferred() {
   let resolve!: () => void;
   let reject!: (cause: unknown) => void;
@@ -128,7 +120,7 @@ describe('ApplicationTeamDeparture', () => {
     await render({ memberCount: 2, canRemoveMembers: true });
     expect(button('팀 탈퇴').disabled).toBe(false);
     expect(host.textContent).toContain('가장 먼저 합류한 팀원이 자동으로 팀장');
-    // 팀장이 나가도 다른 팀원이 사라지는 것이 아니다 — 오해를 부르는 문구를 쓰지 않는다.
+
     expect(host.textContent).not.toContain('모든 팀원');
     expect(host.textContent).not.toContain('팀원이 모두 탈퇴');
     await act(async () => button('팀 탈퇴').click());
@@ -147,7 +139,7 @@ describe('ApplicationTeamDeparture', () => {
     expect(button('팀 삭제').disabled).toBe(true);
     expect(host.textContent).toContain('마지막 구성원은 팀을 나갈 수 없습니다');
     expect(host.textContent).toContain('제출한 신청·기록');
-    // 「제출했으니 팀 구성 자체가 잠겼다」는 옛 안내로 되돌아가지 않는다.
+
     expect(host.textContent).not.toContain('신청 제출 후 팀을 변경할 수 없');
     expect(leaveMyTeam).not.toHaveBeenCalled();
   });
@@ -181,9 +173,7 @@ describe('ApplicationTeamDeparture', () => {
     await render();
     await act(async () => button('팀 삭제').click());
     await act(async () => button('팀 삭제', true).click());
-    // 공유 문구(`mapTeamError`)가 이 코드의 실제 원인을 말한다 — 「잠시 후 다시
-    // 시도해 주세요」 같은 일반 실패로 뭉개지 않는다.
-    // 실패 문구는 창 안에 선다. 창은 body 로 포털되므로 문서에서 읽는다.
+
     expect(document.body.textContent).toContain(
       '신청 기록을 보존하기 위해 마지막 팀원은 탈퇴할 수 없습니다.',
     );
@@ -244,7 +234,7 @@ describe('ApplicationTeamDeparture', () => {
     await render({ isLeader: false, canInvite: false, memberCount: 2 });
     await act(async () => button('팀 탈퇴').click());
     await act(async () => button('팀 탈퇴', true).click());
-    // 라우트가 바뀐 계정을 넣어 준다 — 앞 계정의 탈퇴 결과로 지금 사람을 움직이지 않는다.
+
     await render(
       { isLeader: false, canInvite: false, memberCount: 2 },
       'other-account',
@@ -254,11 +244,6 @@ describe('ApplicationTeamDeparture', () => {
   });
 });
 
-/**
- * 같은 자리에 남은 컴포넌트가 다른 신원을 맞을 때의 경계. 늦은 응답을 무시하는
- * 것만으로는 부족하다 — 앞 신원의 확인 레이어·진행·오류가 그대로 남아 있으면
- * 새 계정이 남의 「팀 탈퇴」 확인창을 물려받는다.
- */
 describe('ApplicationTeamDeparture — 신원 경계', () => {
   const withOthers = {
     isLeader: false,
@@ -292,7 +277,6 @@ describe('ApplicationTeamDeparture — 신원 경계', () => {
     await act(async () => button('팀 탈퇴', true).click());
     await render(withOthers, 'other-account');
 
-    // 새 신원이 자기 탈퇴를 시작한다.
     await act(async () => button('팀 탈퇴').click());
     await act(async () => button('팀 탈퇴', true).click());
     expect(leaveMyTeam).toHaveBeenCalledTimes(2);
@@ -354,7 +338,6 @@ describe('ApplicationTeamDeparture — 신원 경계', () => {
     await act(async () => button('팀 탈퇴').click());
     await act(async () => button('팀 탈퇴', true).click());
 
-    // 그 사이 마지막 구성원이 되어 서버가 나가기를 거두게 된 경우.
     await render({
       ...withOthers,
       hasApplication: true,

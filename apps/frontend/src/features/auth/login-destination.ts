@@ -42,7 +42,6 @@ export function getLoginDestinationStorage(): Storage | null {
   try {
     return window.sessionStorage;
   } catch {
-    // 저장소 getter 자체를 거부하는 브라우저에서도 로그인은 계속한다.
     return null;
   }
 }
@@ -61,17 +60,13 @@ export function rememberLoginDestination(
         JSON.stringify({ destination, expiresAt: now + MAX_AGE_MS }),
       );
     else storage?.removeItem(KEY);
-  } catch {
-    // 선택적인 복귀 정보 저장 실패로 로그인이나 로그아웃을 막지 않는다.
-  }
+  } catch {}
 }
 
 export function clearLoginDestination(storage: Storage | null): void {
   try {
     storage?.removeItem(KEY);
-  } catch {
-    // 복귀 정보 삭제 실패가 확정된 로그아웃을 막지 않게 한다.
-  }
+  } catch {}
 }
 
 export function takeLoginDestination(

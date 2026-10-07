@@ -19,31 +19,14 @@ import {
 } from './service/collection-sync.service';
 import { ProviderRequestQueue } from './collection-provider-queue';
 
-/**
- * public-admin-exposure todo 13 — 100-repository performance/idempotency
- * integration suite. Drives the REAL `CollectionSyncService` +
- * `CollectionAppClient` + `ProviderRequestQueue` + `CollectionIncrementalRepository`
- * stack against a real isolated Postgres and an HTTP-level synthetic GitHub
- * provider (no live GitHub call). Test-only: no production code is changed
- * by this suite; any defect found is reported in the final summary, not
- * fixed here.
- */
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 
-// Kept identical to the synthetic provider's own runtime identity (see
-// `SYNTHETIC_APP_ID`/`SYNTHETIC_ORG_LOGIN`) so lease/cursor keys used directly
-// by this suite never drift from what `CollectionSyncService.run()` actually
-// writes through the runtime.
 const APP_ID = BigInt(SYNTHETIC_APP_ID);
 const ORG_LOGIN = SYNTHETIC_ORG_LOGIN;
-// Matches `CollectionSyncService`'s private `orgScope()` convention — org
-// sweep lease/cursor rows are keyed by `` `org:${organizationLogin}` ``, not
-// by the bare login, since `scope` also has to make room for the external
-// sweep's disjoint `"external"` key (GR-9).
+
 const SCOPE = `org:${ORG_LOGIN}`;
 const GITHUB_ORGANIZATION_ID = 9_000_000_300_002n;
 const OWNER_ID = 'synthetic-scale-suite-instance';
@@ -63,9 +46,6 @@ const DUPLICATE_COMMIT_NAME = 'repo-duplicate-commit';
 const EMPTY_NAME = 'repo-empty';
 const STABLE_CONTRAST_NAME = 'repo-16';
 
-/** Deterministic fake clock (see `collection-provider-queue.spec.ts`): `sleep`
- * advances a mutable cursor instead of using real timers, so hundreds of
- * paced provider dispatches never cost real wall-clock time. */
 function fakeClock(): {
   now: () => number;
   sleep: (ms: number) => Promise<void>;
@@ -106,7 +86,6 @@ function buildPullRequests(
   }));
 }
 
-/** Issue ids live apart from the PR ids above — both share the issue listing. */
 function buildIssues(repoIndex: number, count: number): SyntheticIssueSeed[] {
   return Array.from({ length: count }, (_, n) => ({
     id: 9_000_000_700_000 + repoIndex * 100 + n,
@@ -132,9 +111,6 @@ function buildReleases(
   }));
 }
 
-/** Unique-by-key fact count a seed should ultimately produce — mirrors the
- * client's own `dedupeByKey`, so a fixture with an intentional duplicate
- * (see `repo-duplicate-commit`) is only counted once. */
 function uniqueCommitCount(seed: SyntheticRepositorySeed): number {
   return new Set(seed.commits.map((c) => c.sha)).size;
 }
@@ -148,12 +124,6 @@ function issueCount(seed: SyntheticRepositorySeed): number {
   return seed.issues?.length ?? 0;
 }
 
-/** Exact first-ever-backfill request cost for one repository: the commit
- * stream skips its probe entirely on backfill (one paginated list only), the
- * PR stream always does exactly one paginated list, the release stream
- * always probes once and (since there is no prior ETag yet) always follows
- * with one paginated list, and the issue stream pages the issue listing —
- * which also carries every pull request — once. */
 function firstBackfillRequestCost(seed: SyntheticRepositorySeed): number {
   return (
     syntheticPageCount(seed.commits.length) +
@@ -253,9 +223,7 @@ function buildSeeds(): SyntheticRepositorySeed[] {
         owner,
         private: false,
         defaultBranch: 'main',
-        // 6 commits at page size 4 = 2 pages; the duplicate sits at index 3
-        // (last of page 1) AND index 4 (first of page 2) — an intentional
-        // cross-page-boundary replay of the identical item.
+
         commits: [
           ...buildCommits(index, 3),
           dup,
@@ -359,17 +327,12 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       })),
       skipDuplicates: true,
     });
-    // Captured as unbound references deliberately: each is re-bound per call
-    // via `.call(this, ...)` inside the mock below, since `this` varies (a
-    // fresh `CollectionIncrementalRepository` per `runInTransaction` call).
+
     const originalCommit =
-      // eslint-disable-next-line @typescript-eslint/unbound-method
       CollectionIncrementalRepository.prototype.recordCommitFacts;
     const originalPullRequest =
-      // eslint-disable-next-line @typescript-eslint/unbound-method
       CollectionIncrementalRepository.prototype.recordPullRequestFacts;
     const originalRelease =
-      // eslint-disable-next-line @typescript-eslint/unbound-method
       CollectionIncrementalRepository.prototype.recordReleaseFacts;
     jest
       .spyOn(CollectionIncrementalRepository.prototype, 'recordCommitFacts')
@@ -426,7 +389,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         return result;
       });
     const originalIssue =
-      // eslint-disable-next-line @typescript-eslint/unbound-method
       CollectionIncrementalRepository.prototype.recordIssueFacts;
     jest
       .spyOn(CollectionIncrementalRepository.prototype, 'recordIssueFacts')
@@ -467,14 +429,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     await prisma.$disconnect();
   });
 
-  /**
-   * Forces exactly `reposPerRun` repositories to be processed per
-   * `service.run()` call by making the shared queue's `shouldStop()` report
-   * true right after that many repositories have been considered this run —
-   * a deterministic stand-in for "GitHub installation rate-limit budget
-   * exhausted partway through a run" that does not depend on hand-tuning the
-   * real `x-ratelimit-*` arithmetic across a heterogeneous 100-repo fixture.
-   */
   async function runWithBudget(
     reposPerRun: number,
   ): Promise<CollectionSyncRunResult> {
@@ -494,9 +448,8 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
 
   it('drains all 100 repositories exactly once across budget-limited runs, in fair ascending cursor order, with zero missing or duplicate facts and an exact deterministic request count', async () => {
     const cursorAdvances: bigint[] = [];
-    // Rebound per call via `.call(this, ...)` below (see comment in `beforeAll`).
+
     const originalUpsertCursor =
-      // eslint-disable-next-line @typescript-eslint/unbound-method
       CollectionIncrementalRepository.prototype.upsertSyncCursor;
     jest
       .spyOn(CollectionIncrementalRepository.prototype, 'upsertSyncCursor')
@@ -526,15 +479,12 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       runs.reduce((sum, run) => sum + run.processedRepositoryCount, 0),
     ).toBe(REPO_COUNT);
 
-    // Fair ascending cursor order: every repository advances the durable
-    // cursor exactly once, strictly increasing — the cycle never restarts.
     expect(cursorAdvances).toHaveLength(REPO_COUNT);
     const sortedIds = [...seeds]
       .map((s) => BigInt(s.id))
       .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     expect(cursorAdvances).toEqual(sortedIds);
 
-    // Zero missing/duplicate facts.
     const [commitCount, pullRequestCount, releaseCount] = await Promise.all([
       prisma.collectionCommitFact.count({
         where: { repository: { githubOrganizationId: GITHUB_ORGANIZATION_ID } },
@@ -555,15 +505,13 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     expect(releaseCount).toBe(
       seeds.reduce((sum, s) => sum + uniqueReleaseCount(s), 0),
     );
-    // Issues arrive interleaved with every PR on the same listing — only the
-    // issues become facts, and the PRs are not double-counted as issues.
+
     await expect(
       prisma.githubIssueHistory.count({
         where: { repository: { githubOrganizationId: GITHUB_ORGANIZATION_ID } },
       }),
     ).resolves.toBe(seeds.reduce((sum, s) => sum + issueCount(s), 0));
 
-    // The duplicate-commit repo specifically dedupes its cross-page replay.
     const duplicateSeed = seeds.find((s) => s.name === DUPLICATE_COMMIT_NAME);
     if (!duplicateSeed)
       throw new Error('fixture missing duplicate-commit repo');
@@ -579,7 +527,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       }),
     ).toBe(5);
 
-    // The tied-PR repo keeps both same-timestamp pull requests distinct.
     const tiesSeed = seeds.find((s) => s.name === PR_TIES_NAME);
     if (!tiesSeed) throw new Error('fixture missing PR-ties repo');
     const tiesRepoRow = await repository.findRepositoryByLogicalKey(
@@ -592,9 +539,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       }),
     ).toBe(2);
 
-    // Serial pacing: every dispatch (across the whole drain) is at least
-    // 250ms apart on the virtual clock — deterministic, no real wall-clock
-    // wait since `sleep` only advances the fake cursor.
     expect(dispatchTimes.length).toBeGreaterThan(0);
     for (let i = 1; i < dispatchTimes.length; i += 1) {
       expect(dispatchTimes[i]! - dispatchTimes[i - 1]!).toBeGreaterThanOrEqual(
@@ -602,17 +546,11 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       );
     }
 
-    // Exact deterministic request/page count for the whole first-ever
-    // backfill: one installation listing per run, plus each repository's
-    // exact first-backfill cost (computed analytically from the fixture,
-    // not asserted as a flaky threshold).
     const expectedTotal =
       runs.length +
       seeds.reduce((sum, s) => sum + firstBackfillRequestCost(s), 0);
     expect(provider.counters.total).toBe(expectedTotal);
 
-    // Below a naive "no durable cursor" design that would redo a full pass
-    // over all 100 repositories on every one of the budget-limited runs.
     const naiveFullRefetchBaseline =
       runs.length *
       seeds.reduce((sum, s) => sum + firstBackfillRequestCost(s), 0);
@@ -622,9 +560,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
   it('a settled steady-state run performs zero fact writes and only conditional-style requests, except the no-ETag repository which pays extra requests for the same correctness', async () => {
     expect(initialDrainRuns.length).toBeGreaterThan(0);
 
-    // One settling run: the commit stream's first post-backfill probe
-    // captures a real ETag for every ETag-capable repository (backfill
-    // itself always checkpoints etag=null).
     const settleResult = await service.run(OWNER_ID);
     expect(settleResult.cycleCompleted).toBe(true);
 
@@ -644,7 +579,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     expect(stableResult.cycleCompleted).toBe(true);
     expect(stableResult.processedRepositoryCount).toBe(REPO_COUNT);
 
-    // Zero fact writes anywhere this run.
     const commitWritesThisRun = commitWrites
       .slice(commitWritesBefore)
       .reduce((a, b) => a + b, 0);
@@ -662,34 +596,24 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     expect(releaseWritesThisRun).toBe(0);
     expect(issueWritesThisRun).toBe(0);
 
-    // Only conditional-style requests: no full commit/release listing
-    // anywhere except the no-ETag repository (which can never 304 and so
-    // must always fall back to a minimal list call).
     const afterByKind = { ...provider.counters.byKind };
     const kindDeltaThisRun = kindDelta(beforeByKind, afterByKind);
     expect(kindDeltaThisRun['installation']).toBe(1);
     expect(kindDeltaThisRun['commit-probe']).toBe(REPO_COUNT);
     expect(kindDeltaThisRun['release-probe']).toBe(REPO_COUNT);
     expect(kindDeltaThisRun['pull-list']).toBe(REPO_COUNT);
-    // issue-list: like pull-list, one first page per repository that stops at
-    // the stored `(createdAt, id)` frontier.
+
     expect(kindDeltaThisRun['issue-list']).toBe(REPO_COUNT);
-    // commit-list: only the no-ETag repo's mandatory minimal re-check.
+
     expect(kindDeltaThisRun['commit-list']).toBe(1);
-    // release-list: only the no-ETag repo's mandatory full re-list.
+
     expect(kindDeltaThisRun['release-list']).toBe(1);
 
-    // Per-repository contrast: an ETag-capable unchanged repo costs exactly
-    // 4 requests this run (commit-probe + pull-list + release-probe +
-    // issue-list); the no-ETag repository — correct, but unable to use a 304
-    // fast path — costs exactly 6 (adds one minimal commit-list and one full
-    // release-list).
     const noEtagAfter = repoKindSnapshot(provider, noEtagKey);
     const stableAfter = repoKindSnapshot(provider, stableKey);
     expect(totalKindDelta(stableBefore, stableAfter)).toBe(4);
     expect(totalKindDelta(noEtagBefore, noEtagAfter)).toBe(6);
 
-    // The tied-PR repository still has exactly its original 2 facts.
     const tiesSeed = seeds.find((s) => s.name === PR_TIES_NAME);
     if (!tiesSeed) throw new Error('fixture missing PR-ties repo');
     const tiesRepoRow = await repository.findRepositoryByLogicalKey(
@@ -719,20 +643,13 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     const afterByKind = { ...provider.counters.byKind };
     const delta = kindDelta(beforeByKind, afterByKind);
 
-    // The recovery scan is limited to exactly this repository's pages — the
-    // only other `commit-list` contribution this run is the no-ETag repo's
-    // constant mandatory minimal re-check (it can never 304; see the
-    // steady-state test above), which fires every run regardless of what
-    // else changed.
     expect(delta['commit-list']).toBe(syntheticPageCount(rewritten.length) + 1);
 
     const repoRow = await repository.findRepositoryByLogicalKey(
       BigInt(seed.id),
     );
     if (!repoRow) throw new Error('disconnected repo not synced');
-    // Fact rows are append-only (never deleted on rewrite): the original 6
-    // backfilled commits from the initial drain remain alongside the 8 newly
-    // observed rewritten-history commits, for 14 total.
+
     expect(
       await prisma.collectionCommitFact.count({
         where: { repositoryId: repoRow.id },
@@ -756,9 +673,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     const afterByKind = { ...provider.counters.byKind };
     const delta = kindDelta(beforeByKind, afterByKind);
 
-    // Same baseline note as the disconnected-recovery test above: the
-    // no-ETag repo's mandatory full release re-list fires every run in
-    // addition to this repository's own changed-probe re-list.
     expect(delta['release-list']).toBe(
       syntheticPageCount(seed.releases.length) + 1,
     );
@@ -793,9 +707,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       authorGithubLogin: commit.authorLogin,
     }));
 
-    // Simulated crash-then-retry: the exact same fact batch is resent as if
-    // the process had died after the provider call but before the cursor
-    // advanced, and the caller simply retries from scratch.
     const registeredGithubIds = await repository.listRegisteredGithubIds();
     const first = await repository.recordCommitFacts(
       repoRow.id,
@@ -808,7 +719,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       registeredGithubIds,
     );
 
-    expect(first.insertedCount).toBe(0); // already recorded during the drain
+    expect(first.insertedCount).toBe(0);
     expect(second.insertedCount).toBe(0);
     expect(
       await prisma.collectionCommitFact.count({
@@ -818,13 +729,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
   });
 
   it('a stale (stolen) lease aborts a fenced transaction with zero partial writes', async () => {
-    // The shared `service` above always heartbeats/releases its lease using
-    // the real wall clock (`CollectionSyncService`'s default `now`), so its
-    // last `expiresAt` reflects whatever the actual current date is when
-    // this suite runs. Clearing the row first makes the acquire below a
-    // plain insert, keeping this test's own fixed timestamps
-    // (`2026-01-01T00:00:00.000Z` onward) fully deterministic and
-    // independent of that real-clock state.
     await prisma.collectionSyncLease.deleteMany({
       where: { appId: APP_ID, scope: SCOPE },
     });
@@ -887,8 +791,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       }),
     ).toBe(before);
 
-    // Clean up the winning lease so it does not interfere with any other
-    // integration spec sharing this appId/scope.
     await repository.releaseSyncLease(
       winner!,
       new Date(takeoverAt.getTime() + 1),

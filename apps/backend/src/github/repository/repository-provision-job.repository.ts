@@ -77,12 +77,7 @@ export class RepositoryProvisionJobRepository {
     `);
     return jobs[0] ?? null;
   }
-  /**
-   * 성공한 job도 주기적으로 다시 집는다 — PENDING 초대가 없어도 팀원 변경으로 생긴 권한 drift를
-   * 같은 job에서 맞추기 위함이다. 새 queue/table/cadence를 만들지 않고 worker가 다음 시각을 정한다.
-   * 현재 연결된 행의 source가 ORG_PROVISIONED일 때만 권한 authority다. 제출 시점
-   * repositoryConnectionMode나 repositoryUrl 유무로 재조회를 건너뛰지 않는다.
-   */
+
   async claimNextReconciliation(
     input: ClaimRepositoryProvisionJobInput,
   ): Promise<ClaimedRepositoryProvisionJob | null> {

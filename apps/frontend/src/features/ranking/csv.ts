@@ -26,7 +26,6 @@ export function rankingCsvFilename(year: RankingYear): string {
   return `ranking-${year}.csv`;
 }
 
-/** RFC 4180 field — quote when the value contains comma, quote, or line breaks. */
 export function rfc4180Field(value: string): string {
   if (/[",\r\n]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;

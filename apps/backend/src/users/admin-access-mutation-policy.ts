@@ -45,8 +45,7 @@ export function matchesExpectedAccessState(
       current.hasAdminAccess === expectedAdmin
     );
   }
-  // 표시 역할은 admin-only와 staff+admin을 구분하지 못한다. 정본 칸이 없으면
-  // 레거시 호환으로만 접힌 값을 보고, CAS WHERE는 정본 boolean을 쓴다.
+
   return current.role === command.expectedRole;
 }
 
@@ -81,20 +80,6 @@ export function toAdminAccessDecisionKind(
   }
 }
 
-/**
- * 자기 자신에게 ADMIN을 부여하는 전이인가 — 관리자 승격은 **다른 사람이** 해야 한다(#687).
- *
- * ⚠ **지금의 호출 순서에서는 이 조건이 성립하지 않는다.** `mutateAdminAccess`는
- * `lockActiveAdmins`로 활성 ADMIN 행을 잠근 **뒤** actor를 다시 읽어 ADMIN임을 확인하고,
- * 그다음 대상 행을 읽는다. actor와 대상이 같은 행이면 그 행은 이미 잠긴 채 ADMIN이므로
- * `before.role !== ADMIN`이 참이 될 수 없다. 즉 이 가드는 **현재 도달 불가능한
- * fail-closed 백스톱**이다 — 잠금·재조회 순서가 바뀌어 대상 행이 잠기지 않은 채 읽히는
- * 날, 자기 승격이 조용히 열리는 대신 여기서 막힌다.
- *
- * 그래서 이 함수의 시험은 서비스가 만들 수 없는 상태를 대역으로 꾸며 내지 않고
- * `enforceAdminAccessGuards`를 직접 불러 확인한다(`admin-access-mutation-policy.spec.ts`).
- * 서비스 수준에서 검사할 수 있는 것은 "남을 ADMIN으로 올리는 것은 막지 않는다" 쪽뿐이다.
- */
 function grantsAdminToSelf(
   actor: AdminAccessActor,
   before: AdminAccessUserRecord,
@@ -143,12 +128,6 @@ export const ADMIN_ACCESS_REQUEST_WRITE_KINDS = {
   INSERT_REVOKED: 'INSERT_REVOKED',
 } as const;
 
-/**
- * 이 변경이 `StaffAccessRequest`에 해야 하는 쓰기. 결정과 회수는 **쓰기 방식이 다르다** —
- * 결정은 대기 중이던 행 하나를 노리는 CAS라 대상 id를 미리 알지만, 회수는 새 행을
- * 삽입하므로 id가 쓰기 이후에야 생긴다(#184). 그 차이를 타입으로 갈라 두어야 회수를
- * 결정 경로에 얹으려는 시도가 컴파일에서 막힌다.
- */
 export type AdminAccessRequestWrite =
   | { readonly kind: typeof ADMIN_ACCESS_REQUEST_WRITE_KINDS.NONE }
   | {
@@ -168,7 +147,6 @@ export function toAdminAccessRequestWrite(
     case ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED:
       return { kind: ADMIN_ACCESS_REQUEST_WRITE_KINDS.NONE };
     case ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED:
-      // 전이표가 회수를 대기 중 요청이 없을 때만 허용하므로 여기서 결정할 행은 없다.
       return { kind: ADMIN_ACCESS_REQUEST_WRITE_KINDS.INSERT_REVOKED };
     case ADMIN_ACCESS_REQUEST_EFFECTS.APPROVED:
     case ADMIN_ACCESS_REQUEST_EFFECTS.REJECTED: {

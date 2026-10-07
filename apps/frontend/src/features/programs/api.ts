@@ -210,11 +210,11 @@ export interface EditableProgram {
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly applicationCount: number;
-  /** GET /programs/:id/edit가 전체 삭제 확인용으로 제공하는 현재 자식 범위. */
+
   readonly deletionScopeCounts?: ProgramDeletionScopeCounts;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
-  /** 이전 로컬 검토 fixture와의 호환을 위해 선택적이지만, 편집 API는 항상 준다. */
+
   readonly startAt?: string;
   readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
@@ -266,23 +266,16 @@ export function listPrograms(
   return apiClient<ProgramListPage>('programs?' + search.toString());
 }
 
-/** 프로그램 섹션 사이드바 뱃지 — 공개, 인증 불필요. */
 export function getProgramStatusCounts(): Promise<ProgramStatusCounts> {
   return apiClient<ProgramStatusCounts>('programs/status-counts');
 }
 
-/** 세션 없이 볼 수 있는 공개 상세. 비로그인 방문자는 이것만 부른다(#1294). */
 export function getPublicProgramDetail(
   programId: string,
 ): Promise<ProgramDetail> {
   return apiClient<ProgramDetail>(`programs/${encodeURIComponent(programId)}`);
 }
 
-/**
- * 세션이 있는 방문자의 상세. viewer 응답이 401이면(그 사이 세션이 끝난 경우) 공개
- * 상세로 내려간다. 비로그인이 확실할 때는 `getPublicProgramDetail`을 바로 불러
- * 401을 만들지 않는다.
- */
 export async function getProgramDetail(
   programId: string,
 ): Promise<ProgramDetail> {
@@ -371,16 +364,6 @@ export function deleteMilestone(
   );
 }
 
-/**
- * 신청 생성 요청 본문. 키는 backend `CreateApplicationRequestDto`가 whitelist 하는
- * 것과 정확히 같아야 한다 — 전역 `ValidationPipe`가 `forbidNonWhitelisted: true`라
- * 모르는 키가 하나라도 있으면 본문 전체가 400 SYS_003으로 거절된다.
- *
- * 팀은 여기서 보내지 않는다. #651 이후 backend가 신청자의 팀 멤버십으로 팀을 정한다
- * — 이미 이 프로그램의 팀에 속해 있으면 그 팀을 재사용하고, 아니면 1인 팀을 만든다
- * (`applications.service.ts`의 `findExistingTeamMembership`). 팀 id를 실어 보내면
- * 미허용 키가 되어 신청이 통째로 실패한다.
- */
 export interface CreateApplicationInput {
   readonly answers: { readonly title?: string };
   readonly applicationTemplateVersion: number;
@@ -421,16 +404,6 @@ export interface TeamMember {
   readonly isLeader: boolean;
 }
 
-/**
- * 내 팀 응답 계약. 능력 플래그는 **서버가 계산한 결과**이며(backend
- * `ProgramTeamResponseDto`), 화면이 팀장 여부·신청 이력으로 같은 규칙을 다시
- * 유추하지 않는다. 폐기된 `locked` 키는 더 이상 내려오지 않는다.
- *
- * - `hasApplication`: 이 팀 이름으로 제출된 신청이 있는가(사실 표기용).
- * - `canInvite`: 초대를 보낼 수 있는가(팀장만).
- * - `canRemoveMembers`: 다른 팀원을 제외할 수 있는가(팀장이고 팀원이 둘 이상).
- * - `canLeave`: 이 팀에서 나갈 수 있는가.
- */
 export interface ProgramTeam {
   readonly id: string;
   readonly name: string;
@@ -451,11 +424,6 @@ export interface CreatedTeam {
   readonly memberCount: number;
 }
 
-/**
- * 내 팀 응답이 계약을 벗어났다. 능력 플래그가 빠졌을 때 「권한 없음」이나
- * 「권한 있음」 어느 쪽으로도 기본값을 지어내지 않기 위해 끊는다 —
- * 없는 권한을 그렸다가 서버에서 거절당하면 학생은 이유를 알 수 없다.
- */
 export class ProgramTeamResponseError extends Error {
   constructor() {
     super('팀 응답 형식이 올바르지 않습니다.');
@@ -514,10 +482,6 @@ function parseProgramTeam(value: unknown): ProgramTeam {
   };
 }
 
-/**
- * 소속된 팀이 없으면 `null`이다 — 「아직 팀이 없음」은 오류가 아니다(QA174 / #1303).
- * 학생이 아니거나 프로그램 자체가 없으면 여전히 거절된다.
- */
 export async function getMyTeam(
   programId: string,
 ): Promise<ProgramTeam | null> {
@@ -533,10 +497,6 @@ export function leaveMyTeam(programId: string): Promise<void> {
   });
 }
 
-/**
- * 팀장의 팀원 제외(backend `DELETE /programs/:programId/teams/me/members/:userId`).
- * 본인 제외는 탈퇴(`leaveMyTeam`)가 팀장 승계까지 책임지므로 서버가 409로 돌려보낸다.
- */
 export function removeMyTeamMember(
   programId: string,
   userId: string,
@@ -576,11 +536,6 @@ export function listProgramApplications(
   );
 }
 
-/**
- * 팀 관리 화면이 읽는 lean 목록. 같은 endpoint 의 `view=team-management` 분기다 —
- * 팀 축 페이지네이션을 따로 만들지 않는다(팀:신청이 1:1이라 두 번째 구현은 중복이다).
- * `view` 를 주지 않는 기존 호출은 지금까지와 같은 응답을 받는다.
- */
 export function listTeamManagementApplications(
   programId: string,
   params: ApplicationListParams,
@@ -597,10 +552,6 @@ export function listTeamManagementApplications(
   );
 }
 
-/**
- * #722 교직원 신청 상세. 목록 항목과 **같은 모양**이 온다 — 백엔드가 두 조회에 같은
- * select 를 쓰므로 화면끼리 필드가 어긋나지 않는다.
- */
 export function getApplicationDetail(
   applicationId: string,
 ): Promise<ApplicationListItem> {
@@ -609,38 +560,18 @@ export function getApplicationDetail(
   );
 }
 
-/**
- * 같은 상세 응답을 검토 이력까지 함께 읽는 면.
- *
- * 별도 endpoint 가 아니라 같은 응답의 additive 확장이라 호출이 하나다. 목록에는 이 키가
- * 없다 — 신청마다 이력을 끌면 N+1 이고 목록은 타임라인을 그리지 않는다.
- */
 export async function getApplicationDetailWithHistory(
   applicationId: string,
 ): Promise<ApplicationDetail> {
   const detail = await apiClient<ApplicationDetail>(
     `applications/${encodeURIComponent(applicationId)}`,
   );
-  /*
-   * 이력이 없으면 빈 배열로 읽는다.
-   *
-   * ⚠ 프런트는 Vercel, backend 는 Jenkins 라 **따로 배포된다**. 프런트가 먼저 올라간
-   *   창에서는 아직 이 키를 모르는 backend 가 응답한다. 그때 `undefined.length` 로
-   *   팀 상세가 통째로 죽지 않아야 한다 — 공개 랭킹이 새 지표에 같은 규칙을 쓴다.
-   *
-   * 없는 것과 빈 것을 여기서 합치는 이유는 화면이 둘을 다르게 그릴 이유가 없어서다.
-   * 최초 제출 사건이 항상 남으므로 배포가 끝나면 이 분기는 지나가지 않는다.
-   */
+
   return Array.isArray(detail.reviewHistory)
     ? detail
     : { ...detail, reviewHistory: [] };
 }
 
-/**
- * 교직원 전용 팀 목록. 학생이 쓰는 공개 로스터(`overview/teams`)와 **다른 경로**다 —
- * 그쪽은 프로그램 참가자 전원에게 보이는 목록이라 실명을 주지 않는다. 이 경로는
- * staff 가드 뒤에 있어 실명을 포함한다.
- */
 export function listStaffProgramTeams(
   programId: string,
 ): Promise<readonly StaffProgramTeam[]> {
@@ -684,18 +615,12 @@ export function decideApplication(
   );
 }
 
-/** #117 교직원 운영 대시보드 요약. */
 export async function getStaffDashboardSummary(): Promise<StaffDashboardSummary> {
   return parseStaffDashboardSummary(
     await apiClient<unknown>('dashboard/staff/summary'),
   );
 }
 
-/**
- * 교직원·관리자의 영구 삭제(#1095가 #875의 「STAFF 403」을 뒤집었다). 자식 데이터가
- * 하나라도 있으면 백엔드가 409(PRG_012)로 막는 것은 그대로다 — 화면은 위험 영역
- * 섹션을 삭제 권한이 있는 사용자에게 보여준다.
- */
 export function deleteProgram(
   programId: string,
 ): Promise<{ readonly id: string; readonly deleted: true }> {
@@ -705,7 +630,6 @@ export function deleteProgram(
   );
 }
 
-/** 전체 삭제 응답 — backend `ProgramPurgeDeletedCounts` 계약 미러. */
 export interface ProgramPurgeDeletedCounts {
   readonly applications: number;
   readonly teams: number;
@@ -738,11 +662,6 @@ export interface ProgramPurgeResult {
   readonly deletedCounts: ProgramPurgeDeletedCounts;
 }
 
-/**
- * `expectedScope`는 누르는 사람이 확인 다이얼로그에서 마지막으로 본 삭제 범위이며 REQUIRED다(#F2) —
- * 백엔드가 같은 값을 purge 트랜잭션 안에서 다시 읽은 현재 범위와 비교해, 확인 이후 생긴 행이
- * 있으면 409(PRG_014)로 거부한다.
- */
 export function purgeProgram(
   programId: string,
   expectedScope: ProgramDeletionScopeCounts,
@@ -757,11 +676,6 @@ export function purgeProgram(
   );
 }
 
-/**
- * 교직원 전용 팀 상세(#874). `listStaffProgramTeams`(팀 목록)와 달리 신청
- * 상태·저장소 발급 상태까지 한 요청으로 받는다 — 팀 상세 화면이 신청 목록을
- * 따로 불러 클라이언트에서 잇지 않게 하려는 것이다.
- */
 export async function getStaffProgramTeamDetail(
   programId: string,
   teamId: string,
@@ -771,14 +685,6 @@ export async function getStaffProgramTeamDetail(
   );
 }
 
-/**
- * 팀 이름 변경. 그 팀의 현재 팀장과 교직원·관리자가 **같은 endpoint**를 쓴다 —
- * 권한은 백엔드가 팀 행을 잠근 뒤 판정하므로 화면이 역할로 미리 갈라 부르지 않는다.
- *
- * 응답에는 바뀐 이름만 온다(`RenameTeamResponseDto`). 교직원 상세를 그대로 돌려주면
- * 학생 팀장에게 저장소 URL이 따라 나가기 때문이다 — 부르는 화면이 이미 들고 있는
- * 상세에 이 이름만 덮어 쓴다.
- */
 export function renameProgramTeam(
   programId: string,
   teamId: string,
@@ -794,19 +700,11 @@ export function renameProgramTeam(
   );
 }
 
-/**
- * 교직원 팀 삭제. `expectedScope`는 누르는 사람이 확인 창에서 마지막으로 본 범위이며
- * REQUIRED다 — 백엔드가 같은 값을 삭제 트랜잭션 안에서 다시 읽은 현재 범위와 비교해,
- * 확인 이후 생긴 행이 있으면 409(TEAM_019)로 거부한다. `purgeProgram`과 같은 계약이다.
- */
 export function deleteStaffProgramTeam(
   programId: string,
   teamId: string,
   expectedScope: TeamDeletionScope,
-  /**
-   * 팀원에게 함께 보낼 교직원 문구. 선택이다 — 비우면 삭제 사실만 알린다.
-   * 알림 자체는 선택이 아니며 백엔드가 삭제와 같은 커밋에서 남긴다(AC-21).
-   */
+
   notificationMessage?: string,
 ): Promise<DeletedTeamResult> {
   const trimmed = notificationMessage?.trim();
@@ -815,8 +713,7 @@ export function deleteStaffProgramTeam(
     {
       method: 'DELETE',
       headers: jsonHeaders,
-      // 빈 문구는 키째 빼서 보낸다 — 백엔드 DTO 가 옵셔널이고, 빈 문자열과
-      // 「적지 않았다」를 서버에서 다시 가를 이유를 만들지 않는다.
+
       body: JSON.stringify(
         trimmed
           ? { expectedScope, notificationMessage: trimmed }

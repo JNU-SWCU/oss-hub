@@ -19,11 +19,6 @@ import {
 } from './helpers';
 import { computeJoinCodeDigest } from '../../src/common/join-code-digest';
 
-/**
- * milestones profile은 intake profile 없이 빈 DB에서 단독으로 성공해야 한다
- * (#110 완료 조건). 그래서 intake.ts를 참조하지 않고 자체 Program·Application
- * backbone을 이 파일 안에서 만든다.
- */
 const PROGRAM_ID = seedId('milestones', 'program');
 const REVIEWER_ID = seedId('milestones', 'user', 'reviewer');
 const APPLICANT_PERSONAL_ID = seedId(
@@ -111,10 +106,6 @@ async function upsertMilestone(
   );
 }
 
-/**
- * submission-* 시나리오가 공유하는 target 원장 helper.
- * 개인형·팀형 어느 applicationId를 넘겨도 동일하게 header + history 1 + 선택 review를 만든다.
- */
 async function createSubmissionScenario(
   stats: SeedStats,
   params: {
@@ -267,7 +258,6 @@ async function createSubmissionScenario(
 }
 
 export async function seedMilestones(stats: SeedStats): Promise<void> {
-  // FILE 제출 보존(프로그램 종료 후 1년) 계약상 endAt이 있어야 form/upload/submit이 열린다.
   const programEndAt = offsetDays(120);
   await upsertTracked(
     stats,
@@ -340,7 +330,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     memberKind: MemberKind.STUDENT,
   });
 
-  // 모든 신청이 Team을 갖는다(D5). 개인 시나리오도 신청자 1인 팀을 만들어 붙인다.
   const personalTeamId = seedId('milestones', 'application-personal', 'team');
   await upsertTracked(
     stats,
@@ -489,7 +478,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
       }),
   );
 
-  // milestones-upcoming: D-5, D-15.
   const [d5Id, d15Id] = MILESTONE_SCENARIOS['milestones-upcoming'];
   await upsertMilestone(stats, {
     id: d5Id,
@@ -504,7 +492,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     submissionType: MilestoneSubmissionType.TEXT,
   });
 
-  // milestones-overdue: 마감 지남, 최초 제출 차단(제출 row 없음 — 파생 OVERDUE는 dueAt만으로 표현).
   const [overdueId] = MILESTONE_SCENARIOS['milestones-overdue'];
   await upsertMilestone(stats, {
     id: overdueId,
@@ -513,7 +500,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     submissionType: MilestoneSubmissionType.FILE,
   });
 
-  // milestone-with-submission: 제출이 달려 있어 삭제 시 409가 되는 milestone.
   const [withSubmissionId] = MILESTONE_SCENARIOS['milestone-with-submission'];
   await upsertMilestone(stats, {
     id: withSubmissionId,
@@ -529,7 +515,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     status: SubmissionStatus.SUBMITTED,
   });
 
-  // submission-existing: revision 1, SUBMITTED, 미검토 (팀형 application으로 재사용 helper 검증).
   const [existingId] = MILESTONE_SCENARIOS['submission-existing'];
   await upsertMilestone(stats, {
     id: existingId,
@@ -545,7 +530,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     status: SubmissionStatus.SUBMITTED,
   });
 
-  // submission-approved: 최신 revision APPROVED.
   const [approvedId] = MILESTONE_SCENARIOS['submission-approved'];
   await upsertMilestone(stats, {
     id: approvedId,
@@ -562,7 +546,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     review: { decision: ReviewDecision.APPROVED },
   });
 
-  // submission-changes-requested: 코멘트 있음, 재제출 가능.
   const [changesRequestedId] =
     MILESTONE_SCENARIOS['submission-changes-requested'];
   await upsertMilestone(stats, {
@@ -583,7 +566,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     },
   });
 
-  // submission-rejected: 최종 반려, 재제출 불가.
   const [rejectedId] = MILESTONE_SCENARIOS['submission-rejected'];
   await upsertMilestone(stats, {
     id: rejectedId,

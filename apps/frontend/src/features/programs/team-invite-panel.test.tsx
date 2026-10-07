@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,7 +23,6 @@ const candidates: InvitationCandidate[] = [
   { id: 'user-2', nickname: 'synthetic-two', name: null, avatarUrl: null },
 ];
 
-/** 서버가 확인해 준 「보낸 초대」 하나 — 화면이 지어내는 값이 아니다. */
 function sentInvitation(
   overrides: Partial<SentTeamInvitation> = {},
 ): SentTeamInvitation {
@@ -128,7 +126,6 @@ function buttonWithText(text: string): HTMLButtonElement | undefined {
   );
 }
 
-/** 실제 키 입력처럼 cancelable keydown을 흘려보내고, 핸들러가 막았는지 함께 돌려준다. */
 function pressKey(target: Element, key: string): KeyboardEvent {
   const event = new KeyboardEvent('keydown', {
     key,
@@ -164,7 +161,7 @@ describe('TeamInvitePanel — 열림 상태', () => {
     await render();
     const layer = dialog();
     expect(layer).not.toBeNull();
-    // 제목이 레이어 이름이다 — 읽어 주는 도구가 어디에 들어왔는지 말할 수 있어야 한다.
+
     const titleId = layer?.getAttribute('aria-labelledby');
     expect(titleId).toBeTruthy();
     expect(document.getElementById(titleId ?? '')?.textContent).toBe(
@@ -239,7 +236,6 @@ describe('TeamInvitePanel — 초대 보내기', () => {
     await render();
     const field = input();
     await act(async () => {
-      // React가 값 변화를 알아보려면 네이티브 setter를 거쳐야 한다.
       const setValue = Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
         'value',
@@ -264,13 +260,13 @@ describe('TeamInvitePanel — 중복 초대', () => {
       document.querySelectorAll<HTMLElement>('[role="option"]'),
     );
     expect(options).toHaveLength(2);
-    // 대기 중인 후보 행에는 누를 것이 없다 — 눌러 봐야 서버가 409로 거절한다.
+
     expect(options[0]?.querySelector('button')).toBeNull();
     expect(options[0]?.textContent).toContain('초대 대기');
     expect(options[0]?.querySelector('[role="status"]')?.textContent).toBe(
       '초대 대기',
     );
-    // 아직 초대하지 않은 후보의 조작은 그대로다.
+
     expect(options[1]?.querySelector('button')?.textContent).toBe('초대');
     expect(options[1]?.querySelector('button')?.disabled).toBe(false);
   });
@@ -305,7 +301,6 @@ describe('TeamInvitePanel — 중복 초대', () => {
     await act(async () => before[0]?.click());
     expect(onInvite).toHaveBeenCalledExactlyOnceWith(candidates[0]);
 
-    // 보낸 초대가 실제로 다시 읽힌 뒤에만 화면이 바뀐다.
     await render({
       inviteQuery: 'oc',
       inviteCandidates: candidates,
@@ -316,7 +311,7 @@ describe('TeamInvitePanel — 중복 초대', () => {
     );
     expect(after[0]?.querySelector('button')).toBeNull();
     expect(after[0]?.textContent).toContain('초대 대기');
-    // 같은 사람에게 초대를 한 번 더 보낼 길이 없다.
+
     expect(onInvite).toHaveBeenCalledOnce();
   });
 

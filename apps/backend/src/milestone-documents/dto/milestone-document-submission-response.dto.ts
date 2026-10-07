@@ -34,7 +34,6 @@ export class MilestoneDocumentSubmissionFileResponseDto {
   }
 }
 
-/** `POST /milestones/:milestoneId/documents/:documentId/submissions` 응답. */
 export class MilestoneDocumentSubmissionResponseDto {
   id: string;
   status: SubmissionStatus;

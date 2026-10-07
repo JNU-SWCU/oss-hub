@@ -106,10 +106,6 @@ export function SignupInviteView() {
   );
 }
 
-/**
- * 이동 중 화면. 자동 이동이 늦거나 막혀도 손으로 갈 수 있게 링크를 함께 둔다 —
- * 안내 문구만 남고 아무 일도 일어나지 않는 화면이 사용자에게 가장 나쁘다.
- */
 function SignupResumeView({
   href,
   label,
@@ -159,14 +155,6 @@ export function SignupEntryView({
   }
 }
 
-/**
- * `/signup` 화면.
- *
- * 사용자가 스스로 들어온 경로에서만 이동시킨다 — 랜딩은 누구에게나 열려 있어야
- * 하므로 거기서는 절대 되돌리지 않고(#144 → #147의 뒤로가기 함정), 재개는 이
- * 화면 안에서만 일어난다. `replace`를 쓰는 것도 같은 이유다: `push`면 뒤로가기가
- * 이 화면으로 돌아와 다시 앞으로 튕겨 나가는 고리가 생긴다.
- */
 export function SignupEntryScreen() {
   const router = useRouter();
   const {

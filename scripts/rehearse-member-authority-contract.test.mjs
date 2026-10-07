@@ -8,7 +8,6 @@ const rehearsal = readFileSync(
 );
 
 test('contract rehearsal initializes disposable paths before the EXIT trap', () => {
-  // Given — `set -u` 아래에서 trap이 먼저 서면 미초기화 변수 참조로 정리가 죽는다.
   const trap = rehearsal.indexOf('trap cleanup EXIT');
   for (const name of ["staged=''", "backup=''", "port=''"]) {
     const init = rehearsal.indexOf(name);
@@ -21,7 +20,6 @@ test('contract rehearsal initializes disposable paths before the EXIT trap', () 
 });
 
 test('contract rehearsal cleanup removes the container with its volumes and both tmp trees', () => {
-  // 컨테이너만 지우면 익명 볼륨이 남는다 — `-v`가 그것을 함께 지운다.
   assert.match(rehearsal, /docker rm -f -v "\$container"/);
   assert.match(
     rehearsal,
@@ -42,7 +40,6 @@ test('contract rehearsal cleanup removes the container with its volumes and both
 });
 
 test('contract rehearsal deploys the staged pre-contract schema without a process-substitution fallback', () => {
-  // 프로세스 치환 fallback은 항상 실패하고 stderr를 삼켜 진짜 오류를 숨긴다.
   assert.doesNotMatch(rehearsal, /PRISMA_MIGRATIONS_PATH/);
   assert.doesNotMatch(rehearsal, /<\(/);
   assert.match(
@@ -52,7 +49,6 @@ test('contract rehearsal deploys the staged pre-contract schema without a proces
 });
 
 test('contract rehearsal seeds the 62-user fixture before any destructive DDL', () => {
-  // 빈 테이블 위에서는 preflight도 NOT NULL도 아무것도 증명하지 못한다.
   assert.match(rehearsal, /member-authority-contract-62-users\.json/);
   const seed = rehearsal.indexOf('seed_fixture');
   const apply = rehearsal.indexOf('apply_contract()');
@@ -83,7 +79,7 @@ test('contract lane proves backup restore and previous-image rejection', () => {
     rehearsal,
     /pg_restore -U migration -d contract_rehearsal --no-owner/,
   );
-  // 직전 이미지의 질의 모양이 계속 통하면 롤백 경계가 무너진 것이다.
+
   assert.match(
     rehearsal,
     /previous image query shape still resolves — rollback boundary is broken/,
@@ -91,7 +87,6 @@ test('contract lane proves backup restore and previous-image rejection', () => {
 });
 
 test('contract lane proves identity is never inferred from authority', () => {
-  // ADMIN=>교직원 추론이 남아 있으면 학생 정체성 관리자가 0이 된다.
   assert.match(rehearsal, /student_admins=/);
   assert.match(
     rehearsal,
@@ -114,7 +109,6 @@ test('contract-negative exercises all four abort lanes before destructive DDL', 
 });
 
 test('every negative lane re-proves the rollback surface survived', () => {
-  // 거부된 뒤에도 legacy 칸·테이블·타입이 남아 있어야 직전 이미지로 되돌아갈 수 있다.
   assert.match(
     rehearsal,
     /User\.role was dropped despite the failed preflight/,

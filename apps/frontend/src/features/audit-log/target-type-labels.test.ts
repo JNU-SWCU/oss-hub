@@ -1,9 +1,3 @@
-// action-registry.test.ts와 같은 이유·같은 방식이다: targetType 한국어 라벨이
-// backend와 어긋나면 화면이 새 대상 종류를 raw 문자열 그대로 노출한다(숨기지는
-// 않지만 가독성 개선의 취지가 무색해진다). 다만 action과 달리 targetType 리터럴은
-// audit-log-metadata.ts 같은 단일 registry가 없고 각 도메인의 감사 기록 호출부에
-// 흩어져 있으므로, 한 파일을 텍스트로 읽는 대신 apps/backend/src 전체를 스캔해
-// `targetType: '...'` 리터럴을 모은다.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';

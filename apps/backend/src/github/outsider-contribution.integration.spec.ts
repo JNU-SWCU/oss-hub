@@ -3,10 +3,6 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../prisma/prisma.service';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 
-/**
- * 「팀원이 아닌 사람의 기여」(#1133)의 수집 쪽 저장 경로 — 센 기준(연결된 프로그램의 기간), ADR-009
- * `전체 − 팀원합`의 팀원합, 저장소마다 한 행 덮어쓰기를 실제 DB로 본다.
- */
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -98,7 +94,6 @@ beforeAll(async () => {
   });
 });
 afterAll(async () => {
-  // The isolated runner removes the database.
   await prisma.$disconnect();
 });
 
@@ -206,7 +201,6 @@ it('remembers when it last counted only while the application and window stay th
     (await collection.findOutsiderCountingWindow(ids.linked))?.countedThrough,
   ).toEqual(observedAt);
 
-  // Counted for another team's application (the repository was relinked) — count again from scratch.
   await prisma.githubRepositoryOutsiderContribution.update({
     where: { repositoryId: ids.linked },
     data: { applicationId: `${scope}-previous-application` },

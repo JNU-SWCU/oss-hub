@@ -1,9 +1,5 @@
 import { EmptyState } from '@/components';
 
-/**
- * 화면 티켓 스텁(#136 최소 요구 2) — EmptyState + "이 화면은 #NNN에서
- * 구현됩니다" + 티켓 링크로만 채운다. 그 이상 구현하지 않는다.
- */
 export function TicketStub({
   ticketNumber,
   title,

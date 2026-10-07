@@ -1,21 +1,3 @@
-/**
- * 로컬/실증용 마감 다이제스트 1회 발송.
- *
- * 사용:
- *   cd apps/backend
- *   DATABASE_URL=... pnpm exec ts-node src/notifications/cli/send-deadline-digest.ts
- *
- * 메일 정책:
- *   MAIL_MODE=send|dry-run (필수 — 앱/강제 CLI 공통 권한)
- *   send 시 GMAIL_SENDER / GMAIL_OAUTH_CLIENT_ID / GMAIL_OAUTH_CLIENT_SECRET / GMAIL_OAUTH_REFRESH_TOKEN
- *
- * 수신자 오버라이드(본인 점검):
- *   DIGEST_FORCE_TO=you@example.com
- *   → DB를 전혀 읽지 않고 합성 학생 메일 1통만 이 주소로 보낸다(DB notify 설정 무시).
- *
- * 오버라이드가 없으면 `sendDeadlineDigests`(자동 경로)를 1회 실행한다 —
- * 즉 학생 리마인더만 나가고 교직원 요약은 나가지 않는다(교직원 요약은 수동 발송 전용).
- */
 import { ConsoleLogger, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { isEmail } from 'class-validator';
@@ -62,7 +44,6 @@ async function main(): Promise<void> {
   const runtime = PROCESS_RUNTIME_CONFIG;
   const forceToValue = runtime.DIGEST_FORCE_TO;
 
-  // 강제 경로: DB/Nest 없이 메일 어댑터만 사용한다(로컬 점검용). MAIL_MODE 준수.
   if (forceToValue !== undefined) {
     const forceTo = parseDigestForceTo(forceToValue);
     const mailer = resolveMailSender(runtime);

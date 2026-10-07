@@ -1,9 +1,3 @@
-// env 계약은 세 선언 목록의 집합 관계를 검사한다.
-// - compose 필수 보간·runtime manifest 키는 .env.example 에 선언되어야 한다.
-// - runtime manifest 키는 backend environment 에 주입되어야 한다.
-// - RUNTIME_CONFIG_KEYS·loader property·env.KEY 읽기는 서로 같아야 한다.
-// 일반 소스의 process.env 금지는 ESLint가 소유하며 이 파일은 소스 AST를 순회하지 않는다.
-
 const ENV_KEY_RE = /^[A-Z][A-Z0-9_]*$/;
 
 const CHECK = Object.freeze({
@@ -45,10 +39,6 @@ export const ENV_CONTRACT_EXEMPTIONS = Object.freeze([
   }),
 ]);
 
-/**
- * @param {string} text
- * @returns {string[]}
- */
 export function extractEnvExampleKeys(text) {
   const keys = [];
   const seen = new Set();
@@ -63,13 +53,6 @@ export function extractEnvExampleKeys(text) {
   return keys;
 }
 
-/**
- * compose 원문에서 필수 `${VAR:?}`·`${VAR?error}` 키를
- * 최초 등장 순서로 중복 없이 추출한다.
- *
- * @param {string} composeText
- * @returns {string[]}
- */
 export function extractRequiredComposeKeys(composeText) {
   const keys = [];
   const seen = new Set();
@@ -81,18 +64,6 @@ export function extractRequiredComposeKeys(composeText) {
   return keys;
 }
 
-/**
- * canonical runtime-config 파일의 manifest·loader·env 읽기를 추출한다.
- * loader는 직접 `return Object.freeze({ KEY: env.KEY })` 형태여야 한다.
- *
- * @param {string} text
- * @returns {{
- *   manifestKeys: string[],
- *   loaderPropertyKeys: string[],
- *   loaderReadKeys: string[],
- *   errors: string[]
- * }}
- */
 export function extractRuntimeConfigContract(text) {
   const { withoutComments, code } = maskTypeScriptNonCode(text);
   const errors = [];
@@ -224,14 +195,6 @@ export function extractRuntimeConfigContract(text) {
   };
 }
 
-/**
- * docker compose config JSON의 services.<service>.environment만 검사한다.
- *
- * @param {object|null|undefined} composeConfig
- * @param {string} service
- * @param {string} key
- * @returns {boolean}
- */
 export function serviceEnvironmentMapsKey(composeConfig, service, key) {
   const environment = composeConfig?.services?.[service]?.environment;
   if (environment == null) return false;
@@ -250,16 +213,6 @@ export function serviceEnvironmentMapsKey(composeConfig, service, key) {
   return false;
 }
 
-/**
- * @param {{
- *   composeText: string,
- *   envExampleText: string,
- *   runtimeConfigText: string,
- *   composeConfig: object|null,
- *   options?: { composeConfigSkipped?: boolean }
- * }} input
- * @returns {{ ok: true }|{ ok: false, errors: string[] }}
- */
 export function evaluateEnvContract({
   composeText,
   envExampleText,
@@ -319,10 +272,6 @@ export function evaluateEnvContract({
   return errors.length > 0 ? { ok: false, errors } : { ok: true };
 }
 
-/**
- * @param {string[]} requiredKeys
- * @returns {string}
- */
 export function buildSyntheticEnvFile(requiredKeys) {
   const lines = [];
   const seen = new Set();
@@ -336,9 +285,6 @@ export function buildSyntheticEnvFile(requiredKeys) {
   return `${lines.join('\n')}${lines.length > 0 ? '\n' : ''}`;
 }
 
-/**
- * @param {string} check
- */
 function exemptionKeys(check) {
   return new Set(
     ENV_CONTRACT_EXEMPTIONS.filter((entry) => entry.checks.includes(check)).map(
@@ -347,12 +293,6 @@ function exemptionKeys(check) {
   );
 }
 
-/**
- * TypeScript 주석을 제거한 view와 문자열·주석까지 가린 code view를 만든다.
- * 두 결과는 원문과 길이가 같아서 index를 원문에 그대로 적용할 수 있다.
- *
- * @param {string} source
- */
 function maskTypeScriptNonCode(source) {
   let withoutComments = '';
   let code = '';
@@ -434,12 +374,6 @@ function maskTypeScriptNonCode(source) {
   return { withoutComments, code };
 }
 
-/**
- * @param {string} text
- * @param {number} start
- * @param {string} open
- * @param {string} close
- */
 function findBalanced(text, start, open, close) {
   let depth = 0;
 
@@ -455,11 +389,6 @@ function findBalanced(text, start, open, close) {
   return -1;
 }
 
-/**
- * @param {string} body
- * @param {string[]} keys
- * @param {string[]} errors
- */
 function parseManifestEntries(body, keys, errors) {
   const seen = new Set();
 
@@ -488,12 +417,6 @@ function parseManifestEntries(body, keys, errors) {
   }
 }
 
-/**
- * @param {string} body
- * @param {string[]} properties
- * @param {string[]} reads
- * @param {string[]} errors
- */
 function parseLoaderEntries(body, properties, reads, errors) {
   const seenProperties = new Set();
   const seenReads = new Set();
@@ -541,13 +464,6 @@ function parseLoaderEntries(body, properties, reads, errors) {
   }
 }
 
-/**
- * @param {string} leftName
- * @param {string[]} left
- * @param {string} rightName
- * @param {string[]} right
- * @param {string[]} errors
- */
 function compareKeySets(leftName, left, rightName, right, errors) {
   const leftSet = new Set(left);
   const rightSet = new Set(right);
@@ -569,9 +485,6 @@ function compareKeySets(leftName, left, rightName, right, errors) {
   }
 }
 
-/**
- * @param {string} value
- */
 function snippet(value) {
   return value.replace(/\s+/g, ' ').slice(0, 120);
 }

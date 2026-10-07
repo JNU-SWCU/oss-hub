@@ -1,8 +1,3 @@
-// DataTable 프리뷰 — apps/frontend/src/features/roles/components/staff-requests-view.tsx의
-// "교직원 승인 관리" 테이블(요청자/요청 시각/상태/처리 정보/작업)을 그대로 옮긴다.
-// 상태별로 RowActions 내용이 달라지는 것(대기=승인·반려, 승인=회수, 반려=액션 없음)까지
-// 실제 화면의 분기를 그대로 재현한다. Empty 상태는 admin-users-view.tsx의
-// EmptyState + 필터 초기화 버튼 패턴을 옮겼다.
 import {
   Button,
   DataTable,
@@ -192,9 +187,6 @@ export function Empty() {
   );
 }
 
-// 긴 반려 사유가 처리 정보 셀에서 줄바꿈되는 케이스 — admin-users-view.tsx의
-// cellClassName: 'whitespace-normal' 패턴을 그대로 쓴다(TableCell 기본값은
-// whitespace-nowrap이라 그대로 두면 줄바꿈이 아니라 넘침이 발생한다).
 export function LongText() {
   const rows: StaffRequest[] = [
     {

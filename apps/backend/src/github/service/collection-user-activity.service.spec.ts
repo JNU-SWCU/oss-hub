@@ -35,7 +35,6 @@ describe('CollectionUserActivityService', () => {
   const upsert = jest.fn();
   const fetchUserActivityMetrics = jest.fn();
 
-  // 2026-08-19 09:00 KST — Asia/Seoul 기준 연도는 2026이다.
   const now = () => new Date('2026-08-19T00:00:00.000Z');
 
   const buildService = (): CollectionUserActivityService =>
@@ -84,7 +83,6 @@ describe('CollectionUserActivityService', () => {
 
     const result = await buildService().run();
 
-    // 2026 KST 연초 = 2025-12-31T15:00:00Z, 상한은 "지금" — 1년을 넘지 않는다.
     expect(fetchUserActivityMetrics).toHaveBeenCalledWith(
       'octocat',
       '2025-12-31T15:00:00.000Z',

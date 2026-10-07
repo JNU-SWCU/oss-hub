@@ -31,7 +31,7 @@ import { UsersModule } from './users/users.module';
     AuditLogModule,
     LoginHistoryModule,
     AuthModule,
-    /** ScheduleModule.forRoot() 소유 — Notifications 크론보다 먼저 로드한다. */
+
     CollectionModule,
     NotificationsModule,
     SystemStatusModule,
@@ -45,7 +45,7 @@ import { UsersModule } from './users/users.module';
     PublicProjectsModule,
     RepositoriesModule,
     SubmissionReviewsModule,
-    /** #619 프로토타입 정렬 — 마일스톤 서류 항목·게시판·검색 초대형 팀 초대·프로그램 요약. */
+
     MilestoneDocumentsModule,
     BoardModule,
     TeamInvitationsModule,

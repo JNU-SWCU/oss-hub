@@ -56,8 +56,7 @@ async function seed(): Promise<void> {
         hasStaffAccess: true,
         accountStatus: 'ACTIVE',
       },
-      // 프로그램당 한 사람은 한 팀에만 속한다(`TeamMember @@unique([programId, userId])`).
-      // 팀이 둘이므로 신청자도 둘이어야 한다.
+
       {
         id: APPLICANT_A_ID,
         githubId: 9_320_000_002n,
@@ -144,8 +143,6 @@ describe('판정 이력 append writer — 트랜잭션 경계와 삭제 연쇄',
   });
 
   it('상태 갱신 뒤 이력 insert가 실패하면 상태 갱신까지 함께 롤백된다', async () => {
-    // Given: 판정 트랜잭션이 상태를 바꾸고 이력을 남기려는 순간 이력 쓰기가 깨진다.
-    //        actorId가 존재하지 않는 사용자면 FK가 insert를 거부한다.
     const failure = await prisma
       .$transaction(async (transaction) => {
         await transaction.application.update({
@@ -160,7 +157,6 @@ describe('판정 이력 append writer — 트랜잭션 경계와 삭제 연쇄',
       .then(() => null)
       .catch((caught: unknown) => caught);
 
-    // Then: 예외가 나고, 상태 변경도 이력도 남지 않는다.
     expect(failure).not.toBeNull();
     const application = await prisma.application.findUniqueOrThrow({
       where: { id: APPLICATION_A_ID },
@@ -174,14 +170,12 @@ describe('판정 이력 append writer — 트랜잭션 경계와 삭제 연쇄',
   });
 
   it('회차 증가와 이력 행이 같은 커밋에 함께 들어간다', async () => {
-    // When: 재제출 한 번이 한 트랜잭션으로 들어간다.
     await repository.withTransaction((store) =>
       store.appendReviewHistory(
         entry(ApplicationReviewEventKind.RESUBMITTED, APPLICATION_A_ID),
       ),
     );
 
-    // Then: Application 회차와 이력 행의 회차가 같은 값으로 커밋됐다.
     const application = await prisma.application.findUniqueOrThrow({
       where: { id: APPLICATION_A_ID },
       select: { revision: true },
@@ -195,7 +189,6 @@ describe('판정 이력 append writer — 트랜잭션 경계와 삭제 연쇄',
   });
 
   it('회차 증가가 커밋된 뒤 트랜잭션이 깨지면 증가도 되돌아간다', async () => {
-    // Given / When
     const failure = await repository
       .withTransaction(async (store) => {
         await store.appendReviewHistory(
@@ -206,7 +199,6 @@ describe('판정 이력 append writer — 트랜잭션 경계와 삭제 연쇄',
       .then(() => null)
       .catch((caught: unknown) => caught);
 
-    // Then
     expect(failure).not.toBeNull();
     const application = await prisma.application.findUniqueOrThrow({
       where: { id: APPLICATION_A_ID },
@@ -221,7 +213,6 @@ describe('판정 이력 append writer — 트랜잭션 경계와 삭제 연쇄',
   });
 
   it('신청을 지우면 그 신청의 이력만 정확히 따라 사라진다', async () => {
-    // Given: 같은 프로그램의 두 팀이 각자 이력을 쌓아 둔다.
     await repository.withTransaction(async (store) => {
       await store.appendReviewHistory(
         entry(ApplicationReviewEventKind.APPROVED, APPLICATION_A_ID),
@@ -231,10 +222,8 @@ describe('판정 이력 append writer — 트랜잭션 경계와 삭제 연쇄',
       );
     });
 
-    // When: 팀 삭제 경로와 같은 모양으로 한쪽 신청만 지운다.
     await prisma.application.deleteMany({ where: { teamId: TEAM_A_ID } });
 
-    // Then: 대상 이력은 cascade로 사라지고 비대상 이력은 그대로 남는다.
     await expect(
       prisma.applicationReviewHistory.count({
         where: { applicationId: APPLICATION_A_ID },

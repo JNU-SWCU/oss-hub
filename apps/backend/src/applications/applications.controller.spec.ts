@@ -44,7 +44,6 @@ function readGuards(
 
 describe('ApplicationsController', () => {
   it('승인 결과를 저장소 프로비저닝 응답으로 변환한다', async () => {
-    // Given
     const decide = jest.fn().mockResolvedValue({
       kind: 'APPROVED',
       applicationId: 'synthetic-application',
@@ -60,14 +59,12 @@ describe('ApplicationsController', () => {
       action: 'APPROVE',
     });
 
-    // When
     const response = await controller.decide(
       { applicationActorId: 'synthetic-actor', sessionGithubId: 4242n },
       'synthetic-application',
       body,
     );
 
-    // #547 — 감사 기록 actor는 세션 GitHub id로 넘어간다(응답 계약은 그대로).
     expect(decide).toHaveBeenCalledWith(
       'synthetic-actor',
       'synthetic-application',
@@ -75,7 +72,6 @@ describe('ApplicationsController', () => {
       expect.anything(),
     );
 
-    // Then
     expect(response).toEqual({
       applicationId: 'synthetic-application',
       status: ApplicationStatus.APPROVED,
@@ -88,13 +84,11 @@ describe('ApplicationsController', () => {
   });
 
   it('공백 반려 사유를 APP 오류로 거부한다', () => {
-    // Given
     const body = Object.assign(new PatchApplicationDecisionRequestDto(), {
       action: 'REJECT',
       reason: '   ',
     });
 
-    // When
     let thrown: unknown;
     try {
       body.toAction();
@@ -102,7 +96,6 @@ describe('ApplicationsController', () => {
       thrown = error;
     }
 
-    // Then
     expect(thrown).toBeInstanceOf(DomainException);
     if (!(thrown instanceof DomainException)) {
       throw new Error('DomainException이 발생해야 합니다.');
@@ -121,8 +114,6 @@ describe('ApplicationsController', () => {
   });
 
   it('신청 상세 조회에 세션·STAFF 조회 guard를 적용한다', () => {
-    // 조회 성격이므로 판정용(`APP_004`)이 아니라 조회용(`APP_018`) guard 다.
-    // OriginGuard 는 상태를 바꾸지 않는 GET 이라 목록 조회와 같이 걸지 않는다.
     expect(readGuards(ApplicationsController.prototype, 'detail')).toEqual([
       SessionGuard,
       ApplicationsStaffListGuard,
@@ -130,7 +121,6 @@ describe('ApplicationsController', () => {
   });
 
   it('신청 상세를 목록 항목과 같은 응답 모양으로 변환한다', async () => {
-    // Given
     const item: ApplicationListItem = {
       id: 'synthetic-application',
       programId: 'synthetic-program',
@@ -161,10 +151,8 @@ describe('ApplicationsController', () => {
       .mockResolvedValue({ application: item, reviewHistory: [] });
     const controller = new ApplicationsController(stubService({ getForStaff }));
 
-    // When
     const response = await controller.detail('synthetic-application');
 
-    // Then — 날짜는 ISO 문자열로, 나머지는 그대로.
     expect(getForStaff).toHaveBeenCalledWith('synthetic-application');
     expect(response.submittedAt).toBe('2026-08-05T05:32:00.000Z');
     expect(response.repositoryProvisioning.updatedAt).toBe(
@@ -179,7 +167,6 @@ describe('ApplicationsController', () => {
   });
 
   it('없는 신청의 상세 조회 오류를 그대로 올려보낸다', async () => {
-    // Given
     const getForStaff = jest
       .fn()
       .mockRejectedValue(
@@ -189,7 +176,6 @@ describe('ApplicationsController', () => {
       );
     const controller = new ApplicationsController(stubService({ getForStaff }));
 
-    // When
     let thrown: unknown;
     try {
       await controller.detail('missing-application');
@@ -197,7 +183,6 @@ describe('ApplicationsController', () => {
       thrown = error;
     }
 
-    // Then
     expect(thrown).toBeInstanceOf(DomainException);
     if (!(thrown instanceof DomainException)) {
       throw new Error('DomainException이 발생해야 합니다.');

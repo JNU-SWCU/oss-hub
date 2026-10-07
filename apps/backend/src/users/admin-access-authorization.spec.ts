@@ -91,14 +91,6 @@ describe('requireActiveAdmin', () => {
   });
 });
 
-/**
- * canonical `hasStaffAccess`·`hasAdminAccess`가 legacy `role`과 **엇갈릴 때** 어느 쪽을
- * 따르는가 — 이 모듈이 canonical로 옮겨졌다는 주장은 오직 여기서만 증명된다.
- * 둘이 같은 행만 쓰면 legacy 비교로 되돌려도 전부 초록으로 남아 이전이 무효화된다.
- *
- * 이 불일치는 상상이 아니다 — 독립 권한 부여(`independent-authority-transition.ts`)는
- * `role`을 그대로 둔 채 canonical 칸만 바꿀 수 있고, backfill 이전 행은 그 반대다.
- */
 describe('canonical access fields outrank legacy role', () => {
   it('grants admin authorization on hasAdminAccess even when the role says STAFF', () => {
     const actor = adminActor({ role: 'STAFF', hasAdminAccess: true });
@@ -144,7 +136,6 @@ describe('canonical access fields outrank legacy role', () => {
   });
 
   it('routes STAFF-only mutation limits by hasAdminAccess, not by the role column', () => {
-    // role은 ADMIN이지만 canonical로는 관리자가 아니므로 STAFF 제약을 받는다.
     expectThrownCode(
       () =>
         assertAccessMutationAllowed(

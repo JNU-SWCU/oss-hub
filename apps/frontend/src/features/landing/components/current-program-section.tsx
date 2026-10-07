@@ -51,9 +51,7 @@ export function CurrentProgramSectionView({
               공개 모집의 신청 기간과 주관 기관을 표시합니다.
             </p>
           </div>
-          {/* 문장 속 링크가 아니라 섹션 머리에 홀로 선 이동 버튼이다. 글자 높이
-              그대로 두면 20px이라 손가락으로 겨냥하기 어렵다 — 생김새는 그대로 두고
-              세로 여백만 얹어 조작 높이(44px) 기준을 맞춘다. */}
+
           <Link
             href="/programs"
             className={cn(
@@ -145,10 +143,6 @@ export function CurrentProgramSectionView({
   );
 }
 
-/**
- * 공개 API 결과만 그린다. 실패 시 예시·stub 카드로 채우지 않는다.
- * 로컬 목록이 필요하면 부팅 시 `pnpm db:seed`로 DB를 채운다.
- */
 export function CurrentProgramSection() {
   const [state, setState] = useState<ProgramLoadState>({ kind: 'loading' });
 

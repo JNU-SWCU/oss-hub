@@ -19,21 +19,18 @@ function command(
 
 describe('canonical authority writes behind legacy transitions', () => {
   it('admin grant does not imply staff access', () => {
-    // Given
     const before = accessUser({
       role: 'STUDENT',
       hasStaffAccess: false,
       hasAdminAccess: false,
     });
 
-    // When
     const authority = authorityAfterLegacyTransition(
       before,
       command('STUDENT', 'ADMIN'),
       ADMIN_ACCESS_REQUEST_EFFECTS.UNCHANGED,
     );
 
-    // Then
     expect(authority).toEqual({
       hasStaffAccess: false,
       hasAdminAccess: true,
@@ -41,8 +38,6 @@ describe('canonical authority writes behind legacy transitions', () => {
   });
 
   it('legacy role changes cannot clear independent canonical authority', () => {
-    // 서비스는 이 전이를 400으로 거절한다. 헬퍼가 호출되더라도 정본 칸을
-    // 접힌 표시 역할로 비우지 않는 안전망을 고정한다.
     const before = accessUser({
       role: 'ADMIN',
       hasStaffAccess: true,
@@ -59,22 +54,18 @@ describe('canonical authority writes behind legacy transitions', () => {
   });
 
   it('preserves independently granted staff access when rejecting a pending request', () => {
-    // Given — 가입 요청과 canonical 권한 부여는 서로 다른 사실이다. 관리자가
-    // 별도 권한 API로 먼저 승인해도 이전 PENDING 요청은 남아 있을 수 있다.
     const before = accessUser({
       role: 'STAFF',
       hasStaffAccess: true,
       hasAdminAccess: false,
     });
 
-    // When
     const authority = authorityAfterLegacyTransition(
       before,
       command('STAFF', 'STAFF'),
       ADMIN_ACCESS_REQUEST_EFFECTS.REJECTED,
     );
 
-    // Then — 요청만 반려하며 관리자가 별도로 부여한 권한은 회수하지 않는다.
     expect(authority).toEqual({
       hasStaffAccess: true,
       hasAdminAccess: false,
@@ -85,21 +76,18 @@ describe('canonical authority writes behind legacy transitions', () => {
     [ADMIN_ACCESS_REQUEST_EFFECTS.APPROVED, true],
     [ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED, false],
   ] as const)('%s changes only staff access', (effect, expectedStaffAccess) => {
-    // Given
     const before = accessUser({
       role: 'STAFF',
       hasStaffAccess: true,
       hasAdminAccess: true,
     });
 
-    // When
     const authority = authorityAfterLegacyTransition(
       before,
       command('STAFF', effect === 'APPROVED' ? 'STAFF' : null),
       effect,
     );
 
-    // Then
     expect(authority.hasStaffAccess).toBe(expectedStaffAccess);
     expect(authority.hasAdminAccess).toBe(true);
   });

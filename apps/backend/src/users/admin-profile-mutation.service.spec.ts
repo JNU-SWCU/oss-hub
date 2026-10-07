@@ -11,7 +11,6 @@ const ACTOR_GITHUB_ID = 9_131_500_001n;
 
 describe('mutateAdminUserProfile', () => {
   it('admin이 이미 값이 있는 학번을 다른 값으로 고친다 — 본인 경로의 불변 규칙을 우회한다', async () => {
-    // Given
     const repository = new InMemoryAdminProfileRepository();
     repository.target = profileTarget({
       name: '기존 이름',
@@ -20,7 +19,6 @@ describe('mutateAdminUserProfile', () => {
     });
     const audit = auditLogHarness();
 
-    // When
     const result = await mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
@@ -30,7 +28,6 @@ describe('mutateAdminUserProfile', () => {
       },
     );
 
-    // Then
     expect(result).toEqual({
       id: 'target',
       name: '기존 이름',
@@ -44,9 +41,7 @@ describe('mutateAdminUserProfile', () => {
         department: '컴퓨터공학과',
       },
     ]);
-    // 커맨드에 studentId만 실렸으니 update 페이로드에도 studentId만 실려야 한다 —
-    // name·department는 관련 없는 필드라 UPDATE 문에 아예 오르지 않아야 동시에 그
-    // 필드를 고친 다른 관리자의 값을 되돌리지 않는다(lost-update, #787 리뷰).
+
     expect(repository.profileChangedFieldsApplied).toEqual([
       { studentId: '250099' },
     ]);
@@ -66,7 +61,6 @@ describe('mutateAdminUserProfile', () => {
   });
 
   it('이미 다른 사용자가 쓰는 학번이면 STUDENT_ID_TAKEN_BY_ADMIN으로 거부하고 감사 로그를 남기지 않는다', async () => {
-    // Given
     const repository = new InMemoryAdminProfileRepository();
     repository.target = profileTarget({
       name: '기존 이름',
@@ -76,7 +70,6 @@ describe('mutateAdminUserProfile', () => {
     repository.applyOutcome = 'studentIdTaken';
     const audit = auditLogHarness();
 
-    // When / Then
     await expect(
       mutateAdminUserProfile(
         { repository, auditLog: audit.service },
@@ -117,7 +110,6 @@ describe('mutateAdminUserProfile', () => {
   });
 
   it('학과 없이 학번만 보내면 STUDENT_ID_NEEDS_DEPARTMENT로 거부한다', async () => {
-    // Given — UserProfile 행이 없던 사용자(학번·학과 모두 비어 있음)
     const repository = new InMemoryAdminProfileRepository();
     repository.target = profileTarget({
       name: '기존 이름',
@@ -126,7 +118,6 @@ describe('mutateAdminUserProfile', () => {
     });
     const audit = auditLogHarness();
 
-    // When / Then
     await expect(
       mutateAdminUserProfile(
         { repository, auditLog: audit.service },
@@ -144,12 +135,10 @@ describe('mutateAdminUserProfile', () => {
   });
 
   it('형식이 틀린 학번은 저장 전에 400으로 거부한다', async () => {
-    // Given
     const repository = new InMemoryAdminProfileRepository();
     repository.target = profileTarget({ name: '기존 이름' });
     const audit = auditLogHarness();
 
-    // When / Then
     await expect(
       mutateAdminUserProfile(
         { repository, auditLog: audit.service },
@@ -166,7 +155,6 @@ describe('mutateAdminUserProfile', () => {
   });
 
   it('UserProfile 행이 없던 사용자에게 처음으로 학번·학과를 채우면 새로 만드는 경로(applyProfile)를 탄다', async () => {
-    // Given — 구버전 User 컬럼에도, UserProfile 행에도 학번이 없던 사용자
     const repository = new InMemoryAdminProfileRepository();
     repository.target = profileTarget({
       name: '아직 프로필 없는 사용자',
@@ -175,7 +163,6 @@ describe('mutateAdminUserProfile', () => {
     });
     const audit = auditLogHarness();
 
-    // When
     const result = await mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
@@ -185,7 +172,6 @@ describe('mutateAdminUserProfile', () => {
       },
     );
 
-    // Then
     expect(result.studentId).toBe('260002');
     expect(repository.profileFieldsApplied).toEqual([
       {
@@ -198,7 +184,6 @@ describe('mutateAdminUserProfile', () => {
   });
 
   it('학번을 건드리지 않는 수정은 구버전 컬럼만 갱신하고 UserProfile 쓰기를 타지 않는다', async () => {
-    // Given
     const repository = new InMemoryAdminProfileRepository();
     repository.target = profileTarget({
       name: '기존 이름',
@@ -207,7 +192,6 @@ describe('mutateAdminUserProfile', () => {
     });
     const audit = auditLogHarness();
 
-    // When
     const result = await mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
@@ -217,7 +201,6 @@ describe('mutateAdminUserProfile', () => {
       },
     );
 
-    // Then
     expect(result).toEqual({
       id: 'target',
       name: '새 이름',
@@ -229,7 +212,6 @@ describe('mutateAdminUserProfile', () => {
   });
 
   it('요청 값이 기존 값과 같아 실제로 바뀐 것이 없으면 감사 로그를 쓰지 않는다', async () => {
-    // Given
     const repository = new InMemoryAdminProfileRepository();
     repository.target = profileTarget({
       name: '기존 이름',
@@ -238,7 +220,6 @@ describe('mutateAdminUserProfile', () => {
     });
     const audit = auditLogHarness();
 
-    // When
     await mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
@@ -248,13 +229,10 @@ describe('mutateAdminUserProfile', () => {
       },
     );
 
-    // Then
     expect(audit.record).not.toHaveBeenCalled();
   });
 
   it('학번이 이미 있는 대상(nextStudentId !== null 분기)에서 이름만 고치면 update 페이로드에 studentId·department 키가 없다', async () => {
-    // Given — 관리자 A와 B가 같은 대상을 나눠 고치는 상황을 가정한다. 이 테스트는
-    // A(이름만) 몫이다 — B(학과만)는 아래 테스트가 담당한다.
     const repository = new InMemoryAdminProfileRepository();
     repository.target = profileTarget({
       name: '기존 이름',
@@ -263,7 +241,6 @@ describe('mutateAdminUserProfile', () => {
     });
     const audit = auditLogHarness();
 
-    // When
     await mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
@@ -273,7 +250,6 @@ describe('mutateAdminUserProfile', () => {
       },
     );
 
-    // Then
     expect(repository.profileChangedFieldsApplied).toEqual([
       { name: '새 이름' },
     ]);
@@ -283,7 +259,6 @@ describe('mutateAdminUserProfile', () => {
   });
 
   it('학번이 이미 있는 대상에서 학과만 고치면 update 페이로드에 name·studentId 키가 없다', async () => {
-    // Given — 위 테스트의 짝: 관리자 B가 학과만 고치는 몫.
     const repository = new InMemoryAdminProfileRepository();
     repository.target = profileTarget({
       name: '기존 이름',
@@ -292,7 +267,6 @@ describe('mutateAdminUserProfile', () => {
     });
     const audit = auditLogHarness();
 
-    // When
     await mutateAdminUserProfile(
       { repository, auditLog: audit.service },
       {
@@ -302,7 +276,6 @@ describe('mutateAdminUserProfile', () => {
       },
     );
 
-    // Then
     expect(repository.profileChangedFieldsApplied).toEqual([
       { department: '전자공학과' },
     ]);
@@ -312,12 +285,10 @@ describe('mutateAdminUserProfile', () => {
   });
 
   it('대상 사용자가 없으면 USER_NOT_FOUND를 던진다', async () => {
-    // Given
     const repository = new InMemoryAdminProfileRepository();
     repository.target = null;
     const audit = auditLogHarness();
 
-    // When / Then
     await expect(
       mutateAdminUserProfile(
         { repository, auditLog: audit.service },

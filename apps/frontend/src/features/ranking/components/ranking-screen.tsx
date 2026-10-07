@@ -15,7 +15,6 @@ import { RankingView, type RankingViewState } from './ranking-view';
 const PAGE_SIZE = 100;
 
 interface RankingScreenProps {
-  /** Publishes the page-fetch envelope's nextCycleAt to the product shell. */
   readonly onNextCycleAt: (nextCycleAt: string | null) => void;
 }
 

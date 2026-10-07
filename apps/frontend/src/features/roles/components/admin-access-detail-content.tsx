@@ -69,8 +69,6 @@ function AdminAccessDetailContent({
 
   const editBlock = (
     <div className="grid gap-4">
-      {/* 헌 섹션을 씨우지 않는다 — 프로필은 이제 제 카드를 스스로 그리고,
-          이 열의 세 덩어리(프로필·대기 중인 요청·접근 변경)가 같은 모양으로 선다. */}
       <AdminAccessProfileSection
         userId={detail.id}
         profile={detail.profile}

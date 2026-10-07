@@ -4,7 +4,6 @@ import type { PrismaService } from '../prisma/prisma.service';
 import { BoardAccessGuard } from './board-access.guard';
 import { BoardErrorCode } from './board-error-code.enum';
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticGithubId = 5001n;
 
@@ -34,7 +33,6 @@ describe('BoardAccessGuard', () => {
   ])(
     '%s 역할은 참여 여부와 무관하게 허용하고 boardActorIsStaff=true를 붙인다',
     async (_label, access) => {
-      // Given
       findUniqueUser.mockResolvedValue({
         id: 'synthetic-staff-user',
         ...access,
@@ -45,10 +43,8 @@ describe('BoardAccessGuard', () => {
         params: { programId: syntheticProgramId },
       };
 
-      // When
       const allowed = await guard.canActivate(buildContext(request));
 
-      // Then
       expect(allowed).toBe(true);
       expect(request).toMatchObject({
         boardActorId: 'synthetic-staff-user',
@@ -59,7 +55,6 @@ describe('BoardAccessGuard', () => {
   );
 
   it('APPROVED 신청 팀의 현재 팀원은 허용하고 boardActorIsStaff=false를 붙인다', async () => {
-    // Given
     findUniqueUser.mockResolvedValue({
       id: 'synthetic-student-user',
       hasStaffAccess: false,
@@ -74,10 +69,8 @@ describe('BoardAccessGuard', () => {
       params: { programId: syntheticProgramId },
     };
 
-    // When
     const allowed = await guard.canActivate(buildContext(request));
 
-    // Then
     expect(allowed).toBe(true);
     expect(request).toMatchObject({
       boardActorId: 'synthetic-student-user',
@@ -93,10 +86,7 @@ describe('BoardAccessGuard', () => {
     });
   });
 
-  // 게시판 읽기 권한은 「지금 그 팀 사람인가」 하나로만 갈린다 — 최초 신청자 절이나 맨
-  // leaderId 절이 남아 있으면 팀을 떠난 사람이 옛 프로그램 게시판을 계속 읽는다(#1269).
   it('참여 판정 조건에 최초 신청자·맨 leaderId 절을 남기지 않는다', async () => {
-    // Given: 팀에서 빠진 사람 — DB는 멤버십 절로 걸러 아무 행도 주지 않는다.
     findUniqueUser.mockResolvedValue({
       id: 'synthetic-ex-member',
       hasStaffAccess: false,
@@ -109,7 +99,6 @@ describe('BoardAccessGuard', () => {
       params: { programId: syntheticProgramId },
     };
 
-    // When / Then: 옛 팀의 게시판은 더 이상 열리지 않는다.
     await expect(
       guard.canActivate(buildContext(request)),
     ).rejects.toMatchObject({
@@ -128,9 +117,7 @@ describe('BoardAccessGuard', () => {
     });
   });
 
-  // 승인 전 신청은 게시판을 열지 않는다 — 팀원이어도 status 절이 함께 걸려야 한다.
   it('참여 판정은 APPROVED 상태 절을 팀 멤버십과 함께 건다', async () => {
-    // Given
     findUniqueUser.mockResolvedValue({
       id: 'synthetic-pending-member',
       hasStaffAccess: false,
@@ -139,7 +126,6 @@ describe('BoardAccessGuard', () => {
     });
     findFirstApplication.mockResolvedValue(null);
 
-    // When / Then
     await expect(
       guard.canActivate(
         buildContext({
@@ -161,7 +147,6 @@ describe('BoardAccessGuard', () => {
   });
 
   it('참여자가 아닌 학생은 403으로 거부한다', async () => {
-    // Given
     findUniqueUser.mockResolvedValue({
       id: 'synthetic-outsider-user',
       hasStaffAccess: false,
@@ -174,7 +159,6 @@ describe('BoardAccessGuard', () => {
       params: { programId: syntheticProgramId },
     };
 
-    // When / Then
     await expect(
       guard.canActivate(buildContext(request)),
     ).rejects.toMatchObject({
@@ -183,14 +167,12 @@ describe('BoardAccessGuard', () => {
   });
 
   it('세션은 유효해도 User 행이 없으면 403으로 거부한다', async () => {
-    // Given
     findUniqueUser.mockResolvedValue(null);
     const request = {
       sessionGithubId: syntheticGithubId,
       params: { programId: syntheticProgramId },
     };
 
-    // When / Then
     await expect(
       guard.canActivate(buildContext(request)),
     ).rejects.toMatchObject({
@@ -200,7 +182,6 @@ describe('BoardAccessGuard', () => {
   });
 
   it('비활성 계정은 STAFF 역할이어도 403으로 거부한다', async () => {
-    // Given
     findUniqueUser.mockResolvedValue({
       id: 'synthetic-deactivated-staff',
       hasStaffAccess: true,
@@ -212,7 +193,6 @@ describe('BoardAccessGuard', () => {
       params: { programId: syntheticProgramId },
     };
 
-    // When / Then
     await expect(
       guard.canActivate(buildContext(request)),
     ).rejects.toMatchObject({

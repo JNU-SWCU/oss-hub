@@ -2,7 +2,6 @@ import type { MilestoneDocumentArchiveDocument } from './domain/milestone-docume
 import type { ArchiveProgram } from './milestone-document-archive.repository';
 import { milestoneDocumentArchiveFolderName } from './milestone-document-download-file-name';
 
-/** Same-name documents from different stages stay identifiable in paths and CSV headers. */
 export function archiveDocumentsWithStageNames(
   milestones: ArchiveProgram['milestones'],
   isSingleMilestone: boolean,
@@ -17,7 +16,6 @@ export function archiveDocumentsWithStageNames(
   );
 }
 
-/** Use the milestone deadline in Seoul, not the changing download date. */
 export function archiveFileName(name: string, dueAt: Date): string {
   const due = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul',

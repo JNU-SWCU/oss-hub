@@ -16,14 +16,6 @@ import {
   validateAdminProfileEdit,
 } from './admin-profile-edit-policy';
 
-/**
- * `admin-access-profile-section.tsx`가 쓰는 검증·값 변환 규칙을 직접
- * 검증한다. `features/profile/profile-requirements.ts`·`profile-state.ts`와
- * 형식 규칙(이름 100자, 학과 100자, 학번 숫자 6자리)은 같지만, 관리자
- * 경로만의 차이 — 이미 저장된 학번/학과도 고칠 수 있지만 비워둘 수는
- * 없다 — 를 중심으로 다룬다.
- */
-
 function profile(
   overrides: Partial<AdminAccessProfile> = {},
 ): AdminAccessProfile {

@@ -24,7 +24,6 @@ async function upload(
   return fixture.request('milestone-document-files', { method: 'POST', body });
 }
 
-/** 제출 전 판정(#1108) — 식별자 없이 파일만 보낸다. */
 async function check(bytes: Buffer): Promise<Response> {
   const body = new FormData();
   body.append(
@@ -38,7 +37,6 @@ async function check(bytes: Buffer): Promise<Response> {
   });
 }
 
-/** 판정 경로가 남길 수 있는 흔적 — 제출 파일 행·감사 로그·아웃박스. */
 async function footprint() {
   return {
     submissionFiles: await fixture.prisma.submissionFile.count(),
@@ -53,7 +51,6 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
   afterAll(() => fixture.stop());
 
   it('blocks another file after the one allowed post-deadline resubmission', async () => {
-    // Given
     expect((await fixture.submit('최초 제출')).status).toBe(201);
     expect(
       (
@@ -76,14 +73,12 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
     await fixture.closeDeadline();
     expect((await fixture.submit('첫 보완')).status).toBe(201);
 
-    // When
     const response = await upload(
       'revised.pdf',
       'application/pdf',
       Buffer.from('%PDF-revised'),
     );
 
-    // Then
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({
       code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
@@ -116,10 +111,8 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
   ])(
     'uploads and submits %s without requiring text',
     async (name, mime, bytes) => {
-      // Given / When
       const response = await upload(name, mime, bytes);
 
-      // Then: 실제 multipart 파서·형식 검사·DB·스토리지를 통과한다.
       expect(response.status).toBe(201);
       const pending = await fixture.prisma.submissionFile.findFirstOrThrow({
         where: { applicationId: flowIds.application },
@@ -144,10 +137,8 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
   ])(
     'rejects a new %s before creating a pending file',
     async (name, mime, bytes) => {
-      // Given / When
       const response = await upload(name, mime, bytes);
 
-      // Then
       expect(response.status).toBe(415);
       expect(
         await fixture.prisma.submissionFile.count({
@@ -158,7 +149,6 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
   );
 
   it('checks a ZIP with the upload codes over real guards and stores nothing', async () => {
-    // Given: 비밀번호 걸린 압축과 압축 안의 압축(#1108). 암호화 항목은 12바이트 머리를 더한다.
     const locked = signatureValidZip([
       {
         name: 'plan.txt',
@@ -171,7 +161,6 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
     const put = jest.spyOn(fixture.storage, 'put');
     const before = await footprint();
 
-    // When / Then: 판정은 업로드와 같은 상태·코드·문장으로 거절한다.
     for (const [archive, code] of [
       [locked, MilestoneDocumentsErrorCode.ZIP_PASSWORD_PROTECTED],
       [nested, MilestoneDocumentsErrorCode.ZIP_NESTED],
@@ -191,14 +180,12 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       (await check(signatureValidZip([{ name: 'plan.txt' }]))).status,
     ).toBe(204);
 
-    // Then: 통과한 판정까지 포함해 저장소·DB에 아무것도 남지 않는다.
     expect(put).not.toHaveBeenCalled();
     expect(await footprint()).toEqual(before);
     put.mockRestore();
   });
 
   it('keeps an existing image downloadable without changing retention', async () => {
-    // Given: 정책 변경 전에 저장된 파일을 합성 데이터로 만든다.
     await fixture.submit('기존 이미지가 있는 제출');
     const history =
       await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
@@ -229,12 +216,10 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       },
     });
 
-    // When
     const response = await fixture.request(
       `${fixture.documentPath()}/submissions/current/file`,
     );
 
-    // Then
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('image/jpeg');
     expect(Buffer.from(await response.arrayBuffer())).toEqual(bytes);
@@ -247,7 +232,6 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
   });
 
   it('omits an old attachment from a text-only revision but keeps its history and stored file', async () => {
-    // Given
     await upload(
       'previous.pdf',
       'application/pdf',
@@ -258,12 +242,10 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
     });
     await fixture.submit('첫 제출', file.id);
 
-    // When
     expect((await fixture.submit('이번 제출은 글만 포함합니다.')).status).toBe(
       201,
     );
 
-    // Then
     expect(
       (
         await fixture.request(

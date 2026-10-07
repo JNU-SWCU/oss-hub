@@ -5,7 +5,6 @@ export enum CollectionErrorCode {
   COLLECTION_RUN_IN_PROGRESS = 'COL_006',
   COLLECTION_APP_UNAVAILABLE = 'COL_007',
   COLLECTION_QUIESCED = 'COL_008',
-  // COL_009·COL_010은 없앤 관리자 외부 저장소 등록(#1453)이 쓰던 코드다 — 다른 뜻으로 다시 쓰지 않는다.
 }
 
 export const COLLECTION_ERROR_CODES: Record<CollectionErrorCode, ErrorCode> = {

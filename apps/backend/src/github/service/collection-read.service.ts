@@ -102,8 +102,6 @@ export class CollectionReadService {
       if (row.updatedAt > current.dataAsOf) current.dataAsOf = row.updatedAt;
     }
 
-    // Issue만 연 날은 세 칸이 모두 0인 행을 남긴다(#1133). 이 지표는 issue 수를 싣지
-    // 않으므로 그해 합계가 0인 기여자를 0/0/0 행으로 내보내지 않는다.
     const contributors = [...folded.values()].filter(
       (entry) =>
         entry.commitCount + entry.pullRequestCount + entry.releaseCount > 0,

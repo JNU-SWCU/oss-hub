@@ -27,7 +27,6 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 학생·교직
   authSeedPage,
   programAuthoringActorPage,
 }, testInfo) => {
-  // Given: approval and provisioning use the real isolated application and database.
   const control = await authSeedPage('admin-confirmed');
   await resetProgramAuthoringControl(control);
   const programId = await fixtureProgramId(control);
@@ -106,7 +105,6 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 학생·교직
     ),
   ).toBe(true);
 
-  // When: the student confirms the change through the real PATCH endpoint.
   const changeStartedAt = Date.now();
   const [savedResponse] = await Promise.all([
     student.waitForResponse(
@@ -128,7 +126,6 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 학생·교직
     canEditRepositoryUrl: true,
   });
 
-  // Then: persistence and staff history agree with the confirmed student action.
   await expect(
     editor.getByRole('link', { name: replacementUrl, exact: true }),
   ).toBeVisible();
@@ -155,7 +152,7 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 학생·교직
 
   const staff = await programAuthoringActorPage('staff');
   const teamRoot = `${apiRoot}/teams/${encodeURIComponent(teamId)}`;
-  // 학생과 교직원은 같은 조회로 같은 시계열을 본다(#1133). 역할은 편집 권한만 가른다.
+
   const [studentActivityResponse, staffActivityResponse] = await Promise.all([
     student.request.get(`${teamRoot}/activity`),
     staff.request.get(`${teamRoot}/activity`),
@@ -175,7 +172,7 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 학생·교직
     url: replacementUrl,
   });
   expect(staffActivity.status).toBe('COLLECTED');
-  // 팀원만 그린다 — 연결되지 않은 외부 기여자(8199999)는 사람 수를 늘리지 않는다.
+
   expect(staffActivity.members).toEqual([
     expect.objectContaining({
       githubLogin: 'e2e-program-authoring-student',
@@ -208,7 +205,7 @@ test('팀장이 우리 팀 화면에서 저장소를 변경하면 학생·교직
   await expect(activity.getByRole('list', { name: '팀원' })).toContainText(
     '@e2e-program-authoring-student',
   );
-  // 숫자는 초점을 줄 때만 보인다.
+
   const readout = activity.locator('[data-slot="team-activity-readout"]');
   await expect(readout).toHaveCount(0);
   await activity.getByRole('group', { name: /팀 활동 그래프/ }).focus();

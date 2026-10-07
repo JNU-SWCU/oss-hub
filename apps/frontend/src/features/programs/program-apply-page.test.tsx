@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { act, createRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -78,7 +77,6 @@ const memberTeam: ProgramTeam = {
   isLeader: false,
 };
 
-/** 팀장 + 팀원 둘. 신청 화면에서도 로스터는 있는 그대로 보인다. */
 const leaderTeamWithMember: ProgramTeam = {
   ...leaderTeam,
   memberCount: 2,
@@ -93,11 +91,6 @@ const leaderTeamWithMember: ProgramTeam = {
   ],
 };
 
-/**
- * 신청을 낸 뒤의 팀장. 서버는 제출 이후에도 초대·제외 권한을 그대로 준다
- * (`canInvite`가 꺼지지 않는다) — 신청 화면이 초대·제외를 그리지 않는 것은
- * 화면의 선택이고 권한 계약을 보수적으로 지어낸 결과가 아니다.
- */
 const submittedLeaderTeam: ProgramTeam = {
   ...leaderTeamWithMember,
   hasApplication: true,
@@ -109,7 +102,7 @@ const submittedLeaderTeam: ProgramTeam = {
 const testTeamProps = {
   programId: program.id,
   team: leaderTeam,
-  // 공유 팀 컴포넌트의 「내 행」 판정 기준 — 여기서는 팀장 본인이다.
+
   sessionNickname: 'leader-nick',
   invitation: null,
   inviteOpen: false,
@@ -139,10 +132,6 @@ const baseValues = {
   personalDataConsent: false,
 };
 
-/*
- * 반려 사유는 예전에 「막힌 화면」에만 있었다. 반려 재제출이 열리면서 학생은 더 이상
- * 막히지 않으므로, 그 자리에만 두면 왜 반려됐는지를 영영 볼 수 없다.
- */
 describe('반려 재제출 화면의 반려 사유', () => {
   it('고쳐 다시 내는 화면에 반려 사유를 함께 보인다', () => {
     const html = renderForm({
@@ -168,7 +157,6 @@ describe('반려 재제출 화면의 반려 사유', () => {
   });
 });
 
-/** 포털까지 담아야 하는 케이스용 — 실제 DOM 에 그리고 문서 전체 HTML 을 돌려준다. */
 function renderFormToDocument(
   overrides: Partial<Parameters<typeof ProgramApplyFormView>[0]> = {},
 ): string {
@@ -224,7 +212,6 @@ function renderForm(
   );
 }
 
-/** 반려된 내 신청서. 사유 말고는 표시에 영향을 주지 않는 값들로 채운다. */
 function rejectedApplication(
   rejectionReason: string | null,
 ): StudentApplication {
@@ -258,13 +245,12 @@ describe('ProgramApply views', () => {
     expect(html).toContain('개인정보 수집·이용 동의');
     expect(html).toContain('신청 제출');
 
-    // 단계 이동도, 학생이 눌러야 하는 새로고침도 없다.
     expect(html).not.toContain('다음');
     expect(html).not.toContain('이전');
     expect(html).not.toContain('aria-label="작성 단계"');
     expect(html).not.toContain('팀·초대 새로고침');
     expect(html).not.toContain('팀 새로고침');
-    // 신청 화면은 팀을 해체·탈퇴·제외하는 자리가 아니다.
+
     expect(html).not.toContain('팀에서 제외');
     expect(html).not.toContain('팀 나가기');
     expect(html).not.toContain('받은 팀 초대');
@@ -277,7 +263,6 @@ describe('ProgramApply views', () => {
   it('팀이 아직 없어도 로스터 자리는 이 화면 안에 함께 있다', () => {
     const html = renderForm({ team: null });
 
-    // 팀 이름 입력과 구성원 영역이 같은 화면에 있다 — 별도 마법사로 넘기지 않는다.
     expect(html).toContain('id="apply-team-name"');
     expect(html).toContain('신청 제출');
     expect(html).not.toContain('팀 만들고 계속');
@@ -376,7 +361,6 @@ describe('ProgramApply views', () => {
       canManage: true,
     });
 
-    // 권한 계약은 그대로다 — 화면이 그것을 다시 유추하지 않는다.
     expect(submittedLeaderTeam.canInvite).toBe(true);
     expect(html).toContain('member-nick');
     expect(html).toContain('수정 내용 저장');
@@ -405,10 +389,6 @@ describe('ProgramApply views', () => {
   });
 
   it('제출 확인창은 하나뿐이고 승인 이후 제한 문구를 표시한다', () => {
-    /*
-     * 확인창은 공용 껍데기가 body 로 포털한다. 문자열 렌더로는 포털 내용을
-     * 담지 못하므로 이 케이스만 실제 DOM 에 그려 문서 전체에서 읽는다.
-     */
     const html = renderFormToDocument({
       values: {
         ...baseValues,
@@ -475,7 +455,7 @@ describe('ProgramApply views', () => {
     expect(html).toContain('팀 구성이 필요합니다');
     expect(html).not.toContain('/programs/program-1/teams');
     expect(html).not.toContain('프로그램 개요');
-    // 아직 팀이 없는 사람을 팀 화면으로 보내지 않는다.
+
     expect(html).not.toContain('/team');
     expect(html).not.toContain('우리 팀 보기');
   });
@@ -580,11 +560,10 @@ describe('ProgramApply views', () => {
     expect(html).not.toContain('되돌리기 전 남아 있던 사유');
     expect(html).toContain('수정할 수 없는 신청입니다');
     expect(html).toMatch(/data-slot="empty-state"[^>]*class="[^"]*break-keep/);
-    // 프로그램 식별자가 없으면 팀 관리 목적지를 만들지 않는다.
+
     expect(html).not.toContain('/team');
   });
 
-  // #1133 — 저장소 URL은 우리 팀 화면 한 곳에서 바꾼다. 신청 화면에 편집기 사본을 두지 않는다.
   it('승인된 신청의 막힌 화면은 저장소를 고치지 않고 우리 팀으로 보낸다', () => {
     const html = renderToStaticMarkup(
       <BlockedView
@@ -629,7 +608,7 @@ describe('ProgramApply views', () => {
 
     expect(html).toContain('우리 팀 보기');
     expect(html).toContain('href="/programs/program%3A1/team"');
-    // 팀 id나 쿼리를 화면이 지어내지 않는다.
+
     expect(html).not.toContain('teamId');
     expect(html).not.toContain('?team');
   });

@@ -41,14 +41,11 @@ function setup() {
 
 describe('ProgramAuthoringUploadMaintenanceService', () => {
   it('claims at most 100 rows with a ten-minute lease and marks successful deletes', async () => {
-    // Given
     const { repository, storage, service } = setup();
     repository.claimForDeletion.mockResolvedValueOnce([claimed(0)]);
 
-    // When
     const processed = await service.runDue(1_000);
 
-    // Then
     expect(processed).toBe(1);
     expect(repository.claimForDeletion).toHaveBeenCalledWith({
       now: NOW,
@@ -72,17 +69,14 @@ describe('ProgramAuthoringUploadMaintenanceService', () => {
   ])(
     'schedules prior attempt %i using the %ih retry delay',
     async (priorAttempts, delayHours) => {
-      // Given
       const { repository, storage, service } = setup();
       repository.claimForDeletion.mockResolvedValueOnce([
         claimed(priorAttempts),
       ]);
       storage.delete.mockRejectedValueOnce(new Error('provider detail'));
 
-      // When
       await service.runDue();
 
-      // Then
       expect(repository.recordDeleteFailure).toHaveBeenCalledWith({
         id: 'upload-id',
         claimOwner: 'unique-claim-owner',
@@ -94,7 +88,6 @@ describe('ProgramAuthoringUploadMaintenanceService', () => {
   );
 
   it('keeps a non-null due timestamp at the sixth failure while making it exhausted', async () => {
-    // Given
     const { repository, storage, service } = setup();
     const alert = jest.spyOn(Logger.prototype, 'error').mockImplementation();
     repository.claimForDeletion.mockResolvedValueOnce([claimed(5)]);
@@ -102,10 +95,8 @@ describe('ProgramAuthoringUploadMaintenanceService', () => {
       new Error('provider-secret=must-not-leak'),
     );
 
-    // When
     await service.runDue();
 
-    // Then
     expect(repository.recordDeleteFailure).toHaveBeenCalledWith({
       id: 'upload-id',
       claimOwner: 'unique-claim-owner',
@@ -124,17 +115,14 @@ describe('ProgramAuthoringUploadMaintenanceService', () => {
   });
 
   it('does not report exhaustion when a stale owner loses the failure CAS', async () => {
-    // Given
     const { repository, storage, service } = setup();
     const alert = jest.spyOn(Logger.prototype, 'error').mockImplementation();
     repository.claimForDeletion.mockResolvedValueOnce([claimed(5)]);
     repository.recordDeleteFailure.mockResolvedValueOnce(false);
     storage.delete.mockRejectedValueOnce(new Error('provider detail'));
 
-    // When
     await service.runDue();
 
-    // Then
     expect(alert).not.toHaveBeenCalled();
     alert.mockRestore();
   });

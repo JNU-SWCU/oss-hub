@@ -18,14 +18,6 @@ function render() {
   );
 }
 
-/**
- * 320px에서 "아카이브"와 "GitHub으로 로그인"이 47.6px 겹쳤다(360px에서도 7.6px).
- * 메뉴는 `whitespace-nowrap`이라 줄지 않고 actions는 `shrink-0`이라 물러서지 않아
- * 서로를 파고들었다. 좁은 화면에서는 메뉴를 접어 자리를 다투지 않게 한다.
- *
- * 로그인하면 actions에 알림 벨·역할 배지·닉네임이 붙어 480px 위에서도 겹쳤다(#1421) —
- * 그래서 접는 경계는 사이드바 드로어와 같은 900px이다.
- */
 describe('NavBar 좁은 화면 메뉴 접기', () => {
   it('900px 미만에서만 접힌 메뉴를, 그 이상에서만 한 줄 메뉴를 보여 준다', () => {
     const html = render();
@@ -43,10 +35,6 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
     expect(itemsClass).not.toContain('min-[480px]');
   });
 
-  // feat/sidebar-drawer-below-900 — 900px 미만의 좌측 사이드바 도달 경로는 더 이상
-  // 상단 nav 항목 목록이 아니라 별도의 사이드바 드로어 토글(햄버거)이다.
-  // `onToggleSidebarDrawer`가 주어졌을 때만 그 토글 버튼을 그리고, 항목 목록
-  // 자체(접힌 메뉴·한 줄 메뉴)에는 폭에 따라 숨는 항목이 없다.
   it('onToggleSidebarDrawer가 있으면 900px 미만 전용 사이드바 드로어 토글을 그린다', () => {
     const html = renderToStaticMarkup(
       <NavBar
@@ -107,7 +95,7 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
       /data-slot="nav-bar-menu-items"[\s\S]*?<\/ul>/,
     )?.[0];
     expect(panel?.match(/min-h-11/g)).toHaveLength(ITEMS.length);
-    // 줄 전체가 눌려야 한다 — 호출부의 `[&_a]:inline-flex`가 글자 폭으로 줄여 버린다
+
     expect(panel?.match(/\bw-full\b/g)).toHaveLength(ITEMS.length);
   });
 
@@ -119,15 +107,12 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
     expect(html).toContain('aria-label="메뉴"');
   });
 
-  // 랜딩의 반전 표면 안에 중첩되는 밝은 패널이라 토큰 리셋이 필요하다.
   it('접힌 메뉴 패널은 data-surface="default" 리셋을 단다', () => {
     expect(render()).toMatch(
       /data-slot="nav-bar-menu-items"[^>]*data-surface="default"/,
     );
   });
-  // 클라이언트 내비게이션은 셸을 그대로 두고 본문만 갈아 끼운다. `<details>`의
-  // 열림 상태를 브라우저가 들고 있어서, 이 요소가 살아남으면 열린 메뉴가 새
-  // 화면을 계속 덮는다. 경로가 바뀌면 다시 그리도록 key 를 받는다.
+
   it('menuResetKey 가 바뀌면 접힌 메뉴를 새로 그린다', () => {
     const first = renderToStaticMarkup(
       <NavBar items={ITEMS} menuResetKey="/" />,
@@ -136,9 +121,8 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
       <NavBar items={ITEMS} menuResetKey="/programs" />,
     );
 
-    // 서버 렌더 결과는 같아야 한다 — key 는 마크업이 아니라 재조정에만 쓰인다.
     expect(first).toBe(second);
-    // key 를 실제로 넘기고 있는지 타입 수준에서 고정한다.
+
     expect(first).toContain('data-slot="nav-bar-menu"');
   });
 });

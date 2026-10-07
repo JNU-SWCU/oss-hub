@@ -12,7 +12,6 @@ import {
   MilestoneDocumentsErrorCode,
 } from '../milestone-documents-error-code.enum';
 
-/** Scope is explicit: a missing selector must never widen a team download to a program. */
 export class ProgramDocumentArchiveQueryRequestDto {
   @IsIn(['PROGRAM', 'MILESTONE', 'TEAM'])
   declare readonly scope: ProgramDocumentArchiveScope['kind'];

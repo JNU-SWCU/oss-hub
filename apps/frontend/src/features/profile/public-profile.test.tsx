@@ -52,9 +52,6 @@ const unobservedProject = {
   metrics: null,
 };
 
-// #893 — presence는 provisioning 시점부터 PRESENT라 observed:true지만, 첫 inventory sweep
-// 전이라 hasCollectedData:false다. metrics는 observedZeroProject와 똑같이 0/0/0이라, 이
-// 필드가 없으면 "관측된 0"과 구분되지 않는다.
 const preSweepProject = {
   ...observedProject,
   projectId: 'project_pre_sweep',
@@ -197,7 +194,7 @@ describe('public profile API boundary', () => {
     await expect(loadPublicProfile('user_123')).resolves.toMatchObject({
       userId: 'user_123',
     });
-    // 세션 보호 경로(`users/me/profile`)와 겹치지 않는 공개 경로를 호출한다(#551).
+
     expect(apiClient).toHaveBeenCalledWith('users/user_123/public-profile');
   });
 
@@ -278,9 +275,6 @@ describe('public profile views', () => {
       />,
     );
 
-    // 서버가 아직 첫 sweep을 마치지 않은 저장소를 "관측됨"류 초록 배지로 보여주면 라이브
-    // 데모 중 발급된 저장소가 검증된 것처럼 오인될 수 있다 — 중립 배지·문구를 명시적으로
-    // 요구한다.
     expect(preSweepHtml).toContain('수집 대기');
     expect(preSweepHtml).not.toContain('관측됨');
     expect(preSweepHtml).toMatch(/data-variant="pending"[^>]*>\s*수집 대기/);
@@ -299,7 +293,6 @@ describe('public profile views', () => {
       />,
     );
 
-    // 대조군 — 실제로 관측이 끝난 0-기여 저장소는 계속 초록(approved) 배지를 유지해야 한다.
     expect(observedZeroHtml).toMatch(
       /data-variant="approved"[^>]*>\s*관측됨 · 기여 없음/,
     );

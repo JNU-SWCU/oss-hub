@@ -15,10 +15,8 @@ const getMetadataArray = (key: string): unknown[] => {
 
 describe('SubmissionsModule storage provider', () => {
   it('binds the storage token directly to the S3 adapter', () => {
-    // Given
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
 
-    // When
     const storageProvider = providers.find(
       (provider) =>
         typeof provider === 'object' &&
@@ -27,7 +25,6 @@ describe('SubmissionsModule storage provider', () => {
         provider.provide === SUBMISSION_FILE_STORAGE,
     );
 
-    // Then
     expect(storageProvider).toEqual(
       expect.objectContaining({
         provide: SUBMISSION_FILE_STORAGE,

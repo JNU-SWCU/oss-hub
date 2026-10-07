@@ -32,18 +32,6 @@ export class ProgramLifecycleService {
     private readonly auditLog: AuditLogService,
   ) {}
 
-  /**
-   * 교직원·관리자의 영구 삭제. 신청·팀·제출물·게시글 중 하나라도 남아 있으면 409로 막는다 —
-   * 학생 데이터가 붙은 프로그램을 지우는 강제 경로는 이 기능의 목적 밖이다(#875).
-   * 차단 카운트 확인과 자식 삭제·Program 삭제·감사 로그 기록을 전부 한 트랜잭션 안에서
-   * 수행해 확인-삭제 사이의 race를 없앤다.
-   *
-   * 권한은 #1095에서 ADMIN 전용에서 교직원 전권으로 넓혔다 — 관리자는 시스템이 잘 도는지
-   * 보는 역할이고 행사를 운영하는 것은 교직원이라, 프로그램 삭제가 ADMIN 전용인 것 자체가
-   * 역할 정의와 어긋났다. #875가 정한 「STAFF는 작성자여도 403」 계약을 뒤집는다. 넓힌 것은
-   * **누가** 하는가 하나이며, 무엇을 지우는지·409 차단 조건·감사 로그는 그대로다.
-   * 관리자 권한도 좁히지 않는다.
-   */
   async delete(
     githubId: bigint,
     programId: string,
@@ -95,16 +83,6 @@ export class ProgramLifecycleService {
         );
       }
 
-      // 불변조건: Application 하드삭제는 SUBMITTED 상태에서만 일어난다
-      // (student-application-management.repository.ts의 validateMutation) — 즉 이
-      // 지점에서 applications===0이면 GithubRepository(programId — provisioning된 행만
-      // 채워진다, #617 단계 D 이후 applicationId 자체는 nullable이지만 provisioning된
-      // 행은 항상 applicationId·programId를 함께 갖는다)도 이 programId로는 항상
-      // 0이어야 한다. 스키마상 관계에 onDelete: Cascade가 없어, 이 불변조건이 깨진 채로
-      // Program을 지우면 FK 위반 500이 터진다. 도달 불가능해야 하는 경로지만
-      // 500을 막기 위해 방어적으로 확인하고, 깨졌다면 새 UI 카테고리를 만드는 대신
-      // 이미 있는 409(PRG_012) 차단으로 흡수한다 — blockingCounts는 여전히 전부
-      // 0이라 프론트는 이를 일반 차단 안내 문구로 보여준다.
       const orphanRepositoryCount = await transaction.githubRepository.count({
         where: { programId },
       });
@@ -115,7 +93,6 @@ export class ProgramLifecycleService {
         );
       }
 
-      // 교직원이 올린 스캐폴딩(작성 임시 파일·작성 요청)은 학생 데이터가 아니라 명시 삭제한다.
       await this.deleteAuthoringArtifacts(transaction, programId);
       await this.deleteMilestoneTree(transaction, programId);
       await this.deleteProgramCover(transaction, programId);
@@ -140,23 +117,6 @@ export class ProgramLifecycleService {
     });
   }
 
-  /**
-   * 교직원·관리자의 의도적 전체 삭제. 기존 `delete`의 409 차단 계약과 독립된 경로다.
-   *
-   * `delete`와 같은 이유로 #1095에서 교직원까지 넓혔다 — 지금 자식 데이터 없이 지울 수 있는
-   * 프로그램이 없어 「일반 삭제만 교직원에게」는 실질적으로 아무것도 바꾸지 못하기 때문에,
-   * 두 경로를 함께 옮긴다. 아래 확인 절차(범위 스냅샷 재확인)와
-   * 감사 로그는 조금도 약해지지 않는다.
-   *
-   * phase 1은 DB 트랜잭션으로 자식 행을 bottom-up으로 제거하고 파일 FK를 분리해
-   * DELETE_PENDING으로 전환한다. phase 2 worker만 storage port를 호출한다.
-   *
-   * `expectedScope`는 확인 화면(GET edit)이 보여준 자식 범위의 스냅샷이다 —
-   * 확인과 purge 사이가 별개 요청이라(#F2 TOCTOU) 확인 이후 생긴 행을 누르는 사람이
-   * 보지 못한 채 지울 수 있다. 그래서 삭제 트랜잭션 안에서 GET edit과 동일한
-   * 단일 스냅샷 쿼리(`readProgramDeletionScopeCounts`)로 현재 범위를 다시 읽어 비교하고,
-   * 다르면 트랜잭션 전체를 abort해 아무것도 지우지 않는다(409 PRG_014, 현재 카운트 포함).
-   */
   async purge(
     githubId: bigint,
     programId: string,
@@ -195,9 +155,7 @@ export class ProgramLifecycleService {
               PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
             );
           }
-          // TOCTOU 재확인: 확인 화면이 읽은 이후 생긴 행이 있으면 클라이언트가 보지 못한 채
-          // 지워지는 것을 막는다. purgeProgramTree와 같은 트랜잭션 안에서 읽어야
-          // 이 비교와 실제 삭제 사이에 또 다른 틀이 생기지 않는다.
+
           const currentScopeCounts = await readProgramDeletionScopeCounts(
             transaction,
             programId,
@@ -318,9 +276,7 @@ export class ProgramLifecycleService {
     const programOutboxEvents = await transaction.outboxEvent.deleteMany({
       where: { aggregateType: 'PROGRAM', aggregateId: programId },
     });
-    // repository-provision 이벤트는 aggregateType='Application'/aggregateId=applicationId로
-    // 적재된다(applications.repository.ts createRepositoryProvisionEvent) — Program
-    // aggregateId로는 잡히지 않으므로 이 프로그램 산하 Application id로 별도 조회한다.
+
     const applicationOutboxEvents =
       applicationIds.length > 0
         ? await transaction.outboxEvent.deleteMany({
@@ -334,10 +290,6 @@ export class ProgramLifecycleService {
       count: programOutboxEvents.count + applicationOutboxEvents.count,
     };
 
-    // 프로그램에 붙은 Notification: APPLICATION_DECISION(payload.programId)과
-    // 그 응답 확인 기록(APPLICATION_DECISION_ACKNOWLEDGED, notificationId로 원본을 참조),
-    // DEADLINE_DIGEST(idempotencyKey에 programId가 박혀 있고 payload에는 없다 —
-    // deadline-digest.service.ts sendStaffRecipient/sendRecipient 참조).
     const applicationDecisionNotifications =
       await transaction.notification.findMany({
         where: {
@@ -374,9 +326,7 @@ export class ProgramLifecycleService {
           idempotencyKey: { contains: `:${programId}:` },
         },
       });
-    // 팀 삭제 알림은 payload에 programId를 담고 있다(program-teams.service.ts
-    // recordTeamDeletionNotification). 팀은 이미 사라졌으나 그 사실을 알리는 행은
-    // 프로그램이 지워질 때 함께 거둔다 — 사라진 프로그램의 이름을 들고 남아 있을 이유가 없다.
+
     const teamDeletedNotifications = await transaction.notification.deleteMany({
       where: {
         type: 'TEAM_DELETED',
@@ -398,13 +348,6 @@ export class ProgramLifecycleService {
       where: { programId },
     });
 
-    // EXTERNAL_PUBLIC과 ORG_PROVISIONED 모두 행과 수집 이력을 보존한다. 연결이 풀린 조직 저장소는
-    // 독립 저장소로 계속 모이지만, 조직 밖 저장소는 더 모으지 않는다(`isCollectionTarget`).
-    // publicProjects.repository.ts(공개 아카이브)는 publishedAt이 설정된 행이면 항상
-    // program/application 관계가 존재한다고 가정한다(provisioning이 만든 행만 발행되므로).
-    // detach로 그 관계를 끊으면서 publishedAt을 그대로 두면 이 불변식이 깨져 공개
-    // 아카이브 조회가 program/application이 사라진 행에서 500을 낸다 — 그래서 detach와
-    // 함께 publishedAt도 revoke한다(공개 아카이브 노출 자격은 program 존재에 종속).
     const githubRepositoriesDetached =
       await transaction.githubRepository.updateMany({
         where: {
@@ -426,8 +369,6 @@ export class ProgramLifecycleService {
         where: { application: { programId } },
       });
 
-    // SubmissionFile_deleted_at_check를 지키며 이미 완료된 삭제를 되돌리지 않는다.
-    // DELETE_PENDING이 아닌 파일만 cleanup worker에 다시 맡기고 nullable RESTRICT FK를 끊는다.
     const pendingSubmissionFiles = await transaction.submissionFile.updateMany({
       where: {
         AND: [
@@ -616,7 +557,6 @@ export class ProgramLifecycleService {
     return { applications, teams, boardPosts, submissions };
   }
 
-  /** ProgramCreateRequest(actor별 idempotency 기록)와 그에 딸린 임시 업로드를 지운다. */
   private async deleteAuthoringArtifacts(
     transaction: Prisma.TransactionClient,
     programId: string,
@@ -635,11 +575,6 @@ export class ProgramLifecycleService {
     await transaction.programCreateRequest.delete({ where: { programId } });
   }
 
-  /**
-   * Milestone → MilestoneDocument → MilestoneDocumentTemplateFile 순으로 지운다.
-   * SubmissionFile은 applicationId=0(차단 통과 시점)이어도 milestoneId만 채운 채 첨부 전
-   * 대기 상태로 남은 고아 업로드가 있을 수 있어, Milestone 삭제 전에 명시적으로 함께 치운다.
-   */
   private async deleteMilestoneTree(
     transaction: Prisma.TransactionClient,
     programId: string,

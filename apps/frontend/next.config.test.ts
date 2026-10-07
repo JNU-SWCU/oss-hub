@@ -205,8 +205,7 @@ describe('Vercel production config', () => {
 
     expect(vercelConfig).toEqual({
       $schema: 'https://openapi.vercel.sh/vercel.json',
-      // SSR function은 사용자·backend와 같은 Seoul(icn1)에서 실행한다 — 기본값 iad1은
-      // 매 SSR 렌더마다 태평양 왕복을 만든다(#1169 실측 icn1::iad1).
+
       regions: ['icn1'],
       git: { deploymentEnabled: false },
       routes: [

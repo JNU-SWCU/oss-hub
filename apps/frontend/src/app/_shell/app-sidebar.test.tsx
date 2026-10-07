@@ -104,17 +104,15 @@ describe('AppSidebar', () => {
     expect(html).not.toContain('모집중');
   });
 
-  // C1 — collapsed rail is icon-only; counts stay on tooltip/aria, not visible digits
   it('C1: collapsed hides count badges', () => {
     const html = renderWithCounts(true);
     expect(html).not.toContain('data-slot="app-sidebar-count"');
     expect(html).not.toContain('>3<');
     expect(html).not.toContain('>15<');
-    // still reachable via aria / tooltip content contract
+
     expect(html).toContain('aria-label="모집중 3"');
   });
 
-  // C2 — same toggle object; aria-label + aria-expanded by state
   it('C2: toggle aria-label and aria-expanded for both collapsed states', () => {
     const open = render('/programs', false);
     expect(open).toContain('aria-label="사이드바 접기"');
@@ -125,18 +123,16 @@ describe('AppSidebar', () => {
     expect(closed).toMatch(/aria-expanded="?false"?/);
   });
 
-  // C3 — no BrandMark "O" when collapsed; chevron present
   it('C3: collapsed uses chevron toggle, not BrandMark', () => {
     const html = render('/programs', true);
     expect(html).not.toMatch(
       /place-items-center rounded-control bg-primary[^>]*>\s*O\s*</,
     );
-    // BrandMark was a grid size-8 with letter O — must not appear as toggle content
+
     expect(html).not.toContain('>O</span>');
     expect(html).toContain('rotate-180');
   });
 
-  // C4 — collapsed links carry aria-label with label + count
   it('C4: collapsed links expose aria-label with label and count', () => {
     const html = renderWithCounts(true);
     expect(html).toContain('aria-label="모집중 3"');
@@ -144,7 +140,6 @@ describe('AppSidebar', () => {
     expect(html).toContain('aria-label="종료 9"');
   });
 
-  // U5 — expanded: count 0 renders; undefined has no count slot. collapsed: no digits.
   it('U5: count 0 renders when expanded; collapsed never shows count slot', () => {
     const withZero = renderWithCounts(false);
     expect(withZero).toContain('data-slot="app-sidebar-count"');
@@ -263,7 +258,7 @@ describe('AppSidebar', () => {
       />,
     );
     expect(html).not.toContain('data-slot="app-sidebar-count"');
-    // labels stay in DOM with `hidden`; no separate metric span under icons
+
     expect(html).toContain('truncate hidden">2026</span>');
     expect(html).toContain('aria-label="2026"');
     expect(html).toContain('aria-label="2025"');

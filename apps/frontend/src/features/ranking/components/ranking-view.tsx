@@ -32,14 +32,8 @@ interface RankingViewProps {
   readonly exportStatus?: 'idle' | 'preparing' | 'error';
 }
 
-/** Empty department or staff name — a blank cell looks broken. */
 const EMPTY_CELL = '-';
 
-/**
- * 두 계층이 같은 지표를 센다 — 공개와 교직원 화면이 다른 문장을 쓰면 같은
- * 숫자를 두고 서로 다른 셈법을 한다고 읽힌다. 계층이 가르는 것은 이름·학과
- * 표시 여부지 합산 규칙이 아니다.
- */
 const RANKING_METRIC_DESCRIPTION =
   'Commit · PR · Issue · Repo를 합산합니다. Star는 계정 전체 누적입니다.';
 
@@ -67,7 +61,6 @@ const MEMBER_COLUMN: DataTableColumn<PublicRankingItem> = {
   headClassName: 'w-24',
 };
 
-/** 비로그인에게도 나가는 지표. */
 const OPEN_METRIC_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
   {
     id: 'commit',
@@ -85,7 +78,6 @@ const OPEN_METRIC_COLUMNS: DataTableColumn<PublicRankingItem>[] = [
   },
 ];
 
-/** 로그인 구성원부터 보이는 지표. */
 const MEMBER_METRIC_COLUMNS: DataTableColumn<MemberRankingItem>[] = [
   {
     id: 'issue',
@@ -175,7 +167,6 @@ const RANKING_TABLE_CLASS = cn(
   'sm:[&_[data-slot=table-head]]:px-2 sm:[&_[data-slot=table-head]]:text-sm',
 );
 
-/** 계층 하나에 컬럼 배열 하나. 화면은 받은 계층대로 그린다. */
 function RankingTable({
   ranking,
   isLoading,
@@ -240,8 +231,7 @@ function collectionNotice(
         '표의 0은 활동 실적이 아닌 임시값입니다. 첫 수집이 끝나면 집계 결과와 기준 시각이 표시됩니다.',
     };
   }
-  // 계층마다 자기 화면에 있는 열로 판단한다 — 공개 화면에는 합계 열이 없으므로
-  // 합계로 재면 화면에 없는 숫자를 근거로 안내를 띄우게 된다.
+
   const hasNoActivity =
     ranking.viewerClass === RANKING_VIEWER_CLASSES.PUBLIC
       ? ranking.items.every(

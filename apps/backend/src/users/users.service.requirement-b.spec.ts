@@ -77,7 +77,6 @@ function buildService(
   };
 }
 
-/** 아직 아무것도 채우지 않은 사용자. 역할만 갈아 끼운다. */
 function emptyUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null): StoredUser {
   const selectedMemberKind =
     role === 'STUDENT'
@@ -130,22 +129,11 @@ describe('역할별 필수 항목 후속', () => {
     expect(updateProfileFields).not.toHaveBeenCalled();
   });
 
-  /**
-   * 관리자도 가입을 마쳐야 한다.
-   *
-   * 예전에는 배타적 `Role.ADMIN`이 프로필 필수 항목을 통째로 면제해, GitHub 이름만
-   * 실린 관리자가 온보딩 없이 완료로 읽혔다. 관리자 권한이 회원 정체성과 갈라진
-   * 뒤로는 그가 어떤 회원인지 아무도 모르므로(`auth/initial-roles.ts`가 유형을 지어내지
-   * 않는다) 판정은 가장 엄격한 학생 기준으로 되돌아간다 — fail-closed다. 그는 로그인
-   * 뒤 자기 유형을 직접 고르고 프로필을 채운다.
-   */
   it('회원 유형이 없는 관리자는 아직 완료가 아니다', async () => {
-    // Given
     const { service, updateProfileFields } = buildService({
       user: emptyUser('ADMIN'),
     });
 
-    // When / Then
     await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
       isComplete: false,
     });
@@ -156,7 +144,6 @@ describe('역할별 필수 항목 후속', () => {
       }),
     );
 
-    // Then — 미완료이므로 부분 수정이 아니라 1회 완료 저장을 요구한다
     expect(error.errorCode.code).toBe(
       UsersErrorCode.PROFILE_COMPLETE_REQUIRES_POST,
     );
@@ -164,10 +151,8 @@ describe('역할별 필수 항목 후속', () => {
   });
 
   it('학생은 학번과 학과가 모두 있어야 완료된다', async () => {
-    // Given
     const { service } = buildService({ user: emptyUser('STUDENT') });
 
-    // When
     const error = await captureDomainException(() =>
       service.completeMyProfile(githubId, {
         name: input.name,
@@ -175,7 +160,6 @@ describe('역할별 필수 항목 후속', () => {
       }),
     );
 
-    // Then
     expect(error.errorCode).toMatchObject({
       code: SystemErrorCode.VALIDATION_FAILED,
       status: 400,
@@ -183,10 +167,8 @@ describe('역할별 필수 항목 후속', () => {
   });
 
   it('역할이 없는 사용자는 학생 기준으로 학번까지 요구한다', async () => {
-    // Given — 온보딩 중에는 role이 null이고, 자력으로 고를 수 있는 역할은 학생뿐이다
     const { service } = buildService({ user: emptyUser(null) });
 
-    // When
     const error = await captureDomainException(() =>
       service.completeMyProfile(githubId, {
         name: input.name,
@@ -194,7 +176,6 @@ describe('역할별 필수 항목 후속', () => {
       }),
     );
 
-    // Then
     expect(error.errorCode).toMatchObject({
       code: SystemErrorCode.VALIDATION_FAILED,
       status: 400,
@@ -202,7 +183,6 @@ describe('역할별 필수 항목 후속', () => {
   });
 
   it('역할을 조회하지 않은 기록도 학생 기준으로 판정한다', async () => {
-    // Given — roles 모듈은 role을 select하지 않고 UserProfileRecord를 만든다
     const { service } = buildService({
       user: {
         id: 'synthetic-user',
@@ -212,12 +192,10 @@ describe('역할별 필수 항목 후속', () => {
       },
     });
 
-    // When
     const error = await captureDomainException(() =>
       service.requireCompleteProfile(githubId),
     );
 
-    // Then
     expect(error.errorCode).toMatchObject({ code: 'USR_002', status: 409 });
   });
 });

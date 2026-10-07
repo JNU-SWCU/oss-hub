@@ -156,11 +156,6 @@ describe('MilestoneDocumentHistoryTimeline', () => {
   });
 });
 
-/*
- * 이 문구는 학생과 교직원이 같은 자리에서 함께 읽는다. 한 번 사용자의 말로 옮긴 뒤에는
- * 조용히 내부 사정 어휘(이관·당시 시스템·접수 기록)로 되돌아가지 않도록 전문을 못 박는다.
- * 사실 자체가 바뀌면 이 테스트도 함께 고쳐야 한다 — 문장을 상수로 빼지 않는 이유가 그것이다.
- */
 describe('남지 않은 앞 제출본 안내 문구', () => {
   const missingEarlierSubmissions: readonly MilestoneDocumentCollectionHistory[] =
     [

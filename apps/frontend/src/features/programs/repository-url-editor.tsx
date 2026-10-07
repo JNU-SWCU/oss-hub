@@ -14,18 +14,14 @@ const UNCONFIRMED_SAVE_MESSAGE =
   '저장 결과를 확인할 수 없습니다.\n입력은 유지되었습니다.\n다시 불러와 현재 상태를 확인한 뒤에만 저장하세요.';
 
 export interface RepositoryUrlEditorProps {
-  /**
-   * 화면이 마지막으로 읽은 서버 값 — 그래프와 같은 조회에서 온다. 새로 읽을 때마다
-   * 새 객체가 오고, 그때 권한도 새 값을 따른다(팀장 교체·승인·종료일).
-   */
   readonly repository: RepositoryUrlState;
-  /** 저장 경로. 학생은 내 신청, 교직원은 팀 경로이며 응답 모양은 같다. */
+
   readonly save: (repositoryUrl: string) => Promise<RepositoryUrlState>;
-  /** 서버 값을 다시 읽는다. 적용되면 `true`, 더 새 조회에 밀리면 `false`, 실패하면 던진다. */
+
   readonly reload: () => Promise<boolean>;
-  /** 바꿀 수 없을 때 누가 언제 바꿀 수 있는지 말하는 한 줄. */
+
   readonly lockedHint?: string;
-  /** URL 줄 아래에 붙는 화면 고유 내용(교직원의 발급·공개 상태). */
+
   readonly children?: ReactNode;
 }
 
@@ -46,8 +42,6 @@ export function RepositoryUrlEditor({
   const [needsVerification, setNeedsVerification] = useState(false);
   const hintId = useId();
   if (lastRead !== repository) {
-    // 화면이 서버를 새로 읽었다. 권한이 닫혔으면 입력도 닫고, 확인하지 못한 저장은
-    // 이제 확인된 것이다 — 이 값이 이 편집기가 아는 어떤 값보다 새롭다.
     setLastRead(repository);
     setShown(repository);
     if (!repository.canEditRepositoryUrl) setEditing(false);

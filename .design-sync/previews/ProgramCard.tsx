@@ -1,6 +1,3 @@
-// ProgramCard 프리뷰 — 조합은 apps/frontend/src/components/cards.test.tsx의
-// 정본 렌더를 옮긴 것이다(문구·variant 그대로). CardGrid + StatusBadge와 함께
-// 쓰이는 것이 이 repo의 실제 사용법이므로 단독 카드만 보여주지 않는다.
 import { Button, CardGrid, ProgramCard, StatusBadge } from 'frontend';
 
 export function Default() {
@@ -19,7 +16,6 @@ export function Default() {
   );
 }
 
-// cards.test.tsx의 그리드 렌더 — 모집중/마감 카드가 나란히 놓이는 목록 화면 모습.
 export function InCardGrid() {
   return (
     <CardGrid>
@@ -49,7 +45,6 @@ export function InCardGrid() {
   );
 }
 
-// 상태 축 전개 — StatusBadge의 5개 variant가 카드 위에서 어떻게 읽히는지.
 export function StatusAxis() {
   return (
     <CardGrid>
@@ -87,7 +82,6 @@ export function StatusAxis() {
   );
 }
 
-// 텍스트 과다 케이스 — 긴 한글 제목·카테고리가 줄바꿈될 때 타이포와 줄 간격을 본다.
 export function LongText() {
   return (
     <CardGrid>

@@ -71,9 +71,7 @@ function NotFoundState() {
 
 function activityLabel(project: PublicProfileProject): string {
   if (!project.observed) return '아직 관측되지 않음';
-  // #893 — presence는 provisioning 시점부터 PRESENT라 observed만으로는 첫 inventory sweep이
-  // 실제로 끝났는지 알 수 없다(알려진 갭). hasCollectedData가 false면 metrics가 이미 0값으로
-  // 채워져 있어도 "관측된 0"과 다르게 "아직 수집 전"으로 보여준다.
+
   if (!project.hasCollectedData) return '수집 대기';
   const metrics = project.metrics;
   if (
@@ -142,8 +140,6 @@ function ProjectCard({ project }: { readonly project: PublicProfileProject }) {
 
 function ProfileContent({ profile }: { readonly profile: PublicProfile }) {
   const avatar = profile.avatarUrl ? (
-    // GitHub avatar CDN — next/image remotePatterns 없이 표시한다.
-    // eslint-disable-next-line @next/next/no-img-element -- 외부 avatar URL
     <img
       src={profile.avatarUrl}
       alt=""

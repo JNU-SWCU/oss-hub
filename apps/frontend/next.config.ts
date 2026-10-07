@@ -3,8 +3,6 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { NextConfig } from 'next';
 
-// 승인된 rewrite 대상 origin의 SHA-256 digest allowlist. 구문만 유효한 임의 HTTPS
-// origin으로는 production 빌드가 성공하지 않는다 — 승인 변경은 이 파일의 reviewable diff다.
 function approvedBackendOriginDigests(): Set<string> {
   const source = readFileSync(
     join(__dirname, 'backend-origin.allowlist'),
@@ -86,13 +84,9 @@ function requireProductionVercelOriginBasicAuth(): void {
 const nextConfig: NextConfig = {
   output: 'standalone',
   poweredByHeader: false,
-  // lint는 CI의 `pnpm --filter frontend lint` 단계가 담당한다. `next build`에 내장된 lint는
-  // ESLint CLI가 아니라 Node API로 돌아 `eslint-suppressions.json`(#1310, 기존 위반 억제)을
-  // 읽지 못하고 억제된 위반으로 빌드를 깨뜨린다. 같은 설정을 두 번 돌릴 이유도 없다.
+
   eslint: { ignoreDuringBuilds: true },
-  // Next 개발 서버가 띄우는 동그란 표시(`<nextjs-portal>`)를 오른쪽 아래로 옮긴다.
-  // 기본 자리(왼쪽 아래)가 푸터·고정 UI와 겹칠 수 있어 검토 시 자리를 비킨다.
-  // 배포본에는 없는 개발 도구이며, 빌드 오류 표시라 끄지는 않는다.
+
   devIndicators: { position: 'bottom-right' },
   async rewrites() {
     requireProductionVercelOriginBasicAuth();

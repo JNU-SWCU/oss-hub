@@ -54,13 +54,10 @@ function setup() {
 
 describe('ProgramAuthoringUploadService', () => {
   it('inserts PENDING before PUT and returns only safe response metadata', async () => {
-    // Given
     const { repository, storage, service } = setup();
 
-    // When
     const result = await service.upload(ACTOR_ID, uploadFile());
 
-    // Then
     const pending = repository.createPending.mock.calls[0]?.[0];
     expect(pending).toMatchObject({
       actorId: ACTOR_ID,
@@ -98,10 +95,8 @@ describe('ProgramAuthoringUploadService', () => {
   it.each(['', ' actor-with-spaces '])(
     'rejects an invalid server-resolved actor id before persistence',
     async (actorId) => {
-      // Given
       const { repository, service } = setup();
 
-      // When / Then
       await expect(service.upload(actorId, uploadFile())).rejects.toMatchObject(
         {
           code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.INVALID_ACTOR,
@@ -112,16 +107,13 @@ describe('ProgramAuthoringUploadService', () => {
   );
 
   it('keeps the inserted row cleanup-eligible when PUT fails and conceals provider details', async () => {
-    // Given
     const { repository, storage, service } = setup();
     storage.put.mockRejectedValueOnce(
       new Error('provider credential and bucket detail'),
     );
 
-    // When
     const failure = service.upload(ACTOR_ID, uploadFile());
 
-    // Then
     await expect(failure).rejects.toMatchObject({
       code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.STORAGE_UNAVAILABLE,
       message: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.STORAGE_UNAVAILABLE,
@@ -135,11 +127,9 @@ describe('ProgramAuthoringUploadService', () => {
   it.each(['QUEUED', 'IDEMPOTENT'] as const)(
     'treats owner delete result %s as success without synchronously deleting storage',
     async (kind) => {
-      // Given
       const { repository, storage, service } = setup();
       repository.requestDelete.mockResolvedValueOnce({ kind });
 
-      // When / Then
       await expect(
         service.delete(ACTOR_ID, 'upload-id'),
       ).resolves.toBeUndefined();
@@ -148,22 +138,18 @@ describe('ProgramAuthoringUploadService', () => {
   );
 
   it('conceals missing and foreign uploads behind the same not-found signal', async () => {
-    // Given
     const { repository, service } = setup();
     repository.requestDelete.mockResolvedValueOnce({ kind: 'NOT_FOUND' });
 
-    // When / Then
     await expect(service.delete(ACTOR_ID, 'foreign-id')).rejects.toMatchObject({
       code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.NOT_FOUND,
     });
   });
 
   it('signals a conflict when the aggregate already attached the upload', async () => {
-    // Given
     const { repository, service } = setup();
     repository.requestDelete.mockResolvedValueOnce({ kind: 'ATTACHED' });
 
-    // When / Then
     await expect(service.delete(ACTOR_ID, 'upload-id')).rejects.toMatchObject({
       code: PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.ATTACHED_CONFLICT,
     });

@@ -14,7 +14,6 @@ export type SessionResolution =
       readonly hasSessionCookie: true;
     };
 
-/** 보호 경로와 UI용 상태 조회가 공유하는 세션 해석 경로. */
 export async function resolveSession(
   config: AuthConfig,
   cookieHeader: string | undefined,

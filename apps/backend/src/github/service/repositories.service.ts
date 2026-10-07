@@ -65,14 +65,6 @@ export class RepositoriesService {
   async getMyRepositories(githubId: bigint): Promise<readonly MyRepository[]> {
     const jobs = await this.repository.listOwnedProvisionJobs(githubId);
     return jobs.map((job) => {
-      // 저장소 행은 job status와 독립적으로 살아 있다. 권한 회수/재동기화 때문에
-      // job이 SUCCEEDED를 벗어나도 학생의 저장소는 그대로 존재하므로, status로
-      // 저장소를 숨기면 화면이 "저장소가 사라졌다"고 거짓말한다. 대신 저장소가
-      // 존재하는 모든 phase에서 identity를 검증해 잘못된 행을 노출하지 않는다.
-      //
-      // 연결의 정본은 `Application.repository`다 — job이 붙든 행을 읽으면 저장소를
-      // 교체한 뒤에 옛 행이 나온다. 신청을 거쳐 읽으므로 신청과 저장소가
-      // 어긋나는 상황 자체가 구조적으로 생기지 않는다.
       const repository = job.application.repository;
       if (repository !== null) {
         if (
@@ -89,18 +81,9 @@ export class RepositoriesService {
         throw new RepositoryProvisionStateError();
       }
 
-      // 개인 참여는 멤버 1명뿐인 팀이다(D5). 팀 유무가 아니라 인원으로 가른다
-      // (submission-matrix.service.ts isSoloTeam과 동일 규칙). displayName도
-      // 같은 분기를 써야 한다 — team은 D5 이후 항상 존재해 게이트 없이 team.name을
-      // 쓰면 개인 신청도 팀 생성 기본명("{닉네임}의 팀")이 표시된다.
       const applicationMode: 'PERSONAL' | 'TEAM' =
         (job.application.team?._count.members ?? 0) > 1 ? 'TEAM' : 'PERSONAL';
-      // 현재 연결 분류는 저장된 GithubRepository.source가 원본이다.
-      // Application.repositoryConnectionMode는 제출 당시 프로비저닝 의도(APP_023)라
-      // 행이 생기기 전 pending에만 쓰고, 존재하는 행의 source를 덮어쓰지 않는다.
-      // 단 OWN은 직접 연결이 포인터와 같은 트랜잭션에서 적는 값이라 믿는다(#1133) —
-      // 조직 저장소를 직접 연결해도 발급·초대가 없으므로 source로 NEW를 추정하면
-      // 초대 행이 없는 성공이 「초대 실패」로 그려진다.
+
       const connectionMode =
         repository === null ||
         job.application.repositoryConnectionMode ===
@@ -121,8 +104,7 @@ export class RepositoriesService {
         repositoryName: repository?.name ?? null,
         githubUrl: repository?.url ?? null,
         provisionStatus: job.status,
-        // 초대 상태는 지속된 invitation 행이 유일한 원본이다. 팀원 변경이나
-        // job status에서 회수 여부를 추론하지 않는다.
+
         invitationStatus: repository?.invitations[0]?.status ?? null,
         visibility: repository?.visibility ?? null,
         lastErrorCode: job.lastErrorCode,
@@ -165,15 +147,9 @@ export class RepositoriesService {
         }
         return reloaded;
       }
-      // CAS(publishRepositoryIfPrivate)는 githubRepositoryId만 비교·잠근다 — name/url은
-      // 대상이 아니다. 메서드 시작에서 로드한 `target.name/url`은 트랜잭션 밖에서 읽은
-      // 값이라, CAS 커밋 사이에 rename이 끼어들면 감사 스냅샷에 오래된 이름이 남는다.
-      // CAS가 이겼다면 우리가 방금 그 행에 UPDATE 잠금을 쥔 것이므로, 같은 트랜잭션
-      // 안에서 다시 읽으면 동시 rename UPDATE는 우리 커밋 전까지 블록되어 안전하다.
+
       const committed = await store.findPublishTarget(target.id);
       if (committed === null) {
-        // 방금 우리가 성공적으로 UPDATE한 행이 사라질 수는 없다 — 논리적으로 도달
-        // 불가능하지만 타입상 null이 가능해 방어적으로 처리한다.
         throw new RepositoryNotFoundError();
       }
       await this.auditLog.record(
@@ -223,8 +199,7 @@ function isValidRepositoryIdentity(
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(name)) {
     return false;
   }
-  // EXTERNAL_PUBLIC은 학생이 준 외부 URL을 그대로 쓴다.
-  // ORG_PROVISIONED만 조직 불변식을 강제한다.
+
   if (source === RepositorySource.EXTERNAL_PUBLIC) {
     return parseGithubRepositoryUrl(url) !== null;
   }

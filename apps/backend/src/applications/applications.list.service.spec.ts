@@ -16,7 +16,6 @@ import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../audit-log/audit-log.service';
 
-/** 이 스펙들은 판정 경로를 타지 않으므로 감사 기록기는 호출되지 않는다. */
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
 const PROGRAM_ID = 'synthetic-program';
@@ -460,12 +459,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
     });
   });
 
-  /**
-   * 저장소 주소는 `Application.repository` 1:1 관계에서만 온다 — 저장소 식별 단위는
-   * application 이므로 `Team.repositories` 로 가지 않는다(schema.prisma Repository 주석, #113).
-   */
   describe('repository 필드', () => {
-    /** jest.fn() 의 호출 인자는 any 라 명시적으로 좁혀 읽는다. */
     const readSelect = (spy: jest.Mock): Record<string, unknown> => {
       const calls = spy.mock.calls as unknown as {
         select: Record<string, unknown>;

@@ -1,8 +1,5 @@
-// PageHeader 프리뷰 — archive-detail-view.tsx / program-list-page.tsx의
-// 실제 화면 헤더를 그대로 옮긴 것.
 import { Button, PageHeader } from 'frontend';
 
-// archive-detail-view.tsx DetailContent — title/description + 우측 액션 버튼.
 export function WithActions() {
   return (
     <PageHeader
@@ -13,14 +10,12 @@ export function WithActions() {
   );
 }
 
-// program-list-page.tsx — title/description만, 액션 슬롯 없이.
 export function Simple() {
   return (
     <PageHeader title="프로그램" description="참여할 프로그램을 찾아보세요." />
   );
 }
 
-// 텍스트 과다 케이스 — 긴 제목·설명이 줄바꿈될 때 타이포와 액션 정렬을 본다.
 export function LongTitle() {
   return (
     <PageHeader

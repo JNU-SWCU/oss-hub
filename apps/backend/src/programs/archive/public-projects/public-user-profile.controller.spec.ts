@@ -72,7 +72,7 @@ describe('PublicUserProfileController', () => {
       releaseCount: 0,
     });
     const serialized = JSON.stringify(result);
-    // githubId는 내부 매칭 키일 뿐 응답에 노출되지 않는다.
+
     expect(serialized).not.toContain('501');
     for (const forbidden of ['studentId', 'department', 'email', 'role']) {
       expect(serialized).not.toContain(`"${forbidden}"`);

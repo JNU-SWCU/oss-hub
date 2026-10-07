@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -33,7 +31,6 @@ describe('Dialog primitive', () => {
   });
 
   it('renders an accessible modal dialog and closes on Escape', async () => {
-    // Given: a controlled dialog is open.
     const onOpenChange = vi.fn();
     await act(async () => {
       root.render(
@@ -49,13 +46,11 @@ describe('Dialog primitive', () => {
       );
     });
 
-    // When: the user inspects and dismisses the dialog with the keyboard.
     const dialog = document.body.querySelector('[role="dialog"]');
     dialog?.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
     );
 
-    // Then: Radix exposes the modal semantics and requests closure.
     expect(dialog).toBeInstanceOf(HTMLElement);
     expect(dialog?.getAttribute('aria-modal')).toBe('true');
     expect(dialog?.getAttribute('aria-describedby')).toBe('dialog-description');

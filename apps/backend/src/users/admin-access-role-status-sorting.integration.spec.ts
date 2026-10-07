@@ -148,13 +148,6 @@ it.each([
   },
 );
 
-/**
- * 목록 정렬 픽스처. 표시 역할은 세 canonical 사실에서 파생되므로
- * (`users/domain/authority-label.ts`) 여기서도 그 세 값을 각각 받는다.
- *
- * `memberKind`가 있으면 프로필 행까지 만든다 — 목록이 이름으로 정렬·검색하려면
- * 그 행이 있어야 한다.
- */
 function createListedUser(input: {
   readonly id: string;
   readonly githubId: bigint;

@@ -12,7 +12,7 @@ import { parseProgramNoticeUrl } from './program-notice-url';
 @Injectable()
 export class ProgramNoticePreviewService {
   private active = 0;
-  // Per-process rolling window is capped at 60 entries; no persistent draft/cache.
+
   private attempts: { readonly actorId: string; readonly at: number }[] = [];
 
   constructor(

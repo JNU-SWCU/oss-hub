@@ -17,7 +17,6 @@ const milestone = {
 
 describe('per-send deadline guidance', () => {
   it('keeps student guidance literal in text and escapes HTML without changing protected facts', () => {
-    // Given
     const guidance = '<img src=x onerror="alert(1)"> & first\nsecond';
     const input = {
       ...context,
@@ -25,9 +24,9 @@ describe('per-send deadline guidance', () => {
       milestones: [milestone] as const,
     };
     const original = buildStudentDeadlineMail(input);
-    // When
+
     const mail = buildStudentDeadlineMail({ ...input, guidance });
-    // Then
+
     expect(mail.text).toContain(guidance);
     expect(mail.html).toContain('&lt;img');
     expect(mail.html).not.toContain('<img');
@@ -38,15 +37,14 @@ describe('per-send deadline guidance', () => {
   });
 
   it('keeps staff guidance separate and does not persist it into the next build', () => {
-    // Given
     const input = {
       ...context,
       milestones: [{ ...milestone, missingNicknames: ['synthetic-student'] }],
     };
     const guidance = 'staff-only & <literal>';
-    // When
+
     const mail = buildStaffDeadlineMail({ ...input, guidance });
-    // Then
+
     expect(mail.text).toContain(guidance);
     expect(mail.html).toContain('staff-only &amp; &lt;literal&gt;');
     expect(buildStaffDeadlineMail(input).text).not.toContain(guidance);

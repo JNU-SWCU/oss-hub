@@ -5,7 +5,6 @@ import {
   SubmissionZipRejection,
 } from '../submissions/submission-zip-admission';
 
-/** #619 마일스톤별 서류 항목(MilestoneDocument) 모듈 전용 에러 코드 레지스트리. */
 export const MilestoneDocumentsErrorCode = {
   STAFF_ONLY: 'MSD_001',
   STUDENT_ONLY: 'MSD_002',
@@ -40,14 +39,7 @@ export const MilestoneDocumentsErrorCode = {
   RESUBMISSION_DUE_AT_PASSED: 'MSD_034',
   PROGRAM_NOT_FOUND: 'MSD_035',
   ARCHIVE_TEAM_NOT_FOUND: 'MSD_036',
-  /*
-   * 여기부터는 **학생이 낸 압축 파일 안을 들여다본 뒤** 막은 갈래다(#1108).
-   * 위의 ARCHIVE_TOO_LARGE(MSD_026)·ARCHIVE_TEAM_NOT_FOUND(MSD_036)는 교직원이 받아 가는
-   * 일괄 내려받기 묶음 이야기이고 여기 ZIP_*은 학생이 올린 `.zip` 이야기라 이름을 갈라 둔다.
-   * 형식·서명 거절(UNSUPPORTED_FILE_TYPE)과 같은 코드를 쓰지 않는다 — `.zip`은 허용
-   * 형식이므로 「지원하지 않는 파일 형식입니다」는 사실이 아니다.
-   * 갈래와 문구는 제출 경로와 **같은 원본**(`submissions/submission-zip-admission.ts`)이다.
-   */
+
   ZIP_UNREADABLE: 'MSD_037',
   ZIP_ENTRY_NOT_ALLOWED: 'MSD_038',
   ZIP_NESTED: 'MSD_039',
@@ -124,11 +116,7 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
   [MilestoneDocumentsErrorCode.FILE_TOO_LARGE]: {
     code: MilestoneDocumentsErrorCode.FILE_TOO_LARGE,
     status: 413,
-    /*
-     * 상한 숫자가 없는 「파일 크기가 너무 큽니다.」로는 학생이 무엇을 줄여야 하는지
-     * 알 수 없었다(#1107). 화면이 파일을 고르기 전에 보여 주는 문구와 **같은 문장**을
-     * 쓴다 — 미리 걸러졌든 서버가 413으로 거절했든 읽는 말이 같아야 한다.
-     */
+
     message: SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE,
   },
   [MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE]: {
@@ -188,39 +176,21 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     message:
       '제출하는 사이에 교직원 검토 결과가 등록되었습니다. 새로고침 후 다시 확인해 주세요.',
   },
-  /**
-   * 교직원이 **본 그 버전**이 아닌 것에 판정이 붙으려 했다 — 표를 그린 뒤 학생이 다시 냈거나
-   * 다른 교직원이 먼저 판정했다.
-   *
-   * MSD_024(REVIEW_CHANGED)를 재사용하지 않는 이유는 **말 거는 상대와 사실이 다르기** 때문이다.
-   * 024는 학생 제출 경로에서 「내는 사이에 판정이 등록되었다」를 학생에게 알린다. 여기서 막히는
-   * 것은 교직원이고, 바뀐 것은 판정만이 아니라 **제출물 자체**일 수 있다. 같은 코드를 쓰면
-   * 프런트가 두 화면에서 같은 문구를 띄우게 되어 「무엇이 바뀌었는지」가 사라진다.
-   */
+
   [MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED]: {
     code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED,
     status: 409,
     message:
       '검토하는 사이에 제출물 또는 검토 결과가 바뀌었습니다. 새로고침 후 다시 확인해 주세요.',
   },
-  /**
-   * 일괄 내려받기가 한 번에 흘려 보낼 수 있는 크기를 넘겼다.
-   *
-   * 413을 쓰는 이유: 요청 자체는 올바르고(404·422가 아니다) 서버도 멀쩡한데(5xx가 아니다)
-   * **만들어질 응답 본문이 너무 크다**. 지금은 나눠 받을 길이 없어 문구로 안내만 한다 —
-   * 실제로 이 값에 닿는 마일스톤이 생기면 서류 항목별 내려받기를 여는 것이 다음 수순이다.
-   */
+
   [MilestoneDocumentsErrorCode.ARCHIVE_TOO_LARGE]: {
     code: MilestoneDocumentsErrorCode.ARCHIVE_TOO_LARGE,
     status: 413,
     message:
       '한 번에 내려받기에는 제출 파일이 너무 많습니다. 담당자에게 문의해 주세요.',
   },
-  /**
-   * 한 사람이 보관할 수 있는 제출 파일 개수·총 바이트를 넘겼다. 제출물 경로의
-   * SUB_024와 같은 판정이다 — 둘은 같은 SubmissionFile 테이블을 채우므로 모듈마다
-   * 다른 한도를 두면 쓸모 없는 경로 하나만 골라 한도를 우회할 수 있게 된다.
-   */
+
   [MilestoneDocumentsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED]: {
     code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED,
     status: 413,
@@ -244,69 +214,33 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     message:
       '마일스톤에는 제출 항목이 하나 이상 필요합니다. 새 항목을 만든 뒤 기존 항목을 삭제해 주세요.',
   },
-  /**
-   * 마감 뒤 보완 요청이 열어 준 재제출을 **이미 한 번 썼다** — 지금은 교직원 검토를 기다리는
-   * 자리다(#1097에서 정한 규칙: 재제출은 한 번, 검토 중에는 내용이 바뀌지 않는다).
-   *
-   * MSD_029(SUBMISSION_REPLACEMENT_CLOSED)를 재사용하지 않는 이유는 **그 문구가 여기서
-   * 거짓말이 되기** 때문이다. 029는 「보완 요청을 받은 경우 다시 제출할 수 있습니다」로 끝나는데,
-   * 여기서 막힌 학생은 이미 보완 요청을 받아 다시 낸 사람이다 — 그 문장을 그대로 보여 주면
-   * 「받았는데 왜 안 되지」가 되어 이 티켓이 없애려던 문의가 그대로 남는다.
-   *
-   * MSD_023(RESUBMISSION_NOT_ALLOWED, 409)이 아니라 마감 창 계열(422)에 두는 이유: 이 막힘을
-   * 만드는 것은 판정이 아니라 **마감**이다. 같은 상태라도 마감 전에는 그대로 낼 수 있다.
-   */
+
   [MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED]: {
     code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
     status: 422,
     message:
       '보완 요청에 응해 이미 다시 제출했습니다. 마감 이후에는 검토 결과가 나올 때까지 내용을 바꿀 수 없습니다.',
   },
-  /**
-   * 보완 요청인데 재제출 기한이 없다. 화면(판정 패널)이 먼저 막으므로 여기까지 오면 검증이
-   * 새어 나간 것이다 — 사유 필수(MSD_021)와 같은 자리·같은 성격의 거절이다.
-   *
-   * 승인·반려에는 이 검사가 없다. 그 둘은 「다시 내라」가 아니므로 기한이라는 것 자체가 없다.
-   */
+
   [MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_REQUIRED]: {
     code: MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_REQUIRED,
     status: 422,
     message: '보완 요청은 재제출 기한을 정해야 합니다.',
   },
-  /**
-   * 지난 시각을 재제출 기한으로 잡았다. 막지 않으면 보완 요청이 저장되는 순간 이미 닫혀 있어
-   * **「다시 내세요」가 실제로는 반려**가 된다 — 학생은 요청을 받고도 낼 수 없고, 화면에는
-   * 아무 잘못도 보이지 않는다.
-   *
-   * 판정 시각은 잠금을 얻은 뒤에 찍히므로(`milestone-document-reviews.service.ts`) 이 비교도
-   * 그 시각으로 한다. 요청이 들어온 시각으로 재면 잠금을 오래 기다린 판정이 「미래」로
-   * 통과한 뒤 저장 시점에는 이미 지나 있을 수 있다.
-   */
+
   [MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE]: {
     code: MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE,
     status: 422,
     message: '재제출 기한은 지금보다 뒤여야 합니다.',
   },
-  /**
-   * 교직원이 정한 재제출 기한이 지났다.
-   *
-   * 앞의 세 마감 코드를 재사용하지 않는 이유는 전부 **여기서 사실이 아니기** 때문이다.
-   * MSD_028은 「마감된 마일스톤입니다」라 재제출 창이 있었다는 사실을 지우고, MSD_029는
-   * 「보완 요청을 받은 경우 다시 제출할 수 있습니다」로 끝나 지금 막힌 이유와 정면으로
-   * 어긋나며, MSD_031은 「이미 다시 제출했습니다」인데 이 학생은 한 번도 응하지 않았다.
-   */
+
   [MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_PASSED]: {
     code: MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_PASSED,
     status: 422,
     message:
       '교직원이 정한 재제출 기한이 지났습니다. 기한 연장이 필요하면 담당 교직원에게 문의해 주세요.',
   },
-  /*
-   * 압축 파일 내용 거절 여덟 갈래(#1108). 제출 경로(SUB_025~SUB_032)와 **같은 갈래·같은
-   * 문장·같은 상태 코드**를 쓴다 — 같은 입력에 두 경로가 다른 말을 하면 학생은 어느 화면에서
-   * 냈는지에 따라 다른 안내를 읽게 된다. 415가 아니라 422인 이유는 형식(`.zip`)은 맞고
-   * 그 안에 담긴 것이 문제이기 때문이다.
-   */
+
   [MilestoneDocumentsErrorCode.ZIP_UNREADABLE]: {
     code: MilestoneDocumentsErrorCode.ZIP_UNREADABLE,
     status: 422,
@@ -369,13 +303,6 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
   },
 };
 
-/**
- * 압축 파일 입장 검사의 거절 사유 → 서류 경로 오류 코드.
- *
- * 제출 경로의 `SUBMISSION_ZIP_REJECTION_ERROR_CODES`와 짝이다. 두 체계를 하나로 합치지
- * 않는 대신(각 모듈이 자기 코드 공간을 소유한다) **같은 사유에 같은 판정**이 나오는지를
- * `submission-zip-rejection-parity.spec.ts`가 지킨다.
- */
 export const MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES: Readonly<
   Record<SubmissionZipRejection, MilestoneDocumentsErrorCode>
 > = {

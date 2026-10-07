@@ -168,16 +168,13 @@ function history(
 
 describe('applyAdminAccessDecidedRequestToHistory', () => {
   it('updates only the matching row status when the backend decided it', () => {
-    // Given: a history page whose first row is the still-PENDING request.
     const before = history();
 
-    // When: the authoritative mutation response says that row was approved.
     const after = applyAdminAccessDecidedRequestToHistory(before, {
       id: 'request-1',
       status: 'APPROVED',
     });
 
-    // Then: only that row's status changed; siblings keep their identity.
     expect(after.staffAccessRequests.items[0]).toEqual({
       ...PENDING_ROW,
       status: 'APPROVED',
@@ -187,13 +184,11 @@ describe('applyAdminAccessDecidedRequestToHistory', () => {
   });
 
   it('never fabricates decidedAt/decidedBy/rejectionReason for the decided row', () => {
-    // Given / When: the same decision applied to a row with no audit fields.
     const after = applyAdminAccessDecidedRequestToHistory(history(), {
       id: 'request-1',
       status: 'REJECTED',
     });
 
-    // Then: server-owned audit columns stay exactly as the server left them.
     const decided = after.staffAccessRequests.items[0];
     expect(decided?.decidedAt).toBeNull();
     expect(decided?.decidedBy).toBeNull();
@@ -202,36 +197,29 @@ describe('applyAdminAccessDecidedRequestToHistory', () => {
   });
 
   it('is a no-op when the mutation decided no request', () => {
-    // Given / When
     const before = history();
     const after = applyAdminAccessDecidedRequestToHistory(before, null);
 
-    // Then
     expect(after).toBe(before);
   });
 
   it('is a no-op when the decided id is absent from the visible page', () => {
-    // Given / When
     const before = history();
     const after = applyAdminAccessDecidedRequestToHistory(before, {
       id: 'request-on-another-page',
       status: 'APPROVED',
     });
 
-    // Then: 보이는 페이지에 그 행이 없으면 새 객체를 만들지도 않고 원본을 돌려준다
-    // — 구조가 같기만 한 사본은 조기 반환을 지워도 통과해 버려 잡지 못한다.
     expect(after).toBe(before);
   });
 
   it('leaves login history untouched', () => {
-    // Given / When
     const before = history();
     const after = applyAdminAccessDecidedRequestToHistory(before, {
       id: 'request-1',
       status: 'APPROVED',
     });
 
-    // Then
     expect(after.loginHistory).toBe(before.loginHistory);
   });
 });

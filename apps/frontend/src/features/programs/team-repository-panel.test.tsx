@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -62,7 +61,7 @@ const original: TeamActivity = {
   canEditRepositoryUrl: true,
   members: [leader],
 };
-/** B로 바꾼 직후 — 아직 B를 모으지 않았다. A의 수를 가져오지 않는다. */
+
 const relinked: TeamActivity = {
   ...original,
   repository: { id: 'repo-b', url: 'https://github.com/synthetic/b' },
@@ -188,7 +187,7 @@ describe('TeamRepositoryPanel', () => {
     );
     expect(onSaved).toHaveBeenCalledOnce();
     expect(repositoryLink()).toBe('https://github.com/synthetic/b');
-    // 다시 읽는 동안 A의 그래프를 B의 주소 아래 두지 않는다.
+
     expect(container.querySelector('[data-chart]')).toBeNull();
     expect(getTeamActivity).toHaveBeenCalledTimes(2);
 
@@ -219,7 +218,7 @@ describe('TeamRepositoryPanel', () => {
     vi.mocked(getTeamActivity)
       .mockReturnValueOnce(stale.promise)
       .mockResolvedValue(relinked);
-    // 거절된 뒤 「다시 불러오기」가 느리게 도는 사이 다시 저장한다.
+
     await act(async () => button('다시 불러오기').click());
     await act(async () =>
       container

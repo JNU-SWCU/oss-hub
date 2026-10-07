@@ -67,7 +67,6 @@ afterAll(async () => {
 });
 
 it('uses DB pagination and computes each facet against the other active filters', async () => {
-  // When
   const page = await service.list(actor.githubId, {
     query: queryFragment,
     role: ADMIN_ACCESS_ROLE_FILTERS.STUDENT,
@@ -77,7 +76,6 @@ it('uses DB pagination and computes each facet against the other active filters'
     limit: 1,
   });
 
-  // Then
   expect(page.items).toHaveLength(1);
   expect(page.items[0]?.id).toBe(studentPending.id);
   expect(page.total).toBe(1);
@@ -89,7 +87,6 @@ it('uses DB pagination and computes each facet against the other active filters'
 });
 
 it('derives lastLoginAt from the latest successful LOGIN and preserves null', async () => {
-  // Given
   const firstLogin = new Date('2026-07-29T00:00:00.000Z');
   const latestLogin = new Date('2026-07-30T00:00:00.000Z');
   await prisma.loginHistory.createMany({
@@ -125,19 +122,16 @@ it('derives lastLoginAt from the latest successful LOGIN and preserves null', as
     ],
   });
 
-  // When
   const [withLogin, withoutLogin] = await Promise.all([
     service.get(actor.githubId, studentPending.id),
     service.get(actor.githubId, studentPlain.id),
   ]);
 
-  // Then
   expect(withLogin.lastLoginAt).toEqual(latestLogin);
   expect(withoutLogin.lastLoginAt).toBeNull();
 });
 
 it('returns separately bounded stable history pages using matching deployed indexes', async () => {
-  // Given
   const createdAt = new Date('2026-07-28T00:00:00.000Z');
   await prisma.staffAccessRequest.createMany({
     data: [1, 2, 3].map((value) => ({
@@ -162,7 +156,6 @@ it('returns separately bounded stable history pages using matching deployed inde
     ),
   });
 
-  // When
   const history = await service.getHistory(actor.githubId, studentPlain.id, {
     staffAccessRequests: { page: 2, limit: 1 },
     loginHistory: { page: 1, limit: 2 },
@@ -182,7 +175,6 @@ it('returns separately bounded stable history pages using matching deployed inde
     studentPlain.id,
   );
 
-  // Then
   expect(history.staffAccessRequests).toMatchObject({
     page: 2,
     limit: 1,

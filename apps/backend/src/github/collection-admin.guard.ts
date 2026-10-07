@@ -9,7 +9,6 @@ import {
   CollectionErrorCode,
 } from './collection-error-code.enum';
 
-/** 권한 판단은 canonical 컬럼만 읽는다. */
 const COLLECTION_ADMIN_SELECT = {
   hasStaffAccess: true,
   hasAdminAccess: true,

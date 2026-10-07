@@ -31,10 +31,8 @@ afterAll(async () => {
 });
 
 it('student completion writes canonical profile and authority defaults atomically', async () => {
-  // Given
   const user = await createOnboardingUser('student', MemberKind.STUDENT);
 
-  // When
   await users.completeMyProfile(user.githubId, {
     name: '  합성 학생  ',
     studentId: '801001',
@@ -42,7 +40,6 @@ it('student completion writes canonical profile and authority defaults atomicall
     department: '  인공지능학부  ',
   });
 
-  // Then
   await expect(storedMember(user.id)).resolves.toMatchObject({
     selectedMemberKind: MemberKind.STUDENT,
     hasStaffAccess: false,
@@ -59,17 +56,14 @@ it('student completion writes canonical profile and authority defaults atomicall
 });
 
 it('staff completion writes program-office affiliation, null student ID, defaults, and one pending request atomically', async () => {
-  // Given
   const user = await createOnboardingUser('staff', MemberKind.STAFF);
 
-  // When
   await users.completeMyProfile(user.githubId, {
     name: '  합성 교직원  ',
     affiliationKind: AffiliationKind.PROGRAM_OFFICE,
     affiliationName: '  합성 사업단  ',
   });
 
-  // Then
   const [stored, requests] = await Promise.all([
     storedMember(user.id),
     prisma.staffAccessRequest.findMany({ where: { userId: user.id } }),
@@ -92,12 +86,10 @@ it('staff completion writes program-office affiliation, null student ID, default
 });
 
 it('approval grants staff access without changing staff member kind or admin access', async () => {
-  // Given
   const actor = await createAdmin('approval-actor');
   const target = await completeStaff('approval-target');
   const request = await pendingRequest(target.id);
 
-  // When
   await access.patchAccess(actor.githubId, target.id, {
     ...ACTIVE_ACCESS_STATE,
     expectedRole: null,
@@ -109,7 +101,6 @@ it('approval grants staff access without changing staff member kind or admin acc
     requestDecision: { decision: ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE },
   });
 
-  // Then
   await expect(storedMember(target.id)).resolves.toMatchObject({
     hasStaffAccess: true,
     hasAdminAccess: false,
@@ -118,12 +109,10 @@ it('approval grants staff access without changing staff member kind or admin acc
 });
 
 it('rejection keeps staff access disabled without erasing staff member kind', async () => {
-  // Given
   const actor = await createAdmin('rejection-actor');
   const target = await completeStaff('rejection-target');
   const request = await pendingRequest(target.id);
 
-  // When
   await access.patchAccess(actor.githubId, target.id, {
     ...ACTIVE_ACCESS_STATE,
     expectedRole: null,
@@ -138,7 +127,6 @@ it('rejection keeps staff access disabled without erasing staff member kind', as
     },
   });
 
-  // Then
   await expect(storedMember(target.id)).resolves.toMatchObject({
     hasStaffAccess: false,
     hasAdminAccess: false,
@@ -147,7 +135,6 @@ it('rejection keeps staff access disabled without erasing staff member kind', as
 });
 
 it('revocation removes staff access without erasing staff member kind or granting admin access', async () => {
-  // Given
   const actor = await createAdmin('revocation-actor');
   const target = await completeStaff('revocation-target');
   const request = await pendingRequest(target.id);
@@ -162,7 +149,6 @@ it('revocation removes staff access without erasing staff member kind or grantin
     requestDecision: { decision: ADMIN_ACCESS_REQUEST_DECISIONS.APPROVE },
   });
 
-  // When
   await access.patchAccess(actor.githubId, target.id, {
     ...ACTIVE_ACCESS_STATE,
     expectedRole: 'STAFF',
@@ -170,7 +156,6 @@ it('revocation removes staff access without erasing staff member kind or grantin
     expectedPendingRequest: null,
   });
 
-  // Then
   await expect(storedMember(target.id)).resolves.toMatchObject({
     hasStaffAccess: false,
     hasAdminAccess: false,
@@ -184,7 +169,6 @@ it('revocation removes staff access without erasing staff member kind or grantin
 });
 
 it('admin grant stays independent from student membership and staff access', async () => {
-  // Given
   const actor = await createAdmin('admin-grant-actor');
   const target = await createOnboardingUser(
     'student-admin-target',
@@ -197,7 +181,6 @@ it('admin grant stays independent from student membership and staff access', asy
     department: '인공지능학부',
   });
 
-  // When
   await access.patchAccess(actor.githubId, target.id, {
     ...ACTIVE_ACCESS_STATE,
     expectedRole: 'STUDENT',
@@ -205,7 +188,6 @@ it('admin grant stays independent from student membership and staff access', asy
     expectedPendingRequest: null,
   });
 
-  // Then — 관리자 접근은 교직원 접근·회원 유형을 함의하지 않는다
   await expect(storedMember(target.id)).resolves.toMatchObject({
     hasStaffAccess: false,
     hasAdminAccess: true,
@@ -214,7 +196,6 @@ it('admin grant stays independent from student membership and staff access', asy
 });
 
 it('concurrent completion allows exactly one atomic winner', async () => {
-  // Given
   const target = await createOnboardingUser(
     'concurrent-target',
     MemberKind.STUDENT,
@@ -227,10 +208,8 @@ it('concurrent completion allows exactly one atomic winner', async () => {
       department: '인공지능학부',
     });
 
-  // When
   const results = await Promise.allSettled([complete(), complete()]);
 
-  // Then
   expect(results.filter(({ status }) => status === 'fulfilled')).toHaveLength(
     1,
   );
@@ -246,7 +225,6 @@ it('concurrent completion allows exactly one atomic winner', async () => {
 });
 
 it('duplicate student ID completion fails closed without partial writes', async () => {
-  // Given
   const first = await createOnboardingUser(
     'duplicate-first',
     MemberKind.STUDENT,
@@ -262,7 +240,6 @@ it('duplicate student ID completion fails closed without partial writes', async 
     department: '인공지능학부',
   });
 
-  // When
   const completion = users.completeMyProfile(second.githubId, {
     name: '합성 둘째 학생',
     studentId: '801012',
@@ -270,7 +247,6 @@ it('duplicate student ID completion fails closed without partial writes', async 
     department: '인공지능학부',
   });
 
-  // Then
   await expect(completion).rejects.toMatchObject({
     errorCode: { code: 'USR_004', status: 409 },
   });

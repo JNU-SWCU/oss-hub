@@ -147,23 +147,11 @@ function isDashboardItem(value: unknown): value is DashboardItem {
     isNonEmptyString(programId) &&
     isSafePathSegment(programId) &&
     isNonEmptyString(value.programName) &&
-    // 대시보드 항목은 **현재 소속된 팀**만 담아 온다. 이름이 비어 오면 화면에서
-    // 「이름 없는 팀」 같은 대체 문구를 지어내는 대신 응답 자체를 거절한다 — 기본값을
-    // 채워 넣으면 서버가 팀을 잃어버린 사고가 화면에서는 정상처럼 보인다(#1269).
     isNonEmptyString(value.teamName) &&
-    // 팀 화면 주소도 서버가 만든 값을 쓰되, **정확히 이 한 경로**여야 한다.
-    // 임의의 외부/내부 주소를 그대로 버튼 href로 옮기면 응답 하나로 사용자를
-    // 아무 데나 보낼 수 있게 된다.
     isProgramPath(value.teamUrl, programId, '/my-team') &&
     isApplicationStatus(applicationStatus) &&
     (nextMilestone === null || isMilestone(nextMilestone)) &&
     (applicationStatus === 'APPROVED' || nextMilestone === null) &&
-    // 서버(`programs/service/student-dashboard.service.ts`의 `detailUrlFor`)와 **한 벌**인
-    // 규칙이다. `APPROVED`만 프로그램 상세로 가고 나머지(`SUBMITTED`·`REJECTED`)는 신청서
-    // 화면으로 간다 — 반려 사유가 실려 오는 화면이 그곳뿐이기 때문이다(#733).
-    // ⚠ 여기가 서버와 어긋나면 그 항목 하나만 빠지는 것이 아니다 — 아래 `parseStudentDashboard`
-    // 가 `every` 로 보고 **던지고**, 화면은 카드 대신 오류와 재시도 버튼을 그린다. 반려 한 건
-    // 때문에 승인된 프로그램과 마일스톤까지 전부 사라진다.
     isProgramPath(
       value.detailUrl,
       programId,

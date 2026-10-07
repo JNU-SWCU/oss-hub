@@ -279,20 +279,17 @@ describe('ProblemDetailFilter', () => {
   });
 
   it('query string과 원문 예외 정보를 ProblemDetail 응답에 노출하지 않는다', () => {
-    // Given
     const sensitiveQuery = 'synthetic-query-secret';
     const sensitiveMessage = 'synthetic-storage-credential';
     const path = '/api/v1/members/missing';
     const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
     const { response, json } = createResponse();
 
-    // When
     new ProblemDetailFilter().catch(
       new Error(sensitiveMessage),
       createHost(response, `${path}?token=${sensitiveQuery}`, path),
     );
 
-    // Then
     expect(json).toHaveBeenCalledWith(
       expect.objectContaining({
         status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -308,20 +305,17 @@ describe('ProblemDetailFilter', () => {
   });
 
   it('unknown 예외 로그에는 안전한 진단 필드만 남긴다', () => {
-    // Given
     const sensitiveQuery = 'synthetic-query-secret';
     const sensitiveMessage = 'synthetic-storage-credential';
     const path = '/api/v1/members/missing';
     const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
     const { response } = createResponse();
 
-    // When
     new ProblemDetailFilter().catch(
       new Error(sensitiveMessage),
       createHost(response, `${path}?token=${sensitiveQuery}`, path),
     );
 
-    // Then
     expect(error).toHaveBeenCalledWith({
       event: 'http.exception',
       method: 'GET',

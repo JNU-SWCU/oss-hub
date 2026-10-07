@@ -2,18 +2,6 @@ import { PrismaClient } from '@prisma/client';
 
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 
-/**
- * 사람 축 활동 이력 테이블을 **실 Postgres** 로 검증한다
- * (`docs/rules/data-modeling.md` §2 `user ↔ yearly activity history`).
- *
- * 단위 스펙은 Prisma 를 mock 하므로 스키마가 실제로 무엇을 강제하는지 볼 수 없다.
- * 이 테이블에서 mock 으로 잡히지 않는 성질은 둘이다.
- *
- * 1. **grain** — `(githubId, year)` 가 기본키다. 같은 사람·같은 연도는 두 행이 될 수
- *    없어야 하며, 이것이 "관측마다 전량 재계산 upsert" 를 성립시키는 근거다.
- * 2. **연도 축 누적** — 같은 사람이라도 연도가 다르면 별개 행으로 쌓인다. 이 성질이
- *    이름의 `History` 접미사를 정당화한다(§4).
- */
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,

@@ -15,12 +15,10 @@ import { SelectedMilestonePanel } from './components/submission-checklist-select
 import type { SubmissionChecklistViewProps } from './components/submission-checklist-view';
 import type { SubmissionChecklist } from './types';
 
-// allow: SIZE_OK — hook-driven page orchestration scenarios share one mock state.
 const pageView = vi.hoisted(() => ({
   props: null as SubmissionChecklistViewProps | null,
 }));
 
-/** 실패 화면과 참여자 아님 화면 중 어느 쪽이 섰는지 세는 계수기(#1099). */
 const fallbackScreens = vi.hoisted(() => ({
   loadFailure: 0,
   participationRequired: 0,
@@ -370,7 +368,6 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
   });
 
   it('coalesces repeated submits from the same render into one upload and revision request', async () => {
-    // Given
     const pendingUpload = {
       resolve: null as ((value: ReturnType<typeof uploaded>) => void) | null,
     };
@@ -385,12 +382,10 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
     currentViewProps().onFileChange(FILE);
     renderPage();
 
-    // When
     currentViewProps().onResubmit();
     currentViewProps().onResubmit();
     await flushAsyncWork();
 
-    // Then
     expect(uploadSubmissionFile).toHaveBeenCalledTimes(1);
     if (pendingUpload.resolve === null) {
       throw new Error('expected upload request to be pending');
@@ -400,18 +395,13 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
     expect(createResubmission).toHaveBeenCalledTimes(1);
   });
 
-  // #354 — 재제출 성공 토스트는 학생이 보는 문구다. 내부 용어 revision 대신
-  // 제출본 번호로 말해야 재제출과 제출본의 관계를 이해할 수 있다.
   it('재제출 성공 토스트는 내부 용어 revision 없이 제출본 번호를 알려준다', async () => {
-    // Given
     vi.mocked(uploadSubmissionFile).mockResolvedValue(uploaded('file-first'));
     vi.mocked(createResubmission).mockResolvedValue(CREATED_RESUBMISSION);
     await renderReadyPage();
 
-    // When
     await selectFileAndSubmit(FILE);
 
-    // Then
     const toast = currentViewProps().toastMessage ?? '';
     expect(toast).toBe(
       '제출본 4번을 제출했습니다. 검토 대기 상태로 전환되었습니다.',
@@ -420,7 +410,6 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
   });
 
   it('discards the cached upload id when create-resubmission returns SUB_010', async () => {
-    // Given
     vi.mocked(uploadSubmissionFile)
       .mockResolvedValueOnce(uploaded('file-first'))
       .mockResolvedValueOnce(uploaded('file-second'));
@@ -428,12 +417,10 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
       .mockRejectedValueOnce(new ApiError(problem('SUB_010')))
       .mockResolvedValueOnce(CREATED_RESUBMISSION);
 
-    // When
     await renderReadyPage();
     await selectFileAndSubmit(FILE);
     await selectFileAndSubmit(FILE);
 
-    // Then
     expect(uploadSubmissionFile).toHaveBeenCalledTimes(2);
     expect(uploadSubmissionFile).toHaveBeenNthCalledWith(
       2,
@@ -450,36 +437,23 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
     });
   });
 
-  /*
-   * #1108 — 정상 형식인 `.zip`이 압축 안의 내용 때문에 막혔을 때, 화면이 형식 안내를
-   * 보여 주면 학생은 고칠 곳을 찾지 못한 채 같은 파일을 다시 낸다. 압축 내용 거절은
-   * 파일 입력 옆에 서버가 준 갈래별 문장을 그대로 세운다.
-   */
   it('압축 파일 내용 거절은 서버 문장을 파일 입력 옆에 세운다', async () => {
-    // Given
     const detail =
       '압축 파일 안에 또 다른 압축 파일이 있습니다. 안쪽 압축을 풀고 다시 압축해 주세요.';
     vi.mocked(uploadSubmissionFile).mockRejectedValueOnce(
       new ApiError(problem('SUB_027', detail)),
     );
 
-    // When
     await renderReadyPage();
     await selectFileAndSubmit(FILE);
 
-    // Then
     expect(currentViewProps().fileError).toBe(detail);
     expect(currentViewProps().fileError).not.toBe(
       'PDF, HWP, ZIP 파일만 제출할 수 있습니다.',
     );
   });
 
-  /*
-   * #1108 인터뷰 — 보완 재제출 화면도 ZIP을 고르자마자 판정을 묻는다. 업로드·재제출은
-   * 나가지 않고, 판정 대기와 거절 문장이 파일 입력 자리로 간다.
-   */
   it('ZIP을 고르면 재제출을 누르지 않아도 판정 대기와 거절 문장을 파일 입력에 넘긴다', async () => {
-    // Given
     const detail =
       '비밀번호가 걸린 압축 파일은 제출할 수 없습니다. 비밀번호 없이 다시 압축해 주세요.';
     vi.mocked(checkSubmissionFile).mockRejectedValueOnce(
@@ -488,42 +462,34 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
     const locked = new File(['PK'], 'locked.zip', { type: 'application/zip' });
     await renderReadyPage();
 
-    // When: 파일만 고른다.
     currentViewProps().onFileChange(locked);
     renderPage();
 
-    // Then: 판정을 기다리는 중이다.
     expect(currentViewProps().fileChecking).toBe(true);
     expect(currentViewProps().fileError).toBeNull();
 
-    // When: 판정이 돌아온다.
     await flushAsyncWork();
     renderPage();
 
-    // Then: 제출 없이 거절 문장이 파일 입력으로 간다.
     expect(checkSubmissionFile).toHaveBeenCalledWith(locked);
     expect(currentViewProps().fileChecking).toBe(false);
     expect(currentViewProps().fileError).toBe(detail);
     expect(uploadSubmissionFile).not.toHaveBeenCalled();
     expect(createResubmission).not.toHaveBeenCalled();
 
-    // When: 다른 파일(PDF)로 바꾼다.
     currentViewProps().onFileChange(FILE);
     renderPage();
 
-    // Then: 지난 문장은 사라지고 PDF는 판정을 묻지 않는다.
     expect(currentViewProps().fileError).toBeNull();
     expect(checkSubmissionFile).toHaveBeenCalledTimes(1);
   });
 
   it('판정 요청이 판정이 아닌 이유로 실패하면 파일 입력에 아무 말도 붙이지 않는다', async () => {
-    // Given: 세션이 끝나 판정 대신 인증 실패가 돌아온다(#1108 — 이때는 조용히 둔다).
     vi.mocked(checkSubmissionFile).mockRejectedValueOnce(
       new ApiError(problem('AUTH_001', '로그인이 필요합니다.')),
     );
     await renderReadyPage();
 
-    // When
     currentViewProps().onFileChange(
       new File(['PK'], 'bundle.zip', { type: 'application/zip' }),
     );
@@ -531,7 +497,6 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
     await flushAsyncWork();
     renderPage();
 
-    // Then: 제출 때 같은 검사가 다시 돈다 — 여기서는 대기도 문장도 없다.
     expect(checkSubmissionFile).toHaveBeenCalledTimes(1);
     expect(currentViewProps().fileChecking).toBe(false);
     expect(currentViewProps().fileError).toBeNull();
@@ -539,18 +504,15 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
   });
 
   it('keeps the cached upload id for other retryable create-resubmission server errors', async () => {
-    // Given
     vi.mocked(uploadSubmissionFile).mockResolvedValue(uploaded('file-first'));
     vi.mocked(createResubmission)
       .mockRejectedValueOnce(new ApiError(problem('SUB_999')))
       .mockResolvedValueOnce(CREATED_RESUBMISSION);
 
-    // When
     await renderReadyPage();
     await selectFileAndSubmit(FILE);
     await selectFileAndSubmit(FILE);
 
-    // Then
     expect(uploadSubmissionFile).toHaveBeenCalledTimes(1);
     expect(createResubmission).toHaveBeenNthCalledWith(2, {
       submissionId: 'submission-1',
@@ -561,32 +523,25 @@ describe('SubmissionChecklistPage FILE resubmission retry cache', () => {
   });
 });
 
-// 재제출 직후는 그 줄이 있어야 할 바로 그 순간이다. 이 경로는 체크리스트를 다시
-// 읽지 않으므로, 낙관적 갱신이 판정 필드를 비우면 새로고침 전까지 이력이 사라진다.
 describe('SubmissionChecklistPage 재제출 직후 화면', () => {
   it('새로고침 없이도 지난 보완 요청 이력이 줄과 창에 남는다', async () => {
-    // Given
     vi.mocked(uploadSubmissionFile).mockResolvedValue(uploaded('file-first'));
     vi.mocked(createResubmission).mockResolvedValue(CREATED_RESUBMISSION);
     await renderReadyPage();
 
-    // When
     await selectFileAndSubmit(FILE);
 
-    // Then: 다시 읽지 않은 상태 그대로다.
     const props = currentViewProps();
     expect(getSubmissionChecklist).toHaveBeenCalledTimes(1);
     const item = props.checklist.items[0];
     if (!item) throw new Error('expected checklist item');
 
-    // 줄: 배지는 지금 상태(검토 대기) 하나만 말하고 지난 판정은 그대로 남는다.
     const row = renderToStaticMarkup(
       <ChecklistRow programId={props.programId} item={item} now={props.now} />,
     );
     expect(row).toContain('제출 상태: </span>검토 대기');
     expect(row).toContain('이전 검토 결과: 보완 요청');
 
-    // 창: 같은 사실이 교직원 코멘트와 함께 다시 나온다.
     const panel = renderToStaticMarkup(
       <SelectedMilestonePanel
         fileUpload={props.checklist.fileUpload}
@@ -753,7 +708,6 @@ describe('SubmissionChecklistPage initial submission refresh', () => {
   });
 
   it('effect가 늦어 selected ref가 이전 id여도 browser Back 직후 initial POST 201은 authoritative checklist를 한 번만 읽는다', async () => {
-    // Given
     const [firstItem] = CHECKLIST.items;
     if (!firstItem) throw new Error('expected checklist item fixture');
     const unsubmitted: SubmissionChecklist = {
@@ -783,7 +737,6 @@ describe('SubmissionChecklistPage initial submission refresh', () => {
       .mockResolvedValueOnce(submitted);
     await renderReadyPage();
 
-    // When
     const post = submitInitialPost();
     await flushAsyncWork();
     selectedMilestoneId = null;
@@ -796,7 +749,6 @@ describe('SubmissionChecklistPage initial submission refresh', () => {
     await flushAsyncWork();
     renderPage();
 
-    // Then
     expect(closeSelected).not.toHaveBeenCalled();
     expect(initialSubmissionPage.posts).toBe(1);
     expect(getSubmissionChecklist).toHaveBeenCalledTimes(2);
@@ -814,8 +766,6 @@ describe('SubmissionChecklistPage 선택 패널 표시', () => {
     const item = props.checklist.items[0];
     if (!item) throw new Error('expected checklist item');
 
-    // 페이지는 닫기 핸들러를 넘긴다 — 뷰는 그걸 보고 패널을 다이얼로그에 넣고,
-    // 패널은 창 제목이 이미 말한 이름을 다시 적지 않는다.
     props.onCloseSelected?.();
     expect(closeSelected).toHaveBeenCalled();
     const html = renderToStaticMarkup(
@@ -840,7 +790,7 @@ describe('SubmissionChecklistPage 선택 패널 표시', () => {
     expect(html).not.toContain(item.name);
     expect(html).not.toContain('data-slot="card"');
     expect((html.match(/data-slot="status-badge"/g) ?? []).length).toBe(1);
-    // 진짜 행동과 검토 기록은 그대로 남는다.
+
     expect(html).toContain('Replace the file');
     expect((html.match(/현재 제출본/g) ?? []).length).toBe(1);
     expect(html).toContain('제출본 4번 제출');

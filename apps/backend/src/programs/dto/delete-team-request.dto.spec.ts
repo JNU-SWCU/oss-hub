@@ -15,11 +15,6 @@ function validScope() {
   };
 }
 
-/**
- * main.ts의 전역 ValidationPipe({ transform: true, whitelist: true,
- * forbidNonWhitelisted: true })와 같은 옵션으로 검증한다 — 여기서 통과하지 못하면
- * 컨트롤러 핸들러가 실행되기 전에 400으로 거절된다는 뜻이다.
- */
 async function errors(input: object) {
   return validate(plainToInstance(DeleteTeamRequestDto, input), {
     whitelist: true,
@@ -32,8 +27,6 @@ describe('DeleteTeamRequestDto', () => {
     expect(await errors({ expectedScope: validScope() })).toHaveLength(0);
   });
 
-  // purge 와 같은 회귀 방지 — @ValidateNested()만으로는 값이 없을 때 "검증할 값이 없음"으로
-  // 통과시켜 컨트롤러가 undefined 를 받고 비교 로직에서 500 으로 터진다.
   it.each([
     ['본문이 비어 있으면', {}],
     ['null 이면', { expectedScope: null }],
@@ -71,8 +64,6 @@ describe('DeleteTeamRequestDto', () => {
     ).not.toHaveLength(0);
   });
 
-  // 지문이 없거나 모양이 다르면 「확인한 그 범위」를 특정할 수 없다 — 수치만 맞는
-  // 다른 행 집합이 통과해 버린다.
   it.each([undefined, '', 'not-a-digest', '0123456789ABCDEF0123456789ABCDEF'])(
     'scopeFingerprint 가 %p 면 거절한다',
     async (scopeFingerprint) => {

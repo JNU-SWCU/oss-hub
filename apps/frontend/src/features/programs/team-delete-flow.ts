@@ -1,7 +1,6 @@
 import { ApiError } from '@/lib/api-client';
 import type { TeamDeletedCounts, TeamDeletionScope } from './types';
 
-/** 확인-삭제 사이에 범위가 바뀜(TOCTOU) 409 코드. */
 export const TEAM_DELETE_SCOPE_CHANGED_CODE = 'TEAM_019';
 
 export const TEAM_DELETE_FAILED_MESSAGE =
@@ -36,10 +35,6 @@ function isTeamDeletionScope(value: unknown): value is TeamDeletionScope {
   );
 }
 
-/**
- * 409(TEAM_019)에서 현재 범위(`currentTeamScopeCounts`)를 꾼다.
- * 있으면 재확인을 요구하는 화면이 새 카운트를 보여줌 — 자동 재시도는 하지 않는다.
- */
 export function teamDeleteScopeChangedCounts(
   error: unknown,
 ): TeamDeletionScope | null {
@@ -58,13 +53,11 @@ export function teamDeleteScopeChangedCounts(
     : null;
 }
 
-/** 서버가 준 `detail`이 있으면 그대로 쓰고, 없으면 팀 삭제 일반 실패 문장으로 떨어진다. */
 export function teamDeleteErrorMessage(error: unknown): string {
   if (!(error instanceof ApiError)) return TEAM_DELETE_FAILED_MESSAGE;
   return error.problem.detail || TEAM_DELETE_FAILED_MESSAGE;
 }
 
-/** 0건은 빼고, 전부 0이면 연결된 데이터가 없었다고만 말한다. */
 export function formatTeamDeletedCounts(counts: TeamDeletedCounts): string {
   const summary = TEAM_DELETE_COUNT_ITEMS.filter(([key]) => counts[key] > 0)
     .map(([key, label, unit]) => `${label} ${counts[key]}${unit}`)

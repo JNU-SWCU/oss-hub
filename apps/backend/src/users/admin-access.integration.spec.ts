@@ -45,45 +45,37 @@ afterAll(async () => {
 
 describe('Admin access real PostgreSQL transactions', () => {
   it('serializes two mutual admin demotions so exactly one commits', async () => {
-    // Given
     await prisma.user.updateMany({
       where: { hasAdminAccess: true, accountStatus: AccountStatus.ACTIVE },
       data: { hasAdminAccess: false, hasStaffAccess: true },
     });
     const first = await createUser('ADMIN', 'race-a');
     const second = await createUser('ADMIN', 'race-b');
-    // 표시 역할 PATCH는 독립 관리자 권한을 지우지 않는다. 마지막 관리자 직렬화는
-    // 그 칸을 직접 바꾸는 독립 권한 경로에서 증명한다.
+
     const synchronizedService = new IndependentAuthorityService(
       new BarrierIndependentAuthorityRepository(
         new IndependentAuthorityRepository(prisma),
       ),
       auditLog,
     );
-    // 서로를 강등한다 — actor가 자기 자신을 강등하면 #1382의 `ROL_022`가
-    // 잠금 경쟁보다 먼저 답해 버려, 이 테스트가 재려는 직렬화가 실행되지 않는다.
+
     const demote = (actorGithubId: bigint, targetId: string) =>
       synchronizedService.patchAdminAccess(actorGithubId, targetId, {
         command: ADMIN_ACCESS_COMMANDS.REVOKE,
       });
 
-    // When
     const results = await Promise.allSettled([
       demote(first.githubId, second.id),
       demote(second.githubId, first.id),
     ]);
 
-    // Then
     expect(
       results.filter((result) => result.status === 'fulfilled'),
     ).toHaveLength(1);
     const rejected = results.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     );
-    // 어느 쪽이 lockActiveAdmins()를 먼저 통과하는지는 실 DB 잠금 경쟁이라 정해지지
-    // 않지만, 진 쪽의 actor는 이긴 트랜잭션이 방금 강등한 바로 그 계정이다.
-    // 잠금이 풀린 뒤 재검증(TOCTOU 재조회)이 그것을 잡아 ADMIN_ONLY로 막는다 —
-    // 잠금이 직렬화하지 못했다면 두 트랜잭션이 모두 통과해 활성 관리자가 0명이 된다.
+
     const reason = rejected?.reason as
       { errorCode?: { code: string; status: number } } | undefined;
     expect(reason?.errorCode).toMatchObject({
@@ -103,12 +95,10 @@ describe('Admin access real PostgreSQL transactions', () => {
   });
 
   it('rolls back the user CAS when PostgreSQL rejects the audit insert', async () => {
-    // Given
     const actor = await createUser('ADMIN', 'audit-actor');
     const target = await createUser('STUDENT', 'audit-target');
     await installAuditFailureTrigger();
 
-    // When / Then
     await expect(
       service.patchAccess(actor.githubId, target.id, {
         expectedRole: 'STUDENT',
@@ -131,15 +121,13 @@ describe('Admin access real PostgreSQL transactions', () => {
   });
 
   it('returns the authoritative locked projection for a stale real-DB CAS', async () => {
-    // Given
     const actor = await createUser('ADMIN', 'stale-actor');
     const target = await createUser('STUDENT', 'stale-target');
     await prisma.user.update({
       where: { id: target.id },
       data: { hasStaffAccess: true },
     });
-    // 이 테스트는 patchAccess만 호출한다 — profile 서비스는 실제로 쓰이지 않으므로
-    // 실행되면 실패하는 스텁만 채워 생성자 계약을 맞춘다.
+
     const profileService = {
       patchProfile: () => {
         throw new Error('patchProfile should not be called in this spec');
@@ -157,10 +145,8 @@ describe('Admin access real PostgreSQL transactions', () => {
       expectedPendingRequest: null,
     });
 
-    // When
     const operation = controller.patchAccess(request, target.id, body);
 
-    // Then
     await expect(operation).rejects.toMatchObject({
       errorCode: { code: RolesErrorCode.ACCESS_STATE_MISMATCH, status: 409 },
       extensions: {

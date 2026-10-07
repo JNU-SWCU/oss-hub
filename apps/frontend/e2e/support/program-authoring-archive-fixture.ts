@@ -6,7 +6,6 @@ import {
 import { expectApiStatus } from './program-authoring-flow';
 import { originHeaders } from './program-authoring-ui';
 
-/** The existing authoring flow has two items in one stage and an empty informational stage. */
 export async function archiveFixtureDocument(page: Page, milestoneId: string) {
   const response = await page.request.get(
     `/api/v1/milestones/${milestoneId}/documents`,

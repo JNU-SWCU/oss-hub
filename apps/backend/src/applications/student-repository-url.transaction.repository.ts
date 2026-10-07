@@ -29,7 +29,7 @@ export class StudentRepositoryUrlTransaction {
   ): Promise<TeamRepositoryUrlContext | null> {
     await this.transaction
       .$queryRaw`SELECT "id" FROM "Program" WHERE "id" = ${programId} FOR UPDATE`;
-    // 팀장 승계·탈퇴와 같은 팀 행을 잠근 뒤 현재 권한을 다시 읽는다.
+
     await this.transaction
       .$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} AND "programId" = ${programId} FOR UPDATE`;
     await this.transaction
@@ -88,8 +88,6 @@ export class StudentRepositoryUrlTransaction {
     };
     let repositoryId: string;
     if (existing) {
-      // 다른 신청이 쥐고 있거나 다른 팀의 이력을 든 저장소는 가져오지 않는다.
-      // 읽은 뒤에 다른 요청이 바꿔도 같은 UPDATE가 최신 행으로 다시 판정한다.
       const result = await tx.githubRepository.updateMany({
         where: {
           id: existing.id,
@@ -111,7 +109,7 @@ export class StudentRepositoryUrlTransaction {
       repositoryId = created.id;
     }
     const repositoryUrl = `https://github.com/${metadata.nameWithOwner}`;
-    // 연결 방식·포인터·URL은 한 묶음으로 바뀐다 — 직접 고른 저장소는 OWN이다.
+
     await tx.application.update({
       where: { id: context.id },
       data: {
@@ -119,10 +117,7 @@ export class StudentRepositoryUrlTransaction {
         repositoryUrl,
       },
     });
-    // 직접 연결은 연결하고 수집할 뿐이다 — 조직 저장소여도 저장소를 만들거나 초대하지
-    // 않는다. 진행 중이던 발급 요청은 SUPERSEDED로 닫고 job은 새 세대 없이 완료로
-    // 둔다(currentEventId=null이라 worker가 다시 집지 않는다). 세대를 닫지 않고
-    // 재무장하면 낡은 요청을 든 worker가 방금 고른 저장소를 덮어쓴다.
+
     await settleProvisionGenerationForSynchronousConnection(
       tx,
       { applicationId: context.id, repositoryId, now: new Date() },

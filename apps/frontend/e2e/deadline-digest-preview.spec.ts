@@ -1,6 +1,5 @@
 import { expect, test } from './admin-session.fixture';
 
-// Playwright snapshot injection itself produces blocked-script errors in opaque srcdoc frames.
 test.use({ trace: 'off' });
 
 test('프로그램별 실제 메일을 확인하고 모바일 탭을 바꿔도 초안을 보존한다', async ({

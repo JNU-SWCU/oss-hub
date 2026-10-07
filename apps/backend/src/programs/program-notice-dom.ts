@@ -10,8 +10,7 @@ type Node = DefaultTreeAdapterMap['node'];
 type ParentNode = DefaultTreeAdapterMap['parentNode'];
 export type NoticeElement = DefaultTreeAdapterMap['element'];
 const MAX_DEPTH = 100;
-// parse5 rescans its open-element stack per token, so deep nesting is quadratic.
-// Abort while parsing at the same depth elements() rejects instead of after the slow parse.
+
 export const noticeTreeAdapter: TreeAdapter<DefaultTreeAdapterMap> = {
   ...defaultTreeAdapter,
   appendChild(parent, child) {
@@ -68,17 +67,15 @@ const BLOCK_TAGS = new Set([
   'dd',
   'pre',
 ]);
-// Source pages space each paragraph by about half a line and mark sections with empty
-// paragraphs, so block boundaries become line breaks while empty blocks, <hr>, headings
-// and <br><br> become one blank line. cleanText resolves these private-use markers.
+
 const BREAK = String.fromCharCode(0xe001);
 const BLANK = String.fromCharCode(0xe000);
-// Markers, zero-width spaces and byte-order marks never survive from source text.
+
 const IGNORED = new RegExp(
   `[${BREAK}${BLANK}${String.fromCharCode(0x200b, 0xfeff)}]`,
   'g',
 );
-// Maximal runs only: no token follows the quantifier, so long <br> runs stay linear.
+
 const SPACING_RUN = new RegExp(`[ \n${BREAK}${BLANK}]+`, 'g');
 export function attribute(node: NoticeElement, name: string): string {
   return node.attrs.find((attribute) => attribute.name === name)?.value ?? '';
@@ -116,34 +113,32 @@ function isOmitted(node: NoticeElement): boolean {
   );
 }
 export function cleanText(value: string): string {
-  return (
-    value
-      .replace(SPACING_RUN, (run) => {
-        if (!run.includes(BREAK) && !run.includes(BLANK)) return run;
-        const indent = run.slice(
-          Math.max(
-            run.lastIndexOf('\n'),
-            run.lastIndexOf(BREAK),
-            run.lastIndexOf(BLANK),
-          ) + 1,
-        );
-        return (
-          (run.includes(BLANK) || run.split('\n').length > 2 ? '\n\n' : '\n') +
-          indent
-        );
-      })
-      .split('\n')
-      // One leading space is source whitespace after a break; list indentation uses two or more.
-      .map((line) =>
-        line
-          .trimEnd()
-          .replace(/^ (?=\S)/, '')
-          .replace(/(\S) +/g, '$1 '),
-      )
-      .join('\n')
-      .replace(/\n[ ]*\n(?:[ ]*\n)+/g, '\n\n')
-      .trim()
-  );
+  return value
+    .replace(SPACING_RUN, (run) => {
+      if (!run.includes(BREAK) && !run.includes(BLANK)) return run;
+      const indent = run.slice(
+        Math.max(
+          run.lastIndexOf('\n'),
+          run.lastIndexOf(BREAK),
+          run.lastIndexOf(BLANK),
+        ) + 1,
+      );
+      return (
+        (run.includes(BLANK) || run.split('\n').length > 2 ? '\n\n' : '\n') +
+        indent
+      );
+    })
+    .split('\n')
+
+    .map((line) =>
+      line
+        .trimEnd()
+        .replace(/^ (?=\S)/, '')
+        .replace(/(\S) +/g, '$1 '),
+    )
+    .join('\n')
+    .replace(/\n[ ]*\n(?:[ ]*\n)+/g, '\n\n')
+    .trim();
 }
 export function noticeText(root: Node, source: URL, listDepth = 0): string {
   if ('value' in root)
@@ -189,7 +184,6 @@ function renderList(root: NoticeElement, source: URL, depth: number): string {
     : 1;
   const content = root.childNodes
     .map((child) => {
-      // Editors sometimes put paragraphs directly in a list; keep that text as its own line.
       if (!('tagName' in child) || child.tagName !== 'li')
         return cleanText(noticeText(child, source, depth));
       if (isOmitted(child)) return '';
@@ -207,7 +201,7 @@ function renderList(root: NoticeElement, source: URL, depth: number): string {
 }
 function renderTable(root: NoticeElement, source: URL): string {
   const children = visibleChildren(root);
-  // parse5 always wraps table rows in thead/tbody/tfoot; nested table rows stay in their cell.
+
   const rows = children
     .filter((node) => ['thead', 'tbody', 'tfoot'].includes(node.tagName))
     .flatMap((section) =>
@@ -218,7 +212,7 @@ function renderTable(root: NoticeElement, source: URL): string {
         ['th', 'td'].includes(node.tagName),
       ),
     );
-  // Spanning or nested cells shift column positions, so labels are not inferred.
+
   const labelled = !rows.flat().some(
     (cell) =>
       ['rowspan', 'colspan'].some((name) => {

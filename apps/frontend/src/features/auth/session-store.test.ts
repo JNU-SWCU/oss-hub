@@ -54,7 +54,6 @@ function unauthorizedSession(detail: string): ApiError {
   });
 }
 
-/** 구독을 먼저 건 뒤 목표 상태가 게시되는 순간에만 진행한다. */
 function nextSnapshot(
   status: ReturnType<typeof getSessionSnapshot>['status'],
 ): Promise<ReturnType<typeof getSessionSnapshot>> {
@@ -173,9 +172,6 @@ describe('공유 인증 세션 저장소', () => {
     },
   );
 
-  // 리뷰에서 지적된 결함: 소비자마다 상태를 따로 들고 있으면 한 화면에서
-  // 로그인된 본문과 비로그인 헤더가 동시에 보인다. 저장소를 하나만 두고 모든
-  // 구독자가 같은 스냅샷을 받는지 확인한다.
   it('한 곳의 재시도가 모든 구독자를 함께 갱신한다', async () => {
     fetchSession.mockRejectedValueOnce(new Error('synthetic failure'));
 
@@ -189,7 +185,6 @@ describe('공유 인증 세션 저장소', () => {
     await failed;
     expect(getSessionSnapshot().status).toBe('error');
 
-    // 엔드포인트가 회복된 뒤 한 소비자에서만 재시도한다.
     fetchSession.mockResolvedValue({
       isAuthenticated: true,
       user: syntheticUser,
@@ -201,11 +196,10 @@ describe('공유 인증 세션 저장소', () => {
     const snapshot = getSessionSnapshot();
     expect(snapshot.status).toBe('authenticated');
     expect(snapshot.user).toEqual(syntheticUser);
-    // 두 구독자가 모두 통지를 받았다 — 한쪽만 갱신되면 화면 안에서 인증 표시가
-    // 서로 모순된다.
+
     expect(bodyGate).toHaveBeenCalled();
     expect(headerMenu).toHaveBeenCalled();
-    // 헤더가 읽는 형태도 함께 회복돼야 한다.
+
     expect(toAccountMenuSession(snapshot)).toEqual({
       isAuthenticated: true,
       user: syntheticUser,
@@ -272,8 +266,6 @@ describe('toAccountMenuSession', () => {
   it.each(['loading', 'error'] as const)(
     '%s 상태에서는 계정 메뉴가 아무것도 표시하지 않는다',
     (status) => {
-      // error를 anonymous로 표시하면 본문은 오류·재시도를, 헤더는 로그인 버튼을
-      // 내걸어 인증 상태가 서로 모순된다.
       expect(toAccountMenuSession({ status, user: null })).toBeNull();
     },
   );

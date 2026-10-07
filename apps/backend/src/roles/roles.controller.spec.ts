@@ -68,7 +68,6 @@ const rejectedRequest: StaffAccessRequestRecord = {
 
 describe('OnboardingController', () => {
   it('역할 선택 결과를 응답 계약으로 반환한다', async () => {
-    // Given
     const selectMemberKind = jest.fn().mockResolvedValue({
       selectedMemberKind: 'STUDENT',
       redirectTo: '/onboarding/profile',
@@ -78,11 +77,8 @@ describe('OnboardingController', () => {
       selectedRole: 'STUDENT',
     });
 
-    // When
     const result = await controller.selectRole(REQUEST, body);
 
-    // Then — 확정 결과(role·requestStatus)는 계약에 없다. 이 화면이 아무것도
-    // 확정하지 않기 때문이다(#569).
     expect(result).toEqual({
       selectedRole: 'STUDENT',
       redirectTo: '/onboarding/profile',
@@ -91,27 +87,22 @@ describe('OnboardingController', () => {
   });
 
   it('지금 고른 역할을 응답 계약으로 반환한다', async () => {
-    // Given
     const getMySelection = jest
       .fn()
       .mockResolvedValue({ selectedMemberKind: 'STAFF' });
     const controller = createOnboardingController(jest.fn(), getMySelection);
 
-    // When
     const result = await controller.getMySelection(REQUEST);
 
-    // Then
     expect(result).toEqual({ selectedRole: 'STAFF' });
     expect(getMySelection).toHaveBeenCalledWith(424242n);
   });
 
   it('STUDENT와 STAFF가 아닌 역할 선택은 ROL_001로 거부한다', () => {
-    // Given
     const body = plainToInstance(SelectStaffAccessRequestDto, {
       selectedRole: 'ADMIN',
     });
 
-    // When
     let caught: unknown;
     try {
       body.toMemberKind();
@@ -119,7 +110,6 @@ describe('OnboardingController', () => {
       caught = error;
     }
 
-    // Then
     expect(caught).toBeInstanceOf(DomainException);
     if (!(caught instanceof DomainException)) {
       throw caught;
@@ -128,43 +118,34 @@ describe('OnboardingController', () => {
   });
 
   it('쓰기 endpoint에 세션과 Origin guard를 적용한다', () => {
-    // Given
     const target = OnboardingController.prototype;
 
-    // When
     const guards = readGuards(target, 'selectRole');
 
-    // Then
     expect(guards).toEqual([SessionGuard, OriginGuard]);
   });
 });
 
 describe('StaffAccessRequestsController', () => {
   it('요청이 없으면 GET /me에서 200 본문 null 계약을 반환한다', async () => {
-    // Given
     const controller = createStaffAccessRequestsController(
       jest.fn().mockResolvedValue(null),
       jest.fn(),
     );
 
-    // When
     const result = await controller.getMe(REQUEST);
 
-    // Then
     expect(result).toBeNull();
   });
 
   it('최근 요청을 ISO 날짜 응답 계약으로 반환한다', async () => {
-    // Given
     const controller = createStaffAccessRequestsController(
       jest.fn().mockResolvedValue(rejectedRequest),
       jest.fn(),
     );
 
-    // When
     const result = await controller.getMe(REQUEST);
 
-    // Then
     expect(result).toEqual({
       requestedRole: 'STAFF',
       status: StaffAccessRequestStatus.REJECTED,
@@ -175,7 +156,6 @@ describe('StaffAccessRequestsController', () => {
   });
 
   it('재요청 결과도 같은 StaffAccessRequest 응답 계약으로 반환한다', async () => {
-    // Given
     const pendingRequest = {
       ...rejectedRequest,
       status: StaffAccessRequestStatus.PENDING,
@@ -187,10 +167,8 @@ describe('StaffAccessRequestsController', () => {
       jest.fn().mockResolvedValue(pendingRequest),
     );
 
-    // When
     const result = await controller.retry(REQUEST);
 
-    // Then
     expect(result).toEqual({
       requestedRole: 'STAFF',
       status: StaffAccessRequestStatus.PENDING,
@@ -201,14 +179,11 @@ describe('StaffAccessRequestsController', () => {
   });
 
   it('조회는 세션 guard, 재요청은 세션과 Origin guard를 적용한다', () => {
-    // Given
     const target = StaffAccessRequestsController.prototype;
 
-    // When
     const getGuards = readGuards(target, 'getMe');
     const postGuards = readGuards(target, 'retry');
 
-    // Then
     expect(getGuards).toEqual([SessionGuard]);
     expect(postGuards).toEqual([SessionGuard, OriginGuard]);
   });

@@ -9,7 +9,6 @@ import {
 } from 'class-validator';
 import type { UpsertMilestoneDocumentInput } from '../milestone-documents.repository';
 
-/** 교직원 서류 항목 생성/수정 요청 본문 — 두 endpoint가 같은 shape을 공유한다(전체 교체 방식). */
 export class UpsertMilestoneDocumentRequestDto {
   @Transform(({ value }) => {
     const input: unknown = value;

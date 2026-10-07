@@ -43,7 +43,7 @@ export function buildProgramAuthoringPlan(
     issues,
   );
   let endAt = isoDate(request.endAt, 'endAt', issues);
-  // 「미정」 센티널은 실제 날짜가 아니다 — 읽을 수 없는 날짜처럼 거절한다(#1420).
+
   if (endAt !== null && isProgramEndAtUndecided(endAt)) {
     issues.push({ path: 'endAt', code: 'INVALID_DATE' });
     endAt = null;
@@ -177,10 +177,7 @@ export function buildProgramAuthoringPlan(
       description,
       repositoryProvisioningEnabled:
         request.repositoryProvisioningEnabled ?? false,
-      // 요청이 값을 생략하면 켜진 프로그램으로 만든다 — 마감 알림을 끄는 것은
-      // 교직원의 명시적 선택이어야 하고, 생략이 그 선택을 대신할 수는 없다.
-      // HTTP 경로는 DTO 가 boolean 을 요구하므로(program-authoring-request.dto)
-      // 이 기본값은 서비스를 직접 부르는 호출자에게만 적용된다.
+
       notifyOnDeadline: request.notifyOnDeadline ?? true,
     },
     milestones,

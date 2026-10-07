@@ -10,10 +10,6 @@ import { captureF3Evidence } from './support/f3-evidence';
 
 const EDITED_NAME = '합성 수정한 이름';
 
-/**
- * 학생 계정 슬롯이 설정 화면에서 받은 초대를 읽는다. UI 전용이며 초대 영속 증거가
- * 아니다.
- */
 const SETTINGS_SHELL_READS: F3ApiHandlers = {
   'GET /api/v1/team-invitations/received': (route: Route) =>
     route.fulfill({
@@ -23,17 +19,6 @@ const SETTINGS_SHELL_READS: F3ApiHandlers = {
     }),
 };
 
-/**
- * 설정에서 프로필 저장이 실패했을 때 — **다시 누를 수 있는 상태로 남는가**.
- *
- * 저장 실패의 진짜 손해는 오류 문구가 아니라 잃어버린 입력이다. 화면이 실패를 알리면서
- * 폼을 불러온 값으로 되돌리면, 사용자는 고쳐 쓴 것을 처음부터 다시 입력해야 한다.
- * 그래서 판정은 네 조각을 함께 본다: 실패를 말하고(destructive alert), 있던 자리에
- * 남고(URL), 고쳐 쓴 값이 입력란에 그대로 있고, 성공 표시는 뜨지 않는다.
- *
- * 프로필이 실패하면 알림 설정 쓰기는 아예 시도되지 않아야 하므로 그 횟수도 함께
- * 센다(부분 저장 방지).
- */
 test('failed profile save keeps the edited value on the settings page', async ({
   page,
 }, testInfo) => {
@@ -50,8 +35,6 @@ test('failed profile save keeps the edited value on the settings page', async ({
   await nameInput.fill(EDITED_NAME);
   await page.getByRole('button', { name: '저장' }).click();
 
-  // 제목만이 아니라 alert 상자 전체를 잡는다 — 그만큼을 증거 프레임에 들여야
-  // 제목과 설명이 같이 남고, 읽는 사람이 무슨 실패인지까지 확인할 수 있다.
   const failureAlert = page
     .locator('[data-slot="alert"]')
     .filter({ hasText: '저장 결과를 확인해 주세요' });
@@ -62,16 +45,9 @@ test('failed profile save keeps the edited value on the settings page', async ({
   expect(fixture.profileWrites()).toBe(1);
   expect(fixture.notificationWrites()).toBe(0);
 
-  // 앱 셸이 스크롤을 소유해(`app-frame.tsx`의 `h-dvh overflow-hidden`) 전체 페이지 캡처가
-  // 뷰포트를 넘지 못한다. 그래서 무엇을 프레임에 들일지를 고른다 — 이 시나리오의
-  // 일차 관찰 대상은 **실패 alert**이므로 그것을 넣는다. 보존된 입력값은 한 화면에
-  // 함께 들어오지 않고(720px 뷰포트 기준 두 요소가 멀리 떨어져 있다) 위의 `toHaveValue`가
-  // 이미 잠그므로 불변식으로만 남긴다.
   await failureAlert.scrollIntoViewIfNeeded();
   await captureF3Evidence(page, testInfo, 'settings-profile-save-failure');
-  // 이 시나리오가 고장 낸 것은 프로필 **쓰기(PATCH)** 하나다. 같은 경로의 조회(GET)는
-  // 성공해야 하므로 메서드까지 못 박아 조회 실패를 덮지 않게 한다 — 상태 코드만 적으면
-  // 그 실행의 모든 500이 함께 통과한다.
+
   audit.assertClean([
     { status: 500, path: '/api/v1/users/me/profile', method: 'PATCH' },
   ]);

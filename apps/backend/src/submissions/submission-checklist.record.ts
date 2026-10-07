@@ -11,7 +11,6 @@ import type {
   SubmissionFileMetadata,
 } from './submissions.repository';
 
-/** #103 프로그램 상세와 동일한 마일스톤 정렬 계약 — dueAt ASC, 동률은 createdAt ASC. */
 const SUBMISSION_HISTORY_EVENTS: MilestoneDocumentSubmissionHistoryEvent[] = [
   MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
   MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,

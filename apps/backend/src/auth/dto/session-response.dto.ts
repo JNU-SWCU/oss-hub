@@ -1,6 +1,5 @@
 import { MeResponseDto } from './me-response.dto';
 
-/** UI용 현재 세션 상태 응답. */
 export class SessionResponseDto {
   readonly isAuthenticated: boolean;
   readonly user?: MeResponseDto;

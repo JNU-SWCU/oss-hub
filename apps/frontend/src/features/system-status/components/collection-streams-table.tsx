@@ -25,12 +25,6 @@ const STREAM_TYPE_LABEL: Record<CollectionStreamType, string> = {
   ISSUE: 'Issue',
 };
 
-/**
- * 요약 카드(`STREAM_SEGMENTS`)와 같은 4구간·같은 의미의 배지 색이다 — READY는
- * `HEALTH.NORMAL`과 같은 approved, RETRY_PENDING은 `HEALTH.FAILED`와 같은
- * rejected. 셀 하나에는 공간이 좁아 요약 카드의 긴 라벨(`완료(READY)`, `부분·대기`)
- * 대신 압축된 라벨을 쓴다.
- */
 const BUCKET_BADGE = {
   READY: { label: '완료', variant: 'approved' },
   BACKFILLING: { label: '과거 활동 수집 중', variant: 'recruiting' },
@@ -44,11 +38,6 @@ const BUCKET_BADGE = {
   }
 >;
 
-/**
- * `collection-sync.service.ts`의 `streamErrorCode` 분류(#546)에 대응하는 설명.
- * provider client가 좁혀 둔 안전한 코드만 여기 매핑하고, 목록에 없는 코드는
- * 원문을 그대로 monospace로 보여 준다 — 이 화면의 안전 사유 계약과 같은 원칙이다.
- */
 const ERROR_CODE_DESCRIPTION: Record<string, string> = {
   PROVIDER_UPSTREAM: 'GitHub 연결 실패',
   PROVIDER_RESPONSE: '응답 형식 오류',
@@ -75,9 +64,6 @@ interface LatestStreamError {
   readonly at: string | null;
 }
 
-/** 저장소의 stream들 중 lastErrorAt이 가장 최근인 오류 하나를 고른다. 시각이 없는
- * 오류는 시각이 있는 오류보다 먼저 채택된 뒤 나중에 밀려난다(시각 있는 쪽이 더
- * 믿을 만한 최신 정보이므로). */
 function latestStreamError(
   repo: CollectionStreamRepository,
 ): LatestStreamError | null {
@@ -155,10 +141,6 @@ function ProblemCell({
   );
 }
 
-/**
- * 표 밀도(한 화면에 몇 줄이 편한지)를 보고 조정할 수 있다. 수집 대상 저장소는
- * 앞으로 늘어나므로 `DataTable`의 opt-in pagination을 이 값으로 항상 켠다.
- */
 const COLLECTION_STREAMS_PAGE_SIZE = 10;
 
 export interface CollectionStreamsTableProps {
@@ -168,16 +150,10 @@ export interface CollectionStreamsTableProps {
 export function CollectionStreamsTable({
   repositories,
 }: CollectionStreamsTableProps) {
-  // 렌더 한 번 안에서는 셀마다 기준 시각이 미묘하게 어긋나지 않도록 한 번만 고정한다
-  // (audit-log-view.tsx와 같은 원칙).
   const now = new Date();
 
-  // `fetchSystemStatus`가 이미 구계약 응답을 빈 배열로 정규화하지만, 이 컴포넌트를
-  // 직접 부르는 다른 경로(로컬 검토 픽스처 오타 등)에도 안전하도록 한 번 더
-  // 가드한다 — `undefined`가 새어 들어오면 `[...undefined]`가 던진다.
   const safeRepositories = repositories ?? [];
-  // 문제 있는 저장소를 항상 맨 앞으로 정렬한다 — 「문제만 보기」 토글을 없앤
-  // 뒤에도 페이지를 넘기지 않고 첫 페이지만 봐도 문제가 눈에 띄어야 한다.
+
   const sorted = useMemo(
     () => sortedByProblemFirst(safeRepositories),
     [safeRepositories],
@@ -197,13 +173,7 @@ export function CollectionStreamsTable({
     {
       id: 'programName',
       header: '프로그램',
-      // 이 표는 org 저장소만 담는다(getIncrementalStatusStreams가
-      // PRESENT_REPOSITORY로 고정 스코프) — 학생 개인(external) 저장소는 행
-      // 자체로 여기 나타나지 않는다. 연결이 없는 게 정상인 경우는 org 저장소
-      // 중 신청 승인 경로를 거치지 않은(관리자가 직접 만든) 저장소뿐이다 —
-      // em-dash로 자연스럽게 비워 보여준다. 현재 프로덕션은 `Repository` 행이
-      // 0건이라 이 열이 전부 em-dash로 보이는 게 정상이다(데이터가 생기면
-      // 채워진다).
+
       cell: (repo) => (
         <span
           className={repo.programName ? undefined : 'text-muted-foreground'}
@@ -237,9 +207,7 @@ export function CollectionStreamsTable({
     <section aria-label="수집 대상 상세" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">수집 대상 상세</h2>
-        {/* 「문제만 보기」 토글을 없앤 자리 — 문제 저장소는 항상 첫 페이지에
-            오도록 정렬되어 있지만(sortedByProblemFirst), 페이지를 넘기지
-            않고도 문제 유무·건수를 알 수 있도록 요약은 남긴다. */}
+
         <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
           <AlertTriangle aria-hidden="true" className="size-4" />
           문제 {problemCount} / 전체 {sorted.length}

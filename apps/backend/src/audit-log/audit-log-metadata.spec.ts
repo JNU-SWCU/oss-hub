@@ -449,12 +449,7 @@ describe('createRepositoryPublishAuditMetadata / parseAuditLogMetadata — REPOS
   });
 });
 
-// #547 — 새로 기록하는 세 종류의 metadata를 조회 시점에 다시 읽어낼 수 있어야 한다.
-// 읽기 가드가 없으면 목록 조회가 InvalidAuditLogMetadataError로 통째로 깨진다.
 describe('parseAuditLogMetadata — #547 신규 typed action', () => {
-  // #621 — 수집 실행 식별자는 공개 노출 계약이 `/audit-logs` 응답의 금지 키로 선언한
-  // 값이라(`public-exposure-persona.http.integration.spec.ts`) 관문에 등록하지 않는다.
-  // 같은 값이 감사 행의 `targetId`로 이미 나가므로 추적성은 그대로다.
   it('수집 트리거 metadata를 읽되 runId는 응답 형태에서 뺀다', () => {
     const metadata = createCollectionTriggerAuditMetadata({
       runId: 'synthetic-run-id',
@@ -562,9 +557,6 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
     ).toThrow(InvalidAuditLogMetadataError);
   });
 
-  // 회귀 방지: 판정 metadata에 반려 사유 원문이 다시 들어오면 여기서 깨진다.
-  // `AuditLog`는 append-only라 한 번 쓴 값을 지울 수 없으므로, 조회 관문(#621)이 생긴
-  // 뒤에도 쓰기 자체를 막는 이 방어선은 그대로 둔다.
   it('판정 metadata는 반려 사유 원문을 담지 않는다', () => {
     const rejected = createApplicationDecisionAuditMetadata({
       programName: '합성 프로그램',
@@ -595,8 +587,6 @@ describe('parseAuditLogMetadata — #547 신규 typed action', () => {
   });
 });
 
-// #621 — 조회 관문. shape validator는 "알려진 모양인가"만 보므로 검증을 통과한 값에도
-// 등록되지 않은 키가 남는다. 여기서는 그 키들이 응답 형태에서 사라지는지를 못 박는다.
 describe('parseAuditLogMetadata — 조회 응답 필드 화이트리스트', () => {
   const ACCESS_V2 = createAccessAuditMetadata({
     eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
@@ -636,8 +626,6 @@ describe('parseAuditLogMetadata — 조회 응답 필드 화이트리스트', ()
     );
   });
 
-  // 이 조합이 #621의 출발점이다 — 저장 시점에는 유효한 행이고(가드가 `rejectionReason`을
-  // 요구한다), append-only라 지울 수도 없다. 응답에서 빼는 것이 유일한 수단이다.
   it('ROLE_REQUEST_REJECTED 행의 반려 사유 원문을 응답 형태에서 뺀다', () => {
     const stored = createAccessAuditMetadata({
       eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
@@ -819,8 +807,6 @@ describe('createTeamMembershipAuditMetadata / parseAuditLogMetadata — TEAM_MEM
     });
   });
 
-  // 등록 순서 회귀 방지. TEAM_CREATED/TEAM_JOINED가 먼저 잡으면 탈퇴·승계 필드가
-  // 조용히 잘려 "팀 생성 행"처럼 보이고, 감사 원장은 append-only라 되돌릴 수 없다.
   it('일반 팀 상태 parser가 팀 구성 변경 필드를 먼저 삼키지 않는다', () => {
     const evidence = parseAuditLogMetadata(LEAVE_WITH_SUCCESSION);
 
@@ -908,8 +894,6 @@ describe('createTeamRenamedAuditMetadata / parseAuditLogMetadata — TEAM_RENAME
     });
   });
 
-  // 등록 순서 회귀 방지 — TEAM_CREATED/TEAM_JOINED가 먼저 잡으면 previousName이
-  // 조용히 잘려 "팀 생성 행"처럼 보이고, 감사 원장은 append-only라 되돌릴 수 없다.
   it('일반 팀 상태 parser가 이름 변경 필드를 먼저 삼키지 않는다', () => {
     expect(parseAuditLogMetadata(RENAMED).metadata).toMatchObject({
       previousName: '합성 팀',
@@ -952,8 +936,6 @@ describe('createTeamDeletedAuditMetadata / parseAuditLogMetadata — TEAM_DELETE
     });
   });
 
-  // 등록 순서 회귀 방지 — TEAM_CREATED/TEAM_JOINED가 먼저 잡으면 deletedCounts가
-  // 조용히 잘려 「팀이 생성됐다」는 정반대 사실로 읽히고, 원장은 append-only라 되돌릴 수 없다.
   it('일반 팀 상태 parser가 삭제 수치를 먼저 삼키지 않는다', () => {
     expect(parseAuditLogMetadata(DELETED).metadata).toMatchObject({
       deletedCounts: { members: 3, detachedRepositories: 1 },

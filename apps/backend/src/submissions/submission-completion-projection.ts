@@ -4,7 +4,6 @@ import {
   type SubmissionStatus,
 } from '@prisma/client';
 
-/** Target-ledger fields required to project completion onto its two milestone axes. */
 export const submissionCompletionTargetSelect = {
   status: true,
   milestoneDocument: {
@@ -18,24 +17,17 @@ export type SubmissionCompletionTargetRow =
   }>;
 
 export interface SubmissionCompletionProjections {
-  /** Internal legacy submission slot, keyed by milestone. */
   readonly submissions: readonly {
     readonly milestoneId: string;
     readonly status: SubmissionStatus;
   }[];
-  /** DOCUMENT submission slots, keyed by milestone document. */
+
   readonly documentSubmissions: readonly {
     readonly milestoneDocumentId: string;
     readonly status: SubmissionStatus;
   }[];
 }
 
-/**
- * Projects target-ledger completion rows onto the legacy milestone and DOCUMENT axes.
- *
- * `LEGACY_MILESTONE_SUBMISSION` is the permanent internal slot for a milestone's
- * former single-submission axis; it is never exposed as a document submission.
- */
 export function projectSubmissionCompletionTargets(
   targetRows: readonly SubmissionCompletionTargetRow[],
 ): SubmissionCompletionProjections {

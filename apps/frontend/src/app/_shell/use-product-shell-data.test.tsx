@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -115,11 +113,6 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
     expect(container.textContent).toContain('1차 계획서');
   });
 
-  /**
-   * 단계 조회가 실패해도 좌측 패널은 오류를 들이밀지 않는다. 형제 조회와 같은 모양으로
-   * 조용히 접고, 프로그램 개요는 그대로 남아 나머지 내비게이션이 계속 그려진다.
-   * 재시도는 좌측 패널의 일이 아니므로 훅이 그 손잡이를 내주지 않는다.
-   */
   it('단계 조회가 실패해도 개요는 남기고 단계만 조용히 접는다', async () => {
     mocks.getProgramOverview.mockResolvedValue(OVERVIEW);
     mocks.getProgramNavigationMilestones.mockRejectedValue(
@@ -204,12 +197,9 @@ describe('useProductShellData 참여 여부(#1099)', () => {
       root.render(<Probe programDetailId="program-1" member studentViewer />);
     });
 
-    // undefined는 JSON.stringify가 키째로 지운다 — 「모른다」가 그대로 남았다는 뜻이다.
     expect(container.textContent).not.toContain('"scopeParticipant":');
   });
 
-  // 신청 없음이 null이 된 뒤 이 경로에 남는 404는 「프로그램 자체가 없음」뿐이다.
-  // 그것은 「참여자가 아니다」가 아니라 「모른다」다 — 추측으로 메뉴를 내리지 않는다.
   it('프로그램이 없다는 404도 모르는 채로 둔다', async () => {
     mocks.getMyApplication.mockRejectedValue(apiError(404, 'APP_009'));
 

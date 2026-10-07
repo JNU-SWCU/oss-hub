@@ -2,16 +2,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-/**
- * 계약 리허설이 심을 합성 행을 SQL로 낸다.
- *
- * 리허설은 **계약 마이그레이션 직전** 스키마 위에서 돈다. 그 시점의 Prisma 클라이언트는
- * 계약 이후 모양으로 생성되어 있어 legacy 칸을 쓸 수 없으므로, 여기서는 클라이언트를
- * 쓰지 않고 SQL을 직접 낸다.
- *
- * 값은 전부 합성이다 — 픽스처 파일에 실제 사용자 데이터가 없다.
- */
-
 function quote(value) {
   if (value === null || value === undefined) {
     return 'NULL';

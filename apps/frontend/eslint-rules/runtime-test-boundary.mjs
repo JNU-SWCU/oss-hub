@@ -1,22 +1,3 @@
-// 런타임 모듈이 테스트 소유 코드/데이터를 가져오지 못하게 한다.
-//
-// 대상은 해석된 리터럴 의존 간선뿐이다. 계산된 specifier(`import(name)`,
-// 치환이 있는 템플릿)는 일반적으로 해석할 수 없으므로 보고하지 않는다 —
-// 그런 간선은 이 규칙이 전체 프로그램 증명을 대신한다고 주장하지 말고
-// 리뷰한다. 존재하지 않는 모듈은 컴파일러 오류로 남긴다. 해석 실패를
-// 성공으로 꾸미는 fallback은 두지 않는다.
-//
-// 테스트 소유 분류(타깃·임포터 공통):
-// - 패키지 루트 기준 경로 세그먼트가 정확히 `test-support` / `e2e` /
-//   `__tests__` / `__mocks__` 인 트리 (부분 문자열 매칭이 아님)
-// - 파일명 `*.test.*` / `*.spec.*` / `*.fixture.*`
-// - 명시 헬퍼: `*-test-support.*`, `*-test-fixtures.*`, 베이스네임이 정확히
-//   `fixtures.*`. `mock`/`sample`/`seed` 또는 이름에 fixture가 들어 있는
-//   임의의 도메인 파일은 금지하지 않는다.
-//
-// 임포터 제외는 위 테스트 소유 파일과 패키지 루트의 정확한
-// `vitest.config.mts` / `playwright.config.ts` 뿐이다. 모든 `.config.*`,
-// `lib`, `next.config.ts`, 로컬리뷰/부채 예외, enable 플래그는 없다.
 import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';

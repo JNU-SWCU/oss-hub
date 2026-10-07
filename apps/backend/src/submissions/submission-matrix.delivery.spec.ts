@@ -96,11 +96,10 @@ it.each([
 ] as const)(
   'classifies %s independently from review state',
   async (_, times, status) => {
-    // Given
     const { service } = setup(times);
-    // When
+
     const result = await service.matrix(1136n, 'program', query);
-    // Then
+
     expect(result.rows[0]?.cells[0]).toMatchObject({
       deliveryStatus: status,
       status: 'REJECTED',
@@ -113,7 +112,6 @@ it.each([
 );
 
 it('does not treat another application or unrelated document as a required submission', async () => {
-  // Given
   const { service, repository } = setup([null]);
   repository.findDocumentFirstSubmissions = () =>
     Promise.resolve([
@@ -128,18 +126,17 @@ it('does not treat another application or unrelated document as a required submi
         firstSubmittedAt: onTime,
       },
     ]);
-  // When
+
   const result = await service.matrix(1136n, 'program', query);
-  // Then
+
   expect(result.rows[0]?.cells[0]).toMatchObject({ deliveryStatus: 'MISSING' });
 });
 
 it('reads first-submission coordinates once for only the selected page and required items', async () => {
-  // Given
   const { service, calls } = setup([onTime, dueAt]);
-  // When
+
   await service.matrix(1136n, 'program', query);
-  // Then
+
   expect(calls).toEqual([
     {
       applicationIds: ['application'],

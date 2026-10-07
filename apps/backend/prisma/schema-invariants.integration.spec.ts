@@ -119,8 +119,6 @@ describe('core schema invariants integration', () => {
   });
 
   it('신청은 같은 프로그램에서 팀당 한 건만 허용한다(programId, teamId full unique)', async () => {
-    // Given: D5 — 모든 신청이 Team을 갖고 (programId, teamId) full unique가 중복을 막는다.
-    // 이전 personal partial unique(programId, applicantId WHERE teamId IS NULL)는 제거됐다.
     await createProgram();
     await createTeam(TEAM_A_ID, PROGRAM_ID, USER_A_ID);
     await prisma.application.create({
@@ -134,7 +132,6 @@ describe('core schema invariants integration', () => {
       },
     });
 
-    // When: 같은 팀으로 두 번째 신청을 넣는다(신청자만 다름).
     const duplicateInsert = prisma.application.create({
       data: {
         id: `${TEST_PREFIX}application:team:second`,
@@ -146,12 +143,10 @@ describe('core schema invariants integration', () => {
       },
     });
 
-    // Then
     await expect(duplicateInsert).rejects.toMatchObject({ code: 'P2002' });
   });
 
   it('Application.teamId FK는 ON DELETE RESTRICT다', async () => {
-    // Given: 팀이 신청에 연결되어 있다.
     await createProgram();
     await createTeam(TEAM_A_ID, PROGRAM_ID, USER_A_ID);
     await prisma.application.create({
@@ -165,15 +160,12 @@ describe('core schema invariants integration', () => {
       },
     });
 
-    // When: 연결된 팀을 삭제한다.
     const deleteTeam = prisma.team.delete({ where: { id: TEAM_A_ID } });
 
-    // Then: SET NULL이 아니라 RESTRICT라 거절된다.
     await expect(deleteTeam).rejects.toMatchObject({ code: 'P2003' });
   });
 
   it('사용자는 같은 프로그램의 두 팀에 동시에 속할 수 없다', async () => {
-    // Given
     await createProgram();
     await createTeam(TEAM_A_ID, PROGRAM_ID, USER_A_ID);
     await createTeam(TEAM_B_ID, PROGRAM_ID, USER_B_ID);
@@ -182,44 +174,36 @@ describe('core schema invariants integration', () => {
       VALUES (${`${TEST_PREFIX}member:first`}, ${TEAM_A_ID}, ${PROGRAM_ID}, ${USER_C_ID}, NOW())
     `;
 
-    // When
     const duplicateInsert = prisma.$executeRaw`
       INSERT INTO "TeamMember" ("id", "teamId", "programId", "userId", "createdAt")
       VALUES (${`${TEST_PREFIX}member:second`}, ${TEAM_B_ID}, ${PROGRAM_ID}, ${USER_C_ID}, NOW())
     `;
 
-    // Then
     await expect(duplicateInsert).rejects.toMatchObject({ code: 'P2010' });
   });
 
   it('팀 멤버의 programId는 소속 팀의 programId와 같아야 한다', async () => {
-    // Given
     await createProgram();
     await createProgram(SECOND_PROGRAM_ID);
     await createTeam(TEAM_A_ID, PROGRAM_ID, USER_A_ID);
 
-    // When
     const mismatchedInsert = prisma.$executeRaw`
       INSERT INTO "TeamMember" ("id", "teamId", "programId", "userId", "createdAt")
       VALUES (${`${TEST_PREFIX}member:mismatch`}, ${TEAM_A_ID}, ${SECOND_PROGRAM_ID}, ${USER_C_ID}, NOW())
     `;
 
-    // Then
     await expect(mismatchedInsert).rejects.toMatchObject({ code: 'P2010' });
   });
 
   it('사용자당 PENDING 역할 요청은 한 건만 허용한다', async () => {
-    // Given
     await prisma.staffAccessRequest.create({
       data: { id: `${TEST_PREFIX}role:first`, userId: USER_A_ID },
     });
 
-    // When
     const duplicateInsert = prisma.staffAccessRequest.create({
       data: { id: `${TEST_PREFIX}role:second`, userId: USER_A_ID },
     });
 
-    // Then
     await expect(duplicateInsert).rejects.toMatchObject({ code: 'P2002' });
   });
 
@@ -240,12 +224,8 @@ describe('core schema invariants integration', () => {
       overrides: { teamMinSize: 3, teamMaxSize: 2 },
     },
   ])('$name은 저장할 수 없다', async ({ overrides }) => {
-    // Given: 각 케이스의 잘못된 기간 또는 팀 인원 설정.
-
-    // When
     const invalidInsert = createProgram(PROGRAM_ID, overrides);
 
-    // Then
     await expect(invalidInsert).rejects.toBeInstanceOf(
       Prisma.PrismaClientUnknownRequestError,
     );

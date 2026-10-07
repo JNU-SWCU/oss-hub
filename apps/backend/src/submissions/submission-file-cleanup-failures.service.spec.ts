@@ -17,7 +17,6 @@ describe('SubmissionFileCleanupFailuresService', () => {
   });
 
   it('returns exhausted cleanup entries to an active administrator', async () => {
-    // Given
     findActiveAdminByGithubId.mockResolvedValue(true);
     findExhaustedCleanups.mockResolvedValue([
       {
@@ -28,7 +27,6 @@ describe('SubmissionFileCleanupFailuresService', () => {
       },
     ]);
 
-    // When / Then
     await expect(service.listExhausted(1n)).resolves.toEqual([
       {
         fileId: 'submission-file-1',
@@ -40,7 +38,6 @@ describe('SubmissionFileCleanupFailuresService', () => {
   });
 
   it('never carries file name, storage key, or uploader into the response', async () => {
-    // Given: 저장소가 식별 정보를 얹어 돌려주더라도 응답에는 새지 않아야 한다.
     findActiveAdminByGithubId.mockResolvedValue(true);
     findExhaustedCleanups.mockResolvedValue([
       {
@@ -55,10 +52,8 @@ describe('SubmissionFileCleanupFailuresService', () => {
       },
     ]);
 
-    // When
     const failures = await service.listExhausted(1n);
 
-    // Then
     expect(Object.keys(failures[0]!).sort()).toEqual([
       'attemptCount',
       'createdAt',
@@ -71,10 +66,8 @@ describe('SubmissionFileCleanupFailuresService', () => {
   });
 
   it('rejects non-administrators before reading exhausted cleanups', async () => {
-    // Given
     findActiveAdminByGithubId.mockResolvedValue(false);
 
-    // When / Then
     await expect(service.listExhausted(1n)).rejects.toBeInstanceOf(
       ForbiddenException,
     );

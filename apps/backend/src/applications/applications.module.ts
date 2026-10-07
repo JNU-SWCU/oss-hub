@@ -34,7 +34,7 @@ import { StudentRepositoryUrlRepository } from './student-repository-url.reposit
     ConsentsModule,
     AuditLogModule,
     AuthModule,
-    // 저장소 URL을 바꾼 직후 수집을 시작하는 port만 쓴다(#1133).
+
     CollectionModule,
     RepositoriesModule,
     ProgramsModule,

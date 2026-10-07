@@ -118,7 +118,7 @@ export type EditableProgramView = {
   readonly applicationTemplateVersion: number;
   readonly applicationCount: number;
   readonly teamCount: number;
-  /** 전체 삭제 확인 전 다시 읽는, 프로그램에 직접 연결된 4종 자식 수. */
+
   readonly deletionScopeCounts?: ProgramDeletionScopeCounts;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
@@ -141,13 +141,12 @@ export type ProgramSchedule = {
 export type ProgramMilestoneDeleteTarget = {
   readonly id: string;
   readonly programId: string;
-  /** 이 마일스톤의 내부 제출 슬롯과 일반 서류 항목에 달린 target 제출 수. */
+
   readonly documentSubmissionCount: number;
   readonly programMilestoneCount: number;
   readonly programRepositoryProvisioningEnabled: boolean;
 };
 
-/** EXPAND-only legacy metadata target; see the EXPAND removal ledger. */
 export type ProgramMilestoneTarget = ProgramMilestoneView & {
   readonly programId: string;
   readonly programStartAt: Date;
@@ -186,7 +185,6 @@ export type ProgramMilestoneCreateInput = ProgramMilestoneInput & {
   readonly programId: string;
 };
 
-/** EXPAND-only legacy metadata input; see the EXPAND removal ledger. */
 export type ProgramMilestoneUpdateInput = ProgramMilestoneInput & {
   readonly milestoneId: string;
 };
@@ -208,11 +206,11 @@ export interface ProgramEditorTransactionStore {
   createMilestone(
     input: ProgramMilestoneCreateInput,
   ): Promise<ProgramMilestoneView>;
-  /** EXPAND-only legacy metadata seam; see the EXPAND removal ledger. */
+
   findMilestoneForUpdate(
     milestoneId: string,
   ): Promise<ProgramMilestoneTarget | null>;
-  /** EXPAND-only legacy metadata seam; see the EXPAND removal ledger. */
+
   updateMilestone(
     input: ProgramMilestoneUpdateInput,
   ): Promise<ProgramMilestoneView>;

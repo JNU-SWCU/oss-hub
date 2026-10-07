@@ -63,10 +63,6 @@ export class AuthService {
     return { url: url.toString(), flowCookieValue: encodeFlowCookie(flow) };
   }
 
-  /**
-   * callback 유스케이스. 액세스 토큰은 프로필 확인에 한 번 쓰고 이 메서드 밖으로
-   * 내보내지 않는다(저장 없음). 외부 HTTP가 끝난 뒤에만 DB 쓰기가 일어난다.
-   */
   async completeLogin(input: CompleteLoginInput): Promise<AuthLoginResult> {
     const flow = decodeFlowCookie(input.flowCookie);
     if (!flow || !isSameState(flow.state, input.state)) {
@@ -146,7 +142,6 @@ export class AuthService {
     const body = (await response.json()) as Record<string, unknown>;
     const accessToken = body.access_token;
     if (typeof accessToken !== 'string' || accessToken.length === 0) {
-      // 만료·재사용된 code 등 — 응답 본문은 로그에 남기지 않는다.
       throw new Error('GitHub code 교환 응답에 access_token이 없습니다.');
     }
     return accessToken;
@@ -174,10 +169,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * primary 이메일만 골라 반환한다. 주소 값은 로그에 남기지 않는다.
-   * emails API 실패·빈 목록은 null로 처리해 로그인 자체를 막지 않는다.
-   */
   private async fetchPrimaryEmail(accessToken: string): Promise<string | null> {
     const response = await fetch(GITHUB_USER_EMAILS_URL, {
       headers: this.githubApiHeaders(accessToken),

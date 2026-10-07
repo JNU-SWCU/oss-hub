@@ -15,13 +15,6 @@ const EVENT_LABELS = {
   string
 >;
 
-/**
- * 지금 가진 이력이 처음 제출까지 닿는지에 관한 화면 계약이다.
- *
- * cursor 페이지가 남아 있거나, 응답이 완전성을 보장하지 않으면 앞 제출본이 없다고
- * 단정할 수 없다. 서버가 나중에 더 강한 완전성 메타데이터를 주더라도 이 경계에서만
- * 그 값을 이 계약으로 바꾸면 된다.
- */
 export type MilestoneDocumentHistoryCompleteness =
   'complete' | 'has-more' | 'incomplete';
 
@@ -115,27 +108,11 @@ export function MilestoneDocumentHistoryTimeline({
   );
 }
 
-/**
- * 남아 있지 않은 앞 제출본의 차수 표기.
- *
- * 한 건뿐일 때 범위로 쓰지 않는다 — 「1~1차」는 읽는 사람이 두 번 세게 만든다.
- */
 function missingRevisionRange(firstKnownRevision: number): string {
   const lastMissingRevision = firstKnownRevision - 1;
   return lastMissingRevision === 1 ? '1' : `1~${lastMissingRevision}`;
 }
 
-/**
- * 이력에 남은 첨부 한 건.
- *
- * 주소가 있으면 내려받기 링크로, 없으면 이름만 글자로 그린다. 보관 기한이 지나 실제로
- * 지워진 파일에는 서버가 주소를 주지 않으므로(`downloadUrl`), 이름만 보고 링크를 세우면
- * 눌러도 404가 나는 버튼이 생긴다.
- *
- * ⚠ 이 자리는 학생 화면과 교직원 검토 패널이 함께 쓴다. 내려받기 API의 권한은
- * `GET /submission-files/:fileId`가 소유한다 — 교직원·관리자는 전부, 그 밖에는 올린
- * 본인이거나 같은 팀원이다. 화면이 역할을 다시 판정하지 않는 이유가 그것이다.
- */
 function HistoryFile({
   fileName,
   href,
@@ -159,14 +136,9 @@ function HistoryFile({
         asChild
         size="sm"
         variant="ghost"
-        // 높이는 44px 컨트롤 규격을 따른다 — #1335에서 화면을 보고 그대로 두기로 했다.
+
         className="max-w-full justify-start px-2 py-1"
       >
-        {/*
-         * `download`를 붙여도 되는 자리다 — 파일 한 건이고 이름을 이미 알고 있다
-         * (양식 다운로드와 같다). 이름을 모르는 ZIP 쪽이 이 속성을 일부러 안 쓰는
-         * 것과는 사정이 다르다.
-         */}
         <a
           href={href}
           download={fileName}

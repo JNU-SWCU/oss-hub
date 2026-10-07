@@ -1,5 +1,3 @@
-/** 의존성 없이 필요한 만큼만 구현한 쿠키 유틸 — auth 모듈 전용. */
-
 export function parseCookies(
   header: string | undefined,
 ): Record<string, string> {
@@ -15,7 +13,6 @@ export function parseCookies(
     const name = part.slice(0, separatorIndex).trim();
     const value = part.slice(separatorIndex + 1).trim();
     if (name && !(name in cookies)) {
-      // 중복 쿠키는 첫 값만 사용 (브라우저가 더 구체적인 쿠키를 앞에 보낸다)
       cookies[name] = value;
     }
   }
@@ -27,10 +24,6 @@ export interface CookieAttributes {
   secure: boolean;
 }
 
-/**
- * 세션·flow 쿠키 직렬화. Domain은 절대 설정하지 않는다(host-only).
- * 운영(secure)에서는 __Host- 접두사 요건(Secure + Path=/ + Domain 없음)을 그대로 충족한다.
- */
 export function serializeCookie(
   name: string,
   value: string,
@@ -49,7 +42,6 @@ export function serializeCookie(
   return parts.join('; ');
 }
 
-/** 계정 비활성화와 일반 로그아웃이 같은 세션 쿠키 삭제 계약을 공유한다. */
 export function serializeClearedSessionCookie(secure: boolean): string {
   return serializeCookie(sessionCookieName(secure), '', {
     maxAgeSeconds: 0,
@@ -58,7 +50,6 @@ export function serializeClearedSessionCookie(secure: boolean): string {
 }
 
 export function flowCookieName(secure: boolean): string {
-  // __Host-는 HTTPS 전용이라 개발 HTTP에서는 별도 이름을 쓴다.
   return secure ? '__Host-oss_oauth_flow' : 'oss_oauth_flow_dev';
 }
 

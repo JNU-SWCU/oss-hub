@@ -16,7 +16,6 @@ describe('student application API', () => {
   });
 
   it('내 신청을 조회한다', async () => {
-    // Given
     const response = {
       id: 'application-1',
       programId: 'program-1',
@@ -34,10 +33,8 @@ describe('student application API', () => {
     };
     vi.mocked(apiClient).mockResolvedValue(response);
 
-    // When
     const result = await getMyApplication('program-1');
 
-    // Then
     expect(apiClient).toHaveBeenCalledWith(
       'programs/program-1/applications/me',
     );
@@ -45,16 +42,13 @@ describe('student application API', () => {
   });
 
   it('내 신청 내용을 수정한다', async () => {
-    // Given
     vi.mocked(apiClient).mockResolvedValue({});
 
-    // When
     await updateMyApplication('program-1', {
       answers: { title: '수정 제목' },
       applicationTemplateVersion: 1,
     });
 
-    // Then
     expect(apiClient).toHaveBeenCalledWith(
       'programs/program-1/applications/me',
       expect.objectContaining({
@@ -68,13 +62,10 @@ describe('student application API', () => {
   });
 
   it('내 신청을 취소한다', async () => {
-    // Given
     vi.mocked(apiClient).mockResolvedValue({ cancelled: true });
 
-    // When
     await cancelMyApplication('program-1');
 
-    // Then
     expect(apiClient).toHaveBeenCalledWith(
       'programs/program-1/applications/me',
       { method: 'DELETE' },

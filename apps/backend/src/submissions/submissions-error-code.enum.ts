@@ -28,12 +28,7 @@ export const SubmissionsErrorCode = {
   SUBMISSION_FILE_NOT_FOUND: 'SUB_022',
   SUBMISSION_REPLACEMENT_CLOSED: 'SUB_023',
   SUBMISSION_FILE_QUOTA_EXCEEDED: 'SUB_024',
-  /*
-   * 여기부터는 **압축 파일 안을 들여다본 뒤** 막은 갈래다(#1108). 형식·서명 거절
-   * (UNSUPPORTED_FILE_TYPE)과 절대 같은 코드를 쓰지 않는다 — `.zip`은 허용 형식이라
-   * 「지원하지 않는 파일 형식입니다」는 사실이 아니고, 학생을 원인과 무관한 쪽으로 보낸다.
-   * 갈래를 나눈 기준과 문구는 `submission-zip-admission.ts`가 소유한다.
-   */
+
   ZIP_UNREADABLE: 'SUB_025',
   ZIP_ENTRY_NOT_ALLOWED: 'SUB_026',
   ZIP_NESTED: 'SUB_027',
@@ -133,8 +128,7 @@ export const SUBMISSIONS_ERROR_CODES: Readonly<
   [SubmissionsErrorCode.FILE_TOO_LARGE]: {
     code: SubmissionsErrorCode.FILE_TOO_LARGE,
     status: 413,
-    // 문구는 `submission-upload-policy.ts`가 소유한다 — 여기 숫자를 다시 적으면 화면
-    // 안내와 413 응답이 다른 숫자를 말하게 된다(#1106, #1107).
+
     message: SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE,
   },
   [SubmissionsErrorCode.FILE_STORAGE_UNAVAILABLE]: {
@@ -162,13 +156,7 @@ export const SUBMISSIONS_ERROR_CODES: Readonly<
     status: 413,
     message: '보관 중인 제출 파일 한도를 초과했습니다.',
   },
-  /*
-   * 압축 파일 내용 거절 여덟 갈래(#1108). 상태 코드가 415가 아니라 422인 이유:
-   * 415는 「이 미디어 타입은 받지 않는다」는 뜻인데 `.zip`은 받는 형식이다. 여기서 막히는
-   * 것은 형식이 아니라 **그 안에 담긴 것**이므로 「형식은 맞지만 처리할 수 없다」는 422가
-   * 사실에 맞다. 문구는 여덟 갈래 모두 `submission-zip-admission.ts`가 소유하며 서류
-   * 경로(MSD_*)도 같은 문장을 쓴다.
-   */
+
   [SubmissionsErrorCode.ZIP_UNREADABLE]: {
     code: SubmissionsErrorCode.ZIP_UNREADABLE,
     status: 422,
@@ -231,13 +219,6 @@ export const SUBMISSIONS_ERROR_CODES: Readonly<
   },
 };
 
-/**
- * 압축 파일 입장 검사의 거절 사유 → 제출 경로 오류 코드.
- *
- * `Record<SubmissionZipRejection, …>`으로 적어 둔 것이 요점이다 — 갈래가 하나 늘면
- * 컴파일이 실패한다. 새 갈래가 조용히 옛 코드로 접혀 다시 「사유 하나로 뭉개기」가
- * 되살아나는 길을 타입이 막는다.
- */
 export const SUBMISSION_ZIP_REJECTION_ERROR_CODES: Readonly<
   Record<SubmissionZipRejection, SubmissionsErrorCode>
 > = {

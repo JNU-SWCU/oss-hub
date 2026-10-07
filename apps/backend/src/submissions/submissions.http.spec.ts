@@ -139,14 +139,10 @@ afterAll(async () => {
 });
 
 it('private 제출 폼은 브라우저와 공유 캐시에 저장하지 않는다', async () => {
-  // Given: applicationId가 포함된 제출 폼.
-
-  // When
   const response = await fetch(
     `${baseUrl}/api/v1/programs/synthetic-program/milestones/synthetic-milestone/submission-form`,
   );
 
-  // Then
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('private, no-store');
   await expect(response.json()).resolves.toMatchObject({
@@ -155,56 +151,46 @@ it('private 제출 폼은 브라우저와 공유 캐시에 저장하지 않는�
 });
 
 it('content가 누락된 최초 제출은 validation 4xx로 끝난다', async () => {
-  // Given
   const body = {
     applicationId: 'synthetic-application',
     milestoneId: 'synthetic-milestone',
     comment: '합성 코멘트',
   };
 
-  // When
   const response = await fetch(`${baseUrl}/api/v1/submissions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 
-  // Then
   expect(response.status).toBe(400);
   await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
   expect(create).not.toHaveBeenCalled();
 });
 
 it('10,000자를 넘는 TEXT 제출은 서비스 호출 전에 거절한다', async () => {
-  // Given
   const body = {
     applicationId: 'synthetic-application',
     milestoneId: 'synthetic-milestone',
     content: { type: 'TEXT', text: '가'.repeat(10_001) },
   };
 
-  // When
   const response = await fetch(`${baseUrl}/api/v1/submissions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 
-  // Then
   expect(response.status).toBe(400);
   await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
   expect(create).not.toHaveBeenCalled();
 });
 
 it('내 체크리스트는 계약 형태로 직렬화하고 브라우저·공유 캐시에 저장하지 않는다', async () => {
-  // Given: 보완 요청 상태의 submission이 포함된 체크리스트.
-
-  // When
   const response = await fetch(
     `${baseUrl}/api/v1/programs/synthetic-program/submissions/me`,
   );
 
-  // Then
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('private, no-store');
   await expect(response.json()).resolves.toMatchObject({
@@ -224,14 +210,10 @@ it('내 체크리스트는 계약 형태로 직렬화하고 브라우저·공유
 });
 
 it('파일 다운로드는 attachment 스트림과 private no-store 헤더를 반환한다', async () => {
-  // Given: 서비스가 private 파일 스트림과 안전한 메타데이터를 반환한다.
-
-  // When
   const response = await fetch(
     `${baseUrl}/api/v1/submission-files/synthetic-file`,
   );
 
-  // Then
   expect(response.status).toBe(200);
   expect(response.headers.get('cache-control')).toBe('private, no-store');
   expect(response.headers.get('content-type')).toBe('application/pdf');
@@ -245,14 +227,12 @@ it('파일 다운로드는 attachment 스트림과 private no-store 헤더를 �
 });
 
 it('재제출은 baseRevision과 정규화된 content를 서비스에 전달하고 201로 끝난다', async () => {
-  // Given
   const body = {
     baseRevision: 1,
     content: { type: 'TEXT', text: '보완한 본문' },
     comment: '  실행 화면을 추가했습니다  ',
   };
 
-  // When
   const response = await fetch(
     `${baseUrl}/api/v1/submissions/synthetic-submission/resubmissions`,
     {
@@ -262,7 +242,6 @@ it('재제출은 baseRevision과 정규화된 content를 서비스에 전달하�
     },
   );
 
-  // Then
   expect(response.status).toBe(201);
   await expect(response.json()).resolves.toEqual({
     submissionId: 'synthetic-submission',
@@ -281,10 +260,8 @@ it('재제출은 baseRevision과 정규화된 content를 서비스에 전달하�
 });
 
 it('content가 누락된 재제출은 validation 4xx로 끝난다', async () => {
-  // Given
   const body = { baseRevision: 1, comment: '합성 코멘트' };
 
-  // When
   const response = await fetch(
     `${baseUrl}/api/v1/submissions/synthetic-submission/resubmissions`,
     {
@@ -294,14 +271,12 @@ it('content가 누락된 재제출은 validation 4xx로 끝난다', async () => 
     },
   );
 
-  // Then
   expect(response.status).toBe(400);
   await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
   expect(resubmit).not.toHaveBeenCalled();
 });
 
 it('FILE replacement multipart context를 업로드 서비스에 전달한다', async () => {
-  // Given
   const body = new FormData();
   body.append('applicationId', 'synthetic-application');
   body.append('milestoneId', 'synthetic-milestone');
@@ -313,13 +288,11 @@ it('FILE replacement multipart context를 업로드 서비스에 전달한다', 
     'synthetic.pdf',
   );
 
-  // When
   const response = await fetch(`${baseUrl}/api/v1/submission-files`, {
     method: 'POST',
     body,
   });
 
-  // Then
   expect(response.status).toBe(201);
   await expect(response.json()).resolves.toMatchObject({
     fileId: 'synthetic-file',
@@ -369,13 +342,11 @@ it('브라우저 zip MIME 별칭을 업로드 서비스에 그대로 전달한�
 });
 
 it('정수가 아닌 baseRevision은 서비스 호출 전에 거절한다', async () => {
-  // Given
   const body = {
     baseRevision: '1',
     content: { type: 'TEXT', text: '보완한 본문' },
   };
 
-  // When
   const response = await fetch(
     `${baseUrl}/api/v1/submissions/synthetic-submission/resubmissions`,
     {
@@ -385,14 +356,12 @@ it('정수가 아닌 baseRevision은 서비스 호출 전에 거절한다', asyn
     },
   );
 
-  // Then
   expect(response.status).toBe(400);
   await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
   expect(resubmit).not.toHaveBeenCalled();
 });
 
 it('파일 판정은 고른 파일만 서비스 판정에 넘기고 본문 없는 204로 끝난다', async () => {
-  // Given: 제출 전에 압축 파일 하나만 보낸다(#1108).
   const body = new FormData();
   body.append(
     'file',
@@ -400,13 +369,11 @@ it('파일 판정은 고른 파일만 서비스 판정에 넘기고 본문 없�
     'archive.zip',
   );
 
-  // When
   const response = await fetch(`${baseUrl}/api/v1/submission-files/checks`, {
     method: 'POST',
     body,
   });
 
-  // Then: 판정만 하고 업로드(저장)는 부르지 않는다.
   expect(response.status).toBe(204);
   await expect(response.text()).resolves.toBe('');
   expect(check).toHaveBeenCalledWith(

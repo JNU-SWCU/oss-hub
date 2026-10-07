@@ -10,10 +10,6 @@ export const APPLICATION_MODES = {
 export type ApplicationMode =
   (typeof APPLICATION_MODES)[keyof typeof APPLICATION_MODES];
 
-/**
- * 공개 확정 게이트 2~5(AGENTS.md "다섯 게이트")의 실패 사유.
- * 게이트 1(`isConfirmed`)은 controller가 보므로 여기에 없다.
- */
 export {
   PUBLISH_BLOCKED_REASONS,
   publishBlockedReasons,

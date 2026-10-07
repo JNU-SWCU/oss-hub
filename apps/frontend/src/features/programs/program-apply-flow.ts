@@ -2,10 +2,6 @@ import type { ProblemDetail, ProblemDetailFieldError } from '@/lib/api-client';
 import type { ProgramTeam } from './api';
 import type { ApplicationFormTemplate, ProgramDetail } from './types';
 
-/**
- * `manage-not-allowed`는 신청자도 팀장도 아닌 팀원이다 — 신청서를 읽을 수는 있지만
- * 고치거나 취소하지는 못한다(#1083). `period-closed`로 뭉뚱그리면 기다리면 열릴 줄 안다.
- */
 export type ProgramApplyBlockedReason =
   'period-closed' | 'already-applied' | 'team-required' | 'manage-not-allowed';
 
@@ -88,11 +84,6 @@ export function resolveApplyBlockedReason(
   return null;
 }
 
-/**
- * 개인정보 동의는 **새 신청서 제출**에만 적용된다. 수정(`edit`)은 승인 전 이미
- * 제출된 신청서의 제목만 고치는 흐름이라 동의를 다시 요구하지 않는다. 저장소
- * URL은 승인 후 `RepositoryUrlEditor`가 별도 API로 다룬다.
- */
 export function validateApplyForm(
   values: ProgramApplyFormValues,
   mode: 'create' | 'edit' = 'create',
@@ -107,15 +98,8 @@ export function validateApplyForm(
   };
 }
 
-/** 신청 화면에서 확인 후 실행하는 동작. 실패 안내가 동작별로 갈린다. */
 export type ProgramApplyAction = 'submit' | 'save' | 'cancel';
 
-/**
- * 실패 안내는 "입력한 내용이 남아 있는지"를 먼저 말한다.
- * 신청서는 길어서, 다시 쓸지 판단하지 못한 채 새로고침하는 비용이 가장 크다.
- * submit·save 실패는 화면 상태를 그대로 두므로(program-apply-page의 catch는 values를
- * 건드리지 않는다) 남아 있다고 단언할 수 있고, cancel은 서버 상태가 갈리므로 확인을 권한다.
- */
 export function applyActionFailureMessage(action: ProgramApplyAction): string {
   switch (action) {
     case 'save':
@@ -127,13 +111,6 @@ export function applyActionFailureMessage(action: ProgramApplyAction): string {
   }
 }
 
-/**
- * 서버가 실어 보낸 칸별 오류를 그 입력칸으로 옮긴다.
- *
- * ⚠ 옮기지 않으면 「신청 항목이 너무 깁니다」 배너 하나만 뜨고 **어느 칸을 얼마나 줄일지**
- *   학생이 알 수 없다. 서버가 애써 실어 보낸 정보를 화면이 버리는 셈이다.
- *   (`program-edit-flow.ts` 의 `mapProblemFieldErrors` 와 같은 방식이다.)
- */
 export function mapApplyProblemFieldErrors(
   fieldErrors: readonly ProblemDetailFieldError[] | undefined,
 ): ProgramApplyFormErrors {
@@ -145,12 +122,6 @@ export function mapApplyProblemFieldErrors(
   return errors;
 }
 
-/**
- * 제출 실패를 「어느 칸에 붙일 것」과 「배너로 띄울 것」으로 가른다.
- *
- * 서버가 칸을 짚어 줬으면 배너는 띄우지 않는다 — 같은 말을 두 군데서 하면
- * 학생이 어느 쪽을 따라야 할지 헷갈린다.
- */
 export function resolveApplySubmitFailure(
   problem: ProblemDetail,
   action: ProgramApplyAction,
@@ -180,16 +151,12 @@ export function mapCreateApplicationError(
     case 'APP_022':
       return '연결할 저장소 주소를 확인해 주세요.';
     case 'APP_027':
-      // 칸별 안내는 `mapApplyProblemFieldErrors` 가 그 칸으로 옮긴다.
-      // 여기 문구는 칸을 하나도 못 옮겼을 때의 마지막 안전망이다.
       return '연결하려는 저장소를 찾을 수 없거나 비공개 저장소입니다. GitHub에 공개된 저장소만 연결할 수 있습니다.';
     case 'APP_019':
       return '팀 최소 인원을 충족한 뒤 신청해 주세요.';
     case 'APP_015':
       return '신청 항목을 확인해 주세요.';
     case 'APP_024':
-      // 칸별 안내는 `mapApplyProblemFieldErrors` 가 그 칸으로 옮긴다.
-      // 여기 문구는 칸을 하나도 못 옮겼을 때의 마지막 안전망이다.
       return '신청 항목이 너무 깁니다. 입력한 내용을 확인해 주세요.';
     case 'APP_016':
       return '신청 양식이 갱신되었습니다. 페이지를 새로고침해 주세요.';

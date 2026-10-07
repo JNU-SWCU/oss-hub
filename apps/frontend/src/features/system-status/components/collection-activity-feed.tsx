@@ -14,13 +14,6 @@ import {
 import { formatRelativeTime } from '../format-relative-time';
 import type { CollectionActivityEntry } from '../types';
 
-/**
- * `scope`는 백엔드 원값이다(`collection-sync.service.ts`) — org sweep은
- * `` `org:${organizationLogin}` ``, external sweep은 고정값 `"external"`이다.
- * 조직 로그인마다 값이 달라지므로 정확히 일치시키는 map이 아니라 접두사·고정값
- * 판별로 분류하고, 그 외 값은 `collection-streams-table.tsx`의 에러코드
- * fallback과 같은 원칙으로 원문을 monospace로 보여준다.
- */
 function scopeLabel(scope: string): string | null {
   if (scope === 'external') return '외부';
   if (scope.startsWith('org:')) return '조직';
@@ -36,24 +29,16 @@ function ScopeBadge({ scope }: { readonly scope: string }) {
   );
 }
 
-/**
- * `system-status-view.tsx`와 같은 절대 시각 포맷 — 상대 시각과 병기한다.
- */
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   dateStyle: 'medium',
   timeStyle: 'short',
 });
 
-/**
- * 「Commit 3 · PR 2 · Release 0 · Issue 1」 — 좁은 화면에서도 이름과 숫자가 다른 줄로 갈리지 않게
- * 「이름 숫자 ·」 묶음 사이에서만 줄을 바꾼다.
- */
 export function MetricCounts({
   counts,
 }: {
   readonly counts: readonly (readonly [label: string, count: number])[];
 }) {
-  // 묶음 사이 띄어쓰기는 묶음 밖에 둔다 — 안에 두면 줄을 바꿀 자리가 사라져 한 줄로 넘친다.
   return counts.map(([label, count], index) => (
     <Fragment key={label}>
       <span className="whitespace-nowrap">
@@ -109,12 +94,6 @@ function RepositoryProgress({
   );
 }
 
-/**
- * `cycleCompleted`가 우선이다 — 완료된 사이클이면 이번 sweep이 예산 때문에
- * 멈췄었는지는 더 이상 중요하지 않다. `stoppedForBudget`은 사이클이 아직
- * 진행 중임을 전제로 한 상태이므로("사이클 진행 중" 의미) 그 다음으로 본다.
- * 저장소 연결 즉시 수집은 사이클이 아니라 저장소 하나라 끝났는지만 말한다(#1133).
- */
 function runStatus(entry: CollectionActivityEntry): CollectionRunStatusKey {
   if (entry.kind === 'REPOSITORY_LINK' && !entry.stoppedForBudget) {
     return entry.failedRepositoryCount > 0 ? 'LINK_FAILED' : 'LINK_COLLECTED';
@@ -190,8 +169,6 @@ export function CollectionActivityFeed({
       ) : (
         <ListPanel role="list">
           {entries.map((entry, index) => (
-            // sweepFinishedAt만으로는 유일성을 보장할 수 없다(같은 시각에 여러
-            // scope가 끝날 수 있음) — scope와 조합해 키를 만든다.
             <ActivityRow
               key={`${entry.sweepFinishedAt}-${entry.scope}-${index}`}
               entry={entry}

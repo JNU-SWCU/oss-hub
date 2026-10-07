@@ -52,7 +52,7 @@ export function ProfileOnboardingForm({
   const phoneRef = useRef<HTMLInputElement>(null);
   const departmentRef = useRef<HTMLSelectElement>(null);
   const affiliationNameRef = useRef<HTMLInputElement>(null);
-  // 학번과 전화번호는 학생에게만 묻는다. 두 이름으로 나누면 한쪽만 바뀌어 항목과 안내가 갈라진다.
+
   const isStudent = memberKind === 'STUDENT';
   const showNameError = showRequiredErrors && errors.name !== null;
   const showStudentIdError =

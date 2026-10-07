@@ -11,7 +11,6 @@ const getMetadataArray = (key: string): unknown[] => {
 
 describe('ProgramsModule', () => {
   it('exports the activity summary read port without exporting the concrete service', () => {
-    // Given
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
     const exports = getMetadataArray(MODULE_METADATA.EXPORTS);
 

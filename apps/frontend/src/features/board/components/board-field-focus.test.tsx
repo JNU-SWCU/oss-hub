@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -166,7 +164,6 @@ describe('게시판 폼의 첫 오류 칸으로 초점 이동', () => {
     expect(document.activeElement).toBe(control('#board-new-post-body'));
   });
 
-  // 「한 번 제출한 뒤부터 입력값으로 다시 판정」 — 가입 프로필·설정 폼과 같은 방식이다.
   it('한 번 누른 뒤에는 그 칸을 채우면 다시 누르지 않아도 오류가 사라진다', async () => {
     await renderList();
     await act(async () => buttonNamed('올리기').click());
@@ -175,7 +172,7 @@ describe('게시판 폼의 첫 오류 칸으로 초점 이동', () => {
     await fill(control<HTMLInputElement>('#board-new-post-title'), '제목 초안');
 
     expect(container.textContent).not.toContain('제목을 입력해 주세요.');
-    // 아직 비어 있는 내용 칸의 오류는 그대로 남는다.
+
     expect(container.textContent).toContain('내용을 입력해 주세요.');
   });
 

@@ -99,11 +99,6 @@ describe('PublicProjectsController', () => {
     expect(result).toEqual({ years: [2026, 2025] });
   });
 
-  /**
-   * Nest는 클래스 메서드 선언 순서로 라우트를 등록한다.
-   * 정적 경로 `years`가 파라미터 경로 `:projectId`보다 뒤에 있으면
-   * "years"가 projectId로 잡혀 상세 핸들러로 라우팅된다.
-   */
   it('GET /years 정적 경로가 :projectId 보다 먼저 등록된다', () => {
     const listYearsHandler: unknown = Object.getOwnPropertyDescriptor(
       PublicProjectsController.prototype,
@@ -193,8 +188,6 @@ describe('PublicProjectsController', () => {
     }
   });
   it('1인 팀은 자동 생성 팀명 대신 GitHub 닉네임을 공개 표시명으로 쓴다', async () => {
-    // Given — 자동 생성된 1인 팀. 이 응답은 무인증 공개 endpoint로 나가므로
-    // 팀명이 그대로 새면 실명 유출 경로가 된다.
     const found = row({
       id: 'synthetic-repository-solo',
       teamName: '홍길동의 팀',
@@ -210,13 +203,11 @@ describe('PublicProjectsController', () => {
       findPage,
     } as unknown as PublicProjectsService);
 
-    // When
     const result = await controller.findPage({
       pageId: undefined,
       pageSize: 20,
     });
 
-    // Then
     expect(result.items[0]?.displayName).toBe('synthetic-login');
     expect(result.items[0]?.displayName).not.toContain('홍길동');
     expect(result.items[0]?.applicationMode).toBe('PERSONAL');

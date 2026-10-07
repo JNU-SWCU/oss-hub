@@ -6,7 +6,6 @@ import { Injectable } from '@nestjs/common';
 import { AccountStatus, MilestoneDocumentKind } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 
-/** 프로그램 상세 화면 상단 요약 — 팩트 바가 쓰는 공개 집계값만 담는다. */
 export interface ProgramOverviewRecord {
   programId: string;
   name: string;
@@ -14,18 +13,12 @@ export interface ProgramOverviewRecord {
   lifecycle: string;
   milestoneCount: number;
   boardPostCount: number;
-  /** 팀 소속 인원 수(모든 신청이 Team을 가지므로 TeamMember distinct). */
+
   participantCount: number;
   teamCount: number;
   connectedRepositoryCount: number;
 }
 
-/**
- * 서류 항목이 걸린 "현재 제출 마일스톤" — 실제 순번(no) 필드가 스키마에 없어 dueAt으로
- * 대신 판정한다: 서류가 있는 마일스톤 중 dueAt이 아직 지나지 않은 것 중 가장 이른 것을
- * 고르고, 전부 지났으면 가장 최근에 지난 것으로 대체한다. 프로토타입의 "마일스톤 #3"이
- * 시드 데이터에서 이 규칙과 일치한다(#619 `docs/design.md`).
- */
 export interface CurrentSubmissionMilestone {
   milestoneId: string;
   documentIds: string[];
@@ -37,10 +30,9 @@ export interface ViewerIdentity {
   role: AuthorityLabel | null;
 }
 
-/** #619 공개 팀 목록 — 저장소 URL·학번·연락처·이메일은 절대 select하지 않는다. */
 export interface PublicTeamMemberRow {
   userId: string;
-  /** 표시명은 GitHub nickname만 쓴다 — 실명(profile.name)은 공개 로스터에 노출하지 않는다. */
+
   displayName: string;
   isLeader: boolean;
 }
@@ -51,20 +43,15 @@ export interface PublicTeamRow {
   members: PublicTeamMemberRow[];
 }
 
-/** 마감 카운트다운(#619 sidebar) 계산용 원자재 — 프로그램의 마일스톤 전체(서류 유무 무관). */
 export interface MilestoneSchedule {
   milestoneId: string;
   label: string;
   dueAt: Date;
 }
 
-/**
- * 마일스톤별 서류 분해(#619 sidebar 중첩 뱃지) 계산용 원자재 — 서류가 없는 마일스톤도
- * 포함해서 반환한다("서류 0개 마일스톤 제외" 판정은 service가 한다).
- */
 export interface MilestoneDocumentCatalogEntry {
   milestoneId: string;
-  /** 마일스톤 표시명 — 응답 필드 `title`로 나간다. */
+
   title: string;
   documentIds: string[];
   requiredDocumentIds: string[];
@@ -117,8 +104,6 @@ export class ProgramOverviewRepository {
       return null;
     }
 
-    // 모든 신청이 Team을 갖고 개인 참여는 1인 팀이므로(D5) 참여자는 TeamMember 하나로
-    // 세어진다. 예전에는 teamId가 null인 개인 신청자를 따로 합쳐야 했다.
     const [teamMemberRows, connectedRepositoryCount] = await Promise.all([
       this.prisma.teamMember.findMany({
         where: { programId },
@@ -200,7 +185,6 @@ export class ProgramOverviewRepository {
     return milestone ? toCurrentSubmissionMilestone(milestone) : null;
   }
 
-  /** 마감 카운트다운 — 프로그램의 마일스톤 전체를 dueAt 오름차순으로 반환한다. */
   async findMilestoneSchedules(
     programId: string,
   ): Promise<MilestoneSchedule[]> {
@@ -216,7 +200,6 @@ export class ProgramOverviewRepository {
     }));
   }
 
-  /** 마일스톤별 서류 분해 — 프로그램의 마일스톤 전체(서류 없는 마일스톤 포함)를 반환한다. */
   async findMilestoneDocumentCatalog(
     programId: string,
   ): Promise<MilestoneDocumentCatalogEntry[]> {
@@ -243,11 +226,6 @@ export class ProgramOverviewRepository {
     }));
   }
 
-  /**
-   * 학생 뷰어 본인의 신청(Application)을 찾는다: 본인이 신청자인 행을 먼저 찾고
-   * (개인형 · 팀 리더가 신청서를 낸 경우), 없으면 소속 팀의 신청으로 대체한다
-   * (신청자가 아닌 팀원도 팀 신청 기준으로 제출 현황을 본다).
-   */
   async findViewerApplicationId(
     programId: string,
     userId: string,
@@ -289,10 +267,6 @@ export class ProgramOverviewRepository {
     });
   }
 
-  /**
-   * 학생 마일스톤 분해 — applicationId가 제출 완료한 서류 id 집합.
-   * 제출 행을 `groupBy(['milestoneDocumentId'])` 1회로 모아 접는다(마일스톤 수와 무관).
-   */
   async findSubmittedDocumentIds(
     applicationId: string,
     documentIds: string[],
@@ -307,18 +281,6 @@ export class ProgramOverviewRepository {
     return new Set(rows.map((row) => row.milestoneDocumentId));
   }
 
-  /**
-   * "제출 완료" 판정 기준은 필수 서류(required) 전건 제출이다 — 선택 서류는 완료 여부에
-   * 영향을 주지 않는다. 반환값은 완료한 신청에 속한 참여 학생 수의 합(팀이면 팀원 수,
-   * 개인 1인 팀이면 1)이다. requiredDocumentIds가 비어 있으면(필수 서류 없음) 모든 신청을
-   * 완료로 간주한다(vacuous true).
-   *
-   * 팩트 바 "제출률" 분자 전용. 사이드바 마일스톤 분해(팀 수)는
-   * countFullySubmittedTeamsByMilestone을 쓴다.
-   *
-   * 쿼리 수는 프로그램의 신청 건수와 무관하게 상수다: 신청 목록 조회 1 + 제출 groupBy 1
-   * (+ 팀원 수 groupBy 1, 팀형 신청이 있을 때만) = 최대 3.
-   */
   async countFullySubmittedParticipants(
     programId: string,
     requiredDocumentIds: string[],
@@ -330,15 +292,6 @@ export class ProgramOverviewRepository {
     return result.get('current') ?? 0;
   }
 
-  /**
-   * 마일스톤별 서류 분해(교직원/관리자) — 필수 서류를 전부 낸 **팀 수**.
-   * D5: 모든 신청이 Team을 갖고 개인 참여는 1인 팀이므로 분모·분자는 팀 단위다.
-   *
-   * 쿼리 수는 마일스톤 수와 무관하게 상수다:
-   * 신청 목록 1 + 제출 `groupBy(['milestoneDocumentId','applicationId'])` 1 = 최대 2.
-   * (팀 완료 판정에는 applicationId가 필요해 milestoneDocumentId 단독 groupBy로는
-   * 접을 수 없다 — 차원 하나만 추가한 동일 1회 groupBy로 고정한다.)
-   */
   async countFullySubmittedTeamsByMilestone(
     programId: string,
     milestones: readonly {
@@ -409,7 +362,7 @@ export class ProgramOverviewRepository {
     requiredDocumentIdsByKey: ReadonlyMap<string, string[]>,
   ): Promise<Map<string, number>> {
     const keys = [...requiredDocumentIdsByKey.keys()];
-    // D5: Application.teamId는 non-null. distinct teamId로 팀 단위 집계.
+
     const applications = await this.prisma.application.findMany({
       where: { programId },
       select: { id: true, teamId: true },
@@ -436,11 +389,9 @@ export class ProgramOverviewRepository {
             requiredDocumentIds,
           )
         ) {
-          // teamId가 있는 신청만 팀으로 센다. (스키마상 항상 있지만 방어적으로)
           if (application.teamId) {
             completedTeamIds.add(application.teamId);
           } else {
-            // 레거시 null teamId 행이 남아 있으면 1인 팀으로 간주해 카운트에 포함한다.
             completedTeamIds.add(`application:${application.id}`);
           }
         }
@@ -450,10 +401,6 @@ export class ProgramOverviewRepository {
     return result;
   }
 
-  /**
-   * 제출 집계 1회 — `groupBy(['milestoneDocumentId','applicationId'])`.
-   * milestoneDocumentId 단독 groupBy는 application 축이 없어 "팀 완주"를 접을 수 없다.
-   */
   private async loadSubmittedDocumentIdsByApplication(
     applicationIds: readonly string[],
     requiredDocumentIdsByKey: ReadonlyMap<string, string[]>,
@@ -516,14 +463,6 @@ export class ProgramOverviewRepository {
     return new Map(memberCounts.map((row) => [row.teamId, row._count.teamId]));
   }
 
-  /**
-   * #619 공개 팀 목록 — dedicated public query: 명시적 select만 쓰고 팀명·인원·멤버
-   * nickname·팀장 여부만 반환한다. `GithubRepository`(저장소 URL)·`TeamMember.phone/email`·
-   * `User.studentId`는 이 select에 절대 포함하지 않는다(프로토타입 문구 "팀 구성과
-   * 인원만 공개됩니다 · 저장소는 비공개"). 표시명은 실명(profile.name)이 아니라
-   * GitHub nickname만 쓴다 — 프로그램 내 다른 참가자 전원에게 노출되는 로스터라
-   * 실명보다 넓은 공개 범위를 전제로 보수적으로 최소화한다.
-   */
   async listPublicTeams(programId: string): Promise<PublicTeamRow[]> {
     const teams = await this.prisma.team.findMany({
       where: { programId },

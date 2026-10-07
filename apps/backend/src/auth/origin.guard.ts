@@ -4,10 +4,6 @@ import { DomainException } from '../common/error-code';
 import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.enum';
 import { AuthConfig } from './auth.config';
 
-/**
- * 쓰기 엔드포인트용 Origin 검사 — SameSite=Lax의 보조 방어선.
- * exact Origin 또는 exact-origin Referer만 허용하고 증명할 수 없는 요청은 거부한다.
- */
 @Injectable()
 export class OriginGuard implements CanActivate {
   constructor(private readonly config: AuthConfig) {}

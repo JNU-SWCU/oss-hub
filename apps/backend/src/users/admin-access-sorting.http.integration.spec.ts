@@ -26,15 +26,12 @@ it.each([
   ['role', 'desc'],
   ['accountStatus', 'asc'],
 ] as const)('accepts sort=%s&direction=%s', async (sort, direction) => {
-  // Given: the authenticated ADMIN actor created in beforeAll
-  // When
   const response = await harness.request(
     'GET',
     `/users/access?sort=${sort}&direction=${direction}`,
     actorGithubId,
   );
 
-  // Then
   expect(response.status).toBe(200);
 });
 
@@ -52,15 +49,12 @@ it.each([
 ] as const)(
   'returns the exact RFC7807 problem for invalid %s',
   async (_label, query, detail) => {
-    // Given: the authenticated ADMIN actor created in beforeAll
-    // When
     const response = await harness.request(
       'GET',
       `/users/access?${query}`,
       actorGithubId,
     );
 
-    // Then
     expect(response.status).toBe(400);
     expect(response.headers.get('content-type')).toContain(
       'application/problem+json',
@@ -77,7 +71,6 @@ it.each([
 );
 
 it('returns account createdAt on the admin directory response without exposing phone', async () => {
-  // Given
   const accountCreatedAt = new Date('2026-07-29T00:00:00.000Z');
   const target = await harness.createUser(
     'created-at-target',
@@ -89,14 +82,12 @@ it('returns account createdAt on the admin directory response without exposing p
     data: { createdAt: accountCreatedAt },
   });
 
-  // When
   const response = await harness.request(
     'GET',
     `/users/access?query=${target.nickname}`,
     actorGithubId,
   );
 
-  // Then
   expect(response.status).toBe(200);
   const body: unknown = await response.json();
   expect(body).toEqual(

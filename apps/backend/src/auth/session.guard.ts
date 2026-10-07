@@ -9,7 +9,6 @@ import { resolveSession } from './session-resolution';
 
 export type { AuthenticatedRequest } from './http-auth';
 
-/** 세션 쿠키를 검증해 요청에 active principal을 붙인다. 실패는 전부 동일한 AUT_003. */
 @Injectable()
 export class SessionGuard implements CanActivate {
   constructor(

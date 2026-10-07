@@ -75,12 +75,6 @@ const CHANGES_REQUESTED_SUBMISSION_ID = seedId(
   'submission',
 );
 
-/**
- * todo 20 — 경합 테스트 전용 fresh PRIVATE repository. `repo-job-succeeded` seed는 다른
- * 테스트가 이미 PUBLIC으로 전이시키므로 재사용하지 않는다. 매 호출마다 고유한 slug를 써서
- * 재실행 시 unique 충돌 없이 안전하고, afterAll의 `programId: REPOSITORIES_PROGRAM_ID`/
- * `startsWith: seedId('repositories')` 정리 질의가 그대로 이 row들을 쓸어간다.
- */
 async function createFreshPrivateRepository(): Promise<{
   readonly repositoryId: string;
   readonly githubRepositoryId: bigint;
@@ -202,10 +196,7 @@ describe('SubmissionReviewsService integration', () => {
     });
     await prisma.milestone.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
-    // AuditLog는 DB 레벨에서 append-only로 강제된다(DELETE 자체가 거부됨) — 이 테스트가
-    // 남긴 typed audit row는 정리 대상에서 제외한다. 대신 그 audit들의 actor인
-    // REVIEWER_ID는 FK로 영구 고정되므로 아래 user 정리에서 제외한다(seed는 upsert라
-    // 다음 실행에서도 안전하다).
+
     await prisma.repositoryInvitation.deleteMany({
       where: { repository: { programId: REPOSITORIES_PROGRAM_ID } },
     });
@@ -356,9 +347,6 @@ describe('SubmissionReviewsService integration', () => {
   });
 
   it('이미 public인 seed 저장소는 반복 요청에도 외부 호출 없이 수렴한다', async () => {
-    // repository-public seed는 공개 아카이브 노출에서 의도적으로 제외되도록
-    // publishedAt: null을 유지한다(repositories.ts 주석 참고) — 그래서 이 테스트는
-    // "이미 PUBLIC" 상태만 필요한 별도 fixture를 직접 만들어 그 불변식과 분리한다.
     const target = await createFreshPrivateRepository();
     await prisma.githubRepository.update({
       where: { id: target.repositoryId },

@@ -16,8 +16,6 @@ interface FormSectionProps extends Omit<
   description?: React.ReactNode;
 }
 
-// 생성·편집·신청 다단 폼에서 여러 필드를 구역(제목+설명+필드 슬롯)으로 묶는 레이어.
-// B-5 프리미티브(Field/FieldSet/FieldLegend/FieldGroup) 조합으로만 구성한다.
 function FormSection({
   title,
   description,
@@ -27,7 +25,6 @@ function FormSection({
 }: FormSectionProps) {
   return (
     <FieldSet className={cn('gap-6', className)} {...props}>
-      {/* 폼 구역의 제목도 화면의 섹션 제목이다 — 크기(24)는 FieldLegend가 정한다 */}
       <FieldLegend className="font-heading leading-tight break-keep text-pretty">
         {title}
       </FieldLegend>

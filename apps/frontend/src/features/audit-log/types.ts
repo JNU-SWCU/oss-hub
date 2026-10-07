@@ -1,61 +1,35 @@
 export interface AuditLogRecord {
   readonly id: string;
   readonly actor: string;
-  /** Event-time GitHub login when the row has a person snapshot. */
+
   readonly actorHandle?: string | null;
   readonly action: string;
   readonly targetType: string;
   readonly targetId: string;
-  // 사람이 읽을 수 있는 대상 라벨. ACCESS_AUDIT schemaVersion 2 행은 대상의 GitHub
-  // 로그인, PROGRAM_LIFECYCLE/REPOSITORY_PUBLISH schemaVersion 2 행은 이벤트 시점
-  // 프로그램/저장소 이름 스냅샷, APPLICATION_DECISION schemaVersion 2 행은 "프로그램
-  // 이름 · @신청자 로그인" 합성 라벨이다. 스냅샷이 없는 PROGRAM/REPOSITORY/APPLICATION
-  // 대상 행은 백엔드가 join으로 찾은 현재 이름/라벨이다. 그 밖(ROLE_REQUEST/USER의
-  // 과거 v1·legacy 행, join도 실패한 경우)은 `targetType / targetId` 폴백이다.
-  // 백엔드가 이벤트 시점 스냅샷·join으로 이미 계산해 내려주는 라벨이며, 화면은 이
-  // 필드만 쓰고 raw metadata는 파싱 단계에서 버린다(parser.ts).
+
   readonly target: string;
-  /** Event-time GitHub login for a person target. */
+
   readonly targetHandle?: string | null;
-  // TEAM_MEMBERSHIP_CHANGED 행에서만 채워지는 팀 구성 변경 요약이다. 백엔드
-  // metadata(web-state-audit-metadata.ts의 TeamMembershipAuditMetadata)에서 이 화면이
-  // 서술에 쓰는 사실만 파싱 단계에서 검증해 투영한 값이며, 원본 metadata나 user id는
-  // 전달하지 않는다(parser.ts). 검증에 실패했거나 필드가 빠진 행은 이 값이 없고,
-  // 그때 describe.ts는 "상세 내용 없음"으로 서술한다 — 생성/합류로 추측하지 않는다.
+
   readonly teamMembership?: TeamMembershipChangeSummary;
-  // TEAM_RENAMED 행에서만 채워지는 바뀜기 전 팀 이름이다. `target`은 바뀐 뒤의
-  // 이름이라 이 값이 없으면 「무엇에서 무엇으로」가 성립하지 않는다 — 백엔드가
-  // 같은 스냅샷에 둘을 함께 봉인 이유다(ADR-007). 검증에 실패한 행은 이 값이 없고,
-  // 그때 describe.ts는 이전 이름을 빼고 서술한다 — 아무 이름이나 지어내지 않는다.
+
   readonly teamPreviousName?: string;
   readonly occurredAt: string;
   readonly phoneTransition?: UserPhoneAuditTransition;
 }
 
-// apps/backend/src/audit-log/web-state-audit-metadata.ts의
-// TEAM_MEMBERSHIP_AUDIT_OPERATIONS를 미러링한다.
 export type TeamMembershipOperation = 'LEAVE' | 'REMOVE';
 
-// 팀 구성 변경 한 건에서 화면이 문장으로 서술할 사실만 담는다. 백엔드 metadata의
-// removedUserId/previousLeaderId/nextLeaderId는 내부 대상 식별자라 화면에 그대로
-// 노출하지 않고(조회·팬아웃도 하지 않는다), 승계 여부만 계산해 남긴다.
 export interface TeamMembershipChangeSummary {
-  /** LEAVE=자진 탈퇴, REMOVE=팀장이 팀원을 내보냄. */
   readonly operation: TeamMembershipOperation;
-  /** 팀장이 남은 다른 팀원에게 승계됐다(nextLeaderId가 previousLeaderId와 다르다). */
+
   readonly leaderChanged: boolean;
-  /** 마지막 인원이 미제출 팀을 떠나 팀 자체가 삭제됐다(nextLeaderId === null). */
+
   readonly teamDeleted: boolean;
 }
 
 export type UserPhoneAuditTransition = 'SET' | 'REPLACED';
 
-// apps/backend/src/audit-log/*-audit-metadata.ts에 정의된 action registry의
-// 합집합을 미러링한다. 모노레포에 공유 패키지가 없어
-// frontend가 backend/src를 직접 import할 수 없다(apps/frontend/src/features/roles의
-// "Mirrors" 관례와 동일). 이 목록이 backend 정의와 어긋나지 않는지는
-// action-registry.test.ts가 backend 소스를 텍스트로 읽어 검증한다 — 백엔드에 action을
-// 추가/변경하면 이 목록도 함께 갱신해야 한다.
 export const AUDIT_LOG_ACTION_LABELS = {
   STAFF_ROLE_REQUEST_APPROVED: '승인',
   STAFF_ROLE_REQUEST_REJECTED: '반려',

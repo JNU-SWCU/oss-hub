@@ -46,10 +46,6 @@ export interface StorageReferencePrisma {
   ): Promise<T>;
 }
 
-/**
- * schema.prisma의 storageKey 소유 모델 전수 원장.
- * 대응 spec이 Prisma DMMF와 대조하므로 새 소유 모델을 추가하고 여기를 빠뜨리면 실패한다.
- */
 export const STORAGE_KEY_OWNERS = [
   'SubmissionFile',
   'ProgramAuthoringUpload',

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# 커밋될 내용(index)에 CI와 같은 ESLint(local/no-comments 포함)를 돌린다.
+# 대상은 각 앱의 lint 범위와 같다. 검사할 수 없으면 커밋을 막는다.
+# 우회: git commit --no-verify. CI lint는 그대로 돈다.
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+status=0
+
+lint_app() {
+  local app="$1"
+  shift
+  local dir="$root/apps/$app"
+  local batch=() f rel
+  while IFS= read -r -d '' f; do
+    rel="${f#apps/"$app"/}"
+    if [ ! -x "$dir/node_modules/.bin/eslint" ]; then
+      echo "pre-commit: apps/${app}에 eslint가 없어 주석 금지 검사를 할 수 없다. pnpm install 후 다시 커밋한다." >&2
+      return 1
+    fi
+    if git --literal-pathspecs diff --quiet -- "$f"; then
+      batch+=("$rel")
+    else
+      git show ":$f" | (cd "$dir" && ./node_modules/.bin/eslint --no-warn-ignored --stdin --stdin-filename "$rel") || status=1
+    fi
+  done < <(git diff --cached --name-only -z --diff-filter=ACMR -- "$@")
+  if [ ${#batch[@]} -gt 0 ]; then
+    (cd "$dir" && ./node_modules/.bin/eslint --no-warn-ignored -- "${batch[@]}") || status=1
+  fi
+}
+
+lint_app frontend ':(glob)apps/frontend/**/*.'{js,jsx,mjs,cjs,ts,tsx,mts,cts} || status=1
+lint_app backend ':(glob)apps/backend/'{src,test,prisma}'/**/*.ts' \
+  ':(glob)apps/backend/eslint.config.mjs' ':(glob)apps/backend/eslint-rules/*.mjs' || status=1
+
+exit $status

@@ -57,10 +57,6 @@ describe('readTeamDeletionScopeCounts', () => {
     ).rejects.toThrow('Team deletion scope count query returned no result.');
   });
 
-  /**
-   * 세는 범위와 지우는 범위가 어긋나면 재확인이 통과한 뒤 사후 대조에서 터진다.
-   * `TEAM_PURGE_DELETION_ORDER` 가 덮는 모델이 쿼리에 실제로 등장하는지 고정한다.
-   */
   it('TEAM_PURGE_DELETION_ORDER 가 덮는 표를 모두 조회하고 프로그램 전용 표는 건드리지 않는다', async () => {
     const queryRaw = queryRawStub();
     const transaction = { $queryRaw: queryRaw } as unknown as PrismaService;
@@ -84,7 +80,6 @@ describe('readTeamDeletionScopeCounts', () => {
     }
     expect(sql).toContain('AS "scopeFingerprint"');
 
-    // 프로그램에만 매달린 표는 팀 하나를 지운다고 세지 않는다.
     for (const programOnly of [
       '"BoardPost"',
       '"BoardComment"',
@@ -117,7 +112,7 @@ describe('readTeamDeletionScopeCounts', () => {
     const sql = capturedSql(queryRaw);
 
     expect(sql).toContain("payload->>'applicationId'");
-    // DEADLINE_DIGEST 는 프로그램 전 수신자에게 나가므로 팀 범위가 아니다.
+
     expect(sql).not.toContain('DEADLINE_DIGEST');
   });
 

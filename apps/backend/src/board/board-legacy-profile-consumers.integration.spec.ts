@@ -146,11 +146,9 @@ afterAll(async () => {
 });
 
 it('preserves canonical and legacy fallback projections across all three consumers', async () => {
-  // Given
   const staffInsights = new StaffInsightsRepository(prisma);
   const board = new BoardRepository(prisma);
 
-  // When
   const students = await staffInsights.listStudents();
   const canonicalCandidates = await searchInvitationCandidates(
     prisma,
@@ -173,7 +171,6 @@ it('preserves canonical and legacy fallback projections across all three consume
   const posts = await board.findByProgramId(programId, 1, 20);
   const detail = await board.findDetailById(postId);
 
-  // Then
   expect(students).toEqual(
     expect.arrayContaining([
       {

@@ -30,11 +30,6 @@ export function SubmissionDialog({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-foreground/40" />
         <DialogPrimitive.Content
-          // 제목은 고정하고 본문만 스크롤한다. 예전에는 창 전체가 스크롤 상자여서
-          // 마지막 줄(취소·제출하기)이 함께 밀려 올라갔고, 1280×800 같은 흔한 화면에서는
-          // 창이 열린 순간 「제출하기」가 보이는 영역보다 200px 아래에 있었다. macOS의
-          // 겹침 스크롤막대는 스크롤하기 전까지 보이지 않아 더 내려갈 수 있다는 신호도
-          // 없다 — 눌렀다고 생각한 자리가 빈 곳이면 아무 일도 일어나지 않는다.
           className={cn(
             'fixed top-1/2 left-1/2 z-50 grid max-h-[min(90dvh,52rem)] w-[calc(100%_-_2rem)]',
             'max-w-[46rem] min-w-0 -translate-x-1/2 -translate-y-1/2',

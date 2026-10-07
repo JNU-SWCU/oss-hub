@@ -1,6 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// UI 전용 합성 응답으로 카드 레이아웃·탐색만 검증한다. backend 인가 증거가 아니다.
 const title =
   '합성 오픈소스 프로젝트의 긴 제목으로 모바일 줄바꿈을 확인합니다 '.repeat(3);
 const programId = 'qa170-program';
@@ -172,7 +171,7 @@ for (const width of [1440, 390]) {
       const link = page.locator(`a[href="${detail}"]`).filter({ has: card });
       await expect(link).toHaveCount(1);
       await expect(card.locator('a, button, [tabindex]')).toHaveCount(0);
-      // 마우스나 focus() 없이 Tab만으로 카드에 도달한다.
+
       for (let step = 0; step < 40; step++) {
         await page.keyboard.press('Tab');
         if (

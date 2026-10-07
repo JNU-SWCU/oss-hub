@@ -18,8 +18,7 @@ export function resolveJoinCodeSecretFromConfig(
   config: Pick<RuntimeConfig, 'TEAM_JOIN_CODE_SECRET'>,
 ): string {
   const secret = config.TEAM_JOIN_CODE_SECRET;
-  // Blank/whitespace-only values are rejected in every environment.
-  // Nonblank secrets are returned exactly so HMAC digests stay stable.
+
   if (secret !== undefined && secret.trim() !== '') {
     return secret;
   }

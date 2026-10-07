@@ -121,7 +121,7 @@ describe('ProgramEditView contract', () => {
     expect(html).not.toContain('신청·운영·마일스톤 일정');
     expect(html).not.toContain('날짜 선택 달력');
     expect(html).not.toContain('oss-contest');
-    // 양식명·버전도 이 화면에 없다 — 구현 식별자뿐 아니라 사람이 읽는 이름까지 뺐다.
+
     expect(html).not.toContain('OSS경진대회 신청서');
     expect(html).toContain('milestone-canonical-id');
     expect(html).toContain('기획서 제출');
@@ -171,8 +171,6 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('첫 마일스톤을 만드세요');
   });
 
-  // #355 — 교직원 화면은 내부 구현 용어를 쓰지 않는다.
-  // 라벨은 값이 무엇인지 한국어로 말하고, 설명문은 화면에서 할 수 있는 일을 말한다.
   it('내부 구현 용어 대신 교직원이 읽을 수 있는 라벨을 쓴다', () => {
     const html = renderToStaticMarkup(
       <ProgramEditView
@@ -200,11 +198,6 @@ describe('ProgramEditView contract', () => {
       />,
     );
 
-    /*
-     * 신청서 양식·버전은 이 화면에 두지 않는다 — 프로그램 유형이 정하고 여기서
-     * 바꿀 수 없다. 편집 화면이 바꿀 수 없는 것을 설명하고 있으면 고칠 수 있는
-     * 것과 아닌 것을 매번 갈라내야 한다.
-     */
     expect(html).not.toContain('신청서 양식');
     expect(html).not.toContain('양식 버전');
     expect(html).toContain('신청 승인 시 GitHub 저장소 자동 생성');
@@ -223,13 +216,11 @@ describe('ProgramEditView contract', () => {
   });
 
   it('renders field errors without dropping current input values', () => {
-    // Given
     const form = {
       ...toProgramEditForm(editableProgram),
       name: '작성 중인 이름',
     };
 
-    // When
     const html = renderToStaticMarkup(
       <ProgramEditView
         onCoverChange={() => undefined}
@@ -256,14 +247,12 @@ describe('ProgramEditView contract', () => {
       />,
     );
 
-    // Then
     expect(html).toContain('value="작성 중인 이름"');
     expect(html).toContain(fieldErrors.name);
     expect(html).toContain(fieldErrors.period);
   });
 
   it('renders delete confirmation, submission conflict alert, and success toast', () => {
-    // Given / When
     const html = renderToStaticMarkup(
       <ProgramEditView
         onCoverChange={() => undefined}
@@ -290,13 +279,12 @@ describe('ProgramEditView contract', () => {
       />,
     );
 
-    // Then
     expect(html).toContain('role="dialog"');
     expect(html).toContain('마일스톤을 되돌릴 수 없이 삭제할까요?');
     expect(html).toContain('삭제 확정');
     expect(html).toContain('제출물이 있는 마일스톤은 삭제할 수 없습니다');
     expect(html).toContain('role="status"');
-    // 저장은 더 이상 페이지를 떠나지 않는다 — 안내문도 이동을 말하지 않는다.
+
     expect(html).toContain('저장되었습니다.');
     expect(html).not.toContain('상세 화면으로 이동합니다');
   });
@@ -334,8 +322,7 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('교과/비교과');
     expect(html).not.toContain('유형을 변경할 수 없습니다');
   });
-  // 종료일이 없거나(`null`) 「미정」 센티널인 옛 프로그램은 빈 종료일로 열리고,
-  // 교직원이 넣은 날짜가 나간다 — 센티널을 되돌려 보내지 않는다(#1420).
+
   it.each([null, PROGRAM_END_AT_UNDECIDED])(
     'opens a legacy end %s as an empty end and emits the date the staff enters',
     (endAt) => {
@@ -355,7 +342,6 @@ describe('ProgramEditView contract', () => {
     },
   );
 
-  // 빈 종료일은 만들기 폼과 같은 문구로 막는다(#1420) — 「미정」으로 되돌릴 길은 없다.
   it('blocks an empty program end with the create-form wording', () => {
     const createFormMessage = validateProgramAuthoringStep(
       { ...completedAuthoringState(), operationEndAt: '' },
@@ -422,8 +408,6 @@ describe('ProgramEditView contract', () => {
     expect(mapProgramEditError(error).endAt).toContain(message);
   });
 
-  // #867 — 「변경사항 저장」은 우측 정렬이고(docs/rules/frontend.md),
-  // 오른쪽 끝에 붙는 것이지 양 끝으로 벌어지는 게 아니다.
   it('폼의 제출 버튼은 justify-end이고 justify-between이 아니다', () => {
     const html = renderToStaticMarkup(
       <ProgramEditView
@@ -455,9 +439,7 @@ describe('ProgramEditView contract', () => {
       'class="flex flex-wrap justify-end gap-2"',
     );
     expect(footerStart).toBeGreaterThan(-1);
-    // 폼이 끝나는 지점(</form>)까지만 잘라야 한다 — 그 뒤 마일스톤 섹션 헤더는
-    // 자기 자신의 justify-between 레이아웃을 갖고 있어서, 창을 너무 넓게 잡으면
-    // 그 무관한 justify-between까지 걸려 오탐이 난다.
+
     const formEnd = html.indexOf('</form>', footerStart);
     expect(formEnd).toBeGreaterThan(-1);
     const footer = html.slice(footerStart, formEnd);

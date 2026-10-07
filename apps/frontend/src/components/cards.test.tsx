@@ -5,8 +5,6 @@ import { ProgramCard } from '@/features/programs/program-card';
 import { StatusBadge } from './status-badge';
 import { EmptyState } from './empty-state';
 
-// B-6 카드형 공통 컴포넌트 4종(CardGrid/ProgramCard/StatusBadge/EmptyState)이
-// 실제로 import·렌더 가능함을 증명하는 최소 스모크 테스트.
 describe('card components', () => {
   it('renders CardGrid with repeated ProgramCard + StatusBadge children', () => {
     const html = renderToStaticMarkup(
@@ -81,20 +79,10 @@ describe('card components', () => {
     expect(html).toContain('px-4');
     expect(html).toContain('py-2');
     expect(html).toContain('text-base');
-    // lg 가 적어 둔 위아래 8px 여백은 높이가 풀려 있어야 실제로 쓰인다.
-    // 기본 `h-tag`(26px)가 남으면 16px 글자(줄 높이 24px)에 여백을 더한
-    // 40px 이 26px 상자에 눌려, 적어 둔 값이 한 픽셀도 그려지지 않는다(#1400).
+
     expect(html).toContain('h-auto');
     expect(html).not.toContain('h-tag');
   });
-
-  // 이전 ProgramCard는 `statusPlacement="body-center"` + `footer`로 상태를
-  // 카드 본문 중앙에 크게 배치하는 변형을 지원했으나, 재작성된 컴포넌트는
-  // 배지를 항상 카드 우상단에 절대 위치시키는 단일 레이아웃만 지원한다
-  // (program-card.tsx docstring, `statusPlacement`/`footer`/
-  // `@container/program-card-status` 관련 참조가 저장소 전체에서 제거됨).
-  // 대응하는 API가 더 이상 없어 이 두 테스트가 검증하던 동작 자체가
-  // 삭제됐으므로 테스트도 함께 제거한다.
 
   it('renders EmptyState with icon, description, and action slot', () => {
     const html = renderToStaticMarkup(

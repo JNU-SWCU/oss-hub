@@ -82,13 +82,10 @@ function source(): DeadlineProgramSource {
 
 describe('deadline digest eligibility', () => {
   it('uses the exact inclusive now through 24-hour window and ignores optional or informational documents', () => {
-    // Given
     const window = deadlineWindow(NOW);
 
-    // When
     const eligibility = buildDeadlineEligibility(source(), window);
 
-    // Then
     expect(window.to).toEqual(new Date(NOW.getTime() + 24 * 60 * 60 * 1000));
     expect(eligibility.milestones.map((milestone) => milestone.id)).toEqual([
       'at-now',
@@ -108,7 +105,6 @@ describe('deadline digest eligibility', () => {
   });
 
   it('counts inactive, opted-out, and no-email recipients separately before selecting direct mail recipients', () => {
-    // Given
     const input = source();
     const application = input.applications[0];
     if (application === undefined) throw new TypeError('Missing application.');
@@ -134,13 +130,11 @@ describe('deadline digest eligibility', () => {
       ],
     };
 
-    // When
     const eligibility = buildDeadlineEligibility(
       classified,
       deadlineWindow(NOW),
     );
 
-    // Then
     expect(eligibility.summary).toEqual({
       applicationCount: 1,
       milestoneCount: 2,
@@ -152,7 +146,6 @@ describe('deadline digest eligibility', () => {
   });
 
   it('마일스톤별 미제출 명단에 제외된 후보도 사유와 함께 담고 추가 조회를 하지 않는다', () => {
-    // Given
     const input = source();
     const application = input.applications[0];
     if (application === undefined) throw new TypeError('Missing application.');
@@ -171,13 +164,11 @@ describe('deadline digest eligibility', () => {
       ],
     };
 
-    // When
     const eligibility = buildDeadlineEligibility(
       classified,
       deadlineWindow(NOW),
     );
 
-    // Then: 발송 가능자는 1명이지만 명단은 5명 전원이다.
     expect(eligibility.recipients).toHaveLength(2);
     expect(
       eligibility.staffMilestones.map((milestone) => [
@@ -199,10 +190,8 @@ describe('deadline digest eligibility', () => {
   });
 
   it('제출이 끝난 마일스톤은 교직원 요약 명단에서 빠진다', () => {
-    // Given: 두 마일스톤 중 at-now의 필수 서류는 이미 제출됐다.
     const eligibility = buildDeadlineEligibility(source(), deadlineWindow(NOW));
 
-    // Then
     expect(eligibility.milestones.map((milestone) => milestone.id)).toEqual([
       'at-now',
       'at-end',
@@ -213,7 +202,6 @@ describe('deadline digest eligibility', () => {
   });
 
   it('selects one adopted-fixture recipient before the required submission and none after it', () => {
-    // Given
     const requiredDocumentId = 'e2e:program-authoring:required-document';
     const fixture: DeadlineProgramSource = {
       id: 'e2e:program-authoring:happy-program',
@@ -243,7 +231,6 @@ describe('deadline digest eligibility', () => {
       throw new TypeError('Missing adopted-fixture application.');
     }
 
-    // When
     const beforeSubmission = buildDeadlineEligibility(
       fixture,
       deadlineWindow(new Date('2026-08-20T00:00:00.000Z')),
@@ -261,7 +248,6 @@ describe('deadline digest eligibility', () => {
       deadlineWindow(new Date('2026-08-20T00:00:00.000Z')),
     );
 
-    // Then
     expect(beforeSubmission.summary).toMatchObject({
       applicationCount: 1,
       milestoneCount: 1,
@@ -275,7 +261,6 @@ describe('deadline digest eligibility', () => {
   });
 
   it('produces the same SHA-256 preview version regardless of duplicate source ordering and changes it for eligibility IDs or deadlines', () => {
-    // Given
     const original = source();
     const reordered: DeadlineProgramSource = {
       ...original,
@@ -295,7 +280,6 @@ describe('deadline digest eligibility', () => {
       ),
     };
 
-    // When
     const first = buildDeadlineEligibility(original, deadlineWindow(NOW));
     const duplicateOrdered = buildDeadlineEligibility(
       reordered,
@@ -306,7 +290,6 @@ describe('deadline digest eligibility', () => {
       deadlineWindow(NOW),
     );
 
-    // Then
     expect(first.previewVersion).toMatch(/^[a-f0-9]{64}$/u);
     expect(duplicateOrdered.previewVersion).toBe(first.previewVersion);
     expect(changedEligibility.previewVersion).not.toBe(first.previewVersion);

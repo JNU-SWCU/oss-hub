@@ -5,7 +5,6 @@ import { Field, FieldError, FieldLabel } from './ui/field';
 import { Input } from './ui/input';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
-// FormSection이 title/description/필드 슬롯을 실제로 렌더링함을 증명하는 스모크 테스트.
 describe('FormSection', () => {
   it('renders a titled section with description and field slots', () => {
     const html = renderToStaticMarkup(
@@ -39,8 +38,6 @@ describe('FormSection', () => {
     expect(html).not.toContain('field-description');
   });
 
-  // 폼 상태 패턴: 필드별 검증 실패=Field의 error(FieldError), 전역 성공/서버 에러=Alert.
-  // 티켓들이 조합해 쓸 표준 사용 예시를 하나의 렌더로 증명한다(새 컴포넌트 발명 없음).
   it('composes field-level validation error and global success/server-error alerts from existing primitives', () => {
     const html = renderToStaticMarkup(
       <>
@@ -66,12 +63,11 @@ describe('FormSection', () => {
       </>,
     );
 
-    // 전역 성공 안내 (Alert)
     expect(html).toContain('제출 완료');
-    // 필드별 검증 실패 (Field의 error = FieldError, role="alert"로 즉시 통지)
+
     expect(html).toContain('팀 이름을 입력해 주세요.');
     expect(html).toContain('role="alert"');
-    // 전역 서버 에러 (Alert variant="destructive")
+
     expect(html).toContain(
       '서버 오류로 신청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
     );

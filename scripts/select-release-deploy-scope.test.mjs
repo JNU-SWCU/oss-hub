@@ -91,7 +91,6 @@ test('빈 diff 와 공백 줄은 배포를 부르지 않는다', () => {
 });
 
 test('스코프 경로가 사라지면 판정이 무너지는 것을 고정한다', () => {
-  // 경로 목록이 조용히 비면 모든 릴리스가 no-op 이 되어 배포가 영원히 멈춘다.
   assert.ok(FRONTEND_RELEASE_PATHS.includes('apps/frontend/'));
   assert.ok(BACKEND_RELEASE_PATHS.includes('apps/backend/'));
 

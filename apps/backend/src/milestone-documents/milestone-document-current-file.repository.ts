@@ -53,51 +53,6 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
     @Inject(PrismaService) private readonly prisma: CurrentFilePrisma,
   ) {}
 
-  /**
-   * 같은 서류 줄의 「보기」와 「받기」는 **같은 자격**을 쓴다 — 목록·이력이 보여 준 파일은 받을
-   * 수 있고, 목록에 없는 파일은 여기서도 없다(#1204).
-   *
-   * 그래서 이 where는 목록(`MilestoneDocumentsService.listForViewer`)과 이력
-   * (`historyForParticipant`)이 학생의 신청을 찾는 문을 조각째 옮긴 것이다.
-   *
-   * - **활성 학생 계정** — 목록·이력의 `findActiveUser`(`githubId` + `ACTIVE`)에 대응한다.
-   * - **`kind: DOCUMENT`이고 이 마일스톤 소속인 서류** — 목록의 `findByMilestoneId`와 이력의
-   *   `findDocumentContext`가 거는 조건이다. 옛 제출 슬롯(`LEGACY_MILESTONE_SUBMISSION`)은
-   *   목록에 뜨지 않으므로 여기서도 뜨지 않는다.
-   * - **이 마일스톤을 가진 프로그램 신청의 팀 구성원** — 이력의 `findStudentApplication`
-   *   (`programId` + `submissionParticipantWhere`)에 대응한다.
-   *
-   * `submissionParticipantWhere`는 **지금 있는 `TeamMember` 행 하나**로 참여자를 판정한다
-   * (`programApplicationParticipantWhere`, D5 — 모든 신청이 Team을 갖고 개인 참여는 1인 팀이다).
-   * 그래서 여기서도 문은 `members.some` **하나뿐**이다.
-   *
-   * ⚠ 예전에는 `team.leader` 절을 OR로 함께 봤다(#1269). `Team.leaderId`와 `TeamMember` 집합은
-   * 팀장 승계·팀원 제외·본인 탈퇴가 **함께** 옮기는 두 자리라, 팀장 절을 남겨 두면 그 사이
-   * 상태에서 두 조건이 갈린다 — 멤버십이 사라진 옛 팀장이 `Team.leaderId`만 붙들고 목록에 없는
-   * 파일을 계속 받는다. 팀장도 항상 자기 팀의 `TeamMember` 행을 가지므로(팀 생성 시 함께 만든다)
-   * 이 한 절이 **현재 팀장을 포함한** 모든 참여자를 담는다. 지금 접근을 잃는 사람은 없다.
-   *
-   * 같은 이유로 `Application.applicantId`도 문이 **아니다**. `applicantId`(누가 처음 냈는지),
-   * `Team.leaderId`(팀장 자리), `SubmissionFile.uploaderId`(누가 올렸는지)는 모두 **기록**이지
-   * 권한이 아니다 — 기록은 그대로 두고 권한만 현재 멤버십에서 읽는다. 어떤 경위로든 그 사람이
-   * 팀 밖에 놓이면 목록·이력이 이미 그를 막으므로, 받기만 열어 두면 「이력에 없는 파일이
-   * 열리는」 자리가 된다.
-   *
-   * **신청이 지금 승인 상태인지는 묻지 않는다.** 승인 되돌리기는 제출 행도 첨부도 지우지 않는
-   * 순수한 상태 전이라(#1096) 목록은 `hasCurrentFile: true`를 사실대로 말한다. 여기서만 승인을
-   * 물으면 되돌려진 학생은 목록이 「있다」고 한 파일을 눌러 MSD_020 404를 받는다.
-   * 쓰기(제출·업로드)의 승인 요구는 그대로다 — 그쪽이 `APPLICATION_APPROVAL_REQUIRED`
-   * (「승인된 신청만 제출할 수 있습니다」)의 제자리다.
-   *
-   * 목록과 **의도적으로 다른 곳이 한 군데** 있다: 여기는 `hasStaffAccess`·`hasAdminAccess`를
-   * false로 못박아 교직원·관리자를 뺀다(#1204 이전부터 그랬고 이 티켓은 건드리지 않는다).
-   * 어긋남이 아니다 — 목록의 교직원 분기는 `viewerSubmission`을 아예 내려주지 않아 교직원에게는
-   * 이 줄에서 누를 파일이 없고, 교직원은 자기 경로
-   * (`documents/:documentId/applications/:applicationId/file`)로 받는다.
-   *
-   * 조회 범위는 여전히 이 학생이 속한 신청 하나다 — 남의 신청·남의 팀·무관한 프로그램에 닿는
-   * 길은 생기지 않는다.
-   */
   async findForParticipant(
     sessionGithubId: bigint,
     milestoneId: string,

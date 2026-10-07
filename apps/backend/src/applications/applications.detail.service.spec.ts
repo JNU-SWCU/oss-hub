@@ -10,7 +10,6 @@ import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../audit-log/audit-log.service';
 
-/** 이 스펙들은 판정 경로를 타지 않으므로 감사 기록기는 호출되지 않는다. */
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
 const APPLICATION_ID = 'synthetic-application';
@@ -49,7 +48,6 @@ function applicationRow(
   };
 }
 
-/** jest.fn() 의 호출 인자는 any 라 명시적으로 좁혀 읽는다. */
 function readSelect(spy: jest.Mock): Record<string, unknown> {
   const calls = spy.mock.calls as unknown as {
     select: Record<string, unknown>;
@@ -128,7 +126,6 @@ describe('ApplicationsService.getForStaff', () => {
   });
 
   it('신청이 없어도 이력 조회는 병행하고 응답은 동일 404다', async () => {
-    // 존재 여부로 부르는 쿼리 수를 가르면 응답 시간이 존재를 일러 준다.
     const listReviewHistory = jest.fn().mockResolvedValue([]);
     const repository = {
       findApplicationForStaff: jest.fn().mockResolvedValue(null),
@@ -156,8 +153,6 @@ describe('ApplicationsRepository.findApplicationForStaff', () => {
   });
 
   it('상세와 목록이 같은 select 를 쓴다', async () => {
-    // 한쪽 select 만 늘어나면 목록에서 보이던 값이 상세에서 사라진다 — 두 조회가
-    // 같은 상수를 쓴다는 사실 자체를 고정한다.
     const detail = detailTransaction(applicationRow());
     const { repository: detailRepository } = buildRepository(detail);
     await detailRepository.findApplicationForStaff(APPLICATION_ID);
@@ -179,8 +174,6 @@ describe('ApplicationsRepository.findApplicationForStaff', () => {
   });
 
   it('신청·outbox·job 을 RepeatableRead 한 트랜잭션에서 읽는다', async () => {
-    // 셋을 따로 읽으면 그 사이 판정이 끼어들어 「반려인데 저장소 작업 진행 중」 같은
-    // 있을 수 없는 조합이 화면에 그려진다.
     const transaction = detailTransaction(applicationRow());
     const { repository, $transaction } = buildRepository(transaction);
 

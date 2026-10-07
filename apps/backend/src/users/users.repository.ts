@@ -79,7 +79,7 @@ export interface FillStudentIdInput {
 export class UsersRepository implements UsersRepositoryPort {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    // 전화번호는 감사 기록과 같은 트랜잭션에서만 바뀌므로 이 의존은 선택이 아니다.
+
     @Inject(AuditLogService)
     private readonly auditLog: Pick<AuditLogService, 'record'>,
   ) {}
@@ -92,14 +92,6 @@ export class UsersRepository implements UsersRepositoryPort {
     return user ? toUserProfileRecord(user) : null;
   }
 
-  /**
-   * **여기가 가입이 끝나는 지점이다(#569).** 프로필 행이 만들어지는 이 순간에 고른
-   * 회원 유형이 확정되고, 교직원은 승인 대기 요청이 함께 만들어진다.
-   *
-   * 확정을 같은 트랜잭션 안에 두는 이유는, 따로 떼면 그 사이에서 끊겼을 때 "프로필은
-   * 완료됐는데 접근 요청이 없는" 계정이 남기 때문이다. 그 계정은 프로필 화면이 이미
-   * 완료라며 곧바로 내보내므로 `가입 마치기`를 다시 누를 기회를 영영 얻지 못한다.
-   */
   async completeProfileIfUnchanged(
     expected: UserProfileRecord,
     input: CompleteUserProfileInput,
@@ -166,13 +158,6 @@ export class UsersRepository implements UsersRepositoryPort {
     }
   }
 
-  /**
-   * 완료된 프로필에 학번을 처음 채운다.
-   *
-   * 학번 유일성을 보증하는 것은 `UserProfile.studentId`의 unique 제약뿐이므로
-   * 학번이 실리는 쓰기는 예외 없이 이 경로를 지난다 — 이름·학과 갱신과 섞으면
-   * 0행 갱신이 조용히 넘어가 학번이 사라진다.
-   */
   fillStudentId(input: FillStudentIdInput): Promise<StudentIdFillOutcome> {
     return this.prisma.$transaction(async (transaction) => {
       const outcome = await fillStudentIdIfEmpty(
@@ -193,7 +178,6 @@ export class UsersRepository implements UsersRepositoryPort {
     });
   }
 
-  /** 이름·소속과 본인 식별자를 갱신한다 — 학번은 이 경로로 오지 않는다(`fillStudentId`). */
   async updateProfileFields(
     expected: UserProfileRecord,
     fields: UpdateProfileFieldsInput,
@@ -236,15 +220,6 @@ export class UsersRepository implements UsersRepositoryPort {
   }
 }
 
-/**
- * 전화번호가 바뀜 때만 값과 감사 기록을 같은 트랜잭션에 함께 남긴다.
- *
- * 전이(`SET`·`REPLACED`)의 근거는 호출자 스냅샷이 아니라 이 트랜잭션이 잠근 현재
- * 값이다. 같은 사용자를 동시에 갱신하면 두 요청이 트랜잭션 밖에서 읽은 같은
- * 전화번호를 들고 들어온다 — 뒤에 잠금을 얻은 쪽이 그 스냅샷으로 판정하면 실제로는
- * 교체였는데 `SET`으로 적힌다. 감사 원장은 append-only라 잘못 적힌 전이를 나중에
- * 고칠 수단이 없다(`apps/backend/src/audit-log/AGENTS.md`).
- */
 async function writeUserPhoneIfChanged(
   transaction: Prisma.TransactionClient,
   auditLog: Pick<AuditLogService, 'record'>,
@@ -295,13 +270,6 @@ async function writeUserPhoneIfChanged(
   );
 }
 
-/**
- * 본인 식별자 갱신은 프로필 행의 잠금 뒤 실제 값을 기준으로 감사한다.
- *
- * 호출자가 읽어 둔 스냅샷은 동시 PATCH가 끝난 뒤의 값일 수 있으므로 감사의 before로
- * 사용하지 않는다. UserProfile 행을 잠그면 값 비교와 UPDATE가 한 트랜잭션 안에서
- * 이어져 실제 전이만 원장에 남는다.
- */
 async function lockStaffNumber(
   transaction: Prisma.TransactionClient,
   userId: string,

@@ -46,7 +46,6 @@ describe('SubmissionFileUploadCache', () => {
   );
 
   it('file change invalidates only the previous selected file upload', async () => {
-    // Given
     const cache = new SubmissionFileUploadCache();
     const first = new File(['%PDF'], 'first.pdf', { type: 'application/pdf' });
     const second = new File(['%PDF'], 'second.pdf', {
@@ -57,12 +56,10 @@ describe('SubmissionFileUploadCache', () => {
       .mockResolvedValueOnce({ fileId: 'file-first' })
       .mockResolvedValueOnce({ fileId: 'file-second' });
 
-    // When
     await expect(cache.resolve(first, upload)).resolves.toBe('file-first');
     cache.discardUnless(second);
     await expect(cache.resolve(second, upload)).resolves.toBe('file-second');
 
-    // Then
     expect(upload).toHaveBeenCalledTimes(2);
   });
 });
@@ -174,8 +171,6 @@ describe('getSubmissionFileErrorMessage', () => {
     expect(getSubmissionFileErrorMessage(code, policy)).toBe(message);
   });
 
-  // #354 — 사용자가 만들지도 고치지도 못하는 값(신청 ID·마일스톤 ID)을 입력하라고
-  // 지시하면 따를 방법이 없다. 화면을 다시 여는 행동만 제시해야 한다.
   it('SUB_017은 사용자가 고칠 수 없는 내부 식별자 입력을 요구하지 않는다', () => {
     const message = getSubmissionFileErrorMessage('SUB_017', policy) ?? '';
 
@@ -184,32 +179,25 @@ describe('getSubmissionFileErrorMessage', () => {
     expect(message).toContain('제출 화면을 다시 열어');
   });
 
-  // #354 — SUB_017(INVALID_FILE_UPLOAD)의 백엔드 발생 조건은 파일 부분 누락,
-  // 식별자 형식 오류, 회차 값 오류, multipart 한도 초과로 여러 갈래다. 그중
-  // "만료"인 것은 하나도 없으므로 원인을 만료로 단정하면 틀린 안내가 된다.
   it('SUB_017은 원인을 만료로 단정하지 않고 파일 재선택을 먼저 제시한다', () => {
     const message = getSubmissionFileErrorMessage('SUB_017', policy) ?? '';
 
     expect(message).not.toMatch(/만료/);
-    // 파일 부분 누락이 실제 발생 조건이므로 학생이 바로 할 수 있는 행동이다.
+
     expect(message).toContain('파일을 다시 선택');
-    // 식별자·회차 오류까지 덮는 두 번째 행동.
+
     expect(message).toContain('제출 화면을 다시 열어');
   });
 
-  // #354 — 막힌 이유와 물어볼 대상이 없으면 학생이 다음 행동을 고를 수 없다.
   it('SUB_021은 막힌 이유와 문의 대상을 함께 알려준다', () => {
     const message = getSubmissionFileErrorMessage('SUB_021', policy) ?? '';
 
     expect(message).toContain('프로그램 종료일이 설정되지 않아');
     expect(message).toContain('담당 교직원');
-    // 옛 문구는 "설정된 후 제출할 수 있습니다"로 끝나 누구에게 물을지가 없었다.
+
     expect(message).not.toMatch(/설정된 후 파일을 제출할 수 있습니다/);
   });
 
-  // #1106 — 상한을 50 MiB에서 5 MiB로 내렸을 때 문구만 옛 숫자로 남아, 학생이 절대
-  // 통과할 수 없는 크기를 통과한다고 읽었다. 문구의 숫자는 실제로 막는 상한에서 온다.
-  // #1107 — 단위 표기는 「MB」 하나로 통일했다(값은 그대로 MiB다).
   it('SUB_019 문구는 실제로 막는 상한과 같은 숫자를 말한다', () => {
     expect(getSubmissionFileErrorMessage('SUB_019', policy)).toBe(
       `파일은 ${policy.maxBytes / 1024 / 1024} MB 이하여야 합니다.`,
@@ -221,11 +209,6 @@ describe('getSubmissionFileErrorMessage', () => {
   });
 });
 
-/*
- * #1108 — `.zip`은 이 화면이 낼 수 있다고 안내하는 형식이다. 압축 **안의 내용** 때문에
- * 막힌 응답에 형식 안내를 붙이면, 학생은 형식이 잘못된 줄 알고 같은 파일을 다시 내거나
- * 다시 압축한다. 압축 내용 거절 코드는 형식 문구를 쓰지 않고 서버가 준 갈래별 문장을 쓴다.
- */
 describe('압축 파일 내용 거절 코드', () => {
   const archiveCodes = [...SUBMISSION_ARCHIVE_ERROR_CODES];
 
@@ -237,7 +220,7 @@ describe('압축 파일 내용 거절 코드', () => {
     expect(getSubmissionFileErrorMessage(code, policy)).not.toBe(
       'PDF, HWP, ZIP 파일만 제출할 수 있습니다.',
     );
-    // 화면이 사본을 들지 않는다는 뜻이기도 하다 — 문구는 서버가 소유한다.
+
     expect(getSubmissionFileErrorMessage(code, policy)).toBeNull();
   });
 
@@ -251,13 +234,10 @@ describe('압축 파일 내용 거절 코드', () => {
 
 describe('validateSubmissionContent', () => {
   it('TEXT는 공백만 있는 제출을 거절하고 입력값은 유지한다', () => {
-    // Given
     const input = { file: null, text: '   ' };
 
-    // When
     const errors = validateSubmissionContent('TEXT', input, policy);
 
-    // Then
     expect(errors).toEqual({ text: '제출 내용을 입력해 주세요.' });
     expect(input.text).toBe('   ');
   });

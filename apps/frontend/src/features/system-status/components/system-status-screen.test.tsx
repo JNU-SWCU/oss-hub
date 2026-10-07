@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,8 +24,7 @@ vi.mock('../api', () => api);
 type CapturedViewProps = {
   readonly state: SystemStatusViewState;
   readonly onRetry: () => void;
-  // 실제 구현(handleTrigger)은 async이고 테스트가 완료를 기다려야 하므로, 공개 prop
-  // 타입(`() => void`)이 아니라 런타임 실제 시그니처로 선언한다.
+
   readonly onTrigger: () => Promise<void>;
   readonly isTriggering: boolean;
   readonly triggerNotice: TriggerNotice | null;

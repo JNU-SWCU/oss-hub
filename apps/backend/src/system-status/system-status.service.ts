@@ -20,7 +20,6 @@ import {
   type SystemStatusSafeReasonResponseDto,
 } from './dto/system-status-response.dto';
 
-/** 시스템 상태 관측성 2단계 — `collectionActivity`가 노출하는 최근 sweep 건수 상한. */
 const RECENT_SWEEP_ACTIVITY_LIMIT = 20;
 const STALE_AFTER_MS = 90 * 60 * 1000;
 export const SYSTEM_STATUS_CLOCK = Symbol('SYSTEM_STATUS_CLOCK');
@@ -31,12 +30,6 @@ interface StatusDecision {
   reason: SystemStatusSafeReasonResponseDto | null;
 }
 
-/**
- * todo 12 — `getStatusSnapshot()`(old canonical 엔진) 대신 `getIncrementalStatusSnapshot()`
- * (ADR-006 증분 엔진, `CollectionRepositoryStream`/`CollectionSyncCursor` 집계)을 유일한
- * source로 소비한다. health 해석(empty/normal/delayed/partial/failed)은 이 서비스의
- * 책임으로 남는다 — port는 count/checkpoint 시각만 넘긴다.
- */
 @Injectable()
 export class SystemStatusService {
   constructor(
@@ -139,11 +132,6 @@ export class SystemStatusService {
     );
   }
 
-  /**
-   * 우선순위: EMPTY(추적 저장소 없음) → FAILED(재시도 대기 중인 stream 존재 — 실제 오류
-   * 신호) → PARTIAL(일부 stream이 아직 backfill/미검증) → DELAYED(전부 READY지만 마지막
-   * checkpoint가 오래됨) → NORMAL.
-   */
   private decide(
     snapshot: CollectionIncrementalStatusSnapshotDto,
   ): StatusDecision {

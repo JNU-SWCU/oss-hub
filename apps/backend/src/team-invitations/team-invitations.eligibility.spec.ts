@@ -43,33 +43,26 @@ describe('팀 초대 대상 자격', () => {
       'not-eligible',
     ],
   ] as const)('%s의 초대 자격을 판정한다', async (_, user, expected) => {
-    // Given
     const repository = new TeamInvitationsRepository({
       user: { findUnique: jest.fn().mockResolvedValue(user) },
     } as unknown as PrismaService);
 
-    // When
     const result = await repository.getInviteeEligibility(inviteeId);
 
-    // Then
     expect(result).toBe(expected);
   });
 
   it('후보 검색은 ACTIVE STUDENT만 조회한다', async () => {
-    // Given
     const findMany = jest.fn().mockResolvedValue([]);
     const repository = new TeamInvitationsRepository({
       user: { findMany },
     } as unknown as PrismaService);
 
-    // When
     await repository.searchCandidates(programId, 'octo', leaderId);
 
-    // Then
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          // 학생 자격은 프로필의 canonical 회원 유형이 정한다.
           profile: { is: { memberKind: MemberKind.STUDENT } },
           accountStatus: AccountStatus.ACTIVE,
         }) as unknown,
@@ -78,7 +71,6 @@ describe('팀 초대 대상 자격', () => {
   });
 
   it('교직원 계정 직접 초대를 TIV_013으로 거부한다', async () => {
-    // Given
     const repository = {
       findUserIdByGithubId: jest.fn().mockResolvedValue(leaderId),
       findTeamContext: jest.fn().mockResolvedValue({
@@ -98,10 +90,8 @@ describe('팀 초대 대상 자격', () => {
       { record: jest.fn() } as unknown as AuditLogService,
     );
 
-    // When
     const invitation = service.create(leaderGithubId, teamId, inviteeId);
 
-    // Then
     await expect(invitation).rejects.toMatchObject({
       errorCode: { code: 'TIV_013' },
     });
@@ -109,7 +99,6 @@ describe('팀 초대 대상 자격', () => {
   });
 
   it('수락 시점에 ACTIVE STUDENT가 아니면 팀원을 만들지 않는다', async () => {
-    // Given
     const tx = {
       teamInvitation: {
         findUnique: jest
@@ -138,13 +127,11 @@ describe('팀 초대 대상 자격', () => {
         operation(tx),
     } as unknown as PrismaService);
 
-    // When
     const outcome = await repository.withAcceptTransaction(
       'cuid-synthetic-invitation',
       inviteeId,
     );
 
-    // Then
     expect(tx.user.findUnique).toHaveBeenCalledWith({
       where: { id: inviteeId },
       select: {

@@ -1,7 +1,3 @@
-// 집합 기반 env 계약의 fixture 회귀 테스트.
-// compose 선언·runtime manifest/loader 일치·backend 주입·면제 경계를 검증한다.
-// process.env 문법·helper scope·소스 확장자 검사는 ESLint 테스트가 소유한다.
-
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -62,11 +58,6 @@ const REPRESENTATIVE_MAPPING_KEYS = [
   'PORT',
 ];
 
-/**
- * @param {string[]} manifestKeys
- * @param {Array<[string, string]>} [mappings]
- * @param {string[]} [extraEntries]
- */
 function runtimeConfigSource(
   manifestKeys,
   mappings = manifestKeys.map((key) => [key, key]),
@@ -97,10 +88,6 @@ ${properties}
 
 const BASE_RUNTIME = runtimeConfigSource(BASE_RUNTIME_KEYS);
 
-/**
- * @param {string[]} [backendKeys]
- * @param {Record<string, object>} [otherServices]
- */
 function composeModel(backendKeys = BASE_RUNTIME_KEYS, otherServices = {}) {
   return {
     services: {
@@ -114,15 +101,6 @@ function composeModel(backendKeys = BASE_RUNTIME_KEYS, otherServices = {}) {
   };
 }
 
-/**
- * @param {{
- *   composeText?: string,
- *   envText?: string,
- *   runtimeText?: string,
- *   composeConfig?: object|null,
- *   composeConfigSkipped?: boolean
- * }} [fixture]
- */
 function evaluateFixture(fixture = {}) {
   return evaluateEnvContract({
     composeText: fixture.composeText ?? BASE_COMPOSE,
@@ -138,9 +116,6 @@ function evaluateFixture(fixture = {}) {
   });
 }
 
-/**
- * @param {{ ok: true }|{ ok: false, errors: string[] }} result
- */
 function messages(result) {
   return result.ok ? [] : result.errors;
 }
@@ -149,10 +124,6 @@ function makeTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'env-contract-test-'));
 }
 
-/**
- * @param {string} root
- * @param {Record<string, string>} files
- */
 function writeTree(root, files) {
   for (const [relativePath, content] of Object.entries(files)) {
     const fullPath = path.join(root, relativePath);
@@ -161,9 +132,6 @@ function writeTree(root, files) {
   }
 }
 
-/**
- * @param {string} root
- */
 function writeContractTree(root) {
   writeTree(root, {
     'compose.yml': BASE_COMPOSE,
@@ -172,9 +140,6 @@ function writeContractTree(root) {
   });
 }
 
-/**
- * @param {string} composeText
- */
 function composeConfigFromText(composeText) {
   const root = makeTempDir();
 
@@ -234,10 +199,6 @@ function makeShOnlyPath() {
   return { root, bin };
 }
 
-/**
- * @param {string} root
- * @param {{ requireDocker?: boolean, ci?: string }} [options]
- */
 function runEntry(root, options = {}) {
   const args = [
     path.join(REPO_ROOT, 'scripts/check-env-example-coverage.mjs'),

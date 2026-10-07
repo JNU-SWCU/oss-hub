@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -32,18 +31,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }),
 }));
-/**
- * 이 화면은 상위 조합 계층(라우트)이 읽은 신원을 `sessionUser` prop으로만
- * 받는다 — 자기 신원 조회를 다시 만들지 않는다. 그런데 다시 쓰는 팀 관리
- * 컴포넌트(`team-members-panel`·`application-team-departure`)이 아직 공용 세션
- * 저장소를 직접 구독하고 있어, 렌더링만으로 `GET /auth/session` 요직이 나간다.
- *
- * 그 중복 조회는 28이 필수 `sessionNickname` prop으로 감는 것이 실제 수정이고
- * (0-Main 결정), 여기서는 그 동안에도 테스트가 네트워키로 나가지 않도록
- * **정해진 세션 경계 하나**(`useSession`)만 화면에 넘긴 실제 신원으로 실드한다.
- * 일반 fetch를 가짜 성공으로 바꾸거나 콘솔을 억누르지 않는다 — 이 mock은 prop
- * 계약이 들어오면 아무것도 구독하지 않아 자연하게 무해해진다.
- */
+
 vi.mock('@/features/auth/use-session', () => ({
   useSession: mocks.useSession,
 }));
@@ -62,7 +50,7 @@ vi.mock('./team-activity-api', async (importOriginal) => ({
   getTeamActivity: vi.fn(),
   getRepositoryHistory: vi.fn(),
 }));
-/** recharts는 크기를 재야 그린다 — 이 화면 테스트는 무엇을 어디에 두는지만 본다. */
+
 vi.mock('recharts', () => {
   const Pass = ({ children }: { children?: ReactNode }) => (
     <div data-chart="">{children}</div>
@@ -100,7 +88,6 @@ const program: ProgramDetail = {
   milestones: [],
 };
 
-/** 팀장 + 팀원 하나. 능력 플래그는 서버가 계산해 내려준 값 그대로 쓴다. */
 const team: ProgramTeam = {
   id: 'team-1',
   name: '합성 팀',
@@ -144,7 +131,6 @@ const application: StudentApplication = {
   canCancel: true,
 };
 
-/** 학생·교직원이 같이 읽는 팀 활동 — 이 팀은 저장소를 아직 연결하지 않았다. */
 const activity: TeamActivity = {
   applicationId: 'application-1',
   repository: null,
@@ -194,7 +180,6 @@ let host: HTMLDivElement;
 let root: Root;
 let reloadSent: TeamInvitationManagement['reloadSent'];
 
-/** 화면에 넘긴 신원과 공용 세션 경계의 신원을 항상 같게 맞춘다. */
 function seedSession(nickname: string | null): void {
   mocks.useSession.mockReturnValue(
     nickname === null
@@ -264,7 +249,6 @@ function button(text: string, dialog = false): HTMLButtonElement {
   return found as HTMLButtonElement;
 }
 
-/** 아이콘 버튼은 글자가 아니라 접근 이름으로 찾는다. */
 function iconButton(label: string): HTMLButtonElement {
   const found = host.querySelector<HTMLButtonElement>(
     `button[aria-label="${label}"]`,
@@ -274,7 +258,6 @@ function iconButton(label: string): HTMLButtonElement {
 }
 
 function inviteDialog(): Element | null {
-  // 다이얼로그는 portal로 나갈 수 있으므로 문서 전체에서 찾는다.
   return document.body.querySelector('[role="dialog"]');
 }
 
@@ -282,14 +265,12 @@ function applyLink(): Element | null {
   return host.querySelector('a[href="/programs/program-1/apply"]');
 }
 
-/** 머리글의 상태 배지 — 없으면 `null`. 명단·카드 안의 배지와 섞이지 않는다. */
 function headerBadge(): Element | null {
   return host.querySelector(
     '[data-slot="page-header-actions"] [data-slot="status-badge"]',
   );
 }
 
-/** 「신청 상태」 카드 하나 — 카드 머리의 글자로 찾는다. */
 function stageCard(): Element {
   const found = Array.from(host.querySelectorAll('[data-slot="card"]')).find(
     (card) =>
@@ -325,7 +306,7 @@ describe('ProgramMyTeamPage 접근', () => {
     const headerText = heading?.parentElement?.textContent ?? '';
     expect(headerText).toContain('합성 프로그램');
     expect(headerText).not.toContain('팀원 2명');
-    // 인원수는 명단 카드에 그대로 살아 있다.
+
     expect(host.textContent).toContain('팀원 2명');
   });
 
@@ -361,14 +342,14 @@ describe('ProgramMyTeamPage 접근', () => {
 describe('ProgramMyTeamPage 신청 상태', () => {
   it('팀장의 미제출 상태는 상태 배지 없이 이어 쓸 자리만 준다', async () => {
     await renderPage();
-    // 내지 않은 신청서를 낸 것처럼 말하는 배지를 달지 않는다.
+
     expect(host.querySelector('[data-slot="page-header-actions"]')).toBeNull();
     expect(host.textContent).not.toContain('신청 작성 중');
-    // 없는 신청을 설명하는 사실과 진짜 신청 입구는 그대로 남는다.
+
     expect(host.textContent).toContain('아직 제출된 신청서가 없습니다');
     expect(host.textContent).toContain('신청서 작성');
     expect(applyLink()).not.toBeNull();
-    // 임시 저장이 없는데 있는 것처럼 말하지 않는다.
+
     expect(host.textContent).toContain('제출 전 내용은 저장되지 않습니다');
     expect(host.textContent).not.toContain('그대로 있습니다');
     expect(getMyApplication).not.toHaveBeenCalled();
@@ -393,7 +374,7 @@ describe('ProgramMyTeamPage 신청 상태', () => {
     vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
     vi.mocked(getMyApplication).mockResolvedValue(application);
     await renderPage();
-    // 학생이 읽는 표시는 「신청」 하나다 — 검토 단계를 따로 말하지 않는다.
+
     expect(headerBadge()?.textContent).toBe('신청');
     expect(host.textContent).not.toContain('신청 검토 대기');
     expect(host.textContent).toContain('교직원 검토를 기다리는 중입니다');
@@ -402,7 +383,7 @@ describe('ProgramMyTeamPage 신청 상태', () => {
       stageCard().querySelector('[data-slot="card-content"]'),
     ).not.toBeNull();
     expect(host.textContent).not.toContain(SLOT_TEXT);
-    // 저장소 패널은 승인 전에는 서지 않는다 — 연결은 승인 후에만 할 수 있다(PR5 이전과 같다).
+
     expect(host.textContent).not.toContain('프로젝트 저장소');
     expect(getTeamActivity).not.toHaveBeenCalled();
   });
@@ -419,13 +400,13 @@ describe('ProgramMyTeamPage 신청 상태', () => {
     expect(headerBadge()?.textContent).toBe('반려');
     expect(host.textContent).toContain('팀 최소 인원을 채우지 못했습니다.');
     expect(host.textContent).not.toContain(SLOT_TEXT);
-    // 반려된 신청도 저장소 패널을 열지 않는다 — 열쇠는 승인 하나뿐이다.
+
     expect(getTeamActivity).not.toHaveBeenCalled();
   });
 
   it('신청서가 있다는 팀의 빈 신청 조회를 「신청 없음」으로 접지 않는다', async () => {
     vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
-    // 팀은 「신청서가 있다」는데 조회가 비었다 — 어긋남이지 신청 없음이 아니다.
+
     vi.mocked(getMyApplication).mockResolvedValueOnce(null);
     vi.mocked(getMyApplication).mockResolvedValueOnce(application);
     await renderPage();
@@ -471,19 +452,17 @@ describe('ProgramMyTeamPage 신청 상태', () => {
       ],
     });
     await renderPage();
-    // 승인도 학생에게는 「신청」으로 읽힌다. 승인이 열어 준 것은 문구가 아니라
-    // 아래의 활동·제출 현황 자리다.
+
     expect(headerBadge()?.textContent).toBe('신청');
     expect(host.textContent).not.toContain('참여 승인');
-    // 승인된 팀의 신청 상태 카드는 상태와 제출 사실만 남는다 — 빈 본문을
-    // 그려 카드 안에 빈 틈을 만들지 않는다.
+
     expect(stageCard().querySelector('[data-slot="card-content"]')).toBeNull();
     expect(stageCard().textContent).toContain('합성 신청서');
     expect(stageCard().textContent).toContain('2026년 1월 2일');
     const graph = host.querySelector('[role="region"]');
     expect(graph?.querySelector('h2')?.textContent).toBe('우리 팀 활동');
     expect(graph?.querySelector('[data-chart]')).not.toBeNull();
-    // 숫자는 가리킬 때만 — 범례는 이름만 말하고, 기여 없는 팀원도 빠지지 않는다.
+
     const legend = graph?.querySelector('ul[aria-label="팀원"]');
     expect(legend?.textContent).toContain('@synthetic-leader');
     expect(legend?.textContent).toContain('@synthetic-member이 기간 기여 없음');
@@ -571,7 +550,7 @@ describe('ProgramMyTeamPage 초대', () => {
       }),
     );
     await renderPage();
-    // 다이얼로그를 열지 않아도 명단이 그 실패를 그대로 드러낸다.
+
     expect(host.textContent).toContain('보낸 초대를 불러오지 못했습니다');
     await act(async () => button('다시 시도').click());
     expect(onRetrySent).toHaveBeenCalledOnce();
@@ -704,10 +683,6 @@ it('does not request a repository before a team application exists', async () =>
   expect(getTeamActivity).not.toHaveBeenCalled();
 });
 
-/**
- * 조용한 재조회(창 초점)로 팀장이 바뀌면 연필도 새 권한을 따른다 — 예전에는 편집기
- * key가 `프로그램:계정`뿐이라 권한을 한 번만 읽고 옛 권한에 머물렀다(#1287 리뷰).
- */
 it('re-reads repository permission when a quiet reload moves leadership', async () => {
   vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
   vi.mocked(getMyApplication).mockResolvedValue({
@@ -747,11 +722,6 @@ it('re-reads repository permission when a quiet reload moves leadership', async 
   );
 });
 
-/**
- * 팀원이 나가거나 들어와도 신청·팀장은 그대로일 수 있다. 조용한 재조회로 명단이 바뀌면
- * 그래프도 새 명단으로 다시 읽는다 — 예전에는 나간 팀원이 새로고침 전까지 범례에 남았다
- * (#1446 리뷰).
- */
 it('re-reads the graph when a quiet reload changes the member list', async () => {
   const collected = (logins: readonly string[]): TeamActivity => ({
     ...activity,

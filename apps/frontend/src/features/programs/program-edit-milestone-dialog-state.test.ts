@@ -58,18 +58,15 @@ describe('milestone edit dialog state', () => {
   it.each(trackedChanges)(
     '$field 필드 하나만 바꾸면 해당 필드만 변경으로 파생한다',
     ({ field, value }) => {
-      // Given
       const initial = toMilestoneForm(milestone);
       const current = { ...initial, [field]: value };
 
-      // When / Then
       expect(changedMilestoneFields(initial, current)).toEqual([field]);
       expect(isMilestoneFormDirty(initial, current)).toBe(true);
     },
   );
 
   it('여러 필드를 바꾸고 일부만 되돌리면 선언 순서의 나머지 변경만 남는다', () => {
-    // Given
     const initial = toMilestoneForm(milestone);
     const changed = {
       ...initial,
@@ -79,14 +76,12 @@ describe('milestone edit dialog state', () => {
       dueAt: '2026-08-22T18:00',
     };
 
-    // When
     const partiallyReverted = {
       ...changed,
       name: initial.name,
       startAt: initial.startAt,
     };
 
-    // Then
     expect(changedMilestoneFields(initial, partiallyReverted)).toEqual([
       'dueAt',
       'instructions',
@@ -96,11 +91,9 @@ describe('milestone edit dialog state', () => {
   });
 
   it('API null 안내는 빈 폼으로 정규화되고 빈 값으로 되돌리면 다시 clean 이다', () => {
-    // Given
     const initial = toMilestoneForm({ ...milestone, instructions: null });
     const changed = { ...initial, instructions: '안내 추가' };
 
-    // When / Then
     expect(initial.instructions).toBe('');
     expect(changedMilestoneFields(initial, changed)).toEqual(['instructions']);
     expect(
@@ -109,7 +102,6 @@ describe('milestone edit dialog state', () => {
   });
 
   it('create와 edit 모두 초기 스냅샷으로 clean을 판정하고 현재 폼 변경이 스냅샷을 바꾸지 않는다', () => {
-    // Given
     const empty = emptyMilestoneForm();
     const editInitial = toMilestoneForm(milestone);
     const createEditor = {
@@ -125,7 +117,6 @@ describe('milestone edit dialog state', () => {
       errors: {},
     } as const;
 
-    // When
     const changedCreate = updateMilestoneEditor(
       createEditor,
       'name',
@@ -142,7 +133,6 @@ describe('milestone edit dialog state', () => {
       empty.name,
     );
 
-    // Then
     expect(hasUnsavedMilestoneEdit(createEditor)).toBe(false);
     expect(hasUnsavedMilestoneEdit(editEditor)).toBe(false);
     expect(hasUnsavedMilestoneEdit(changedCreate)).toBe(true);
@@ -155,7 +145,6 @@ describe('milestone edit dialog state', () => {
   });
 
   it('닫고 다른 편집기를 열면 새 스냅샷에서 clean으로 시작한다', () => {
-    // Given
     const firstInitial = toMilestoneForm(milestone);
     const dirtyFirst = updateMilestoneEditor(
       {
@@ -173,7 +162,6 @@ describe('milestone edit dialog state', () => {
       name: '발표',
     });
 
-    // When
     const reopened = {
       mode: 'edit',
       initialForm: secondInitial,
@@ -181,18 +169,15 @@ describe('milestone edit dialog state', () => {
       errors: {},
     } as const;
 
-    // Then
     expect(hasUnsavedMilestoneEdit(dirtyFirst)).toBe(true);
     expect(hasUnsavedMilestoneEdit({ mode: 'closed' })).toBe(false);
     expect(hasUnsavedMilestoneEdit(reopened)).toBe(false);
   });
 
   it('변경하지 않은 ISO 날짜는 바이트 단위로 유지하고 한 날짜만 바꾸면 그 날짜만 직렬화한다', () => {
-    // Given
     const initial = toMilestoneForm(milestone);
     const dueOnly = { ...initial, dueAt: '2026-08-21T18:00' };
 
-    // When
     const unchangedInput = buildMilestoneInput(
       initial,
       changedMilestoneFields(initial, initial),
@@ -206,7 +191,6 @@ describe('milestone edit dialog state', () => {
       changedMilestoneFields(initial, { ...dueOnly, dueAt: initial.dueAt }),
     );
 
-    // Then
     expect(unchangedInput.startAt).toBe(milestone.startAt);
     expect(unchangedInput.dueAt).toBe(milestone.dueAt);
     expect(dueOnlyInput.startAt).toBe(milestone.startAt);
@@ -215,17 +199,14 @@ describe('milestone edit dialog state', () => {
   });
 
   it('startAt만 바꾸면 dueAt은 원본 ISO 바이트를 유지한다', () => {
-    // Given
     const initial = toMilestoneForm(milestone);
     const current = { ...initial, startAt: '2026-08-17T10:00' };
 
-    // When
     const input = buildMilestoneInput(
       current,
       changedMilestoneFields(initial, current),
     );
 
-    // Then
     expect(input.startAt).toBe('2026-08-17T01:00:00.000Z');
     expect(input.dueAt).toBe(milestone.dueAt);
   });

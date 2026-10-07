@@ -30,8 +30,6 @@ export class AccountDeactivationService {
 
   deactivate(githubId: bigint): Promise<AccountDeactivationResult> {
     return this.repository.withTransaction(async (store) => {
-      // 관리자 권한 변경 경로와 같은 순서로 잠근다. 대상 행을 먼저 잠그면 서로 다른
-      // 관리자가 동시에 상태를 바꿀 때 active-admin 집합 잠금과 교착할 수 있다.
       const activeAdminCount = await store.lockActiveAdmins();
       const account = await store.findForUpdate(githubId);
       if (!account) {

@@ -95,11 +95,6 @@ describe('CollectionModule', () => {
     expect(controllers).toContain(CollectionAdminController);
   });
 
-  /**
-   * `Canonical*` 8개 테이블과 그걸 읽던 old writer는 ADR-006 보존 기간이 끝나 제거됐다.
-   * 이 모듈이 다시 그쪽을 배선하면 부팅 시점이 아니라 첫 질의 시점에 relation-not-exist로
-   * 깨지므로, 이름으로라도 되살아나지 않았는지를 여기서 고정한다.
-   */
   it('does not re-register any provider bound to the dropped canonical tables', () => {
     const names = getMetadataArray(MODULE_METADATA.PROVIDERS).map((provider) =>
       typeof provider === 'function'
@@ -151,9 +146,6 @@ describe('CollectionModule', () => {
   });
 
   it('배경 수집 모듈은 동의 모듈에 더 이상 의존하지 않는다', () => {
-    // 동의 게이트는 온보딩 경로(roles·users·repository-own-enrollment) 전속이다.
-    // 이 모듈이 다시 ConsentsModule을 끌어오면 배경 수집이 동의를 두 번 묻는
-    // 상태로 되돌아간다.
     const imports = getMetadataArray(MODULE_METADATA.IMPORTS);
     const names = imports.map((entry) =>
       typeof entry === 'function' ? entry.name : String(entry),
@@ -189,7 +181,6 @@ describe('CollectionModule', () => {
   });
 
   it('CollectionSyncService가 CollectionPublicTokenProvider를 주입받아 E1 external sweep runtime factory를 갖는다', async () => {
-    // Given: 실제 모듈 metadata에서 CollectionSyncService factory를 꺼낸다.
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
     const provider = findCollectionSyncServiceProvider(providers);
 
@@ -199,7 +190,6 @@ describe('CollectionModule', () => {
       CollectionPublicTokenProvider,
     ]);
 
-    // When: 합성 fixture로 factory를 직접 호출해 실제 서비스 인스턴스를 얻는다.
     const runtimeConfig = loadRuntimeConfig({
       GITHUB_COLLECTION_APP_ID: '12345',
       GITHUB_APP_ORG: 'synthetic-org',
@@ -232,8 +222,6 @@ describe('CollectionModule', () => {
     const externalRuntime =
       (await externalRuntimeFactory?.()) as CollectionSyncRuntime;
 
-    // Then: external runtime은 주입된 CollectionPublicTokenProvider로 인증하고,
-    // org runtime과는 별도의 ProviderRequestQueue 인스턴스를 쓴다(독립 5,000/hr 예산).
     expect(externalRuntime.tokens).toBe(fakePublicTokens);
     expect(externalRuntime.queue).toBeInstanceOf(ProviderRequestQueue);
     expect(externalRuntime.queue).not.toBe(orgRuntime.queue);

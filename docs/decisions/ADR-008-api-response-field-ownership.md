@@ -48,13 +48,13 @@ Accepted
 
 ### 1. `ProblemDetail.detail` — 의도적 예외
 
-`apps/backend/src/programs/program-error-code.enum.ts`를 비롯한 도메인별 `*-error-code.enum.ts`는 각 오류 코드(`ProgramErrorCode` 등)마다 고정된 한국어 메시지를 `PROGRAM_ERROR_CODES`와 같은 맵에 선언한다. `apps/backend/src/common/problem-detail.filter.ts`의 `ProblemDetailFilter.toProblemDetail`(`ProblemDetailFilter.catch`가 호출)이 `detail: exception.errorCode.message`로 이 메시지를 그대로 응답에 싣고, 프런트엔드는 `apps/frontend/src/features/roles/admin-access-mutation-policy.ts`의 `adminAccessMutationErrorMessage`에서 `error.problem.detail`을 전역적으로 그대로 렌더한다. 같은 파일 주석(해당 함수 바로 위)에는 백엔드 `ProblemDetail.detail`을 authoritative 카피로 쓴다고 명시돼 있다.
+`apps/backend/src/programs/program-error-code.enum.ts`를 비롯한 도메인별 `*-error-code.enum.ts`는 각 오류 코드(`ProgramErrorCode` 등)마다 고정된 한국어 메시지를 `PROGRAM_ERROR_CODES`와 같은 맵에 선언한다. `apps/backend/src/common/problem-detail.filter.ts`의 `ProblemDetailFilter.toProblemDetail`(`ProblemDetailFilter.catch`가 호출)이 `detail: exception.errorCode.message`로 이 메시지를 그대로 응답에 싣고, 프런트엔드는 `apps/frontend/src/features/roles/admin-access-mutation-policy.ts`의 `adminAccessMutationErrorMessage`에서 `error.problem.detail`을 전역적으로 그대로 렌더한다.
 
 이것은 랭킹 사례와 다르다. 개별 메시지 문자열 하나하나는 고정값이지만, **어떤 오류 코드가 발생했는가** 자체가 요청·상태에 따라 달라지는 판정 결과다. 즉 "코드에 따라 분기하는 유한 집합"이며 순수 정적 상수가 아니다. 또한 RFC 7807 `detail` 필드의 관례("사람이 읽을 수 있는 설명")에도 부합한다. 랭킹의 `notice`처럼 모든 응답에 무조건 동일하게 붙는 문구가 아니라 오류 코드에 종속된 값이므로, 이 결정의 위반 사례로 단정하지 않는다. 수정 파급이 전역적이므로(모든 도메인 오류 메시지와 프런트엔드 전역 렌더링 경로에 영향) 현행을 유지하고 이 ADR에는 의도적 예외로만 기록한다.
 
 ### 2. D-day 라벨 로직 중복 — 미해결 편차, 방향 미정
 
-`apps/frontend/src/features/submissions/submission-checklist.ts`의 `milestoneDeadline` 함수는 `apps/backend/src/programs/program-deadline.ts`의 `programDeadline` 함수가 정의한 D-day 라벨 생성 규칙(Asia/Seoul 달력일 차이 계산, `마감 지남`/`오늘 마감`/`D-n` 라벨)을 프런트엔드에서 독립적으로 재구현했다 — `submission-checklist.ts`의 `milestoneDeadline` 바로 위 주석에도 "규칙은 backend program-deadline.ts와 동일"이라고 명시돼 있다. 체크리스트 API가 `dueAt`만 내려주고 라벨은 내려주지 않아 생긴 중복이다.
+`apps/frontend/src/features/submissions/submission-checklist.ts`의 `milestoneDeadline` 함수는 `apps/backend/src/programs/program-deadline.ts`의 `programDeadline` 함수가 정의한 D-day 라벨 생성 규칙(Asia/Seoul 달력일 차이 계산, `마감 지남`/`오늘 마감`/`D-n` 라벨)을 프런트엔드에서 독립적으로 재구현했다. 체크리스트 API가 `dueAt`만 내려주고 라벨은 내려주지 않아 생긴 중복이다.
 
 이 사례는 위 원칙과 반대 방향이다 — 백엔드가 이미 같은 판정 로직(`programDeadline`)을 갖고 있는데 그 결과를 응답에 싣지 않고 프런트엔드가 같은 로직을 다시 만들었다. D-day 여부·라벨은 `dueAt`과 현재 시각이라는 입력에 따라 달라지는 판정이므로 위 판별 기준으로는 "백엔드 소유" 쪽에 가깝지만, 타임존 규칙이 바뀌면 두 구현 중 한쪽만 고쳐질 위험이 있다는 점만 확인했을 뿐 해소 방향은 정하지 않는다. 가능한 해소 방향은 (a) 체크리스트 API 응답에 라벨/D-day를 추가해 백엔드로 판정을 일원화하거나, (b) 세 경로(체크리스트, 프로그램 상세, 마일스톤 행) 모두 프런트엔드에서 공통 유틸로 라벨을 생성하도록 정리하는 것 두 가지이며, 이번 결정에서는 어느 쪽도 선택하지 않는다.
 

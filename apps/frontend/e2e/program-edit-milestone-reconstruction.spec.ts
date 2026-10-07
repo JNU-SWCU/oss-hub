@@ -425,11 +425,7 @@ test.describe('마일스톤 편집 재구성', () => {
     const downloadPromise = staffPage.waitForEvent('download');
     await templateLink.click();
     const download = await downloadPromise;
-    /*
-     * 서버는 콜론처럼 안전하지 않은 문자를 밑줄로 정규화해 내려준다 — 제출 파일 업로드
-     * 계약의 파일명 정규화와 같은 규칙이다. 그래서 올린 이름과 같기를 기대하지 않고
-     * 정규화된 이름을 단언한다. 내용 동일성은 아래 바이트 비교가 증명한다.
-     */
+
     const sanitizedDocumentName = revisedDocumentName.replaceAll(':', '_');
     expect(download.suggestedFilename()).toBe(sanitizedDocumentName);
     const downloadPath = testInfo.outputPath(sanitizedDocumentName);

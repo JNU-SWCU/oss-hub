@@ -54,12 +54,7 @@ export function AdminAccessUserCell({
 }: {
   readonly item: AdminAccessListItem;
   readonly workspace: AccessWorkspace;
-  /**
-   * 목록이 지금 서 있는 질의(직렬화된 URL searchParams). 상세 주소에 그대로
-   * 얹어, 오버레이 뒤에 깔린 목록이 검색·필터를 잃지 않게 한다. 훅으로 직접
-   * 읽지 않고 prop 으로 받는다 — 이 셀은 라우터 없이도 그려지는 순수 표시
-   * 부품이고, 실제로 라우터 없이 렌더하는 테스트가 있다.
-   */
+
   readonly listSearch?: string;
 }) {
   const isQueue = workspace === 'queue';

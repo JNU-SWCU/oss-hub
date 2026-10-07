@@ -155,10 +155,6 @@ export async function transferProvisionGeneration(
   return { jobId: existing.id };
 }
 
-/**
- * 동기 OWN 교체는 새 worker 세대를 만들지 않는다. 대신 실행 중인 비동기 세대를
- * SUPERSEDED로 닫고 job을 새 current repository의 완료 projection으로 맞춘다.
- */
 export async function settleProvisionGenerationForSynchronousConnection(
   transaction: Prisma.TransactionClient,
   input: {

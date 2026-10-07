@@ -136,7 +136,6 @@ export class SubmissionsService {
         };
       });
     } catch (error: unknown) {
-      // 사전 인가 뒤에 팀원 제외가 커밋된 경우다 — 참여자가 아닌 것과 같은 결로로 닫는다.
       if (error instanceof SubmissionMembershipChangedError) {
         throw this.error(SubmissionsErrorCode.NOT_APPLICATION_MEMBER);
       }
@@ -300,10 +299,6 @@ export class SubmissionsService {
     };
   }
 
-  /**
-   * 보완 요청은 마감 후에도, 마감 전 교체는 최종 반려를 제외하고 허용한다.
-   * 내용 검증은 #115와 동일하다.
-   */
   private assertResubmittable(
     target: ResubmissionTarget,
     input: ResubmitSubmissionInput,
@@ -313,7 +308,7 @@ export class SubmissionsService {
       throw this.error(SubmissionsErrorCode.STALE_SUBMISSION_REVISION);
     if (target.status === SubmissionStatus.REJECTED)
       throw this.error(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
-    // 승인된 제출물은 교체하지 않는다 — 교직원 판정이 옛 revision 을 가리킨 채 남는다.
+
     if (target.status === SubmissionStatus.APPROVED)
       throw this.error(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
     if (

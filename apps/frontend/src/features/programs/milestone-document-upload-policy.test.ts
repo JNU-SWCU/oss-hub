@@ -9,7 +9,7 @@ const policy = milestoneDocumentUploadPolicy();
 
 function file(name: string, size: number): File {
   const candidate = new File(['x'], name);
-  // File 생성자에 실제로 상한만 한 바이트를 넣지 않는다 — 크기만 흉내 내면 충분하다.
+
   Object.defineProperty(candidate, 'size', { configurable: true, value: size });
   return candidate;
 }
@@ -67,10 +67,6 @@ describe('milestoneDocumentUploadRejection', () => {
     ).toBeNull();
   });
 
-  /*
-   * 크기를 먼저 본다 — 서버(`milestone-document-files.service.ts`)와 같은 순서다. 순서가
-   * 갈리면 같은 파일에 대해 화면과 서버가 서로 다른 이유를 말한다.
-   */
   it('크기와 형식이 모두 어긋나면 크기를 먼저 말한다', () => {
     expect(
       milestoneDocumentUploadRejection(

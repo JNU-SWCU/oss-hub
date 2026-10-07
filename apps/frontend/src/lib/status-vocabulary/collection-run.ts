@@ -1,11 +1,5 @@
 import type { StatusBadgeVariantName } from './status-badge-variant';
 
-/**
- * 시스템 상태 「최근 수집 활동」 한 줄의 결과 어휘 — 라벨과 배지 변형의 단일 원본(R-35).
- *
- * 한 바퀴 순회는 사이클이 끝났는지(완료·한도·진행 중)를, 저장소를 연결하자마자 그 저장소
- * 하나만 모은 수집은 끝났는지만(#1133) 말한다. 실패는 색만으로 가르지 않고 말로도 적는다.
- */
 export type CollectionRunStatusKey =
   | 'CYCLE_COMPLETED'
   | 'BUDGET_STOPPED'

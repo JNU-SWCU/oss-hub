@@ -45,8 +45,7 @@ vi.mock('@/components', async (importOriginal) => {
           data-row-keys={data.map(rowKey).join(',')}
         >
           {caption}
-          {/* 머리글도 실제 DOM 으로 내늘다 — 열 이름은 사용자가 읽는 문구라
-              props 만 보면 "Star(누적)" 같은 표기가 사라져도 통과해 버린다. */}
+
           {columns.map((column) => (
             <div key={`head-${column.id}`} data-column-head={column.id}>
               {column.header}
@@ -254,12 +253,6 @@ test('GitHub 로그인이 같아도 순위가 다른 행에 고유 키를 사용
   expect(html).toContain('data-row-keys="1,2"');
 });
 
-// F4 QA 감사 갭: outcome-1·2·4·5는 지금까지 backend 통합 테스트
-// (`public-exposure-matrix.integration.spec.ts`)에서만 증명됐다. 아래는 그 outcome들의 ranking
-// 화면 절반을 고정한다 — archive 쪽 절반(outcome-2 기여자 분리, outcome-4 stale-allow,
-// outcome-5 회수)은 `archive/archive.test.tsx`가 동일한 synthetic 식별자로 짝을 맞춘다.
-//
-// 활성 GitHub 활동 정책은 공개 랭킹에서 소속과 실명을 제외한다.
 const forbiddenRankingFields = [
   'studentId',
   'accountStatus',
@@ -431,8 +424,6 @@ test('outcome-5: 발행 후 비공개로 전환(회수)된 기여자는 이전�
 });
 
 test('갱신 시각이 있으면 화면에 기준 시각을 보여준다', () => {
-  // 숫자만 있으면 오늘 값인지 석 달 전 값인지 알 수 없다 —
-  // 수집이 멈춘 것을 화면이 먼저 말해야 한다(ADR-010 §10).
   const html = renderToStaticMarkup(
     <RankingView
       page={1}
@@ -457,8 +448,6 @@ test('갱신 시각이 있으면 화면에 기준 시각을 보여준다', () =>
 });
 
 test('갱신 시각이 없으면 시각을 숨기지 않고 "첫 수집 전"이라고 말한다', () => {
-  // 예전에는 시각을 통째 생략했다. 그러면 배포 직후처럼 수집이 아직 한 번도
-  // 안 돌았을 때 화면이 아무 신호도 주지 않아, 수집이 멈춘 것과 구별되지 않는다.
   const html = renderToStaticMarkup(
     <RankingView
       page={1}
@@ -482,11 +471,6 @@ test('갱신 시각이 없으면 시각을 숨기지 않고 "첫 수집 전"이�
   expect(html).toContain('data-ranking-as-of="none"');
   expect(html).toContain('첫 수집 전');
 });
-
-// 사람 축 5종 지표 (ADR-010 개정 노트 2026-08-19).
-//
-// 아래는 전부 **렌더된 DOM 문자열**을 본다 — 컬럼 정의나 props 를 들여다보면
-// 열이 화면에서 빠져도 통과한다.
 
 const personAxisItem = (
   overrides: Partial<StaffRankingItem> = {},
@@ -600,8 +584,6 @@ test('release 지표는 랭킹 화면에서 사라진다 — 저장소 축 전�
 });
 
 test('star 는 올해가 아니라 누적임을 화면이 밝힌다', () => {
-  // 이 문구가 없으면 옆 열들과 같은 규칙(해당 연도)으로 읽혀 "올해 받은 별"로
-  // 오해된다. GitHub 이 올해분 star 를 싸게 주지 않아 수집기는 계정 전체를 센다.
   const html = staffAxisMarkup([personAxisItem()], {
     viewerClass: 'staff',
   });
@@ -634,14 +616,12 @@ test('갱신 시각을 사람이 읽는 문구로 함께 보여준다', () => {
   const html = personAxisMarkup([publicPersonAxisItem()], {});
 
   expect(html).toContain('data-ranking-as-of="2026-08-19T02:30:00.000Z"');
-  // Asia/Seoul 기준 표기 — 속성만 있고 눈에 보이는 글자가 없으면 소용없다.
+
   expect(html).toContain('기준');
   expect(html).toMatch(/2026[^<]*8[^<]*19/);
 });
 
 test('비로그인 화면 DOM 에는 실명 같은 비공개 값이 없다', () => {
-  // 이 화면에는 세션이 없다. 서버가 공개 계층에 실명을 애초에 싣지 않으므로
-  // 화면이 지울 값 자체가 없다 — 아래는 그 사실이 DOM 에서도 유지되는지 본다.
   const html = personAxisMarkup(
     [
       publicPersonAxisItem(),
@@ -658,11 +638,6 @@ test('비로그인 화면 DOM 에는 실명 같은 비공개 값이 없다', () 
   }
 });
 
-// 수집 전 / 전원 0 상태 (배포 직후 첫 sweep 이전).
-//
-// 이 두 화면은 "모두가 진짜로 아무것도 안 했다"와 글자 그대로 같아 보인다.
-// 그대로 두면 이번에 고치려는 버그(학생이 0으로만 보임)와 구별이 안 된다.
-
 test('dataAsOf 가 null 이면 수집 전임을 화면이 설명한다 — 0 만 남기지 않는다', () => {
   const html = personAxisMarkup(
     [
@@ -677,14 +652,12 @@ test('dataAsOf 가 null 이면 수집 전임을 화면이 설명한다 — 0 만
   expect(html).toContain('첫 수집 전입니다');
   expect(html).toContain('활동 실적이 아닌 임시값');
   expect(html).toContain('data-ranking-as-of="none"');
-  // 설명만 붙일 뿐 사람을 지우지 않는다.
+
   expect(html).toContain('synthetic-top');
   expect(html).toContain('data-row-keys="1"');
 });
 
 test('전원이 0 이면 그 사실을 따로 말하고, 그래도 전원을 목록에 남긴다', () => {
-  // `items.length === 0` 은 사람 축에서 사실상 오지 않는다 — 가입자는 항상 행을
-  // 갖는다. 그래서 빈 목록 문구에 기대면 이 상태는 영원히 설명되지 않는다.
   const zero = (rank: number, login: string): PublicRankingItem =>
     publicPersonAxisItem({
       rank,
@@ -705,7 +678,7 @@ test('전원이 0 이면 그 사실을 따로 말하고, 그래도 전원을 목
   expect(html).toContain('참여자 전원이 그대로 남아');
   expect(html).toContain('data-row-keys="1,2,3"');
   expect(html).toContain('synthetic-newcomer');
-  // 수집은 돌았으므로 기준 시각은 그대로 보인다.
+
   expect(html).toContain('data-ranking-as-of="2026-08-19T02:30:00.000Z"');
   expect(html).not.toContain('첫 수집 전입니다');
 });
@@ -760,7 +733,7 @@ test('공개 화면은 rank·login·commit·PR 네 열만 렌더한다 — 신�
     expect(html).toContain(`data-column-head="${column}"`);
     expect(html).toContain(`data-column-id="${column}"`);
   }
-  // 비로그인은 신원도 구성원 지표도 받지 않는다.
+
   for (const excludedColumn of [
     'department',
     'name',
@@ -942,8 +915,6 @@ test('권한 열이 붙어도 5종 지표·star 누적 문구·수집 안내는 
   expect(allZero).toContain('집계된 활동이 아직 없습니다');
 });
 
-// 로그인 구성원 계층 — 지표는 전부 보이고 신원은 여전히 없다.
-
 const memberPersonAxisItem = (
   overrides: Partial<MemberRankingItem> = {},
 ): MemberRankingItem => ({
@@ -1022,7 +993,6 @@ test('member 계층의 활동 없음 판정은 합계 열을 쓴다 — 화면�
     }),
   ]);
 
-  // commit·PR 이 0이어도 합계가 남아 있으면 활동이 있는 것이다.
   expect(zeroCommitOnly).not.toContain('집계된 활동이 아직 없습니다');
   expect(allZero).toContain('집계된 활동이 아직 없습니다');
 });

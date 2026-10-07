@@ -222,7 +222,7 @@ describe('CollectionReadService — getContributorMetrics', () => {
         updatedAt,
         repository: { githubRepositoryId: 101n },
       },
-      // An issue-only day leaves commit, PR and release counts at 0.
+
       {
         githubId: 2n,
         commitCount: 0,

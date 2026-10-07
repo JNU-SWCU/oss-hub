@@ -2,14 +2,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-/**
- * `scripts/rehearse-legacy-table-drop.sh`의 정적 계약.
- *
- * 리허설 자체는 PostgreSQL 컨테이너가 필요해 required CI가 아니라 릴리스 전에 손으로
- * 돈다(`docs/deploy/pre-deploy-verify.md` ⓪). 그래서 스크립트가 **운영 DB에 직접 붙지
- * 않고, production-dump 모드에서 컨테이너 밖으로 나갈 경로가 없으며, 뒷정리를 빠뜨리지
- * 않고, 추적 중인 마이그레이션 파일 그대로를 돌린다**는 것은 이 파일이 대신 고정한다.
- */
 const rehearsal = readFileSync(
   new URL('./rehearse-legacy-table-drop.sh', import.meta.url),
   'utf8',
@@ -41,7 +33,7 @@ test('rehearsal accepts only its two named scenarios, in either mode', () => {
     rehearsal,
     /Usage: scripts\/rehearse-legacy-table-drop\.sh migrate\|negative \[dump_path image_tag\]/,
   );
-  // 인자 개수만으로 모드를 가른다 — 두 모드가 서로 다른 옵션 파싱 표면을 갖지 않는다.
+
   assert.match(rehearsal, /\$# -eq 1.*\n.*mode='synthetic'/);
   assert.match(rehearsal, /\$# -eq 3.*\n.*mode='production-dump'/);
 });
@@ -60,9 +52,7 @@ test('rehearsal refuses non-local Docker endpoints', () => {
 test('rehearsal never reads a caller database connection or leaks credentials', () => {
   assert.ok(!rehearsal.includes('$DATABASE_URL'));
   assert.ok(!rehearsal.includes('POSTGRES_HOST'));
-  // production-dump 모드는 release 이미지에 이 값을 절대 넘기지 않는다 — 실제 secret이
-  // 담긴 `.env`가 컨테이너로 새는 유일한 경로이기 때문이다. 그 이유를 설명하는 주석
-  // 자체는 이 문자열을 언급하므로, 주석이 아닌 실행 줄에는 없는지로 검사한다.
+
   const envFileOnExecutableLine = rehearsal
     .split('\n')
     .some(
@@ -77,8 +67,7 @@ test('production-dump mode runs on an internal network and publishes no host por
     rehearsal,
     /run -d --name "\$container" --network "\$network"[\s\S]*?"\$postgres_image"/,
   );
-  // 같은 run 호출에 `-p`가 없어야 한다 — production-dump 컨테이너는 바깥에서 붙을 방법이
-  // 없어야 하고, synthetic 모드의 `-p 127.0.0.1:0:5432`와 같은 줄에 있으면 안 된다.
+
   const productionRunLine = rehearsal
     .split('\n')
     .find(
@@ -122,7 +111,7 @@ test('cleanup removes the container with its volume, the network, and both temp 
     rehearsal,
     /mktemp -d "\$\{TMPDIR:-\/tmp\}\/legacy-table-drop-staged\.XXXXXX"/,
   );
-  // 두 임시 트리 모두 정리 루프 대상이다 — staged만 빠지면 synthetic 모드가 매번 디렉터리를 흘린다.
+
   assert.match(rehearsal, /for dir in "\$\{tmp_root:-\}" "\$\{staged:-\}"; do/);
   assert.match(rehearsal, /rm -rf -- "\$dir"/);
 });
@@ -130,8 +119,7 @@ test('cleanup removes the container with its volume, the network, and both temp 
 test('cleanup shreds temp files when shred is available and never touches the input dump', () => {
   assert.match(rehearsal, /command -v shred/);
   assert.match(rehearsal, /shred -u/);
-  // dump_path는 정리 루프의 두 변수(tmp_root, staged) 중 어디에도 대입되지 않는다 —
-  // 읽기 전용으로만 쓰인다는 것을 코드 구조로 고정한다.
+
   assert.ok(!rehearsal.includes('dump_path"'.concat('\n')));
   assert.ok(!/dump_path=.*mktemp/.test(rehearsal));
   assert.ok(
@@ -162,16 +150,13 @@ test('rehearsal runs the tracked migration file, not a reconstructed statement',
 });
 
 test('negative lane pins the gate wording directly, because Prisma only reports its last error', () => {
-  // Prisma의 마지막-오류만 노출하는 습성을 설명하는 주석 — 줄바꿈으로 나뉘어 있어 부분
-  // 문자열 두 개로 확인한다.
   assert.ok(rehearsal.includes('current transaction is'));
   assert.ok(rehearsal.includes('aborted'));
   assert.match(
     rehearsal,
     /gate_output" == \*'legacy tables require reconciliation'\*/,
   );
-  // 실제 배포 경로(이미지 또는 로컬 prisma)는 exit code만으로 판정한다 — 메시지 내용을
-  // 다시 요구하면 마스킹된 텍스트에 대해 검사가 거짓으로 실패한다.
+
   assert.match(
     rehearsal,
     /deploy_status != 0 \)\) \|\| fail 'migrate deploy unexpectedly succeeded/,
@@ -242,7 +227,6 @@ test('migrate lane proves the drop and that everything else is byte-for-byte unc
 });
 
 test('migrate lane takes its schema expectations before the migration runs', () => {
-  // 이관 뒤에 기대값을 잡으면 비교 두 쪽이 같은 카탈로그에서 나와 늘 같다(#1445 리뷰).
   const deploy = rehearsal.indexOf('# --- run the migration');
   assert.ok(deploy > 0);
   for (const kind of ['constraint', 'index', 'enum']) {

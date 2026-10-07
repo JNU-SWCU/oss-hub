@@ -47,8 +47,6 @@ describe('account self-deactivation integration', () => {
   });
 
   afterAll(async () => {
-    // 감사 원장은 append-only이고 사용자 FK를 보존한다. 통합 DB는 실행마다 폐기되므로
-    // 합성 행을 억지로 지우지 않는다.
     await prisma.$disconnect();
   });
 

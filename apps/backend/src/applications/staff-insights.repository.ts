@@ -73,11 +73,6 @@ export class StaffInsightsRepository {
     });
   }
 
-  /**
-   * Person-axis activity totals. All-time folds commit/PR/issue/repo across
-   * years and keeps star from the latest year (stars are snapshots, not
-   * increments).
-   */
   async listActivityTotals(
     query: StaffInsightsActivityQuery,
   ): Promise<readonly StaffInsightsActivityRecord[]> {

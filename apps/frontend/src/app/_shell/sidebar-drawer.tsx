@@ -4,7 +4,6 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-/** 드로어 dialog 요소의 DOM id — 토글 버튼의 `aria-controls`가 이 값을 가리킨다. */
 export const SIDEBAR_DRAWER_DIALOG_ID = 'app-sidebar-drawer';
 
 const FOCUSABLE_SELECTOR =
@@ -17,17 +16,6 @@ export interface SidebarDrawerProps {
   readonly children: ReactNode;
 }
 
-/**
- * 900px 미만 전용 오버레이 드로어 — 햄버거로 여는 데스크톱 사이드바의 모바일 대체.
- * 메뉴 콘텐츠(그룹·아이콘·current 마커)는 부모가 `children`으로 주입한다
- * (`AppSidebarNav`/`ProgramScopeSidebarNav` 재사용, `product-shell.tsx` 배선).
- * 여기서는 dialog 접근성 규약만 책임진다:
- * - role="dialog" + aria-modal + aria-label
- * - 열릴 때 첫 포커서블로 포커스, 닫힐 때 열기 전 포커스(트리거)로 복귀
- * - Tab 포커스 트랩
- * - Escape로 닫힘
- * - 배경 스크롤 잠금
- */
 export function SidebarDrawer({
   open,
   onClose,
@@ -38,8 +26,7 @@ export function SidebarDrawer({
 
   useEffect(() => {
     if (!open) return;
-    // 열기 전 포커스를 기억해 둔다 — 보통 트리거(햄버거) 버튼이라, 별도 ref 없이
-    // 닫힐 때 그대로 복귀시키면 된다.
+
     const previouslyFocused = document.activeElement as HTMLElement | null;
 
     const focusables = (): HTMLElement[] =>

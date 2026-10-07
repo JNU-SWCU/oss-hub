@@ -47,9 +47,7 @@ export async function validateProgramAuthoringUpload(
       PROGRAM_AUTHORING_UPLOAD_ERROR_CODES.UNSUPPORTED_FILE_TYPE,
     );
   }
-  // .zip은 서명만으로 받지 않는다 — 제출물 경로와 같은 중앙 디렉터리 입장 검사를 거친다.
-  // 이 경로는 교직원의 프로그램 작성 업로드이고 학생 제출 화면이 아니라, #1108의 갈래별
-  // 안내 범위 밖이다. 거절 사유를 코드로 가르지 않고 지금 판정을 그대로 유지한다.
+
   if (
     originalFileName.toLowerCase().endsWith('.zip') &&
     (await inspectSubmissionZipMetadata(file.buffer)) !== null

@@ -94,10 +94,7 @@ async function captureDomainException(
 
 describe('기존 데이터 호환', () => {
   it('세 항목을 모두 채운 기존 사용자는 어떤 역할에서도 완료다', async () => {
-    // 관리자는 회원 유형을 갖지 않으므로 이 표에 없다 — 그쪽은 유형을 직접 고른 뒤에야
-    // 프로필이 완료된다(fail-closed).
     for (const role of ['STUDENT', 'STAFF'] as const) {
-      // Given
       const { service } = buildService({
         user: {
           id: 'synthetic-user',
@@ -108,7 +105,6 @@ describe('기존 데이터 호환', () => {
         },
       });
 
-      // When / Then
       await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
         studentId,
         isComplete: true,
@@ -117,7 +113,6 @@ describe('기존 데이터 호환', () => {
   });
 
   it('학번이 null인 기존 교직원은 학번을 요구받지 않고 이름·학과만 갱신한다', async () => {
-    // Given
     const existingStaff = {
       id: 'synthetic-user',
       name: input.name,
@@ -132,13 +127,11 @@ describe('기존 데이터 호환', () => {
         user: existingStaff,
       });
 
-    // When
     const profile = await service.patchMyProfile(githubId, {
       name: '수정된 이름',
       department: '소프트웨어공학과',
     });
 
-    // Then
     expect(profile).toEqual({
       name: '수정된 이름',
       studentId: null,
@@ -150,7 +143,7 @@ describe('기존 데이터 호환', () => {
     expect(updateProfileFields).toHaveBeenCalledWith(existingStaff, {
       name: '수정된 이름',
       department: '소프트웨어공학과',
-      // 소속명은 학과의 사본이다 — 두 칸이 어긋나면 계약 CHECK가 거부한다.
+
       affiliationKind: AffiliationKind.DEPARTMENT,
       affiliationName: '소프트웨어공학과',
     });
@@ -186,9 +179,6 @@ describe('기존 데이터 호환', () => {
   });
 
   it('교직원이 학번을 실어 보내면 400 검증 오류로 거부한다', async () => {
-    // Given — 학번은 학생만 가질 수 있다. 조교처럼 대학원생 신분을 겸하는
-    // 교직원이라도 이제는 학번을 채울 수 없다(예전에는 완료된 교직원이 학번을
-    // 한 번 채울 수 있었지만, 그 예외를 없앴다).
     const stored = {
       id: 'synthetic-user',
       name: input.name,
@@ -200,12 +190,10 @@ describe('기존 데이터 호환', () => {
       user: stored,
     });
 
-    // When
     const error = await captureDomainException(() =>
       service.patchMyProfile(githubId, input),
     );
 
-    // Then
     expect(error.errorCode).toMatchObject({
       code: SystemErrorCode.VALIDATION_FAILED,
       status: 400,

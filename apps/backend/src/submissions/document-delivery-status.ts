@@ -1,7 +1,6 @@
 export type DocumentDeliveryStatus =
   'MISSING' | 'LATE' | 'COMPLETE' | 'NO_REQUIRED_ITEMS';
 
-/** Review decisions and later revisions do not change the first-success delivery axis. */
 export function documentDeliveryStatus(input: {
   readonly requiredFirstSubmissions: readonly (Date | null)[];
   readonly dueAt: Date | null;

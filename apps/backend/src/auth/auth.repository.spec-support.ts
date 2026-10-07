@@ -65,8 +65,7 @@ export function buildRow(overrides: Partial<AuthUserRow> = {}): AuthUserRow {
     hasAdminAccess: false,
     notificationEmail: null,
     notifyEnabled: true,
-    // 프로필 행이 없다는 것이 곧 "아직 가입을 마치지 않았다"는 뜻이다 —
-    // 초기 시드는 그 상태에서만 적용된다(`hasSeededAuthority`).
+
     profile: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -95,8 +94,7 @@ export function buildRepository(
     [{ where: Record<string, unknown>; data: Record<string, unknown> }]
   >();
   updateMany.mockResolvedValue({ count: options.casCount ?? 1 });
-  // 같은 findFirst가 두 가지를 조회한다 — 시드가 전이할 PENDING 신청과,
-  // 시드가 적용되지 않은 이유를 가르는 REVOKED 이력이다. status로 갈라 준다.
+
   const findFirst = jest.fn<
     Promise<{ id: string } | null>,
     [{ where: { status?: StaffAccessRequestStatus } }]

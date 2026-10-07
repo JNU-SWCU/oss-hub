@@ -2,9 +2,6 @@ import { expect, test } from '@playwright/test';
 
 const programId = 'ended-card-detail';
 
-// 종료된 프로그램도 카드를 클릭하면 상세로 이동해야 한다 — 백엔드는 ARCHIVED/종료
-// 프로그램의 상세 읽기를 이미 허용한다(programs.service.ts detail() 주석 참고).
-// 프런트가 openable을 status==='ended'로 막았던 회귀를 잡는다.
 test('종료된 프로그램 카드를 클릭하면 상세 페이지가 정상 렌더된다', async ({
   page,
 }) => {

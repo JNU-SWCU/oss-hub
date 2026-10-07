@@ -112,7 +112,6 @@ it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다',
   const automatic = new RecordingMailSender();
   await harness.service(automatic).sendDeadlineDigests(DIGEST_FIXTURE.now);
 
-  // 자동(09시 cron) 경로에는 교직원 요약이 없다.
   expect(automatic.sent.map((mail) => mail.to)).toEqual([
     'student-missing@example.com',
   ]);
@@ -164,7 +163,6 @@ it('교직원 수동 발송만 미제출 팀 목록 요약을 함께 보낸다',
   ]);
   expect(ledger.every((row) => row.status === 'SENT')).toBe(true);
 
-  // 같은 날 두 번째 수동 발송은 학생·교직원 양쪽 모두 멱등하게 막힌다.
   await service.sendProgramFromPreview(
     DIGEST_FIXTURE.staffOnGithub,
     DIGEST_FIXTURE.notifyProgram,

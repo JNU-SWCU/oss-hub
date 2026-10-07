@@ -95,7 +95,7 @@ it('미제출 신청과 제외 사유를 식별자 없이 집계한다', async (
     inactiveCount: 1,
     optedOutCount: 1,
     noEmailCount: 0,
-    // 전역 STAFF/ADMIN 중 ACTIVE·수신 동의·이메일 있음: staff-on, admin-on.
+
     staffRecipientCount: 2,
   });
   expect(Object.keys(preview.studentPreviews[0] ?? {}).sort()).toEqual([

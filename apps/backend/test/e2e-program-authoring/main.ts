@@ -12,10 +12,6 @@ import { E2eProgramAuthoringModule } from './e2e-program-authoring.module';
 import { FaultInjectingProgramAuthoringRepository } from './fault-injecting-program-authoring.repository';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 
-/**
- * E2E 전용 composition root. 운영 `main.ts`는 이 모듈을 전혀 모른다 — E2E 대역은
- * 여기서만 `overrideProvider`로 끼운다.
- */
 async function bootstrap(): Promise<void> {
   if (process.env.NODE_ENV !== 'test') {
     throw new Error(

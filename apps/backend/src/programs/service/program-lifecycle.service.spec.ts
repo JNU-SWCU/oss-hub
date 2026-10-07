@@ -10,7 +10,6 @@ import {
 } from '../program-error-code.enum';
 import { ProgramLifecycleService } from './program-lifecycle.service';
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 function createDeleteService(
   overrides: {
     readonly user?: unknown;
@@ -157,9 +156,6 @@ function createDeleteService(
   };
 }
 
-// 권한은 #1095로 교직원 전권이 됐다 — #875가 정한 「STAFF는 작성자여도 403」 계약이
-// 여기서 뒤집힌다. 바뀐 것은 누가 할 수 있는가 하나이고, 차단 조건·감사 로그는
-// 그대로임을 아래 케이스들이 계속 지킨다.
 describe('ProgramLifecycleService.delete — 교직원·관리자 영구 삭제 (#1095, 종전 #875)', () => {
   it('removes an external cover reference without scheduling object deletion', async () => {
     const { service, programCoverDelete, programPurgeFileTombstoneCreateMany } =
@@ -262,8 +258,6 @@ describe('ProgramLifecycleService.delete — 교직원·관리자 영구 삭제 
     });
   });
 
-  // #1095로 뒤집힌 계약: 종전에는 여기서 403(PRG_011)을 기대했다(#875). 이제 교직원은
-  // 관리자에게 부탁하지 않고 자기가 운영하는 프로그램을 지운다. 관리자 접근은 없다.
   it('STAFF는 관리자 접근이 없어도 삭제할 수 있고 감사 로그에 그 교직원이 남는다', async () => {
     const { service, programDelete, record } = createDeleteService({
       user: {
@@ -302,8 +296,6 @@ describe('ProgramLifecycleService.delete — 교직원·관리자 영구 삭제 
     expect(programFindUnique).not.toHaveBeenCalled();
   });
 
-  // 권한을 넓힌 것이 「비활성 계정도 통과」로 새어 나가지 않는지 — 교직원 접근이 있어도
-  // 계정이 ACTIVE가 아니면 종전과 같이 403이다.
   it('교직원 접근이 있어도 계정이 비활성이면 403을 받고 조회조차 하지 않는다', async () => {
     const { service, programFindUnique } = createDeleteService({
       user: {
@@ -319,8 +311,6 @@ describe('ProgramLifecycleService.delete — 교직원·관리자 영구 삭제 
     expect(programFindUnique).not.toHaveBeenCalled();
   });
 
-  // 안전장치 회귀 (#1095): 일반 삭제의 409 차단 조건도 권한과 무관하다 —
-  // 교직원이라고 학생 데이터가 붙은 프로그램을 강제로 지울 수 있게 되지 않는다.
   it('STAFF의 일반 삭제도 자식 데이터가 있으면 409 PRG_012로 막히고 감사 로그를 남기지 않는다', async () => {
     const { service, programDelete, record } = createDeleteService({
       user: {
@@ -427,10 +417,6 @@ describe('ProgramLifecycleService.delete — 교직원·관리자 영구 삭제 
     expect(programAuthoringUploadDeleteMany).not.toHaveBeenCalled();
   });
 
-  // 불변조건 회귀 테스트: Application 하드삭제는 SUBMITTED 상태에서만 일어나므로
-  // applications===0이면 Repository·MilestoneDocumentSubmission도 0이어야 한다.
-  // 그 불변조건이 깨진 상태(도달 불가능해야 하는 이상 상태)를 합성해, FK 위반 500이
-  // 아니라 기존 409(PRG_012) 차단으로 흡수되는지 확인한다.
   it('applications==0인데 고아 Repository가 남아 있으면 불변조건 위반으로 보고 기존 409 차단으로 흡수한다', async () => {
     const { service, programDelete, record } = createDeleteService({
       orphanRepositoryCount: 1,
@@ -472,7 +458,6 @@ describe('ProgramLifecycleService.delete — 교직원·관리자 영구 삭제 
   });
 });
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 const ZERO_SCOPE_FINGERPRINT = '00000000000000000000000000000000';
 const ZERO_SCOPE_COUNTS: ProgramDeletionScopeCounts = {
   applications: 0,
@@ -495,9 +480,9 @@ function createPurgeService(
     readonly applicationDecisionNotifications?: readonly {
       readonly id: string;
     }[];
-    /** purge 트랜잭션 안에서 재확인하는 현재 범위 스냅샷 — 기본값은 전부 0이다. */
+
     readonly currentScopeCounts?: ProgramDeletionScopeCounts;
-    /** 첫 purge transaction이 충돌하면 뒤의 fresh read가 보는 범위다. */
+
     readonly freshScopeCounts?: ProgramDeletionScopeCounts;
     readonly transactionError?: Error;
   } = {},
@@ -797,9 +782,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
     expect(result.id).toBe('program-1');
     expect(result.deleted).toBe(true);
 
-    // GithubRepository는 하드 삭제가 아니라 program/application/team FK만 해제하고,
-    // publishedAt도 함께 revoke한다 — 그래야 공개 아카이브가 program 없는 발행 행을
-    // 만나지 않는다(purge 후 공개 노출 자격은 program 존재에 종속).
     expect(githubRepositoryUpdateMany).toHaveBeenCalledWith({
       where: {
         OR: [
@@ -816,7 +798,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
       },
     });
 
-    // OutboxEvent는 Program aggregate와 이 프로그램 산하 Application aggregate 둘 다 지운다.
     expect(applicationFindMany).toHaveBeenCalledWith({
       where: { programId: 'program-1' },
       select: { id: true },
@@ -831,8 +812,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
       },
     });
 
-    // Notification: APPLICATION_DECISION(payload.programId)을 찾아 그 응답 확인 기록과
-    // 함께 지우고, DEADLINE_DIGEST는 idempotencyKey에 박힌 programId로 지운다.
     expect(notificationFindMany).toHaveBeenCalledWith({
       where: {
         type: 'APPLICATION_DECISION',
@@ -858,7 +837,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
       },
     });
 
-    // 완료된 파일은 DELETE_PENDING으로 되돌리지 않고, 두 상태 모두 RESTRICT FK만 분리한다.
     expect(submissionFileUpdateMany).toHaveBeenCalledTimes(2);
     expect(submissionFileUpdateMany).toHaveBeenNthCalledWith(
       1,
@@ -928,8 +906,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
       }) as unknown,
     );
 
-    // template file은 storage worker가 지울 tombstone으로 옮겨진 뒤 원 행을 지운다 — 트랜잭션에서
-    // storage port를 직접 호출하지 않는다.
     expect(programPurgeFileTombstoneCreateMany).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({
@@ -939,7 +915,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
       skipDuplicates: true,
     });
 
-    // ProgramAuthoringUpload도 하드 삭제가 아니라 DELETE_PENDING 전환 + createRequest FK 해제다.
     expect(programAuthoringUploadUpdateMany).toHaveBeenCalledWith({
       where: {
         createRequestId: 'create-request-1',
@@ -1024,7 +999,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
 
     await service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS);
 
-    // 신청 축 알림 둘은 건너뛰고, 프로그램에 직접 매달린 둘만 지운다.
     expect(notificationDeleteMany).toHaveBeenCalledTimes(2);
     expect(notificationDeleteMany).toHaveBeenCalledWith({
       where: {
@@ -1040,9 +1014,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
     });
   });
 
-  // #1095로 뒤집힌 계약: 종전에는 여기서 403(PRG_011)을 기대했다. purge는 학생 제출물까지
-  // 지우는 무거운 경로지만, 자식 데이터 없이 지울 수 있는 프로그램이 실제로 없어
-  // 「일반 삭제만 교직원에게」라는 절충은 아무것도 바꾸지 못한다 — 두 경로를 함께 옮긴다.
   it('STAFF는 관리자 접근이 없어도 purge할 수 있고 감사 로그에 그 교직원이 남는다', async () => {
     const { service, programDelete, record } = createPurgeService({
       user: {
@@ -1099,8 +1070,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
     expect(programFindUnique).not.toHaveBeenCalled();
   });
 
-  // 안전장치 회귀 (#1095): 권한만 넓혔지 확인 절차는 그대로다. 교직원이 눌러도
-  // 확인 화면 이후 데이터가 생기면 트랜잭션을 통째로 중단한다(409 PRG_014).
   it('STAFF의 purge도 expectedScope가 어긋나면 409 PRG_014로 중단하고 아무것도 지우지 않는다', async () => {
     const { service, applicationFindMany, programDelete, record } =
       createPurgeService({
@@ -1184,8 +1153,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
     });
   });
 
-  // TOCTOU(#F2): 확인 화면과 purge 사이에 생긴 행을 관리자가 못 보고 지우지 않도록,
-  // 클라이언트가 보낸 expectedScope와 트랜잭션이 다시 읽은 현재 범위를 비교한다.
   it('expectedScope가 현재 범위와 다르면 409 PRG_014로 거부하고 자식 삭제를 시작하지 않는다', async () => {
     const { service, applicationFindMany, programDelete, record } =
       createPurgeService({
@@ -1216,7 +1183,6 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
       },
     });
 
-    // 비교에서 이미 막혔으므로 실제 자식 삭제 단계는 하나도 시작하지 않는다 — 부분 삭제 없음.
     expect(applicationFindMany).not.toHaveBeenCalled();
     expect(programDelete).not.toHaveBeenCalled();
     expect(record).not.toHaveBeenCalled();
@@ -1278,19 +1244,11 @@ describe('ProgramLifecycleService.purge — 교직원·관리자 의도적 전�
     });
   });
 
-  // 단위 테스트로 "비교가 트랜잭션 밖에서 일어나지 않는다"는 것을 직접 증명하기는 어렵지만
-  // (실제 트랜잭션이 아니라 콜백을 그대로 실행하는 목이므로), 이 스위트의 모든 $queryRaw
-  // 호출이 매번 새 $transaction 콜백 실행 안에서만 이뤄진다는 것으로 대신 확인한다 —
-  // $transaction이 호출되지 않은 상태에서 $queryRaw가 먼저 불리면 이 fixture 자체가
-  // 깨진다(스코프 검사 mock이 트랜잭션 클라이언트에만 달려 있기 때문).
   it('범위 재확인 쿼리는 $transaction 콜백 안(=트랜잭션 클라이언트)에서만 실행된다', async () => {
     const { service, queryRaw } = createPurgeService();
 
     await service.purge(1001n, 'program-1', ZERO_SCOPE_COUNTS);
 
-    // queryRaw는 트랜잭션 클라이언트 전용 mock이다 — prisma 최상위 객체에는 존재하지 않는다.
-    // 이 mock이 호출됐다는 것 자체가 비교 쿼리가 트랜잭션 클라이언트를 통해서만
-    // 실행됐다는 뜻이다(서비스 코드가 트랜잭션 밖 this.prisma로 같은 쿼리를 쏠 방법이 없다).
     expect(queryRaw).toHaveBeenCalledTimes(1);
   });
 

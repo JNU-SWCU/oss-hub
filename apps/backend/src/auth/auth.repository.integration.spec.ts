@@ -151,9 +151,6 @@ it('STAFF 초기 시드는 APPROVED StaffAccessRequest를 함께 만든다', asy
 });
 
 it('회수 이력이 있는 계정은 초기 역할 시드가 다시 승격하지 않는다', async () => {
-  // 회수는 hasStaffAccess를 끈다. 그래서 회수된 사람은 시드의
-  // "접근 권한 없음 + 프로필 없음" 조건을 그대로 만족하고, 막지 않으면
-  // 다음 로그인 한 번으로 권한이 되살아난다.
   const user = await prisma.user.create({
     data: {
       githubId: revokedStaffGithubId,
@@ -180,8 +177,7 @@ it('회수 이력이 있는 계정은 초기 역할 시드가 다시 승격하�
     where: { githubId: revokedStaffGithubId },
   });
   expect(persisted.hasStaffAccess).toBe(false);
-  // 회수 이력 자체도 그대로여야 한다 — 새 APPROVED 신청이 붙으면 관리자 화면의
-  // 결정 이력이 시드가 만든 decidedById=null 행으로 덮인다.
+
   const requests = await prisma.staffAccessRequest.findMany({
     where: { userId: user.id },
   });
@@ -193,7 +189,6 @@ it('회수 이력이 있는 계정은 초기 역할 시드가 다시 승격하�
 });
 
 it('반려 이력만 있는 계정은 초기 역할 시드를 그대로 받는다', async () => {
-  // 막는 기준은 "이력이 있는가"가 아니라 "회수된 적이 있는가"다.
   const user = await prisma.user.create({
     data: {
       githubId: rejectedStaffGithubId,
@@ -227,8 +222,6 @@ it('반려 이력만 있는 계정은 초기 역할 시드를 그대로 받는�
 });
 
 it('회수 뒤 다시 승인된 계정은 로그인해도 확정된 접근 권한과 이력이 그대로다', async () => {
-  // 재승인된 사람은 hasStaffAccess가 켜져 있어 시드 블록에 들어오지 않는다.
-  // 회수 이력이 남아 있다는 이유로 그의 권한이 흔들리지 않는지 못 박아 둔다.
   const user = await prisma.user.create({
     data: {
       githubId: reapprovedStaffGithubId,

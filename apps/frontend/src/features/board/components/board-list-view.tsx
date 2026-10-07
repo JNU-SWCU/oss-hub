@@ -42,7 +42,6 @@ const PAGE_SIZE = 20;
 const NEW_POST_TITLE_ERROR_ID = 'board-new-post-title-error';
 const NEW_POST_BODY_ERROR_ID = 'board-new-post-body-error';
 
-/** 이 프로그램 참여자가 아니라는 게시판 응답 코드(`board-access.guard.ts`). */
 const BOARD_PARTICIPATION_REQUIRED_CODE = 'BRD_001';
 
 function columnsFor(programId: string): DataTableColumn<BoardPostSummary>[] {
@@ -119,11 +118,11 @@ export interface BoardListContentProps {
   readonly newPostTitle: string;
   readonly newPostBody: string;
   readonly newPostSubmitting: boolean;
-  /** 지금 입력값으로 다시 판정한 칸 오류. 서버 실패와 섞지 않는다. */
+
   readonly newPostErrors: BoardPostInputErrors;
-  /** 한 번 「올리기」를 누른 뒤부터 칸 오류를 보인다. */
+
   readonly newPostShowFieldErrors: boolean;
-  /** 서버가 거절한 이유. 칸이 아니라 폼의 경고 상자에 남는다. */
+
   readonly newPostSubmitError: string | null;
   readonly onToggleNewPost: () => void;
   readonly onTitleChange: (value: string) => void;
@@ -164,17 +163,11 @@ export function BoardListContent({
 
   function handleSubmitNewPost(): void {
     onSubmitNewPost();
-    // 오류 칸으로 커서를 옮긴다 — 눌린 값으로 판정하므로 이 시점의 `newPostErrors`가 결과다.
+
     if (newPostErrors.title !== null) titleRef.current?.focus();
     else if (newPostErrors.body !== null) bodyRef.current?.focus();
   }
 
-  /*
-    참여자가 아님을 **서버가 이미 말한** 뒤에는 「질문 쓰기」를 그리지 않는다. 열어도
-    같은 이유(BRD_001)로 거절당하는 폼이라, 남겨 두면 학생이 제목·내용을 다 적고 나서야
-    막힌다. 이것은 ADR-007이 금지하는 「상태를 추측한 affordance 은폐」가 아니다 —
-    추측이 아니라 방금 받은 403이 근거이고, 다른 실패(`error`)에서는 버튼을 그대로 둔다.
-  */
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-5 sm:p-8">
       <PageHeader
@@ -346,10 +339,6 @@ export function BoardListView({
     null,
   );
 
-  /*
-    가입 프로필·설정 폼과 같은 방식이다 — 한 번 제출한 뒤부터는 지금 입력값으로 매번 다시
-    판정한다. 그래서 비운 칸을 채우면 그 칸의 빨간색이 사라지고, 공백만 친 칸은 그대로 남는다.
-  */
   const newPostErrors = useMemo(
     () => validateBoardPostInput({ title: newPostTitle, body: newPostBody }),
     [newPostTitle, newPostBody],

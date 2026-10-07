@@ -1,17 +1,12 @@
 import type { StudentDashboard } from './types';
 
-/**
- * 모든 값은 합성이다. 특히 `teamName`은 실제 운영 팀 이름을 옮겨 오지 않는다 —
- * 픽스처는 공개 저장소와 PR 본문에 그대로 실린다.
- */
 export const dashboardFixture: StudentDashboard = {
   items: [
     {
       applicationId: 'application-solo-team',
       programId: 'program-capstone',
       programName: '캡스톤 2026',
-      // 혼자 참여해도 팀이다. 화면이 이 항목만 "개인"으로 갈라 그리면 같은 자리에
-      // 두 가지 정체성이 생긴다(#1269).
+
       teamName: '합성 1인 팀',
       teamUrl: '/programs/program-capstone/my-team',
       applicationStatus: 'APPROVED',
@@ -65,9 +60,7 @@ export const pendingDashboardFixture: StudentDashboard = {
       teamUrl: '/programs/program-oss-contest/my-team',
       applicationStatus: 'SUBMITTED',
       nextMilestone: null,
-      // 판정 전이라 목적지는 신청서 화면이다. 예전 값(`/programs/program-oss-contest`)은
-      // 계약상 불가능한 조합이었다 — 서버가 만들 수 없고 검증기가 버리는 항목이라,
-      // 이 픽스처로 그린 화면은 실제로는 존재할 수 없는 화면이었다.
+
       detailUrl: '/programs/program-oss-contest/apply',
       checklistUrl: '/programs/program-oss-contest/submissions',
       repository: null,
@@ -107,7 +100,7 @@ export const rejectedDashboardFixture: StudentDashboard = {
       teamUrl: '/programs/program-rejected/my-team',
       applicationStatus: 'REJECTED',
       nextMilestone: null,
-      // 반려 사유를 그리는 화면은 신청서 화면 하나뿐이다(#733).
+
       detailUrl: '/programs/program-rejected/apply',
       checklistUrl: '/programs/program-rejected/submissions',
       repository: null,

@@ -14,8 +14,7 @@ import {
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-// reset 응답이 돌려준 백엔드 E2E 시각을 일정 앵커로 삼아 상대 오프셋을 만들고,
-// 날짜 전용 마감도 같은 시각의 24시간 창 안에서 고른다.
+
 import { zipEntry, zipManifest } from './support/program-authoring-zip';
 import {
   adoptProgramGraph,
@@ -36,9 +35,6 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     authSeedPage,
     programAuthoringActorPage,
   }) => {
-    // 작성 그래프 확정 → 신청 2건 → 승인 → 서류 제출·재제출 → 마감 다이제스트 →
-    // 수합 다운로드까지 전 구간을 실제 스택에서 검증하는 전용 시나리오라 기본
-    // 45s 예산으로는 원천적으로 부족하다(run 5에서 45000ms 초과로 실패 확인).
     test.setTimeout(300_000);
     const controlPage = await authSeedPage('admin-confirmed');
     const schedule = await resetProgramAuthoringControl(controlPage);
@@ -190,7 +186,7 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     const graph = await adoptProgramGraph(authorPage, programId);
     assertAdoptedProgramId(graph, programId);
     const staffPage = await programAuthoringActorPage('staff');
-    // 신청·팀이 없어도 4xx가 나지 않는다(QA174 / #1303) — 허용 목록이 필요 없다.
+
     const studentPage = await programAuthoringActorPage('student');
     const foreignStudentPage =
       await programAuthoringActorPage('foreignStudent');
@@ -342,8 +338,6 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     });
     await expectApiStatus(
       await staffPage.request.post(`${controlPath}/send`, {
-        // 테스트 전용 제어 포트도 운영 send DTO와 같은 두 필드만 받아서
-        // preview/send를 동일한 E2E 시각으로 검증한다.
         data: {
           previewedAt: preview.previewedAt,
           previewVersion: preview.previewVersion,
@@ -356,16 +350,13 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     await staffPage.goto(
       `/programs/${encodeURIComponent(programId)}/milestones/${encodeURIComponent(graph.milestoneId)}/documents`,
     );
-    // 접근성 이름 '팀별 서류 수합 표'는 스크롤 region 래퍼(scrollRegionLabel,
-    // milestone-document-collection-view.tsx)에 붙는다 — table 자체에는 이름이
-    // 없어 region을 거쳐 내부 table을 찾는다.
+
     await expect(
       staffPage
         .getByRole('region', { name: '팀별 서류 수합 표' })
         .getByRole('table'),
     ).toBeVisible();
-    // 승인된 두 팀 중 학생 본인 팀은 제출을 마쳤고 외부 학생 팀은 미제출이다.
-    // 수합 화면이 두 상태를 함께 반영하는지 이 수로 확인한다.
+
     await expect(
       staffPage.getByRole('button', {
         name: /^(?:필수 서류 미제출|미제출 있음) 1팀$/,
@@ -421,11 +412,7 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     );
     const fullManifest = zipManifest(fullArchive.bytes);
     const documentManifest = zipManifest(documentArchive.bytes);
-    // zipManifest(program-authoring-zip.ts)는 경로를 sort()해 반환하므로
-    // ASCII 'e2e-…' 팀 폴더가 한글 '제출현황.csv'보다 앞선다 — 실제 ZIP의
-    // 물리적 첫 엔트리가 CSV라는 속성은 백엔드 유닛 테스트
-    // (milestone-document-archive.service.spec.ts)가 이미 검증하므로, 여기서는
-    // CSV가 포함되어 있는지만 확인한다.
+
     expect(fullManifest).toContain('제출현황.csv');
     expect(documentManifest).toContain('제출현황.csv');
     const currentPath = fullManifest.find((path) =>
@@ -448,13 +435,7 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
     );
     await expectApiStatus(stateResponse, 200);
     const state = toStateCounts(await stateResponse.json());
-    // 합성 교직원 수신자를 한 명으로 고정했다. approve-and-run의 학생+교직원
-    // 2통 뒤 최종 발송에서는 외부 학생 1통만 늘어난다. 같은 E2E 시각의 교직원
-    // 요약은 idempotency key가 같아 중복 발송되지 않음을 전후 상태로 증명한다.
-    // 이 시나리오의 교직원은 활성·수신 동의·알림 이메일을 모두 갖춰 수신 대상이다.
-    // 상태 집계의 documents는 프로그램 전체를 센다. 안내용 마일스톤의 제출 항목이
-    // 빠지면 이 값이 1이 되어 전체 작성 그래프 증명이 실패한다. graph의 한 필수
-    // 마일스톤 식별자는 아래 수합·다운로드 검증에서 계속 사용한다.
+
     expectCleanState(state, 2, 2, 2, 3, 2, 2);
     expect(state.dryRunEnvelopes - beforeFinalDigest.dryRunEnvelopes).toBe(1);
     expect(

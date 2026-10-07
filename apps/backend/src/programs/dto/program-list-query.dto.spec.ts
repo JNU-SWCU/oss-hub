@@ -5,13 +5,10 @@ import { ProgramListQueryRequestDto } from './program-list-query.dto';
 
 describe('ProgramListQueryRequestDto', () => {
   it('uses the first page and a bounded default page size when query is empty', async () => {
-    // Given
     const query = plainToInstance(ProgramListQueryRequestDto, {});
 
-    // When
     const errors = await validate(query);
 
-    // Then
     expect(errors).toHaveLength(0);
     expect(query.toQuery()).toEqual({
       page: 1,
@@ -22,30 +19,24 @@ describe('ProgramListQueryRequestDto', () => {
   });
 
   it('rejects page sizes above the public endpoint maximum', async () => {
-    // Given
     const query = plainToInstance(ProgramListQueryRequestDto, {
       page: '1',
       pageSize: '101',
     });
 
-    // When
     const errors = await validate(query);
 
-    // Then
     expect(errors).toHaveLength(1);
     expect(errors[0]?.property).toBe('pageSize');
   });
 
   it('rejects unsupported recruitment status values', async () => {
-    // Given
     const query = plainToInstance(ProgramListQueryRequestDto, {
       status: 'practice',
     });
 
-    // When
     const errors = await validate(query);
 
-    // Then
     expect(errors).toHaveLength(1);
     expect(errors[0]?.property).toBe('status');
   });
@@ -66,13 +57,10 @@ describe('ProgramListQueryRequestDto', () => {
   });
 
   it('omits sort/direction from toQuery when not given, preserving legacy order', async () => {
-    // Given
     const query = plainToInstance(ProgramListQueryRequestDto, {});
 
-    // When
     const errors = await validate(query);
 
-    // Then
     expect(errors).toHaveLength(0);
     const result = query.toQuery();
     expect(result.sort).toBeUndefined();
@@ -95,16 +83,13 @@ describe('ProgramListQueryRequestDto', () => {
   });
 
   it('rejects unsupported sort and direction values', async () => {
-    // Given
     const query = plainToInstance(ProgramListQueryRequestDto, {
       sort: 'popularity',
       direction: 'sideways',
     });
 
-    // When
     const errors = await validate(query);
 
-    // Then
     const properties = errors.map((error) => error.property).sort();
     expect(properties).toEqual(['direction', 'sort']);
   });

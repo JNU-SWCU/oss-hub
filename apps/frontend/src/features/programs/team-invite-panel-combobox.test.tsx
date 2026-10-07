@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -19,7 +17,6 @@ const candidates: InvitationCandidate[] = [
 
 const noOp = () => undefined;
 
-/** 초대 레이어가 소비하는 공유 상태 계약 — 검색 상태는 이 하나에서만 온다. */
 function management(
   overrides: Partial<TeamInvitationManagement> = {},
 ): TeamInvitationManagement {
@@ -61,7 +58,6 @@ afterEach(() => {
   container.remove();
 });
 
-/** 레이어는 portal로 body에 붙는다 — 조회는 문서 전체를 본다. */
 function renderPanel(overrides: Partial<TeamInvitationManagement> = {}): void {
   act(() => {
     root.render(
@@ -81,7 +77,6 @@ function getInput(): HTMLInputElement {
   return input;
 }
 
-/** 실제 키 입력처럼 cancelable keydown을 흘려보내고, 핸들러가 막았는지 함께 돌려준다. */
 function pressKey(target: Element, key: string): KeyboardEvent {
   const event = new KeyboardEvent('keydown', {
     key,
@@ -215,8 +210,7 @@ describe('TeamInvitePanel — 키보드 내비게이션', () => {
     const event = pressKey(input, 'Enter');
 
     expect(onInvite).not.toHaveBeenCalled();
-    // 눈에 보이는 검색 버튼은 없앴지만(디바운스 자동 검색이 대신한다) 같은 요청을
-    // 손으로 다시 부르는 길은 남긴다.
+
     expect(onSearch).toHaveBeenCalledOnce();
     expect(event.defaultPrevented).toBe(false);
   });

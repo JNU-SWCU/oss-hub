@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -42,11 +40,6 @@ const editableProgram: EditableProgram = {
   milestones: [],
 };
 
-/**
- * 편집 화면을 program-edit-page 의 updateField 와 같은 배선 위에 올린다 — 체크박스
- * 클릭이 저장 payload 까지 도달하는지 보려는 것이다. buildProgramEditInput 만
- * 단독으로 검증하면 화면이 onFieldChange 를 아예 안 불러도 초록으로 남는다.
- */
 function EditViewHarness({
   program,
   onForm,
@@ -138,49 +131,40 @@ describe('프로그램 편집 화면 — 마감 알림 스위치 왕복', () => 
   }
 
   it('꺼져 있던 기존 프로그램을 편집에서 켜면 저장 payload 가 켜진 채로 나간다', async () => {
-    // Given: DB 기본값 그대로 꺼져 있는 기존 프로그램.
     const { payload } = await render(editableProgram);
     expect(deadlineCheckbox().checked).toBe(false);
     expect(payload().notifyOnDeadline).toBe(false);
 
-    // When: 교직원이 편집 화면에서 체크한다.
     await act(async () => {
       deadlineCheckbox().click();
     });
 
-    // Then: 화면과 payload 가 함께 켜진다.
     expect(deadlineCheckbox().checked).toBe(true);
     expect(payload().notifyOnDeadline).toBe(true);
   });
 
   it('켜져 있던 프로그램을 편집에서 끄면 저장 payload 도 꺼진다', async () => {
-    // Given
     const { payload } = await render({
       ...editableProgram,
       notifyOnDeadline: true,
     });
     expect(deadlineCheckbox().checked).toBe(true);
 
-    // When
     await act(async () => {
       deadlineCheckbox().click();
     });
 
-    // Then
     expect(deadlineCheckbox().checked).toBe(false);
     expect(payload().notifyOnDeadline).toBe(false);
   });
 
   it('저장 전에는 발송 대상 미리보기를 열지 않는다고 화면이 알려 준다', async () => {
-    // Given: 아직 서버에 꺼진 값이 저장된 프로그램.
     await render(editableProgram);
 
-    // When: 교직원이 방금 체크만 한 상태.
     await act(async () => {
       deadlineCheckbox().click();
     });
 
-    // Then: 미리보기는 저장 후에 열린다는 안내가 뜬다.
     expect(container.textContent).toContain(
       '설정을 저장한 뒤 발송 대상을 미리볼 수 있습니다.',
     );

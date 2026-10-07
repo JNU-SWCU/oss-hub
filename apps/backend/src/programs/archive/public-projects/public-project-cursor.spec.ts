@@ -65,10 +65,6 @@ describe('public-project-cursor', () => {
     );
   });
 
-  /**
-   * QA40 — 커서가 평문 base64url(JSON)이던 시절에는 아래 세 단언이 모두 깨졌다. 커서는
-   * fence에 가려진 저장소의 내부 `Repository.id`와 공개 시각을 그대로 실어 나른다.
-   */
   describe('QA40 — 토큰 불투명성', () => {
     const HIDDEN_INTERNAL_ID = 'seed:hidden-repository-internal-cuid';
     const HIDDEN_PUBLISHED_AT = new Date('2026-07-21T09:30:00.000Z');
@@ -177,7 +173,6 @@ describe('public-project-cursor', () => {
   });
 });
 
-/** 페이로드 검증 경로만 확인하려고 형식은 맞되 내용만 다른 토큰을 만든다. */
 function encodeForTest(json: string): string {
   const padded = json.padEnd(Math.ceil(json.length / 64) * 64, ' ');
   const iv = randomBytes(12);

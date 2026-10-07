@@ -1,19 +1,9 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { apiPath } from '@/lib/api-client';
 import type { ProgramDetail } from './types';
-
-/**
- * 비로그인 방문자의 상세는 공개 endpoint 하나만 부른다(#1294).
- *
- * 화면은 전과 같이 그려졌지만 viewer·overview 호출이 401을 받아 콘솔에 오류 두 줄이
- * 남았다. 여기서는 네트워크 경계만 가짜로 두고 세션 유무별로 **어떤 주소를 부르는가**를
- * 고정한다 — 다시 viewer를 먼저 부르는 회귀는 화면 단언으로는 잡히지 않는다.
- */
 
 const PROGRAM_ID = 'program-public';
 

@@ -98,7 +98,6 @@ describe('program authoring validation', () => {
     ).toEqual([]);
   });
 
-  // 빈 운영 종료와 시작보다 이른 운영 종료는 다른 상황이라 다른 말로 안내한다(#1420).
   it.each([
     ['an empty operation end', '', '운영 종료를 입력해 주세요.'],
     [

@@ -26,12 +26,10 @@ const SUBMITTED_AT_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   hour12: false,
 });
 
-/** 열 머리글용 마감일 — Asia/Seoul 달력 기준 "M월 D일". */
 export function formatMatrixDueDate(dueAt: string): string {
   return DUE_DATE_FORMAT.format(new Date(dueAt));
 }
 
-/** 집중 보기용 마감 시각 — 날짜·요일·오전/오후를 모두 드러낸다. */
 export function formatMatrixDueDateTime(dueAt: string): string {
   const parts = DUE_DATE_TIME_FORMAT.formatToParts(new Date(dueAt));
   const get = (type: string) =>
@@ -57,7 +55,6 @@ export interface NotSubmittedDeadline {
   readonly label: string;
 }
 
-/** 미제출 칸에 표시할 마감 초과 또는 D-day 안내를 만든다. */
 export function notSubmittedDeadline(
   dueAt: string,
   now: Date,
@@ -73,7 +70,6 @@ export function notSubmittedDeadline(
   return { overdue: false, label: dDay === 0 ? '오늘 마감' : `D-${dDay}` };
 }
 
-/** 제출 시각 — 표 안에서 짧게 읽히는 "MM.DD HH:MM" 형식. */
 export function formatSubmittedAt(submittedAt: string): string {
   const parts = SUBMITTED_AT_FORMAT.formatToParts(new Date(submittedAt));
   const get = (type: string) =>

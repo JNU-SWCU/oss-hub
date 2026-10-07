@@ -29,10 +29,6 @@ type BoardActor = Pick<
   'sessionGithubId' | 'boardActorId' | 'boardActorIsStaff'
 >;
 
-/**
- * 프로그램 게시판 — 참여자(승인된 신청자)와 교직원만 접근한다(BoardAccessGuard).
- * 공지/질문 여부는 작성자 역할이 결정하고, 고정(pin)은 교직원만 할 수 있다.
- */
 @Controller('programs/:programId/board/posts')
 @UseGuards(SessionGuard, BoardAccessGuard)
 export class BoardController {

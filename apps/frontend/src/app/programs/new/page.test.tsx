@@ -34,8 +34,7 @@ describe('ProgramNewPage access contract', () => {
 
     expect(existsSync(staticNewPage)).toBe(true);
     expect(existsSync(dynamicIdPage)).toBe(true);
-    // Next.js는 같은 레벨에서 정적 세그먼트(`new`)를 동적(`[id]`)보다 우선한다.
-    // 생성 페이지가 ProgramCreationPage를 마운트하는지로 정적 라우트 소유를 단언한다.
+
     const html = renderToStaticMarkup(<ProgramNewPage />);
     expect(html).toContain('program creation');
     expect(html).toContain('data-allow="staff"');

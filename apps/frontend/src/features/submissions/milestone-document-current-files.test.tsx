@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -75,10 +73,8 @@ describe('MilestoneDocumentCurrentFiles', () => {
   }
 
   it('기존 방식과 관계없이 실제 현재 파일이 있는 항목을 보여준다', async () => {
-    // When
     await render();
 
-    // Then
     expect(
       container.querySelector(
         'button[aria-label="현재 계획서 현재 제출 파일 내려받기"]',
@@ -89,7 +85,6 @@ describe('MilestoneDocumentCurrentFiles', () => {
   });
 
   it('내려받는 동안 버튼과 aria-live 상태를 busy로 유지하고 서버 파일명으로 저장한다', async () => {
-    // Given
     const download = deferred<{
       readonly blob: Blob;
       readonly fileName: string;
@@ -112,10 +107,8 @@ describe('MilestoneDocumentCurrentFiles', () => {
       throw new Error('download button expected');
     }
 
-    // When
     await act(async () => button.click());
 
-    // Then
     expect(button.disabled).toBe(true);
     expect(button.getAttribute('aria-busy')).toBe('true');
     expect(container.querySelector('[role="status"]')?.textContent).toContain(
@@ -133,7 +126,6 @@ describe('MilestoneDocumentCurrentFiles', () => {
   });
 
   it('404를 포함한 다운로드 실패를 현재 패널의 alert로 알리고 재시도를 허용한다', async () => {
-    // Given
     vi.mocked(downloadMilestoneDocumentCurrentFile).mockRejectedValue(
       new ApiError({
         type: 'about:blank',
@@ -150,10 +142,8 @@ describe('MilestoneDocumentCurrentFiles', () => {
       throw new Error('download button expected');
     }
 
-    // When
     await act(async () => button.click());
 
-    // Then
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(
       '제출된 파일을 찾을 수 없습니다.',
     );

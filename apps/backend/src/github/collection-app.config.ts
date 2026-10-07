@@ -28,13 +28,7 @@ export interface CollectionAppConfigValues {
   readonly apiBaseUrl: string;
   readonly maxPages: number;
   readonly deadlineMs: number;
-  /**
-   * GraphQL endpoint used by the author-filtered commit history path
-   * (`CollectionAppClient.listDefaultBranchCommitsByAuthor`). Distinct from
-   * `apiBaseUrl`, which is a REST base. Optional so every existing caller
-   * keeps working; defaults to `https://api.github.com/graphql` inside the
-   * client, mirroring `CollectionDiscoveryClientConfig.apiUrl`.
-   */
+
   readonly graphqlUrl?: string;
 }
 
@@ -48,10 +42,6 @@ export class CollectionAppConfig {
     deadlineMs: 'GITHUB_COLLECTION_APP_DEADLINE_MS',
   } as const;
 
-  /**
-   * Compatibility façade — snapshots env through RuntimeConfig, then projects.
-   * Prefer `fromRuntimeConfig` when a snapshot is already in hand (DI/CLI).
-   */
   static fromEnv(
     env: NodeJS.ProcessEnv = process.env,
   ): CollectionAppConfigValues {
@@ -127,18 +117,6 @@ export interface CollectionPublicReadConfigValues {
   readonly token: string;
 }
 
-/**
- * 외부 public 저장소 수집 전용 서비스 계정 fine-grained PAT 설정. GitHub GraphQL v4는
- * OAuth App client_id:client_secret Basic Auth를 받지 않고(REST 전용 미인증 한도 상향
- * 기전), 조직 설치 범위 밖 저장소를 REST·GraphQL 양쪽에서 읽는 이 수집 경로는 실제
- * 인증 주체에 묶인 bearer 토큰을 요구하므로 PAT 하나로 통일한다. fine-grained PAT은
- * 스코프 선택과 무관하게 public repo 읽기를 항상 포함한다.
- *
- * 기존 3종 GitHub 자격증명과 달리 org 수집 경로가 이 값 없이도 계속 동작해야 하므로
- * `CollectionAppConfig.fromRuntimeConfig`가 아니라 별도 accessor로 분리했다 — 모듈
- * 부트스트랩에서 무조건 required로 만들지 않고, 외부 수집이 실제로 시도되는 지점에서만
- * 이 accessor를 호출해 부재를 명시적으로 실패시킨다.
- */
 export class CollectionPublicReadConfig {
   static readonly envNames = {
     token: 'GITHUB_PUBLIC_READ_TOKEN',

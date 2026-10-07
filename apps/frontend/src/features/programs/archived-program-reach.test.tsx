@@ -1,5 +1,3 @@
-// @vitest-environment happy-dom
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,22 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiPath } from '@/lib/api-client';
 import type { ProgramDetail } from './types';
 
-/**
- * 내린 프로그램의 상세가 **불러오기째** 학생에게 신청을 권하지 않는가(#1092).
- *
- * `program-detail.test.tsx`는 `lifecycle: 'ARCHIVED'` 리터럴을 뷰에 직접 넘긴다.
- * `program-list.test.ts`는 목록 항목만으로 종료 판정을 본다. 둘 다 로더가 게시 축을
- * 그만 읽거나 응답을 뷰에 넘기지 않도록 바뀌어도 초록불이다. 이 파일은 네트워크
- * 경계만 가짜로 두고 로더·판정·화면을 진짜로 돌린다. 신청 기간 안쪽 시각은 Date만
- * 고정하고 waitFor 타이머는 그대로 둔다.
- */
-
 const PROGRAM_ID = 'program-archived-internship';
 
-/**
- * 신청 기간 **안쪽** 한 순간. 벽시계를 쓰지 않으므로 달력이 지나도
- * 「기간은 열려 있는데 내려서 종료」라는 대조가 변하지 않는다.
- */
 const INSIDE_APPLICATION_PERIOD = new Date('2026-06-01T00:00:00.000Z');
 
 const ARCHIVED_DETAIL = {

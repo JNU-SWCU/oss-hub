@@ -27,26 +27,17 @@ import {
   type MilestoneDocumentReviewDecision,
 } from './milestone-document-review-api';
 
-/**
- * 수합 표의 칸을 눌렀을 때 **그 자리에서** 열리는 판정 패널.
- *
- * 다른 화면으로 넘기지 않는 것이 이 화면의 요구다 — 교직원은 여러 건을 연달아 처리하는데,
- * 표를 떠나면 어디까지 봤는지 잃는다. 그래서 이 컴포넌트는 표 안(행 아래)에 그려지고,
- * 조회·전송은 전부 컨테이너(`milestone-document-collection-screen.tsx`)가 갖는다.
- * 여기는 props만 그린다 — 정적 렌더로 문구를 검증할 수 있게 하려는 분리다.
- */
-
 const CONTENT_HEADING = 'text-small font-semibold';
 
 export interface MilestoneDocumentReviewPanelProps {
   readonly teamName: string;
   readonly documentName: string;
   readonly cell: MilestoneDocumentCollectionCell;
-  /** 첨부가 살아 있을 때만 채운다 — 경로 조립은 collection-api가 소유한다. */
+
   readonly fileHref: string | null;
   readonly decision: MilestoneDocumentReviewDecision | null;
   readonly comment: string;
-  /** 재제출 기한 칸의 값 그대로(`datetime-local`). 보완 요청을 골랐을 때만 그린다. */
+
   readonly resubmissionDueAt: string;
   readonly isSubmitting: boolean;
   readonly errorMessage: string | null;
@@ -65,19 +56,6 @@ export interface MilestoneDocumentReviewPanelProps {
   readonly onHistoryMore: () => void;
 }
 
-/**
- * 학생이 낸 **글 전문**.
- *
- * 잘라 보여 주지 않는다 — 서버가 자르지 않고 싣는 이유와 같다(잘린 뒤를 읽을 단건 조회가
- * 없어서, 「일부만 보고 승인」이 「못 보고 승인」과 같아진다). 대신 높이를 묶고 그 안에서
- * 스크롤해 10,000자짜리 제출이 판정 버튼을 화면 밖으로 밀어내지 않게 한다.
- *
- * 줄바꿈은 보존한다(`whitespace-pre-wrap`). 학생이 항목을 줄로 나눠 적은 글을 한 덩이로
- * 이어 붙이면 읽는 사람이 원문과 다른 것을 본다.
- *
- * 스크롤 영역은 `tabIndex`로 키보드에서 닿게 한다 — 마우스로만 읽을 수 있는 본문은
- * 그만큼 못 보는 사람이 생긴다는 뜻이다(`components/ui/table.tsx`의 가로 스크롤과 같은 이유).
- */
 function SubmittedText({ text }: { readonly text: string }): ReactElement {
   return (
     <div className="grid gap-1">
@@ -99,15 +77,6 @@ function SubmittedText({ text }: { readonly text: string }): ReactElement {
   );
 }
 
-/**
- * 제출은 있는데 **보여 줄 것이 하나도 없는** 칸. 파일도 본문도 없을 때다 —
- * 첨부의 보존 기한이 지났거나(FILE 유형인데 `file`이 비어 온다) 저장된 본문을 읽지
- * 못한 경우다.
- *
- * 아무 말 없이 판정 버튼만 열어 두면 교직원은 **볼 것이 없다는 사실 자체를 모른 채**
- * 승인·반려를 누른다. 그래서 버튼을 잠그는 대신 사실을 적는다: 보존 기한이 지난 첨부에
- * 「다시 내라」고 보완 요청하는 것은 정당한 판정이라, 잠그면 그 길이 막힌다.
- */
 function NothingToShow(): ReactElement {
   return (
     <Alert data-testid="milestone-document-no-content">
@@ -120,13 +89,6 @@ function NothingToShow(): ReactElement {
   );
 }
 
-/**
- * 판정하기 전에 **무엇을 판정하는지** 보여 주는 자리.
- *
- * ⚠ 이 부분을 지우면 파일 제출만 눈에 보이고 글 제출은 통째로 안 보인다 —
- * 교직원이 내용을 한 글자도 못 본 채 승인·반려를 누르게 된다. 그것이 이 화면의 원래
- * 결함이었다.
- */
 function SubmittedContent({
   cell,
   fileHref,
@@ -136,8 +98,7 @@ function SubmittedContent({
 }): ReactElement | null {
   if (!cell.isSubmitted) return null;
   const content: MilestoneDocumentCollectionContent | null = cell.content;
-  // 첨부는 링크를 걸 수 있을 때만 「보여 준 것」으로 친다 — 파일명만 적고 열 길이 없으면
-  // 내용을 본 것이 아니다.
+
   const hasFile = cell.file !== null && fileHref !== null;
 
   if (content !== null) {
@@ -147,13 +108,6 @@ function SubmittedContent({
   return <NothingToShow />;
 }
 
-/**
- * 지난 검토. 검토는 덮어쓰지 않고 쌓이므로, 교직원이 바뀌어도 앞사람이 무엇을 지적했는지
- * 보이는 것이 이 기능의 요구다.
- *
- * 수합 표 응답은 최신 한 건만 주고, 전체 이력은 패널을 열었을 때 cursor 조회로 따로 읽는다.
- * 이 컴포넌트는 이력 조회가 실패한 전환기 응답에서도 최신 판정 한 건은 숨기지 않는다.
- */
 function PreviousReview({
   review,
 }: {
@@ -178,10 +132,7 @@ function PreviousReview({
       <p className="text-small break-keep whitespace-pre-wrap">
         {review.comment ?? '사유 없이 저장되었습니다.'}
       </p>
-      {/*
-       * 보완 요청에만 기한이 있다. 기한 없는 보완 요청은 이 값이 생기기 전에 저장된 것이라
-       * 그 사실을 그대로 적는다 — 빈칸으로 두면 교직원은 자기가 안 정한 것으로 읽는다.
-       */}
+
       {review.decision !== 'CHANGES_REQUESTED' ? null : (
         <p
           data-testid="milestone-document-previous-review-due-at"
@@ -334,13 +285,6 @@ export function MilestoneDocumentReviewPanel(
         </FieldDescription>
       </Field>
 
-      {/*
-       * 재제출 기한은 **보완 요청을 고른 뒤에만** 나타난다. 늘 그려 두면 승인·반려에도 날짜
-       * 칸이 보여 「승인에 기한이 있다」는 없는 개념을 만든다.
-       *
-       * 이 칸이 필수인 것이 새 정책의 절반이다 — 나머지 절반은 학생 쪽 확인 창이다.
-       * 마감이 지난 마일스톤에서 학생이 다시 낼 수 있는 창은 이 시각에 닫힌다.
-       */}
       {props.decision === 'CHANGES_REQUESTED' ? (
         <Field>
           <FieldLabel htmlFor={resubmissionDueAtId}>재제출 기한</FieldLabel>
@@ -361,10 +305,6 @@ export function MilestoneDocumentReviewPanel(
         </Field>
       ) : null}
 
-      {/*
-       * 무엇이 필요한지 **누르기 전에** 말한다. 이 문구가 없으면 교직원은 반려를
-       * 고르고 저장을 눌러 본 뒤에야 막힌 이유를 알게 되고, 그 사이 적어 둔 것도 없다.
-       */}
       <p className="text-small text-muted-foreground break-keep">
         보완 요청·반려는 사유를 적어야 저장됩니다. 승인은 안 적어도 됩니다. 보완
         요청은 재제출 기한도 함께 정해야 합니다.

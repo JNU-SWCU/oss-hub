@@ -1,6 +1,5 @@
 import { BoardCommentResponseDto } from './board-comment-response.dto';
 
-// 합성 데이터만 사용한다 (docs/rules/security.md)
 const syntheticCommentId = 'cuid-synthetic-comment';
 const syntheticPostId = 'cuid-synthetic-post';
 const syntheticAuthorId = 'cuid-synthetic-author';

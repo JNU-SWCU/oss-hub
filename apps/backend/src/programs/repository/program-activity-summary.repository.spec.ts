@@ -5,7 +5,6 @@ import {
 
 describe('ProgramActivitySummaryRepository', () => {
   it('returns currently linked repositories without applying an archived filter', async () => {
-    // Given
     const findMany = jest
       .fn()
       .mockResolvedValue([
@@ -15,12 +14,10 @@ describe('ProgramActivitySummaryRepository', () => {
       githubRepository: { findMany },
     } satisfies ProgramActivitySummaryDataSource;
 
-    // When
     const result = await new ProgramActivitySummaryRepository(
       prisma,
     ).findRepositoryLinks(['program-archived']);
 
-    // Then
     expect(findMany).toHaveBeenCalledWith({
       where: {
         programId: { in: ['program-archived'] },
@@ -37,7 +34,6 @@ describe('ProgramActivitySummaryRepository', () => {
   });
 
   it('skips repository reads when no program is requested', async () => {
-    // Given
     const findMany = jest.fn();
     const prisma = {
       githubRepository: { findMany },

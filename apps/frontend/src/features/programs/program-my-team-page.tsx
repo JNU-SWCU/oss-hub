@@ -26,13 +26,6 @@ import { useTeamInvitationManagement } from './use-team-invitation-management';
 const LOAD_FAILED_MESSAGE =
   '우리 팀 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
-/**
- * 팀이 「신청서가 있다」고 말했는데 신청 조회가 404로 돌아온 경우.
- *
- * 이 응답을 「신청 없음」으로 접으면 이미 제출한 팀에게 「신청 작성 중」과
- * 신청서 작성 링크를 다시 내밀게 되고, 팀장은 낸 적 있는 신청서를 또 쓰게 된다.
- * 모르면 모른다고 말하고 다시 읽는다.
- */
 const APPLICATION_OUT_OF_SYNC_MESSAGE =
   '팀 신청서를 찾지 못했습니다. 방금 상태가 바뀌었을 수 있으니 다시 시도해 주세요.';
 
@@ -40,7 +33,6 @@ const REFRESH_FAILED_MESSAGE =
   '최신 팀 상태를 불러오지 못했습니다. 화면에는 마지막으로 확인한 상태가 남아 있습니다.';
 
 type ProgramMyTeamPageState =
-  /** 세션 사용자가 아직 손에 없다 — 어떤 비공개 조회도 시작하지 않는다. */
   | { readonly kind: 'session-pending' }
   | { readonly kind: 'loading' }
   | { readonly kind: 'not-found' }
@@ -50,27 +42,19 @@ type ProgramMyTeamPageState =
       readonly kind: 'ready';
       readonly program: ProgramDetail;
       readonly team: ProgramTeam;
-      /** 팀에 제출된 신청서. 팀원 전원이 읽는다(#18) — 신청자 본인만이 아니다. */
+
       readonly application: StudentApplication | null;
-      /** 이 응답을 받은 순간의 로그인 신원. 자기 행·자기 탈퇴 판정의 기준이다. */
+
       readonly sessionNickname: string;
     };
 
 function loadFailureMessage(error: unknown): string {
   if (error instanceof ApiError) return error.problem.detail;
-  // 응답 계약 위반(`ProgramTeamResponseError`)은 그 문장이 이미 사실을 말한다.
+
   if (error instanceof Error && error.message.length > 0) return error.message;
   return LOAD_FAILED_MESSAGE;
 }
 
-/**
- * 학생의 「우리 팀」 작업 공간(#1269).
- *
- * 팀은 **인증된 세션의 팀 조회**(`GET /programs/:id/teams/me`)로만 정한다 —
- * 화면이 실어 온 팀 id나 교직원용 팀 상세는 쓰지 않는다. 할 수 있는 일
- * (초대·제외·나가기)은 서버가 계산한 능력 플래그만 따르고, 화면이 팀장 여부나
- * 신청 이력으로 같은 규칙을 다시 유추하지 않는다(ADR-007).
- */
 export function ProgramMyTeamPage({
   programId,
   sessionUser,
@@ -78,10 +62,7 @@ export function ProgramMyTeamPage({
 }: {
   readonly programId: string;
   readonly sessionUser: ProgramApplySessionUser | null;
-  /**
-   * 승인된 참여자의 제출 현황. `features/programs`는 `features/submissions`를
-   * 직접 import하지 않으므로 조합 계층(라우트)이 만들어 내려 준다.
-   */
+
   readonly submissionContent: ReactNode;
 }) {
   const router = useRouter();
@@ -89,7 +70,7 @@ export function ProgramMyTeamPage({
     kind: 'session-pending',
   });
   const [refreshError, setRefreshError] = useState<string | null>(null);
-  /** 초대 다이얼로그는 명단의 버튼이 열고, 그 버튼으로 초점이 돌아간다. */
+
   const [inviteOpen, setInviteOpen] = useState(false);
   const inviteTriggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -167,8 +148,7 @@ export function ProgramMyTeamPage({
             failWith(loadFailureMessage(error));
             return;
           }
-          // 팀은 「신청서가 있다」는데 신청 조회가 비었다 — 어긋남이다. 「신청 없음」으로
-          // 접으면 이미 제출한 팀에게 신청서 작성 링크가 다시 뜬다(위 주석의 회귀).
+
           if (application === null) {
             if (!stillCurrent()) return;
             failWith(APPLICATION_OUT_OF_SYNC_MESSAGE);
@@ -205,7 +185,6 @@ export function ProgramMyTeamPage({
     [],
   );
 
-  // 프로그램이나 로그인 계정이 바뀌면 이전 화면의 상태와 진행 중인 조회는 모두 버린다.
   useEffect(() => {
     loadSeqRef.current += 1;
     setRefreshError(null);
@@ -216,8 +195,6 @@ export function ProgramMyTeamPage({
     };
   }, [load, identity]);
 
-  // 초대를 수락한 팀원이나 다른 탭의 변경은 알림 없이 일어난다. 돌아왔을 때
-  // 낡은 명단으로 「제외」를 누르지 않도록 조용히 다시 읽는다.
   useEffect(() => {
     if (state.kind !== 'ready') return;
     function refresh() {
@@ -234,14 +211,13 @@ export function ProgramMyTeamPage({
 
   const handleMembersChanged = useCallback(() => {
     void load({ quiet: true });
-    // 팀원 구성이 바뀌면 보낸 초대의 유효성도 함께 바뀐다(정원·중복).
+
     void reloadSent();
   }, [load, reloadSent]);
 
   const handleDeparted = useCallback(() => {
     if (!mountedRef.current) return;
-    // 나간 사람은 방금 이 화면을 보고 있던 계정이다. 그 사이 계정이 바뀌었으면
-    // 다른 사람의 세션을 대시보드로 밀어내지 않는다.
+
     if (
       sessionNicknameRef.current === null ||
       sessionNicknameRef.current !== sessionNickname

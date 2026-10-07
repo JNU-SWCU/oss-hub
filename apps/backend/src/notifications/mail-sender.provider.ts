@@ -28,9 +28,6 @@ function gmailConfigFromRuntime(
   return { sender, clientId, clientSecret, refreshToken };
 }
 
-/**
- * MAIL_MODE is the sole mail behavior authority.
- */
 export function resolveMailSender(runtimeConfig: RuntimeConfig): MailSender {
   const mode = runtimeConfig.MAIL_MODE;
   if (mode !== 'send' && mode !== 'dry-run') {
@@ -48,10 +45,6 @@ export function resolveMailSender(runtimeConfig: RuntimeConfig): MailSender {
   return new GmailMailSender(config);
 }
 
-/**
- * Nest provider: delegates to resolveMailSender so AppModule DI and the
- * forced deadline-digest CLI share one MAIL_MODE policy.
- */
 export const mailSenderProvider: Provider = {
   provide: MAIL_SENDER,
   inject: [RUNTIME_CONFIG],

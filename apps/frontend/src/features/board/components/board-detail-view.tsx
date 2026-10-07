@@ -50,11 +50,11 @@ export interface BoardDetailContentProps {
   readonly editTitle: string;
   readonly editBody: string;
   readonly editSubmitting: boolean;
-  /** 지금 입력값으로 다시 판정한 칸 오류. 서버 실패와 섞지 않는다. */
+
   readonly editErrors: BoardPostInputErrors;
-  /** 한 번 「저장」을 누른 뒤부터 칸 오류를 보인다. */
+
   readonly editShowFieldErrors: boolean;
-  /** 서버가 거절한 이유. 칸이 아니라 폼의 경고 상자에 남는다. */
+
   readonly editSubmitError: string | null;
   readonly pinSubmitting: boolean;
   readonly pinError: string | null;
@@ -64,7 +64,7 @@ export interface BoardDetailContentProps {
   readonly commentSubmitting: boolean;
   readonly commentDraftError: string | null;
   readonly commentShowDraftError: boolean;
-  /** 댓글 작성·삭제 실패. 입력 누락과 달리 댓글 목록 끝 경고 상자에 남는다. */
+
   readonly commentSubmitError: string | null;
   readonly deletingCommentId: string | null;
   readonly onRetry: () => void;
@@ -79,17 +79,6 @@ export interface BoardDetailContentProps {
   readonly onDeleteComment: (commentId: string) => void;
 }
 
-/**
- * 본문은 붙여넣은 저장소 주소·해시처럼 공백이 하나도 없는 문자열을 그대로 받는다.
- * `whitespace-pre-wrap`은 작성자가 넣은 줄바꿈을 살릴 뿐 그런 문자열을 대신 접어 주지는
- * 않아서, 넘친 부분을 카드(`card.tsx`의 `overflow-hidden`)가 잘라 냈다 — 가로 스크롤도
- * 생기지 않으니 뒷부분을 볼 방법이 아예 없었다.
- *
- * 그래서 신청 상세(`program-application-detail-page.tsx`)와 같은
- * `[overflow-wrap:anywhere]`를 건다. 그쪽이 함께 쓰는 `break-keep`은 여기서 빼 둔다 —
- * 그건 넘치지 않는 한글의 줄바꿈 자리까지 옮기는데, 이 화면은 지금 줄바꿈 모양을 그대로
- * 둔 채 잘림만 없애는 것이 목표다. 아카이브 상세의 `break-all`도 같은 이유로 안 쓴다.
- */
 function PostBody({ post }: { readonly post: BoardPostDetail }) {
   return (
     <Card>
@@ -141,7 +130,6 @@ export function BoardDetailContent({
   const showEditBodyError = editShowFieldErrors && editErrors.body !== null;
   const showCommentError = commentShowDraftError && commentDraftError !== null;
 
-  // 오류 칸으로 커서를 옮긴다 — 눌린 값으로 판정하므로 이 시점의 오류가 결과다.
   function handleSubmitEdit(): void {
     onSubmitEdit();
     if (editErrors.title !== null) editTitleRef.current?.focus();
@@ -354,7 +342,7 @@ export function BoardDetailContent({
                     >
                       {boardCommentAuthorRoleLabel(comment.authorRole)}
                     </StatusBadge>
-                    {/* 본문과 같은 이유로 접는다 — `PostBody` 주석 참고. */}
+
                     <span className="min-w-0 flex-1 leading-6 text-foreground [overflow-wrap:anywhere]">
                       {comment.body}
                     </span>
@@ -380,7 +368,7 @@ export function BoardDetailContent({
                   <AlertDescription>{commentSubmitError}</AlertDescription>
                 </Alert>
               ) : null}
-              {/* 오류가 입력칸 밑에 붙어도 버튼이 내려가지 않도록 윗줄에 맞춘다. */}
+
               <div className="mt-2 flex items-start gap-2">
                 <Field
                   className="min-w-0 flex-1"
@@ -457,10 +445,6 @@ export function BoardDetailView({
 
   const retry = useCallback(() => setAttempt((current) => current + 1), []);
 
-  /*
-    가입 프로필·설정 폼과 같은 방식이다 — 한 번 제출한 뒤부터는 지금 입력값으로 매번 다시
-    판정한다. 그래서 비운 칸을 채우면 그 칸의 빨간색이 사라지고, 공백만 친 칸은 그대로 남는다.
-  */
   const editErrors = useMemo(
     () => validateBoardPostInput({ title: editTitle, body: editBody }),
     [editTitle, editBody],
@@ -593,7 +577,7 @@ export function BoardDetailView({
             : current,
         );
         setCommentDraft('');
-        // 보낸 뒤 빈 칸이 곧바로 빨개지지 않도록 「한 번 제출했다」를 되돌린다.
+
         setCommentSubmitted(false);
       })
       .catch((error: unknown) => {

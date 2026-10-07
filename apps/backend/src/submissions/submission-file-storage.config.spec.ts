@@ -146,20 +146,19 @@ describe('SubmissionFileStorageConfig', () => {
   });
 
   it.each([
-    // Compose 내부 서비스 호스트명(정확 일치)과 loopback/사설 http.
     ['local', 'http://object-storage:9000'],
     ['local', 'http://127.0.0.1:9000'],
     ['local', 'http://localhost:9000'],
     ['local', 'http://10.1.2.3:9000'],
     ['local', 'http://192.168.0.5:9000'],
     ['local', 'http://[::1]:9000'],
-    // RFC1918 172.16/12 경계 양끝.
+
     ['local', 'http://172.16.0.1:9000'],
     ['local', 'http://172.31.255.254:9000'],
-    // IPv6 ULA·link-local.
+
     ['local', 'http://[fd00::1]:9000'],
     ['local', 'http://[fe80::1]:9000'],
-    // URL 파서가 127.0.0.1로 정규화하는 십진 표기.
+
     ['local', 'http://2130706433:9000'],
     ['managed', R2_ENDPOINT],
   ] as const)(
@@ -179,24 +178,23 @@ describe('SubmissionFileStorageConfig', () => {
   );
 
   it.each([
-    // 공개 http·비허용 scheme·비URL.
     'http://s3.example.com',
-    // local mode는 외부 HTTPS endpoint도 허용하지 않는다.
+
     'https://s3.example.com',
     'http://8.8.8.8:9000',
     'ftp://object-storage:9000',
     'not-a-url',
-    // 다른 단일 라벨 호스트는 Compose 서비스명 object-storage가 아니므로 거부.
+
     'http://redis:9000',
     'http://postgres:9000',
-    // credentials/query/fragment는 http·https 모두 protocol 수락 전 거부.
+
     'http://user:pass@object-storage:9000',
     'http://object-storage:9000?x=1',
     'http://object-storage:9000#frag',
     'https://user:pass@s3.example.com',
     'https://s3.example.com?x=1',
     'https://s3.example.com#frag',
-    // present-empty delimiter: WHATWG getters are empty but component is present.
+
     'https://s3.example.com?',
     'https://s3.example.com#',
     'https://s3.example.com?#',
@@ -206,21 +204,21 @@ describe('SubmissionFileStorageConfig', () => {
     'https://:@s3.example.com',
     'http://@object-storage:9000',
     'http://:@object-storage:9000',
-    // WHATWG가 허용하는 slashless/backslash special URL도 canonical 입력이 아니다.
+
     'http:object-storage:9000?',
     'https:s3.example.com?',
     'https:@s3.example.com',
     'http:\\\\object-storage:9000?',
-    // userinfo에 사설 호스트를 숨겨도 credentials가 있으면 거부.
+
     'http://object-storage:9000@s3.example.com/',
-    // 사설 IP를 앞에 붙인 공개 호스트명.
+
     'http://127.0.0.1.s3.example.com:9000',
-    // RFC1918 172.16/12 바로 바깥.
+
     'http://172.32.0.1:9000',
     'http://172.15.255.255:9000',
-    // URL 파서가 8.8.8.8로 정규화하는 십진 표기.
+
     'http://134744072:9000',
-    // 공개 IPv6, 그리고 IPv4-mapped 형태로 우회 시도.
+
     'http://[2001:db8::1]:9000',
     'http://[::ffff:8.8.8.8]:9000',
   ])('%s는 local mode에서 CONFIGURATION 에러를 던진다', (endpoint) => {

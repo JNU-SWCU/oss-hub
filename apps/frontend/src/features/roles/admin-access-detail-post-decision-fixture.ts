@@ -6,11 +6,6 @@ import type {
 import type { CanonicalAdminAccessDetail } from './independent-authority-api';
 import { adminDetail } from './admin-access-detail-test-fixture';
 
-/**
- * `admin-access-detail-post-decision.test.tsx` 전용 고정 데이터 — 대기 요청
- * 하나를 가진 상세와, 백엔드가 결정 직후 돌려주는 권위 있는 PATCH 응답.
- */
-
 export const PENDING_REQUEST_ID = 'request-pending';
 
 export const PENDING_DETAIL: CanonicalAdminAccessDetail = adminDetail({
@@ -101,7 +96,6 @@ export function clickButton(container: HTMLElement, label: string): void {
   );
 }
 
-/** 반려 다이얼로그의 사유 칸은 비우면 확정 버튼이 막힌다 — 실제 입력을 그대로 흥낸다. */
 export function typeRejectReason(container: HTMLElement, reason: string): void {
   const textarea = container.querySelector<HTMLTextAreaElement>(
     '#admin-access-reject-reason',
@@ -117,7 +111,6 @@ export function typeRejectReason(container: HTMLElement, reason: string): void {
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-/** 마운트/클릭이 건 promise 체인이 모두 정착할 때까지 microtask를 비운다. */
 export async function flush(): Promise<void> {
   for (let turn = 0; turn < 8; turn += 1) {
     await Promise.resolve();

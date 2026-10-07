@@ -27,9 +27,6 @@ export class PublicProjectsController {
     );
   }
 
-  /**
-   * 정적 경로를 `:projectId`보다 먼저 등록해 `years`가 id로 잡히지 않게 한다.
-   */
   @Get('years')
   @Header('Cache-Control', 'no-store')
   async listYears(): Promise<PublicProjectYearsResponseDto> {

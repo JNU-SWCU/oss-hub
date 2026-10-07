@@ -81,19 +81,15 @@ function render(
 
 describe('SubmissionChecklistView file display', () => {
   it('does not render a submitted file link when file metadata is absent', () => {
-    // Given
     const input = checklist([item({})]);
 
-    // When
     const html = render(input, 'milestone-file');
 
-    // Then
     expect(html).not.toContain('report.pdf');
     expect(html).not.toContain(FILE_DOWNLOAD_URL);
   });
 
   it('renders the current submitted file name, size, and download link', () => {
-    // Given
     const input = checklist([
       item({
         submission: submission({
@@ -109,10 +105,8 @@ describe('SubmissionChecklistView file display', () => {
       }),
     ]);
 
-    // When
     const html = render(input, 'milestone-file');
 
-    // Then
     expect(html).toContain('report.pdf');
     expect(html).toContain('1.5 KB');
     expect(html).toContain(`href="${FILE_DOWNLOAD_URL}"`);

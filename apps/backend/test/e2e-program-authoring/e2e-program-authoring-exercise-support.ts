@@ -65,7 +65,7 @@ export async function stalePreview(
     E2E_STAFF_GITHUB_ID,
     E2E_PROGRAM_ID,
     preview,
-    // 프리뷰 발급 이후 시간이 흘렀다고 판정되도록 고정 앵커보다 살짝 뒤의 시각을 만든다.
+
     new Date(E2E_NOW.getTime() + 10 * 60 * 1000 + 1),
   );
 }

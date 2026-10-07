@@ -43,7 +43,7 @@ import {
 
 interface ProgramListPageProps {
   readonly canCreateProgram: boolean;
-  /** 부제 문구를 가른다(교직원/관리자 vs 그 외). */
+
   readonly viewerRole: ViewerRole;
 }
 
@@ -74,10 +74,6 @@ function parseStatus(value: string | null): ProgramListStatus {
   return 'all';
 }
 
-/**
- * 상태 필터는 **전역 사이드 패널**(프로그램 메뉴)이 URL `?status=` 로 보낸다.
- * 이 페이지는 그 쿼리를 읽고, 좁은 폭에서만 칩으로 같은 전환을 제공한다.
- */
 function ProgramListPage({
   canCreateProgram,
   viewerRole,
@@ -129,7 +125,6 @@ function ProgramListPage({
     };
   }, [load]);
 
-  // status·정렬 쿼리가 바뀌면 1페이지로
   useEffect(() => {
     setPage(1);
   }, [status, sort, direction]);
@@ -191,8 +186,7 @@ function ProgramListPage({
       <CardGrid>
         {loadState.programPage.items.map((program) => {
           const badge = getProgramListBadge(program, now);
-          // ended도 상세 열람은 허용된다(백엔드가 ARCHIVED 상세 읽기를
-          // 이미 허용) — 모든 카드에 href를 넘긴다.
+
           return (
             <ProgramCard
               badgeText={badge.label}
@@ -236,7 +230,7 @@ function ProgramListPage({
           <AlertDescription>{purgeNotice}</AlertDescription>
         </Alert>
       ) : null}
-      {/* 좁은 폭: 전역 사이드가 가로 띠라 상태 칩을 본문에 한 번 더 둔다 */}
+
       <ProgramListStatusChips
         className="min-[900px]:hidden"
         value={status}

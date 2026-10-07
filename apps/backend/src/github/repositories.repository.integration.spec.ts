@@ -122,8 +122,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         },
       ],
     });
-    // 현재 소속은 MEMBER_TEAM_ID뿐이다. 다른 팀에 남은 leaderId와 applicantId는
-    // 의도적인 과거 귀속 fixture이며 저장소 접근 권한을 부여하지 않아야 한다.
+
     await prisma.teamMember.createMany({
       data: [
         {
@@ -223,25 +222,14 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
     });
   });
 
-  /**
-   * 저장소를 교체한 상황을 그대로 만든다 — 발급 job 은 옛 행을 그대로 붙들고
-   * 있고 신청은 새 행에 연결된 상태다. 조회가 신청을 거쳐 읽는다면 새 저장소가
-   * 나와야 하고, job 을 따라가면 옛 저장소가 나온다.
-   *
-   * 이 보증은 예전에 service 단위 테스트가 applicationId 불일치를 던져 지켰으나,
-   * 신청을 거쳐 읽으면 그 불일치를 만들 수 없어 여기 실제 DB 로 옮겨왔다.
-   */
   it('follows the application to the current repository, not the job history', async () => {
     const replacementId = `${PREFIX}-replacement-repository`;
     try {
-      // 교체: 옛 행은 연결만 끊고(DETACH) 새 행이 신청을 차지한다.
       await prisma.githubRepository.update({
         where: { id: REPOSITORY_IDS[1] },
         data: { applicationId: null, programId: null, teamId: null },
       });
-      // OWN→NEW pending window: the job still records the old repository, but
-      // the application has no current repository. The projection must not
-      // resurrect job.repositoryId as the current connection.
+
       const pendingJobs =
         await repository.listOwnedProvisionJobs(8_300_000_000_001n);
       expect(
@@ -281,7 +269,6 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         (candidate) => candidate.application.id === MEMBER_APPLICATION_ID,
       );
 
-      // job.repositoryId 는 여전히 옛 행을 가리킨다. 그래도 조회는 새 저장소를 낸다.
       expect(job?.application.repository?.id).toBe(replacementId);
       expect(job?.application.repository?.id).not.toBe(REPOSITORY_IDS[1]);
       expect(job?.application.repository?.invitations).toEqual([
@@ -565,8 +552,7 @@ function storedRepository(
     programId: PROGRAM_ID,
     teamId,
     githubRepositoryId,
-    // #617 단계 D 이후 name/url 컬럼이 없다 — nameWithOwner("synthetic/<id>")에서
-    // repository-identity.ts 헬퍼로 유도되므로, 아래 name/url 기댓값과 그대로 맞아떨어진다.
+
     nameWithOwner: `synthetic/${id}`,
     source: RepositorySource.ORG_PROVISIONED,
     visibility: RepositoryVisibility.PRIVATE,

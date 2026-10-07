@@ -1,10 +1,5 @@
 import { createRng } from './cosmos-theme';
 
-/**
- * 히어로 캔버스가 그리는 그래프. 화면 연출용 예시 구성이며 실제 사용자·팀
- * 데이터를 담지 않는다 — 범례에 `예시 구성`으로 표기한다. 프로그램 항성의
- * 이름만 공개 프로그램 유형에서 가져온다.
- */
 export type CosmosNodeKind = 'p' | 's' | 'r';
 
 export interface CosmosNode {
@@ -12,13 +7,13 @@ export interface CosmosNode {
   prog: number;
   name: string;
   tint: number;
-  /** 노드마다 고정된 위상 — 시간에 따라 밝기가 오르내리지 않게 한다 */
+
   ph: number;
   sz: number;
   deg: number;
-  /** 0~1로 정규화한 차수 — 노드 크기의 근거 */
+
   degN: number;
-  /** 행성의 광원 = 자기 프로그램 항성 */
+
   light: number;
   x: number;
   y: number;
@@ -80,7 +75,6 @@ export interface CosmosGraph {
 export const FOCUS_PROGRAM = 0;
 export const HERO_HANDLE = '@example-user';
 
-/** 사업단이 운영하는 프로그램 유형 — 공개 프로그램명이 있으면 앞에서부터 대체된다 */
 export const PROGRAM_TYPE_NAMES = [
   '오픈소스 해커톤',
   'OSS 기여 챌린지',
@@ -184,7 +178,7 @@ export function buildCosmosGraph(
         `team-${pick(TEAM_WORDS, rand())}/${pick(REPO_WORDS, rand())}`,
         Math.floor(rand() * 4),
         rand() * 6.283,
-        // 행성 크기 편차 — 전부 같은 크기면 "점"으로 보이고 "행성"으로 안 보인다
+
         0.62 + rand() * rand() * 1.5,
       ),
     );
@@ -204,7 +198,6 @@ export function buildCosmosGraph(
     edges.push({ a, b, prog: nodes[a]?.prog ?? 0, ord: rand(), kind: 'ss' });
   }
 
-  // 주인공 — 포커스 프로그램에서 저장소가 가장 많은 학생
   const repoCountOf = new Map<number, number>();
   for (const edge of edges) {
     if (edge.kind === 'rs') {
@@ -249,7 +242,6 @@ export function buildCosmosGraph(
     }
   }
 
-  // 차수(degree) — 연결이 많을수록 큰 천체
   const degrees = new Int32Array(nodes.length);
   for (const edge of edges) {
     degrees[edge.a] += 1;
@@ -265,8 +257,6 @@ export function buildCosmosGraph(
     node.degN = Math.sqrt(node.deg / maxDegree[node.kind]);
   });
 
-  // 배경 별 3층 — 층마다 시차가 다르다. b는 별마다 고정된 밝기로,
-  // 시간에 따라 변하면 화면 전체가 미세하게 깜빡이는 것처럼 보인다.
   const layers: CosmosStarLayer[] = [
     { depth: 0.18, count: 460, rMin: 0.35, rMax: 0.9, alpha: 0.5 },
     { depth: 0.42, count: 230, rMin: 0.6, rMax: 1.4, alpha: 0.68 },
@@ -283,7 +273,6 @@ export function buildCosmosGraph(
     })),
   }));
 
-  // 오로라 커튼 — 배경에 걸리는 흐린 빛의 장막
   const curtains: CosmosCurtain[] = Array.from({ length: 4 }, (_, index) => ({
     x: 0.1 + rand() * 0.85,
     w: 0.22 + rand() * 0.3,
@@ -295,7 +284,6 @@ export function buildCosmosGraph(
     tint: index % 3,
   }));
 
-  // 속도선 — 하이퍼드라이브용 고정 각도 세트
   const streaks: CosmosStreak[] = Array.from({ length: 80 }, () => ({
     a: rand() * 6.283,
     r0: 0.12 + rand() * 0.5,
@@ -316,11 +304,6 @@ export function buildCosmosGraph(
   };
 }
 
-/**
- * 힘 기반 레이아웃 (Fruchterman-Reingold 3D). 스프링(링크)과 반발(노드)로
- * 스스로 자리를 잡는다. 초기화 때 정해진 횟수만 돌리고 그대로 굳힌다 —
- * 상시 시뮬레이션이 아니라 떨림이 없고 매 로드 같은 배치가 나온다.
- */
 export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
   const nodes = graph.nodes;
   const n = nodes.length;
@@ -330,7 +313,6 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
   const pz = new Float64Array(n);
 
   for (let i = 0; i < n; i += 1) {
-    // 구 안에 균일하게 뿌린 초기값
     const u = rand() * 2 - 1;
     const theta = rand() * 6.283;
     const r = Math.cbrt(rand()) * 0.9;
@@ -343,8 +325,7 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
   const dx = new Float64Array(n);
   const dy = new Float64Array(n);
   const dz = new Float64Array(n);
-  // 링크 종류별 당기는 세기. rs(저장소↔학생)를 너무 크게 잡으면 저장소가
-  // 학생 위에 겹쳐 붙어 마지막 장면에서 라벨이 하나만 남는다.
+
   const weights = { rs: 1.85, sp: 1.0, ss: 0.32 } as const;
   const k2 = k * k;
   const ITER = 240;
@@ -354,7 +335,6 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
     dy.fill(0);
     dz.fill(0);
 
-    // 반발 — 모든 쌍
     for (let i = 0; i < n; i += 1) {
       const xi = px[i] as number;
       const yi = py[i] as number;
@@ -378,7 +358,6 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
       }
     }
 
-    // 인력 — 링크
     for (const edge of graph.edges) {
       const a = edge.a;
       const b = edge.b;
@@ -398,7 +377,6 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
       dz[b] += uz;
     }
 
-    // 중력 — 차수가 클수록 강하게. 허브가 안쪽으로 모인다.
     for (let i = 0; i < n; i += 1) {
       const g = 0.09 * (0.4 + (nodes[i]?.degN ?? 0));
       dx[i] -= (px[i] as number) * g;
@@ -406,7 +384,6 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
       dz[i] -= (pz[i] as number) * g;
     }
 
-    // 냉각 — 갈수록 조금씩만 움직여 마지막에 굳는다
     const t = 0.22 * (1 - it / ITER) + 0.004;
     for (let i = 0; i < n; i += 1) {
       const ddx = dx[i] as number;
@@ -420,7 +397,6 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
     }
   }
 
-  // 중심 정렬 → 크기 정규화 → 은하처럼 살짝 납작하게
   let cx = 0;
   let cy = 0;
   let cz = 0;
@@ -446,7 +422,7 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
     const node = nodes[i];
     if (!node) continue;
     node.x = (px[i] as number) * scale;
-    node.y = (py[i] as number) * scale * 0.78; // y를 눌러 원반형 은하로
+    node.y = (py[i] as number) * scale * 0.78;
     node.z = (pz[i] as number) * scale;
     node.light = node.prog;
   }

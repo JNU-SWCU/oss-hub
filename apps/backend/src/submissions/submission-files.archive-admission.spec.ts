@@ -10,17 +10,11 @@ import {
 
 const MIB = 1024 * 1024;
 
-/** 전통 방식 암호화가 자료 앞에 덧붙이는 머리 크기. 이만큼을 더해야 진짜 암호화 자료다. */
 const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;
 
 type ArchiveCase = {
   readonly scenario: string;
-  /**
-   * 이 압축 파일이 받아야 할 코드. `UNSUPPORTED_FILE_TYPE`(SUB_018)은 여기 없어야 한다 —
-   * `.zip`은 허용 형식이고, 막힌 이유는 형식이 아니라 그 안에 담긴 것이다(#1108).
-   * 열거형 이름이 아니라 응답에 실리는 문자열로 적는다 — 화면(`submission-form.ts`)이 이
-   * 값을 그대로 알아보므로 번호가 바뀌면 여기서 먼저 깨져야 한다.
-   */
+
   readonly code: string;
   readonly build: () => Buffer;
 };
@@ -229,7 +223,6 @@ async function admissionOutcome(buffer: Buffer) {
   };
 }
 
-/** 제출 없이 판정만 묻는 경로(#1108). 저장소·DB는 읽기조차 하지 않아야 한다. */
 async function checkOutcome(buffer: Buffer) {
   const { repository, service, storage } = setup();
   const [check] = await Promise.allSettled([
@@ -262,13 +255,10 @@ describe('SubmissionFilesService ZIP metadata admission', () => {
   it.each(HAZARDOUS_ARCHIVES)(
     'rejects $scenario with $code before persistence or storage',
     async ({ build, code }) => {
-      // Given
       const archive = build();
 
-      // When
       const outcome = await admissionOutcome(archive);
 
-      // Then
       expect(outcome).toEqual({
         code,
         domainRejected: true,
@@ -281,21 +271,13 @@ describe('SubmissionFilesService ZIP metadata admission', () => {
     },
   );
 
-  /**
-   * #1108의 핵심 — 압축 안을 들여다본 뒤 막은 것과 형식·서명 때문에 막은 것은 서로 다른
-   * 코드여야 한다. 하나로 뭉개면 허용 형식인 `.zip`을 낸 학생이 「지원하지 않는 파일
-   * 형식입니다」를 읽고, 고칠 곳이 압축 안인데 형식만 다시 손보게 된다.
-   */
   it.each(HAZARDOUS_ARCHIVES)(
     'does not answer $scenario with the unsupported-format code',
     async ({ build }) => {
-      // Given
       const archive = build();
 
-      // When
       const outcome = await admissionOutcome(archive);
 
-      // Then
       expect(outcome.code).not.toBe(SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE);
       expect(outcome.message).not.toBe(
         SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE]
@@ -305,13 +287,10 @@ describe('SubmissionFilesService ZIP metadata admission', () => {
   );
 
   it('accepts a valid stored archive control', async () => {
-    // Given
     const archive = signatureValidZip([{ name: 'valid.txt' }]);
 
-    // When
     const outcome = await admissionOutcome(archive);
 
-    // Then
     expect(outcome).toEqual({
       code: null,
       domainRejected: false,
@@ -324,24 +303,17 @@ describe('SubmissionFilesService ZIP metadata admission', () => {
   });
 });
 
-/*
- * #1108 인터뷰 — 학생은 거절 사유를 보려고 제출을 눌러야 했다. 파일을 고르자마자 묻는
- * 판정(`check`)은 제출과 **같은** 코드·상태·문장이어야 하고, 아무것도 남기지 않는다.
- */
 describe('SubmissionFilesService file check before submission', () => {
   it.each(HAZARDOUS_ARCHIVES)(
     'answers $scenario with the submission code $code and touches neither repository nor storage',
     async ({ build, code }) => {
-      // Given
       const archive = build();
 
-      // When
       const [checked, submitted] = await Promise.all([
         checkOutcome(archive),
         admissionOutcome(archive),
       ]);
 
-      // Then
       expect(checked).toEqual({
         code,
         httpStatus: submitted.httpStatus,
@@ -355,13 +327,10 @@ describe('SubmissionFilesService file check before submission', () => {
   );
 
   it('passes a valid archive and still touches neither repository nor storage', async () => {
-    // Given
     const archive = signatureValidZip([{ name: 'valid.txt' }]);
 
-    // When
     const outcome = await checkOutcome(archive);
 
-    // Then
     expect(outcome).toEqual({
       code: null,
       httpStatus: null,

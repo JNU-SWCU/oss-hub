@@ -23,7 +23,7 @@ type CurrentPayload = {
   readonly text: string;
   readonly file: Buffer;
 };
-/** Runs after the existing two-milestone/two-approved-team flow has asserted its original receipts. */
+
 export async function verifyProgramArchiveScopes(input: {
   readonly programId: string;
   readonly staffPage: Page;

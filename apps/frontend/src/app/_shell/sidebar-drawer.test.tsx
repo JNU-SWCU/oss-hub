@@ -1,9 +1,3 @@
-// @vitest-environment happy-dom
-
-// SidebarDrawer의 dialog 접근성 계약을 실제 DOM 상호작용으로 검증한다.
-// `renderToStaticMarkup`은 이벤트·포커스를 낼 수 없어(nav-bar-escape.test.tsx와
-// 같은 이유) 여기서는 실제로 키를 누르고 포커스를 옮긴다.
-
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -33,7 +27,6 @@ describe('SidebarDrawer', () => {
     document.body.append(container);
     root = createRoot(container);
 
-    // 열기 전 포커스를 여기 둔다 — 실제 사용에서는 햄버거 트리거가 이 자리다.
     trigger = document.createElement('button');
     trigger.textContent = '사이드바 메뉴 열기';
     document.body.append(trigger);

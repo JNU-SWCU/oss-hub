@@ -173,8 +173,6 @@ export class IndependentAuthorityMutationResponseDto {
   }
 }
 
-// CAS를 쓰지 않는 결정이라 이 응답에는 버전 필드가 없다 — 저장 직후 최신 값을
-// 그대로 돌려주고, 화면은 이 응답으로만 표시값을 갱신한다.
 export class AdminProfileUpdateResponseDto {
   readonly id: string;
   readonly name: string | null;

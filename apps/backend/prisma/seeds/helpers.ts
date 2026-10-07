@@ -7,12 +7,6 @@ import {
   User,
 } from '@prisma/client';
 
-/**
- * 시드가 쓰는 어휘 — 배타적 `Role`이 사라진 뒤에도 시나리오 이름은 그대로 남긴다.
- *
- * 값 하나가 세 canonical 사실로 펼쳐진다(`SEED_ROLE_FACTS`). 시드 호출부가
- * `role: 'STAFF'`처럼 한 단어로 사람을 묘사할 수 있어야 시나리오가 읽히기 때문이다.
- */
 export type SeedRole = 'STUDENT' | 'STAFF' | 'ADMIN';
 
 export const SEED_ROLE_FACTS: Record<
@@ -33,7 +27,7 @@ export const SEED_ROLE_FACTS: Record<
     hasStaffAccess: true,
     hasAdminAccess: false,
   },
-  // 관리자 권한은 회원 정체성과 독립이다 — 시드가 학생인지 교직원인지 정하지 않는다.
+
   ADMIN: {
     memberKind: null,
     hasStaffAccess: false,
@@ -43,10 +37,6 @@ export const SEED_ROLE_FACTS: Record<
 import { CONSENT_POLICY_VERSION } from '../../src/consents/domain/consent-policy';
 import { isValidUserName } from '../../src/users/user-profile-policy';
 
-/**
- * #110 시드 전용 Prisma 클라이언트. Nest DI 라이프사이클(OnModuleInit 등) 밖에서
- * `prisma db seed`가 단독 스크립트로 실행하므로 PrismaService 대신 원시 클라이언트를 쓴다.
- */
 export const prisma = new PrismaClient();
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -59,7 +49,6 @@ function parseSeedNow(raw: string): Date {
   return parsed;
 }
 
-/** SEED_NOW를 프로세스 시작 시점에 한 번만 고정한다 — 같은 실행 내 모든 D-day 계산이 같은 기준을 쓴다. */
 const SEED_NOW: Date = process.env.SEED_NOW
   ? parseSeedNow(process.env.SEED_NOW)
   : new Date();
@@ -68,19 +57,10 @@ export function seedNow(): Date {
   return SEED_NOW;
 }
 
-/** SEED_NOW 기준 상대 일수. 양수는 미래, 음수는 과거(지난 마감 등)를 만든다. */
 export function offsetDays(days: number): Date {
   return new Date(SEED_NOW.getTime() + days * DAY_MS);
 }
 
-/**
- * production 실행을 거부한다(#110 완료 조건: "production 환경에서는 실행을 거부한다").
- *
- * `demo` profile만 예외다 — 소유자 승인(@GoBeromsu, qa-econovation-batch TODO 11 플랜) 하에
- * `SEED_DEMO_ALLOW_PRODUCTION=1`을 명시했을 때만 production에서도 실행을 허용한다
- * (`prisma/AGENTS.md`·`prisma/README.md`에 문서화된 시드 규칙 개정). 다른 모든 profile은
- * 이 예외의 영향을 받지 않는다 — `profile`을 넘기지 않는 호출은 계속 무조건 거부한다.
- */
 export function assertSeedAllowed(
   nodeEnv: string | undefined = process.env.NODE_ENV,
   profile?: SeedProfile,
@@ -144,17 +124,12 @@ const SEED_PROFILES: readonly SeedProfile[] = [
   'all',
 ];
 
-/** 안전한 최소 profile — CI·`prisma migrate reset` 자동 시드 훅의 기본값이다. */
 export const DEFAULT_SEED_PROFILE: SeedProfile = 'auth';
 
 function isSeedProfile(value: string): value is SeedProfile {
   return (SEED_PROFILES as readonly string[]).includes(value);
 }
 
-/**
- * profile 결정 순서: CLI `--profile <name>`(예: `pnpm --filter backend prisma db seed -- --profile auth`) →
- * `SEED_PROFILE` env(인자를 못 넘기는 `migrate reset` 자동 훅용) → 기본값(안전한 최소 profile).
- */
 export function resolveSeedProfile(
   argv: readonly string[] = process.argv,
   env: NodeJS.ProcessEnv = process.env,
@@ -170,11 +145,6 @@ export function resolveSeedProfile(
   return candidate;
 }
 
-/**
- * `--teardown` CLI 플래그(qa-econovation-batch TODO 15) — 지금은 `demo` profile만 지원한다.
- * 이 플래그가 있으면 `seed.ts`가 시드를 만드는 대신 그 profile이 만든 `seed:<profile>:*`
- * 행을 전부 삭제한다. env 대응은 두지 않는다 — teardown은 항상 명시적 CLI 인자로만 트리거한다.
- */
 export function resolveTeardownFlag(
   argv: readonly string[] = process.argv,
 ): boolean {
@@ -185,10 +155,7 @@ export type OssHubTeamAccount = {
   githubId: bigint;
   login: string;
   role: 'ADMIN';
-  /**
-   * 배포 환경에서만 주입되는 실제 표시 이름(랭킹·팀 화면용). tracked 파일에는 절대
-   * 하드코딩하지 않는다 — 이 필드는 항상 `OSS_HUB_TEAM_ACCOUNTS` env의 4번째 세그먼트에서만 온다.
-   */
+
   displayName?: string;
 };
 
@@ -257,7 +224,6 @@ export function parseOssHubTeamAccounts(
   );
 }
 
-/** id·자연키에 쓰는 결정적 slug. 같은 인자는 항상 같은 문자열을 만든다(멱등 upsert 키). */
 export function seedId(...parts: readonly string[]): string {
   return ['seed', ...parts].join(':');
 }
@@ -272,31 +238,20 @@ function deterministicBigInt(prefix: bigint, slug: string): bigint {
   return prefix + value;
 }
 
-/** 실제 GitHub numeric user id와 겹치지 않는 고정 대역(9.6*10^15~)의 합성 githubId. */
 export function seedGithubId(slug: string): bigint {
   return deterministicBigInt(SEED_GITHUB_ID_PREFIX, slug);
 }
 
-/** 실제 GitHub repository id와 겹치지 않는 고정 대역(9.7*10^15~)의 합성 id. */
 export function seedRepositoryId(slug: string): bigint {
   return deterministicBigInt(SEED_REPOSITORY_ID_PREFIX, slug);
 }
 
-/**
- * 합성 fixture nameWithOwner — `oss-hub-seed`는 실존 GitHub owner가 아닌 명백한 시드
- * 네임스페이스다. #617 단계 D 이후 GithubRepository는 name/url 컬럼이 없고 nameWithOwner에서
- * 파생하므로(`repository-identity.ts`), url을 별도로 위장할 수단이 없다 — 대신 owner 자체를
- * 합성값으로 고정해 실존 대상을 가리키지 않게 한다. githubRepositoryId는 seedRepositoryId()의
- * 예약 대역을 쓰므로, 이 값과 짝지으면 "실존 대상 + 합성 식별자" 혼합(반쪽짜리 실제 데이터,
- * `AGENTS.md` antipattern #2)이 되지 않는다.
- */
 export function seedNameWithOwner(slug: string): string {
   return `oss-hub-seed/${slug}`;
 }
 
 type Bucket = { created: number; updated: number };
 
-/** 시드 실행 로그: 모델별 생성/갱신 카운트 + DB에 쓰지 않는 fixture-only scenario 목록. */
 export class SeedStats {
   private readonly buckets = new Map<string, Bucket>();
   private readonly fixtureOnly: string[] = [];
@@ -317,7 +272,6 @@ export class SeedStats {
     this.bucket(model).updated += 1;
   }
 
-  /** DB row를 만들지 않는 scenario(application-validation-error, empty-programs 등)를 기록한다. */
   noteFixtureOnly(scenarioId: string): void {
     this.fixtureOnly.push(scenarioId);
   }
@@ -337,10 +291,6 @@ export class SeedStats {
   }
 }
 
-/**
- * find→upsert를 한 번에 묶어 created/updated를 집계한다. find는 upsert의 where 절과
- * 동일한 unique key로 존재 여부만 확인한다.
- */
 export async function upsertTracked<T>(
   stats: SeedStats,
   model: string,
@@ -357,7 +307,6 @@ export async function upsertTracked<T>(
   return result;
 }
 
-/** 여러 도메인 시드 파일이 공유하는 User upsert. login은 id에서 파생한 고정 값이다. */
 export async function upsertSeedUser(
   stats: SeedStats,
   params: {
@@ -400,7 +349,6 @@ export async function upsertSeedUser(
   );
 }
 
-/** 여러 도메인 시드 파일이 공유하는 Consent upsert. 정책 버전은 현행 고정값 하나다. */
 export async function upsertConsent(
   stats: SeedStats,
   userId: string,
@@ -431,13 +379,6 @@ export async function upsertConsent(
   );
 }
 
-/**
- * 시드가 쓰는 canonical 프로필 upsert.
- *
- * `department`와 `affiliationName`은 같은 사실의 두 사본이라 한 값에서 함께
- * 파생한다(`UserProfile_department_affiliationName_check`). 학생은 학과 소속,
- * 교직원은 사업단 소속이 기본이다.
- */
 export async function upsertSeedProfile(params: {
   readonly userId: string;
   readonly name: string;
