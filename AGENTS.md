@@ -69,7 +69,7 @@ frontend·backend 애플리케이션은 호스트에서 hot reload로 실행하�
 
 - TypeScript 타입 경계를 유지하고 기존 feature/module 구조를 재사용한다.
   병렬 convention, speculative abstraction, silent compatibility fallback을 만들지 않는다.
-- 새 JS/TS 코드에 주석을 금지한다. `local/no-comments`는 `pnpm lint`가 검사하는 `apps/frontend`·`apps/backend` 경로에서만 강제하며 루트 `scripts/`·`.design-sync/`·`commitlint.config.cjs`는 lint 대상이 아니다. `.githooks/pre-commit`이 staged된 두 앱 파일에 같은 ESLint를 커밋 시점에 돌린다.
+- 새 JS/TS 코드에 주석을 금지한다. `local/no-comments`는 `pnpm lint`가 검사하는 `apps/frontend`·`apps/backend` 경로에서만 강제하며 루트 `scripts/`·`.design-sync/`·`commitlint.config.cjs`는 lint 대상이 아니다. `.githooks/pre-commit`이 커밋될 내용(index) 중 두 앱의 lint 범위에 드는 파일에 같은 ESLint를 돌리고, eslint가 없으면 커밋을 막는다.
 - frontend는 화면/업무별 `features/`에 상태·타입·API를 가깝게 두고 여러 feature가 공유할 때만 `components/`나 `lib/`로 올린다.
 - browser-only 값은 hydration-safe effect에서 읽고 recoverable session failure는 명시적 retry UI로 보인다.
 - backend는 Nest DI와 module ownership을 사용하고 DTO validation, repository projection, ProblemDetail을 우회하지 않는다.

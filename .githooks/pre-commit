@@ -1,28 +1,36 @@
 #!/usr/bin/env bash
-# staged된 apps/frontend·apps/backend JS/TS 파일에 CI와 같은 ESLint(local/no-comments 포함)를 돌린다.
-# 작업트리 내용을 검사하므로 일부만 stage한 파일은 CI가 최종 판정한다.
+# 커밋될 내용(index)에 CI와 같은 ESLint(local/no-comments 포함)를 돌린다.
+# 대상은 각 앱의 lint 범위와 같다. 검사할 수 없으면 커밋을 막는다.
 # 우회: git commit --no-verify. CI lint는 그대로 돈다.
 set -euo pipefail
 
 root="$(git rev-parse --show-toplevel)"
 status=0
 
-for app in frontend backend; do
-  dir="$root/apps/$app"
-  files=()
+lint_app() {
+  local app="$1"
+  shift
+  local dir="$root/apps/$app"
+  local batch=() f rel
   while IFS= read -r f; do
-    files+=("${f#apps/$app/}")
-  done < <(git diff --cached --name-only --diff-filter=ACMR -- \
-    "apps/$app/*.ts" "apps/$app/*.tsx" "apps/$app/*.js" \
-    "apps/$app/*.jsx" "apps/$app/*.mjs" "apps/$app/*.cjs")
-  [ ${#files[@]} -gt 0 ] || continue
-
-  if [ ! -x "$dir/node_modules/.bin/eslint" ]; then
-    echo "pre-commit: apps/$app에 eslint가 설치돼 있지 않아 건너뛴다 (pnpm install 후 다시 켜진다)" >&2
-    continue
+    rel="${f#apps/"$app"/}"
+    if [ ! -x "$dir/node_modules/.bin/eslint" ]; then
+      echo "pre-commit: apps/${app}에 eslint가 없어 주석 금지 검사를 할 수 없다. pnpm install 후 다시 커밋한다." >&2
+      return 1
+    fi
+    if git diff --quiet -- "$f"; then
+      batch+=("$rel")
+    else
+      git show ":$f" | (cd "$dir" && ./node_modules/.bin/eslint --no-warn-ignored --stdin --stdin-filename "$rel") || status=1
+    fi
+  done < <(git diff --cached --name-only --diff-filter=ACMR -- "$@")
+  if [ ${#batch[@]} -gt 0 ]; then
+    (cd "$dir" && ./node_modules/.bin/eslint --no-warn-ignored -- "${batch[@]}") || status=1
   fi
+}
 
-  (cd "$dir" && ./node_modules/.bin/eslint --no-warn-ignored -- "${files[@]}") || status=1
-done
+lint_app frontend ':(glob)apps/frontend/**/*.'{js,jsx,mjs,cjs,ts,tsx,mts,cts} || status=1
+lint_app backend ':(glob)apps/backend/'{src,test,prisma}'/**/*.ts' \
+  ':(glob)apps/backend/eslint.config.mjs' ':(glob)apps/backend/eslint-rules/*.mjs' || status=1
 
 exit $status
