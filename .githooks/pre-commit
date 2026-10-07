@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# staged된 apps/frontend·apps/backend JS/TS 파일에 CI와 같은 ESLint(local/no-comments 포함)를 돌린다.
+# 작업트리 내용을 검사하므로 일부만 stage한 파일은 CI가 최종 판정한다.
+# 우회: git commit --no-verify. CI lint는 그대로 돈다.
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+status=0
+
+for app in frontend backend; do
+  dir="$root/apps/$app"
+  files=()
+  while IFS= read -r f; do
+    files+=("${f#apps/$app/}")
+  done < <(git diff --cached --name-only --diff-filter=ACMR -- \
+    "apps/$app/*.ts" "apps/$app/*.tsx" "apps/$app/*.js" \
+    "apps/$app/*.jsx" "apps/$app/*.mjs" "apps/$app/*.cjs")
+  [ ${#files[@]} -gt 0 ] || continue
+
+  if [ ! -x "$dir/node_modules/.bin/eslint" ]; then
+    echo "pre-commit: apps/$app에 eslint가 설치돼 있지 않아 건너뛴다 (pnpm install 후 다시 켜진다)" >&2
+    continue
+  fi
+
+  (cd "$dir" && ./node_modules/.bin/eslint --no-warn-ignored -- "${files[@]}") || status=1
+done
+
+exit $status
