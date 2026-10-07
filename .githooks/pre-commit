@@ -12,18 +12,18 @@ lint_app() {
   shift
   local dir="$root/apps/$app"
   local batch=() f rel
-  while IFS= read -r f; do
+  while IFS= read -r -d '' f; do
     rel="${f#apps/"$app"/}"
     if [ ! -x "$dir/node_modules/.bin/eslint" ]; then
       echo "pre-commit: apps/${app}에 eslint가 없어 주석 금지 검사를 할 수 없다. pnpm install 후 다시 커밋한다." >&2
       return 1
     fi
-    if git diff --quiet -- "$f"; then
+    if git --literal-pathspecs diff --quiet -- "$f"; then
       batch+=("$rel")
     else
       git show ":$f" | (cd "$dir" && ./node_modules/.bin/eslint --no-warn-ignored --stdin --stdin-filename "$rel") || status=1
     fi
-  done < <(git diff --cached --name-only --diff-filter=ACMR -- "$@")
+  done < <(git diff --cached --name-only -z --diff-filter=ACMR -- "$@")
   if [ ${#batch[@]} -gt 0 ]; then
     (cd "$dir" && ./node_modules/.bin/eslint --no-warn-ignored -- "${batch[@]}") || status=1
   fi
