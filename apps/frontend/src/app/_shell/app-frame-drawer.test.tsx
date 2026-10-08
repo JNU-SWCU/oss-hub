@@ -103,7 +103,10 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
     document.body.style.overflow = '';
     vi.clearAllMocks();
@@ -124,19 +127,21 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
   async function renderFrame(pathname: string, search = ''): Promise<void> {
     mocks.usePathname.mockReturnValue(pathname);
     mocks.useSearchParams.mockReturnValue(new URLSearchParams(search));
-    await act(async () => {
+    await act(() => {
       root.render(
         <AppFrame brand="OSS Hub" items={ITEMS}>
           <p>본문</p>
         </AppFrame>,
       );
+      return Promise.resolve();
     });
   }
 
   async function openDrawer(): Promise<void> {
-    await act(async () => {
+    await act(() => {
       trigger().focus();
       trigger().click();
+      return Promise.resolve();
     });
   }
 
@@ -239,7 +244,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     await openDrawer();
     expect(dialog()).not.toBeNull();
 
-    await act(async () => {
+    await act(() => {
       document.dispatchEvent(
         new KeyboardEvent('keydown', {
           key: 'Escape',
@@ -247,6 +252,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
           cancelable: true,
         }),
       );
+      return Promise.resolve();
     });
 
     expect(dialog()).toBeNull();

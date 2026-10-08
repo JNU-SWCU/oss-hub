@@ -49,7 +49,10 @@ describe('ProgramEditRoute', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
   });
 
@@ -57,8 +60,9 @@ describe('ProgramEditRoute', () => {
     session.hasStaffAccess = false;
     session.hasAdminAccess = true;
 
-    await act(async () => {
+    await act(() => {
       root.render(<ProgramEditRoute programId="program-1" />);
+      return Promise.resolve();
     });
 
     expect(captured.props).toEqual({
@@ -71,8 +75,9 @@ describe('ProgramEditRoute', () => {
     session.hasStaffAccess = true;
     session.hasAdminAccess = false;
 
-    await act(async () => {
+    await act(() => {
       root.render(<ProgramEditRoute programId="program-1" />);
+      return Promise.resolve();
     });
 
     expect(captured.props).toEqual({
@@ -85,8 +90,9 @@ describe('ProgramEditRoute', () => {
     session.hasStaffAccess = false;
     session.hasAdminAccess = false;
 
-    await act(async () => {
+    await act(() => {
       root.render(<ProgramEditRoute programId="program-1" />);
+      return Promise.resolve();
     });
 
     expect(captured.props).toEqual({
@@ -99,8 +105,9 @@ describe('ProgramEditRoute', () => {
     session.hasStaffAccess = true;
     session.hasAdminAccess = false;
 
-    await act(async () => {
+    await act(() => {
       root.render(<ProgramEditRoute programId="program:with-colon" />);
+      return Promise.resolve();
     });
 
     expect(captured.props?.programId).toBe('program:with-colon');
