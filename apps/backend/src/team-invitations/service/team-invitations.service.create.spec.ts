@@ -1,5 +1,5 @@
-import { TeamInvitationErrorCode } from './team-invitation-error-code.enum';
-import type { CreateInvitationOutcome } from './team-invitations.repository';
+import { TeamInvitationErrorCode } from '../team-invitation-error-code.enum';
+import type { CreateInvitationOutcome } from '../domain/team-invitation';
 import {
   buildService,
   type MockRepository,

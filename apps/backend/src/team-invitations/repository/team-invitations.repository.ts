@@ -1,52 +1,35 @@
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, Prisma, TeamInvitationStatus } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import type { AuditLogTransactionWriter } from '../../audit-log/audit-log.repository';
 import {
-  USER_PROFILE_NAME_SELECT,
-  resolveUserProfileName,
-} from '../profiles/user-profile-read';
-import {
-  acceptTeamInvitationTransaction,
-  type AcceptInvitationOnOk,
-  type AcceptInvitationOutcome,
-} from './team-invitation-acceptance.repository';
-import {
-  getInviteeEligibility,
-  type InvitationCandidateRecord,
-  type InviteeEligibility,
-  searchInvitationCandidates,
-} from './team-invitation-candidates.repository';
-
-export type {
-  AcceptInvitationOnOk,
-  AcceptInvitationOutcome,
-} from './team-invitation-acceptance.repository';
-export type {
+  repositoryAccessSyncEventData,
+  repositoryAccessSyncTargetWhere,
+} from '../../github/repository-provision-event';
+import type {
+  SentTeamInvitationRecord,
+  ReceivedTeamInvitationRecord,
+  TeamContextRecord,
+  CreateInvitationInput,
+  CreateInvitationOutcome,
+  CancelInvitationOutcome,
+  DeclineInvitationOutcome,
   InvitationCandidateRecord,
   InviteeEligibility,
-} from './team-invitation-candidates.repository';
-
-export interface TeamInvitationRecord {
-  id: string;
-  teamId: string;
-  programId: string;
-  inviteeId: string;
-  invitedById: string;
-  status: TeamInvitationStatus;
-  invitedAt: Date;
-  respondedAt: Date | null;
-}
-
-export interface TeamInvitationInvitee {
-  readonly id: string;
-  readonly nickname: string;
-  readonly name: string | null;
-  readonly avatarUrl: string | null;
-}
-
-export interface SentTeamInvitationRecord extends TeamInvitationRecord {
-  readonly invitee: TeamInvitationInvitee;
-}
+  AcceptInvitationOutcome,
+  AcceptInvitationOkContext,
+} from '../domain/team-invitation';
+import {
+  AccountStatus,
+  MemberKind,
+  Prisma,
+  TeamInvitationStatus,
+} from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import {
+  STUDENT_MEMBER_WHERE,
+  userProfileNameWhere,
+  USER_PROFILE_NAME_SELECT,
+  resolveUserProfileName,
+} from '../../profiles/user-profile-read';
 
 const TEAM_INVITEE_SELECT = {
   id: true,
@@ -91,51 +74,6 @@ function toSentTeamInvitationRecord(
     },
   };
 }
-
-export interface ReceivedTeamInvitationRecord extends TeamInvitationRecord {
-  readonly teamName: string;
-  readonly programName: string;
-  readonly invitedByDisplayName: string;
-  readonly memberCount: number;
-  readonly teamMaxSize: number;
-}
-
-export interface TeamContextRecord {
-  readonly teamId: string;
-  readonly programId: string;
-  readonly leaderId: string;
-  readonly teamMaxSize: number;
-}
-
-export interface CreateInvitationInput {
-  readonly teamId: string;
-
-  readonly actorId: string;
-  readonly inviteeId: string;
-}
-
-export type CreateInvitationOutcome =
-  | { readonly kind: 'team-not-found' }
-  | { readonly kind: 'not-team-leader' }
-  | { readonly kind: 'not-team-member' }
-  | { readonly kind: 'invitee-already-in-team' }
-  | { readonly kind: 'team-full' }
-  | { readonly kind: 'already-invited' }
-  | {
-      readonly kind: 'ok';
-      readonly invitation: SentTeamInvitationRecord;
-    };
-
-export type CancelInvitationOutcome =
-  | { readonly kind: 'not-found' }
-  | { readonly kind: 'not-team-leader' }
-  | { readonly kind: 'not-pending' }
-  | { readonly kind: 'ok' };
-
-export type DeclineInvitationOutcome =
-  | { readonly kind: 'not-found' }
-  | { readonly kind: 'not-pending' }
-  | { readonly kind: 'ok' };
 
 interface LockedTeamRow {
   readonly id: string;
@@ -430,4 +368,215 @@ async function isActiveStaffActor(
   });
   if (user?.accountStatus !== AccountStatus.ACTIVE) return false;
   return user.hasStaffAccess || user.hasAdminAccess;
+}
+
+export async function getInviteeEligibility(
+  prisma: Pick<PrismaService, 'user'>,
+  userId: string,
+): Promise<InviteeEligibility> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      accountStatus: true,
+      profile: { select: { memberKind: true } },
+    },
+  });
+  if (!user) return 'not-found';
+  return user.profile?.memberKind === MemberKind.STUDENT &&
+    user.accountStatus === AccountStatus.ACTIVE
+    ? 'eligible'
+    : 'not-eligible';
+}
+
+export async function searchInvitationCandidates(
+  prisma: Pick<PrismaService, 'user'>,
+  programId: string,
+  query: string,
+  excludeUserId: string,
+): Promise<InvitationCandidateRecord[]> {
+  const users = await prisma.user.findMany({
+    where: {
+      id: { not: excludeUserId },
+      ...STUDENT_MEMBER_WHERE,
+      accountStatus: AccountStatus.ACTIVE,
+      OR: [
+        { nickname: { contains: query, mode: 'insensitive' } },
+        userProfileNameWhere(query),
+      ],
+      teamMemberships: { none: { programId } },
+    },
+    select: {
+      id: true,
+      nickname: true,
+      ...USER_PROFILE_NAME_SELECT,
+      avatarUrl: true,
+    },
+    orderBy: { nickname: 'asc' },
+    take: 20,
+  });
+  return users.map((user) => ({
+    id: user.id,
+    nickname: user.nickname,
+    name: resolveUserProfileName(user),
+    avatarUrl: user.avatarUrl,
+  }));
+}
+
+type AccessSyncTx = Pick<
+  Prisma.TransactionClient,
+  'application' | 'outboxEvent'
+>;
+
+async function enqueueRepositoryAccessSyncEvents(
+  tx: AccessSyncTx,
+  teamId: string,
+  now: Date,
+): Promise<void> {
+  const applications = await tx.application.findMany({
+    where: repositoryAccessSyncTargetWhere(teamId),
+    select: { id: true },
+  });
+  if (applications.length === 0) return;
+  await tx.outboxEvent.createMany({
+    data: applications.map((application) =>
+      repositoryAccessSyncEventData(application.id, teamId, now),
+    ),
+    skipDuplicates: true,
+  });
+}
+
+interface LockedUserRow {
+  readonly id: string;
+}
+
+export type AcceptInvitationOkStore = {
+  readonly auditLogWriter: AuditLogTransactionWriter;
+};
+
+export type AcceptInvitationOnOk = (
+  store: AcceptInvitationOkStore,
+  names: AcceptInvitationOkContext,
+) => Promise<void>;
+
+export async function acceptTeamInvitationTransaction(
+  prisma: PrismaService,
+  invitationId: string,
+  inviteeId: string,
+  now: Date,
+  onOk?: AcceptInvitationOnOk,
+): Promise<AcceptInvitationOutcome> {
+  const acceptance = prisma.$transaction<AcceptInvitationOutcome>(
+    async (tx) => {
+      const invitation = await tx.teamInvitation.findUnique({
+        where: { id: invitationId },
+        select: {
+          id: true,
+          teamId: true,
+          programId: true,
+          inviteeId: true,
+          team: {
+            select: {
+              name: true,
+              program: { select: { teamMaxSize: true, name: true } },
+            },
+          },
+        },
+      });
+      if (!invitation) return { kind: 'not-found' };
+      if (invitation.inviteeId !== inviteeId) return { kind: 'forbidden' };
+
+      await tx.$queryRaw<LockedTeamRow[]>(
+        Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${invitation.teamId} FOR UPDATE`,
+      );
+
+      const currentInvitation = await tx.teamInvitation.findUnique({
+        where: { id: invitationId },
+        select: { status: true },
+      });
+
+      if (!currentInvitation) return { kind: 'not-found' };
+      if (currentInvitation.status !== TeamInvitationStatus.PENDING) {
+        return { kind: 'not-pending' };
+      }
+
+      const teamId = invitation.teamId;
+      const programId = invitation.programId;
+
+      await tx.$queryRaw<readonly LockedUserRow[]>(
+        Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${inviteeId} FOR UPDATE`,
+      );
+      const invitee = await tx.user.findUnique({
+        where: { id: inviteeId },
+        select: {
+          id: true,
+          accountStatus: true,
+          profile: { select: { memberKind: true } },
+        },
+      });
+      if (
+        !invitee ||
+        invitee.profile?.memberKind !== MemberKind.STUDENT ||
+        invitee.accountStatus !== AccountStatus.ACTIVE
+      ) {
+        return { kind: 'invitee-not-eligible' };
+      }
+
+      const existingMembership = await tx.teamMember.findUnique({
+        where: { programId_userId: { programId, userId: inviteeId } },
+        select: { userId: true },
+      });
+      if (existingMembership) return { kind: 'already-in-team' };
+
+      const maxSize = invitation.team.program.teamMaxSize;
+      const memberCount = await tx.teamMember.count({ where: { teamId } });
+      if (memberCount >= maxSize) return { kind: 'team-full' };
+
+      const updated = await tx.teamInvitation.updateMany({
+        where: { id: invitationId, status: TeamInvitationStatus.PENDING },
+        data: { status: TeamInvitationStatus.ACCEPTED, respondedAt: now },
+      });
+      if (updated.count === 0) return { kind: 'not-pending' };
+
+      await tx.teamMember.create({
+        data: { teamId, programId, userId: inviteeId },
+      });
+
+      await tx.teamInvitation.updateMany({
+        where: {
+          programId,
+          inviteeId,
+          status: TeamInvitationStatus.PENDING,
+          id: { not: invitationId },
+        },
+        data: { status: TeamInvitationStatus.DECLINED, respondedAt: now },
+      });
+
+      await enqueueRepositoryAccessSyncEvents(tx, teamId, now);
+
+      if (onOk) {
+        await onOk(
+          { auditLogWriter: tx },
+          {
+            teamId,
+            programId,
+            teamName: invitation.team.name,
+            programName: invitation.team.program.name,
+          },
+        );
+      }
+
+      return { kind: 'ok', teamId, programId };
+    },
+  );
+  try {
+    return await acceptance;
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      return { kind: 'already-in-team' };
+    }
+    throw error;
+  }
 }

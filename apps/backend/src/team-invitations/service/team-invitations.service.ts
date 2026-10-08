@@ -2,24 +2,20 @@ import { Injectable } from '@nestjs/common';
 import {
   createTeamJoinedAuditMetadata,
   TEAM_JOINED_AUDIT_ACTIONS,
-} from '../audit-log/audit-log-metadata';
-import { AuditLogService } from '../audit-log/audit-log.service';
-import { DomainException } from '../common/error-code';
+} from '../../audit-log/audit-log-metadata';
+import { AuditLogService } from '../../audit-log/audit-log.service';
+import { DomainException } from '../../common/error-code';
 import {
   TEAM_INVITATION_ERROR_CODES,
   TeamInvitationErrorCode,
-} from './team-invitation-error-code.enum';
-import {
+} from '../team-invitation-error-code.enum';
+import { TeamInvitationsRepository } from '../repository/team-invitations.repository';
+import type {
+  AcceptedInvitationResult,
   InvitationCandidateRecord,
   ReceivedTeamInvitationRecord,
   SentTeamInvitationRecord,
-  TeamInvitationsRepository,
-} from './team-invitations.repository';
-
-export interface AcceptedInvitationResult {
-  readonly teamId: string;
-  readonly programId: string;
-}
+} from '../domain/team-invitation';
 
 @Injectable()
 export class TeamInvitationsService {
