@@ -38,14 +38,14 @@ afterEach(async () => {
 
 async function enterDraft() {
   await screen.render();
-  await act(async () => screen.radio().click());
+  await act(() => Promise.resolve(screen.radio().click()));
   await screen.writeComment('작성 중인 검토 의견');
 }
 
 async function encounterConflict(number = 2) {
   vi.mocked(createReview).mockRejectedValueOnce(staleRevision());
   vi.mocked(getReviewContext).mockResolvedValue(context(number));
-  await act(async () => screen.button('저장').click());
+  await act(() => Promise.resolve(screen.button('저장').click()));
 }
 
 describe('review conflict recovery', () => {
@@ -63,19 +63,21 @@ describe('review conflict recovery', () => {
     expect(screen.radio().checked).toBe(false);
     expect(screen.radio().disabled).toBe(true);
     expect(screen.button('저장').disabled).toBe(true);
-    await act(async () => screen.button('최신 제출본 2번 열기').click());
+    await act(() =>
+      Promise.resolve(screen.button('최신 제출본 2번 열기').click()),
+    );
     expect(target?.textContent).toContain('제출 글 2');
     expect(document.activeElement).toBe(target);
     expect(target?.textContent).not.toContain('제출 글 1');
     expect(screen.container.textContent).not.toContain('확인 완료');
     expect(screen.radio().disabled).toBe(false);
     expect(screen.radio().checked).toBe(false);
-    await act(async () => screen.radio('CHANGES_REQUESTED').click());
+    await act(() => Promise.resolve(screen.radio('CHANGES_REQUESTED').click()));
     vi.mocked(createReview).mockResolvedValueOnce({
       reviewId: 'review-synthetic',
       submissionStatus: 'CHANGES_REQUESTED',
     });
-    await act(async () => screen.button('저장').click());
+    await act(() => Promise.resolve(screen.button('저장').click()));
     expect(createReview).toHaveBeenLastCalledWith('submission-synthetic', {
       revision: 2,
       decision: 'CHANGES_REQUESTED',
@@ -86,10 +88,12 @@ describe('review conflict recovery', () => {
   it('blocks the previous verdict again when another revision arrives', async () => {
     await enterDraft();
     await encounterConflict();
-    await act(async () => screen.button('최신 제출본 2번 열기').click());
-    await act(async () => screen.radio().click());
+    await act(() =>
+      Promise.resolve(screen.button('최신 제출본 2번 열기').click()),
+    );
+    await act(() => Promise.resolve(screen.radio().click()));
     vi.mocked(getReviewContext).mockResolvedValue(context(3));
-    await act(async () => window.dispatchEvent(new Event('focus')));
+    await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
     expect(screen.radio().checked).toBe(false);
     expect(screen.radio().disabled).toBe(true);
     const target = screen.container.querySelector(
@@ -99,7 +103,9 @@ describe('review conflict recovery', () => {
     expect(target?.textContent).not.toContain('제출 글 2');
     expect(target?.textContent).not.toContain('제출 글 3');
     expect(screen.comment().value).toBe('작성 중인 검토 의견');
-    await act(async () => screen.button('최신 제출본 3번 열기').click());
+    await act(() =>
+      Promise.resolve(screen.button('최신 제출본 3번 열기').click()),
+    );
     expect(target?.textContent).toContain('제출 글 3');
   });
 
@@ -109,20 +115,21 @@ describe('review conflict recovery', () => {
       const pending = deferred<CreateReviewResponse>();
       await enterDraft();
       vi.mocked(createReview).mockReturnValueOnce(pending.promise);
-      await act(async () => screen.button('저장').click());
+      await act(() => Promise.resolve(screen.button('저장').click()));
       vi.mocked(getReviewContext).mockResolvedValue(
         context(1, 'submission-other'),
       );
       await screen.render('submission-other');
       expect(screen.comment().value).toBe('');
       expect(screen.radio().checked).toBe(false);
-      await act(async () => {
+      await act(() => {
         if (outcome === 'success')
           pending.resolve({
             reviewId: 'review-old',
             submissionStatus: 'APPROVED',
           });
         else pending.reject(new Error('old request failed'));
+        return Promise.resolve();
       });
       expect(screen.container.textContent).not.toContain(
         '승인을 저장했습니다.',
@@ -142,7 +149,7 @@ describe('review conflict recovery', () => {
       context(3, 'submission-other'),
     );
     await screen.render('submission-other');
-    await act(async () => pending.resolve(context()));
+    await act(() => Promise.resolve(pending.resolve(context())));
     expect(screen.container.textContent).toContain('제출 글 3');
     expect(screen.container.textContent).not.toContain('제출 글 1');
   });
