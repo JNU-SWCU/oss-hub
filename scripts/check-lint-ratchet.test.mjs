@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
   collectDiagnostics,
@@ -90,6 +90,143 @@ async function realOccurrenceFixture(t, source) {
   const seededBase = repo.commit();
   return { ...repo, seededBase };
 }
+
+function realCycleFixture(t) {
+  const repo = fixture(t);
+  const domain = 'apps/backend/src/cycle/domain';
+  const shard = 'apps/backend/lint-baseline/cycle.ndjson';
+  repo.remove('apps/backend/src/sample');
+  repo.write(FRONTEND, 'export {};\n');
+  repo.write(`${domain}/a.ts`, "import { b } from './b';\nexport const a = () => b;\n");
+  repo.write(`${domain}/b.ts`, "import { c } from './c';\nexport const b = () => c;\n");
+  repo.write(`${domain}/c.ts`, "import { a } from './a';\nexport const c = () => a;\n");
+  repo.write('apps/backend/tsconfig.json', JSON.stringify({
+    compilerOptions: { target: 'ES2022', module: 'CommonJS', moduleResolution: 'node', strict: true },
+    include: ['src/**/*.ts'],
+  }));
+  repo.write('.gitignore', 'node_modules\n');
+  const base = repo.commit();
+  repo.checkers();
+  for (const app of ['backend', 'frontend']) {
+    fs.symlinkSync(path.join(REPO_ROOT, 'apps', app, 'node_modules'), path.join(repo.root, 'apps', app, 'node_modules'), 'dir');
+    repo.write(`apps/${app}/package.json`, '{"type":"module"}\n');
+  }
+  const railsUrl = pathToFileURL(path.join(REPO_ROOT, 'apps/backend/eslint.rails.mjs')).href;
+  repo.write('apps/backend/eslint.rails.mjs', `import { createRailsConfig } from ${JSON.stringify(railsUrl)};\nexport default await createRailsConfig(import.meta.dirname);\n`);
+  repo.write('apps/frontend/eslint.rails.mjs', "export default [{ files: ['src/**/*.js'], rules: { 'no-debugger': 'error' } }];\n");
+  repo.commit();
+  const check = (predecessor, expectedError = null, extra = {}) => {
+    const result = spawnSync(process.execPath, ['--input-type=module', '--eval', `
+import { collectDiagnostics, runRatchet } from ${JSON.stringify(pathToFileURL(CHECKER).href)};
+const findings = await collectDiagnostics(process.cwd());
+try {
+  const result = await runRatchet(process.cwd(), JSON.parse(process.env.RATCHET_TEST_OPTIONS), async () => findings);
+  process.stdout.write(JSON.stringify({ diagnostics: findings.diagnostics, mode: result.mode, baseSha: result.baseSha, entryCount: result.entries.size }));
+} catch (error) {
+  process.stdout.write(JSON.stringify({ diagnostics: findings.diagnostics, error: error.message }));
+  process.exitCode = 1;
+}
+`], {
+      cwd: repo.root,
+      encoding: 'utf8',
+      maxBuffer: 16 * 1024 * 1024,
+      env: { ...process.env, RATCHET_TEST_OPTIONS: JSON.stringify(repo.options(predecessor, extra)) },
+    });
+    assert.ifError(result.error);
+    assert.equal(result.signal, null, result.stderr);
+    assert.ok(result.stdout.trim(), result.stderr);
+    const output = JSON.parse(result.stdout);
+    for (const diagnostic of output.diagnostics) {
+      assert.equal(diagnostic.ruleId, 'architecture/no-cycle', JSON.stringify(diagnostic));
+      assert.match(diagnostic.target, /^cycle_[a-f0-9]{64}:/);
+    }
+    if (expectedError) {
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(output.error, expectedError);
+    } else {
+      assert.equal(result.status, 0, `${result.stderr}\n${output.error}`);
+      assert.equal(output.baseSha, predecessor);
+    }
+    return output;
+  };
+  const seeded = check(base, null, { seed: true });
+  assert.equal(seeded.diagnostics.length, 1);
+  const baseline = fs.readFileSync(path.join(repo.root, shard), 'utf8');
+  const entries = baseline.trim().split('\n').map((line) => JSON.parse(line));
+  assert.deepEqual(entries, seeded.diagnostics);
+  assert.ok(entries.every((entry) => entry.ruleId === 'architecture/no-cycle'));
+  const seededBase = repo.commit();
+  return { ...repo, domain, shard, baseline, seeded, seededBase, check };
+}
+
+test('real dpdm cycle debt passes unchanged and stays stable across roots and blank lines', (t) => {
+  const first = realCycleFixture(t);
+  const second = realCycleFixture(t);
+  assert.notEqual(first.root, second.root);
+  assert.equal(first.baseline, second.baseline);
+  first.commit();
+  assert.equal(first.check(first.seededBase).entryCount, 1);
+  for (const name of ['a', 'b', 'c']) {
+    const file = `${second.domain}/${name}.ts`;
+    second.write(file, `\n\n${fs.readFileSync(path.join(second.root, file), 'utf8')}\n`);
+  }
+  second.commit();
+  const moved = second.check(second.seededBase);
+  assert.deepEqual(moved.diagnostics, second.seeded.diagnostics);
+  assert.equal(fs.readFileSync(path.join(second.root, second.shard), 'utf8'), second.baseline);
+});
+
+test('real dpdm rejects an added cycle inside the already cyclic component', (t) => {
+  const repo = realCycleFixture(t);
+  repo.write(`${repo.domain}/a.ts`, "import { b } from './b';\nimport { c } from './c';\nexport const a = () => [b, c];\n");
+  repo.commit();
+  const grown = repo.check(repo.seededBase, /unlisted-diagnostic/);
+  assert.ok(grown.diagnostics.length > repo.seeded.diagnostics.length);
+  for (const prior of repo.seeded.diagnostics) {
+    assert.ok(grown.diagnostics.some((entry) => JSON.stringify(entry) === JSON.stringify(prior)));
+  }
+  assert.equal(fs.readFileSync(path.join(repo.root, repo.shard), 'utf8'), repo.baseline);
+});
+
+test('real dpdm rejects a same-count directed cycle replacement and baseline swap', (t) => {
+  const repo = realCycleFixture(t);
+  repo.write(`${repo.domain}/a.ts`, "import { c } from './c';\nexport const a = () => c;\n");
+  repo.write(`${repo.domain}/b.ts`, "import { a } from './a';\nexport const b = () => a;\n");
+  repo.write(`${repo.domain}/c.ts`, "import { b } from './b';\nexport const c = () => b;\n");
+  repo.commit();
+  const replacement = repo.check(repo.seededBase, /unlisted-diagnostic/);
+  assert.equal(replacement.diagnostics.length, repo.seeded.diagnostics.length);
+  assert.notEqual(replacement.diagnostics[0].target, repo.seeded.diagnostics[0].target);
+  repo.write(repo.shard, replacement.diagnostics.map((entry) => JSON.stringify(entry)).join('\n') + '\n');
+  repo.commit();
+  repo.check(repo.seededBase, /baseline-growth/);
+});
+
+test('real dpdm cycle removal is stale until the trusted baseline is pruned', (t) => {
+  const repo = realCycleFixture(t);
+  repo.write(`${repo.domain}/c.ts`, 'export const c = 1;\n');
+  repo.commit();
+  assert.deepEqual(repo.check(repo.seededBase, /stale-entry/).diagnostics, []);
+  assert.equal(fs.readFileSync(path.join(repo.root, repo.shard), 'utf8'), repo.baseline);
+  const pruned = repo.check(repo.seededBase, null, { prune: true });
+  assert.deepEqual(pruned.diagnostics, []);
+  assert.equal(pruned.entryCount, 0);
+  assert.equal(fs.readFileSync(path.join(repo.root, repo.shard), 'utf8'), '');
+  assert.equal(repo.check(repo.seededBase).entryCount, 0);
+});
+
+test('real dpdm cycle debt cannot follow a renamed domain file', (t) => {
+  const repo = realCycleFixture(t);
+  repo.git('mv', `${repo.domain}/a.ts`, `${repo.domain}/renamed.ts`);
+  repo.write(`${repo.domain}/c.ts`, "import { a } from './renamed';\nexport const c = () => a;\n");
+  repo.commit();
+  const renamed = repo.check(repo.seededBase, /unlisted-diagnostic/);
+  assert.equal(renamed.diagnostics.length, repo.seeded.diagnostics.length);
+  assert.notDeepEqual(renamed.diagnostics, repo.seeded.diagnostics);
+  repo.write(repo.shard, renamed.diagnostics.map((entry) => JSON.stringify(entry)).join('\n') + '\n');
+  repo.commit();
+  repo.check(repo.seededBase, /baseline-growth/);
+});
 
 test('B1 real ESLint rejects a second identical debugger in the same file', async (t) => {
   const repo = await realOccurrenceFixture(t, 'debugger;\n');
