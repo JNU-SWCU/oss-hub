@@ -7,6 +7,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { countKnipReport, parseBudget, runKnipRatchet } from './check-knip-ratchet.mjs';
+import { runRatchet } from './check-lint-ratchet.mjs';
 
 const CHECKER = fileURLToPath(new URL('./check-knip-ratchet.mjs', import.meta.url));
 const ZERO = { files: 0, exports: 0, types: 0, dependencies: 0, devDependencies: 0, unlisted: 0, binaries: 0 };
@@ -80,6 +81,43 @@ test('B2 Knip permits joint zero removal and the following retired predecessor',
   assert.deepEqual((await repo.run(jointBase, counts())).counts, counts());
   repo.commit();
   assert.equal((await repo.run(retiredBase, counts())).mode, 'retired');
+});
+
+test('Knip retains its zero marker while even empty lint shards remain', async (t) => {
+  const repo = existing(t, counts());
+  repo.write('apps/backend/lint-baseline/root.ndjson', '');
+  const jointBase = repo.commit();
+  repo.remove(BASELINE);
+  repo.commit();
+  await assert.rejects(repo.run(jointBase, counts()), /joint-retirement/);
+});
+
+test('the combined retirement gate requires actual zero findings from both checkers', async (t) => {
+  const repo = existing(t, counts());
+  const file = 'apps/backend/src/sample/example.js';
+  repo.write(file, 'debugger;\n');
+  repo.write('apps/backend/lint-baseline/root.ndjson', '');
+  repo.write('apps/frontend/lint-baseline/root.ndjson', '');
+  const jointBase = repo.commit();
+  repo.remove(BASELINE);
+  repo.remove('apps/backend/lint-baseline');
+  repo.remove('apps/frontend/lint-baseline');
+  const retiredBase = repo.commit();
+  const combined = async (base, diagnostics, actual) => {
+    await runRatchet(repo.root, repo.options(base), () => ({
+      diagnostics,
+      allowedRuleIds: { backend: new Set(['no-debugger']), frontend: new Set(['no-debugger']) },
+    }));
+    return repo.run(base, actual);
+  };
+  const lintDebt = [{ file, ruleId: 'no-debugger', target: 'actual-debt' }];
+  await assert.rejects(combined(jointBase, lintDebt, counts()), /unlisted-diagnostic/);
+  await assert.rejects(combined(jointBase, [], counts({ exports: 1 })), /retirement-nonzero/);
+  assert.deepEqual((await combined(jointBase, [], counts())).counts, counts());
+  repo.commit();
+  await assert.rejects(combined(retiredBase, lintDebt, counts()), /baseline-missing/);
+  await assert.rejects(combined(retiredBase, [], counts({ exports: 1 })), /retirement-nonzero/);
+  assert.equal((await combined(retiredBase, [], counts())).mode, 'retired');
 });
 
 test('simultaneous budget and finding growth fails before collecting actual counts', async (t) => {

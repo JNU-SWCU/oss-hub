@@ -129,6 +129,18 @@ function readHeadShards(root) {
   return shards;
 }
 
+export function assertJointRetirement(root, lintShards = readHeadShards(root)) {
+  let knipBaseline;
+  try {
+    knipBaseline = fs.lstatSync(path.join(root, 'knip-baseline.json'));
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  if (lintShards.size > 0 || knipBaseline) {
+    fail('joint-retirement', 'both lint and Knip baseline families must be removed together; retain zero markers until then');
+  }
+}
+
 export function shardFor(file) {
   const match = /^apps\/(backend|frontend)\/(.+)$/.exec(file);
   if (!match || file.includes('\\') || file.split('/').some((part) => !part || part === '.' || part === '..')) {
@@ -215,6 +227,7 @@ export function evaluateRatchet({ root, predecessor, headShards, diagnostics, al
     if (!CHECKERS.every((file) => regularFile(root, file))) fail('seed-checkers-missing', 'P1 must introduce both checkers');
   } else {
     if (headShards.size > 0 || actual.size > 0) fail('baseline-missing', 'no reseeding after checker introduction; retirement requires zero findings');
+    assertJointRetirement(root, headShards);
     return { mode: 'retired', entries: actual, shards: new Map() };
   }
   validateLive(root, new Map(), actual, allowedRuleIds);
@@ -226,7 +239,9 @@ export function evaluateRatchet({ root, predecessor, headShards, diagnostics, al
     validateLive(root, headShards, head, allowedRuleIds);
     requireSubset(head, actual, 'stale-entry');
   }
-  return { mode, entries: actual, shards: serializeShards(actual.values(), headShards, root) };
+  const shards = serializeShards(actual.values(), headShards, root);
+  if (mode !== 'seed' && shards.size === 0) assertJointRetirement(root, shards);
+  return { mode, entries: actual, shards };
 }
 
 function serializeShards(entries, existing, root) {

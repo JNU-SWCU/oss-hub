@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseArguments, resolvePredecessor } from './check-lint-ratchet.mjs';
+import { assertJointRetirement, parseArguments, resolvePredecessor } from './check-lint-ratchet.mjs';
 
 const KNIP_VERSION = '6.40.0';
 const ISSUE_TYPES = ['files', 'exports', 'types', 'dependencies', 'devDependencies', 'unlisted', 'binaries'];
@@ -190,6 +190,7 @@ export async function runKnipRatchet(root, options, collect = collectKnipCounts)
   const actual = validateCounts(await collect(root));
   if (mode === 'retired' || (mode === 'ratchet' && head === null)) {
     if (total(actual) !== 0) fail('retirement-nonzero', 'removing or retiring the budget requires zero findings');
+    assertJointRetirement(root);
     return { mode, baseSha, counts: actual };
   }
   if (options.seed) {

@@ -217,6 +217,20 @@ test('B2 lint permits joint zero removal and the following retired predecessor',
   assert.equal((await repo.run(retiredBase, [])).mode, 'retired');
 });
 
+test('lint retains its zero marker while even a zero Knip budget remains', async (t) => {
+  const repo = existing(t, []);
+  const zero = { files: 0, exports: 0, types: 0, dependencies: 0, devDependencies: 0, unlisted: 0, binaries: 0 };
+  repo.write('knip-baseline.json', JSON.stringify({
+    version: 1,
+    workspaces: { '.': zero, 'apps/backend': zero, 'apps/frontend': zero },
+  }));
+  const jointBase = repo.commit();
+  repo.remove('apps/backend/lint-baseline');
+  repo.remove('apps/frontend/lint-baseline');
+  repo.commit();
+  await assert.rejects(repo.run(jointBase, []), /joint-retirement/);
+});
+
 test('push compares the before tree even when origin/main points at the head', async (t) => {
   const repo = existing(t);
   const head = repo.commit();
