@@ -17,7 +17,8 @@
 ## 3. 분해 이음새 — 수직 슬라이스 우선
 
 - 기본은 기능 단위 수직 슬라이스다. 레이어(FE/BE) 분할 자체를 목적으로 삼지 않는다.
-- 이 repo는 [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)에서 기능별 owner 1인이 FE·BE 경로를 함께 소유한다. 따라서 병렬화는 담당자가 다른 팀 간의 분할이 아니라, 한 owner가 자기 작업을 독립 소형 PR로 나누는 형태다: 계약(스펙·타입) PR을 먼저 소형으로 병합한 뒤, FE PR과 BE PR을 서로 독립(순서 무관)으로 연다. API 계약 변경은 [ADR-004](../decisions/ADR-004-REST-API-규격.md) 정합을 우선 확인한다.
+- 병렬화는 작업을 독립 소형 PR로 나누는 형태다: 계약(스펙·타입) PR을 먼저 소형으로 병합한 뒤, FE PR과 BE PR을 서로 독립(순서 무관)으로 연다.
+  API 계약 변경은 [ADR-004](../decisions/ADR-004-REST-API-규격.md) 정합을 우선 확인한다.
 - 여러 기능이 공유할 코드(유틸·타입·설정)는 기능 PR보다 먼저 독립 병합한다 — [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns) 공용 경로 규칙과 같은 원리다.
 - 근거: [API contract-first](https://apisyouwonthate.com/blog/a-developers-guide-to-api-design-first/) · [vertical slice architecture](https://deviq.com/architecture/vertical-slice-architecture/) · [INVEST의 Independent](<https://en.wikipedia.org/wiki/INVEST_(mnemonic)>)
 
@@ -32,11 +33,11 @@
 ## 5. 충돌 표면 최소화
 
 - PR이 건드리는 파일 수 자체를 줄이는 것이 병렬 병합의 가장 직접적인 수단이다.
-- 파일 겹침이 예상되면 그 경로가 owner 전속인지 공용인지 먼저 판정하고 [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)를 따른다 — owner 전속 경로는 수정하지 않고 Issue·PR 코멘트로 제안하며, 공용 경로는 Issue로 선점한 뒤 독립 소형 PR로 수정한다. @GoBeromsu와 @Lumiere001의 free-role 예외는 [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)·[ADR-005](../decisions/ADR-005-agent-driven-review-cycle.md)를 따른다.
+- 파일 겹침이 예상되면 변경 범위를 조율하고, 공용 경로는 [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)에 따라 Issue로 선점한 뒤 독립 소형 PR로 수정한다.
 - 브랜치 수명은 짧게 유지한다.
 - 근거: [trunk-based development — short-lived feature branches](https://trunkbaseddevelopment.com/short-lived-feature-branches/)
 
 ---
 
-이 문서는 [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)(작성권·Draft PR·공용 경로·커밋 규칙)를 확장하며, [ADR-004](../decisions/ADR-004-REST-API-규격.md)(API 계약 원본)와 [ADR-005](../decisions/ADR-005-agent-driven-review-cycle.md)(head 재검증·병합 게이트)를 따른다.
+이 문서는 [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)(Draft PR·공용 경로·커밋 규칙)를 확장하며, [ADR-004](../decisions/ADR-004-REST-API-규격.md)(API 계약 원본)와 [ADR-005](../decisions/ADR-005-agent-driven-review-cycle.md)(head 재검증·병합 게이트)를 따른다.
 DB 마이그레이션 직렬 규칙은 [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)가 이 문서보다 우선한다.

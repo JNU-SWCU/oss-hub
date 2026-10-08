@@ -26,10 +26,8 @@ GitHub의 PR, commit, review, check를 개발 변경과 병합 판단의 기준�
 
 PRD·IA·Accepted ADR·root와 적용되는 nested `AGENTS` 범위 안의 기술·정책·구현은 전남의 exact-head 독립 검토와 Tech Lead의 자율 범위 안에서 판단하며, 특정 PM의 PR별 확인을 일반 병합 조건으로 두지 않는다.
 
-@GoBeromsu와 @Lumiere001은 owner 표와 무관하게 저장소 전체 경로를 사전 허락 없이 수정한다.
 PR 본문에 대상 기능과 owner를 명시하고 해당 owner를 리뷰어로 지정해 통지하며, 착수 전 Issue로 선점을 선언한다.
 owner의 사후 확인 코멘트는 병합 조건이 아니다.
-그 밖의 비소유자는 현행대로 Issue·PR 코멘트로 제안한다.
 
 PR #407은 직접 UI 피드백에서 시작되어 사전 Issue 선점 없이 구현된 절차 위반을 인정한다. 이미 구현과 exact-head 기술 검증이 완료된 상태에서 잘못 생성된 #480을 재사용하지 않고, 실제 범위·owner·PR 관계를 보존하는 사후 추적 Issue #484를 canonical 구현 기록으로 둔다. 이 일회성 예외는 #407에만 적용하며 사후 Issue를 일반적인 선점 대체 수단으로 허용하지 않는다. 이후 동일 규모의 변경은 착수 전에 Issue로 범위와 owner를 선언해야 하고, 누락 시 구현 완료 여부와 관계없이 blocker로 처리한다.
 
@@ -133,10 +131,10 @@ production 배포의 인가·트리거·실행 검증 계약은 ADR-002를 따�
 - 2026-07-17: blocker 분류를 독립 리뷰 문단에서 한 번만 정의하고, 병합 조건은 해결되지 않은 blocker 부재로 명시했다.
 - 2026-07-23: 일반 PR의 상호 Code Owner review를 전남 exact-head `MERGE_READY`로 대체했다. high risk PR과 production release에는 PM인 @GoBeromsu와 Tech Lead인 @Lumiere001의 동일 SHA manual accept를 추가했다.
 - 2026-07-25: Issue #257에 따라 PR #256에 한정된 일회성 PM 긴급 코드 승인 발행 창을 추가했고, 기존 gate 없이 병합된 PR #258은 비활성 이력으로 기록하며 별도 remediation의 기존 high risk 이중 gate 통과 전에는 권한이 발효되지 않도록 했다.
-- 2026-07-28: Issue #274에 따라 high risk 병합 accept를 PM 또는 Tech Lead 중 한 명으로 완화하고 배포 계약 경로는 PM 전속으로 유지했다. `GENERAL` 하향도 같은 규칙을 따른다. @GoBeromsu와 @Lumiere001의 저장소 전체 free-role 작성권과 사후 확인 폐지를 명문화했다.
+- 2026-07-28: Issue #274에 따라 high risk 병합 accept를 PM 또는 Tech Lead 중 한 명으로 완화하고 배포 계약 경로는 PM 전속으로 유지했다. `GENERAL` 하향도 같은 규칙을 따른다. owner의 사후 확인 폐지를 명문화했다.
 - 2026-07-28: Issue #199에 따라 production release·재배포 승인을 @GoBeromsu 단독 `RELEASE_ACCEPT role=PM`으로 전환하고 `RELEASE_ACCEPT role=TECH_LEAD`와 `RELEASE_OVERRIDE role=PM`을 폐지했다.
 - 2026-07-28: PR #256에 한정되었던 일회성 긴급 PM 코드 승인 경로(PM_EMERGENCY_ACCEPT·OWNER_CONFIRM)를 삭제했다 — 단일 accept 도입으로 `TECH_LEAD_ACCEPT` 대체 기능의 존재 이유가 사라졌다.
 - 2026-07-30: @GoBeromsu가 작성한 PR을 review·`MERGE_READY`·accept 요건 전체에서 면제했다 — @Lumiere001의 검토도 조건이 아니다. 병합 조건은 required check(`ci`·`public-safe`)뿐이며, 면제는 작성자 identity에만 근거하고 확인되지 않으면 적용하지 않는다(fail-closed). head·base SHA 형식과 default branch 검사는 면제하지 않는다.
-- 2026-07-30: `.github/CODEOWNERS`의 모든 경로 소유자를 @GoBeromsu 단독으로 정리했다 — @Lumiere001을 co-owner로 두면 @GoBeromsu 작성 PR마다 GitHub가 자동 review 요청을 걸어 병합이 느려진다. `merge-policy` 판정기는 CODEOWNERS에서 경로 패턴만 읽고 소유자 핸들은 쓰지 않으므로 후보 경로 판정은 바뀌지 않는다(패턴 25개 동일). @Lumiere001의 `MERGE_READY`·`TECH_LEAD_ACCEPT` 권한과 저장소 전체 free-role 작성권은 그대로 유지한다 — 이 변경은 자동 요청만 없애며 검토 권한을 축소하지 않는다.
+- 2026-07-30: `.github/CODEOWNERS`의 모든 경로 소유자를 @GoBeromsu 단독으로 정리했다 — @Lumiere001을 co-owner로 두면 @GoBeromsu 작성 PR마다 GitHub가 자동 review 요청을 걸어 병합이 느려진다. `merge-policy` 판정기는 CODEOWNERS에서 경로 패턴만 읽고 소유자 핸들은 쓰지 않으므로 후보 경로 판정은 바뀌지 않는다(패턴 25개 동일). @Lumiere001의 `MERGE_READY`·`TECH_LEAD_ACCEPT` 권한은 그대로 유지한다 — 이 변경은 자동 요청만 없애며 검토 권한을 축소하지 않는다.
 - 2026-07-30: `CLI:` 증거의 정의를 "repository-declared CLI 검증"에서 "재현 가능한 계약 검증"으로 바꾸고 검증 수단 우선순위(구조 → 앱 테스트 → 전용 검사기 → 문서 규칙)를 명문화했다. 전용 검사기만이 병합 증거를 충족하던 제약이 검사기 단조 증가를 유발했으므로 상위 수단으로의 등가 이전을 검사 약화에서 제외했다. fail-closed 보안·배포 승인 게이트(public-safe·gitleaks, Jenkins release 승인 바인딩, `merge-policy`)는 예외로 유지했고 marker 이름·형식·actor·accept 규칙은 변경하지 않았다.
 - 2026-07-31: production Release 발행 자체를 배포 인가로 삼는 ADR-002 개정에 맞춰 Jenkins 댓글 marker 승인 바인딩의 현재 계약 서술을 제거하고, 남는 통제를 required check와 Jenkins의 기술 검증으로 명시했다. 과거 marker 계약과 폐지 과정은 Changelog 이력으로 보존한다.
