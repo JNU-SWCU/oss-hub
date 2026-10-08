@@ -39,8 +39,8 @@ import {
   PROVISION_ERROR_CODES,
 } from './repository-provision.failure';
 
-import { ConsentsRepository } from '../consents/consents.repository';
-import { ConsentsService } from '../consents/consents.service';
+import { ConsentsRepository } from '../consents/repository/consents.repository';
+import { ConsentsService } from '../consents/service/consents.service';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { RepositoryOwnEnrollmentService } from './service/repository-own-enrollment.service';
 

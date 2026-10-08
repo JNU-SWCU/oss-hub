@@ -5,7 +5,7 @@ import { AuthRepository } from '../src/auth/repository/auth.repository';
 import { AuthService } from '../src/auth/service/auth.service';
 import { AuditLogRepository } from '../src/audit-log/audit-log.repository';
 import { AuditLogService } from '../src/audit-log/audit-log.service';
-import type { ConsentsService } from '../src/consents/consents.service';
+import type { ConsentsService } from '../src/consents/service/consents.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { loadRuntimeConfig } from '../src/runtime-config/runtime-config';
 import { UsersOnboardingRepository } from '../src/users/repository/onboarding.repository';

@@ -4,7 +4,7 @@ import {
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import type { ConsentsService } from '../../consents/consents.service';
+import type { ConsentsService } from '../../consents/service/consents.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersOnboardingRepository } from '../../users/repository/onboarding.repository';
 import { RolesErrorCode } from '../../users/domain/roles-error-code.enum';

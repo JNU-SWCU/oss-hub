@@ -2,7 +2,7 @@ import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import type { ConsentsService } from '../consents/consents.service';
+import type { ConsentsService } from '../consents/service/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersOnboardingRepository } from './repository/onboarding.repository';
 import { RolesService } from '../roles/service/roles.service';
