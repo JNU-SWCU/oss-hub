@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
-import type { SubmissionFileStoragePort } from '../submissions/submission-file-storage.port';
+import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import type {
   CurrentMilestoneDocumentFile,
   MilestoneDocumentCurrentFileReader,
@@ -19,7 +19,7 @@ const CURRENT_FILE: CurrentMilestoneDocumentFile = {
 function buildStorage(
   get: (objectKey: string) => Promise<Readable> = () =>
     Promise.resolve(Readable.from(Buffer.from('current-bytes'))),
-): SubmissionFileStoragePort {
+): ObjectStoragePort {
   return {
     put: jest.fn(),
     get,

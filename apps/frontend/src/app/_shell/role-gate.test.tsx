@@ -48,7 +48,10 @@ describe('RoleGate 렌더', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
   });
 
@@ -77,13 +80,14 @@ describe('RoleGate 렌더', () => {
       ...state(overrides),
       retry: () => {},
     });
-    await act(async () =>
+    await act(() => {
       root.render(
         <RoleGate allow={['student', 'staff', 'admin']} {...gate}>
           <p>{CHILD}</p>
         </RoleGate>,
-      ),
-    );
+      );
+      return Promise.resolve();
+    });
     return container.textContent ?? '';
   }
 
@@ -231,13 +235,14 @@ describe('RoleGate 렌더', () => {
       return null;
     }
 
-    await act(async () =>
+    await act(() => {
       root.render(
         <RoleGate allow={['student']} unassignedAccess={OPEN}>
           <Probe />
         </RoleGate>,
-      ),
-    );
+      );
+      return Promise.resolve();
+    });
 
     expect(received).toBe(snapshot);
     expect(mocks.useSessionRole).toHaveBeenCalledTimes(1);

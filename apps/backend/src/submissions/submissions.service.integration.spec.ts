@@ -22,7 +22,7 @@ import { addOneCalendarYear } from '../common/add-one-calendar-year';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmissionsErrorCode } from './submissions-error-code.enum';
-import type { SubmissionFileStoragePort } from './submission-file-storage.port';
+import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { signatureValidZip } from './submission-zip-test-builder';
@@ -565,7 +565,7 @@ describe('SubmissionsService integration', () => {
         data: { dueAt: milestoneDueAt },
       }),
     ]);
-    const storage: SubmissionFileStoragePort = {
+    const storage: ObjectStoragePort = {
       put: jest.fn().mockResolvedValue({
         objectKey: 'private/synthetic-upload.pdf',
         originalName: 'synthetic-upload.pdf',
@@ -573,7 +573,7 @@ describe('SubmissionsService integration', () => {
         contentType: 'application/pdf',
       }),
       delete: jest.fn().mockResolvedValue(undefined),
-      get: jest.fn<ReturnType<SubmissionFileStoragePort['get']>, [string]>(),
+      get: jest.fn<ReturnType<ObjectStoragePort['get']>, [string]>(),
     };
     const fileService = new SubmissionFilesService(
       new SubmissionFilesRepository(prisma),
@@ -645,10 +645,10 @@ describe('SubmissionsService integration', () => {
       contentLength: archive.byteLength,
       contentType: 'application/x-zip-compressed',
     });
-    const storage: SubmissionFileStoragePort = {
+    const storage: ObjectStoragePort = {
       put,
       delete: jest.fn().mockResolvedValue(undefined),
-      get: jest.fn<ReturnType<SubmissionFileStoragePort['get']>, [string]>(),
+      get: jest.fn<ReturnType<ObjectStoragePort['get']>, [string]>(),
     };
     const fileService = new SubmissionFilesService(
       new SubmissionFilesRepository(prisma),

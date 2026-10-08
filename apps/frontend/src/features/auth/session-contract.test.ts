@@ -97,7 +97,7 @@ describe('login/logout/refresh current-session seam', () => {
     vi.mocked(apiClient).mockResolvedValue({
       isAuthenticated: true,
       user: { ...unassignedUser, role: 'STAFF' },
-    } as AuthSession);
+    });
 
     const published = nextSnapshot('authenticated');
     ensureSessionLoaded();

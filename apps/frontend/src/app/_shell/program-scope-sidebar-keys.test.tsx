@@ -72,9 +72,11 @@ describe('ProgramScopeSidebar key', () => {
       );
     });
 
-    const duplicateKeyWarnings = errorSpy.mock.calls.filter((call) =>
-      String(call[0] ?? '').includes('same key'),
+    const duplicateKeyWarnings = errorSpy.mock.calls.filter(
+      ([message]) =>
+        typeof message === 'string' && message.includes('same key'),
     );
+
     expect(duplicateKeyWarnings).toEqual([]);
   });
 });
