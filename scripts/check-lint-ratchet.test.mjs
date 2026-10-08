@@ -69,6 +69,93 @@ function existing(t, backend = [A], frontend = []) {
   return { ...repo, base: repo.commit() };
 }
 
+async function realOccurrenceFixture(t, source) {
+  const repo = fixture(t);
+  repo.write(BACKEND, source);
+  repo.write(FRONTEND, 'export {};\n');
+  const base = repo.commit();
+  repo.checkers();
+  for (const app of ['backend', 'frontend']) {
+    const appRoot = path.join(repo.root, 'apps', app);
+    const require = createRequire(path.join(REPO_ROOT, 'apps', app, 'package.json'));
+    fs.mkdirSync(path.join(appRoot, 'node_modules'), { recursive: true });
+    fs.symlinkSync(path.dirname(require.resolve('eslint/package.json')), path.join(appRoot, 'node_modules/eslint'), 'dir');
+    repo.write(`apps/${app}/package.json`, '{"type":"module"}\n');
+    repo.write(`apps/${app}/eslint.rails.mjs`, "export default [{ files: ['src/**/*.js'], rules: { 'no-debugger': 'error' } }];\n");
+  }
+  repo.write('.gitignore', 'node_modules/\n');
+  repo.commit();
+  await runRatchet(repo.root, repo.options(base, { seed: true }));
+  const seededBase = repo.commit();
+  return { ...repo, seededBase };
+}
+
+test('B1 real ESLint rejects a second identical debugger in the same file', async (t) => {
+  const repo = await realOccurrenceFixture(t, 'debugger;\n');
+  const baseline = fs.readFileSync(path.join(repo.root, BACKEND_SHARD), 'utf8');
+  repo.write(BACKEND, 'debugger;\ndebugger;\n');
+  repo.commit();
+  await assert.rejects(
+    runRatchet(repo.root, repo.options(repo.seededBase)),
+    /unlisted-diagnostic|occurrence-growth|multiplicity-growth/,
+  );
+  assert.equal(fs.readFileSync(path.join(repo.root, BACKEND_SHARD), 'utf8'), baseline);
+});
+
+test('B1 real ESLint exposes stale multiplicity when one identical occurrence is removed', async (t) => {
+  const repo = await realOccurrenceFixture(t, 'debugger;\ndebugger;\n');
+  repo.write(BACKEND, 'debugger;\n');
+  repo.commit();
+  await assert.rejects(
+    runRatchet(repo.root, repo.options(repo.seededBase)),
+    /stale-entry|stale-multiplicity/,
+  );
+});
+
+test('B1 real ESLint keeps an occurrence stable across blank-line movement', async (t) => {
+  const repo = await realOccurrenceFixture(t, 'debugger;\n');
+  const baseline = fs.readFileSync(path.join(repo.root, BACKEND_SHARD), 'utf8');
+  repo.write(BACKEND, '\n\ndebugger;\n\n');
+  repo.commit();
+  const result = await runRatchet(repo.root, repo.options(repo.seededBase));
+  assert.equal(result.mode, 'ratchet');
+  assert.equal(result.entries.size, 1);
+  assert.equal(fs.readFileSync(path.join(repo.root, BACKEND_SHARD), 'utf8'), baseline);
+});
+
+test('B2 lint cannot remove its last baseline while the Knip family retains debt', async (t) => {
+  const repo = existing(t, []);
+  const zero = { files: 0, exports: 0, types: 0, dependencies: 0, devDependencies: 0, unlisted: 0, binaries: 0 };
+  repo.write('knip-baseline.json', JSON.stringify({
+    version: 1,
+    workspaces: { '.': zero, 'apps/backend': { ...zero, exports: 1 }, 'apps/frontend': zero },
+  }));
+  const jointBase = repo.commit();
+  repo.remove('apps/backend/lint-baseline');
+  repo.remove('apps/frontend/lint-baseline');
+  const partialBase = repo.commit();
+  await assert.rejects(repo.run(jointBase, []), /retire|retirement|baseline-missing/);
+  repo.commit();
+  await assert.rejects(repo.run(partialBase, []), /retire|retirement|baseline-missing/);
+});
+
+test('B2 lint permits joint zero removal and the following retired predecessor', async (t) => {
+  const repo = existing(t, []);
+  const zero = { files: 0, exports: 0, types: 0, dependencies: 0, devDependencies: 0, unlisted: 0, binaries: 0 };
+  repo.write('knip-baseline.json', JSON.stringify({
+    version: 1,
+    workspaces: { '.': zero, 'apps/backend': zero, 'apps/frontend': zero },
+  }));
+  const jointBase = repo.commit();
+  repo.remove('apps/backend/lint-baseline');
+  repo.remove('apps/frontend/lint-baseline');
+  repo.remove('knip-baseline.json');
+  const retiredBase = repo.commit();
+  assert.equal((await repo.run(jointBase, [])).entries.size, 0);
+  repo.commit();
+  assert.equal((await repo.run(retiredBase, [])).mode, 'retired');
+});
+
 test('push compares the before tree even when origin/main points at the head', async (t) => {
   const repo = existing(t);
   const head = repo.commit();

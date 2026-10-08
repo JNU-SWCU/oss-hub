@@ -52,6 +52,36 @@ function existing(t, current = counts({ exports: 2 })) {
   return { ...repo, base: repo.commit() };
 }
 
+test('B2 Knip cannot remove its budget while the lint family retains debt', async (t) => {
+  const repo = existing(t, counts());
+  repo.write('apps/backend/src/sample/example.js', 'debugger;\n');
+  repo.write('apps/backend/lint-baseline/sample.ndjson', `${JSON.stringify({
+    file: 'apps/backend/src/sample/example.js',
+    ruleId: 'no-debugger',
+    target: 'retained-debugger',
+  })}\n`);
+  const jointBase = repo.commit();
+  repo.remove(BASELINE);
+  const partialBase = repo.commit();
+  await assert.rejects(repo.run(jointBase, counts()), /retire|retirement|baseline-missing/);
+  repo.commit();
+  await assert.rejects(repo.run(partialBase, counts()), /retire|retirement|baseline-missing/);
+});
+
+test('B2 Knip permits joint zero removal and the following retired predecessor', async (t) => {
+  const repo = existing(t, counts());
+  repo.write('apps/backend/lint-baseline/root.ndjson', '');
+  repo.write('apps/frontend/lint-baseline/root.ndjson', '');
+  const jointBase = repo.commit();
+  repo.remove(BASELINE);
+  repo.remove('apps/backend/lint-baseline');
+  repo.remove('apps/frontend/lint-baseline');
+  const retiredBase = repo.commit();
+  assert.deepEqual((await repo.run(jointBase, counts())).counts, counts());
+  repo.commit();
+  assert.equal((await repo.run(retiredBase, counts())).mode, 'retired');
+});
+
 test('simultaneous budget and finding growth fails before collecting actual counts', async (t) => {
   const repo = existing(t);
   repo.budget(counts({ exports: 3 }));
