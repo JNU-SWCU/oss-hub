@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import type { SubmissionFileStoragePort } from '../submissions/submission-file-storage.port';
+import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import { ProgramAuthoringUploadMaintenanceService } from './program-authoring-upload-maintenance.service';
 import type { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
 
@@ -25,7 +25,7 @@ function setup() {
     markDeleted: jest.fn().mockResolvedValue(true),
     recordDeleteFailure: jest.fn().mockResolvedValue(true),
   };
-  const storage: jest.Mocked<Pick<SubmissionFileStoragePort, 'delete'>> = {
+  const storage: jest.Mocked<Pick<ObjectStoragePort, 'delete'>> = {
     delete: jest.fn().mockResolvedValue(undefined),
   };
   return {

@@ -30,9 +30,9 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { CONSENT_POLICY_VERSION } from '../src/consents/domain/consent-policy';
 import { repositoryUrlFromNameWithOwner } from '../src/github/repository-identity';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { S3SubmissionFileStorage } from '../src/submissions/s3-submission-file.storage';
-import { SubmissionFileStorageConfig } from '../src/submissions/submission-file-storage.config';
-import { KNOWN_STORAGE_PREFIXES } from '../src/submissions/storage-orphan-reconciliation';
+import { S3ObjectStorage } from '../src/storage/gateway/s3-object.storage';
+import { ObjectStorageConfig } from '../src/storage/object-storage.config';
+import { KNOWN_STORAGE_PREFIXES } from '../src/submissions/domain/storage-orphan-reconciliation';
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -40,8 +40,8 @@ assertIsolatedIntegrationDatabase({
 
 const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
 
-const demoStorageConfig = new SubmissionFileStorageConfig();
-const demoStorage = new S3SubmissionFileStorage(demoStorageConfig);
+const demoStorageConfig = new ObjectStorageConfig();
+const demoStorage = new S3ObjectStorage(demoStorageConfig);
 let demoStorageS3Client: S3Client | undefined;
 function demoStorageS3(): S3Client {
   if (demoStorageS3Client) return demoStorageS3Client;

@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import type { SubmissionFileStoragePort } from './submission-file-storage.port';
+import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import { SubmissionFileCleanupService } from './submission-file-cleanup.service';
 import type { SubmissionFilesRepository } from './submission-files.repository';
 
@@ -16,7 +16,7 @@ function setup() {
   const storage = { delete: jest.fn().mockResolvedValue(undefined) };
   const service = new SubmissionFileCleanupService(
     files as unknown as SubmissionFilesRepository,
-    storage as unknown as SubmissionFileStoragePort,
+    storage as unknown as ObjectStoragePort,
     () => new Date(now),
   );
   const setNow = (value: Date): void => {

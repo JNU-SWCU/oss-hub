@@ -2,11 +2,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
 import { safeSubmissionFileContentType } from '../submissions/submission-file-content-type';
-import { sanitizeSubmissionFileOriginalName } from '../submissions/submission-file-name';
+import { sanitizeSubmissionFileOriginalName } from '../submissions/domain/submission-file-object-key';
 import {
-  SUBMISSION_FILE_STORAGE,
-  type SubmissionFileStoragePort,
-} from '../submissions/submission-file-storage.port';
+  OBJECT_STORAGE,
+  type ObjectStoragePort,
+} from '../storage/domain/object-storage';
 import {
   MilestoneDocumentCurrentFileRepository,
   type MilestoneDocumentCurrentFileReader,
@@ -28,8 +28,8 @@ export class MilestoneDocumentCurrentFileService {
   constructor(
     @Inject(MilestoneDocumentCurrentFileRepository)
     private readonly repository: MilestoneDocumentCurrentFileReader,
-    @Inject(SUBMISSION_FILE_STORAGE)
-    private readonly storage: SubmissionFileStoragePort,
+    @Inject(OBJECT_STORAGE)
+    private readonly storage: ObjectStoragePort,
   ) {}
 
   async download(

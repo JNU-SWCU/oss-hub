@@ -1,10 +1,11 @@
 import {
   Prisma,
+  PrismaClient,
   ProgramAuthoringUploadLifecycle,
   ProgramPurgeFileTombstoneLifecycle,
   SubmissionFileLifecycle,
 } from '@prisma/client';
-import type { StorageReferenceRepository } from './storage-orphan-reconciliation';
+import type { StorageReferenceRepository } from '../domain/storage-orphan-reconciliation';
 
 type StorageKey = { readonly storageKey: string | null };
 type StorageId = { readonly id: string };
@@ -44,6 +45,11 @@ export interface StorageReferencePrisma {
       readonly isolationLevel: Prisma.TransactionIsolationLevel;
     },
   ): Promise<T>;
+}
+
+interface StorageReferenceRepositoryLifecycle {
+  readonly references: StorageReferenceRepository;
+  readonly disconnect: () => Promise<void>;
 }
 
 export const STORAGE_KEY_OWNERS = [
@@ -160,4 +166,12 @@ export class PrismaStorageReferenceRepository implements StorageReferenceReposit
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
   }
+}
+
+export function createStorageReferenceRepository(): StorageReferenceRepositoryLifecycle {
+  const prisma = new PrismaClient();
+  return {
+    references: new PrismaStorageReferenceRepository(prisma),
+    disconnect: () => prisma.$disconnect(),
+  };
 }

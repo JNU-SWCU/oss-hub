@@ -30,9 +30,9 @@ import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
-import { S3SubmissionFileStorage } from '../submissions/s3-submission-file.storage';
+import { S3ObjectStorage } from '../storage/gateway/s3-object.storage';
 import { SubmissionFileCleanupService } from '../submissions/submission-file-cleanup.service';
-import { SubmissionFileStorageConfig } from '../submissions/submission-file-storage.config';
+import { ObjectStorageConfig } from '../storage/object-storage.config';
 import { SubmissionFilesRepository } from '../submissions/submission-files.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PublicProjectsRepository } from './archive/public-projects/public-projects.repository';
@@ -61,7 +61,7 @@ const prisma = new PrismaService();
 const concurrentPrisma = new PrismaService();
 const auditLog = new AuditLogService(new AuditLogRepository(prisma));
 const lifecycle = new ProgramLifecycleService(prisma, auditLog);
-const storageConfig = new SubmissionFileStorageConfig();
+const storageConfig = new ObjectStorageConfig();
 const storageSettings = storageConfig.requireSettings();
 const s3 = new S3Client({
   endpoint: storageSettings.endpoint,
@@ -72,7 +72,7 @@ const s3 = new S3Client({
     secretAccessKey: storageSettings.secretAccessKey,
   },
 });
-const storage = new S3SubmissionFileStorage(storageConfig, s3);
+const storage = new S3ObjectStorage(storageConfig, s3);
 
 const purgeFileCleanup = new ProgramPurgeFileCleanupService(
   new ProgramPurgeFileCleanupRepository(prisma),

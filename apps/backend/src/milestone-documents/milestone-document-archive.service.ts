@@ -3,9 +3,9 @@ import type { Readable } from 'node:stream';
 import { ZipFile } from 'yazl';
 import { DomainException } from '../common/error-code';
 import {
-  SUBMISSION_FILE_STORAGE,
-  type SubmissionFileStoragePort,
-} from '../submissions/submission-file-storage.port';
+  OBJECT_STORAGE,
+  type ObjectStoragePort,
+} from '../storage/domain/object-storage';
 import {
   buildMilestoneDocumentArchivePlan,
   MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME,
@@ -62,8 +62,8 @@ export class MilestoneDocumentArchiveEntryError extends Error {
 export class MilestoneDocumentArchiveService {
   constructor(
     private readonly repository: MilestoneDocumentsRepository,
-    @Inject(SUBMISSION_FILE_STORAGE)
-    private readonly storage: SubmissionFileStoragePort,
+    @Inject(OBJECT_STORAGE)
+    private readonly storage: ObjectStoragePort,
     @Inject(MilestoneDocumentArchiveRepository)
     private readonly programs: ProgramArchiveReader,
   ) {}

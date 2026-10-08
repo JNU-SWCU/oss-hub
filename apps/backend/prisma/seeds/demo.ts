@@ -10,7 +10,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { computeJoinCodeDigest } from '../../src/common/join-code-digest';
-import type { SubmissionFileStoragePort } from '../../src/submissions/submission-file-storage.port';
+import type { ObjectStoragePort } from '../../src/storage/domain/object-storage';
 import {
   offsetDays,
   prisma,
@@ -366,7 +366,7 @@ type DemoReview = {
 
 async function upsertDemoSubmission(
   stats: SeedStats,
-  storage: SubmissionFileStoragePort,
+  storage: ObjectStoragePort,
   params: {
     readonly slug: string;
     readonly milestoneId: string;
@@ -727,7 +727,7 @@ function inquiryParagraph(): string {
 
 export async function seedDemo(
   stats: SeedStats,
-  storage: SubmissionFileStoragePort,
+  storage: ObjectStoragePort,
 ): Promise<void> {
   const staff = await upsertDemoStaff(stats, 'staff-lead');
 
@@ -1361,7 +1361,7 @@ export async function seedDemo(
 
 export async function teardownDemo(
   stats: SeedStats,
-  storage: SubmissionFileStoragePort,
+  storage: ObjectStoragePort,
 ): Promise<void> {
   const seedDemoPrefix = 'seed:demo:';
   const seedIdFilter = { id: { startsWith: seedDemoPrefix } } as const;

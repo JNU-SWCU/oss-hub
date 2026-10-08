@@ -1,18 +1,17 @@
 import { Readable } from 'node:stream';
 import {
-  SUBMISSION_FILE_STORAGE_ERROR_CODES,
-  type StoreSubmissionFileInput,
-  type StoredSubmissionFile,
-  SubmissionFileStorageError,
-  type SubmissionFileStoragePort,
-} from '../../src/submissions/submission-file-storage.port';
-import { sanitizeSubmissionFileOriginalName } from '../../src/submissions/submission-file-name';
+  OBJECT_STORAGE_ERROR_CODES,
+  type StoreObjectInput,
+  type StoredObject,
+  ObjectStorageError,
+  type ObjectStoragePort,
+} from '../../src/storage/domain/object-storage';
 import {
   E2E_EXTERNAL_FAILURE_OPERATIONS,
   type E2eExternalPortRegistry,
 } from './e2e-external-port-registry';
 
-export class E2eFakeSubmissionFileStorage implements SubmissionFileStoragePort {
+export class E2eFakeSubmissionFileStorage implements ObjectStoragePort {
   private readonly objects = new Map<string, Buffer>();
 
   constructor(private readonly registry: E2eExternalPortRegistry) {}
@@ -21,20 +20,19 @@ export class E2eFakeSubmissionFileStorage implements SubmissionFileStoragePort {
     this.objects.clear();
   }
 
-  put(input: StoreSubmissionFileInput): Promise<StoredSubmissionFile> {
+  put(input: StoreObjectInput): Promise<StoredObject> {
     const failure = this.configuredFailure(
       E2E_EXTERNAL_FAILURE_OPERATIONS.STORAGE_PUT,
-      SUBMISSION_FILE_STORAGE_ERROR_CODES.PUT_FAILED,
+      OBJECT_STORAGE_ERROR_CODES.PUT_FAILED,
     );
     if (failure !== null) return Promise.reject(failure);
-    const objectKey =
-      input.objectKey ?? `e2e-submission-files/${hash(input.body)}`;
+    const objectKey = input.objectKey;
     const body = Buffer.from(input.body);
     this.objects.set(objectKey, body);
     this.registry.recordStorage(objectKey, body);
     return Promise.resolve({
       objectKey,
-      originalName: sanitizeSubmissionFileOriginalName(input.originalName),
+      originalName: input.originalName,
       contentLength: body.byteLength,
       contentType: input.contentType,
     });
@@ -43,14 +41,12 @@ export class E2eFakeSubmissionFileStorage implements SubmissionFileStoragePort {
   get(objectKey: string): Promise<Readable> {
     const failure = this.configuredFailure(
       E2E_EXTERNAL_FAILURE_OPERATIONS.STORAGE_GET,
-      SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_FAILED,
+      OBJECT_STORAGE_ERROR_CODES.GET_FAILED,
     );
     if (failure !== null) return Promise.reject(failure);
     const body = this.objects.get(objectKey);
     if (body === undefined) {
-      throw new SubmissionFileStorageError(
-        SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_FAILED,
-      );
+      throw new ObjectStorageError(OBJECT_STORAGE_ERROR_CODES.GET_FAILED);
     }
     return Promise.resolve(Readable.from(Buffer.from(body)));
   }
@@ -58,7 +54,7 @@ export class E2eFakeSubmissionFileStorage implements SubmissionFileStoragePort {
   delete(objectKey: string): Promise<void> {
     const failure = this.configuredFailure(
       E2E_EXTERNAL_FAILURE_OPERATIONS.STORAGE_DELETE,
-      SUBMISSION_FILE_STORAGE_ERROR_CODES.DELETE_FAILED,
+      OBJECT_STORAGE_ERROR_CODES.DELETE_FAILED,
     );
     if (failure !== null) return Promise.reject(failure);
     this.objects.delete(objectKey);
@@ -72,19 +68,11 @@ export class E2eFakeSubmissionFileStorage implements SubmissionFileStoragePort {
       | typeof E2E_EXTERNAL_FAILURE_OPERATIONS.STORAGE_GET
       | typeof E2E_EXTERNAL_FAILURE_OPERATIONS.STORAGE_DELETE,
     code:
-      | typeof SUBMISSION_FILE_STORAGE_ERROR_CODES.PUT_FAILED
-      | typeof SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_FAILED
-      | typeof SUBMISSION_FILE_STORAGE_ERROR_CODES.DELETE_FAILED,
-  ): SubmissionFileStorageError | null {
+      | typeof OBJECT_STORAGE_ERROR_CODES.PUT_FAILED
+      | typeof OBJECT_STORAGE_ERROR_CODES.GET_FAILED
+      | typeof OBJECT_STORAGE_ERROR_CODES.DELETE_FAILED,
+  ): ObjectStorageError | null {
     if (!this.registry.consume(operation)) return null;
-    return new SubmissionFileStorageError(code);
+    return new ObjectStorageError(code);
   }
-}
-
-function hash(body: Buffer): string {
-  let value = 0;
-  for (const byte of body) {
-    value = (value * 31 + byte) >>> 0;
-  }
-  return value.toString(16).padStart(8, '0');
 }
