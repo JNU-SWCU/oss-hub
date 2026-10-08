@@ -649,8 +649,20 @@ test('rules outside the allowlist fail even for existing predecessor debt', asyn
   const repo = existing(t, [invalid]);
   repo.commit();
   await assert.rejects(repo.run(repo.base, [invalid]), /rule-not-allowed/);
+  await assert.rejects(repo.run(repo.base, []), /rule-not-allowed/);
+});
+
+test('prune removes entries of a retired rule but cannot admit its findings', async (t) => {
+  const retired = { ...B, ruleId: 'unapproved-rule' };
+  const repo = existing(t, [A, retired]);
+  repo.commit();
+  await repo.run(repo.base, [A], { prune: true });
+  assert.equal(
+    fs.readFileSync(path.join(repo.root, BACKEND_SHARD), 'utf8'),
+    `${JSON.stringify(A)}\n`,
+  );
   await assert.rejects(
-    repo.run(repo.base, [], { prune: true }),
+    repo.run(repo.base, [A, retired], { prune: true }),
     /rule-not-allowed/,
   );
 });

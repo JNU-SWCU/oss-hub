@@ -136,6 +136,48 @@ edge(
   true,
 );
 edge(
+  'migrated service may import a not yet migrated module file',
+  'src/alpha/service/legacy.ts',
+  'src/beta/beta.service.ts',
+  true,
+);
+edge(
+  'migrated test may import a not yet migrated module file',
+  'src/alpha/service/legacy.spec.ts',
+  'src/beta/beta.service.ts',
+  true,
+);
+edge(
+  'migrated service still cannot import a migrated foreign repository',
+  'src/alpha/service/foreign.ts',
+  'src/beta/repository/beta.repository.ts',
+  false,
+);
+edge(
+  'job may read runtime config',
+  'src/alpha/job/config.ts',
+  'src/runtime-config/runtime-config.ts',
+  true,
+);
+edge(
+  'CLI job may bootstrap the application module',
+  'src/alpha/job/cli.ts',
+  'src/app.module.ts',
+  true,
+);
+edge(
+  'service cannot bootstrap the application module',
+  'src/alpha/service/cli.ts',
+  'src/app.module.ts',
+  false,
+);
+edge(
+  'job cannot use a gateway directly',
+  'src/alpha/job/mail.ts',
+  'src/alpha/gateway/mail.ts',
+  false,
+);
+edge(
   'domain cannot read runtime config',
   'src/alpha/domain/config.ts',
   'src/runtime-config/runtime-config.ts',
