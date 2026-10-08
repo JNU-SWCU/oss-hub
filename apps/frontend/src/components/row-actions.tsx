@@ -2,7 +2,7 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-interface RowActionsProps extends React.ComponentProps<'div'> {}
+type RowActionsProps = React.ComponentProps<'div'>;
 
 function RowActions({ className, children, ...props }: RowActionsProps) {
   return (
