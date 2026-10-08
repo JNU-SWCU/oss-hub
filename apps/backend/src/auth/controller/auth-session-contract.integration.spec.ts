@@ -15,7 +15,7 @@ import {
 } from '../domain/session-token';
 import { ProblemDetailFilter } from '../../common/problem-detail.filter';
 import { SystemErrorCode } from '../../common/system-error-code.enum';
-import { LoginHistoryService } from '../../login-history/login-history.service';
+import { LoginHistoryService } from '../../login-history/service/login-history.service';
 
 const sessionSecret = new Uint8Array(randomBytes(32));
 const githubId = 424242n;

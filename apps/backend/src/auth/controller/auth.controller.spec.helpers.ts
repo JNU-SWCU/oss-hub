@@ -4,7 +4,7 @@ import { AuthConfig } from '../auth.config';
 import { AuthController } from './auth.controller';
 import { AuthService } from '../service/auth.service';
 import { AuthUser } from '../domain/auth-user';
-import { LoginHistoryService } from '../../login-history/login-history.service';
+import { LoginHistoryService } from '../../login-history/service/login-history.service';
 
 export const syntheticUser: AuthUser = {
   id: 'synthetic-id',
