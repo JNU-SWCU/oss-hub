@@ -40,11 +40,11 @@ describe('로그인 시작 버튼의 원래 목적지 보존', () => {
     );
     if (!link) throw new Error('Expected OAuth link');
     link.addEventListener('click', (event) => event.preventDefault());
-    act(() =>
+    act(() => {
       link.dispatchEvent(
         new MouseEvent('click', { bubbles: true, cancelable: true, ...init }),
-      ),
-    );
+      );
+    });
   }
   it.each([githubLoginPath, githubAccountChoicePath])(
     '%s로 나가기 전에 같은 탭의 목적지를 저장한다',

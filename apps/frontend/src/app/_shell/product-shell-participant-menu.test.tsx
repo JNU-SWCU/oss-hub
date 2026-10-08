@@ -134,18 +134,22 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
     vi.clearAllMocks();
   });
 
   async function renderShell() {
-    await act(async () => {
+    await act(() => {
       root.render(
         <ProductShell>
           <p>본문</p>
         </ProductShell>,
       );
+      return Promise.resolve();
     });
   }
 

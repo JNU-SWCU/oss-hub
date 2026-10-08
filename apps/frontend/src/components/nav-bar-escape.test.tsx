@@ -22,13 +22,17 @@ describe('NavBar 접힌 메뉴 — Escape 로 닫힌다', () => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
-    await act(async () => {
+    await act(() => {
       root.render(<NavBar items={ITEMS} />);
+      return Promise.resolve();
     });
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
   });
 
@@ -49,7 +53,7 @@ describe('NavBar 접힌 메뉴 — Escape 로 닫힌다', () => {
   }
 
   async function pressEscape(from: HTMLElement): Promise<void> {
-    await act(async () => {
+    await act(() => {
       from.dispatchEvent(
         new KeyboardEvent('keydown', {
           key: 'Escape',
@@ -57,13 +61,15 @@ describe('NavBar 접힌 메뉴 — Escape 로 닫힌다', () => {
           cancelable: true,
         }),
       );
+      return Promise.resolve();
     });
   }
 
   it('열린 메뉴에서 Escape 를 누르면 닫힌다', async () => {
     const details = menu();
-    await act(async () => {
+    await act(() => {
       details.open = true;
+      return Promise.resolve();
     });
     expect(details.open).toBe(true);
 
@@ -74,8 +80,9 @@ describe('NavBar 접힌 메뉴 — Escape 로 닫힌다', () => {
 
   it('메뉴 안의 링크에서 눌러도 닫힌다', async () => {
     const details = menu();
-    await act(async () => {
+    await act(() => {
       details.open = true;
+      return Promise.resolve();
     });
     const link = details.querySelector<HTMLElement>('a');
     if (link === null) throw new Error('메뉴 항목을 찾지 못했습니다');
@@ -87,8 +94,9 @@ describe('NavBar 접힌 메뉴 — Escape 로 닫힌다', () => {
 
   it('닫은 뒤 초점이 메뉴 트리거로 돌아온다', async () => {
     const details = menu();
-    await act(async () => {
+    await act(() => {
       details.open = true;
+      return Promise.resolve();
     });
     const link = details.querySelector<HTMLElement>('a');
     link?.focus();
@@ -107,8 +115,9 @@ describe('NavBar 접힌 메뉴 — Escape 로 닫힌다', () => {
       bubbles: true,
       cancelable: true,
     });
-    await act(async () => {
+    await act(() => {
       trigger().dispatchEvent(event);
+      return Promise.resolve();
     });
 
     expect(details.open).toBe(false);
@@ -117,11 +126,12 @@ describe('NavBar 접힌 메뉴 — Escape 로 닫힌다', () => {
 
   it('다른 키는 메뉴를 닫지 않는다', async () => {
     const details = menu();
-    await act(async () => {
+    await act(() => {
       details.open = true;
+      return Promise.resolve();
     });
 
-    await act(async () => {
+    await act(() => {
       trigger().dispatchEvent(
         new KeyboardEvent('keydown', {
           key: 'Enter',
@@ -129,6 +139,7 @@ describe('NavBar 접힌 메뉴 — Escape 로 닫힌다', () => {
           cancelable: true,
         }),
       );
+      return Promise.resolve();
     });
 
     expect(details.open).toBe(true);

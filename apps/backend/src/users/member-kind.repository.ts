@@ -10,7 +10,7 @@ import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repositor
 import { DomainException } from '../common/error-code';
 import { withSerializationRetry } from '../common/prisma-serialization-retry';
 import { PrismaService } from '../prisma/prisma.service';
-import { authorityLabel, type AuthorityLabel } from '../common/authority-label';
+import { authorityLabel, type AuthorityLabel } from './domain/authority-label';
 import {
   findAdminActorByGithubId,
   lockActiveAdminRows,

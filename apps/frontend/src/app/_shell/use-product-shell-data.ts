@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   getProgramOverview,
   type ProgramOverview,
@@ -10,7 +10,6 @@ import {
   type ProgramNavigationMilestone,
 } from '@/features/programs/program-navigation-api';
 import { getMyApplication } from '@/features/programs/student-application-api';
-import { ApiError } from '@/lib/api-client';
 import { SECTION_FACETS, type SectionFacetData } from './section-facets';
 import type { ShellSection } from './sidebar-menu';
 import {

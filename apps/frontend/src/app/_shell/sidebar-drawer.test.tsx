@@ -34,19 +34,23 @@ describe('SidebarDrawer', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
     trigger.remove();
     document.body.style.overflow = '';
   });
 
   async function renderDrawer(open: boolean, onClose: () => void) {
-    await act(async () => {
+    await act(() => {
       root.render(
         <SidebarDrawer open={open} onClose={onClose} label="메뉴">
           <Content />
         </SidebarDrawer>,
       );
+      return Promise.resolve();
     });
   }
 
@@ -82,7 +86,7 @@ describe('SidebarDrawer', () => {
     const onClose = vi.fn();
     await renderDrawer(true, onClose);
 
-    await act(async () => {
+    await act(() => {
       document.dispatchEvent(
         new KeyboardEvent('keydown', {
           key: 'Escape',
@@ -90,6 +94,7 @@ describe('SidebarDrawer', () => {
           cancelable: true,
         }),
       );
+      return Promise.resolve();
     });
 
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -116,7 +121,7 @@ describe('SidebarDrawer', () => {
     expect(last).toBeDefined();
 
     last?.focus();
-    await act(async () => {
+    await act(() => {
       last?.dispatchEvent(
         new KeyboardEvent('keydown', {
           key: 'Tab',
@@ -124,6 +129,7 @@ describe('SidebarDrawer', () => {
           cancelable: true,
         }),
       );
+      return Promise.resolve();
     });
     expect(document.activeElement).toBe(first);
   });
@@ -138,7 +144,7 @@ describe('SidebarDrawer', () => {
     const last = focusables?.[focusables.length - 1];
 
     first?.focus();
-    await act(async () => {
+    await act(() => {
       first?.dispatchEvent(
         new KeyboardEvent('keydown', {
           key: 'Tab',
@@ -147,6 +153,7 @@ describe('SidebarDrawer', () => {
           cancelable: true,
         }),
       );
+      return Promise.resolve();
     });
     expect(document.activeElement).toBe(last);
   });
@@ -159,8 +166,9 @@ describe('SidebarDrawer', () => {
     );
     expect(backdrop).not.toBeNull();
 
-    await act(async () => {
+    await act(() => {
       backdrop?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return Promise.resolve();
     });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -172,8 +180,9 @@ describe('SidebarDrawer', () => {
       '[aria-label="사이드바 메뉴 닫기"]',
     );
 
-    await act(async () => {
+    await act(() => {
       closeButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return Promise.resolve();
     });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
