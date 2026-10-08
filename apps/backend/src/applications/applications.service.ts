@@ -17,7 +17,7 @@ import {
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { DomainException } from '../common/error-code';
 import type { ProblemDetailExtensions } from '../common/error-code';
-import { parseGithubRepositoryUrl } from '../common/github-repository-url';
+import { parseGithubRepositoryUrl } from '../github/domain/github-repository-url';
 import {
   checkApplicationTemplateVersion,
   applicationAnswerTooLongMessage,

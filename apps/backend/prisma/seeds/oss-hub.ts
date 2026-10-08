@@ -14,7 +14,8 @@ import {
   SubmissionStatus,
   User,
 } from '@prisma/client';
-import { computeJoinCodeDigest } from '../../src/common/join-code-digest';
+import { computeJoinCodeDigest } from '../../src/programs/domain/join-code-digest';
+import { resolveJoinCodeSecret } from '../../src/runtime-config/join-code-secret';
 import { AUTH_SCENARIOS } from './auth';
 import {
   offsetDays,
@@ -198,14 +199,20 @@ export async function seedOssHub(
         where: { id: TEAM_ID },
         update: {
           name: 'oss-hub',
-          joinCodeDigest: computeJoinCodeDigest('SEED-OSS-HUB'),
+          joinCodeDigest: computeJoinCodeDigest(
+            'SEED-OSS-HUB',
+            resolveJoinCodeSecret(),
+          ),
           leaderId: users[0]!.id,
         },
         create: {
           id: TEAM_ID,
           programId: PROGRAM_ID,
           name: 'oss-hub',
-          joinCodeDigest: computeJoinCodeDigest('SEED-OSS-HUB'),
+          joinCodeDigest: computeJoinCodeDigest(
+            'SEED-OSS-HUB',
+            resolveJoinCodeSecret(),
+          ),
           leaderId: users[0]!.id,
         },
       }),
@@ -738,14 +745,20 @@ export async function seedOssHub(
         where: { id: PRACTICE_TEAM_ID },
         update: {
           name: 'oss-hub-practice',
-          joinCodeDigest: computeJoinCodeDigest('SEED-OSS-HUB-PRACTICE'),
+          joinCodeDigest: computeJoinCodeDigest(
+            'SEED-OSS-HUB-PRACTICE',
+            resolveJoinCodeSecret(),
+          ),
           leaderId: users[0]!.id,
         },
         create: {
           id: PRACTICE_TEAM_ID,
           programId: PRACTICE_PROGRAM_ID,
           name: 'oss-hub-practice',
-          joinCodeDigest: computeJoinCodeDigest('SEED-OSS-HUB-PRACTICE'),
+          joinCodeDigest: computeJoinCodeDigest(
+            'SEED-OSS-HUB-PRACTICE',
+            resolveJoinCodeSecret(),
+          ),
           leaderId: users[0]!.id,
         },
       }),

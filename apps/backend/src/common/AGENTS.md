@@ -24,6 +24,7 @@
 
 - Shared additions require multiple real consumers and no dependency on feature modules or repositories.
 - Feature-specific DTOs, exceptions, controllers, services, repositories, and error codes stay with their owner.
+- GitHub URL 파싱은 `../github/domain/github-repository-url.ts`, 팀 참여코드 digest는 `../programs/domain/join-code-digest.ts`, secret 해석은 `../runtime-config/join-code-secret.ts`가 소유한다.
 - Focused error conversion coverage: `problem-detail.filter.spec.ts`.
 - Lock semantics and ordering are tested with `lock-program-tree.ts` consumers under `programs/` and `milestone-documents/`.
 <!-- /init:managed id=craft-init-backend-src-common -->

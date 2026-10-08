@@ -18,10 +18,8 @@ import {
 } from '../../audit-log/audit-log-metadata';
 import { AuditLogService } from '../../audit-log/audit-log.service';
 import { DomainException } from '../../common/error-code';
-import {
-  computeJoinCodeDigest,
-  resolveJoinCodeSecretFromConfig,
-} from '../../common/join-code-digest';
+import { computeJoinCodeDigest } from '../domain/join-code-digest';
+import { resolveJoinCodeSecretFromConfig } from '../../runtime-config/join-code-secret';
 import type { RuntimeConfig } from '../../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../../runtime-config/runtime-config.module';
 import {
