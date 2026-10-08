@@ -10,6 +10,8 @@
 
 | 변경 경로 | 실행하는 검증 | 경계 |
 | --- | --- | --- |
+| `apps/backend/**`, `apps/frontend/**`, `eslint.shared.mjs`, `eslint-rules/**`, `knip.json`, `knip-baseline.json`, `scripts/check-*ratchet*`, `scripts/prisma-enum-names.mjs`, `scripts/prisma-enum-names.test.mjs`, `scripts/ci-path-contract.test.mjs`, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `.github/workflows/**` | rails scope에서 두 ratchet 검사와 `node --test scripts/check-lint-ratchet.test.mjs scripts/check-knip-ratchet.test.mjs scripts/prisma-enum-names.test.mjs`를 실행하며 frontend·backend scope도 함께 선택 | 의존성 설치와 backend Prisma client 생성 뒤 실행하며 predecessor 비교의 신뢰 계약은 [ADR-003 §10](../decisions/ADR-003-backend-architecture.md)을 따른다 |
+| 모든 PR 및 main push | `node --test scripts/ci-path-contract.test.mjs`로 실제 workflow의 경로·SHA env·checker invocation·required job 이름을 검사하고 workflow의 scope shell을 합성 입력으로 실행 | 운영 서비스 호출 없이 docs-only·rails-only PR 선택과 main 전체 lane 선택을 검증 |
 | `apps/frontend/**` | frontend lint · typecheck · test · build | Docker 이미지 빌드 없음 |
 | `apps/backend/src/submissions/cli/reconcile-storage-orphans.ts`, `apps/backend/src/submissions/storage-orphan-reconciliation*`, `apps/backend/src/submissions/s3-submission-file.storage*`, `scripts/run-backend-integration.sh` | `pnpm --filter backend test:storage-reconcile` — unit 뒤 격리 PostgreSQL·object-storage fixture에서 report/delete·run-start cutoff 경주·DB 연결 실패 fail-closed를 검증하고 실제 객체 부재/생존을 S3 `HeadObject`로 단언 | 운영 DB·버킷·자격증명 접근 없음. 임시 Compose 프로젝트만 기동하고 종료 시 volume까지 제거 |
 | `apps/backend/**`, `scripts/check-open-prisma-migration-prs*`, `scripts/test-prisma-migration-concurrency*`, `scripts/prisma-migration-ledger.mjs`, `scripts/member-authority-expand-contract.mjs`, `scripts/member-authority-contract-contract*`, `scripts/member-authority-contract-sources.mjs`, `scripts/member-authority-contract-seed.mjs`, `scripts/check-member-authority-contract.sh`, `scripts/rehearse-member-authority-migrations*`, `scripts/rehearse-member-authority-contract*`, `scripts/rehearse-legacy-submission-migrations*`, `scripts/rehearse-legacy-table-drop*` | backend lint · typecheck · unit · integration · build + Prisma migration contract unit tests + 두 동시 `prisma migrate deploy` 직렬화 검사. 계약 경로는 backend scope**만** 고른다(Jenkins scope는 고르지 않는다) — 계약 스키마·마이그레이션·리허설은 배포 파이프라인 계약이 아니라 backend 검증이 소유한다. `scripts/member-authority-contract-contract.test.mjs`와 `scripts/prisma-migration-ledger.test.mjs`가 Prisma migration contract 단계에서 함께 돌고, 이어지는 `contract on real sources` 단계가 같은 검사기를 **저장소의 실제 파일**(스키마·contract 마이그레이션 SQL·추적 중인 생산 TS)에 대해 실행한다. 스캔 대상은 `member-authority-contract-sources.mjs`가 정한다 — `apps/backend/src`·`apps/backend/prisma` 아래 `.ts`를 포함하고 `*.spec.ts`·`*.test.ts`만 제외한다 — 픽스처·지원 모듈은 제외하지 않는다(제외 목록이 조용히 넓어지면 검사가 보는 면적만 줄어들기 때문이며, `member-authority-contract-contract.test.mjs`가 제외 규칙 개수까지 잠근다). 원장 계약은 배포된 `20260823000000_bridge_member_authority`를 같은 타임스탬프로 대체하는 것을 거절하고 더 늦은 `20260824000000_contract_member_authority`가 합성되는 것만 허용한다. 계약 마이그레이션은 파괴적 DDL(legacy 다섯 칸·`Role` enum 제거, `RoleRequest`→`StaffAccessRequest` 개명, canonical 세 칸 NOT NULL) 앞에 11개 preflight 게이트를 세우고, 검사기가 그 게이트의 부재와 순서 역전을 fail-closed로 고정한다. 실제 컨테이너 리허설(`rehearse-member-authority-migrations.sh contract`·`contract-negative`)은 PostgreSQL 기동이 필요해 required CI가 아니라 릴리스 준비 단계에서 수동으로 돌린다. legacy-submission 3단 이관(expand·bridge·contract)도 같은 두 겹을 쓴다 — `scripts/rehearse-legacy-submission-migrations.test.mjs`가 Prisma migration contract 단계에서 리허설 스크립트의 정적 계약(일회용 DB 소유·단계별 스테이징·게이트 아홉 개의 문구·중단 뒤 롤백 표면)을 고정하고, 컨테이너 리허설(`rehearse-legacy-submission-migrations.sh migrate`·`negative`)은 릴리스 준비 단계에서 수동으로 돌린다. 옛 표 네 개 삭제 이관(#1133)도 같다 — `scripts/rehearse-legacy-table-drop.test.mjs`가 같은 단계에서 리허설 스크립트의 정적 계약(일회용 DB·내부 네트워크·이관 전에 잡는 기대값·뒷정리)을 고정하고, 컨테이너 리허설(`rehearse-legacy-table-drop.sh migrate`·`negative`)은 운영 백업으로 릴리스 전에 수동으로 돌린다. 파괴적 이관의 리허설 시점과 실패 시 복구 절차는 [pre-deploy-verify](../deploy/pre-deploy-verify.md)가 원본이다 | migration concurrency는 PR별 고유 Compose 프로젝트의 일회용 PostgreSQL만 사용하고 종료 시 volume까지 제거한다. 이미지 빌드·운영 DB·운영 자격증명 접근 없음. 계약 정적 검사는 저장소 파일(스키마·마이그레이션 SQL·생산 TS)만 읽으므로 컨테이너 기동이 없다 |
@@ -26,3 +28,17 @@
 
 `public-safe`는 경로와 무관하게 모든 PR에서 실행한다.
 이 계약은 검증 대상을 선택할 뿐 배포·정책 상태·문서를 자동 변경하지 않는다.
+
+## Rails 실행 입력
+
+required `ci`는 `fetch-depth: 0`으로 `github.sha`를 checkout하고 같은 SHA를 checker의 검사 head로 전달한다.
+PR에서 검사 head는 Actions가 checkout하는 merge ref의 SHA이며 PR branch의 가변 head로 바꿔 읽지 않는다.
+PR은 `PR_BASE_SHA=github.event.pull_request.base.sha`, `CHECKED_HEAD_SHA=github.sha`를 env로 전달한다.
+각 checker는 `--event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"`를 받고 실제 checkout HEAD 일치를 확인한 뒤 PR merge-base를 계산한다.
+main push는 `BEFORE_SHA=github.event.before`, `PUSHED_SHA=github.sha`를 env로 전달한다.
+각 checker는 `--event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"`를 받고 checkout HEAD 일치와 before SHA의 유효성·선조 관계를 검사한다.
+입력 부재나 유효하지 않은 predecessor를 origin/main으로 대체하지 않는다.
+GitHub expression은 shell 명령 안에 직접 삽입하지 않고 env 경계로 전달한다.
+workflow 경로 필터로 required check 생성을 막지 않으며 main push는 rails를 포함한 모든 lane을 선택한다.
+`ci-path-contract.test.mjs`는 의존성 설치 전 항상 실행하고 generated-client drift 검사를 포함한 rails 테스트는 의존성 설치 후 rails lane에서 실행한다.
+로컬 root `lint`는 `pnpm -r lint && pnpm lint:structure`, `lint:structure`는 `node scripts/check-lint-ratchet.mjs && node scripts/check-knip-ratchet.mjs` 계약으로 같은 검사를 연결한다.

@@ -4,7 +4,7 @@ import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import moduleZoneBoundary from './eslint-rules/module-zone-boundary.mjs';
-import noComments from './eslint-rules/no-comments.mjs';
+import { sharedConfig } from '../../eslint.shared.mjs';
 
 const srcDir = path.join(import.meta.dirname, 'src');
 const sharedDirs = new Set(['common', 'prisma']);
@@ -139,13 +139,8 @@ const collectionDelegateRestrictedSyntax = {
 
 export default tseslint.config(
   eslint.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
+  ...sharedConfig,
   prettier,
-  {
-    plugins: { local: { rules: { 'no-comments': noComments } } },
-    linterOptions: { noInlineConfig: true },
-    rules: { 'local/no-comments': 'error' },
-  },
   {
     languageOptions: {
       globals: {
@@ -258,7 +253,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['eslint.config.mjs', 'eslint-rules/*.mjs'],
+    files: ['eslint.config.mjs', 'eslint.rails.mjs', 'eslint-rules/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
   },
   {

@@ -33,6 +33,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.sha }}
 
       # 변경된 앱만 검사해 CI 실행 시간과 과금을 절감한다.
       # base는 pull_request 이벤트에서는 무시되므로(PR base 브랜치를 API로 조회) 지정하지 않는다.
@@ -125,6 +126,21 @@ jobs:
             node_scripts:
               - 'scripts/*.mjs'
               - '.github/workflows/**'
+            rails:
+              - 'apps/backend/**'
+              - 'apps/frontend/**'
+              - 'eslint.shared.mjs'
+              - 'eslint-rules/**'
+              - 'knip.json'
+              - 'knip-baseline.json'
+              - 'scripts/check-*ratchet*'
+              - 'scripts/prisma-enum-names.mjs'
+              - 'scripts/prisma-enum-names.test.mjs'
+              - 'scripts/ci-path-contract.test.mjs'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/**'
 
       # push(main)는 paths filter를 무시하고 전체 스코프를 강제한다. push 이벤트에서도
       # filter 결과를 그대로 쓰면, 특정 앱만 바뀐 커밋이 다른 앱의 lint/typecheck/test/build
@@ -132,16 +148,44 @@ jobs:
       # pull_request에서는 기존 paths filter 결과를 그대로 쓴다 — PR 비용 절감이 목적이므로 유지한다.
       - name: 실행 스코프 결정
         id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FRONTEND: ${{ steps.changes.outputs.frontend }}
+          BACKEND: ${{ steps.changes.outputs.backend }}
+          NGINX: ${{ steps.changes.outputs.nginx }}
+          PRODUCTION_COMPOSE: ${{ steps.changes.outputs.production_compose }}
+          JENKINS: ${{ steps.changes.outputs.jenkins }}
+          DOCKER_CONTEXT: ${{ steps.changes.outputs.docker_context }}
+          SHELL_SCRIPTS: ${{ steps.changes.outputs.shell_scripts }}
+          NODE_SCRIPTS: ${{ steps.changes.outputs.node_scripts }}
+          RAILS: ${{ steps.changes.outputs.rails }}
         run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = push ]; then
+            FRONTEND=true
+            BACKEND=true
+            NGINX=true
+            PRODUCTION_COMPOSE=true
+            JENKINS=true
+            DOCKER_CONTEXT=true
+            SHELL_SCRIPTS=true
+            NODE_SCRIPTS=true
+            RAILS=true
+          fi
+          if [ "$RAILS" = true ]; then
+            FRONTEND=true
+            BACKEND=true
+          fi
           {
-            echo "frontend=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.frontend }}"
-            echo "backend=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.backend }}"
-            echo "nginx=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.nginx }}"
-            echo "production_compose=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.production_compose }}"
-            echo "jenkins=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.jenkins }}"
-            echo "docker_context=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.docker_context }}"
-            echo "shell_scripts=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.shell_scripts }}"
-            echo "node_scripts=${{ github.event_name == 'push' && 'true' || steps.changes.outputs.node_scripts }}"
+            echo "frontend=$FRONTEND"
+            echo "backend=$BACKEND"
+            echo "nginx=$NGINX"
+            echo "production_compose=$PRODUCTION_COMPOSE"
+            echo "jenkins=$JENKINS"
+            echo "docker_context=$DOCKER_CONTEXT"
+            echo "shell_scripts=$SHELL_SCRIPTS"
+            echo "node_scripts=$NODE_SCRIPTS"
+            echo "rails=$RAILS"
           } >> "$GITHUB_OUTPUT"
 
       # 의존성이 없는 Node 내장 테스트는 모든 PR에서 실행한다.
@@ -238,6 +282,35 @@ jobs:
       - name: 의존성 설치
         if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' || steps.scope.outputs.jenkins == 'true' }}
         run: pnpm install --frozen-lockfile
+
+      - name: Rails 계약 테스트
+        if: ${{ steps.scope.outputs.rails == 'true' }}
+        run: node --test scripts/check-lint-ratchet.test.mjs scripts/check-knip-ratchet.test.mjs scripts/prisma-enum-names.test.mjs
+
+      - name: Rails predecessor 검사
+        if: ${{ steps.scope.outputs.rails == 'true' }}
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CHECKED_HEAD_SHA: ${{ github.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          PUSHED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          case "$EVENT_NAME" in
+            pull_request)
+              node scripts/check-lint-ratchet.mjs --event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"
+              node scripts/check-knip-ratchet.mjs --event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"
+              ;;
+            push)
+              node scripts/check-lint-ratchet.mjs --event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"
+              node scripts/check-knip-ratchet.mjs --event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"
+              ;;
+            *)
+              echo "Unsupported rails event: $EVENT_NAME" >&2
+              exit 1
+              ;;
+          esac
 
       - name: env 계약 양방향 검사
         if: ${{ steps.scope.outputs.production_compose == 'true' }}

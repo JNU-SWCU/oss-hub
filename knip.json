@@ -1,0 +1,51 @@
+{
+  "$schema": "https://unpkg.com/knip@6.40.0/schema.json",
+  "include": [
+    "files",
+    "exports",
+    "types",
+    "dependencies",
+    "devDependencies",
+    "unlisted",
+    "binaries"
+  ],
+  "ignore": [".gjc/**"],
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/**/*.test.mjs"],
+      "project": ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
+      "includeEntryExports": true
+    },
+    "apps/backend": {
+      "entry": [
+        "eslint.rails.mjs",
+        "src/main.ts",
+        "test/e2e-program-authoring/main.ts",
+        "prisma/seed.ts",
+        "{src,test,prisma}/**/*.spec.ts"
+      ],
+      "project": [
+        "{src,test,prisma}/**/*.ts",
+        "*.{js,mjs,cjs,ts}",
+        "{scripts,eslint-rules}/**/*.{js,mjs,cjs,ts}"
+      ],
+      "includeEntryExports": true
+    },
+    "apps/frontend": {
+      "entry": [
+        "eslint.rails.mjs",
+        "src/middleware.ts",
+        "next.config.ts",
+        "{src,test-support,e2e/support}/**/*.test.{ts,tsx}",
+        "e2e/**/*.spec.ts",
+        "e2e/support/seed-deadline-digest.mjs",
+        "e2e/support/assert-loopback-only.mjs",
+        "e2e/support/backend-env.probe.mjs"
+      ],
+      "project": [
+        "{src,e2e,test-support,scripts}/**/*.{js,mjs,cjs,ts,tsx}",
+        "*.{js,mjs,cjs,ts,mts}"
+      ]
+    }
+  }
+}

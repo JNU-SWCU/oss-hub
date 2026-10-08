@@ -8,19 +8,22 @@
 | --- | --- | --- | --- |
 | ADR-001 | Accepted | 테크스택 | [ADR-001-테크스택](ADR-001-테크스택.md) |
 | ADR-002 | Accepted | CI/CD 파이프라인 | [ADR-002-CI-CD-파이프라인](ADR-002-CI-CD-파이프라인.md) |
-| ADR-003 | Accepted | Backend Architecture | [ADR-003-backend-architecture](ADR-003-backend-architecture.md) |
+| ADR-003 | Accepted | Backend 계층 규약·주입 키·인증과 권한 경계 | [ADR-003-backend-architecture](ADR-003-backend-architecture.md) |
 | ADR-004 | Accepted | REST API 규격 | [ADR-004-REST-API-규격](ADR-004-REST-API-규격.md) |
 | ADR-005 | Accepted | Agent-Driven Review Cycle | [ADR-005-agent-driven-review-cycle](ADR-005-agent-driven-review-cycle.md) |
 | ADR-006 | Accepted | GitHub App 조직 자동화 연동 | [ADR-006-github-app-integration](ADR-006-github-app-integration.md) |
 | ADR-007 | Accepted | 명시적 fallback 계약 | [ADR-007-explicit-fallback-contract](ADR-007-explicit-fallback-contract.md) |
 | ADR-008 | Accepted | API 응답 필드 소유 경계 | [ADR-008-api-response-field-ownership](ADR-008-api-response-field-ownership.md) |
 | ADR-009 | Accepted | 학생 소유 저장소 연결(OWN)의 권한·수집 경계 | [ADR-009-own-repository-connection](ADR-009-own-repository-connection.md) |
-| ADR-010 | Accepted | 기여 추적 컨텍스트 — 두 읽기 표면과 그 데이터원 | [ADR-010-contribution-tracking-context](ADR-010-contribution-tracking-context.md) |
+| ADR-010 | Accepted | 기여 추적 컨텍스트 — §7 Port 정책은 ADR-003으로 대체 | [ADR-010-contribution-tracking-context](ADR-010-contribution-tracking-context.md) |
 | ADR-011 | Accepted | 질의 필터의 타입 경계 — sentinel 문자열을 SQL 값으로 보내지 않는다 | [ADR-011-query-filter-type-boundary](ADR-011-query-filter-type-boundary.md) |
 | ADR-012 | Accepted | ProgramTrackType이 공개 API·작성 입력의 category를 대체한다 | [012-program-track-type](012-program-track-type.md) |
 | ADR-013 | Accepted | 프론트엔드 런타임과 테스트 의존 경계 | [ADR-013-runtime-test-boundary](ADR-013-runtime-test-boundary.md) |
 
 ## ADR 라이프사이클
+
+`Accepted`는 결정의 승인 상태이며 전체 코드 이행이나 검증 완료를 뜻하지 않는다.
+이행 상태와 실행 증거는 연결된 GitHub Issue·PR을 따른다.
 
 1. 제안자는 되돌리기 어려운 횡단 결정을 ADR로 작성하고 상태를 `Proposed`로 둔다.
 2. 합의된 결정은 `Accepted`로 바꾸고 근거, 대안, 결과를 현재 사실에 맞게 완결한다.

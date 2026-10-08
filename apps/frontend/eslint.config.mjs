@@ -6,7 +6,7 @@ import prettier from 'eslint-config-prettier';
 import typescriptParser from '@typescript-eslint/parser';
 import runtimeTestBoundary from './eslint-rules/runtime-test-boundary.mjs';
 import designSystemRules from './eslint-rules/design-system.mjs';
-import noComments from './eslint-rules/no-comments.mjs';
+import noComments from '../../eslint-rules/no-comments.mjs';
 
 const featuresDir = path.join(import.meta.dirname, 'src/features');
 const featureNames = fs.existsSync(featuresDir)
