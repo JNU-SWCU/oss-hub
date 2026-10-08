@@ -3,7 +3,7 @@
 
 ## Ownership
 
-- `docs/` is the canonical home for repository rules, decisions, runbooks, and handoff records; link to a source instead of duplicating its policy.
+- `docs/` is the canonical home for repository rules, decisions, and runbooks; link to a source instead of duplicating its policy.
 - `architecture.md` maps components, `design.md` owns frontend visual-system rules, and `onboarding.md` owns newcomer guidance.
 - Keep one fact in its owning document; implementation state belongs in GitHub Issue/PR rather than a parallel status narrative.
 
@@ -12,8 +12,6 @@
 - `decisions/README.md` indexes ADRs; the affected ADR is the canonical record for an architectural or operational decision.
 - `rules/security.md`, `rules/frontend.md`, `rules/local-dev.md`, `rules/pr-scope.md`, and `rules/ci-path-verification.md` each own their named contracts.
 - `deploy/server-runbook.md`, `deploy/pre-deploy-verify.md`, and `deploy/demo-runbook.md` own deployment procedure; do not restate commands or approval flows elsewhere.
-- `handoff/TEAM-STATE.md`, `handoff/TEAM-STATE.archive.md`, and `handoff/team-state/` are frozen history; do not append or edit them. Implementation status belongs in GitHub Issue/PR.
-- `research/<slug>.md` records evidence for a decision; promote a decision into its ADR rather than treating research as authority.
 
 ## High-risk documentation constraints
 
@@ -27,7 +25,6 @@
 - `decisions/README.md` — ADR index and lifecycle.
 - `rules/security.md` — public-safe content boundary.
 - `rules/ci-path-verification.md` — required verification by changed path.
-- `handoff/TEAM-STATE.md` and `handoff/team-state/` — frozen historical journals, not a status source.
 - `deploy/server-runbook.md` — production operation authority.
 - `design.md` — frontend design-system contract.
 <!-- /init:managed id=craft-init-4.0.0-docs -->

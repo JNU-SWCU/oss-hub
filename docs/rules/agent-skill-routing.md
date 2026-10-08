@@ -37,7 +37,7 @@
 | TypeScript 구현 공통 규율 | craft `programming` | 외부 플러그인 | 화면·API 경계는 위 두 행이 원본이고 lint 계약은 `apps/*/eslint.config.mjs`와 `apps/backend/eslint-rules/`가 강제한다 |
 | 동작 불변 정리 | craft `refactor` | 외부 플러그인 | 계층 경계는 [ADR-003](../decisions/ADR-003-backend-architecture.md)과 `apps/backend/eslint-rules/`가 강제한다 |
 | 실패 원인 진단 | craft `debug` | 외부 플러그인 | 수집 정지 진단은 `scripts/diagnose-collection.sh`가 read-only 절차의 원본이다 |
-| 조사·기술 선택 근거 | craft `research` | 외부 플러그인 | 산출물은 `docs/research/<slug>.md` 하나다 |
+| 조사·기술 선택 근거 | craft `research` | 외부 플러그인 | 저장소에 조사 산출물을 남기지 않고 결정만 [ADR](../decisions/README.md)에 기록한다 |
 | AGENTS.md 지도 갱신·stale 점검 | craft `init` | 외부 플러그인 | 이 저장소의 AGENTS.md 계층과 작성권은 [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)가 원본이다 |
 
 craft-skills는 vendoring·복사·setup script 없이 런타임의 native plugin marketplace로 로드한다.
@@ -99,7 +99,7 @@ craft 스킬은 설치돼 있지 않으면 그 표면의 repo 규칙 문서를 �
 | --- | --- | --- |
 | craft `design`은 ownership root에 `DESIGN.md` 하나를 두고 자기 템플릿의 제목 구조를 유지한다 | 디자인 계약의 원본은 [docs/design.md](../design.md)이며 프리미티브 컴포넌트 소유권까지 그 문서가 정한다 | 이 저장소 — 새 `DESIGN.md`를 만들지 않고 `docs/design.md`를 갱신한다 |
 | craft `init`은 AGENTS.md 계층을 스스로 생성·갱신한다 | AGENTS.md와 중첩 AGENTS.md는 작성권이 있는 사람이 고치며 owner 전속 경로는 [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)가 원본이다 | 이 저장소 — init의 산출물은 제안으로 보고 작성권을 넘기지 않는다 |
-| craft `research`는 조사마다 `docs/research/<slug>.md`와 인용 원문을 남긴다 | 기술·운영 결정의 canonical store는 `docs/decisions/` ADR이다 | 둘 다 — 조사는 `docs/research/`에, 결정은 ADR에 남기고 서로를 링크한다 |
+| craft `research`는 조사마다 `docs/research/<slug>.md`와 인용 원문을 남긴다 | 기술·운영 결정의 canonical store는 `docs/decisions/` ADR이다 | 이 저장소 — 조사 산출물은 커밋하지 않고 결정과 그 근거만 ADR에 남긴다 |
 
 ## craft `init` 적용 결과
 
