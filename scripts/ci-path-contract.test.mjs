@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
@@ -221,3 +222,191 @@ function section(source, start, end) {
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+const railsPaths = [
+  'apps/backend/**',
+  'apps/frontend/**',
+  'eslint.shared.mjs',
+  'eslint-rules/**',
+  'knip.json',
+  'knip-baseline.json',
+  'scripts/check-*ratchet*',
+  'scripts/prisma-enum-names.mjs',
+  'scripts/prisma-enum-names.test.mjs',
+  'scripts/ci-path-contract.test.mjs',
+  'package.json',
+  'pnpm-workspace.yaml',
+  'pnpm-lock.yaml',
+  '.github/workflows/**',
+];
+const scopes = [
+  'frontend',
+  'backend',
+  'nginx',
+  'production_compose',
+  'jenkins',
+  'docker_context',
+  'shell_scripts',
+  'node_scripts',
+  'rails',
+];
+const railsTestCommand =
+  'node --test scripts/check-lint-ratchet.test.mjs scripts/check-knip-ratchet.test.mjs scripts/prisma-enum-names.test.mjs';
+const railsEnvironment = [
+  'EVENT_NAME: ${{ github.event_name }}',
+  'PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}',
+  'CHECKED_HEAD_SHA: ${{ github.sha }}',
+  'BEFORE_SHA: ${{ github.event.before }}',
+  'PUSHED_SHA: ${{ github.sha }}',
+];
+
+function workflowStep(source, name) {
+  const step = source
+    .split('      - name: ')
+    .find((candidate) => candidate.startsWith(`${name}\n`));
+  assert.ok(step, `Missing workflow step: ${name}`);
+  return step;
+}
+
+function stepRun(step) {
+  const match = step.match(/        run: \|\n((?:          .*\n|\n)+)/);
+  assert.ok(match, 'Expected workflow shell block');
+  return match[1].replace(/^          /gm, '');
+}
+
+function validateRails(source) {
+  const triggers = section(source, 'on:\n', '\npermissions:');
+  assert.doesNotMatch(triggers, /^\s+paths(?:-ignore)?:/m);
+  const ci = section(source, '  ci:\n', '  public-safe:\n');
+  assert.match(ci, /^    name: ci$/m);
+  assert.match(
+    ci,
+    /^    if: github\.event_name == 'pull_request' \|\| github\.event_name == 'push'$/m,
+  );
+  assert.match(
+    source,
+    /^  public-safe:\n    name: public-safe\n    if: github\.event_name == 'pull_request'$/m,
+  );
+  const checkout = workflowStep(ci, '체크아웃');
+  assert.match(checkout, /fetch-depth: 0\n/);
+  assert.match(checkout, /ref: \$\{\{ github\.sha \}\}\n/);
+  const filters = section(ci, '            rails:\n', '\n\n');
+  for (const path of railsPaths) {
+    assert.ok(filters.includes(`- '${path}'`), path);
+  }
+  const scope = workflowStep(ci, '실행 스코프 결정');
+  assert.ok(scope.includes('EVENT_NAME: ${{ github.event_name }}'));
+  for (const name of scopes) {
+    assert.ok(
+      scope.includes(`${name.toUpperCase()}: \${{ steps.changes.outputs.${name} }}`),
+      name,
+    );
+  }
+  assert.doesNotMatch(stepRun(scope), /\$\{\{/);
+  const contracts = workflowStep(ci, 'Rails 계약 테스트');
+  const checker = workflowStep(ci, 'Rails predecessor 검사');
+  for (const step of [contracts, checker]) {
+    assert.ok(step.includes("if: ${{ steps.scope.outputs.rails == 'true' }}"));
+  }
+  assert.ok(contracts.includes(`run: ${railsTestCommand}\n`));
+  assert.ok(
+    workflowStep(ci, 'CI path 계약 검사').includes(
+      'run: node --test scripts/ci-path-contract.test.mjs\n',
+    ),
+  );
+  assert.doesNotMatch(workflowStep(ci, 'CI path 계약 검사'), /^        if:/m);
+  assert.ok(ci.indexOf('name: 의존성 설치') < ci.indexOf('name: Rails 계약 테스트'));
+  for (const binding of railsEnvironment) {
+    assert.ok(checker.includes(`${binding}\n`), binding);
+  }
+  const expectedRun = [
+    'set -euo pipefail',
+    'case "$EVENT_NAME" in',
+    '  pull_request)',
+    '    node scripts/check-lint-ratchet.mjs --event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"',
+    '    node scripts/check-knip-ratchet.mjs --event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"',
+    '    ;;',
+    '  push)',
+    '    node scripts/check-lint-ratchet.mjs --event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"',
+    '    node scripts/check-knip-ratchet.mjs --event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"',
+    '    ;;',
+    '  *)',
+    '    echo "Unsupported rails event: $EVENT_NAME" >&2',
+    '    exit 1',
+    '    ;;',
+    'esac',
+  ].join('\n');
+  assert.equal(stepRun(checker).trim(), expectedRun);
+}
+
+function runScope(event, selected) {
+  const result = execFileSync(
+    'bash',
+    ['-c', stepRun(workflowStep(workflow, '실행 스코프 결정'))],
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        ...Object.fromEntries(scopes.map((name) => [name.toUpperCase(), 'false'])),
+        ...selected,
+        EVENT_NAME: event,
+        GITHUB_OUTPUT: '/dev/stdout',
+      },
+    },
+  );
+  return Object.fromEntries(result.trim().split('\n').map((line) => line.split('=')));
+}
+
+test('rails workflow binds immutable event SHAs and required checks', () => {
+  validateRails(workflow);
+});
+
+test('rails path and invocation mutations fail closed', () => {
+  for (const path of railsPaths) {
+    assert.throws(() => validateRails(workflow.replaceAll(`- '${path}'`, '')));
+  }
+  for (const binding of railsEnvironment) {
+    assert.throws(() => validateRails(workflow.replaceAll(binding, '')));
+  }
+  for (const command of [
+    railsTestCommand,
+    '--event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"',
+    '--event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"',
+    'fetch-depth: 0',
+    'ref: ${{ github.sha }}',
+  ]) {
+    assert.throws(() => validateRails(workflow.replace(command, '')));
+  }
+  assert.throws(() => validateRails(workflow.replace('on:\n', 'on:\n  paths: []\n')));
+  assert.throws(() => validateRails(workflow.replace('    name: ci\n', '    name: other\n')));
+});
+
+test('actual workflow scope forces every lane on main push', () => {
+  assert.deepEqual(
+    runScope('push', {}),
+    Object.fromEntries(scopes.map((name) => [name, 'true'])),
+  );
+});
+
+test('actual workflow scope selects both apps for root rails without production lanes', () => {
+  assert.deepEqual(
+    runScope('pull_request', { RAILS: 'true' }),
+    Object.fromEntries(
+      scopes.map((name) => [
+        name,
+        ['frontend', 'backend', 'rails'].includes(name) ? 'true' : 'false',
+      ]),
+    ),
+  );
+});
+
+test('actual workflow preserves unrelated and docs-only PR selection', () => {
+  assert.deepEqual(
+    runScope('pull_request', {}),
+    Object.fromEntries(scopes.map((name) => [name, 'false'])),
+  );
+  assert.deepEqual(
+    runScope('pull_request', { NGINX: 'true' }),
+    Object.fromEntries(scopes.map((name) => [name, name === 'nginx' ? 'true' : 'false'])),
+  );
+});
