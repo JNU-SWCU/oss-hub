@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
-    "lint": "eslint \"{src,test,prisma}/**/*.ts\" eslint.config.mjs \"eslint-rules/*.mjs\"",
+    "lint": "eslint \"{src,test,prisma}/**/*.ts\" eslint.config.mjs \"eslint-rules/*.mjs\" && dpdm --no-tree --no-progress --exit-code circular:1 --tsconfig tsconfig.json \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "pnpm run test:unit",
     "test:unit": "jest --testPathIgnorePatterns='\\.integration\\.spec\\.ts$'",
