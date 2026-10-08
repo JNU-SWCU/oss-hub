@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Mock } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -32,6 +33,8 @@ const policyResponse = {
   nextUrl: '/onboarding/role',
 } as const;
 
+type FetchCall = (target: string, init?: RequestInit) => Promise<Response>;
+
 function installDesktopViewport(): void {
   Object.defineProperty(window, 'innerWidth', {
     configurable: true,
@@ -56,18 +59,19 @@ async function flushEffects(): Promise<void> {
 
 describe('ConsentRequiredDialog', () => {
   let container: HTMLDivElement;
-  let fetchMock: ReturnType<typeof vi.fn>;
+  let fetchMock: Mock<FetchCall>;
   let root: Root;
 
   beforeEach(() => {
     vi.clearAllMocks();
     installDesktopViewport();
-    fetchMock = vi.fn(
-      async () =>
+    fetchMock = vi.fn<FetchCall>(() =>
+      Promise.resolve(
         new Response(JSON.stringify(policyResponse), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         }),
+      ),
     );
     vi.stubGlobal('fetch', fetchMock);
     container = document.createElement('div');
@@ -76,14 +80,14 @@ describe('ConsentRequiredDialog', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
     document.body.innerHTML = '';
     vi.unstubAllGlobals();
   });
 
   it('keeps policy documents in modal-safe dialog presentation at desktop width', async () => {
-    await act(async () => {
+    await act(() => {
       root.render(
         <ConsentRequiredDialog
           open
@@ -91,18 +95,21 @@ describe('ConsentRequiredDialog', () => {
           onCompleted={vi.fn()}
         />,
       );
+      return Promise.resolve();
     });
     await flushEffects();
 
     const trigger = [...document.body.querySelectorAll('button')].find(
       (button) => button.textContent?.includes('전문 보기') ?? false,
     );
-    await act(async () => trigger?.click());
+    await act(() => Promise.resolve(trigger?.click()));
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      apiPath('consents/current'),
-      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    const consentRequest = fetchMock.mock.calls.find(
+      ([target]) => target === apiPath('consents/current'),
     );
+
+    expect(consentRequest).toBeDefined();
+    expect(consentRequest?.[1]?.signal).toBeInstanceOf(AbortSignal);
     expect(trigger?.getAttribute('aria-haspopup')).toBe('dialog');
     expect(trigger?.hasAttribute('aria-expanded')).toBe(false);
     expect(document.body.innerHTML).not.toContain('min-[1280px]:flex-row');
@@ -117,7 +124,7 @@ describe('ConsentRequiredDialog', () => {
   });
 
   it('does not repeat the signup step heading inside the dialog', async () => {
-    await act(async () => {
+    await act(() => {
       root.render(
         <ConsentRequiredDialog
           open
@@ -125,6 +132,7 @@ describe('ConsentRequiredDialog', () => {
           onCompleted={vi.fn()}
         />,
       );
+      return Promise.resolve();
     });
     await flushEffects();
 

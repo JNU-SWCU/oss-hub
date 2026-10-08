@@ -84,8 +84,12 @@ test('구식 응답의 notice·period 같은 잔여 필드도 그냥 무시한�
 
 test('public commit·PR 칸은 필수다', () => {
   const base = rankingPage(2026);
-  const { commitCount: _commitCount, ...withoutCommit } = base.items[0];
-  const { pullRequestCount: _pullRequestCount, ...withoutPr } = base.items[0];
+  const withoutCommit: Partial<(typeof base.items)[number]> = {
+    ...base.items[0],
+  };
+  const withoutPr: Partial<(typeof base.items)[number]> = { ...base.items[0] };
+  delete withoutCommit.commitCount;
+  delete withoutPr.pullRequestCount;
 
   expect(() => parseRankingPage({ ...base, items: [withoutCommit] })).toThrow(
     RankingResponseError,
@@ -264,7 +268,9 @@ test('URL year 파싱과 href 생성', () => {
 });
 
 test('dataAsOf 가 없어도 파싱된다', () => {
-  const { dataAsOf: _omitted, ...withoutDataAsOf } = rankingPage(2026);
+  const withoutDataAsOf: Partial<ReturnType<typeof rankingPage>> =
+    rankingPage(2026);
+  delete withoutDataAsOf.dataAsOf;
   expect(parseRankingPage(withoutDataAsOf).dataAsOf).toBeNull();
 });
 
@@ -287,7 +293,9 @@ test('dataAsOf 가 날짜가 아니면 거부한다', () => {
 });
 
 test('viewerClass 가 없으면 거부한다', () => {
-  const { viewerClass: _omitted, ...withoutViewerClass } = rankingPage(2026);
+  const withoutViewerClass: Partial<ReturnType<typeof rankingPage>> =
+    rankingPage(2026);
+  delete withoutViewerClass.viewerClass;
   expect(() => parseRankingPage(withoutViewerClass)).toThrow(
     RankingResponseError,
   );
@@ -337,7 +345,9 @@ test('public 항목은 네 키만 남기고 staff 항목은 richer shape을 유�
 });
 
 test('nextCycleAt 이 없어도 파싱되고 null 로 떨어진다', () => {
-  const { nextCycleAt: _omitted, ...withoutNextCycleAt } = rankingPage(2026);
+  const withoutNextCycleAt: Partial<ReturnType<typeof rankingPage>> =
+    rankingPage(2026);
+  delete withoutNextCycleAt.nextCycleAt;
   expect(parseRankingPage(withoutNextCycleAt).nextCycleAt).toBeNull();
 });
 

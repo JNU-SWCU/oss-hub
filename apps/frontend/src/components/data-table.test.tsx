@@ -192,7 +192,10 @@ describe('DataTable pagination', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
   });
 
@@ -211,11 +214,11 @@ describe('DataTable pagination', () => {
       (el) => el.textContent === label,
     );
     if (!button) throw new Error(`「${label}」 버튼을 찾지 못했다`);
-    return button as HTMLButtonElement;
+    return button;
   }
 
   it('pageSize를 주지 않으면 25행이 전부 렌더되고 pagination nav도 없다', async () => {
-    await act(async () => {
+    await act(() => {
       root.render(
         <DataTable
           columns={columns}
@@ -223,6 +226,7 @@ describe('DataTable pagination', () => {
           rowKey={(row) => row.id}
         />,
       );
+      return Promise.resolve();
     });
 
     expect(bodyRowNames()).toHaveLength(25);
@@ -230,7 +234,7 @@ describe('DataTable pagination', () => {
   });
 
   it('pageSize를 주면 첫 페이지만큼만 렌더하고 페이지 라벨을 보여준다', async () => {
-    await act(async () => {
+    await act(() => {
       root.render(
         <DataTable
           columns={columns}
@@ -240,6 +244,7 @@ describe('DataTable pagination', () => {
           paginationLabel="테스트 표 페이지"
         />,
       );
+      return Promise.resolve();
     });
 
     expect(bodyRowNames()).toEqual(
@@ -252,7 +257,7 @@ describe('DataTable pagination', () => {
   });
 
   it('다음/이전 버튼으로 페이지를 옮기고 경계에서 버튼이 비활성화된다', async () => {
-    await act(async () => {
+    await act(() => {
       root.render(
         <DataTable
           columns={columns}
@@ -262,13 +267,15 @@ describe('DataTable pagination', () => {
           paginationLabel="테스트 표 페이지"
         />,
       );
+      return Promise.resolve();
     });
 
     expect(findButton('이전').disabled).toBe(true);
     expect(findButton('다음').disabled).toBe(false);
 
-    await act(async () => {
+    await act(() => {
       findButton('다음').click();
+      return Promise.resolve();
     });
     expect(container.textContent).toContain('2 / 3');
     expect(bodyRowNames()).toEqual(
@@ -276,8 +283,9 @@ describe('DataTable pagination', () => {
     );
     expect(findButton('이전').disabled).toBe(false);
 
-    await act(async () => {
+    await act(() => {
       findButton('다음').click();
+      return Promise.resolve();
     });
     expect(container.textContent).toContain('3 / 3');
 
@@ -286,14 +294,15 @@ describe('DataTable pagination', () => {
     );
     expect(findButton('다음').disabled).toBe(true);
 
-    await act(async () => {
+    await act(() => {
       findButton('이전').click();
+      return Promise.resolve();
     });
     expect(container.textContent).toContain('2 / 3');
   });
 
   it('전체 행 수가 pageSize 이하면 pagination nav를 그리지 않는다', async () => {
-    await act(async () => {
+    await act(() => {
       root.render(
         <DataTable
           columns={columns}
@@ -302,6 +311,7 @@ describe('DataTable pagination', () => {
           pageSize={10}
         />,
       );
+      return Promise.resolve();
     });
 
     expect(paginationNav()).toBeNull();
@@ -310,7 +320,7 @@ describe('DataTable pagination', () => {
   it('데이터가 줄었다 다시 늘어나도 축소 시점에 눌린 페이지를 유지한다(페이지가 튀지 않는다)', async () => {
     const shrunkRows = manyRows.slice(0, 15);
 
-    await act(async () => {
+    await act(() => {
       root.render(
         <DataTable
           columns={columns}
@@ -320,17 +330,20 @@ describe('DataTable pagination', () => {
           paginationLabel="테스트 표 페이지"
         />,
       );
+      return Promise.resolve();
     });
 
-    await act(async () => {
+    await act(() => {
       findButton('다음').click();
+      return Promise.resolve();
     });
-    await act(async () => {
+    await act(() => {
       findButton('다음').click();
+      return Promise.resolve();
     });
     expect(container.textContent).toContain('3 / 3');
 
-    await act(async () => {
+    await act(() => {
       root.render(
         <DataTable
           columns={columns}
@@ -340,10 +353,11 @@ describe('DataTable pagination', () => {
           paginationLabel="테스트 표 페이지"
         />,
       );
+      return Promise.resolve();
     });
     expect(container.textContent).toContain('2 / 2');
 
-    await act(async () => {
+    await act(() => {
       root.render(
         <DataTable
           columns={columns}
@@ -353,6 +367,7 @@ describe('DataTable pagination', () => {
           paginationLabel="테스트 표 페이지"
         />,
       );
+      return Promise.resolve();
     });
     expect(container.textContent).toContain('2 / 3');
     expect(container.textContent).not.toContain('3 / 3');
@@ -382,7 +397,10 @@ describe('DataTable row click', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     window.getSelection()?.removeAllRanges();
     container.remove();
   });
@@ -396,14 +414,15 @@ describe('DataTable row click', () => {
   }
 
   function click(target: Element): Promise<void> {
-    return act(async () => {
+    return act(() => {
       target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      return Promise.resolve();
     });
   }
 
   it('선택이 없으면 행 클릭이 onRowClick을 부른다', async () => {
     const onRowClick = vi.fn();
-    await act(async () => {
+    await act(() => {
       root.render(
         <DataTable
           columns={clickableColumns}
@@ -412,6 +431,7 @@ describe('DataTable row click', () => {
           onRowClick={onRowClick}
         />,
       );
+      return Promise.resolve();
     });
 
     expect(window.getSelection()?.isCollapsed).not.toBe(false);
@@ -423,7 +443,7 @@ describe('DataTable row click', () => {
 
   it('텍스트를 드래그로 고른 채면 행 클릭이 onRowClick을 부르지 않는다', async () => {
     const onRowClick = vi.fn();
-    await act(async () => {
+    await act(() => {
       root.render(
         <DataTable
           columns={clickableColumns}
@@ -432,6 +452,7 @@ describe('DataTable row click', () => {
           onRowClick={onRowClick}
         />,
       );
+      return Promise.resolve();
     });
 
     const nameCell = container.querySelector('tbody tr td');
@@ -450,7 +471,7 @@ describe('DataTable row click', () => {
 
   it('셀 안 링크를 클릭하면 행 클릭이 겹쳐 발화하지 않는다', async () => {
     const onRowClick = vi.fn();
-    await act(async () => {
+    await act(() => {
       root.render(
         <DataTable
           columns={clickableColumns}
@@ -459,6 +480,7 @@ describe('DataTable row click', () => {
           onRowClick={onRowClick}
         />,
       );
+      return Promise.resolve();
     });
 
     const link = container.querySelector('a');
@@ -471,7 +493,7 @@ describe('DataTable row click', () => {
 
   it('isRowClickable이 false인 행은 클릭해도 onRowClick을 부르지 않고 cursor-pointer도 없다', async () => {
     const onRowClick = vi.fn();
-    await act(async () => {
+    await act(() => {
       root.render(
         <DataTable
           columns={clickableColumns}
@@ -481,6 +503,7 @@ describe('DataTable row click', () => {
           isRowClickable={() => false}
         />,
       );
+      return Promise.resolve();
     });
 
     expect(firstRow().className).not.toContain('cursor-pointer');

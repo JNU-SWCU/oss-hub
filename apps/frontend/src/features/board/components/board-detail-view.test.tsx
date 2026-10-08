@@ -147,7 +147,7 @@ describe('BoardDetailContent', () => {
             post: {
               ...post,
               commentCount: 1,
-              comments: [post.comments[0]!],
+              comments: [post.comments[0]],
             },
           },
         })}
@@ -167,7 +167,7 @@ describe('BoardDetailContent', () => {
             post: {
               ...post,
               commentCount: 1,
-              comments: [post.comments[1]!],
+              comments: [post.comments[1]],
             },
           },
         })}
@@ -241,7 +241,7 @@ describe('BoardDetailContent', () => {
               ...post,
               canEdit: true,
               canDelete: true,
-              comments: [{ ...post.comments[1]!, canDelete: true }],
+              comments: [{ ...post.comments[1], canDelete: true }],
             },
           },
         })}
@@ -262,7 +262,7 @@ describe('BoardDetailContent', () => {
               ...post,
               canEdit: false,
               canDelete: true,
-              comments: [{ ...post.comments[0]!, canDelete: true }],
+              comments: [{ ...post.comments[0], canDelete: true }],
             },
           },
         })}
@@ -432,7 +432,7 @@ describe('BoardDetailContent', () => {
               ...post,
               body: UNBROKEN_POST_BODY,
               commentCount: 1,
-              comments: [{ ...post.comments[0]!, body: UNBROKEN_COMMENT_BODY }],
+              comments: [{ ...post.comments[0], body: UNBROKEN_COMMENT_BODY }],
             },
           },
         })}
@@ -452,7 +452,7 @@ describe('BoardDetailContent', () => {
       <BoardDetailContent {...baseProps({ state: { kind: 'ready', post } })} />,
     );
     const bodyClasses = classesWrapping(html, post.body);
-    const commentClasses = classesWrapping(html, post.comments[0]!.body);
+    const commentClasses = classesWrapping(html, post.comments[0].body);
 
     expect(html).toContain(post.body);
 
