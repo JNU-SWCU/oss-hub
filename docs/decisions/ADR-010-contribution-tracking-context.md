@@ -19,6 +19,9 @@ refines:
 
 Accepted
 
+2026-10-08 개정으로 §7의 Port·주입 키 정책은 폐지하고 §8의 계층 규약은 [ADR-003](ADR-003-backend-architecture.md)의 §10으로 통합한다.
+기여 추적 데이터원에 대한 이 ADR의 나머지 결정은 유지하며 구조 결정의 승인이 전체 코드 이행 완료를 뜻하지는 않는다.
+
 > **2026-08-12 amendment**: `#617` 단계 D에서 `Repository`가 `GithubRepository`로 통합되어, 이 문서에서 `Repository`를 별개 프로비저닝 테이블로 서술하는 부분(§6 등)은 현재 `GithubRepository`의 `applicationId`/`programId`/`teamId`/`publishedAt` 컬럼을 가리킨다. 결정 기록 보존을 위해 본문은 그대로 두고 이 노트만 추가한다.
 
 > **2026-08-19 amendment — 두 축이 각자 획득을 갖는다.** 아래 §1~§4의 본문은 두 화면이 같은 `Contribution` 한 장을 나눠 읽던 시기의 기록이다. 그 서술을 지우지 않고, 지금 확정된 형태를 이 노트에 덧붙인다. 자세한 내용은 아래 **[2026-08-19 개정 노트](#2026-08-19-개정-노트--두-축-획득과-랭킹-5종-지표)** 절에 있다.
@@ -134,37 +137,19 @@ Accepted
 > sweep이 같은 scope lease를 이미 쥐고 있어도 이 즉시 수집은 물러난다.
 > 이런 skip과 저장·실행 사이 프로세스 재시작에서는 위 문단이 말하는 다음 인벤토리 관측(다음 정기 sweep)이 여전히 수집을 채운다.
 
-### 7. `github/`가 밖으로 여는 기여 추적 port는 3개다
+### 7. Port·주입 키 정책 폐지
 
-기여 집계 / 공개 자격 / 건강. 질문의 종류도, 변하는 주기도, 보는 사람도 셋이다.
-
-**프로비저닝 port(`REPOSITORIES_READ_PORT`)는 별도 등재한다.** 답하는 질문이 "내 저장소 준비됐나"이고 신청 직후 몇 분 동안만 바뀌며 학생 본인만 본다 — 기여 추적 셋과 다른 종류다. `ADR-003` DEC-42의 "새 Port를 만들지 않는다"는 이 ADR로 개정된다.
-
-port는 entity가 아니라 결과 타입을 돌려준다. `nextRunAt`·`failureCount`가 밖으로 새지 않는다.
-
-> **2026-09-24 amendment (#1133).**
-> `github/`가 밖으로 여는 port가 하나 늘었다.
-> 기여 추적 셋·프로비저닝 하나에 이어 `COLLECTION_TRIGGER_PORT`(`apps/backend/src/github/collection-trigger.port.ts`)가 추가됐다.
-> 이 port는 질문에 답하지 않고 명령만 받는다 — `applications` 도메인이 저장소 URL 연결 직후 "이 저장소를 지금 수집해라"만 던지고 결과를 기다리지 않는다.
-> `CollectionModule`이 `CollectionSchedulerService`를 이 port로 내보내고 `StudentRepositoryUrlService`가 유일한 호출자다.
-> 프로비저닝 port와 마찬가지로 기여 추적 셋에는 넣지 않는다 — 질문의 종류(집계·자격·건강이 아니라 트리거)도 응답 모양(결과 타입이 아니라 없음)도 다르다.
+이 절의 Port 개수와 별칭 주입 키 정책은 2026-10-08부로 폐지한다.
+현재 규범은 [ADR-003](ADR-003-backend-architecture.md) §10.1·§10.2이며 이 문서에 중복 정의하지 않는다.
+기여 집계·공개 자격·건강·프로비저닝·수집 트리거라는 업무 질문의 구분은 유지하지만 그 구분이 각각 별칭 Port를 요구하지는 않는다.
+결과 타입과 내부 영속성 상태를 구분하는 책임도 그대로 유지한다.
+아래 Changelog의 과거 Port 이름은 결정 이력이며 현행 export·주입 키 목록이 아니다.
 
 ### 8. 폴더는 Domain-first + Layered다
 
-최상위는 업무 도메인이고 그 안에 `controller/ service/ repository/ domain/ dto/` 계층을 둔다. 의존은 `Controller → Service → Repository → Prisma` 단방향이다.
-
-리뷰에서 확인하는 것은 넷이다.
-
-```
-Controller가 Prisma를 직접 부르는가?      → X
-Controller에 비즈니스 로직이 있는가?      → X
-Service에 Prisma query가 직접 들어가는가? → X
-Repository가 비즈니스 의사결정을 하는가?  → X
-```
-
-**빈 폴더를 강제하지 않는다.** 규칙은 "존재하는 폴더는 허용된 이름만"이며 필요해질 때 세분화한다. `entities/`·`aggregates/`·`value-objects/`·`ports/`·`adapters/`를 처음부터 만들지 않는다.
-
-이번 적용 범위는 `github`·`ranking`·`programs` 세 도메인이다. 나머지는 규약 문서화로 유도한다.
+Domain-first + Layered 결정은 유지하고 닫힌 폴더 집합·import 표·DB 접근·인증·권한 경계의 원본은 [ADR-003](ADR-003-backend-architecture.md) §10으로 통합한다.
+과거 세 도메인에 한정했던 적용 범위는 ADR-003의 backend 전체 목표 규약으로 대체한다.
+모듈별 실제 이행과 검증 상태는 연결된 Issue·PR에서 관리한다.
 
 ### 9. 쓰기는 전량 재계산이며 집합 SQL 한 문으로 접는다
 
@@ -300,6 +285,9 @@ webhook 기반 실시간을 만들지 않는다(`ADR-006` 이벤트 최소주의
 
 ## Changelog
 
+- 2026-10-08: §7의 Port·별칭 주입 키 정책을 폐지하고 §8의 계층 규약을 ADR-003 §10으로 통합했다.
+  이전 `REPOSITORIES_READ_PORT`·`COLLECTION_TRIGGER_PORT` 및 기여 추적 Port 개수 규칙은 이력으로만 남기며 업무 질문과 수집 동작의 의미는 바꾸지 않는다.
+  구조 결정의 승인과 전체 코드 이행 완료는 구분한다.
 - 2026-09-24: §4 개정 노트에 issue만 연 사람의 표시 규칙을 더했다 — `issueCount`를 보이지 않는 사람 목록은 읽는 범위(프로그램 기간·누적)의 commit·PR·release 합이 0인 사람을 올리지 않는다(#1133).
 - 2026-09-24: §4에 `Contribution.issueCount` 개정 노트를 덧붙였다(기존 본문 삭제 없음). 저장소 축 issue 수집(#1133)의 저장 칸이며, 합계 정의는 바꾸지 않았다.
 - 2026-09-24: #1133 PR2(저장소 URL 링크 직후 수집)가 §6·§7·§10 일부를 낡게 만들어 각 절에 날짜 amendment를 덧붙였다(기존 본문 삭제 없음).
