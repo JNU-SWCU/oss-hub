@@ -7,10 +7,8 @@ import { RepositoryProvisionWorker } from '../../src/github/repository-provision
 import { MilestoneDocumentCurrentFileService } from '../../src/milestone-documents/milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from '../../src/milestone-documents/milestone-document-files.service';
 import { MilestoneDocumentsService } from '../../src/milestone-documents/milestone-documents.service';
-import {
-  DeadlineDigestService,
-  type DeadlineDigestSendRequest,
-} from '../../src/notifications/deadline-digest.service';
+import { DeadlineDigestService } from '../../src/notifications/service/deadline-digest.service';
+import type { DeadlineDigestSendRequest } from '../../src/notifications/domain/deadline-digest';
 import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
 import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';
