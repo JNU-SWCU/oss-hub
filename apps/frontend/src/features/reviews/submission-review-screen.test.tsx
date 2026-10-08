@@ -62,9 +62,10 @@ function currentProps(): SubmissionReviewViewProps {
 let root: Root;
 let container: HTMLDivElement;
 async function renderReadyScreen(): Promise<void> {
-  await act(async () =>
-    root.render(<SubmissionReviewScreen submissionId="submission-existing" />),
-  );
+  await act(() => {
+    root.render(<SubmissionReviewScreen submissionId="submission-existing" />);
+    return Promise.resolve();
+  });
 }
 
 beforeEach(() => {
@@ -78,7 +79,7 @@ beforeEach(() => {
   vi.mocked(publishRepository).mockReset();
 });
 afterEach(async () => {
-  await act(async () => root.unmount());
+  await act(() => Promise.resolve(root.unmount()));
   container.remove();
   vi.unstubAllGlobals();
 });
@@ -87,12 +88,16 @@ describe('SubmissionReviewScreen 실패 안내 (#354)', () => {
   it('판정 저장 실패 안내는 입력이 남아 있다는 사실을 알려주고 실제로도 남긴다', async () => {
     vi.mocked(createReview).mockRejectedValue(new Error('network down'));
     await renderReadyScreen();
-    await act(async () => currentProps().onDecisionChange('CHANGES_REQUESTED'));
-    await act(async () =>
-      currentProps().onCommentChange('실행 화면 캡처를 추가해 주세요.'),
+    await act(() =>
+      Promise.resolve(currentProps().onDecisionChange('CHANGES_REQUESTED')),
+    );
+    await act(() =>
+      Promise.resolve(
+        currentProps().onCommentChange('실행 화면 캡처를 추가해 주세요.'),
+      ),
     );
 
-    await act(async () => currentProps().onSave());
+    await act(() => Promise.resolve(currentProps().onSave()));
 
     const props = currentProps();
     expect(props.formError).toBe(
@@ -108,7 +113,7 @@ describe('SubmissionReviewScreen 실패 안내 (#354)', () => {
     vi.mocked(publishRepository).mockRejectedValue(new Error('network down'));
     await renderReadyScreen();
 
-    await act(async () => currentProps().onPublish());
+    await act(() => Promise.resolve(currentProps().onPublish()));
 
     const message = currentProps().publishError ?? '';
     expect(message).toContain('현재 공개 상태를 확인한 뒤 다시 시도해 주세요');
@@ -122,15 +127,15 @@ it('a callback for an older revision cannot open a newer submission', async () =
     ...CONTEXT,
     currentRevision: { ...CONTEXT.currentRevision, number: 3 },
   });
-  await act(async () => window.dispatchEvent(new Event('focus')));
+  await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
   const openThird = currentProps().onOpenLatestRevision;
   expect(currentProps().needsLatestRevision).toBe(true);
   vi.mocked(getReviewContext).mockResolvedValue({
     ...CONTEXT,
     currentRevision: { ...CONTEXT.currentRevision, number: 4 },
   });
-  await act(async () => window.dispatchEvent(new Event('focus')));
-  await act(async () => openThird?.());
+  await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
+  await act(() => Promise.resolve(openThird?.()));
   expect(currentProps().needsLatestRevision).toBe(true);
   expect(currentProps().decision).toBe('');
 });

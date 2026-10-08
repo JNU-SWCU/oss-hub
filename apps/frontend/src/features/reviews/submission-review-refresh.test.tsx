@@ -33,12 +33,12 @@ describe('review background refresh', () => {
     comment.setSelectionRange(3, 5);
     const pending = deferred<ReviewContext>();
     vi.mocked(getReviewContext).mockReturnValueOnce(pending.promise);
-    await act(async () => window.dispatchEvent(new Event('focus')));
+    await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
     expect(screen.comment()).toBe(comment);
     expect(document.activeElement).toBe(comment);
     expect(comment.selectionStart).toBe(3);
     expect(comment.selectionEnd).toBe(5);
-    await act(async () => pending.reject(new Error('network down')));
+    await act(() => Promise.resolve(pending.reject(new Error('network down'))));
     expect(screen.comment()).toBe(comment);
     expect(comment.value).toBe('선택 위치를 유지할 의견');
     expect(screen.container.textContent).toContain(
@@ -53,13 +53,15 @@ describe('review background refresh', () => {
     vi.mocked(getReviewContext)
       .mockReturnValueOnce(earlier.promise)
       .mockReturnValueOnce(later.promise);
-    await act(async () => window.dispatchEvent(new Event('focus')));
-    await act(async () => window.dispatchEvent(new Event('focus')));
-    await act(async () => later.resolve(context(3)));
-    await act(async () => earlier.resolve(context(2)));
+    await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
+    await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
+    await act(() => Promise.resolve(later.resolve(context(3))));
+    await act(() => Promise.resolve(earlier.resolve(context(2))));
     expect(screen.button('최신 제출본 3번 열기')).toBeDefined();
     expect(screen.radio().disabled).toBe(true);
-    await act(async () => screen.button('최신 제출본 3번 열기').click());
+    await act(() =>
+      Promise.resolve(screen.button('최신 제출본 3번 열기').click()),
+    );
     const target = screen.container.querySelector(
       '[aria-label="검토 대상 제출본"]',
     );
@@ -75,21 +77,21 @@ describe('review background refresh', () => {
       .mockReturnValue('visible');
     await screen.render();
     expect(getReviewContext).toHaveBeenCalledTimes(1);
-    await act(async () => vi.advanceTimersByTime(29_999));
+    await act(() => Promise.resolve(vi.advanceTimersByTime(29_999)));
     expect(getReviewContext).toHaveBeenCalledTimes(1);
-    await act(async () => vi.advanceTimersByTime(1));
+    await act(() => Promise.resolve(vi.advanceTimersByTime(1)));
     expect(getReviewContext).toHaveBeenCalledTimes(2);
     visibility.mockReturnValue('hidden');
-    await act(async () => vi.advanceTimersByTime(30_000));
+    await act(() => Promise.resolve(vi.advanceTimersByTime(30_000)));
     expect(getReviewContext).toHaveBeenCalledTimes(2);
     visibility.mockReturnValue('visible');
-    await act(async () =>
-      document.dispatchEvent(new Event('visibilitychange')),
+    await act(() =>
+      Promise.resolve(document.dispatchEvent(new Event('visibilitychange'))),
     );
     expect(getReviewContext).toHaveBeenCalledTimes(3);
     await screen.cleanup();
     expect(vi.getTimerCount()).toBe(0);
-    await act(async () => window.dispatchEvent(new Event('focus')));
+    await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
     expect(getReviewContext).toHaveBeenCalledTimes(3);
     screen = reviewScreen();
   });
@@ -97,7 +99,7 @@ describe('review background refresh', () => {
   it('retains the conflict gate and comment if reloading after conflict fails', async () => {
     const { ApiError } = await import('@/lib/api-client');
     await screen.render();
-    await act(async () => screen.radio().click());
+    await act(() => Promise.resolve(screen.radio().click()));
     await screen.writeComment('유지할 검토 의견');
     vi.mocked(createReview).mockRejectedValue(
       new ApiError({
@@ -112,7 +114,7 @@ describe('review background refresh', () => {
     vi.mocked(getReviewContext).mockRejectedValueOnce(
       new Error('network down'),
     );
-    await act(async () => screen.button('저장').click());
+    await act(() => Promise.resolve(screen.button('저장').click()));
     expect(screen.comment().value).toBe('유지할 검토 의견');
     expect(screen.radio().disabled).toBe(true);
     expect(screen.button('저장').disabled).toBe(true);
@@ -120,7 +122,7 @@ describe('review background refresh', () => {
       '새 제출본을 올려 최신 내용을 다시 불러왔습니다',
     );
     vi.mocked(getReviewContext).mockResolvedValue(context(2));
-    await act(async () => screen.button('최신 제출본 확인').click());
+    await act(() => Promise.resolve(screen.button('최신 제출본 확인').click()));
     expect(screen.button('최신 제출본 2번 열기')).toBeDefined();
     expect(screen.radio().disabled).toBe(true);
   });

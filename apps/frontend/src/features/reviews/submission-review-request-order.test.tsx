@@ -27,11 +27,13 @@ describe('review request ordering', () => {
   it('does not restore an older server revision from the newest request', async () => {
     await screen.render();
     vi.mocked(getReviewContext).mockResolvedValue(context(3));
-    await act(async () => window.dispatchEvent(new Event('focus')));
-    await act(async () => screen.button('최신 제출본 3번 열기').click());
-    await act(async () => screen.radio().click());
+    await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
+    await act(() =>
+      Promise.resolve(screen.button('최신 제출본 3번 열기').click()),
+    );
+    await act(() => Promise.resolve(screen.radio().click()));
     vi.mocked(getReviewContext).mockResolvedValue(context(2));
-    await act(async () => window.dispatchEvent(new Event('focus')));
+    await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
     expect(screen.container.textContent).toContain('제출 글 3');
     expect(screen.container.textContent).not.toContain('제출 글 2');
     expect(screen.radio().checked).toBe(true);
@@ -39,27 +41,30 @@ describe('review request ordering', () => {
   });
   it('does not start a duplicate save or a focus refresh while saving', async () => {
     await screen.render();
-    await act(async () => screen.radio().click());
+    await act(() => Promise.resolve(screen.radio().click()));
     const pending = deferred<CreateReviewResponse>();
     vi.mocked(createReview).mockReturnValueOnce(pending.promise);
-    await act(async () => {
+    await act(() => {
       screen.button('저장').click();
       screen.button('저장').click();
       window.dispatchEvent(new Event('focus'));
+      return Promise.resolve();
     });
     expect(createReview).toHaveBeenCalledTimes(1);
     expect(getReviewContext).toHaveBeenCalledTimes(1);
-    await act(async () => pending.reject(new Error('network down')));
+    await act(() => Promise.resolve(pending.reject(new Error('network down'))));
     expect(screen.radio().checked).toBe(true);
     expect(screen.button('저장').disabled).toBe(false);
   });
   it('keeps the opened submission and verdict on refresh of the same revision', async () => {
     await screen.render();
     vi.mocked(getReviewContext).mockResolvedValue(context(2));
-    await act(async () => window.dispatchEvent(new Event('focus')));
-    await act(async () => screen.button('최신 제출본 2번 열기').click());
-    await act(async () => screen.radio().click());
-    await act(async () => window.dispatchEvent(new Event('focus')));
+    await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
+    await act(() =>
+      Promise.resolve(screen.button('최신 제출본 2번 열기').click()),
+    );
+    await act(() => Promise.resolve(screen.radio().click()));
+    await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
     expect(screen.radio().checked).toBe(true);
     expect(screen.radio().disabled).toBe(false);
     expect(screen.container.textContent).toContain('제출 글 2');
@@ -71,9 +76,11 @@ describe('review request ordering', () => {
     vi.mocked(getReviewContext)
       .mockReturnValueOnce(earlier.promise)
       .mockResolvedValueOnce(context(2));
-    await act(async () => window.dispatchEvent(new Event('focus')));
-    await act(async () => window.dispatchEvent(new Event('focus')));
-    await act(async () => earlier.reject(new Error('old request failed')));
+    await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
+    await act(() => Promise.resolve(window.dispatchEvent(new Event('focus'))));
+    await act(() =>
+      Promise.resolve(earlier.reject(new Error('old request failed'))),
+    );
     expect(screen.button('최신 제출본 2번 열기')).toBeDefined();
     expect(screen.container.textContent).not.toContain(
       '제출 검토 정보를 불러오지 못했습니다.',
@@ -81,7 +88,7 @@ describe('review request ordering', () => {
   });
   it('shows the current result when another reviewer already completed the review', async () => {
     await screen.render();
-    await act(async () => screen.radio().click());
+    await act(() => Promise.resolve(screen.radio().click()));
     vi.mocked(createReview).mockRejectedValue(
       new ApiError({
         type: 'about:blank',
@@ -105,7 +112,7 @@ describe('review request ordering', () => {
         },
       },
     });
-    await act(async () => screen.button('저장').click());
+    await act(() => Promise.resolve(screen.button('저장').click()));
     expect(screen.container.querySelector('textarea')).toBeNull();
     expect(screen.container.textContent).toContain(
       '확인할 내용을 추가해 주세요.',

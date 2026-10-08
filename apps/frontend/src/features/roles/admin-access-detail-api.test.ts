@@ -195,18 +195,18 @@ describe('loadAdminAccessDetail — 상세·이력 병렬 조회와 404 판별',
   });
 
   it('상세·요청 이력·로그인 이력을 병렬로 조회하고 첫 페이지·기본 한도만 요청한다', async () => {
-    vi.mocked(apiClient).mockImplementation(async (path: string) => {
-      if (path === 'users/target/access') return detail();
+    vi.mocked(apiClient).mockImplementation((path: string) => {
+      if (path === 'users/target/access') return Promise.resolve(detail());
       if (
         path ===
         `users/target/access/history?staffAccessRequestPage=1&staffAccessRequestLimit=${ADMIN_ACCESS_DETAIL_HISTORY_LIMIT}&loginPage=1&loginLimit=${ADMIN_ACCESS_DETAIL_HISTORY_LIMIT}`
       ) {
-        return {
+        return Promise.resolve({
           staffAccessRequests: historyPage(),
           loginHistory: historyPage(),
-        };
+        });
       }
-      throw new Error(`unexpected path: ${path}`);
+      return Promise.reject(new Error(`unexpected path: ${path}`));
     });
 
     const result = await loadAdminAccessDetail('target');

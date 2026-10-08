@@ -233,7 +233,7 @@ describe('관리자 접근 통합 API 클라이언트', () => {
 
       const body = JSON.parse(
         vi.mocked(apiClient).mock.calls[0][1]?.body as string,
-      );
+      ) as Record<string, unknown>;
       expect(body).toEqual({
         expectedRole: 'STUDENT',
         desiredRole: null,
@@ -349,11 +349,12 @@ describe('관리자 접근 통합 API 클라이언트', () => {
       ['null', { createdAt: null }],
       ['malformed', { createdAt: '2026-07-29' }],
     ] as const)('목록 항목의 createdAt이 %s이면 던진다', (_label, patch) => {
-      const { createdAt: _createdAt, ...withoutCreatedAt } = listItem();
-      const item =
-        patch.createdAt === undefined
-          ? withoutCreatedAt
-          : { ...listItem(), createdAt: patch.createdAt };
+      const item: Record<string, unknown> = { ...listItem() };
+      if (patch.createdAt === undefined) {
+        delete item.createdAt;
+      } else {
+        item.createdAt = patch.createdAt;
+      }
       expect(() =>
         parseAdminAccessListPage({
           items: [item],
@@ -406,13 +407,17 @@ describe('관리자 접근 통합 API 클라이언트', () => {
   });
 
   describe('409 CAS 충돌의 authoritative projection 파싱', () => {
-    const conflictProblem = {
+    const conflictWithoutProjection = {
       type: 'about:blank',
       title: 'CONFLICT',
       status: 409,
       detail: '사용자 접근 상태가 조회 당시와 달라졌습니다.',
       instance: '/users/target/access',
       code: 'ROL_013',
+    };
+
+    const conflictProblem = {
+      ...conflictWithoutProjection,
       currentAccess: {
         id: 'target',
         role: 'STAFF',
@@ -452,9 +457,10 @@ describe('관리자 접근 통합 API 클라이언트', () => {
     });
 
     it('currentAccess가 아예 없으면 던진다', () => {
-      const { currentAccess: _drop, ...withoutCurrentAccess } = conflictProblem;
       expect(() =>
-        parseAdminAccessConflictProjection(new ApiError(withoutCurrentAccess)),
+        parseAdminAccessConflictProjection(
+          new ApiError(conflictWithoutProjection),
+        ),
       ).toThrow(AdminAccessResponseError);
     });
   });
