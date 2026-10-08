@@ -312,10 +312,6 @@ export function evaluateRatchet({
     return { mode: 'retired', entries: actual, shards: new Map() };
   }
   validateLive(root, new Map(), actual, allowedRuleIds);
-  for (const entry of head.values()) {
-    if (!allowedRuleIds[entry.file.split('/')[1]]?.has(entry.ruleId))
-      fail('rule-not-allowed', entry.ruleId);
-  }
   requireSubset(actual, head, 'unlisted-diagnostic');
   if (!prune || mode === 'seed') {
     validateLive(root, headShards, head, allowedRuleIds);
