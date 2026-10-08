@@ -119,7 +119,10 @@ describe('parseAuditLogPage', () => {
   });
 
   it('page 최상위 객체에 필수 키가 없으면 거부한다', () => {
-    const { limit: _limit, ...withoutLimit } = AUDIT_LOG_PAGE_RESPONSE_FIXTURE;
+    const withoutLimit: Record<string, unknown> = {
+      ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
+    };
+    delete withoutLimit.limit;
     expect(() => parseAuditLogPage(withoutLimit)).toThrow(
       AuditLogResponseError,
     );
@@ -147,8 +150,10 @@ describe('parseAuditLogPage', () => {
   });
 
   it('행 하나에 필수 키가 없으면 거부한다', () => {
-    const { target: _target, ...withoutTarget } =
-      AUDIT_LOG_ACCESS_RECORD_FIXTURE;
+    const withoutTarget: Record<string, unknown> = {
+      ...AUDIT_LOG_ACCESS_RECORD_FIXTURE,
+    };
+    delete withoutTarget.target;
     expect(() =>
       parseAuditLogPage({
         ...AUDIT_LOG_PAGE_RESPONSE_FIXTURE,
@@ -159,11 +164,11 @@ describe('parseAuditLogPage', () => {
 
   it('화면 DTO만 있는 행(legacy·metadata 없음)은 거절하고 private metadata는 투영하지 않는다', () => {
     const secret = 'synthetic-secret-audit-metadata';
-    const {
-      legacy: _legacy,
-      metadata: _metadata,
-      ...screenDtoOnly
-    } = AUDIT_LOG_ACCESS_RECORD_FIXTURE;
+    const screenDtoOnly: Record<string, unknown> = {
+      ...AUDIT_LOG_ACCESS_RECORD_FIXTURE,
+    };
+    delete screenDtoOnly.legacy;
+    delete screenDtoOnly.metadata;
 
     expect(() =>
       parseAuditLogPage({

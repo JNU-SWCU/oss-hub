@@ -28,7 +28,7 @@ function readPalette(source: string): Map<string, string> {
   const palette = new Map<string, string>();
   const pattern = /(--palette-[\w-]+):\s*(#[0-9a-fA-F]{6})\s*;/g;
   for (const match of stripComments(source).matchAll(pattern)) {
-    palette.set(match[1]!, match[2]!);
+    palette.set(match[1], match[2]);
   }
   return palette;
 }
@@ -52,7 +52,7 @@ function findDeclaration(selector: string, token: string): string | null {
       clean.slice(blockStart, blockEnd === -1 ? undefined : blockEnd),
     );
     if (match) {
-      return match[1]!.trim();
+      return match[1].trim();
     }
     searchFrom = blockEnd === -1 ? clean.length : blockEnd + 1;
   }
@@ -79,7 +79,7 @@ function resolveInvertedHex(token: string, seen: string[] = []): string {
     if (!reference) {
       throw new Error(`${token}의 값 "${value}"을 hex로 풀지 못했습니다`);
     }
-    return resolveInvertedHex(reference[1]!, [...seen, token]);
+    return resolveInvertedHex(reference[1], [...seen, token]);
   }
   throw new Error(`반전 스코프에서 ${token} 선언을 찾지 못했습니다`);
 }
@@ -98,14 +98,14 @@ function relativeLuminance(hex: string): number {
       ? ratio / 12.92
       : Math.pow((ratio + 0.055) / 1.055, 2.4);
   });
-  return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
 }
 
 function contrast(a: string, b: string): number {
   const [high, low] = [relativeLuminance(a), relativeLuminance(b)].sort(
     (x, y) => y - x,
   );
-  return (high! + 0.05) / (low! + 0.05);
+  return (high + 0.05) / (low + 0.05);
 }
 
 function tokenOfUtility(utility: string): string {
@@ -115,9 +115,7 @@ function tokenOfUtility(utility: string): string {
 function classNameOf(tag: string): string {
   const grouped = /className=\{cn\(([\s\S]*?)\)\}/.exec(tag);
   if (grouped) {
-    const parts = [...grouped[1]!.matchAll(/'([^']+)'/g)].map(
-      (part) => part[1]!,
-    );
+    const parts = [...grouped[1].matchAll(/'([^']+)'/g)].map((part) => part[1]);
     if (parts.length === 0) {
       throw new Error('<Select>의 className 묶음이 비어 있습니다');
     }
@@ -154,7 +152,7 @@ const selects = readSelects();
 
 function closedControlToken(selectClassName: string): string {
   const override = /(?:^|\s)text-([\w-]+)/.exec(selectClassName);
-  return override ? tokenOfUtility(`text-${override[1]!}`) : '--foreground';
+  return override ? tokenOfUtility(`text-${override[1]}`) : '--foreground';
 }
 
 function optionHex(
@@ -174,11 +172,11 @@ function optionHex(
   return {
     text: resolveInvertedHex(
       text
-        ? tokenOfUtility(`text-${text[1]!}`)
+        ? tokenOfUtility(`text-${text[1]}`)
         : closedControlToken(selectClassName),
     ),
     background: resolveInvertedHex(
-      background ? tokenOfUtility(`bg-${background[1]!}`) : CANVAS_PALETTE,
+      background ? tokenOfUtility(`bg-${background[1]}`) : CANVAS_PALETTE,
     ),
   };
 }
