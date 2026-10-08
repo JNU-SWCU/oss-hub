@@ -220,7 +220,7 @@ try {
         'architecture/no-cycle',
         JSON.stringify(diagnostic),
       );
-      assert.match(diagnostic.target, /^cycle_[a-f0-9]{64}:/);
+      assert.match(diagnostic.target, /^cycle_(?:[a-f0-9]{8}-){7}[a-f0-9]{8}:/);
     }
     if (expectedError) {
       assert.equal(result.status, 1, result.stderr);
@@ -907,6 +907,30 @@ test('baseline symlinks are refused rather than read outside the checkout', asyn
   );
   repo.commit();
   await assert.rejects(repo.run(repo.base, []), /baseline-schema/);
+});
+
+test('identity digests never form long digit runs that public-safe treats as personal data', () => {
+  const digest =
+    'a2af923cb93c643d28d84051d206061416b357264e681c4261a601eba17edce6';
+  const identity = diagnosticIdentity(
+    '/synthetic',
+    { filePath: '/synthetic/apps/backend/src/sample/example.js' },
+    {
+      ruleId: 'architecture/no-cycle',
+      messageId: `cycle_${digest}`,
+      nodeType: null,
+      line: 1,
+      column: 1,
+      endLine: 1,
+      endColumn: 1,
+    },
+    'debugger;\n',
+  );
+  assert.ok(
+    identity.target.startsWith(`cycle_${digest.match(/.{8}/g).join('-')}:`),
+  );
+  assert.doesNotMatch(identity.target, /[0-9]{9}/);
+  assert.doesNotMatch(identity.target, /[0-9a-f]{9}/);
 });
 
 test('identity ignores line movement but distinguishes the offending source target', () => {

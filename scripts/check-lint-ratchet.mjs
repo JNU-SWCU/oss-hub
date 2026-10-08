@@ -402,8 +402,16 @@ export function diagnosticIdentity(root, result, message, source) {
   return {
     file,
     ruleId: message.ruleId,
-    target: `${message.messageId ?? message.ruleId}:${message.nodeType ?? 'file'}:${createHash('sha256').update(target).digest('hex')}`,
+    target: groupDigests(
+      `${message.messageId ?? message.ruleId}:${message.nodeType ?? 'file'}:${createHash('sha256').update(target).digest('hex')}`,
+    ),
   };
+}
+
+function groupDigests(value) {
+  return value.replace(/[0-9a-f]{64}/g, (digest) =>
+    digest.match(/.{8}/g).join('-'),
+  );
 }
 
 export async function collectDiagnostics(root) {
