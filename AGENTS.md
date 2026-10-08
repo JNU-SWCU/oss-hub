@@ -82,9 +82,6 @@ frontend·backend 애플리케이션은 호스트에서 hot reload로 실행하�
 
 Ownership과 협업 규칙:
 
-- feature code는 owner 전속이다.
-  owner는 nearest `AGENTS.md`와 GitHub Issue에서 확인하고 non-owner는 Issue/PR comment로 제안한다.
-- @GoBeromsu와 @Lumiere001은 ADR-005의 repository-wide free-role 예외다.
 - shared lib·설정·CI는 착수 전 Issue로 선점하고 독립 소형 PR로 다룬다.
   DB migration PR은 동시에 진행하지 않는다.
 - PR은 Ready로 열며 stack 하위 PR만 base가 미병합 상위 branch인 동안 Draft를 허용한다.
