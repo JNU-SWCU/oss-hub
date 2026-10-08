@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | 읽기 전용 분석·설명 | 없음. 이 문서와 [AGENTS.md](../../AGENTS.md)만 읽는다 | craft 갱신, 훅 설치, open PR 조회, 인터뷰 |
 | 기획·문서 초안(구현 없음) | 표에 해당 행이 있을 때만 | 구현 스킬, craft 갱신, 실행 레인 |
-| 코드·설정 구현 | 표의 frontend/backend/design/testing/db/api/cicd/programming/refactor/debug/research/init | 미해당 스킬 전수 열람. 훅·open PR은 [AGENTS.md Development Commands](../../AGENTS.md#development-commands) |
+| 코드·설정 구현 | 표의 principle-frontend/principle-backend/design/principle-testing/db/api/cicd/principle-programming/refactor/debug/research/init | 미해당 스킬 전수 열람. 훅·open PR은 [AGENTS.md Development Commands](../../AGENTS.md#development-commands) |
 | 실행 중 화면 확인 | craft `browser` | Playwright 회귀 대체. 사용자가 명시한 브라우저 도구를 다른 도구로 교체 |
 | 릴리스 QA 실행 | `run-release-qa` | 범위 선언 전의 환경 준비. report-only는 도구 설치·서비스 기동·스위트 실행 |
 | QA 티켓 발행 | `manage-qa-tickets` | 발행 승인 없는 GitHub Issue 쓰기 |
@@ -26,21 +26,23 @@
 | PR·Issue 코멘트·리뷰 답글·UX 제안 | `write-github-comment` | repo `skills/write-github-comment` | 그 스킬이 네 코멘트 템플릿(지적·답글·UX 제안·진행)의 원본이고, 가독성은 [readability.md](../../skills/submit-pr-evidence/references/readability.md)를 따른다 |
 | 역할별 사용 핸드북 작성·갱신 | `build-oss-hub-handbook` | repo `skills/build-oss-hub-handbook` | 핸드북 품질 기준은 그 스킬의 `references/quality-checklist.md`가 원본이다 |
 | 릴리스 후보 QA | `run-release-qa` | repo `skills/run-release-qa` | 출시 판정은 그 스킬이 원본이고 시나리오 목록은 [qa-scenarios.md](../../skills/run-release-qa/references/qa-scenarios.md)가 원본이다. 범위(report-only/재검증/delta/전수)를 환경 준비보다 먼저 고른다 |
-| frontend 코드 구현 | craft `frontend` | 외부 플러그인 | [frontend.md](frontend.md)가 feature 폴더 경계·단일 API 클라이언트의 원본 |
-| backend 코드 구현 | craft `backend` | 외부 플러그인 | [ADR-003](../decisions/ADR-003-backend-architecture.md)과 `apps/backend/src/AGENTS.md`가 계층 경계의 원본 |
+| frontend 코드 구현 | craft `principle-frontend` | 외부 플러그인 | [frontend.md](frontend.md)가 feature 폴더 경계·단일 API 클라이언트의 원본 |
+| backend 코드 구현 | craft `principle-backend` | 외부 플러그인 | [ADR-003](../decisions/ADR-003-backend-architecture.md)과 `apps/backend/src/AGENTS.md`가 계층 경계의 원본 |
 | 화면 디자인 판단·토큰 | craft `design` | 외부 플러그인 | [docs/design.md](../design.md)가 색·타이포·토큰 3-tier·컴포넌트 소유권·composition/상태/피드백/다이얼로그/테스트 데이터 계약의 원본 |
-| 테스트 스위트 구조 | craft `testing` | 외부 플러그인 | [ci-path-verification.md](ci-path-verification.md)가 경로별 검증 명령의 원본 |
+| 테스트 스위트 구조 | craft `principle-testing` | 외부 플러그인 | [ci-path-verification.md](ci-path-verification.md)가 경로별 검증 명령의 원본 |
 | 스키마·쿼리·마이그레이션 판단 | craft `db` | 외부 플러그인 | [data-modeling.md](data-modeling.md)가 테이블 추가·명명·projection의 원본이고 마이그레이션 직렬 규칙은 [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)다 |
 | 공개 HTTP API 계약 | craft `api` | 외부 플러그인 | [ADR-004](../decisions/ADR-004-REST-API-규격.md)가 REST 규격, [ADR-008](../decisions/ADR-008-api-response-field-ownership.md)이 응답 필드 소유권의 원본 |
 | CI·배포 파이프라인 변경 | craft `cicd` | 외부 플러그인 | [ADR-002](../decisions/ADR-002-CI-CD-파이프라인.md)가 배포 계약, [ci-path-verification.md](ci-path-verification.md)가 경로별 검증의 원본이며 `deploy/**`·`scripts/check-jenkinsfile*.sh`는 ADR-005 배포 계약 경로다 |
 | 실행 중인 화면 조작·증거 수집 | craft `browser` | 외부 플러그인 | 사용자가 명시한 브라우저 도구가 이긴다. 명시한 도구가 없으면 설치된 craft `browser` 라우팅을 따른다. 그 기본값을 이 표에 고정하지 않는다. Playwright 회귀 계약을 대체하지 않는다. 티켓 캡처의 요소 단위 절차는 [qa-dom-capture](../../skills/manage-qa-tickets/agents/qa-dom-capture.md)가 원본이다 |
-| TypeScript 구현 공통 규율 | craft `programming` | 외부 플러그인 | 화면·API 경계는 위 두 행이 원본이고 lint 계약은 `apps/*/eslint.config.mjs`와 `apps/backend/eslint-rules/`가 강제한다 |
+| TypeScript 구현 공통 규율 | craft `principle-programming` | 외부 플러그인 | 화면·API 경계는 위 두 행이 원본이고 lint 계약은 `apps/*/eslint.config.mjs`와 `apps/backend/eslint-rules/`가 강제한다 |
 | 동작 불변 정리 | craft `refactor` | 외부 플러그인 | 계층 경계는 [ADR-003](../decisions/ADR-003-backend-architecture.md)과 `apps/backend/eslint-rules/`가 강제한다 |
 | 실패 원인 진단 | craft `debug` | 외부 플러그인 | 수집 정지 진단은 `scripts/diagnose-collection.sh`가 read-only 절차의 원본이다 |
 | 조사·기술 선택 근거 | craft `research` | 외부 플러그인 | 저장소에 조사 산출물을 남기지 않고 결정만 [ADR](../decisions/README.md)에 기록한다 |
 | AGENTS.md 지도 갱신·stale 점검 | craft `init` | 외부 플러그인 | 이 저장소의 AGENTS.md 계층과 작성권은 [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)가 원본이다 |
 
 craft-skills는 vendoring·복사·setup script 없이 런타임의 native plugin marketplace로 로드한다.
+craft-skills 0.31.0의 설치 metadata에서 위 네 이름을 확인했으며 각 버전은 `principle-frontend` 4.1.1, `principle-backend` 4.1.0, `principle-testing` 3.2.1, `principle-programming` 3.2.2다.
+이는 기존 네 작업 표면의 이름 정정이며 라우팅 범위나 저장소 정책을 추가하지 않는다.
 코드·설정 구현을 하는 로컬 날짜의 첫 구현 세션에서만 최신본을 확인한다. 같은 날짜의 이후 구현 세션이나, 구현이 없는 작업은 marketplace를 다시 갱신하지 않는다.
 정보 질의·기획·보고만 하는 작업은 marketplace를 갱신하지 않는다.
 Claude Code는 `.claude/settings.json`의 marketplace `autoUpdate`와 plugin enable을, Codex는 `.agents/plugins/marketplace.json`의 `INSTALLED_BY_DEFAULT` project policy를 시작 시 적용한다.
