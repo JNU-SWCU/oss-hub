@@ -13,7 +13,8 @@ import { CollectionIncrementalRepository } from './repository/collection-increme
 import { ProviderRequestQueue } from './collection-provider-queue';
 import { CollectionPublicTokenProvider } from './collection-public.token';
 import { CollectionReadService } from './service/collection-read.service';
-import { CollectionSchedulerService } from './service/collection-scheduler.service';
+import { CollectionScheduler } from './job/collection.scheduler';
+import { CollectionTriggerService } from './service/collection-trigger.service';
 import { CollectionUserActivityService } from './service/collection-user-activity.service';
 import {
   CollectionSyncRuntime,
@@ -88,7 +89,8 @@ describe('CollectionModule', () => {
 
     expect(providers).toEqual(
       expect.arrayContaining([
-        CollectionSchedulerService,
+        CollectionScheduler,
+        CollectionTriggerService,
         expect.objectContaining({ provide: CollectionSyncService }),
       ]),
     );
@@ -127,6 +129,20 @@ describe('CollectionModule', () => {
     expect(providers).toEqual(expect.arrayContaining([CollectionReadService]));
     expect(exports).not.toContain(CollectionReadService);
     expect(exportNames).not.toContain('COLLECTION_READ_PORT');
+  });
+
+  it('수집 진입 서비스만 구체 클래스로 공개하고 별칭을 등록하지 않는다', () => {
+    expect(getMetadataArray(MODULE_METADATA.EXPORTS)).toEqual([
+      CollectionTriggerService,
+    ]);
+    expect(
+      getMetadataArray(MODULE_METADATA.PROVIDERS).some(
+        (provider) =>
+          typeof provider === 'object' &&
+          provider !== null &&
+          'useExisting' in provider,
+      ),
+    ).toBe(false);
   });
 
   it('retires webhook ingress and legacy collection runtime from the module', () => {

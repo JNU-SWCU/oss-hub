@@ -16,8 +16,8 @@ import { ContributionInvariants } from './contribution-invariants';
 import { CollectionAdminGuard } from './collection-admin.guard';
 import { CollectionPublicTokenProvider } from './collection-public.token';
 import { CollectionReadService } from './service/collection-read.service';
-import { CollectionSchedulerService } from './service/collection-scheduler.service';
-import { COLLECTION_TRIGGER_PORT } from './collection-trigger.port';
+import { CollectionScheduler } from './job/collection.scheduler';
+import { CollectionTriggerService } from './service/collection-trigger.service';
 import { CollectionUserActivityService } from './service/collection-user-activity.service';
 import { ProviderRequestQueue } from './collection-provider-queue';
 import {
@@ -32,12 +32,8 @@ import {
   providers: [
     CollectionAdminGuard,
     ContributionInvariants,
-    CollectionSchedulerService,
-
-    {
-      provide: COLLECTION_TRIGGER_PORT,
-      useExisting: CollectionSchedulerService,
-    },
+    CollectionScheduler,
+    CollectionTriggerService,
     CollectionIncrementalRepository,
     CollectionCutoverRepository,
     CollectionReadService,
@@ -136,6 +132,6 @@ import {
       },
     },
   ],
-  exports: [COLLECTION_TRIGGER_PORT],
+  exports: [CollectionTriggerService],
 })
 export class CollectionModule {}
