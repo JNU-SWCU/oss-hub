@@ -163,7 +163,10 @@ describe('반려 사유 도달 가능성', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
   });
 
@@ -183,13 +186,14 @@ describe('반려 사유 도달 가능성', () => {
       mocks.replace.mockClear();
       mocks.redirect.mockClear();
       mocks.fetchMyStaffAccessRequest.mockClear();
-      await act(async () =>
+      await act(() => {
         root.render(
           <RedirectBoundary>
             <Screen />
           </RedirectBoundary>,
-        ),
-      );
+        );
+        return Promise.resolve();
+      });
       rendered.set(path, {
         text: container.textContent ?? '',
         redirects: [
@@ -199,7 +203,10 @@ describe('반려 사유 도달 가능성', () => {
         staffAccessRequestFetches:
           mocks.fetchMyStaffAccessRequest.mock.calls.length,
       });
-      await act(async () => root.render(<></>));
+      await act(() => {
+        root.render(<></>);
+        return Promise.resolve();
+      });
     }
     return rendered;
   }

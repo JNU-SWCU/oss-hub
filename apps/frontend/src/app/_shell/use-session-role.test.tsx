@@ -75,7 +75,10 @@ describe('useSessionRole — 반려 사유 불변식', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
   });
 
@@ -90,7 +93,10 @@ describe('useSessionRole — 반려 사유 불변식', () => {
       return null;
     }
 
-    await act(async () => root.render(<Probe />));
+    await act(() => {
+      root.render(<Probe />);
+      return Promise.resolve();
+    });
     if (received === null) {
       throw new Error('스냅샷을 읽지 못했다.');
     }
@@ -154,7 +160,10 @@ describe('useSessionRole — 반려 사유 불변식', () => {
       return null;
     }
 
-    await act(async () => root.render(<Probe />));
+    await act(() => {
+      root.render(<Probe />);
+      return Promise.resolve();
+    });
     expect(received.at(-1)?.staffAccessRequestStatus).toBe('PENDING');
 
     received.length = 0;
@@ -173,7 +182,10 @@ describe('useSessionRole — 반려 사유 불변식', () => {
       }),
     );
 
-    await act(async () => root.render(<Probe />));
+    await act(() => {
+      root.render(<Probe />);
+      return Promise.resolve();
+    });
 
     expect(
       received.map((state) => state.staffAccessRequestStatus),

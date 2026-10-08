@@ -85,7 +85,10 @@ describe('OnboardingGate consent-required dialog', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
   });
 
@@ -100,12 +103,13 @@ describe('OnboardingGate consent-required dialog', () => {
         isComplete: false,
       });
 
-    await act(async () => {
+    await act(() => {
       root.render(
         <OnboardingGate target="role">
           <p>역할 선택 화면</p>
         </OnboardingGate>,
       );
+      return Promise.resolve();
     });
 
     expect(container.textContent).toContain('동의 다이얼로그 완료');
@@ -114,7 +118,10 @@ describe('OnboardingGate consent-required dialog', () => {
     const completion = [...container.querySelectorAll('button')].find(
       (button) => button.textContent === '동의 다이얼로그 완료',
     );
-    await act(async () => completion?.click());
+    await act(() => {
+      completion?.click();
+      return Promise.resolve();
+    });
 
     expect(mocks.getMyProfile).toHaveBeenCalledTimes(2);
     expect(container.textContent).toContain('역할 선택 화면');
@@ -123,17 +130,21 @@ describe('OnboardingGate consent-required dialog', () => {
   it('ignores required-consent dismiss requests while profile status is checking', async () => {
     mocks.getMyProfile.mockRejectedValueOnce(consentRequiredError());
 
-    await act(async () => {
+    await act(() => {
       root.render(
         <OnboardingGate target="role">
           <p>역할 선택 화면</p>
         </OnboardingGate>,
       );
+      return Promise.resolve();
     });
     const dismiss = [...container.querySelectorAll('button')].find(
       (button) => button.textContent === '동의 다이얼로그 닫기 시도',
     );
-    await act(async () => dismiss?.click());
+    await act(() => {
+      dismiss?.click();
+      return Promise.resolve();
+    });
 
     expect(container.textContent).toContain('동의 다이얼로그 닫기 시도');
     expect(container.textContent).toContain('확인 중…');
