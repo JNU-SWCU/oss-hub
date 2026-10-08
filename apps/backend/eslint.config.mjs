@@ -36,13 +36,14 @@ const collectionPublicFiles = [
 
   'repository-provision-event',
 ];
-const collectionPublicDirs = ['dto'];
+const collectionPublicDirs = ['dto', 'domain'];
 
 const collectionPublicPaths = [
   'service/repositories.service',
   'repository/repositories.repository',
 
   'service/own-repository-url-validation.service',
+  'service/collection-trigger.service',
 ];
 const collectionInternalMessage =
   '소비자 Service는 github의 concrete repository를 import하지 않는다. 소비자 Repository는 Prisma를 쓴다. (ADR-003 DEC-42)';
@@ -57,7 +58,7 @@ const controllerPrismaMessage =
 const moduleZoneBoundaryOptions = {
   srcRoot: srcDir,
   sharedZones: [...sharedDirs],
-  internalDirs: ['domain', 'dto'],
+  internalDirs: ['dto'],
   encapsulated: [
     {
       zone: 'github',
