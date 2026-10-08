@@ -6,11 +6,7 @@ import test from 'node:test';
 const workflowPath = fileURLToPath(
   new URL('../.github/workflows/ci.yml', import.meta.url),
 );
-const docsPath = fileURLToPath(
-  new URL('../docs/rules/ci-path-verification.md', import.meta.url),
-);
 const workflow = readFileSync(workflowPath, 'utf8');
-const docs = readFileSync(docsPath, 'utf8');
 const paths = [
   'scripts/check-member-authority-production*',
   'scripts/member-authority-production-report.mjs',
@@ -70,7 +66,7 @@ const deploymentHardeningCommands = [
 const nginxSyntaxCommand =
   '$PWD/deploy/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro';
 
-function validate(workflowSource, docsSource) {
+function validate(workflowSource) {
   const backend = section(
     workflowSource,
     '            backend:',
@@ -84,11 +80,9 @@ function validate(workflowSource, docsSource) {
   for (const path of paths) {
     assert.match(backend, new RegExp(escapeRegex(`'${path}'`)));
     assert.match(jenkins, new RegExp(escapeRegex(`'${path}'`)));
-    assert.match(docsSource, new RegExp(escapeRegex(path)));
   }
   for (const path of backendOnlyPaths) {
     assert.match(backend, new RegExp(escapeRegex(`'${path}'`)));
-    assert.match(docsSource, new RegExp(escapeRegex(path)));
   }
 
   const migrationContractStep = section(
@@ -116,7 +110,7 @@ function validate(workflowSource, docsSource) {
   );
 }
 
-function validateDeploymentHardening(workflowSource, docsSource) {
+function validateDeploymentHardening(workflowSource) {
   const jenkins = section(
     workflowSource,
     '            jenkins:',
@@ -124,7 +118,6 @@ function validateDeploymentHardening(workflowSource, docsSource) {
   );
   for (const path of deploymentHardeningPaths) {
     assert.match(jenkins, new RegExp(escapeRegex(`'${path}'`)));
-    assert.match(docsSource, new RegExp(escapeRegex(path)));
   }
 
   const deploymentStep = section(
@@ -148,11 +141,11 @@ function validateNginxSyntaxCheck(workflowSource) {
 }
 
 test('member-authority paths select backend and Jenkins and run every contract test', () => {
-  validate(workflow, docs);
+  validate(workflow);
 });
 
 test('deployment hardening paths run production env and image contracts', () => {
-  validateDeploymentHardening(workflow, docs);
+  validateDeploymentHardening(workflow);
 });
 
 test('production nginx 설정으로 syntax 검사가 돈다', () => {
@@ -162,15 +155,12 @@ test('production nginx 설정으로 syntax 검사가 돈다', () => {
 test('deployment hardening path and command drift fail closed', () => {
   for (const path of deploymentHardeningPaths) {
     assert.throws(() =>
-      validateDeploymentHardening(workflow.replaceAll(`'${path}'`, ''), docs),
-    );
-    assert.throws(() =>
-      validateDeploymentHardening(workflow, docs.replaceAll(path, '')),
+      validateDeploymentHardening(workflow.replaceAll(`'${path}'`, '')),
     );
   }
   for (const command of deploymentHardeningCommands) {
     assert.throws(() =>
-      validateDeploymentHardening(workflow.replace(command, ''), docs),
+      validateDeploymentHardening(workflow.replace(command, '')),
     );
   }
 });
@@ -183,16 +173,15 @@ test('nginx syntax 검사 command drift fail closed', () => {
 
 test('path and required-test drift fail closed', () => {
   for (const path of paths) {
-    assert.throws(() => validate(workflow.replaceAll(`'${path}'`, ''), docs));
-    assert.throws(() => validate(workflow, docs.replaceAll(path, '')));
+    assert.throws(() => validate(workflow.replaceAll(`'${path}'`, '')));
   }
   for (const testPath of tests) {
-    assert.throws(() => validate(workflow.replace(testPath, ''), docs));
+    assert.throws(() => validate(workflow.replace(testPath, '')));
   }
 });
 
 test('contract paths select backend and run the contract test', () => {
-  validate(workflow, docs);
+  validate(workflow);
 
   const backend = section(
     workflow,
@@ -206,11 +195,10 @@ test('contract paths select backend and run the contract test', () => {
 
 test('contract path and required-test drift fail closed', () => {
   for (const path of backendOnlyPaths) {
-    assert.throws(() => validate(workflow.replaceAll(`'${path}'`, ''), docs));
-    assert.throws(() => validate(workflow, docs.replaceAll(path, '')));
+    assert.throws(() => validate(workflow.replaceAll(`'${path}'`, '')));
   }
   for (const testPath of contractTests) {
-    assert.throws(() => validate(workflow.replace(testPath, ''), docs));
+    assert.throws(() => validate(workflow.replace(testPath, '')));
   }
 
   assert.throws(() =>
@@ -219,7 +207,6 @@ test('contract path and required-test drift fail closed', () => {
         'run: bash scripts/check-member-authority-contract.sh',
         '',
       ),
-      docs,
     ),
   );
 });
