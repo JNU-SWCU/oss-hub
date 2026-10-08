@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
@@ -344,28 +346,34 @@ function validateRails(source) {
 }
 
 function runScope(event, selected) {
-  const result = execFileSync(
-    'bash',
-    ['-c', stepRun(workflowStep(workflow, '실행 스코프 결정'))],
-    {
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        ...Object.fromEntries(
-          scopes.map((name) => [name.toUpperCase(), 'false']),
-        ),
-        ...selected,
-        EVENT_NAME: event,
-        GITHUB_OUTPUT: '/dev/stdout',
+  const directory = mkdtempSync(join(tmpdir(), 'ci-scope-'));
+  const output = join(directory, 'github-output');
+  try {
+    execFileSync(
+      'bash',
+      ['-c', stepRun(workflowStep(workflow, '실행 스코프 결정'))],
+      {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          ...Object.fromEntries(
+            scopes.map((name) => [name.toUpperCase(), 'false']),
+          ),
+          ...selected,
+          EVENT_NAME: event,
+          GITHUB_OUTPUT: output,
+        },
       },
-    },
-  );
-  return Object.fromEntries(
-    result
-      .trim()
-      .split('\n')
-      .map((line) => line.split('=')),
-  );
+    );
+    return Object.fromEntries(
+      readFileSync(output, 'utf8')
+        .trim()
+        .split('\n')
+        .map((line) => line.split('=')),
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 }
 
 test('rails workflow binds immutable event SHAs and required checks', () => {
