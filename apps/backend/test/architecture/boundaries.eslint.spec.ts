@@ -136,6 +136,30 @@ edge(
   true,
 );
 edge(
+  'job may read runtime config',
+  'src/alpha/job/config.ts',
+  'src/runtime-config/runtime-config.ts',
+  true,
+);
+edge(
+  'CLI job may bootstrap the application module',
+  'src/alpha/job/cli.ts',
+  'src/app.module.ts',
+  true,
+);
+edge(
+  'service cannot bootstrap the application module',
+  'src/alpha/service/cli.ts',
+  'src/app.module.ts',
+  false,
+);
+edge(
+  'job cannot use a gateway directly',
+  'src/alpha/job/mail.ts',
+  'src/alpha/gateway/mail.ts',
+  false,
+);
+edge(
   'domain cannot read runtime config',
   'src/alpha/domain/config.ts',
   'src/runtime-config/runtime-config.ts',
