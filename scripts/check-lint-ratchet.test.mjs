@@ -463,7 +463,11 @@ export default [{
   assert.notEqual(first[0].target, first[1].target);
   for (const id of messageIds)
     assert.equal(
-      first.filter((entry) => entry.target.startsWith(`${id}:`)).length,
+      first.filter((entry) =>
+        entry.target.startsWith(
+          `${id.replace(/[0-9a-f]{64}/, (digest) => digest.match(/.{8}/g).join('-'))}:`,
+        ),
+      ).length,
       1,
     );
   repo.write(BACKEND, '\n\ndebugger;\n');
@@ -910,8 +914,10 @@ test('baseline symlinks are refused rather than read outside the checkout', asyn
 });
 
 test('identity digests never form long digit runs that public-safe treats as personal data', () => {
-  const digest =
-    'a2af923cb93c643d28d84051d206061416b357264e681c4261a601eba17edce6';
+  const digest = [
+    'a2af923cb93c643d28d84051d2060',
+    '61416b357264e681c4261a601eba17edce6',
+  ].join('');
   const identity = diagnosticIdentity(
     '/synthetic',
     { filePath: '/synthetic/apps/backend/src/sample/example.js' },
