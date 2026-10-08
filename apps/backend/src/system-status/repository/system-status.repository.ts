@@ -4,8 +4,8 @@ import {
   type CollectionRunKind,
   type Prisma,
 } from '@prisma/client';
-import { nextScheduledCollectionAt } from '../github/collection-schedule';
-import { PrismaService } from '../prisma/prisma.service';
+import { nextScheduledCollectionAt } from '../../github/collection-schedule';
+import { PrismaService } from '../../prisma/prisma.service';
 
 export interface SystemStatusActor {
   hasStaffAccess: boolean;

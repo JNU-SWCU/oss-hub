@@ -6,7 +6,7 @@ import {
   type CollectionIncrementalStatusSnapshotDto,
   type CollectionRepositoryStreamsDto,
   type CollectionSweepActivityDto,
-} from './system-status.repository';
+} from '../repository/system-status.repository';
 import { SystemStatusService } from './system-status.service';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');

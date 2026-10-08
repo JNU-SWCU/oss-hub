@@ -1,8 +1,11 @@
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
-import { SessionGuard, type AuthenticatedRequest } from '../auth/session.guard';
+import {
+  SessionGuard,
+  type AuthenticatedRequest,
+} from '../../auth/session.guard';
 import { SystemStatusController } from './system-status.controller';
-import { SystemStatusService } from './system-status.service';
+import { SystemStatusService } from '../service/system-status.service';
 
 describe('SystemStatusController', () => {
   it('세션의 githubId로 서비스를 호출하고 DTO를 그대로 반환한다', async () => {
