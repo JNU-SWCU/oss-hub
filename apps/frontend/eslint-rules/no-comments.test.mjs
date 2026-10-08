@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ESLint } from 'eslint';
 import typescriptParser from '@typescript-eslint/parser';
-import noComments from './no-comments.mjs';
-import backendNoComments from '../../backend/eslint-rules/no-comments.mjs';
+import noComments from '../../../eslint-rules/no-comments.mjs';
 
 function eslint(rule, fix = false) {
   return new ESLint({
@@ -23,10 +22,7 @@ function eslint(rule, fix = false) {
   });
 }
 
-describe.each([
-  ['frontend', noComments],
-  ['backend', backendNoComments],
-])('%s local/no-comments', (_, rule) => {
+describe.each([['shared', noComments]])('%s local/no-comments', (_, rule) => {
   it('일반·문서·도구 지시 주석을 모두 보고한다', async () => {
     const code =
       '// line\n/** doc */\n/* block */\n// @vitest-environment happy-dom\n// eslint-' +
