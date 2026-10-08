@@ -97,15 +97,16 @@ describe('CollectionStreamsTable', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
   });
 
   async function renderTable(
     repositories: readonly CollectionStreamRepository[],
   ): Promise<void> {
-    await act(async () => {
+    await act(() => {
       root.render(<CollectionStreamsTable repositories={repositories} />);
+      return Promise.resolve();
     });
   }
 
@@ -164,8 +165,8 @@ describe('CollectionStreamsTable', () => {
     const rows = [...container.querySelectorAll('tbody tr')];
     const programCellOf = (row: Element) =>
       row.querySelectorAll('td')[1]?.textContent;
-    expect(programCellOf(rows[0]!)).toBe('오픈소스 입문 프로그램');
-    expect(programCellOf(rows[1]!)).toBe('—');
+    expect(programCellOf(rows[0])).toBe('오픈소스 입문 프로그램');
+    expect(programCellOf(rows[1])).toBe('—');
 
     expect(tableText()).not.toContain('알 수 없음');
   });

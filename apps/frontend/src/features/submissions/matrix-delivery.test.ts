@@ -35,7 +35,7 @@ describe('delivery status filters', () => {
   it('uses first-submission server status even when a revision was submitted late', () => {
     const cell = row(['COMPLETE']).cells[0];
     if (cell === undefined) throw new TypeError('Missing fixture');
-    expect(isLateSubmission(cell, milestones[0])).toBe(false);
+    expect(isLateSubmission(cell)).toBe(false);
   });
   it('gives missing precedence over late and keeps approval separate', () => {
     expect(matrixRowDeliveryStatus(row(['LATE', 'MISSING']), milestones)).toBe(

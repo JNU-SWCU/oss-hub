@@ -107,11 +107,15 @@ export function SubmissionChecklistPage({
     }
   }, [programId]);
 
+  const triggerRefresh = useCallback(() => {
+    void refresh();
+  }, [refresh]);
+
   const initialSubmission = useSubmissionChecklistInitialSubmissionFlow({
     milestoneId,
     onCloseSelected,
     programId,
-    refresh,
+    refresh: triggerRefresh,
     resubmitting: submitting,
   });
 

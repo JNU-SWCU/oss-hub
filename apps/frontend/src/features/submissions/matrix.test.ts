@@ -170,31 +170,22 @@ describe('formatMatrixDueDateTime', () => {
 });
 
 describe('isLateSubmission', () => {
-  const milestone: MatrixMilestone = {
-    id: 'milestone-plan',
-    name: '기획서',
-    dueAt: '2026-08-19T23:59:59+09:00',
-  };
-
   it('제출 시각이 마감 이후면 지각이다', () => {
     expect(
-      isLateSubmission(
-        {
-          ...submittedCell,
-          submittedAt: '2026-08-20T00:00:01+09:00',
-          deliveryStatus: 'LATE',
-        },
-        milestone,
-      ),
+      isLateSubmission({
+        ...submittedCell,
+        submittedAt: '2026-08-20T00:00:01+09:00',
+        deliveryStatus: 'LATE',
+      }),
     ).toBe(true);
   });
 
   it('제출 시각이 마감 이전이면 지각이 아니다', () => {
     expect(
-      isLateSubmission(
-        { ...submittedCell, submittedAt: '2026-08-19T10:00:00+09:00' },
-        milestone,
-      ),
+      isLateSubmission({
+        ...submittedCell,
+        submittedAt: '2026-08-19T10:00:00+09:00',
+      }),
     ).toBe(false);
   });
 
@@ -208,16 +199,11 @@ describe('isLateSubmission', () => {
       submittedAt: null,
       reviewUrl: null,
     };
-    expect(isLateSubmission(empty, milestone)).toBe(false);
+    expect(isLateSubmission(empty)).toBe(false);
   });
 });
 
 describe('matrixCellDisplay', () => {
-  const milestone: MatrixMilestone = {
-    id: 'milestone-plan',
-    name: '기획서',
-    dueAt: '2026-08-19T23:59:59+09:00',
-  };
   const notSubmitted: MatrixCell = {
     milestoneId: 'milestone-plan',
     submissionId: null,
@@ -229,43 +215,34 @@ describe('matrixCellDisplay', () => {
   };
 
   it('저장 상태를 접지 않고 화면 값으로 그대로 옮긴다(QA49)', () => {
-    expect(matrixCellDisplay(notSubmitted, milestone)).toBe('NOT_SUBMITTED');
+    expect(matrixCellDisplay(notSubmitted)).toBe('NOT_SUBMITTED');
+    expect(matrixCellDisplay({ ...submittedCell, status: 'APPROVED' })).toBe(
+      'APPROVED',
+    );
     expect(
-      matrixCellDisplay({ ...submittedCell, status: 'APPROVED' }, milestone),
-    ).toBe('APPROVED');
-    expect(
-      matrixCellDisplay(
-        { ...submittedCell, status: 'CHANGES_REQUESTED' },
-        milestone,
-      ),
+      matrixCellDisplay({ ...submittedCell, status: 'CHANGES_REQUESTED' }),
     ).toBe('CHANGES_REQUESTED');
-    expect(
-      matrixCellDisplay({ ...submittedCell, status: 'REJECTED' }, milestone),
-    ).toBe('REJECTED');
+    expect(matrixCellDisplay({ ...submittedCell, status: 'REJECTED' })).toBe(
+      'REJECTED',
+    );
   });
 
   it('검토 배지는 지각 제출 여부와 별도로 검토 대기를 표시한다', () => {
     expect(
-      matrixCellDisplay(
-        {
-          ...submittedCell,
-          status: 'SUBMITTED',
-          submittedAt: '2026-08-19T10:00:00+09:00',
-        },
-        milestone,
-      ),
+      matrixCellDisplay({
+        ...submittedCell,
+        status: 'SUBMITTED',
+        submittedAt: '2026-08-19T10:00:00+09:00',
+      }),
     ).toBe('SUBMITTED');
 
     expect(
-      matrixCellDisplay(
-        {
-          ...submittedCell,
-          status: 'SUBMITTED',
-          submittedAt: '2026-08-20T00:00:01+09:00',
-          deliveryStatus: 'LATE',
-        },
-        milestone,
-      ),
+      matrixCellDisplay({
+        ...submittedCell,
+        status: 'SUBMITTED',
+        submittedAt: '2026-08-20T00:00:01+09:00',
+        deliveryStatus: 'LATE',
+      }),
     ).toBe('SUBMITTED');
   });
 
@@ -276,7 +253,7 @@ describe('matrixCellDisplay', () => {
       submittedAt: '2026-08-20T00:00:01+09:00',
       deliveryStatus: 'LATE',
     };
-    expect(matrixCellDisplay(lateApproved, milestone)).toBe('APPROVED');
+    expect(matrixCellDisplay(lateApproved)).toBe('APPROVED');
   });
 });
 

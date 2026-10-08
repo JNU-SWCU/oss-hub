@@ -46,10 +46,7 @@ export const MATRIX_CELL_DISPLAY_VARIANTS = {
   >
 >;
 
-export function matrixCellDisplay(
-  cell: MatrixCell,
-  _milestone: MatrixMilestone,
-): MatrixCellDisplay {
+export function matrixCellDisplay(cell: MatrixCell): MatrixCellDisplay {
   return cell.status;
 }
 
@@ -115,10 +112,7 @@ export function matrixEmptyKind(input: {
   return input.filterActive ? 'no-results' : 'no-applications';
 }
 
-export function isLateSubmission(
-  cell: MatrixCell,
-  _milestone?: MatrixMilestone,
-): boolean {
+export function isLateSubmission(cell: MatrixCell): boolean {
   return cell.deliveryStatus === 'LATE';
 }
 
