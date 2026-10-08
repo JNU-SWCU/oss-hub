@@ -1,4 +1,4 @@
-import { RANKING_YEAR_ALL } from './domain/ranking';
+import { RANKING_YEAR_ALL } from '../domain/ranking';
 import { activity, setupRankingService } from './ranking.service.spec-helper';
 
 describe('RankingService — 0점 사용자 포함과 동률 tiebreak', () => {
