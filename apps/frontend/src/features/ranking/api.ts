@@ -238,7 +238,7 @@ export function parseRankingYears(value: unknown): RankingYears {
     !isRecord(value) ||
     !Array.isArray(value.years) ||
     !value.years.every(
-      (year) =>
+      (year: unknown): year is number =>
         typeof year === 'number' && Number.isInteger(year) && year >= 2000,
     )
   ) {

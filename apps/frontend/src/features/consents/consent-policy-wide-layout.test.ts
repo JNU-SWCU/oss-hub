@@ -19,11 +19,9 @@ const documentStyle = readFileSync(
 function classLists(source: string): string[][] {
   return [
     ...[...source.matchAll(/className="([^"]*)"/g)].map((match) =>
-      match[1]!.split(/\s+/),
+      match[1].split(/\s+/),
     ),
-    ...[...source.matchAll(/'([^']*)'/g)].map((match) =>
-      match[1]!.split(/\s+/),
-    ),
+    ...[...source.matchAll(/'([^']*)'/g)].map((match) => match[1].split(/\s+/)),
   ];
 }
 

@@ -59,10 +59,10 @@ describe('프로필 온보딩 화면', () => {
       'fetch',
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
         const method = init?.method ?? 'GET';
-        const body =
+        const body: unknown =
           typeof init?.body === 'string' ? JSON.parse(init.body) : null;
         requests.push({ method, body });
-        return profileResponder(method, body);
+        return Promise.resolve(profileResponder(method, body));
       }),
     );
 
@@ -80,19 +80,20 @@ describe('프로필 온보딩 화면', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
     vi.unstubAllGlobals();
   });
 
   async function render(memberKind: ProfileMemberKind = 'STUDENT') {
-    await act(async () => {
+    await act(() => {
       root.render(
         <ProfileOnboardingScreen
           memberKind={memberKind}
           nextPath={NEXT_PATH}
         />,
       );
+      return Promise.resolve();
     });
   }
 
@@ -105,13 +106,14 @@ describe('프로필 온보딩 화면', () => {
   }
 
   async function type(input: HTMLInputElement, value: string): Promise<void> {
-    const setter = Object.getOwnPropertyDescriptor(
+    const descriptor = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       'value',
-    )?.set;
-    await act(async () => {
-      setter?.call(input, value);
+    );
+    await act(() => {
+      descriptor?.set?.call(input, value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
+      return Promise.resolve();
     });
   }
 
@@ -120,22 +122,24 @@ describe('프로필 온보딩 화면', () => {
     if (!(element instanceof HTMLSelectElement)) {
       throw new TypeError(`선택란을 찾지 못했습니다: ${id}`);
     }
-    const setter = Object.getOwnPropertyDescriptor(
+    const descriptor = Object.getOwnPropertyDescriptor(
       HTMLSelectElement.prototype,
       'value',
-    )?.set;
-    await act(async () => {
-      setter?.call(element, value);
+    );
+    await act(() => {
+      descriptor?.set?.call(element, value);
       element.dispatchEvent(new Event('change', { bubbles: true }));
+      return Promise.resolve();
     });
   }
 
   async function submit(): Promise<void> {
     const form = container.querySelector('form');
-    await act(async () => {
+    await act(() => {
       form?.dispatchEvent(
         new Event('submit', { bubbles: true, cancelable: true }),
       );
+      return Promise.resolve();
     });
   }
 
