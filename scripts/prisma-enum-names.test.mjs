@@ -76,13 +76,21 @@ test('실제 스키마의 모든 enum 선언을 포함하고 DB 접근 심볼은
 
   assert.ok(declaredNames.length > 0);
   assert.deepEqual(prismaEnumNames, declaredNames);
-  for (const name of ['Prisma', 'PrismaClient', 'PrismaPromise', 'User', 'Program']) {
+  for (const name of [
+    'Prisma',
+    'PrismaClient',
+    'PrismaPromise',
+    'User',
+    'Program',
+  ]) {
     assert.ok(!prismaEnumNames.includes(name), name);
   }
 });
 
 test('생성된 backend Prisma client의 enum 집합과 정확히 일치한다', () => {
-  const require = createRequire(new URL('../apps/backend/package.json', import.meta.url));
+  const require = createRequire(
+    new URL('../apps/backend/package.json', import.meta.url),
+  );
   const { $Enums } = require('@prisma/client');
 
   assert.deepEqual(prismaEnumNames, Object.keys($Enums).sort());

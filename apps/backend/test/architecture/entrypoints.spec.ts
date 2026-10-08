@@ -18,7 +18,10 @@ const seed = requiredString(
   'Prisma seed command',
 );
 
-function requiredRecord(value: unknown, label: string): Record<string, unknown> {
+function requiredRecord(
+  value: unknown,
+  label: string,
+): Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`${label} must be an object`);
   }

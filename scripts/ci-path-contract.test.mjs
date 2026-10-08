@@ -298,7 +298,9 @@ function validateRails(source) {
   assert.ok(scope.includes('EVENT_NAME: ${{ github.event_name }}'));
   for (const name of scopes) {
     assert.ok(
-      scope.includes(`${name.toUpperCase()}: \${{ steps.changes.outputs.${name} }}`),
+      scope.includes(
+        `${name.toUpperCase()}: \${{ steps.changes.outputs.${name} }}`,
+      ),
       name,
     );
   }
@@ -315,7 +317,9 @@ function validateRails(source) {
     ),
   );
   assert.doesNotMatch(workflowStep(ci, 'CI path 계약 검사'), /^        if:/m);
-  assert.ok(ci.indexOf('name: 의존성 설치') < ci.indexOf('name: Rails 계약 테스트'));
+  assert.ok(
+    ci.indexOf('name: 의존성 설치') < ci.indexOf('name: Rails 계약 테스트'),
+  );
   for (const binding of railsEnvironment) {
     assert.ok(checker.includes(`${binding}\n`), binding);
   }
@@ -347,14 +351,21 @@ function runScope(event, selected) {
       encoding: 'utf8',
       env: {
         ...process.env,
-        ...Object.fromEntries(scopes.map((name) => [name.toUpperCase(), 'false'])),
+        ...Object.fromEntries(
+          scopes.map((name) => [name.toUpperCase(), 'false']),
+        ),
         ...selected,
         EVENT_NAME: event,
         GITHUB_OUTPUT: '/dev/stdout',
       },
     },
   );
-  return Object.fromEntries(result.trim().split('\n').map((line) => line.split('=')));
+  return Object.fromEntries(
+    result
+      .trim()
+      .split('\n')
+      .map((line) => line.split('=')),
+  );
 }
 
 test('rails workflow binds immutable event SHAs and required checks', () => {
@@ -377,8 +388,12 @@ test('rails path and invocation mutations fail closed', () => {
   ]) {
     assert.throws(() => validateRails(workflow.replace(command, '')));
   }
-  assert.throws(() => validateRails(workflow.replace('on:\n', 'on:\n  paths: []\n')));
-  assert.throws(() => validateRails(workflow.replace('    name: ci\n', '    name: other\n')));
+  assert.throws(() =>
+    validateRails(workflow.replace('on:\n', 'on:\n  paths: []\n')),
+  );
+  assert.throws(() =>
+    validateRails(workflow.replace('    name: ci\n', '    name: other\n')),
+  );
 });
 
 test('actual workflow scope forces every lane on main push', () => {
@@ -407,6 +422,8 @@ test('actual workflow preserves unrelated and docs-only PR selection', () => {
   );
   assert.deepEqual(
     runScope('pull_request', { NGINX: 'true' }),
-    Object.fromEntries(scopes.map((name) => [name, name === 'nginx' ? 'true' : 'false'])),
+    Object.fromEntries(
+      scopes.map((name) => [name, name === 'nginx' ? 'true' : 'false']),
+    ),
   );
 });
