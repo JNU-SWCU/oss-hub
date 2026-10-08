@@ -1001,6 +1001,65 @@ test('identity ignores line movement but distinguishes the offending source targ
   );
 });
 
+test('file-level identity survives edits to the file body', () => {
+  const result = { filePath: '/synthetic/apps/backend/src/sample/example.ts' };
+  const message = {
+    ruleId: 'boundaries/no-unknown-files',
+    nodeType: 'Program',
+    line: 1,
+    column: 1,
+    endLine: 2,
+    endColumn: 20,
+  };
+  const before = diagnosticIdentity(
+    '/synthetic',
+    result,
+    message,
+    "import { a } from './a';\nexport const b = a;\n",
+  );
+  const after = diagnosticIdentity(
+    '/synthetic',
+    result,
+    { ...message, endLine: 3 },
+    "import { a } from './domain/a';\n\nexport const b = a;\n",
+  );
+  assert.deepEqual(after, before);
+  assert.notDeepEqual(
+    diagnosticIdentity(
+      '/synthetic',
+      result,
+      { ...message, nodeType: 'ImportDeclaration' },
+      "import { a } from './a';\nexport const b = a;\n",
+    ),
+    before,
+  );
+});
+
+test('content-hashed file-level entries ratchet onto the file-level identity', async (t) => {
+  const fileTarget = diagnosticIdentity(
+    '/synthetic',
+    { filePath: '/synthetic/apps/backend/src/sample/example.js' },
+    { ruleId: 'no-debugger', nodeType: 'Program', line: 1 },
+    'debugger;\n',
+  ).target;
+  const legacy = {
+    ...A,
+    target: `no-debugger:Program:${Array(8).fill('abcdef01').join('-')}:occurrence:1`,
+  };
+  const repo = existing(t, [legacy]);
+  repo.commit();
+  const current = { ...A, target: `${fileTarget}:occurrence:1` };
+  await repo.run(repo.base, [current], { prune: true });
+  assert.equal(
+    fs.readFileSync(path.join(repo.root, BACKEND_SHARD), 'utf8'),
+    `${JSON.stringify(current)}\n`,
+  );
+  await assert.rejects(
+    repo.run(repo.base, [{ ...A, target: 'no-debugger:Statement:other' }]),
+    /unlisted-diagnostic/,
+  );
+});
+
 test('CLI seeds and checks both real ESLint rails, then rejects frontend growth', (t) => {
   const repo = fixture(t);
   const base = repo.commit();

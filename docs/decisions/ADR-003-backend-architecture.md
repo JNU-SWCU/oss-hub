@@ -182,6 +182,8 @@ Knip은 명시적 runtime·CLI·seed·test 진입점을 기준으로 사용하�
 Nest DI나 decorator 때문에 생긴 findings는 근거 있는 entry·설정으로 다루며 광범위한 무시 규칙으로 감추지 않는다.
 
 이행 기간 lint baseline은 줄 번호가 아닌 `{file, ruleId, target}` identity로 관리한다.
+파일 전체를 가리키는 진단의 target은 파일 내용이 아니라 파일 자체로 정해 import 경로 수정만으로 기존 부채가 새 항목이 되지 않게 한다.
+기존 legacy 모듈 경계 규칙은 §10의 공개 `domain/` 교차 참조와 github 수집 trigger service를 허용한다.
 새 diagnostic·shard·항목 추가, 같은 개수 교환, 이동한 경로의 재등록, stale 항목을 거부하고 baseline은 줄어들기만 한다.
 Knip은 workspace·issue type별 실제 개수와 budget이 정확히 같아야 하며 head budget은 predecessor budget보다 커질 수 없다.
 기준 baseline은 working tree나 가변 ref가 아니라 신뢰된 predecessor SHA의 Git tree에서 읽는다.

@@ -213,7 +213,10 @@ function identity(entry) {
   return JSON.stringify({
     file: entry.file,
     ruleId: entry.ruleId,
-    target: entry.target,
+    target: entry.target.replace(
+      /:Program:[0-9a-f]{8}(?:-[0-9a-f]{8}){7}/,
+      `:Program:${FILE_TARGET_DIGEST}`,
+    ),
   });
 }
 
@@ -376,7 +379,7 @@ export function diagnosticIdentity(root, result, message, source) {
   const file = path.relative(root, result.filePath).split(path.sep).join('/');
   const lines = source.split(/\r?\n/);
   let target = '<file>';
-  if (message.line !== undefined) {
+  if (message.line !== undefined && message.nodeType !== 'Program') {
     if (
       !Number.isInteger(message.line) ||
       message.line < 1 ||
@@ -403,6 +406,10 @@ export function diagnosticIdentity(root, result, message, source) {
     ),
   };
 }
+
+const FILE_TARGET_DIGEST = groupDigests(
+  createHash('sha256').update('<file>').digest('hex'),
+);
 
 function groupDigests(value) {
   return value.replace(/[0-9a-f]{64}/g, (digest) =>

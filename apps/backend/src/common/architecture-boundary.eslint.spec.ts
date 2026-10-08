@@ -312,7 +312,25 @@ export function useFixture(): typeof AuthModule {
     ] as const;
 
     for (const { depth, dir, up } of cases) {
-      it(`RED: 깊이 ${depth}에서 다른 모듈의 domain을 참조하면 실패한다`, () => {
+      it(`RED: 깊이 ${depth}에서 다른 모듈의 dto를 참조하면 실패한다`, () => {
+        const relPath = `${dir}/__lint_fixture_depth${depth}_dto.ts`;
+        writeFixture(
+          relPath,
+          `import type { ProgramDetailDto } from '${up}/programs/dto/program-detail.dto';
+
+export type Fixture = ProgramDetailDto;
+`,
+        );
+
+        const messages = boundaryMessages(lintFixture(relPath));
+
+        expect(messages).toHaveLength(1);
+        expect(messages[0]?.ruleId).toBe('boundary/module-zone');
+        expect(messages[0]?.line).toBe(1);
+        expect(messages[0]?.message).toContain('dto');
+      });
+
+      it(`깊이 ${depth}에서 다른 모듈의 domain 참조는 허용한다`, () => {
         const relPath = `${dir}/__lint_fixture_depth${depth}_domain.ts`;
         writeFixture(
           relPath,
@@ -322,12 +340,7 @@ export type Fixture = ProgramStatus;
 `,
         );
 
-        const messages = boundaryMessages(lintFixture(relPath));
-
-        expect(messages).toHaveLength(1);
-        expect(messages[0]?.ruleId).toBe('boundary/module-zone');
-        expect(messages[0]?.line).toBe(1);
-        expect(messages[0]?.message).toContain('domain');
+        expect(boundaryMessages(lintFixture(relPath))).toHaveLength(0);
       });
 
       it(`RED: 깊이 ${depth}에서 collection concrete 구현을 참조하면 실패한다`, () => {
