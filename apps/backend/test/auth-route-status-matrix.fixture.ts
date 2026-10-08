@@ -15,8 +15,8 @@ import {
   SESSION_MAX_AGE_SECONDS,
 } from '../src/auth/domain/session-token';
 import { ProblemDetailFilter } from '../src/common/problem-detail.filter';
-import { HealthController } from '../src/health/health.controller';
-import { HealthService } from '../src/health/health.service';
+import { HealthController } from '../src/health/controller/health.controller';
+import { HealthService } from '../src/health/service/health.service';
 import { LoginHistoryService } from '../src/login-history/login-history.service';
 import { ProgramOverviewController } from '../src/programs/archive/program-overview/program-overview.controller';
 import { ProgramOverviewService } from '../src/programs/archive/program-overview/program-overview.service';
