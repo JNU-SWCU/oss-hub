@@ -1,7 +1,9 @@
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { defineConfig } from 'eslint/config';
 import boundaries from 'eslint-plugin-boundaries';
 import tseslint from 'typescript-eslint';
+import { parseCircular, parseDependencyTree } from 'dpdm';
 import { prismaEnumNames } from '../../scripts/prisma-enum-names.mjs';
 
 const layers = ['controller', 'service', 'repository', 'gateway', 'job', 'dto', 'domain'];
@@ -88,6 +90,70 @@ const dtoLocation = {
   },
 };
 
+async function cycleRule(rootDir) {
+  const tree = await parseDependencyTree('src/**/*.ts', {
+    cwd: rootDir,
+    context: rootDir,
+    tsconfig: path.join(rootDir, 'tsconfig.json'),
+    transform: false,
+    skipDynamicImports: false,
+  });
+  const ordered = Object.fromEntries(
+    Object.entries(tree).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+      .map(([file, dependencies]) => [file, dependencies?.slice().sort((left, right) => {
+        const a = JSON.stringify([left.id, left.kind, left.request]);
+        const b = JSON.stringify([right.id, right.kind, right.request]);
+        return a < b ? -1 : a > b ? 1 : 0;
+      }) ?? null]),
+  );
+  const witnesses = parseCircular(ordered);
+  if (witnesses.length > 0) {
+    for (const [issuer, dependencies] of Object.entries(ordered)) {
+      const targets = new Set();
+      for (const dependency of dependencies ?? []) {
+        if (!dependency.id || !ordered[dependency.id] || targets.has(dependency.id)) continue;
+        targets.add(dependency.id);
+        const rooted = { [issuer]: [dependency], ...ordered };
+        rooted[issuer] = [dependency];
+        witnesses.push(...parseCircular(rooted).filter((cycle) => cycle.includes(issuer)));
+      }
+    }
+  }
+  const cycles = new Map();
+  for (const witness of witnesses) {
+    const nodes = witness.map((file) => file.split(path.sep).join('/'));
+    const rotations = nodes.map((_, index) => [...nodes.slice(index), ...nodes.slice(0, index)]);
+    const canonical = rotations.map((rotation) => JSON.stringify(rotation)).sort()[0];
+    const orderedNodes = JSON.parse(canonical);
+    const reporter = orderedNodes.find((file) => file.startsWith('src/') && file.endsWith('.ts'));
+    if (!reporter) throw new Error(`순환 의존 진단을 backend src 파일에 연결할 수 없다: ${canonical}`);
+    const messageId = `cycle_${createHash('sha256').update(canonical).digest('hex')}`;
+    cycles.set(messageId, { reporter, cycle: JSON.stringify([...orderedNodes, orderedNodes[0]]) });
+  }
+  return {
+    meta: {
+      type: 'problem',
+      schema: [],
+      messages: Object.fromEntries([...cycles.keys()].sort().map((id) => [id, '순환 의존은 금지한다: {{cycle}}'])),
+    },
+    create(context) {
+      const file = path.relative(rootDir, context.filename).split(path.sep).join('/');
+      return {
+        Program() {
+          for (const [messageId, cycle] of cycles) {
+            if (cycle.reporter !== file) continue;
+            context.report({
+              loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
+              messageId,
+              data: { cycle: cycle.cycle },
+            });
+          }
+        },
+      };
+    },
+  };
+}
+
 const policies = [
   { allow: { to: { module: { origin: ['external', 'core'] } } } },
   { allow: { to: element('common') } },
@@ -108,14 +174,15 @@ const policies = [
   { from: [element('repository'), category('test')], allow: { to: { file: { path: '**/src/prisma/lock-program-tree.ts' } } } },
 ];
 
-export function createRailsConfig(rootDir = import.meta.dirname) {
+export async function createRailsConfig(rootDir = import.meta.dirname) {
+  const noCycle = await cycleRule(rootDir);
   return defineConfig([
     { ignores: ['dist/**', 'node_modules/**', 'coverage/**'] },
     {
       files: ['src/**/*.ts', 'test/**/*.ts', 'prisma/**/*.ts'],
       languageOptions: { parser: tseslint.parser },
       linterOptions: { noInlineConfig: true },
-      plugins: { boundaries, architecture: { rules: { 'no-class-alias': noClassAlias, 'dto-location': dtoLocation } } },
+      plugins: { boundaries, architecture: { rules: { 'no-class-alias': noClassAlias, 'dto-location': dtoLocation, 'no-cycle': noCycle } } },
       settings: {
         'boundaries/root-path': rootDir,
         'boundaries/files-single-match': false,
@@ -148,6 +215,7 @@ export function createRailsConfig(rootDir = import.meta.dirname) {
         'boundaries/no-unknown-files': 'error',
         'boundaries/no-unknown-dependencies': 'error',
         'architecture/no-class-alias': 'error',
+        'architecture/no-cycle': 'error',
       },
     },
     {
@@ -177,4 +245,4 @@ export function createRailsConfig(rootDir = import.meta.dirname) {
   ]);
 }
 
-export default createRailsConfig();
+export default await createRailsConfig();

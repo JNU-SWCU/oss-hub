@@ -167,7 +167,7 @@ const [backendRoot, fixtureRoot, fileList] = process.argv.slice(1);
 const require = createRequire(path.join(backendRoot, 'package.json'));
 const { ESLint } = require('eslint');
 const { createRailsConfig } = await import(pathToFileURL(path.join(backendRoot, 'eslint.rails.mjs')).href);
-const eslint = new ESLint({ cwd: fixtureRoot, overrideConfigFile: true, overrideConfig: createRailsConfig(fixtureRoot) });
+const eslint = new ESLint({ cwd: fixtureRoot, overrideConfigFile: true, overrideConfig: await createRailsConfig(fixtureRoot) });
 const results = [];
 for (const file of JSON.parse(fileList)) {
   const filePath = path.join(fixtureRoot, file);
@@ -251,5 +251,110 @@ describe('source cycle coverage with dpdm', () => {
 
   it('accepts an acyclic graph including type and dynamic edges', async () => {
     expect(await analyze({ 'a.ts': "import type { B } from './b'; export type A = B; export const load = () => import('./b');", 'b.ts': 'export interface B { id: string }' })).toEqual([]);
+  });
+});
+
+const cycleScenarios: { name: string; sources: Record<string, string> }[] = [
+  ...cycles,
+  { name: 'base', sources: { 'a.ts': "import './b';", 'b.ts': "import './a';" } },
+  { name: 'shifted', sources: { 'b.ts': "\n\nimport './a';\nexport const unrelated = 1;", 'a.ts': "\nimport './b';" } },
+  { name: 'swapped', sources: { 'a.ts': "import './c';", 'c.ts': "import './a';" } },
+  { name: 'expanded', sources: { 'a.ts': "import './b';", 'b.ts': "import './c';", 'c.ts': "import './a';" } },
+  { name: 'reversed', sources: { 'a.ts': "import './c';", 'c.ts': "import './b';", 'b.ts': "import './a';" } },
+  { name: 'added', sources: { 'a.ts': "import './b'; import './c';", 'b.ts': "import './a';", 'c.ts': "import './a';" } },
+  { name: 'overlapping', sources: { 'a.ts': "import './b'; import './c';", 'b.ts': "import './a';", 'c.ts': "import './b';" } },
+  { name: 'broken', sources: { 'a.ts': "import './b';", 'b.ts': 'export const b = 1;' } },
+];
+
+const cycleRunner = `
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+import path from 'node:path';
+const [backendRoot, requests] = process.argv.slice(1);
+const require = createRequire(path.join(backendRoot, 'package.json'));
+const { ESLint } = require('eslint');
+const { createRailsConfig } = await import(pathToFileURL(path.join(backendRoot, 'eslint.rails.mjs')).href);
+const output = {};
+for (const { name, root } of JSON.parse(requests)) {
+  const eslint = new ESLint({ cwd: root, overrideConfigFile: true, overrideConfig: await createRailsConfig(root) });
+  const results = await eslint.lintFiles(['src/**/*.ts']);
+  if (results.some((result) => result.messages.some((message) => message.fatal))) throw new Error('Invalid cycle fixture');
+  output[name] = results.flatMap((result) => result.messages
+    .filter((message) => message.ruleId === 'architecture/no-cycle')
+    .map((message) => ({ ...message, file: path.relative(root, result.filePath).split(path.sep).join('/') })));
+}
+process.stdout.write(JSON.stringify(output));
+`;
+
+describe('physical cycle diagnostics for the trusted lint ratchet', () => {
+  const roots = new Set<string>();
+  let results: Record<string, (Linter.LintMessage & { file: string })[]>;
+
+  beforeAll(() => {
+    const requests = cycleScenarios.map(({ name, sources }) => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'oss-hub-cycle-rails-'));
+      roots.add(root);
+      configure(root);
+      for (const [file, code] of Object.entries(sources)) write(root, `src/${file}`, code);
+      return { name, root };
+    });
+    const stdout = execFileSync(process.execPath, ['--input-type=module', '-e', cycleRunner, backendRoot, JSON.stringify(requests)], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+    results = JSON.parse(stdout) as typeof results;
+  }, 60000);
+
+  afterAll(() => {
+    for (const root of roots) fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  function findings(name: string): (Linter.LintMessage & { file: string })[] {
+    const messages = results[name];
+    if (!messages) throw new Error(`Missing cycle result: ${name}`);
+    return messages;
+  }
+
+  function identities(name: string): string[] {
+    return findings(name).map((message) => JSON.stringify([message.file, message.ruleId, message.messageId])).sort();
+  }
+
+  it.each(cycles)('emits ratchetable $name cycle diagnostics from physical files', ({ name }) => {
+    expect(findings(name).length).toBeGreaterThan(0);
+    for (const message of findings(name)) {
+      expect(message.messageId).toMatch(/^cycle_[a-f0-9]{64}$/);
+      expect(message).toMatchObject({ line: 1, column: 1, endLine: 1, endColumn: 1 });
+      expect(message.nodeType).toBeNull();
+      expect(message.message).toContain('src/');
+    }
+  });
+
+  it('preserves identity across root relocation, source lines and declaration order', () => {
+    expect(identities('base')).toHaveLength(1);
+    expect(identities('shifted')).toEqual(identities('base'));
+  });
+
+  it('rejects same-count cycle replacement with a different target identity', () => {
+    expect(findings('swapped')).toHaveLength(findings('base').length);
+    expect(findings('swapped')[0]?.file).toBe(findings('base')[0]?.file);
+    expect(identities('swapped')).not.toEqual(identities('base'));
+  });
+
+  it('distinguishes expanded cycles and directed traversal order', () => {
+    expect(identities('expanded')).not.toEqual(identities('base'));
+    expect(identities('reversed')).not.toEqual(identities('expanded'));
+  });
+
+  it('reports separate identities for two cycles anchored in the same file', () => {
+    expect(identities('added')).toHaveLength(2);
+    expect(new Set(findings('added').map((message) => message.file)).size).toBe(1);
+    expect(identities('added')).toEqual(expect.arrayContaining(identities('base')));
+  });
+
+  it('does not let a visited-node traversal hide an overlapping cyclic edge', () => {
+    expect(identities('overlapping')).toHaveLength(2);
+    expect(identities('overlapping')).toEqual(expect.arrayContaining(identities('base')));
+    expect(findings('overlapping').some((message) => message.message.includes('src/c.ts'))).toBe(true);
+  });
+
+  it('removes diagnostics when the physical return edge is removed', () => {
+    expect(findings('broken')).toEqual([]);
   });
 });
