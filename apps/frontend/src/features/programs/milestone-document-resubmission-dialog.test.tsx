@@ -17,16 +17,18 @@ it.each(['previous.pdf', null])(
     const onConfirm = vi.fn();
     const onCancel = vi.fn();
     try {
-      await act(async () =>
-        root.render(
-          <MilestoneDocumentResubmissionDialog
-            documentName="계획서"
-            resubmissionDueAt="2099-12-31T00:00:00.000Z"
-            removedFileName={removedFileName}
-            submitting={false}
-            onCancel={onCancel}
-            onConfirm={onConfirm}
-          />,
+      await act(() =>
+        Promise.resolve(
+          root.render(
+            <MilestoneDocumentResubmissionDialog
+              documentName="계획서"
+              resubmissionDueAt="2099-12-31T00:00:00.000Z"
+              removedFileName={removedFileName}
+              submitting={false}
+              onCancel={onCancel}
+              onConfirm={onConfirm}
+            />,
+          ),
         ),
       );
       expect(document.querySelectorAll('[role="alertdialog"]')).toHaveLength(1);
@@ -41,11 +43,11 @@ it.each(['previous.pdf', null])(
         (button) => button.textContent === '제출 확정',
       );
       if (!confirm) throw new TypeError('Missing final confirmation');
-      await act(async () => confirm.click());
+      await act(() => Promise.resolve(confirm.click()));
       expect(onConfirm).toHaveBeenCalledTimes(1);
       expect(onCancel).not.toHaveBeenCalled();
     } finally {
-      await act(async () => root.unmount());
+      await act(() => Promise.resolve(root.unmount()));
       container.remove();
     }
   },
