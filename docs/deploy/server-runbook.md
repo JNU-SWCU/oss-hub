@@ -224,7 +224,7 @@ curl -fsS \
 6. Rollback은 captured previous backend image ID·version·revision이 exact match할 때만 허용한다. Object storage mode를 되돌리는 rollback은 없다.
 7. Production Compose root와 비API path는 404이고 `/api/v1/`와 exact OAuth callback만 backend로 전달한다. 로컬 개발의 object-storage substitute는 `compose.dev.yml`에서만 존재하며 production 계약에 포함되지 않는다.
 
-과거 G0–G9 migration 절차와 수용 deviation은 [Cloudflare R2 readiness](../handoff/cloudflare-r2-readiness.md)와 Issue #1113 receipt가 기록 원본이다. 완료된 migration 명령을 production runbook 절차로 다시 실행하지 않는다.
+과거 G0–G9 migration 절차와 수용 deviation은 [Issue #1113](https://github.com/JNU-SWCU/oss-hub/issues/1113) receipt가 기록 원본이다. 완료된 migration 명령을 production runbook 절차로 다시 실행하지 않는다.
 
 ### M8-E. authenticated custom-origin 전환 (2026-09-02 완료)
 
