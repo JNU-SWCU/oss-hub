@@ -188,7 +188,7 @@ sudo docker run --rm --network oss-hub_default \
 
 ## D8. 스토리지 고아 객체 점검·정리 (QA60)
 
-reconcile CLI는 운영 backend 이미지에 컴파일돼 들어 있다(`apps/backend/src/submissions/cli/reconcile-storage-orphans.ts`).
+reconcile CLI는 운영 backend 이미지에 컴파일돼 들어 있다(`apps/backend/src/submissions/job/reconcile-storage-orphans.ts`).
 반드시 `--report`로 먼저 보고, 결과를 확인한 뒤에만 `--delete`를 실행한다.
 
 ```sh
@@ -196,13 +196,13 @@ reconcile CLI는 운영 backend 이미지에 컴파일돼 들어 있다(`apps/ba
 sudo docker run --rm --network oss-hub_default \
   --env-file "<production-env-file>" \
   "oss-hub-backend:<release-tag>" \
-  node dist/src/submissions/cli/reconcile-storage-orphans.js --report
+  node dist/src/submissions/job/reconcile-storage-orphans.js --report
 
 # 2) 리포트의 orphanKeys를 확인·보관한 뒤 삭제 모드 실행
 sudo docker run --rm --network oss-hub_default \
   --env-file "<production-env-file>" \
   "oss-hub-backend:<release-tag>" \
-  node dist/src/submissions/cli/reconcile-storage-orphans.js --delete
+  node dist/src/submissions/job/reconcile-storage-orphans.js --delete
 ```
 
 - 예상 출력: `storage-orphan.result` JSON 한 줄(모드·cutoff·orphanKeys·deletedKeys·skippedReferencedKeys).

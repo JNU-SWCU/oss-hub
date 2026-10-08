@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import {
-  SUBMISSION_FILE_STORAGE,
-  type SubmissionFileStoragePort,
-} from '../submissions/submission-file-storage.port';
+  OBJECT_STORAGE,
+  type ObjectStoragePort,
+} from '../storage/domain/object-storage';
 import {
   type ClaimedProgramAuthoringUpload,
   ProgramAuthoringUploadRepository,
@@ -24,10 +24,7 @@ type ProgramAuthoringUploadMaintenanceStore = Pick<
   ProgramAuthoringUploadRepository,
   'claimForDeletion' | 'markDeleted' | 'recordDeleteFailure'
 >;
-type ProgramAuthoringUploadDeleteStorage = Pick<
-  SubmissionFileStoragePort,
-  'delete'
->;
+type ProgramAuthoringUploadDeleteStorage = Pick<ObjectStoragePort, 'delete'>;
 
 @Injectable()
 export class ProgramAuthoringUploadMaintenanceService {
@@ -38,7 +35,7 @@ export class ProgramAuthoringUploadMaintenanceService {
   constructor(
     @Inject(ProgramAuthoringUploadRepository)
     private readonly repository: ProgramAuthoringUploadMaintenanceStore,
-    @Inject(SUBMISSION_FILE_STORAGE)
+    @Inject(OBJECT_STORAGE)
     private readonly storage: ProgramAuthoringUploadDeleteStorage,
     @Optional()
     private readonly now: () => Date = () => new Date(),

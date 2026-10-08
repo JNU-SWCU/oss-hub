@@ -7,8 +7,8 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { S3SubmissionFileStorage } from '../submissions/s3-submission-file.storage';
-import { SubmissionFileStorageConfig } from '../submissions/submission-file-storage.config';
+import { S3ObjectStorage } from '../storage/gateway/s3-object.storage';
+import { ObjectStorageConfig } from '../storage/object-storage.config';
 import { ProgramAuthoringUploadMaintenanceService } from './program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
 import type {
@@ -33,7 +33,7 @@ type SeedUploadOptions = {
 export class ProgramAuthoringIntegrationHarness {
   readonly prisma = new PrismaService();
   readonly uploads = new ProgramAuthoringUploadRepository(this.prisma);
-  readonly storageConfig = new SubmissionFileStorageConfig();
+  readonly storageConfig = new ObjectStorageConfig();
   private readonly settings = this.storageConfig.requireSettings();
   readonly s3 = new S3Client({
     endpoint: this.settings.endpoint,
@@ -44,7 +44,7 @@ export class ProgramAuthoringIntegrationHarness {
       secretAccessKey: this.settings.secretAccessKey,
     },
   });
-  readonly storage = new S3SubmissionFileStorage(this.storageConfig, this.s3);
+  readonly storage = new S3ObjectStorage(this.storageConfig, this.s3);
   readonly maintenance = new ProgramAuthoringUploadMaintenanceService(
     this.uploads,
     this.storage,

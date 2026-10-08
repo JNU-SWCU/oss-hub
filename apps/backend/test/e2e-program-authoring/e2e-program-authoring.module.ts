@@ -27,10 +27,9 @@ import { E2eProgramAuthoringService } from './e2e-program-authoring.service';
   ],
   controllers: [E2eProgramAuthoringController],
   providers: [
-    E2eProgramAuthoringAdapter,
     {
       provide: E2E_PROGRAM_AUTHORING_PORT,
-      useExisting: E2eProgramAuthoringAdapter,
+      useClass: E2eProgramAuthoringAdapter,
     },
     E2eProgramAuthoringService,
   ],

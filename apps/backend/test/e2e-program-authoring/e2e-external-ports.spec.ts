@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
 import { GithubOperationsError } from '../../src/github/github-app.error';
-import { SubmissionFileStorageError } from '../../src/submissions/submission-file-storage.port';
+import { ObjectStorageError } from '../../src/storage/domain/object-storage';
 import {
   E2E_EXTERNAL_FAILURE_OPERATIONS,
   E2eExternalPortFailure,
@@ -76,6 +76,7 @@ describe('e2eProgramAuthoringExternalPorts', () => {
       body,
       contentType: 'text/plain',
       originalName: 'fixture.txt',
+      objectKey: 'submission-files/synthetic-fixture',
     });
     const received = await buffer(
       await e2eProgramAuthoringExternalPorts.storage.get(stored.objectKey),
@@ -116,14 +117,15 @@ describe('e2eProgramAuthoringExternalPorts', () => {
       body: Buffer.from('deterministic-content'),
       contentType: 'text/plain',
       originalName: 'fixture.txt',
+      objectKey: 'submission-files/synthetic-fixture',
     };
 
     const first = e2eProgramAuthoringExternalPorts.storage.put(input);
     const second = e2eProgramAuthoringExternalPorts.storage.put(input);
     const third = e2eProgramAuthoringExternalPorts.storage.put(input);
 
-    await expect(first).rejects.toBeInstanceOf(SubmissionFileStorageError);
-    await expect(second).rejects.toBeInstanceOf(SubmissionFileStorageError);
+    await expect(first).rejects.toBeInstanceOf(ObjectStorageError);
+    await expect(second).rejects.toBeInstanceOf(ObjectStorageError);
     await expect(third).resolves.toMatchObject({ contentLength: 21 });
     expect(
       e2eProgramAuthoringExternalPorts.failures.remaining(
@@ -167,6 +169,7 @@ describe('e2eProgramAuthoringExternalPorts', () => {
       body: Buffer.from('deterministic-content'),
       contentType: 'text/plain',
       originalName: 'fixture.txt',
+      objectKey: 'submission-files/synthetic-fixture',
     });
     e2eProgramAuthoringExternalPorts.failures.configure(
       E2E_EXTERNAL_FAILURE_OPERATIONS.STORAGE_GET,
@@ -190,11 +193,9 @@ describe('e2eProgramAuthoringExternalPorts', () => {
       stored.objectKey,
     );
 
-    await expect(failedGet).rejects.toBeInstanceOf(SubmissionFileStorageError);
+    await expect(failedGet).rejects.toBeInstanceOf(ObjectStorageError);
     await expect(successfulGet).resolves.toBeInstanceOf(Readable);
-    await expect(failedDelete).rejects.toBeInstanceOf(
-      SubmissionFileStorageError,
-    );
+    await expect(failedDelete).rejects.toBeInstanceOf(ObjectStorageError);
     await expect(successfulDelete).resolves.toBeUndefined();
   });
 
@@ -203,6 +204,7 @@ describe('e2eProgramAuthoringExternalPorts', () => {
       body: Buffer.from('deterministic-content'),
       contentType: 'text/plain',
       originalName: 'fixture.txt',
+      objectKey: 'submission-files/synthetic-fixture',
     });
     e2eProgramAuthoringExternalPorts.failures.configure(
       E2E_EXTERNAL_FAILURE_OPERATIONS.STORAGE_DELETE,

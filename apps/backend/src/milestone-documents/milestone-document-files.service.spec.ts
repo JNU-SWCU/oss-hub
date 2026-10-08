@@ -11,7 +11,7 @@ import {
   MilestoneDocumentFileUpload,
   MilestoneDocumentFilesService,
 } from './milestone-document-files.service';
-import type { SubmissionFileStoragePort } from '../submissions/submission-file-storage.port';
+import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
@@ -192,7 +192,7 @@ function buildStorage(overrides: Partial<Record<string, jest.Mock>> = {}) {
     delete: jest.fn(),
     ...overrides,
   };
-  return { mocks, storage: mocks as unknown as SubmissionFileStoragePort };
+  return { mocks, storage: mocks as unknown as ObjectStoragePort };
 }
 
 describe('MilestoneDocumentFilesService.upload (학생)', () => {

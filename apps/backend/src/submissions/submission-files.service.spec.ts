@@ -2,11 +2,11 @@ import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
 import {
-  SUBMISSION_FILE_STORAGE_ERROR_CODES,
-  SubmissionFileStorageError,
-  type StoreSubmissionFileInput,
-  type SubmissionFileStoragePort,
-} from './submission-file-storage.port';
+  OBJECT_STORAGE_ERROR_CODES,
+  ObjectStorageError,
+  type StoreObjectInput,
+  type ObjectStoragePort,
+} from '../storage/domain/object-storage';
 import { SubmissionMembershipChangedError } from './submission-membership.repository';
 import {
   type CreatePendingSubmissionFileInput,
@@ -87,10 +87,7 @@ function setup() {
   };
   const storage = {
     put: jest
-      .fn<
-        ReturnType<SubmissionFileStoragePort['put']>,
-        [StoreSubmissionFileInput]
-      >()
+      .fn<ReturnType<ObjectStoragePort['put']>, [StoreObjectInput]>()
       .mockImplementation((input) =>
         Promise.resolve({
           objectKey: input.objectKey ?? 'private/opaque-object',
@@ -101,7 +98,7 @@ function setup() {
       ),
     delete: jest.fn().mockResolvedValue(undefined),
     get: jest
-      .fn<ReturnType<SubmissionFileStoragePort['get']>, [string]>()
+      .fn<ReturnType<ObjectStoragePort['get']>, [string]>()
       .mockResolvedValue(Readable.from(Buffer.from('private-file-body'))),
   };
   const service = new SubmissionFilesService(
@@ -513,9 +510,7 @@ describe('SubmissionFilesService', () => {
   it('redacts provider storage failures behind the public domain error', async () => {
     const { service, storage } = setup();
     storage.put.mockRejectedValue(
-      new SubmissionFileStorageError(
-        SUBMISSION_FILE_STORAGE_ERROR_CODES.PUT_FAILED,
-      ),
+      new ObjectStorageError(OBJECT_STORAGE_ERROR_CODES.PUT_FAILED),
     );
     const error = await service
       .upload(1n, 'app', 'milestone', file())
@@ -589,9 +584,7 @@ describe('SubmissionFilesService', () => {
   it('leaves durable pending cleanup state when the put fails', async () => {
     const { service, repository, storage } = setup();
     storage.put.mockRejectedValue(
-      new SubmissionFileStorageError(
-        SUBMISSION_FILE_STORAGE_ERROR_CODES.PUT_FAILED,
-      ),
+      new ObjectStorageError(OBJECT_STORAGE_ERROR_CODES.PUT_FAILED),
     );
     await expectCode(
       service.upload(1n, 'app', 'milestone', file()),
@@ -739,9 +732,7 @@ describe('SubmissionFilesService', () => {
   it('maps download storage failures to the public unavailable error', async () => {
     const { service, storage } = setup();
     storage.get.mockRejectedValue(
-      new SubmissionFileStorageError(
-        SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_FAILED,
-      ),
+      new ObjectStorageError(OBJECT_STORAGE_ERROR_CODES.GET_FAILED),
     );
 
     const error = await service
@@ -758,9 +749,7 @@ describe('SubmissionFilesService', () => {
   it('maps missing download storage objects to the established not-found error', async () => {
     const { service, storage } = setup();
     storage.get.mockRejectedValue(
-      new SubmissionFileStorageError(
-        SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_NOT_FOUND,
-      ),
+      new ObjectStorageError(OBJECT_STORAGE_ERROR_CODES.GET_NOT_FOUND),
     );
 
     await expectCode(

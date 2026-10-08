@@ -1,8 +1,8 @@
-import { SubmissionFileStorageConfig } from './submission-file-storage.config';
 import {
-  SUBMISSION_FILE_STORAGE_ERROR_CODES,
-  SubmissionFileStorageError,
-} from './submission-file-storage.port';
+  OBJECT_STORAGE_ERROR_CODES,
+  ObjectStorageError,
+} from './domain/object-storage';
+import { ObjectStorageConfig } from './object-storage.config';
 
 const ENV_KEYS = [
   'SUBMISSION_FILE_STORAGE_MODE',
@@ -18,7 +18,7 @@ type EnvKey = (typeof ENV_KEYS)[number];
 const R2_ENDPOINT =
   'https://00000000000000000000000000000000.r2.cloudflarestorage.com';
 
-describe('SubmissionFileStorageConfig', () => {
+describe('ObjectStorageConfig', () => {
   const original: Partial<Record<EnvKey, string>> = {};
 
   beforeEach(() => {
@@ -57,20 +57,25 @@ describe('SubmissionFileStorageConfig', () => {
     }
   }
 
+  function captureError(action: () => unknown): unknown {
+    try {
+      action();
+    } catch (error) {
+      return error;
+    }
+    throw new Error('Expected a CONFIGURATION failure');
+  }
+
   function expectConfigurationError() {
-    return expect(() =>
-      new SubmissionFileStorageConfig().requireSettings(),
-    ).toThrow(
-      new SubmissionFileStorageError(
-        SUBMISSION_FILE_STORAGE_ERROR_CODES.CONFIGURATION,
-      ),
+    return expect(() => new ObjectStorageConfig().requireSettings()).toThrow(
+      new ObjectStorageError(OBJECT_STORAGE_ERROR_CODES.CONFIGURATION),
     );
   }
 
   it('local mode에서 6개 application storage 값과 private HTTP endpoint를 반환한다', () => {
     setValidEnvironment();
 
-    const settings = new SubmissionFileStorageConfig().requireSettings();
+    const settings = new ObjectStorageConfig().requireSettings();
 
     expect(settings).toEqual({
       endpoint: 'http://object-storage:9000',
@@ -90,7 +95,7 @@ describe('SubmissionFileStorageConfig', () => {
       SUBMISSION_FILE_S3_FORCE_PATH_STYLE: 'true',
     });
 
-    const settings = new SubmissionFileStorageConfig().requireSettings();
+    const settings = new ObjectStorageConfig().requireSettings();
 
     expect(settings).toMatchObject({
       endpoint: R2_ENDPOINT,
@@ -105,7 +110,7 @@ describe('SubmissionFileStorageConfig', () => {
     (value) => {
       setValidEnvironment({ SUBMISSION_FILE_S3_FORCE_PATH_STYLE: value });
 
-      const settings = new SubmissionFileStorageConfig().requireSettings();
+      const settings = new ObjectStorageConfig().requireSettings();
 
       expect(settings.forcePathStyle).toBe(value === 'true');
     },
@@ -171,7 +176,7 @@ describe('SubmissionFileStorageConfig', () => {
           mode === 'managed' ? 'auto' : 'synthetic-region',
       });
 
-      const settings = new SubmissionFileStorageConfig().requireSettings();
+      const settings = new ObjectStorageConfig().requireSettings();
 
       expect(settings.endpoint).toBe(endpoint);
     },
@@ -288,7 +293,7 @@ describe('SubmissionFileStorageConfig', () => {
       SUBMISSION_FILE_S3_REGION: 'auto',
     });
 
-    const settings = new SubmissionFileStorageConfig().requireSettings();
+    const settings = new ObjectStorageConfig().requireSettings();
 
     expect(settings.endpoint).toBe(R2_ENDPOINT);
   });
@@ -313,9 +318,7 @@ describe('SubmissionFileStorageConfig', () => {
       NODE_ENV: 'production',
     });
 
-    expect(() =>
-      new SubmissionFileStorageConfig().requireSettings(),
-    ).not.toThrow();
+    expect(() => new ObjectStorageConfig().requireSettings()).not.toThrow();
   });
 
   it('NODE_ENV=development에서도 http://s3.example.com을 거부한다', () => {
@@ -325,5 +328,18 @@ describe('SubmissionFileStorageConfig', () => {
     });
 
     expectConfigurationError();
+  });
+
+  it('CONFIGURATION 실패 코드 문자열은 기존 소비자 계약 값을 유지한다', () => {
+    setValidEnvironment({ SUBMISSION_FILE_S3_ENDPOINT: 'not-a-url' });
+
+    const error = captureError(() =>
+      new ObjectStorageConfig().requireSettings(),
+    );
+
+    expect(error).toMatchObject({
+      name: 'ObjectStorageError',
+      message: 'SUBMISSION_FILE_STORAGE_CONFIGURATION',
+    });
   });
 });

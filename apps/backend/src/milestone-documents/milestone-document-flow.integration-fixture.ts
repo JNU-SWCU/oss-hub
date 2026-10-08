@@ -9,9 +9,9 @@ import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { RuntimeConfigModule } from '../runtime-config/runtime-config.module';
-import { S3SubmissionFileStorage } from '../submissions/s3-submission-file.storage';
-import { SubmissionFileStorageConfig } from '../submissions/submission-file-storage.config';
-import { SUBMISSION_FILE_STORAGE } from '../submissions/submission-file-storage.port';
+import { S3ObjectStorage } from '../storage/gateway/s3-object.storage';
+import { ObjectStorageConfig } from '../storage/object-storage.config';
+import { OBJECT_STORAGE } from '../storage/domain/object-storage';
 import { MilestoneDocumentsModule } from './milestone-documents.module';
 
 import {
@@ -29,9 +29,7 @@ const origin = 'https://synthetic.example';
 
 export class MilestoneDocumentFlowFixture {
   readonly prisma = new PrismaService();
-  readonly storage = new S3SubmissionFileStorage(
-    new SubmissionFileStorageConfig(),
-  );
+  readonly storage = new S3ObjectStorage(new ObjectStorageConfig());
   private app: INestApplication | undefined;
 
   async start(): Promise<void> {
@@ -62,9 +60,9 @@ export class MilestoneDocumentFlowFixture {
       .useValue({ sessionSecret, allowedOrigin: origin })
       .overrideProvider(AuthService)
       .useValue(auth)
-      .overrideProvider(S3SubmissionFileStorage)
+      .overrideProvider(S3ObjectStorage)
       .useValue(this.storage)
-      .overrideProvider(SUBMISSION_FILE_STORAGE)
+      .overrideProvider(OBJECT_STORAGE)
       .useValue(this.storage)
       .compile();
     this.app = module.createNestApplication();

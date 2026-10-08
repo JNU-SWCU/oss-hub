@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { ProgramCoverController } from './controller/program-cover.controller';
 import { ProgramCoverService } from './service/program-cover.service';
 import { ProgramCoverRepository } from './repository/program-cover.repository';
-import { SUBMISSION_FILE_STORAGE } from '../submissions/submission-file-storage.port';
+import { OBJECT_STORAGE } from '../storage/domain/object-storage';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { ProgramsRepository } from './repository/programs.repository';
 import { ProgramsService } from './service/programs.service';
@@ -42,7 +42,7 @@ it('returns the same public-cover HTTP 404 for an external reference and a missi
     providers: [
       ProgramCoverService,
       { provide: ProgramCoverRepository, useValue: publicCovers },
-      { provide: SUBMISSION_FILE_STORAGE, useValue: { get } },
+      { provide: OBJECT_STORAGE, useValue: { get } },
     ],
   }).compile();
   const application = moduleRef.createNestApplication();

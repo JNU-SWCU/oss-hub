@@ -10,7 +10,7 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
-import type { SubmissionFileStoragePort } from '../submissions/submission-file-storage.port';
+import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import { SubmissionFilesRepository } from '../submissions/submission-files.repository';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
@@ -116,7 +116,7 @@ const prisma = new PrismaService();
 const documentsRepository = new MilestoneDocumentsRepository(prisma);
 const documentsService = new MilestoneDocumentsService(documentsRepository);
 
-const storage: SubmissionFileStoragePort = {
+const storage: ObjectStoragePort = {
   put: () => Promise.reject(new Error('unused')),
   get: (objectKey: string) =>
     Promise.resolve(Readable.from(Buffer.from(`bytes:${objectKey}`))),

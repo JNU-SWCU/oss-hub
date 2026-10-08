@@ -9,13 +9,13 @@ import {
 import {
   createSubmissionFileObjectKey,
   sanitizeSubmissionFileOriginalName,
-} from '../submissions/submission-file-name';
+} from '../submissions/domain/submission-file-object-key';
 import { hasValidSubmissionFileSignature } from '../submissions/submission-file-signature';
 import { hasValidSubmissionTemplateSignature } from '../submissions/submission-template-file-policy';
 import {
-  SUBMISSION_FILE_STORAGE,
-  type SubmissionFileStoragePort,
-} from '../submissions/submission-file-storage.port';
+  OBJECT_STORAGE,
+  type ObjectStoragePort,
+} from '../storage/domain/object-storage';
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
@@ -76,8 +76,8 @@ export interface DownloadedMilestoneDocumentSubmissionFile {
 export class MilestoneDocumentFilesService {
   constructor(
     private readonly repository: MilestoneDocumentsRepository,
-    @Inject(SUBMISSION_FILE_STORAGE)
-    private readonly storage: SubmissionFileStoragePort,
+    @Inject(OBJECT_STORAGE)
+    private readonly storage: ObjectStoragePort,
     private readonly submissionFiles: SubmissionFilesRepository,
   ) {}
 

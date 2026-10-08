@@ -3,8 +3,9 @@ import { SUBMISSION_DASHBOARD_SUMMARY_PORT } from './submission-dashboard-summar
 import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
 import { SubmissionFileCleanupFailuresController } from './submission-file-cleanup-failures.controller';
 import { SubmissionFileCleanupFailuresService } from './submission-file-cleanup-failures.service';
-import { S3SubmissionFileStorage } from './s3-submission-file.storage';
-import { SUBMISSION_FILE_STORAGE } from './submission-file-storage.port';
+import { S3ObjectStorage } from '../storage/gateway/s3-object.storage';
+import { OBJECT_STORAGE } from '../storage/domain/object-storage';
+import { StorageModule } from '../storage/storage.module';
 import { SubmissionsModule } from './submissions.module';
 
 const getMetadataArray = (key: string): unknown[] => {
@@ -14,7 +15,7 @@ const getMetadataArray = (key: string): unknown[] => {
 };
 
 describe('SubmissionsModule storage provider', () => {
-  it('binds the storage token directly to the S3 adapter', () => {
+  it('imports the storage capability without registering or exporting an adapter alias', () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
 
     const storageProvider = providers.find(
@@ -22,14 +23,14 @@ describe('SubmissionsModule storage provider', () => {
         typeof provider === 'object' &&
         provider !== null &&
         'provide' in provider &&
-        provider.provide === SUBMISSION_FILE_STORAGE,
+        provider.provide === OBJECT_STORAGE,
     );
 
-    expect(storageProvider).toEqual(
-      expect.objectContaining({
-        provide: SUBMISSION_FILE_STORAGE,
-        useExisting: S3SubmissionFileStorage,
-      }),
+    expect(getMetadataArray(MODULE_METADATA.IMPORTS)).toContain(StorageModule);
+    expect(storageProvider).toBeUndefined();
+    expect(providers).not.toContain(S3ObjectStorage);
+    expect(getMetadataArray(MODULE_METADATA.EXPORTS)).not.toContain(
+      OBJECT_STORAGE,
     );
   });
 
