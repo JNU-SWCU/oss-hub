@@ -1,7 +1,7 @@
 import {
   authorityLabel,
   type AuthorityLabel,
-} from '../../../common/authority-label';
+} from '../../../users/domain/authority-label';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, MilestoneDocumentKind } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
