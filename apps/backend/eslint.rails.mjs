@@ -26,6 +26,10 @@ const enumExemptFiles = [...testFiles, ...moduleFiles, ...repositoryFiles, 'src/
 const enumPattern = `/^(${prismaEnumNames.join('|')})$/`;
 const enumMessage = 'Prisma 열거형만 import할 수 있다. DB 접근은 repository와 prisma/에서만 한다.';
 const nestKeys = new Set(['APP_GUARD', 'APP_FILTER', 'APP_INTERCEPTOR', 'APP_PIPE']);
+const unsupportedCycleSyntax = [
+  { selector: 'TSImportType', message: '순환 검사에서 지원하지 않는 import 타입 대신 정적 import type 선언을 사용한다.' },
+  { selector: 'TSImportEqualsDeclaration[moduleReference.type=TSExternalModuleReference]', message: '순환 검사에서 지원하지 않는 import equals 대신 정적 import 선언을 사용한다.' },
+];
 
 const element = (type, captured) => ({ element: { type, ...(captured ? { captured } : {}) } });
 const category = (name) => ({ file: { categories: name } });
@@ -86,6 +90,25 @@ const dtoLocation = {
     return {
       'ClassDeclaration[id.name=/Dto$/]'(node) {
         context.report({ node, messageId: 'forbidden' });
+      },
+    };
+  },
+};
+
+const noDpdmIgnore = {
+  meta: {
+    type: 'problem',
+    schema: [],
+    messages: { forbidden: '@dpdm-ignore로 순환 의존 검사를 생략할 수 없다.' },
+  },
+  create(context) {
+    return {
+      Program() {
+        for (const comment of context.sourceCode.getAllComments()) {
+          if (comment.value.includes('@dpdm-ignore')) {
+            context.report({ loc: comment.loc, messageId: 'forbidden' });
+          }
+        }
       },
     };
   },
@@ -181,17 +204,24 @@ export async function createRailsConfig(rootDir = import.meta.dirname) {
   return defineConfig([
     { ignores: ['dist/**', 'node_modules/**', 'coverage/**'] },
     {
+      files: ['**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'],
+      languageOptions: { parser: tseslint.parser },
+      linterOptions: { noInlineConfig: true },
+      plugins: { architecture: { rules: { 'no-class-alias': noClassAlias, 'dto-location': dtoLocation, 'no-cycle': noCycle, 'no-dpdm-ignore': noDpdmIgnore } } },
+      rules: { 'architecture/no-dpdm-ignore': 'error' },
+    },
+    {
       files: ['src/**/*.ts', 'test/**/*.ts', 'prisma/**/*.ts'],
       languageOptions: { parser: tseslint.parser },
       linterOptions: { noInlineConfig: true },
-      plugins: { boundaries, architecture: { rules: { 'no-class-alias': noClassAlias, 'dto-location': dtoLocation, 'no-cycle': noCycle } } },
+      plugins: { boundaries },
       settings: {
         'boundaries/root-path': rootDir,
         'boundaries/files-single-match': false,
         'boundaries/dependency-nodes': ['import', 'export', 'require', 'dynamic-import'],
         'boundaries/additional-dependency-nodes': [
-          { selector: 'TSImportType > Literal', kind: 'type' },
-          { selector: 'TSImportEqualsDeclaration > TSExternalModuleReference > Literal', kind: 'value' },
+          { selector: 'TSImportType > Literal', kind: 'type', name: 'typescript-import-type' },
+          { selector: 'TSImportEqualsDeclaration > TSExternalModuleReference > Literal', kind: 'value', name: 'typescript-import-equals' },
         ],
         'boundaries/elements': [
           ...['common', 'prisma', 'runtime-config'].map((type) => ({ type, pattern: `src/${type}`, partialMatch: false })),
@@ -222,11 +252,17 @@ export async function createRailsConfig(rootDir = import.meta.dirname) {
     },
     {
       files: ['src/**/*.ts'],
+      ignores: testFiles,
+      rules: { 'no-restricted-syntax': ['error', ...unsupportedCycleSyntax] },
+    },
+    {
+      files: ['src/**/*.ts'],
       ignores: enumExemptFiles,
       rules: {
         'no-restricted-imports': ['error', { paths: [{ name: '@prisma/client', allowImportNames: prismaEnumNames, message: enumMessage }] }],
         'no-restricted-syntax': [
           'error',
+          ...unsupportedCycleSyntax,
           { selector: "ImportDeclaration[source.value='@prisma/client'][specifiers.length=0]", message: enumMessage },
           { selector: `ExportNamedDeclaration[source.value='@prisma/client'] > ExportSpecifier:not([local.name=${enumPattern}]):not([local.value=${enumPattern}])`, message: enumMessage },
           { selector: "ExportAllDeclaration[source.value='@prisma/client']", message: enumMessage },

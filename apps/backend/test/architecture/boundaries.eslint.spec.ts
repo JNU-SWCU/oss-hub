@@ -37,7 +37,7 @@ function edge(name: string, from: string, to: string, allowed: boolean, syntax =
   };
   const code = forms[syntax];
   if (code === undefined) throw new Error(`Unknown fixture syntax: ${syntax}`);
-  add(name, from, code, allowed ? null : dependencyRule);
+  add(name, from, code, allowed ? (syntax === 'importType' || syntax === 'importEquals' ? 'no-restricted-syntax' : null) : dependencyRule);
 }
 
 const permitted: Record<Layer, readonly Layer[]> = {
@@ -105,6 +105,13 @@ add('root error codes remain classified', 'src/alpha/alpha-error-code.enum.ts', 
 add('DTO class belongs in dto directory', 'src/alpha/service/result.ts', 'export class ResultResponseDto {}', 'architecture/dto-location');
 add('DTO class is accepted in dto directory', 'src/alpha/dto/result.ts', 'export class ResultResponseDto {}', null);
 add('nested DTO class is accepted', 'src/programs/archive/overview/dto/result.ts', 'export class ResultResponseDto {}', null);
+add('test may use import type node', 'test/import-type.spec.ts', "export type Value = import('../src/alpha/domain/target').Shape;", null);
+add('test may use import equals', 'test/import-equals.spec.ts', "import Value = require('../src/alpha/domain/target'); export { Value };", null);
+add('repository cannot use import type node', 'src/alpha/repository/import-type.ts', "export type Value = import('../domain/target').Shape;", 'no-restricted-syntax');
+add('module cannot use import equals', 'src/alpha/equals.module.ts', "import Value = require('./domain/target'); export { Value };", 'no-restricted-syntax');
+for (const file of ['src/alpha/domain/marker.ts', 'test/marker.spec.ts', 'prisma/seeds/marker.ts', 'eslint-marker.mjs']) {
+  add(`dpdm suppression marker forbidden in ${file}`, file, "/* @dpdm-ignore */\nexport const value = 1;", 'architecture/no-dpdm-ignore');
+}
 
 for (const layer of layers) {
   const code = "import { AccountStatus as Status } from '@prisma/client'; export const value = Status;";
@@ -275,6 +282,9 @@ describe('source cycle coverage with dpdm', () => {
 
 const cycleScenarios: { name: string; sources: Record<string, string> }[] = [
   ...cycles,
+  { name: 'unsupported-type-node', sources: { 'a.ts': "export interface A { b: import('./b').B }", 'b.ts': "export interface B { a: import('./a').A }" } },
+  { name: 'unsupported-import-equals', sources: { 'a.ts': "import b = require('./b'); export const a = b;", 'b.ts': "import a = require('./a'); export const b = a;" } },
+  { name: 'suppressed-cycle', sources: { 'a.ts': "// @dpdm-ignore\nimport './b';", 'b.ts': "import './a';" } },
   { name: 'base', sources: { 'a.ts': "import './b';", 'b.ts': "import './a';" } },
   { name: 'shifted', sources: { 'b.ts': "\n\nimport './a';\nexport const unrelated = 1;", 'a.ts': "\nimport './b';" } },
   { name: 'swapped', sources: { 'a.ts': "import './c';", 'c.ts': "import './a';" } },
@@ -299,7 +309,7 @@ for (const { name, root } of JSON.parse(requests)) {
   const results = await eslint.lintFiles(['src/**/*.ts']);
   if (results.some((result) => result.messages.some((message) => message.fatal))) throw new Error('Invalid cycle fixture');
   output[name] = results.flatMap((result) => result.messages
-    .filter((message) => message.ruleId === 'architecture/no-cycle')
+    .filter((message) => ['architecture/no-cycle', 'no-restricted-syntax', 'architecture/no-dpdm-ignore'].includes(message.ruleId))
     .map((message) => ({ ...message, file: path.relative(root, result.filePath).split(path.sep).join('/') })));
 }
 process.stdout.write(JSON.stringify(output));
@@ -375,5 +385,15 @@ describe('physical cycle diagnostics for the trusted lint ratchet', () => {
 
   it('removes diagnostics when the physical return edge is removed', () => {
     expect(findings('broken')).toEqual([]);
+  });
+
+  it.each(['unsupported-type-node', 'unsupported-import-equals'])('rejects production %s despite pinned dpdm omitting its cycle', (name) => {
+    expect(findings(name).filter((message) => message.ruleId === 'architecture/no-cycle')).toEqual([]);
+    expect(findings(name).filter((message) => message.ruleId === 'no-restricted-syntax')).toHaveLength(2);
+  });
+
+  it('rejects the marker even when dpdm suppresses the actual return path', () => {
+    expect(findings('suppressed-cycle').filter((message) => message.ruleId === 'architecture/no-cycle')).toEqual([]);
+    expect(findings('suppressed-cycle').filter((message) => message.ruleId === 'architecture/no-dpdm-ignore')).toHaveLength(1);
   });
 });
