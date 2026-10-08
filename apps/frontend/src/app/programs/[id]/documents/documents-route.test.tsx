@@ -82,8 +82,9 @@ vi.mock('@/features/submissions/submission-checklist-page', () => ({
 import { DocumentsRoute } from './documents-route';
 
 async function renderRoute(root: Root): Promise<void> {
-  await act(async () => {
+  await act(() => {
     root.render(<DocumentsRoute programId="program:basic" />);
+    return Promise.resolve();
   });
 }
 
@@ -114,7 +115,10 @@ describe('DocumentsRoute role boundary', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
   });
 
