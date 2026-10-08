@@ -2,7 +2,6 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { parseCircular, parseDependencyTree } from 'dpdm';
 import type { Linter } from 'eslint';
 
 const backendRoot = path.resolve(__dirname, '../..');
@@ -228,6 +227,23 @@ const cycles: { name: string; sources: Record<string, string> }[] = [
   { name: 'disconnected', sources: { 'main.ts': 'export const main = 1;', 'orphan/a.ts': "import './b';", 'orphan/b.ts': "import './a';" } },
 ];
 
+const dpdmRunner = `
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+import path from 'node:path';
+const [backendRoot, root] = process.argv.slice(1);
+const require = createRequire(path.join(backendRoot, 'package.json'));
+const { parseCircular, parseDependencyTree } = await import(pathToFileURL(require.resolve('dpdm')).href);
+const tree = await parseDependencyTree('src/**/*.ts', {
+  cwd: root,
+  context: root,
+  tsconfig: path.join(root, 'tsconfig.json'),
+  transform: false,
+  skipDynamicImports: false,
+});
+process.stdout.write(JSON.stringify(parseCircular(tree)));
+`;
+
 describe('source cycle coverage with dpdm', () => {
   const roots = new Set<string>();
 
@@ -236,21 +252,21 @@ describe('source cycle coverage with dpdm', () => {
     roots.clear();
   });
 
-  async function analyze(sources: Record<string, string>): Promise<string[][]> {
+  function analyze(sources: Record<string, string>): string[][] {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'oss-hub-cycle-'));
     roots.add(root);
     configure(root);
     for (const [file, code] of Object.entries(sources)) write(root, `src/${file}`, code);
-    const tree = await parseDependencyTree('src/**/*.ts', { cwd: root, context: root, tsconfig: path.join(root, 'tsconfig.json'), transform: false, skipDynamicImports: false });
-    return parseCircular(tree);
+    const stdout = execFileSync(process.execPath, ['--input-type=module', '-e', dpdmRunner, backendRoot, root], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+    return JSON.parse(stdout) as string[][];
   }
 
-  it.each(cycles)('detects $name cycles without ignoring edges', async ({ sources }) => {
-    expect(await analyze(sources)).not.toEqual([]);
+  it.each(cycles)('detects $name cycles without ignoring edges', ({ sources }) => {
+    expect(analyze(sources)).not.toEqual([]);
   });
 
-  it('accepts an acyclic graph including type and dynamic edges', async () => {
-    expect(await analyze({ 'a.ts': "import type { B } from './b'; export type A = B; export const load = () => import('./b');", 'b.ts': 'export interface B { id: string }' })).toEqual([]);
+  it('accepts an acyclic graph including type and dynamic edges', () => {
+    expect(analyze({ 'a.ts': "import type { B } from './b'; export type A = B; export const load = () => import('./b');", 'b.ts': 'export interface B { id: string }' })).toEqual([]);
   });
 });
 
