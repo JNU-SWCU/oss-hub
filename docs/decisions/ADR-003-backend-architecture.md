@@ -171,6 +171,9 @@ E2E는 명시적 storage 대역을 사용하며 실제 managed R2로 연결하�
 두 앱은 공통 type-aware lint와 no-comments 규칙을 공유하되 각 앱의 runtime·framework 규칙은 유지한다.
 backend 계층 경계는 `eslint-plugin-boundaries`, 순환 검사, 열거형 positive allowlist, 주입 키·DTO·테스트 경계 검사로 강제한다.
 boundaries 도구의 비호환을 임의 대체 구현으로 숨기지 않는다.
+순환 검사는 dpdm 그래프를 lint 진단으로 내보내며 기존 순환은 감소 전용 기준선으로 관리한다.
+dpdm이 간선을 수집하지 못하는 type 위치 `import()`·`import x = require()`는 운영 코드에서 금지하고 `@dpdm-ignore` 표식은 어디서도 허용하지 않는다.
+해석되지 않은 내부 의존은 순환 없음으로 간주하지 않고 검사 실패로 처리한다.
 Knip은 명시적 runtime·CLI·seed·test 진입점을 기준으로 사용하지 않는 코드를 탐지한다.
 Nest DI나 decorator 때문에 생긴 findings는 근거 있는 entry·설정으로 다루며 광범위한 무시 규칙으로 감추지 않는다.
 
