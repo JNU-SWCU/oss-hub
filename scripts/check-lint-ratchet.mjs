@@ -178,6 +178,16 @@ function requireSubset(left, right, code) {
   for (const key of left.keys()) if (!right.has(key)) fail(code, key);
 }
 
+function indexDiagnostics(diagnostics) {
+  const entries = new Map();
+  for (const entry of diagnostics) {
+    const key = identity(entry);
+    if (entries.has(key)) fail('duplicate-diagnostic', 'each occurrence requires a distinct target');
+    entries.set(key, entry);
+  }
+  return entries;
+}
+
 function validateLive(root, shards, entries, allowedRuleIds) {
   for (const shard of shards.keys()) {
     const [, app, owner] = /^apps\/(backend|frontend)\/lint-baseline\/(.+)\.ndjson$/.exec(shard);
@@ -194,7 +204,7 @@ function validateLive(root, shards, entries, allowedRuleIds) {
 export function evaluateRatchet({ root, predecessor, headShards, diagnostics, allowedRuleIds, prune = false }) {
   const previous = parseShards(predecessor.shards);
   const head = parseShards(headShards);
-  const actual = new Map(diagnostics.map((entry) => [identity(entry), entry]));
+  const actual = indexDiagnostics(diagnostics);
   let mode;
   if (predecessor.shards.size > 0) {
     mode = 'ratchet';
@@ -274,6 +284,7 @@ export function diagnosticIdentity(root, result, message, source) {
 export async function collectDiagnostics(root) {
   const diagnostics = [];
   const allowedRuleIds = {};
+  const occurrences = new Map();
   for (const app of APPS) {
     const cwd = path.join(root, 'apps', app);
     const configFile = path.join(cwd, 'eslint.rails.mjs');
@@ -291,7 +302,13 @@ export async function collectDiagnostics(root) {
     if (results.length === 0) fail('eslint-empty', `${app} did not lint any files`);
     for (const result of results) {
       const source = result.source ?? fs.readFileSync(result.filePath, 'utf8');
-      for (const message of result.messages) diagnostics.push(diagnosticIdentity(root, result, message, source));
+      for (const message of result.messages) {
+        const entry = diagnosticIdentity(root, result, message, source);
+        const key = identity(entry);
+        const ordinal = (occurrences.get(key) ?? 0) + 1;
+        occurrences.set(key, ordinal);
+        diagnostics.push({ ...entry, target: `${entry.target}:occurrence:${ordinal}` });
+      }
     }
   }
   return { diagnostics, allowedRuleIds };
@@ -307,7 +324,7 @@ export async function runRatchet(root, options, collect = collectDiagnostics) {
       fail('seed-forbidden', 'only the checker-introducing predecessor permits --seed');
     }
     if (headShards.size) fail('seed-forbidden', 'head baselines already exist');
-    const entries = new Map(findings.diagnostics.map((entry) => [identity(entry), entry]));
+    const entries = indexDiagnostics(findings.diagnostics);
     const seedShards = serializeShards(entries.values(), new Map(APPS.map((app) => [`apps/${app}/lint-baseline/root.ndjson`, ''])), root);
     const result = evaluateRatchet({ root, predecessor, headShards: seedShards, ...findings });
     writeShards(root, headShards, seedShards);

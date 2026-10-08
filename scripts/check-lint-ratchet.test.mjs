@@ -8,6 +8,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+  collectDiagnostics,
   diagnosticIdentity,
   parseArguments,
   resolvePredecessor,
@@ -121,6 +122,66 @@ test('B1 real ESLint keeps an occurrence stable across blank-line movement', asy
   assert.equal(result.mode, 'ratchet');
   assert.equal(result.entries.size, 1);
   assert.equal(fs.readFileSync(path.join(repo.root, BACKEND_SHARD), 'utf8'), baseline);
+});
+
+test('B1 real ESLint pruning removes only the stale identical occurrence', async (t) => {
+  const repo = await realOccurrenceFixture(t, 'debugger;\ndebugger;\n');
+  const seeded = fs.readFileSync(path.join(repo.root, BACKEND_SHARD), 'utf8').trim().split('\n');
+  assert.equal(seeded.length, 2);
+  assert.notEqual(JSON.parse(seeded[0]).target, JSON.parse(seeded[1]).target);
+  repo.write(BACKEND, '\n\ndebugger;\n');
+  repo.commit();
+  await runRatchet(repo.root, repo.options(repo.seededBase, { prune: true }));
+  const pruned = fs.readFileSync(path.join(repo.root, BACKEND_SHARD), 'utf8').trim().split('\n');
+  assert.equal(pruned.length, 1);
+  assert.ok(seeded.includes(pruned[0]));
+  assert.equal((await runRatchet(repo.root, repo.options(repo.seededBase))).entries.size, 1);
+});
+
+test('collector preserves distinct cycle messageIds at the same zero-width location', async (t) => {
+  const repo = fixture(t);
+  const messageIds = [`cycle_${'a'.repeat(64)}`, `cycle_${'b'.repeat(64)}`];
+  for (const app of ['backend', 'frontend']) {
+    const appRoot = path.join(repo.root, 'apps', app);
+    const require = createRequire(path.join(REPO_ROOT, 'apps', app, 'package.json'));
+    fs.mkdirSync(path.join(appRoot, 'node_modules'), { recursive: true });
+    fs.symlinkSync(path.dirname(require.resolve('eslint/package.json')), path.join(appRoot, 'node_modules/eslint'), 'dir');
+    repo.write(`apps/${app}/package.json`, '{"type":"module"}\n');
+    repo.write(`apps/${app}/eslint.rails.mjs`, `
+const ids = ${JSON.stringify(messageIds)};
+const rule = {
+  meta: { schema: [], messages: Object.fromEntries(ids.map((id) => [id, 'Directed cycle'])) },
+  create(context) {
+    return {
+      Program(node) {
+        for (const messageId of ids) context.report({
+          node, messageId,
+          loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
+        });
+      },
+    };
+  },
+};
+export default [{
+  files: ['src/**/*.js'],
+  plugins: { architecture: { rules: { 'no-cycle': rule } } },
+  rules: { 'architecture/no-cycle': 'error' },
+}];
+`);
+  }
+  const first = (await collectDiagnostics(repo.root)).diagnostics.filter((entry) => entry.file === BACKEND);
+  assert.equal(first.length, 2);
+  assert.notEqual(first[0].target, first[1].target);
+  for (const id of messageIds) assert.equal(first.filter((entry) => entry.target.startsWith(`${id}:`)).length, 1);
+  repo.write(BACKEND, '\n\ndebugger;\n');
+  const moved = (await collectDiagnostics(repo.root)).diagnostics.filter((entry) => entry.file === BACKEND);
+  assert.deepEqual(moved, first);
+});
+
+test('unencoded duplicate collector identities fail instead of silently coalescing', async (t) => {
+  const repo = existing(t);
+  repo.commit();
+  await assert.rejects(repo.run(repo.base, [A, A]), /duplicate-diagnostic/);
 });
 
 test('B2 lint cannot remove its last baseline while the Knip family retains debt', async (t) => {
