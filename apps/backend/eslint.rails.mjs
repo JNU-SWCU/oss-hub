@@ -1,9 +1,11 @@
 import path from 'node:path';
 import { realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { isBuiltin } from 'node:module';
 import { defineConfig } from 'eslint/config';
 import boundaries from 'eslint-plugin-boundaries';
 import tseslint from 'typescript-eslint';
+import ts from 'typescript';
 import { parseCircular, parseDependencyTree } from 'dpdm';
 import { prismaEnumNames } from '../../scripts/prisma-enum-names.mjs';
 
@@ -115,13 +117,42 @@ const noDpdmIgnore = {
 };
 
 async function cycleRule(rootDir) {
+  const tsconfig = path.join(rootDir, 'tsconfig.json');
+  const read = ts.readConfigFile(tsconfig, ts.sys.readFile);
+  if (read.error) throw new Error(ts.flattenDiagnosticMessageText(read.error.messageText, '\n'));
+  const config = ts.parseJsonConfigFileContent(read.config, ts.sys, rootDir);
+  if (config.errors.length) throw new Error(config.errors.map((error) => ts.flattenDiagnosticMessageText(error.messageText, '\n')).join('\n'));
+  const aliases = Object.keys(config.options.paths ?? {});
+  const isAlias = (request) => aliases.some((alias) => {
+    const wildcard = alias.indexOf('*');
+    return wildcard === -1
+      ? request === alias
+      : request.startsWith(alias.slice(0, wildcard)) && request.endsWith(alias.slice(wildcard + 1));
+  });
+  const isSource = (file) => {
+    const relative = path.relative(path.join(rootDir, 'src'), path.resolve(rootDir, file));
+    return relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+  };
   const tree = await parseDependencyTree('src/**/*.ts', {
     cwd: rootDir,
     context: rootDir,
-    tsconfig: path.join(rootDir, 'tsconfig.json'),
+    tsconfig,
     transform: false,
     skipDynamicImports: false,
   });
+  for (const [file, dependencies] of Object.entries(tree)) {
+    if (dependencies === null && isSource(file)) {
+      throw new Error(`cycle-incomplete: excluded internal source ${file}`);
+    }
+    for (const dependency of dependencies ?? []) {
+      const request = dependency.request;
+      if (dependency.id !== null || isBuiltin(request)) continue;
+      const baseUrlSource = config.options.baseUrl && isSource(path.resolve(config.options.baseUrl, request));
+      if (request.startsWith('.') || path.isAbsolute(request) || isAlias(request) || baseUrlSource) {
+        throw new Error(`cycle-incomplete: unresolved internal dependency ${file} -> ${request}`);
+      }
+    }
+  }
   const ordered = Object.fromEntries(
     Object.entries(tree).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
       .map(([file, dependencies]) => [file, dependencies?.slice().sort((left, right) => {

@@ -397,3 +397,62 @@ describe('physical cycle diagnostics for the trusted lint ratchet', () => {
     expect(findings('suppressed-cycle').filter((message) => message.ruleId === 'architecture/no-dpdm-ignore')).toHaveLength(1);
   });
 });
+
+const graphValidationRunner = `
+import { pathToFileURL } from 'node:url';
+import path from 'node:path';
+const [backendRoot, requests] = process.argv.slice(1);
+const { createRailsConfig } = await import(pathToFileURL(path.join(backendRoot, 'eslint.rails.mjs')).href);
+const output = {};
+for (const { name, root } of JSON.parse(requests)) {
+  try {
+    await createRailsConfig(root);
+    output[name] = null;
+  } catch (error) {
+    output[name] = error.message;
+  }
+}
+process.stdout.write(JSON.stringify(output));
+`;
+
+describe('cycle graph completeness', () => {
+  const roots = new Set<string>();
+  let results: Record<string, string | null>;
+
+  beforeAll(() => {
+    const cases: { name: string; sources: Record<string, string> }[] = [
+      { name: 'relative', sources: { 'a.ts': "import './not-present';" } },
+      { name: 'alias', sources: { 'a.ts': "import '@fixture/not-present';" } },
+      { name: 'excluded-source', sources: { 'a.ts': "import './node_modules-shadow/b';", 'node_modules-shadow/b.ts': "import '../a';" } },
+      { name: 'builtin-package', sources: { 'a.ts': "import 'node:fs'; import '@nestjs/common';" } },
+    ];
+    const requests = cases.map(({ name, sources }) => {
+      const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'oss-hub-graph-completeness-')));
+      roots.add(root);
+      configure(root);
+      fs.symlinkSync(path.join(backendRoot, 'node_modules'), path.join(root, 'node_modules'), 'dir');
+      for (const [file, code] of Object.entries(sources)) write(root, `src/${file}`, code);
+      return { name, root };
+    });
+    const stdout = execFileSync(process.execPath, ['--input-type=module', '-e', graphValidationRunner, backendRoot, JSON.stringify(requests)], { encoding: 'utf8' });
+    results = JSON.parse(stdout) as typeof results;
+  }, 60000);
+
+  afterAll(() => {
+    for (const root of roots) fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it.each(['relative', 'alias'])('rejects an unresolved internal %s instead of returning an acyclic config', (name) => {
+    expect(results[name]).toContain('cycle-incomplete: unresolved internal dependency');
+    expect(results[name]).toContain('not-present');
+  });
+
+  it('rejects an excluded internal source node', () => {
+    expect(results['excluded-source']).toContain('cycle-incomplete: excluded internal source');
+    expect(results['excluded-source']).toContain('node_modules-shadow');
+  });
+
+  it('allows builtin and external package boundaries', () => {
+    expect(results['builtin-package']).toBeNull();
+  });
+});
