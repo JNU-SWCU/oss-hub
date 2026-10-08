@@ -136,6 +136,24 @@ edge(
   true,
 );
 edge(
+  'migrated service may import a not yet migrated module file',
+  'src/alpha/service/legacy.ts',
+  'src/beta/beta.service.ts',
+  true,
+);
+edge(
+  'migrated test may import a not yet migrated module file',
+  'src/alpha/service/legacy.spec.ts',
+  'src/beta/beta.service.ts',
+  true,
+);
+edge(
+  'migrated service still cannot import a migrated foreign repository',
+  'src/alpha/service/foreign.ts',
+  'src/beta/repository/beta.repository.ts',
+  false,
+);
+edge(
   'job may read runtime config',
   'src/alpha/job/config.ts',
   'src/runtime-config/runtime-config.ts',
