@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { defineConfig } from 'eslint/config';
 import boundaries from 'eslint-plugin-boundaries';
@@ -175,6 +176,7 @@ const policies = [
 ];
 
 export async function createRailsConfig(rootDir = import.meta.dirname) {
+  rootDir = realpathSync(rootDir);
   const noCycle = await cycleRule(rootDir);
   return defineConfig([
     { ignores: ['dist/**', 'node_modules/**', 'coverage/**'] },

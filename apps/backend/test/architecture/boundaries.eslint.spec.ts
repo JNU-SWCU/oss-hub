@@ -191,7 +191,7 @@ describe('backend structural lint rails', () => {
   let messages: Linter.LintMessage[][];
 
   beforeAll(() => {
-    root = fs.mkdtempSync(path.join(os.tmpdir(), 'oss-hub-boundaries-'));
+    root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'oss-hub-boundaries-')));
     configure(root);
     fs.symlinkSync(path.join(backendRoot, 'node_modules'), path.join(root, 'node_modules'), 'dir');
     for (const [file, code] of files) write(root, file, code);
@@ -211,6 +211,9 @@ describe('backend structural lint rails', () => {
       expect(actual).toEqual([]);
     } else {
       expect(actual?.map((message) => message.ruleId)).toContain(rule);
+      if (rule === dependencyRule) {
+        expect(actual?.filter((message) => message.ruleId === 'boundaries/no-unknown-files' || message.ruleId === 'boundaries/no-unknown-dependencies')).toEqual([]);
+      }
     }
   });
 });
@@ -253,7 +256,7 @@ describe('source cycle coverage with dpdm', () => {
   });
 
   function analyze(sources: Record<string, string>): string[][] {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'oss-hub-cycle-'));
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'oss-hub-cycle-')));
     roots.add(root);
     configure(root);
     for (const [file, code] of Object.entries(sources)) write(root, `src/${file}`, code);
@@ -308,7 +311,7 @@ describe('physical cycle diagnostics for the trusted lint ratchet', () => {
 
   beforeAll(() => {
     const requests = cycleScenarios.map(({ name, sources }) => {
-      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'oss-hub-cycle-rails-'));
+      const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'oss-hub-cycle-rails-')));
       roots.add(root);
       configure(root);
       for (const [file, code] of Object.entries(sources)) write(root, `src/${file}`, code);
