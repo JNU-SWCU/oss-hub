@@ -14,16 +14,16 @@
 
 ## Shared locking
 
-- `milestone-document-locks.ts` exports shared locks for `Milestone` and `MilestoneDocument` rows.
+- `../prisma/lock-program-tree.ts` owns staged locks for `Program`, `Milestone`, and `MilestoneDocument` rows.
 - The global order remains `Program` → `Milestone` → `MilestoneDocument` by ascending id.
-  The owning program repository acquires its private Program lock before calling the shared latter steps.
+  Repositories carry opaque witnesses between stages without reacquiring locks.
 - Feature paths may use the ordered subset they need but must never acquire the same rows in reverse order.
-- Reuse these helpers for milestone-document collection changes; do not copy raw lock SQL into another feature.
+- Reuse the prisma helper for milestone-document collection changes; do not copy raw lock SQL into another feature.
 
 ## Placement and checks
 
 - Shared additions require multiple real consumers and no dependency on feature modules or repositories.
 - Feature-specific DTOs, exceptions, controllers, services, repositories, and error codes stay with their owner.
 - Focused error conversion coverage: `problem-detail.filter.spec.ts`.
-- Lock semantics and ordering are documented and tested with `milestone-document-locks.ts` consumers under `programs/` and `milestone-documents/`.
+- Lock semantics and ordering are tested with `lock-program-tree.ts` consumers under `programs/` and `milestone-documents/`.
 <!-- /init:managed id=craft-init-backend-src-common -->

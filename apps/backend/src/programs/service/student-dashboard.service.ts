@@ -10,7 +10,7 @@ import {
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
   type MilestoneCompletionStatus,
-} from '../../common/milestone-completion';
+} from '../../milestone-documents/domain/milestone-completion';
 import { programCoverImageUrl } from '../program-cover';
 import {
   type OwnedRepositoryProjectionDto,

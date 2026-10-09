@@ -35,6 +35,7 @@ const store: jest.Mocked<ProgramEditorTransactionStore> = {
   findMilestoneForDelete: jest.fn(),
   deleteMilestone: jest.fn(),
   lockMilestoneEdit: jest.fn(),
+  readMilestoneEdit: jest.fn(),
   countSubmissionHistoriesForDocuments: jest.fn(),
   lockAttachableUploads: jest.fn(),
   applyMilestoneEdit: jest.fn(),
@@ -153,7 +154,7 @@ beforeEach(() => {
     staffAccessRequests: [],
   });
   store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
-  store.lockMilestoneEdit.mockResolvedValue({
+  const editSnapshot = {
     programId: 'program-1',
     milestoneUpdatedAt: new Date('2026-08-16T00:00:00.000Z'),
     view: {
@@ -165,7 +166,9 @@ beforeEach(() => {
       documents: [],
     },
     fingerprintDocuments: [],
-  });
+  };
+  store.lockMilestoneEdit.mockResolvedValue(editSnapshot);
+  store.readMilestoneEdit.mockResolvedValue(editSnapshot);
   store.countSubmissionHistoriesForDocuments.mockResolvedValue(0);
   store.lockAttachableUploads.mockResolvedValue([]);
   store.findMilestoneForUpdate.mockResolvedValue({

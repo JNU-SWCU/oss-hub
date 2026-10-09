@@ -11,56 +11,50 @@ import {
 } from '@prisma/client';
 
 import {
-  lockMilestone,
-  lockMilestoneDocumentsOfMilestone,
-} from '../common/milestone-document-locks';
-import { PrismaService } from '../prisma/prisma.service';
+  lockProgramTree,
+  type MilestoneLock,
+} from '../../prisma/lock-program-tree';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../profiles/user-profile-read';
+} from '../../profiles/user-profile-read';
 
-import { submissionParticipantWhere } from '../submissions/submission-application.record';
-import type { MilestoneDocumentReviewRecord } from './domain/milestone-document-review';
+import { submissionParticipantWhere } from '../../submissions/submission-application.record';
+import type { MilestoneDocumentReviewRecord } from '../domain/milestone-document-review';
+import type {
+  MilestoneDocumentRecord,
+  MilestoneContext,
+  MilestoneDocumentCollectionApplication,
+  MilestoneDocumentCollectionSubmission,
+  CreatedMilestoneDocumentReview,
+  MilestoneDocumentSubmissionDetail,
+} from '../domain/milestone-document-record';
 import {
   boundedReviewHistoryQuery,
   milestoneDocumentHistoryDescendingOrderBy,
   reviewDecisionToHistoryEvent,
-} from './milestone-document-history';
-import { upsertMilestoneDocumentSubmission } from './milestone-document-submission.repository';
+} from '../milestone-document-history';
+import {
+  upsertMilestoneDocumentSubmission,
+  type UpsertMilestoneDocumentSubmissionInput,
+} from '../milestone-document-submission.repository';
 export {
   MilestoneDocumentDeadlineClosedError,
   MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentSubmissionChangedError,
-} from './milestone-document-submission.repository';
+} from '../milestone-document-submission.repository';
 
 export class InvalidMilestoneDocumentHistoryCursorError extends Error {
   override readonly name = 'InvalidMilestoneDocumentHistoryCursorError';
-}
-
-export interface MilestoneDocumentRecord {
-  id: string;
-  milestoneId: string;
-  name: string;
-  required: boolean;
-  sortOrder: number;
-  templateFileId: string | null;
-  templateFileName: string | null;
 }
 
 export interface MilestoneDocumentViewer {
   readonly id: string;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
-}
-
-export interface MilestoneContext {
-  readonly id: string;
-  readonly programId: string;
-  readonly name: string;
-  readonly dueAt: Date;
 }
 
 export interface MilestoneDocumentContext {
@@ -87,33 +81,6 @@ export interface MilestoneDocumentSubmissionSummary {
 
   readonly currentFileName: string | null;
   readonly historyComplete: boolean;
-
-  readonly review: MilestoneDocumentReviewRecord | null;
-}
-
-export interface MilestoneDocumentCollectionApplication {
-  readonly applicationId: string;
-  readonly teamName: string;
-
-  readonly applicantName: string | null;
-  readonly memberNicknames: readonly string[];
-}
-
-export interface MilestoneDocumentCollectionSubmission {
-  readonly milestoneDocumentId: string;
-  readonly applicationId: string;
-  readonly submittedAt: Date;
-
-  readonly revision: number;
-
-  readonly status: SubmissionStatus;
-
-  readonly file: {
-    readonly originalFileName: string;
-    readonly sizeBytes: number;
-  } | null;
-
-  readonly content: Prisma.JsonValue | null;
 
   readonly review: MilestoneDocumentReviewRecord | null;
 }
@@ -157,15 +124,6 @@ export interface MilestoneDocumentArchiveSubmissionRecord {
   } | null;
 }
 
-export interface CreatedMilestoneDocumentReview {
-  readonly id: string;
-  readonly decision: ReviewDecision;
-  readonly comment: string | null;
-  readonly reviewedAt: Date;
-  readonly resubmissionDueAt: Date | null;
-  readonly reviewerNickname: string;
-}
-
 export interface CreateMilestoneDocumentReviewInput {
   readonly milestoneDocumentSubmissionId: string;
   readonly submissionHistoryId: string;
@@ -193,45 +151,6 @@ export interface StaffDownloadableMilestoneDocumentFile {
   readonly teamName: string;
 }
 
-export interface UpsertMilestoneDocumentSubmissionInput {
-  readonly milestoneDocumentId: string;
-  readonly applicationId: string;
-  readonly submittedById: string;
-  readonly submittedAt: Date;
-
-  readonly deadline?: {
-    readonly milestoneId: string;
-    readonly allowAfterDeadline: boolean;
-
-    readonly expectedSubmissionStatus: SubmissionStatus | null;
-  };
-
-  readonly expectedLatestReviewId: string | null;
-
-  readonly content: Prisma.InputJsonValue | typeof Prisma.JsonNull;
-
-  readonly attachFile: {
-    readonly fileId: string;
-    readonly uploaderId: string;
-    readonly milestoneId: string;
-  } | null;
-}
-
-export interface MilestoneDocumentSubmissionFile {
-  readonly id: string;
-  readonly originalFileName: string;
-  readonly mimeType: string;
-  readonly sizeBytes: number;
-}
-
-export interface MilestoneDocumentSubmissionDetail {
-  readonly id: string;
-  readonly status: SubmissionStatus;
-  readonly content: Prisma.JsonValue | null;
-  readonly submittedAt: Date;
-  readonly files: readonly MilestoneDocumentSubmissionFile[];
-}
-
 export interface MilestoneDocumentTemplateInput {
   readonly milestoneDocumentId: string;
   readonly uploadedById: string;
@@ -247,12 +166,6 @@ export interface DownloadableMilestoneDocumentTemplate {
   readonly originalFileName: string;
   readonly mimeType: string;
   readonly sizeBytes: number;
-}
-
-export interface UpsertMilestoneDocumentInput {
-  readonly name: string;
-  readonly required: boolean;
-  readonly sortOrder: number;
 }
 
 export interface UpdateMilestoneDocumentInput {
@@ -426,10 +339,15 @@ function countSubmissionsForDocumentWith(
 }
 
 class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
+  private milestoneLock: MilestoneLock | null = null;
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
-  lockMilestone(milestoneId: string): Promise<LockedMilestone | null> {
-    return lockMilestone(this.transaction, milestoneId);
+  async lockMilestone(milestoneId: string): Promise<LockedMilestone | null> {
+    this.milestoneLock = await lockProgramTree(this.transaction, {
+      stage: 'milestone',
+      milestoneId,
+    });
+    return this.milestoneLock === null ? null : { id: this.milestoneLock.id };
   }
 
   async lockDocument(
@@ -475,12 +393,15 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
   async lockDocumentIdsOfMilestone(
     milestoneId: string,
   ): Promise<readonly string[]> {
-    const rows = await lockMilestoneDocumentsOfMilestone(
-      this.transaction,
-      milestoneId,
-      MilestoneDocumentKind.DOCUMENT,
-    );
-    return rows.map((row) => row.id);
+    if (this.milestoneLock === null || this.milestoneLock.id !== milestoneId) {
+      throw new Error('Milestone must be locked before its documents.');
+    }
+    const result = await lockProgramTree(this.transaction, {
+      stage: 'documents',
+      after: this.milestoneLock,
+      documentKind: 'DOCUMENT',
+    });
+    return result.documentIds;
   }
 
   countSubmissionsForDocument(documentId: string): Promise<number> {
