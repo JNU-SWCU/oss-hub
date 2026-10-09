@@ -13,7 +13,8 @@ import { CollectionDiscoveryClient } from './collection-discovery.client';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { CollectionAdminController } from './controller/collection-admin.controller';
 import { ContributionInvariants } from './contribution-invariants';
-import { CollectionAdminGuard } from './collection-admin.guard';
+import { CollectionAdminService } from './service/collection-admin.service';
+import { UsersModule } from '../users/users.module';
 import { CollectionPublicTokenProvider } from './collection-public.token';
 import { CollectionReadService } from './service/collection-read.service';
 import { CollectionScheduler } from './job/collection.scheduler';
@@ -27,10 +28,10 @@ import {
 } from './service/collection-sync.service';
 
 @Module({
-  imports: [ScheduleModule.forRoot(), AuditLogModule, AuthModule],
+  imports: [ScheduleModule.forRoot(), AuditLogModule, AuthModule, UsersModule],
   controllers: [CollectionAdminController],
   providers: [
-    CollectionAdminGuard,
+    CollectionAdminService,
     ContributionInvariants,
     CollectionScheduler,
     CollectionTriggerService,

@@ -8,7 +8,8 @@ import { OriginGuard } from '../../auth/controller/origin.guard';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { ContributionInvariants } from '../contribution-invariants';
 import { CollectionAdminController } from './collection-admin.controller';
-import { CollectionAdminGuard } from '../collection-admin.guard';
+import { CollectionAdminService } from '../service/collection-admin.service';
+import { UsersAuthorityService } from '../../users/service/authority.service';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import type { CollectionSyncRunRow } from '../collection-incremental.types';
@@ -19,6 +20,30 @@ import {
 } from '../service/collection-user-activity.service';
 
 const check = jest.fn();
+const authority = {
+  assertAdmin: jest.fn().mockResolvedValue({ actorId: 'synthetic-admin' }),
+} as unknown as UsersAuthorityService;
+
+function createController(
+  sync: CollectionSyncService,
+  cutover: CollectionCutoverRepository,
+  incremental: CollectionIncrementalRepository,
+  audit: AuditLogService,
+  invariants: ContributionInvariants,
+  activity: CollectionUserActivityService,
+): CollectionAdminController {
+  return new CollectionAdminController(
+    new CollectionAdminService(
+      sync,
+      cutover,
+      incremental,
+      audit,
+      invariants,
+      activity,
+      authority,
+    ),
+  );
+}
 
 describe('CollectionAdminController', () => {
   const run = jest.fn<
@@ -67,6 +92,8 @@ describe('CollectionAdminController', () => {
     const testingModule = await Test.createTestingModule({
       controllers: [CollectionAdminController],
       providers: [
+        CollectionAdminService,
+        { provide: UsersAuthorityService, useValue: authority },
         { provide: CollectionSyncService, useValue: { run, runExternal } },
         { provide: ContributionInvariants, useValue: { check } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
@@ -82,8 +109,6 @@ describe('CollectionAdminController', () => {
       ],
     })
       .overrideGuard(SessionGuard)
-      .useValue({ canActivate: () => true })
-      .overrideGuard(CollectionAdminGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(OriginGuard)
       .useValue({ canActivate: () => true })
@@ -102,7 +127,7 @@ describe('CollectionAdminController', () => {
 
   it('org sweep과 함께 E1 external sweep도 같은 quiesce guard 안에서 시작한다', async () => {
     run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
-    const controller = new CollectionAdminController(
+    const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -130,7 +155,7 @@ describe('CollectionAdminController', () => {
       skippedPastYearCount: 0,
       failedUserCount: 0,
     });
-    const controller = new CollectionAdminController(
+    const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -160,7 +185,7 @@ describe('CollectionAdminController', () => {
       .mockImplementation(() => undefined);
     run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
     runUserActivity.mockRejectedValue(new Error('person sweep unavailable'));
-    const controller = new CollectionAdminController(
+    const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -186,7 +211,7 @@ describe('CollectionAdminController', () => {
 
   it('quiesce lease가 걸려 있으면 COL_008을 던지고 새 writer를 호출하지 않는다', async () => {
     isQuiesced.mockResolvedValue(true);
-    const controller = new CollectionAdminController(
+    const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -208,7 +233,7 @@ describe('CollectionAdminController', () => {
       .mockImplementation(() => undefined);
     run.mockResolvedValue({ runId: 'synthetic-run-id', status: 'COMPLETED' });
     runExternal.mockRejectedValue(new Error('external provider unavailable'));
-    const controller = new CollectionAdminController(
+    const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -232,7 +257,7 @@ describe('CollectionAdminController', () => {
     );
   });
 
-  it('세션, ADMIN 역할, origin 순서로 보호하고 HTTP 202를 선언한다', () => {
+  it('세션과 origin guard를 유지하고 HTTP 202를 선언한다', () => {
     const handler: unknown = Object.getOwnPropertyDescriptor(
       CollectionAdminController.prototype,
       'trigger',
@@ -247,13 +272,13 @@ describe('CollectionAdminController', () => {
       handler,
     );
 
-    expect(guards).toEqual([SessionGuard, CollectionAdminGuard, OriginGuard]);
+    expect(guards).toEqual([SessionGuard, OriginGuard]);
     expect(statusCode).toBe(202);
   });
 
   it('202로 돌려준 runId를 그대로 내부 sync run에 넘긴다', async () => {
     run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
-    const controller = new CollectionAdminController(
+    const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -270,7 +295,7 @@ describe('CollectionAdminController', () => {
 
   it('트리거를 typed audit action으로 기록한다(응답 계약은 그대로)', async () => {
     run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
-    const controller = new CollectionAdminController(
+    const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -293,7 +318,7 @@ describe('CollectionAdminController', () => {
 
   it('quiesce로 거부된 트리거는 감사 기록을 남기지 않는다', async () => {
     isQuiesced.mockResolvedValue(true);
-    const controller = new CollectionAdminController(
+    const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -327,7 +352,7 @@ describe('CollectionAdminController', () => {
         errorCodes: [],
       },
     ]);
-    const controller = new CollectionAdminController(
+    const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -336,7 +361,7 @@ describe('CollectionAdminController', () => {
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    const result = await controller.listRuns();
+    const result = await controller.listRuns({ sessionGithubId: 4242n });
 
     expect(listSyncRuns).toHaveBeenCalledWith(expect.any(Date), 20);
     expect(result.runs).toEqual([
@@ -380,7 +405,7 @@ describe('CollectionAdminController', () => {
         errorCodes: [],
       },
     ]);
-    const controller = new CollectionAdminController(
+    const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
       { listSyncRuns } as unknown as CollectionIncrementalRepository,
@@ -389,14 +414,16 @@ describe('CollectionAdminController', () => {
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    const serialized = JSON.stringify(await controller.listRuns());
+    const serialized = JSON.stringify(
+      await controller.listRuns({ sessionGithubId: 4242n }),
+    );
 
     expect(serialized).not.toContain('ownerId');
     expect(serialized).not.toContain('admin:');
     expect(serialized).not.toContain('token');
   });
 
-  it('runs는 세션, ADMIN 역할, origin 순서로 보호한다', () => {
+  it('runs는 세션과 origin guard를 유지한다', () => {
     const handler: unknown = Object.getOwnPropertyDescriptor(
       CollectionAdminController.prototype,
       'listRuns',
@@ -407,7 +434,7 @@ describe('CollectionAdminController', () => {
     }
     const guards: unknown = Reflect.getMetadata(GUARDS_METADATA, handler);
 
-    expect(guards).toEqual([SessionGuard, CollectionAdminGuard, OriginGuard]);
+    expect(guards).toEqual([SessionGuard, OriginGuard]);
   });
 });
 
@@ -426,7 +453,7 @@ describe('CollectionAdminController — 기여 불변식 검사', () => {
       ],
     };
     const checkInvariants = jest.fn().mockResolvedValue(report);
-    const controller = new CollectionAdminController(
+    const controller = createController(
       {} as unknown as CollectionSyncService,
       {} as unknown as CollectionCutoverRepository,
       {} as unknown as CollectionIncrementalRepository,
@@ -435,7 +462,9 @@ describe('CollectionAdminController — 기여 불변식 검사', () => {
       {} as unknown as CollectionUserActivityService,
     );
 
-    await expect(controller.checkInvariants()).resolves.toEqual(report);
+    await expect(
+      controller.checkInvariants({ sessionGithubId: 4242n }),
+    ).resolves.toEqual(report);
     expect(checkInvariants).toHaveBeenCalledTimes(1);
   });
 
@@ -452,7 +481,7 @@ describe('CollectionAdminController — 기여 불변식 검사', () => {
         },
       ],
     });
-    const controller = new CollectionAdminController(
+    const controller = createController(
       {} as unknown as CollectionSyncService,
       {} as unknown as CollectionCutoverRepository,
       {} as unknown as CollectionIncrementalRepository,
@@ -461,7 +490,9 @@ describe('CollectionAdminController — 기여 불변식 검사', () => {
       {} as unknown as CollectionUserActivityService,
     );
 
-    const serialized = JSON.stringify(await controller.checkInvariants());
+    const serialized = JSON.stringify(
+      await controller.checkInvariants({ sessionGithubId: 4242n }),
+    );
 
     expect(serialized).not.toMatch(/githubId|githubLogin|nameWithOwner/u);
   });
