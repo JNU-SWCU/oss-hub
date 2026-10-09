@@ -2,6 +2,8 @@ import { Test } from '@nestjs/testing';
 import { ProgramTrackType } from '@prisma/client';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProgramActivitySummaryService } from '../programs/service/program-activity-summary.service';
+import { SubmissionDashboardSummaryService } from '../submissions/submission-dashboard-summary.service';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import {
   RUNTIME_CONFIG,
@@ -127,7 +129,9 @@ describe('StaffDashboardService', () => {
     expect(JSON.stringify(summary)).not.toContain('githubRepositoryId');
   });
 
-  it('compiles from real ApplicationsModule providers', async () => {
+  it('resolves concrete summary providers from real ApplicationsModule imports', async () => {
+    const summarize = jest.fn().mockResolvedValue([]);
+    const listByProgram = jest.fn().mockResolvedValue([]);
     const moduleRef = Test.createTestingModule({
       imports: [RuntimeConfigModule, PrismaModule, ApplicationsModule],
     })
@@ -144,6 +148,16 @@ describe('StaffDashboardService', () => {
           MAIL_MODE: 'dry-run',
         }),
       )
+      .overrideProvider(ProgramActivitySummaryService)
+      .useValue({ summarize } satisfies Pick<
+        ProgramActivitySummaryService,
+        'summarize'
+      >)
+      .overrideProvider(SubmissionDashboardSummaryService)
+      .useValue({ listByProgram } satisfies Pick<
+        SubmissionDashboardSummaryService,
+        'listByProgram'
+      >)
       .overrideProvider(PrismaService)
       .useValue({});
 
@@ -152,6 +166,16 @@ describe('StaffDashboardService', () => {
     expect(compiled.get(StaffDashboardService)).toBeInstanceOf(
       StaffDashboardService,
     );
+    await expect(
+      compiled.get(ProgramActivitySummaryService).summarize(['program:1']),
+    ).resolves.toEqual([]);
+    await expect(
+      compiled
+        .get(SubmissionDashboardSummaryService)
+        .listByProgram(['program:1']),
+    ).resolves.toEqual([]);
+    expect(summarize).toHaveBeenCalledWith(['program:1']);
+    expect(listByProgram).toHaveBeenCalledWith(['program:1']);
     await compiled.close();
   });
 });
