@@ -22,11 +22,7 @@ import { MilestoneRow } from './components/milestone-row';
 import { MilestoneDocumentSection } from './milestone-document-list';
 import { milestoneSubmissionAccess } from './milestone-submission-access';
 import type { MilestoneSubmissionAccess } from './milestone-submission-access';
-import {
-  programDetailMeta,
-  formatSeoulDateOnly,
-  isPastDue,
-} from './program-detail-format';
+import { programDetailMeta, isPastDue } from './program-detail-format';
 import { ProgramFactBar, ProgramSummary } from './program-detail-summary';
 import { programEditHref } from '@/lib/program-route';
 import { programHref } from './program-paths';
