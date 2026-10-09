@@ -1,7 +1,7 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { ApplicationStatus } from '@prisma/client';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../auth/controller/origin.guard';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { UpdateStudentApplicationRequestDto } from './dto/update-student-application-request.dto';
 import type { StudentApplicationManagementService } from './student-application-management.service';
 import { StudentApplicationsController } from './student-applications.controller';

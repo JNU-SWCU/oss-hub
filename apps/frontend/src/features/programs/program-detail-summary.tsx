@@ -53,7 +53,6 @@ export function ProgramSummary({
 }
 
 export function ProgramFactBar({
-  program,
   overview,
 }: {
   readonly program: ProgramDetail;

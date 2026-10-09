@@ -25,7 +25,7 @@ import {
 } from './seeds/helpers';
 import { computeJoinCodeDigest } from '../src/common/join-code-digest';
 import { AuthConfig } from '../src/auth/auth.config';
-import { AuthRepository } from '../src/auth/auth.repository';
+import { AuthRepository } from '../src/auth/repository/auth.repository';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { CONSENT_POLICY_VERSION } from '../src/consents/domain/consent-policy';
 import { repositoryUrlFromNameWithOwner } from '../src/github/repository-identity';

@@ -173,7 +173,7 @@ export const test = base.extend<AdminFixtures & InternalFixtures>({
       { timezoneId, viewport },
       expectedResourceStatuses,
     );
-    const { context, page, consoleErrors, failedResponses } = session;
+    const { context, consoleErrors, failedResponses } = session;
 
     if (path !== null) {
       await context.route(`**${path}**`, async (route) => {

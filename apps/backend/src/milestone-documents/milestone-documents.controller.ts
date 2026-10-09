@@ -23,8 +23,9 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
-import { OriginGuard } from '../auth/origin.guard';
-import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../auth/controller/origin.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { DomainException } from '../common/error-code';
 import { CreateMilestoneDocumentReviewRequestDto } from './dto/create-milestone-document-review-request.dto';
 import { MilestoneDocumentArchiveQueryRequestDto } from './dto/milestone-document-archive-query.dto';

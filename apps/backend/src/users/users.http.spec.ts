@@ -1,11 +1,11 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
-import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
-import { issueSessionToken } from '../auth/session-token';
+import { AuthService } from '../auth/service/auth.service';
+import { sessionCookieName } from '../auth/domain/cookies';
+import { OriginGuard } from '../auth/controller/origin.guard';
+import { SessionGuard } from '../auth/controller/session.guard';
+import { issueSessionToken } from '../auth/domain/session-token';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import {
   USER_DEPARTMENT_MAX_LENGTH,

@@ -36,7 +36,7 @@ function management(
     onSearch: noOp,
     onInvite: noOp,
     onCancelInvitation: noOp,
-    reloadSent: async () => undefined,
+    reloadSent: () => Promise.resolve(undefined),
     ...overrides,
   };
 }

@@ -39,13 +39,13 @@ const program = {
 let container: HTMLDivElement;
 let root: Root;
 let resizeCallback: ResizeObserverCallback | undefined;
-let resizeObserver: FakeResizeObserver | undefined;
+const resizeObservers: FakeResizeObserver[] = [];
 const scrollIntoView = vi.fn();
 
 class FakeResizeObserver implements ResizeObserver {
   constructor(callback: ResizeObserverCallback) {
     resizeCallback = callback;
-    resizeObserver = this;
+    resizeObservers.push(this);
   }
 
   readonly disconnect = vi.fn();
@@ -56,7 +56,7 @@ class FakeResizeObserver implements ResizeObserver {
 beforeEach(() => {
   vi.useFakeTimers();
   resizeCallback = undefined;
-  resizeObserver = undefined;
+  resizeObservers.length = 0;
   scrollIntoView.mockReset();
   vi.stubGlobal('ResizeObserver', FakeResizeObserver);
   Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
@@ -95,7 +95,7 @@ describe('프로그램 활동 딥링크 위치 유지', () => {
     if (lateLayoutCallback === undefined) {
       throw new TypeError('프로그램 레이아웃 관찰자가 등록되지 않았습니다.');
     }
-    const observer = resizeObserver;
+    const observer = resizeObservers.at(-1);
     if (observer === undefined) {
       throw new TypeError('프로그램 레이아웃 관찰자 인스턴스가 없습니다.');
     }
@@ -108,15 +108,16 @@ describe('프로그램 활동 딥링크 위치 유지', () => {
     );
   });
 
-  it('사용자가 스크롤을 시작하면 레이아웃 관찰을 중단한다', () => {
+  it('사용자가 스크롤을 시작하면 레이아웃 관찰을 중단한다', async () => {
     act(() => {
       root.render(<ProgramDetailReadyState program={program} />);
     });
+    const resizeObserver = resizeObservers.at(-1);
     if (resizeObserver === undefined) {
       throw new TypeError('프로그램 레이아웃 관찰자 인스턴스가 없습니다.');
     }
 
-    act(() => window.dispatchEvent(new WheelEvent('wheel')));
+    await act(() => window.dispatchEvent(new WheelEvent('wheel')));
 
     expect(resizeObserver.disconnect).toHaveBeenCalledOnce();
   });
@@ -128,7 +129,7 @@ describe('프로그램 활동 딥링크 위치 유지', () => {
       root.render(<ProgramDetailReadyState program={program} />);
     });
 
-    expect(resizeObserver).toBeUndefined();
+    expect(resizeObservers.at(-1)).toBeUndefined();
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 });

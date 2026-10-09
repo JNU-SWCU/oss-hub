@@ -20,7 +20,7 @@ describe('ProgramAuthoringSubmissionItem', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
   });
 
@@ -37,7 +37,7 @@ describe('ProgramAuthoringSubmissionItem', () => {
       },
     };
 
-    await act(async () => {
+    await act(() => {
       root.render(
         <ProgramAuthoringSubmissionItem
           milestoneId="milestone-1"
@@ -49,6 +49,8 @@ describe('ProgramAuthoringSubmissionItem', () => {
           onNameChange={() => undefined}
         />,
       );
+
+      return Promise.resolve();
     });
 
     expect(container.textContent).toContain('계획서.pdf · 1 MB');

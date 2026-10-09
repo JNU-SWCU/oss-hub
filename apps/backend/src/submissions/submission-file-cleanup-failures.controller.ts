@@ -1,5 +1,6 @@
 import { Controller, Get, Req, UseGuards } from '@nestjs/common';
-import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
+import { SessionGuard } from '../auth/controller/session.guard';
 import {
   SubmissionFileCleanupFailuresService,
   type SubmissionFileCleanupFailure,

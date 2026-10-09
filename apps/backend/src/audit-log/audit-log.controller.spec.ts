@@ -5,7 +5,7 @@ import {
   PATH_METADATA,
 } from '@nestjs/common/constants';
 import { RequestMethod } from '@nestjs/common';
-import { SessionGuard } from '../auth/session.guard';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { AuditLogController } from './audit-log.controller';
 import type { AuditLogService } from './audit-log.service';
 import { AuditLogListRequestDto } from './dto/audit-log-query.dto';

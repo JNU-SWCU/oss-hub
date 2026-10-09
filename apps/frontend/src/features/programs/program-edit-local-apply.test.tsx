@@ -22,7 +22,7 @@ describe('프로그램 편집의 초안 적용', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
     vi.restoreAllMocks();
   });
@@ -38,7 +38,7 @@ describe('프로그램 편집의 초안 적용', () => {
       instructions: null,
     });
     const fetchMock = vi.spyOn(globalThis, 'fetch');
-    await act(async () => {
+    await act(() => {
       root.render(
         <ProgramEditMilestoneScheduleEditor
           editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
@@ -48,11 +48,15 @@ describe('프로그램 편집의 초안 적용', () => {
           onFieldChange={onFieldChange}
         />,
       );
+
+      return Promise.resolve();
     });
-    await act(async () => {
+    await act(() => {
       document
         .querySelector<HTMLButtonElement>('[aria-label="기획서 일정 입력"]')
         ?.click();
+
+      return Promise.resolve();
     });
     const dialog = document.querySelector('[role="dialog"]');
     expect(dialog?.textContent).toContain(
@@ -63,7 +67,7 @@ describe('프로그램 편집의 초안 적용', () => {
     );
     expect(apply).toBeDefined();
     expect(onFieldChange).not.toHaveBeenCalled();
-    await act(async () => apply?.click());
+    await act(() => Promise.resolve(apply?.click()));
     expect(onFieldChange).toHaveBeenCalledWith('startAt', form.startAt);
     expect(onFieldChange).toHaveBeenCalledWith('dueAt', form.dueAt);
     expect(document.querySelector('[role="dialog"]')).toBeNull();
@@ -83,7 +87,7 @@ describe('프로그램 편집의 초안 적용', () => {
       })),
     );
     const fetchMock = vi.spyOn(globalThis, 'fetch');
-    await act(async () => {
+    await act(() => {
       root.render(
         <LocalMilestoneDocumentsEditor
           milestoneId="milestone-1"
@@ -97,30 +101,36 @@ describe('프로그램 편집의 초안 적용', () => {
           onChange={vi.fn()}
         />,
       );
+
+      return Promise.resolve();
     });
     const firstItem = container.querySelector(
       '[aria-label="기획서 제출 항목"]',
     );
-    await act(async () => {
+    await act(() => {
       firstItem
         ?.querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')
         ?.click();
+
+      return Promise.resolve();
     });
     const apply = firstItem?.querySelector<HTMLButtonElement>(
       '[aria-label="제출물 이름 적용"]',
     );
     expect(apply).not.toBeNull();
-    await act(async () => apply?.click());
+    await act(() => Promise.resolve(apply?.click()));
     expect(
       firstItem?.querySelector('[aria-label="파일 제출물 이름"]'),
     ).toBeNull();
     const secondItem = container.querySelector(
       '[aria-label="결과물 제출 항목"]',
     );
-    await act(async () => {
+    await act(() => {
       secondItem
         ?.querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')
         ?.click();
+
+      return Promise.resolve();
     });
     expect(
       secondItem?.querySelector('[aria-label="파일 제출물 이름"]'),

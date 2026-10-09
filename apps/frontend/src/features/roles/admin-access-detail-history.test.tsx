@@ -51,35 +51,29 @@ describe('요청/로그인 이력 — 항목 렌더링과 독립 페이지네이
   });
 
   it('요청/로그인 이력 항목을 상태 배지와 함께 그린다', () => {
+    const rejectedRequest: AdminAccessStaffAccessRequestHistoryItem = {
+      id: 'req-1',
+      status: 'REJECTED',
+      rejectionReason: '자격 요건 미충족',
+      decidedAt: '2026-07-29T00:00:00.000Z',
+      decidedBy: 'reviewer',
+      createdAt: '2026-07-28T00:00:00.000Z',
+    };
+    const failedLogout: AdminAccessLoginHistoryItem = {
+      id: 'login-1',
+      event: 'LOGOUT',
+      provider: 'github',
+      success: false,
+      loginAt: '2026-07-30T00:00:00.000Z',
+    };
     const html = renderToStaticMarkup(
       <AdminAccessDetailContentForState
         state={{
           kind: 'ready',
           detail: adminDetail(),
           history: adminHistory({
-            staffAccessRequests: historyPage({
-              items: [
-                {
-                  id: 'req-1',
-                  status: 'REJECTED',
-                  rejectionReason: '자격 요건 미충족',
-                  decidedAt: '2026-07-29T00:00:00.000Z',
-                  decidedBy: 'reviewer',
-                  createdAt: '2026-07-28T00:00:00.000Z',
-                },
-              ],
-            }),
-            loginHistory: historyPage({
-              items: [
-                {
-                  id: 'login-1',
-                  event: 'LOGOUT',
-                  provider: 'github',
-                  success: false,
-                  loginAt: '2026-07-30T00:00:00.000Z',
-                },
-              ],
-            }),
+            staffAccessRequests: historyPage({ items: [rejectedRequest] }),
+            loginHistory: historyPage({ items: [failedLogout] }),
           }),
         }}
         onRetry={() => {}}

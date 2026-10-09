@@ -68,8 +68,12 @@ describe('staff dashboard parser and model', () => {
   });
 
   it('종료일과 게시 축이 빠진 응답을 형식 오류로 끊는다', () => {
-    const { endAt: _endAt, ...withoutEndAt } = fixtureProgram;
-    const { lifecycle: _lifecycle, ...withoutLifecycle } = fixtureProgram;
+    const withoutEndAt = { ...fixtureProgram };
+    Reflect.deleteProperty(withoutEndAt, 'endAt');
+    const withoutLifecycle = {
+      ...fixtureProgram,
+    };
+    Reflect.deleteProperty(withoutLifecycle, 'lifecycle');
 
     expect(() =>
       parseStaffDashboardSummary({ programs: [withoutEndAt] }),
