@@ -5,6 +5,12 @@ import {
 } from './repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 
+const authority = {
+  assertActiveStaff: jest
+    .fn()
+    .mockResolvedValue({ actorId: 'cuid-synthetic-staff' }),
+};
+
 describe('MilestoneDocumentsService historyForStaff', () => {
   it('checks the document and application program before returning a bounded page', async () => {
     const repository = {
@@ -31,9 +37,10 @@ describe('MilestoneDocumentsService historyForStaff', () => {
         isComplete: true,
       }),
     } as unknown as MilestoneDocumentsRepository;
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.historyForStaff(
+      1n,
       'milestone-1',
       'document-1',
       'application-1',
@@ -67,7 +74,8 @@ describe('MilestoneDocumentsService historyForStaff', () => {
     } as unknown as MilestoneDocumentsRepository;
 
     await expect(
-      new MilestoneDocumentsService(repository).historyForStaff(
+      new MilestoneDocumentsService(repository, authority).historyForStaff(
+        1n,
         'milestone-1',
         'document-1',
         'application-1',
@@ -129,6 +137,7 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: 'file-1',
         }),
       ),
+      authority,
     );
 
     const result = await service.historyForParticipant(
@@ -154,9 +163,11 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: 'file-1',
         }),
       ),
+      authority,
     );
 
     const result = await service.historyForStaff(
+      1n,
       'milestone-1',
       'document-1',
       'application-1',
@@ -178,9 +189,11 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: null,
         }),
       ),
+      authority,
     );
 
     const result = await service.historyForStaff(
+      1n,
       'milestone-1',
       'document-1',
       'application-1',

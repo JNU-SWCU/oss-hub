@@ -8,25 +8,34 @@ import { sessionCookieName } from '../auth/domain/cookies';
 import { issueSessionToken } from '../auth/domain/session-token';
 import { SessionGuard } from '../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
-import { PrismaService } from '../prisma/prisma.service';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
+import { UsersAuthorityService } from '../users/service/authority.service';
+import { DomainException } from '../common/error-code';
+import {
+  MILESTONE_DOCUMENTS_ERROR_CODES,
+  MilestoneDocumentsErrorCode,
+} from './domain/milestone-documents-error-code.enum';
+import { type ProgramDocumentArchiveScope } from './milestone-document-archive.service';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
 
 const secret = new Uint8Array(32).fill(39);
 const githubId = 3429001135n;
-const archiveForProgramStaff = jest.fn();
+const archiveForProgramStaff = jest.fn<
+  ReturnType<MilestoneDocumentArchiveService['archiveForProgramStaff']>,
+  Parameters<MilestoneDocumentArchiveService['archiveForProgramStaff']>
+>();
 const findUser = jest.fn();
 let application: INestApplication;
 let url: string;
 
 beforeAll(async () => {
+  const authority = new UsersAuthorityService({
+    findActorByGithubId: findUser,
+  });
   const module = await Test.createTestingModule({
     controllers: [ProgramDocumentArchivesController],
     providers: [
       SessionGuard,
-      MilestoneDocumentsStaffGuard,
-      { provide: PrismaService, useValue: { user: { findUnique: findUser } } },
       { provide: AuthConfig, useValue: { sessionSecret: secret } },
       {
         provide: AuthService,
@@ -34,7 +43,24 @@ beforeAll(async () => {
       },
       {
         provide: MilestoneDocumentArchiveService,
-        useValue: { archiveForProgramStaff },
+        useValue: {
+          archiveForProgramStaff: async (
+            sessionGithubId: bigint,
+            programId: string,
+            scope: ProgramDocumentArchiveScope,
+          ) => {
+            await authority.assertActiveStaff(
+              sessionGithubId,
+              () =>
+                new DomainException(
+                  MILESTONE_DOCUMENTS_ERROR_CODES[
+                    MilestoneDocumentsErrorCode.STAFF_ONLY
+                  ],
+                ),
+            );
+            return archiveForProgramStaff(sessionGithubId, programId, scope);
+          },
+        },
       },
     ],
   }).compile();
@@ -96,6 +122,7 @@ it.each([
     );
     expect(await response.text()).toBe('synthetic-zip');
     expect(archiveForProgramStaff).toHaveBeenCalledWith(
+      githubId,
       'synthetic-program',
       scope,
     );
@@ -148,7 +175,7 @@ it.each([
     accountStatus: AccountStatus.DEACTIVATED,
   },
 ])(
-  'blocks non-staff/inactive users with the existing staff guard (%o)',
+  'blocks non-staff/inactive users with service authorization (%o)',
   async (user) => {
     findUser.mockResolvedValue({ id: 'synthetic-user', ...user });
     const response = await fetch(`${url}?scope=PROGRAM`, {
@@ -181,6 +208,28 @@ it('allows an active administrator without staff access', async () => {
   expect(response.status).toBe(200);
   await response.arrayBuffer();
 });
+
+it.each([AccountStatus.ACTIVE, AccountStatus.DEACTIVATED])(
+  'rejects an invalid query before staff authorization (%s)',
+  async (accountStatus) => {
+    findUser.mockResolvedValue({
+      id: 'synthetic-user',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      accountStatus,
+    });
+    const response = await fetch(`${url}?scope=INVALID`, {
+      headers: await headers(),
+    });
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      status: 400,
+      code: 'SYS_003',
+    });
+    expect(findUser).not.toHaveBeenCalled();
+    expect(archiveForProgramStaff).not.toHaveBeenCalled();
+  },
+);
 
 it('returns a safe ProblemDetail instead of raw stream errors before ZIP headers are sent', async () => {
   const logger = jest

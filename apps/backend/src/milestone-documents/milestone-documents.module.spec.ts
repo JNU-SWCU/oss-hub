@@ -5,6 +5,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmissionsModule } from '../submissions/submissions.module';
 import { SubmissionFilesService } from '../submissions/service/submission-files.service';
+import { UsersModule } from '../users/users.module';
 import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,
@@ -26,7 +27,6 @@ import { MilestoneDocumentReviewsService } from './milestone-document-reviews.se
 import { MilestoneDocumentsModule } from './milestone-documents.module';
 import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
 
 describe('MilestoneDocumentsModule', () => {
   const getMetadataArray = (key: string): unknown[] => {
@@ -37,6 +37,10 @@ describe('MilestoneDocumentsModule', () => {
     expect(Array.isArray(metadata)).toBe(true);
     return Array.isArray(metadata) ? metadata : [];
   };
+
+  it('imports the users authority capability', () => {
+    expect(getMetadataArray(MODULE_METADATA.IMPORTS)).toContain(UsersModule);
+  });
 
   it('두 컨트롤러(/milestones/:id/documents, /milestone-document-files)를 모두 등록한다', () => {
     const controllers = getMetadataArray(MODULE_METADATA.CONTROLLERS);
@@ -65,7 +69,6 @@ describe('MilestoneDocumentsModule', () => {
         MilestoneDocumentReviewsService,
 
         MilestoneDocumentArchiveService,
-        MilestoneDocumentsStaffGuard,
       ]),
     );
   });
@@ -103,7 +106,12 @@ describe('MilestoneDocumentsModule', () => {
     expect(providers).not.toContain(SubmissionFilesService);
     expect(
       Reflect.getMetadata('design:paramtypes', MilestoneDocumentFilesService),
-    ).toEqual([MilestoneDocumentsRepository, Object, SubmissionFilesService]);
+    ).toEqual([
+      MilestoneDocumentsRepository,
+      Object,
+      SubmissionFilesService,
+      Object,
+    ]);
   });
 
   it('E2E composition에 필요한 document services만 다른 모듈에 노출한다', () => {

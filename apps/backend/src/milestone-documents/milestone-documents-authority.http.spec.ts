@@ -8,14 +8,12 @@ import { OriginGuard } from '../auth/controller/origin.guard';
 import { issueSessionToken } from '../auth/domain/session-token';
 import { SessionGuard } from '../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
-import { PrismaService } from '../prisma/prisma.service';
 import { UsersAuthorityRepository } from '../users/repository/authority.repository';
 import { UsersAuthorityService } from '../users/service/authority.service';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
 import { MilestoneDocumentsController } from './milestone-documents.controller';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
@@ -109,7 +107,6 @@ beforeAll(async () => {
     providers: [
       SessionGuard,
       OriginGuard,
-      MilestoneDocumentsStaffGuard,
       MilestoneDocumentsService,
       UsersAuthorityService,
       {
@@ -119,15 +116,6 @@ beforeAll(async () => {
       {
         provide: AuthService,
         useValue: { getMe: jest.fn().mockResolvedValue({ sessionVersion: 0 }) },
-      },
-      {
-        provide: PrismaService,
-        useValue: {
-          user: {
-            findUnique: (input: { where: { githubId: bigint } }) =>
-              findActor(input.where.githubId),
-          },
-        },
       },
       {
         provide: UsersAuthorityRepository,
@@ -202,5 +190,67 @@ it.each(actors)(
       }
     }
     expect(writer).toHaveBeenCalledTimes(expectedStatus === 200 ? 4 : 0);
+  },
+);
+
+it.each([1n, 2n])(
+  'validates invalid inputs before staff authorization for actor %s',
+  async (githubId) => {
+    const cookie = `${sessionCookieName(false)}=${await issueSessionToken(secret, githubId, 0)}`;
+    for (const [method, path, body] of [
+      ['POST', '', {}],
+      ['PATCH', '/document', { name: 42 }],
+      ['PATCH', '/order', { documentIds: 'document' }],
+      [
+        'POST',
+        '/document/applications/application/reviews',
+        { decision: 'INVALID' },
+      ],
+      ['GET', '/collection?page=0', undefined],
+      ['GET', '/collection/archive?groupBy=INVALID', undefined],
+      ['GET', '/document/applications/application/history?limit=0', undefined],
+    ] as const) {
+      const response = await fetch(`${base}${path}`, {
+        method,
+        headers: { origin, cookie, 'content-type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        status: 400,
+        code: 'SYS_003',
+      });
+    }
+    expect(writer).not.toHaveBeenCalled();
+  },
+);
+
+it.each([1n, 2n])(
+  'checks missing and foreign Origin before staff authorization for actor %s',
+  async (githubId) => {
+    const cookie = `${sessionCookieName(false)}=${await issueSessionToken(secret, githubId, 0)}`;
+    for (const requestOrigin of [undefined, 'https://attacker.example']) {
+      for (const [method, path, body] of routes) {
+        const response = await fetch(`${base}${path}`, {
+          method,
+          headers: {
+            cookie,
+            'content-type': 'application/json',
+            ...(requestOrigin === undefined ? {} : { origin: requestOrigin }),
+          },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        });
+        expect(response.status).toBe(403);
+        await expect(response.json()).resolves.toEqual({
+          type: 'about:blank',
+          title: 'FORBIDDEN',
+          status: 403,
+          detail: '허용되지 않은 Origin의 요청입니다.',
+          instance: `/api/v1/milestones/milestone/documents${path}`,
+          code: 'AUT_002',
+        });
+      }
+    }
+    expect(writer).not.toHaveBeenCalled();
   },
 );

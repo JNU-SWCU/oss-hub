@@ -17,7 +17,9 @@ import { AuthConfig } from '../auth/auth.config';
 import type { AuthenticatedRequest } from '../auth/controller/http-auth';
 import { SessionGuard } from '../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
-import { PrismaService } from '../prisma/prisma.service';
+import { UsersAuthorityService } from '../users/service/authority.service';
+import { UsersAuthorityRepository } from '../users/repository/authority.repository';
+import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 import { DomainException } from '../common/error-code';
 import {
   MilestoneDocumentFilesController,
@@ -33,8 +35,6 @@ import { MilestoneDocumentFilesService } from './milestone-document-files.servic
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
-import type { MilestoneDocumentsStaffRequest } from './milestone-documents-staff.guard';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -255,16 +255,6 @@ beforeAll(async () => {
     })
     .overrideGuard(OriginGuard)
     .useValue({ canActivate: () => true })
-    .overrideGuard(MilestoneDocumentsStaffGuard)
-    .useValue({
-      canActivate: (context: ExecutionContext): boolean => {
-        const request = context
-          .switchToHttp()
-          .getRequest<MilestoneDocumentsStaffRequest>();
-        request.milestoneDocumentActorId = 'synthetic-staff';
-        return true;
-      },
-    })
     .compile();
 
   application = moduleRef.createNestApplication();
@@ -357,7 +347,11 @@ it('교직원은 legacy 서류 생성·수정·전체 순서 재부여·삭제�
     sortOrder: 2,
   });
   expect(createDocument.mock.calls).toEqual([
-    ['synthetic-milestone', { name: '새 서류', required: true, sortOrder: 99 }],
+    [
+      SESSION_GITHUB_ID,
+      'synthetic-milestone',
+      { name: '새 서류', required: true, sortOrder: 99 },
+    ],
   ]);
 
   const updateResponse = await fetch(
@@ -380,6 +374,7 @@ it('교직원은 legacy 서류 생성·수정·전체 순서 재부여·삭제�
   });
   expect(updateDocument.mock.calls).toEqual([
     [
+      SESSION_GITHUB_ID,
       'synthetic-milestone',
       'synthetic-document',
       { name: '수정 서류', required: false, sortOrder: 100 },
@@ -399,7 +394,7 @@ it('교직원은 legacy 서류 생성·수정·전체 순서 재부여·삭제�
     { id: 'synthetic-document', sortOrder: 1 },
   ]);
   expect(reorderDocuments.mock.calls).toEqual([
-    ['synthetic-milestone', ['synthetic-document']],
+    [SESSION_GITHUB_ID, 'synthetic-milestone', ['synthetic-document']],
   ]);
 
   const deleteResponse = await fetch(
@@ -408,7 +403,7 @@ it('교직원은 legacy 서류 생성·수정·전체 순서 재부여·삭제�
   );
   expect(deleteResponse.status).toBe(204);
   expect(deleteDocument.mock.calls).toEqual([
-    ['synthetic-milestone', 'synthetic-document'],
+    [SESSION_GITHUB_ID, 'synthetic-milestone', 'synthetic-document'],
   ]);
 });
 
@@ -519,7 +514,7 @@ it('양식 업로드("양식 올리기"/"양식 교체")는 201로 끝나고 mul
     hasTemplateFile: true,
   });
   expect(uploadTemplate).toHaveBeenCalledWith(
-    'synthetic-staff',
+    SESSION_GITHUB_ID,
     'synthetic-milestone',
     'synthetic-document',
     expect.objectContaining({ originalname: 'synthetic-template.pdf' }),
@@ -647,11 +642,15 @@ it('서류 수합 조회는 교직원 가드를 거치고 private no-store로 �
     ],
   });
 
-  expect(collectForStaff).toHaveBeenCalledWith('synthetic-milestone', {
-    page: 1,
-    pageSize: 20,
-    filter: 'ALL',
-  });
+  expect(collectForStaff).toHaveBeenCalledWith(
+    SESSION_GITHUB_ID,
+    'synthetic-milestone',
+    {
+      page: 1,
+      pageSize: 20,
+      filter: 'ALL',
+    },
+  );
 });
 
 it('서류 수합 조회는 page·pageSize·filter를 숫자·enum으로 바꿔 서비스에 전달한다', async () => {
@@ -660,11 +659,15 @@ it('서류 수합 조회는 page·pageSize·filter를 숫자·enum으로 바꿔 
   );
 
   expect(response.status).toBe(200);
-  expect(collectForStaff).toHaveBeenCalledWith('synthetic-milestone', {
-    page: 2,
-    pageSize: 5,
-    filter: 'HAS_MISSING',
-  });
+  expect(collectForStaff).toHaveBeenCalledWith(
+    SESSION_GITHUB_ID,
+    'synthetic-milestone',
+    {
+      page: 2,
+      pageSize: 5,
+      filter: 'HAS_MISSING',
+    },
+  );
 });
 
 it('범위를 벗어난 pageSize는 서비스 호출 전에 400으로 거절한다', async () => {
@@ -684,12 +687,16 @@ it.each(['MISSING', 'LATE', 'COMPLETE', 'NO_REQUIRED_ITEMS'])(
     );
 
     expect(response.status).toBe(200);
-    expect(collectForStaff).toHaveBeenCalledWith('synthetic-milestone', {
-      page: 1,
-      pageSize: 20,
-      filter: 'ALL',
-      deliveryStatus,
-    });
+    expect(collectForStaff).toHaveBeenCalledWith(
+      SESSION_GITHUB_ID,
+      'synthetic-milestone',
+      {
+        page: 1,
+        pageSize: 20,
+        filter: 'ALL',
+        deliveryStatus,
+      },
+    );
   },
 );
 
@@ -736,6 +743,7 @@ it('제출 파일 다운로드는 다시 붙인 이름으로 attachment 스트�
   );
   await expect(response.text()).resolves.toBe('submission-body');
   expect(downloadSubmissionFile).toHaveBeenCalledWith(
+    SESSION_GITHUB_ID,
     'synthetic-milestone',
     'synthetic-document',
     'synthetic-application',
@@ -751,20 +759,28 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
 
     expect(response.status).toBe(200);
     await expect(response.text()).resolves.toBe(ARCHIVE_BODY);
-    expect(archiveForStaff).toHaveBeenCalledWith('synthetic-milestone', {
-      kind: 'ALL',
-      grouping: 'TEAM',
-    });
+    expect(archiveForStaff).toHaveBeenCalledWith(
+      SESSION_GITHUB_ID,
+      'synthetic-milestone',
+      {
+        kind: 'ALL',
+        grouping: 'TEAM',
+      },
+    );
   });
 
   it('groupBy=DOCUMENT는 그대로 서비스에 전달한다', async () => {
     const response = await fetch(archiveUrl('?groupBy=DOCUMENT'));
 
     expect(response.status).toBe(200);
-    expect(archiveForStaff).toHaveBeenCalledWith('synthetic-milestone', {
-      kind: 'ALL',
-      grouping: 'DOCUMENT',
-    });
+    expect(archiveForStaff).toHaveBeenCalledWith(
+      SESSION_GITHUB_ID,
+      'synthetic-milestone',
+      {
+        kind: 'ALL',
+        grouping: 'DOCUMENT',
+      },
+    );
   });
 
   it('ZIP 응답은 application/zip · attachment · private no-store로 나간다', async () => {
@@ -830,10 +846,14 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
     const response = await fetch(archiveUrl('?documentId=doc-plan'));
 
     expect(response.status).toBe(200);
-    expect(archiveForStaff).toHaveBeenCalledWith('synthetic-milestone', {
-      kind: 'DOCUMENT',
-      documentId: 'doc-plan',
-    });
+    expect(archiveForStaff).toHaveBeenCalledWith(
+      SESSION_GITHUB_ID,
+      'synthetic-milestone',
+      {
+        kind: 'DOCUMENT',
+        documentId: 'doc-plan',
+      },
+    );
   });
 
   it('documentId와 groupBy를 함께 주면 400으로 거절한다', async () => {
@@ -988,7 +1008,12 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       }
       return application
         .get(MilestoneDocumentsController)
-        .archive('synthetic-milestone', query, probe.response);
+        .archive(
+          { sessionGithubId: SESSION_GITHUB_ID },
+          'synthetic-milestone',
+          query,
+          probe.response,
+        );
     };
 
     let loggedErrors: unknown[];
@@ -1191,7 +1216,7 @@ describe('교직원 서류 제출물 판정', () => {
     });
 
     expect(review).toHaveBeenCalledWith(
-      'synthetic-staff',
+      SESSION_GITHUB_ID,
       'synthetic-milestone',
       'synthetic-document',
       'synthetic-application',
@@ -1221,7 +1246,7 @@ describe('교직원 서류 제출물 판정', () => {
 
     expect(response.status).toBe(201);
     expect(review).toHaveBeenCalledWith(
-      'synthetic-staff',
+      SESSION_GITHUB_ID,
       'synthetic-milestone',
       'synthetic-document',
       'synthetic-application',
@@ -1314,7 +1339,7 @@ describe('교직원 서류 제출물 판정', () => {
 
     expect(response.status).toBe(201);
     expect(review).toHaveBeenCalledWith(
-      'synthetic-staff',
+      SESSION_GITHUB_ID,
       'synthetic-milestone',
       'synthetic-document',
       'synthetic-application',
@@ -1418,57 +1443,41 @@ describe('legacy mutation route HTTP guard rejections', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [MilestoneDocumentsController],
       providers: [
-        {
-          provide: MilestoneDocumentsService,
-          useValue: {
-            listForViewer,
-            collectForStaff,
-            submit,
-            createDocument,
-            updateDocument,
-            reorderDocuments,
-            deleteDocument,
-          },
-        },
+        MilestoneDocumentsService,
+        { provide: MilestoneDocumentsRepository, useValue: {} },
         { provide: MilestoneDocumentFilesService, useValue: {} },
         { provide: MilestoneDocumentReviewsService, useValue: {} },
         { provide: MilestoneDocumentArchiveService, useValue: {} },
         { provide: MilestoneDocumentCollectionService, useValue: {} },
-        MilestoneDocumentsStaffGuard,
+        UsersAuthorityService,
         OriginGuard,
         { provide: AuthConfig, useValue: { allowedOrigin } },
         {
-          provide: PrismaService,
+          provide: UsersAuthorityRepository,
           useValue: {
-            user: {
-              findUnique: ({
-                where,
-              }: {
-                readonly where: { readonly githubId: bigint };
-              }) =>
-                Promise.resolve(
-                  where.githubId === SESSION_GITHUB_ID
+            findActorByGithubId: (githubId: bigint) =>
+              Promise.resolve(
+                githubId === SESSION_GITHUB_ID
+                  ? {
+                      id: 'synthetic-staff',
+                      hasStaffAccess: true,
+                      hasAdminAccess: false,
+                      accountStatus: AccountStatus.ACTIVE,
+                    }
+                  : githubId === studentGithubId
                     ? {
-                        id: 'synthetic-staff',
-                        hasStaffAccess: true,
+                        id: 'synthetic-student',
+                        hasStaffAccess: false,
                         hasAdminAccess: false,
                         accountStatus: AccountStatus.ACTIVE,
                       }
-                    : where.githubId === studentGithubId
-                      ? {
-                          id: 'synthetic-student',
-                          hasStaffAccess: false,
-                          hasAdminAccess: false,
-                          accountStatus: AccountStatus.ACTIVE,
-                        }
-                      : {
-                          id: 'inactive-staff',
-                          hasStaffAccess: true,
-                          hasAdminAccess: false,
-                          accountStatus: AccountStatus.DEACTIVATED,
-                        },
-                ),
-            },
+                    : {
+                        id: 'inactive-staff',
+                        hasStaffAccess: true,
+                        hasAdminAccess: false,
+                        accountStatus: AccountStatus.DEACTIVATED,
+                      },
+              ),
           },
         },
       ],
@@ -1585,41 +1594,33 @@ function definedHeaders(
 
 describe('교직원 전용 endpoint의 가드 구성', () => {
   it.each(['create', 'update', 'reorder', 'remove', 'uploadTemplate'])(
-    'legacy writer %s keeps SessionGuard + staff + OriginGuard',
+    'legacy writer %s keeps SessionGuard + OriginGuard',
     (handler) => {
-      expect(readHandlerGuards(handler)).toEqual([
-        SessionGuard,
-        MilestoneDocumentsStaffGuard,
-        OriginGuard,
-      ]);
+      expect(readHandlerGuards(handler)).toEqual([SessionGuard, OriginGuard]);
     },
   );
 
-  it('서류 수합 조회는 SessionGuard + MilestoneDocumentsStaffGuard를 붙인다', () => {
+  it('서류 수합 조회는 SessionGuard만 붙인다', () => {
     const guards = readHandlerGuards('collection');
 
-    expect(guards).toEqual([SessionGuard, MilestoneDocumentsStaffGuard]);
+    expect(guards).toEqual([SessionGuard]);
   });
 
-  it('서류 일괄 내려받기는 SessionGuard + MilestoneDocumentsStaffGuard를 붙인다', () => {
+  it('서류 일괄 내려받기는 SessionGuard만 붙인다', () => {
     const guards = readHandlerGuards('archive');
 
-    expect(guards).toEqual([SessionGuard, MilestoneDocumentsStaffGuard]);
+    expect(guards).toEqual([SessionGuard]);
   });
 
-  it('제출 파일 다운로드는 SessionGuard + MilestoneDocumentsStaffGuard를 붙인다', () => {
+  it('제출 파일 다운로드는 SessionGuard만 붙인다', () => {
     const guards = readHandlerGuards('downloadSubmissionFile');
 
-    expect(guards).toEqual([SessionGuard, MilestoneDocumentsStaffGuard]);
+    expect(guards).toEqual([SessionGuard]);
   });
 
-  it('제출물 판정은 SessionGuard + MilestoneDocumentsStaffGuard + OriginGuard를 붙인다', () => {
+  it('제출물 판정은 SessionGuard + OriginGuard를 붙인다', () => {
     const guards = readHandlerGuards('review');
 
-    expect(guards).toEqual([
-      SessionGuard,
-      MilestoneDocumentsStaffGuard,
-      OriginGuard,
-    ]);
+    expect(guards).toEqual([SessionGuard, OriginGuard]);
   });
 });
