@@ -20,7 +20,6 @@ import { ActiveProgramCard, ProgramCompactRow } from './student-dashboard-card';
 
 type DashboardFilter = 'all' | 'active' | 'done' | 'applying';
 
-const FILTER_CHIP_MIN_ITEMS = 5;
 const DONE_LIST_ID = 'dashboard-done-programs';
 
 function ProgramRows({ items }: { readonly items: readonly DashboardItem[] }) {
@@ -56,10 +55,13 @@ export function DashboardProgramSections({
       ['applying', '신청 상태', applying.length],
     ] as const
   ).filter(([, , count]) => count > 0);
+  const filterable = chips.some(
+    ([value, , count]) => value !== 'all' && count < items.length,
+  );
 
   return (
     <>
-      {items.length >= FILTER_CHIP_MIN_ITEMS ? (
+      {filterable ? (
         <FilterChipGroup aria-label="프로그램 거르기">
           {chips.map(([value, label, count]) => (
             <FilterChip

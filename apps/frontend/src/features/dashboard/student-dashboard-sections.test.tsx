@@ -134,6 +134,5 @@ describe('DashboardProgramSections', () => {
 
     expect(doneList().getAttribute('data-state')).toBe('open');
     expect(container.querySelector('[aria-controls]')).toBeNull();
-    expect(container.querySelector('[role="group"]')).toBeNull();
   });
 });

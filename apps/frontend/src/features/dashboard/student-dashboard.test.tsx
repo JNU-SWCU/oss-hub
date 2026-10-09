@@ -445,16 +445,16 @@ describe('StudentDashboardView 프로그램 묶음', () => {
     expect(html).toContain('>2개<');
   });
 
-  it('프로그램이 5개 이상일 때만 거르기 칩을 두고 0개인 묶음 칩은 감춘다', () => {
-    const four = [soon, later, done, submitted];
+  it('두 묶음 이상이 차 있으면 프로그램 수와 상관없이 거르기 칩을 두고 0개인 묶음 칩은 감춘다', () => {
     const third = active('third', '2026-08-09T23:59:59+09:00');
+    const html = renderView({ data: { items: [soon, later, done] } });
 
-    expect(renderView({ data: { items: four } })).not.toContain(
-      '프로그램 거르기',
-    );
-    expect(
-      chipLabels(renderView({ data: { items: [...four, third] } })),
-    ).toEqual(['전체 5', '진행 중 3', '마친 프로그램 1', '신청 상태 1']);
+    expect(html).toContain('aria-label="프로그램 거르기"');
+    expect(chipLabels(html)).toEqual([
+      '전체 3',
+      '진행 중 2',
+      '마친 프로그램 1',
+    ]);
     expect(
       chipLabels(
         renderView({
@@ -463,6 +463,23 @@ describe('StudentDashboardView 프로그램 묶음', () => {
       ),
     ).toEqual(['전체 5', '진행 중 3', '신청 상태 2']);
   });
+
+  it.each([
+    [
+      '진행 중뿐',
+      () => [soon, later, active('third', '2026-08-09T23:59:59+09:00')],
+    ],
+    ['마친 프로그램뿐', () => [done]],
+    ['신청 상태뿐', () => [submitted, rejected]],
+  ] as const)(
+    '%s이면 칩마다 같은 목록이라 거르기 칩을 두지 않는다',
+    (_l, items) => {
+      const html = renderView({ data: { items: items() } });
+
+      expect(html).not.toContain('프로그램 거르기');
+      expect(chipLabels(html)).toEqual([]);
+    },
+  );
 
   it('다음 마일스톤 상태로 제출 버튼 이름을 고르고 주 행동은 가장 급한 하나에만 준다', () => {
     const reviewing = active(
