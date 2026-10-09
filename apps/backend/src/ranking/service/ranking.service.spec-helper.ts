@@ -1,9 +1,9 @@
-import type { RankingViewerClass } from './domain/ranking';
+import type { RankingViewerClass } from '../domain/ranking';
 import type {
   RankingMetricRow,
   RankingRepository,
-} from './repository/ranking.repository';
-import { RankingService } from './service/ranking.service';
+} from '../repository/ranking.repository';
+import { RankingService } from './ranking.service';
 
 export function activity(
   githubId: bigint,
