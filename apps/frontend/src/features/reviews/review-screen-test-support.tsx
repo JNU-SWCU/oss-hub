@@ -51,11 +51,12 @@ export function reviewScreen() {
   return {
     container,
     render: (submissionId = 'submission-synthetic') =>
-      act(async () => {
+      act(() => {
         root.render(<SubmissionReviewScreen submissionId={submissionId} />);
+        return Promise.resolve();
       }),
     cleanup: async () => {
-      await act(async () => root.unmount());
+      await act(() => Promise.resolve(root.unmount()));
       container.remove();
     },
     button: (text: string) => {
@@ -80,12 +81,13 @@ export function reviewScreen() {
     writeComment: async (value: string) => {
       const textarea = container.querySelector('textarea');
       expect(textarea).not.toBeNull();
-      await act(async () => {
+      await act(() => {
         Object.getOwnPropertyDescriptor(
           HTMLTextAreaElement.prototype,
           'value',
         )?.set?.call(textarea, value);
         textarea?.dispatchEvent(new Event('input', { bubbles: true }));
+        return Promise.resolve();
       });
     },
   };
