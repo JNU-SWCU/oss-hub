@@ -139,18 +139,19 @@ describe('수합 표에서 판정하기', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
   });
 
   async function render() {
-    await act(async () => {
+    await act(() => {
       root.render(
         <MilestoneDocumentCollectionScreen
           programId="program-capstone"
           milestoneId="milestone-1"
         />,
       );
+      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();
@@ -184,8 +185,9 @@ describe('수합 표에서 판정하기', () => {
   }
 
   async function click(button: HTMLButtonElement) {
-    await act(async () => {
+    await act(() => {
       button.click();
+      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();
@@ -204,26 +206,24 @@ describe('수합 표에서 판정하기', () => {
       throw new TypeError('사유 입력 칸을 찾지 못했습니다.');
     }
 
-    const setter = Object.getOwnPropertyDescriptor(
+    const descriptor = Object.getOwnPropertyDescriptor(
       window.HTMLTextAreaElement.prototype,
       'value',
-    )?.set;
-    setter?.call(textarea, value);
+    );
+    descriptor?.set?.call(textarea, value);
     textarea.dispatchEvent(new window.Event('input', { bubbles: true }));
   }
 
   function typeResubmissionDueAt(value: string) {
-    const input = container.querySelector(
-      'input[type="datetime-local"]',
-    ) as HTMLInputElement | null;
+    const input = container.querySelector('input[type="datetime-local"]');
     if (input === null) {
       throw new TypeError('재제출 기한 칸을 찾지 못했습니다.');
     }
-    const setter = Object.getOwnPropertyDescriptor(
+    const descriptor = Object.getOwnPropertyDescriptor(
       window.HTMLInputElement.prototype,
       'value',
-    )?.set;
-    setter?.call(input, value);
+    );
+    descriptor?.set?.call(input, value);
     input.dispatchEvent(new window.Event('input', { bubbles: true }));
   }
 
@@ -435,10 +435,11 @@ describe('수합 표에서 판정하기', () => {
     });
 
     await click(byText('보완 요청'));
-    await act(async () => {
+    await act(() => {
       typeComment('  표지를 고쳐 주세요.  ');
 
       typeResubmissionDueAt(dueAtInput);
+      return Promise.resolve();
     });
     await click(byText('저장'));
 
@@ -461,8 +462,9 @@ describe('수합 표에서 판정하기', () => {
     await openPanelForGaTeam();
 
     await click(byText('보완 요청'));
-    await act(async () => {
+    await act(() => {
       typeComment('표지를 고쳐 주세요.');
+      return Promise.resolve();
     });
     await click(byText('저장'));
 
@@ -521,8 +523,9 @@ describe('수합 표에서 판정하기', () => {
     expect(byText('저장 중…').disabled).toBe(true);
     expect(createMilestoneDocumentReviewMock).toHaveBeenCalledTimes(1);
 
-    await act(async () => {
+    await act(() => {
       release?.();
+      return Promise.resolve();
     });
   });
 
@@ -609,8 +612,9 @@ describe('수합 표에서 판정하기', () => {
     const loadsAfterFilter =
       getMilestoneDocumentCollectionMock.mock.calls.length;
 
-    await act(async () => {
+    await act(() => {
       release?.();
+      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();
@@ -652,8 +656,9 @@ describe('수합 표에서 판정하기', () => {
     const loadsAfterFilter =
       getMilestoneDocumentCollectionMock.mock.calls.length;
 
-    await act(async () => {
+    await act(() => {
       reject?.();
+      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();
@@ -687,8 +692,9 @@ describe('수합 표에서 판정하기', () => {
     await click(byLabel('가팀 중간 보고 검토'));
     expect(panel()?.textContent).toContain('가팀 — 중간 보고');
 
-    await act(async () => {
+    await act(() => {
       release?.();
+      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();
@@ -763,7 +769,7 @@ describe('수합 표에서 판정하기', () => {
 
     expect(tableBusy()).toBe('true');
 
-    await act(async () => release());
+    await act(() => Promise.resolve(release()));
     await settle();
 
     expect(skeleton()).toBeNull();
@@ -793,7 +799,7 @@ describe('수합 표에서 판정하기', () => {
     expect(container.textContent).toContain('가팀');
     expect(tableBusy()).toBe('true');
 
-    await act(async () => release());
+    await act(() => Promise.resolve(release()));
     await settle();
 
     expect(skeleton()).toBeNull();
@@ -825,7 +831,7 @@ describe('수합 표에서 판정하기', () => {
     expect(status).not.toBeNull();
     expect(status?.closest('[aria-busy]')).toBeNull();
 
-    await act(async () => release());
+    await act(() => Promise.resolve(release()));
     await settle();
 
     expect(container.textContent).toContain('나팀');
@@ -854,7 +860,7 @@ describe('수합 표에서 판정하기', () => {
     expect(status).not.toBeNull();
     expect(status?.closest('[aria-busy]')).toBeNull();
 
-    await act(async () => release());
+    await act(() => Promise.resolve(release()));
     await settle();
 
     expect(container.textContent).toContain('나팀');
@@ -1004,7 +1010,7 @@ describe('수합 표에서 판정하기', () => {
     expect(container.textContent).toContain('가팀');
     expect(tableBusy()).toBe('true');
 
-    await act(async () => release());
+    await act(() => Promise.resolve(release()));
     await settle();
 
     expect(reviewNotice()?.textContent).toContain('다시 불러왔습니다');
@@ -1115,8 +1121,9 @@ describe('수합 표에서 판정하기', () => {
 
     await click(byLabel('가팀 기획서 검토'));
 
-    await act(async () => {
+    await act(() => {
       release?.();
+      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();

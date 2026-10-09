@@ -67,7 +67,7 @@ describe('ReadOnlyMilestoneDocuments', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
   });
 
@@ -97,8 +97,9 @@ describe('ReadOnlyMilestoneDocuments', () => {
   it('ignores late success and failure after canonical documents arrive', async () => {
     const pending = deferred<MilestoneDocumentList>();
     listMilestoneDocumentsMock.mockReturnValue(pending.promise);
-    await act(async () => {
+    await act(() => {
       root.render(<ReadOnlyMilestoneDocuments milestoneId="milestone-1" />);
+      return Promise.resolve();
     });
     await act(async () => {
       root.render(
@@ -123,13 +124,14 @@ describe('ReadOnlyMilestoneDocuments', () => {
   });
 
   it('shows actionable empty state for a canonical empty list', async () => {
-    await act(async () => {
+    await act(() => {
       root.render(
         <ReadOnlyMilestoneDocuments
           milestoneId="milestone-1"
           canonicalDocuments={[]}
         />,
       );
+      return Promise.resolve();
     });
     expect(container.textContent).toContain('제출 항목이 없습니다.');
   });
@@ -159,19 +161,20 @@ describe('LocalMilestoneDocumentsEditor', () => {
       );
     }
     try {
-      await act(async () => render());
+      await act(() => Promise.resolve(render()));
       const input =
         container.querySelector<HTMLInputElement>('input[type="file"]');
       if (input === null) throw new TypeError('Missing local file input.');
       const invalid = new File(['bad'], 'bad.exe', {
         type: 'application/octet-stream',
       });
-      await act(async () => {
+      await act(() => {
         Object.defineProperty(input, 'files', {
           configurable: true,
           value: [invalid],
         });
         input.dispatchEvent(new Event('change', { bubbles: true }));
+        return Promise.resolve();
       });
       expect(onChange).not.toHaveBeenCalled();
       expect(container.querySelector('[role="alert"]')).not.toBeNull();
@@ -183,12 +186,13 @@ describe('LocalMilestoneDocumentsEditor', () => {
       const replacement = new File(['%PDF-1.4'], 'replacement.pdf', {
         type: 'application/pdf',
       });
-      await act(async () => {
+      await act(() => {
         Object.defineProperty(input, 'files', {
           configurable: true,
           value: [replacement],
         });
         input.dispatchEvent(new Event('change', { bubbles: true }));
+        return Promise.resolve();
       });
       expect(documents.current[0]?.selectedFile).toBe(replacement);
       expect(input.getAttribute('aria-invalid')).toBe('false');
@@ -198,11 +202,11 @@ describe('LocalMilestoneDocumentsEditor', () => {
       );
       if (reset === null)
         throw new TypeError('Missing local replacement reset.');
-      await act(async () => reset.focus());
+      await act(() => Promise.resolve(reset.focus()));
       expect(document.querySelector('[role="tooltip"]')?.textContent).toContain(
         '파일 선택 취소',
       );
-      await act(async () => reset.click());
+      await act(() => Promise.resolve(reset.click()));
       expect(documents.current).toHaveLength(1);
       expect(documents.current[0]?.id).toBe('document-1');
       expect(documents.current[0]?.selectedFile).toBeNull();
@@ -210,7 +214,7 @@ describe('LocalMilestoneDocumentsEditor', () => {
       expect(container.textContent).toContain('plan.pdf');
       expect(fetchMock).not.toHaveBeenCalled();
     } finally {
-      await act(async () => root.unmount());
+      await act(() => Promise.resolve(root.unmount()));
       container.remove();
       fetchMock.mockRestore();
     }
