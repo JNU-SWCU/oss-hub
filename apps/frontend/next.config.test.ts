@@ -199,7 +199,7 @@ describe('production Vercel origin authentication', () => {
 
 describe('Vercel production config', () => {
   it('Git 자동배포를 끄고 browser authorization을 허용된 runtime secret으로 대체한다', () => {
-    const vercelConfig = JSON.parse(
+    const vercelConfig: unknown = JSON.parse(
       readFileSync(join(__dirname, 'vercel.json'), 'utf8'),
     );
 

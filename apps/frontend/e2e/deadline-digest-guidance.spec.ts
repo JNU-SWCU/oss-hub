@@ -75,7 +75,10 @@ test('4000자 안내를 POST 평문으로 미리 보고 작은 화면에서 두 
       viewportHeight: window.innerHeight,
       scrollTop: document.documentElement.scrollTop,
       scrollHeight: document.documentElement.scrollHeight,
-      link: body.querySelector('a')?.getBoundingClientRect().toJSON(),
+      link: body
+        .querySelector('a')
+        ?.getBoundingClientRect()
+        .toJSON() as unknown,
     }));
     await testInfo.attach(`${audience}-long-guidance-geometry`, {
       body: JSON.stringify({

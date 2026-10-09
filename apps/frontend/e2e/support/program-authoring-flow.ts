@@ -95,13 +95,18 @@ function formatSeoulDatetimeLocal(date: Date): string {
   return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}`;
 }
 
-export async function expectApiStatus(
+export function expectApiStatus(
   response: APIResponse,
   status: number,
 ): Promise<void> {
-  if (response.status() !== status) {
-    throw new Error(`Expected HTTP ${status}, received ${response.status()}.`);
-  }
+  return new Promise((resolve) => {
+    if (response.status() !== status) {
+      throw new Error(
+        `Expected HTTP ${status}, received ${response.status()}.`,
+      );
+    }
+    resolve();
+  });
 }
 
 export async function downloadedArtifact(

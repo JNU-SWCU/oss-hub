@@ -130,7 +130,7 @@ test.describe('공지에서 가져오기', () => {
     const detail = await staff.request.get(
       `/api/v1/programs/${encodeURIComponent(programId)}`,
     );
-    const saved = await detail.json();
+    const saved = (await detail.json()) as { milestones: unknown[] };
     expect(saved).toMatchObject({
       name: NOTICE.name,
       description: NOTICE.description,
