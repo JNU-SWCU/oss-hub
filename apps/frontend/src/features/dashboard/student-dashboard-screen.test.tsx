@@ -1,10 +1,12 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { dashboardFixture, feedbackItemFixture } from './fixtures';
 import type {
   ApplicationDecisionNotice,
   StudentDashboard,
   StudentDashboardStatus,
+  StudentFeedbackState,
 } from './types';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -13,6 +15,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 });
 
 const mocks = vi.hoisted(() => ({
+  fetchStudentFeedback: vi.fn(),
   fetchUnreadApplicationDecisionNotices: vi.fn(),
   markApplicationDecisionNoticeRead: vi.fn(),
   loadStudentDashboard: vi.fn(),
@@ -20,6 +23,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('./api', () => ({
+  fetchStudentFeedback: mocks.fetchStudentFeedback,
   fetchUnreadApplicationDecisionNotices:
     mocks.fetchUnreadApplicationDecisionNotices,
   markApplicationDecisionNoticeRead: mocks.markApplicationDecisionNoticeRead,
@@ -35,6 +39,8 @@ type CapturedViewProps = {
   readonly data: StudentDashboard | null;
   readonly status: StudentDashboardStatus;
   readonly applicationDecisionNotices: readonly ApplicationDecisionNotice[];
+  readonly feedback: StudentFeedbackState;
+  readonly onRetryFeedback: () => void;
 };
 const captured = vi.hoisted(() => ({
   props: null as CapturedViewProps | null,
@@ -59,7 +65,7 @@ const notice: ApplicationDecisionNotice = {
 
 let everyAcknowledgementSawRenderedNotice = true;
 
-describe('StudentDashboardScreen application decision notices', () => {
+describe('StudentDashboardScreen', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -75,6 +81,7 @@ describe('StudentDashboardScreen application decision notices', () => {
     mocks.fetchUnreadApplicationDecisionNotices
       .mockReset()
       .mockResolvedValue([notice]);
+    mocks.fetchStudentFeedback.mockReset().mockResolvedValue([]);
     mocks.markApplicationDecisionNoticeRead
       .mockReset()
       .mockImplementation(() => {
@@ -117,5 +124,37 @@ describe('StudentDashboardScreen application decision notices', () => {
     });
 
     expect(captured.props?.applicationDecisionNotices).toEqual([notice]);
+  });
+
+  it('최근 피드백 실패는 대시보드 카드 상태를 건드리지 않고 피드백만 다시 부른다', async () => {
+    mocks.loadStudentDashboard.mockResolvedValue({
+      status: 'success',
+      data: dashboardFixture,
+    });
+    mocks.fetchStudentFeedback
+      .mockRejectedValueOnce(new Error('synthetic feedback failure'))
+      .mockResolvedValueOnce([feedbackItemFixture]);
+
+    await act(() => {
+      root.render(<StudentDashboardScreen />);
+      return Promise.resolve();
+    });
+
+    expect(captured.props?.status).toBe('success');
+    expect(captured.props?.data).toEqual(dashboardFixture);
+    expect(captured.props?.feedback).toEqual({ status: 'error' });
+
+    await act(() => {
+      captured.props?.onRetryFeedback();
+      return Promise.resolve();
+    });
+
+    expect(captured.props?.feedback).toEqual({
+      status: 'success',
+      items: [feedbackItemFixture],
+    });
+    expect(captured.props?.data).toEqual(dashboardFixture);
+    expect(mocks.fetchStudentFeedback).toHaveBeenCalledTimes(2);
+    expect(mocks.loadStudentDashboard).toHaveBeenCalledTimes(1);
   });
 });

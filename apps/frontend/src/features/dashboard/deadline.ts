@@ -38,10 +38,20 @@ const seoulDateTimeFormatter = new Intl.DateTimeFormat('en-US', {
   hourCycle: 'h23',
 });
 
-export function formatDashboardDeadlineAbsolute(dueAt: string): string {
-  const parts = seoulDateTimeFormatter.formatToParts(new Date(dueAt));
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
+function seoulDateTimePart(value: string) {
+  const parts = seoulDateTimeFormatter.formatToParts(new Date(value));
+  return (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((item) => item.type === type)?.value;
+}
+
+export function formatDashboardDeadlineAbsolute(dueAt: string): string {
+  const part = seoulDateTimePart(dueAt);
 
   return `${part('month')}월 ${part('day')}일 ${part('hour')}:${part('minute')} 마감`;
+}
+
+export function formatDashboardDate(value: string): string {
+  const part = seoulDateTimePart(value);
+
+  return `${part('month')}월 ${part('day')}일`;
 }

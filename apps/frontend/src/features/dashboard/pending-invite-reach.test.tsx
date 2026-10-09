@@ -60,7 +60,7 @@ function stubbedFetch(
   const method = init?.method ?? 'GET';
   requestedPaths.push(`${method} ${path}`);
 
-  if (path === 'dashboard/student') {
+  if (path === 'dashboard/student' || path === 'dashboard/student/feedback') {
     return Promise.resolve(json({ items: [] }));
   }
   if (path === 'users/me/notifications/application-decisions') {

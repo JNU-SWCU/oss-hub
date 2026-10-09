@@ -115,6 +115,60 @@ const ITEMS = [
   item('rejected', LONG_ROW_PROGRAM, 'REJECTED', null, null),
 ];
 
+function review(
+  key: string,
+  programKey: string,
+  decision: 'APPROVED' | 'CHANGES_REQUESTED',
+  itemName: string,
+  comment: string | null,
+  resubmissionDueAt: string | null,
+) {
+  const programId = `e2e-dashboard-${programKey}`;
+  const milestoneId = `e2e-dashboard-milestone-${programKey}`;
+  return {
+    id: `e2e-dashboard-review-${key}`,
+    decision,
+    comment,
+    reviewedAt: '2026-08-18T09:00:00+09:00',
+    resubmissionDueAt,
+    applicationId: `e2e-dashboard-application-${programKey}`,
+    programId,
+    milestoneId,
+    milestoneName: `합성 ${programKey} 마일스톤 제출`,
+    itemName,
+    href: `/programs/${programId}/documents?milestoneId=${milestoneId}`,
+  };
+}
+
+const FEEDBACK = [
+  review(
+    'resubmit',
+    'resubmit',
+    'CHANGES_REQUESTED',
+    '합성 보완 계획서',
+    '표지와 목차를 다시 정리하고 근거 자료를 보완해 주세요. '.repeat(4),
+    '2026-08-25T23:59:00+09:00',
+  ),
+  ...['1', '2', '3', '4'].map((index) =>
+    review(
+      `urgent-${index}`,
+      'urgent',
+      'APPROVED',
+      `합성 서류 ${index}`,
+      null,
+      null,
+    ),
+  ),
+  review(
+    'done',
+    'done',
+    'APPROVED',
+    '합성 최종 보고서',
+    '최종 보고서를 승인합니다.',
+    null,
+  ),
+];
+
 const VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 900 },
   { name: 'phone', width: 390, height: 844 },
@@ -167,6 +221,9 @@ test('학생 대시보드는 묶음·주 행동·접기·거르기를 넓은 화
       'GET /api/v1/dashboard/student': async (route) => {
         await fulfillJson(route, { items: ITEMS });
       },
+      'GET /api/v1/dashboard/student/feedback': async (route) => {
+        await fulfillJson(route, { items: FEEDBACK });
+      },
       'GET /api/v1/users/me/notifications/application-decisions': async (
         route,
       ) => {
@@ -202,7 +259,11 @@ test('학생 대시보드는 묶음·주 행동·접기·거르기를 넓은 화
     active.getByRole('link', { name: '다시 내기', exact: true }),
   ).toHaveAttribute('data-variant', 'outline');
 
-  const card = active.getByRole('listitem').nth(1);
+  const programEntry = (region: Locator, name: string | RegExp) =>
+    region.getByRole('listitem').filter({
+      has: page.getByRole('heading', { level: 3, name }),
+    });
+  const card = programEntry(active, /^2026 합성 오픈소스/);
   await expect(card.getByText('서류 3개 남음', { exact: true })).toBeVisible();
   await expect(
     card.getByText('마일스톤 4개 중 승인 1 · 검토 대기 0', { exact: true }),
@@ -211,23 +272,59 @@ test('학생 대시보드는 묶음·주 행동·접기·거르기를 넓은 화
     card.getByRole('progressbar', { name: '마일스톤 진행 1/4' }),
   ).toHaveAttribute('value', '1');
 
+  const resubmitCard = programEntry(active, '합성 보완 프로그램');
+  const feedbackLink = resubmitCard.getByRole('link', {
+    name: '합성 resubmit 마일스톤 제출 · 합성 보완 계획서',
+  });
+  await expect(
+    programEntry(active, '합성 검토 대기 프로그램'),
+  ).not.toContainText('새 피드백');
+  await expect(resubmitCard.getByText('새 피드백 1건')).toBeVisible();
+  await expect(feedbackLink).toHaveAttribute(
+    'href',
+    '/programs/e2e-dashboard-resubmit/documents?milestoneId=e2e-dashboard-milestone-resubmit',
+  );
+  await expect(resubmitCard.getByText('재제출 기한 D-5')).toBeVisible();
+  const feedbackToggle = card.getByRole('button', { name: /^피드백 / });
+  const fourthReview = card.getByRole('link', {
+    name: '합성 urgent 마일스톤 제출 · 합성 서류 4',
+  });
+  await expect(card.getByText('새 피드백 4건')).toBeVisible();
+  await expect(card.locator('ul[aria-labelledby] li')).toHaveCount(3);
+  await expect(feedbackToggle).toHaveText('피드백 1건 더 보기');
+  await expect(feedbackToggle).toHaveAttribute('aria-expanded', 'false');
+  await feedbackToggle.focus();
+  await page.keyboard.press('Enter');
+  await expect(fourthReview).toBeVisible();
+  await expect(feedbackToggle).toHaveText('피드백 접기');
+  await expect(feedbackToggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(feedbackToggle).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(fourthReview).toHaveCount(0);
+  await expect(feedbackToggle).toHaveText('피드백 1건 더 보기');
+  await expect(feedbackToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(feedbackToggle).toBeFocused();
+
   const toggle = done.locator('[aria-controls="dashboard-done-programs"]');
   await expect(toggle).toHaveText('펼치기');
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
-  await expect(done.getByRole('listitem')).toBeHidden();
+  const doneRow = programEntry(done, '합성 마친 프로그램');
+  await expect(doneRow).toBeHidden();
   await toggle.focus();
   await page.keyboard.press('Enter');
   await expect(toggle).toHaveText('접기');
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  await expect(done.getByRole('listitem')).toBeVisible();
+  await expect(doneRow).toBeVisible();
   await expect(
     done.getByRole('progressbar', { name: '마일스톤 진행 3/3' }),
   ).toBeVisible();
   await expect(done.getByText('승인 3/3', { exact: true })).toBeVisible();
+  await expect(done.getByText('새 피드백 1건')).toBeVisible();
 
   await expect(chips.getByRole('button')).toHaveText([
     '전체 6',
     '진행 중 3',
+    '새 피드백 있음 3',
     '마친 프로그램 1',
     '신청 상태 2',
   ]);
@@ -268,18 +365,33 @@ test('학생 대시보드는 묶음·주 행동·접기·거르기를 넓은 화
       .boundingBox();
     const bar = await card.getByRole('progressbar').boundingBox();
     const summary = await card.getByText(/^마일스톤 4개 중/).boundingBox();
-    if (!title || !dday || !cover || !content || !bar || !summary)
+    const link = await feedbackLink.boundingBox();
+    const reviewed = await resubmitCard.locator('time').boundingBox();
+    if (
+      !title ||
+      !dday ||
+      !cover ||
+      !content ||
+      !bar ||
+      !summary ||
+      !link ||
+      !reviewed
+    )
       throw new Error('카드 배치를 잴 수 없습니다.');
     if (viewport.name === 'phone') {
       expect(dday.y).toBeGreaterThanOrEqual(title.y + title.height);
       expect(Math.abs(dday.x - cover.x)).toBeLessThanOrEqual(1);
       expect(bar.y).toBeGreaterThanOrEqual(summary.y + summary.height);
       expect(Math.abs(bar.width - (content.width - 32))).toBeLessThanOrEqual(1);
+      expect(reviewed.y).toBeGreaterThanOrEqual(link.y + link.height - 1);
     } else {
       expect(dday.x).toBeGreaterThanOrEqual(title.x + title.width);
       expect(cover.width).toBeCloseTo(176, 0);
       expect(bar.x + bar.width).toBeLessThanOrEqual(summary.x);
       expect(bar.width).toBeCloseTo(220, 0);
+      expect(
+        Math.abs(reviewed.y + reviewed.height / 2 - (link.y + link.height / 2)),
+      ).toBeLessThanOrEqual(6);
     }
 
     await page.setViewportSize({ width: viewport.width, height: 3200 });
