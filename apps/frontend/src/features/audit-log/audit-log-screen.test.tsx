@@ -83,7 +83,7 @@ describe('AuditLogScreen 이전 조회 결과가 최신 조건을 덮지 않는�
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
   });
 
@@ -94,12 +94,14 @@ describe('AuditLogScreen 이전 조회 결과가 최신 조건을 덮지 않는�
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise);
 
-    await act(async () => {
+    await act(() => {
       root.render(<AuditLogScreen />);
+      return Promise.resolve();
     });
 
-    await act(async () => {
+    await act(() => {
       props().onPageChange(2);
+      return Promise.resolve();
     });
     expect(api.fetchAuditLogs).toHaveBeenCalledTimes(2);
 
@@ -125,11 +127,13 @@ describe('AuditLogScreen 이전 조회 결과가 최신 조건을 덮지 않는�
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise);
 
-    await act(async () => {
+    await act(() => {
       root.render(<AuditLogScreen />);
+      return Promise.resolve();
     });
-    await act(async () => {
+    await act(() => {
       props().onPageChange(2);
+      return Promise.resolve();
     });
     await act(async () => {
       second.resolve(page(['latest'], 1));
@@ -152,11 +156,13 @@ describe('AuditLogScreen 이전 조회 결과가 최신 조건을 덮지 않는�
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise);
 
-    await act(async () => {
+    await act(() => {
       root.render(<AuditLogScreen />);
+      return Promise.resolve();
     });
-    await act(async () => {
+    await act(() => {
       props().onPageChange(2);
+      return Promise.resolve();
     });
 
     await act(async () => {

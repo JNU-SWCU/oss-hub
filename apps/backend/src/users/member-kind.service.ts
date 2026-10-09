@@ -15,7 +15,7 @@ import { AffiliationKind, MemberKind } from '@prisma/client';
 import { requireActiveAdmin } from './admin-access-authorization';
 import { roleError, staleAccessError } from './admin-access-mutation-policy';
 import { RolesErrorCode } from '../roles/roles-error-code.enum';
-import { authorityLabel } from '../common/authority-label';
+import { authorityLabel } from './domain/authority-label';
 import {
   isCompleteProfileFields,
   isStoredStudentId,

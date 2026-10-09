@@ -5,7 +5,7 @@ import { GithubAppClient } from '../../src/github/github-app.client';
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';
 import { MAIL_SENDER } from '../../src/notifications/mail-sender.port';
 import { ProgramAuthoringRepository } from '../../src/programs/program-authoring.repository';
-import { SUBMISSION_FILE_STORAGE } from '../../src/submissions/submission-file-storage.port';
+import { OBJECT_STORAGE } from '../../src/storage/domain/object-storage';
 import type { RuntimeConfig } from '../../src/runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../../src/runtime-config/runtime-config.module';
 import { E2eProgramAuthoringModule } from './e2e-program-authoring.module';
@@ -23,7 +23,7 @@ async function bootstrap(): Promise<void> {
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule, E2eProgramAuthoringModule],
   })
-    .overrideProvider(SUBMISSION_FILE_STORAGE)
+    .overrideProvider(OBJECT_STORAGE)
     .useValue(ports.storage)
     .overrideProvider(MAIL_SENDER)
     .useValue(ports.mail)

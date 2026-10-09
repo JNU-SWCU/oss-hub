@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { extname } from 'node:path';
 import { normalizeMultipartFileName } from '../common/multipart-file-name';
-import { sanitizeSubmissionFileOriginalName } from '../submissions/submission-file-name';
+import { sanitizeSubmissionFileOriginalName } from '../submissions/domain/submission-file-object-key';
 import { hasValidSubmissionTemplateSignature } from '../submissions/submission-template-file-policy';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
+import { PROGRAM_COVER_STORAGE_PREFIX } from './domain/program-cover-object-key';
 import {
   PROGRAM_AUTHORING_UPLOAD_ERROR_CODES,
   ProgramAuthoringUploadError,
@@ -16,7 +17,6 @@ import {
 } from './program-authoring.types';
 
 export const PROGRAM_COVER_MAX_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
-export const PROGRAM_COVER_STORAGE_PREFIX = 'program-covers/';
 
 export function programCoverImageUrl(
   programId: string,

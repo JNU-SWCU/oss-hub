@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { randomUUID } from 'node:crypto';
 
 import { DomainException } from '../../common/error-code';
@@ -9,7 +8,6 @@ import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,
 } from '../collection-error-code.enum';
-import type { CollectionTriggerPort } from '../collection-trigger.port';
 import {
   CollectionSyncService,
   type CollectionSyncRunResult,
@@ -33,8 +31,8 @@ const SYNC_FAILED_EVENTS = {
 } as const;
 
 @Injectable()
-export class CollectionSchedulerService implements CollectionTriggerPort {
-  private readonly logger = new Logger(CollectionSchedulerService.name);
+export class CollectionTriggerService {
+  private readonly logger = new Logger('CollectionSchedulerService');
   private readonly ownerId = `scheduler:${randomUUID()}`;
 
   constructor(
@@ -43,12 +41,7 @@ export class CollectionSchedulerService implements CollectionTriggerPort {
     private readonly userActivity: CollectionUserActivityService,
   ) {}
 
-  @Cron(COLLECTION_CRON_EXPRESSION, {
-    name: COLLECTION_CRON_JOB_NAME,
-    timeZone: 'Asia/Seoul',
-    waitForCompletion: true,
-  })
-  async handleCron(): Promise<void> {
+  async runScheduled(): Promise<void> {
     try {
       await this.trigger();
     } catch (error) {

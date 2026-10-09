@@ -1,16 +1,18 @@
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Prisma, ProgramCategory, PrismaClient } from '@prisma/client';
-import { S3SubmissionFileStorage } from './s3-submission-file.storage';
-import { SubmissionFileStorageConfig } from './submission-file-storage.config';
+import { S3ObjectStorage } from '../storage/gateway/s3-object.storage';
+import { ObjectStorageConfig } from '../storage/object-storage.config';
+import { S3ObjectInventory } from '../storage/gateway/s3-object-inventory';
+import { StorageOrphanReconciliationService } from './service/storage-orphan-reconciliation.service';
 import {
-  StorageOrphanReconciliationService,
+  KNOWN_STORAGE_PREFIXES,
   type StorageObjectInventory,
-} from './storage-orphan-reconciliation';
+} from './domain/storage-orphan-reconciliation';
 import {
   PrismaStorageReferenceRepository,
   type StorageReferencePrisma,
   type StorageReferenceTransactionClient,
-} from './storage-orphan-reconciliation.repository';
+} from './repository/storage-orphan-reconciliation.repository';
 
 const INTEGRATION_SENTINEL = 'oss-hub-isolated-integration-v1';
 const FIXTURE_PREFIX = 'reconcile-test-qa60';
@@ -44,8 +46,14 @@ const KEYS = {
 } as const;
 
 const prisma = new PrismaClient();
-const config = new SubmissionFileStorageConfig();
-const storage = new S3SubmissionFileStorage(config);
+const config = new ObjectStorageConfig();
+const objects = new S3ObjectStorage(config);
+const inventory = new S3ObjectInventory(config);
+const storage = {
+  put: objects.put.bind(objects),
+  delete: objects.delete.bind(objects),
+  listObjects: () => inventory.listObjects(KNOWN_STORAGE_PREFIXES),
+};
 const settings = config.requireSettings();
 const s3 = new S3Client({
   endpoint: settings.endpoint,

@@ -1,4 +1,4 @@
-import type { SubmissionFileStoragePort } from '../submissions/submission-file-storage.port';
+import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import type { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import {
@@ -34,9 +34,7 @@ function setup() {
     }),
     requestDelete: jest.fn().mockResolvedValue({ kind: 'QUEUED' }),
   };
-  const storage: jest.Mocked<
-    Pick<SubmissionFileStoragePort, 'put' | 'delete'>
-  > = {
+  const storage: jest.Mocked<Pick<ObjectStoragePort, 'put' | 'delete'>> = {
     put: jest.fn().mockResolvedValue({
       objectKey: 'unused-provider-key',
       originalName: 'plan.pdf',

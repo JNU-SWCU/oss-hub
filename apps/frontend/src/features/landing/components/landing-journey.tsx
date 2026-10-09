@@ -138,7 +138,7 @@ export function LandingJourney({
         }
         const tick = ticks[i];
         if (tick) {
-          tick.classList.toggle(styles.tickOn as string, o > 0.5);
+          tick.classList.toggle(styles.tickOn, o > 0.5);
           if (o > 0.5) tick.setAttribute('aria-current', 'step');
           else tick.removeAttribute('aria-current');
         }
