@@ -7,7 +7,7 @@ import {
 import { DomainException } from '../common/error-code';
 import { UsersAuthorityService } from '../users/service/authority.service';
 import { GithubOperationsError } from '../github/github-app.error';
-import { RepositoryPublishStateError } from '../github/repository/repositories.repository';
+import { RepositoryPublishStateError } from '../github/domain/repository-publish-state.error';
 import {
   RepositoriesService,
   RepositoryNotFoundError,
