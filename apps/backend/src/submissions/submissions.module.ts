@@ -1,28 +1,30 @@
 import { Module } from '@nestjs/common';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
-import { SubmissionFileCleanupFailuresController } from './submission-file-cleanup-failures.controller';
-import { SubmissionFileCleanupFailuresService } from './submission-file-cleanup-failures.service';
-import { SubmissionFileCleanupScheduler } from './submission-file-cleanup.scheduler';
-import { SubmissionFileCleanupService } from './submission-file-cleanup.service';
+import { SubmissionFileCleanupFailuresController } from './controller/submission-file-cleanup-failures.controller';
+import { SubmissionFileCleanupFailuresService } from './service/submission-file-cleanup-failures.service';
+import { SubmissionFileCleanupScheduler } from './job/submission-file-cleanup.scheduler';
+import { SubmissionFileCleanupService } from './service/submission-file-cleanup.service';
+import { SubmissionFileCleanupRetryService } from './service/submission-file-cleanup-retry.service';
 import { StorageModule } from '../storage/storage.module';
-import { SubmissionFilesRepository } from './submission-files.repository';
-import { SubmissionFilesService } from './submission-files.service';
-import { SubmissionDashboardSummaryRepository } from './submission-dashboard-summary.repository';
-import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
-import { SubmissionMatrixRepository } from './submission-matrix.repository';
-import { SubmissionMatrixService } from './submission-matrix.service';
+import { SubmissionFilesRepository } from './repository/submission-files.repository';
+import { SubmissionFilesService } from './service/submission-files.service';
+import { SubmissionDashboardSummaryRepository } from './repository/submission-dashboard-summary.repository';
+import { SubmissionDashboardSummaryService } from './service/submission-dashboard-summary.service';
+import { SubmissionMatrixRepository } from './repository/submission-matrix.repository';
+import { SubmissionMatrixService } from './service/submission-matrix.service';
 import {
   SubmissionChecklistController,
   SubmissionFilesController,
   SubmissionFormsController,
   SubmissionMatrixController,
   SubmissionsController,
-} from './submissions.controller';
-import { SubmissionsRepository } from './submissions.repository';
-import { SubmissionsService } from './submissions.service';
+} from './controller/submissions.controller';
+import { SubmissionsRepository } from './repository/submissions.repository';
+import { SubmissionsService } from './service/submissions.service';
 
 @Module({
-  imports: [AuthModule, StorageModule],
+  imports: [AuditLogModule, AuthModule, StorageModule],
   controllers: [
     SubmissionFileCleanupFailuresController,
     SubmissionFilesController,
@@ -37,6 +39,7 @@ import { SubmissionsService } from './submissions.service';
     SubmissionFilesService,
     SubmissionFileCleanupService,
     SubmissionFileCleanupFailuresService,
+    SubmissionFileCleanupRetryService,
     SubmissionFileCleanupScheduler,
     SubmissionsService,
     SubmissionDashboardSummaryRepository,

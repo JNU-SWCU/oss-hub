@@ -1,7 +1,7 @@
 import {
   SUBMISSION_UPLOAD_MAX_BYTES,
   SUBMISSION_UPLOAD_MAX_LABEL,
-} from '../../submissions/submission-upload-policy';
+} from '../../submissions/domain/submission-upload-policy';
 
 export class ProgramAuthoringUploadPolicyResponseDto {
   readonly fileUpload = {

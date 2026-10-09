@@ -4,7 +4,7 @@
 ## 소유 경계
 
 - 이 모듈은 승인된 학생의 마일스톤 제출·재제출, 제출 체크리스트·현황 매트릭스, 파일 업로드·다운로드·정리를 소유한다.
-- 제출 업무는 `submissions.service.ts`/`submissions.repository.ts`, 파일은 `submission-files.service.ts`/`submission-files.repository.ts`, 매트릭스는 `submission-matrix.service.ts`/repository로 분리한다.
+- 제출 업무는 `service/submissions.service.ts`/`repository/submissions.repository.ts`, 파일은 `service/submission-files.service.ts`/`repository/submission-files.repository.ts`, 매트릭스는 `service/submission-matrix.service.ts`/`repository/submission-matrix.repository.ts`로 분리한다.
 - module은 `SubmissionDashboardSummaryService`를 export하며 `applications/staff-dashboard.service.ts`가 이 service의 `listByProgram`만 소비한다.
 - 검토 결정과 `SubmissionStatus` 전이는 `submission-reviews/` 소유다. 이 모듈은 학생 제출과 재제출만 만들며 검토 승인·반려를 구현하지 않는다.
 - 프로그램 마감 계산은 `../programs/program-deadline.ts`를 사용한다. 마감 규칙을 별도로 계산하지 않는다.
@@ -23,13 +23,14 @@
 - 업로드는 5 MiB 제한, 파일명 정규화, 허용 content type·signature, ZIP metadata 검사 후 pending 행을 만들고 객체를 저장한다. 검증 또는 pending TTL을 우회하지 않는다.
 - 파일 교체도 제출 재제출과 같은 상태·마감·revision 조건을 적용한다. upload와 `SubmissionsService.assertResubmittable`의 규칙을 벌어지게 만들지 않는다.
 - 다운로드는 `SubmissionFilesRepository.findDownloadableFile` 권한·만료 결과가 없으면 동일한 not-found로 처리하고 `private, no-store` 및 안전한 attachment filename을 유지한다.
-- 만료·실패 정리는 `submission-file-cleanup.service.ts`와 scheduler가 소유한다. 고아 객체 reconciliation 진입은 `job/reconcile-storage-orphans.ts`이며 service와 repository를 분리하고 import 시 실행되지 않게 `require.main` guard를 유지한다.
+- 만료·실패 정리는 `service/submission-file-cleanup.service.ts`와 `job/submission-file-cleanup.scheduler.ts`가 소유한다. 고아 객체 reconciliation 진입은 `job/reconcile-storage-orphans.ts`이며 service와 repository를 분리하고 import 시 실행되지 않게 `require.main` guard를 유지한다.
+- 정리 재시도 진입은 `job/retry-submission-file-cleanup.ts`, 운영자 확인·재시도·감사 기록은 `service/submission-file-cleanup-retry.service.ts`, 운영자 조회와 삭제 시도 초기화는 `repository/submission-files.repository.ts`가 소유한다.
 
 ## HTTP, DTO, 검증 기준
 
-- 라우트와 multipart 한도·오류 매핑은 `submissions.controller.ts`에 둔다. 생성/재제출 DTO는 `dto/create-*-request.dto.ts`, 응답은 `dto/submission-response.dto.ts`를 사용한다.
+- 라우트와 multipart 한도·오류 매핑은 `controller/submissions.controller.ts`에 둔다. 생성/재제출 DTO는 `dto/create-submission-request.dto.ts`, 응답은 `dto/submission-response.dto.ts`를 사용한다.
 - 파일·상태 실패는 `submissions-error-code.enum.ts`의 `SUB_*` 계약을 사용한다. controller에서 저장소 오류를 임의 HTTP 오류로 바꾸지 않는다.
-- 제출·재제출·history 변경은 `submissions.service.resubmission.spec.ts`, `submissions.service.checklist.spec.ts`, `submissions.http.spec.ts`를 갱신한다.
-- 파일 검증·권한·수명주기 변경은 `submission-files.service.spec.ts`, `submission-file-lifecycle.integration.spec.ts`, `submission-file-quota.integration.spec.ts`를 함께 다룬다.
-- 정리·고아 객체·매트릭스 변경은 `submission-file-cleanup.service.spec.ts`, `storage-orphan-reconciliation.spec.ts`, `submission-matrix.service.spec.ts`에서 고정한다.
+- 제출·재제출·history 변경은 `service/submissions.service.resubmission.spec.ts`, `service/submissions.service.checklist.spec.ts`, `controller/submissions.http.spec.ts`를 갱신한다.
+- 파일 검증·권한·수명주기 변경은 `service/submission-files.service.spec.ts`, `repository/submission-file-lifecycle.integration.spec.ts`, `repository/submission-file-quota.integration.spec.ts`를 함께 다룬다.
+- 정리·고아 객체·매트릭스 변경은 `service/submission-file-cleanup.service.spec.ts`, `service/storage-orphan-reconciliation.spec.ts`, `service/submission-matrix.service.spec.ts`에서 고정한다.
 <!-- /init:managed id=backend-submissions -->

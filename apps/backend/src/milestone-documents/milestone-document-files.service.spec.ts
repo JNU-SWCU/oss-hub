@@ -16,10 +16,10 @@ import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
   type SubmissionFilesRepository,
-} from '../submissions/submission-files.repository';
-import { SubmissionMembershipChangedError } from '../submissions/submission-membership.repository';
-import { signatureValidZip } from '../submissions/submission-zip-test-builder';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
+} from '../submissions/repository/submission-files.repository';
+import { SubmissionMembershipChangedError } from '../submissions/repository/submission-membership.repository';
+import { signatureValidZip } from '../submissions/domain/submission-zip-test-builder';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/domain/submission-upload-policy';
 
 const MIB = 1024 * 1024;
 

@@ -9,7 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import {
   submissionCompletionTargetSelect,
   type SubmissionCompletionTargetRow,
-} from '../../submissions/submission-completion-projection';
+} from '../../submissions/domain/submission-completion-projection';
 import { programApplicationParticipantWhere } from '../program-participant';
 
 export interface StudentDashboardMilestoneRow {

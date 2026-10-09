@@ -5,7 +5,7 @@ import {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
-import { SubmissionMembershipChangedError } from '../submissions/submission-membership.repository';
+import { SubmissionMembershipChangedError } from '../submissions/repository/submission-membership.repository';
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
 import {

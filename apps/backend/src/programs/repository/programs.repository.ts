@@ -16,7 +16,7 @@ import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
   type SubmissionCompletionTargetRow,
-} from '../../submissions/submission-completion-projection';
+} from '../../submissions/domain/submission-completion-projection';
 import type { ProgramListQuery } from '../program-list-query';
 import {
   emptyProgramStatusCounts,

@@ -1,9 +1,9 @@
 import type { ErrorCode } from '../common/error-code';
-import { SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE } from './submission-upload-policy';
+import { SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE } from './domain/submission-upload-policy';
 import {
   SUBMISSION_ZIP_REJECTION_MESSAGES,
   SubmissionZipRejection,
-} from './submission-zip-admission';
+} from './domain/submission-zip-admission';
 
 export const SubmissionsErrorCode = {
   STUDENT_ONLY: 'SUB_001',

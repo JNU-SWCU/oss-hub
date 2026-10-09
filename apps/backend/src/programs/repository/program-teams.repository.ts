@@ -30,7 +30,7 @@ import {
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
-} from '../../submissions/submission-completion-projection';
+} from '../../submissions/domain/submission-completion-projection';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,

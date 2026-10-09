@@ -13,7 +13,7 @@ import { ProgramEditorService } from './service/program-editor.service';
 import { MilestoneDocumentFilesService } from '../milestone-documents/milestone-document-files.service';
 import { MilestoneDocumentsRepository } from '../milestone-documents/repository/milestone-documents.repository';
 import type { ObjectStoragePort } from '../storage/domain/object-storage';
-import { SubmissionFilesRepository } from '../submissions/submission-files.repository';
+import { SubmissionFilesRepository } from '../submissions/repository/submission-files.repository';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
 import {
   MilestoneDocumentMissingError,

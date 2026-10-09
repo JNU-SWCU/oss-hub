@@ -20,7 +20,7 @@ import {
   resolveUserProfileName,
 } from '../../profiles/user-profile-read';
 
-import { submissionParticipantWhere } from '../../submissions/submission-application.record';
+import { submissionParticipantWhere } from '../../submissions/repository/submission-application.record';
 import type { MilestoneDocumentReviewRecord } from '../domain/milestone-document-review';
 import type {
   MilestoneDocumentRecord,

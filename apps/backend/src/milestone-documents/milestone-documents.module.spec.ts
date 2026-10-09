@@ -1,5 +1,5 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { SubmissionFilesRepository } from '../submissions/submission-files.repository';
+import { SubmissionFilesRepository } from '../submissions/repository/submission-files.repository';
 import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,

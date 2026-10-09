@@ -11,7 +11,7 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import type { ObjectStoragePort } from '../storage/domain/object-storage';
-import { SubmissionFilesRepository } from '../submissions/submission-files.repository';
+import { SubmissionFilesRepository } from '../submissions/repository/submission-files.repository';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';

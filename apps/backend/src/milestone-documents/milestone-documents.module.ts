@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 
 import { StorageModule } from '../storage/storage.module';
-import { SubmissionFilesRepository } from '../submissions/submission-files.repository';
+import { SubmissionFilesRepository } from '../submissions/repository/submission-files.repository';
 import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,
