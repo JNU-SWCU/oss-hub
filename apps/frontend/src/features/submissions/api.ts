@@ -27,9 +27,10 @@ export async function listMilestoneDocumentCurrentFiles(
   const response = await apiClient<{
     readonly documents: readonly MilestoneDocumentCurrentFileItem[];
   }>(milestoneDocumentsPath(milestoneId));
+  const documents = response?.documents;
   if (!Array.isArray(response?.documents))
     throw new TypeError('Invalid milestone document list response');
-  return response.documents;
+  return documents;
 }
 
 export function downloadMilestoneDocumentCurrentFile(

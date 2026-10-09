@@ -22,7 +22,7 @@
 - Nearer guides cover `applications/`, `audit-log/`, `github/`, `notifications/`, `programs/`, `roles/`, `submission-reviews/`, and `submissions/`.
 - `auth/` owns authentication; `users/` owns account administration; `milestone-documents/` owns milestone-document APIs.
 - `runtime-config/` exposes `RUNTIME_CONFIG`; `prisma/` owns injected client lifecycle; `common/` owns cross-feature infrastructure contracts.
-- Unit specs are adjacent `*.spec.ts` files.
+- Unit specs are adjacent `*.spec.ts` files; `system-status/` keeps controllers, services, and repositories with their specs in `controller/`, `service/`, and `repository/`.
 - `*.integration.spec.ts` must run only through the parent package's isolated integration command.
 - A new provider is not live until its module exports/imports and `app.module.ts` composition make the dependency explicit.
 <!-- /init:managed id=craft-init-backend-src -->

@@ -91,7 +91,7 @@ test('완료 사용자는 이름·학과·전화번호만 PATCH하고 학번은 
     body: JSON.stringify(updateRequest),
   });
   const body = JSON.parse(
-    (fetchMock.mock.calls[0] as [{}, { body: string }])[1].body,
+    (fetchMock.mock.calls[0] as [string, { body: string }])[1].body,
   ) as Record<string, unknown>;
   expect(body).not.toHaveProperty('studentId');
 });
@@ -116,7 +116,7 @@ test.each([null, 'STAFF-42'] as const)(
 
     await expect(updateMyProfile(updateRequest)).resolves.toEqual(response);
     const body = JSON.parse(
-      (fetchMock.mock.calls[0] as [{}, { body: string }])[1].body,
+      (fetchMock.mock.calls[0] as [string, { body: string }])[1].body,
     ) as Record<string, unknown>;
     expect(body).toMatchObject({ staffNumber });
   },
@@ -157,7 +157,8 @@ test('모든 프로필 필드를 담은 서버 응답도 그대로 파싱한다'
 });
 
 test('staffNumber가 없는 프로필 응답을 거부한다', async () => {
-  const { staffNumber: _staffNumber, ...profile } = emptyProfile;
+  const { name, studentId, department, phone, isComplete } = emptyProfile;
+  const profile = { name, studentId, department, phone, isComplete };
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue(

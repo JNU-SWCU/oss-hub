@@ -1,4 +1,4 @@
-import type { AuthorityLabel } from '../../common/authority-label';
+import type { AuthorityLabel } from '../../users/domain/authority-label';
 import { BoardCommentResult } from '../board.service';
 
 export class BoardCommentResponseDto {

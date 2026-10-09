@@ -3,6 +3,7 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
 import { RepositoriesModule } from '../github/repositories.module';
 import { SubmissionsModule } from '../submissions/submissions.module';
+import { StorageModule } from '../storage/storage.module';
 import { ProgramAuthoringController } from './controller/program-authoring.controller';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
@@ -47,7 +48,13 @@ import { ProgramNoticePreviewService } from './program-notice-preview.service';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 
 @Module({
-  imports: [AuthModule, AuditLogModule, RepositoriesModule, SubmissionsModule],
+  imports: [
+    AuthModule,
+    AuditLogModule,
+    RepositoriesModule,
+    SubmissionsModule,
+    StorageModule,
+  ],
   controllers: [
     ApplicationTemplatesController,
     ProgramNoticePreviewController,

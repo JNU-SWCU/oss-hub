@@ -5,18 +5,18 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import {
-  SUBMISSION_FILE_STORAGE,
-  SubmissionFileStorageError,
-  type SubmissionFileStoragePort,
-} from '../../submissions/submission-file-storage.port';
+  OBJECT_STORAGE,
+  ObjectStorageError,
+  type ObjectStoragePort,
+} from '../../storage/domain/object-storage';
 import { ProgramCoverRepository } from '../repository/program-cover.repository';
 
 @Injectable()
 export class ProgramCoverService {
   constructor(
     private readonly repository: ProgramCoverRepository,
-    @Inject(SUBMISSION_FILE_STORAGE)
-    private readonly storage: SubmissionFileStoragePort,
+    @Inject(OBJECT_STORAGE)
+    private readonly storage: ObjectStoragePort,
   ) {}
 
   async read(programId: string, coverId: string) {
@@ -30,7 +30,7 @@ export class ProgramCoverService {
         size: cover.sizeBytes,
       };
     } catch (error) {
-      if (!(error instanceof SubmissionFileStorageError)) throw error;
+      if (!(error instanceof ObjectStorageError)) throw error;
       if (error.code === 'SUBMISSION_FILE_STORAGE_GET_NOT_FOUND') {
         throw new NotFoundException('Program cover was not found.');
       }

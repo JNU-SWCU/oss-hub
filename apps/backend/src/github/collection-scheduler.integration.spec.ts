@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { CollectionCutoverRepository } from './repository/collection-cutover.repository';
-import { CollectionSchedulerService } from './service/collection-scheduler.service';
+import { CollectionTriggerService } from './service/collection-trigger.service';
 import { CollectionSyncService } from './service/collection-sync.service';
 import {
   CollectionUserActivityService,
@@ -10,7 +10,7 @@ import {
 
 describe('CollectionScheduler integration', () => {
   let testingModule: TestingModule;
-  let scheduler: CollectionSchedulerService;
+  let scheduler: CollectionTriggerService;
   const run = jest.fn<
     Promise<{ runId: string; status: 'COMPLETED' }>,
     [string]
@@ -28,7 +28,7 @@ describe('CollectionScheduler integration', () => {
   beforeAll(async () => {
     testingModule = await Test.createTestingModule({
       providers: [
-        CollectionSchedulerService,
+        CollectionTriggerService,
         { provide: CollectionSyncService, useValue: { run, runExternal } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
         {
@@ -37,7 +37,7 @@ describe('CollectionScheduler integration', () => {
         },
       ],
     }).compile();
-    scheduler = testingModule.get(CollectionSchedulerService);
+    scheduler = testingModule.get(CollectionTriggerService);
   });
 
   afterEach(() => {

@@ -94,7 +94,9 @@ function findRetry(node: ReactNode): (() => void) | undefined {
   if (element.props.onRetry) return element.props.onRetry;
   if (element.props.onClick) return element.props.onClick;
   const children = element.props.children;
-  const values = Array.isArray(children) ? children : [children];
+  const values = Array.isArray(children)
+    ? (children as readonly ReactNode[])
+    : [children];
   for (const child of values) {
     const handler = findRetry(child);
     if (handler) return handler;

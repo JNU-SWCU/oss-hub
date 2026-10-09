@@ -1,4 +1,3 @@
-import type { AuthorityLabel } from './authority-label';
 export interface ErrorCode {
   code: string;
   status: number;
@@ -49,7 +48,7 @@ export interface ProblemDetailTeamDeletionScopeCounts {
 export interface ProblemDetailCurrentAccess {
   readonly id: string;
 
-  readonly role: AuthorityLabel | null;
+  readonly role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly accountStatus: AccountStatus;
   readonly pendingRequest: {
     readonly id: string;

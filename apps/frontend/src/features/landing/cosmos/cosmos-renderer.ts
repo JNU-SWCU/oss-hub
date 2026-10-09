@@ -4,12 +4,7 @@ import {
   worldXform,
   type CosmosCamera,
 } from './cosmos-camera';
-import {
-  FOCUS_PROGRAM,
-  HERO_HANDLE,
-  type CosmosGraph,
-  type CosmosNode,
-} from './cosmos-graph';
+import { FOCUS_PROGRAM, HERO_HANDLE, type CosmosGraph } from './cosmos-graph';
 import {
   clamp01,
   DAWN_THEME,
@@ -466,12 +461,7 @@ export function createCosmosRenderer({
     const wpx = text.length * size * 0.58;
     const box = [x - 4, y - size, x + wpx, y + 4];
     for (const b of labelBoxes) {
-      if (
-        (box[0] as number) < (b[2] as number) &&
-        (box[2] as number) > (b[0] as number) &&
-        (box[1] as number) < (b[3] as number) &&
-        (box[3] as number) > (b[1] as number)
-      ) {
+      if (box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1]) {
         return false;
       }
     }
@@ -662,7 +652,7 @@ export function createCosmosRenderer({
     const R = Math.min(w, h) * 0.55;
 
     for (let i = 0; i < graph.nodes.length; i += 1) {
-      const node = graph.nodes[i] as CosmosNode;
+      const node = graph.nodes[i];
       const q = worldXform(node, cam.ang);
       const X = (q.x - cam.fx) * cam.zoom;
       const Y = (q.y - cam.fy) * cam.zoom;

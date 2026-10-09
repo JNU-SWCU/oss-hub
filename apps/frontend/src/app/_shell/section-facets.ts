@@ -95,8 +95,8 @@ export function programDetailIdFromPathname(pathname: string): string | null {
 
   if (match[1] === 'new') return null;
   try {
-    return decodeURIComponent(match[1] as string);
+    return decodeURIComponent(match[1]);
   } catch {
-    return match[1] as string;
+    return match[1];
   }
 }

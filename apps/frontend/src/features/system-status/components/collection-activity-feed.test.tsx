@@ -100,15 +100,16 @@ describe('CollectionActivityFeed', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
   });
 
   async function renderFeed(
     entries: readonly CollectionActivityEntry[],
   ): Promise<void> {
-    await act(async () => {
+    await act(() => {
       root.render(<CollectionActivityFeed entries={entries} />);
+      return Promise.resolve();
     });
   }
 

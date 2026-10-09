@@ -4,9 +4,9 @@ import { Test } from '@nestjs/testing';
 import { SessionGuard } from '../auth/session.guard';
 import { OriginGuard } from '../auth/origin.guard';
 import {
-  SUBMISSION_FILE_STORAGE,
-  SubmissionFileStorageError,
-} from '../submissions/submission-file-storage.port';
+  OBJECT_STORAGE,
+  ObjectStorageError,
+} from '../storage/domain/object-storage';
 import { ProgramAuthoringController } from './controller/program-authoring.controller';
 import { ProgramCoverController } from './controller/program-cover.controller';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
@@ -59,7 +59,7 @@ beforeAll(async () => {
         provide: ProgramAuthoringUploadRepository,
         useValue: { createPending: pending },
       },
-      { provide: SUBMISSION_FILE_STORAGE, useValue: { get, put } },
+      { provide: OBJECT_STORAGE, useValue: { get, put } },
       {
         provide: ProgramCoverRepository,
         useValue: {
@@ -136,7 +136,7 @@ it.each([
 ] as const)(
   'conceals storage failures behind the %s response',
   async (code, status) => {
-    get.mockRejectedValueOnce(new SubmissionFileStorageError(code));
+    get.mockRejectedValueOnce(new ObjectStorageError(code));
     const response = await fetch(`${baseUrl}/programs/program/cover/current`);
     expect(response.status).toBe(status);
     expect(await response.text()).not.toContain('program-covers/');

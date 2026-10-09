@@ -1,6 +1,6 @@
 import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
-import type { SubmissionFileStoragePort } from '../submissions/submission-file-storage.port';
+import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import {
   MilestoneDocumentArchiveEntryError,
   MilestoneDocumentArchiveService,
@@ -177,7 +177,7 @@ function buildStorage(overrides: Partial<Record<string, jest.Mock>> = {}) {
   return {
     mocks,
     state,
-    storage: mocks as unknown as SubmissionFileStoragePort,
+    storage: mocks as unknown as ObjectStoragePort,
   };
 }
 

@@ -1,7 +1,7 @@
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { S3SubmissionFileStorage } from '../submissions/s3-submission-file.storage';
-import { SubmissionFileStorageConfig } from '../submissions/submission-file-storage.config';
+import { S3ObjectStorage } from '../storage/gateway/s3-object.storage';
+import { ObjectStorageConfig } from '../storage/object-storage.config';
 import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -13,9 +13,7 @@ export const retainedImage = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 
 export class ProgramArchiveIntegrationFixture {
   readonly prisma = new PrismaService();
-  readonly storage = new S3SubmissionFileStorage(
-    new SubmissionFileStorageConfig(),
-  );
+  readonly storage = new S3ObjectStorage(new ObjectStorageConfig());
   readonly service = new MilestoneDocumentArchiveService(
     new MilestoneDocumentsRepository(this.prisma),
     this.storage,

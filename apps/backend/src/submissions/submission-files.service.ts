@@ -7,18 +7,18 @@ import { hasProgramDeadlinePassed } from '../programs/program-deadline';
 import {
   createSubmissionFileObjectKey,
   sanitizeSubmissionFileOriginalName,
-} from './submission-file-name';
+} from './domain/submission-file-object-key';
 import {
   isAllowedSubmissionFileType,
   safeSubmissionFileContentType,
 } from './submission-file-content-type';
 import { hasValidSubmissionFileSignature } from './submission-file-signature';
 import {
-  SUBMISSION_FILE_STORAGE,
-  SUBMISSION_FILE_STORAGE_ERROR_CODES,
-  SubmissionFileStorageError,
-  type SubmissionFileStoragePort,
-} from './submission-file-storage.port';
+  OBJECT_STORAGE,
+  OBJECT_STORAGE_ERROR_CODES,
+  ObjectStorageError,
+  type ObjectStoragePort,
+} from '../storage/domain/object-storage';
 import { SubmissionMembershipChangedError } from './submission-membership.repository';
 import {
   type CreatePendingSubmissionFileInput,
@@ -53,8 +53,8 @@ const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
 export class SubmissionFilesService {
   constructor(
     private readonly repository: SubmissionFilesRepository,
-    @Inject(SUBMISSION_FILE_STORAGE)
-    private readonly storage: SubmissionFileStoragePort,
+    @Inject(OBJECT_STORAGE)
+    private readonly storage: ObjectStoragePort,
   ) {}
 
   async upload(
@@ -218,8 +218,8 @@ export class SubmissionFilesService {
       body = await this.storage.get(file.storageKey);
     } catch (error) {
       if (
-        error instanceof SubmissionFileStorageError &&
-        error.code === SUBMISSION_FILE_STORAGE_ERROR_CODES.GET_NOT_FOUND
+        error instanceof ObjectStorageError &&
+        error.code === OBJECT_STORAGE_ERROR_CODES.GET_NOT_FOUND
       ) {
         throw this.error(SubmissionsErrorCode.SUBMISSION_FILE_NOT_FOUND);
       }

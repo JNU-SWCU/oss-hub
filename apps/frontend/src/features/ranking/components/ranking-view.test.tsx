@@ -533,10 +533,7 @@ function personAxisMarkup(
 
 function staffAxisMarkup(
   items: readonly StaffRankingItem[],
-  options: {
-    readonly dataAsOf?: Date | null;
-    readonly viewerClass?: 'staff';
-  },
+  options: Partial<Pick<StaffRankingPage, 'dataAsOf' | 'viewerClass'>>,
 ): string {
   const dataAsOf =
     options.dataAsOf === undefined
@@ -817,7 +814,8 @@ test('staff 학과가 없으면 대시를 그린다 — 빈칸으로 두거나 �
 });
 
 test('department 칸이 아예 없는 낡은 응답도 대시로 그린다 — 크래시하지 않는다', () => {
-  const { department: _omitted, ...withoutDepartment } = personAxisItem();
+  const withoutDepartment: Record<string, unknown> = { ...personAxisItem() };
+  delete withoutDepartment.department;
   const parsed = parseRankingPage({
     year: 2026,
     items: [withoutDepartment],

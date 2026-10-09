@@ -86,7 +86,10 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
     vi.clearAllMocks();
   });
@@ -101,8 +104,9 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
       },
     ]);
 
-    await act(async () => {
+    await act(() => {
       root.render(<Probe programDetailId="program-1" member />);
+      return Promise.resolve();
     });
 
     expect(mocks.getProgramOverview).toHaveBeenCalledWith('program-1');
@@ -119,8 +123,9 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
       new TypeError('network'),
     );
 
-    await act(async () => {
+    await act(() => {
       root.render(<Probe programDetailId="program-1" member />);
+      return Promise.resolve();
     });
 
     expect(container.textContent).toContain('합성 프로그램');
@@ -131,8 +136,9 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
   });
 
   it('비회원에게는 회원 전용 overview와 추가 단계 조회를 시작하지 않는다', async () => {
-    await act(async () => {
+    await act(() => {
       root.render(<Probe programDetailId="program-1" member={false} />);
+      return Promise.resolve();
     });
 
     expect(mocks.getProgramOverview).not.toHaveBeenCalled();
@@ -154,7 +160,10 @@ describe('useProductShellData 참여 여부(#1099)', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
     vi.clearAllMocks();
   });
@@ -162,8 +171,9 @@ describe('useProductShellData 참여 여부(#1099)', () => {
   it('승인된 신청이 있으면 참여자다', async () => {
     mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
 
-    await act(async () => {
+    await act(() => {
       root.render(<Probe programDetailId="program-1" member studentViewer />);
+      return Promise.resolve();
     });
 
     expect(mocks.getMyApplication).toHaveBeenCalledWith('program-1');
@@ -173,8 +183,9 @@ describe('useProductShellData 참여 여부(#1099)', () => {
   it('아직 승인되지 않은 신청은 참여자가 아니다', async () => {
     mocks.getMyApplication.mockResolvedValue({ status: 'SUBMITTED' });
 
-    await act(async () => {
+    await act(() => {
       root.render(<Probe programDetailId="program-1" member studentViewer />);
+      return Promise.resolve();
     });
 
     expect(container.textContent).toContain('"scopeParticipant":false');
@@ -183,8 +194,9 @@ describe('useProductShellData 참여 여부(#1099)', () => {
   it('신청이 없으면(null) 참여자가 아님이 확정된다', async () => {
     mocks.getMyApplication.mockResolvedValue(null);
 
-    await act(async () => {
+    await act(() => {
       root.render(<Probe programDetailId="program-1" member studentViewer />);
+      return Promise.resolve();
     });
 
     expect(container.textContent).toContain('"scopeParticipant":false');
@@ -193,8 +205,9 @@ describe('useProductShellData 참여 여부(#1099)', () => {
   it('실패는 모르는 채로 둔다 — 추측으로 메뉴를 잠그지 않는다', async () => {
     mocks.getMyApplication.mockRejectedValue(new TypeError('network'));
 
-    await act(async () => {
+    await act(() => {
       root.render(<Probe programDetailId="program-1" member studentViewer />);
+      return Promise.resolve();
     });
 
     expect(container.textContent).not.toContain('"scopeParticipant":');
@@ -203,18 +216,20 @@ describe('useProductShellData 참여 여부(#1099)', () => {
   it('프로그램이 없다는 404도 모르는 채로 둔다', async () => {
     mocks.getMyApplication.mockRejectedValue(apiError(404, 'APP_009'));
 
-    await act(async () => {
+    await act(() => {
       root.render(<Probe programDetailId="program-1" member studentViewer />);
+      return Promise.resolve();
     });
 
     expect(container.textContent).not.toContain('"scopeParticipant":');
   });
 
   it('학생 시야가 아니면 묻지 않는다 — 교직원은 참여 여부와 무관하게 열린다', async () => {
-    await act(async () => {
+    await act(() => {
       root.render(
         <Probe programDetailId="program-1" member studentViewer={false} />,
       );
+      return Promise.resolve();
     });
 
     expect(mocks.getMyApplication).not.toHaveBeenCalled();

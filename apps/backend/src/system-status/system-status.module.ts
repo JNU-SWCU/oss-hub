@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
-import { SystemStatusController } from './system-status.controller';
-import { SystemStatusRepository } from './system-status.repository';
+import { SystemStatusController } from './controller/system-status.controller';
+import { SystemStatusRepository } from './repository/system-status.repository';
 import {
   SYSTEM_STATUS_CLOCK,
   SystemStatusService,
-} from './system-status.service';
+} from './service/system-status.service';
 
 @Module({
   imports: [AuthModule],
