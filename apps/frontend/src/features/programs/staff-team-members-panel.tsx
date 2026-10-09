@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { UserMinus, UserPlus, UserRoundPen, X } from 'lucide-react';
+import { UserMinus, UserPlus, UserRoundPen } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
