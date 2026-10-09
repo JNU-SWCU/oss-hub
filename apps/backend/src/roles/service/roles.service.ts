@@ -4,29 +4,35 @@ import {
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
-import { DomainException } from '../common/error-code';
-import { ConsentsService } from '../consents/consents.service';
-import { isCompleteProfileFields } from '../users/user-profile-policy';
+import {
+  AUTH_ERROR_CODES,
+  AuthErrorCode,
+} from '../../auth/auth-error-code.enum';
+import { DomainException } from '../../common/error-code';
+import { ConsentsService } from '../../consents/consents.service';
+import { isCompleteProfileFields } from '../../users/domain/user-profile-policy';
 import type {
   MemberKindSelectionResult,
   MemberKindSelectionState,
   MemberUser,
   SelectableMemberKind,
   StaffAccessRequestRecord,
-} from './domain/member-onboarding';
-import { RolesRepository } from './roles.repository';
+} from '../../users/domain/member-onboarding';
+import { UsersOnboardingService } from '../../users/service/onboarding.service';
 import type {
-  RolesRepositoryPort,
-  RolesTransactionStore,
-} from './roles.repository';
-import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.enum';
+  OnboardingRepositoryPort,
+  OnboardingTransactionStore,
+} from '../../users/domain/onboarding-store';
+import {
+  ROLES_ERROR_CODES,
+  RolesErrorCode,
+} from '../../users/domain/roles-error-code.enum';
 
 @Injectable()
 export class RolesService {
   constructor(
-    @Inject(RolesRepository)
-    private readonly repository: RolesRepositoryPort,
+    @Inject(UsersOnboardingService)
+    private readonly repository: OnboardingRepositoryPort,
     @Inject(ConsentsService)
     private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,
   ) {}
@@ -133,7 +139,7 @@ export class RolesService {
   }
 
   private async requireSelectable(
-    store: RolesTransactionStore,
+    store: OnboardingTransactionStore,
     user: MemberUser,
     selectedMemberKind: SelectableMemberKind,
   ): Promise<void> {
@@ -149,7 +155,7 @@ export class RolesService {
   }
 
   private async requireUser(
-    store: RolesTransactionStore,
+    store: OnboardingTransactionStore,
     githubId: bigint,
   ): Promise<MemberUser> {
     const user = await store.findUserByGithubId(githubId);

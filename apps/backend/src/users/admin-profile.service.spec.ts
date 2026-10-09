@@ -3,7 +3,7 @@ import { AuthErrorCode } from '../auth/auth-error-code.enum';
 import {
   ROLES_ERROR_CODES,
   RolesErrorCode,
-} from '../roles/roles-error-code.enum';
+} from './domain/roles-error-code.enum';
 import {
   adminActor,
   auditLogHarness,

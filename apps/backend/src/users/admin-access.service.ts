@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import { RolesErrorCode } from '../roles/roles-error-code.enum';
+import { RolesErrorCode } from './domain/roles-error-code.enum';
 import {
   isAdminActor,
   requireActiveAdmin,

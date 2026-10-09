@@ -1,18 +1,18 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { plainToInstance } from 'class-transformer';
 import { StaffAccessRequestStatus } from '@prisma/client';
-import { OriginGuard } from '../auth/controller/origin.guard';
-import type { AuthenticatedRequest } from '../auth/controller/http-auth';
-import { SessionGuard } from '../auth/controller/session.guard';
-import { DomainException } from '../common/error-code';
-import type { StaffAccessRequestRecord } from './domain/member-onboarding';
-import { SelectStaffAccessRequestDto } from './dto/select-role-request.dto';
+import { OriginGuard } from '../../auth/controller/origin.guard';
+import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
+import { SessionGuard } from '../../auth/controller/session.guard';
+import { DomainException } from '../../common/error-code';
+import type { StaffAccessRequestRecord } from '../../users/domain/member-onboarding';
+import { SelectStaffAccessRequestDto } from '../dto/select-role-request.dto';
 import {
   OnboardingController,
   StaffAccessRequestsController,
 } from './roles.controller';
-import { RolesErrorCode } from './roles-error-code.enum';
-import type { RolesService } from './roles.service';
+import { RolesErrorCode } from '../../users/domain/roles-error-code.enum';
+import type { RolesService } from '../service/roles.service';
 
 const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
   sessionGithubId: 424242n,

@@ -3,12 +3,12 @@ import {
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import type { ConsentsService } from '../consents/consents.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { RolesRepository } from './roles.repository';
-import { RolesErrorCode } from './roles-error-code.enum';
-import { RolesService } from './roles.service';
+import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
+import type { ConsentsService } from '../../consents/consents.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { UsersOnboardingRepository } from '../../users/repository/onboarding.repository';
+import { RolesErrorCode } from '../../users/domain/roles-error-code.enum';
+import { RolesService } from '../service/roles.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -29,9 +29,9 @@ const STAFF_PROFILE = {
   affiliationName: '인공지능학부',
 } as const;
 
-describe('RolesRepository integration', () => {
+describe('UsersOnboardingRepository integration', () => {
   const prisma = new PrismaService();
-  const repository = new RolesRepository(prisma);
+  const repository = new UsersOnboardingRepository(prisma);
   const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
     requireCurrent: jest.fn().mockResolvedValue(undefined),
   };

@@ -3,17 +3,17 @@ import {
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import { DomainException } from '../common/error-code';
+import { DomainException } from '../../common/error-code';
 import {
   CONSENT_ERROR_CODES,
   ConsentErrorCode,
-} from '../consents/consent-error-code.enum';
-import type { ConsentsService } from '../consents/consents.service';
-import type { MemberUser } from './domain/member-onboarding';
+} from '../../consents/consent-error-code.enum';
+import type { ConsentsService } from '../../consents/consents.service';
+import type { MemberUser } from '../../users/domain/member-onboarding';
 import type {
-  RolesRepositoryPort,
-  RolesTransactionStore,
-} from './roles.repository';
+  OnboardingRepositoryPort,
+  OnboardingTransactionStore,
+} from '../../users/domain/onboarding-store';
 import { RolesService } from './roles.service';
 
 const GITHUB_ID = 424242n;
@@ -28,13 +28,13 @@ const USER: MemberUser = {
   profile: { name: null, studentId: null, department: null },
 };
 
-class InMemoryProfileRolesRepository implements RolesRepositoryPort {
+class InMemoryProfileRolesRepository implements OnboardingRepositoryPort {
   transactionCount = 0;
 
-  constructor(private readonly store: RolesTransactionStore) {}
+  constructor(private readonly store: OnboardingTransactionStore) {}
 
   withTransaction<T>(
-    operation: (transaction: RolesTransactionStore) => Promise<T>,
+    operation: (transaction: OnboardingTransactionStore) => Promise<T>,
   ): Promise<T> {
     this.transactionCount += 1;
     return operation(this.store);
@@ -70,7 +70,7 @@ function buildService(
   const requestStaffAccess = jest
     .fn()
     .mockResolvedValue({ role: null, requestStatus: null });
-  const store: RolesTransactionStore = {
+  const store: OnboardingTransactionStore = {
     findUserByGithubId: jest.fn().mockResolvedValue(USER),
     updateSelectedMemberKind,
     findPendingRequest: jest.fn().mockResolvedValue(null),

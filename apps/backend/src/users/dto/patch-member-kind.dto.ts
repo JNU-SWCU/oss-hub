@@ -14,7 +14,7 @@ import {
   type MemberKindMutationCommand,
   isValidStaffNumber,
 } from '../domain/member-kind';
-import { isValidDepartment } from '../user-profile-policy';
+import { isValidDepartment } from '../domain/user-profile-policy';
 import {
   IsProfileText,
   transformProfileText,

@@ -5,7 +5,7 @@ import {
   ACCESS_AUDIT_SCHEMA_VERSION,
 } from '../audit-log/audit-log-metadata';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
-import { RolesErrorCode } from '../roles/roles-error-code.enum';
+import { RolesErrorCode } from './domain/roles-error-code.enum';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './domain/admin-access';
 import { AdminAccessService } from './admin-access.service';
 import {

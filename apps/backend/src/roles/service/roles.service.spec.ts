@@ -3,28 +3,28 @@ import {
   MemberKind,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import { AuthErrorCode } from '../auth/auth-error-code.enum';
-import { DomainException } from '../common/error-code';
+import { AuthErrorCode } from '../../auth/auth-error-code.enum';
+import { DomainException } from '../../common/error-code';
 import {
   CONSENT_ERROR_CODES,
   ConsentErrorCode,
-} from '../consents/consent-error-code.enum';
-import type { ConsentsService } from '../consents/consents.service';
-import type { UserProfileView } from '../profiles/user-profile-read';
+} from '../../consents/consent-error-code.enum';
+import type { ConsentsService } from '../../consents/consents.service';
+import type { UserProfileView } from '../../profiles/user-profile-read';
 import type {
   StaffAccessRequestRecord,
   MemberUser,
-} from './domain/member-onboarding';
-import { requestStaffAccess } from './staff-access-request';
+} from '../../users/domain/member-onboarding';
+import { requestStaffAccess } from '../../users/repository/staff-access-request';
 import type {
   StaffAccessRequestOutcome,
   StaffAccessRequestTarget,
-} from './staff-access-request';
+} from '../../users/domain/onboarding-store';
 import type {
-  RolesRepositoryPort,
-  RolesTransactionStore,
-} from './roles.repository';
-import { RolesErrorCode } from './roles-error-code.enum';
+  OnboardingRepositoryPort,
+  OnboardingTransactionStore,
+} from '../../users/domain/onboarding-store';
+import { RolesErrorCode } from '../../users/domain/roles-error-code.enum';
 import { RolesService } from './roles.service';
 
 const REQUESTED_AT = new Date('2026-01-01T00:00:00.000Z');
@@ -47,7 +47,7 @@ const STAFF_ONLY_PROFILE: UserProfileView = {
   department: '인공지능학부',
 };
 
-class InMemoryRolesStore implements RolesTransactionStore {
+class InMemoryRolesStore implements OnboardingTransactionStore {
   private user: MemberUser | null;
   private readonly requests: StaffAccessRequestRecord[];
 
@@ -142,11 +142,11 @@ class InMemoryRolesStore implements RolesTransactionStore {
   }
 }
 
-class InMemoryRolesRepository implements RolesRepositoryPort {
+class InMemoryRolesRepository implements OnboardingRepositoryPort {
   constructor(private readonly store: InMemoryRolesStore) {}
 
   withTransaction<T>(
-    operation: (store: RolesTransactionStore) => Promise<T>,
+    operation: (store: OnboardingTransactionStore) => Promise<T>,
   ): Promise<T> {
     return operation(this.store);
   }

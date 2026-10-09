@@ -13,7 +13,7 @@ import type {
 import {
   isCompleteUserProfile,
   type UserProfileFields,
-} from './user-profile-policy';
+} from './domain/user-profile-policy';
 
 export const ADMIN_ACCESS_USER_SELECT = {
   id: true,

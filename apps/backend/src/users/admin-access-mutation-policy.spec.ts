@@ -1,5 +1,5 @@
 import { AccountStatus } from '@prisma/client';
-import { RolesErrorCode } from '../roles/roles-error-code.enum';
+import { RolesErrorCode } from './domain/roles-error-code.enum';
 import {
   enforceAdminAccessGuards,
   matchesExpectedAccessState,

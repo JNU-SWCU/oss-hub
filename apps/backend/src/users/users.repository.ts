@@ -8,7 +8,7 @@ import {
   fillStudentIdIfEmpty,
   type StudentIdFillOutcome,
 } from '../profiles/user-profile-write.repository';
-import { requestStaffAccess } from '../roles/staff-access-request';
+import { requestStaffAccess } from './repository/staff-access-request';
 import {
   USER_PHONE_AUDIT_TRANSITIONS,
   USER_PROFILE_AUDIT_ACTIONS,

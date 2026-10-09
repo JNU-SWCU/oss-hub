@@ -5,13 +5,13 @@ import { ConsentsModule } from '../consents/consents.module';
 import {
   OnboardingController,
   StaffAccessRequestsController,
-} from './roles.controller';
-import { RolesRepository } from './roles.repository';
-import { RolesService } from './roles.service';
+} from './controller/roles.controller';
+import { UsersModule } from '../users/users.module';
+import { RolesService } from './service/roles.service';
 
 @Module({
-  imports: [AuditLogModule, AuthModule, ConsentsModule],
+  imports: [AuditLogModule, AuthModule, ConsentsModule, UsersModule],
   controllers: [OnboardingController, StaffAccessRequestsController],
-  providers: [RolesRepository, RolesService],
+  providers: [RolesService],
 })
 export class RolesModule {}
