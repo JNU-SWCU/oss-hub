@@ -12,10 +12,10 @@ import type {
 import { Test } from '@nestjs/testing';
 import type { Response } from 'express';
 import { Readable } from 'node:stream';
-import { OriginGuard } from '../auth/origin.guard';
+import { OriginGuard } from '../auth/controller/origin.guard';
 import { AuthConfig } from '../auth/auth.config';
-import type { AuthenticatedRequest } from '../auth/session.guard';
-import { SessionGuard } from '../auth/session.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { PrismaService } from '../prisma/prisma.service';
 import { DomainException } from '../common/error-code';

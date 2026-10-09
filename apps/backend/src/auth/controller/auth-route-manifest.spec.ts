@@ -1,13 +1,13 @@
 import {
   discoverAppModuleControllers,
   discoverModuleControllers,
-} from '../app-controller-discovery';
-import { compareStringsByCodeUnit } from '../deterministic-string-order';
-import { ProgramOverviewController } from '../programs/archive/program-overview/program-overview.controller';
+} from '../../app-controller-discovery';
+import { compareStringsByCodeUnit } from '../../deterministic-string-order';
+import { ProgramOverviewController } from '../../programs/archive/program-overview/program-overview.controller';
 import {
   collectRuntimeRouteKeys,
   discoverRuntimeControllers,
-} from '../../test/auth-route-runtime-inventory.fixture';
+} from '../../../test/auth-route-runtime-inventory.fixture';
 import {
   DuplicateMetadataController,
   DynamicController,
@@ -19,11 +19,11 @@ import {
   MethodOverrideMigrationController,
   MissingMetadataController,
   UnsupportedRootModule,
-} from '../../test/auth-route-manifest-validation.fixture';
+} from '../../../test/auth-route-manifest-validation.fixture';
 import {
   AUTH_ROUTE_STATUS_CASES,
   AuthRouteStatusHarness,
-} from '../../test/auth-route-status-matrix.fixture';
+} from '../../../test/auth-route-status-matrix.fixture';
 import { AUTH_ROUTE_ACCESS } from './auth-route-metadata';
 import {
   EXPECTED_APP_CONTROLLER_NAMES,

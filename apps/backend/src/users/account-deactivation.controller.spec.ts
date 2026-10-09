@@ -2,9 +2,9 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import type { Response } from 'express';
 import { AccountStatus } from '@prisma/client';
 import type { AuthConfig } from '../auth/auth.config';
-import { serializeClearedSessionCookie } from '../auth/cookies';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { serializeClearedSessionCookie } from '../auth/domain/cookies';
+import { OriginGuard } from '../auth/controller/origin.guard';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { AccountDeactivationController } from './account-deactivation.controller';
 
 describe('AccountDeactivationController', () => {

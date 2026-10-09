@@ -1,6 +1,6 @@
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { PrismaService } from '../prisma/prisma.service';
-import type { AuthConfig } from './auth.config';
+import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
+import { PrismaService } from '../../prisma/prisma.service';
+import type { AuthConfig } from '../auth.config';
 import { AuthRepository } from './auth.repository';
 
 assertIsolatedIntegrationDatabase({

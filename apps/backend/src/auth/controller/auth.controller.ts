@@ -10,30 +10,29 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { LoginHistoryService } from '../login-history/login-history.service';
-import { AuthConfig } from './auth.config';
+import { LoginHistoryService } from '../../login-history/login-history.service';
+import { AuthConfig } from '../auth.config';
 import { OptionalSession, Protected, Public } from './auth-route-metadata';
-import { AuthService } from './auth.service';
+import { AuthService } from '../service/auth.service';
 import {
   flowCookieName,
   parseCookies,
   serializeClearedSessionCookie,
   serializeCookie,
   sessionCookieName,
-} from './cookies';
-import { loginLandingUrl } from './domain/login-landing';
-import { GithubLoginQueryRequestDto } from './dto/github-login-query.dto';
-import { LogoutResponseDto } from './dto/logout-response.dto';
-import { MeResponseDto } from './dto/me-response.dto';
-import { SessionResponseDto } from './dto/session-response.dto';
-import { decodeFlowCookie, isSameState } from './oauth-flow';
+} from '../domain/cookies';
+import { loginLandingUrl } from '../domain/login-landing';
+import { GithubLoginQueryRequestDto } from '../dto/github-login-query.dto';
+import { LogoutResponseDto } from '../dto/logout-response.dto';
+import { MeResponseDto, SessionResponseDto } from '../dto/session-response.dto';
+import { decodeFlowCookie, isSameState } from '../domain/oauth-flow';
 import { OriginGuard } from './origin.guard';
 import {
   assertNeverHttpAuth,
   HTTP_AUTH_KINDS,
   type OptionalSessionRequest,
 } from './http-auth';
-import { SESSION_MAX_AGE_SECONDS } from './session-token';
+import { SESSION_MAX_AGE_SECONDS } from '../domain/session-token';
 
 const FLOW_COOKIE_MAX_AGE_SECONDS = 600;
 

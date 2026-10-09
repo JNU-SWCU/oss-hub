@@ -1,6 +1,6 @@
-import { AuthConfig } from './auth.config';
-import { parseCookies, sessionCookieName } from './cookies';
-import { verifySessionToken } from './session-token';
+import { AuthConfig } from '../auth.config';
+import { parseCookies, sessionCookieName } from '../domain/cookies';
+import { verifySessionToken } from '../domain/session-token';
 
 export type SessionResolution =
   | {

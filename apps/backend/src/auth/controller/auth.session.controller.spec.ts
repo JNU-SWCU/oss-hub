@@ -1,14 +1,17 @@
 import { randomBytes } from 'node:crypto';
 import { AccountStatus } from '@prisma/client';
 import { Request, Response } from 'express';
-import { AuthConfig } from './auth.config';
+import { AuthConfig } from '../auth.config';
 import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
-import { serializeCookie, sessionCookieName } from './cookies';
-import { AuthUser } from './domain/auth-user';
+import { AuthService } from '../service/auth.service';
+import { serializeCookie, sessionCookieName } from '../domain/cookies';
+import { AuthUser } from '../domain/auth-user';
 import { HTTP_AUTH_KINDS, type OptionalSessionRequest } from './http-auth';
-import { SESSION_MAX_AGE_SECONDS, issueSessionToken } from './session-token';
-import { LoginHistoryService } from '../login-history/login-history.service';
+import {
+  SESSION_MAX_AGE_SECONDS,
+  issueSessionToken,
+} from '../domain/session-token';
+import { LoginHistoryService } from '../../login-history/login-history.service';
 
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',

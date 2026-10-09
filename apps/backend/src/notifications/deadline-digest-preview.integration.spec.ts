@@ -5,8 +5,9 @@ import {
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard, type AuthenticatedRequest } from '../auth/session.guard';
+import { OriginGuard } from '../auth/controller/origin.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { DeadlineDigestController } from './deadline-digest.controller';
 import { DeadlineDigestService } from './deadline-digest.service';

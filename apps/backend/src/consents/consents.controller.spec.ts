@@ -1,4 +1,4 @@
-import { AuthenticatedRequest } from '../auth/session.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
 import { ConsentsController } from './consents.controller';
 import { ConsentsService } from './consents.service';
 import { CURRENT_CONSENT_POLICY } from './domain/consent-policy';

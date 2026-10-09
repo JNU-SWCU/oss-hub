@@ -3,10 +3,10 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { SubmissionStatus } from '@prisma/client';
 import { AuthConfig } from '../auth/auth.config';
-import { AuthService } from '../auth/auth.service';
-import { sessionCookieName } from '../auth/cookies';
-import { issueSessionToken } from '../auth/session-token';
-import { SessionGuard } from '../auth/session.guard';
+import { AuthService } from '../auth/service/auth.service';
+import { sessionCookieName } from '../auth/domain/cookies';
+import { issueSessionToken } from '../auth/domain/session-token';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import {
   SubmissionMatrixRepository,

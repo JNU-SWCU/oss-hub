@@ -1,24 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { DomainException } from '../common/error-code';
-import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.enum';
-import { AuthConfig } from './auth.config';
-import { AuthRepository } from './auth.repository';
+import { DomainException } from '../../common/error-code';
+import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth-error-code.enum';
+import { AuthConfig } from '../auth.config';
+import { AuthRepository } from '../repository/auth.repository';
 import type {
   ActiveAccountPrincipal,
   AuthLoginResult,
   AuthUser,
   GithubProfile,
-} from './domain/auth-user';
-import { selectGithubPrimaryEmail } from './domain/github-primary-email';
+} from '../domain/auth-user';
+import { selectGithubPrimaryEmail } from '../domain/github-primary-email';
 import {
   createFlowState,
   decodeFlowCookie,
   encodeFlowCookie,
   isSameState,
   toCodeChallenge,
-} from './oauth-flow';
-import { issueSessionToken } from './session-token';
+} from '../domain/oauth-flow';
+import { issueSessionToken } from '../domain/session-token';
 
 const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';

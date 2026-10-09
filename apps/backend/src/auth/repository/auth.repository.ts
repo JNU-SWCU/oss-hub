@@ -1,15 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { isCompleteProfileFields } from '../users/user-profile-policy';
-import { AuthConfig } from './auth.config';
-import type { InitialAccountSeed } from './initial-roles';
+import { PrismaService } from '../../prisma/prisma.service';
+import { isCompleteProfileFields } from '../../users/user-profile-policy';
+import { AuthConfig } from '../auth.config';
+import type { InitialAccountSeed } from '../domain/initial-roles';
 import type {
   AuthLoginResult,
   AuthUser,
   GithubProfile,
-} from './domain/auth-user';
+} from '../domain/auth-user';
 
 const AUTH_USER_SELECT = {
   id: true,

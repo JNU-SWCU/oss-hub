@@ -1,6 +1,6 @@
 import type { ExecutionContext } from '@nestjs/common';
-import { DomainException } from '../common/error-code';
-import { AuthConfig } from './auth.config';
+import { DomainException } from '../../common/error-code';
+import { AuthConfig } from '../auth.config';
 import { OriginGuard } from './origin.guard';
 
 const allowedOrigin = 'https://oss.example';

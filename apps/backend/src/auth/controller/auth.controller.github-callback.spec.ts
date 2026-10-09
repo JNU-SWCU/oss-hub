@@ -1,5 +1,5 @@
-import { createFlowState, encodeFlowCookie } from './oauth-flow';
-import { flowCookieName, sessionCookieName } from './cookies';
+import { createFlowState, encodeFlowCookie } from '../domain/oauth-flow';
+import { flowCookieName, sessionCookieName } from '../domain/cookies';
 import {
   createController,
   createResponse,

@@ -1,5 +1,5 @@
 import type { Request } from 'express';
-import type { ActiveAccountPrincipal } from './domain/auth-user';
+import type { ActiveAccountPrincipal } from '../domain/auth-user';
 
 export const HTTP_AUTH_KINDS = {
   ANONYMOUS: 'ANONYMOUS',

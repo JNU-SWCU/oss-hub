@@ -1,5 +1,5 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { SessionGuard } from '../../auth/session.guard';
+import { SessionGuard } from '../../auth/controller/session.guard';
 import { ProgramActivityService } from '../service/program-activity.service';
 import { ProgramViewerService } from '../service/program-viewer.service';
 import { StudentDashboardController } from './programs.controller';

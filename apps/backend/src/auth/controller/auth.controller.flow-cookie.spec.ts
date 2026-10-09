@@ -1,7 +1,11 @@
-import { DomainException } from '../common/error-code';
-import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.enum';
-import { flowCookieName, serializeCookie, sessionCookieName } from './cookies';
-import { createFlowState, encodeFlowCookie } from './oauth-flow';
+import { DomainException } from '../../common/error-code';
+import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth-error-code.enum';
+import {
+  flowCookieName,
+  serializeCookie,
+  sessionCookieName,
+} from '../domain/cookies';
+import { createFlowState, encodeFlowCookie } from '../domain/oauth-flow';
 import {
   createController,
   createResponse,
