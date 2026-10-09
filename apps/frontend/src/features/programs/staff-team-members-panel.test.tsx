@@ -84,7 +84,7 @@ afterEach(() => {
 async function render(
   members: readonly StaffProgramTeamMember[] = [LEADER, MEMBER],
 ): Promise<void> {
-  await act(async () => {
+  await act(() => {
     root.render(
       <StaffTeamMembersPanel
         programId="program-1"
@@ -96,6 +96,8 @@ async function render(
         onChanged={onChanged}
       />,
     );
+
+    return Promise.resolve();
   });
 }
 
@@ -104,11 +106,11 @@ function buttonByLabel(label: string): HTMLButtonElement {
     (button) => button.getAttribute('aria-label') === label,
   );
   if (!found) throw new Error(`button not found: ${label}`);
-  return found as HTMLButtonElement;
+  return found;
 }
 
 async function click(button: HTMLButtonElement): Promise<void> {
-  await act(async () => button.click());
+  await act(() => Promise.resolve(button.click()));
 }
 
 async function confirm(text: string): Promise<void> {
@@ -116,7 +118,7 @@ async function confirm(text: string): Promise<void> {
     (button) => button.textContent?.trim() === text,
   );
   if (!found) throw new Error(`confirm button not found: ${text}`);
-  await act(async () => (found as HTMLButtonElement).click());
+  await act(() => Promise.resolve(found.click()));
 }
 
 describe('StaffTeamMembersPanel', () => {

@@ -35,9 +35,11 @@ describe('RepositoryUrlHistory', () => {
     container.remove();
   });
   async function render() {
-    await act(async () =>
-      root.render(
-        <RepositoryUrlHistory programId="program-1" teamId="team-1" />,
+    await act(() =>
+      Promise.resolve(
+        root.render(
+          <RepositoryUrlHistory programId="program-1" teamId="team-1" />,
+        ),
       ),
     );
   }
@@ -85,7 +87,7 @@ describe('RepositoryUrlHistory', () => {
       '저장소 URL 변경 이력을 불러오지 못했습니다',
     );
     expect(container.textContent).not.toContain('이력이 없습니다');
-    await act(async () => button()?.click());
+    await act(() => Promise.resolve(button()?.click()));
     expect(container.textContent).toContain('@synthetic-author');
   });
 
@@ -100,7 +102,7 @@ describe('RepositoryUrlHistory', () => {
       });
     await render();
     expect(button()?.textContent).toBe('변경 이력 더 보기');
-    await act(async () => button()?.click());
+    await act(() => Promise.resolve(button()?.click()));
     expect(getRepositoryHistory).toHaveBeenLastCalledWith(
       'program-1',
       'team-1',
@@ -115,7 +117,7 @@ describe('RepositoryUrlHistory', () => {
       .mockResolvedValueOnce({ items: [change], nextCursor: 'next' })
       .mockRejectedValueOnce(new Error('Synthetic failure'));
     await render();
-    await act(async () => button()?.click());
+    await act(() => Promise.resolve(button()?.click()));
     expect(container.querySelectorAll('ol li')).toHaveLength(1);
     expect(button()?.disabled).toBe(false);
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(
