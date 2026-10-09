@@ -8,7 +8,6 @@ import { StorageModule } from '../storage/storage.module';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { SubmissionDashboardSummaryRepository } from './submission-dashboard-summary.repository';
-import { SUBMISSION_DASHBOARD_SUMMARY_PORT } from './submission-dashboard-summary.port';
 import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
 import { SubmissionMatrixRepository } from './submission-matrix.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
@@ -42,13 +41,9 @@ import { SubmissionsService } from './submissions.service';
     SubmissionsService,
     SubmissionDashboardSummaryRepository,
     SubmissionDashboardSummaryService,
-    {
-      provide: SUBMISSION_DASHBOARD_SUMMARY_PORT,
-      useExisting: SubmissionDashboardSummaryService,
-    },
     SubmissionMatrixRepository,
     SubmissionMatrixService,
   ],
-  exports: [SUBMISSION_DASHBOARD_SUMMARY_PORT, SubmissionFileCleanupService],
+  exports: [SubmissionDashboardSummaryService, SubmissionFileCleanupService],
 })
 export class SubmissionsModule {}
