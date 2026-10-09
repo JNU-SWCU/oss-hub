@@ -81,7 +81,7 @@ function edge(
 const permitted: Record<Layer, readonly Layer[]> = {
   controller: ['service', 'dto', 'domain'],
   service: ['service', 'repository', 'gateway', 'dto', 'domain'],
-  repository: ['domain'],
+  repository: ['repository', 'domain'],
   gateway: ['domain'],
   job: ['service', 'dto', 'domain'],
   dto: ['domain'],
@@ -296,6 +296,20 @@ edge(
   'src/alpha/service/test-import.ts',
   'src/alpha/service/target.spec.ts',
   false,
+);
+edge(
+  'root types may reference a prisma transaction type',
+  'src/alpha/alpha-store.types.ts',
+  'src/prisma/transaction-writer.ts',
+  true,
+  'type',
+);
+edge(
+  'root types cannot reference a foreign repository',
+  'src/alpha/alpha-writer.types.ts',
+  'src/beta/repository/beta.repository.ts',
+  false,
+  'type',
 );
 edge(
   'production cannot import fixture',
@@ -608,7 +622,7 @@ import fs from 'node:fs';
 const [backendRoot, fixtureRoot, fileList] = process.argv.slice(1);
 const require = createRequire(path.join(backendRoot, 'package.json'));
 const { ESLint } = require('eslint');
-const { createRailsConfig } = await import(pathToFileURL(path.join(backendRoot, 'eslint.rails.mjs')).href);
+const { createRailsConfig } = await import(pathToFileURL(path.join(backendRoot, 'eslint-rules/rails-config.mjs')).href);
 const eslint = new ESLint({ cwd: fixtureRoot, overrideConfigFile: true, overrideConfig: await createRailsConfig(fixtureRoot) });
 const results = [];
 for (const file of JSON.parse(fileList)) {
@@ -900,7 +914,7 @@ import path from 'node:path';
 const [backendRoot, requests] = process.argv.slice(1);
 const require = createRequire(path.join(backendRoot, 'package.json'));
 const { ESLint } = require('eslint');
-const { createRailsConfig } = await import(pathToFileURL(path.join(backendRoot, 'eslint.rails.mjs')).href);
+const { createRailsConfig } = await import(pathToFileURL(path.join(backendRoot, 'eslint-rules/rails-config.mjs')).href);
 const output = {};
 for (const { name, root } of JSON.parse(requests)) {
   const eslint = new ESLint({ cwd: root, overrideConfigFile: true, overrideConfig: await createRailsConfig(root) });
@@ -1054,7 +1068,7 @@ const graphValidationRunner = `
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 const [backendRoot, requests] = process.argv.slice(1);
-const { createRailsConfig } = await import(pathToFileURL(path.join(backendRoot, 'eslint.rails.mjs')).href);
+const { createRailsConfig } = await import(pathToFileURL(path.join(backendRoot, 'eslint-rules/rails-config.mjs')).href);
 const output = {};
 for (const { name, root } of JSON.parse(requests)) {
   try {

@@ -85,26 +85,28 @@ describe('마일스톤 목록의 경계', () => {
 
     vi.stubGlobal(
       'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
+      vi.fn((input: RequestInfo | URL) => {
         const url = String(
           typeof input === 'string' || input instanceof URL ? input : input.url,
         );
         const milestoneId = MILESTONES.map(({ id }) => id).find((id) =>
           url.includes(id),
         );
-        return new Response(
-          JSON.stringify({
-            documents: milestoneId ? [documentOf(milestoneId)] : [],
-            fileUpload: milestoneDocumentUploadPolicy(),
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              documents: milestoneId ? [documentOf(milestoneId)] : [],
+              fileUpload: milestoneDocumentUploadPolicy(),
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
         );
       }),
     );
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
     vi.unstubAllGlobals();
   });
@@ -112,8 +114,9 @@ describe('마일스톤 목록의 경계', () => {
   async function renderMilestones(
     program: ProgramDetail = programWith(MILESTONES),
   ): Promise<readonly HTMLElement[]> {
-    await act(async () => {
+    await act(() => {
       root.render(<ProgramMilestones program={program} />);
+      return Promise.resolve();
     });
     await vi.waitFor(() => {
       expect(

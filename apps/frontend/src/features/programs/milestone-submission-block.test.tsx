@@ -111,7 +111,7 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
     vi.unstubAllGlobals();
   });
@@ -138,10 +138,11 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
         ),
       ),
     );
-    await act(async () => {
+    await act(() => {
       root.render(
         <ProgramMilestones program={program(applicationStatus, due)} />,
       );
+      return Promise.resolve();
     });
 
     await vi.waitFor(() => {
@@ -203,7 +204,7 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
       expect(note?.textContent).toBe(buttonNote);
       expect(button.getAttribute('aria-describedby')).toBe(note?.id);
 
-      await act(async () => button.click());
+      await act(() => Promise.resolve(button.click()));
       expect(submissionInput()).toBeNull();
     },
   );
@@ -229,7 +230,7 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
     expect(button.disabled).toBe(false);
     expect(blockedNote()).toBeNull();
 
-    await act(async () => button.click());
+    await act(() => Promise.resolve(button.click()));
     expect(submissionInput()).not.toBeNull();
   });
 
@@ -243,7 +244,7 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
       '아래 제출 항목에서 내용이나 파일을 제출하세요',
     );
 
-    await act(async () => button.click());
+    await act(() => Promise.resolve(button.click()));
     expect(submissionInput()).not.toBeNull();
   });
 
@@ -274,7 +275,7 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
     expect(button.getAttribute('aria-describedby')).toBe(note?.id);
     expect(container.textContent).not.toContain('승인 후 제출할 수 있습니다');
 
-    await act(async () => button.click());
+    await act(() => Promise.resolve(button.click()));
     expect(submissionInput()).toBeNull();
   });
 
