@@ -147,6 +147,7 @@ S7 결정에 따라 `AuthenticationGuard`와 `SessionGuard`를 모두 유지한�
 `OriginGuard`의 Origin 검사도 유지한다.
 
 업무 권한 확인은 service가 `UsersAuthorityService`를 통해 수행하며 사용자 조회는 users repository가 소유한다.
+다른 모듈 controller는 인증 guard와 함께 AuthModule이 export하는 `AuthConfig`를 세션 cookie 속성 확인 용도로 import할 수 있다.
 `assertActiveStaff`·`assertAdmin`은 호출 모듈의 오류 생성 계약을 받아 기존 module code·메시지·본문을 보존한다.
 기존 guard별 active·staff·admin 정책을 임의로 합치지 않는다.
 게시판 참여 자격은 board service·repository가 소유하고 staff 판단만 users 권한 서비스를 재사용한다.
