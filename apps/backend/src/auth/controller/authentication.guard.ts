@@ -5,16 +5,16 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request, type Response } from 'express';
-import { DomainException } from '../common/error-code';
-import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.enum';
+import { DomainException } from '../../common/error-code';
+import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth-error-code.enum';
 import {
   OPTIONAL_SESSION_ROUTE_METADATA,
   PUBLIC_ROUTE_METADATA,
 } from './auth-route-metadata';
-import { AuthConfig } from './auth.config';
-import { AuthService } from './auth.service';
+import { AuthConfig } from '../auth.config';
+import { AuthService } from '../service/auth.service';
 import { attachAnonymousAuth, attachAuthenticatedPrincipal } from './http-auth';
-import { resolveSession } from './session-resolution';
+import { resolveSession } from '../service/session-resolution';
 
 @Injectable()
 export class AuthenticationGuard implements CanActivate {

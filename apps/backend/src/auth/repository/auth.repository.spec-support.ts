@@ -1,19 +1,19 @@
-import type { InitialAccountSeed } from './initial-roles';
+import type { InitialAccountSeed } from '../domain/initial-roles';
 import {
   AccountStatus,
   StaffAccessRequestStatus,
   MemberKind,
   User as PrismaUser,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { loadRuntimeConfig } from '../runtime-config/runtime-config';
-import { AuthConfig } from './auth.config';
+import { PrismaService } from '../../prisma/prisma.service';
+import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
+import { AuthConfig } from '../auth.config';
 import { AuthRepository } from './auth.repository';
 
 export function prismaServiceWith(overrides: object): PrismaService {
   return Object.assign(new PrismaService(), overrides);
 }
-import type { GithubProfile } from './domain/auth-user';
+import type { GithubProfile } from '../domain/auth-user';
 const REQUIRED_AUTH_ENV = {
   SESSION_SECRET: Buffer.from(
     'synthetic-auth-repository-session-secret',

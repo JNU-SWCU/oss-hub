@@ -21,8 +21,9 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { DomainException } from '../common/error-code';
-import { OriginGuard } from '../auth/origin.guard';
-import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../auth/controller/origin.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { CreateResubmissionRequestDto } from './dto/create-resubmission-request.dto';
 import { CreateSubmissionRequestDto } from './dto/create-submission-request.dto';
 import { SubmissionMatrixQueryRequestDto } from './dto/submission-matrix-query.dto';

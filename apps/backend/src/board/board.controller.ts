@@ -11,8 +11,8 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../auth/controller/origin.guard';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { BoardActorRequest, BoardAccessGuard } from './board-access.guard';
 import { BoardService } from './board.service';
 import { BoardCommentResponseDto } from './dto/board-comment-response.dto';

@@ -1,13 +1,11 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Request, type Response } from 'express';
-import { DomainException } from '../common/error-code';
-import { AUTH_ERROR_CODES, AuthErrorCode } from './auth-error-code.enum';
-import { AuthConfig } from './auth.config';
-import { AuthService } from './auth.service';
+import { DomainException } from '../../common/error-code';
+import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth-error-code.enum';
+import { AuthConfig } from '../auth.config';
+import { AuthService } from '../service/auth.service';
 import { attachAuthenticatedPrincipal } from './http-auth';
-import { resolveSession } from './session-resolution';
-
-export type { AuthenticatedRequest } from './http-auth';
+import { resolveSession } from '../service/session-resolution';
 
 @Injectable()
 export class SessionGuard implements CanActivate {

@@ -6,9 +6,9 @@ import {
 } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 import { Readable } from 'node:stream';
-import { OriginGuard } from '../auth/origin.guard';
-import type { AuthenticatedRequest } from '../auth/session.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../auth/controller/origin.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import {
   SubmissionChecklistController,

@@ -6,7 +6,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { SessionGuard } from '../auth/session.guard';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { ApplicationsStaffListGuard } from './applications-staff.guard';
 import { StaffDashboardSummaryResponseDto } from './dto/staff-dashboard-summary-response.dto';
 import { StaffInsightsQueryRequestDto } from './dto/staff-insights-query.dto';

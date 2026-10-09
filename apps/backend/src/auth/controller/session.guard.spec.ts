@@ -2,13 +2,17 @@ import { MemberKind } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import { ExecutionContext } from '@nestjs/common';
 import { SignJWT } from 'jose';
-import { DomainException } from '../common/error-code';
-import { AuthErrorCode } from './auth-error-code.enum';
-import { AuthConfig } from './auth.config';
-import { AuthService } from './auth.service';
-import { sessionCookieName } from './cookies';
-import { SESSION_MAX_AGE_SECONDS, issueSessionToken } from './session-token';
-import { AuthenticatedRequest, SessionGuard } from './session.guard';
+import { DomainException } from '../../common/error-code';
+import { AuthErrorCode } from '../auth-error-code.enum';
+import { AuthConfig } from '../auth.config';
+import { AuthService } from '../service/auth.service';
+import { sessionCookieName } from '../domain/cookies';
+import {
+  SESSION_MAX_AGE_SECONDS,
+  issueSessionToken,
+} from '../domain/session-token';
+import type { AuthenticatedRequest } from './http-auth';
+import { SessionGuard } from './session.guard';
 
 const secret = new Uint8Array(randomBytes(32));
 const syntheticGithubId = 424242n;

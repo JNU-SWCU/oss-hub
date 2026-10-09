@@ -1,9 +1,7 @@
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
-import {
-  SessionGuard,
-  type AuthenticatedRequest,
-} from '../../auth/session.guard';
+import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
+import { SessionGuard } from '../../auth/controller/session.guard';
 import { SystemStatusController } from './system-status.controller';
 import { SystemStatusService } from '../service/system-status.service';
 

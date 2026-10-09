@@ -3,16 +3,19 @@ import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { AuthenticationGuard } from './authentication.guard';
-import { AuthConfig } from './auth.config';
+import { AuthConfig } from '../auth.config';
 import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
-import { sessionCookieName } from './cookies';
-import type { AuthUser } from './domain/auth-user';
+import { AuthService } from '../service/auth.service';
+import { sessionCookieName } from '../domain/cookies';
+import type { AuthUser } from '../domain/auth-user';
 import { OriginGuard } from './origin.guard';
-import { issueSessionToken, SESSION_MAX_AGE_SECONDS } from './session-token';
-import { ProblemDetailFilter } from '../common/problem-detail.filter';
-import { SystemErrorCode } from '../common/system-error-code.enum';
-import { LoginHistoryService } from '../login-history/login-history.service';
+import {
+  issueSessionToken,
+  SESSION_MAX_AGE_SECONDS,
+} from '../domain/session-token';
+import { ProblemDetailFilter } from '../../common/problem-detail.filter';
+import { SystemErrorCode } from '../../common/system-error-code.enum';
+import { LoginHistoryService } from '../../login-history/login-history.service';
 
 const sessionSecret = new Uint8Array(randomBytes(32));
 const githubId = 424242n;

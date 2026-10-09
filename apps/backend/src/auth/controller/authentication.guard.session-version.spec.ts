@@ -6,10 +6,10 @@ import type { Request } from 'express';
 import { SignJWT } from 'jose';
 import { AuthenticationGuard } from './authentication.guard';
 import { OPTIONAL_SESSION_ROUTE_METADATA } from './auth-route-metadata';
-import type { AuthConfig } from './auth.config';
+import type { AuthConfig } from '../auth.config';
 import { AuthController } from './auth.controller';
-import type { AuthService } from './auth.service';
-import { sessionCookieName } from './cookies';
+import type { AuthService } from '../service/auth.service';
+import { sessionCookieName } from '../domain/cookies';
 import { HTTP_AUTH_KINDS, type OptionalSessionRequest } from './http-auth';
 
 const secret = new Uint8Array(randomBytes(32));
