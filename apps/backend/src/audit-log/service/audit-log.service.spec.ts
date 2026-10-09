@@ -7,6 +7,7 @@ import { AuditLogErrorCode } from '../audit-log-error-code.enum';
 import type {
   AuditLogRecordInput,
   AuditLogRepository,
+  AuditLogTransactionWriter,
 } from '../repository/audit-log.repository';
 import { AuditLogService } from './audit-log.service';
 
@@ -129,7 +130,7 @@ describe('AuditLogService', () => {
     });
   });
 
-  it('record 공개 헬퍼는 레코드를 정확히 한 번 생성한다', async () => {
+  it('record 공개 헬퍼는 호출마다 저장소에 입력과 transaction writer를 그대로 전달한다', async () => {
     const repository = createRepository();
     const service = new AuditLogService(repository);
     const input: AuditLogRecordInput = {
@@ -163,5 +164,14 @@ describe('AuditLogService', () => {
     await service.record(input);
 
     expect(repository.record.mock.calls).toEqual([[input]]);
+
+    const create = jest.fn();
+    const writer = {
+      auditLog: { create },
+    } as unknown as AuditLogTransactionWriter;
+    await service.record(input, writer);
+
+    expect(repository.record.mock.calls).toEqual([[input], [input, writer]]);
+    expect(create).not.toHaveBeenCalled();
   });
 });
