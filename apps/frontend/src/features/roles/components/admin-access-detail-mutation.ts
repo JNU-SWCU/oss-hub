@@ -81,5 +81,7 @@ export function adminAccessMutationDialogCopy(
       destructive: true,
     };
   }
-  throw new TypeError(`Unsupported admin access mutation action: ${action}`);
+  throw new TypeError(
+    `Unsupported admin access mutation action: ${String(action)}`,
+  );
 }

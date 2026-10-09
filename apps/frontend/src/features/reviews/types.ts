@@ -53,7 +53,7 @@ export interface SubmissionRevision {
   readonly review: ReviewRecord | null;
 }
 
-export interface ReviewRepository extends RepositoryPublication {}
+export type ReviewRepository = RepositoryPublication;
 
 export interface ReviewContext {
   readonly submissionId: string;

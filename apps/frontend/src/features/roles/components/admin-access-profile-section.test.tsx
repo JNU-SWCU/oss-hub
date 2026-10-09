@@ -45,7 +45,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await act(async () => root.unmount());
+  await act(() => Promise.resolve(root.unmount()));
   container.remove();
 });
 
@@ -64,7 +64,7 @@ async function render(
   props: { readonly isOverlay?: boolean } = {},
 ) {
   const onSaved = vi.fn();
-  await act(async () => {
+  await act(() => {
     root.render(
       <AdminAccessProfileSection
         userId="target"
@@ -75,6 +75,7 @@ async function render(
         onSaved={onSaved}
       />,
     );
+    return Promise.resolve();
   });
   return { onSaved };
 }
@@ -84,19 +85,21 @@ async function type(selector: string, value: string) {
   if (!(input instanceof HTMLInputElement)) {
     throw new TypeError(`입력란을 찾지 못했습니다: ${selector}`);
   }
-  const setter = Object.getOwnPropertyDescriptor(
+  const descriptor = Object.getOwnPropertyDescriptor(
     HTMLInputElement.prototype,
     'value',
-  )?.set;
-  await act(async () => {
-    setter?.call(input, value);
+  );
+  await act(() => {
+    descriptor?.set?.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
+    return Promise.resolve();
   });
 }
 
 async function click(name: string) {
-  await act(async () => {
+  await act(() => {
     button(name).click();
+    return Promise.resolve();
   });
   await act(async () => {
     await Promise.resolve();
@@ -267,8 +270,9 @@ describe('저장이 막히면 첫 오류 칸으로 포커스를 옮긴다(R-16)'
     await click('프로필 수정');
     await type('#admin-profile-student-id', '12');
     await click('저장');
-    await act(async () => {
+    await act(() => {
       button('저장').focus();
+      return Promise.resolve();
     });
     await click('저장');
 
