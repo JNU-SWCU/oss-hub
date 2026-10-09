@@ -162,6 +162,20 @@ export function useFixture(
       expect(messages[0]?.message).toContain('concrete repository');
     });
 
+    it('GREEN: 소비자 Service는 github 저장소 조회 service를 직접 주입받는다', () => {
+      const servicePath =
+        'src/programs/service/__lint_fixture_green_repositories_read.service.ts';
+      writeFixture(
+        servicePath,
+        `import { RepositoriesReadService } from '../../github/service/repositories-read.service';
+
+export type Fixture = Pick<RepositoriesReadService, 'getMyRepositories'>;
+`,
+      );
+
+      expect(boundaryMessages(lintFixture(servicePath))).toHaveLength(0);
+    });
+
     it('GREEN: 소비자 Service는 자기 repository를 쓴다', () => {
       writeFixture(
         'src/ranking/__lint_fixture_green_repository.ts',
