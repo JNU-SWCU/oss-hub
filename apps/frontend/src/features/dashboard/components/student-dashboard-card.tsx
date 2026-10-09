@@ -165,7 +165,7 @@ export function ActiveProgramCard({
   const milestone = item.nextMilestone;
 
   return (
-    <Card>
+    <Card size="sm">
       <CardContent
         className={cn(
           'grid grid-cols-[6rem_minmax(0,1fr)] gap-x-3 gap-y-2',
