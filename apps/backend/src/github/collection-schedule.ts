@@ -1,5 +1,5 @@
 import { CronTime } from 'cron';
-import { COLLECTION_CRON_EXPRESSION } from './service/collection-scheduler.service';
+import { COLLECTION_CRON_EXPRESSION } from './service/collection-trigger.service';
 
 export function nextScheduledCollectionAt(from: Date): Date | null {
   try {
