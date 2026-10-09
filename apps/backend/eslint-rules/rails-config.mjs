@@ -399,6 +399,7 @@ const policies = [
       to: [
         element('domain'),
         element('runtime-config'),
+        element('prisma'),
         {
           file: {
             categories: 'root-contract',
