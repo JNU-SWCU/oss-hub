@@ -1,4 +1,3 @@
 {"file":"apps/backend/src/common/join-code-digest.ts","ruleId":"boundaries/dependencies","target":"boundaries/dependencies:Literal:ecf99587-4f118e7f-c0b4117f-ef30ce0d-1c60665d-bb34077d-4ddf42f0-96b83ee1:occurrence:1"}
 {"file":"apps/backend/src/common/join-code-digest.ts","ruleId":"boundaries/dependencies","target":"boundaries/dependencies:Literal:f52814f2-80235ad1-e9c0d2c0-5844803e-e7525b74-c0547353-74a42368-5980933e:occurrence:1"}
-{"file":"apps/backend/src/common/milestone-document-locks.ts","ruleId":"no-restricted-imports","target":"allowedImportNameWithCustomMessage:ImportDeclaration:e4b88de2-3274e99c-a98b822e-9f304564-c85d9633-3a5d35bb-218b9565-4a03c7ab:occurrence:1"}
 {"file":"apps/backend/src/common/prisma-serialization-retry.ts","ruleId":"no-restricted-imports","target":"allowedImportNameWithCustomMessage:ImportDeclaration:e4b88de2-3274e99c-a98b822e-9f304564-c85d9633-3a5d35bb-218b9565-4a03c7ab:occurrence:1"}
