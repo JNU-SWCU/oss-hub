@@ -88,8 +88,7 @@ export function MilestoneDocumentSectionBody({
   submissionAccess,
   conflictNotice,
   onRetry,
-  onDocumentChange,
-  onRefresh = async () => true,
+  onRefresh = () => Promise.resolve(true),
   onSubmitConflict,
 }: {
   readonly state: MilestoneDocumentSectionState;

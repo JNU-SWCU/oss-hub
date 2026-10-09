@@ -16,7 +16,7 @@ import { MilestoneDocumentCurrentFileRepository } from './milestone-document-cur
 import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 
 assertIsolatedIntegrationDatabase({

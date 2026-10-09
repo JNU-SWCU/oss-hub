@@ -11,7 +11,7 @@ import type {
   MilestoneDocumentRecord,
   MilestoneDocumentCollectionApplication,
   MilestoneDocumentCollectionSubmission,
-} from './milestone-documents.repository';
+} from './domain/milestone-document-record';
 
 export interface DocumentDeliveryCoordinate {
   readonly applicationId: string;

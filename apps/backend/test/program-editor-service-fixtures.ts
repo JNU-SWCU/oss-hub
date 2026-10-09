@@ -82,6 +82,7 @@ export function createProgramEditorServiceHarness(): {
     findMilestoneForDelete: jest.fn(),
     deleteMilestone: jest.fn(),
     lockMilestoneEdit: jest.fn(),
+    readMilestoneEdit: jest.fn(),
     countSubmissionHistoriesForDocuments: jest.fn(),
     lockAttachableUploads: jest.fn(),
     applyMilestoneEdit: jest.fn(),

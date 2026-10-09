@@ -29,14 +29,16 @@ import {
   MilestoneDocumentDeadlineClosedError,
   MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
-  type MilestoneDocumentRecord,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentsRepository,
   MilestoneDocumentSubmissionChangedError,
   type UpdateMilestoneDocumentInput,
-  type UpsertMilestoneDocumentInput,
-  type UpsertMilestoneDocumentSubmissionInput,
-} from './milestone-documents.repository';
+} from './repository/milestone-documents.repository';
+import type { UpsertMilestoneDocumentSubmissionInput } from './milestone-document-submission.repository';
+import type {
+  MilestoneDocumentRecord,
+  UpsertMilestoneDocumentInput,
+} from './domain/milestone-document-record';
 
 @Injectable()
 export class MilestoneDocumentsService {

@@ -10,7 +10,7 @@ const REGISTRY_PATH = path.resolve(
 
 function parseBackendArchiveCodes(source: string): string[] {
   const codes = [...source.matchAll(/\n  ZIP_[A-Z_]+: '(MSD_\d{3})',/g)].map(
-    (match) => match[1]!,
+    (match) => match[1],
   );
   if (codes.length === 0) {
     throw new Error(

@@ -4,7 +4,7 @@ import {
   Prisma,
   SubmissionFileLifecycle,
 } from '@prisma/client';
-import { requiredMilestonesApproved } from '../common/milestone-completion';
+import { requiredMilestonesApproved } from '../milestone-documents/domain/milestone-completion';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-identity';
 import {
   USER_PROFILE_NAME_SELECT,

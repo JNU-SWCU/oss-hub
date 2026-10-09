@@ -35,7 +35,9 @@ const version = {
 
 describe('createMilestoneDocumentReview', () => {
   it('마일스톤·서류·신청 세 id를 경로에 실어 POST한다', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(created));
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(created));
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(
@@ -65,7 +67,7 @@ describe('createMilestoneDocumentReview', () => {
 
   it('사유가 없으면 본문에 comment 키를 만들지 않는다', async () => {
     const fetchMock = vi
-      .fn()
+      .fn<typeof fetch>()
       .mockResolvedValue(jsonResponse({ ...created, decision: 'APPROVED' }));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -80,7 +82,9 @@ describe('createMilestoneDocumentReview', () => {
   });
 
   it('기대 버전 두 값을 본문에 함께 싣는다', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(created));
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(created));
     vi.stubGlobal('fetch', fetchMock);
 
     await createMilestoneDocumentReview('milestone-1', 'document-1', 'app-1', {
@@ -99,7 +103,9 @@ describe('createMilestoneDocumentReview', () => {
   });
 
   it('판정이 없던 칸은 expectedLatestReviewId에 명시된 null을 남긴다', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(created));
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(created));
     vi.stubGlobal('fetch', fetchMock);
 
     await createMilestoneDocumentReview('milestone-1', 'document-1', 'app-1', {
@@ -119,7 +125,9 @@ describe('createMilestoneDocumentReview', () => {
   });
 
   it('id를 경로에 넣기 전에 인코딩한다', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(created));
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(created));
     vi.stubGlobal('fetch', fetchMock);
 
     await createMilestoneDocumentReview('m/1', 'd/1', 'a/1', {

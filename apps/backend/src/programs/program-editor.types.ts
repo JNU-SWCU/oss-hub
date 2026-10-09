@@ -221,6 +221,9 @@ export interface ProgramEditorTransactionStore {
   lockMilestoneEdit(
     milestoneId: string,
   ): Promise<LockedProgramMilestoneEdit | null>;
+  readMilestoneEdit(
+    milestoneId: string,
+  ): Promise<LockedProgramMilestoneEdit | null>;
   countSubmissionHistoriesForDocuments(
     documentIds: readonly string[],
   ): Promise<number>;

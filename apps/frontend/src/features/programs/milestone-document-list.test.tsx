@@ -71,7 +71,7 @@ describe('MilestoneDocumentSection response recovery', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
     vi.unstubAllGlobals();
   });
@@ -85,7 +85,7 @@ describe('MilestoneDocumentSection response recovery', () => {
       );
     vi.stubGlobal('fetch', fetchMock);
 
-    await act(async () => {
+    await act(() => {
       root.render(
         <MilestoneDocumentSection
           milestoneId="milestone-1"
@@ -94,6 +94,7 @@ describe('MilestoneDocumentSection response recovery', () => {
           submissionAccess={access('STAFF')}
         />,
       );
+      return Promise.resolve();
     });
     await vi.waitFor(() => {
       expect(container.textContent).toContain(
@@ -107,7 +108,7 @@ describe('MilestoneDocumentSection response recovery', () => {
     if (!(retry instanceof HTMLButtonElement)) {
       throw new TypeError('다시 시도 버튼을 찾지 못했습니다.');
     }
-    await act(async () => retry.click());
+    await act(() => Promise.resolve(retry.click()));
     await vi.waitFor(() => {
       expect(container.textContent).toContain('기획서');
     });
@@ -127,7 +128,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
     vi.unstubAllGlobals();
   });
@@ -207,7 +208,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
   }
 
   async function resubmit() {
-    await act(async () => {
+    await act(() => {
       root.render(
         <MilestoneDocumentSection
           milestoneId="milestone-1"
@@ -216,6 +217,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
           submissionAccess={access('STUDENT', 'APPROVED')}
         />,
       );
+      return Promise.resolve();
     });
     await vi.waitFor(() => {
       expect(container.textContent).toContain('기획서');
@@ -223,25 +225,27 @@ describe('제출과 판정이 부딪혔을 때', () => {
 
     const edit = button('수정');
     if (edit === null) throw new TypeError('수정 버튼을 찾지 못했습니다.');
-    await act(async () => edit.click());
+    await act(() => Promise.resolve(edit.click()));
 
     const input = submissionInput();
     if (input === null) throw new TypeError('제출 입력 칸을 찾지 못했습니다.');
 
-    const setter = Object.getOwnPropertyDescriptor(
+    const descriptor = Object.getOwnPropertyDescriptor(
       window.HTMLTextAreaElement.prototype,
       'value',
-    )?.set;
-    await act(async () => {
-      setter?.call(input, '고쳐서 다시 냅니다.');
+    );
+    await act(() => {
+      descriptor?.set?.call(input, '고쳐서 다시 냅니다.');
       input.dispatchEvent(new Event('input', { bubbles: true }));
+      return Promise.resolve();
     });
-    await act(async () => {
+    await act(() => {
       container
         .querySelector('form')
         ?.dispatchEvent(
           new Event('submit', { bubbles: true, cancelable: true }),
         );
+      return Promise.resolve();
     });
   }
 
@@ -262,7 +266,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
       vi.fn().mockResolvedValue(jsonResponse(documentListBody([withFile]))),
     );
 
-    await act(async () => {
+    await act(() => {
       root.render(
         <MilestoneDocumentSection
           milestoneId="milestone-1"
@@ -271,13 +275,14 @@ describe('제출과 판정이 부딪혔을 때', () => {
           submissionAccess={{ kind: 'open' }}
         />,
       );
+      return Promise.resolve();
     });
     await vi.waitFor(() => {
       expect(button('수정')).not.toBeNull();
     });
     const edit = button('수정');
     if (edit === null) throw new TypeError('수정 버튼을 찾지 못했습니다.');
-    await act(async () => edit.click());
+    await act(() => Promise.resolve(edit.click()));
 
     expect(container.textContent).toContain('기존 제출 파일');
     expect(container.textContent).toContain('1차_계획서.pdf');
@@ -465,7 +470,9 @@ describe('제출과 판정이 부딪혔을 때', () => {
     expect(button('수정')).toBeNull();
     expect(submissionInput()).toBeNull();
 
-    await act(async () => button('최신 상태 다시 불러오기')?.click());
+    await act(() =>
+      Promise.resolve(button('최신 상태 다시 불러오기')?.click()),
+    );
     await vi.waitFor(() => {
       expect(container.textContent).toContain('검토 대기');
       expect(container.textContent).not.toContain('제출은 저장되었습니다.');
@@ -530,7 +537,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await act(async () => {
+    await act(() => {
       root.render(
         <MilestoneDocumentSection
           milestoneId="milestone-1"
@@ -539,6 +546,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
           submissionAccess={access('STUDENT', 'APPROVED')}
         />,
       );
+      return Promise.resolve();
     });
     await vi.waitFor(() =>
       expect(container.textContent).toContain(second.name),
@@ -561,23 +569,25 @@ describe('제출과 판정이 부딪혔을 때', () => {
       ['결과보고서', '둘째 행 수정'],
     ] as const) {
       const row = rowFor(name);
-      await act(async () => {
+      await act(() => {
         row
           .querySelector<HTMLButtonElement>('button')
           ?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        return Promise.resolve();
       });
       const input = row.querySelector<HTMLTextAreaElement>('textarea');
       if (input === null) throw new TypeError(`Missing input: ${name}`);
-      const setter = Object.getOwnPropertyDescriptor(
+      const descriptor = Object.getOwnPropertyDescriptor(
         window.HTMLTextAreaElement.prototype,
         'value',
-      )?.set;
-      await act(async () => {
-        setter?.call(input, text);
+      );
+      await act(() => {
+        descriptor?.set?.call(input, text);
         input.dispatchEvent(new Event('input', { bubbles: true }));
+        return Promise.resolve();
       });
     }
-    await act(async () => {
+    await act(() => {
       for (const row of rows) {
         row
           .querySelector('form')
@@ -585,17 +595,20 @@ describe('제출과 판정이 부딪혔을 때', () => {
             new Event('submit', { bubbles: true, cancelable: true }),
           );
       }
+      return Promise.resolve();
     });
 
     await vi.waitFor(() => expect(getCount).toBe(2));
-    await act(async () => {
+    await act(() => {
       resolveQuiet(jsonResponse(documentListBody([refreshedFirst, second])));
+      return Promise.resolve();
     });
     await vi.waitFor(() => expect(getCount).toBe(3));
-    await act(async () => {
+    await act(() => {
       resolveConflict(
         jsonResponse(documentListBody([refreshedFirst, approvedSecond])),
       );
+      return Promise.resolve();
     });
     await vi.waitFor(() => {
       expect(container.textContent).toContain('검토 대기');
@@ -620,7 +633,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
     vi.unstubAllGlobals();
   });
@@ -645,7 +658,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
     viewerSubmission: MilestoneDocumentViewerSubmission,
     closed = false,
   ) {
-    await act(async () => {
+    await act(() => {
       root.render(
         <MilestoneDocumentSectionBody
           key={`${viewerSubmission.submitted}-${viewerSubmission.status}-${closed}`}
@@ -663,6 +676,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
           onSubmitConflict={() => {}}
         />,
       );
+      return Promise.resolve();
     });
   }
 
@@ -823,7 +837,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
     await vi.waitFor(() => {
       expect(buttonTexts()).toContain('이전 이력 더 보기');
     });
-    await act(async () => actionButton('이전 이력 더 보기').click());
+    await act(() => Promise.resolve(actionButton('이전 이력 더 보기').click()));
     await vi.waitFor(() => {
       expect(container.textContent).toContain('first.pdf');
     });
@@ -947,7 +961,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
     });
     expect(buttonTexts()).toContain('수정');
 
-    await act(async () => actionButton('다시 시도').click());
+    await act(() => Promise.resolve(actionButton('다시 시도').click()));
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(
       container.querySelector(
@@ -1156,7 +1170,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
   it('보완 요청·검토 대기·미제출에는 제출 입력을 연다', async () => {
     await renderRow(viewer({ status: 'CHANGES_REQUESTED' }));
     expect(buttonTexts()).toContain('수정');
-    await act(async () => actionButton('수정').click());
+    await act(() => Promise.resolve(actionButton('수정').click()));
     expect(container.querySelector('input[type="file"]')).not.toBeNull();
 
     await renderRow(viewer({ status: 'SUBMITTED' }));
@@ -1172,7 +1186,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
     await renderRow(viewer({ status: 'CHANGES_REQUESTED' }), true);
     const editButton = actionButton('수정');
     expect(editButton.disabled).toBe(false);
-    await act(async () => editButton.click());
+    await act(() => Promise.resolve(editButton.click()));
     expect(
       container.querySelector(
         'textarea[placeholder="제출할 내용이나 설명을 적어 주세요."]',
@@ -1223,7 +1237,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
     if (!(editButton instanceof HTMLButtonElement)) {
       throw new TypeError('수정 버튼을 찾지 못했습니다.');
     }
-    await act(async () => editButton.click());
+    await act(() => Promise.resolve(editButton.click()));
     expect(
       container.querySelector(
         'textarea[placeholder="제출할 내용이나 설명을 적어 주세요."]',
@@ -1381,7 +1395,7 @@ describe('압축 내용 거절은 파일 입력 한 자리에만 선다', () => 
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
     vi.unstubAllGlobals();
   });
@@ -1411,13 +1425,16 @@ describe('압축 내용 거절은 파일 입력 한 자리에만 선다', () => 
   it('거절된 ZIP을 그대로 제출해도 문장은 파일 입력 아래에 한 번만 뜬다', async () => {
     const fetchMock = vi.fn((target: RequestInfo | URL) =>
       Promise.resolve(
-        String(target).includes('/milestone-document-files')
+        (typeof target === 'string' || target instanceof URL
+          ? target.toString()
+          : target.url
+        ).includes('/milestone-document-files')
           ? rejection()
           : jsonResponse(documentListBody([milestoneDocument])),
       ),
     );
     vi.stubGlobal('fetch', fetchMock);
-    await act(async () => {
+    await act(() => {
       root.render(
         <MilestoneDocumentSection
           milestoneId="milestone-1"
@@ -1426,11 +1443,12 @@ describe('압축 내용 거절은 파일 입력 한 자리에만 선다', () => 
           submissionAccess={access('STUDENT', 'APPROVED')}
         />,
       );
+      return Promise.resolve();
     });
     await vi.waitFor(() => {
       expect(button('올리기')).not.toBeNull();
     });
-    await act(async () => button('올리기')?.click());
+    await act(() => Promise.resolve(button('올리기')?.click()));
     const input = container.querySelector('input[type="file"]');
     if (!(input instanceof HTMLInputElement))
       throw new TypeError('Missing file input.');
@@ -1438,8 +1456,10 @@ describe('압축 내용 거절은 파일 입력 한 자리에만 선다', () => 
       configurable: true,
       value: [new File(['PK'], 'locked.zip', { type: 'application/zip' })],
     });
-    await act(async () =>
-      input.dispatchEvent(new Event('change', { bubbles: true })),
+    await act(() =>
+      Promise.resolve(
+        input.dispatchEvent(new Event('change', { bubbles: true })),
+      ),
     );
     await vi.waitFor(() => {
       expect(
@@ -1448,17 +1468,21 @@ describe('압축 내용 거절은 파일 입력 한 자리에만 선다', () => 
       ).toBe(lockedDetail);
     });
 
-    await act(async () => {
+    await act(() => {
       container
         .querySelector('form')
         ?.dispatchEvent(
           new Event('submit', { bubbles: true, cancelable: true }),
         );
+      return Promise.resolve();
     });
     await vi.waitFor(() => {
       expect(
         fetchMock.mock.calls.some(([target]) =>
-          String(target).endsWith('/milestone-document-files'),
+          (typeof target === 'string' || target instanceof URL
+            ? target.toString()
+            : target.url
+          ).endsWith('/milestone-document-files'),
         ),
       ).toBe(true);
     });
