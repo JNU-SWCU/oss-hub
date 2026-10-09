@@ -71,7 +71,7 @@ function RepositoryLine({
   return (
     <p
       className={cn(
-        'flex min-w-0 items-center gap-1.5 text-small text-muted-foreground',
+        'flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-small text-muted-foreground',
         className,
       )}
     >
@@ -95,10 +95,12 @@ function RepositoryLine({
               <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
             </a>
           )}
-          <span aria-hidden="true">·</span>
         </>
       )}
-      <span className="shrink-0">{repositoryStateLabel(repository)}</span>
+      <span className="shrink-0">
+        {name === null ? null : <span aria-hidden="true">· </span>}
+        {repositoryStateLabel(repository)}
+      </span>
     </p>
   );
 }
@@ -255,7 +257,7 @@ export function ProgramCompactRow({ item }: { readonly item: DashboardItem }) {
           src={programCoverSource(item.coverImageUrl)}
         />
         <div className="grid min-w-0 gap-1">
-          <h3 className="truncate font-heading text-body font-semibold">
+          <h3 className="font-heading text-body font-semibold break-keep [overflow-wrap:anywhere]">
             {item.programName}
           </h3>
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-small text-muted-foreground">

@@ -12,6 +12,8 @@ type SubmissionStatus = 'NOT_SUBMITTED' | 'SUBMITTED' | 'CHANGES_REQUESTED';
 
 const LONG_REPOSITORY =
   'synthetic-dashboard-repository-with-a-very-long-name-0123456789';
+const LONG_ROW_PROGRAM =
+  '2026 합성 반려 프로그램 (아주 긴 프로그램 이름이 줄바꿈되는지 확인합니다)';
 const NOT_STARTED = {
   repositoryName: null,
   provisionStatus: 'NOT_STARTED',
@@ -86,7 +88,7 @@ const ITEMS = [
     githubUrl: 'https://github.com/JNU-SWCU/synthetic-done-repo',
   }),
   item('waiting', '합성 신청 대기 프로그램', 'SUBMITTED', null, null),
-  item('rejected', '합성 반려 프로그램', 'REJECTED', null, null),
+  item('rejected', LONG_ROW_PROGRAM, 'REJECTED', null, null),
 ];
 
 const VIEWPORTS = [
@@ -204,11 +206,21 @@ test('학생 대시보드는 묶음·주 행동·접기·거르기를 넓은 화
   await expect(sections).toHaveText(['진행 중', '마친 프로그램', '신청 상태']);
 
   const card = active.getByRole('listitem').nth(1);
+  const unclippedTexts = [
+    done.getByText('synthetic-done-repo', { exact: true }),
+    dashboard.getByRole('heading', { level: 3, name: LONG_ROW_PROGRAM }),
+  ];
   for (const viewport of VIEWPORTS) {
     await page.setViewportSize(viewport);
     await expect(card.getByText('D-2', { exact: true })).toBeVisible();
     await assertTask9Layout(page);
     await expectContained(dashboard);
+    for (const text of unclippedTexts) {
+      await expect(text).toBeVisible();
+      expect(
+        await text.evaluate((node) => node.scrollWidth <= node.clientWidth),
+      ).toBe(true);
+    }
 
     const title = await card.getByRole('heading', { level: 3 }).boundingBox();
     const dday = await card.getByText('D-2', { exact: true }).boundingBox();
