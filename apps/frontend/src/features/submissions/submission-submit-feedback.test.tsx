@@ -21,7 +21,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 const api = vi.hoisted(() => ({
   uploads: 0,
   creates: 0,
-  fileId: 'submission-file-1' as string,
+  fileId: 'submission-file-1',
   uploadFailure: null as Error | null,
   checks: 0,
   checkResult: null as (() => Promise<void>) | null,
@@ -154,11 +154,11 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
-    await act(async () => root.render(submitScreen()));
+    await act(() => Promise.resolve(root.render(submitScreen())));
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
   });
 
@@ -185,11 +185,13 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
   });
 
   it('허용하지 않는 파일이면 문구를 띄우고 그 입력으로 초점을 옮긴다', async () => {
-    await act(async () =>
-      pickFile(new File(['x'], 'plan.txt', { type: 'text/plain' })),
+    await act(() =>
+      Promise.resolve(
+        pickFile(new File(['x'], 'plan.txt', { type: 'text/plain' })),
+      ),
     );
 
-    await act(async () => clickSubmit());
+    await act(() => Promise.resolve(clickSubmit()));
 
     expect(api.uploads).toBe(0);
     const alerts = [...document.querySelectorAll('[role="alert"]')].map(
@@ -205,13 +207,15 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
       'large.pdf',
       { type: 'application/pdf' },
     );
-    await act(async () => pickFile(oversized));
-    await act(async () => clickSubmit());
+    await act(() => Promise.resolve(pickFile(oversized)));
+    await act(() => Promise.resolve(clickSubmit()));
     expect(document.body.textContent).toContain('파일은 5 MB 이하여야 합니다.');
     expect(api.uploads).toBe(0);
 
-    await act(async () =>
-      pickFile(new File(['%PDF'], 'valid.pdf', { type: 'application/pdf' })),
+    await act(() =>
+      Promise.resolve(
+        pickFile(new File(['%PDF'], 'valid.pdf', { type: 'application/pdf' })),
+      ),
     );
     expect(document.body.textContent).toContain('valid.pdf');
     expect(document.body.textContent).not.toContain(
@@ -225,11 +229,13 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
 
   it('업로드가 파일 id를 돌려주지 않으면 조용히 멈추지 않고 이유를 말한다', async () => {
     api.fileId = '';
-    await act(async () =>
-      pickFile(new File(['x'], 'plan.pdf', { type: 'application/pdf' })),
+    await act(() =>
+      Promise.resolve(
+        pickFile(new File(['x'], 'plan.pdf', { type: 'application/pdf' })),
+      ),
     );
 
-    await act(async () => clickSubmit());
+    await act(() => Promise.resolve(clickSubmit()));
 
     expect(api.uploads).toBe(1);
     expect(api.creates).toBe(0);
@@ -252,11 +258,13 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
       instance: '/synthetic/submission-files',
       code: 'SUB_027',
     });
-    await act(async () =>
-      pickFile(new File(['PK'], 'bundle.zip', { type: 'application/zip' })),
+    await act(() =>
+      Promise.resolve(
+        pickFile(new File(['PK'], 'bundle.zip', { type: 'application/zip' })),
+      ),
     );
 
-    await act(async () => clickSubmit());
+    await act(() => Promise.resolve(clickSubmit()));
 
     expect(api.uploads).toBe(1);
     expect(api.creates).toBe(0);
@@ -280,8 +288,10 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
     });
     api.checkResult = () => pendingCheck;
 
-    await act(async () =>
-      pickFile(new File(['PK'], 'locked.zip', { type: 'application/zip' })),
+    await act(() =>
+      Promise.resolve(
+        pickFile(new File(['PK'], 'locked.zip', { type: 'application/zip' })),
+      ),
     );
 
     const field = document
@@ -291,16 +301,18 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
       '파일 확인 중…',
     );
 
-    await act(async () =>
-      rejectCheck(
-        new ApiError({
-          type: 'about:blank',
-          title: 'SUB_028',
-          status: 422,
-          detail,
-          instance: '/synthetic/submission-files/checks',
-          code: 'SUB_028',
-        }),
+    await act(() =>
+      Promise.resolve(
+        rejectCheck(
+          new ApiError({
+            type: 'about:blank',
+            title: 'SUB_028',
+            status: 422,
+            detail,
+            instance: '/synthetic/submission-files/checks',
+            code: 'SUB_028',
+          }),
+        ),
       ),
     );
 
@@ -330,15 +342,19 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
           code: 'SUB_027',
         }),
       );
-    await act(async () =>
-      pickFile(new File(['PK'], 'nested.zip', { type: 'application/zip' })),
+    await act(() =>
+      Promise.resolve(
+        pickFile(new File(['PK'], 'nested.zip', { type: 'application/zip' })),
+      ),
     );
     expect(document.querySelector('#submission-file-error')?.textContent).toBe(
       detail,
     );
 
-    await act(async () =>
-      pickFile(new File(['%PDF'], 'plan.pdf', { type: 'application/pdf' })),
+    await act(() =>
+      Promise.resolve(
+        pickFile(new File(['%PDF'], 'plan.pdf', { type: 'application/pdf' })),
+      ),
     );
 
     expect(document.querySelector('#submission-file-error')).toBeNull();
@@ -346,11 +362,13 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
   });
 
   it('올바른 파일이면 업로드와 제출 생성이 이어서 나간다', async () => {
-    await act(async () =>
-      pickFile(new File(['x'], 'plan.pdf', { type: 'application/pdf' })),
+    await act(() =>
+      Promise.resolve(
+        pickFile(new File(['x'], 'plan.pdf', { type: 'application/pdf' })),
+      ),
     );
 
-    await act(async () => clickSubmit());
+    await act(() => Promise.resolve(clickSubmit()));
 
     expect(api.uploads).toBe(1);
     expect(api.creates).toBe(1);
@@ -362,16 +380,18 @@ describe('SubmissionDialog', () => {
     const container = document.createElement('div');
     document.body.append(container);
     const root = createRoot(container);
-    await act(async () =>
-      root.render(
-        <SubmissionDialog
-          title="제출 내용"
-          description="설명"
-          onClose={vi.fn()}
-          returnFocusId="submission-trigger"
-        >
-          <p>본문</p>
-        </SubmissionDialog>,
+    await act(() =>
+      Promise.resolve(
+        root.render(
+          <SubmissionDialog
+            title="제출 내용"
+            description="설명"
+            onClose={vi.fn()}
+            returnFocusId="submission-trigger"
+          >
+            <p>본문</p>
+          </SubmissionDialog>,
+        ),
       ),
     );
 
@@ -384,7 +404,7 @@ describe('SubmissionDialog', () => {
     expect(body?.contains(header ?? null)).toBe(false);
     expect(body?.textContent).toBe('본문');
 
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
   });
 });

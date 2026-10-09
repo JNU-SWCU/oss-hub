@@ -25,7 +25,7 @@ export function MatrixCellContent({
   readonly milestone: MatrixMilestone;
   readonly now: Date;
 }): ReactElement {
-  const display = matrixCellDisplay(cell, milestone);
+  const display = matrixCellDisplay(cell);
   const badge = (
     <StatusBadge variant={MATRIX_CELL_DISPLAY_VARIANTS[display]}>
       {MATRIX_CELL_DISPLAY_LABELS[display]}

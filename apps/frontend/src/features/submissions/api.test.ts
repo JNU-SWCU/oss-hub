@@ -103,7 +103,9 @@ describe('submissions api', () => {
       size: 3,
       expiresAt: '2026-12-31T00:00:00.000Z',
     };
-    const request = vi.fn().mockResolvedValue(jsonResponse(uploaded));
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(uploaded));
     vi.stubGlobal('fetch', request);
     const file = new File(['pdf'], 'report.pdf', { type: 'application/pdf' });
 
@@ -134,7 +136,9 @@ describe('submissions api', () => {
       size: 3,
       expiresAt: '2026-12-31T00:00:00.000Z',
     };
-    const request = vi.fn().mockResolvedValue(jsonResponse(uploaded));
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse(uploaded));
     vi.stubGlobal('fetch', request);
     const file = new File(['pdf'], 'replacement.pdf', {
       type: 'application/pdf',

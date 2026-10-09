@@ -97,7 +97,7 @@ export function SystemStatusScreen() {
     <SystemStatusView
       state={state}
       onRetry={retry}
-      onTrigger={handleTrigger}
+      onTrigger={() => void handleTrigger()}
       isTriggering={isTriggering}
       triggerNotice={triggerNotice}
     />
