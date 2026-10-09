@@ -3,6 +3,7 @@ import type {
   DashboardApplicationStatus,
   DashboardItem,
   DashboardMilestone,
+  DashboardProgress,
   DashboardRepositoryInvitationStatus,
   DashboardRepositoryProvisionStatus,
   DashboardSubmissionStatus,
@@ -123,6 +124,22 @@ function isRepository(
   );
 }
 
+function isCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function hasItemCounts(value: Record<string, unknown>): boolean {
+  const { requiredItemCount, remainingItemCount } = value;
+  if (requiredItemCount === undefined && remainingItemCount === undefined) {
+    return true;
+  }
+  return (
+    isCount(requiredItemCount) &&
+    isCount(remainingItemCount) &&
+    remainingItemCount <= requiredItemCount
+  );
+}
+
 function isMilestone(value: unknown): value is DashboardMilestone {
   if (!isRecord(value)) return false;
 
@@ -131,7 +148,18 @@ function isMilestone(value: unknown): value is DashboardMilestone {
     isNonEmptyString(value.name) &&
     isNonEmptyString(value.dueAt) &&
     !Number.isNaN(Date.parse(value.dueAt)) &&
-    isSubmissionStatus(value.submissionStatus)
+    isSubmissionStatus(value.submissionStatus) &&
+    hasItemCounts(value)
+  );
+}
+
+function isProgress(value: unknown): value is DashboardProgress {
+  return (
+    isRecord(value) &&
+    isCount(value.approvedCount) &&
+    isCount(value.inReviewCount) &&
+    isCount(value.totalCount) &&
+    value.approvedCount + value.inReviewCount <= value.totalCount
   );
 }
 
@@ -140,6 +168,7 @@ function isDashboardItem(value: unknown): value is DashboardItem {
 
   const applicationStatus = value.applicationStatus;
   const nextMilestone = value.nextMilestone;
+  const progress = value.progress ?? null;
   const programId = value.programId;
 
   return (
@@ -152,6 +181,8 @@ function isDashboardItem(value: unknown): value is DashboardItem {
     isApplicationStatus(applicationStatus) &&
     (nextMilestone === null || isMilestone(nextMilestone)) &&
     (applicationStatus === 'APPROVED' || nextMilestone === null) &&
+    (progress === null || isProgress(progress)) &&
+    (applicationStatus === 'APPROVED' || progress === null) &&
     isProgramPath(
       value.detailUrl,
       programId,

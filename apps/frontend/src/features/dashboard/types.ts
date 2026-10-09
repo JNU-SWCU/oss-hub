@@ -16,6 +16,14 @@ export interface DashboardMilestone {
   readonly name: string;
   readonly dueAt: string;
   readonly submissionStatus: DashboardSubmissionStatus;
+  readonly requiredItemCount?: number;
+  readonly remainingItemCount?: number;
+}
+
+export interface DashboardProgress {
+  readonly approvedCount: number;
+  readonly inReviewCount: number;
+  readonly totalCount: number;
 }
 
 export interface DashboardItem {
@@ -29,6 +37,7 @@ export interface DashboardItem {
   readonly teamUrl: string;
   readonly applicationStatus: DashboardApplicationStatus;
   readonly nextMilestone: DashboardMilestone | null;
+  readonly progress?: DashboardProgress | null;
   readonly detailUrl: string;
   readonly checklistUrl: string;
   readonly repository: {
