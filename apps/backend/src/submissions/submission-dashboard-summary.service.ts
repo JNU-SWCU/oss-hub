@@ -9,10 +9,17 @@ import {
   SubmissionDashboardSummaryRepository,
   type SubmissionDashboardSummaryRepositoryPort,
 } from './submission-dashboard-summary.repository';
-import type {
-  SubmissionDashboardProgramSummary,
-  SubmissionDashboardSummaryPort,
-} from './submission-dashboard-summary.port';
+export interface SubmissionDashboardProgramSummary {
+  readonly programId: string;
+  readonly approvedApplications: number;
+  readonly milestones: number;
+  readonly total: number;
+  readonly notSubmitted: number;
+  readonly submitted: number;
+  readonly approved: number;
+  readonly changesRequested: number;
+  readonly rejected: number;
+}
 
 interface MutableSubmissionDashboardProgramSummary {
   programId: string;
@@ -31,7 +38,7 @@ class UnexpectedSubmissionStatusError extends Error {
 }
 
 @Injectable()
-export class SubmissionDashboardSummaryService implements SubmissionDashboardSummaryPort {
+export class SubmissionDashboardSummaryService {
   constructor(
     @Inject(SubmissionDashboardSummaryRepository)
     private readonly repository: SubmissionDashboardSummaryRepositoryPort,

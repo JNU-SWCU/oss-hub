@@ -1,16 +1,22 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type {
-  ProgramActivitySummary,
-  ProgramActivitySummaryPort,
-} from '../program-activity-summary.port';
 import {
   ProgramActivityRepository,
   type ProgramRepositoryActivity,
 } from '../repository/program-activity.repository';
 import { ProgramActivitySummaryRepository } from '../repository/program-activity-summary.repository';
 
+export interface ProgramActivitySummary {
+  readonly programId: string;
+  readonly repositoryCount: number;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly releaseCount: number;
+  readonly lastActivityAt: string | null;
+  readonly dataAsOf: string | null;
+}
+
 @Injectable()
-export class ProgramActivitySummaryService implements ProgramActivitySummaryPort {
+export class ProgramActivitySummaryService {
   constructor(
     @Inject(ProgramActivitySummaryRepository)
     private readonly repository: Pick<

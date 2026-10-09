@@ -17,7 +17,6 @@ import { ProgramAuthoringUploadService } from './program-authoring-upload.servic
 import { ApplicationTemplatesController } from './controller/application-templates.controller';
 import { MilestonesController } from './controller/milestones.controller';
 import { ProgramCreationService } from './service/program-creation.service';
-import { PROGRAM_ACTIVITY_SUMMARY_PORT } from './program-activity-summary.port';
 import { ProgramActivityRepository } from './repository/program-activity.repository';
 import { ProgramActivitySummaryRepository } from './repository/program-activity-summary.repository';
 import { ProgramActivitySummaryService } from './service/program-activity-summary.service';
@@ -86,10 +85,6 @@ import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
     ProgramActivityRepository,
     ProgramActivitySummaryRepository,
     ProgramActivitySummaryService,
-    {
-      provide: PROGRAM_ACTIVITY_SUMMARY_PORT,
-      useExisting: ProgramActivitySummaryService,
-    },
     ProgramActivityService,
     ProgramViewerService,
     StudentDashboardReadRepository,
@@ -103,7 +98,7 @@ import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
     ProgramTeamsStaffGuard,
   ],
   exports: [
-    PROGRAM_ACTIVITY_SUMMARY_PORT,
+    ProgramActivitySummaryService,
     ProgramAuthoringService,
     ProgramAuthoringUploadService,
     ProgramAuthoringUploadMaintenanceService,
