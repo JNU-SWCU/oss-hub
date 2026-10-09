@@ -44,6 +44,7 @@ const collectionPublicPaths = [
 
   'service/own-repository-url-validation.service',
   'service/collection-trigger.service',
+  'service/repositories-read.service',
 ];
 const collectionInternalMessage =
   '소비자 Service는 github의 concrete repository를 import하지 않는다. 소비자 Repository는 Prisma를 쓴다. (ADR-003 DEC-42)';
