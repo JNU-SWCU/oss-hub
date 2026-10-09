@@ -1,6 +1,6 @@
 import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
-import type { SubmissionFileStoragePort } from '../submissions/submission-file-storage.port';
+import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import type { MilestoneDocumentArchiveSubmission } from './domain/milestone-document-archive';
 import type { ArchiveProgram } from './milestone-document-archive.repository';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
@@ -69,7 +69,7 @@ export function fixture() {
       .mockImplementation(() => Promise.resolve(Readable.from(fileBody))),
     put: jest.fn(),
     delete: jest.fn(),
-  } satisfies SubmissionFileStoragePort;
+  } satisfies ObjectStoragePort;
   return {
     programs,
     repository,

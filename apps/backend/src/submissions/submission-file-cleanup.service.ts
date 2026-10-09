@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import {
-  SUBMISSION_FILE_STORAGE,
-  type SubmissionFileStoragePort,
-} from './submission-file-storage.port';
+  OBJECT_STORAGE,
+  type ObjectStoragePort,
+} from '../storage/domain/object-storage';
 import { SubmissionFilesRepository } from './submission-files.repository';
 
 const DELETE_LEASE_MS = 10 * 60 * 1_000;
@@ -22,8 +22,8 @@ export class SubmissionFileCleanupService {
 
   constructor(
     private readonly files: SubmissionFilesRepository,
-    @Inject(SUBMISSION_FILE_STORAGE)
-    private readonly storage: SubmissionFileStoragePort,
+    @Inject(OBJECT_STORAGE)
+    private readonly storage: ObjectStoragePort,
     @Optional()
     private readonly now: () => Date = () => new Date(),
   ) {}

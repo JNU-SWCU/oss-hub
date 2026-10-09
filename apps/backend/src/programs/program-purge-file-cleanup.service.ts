@@ -4,9 +4,9 @@ import {
   ProgramPurgeFileCleanupRepository,
 } from './repository/program-purge-file-cleanup.repository';
 import {
-  SUBMISSION_FILE_STORAGE,
-  type SubmissionFileStoragePort,
-} from '../submissions/submission-file-storage.port';
+  OBJECT_STORAGE,
+  type ObjectStoragePort,
+} from '../storage/domain/object-storage';
 
 const DELETE_LEASE_MS = 10 * 60 * 1_000;
 const MAX_DELETE_ATTEMPTS = 6;
@@ -31,8 +31,8 @@ export class ProgramPurgeFileCleanupService {
   constructor(
     @Inject(ProgramPurgeFileCleanupRepository)
     private readonly repository: ProgramPurgeFileCleanupStore,
-    @Inject(SUBMISSION_FILE_STORAGE)
-    private readonly storage: Pick<SubmissionFileStoragePort, 'delete'>,
+    @Inject(OBJECT_STORAGE)
+    private readonly storage: Pick<ObjectStoragePort, 'delete'>,
     @Optional()
     private readonly now: () => Date = () => new Date(),
   ) {}

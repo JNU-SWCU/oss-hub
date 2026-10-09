@@ -1,15 +1,24 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
-  SUBMISSION_FILE_STORAGE_ERROR_CODES,
-  SubmissionFileStorageError,
-} from './submission-file-storage.port';
+  DeleteObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
+import {
+  OBJECT_STORAGE_ERROR_CODES,
+  ObjectStorageError,
+} from './domain/object-storage';
 import {
   loadRuntimeConfig,
   type RuntimeConfig,
 } from '../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 
-export interface SubmissionFileStorageSettings {
+export const S3_OBJECT_CLIENT = Symbol('S3_OBJECT_CLIENT');
+
+export interface ObjectStorageSettings {
   endpoint: string;
   region: string;
   bucket: string;
@@ -18,10 +27,21 @@ export interface SubmissionFileStorageSettings {
   forcePathStyle: boolean;
 }
 
-type SubmissionFileStorageMode = 'local' | 'managed';
+export interface ObjectS3Client {
+  send(
+    command:
+      | PutObjectCommand
+      | GetObjectCommand
+      | ListObjectsV2Command
+      | DeleteObjectCommand,
+    options?: { abortSignal?: AbortSignal },
+  ): Promise<unknown>;
+}
+
+type ObjectStorageMode = 'local' | 'managed';
 
 @Injectable()
-export class SubmissionFileStorageConfig {
+export class ObjectStorageConfig {
   constructor(
     @Inject(RUNTIME_CONFIG)
     private readonly runtimeConfig: RuntimeConfig = loadRuntimeConfig(
@@ -29,7 +49,7 @@ export class SubmissionFileStorageConfig {
     ),
   ) {}
 
-  requireSettings(): SubmissionFileStorageSettings {
+  requireSettings(): ObjectStorageSettings {
     const mode = storageModeValue(
       this.runtimeConfig.SUBMISSION_FILE_STORAGE_MODE,
     );
@@ -59,9 +79,7 @@ export class SubmissionFileStorageConfig {
       !isAllowedEndpointForMode(endpoint, mode) ||
       (mode === 'managed' && (region !== 'auto' || forcePathStyle !== true))
     ) {
-      throw new SubmissionFileStorageError(
-        SUBMISSION_FILE_STORAGE_ERROR_CODES.CONFIGURATION,
-      );
+      throw new ObjectStorageError(OBJECT_STORAGE_ERROR_CODES.CONFIGURATION);
     }
 
     return {
@@ -75,9 +93,38 @@ export class SubmissionFileStorageConfig {
   }
 }
 
-function storageModeValue(
-  raw: string | undefined,
-): SubmissionFileStorageMode | null {
+export class ObjectS3Connection {
+  private client: ObjectS3Client | undefined;
+  private bucket: string | undefined;
+
+  constructor(
+    private readonly config: ObjectStorageConfig,
+    client?: ObjectS3Client,
+  ) {
+    this.client = client;
+  }
+
+  requireClient(): { client: ObjectS3Client; bucket: string } {
+    if (this.client !== undefined && this.bucket !== undefined) {
+      return { client: this.client, bucket: this.bucket };
+    }
+
+    const settings = this.config.requireSettings();
+    this.bucket = settings.bucket;
+    this.client ??= new S3Client({
+      endpoint: settings.endpoint,
+      region: settings.region,
+      forcePathStyle: settings.forcePathStyle,
+      credentials: {
+        accessKeyId: settings.accessKeyId,
+        secretAccessKey: settings.secretAccessKey,
+      },
+    }) as ObjectS3Client;
+    return { client: this.client, bucket: this.bucket };
+  }
+}
+
+function storageModeValue(raw: string | undefined): ObjectStorageMode | null {
   if (raw === 'local' || raw === 'managed') return raw;
   return null;
 }
@@ -96,7 +143,7 @@ function booleanConfigValue(raw: string | undefined): boolean | null {
 
 function isAllowedEndpointForMode(
   endpoint: string,
-  mode: SubmissionFileStorageMode,
+  mode: ObjectStorageMode,
 ): boolean {
   if (!/^https?:\/\//i.test(endpoint)) {
     return false;

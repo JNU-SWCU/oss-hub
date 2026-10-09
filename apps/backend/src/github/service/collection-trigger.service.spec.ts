@@ -1,13 +1,8 @@
 import { Logger } from '@nestjs/common';
-import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
-import {
-  COLLECTION_CRON_JOB_NAME,
-  CollectionSchedulerService,
-  DEFAULT_COLLECTION_CRON_EXPRESSION,
-} from './collection-scheduler.service';
+import { CollectionTriggerService } from './collection-trigger.service';
 import {
   CollectionSyncService,
   type CollectionSyncRunResult,
@@ -30,9 +25,9 @@ const completedRun = (
   ...overrides,
 });
 
-describe('CollectionSchedulerService', () => {
+describe('CollectionTriggerService', () => {
   let testingModule: TestingModule;
-  let service: CollectionSchedulerService;
+  let service: CollectionTriggerService;
   const run = jest.fn<Promise<CollectionSyncRunResult>, [string]>();
   const runExternal = jest.fn<Promise<CollectionSyncRunResult>, [string]>();
   const runRepository = jest.fn<
@@ -65,9 +60,8 @@ describe('CollectionSchedulerService', () => {
     isQuiesced.mockReset();
     isQuiesced.mockResolvedValue(false);
     testingModule = await Test.createTestingModule({
-      imports: [ScheduleModule.forRoot()],
       providers: [
-        CollectionSchedulerService,
+        CollectionTriggerService,
         {
           provide: CollectionSyncService,
           useValue: { run, runExternal, runRepository },
@@ -80,22 +74,12 @@ describe('CollectionSchedulerService', () => {
       ],
     }).compile();
     await testingModule.init();
-    service = testingModule.get(CollectionSchedulerService);
+    service = testingModule.get(CollectionTriggerService);
   });
 
   afterEach(async () => {
     jest.restoreAllMocks();
     await testingModule.close();
-  });
-
-  it('매시간 서울 시간 기준으로 cron을 등록한다', () => {
-    const registry = testingModule.get(SchedulerRegistry);
-    const job = registry.getCronJob(COLLECTION_CRON_JOB_NAME);
-
-    expect(DEFAULT_COLLECTION_CRON_EXPRESSION).toBe('0 0 * * * *');
-    expect(job.cronTime.source).toBe(DEFAULT_COLLECTION_CRON_EXPRESSION);
-    expect(job.cronTime.timeZone).toBe('Asia/Seoul');
-    expect(job.waitForCompletion).toBe(true);
   });
 
   it('수동 진입점과 cron이 동일한 sync use case를 즉시 PENDING으로 응답하며 시작한다', async () => {
@@ -104,7 +88,7 @@ describe('CollectionSchedulerService', () => {
     const result = await service.trigger();
     expect(result.status).toBe('PENDING');
     expect(typeof result.runId).toBe('string');
-    await expect(service.handleCron()).resolves.toBeUndefined();
+    await expect(service.runScheduled()).resolves.toBeUndefined();
 
     expect(run).toHaveBeenCalledTimes(2);
     expect(run.mock.calls[0]?.[0]).toMatch(/^scheduler:/);
@@ -115,7 +99,7 @@ describe('CollectionSchedulerService', () => {
     run.mockResolvedValue(completedRun());
 
     await service.trigger();
-    await expect(service.handleCron()).resolves.toBeUndefined();
+    await expect(service.runScheduled()).resolves.toBeUndefined();
 
     expect(runExternal).toHaveBeenCalledTimes(2);
     expect(runExternal.mock.calls[0]?.[0]).toMatch(/^scheduler:/);
@@ -141,7 +125,7 @@ describe('CollectionSchedulerService', () => {
       .mockImplementation(() => undefined);
     run.mockResolvedValue(completedRun());
 
-    await expect(service.handleCron()).resolves.toBeUndefined();
+    await expect(service.runScheduled()).resolves.toBeUndefined();
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(run).toHaveBeenCalledTimes(1);
@@ -165,7 +149,7 @@ describe('CollectionSchedulerService', () => {
       failedUserCount: 1,
     });
 
-    await expect(service.handleCron()).resolves.toBeUndefined();
+    await expect(service.runScheduled()).resolves.toBeUndefined();
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(logger).toHaveBeenCalledWith(
@@ -223,7 +207,7 @@ describe('CollectionSchedulerService', () => {
       }),
     );
 
-    await expect(service.handleCron()).resolves.toBeUndefined();
+    await expect(service.runScheduled()).resolves.toBeUndefined();
     expect(logger).toHaveBeenCalledWith({
       event: 'collection.scheduler.failed',
       errorName: 'Error',
@@ -250,7 +234,7 @@ describe('CollectionSchedulerService', () => {
       completedRun({ processedRepositoryCount: 9, insertedFactCount: 12 }),
     );
 
-    await expect(service.handleCron()).resolves.toBeUndefined();
+    await expect(service.runScheduled()).resolves.toBeUndefined();
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(logger).toHaveBeenCalledWith(
@@ -280,7 +264,7 @@ describe('CollectionSchedulerService', () => {
       nameWithOwner: 'JNU-SWCU/secret-repo',
     } as CollectionSyncRunResult);
 
-    await expect(service.handleCron()).resolves.toBeUndefined();
+    await expect(service.runScheduled()).resolves.toBeUndefined();
     await new Promise((resolve) => setImmediate(resolve));
 
     const serialized = JSON.stringify(logger.mock.calls);

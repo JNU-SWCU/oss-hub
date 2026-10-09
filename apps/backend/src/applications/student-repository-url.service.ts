@@ -5,10 +5,7 @@ import { APPLICATION_REPOSITORY_URL_CHANGED } from '../audit-log/application-rep
 import { DomainException } from '../common/error-code';
 import { canEditStudentRepositoryUrl } from '../programs/program-participant';
 import { ConsentsService } from '../consents/consents.service';
-import {
-  COLLECTION_TRIGGER_PORT,
-  type CollectionTriggerPort,
-} from '../github/collection-trigger.port';
+import { CollectionTriggerService } from '../github/service/collection-trigger.service';
 import { GithubOperationsError } from '../github/github-app.error';
 import {
   OwnRepositoryUrlValidationService,
@@ -56,8 +53,11 @@ export class StudentRepositoryUrlService {
     private readonly consents: Pick<ConsentsService, 'requireCurrent'>,
     @Inject(AuditLogService)
     private readonly audit: Pick<AuditLogService, 'record'>,
-    @Inject(COLLECTION_TRIGGER_PORT)
-    private readonly collection: CollectionTriggerPort,
+    @Inject(CollectionTriggerService)
+    private readonly collection: Pick<
+      CollectionTriggerService,
+      'collectRepository'
+    >,
   ) {}
 
   async getMine(

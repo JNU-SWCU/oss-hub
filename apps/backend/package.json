@@ -13,14 +13,14 @@
     "test": "pnpm run test:unit",
     "test:unit": "jest --testPathIgnorePatterns='\\.integration\\.spec\\.ts$'",
     "test:integration": "bash ../../scripts/run-backend-integration.sh",
-    "test:storage-reconcile": "jest --runInBand --testPathPattern='(storage-orphan-reconciliation|s3-submission-file.storage)\\.spec\\.ts$' && BACKEND_INTEGRATION_TEST_PATTERN='storage-orphan-reconciliation\\.integration\\.spec\\.ts$' bash ../../scripts/run-backend-integration.sh",
+    "test:storage-reconcile": "jest --runInBand --testPathPattern='(storage-orphan-reconciliation(\\.runner)?|s3-object.storage|s3-object-inventory|object-storage.config|storage.module)\\.spec\\.ts$' && BACKEND_INTEGRATION_TEST_PATTERN='storage-orphan-reconciliation\\.integration\\.spec\\.ts$' bash ../../scripts/run-backend-integration.sh",
     "db:guard": "bash ../../scripts/check-host-db-url.sh",
     "db:migrate:dev": "pnpm run db:guard && prisma migrate dev",
     "db:reset": "pnpm run db:guard && prisma migrate reset --force",
     "db:seed": "pnpm run db:guard && prisma db seed",
     "notifications:send-digest": "pnpm run db:guard && ts-node src/notifications/cli/send-deadline-digest.ts",
     "submissions:retry-file-cleanup": "ts-node src/submissions/cli/retry-submission-file-cleanup.ts",
-    "storage:reconcile": "ts-node src/submissions/cli/reconcile-storage-orphans.ts"
+    "storage:reconcile": "ts-node src/submissions/job/reconcile-storage-orphans.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1094.0",
