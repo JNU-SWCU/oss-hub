@@ -28,12 +28,12 @@ describe('MatrixStageNavigation', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
   async function renderNavigation(selectedMilestoneId: string | null) {
-    await act(() => {
+    await act(async () => {
       root.render(
         <MatrixStageNavigation
           milestones={milestones}
@@ -41,7 +41,6 @@ describe('MatrixStageNavigation', () => {
           onSelectMilestone={onSelectMilestone}
         />,
       );
-      return Promise.resolve();
     });
   }
 
@@ -62,10 +61,10 @@ describe('MatrixStageNavigation', () => {
       true,
     );
 
-    await act(() => Promise.resolve(buttons[3]?.click()));
+    await act(async () => buttons[3]?.click());
     expect(onSelectMilestone).toHaveBeenCalledWith('final');
 
-    await act(() => Promise.resolve(buttons[0]?.click()));
+    await act(async () => buttons[0]?.click());
     expect(onSelectMilestone).toHaveBeenLastCalledWith(null);
   });
 
@@ -76,19 +75,17 @@ describe('MatrixStageNavigation', () => {
     );
     buttons[0]?.focus();
 
-    await act(() => {
+    await act(async () => {
       buttons[0]?.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
       );
-      return Promise.resolve();
     });
     expect(document.activeElement).toBe(buttons[1]);
 
-    await act(() => {
+    await act(async () => {
       buttons[1]?.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'End', bubbles: true }),
       );
-      return Promise.resolve();
     });
     expect(document.activeElement).toBe(buttons[3]);
   });
@@ -100,11 +97,10 @@ describe('MatrixStageNavigation', () => {
     );
     expect(select?.value).toBe('plan');
 
-    await act(() => {
-      if (!select) return Promise.resolve();
+    await act(async () => {
+      if (!select) return;
       select.value = 'final';
       select.dispatchEvent(new Event('change', { bubbles: true }));
-      return Promise.resolve();
     });
     expect(onSelectMilestone).toHaveBeenCalledWith('final');
   });

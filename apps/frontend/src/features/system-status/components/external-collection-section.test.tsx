@@ -107,16 +107,15 @@ describe('ExternalCollectionSection', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
   async function renderSection(
     status: ExternalCollectionStatus,
   ): Promise<void> {
-    await act(() => {
+    await act(async () => {
       root.render(<ExternalCollectionSection status={status} />);
-      return Promise.resolve();
     });
   }
 

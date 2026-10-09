@@ -77,27 +77,20 @@ describe('StudentDashboardScreen application decision notices', () => {
       .mockResolvedValue([notice]);
     mocks.markApplicationDecisionNoticeRead
       .mockReset()
-      .mockImplementation(() => {
+      .mockImplementation(async () => {
         everyAcknowledgementSawRenderedNotice &&=
           captured.props?.applicationDecisionNotices[0]?.id === notice.id;
-        return Promise.resolve();
       });
     everyAcknowledgementSawRenderedNotice = true;
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
   });
 
   it('shows persisted notices before marking them read', async () => {
-    await act(() => {
-      root.render(<StudentDashboardScreen />);
-      return Promise.resolve();
-    });
+    await act(async () => root.render(<StudentDashboardScreen />));
 
     expect(captured.props?.applicationDecisionNotices).toEqual([notice]);
     expect(mocks.markApplicationDecisionNoticeRead).toHaveBeenCalledWith(
@@ -111,10 +104,7 @@ describe('StudentDashboardScreen application decision notices', () => {
       new Error('synthetic network failure'),
     );
 
-    await act(() => {
-      root.render(<StudentDashboardScreen />);
-      return Promise.resolve();
-    });
+    await act(async () => root.render(<StudentDashboardScreen />));
 
     expect(captured.props?.applicationDecisionNotices).toEqual([notice]);
   });
