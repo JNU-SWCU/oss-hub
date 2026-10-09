@@ -298,6 +298,20 @@ edge(
   false,
 );
 edge(
+  'root types may reference a prisma transaction type',
+  'src/alpha/alpha-store.types.ts',
+  'src/prisma/transaction-writer.ts',
+  true,
+  'type',
+);
+edge(
+  'root types cannot reference a foreign repository',
+  'src/alpha/alpha-writer.types.ts',
+  'src/beta/repository/beta.repository.ts',
+  false,
+  'type',
+);
+edge(
   'production cannot import fixture',
   'src/alpha/service/fixture-import.ts',
   'test/fixture.ts',
