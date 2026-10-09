@@ -8,11 +8,11 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import type { AuthenticatedRequest } from '../auth/controller/http-auth';
-import { OriginGuard } from '../auth/controller/origin.guard';
-import { SessionGuard } from '../auth/controller/session.guard';
-import { ConfirmRepositoryPublishRequestDto } from './dto/confirm-repository-publish-request.dto';
-import { CreateSubmissionReviewRequestDto } from './dto/create-submission-review-request.dto';
+import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
+import { OriginGuard } from '../../auth/controller/origin.guard';
+import { SessionGuard } from '../../auth/controller/session.guard';
+import { ConfirmRepositoryPublishRequestDto } from '../dto/confirm-repository-publish-request.dto';
+import { CreateSubmissionReviewRequestDto } from '../dto/create-submission-review-request.dto';
 import {
   type CreateSubmissionReviewResponseDto,
   type RepositoryPublishResponseDto,
@@ -20,8 +20,8 @@ import {
   toCreateReviewResponse,
   toRepositoryPublishResponse,
   toReviewContextResponse,
-} from './dto/submission-review-response.dto';
-import { SubmissionReviewsService } from './submission-reviews.service';
+} from '../dto/submission-review-response.dto';
+import { SubmissionReviewsService } from '../service/submission-reviews.service';
 
 type ReviewActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

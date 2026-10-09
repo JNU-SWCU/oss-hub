@@ -28,9 +28,9 @@ import { PublicProjectsController } from '../public-projects/public-projects.con
 import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
 import { PublicProjectsService } from '../public-projects/public-projects.service';
 import { PublicUserProfileController } from '../public-projects/public-user-profile.controller';
-import { SubmissionRepositoryPublishingController } from '../../../submission-reviews/submission-reviews.controller';
-import { SubmissionReviewsRepository } from '../../../submission-reviews/submission-reviews.repository';
-import { SubmissionReviewsService } from '../../../submission-reviews/submission-reviews.service';
+import { SubmissionRepositoryPublishingController } from '../../../submission-reviews/controller/submission-reviews.controller';
+import { SubmissionReviewsRepository } from '../../../submission-reviews/repository/submission-reviews.repository';
+import { SubmissionReviewsService } from '../../../submission-reviews/service/submission-reviews.service';
 import { UsersAuthorityService } from '../../../users/service/authority.service';
 import { UsersAuthorityRepository } from '../../../users/repository/authority.repository';
 import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';

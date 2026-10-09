@@ -1,7 +1,7 @@
 import { ReviewDecision } from '@prisma/client';
-import { DomainException } from '../common/error-code';
-import { CreateSubmissionReviewRequestDto } from './dto/create-submission-review-request.dto';
-import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.enum';
+import { DomainException } from '../../common/error-code';
+import { CreateSubmissionReviewRequestDto } from './create-submission-review-request.dto';
+import { SubmissionReviewsErrorCode } from '../domain/submission-reviews-error-code.enum';
 
 describe('CreateSubmissionReviewRequestDto', () => {
   it.each([ReviewDecision.CHANGES_REQUESTED, ReviewDecision.REJECTED] as const)(

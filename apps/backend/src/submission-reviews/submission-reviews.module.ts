@@ -5,9 +5,9 @@ import { UsersModule } from '../users/users.module';
 import {
   SubmissionRepositoryPublishingController,
   SubmissionReviewsController,
-} from './submission-reviews.controller';
-import { SubmissionReviewsRepository } from './submission-reviews.repository';
-import { SubmissionReviewsService } from './submission-reviews.service';
+} from './controller/submission-reviews.controller';
+import { SubmissionReviewsRepository } from './repository/submission-reviews.repository';
+import { SubmissionReviewsService } from './service/submission-reviews.service';
 
 @Module({
   imports: [AuthModule, RepositoriesModule, UsersModule],

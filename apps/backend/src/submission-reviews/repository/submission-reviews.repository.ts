@@ -6,17 +6,17 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import type { Prisma as PrismaTypes, ReviewDecision } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { requiredMilestonesApproved } from '../milestone-documents/domain/milestone-completion';
+import { PrismaService } from '../../prisma/prisma.service';
+import { requiredMilestonesApproved } from '../../milestone-documents/domain/milestone-completion';
 import type {
   RepositoryPublishEligibility,
   SubmissionReviewContext,
   SubmissionReviewTarget,
-} from './domain/submission-review';
+} from '../domain/submission-review';
 import {
   exactSubmissionByPublicId,
   submissionPublicIdWhere,
-} from '../submissions/domain/submission-public-id';
+} from '../../submissions/domain/submission-public-id';
 import {
   REVIEW_CONTEXT_SELECT,
   toReviewContext,
