@@ -1,4 +1,4 @@
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import {
   prisma,
   service,
@@ -6,7 +6,7 @@ import {
   programId,
   oldId,
   input,
-} from '../applications/student-repository-url.integration.fixture';
+} from '../../applications/student-repository-url.integration.fixture';
 import { SystemStatusRepository } from './system-status.repository';
 
 assertIsolatedIntegrationDatabase({

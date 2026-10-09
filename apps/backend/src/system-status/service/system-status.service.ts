@@ -6,7 +6,7 @@ import {
   type CollectionIncrementalStatusSnapshotDto,
   type CollectionRepositoryStreamsDto,
   type CollectionSweepActivityDto,
-} from './system-status.repository';
+} from '../repository/system-status.repository';
 import {
   CollectionRepositoryStreamResponseDto,
   CollectionSystemStatusResponseDto,
@@ -18,7 +18,7 @@ import {
   type CollectionHealthResponseDto,
   type CurrentRunStatusResponseDto,
   type SystemStatusSafeReasonResponseDto,
-} from './dto/system-status-response.dto';
+} from '../dto/system-status-response.dto';
 
 const RECENT_SWEEP_ACTIVITY_LIMIT = 20;
 const STALE_AFTER_MS = 90 * 60 * 1000;
