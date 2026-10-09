@@ -6,7 +6,10 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Request, type Response } from 'express';
 import { DomainException } from '../../common/error-code';
-import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth-error-code.enum';
+import {
+  AUTH_ERROR_CODES,
+  AuthErrorCode,
+} from '../domain/auth-error-code.enum';
 import {
   OPTIONAL_SESSION_ROUTE_METADATA,
   PUBLIC_ROUTE_METADATA,

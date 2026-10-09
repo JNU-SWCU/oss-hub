@@ -1,5 +1,5 @@
 import { AccountStatus } from '@prisma/client';
-import { AuthErrorCode } from '../auth/auth-error-code.enum';
+import { AuthErrorCode } from '../auth/domain/auth-error-code.enum';
 import { RolesErrorCode } from './domain/roles-error-code.enum';
 import { UsersErrorCode } from './users-error-code.enum';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './domain/admin-access';
