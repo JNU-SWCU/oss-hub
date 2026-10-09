@@ -1,16 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import {
   MilestoneDocumentKind,
-  Prisma,
   StaffAccessRequestStatus,
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
 
-import {
-  lockMilestone,
-  lockMilestoneDocumentsOfMilestone,
-} from '../../common/milestone-document-locks';
+import { lockProgramTree } from '../../prisma/lock-program-tree';
 import { PrismaService } from '../../prisma/prisma.service';
 import { readProgramDeletionScopeCounts } from '../program-deletion-scope';
 import type {
@@ -40,8 +36,6 @@ type ProgramRecord = PrismaTypes.ProgramGetPayload<{
   include: typeof editableProgramInclude;
 }>;
 type MilestoneRecord = PrismaTypes.MilestoneGetPayload<Record<string, never>>;
-type LockedProgramRow = Readonly<{ id: string }>;
-type LockedMilestoneRow = Readonly<{ id: string; programId: string }>;
 
 class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
   constructor(private readonly transaction: PrismaTypes.TransactionClient) {}
@@ -79,7 +73,10 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
   async findEditableProgramForUpdate(
     programId: string,
   ): Promise<EditableProgramView | null> {
-    const locked = await this.lockProgram(programId);
+    const locked = await lockProgramTree(this.transaction, {
+      stage: 'program',
+      programId,
+    });
     return locked ? this.findEditableProgramById(programId) : null;
   }
 
@@ -140,7 +137,10 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
   async findProgramScheduleForMilestoneCreate(
     programId: string,
   ): Promise<ProgramSchedule | null> {
-    const locked = await this.lockProgram(programId);
+    const locked = await lockProgramTree(this.transaction, {
+      stage: 'program',
+      programId,
+    });
     if (!locked) return null;
     return this.transaction.program.findUnique({
       where: { id: programId },
@@ -171,9 +171,16 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
   ): Promise<ProgramMilestoneTarget | null> {
     const programId = await this.findMilestoneProgramId(milestoneId);
     if (programId === null) return null;
-    const programLocked = await this.lockProgram(programId);
+    const programLocked = await lockProgramTree(this.transaction, {
+      stage: 'program',
+      programId,
+    });
     if (!programLocked) return null;
-    const lockedMilestone = await this.lockMilestone(milestoneId);
+    const lockedMilestone = await lockProgramTree(this.transaction, {
+      stage: 'milestone',
+      milestoneId,
+      after: programLocked,
+    });
     if (lockedMilestone === null || lockedMilestone.programId !== programId) {
       return null;
     }
@@ -212,9 +219,40 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     milestoneId: string,
   ): Promise<LockedProgramMilestoneEdit | null> {
     const programId = await this.findMilestoneProgramId(milestoneId);
-    if (programId === null || !(await this.lockProgram(programId))) return null;
-    const lockedMilestone = await lockMilestone(this.transaction, milestoneId);
+    if (programId === null) return null;
+    const program = await lockProgramTree(this.transaction, {
+      stage: 'program',
+      programId,
+    });
+    if (program === null) return null;
+    const lockedMilestone = await lockProgramTree(this.transaction, {
+      stage: 'milestone',
+      milestoneId,
+      after: program,
+    });
     if (lockedMilestone === null) return null;
+    return this.readMilestoneEditWith(milestoneId, programId, async () => {
+      await lockProgramTree(this.transaction, {
+        stage: 'documents',
+        after: lockedMilestone,
+        documentKind: 'DOCUMENT',
+      });
+    });
+  }
+
+  async readMilestoneEdit(
+    milestoneId: string,
+  ): Promise<LockedProgramMilestoneEdit | null> {
+    const programId = await this.findMilestoneProgramId(milestoneId);
+    if (programId === null) return null;
+    return this.readMilestoneEditWith(milestoneId, programId);
+  }
+
+  private async readMilestoneEditWith(
+    milestoneId: string,
+    programId: string,
+    lockDocuments?: () => Promise<void>,
+  ): Promise<LockedProgramMilestoneEdit | null> {
     const milestone = await this.transaction.milestone.findUnique({
       where: { id: milestoneId },
       select: {
@@ -230,11 +268,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
       },
     });
     if (milestone === null || milestone.programId !== programId) return null;
-    await lockMilestoneDocumentsOfMilestone(
-      this.transaction,
-      milestoneId,
-      MilestoneDocumentKind.DOCUMENT,
-    );
+    await lockDocuments?.();
     const documents = await this.transaction.milestoneDocument.findMany({
       where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
       orderBy: { id: 'asc' },
@@ -389,14 +423,25 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
   ): Promise<ProgramMilestoneDeleteTarget | null> {
     const programId = await this.findMilestoneProgramId(milestoneId);
     if (programId === null) return null;
-    const programLocked = await this.lockProgram(programId);
+    const programLocked = await lockProgramTree(this.transaction, {
+      stage: 'program',
+      programId,
+    });
     if (!programLocked) return null;
-    const lockedMilestone = await this.lockMilestone(milestoneId);
+    const lockedMilestone = await lockProgramTree(this.transaction, {
+      stage: 'milestone',
+      milestoneId,
+      after: programLocked,
+    });
     if (lockedMilestone === null || lockedMilestone.programId !== programId) {
       return null;
     }
 
-    await lockMilestoneDocumentsOfMilestone(this.transaction, milestoneId);
+    await lockProgramTree(this.transaction, {
+      stage: 'documents',
+      after: lockedMilestone,
+      documentKind: 'ALL',
+    });
     const milestone = await this.transaction.milestone.findUnique({
       where: { id: milestoneId },
       include: {
@@ -437,24 +482,6 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
       select: { programId: true },
     });
     return milestone?.programId ?? null;
-  }
-
-  private async lockProgram(programId: string): Promise<boolean> {
-    const rows = await this.transaction.$queryRaw<readonly LockedProgramRow[]>(
-      Prisma.sql`SELECT id FROM "Program" WHERE id = ${programId} FOR UPDATE`,
-    );
-    return rows.length === 1;
-  }
-
-  private async lockMilestone(
-    milestoneId: string,
-  ): Promise<LockedMilestoneRow | null> {
-    const rows = await this.transaction.$queryRaw<
-      readonly LockedMilestoneRow[]
-    >(
-      Prisma.sql`SELECT id, "programId" FROM "Milestone" WHERE id = ${milestoneId} FOR UPDATE`,
-    );
-    return rows[0] ?? null;
   }
 }
 

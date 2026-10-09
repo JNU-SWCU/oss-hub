@@ -7,7 +7,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import type { UpsertMilestoneDocumentInput } from '../milestone-documents.repository';
+import type { UpsertMilestoneDocumentInput } from '../domain/milestone-document-record';
 
 export class UpsertMilestoneDocumentRequestDto {
   @Transform(({ value }) => {

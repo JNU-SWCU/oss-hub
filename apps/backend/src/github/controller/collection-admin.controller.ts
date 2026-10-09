@@ -9,11 +9,9 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 
-import { OriginGuard } from '../../auth/origin.guard';
-import {
-  SessionGuard,
-  type AuthenticatedRequest,
-} from '../../auth/session.guard';
+import { OriginGuard } from '../../auth/controller/origin.guard';
+import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
+import { SessionGuard } from '../../auth/controller/session.guard';
 import {
   COLLECTION_TRIGGER_AUDIT_ACTIONS,
   createCollectionTriggerAuditMetadata,

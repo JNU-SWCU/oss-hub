@@ -11,8 +11,8 @@ import {
   Protected,
   Public,
   PUBLIC_ROUTE_METADATA,
-} from '../src/auth/auth-route-metadata';
-import { SessionGuard } from '../src/auth/session.guard';
+} from '../src/auth/controller/auth-route-metadata';
+import { SessionGuard } from '../src/auth/controller/session.guard';
 
 @Controller('fixture/missing')
 export class MissingMetadataController {

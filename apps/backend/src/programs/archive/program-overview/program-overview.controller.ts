@@ -1,9 +1,7 @@
 import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
-import { Public } from '../../../auth/auth-route-metadata';
-import {
-  AuthenticatedRequest,
-  SessionGuard,
-} from '../../../auth/session.guard';
+import { Public } from '../../../auth/controller/auth-route-metadata';
+import type { AuthenticatedRequest } from '../../../auth/controller/http-auth';
+import { SessionGuard } from '../../../auth/controller/session.guard';
 import { ProgramOverviewTeamResponseDto } from './dto/program-overview-team-response.dto';
 import { ProgramOverviewResponseDto } from './dto/program-overview-response.dto';
 import { ProgramOverviewService } from './program-overview.service';

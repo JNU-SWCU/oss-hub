@@ -15,7 +15,7 @@ import {
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentsRepository,
   MilestoneDocumentSubmissionChangedError,
-} from './milestone-documents.repository';
+} from './repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 
 const syntheticMilestoneId = 'cuid-synthetic-milestone';

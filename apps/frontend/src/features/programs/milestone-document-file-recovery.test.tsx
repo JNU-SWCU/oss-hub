@@ -17,23 +17,25 @@ beforeEach(async () => {
   document.body.append(container);
   root = createRoot(container);
   onSubmit.mockClear();
-  await act(async () =>
-    root.render(
-      <MilestoneDocumentSubmissionForm
-        documentName="계획서"
-        documentId="document-1"
-        fileUpload={milestoneDocumentUploadPolicy()}
-        currentFileName="previous.pdf"
-        isResubmission
-        submitting={false}
-        onCancel={vi.fn()}
-        onSubmit={onSubmit}
-      />,
+  await act(() =>
+    Promise.resolve(
+      root.render(
+        <MilestoneDocumentSubmissionForm
+          documentName="계획서"
+          documentId="document-1"
+          fileUpload={milestoneDocumentUploadPolicy()}
+          currentFileName="previous.pdf"
+          isResubmission
+          submitting={false}
+          onCancel={vi.fn()}
+          onSubmit={onSubmit}
+        />,
+      ),
     ),
   );
 });
 afterEach(async () => {
-  await act(async () => root.unmount());
+  await act(() => Promise.resolve(root.unmount()));
   container.remove();
 });
 
@@ -46,26 +48,33 @@ function input(): HTMLInputElement {
 async function select(file: File) {
   const picker = input();
   Object.defineProperty(picker, 'files', { configurable: true, value: [file] });
-  await act(async () =>
-    picker.dispatchEvent(new Event('change', { bubbles: true })),
+  await act(() =>
+    Promise.resolve(
+      picker.dispatchEvent(new Event('change', { bubbles: true })),
+    ),
   );
 }
 async function typeText(text: string) {
   const textarea = container.querySelector('textarea');
   if (!textarea) throw new TypeError('Missing text');
-  await act(async () => {
+  await act(() => {
     Object.getOwnPropertyDescriptor(
       HTMLTextAreaElement.prototype,
       'value',
     )?.set?.call(textarea, text);
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    return Promise.resolve();
   });
 }
 async function submit() {
-  await act(async () =>
-    container
-      .querySelector('form')
-      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
+  await act(() =>
+    Promise.resolve(
+      container
+        .querySelector('form')
+        ?.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true }),
+        ),
+    ),
   );
 }
 function continueWithoutFile(): HTMLButtonElement {
@@ -87,7 +96,7 @@ it('keeps text and existing attachment visible while refusing an invalid selecti
   expect(input().getAttribute('aria-invalid')).toBe('true');
   await submit();
   expect(onSubmit).not.toHaveBeenCalled();
-  await act(async () => continueWithoutFile().click());
+  await act(() => Promise.resolve(continueWithoutFile().click()));
   expect(onSubmit).not.toHaveBeenCalled();
   expect(container.querySelector('textarea')?.value).toBe('수정 내용');
   await submit();
@@ -113,7 +122,7 @@ it('still refuses an empty submission after continuing without a rejected oversi
   const file = new File(['bad'], 'too-large.pdf');
   Object.defineProperty(file, 'size', { value: 5 * 1024 * 1024 + 1 });
   await select(file);
-  await act(async () => continueWithoutFile().click());
+  await act(() => Promise.resolve(continueWithoutFile().click()));
   await submit();
   expect(onSubmit).not.toHaveBeenCalled();
   expect(container.querySelector('button[type="submit"]')).toHaveProperty(

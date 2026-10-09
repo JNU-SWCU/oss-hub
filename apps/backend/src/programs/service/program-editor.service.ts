@@ -408,7 +408,7 @@ export class ProgramEditorService {
         documents: input.documents,
         uploads,
       });
-      const updated = await store.lockMilestoneEdit(milestoneId);
+      const updated = await store.readMilestoneEdit(milestoneId);
       if (updated === null) this.fail(ProgramErrorCode.MILESTONE_NOT_FOUND);
       return this.snapshotMilestoneEdit(updated);
     });

@@ -200,7 +200,7 @@ describe('남지 않은 앞 제출본 안내 문구', () => {
     const html = renderToStaticMarkup(
       <MilestoneDocumentHistoryTimeline
         completeness="complete"
-        history={[{ ...missingEarlierSubmissions[0]!, revision: 2 }]}
+        history={[{ ...missingEarlierSubmissions[0], revision: 2 }]}
       />,
     );
 

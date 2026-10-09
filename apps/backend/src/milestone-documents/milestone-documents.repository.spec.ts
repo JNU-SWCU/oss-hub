@@ -17,7 +17,7 @@ import {
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentsRepository,
   MilestoneDocumentSubmissionChangedError,
-} from './milestone-documents.repository';
+} from './repository/milestone-documents.repository';
 
 function firstCallArgument<T>(mock: jest.Mock): T {
   const calls = mock.mock.calls as readonly (readonly unknown[])[];
@@ -2597,6 +2597,14 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
           $queryRaw: (query: { strings: string[]; values: unknown[] }) => {
             operations.push('lock');
             lockQueries.push(query);
+            if (query.strings.join('').includes('FROM "Milestone"')) {
+              return Promise.resolve([
+                {
+                  id: syntheticMilestoneId,
+                  programId: syntheticFenceProgramId,
+                },
+              ]);
+            }
 
             return Promise.resolve(
               [...rows]
@@ -2729,6 +2737,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
     const repository = new MilestoneDocumentsRepository(prisma);
 
     await repository.withTransaction(async (store) => {
+      await store.lockMilestone(syntheticMilestoneId);
       await store.lockDocumentIdsOfMilestone(syntheticMilestoneId);
       return store.applyDocumentOrder(syntheticMilestoneId, [
         thirdId,
@@ -2739,20 +2748,34 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
 
     expect(operations).toEqual([
       'lock',
+      'lock',
       `update:${thirdId}`,
       `update:${secondId}`,
       `update:${firstId}`,
     ]);
 
-    expect(lockQueries).toHaveLength(1);
-    const lockSql = String(lockQueries[0]?.strings);
+    expect(lockQueries).toHaveLength(2);
+    expect(String(lockQueries[0]?.strings)).toContain('FROM "Milestone"');
+    expect(lockQueries[0]?.values).toEqual([syntheticMilestoneId]);
+    const lockSql = String(lockQueries[1]?.strings);
     expect(lockSql).toContain('FROM "MilestoneDocument"');
     expect(lockSql).toContain('ORDER BY "id"');
     expect(lockSql).toContain('FOR UPDATE');
-    expect(lockQueries[0]?.values).toEqual([
+    expect(lockQueries[1]?.values).toEqual([
       syntheticMilestoneId,
       MilestoneDocumentKind.DOCUMENT,
     ]);
+  });
+
+  it('rejects document locks before the milestone stage without issuing SQL', async () => {
+    const { prisma, lockQueries } = buildReorderPrisma();
+    const repository = new MilestoneDocumentsRepository(prisma);
+    await expect(
+      repository.withTransaction((store) =>
+        store.lockDocumentIdsOfMilestone(syntheticMilestoneId),
+      ),
+    ).rejects.toThrow('Milestone must be locked before its documents.');
+    expect(lockQueries).toHaveLength(0);
   });
 });
 

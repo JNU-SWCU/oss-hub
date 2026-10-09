@@ -69,6 +69,7 @@ Domain-first + Layered를 모든 backend 업무 모듈의 목표 구조로 채�
 업무 모듈 내부의 계층 폴더는 `controller/ service/ repository/ gateway/ job/ dto/ domain/`으로 닫고 빈 폴더는 만들지 않는다.
 중첩된 `programs/archive/<feature>/`도 동일한 계층 규칙을 적용한다.
 모듈 루트에는 module 조립, 설정, 주입 키, 오류 코드, 타입 등 명시적으로 분류한 파일과 인접 테스트만 둔다.
+모듈 루트 계약 파일은 자기 모듈 루트 계약, domain, runtime-config, prisma 기반 타입만 참조한다.
 인증 guard는 controller 계층이며 별도 업무 권한 guard 계층을 만들지 않는다.
 `common/`, `runtime-config/`, `prisma/`는 공통 기반 모듈이고 `storage`와 `auth`는 재사용 가능한 기능 모듈이다.
 `common/`에는 업무 규칙을 두지 않고 업무별 순수 로직은 소유 모듈의 `domain/`으로 옮긴다.
@@ -77,7 +78,7 @@ Domain-first + Layered를 모든 backend 업무 모듈의 목표 구조로 채�
 | --- | --- |
 | controller, job | service, dto, domain, auth의 인증 guard·AuthenticatedRequest, common |
 | service | 자기 repository·gateway, dto, 모든 모듈의 domain·service, storage, runtime-config, common |
-| repository | 모든 모듈의 domain, prisma 기반 기능, common |
+| repository | 자기 모듈 repository, 모든 모듈의 domain, prisma 기반 기능, common |
 | gateway | domain, 외부 SDK, common |
 | dto | domain, common |
 | domain | 다른 모듈을 포함한 domain, common |

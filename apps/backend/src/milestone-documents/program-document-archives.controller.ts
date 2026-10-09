@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { SessionGuard } from '../auth/session.guard';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { ProgramDocumentArchiveQueryRequestDto } from './dto/program-document-archive-query.dto';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { milestoneDocumentAttachmentDisposition } from './milestone-document-attachment-disposition';

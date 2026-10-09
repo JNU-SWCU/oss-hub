@@ -3,7 +3,7 @@ import type { Response } from 'express';
 import {
   HTTP_AUTH_KINDS,
   type OptionalSessionRequest,
-} from '../../auth/http-auth';
+} from '../../auth/controller/http-auth';
 import { RANKING_YEAR_ALL } from '../domain/ranking';
 import { RankingController } from './ranking.controller';
 import { RankingService } from '../service/ranking.service';

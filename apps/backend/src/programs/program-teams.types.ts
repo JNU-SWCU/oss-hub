@@ -1,4 +1,4 @@
-import type { PublishBlockedReason } from '../common/repository-publication';
+import type { PublishBlockedReason } from '../github/domain/repository-publication';
 import type { TeamRepositoryEvidenceView } from './program-team-repository-evidence.types';
 import type { TeamDeletionScopeCounts } from './team-deletion-scope';
 

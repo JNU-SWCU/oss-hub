@@ -7,8 +7,9 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/origin.guard';
-import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../auth/controller/origin.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { requireValidUserId } from './admin-access.controller';
 import { IndependentAuthorityMutationResponseDto } from './dto/admin-access-response.dto';
 import {

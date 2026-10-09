@@ -10,7 +10,7 @@ import {
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.enum';
 import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 
 @Injectable()
 export class MilestoneDocumentReviewsService {
