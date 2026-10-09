@@ -20,7 +20,7 @@
 ## Publication side effects
 
 - `ConfirmRepositoryPublishRequestDto.assertConfirmed()` in `submission-reviews.controller.ts` is the explicit human-confirmation gate; never bypass or move it behind a GitHub call.
-- `../common/repository-publication.ts`의 `publishBlockedReasons()`가 readiness, publication plan, program end, required-milestone approval의 canonical predicate다. `domain/submission-review.ts`는 이 모듈의 local re-export surface다.
+- `../github/domain/repository-publication.ts`의 `publishBlockedReasons()`가 readiness, publication plan, program end, required-milestone approval의 canonical predicate다. `domain/submission-review.ts`는 이 모듈의 local re-export surface다.
 - `submission-review-context.mapper.ts` must display all blocked reasons while `SubmissionReviewsService.publishRepository()` rejects the first one; do not add parallel predicates.
 - Extend `PUBLISH_BLOCKED_ERROR_CODES` exhaustively when adding a blocked reason.
 - This module delegates the actual visibility mutation only to `../github/service/repositories.service.ts` `RepositoriesService.publish()`.

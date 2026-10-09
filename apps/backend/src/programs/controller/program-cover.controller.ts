@@ -1,5 +1,5 @@
 import { Controller, Get, Header, Param, StreamableFile } from '@nestjs/common';
-import { Public } from '../../auth/auth-route-metadata';
+import { Public } from '../../auth/controller/auth-route-metadata';
 import { ProgramCoverService } from '../service/program-cover.service';
 
 @Controller('programs')

@@ -96,7 +96,7 @@ function invitationManagement(
     onSearch,
     onInvite,
     onCancelInvitation,
-    reloadSent: async () => undefined,
+    reloadSent: () => Promise.resolve(undefined),
     ...overrides,
   };
 }
@@ -118,7 +118,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await act(async () => root.unmount());
+  await act(() => Promise.resolve(root.unmount()));
   host.remove();
 });
 
@@ -138,24 +138,26 @@ async function render(
 ) {
   const nextTeam =
     options.team === null ? null : { ...team, ...overrides, ...options.team };
-  await act(async () =>
-    root.render(
-      <TeamMembersPanel
-        programId="program-1"
-        team={nextTeam}
-        sessionNickname={options.sessionNickname ?? sessionNickname}
-        mode={options.mode ?? 'manage'}
-        invitation={
-          options.invitation === undefined
-            ? invitationManagement()
-            : options.invitation
-        }
-        onOpenInvite={options.inviteEntry === null ? null : onOpenInvite}
-        inviteTriggerRef={
-          options.inviteEntry === null ? null : inviteTriggerRef
-        }
-        onChanged={onChanged}
-      />,
+  await act(() =>
+    Promise.resolve(
+      root.render(
+        <TeamMembersPanel
+          programId="program-1"
+          team={nextTeam}
+          sessionNickname={options.sessionNickname ?? sessionNickname}
+          mode={options.mode ?? 'manage'}
+          invitation={
+            options.invitation === undefined
+              ? invitationManagement()
+              : options.invitation
+          }
+          onOpenInvite={options.inviteEntry === null ? null : onOpenInvite}
+          inviteTriggerRef={
+            options.inviteEntry === null ? null : inviteTriggerRef
+          }
+          onChanged={onChanged}
+        />,
+      ),
     ),
   );
 }
@@ -198,7 +200,7 @@ function dialogButton(text: string): HTMLButtonElement {
     (item) => item.textContent === text,
   );
   if (!found) throw new Error(`버튼 없음: ${text}`);
-  return found as HTMLButtonElement;
+  return found;
 }
 
 function deferred() {
@@ -248,12 +250,12 @@ describe('TeamMembersPanel', () => {
     ).toEqual(['먼저 합류 팀에서 제외', '나중 합류 팀에서 제외']);
     expect(rosterRows()[0]?.querySelector('button')).toBeNull();
 
-    await act(async () => removeButtons()[0]?.click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
 
     expect(removeMyTeamMember).not.toHaveBeenCalled();
     expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
 
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
     expect(removeMyTeamMember).toHaveBeenCalledExactlyOnceWith(
       'program-1',
       'member-1',
@@ -264,7 +266,7 @@ describe('TeamMembersPanel', () => {
 
   it('제외가 무엇을 지우는지 확인 레이어에서 밝힌다', async () => {
     await render();
-    await act(async () => removeButtons()[0]?.click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
     const dialog = document.querySelector('[role="alertdialog"]');
     expect(dialog?.textContent).toContain('팀 구성원 목록에서만 빠집니다');
     expect(dialog?.textContent).toContain(
@@ -303,8 +305,8 @@ describe('TeamMembersPanel', () => {
       )
       .mockResolvedValueOnce(undefined);
     await render();
-    await act(async () => removeButtons()[0]?.click());
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
     expect(onChanged).not.toHaveBeenCalled();
 
     expect(document.body.textContent).toContain(
@@ -312,7 +314,7 @@ describe('TeamMembersPanel', () => {
     );
     expect(host.textContent).not.toContain('잠시 후 다시 시도해 주세요');
 
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
     expect(onChanged).toHaveBeenCalledOnce();
   });
 
@@ -321,8 +323,8 @@ describe('TeamMembersPanel', () => {
       apiError('TEAM_999', '알 수 없는 이유로 거절되었습니다.'),
     );
     await render();
-    await act(async () => removeButtons()[0]?.click());
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
     expect(document.body.textContent).toContain(
       '알 수 없는 이유로 거절되었습니다.',
     );
@@ -337,13 +339,13 @@ describe('TeamMembersPanel', () => {
       }),
     );
     await render();
-    await act(async () => removeButtons()[0]?.click());
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
     expect(dialogButton('처리 중…').disabled).toBe(true);
     expect(dialogButton('취소').disabled).toBe(true);
     expect(removeButtons().every((item) => item.disabled)).toBe(true);
     expect(removeMyTeamMember).toHaveBeenCalledOnce();
-    await act(async () => resolve());
+    await act(() => Promise.resolve(resolve()));
     expect(onChanged).toHaveBeenCalledOnce();
   });
 
@@ -355,11 +357,11 @@ describe('TeamMembersPanel', () => {
       }),
     );
     await render();
-    await act(async () => removeButtons()[0]?.click());
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
 
     await render({}, 'other-account');
-    await act(async () => resolve());
+    await act(() => Promise.resolve(resolve()));
     expect(onChanged).not.toHaveBeenCalled();
   });
 
@@ -371,10 +373,10 @@ describe('TeamMembersPanel', () => {
       }),
     );
     await render();
-    await act(async () => removeButtons()[0]?.click());
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
     await render({ canRemoveMembers: false, isLeader: false });
-    await act(async () => resolve());
+    await act(() => Promise.resolve(resolve()));
     expect(onChanged).not.toHaveBeenCalled();
   });
 });
@@ -391,7 +393,7 @@ describe('TeamMembersPanel — 초대 시작', () => {
     expect(plus?.className).toContain('h-control');
     expect(plus?.className).toContain('w-control');
 
-    await act(async () => plus?.click());
+    await act(() => Promise.resolve(plus?.click()));
     expect(onOpenInvite).toHaveBeenCalledOnce();
     expect(removeMyTeamMember).not.toHaveBeenCalled();
   });
@@ -419,7 +421,7 @@ describe('TeamMembersPanel — 초대 시작', () => {
     });
     const plus = inviteTrigger();
     expect(plus).not.toBeNull();
-    await act(async () => plus?.click());
+    await act(() => Promise.resolve(plus?.click()));
     expect(onOpenInvite).toHaveBeenCalledOnce();
   });
 });
@@ -524,7 +526,7 @@ describe('TeamMembersPanel — 초대 대기', () => {
     );
     expect(cancel).not.toBeNull();
     expect(cancel?.textContent).toBe('');
-    await act(async () => cancel?.click());
+    await act(() => Promise.resolve(cancel?.click()));
     expect(onCancelInvitation).toHaveBeenCalledExactlyOnceWith('inv-1');
   });
 
@@ -563,7 +565,7 @@ describe('TeamMembersPanel — 초대 대기', () => {
     const cancel = host.querySelector<HTMLButtonElement>(
       'button[aria-label="합성 초대 대상 초대 취소"]',
     );
-    await act(async () => cancel?.click());
+    await act(() => Promise.resolve(cancel?.click()));
     expect(onCancelInvitation).toHaveBeenCalledExactlyOnceWith('inv-1');
 
     await render({}, 'synthetic-leader', {
@@ -583,7 +585,7 @@ describe('TeamMembersPanel — 초대 대기', () => {
       (item) => item.textContent === '다시 시도',
     );
     expect(retry).toBeDefined();
-    await act(async () => retry?.click());
+    await act(() => Promise.resolve(retry?.click()));
     expect(onCancelInvitation).toHaveBeenCalledTimes(2);
     expect(onCancelInvitation).toHaveBeenLastCalledWith('inv-1');
 
@@ -630,7 +632,7 @@ describe('TeamMembersPanel — 초대 대기', () => {
       (item) => item.textContent === '다시 시도',
     );
     expect(retry).toBeDefined();
-    await act(async () => retry?.click());
+    await act(() => Promise.resolve(retry?.click()));
     expect(onRetrySent).toHaveBeenCalledOnce();
   });
 });
@@ -655,8 +657,8 @@ describe('TeamMembersPanel — 신원 경계', () => {
     const first = deferred();
     vi.mocked(removeMyTeamMember).mockReturnValueOnce(first.promise);
     await render();
-    await act(async () => removeButtons()[0]?.click());
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
     expect(dialog()).not.toBeNull();
 
     await render({}, 'other-leader');
@@ -674,21 +676,21 @@ describe('TeamMembersPanel — 신원 경계', () => {
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise);
     await render();
-    await act(async () => removeButtons()[0]?.click());
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
     await render({}, 'other-leader');
 
-    await act(async () => removeButtons()[0]?.click());
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
     expect(removeMyTeamMember).toHaveBeenCalledTimes(2);
 
-    await act(async () => first.resolve());
+    await act(() => Promise.resolve(first.resolve()));
 
     expect(onChanged).not.toHaveBeenCalled();
     expect(dialogButton('처리 중…').disabled).toBe(true);
     expect(host.textContent).not.toContain('팀에서 제외 실패');
 
-    await act(async () => second.resolve());
+    await act(() => Promise.resolve(second.resolve()));
     expect(onChanged).toHaveBeenCalledOnce();
   });
 
@@ -699,15 +701,17 @@ describe('TeamMembersPanel — 신원 경계', () => {
       .mockReturnValueOnce(first.promise)
       .mockReturnValueOnce(second.promise);
     await render();
-    await act(async () => removeButtons()[0]?.click());
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
     await render({}, 'other-leader');
-    await act(async () => removeButtons()[0]?.click());
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
 
-    await act(async () =>
-      first.reject(
-        apiError('TEAM_013', '팀장만 다른 팀원을 제외할 수 있습니다.'),
+    await act(() =>
+      Promise.resolve(
+        first.reject(
+          apiError('TEAM_013', '팀장만 다른 팀원을 제외할 수 있습니다.'),
+        ),
       ),
     );
 
@@ -715,7 +719,7 @@ describe('TeamMembersPanel — 신원 경계', () => {
     expect(dialogButton('처리 중…').disabled).toBe(true);
     expect(onChanged).not.toHaveBeenCalled();
 
-    await act(async () => second.resolve());
+    await act(() => Promise.resolve(second.resolve()));
     expect(onChanged).toHaveBeenCalledOnce();
   });
 
@@ -723,14 +727,14 @@ describe('TeamMembersPanel — 신원 경계', () => {
     const first = deferred();
     vi.mocked(removeMyTeamMember).mockReturnValueOnce(first.promise);
     await render();
-    await act(async () => removeButtons()[0]?.click());
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
 
     await render({ id: 'team-2', name: '새 팀' });
 
     expect(dialog()).toBeNull();
     expect(removeButtons().some((item) => item.disabled)).toBe(false);
-    await act(async () => first.resolve());
+    await act(() => Promise.resolve(first.resolve()));
     expect(onChanged).not.toHaveBeenCalled();
   });
 
@@ -738,14 +742,14 @@ describe('TeamMembersPanel — 신원 경계', () => {
     const first = deferred();
     vi.mocked(removeMyTeamMember).mockReturnValueOnce(first.promise);
     await render();
-    await act(async () => removeButtons()[0]?.click());
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
 
     await render({ canRemoveMembers: false });
 
     expect(dialog()).toBeNull();
     expect(removeButtons()).toHaveLength(0);
-    await act(async () => first.resolve());
+    await act(() => Promise.resolve(first.resolve()));
     expect(onChanged).not.toHaveBeenCalled();
 
     await render({ canRemoveMembers: true });
@@ -758,13 +762,13 @@ describe('TeamMembersPanel — 신원 경계', () => {
     const first = deferred();
     vi.mocked(removeMyTeamMember).mockReturnValueOnce(first.promise);
     await render();
-    await act(async () => removeButtons()[0]?.click());
-    await act(async () => dialogButton('팀에서 제외').click());
+    await act(() => Promise.resolve(removeButtons()[0]?.click()));
+    await act(() => Promise.resolve(dialogButton('팀에서 제외').click()));
 
     await render({}, 'synthetic-leader', { mode: 'compose' });
 
     expect(dialog()).toBeNull();
-    await act(async () => first.resolve());
+    await act(() => Promise.resolve(first.resolve()));
     expect(onChanged).not.toHaveBeenCalled();
   });
 });

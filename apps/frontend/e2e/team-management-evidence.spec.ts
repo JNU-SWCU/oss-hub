@@ -14,84 +14,6 @@ const ARTIFACT_PREFIX = 'team-management';
 const PROGRAM_ID = 'synthetic-program';
 const APPLICATION_ID = 'synthetic-application';
 
-const STAFF_SESSION = {
-  isAuthenticated: true,
-  user: {
-    nickname: 'synthetic-staff',
-    name: '합성 교직원',
-    email: null,
-    avatarUrl: null,
-    memberKind: 'STAFF',
-    hasStaffAccess: true,
-    hasAdminAccess: false,
-    isProfileComplete: true,
-  },
-} as const;
-
-const APPROVED_APPLICATION = {
-  id: APPLICATION_ID,
-  programId: PROGRAM_ID,
-  status: 'APPROVED',
-  submittedAt: '2026-08-05T05:32:00.000Z',
-  rejectionReason: null,
-  repositoryConnectionMode: 'NEW',
-  repositoryUrl: null,
-  repositoryProvisioning: {
-    enabled: true,
-    jobStatus: 'SUCCEEDED',
-    updatedAt: '2026-08-06T01:00:00.000Z',
-    safeErrorClass: null,
-  },
-  repository: {
-    url: 'https://github.com/synthetic-org/synthetic-team',
-    visibility: 'PRIVATE',
-  },
-  isRepositoryPublicationPlanned: true,
-  participation: 'TEAM',
-  applicant: {
-    id: 'synthetic-applicant',
-    name: '합성 신청자',
-    nickname: 'synthetic-applicant',
-  },
-  team: { id: 'synthetic-team', name: '합성 팀', memberCount: 2 },
-  answers: {
-    applicantName: '합성 신청자',
-    title: '합성 신청 제목',
-    summary: '합성 지원 동기와 계획입니다.',
-  },
-} as const;
-
-const REVIEW_HISTORY = [
-  {
-    id: 'synthetic-history-2',
-    eventKind: 'APPROVED',
-    revision: 1,
-    actor: { name: '합성 교직원', nickname: 'synthetic-staff' },
-    occurredAt: '2026-08-06T01:00:00.000Z',
-    rejectionReason: null,
-  },
-  {
-    id: 'synthetic-history-1',
-    eventKind: 'SUBMITTED',
-    revision: 1,
-    actor: { name: '합성 신청자', nickname: 'synthetic-applicant' },
-    occurredAt: '2026-08-05T05:32:00.000Z',
-    rejectionReason: null,
-  },
-] as const;
-
-const REVERT_BLOCKED_PROBLEM = {
-  type: 'about:blank',
-  title: 'Synthetic revert blocked',
-  status: 409,
-  detail: '저장소 프로비저닝이 완료된 승인은 되돌릴 수 없습니다.',
-  instance: `/api/v1/applications/${APPLICATION_ID}`,
-  code: 'APP_023',
-  latestStatus: 'APPROVED',
-  revertBlockedReason:
-    'repository provision already succeeded; undo is locked to protect the provisioned repository',
-} as const;
-
 const PROGRAM_DETAIL = {
   id: PROGRAM_ID,
   name: '합성 프로그램',
@@ -201,12 +123,6 @@ const APPLICATION_TEMPLATES = {
       ],
     },
   ],
-} as const;
-
-const REJECTED_DECISION = {
-  applicationId: APPLICATION_ID,
-  status: 'REJECTED',
-  rejectionReason: '합성 반려 사유',
 } as const;
 
 test('반려된 학생 신청 화면이 Before/After 에서 같은지 찍는다', async ({

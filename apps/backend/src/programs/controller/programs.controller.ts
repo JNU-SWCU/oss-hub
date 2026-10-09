@@ -16,16 +16,14 @@ import {
   OptionalSession,
   Protected,
   Public,
-} from '../../auth/auth-route-metadata';
+} from '../../auth/controller/auth-route-metadata';
 import {
   HTTP_AUTH_KINDS,
   type OptionalSessionRequest,
-} from '../../auth/http-auth';
-import { OriginGuard } from '../../auth/origin.guard';
-import {
-  type AuthenticatedRequest,
-  SessionGuard,
-} from '../../auth/session.guard';
+} from '../../auth/controller/http-auth';
+import { OriginGuard } from '../../auth/controller/origin.guard';
+import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
+import { SessionGuard } from '../../auth/controller/session.guard';
 import { CreateProgramRequestDto } from '../dto/create-program-request.dto';
 import { CreateProgramResponseDto } from '../dto/create-program-response.dto';
 import { PurgeProgramRequestDto } from '../dto/purge-program-request.dto';

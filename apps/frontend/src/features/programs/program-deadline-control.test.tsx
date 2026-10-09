@@ -47,7 +47,13 @@ function response(body: unknown, status = 200): Response {
 describe('ProgramDeadlineControl', () => {
   let container: HTMLDivElement;
   let root: Root;
-  const fetchMock = vi.fn();
+  const fetchMock =
+    vi.fn<
+      (
+        input: string,
+        init?: Omit<RequestInit, 'body'> & { body?: string },
+      ) => Promise<Response>
+    >();
 
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
@@ -64,7 +70,7 @@ describe('ProgramDeadlineControl', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
     vi.unstubAllGlobals();
     vi.useRealTimers();
@@ -94,7 +100,7 @@ describe('ProgramDeadlineControl', () => {
         failedCount: 0,
       }),
     );
-    await act(async () => {
+    await act(() => {
       root.render(
         <ProgramDeadlineControl
           enabled
@@ -103,9 +109,11 @@ describe('ProgramDeadlineControl', () => {
           onEnabledChange={() => undefined}
         />,
       );
+
+      return Promise.resolve();
     });
 
-    await act(async () => button('발송 대상 미리보기').click());
+    await act(() => Promise.resolve(button('발송 대상 미리보기').click()));
 
     expect(
       container.querySelector('[aria-label="발송 가능 4명"]'),
@@ -129,7 +137,7 @@ describe('ProgramDeadlineControl', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(container.textContent).not.toContain('student-');
 
-    await act(async () => button('안내 보내기').click());
+    await act(() => Promise.resolve(button('안내 보내기').click()));
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       apiPath('programs/program-1/deadline-digest/preview'),
@@ -159,7 +167,7 @@ describe('ProgramDeadlineControl', () => {
         409,
       ),
     );
-    await act(async () => {
+    await act(() => {
       root.render(
         <ProgramDeadlineControl
           enabled
@@ -168,10 +176,12 @@ describe('ProgramDeadlineControl', () => {
           onEnabledChange={() => undefined}
         />,
       );
-    });
-    await act(async () => button('발송 대상 미리보기').click());
 
-    await act(async () => button('안내 보내기').click());
+      return Promise.resolve();
+    });
+    await act(() => Promise.resolve(button('발송 대상 미리보기').click()));
+
+    await act(() => Promise.resolve(button('안내 보내기').click()));
 
     expect(container.textContent).toContain(
       '발송 대상이 바뀌었거나 미리보기가 만료되었습니다. 다시 미리보세요.',
@@ -185,7 +195,7 @@ describe('ProgramDeadlineControl', () => {
   it('shows personalized rendered mail with actionable links without changing recipients', async () => {
     fetchMock.mockResolvedValueOnce(response(preview));
     await mount();
-    await act(async () => button('발송 대상 미리보기').click());
+    await act(() => Promise.resolve(button('발송 대상 미리보기').click()));
     const frame = container.querySelector('iframe[title="학생용 메일 본문"]');
     expect(frame?.getAttribute('srcdoc')).toContain(
       'https://example.test/programs/a/submissions',
@@ -196,9 +206,11 @@ describe('ProgramDeadlineControl', () => {
     const select = container.querySelector('select');
     if (!(select instanceof HTMLSelectElement))
       throw new TypeError('Missing recipient selector');
-    await act(async () => {
+    await act(() => {
       select.value = '1';
       select.dispatchEvent(new Event('change', { bubbles: true }));
+
+      return Promise.resolve();
     });
     expect(container.textContent).toContain('학생 안내 B');
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -210,19 +222,19 @@ describe('ProgramDeadlineControl', () => {
     await mount();
     await changeGuidance('학생용 추가 안내', '학생 안내 초안');
     await changeGuidance('교직원용 추가 안내', '교직원 안내 초안');
-    await act(async () => button('발송 대상 미리보기').click());
+    await act(() => Promise.resolve(button('발송 대상 미리보기').click()));
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
       studentGuidance: '학생 안내 초안',
       staffGuidance: '교직원 안내 초안',
     });
-    await act(async () => button('교직원용').click());
+    await act(() => Promise.resolve(button('교직원용').click()));
     await changeGuidance('학생용 추가 안내', '고친 학생 안내');
     expect(button('안내 보내기').disabled).toBe(true);
     expect(
       container.querySelector('textarea[aria-label="교직원용 추가 안내"]')
         ?.textContent,
     ).toBe('교직원 안내 초안');
-    await act(async () => button('다시 미리보기').click());
+    await act(() => Promise.resolve(button('다시 미리보기').click()));
     expect(button('안내 보내기').disabled).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -230,9 +242,11 @@ describe('ProgramDeadlineControl', () => {
   it('locks sending when the preview expires without another user action', async () => {
     fetchMock.mockImplementation(() => Promise.resolve(response(preview)));
     await mount();
-    await act(async () => button('발송 대상 미리보기').click());
-    await act(async () => {
+    await act(() => Promise.resolve(button('발송 대상 미리보기').click()));
+    await act(() => {
       vi.advanceTimersByTime(600_001);
+
+      return Promise.resolve();
     });
     expect(button('안내 보내기').disabled).toBe(true);
     expect(container.textContent).toContain('만료');
@@ -246,23 +260,29 @@ describe('ProgramDeadlineControl', () => {
       }),
     );
     await mount();
-    await act(async () => button('발송 대상 미리보기').click());
-    await act(async () => {
+    await act(() => Promise.resolve(button('발송 대상 미리보기').click()));
+    await act(() => {
       vi.advanceTimersByTime(599_999);
+
+      return Promise.resolve();
     });
-    await act(async () => button('안내 보내기').click());
-    await act(async () => {
+    await act(() => Promise.resolve(button('안내 보내기').click()));
+    await act(() => {
       vi.advanceTimersByTime(2);
+
+      return Promise.resolve();
     });
-    await act(async () =>
-      resolveSend(
-        response({
-          ...preview,
-          sentAt: '2026-08-14T00:10:00.001Z',
-          sentCount: 4,
-          duplicateCount: 0,
-          failedCount: 0,
-        }),
+    await act(() =>
+      Promise.resolve(
+        resolveSend(
+          response({
+            ...preview,
+            sentAt: '2026-08-14T00:10:00.001Z',
+            sentCount: 4,
+            duplicateCount: 0,
+            failedCount: 0,
+          }),
+        ),
       ),
     );
     expect(container.textContent).toContain('4명에게 보냈습니다');
@@ -277,9 +297,9 @@ describe('ProgramDeadlineControl', () => {
       }),
     );
     await mount();
-    await act(async () => button('발송 대상 미리보기').click());
+    await act(() => Promise.resolve(button('발송 대상 미리보기').click()));
     await changeGuidance('학생용 추가 안내', '더 새 안내');
-    await act(async () => resolvePreview(response(preview)));
+    await act(() => Promise.resolve(resolvePreview(response(preview))));
     expect(button('안내 보내기').disabled).toBe(true);
     expect(container.querySelector('iframe')).toBeNull();
   });
@@ -309,8 +329,8 @@ describe('ProgramDeadlineControl', () => {
     await mount();
     await changeGuidance('학생용 추가 안내', '학생 초안');
     await changeGuidance('교직원용 추가 안내', '교직원 초안');
-    await act(async () => button('발송 대상 미리보기').click());
-    await act(async () => button('안내 보내기').click());
+    await act(() => Promise.resolve(button('발송 대상 미리보기').click()));
+    await act(() => Promise.resolve(button('안내 보내기').click()));
     expect(button('안내 보내기').disabled).toBe(true);
     expect(
       container.querySelector<HTMLTextAreaElement>('#studentGuidance')?.value,
@@ -318,7 +338,7 @@ describe('ProgramDeadlineControl', () => {
     expect(
       container.querySelector<HTMLTextAreaElement>('#staffGuidance')?.value,
     ).toBe('교직원 초안');
-    await act(async () => button('다시 미리보기').click());
+    await act(() => Promise.resolve(button('다시 미리보기').click()));
     expect(
       fetchMock.mock.calls.map((call) => String(call[0]).split('/').at(-1)),
     ).toEqual(['preview', 'send', 'preview']);
@@ -340,7 +360,7 @@ describe('ProgramDeadlineControl', () => {
     );
     await mount();
     await changeGuidance('학생용 추가 안내', '<script>평문 안내</script>');
-    await act(async () => button('발송 대상 미리보기').click());
+    await act(() => Promise.resolve(button('발송 대상 미리보기').click()));
     expect(
       container.querySelector<HTMLTextAreaElement>('#studentGuidance')?.value,
     ).toBe('<script>평문 안내</script>');
@@ -359,7 +379,7 @@ describe('ProgramDeadlineControl', () => {
       }),
     );
     await mount();
-    await act(async () => button('발송 대상 미리보기').click());
+    await act(() => Promise.resolve(button('발송 대상 미리보기').click()));
     expect(container.textContent).toContain(
       '발송 대상이 없어 학생용 메일 본문이 없습니다.',
     );
@@ -384,14 +404,16 @@ describe('ProgramDeadlineControl', () => {
   });
 
   async function mount() {
-    await act(async () =>
-      root.render(
-        <ProgramDeadlineControl
-          enabled
-          persistedEnabled
-          programId="program-1"
-          onEnabledChange={() => undefined}
-        />,
+    await act(() =>
+      Promise.resolve(
+        root.render(
+          <ProgramDeadlineControl
+            enabled
+            persistedEnabled
+            programId="program-1"
+            onEnabledChange={() => undefined}
+          />,
+        ),
       ),
     );
   }
@@ -400,12 +422,14 @@ describe('ProgramDeadlineControl', () => {
     const textarea = container.querySelector(`textarea[aria-label="${label}"]`);
     if (!(textarea instanceof HTMLTextAreaElement))
       throw new TypeError(`Missing ${label}`);
-    await act(async () => {
+    await act(() => {
       Object.getOwnPropertyDescriptor(
         HTMLTextAreaElement.prototype,
         'value',
       )?.set?.call(textarea, value);
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+      return Promise.resolve();
     });
   }
 

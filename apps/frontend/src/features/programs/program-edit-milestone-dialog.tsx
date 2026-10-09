@@ -28,9 +28,6 @@ function restoreFocusAfterClose(target: HTMLElement | null | undefined) {
 
 export function ProgramEditMilestoneDialog({
   editor,
-  operationStartAt,
-  operationEndAt,
-  contextEvents,
   isBusy,
   snapshot,
   latestSnapshot,

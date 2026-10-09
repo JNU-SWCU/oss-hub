@@ -22,7 +22,7 @@ let fetchMock: ReturnType<typeof vi.fn>;
 function lastRequest() {
   const [input, init] = fetchMock.mock.calls[0] as [
     string,
-    RequestInit | undefined,
+    (Omit<RequestInit, 'body'> & { body?: string }) | undefined,
   ];
   return { url: input, init: init ?? {} };
 }

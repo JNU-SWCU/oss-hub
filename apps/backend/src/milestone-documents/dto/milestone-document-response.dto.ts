@@ -1,5 +1,5 @@
 import { SubmissionStatus } from '@prisma/client';
-import { MilestoneDocumentRecord } from '../milestone-documents.repository';
+import type { MilestoneDocumentRecord } from '../domain/milestone-document-record';
 
 export interface MilestoneDocumentViewerReviewResponseDto {
   readonly comment: string | null;

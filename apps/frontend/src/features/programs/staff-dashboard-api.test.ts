@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getStaffDashboardSummary } from './api';
 import { StaffDashboardResponseError } from './staff-dashboard-parser';
 
-const apiClient = vi.fn();
+const apiClient = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 
 vi.mock('@/lib/api-client', () => ({
   ApiError: class ApiError extends Error {

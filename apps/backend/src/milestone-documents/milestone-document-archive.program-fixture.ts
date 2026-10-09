@@ -4,7 +4,7 @@ import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import type { MilestoneDocumentArchiveSubmission } from './domain/milestone-document-archive';
 import type { ArchiveProgram } from './milestone-document-archive.repository';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import type { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import type { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 
 export const now = new Date('2026-09-03T00:00:00Z');
 export const fileBody = Buffer.from('synthetic retained image');

@@ -20,8 +20,8 @@ import {
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../../audit-log/audit-log.repository';
 import { PrismaService } from '../../prisma/prisma.service';
-import { requiredMilestonesApproved } from '../../common/milestone-completion';
-import { publishBlockedReasons } from '../../common/repository-publication';
+import { requiredMilestonesApproved } from '../../milestone-documents/domain/milestone-completion';
+import { publishBlockedReasons } from '../../github/domain/repository-publication';
 import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity';
 import {
   repositoryAccessSyncEventData,

@@ -2,7 +2,7 @@ import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import {
   InvalidMilestoneDocumentHistoryCursorError,
   MilestoneDocumentsRepository,
-} from './milestone-documents.repository';
+} from './repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 
 describe('MilestoneDocumentsService historyForStaff', () => {

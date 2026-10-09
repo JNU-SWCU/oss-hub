@@ -1,5 +1,5 @@
 import type { Prisma, SubmissionStatus } from '@prisma/client';
-import type { MilestoneDocumentSubmissionDetail } from '../milestone-documents.repository';
+import type { MilestoneDocumentSubmissionDetail } from '../domain/milestone-document-record';
 
 export class MilestoneDocumentSubmissionFileResponseDto {
   id: string;

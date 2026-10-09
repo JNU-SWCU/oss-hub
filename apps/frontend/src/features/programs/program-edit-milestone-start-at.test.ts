@@ -19,12 +19,19 @@ describe('마일스톤 시작일 편집 계약', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('이름만 수정해도 실제 PATCH body에 기존 startAt을 유지한다', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ id: milestone.id }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+    const fetchMock = vi
+      .fn<
+        (
+          input: string,
+          init?: Omit<RequestInit, 'body'> & { body?: string },
+        ) => Promise<Response>
+      >()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ id: milestone.id }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
     vi.stubGlobal('fetch', fetchMock);
     const form = {
       ...toMilestoneForm(milestone),

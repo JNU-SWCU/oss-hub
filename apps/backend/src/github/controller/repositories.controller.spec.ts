@@ -3,7 +3,7 @@ import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
-import { SessionGuard } from '../../auth/session.guard';
+import { SessionGuard } from '../../auth/controller/session.guard';
 import { RepositoriesController } from './repositories.controller';
 import type { RepositoriesService } from '../service/repositories.service';
 

@@ -18,10 +18,7 @@ import {
 } from './program-schedule-calendar-model';
 import { ProgramScheduleRangeCalendar } from './program-schedule-range-calendar';
 import type { ProgramScheduleEditableRange } from './program-schedule-range-types';
-import {
-  PROGRAM_TRACK_TYPE_LABELS,
-  type ProgramTrackType,
-} from './program-templates';
+import { PROGRAM_TRACK_TYPE_LABELS } from './program-templates';
 
 export function ProgramAuthoringOperationsStep({
   state,
@@ -57,9 +54,7 @@ export function ProgramAuthoringReviewStep({
   readonly state: ProgramAuthoringState;
 }) {
   const trackLabel =
-    state.trackType === ''
-      ? ''
-      : PROGRAM_TRACK_TYPE_LABELS[state.trackType as ProgramTrackType];
+    state.trackType === '' ? '' : PROGRAM_TRACK_TYPE_LABELS[state.trackType];
   return (
     <FormSection
       title="최종 검토"

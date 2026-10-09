@@ -112,7 +112,7 @@ test('staff exports 205 synthetic rows with selected-year filename', async ({
   const download = await downloadPromise;
   const downloadPath = await download.path();
   expect(downloadPath).not.toBeNull();
-  const bytes = await readFile(downloadPath as string);
+  const bytes = await readFile(downloadPath);
   const csv = bytes.toString('utf8');
   expect(download.suggestedFilename()).toBe('ranking-2026.csv');
   expect(csv.startsWith('\uFEFF')).toBe(true);

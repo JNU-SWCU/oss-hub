@@ -3,8 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 
 import { AuthConfig } from '../auth/auth.config';
-import { AuthService } from '../auth/auth.service';
-import { SessionGuard } from '../auth/session.guard';
+import { AuthService } from '../auth/service/auth.service';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { CollectionAdminGuard } from './collection-admin.guard';
 import { CollectionErrorCode } from './collection-error-code.enum';

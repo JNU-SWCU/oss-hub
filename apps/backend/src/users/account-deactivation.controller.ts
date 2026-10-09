@@ -9,9 +9,10 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthConfig } from '../auth/auth.config';
-import { serializeClearedSessionCookie } from '../auth/cookies';
-import { OriginGuard } from '../auth/origin.guard';
-import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
+import { serializeClearedSessionCookie } from '../auth/domain/cookies';
+import { OriginGuard } from '../auth/controller/origin.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { AccountDeactivationService } from './account-deactivation.service';
 import { AccountDeactivationResponseDto } from './dto/account-deactivation-response.dto';
 

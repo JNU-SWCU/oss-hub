@@ -2,7 +2,7 @@ import { Readable } from 'node:stream';
 import {
   MilestoneDocumentsRepository,
   type MilestoneDocumentWriteStore,
-} from './milestone-documents.repository';
+} from './repository/milestone-documents.repository';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,

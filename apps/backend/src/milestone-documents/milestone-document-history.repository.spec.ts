@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   InvalidMilestoneDocumentHistoryCursorError,
   MilestoneDocumentsRepository,
-} from './milestone-documents.repository';
+} from './repository/milestone-documents.repository';
 
 function firstCallArgument<T>(mock: jest.Mock): T {
   const calls = mock.mock.calls as readonly (readonly unknown[])[];

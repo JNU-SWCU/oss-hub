@@ -1,5 +1,4 @@
 import {
-  PROGRAM_TRACK_TYPE_LABELS,
   PROGRAM_TRACK_TYPES,
   type ProgramTrackType,
 } from './program-templates';

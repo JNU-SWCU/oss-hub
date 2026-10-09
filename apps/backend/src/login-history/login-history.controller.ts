@@ -1,5 +1,6 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
-import { type AuthenticatedRequest, SessionGuard } from '../auth/session.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { LoginHistoryQueryRequestDto } from './dto/login-history-query.dto';
 import { LoginHistoryPageResponseDto } from './dto/login-history-response.dto';
 import { LoginHistoryService } from './login-history.service';

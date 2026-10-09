@@ -1,6 +1,6 @@
 import { RepositoryVisibility } from '@prisma/client';
 import type { Prisma, ReviewDecision, SubmissionStatus } from '@prisma/client';
-import type { PublishBlockedReason } from '../../common/repository-publication';
+import type { PublishBlockedReason } from '../../github/domain/repository-publication';
 
 export const APPLICATION_MODES = {
   PERSONAL: 'PERSONAL',
@@ -15,7 +15,7 @@ export {
   publishBlockedReasons,
   type PublishBlockedReason,
   type RepositoryPublishEligibility,
-} from '../../common/repository-publication';
+} from '../../github/domain/repository-publication';
 
 export interface SubmissionReviewRecord {
   readonly id: string;

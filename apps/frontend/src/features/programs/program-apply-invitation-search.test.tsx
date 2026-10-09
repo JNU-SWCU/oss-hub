@@ -252,9 +252,9 @@ function typeInto(input: HTMLInputElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(
     HTMLInputElement.prototype,
     'value',
-  )?.set;
+  );
   act(() => {
-    setter?.call(input, value);
+    setter?.set?.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
@@ -454,8 +454,10 @@ describe('ProgramApplyPage — 초대 검색', () => {
     expect(document.body.textContent).toContain('octo9');
 
     const initialSentReads = listSentInvitationsMock.mock.calls.length;
-    await act(async () => {
+    await act(() => {
       buttonByText('초대').click();
+
+      return Promise.resolve();
     });
     await waitForCondition(
       () => listSentInvitationsMock.mock.calls.length > initialSentReads,
@@ -481,8 +483,10 @@ describe('ProgramApplyPage — 초대 검색', () => {
       '대기 중 초대 행',
     );
 
-    await act(async () => {
+    await act(() => {
       buttonByLabel('octo9 초대 취소').click();
+
+      return Promise.resolve();
     });
     await waitForCondition(
       () => cancelInvitationMock.mock.calls.length === 1,

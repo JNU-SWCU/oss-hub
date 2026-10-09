@@ -31,7 +31,7 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.enum';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 
 const MAX_FILE_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
 const PENDING_TTL_MS = 24 * 60 * 60 * 1000;
