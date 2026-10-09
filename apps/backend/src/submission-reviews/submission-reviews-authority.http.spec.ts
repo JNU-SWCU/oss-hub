@@ -10,8 +10,7 @@ import { AuthConfig } from '../auth/auth.config';
 import { SessionGuard } from '../auth/controller/session.guard';
 import { DomainException } from '../common/error-code';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
-import { PrismaService } from '../prisma/prisma.service';
-import { SubmissionReviewsStaffGuard } from './submission-reviews-staff.guard';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import {
   SubmissionRepositoryPublishingController,
   SubmissionReviewsController,
@@ -110,25 +109,22 @@ beforeAll(async () => {
       SubmissionRepositoryPublishingController,
     ],
     providers: [
-      SubmissionReviewsStaffGuard,
-      {
-        provide: PrismaService,
-        useValue: {
-          user: {
-            findUnique: ({ where }: { where: { githubId: bigint } }) =>
-              Promise.resolve(actors[Number(where.githubId)]?.[1] ?? null),
-          },
-        },
-      },
       {
         provide: AuthConfig,
         useValue: { allowedOrigin: 'http://frontend.test' },
       },
       {
         provide: SubmissionReviewsService,
-        useValue: new SubmissionReviewsService(repository, {
-          publish: jest.fn(),
-        }),
+        useValue: new SubmissionReviewsService(
+          repository,
+          {
+            publish: jest.fn(),
+          },
+          new UsersAuthorityService({
+            findActorByGithubId: (githubId) =>
+              Promise.resolve(actors[Number(githubId)]?.[1] ?? null),
+          }),
+        ),
       },
     ],
   })
@@ -161,6 +157,67 @@ beforeAll(async () => {
 afterAll(async () => {
   await application.close();
 });
+
+it.each(
+  [1, 2, 5].flatMap((actorIndex) => [
+    {
+      actorIndex,
+      path: '/submissions/missing/reviews',
+      body: { revision: 0, decision: 'INVALID' },
+      origin: 'http://frontend.test',
+      status: 400,
+      code: 'SYS_003',
+    },
+    {
+      actorIndex,
+      path: '/repositories/missing/publish',
+      body: { isConfirmed: 'INVALID' },
+      origin: 'http://frontend.test',
+      status: 400,
+      code: 'SYS_003',
+    },
+    ...[
+      '/submissions/missing/reviews',
+      '/repositories/missing/publish',
+    ].flatMap((path) => [
+      {
+        actorIndex,
+        path,
+        body: {},
+        origin: 'http://evil.test',
+        status: 403,
+        code: 'AUT_002',
+      },
+      {
+        actorIndex,
+        path,
+        body: {},
+        origin: undefined,
+        status: 403,
+        code: 'AUT_002',
+      },
+    ]),
+  ]),
+)(
+  '권한 없는 $actorIndex $path 요청은 validation 또는 Origin 오류를 먼저 반환한다 ($code)',
+  async ({ actorIndex, path, body, origin, status, code }) => {
+    const response = await fetch(`${baseUrl}/api/v1${path}`, {
+      method: 'POST',
+      headers: {
+        'x-actor': String(actorIndex),
+        'content-type': 'application/json',
+        ...(origin === undefined ? {} : { origin }),
+      },
+      body: JSON.stringify(body),
+    });
+    expect(response.status).toBe(status);
+    await expect(response.json()).resolves.toMatchObject({
+      status,
+      code,
+      instance: `/api/v1${path}`,
+    });
+  },
+);
 
 it.each(
   actors.flatMap(([role, actor], actorIndex) =>

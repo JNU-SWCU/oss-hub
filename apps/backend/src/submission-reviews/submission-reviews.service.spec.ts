@@ -20,6 +20,9 @@ import { SubmissionReviewsService } from './submission-reviews.service';
 const REVIEWED_AT = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
 const ACTOR_GITHUB_ID = 9_600_000_000_100_001n;
+const authority = {
+  assertActiveStaff: jest.fn().mockResolvedValue({ actorId: 'reviewer-1' }),
+};
 
 function reviewDependencies() {
   const target = {
@@ -50,6 +53,49 @@ function reviewDependencies() {
   return { target, store, repository, repositories };
 }
 
+it.each(['context', 'review', 'publishRepository'] as const)(
+  '%s는 업무 조회와 GitHub 호출 전에 모듈 권한 오류로 거부한다',
+  async (method) => {
+    const { store, repository, repositories } = reviewDependencies();
+    const deniedAuthority = {
+      assertActiveStaff: jest.fn((_actor: bigint, forbidden: () => Error) =>
+        Promise.reject(forbidden()),
+      ),
+    };
+    const service = new SubmissionReviewsService(
+      repository,
+      repositories,
+      deniedAuthority,
+    );
+    const result =
+      method === 'context'
+        ? service.context('submission-1', ACTOR_GITHUB_ID)
+        : method === 'review'
+          ? service.review(ACTOR_GITHUB_ID, 'submission-1', {
+              revision: 2,
+              decision: ReviewDecision.APPROVED,
+              comment: null,
+            })
+          : service.publishRepository('repository-1', ACTOR_GITHUB_ID);
+    await expect(result).rejects.toMatchObject({
+      errorCode: {
+        code: 'SUB_002',
+        status: 403,
+        message: '승인된 교직원 또는 관리자만 제출을 검토할 수 있습니다.',
+      },
+    });
+    expect(deniedAuthority.assertActiveStaff).toHaveBeenCalledWith(
+      ACTOR_GITHUB_ID,
+      expect.any(Function),
+    );
+    expect(repository.findReviewContext.mock.calls).toHaveLength(0);
+    expect(repository.findPublishEligibility.mock.calls).toHaveLength(0);
+    expect(repository.withTransaction.mock.calls).toHaveLength(0);
+    expect(store.createReview.mock.calls).toHaveLength(0);
+    expect(repositories.publish).not.toHaveBeenCalled();
+  },
+);
+
 describe('SubmissionReviewsService.review', () => {
   it.each([
     [ReviewDecision.APPROVED, SubmissionStatus.APPROVED, null],
@@ -63,10 +109,14 @@ describe('SubmissionReviewsService.review', () => {
     '%s 판정을 현재 제출 상태로 원자적으로 반영한다',
     async (decision, expectedStatus, comment) => {
       const { store, repository, repositories } = reviewDependencies();
-      const service = new SubmissionReviewsService(repository, repositories);
+      const service = new SubmissionReviewsService(
+        repository,
+        repositories,
+        authority,
+      );
 
       const result = await service.review(
-        'reviewer-1',
+        ACTOR_GITHUB_ID,
         'submission-1',
         { revision: 2, decision, comment },
         REVIEWED_AT,
@@ -103,9 +153,13 @@ describe('SubmissionReviewsService.review', () => {
 
   it('요청 revision이 최신이 아니면 stale 오류로 거부한다', async () => {
     const { store, repository, repositories } = reviewDependencies();
-    const service = new SubmissionReviewsService(repository, repositories);
+    const service = new SubmissionReviewsService(
+      repository,
+      repositories,
+      authority,
+    );
 
-    const review = service.review('reviewer-1', 'submission-1', {
+    const review = service.review(ACTOR_GITHUB_ID, 'submission-1', {
       revision: 1,
       decision: ReviewDecision.APPROVED,
       comment: null,
@@ -123,9 +177,13 @@ describe('SubmissionReviewsService.review', () => {
       ...target,
       revision: { ...target.revision, reviewId: 'existing-review' },
     });
-    const service = new SubmissionReviewsService(repository, repositories);
+    const service = new SubmissionReviewsService(
+      repository,
+      repositories,
+      authority,
+    );
 
-    const review = service.review('reviewer-1', 'submission-1', {
+    const review = service.review(ACTOR_GITHUB_ID, 'submission-1', {
       revision: 2,
       decision: ReviewDecision.APPROVED,
       comment: null,
@@ -156,7 +214,11 @@ describe('SubmissionReviewsService.publishRepository', () => {
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: REVIEWED_AT,
     });
-    const service = new SubmissionReviewsService(repository, repositories);
+    const service = new SubmissionReviewsService(
+      repository,
+      repositories,
+      authority,
+    );
 
     const result = await service.publishRepository(
       'repository-1',
@@ -186,7 +248,11 @@ describe('SubmissionReviewsService.publishRepository', () => {
       isRepositoryPublicationPlanned: true,
       programEndAt: PROGRAM_ENDED_AT,
     });
-    const service = new SubmissionReviewsService(repository, repositories);
+    const service = new SubmissionReviewsService(
+      repository,
+      repositories,
+      authority,
+    );
 
     const publish = service.publishRepository(
       'repository-1',
@@ -212,7 +278,11 @@ describe('SubmissionReviewsService.publishRepository', () => {
       isRepositoryPublicationPlanned: false,
       programEndAt: PROGRAM_ENDED_AT,
     });
-    const service = new SubmissionReviewsService(repository, repositories);
+    const service = new SubmissionReviewsService(
+      repository,
+      repositories,
+      authority,
+    );
 
     const publish = service.publishRepository(
       'repository-1',
@@ -238,7 +308,11 @@ describe('SubmissionReviewsService.publishRepository', () => {
       isRepositoryPublicationPlanned: true,
       programEndAt: new Date('2026-08-01T00:00:00.000Z'),
     });
-    const service = new SubmissionReviewsService(repository, repositories);
+    const service = new SubmissionReviewsService(
+      repository,
+      repositories,
+      authority,
+    );
 
     const publish = service.publishRepository(
       'repository-1',
@@ -265,7 +339,11 @@ describe('SubmissionReviewsService.publishRepository', () => {
     repositories.publish.mockRejectedValue(
       new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
     );
-    const service = new SubmissionReviewsService(repository, repositories);
+    const service = new SubmissionReviewsService(
+      repository,
+      repositories,
+      authority,
+    );
 
     const publish = service.publishRepository(
       'repository-1',
@@ -291,7 +369,11 @@ describe('SubmissionReviewsService.publishRepository', () => {
     });
     const internalError = new Error('synthetic database failure');
     repositories.publish.mockRejectedValue(internalError);
-    const service = new SubmissionReviewsService(repository, repositories);
+    const service = new SubmissionReviewsService(
+      repository,
+      repositories,
+      authority,
+    );
 
     await expect(
       service.publishRepository('repository-1', ACTOR_GITHUB_ID, REVIEWED_AT),

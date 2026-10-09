@@ -194,7 +194,9 @@ function serviceFor(eligibility: RepositoryPublishEligibility | null) {
   } as unknown as jest.Mocked<SubmissionReviewsRepositoryPort>;
   return {
     repositories,
-    service: new SubmissionReviewsService(repository, repositories),
+    service: new SubmissionReviewsService(repository, repositories, {
+      assertActiveStaff: jest.fn().mockResolvedValue({ actorId: 'reviewer-1' }),
+    }),
   };
 }
 
