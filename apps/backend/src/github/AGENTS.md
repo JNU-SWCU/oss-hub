@@ -31,7 +31,7 @@
 
 ## 진입점과 검증
 
-- 구현: `repositories.module.ts`, `collection.module.ts`, `repository-provision.worker.ts`, `service/repositories.service.ts`, `collection-sync.service.ts`, `service/collection-trigger.service.ts`, `job/collection.scheduler.ts`.
+- 구현: `repositories.module.ts`, `collection.module.ts`, `repository-provision.worker.ts`, `service/repositories.service.ts`, `service/repositories-read.service.ts`, `collection-sync.service.ts`, `service/collection-trigger.service.ts`, `job/collection.scheduler.ts`.
 - unit: `repository-provision.worker.spec.ts`, `repositories.module.spec.ts`, `collection-sync.service.spec.ts`, `collection-provider-queue.spec.ts`.
 - integration: `repository-provision.worker.integration.spec.ts`, `repository-outbox.consumer.integration.spec.ts`, `repositories.repository.integration.spec.ts`, `collection-scheduler.integration.spec.ts`, `github-user-activity-history.integration.spec.ts`.
 <!-- /init:managed id=craft-init-4-github -->

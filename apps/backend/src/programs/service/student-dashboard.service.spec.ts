@@ -9,10 +9,7 @@ import {
 } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
-import {
-  REPOSITORIES_READ_PORT,
-  type RepositoriesReadPort,
-} from '../../github/repositories-read.port';
+import { RepositoriesReadService } from '../../github/service/repositories-read.service';
 import { submissionCompletionTargetSelect } from '../../submissions/submission-completion-projection';
 import {
   StudentDashboardReadRepository,
@@ -105,7 +102,7 @@ describe('StudentDashboardService', () => {
   const getMyRepositories = jest.fn();
   const repositories = {
     getMyRepositories,
-  } as RepositoriesReadPort;
+  } as Pick<RepositoriesReadService, 'getMyRepositories'>;
   const service = new StudentDashboardService(repository, repositories);
 
   beforeEach(() => {
@@ -150,7 +147,7 @@ describe('StudentDashboardService', () => {
     expect(items[0]?.coverImageUrl).toBeNull();
   });
 
-  it('compiles with the read repository and the DTO-only repositories read-port token', async () => {
+  it('compiles with the read repository and the concrete repositories read service', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         StudentDashboardService,
@@ -163,7 +160,7 @@ describe('StudentDashboardService', () => {
           },
         },
         {
-          provide: REPOSITORIES_READ_PORT,
+          provide: RepositoriesReadService,
           useValue: { getMyRepositories: jest.fn() },
         },
       ],
