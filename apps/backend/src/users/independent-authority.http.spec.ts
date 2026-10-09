@@ -1,7 +1,7 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind } from '@prisma/client';
-import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/service/auth.service';
 import { sessionCookieName } from '../auth/domain/cookies';

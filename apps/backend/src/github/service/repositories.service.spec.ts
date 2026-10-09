@@ -5,7 +5,7 @@ import {
   RepositoryVisibility,
   RepositorySource,
 } from '@prisma/client';
-import type { AuditLogService } from '../../audit-log/audit-log.service';
+import type { AuditLogService } from '../../audit-log/service/audit-log.service';
 import type { GithubAppClient } from '../github-app.client';
 import type {
   OwnedProvisionJob,

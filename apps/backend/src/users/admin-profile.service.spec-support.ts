@@ -1,4 +1,4 @@
-import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
+import type { AuditLogTransactionWriter } from '../audit-log/repository/audit-log.repository';
 import { adminActor } from './admin-access.service.spec-support';
 import type { AdminAccessActor } from './admin-access.repository.types';
 import type {

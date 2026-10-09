@@ -2,8 +2,8 @@ import { Logger } from '@nestjs/common';
 import { GUARDS_METADATA, HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 
-import { AuditLogService } from '../../audit-log/audit-log.service';
-import type { AuditLogRecord } from '../../audit-log/audit-log.repository';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
+import type { AuditLogRecord } from '../../audit-log/repository/audit-log.repository';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { ContributionInvariants } from '../contribution-invariants';

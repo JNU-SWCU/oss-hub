@@ -1,19 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { DomainException } from '../common/error-code';
+import { DomainException } from '../../common/error-code';
 import {
   AUDIT_LOG_ERROR_CODES,
   AuditLogErrorCode,
-} from './audit-log-error-code.enum';
+} from '../audit-log-error-code.enum';
 import {
   AuditLogRepository,
   type AuditLogListResult,
   type AuditLogRecord,
   type AuditLogRecordInput,
-  type AuditLogRepositoryPort,
   type AuditLogTransactionWriter,
-} from './audit-log.repository';
-import type { AuditLogListQueryRequestDto } from './dto/audit-log-query.dto';
+} from '../repository/audit-log.repository';
+import type { AuditLogListQuery } from '../domain/audit-log-query';
 
 export type AuditLogPage = AuditLogListResult & {
   readonly page: number;
@@ -24,12 +23,15 @@ export type AuditLogPage = AuditLogListResult & {
 export class AuditLogService {
   constructor(
     @Inject(AuditLogRepository)
-    private readonly repository: AuditLogRepositoryPort,
+    private readonly repository: Pick<
+      AuditLogRepository,
+      'findActorByGithubId' | 'list' | 'record'
+    >,
   ) {}
 
   async list(
     actorGithubId: bigint,
-    query: AuditLogListQueryRequestDto,
+    query: AuditLogListQuery,
   ): Promise<AuditLogPage> {
     const actor = await this.repository.findActorByGithubId(actorGithubId);
     if (

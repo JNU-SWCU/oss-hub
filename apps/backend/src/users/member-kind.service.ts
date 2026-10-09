@@ -7,8 +7,8 @@ import {
   createIndependentAuthorityAuditMetadata,
   createUserProfileAuditMetadata,
   type UserProfileAuditFieldChange,
-} from '../audit-log/audit-log-metadata';
-import { AuditLogService } from '../audit-log/audit-log.service';
+} from '../audit-log/domain/audit-log-metadata';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
 import { AffiliationKind, MemberKind } from '@prisma/client';

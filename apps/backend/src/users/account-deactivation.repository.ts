@@ -4,7 +4,7 @@ import {
   Prisma,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
+import type { AuditLogTransactionWriter } from '../audit-log/repository/audit-log.repository';
 import { resolveUserProfileName } from '../profiles/user-profile-read';
 import { PrismaService } from '../prisma/prisma.service';
 import { authorityLabel, type AuthorityLabel } from './domain/authority-label';

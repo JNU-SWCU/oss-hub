@@ -10,7 +10,7 @@ import {
   RepositoryVisibility,
   RepositorySource,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../../audit-log/audit-log.repository';
+import type { AuditLogTransactionWriter } from '../../audit-log/repository/audit-log.repository';
 import { writeRepositoryIssuanceHistory } from '../../prisma/repository-provision-generation';
 import { PrismaService } from '../../prisma/prisma.service';
 import {

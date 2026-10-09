@@ -1,5 +1,5 @@
 import { ProgramCategory } from '@prisma/client';
-import type { AuditLogService } from '../audit-log/audit-log.service';
+import type { AuditLogService } from '../audit-log/service/audit-log.service';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { StaffProgramTeamResponseDto } from './dto/team-response.dto';
 import {

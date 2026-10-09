@@ -3,7 +3,7 @@ import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
   ACCESS_AUDIT_SCHEMA_VERSION,
-} from '../audit-log/audit-log-metadata';
+} from '../audit-log/domain/audit-log-metadata';
 import {
   AUTH_ERROR_CODES,
   AuthErrorCode,

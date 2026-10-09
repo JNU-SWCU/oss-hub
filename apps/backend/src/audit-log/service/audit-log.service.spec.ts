@@ -2,18 +2,20 @@ import { AccountStatus } from '@prisma/client';
 import {
   ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
-} from './audit-log-metadata';
-import { AuditLogErrorCode } from './audit-log-error-code.enum';
+} from '../domain/audit-log-metadata';
+import { AuditLogErrorCode } from '../audit-log-error-code.enum';
 import type {
   AuditLogRecordInput,
-  AuditLogRepositoryPort,
-} from './audit-log.repository';
+  AuditLogRepository,
+} from '../repository/audit-log.repository';
 import { AuditLogService } from './audit-log.service';
 
 const ADMIN_GITHUB_ID = 1001n;
 const STAFF_GITHUB_ID = 1002n;
 
-function createRepository(): jest.Mocked<AuditLogRepositoryPort> {
+function createRepository(): jest.Mocked<
+  Pick<AuditLogRepository, 'findActorByGithubId' | 'list' | 'record'>
+> {
   return {
     findActorByGithubId: jest.fn((githubId) =>
       Promise.resolve({

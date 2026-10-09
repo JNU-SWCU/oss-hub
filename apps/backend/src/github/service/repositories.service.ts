@@ -6,12 +6,12 @@ import {
   RepositoryVisibility,
   RepositorySource,
 } from '@prisma/client';
-import type { AuditLogService } from '../../audit-log/audit-log.service';
+import type { AuditLogService } from '../../audit-log/service/audit-log.service';
 import {
   REPOSITORY_PUBLISH_AUDIT_ACTIONS,
   createRepositoryPublishAuditMetadata,
   deriveRepositoryFullName,
-} from '../../audit-log/audit-log-metadata';
+} from '../../audit-log/domain/audit-log-metadata';
 import type { GithubAppClient } from '../github-app.client';
 import type { GithubOperationsConfig } from '../github-operations.config';
 import { parseGithubRepositoryUrl } from '../domain/github-repository-url';
