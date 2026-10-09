@@ -165,6 +165,10 @@ export function ActivityTimelineView({
             </p>
           ) : null}
         </div>
+        <p className="text-sm text-muted-foreground">
+          합계는 Commit·Pull Request·Release를 더한 값입니다. Issue는 따로
+          셉니다.
+        </p>
         {status === 'error' ? (
           <Alert variant="destructive">
             <AlertCircle aria-hidden="true" />
