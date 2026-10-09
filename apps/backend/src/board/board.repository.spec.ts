@@ -1,4 +1,8 @@
-import { BoardPostCategory, MemberKind } from '@prisma/client';
+import {
+  ApplicationStatus,
+  BoardPostCategory,
+  MemberKind,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BoardRepository } from './board.repository';
 
@@ -14,6 +18,46 @@ const expectedAuthorNameSelect = {
   profile: { select: { name: true, memberKind: true } },
 } as const;
 const expectedCommentAuthorSelect = expectedAuthorNameSelect;
+
+describe('BoardRepository authorization', () => {
+  it.each([null, { id: 'synthetic-application' }])(
+    'requires an approved application with current team membership: %s',
+    async (result) => {
+      const findFirst = jest.fn().mockResolvedValue(result);
+      const prisma = { application: { findFirst } } as unknown as PrismaService;
+      await expect(
+        new BoardRepository(prisma).isApprovedParticipant(
+          syntheticProgramId,
+          syntheticAuthorId,
+        ),
+      ).resolves.toBe(result !== null);
+      expect(findFirst).toHaveBeenCalledWith({
+        where: {
+          programId: syntheticProgramId,
+          status: ApplicationStatus.APPROVED,
+          team: { members: { some: { userId: syntheticAuthorId } } },
+        },
+        select: { id: true },
+      });
+    },
+  );
+  it('selects only board authorization fields by session github identity', async () => {
+    const findUnique = jest.fn().mockResolvedValue(null);
+    const prisma = { user: { findUnique } } as unknown as PrismaService;
+    await expect(
+      new BoardRepository(prisma).findAccessActor(5001n),
+    ).resolves.toBeNull();
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { githubId: 5001n },
+      select: {
+        id: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
+    });
+  });
+});
 
 describe('BoardRepository.findByProgramId', () => {
   it('page/limit을 skip/take로 변환하고 고정글·최신순으로 조회한다', async () => {

@@ -9,24 +9,33 @@ import { issueSessionToken } from '../auth/domain/session-token';
 import { SessionGuard } from '../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { PrismaService } from '../prisma/prisma.service';
-import { BoardAccessGuard } from './board-access.guard';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { BoardController } from './board.controller';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
 
 const sessionSecret = new Uint8Array(32).fill(19);
 const allowedOrigin = 'http://frontend.test';
-const actor = {
+const actor: {
+  id: string;
+  hasStaffAccess: boolean;
+  hasAdminAccess: boolean;
+  accountStatus: AccountStatus;
+} = {
   id: 'synthetic-actor',
   hasStaffAccess: false,
   hasAdminAccess: false,
   accountStatus: AccountStatus.ACTIVE,
 };
 const prisma = {
-  user: { findUnique: jest.fn() },
-  application: { findFirst: jest.fn() },
+  user: { findUnique: jest.fn<Promise<typeof actor | null>, []>() },
+  application: { findFirst: jest.fn<Promise<{ id: string } | null>, []>() },
 };
 const repository = {
+  findAccessActor: jest.fn(() => prisma.user.findUnique()),
+  isApprovedParticipant: jest.fn(
+    async () => (await prisma.application.findFirst()) !== null,
+  ),
   findByProgramId: jest.fn().mockResolvedValue({ items: [], total: 0 }),
 };
 
@@ -40,7 +49,12 @@ describe('board authorization HTTP characterization', () => {
       controllers: [BoardController],
       providers: [
         BoardService,
-        BoardAccessGuard,
+        {
+          provide: UsersAuthorityService,
+          useValue: new UsersAuthorityService({
+            findActorByGithubId: () => prisma.user.findUnique(),
+          }),
+        },
         SessionGuard,
         OriginGuard,
         { provide: BoardRepository, useValue: repository },
@@ -132,6 +146,104 @@ describe('board authorization HTTP characterization', () => {
     await expect(response.json()).resolves.toMatchObject({
       code: 'AUT_003',
       status: 401,
+    });
+  });
+
+  it.each(['STUDENT', 'inactive STAFF'] as const)(
+    'validates invalid query before denying %s',
+    async (role) => {
+      if (role === 'inactive STAFF')
+        prisma.user.findUnique.mockResolvedValue({
+          ...actor,
+          hasStaffAccess: true,
+          accountStatus: AccountStatus.DEACTIVATED,
+        });
+      const response = await fetch(
+        `${baseUrl}/programs/synthetic-program/board/posts?page=invalid`,
+        { headers: { cookie } },
+      );
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        code: 'SYS_003',
+        status: 400,
+      });
+    },
+  );
+
+  for (const inactiveStaff of [false, true]) {
+    it.each([
+      ['POST', '', {}],
+      ['PATCH', '/synthetic-post', {}],
+      ['PATCH', '/synthetic-post/pin', { pinned: 'invalid' }],
+      ['POST', '/synthetic-post/comments', {}],
+    ] as const)(
+      `validates invalid body before authorization (inactiveStaff=${inactiveStaff}): %s %s`,
+      async (method, suffix, body) => {
+        if (inactiveStaff)
+          prisma.user.findUnique.mockResolvedValue({
+            ...actor,
+            hasStaffAccess: true,
+            accountStatus: AccountStatus.DEACTIVATED,
+          });
+        const response = await fetch(
+          `${baseUrl}/programs/synthetic-program/board/posts${suffix}`,
+          {
+            method,
+            headers: {
+              cookie,
+              origin: allowedOrigin,
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify(body),
+          },
+        );
+        expect(response.status).toBe(400);
+        await expect(response.json()).resolves.toMatchObject({
+          code: 'SYS_003',
+          status: 400,
+        });
+      },
+    );
+
+    it.each([undefined, 'http://invalid.test'])(
+      `rejects Origin before authorization (inactiveStaff=${inactiveStaff}): %s`,
+      async (origin) => {
+        if (inactiveStaff)
+          prisma.user.findUnique.mockResolvedValue({
+            ...actor,
+            hasStaffAccess: true,
+            accountStatus: AccountStatus.DEACTIVATED,
+          });
+        const response = await fetch(
+          `${baseUrl}/programs/synthetic-program/board/posts`,
+          {
+            method: 'POST',
+            headers: {
+              cookie,
+              ...(origin === undefined ? {} : { origin }),
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({ title: '합성 제목', body: '합성 본문' }),
+          },
+        );
+        expect(response.status).toBe(403);
+        await expect(response.json()).resolves.toMatchObject({
+          code: 'AUT_002',
+          status: 403,
+        });
+      },
+    );
+  }
+
+  it('keeps malformed path params behind board authorization because no param pipe exists', async () => {
+    const response = await fetch(
+      `${baseUrl}/programs/invalid/board/posts/invalid`,
+      { headers: { cookie } },
+    );
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'BRD_001',
+      status: 403,
     });
   });
 });

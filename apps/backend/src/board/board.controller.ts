@@ -12,8 +12,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { OriginGuard } from '../auth/controller/origin.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
 import { SessionGuard } from '../auth/controller/session.guard';
-import { BoardActorRequest, BoardAccessGuard } from './board-access.guard';
 import { BoardService } from './board.service';
 import { BoardCommentResponseDto } from './dto/board-comment-response.dto';
 import { BoardPostDetailResponseDto } from './dto/board-post-detail-response.dto';
@@ -24,13 +24,10 @@ import { CreateBoardPostRequestDto } from './dto/create-board-post-request.dto';
 import { SetBoardPostPinnedRequestDto } from './dto/set-board-post-pinned-request.dto';
 import { UpdateBoardPostRequestDto } from './dto/update-board-post-request.dto';
 
-type BoardActor = Pick<
-  BoardActorRequest,
-  'sessionGithubId' | 'boardActorId' | 'boardActorIsStaff'
->;
+type BoardActor = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 @Controller('programs/:programId/board/posts')
-@UseGuards(SessionGuard, BoardAccessGuard)
+@UseGuards(SessionGuard)
 export class BoardController {
   constructor(private readonly service: BoardService) {}
 
@@ -40,13 +37,13 @@ export class BoardController {
     @Param('programId') programId: string,
     @Query() query: BoardPostListRequestDto,
   ): Promise<BoardPostsPageResponseDto> {
-    const page = await this.service.listPosts(
-      programId,
-      query.toQuery(),
-      request.boardActorId,
-      request.boardActorIsStaff,
+    return BoardPostsPageResponseDto.from(
+      await this.service.listPosts(
+        programId,
+        query.toQuery(),
+        request.sessionGithubId,
+      ),
     );
-    return BoardPostsPageResponseDto.from(page);
   }
 
   @Get(':postId')
@@ -55,13 +52,13 @@ export class BoardController {
     @Param('programId') programId: string,
     @Param('postId') postId: string,
   ): Promise<BoardPostDetailResponseDto> {
-    const post = await this.service.getPostDetail(
-      programId,
-      postId,
-      request.boardActorId,
-      request.boardActorIsStaff,
+    return BoardPostDetailResponseDto.from(
+      await this.service.getPostDetail(
+        programId,
+        postId,
+        request.sessionGithubId,
+      ),
     );
-    return BoardPostDetailResponseDto.from(post);
   }
 
   @Post()
@@ -72,13 +69,9 @@ export class BoardController {
     @Param('programId') programId: string,
     @Body() body: CreateBoardPostRequestDto,
   ): Promise<BoardPostDetailResponseDto> {
-    const post = await this.service.createPost(
-      programId,
-      request.boardActorId,
-      request.boardActorIsStaff,
-      body,
+    return BoardPostDetailResponseDto.from(
+      await this.service.createPost(programId, request.sessionGithubId, body),
     );
-    return BoardPostDetailResponseDto.from(post);
   }
 
   @Patch(':postId')
@@ -89,13 +82,14 @@ export class BoardController {
     @Param('postId') postId: string,
     @Body() body: UpdateBoardPostRequestDto,
   ): Promise<BoardPostDetailResponseDto> {
-    const post = await this.service.updatePost(
-      programId,
-      postId,
-      request.boardActorId,
-      body,
+    return BoardPostDetailResponseDto.from(
+      await this.service.updatePost(
+        programId,
+        postId,
+        request.sessionGithubId,
+        body,
+      ),
     );
-    return BoardPostDetailResponseDto.from(post);
   }
 
   @Delete(':postId')
@@ -105,12 +99,7 @@ export class BoardController {
     @Param('programId') programId: string,
     @Param('postId') postId: string,
   ): Promise<{ readonly deleted: true }> {
-    await this.service.deletePost(
-      programId,
-      postId,
-      request.boardActorId,
-      request.boardActorIsStaff,
-    );
+    await this.service.deletePost(programId, postId, request.sessionGithubId);
     return { deleted: true };
   }
 
@@ -125,7 +114,7 @@ export class BoardController {
     await this.service.setPinned(
       programId,
       postId,
-      request.boardActorIsStaff,
+      request.sessionGithubId,
       body.pinned,
     );
     return { pinned: body.pinned };
@@ -140,13 +129,14 @@ export class BoardController {
     @Param('postId') postId: string,
     @Body() body: CreateBoardCommentRequestDto,
   ): Promise<BoardCommentResponseDto> {
-    const comment = await this.service.createComment(
-      programId,
-      postId,
-      request.boardActorId,
-      body,
+    return BoardCommentResponseDto.from(
+      await this.service.createComment(
+        programId,
+        postId,
+        request.sessionGithubId,
+        body,
+      ),
     );
-    return BoardCommentResponseDto.from(comment);
   }
 
   @Delete(':postId/comments/:commentId')
@@ -161,8 +151,7 @@ export class BoardController {
       programId,
       postId,
       commentId,
-      request.boardActorId,
-      request.boardActorIsStaff,
+      request.sessionGithubId,
     );
     return { deleted: true };
   }

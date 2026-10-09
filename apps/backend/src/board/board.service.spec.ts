@@ -1,4 +1,5 @@
-import { BoardPostCategory } from '@prisma/client';
+import { AccountStatus, BoardPostCategory } from '@prisma/client';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { DomainException } from '../common/error-code';
 import { BoardErrorCode } from './board-error-code.enum';
 import { BoardRepository } from './board.repository';
@@ -10,6 +11,30 @@ const syntheticCommentId = 'cuid-synthetic-comment';
 const syntheticAuthorId = 'cuid-synthetic-author';
 const syntheticOtherUserId = 'cuid-synthetic-other-user';
 const syntheticStaffId = 'cuid-synthetic-staff';
+
+const actors = new Map<
+  bigint,
+  {
+    id: string;
+    hasStaffAccess: boolean;
+    hasAdminAccess: boolean;
+    accountStatus: AccountStatus;
+  }
+>();
+function sessionFor(id: string, hasStaffAccess: boolean): bigint {
+  const session = BigInt(actors.size + 1);
+  actors.set(session, {
+    id,
+    hasStaffAccess,
+    hasAdminAccess: false,
+    accountStatus: AccountStatus.ACTIVE,
+  });
+  return session;
+}
+const authority = new UsersAuthorityService({
+  findActorByGithubId: (session) =>
+    Promise.resolve(actors.get(session) ?? null),
+});
 
 function syntheticPostDetail() {
   return {
@@ -30,6 +55,10 @@ function syntheticPostDetail() {
 
 function buildRepository(overrides: Partial<BoardRepository> = {}) {
   const mocks = {
+    findAccessActor: jest.fn((session: bigint) =>
+      Promise.resolve(actors.get(session) ?? null),
+    ),
+    isApprovedParticipant: jest.fn().mockResolvedValue(true),
     findByProgramId: jest.fn(),
     findDetailById: jest.fn(),
     findRefById: jest.fn(),
@@ -46,6 +75,36 @@ function buildRepository(overrides: Partial<BoardRepository> = {}) {
 }
 
 describe('BoardService', () => {
+  it.each(['missing', 'inactive', 'nonparticipant'] as const)(
+    'rejects %s actors before post lookup',
+    async (kind) => {
+      const session = sessionFor(syntheticAuthorId, kind === 'inactive');
+      if (kind === 'missing') actors.delete(session);
+      if (kind === 'inactive')
+        actors.set(session, {
+          id: syntheticAuthorId,
+          hasStaffAccess: true,
+          hasAdminAccess: false,
+          accountStatus: AccountStatus.DEACTIVATED,
+        });
+      const { mocks, repository } = buildRepository({
+        isApprovedParticipant: jest.fn().mockResolvedValue(false),
+      });
+      await expect(
+        new BoardService(repository, authority).getPostDetail(
+          syntheticProgramId,
+          syntheticPostId,
+          session,
+        ),
+      ).rejects.toMatchObject({
+        errorCode: { code: BoardErrorCode.ACCESS_FORBIDDEN, status: 403 },
+      });
+      expect(mocks.findDetailById).not.toHaveBeenCalled();
+      if (kind !== 'nonparticipant')
+        expect(mocks.isApprovedParticipant).not.toHaveBeenCalled();
+    },
+  );
+
   describe('listPosts', () => {
     it('programId와 페이지 정보를 리포지토리에 그대로 넘기고 결과에 page/limit을 붙인다', async () => {
       const items = [
@@ -63,13 +122,12 @@ describe('BoardService', () => {
       const { mocks, repository } = buildRepository({
         findByProgramId: jest.fn().mockResolvedValue({ items, total: 1 }),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       const result = await service.listPosts(
         syntheticProgramId,
         { page: 1, limit: 20 },
-        syntheticAuthorId,
-        false,
+        sessionFor(syntheticAuthorId, false),
       );
 
       expect(mocks.findByProgramId).toHaveBeenCalledWith(
@@ -91,14 +149,13 @@ describe('BoardService', () => {
       const { repository } = buildRepository({
         findDetailById: jest.fn().mockResolvedValue(null),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await expect(
         service.getPostDetail(
           syntheticProgramId,
           syntheticPostId,
-          syntheticAuthorId,
-          false,
+          sessionFor(syntheticAuthorId, false),
         ),
       ).rejects.toMatchObject({
         errorCode: { code: BoardErrorCode.POST_NOT_FOUND },
@@ -121,14 +178,13 @@ describe('BoardService', () => {
           comments: [],
         }),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await expect(
         service.getPostDetail(
           syntheticProgramId,
           syntheticPostId,
-          syntheticAuthorId,
-          false,
+          sessionFor(syntheticAuthorId, false),
         ),
       ).rejects.toBeInstanceOf(DomainException);
     });
@@ -150,13 +206,12 @@ describe('BoardService', () => {
       const { repository } = buildRepository({
         findDetailById: jest.fn().mockResolvedValue(post),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       const result = await service.getPostDetail(
         syntheticProgramId,
         syntheticPostId,
-        syntheticAuthorId,
-        false,
+        sessionFor(syntheticAuthorId, false),
       );
 
       expect(result).toEqual({ ...post, canEdit: true, canDelete: true });
@@ -203,11 +258,13 @@ describe('BoardService', () => {
         findDetailById: jest.fn().mockResolvedValue(post),
       });
 
-      const result = await new BoardService(repository).getPostDetail(
+      const result = await new BoardService(
+        repository,
+        authority,
+      ).getPostDetail(
         syntheticProgramId,
         syntheticPostId,
-        syntheticAuthorId,
-        false,
+        sessionFor(syntheticAuthorId, false),
       );
 
       expect(result).toMatchObject({ canEdit: true, canDelete: true });
@@ -219,11 +276,13 @@ describe('BoardService', () => {
         findDetailById: jest.fn().mockResolvedValue(post),
       });
 
-      const result = await new BoardService(repository).getPostDetail(
+      const result = await new BoardService(
+        repository,
+        authority,
+      ).getPostDetail(
         syntheticProgramId,
         syntheticPostId,
-        syntheticOtherUserId,
-        false,
+        sessionFor(syntheticOtherUserId, false),
       );
 
       expect(result).toMatchObject({ canEdit: false, canDelete: false });
@@ -244,11 +303,13 @@ describe('BoardService', () => {
         findDetailById: jest.fn().mockResolvedValue(post),
       });
 
-      const result = await new BoardService(repository).getPostDetail(
+      const result = await new BoardService(
+        repository,
+        authority,
+      ).getPostDetail(
         syntheticProgramId,
         syntheticPostId,
-        syntheticStaffId,
-        true,
+        sessionFor(syntheticStaffId, true),
       );
 
       expect(result).toMatchObject({ canEdit: false, canDelete: true });
@@ -263,11 +324,13 @@ describe('BoardService', () => {
         findDetailById: jest.fn().mockResolvedValue(post),
       });
 
-      const result = await new BoardService(repository).getPostDetail(
+      const result = await new BoardService(
+        repository,
+        authority,
+      ).getPostDetail(
         syntheticProgramId,
         syntheticPostId,
-        'cuid-synthetic-unrelated-user',
-        false,
+        sessionFor('cuid-synthetic-unrelated-user', false),
       );
 
       expect(result).toMatchObject({ canEdit: false, canDelete: false });
@@ -283,12 +346,16 @@ describe('BoardService', () => {
       const { mocks, repository } = buildRepository({
         create: jest.fn().mockResolvedValue(syntheticPostDetail()),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
-      await service.createPost(syntheticProgramId, syntheticStaffId, true, {
-        title: '공지 제목',
-        body: '공지 본문',
-      });
+      await service.createPost(
+        syntheticProgramId,
+        sessionFor(syntheticStaffId, true),
+        {
+          title: '공지 제목',
+          body: '공지 본문',
+        },
+      );
 
       expect(mocks.create).toHaveBeenCalledWith({
         programId: syntheticProgramId,
@@ -303,12 +370,16 @@ describe('BoardService', () => {
       const { mocks, repository } = buildRepository({
         create: jest.fn().mockResolvedValue(syntheticPostDetail()),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
-      await service.createPost(syntheticProgramId, syntheticAuthorId, false, {
-        title: '질문 제목',
-        body: '질문 본문',
-      });
+      await service.createPost(
+        syntheticProgramId,
+        sessionFor(syntheticAuthorId, false),
+        {
+          title: '질문 제목',
+          body: '질문 본문',
+        },
+      );
 
       expect(mocks.create).toHaveBeenCalledWith({
         programId: syntheticProgramId,
@@ -330,12 +401,12 @@ describe('BoardService', () => {
         }),
         update: jest.fn().mockResolvedValue(syntheticPostDetail()),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await service.updatePost(
         syntheticProgramId,
         syntheticPostId,
-        syntheticAuthorId,
+        sessionFor(syntheticAuthorId, false),
         { title: '새 제목', body: '새 본문' },
       );
 
@@ -353,13 +424,13 @@ describe('BoardService', () => {
           authorId: syntheticAuthorId,
         }),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await expect(
         service.updatePost(
           syntheticProgramId,
           syntheticPostId,
-          syntheticStaffId,
+          sessionFor(syntheticStaffId, false),
           { title: '새 제목', body: '새 본문' },
         ),
       ).rejects.toMatchObject({
@@ -372,13 +443,13 @@ describe('BoardService', () => {
       const { repository } = buildRepository({
         findRefById: jest.fn().mockResolvedValue(null),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await expect(
         service.updatePost(
           syntheticProgramId,
           syntheticPostId,
-          syntheticAuthorId,
+          sessionFor(syntheticAuthorId, false),
           { title: '새 제목', body: '새 본문' },
         ),
       ).rejects.toMatchObject({
@@ -396,13 +467,12 @@ describe('BoardService', () => {
           authorId: syntheticAuthorId,
         }),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await service.deletePost(
         syntheticProgramId,
         syntheticPostId,
-        syntheticAuthorId,
-        false,
+        sessionFor(syntheticAuthorId, false),
       );
 
       expect(mocks.deleteWithComments).toHaveBeenCalledWith(syntheticPostId);
@@ -416,13 +486,12 @@ describe('BoardService', () => {
           authorId: syntheticAuthorId,
         }),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await service.deletePost(
         syntheticProgramId,
         syntheticPostId,
-        syntheticStaffId,
-        true,
+        sessionFor(syntheticStaffId, true),
       );
 
       expect(mocks.deleteWithComments).toHaveBeenCalledWith(syntheticPostId);
@@ -436,14 +505,13 @@ describe('BoardService', () => {
           authorId: syntheticAuthorId,
         }),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await expect(
         service.deletePost(
           syntheticProgramId,
           syntheticPostId,
-          syntheticOtherUserId,
-          false,
+          sessionFor(syntheticOtherUserId, false),
         ),
       ).rejects.toMatchObject({
         errorCode: { code: BoardErrorCode.NOT_AUTHOR },
@@ -461,19 +529,29 @@ describe('BoardService', () => {
           authorId: syntheticAuthorId,
         }),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
-      await service.setPinned(syntheticProgramId, syntheticPostId, true, true);
+      await service.setPinned(
+        syntheticProgramId,
+        syntheticPostId,
+        sessionFor(syntheticStaffId, true),
+        true,
+      );
 
       expect(mocks.setPinned).toHaveBeenCalledWith(syntheticPostId, true);
     });
 
     it('교직원이 아니면 STAFF_ONLY를 던지고 리포지토리를 건드리지 않는다', async () => {
       const { mocks, repository } = buildRepository();
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await expect(
-        service.setPinned(syntheticProgramId, syntheticPostId, false, true),
+        service.setPinned(
+          syntheticProgramId,
+          syntheticPostId,
+          sessionFor(syntheticStaffId, false),
+          true,
+        ),
       ).rejects.toMatchObject({
         errorCode: { code: BoardErrorCode.STAFF_ONLY },
       });
@@ -492,12 +570,12 @@ describe('BoardService', () => {
         }),
         createComment: jest.fn().mockResolvedValue({}),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await service.createComment(
         syntheticProgramId,
         syntheticPostId,
-        syntheticOtherUserId,
+        sessionFor(syntheticOtherUserId, false),
         { body: '댓글 내용' },
       );
 
@@ -519,14 +597,13 @@ describe('BoardService', () => {
           authorId: syntheticOtherUserId,
         }),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await service.deleteComment(
         syntheticProgramId,
         syntheticPostId,
         syntheticCommentId,
-        syntheticOtherUserId,
-        false,
+        sessionFor(syntheticOtherUserId, false),
       );
 
       expect(mocks.deleteComment).toHaveBeenCalledWith(syntheticCommentId);
@@ -541,14 +618,13 @@ describe('BoardService', () => {
           authorId: syntheticOtherUserId,
         }),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await service.deleteComment(
         syntheticProgramId,
         syntheticPostId,
         syntheticCommentId,
-        syntheticStaffId,
-        true,
+        sessionFor(syntheticStaffId, true),
       );
 
       expect(mocks.deleteComment).toHaveBeenCalledWith(syntheticCommentId);
@@ -563,15 +639,14 @@ describe('BoardService', () => {
           authorId: syntheticOtherUserId,
         }),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await expect(
         service.deleteComment(
           syntheticProgramId,
           syntheticPostId,
           syntheticCommentId,
-          syntheticAuthorId,
-          false,
+          sessionFor(syntheticAuthorId, false),
         ),
       ).rejects.toMatchObject({
         errorCode: { code: BoardErrorCode.NOT_AUTHOR },
@@ -588,15 +663,14 @@ describe('BoardService', () => {
           authorId: syntheticOtherUserId,
         }),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await expect(
         service.deleteComment(
           syntheticProgramId,
           syntheticPostId,
           syntheticCommentId,
-          syntheticOtherUserId,
-          false,
+          sessionFor(syntheticOtherUserId, false),
         ),
       ).rejects.toMatchObject({
         errorCode: { code: BoardErrorCode.COMMENT_NOT_FOUND },
@@ -607,15 +681,14 @@ describe('BoardService', () => {
       const { repository } = buildRepository({
         findCommentRefById: jest.fn().mockResolvedValue(null),
       });
-      const service = new BoardService(repository);
+      const service = new BoardService(repository, authority);
 
       await expect(
         service.deleteComment(
           syntheticProgramId,
           syntheticPostId,
           syntheticCommentId,
-          syntheticOtherUserId,
-          false,
+          sessionFor(syntheticOtherUserId, false),
         ),
       ).rejects.toMatchObject({
         errorCode: { code: BoardErrorCode.COMMENT_NOT_FOUND },

@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { BoardPostCategory, type MemberKind } from '@prisma/client';
+import {
+  ApplicationStatus,
+  BoardPostCategory,
+  type MemberKind,
+} from '@prisma/client';
+import { programApplicationParticipantWhere } from '../programs/program-participant';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   authorityLabel,
@@ -126,6 +131,33 @@ const postDetailSelect = {
 @Injectable()
 export class BoardRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  async findAccessActor(sessionGithubId: bigint) {
+    return this.prisma.user.findUnique({
+      where: { githubId: sessionGithubId },
+      select: {
+        id: true,
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+        accountStatus: true,
+      },
+    });
+  }
+
+  async isApprovedParticipant(
+    programId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const participant = await this.prisma.application.findFirst({
+      where: {
+        programId,
+        status: ApplicationStatus.APPROVED,
+        ...programApplicationParticipantWhere(userId),
+      },
+      select: { id: true },
+    });
+    return participant !== null;
+  }
 
   async findByProgramId(
     programId: string,
