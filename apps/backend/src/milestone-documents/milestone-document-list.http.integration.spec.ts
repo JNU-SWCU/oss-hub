@@ -16,7 +16,7 @@ import { MilestoneDocumentArchiveService } from './milestone-document-archive.se
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentsController } from './milestone-documents.controller';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 
