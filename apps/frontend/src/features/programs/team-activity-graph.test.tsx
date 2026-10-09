@@ -108,11 +108,9 @@ describe('TeamActivityGraph', () => {
     container.remove();
   });
   async function render(activity: TeamActivity) {
-    await act(() =>
-      Promise.resolve(
-        root.render(
-          <TeamActivityGraph activity={activity} label="우리 팀 활동" />,
-        ),
+    await act(async () =>
+      root.render(
+        <TeamActivityGraph activity={activity} label="우리 팀 활동" />,
       ),
     );
   }
@@ -224,7 +222,7 @@ describe('TeamActivityGraph', () => {
     ]);
     expect(readout()).toBeNull();
 
-    await act(() => Promise.resolve(chip('PR').click()));
+    await act(async () => chip('PR').click());
 
     expect(chip('PR').getAttribute('aria-pressed')).toBe('true');
     expect(chip('Commit').getAttribute('aria-pressed')).toBe('false');
@@ -239,9 +237,7 @@ describe('TeamActivityGraph', () => {
 
   it('가리킬 때만 그 주의 팀원별 값과 팀 합계를 보이고 벗어나면 감춘다', async () => {
     await render(collected);
-    await act(() =>
-      Promise.resolve(chart.onMouseMove?.({ activeTooltipIndex: '1' })),
-    );
+    await act(async () => chart.onMouseMove?.({ activeTooltipIndex: '1' }));
 
     expect(readout()).toContain('2026.08.10 주 · Commit');
     expect(readout()).toContain('@ada2');
@@ -253,15 +249,13 @@ describe('TeamActivityGraph', () => {
         ?.getAttribute('data-reference-week'),
     ).toBe('2026-08-10');
 
-    await act(() => {
+    await act(async () => {
       group().dispatchEvent(
         new MouseEvent('mouseout', {
           bubbles: true,
           relatedTarget: document.body,
         }),
       );
-
-      return Promise.resolve();
     });
     expect(readout()).toBeNull();
     expect(container.querySelector('[data-reference-week]')).toBeNull();
@@ -272,41 +266,35 @@ describe('TeamActivityGraph', () => {
     const chartGroup = group();
     expect(chartGroup.tabIndex).toBe(0);
 
-    await act(() => Promise.resolve(chartGroup.focus()));
+    await act(async () => chartGroup.focus());
     expect(readout()).toContain('2026.08.10 주');
     expect(container.querySelector('[aria-live="polite"]')?.textContent).toBe(
       '2026.08.10 주 Commit: @ada 2, @bob 5, @cy 0, 팀 합계 7',
     );
 
-    await act(() => {
+    await act(async () => {
       chartGroup.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }),
       );
-
-      return Promise.resolve();
     });
     expect(readout()).toContain('2026.08.03 주');
     expect(readout()).toContain('팀 합계3');
 
-    await act(() => {
+    await act(async () => {
       chartGroup.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }),
       );
-
-      return Promise.resolve();
     });
     expect(readout()).toContain('2026.08.03 주');
 
-    await act(() => {
+    await act(async () => {
       chartGroup.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
       );
-
-      return Promise.resolve();
     });
     expect(readout()).toContain('2026.08.10 주');
 
-    await act(() => Promise.resolve(chartGroup.blur()));
+    await act(async () => chartGroup.blur());
     expect(readout()).toBeNull();
   });
 });

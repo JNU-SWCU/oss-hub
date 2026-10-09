@@ -145,7 +145,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
     window.confirm = originalConfirm;
   });
@@ -177,7 +177,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
   }
 
   async function editName(value: string): Promise<void> {
-    await act(() => Promise.resolve(editButton(milestone.name).click()));
+    await act(async () => editButton(milestone.name).click());
     await setName(value);
   }
 
@@ -187,11 +187,9 @@ describe('마일스톤 스냅샷 저장 상태', () => {
       HTMLInputElement.prototype,
       'value',
     );
-    await act(() => {
+    await act(async () => {
       setter?.set?.call(input, value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
-
-      return Promise.resolve();
     });
   }
 
@@ -209,14 +207,14 @@ describe('마일스톤 스냅샷 저장 상태', () => {
       (candidate) => candidate.textContent?.trim() === '← 프로그램 개요',
     );
     if (exitLink === undefined) throw new TypeError('Missing exit link.');
-    await act(() => Promise.resolve(exitLink.click()));
+    await act(async () => exitLink.click());
     expect(confirmMock).toHaveBeenCalledWith(UNSAVED_PROGRAM_MESSAGE);
     expect(routerMock.push).not.toHaveBeenCalled();
   }
 
   it('검증 실패후에도 폼과 초기 스냅샷의 dirty 판정을 유지한다', async () => {
     await editName('');
-    await act(() => Promise.resolve(button('마일스톤 저장').click()));
+    await act(async () => button('마일스톤 저장').click());
 
     expect(nameInput().value).toBe('');
     expect(document.body.textContent).toContain(
@@ -247,7 +245,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
       (candidate) => candidate.textContent?.trim() === '← 프로그램 개요',
     );
     if (exitLink === undefined) throw new TypeError('Missing exit link.');
-    await act(() => Promise.resolve(exitLink.click()));
+    await act(async () => exitLink.click());
 
     expect(confirmMock).not.toHaveBeenCalled();
   });
@@ -316,7 +314,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     );
     if (scheduleButton === null)
       throw new TypeError('Missing server schedule input button.');
-    await act(() => Promise.resolve(scheduleButton.click()));
+    await act(async () => scheduleButton.click());
     expect(
       document.querySelector<HTMLInputElement>(
         'input[aria-label="서버 최신 기획서 시작 시각"]',
@@ -368,12 +366,10 @@ describe('마일스톤 스냅샷 저장 상태', () => {
       },
       fingerprint: 'd'.repeat(64),
     });
-    await act(() => Promise.resolve(button('새로고침').click()));
+    await act(async () => button('새로고침').click());
     expect(nameInput().value).toBe('충돌 전 입력');
     expect(button('마일스톤 저장').disabled).toBe(true);
-    await act(() =>
-      Promise.resolve(button('최신 서버 상태로 다시 시작').click()),
-    );
+    await act(async () => button('최신 서버 상태로 다시 시작').click());
     expect(nameInput().value).toBe('서버 최신');
     expect(button('마일스톤 저장').disabled).toBe(false);
   });
@@ -435,25 +431,25 @@ describe('마일스톤 스냅샷 저장 상태', () => {
       },
       fingerprint: 'b'.repeat(64),
     });
-    await act(() => Promise.resolve(editButton(saved.name).click()));
+    await act(async () => editButton(saved.name).click());
     expect(nameInput().value).toBe(saved.name);
     const exitLink = Array.from(container.querySelectorAll('a')).find(
       (candidate) => candidate.textContent?.trim() === '← 프로그램 개요',
     );
     if (exitLink === undefined) throw new TypeError('Missing exit link.');
-    await act(() => Promise.resolve(exitLink.click()));
+    await act(async () => exitLink.click());
     expect(confirmMock).not.toHaveBeenCalled();
   });
 
   it('첫 편집의 변경사항을 취소하고 다른 마일스톤을 열면 두 번째 스냅샷에서 clean으로 시작한다', async () => {
     await editName('취소할 기획서');
-    await act(() => Promise.resolve(button('취소').click()));
+    await act(async () => button('취소').click());
     expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
-    await act(() => Promise.resolve(button('버리기').click()));
+    await act(async () => button('버리기').click());
     expect(document.querySelector('[role="dialog"]')).toBeNull();
 
     const secondEdit = editButton(secondMilestone.name);
-    await act(() => Promise.resolve(secondEdit.click()));
+    await act(async () => secondEdit.click());
     expect(nameInput().value).toBe(secondMilestone.name);
     const dialog = document.querySelector('[role="dialog"]');
     if (dialog === null) throw new TypeError('Missing milestone dialog.');
@@ -463,7 +459,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     );
     if (scheduleButton === null)
       throw new TypeError('Missing schedule input button.');
-    await act(() => Promise.resolve(scheduleButton.click()));
+    await act(async () => scheduleButton.click());
     const timeValue = (label: string) =>
       document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)
         ?.value;
@@ -479,7 +475,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
     ).find((candidate) => candidate.textContent?.trim() === '취소');
     if (closeRangeDialog === undefined)
       throw new TypeError('Missing range dialog cancel.');
-    await act(() => Promise.resolve(closeRangeDialog.click()));
+    await act(async () => closeRangeDialog.click());
     expect(
       dialog
         .querySelector('[data-calendar-date="2026-08-22"]')
