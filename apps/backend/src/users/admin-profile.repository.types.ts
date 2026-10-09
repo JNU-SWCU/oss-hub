@@ -1,5 +1,5 @@
 import type { MemberKind } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../audit-log/repository/audit-log.repository';
+import type { AuditLogTransactionWriter } from '../prisma/audit-log-transaction-writer';
 import type { AdminAccessActor } from './admin-access.repository.types';
 
 export type AdminProfileTargetRecord = {

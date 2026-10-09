@@ -1,3 +1,4 @@
+import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
 import { Injectable } from '@nestjs/common';
 import { type AccountStatus, type Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -26,11 +27,6 @@ const auditLogSelect = {
 type PrismaAuditLog = Prisma.AuditLogGetPayload<{
   select: typeof auditLogSelect;
 }>;
-
-export type AuditLogTransactionWriter = Pick<
-  Prisma.TransactionClient,
-  'auditLog'
->;
 
 export interface AuditLogActor {
   readonly id: string;

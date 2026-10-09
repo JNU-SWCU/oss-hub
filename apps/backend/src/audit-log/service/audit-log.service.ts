@@ -10,9 +10,10 @@ import {
   type AuditLogListResult,
   type AuditLogRecord,
   type AuditLogRecordInput,
-  type AuditLogTransactionWriter,
 } from '../repository/audit-log.repository';
 import type { AuditLogListQuery } from '../domain/audit-log-query';
+
+type AuditLogRecordWriter = Parameters<AuditLogRepository['record']>[1];
 
 export type AuditLogPage = AuditLogListResult & {
   readonly page: number;
@@ -53,7 +54,7 @@ export class AuditLogService {
 
   record(
     input: AuditLogRecordInput,
-    writer?: AuditLogTransactionWriter,
+    writer?: AuditLogRecordWriter,
   ): Promise<AuditLogRecord> {
     return this.repository.record(input, writer);
   }

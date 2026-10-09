@@ -7,9 +7,10 @@ import { AuditLogErrorCode } from '../audit-log-error-code.enum';
 import type {
   AuditLogRecordInput,
   AuditLogRepository,
-  AuditLogTransactionWriter,
 } from '../repository/audit-log.repository';
 import { AuditLogService } from './audit-log.service';
+
+type AuditLogRecordWriter = Parameters<AuditLogRepository['record']>[1];
 
 const ADMIN_GITHUB_ID = 1001n;
 const STAFF_GITHUB_ID = 1002n;
@@ -168,7 +169,7 @@ describe('AuditLogService', () => {
     const create = jest.fn();
     const writer = {
       auditLog: { create },
-    } as unknown as AuditLogTransactionWriter;
+    } as unknown as AuditLogRecordWriter;
     await service.record(input, writer);
 
     expect(repository.record.mock.calls).toEqual([[input], [input, writer]]);
