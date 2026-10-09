@@ -3,7 +3,7 @@ import {
   BoardPostCategory,
   MemberKind,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { BoardRepository } from './board.repository';
 
 const syntheticProgramId = 'cuid-synthetic-program';

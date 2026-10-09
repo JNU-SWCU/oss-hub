@@ -1,8 +1,8 @@
 import { AccountStatus, BoardPostCategory } from '@prisma/client';
-import { UsersAuthorityService } from '../users/service/authority.service';
-import { DomainException } from '../common/error-code';
-import { BoardErrorCode } from './board-error-code.enum';
-import { BoardRepository } from './board.repository';
+import { UsersAuthorityService } from '../../users/service/authority.service';
+import { DomainException } from '../../common/error-code';
+import { BoardErrorCode } from '../domain/board-error-code.enum';
+import { BoardRepository } from '../repository/board.repository';
 import { BoardService } from './board.service';
 
 const syntheticProgramId = 'cuid-synthetic-program';

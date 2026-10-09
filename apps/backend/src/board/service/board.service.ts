@@ -1,34 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, BoardPostCategory } from '@prisma/client';
-import { UsersAuthorityService } from '../users/service/authority.service';
-import { DomainException } from '../common/error-code';
-import type { BoardPostListQuery } from './board-post-list-query';
-import { BOARD_ERROR_CODES, BoardErrorCode } from './board-error-code.enum';
+import { UsersAuthorityService } from '../../users/service/authority.service';
+import { DomainException } from '../../common/error-code';
+import type { BoardPostListQuery } from '../domain/board-post-list-query';
 import {
-  BoardCommentRecord,
+  BOARD_ERROR_CODES,
+  BoardErrorCode,
+} from '../domain/board-error-code.enum';
+import type {
+  BoardPostPermissions,
+  BoardCommentResult,
+  BoardPostDetailResult,
+  BoardPostsPageResult,
+} from '../domain/board-results';
+import {
   BoardPostDetailRecord,
   BoardPostRef,
   BoardPostSummaryRecord,
   BoardRepository,
-} from './board.repository';
-
-export interface BoardPostPermissions {
-  canEdit: boolean;
-  canDelete: boolean;
-}
-
-export type BoardPostSummaryResult = BoardPostSummaryRecord &
-  BoardPostPermissions;
-export type BoardCommentResult = BoardCommentRecord & { canDelete: boolean };
-export type BoardPostDetailResult = Omit<BoardPostDetailRecord, 'comments'> &
-  BoardPostPermissions & { comments: BoardCommentResult[] };
-
-export interface BoardPostsPageResult {
-  items: BoardPostSummaryResult[];
-  total: number;
-  page: number;
-  limit: number;
-}
+} from '../repository/board.repository';
 
 export interface BoardPostWriteInput {
   title: string;

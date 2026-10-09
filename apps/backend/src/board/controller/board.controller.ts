@@ -11,18 +11,20 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/controller/origin.guard';
-import type { AuthenticatedRequest } from '../auth/controller/http-auth';
-import { SessionGuard } from '../auth/controller/session.guard';
-import { BoardService } from './board.service';
-import { BoardCommentResponseDto } from './dto/board-comment-response.dto';
-import { BoardPostDetailResponseDto } from './dto/board-post-detail-response.dto';
-import { BoardPostListRequestDto } from './dto/board-post-list-query.dto';
-import { BoardPostsPageResponseDto } from './dto/board-posts-page-response.dto';
-import { CreateBoardCommentRequestDto } from './dto/create-board-comment-request.dto';
-import { CreateBoardPostRequestDto } from './dto/create-board-post-request.dto';
-import { SetBoardPostPinnedRequestDto } from './dto/set-board-post-pinned-request.dto';
-import { UpdateBoardPostRequestDto } from './dto/update-board-post-request.dto';
+import { OriginGuard } from '../../auth/controller/origin.guard';
+import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
+import { SessionGuard } from '../../auth/controller/session.guard';
+import { BoardService } from '../service/board.service';
+import {
+  BoardCommentResponseDto,
+  BoardPostDetailResponseDto,
+  BoardPostsPageResponseDto,
+} from '../dto/board-post-response.dto';
+import { BoardPostListRequestDto } from '../dto/board-post-list-query.dto';
+import { CreateBoardCommentRequestDto } from '../dto/create-board-comment-request.dto';
+import { CreateBoardPostRequestDto } from '../dto/create-board-post-request.dto';
+import { SetBoardPostPinnedRequestDto } from '../dto/set-board-post-pinned-request.dto';
+import { UpdateBoardPostRequestDto } from '../dto/update-board-post-request.dto';
 
 type BoardActor = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
