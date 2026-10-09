@@ -15,7 +15,7 @@ import {
   IsProfileText,
   transformProfileText,
   trimString,
-} from './profile-text-transform';
+} from '../domain/profile-text-transform';
 
 export { USER_DEPARTMENT_MAX_LENGTH, USER_NAME_MAX_LENGTH };
 

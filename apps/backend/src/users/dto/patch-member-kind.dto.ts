@@ -19,7 +19,7 @@ import {
   IsProfileText,
   transformProfileText,
   trimString,
-} from './profile-text-transform';
+} from '../domain/profile-text-transform';
 
 export class PatchMemberKindRequestDto {
   @IsDefined()

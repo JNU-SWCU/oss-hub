@@ -1,0 +1,300 @@
+import { ValidationPipe, type INestApplication } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import { AccountStatus, MemberKind } from '@prisma/client';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
+import { AuthConfig } from '../../auth/auth.config';
+import { AuthService } from '../../auth/service/auth.service';
+import { sessionCookieName } from '../../auth/domain/cookies';
+import { OriginGuard } from '../../auth/controller/origin.guard';
+import { issueSessionToken } from '../../auth/domain/session-token';
+import { SessionGuard } from '../../auth/controller/session.guard';
+import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
+import { PrismaService } from '../../prisma/prisma.service';
+import type {
+  AdminAccessActor,
+  AdminAccessInsertedRequest,
+  AdminAccessRevokedRequestInsert,
+} from '../repository/admin-access.repository.types';
+import {
+  ADMIN_ACCESS_COMMANDS,
+  STAFF_ACCESS_COMMANDS,
+} from '../domain/independent-authority';
+import { IndependentAuthorityController } from './independent-authority.controller';
+import {
+  IndependentAuthorityRepository,
+  type IndependentAuthorityRepositoryPort,
+  type IndependentAuthorityTransactionStore,
+  type IndependentAuthorityUserRecord,
+} from '../repository/independent-authority.repository';
+import { IndependentAuthorityService } from '../service/independent-authority.service';
+import type { IndependentAuthorityTransition } from '../domain/independent-authority-transition';
+
+const githubId = 9_700_400_001n;
+const sessionSecret = new Uint8Array(32).fill(23);
+const allowedOrigin = 'http://frontend.test';
+
+class HttpAuthorityStore
+  implements
+    IndependentAuthorityRepositoryPort,
+    IndependentAuthorityTransactionStore
+{
+  readonly auditLogWriter = new PrismaService();
+  actor: AdminAccessActor = adminActor();
+  target: IndependentAuthorityUserRecord = targetUser();
+  activeAdminCount = 2;
+  updates: IndependentAuthorityTransition[] = [];
+  revokedInserts: AdminAccessRevokedRequestInsert[] = [];
+
+  withTransaction<T>(
+    operation: (store: IndependentAuthorityTransactionStore) => Promise<T>,
+  ): Promise<T> {
+    return operation(this);
+  }
+
+  findActorByGithubId(): Promise<AdminAccessActor> {
+    return Promise.resolve(this.actor);
+  }
+
+  lockActiveAdmins(): Promise<number> {
+    return Promise.resolve(this.activeAdminCount);
+  }
+
+  findUserForUpdate(): Promise<IndependentAuthorityUserRecord> {
+    return Promise.resolve(this.target);
+  }
+
+  updateAuthority(
+    _userId: string,
+    transition: IndependentAuthorityTransition,
+  ): Promise<void> {
+    this.updates.push(transition);
+    this.target = { ...this.target, ...transition };
+    return Promise.resolve();
+  }
+
+  insertRevokedRequest(
+    input: AdminAccessRevokedRequestInsert,
+  ): Promise<AdminAccessInsertedRequest> {
+    this.revokedInserts.push(input);
+    return Promise.resolve({ id: `revoked-${this.revokedInserts.length}` });
+  }
+
+  reset(): void {
+    this.actor = adminActor();
+    this.target = targetUser();
+    this.activeAdminCount = 2;
+    this.updates = [];
+    this.revokedInserts = [];
+  }
+}
+
+const store = new HttpAuthorityStore();
+
+describe('independent authority HTTP contracts', () => {
+  let application: INestApplication;
+  let baseUrl = '';
+  let cookie = '';
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      controllers: [IndependentAuthorityController],
+      providers: [
+        IndependentAuthorityService,
+        SessionGuard,
+        OriginGuard,
+        { provide: IndependentAuthorityRepository, useValue: store },
+        {
+          provide: AuditLogService,
+          useValue: { record: jest.fn().mockResolvedValue({}) },
+        },
+        {
+          provide: AuthService,
+          useValue: {
+            getMe: jest
+              .fn()
+              .mockResolvedValue({ id: 'actor', sessionVersion: 0 }),
+          },
+        },
+        {
+          provide: AuthConfig,
+          useValue: { sessionSecret, allowedOrigin, useSecureCookies: false },
+        },
+      ],
+    }).compile();
+    application = moduleRef.createNestApplication();
+    application.setGlobalPrefix('api/v1');
+    application.useGlobalPipes(
+      new ValidationPipe({
+        transform: true,
+        whitelist: true,
+        forbidNonWhitelisted: true,
+      }),
+    );
+    application.useGlobalFilters(new ProblemDetailFilter());
+    await application.listen(0, '127.0.0.1');
+    baseUrl = await application.getUrl();
+    cookie = `${sessionCookieName(false)}=${await issueSessionToken(
+      sessionSecret,
+      githubId,
+      0,
+    )}`;
+  });
+
+  beforeEach(() => store.reset());
+  afterAll(async () => application.close());
+
+  it.each([
+    ['staff-access', STAFF_ACCESS_COMMANDS.REVOKE, false, true, 'ADMIN'],
+    ['admin-access', ADMIN_ACCESS_COMMANDS.REVOKE, true, false, 'STAFF'],
+  ] as const)(
+    'preserves the other authority through PATCH /users/:id/%s',
+    async (path, command, hasStaffAccess, hasAdminAccess, role) => {
+      store.target = targetUser({
+        role: 'ADMIN',
+        hasStaffAccess: true,
+        hasAdminAccess: true,
+      });
+
+      const response = await request(path, command, cookie, allowedOrigin);
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({
+        id: 'target',
+        role,
+        memberKind: MemberKind.STUDENT,
+        hasStaffAccess,
+        hasAdminAccess,
+      });
+    },
+  );
+
+  it('rejects a same-state command as a stale-view conflict', async () => {
+    store.target = targetUser({ role: 'ADMIN', hasAdminAccess: true });
+
+    const response = await request(
+      'admin-access',
+      ADMIN_ACCESS_COMMANDS.GRANT,
+      cookie,
+      allowedOrigin,
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'ROL_013',
+      currentAccess: { role: 'ADMIN' },
+    });
+    expect(store.updates).toHaveLength(0);
+  });
+
+  it('denies a non-admin actor', async () => {
+    store.actor = {
+      ...adminActor(),
+      role: 'STAFF',
+      hasAdminAccess: false,
+    };
+    const response = await request(
+      'staff-access',
+      STAFF_ACCESS_COMMANDS.GRANT,
+      cookie,
+      allowedOrigin,
+    );
+
+    expect(response.status).toBe(403);
+    expect(store.updates).toHaveLength(0);
+  });
+
+  it('denies revoking the final active admin', async () => {
+    store.activeAdminCount = 1;
+    store.target = targetUser({ role: 'ADMIN', hasAdminAccess: true });
+    const response = await request(
+      'admin-access',
+      ADMIN_ACCESS_COMMANDS.REVOKE,
+      cookie,
+      allowedOrigin,
+    );
+
+    expect(response.status).toBe(409);
+    expect(store.updates).toHaveLength(0);
+  });
+
+  it('denies unauthenticated and untrusted-origin mutations', async () => {
+    const unauthenticated = await request(
+      'staff-access',
+      STAFF_ACCESS_COMMANDS.GRANT,
+      undefined,
+      allowedOrigin,
+    );
+    const untrusted = await request(
+      'admin-access',
+      ADMIN_ACCESS_COMMANDS.GRANT,
+      cookie,
+      'http://untrusted.test',
+    );
+
+    expect([unauthenticated.status, untrusted.status]).toEqual([401, 403]);
+    expect(store.updates).toHaveLength(0);
+  });
+
+  it('rejects an exclusive legacy role command', async () => {
+    const response = await request(
+      'staff-access',
+      'SET_ROLE_STAFF',
+      cookie,
+      allowedOrigin,
+    );
+    expect(response.status).toBe(400);
+  });
+
+  function request(
+    path: string,
+    command: string,
+    sessionCookie: string | undefined,
+    origin: string,
+  ): Promise<Response> {
+    return fetch(`${baseUrl}/api/v1/users/target/${path}`, {
+      method: 'PATCH',
+      headers: {
+        connection: 'close',
+        'content-type': 'application/json',
+        origin,
+        ...(sessionCookie ? { cookie: sessionCookie } : {}),
+      },
+      body: JSON.stringify({ command }),
+    });
+  }
+});
+
+function adminActor(): AdminAccessActor {
+  return {
+    id: 'actor',
+    githubId,
+    githubLogin: 'synthetic-admin',
+    name: '합성 관리자',
+    role: 'ADMIN',
+    hasStaffAccess: true,
+    hasAdminAccess: true,
+    accountStatus: AccountStatus.ACTIVE,
+  };
+}
+
+function targetUser(
+  overrides: Partial<IndependentAuthorityUserRecord> = {},
+): IndependentAuthorityUserRecord {
+  return {
+    id: 'target',
+    githubId: 9_700_400_002n,
+    githubLogin: 'synthetic-target',
+    name: null,
+    role: 'STUDENT',
+    selectedMemberKind: MemberKind.STUDENT,
+    memberKind: MemberKind.STUDENT,
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+    accountStatus: AccountStatus.ACTIVE,
+    isProfileComplete: true,
+    createdAt: new Date('2026-07-19T00:00:00.000Z'),
+    pendingRequest: null,
+    lastLoginAt: null,
+    ...overrides,
+  };
+}

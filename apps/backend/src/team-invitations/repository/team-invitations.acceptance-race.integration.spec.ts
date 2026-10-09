@@ -9,7 +9,7 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProgramTeamsRepository } from '../../programs/repository/program-teams.repository';
-import { canonicalUserCreateFromLabel } from '../../users/canonical-user-fixture';
+import { canonicalUserCreateFromLabel } from '../../users/repository/canonical-user-fixture';
 import {
   backendPid,
   deferred,

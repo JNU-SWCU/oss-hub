@@ -1,4 +1,4 @@
-import { authorityFactsFor } from '../users/canonical-user-fixture';
+import { authorityFactsFor } from '../users/repository/canonical-user-fixture';
 import { createHash } from 'node:crypto';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import {

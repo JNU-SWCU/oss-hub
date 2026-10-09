@@ -1,0 +1,84 @@
+import {
+  AccountStatus,
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
+import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { AdminAccessRepository } from '../repository/admin-access.repository';
+import { AdminAccessService } from './admin-access.service';
+import { UsersRepository } from '../repository/users.repository';
+import { UsersService } from './users.service';
+
+export const compatibilityPrisma = new PrismaService();
+export const compatibilityUsers = new UsersService(
+  new UsersRepository(
+    compatibilityPrisma,
+    new AuditLogService(new AuditLogRepository(compatibilityPrisma)),
+  ),
+  { requireCurrent: () => Promise.resolve(undefined) },
+);
+export const compatibilityAccess = new AdminAccessService(
+  new AdminAccessRepository(compatibilityPrisma),
+  new AuditLogService(new AuditLogRepository(compatibilityPrisma)),
+);
+
+const TEST_PREFIX = 'test:task8:member-authority:';
+let sequence = 0;
+
+export async function createOnboardingUser(label: string, kind: MemberKind) {
+  sequence += 1;
+  return compatibilityPrisma.user.create({
+    data: {
+      id: `${TEST_PREFIX}${label}:${sequence}`,
+      githubId: 9_008_000_000n + BigInt(sequence),
+      nickname: `synthetic-${label}-${sequence}`,
+      selectedMemberKind: kind,
+    },
+    select: { id: true, githubId: true },
+  });
+}
+
+export async function completeStaff(label: string) {
+  const user = await createOnboardingUser(label, MemberKind.STAFF);
+  await compatibilityUsers.completeMyProfile(user.githubId, {
+    name: '합성 교직원',
+    affiliationKind: AffiliationKind.DEPARTMENT,
+    affiliationName: '소프트웨어공학과',
+  });
+  return user;
+}
+
+export async function createAdmin(label: string) {
+  sequence += 1;
+  return compatibilityPrisma.user.create({
+    data: {
+      id: `${TEST_PREFIX}${label}:${sequence}`,
+      githubId: 9_008_000_000n + BigInt(sequence),
+      nickname: `synthetic-${label}-${sequence}`,
+      hasStaffAccess: false,
+      hasAdminAccess: true,
+    },
+    select: { id: true, githubId: true },
+  });
+}
+
+export function pendingRequest(userId: string) {
+  return compatibilityPrisma.staffAccessRequest.findFirstOrThrow({
+    where: { userId, status: StaffAccessRequestStatus.PENDING },
+  });
+}
+
+export function storedMember(userId: string) {
+  return compatibilityPrisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    include: { profile: true },
+  });
+}
+
+export const ACTIVE_ACCESS_STATE = {
+  expectedAccountStatus: AccountStatus.ACTIVE,
+  desiredAccountStatus: AccountStatus.ACTIVE,
+} as const;

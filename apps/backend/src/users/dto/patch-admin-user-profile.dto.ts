@@ -6,7 +6,7 @@ import {
   IsProfileText,
   transformProfileText,
   trimString,
-} from './profile-text-transform';
+} from '../domain/profile-text-transform';
 
 export class PatchAdminUserProfileRequestDto {
   @IsOptional()
