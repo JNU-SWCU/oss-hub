@@ -1,4 +1,4 @@
-import { RANKING_YEAR_ALL } from './domain/ranking';
+import { RANKING_YEAR_ALL } from '../domain/ranking';
 import { activity, setupRankingService } from './ranking.service.spec-helper';
 
 describe('RankingService display name — 공개 계층 (D3 — GitHub nickname 단일화)', () => {
