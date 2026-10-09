@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { BoardPostCategory } from '@prisma/client';
+import { AccountStatus, BoardPostCategory } from '@prisma/client';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { DomainException } from '../common/error-code';
 import type { BoardPostListQuery } from './board-post-list-query';
 import { BOARD_ERROR_CODES, BoardErrorCode } from './board-error-code.enum';
@@ -40,14 +41,20 @@ export interface BoardCommentWriteInput {
 
 @Injectable()
 export class BoardService {
-  constructor(private readonly repository: BoardRepository) {}
+  constructor(
+    private readonly repository: BoardRepository,
+    private readonly authority: UsersAuthorityService,
+  ) {}
 
   async listPosts(
     programId: string,
     query: BoardPostListQuery,
-    actorId: string,
-    actorIsStaff: boolean,
+    sessionGithubId: bigint,
   ): Promise<BoardPostsPageResult> {
+    const { actorId, actorIsStaff } = await this.assertAccess(
+      programId,
+      sessionGithubId,
+    );
     const { items, total } = await this.repository.findByProgramId(
       programId,
       query.page,
@@ -66,9 +73,12 @@ export class BoardService {
   async getPostDetail(
     programId: string,
     postId: string,
-    actorId: string,
-    actorIsStaff: boolean,
+    sessionGithubId: bigint,
   ): Promise<BoardPostDetailResult> {
+    const { actorId, actorIsStaff } = await this.assertAccess(
+      programId,
+      sessionGithubId,
+    );
     const post = await this.repository.findDetailById(postId);
     if (!post || post.programId !== programId) {
       throw new DomainException(
@@ -80,10 +90,13 @@ export class BoardService {
 
   async createPost(
     programId: string,
-    actorId: string,
-    actorIsStaff: boolean,
+    sessionGithubId: bigint,
     input: BoardPostWriteInput,
   ): Promise<BoardPostDetailResult> {
+    const { actorId, actorIsStaff } = await this.assertAccess(
+      programId,
+      sessionGithubId,
+    );
     const post = await this.repository.create({
       programId,
       authorId: actorId,
@@ -97,9 +110,10 @@ export class BoardService {
   async updatePost(
     programId: string,
     postId: string,
-    actorId: string,
+    sessionGithubId: bigint,
     input: BoardPostWriteInput,
   ): Promise<BoardPostDetailResult> {
+    const { actorId } = await this.assertAccess(programId, sessionGithubId);
     const ref = await this.requirePostRef(programId, postId);
     if (ref.authorId !== actorId) {
       throw new DomainException(BOARD_ERROR_CODES[BoardErrorCode.NOT_AUTHOR]);
@@ -111,9 +125,12 @@ export class BoardService {
   async deletePost(
     programId: string,
     postId: string,
-    actorId: string,
-    actorIsStaff: boolean,
+    sessionGithubId: bigint,
   ): Promise<void> {
+    const { actorId, actorIsStaff } = await this.assertAccess(
+      programId,
+      sessionGithubId,
+    );
     const ref = await this.requirePostRef(programId, postId);
     if (ref.authorId !== actorId && !actorIsStaff) {
       throw new DomainException(BOARD_ERROR_CODES[BoardErrorCode.NOT_AUTHOR]);
@@ -124,9 +141,13 @@ export class BoardService {
   async setPinned(
     programId: string,
     postId: string,
-    actorIsStaff: boolean,
+    sessionGithubId: bigint,
     pinned: boolean,
   ): Promise<void> {
+    const { actorIsStaff } = await this.assertAccess(
+      programId,
+      sessionGithubId,
+    );
     if (!actorIsStaff) {
       throw new DomainException(BOARD_ERROR_CODES[BoardErrorCode.STAFF_ONLY]);
     }
@@ -137,9 +158,10 @@ export class BoardService {
   async createComment(
     programId: string,
     postId: string,
-    actorId: string,
+    sessionGithubId: bigint,
     input: BoardCommentWriteInput,
   ): Promise<BoardCommentResult> {
+    const { actorId } = await this.assertAccess(programId, sessionGithubId);
     await this.requirePostRef(programId, postId);
     const comment = await this.repository.createComment({
       postId,
@@ -153,9 +175,12 @@ export class BoardService {
     programId: string,
     postId: string,
     commentId: string,
-    actorId: string,
-    actorIsStaff: boolean,
+    sessionGithubId: bigint,
   ): Promise<void> {
+    const { actorId, actorIsStaff } = await this.assertAccess(
+      programId,
+      sessionGithubId,
+    );
     const ref = await this.repository.findCommentRefById(commentId);
     if (!ref || ref.postId !== postId || ref.programId !== programId) {
       throw new DomainException(
@@ -166,6 +191,24 @@ export class BoardService {
       throw new DomainException(BOARD_ERROR_CODES[BoardErrorCode.NOT_AUTHOR]);
     }
     await this.repository.deleteComment(commentId);
+  }
+
+  private async assertAccess(programId: string, sessionGithubId: bigint) {
+    const forbidden = () =>
+      new DomainException(BOARD_ERROR_CODES[BoardErrorCode.ACCESS_FORBIDDEN]);
+    const actor = await this.repository.findAccessActor(sessionGithubId);
+    if (!actor || actor.accountStatus !== AccountStatus.ACTIVE)
+      throw forbidden();
+    if (actor.hasStaffAccess || actor.hasAdminAccess) {
+      const { actorId } = await this.authority.assertActiveStaff(
+        sessionGithubId,
+        forbidden,
+      );
+      return { actorId, actorIsStaff: true };
+    }
+    if (!(await this.repository.isApprovedParticipant(programId, actor.id)))
+      throw forbidden();
+    return { actorId: actor.id, actorIsStaff: false };
   }
 
   private withPostPermissions<

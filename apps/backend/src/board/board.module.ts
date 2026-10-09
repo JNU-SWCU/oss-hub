@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
-import { BoardAccessGuard } from './board-access.guard';
+import { UsersModule } from '../users/users.module';
 import { BoardController } from './board.controller';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, UsersModule],
   controllers: [BoardController],
-  providers: [BoardService, BoardRepository, BoardAccessGuard],
+  providers: [BoardService, BoardRepository],
   exports: [BoardService],
 })
 export class BoardModule {}
