@@ -109,10 +109,10 @@ export async function expectProgramChartLayout(page: Page): Promise<void> {
   await expect(numericTicks).toHaveCount(3);
   await expect(numericTicks).toHaveText(['0', '6', '12']);
   const numericTickBounds = await numericTicks.evaluateAll((elements) =>
-    elements.map((element) => ({
-      text: element.textContent ?? '',
-      ...element.getBoundingClientRect().toJSON(),
-    })),
+    elements.map((element) => {
+      const { x, y, width, height } = element.getBoundingClientRect();
+      return { text: element.textContent ?? '', x, y, width, height };
+    }),
   );
   const cardBounds = await chartCard.boundingBox();
   if (cardBounds === null) {

@@ -11,7 +11,7 @@ import { ProgramErrorCode } from './program-error-code.enum';
 import { ProgramEditorRepository } from './repository/program-editor.repository';
 import { ProgramEditorService } from './service/program-editor.service';
 import { MilestoneDocumentFilesService } from '../milestone-documents/milestone-document-files.service';
-import { MilestoneDocumentsRepository } from '../milestone-documents/milestone-documents.repository';
+import { MilestoneDocumentsRepository } from '../milestone-documents/repository/milestone-documents.repository';
 import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import { SubmissionFilesRepository } from '../submissions/submission-files.repository';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
@@ -1272,6 +1272,7 @@ function instrumentStore(
       store.findMilestoneForDelete(milestoneId),
     deleteMilestone: (milestoneId) => store.deleteMilestone(milestoneId),
     lockMilestoneEdit: (milestoneId) => store.lockMilestoneEdit(milestoneId),
+    readMilestoneEdit: (milestoneId) => store.readMilestoneEdit(milestoneId),
     countSubmissionHistoriesForDocuments:
       overrides.countSubmissionHistoriesForDocuments ??
       ((documentIds) =>

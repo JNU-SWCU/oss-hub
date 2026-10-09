@@ -17,8 +17,9 @@ import {
   type ValidatorConstraintInterface,
 } from 'class-validator';
 import { parseGithubRepositoryUrl } from '../common/github-repository-url';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard, type AuthenticatedRequest } from '../auth/session.guard';
+import { OriginGuard } from '../auth/controller/origin.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
+import { SessionGuard } from '../auth/controller/session.guard';
 import {
   StudentRepositoryUrlService,
   type StudentRepositoryUrlView,

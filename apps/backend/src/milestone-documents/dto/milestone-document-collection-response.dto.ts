@@ -9,7 +9,7 @@ import type {
   MilestoneDocumentCollectionApplication,
   MilestoneDocumentCollectionSubmission,
   MilestoneDocumentRecord,
-} from '../milestone-documents.repository';
+} from '../domain/milestone-document-record';
 
 export interface MilestoneDocumentCollectionMilestoneResponseDto {
   readonly id: string;

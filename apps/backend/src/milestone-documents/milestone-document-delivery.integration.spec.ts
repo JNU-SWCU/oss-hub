@@ -6,7 +6,7 @@ import {
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { buildMilestoneDocumentDeliveryPage } from './milestone-document-delivery-page';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 
 assertIsolatedIntegrationDatabase({

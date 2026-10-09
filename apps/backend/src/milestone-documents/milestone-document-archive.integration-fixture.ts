@@ -4,7 +4,7 @@ import { S3ObjectStorage } from '../storage/gateway/s3-object.storage';
 import { ObjectStorageConfig } from '../storage/object-storage.config';
 import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 
 const prefix = 'qa152-program-archive';
 export const archiveId = (suffix: string) => `${prefix}-${suffix}`;

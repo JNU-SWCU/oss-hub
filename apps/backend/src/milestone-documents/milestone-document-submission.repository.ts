@@ -9,11 +9,27 @@ import {
   lockSubmissionMembership,
   SubmissionMembershipChangedError,
 } from '../submissions/submission-membership.repository';
-import type {
-  MilestoneDocumentSubmissionDetail,
-  UpsertMilestoneDocumentSubmissionInput,
-} from './milestone-documents.repository';
+import type { MilestoneDocumentSubmissionDetail } from './domain/milestone-document-record';
 import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history';
+
+export interface UpsertMilestoneDocumentSubmissionInput {
+  readonly milestoneDocumentId: string;
+  readonly applicationId: string;
+  readonly submittedById: string;
+  readonly submittedAt: Date;
+  readonly deadline?: {
+    readonly milestoneId: string;
+    readonly allowAfterDeadline: boolean;
+    readonly expectedSubmissionStatus: SubmissionStatus | null;
+  };
+  readonly expectedLatestReviewId: string | null;
+  readonly content: Prisma.InputJsonValue | typeof Prisma.JsonNull;
+  readonly attachFile: {
+    readonly fileId: string;
+    readonly uploaderId: string;
+    readonly milestoneId: string;
+  } | null;
+}
 
 export class MilestoneDocumentPendingFileMissingError extends Error {
   override readonly name = 'MilestoneDocumentPendingFileMissingError';

@@ -1,11 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { type RuntimeConfig } from '../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
-import { parseInitialRoles } from './initial-roles';
+import { parseInitialRoles } from './domain/initial-roles';
 import type {
   InitialAccountSeed,
   InitialAccountSeedMap,
-} from './initial-roles';
+} from './domain/initial-roles';
 
 export interface OauthSettings {
   clientId: string;

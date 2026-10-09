@@ -7,7 +7,7 @@ import {
 } from '@prisma/client';
 import type { Prisma as PrismaTypes, ReviewDecision } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { requiredMilestonesApproved } from '../common/milestone-completion';
+import { requiredMilestonesApproved } from '../milestone-documents/domain/milestone-completion';
 import type {
   RepositoryPublishEligibility,
   SubmissionReviewContext,

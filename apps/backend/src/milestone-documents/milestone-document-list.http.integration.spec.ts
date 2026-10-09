@@ -4,19 +4,19 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuthConfig } from '../auth/auth.config';
-import { AuthService } from '../auth/auth.service';
+import { AuthService } from '../auth/service/auth.service';
 
 type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
-import { sessionCookieName } from '../auth/cookies';
-import { issueSessionToken } from '../auth/session-token';
-import { SessionGuard } from '../auth/session.guard';
+import { sessionCookieName } from '../auth/domain/cookies';
+import { issueSessionToken } from '../auth/domain/session-token';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { PrismaService } from '../prisma/prisma.service';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentsController } from './milestone-documents.controller';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 

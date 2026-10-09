@@ -2,18 +2,18 @@ import { randomBytes } from 'node:crypto';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus } from '@prisma/client';
-import { AuthenticationGuard } from '../src/auth/authentication.guard';
+import { AuthenticationGuard } from '../src/auth/controller/authentication.guard';
 import { AuthConfig } from '../src/auth/auth.config';
-import { AuthController } from '../src/auth/auth.controller';
-import { AuthService } from '../src/auth/auth.service';
-import { sessionCookieName } from '../src/auth/cookies';
+import { AuthController } from '../src/auth/controller/auth.controller';
+import { AuthService } from '../src/auth/service/auth.service';
+import { sessionCookieName } from '../src/auth/domain/cookies';
 import type { AuthUser } from '../src/auth/domain/auth-user';
-import { OriginGuard } from '../src/auth/origin.guard';
-import { SessionGuard } from '../src/auth/session.guard';
+import { OriginGuard } from '../src/auth/controller/origin.guard';
+import { SessionGuard } from '../src/auth/controller/session.guard';
 import {
   issueSessionToken,
   SESSION_MAX_AGE_SECONDS,
-} from '../src/auth/session-token';
+} from '../src/auth/domain/session-token';
 import { ProblemDetailFilter } from '../src/common/problem-detail.filter';
 import { HealthController } from '../src/health/health.controller';
 import { HealthService } from '../src/health/health.service';

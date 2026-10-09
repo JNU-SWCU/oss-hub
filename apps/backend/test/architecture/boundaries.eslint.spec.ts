@@ -81,7 +81,7 @@ function edge(
 const permitted: Record<Layer, readonly Layer[]> = {
   controller: ['service', 'dto', 'domain'],
   service: ['service', 'repository', 'gateway', 'dto', 'domain'],
-  repository: ['domain'],
+  repository: ['repository', 'domain'],
   gateway: ['domain'],
   job: ['service', 'dto', 'domain'],
   dto: ['domain'],
@@ -296,6 +296,20 @@ edge(
   'src/alpha/service/test-import.ts',
   'src/alpha/service/target.spec.ts',
   false,
+);
+edge(
+  'root types may reference a prisma transaction type',
+  'src/alpha/alpha-store.types.ts',
+  'src/prisma/transaction-writer.ts',
+  true,
+  'type',
+);
+edge(
+  'root types cannot reference a foreign repository',
+  'src/alpha/alpha-writer.types.ts',
+  'src/beta/repository/beta.repository.ts',
+  false,
+  'type',
 );
 edge(
   'production cannot import fixture',

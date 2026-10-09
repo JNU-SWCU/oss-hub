@@ -9,7 +9,7 @@ import {
   SubmissionMembershipChangedError,
 } from '../submissions/submission-membership.repository';
 import { upsertMilestoneDocumentSubmission } from './milestone-document-submission.repository';
-import type { UpsertMilestoneDocumentSubmissionInput } from './milestone-documents.repository';
+import type { UpsertMilestoneDocumentSubmissionInput } from './milestone-document-submission.repository';
 
 jest.mock('../submissions/submission-membership.repository', () => {
   const actual = jest.requireActual<

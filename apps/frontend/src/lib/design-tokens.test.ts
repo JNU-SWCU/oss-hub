@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import type storedTokens from '../../../../docs/design-tokens/tokens.json';
 
 const FRONTEND_DIR = fileURLToPath(new URL('../..', import.meta.url));
 const TOKENS_PATH = fileURLToPath(
@@ -19,7 +20,9 @@ describe('design tokens export', () => {
   });
 
   it('원본 값과 alias가 그대로 옮겨진다', () => {
-    const tokens = JSON.parse(readFileSync(TOKENS_PATH, 'utf8'));
+    const tokens = JSON.parse(
+      readFileSync(TOKENS_PATH, 'utf8'),
+    ) as typeof storedTokens;
     expect(tokens.primitive.palette.navy['600']).toEqual({
       value: '#003399',
       type: 'color',

@@ -1,5 +1,5 @@
 import { GUARDS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
-import { SessionGuard } from '../../auth/session.guard';
+import { SessionGuard } from '../../auth/controller/session.guard';
 import type {
   ProgramActivityRepository,
   ProgramRepositoryActivity,

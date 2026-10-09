@@ -1,4 +1,4 @@
-import type { AuthenticatedRequest } from '../auth/session.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
 import { LOGIN_HISTORY_EVENTS } from './domain/login-history';
 import { LoginHistoryController } from './login-history.controller';
 import { LoginHistoryService } from './login-history.service';

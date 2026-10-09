@@ -27,7 +27,9 @@ describe('useFileCheck', () => {
   }
 
   async function render(selected: File | null) {
-    await act(async () => root.render(<Probe selected={selected} />));
+    await act(() =>
+      Promise.resolve(root.render(<Probe selected={selected} />)),
+    );
   }
 
   beforeEach(() => {
@@ -37,7 +39,7 @@ describe('useFileCheck', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
   });
 
@@ -47,15 +49,19 @@ describe('useFileCheck', () => {
     const firstVerdict = deferred();
     const secondVerdict = deferred();
     await render(first);
-    await act(async () => latest.start(first, () => firstVerdict.promise));
+    await act(() =>
+      Promise.resolve(latest.start(first, () => firstVerdict.promise)),
+    );
     await render(second);
-    await act(async () => latest.start(second, () => secondVerdict.promise));
+    await act(() =>
+      Promise.resolve(latest.start(second, () => secondVerdict.promise)),
+    );
 
-    await act(async () => firstVerdict.resolve('첫 파일 거절'));
+    await act(() => Promise.resolve(firstVerdict.resolve('첫 파일 거절')));
 
     expect(latest).toMatchObject({ checking: true, message: null });
 
-    await act(async () => secondVerdict.resolve(null));
+    await act(() => Promise.resolve(secondVerdict.resolve(null)));
 
     expect(latest).toMatchObject({ checking: false, message: null });
   });
@@ -64,8 +70,10 @@ describe('useFileCheck', () => {
     const file = new File(['PK'], 'bundle.zip');
     await render(file);
 
-    await act(async () =>
-      latest.start(file, () => Promise.reject(new TypeError('network'))),
+    await act(() =>
+      Promise.resolve(
+        latest.start(file, () => Promise.reject(new TypeError('network'))),
+      ),
     );
 
     expect(latest).toMatchObject({ checking: false, message: null });

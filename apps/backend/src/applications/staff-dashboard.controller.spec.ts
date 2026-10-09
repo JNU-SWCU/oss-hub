@@ -4,7 +4,7 @@ import {
   PATH_METADATA,
 } from '@nestjs/common/constants';
 import { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
-import { SessionGuard } from '../auth/session.guard';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { ApplicationsStaffListGuard } from './applications-staff.guard';
 import { StaffDashboardController } from './staff-dashboard.controller';
 import type { StaffDashboardService } from './staff-dashboard.service';
