@@ -13,13 +13,17 @@ function seoulCalendarDay(value: Date): number {
   return Date.UTC(part('year'), part('month') - 1, part('day'));
 }
 
+export function dashboardDeadlineDays(dueAt: string, now = new Date()): number {
+  return Math.round(
+    (seoulCalendarDay(new Date(dueAt)) - seoulCalendarDay(now)) / 86_400_000,
+  );
+}
+
 export function formatDashboardDeadline(
   dueAt: string,
   now = new Date(),
 ): string {
-  const difference = Math.round(
-    (seoulCalendarDay(new Date(dueAt)) - seoulCalendarDay(now)) / 86_400_000,
-  );
+  const difference = dashboardDeadlineDays(dueAt, now);
 
   if (difference === 0) return 'D-Day';
   return difference > 0 ? `D-${difference}` : `D+${Math.abs(difference)}`;

@@ -5,11 +5,13 @@ import { StudentDashboardView } from './components/student-dashboard-view';
 import {
   completedDashboardFixture,
   dashboardFixture,
+  dashboardItem,
+  dashboardMilestone,
   pendingDashboardFixture,
   rejectedDashboardFixture,
 } from './fixtures';
 import { loadStudentDashboard } from './load-student-dashboard';
-import type { StudentDashboard } from './types';
+import type { DashboardSubmissionStatus, StudentDashboard } from './types';
 
 const renderView = (
   props: Partial<Parameters<typeof StudentDashboardView>[0]> = {},
@@ -32,6 +34,26 @@ const firstItemOf = (data: StudentDashboard) => {
   return item;
 };
 
+const active = (
+  key: string,
+  dueAt: string,
+  status: DashboardSubmissionStatus = 'NOT_SUBMITTED',
+) => dashboardItem(key, 'APPROVED', dashboardMilestone(dueAt, status));
+
+const linksTo = (html: string, href: string) =>
+  Array.from(html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g))
+    .filter((match) => (match[1] ?? '').includes(`href="${href}"`))
+    .map((match) => ({
+      text: (match[2] ?? '').replace(/<[^>]*>/g, ''),
+      variant: /data-variant="([^"]+)"/.exec(match[1] ?? '')?.[1],
+    }));
+
+const chipLabels = (html: string) =>
+  Array.from(
+    html.matchAll(/<button[^>]*data-variant="toggle"[^>]*>([^<]*)<\/button>/g),
+    (match) => match[1],
+  );
+
 describe('StudentDashboardView', () => {
   it('헤더에 내 활동 바로가기를 두지 않는다', () => {
     const html = renderView();
@@ -53,7 +75,6 @@ describe('StudentDashboardView', () => {
     expect(firstItemOf(dashboardFixture).teamName).toBe('합성 1인 팀');
     expect(html).not.toContain('개인');
     expect(html).not.toContain('PERSONAL');
-    expect(html).toContain('>신청<');
     expect(html).toContain('미제출');
     expect(html).toContain('D-3');
     expect(html).toContain('7월 26일 23:59 마감');
@@ -82,14 +103,18 @@ describe('StudentDashboardView', () => {
     expect(html).not.toMatch(/<button[^>]*>(?:(?!<\/button>)[\s\S])*<a\s/);
   });
 
-  it('승인 카드는 우리 팀과 제출 현황만 남기고 프로그램 개요 입구를 중복하지 않는다', () => {
+  it('진행 중 카드는 우리 팀과 서류 행동만 남기고 프로그램 개요 입구를 중복하지 않는다', () => {
     const item = firstItemOf(dashboardFixture);
     const html = renderView();
 
-    expect(html).toContain('우리 팀');
-    expect(html).toContain('제출 현황');
-    expect(html).toContain(`href="${item.checklistUrl}"`);
+    expect(linksTo(html, item.teamUrl)).toEqual([
+      { text: '우리 팀', variant: 'outline' },
+    ]);
+    expect(linksTo(html, item.checklistUrl)).toEqual([
+      { text: '서류 내기', variant: 'outline' },
+    ]);
 
+    expect(html).not.toContain('신청 상세');
     expect(html).not.toContain('프로그램 상세');
     expect(html).not.toContain(`href="/programs/${item.programId}"`);
 
@@ -222,20 +247,19 @@ describe('StudentDashboardView', () => {
     );
   });
 
-  it('판정 전과 승인은 같은 「신청」을 달아도 할 수 있는 일이 다르다', () => {
+  it('판정 전 신청과 승인된 프로그램은 할 수 있는 일이 다르다', () => {
     const pendingHtml = renderView({ data: pendingDashboardFixture });
     const approvedHtml = renderView({ data: dashboardFixture });
 
-    expect(pendingHtml).toContain('>신청<');
-    expect(approvedHtml).toContain('>신청<');
     expect(pendingHtml).not.toContain('>반려<');
+    expect(approvedHtml).not.toContain('>신청<');
 
     expect(pendingHtml).toContain('신청 상세');
-    expect(pendingHtml).not.toContain('제출 현황');
-    expect(pendingHtml).not.toContain('내 저장소');
+    expect(pendingHtml).not.toContain('서류 내기');
+    expect(pendingHtml).not.toContain('저장소');
     expect(approvedHtml).not.toContain('신청 상세');
-    expect(approvedHtml).toContain('제출 현황');
-    expect(approvedHtml).toContain('내 저장소');
+    expect(approvedHtml).toContain('서류 내기');
+    expect(approvedHtml).toContain('저장소 생성 중');
 
     expect(approvedHtml).not.toContain('승인되면 다음 일정이 표시됩니다.');
   });
@@ -245,10 +269,10 @@ describe('StudentDashboardView', () => {
 
     expect(html).toContain('예정된 제출 항목을 모두 마쳤습니다.');
 
-    expect(html).toContain('>신청<');
+    expect(html).not.toContain('>신청<');
     expect(html).not.toContain('>완료<');
     expect(html).not.toContain('>참여 중<');
-    expect(html).not.toContain('다음 마일스톤');
+    expect(html).not.toContain('>다음<');
   });
 
   it('반려 신청에는 신청 상세와 우리 팀만 남기고 제출 입구는 감춘다', () => {
@@ -256,7 +280,6 @@ describe('StudentDashboardView', () => {
 
     expect(html).toContain('>반려<');
     expect(html).not.toContain('>신청<');
-    expect(html).toContain('신청이 반려되었습니다.');
     expect(html).toContain('신청 상세');
     expect(html).not.toContain('제출 현황');
 
@@ -389,6 +412,155 @@ describe('StudentDashboardView', () => {
     expect(htmlWithReason).not.toContain(secret);
   });
 });
+describe('StudentDashboardView 프로그램 묶음', () => {
+  const soon = active('soon', '2026-07-25T23:59:59+09:00');
+  const later = active('later', '2026-08-05T23:59:59+09:00');
+  const done = dashboardItem('done', 'APPROVED');
+  const submitted = dashboardItem('submitted', 'SUBMITTED');
+  const rejected = dashboardItem('rejected', 'REJECTED');
+
+  it('진행 중·마친 프로그램·신청 상태 순으로 나누고 진행 중은 마감이 가까운 순이다', () => {
+    const html = renderView({
+      data: { items: [submitted, later, done, soon] },
+    });
+    const headings = ['진행 중', '마친 프로그램', '신청 상태'].map((title) =>
+      html.indexOf(`>${title}</h2>`),
+    );
+
+    expect(headings.every((index) => index >= 0)).toBe(true);
+    expect(headings).toEqual([...headings].sort((a, b) => a - b));
+    expect(html.indexOf(soon.programName)).toBeLessThan(
+      html.indexOf(later.programName),
+    );
+    expect(html).toContain('>2개 · 마감이 가까운 순<');
+    expect(html).toContain('>1개<');
+  });
+
+  it('빈 묶음은 제목째 그리지 않는다', () => {
+    const html = renderView({ data: { items: [submitted, rejected] } });
+
+    expect(html).not.toContain('>진행 중</h2>');
+    expect(html).not.toContain('>마친 프로그램</h2>');
+    expect(html).toContain('>신청 상태</h2>');
+    expect(html).toContain('>2개<');
+  });
+
+  it('프로그램이 5개 이상일 때만 거르기 칩을 두고 0개인 묶음 칩은 감춘다', () => {
+    const four = [soon, later, done, submitted];
+    const third = active('third', '2026-08-09T23:59:59+09:00');
+
+    expect(renderView({ data: { items: four } })).not.toContain(
+      '프로그램 거르기',
+    );
+    expect(
+      chipLabels(renderView({ data: { items: [...four, third] } })),
+    ).toEqual(['전체 5', '진행 중 3', '마친 프로그램 1', '신청 상태 1']);
+    expect(
+      chipLabels(
+        renderView({
+          data: { items: [soon, later, third, submitted, rejected] },
+        }),
+      ),
+    ).toEqual(['전체 5', '진행 중 3', '신청 상태 2']);
+  });
+
+  it('다음 마일스톤 상태로 제출 버튼 이름을 고르고 주 행동은 가장 급한 하나에만 준다', () => {
+    const reviewing = active(
+      'reviewing',
+      '2026-07-24T23:59:59+09:00',
+      'SUBMITTED',
+    );
+    const resubmit = active(
+      'resubmit',
+      '2026-07-27T23:59:59+09:00',
+      'CHANGES_REQUESTED',
+    );
+    const fresh = active('fresh', '2026-07-30T23:59:59+09:00');
+    const html = renderView({ data: { items: [fresh, resubmit, reviewing] } });
+
+    expect(linksTo(html, reviewing.checklistUrl)).toEqual([
+      { text: '제출 현황', variant: 'outline' },
+    ]);
+    expect(linksTo(html, resubmit.checklistUrl)).toEqual([
+      { text: '다시 내기', variant: 'default' },
+    ]);
+    expect(linksTo(html, fresh.checklistUrl)).toEqual([
+      { text: '서류 내기', variant: 'outline' },
+    ]);
+    expect(html.match(/data-variant="default"/g)).toHaveLength(1);
+  });
+
+  it('낼 서류가 없으면 주 행동을 두지 않는다', () => {
+    const html = renderView({
+      data: {
+        items: [
+          active('reviewing', '2026-07-24T23:59:59+09:00', 'SUBMITTED'),
+          active('final', '2026-07-25T23:59:59+09:00', 'REJECTED'),
+          done,
+          submitted,
+        ],
+      },
+    });
+
+    expect(html).not.toContain('data-variant="default"');
+  });
+
+  it.each([
+    ['2026-07-26T23:59:59+09:00', 'D-3', 'text-status-pending-fg'],
+    ['2026-07-27T23:59:59+09:00', 'D-4', 'text-primary'],
+    ['2026-07-20T23:59:59+09:00', 'D+3', 'text-status-rejected-fg'],
+  ])('마감 %s는 %s를 %s 색으로 보인다', (dueAt, label, tone) => {
+    const html = renderView({ data: { items: [active('due', dueAt)] } });
+
+    expect(html).toContain(` ${tone}">${label}<`);
+  });
+
+  it('마친 프로그램 줄과 신청 줄은 상태 문구와 정해진 순서의 보조 행동을 둔다', () => {
+    const html = renderView({ data: { items: [done, submitted, rejected] } });
+
+    expect(html).toContain('예정된 제출 항목을 모두 마쳤습니다.');
+    expect(html).toMatch(/data-variant="pending"[^>]*>신청</);
+    expect(html).toContain('승인되면 다음 일정이 표시됩니다.');
+    expect(html).toMatch(/data-variant="rejected"[^>]*>반려</);
+    expect(html).toContain('신청 상세에서 반려 사유를 확인해 주세요.');
+    expect(html.indexOf(`href="${done.teamUrl}"`)).toBeLessThan(
+      html.indexOf(`href="${done.checklistUrl}"`),
+    );
+    for (const item of [submitted, rejected]) {
+      expect(linksTo(html, item.detailUrl)).toEqual([
+        { text: '신청 상세', variant: 'outline' },
+      ]);
+      expect(html.indexOf(`href="${item.detailUrl}"`)).toBeLessThan(
+        html.indexOf(`href="${item.teamUrl}"`),
+      );
+      expect(html).not.toContain(`href="${item.checklistUrl}"`);
+    }
+    expect(linksTo(html, done.checklistUrl)).toEqual([
+      { text: '제출 현황', variant: 'outline' },
+    ]);
+    expect(html).not.toContain('data-variant="default"');
+  });
+
+  it.each([
+    ['loading', null, '대시보드를 불러오는 중'],
+    ['error', null, '대시보드를 불러오지 못했습니다'],
+    ['success', { items: [] }, '아직 신청한 프로그램이 없습니다'],
+    ['success', { items: [soon] }, '>진행 중</h2>'],
+  ] as const)('%s 상태는 자기 표면 하나만 그린다', (status, data, marker) => {
+    const html = renderView({ status, data });
+    const surfaces = [
+      '대시보드를 불러오는 중',
+      '대시보드를 불러오지 못했습니다',
+      '아직 신청한 프로그램이 없습니다',
+      '>진행 중</h2>',
+    ];
+
+    expect(surfaces.filter((surface) => html.includes(surface))).toEqual([
+      marker,
+    ]);
+  });
+});
+
 describe('loadStudentDashboard', () => {
   it('실패 후 다시 호출하면 성공 결과를 받는다', async () => {
     const fetchDashboard = vi

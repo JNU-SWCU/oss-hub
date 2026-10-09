@@ -1,4 +1,50 @@
-import type { StudentDashboard } from './types';
+import type {
+  DashboardApplicationStatus,
+  DashboardItem,
+  DashboardMilestone,
+  DashboardSubmissionStatus,
+  StudentDashboard,
+} from './types';
+
+export function dashboardMilestone(
+  dueAt: string,
+  submissionStatus: DashboardSubmissionStatus = 'NOT_SUBMITTED',
+): DashboardMilestone {
+  return {
+    id: `milestone-${dueAt}`,
+    name: `합성 마일스톤 ${dueAt}`,
+    dueAt,
+    submissionStatus,
+  };
+}
+
+export function dashboardItem(
+  key: string,
+  applicationStatus: DashboardApplicationStatus,
+  nextMilestone: DashboardMilestone | null = null,
+): DashboardItem {
+  const programPath = `/programs/program-${key}`;
+  const approved = applicationStatus === 'APPROVED';
+  return {
+    applicationId: `application-${key}`,
+    programId: `program-${key}`,
+    programName: `합성 프로그램 ${key}`,
+    teamName: `합성 팀 ${key}`,
+    teamUrl: `${programPath}/my-team`,
+    applicationStatus,
+    nextMilestone,
+    detailUrl: approved ? programPath : `${programPath}/apply`,
+    checklistUrl: `${programPath}/submissions`,
+    repository: approved
+      ? {
+          repositoryName: null,
+          provisionStatus: 'NOT_STARTED',
+          invitationStatus: null,
+          githubUrl: null,
+        }
+      : null,
+  };
+}
 
 export const dashboardFixture: StudentDashboard = {
   items: [
