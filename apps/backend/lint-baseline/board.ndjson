@@ -1,5 +1,3 @@
-{"file":"apps/backend/src/board/board-access.guard.ts","ruleId":"boundaries/dependencies","target":"boundaries/dependencies:Literal:7bd8dacf-9b8b49a3-ff178969-31ca4902-789741d1-35284389-3bdb37b8-4fc5727d:occurrence:1"}
-{"file":"apps/backend/src/board/board-access.guard.ts","ruleId":"boundaries/dependencies","target":"boundaries/dependencies:Literal:8b72638a-b243d00a-7590e309-0642ebed-c74ac904-addccf07-bc61c462-8a4e04ba:occurrence:1"}
 {"file":"apps/backend/src/board/board-post-list-query.ts","ruleId":"boundaries/no-unknown-files","target":"boundaries/no-unknown-files:Program:d5a7c9c9-9679aea6-2d365254-dcdbe63b-b27f37c7-75cdb2ad-6af8241c-e201731b:occurrence:1"}
 {"file":"apps/backend/src/board/board.controller.ts","ruleId":"boundaries/no-unknown-files","target":"boundaries/no-unknown-files:Program:d5a7c9c9-9679aea6-2d365254-dcdbe63b-b27f37c7-75cdb2ad-6af8241c-e201731b:occurrence:1"}
 {"file":"apps/backend/src/board/board.repository.ts","ruleId":"boundaries/no-unknown-files","target":"boundaries/no-unknown-files:Program:d5a7c9c9-9679aea6-2d365254-dcdbe63b-b27f37c7-75cdb2ad-6af8241c-e201731b:occurrence:1"}
