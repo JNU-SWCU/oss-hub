@@ -12,10 +12,7 @@ import type {
   UpsertMilestoneInput,
 } from './api';
 import { isProgramEndAtUndecided } from './program-end-at';
-import {
-  PROGRAM_TRACK_TYPES,
-  type ProgramTrackType,
-} from './program-templates';
+import { type ProgramTrackType } from './program-templates';
 import { seoulDateTimeValue } from './seoul-date-time';
 import {
   toLocalMilestoneDocuments,

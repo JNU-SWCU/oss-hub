@@ -19,7 +19,6 @@ import {
 import {
   PROGRAM_TRACK_TYPE_LABELS,
   PROGRAM_TRACK_TYPES,
-  type ProgramTrackType,
 } from './program-templates';
 import { ProgramDeadlineControl } from './program-deadline-control';
 
@@ -229,8 +228,4 @@ export function ProgramEditBasicForm({
       </FieldGroup>
     </FormSection>
   );
-}
-
-function isProgramTrackType(value: string): value is ProgramTrackType {
-  return value === 'CURRICULAR' || value === 'EXTRACURRICULAR';
 }

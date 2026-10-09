@@ -18,7 +18,13 @@ import {
   toProgramEditForm,
 } from './program-edit-flow';
 
-const fetchMock = vi.fn();
+const fetchMock =
+  vi.fn<
+    (
+      input: string,
+      init?: Omit<RequestInit, 'body'> & { body?: string },
+    ) => Promise<Response>
+  >();
 const editableProgram: EditableProgram = {
   id: 'program-1',
   name: 'OSS',
