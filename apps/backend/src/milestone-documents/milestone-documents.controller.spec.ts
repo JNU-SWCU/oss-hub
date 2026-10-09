@@ -1553,6 +1553,18 @@ describe('legacy mutation route HTTP guard rejections', () => {
         },
       );
       expect(response.status).toBe(403);
+      if (headers.origin === allowedOrigin)
+        await expect(response.json()).resolves.toEqual({
+          type: 'about:blank',
+          title: 'FORBIDDEN',
+          status: 403,
+          detail:
+            MILESTONE_DOCUMENTS_ERROR_CODES[
+              MilestoneDocumentsErrorCode.STAFF_ONLY
+            ].message,
+          instance: `/api/v1/milestones/synthetic-milestone${request.path}`,
+          code: 'MSD_001',
+        });
     }
     expect(createDocument.mock.calls).toHaveLength(0);
     expect(updateDocument.mock.calls).toHaveLength(0);

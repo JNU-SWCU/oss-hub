@@ -129,6 +129,10 @@ it.each([
 it('requires an authenticated session before querying an archive', async () => {
   const response = await fetch(`${url}?scope=PROGRAM`);
   expect(response.status).toBe(401);
+  await expect(response.json()).resolves.toMatchObject({
+    status: 401,
+    code: 'AUT_003',
+  });
   expect(archiveForProgramStaff).not.toHaveBeenCalled();
 });
 
@@ -151,6 +155,15 @@ it.each([
       headers: await headers(),
     });
     expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      type: 'about:blank',
+      title: 'FORBIDDEN',
+      status: 403,
+      detail: '승인된 교직원 또는 관리자만 사용할 수 있습니다.',
+      instance:
+        '/api/v1/programs/synthetic-program/documents/collection/archive',
+      code: 'MSD_001',
+    });
     expect(archiveForProgramStaff).not.toHaveBeenCalled();
   },
 );
