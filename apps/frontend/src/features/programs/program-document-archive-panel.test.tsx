@@ -77,17 +77,19 @@ beforeEach(async () => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
-  await act(async () =>
-    root.render(
-      <ProgramDocumentArchivePanel
-        programId="program-1"
-        initialMilestoneId="stage-2"
-      />,
+  await act(() =>
+    Promise.resolve(
+      root.render(
+        <ProgramDocumentArchivePanel
+          programId="program-1"
+          initialMilestoneId="stage-2"
+        />,
+      ),
     ),
   );
 });
 afterEach(async () => {
-  await act(async () => root.unmount());
+  await act(() => Promise.resolve(root.unmount()));
   container.remove();
   vi.restoreAllMocks();
 });
@@ -102,7 +104,7 @@ function toggle(): HTMLButtonElement {
   return button('제출 자료 ZIP 내려받기');
 }
 async function open() {
-  await act(async () => toggle().click());
+  await act(() => Promise.resolve(toggle().click()));
 }
 
 it('opens in the originating milestone with current-only summary before any download', async () => {
@@ -126,16 +128,18 @@ it('keeps team and grouping choices after a download failure and retries explici
   await open();
   const team = container.querySelector<HTMLInputElement>('input[value="TEAM"]');
   if (!team) throw new TypeError('Missing team scope');
-  await act(async () => team.click());
+  await act(() => Promise.resolve(team.click()));
   const grouping = [...container.querySelectorAll('select')].find((item) =>
     item.textContent?.includes('서류별로 묶기'),
   );
   if (!grouping) throw new TypeError('Missing grouping');
-  await act(async () => {
+  await act(() => {
     grouping.value = 'DOCUMENT';
     grouping.dispatchEvent(new Event('change', { bubbles: true }));
+
+    return Promise.resolve();
   });
-  await act(async () => button('ZIP 내려받기').click());
+  await act(() => Promise.resolve(button('ZIP 내려받기').click()));
   expect(downloadProgramDocumentArchive).toHaveBeenCalledWith(
     'program-1',
     { kind: 'TEAM', teamId: 'team-1' },
@@ -146,7 +150,7 @@ it('keeps team and grouping choices after a download failure and retries explici
   );
   expect(grouping.value).toBe('DOCUMENT');
   expect(team.checked).toBe(true);
-  await act(async () => button('ZIP 내려받기').click());
+  await act(() => Promise.resolve(button('ZIP 내려받기').click()));
   expect(downloadProgramDocumentArchive).toHaveBeenCalledTimes(2);
 });
 
@@ -158,7 +162,7 @@ it('offers retry after scope loading fails without issuing a download', async ()
   expect(container.querySelector('[role="alert"]')?.textContent).toContain(
     '불러오지 못했습니다',
   );
-  await act(async () => button('다시 시도').click());
+  await act(() => Promise.resolve(button('다시 시도').click()));
   expect(container.textContent).toContain('예시 프로그램 · 결과');
   expect(downloadProgramDocumentArchive).not.toHaveBeenCalled();
 });
@@ -166,8 +170,10 @@ it('offers retry after scope loading fails without issuing a download', async ()
 it('does not submit an empty team selection', async () => {
   vi.mocked(listStaffProgramTeams).mockResolvedValue([]);
   await open();
-  await act(async () =>
-    container.querySelector<HTMLInputElement>('input[value="TEAM"]')?.click(),
+  await act(() =>
+    Promise.resolve(
+      container.querySelector<HTMLInputElement>('input[value="TEAM"]')?.click(),
+    ),
   );
   expect(button('ZIP 내려받기').disabled).toBe(true);
   expect(container.textContent).toContain('선택 가능한 팀 없음');

@@ -1,6 +1,6 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
+import { OriginGuard } from '../auth/controller/origin.guard';
+import { SessionGuard } from '../auth/controller/session.guard';
 import { ApplicationDecisionNotificationsController } from './application-decision-notifications.controller';
 
 function guards(method: 'listUnread' | 'markRead'): readonly unknown[] {

@@ -7,7 +7,9 @@ import { describe, expect, it } from 'vitest';
 const here = dirname(fileURLToPath(import.meta.url));
 const backendRoot = join(here, '..', '..', '..', 'backend');
 const require = createRequire(join(backendRoot, 'package.json'));
-const { Prisma } = require('@prisma/client');
+const { Prisma } = require('@prisma/client') as {
+  Prisma: { dmmf: { datamodel: { models: readonly { name: string }[] } } };
+};
 
 const supportScripts = readdirSync(here)
   .filter((entry) => entry.endsWith('.mjs'))
@@ -17,7 +19,7 @@ const supportScripts = readdirSync(here)
   }));
 
 const clientDelegates = new Set<string>(
-  (Prisma.dmmf.datamodel.models as readonly { name: string }[]).map(
+  Prisma.dmmf.datamodel.models.map(
     (model) => `${model.name[0]?.toLowerCase() ?? ''}${model.name.slice(1)}`,
   ),
 );

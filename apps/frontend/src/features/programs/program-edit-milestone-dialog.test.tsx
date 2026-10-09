@@ -138,26 +138,28 @@ describe('ProgramEditMilestoneDialog', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
   });
 
   it('uses the milestone name as the dialog title and keeps all fields populated', async () => {
-    await act(async () =>
-      root.render(
-        <ProgramEditMilestoneDialog
-          {...passiveProps}
-          contextEvents={[
-            {
-              id: 'application',
-              label: '신청 기간',
-              kind: 'APPLICATION',
-              startAt: '2026-08-01T09:00',
-              endAt: '2026-08-15T18:00',
-            },
-          ]}
-          editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
-        />,
+    await act(() =>
+      Promise.resolve(
+        root.render(
+          <ProgramEditMilestoneDialog
+            {...passiveProps}
+            contextEvents={[
+              {
+                id: 'application',
+                label: '신청 기간',
+                kind: 'APPLICATION',
+                startAt: '2026-08-01T09:00',
+                endAt: '2026-08-15T18:00',
+              },
+            ]}
+            editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
+          />,
+        ),
       ),
     );
     const dialog = document.querySelector('[role="dialog"]');
@@ -167,10 +169,12 @@ describe('ProgramEditMilestoneDialog', () => {
     expect(
       (document.querySelector('#milestone-name') as HTMLInputElement).value,
     ).toBe('기획서 제출');
-    await act(async () => {
+    await act(() => {
       document
         .querySelector<HTMLButtonElement>('button[aria-controls]')
         ?.click();
+
+      return Promise.resolve();
     });
     expect(
       document.querySelector<HTMLInputElement>('#milestone-start-at')?.value,
@@ -181,12 +185,14 @@ describe('ProgramEditMilestoneDialog', () => {
   });
 
   it('keeps Korean instruction words intact on narrow dialog widths', async () => {
-    await act(async () =>
-      root.render(
-        <ProgramEditMilestoneDialog
-          {...passiveProps}
-          editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
-        />,
+    await act(() =>
+      Promise.resolve(
+        root.render(
+          <ProgramEditMilestoneDialog
+            {...passiveProps}
+            editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
+          />,
+        ),
       ),
     );
 
@@ -199,12 +205,14 @@ describe('ProgramEditMilestoneDialog', () => {
   });
 
   it('keeps form fields and local documents in one scroll body with a separate footer', async () => {
-    await act(async () =>
-      root.render(
-        <ProgramEditMilestoneDialog
-          {...passiveProps}
-          editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
-        />,
+    await act(() =>
+      Promise.resolve(
+        root.render(
+          <ProgramEditMilestoneDialog
+            {...passiveProps}
+            editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
+          />,
+        ),
       ),
     );
     const dialog = document.querySelector('[role="dialog"]');
@@ -230,39 +238,45 @@ describe('ProgramEditMilestoneDialog', () => {
 
   it('keeps the milestone dialog open when Escape cancels only a submission-item name edit', async () => {
     const onCancel = vi.fn();
-    await act(async () =>
-      root.render(
-        <ProgramEditMilestoneDialog
-          {...passiveProps}
-          onCancel={onCancel}
-          snapshot={{
-            ...passiveProps.snapshot,
-            documents: [
-              {
-                id: 'document-1',
-                name: '기획서',
-                required: true,
-                sortOrder: 1,
-                templateFileName: null,
-              },
-            ],
-          }}
-          editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
-        />,
+    await act(() =>
+      Promise.resolve(
+        root.render(
+          <ProgramEditMilestoneDialog
+            {...passiveProps}
+            onCancel={onCancel}
+            snapshot={{
+              ...passiveProps.snapshot,
+              documents: [
+                {
+                  id: 'document-1',
+                  name: '기획서',
+                  required: true,
+                  sortOrder: 1,
+                  templateFileName: null,
+                },
+              ],
+            }}
+            editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
+          />,
+        ),
       ),
     );
-    await act(async () =>
-      document
-        .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')
-        ?.click(),
+    await act(() =>
+      Promise.resolve(
+        document
+          .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')
+          ?.click(),
+      ),
     );
     const input = document.querySelector<HTMLInputElement>(
       '[aria-label="파일 제출물 이름"]',
     );
     expect(input).not.toBeNull();
-    await act(async () => {
+    await act(() => {
       input?.focus();
       pressEscape(input ?? document);
+
+      return Promise.resolve();
     });
     expect(onCancel).not.toHaveBeenCalled();
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
@@ -285,30 +299,34 @@ describe('ProgramEditMilestoneDialog', () => {
         },
       ],
     };
-    await act(async () =>
-      root.render(
-        <ProgramEditMilestoneDialog
-          {...passiveProps}
-          snapshot={snapshot}
-          latestSnapshot={snapshot}
-          editor={{
-            mode: 'edit',
-            form,
-            initialForm: form,
-            errors: { general: '다른 변경과 충돌했습니다.' },
-          }}
-        />,
+    await act(() =>
+      Promise.resolve(
+        root.render(
+          <ProgramEditMilestoneDialog
+            {...passiveProps}
+            snapshot={snapshot}
+            latestSnapshot={snapshot}
+            editor={{
+              mode: 'edit',
+              form,
+              initialForm: form,
+              errors: { general: '다른 변경과 충돌했습니다.' },
+            }}
+          />,
+        ),
       ),
     );
     const fileInput = document.querySelector<HTMLInputElement>(
       '[role="group"][aria-label$="제출 항목"] input[type="file"]',
     )!;
-    await act(async () => {
+    await act(() => {
       Object.defineProperty(fileInput, 'files', {
         configurable: true,
         value: [new File(['text'], 'guide.txt', { type: 'text/plain' })],
       });
       fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+      return Promise.resolve();
     });
     const itemAlerts = () =>
       document.querySelectorAll(
@@ -316,14 +334,18 @@ describe('ProgramEditMilestoneDialog', () => {
       );
     expect(itemAlerts()).toHaveLength(1);
 
-    await act(async () => getButton('최신 서버 상태로 다시 시작').click());
+    await act(() =>
+      Promise.resolve(getButton('최신 서버 상태로 다시 시작').click()),
+    );
     expect(itemAlerts()).toHaveLength(0);
   });
 
   it('closes a clean editor with one Escape and returns focus to its exact origin', async () => {
     const onCancel = vi.fn();
-    await act(async () =>
-      root.render(<DialogHarness startingForm={form} onCancel={onCancel} />),
+    await act(() =>
+      Promise.resolve(
+        root.render(<DialogHarness startingForm={form} onCancel={onCancel} />),
+      ),
     );
     const origin = getButton('기획서 제출 수정');
     let originFocused = false;
@@ -342,12 +364,14 @@ describe('ProgramEditMilestoneDialog', () => {
 
   it('keeps dirty data through alert Escape and continue-editing, then discards once and restores origin focus', async () => {
     const onCancel = vi.fn();
-    await act(async () =>
-      root.render(
-        <DialogHarness
-          startingForm={{ ...form, name: '변경된 기획서' }}
-          onCancel={onCancel}
-        />,
+    await act(() =>
+      Promise.resolve(
+        root.render(
+          <DialogHarness
+            startingForm={{ ...form, name: '변경된 기획서' }}
+            onCancel={onCancel}
+          />,
+        ),
       ),
     );
 
@@ -355,8 +379,10 @@ describe('ProgramEditMilestoneDialog', () => {
       document.querySelector<HTMLInputElement>('#milestone-name');
     if (!nameInput) throw new TypeError('Milestone name input not found');
     nameInput.focus();
-    await act(async () => {
+    await act(() => {
       pressEscape(nameInput);
+
+      return Promise.resolve();
     });
     expect(document.querySelectorAll('[role="alertdialog"]')).toHaveLength(1);
     expect(document.body.textContent).toContain(
@@ -383,7 +409,9 @@ describe('ProgramEditMilestoneDialog', () => {
     expect(onCancel).not.toHaveBeenCalled();
 
     nameInput.focus();
-    await act(async () => pressEscape(document.activeElement ?? document));
+    await act(() =>
+      Promise.resolve(pressEscape(document.activeElement ?? document)),
+    );
     expect(document.querySelectorAll('[role="alertdialog"]')).toHaveLength(1);
     editorFocused = false;
     await act(async () => {
@@ -394,7 +422,9 @@ describe('ProgramEditMilestoneDialog', () => {
     expect(nameInput.value).toBe('변경된 기획서');
     expect(editorFocused).toBe(true);
 
-    await act(async () => pressEscape(document.activeElement ?? document));
+    await act(() =>
+      Promise.resolve(pressEscape(document.activeElement ?? document)),
+    );
     const origin = getButton('기획서 제출 수정');
     let originFocused = false;
     origin.addEventListener('focus', () => {
@@ -409,7 +439,7 @@ describe('ProgramEditMilestoneDialog', () => {
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
     expect(originFocused).toBe(true);
 
-    await act(async () => getButton('기획서 제출 수정').click());
+    await act(() => Promise.resolve(getButton('기획서 제출 수정').click()));
     expect(
       document.querySelector<HTMLInputElement>('#milestone-name')?.value,
     ).toBe(form.name);
@@ -417,25 +447,29 @@ describe('ProgramEditMilestoneDialog', () => {
   });
 
   it('focuses the first invalid field inside the portaled dialog', async () => {
-    await act(async () =>
-      root.render(
-        <ProgramEditMilestoneDialog
-          {...passiveProps}
-          editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
-        />,
+    await act(() =>
+      Promise.resolve(
+        root.render(
+          <ProgramEditMilestoneDialog
+            {...passiveProps}
+            editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
+          />,
+        ),
       ),
     );
-    await act(async () =>
-      root.render(
-        <ProgramEditMilestoneDialog
-          {...passiveProps}
-          editor={{
-            mode: 'edit',
-            form,
-            initialForm: form,
-            errors: { dueAt: '마감일을 확인해 주세요.' },
-          }}
-        />,
+    await act(() =>
+      Promise.resolve(
+        root.render(
+          <ProgramEditMilestoneDialog
+            {...passiveProps}
+            editor={{
+              mode: 'edit',
+              form,
+              initialForm: form,
+              errors: { dueAt: '마감일을 확인해 주세요.' },
+            }}
+          />,
+        ),
       ),
     );
 
@@ -448,16 +482,18 @@ describe('ProgramEditMilestoneDialog', () => {
 
   it('ignores Escape and overlay close attempts while a save is in progress', async () => {
     const onCancel = vi.fn();
-    await act(async () =>
-      root.render(
-        <DialogHarness
-          startingForm={{ ...form, name: '변경' }}
-          isBusy
-          onCancel={onCancel}
-        />,
+    await act(() =>
+      Promise.resolve(
+        root.render(
+          <DialogHarness
+            startingForm={{ ...form, name: '변경' }}
+            isBusy
+            onCancel={onCancel}
+          />,
+        ),
       ),
     );
-    await act(async () => {
+    await act(() => {
       pressEscape(document.activeElement ?? document);
       const overlay = document.querySelector<HTMLElement>(
         '.fixed.inset-0.z-50',
@@ -469,6 +505,8 @@ describe('ProgramEditMilestoneDialog', () => {
         new PointerEvent('pointerup', { bubbles: true, cancelable: true }),
       );
       overlay?.click();
+
+      return Promise.resolve();
     });
     expect(onCancel).not.toHaveBeenCalled();
     expect(document.body.textContent).not.toContain(
@@ -479,16 +517,20 @@ describe('ProgramEditMilestoneDialog', () => {
 
   it('treats an exact revert as clean and does not double-close without a focus ref', async () => {
     const onCancel = vi.fn();
-    await act(async () =>
-      root.render(
-        <DialogHarness
-          startingForm={{ ...form }}
-          withReturnFocus={false}
-          onCancel={onCancel}
-        />,
+    await act(() =>
+      Promise.resolve(
+        root.render(
+          <DialogHarness
+            startingForm={{ ...form }}
+            withReturnFocus={false}
+            onCancel={onCancel}
+          />,
+        ),
       ),
     );
-    await act(async () => pressEscape(document.activeElement ?? document));
+    await act(() =>
+      Promise.resolve(pressEscape(document.activeElement ?? document)),
+    );
 
     expect(onCancel).toHaveBeenCalledOnce();
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
@@ -507,17 +549,19 @@ describe('단일 범위 편집기의 죽은 선택기 제거', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => Promise.resolve(root.unmount()));
     container.remove();
   });
 
   async function open() {
-    await act(async () =>
-      root.render(
-        <ProgramEditMilestoneDialog
-          {...passiveProps}
-          editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
-        />,
+    await act(() =>
+      Promise.resolve(
+        root.render(
+          <ProgramEditMilestoneDialog
+            {...passiveProps}
+            editor={{ mode: 'edit', form, initialForm: form, errors: {} }}
+          />,
+        ),
       ),
     );
   }
@@ -550,7 +594,7 @@ describe('단일 범위 편집기의 죽은 선택기 제거', () => {
       'button[aria-label="기획서 제출 일정 입력"]',
     );
     expect(scheduleButton).not.toBeNull();
-    await act(async () => scheduleButton?.click());
+    await act(() => Promise.resolve(scheduleButton?.click()));
     const dialogs = document.querySelectorAll('[role="dialog"]');
     const rangeDialog = dialogs[dialogs.length - 1];
     expect(
@@ -563,12 +607,14 @@ describe('단일 범위 편집기의 죽은 선택기 제거', () => {
 
   it('운영 기간 밖 날짜를 고를 수 없도록 경계를 넘긴다', async () => {
     await open();
-    await act(async () =>
-      document
-        .querySelector<HTMLButtonElement>(
-          'button[aria-label="기획서 제출 일정 입력"]',
-        )
-        ?.click(),
+    await act(() =>
+      Promise.resolve(
+        document
+          .querySelector<HTMLButtonElement>(
+            'button[aria-label="기획서 제출 일정 입력"]',
+          )
+          ?.click(),
+      ),
     );
     const startDate = document.querySelector<HTMLInputElement>(
       'input[aria-label="기획서 제출 시작일"]',

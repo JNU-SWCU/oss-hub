@@ -87,6 +87,7 @@ describe('ProgramEditorService authority', () => {
     const { service, store } = createProgramEditorServiceHarness();
     const locked = lockedMilestoneEdit([]);
     store.lockMilestoneEdit.mockResolvedValue(locked);
+    store.readMilestoneEdit.mockResolvedValue(locked);
     store.countSubmissionHistoriesForDocuments.mockResolvedValue(0);
     store.lockAttachableUploads.mockResolvedValue([]);
 

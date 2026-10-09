@@ -11,20 +11,80 @@ const TOKENS = readFileSync(
   'utf8',
 );
 
-type AnyNode = Record<string, any>;
+interface AnyNode {
+  id: string;
+  type: string;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  opacity: number;
+  fills: { boundVariables?: { color?: { id: string } } }[];
+  strokes: unknown[];
+  children: AnyNode[];
+  parent: AnyNode | null;
+  properties: Record<string, string>;
+  removed?: boolean;
+  characters?: string;
+  description?: string;
+  fontName?: { family: string; style: string };
+  fontSize?: number;
+  lineHeight?: unknown;
+  letterSpacing?: unknown;
+  cornerRadius?: number;
+  paddingTop?: number;
+  paddingLeft?: number;
+  minWidth?: number;
+  counterAxisSizingMode?: string;
+  defaultVariant?: AnyNode;
+  appendChild(child: AnyNode): void;
+  insertChild(index: number, child: AnyNode): void;
+  remove(): void;
+  resize(w: number, h: number): void;
+  rescale(factor: number): void;
+  clone(): AnyNode;
+  findAll(predicate: (node: AnyNode) => boolean): AnyNode[];
+  findOne(predicate: (node: AnyNode) => boolean): AnyNode | null;
+  setBoundVariable(): void;
+  setTextStyleIdAsync(): Promise<void>;
+  loadAsync(): Promise<void>;
+  createInstance(): AnyNode;
+  setProperties?(props: Record<string, string>): void;
+  resizeWithoutConstraints?(): void;
+}
+
+interface VariableCollection {
+  id: string;
+  name: string;
+  modes: { modeId: string; name: string }[];
+  renameMode(modeId: string, name: string): void;
+  addMode(name: string): string;
+}
+
+interface Variable {
+  id: string;
+  name: string;
+  resolvedType: string;
+  variableCollectionId: string;
+  valuesByMode: Record<string, unknown>;
+  description: string;
+  setValueForMode(modeId: string, value: unknown): void;
+  remove(): void;
+}
 
 function createFakeFigma(
   options: { singleMode?: boolean; pageLimit?: number } = {},
 ) {
   const logs: string[] = [];
   const pages: AnyNode[] = [];
-  const collections: AnyNode[] = [];
-  const variables: AnyNode[] = [];
-  const textStyles: AnyNode[] = [];
+  const collections: VariableCollection[] = [];
+  const variables: Variable[] = [];
+  const textStyles: { id: string; name: string }[] = [];
   let currentPage: AnyNode;
   let nextId = 1;
 
-  function node(type: string, extra: AnyNode = {}): AnyNode {
+  function node(type: string, extra: Partial<AnyNode> = {}): AnyNode {
     const self: AnyNode = {
       id: String(nextId++),
       type,
@@ -91,23 +151,23 @@ function createFakeFigma(
         const instance = node('INSTANCE', { name: self.name });
         for (const child of self.children) instance.appendChild(child.clone());
 
-        instance.properties = {} as Record<string, string>;
+        instance.properties = {};
         instance.setProperties = (props: Record<string, string>) => {
           Object.assign(instance.properties, props);
         };
         return instance;
       },
       ...extra,
-    };
+    } as AnyNode;
     if (type !== 'TEXT' && !('characters' in self)) Object.assign(self, {});
     return self;
   }
 
-  const figma: AnyNode = {
+  const figma = {
     showUI() {},
     ui: {
       onmessage: null as null | ((message: unknown) => Promise<void>),
-      postMessage(message: AnyNode) {
+      postMessage(message: { type: string; text?: string }) {
         if (message.type === 'log') logs.push(String(message.text));
       },
     },
@@ -127,25 +187,24 @@ function createFakeFigma(
       currentPage = page;
       return page;
     },
-    async setCurrentPageAsync(page: AnyNode) {
+    setCurrentPageAsync(page: AnyNode) {
       currentPage = page;
+      return Promise.resolve();
     },
     variables: {
-      async getLocalVariableCollectionsAsync() {
-        return collections;
+      getLocalVariableCollectionsAsync() {
+        return Promise.resolve(collections);
       },
-      async getLocalVariablesAsync() {
-        return variables;
+      getLocalVariablesAsync() {
+        return Promise.resolve(variables);
       },
       createVariableCollection(name: string) {
-        const collection: AnyNode = {
+        const collection: VariableCollection = {
           id: `collection-${collections.length + 1}`,
           name,
           modes: [{ modeId: 'mode-1', name: 'Mode 1' }],
           renameMode(modeId: string, newName: string) {
-            const mode = collection.modes.find(
-              (m: AnyNode) => m.modeId === modeId,
-            );
+            const mode = collection.modes.find((m) => m.modeId === modeId);
             if (mode) mode.name = newName;
           },
           addMode(newName: string) {
@@ -159,13 +218,17 @@ function createFakeFigma(
         collections.push(collection);
         return collection;
       },
-      createVariable(name: string, collection: AnyNode, resolvedType: string) {
-        const variable: AnyNode = {
+      createVariable(
+        name: string,
+        collection: VariableCollection,
+        resolvedType: string,
+      ) {
+        const variable: Variable = {
           id: `variable-${variables.length + 1}`,
           name,
           resolvedType,
           variableCollectionId: collection.id,
-          valuesByMode: {} as Record<string, unknown>,
+          valuesByMode: {},
           description: '',
           setValueForMode(modeId: string, value: unknown) {
             variable.valuesByMode[modeId] = value;
@@ -178,13 +241,13 @@ function createFakeFigma(
         variables.push(variable);
         return variable;
       },
-      createVariableAlias(variable: AnyNode) {
+      createVariableAlias(variable: Variable) {
         return { type: 'VARIABLE_ALIAS', id: variable.id };
       },
       setBoundVariableForPaint(
-        paint: AnyNode,
+        paint: Record<string, unknown>,
         field: string,
-        variable: AnyNode,
+        variable: Variable,
       ) {
         return {
           ...paint,
@@ -194,17 +257,19 @@ function createFakeFigma(
         };
       },
     },
-    async listAvailableFontsAsync() {
-      return ['Regular', 'Semi Bold', 'Bold'].map((style) => ({
-        fontName: { family: 'Inter', style },
-      }));
+    listAvailableFontsAsync() {
+      return Promise.resolve(
+        ['Regular', 'Semi Bold', 'Bold'].map((style) => ({
+          fontName: { family: 'Inter', style },
+        })),
+      );
     },
     async loadFontAsync() {},
-    async getLocalTextStylesAsync() {
-      return textStyles;
+    getLocalTextStylesAsync() {
+      return Promise.resolve(textStyles);
     },
     createTextStyle() {
-      const style: AnyNode = { id: `style-${textStyles.length + 1}`, name: '' };
+      const style = { id: `style-${textStyles.length + 1}`, name: '' };
       textStyles.push(style);
       return style;
     },
@@ -232,15 +297,18 @@ function createFakeFigma(
 }
 
 async function runPlugin(fake: ReturnType<typeof createFakeFigma>) {
-  const fetch = async (url: string) => ({
-    ok: true,
-    status: 200,
-    json: async () => JSON.parse(TOKENS),
-    text: async () =>
-      url.endsWith('.svg')
-        ? '<svg xmlns="http://www.w3.org/2000/svg"/>'
-        : TOKENS,
-  });
+  const fetch = (url: string) =>
+    Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(JSON.parse(TOKENS) as unknown),
+      text: () =>
+        Promise.resolve(
+          url.endsWith('.svg')
+            ? '<svg xmlns="http://www.w3.org/2000/svg"/>'
+            : TOKENS,
+        ),
+    });
   const sandbox = vm.createContext({
     figma: fake.figma,
     __html__: '',
@@ -345,7 +413,7 @@ describe('figma plugin code.js', () => {
     expect(fake.logs.at(-1)).toContain('완료');
 
     expect(fake.collections.map((c) => c.name)).toEqual(['OSS Hub']);
-    expect(fake.collections[0].modes.map((m: AnyNode) => m.name)).toEqual([
+    expect(fake.collections[0].modes.map((m) => m.name)).toEqual([
       'Light',
       'Dark',
     ]);
@@ -541,9 +609,9 @@ describe('figma plugin code.js', () => {
 
     const variableId = (name: string) =>
       fake.variables.find((v) => v.name === name)?.id;
-    const fillId = (n?: AnyNode) => n?.fills?.[0]?.boundVariables?.color?.id;
-    const text = (n?: AnyNode) =>
-      n?.findOne((c: AnyNode) => c.type === 'TEXT') as AnyNode | undefined;
+    const fillId = (n?: AnyNode | null) =>
+      n?.fills?.[0]?.boundVariables?.color?.id;
+    const text = (n?: AnyNode) => n?.findOne((c: AnyNode) => c.type === 'TEXT');
 
     const rowHeader = fake.pages
       .flatMap((p) => p.children)

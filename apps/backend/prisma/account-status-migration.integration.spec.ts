@@ -1,8 +1,8 @@
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { AuthErrorCode } from '../src/auth/auth-error-code.enum';
 import { AuthConfig } from '../src/auth/auth.config';
-import { AuthRepository } from '../src/auth/auth.repository';
-import { AuthService } from '../src/auth/auth.service';
+import { AuthRepository } from '../src/auth/repository/auth.repository';
+import { AuthService } from '../src/auth/service/auth.service';
 import { AuditLogRepository } from '../src/audit-log/audit-log.repository';
 import { AuditLogService } from '../src/audit-log/audit-log.service';
 import type { ConsentsService } from '../src/consents/consents.service';

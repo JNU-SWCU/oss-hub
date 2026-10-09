@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { AccountStatus, ApplicationStatus } from '@prisma/client';
-import type { AuthenticatedRequest } from '../auth/session.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { programApplicationParticipantWhere } from '../programs/program-participant';

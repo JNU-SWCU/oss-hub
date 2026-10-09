@@ -1,11 +1,11 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
-import { AuthService } from '../auth/auth.service';
-import { OriginGuard } from '../auth/origin.guard';
-import { SessionGuard } from '../auth/session.guard';
-import { issueSessionToken } from '../auth/session-token';
-import { sessionCookieName } from '../auth/cookies';
+import { AuthService } from '../auth/service/auth.service';
+import { OriginGuard } from '../auth/controller/origin.guard';
+import { SessionGuard } from '../auth/controller/session.guard';
+import { issueSessionToken } from '../auth/domain/session-token';
+import { sessionCookieName } from '../auth/domain/cookies';
 import { ProblemDetailFilter } from '../common/problem-detail.filter';
 import { StudentRepositoryUrlController } from './student-repository-url.controller';
 import { StudentRepositoryUrlService } from './student-repository-url.service';

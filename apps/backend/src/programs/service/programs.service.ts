@@ -8,7 +8,7 @@ import { DomainException } from '../../common/error-code';
 import {
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
-} from '../../common/milestone-completion';
+} from '../../milestone-documents/domain/milestone-completion';
 import type {
   ApplicationSubmissionSummaryResponseDto,
   ProgramDetailResponseDto,

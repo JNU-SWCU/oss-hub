@@ -67,7 +67,7 @@ function seoulParts(value: string): Record<string, string> {
   return Object.fromEntries(parts.map((part) => [part.type, part.value]));
 }
 
-export function formatSeoulDateOnly(value: string): string {
+function formatSeoulDateOnly(value: string): string {
   const { year, month, day } = seoulParts(value);
   return `${year}.${month}.${day}`;
 }

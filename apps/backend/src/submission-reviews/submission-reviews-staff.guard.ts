@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import type { AuthenticatedRequest } from '../auth/session.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import {

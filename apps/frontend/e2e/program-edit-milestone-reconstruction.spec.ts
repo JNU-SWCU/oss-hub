@@ -2,7 +2,6 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { expect, test } from './admin-session.fixture';
 import { e2eEnvironment } from './environment';
 import type {
-  APIResponse,
   Locator,
   Page,
   Response as PlaywrightResponse,
@@ -77,7 +76,7 @@ test.describe('마일스톤 편집 재구성', () => {
       { headers: originHeadersFor(staffPage.url()) },
     );
     await expectApiStatus(beforeCancelResponse, 200);
-    const beforeCancelSnapshot = await beforeCancelResponse.json();
+    const beforeCancelSnapshot: unknown = await beforeCancelResponse.json();
     await expect(
       staffPage.locator('[data-program-schedule-summaries]'),
     ).toBeVisible();
@@ -255,7 +254,7 @@ test.describe('마일스톤 편집 재구성', () => {
       { headers: originHeadersFor(staffPage.url()) },
     );
     await expectApiStatus(beforeCancelResponse, 200);
-    const beforeCancelSnapshot = await beforeCancelResponse.json();
+    const beforeCancelSnapshot: unknown = await beforeCancelResponse.json();
     const milestoneCard = staffPage.locator(
       `[data-canonical-id="${milestoneId}"]`,
     );

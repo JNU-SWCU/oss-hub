@@ -1,0 +1,216 @@
+import { AccountStatus, MemberKind } from '@prisma/client';
+import { decodeJwt } from 'jose';
+import { DomainException } from '../../common/error-code';
+import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
+import { AuthErrorCode } from '../auth-error-code.enum';
+import { AuthConfig } from '../auth.config';
+import type {
+  AuthRepository,
+  AuthTransactionStore,
+} from '../repository/auth.repository';
+import { AuthService } from './auth.service';
+import type { AuthUser } from '../domain/auth-user';
+import { createFlowState, encodeFlowCookie } from '../domain/oauth-flow';
+
+const syntheticUser: AuthUser = {
+  id: 'cuid-synthetic',
+  githubId: 424242n,
+  nickname: 'synthetic-login',
+  name: null,
+  avatarUrl: null,
+  accountStatus: AccountStatus.ACTIVE,
+  sessionVersion: 7,
+  memberKind: null,
+  hasStaffAccess: false,
+  hasAdminAccess: false,
+  isProfileComplete: false,
+};
+
+function buildConfig(): AuthConfig {
+  return new AuthConfig(
+    loadRuntimeConfig({
+      SESSION_SECRET: Buffer.from(
+        'synthetic-auth-service-session-secret',
+      ).toString('base64url'),
+      FRONTEND_URL: 'http://localhost:3000',
+      GITHUB_OAUTH_CLIENT_ID: 'synthetic-client-id',
+      GITHUB_OAUTH_CLIENT_SECRET: 'synthetic-client-secret',
+    }),
+  );
+}
+
+function jsonResponse(status: number, body: unknown): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: () => Promise.resolve(body),
+  } as Response;
+}
+
+describe('AuthService', () => {
+  const upsertUser = jest.fn();
+  const withTransaction = jest
+    .fn()
+    .mockImplementation(
+      (operation: (store: AuthTransactionStore) => Promise<unknown>) =>
+        operation({ upsertUser }),
+    );
+  const findByGithubId = jest.fn();
+  const repository = {
+    withTransaction,
+    findByGithubId,
+  } as unknown as AuthRepository;
+  let service: AuthService;
+  let fetchMock: jest.SpyInstance;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    upsertUser.mockResolvedValue({ user: syntheticUser, isNew: true });
+    service = new AuthService(buildConfig(), repository);
+    fetchMock = jest.spyOn(globalThis, 'fetch');
+  });
+
+  afterEach(() => {
+    fetchMock.mockRestore();
+  });
+
+  it('authorize redirect에 PKCE·state 파라미터가 전부 들어간다', () => {
+    const redirect = service.buildAuthorizeRedirect();
+    const url = new URL(redirect.url);
+    expect(url.origin + url.pathname).toBe(
+      'https://github.com/login/oauth/authorize',
+    );
+    expect(url.searchParams.get('client_id')).toBe('synthetic-client-id');
+    expect(url.searchParams.get('scope')).toBe('read:user user:email');
+    expect(url.searchParams.get('code_challenge_method')).toBe('S256');
+    expect(url.searchParams.get('code_challenge')).toMatch(
+      /^[A-Za-z0-9_-]{43}$/,
+    );
+    expect(url.searchParams.get('state')).toMatch(/^[A-Za-z0-9_-]{43}$/);
+
+    expect(redirect.flowCookieValue.split('.')[0]).toBe(
+      url.searchParams.get('state'),
+    );
+  });
+
+  it('happy path: code 교환 → 프로필·이메일 조회 → upsert, 토큰은 반환값에 없다', async () => {
+    const flow = createFlowState();
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(200, { access_token: 'synthetic-token' }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, { id: 424242, login: 'synthetic-login', name: null }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, [
+          {
+            email: 'primary@example.com',
+            primary: true,
+            verified: true,
+          },
+        ]),
+      );
+
+    const login = await service.completeLogin({
+      code: 'synthetic-code',
+      state: flow.state,
+      flowCookie: encodeFlowCookie(flow),
+    });
+
+    expect(login).toEqual({ user: syntheticUser, isNew: true });
+    expect(upsertUser).toHaveBeenCalledWith({
+      githubId: 424242n,
+      login: 'synthetic-login',
+      name: null,
+      avatarUrl: null,
+      email: 'primary@example.com',
+    });
+    expect(withTransaction).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const emailCall = fetchMock.mock.calls[2] as
+      [string, RequestInit] | undefined;
+    expect(emailCall?.[0]).toBe('https://api.github.com/user/emails');
+
+    const [, exchangeInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const exchangeBody = JSON.parse(exchangeInit.body as string) as Record<
+      string,
+      string
+    >;
+    expect(exchangeBody.code_verifier).toBe(flow.verifier);
+  });
+
+  it.each([
+    ['flow 쿠키 없음', undefined, 'any-state'],
+    ['state 불일치', encodeFlowCookie(createFlowState()), 'x'.repeat(43)],
+    ['형식 위반 쿠키', 'malformed-cookie', 'x'.repeat(43)],
+  ])(
+    '%s이면 AUT_001로 거부하고 GitHub를 호출하지 않는다',
+    async (_label, flowCookie, state) => {
+      await expect(
+        service.completeLogin({ code: 'c', state, flowCookie }),
+      ).rejects.toMatchObject({
+        errorCode: { code: AuthErrorCode.OAUTH_FLOW_INVALID },
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(withTransaction).not.toHaveBeenCalled();
+      expect(upsertUser).not.toHaveBeenCalled();
+    },
+  );
+
+  it('code 교환 응답에 access_token이 없으면 실패한다 (DB 쓰기 없음)', async () => {
+    const flow = createFlowState();
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { error: 'bad_code' }));
+    await expect(
+      service.completeLogin({
+        code: 'expired',
+        state: flow.state,
+        flowCookie: encodeFlowCookie(flow),
+      }),
+    ).rejects.toThrow('access_token');
+    expect(withTransaction).not.toHaveBeenCalled();
+    expect(upsertUser).not.toHaveBeenCalled();
+  });
+
+  it('getMe는 DB의 현재 active 계정·권한을 principal로 반환한다', async () => {
+    const staffUser: AuthUser = {
+      ...syntheticUser,
+      memberKind: 'STAFF',
+      hasStaffAccess: true,
+    };
+    findByGithubId.mockResolvedValueOnce(staffUser);
+
+    const principal = await service.getMe(staffUser.githubId);
+
+    expect(principal).toEqual(staffUser);
+    expect(principal.accountStatus).toBe(AccountStatus.ACTIVE);
+  });
+
+  it('새 세션은 persisted sessionVersion을 JWT에 싣는다', async () => {
+    const token = await service.issueSession(syntheticUser);
+
+    expect(decodeJwt(token).sessionVersion).toBe(syntheticUser.sessionVersion);
+  });
+
+  it('getMe: 사용자 없으면 AUT_003', async () => {
+    findByGithubId.mockResolvedValueOnce(null);
+    await expect(service.getMe(1n)).rejects.toBeInstanceOf(DomainException);
+  });
+
+  it('비활성 계정은 기존 세션 조회와 새 세션 발급을 모두 AUT_003으로 거부한다', async () => {
+    const deactivatedUser: AuthUser = {
+      ...syntheticUser,
+      memberKind: MemberKind.STAFF,
+      hasStaffAccess: true,
+      accountStatus: AccountStatus.DEACTIVATED,
+    };
+    findByGithubId.mockResolvedValueOnce(deactivatedUser);
+
+    await expect(service.getMe(deactivatedUser.githubId)).rejects.toMatchObject(
+      { errorCode: { code: AuthErrorCode.UNAUTHENTICATED } },
+    );
+    await expect(service.issueSession(deactivatedUser)).rejects.toMatchObject({
+      errorCode: { code: AuthErrorCode.UNAUTHENTICATED },
+    });
+  });
+});
