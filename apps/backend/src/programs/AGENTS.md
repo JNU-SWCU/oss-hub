@@ -23,7 +23,7 @@
 - 목록 filter/sort는 `program-list-query.ts`와 `dto/program-list-query.dto.ts`를 함께 변경한다.
 - HTTP 입력·출력은 `dto/` class에서 변환하고 controller에서 임의 response shape나 validation을 만들지 않는다.
 - 공개 필드와 viewer personalization 변경은 `service/programs.service.ts`, `dto/program-detail.dto.ts`, `program-list-response.dto.ts`를 함께 검토한다.
-- 활동 집계는 `PROGRAM_ACTIVITY_SUMMARY_PORT`를 사용하고 호출자가 집계 table이나 다른 module internals를 직접 읽지 않는다.
+- 활동 집계는 module이 export하는 `ProgramActivitySummaryService`를 사용하고 호출자가 집계 table이나 다른 module internals를 직접 읽지 않는다.
 
 ## 검증 위치
 

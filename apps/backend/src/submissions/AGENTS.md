@@ -5,7 +5,7 @@
 
 - 이 모듈은 승인된 학생의 마일스톤 제출·재제출, 제출 체크리스트·현황 매트릭스, 파일 업로드·다운로드·정리를 소유한다.
 - 제출 업무는 `submissions.service.ts`/`submissions.repository.ts`, 파일은 `submission-files.service.ts`/`submission-files.repository.ts`, 매트릭스는 `submission-matrix.service.ts`/repository로 분리한다.
-- `submission-dashboard-summary.port.ts`와 service/repository는 `SUBMISSION_DASHBOARD_SUMMARY_PORT`를 export하며 `applications/staff-dashboard.service.ts`가 이 cross-module read contract만 소비한다.
+- module은 `SubmissionDashboardSummaryService`를 export하며 `applications/staff-dashboard.service.ts`가 이 service의 `listByProgram`만 소비한다.
 - 검토 결정과 `SubmissionStatus` 전이는 `submission-reviews/` 소유다. 이 모듈은 학생 제출과 재제출만 만들며 검토 승인·반려를 구현하지 않는다.
 - 프로그램 마감 계산은 `../programs/program-deadline.ts`를 사용한다. 마감 규칙을 별도로 계산하지 않는다.
 

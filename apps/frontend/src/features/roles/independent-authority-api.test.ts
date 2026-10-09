@@ -85,7 +85,8 @@ describe('Task 8 independent authority API', () => {
   });
 
   it('rejects a canonical detail response that omits staff number', () => {
-    const { staffNumber: _staffNumber, ...profile } = detail().profile;
+    const profile: Record<string, unknown> = { ...detail().profile };
+    delete profile.staffNumber;
     expect(() => parseCanonicalAdminAccessDetail(detail({ profile }))).toThrow(
       '관리자 접근 API 응답 형식이 올바르지 않습니다.',
     );

@@ -208,6 +208,12 @@ edge(
   true,
 );
 edge(
+  'controller may read exported auth config',
+  'src/alpha/controller/auth-config.ts',
+  'src/auth/auth.config.ts',
+  true,
+);
+edge(
   'service cannot use auth controller',
   'src/alpha/service/auth.ts',
   'src/auth/controller/session.guard.ts',

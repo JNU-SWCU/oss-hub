@@ -103,11 +103,11 @@ export function typeRejectReason(container: HTMLElement, reason: string): void {
   if (!textarea) {
     throw new Error('반려 사유 칸을 찾지 못했습니다.');
   }
-  const setter = Object.getOwnPropertyDescriptor(
+  const descriptor = Object.getOwnPropertyDescriptor(
     HTMLTextAreaElement.prototype,
     'value',
-  )?.set;
-  setter?.call(textarea, reason);
+  );
+  descriptor?.set?.call(textarea, reason);
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
 }
 

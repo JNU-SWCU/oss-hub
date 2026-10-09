@@ -1,5 +1,4 @@
 import type { ProgramActivityRepository } from '../repository/program-activity.repository';
-import type { ProgramActivitySummaryPort } from '../program-activity-summary.port';
 import type {
   ProgramActivitySummaryRepository,
   ProgramRepositoryLink,
@@ -156,7 +155,7 @@ describe('ProgramActivitySummaryService', () => {
         releaseDates: [new Date('2026-07-26T00:00:00.000Z')],
       },
     ]);
-    const service: ProgramActivitySummaryPort =
+    const service: Pick<ProgramActivitySummaryService, 'summarize'> =
       new ProgramActivitySummaryService(
         { findRepositoryLinks },
         { findRepositoryActivity },

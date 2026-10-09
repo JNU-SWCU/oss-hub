@@ -1,14 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
-  PROGRAM_ACTIVITY_SUMMARY_PORT,
+  ProgramActivitySummaryService,
   type ProgramActivitySummary,
-  type ProgramActivitySummaryPort,
-} from '../programs/program-activity-summary.port';
+} from '../programs/service/program-activity-summary.service';
 import {
-  SUBMISSION_DASHBOARD_SUMMARY_PORT,
+  SubmissionDashboardSummaryService,
   type SubmissionDashboardProgramSummary,
-  type SubmissionDashboardSummaryPort,
-} from '../submissions/submission-dashboard-summary.port';
+} from '../submissions/submission-dashboard-summary.service';
 import type {
   StaffDashboardApplicationCounts,
   StaffDashboardProgramSummary,
@@ -58,10 +56,16 @@ export class StaffDashboardService {
   constructor(
     @Inject(ApplicationsService)
     private readonly applications: Pick<ApplicationsService, 'staffSummary'>,
-    @Inject(PROGRAM_ACTIVITY_SUMMARY_PORT)
-    private readonly activities: ProgramActivitySummaryPort,
-    @Inject(SUBMISSION_DASHBOARD_SUMMARY_PORT)
-    private readonly submissions: SubmissionDashboardSummaryPort,
+    @Inject(ProgramActivitySummaryService)
+    private readonly activities: Pick<
+      ProgramActivitySummaryService,
+      'summarize'
+    >,
+    @Inject(SubmissionDashboardSummaryService)
+    private readonly submissions: Pick<
+      SubmissionDashboardSummaryService,
+      'listByProgram'
+    >,
   ) {}
 
   async summary(): Promise<StaffDashboardComposedSummary> {

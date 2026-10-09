@@ -522,6 +522,7 @@ export async function createRailsConfig(rootDir) {
             pattern: [
               'src/auth/{authentication.guard,origin.guard,session.guard,http-auth,auth-route-metadata}.ts',
               'src/auth/controller/{authentication.guard,origin.guard,session.guard,http-auth,auth-route-metadata}.ts',
+              'src/auth/auth.config.ts',
             ],
           },
           {

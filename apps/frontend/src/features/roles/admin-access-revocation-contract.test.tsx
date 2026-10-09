@@ -73,12 +73,12 @@ function setInput(dialog: HTMLElement, id: string, value: string): void {
   if (!(input instanceof HTMLInputElement)) {
     throw new TypeError(`입력란을 찾지 못했습니다: ${id}`);
   }
-  const setter = Object.getOwnPropertyDescriptor(
+  const descriptor = Object.getOwnPropertyDescriptor(
     HTMLInputElement.prototype,
     'value',
-  )?.set;
+  );
   act(() => {
-    setter?.call(input, value);
+    descriptor?.set?.call(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
   });

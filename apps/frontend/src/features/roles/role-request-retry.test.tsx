@@ -67,7 +67,9 @@ describe('교직원 재요청 실패 안내', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = String(input);
+        const url = String(
+          typeof input === 'string' || input instanceof URL ? input : input.url,
+        );
         const method = init?.method ?? 'GET';
         if (method === 'POST' && url.endsWith('/role-requests')) {
           return retryResponder();
@@ -81,21 +83,25 @@ describe('교직원 재요청 실패 안내', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
     vi.unstubAllGlobals();
   });
 
   async function renderRejectedScreen(): Promise<void> {
-    await act(async () =>
+    await act(() => {
       root.render(
         <StaffAccessRequestScreen
           staffAccessRequestStatus="REJECTED"
           staffAccessRequestRejectionReason="합성 반려 사유"
           onRefresh={refreshShared}
         />,
-      ),
-    );
+      );
+      return Promise.resolve();
+    });
     expect(container.querySelector('[data-status="REJECTED"]')).not.toBeNull();
   }
 
@@ -106,8 +112,9 @@ describe('교직원 재요청 실패 안내', () => {
     if (!(button instanceof HTMLButtonElement)) {
       throw new TypeError('재요청 버튼을 찾지 못했습니다.');
     }
-    await act(async () => {
+    await act(() => {
       button.click();
+      return Promise.resolve();
     });
   }
 
@@ -173,8 +180,9 @@ describe('교직원 재요청 실패 안내', () => {
     if (!(refresh instanceof HTMLButtonElement)) {
       throw new TypeError('상태 새로고침 버튼을 찾지 못했습니다.');
     }
-    await act(async () => {
+    await act(() => {
       refresh.click();
+      return Promise.resolve();
     });
 
     expect(container.textContent).not.toContain(

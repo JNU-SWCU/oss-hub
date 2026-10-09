@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/card';
 import {
   COHORT_LABELS,
-  DEPARTMENT_COHORTS,
   type StaffInsightsCohortRow,
   type StaffInsightsDepartmentRow,
   type StaffInsightsSummary,

@@ -142,8 +142,10 @@ describe('program authoring submission', () => {
       .mockRejectedValueOnce(new TypeError('network down'))
       .mockResolvedValueOnce({ id: 'upload-a-retry' })
       .mockResolvedValueOnce({ id: 'upload-b-retry' });
-    const deleteUpload = vi.fn(async () => undefined);
-    const createProgram = vi.fn(async () => ({ id: 'program-created' }));
+    const deleteUpload = vi.fn(() => Promise.resolve(undefined));
+    const createProgram = vi.fn(() =>
+      Promise.resolve({ id: 'program-created' }),
+    );
     const runtime = createProgramSubmissionRuntime();
     const options = {
       state: stateWithFiles(),
@@ -263,15 +265,17 @@ describe('program authoring submission', () => {
   it('maps a 409 conflict without clearing entered state or uploaded tokens', async () => {
     const runtime = createProgramSubmissionRuntime();
     const file = pdfFile();
-    const createProgram = vi.fn(async () => {
-      throw new ApiError({
-        type: 'about:blank',
-        title: 'Conflict',
-        status: 409,
-        detail: 'The idempotency key was already used.',
-        instance: '/program-authoring/programs',
-        code: 'SYS_009',
-      });
+    const createProgram = vi.fn(() => {
+      return Promise.reject(
+        new ApiError({
+          type: 'about:blank',
+          title: 'Conflict',
+          status: 409,
+          detail: 'The idempotency key was already used.',
+          instance: '/program-authoring/programs',
+          code: 'SYS_009',
+        }),
+      );
     });
 
     const result = await submitProgramAuthoring({
@@ -288,7 +292,7 @@ describe('program authoring submission', () => {
       runtime,
       api: {
         uploadCoverFile: vi.fn(),
-        uploadFile: vi.fn(async () => ({ id: 'upload-a' })),
+        uploadFile: vi.fn(() => Promise.resolve({ id: 'upload-a' })),
         deleteUpload: vi.fn(),
         createProgram,
       },
