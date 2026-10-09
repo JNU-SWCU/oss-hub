@@ -99,12 +99,12 @@ const nextConfig: NextConfig = {
           )
         : requireProductionBackendOrigin();
 
-    return [
+    return await Promise.resolve([
       {
         source: '/api/v1/:path*',
         destination: `${backendOrigin}/api/v1/:path*`,
       },
-    ];
+    ]);
   },
 };
 

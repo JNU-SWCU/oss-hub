@@ -384,7 +384,7 @@ test.describe.serial('관리자 접근 권한 lifecycle', () => {
       STAFF_REVOCABLE,
     );
     expect(beforeCancelResponse.status()).toBe(200);
-    const beforeCancel = await beforeCancelResponse.json();
+    const beforeCancel: unknown = await beforeCancelResponse.json();
     await chooseMemberKind(adminPage, 'STUDENT');
     const cancelledDialog = adminPage.getByRole('dialog');
     await expect(cancelledDialog).toContainText('학생으로 변경');

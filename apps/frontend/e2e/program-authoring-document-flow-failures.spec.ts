@@ -4,7 +4,6 @@ import {
   expectApiStatus,
   expectCleanState,
   parseDeadlinePreview,
-  PROGRAM_AUTHORING_E2E,
   toStateCounts,
   writeArtifact,
 } from './support/program-authoring-flow';
@@ -82,7 +81,9 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
       `/api/v1/programs/${encodeURIComponent(programId)}/applications?page=1&pageSize=20`,
     );
     await expectApiStatus(listResponse, 200);
-    const { items } = await listResponse.json();
+    const { items } = (await listResponse.json()) as {
+      items: { id: string }[];
+    };
     expect(items).toHaveLength(1);
     expect(typeof items[0].id).toBe('string');
     const decisionPath = `/api/v1/applications/${encodeURIComponent(items[0].id)}`;
