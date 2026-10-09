@@ -12,7 +12,7 @@ import { ProgramEditorRepository } from './repository/program-editor.repository'
 import { ProgramEditorService } from './service/program-editor.service';
 import { MilestoneDocumentFilesService } from '../milestone-documents/milestone-document-files.service';
 import { MilestoneDocumentsRepository } from '../milestone-documents/milestone-documents.repository';
-import type { SubmissionFileStoragePort } from '../submissions/submission-file-storage.port';
+import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import { SubmissionFilesRepository } from '../submissions/submission-files.repository';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
 import {
@@ -1323,7 +1323,7 @@ async function graphBaseline(milestoneId: string, uploadId: string) {
   return { milestone, documents, upload };
 }
 
-function memoryStorage(): SubmissionFileStoragePort {
+function memoryStorage(): ObjectStoragePort {
   return {
     put: (input) =>
       Promise.resolve({

@@ -59,15 +59,15 @@ describe('설정 알림 흐름', () => {
     mocks.useSessionRole.mockReturnValue(assignedStaffSession());
     vi.stubGlobal(
       'fetch',
-      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      vi.fn(async (input: string | URL, init?: RequestInit) => {
         const url = String(input);
         const method = init?.method ?? 'GET';
         requests.push({ url, method });
         if (url.endsWith('/users/me/profile')) {
-          return jsonResponse(SAVED_PROFILE);
+          return Promise.resolve(jsonResponse(SAVED_PROFILE));
         }
         if (url.endsWith('/users/me/notification-email')) {
-          return notificationResponder();
+          return Promise.resolve(notificationResponder());
         }
         throw new Error(`예상하지 못한 요청: ${method} ${url}`);
       }),
@@ -78,13 +78,19 @@ describe('설정 알림 흐름', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
     vi.unstubAllGlobals();
   });
 
   async function render(): Promise<void> {
-    await act(async () => root.render(<SettingsPage />));
+    await act(() => {
+      root.render(<SettingsPage />);
+      return Promise.resolve();
+    });
   }
 
   function field(id: string): HTMLInputElement {
@@ -96,13 +102,13 @@ describe('설정 알림 흐름', () => {
   }
 
   async function type(input: HTMLInputElement, value: string): Promise<void> {
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      'value',
-    )?.set;
-    await act(async () => {
-      setter?.call(input, value);
+    await act(() => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(input, value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
+      return Promise.resolve();
     });
   }
 
@@ -129,7 +135,10 @@ describe('설정 알림 흐름', () => {
     ).length;
 
     notificationResponder = () => jsonResponse(SAVED_NOTIFICATION);
-    await act(async () => button('알림 설정 다시 불러오기').click());
+    await act(() => {
+      button('알림 설정 다시 불러오기').click();
+      return Promise.resolve();
+    });
 
     expect(field('settings-notification-email').value).toBe(
       SAVED_NOTIFICATION.notificationEmail,
@@ -148,12 +157,13 @@ describe('설정 알림 흐름', () => {
     await type(field('settings-notification-email'), 'changed@example.com');
     notificationResponder = () => new Response('', { status: 503 });
 
-    await act(async () => {
+    await act(() => {
       container
         .querySelector('form')
         ?.dispatchEvent(
           new Event('submit', { bubbles: true, cancelable: true }),
         );
+      return Promise.resolve();
     });
 
     expect(

@@ -107,7 +107,7 @@ describe('ConsentForm', () => {
 describe('ConsentPolicyInline', () => {
   function renderInline(): string {
     return renderToStaticMarkup(
-      <ConsentPolicyInline item={policy.requiredItems[0]!} onClose={vi.fn()} />,
+      <ConsentPolicyInline item={policy.requiredItems[0]} onClose={vi.fn()} />,
     );
   }
 
@@ -146,7 +146,7 @@ describe('좁은 화면 전문 팝업의 높이 계약', () => {
   );
 
   const bars = [...source.matchAll(/className="([^"]*)"/g)]
-    .map((match) => match[1]!)
+    .map((match) => match[1])
     .filter(
       (value) =>
         value.includes('border-cosmos-border') && value.includes('px-5'),

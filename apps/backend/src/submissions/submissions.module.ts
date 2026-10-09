@@ -4,9 +4,7 @@ import { SubmissionFileCleanupFailuresController } from './submission-file-clean
 import { SubmissionFileCleanupFailuresService } from './submission-file-cleanup-failures.service';
 import { SubmissionFileCleanupScheduler } from './submission-file-cleanup.scheduler';
 import { SubmissionFileCleanupService } from './submission-file-cleanup.service';
-import { S3SubmissionFileStorage } from './s3-submission-file.storage';
-import { SubmissionFileStorageConfig } from './submission-file-storage.config';
-import { SUBMISSION_FILE_STORAGE } from './submission-file-storage.port';
+import { StorageModule } from '../storage/storage.module';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { SubmissionDashboardSummaryRepository } from './submission-dashboard-summary.repository';
@@ -25,7 +23,7 @@ import { SubmissionsRepository } from './submissions.repository';
 import { SubmissionsService } from './submissions.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, StorageModule],
   controllers: [
     SubmissionFileCleanupFailuresController,
     SubmissionFilesController,
@@ -41,9 +39,6 @@ import { SubmissionsService } from './submissions.service';
     SubmissionFileCleanupService,
     SubmissionFileCleanupFailuresService,
     SubmissionFileCleanupScheduler,
-    SubmissionFileStorageConfig,
-    S3SubmissionFileStorage,
-    { provide: SUBMISSION_FILE_STORAGE, useExisting: S3SubmissionFileStorage },
     SubmissionsService,
     SubmissionDashboardSummaryRepository,
     SubmissionDashboardSummaryService,
@@ -54,10 +49,6 @@ import { SubmissionsService } from './submissions.service';
     SubmissionMatrixRepository,
     SubmissionMatrixService,
   ],
-  exports: [
-    SUBMISSION_DASHBOARD_SUMMARY_PORT,
-    SUBMISSION_FILE_STORAGE,
-    SubmissionFileCleanupService,
-  ],
+  exports: [SUBMISSION_DASHBOARD_SUMMARY_PORT, SubmissionFileCleanupService],
 })
 export class SubmissionsModule {}

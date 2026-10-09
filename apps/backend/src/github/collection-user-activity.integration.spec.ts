@@ -14,7 +14,8 @@ import {
   type CollectionUserActivityMetrics,
 } from './collection-discovery.client';
 import { CollectionCutoverRepository } from './repository/collection-cutover.repository';
-import { CollectionSchedulerService } from './service/collection-scheduler.service';
+import { CollectionScheduler } from './job/collection.scheduler';
+import { CollectionTriggerService } from './service/collection-trigger.service';
 import { CollectionSyncService } from './service/collection-sync.service';
 import { CollectionUserActivityService } from './service/collection-user-activity.service';
 
@@ -347,7 +348,8 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     let personSweep: Promise<unknown> | undefined;
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
-        CollectionSchedulerService,
+        CollectionScheduler,
+        CollectionTriggerService,
         { provide: CollectionSyncService, useValue: { run, runExternal } },
         {
           provide: CollectionCutoverRepository,
@@ -364,7 +366,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
         },
       ],
     }).compile();
-    const scheduler = testingModule.get(CollectionSchedulerService);
+    const scheduler = testingModule.get(CollectionScheduler);
 
     await scheduler.handleCron();
     expect(personSweep).toBeDefined();

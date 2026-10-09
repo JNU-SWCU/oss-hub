@@ -32,8 +32,14 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+function requestHref(input: RequestInfo | URL): string {
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.href;
+  return input.url;
+}
+
 function requestPath(input: RequestInfo | URL): string {
-  const url = new URL(String(input), 'http://127.0.0.1');
+  const url = new URL(requestHref(input), 'http://127.0.0.1');
   return url.pathname.slice(apiPath('').length);
 }
 
@@ -81,13 +87,19 @@ describe('학생 대시보드는 받은 팀 초대를 스스로 조회하지 않
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
     vi.unstubAllGlobals();
   });
 
   it('team-invitations/received 와 프로그램·팀 이름 보강을 호출하지 않는다', async () => {
-    await act(async () => root.render(<StudentDashboardScreen />));
+    await act(() => {
+      root.render(<StudentDashboardScreen />);
+      return Promise.resolve();
+    });
 
     await vi.waitFor(() => {
       expect(container.textContent ?? '').toContain(

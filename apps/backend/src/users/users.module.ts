@@ -19,6 +19,8 @@ import { MemberKindService } from './member-kind.service';
 import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
+import { UsersAuthorityRepository } from './repository/authority.repository';
+import { UsersAuthorityService } from './service/authority.service';
 
 @Module({
   imports: [AuditLogModule, AuthModule, ConsentsModule],
@@ -43,7 +45,9 @@ import { UsersService } from './users.service';
     AdminProfileService,
     UsersRepository,
     UsersService,
+    UsersAuthorityRepository,
+    UsersAuthorityService,
   ],
-  exports: [UsersService],
+  exports: [UsersService, UsersAuthorityService],
 })
 export class UsersModule {}

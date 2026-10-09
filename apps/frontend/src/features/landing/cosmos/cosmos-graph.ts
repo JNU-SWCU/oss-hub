@@ -336,13 +336,13 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
     dz.fill(0);
 
     for (let i = 0; i < n; i += 1) {
-      const xi = px[i] as number;
-      const yi = py[i] as number;
-      const zi = pz[i] as number;
+      const xi = px[i];
+      const yi = py[i];
+      const zi = pz[i];
       for (let j = i + 1; j < n; j += 1) {
-        let ax = xi - (px[j] as number);
-        const ay = yi - (py[j] as number);
-        const az = zi - (pz[j] as number);
+        let ax = xi - px[j];
+        const ay = yi - py[j];
+        const az = zi - pz[j];
         let d2 = ax * ax + ay * ay + az * az;
         if (d2 < 1e-6) {
           ax = 1e-3;
@@ -361,9 +361,9 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
     for (const edge of graph.edges) {
       const a = edge.a;
       const b = edge.b;
-      const ax = (px[a] as number) - (px[b] as number);
-      const ay = (py[a] as number) - (py[b] as number);
-      const az = (pz[a] as number) - (pz[b] as number);
+      const ax = px[a] - px[b];
+      const ay = py[a] - py[b];
+      const az = pz[a] - pz[b];
       const d = Math.sqrt(ax * ax + ay * ay + az * az) + 1e-6;
       const f = (d / k) * weights[edge.kind];
       const ux = (ax / d) * f;
@@ -379,16 +379,16 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
 
     for (let i = 0; i < n; i += 1) {
       const g = 0.09 * (0.4 + (nodes[i]?.degN ?? 0));
-      dx[i] -= (px[i] as number) * g;
-      dy[i] -= (py[i] as number) * g;
-      dz[i] -= (pz[i] as number) * g;
+      dx[i] -= px[i] * g;
+      dy[i] -= py[i] * g;
+      dz[i] -= pz[i] * g;
     }
 
     const t = 0.22 * (1 - it / ITER) + 0.004;
     for (let i = 0; i < n; i += 1) {
-      const ddx = dx[i] as number;
-      const ddy = dy[i] as number;
-      const ddz = dz[i] as number;
+      const ddx = dx[i];
+      const ddy = dy[i];
+      const ddz = dz[i];
       const d = Math.sqrt(ddx * ddx + ddy * ddy + ddz * ddz) + 1e-9;
       const s = Math.min(d, t) / d;
       px[i] += ddx * s;
@@ -401,9 +401,9 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
   let cy = 0;
   let cz = 0;
   for (let i = 0; i < n; i += 1) {
-    cx += px[i] as number;
-    cy += py[i] as number;
-    cz += pz[i] as number;
+    cx += px[i];
+    cy += py[i];
+    cz += pz[i];
   }
   cx /= n;
   cy /= n;
@@ -413,7 +413,7 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
     px[i] -= cx;
     py[i] -= cy;
     pz[i] -= cz;
-    radii[i] = Math.hypot(px[i] as number, py[i] as number, pz[i] as number);
+    radii[i] = Math.hypot(px[i], py[i], pz[i]);
   }
   const sorted = Array.from(radii).sort((a, b) => a - b);
   const p92 = sorted[Math.floor(n * 0.92)] || 1;
@@ -421,9 +421,9 @@ export function layoutCosmosGraph(graph: CosmosGraph, k = 0.28): void {
   for (let i = 0; i < n; i += 1) {
     const node = nodes[i];
     if (!node) continue;
-    node.x = (px[i] as number) * scale;
-    node.y = (py[i] as number) * scale * 0.78;
-    node.z = (pz[i] as number) * scale;
+    node.x = px[i] * scale;
+    node.y = py[i] * scale * 0.78;
+    node.z = pz[i] * scale;
     node.light = node.prog;
   }
 }

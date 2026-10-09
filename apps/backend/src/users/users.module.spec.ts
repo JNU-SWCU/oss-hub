@@ -10,6 +10,9 @@ import { IndependentAuthorityService } from './independent-authority.service';
 import { MemberKindController } from './member-kind.controller';
 import { UsersController } from './users.controller';
 import { UsersModule } from './users.module';
+import { UsersService } from './users.service';
+import { UsersAuthorityRepository } from './repository/authority.repository';
+import { UsersAuthorityService } from './service/authority.service';
 
 describe('UsersModule admin access wiring', () => {
   it('registers the controller and dependencies for the access routes', () => {
@@ -34,8 +37,19 @@ describe('UsersModule admin access wiring', () => {
         AdminAccessService,
         IndependentAuthorityRepository,
         IndependentAuthorityService,
+        UsersAuthorityRepository,
+        UsersAuthorityService,
       ]),
     );
+  });
+
+  it('exports only the user and authority services for cross-module use', () => {
+    const exports: unknown = Reflect.getMetadata(
+      MODULE_METADATA.EXPORTS,
+      UsersModule,
+    );
+
+    expect(exports).toEqual([UsersService, UsersAuthorityService]);
   });
 
   it('통합 접근 경로로 전환한 뒤에는 레거시 admin-users 컨트롤러를 다시 등록하지 않는다(PR04H)', () => {

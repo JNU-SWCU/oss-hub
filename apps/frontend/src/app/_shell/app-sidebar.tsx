@@ -247,7 +247,7 @@ function SidebarLink({
               'bg-primary-foreground/15 text-sidebar-current-foreground',
           )}
         >
-          {formatSidebarCount(item.count as number)}
+          {formatSidebarCount(item.count)}
         </span>
       ) : null}
     </Link>

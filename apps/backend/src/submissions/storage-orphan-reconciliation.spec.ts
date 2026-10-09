@@ -1,15 +1,15 @@
 import { Prisma } from '@prisma/client';
 import {
   DEFAULT_STORAGE_ORPHAN_SAFETY_WINDOW_MS,
-  StorageOrphanReconciliationService,
   type StorageObjectInventory,
   type StorageReferenceRepository,
-} from './storage-orphan-reconciliation';
+} from './domain/storage-orphan-reconciliation';
+import { StorageOrphanReconciliationService } from './service/storage-orphan-reconciliation.service';
 import {
   PrismaStorageReferenceRepository,
   STORAGE_KEY_OWNERS,
-} from './storage-orphan-reconciliation.repository';
-import { parseStorageOrphanReconciliationMode } from './cli/reconcile-storage-orphans';
+} from './repository/storage-orphan-reconciliation.repository';
+import { parseStorageOrphanReconciliationMode } from './job/reconcile-storage-orphans';
 
 const OLD = new Date('2026-08-12T00:00:00.000Z');
 const RUN_STARTED_AT = new Date('2026-08-12T02:00:00.000Z');

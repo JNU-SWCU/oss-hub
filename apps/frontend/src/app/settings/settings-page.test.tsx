@@ -56,26 +56,23 @@ describe('설정 화면', () => {
     notificationResponder = () => jsonResponse(SAVED_NOTIFICATION);
     vi.stubGlobal(
       'fetch',
-      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      vi.fn(async (input: string | URL, init?: RequestInit) => {
         const url = String(input);
         const method = init?.method ?? 'GET';
-        requests.push({
-          url,
-          method,
-          body: typeof init?.body === 'string' ? JSON.parse(init.body) : null,
-        });
+        const body: Record<string, unknown> | null =
+          typeof init?.body === 'string'
+            ? (JSON.parse(init.body) as Record<string, unknown>)
+            : null;
+        requests.push({ url, method, body });
         if (url.endsWith('/users/me/profile')) {
-          return jsonResponse(
-            method === 'GET'
-              ? SAVED_PROFILE
-              : {
-                  ...SAVED_PROFILE,
-                  ...(JSON.parse(String(init?.body)) as object),
-                },
+          return Promise.resolve(
+            jsonResponse(
+              method === 'GET' ? SAVED_PROFILE : { ...SAVED_PROFILE, ...body },
+            ),
           );
         }
         if (url.endsWith('/users/me/notification-email')) {
-          return notificationResponder();
+          return Promise.resolve(notificationResponder());
         }
         throw new Error(`예상하지 못한 요청: ${method} ${url}`);
       }),
@@ -86,7 +83,10 @@ describe('설정 화면', () => {
   });
 
   afterEach(async () => {
-    await act(async () => root.unmount());
+    await act(() => {
+      root.unmount();
+      return Promise.resolve();
+    });
     container.remove();
     vi.unstubAllGlobals();
   });
@@ -104,7 +104,10 @@ describe('설정 화면', () => {
       ...overrides,
       retry: () => {},
     });
-    await act(async () => root.render(<SettingsPage />));
+    await act(() => {
+      root.render(<SettingsPage />);
+      return Promise.resolve();
+    });
   }
 
   function renderStaffAwaitingRole(
@@ -126,13 +129,13 @@ describe('설정 화면', () => {
   }
 
   async function type(input: HTMLInputElement, value: string): Promise<void> {
-    const setter = Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      'value',
-    )?.set;
-    await act(async () => {
-      setter?.call(input, value);
+    await act(() => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(input, value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
+      return Promise.resolve();
     });
   }
 
@@ -149,10 +152,11 @@ describe('설정 화면', () => {
 
       await type(field('settings-name'), '김교직원');
       const form = container.querySelector('form');
-      await act(async () => {
+      await act(() => {
         form?.dispatchEvent(
           new Event('submit', { bubbles: true, cancelable: true }),
         );
+        return Promise.resolve();
       });
 
       const saved = requests.find(
@@ -178,12 +182,13 @@ describe('설정 화면', () => {
       isProfileComplete: true,
     });
     const submit = () =>
-      act(async () => {
+      act(() => {
         container
           .querySelector('form')
           ?.dispatchEvent(
             new Event('submit', { bubbles: true, cancelable: true }),
           );
+        return Promise.resolve();
       });
 
     await submit();
@@ -233,12 +238,12 @@ describe('설정 화면', () => {
     [
       '반려된 사용자',
       '/onboarding/role',
-      { staffAccessRequestStatus: 'REJECTED' as StaffAccessRequestStatus },
+      { staffAccessRequestStatus: 'REJECTED' },
     ],
     [
       '회수된 사용자',
       '/onboarding/role',
-      { staffAccessRequestStatus: 'REVOKED' as StaffAccessRequestStatus },
+      { staffAccessRequestStatus: 'REVOKED' },
     ],
   ] as readonly (readonly [string, string, Partial<SessionRoleState>])[])(
     '%s 에게는 설정을 열지 않고 %s 로 되돌린다',

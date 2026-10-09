@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { BoardPostCategory, type MemberKind } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { authorityLabel, type AuthorityLabel } from '../common/authority-label';
+import {
+  authorityLabel,
+  type AuthorityLabel,
+} from '../users/domain/authority-label';
 import {
   type UserProfileNameSource,
   resolveUserProfileName,

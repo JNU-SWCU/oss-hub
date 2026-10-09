@@ -1,9 +1,8 @@
-import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import {
-  SUBMISSION_FILE_STORAGE,
-  type SubmissionFileStoragePort,
-} from '../submissions/submission-file-storage.port';
+  OBJECT_STORAGE,
+  type ObjectStoragePort,
+} from '../storage/domain/object-storage';
 import {
   ProgramAuthoringUploadRepository,
   type ProgramAuthoringUploadDeleteRequestResult,
@@ -18,10 +17,9 @@ import {
   validateProgramAuthoringUpload,
   type ValidatedProgramAuthoringUpload,
 } from './program-authoring-upload.validation';
-import {
-  PROGRAM_COVER_STORAGE_PREFIX,
-  validateProgramCoverUpload,
-} from './program-cover';
+import { validateProgramCoverUpload } from './program-cover';
+import { createProgramAuthoringObjectKey } from './domain/program-authoring-object-key';
+import { createProgramCoverObjectKey } from './domain/program-cover-object-key';
 
 const PENDING_TTL_MS = 24 * 60 * 60 * 1_000;
 
@@ -29,14 +27,14 @@ type ProgramAuthoringUploadStore = Pick<
   ProgramAuthoringUploadRepository,
   'createPending' | 'requestDelete'
 >;
-type ProgramAuthoringUploadStorage = Pick<SubmissionFileStoragePort, 'put'>;
+type ProgramAuthoringUploadStorage = Pick<ObjectStoragePort, 'put'>;
 
 @Injectable()
 export class ProgramAuthoringUploadService {
   constructor(
     @Inject(ProgramAuthoringUploadRepository)
     private readonly repository: ProgramAuthoringUploadStore,
-    @Inject(SUBMISSION_FILE_STORAGE)
+    @Inject(OBJECT_STORAGE)
     private readonly storage: ProgramAuthoringUploadStorage,
     @Optional()
     private readonly now: () => Date = () => new Date(),
@@ -52,7 +50,11 @@ export class ProgramAuthoringUploadService {
       );
     }
     const validated = await validateProgramAuthoringUpload(file);
-    return this.storeUpload(actorId, validated, 'program-authoring/');
+    return this.storeUpload(
+      actorId,
+      validated,
+      createProgramAuthoringObjectKey,
+    );
   }
 
   async uploadCover(
@@ -67,17 +69,17 @@ export class ProgramAuthoringUploadService {
     return this.storeUpload(
       actorId,
       validateProgramCoverUpload(file),
-      PROGRAM_COVER_STORAGE_PREFIX,
+      createProgramCoverObjectKey,
     );
   }
 
   private async storeUpload(
     actorId: string,
     validated: ValidatedProgramAuthoringUpload,
-    prefix: string,
+    createObjectKey: () => string,
   ): Promise<ProgramAuthoringUploadResponse> {
     const createdAt = this.now();
-    const storageKey = `${prefix}${randomUUID()}`;
+    const storageKey = createObjectKey();
 
     let created;
     try {
