@@ -169,7 +169,7 @@ function realCycleFixture(t) {
     repo.write(`apps/${app}/package.json`, '{"type":"module"}\n');
   }
   const railsUrl = pathToFileURL(
-    path.join(REPO_ROOT, 'apps/backend/eslint.rails.mjs'),
+    path.join(REPO_ROOT, 'apps/backend/eslint-rules/rails-config.mjs'),
   ).href;
   repo.write(
     'apps/backend/eslint.rails.mjs',
