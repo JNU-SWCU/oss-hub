@@ -522,6 +522,50 @@ describe('StudentDashboardService', () => {
     });
   });
 
+  it('skips information-only milestones when choosing the next milestone', async () => {
+    findParticipatingApplications.mockResolvedValue([
+      application({
+        program: program([
+          documentMilestone('milestone-1', 'Information only', DUE_AT, []),
+          documentMilestone('milestone-2', 'Report', SECOND_DUE_AT, [
+            'document-1',
+          ]),
+        ]),
+      }),
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.nextMilestone).toMatchObject({ id: 'milestone-2' });
+  });
+
+  it('finishes the card when only information-only milestones are left', async () => {
+    findParticipatingApplications.mockResolvedValue([
+      application({
+        program: program([
+          documentMilestone('milestone-1', 'Report', DUE_AT, ['document-1']),
+          documentMilestone('milestone-2', 'Closing notice', SECOND_DUE_AT, []),
+        ]),
+        milestoneDocumentSubmissions: [
+          documentSubmission(
+            'milestone-1',
+            'document-1',
+            SubmissionStatus.APPROVED,
+          ),
+        ],
+      }),
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.nextMilestone).toBeNull();
+    expect(item?.progress).toEqual({
+      approvedCount: 1,
+      inReviewCount: 0,
+      totalCount: 1,
+    });
+  });
+
   it('counts rejected, changes-requested and unsubmitted milestones only in the total', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({

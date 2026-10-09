@@ -218,11 +218,14 @@ export class StudentDashboardService {
     application: StudentDashboardApplicationRow,
     milestoneStatuses: ReadonlyMap<string, MilestoneStatuses>,
   ): StudentDashboardMilestone | null | 'invalid' {
-    const milestone = application.program.milestones.find(
-      (candidate) =>
-        milestoneStatuses.get(candidate.id)?.status !==
-        SubmissionStatus.APPROVED,
-    );
+    const milestone = application.program.milestones.find((candidate) => {
+      const statuses = milestoneStatuses.get(candidate.id);
+      return (
+        statuses !== undefined &&
+        statuses.itemStatuses.length > 0 &&
+        statuses.status !== SubmissionStatus.APPROVED
+      );
+    });
     if (milestone === undefined) return null;
     if (
       !isNonEmptyString(milestone.id) ||
