@@ -77,7 +77,7 @@ Domain-first + Layered를 모든 backend 업무 모듈의 목표 구조로 채�
 | --- | --- |
 | controller, job | service, dto, domain, auth의 인증 guard·AuthenticatedRequest, common |
 | service | 자기 repository·gateway, dto, 모든 모듈의 domain·service, storage, runtime-config, common |
-| repository | 모든 모듈의 domain, prisma 기반 기능, common |
+| repository | 자기 모듈 repository, 모든 모듈의 domain, prisma 기반 기능, common |
 | gateway | domain, 외부 SDK, common |
 | dto | domain, common |
 | domain | 다른 모듈을 포함한 domain, common |

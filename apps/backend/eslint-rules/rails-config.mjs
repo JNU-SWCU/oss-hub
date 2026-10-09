@@ -373,7 +373,13 @@ const policies = [
   },
   {
     from: element('repository'),
-    allow: { to: [element('domain'), element('prisma')] },
+    allow: {
+      to: [
+        element('domain'),
+        element('prisma'),
+        element('repository', sameModule),
+      ],
+    },
   },
   {
     from: [element('gateway'), element('dto'), element('domain')],

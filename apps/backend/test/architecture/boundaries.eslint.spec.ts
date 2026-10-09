@@ -81,7 +81,7 @@ function edge(
 const permitted: Record<Layer, readonly Layer[]> = {
   controller: ['service', 'dto', 'domain'],
   service: ['service', 'repository', 'gateway', 'dto', 'domain'],
-  repository: ['domain'],
+  repository: ['repository', 'domain'],
   gateway: ['domain'],
   job: ['service', 'dto', 'domain'],
   dto: ['domain'],
