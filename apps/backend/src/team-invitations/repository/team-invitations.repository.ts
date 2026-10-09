@@ -370,7 +370,7 @@ async function isActiveStaffActor(
   return user.hasStaffAccess || user.hasAdminAccess;
 }
 
-export async function getInviteeEligibility(
+async function getInviteeEligibility(
   prisma: Pick<PrismaService, 'user'>,
   userId: string,
 ): Promise<InviteeEligibility> {
