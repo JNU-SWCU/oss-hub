@@ -25,6 +25,7 @@ import {
 import { submissionActionLabel, type ActiveDashboardItem } from '../sections';
 import type {
   DashboardItem,
+  DashboardProgress,
   DashboardRepositoryProvisionStatus,
 } from '../types';
 
@@ -155,6 +156,34 @@ function deadlineTone(days: number): string {
   return days <= 3 ? 'text-status-pending-fg' : 'text-primary';
 }
 
+function visibleProgress(
+  progress: DashboardItem['progress'],
+): DashboardProgress | null {
+  return progress && progress.totalCount > 0 ? progress : null;
+}
+
+function MilestoneProgressBar({
+  progress,
+  className,
+}: {
+  readonly progress: DashboardProgress;
+  readonly className: string;
+}) {
+  return (
+    <progress
+      aria-label={`마일스톤 진행 ${progress.approvedCount}/${progress.totalCount}`}
+      className={cn(
+        'h-2 appearance-none overflow-hidden rounded-full bg-primary/20',
+        '[&::-webkit-progress-bar]:bg-transparent [&::-webkit-progress-value]:bg-primary',
+        '[&::-moz-progress-bar]:bg-primary',
+        className,
+      )}
+      max={progress.totalCount}
+      value={progress.approvedCount}
+    />
+  );
+}
+
 export function ActiveProgramCard({
   item,
   now,
@@ -165,6 +194,8 @@ export function ActiveProgramCard({
   readonly primary: boolean;
 }) {
   const milestone = item.nextMilestone;
+  const remainingItemCount = milestone.remainingItemCount ?? 0;
+  const progress = visibleProgress(item.progress);
 
   return (
     <Card size="sm">
@@ -205,22 +236,42 @@ export function ActiveProgramCard({
             {formatDashboardDeadlineAbsolute(milestone.dueAt)}
           </span>
         </p>
-        <p
+        <div
           className={cn(
-            'col-span-2 flex flex-wrap items-center gap-x-2 gap-y-1 self-start text-small',
+            'col-span-2 flex flex-col gap-2 self-start text-small',
             'sm:col-span-1 sm:col-start-2 sm:row-start-2',
           )}
         >
-          <span className="font-semibold text-muted-foreground">다음</span>
-          <span className="font-semibold break-keep [overflow-wrap:anywhere]">
-            {milestone.name}
-          </span>
-          <StatusBadge
-            variant={SUBMISSION_STATUS_BADGE[milestone.submissionStatus]}
-          >
-            {SUBMISSION_STATUS_LABELS[milestone.submissionStatus]}
-          </StatusBadge>
-        </p>
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-semibold text-muted-foreground">다음</span>
+            <span className="font-semibold break-keep [overflow-wrap:anywhere]">
+              {milestone.name}
+            </span>
+            <StatusBadge
+              variant={SUBMISSION_STATUS_BADGE[milestone.submissionStatus]}
+            >
+              {SUBMISSION_STATUS_LABELS[milestone.submissionStatus]}
+            </StatusBadge>
+            {remainingItemCount > 0 ? (
+              <span className="font-semibold text-status-pending-fg">
+                서류 {remainingItemCount}개 남음
+              </span>
+            ) : null}
+          </p>
+          {progress ? (
+            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2.5">
+              <p className="text-muted-foreground">
+                마일스톤 {progress.totalCount}개 중{' '}
+                {SUBMISSION_STATUS_LABELS.APPROVED} {progress.approvedCount} ·{' '}
+                {SUBMISSION_STATUS_LABELS.SUBMITTED} {progress.inReviewCount}
+              </p>
+              <MilestoneProgressBar
+                progress={progress}
+                className="w-full sm:order-first sm:w-55 sm:shrink-0"
+              />
+            </div>
+          ) : null}
+        </div>
         {item.repository?.provisionStatus === 'FAILED_FINAL' ? (
           <ProvisionFailureNotice className="col-span-full" />
         ) : null}
@@ -248,6 +299,7 @@ export function ActiveProgramCard({
 export function ProgramCompactRow({ item }: { readonly item: DashboardItem }) {
   const approved = item.applicationStatus === 'APPROVED';
   const rejected = item.applicationStatus === 'REJECTED';
+  const progress = visibleProgress(item.progress);
 
   return (
     <ListRow role="listitem" className="gap-x-4 gap-y-3">
@@ -269,13 +321,25 @@ export function ProgramCompactRow({ item }: { readonly item: DashboardItem }) {
         </div>
       </div>
       {approved ? (
-        <p className="flex items-center gap-1.5 text-small font-medium">
-          <CheckCircle2
-            aria-hidden="true"
-            className="size-4 shrink-0 text-status-approved-fg"
-          />
-          예정된 제출 항목을 모두 마쳤습니다.
-        </p>
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-small">
+          <p className="flex items-center gap-1.5 font-medium">
+            <CheckCircle2
+              aria-hidden="true"
+              className="size-4 shrink-0 text-status-approved-fg"
+            />
+            예정된 제출 항목을 모두 마쳤습니다.
+          </p>
+          {progress ? (
+            <span className="flex items-center gap-2.5 text-muted-foreground">
+              <MilestoneProgressBar
+                progress={progress}
+                className="w-20 shrink-0"
+              />
+              {SUBMISSION_STATUS_LABELS.APPROVED} {progress.approvedCount}/
+              {progress.totalCount}
+            </span>
+          ) : null}
+        </div>
       ) : (
         <p className="flex flex-wrap items-center gap-2 text-small text-muted-foreground">
           <StatusBadge variant={rejected ? 'rejected' : 'pending'}>

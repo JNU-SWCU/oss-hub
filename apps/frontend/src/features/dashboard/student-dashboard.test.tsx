@@ -578,6 +578,104 @@ describe('StudentDashboardView 프로그램 묶음', () => {
   });
 });
 
+describe('StudentDashboardView 마일스톤 진행', () => {
+  const progressBars = (html: string) => html.match(/<progress[^>]*>/g) ?? [];
+  const withCounts = (requiredItemCount: number, remainingItemCount: number) =>
+    dashboardItem('counted', 'APPROVED', {
+      ...dashboardMilestone('2026-07-30T23:59:59+09:00'),
+      requiredItemCount,
+      remainingItemCount,
+    });
+
+  it('진행 중 카드는 다음 줄에 남은 서류 수를, 그 아래에 승인·검토 대기 진행 막대를 보인다', () => {
+    const html = renderView({
+      data: {
+        items: [
+          {
+            ...withCounts(3, 2),
+            progress: { approvedCount: 1, inReviewCount: 1, totalCount: 4 },
+          },
+        ],
+      },
+    });
+    const [bar] = progressBars(html);
+
+    expect(html).toContain('text-status-pending-fg">서류 2개 남음<');
+    expect(html).toContain('마일스톤 4개 중 승인 1 · 검토 대기 1');
+    expect(progressBars(html)).toHaveLength(1);
+    expect(bar).toContain('aria-label="마일스톤 진행 1/4"');
+    expect(bar).toContain('max="4"');
+    expect(bar).toContain('value="1"');
+    expect(bar).toContain('bg-primary/20');
+    expect(bar).toContain('[&amp;::-webkit-progress-bar]:bg-transparent');
+  });
+
+  it.each([
+    ['진행 현황 칸이 없으면', undefined],
+    ['진행 현황이 null이면', null],
+    [
+      '필수 제출 마일스톤이 없으면',
+      { approvedCount: 0, inReviewCount: 0, totalCount: 0 },
+    ],
+  ] as const)('%s 진행 줄과 막대를 숨긴다', (_label, progress) => {
+    const html = renderView({
+      data: {
+        items: [
+          { ...withCounts(1, 1), progress },
+          { ...dashboardItem('done', 'APPROVED'), progress },
+        ],
+      },
+    });
+
+    expect(html).toContain('>다음<');
+    expect(html).toContain('예정된 제출 항목을 모두 마쳤습니다.');
+    expect(progressBars(html)).toEqual([]);
+    expect(html).not.toMatch(/승인 \d+ · 검토 대기/);
+    expect(html).not.toMatch(/승인 \d+\/\d+/);
+  });
+
+  it('남은 서류가 없거나 그 수를 모르면 남은 서류 문구를 숨긴다', () => {
+    const settled = renderView({ data: { items: [withCounts(2, 0)] } });
+    const unknown = renderView({
+      data: {
+        items: [
+          dashboardItem(
+            'unknown',
+            'APPROVED',
+            dashboardMilestone('2026-07-30T23:59:59+09:00'),
+          ),
+        ],
+      },
+    });
+
+    expect(settled).toContain('>다음<');
+    expect(settled).not.toContain('개 남음');
+    expect(unknown).not.toContain('개 남음');
+  });
+
+  it('마친 프로그램 줄은 마침 문구 옆에 꽉 찬 작은 막대와 승인 수를 보인다', () => {
+    const html = renderView({
+      data: {
+        items: [
+          {
+            ...dashboardItem('done', 'APPROVED'),
+            progress: { approvedCount: 4, inReviewCount: 0, totalCount: 4 },
+          },
+        ],
+      },
+    });
+    const [bar] = progressBars(html);
+
+    expect(html).toContain('예정된 제출 항목을 모두 마쳤습니다.');
+    expect(html).toContain('>승인 4/4<');
+    expect(html).not.toContain('마일스톤 4개 중');
+    expect(bar).toContain('aria-label="마일스톤 진행 4/4"');
+    expect(bar).toContain('max="4"');
+    expect(bar).toContain('value="4"');
+    expect(bar).toContain('w-20');
+  });
+});
+
 describe('loadStudentDashboard', () => {
   it('실패 후 다시 호출하면 성공 결과를 받는다', async () => {
     const fetchDashboard = vi
