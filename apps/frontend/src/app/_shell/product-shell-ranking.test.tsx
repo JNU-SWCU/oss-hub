@@ -74,22 +74,18 @@ describe('ProductShell ranking fetch', () => {
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
   });
 
   it('dashboard does not GET /ranking', async () => {
     mocks.usePathname.mockReturnValue('/dashboard');
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProductShell>
           <p>본문</p>
         </ProductShell>,
       );
-      return Promise.resolve();
     });
     expect(mocks.getRanking).not.toHaveBeenCalled();
     expect(mocks.getRankingYears).not.toHaveBeenCalled();
@@ -97,13 +93,12 @@ describe('ProductShell ranking fetch', () => {
 
   it('ranking section loads years only — not the ranking page envelope', async () => {
     mocks.usePathname.mockReturnValue('/ranking');
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProductShell>
           <p>본문</p>
         </ProductShell>,
       );
-      return Promise.resolve();
     });
     expect(mocks.getRanking).not.toHaveBeenCalled();
     expect(mocks.getRankingYears).toHaveBeenCalled();

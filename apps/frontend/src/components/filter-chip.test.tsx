@@ -20,10 +20,7 @@ describe('FilterChip', () => {
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
   });
 
@@ -32,7 +29,7 @@ describe('FilterChip', () => {
     onSelect: (value: string) => void = () => {},
     disabled: readonly string[] = [],
   ) {
-    await act(() => {
+    await act(async () => {
       root.render(
         <FilterChipGroup aria-label="상태 필터" className="items-center">
           {['all', 'approved', 'rejected'].map((value) => (
@@ -47,7 +44,6 @@ describe('FilterChip', () => {
           ))}
         </FilterChipGroup>,
       );
-      return Promise.resolve();
     });
     return Array.from(container.querySelectorAll<HTMLButtonElement>('button'));
   }
@@ -69,21 +65,17 @@ describe('FilterChip', () => {
     expect(chips.every((chip) => chip.dataset.variant === 'toggle')).toBe(true);
     expect(chips.every((chip) => chip.type === 'button')).toBe(true);
 
-    await act(() => {
-      chips[2]?.click();
-      return Promise.resolve();
-    });
+    await act(async () => chips[2]?.click());
     expect(onSelect).toHaveBeenCalledWith('rejected');
   });
 
   it('화살표·Home·End로 칩 사이를 옮기고 끝에서는 반대편으로 돈다', async () => {
     const chips = await render('all');
     const press = async (chip: HTMLButtonElement | undefined, key: string) => {
-      await act(() => {
+      await act(async () => {
         chip?.dispatchEvent(
           new KeyboardEvent('keydown', { key, bubbles: true }),
         );
-        return Promise.resolve();
       });
     };
 
@@ -103,11 +95,10 @@ describe('FilterChip', () => {
   it('비활성 칩은 이동에서 건너뛴다', async () => {
     const chips = await render('all', () => {}, ['approved']);
     chips[0]?.focus();
-    await act(() => {
+    await act(async () => {
       chips[0]?.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }),
       );
-      return Promise.resolve();
     });
     expect(document.activeElement).toBe(chips[2]);
   });
