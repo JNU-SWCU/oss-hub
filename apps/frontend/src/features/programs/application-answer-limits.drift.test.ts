@@ -46,7 +46,7 @@ export function parseBackendLimits(
           '단순한 `키: 숫자,` 가 아니면 값이 갈라져도 못 잡으므로 실패로 처리한다.',
       );
     }
-    limits[entry[1]!] = Number(entry[2]!.replaceAll('_', ''));
+    limits[entry[1]] = Number(entry[2].replaceAll('_', ''));
   }
   if (Object.keys(limits).length === 0) {
     throw new Error('백엔드 상한 값을 하나도 못 읽었다');
