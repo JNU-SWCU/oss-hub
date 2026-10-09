@@ -432,8 +432,209 @@ describe('StudentDashboardService', () => {
       name: 'First milestone',
       dueAt: DUE_AT,
       submissionStatus: 'NOT_SUBMITTED',
+      requiredItemCount: 1,
+      remainingItemCount: 1,
     });
   });
+
+  it('counts approved and in-review milestones against every milestone with a required item', async () => {
+    findParticipatingApplications.mockResolvedValue([
+      application({
+        program: program([
+          documentMilestone('milestone-1', 'Approved', DUE_AT, [
+            'document-1',
+            'document-2',
+          ]),
+          documentMilestone('milestone-2', 'Partly approved', DUE_AT, [
+            'document-3',
+            'document-4',
+          ]),
+          legacyMilestone('milestone-3', 'Legacy in review', DUE_AT),
+          documentMilestone('milestone-4', 'Not started', DUE_AT, [
+            'document-5',
+          ]),
+        ]),
+        milestoneDocumentSubmissions: [
+          documentSubmission(
+            'milestone-1',
+            'document-1',
+            SubmissionStatus.APPROVED,
+          ),
+          documentSubmission(
+            'milestone-1',
+            'document-2',
+            SubmissionStatus.APPROVED,
+          ),
+          documentSubmission(
+            'milestone-2',
+            'document-3',
+            SubmissionStatus.APPROVED,
+          ),
+          documentSubmission(
+            'milestone-2',
+            'document-4',
+            SubmissionStatus.SUBMITTED,
+          ),
+          legacySubmission('milestone-3', SubmissionStatus.SUBMITTED),
+        ],
+      }),
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.progress).toEqual({
+      approvedCount: 1,
+      inReviewCount: 2,
+      totalCount: 4,
+    });
+  });
+
+  it('leaves information-only milestones out of every progress count', async () => {
+    findParticipatingApplications.mockResolvedValue([
+      application({
+        program: program([
+          documentMilestone('milestone-1', 'Information only', DUE_AT, []),
+          documentMilestone('milestone-2', 'Approved', SECOND_DUE_AT, [
+            'document-1',
+          ]),
+        ]),
+        milestoneDocumentSubmissions: [
+          documentSubmission(
+            'milestone-1',
+            'optional-document',
+            SubmissionStatus.APPROVED,
+          ),
+          documentSubmission(
+            'milestone-2',
+            'document-1',
+            SubmissionStatus.APPROVED,
+          ),
+        ],
+      }),
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.progress).toEqual({
+      approvedCount: 1,
+      inReviewCount: 0,
+      totalCount: 1,
+    });
+  });
+
+  it('counts rejected, changes-requested and unsubmitted milestones only in the total', async () => {
+    findParticipatingApplications.mockResolvedValue([
+      application({
+        program: program([
+          documentMilestone('milestone-1', 'Rejected', DUE_AT, [
+            'document-1',
+            'document-2',
+          ]),
+          documentMilestone('milestone-2', 'Changes requested', DUE_AT, [
+            'document-3',
+            'document-4',
+          ]),
+          documentMilestone('milestone-3', 'Not submitted', DUE_AT, [
+            'document-5',
+          ]),
+        ]),
+        milestoneDocumentSubmissions: [
+          documentSubmission(
+            'milestone-1',
+            'document-1',
+            SubmissionStatus.APPROVED,
+          ),
+          documentSubmission(
+            'milestone-1',
+            'document-2',
+            SubmissionStatus.REJECTED,
+          ),
+          documentSubmission(
+            'milestone-2',
+            'document-3',
+            SubmissionStatus.SUBMITTED,
+          ),
+          documentSubmission(
+            'milestone-2',
+            'document-4',
+            SubmissionStatus.CHANGES_REQUESTED,
+          ),
+        ],
+      }),
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.progress).toEqual({
+      approvedCount: 0,
+      inReviewCount: 0,
+      totalCount: 3,
+    });
+  });
+
+  it('counts the next milestone items the student still has to send', async () => {
+    findParticipatingApplications.mockResolvedValue([
+      application({
+        program: program([
+          documentMilestone('milestone-1', 'First', DUE_AT, [
+            'document-1',
+            'document-2',
+            'document-3',
+            'document-4',
+            'document-5',
+          ]),
+        ]),
+        milestoneDocumentSubmissions: [
+          documentSubmission(
+            'milestone-1',
+            'document-1',
+            SubmissionStatus.APPROVED,
+          ),
+          documentSubmission(
+            'milestone-1',
+            'document-2',
+            SubmissionStatus.SUBMITTED,
+          ),
+          documentSubmission(
+            'milestone-1',
+            'document-3',
+            SubmissionStatus.CHANGES_REQUESTED,
+          ),
+          documentSubmission(
+            'milestone-1',
+            'document-4',
+            SubmissionStatus.REJECTED,
+          ),
+        ],
+      }),
+    ]);
+
+    const [item] = await service.getStudentDashboard(101n);
+
+    expect(item?.nextMilestone).toMatchObject({
+      id: 'milestone-1',
+      requiredItemCount: 5,
+      remainingItemCount: 2,
+    });
+  });
+
+  it.each([ApplicationStatus.SUBMITTED, ApplicationStatus.REJECTED])(
+    'leaves progress null for a %s application',
+    async (status) => {
+      findParticipatingApplications.mockResolvedValue([
+        application({
+          status,
+          milestoneDocumentSubmissions: [
+            legacySubmission('milestone-1', SubmissionStatus.APPROVED),
+          ],
+        }),
+      ]);
+
+      const [item] = await service.getStudentDashboard(101n);
+
+      expect(item?.progress).toBeNull();
+    },
+  );
 
   it('maps a validated successful repository and current-user invitation', async () => {
     findParticipatingApplications.mockResolvedValue([application()]);

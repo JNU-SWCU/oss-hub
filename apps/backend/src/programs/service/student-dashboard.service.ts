@@ -7,6 +7,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import {
+  collectAxisStatuses,
   MILESTONE_NOT_SUBMITTED,
   milestoneCompletionStatus,
   type MilestoneCompletionStatus,
@@ -33,6 +34,14 @@ export interface StudentDashboardMilestone {
     | 'APPROVED'
     | 'CHANGES_REQUESTED'
     | 'REJECTED';
+  readonly requiredItemCount: number;
+  readonly remainingItemCount: number;
+}
+
+interface StudentDashboardProgress {
+  readonly approvedCount: number;
+  readonly inReviewCount: number;
+  readonly totalCount: number;
 }
 
 export interface StudentDashboardItem {
@@ -44,6 +53,7 @@ export interface StudentDashboardItem {
   readonly teamUrl: string;
   readonly applicationStatus: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
   readonly nextMilestone: StudentDashboardMilestone | null;
+  readonly progress: StudentDashboardProgress | null;
   readonly detailUrl: string;
   readonly checklistUrl: string;
   readonly repository: StudentDashboardRepository | null;
@@ -77,9 +87,14 @@ function teamUrlFor(programId: string): string {
   return `/programs/${encodeURIComponent(programId)}/my-team`;
 }
 
+interface MilestoneStatuses {
+  readonly status: MilestoneCompletionStatus;
+  readonly itemStatuses: readonly MilestoneCompletionStatus[];
+}
+
 function milestoneStatusesFor(
   application: StudentDashboardApplicationRow,
-): ReadonlyMap<string, MilestoneCompletionStatus> {
+): ReadonlyMap<string, MilestoneStatuses> {
   const { submissions, documentSubmissions } =
     projectSubmissionCompletionTargets(
       application.milestoneDocumentSubmissions,
@@ -97,17 +112,40 @@ function milestoneStatusesFor(
     ]),
   );
   return new Map(
-    application.program.milestones.map((milestone) => [
-      milestone.id,
-      milestoneCompletionStatus({
+    application.program.milestones.map((milestone) => {
+      const input = {
         submissionAxisInUse: milestone.submissionType !== null,
         requiredDocumentStatuses: milestone.documents.map(
           (document) => statusByDocument.get(document.id) ?? null,
         ),
         submissionStatus: legacyStatusByMilestone.get(milestone.id) ?? null,
-      }),
-    ]),
+      };
+      return [
+        milestone.id,
+        {
+          status: milestoneCompletionStatus(input),
+          itemStatuses: collectAxisStatuses(input),
+        },
+      ];
+    }),
   );
+}
+
+function progressOf(
+  milestoneStatuses: ReadonlyMap<string, MilestoneStatuses>,
+): StudentDashboardProgress {
+  const required = [...milestoneStatuses.values()].filter(
+    (milestone) => milestone.itemStatuses.length > 0,
+  );
+  return {
+    approvedCount: required.filter(
+      (milestone) => milestone.status === SubmissionStatus.APPROVED,
+    ).length,
+    inReviewCount: required.filter(
+      (milestone) => milestone.status === SubmissionStatus.SUBMITTED,
+    ).length,
+    totalCount: required.length,
+  };
 }
 
 @Injectable()
@@ -142,7 +180,14 @@ export class StudentDashboardService {
         continue;
       }
 
-      const nextMilestone = this.nextMilestoneFor(application);
+      const milestoneStatuses =
+        application.status === ApplicationStatus.APPROVED
+          ? milestoneStatusesFor(application)
+          : null;
+      const nextMilestone =
+        milestoneStatuses === null
+          ? null
+          : this.nextMilestoneFor(application, milestoneStatuses);
       if (nextMilestone === 'invalid') continue;
 
       items.push({
@@ -158,6 +203,8 @@ export class StudentDashboardService {
         teamUrl: teamUrlFor(application.program.id),
         applicationStatus: application.status,
         nextMilestone,
+        progress:
+          milestoneStatuses === null ? null : progressOf(milestoneStatuses),
         detailUrl: detailUrlFor(application.status, application.program.id),
         checklistUrl: `/programs/${encodeURIComponent(application.program.id)}/submissions`,
         repository: this.repositoryFor(application, repositoryByApplication),
@@ -169,13 +216,12 @@ export class StudentDashboardService {
 
   private nextMilestoneFor(
     application: StudentDashboardApplicationRow,
+    milestoneStatuses: ReadonlyMap<string, MilestoneStatuses>,
   ): StudentDashboardMilestone | null | 'invalid' {
-    if (application.status !== ApplicationStatus.APPROVED) return null;
-
-    const milestoneStatuses = milestoneStatusesFor(application);
     const milestone = application.program.milestones.find(
       (candidate) =>
-        milestoneStatuses.get(candidate.id) !== SubmissionStatus.APPROVED,
+        milestoneStatuses.get(candidate.id)?.status !==
+        SubmissionStatus.APPROVED,
     );
     if (milestone === undefined) return null;
     if (
@@ -186,12 +232,19 @@ export class StudentDashboardService {
       return 'invalid';
     }
 
+    const statuses = milestoneStatuses.get(milestone.id);
+    const itemStatuses = statuses?.itemStatuses ?? [];
     return {
       id: milestone.id,
       name: milestone.name,
       dueAt: milestone.dueAt,
-      submissionStatus:
-        milestoneStatuses.get(milestone.id) ?? MILESTONE_NOT_SUBMITTED,
+      submissionStatus: statuses?.status ?? MILESTONE_NOT_SUBMITTED,
+      requiredItemCount: itemStatuses.length,
+      remainingItemCount: itemStatuses.filter(
+        (status) =>
+          status === MILESTONE_NOT_SUBMITTED ||
+          status === SubmissionStatus.CHANGES_REQUESTED,
+      ).length,
     };
   }
 
