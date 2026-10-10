@@ -7,7 +7,7 @@ import {
   USER_PROFILE_SELECT,
   resolveUserProfile,
 } from '../../prisma/user-profile-read';
-import { upsertUserProfile } from '../../profiles/repository/user-profile-write.repository';
+import { upsertUserProfile } from '../../prisma/user-profile-write';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   USERS_ERROR_CODES,

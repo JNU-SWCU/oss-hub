@@ -7,7 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import {
   fillStudentIdIfEmpty,
   type StudentIdFillOutcome,
-} from '../../profiles/repository/user-profile-write.repository';
+} from '../../prisma/user-profile-write';
 import { requestStaffAccess } from './staff-access-request';
 import type {
   CompleteUserProfileInput,

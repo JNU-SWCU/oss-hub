@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { fillStudentIdIfEmpty } from './user-profile-write.repository';
+import { fillStudentIdIfEmpty } from './user-profile-write';
 
 function uniqueConstraintError(): Prisma.PrismaClientKnownRequestError {
   return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
