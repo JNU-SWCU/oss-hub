@@ -37,7 +37,7 @@ export type ProfileOnboardingView =
       readonly canChangeRole: boolean;
     };
 
-export function signupDestination(state: ProfileOnboardingState): string {
+function signupDestination(state: ProfileOnboardingState): string {
   if (state.memberKind !== null) {
     return '/dashboard';
   }

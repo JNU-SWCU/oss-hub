@@ -15,7 +15,7 @@ import { COSMOS_GROUND_PATHS, PRE_MEMBER_PATHS } from './signup-routes';
 import { SessionRoleProvider } from './session-role-context';
 import { useSessionRole } from './use-session-role';
 
-export const DASHBOARD_NAV_ITEM: NavItem = {
+const DASHBOARD_NAV_ITEM: NavItem = {
   label: '대시보드',
   href: '/dashboard',
 };

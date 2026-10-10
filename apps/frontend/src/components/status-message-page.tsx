@@ -75,4 +75,3 @@ function StatusMessagePage({
 }
 
 export { StatusMessagePage };
-export type { StatusMessagePageProps };
