@@ -3,7 +3,7 @@ import { DomainException } from '../../common/error-code';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from '../../milestone-documents/milestone-documents-error-code.enum';
+} from '../../milestone-documents/domain/milestone-documents-error-code.enum';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,

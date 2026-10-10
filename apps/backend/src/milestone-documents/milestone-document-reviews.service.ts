@@ -8,7 +8,7 @@ import { MilestoneDocumentReviewResponseDto } from './dto/milestone-document-rev
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.enum';
+} from './domain/milestone-documents-error-code.enum';
 import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history';
 import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 

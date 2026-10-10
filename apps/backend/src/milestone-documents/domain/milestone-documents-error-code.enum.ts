@@ -1,9 +1,9 @@
-import type { ErrorCode } from '../common/error-code';
-import { SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE } from '../submissions/domain/submission-upload-policy';
+import type { ErrorCode } from '../../common/error-code';
+import { SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE } from '../../submissions/domain/submission-upload-policy';
 import {
   SUBMISSION_ZIP_REJECTION_MESSAGES,
   SubmissionZipRejection,
-} from '../submissions/domain/submission-zip-admission';
+} from '../../submissions/domain/submission-zip-admission';
 
 export const MilestoneDocumentsErrorCode = {
   STAFF_ONLY: 'MSD_001',
