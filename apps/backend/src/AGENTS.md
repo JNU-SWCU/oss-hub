@@ -6,7 +6,7 @@
 ## Composition and local boundaries
 
 
-- Each feature keeps its local controller, service, repository, module, DTOs, errors, and adjacent specs together.
+- Each feature keeps its local controller, service, repository, module, DTOs, errors, and adjacent specs together; `team-invitations/` organizes transport, use cases, persistence, and shared records in `controller/`, `service/`, `repository/`, `dto/`, and `domain/`.
 - Existing transaction writers and owner-reviewed public query surfaces are deliberate exceptions to the parent exported-provider rule; do not replace them with private repository reach-through.
 - Feature failures use a local `ErrorCode` contract and `DomainException`; preserve existing filenames rather than imposing one enum filename pattern.
 

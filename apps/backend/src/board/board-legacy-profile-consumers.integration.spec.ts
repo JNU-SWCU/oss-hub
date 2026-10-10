@@ -8,7 +8,7 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { StaffInsightsRepository } from '../applications/staff-insights.repository';
 import { PrismaService } from '../prisma/prisma.service';
-import { searchInvitationCandidates } from '../team-invitations/team-invitation-candidates.repository';
+import { searchInvitationCandidates } from '../team-invitations/repository/team-invitations.repository';
 import { BoardRepository } from './board.repository';
 
 assertIsolatedIntegrationDatabase({

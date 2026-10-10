@@ -6,8 +6,8 @@ import {
   TeamInvitationStatus,
   ProgramTrackType,
 } from '@prisma/client';
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { PrismaService } from '../prisma/prisma.service';
+import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
+import { PrismaService } from '../../prisma/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 
 assertIsolatedIntegrationDatabase({
