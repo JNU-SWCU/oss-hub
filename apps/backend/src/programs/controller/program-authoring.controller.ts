@@ -22,23 +22,22 @@ import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { ProgramAuthoringRequestDto } from '../dto/program-authoring-request.dto';
 import { ProgramAuthoringUploadPolicyResponseDto } from '../dto/program-authoring-upload-policy-response.dto';
-import { ProgramAuthoringRepository } from '../program-authoring.repository';
 import {
   ProgramAuthoringForbiddenError,
   ProgramAuthoringService,
-} from '../program-authoring.service';
+} from '../service/program-authoring.service';
 import {
   ProgramAuthoringIdempotencyConflictError,
   ProgramAuthoringUploadTokenError,
-  ProgramAuthoringValidationError,
-} from '../program-authoring.types';
-import { ProgramAuthoringUploadService } from '../program-authoring-upload.service';
+} from '../domain/program-authoring.types';
+import { ProgramAuthoringValidationError } from '../domain/program-authoring-validation';
+import { ProgramAuthoringUploadService } from '../service/program-authoring-upload.service';
 import {
   ProgramAuthoringUploadError,
   type ProgramAuthoringUploadFile,
-} from '../program-authoring-upload.types';
+} from '../domain/program-authoring-upload.types';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../../submissions/domain/submission-upload-policy';
-import { PROGRAM_COVER_MAX_BYTES } from '../program-cover';
+import { PROGRAM_COVER_MAX_BYTES } from '../domain/program-cover';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -46,7 +45,6 @@ type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 export class ProgramAuthoringController {
   constructor(
     private readonly authoring: ProgramAuthoringService,
-    private readonly repository: ProgramAuthoringRepository,
     private readonly uploads: ProgramAuthoringUploadService,
   ) {}
 
@@ -153,15 +151,14 @@ export class ProgramAuthoringController {
   }
 
   private async requireAuthor(githubId: bigint): Promise<string> {
-    const actor = await this.repository.findActor(githubId);
-    if (
-      actor === null ||
-      actor.accountStatus !== 'ACTIVE' ||
-      (!actor.hasStaffAccess && !actor.hasAdminAccess)
-    ) {
-      throw new ConflictException('Program authoring is unavailable.');
+    try {
+      return await this.authoring.requireAuthor(githubId);
+    } catch (error) {
+      if (error instanceof ProgramAuthoringForbiddenError) {
+        throw new ConflictException('Program authoring is unavailable.');
+      }
+      throw error;
     }
-    return actor.id;
   }
 }
 

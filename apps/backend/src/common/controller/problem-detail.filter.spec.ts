@@ -11,7 +11,7 @@ import { Response } from 'express';
 import { DomainException } from '../error-code';
 import { ProblemDetailFilter } from './problem-detail.filter';
 import { SystemErrorCode } from '../system-error-code.enum';
-import { PROGRAM_ERROR_CODES } from '../../programs/program-error-code';
+import { PROGRAM_ERROR_CODES } from '../../programs/domain/program-error-code';
 
 describe('ProblemDetailFilter', () => {
   const createHost = (

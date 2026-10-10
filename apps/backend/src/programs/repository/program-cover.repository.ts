@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ProgramLifecycle } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { PROGRAM_COVER_MAX_BYTES } from '../program-cover';
+import { PROGRAM_COVER_MAX_BYTES } from '../domain/program-cover';
 import { PROGRAM_COVER_STORAGE_PREFIX } from '../domain/program-cover-object-key';
 
 @Injectable()

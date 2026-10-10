@@ -1,3 +1,9 @@
+import {
+  StudentDashboardMilestone,
+  StudentDashboardItem,
+  StudentDashboardProgress,
+  StudentDashboardRepository,
+} from '../domain/student-dashboard';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
@@ -12,55 +18,13 @@ import {
   milestoneCompletionStatus,
   type MilestoneCompletionStatus,
 } from '../../milestone-documents/domain/milestone-completion';
-import { programCoverImageUrl } from '../program-cover';
+import { programCoverImageUrl } from '../domain/program-cover';
 import { RepositoriesReadService } from '../../github/service/repositories-read.service';
 import { projectSubmissionCompletionTargets } from '../../submissions/domain/submission-completion-projection';
 import {
   StudentDashboardReadRepository,
   type StudentDashboardApplicationRow,
 } from '../repository/student-dashboard-read.repository';
-
-export interface StudentDashboardMilestone {
-  readonly id: string;
-  readonly name: string;
-  readonly dueAt: Date;
-  readonly submissionStatus:
-    | 'NOT_SUBMITTED'
-    | 'SUBMITTED'
-    | 'APPROVED'
-    | 'CHANGES_REQUESTED'
-    | 'REJECTED';
-  readonly requiredItemCount: number;
-  readonly remainingItemCount: number;
-}
-
-interface StudentDashboardProgress {
-  readonly approvedCount: number;
-  readonly inReviewCount: number;
-  readonly totalCount: number;
-}
-
-export interface StudentDashboardItem {
-  readonly coverImageUrl?: string | null;
-  readonly applicationId: string;
-  readonly programId: string;
-  readonly programName: string;
-  readonly teamName: string;
-  readonly teamUrl: string;
-  readonly applicationStatus: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
-  readonly nextMilestone: StudentDashboardMilestone | null;
-  readonly progress: StudentDashboardProgress | null;
-  readonly detailUrl: string;
-  readonly checklistUrl: string;
-  readonly repository: StudentDashboardRepository | null;
-}
-
-export interface StudentDashboardRepository {
-  readonly repositoryName: string | null;
-  readonly provisionStatus: 'NOT_STARTED' | RepositoryProvisionJobStatus;
-  readonly invitationStatus: RepositoryInvitationStatus | null;
-  readonly githubUrl: string | null;
-}
 
 function isNonEmptyString(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.trim().length > 0;

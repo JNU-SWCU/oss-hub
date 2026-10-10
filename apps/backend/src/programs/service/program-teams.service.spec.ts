@@ -30,7 +30,7 @@ import {
   EMPTY_TEAM_DELETION_SCOPE,
   stubTeamDeletionRepository,
 } from './program-teams.service.test-support';
-import { TeamsErrorCode } from '../teams-error-code.enum';
+import { TeamsErrorCode } from '../domain/teams-error-code.enum';
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');
 const GITHUB_ID = 4_242n;

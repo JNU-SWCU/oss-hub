@@ -20,7 +20,7 @@ import { UsersAuthorityRepository } from '../../users/repository/authority.repos
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { ProgramTeamDeletionRepository } from '../repository/program-team-deletion.repository';
 import { ProgramTeamsRepository } from '../repository/program-teams.repository';
-import { TeamsErrorCode } from '../teams-error-code.enum';
+import { TeamsErrorCode } from '../domain/teams-error-code.enum';
 import { ProgramTeamsService } from './program-teams.service';
 
 assertIsolatedIntegrationDatabase({

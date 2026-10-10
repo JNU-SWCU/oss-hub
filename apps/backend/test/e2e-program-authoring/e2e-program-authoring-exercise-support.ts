@@ -5,10 +5,10 @@ import {
 } from './e2e-external-port-registry';
 import type { E2eFailureKind } from './e2e-program-authoring.types';
 import { DeadlineDigestService } from '../../src/notifications/service/deadline-digest.service';
-import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
-import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/program-authoring-upload-maintenance.service';
-import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';
-import type { ProgramAuthoringRequest } from '../../src/programs/program-authoring.types';
+import { ProgramAuthoringService } from '../../src/programs/service/program-authoring.service';
+import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/service/program-authoring-upload-maintenance.service';
+import { ProgramAuthoringUploadService } from '../../src/programs/service/program-authoring-upload.service';
+import type { ProgramAuthoringRequest } from '../../src/programs/domain/program-authoring.types';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import { E2eExternalPortFault } from './e2e-external-port-registry';
 import {

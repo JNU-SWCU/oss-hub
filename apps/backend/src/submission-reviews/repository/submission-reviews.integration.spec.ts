@@ -32,7 +32,7 @@ import type { GithubAppClient } from '../../github/gateway/github-app.client';
 import { BarrierRepositoriesRepository } from '../../github/repository/repositories.integration-support';
 import { RepositoriesRepository } from '../../github/repository/repositories.repository';
 import { RepositoriesService } from '../../github/service/repositories.service';
-import { PublicProjectsRepository } from '../../programs/archive/public-projects/public-projects.repository';
+import { PublicProjectsRepository } from '../../programs/archive/public-projects/repository/public-projects.repository';
 import { SubmissionReviewsErrorCode } from '../domain/submission-reviews-error-code.enum';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from '../service/submission-reviews.service';

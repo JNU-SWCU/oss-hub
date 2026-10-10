@@ -8,11 +8,10 @@ import type { Prisma as PrismaTypes } from '@prisma/client';
 
 import { lockProgramTree } from '../../prisma/lock-program-tree';
 import { PrismaService } from '../../prisma/prisma.service';
-import { readProgramDeletionScopeCounts } from '../program-deletion-scope';
+import { readProgramDeletionScopeCounts } from './program-deletion-scope';
+import type { ProgramDeletionScopeCounts } from '../domain/program-deletion-scope';
 import type {
   EditableProgramView,
-  ProgramDeletionScopeCounts,
-  ProgramEditorRepositoryPort,
   ProgramEditorTransactionStore,
   LockedProgramMilestoneEdit,
   ApplyProgramMilestoneEditInput,
@@ -23,14 +22,14 @@ import type {
   ProgramMilestoneView,
   ProgramSchedule,
   ProgramUpdateInput,
-} from '../program-editor.types';
+} from '../domain/program-editor.types';
 import {
   consumePendingProgramAuthoringUploads,
   lockAttachableProgramAuthoringUploads,
-} from '../program-authoring-upload-transaction';
-import type { ProgramAuthoringPendingUploadConsumption } from '../program-authoring.types';
+} from './program-authoring-upload-transaction';
+import type { ProgramAuthoringPendingUploadConsumption } from '../domain/program-authoring.types';
 import { replaceProgramCover } from './program-cover-write';
-import { programCoverImageUrl } from '../program-cover';
+import { programCoverImageUrl } from '../domain/program-cover';
 
 type ProgramRecord = PrismaTypes.ProgramGetPayload<{
   include: typeof editableProgramInclude;
@@ -486,7 +485,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
 }
 
 @Injectable()
-export class ProgramEditorRepository implements ProgramEditorRepositoryPort {
+export class ProgramEditorRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   withTransaction<T>(

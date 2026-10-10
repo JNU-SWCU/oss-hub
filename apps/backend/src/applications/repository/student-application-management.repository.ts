@@ -8,9 +8,11 @@ import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
 } from '../../prisma/user-profile-read';
-import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
+import {
+  programApplicationManagerWhere,
+  programApplicationParticipantWhere,
+} from '../../prisma/program-application-participant';
 import { PrismaService } from '../../prisma/prisma.service';
-import { programApplicationManagerWhere } from '../../programs/program-participant';
 import { appendReviewHistory } from './review-history.writer';
 import type {
   AppendReviewHistoryInput,

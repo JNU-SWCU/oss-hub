@@ -6,15 +6,15 @@ import { SubmissionsModule } from '../submissions/submissions.module';
 import { StorageModule } from '../storage/storage.module';
 import { UsersModule } from '../users/users.module';
 import { ProgramAuthoringController } from './controller/program-authoring.controller';
-import { ProgramAuthoringRepository } from './program-authoring.repository';
-import { ProgramAuthoringService } from './program-authoring.service';
-import { ProgramAuthoringUploadMaintenanceScheduler } from './program-authoring-upload-maintenance.scheduler';
-import { ProgramPurgeFileCleanupScheduler } from './program-purge-file-cleanup.scheduler';
-import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
+import { ProgramAuthoringRepository } from './repository/program-authoring.repository';
+import { ProgramAuthoringService } from './service/program-authoring.service';
+import { ProgramAuthoringUploadMaintenanceScheduler } from './job/program-authoring-upload-maintenance.scheduler';
+import { ProgramPurgeFileCleanupScheduler } from './job/program-purge-file-cleanup.scheduler';
+import { ProgramPurgeFileCleanupService } from './service/program-purge-file-cleanup.service';
 import { ProgramPurgeFileCleanupRepository } from './repository/program-purge-file-cleanup.repository';
-import { ProgramAuthoringUploadMaintenanceService } from './program-authoring-upload-maintenance.service';
-import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { ProgramAuthoringUploadMaintenanceService } from './service/program-authoring-upload-maintenance.service';
+import { ProgramAuthoringUploadRepository } from './repository/program-authoring-upload.repository';
+import { ProgramAuthoringUploadService } from './service/program-authoring-upload.service';
 import { ApplicationTemplatesController } from './controller/application-templates.controller';
 import { MilestonesController } from './controller/milestones.controller';
 import { ProgramCreationService } from './service/program-creation.service';
@@ -25,6 +25,7 @@ import { ProgramActivityService } from './service/program-activity.service';
 import { ProgramEditorController } from './controller/program-editor.controller';
 import { ProgramEditorRepository } from './repository/program-editor.repository';
 import { ProgramEditorService } from './service/program-editor.service';
+import { ProgramLifecycleRepository } from './repository/program-lifecycle.repository';
 import { ProgramLifecycleService } from './service/program-lifecycle.service';
 import { ProgramTeamsController } from './controller/program-teams.controller';
 import { ProgramTeamDeletionRepository } from './repository/program-team-deletion.repository';
@@ -42,9 +43,9 @@ import { StudentDashboardService } from './service/student-dashboard.service';
 import { ProgramCoverController } from './controller/program-cover.controller';
 import { ProgramCoverService } from './service/program-cover.service';
 import { ProgramCoverRepository } from './repository/program-cover.repository';
-import { ProgramNoticePreviewController } from './program-notice-preview.controller';
-import { ProgramNoticePreviewService } from './program-notice-preview.service';
-import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
+import { ProgramNoticePreviewController } from './controller/program-notice-preview.controller';
+import { ProgramNoticePreviewService } from './service/program-notice-preview.service';
+import { ProgramNoticeFetchClient } from './gateway/program-notice-fetch.client';
 
 @Module({
   imports: [
@@ -93,6 +94,7 @@ import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
     ProgramEditorService,
     ProgramEditorRepository,
     ProgramLifecycleService,
+    ProgramLifecycleRepository,
     ProgramTeamsService,
     ProgramTeamsRepository,
     ProgramTeamDeletionRepository,

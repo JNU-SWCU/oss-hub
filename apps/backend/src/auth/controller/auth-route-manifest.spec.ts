@@ -3,7 +3,7 @@ import {
   discoverModuleControllers,
 } from '../../app-controller-discovery';
 import { compareStringsByCodeUnit } from '../../common/domain/deterministic-string-order';
-import { ProgramOverviewController } from '../../programs/archive/program-overview/program-overview.controller';
+import { ProgramOverviewController } from '../../programs/archive/program-overview/controller/program-overview.controller';
 import {
   collectRuntimeRouteKeys,
   discoverRuntimeControllers,

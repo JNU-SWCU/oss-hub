@@ -3,7 +3,7 @@ import { DomainException } from '../../common/error-code';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from '../program-error-code.enum';
+} from '../domain/program-error-code.enum';
 import {
   createProgramEditorServiceHarness,
   editableProgram,

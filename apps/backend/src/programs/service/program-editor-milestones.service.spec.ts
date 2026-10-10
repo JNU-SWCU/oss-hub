@@ -3,12 +3,12 @@ import { DomainException } from '../../common/error-code';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from '../program-error-code.enum';
+} from '../domain/program-error-code.enum';
 import {
   createProgramEditorServiceHarness,
   milestoneInput,
 } from '../../../test/program-editor-service-fixtures';
-import { fingerprintProgramMilestoneEdit } from '../program-milestone-edit';
+import { fingerprintProgramMilestoneEdit } from '../domain/program-milestone-edit';
 
 describe('ProgramEditorService milestones', () => {
   it('updates the selected milestone by canonical id through the aggregate edit contract', async () => {

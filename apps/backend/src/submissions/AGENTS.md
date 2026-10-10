@@ -8,7 +8,7 @@
 - module은 `SubmissionDashboardSummaryService`를 export하며 `applications/service/staff-dashboard.service.ts`가 이 service의 `listByProgram`만 소비한다.
 - `milestone-documents/`의 pending 파일 생성은 module이 export하는 `SubmissionFilesService.createPending`을 사용하며 repository를 직접 주입하지 않는다.
 - 검토 결정과 `SubmissionStatus` 전이는 `submission-reviews/` 소유다. 이 모듈은 학생 제출과 재제출만 만들며 검토 승인·반려를 구현하지 않는다.
-- 프로그램 마감 계산은 `../programs/program-deadline.ts`를 사용한다. 마감 규칙을 별도로 계산하지 않는다.
+- 프로그램 마감 계산은 `../programs/domain/program-deadline.ts`를 사용한다. 마감 규칙을 별도로 계산하지 않는다.
 
 ## 제출 이력과 동시성
 

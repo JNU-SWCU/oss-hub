@@ -1,14 +1,15 @@
-import type { Program } from '@prisma/client';
+import { CreatedProgram } from '../domain/program-creation';
+import type { ProgramCategory } from '@prisma/client';
 
 export class CreateProgramResponseDto {
   readonly id: string;
-  readonly category: Program['category'];
+  readonly category: ProgramCategory;
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly endAt: string;
   readonly detailUrl: string;
 
-  private constructor(program: Program) {
+  private constructor(program: CreatedProgram) {
     this.id = program.id;
     this.category = program.category;
     this.applicationTemplateKey = program.applicationTemplateKey;
@@ -17,7 +18,7 @@ export class CreateProgramResponseDto {
     this.detailUrl = `/programs/${program.id}`;
   }
 
-  static from(program: Program): CreateProgramResponseDto {
+  static from(program: CreatedProgram): CreateProgramResponseDto {
     return new CreateProgramResponseDto(program);
   }
 }
