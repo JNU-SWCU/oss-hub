@@ -1,5 +1,5 @@
 import { Consent as PrismaConsent, Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { ConsentsRepository } from './consents.repository';
 
 const syntheticUserId = 'cuid-synthetic-consent-user';

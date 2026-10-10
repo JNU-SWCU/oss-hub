@@ -9,7 +9,7 @@ import {
   CONSENT_ERROR_CODES,
   ConsentErrorCode,
 } from '../../consents/consent-error-code.enum';
-import type { ConsentsService } from '../../consents/consents.service';
+import type { ConsentsService } from '../../consents/service/consents.service';
 import type { UserProfileView } from '../../profiles/user-profile-read';
 import type {
   StaffAccessRequestRecord,

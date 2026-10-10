@@ -12,9 +12,7 @@ import {
   finalProvisionFailure,
   PROVISION_ERROR_CODES,
 } from './repository-provision.failure';
-import { parseGithubRepositoryUrl } from '../common/github-repository-url';
-
-export { parseGithubRepositoryUrl as parseOwnGithubRepositoryUrl } from '../common/github-repository-url';
+import { parseGithubRepositoryUrl } from './domain/github-repository-url';
 
 type ProvisionGithubClient = Pick<
   GithubAppClient,

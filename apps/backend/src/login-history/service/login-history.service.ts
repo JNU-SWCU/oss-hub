@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import {
   LOGIN_HISTORY_EVENTS,
   type LoginHistoryPage,
-} from './domain/login-history';
-import { LoginHistoryRepository } from './login-history.repository';
+} from '../domain/login-history';
+import { LoginHistoryRepository } from '../repository/login-history.repository';
 
 @Injectable()
 export class LoginHistoryService {

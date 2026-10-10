@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { HealthRepository } from '../repository/health.repository';
 
 @Injectable()
 export class HealthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repository: HealthRepository) {}
 
   async isDatabaseReachable(): Promise<boolean> {
     try {
-      await this.prisma.$queryRaw`SELECT 1`;
+      await this.repository.checkDatabaseConnection();
       return true;
     } catch {
       return false;

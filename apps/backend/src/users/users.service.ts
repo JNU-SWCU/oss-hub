@@ -5,7 +5,7 @@ import {
 } from '../auth/domain/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
-import { ConsentsService } from '../consents/consents.service';
+import { ConsentsService } from '../consents/service/consents.service';
 import type {
   PatchUserProfileInput,
   UserProfile,

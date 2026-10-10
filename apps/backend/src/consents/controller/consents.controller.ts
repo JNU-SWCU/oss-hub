@@ -7,13 +7,13 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { OriginGuard } from '../auth/controller/origin.guard';
-import type { AuthenticatedRequest } from '../auth/controller/http-auth';
-import { SessionGuard } from '../auth/controller/session.guard';
-import { ConsentsService } from './consents.service';
-import { ConsentCurrentResponseDto } from './dto/consent-current-response.dto';
-import { ConsentResponseDto } from './dto/consent-response.dto';
-import { CreateConsentRequestDto } from './dto/create-consent-request.dto';
+import { OriginGuard } from '../../auth/controller/origin.guard';
+import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
+import { SessionGuard } from '../../auth/controller/session.guard';
+import { ConsentsService } from '../service/consents.service';
+import { ConsentCurrentResponseDto } from '../dto/consent-current-response.dto';
+import { ConsentResponseDto } from '../dto/consent-response.dto';
+import { CreateConsentRequestDto } from '../dto/create-consent-request.dto';
 
 @Controller('consents')
 export class ConsentsController {

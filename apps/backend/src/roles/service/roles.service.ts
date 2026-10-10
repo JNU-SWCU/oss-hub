@@ -9,7 +9,7 @@ import {
   AuthErrorCode,
 } from '../../auth/domain/auth-error-code.enum';
 import { DomainException } from '../../common/error-code';
-import { ConsentsService } from '../../consents/consents.service';
+import { ConsentsService } from '../../consents/service/consents.service';
 import { isCompleteProfileFields } from '../../users/domain/user-profile-policy';
 import type {
   MemberKindSelectionResult,

@@ -7,7 +7,7 @@ import {
   TEAM_RENAMED_AUDIT_ACTIONS,
 } from '../../audit-log/audit-log-metadata';
 import { DomainException } from '../../common/error-code';
-import { computeJoinCodeDigest } from '../../common/join-code-digest';
+import { computeJoinCodeDigest } from '../domain/join-code-digest';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import {
   type ProgramTeamsCreateStore,

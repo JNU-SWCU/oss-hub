@@ -1,11 +1,11 @@
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { runProfile } from '../../prisma/seed';
-import { AUTH_SCENARIOS } from '../../prisma/seeds/auth';
-import { prisma, seedGithubId, SeedStats } from '../../prisma/seeds/helpers';
-import { PrismaService } from '../prisma/prisma.service';
-import { ConsentsRepository } from './consents.repository';
+import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
+import { runProfile } from '../../../prisma/seed';
+import { AUTH_SCENARIOS } from '../../../prisma/seeds/auth';
+import { prisma, seedGithubId, SeedStats } from '../../../prisma/seeds/helpers';
+import { PrismaService } from '../../prisma/prisma.service';
+import { ConsentsRepository } from '../repository/consents.repository';
 import { ConsentsService } from './consents.service';
-import { CURRENT_CONSENT_POLICY } from './domain/consent-policy';
+import { CURRENT_CONSENT_POLICY } from '../domain/consent-policy';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

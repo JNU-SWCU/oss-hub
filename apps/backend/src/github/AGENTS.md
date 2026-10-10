@@ -13,6 +13,7 @@
 - `repository-outbox.consumer.ts`가 lease와 `SKIP LOCKED`로 승인 event를 claim하고 scheduler가 `repository-provision.worker.ts`를 polling한다.
 - worker는 durable job 상태와 `nextAttemptAt`을 기록하고 `repository-provision.failure.ts`로 provider failure의 retry 가능성을 분류한다.
 - `repository-provision.github.ts`의 find-or-create와 `repository-name.ts`의 결정적 이름/ownership marker를 우회하지 않는다.
+- 저장소 URL 파싱은 `domain/github-repository-url.ts`의 순수 규칙을 재사용한다.
 - OWN enrollment는 current consent를 검증해 collection queue에 편입하며 신청 승인 outbox와 합치지 않는다.
 - `RepositoriesService.publish`는 review gate 뒤 GitHub provider 전환을 먼저 시도하고 private-only CAS를 수행한다.
   CAS winner만 local 공개 상태와 `REPOSITORY_PUBLISHED` audit을 커밋한다.

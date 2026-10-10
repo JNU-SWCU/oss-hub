@@ -8,10 +8,10 @@ import type {
 } from './github-app.client';
 import {
   findOrCreateGithubRepository,
-  parseOwnGithubRepositoryUrl,
   resolveOwnGithubRepository,
 } from './repository-provision.github';
 import { PROVISION_ERROR_CODES } from './repository-provision.failure';
+import { parseGithubRepositoryUrl } from './domain/github-repository-url';
 
 const names = {
   preferred: 'synthetic-program-team',
@@ -182,10 +182,10 @@ describe('findOrCreateGithubRepository', () => {
   });
 });
 
-describe('parseOwnGithubRepositoryUrl', () => {
+describe('parseGithubRepositoryUrl', () => {
   it('https://github.com/{owner}/{name} 만 허용한다', () => {
     expect(
-      parseOwnGithubRepositoryUrl(
+      parseGithubRepositoryUrl(
         'https://github.com/synthetic-student/synthetic-repo',
       ),
     ).toEqual({ owner: 'synthetic-student', name: 'synthetic-repo' });
@@ -202,7 +202,7 @@ describe('parseOwnGithubRepositoryUrl', () => {
     'https://github.com/synthetic-student/synthetic-repo#readme',
     'not-a-url',
   ])('거부: %s', (url) => {
-    expect(parseOwnGithubRepositoryUrl(url)).toBeNull();
+    expect(parseGithubRepositoryUrl(url)).toBeNull();
   });
 });
 
