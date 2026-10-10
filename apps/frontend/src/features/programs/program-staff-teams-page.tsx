@@ -178,7 +178,8 @@ export function ProgramStaffTeamsPage({
           : { message, blocked: result.kind === 'refetch-failed' };
       setNotices((current) => {
         if (notice === null) {
-          const { [item.id]: _removed, ...rest } = current;
+          const rest = { ...current };
+          delete rest[item.id];
           return rest;
         }
         return { ...current, [item.id]: notice };

@@ -182,9 +182,9 @@ describe('ProgramListPage 카드 그리드·정렬', () => {
     const setter = Object.getOwnPropertyDescriptor(
       HTMLSelectElement.prototype,
       'value',
-    )?.set;
+    );
     await act(async () => {
-      setter?.call(element, value);
+      setter?.set?.call(element, value);
       element.dispatchEvent(new Event('change', { bubbles: true }));
     });
   }
