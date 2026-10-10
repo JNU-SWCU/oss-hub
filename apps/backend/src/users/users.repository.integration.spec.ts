@@ -6,7 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
 import { UsersRepository } from './users.repository';
 import type { ProfileCompletionOutcome } from './users.repository';
-import { isCompleteUserProfile } from './user-profile-policy';
+import { isCompleteUserProfile } from './domain/user-profile-policy';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

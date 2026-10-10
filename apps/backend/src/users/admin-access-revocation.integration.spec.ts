@@ -10,7 +10,7 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthRepository } from '../auth/repository/auth.repository';
 import { PrismaService } from '../prisma/prisma.service';
-import { RolesErrorCode } from '../roles/roles-error-code.enum';
+import { RolesErrorCode } from './domain/roles-error-code.enum';
 import { PausingRevocationAdminAccessRepository } from './admin-access.integration-support';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';

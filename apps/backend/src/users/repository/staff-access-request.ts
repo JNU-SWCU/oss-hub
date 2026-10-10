@@ -1,22 +1,15 @@
 import { MemberKind, StaffAccessRequestStatus } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
+import type {
+  StaffAccessRequestOutcome,
+  StaffAccessRequestTarget,
+} from '../domain/onboarding-store';
 
-export type StaffAccessRequestTransaction = {
+type StaffAccessRequestTransaction = {
   readonly staffAccessRequest: Pick<
     Prisma.TransactionClient['staffAccessRequest'],
     'findFirst' | 'create'
   >;
-};
-
-export type StaffAccessRequestTarget = {
-  readonly id: string;
-  readonly memberKind: MemberKind;
-
-  readonly hasStaffAccess: boolean;
-};
-
-export type StaffAccessRequestOutcome = {
-  readonly requestStatus: StaffAccessRequestStatus | null;
 };
 
 const NOTHING_REQUESTED: StaffAccessRequestOutcome = { requestStatus: null };

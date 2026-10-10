@@ -1,4 +1,4 @@
-import type { ErrorCode } from '../common/error-code';
+import type { ErrorCode } from '../../common/error-code';
 
 export enum RolesErrorCode {
   INVALID_ROLE_SELECTION = 'ROL_001',

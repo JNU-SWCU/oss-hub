@@ -9,7 +9,7 @@ import { AccountStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../auth/controller/http-auth';
 import { SessionGuard } from '../auth/controller/session.guard';
-import { RolesErrorCode } from '../roles/roles-error-code.enum';
+import { RolesErrorCode } from './domain/roles-error-code.enum';
 import { AdminAccessController } from './admin-access.controller';
 import { AdminAccessService } from './admin-access.service';
 import type { AdminProfileService } from './admin-profile.service';

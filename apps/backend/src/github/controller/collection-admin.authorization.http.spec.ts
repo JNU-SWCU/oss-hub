@@ -12,7 +12,7 @@ import { CollectionAdminService } from '../service/collection-admin.service';
 import {
   AUTH_ERROR_CODES,
   AuthErrorCode,
-} from '../../auth/auth-error-code.enum';
+} from '../../auth/domain/auth-error-code.enum';
 import { ProblemDetailFilter } from '../../common/problem-detail.filter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';

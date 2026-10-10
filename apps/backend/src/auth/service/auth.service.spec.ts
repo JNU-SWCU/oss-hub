@@ -2,7 +2,7 @@ import { AccountStatus, MemberKind } from '@prisma/client';
 import { decodeJwt } from 'jose';
 import { DomainException } from '../../common/error-code';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
-import { AuthErrorCode } from '../auth-error-code.enum';
+import { AuthErrorCode } from '../domain/auth-error-code.enum';
 import { AuthConfig } from '../auth.config';
 import type {
   AuthRepository,

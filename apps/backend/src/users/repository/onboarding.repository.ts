@@ -4,16 +4,18 @@ import type {
   Prisma as PrismaTypes,
   StaffAccessRequest as PrismaStaffAccessRequest,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import type {
   MemberUser,
   StaffAccessRequestRecord,
-} from './domain/member-onboarding';
+} from '../domain/member-onboarding';
 import { requestStaffAccess } from './staff-access-request';
 import type {
   StaffAccessRequestOutcome,
   StaffAccessRequestTarget,
-} from './staff-access-request';
+  OnboardingRepositoryPort,
+  OnboardingTransactionStore,
+} from '../domain/onboarding-store';
 
 const MEMBER_USER_SELECT = {
   id: true,
@@ -35,31 +37,7 @@ type MemberUserRow = PrismaTypes.UserGetPayload<{
   select: typeof MEMBER_USER_SELECT;
 }>;
 
-export interface RolesTransactionStore {
-  findUserByGithubId(githubId: bigint): Promise<MemberUser | null>;
-
-  updateSelectedMemberKind(
-    userId: string,
-    memberKind: MemberKind,
-  ): Promise<MemberUser>;
-  findPendingRequest(userId: string): Promise<StaffAccessRequestRecord | null>;
-  findLatestRequest(userId: string): Promise<StaffAccessRequestRecord | null>;
-  createPendingRequest(userId: string): Promise<StaffAccessRequestRecord>;
-
-  requestStaffAccess(
-    target: StaffAccessRequestTarget,
-  ): Promise<StaffAccessRequestOutcome>;
-}
-
-export interface RolesRepositoryPort {
-  withTransaction<T>(
-    operation: (store: RolesTransactionStore) => Promise<T>,
-  ): Promise<T>;
-  findUserByGithubId(githubId: bigint): Promise<MemberUser | null>;
-  findLatestRequest(userId: string): Promise<StaffAccessRequestRecord | null>;
-}
-
-class PrismaRolesTransactionStore implements RolesTransactionStore {
+class PrismaOnboardingTransactionStore implements OnboardingTransactionStore {
   constructor(private readonly transaction: Prisma.TransactionClient) {}
 
   requestStaffAccess(
@@ -122,14 +100,14 @@ class PrismaRolesTransactionStore implements RolesTransactionStore {
 }
 
 @Injectable()
-export class RolesRepository implements RolesRepositoryPort {
+export class UsersOnboardingRepository implements OnboardingRepositoryPort {
   constructor(private readonly prisma: PrismaService) {}
 
   async withTransaction<T>(
-    operation: (store: RolesTransactionStore) => Promise<T>,
+    operation: (store: OnboardingTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(new PrismaRolesTransactionStore(transaction)),
+      operation(new PrismaOnboardingTransactionStore(transaction)),
     );
   }
 

@@ -6,7 +6,10 @@ import {
   createAccessAuditMetadata,
 } from '../audit-log/audit-log-metadata';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
+import {
+  AUTH_ERROR_CODES,
+  AuthErrorCode,
+} from '../auth/domain/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
 import {
   AccountDeactivationRepository,

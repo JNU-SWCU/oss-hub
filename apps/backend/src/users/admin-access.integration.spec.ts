@@ -5,7 +5,7 @@ import { AuditLogRepository } from '../audit-log/audit-log.repository';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import type { AuthenticatedRequest } from '../auth/controller/http-auth';
 import { PrismaService } from '../prisma/prisma.service';
-import { RolesErrorCode } from '../roles/roles-error-code.enum';
+import { RolesErrorCode } from './domain/roles-error-code.enum';
 import { AdminAccessController } from './admin-access.controller';
 import { BarrierIndependentAuthorityRepository } from './admin-access.integration-support';
 import { AdminAccessRepository } from './admin-access.repository';

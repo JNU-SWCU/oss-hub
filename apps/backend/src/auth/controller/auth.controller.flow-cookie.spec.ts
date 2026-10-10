@@ -1,5 +1,8 @@
 import { DomainException } from '../../common/error-code';
-import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth-error-code.enum';
+import {
+  AUTH_ERROR_CODES,
+  AuthErrorCode,
+} from '../domain/auth-error-code.enum';
 import {
   flowCookieName,
   serializeCookie,
