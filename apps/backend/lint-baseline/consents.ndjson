@@ -1,5 +1,0 @@
-{"file":"apps/backend/src/consents/consents.controller.ts","ruleId":"boundaries/no-unknown-files","target":"boundaries/no-unknown-files:Program:d5a7c9c9-9679aea6-2d365254-dcdbe63b-b27f37c7-75cdb2ad-6af8241c-e201731b:occurrence:1"}
-{"file":"apps/backend/src/consents/consents.repository.ts","ruleId":"boundaries/no-unknown-files","target":"boundaries/no-unknown-files:Program:d5a7c9c9-9679aea6-2d365254-dcdbe63b-b27f37c7-75cdb2ad-6af8241c-e201731b:occurrence:1"}
-{"file":"apps/backend/src/consents/consents.repository.ts","ruleId":"no-restricted-imports","target":"allowedImportNameWithCustomMessage:ImportDeclaration:e047d0d8-0febf9df-e46e7df8-99155e18-c23d03cc-06a99445-2f4e4ba2-034be64a:occurrence:1"}
-{"file":"apps/backend/src/consents/consents.repository.ts","ruleId":"no-restricted-imports","target":"allowedImportNameWithCustomMessage:ImportDeclaration:e4b88de2-3274e99c-a98b822e-9f304564-c85d9633-3a5d35bb-218b9565-4a03c7ab:occurrence:1"}
-{"file":"apps/backend/src/consents/consents.service.ts","ruleId":"boundaries/no-unknown-files","target":"boundaries/no-unknown-files:Program:d5a7c9c9-9679aea6-2d365254-dcdbe63b-b27f37c7-75cdb2ad-6af8241c-e201731b:occurrence:1"}

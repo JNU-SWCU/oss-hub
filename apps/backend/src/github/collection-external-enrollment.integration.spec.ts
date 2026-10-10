@@ -1,6 +1,6 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { ConsentsRepository } from '../consents/consents.repository';
-import { ConsentsService } from '../consents/consents.service';
+import { ConsentsRepository } from '../consents/repository/consents.repository';
+import { ConsentsService } from '../consents/service/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CollectionCutoverRepository } from './repository/collection-cutover.repository';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
