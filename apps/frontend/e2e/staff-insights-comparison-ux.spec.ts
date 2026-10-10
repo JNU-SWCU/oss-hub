@@ -364,6 +364,49 @@ test.describe('staff insights comparison UX', () => {
     audit.assertClean();
   });
 
+  test('keeps dense program labels separate with pending 200% text resize delivery', async ({
+    page,
+  }, testInfo) => {
+    const audit = installBrowserAudit(page);
+    await page.setViewportSize({ width: 375, height: 1000 });
+    await page.addInitScript(() => {
+      const NativeResizeObserver = window.ResizeObserver;
+      const deferredDeliveryMs = 250;
+      class DeferredResizeObserver extends NativeResizeObserver {
+        constructor(callback: ResizeObserverCallback) {
+          super((entries, observer) => {
+            if (document.documentElement.style.fontSize === '200%') {
+              window.setTimeout(() => {
+                callback(entries, observer);
+              }, deferredDeliveryMs);
+              return;
+            }
+            callback(entries, observer);
+          });
+        }
+      }
+      window.ResizeObserver = DeferredResizeObserver;
+    });
+    await openInsights(page, insightsLong());
+    await hideNextDevTools(page);
+    const card = page
+      .getByText('참여 — 프로그램별', { exact: true })
+      .locator('xpath=ancestor::*[@data-slot="card"][1]');
+    await card.scrollIntoViewIfNeeded();
+    await expectProgramChartLayout(page);
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '200%';
+    });
+    await expectProgramChartLayout(page);
+    await page.mouse.move(0, 0);
+    await attachPng(
+      testInfo,
+      'participation-program-labels/mobile-pending-resize-200-text.png',
+      (path) => card.screenshot({ path }),
+    );
+    audit.assertClean();
+  });
+
   test('renders long Korean labels at desktop and mobile with keyboard and 200% text', async ({
     page,
   }, testInfo) => {
