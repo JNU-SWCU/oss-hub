@@ -8,10 +8,10 @@ import { fileURLToPath } from 'node:url';
 
 import {
   countKnipReport,
+  parseArguments,
   parseBudget,
   runKnipRatchet,
 } from './check-knip-ratchet.mjs';
-import { runRatchet } from './check-lint-ratchet.mjs';
 
 const CHECKER = fileURLToPath(
   new URL('./check-knip-ratchet.mjs', import.meta.url),
@@ -59,10 +59,8 @@ function fixture(t) {
   };
   const budget = (value) =>
     write(BASELINE, JSON.stringify({ version: 1, workspaces: value }));
-  const checkers = () => {
-    write('scripts/check-lint-ratchet.mjs', 'export {};\n');
+  const checkers = () =>
     write('scripts/check-knip-ratchet.mjs', 'export {};\n');
-  };
   const options = (baseSha, extra = {}) => ({
     event: 'push',
     baseSha,
@@ -85,97 +83,6 @@ function existing(t, current = counts({ exports: 2 })) {
   repo.budget(current);
   return { ...repo, base: repo.commit() };
 }
-
-test('B2 Knip cannot remove its budget while the lint family retains debt', async (t) => {
-  const repo = existing(t, counts());
-  repo.write('apps/backend/src/sample/example.js', 'debugger;\n');
-  repo.write(
-    'apps/backend/lint-baseline/sample.ndjson',
-    `${JSON.stringify({
-      file: 'apps/backend/src/sample/example.js',
-      ruleId: 'no-debugger',
-      target: 'retained-debugger',
-    })}\n`,
-  );
-  const jointBase = repo.commit();
-  repo.remove(BASELINE);
-  const partialBase = repo.commit();
-  await assert.rejects(
-    repo.run(jointBase, counts()),
-    /retire|retirement|baseline-missing/,
-  );
-  repo.commit();
-  await assert.rejects(
-    repo.run(partialBase, counts()),
-    /retire|retirement|baseline-missing/,
-  );
-});
-
-test('B2 Knip permits joint zero removal and the following retired predecessor', async (t) => {
-  const repo = existing(t, counts());
-  repo.write('apps/backend/lint-baseline/root.ndjson', '');
-  repo.write('apps/frontend/lint-baseline/root.ndjson', '');
-  const jointBase = repo.commit();
-  repo.remove(BASELINE);
-  repo.remove('apps/backend/lint-baseline');
-  repo.remove('apps/frontend/lint-baseline');
-  const retiredBase = repo.commit();
-  assert.deepEqual((await repo.run(jointBase, counts())).counts, counts());
-  repo.commit();
-  assert.equal((await repo.run(retiredBase, counts())).mode, 'retired');
-});
-
-test('Knip retains its zero marker while even empty lint shards remain', async (t) => {
-  const repo = existing(t, counts());
-  repo.write('apps/backend/lint-baseline/root.ndjson', '');
-  const jointBase = repo.commit();
-  repo.remove(BASELINE);
-  repo.commit();
-  await assert.rejects(repo.run(jointBase, counts()), /joint-retirement/);
-});
-
-test('the combined retirement gate requires actual zero findings from both checkers', async (t) => {
-  const repo = existing(t, counts());
-  const file = 'apps/backend/src/sample/example.js';
-  repo.write(file, 'debugger;\n');
-  repo.write('apps/backend/lint-baseline/root.ndjson', '');
-  repo.write('apps/frontend/lint-baseline/root.ndjson', '');
-  const jointBase = repo.commit();
-  repo.remove(BASELINE);
-  repo.remove('apps/backend/lint-baseline');
-  repo.remove('apps/frontend/lint-baseline');
-  const retiredBase = repo.commit();
-  const combined = async (base, diagnostics, actual) => {
-    await runRatchet(repo.root, repo.options(base), () => ({
-      diagnostics,
-      allowedRuleIds: {
-        backend: new Set(['no-debugger']),
-        frontend: new Set(['no-debugger']),
-      },
-    }));
-    return repo.run(base, actual);
-  };
-  const lintDebt = [{ file, ruleId: 'no-debugger', target: 'actual-debt' }];
-  await assert.rejects(
-    combined(jointBase, lintDebt, counts()),
-    /unlisted-diagnostic/,
-  );
-  await assert.rejects(
-    combined(jointBase, [], counts({ exports: 1 })),
-    /retirement-nonzero/,
-  );
-  assert.deepEqual((await combined(jointBase, [], counts())).counts, counts());
-  repo.commit();
-  await assert.rejects(
-    combined(retiredBase, lintDebt, counts()),
-    /baseline-missing/,
-  );
-  await assert.rejects(
-    combined(retiredBase, [], counts({ exports: 1 })),
-    /retirement-nonzero/,
-  );
-  assert.equal((await combined(retiredBase, [], counts())).mode, 'retired');
-});
 
 test('simultaneous budget and finding growth fails before collecting actual counts', async (t) => {
   const repo = existing(t);
@@ -316,10 +223,9 @@ test('seed is exact and its writer refuses padding, overwrite and reseeding', as
   );
 });
 
-test('seed requires both introducing checkers and an exact baseline', async (t) => {
+test('seed requires the introducing checker and an exact baseline', async (t) => {
   const repo = fixture(t);
   const base = repo.commit();
-  repo.write('scripts/check-knip-ratchet.mjs', 'export {};\n');
   repo.budget(counts());
   repo.commit();
   await assert.rejects(repo.run(base, counts()), /seed-checkers-missing/);
@@ -329,24 +235,17 @@ test('seed requires both introducing checkers and an exact baseline', async (t) 
   await assert.rejects(repo.run(base, counts()), /baseline-missing/);
 });
 
-test('either checker or lint-baseline history prevents automatic reseeding', async (t) => {
-  for (const marker of [
-    'scripts/check-lint-ratchet.mjs',
-    'scripts/check-knip-ratchet.mjs',
-    'apps/backend/lint-baseline/root.ndjson',
-  ]) {
-    const repo = fixture(t);
-    repo.write(marker, '');
-    const base = repo.commit();
-    repo.checkers();
-    repo.budget(counts());
-    repo.commit();
-    await assert.rejects(repo.run(base, counts()), /baseline-missing/);
-    await assert.rejects(
-      repo.run(base, counts(), { seed: true }),
-      /seed-forbidden/,
-    );
-  }
+test('checker history prevents automatic reseeding', async (t) => {
+  const repo = fixture(t);
+  repo.checkers();
+  const base = repo.commit();
+  repo.budget(counts());
+  repo.commit();
+  await assert.rejects(repo.run(base, counts()), /baseline-missing/);
+  await assert.rejects(
+    repo.run(base, counts(), { seed: true }),
+    /seed-forbidden/,
+  );
 });
 
 test('retirement and baseline deletion pass only with zero actual counts', async (t) => {
@@ -400,6 +299,14 @@ test('zero, unavailable, same-head and nonancestor before SHAs fail before colle
     );
     assert.equal(collected, false);
   }
+  await assert.rejects(
+    runKnipRatchet(
+      repo.root,
+      repo.options(repo.base, { headSha: sibling }),
+      () => counts(),
+    ),
+    /head-mismatch/,
+  );
 });
 
 test('PR budgets come from merge-base rather than newer base-tip entries', async (t) => {
@@ -413,6 +320,67 @@ test('PR budgets come from merge-base rather than newer base-tip entries', async
     repo.run(baseTip, counts({ exports: 3 }), { event: 'pull_request' }),
     /budget-growth/,
   );
+  repo.git('checkout', '--quiet', '--orphan', 'unrelated');
+  repo.write('unrelated.txt', 'unrelated history\n');
+  repo.commit();
+  await assert.rejects(
+    repo.run(baseTip, counts(), { event: 'pull_request' }),
+    /base-unavailable/,
+  );
+});
+
+test('local mode fails when origin cannot be fetched rather than comparing to HEAD', async (t) => {
+  const repo = existing(t);
+  repo.commit();
+  await assert.rejects(
+    runKnipRatchet(repo.root, {}, () => counts({ exports: 2 })),
+    /base-unavailable/,
+  );
+});
+
+test('local mode fetches main and uses its merge-base', async (t) => {
+  const origin = existing(t);
+  const repo = fixture(t);
+  repo.remove('package.json');
+  repo.git('remote', 'add', 'origin', origin.root);
+  repo.git('fetch', '--quiet', 'origin', 'main');
+  repo.git('checkout', '--quiet', '-B', 'work', 'origin/main');
+  repo.write('local.txt', 'local branch\n');
+  repo.commit();
+  const result = await runKnipRatchet(repo.root, {}, () =>
+    counts({ exports: 2 }),
+  );
+  assert.equal(result.baseSha, origin.base);
+});
+
+test('argument parsing rejects incomplete or ambiguous event contracts', () => {
+  const sha = 'a'.repeat(40);
+  assert.deepEqual(
+    parseArguments(
+      ['--event', 'push', '--base-sha', sha, '--head-sha', sha],
+      {},
+    ),
+    { event: 'push', baseSha: sha, headSha: sha, prune: false, seed: false },
+  );
+  assert.equal(
+    parseArguments(['--base-sha', sha, '--head-sha', sha], {
+      GITHUB_EVENT_NAME: 'pull_request',
+    }).event,
+    'pull_request',
+  );
+  for (const args of [
+    ['--base-sha', sha],
+    ['--head-sha', sha],
+    ['--base-sha'],
+    ['--event', 'push'],
+    ['--base-sha', sha, '--head-sha', sha],
+    ['--seed', '--prune'],
+    ['--seed', '--seed'],
+    ['--unknown'],
+    ['--event', 'schedule', '--base-sha', sha, '--head-sha', sha],
+  ])
+    assert.throws(() => parseArguments(args, {}), /arguments/);
+  assert.throws(() => parseArguments([], { CI: 'true' }), /arguments/);
 });
 
 test('head and predecessor symlink baselines cannot substitute another file', async (t) => {
