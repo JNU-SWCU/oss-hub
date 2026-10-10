@@ -35,7 +35,7 @@ function repositoryActivity(
   dataAsOf: string,
   fields: Pick<
     ProgramRepositoryActivity,
-    'commitDates' | 'pullRequestDates' | 'releaseDates'
+    'commitDates' | 'pullRequestDates' | 'releaseDates' | 'issueDates'
   >,
 ): ProgramRepositoryActivity {
   return {
@@ -78,7 +78,7 @@ describe('ProgramActivityService canonical activity', () => {
     ]);
   });
 
-  it('buckets all three collection resources from the latest observed activity', async () => {
+  it('buckets commits, pull requests, releases, and issues by Seoul month from the latest observed activity, keeping issues out of the total', async () => {
     const findRepositoryActivity = jest.fn<
       ReturnType<ProgramActivityRepository['findRepositoryActivity']>,
       Parameters<ProgramActivityRepository['findRepositoryActivity']>
@@ -91,6 +91,11 @@ describe('ProgramActivityService canonical activity', () => {
         ],
         pullRequestDates: [new Date('2026-08-03T00:00:00.000Z')],
         releaseDates: [new Date('2026-08-04T00:00:00.000Z')],
+        issueDates: [
+          new Date('2026-07-31T14:59:59.000Z'),
+          new Date('2026-07-31T15:00:00.000Z'),
+          new Date('2026-08-05T00:00:00.000Z'),
+        ],
       }),
     ]);
     const repository = {
@@ -106,10 +111,19 @@ describe('ProgramActivityService canonical activity', () => {
     expect(result.dataAsOf).toBe('2026-08-01T00:00:00.000Z');
     expect(result.series.points).toEqual([
       {
+        period: '2026-07',
+        commitCount: 0,
+        pullRequestCount: 0,
+        releaseCount: 0,
+        issueCount: 1,
+        total: 0,
+      },
+      {
         period: '2026-08',
         commitCount: 2,
         pullRequestCount: 1,
         releaseCount: 1,
+        issueCount: 2,
         total: 4,
       },
     ]);
@@ -129,6 +143,7 @@ describe('ProgramActivityService canonical activity', () => {
         commitDates: [new Date('2026-08-01T00:00:00.000Z')],
         pullRequestDates: [],
         releaseDates: [],
+        issueDates: [],
       }),
     ]);
     const repository = {
@@ -148,6 +163,7 @@ describe('ProgramActivityService canonical activity', () => {
         commitCount: 1,
         pullRequestCount: 0,
         releaseCount: 0,
+        issueCount: 0,
         total: 1,
       },
     ]);
@@ -183,6 +199,7 @@ describe('ProgramActivityService canonical activity', () => {
         commitDates: [],
         pullRequestDates: [],
         releaseDates: [],
+        issueDates: [],
       }),
     ]);
     const repository = {

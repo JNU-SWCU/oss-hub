@@ -1,9 +1,16 @@
+import { nextScheduledCollectionAt } from '../../github/service/collection-schedule';
 import type { RankingViewerClass } from '../domain/ranking';
 import type {
   RankingMetricRow,
   RankingRepository,
 } from '../repository/ranking.repository';
 import { RankingService } from './ranking.service';
+
+jest.mock('../../github/service/collection-schedule', () => ({
+  nextScheduledCollectionAt: jest.fn(),
+}));
+
+const nextScheduledAt = jest.mocked(nextScheduledCollectionAt);
 
 export function activity(
   githubId: bigint,
@@ -45,7 +52,9 @@ export function setupRankingService(): {
     Promise<ReadonlyMap<bigint, string | null>>,
     [readonly bigint[]]
   >;
-  readonly findNextCycleAt: jest.Mock<Date | null, [Date]>;
+  readonly nextScheduledCollectionAt: jest.MockedFunction<
+    typeof nextScheduledCollectionAt
+  >;
 } {
   const findMetrics = jest.fn<
     Promise<readonly RankingMetricRow[]>,
@@ -66,8 +75,7 @@ export function setupRankingService(): {
     [readonly bigint[]]
   >();
   findNamesByGithubIds.mockResolvedValue(new Map());
-  const findNextCycleAt = jest.fn<Date | null, [Date]>();
-  findNextCycleAt.mockReturnValue(null);
+  nextScheduledAt.mockReset().mockReturnValue(null);
 
   const ranking = {
     findMetrics,
@@ -75,7 +83,6 @@ export function setupRankingService(): {
     findDataAsOf,
     findViewerClass,
     findNamesByGithubIds,
-    findNextCycleAt,
   } as unknown as RankingRepository;
 
   return {
@@ -85,6 +92,6 @@ export function setupRankingService(): {
     findDataAsOf,
     findViewerClass,
     findNamesByGithubIds,
-    findNextCycleAt,
+    nextScheduledCollectionAt: nextScheduledAt,
   };
 }

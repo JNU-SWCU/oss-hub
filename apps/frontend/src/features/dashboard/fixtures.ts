@@ -1,4 +1,67 @@
-import type { StudentDashboard } from './types';
+import type {
+  DashboardApplicationStatus,
+  DashboardFeedbackItem,
+  DashboardItem,
+  DashboardMilestone,
+  DashboardSubmissionStatus,
+  StudentDashboard,
+} from './types';
+
+export function dashboardMilestone(
+  dueAt: string,
+  submissionStatus: DashboardSubmissionStatus = 'NOT_SUBMITTED',
+): DashboardMilestone {
+  return {
+    id: `milestone-${dueAt}`,
+    name: `합성 마일스톤 ${dueAt}`,
+    dueAt,
+    submissionStatus,
+  };
+}
+
+export function dashboardItem(
+  key: string,
+  applicationStatus: DashboardApplicationStatus,
+  nextMilestone: DashboardMilestone | null = null,
+): DashboardItem {
+  const programPath = `/programs/program-${key}`;
+  const approved = applicationStatus === 'APPROVED';
+  return {
+    applicationId: `application-${key}`,
+    programId: `program-${key}`,
+    programName: `합성 프로그램 ${key}`,
+    teamName: `합성 팀 ${key}`,
+    teamUrl: `${programPath}/my-team`,
+    applicationStatus,
+    nextMilestone,
+    detailUrl: approved ? programPath : `${programPath}/apply`,
+    checklistUrl: `${programPath}/submissions`,
+    repository: approved
+      ? {
+          repositoryName: null,
+          provisionStatus: 'NOT_STARTED',
+          invitationStatus: null,
+          githubUrl: null,
+        }
+      : null,
+  };
+}
+
+export function dashboardFeedback(
+  item: DashboardItem,
+  key: string,
+  overrides: Partial<DashboardFeedbackItem> = {},
+): DashboardFeedbackItem {
+  return {
+    ...feedbackItemFixture,
+    id: `review-${item.applicationId}-${key}`,
+    applicationId: item.applicationId,
+    programId: item.programId,
+    itemName: `합성 서류 ${key}`,
+    href: `/programs/${item.programId}/documents?milestoneId=${feedbackItemFixture.milestoneId}`,
+    ...overrides,
+  };
+}
 
 export const dashboardFixture: StudentDashboard = {
   items: [
@@ -106,4 +169,18 @@ export const rejectedDashboardFixture: StudentDashboard = {
       repository: null,
     },
   ],
+};
+
+export const feedbackItemFixture: DashboardFeedbackItem = {
+  id: 'review-changes-requested',
+  decision: 'CHANGES_REQUESTED',
+  comment: '표지와 목차를 보완해 주세요.',
+  reviewedAt: '2026-07-22T06:00:00.000Z',
+  resubmissionDueAt: '2026-07-26T14:59:59.000Z',
+  applicationId: 'application-solo-team',
+  programId: 'program-capstone',
+  milestoneId: 'milestones-upcoming',
+  milestoneName: '중간 보고',
+  itemName: '프로젝트 계획서',
+  href: '/programs/program-capstone/documents?milestoneId=milestones-upcoming',
 };

@@ -1,5 +1,7 @@
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersAuthorityService } from '../users/service/authority.service';
+import { UsersAuthorityRepository } from '../users/repository/authority.repository';
 import { S3ObjectStorage } from '../storage/gateway/s3-object.storage';
 import { ObjectStorageConfig } from '../storage/object-storage.config';
 import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
@@ -18,6 +20,7 @@ export class ProgramArchiveIntegrationFixture {
     new MilestoneDocumentsRepository(this.prisma),
     this.storage,
     new MilestoneDocumentArchiveRepository(this.prisma),
+    new UsersAuthorityService(new UsersAuthorityRepository(this.prisma)),
   );
 
   async seed(): Promise<void> {
@@ -27,6 +30,7 @@ export class ProgramArchiveIntegrationFixture {
       data: {
         id: archiveId('user'),
         githubId: 960000001135099n,
+        hasStaffAccess: true,
         nickname: archiveId('user'),
       },
     });

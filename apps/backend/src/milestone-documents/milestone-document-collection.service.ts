@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { DomainException } from '../common/error-code';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
 import type { MilestoneDocumentDeliveryCollectionResponseDto } from './dto/milestone-document-delivery-collection-response.dto';
@@ -16,13 +17,28 @@ import {
 export class MilestoneDocumentCollectionService {
   constructor(
     private readonly repository: MilestoneDocumentCollectionReadRepository,
+    @Inject(UsersAuthorityService)
+    private readonly authority: Pick<
+      UsersAuthorityService,
+      'assertActiveStaff'
+    >,
   ) {}
 
-  collectForStaff(
+  async collectForStaff(
+    sessionGithubId: bigint,
     milestoneId: string,
     query: MilestoneDocumentDeliveryQuery,
     now = new Date(),
   ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
+    await this.authority.assertActiveStaff(
+      sessionGithubId,
+      () =>
+        new DomainException(
+          MILESTONE_DOCUMENTS_ERROR_CODES[
+            MilestoneDocumentsErrorCode.STAFF_ONLY
+          ],
+        ),
+    );
     return this.repository.withSnapshot(async (store) => {
       const milestone = await store.findMilestone(milestoneId);
       if (milestone === null)

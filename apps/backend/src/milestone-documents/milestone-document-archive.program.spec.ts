@@ -16,6 +16,7 @@ describe('program, milestone and team current-submission ZIP scopes', () => {
   it('preserves document folders when staff select grouping by document across a program', async () => {
     const { service } = fixture();
     const archive = await service.archiveForProgramStaff(
+      1n,
       'program',
       { kind: 'PROGRAM', grouping: 'DOCUMENT' },
       now,
@@ -32,6 +33,7 @@ describe('program, milestone and team current-submission ZIP scopes', () => {
   it('PROGRAM includes text of every approved team and distinguishes same-name stage documents', async () => {
     const { service } = fixture();
     const archive = await service.archiveForProgramStaff(
+      1n,
       'program',
       { kind: 'PROGRAM' },
       now,
@@ -58,6 +60,7 @@ describe('program, milestone and team current-submission ZIP scopes', () => {
     const { service, programs, repository } = fixture();
     programs.findApprovedTeams.mockResolvedValue([teams[0]]);
     const archive = await service.archiveForProgramStaff(
+      1n,
       'program',
       { kind: 'TEAM', teamId: 'team-0' },
       now,
@@ -83,6 +86,7 @@ describe('program, milestone and team current-submission ZIP scopes', () => {
   it('MILESTONE restricts both document query and manifest to one owned milestone', async () => {
     const { service, repository } = fixture();
     const archive = await service.archiveForProgramStaff(
+      1n,
       'program',
       { kind: 'MILESTONE', milestoneId: 'milestone-0' },
       now,
@@ -106,6 +110,7 @@ describe('program, milestone and team current-submission ZIP scopes', () => {
       const { service, repository } = fixture();
       await expect(
         service.archiveForProgramStaff(
+          1n,
           'program',
           { kind: 'MILESTONE', milestoneId },
           now,
@@ -120,6 +125,7 @@ describe('program, milestone and team current-submission ZIP scopes', () => {
     programs.findApprovedTeams.mockResolvedValue([]);
     await expect(
       service.archiveForProgramStaff(
+        1n,
         'program',
         { kind: 'TEAM', teamId: 'unavailable' },
         now,
@@ -132,7 +138,7 @@ describe('program, milestone and team current-submission ZIP scopes', () => {
     const { service, programs } = fixture();
     programs.findProgram.mockResolvedValue(null);
     await expect(
-      service.archiveForProgramStaff('absent', { kind: 'PROGRAM' }, now),
+      service.archiveForProgramStaff(1n, 'absent', { kind: 'PROGRAM' }, now),
     ).rejects.toMatchObject({ errorCode: { status: 404 } });
   });
 
@@ -154,6 +160,7 @@ describe('program, milestone and team current-submission ZIP scopes', () => {
       },
     ]);
     const archive = await service.archiveForProgramStaff(
+      1n,
       'program',
       { kind: 'PROGRAM' },
       now,
@@ -183,6 +190,7 @@ describe('program, milestone and team current-submission ZIP scopes', () => {
           milestones: [],
         });
       const archive = await service.archiveForProgramStaff(
+        1n,
         'program',
         { kind: 'PROGRAM' },
         now,
@@ -209,7 +217,7 @@ describe('program, milestone and team current-submission ZIP scopes', () => {
       },
     ]);
     await expect(
-      service.archiveForProgramStaff('program', { kind: 'PROGRAM' }, now),
+      service.archiveForProgramStaff(1n, 'program', { kind: 'PROGRAM' }, now),
     ).rejects.toMatchObject({ errorCode: { code: 'MSD_026' } });
     expect(storage.get).not.toHaveBeenCalled();
   });

@@ -18,6 +18,12 @@ import {
 } from './repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 
+const authority = {
+  assertActiveStaff: jest
+    .fn()
+    .mockResolvedValue({ actorId: 'cuid-synthetic-staff' }),
+};
+
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticDocumentId = 'cuid-synthetic-document-1';
@@ -179,7 +185,7 @@ describe('MilestoneDocumentsService.listByMilestone', () => {
     const repository = {
       findByMilestoneId,
     } as unknown as MilestoneDocumentsRepository;
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.listByMilestone(syntheticMilestoneId);
 
@@ -193,7 +199,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     const { repository } = buildRepository({
       findMilestone: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
       service.listForViewer(1n, syntheticMilestoneId),
@@ -214,7 +220,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         .fn()
         .mockResolvedValue(new Map([[syntheticDocumentId, 6]])),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.listForViewer(1n, syntheticMilestoneId);
 
@@ -261,7 +267,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         },
       ]),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.listForViewer(1n, syntheticMilestoneId);
 
@@ -310,6 +316,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
 
     const result = await new MilestoneDocumentsService(
       repository,
+      authority,
     ).listForViewer(1n, syntheticMilestoneId);
 
     expect(result[0]?.viewerSubmission).toEqual(
@@ -352,7 +359,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         },
       ]),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.listForViewer(1n, syntheticMilestoneId);
 
@@ -382,7 +389,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       }),
       findStudentApplication: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.listForViewer(1n, syntheticMilestoneId);
 
@@ -397,7 +404,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     const { repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.listForViewer(1n, syntheticMilestoneId);
 
@@ -415,14 +422,18 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     const { mocks, transactionCalls, repository } = buildRepository({
       createDocument: jest.fn().mockResolvedValue(created),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
     const input = {
       name: '새 서류',
       required: true,
       sortOrder: 2,
     };
 
-    const result = await service.createDocument(syntheticMilestoneId, input);
+    const result = await service.createDocument(
+      1n,
+      syntheticMilestoneId,
+      input,
+    );
 
     expect(transactionCalls).toEqual(['lockMilestone', 'createDocument']);
     expect(mocks.createDocument).toHaveBeenCalledWith(syntheticMilestoneId, {
@@ -436,10 +447,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     const { repository } = buildRepository({
       lockMilestone: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
-      service.createDocument(syntheticMilestoneId, {
+      service.createDocument(1n, syntheticMilestoneId, {
         name: '새 서류',
         required: true,
         sortOrder: 2,
@@ -456,10 +467,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
         milestoneId: 'cuid-other-milestone',
       }),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
-      service.updateDocument(syntheticMilestoneId, syntheticDocumentId, {
+      service.updateDocument(1n, syntheticMilestoneId, syntheticDocumentId, {
         name: '수정된 이름',
         required: false,
         sortOrder: 1,
@@ -474,10 +485,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     const { mocks, transactionCalls, repository } = buildRepository({
       lockDocument: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
-      service.updateDocument(syntheticMilestoneId, syntheticDocumentId, {
+      service.updateDocument(1n, syntheticMilestoneId, syntheticDocumentId, {
         name: '수정된 이름',
         required: false,
         sortOrder: 1,
@@ -493,13 +504,18 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     const { transactionCalls, withTransaction, repository } = buildRepository({
       updateDocument: jest.fn().mockResolvedValue(baseDocument()),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
-    await service.updateDocument(syntheticMilestoneId, syntheticDocumentId, {
-      name: '개인정보 수집·이용 동의서',
-      required: true,
-      sortOrder: 1,
-    });
+    await service.updateDocument(
+      1n,
+      syntheticMilestoneId,
+      syntheticDocumentId,
+      {
+        name: '개인정보 수집·이용 동의서',
+        required: true,
+        sortOrder: 1,
+      },
+    );
 
     expect(withTransaction).toHaveBeenCalledTimes(1);
     expect(transactionCalls).toEqual(['lockDocument', 'updateDocument']);
@@ -514,9 +530,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
           baseDocument({ name: '수정된 이름', required: false }),
         ),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.updateDocument(
+      1n,
       syntheticMilestoneId,
       syntheticDocumentId,
       {
@@ -540,9 +557,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
         .fn()
         .mockResolvedValue(baseDocument({ name: '수정된 이름', sortOrder: 3 })),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.updateDocument(
+      1n,
       syntheticMilestoneId,
       syntheticDocumentId,
       {
@@ -572,10 +590,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
         .mockResolvedValue([syntheticDocumentId, 'cuid-synthetic-document-2']),
       countSubmissionsForDocument: jest.fn().mockResolvedValue(1),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
-      service.deleteDocument(syntheticMilestoneId, syntheticDocumentId),
+      service.deleteDocument(1n, syntheticMilestoneId, syntheticDocumentId),
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS },
     });
@@ -584,10 +602,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
 
   it('deleteDocument는 마지막 제출 항목을 지우지 않는다', async () => {
     const { mocks, repository } = buildRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
-      service.deleteDocument(syntheticMilestoneId, syntheticDocumentId),
+      service.deleteDocument(1n, syntheticMilestoneId, syntheticDocumentId),
     ).rejects.toMatchObject({
       errorCode: {
         code: MilestoneDocumentsErrorCode.LAST_DOCUMENT_REQUIRED,
@@ -605,9 +623,9 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
         .mockResolvedValue([syntheticDocumentId, secondDocumentId]),
       countSubmissionsForDocument: jest.fn().mockResolvedValue(0),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
-    await service.deleteDocument(syntheticMilestoneId, syntheticDocumentId);
+    await service.deleteDocument(1n, syntheticMilestoneId, syntheticDocumentId);
 
     expect(transactionCalls).toEqual([
       'lockMilestone',
@@ -629,10 +647,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
         milestoneId: 'cuid-other-milestone',
       }),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
-      service.deleteDocument(syntheticMilestoneId, syntheticDocumentId),
+      service.deleteDocument(1n, syntheticMilestoneId, syntheticDocumentId),
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
     });
@@ -643,10 +661,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     const { mocks, repository } = buildRepository({
       lockMilestone: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
-      service.deleteDocument(syntheticMilestoneId, syntheticDocumentId),
+      service.deleteDocument(1n, syntheticMilestoneId, syntheticDocumentId),
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
     });
@@ -688,10 +706,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     const { mocks, repository } = reorderRepository({
       lockMilestone: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
-      service.reorderDocuments(syntheticMilestoneId, [syntheticDocumentId]),
+      service.reorderDocuments(1n, syntheticMilestoneId, [syntheticDocumentId]),
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND },
     });
@@ -715,9 +733,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
         baseDocument({ sortOrder: 3 }),
       ]),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.reorderDocuments(
+      1n,
       syntheticMilestoneId,
       requested,
     );
@@ -736,9 +755,9 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
         applyDocumentOrder: jest.fn().mockResolvedValue([]),
       },
     );
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
-    await service.reorderDocuments(syntheticMilestoneId, lockedIds);
+    await service.reorderDocuments(1n, syntheticMilestoneId, lockedIds);
 
     expect(withTransaction).toHaveBeenCalledTimes(1);
     expect(transactionCalls).toEqual([
@@ -754,10 +773,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
         .fn()
         .mockResolvedValue([...lockedIds, 'cuid-synthetic-document-4']),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
-      service.reorderDocuments(syntheticMilestoneId, lockedIds),
+      service.reorderDocuments(1n, syntheticMilestoneId, lockedIds),
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.INVALID_REQUEST },
     });
@@ -770,10 +789,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
         .fn()
         .mockResolvedValue([syntheticDocumentId, secondDocumentId]),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
-      service.reorderDocuments(syntheticMilestoneId, lockedIds),
+      service.reorderDocuments(1n, syntheticMilestoneId, lockedIds),
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.INVALID_REQUEST },
     });
@@ -782,10 +801,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
 
   it('일부만 나열하면 INVALID_REQUEST로 거부한다 — 부분 갱신 자체를 불가능하게 만든다', async () => {
     const { mocks, repository } = reorderRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
-      service.reorderDocuments(syntheticMilestoneId, [
+      service.reorderDocuments(1n, syntheticMilestoneId, [
         secondDocumentId,
         syntheticDocumentId,
       ]),
@@ -797,10 +816,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
 
   it('개수는 맞아도 중복이 섞이면 INVALID_REQUEST로 거부한다', async () => {
     const { mocks, repository } = reorderRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
-      service.reorderDocuments(syntheticMilestoneId, [
+      service.reorderDocuments(1n, syntheticMilestoneId, [
         syntheticDocumentId,
         secondDocumentId,
         secondDocumentId,
@@ -813,10 +832,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
 
   it('다른 마일스톤의 서류 id가 섞이면 INVALID_REQUEST로 거부한다', async () => {
     const { mocks, repository } = reorderRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
-      service.reorderDocuments(syntheticMilestoneId, [
+      service.reorderDocuments(1n, syntheticMilestoneId, [
         syntheticDocumentId,
         secondDocumentId,
         'cuid-synthetic-document-other-milestone',
@@ -833,7 +852,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('학생 유형이 아니면 STUDENT_ONLY로 거부한다', async () => {
     const { mocks, repository } = buildRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
       service.submit(
@@ -861,7 +880,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
       service.submit(
@@ -891,7 +910,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         id: 'cuid-synthetic-submission',
       }),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
       service.submit(
@@ -923,7 +942,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         .fn()
         .mockRejectedValue(new MilestoneDocumentDeadlineClosedError()),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
       service.submit(
@@ -956,7 +975,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         files: [],
       }),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await service.submit(
       1n,
@@ -996,7 +1015,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       }),
       findStudentApplication: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
       service.submit(
@@ -1034,7 +1053,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
       service.submit(
@@ -1076,7 +1095,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         files: [],
       }),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.submit(
       1n,
@@ -1136,7 +1155,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         ],
       }),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.submit(
       1n,
@@ -1187,7 +1206,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         files: [],
       }),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await service.submit(
       1n,
@@ -1230,7 +1249,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         .fn()
         .mockRejectedValue(new MilestoneDocumentPendingFileMissingError()),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
       service.submit(
@@ -1266,7 +1285,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         .fn()
         .mockRejectedValue(new MilestoneDocumentMissingError()),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
       service.submit(
@@ -1330,7 +1349,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.APPROVED,
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(resubmit(service)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED },
@@ -1343,7 +1362,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.REJECTED,
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(resubmit(service)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED },
@@ -1356,7 +1375,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.CHANGES_REQUESTED,
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await resubmit(service);
 
@@ -1369,7 +1388,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
 
   it('아직 판정이 없으면 지금처럼 허용한다', async () => {
     const { mocks, repository } = resubmitRepository(null);
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await resubmit(service);
 
@@ -1380,7 +1399,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
 
   it('최신 판정은 (서류, 신청) 짝으로 찾는다', async () => {
     const { mocks, repository } = resubmitRepository(null);
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await resubmit(service);
 
@@ -1397,7 +1416,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     ).upsertSubmission = jest
       .fn()
       .mockRejectedValue(new MilestoneDocumentReviewChangedError());
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(resubmit(service)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_CHANGED },
@@ -1412,7 +1431,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
         syntheticUserId,
       ),
     );
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(resubmit(service)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER },
@@ -1424,7 +1443,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.CHANGES_REQUESTED,
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await resubmit(service);
 
@@ -1492,7 +1511,7 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     const { mocks, repository } = changeRequestedRepository(
       SubmissionStatus.CHANGES_REQUESTED,
     );
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await submitAt(service, afterDeadline);
 
@@ -1513,7 +1532,7 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     const { mocks, repository } = changeRequestedRepository(
       SubmissionStatus.SUBMITTED,
     );
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(submitAt(service, afterDeadline)).rejects.toMatchObject({
       errorCode: {
@@ -1527,7 +1546,7 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     const { mocks, repository } = changeRequestedRepository(
       SubmissionStatus.SUBMITTED,
     );
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await submitAt(service, beforeDeadline);
 
@@ -1549,7 +1568,7 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     mocks.upsertSubmission.mockRejectedValue(
       new MilestoneDocumentSubmissionChangedError(),
     );
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(submitAt(service, afterDeadline)).rejects.toMatchObject({
       errorCode: {
@@ -1599,10 +1618,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { repository } = buildRepository({
       findMilestone: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
-      service.collectForStaff(syntheticMilestoneId, collectionQuery(), now),
+      service.collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now),
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND },
     });
@@ -1610,9 +1629,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
   it('마일스톤 요약과 서류 목록을 sortOrder 순 그대로 싣는다', async () => {
     const { repository } = collectionRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery(),
       now,
@@ -1644,9 +1664,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
   it('행은 승인된 신청 목록 순서(팀 이름 오름차순) 그대로다', async () => {
     const { mocks, repository } = collectionRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery(),
       now,
@@ -1668,9 +1689,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
   it('제출이 없는 서류도 칸을 비우지 않고 isSubmitted:false로 채운다', async () => {
     const { repository } = collectionRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery(),
       now,
@@ -1729,9 +1751,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         },
       ]),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery(),
       now,
@@ -1783,9 +1806,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         },
       ]),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery(),
       now,
@@ -1822,9 +1846,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         },
       ]),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery(),
       now,
@@ -1850,9 +1875,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         },
       ]),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery(),
       now,
@@ -1883,9 +1909,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         },
       ]),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery(),
       now,
@@ -1942,9 +1969,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         },
       ]),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery(),
       now,
@@ -1958,9 +1986,14 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
   it('N+1을 만들지 않는다 — 서류·신청·제출을 각각 한 번씩만 조회한다', async () => {
     const { mocks, repository } = collectionRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
-    await service.collectForStaff(syntheticMilestoneId, collectionQuery(), now);
+    await service.collectForStaff(
+      1n,
+      syntheticMilestoneId,
+      collectionQuery(),
+      now,
+    );
 
     expect(mocks.findByMilestoneId).toHaveBeenCalledTimes(1);
     expect(mocks.findApprovedApplicationsForCollection).toHaveBeenCalledTimes(
@@ -2015,9 +2048,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       withCollectionSnapshot,
       findSubmissionsForCollection: outsideSubmissionQuery,
     } as unknown as MilestoneDocumentsRepository;
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery(),
       now,
@@ -2079,7 +2113,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         isComplete: false,
       }),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.historyForParticipant(
       8_100_002n,
@@ -2131,7 +2165,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         isComplete: true,
       }),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.historyForParticipant(
       8_100_002n,
@@ -2191,7 +2225,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         isComplete: true,
       }),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const list = await service.listForViewer(8_100_002n, syntheticMilestoneId);
     const history = await service.historyForParticipant(
@@ -2224,7 +2258,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         required: true,
       }),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     await expect(
       service.historyForParticipant(
@@ -2337,9 +2371,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
 
   it('기본 쿼리는 page/pageSize와 필터 적용 후 행 수(total)를 함께 싣는다', async () => {
     const { repository } = filterRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery(),
       now,
@@ -2353,14 +2388,16 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
 
   it('페이지 경계는 팀 이름 asc → id asc 순서를 그대로 자른다', async () => {
     const { repository } = filterRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const first = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery({ pageSize: 2 }),
       now,
     );
     const second = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery({ page: 2, pageSize: 2 }),
       now,
@@ -2385,9 +2422,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
 
   it('범위를 벗어난 페이지는 빈 행을 돌려주되 total은 그대로다', async () => {
     const { repository } = filterRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery({ page: 9, pageSize: 2 }),
       now,
@@ -2399,9 +2437,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
 
   it('HAS_MISSING은 필수 서류를 빠뜨린 팀만 고른다 — 선택 서류만 안 낸 팀은 걸리지 않는다', async () => {
     const { repository } = filterRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery({ filter: 'HAS_MISSING' }),
       now,
@@ -2416,9 +2455,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
 
   it('ZERO_SUBMISSION은 필수·선택을 가리지 않고 한 장도 안 낸 팀만 고른다', async () => {
     const { repository } = filterRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery({ filter: 'ZERO_SUBMISSION' }),
       now,
@@ -2434,9 +2474,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       findSubmissionsForCollection: jest.fn().mockResolvedValue([]),
       findSubmissionCoordinatesForCollection: jest.fn().mockResolvedValue([]),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery({ filter: 'ZERO_SUBMISSION' }),
       now,
@@ -2456,9 +2497,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       findSubmissionsForCollection: jest.fn().mockResolvedValue([]),
       findSubmissionCoordinatesForCollection: jest.fn().mockResolvedValue([]),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery({ filter: 'HAS_MISSING' }),
       now,
@@ -2471,9 +2513,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
 
   it('filterCounts는 지금 고른 필터와 무관하게 세 갈래 모두를 전체 기준으로 센다', async () => {
     const { repository } = filterRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery({ filter: 'ZERO_SUBMISSION', pageSize: 1 }),
       now,
@@ -2505,9 +2548,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
           ),
         ]),
     });
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const result = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery(),
       now,
@@ -2524,6 +2568,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     ]);
 
     const hasMissing = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery({ filter: 'HAS_MISSING' }),
       now,
@@ -2534,6 +2579,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     ]);
 
     const zeroSubmission = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery({ filter: 'ZERO_SUBMISSION' }),
       now,
@@ -2545,14 +2591,16 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
 
   it('documentTotals는 필터·페이지가 아니라 전체 승인 신청 기준이다', async () => {
     const { repository } = filterRepository();
-    const service = new MilestoneDocumentsService(repository);
+    const service = new MilestoneDocumentsService(repository, authority);
 
     const filtered = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery({ filter: 'ZERO_SUBMISSION', pageSize: 1 }),
       now,
     );
     const all = await service.collectForStaff(
+      1n,
       syntheticMilestoneId,
       collectionQuery(),
       now,

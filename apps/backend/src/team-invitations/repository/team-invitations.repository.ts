@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
-import {
-  repositoryAccessSyncEventData,
-  repositoryAccessSyncTargetWhere,
-} from '../../github/repository-provision-event';
+import { repositoryAccessSyncEventData } from '../../github/domain/repository-provision-event';
+import { repositoryAccessSyncTargetWhere } from '../../prisma/repository-access-sync';
 import type {
   SentTeamInvitationRecord,
   ReceivedTeamInvitationRecord,

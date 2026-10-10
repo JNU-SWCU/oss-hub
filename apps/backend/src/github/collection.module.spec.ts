@@ -4,15 +4,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { ScheduleModule } from '@nestjs/schedule';
-import { PrismaService } from '../prisma/prisma.service';
+import { CollectionUserActivityRepository } from './repository/collection-user-activity.repository';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { CollectionAdminController } from './controller/collection-admin.controller';
-import { CollectionDiscoveryClient } from './collection-discovery.client';
+import { CollectionDiscoveryClient } from './gateway/collection-discovery.client';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
-import { ProviderRequestQueue } from './collection-provider-queue';
-import { CollectionPublicTokenProvider } from './collection-public.token';
-import { CollectionReadService } from './service/collection-read.service';
+import { ProviderRequestQueue } from './gateway/collection-provider-queue';
+import { CollectionPublicTokenProvider } from './service/collection-public.token';
+import { CollectionReadService } from './repository/collection-read.service';
 import { CollectionScheduler } from './job/collection.scheduler';
 import { CollectionTriggerService } from './service/collection-trigger.service';
 import { CollectionUserActivityService } from './service/collection-user-activity.service';
@@ -183,14 +183,14 @@ describe('CollectionModule', () => {
     );
   });
 
-  it('CollectionUserActivityService가 prisma·discovery client를 주입받도록 배선한다', () => {
+  it('CollectionUserActivityService가 repository·discovery client를 주입받도록 배선한다', () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
 
     expect(providers).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           provide: CollectionUserActivityService,
-          inject: [PrismaService, CollectionDiscoveryClient],
+          inject: [CollectionUserActivityRepository, CollectionDiscoveryClient],
         }),
       ]),
     );

@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { DomainException } from '../common/error-code';
 import {
   type CreateMilestoneDocumentReviewInput,
@@ -14,16 +15,27 @@ import { MilestoneDocumentsRepository } from './repository/milestone-documents.r
 
 @Injectable()
 export class MilestoneDocumentReviewsService {
-  constructor(private readonly repository: MilestoneDocumentsRepository) {}
+  constructor(
+    private readonly repository: MilestoneDocumentsRepository,
+    @Inject(UsersAuthorityService)
+    private readonly authority: Pick<
+      UsersAuthorityService,
+      'assertActiveStaff'
+    >,
+  ) {}
 
   async review(
-    reviewerId: string,
+    sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
     applicationId: string,
     input: CreateMilestoneDocumentReviewInput,
     now: () => Date = () => new Date(),
   ): Promise<MilestoneDocumentReviewResponseDto> {
+    const { actorId: reviewerId } = await this.authority.assertActiveStaff(
+      sessionGithubId,
+      () => this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
+    );
     const documentContext =
       await this.repository.findDocumentContext(documentId);
     if (

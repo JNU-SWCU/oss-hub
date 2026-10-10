@@ -6,10 +6,6 @@ import {
 import { OriginGuard } from '../auth/controller/origin.guard';
 import { SessionGuard } from '../auth/controller/session.guard';
 import { DomainException } from '../common/error-code';
-import {
-  ApplicationsStaffGuard,
-  ApplicationsStaffListGuard,
-} from './applications-staff.guard';
 import { ApplicationsController } from './applications.controller';
 import {
   APPLICATIONS_ERROR_CODES,
@@ -60,17 +56,12 @@ describe('ApplicationsController', () => {
     });
 
     const response = await controller.decide(
-      { applicationActorId: 'synthetic-actor', sessionGithubId: 4242n },
+      { sessionGithubId: 4242n },
       'synthetic-application',
       body,
     );
 
-    expect(decide).toHaveBeenCalledWith(
-      'synthetic-actor',
-      'synthetic-application',
-      4242n,
-      expect.anything(),
-    );
+    expect(decide).toHaveBeenCalledWith(4242n, 'synthetic-application', body);
 
     expect(response).toEqual({
       applicationId: 'synthetic-application',
@@ -105,18 +96,16 @@ describe('ApplicationsController', () => {
     );
   });
 
-  it('PATCH 처리에 세션·STAFF 권한·Origin guard를 적용한다', () => {
+  it('PATCH 처리에 세션·Origin guard를 적용한다', () => {
     expect(readGuards(ApplicationsController.prototype, 'decide')).toEqual([
       SessionGuard,
-      ApplicationsStaffGuard,
       OriginGuard,
     ]);
   });
 
-  it('신청 상세 조회에 세션·STAFF 조회 guard를 적용한다', () => {
+  it('신청 상세 조회에 세션 guard를 적용한다', () => {
     expect(readGuards(ApplicationsController.prototype, 'detail')).toEqual([
       SessionGuard,
-      ApplicationsStaffListGuard,
     ]);
   });
 
@@ -151,9 +140,12 @@ describe('ApplicationsController', () => {
       .mockResolvedValue({ application: item, reviewHistory: [] });
     const controller = new ApplicationsController(stubService({ getForStaff }));
 
-    const response = await controller.detail('synthetic-application');
+    const response = await controller.detail(
+      { sessionGithubId: 4242n },
+      'synthetic-application',
+    );
 
-    expect(getForStaff).toHaveBeenCalledWith('synthetic-application');
+    expect(getForStaff).toHaveBeenCalledWith(4242n, 'synthetic-application');
     expect(response.submittedAt).toBe('2026-08-05T05:32:00.000Z');
     expect(response.repositoryProvisioning.updatedAt).toBe(
       '2026-08-06T01:00:00.000Z',
@@ -178,7 +170,10 @@ describe('ApplicationsController', () => {
 
     let thrown: unknown;
     try {
-      await controller.detail('missing-application');
+      await controller.detail(
+        { sessionGithubId: 4242n },
+        'missing-application',
+      );
     } catch (error) {
       thrown = error;
     }

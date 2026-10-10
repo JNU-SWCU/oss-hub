@@ -1,6 +1,11 @@
+import { DomainException } from '../common/error-code';
+import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { DEPARTMENT_COHORTS } from './department-cohort';
 import { StaffInsightsService } from './staff-insights.service';
 import type { StaffInsightsRepository } from './staff-insights.repository';
+
+const STAFF_GITHUB_ID = 4242n;
+const DENIED_GITHUB_ID = 909n;
 
 function repository(): Pick<
   StaffInsightsRepository,
@@ -60,13 +65,28 @@ function repository(): Pick<
   };
 }
 
+function staffOnlyAuthority() {
+  return jest.fn((sessionGithubId: bigint, forbidden: () => Error) =>
+    sessionGithubId === STAFF_GITHUB_ID
+      ? Promise.resolve({ actorId: 'actor-staff' })
+      : Promise.reject(forbidden()),
+  );
+}
+
 describe('StaffInsightsService', () => {
   it('splits ranking and participation by department cohort', async () => {
     const store = repository();
-    const service = new StaffInsightsService(store as StaffInsightsRepository);
+    const assertActiveStaff = staffOnlyAuthority();
+    const service = new StaffInsightsService(store as StaffInsightsRepository, {
+      assertActiveStaff,
+    });
 
-    const summary = await service.summarize({ kind: 'all' });
+    const summary = await service.summarize(STAFF_GITHUB_ID, { kind: 'all' });
 
+    expect(assertActiveStaff).toHaveBeenCalledWith(
+      STAFF_GITHUB_ID,
+      expect.any(Function),
+    );
     expect(store.listActivityTotals).toHaveBeenCalledWith({});
     expect(store.findActivityDataAsOf).toHaveBeenCalledTimes(1);
     expect(store.listActivityYears).toHaveBeenCalledTimes(1);
@@ -111,12 +131,48 @@ describe('StaffInsightsService', () => {
 
   it('passes only a numeric year into activity totals', async () => {
     const store = repository();
-    const service = new StaffInsightsService(store as StaffInsightsRepository);
+    const service = new StaffInsightsService(store as StaffInsightsRepository, {
+      assertActiveStaff: staffOnlyAuthority(),
+    });
 
-    await service.summarize({ kind: 'calendar', year: 2026 });
+    await service.summarize(STAFF_GITHUB_ID, { kind: 'calendar', year: 2026 });
 
     expect(store.listActivityTotals).toHaveBeenCalledWith({
       currentYear: 2026,
     });
+  });
+
+  it('denies a non-staff session with the staff list read contract', async () => {
+    const store = repository();
+    const service = new StaffInsightsService(store as StaffInsightsRepository, {
+      assertActiveStaff: staffOnlyAuthority(),
+    });
+
+    const denied = service.summarize(DENIED_GITHUB_ID, { kind: 'all' });
+
+    await expect(denied).rejects.toBeInstanceOf(DomainException);
+    await expect(denied).rejects.toMatchObject({
+      errorCode: {
+        code: ApplicationsErrorCode.STAFF_LIST_ONLY,
+        status: 403,
+      },
+    });
+  });
+
+  it('reads nothing when the session is not active staff', async () => {
+    const store = repository();
+    const service = new StaffInsightsService(store as StaffInsightsRepository, {
+      assertActiveStaff: staffOnlyAuthority(),
+    });
+
+    await expect(
+      service.summarize(DENIED_GITHUB_ID, { kind: 'calendar', year: 2026 }),
+    ).rejects.toBeInstanceOf(DomainException);
+
+    expect(store.listStudents).not.toHaveBeenCalled();
+    expect(store.listApprovedParticipations).not.toHaveBeenCalled();
+    expect(store.listActivityTotals).not.toHaveBeenCalled();
+    expect(store.findActivityDataAsOf).not.toHaveBeenCalled();
+    expect(store.listActivityYears).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, MemberKind, type Prisma } from '@prisma/client';
-import { nextScheduledCollectionAt } from '../../github/collection-schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   USER_PROFILE_DEPARTMENT_SELECT,
@@ -166,9 +165,5 @@ export class RankingRepository {
       _max: { observedAt: true },
     });
     return latest._max.observedAt ?? null;
-  }
-
-  findNextCycleAt(from: Date): Date | null {
-    return nextScheduledCollectionAt(from);
   }
 }

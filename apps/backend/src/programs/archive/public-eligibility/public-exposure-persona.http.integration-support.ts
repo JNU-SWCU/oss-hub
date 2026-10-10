@@ -1,4 +1,4 @@
-import { authorityFactsFor } from '../../../users/canonical-user-fixture';
+import { authorityFactsFor } from '../../../users/repository/canonical-user-fixture';
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
@@ -18,7 +18,7 @@ import { SessionGuard } from '../../../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../../../common/controller/problem-detail.filter';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
-import type { GithubAppClient } from '../../../github/github-app.client';
+import type { GithubAppClient } from '../../../github/gateway/github-app.client';
 import { RepositoriesRepository } from '../../../github/repository/repositories.repository';
 import { RepositoriesService } from '../../../github/service/repositories.service';
 import { RankingController } from '../../../ranking/controller/ranking.controller';

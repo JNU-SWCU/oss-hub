@@ -103,6 +103,7 @@ function menuReadsFor(authority: SyntheticAuthority): MemberAccessApiHandlers {
       ? {
           ...studentMenuReads(),
           'GET /api/v1/dashboard/student': jsonHandler({ items: [] }),
+          'GET /api/v1/dashboard/student/feedback': jsonHandler({ items: [] }),
           'GET /api/v1/users/me/notifications/application-decisions':
             jsonHandler([]),
         }

@@ -7,8 +7,8 @@ import { OriginGuard } from '../../../auth/controller/origin.guard';
 import { issueSessionToken } from '../../../auth/domain/session-token';
 import { SessionGuard } from '../../../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../../../common/controller/problem-detail.filter';
-import { UsersController } from '../../../users/users.controller';
-import { UsersService } from '../../../users/users.service';
+import { UsersController } from '../../../users/controller/users.controller';
+import { UsersService } from '../../../users/service/users.service';
 import { PublicProjectsService } from './public-projects.service';
 import { PublicUserProfileController } from './public-user-profile.controller';
 
