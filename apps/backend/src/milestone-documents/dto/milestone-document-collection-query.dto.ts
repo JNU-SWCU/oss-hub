@@ -5,7 +5,7 @@ import {
   type MilestoneDocumentCollectionFilter,
 } from '../domain/milestone-document-collection-query';
 import type { DocumentDeliveryStatus } from '../../submissions/domain/document-delivery-status';
-import type { MilestoneDocumentDeliveryQuery } from '../milestone-document-delivery-page';
+import type { MilestoneDocumentDeliveryQuery } from '../domain/milestone-document-delivery-page';
 
 export const MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE = 20;
 export const MILESTONE_DOCUMENT_COLLECTION_MAX_PAGE_SIZE = 100;

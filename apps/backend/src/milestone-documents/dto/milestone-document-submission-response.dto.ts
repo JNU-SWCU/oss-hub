@@ -1,4 +1,4 @@
-import type { Prisma, SubmissionStatus } from '@prisma/client';
+import type { SubmissionStatus } from '@prisma/client';
 import type { MilestoneDocumentSubmissionDetail } from '../domain/milestone-document-record';
 
 export class MilestoneDocumentSubmissionFileResponseDto {
@@ -37,7 +37,7 @@ export class MilestoneDocumentSubmissionFileResponseDto {
 export class MilestoneDocumentSubmissionResponseDto {
   id: string;
   status: SubmissionStatus;
-  content: Prisma.JsonValue | null;
+  content: MilestoneDocumentSubmissionDetail['content'];
   submittedAt: string;
   files: MilestoneDocumentSubmissionFileResponseDto[];
 
