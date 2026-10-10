@@ -1,4 +1,4 @@
-import type { AuditLogService } from '../audit-log/audit-log.service';
+import type { AuditLogService } from '../audit-log/service/audit-log.service';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
 import { RolesErrorCode } from './domain/roles-error-code.enum';

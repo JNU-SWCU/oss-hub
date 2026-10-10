@@ -5,7 +5,7 @@ import {
   RepositorySource,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { parseApplicationRepositoryUrlAuditMetadata } from '../audit-log/application-repository-url-audit-metadata';
+import { parseApplicationRepositoryUrlAuditMetadata } from '../audit-log/domain/application-repository-url-audit-metadata';
 import {
   parseRepositoryProvisionEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,

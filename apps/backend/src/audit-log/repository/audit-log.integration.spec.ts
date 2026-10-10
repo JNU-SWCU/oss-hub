@@ -1,13 +1,13 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { PrismaService } from '../prisma/prisma.service';
-import { AuditLogErrorCode } from './audit-log-error-code.enum';
+import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
+import { PrismaService } from '../../prisma/prisma.service';
+import { AuditLogErrorCode } from '../audit-log-error-code.enum';
 import {
   ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
-} from './audit-log-metadata';
+} from '../domain/audit-log-metadata';
 import { AuditLogRepository } from './audit-log.repository';
-import { AuditLogService } from './audit-log.service';
+import { AuditLogService } from '../service/audit-log.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

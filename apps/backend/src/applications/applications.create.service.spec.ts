@@ -20,8 +20,8 @@ import { ApplicationsService } from './applications.service';
 import {
   APPLICATION_SUBMITTED_AUDIT_ACTIONS,
   TEAM_CREATED_AUDIT_ACTIONS,
-} from '../audit-log/audit-log-metadata';
-import type { AuditLogService } from '../audit-log/audit-log.service';
+} from '../audit-log/domain/audit-log-metadata';
+import type { AuditLogService } from '../audit-log/service/audit-log.service';
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');
 const GITHUB_ID = 4_242n;

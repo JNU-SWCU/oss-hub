@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { ProgramTrackType } from '@prisma/client';
-import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { MemberKind, Prisma, StaffAccessRequestStatus } from '@prisma/client';
-import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
 import { PrismaService } from '../prisma/prisma.service';
@@ -15,7 +15,7 @@ import {
   USER_PROFILE_AUDIT_FIELDS,
   createUserPhoneAuditMetadata,
   createUserProfileAuditMetadata,
-} from '../audit-log/audit-log-metadata';
+} from '../audit-log/domain/audit-log-metadata';
 import type {
   CompleteUserProfileInput,
   UpdateProfileFieldsInput,

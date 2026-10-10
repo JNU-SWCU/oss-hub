@@ -1,5 +1,5 @@
 import { StaffAccessRequestStatus } from '@prisma/client';
-import type { AuditLogService } from '../audit-log/audit-log.service';
+import type { AuditLogService } from '../audit-log/service/audit-log.service';
 import { RolesErrorCode } from './domain/roles-error-code.enum';
 import { createAdminAccessAudit } from './admin-access-audit';
 import {

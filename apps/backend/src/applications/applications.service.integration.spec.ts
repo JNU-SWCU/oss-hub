@@ -13,8 +13,8 @@ import { APPLICATION_DECISION_ACTIONS } from './domain/application-decision';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
-import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogRepository } from '../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { StudentApplicationManagementRepository } from './student-application-management.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
 
