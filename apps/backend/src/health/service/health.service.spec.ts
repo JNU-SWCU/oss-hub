@@ -1,10 +1,13 @@
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { HealthRepository } from '../repository/health.repository';
 import { HealthService } from './health.service';
 
 type QueryRaw = (query: TemplateStringsArray) => Promise<unknown>;
 
 function buildService(queryRaw: QueryRaw): HealthService {
-  return new HealthService({ $queryRaw: queryRaw } as unknown as PrismaService);
+  return new HealthService(
+    new HealthRepository({ $queryRaw: queryRaw } as unknown as PrismaService),
+  );
 }
 
 describe('HealthService', () => {

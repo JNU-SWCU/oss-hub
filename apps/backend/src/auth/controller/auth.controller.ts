@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { LoginHistoryService } from '../../login-history/login-history.service';
+import { LoginHistoryService } from '../../login-history/service/login-history.service';
 import { AuthConfig } from '../auth.config';
 import { OptionalSession, Protected, Public } from './auth-route-metadata';
 import { AuthService } from '../service/auth.service';

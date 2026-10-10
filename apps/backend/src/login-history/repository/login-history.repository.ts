@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import type { LoginHistory as PrismaLoginHistory } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   LOGIN_HISTORY_PROVIDER,
   type LoginHistory,
   type LoginHistoryEvent,
   type LoginHistoryPage,
-} from './domain/login-history';
+} from '../domain/login-history';
 
 @Injectable()
 export class LoginHistoryRepository {

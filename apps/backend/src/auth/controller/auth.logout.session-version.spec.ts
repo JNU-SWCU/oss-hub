@@ -4,7 +4,7 @@ import type { Reflector } from '@nestjs/core';
 import { AccountStatus } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { SignJWT } from 'jose';
-import type { LoginHistoryService } from '../../login-history/login-history.service';
+import type { LoginHistoryService } from '../../login-history/service/login-history.service';
 import { AuthenticationGuard } from './authentication.guard';
 import { OPTIONAL_SESSION_ROUTE_METADATA } from './auth-route-metadata';
 import type { AuthConfig } from '../auth.config';

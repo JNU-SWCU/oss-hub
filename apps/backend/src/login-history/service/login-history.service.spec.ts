@@ -1,8 +1,8 @@
 import {
   LOGIN_HISTORY_EVENTS,
   type LoginHistoryPage,
-} from './domain/login-history';
-import { LoginHistoryRepository } from './login-history.repository';
+} from '../domain/login-history';
+import { LoginHistoryRepository } from '../repository/login-history.repository';
 import { LoginHistoryService } from './login-history.service';
 
 const emptyPage: LoginHistoryPage = {
