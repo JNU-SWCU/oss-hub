@@ -12,9 +12,9 @@ import type {
   ProblemDetailCurrentAccess,
   ProblemDetailFieldError,
   ProblemDetailTeamDeletionScopeCounts,
-} from './error-code';
-import { DomainException } from './error-code';
-import { SystemErrorCode } from './system-error-code.enum';
+} from '../error-code';
+import { DomainException } from '../error-code';
+import { SystemErrorCode } from '../system-error-code.enum';
 const BAD_REQUEST_STATUS = 400;
 const NOT_FOUND_STATUS = 404;
 const INTERNAL_SERVER_ERROR_STATUS = 500;

@@ -18,7 +18,7 @@ import {
 } from '../../../prisma/seeds/helpers';
 import { MILESTONE_SCENARIOS } from '../../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { addOneCalendarYear } from '../../common/add-one-calendar-year';
+import { addOneCalendarYear } from '../../common/domain/add-one-calendar-year';
 import { DomainException } from '../../common/error-code';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SubmissionsErrorCode } from '../domain/submissions-error-code.enum';

@@ -8,7 +8,7 @@ import { assertIsolatedIntegrationDatabase } from '../../../test/integration-dat
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
 import { DeadlineDigestController } from '../controller/deadline-digest.controller';
 import { DeadlineDigestService } from '../service/deadline-digest.service';
 import {

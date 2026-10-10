@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { configureHttpApp } from './common/configure-http-app';
+import { configureHttpApp } from './common/controller/configure-http-app';
 import type { RuntimeConfig } from './runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from './runtime-config/runtime-config.module';
 

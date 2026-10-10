@@ -4,7 +4,7 @@ import {
   SUBMISSION_UPLOAD_MAX_LABEL,
 } from '../domain/submission-upload-policy';
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
-import { addOneCalendarYear } from '../../common/add-one-calendar-year';
+import { addOneCalendarYear } from '../../common/domain/add-one-calendar-year';
 import { DomainException } from '../../common/error-code';
 import {
   hasProgramDeadlinePassed,

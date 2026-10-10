@@ -9,7 +9,7 @@ import {
 import { AuthConfig } from '../../auth/auth.config';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { DomainException } from '../../common/error-code';
-import { ProblemDetailFilter } from '../../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import {
   SubmissionRepositoryPublishingController,

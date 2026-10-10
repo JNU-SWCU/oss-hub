@@ -4,7 +4,7 @@ import { AuthConfig } from '../auth/auth.config';
 import { OriginGuard } from '../auth/controller/origin.guard';
 import { SessionGuard } from '../auth/controller/session.guard';
 import { DomainException } from '../common/error-code';
-import { ProblemDetailFilter } from '../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
 import { ApplicationTemplatesController } from './controller/application-templates.controller';
 import { PROGRAM_ERROR_CODES } from './program-error-code';
 import { ProgramActivityService } from './service/program-activity.service';
