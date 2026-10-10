@@ -7,7 +7,7 @@
       "types": 0,
       "dependencies": 0,
       "devDependencies": 0,
-      "unlisted": 1,
+      "unlisted": 0,
       "binaries": 0
     },
     "apps/backend": {
@@ -23,9 +23,9 @@
       "files": 0,
       "exports": 0,
       "types": 0,
-      "dependencies": 1,
+      "dependencies": 0,
       "devDependencies": 0,
-      "unlisted": 2,
+      "unlisted": 0,
       "binaries": 0
     }
   }
