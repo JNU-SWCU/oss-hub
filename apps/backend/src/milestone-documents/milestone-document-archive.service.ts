@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import type { Readable } from 'node:stream';
 import { ZipFile } from 'yazl';
 import { DomainException } from '../common/error-code';
@@ -66,13 +67,22 @@ export class MilestoneDocumentArchiveService {
     private readonly storage: ObjectStoragePort,
     @Inject(MilestoneDocumentArchiveRepository)
     private readonly programs: ProgramArchiveReader,
+    @Inject(UsersAuthorityService)
+    private readonly authority: Pick<
+      UsersAuthorityService,
+      'assertActiveStaff'
+    >,
   ) {}
 
   async archiveForProgramStaff(
+    sessionGithubId: bigint,
     programId: string,
     scope: ProgramDocumentArchiveScope,
     now: Date = new Date(),
   ): Promise<MilestoneDocumentArchive> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
+    );
     const program = await this.programs.findProgram(programId);
     if (program === null) {
       throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
@@ -114,10 +124,14 @@ export class MilestoneDocumentArchiveService {
   }
 
   async archiveForStaff(
+    sessionGithubId: bigint,
     milestoneId: string,
     scope: MilestoneDocumentArchiveScope,
     now: Date = new Date(),
   ): Promise<MilestoneDocumentArchive> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
+    );
     const milestone = await this.repository.findMilestone(milestoneId);
     if (milestone === null) {
       throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);

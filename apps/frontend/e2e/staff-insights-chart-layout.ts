@@ -21,6 +21,28 @@ export async function hideNextDevTools(page: Page): Promise<void> {
 }
 
 export async function expectProgramChartLayout(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+  await page.waitForFunction(() => {
+    const container = document.querySelector(
+      '[data-slot="participation-chart-viewport"] .recharts-responsive-container',
+    );
+    const chart = container?.querySelector('.recharts-wrapper');
+    const surface = chart?.querySelector('svg.recharts-surface');
+    if (!container || !chart || !(surface instanceof SVGSVGElement)) {
+      return false;
+    }
+    const { width, height } = container.getBoundingClientRect();
+    return (
+      width > 0 &&
+      height > 0 &&
+      chart.clientWidth === Math.round(width) &&
+      chart.clientHeight === Math.round(height) &&
+      surface.viewBox.baseVal.width === Math.round(width) &&
+      surface.viewBox.baseVal.height === Math.round(height)
+    );
+  });
   const ticks = page.locator(PROGRAM_TICK_SELECTOR).filter({
     hasText: '프로그램',
   });
@@ -108,16 +130,19 @@ export async function expectProgramChartLayout(page: Page): Promise<void> {
   );
   await expect(numericTicks).toHaveCount(3);
   await expect(numericTicks).toHaveText(['0', '6', '12']);
-  const numericTickBounds = await numericTicks.evaluateAll((elements) =>
-    elements.map((element) => {
-      const { x, y, width, height } = element.getBoundingClientRect();
-      return { text: element.textContent ?? '', x, y, width, height };
-    }),
-  );
-  const cardBounds = await chartCard.boundingBox();
-  if (cardBounds === null) {
-    throw new Error('프로그램별 참여 카드의 화면 경계가 필요합니다.');
-  }
+  const { numericTickBounds, cardBounds } = await chartCard.evaluate((card) => {
+    const { x, width } = card.getBoundingClientRect();
+    return {
+      cardBounds: { x, width },
+      numericTickBounds: Array.from(
+        card.querySelectorAll('svg text.recharts-cartesian-axis-tick-value'),
+        (element) => {
+          const { x, width } = element.getBoundingClientRect();
+          return { text: element.textContent ?? '', x, width };
+        },
+      ),
+    };
+  });
   const clippedNumericTicks = numericTickBounds.flatMap((rectangle) =>
     rectangle.x >= cardBounds.x + 8 &&
     rectangle.x + rectangle.width <= cardBounds.x + cardBounds.width - 8

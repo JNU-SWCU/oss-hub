@@ -20,6 +20,8 @@ import {
 } from '../storage/domain/object-storage';
 import { SubmissionFilesService } from '../submissions/service/submission-files.service';
 import { SubmissionsModule } from '../submissions/submissions.module';
+import { UsersAuthorityService } from '../users/service/authority.service';
+import { UsersAuthorityRepository } from '../users/repository/authority.repository';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
@@ -122,7 +124,13 @@ const users = {
 
 const prisma = new PrismaService();
 const documentsRepository = new MilestoneDocumentsRepository(prisma);
-const documentsService = new MilestoneDocumentsService(documentsRepository);
+const authority = new UsersAuthorityService(
+  new UsersAuthorityRepository(prisma),
+);
+const documentsService = new MilestoneDocumentsService(
+  documentsRepository,
+  authority,
+);
 
 const storage: ObjectStoragePort = {
   put: () => Promise.reject(new Error('unused')),
@@ -368,6 +376,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       documentsRepository,
       storage,
       submissionsModule.get(SubmissionFilesService),
+      authority,
     );
 
     await cleanup();
@@ -910,6 +919,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
 
   it('교직원 전용 경로는 되돌려진 신청의 같은 파일을 그대로 돌려준다', async () => {
     const file = await staffFilesService.downloadSubmissionFile(
+      users.staff.githubId,
       milestoneId,
       ownDocumentId,
       revertedApplicationId,

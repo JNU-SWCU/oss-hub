@@ -6,7 +6,7 @@ import {
   createRepositoryPublishAuditMetadata,
   deriveRepositoryFullName,
 } from '../../audit-log/domain/audit-log-metadata';
-import type { GithubAppClient } from '../github-app.client';
+import type { GithubAppClient } from '../gateway/github-app.client';
 import {
   RepositoriesRepository,
   type RepositoryPublishTarget,

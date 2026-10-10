@@ -1,6 +1,6 @@
 import type { ApplicationStatus } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
-import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity';
+import { repositoryUrlFromNameWithOwner } from '../../github/domain/repository-identity';
 import type {
   TeamActivityCounts,
   TeamActivityView,

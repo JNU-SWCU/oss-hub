@@ -9,8 +9,8 @@ import { parseApplicationRepositoryUrlAuditMetadata } from '../audit-log/domain/
 import {
   parseRepositoryProvisionEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,
-  repositoryAccessSyncTargetWhere,
-} from '../github/repository-provision-event';
+} from '../github/domain/repository-provision-event';
+import { repositoryAccessSyncTargetWhere } from '../prisma/repository-access-sync';
 import { transferProvisionGeneration } from '../prisma/repository-provision-generation';
 import {
   prisma,

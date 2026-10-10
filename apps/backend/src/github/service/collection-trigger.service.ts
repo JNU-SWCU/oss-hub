@@ -7,7 +7,7 @@ import { CollectionCutoverRepository } from '../repository/collection-cutover.re
 import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,
-} from '../collection-error-code.enum';
+} from '../domain/collection-error-code.enum';
 import {
   CollectionSyncService,
   type CollectionSyncRunResult,

@@ -3,10 +3,33 @@ import type {
   ApplicationsRepository,
   StaffDashboardSummary,
 } from './applications.repository';
+import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../audit-log/service/audit-log.service';
+import type { UsersAuthorityService } from '../users/service/authority.service';
 
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
+
+const SESSION_GITHUB_ID = 4_242n;
+const STAFF_ACTOR_ID = 'synthetic-staff';
+
+type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
+type AuthorityMock = jest.Mock<
+  ReturnType<AssertActiveStaff>,
+  Parameters<AssertActiveStaff>
+>;
+
+function allowStaff(): AuthorityMock {
+  return jest
+    .fn<ReturnType<AssertActiveStaff>, Parameters<AssertActiveStaff>>()
+    .mockResolvedValue({ actorId: STAFF_ACTOR_ID });
+}
+
+function denyStaff(): AuthorityMock {
+  return jest.fn<ReturnType<AssertActiveStaff>, Parameters<AssertActiveStaff>>(
+    (_sessionGithubId, forbidden) => Promise.reject(forbidden()),
+  );
+}
 
 describe('ApplicationsService.staffSummary', () => {
   it('repository 요약을 그대로 반환한다', async () => {
@@ -36,9 +59,13 @@ describe('ApplicationsService.staffSummary', () => {
     const repository = {
       listStaffDashboardSummary,
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository, noopAuditLog);
+    const service = new ApplicationsService(repository, noopAuditLog, {
+      assertActiveStaff: allowStaff(),
+    });
 
-    await expect(service.staffSummary()).resolves.toEqual(summary);
+    await expect(service.staffSummary(SESSION_GITHUB_ID)).resolves.toEqual(
+      summary,
+    );
     expect(listStaffDashboardSummary).toHaveBeenCalledTimes(1);
   });
 
@@ -46,8 +73,34 @@ describe('ApplicationsService.staffSummary', () => {
     const repository = {
       listStaffDashboardSummary: jest.fn().mockResolvedValue({ programs: [] }),
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository, noopAuditLog);
+    const service = new ApplicationsService(repository, noopAuditLog, {
+      assertActiveStaff: allowStaff(),
+    });
 
-    await expect(service.staffSummary()).resolves.toEqual({ programs: [] });
+    await expect(service.staffSummary(SESSION_GITHUB_ID)).resolves.toEqual({
+      programs: [],
+    });
+  });
+
+  it('교직원 권한이 없으면 APP_018 로 막고 요약을 읽지 않는다', async () => {
+    const listStaffDashboardSummary = jest.fn();
+    const repository = {
+      listStaffDashboardSummary,
+    } as unknown as ApplicationsRepository;
+    const assertActiveStaff = denyStaff();
+    const service = new ApplicationsService(repository, noopAuditLog, {
+      assertActiveStaff,
+    });
+
+    await expect(service.staffSummary(SESSION_GITHUB_ID)).rejects.toMatchObject(
+      {
+        errorCode: { code: ApplicationsErrorCode.STAFF_LIST_ONLY, status: 403 },
+      },
+    );
+    expect(assertActiveStaff).toHaveBeenCalledWith(
+      SESSION_GITHUB_ID,
+      expect.any(Function),
+    );
+    expect(listStaffDashboardSummary).not.toHaveBeenCalled();
   });
 });

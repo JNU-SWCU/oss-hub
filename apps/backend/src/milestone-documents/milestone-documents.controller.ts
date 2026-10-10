@@ -58,10 +58,6 @@ import {
   type UploadedMilestoneDocumentTemplateResponse,
 } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import {
-  MilestoneDocumentsStaffGuard,
-  type MilestoneDocumentsStaffRequest,
-} from './milestone-documents-staff.guard';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/domain/submission-upload-policy';
 
@@ -144,24 +140,31 @@ export class MilestoneDocumentsController {
 
   @Get('collection')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard)
+  @UseGuards(SessionGuard)
   collection(
+    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Query() query: MilestoneDocumentCollectionQueryRequestDto,
   ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
-    return this.collectionService.collectForStaff(milestoneId, query.toQuery());
+    return this.collectionService.collectForStaff(
+      request.sessionGithubId,
+      milestoneId,
+      query.toQuery(),
+    );
   }
 
   @Get('collection/archive')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard)
+  @UseGuards(SessionGuard)
   async archive(
+    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Query() query: MilestoneDocumentArchiveQueryRequestDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
     const scope = query.toScope();
     const archive = await this.archiveService.archiveForStaff(
+      request.sessionGithubId,
       milestoneId,
       scope,
     );
@@ -182,56 +185,77 @@ export class MilestoneDocumentsController {
   }
 
   @Patch('order')
-  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
+  @UseGuards(SessionGuard, OriginGuard)
   reorder(
+    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Body() body: ReorderMilestoneDocumentsRequestDto,
   ): Promise<MilestoneDocumentResponseDto[]> {
-    return this.service.reorderDocuments(milestoneId, body.documentIds);
+    return this.service.reorderDocuments(
+      request.sessionGithubId,
+      milestoneId,
+      body.documentIds,
+    );
   }
 
   @Post()
   @HttpCode(201)
-  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
+  @UseGuards(SessionGuard, OriginGuard)
   create(
+    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Body() body: UpsertMilestoneDocumentRequestDto,
   ): Promise<MilestoneDocumentResponseDto> {
-    return this.service.createDocument(milestoneId, body.toInput());
+    return this.service.createDocument(
+      request.sessionGithubId,
+      milestoneId,
+      body.toInput(),
+    );
   }
 
   @Patch(':documentId')
-  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
+  @UseGuards(SessionGuard, OriginGuard)
   update(
+    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Body() body: UpsertMilestoneDocumentRequestDto,
   ): Promise<MilestoneDocumentResponseDto> {
-    return this.service.updateDocument(milestoneId, documentId, body.toInput());
+    return this.service.updateDocument(
+      request.sessionGithubId,
+      milestoneId,
+      documentId,
+      body.toInput(),
+    );
   }
 
   @Delete(':documentId')
   @HttpCode(204)
-  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
+  @UseGuards(SessionGuard, OriginGuard)
   async remove(
+    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
   ): Promise<void> {
-    await this.service.deleteDocument(milestoneId, documentId);
+    await this.service.deleteDocument(
+      request.sessionGithubId,
+      milestoneId,
+      documentId,
+    );
   }
 
   @Post(':documentId/template')
   @HttpCode(201)
-  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
+  @UseGuards(SessionGuard, OriginGuard)
   @UseInterceptors(MilestoneDocumentFileUploadInterceptor)
   uploadTemplate(
-    @Req() request: MilestoneDocumentsStaffRequest,
+    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @UploadedFile() file: MilestoneDocumentFileUpload | undefined,
   ): Promise<UploadedMilestoneDocumentTemplateResponse> {
     return this.filesService.uploadTemplate(
-      request.milestoneDocumentActorId,
+      request.sessionGithubId,
       milestoneId,
       documentId,
       file,
@@ -263,14 +287,16 @@ export class MilestoneDocumentsController {
 
   @Get(':documentId/applications/:applicationId/file')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard)
+  @UseGuards(SessionGuard)
   async downloadSubmissionFile(
+    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Param('applicationId') applicationId: string,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
     const file = await this.filesService.downloadSubmissionFile(
+      request.sessionGithubId,
       milestoneId,
       documentId,
       applicationId,
@@ -286,14 +312,16 @@ export class MilestoneDocumentsController {
 
   @Get(':documentId/applications/:applicationId/history')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard)
+  @UseGuards(SessionGuard)
   history(
+    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Param('applicationId') applicationId: string,
     @Query() query: MilestoneDocumentHistoryQueryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
     return this.service.historyForStaff(
+      request.sessionGithubId,
       milestoneId,
       documentId,
       applicationId,
@@ -320,16 +348,16 @@ export class MilestoneDocumentsController {
 
   @Post(':documentId/applications/:applicationId/reviews')
   @HttpCode(201)
-  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard, OriginGuard)
+  @UseGuards(SessionGuard, OriginGuard)
   review(
-    @Req() request: MilestoneDocumentsStaffRequest,
+    @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Param('applicationId') applicationId: string,
     @Body() body: CreateMilestoneDocumentReviewRequestDto,
   ): Promise<MilestoneDocumentReviewResponseDto> {
     return this.reviewsService.review(
-      request.milestoneDocumentActorId,
+      request.sessionGithubId,
       milestoneId,
       documentId,
       applicationId,

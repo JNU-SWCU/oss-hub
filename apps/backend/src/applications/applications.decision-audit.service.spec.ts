@@ -15,6 +15,9 @@ import type {
 } from './applications.repository';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
+import type { UsersAuthorityService } from '../users/service/authority.service';
+
+type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
 
 const APPLICATION_ID = 'synthetic-application';
 const ACTOR_ID = 'synthetic-actor';
@@ -94,22 +97,29 @@ function createHarness(
     createApplicationDecisionNotifications,
     createRepositoryProvisionEvent,
   };
+  const withTransaction = jest.fn(
+    async (operation: (s: ApplicationsTransactionStore) => Promise<unknown>) =>
+      operation(store),
+  );
+  const assertActiveStaff = jest
+    .fn<ReturnType<AssertActiveStaff>, Parameters<AssertActiveStaff>>()
+    .mockResolvedValue({ actorId: ACTOR_ID });
   const repository = {
-    withTransaction: jest.fn(
-      async (
-        operation: (s: ApplicationsTransactionStore) => Promise<unknown>,
-      ) => operation(store),
-    ),
+    withTransaction,
     findRepositoryProvisionEvent: jest.fn(),
     discardRepositoryProvisionRequest: jest.fn().mockResolvedValue(undefined),
   } as unknown as ApplicationsRepository;
-  const service = new ApplicationsService(repository, {
-    record,
-  } as unknown as AuditLogService);
+  const service = new ApplicationsService(
+    repository,
+    { record } as unknown as AuditLogService,
+    { assertActiveStaff },
+  );
   return {
     service,
     record,
     store,
+    withTransaction,
+    assertActiveStaff,
     transitionApplication,
     createRepositoryProvisionEvent,
     findRepositoryProvisionJob,
@@ -129,16 +139,68 @@ function expectDomainCode(error: unknown, code: ApplicationsErrorCode): void {
 }
 
 describe('ApplicationsService.decide — #547 감사 기록', () => {
+  it.each([
+    { action: APPLICATION_DECISION_ACTIONS.APPROVE },
+    { action: 'UNKNOWN' },
+    { action: APPLICATION_DECISION_ACTIONS.REJECT },
+    { action: APPLICATION_DECISION_ACTIONS.REJECT, reason: '   ' },
+  ])(
+    '교직원 권한이 없으면 $action 의미 검증 전에 APP_004로 막는다',
+    async (input) => {
+      const { service, record, withTransaction, assertActiveStaff } =
+        createHarness();
+      assertActiveStaff.mockImplementation((_sessionGithubId, forbidden) =>
+        Promise.reject(forbidden()),
+      );
+
+      let thrown: unknown;
+      try {
+        await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, input);
+      } catch (error) {
+        thrown = error;
+      }
+
+      expectDomainCode(thrown, ApplicationsErrorCode.STAFF_ONLY);
+      expect(thrown).toMatchObject({ errorCode: { status: 403 } });
+      expect(assertActiveStaff).toHaveBeenCalledWith(
+        ACTOR_GITHUB_ID,
+        expect.any(Function),
+      );
+      expect(withTransaction).not.toHaveBeenCalled();
+      expect(record).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    [{ action: 'UNKNOWN' }, ApplicationsErrorCode.INVALID_DECISION_ACTION],
+    [{ action: 'REJECT' }, ApplicationsErrorCode.REJECTION_REASON_REQUIRED],
+    [
+      { action: 'REJECT', reason: '   ' },
+      ApplicationsErrorCode.REJECTION_REASON_REQUIRED,
+    ],
+  ] as const)(
+    '교직원 권한 확인 뒤 %j의 의미 오류를 유지한다',
+    async (input, code) => {
+      const { service, withTransaction, assertActiveStaff } = createHarness();
+
+      await expect(
+        service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, input),
+      ).rejects.toMatchObject({ errorCode: { code, status: 400 } });
+      expect(assertActiveStaff).toHaveBeenCalledWith(
+        ACTOR_GITHUB_ID,
+        expect.any(Function),
+      );
+      expect(withTransaction).not.toHaveBeenCalled();
+    },
+  );
+
   it('승인을 APPLICATION_APPROVED로 기록하고 판정과 같은 트랜잭션 writer를 쓴다', async () => {
     const { service, record, createApplicationDecisionNotifications } =
       createHarness();
 
-    const result = await service.decide(
-      ACTOR_ID,
-      APPLICATION_ID,
-      ACTOR_GITHUB_ID,
-      { action: APPLICATION_DECISION_ACTIONS.APPROVE },
-    );
+    const result = await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
 
     expect(record).toHaveBeenCalledWith(
       {
@@ -183,15 +245,10 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
     const { service, record, createApplicationDecisionNotifications } =
       createHarness();
 
-    const result = await service.decide(
-      ACTOR_ID,
-      APPLICATION_ID,
-      ACTOR_GITHUB_ID,
-      {
-        action: APPLICATION_DECISION_ACTIONS.REJECT,
-        reason: '제출 서류 누락',
-      },
-    );
+    const result = await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
+      action: APPLICATION_DECISION_ACTIONS.REJECT,
+      reason: '제출 서류 누락',
+    });
 
     expect(record).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -224,7 +281,7 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
   it('감사 기록 인자 어디에도 반려 사유 원문이 실리지 않는다', async () => {
     const { service, record } = createHarness();
 
-    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+    await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
       action: APPLICATION_DECISION_ACTIONS.REJECT,
       reason: '제출 서류 누락',
     });
@@ -246,7 +303,7 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
     );
 
     await expect(
-      service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       }),
     ).rejects.toBeDefined();
@@ -265,7 +322,7 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
     transitionApplication.mockResolvedValue(false);
 
     await expect(
-      service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       }),
     ).rejects.toBeDefined();
@@ -286,7 +343,7 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
       }),
     );
 
-    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+    await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
@@ -311,12 +368,9 @@ describe('ApplicationsService.decide — REVERT', () => {
       }),
     );
 
-    const result = await service.decide(
-      ACTOR_ID,
-      APPLICATION_ID,
-      ACTOR_GITHUB_ID,
-      { action: APPLICATION_DECISION_ACTIONS.REVERT },
-    );
+    const result = await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
+      action: APPLICATION_DECISION_ACTIONS.REVERT,
+    });
 
     expect(result).toEqual({
       kind: 'REVERTED',
@@ -368,12 +422,9 @@ describe('ApplicationsService.decide — REVERT', () => {
       repositoryId: null,
     });
 
-    const result = await service.decide(
-      ACTOR_ID,
-      APPLICATION_ID,
-      ACTOR_GITHUB_ID,
-      { action: APPLICATION_DECISION_ACTIONS.REVERT },
-    );
+    const result = await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
+      action: APPLICATION_DECISION_ACTIONS.REVERT,
+    });
 
     expect(result).toEqual({
       kind: 'REVERTED',
@@ -401,7 +452,7 @@ describe('ApplicationsService.decide — REVERT', () => {
       baseApplication({ status: ApplicationStatus.REJECTED }),
     );
 
-    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+    await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
       action: APPLICATION_DECISION_ACTIONS.REVERT,
     });
 
@@ -436,12 +487,9 @@ describe('ApplicationsService.decide — REVERT', () => {
         repositoryId: 'synthetic-repository',
       });
 
-      const result = await service.decide(
-        ACTOR_ID,
-        APPLICATION_ID,
-        ACTOR_GITHUB_ID,
-        { action: APPLICATION_DECISION_ACTIONS.REVERT },
-      );
+      const result = await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
+        action: APPLICATION_DECISION_ACTIONS.REVERT,
+      });
 
       expect(result).toMatchObject({
         kind: 'REVERTED',
@@ -468,7 +516,7 @@ describe('ApplicationsService.decide — REVERT', () => {
       repositoryId: null,
     });
 
-    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+    await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
       action: APPLICATION_DECISION_ACTIONS.REVERT,
     });
 
@@ -483,7 +531,7 @@ describe('ApplicationsService.decide — REVERT', () => {
 
     let thrown: unknown;
     try {
-      await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
         action: APPLICATION_DECISION_ACTIONS.REVERT,
       });
     } catch (error) {
@@ -520,7 +568,7 @@ describe('ApplicationsService.decide — REVERT', () => {
       repositoryId: null,
     });
 
-    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+    await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
       action: APPLICATION_DECISION_ACTIONS.REVERT,
     });
 
@@ -540,12 +588,9 @@ describe('ApplicationsService.decide — REVERT', () => {
       repositoryId: null,
     });
 
-    const reapprove = await service.decide(
-      ACTOR_ID,
-      APPLICATION_ID,
-      ACTOR_GITHUB_ID,
-      { action: APPLICATION_DECISION_ACTIONS.APPROVE },
-    );
+    const reapprove = await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
 
     expect(discardRepositoryProvisionRequest).toHaveBeenCalledTimes(2);
     expect(createRepositoryProvisionEvent).toHaveBeenCalledTimes(1);
@@ -571,7 +616,7 @@ describe('ApplicationsService.decide — REVERT', () => {
 
     let thrown: unknown;
     try {
-      await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       });
     } catch (error) {
@@ -592,7 +637,7 @@ describe('ApplicationsService.decide — REVERT', () => {
       }),
     );
 
-    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+    await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
       action: APPLICATION_DECISION_ACTIONS.REVERT,
     });
 
@@ -623,7 +668,7 @@ describe('ApplicationsService.decide — REVERT', () => {
     });
 
     await expect(
-      service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
         action: APPLICATION_DECISION_ACTIONS.REVERT,
       }),
     ).resolves.toMatchObject({
@@ -652,7 +697,7 @@ describe('ApplicationsService.decide — REVERT', () => {
     });
 
     await expect(
-      service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
         action: APPLICATION_DECISION_ACTIONS.REVERT,
       }),
     ).resolves.toMatchObject({
@@ -689,15 +734,10 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
       repositoryId: null,
     });
 
-    const result = await service.decide(
-      ACTOR_ID,
-      APPLICATION_ID,
-      ACTOR_GITHUB_ID,
-      {
-        action: APPLICATION_DECISION_ACTIONS.REJECT,
-        reason: '합성 반려 사유',
-      },
-    );
+    const result = await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
+      action: APPLICATION_DECISION_ACTIONS.REJECT,
+      reason: '합성 반려 사유',
+    });
 
     expect(result).toEqual({
       kind: 'REJECTED',
@@ -762,12 +802,9 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
       }),
     );
 
-    const result = await service.decide(
-      ACTOR_ID,
-      APPLICATION_ID,
-      ACTOR_GITHUB_ID,
-      { action: APPLICATION_DECISION_ACTIONS.APPROVE },
-    );
+    const result = await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
 
     expect(result).toMatchObject({
       kind: 'APPROVED',
@@ -817,7 +854,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
 
     let thrown: unknown;
     try {
-      await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
         action: APPLICATION_DECISION_ACTIONS.REJECT,
         reason: '합성 반려 사유',
       });
@@ -866,15 +903,10 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
         repositoryId: 'synthetic-repository',
       });
 
-      const result = await service.decide(
-        ACTOR_ID,
-        APPLICATION_ID,
-        ACTOR_GITHUB_ID,
-        {
-          action: APPLICATION_DECISION_ACTIONS.REJECT,
-          reason: '합성 반려 사유',
-        },
-      );
+      const result = await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
+        action: APPLICATION_DECISION_ACTIONS.REJECT,
+        reason: '합성 반려 사유',
+      });
 
       expect(result).toMatchObject({
         kind: 'REJECTED',
@@ -904,7 +936,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
       repositoryId: null,
     });
 
-    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+    await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
       action: APPLICATION_DECISION_ACTIONS.REJECT,
       reason: '합성 반려 사유',
     });
@@ -938,7 +970,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
     });
 
     await expect(
-      service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
         action: APPLICATION_DECISION_ACTIONS.REJECT,
         reason: '합성 반려 사유',
       }),
@@ -965,7 +997,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
 
     let thrown: unknown;
     try {
-      await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
         action: APPLICATION_DECISION_ACTIONS.REJECT,
         reason: '합성 반려 사유',
       });
@@ -1007,7 +1039,7 @@ describe('ApplicationsService.decide — 판정 이력과 알림', () => {
         baseApplication({ status: from }),
       );
 
-      await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
         action,
       });
 
@@ -1029,7 +1061,7 @@ describe('ApplicationsService.decide — 판정 이력과 알림', () => {
   it('반려는 사유를 이력에 함께 남긴다 — 다음 판정이 덮어써도 그때의 지적이 남는다', async () => {
     const { service, appendReviewHistory } = createHarness();
 
-    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+    await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
       action: APPLICATION_DECISION_ACTIONS.REJECT,
       reason: '서류가 비었습니다',
     });
@@ -1049,7 +1081,7 @@ describe('ApplicationsService.decide — 판정 이력과 알림', () => {
       baseApplication({ status: ApplicationStatus.APPROVED }),
     );
 
-    await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+    await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
       action: APPLICATION_DECISION_ACTIONS.REVERT,
     });
 
@@ -1080,7 +1112,7 @@ describe('ApplicationsService.decide — 판정 이력과 알림', () => {
 
     let thrown: unknown;
     try {
-      await service.decide(ACTOR_ID, APPLICATION_ID, ACTOR_GITHUB_ID, {
+      await service.decide(ACTOR_GITHUB_ID, APPLICATION_ID, {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       });
     } catch (error) {

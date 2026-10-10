@@ -3,7 +3,6 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { ApplicationStatus } from '@prisma/client';
 import { OriginGuard } from '../auth/controller/origin.guard';
 import { SessionGuard } from '../auth/controller/session.guard';
-import { ApplicationsStaffListGuard } from './applications-staff.guard';
 import type { ApplicationsService } from './applications.service';
 import { ApplicationListQueryRequestDto } from './dto/application-list-query.dto';
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';
@@ -26,9 +25,9 @@ describe('ProgramApplicationsController', () => {
     ).toEqual([SessionGuard, OriginGuard]);
   });
 
-  it('GET 에 SessionGuard·ApplicationsStaffListGuard 를 적용한다', () => {
+  it('GET 에 SessionGuard 를 적용한다', () => {
     expect(readGuards(ProgramApplicationsController.prototype, 'list')).toEqual(
-      [SessionGuard, ApplicationsStaffListGuard],
+      [SessionGuard],
     );
   });
 
@@ -256,9 +255,13 @@ describe('ProgramApplicationsController', () => {
       status: 'SUBMITTED' as const,
     });
 
-    const response = await controller.list('synthetic-program', query);
+    const response = await controller.list(
+      { sessionGithubId: 4242n },
+      'synthetic-program',
+      query,
+    );
 
-    expect(listForProgram).toHaveBeenCalledWith('synthetic-program', {
+    expect(listForProgram).toHaveBeenCalledWith(4242n, 'synthetic-program', {
       page: 1,
       pageSize: 20,
       search: '합성',

@@ -15,7 +15,7 @@ import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../../audit-log/domain/audit-l
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
-} from '../../github/repository-identity';
+} from '../../github/domain/repository-identity';
 import {
   prisma as seedPrisma,
   seedGithubId,
@@ -28,8 +28,8 @@ import { seedMilestones } from '../../../prisma/seeds/milestones';
 import { seedRepositories } from '../../../prisma/seeds/repositories';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { PrismaService } from '../../prisma/prisma.service';
-import type { GithubAppClient } from '../../github/github-app.client';
-import { BarrierRepositoriesRepository } from '../../github/repositories.integration-support';
+import type { GithubAppClient } from '../../github/gateway/github-app.client';
+import { BarrierRepositoriesRepository } from '../../github/repository/repositories.integration-support';
 import { RepositoriesRepository } from '../../github/repository/repositories.repository';
 import { RepositoriesService } from '../../github/service/repositories.service';
 import { PublicProjectsRepository } from '../../programs/archive/public-projects/public-projects.repository';

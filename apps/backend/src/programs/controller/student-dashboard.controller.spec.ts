@@ -31,7 +31,10 @@ function dashboardItem(
       name: 'Synthetic milestone',
       dueAt: DUE_AT,
       submissionStatus: 'NOT_SUBMITTED' as const,
+      requiredItemCount: 2,
+      remainingItemCount: 1,
     },
+    progress: { approvedCount: 1, inReviewCount: 0, totalCount: 3 },
     detailUrl: '/programs/program-1',
     checklistUrl: '/programs/program-1/submissions',
     repository: {
@@ -76,6 +79,13 @@ describe('StudentDashboardController', () => {
       name: 'Synthetic milestone',
       dueAt: DUE_AT.toISOString(),
       submissionStatus: 'NOT_SUBMITTED',
+      requiredItemCount: 2,
+      remainingItemCount: 1,
+    });
+    expect(response.items[0]?.progress).toEqual({
+      approvedCount: 1,
+      inReviewCount: 0,
+      totalCount: 3,
     });
     expect(response.items[0]?.repository).toEqual({
       repositoryName: 'synthetic-repository',
@@ -128,6 +138,7 @@ describe('StudentDashboardController', () => {
       'nextMilestone',
       'programId',
       'programName',
+      'progress',
       'repository',
       'teamName',
       'teamUrl',
