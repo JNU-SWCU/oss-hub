@@ -9,8 +9,8 @@ import {
   AuditLogRepository,
   type AuditLogListResult,
   type AuditLogRecord,
-  type AuditLogRecordInput,
 } from '../repository/audit-log.repository';
+import type { AuditLogRecordInput } from '../domain/audit-log-record-input';
 import type { AuditLogListQuery } from '../domain/audit-log-query';
 
 type AuditLogRecordWriter = Parameters<AuditLogRepository['record']>[1];
