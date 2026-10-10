@@ -4,7 +4,6 @@ import {
   type CollectionRunKind,
   type Prisma,
 } from '@prisma/client';
-import { nextScheduledCollectionAt } from '../../github/collection-schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export interface SystemStatusActor {
@@ -166,10 +165,6 @@ export class SystemStatusRepository {
     return this.prisma.repositoryProvisionJob.count({
       where: { status: 'FAILED_FINAL' },
     });
-  }
-
-  findNextCycleAt(from: Date): Date | null {
-    return nextScheduledCollectionAt(from);
   }
 
   async getIncrementalStatusSnapshot(): Promise<CollectionIncrementalStatusSnapshotDto> {

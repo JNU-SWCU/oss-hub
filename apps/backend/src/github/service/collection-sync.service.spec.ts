@@ -6,7 +6,7 @@ import {
   DEFAULT_STREAM_ERROR_CODE,
 } from './collection-sync.service';
 import type { PrismaService } from '../../prisma/prisma.service';
-import { CollectionAppClientError } from '../collection-app.client';
+import { CollectionAppClientError } from '../gateway/collection-app.client';
 import type {
   CollectionAppClient,
   CollectionCommit,
@@ -20,10 +20,10 @@ import type {
   PullRequestIncrementalResult,
   ReleaseListingResult,
   ReleaseProbeResult,
-} from '../collection-app.client';
-import type { CollectionAppTokenProvider } from '../collection-app.token';
-import type { RequestFingerprint } from '../collection-app.frontier';
-import { ProviderRequestQueue } from '../collection-provider-queue';
+} from '../gateway/collection-app.client';
+import type { CollectionAppTokenProvider } from '../gateway/collection-app.token';
+import type { RequestFingerprint } from '../domain/collection-app.frontier';
+import { ProviderRequestQueue } from '../gateway/collection-provider-queue';
 
 type Row = Record<string, unknown>;
 

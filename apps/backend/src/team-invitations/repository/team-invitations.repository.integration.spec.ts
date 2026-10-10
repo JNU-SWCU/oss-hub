@@ -10,7 +10,7 @@ import { assertIsolatedIntegrationDatabase } from '../../../test/integration-dat
 import {
   REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   parseRepositoryAccessSyncEvent,
-} from '../../github/repository-provision-event';
+} from '../../github/domain/repository-provision-event';
 import { PrismaService } from '../../prisma/prisma.service';
 import { canonicalUserCreateFromLabel } from '../../users/canonical-user-fixture';
 import { TeamInvitationsRepository } from './team-invitations.repository';

@@ -17,25 +17,7 @@ const testFileGlobs = [
   'src/**/*support.ts',
 ];
 
-const collectionPublicFiles = [
-  'collection.module',
-
-  'collection-trigger.port',
-
-  'repositories.module',
-  'repositories.service',
-  'repositories.repository',
-  'repositories-read.port',
-  'repositories.integration-support',
-  'github-app.client',
-  'github-app.error',
-
-  'repository-identity',
-
-  'collection-schedule',
-
-  'repository-provision-event',
-];
+const collectionPublicFiles = ['collection.module', 'repositories.module'];
 const collectionPublicDirs = ['dto', 'domain'];
 
 const collectionPublicPaths = [
@@ -45,6 +27,9 @@ const collectionPublicPaths = [
   'service/own-repository-url-validation.service',
   'service/collection-trigger.service',
   'service/repositories-read.service',
+  'gateway/github-app.client',
+  'repository/repositories.integration-support',
+  'service/collection-schedule',
 ];
 const collectionInternalMessage =
   '소비자 Service는 github의 concrete repository를 import하지 않는다. 소비자 Repository는 Prisma를 쓴다. (ADR-003 DEC-42)';

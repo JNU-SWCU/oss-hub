@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { nextScheduledCollectionAt } from '../../github/service/collection-schedule';
 import {
   RANKING_VIEWER_CLASSES,
   RANKING_YEAR_ALL,
@@ -37,7 +38,7 @@ export class RankingService {
     ]);
     const start = (page - 1) * pageSize;
     const slice = entries.slice(start, start + pageSize);
-    const nextCycleAt = this.ranking.findNextCycleAt(new Date());
+    const nextCycleAt = nextScheduledCollectionAt(new Date());
 
     if (viewerClass !== RANKING_VIEWER_CLASSES.STAFF) {
       return {

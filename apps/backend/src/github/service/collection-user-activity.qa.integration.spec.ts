@@ -1,0 +1,184 @@
+import { AccountStatus } from '@prisma/client';
+
+import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
+import { PrismaService } from '../../prisma/prisma.service';
+import {
+  countForeignActiveUsers,
+  restoreForeignActivityRows,
+  snapshotForeignActivityRows,
+} from './collection-user-activity.integration-support';
+import {
+  CollectionDiscoveryClient,
+  CollectionDiscoveryClientError,
+  type CollectionUserActivityMetrics,
+} from '../gateway/collection-discovery.client';
+import { CollectionUserActivityService } from './collection-user-activity.service';
+import { CollectionUserActivityRepository } from '../repository/collection-user-activity.repository';
+
+assertIsolatedIntegrationDatabase({
+  databaseUrl: process.env.DATABASE_URL,
+  runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
+});
+
+const QA_PREFIX = 'qa-person-axis';
+const ACTIVE_USER_COUNT = 51;
+const BASE_GITHUB_ID = 9_950_000_000n;
+const NOW = new Date('2026-08-19T00:00:00.000Z');
+
+const CURRENT_YEAR = 2026;
+
+const githubIdAt = (index: number): bigint =>
+  BASE_GITHUB_ID + BigInt(index + 1);
+const loginAt = (index: number): string =>
+  `${QA_PREFIX}-${String(index + 1).padStart(3, '0')}`;
+
+describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
+  const prisma = new PrismaService();
+
+  let rateLimitCost = 0;
+  const queriedLogins: string[] = [];
+  let rateLimitedLogin: string | null = null;
+
+  let foreignActiveUserCount = 0;
+  let foreignActivitySnapshot: Awaited<
+    ReturnType<typeof snapshotForeignActivityRows>
+  > = [];
+
+  const seededQueriedLogins = (): string[] =>
+    queriedLogins.filter((login) => login.startsWith(`${QA_PREFIX}-`));
+
+  const fetchUserActivityMetrics = (
+    login: string,
+  ): Promise<CollectionUserActivityMetrics> => {
+    rateLimitCost += 1;
+    queriedLogins.push(login);
+    if (login === rateLimitedLogin) {
+      return Promise.reject(
+        new CollectionDiscoveryClientError('RATE_LIMITED', 60),
+      );
+    }
+    return Promise.resolve({
+      commitCount: 10,
+      pullRequestCount: 2,
+      issueCount: 3,
+      repositoryCount: 4,
+      starCount: 5,
+    });
+  };
+
+  const buildService = (): CollectionUserActivityService =>
+    new CollectionUserActivityService(
+      new CollectionUserActivityRepository(prisma),
+      { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
+      () => NOW,
+    );
+
+  const seededIds = Array.from(
+    { length: ACTIVE_USER_COUNT },
+    (_unused, index) => githubIdAt(index),
+  );
+
+  const OUTSIDER_LOGIN = `${QA_PREFIX}-outsider`;
+
+  const cleanup = async (): Promise<void> => {
+    await prisma.githubUserActivityHistory.deleteMany({
+      where: { githubId: { in: seededIds } },
+    });
+    await prisma.user.deleteMany({ where: { githubId: { in: seededIds } } });
+  };
+
+  beforeAll(async () => {
+    await prisma.$connect();
+    await cleanup();
+    await prisma.user.createMany({
+      data: seededIds.map((githubId, index) => ({
+        id: `${QA_PREFIX}-${githubId.toString()}`,
+        githubId,
+        nickname: loginAt(index),
+        accountStatus: AccountStatus.ACTIVE,
+      })),
+    });
+  });
+
+  beforeEach(async () => {
+    foreignActiveUserCount = await countForeignActiveUsers(prisma, seededIds);
+
+    foreignActivitySnapshot = await snapshotForeignActivityRows(
+      prisma,
+      seededIds,
+    );
+  });
+
+  afterEach(async () => {
+    await restoreForeignActivityRows(
+      prisma,
+      seededIds,
+      foreignActivitySnapshot,
+    );
+  });
+
+  afterAll(async () => {
+    await cleanup();
+    await prisma.$disconnect();
+  });
+
+  it('51명 전원을 한 tick에 순회하고, 학생당 연도당 cost 1을 쓰며, 행을 되읽어 확인한다', async () => {
+    rateLimitCost = 0;
+    queriedLogins.length = 0;
+    rateLimitedLogin = null;
+
+    const result = await buildService().run();
+
+    const rows = await prisma.githubUserActivityHistory.findMany({
+      where: { githubId: { in: seededIds } },
+    });
+
+    expect(result.observedUserCount).toBe(
+      foreignActiveUserCount + ACTIVE_USER_COUNT,
+    );
+    expect(rows).toHaveLength(ACTIVE_USER_COUNT);
+    expect(rows.every((row) => row.year === CURRENT_YEAR)).toBe(true);
+
+    expect(seededQueriedLogins()).toHaveLength(ACTIVE_USER_COUNT);
+    expect(new Set(seededQueriedLogins()).size).toBe(ACTIVE_USER_COUNT);
+    expect(rateLimitCost).toBe(foreignActiveUserCount + ACTIVE_USER_COUNT);
+    expect(queriedLogins).not.toContain(OUTSIDER_LOGIN);
+  });
+
+  it('재실행이 멱등이다 — 행 수가 늘지 않는다(stale_state)', async () => {
+    rateLimitCost = 0;
+    queriedLogins.length = 0;
+    rateLimitedLogin = null;
+
+    await buildService().run();
+    const rows = await prisma.githubUserActivityHistory.count({
+      where: { githubId: { in: seededIds } },
+    });
+
+    expect(rows).toBe(ACTIVE_USER_COUNT);
+
+    expect(seededQueriedLogins()).toHaveLength(ACTIVE_USER_COUNT);
+    expect(rateLimitCost).toBe(foreignActiveUserCount + ACTIVE_USER_COUNT);
+  });
+
+  it('한 학생에 429를 주입해도 나머지 50명이 그대로 적재된다', async () => {
+    await prisma.githubUserActivityHistory.deleteMany({
+      where: { githubId: { in: seededIds } },
+    });
+    rateLimitCost = 0;
+    rateLimitedLogin = loginAt(24);
+
+    const result = await buildService().run();
+    const rows = await prisma.githubUserActivityHistory.findMany({
+      where: { githubId: { in: seededIds } },
+      select: { githubId: true },
+    });
+    const failedRowPresent = rows.some(
+      (row) => row.githubId === githubIdAt(24),
+    );
+
+    expect(result.failedUserCount).toBe(1);
+    expect(rows).toHaveLength(ACTIVE_USER_COUNT - 1);
+    expect(failedRowPresent).toBe(false);
+  });
+});

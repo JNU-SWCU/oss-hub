@@ -23,8 +23,8 @@ import type { AuditLogTransactionWriter } from '../prisma/audit-log-transaction-
 import { computeJoinCodeDigest } from '../programs/domain/join-code-digest';
 import { resolveJoinCodeSecretFromConfig } from '../runtime-config/join-code-secret';
 import { PrismaService } from '../prisma/prisma.service';
-import { repositoryUrlFromNameWithOwner } from '../github/repository-identity';
-import { parseRepositoryProvisionEvent } from '../github/repository-provision-event';
+import { repositoryUrlFromNameWithOwner } from '../github/domain/repository-identity';
+import { parseRepositoryProvisionEvent } from '../github/domain/repository-provision-event';
 import {
   transferProvisionGeneration,
   writeRepositoryIssuanceHistory,
