@@ -20,11 +20,11 @@
       "binaries": 0
     },
     "apps/frontend": {
-      "files": 4,
-      "exports": 102,
-      "types": 148,
-      "dependencies": 3,
-      "devDependencies": 1,
+      "files": 0,
+      "exports": 0,
+      "types": 0,
+      "dependencies": 1,
+      "devDependencies": 0,
       "unlisted": 2,
       "binaries": 0
     }
