@@ -1,11 +1,12 @@
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { canonicalCompletion } from '../service/member-authority-test-fixtures';
 import { UsersRepository } from './users.repository';
-import type { ProfileCompletionOutcome } from './users.repository';
+import type {
+  ProfileCompletionOutcome,
+  UsersRepositoryPort,
+} from './users.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -26,11 +27,15 @@ const secondProfile = {
   department: '소프트웨어공학과',
 };
 
+type PhoneAuditCallback = Parameters<
+  UsersRepositoryPort['completeProfileIfUnchanged']
+>[2];
+
 const prisma = new PrismaService();
-const repository = new UsersRepository(
-  prisma,
-  new AuditLogService(new AuditLogRepository(prisma)),
-);
+const repository = new UsersRepository(prisma);
+const recordPhoneAudit = jest
+  .fn<Promise<void>, Parameters<PhoneAuditCallback>>()
+  .mockResolvedValue(undefined);
 
 async function completeCurrentProfile(
   profile: typeof firstProfile | typeof secondProfile,
@@ -42,6 +47,7 @@ async function completeCurrentProfile(
   return repository.completeProfileIfUnchanged(
     current,
     canonicalCompletion(profile),
+    recordPhoneAudit,
   );
 }
 
@@ -80,12 +86,14 @@ it('완료된 프로필은 두 번째 요청으로 덮어쓰지 않는다', asyn
   await repository.completeProfileIfUnchanged(
     initial,
     canonicalCompletion(firstProfile),
+    recordPhoneAudit,
   );
 
   await expect(
     repository.completeProfileIfUnchanged(
       initial,
       canonicalCompletion(secondProfile),
+      recordPhoneAudit,
     ),
   ).resolves.toBe('conflict');
   await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({
@@ -149,6 +157,7 @@ it('이미 생성된 UserProfile과 충돌하면 선점된 행은 바뀌지 않�
   const completed = repository.completeProfileIfUnchanged(
     expected,
     canonicalCompletion(firstProfile),
+    recordPhoneAudit,
   );
 
   await expect(completed).resolves.toBe('conflict');
@@ -176,6 +185,7 @@ it('동일한 완료 요청이 경쟁하면 한 요청만 성공하고 다른 �
     repository.completeProfileIfUnchanged(
       expected,
       canonicalCompletion(firstProfile),
+      recordPhoneAudit,
     );
 
   const results = await Promise.all([complete(), complete()]);

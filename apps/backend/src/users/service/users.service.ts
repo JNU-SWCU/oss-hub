@@ -1,5 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
+  USER_PHONE_AUDIT_TRANSITIONS,
+  USER_PROFILE_AUDIT_ACTIONS,
+  USER_PROFILE_AUDIT_FIELDS,
+  createUserPhoneAuditMetadata,
+  createUserProfileAuditMetadata,
+} from '../../audit-log/domain/audit-log-metadata';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
+import {
   AUTH_ERROR_CODES,
   AuthErrorCode,
 } from '../../auth/domain/auth-error-code.enum';
@@ -28,7 +36,11 @@ import {
   UsersErrorCode,
 } from '../domain/users-error-code.enum';
 import { UsersRepository } from '../repository/users.repository';
-import type { UsersRepositoryPort } from '../repository/users.repository';
+import type {
+  RecordPhoneAudit,
+  RecordStaffNumberAudit,
+  UsersRepositoryPort,
+} from '../repository/users.repository';
 
 @Injectable()
 export class UsersService {
@@ -37,6 +49,8 @@ export class UsersService {
     private readonly repository: UsersRepositoryPort,
     @Inject(ConsentsService)
     private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,
+    @Inject(AuditLogService)
+    private readonly auditLog: Pick<AuditLogService, 'record'>,
   ) {}
 
   async getMyProfile(githubId: bigint): Promise<UserProfile> {
@@ -67,6 +81,7 @@ export class UsersService {
     const outcome = await this.repository.completeProfileIfUnchanged(
       user,
       completion,
+      this.recordPhoneAudit,
     );
     switch (outcome) {
       case 'completed':
@@ -131,7 +146,12 @@ export class UsersService {
       );
       return toUserProfile(next);
     }
-    await this.repository.updateProfileFields(user, fields);
+    await this.repository.updateProfileFields(
+      user,
+      fields,
+      this.recordStaffNumberAudit,
+      this.recordPhoneAudit,
+    );
     return toUserProfile(next);
   }
 
@@ -168,11 +188,14 @@ export class UsersService {
         USERS_ERROR_CODES[UsersErrorCode.STUDENT_ID_NEEDS_DEPARTMENT],
       );
     }
-    const outcome = await this.repository.fillStudentId({
-      expected: user,
-      studentId,
-      ...(next.phone === undefined ? {} : { phone: next.phone }),
-    });
+    const outcome = await this.repository.fillStudentId(
+      {
+        expected: user,
+        studentId,
+        ...(next.phone === undefined ? {} : { phone: next.phone }),
+      },
+      this.recordPhoneAudit,
+    );
     switch (outcome) {
       case 'filled':
         return;
@@ -186,6 +209,67 @@ export class UsersService {
         );
     }
   }
+
+  private readonly recordStaffNumberAudit: RecordStaffNumberAudit = async (
+    store,
+    change,
+  ) => {
+    await this.auditLog.record(
+      {
+        actorGithubId: change.user.githubId,
+        action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
+        targetType: 'USER',
+        targetId: change.user.id,
+        metadata: createUserProfileAuditMetadata({
+          actor: {
+            displayName: change.user.name,
+            githubLogin: change.user.githubLogin,
+          },
+          target: {
+            displayName: change.user.name,
+            githubLogin: change.user.githubLogin,
+          },
+          changes: [
+            {
+              field: USER_PROFILE_AUDIT_FIELDS.STAFF_NUMBER,
+              before: change.before,
+              after: change.after,
+            },
+          ],
+        }),
+      },
+      store.auditLogWriter,
+    );
+  };
+
+  private readonly recordPhoneAudit: RecordPhoneAudit = async (
+    store,
+    change,
+  ) => {
+    await this.auditLog.record(
+      {
+        actorGithubId: change.user.githubId,
+        action: USER_PROFILE_AUDIT_ACTIONS.PHONE_UPDATED,
+        targetType: 'USER',
+        targetId: change.user.id,
+        metadata: createUserPhoneAuditMetadata({
+          actor: {
+            displayName: change.user.name,
+            githubLogin: change.user.githubLogin,
+          },
+          target: {
+            displayName: change.user.name,
+            githubLogin: change.user.githubLogin,
+          },
+          transition:
+            change.transition === 'set'
+              ? USER_PHONE_AUDIT_TRANSITIONS.SET
+              : USER_PHONE_AUDIT_TRANSITIONS.REPLACED,
+        }),
+      },
+      store.auditLogWriter,
+    );
+  };
 
   private async requireUser(githubId: bigint): Promise<UserProfileRecord> {
     const user = await this.repository.findByGithubId(githubId);

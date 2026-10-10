@@ -4,11 +4,10 @@ import {
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { canonicalCompletion } from '../service/member-authority-test-fixtures';
 import { UsersRepository } from './users.repository';
+import type { UsersRepositoryPort } from './users.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -18,11 +17,16 @@ assertIsolatedIntegrationDatabase({
 const userId = 'test:users:profile';
 const githubId = 9_600_000_000_153_001n;
 const otherUserId = 'test:users:profile:other';
+
+type PhoneAuditCallback = Parameters<
+  UsersRepositoryPort['completeProfileIfUnchanged']
+>[2];
+
 const prisma = new PrismaService();
-const repository = new UsersRepository(
-  prisma,
-  new AuditLogService(new AuditLogRepository(prisma)),
-);
+const repository = new UsersRepository(prisma);
+const recordPhoneAudit = jest
+  .fn<Promise<void>, Parameters<PhoneAuditCallback>>()
+  .mockResolvedValue(undefined);
 
 beforeAll(async () => {
   await prisma.$connect();
@@ -116,6 +120,7 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
         MemberKind.STAFF,
         AffiliationKind.PROGRAM_OFFICE,
       ),
+      recordPhoneAudit,
     );
 
     const [stored, profile, requests] = await Promise.all([
@@ -166,6 +171,7 @@ describe('가입을 마치지 못한 채 회수된 사용자 (#184)', () => {
         studentId: '184001',
         department: '인공지능학부',
       }),
+      recordPhoneAudit,
     );
 
     const [stored, profile, pendingCount] = await Promise.all([

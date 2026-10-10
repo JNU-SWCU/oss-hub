@@ -4,10 +4,13 @@ import { SystemErrorCode } from '../../common/system-error-code.enum';
 import type { PatchUserProfileInput } from '../domain/user-profile';
 import type {
   ProfileCompletionOutcome,
-  StudentIdFillOutcome,
   UsersRepositoryPort,
 } from '../repository/users.repository';
 import { UsersService } from './users.service';
+
+type StudentIdFillOutcome = Awaited<
+  ReturnType<UsersRepositoryPort['fillStudentId']>
+>;
 
 const githubId = 4242n;
 const studentId = '1'.repeat(6);
@@ -65,6 +68,7 @@ function buildService(
   const fillStudentId = jest
     .fn()
     .mockResolvedValue(overrides.studentIdFill ?? 'filled');
+  const auditLog = { record: jest.fn() };
   const repository: UsersRepositoryPort = {
     findByGithubId,
     completeProfileIfUnchanged,
@@ -72,7 +76,7 @@ function buildService(
     updateProfileFields,
   };
   return {
-    service: new UsersService(repository, { requireCurrent }),
+    service: new UsersService(repository, { requireCurrent }, auditLog),
     requireCurrent,
     findByGithubId,
     completeProfileIfUnchanged,
@@ -134,16 +138,20 @@ describe('역할별 필수 항목', () => {
       phone: null,
       isComplete: true,
     });
-    expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {
-      name: input.name,
-      studentId: null,
-      department: input.department,
-      memberKind: MemberKind.STAFF,
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: input.department,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-    });
+    expect(completeProfileIfUnchanged).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        name: input.name,
+        studentId: null,
+        department: input.department,
+        memberKind: MemberKind.STAFF,
+        affiliationKind: 'DEPARTMENT',
+        affiliationName: input.department,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      },
+      expect.any(Function),
+    );
   });
 
   it('학생은 연락처가 있어야 가입을 완료한다', async () => {
@@ -206,16 +214,20 @@ describe('역할별 필수 항목', () => {
       phone: input.phone,
       isComplete: true,
     });
-    expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {
-      name: input.name,
-      studentId: legacyStudentId,
-      department: input.department,
-      memberKind: MemberKind.STUDENT,
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: input.department,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-    });
+    expect(completeProfileIfUnchanged).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        name: input.name,
+        studentId: legacyStudentId,
+        department: input.department,
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: 'DEPARTMENT',
+        affiliationName: input.department,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      },
+      expect.any(Function),
+    );
   });
 
   it('요청에 실려 온 학번의 형식이 틀리면 400으로 거부한다', async () => {

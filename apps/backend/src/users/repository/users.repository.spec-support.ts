@@ -1,25 +1,13 @@
-import type { AuditLogRecord } from '../../audit-log/repository/audit-log.repository';
-import type { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { UsersRepository } from './users.repository';
+import {
+  UsersRepository,
+  type RecordPhoneAudit,
+  type RecordStaffNumberAudit,
+} from './users.repository';
 import type { UserProfileRecord } from '../domain/user-profile-policy';
 import { profileRecord } from '../service/member-authority-test-fixtures';
 
 type TransactionCallback<T> = (transaction: unknown) => Promise<T>;
-
-const auditLogRecord = {
-  id: 'synthetic-audit-record',
-  actor: 'synthetic-user',
-  actorHandle: null,
-  action: 'SYNTHETIC',
-  targetType: 'USER',
-  targetId: 'synthetic-user',
-  target: 'synthetic-user',
-  targetHandle: null,
-  occurredAt: new Date(0),
-  legacy: true,
-  metadata: null,
-} satisfies AuditLogRecord;
 
 function prismaServiceWith(overrides: object): PrismaService {
   return Object.assign(new PrismaService(), overrides);
@@ -41,12 +29,13 @@ export function usersRepositoryHarness(
   const staffAccessRequestCreate = jest
     .fn()
     .mockResolvedValue({ id: 'synthetic-request', status: 'PENDING' });
-  const auditRecord = jest
-    .fn<
-      ReturnType<AuditLogService['record']>,
-      Parameters<AuditLogService['record']>
-    >()
-    .mockResolvedValue(auditLogRecord);
+  const auditLogCreate = jest.fn();
+  const recordPhoneAudit = jest
+    .fn<Promise<void>, Parameters<RecordPhoneAudit>>()
+    .mockResolvedValue(undefined);
+  const recordStaffNumberAudit = jest
+    .fn<Promise<void>, Parameters<RecordStaffNumberAudit>>()
+    .mockResolvedValue(undefined);
 
   const transaction = {
     $queryRaw: jest.fn().mockResolvedValue([
@@ -72,7 +61,7 @@ export function usersRepositoryHarness(
       findFirst: staffAccessRequestFindFirst,
       create: staffAccessRequestCreate,
     },
-    auditLog: { create: jest.fn() },
+    auditLog: { create: auditLogCreate },
   };
   const prisma = prismaServiceWith({
     user: { findUnique },
@@ -96,10 +85,24 @@ export function usersRepositoryHarness(
     userProfileFindUnique,
     staffAccessRequestFindFirst,
     staffAccessRequestCreate,
-    auditRecord,
+    auditLogCreate,
+    recordPhoneAudit,
+    recordStaffNumberAudit,
     transaction,
-    repository: new UsersRepository(prisma, { record: auditRecord }),
+    repository: new UsersRepository(prisma),
   };
+}
+
+type InvocationOrders = {
+  readonly mock: { readonly invocationCallOrder: readonly number[] };
+};
+
+export function callOrder(mock: InvocationOrders, index = 0): number {
+  const order = mock.mock.invocationCallOrder.at(index);
+  if (order === undefined) {
+    throw new TypeError('Expected the mocked call to have happened.');
+  }
+  return order;
 }
 
 function toRow(record: UserProfileRecord) {

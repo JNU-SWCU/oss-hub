@@ -5,10 +5,13 @@ import type { PatchUserProfileInput } from '../domain/user-profile';
 import { UsersErrorCode } from '../domain/users-error-code.enum';
 import type {
   ProfileCompletionOutcome,
-  StudentIdFillOutcome,
   UsersRepositoryPort,
 } from '../repository/users.repository';
 import { UsersService } from './users.service';
+
+type StudentIdFillOutcome = Awaited<
+  ReturnType<UsersRepositoryPort['fillStudentId']>
+>;
 
 const githubId = 4242n;
 const studentId = '1'.repeat(6);
@@ -71,8 +74,9 @@ function buildService(
     fillStudentId,
     updateProfileFields,
   };
+  const record = jest.fn().mockResolvedValue(undefined);
   return {
-    service: new UsersService(repository, { requireCurrent }),
+    service: new UsersService(repository, { requireCurrent }, { record }),
     requireCurrent,
     findByGithubId,
     completeProfileIfUnchanged,
@@ -181,9 +185,14 @@ describe('기존 데이터 호환 후속', () => {
       phone: null,
       isComplete: true,
     });
-    expect(updateProfileFields).toHaveBeenCalledWith(existingUser, {
-      name: '수정된 이름',
-      department: input.department,
-    });
+    expect(updateProfileFields).toHaveBeenCalledWith(
+      existingUser,
+      {
+        name: '수정된 이름',
+        department: input.department,
+      },
+      expect.any(Function),
+      expect.any(Function),
+    );
   });
 });

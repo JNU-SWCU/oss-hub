@@ -4,8 +4,12 @@ import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { canonicalCompletion } from '../service/member-authority-test-fixtures';
+import { UsersService } from '../service/users.service';
 import { UsersRepository } from './users.repository';
-import type { ProfileCompletionOutcome } from './users.repository';
+import type {
+  ProfileCompletionOutcome,
+  UsersRepositoryPort,
+} from './users.repository';
 import { isCompleteUserProfile } from '../domain/user-profile-policy';
 
 assertIsolatedIntegrationDatabase({
@@ -41,11 +45,26 @@ type StoredProfileFields = {
   readonly affiliationName: string;
 };
 
+type PhoneAuditCallback = Parameters<
+  UsersRepositoryPort['completeProfileIfUnchanged']
+>[2];
+type StaffNumberAuditCallback = Parameters<
+  UsersRepositoryPort['updateProfileFields']
+>[2];
+
 const prisma = new PrismaService();
-const repository = new UsersRepository(
-  prisma,
+const repository = new UsersRepository(prisma);
+const service = new UsersService(
+  repository,
+  { requireCurrent: () => Promise.resolve() },
   new AuditLogService(new AuditLogRepository(prisma)),
 );
+const recordPhoneAudit = jest
+  .fn<Promise<void>, Parameters<PhoneAuditCallback>>()
+  .mockResolvedValue(undefined);
+const recordStaffNumberAudit = jest
+  .fn<Promise<void>, Parameters<StaffNumberAuditCallback>>()
+  .mockResolvedValue(undefined);
 
 const profileTarget = {
   id: userId,
@@ -71,6 +90,7 @@ async function completeProfileFor(
   return repository.completeProfileIfUnchanged(
     current,
     canonicalCompletion(profile, memberKind, affiliationKind),
+    recordPhoneAudit,
   );
 }
 
@@ -131,6 +151,8 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  recordPhoneAudit.mockClear();
+  recordStaffNumberAudit.mockClear();
   await prisma.staffAccessRequest.deleteMany({
     where: { userId: { in: [userId, otherUserId] } },
   });
@@ -246,12 +268,17 @@ it('완료된 프로필의 이름·소속을 갱신할 수 있다', async () => 
     ),
   ).resolves.toBe('completed');
 
-  await repository.updateProfileFields(profileTarget, {
-    name: '합성 수정 교직원',
-    department: '소프트웨어공학과',
-    affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-    affiliationName: '소프트웨어공학과',
-  });
+  await repository.updateProfileFields(
+    profileTarget,
+    {
+      name: '합성 수정 교직원',
+      department: '소프트웨어공학과',
+      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+      affiliationName: '소프트웨어공학과',
+    },
+    recordStaffNumberAudit,
+    recordPhoneAudit,
+  );
 
   await expect(readProfileRow()).resolves.toEqual([
     {
@@ -289,11 +316,16 @@ it('완료 후 이름·학과 수정도 UserProfile만 갱신한다', async () =
     department: '컴퓨터공학과',
   };
 
-  await repository.updateProfileFields(profileTarget, {
-    ...mutableFields,
-    affiliationKind: AffiliationKind.DEPARTMENT,
-    affiliationName: mutableFields.department,
-  });
+  await repository.updateProfileFields(
+    profileTarget,
+    {
+      ...mutableFields,
+      affiliationKind: AffiliationKind.DEPARTMENT,
+      affiliationName: mutableFields.department,
+    },
+    recordStaffNumberAudit,
+    recordPhoneAudit,
+  );
 
   await expect(readProfileRow()).resolves.toEqual([
     {
@@ -331,7 +363,7 @@ it('교직원 번호를 설정해도 학번·회원 유형·권한과 완료 상
   if (!current) {
     throw new Error('번호 설정 합성 사용자가 존재해야 합니다.');
   }
-  await repository.updateProfileFields(current, {
+  await service.patchMyProfile(staffNumberSetGithubId, {
     name: current.name!,
     department: current.department!,
     staffNumber: '교직원-😀',
@@ -393,7 +425,7 @@ it('교직원 번호 교체 감사는 잠긴 현재값을 before로 남긴다', 
   if (!initial) {
     throw new Error('번호 교체 합성 사용자가 존재해야 합니다.');
   }
-  await repository.updateProfileFields(initial, {
+  await service.patchMyProfile(staffNumberReplaceGithubId, {
     name: initial.name!,
     department: initial.department!,
     staffNumber: '기존-번호',
@@ -407,11 +439,18 @@ it('교직원 번호 교체 감사는 잠긴 현재값을 before로 남긴다', 
     data: { staffNumber: '잠금-직전-번호' },
   });
 
-  await repository.updateProfileFields(stale, {
-    name: stale.name!,
-    department: stale.department!,
-    staffNumber: '교체-번호',
-  });
+  const staleRead = jest
+    .spyOn(repository, 'findByGithubId')
+    .mockResolvedValueOnce(stale);
+  try {
+    await service.patchMyProfile(staffNumberReplaceGithubId, {
+      name: stale.name!,
+      department: stale.department!,
+      staffNumber: '교체-번호',
+    });
+  } finally {
+    staleRead.mockRestore();
+  }
 
   await expect(readProfileRow(staffNumberReplaceUserId)).resolves.toEqual([
     {
@@ -479,7 +518,7 @@ it('교직원 번호를 null로 보내면 canonical 값을 지우고 감사한�
   if (!initial) {
     throw new Error('번호 삭제 합성 사용자가 존재해야 합니다.');
   }
-  await repository.updateProfileFields(initial, {
+  await service.patchMyProfile(staffNumberClearGithubId, {
     name: initial.name!,
     department: initial.department!,
     staffNumber: '지울-번호',
@@ -489,7 +528,7 @@ it('교직원 번호를 null로 보내면 canonical 값을 지우고 감사한�
     throw new Error('번호 삭제 현재 프로필이 존재해야 합니다.');
   }
 
-  await repository.updateProfileFields(current, {
+  await service.patchMyProfile(staffNumberClearGithubId, {
     name: current.name!,
     department: current.department!,
     staffNumber: null,
@@ -558,7 +597,7 @@ it('교직원 번호를 생략하면 기존 canonical 값과 감사 이력을 �
   if (!initial) {
     throw new Error('번호 생략 합성 사용자가 존재해야 합니다.');
   }
-  await repository.updateProfileFields(initial, {
+  await service.patchMyProfile(staffNumberOmittedGithubId, {
     name: initial.name!,
     department: initial.department!,
     staffNumber: '보존-번호',
@@ -568,7 +607,7 @@ it('교직원 번호를 생략하면 기존 canonical 값과 감사 이력을 �
     throw new Error('번호 생략 현재 프로필이 존재해야 합니다.');
   }
 
-  await repository.updateProfileFields(current, {
+  await service.patchMyProfile(staffNumberOmittedGithubId, {
     name: current.name!,
     department: current.department!,
   });
@@ -606,7 +645,7 @@ it('교직원 번호 no-op은 canonical 값을 유지하고 새 감사 없이 �
   if (!initial) {
     throw new Error('번호 no-op 합성 사용자가 존재해야 합니다.');
   }
-  await repository.updateProfileFields(initial, {
+  await service.patchMyProfile(staffNumberNoopGithubId, {
     name: initial.name!,
     department: initial.department!,
     staffNumber: '같은-번호',
@@ -616,7 +655,7 @@ it('교직원 번호 no-op은 canonical 값을 유지하고 새 감사 없이 �
     throw new Error('번호 no-op 현재 프로필이 존재해야 합니다.');
   }
 
-  await repository.updateProfileFields(current, {
+  await service.patchMyProfile(staffNumberNoopGithubId, {
     name: current.name!,
     department: current.department!,
     staffNumber: '같은-번호',
@@ -651,15 +690,15 @@ it('사번 감사 기록이 실패하면 프로필 변경도 롤백한다', asyn
     MemberKind.STAFF,
     AffiliationKind.PROGRAM_OFFICE,
   );
-  const current = await repository.findByGithubId(rollbackGithubId);
-  if (!current) throw new Error('합성 롤백 프로필이 존재해야 합니다.');
   const before = await readProfileRow(id);
   const failure = new Error('Synthetic audit failure');
-  const rejectingRepository = new UsersRepository(prisma, {
-    record: jest.fn().mockRejectedValue(failure),
-  });
+  const rejectingService = new UsersService(
+    repository,
+    { requireCurrent: () => Promise.resolve() },
+    { record: jest.fn().mockRejectedValue(failure) },
+  );
   await expect(
-    rejectingRepository.updateProfileFields(current, {
+    rejectingService.patchMyProfile(rollbackGithubId, {
       name: '저장되면 안 되는 이름',
       department: profile.department,
       staffNumber: 'ROLLBACK-42',
@@ -696,12 +735,19 @@ it('읽은 뒤 학생으로 바뀐 계정은 잠긴 현재 회원 유형으로 �
   });
   const before = await readProfileRow(id);
   await expect(
-    repository.updateProfileFields(stale, {
-      name: profile.name,
-      department: profile.department,
-      staffNumber: 'DENIED-42',
-    }),
+    repository.updateProfileFields(
+      stale,
+      {
+        name: profile.name,
+        department: profile.department,
+        staffNumber: 'DENIED-42',
+      },
+      recordStaffNumberAudit,
+      recordPhoneAudit,
+    ),
   ).rejects.toMatchObject({ errorCode: { code: 'SYS_003', status: 400 } });
   await expect(readProfileRow(id)).resolves.toEqual(before);
   await expect(readStaffNumberAudits(id)).resolves.toEqual([]);
+  expect(recordStaffNumberAudit).not.toHaveBeenCalled();
+  expect(recordPhoneAudit).not.toHaveBeenCalled();
 });

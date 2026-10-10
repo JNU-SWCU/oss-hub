@@ -2,10 +2,13 @@ import { MemberKind } from '@prisma/client';
 import type { PatchUserProfileInput } from '../domain/user-profile';
 import type {
   ProfileCompletionOutcome,
-  StudentIdFillOutcome,
   UsersRepositoryPort,
 } from '../repository/users.repository';
 import { UsersService } from './users.service';
+
+type StudentIdFillOutcome = Awaited<
+  ReturnType<UsersRepositoryPort['fillStudentId']>
+>;
 
 const githubId = 4242n;
 const studentId = '1'.repeat(6);
@@ -63,6 +66,7 @@ function buildService(
   const fillStudentId = jest
     .fn()
     .mockResolvedValue(overrides.studentIdFill ?? 'filled');
+  const auditLog = { record: jest.fn() };
   const repository: UsersRepositoryPort = {
     findByGithubId,
     completeProfileIfUnchanged,
@@ -70,7 +74,7 @@ function buildService(
     updateProfileFields,
   };
   return {
-    service: new UsersService(repository, { requireCurrent }),
+    service: new UsersService(repository, { requireCurrent }, auditLog),
     requireCurrent,
     findByGithubId,
     completeProfileIfUnchanged,
@@ -131,17 +135,21 @@ describe('역할 변경 경계', () => {
       staffNumber: null,
       isComplete: true,
     });
-    expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {
-      name: input.name,
-      studentId,
-      department: input.department,
-      phone: input.phone,
-      memberKind: MemberKind.STUDENT,
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: input.department,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-    });
+    expect(completeProfileIfUnchanged).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        name: input.name,
+        studentId,
+        department: input.department,
+        phone: input.phone,
+        memberKind: MemberKind.STUDENT,
+        affiliationKind: 'DEPARTMENT',
+        affiliationName: input.department,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      },
+      expect.any(Function),
+    );
   });
 
   it('이름만 있는 관리자가 교직원이 되면 학과만 추가로 받는다', async () => {
@@ -174,15 +182,19 @@ describe('역할 변경 경계', () => {
       phone: null,
       isComplete: true,
     });
-    expect(completeProfileIfUnchanged).toHaveBeenCalledWith(expect.anything(), {
-      name: input.name,
-      studentId: null,
-      department: input.department,
-      memberKind: MemberKind.STAFF,
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: input.department,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-    });
+    expect(completeProfileIfUnchanged).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        name: input.name,
+        studentId: null,
+        department: input.department,
+        memberKind: MemberKind.STAFF,
+        affiliationKind: 'DEPARTMENT',
+        affiliationName: input.department,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      },
+      expect.any(Function),
+    );
   });
 });

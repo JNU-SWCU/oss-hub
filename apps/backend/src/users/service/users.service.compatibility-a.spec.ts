@@ -4,10 +4,13 @@ import { SystemErrorCode } from '../../common/system-error-code.enum';
 import type { PatchUserProfileInput } from '../domain/user-profile';
 import type {
   ProfileCompletionOutcome,
-  StudentIdFillOutcome,
   UsersRepositoryPort,
 } from '../repository/users.repository';
 import { UsersService } from './users.service';
+
+type StudentIdFillOutcome = Awaited<
+  ReturnType<UsersRepositoryPort['fillStudentId']>
+>;
 
 const githubId = 4242n;
 const studentId = '1'.repeat(6);
@@ -68,8 +71,9 @@ function buildService(
     fillStudentId,
     updateProfileFields,
   };
+  const record = jest.fn().mockResolvedValue(undefined);
   return {
-    service: new UsersService(repository, { requireCurrent }),
+    service: new UsersService(repository, { requireCurrent }, { record }),
     requireCurrent,
     findByGithubId,
     completeProfileIfUnchanged,
@@ -140,13 +144,18 @@ describe('기존 데이터 호환', () => {
       phone: null,
       isComplete: true,
     });
-    expect(updateProfileFields).toHaveBeenCalledWith(existingStaff, {
-      name: '수정된 이름',
-      department: '소프트웨어공학과',
+    expect(updateProfileFields).toHaveBeenCalledWith(
+      existingStaff,
+      {
+        name: '수정된 이름',
+        department: '소프트웨어공학과',
 
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: '소프트웨어공학과',
-    });
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: '소프트웨어공학과',
+      },
+      expect.any(Function),
+      expect.any(Function),
+    );
     expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
   });
 
@@ -170,12 +179,17 @@ describe('기존 데이터 호환', () => {
     });
 
     expect(profile.department).toBe(input.department);
-    expect(updateProfileFields).toHaveBeenCalledWith(existingAdmin, {
-      name: '수정된 이름',
-      department: input.department,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: input.department,
-    });
+    expect(updateProfileFields).toHaveBeenCalledWith(
+      existingAdmin,
+      {
+        name: '수정된 이름',
+        department: input.department,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: input.department,
+      },
+      expect.any(Function),
+      expect.any(Function),
+    );
   });
 
   it('교직원이 학번을 실어 보내면 400 검증 오류로 거부한다', async () => {

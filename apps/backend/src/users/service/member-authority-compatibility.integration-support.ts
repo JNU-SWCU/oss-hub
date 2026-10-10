@@ -14,11 +14,9 @@ import { UsersService } from './users.service';
 
 export const compatibilityPrisma = new PrismaService();
 export const compatibilityUsers = new UsersService(
-  new UsersRepository(
-    compatibilityPrisma,
-    new AuditLogService(new AuditLogRepository(compatibilityPrisma)),
-  ),
+  new UsersRepository(compatibilityPrisma),
   { requireCurrent: () => Promise.resolve(undefined) },
+  new AuditLogService(new AuditLogRepository(compatibilityPrisma)),
 );
 export const compatibilityAccess = new AdminAccessService(
   new AdminAccessRepository(compatibilityPrisma),

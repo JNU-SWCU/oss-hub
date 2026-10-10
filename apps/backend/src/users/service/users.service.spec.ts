@@ -1,16 +1,36 @@
 import { MemberKind } from '@prisma/client';
+import {
+  USER_PHONE_AUDIT_TRANSITIONS,
+  USER_PROFILE_AUDIT_ACTIONS,
+  USER_PROFILE_AUDIT_FIELDS,
+  USER_PROFILE_AUDIT_SCHEMA_VERSION,
+  type UserPhoneAuditTransition,
+} from '../../audit-log/domain/audit-log-metadata';
+import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
+import type { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { DomainException } from '../../common/error-code';
 import { SystemErrorCode } from '../../common/system-error-code.enum';
 import type { PatchUserProfileInput } from '../domain/user-profile';
 import { UsersErrorCode } from '../domain/users-error-code.enum';
 import type {
   ProfileCompletionOutcome,
-  StudentIdFillOutcome,
   UsersRepositoryPort,
 } from '../repository/users.repository';
+import { profileRecord } from './member-authority-test-fixtures';
 import { UsersService } from './users.service';
 
+type StudentIdFillOutcome = Awaited<
+  ReturnType<UsersRepositoryPort['fillStudentId']>
+>;
+type RecordPhoneAudit = Parameters<UsersRepositoryPort['fillStudentId']>[1];
+type RecordStaffNumberAudit = Parameters<
+  UsersRepositoryPort['updateProfileFields']
+>[2];
+type PhoneAuditChange = Parameters<RecordPhoneAudit>[1];
+type StaffNumberAuditChange = Parameters<RecordStaffNumberAudit>[1];
+
 const githubId = 4242n;
+const githubLogin = 'synthetic-login';
 const studentId = '1'.repeat(6);
 const initialPhone = '2'.repeat(11);
 const changedPhone = '3'.repeat(11);
@@ -19,6 +39,19 @@ const input: PatchUserProfileInput = {
   studentId,
   department: '인공지능학부',
   phone: initialPhone,
+};
+const auditedRecord: Awaited<ReturnType<AuditLogService['record']>> = {
+  id: 'synthetic-audit',
+  actor: '합성 사용자',
+  actorHandle: githubLogin,
+  action: USER_PROFILE_AUDIT_ACTIONS.PHONE_UPDATED,
+  targetType: 'USER',
+  targetId: 'synthetic-user',
+  target: '합성 사용자',
+  targetHandle: githubLogin,
+  occurredAt: new Date(0),
+  legacy: true,
+  metadata: null,
 };
 
 type StoredUser = {
@@ -40,6 +73,9 @@ function buildService(
     readonly completed?: ProfileCompletionOutcome;
     readonly studentIdFill?: StudentIdFillOutcome;
     readonly consentError?: Error;
+    readonly phoneAudit?: PhoneAuditChange;
+    readonly staffNumberAudit?: StaffNumberAuditChange;
+    readonly auditError?: Error;
   } = {},
 ) {
   const requireCurrent = overrides.consentError
@@ -61,26 +97,74 @@ function buildService(
         }
       : overrides.user,
   );
+  const auditLogWriter = {} as AuditLogTransactionWriter;
+  const record = jest
+    .fn<
+      ReturnType<AuditLogService['record']>,
+      Parameters<AuditLogService['record']>
+    >()
+    .mockResolvedValue(auditedRecord);
+  if (overrides.auditError) {
+    record.mockRejectedValue(overrides.auditError);
+  }
   const completeProfileIfUnchanged = jest
-    .fn()
-    .mockResolvedValue(overrides.completed ?? 'completed');
-  const updateProfileFields = jest.fn().mockResolvedValue(undefined);
+    .fn<
+      Promise<ProfileCompletionOutcome>,
+      Parameters<UsersRepositoryPort['completeProfileIfUnchanged']>
+    >()
+    .mockImplementation(async (_expected, completion, recordPhoneAudit) => {
+      const outcome = overrides.completed ?? 'completed';
+      const phoneAudit =
+        completion.phone === undefined ? undefined : overrides.phoneAudit;
+      if (phoneAudit && outcome === 'completed') {
+        await recordPhoneAudit({ auditLogWriter }, phoneAudit);
+      }
+      return outcome;
+    });
+  const updateProfileFields = jest
+    .fn<Promise<void>, Parameters<UsersRepositoryPort['updateProfileFields']>>()
+    .mockImplementation(
+      async (_expected, fields, recordStaffNumberAudit, recordPhoneAudit) => {
+        const staffNumberAudit = overrides.staffNumberAudit;
+        if (staffNumberAudit && fields.staffNumber !== undefined) {
+          await recordStaffNumberAudit({ auditLogWriter }, staffNumberAudit);
+        }
+        const phoneAudit = overrides.phoneAudit;
+        if (phoneAudit && fields.phone !== undefined) {
+          await recordPhoneAudit({ auditLogWriter }, phoneAudit);
+        }
+      },
+    );
   const fillStudentId = jest
-    .fn()
-    .mockResolvedValue(overrides.studentIdFill ?? 'filled');
+    .fn<
+      Promise<StudentIdFillOutcome>,
+      Parameters<UsersRepositoryPort['fillStudentId']>
+    >()
+    .mockImplementation(async (fill, recordPhoneAudit) => {
+      const outcome = overrides.studentIdFill ?? 'filled';
+      const phoneAudit =
+        fill.phone === undefined ? undefined : overrides.phoneAudit;
+      if (phoneAudit && outcome === 'filled') {
+        await recordPhoneAudit({ auditLogWriter }, phoneAudit);
+      }
+      return outcome;
+    });
   const repository: UsersRepositoryPort = {
     findByGithubId,
     completeProfileIfUnchanged,
     fillStudentId,
     updateProfileFields,
   };
+  const auditLog = { record } satisfies Pick<AuditLogService, 'record'>;
   return {
-    service: new UsersService(repository, { requireCurrent }),
+    service: new UsersService(repository, { requireCurrent }, auditLog),
     requireCurrent,
     findByGithubId,
     completeProfileIfUnchanged,
     fillStudentId,
     updateProfileFields,
+    record,
+    auditLogWriter,
   };
 }
 
@@ -168,6 +252,7 @@ it('빈 프로필을 한 번만 저장하고 완료 응답을 반환한다', asy
       hasStaffAccess: false,
       hasAdminAccess: false,
     },
+    expect.any(Function),
   );
   expect(updateProfileFields).not.toHaveBeenCalled();
 });
@@ -242,11 +327,16 @@ it('완료된 프로필의 연락처를 PATCH로 변경한다', async () => {
     phone: changedPhone,
     isComplete: true,
   });
-  expect(updateProfileFields).toHaveBeenCalledWith(existingUser, {
-    name: input.name,
-    department: input.department,
-    phone: changedPhone,
-  });
+  expect(updateProfileFields).toHaveBeenCalledWith(
+    existingUser,
+    {
+      name: input.name,
+      department: input.department,
+      phone: changedPhone,
+    },
+    expect.any(Function),
+    expect.any(Function),
+  );
 });
 
 it('완료된 프로필의 형식화된 연락처 PATCH를 400 검증 오류로 거부한다', async () => {
@@ -274,4 +364,193 @@ it('완료된 프로필의 형식화된 연락처 PATCH를 400 검증 오류로 
     status: 400,
   });
   expect(updateProfileFields).not.toHaveBeenCalled();
+});
+
+describe('저장소가 넘긴 감사 콜백', () => {
+  const auditedEmptyUser = {
+    ...profileRecord('synthetic-user', { name: 'GitHub 합성 이름' }),
+    githubId,
+    githubLogin,
+  };
+  const auditedStudent = {
+    ...profileRecord('synthetic-user', {
+      name: input.name,
+      studentId,
+      department: input.department ?? null,
+      phone: initialPhone,
+      memberKind: MemberKind.STUDENT,
+    }),
+    githubId,
+    githubLogin,
+  };
+  const auditedStaff = {
+    ...profileRecord('synthetic-staff', {
+      name: '합성 교직원',
+      staffNumber: 'OLD-42',
+      department: '인공지능학부',
+      selectedMemberKind: MemberKind.STAFF,
+      memberKind: MemberKind.STAFF,
+    }),
+    githubId,
+    githubLogin,
+  };
+  const staffProfileInput = {
+    name: '합성 교직원',
+    department: '인공지능학부',
+  };
+
+  function expectedPhoneAudit(
+    user: PhoneAuditChange['user'],
+    transition: UserPhoneAuditTransition,
+  ) {
+    return {
+      actorGithubId: user.githubId,
+      action: USER_PROFILE_AUDIT_ACTIONS.PHONE_UPDATED,
+      targetType: 'USER',
+      targetId: user.id,
+      metadata: {
+        schemaVersion: USER_PROFILE_AUDIT_SCHEMA_VERSION,
+        actor: { displayName: user.name, githubLogin: user.githubLogin },
+        target: { displayName: user.name, githubLogin: user.githubLogin },
+        transition,
+      },
+    };
+  }
+
+  function expectedStaffNumberAudit(
+    user: StaffNumberAuditChange['user'],
+    before: string | null,
+    after: string | null,
+  ) {
+    return {
+      actorGithubId: user.githubId,
+      action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
+      targetType: 'USER',
+      targetId: user.id,
+      metadata: {
+        schemaVersion: USER_PROFILE_AUDIT_SCHEMA_VERSION,
+        actor: { displayName: user.name, githubLogin: user.githubLogin },
+        target: { displayName: user.name, githubLogin: user.githubLogin },
+        changes: [
+          { field: USER_PROFILE_AUDIT_FIELDS.STAFF_NUMBER, before, after },
+        ],
+      },
+    };
+  }
+
+  it('가입 완료의 첫 연락처 저장을 SET 전이 감사로 남긴다', async () => {
+    const { service, record, auditLogWriter } = buildService({
+      user: auditedEmptyUser,
+      phoneAudit: { user: auditedEmptyUser, transition: 'set' },
+    });
+
+    await expect(service.completeMyProfile(githubId, input)).resolves.toEqual({
+      ...input,
+      staffNumber: null,
+      isComplete: true,
+    });
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith(
+      expectedPhoneAudit(auditedEmptyUser, USER_PHONE_AUDIT_TRANSITIONS.SET),
+      auditLogWriter,
+    );
+    expect(record.mock.calls[0]?.[1]).toBe(auditLogWriter);
+  });
+
+  it('완료된 프로필의 연락처 교체를 REPLACED 전이 감사로 남긴다', async () => {
+    const { service, record, auditLogWriter, updateProfileFields } =
+      buildService({
+        user: auditedStudent,
+        phoneAudit: { user: auditedStudent, transition: 'replaced' },
+      });
+
+    await expect(
+      service.patchMyProfile(githubId, {
+        name: input.name,
+        department: input.department,
+        phone: changedPhone,
+      }),
+    ).resolves.toMatchObject({ phone: changedPhone, isComplete: true });
+    expect(updateProfileFields).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith(
+      expectedPhoneAudit(auditedStudent, USER_PHONE_AUDIT_TRANSITIONS.REPLACED),
+      auditLogWriter,
+    );
+    expect(record.mock.calls[0]?.[1]).toBe(auditLogWriter);
+  });
+
+  it.each([
+    [' NEW-7 ', 'NEW-7'],
+    [null, null],
+  ] as const)(
+    '사번 %s 변경을 before·after 감사로 남긴다',
+    async (staffNumber, after) => {
+      const { service, record, auditLogWriter } = buildService({
+        user: auditedStaff,
+        staffNumberAudit: { user: auditedStaff, before: 'OLD-42', after },
+      });
+
+      await expect(
+        service.patchMyProfile(githubId, {
+          ...staffProfileInput,
+          staffNumber,
+        }),
+      ).resolves.toMatchObject({ staffNumber: after });
+      expect(record).toHaveBeenCalledTimes(1);
+      expect(record).toHaveBeenCalledWith(
+        expectedStaffNumberAudit(auditedStaff, 'OLD-42', after),
+        auditLogWriter,
+      );
+      expect(record.mock.calls[0]?.[1]).toBe(auditLogWriter);
+    },
+  );
+
+  it('사번과 연락처가 함께 바뀌면 감사를 각각 남긴다', async () => {
+    const { service, record, auditLogWriter } = buildService({
+      user: auditedStaff,
+      staffNumberAudit: {
+        user: auditedStaff,
+        before: 'OLD-42',
+        after: 'NEW-7',
+      },
+      phoneAudit: { user: auditedStaff, transition: 'set' },
+    });
+
+    await expect(
+      service.patchMyProfile(githubId, {
+        ...staffProfileInput,
+        staffNumber: 'NEW-7',
+        phone: changedPhone,
+      }),
+    ).resolves.toMatchObject({ staffNumber: 'NEW-7', phone: changedPhone });
+    expect(record).toHaveBeenCalledTimes(2);
+    expect(record).toHaveBeenCalledWith(
+      expectedStaffNumberAudit(auditedStaff, 'OLD-42', 'NEW-7'),
+      auditLogWriter,
+    );
+    expect(record).toHaveBeenCalledWith(
+      expectedPhoneAudit(auditedStaff, USER_PHONE_AUDIT_TRANSITIONS.SET),
+      auditLogWriter,
+    );
+  });
+
+  it('감사 기록 실패를 삼키지 않고 그대로 전파한다', async () => {
+    const auditError = new Error('synthetic audit failure');
+    const { service, record, updateProfileFields } = buildService({
+      user: auditedStudent,
+      phoneAudit: { user: auditedStudent, transition: 'replaced' },
+      auditError,
+    });
+
+    await expect(
+      service.patchMyProfile(githubId, {
+        name: input.name,
+        department: input.department,
+        phone: changedPhone,
+      }),
+    ).rejects.toBe(auditError);
+    expect(updateProfileFields).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledTimes(1);
+  });
 });

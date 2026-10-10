@@ -5,10 +5,13 @@ import type { PatchUserProfileInput } from '../domain/user-profile';
 import { UsersErrorCode } from '../domain/users-error-code.enum';
 import type {
   ProfileCompletionOutcome,
-  StudentIdFillOutcome,
   UsersRepositoryPort,
 } from '../repository/users.repository';
 import { UsersService } from './users.service';
+
+type StudentIdFillOutcome = Awaited<
+  ReturnType<UsersRepositoryPort['fillStudentId']>
+>;
 
 const githubId = 4242n;
 const studentId = '1'.repeat(6);
@@ -61,6 +64,7 @@ function buildService(
   const fillStudentId = jest
     .fn()
     .mockResolvedValue(overrides.studentIdFill ?? 'filled');
+  const auditLog = { record: jest.fn() };
   const repository: UsersRepositoryPort = {
     findByGithubId,
     completeProfileIfUnchanged,
@@ -68,7 +72,7 @@ function buildService(
     updateProfileFields,
   };
   return {
-    service: new UsersService(repository, { requireCurrent }),
+    service: new UsersService(repository, { requireCurrent }, auditLog),
     requireCurrent,
     findByGithubId,
     completeProfileIfUnchanged,

@@ -33,13 +33,11 @@ type StoredProfileFields = {
 const prisma = new PrismaService();
 
 const service = new UsersService(
-  new UsersRepository(
-    prisma,
-    new AuditLogService(new AuditLogRepository(prisma)),
-  ),
+  new UsersRepository(prisma),
   {
     requireCurrent: () => Promise.resolve(),
   },
+  new AuditLogService(new AuditLogRepository(prisma)),
 );
 
 function readProfileRow(): Promise<StoredProfileFields[]> {

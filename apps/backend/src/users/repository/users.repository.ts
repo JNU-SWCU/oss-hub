@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { MemberKind, Prisma, StaffAccessRequestStatus } from '@prisma/client';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
+import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
 import { DomainException } from '../../common/error-code';
 import { SystemErrorCode } from '../../common/system-error-code.enum';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -9,20 +9,12 @@ import {
   type StudentIdFillOutcome,
 } from '../../profiles/repository/user-profile-write.repository';
 import { requestStaffAccess } from './staff-access-request';
-import {
-  USER_PHONE_AUDIT_TRANSITIONS,
-  USER_PROFILE_AUDIT_ACTIONS,
-  USER_PROFILE_AUDIT_FIELDS,
-  createUserPhoneAuditMetadata,
-  createUserProfileAuditMetadata,
-} from '../../audit-log/domain/audit-log-metadata';
 import type {
   CompleteUserProfileInput,
   UpdateProfileFieldsInput,
   UserProfileRecord,
 } from '../domain/user-profile';
 
-export type { StudentIdFillOutcome };
 export type ProfileCompletionOutcome =
   'completed' | 'conflict' | 'student-id-taken';
 
@@ -56,16 +48,50 @@ type ProfileMemberRow = Prisma.UserGetPayload<{
   select: typeof PROFILE_MEMBER_SELECT;
 }>;
 
+type AuditWriterStore = {
+  readonly auditLogWriter: AuditLogTransactionWriter;
+};
+
+type PhoneAuditTransition = 'set' | 'replaced';
+
+type AuditableUserProfileRecord = UserProfileRecord & {
+  readonly githubId: bigint;
+  readonly githubLogin: string;
+};
+
+export type RecordPhoneAudit = (
+  store: AuditWriterStore,
+  change: {
+    readonly user: AuditableUserProfileRecord;
+    readonly transition: PhoneAuditTransition;
+  },
+) => Promise<void>;
+
+export type RecordStaffNumberAudit = (
+  store: AuditWriterStore,
+  change: {
+    readonly user: AuditableUserProfileRecord;
+    readonly before: string | null;
+    readonly after: string | null;
+  },
+) => Promise<void>;
+
 export interface UsersRepositoryPort {
   findByGithubId(githubId: bigint): Promise<UserProfileRecord | null>;
   completeProfileIfUnchanged(
     expected: UserProfileRecord,
     input: CompleteUserProfileInput,
+    recordPhoneAudit: RecordPhoneAudit,
   ): Promise<ProfileCompletionOutcome>;
-  fillStudentId(input: FillStudentIdInput): Promise<StudentIdFillOutcome>;
+  fillStudentId(
+    input: FillStudentIdInput,
+    recordPhoneAudit: RecordPhoneAudit,
+  ): Promise<StudentIdFillOutcome>;
   updateProfileFields(
     expected: UserProfileRecord,
     fields: UpdateProfileFieldsInput,
+    recordStaffNumberAudit: RecordStaffNumberAudit,
+    recordPhoneAudit: RecordPhoneAudit,
   ): Promise<void>;
 }
 
@@ -77,12 +103,7 @@ export interface FillStudentIdInput {
 
 @Injectable()
 export class UsersRepository implements UsersRepositoryPort {
-  constructor(
-    @Inject(PrismaService) private readonly prisma: PrismaService,
-
-    @Inject(AuditLogService)
-    private readonly auditLog: Pick<AuditLogService, 'record'>,
-  ) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async findByGithubId(githubId: bigint): Promise<UserProfileRecord | null> {
     const user = await this.prisma.user.findUnique({
@@ -95,6 +116,7 @@ export class UsersRepository implements UsersRepositoryPort {
   async completeProfileIfUnchanged(
     expected: UserProfileRecord,
     input: CompleteUserProfileInput,
+    recordPhoneAudit: RecordPhoneAudit,
   ): Promise<ProfileCompletionOutcome> {
     try {
       return await this.prisma.$transaction(async (transaction) => {
@@ -127,7 +149,7 @@ export class UsersRepository implements UsersRepositoryPort {
         });
         await writeUserPhoneIfChanged(
           transaction,
-          this.auditLog,
+          recordPhoneAudit,
           expected,
           input.phone,
         );
@@ -158,7 +180,10 @@ export class UsersRepository implements UsersRepositoryPort {
     }
   }
 
-  fillStudentId(input: FillStudentIdInput): Promise<StudentIdFillOutcome> {
+  fillStudentId(
+    input: FillStudentIdInput,
+    recordPhoneAudit: RecordPhoneAudit,
+  ): Promise<StudentIdFillOutcome> {
     return this.prisma.$transaction(async (transaction) => {
       const outcome = await fillStudentIdIfEmpty(
         transaction,
@@ -170,7 +195,7 @@ export class UsersRepository implements UsersRepositoryPort {
       }
       await writeUserPhoneIfChanged(
         transaction,
-        this.auditLog,
+        recordPhoneAudit,
         input.expected,
         input.phone,
       );
@@ -181,6 +206,8 @@ export class UsersRepository implements UsersRepositoryPort {
   async updateProfileFields(
     expected: UserProfileRecord,
     fields: UpdateProfileFieldsInput,
+    recordStaffNumberAudit: RecordStaffNumberAudit,
+    recordPhoneAudit: RecordPhoneAudit,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
       const staffNumberBefore =
@@ -204,7 +231,7 @@ export class UsersRepository implements UsersRepositoryPort {
       if (fields.staffNumber !== undefined) {
         await writeStaffNumberAuditIfChanged(
           transaction,
-          this.auditLog,
+          recordStaffNumberAudit,
           expected,
           staffNumberBefore ?? null,
           fields.staffNumber,
@@ -212,7 +239,7 @@ export class UsersRepository implements UsersRepositoryPort {
       }
       await writeUserPhoneIfChanged(
         transaction,
-        this.auditLog,
+        recordPhoneAudit,
         expected,
         fields.phone,
       );
@@ -222,7 +249,7 @@ export class UsersRepository implements UsersRepositoryPort {
 
 async function writeUserPhoneIfChanged(
   transaction: Prisma.TransactionClient,
-  auditLog: Pick<AuditLogService, 'record'>,
+  recordPhoneAudit: RecordPhoneAudit,
   user: UserProfileRecord,
   phone: string | undefined,
 ): Promise<void> {
@@ -239,34 +266,17 @@ async function writeUserPhoneIfChanged(
   if (locked.phone === phone) {
     return;
   }
-  if (
-    typeof user.githubId !== 'bigint' ||
-    typeof user.githubLogin !== 'string'
-  ) {
-    throw new TypeError(
-      'Phone updates require a full user profile record for auditing.',
-    );
-  }
+  requireAuditIdentity(
+    user,
+    'Phone updates require a full user profile record for auditing.',
+  );
   await transaction.user.update({
     where: { id: user.id },
     data: { phone },
   });
-  await auditLog.record(
-    {
-      actorGithubId: user.githubId,
-      action: USER_PROFILE_AUDIT_ACTIONS.PHONE_UPDATED,
-      targetType: 'USER',
-      targetId: user.id,
-      metadata: createUserPhoneAuditMetadata({
-        actor: { displayName: user.name, githubLogin: user.githubLogin },
-        target: { displayName: user.name, githubLogin: user.githubLogin },
-        transition:
-          locked.phone === null
-            ? USER_PHONE_AUDIT_TRANSITIONS.SET
-            : USER_PHONE_AUDIT_TRANSITIONS.REPLACED,
-      }),
-    },
-    transaction,
+  await recordPhoneAudit(
+    { auditLogWriter: transaction },
+    { user, transition: locked.phone === null ? 'set' : 'replaced' },
   );
 }
 
@@ -298,7 +308,7 @@ async function lockStaffNumber(
 
 async function writeStaffNumberAuditIfChanged(
   transaction: Prisma.TransactionClient,
-  auditLog: Pick<AuditLogService, 'record'>,
+  recordStaffNumberAudit: RecordStaffNumberAudit,
   user: UserProfileRecord,
   before: string | null,
   after: string | null,
@@ -306,34 +316,26 @@ async function writeStaffNumberAuditIfChanged(
   if (before === after) {
     return;
   }
+  requireAuditIdentity(
+    user,
+    'Staff number updates require a full user profile record for auditing.',
+  );
+  await recordStaffNumberAudit(
+    { auditLogWriter: transaction },
+    { user, before, after },
+  );
+}
+
+function requireAuditIdentity(
+  user: UserProfileRecord,
+  message: string,
+): asserts user is AuditableUserProfileRecord {
   if (
     typeof user.githubId !== 'bigint' ||
     typeof user.githubLogin !== 'string'
   ) {
-    throw new TypeError(
-      'Staff number updates require a full user profile record for auditing.',
-    );
+    throw new TypeError(message);
   }
-  await auditLog.record(
-    {
-      actorGithubId: user.githubId,
-      action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
-      targetType: 'USER',
-      targetId: user.id,
-      metadata: createUserProfileAuditMetadata({
-        actor: { displayName: user.name, githubLogin: user.githubLogin },
-        target: { displayName: user.name, githubLogin: user.githubLogin },
-        changes: [
-          {
-            field: USER_PROFILE_AUDIT_FIELDS.STAFF_NUMBER,
-            before,
-            after,
-          },
-        ],
-      }),
-    },
-    transaction,
-  );
 }
 
 function toUserProfileRecord(user: ProfileMemberRow): UserProfileRecord {

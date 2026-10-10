@@ -99,9 +99,11 @@ describe('member authority completion negative contract', () => {
       fillStudentId: jest.fn(),
       updateProfileFields: jest.fn(),
     };
-    const service = new UsersService(repository, {
-      requireCurrent: () => Promise.resolve(undefined),
-    });
+    const service = new UsersService(
+      repository,
+      { requireCurrent: () => Promise.resolve(undefined) },
+      { record: jest.fn() },
+    );
 
     const completion = service.completeMyProfile(801020n, validStudentInput);
 

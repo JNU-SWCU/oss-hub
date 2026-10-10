@@ -1,10 +1,9 @@
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { canonicalCompletion } from '../service/member-authority-test-fixtures';
 import { UsersRepository } from './users.repository';
+import type { UsersRepositoryPort } from './users.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -30,11 +29,15 @@ type StoredProfileFields = {
   readonly affiliationName: string;
 };
 
+type PhoneAuditCallback = Parameters<
+  UsersRepositoryPort['completeProfileIfUnchanged']
+>[2];
+
 const prisma = new PrismaService();
-const repository = new UsersRepository(
-  prisma,
-  new AuditLogService(new AuditLogRepository(prisma)),
-);
+const repository = new UsersRepository(prisma);
+const recordPhoneAudit = jest
+  .fn<Promise<void>, Parameters<PhoneAuditCallback>>()
+  .mockResolvedValue(undefined);
 
 beforeAll(async () => {
   await prisma.$connect();
@@ -101,6 +104,7 @@ describe('학번 최초 저장의 유일성', () => {
     const outcome = await repository.completeProfileIfUnchanged(
       current,
       canonicalCompletion(studentProfile),
+      recordPhoneAudit,
     );
 
     expect(outcome).toBe('completed');
@@ -135,6 +139,7 @@ describe('학번 최초 저장의 유일성', () => {
       repository.completeProfileIfUnchanged(
         first,
         canonicalCompletion(studentProfile),
+        recordPhoneAudit,
       ),
     ).resolves.toBe('completed');
 
@@ -145,6 +150,7 @@ describe('학번 최초 저장의 유일성', () => {
         ...studentProfile,
         name: '합성 둘째 학생',
       }),
+      recordPhoneAudit,
     );
 
     expect(outcome).toBe('student-id-taken');
@@ -171,6 +177,7 @@ describe('학번 최초 저장의 유일성', () => {
       repository.completeProfileIfUnchanged(
         current,
         canonicalCompletion({ ...studentProfile, name }),
+        recordPhoneAudit,
       );
 
     const outcomes = await Promise.all([
