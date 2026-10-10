@@ -28,7 +28,7 @@ function isSubmissionAxisInUse(input: MilestoneCompletionInput): boolean {
   );
 }
 
-function collectAxisStatuses(
+export function collectAxisStatuses(
   input: MilestoneCompletionInput,
 ): readonly MilestoneCompletionStatus[] {
   const statuses: MilestoneCompletionStatus[] =

@@ -114,6 +114,28 @@ describe('fetchStudentDashboard', () => {
   });
 
   it.each([
+    [
+      '진행 현황과 남은 서류 수가 있는',
+      {
+        ...approvedItem,
+        nextMilestone: {
+          ...approvedItem.nextMilestone,
+          requiredItemCount: 3,
+          remainingItemCount: 2,
+        },
+        progress: { approvedCount: 1, inReviewCount: 1, totalCount: 4 },
+      },
+    ],
+    ['진행 현황이 null인', { ...approvedItem, progress: null }],
+    ['진행 현황과 남은 서류 수 칸이 없는', approvedItem],
+  ])('%s 승인 카드를 그대로 받는다', async (_label, item) => {
+    const body = { items: [item] };
+    respondWith(body);
+
+    await expect(fetchStudentDashboard()).resolves.toEqual(body);
+  });
+
+  it.each([
     ['items가 배열이 아님', { items: null }],
 
     [
@@ -265,6 +287,58 @@ describe('fetchStudentDashboard', () => {
               ...approvedItem.nextMilestone,
               dueAt: 'not-a-date',
             },
+          },
+        ],
+      },
+    ],
+    [
+      '남은 서류 수가 필수 서류 수보다 큼',
+      {
+        items: [
+          {
+            ...approvedItem,
+            nextMilestone: {
+              ...approvedItem.nextMilestone,
+              requiredItemCount: 1,
+              remainingItemCount: 2,
+            },
+          },
+        ],
+      },
+    ],
+    [
+      '진행 수치가 정수가 아님',
+      {
+        items: [
+          {
+            ...approvedItem,
+            progress: { approvedCount: 0.5, inReviewCount: 0, totalCount: 2 },
+          },
+        ],
+      },
+    ],
+    [
+      '승인·검토 대기 마일스톤 수가 전체보다 많음',
+      {
+        items: [
+          {
+            ...approvedItem,
+            progress: { approvedCount: 2, inReviewCount: 1, totalCount: 2 },
+          },
+        ],
+      },
+    ],
+    [
+      '승인 전 신청에 진행 현황이 있음',
+      {
+        items: [
+          {
+            ...approvedItem,
+            applicationStatus: 'SUBMITTED',
+            nextMilestone: null,
+            repository: null,
+            detailUrl: `/programs/${approvedItem.programId}/apply`,
+            progress: { approvedCount: 0, inReviewCount: 0, totalCount: 2 },
           },
         ],
       },

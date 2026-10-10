@@ -1,43 +1,17 @@
 import { AlertCircle, CircleCheck, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
 
-import { CardGrid, EmptyState, PageHeader } from '@/components';
+import { EmptyState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import type {
-  DashboardItem,
   ApplicationDecisionNotice,
   StudentDashboard,
   StudentDashboardStatus,
 } from '../types';
-import { StudentDashboardCard } from './student-dashboard-card';
 import { ApplicationDecisionNotices } from './application-decision-notices';
-
-function primaryActionApplicationId(
-  items: readonly DashboardItem[],
-): string | null {
-  let soonest: { id: string; dueAt: number } | null = null;
-  let fallback: string | null = null;
-
-  for (const item of items) {
-    if (
-      item.applicationStatus === 'SUBMITTED' ||
-      item.applicationStatus === 'REJECTED'
-    )
-      continue;
-    fallback ??= item.applicationId;
-
-    const milestone = item.nextMilestone;
-    if (milestone === null) continue;
-    const dueAt = Date.parse(milestone.dueAt);
-    if (Number.isNaN(dueAt)) continue;
-    if (soonest === null || dueAt < soonest.dueAt)
-      soonest = { id: item.applicationId, dueAt };
-  }
-
-  return soonest?.id ?? fallback;
-}
+import { DashboardProgramSections } from './dashboard-program-sections';
 
 interface StudentDashboardViewProps {
   data: StudentDashboard | null;
@@ -51,11 +25,10 @@ interface StudentDashboardViewProps {
 
 function DashboardSkeleton() {
   return (
-    <Skeleton label="대시보드를 불러오는 중">
-      <CardGrid>
-        <SkeletonBlock className="min-h-72 rounded-lg" />
-        <SkeletonBlock className="min-h-72 rounded-lg" />
-      </CardGrid>
+    <Skeleton label="대시보드를 불러오는 중" className="grid gap-4">
+      <SkeletonBlock className="h-8 w-40 rounded-md" />
+      <SkeletonBlock className="h-56 rounded-card" />
+      <SkeletonBlock className="h-56 rounded-card" />
     </Skeleton>
   );
 }
@@ -68,10 +41,6 @@ export function StudentDashboardView({
   applicationDecisionNotices = [],
   onRetry,
 }: StudentDashboardViewProps) {
-  const primaryApplicationId = data
-    ? primaryActionApplicationId(data.items)
-    : null;
-
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
       <PageHeader
@@ -112,16 +81,7 @@ export function StudentDashboardView({
           </AlertDescription>
         </Alert>
       ) : data && data.items.length > 0 ? (
-        <CardGrid>
-          {data.items.map((item) => (
-            <StudentDashboardCard
-              key={item.applicationId}
-              item={item}
-              now={now}
-              isPrimaryAction={item.applicationId === primaryApplicationId}
-            />
-          ))}
-        </CardGrid>
+        <DashboardProgramSections items={data.items} now={now} />
       ) : (
         <EmptyState
           className="break-keep [overflow-wrap:anywhere]"

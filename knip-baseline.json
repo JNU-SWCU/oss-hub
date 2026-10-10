@@ -21,7 +21,7 @@
     },
     "apps/frontend": {
       "files": 4,
-      "exports": 103,
+      "exports": 102,
       "types": 148,
       "dependencies": 3,
       "devDependencies": 1,
