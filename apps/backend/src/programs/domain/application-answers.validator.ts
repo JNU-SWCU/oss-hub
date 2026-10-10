@@ -13,7 +13,7 @@ export type ApplicationAnswers = {
   readonly title: string;
 };
 
-export type ApplicationAnswersValidationFailure = {
+type ApplicationAnswersValidationFailure = {
   readonly ok: false;
   readonly reason:
     'INVALID_SHAPE' | 'UNKNOWN_KEYS' | 'MISSING_REQUIRED' | 'TOO_LONG';
@@ -35,7 +35,7 @@ export function applicationAnswerTooLongMessage(
   return `${APPLICATION_ANSWER_LABELS[key]}은(는) ${limit.toLocaleString('ko-KR')}자를 넘을 수 없습니다.`;
 }
 
-export type ApplicationAnswersValidationSuccess = {
+type ApplicationAnswersValidationSuccess = {
   readonly ok: true;
   readonly answers: ApplicationAnswers;
 };

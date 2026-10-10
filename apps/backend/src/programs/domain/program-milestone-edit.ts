@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { ProgramMilestoneEditView } from './program-editor.types';
 
-export type ProgramMilestoneFingerprintDocument = {
+type ProgramMilestoneFingerprintDocument = {
   readonly id: string;
   readonly name: string;
   readonly required: boolean;

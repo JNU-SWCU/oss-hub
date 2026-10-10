@@ -6,7 +6,7 @@ export type NotifiableStaffRecipient = {
   readonly notificationEmail: string;
 };
 
-export const DEADLINE_LEAD_TIME_MS = 24 * 60 * 60 * 1000;
+const DEADLINE_LEAD_TIME_MS = 24 * 60 * 60 * 1000;
 
 export type DeadlineWindow = {
   readonly from: Date;
@@ -42,7 +42,7 @@ export type DeadlineProgramSource = {
   }[];
 };
 
-export type EligibleDeadlineMilestone = {
+type EligibleDeadlineMilestone = {
   readonly id: string;
   readonly programId: string;
   readonly programName: string;
@@ -51,14 +51,14 @@ export type EligibleDeadlineMilestone = {
   readonly missingDocumentIds: readonly string[];
 };
 
-export type EligibleDeadlineRecipient = {
+type EligibleDeadlineRecipient = {
   readonly id: string;
   readonly nickname: string;
   readonly notificationEmail: string;
   readonly milestones: readonly EligibleDeadlineMilestone[];
 };
 
-export type StaffDeadlineMilestone = EligibleDeadlineMilestone & {
+type StaffDeadlineMilestone = EligibleDeadlineMilestone & {
   readonly missingNicknames: readonly string[];
 };
 

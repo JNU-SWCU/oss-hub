@@ -28,12 +28,8 @@ import type {
 } from './admin-profile.repository.types';
 
 export type {
-  AdminProfileApplyOutcome,
-  AdminProfileLegacyFields,
   AdminProfileRepositoryPort,
-  AdminProfileTargetRecord,
   AdminProfileTransactionStore,
-  AdminProfileWriteFields,
 } from './admin-profile.repository.types';
 
 const ADMIN_PROFILE_TARGET_SELECT = {

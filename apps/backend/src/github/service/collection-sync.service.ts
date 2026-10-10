@@ -48,7 +48,7 @@ const streamErrorCode = (error: unknown): string =>
     ? `PROVIDER_${error.kind}`
     : DEFAULT_STREAM_ERROR_CODE;
 
-export type CollectionSyncRunStatus =
+type CollectionSyncRunStatus =
   'SKIPPED' | 'SKIPPED_LEASE_HELD' | 'COMPLETED' | 'FAILED';
 
 export interface CollectionSyncRunResult {

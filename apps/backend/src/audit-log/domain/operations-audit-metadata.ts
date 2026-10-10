@@ -1,6 +1,6 @@
 import { isJsonObject } from './audit-metadata-validation';
 
-export const COLLECTION_TRIGGER_AUDIT_SCHEMA_VERSION = 1 as const;
+const COLLECTION_TRIGGER_AUDIT_SCHEMA_VERSION = 1 as const;
 export const COLLECTION_TRIGGER_AUDIT_ACTIONS = {
   COLLECTION_SYNC_TRIGGERED: 'COLLECTION_SYNC_TRIGGERED',
 } as const;
@@ -27,7 +27,7 @@ export function parseCollectionTriggerAuditMetadata(
     : null;
 }
 
-export const SUBMISSION_FILE_CLEANUP_AUDIT_SCHEMA_VERSION = 1 as const;
+const SUBMISSION_FILE_CLEANUP_AUDIT_SCHEMA_VERSION = 1 as const;
 export const SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS = {
   SUBMISSION_FILE_CLEANUP_RETRY_RESET: 'SUBMISSION_FILE_CLEANUP_RETRY_RESET',
 } as const;

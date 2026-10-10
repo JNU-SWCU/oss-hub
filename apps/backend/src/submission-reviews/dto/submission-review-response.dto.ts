@@ -9,14 +9,14 @@ import type {
   SubmissionRevisionRecord,
 } from '../domain/submission-review';
 
-export interface SubmissionReviewResponseDto {
+interface SubmissionReviewResponseDto {
   readonly id: string;
   readonly decision: ReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: string;
 }
 
-export interface SubmissionRevisionResponseDto {
+interface SubmissionRevisionResponseDto {
   readonly number: number;
   readonly content: unknown;
   readonly comment: string | null;
@@ -25,7 +25,7 @@ export interface SubmissionRevisionResponseDto {
   readonly review: SubmissionReviewResponseDto | null;
 }
 
-export interface SubmissionReviewFileResponseDto extends Omit<
+interface SubmissionReviewFileResponseDto extends Omit<
   SubmissionReviewFileRecord,
   'expiresAt'
 > {

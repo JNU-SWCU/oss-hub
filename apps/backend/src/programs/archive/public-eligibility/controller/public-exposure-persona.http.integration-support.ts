@@ -41,8 +41,7 @@ const sessionSecret = new Uint8Array(32).fill(23);
 
 const SYNTHETIC_SESSION_SECRET =
   Buffer.from(sessionSecret).toString('base64url');
-export const PUBLIC_EXPOSURE_PERSONA_ALLOWED_ORIGIN =
-  'http://frontend-persona.test';
+const PUBLIC_EXPOSURE_PERSONA_ALLOWED_ORIGIN = 'http://frontend-persona.test';
 
 function makePersonaPrincipal(githubId: bigint): ActivePrincipal {
   return {

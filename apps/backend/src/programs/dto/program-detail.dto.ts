@@ -8,7 +8,7 @@ import type {
 } from '@prisma/client';
 
 export type ProgramViewerRoleResponseDto = AuthorityLabel | 'PENDING' | null;
-export type ViewerSubmissionStatusResponseDto =
+type ViewerSubmissionStatusResponseDto =
   SubmissionStatus | 'NOT_SUBMITTED' | null;
 
 export interface ApplicationSubmissionSummaryResponseDto {
@@ -20,7 +20,7 @@ export interface ApplicationSubmissionSummaryResponseDto {
   readonly total: number;
 }
 
-export interface ProgramMilestoneResponseDto {
+interface ProgramMilestoneResponseDto {
   readonly id: string;
   readonly name: string;
   readonly startAt: string;

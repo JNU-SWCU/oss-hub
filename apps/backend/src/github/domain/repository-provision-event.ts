@@ -1,4 +1,4 @@
-export type RepositoryProvisionConnectionMode = 'NEW' | 'OWN';
+type RepositoryProvisionConnectionMode = 'NEW' | 'OWN';
 
 export interface RepositoryProvisionEventPayload {
   readonly applicationId: string;

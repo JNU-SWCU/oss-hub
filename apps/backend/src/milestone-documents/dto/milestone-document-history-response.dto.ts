@@ -1,7 +1,7 @@
 import type { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import type { MilestoneDocumentSubmittedContent } from '../domain/milestone-document-content';
 
-export interface MilestoneDocumentHistoryItemResponseDto {
+interface MilestoneDocumentHistoryItemResponseDto {
   readonly event: MilestoneDocumentSubmissionHistoryEvent;
   readonly revision: number | null;
   readonly actorNickname: string;

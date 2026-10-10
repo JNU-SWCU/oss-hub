@@ -21,7 +21,7 @@ export const INDEPENDENT_AUTHORITY_AUDIT_COMMANDS = {
   ...INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
   SET_MEMBER_KIND: 'SET_MEMBER_KIND',
 } as const;
-export type IndependentAuthorityAuditCommand =
+type IndependentAuthorityAuditCommand =
   (typeof INDEPENDENT_AUTHORITY_AUDIT_COMMANDS)[keyof typeof INDEPENDENT_AUTHORITY_AUDIT_COMMANDS];
 export type IndependentAuthorityAuditAction =
   (typeof INDEPENDENT_AUTHORITY_AUDIT_ACTIONS)[keyof typeof INDEPENDENT_AUTHORITY_AUDIT_ACTIONS];

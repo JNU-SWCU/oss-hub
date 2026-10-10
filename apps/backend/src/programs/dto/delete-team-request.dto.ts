@@ -11,7 +11,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-export const TEAM_DELETION_NOTIFICATION_MESSAGE_MAX_LENGTH = 500;
+const TEAM_DELETION_NOTIFICATION_MESSAGE_MAX_LENGTH = 500;
 
 export class DeleteTeamExpectedScopeRequestDto {
   @IsInt()

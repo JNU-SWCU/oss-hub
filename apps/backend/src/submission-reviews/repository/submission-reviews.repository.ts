@@ -22,7 +22,7 @@ import {
   toReviewContext,
 } from './submission-review-context.mapper';
 
-export interface CreateReviewRecordInput {
+interface CreateReviewRecordInput {
   readonly submissionHistoryId: string;
   readonly milestoneDocumentSubmissionId: string;
   readonly revision: number;
@@ -32,7 +32,7 @@ export interface CreateReviewRecordInput {
   readonly reviewedAt: Date;
 }
 
-export interface TransitionSubmissionInput {
+interface TransitionSubmissionInput {
   readonly submissionId: string;
   readonly expectedRevision: number;
   readonly nextStatus: SubmissionStatus;

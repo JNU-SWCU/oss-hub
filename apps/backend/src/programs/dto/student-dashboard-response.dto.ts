@@ -4,7 +4,7 @@ import type {
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 
-export interface StudentDashboardMilestoneResponseDto {
+interface StudentDashboardMilestoneResponseDto {
   readonly id: string;
   readonly name: string;
   readonly dueAt: string;

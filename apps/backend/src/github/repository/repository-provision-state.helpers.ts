@@ -308,7 +308,7 @@ export async function claimGithubRepositoryForApplication(
 export const PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE =
   'REPOSITORY_PROVISION_MEMBERSHIP_UNAVAILABLE';
 
-export const REVOCATION_INVITATION_STATUSES = [
+const REVOCATION_INVITATION_STATUSES = [
   RepositoryInvitationStatus.REVOKE_REQUIRED,
   RepositoryInvitationStatus.REVOKED,
   RepositoryInvitationStatus.REVOKE_FAILED_RETRYABLE,

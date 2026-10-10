@@ -12,7 +12,7 @@ export interface BuiltDeadlineMail {
   readonly html: string;
 }
 
-export class FrontendOriginError extends Error {
+class FrontendOriginError extends Error {
   override readonly name = 'FrontendOriginError';
 
   constructor() {

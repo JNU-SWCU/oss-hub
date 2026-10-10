@@ -86,7 +86,7 @@ export function programListPrismaWhere(
   return whereByStatus[status];
 }
 
-export function programListStatusCaseSql(now: Date): Prisma.Sql {
+function programListStatusCaseSql(now: Date): Prisma.Sql {
   return Prisma.sql`
     CASE
       WHEN p."lifecycle" = 'ARCHIVED' THEN 'ended'
@@ -134,7 +134,7 @@ export function programListStatusSortRank(
   }
 }
 
-export function programListStatusSortRankSql(now: Date): Prisma.Sql {
+function programListStatusSortRankSql(now: Date): Prisma.Sql {
   return Prisma.sql`
     CASE (${programListStatusCaseSql(now)})
       WHEN 'recruiting' THEN 0

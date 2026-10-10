@@ -27,12 +27,12 @@ export interface MilestoneDocumentCollectionDocumentResponseDto {
   readonly sortOrder: number;
 }
 
-export interface MilestoneDocumentCollectionFileResponseDto {
+interface MilestoneDocumentCollectionFileResponseDto {
   readonly name: string;
   readonly sizeBytes: number;
 }
 
-export interface MilestoneDocumentCollectionCellResponseDto {
+interface MilestoneDocumentCollectionCellResponseDto {
   readonly documentId: string;
   readonly isSubmitted: boolean;
   readonly submittedAt: string | null;
@@ -47,7 +47,7 @@ export interface MilestoneDocumentCollectionCellResponseDto {
   readonly review: MilestoneDocumentCollectionReviewResponseDto | null;
 }
 
-export interface MilestoneDocumentCollectionReviewResponseDto {
+interface MilestoneDocumentCollectionReviewResponseDto {
   readonly id: string;
   readonly decision: ReviewDecision;
   readonly comment: string | null;

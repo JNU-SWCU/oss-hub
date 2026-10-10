@@ -4,7 +4,7 @@ import type {
 } from '@prisma/client';
 import type { ApplicationDecisionResult } from '../domain/application-decision';
 
-export interface ApprovedApplicationDecisionResponseDto {
+interface ApprovedApplicationDecisionResponseDto {
   readonly applicationId: string;
   readonly status: ApplicationStatus;
   readonly repositoryProvisioning: {
@@ -14,13 +14,13 @@ export interface ApprovedApplicationDecisionResponseDto {
   };
 }
 
-export interface RejectedApplicationDecisionResponseDto {
+interface RejectedApplicationDecisionResponseDto {
   readonly applicationId: string;
   readonly status: ApplicationStatus;
   readonly rejectionReason: string;
 }
 
-export interface RevertedApplicationDecisionResponseDto {
+interface RevertedApplicationDecisionResponseDto {
   readonly applicationId: string;
   readonly status: ApplicationStatus;
 }

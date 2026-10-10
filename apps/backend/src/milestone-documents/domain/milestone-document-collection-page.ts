@@ -14,7 +14,7 @@ export interface MilestoneDocumentCollectionSubmissionRule {
   readonly milestoneDocumentId: string;
 }
 
-export interface MilestoneDocumentCollectionPageRow<
+interface MilestoneDocumentCollectionPageRow<
   TApplication extends MilestoneDocumentCollectionApplicationRule,
   TSubmission extends MilestoneDocumentCollectionSubmissionRule,
 > {
@@ -22,13 +22,13 @@ export interface MilestoneDocumentCollectionPageRow<
   readonly cells: readonly (TSubmission | null)[];
 }
 
-export interface MilestoneDocumentCollectionFilterCounts {
+interface MilestoneDocumentCollectionFilterCounts {
   readonly all: number;
   readonly hasMissing: number;
   readonly zeroSubmission: number;
 }
 
-export interface MilestoneDocumentCollectionDocumentTotal {
+interface MilestoneDocumentCollectionDocumentTotal {
   readonly documentId: string;
   readonly submitted: number;
   readonly total: number;

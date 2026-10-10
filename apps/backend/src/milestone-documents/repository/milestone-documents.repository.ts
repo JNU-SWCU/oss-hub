@@ -83,7 +83,7 @@ export interface MilestoneDocumentSubmissionCoordinate {
   readonly applicationId: string;
 }
 
-export interface MilestoneDocumentCollectionHistoryRecord {
+interface MilestoneDocumentCollectionHistoryRecord {
   readonly event: MilestoneDocumentSubmissionHistoryEvent;
   readonly revision: number | null;
   readonly actorNickname: string;
@@ -117,7 +117,7 @@ export interface MilestoneDocumentArchiveSubmissionRecord {
   } | null;
 }
 
-export interface CreateMilestoneDocumentReviewInput {
+interface CreateMilestoneDocumentReviewInput {
   readonly milestoneDocumentSubmissionId: string;
   readonly submissionHistoryId: string;
   readonly revision: number;
@@ -144,7 +144,7 @@ export interface StaffDownloadableMilestoneDocumentFile {
   readonly teamName: string;
 }
 
-export interface MilestoneDocumentTemplateInput {
+interface MilestoneDocumentTemplateInput {
   readonly milestoneDocumentId: string;
   readonly uploadedById: string;
   readonly storageKey: string;
@@ -166,11 +166,11 @@ export interface UpdateMilestoneDocumentInput {
   readonly required: boolean;
 }
 
-export interface LockedMilestone {
+interface LockedMilestone {
   readonly id: string;
 }
 
-export interface LockedMilestoneDocument {
+interface LockedMilestoneDocument {
   readonly id: string;
   readonly milestoneId: string;
 }

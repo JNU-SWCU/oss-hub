@@ -1,7 +1,7 @@
 type CollectionRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
 type CollectionRepositoryPresence = 'PRESENT' | 'ABSENT';
 
-export interface PublicEligibilityObservation {
+interface PublicEligibilityObservation {
   readonly visibility: CollectionRepositoryVisibility;
   readonly presence: CollectionRepositoryPresence;
   readonly observedAt: Date | null;

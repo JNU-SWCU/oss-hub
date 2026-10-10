@@ -55,7 +55,7 @@ export interface MilestoneDocumentArchiveSubmission {
   } | null;
 }
 
-export type MilestoneDocumentArchiveEntry =
+type MilestoneDocumentArchiveEntry =
   | {
       readonly kind: 'STORED_FILE';
       readonly path: string;

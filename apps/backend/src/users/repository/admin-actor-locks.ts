@@ -6,7 +6,7 @@ import {
 import { authorityLabel } from '../domain/authority-label';
 import type { AdminAccessActor } from './admin-access.repository.types';
 
-export const ADMIN_ACTOR_SELECT = {
+const ADMIN_ACTOR_SELECT = {
   id: true,
   githubId: true,
   nickname: true,

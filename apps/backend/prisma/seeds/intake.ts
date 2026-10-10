@@ -255,12 +255,6 @@ const PROGRAM_WITH_APPLICATIONS_ID = seedId(
 );
 const PROGRAM_TEAM_TRACK_ID = seedId('intake', 'program-team-track');
 
-export const APPLICATION_VALIDATION_ERROR_FIXTURE = {
-  scenarioId: 'application-validation-error',
-
-  answers: { title: '' },
-};
-
 export async function seedIntake(stats: SeedStats): Promise<void> {
   stats.noteFixtureOnly('empty-programs');
 

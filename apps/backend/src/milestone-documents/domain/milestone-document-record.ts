@@ -51,7 +51,7 @@ export interface CreatedMilestoneDocumentReview {
   readonly resubmissionDueAt: Date | null;
   readonly reviewerNickname: string;
 }
-export interface MilestoneDocumentSubmissionFile {
+interface MilestoneDocumentSubmissionFile {
   readonly id: string;
   readonly originalFileName: string;
   readonly mimeType: string;

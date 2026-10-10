@@ -18,10 +18,9 @@ import type {
 } from '../domain/program-authoring.types';
 
 export const AUTHORING_TEST_PREFIX = 'test:p5:authoring:';
-export const AUTHORING_OBJECT_PREFIX = 'program-authoring/test-p5-authoring';
-export const AUTHORING_NOW = new Date('2026-08-10T00:00:00.000Z');
-export const AUTHORING_EXPIRES_AT = new Date('2026-08-11T00:00:00.000Z');
-export const AUTHORING_ALLOWED_ORIGIN = 'http://program-authoring.test';
+const AUTHORING_OBJECT_PREFIX = 'program-authoring/test-p5-authoring';
+const AUTHORING_NOW = new Date('2026-08-10T00:00:00.000Z');
+const AUTHORING_EXPIRES_AT = new Date('2026-08-11T00:00:00.000Z');
 
 type SeedUploadOptions = {
   readonly actorId: string;
@@ -214,24 +213,10 @@ export function authoringDocument(
   };
 }
 
-export function pdfBody(label: string, size = 64): Buffer {
+function pdfBody(label: string, size = 64): Buffer {
   const body = Buffer.alloc(size);
   Buffer.from(`%PDF-${label}`).copy(body);
   return body;
-}
-
-export async function runTogether<T>(
-  operations: readonly (() => Promise<T>)[],
-): Promise<readonly PromiseSettledResult<T>[]> {
-  let release: (() => void) | undefined;
-  const barrier = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const results = operations.map((operation) => barrier.then(operation));
-  if (release === undefined)
-    throw new Error('Concurrent barrier was not initialized');
-  release();
-  return Promise.allSettled(results);
 }
 
 function isNotFound(error: unknown): boolean {

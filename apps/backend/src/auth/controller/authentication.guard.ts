@@ -4,7 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Request, type Response } from 'express';
+import type { Request, Response } from 'express';
 import { DomainException } from '../../common/error-code';
 import {
   AUTH_ERROR_CODES,

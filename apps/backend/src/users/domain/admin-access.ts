@@ -71,14 +71,14 @@ export type AdminAccessPendingRequest = {
   readonly createdAt: Date;
 };
 
-export type AdminAccessCasProjection = {
+type AdminAccessCasProjection = {
   readonly id: string;
   readonly role: AuthorityLabel | null;
   readonly accountStatus: AccountStatus;
   readonly pendingRequest: AdminAccessPendingRequest | null;
 };
 
-export type AdminAccessDecidedRequest = {
+type AdminAccessDecidedRequest = {
   readonly id: string;
   readonly status:
     | typeof StaffAccessRequestStatus.APPROVED
@@ -113,7 +113,7 @@ export type AdminAccessListQuery = {
   readonly limit: number;
 };
 
-export type AdminAccessProfile = {
+type AdminAccessProfile = {
   readonly name: string | null;
   readonly studentId: string | null;
   readonly staffNumber: string | null;
@@ -166,7 +166,7 @@ export type AdminAccessUserDetail = AdminAccessUser & {
   readonly profile: AdminAccessProfile;
 };
 
-export type AdminAccessStaffAccessRequestHistoryItem = {
+type AdminAccessStaffAccessRequestHistoryItem = {
   readonly id: string;
   readonly status: StaffAccessRequestStatus;
   readonly rejectionReason: string | null;
@@ -182,7 +182,7 @@ export type AdminAccessStaffAccessRequestHistoryPage = {
   readonly total: number;
 };
 
-export type AdminAccessLoginHistoryItem = {
+type AdminAccessLoginHistoryItem = {
   readonly id: string;
   readonly event: LoginHistoryEvent;
   readonly provider: 'github';

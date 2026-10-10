@@ -24,7 +24,7 @@ export class StaffInsightsScopeResponseDto {
   }
 }
 
-export class StaffInsightsMetricsResponseDto {
+class StaffInsightsMetricsResponseDto {
   readonly studentCount: number;
   readonly activeStudentCount: number;
   readonly commitCount: number;

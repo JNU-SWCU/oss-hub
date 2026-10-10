@@ -6,8 +6,8 @@ import {
   type SubmissionMatrixQuery,
 } from '../domain/submission-matrix';
 
-export const MATRIX_DEFAULT_PAGE_SIZE = 20;
-export const MATRIX_MAX_PAGE_SIZE = 100;
+const MATRIX_DEFAULT_PAGE_SIZE = 20;
+const MATRIX_MAX_PAGE_SIZE = 100;
 
 export class SubmissionMatrixQueryRequestDto {
   @IsOptional()

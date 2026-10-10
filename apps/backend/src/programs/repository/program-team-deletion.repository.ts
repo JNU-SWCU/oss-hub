@@ -10,10 +10,7 @@ import {
   type TeamDeletionScopeCounts,
 } from '../domain/team-deletion-scope';
 
-export type TeamDeletedCounts = Omit<
-  TeamDeletionScopeCounts,
-  'scopeFingerprint'
->;
+type TeamDeletedCounts = Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>;
 
 export interface TeamDeletionAuditEvent {
   readonly teamId: string;

@@ -37,7 +37,7 @@ export type ProgramMilestoneDocumentView = {
   readonly templateFileName: string | null;
 };
 
-export type ProgramMilestoneOperationView = {
+type ProgramMilestoneOperationView = {
   readonly startAt: Date;
   readonly endAt: Date;
 };
@@ -77,31 +77,6 @@ export type ApplyProgramMilestoneEditInput = {
     readonly templateUploadId?: string;
   }[];
   readonly uploads: readonly ProgramAuthoringUploadToken[];
-};
-
-export type UpdateProgramMilestoneDocumentInput = {
-  readonly id: string | null;
-  readonly name: string;
-  readonly required: boolean;
-  readonly templateUploadId?: string;
-};
-
-export type UpdateProgramMilestoneInput = {
-  readonly milestoneId: string;
-  readonly name: string;
-  readonly startAt: string;
-  readonly dueAt: string;
-  readonly instructions: string | null;
-  readonly documents: readonly UpdateProgramMilestoneDocumentInput[];
-  readonly expectedFingerprint: string;
-};
-
-export type ProgramCategoryLockState = {
-  readonly locked: boolean;
-  readonly byApplications: boolean;
-  readonly byTeams: boolean;
-  readonly applicationCount: number;
-  readonly teamCount: number;
 };
 
 export type EditableProgramView = {

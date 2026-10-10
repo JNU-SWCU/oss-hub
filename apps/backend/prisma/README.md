@@ -74,7 +74,7 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
 - `intake` (15) — `seeds/intake.ts`: `empty-programs`, `program-seven-templates`,
   `program-overdue`, `program-with-applications`, `program-no-repository`, `empty-applications`,
   `application-personal`, `application-pending`, `application-approved`, `application-rejected`,
-  `application-validation-error`(fixture 전용, DB에 심지 않음 — `APPLICATION_VALIDATION_ERROR_FIXTURE`),
+  `application-validation-error`(fixture 전용, DB에 심지 않음),
   `team-empty`, `team-full`, `application-team`, `team-locked`.
 - `milestones` (7) — `seeds/milestones.ts`의 `MILESTONE_SCENARIOS`: `milestones-upcoming`,
   `milestones-overdue`, `milestone-with-submission`, `submission-existing`,

@@ -1,5 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { DomainException } from '../../common/error-code';
 import {
   AUTH_ERROR_CODES,
