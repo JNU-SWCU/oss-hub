@@ -1,13 +1,14 @@
+import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
 import { Injectable } from '@nestjs/common';
 import { type AccountStatus, type Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   parseAuditLogMetadata,
   type AuditLogMetadata,
   type AuditLogMetadataEvidence,
   type AuditLogMetadataView,
-} from './audit-log-metadata';
-import type { AuditLogListQueryRequestDto } from './dto/audit-log-query.dto';
+} from '../domain/audit-log-metadata';
+import type { AuditLogListQuery } from '../domain/audit-log-query';
 
 const PROGRAM_TARGET_TYPE = 'PROGRAM';
 const REPOSITORY_TARGET_TYPE = 'REPOSITORY';
@@ -26,11 +27,6 @@ const auditLogSelect = {
 type PrismaAuditLog = Prisma.AuditLogGetPayload<{
   select: typeof auditLogSelect;
 }>;
-
-export type AuditLogTransactionWriter = Pick<
-  Prisma.TransactionClient,
-  'auditLog'
->;
 
 export interface AuditLogActor {
   readonly id: string;
@@ -74,17 +70,8 @@ export interface AuditLogRecordInput {
   readonly metadata: AuditLogMetadata;
 }
 
-export interface AuditLogRepositoryPort {
-  findActorByGithubId(githubId: bigint): Promise<AuditLogActor | null>;
-  list(query: AuditLogListQueryRequestDto): Promise<AuditLogListResult>;
-  record(
-    input: AuditLogRecordInput,
-    writer?: AuditLogTransactionWriter,
-  ): Promise<AuditLogRecord>;
-}
-
 @Injectable()
-export class AuditLogRepository implements AuditLogRepositoryPort {
+export class AuditLogRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   findActorByGithubId(githubId: bigint): Promise<AuditLogActor | null> {
@@ -99,7 +86,7 @@ export class AuditLogRepository implements AuditLogRepositoryPort {
     });
   }
 
-  async list(query: AuditLogListQueryRequestDto): Promise<AuditLogListResult> {
+  async list(query: AuditLogListQuery): Promise<AuditLogListResult> {
     const where: Prisma.AuditLogWhereInput = {
       actor: query.actor
         ? { nickname: { contains: query.actor, mode: 'insensitive' } }

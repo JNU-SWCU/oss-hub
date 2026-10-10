@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto';
 import {
   COLLECTION_TRIGGER_AUDIT_ACTIONS,
   createCollectionTriggerAuditMetadata,
-} from '../../audit-log/audit-log-metadata';
-import { AuditLogService } from '../../audit-log/audit-log.service';
+} from '../../audit-log/domain/audit-log-metadata';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { DomainException } from '../../common/error-code';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { ContributionInvariants } from '../contribution-invariants';

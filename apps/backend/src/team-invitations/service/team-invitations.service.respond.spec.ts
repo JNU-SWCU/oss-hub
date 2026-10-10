@@ -6,8 +6,8 @@ import {
   TeamInvitationStatus,
 } from '@prisma/client';
 import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../../github/repository-provision-event';
-import { TEAM_JOINED_AUDIT_ACTIONS } from '../../audit-log/audit-log-metadata';
-import type { AuditLogService } from '../../audit-log/audit-log.service';
+import { TEAM_JOINED_AUDIT_ACTIONS } from '../../audit-log/domain/audit-log-metadata';
+import type { AuditLogService } from '../../audit-log/service/audit-log.service';
 import type { PrismaService } from '../../prisma/prisma.service';
 import { acceptTeamInvitationTransaction } from '../repository/team-invitations.repository';
 import { TeamInvitationErrorCode } from '../team-invitation-error-code.enum';

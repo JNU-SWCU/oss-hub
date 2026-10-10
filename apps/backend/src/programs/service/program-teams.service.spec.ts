@@ -1,11 +1,11 @@
 import { ProgramCategory } from '@prisma/client';
-import type { AuditLogService } from '../../audit-log/audit-log.service';
+import type { AuditLogService } from '../../audit-log/service/audit-log.service';
 import {
   TEAM_CREATED_AUDIT_ACTIONS,
   TEAM_DELETED_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_RENAMED_AUDIT_ACTIONS,
-} from '../../audit-log/audit-log-metadata';
+} from '../../audit-log/domain/audit-log-metadata';
 import { DomainException } from '../../common/error-code';
 import { computeJoinCodeDigest } from '../domain/join-code-digest';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';

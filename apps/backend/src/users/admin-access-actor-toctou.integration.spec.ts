@@ -1,8 +1,8 @@
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
-import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogRepository } from '../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RolesErrorCode } from './domain/roles-error-code.enum';
 import { PausingActorRevalidationAdminAccessRepository } from './admin-access.integration-support';
