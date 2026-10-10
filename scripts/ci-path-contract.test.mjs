@@ -253,7 +253,7 @@ const scopes = [
   'rails',
 ];
 const railsTestCommand =
-  'node --test scripts/check-lint-ratchet.test.mjs scripts/check-knip-ratchet.test.mjs scripts/prisma-enum-names.test.mjs';
+  'node --test scripts/check-knip-ratchet.test.mjs scripts/prisma-enum-names.test.mjs';
 const railsEnvironment = [
   'EVENT_NAME: ${{ github.event_name }}',
   'PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}',
@@ -329,11 +329,9 @@ function validateRails(source) {
     'set -euo pipefail',
     'case "$EVENT_NAME" in',
     '  pull_request)',
-    '    node scripts/check-lint-ratchet.mjs --event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"',
     '    node scripts/check-knip-ratchet.mjs --event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"',
     '    ;;',
     '  push)',
-    '    node scripts/check-lint-ratchet.mjs --event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"',
     '    node scripts/check-knip-ratchet.mjs --event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"',
     '    ;;',
     '  *)',

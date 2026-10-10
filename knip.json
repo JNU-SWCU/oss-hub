@@ -26,11 +26,7 @@
       "project": ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"]
     },
     "apps/backend": {
-      "eslint": {
-        "config": ["eslint.config.mjs", "eslint.rails.mjs"]
-      },
       "entry": [
-        "scripts/lint-fixture-runner.mjs",
         "src/main.ts",
         "test/e2e-program-authoring/main.ts",
         "prisma/seed.ts",
@@ -48,7 +44,6 @@
         "entry": ["src/app/globals.css"]
       },
       "entry": [
-        "eslint.rails.mjs",
         "src/middleware.ts",
         "next.config.ts",
         "{src,test-support,e2e/support}/**/*.test.{ts,tsx}",

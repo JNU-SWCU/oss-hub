@@ -94,7 +94,7 @@ for (const from of layers) {
       const name = `${from}-${to}-${foreign ? 'foreign' : 'own'}`;
       const allowed =
         permitted[from].includes(to) &&
-        !(foreign && (to === 'repository' || to === 'gateway'));
+        !(foreign && (to === 'repository' || to === 'gateway' || to === 'dto'));
       edge(
         name,
         `src/alpha/${from}/${name}.ts`,
@@ -136,19 +136,19 @@ edge(
   true,
 );
 edge(
-  'migrated service may import a not yet migrated module file',
+  'service cannot import an unclassified module file',
   'src/alpha/service/legacy.ts',
   'src/beta/beta.service.ts',
-  true,
+  false,
 );
 edge(
-  'migrated test may import a not yet migrated module file',
+  'test may import an unclassified module file',
   'src/alpha/service/legacy.spec.ts',
   'src/beta/beta.service.ts',
   true,
 );
 edge(
-  'migrated service still cannot import a migrated foreign repository',
+  'service cannot import a foreign repository',
   'src/alpha/service/foreign.ts',
   'src/beta/repository/beta.repository.ts',
   false,
@@ -351,6 +351,86 @@ edge(
   'nested dto may use foreign domain',
   'src/programs/archive/projects/dto/read.ts',
   'src/alpha/domain/target.ts',
+  true,
+);
+edge(
+  'nested controller cannot use parent module dto',
+  'src/programs/archive/projects/controller/read.ts',
+  'src/programs/dto/target.ts',
+  false,
+);
+edge(
+  'deep service file cannot use foreign dto',
+  'src/alpha/service/internal/deep/dto.ts',
+  'src/beta/dto/target.ts',
+  false,
+);
+edge(
+  'deep service file may use foreign domain',
+  'src/alpha/service/internal/deep/domain.ts',
+  'src/beta/domain/target.ts',
+  true,
+);
+edge(
+  'deep service file cannot use foreign repository',
+  'src/alpha/service/internal/deep/repository.ts',
+  'src/beta/repository/target.ts',
+  false,
+);
+edge(
+  'test may use foreign dto',
+  'src/alpha/service/dto.spec.ts',
+  'src/beta/dto/target.ts',
+  true,
+);
+for (const consumer of ['programs', 'ranking', 'system-status']) {
+  edge(
+    `github service cannot import consumer ${consumer}`,
+    `src/github/service/${consumer}.ts`,
+    `src/${consumer}/service/target.ts`,
+    false,
+  );
+  edge(
+    `github test cannot import consumer ${consumer}`,
+    `src/github/service/${consumer}.spec.ts`,
+    `src/${consumer}/domain/target.ts`,
+    false,
+  );
+  edge(
+    `consumer ${consumer} may call github service`,
+    `src/${consumer}/service/github.ts`,
+    'src/github/service/target.ts',
+    true,
+  );
+}
+edge(
+  'github service may call non-consumer service',
+  'src/github/service/users.ts',
+  'src/users/service/authority.service.ts',
+  true,
+);
+edge(
+  'github composition cannot import consumer module',
+  'src/github/consumer.module.ts',
+  'src/programs/programs.module.ts',
+  false,
+);
+edge(
+  'consumer cannot import github repository',
+  'src/ranking/service/github-repository.ts',
+  'src/github/repository/target.ts',
+  false,
+);
+edge(
+  'consumer repository cannot import github service',
+  'src/programs/repository/github-service.ts',
+  'src/github/service/target.ts',
+  false,
+);
+edge(
+  'consumer repository may use github domain',
+  'src/programs/repository/github-domain.ts',
+  'src/github/domain/target.ts',
   true,
 );
 
@@ -618,6 +698,102 @@ add(
   'src/providers/computed-namespace.module.ts',
   "import * as Nest from '@nestjs/core'; const APP_GUARD = 'other'; export const provider = { provide: Nest[APP_GUARD], useExisting: Object };",
   'architecture/no-class-alias',
+);
+
+const restrictedImports = 'architecture/restricted-imports';
+const restrictedSyntax = 'architecture/restricted-syntax';
+const nestTesting =
+  "import { Test } from '@nestjs/testing'; export const value = Test;";
+add(
+  'production cannot import @nestjs/testing',
+  'src/alpha/service/nest-testing.ts',
+  nestTesting,
+  restrictedImports,
+);
+for (const file of [
+  'src/alpha/service/nest-testing.spec.ts',
+  'src/alpha/service/nest-testing.test-support.ts',
+  'test/nest-testing.ts',
+]) {
+  add(`${file} may import @nestjs/testing`, file, nestTesting, null);
+}
+for (const file of [
+  'src/alpha/job/main-import.ts',
+  'test/main-import.spec.ts',
+]) {
+  add(
+    `${file} cannot import the bootstrap entry`,
+    file,
+    `import { value } from ${JSON.stringify(reference(file, 'src/main.ts'))}; export { value };`,
+    restrictedImports,
+  );
+}
+
+const envAccess: [string, string][] = [
+  ['process-env-read', 'export const value = process.env.KEY;'],
+  ['process-env-destructuring', 'const { KEY } = process.env; export { KEY };'],
+  [
+    'node-env-test-branch',
+    "export const isTest = (env: { NODE_ENV: string }) => env.NODE_ENV === 'test';",
+  ],
+  [
+    'reversed-node-env-test-branch',
+    "export const isTest = (env: { NODE_ENV: string }) => 'test' !== env.NODE_ENV;",
+  ],
+];
+for (const [name, code] of envAccess) {
+  add(
+    `production rejects ${name}`,
+    `src/alpha/service/${name}.ts`,
+    code,
+    restrictedSyntax,
+  );
+  add(
+    `github rejects ${name}`,
+    `src/github/service/${name}.ts`,
+    code,
+    restrictedSyntax,
+  );
+  add(`test accepts ${name}`, `src/alpha/service/${name}.spec.ts`, code, null);
+}
+add(
+  'NODE_ENV production branch is accepted',
+  'src/alpha/service/node-env-production.ts',
+  "export const isProduction = (env: { NODE_ENV: string }) => env.NODE_ENV === 'production';",
+  null,
+);
+add(
+  'runtime config manifest may read process.env',
+  'src/runtime-config/runtime-config.ts',
+  'export const value = process.env.KEY; export interface Shape { id: string }',
+  null,
+);
+
+const canonicalDelegate =
+  'export const read = (client: { canonicalOrganizationState: { findMany(): unknown } }) => client.canonicalOrganizationState.findMany();';
+add(
+  'canonical delegate is rejected outside github',
+  'src/alpha/repository/canonical.ts',
+  canonicalDelegate,
+  restrictedSyntax,
+);
+add(
+  'canonical delegate is accepted inside github',
+  'src/github/repository/canonical.ts',
+  canonicalDelegate,
+  null,
+);
+add(
+  'plain delegate is accepted outside github',
+  'src/alpha/repository/plain.ts',
+  canonicalDelegate.split('canonicalOrganizationState').join('user'),
+  null,
+);
+add(
+  'test may access canonical delegate',
+  'src/alpha/repository/canonical.spec.ts',
+  canonicalDelegate,
+  null,
 );
 
 const runner = `
@@ -933,7 +1109,7 @@ for (const { name, root } of JSON.parse(requests)) {
 process.stdout.write(JSON.stringify(output));
 `;
 
-describe('physical cycle diagnostics for the trusted lint ratchet', () => {
+describe('physical cycle diagnostics', () => {
   const roots = new Set<string>();
   let results: Record<string, (Linter.LintMessage & { file: string })[]>;
 
@@ -981,7 +1157,7 @@ describe('physical cycle diagnostics for the trusted lint ratchet', () => {
   }
 
   it.each(cycles)(
-    'emits ratchetable $name cycle diagnostics from physical files',
+    'emits $name cycle diagnostics from physical files',
     ({ name }) => {
       expect(findings(name).length).toBeGreaterThan(0);
       for (const message of findings(name)) {

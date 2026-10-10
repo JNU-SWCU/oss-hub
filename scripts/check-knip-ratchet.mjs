@@ -4,12 +4,6 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  assertJointRetirement,
-  parseArguments,
-  resolvePredecessor,
-} from './check-lint-ratchet.mjs';
-
 const KNIP_VERSION = '6.40.0';
 const ISSUE_TYPES = [
   'files',
@@ -22,10 +16,8 @@ const ISSUE_TYPES = [
 ];
 const WORKSPACES = ['.', 'apps/backend', 'apps/frontend'];
 const BASELINE = 'knip-baseline.json';
-const CHECKERS = [
-  'scripts/check-lint-ratchet.mjs',
-  'scripts/check-knip-ratchet.mjs',
-];
+const CHECKER = 'scripts/check-knip-ratchet.mjs';
+const SHA = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 const REPORT_TYPES = new Set([
   ...ISSUE_TYPES,
   'optionalPeerDependencies',
@@ -55,6 +47,79 @@ function git(root, args) {
   } catch {
     fail('base-unavailable', `git ${args[0]} failed`);
   }
+}
+
+function commit(root, sha, label) {
+  if (!SHA.test(sha) || /^0+$/.test(sha))
+    fail('base-unavailable', `${label} must be a nonzero full SHA`);
+  if (git(root, ['rev-parse', '--verify', `${sha}^{commit}`]) !== sha)
+    fail('base-unavailable', `${label} is not a commit`);
+  return sha;
+}
+
+export function parseArguments(args, env = process.env) {
+  const options = { event: env.GITHUB_EVENT_NAME, prune: false, seed: false };
+  const seen = new Set();
+  for (let index = 0; index < args.length; index += 1) {
+    const flag = args[index];
+    if (seen.has(flag)) fail('arguments', `duplicate ${flag}`);
+    seen.add(flag);
+    if (flag === '--prune' || flag === '--seed') {
+      options[flag.slice(2)] = true;
+    } else if (['--base-sha', '--head-sha', '--event'].includes(flag)) {
+      const value = args[++index];
+      if (!value || value.startsWith('--'))
+        fail('arguments', `missing value for ${flag}`);
+      options[
+        {
+          '--base-sha': 'baseSha',
+          '--head-sha': 'headSha',
+          '--event': 'event',
+        }[flag]
+      ] = value;
+    } else {
+      fail('arguments', `unknown option ${flag}`);
+    }
+  }
+  if (options.prune && options.seed)
+    fail('arguments', '--seed and --prune are exclusive');
+  if (Boolean(options.baseSha) !== Boolean(options.headSha))
+    fail('arguments', 'base and head SHAs are required together');
+  if (options.baseSha && !['push', 'pull_request'].includes(options.event))
+    fail(
+      'arguments',
+      'explicit SHAs require --event push|pull_request or GITHUB_EVENT_NAME',
+    );
+  if (!options.baseSha && (options.event || env.CI === 'true'))
+    fail(
+      'arguments',
+      'CI/event invocation requires explicit base and head SHAs',
+    );
+  return options;
+}
+
+function resolvePredecessor(root, options) {
+  const checkedHead = git(root, ['rev-parse', 'HEAD']);
+  if (!options.baseSha) {
+    git(root, ['fetch', '--no-tags', 'origin', 'main']);
+    const base = git(root, ['merge-base', 'HEAD', 'origin/main']);
+    return commit(root, base, 'local merge-base');
+  }
+  const head = commit(root, options.headSha, 'head');
+  const base = commit(root, options.baseSha, 'base');
+  if (checkedHead !== head)
+    fail('head-mismatch', 'checkout HEAD differs from the event head SHA');
+  if (options.event === 'pull_request')
+    return commit(root, git(root, ['merge-base', base, head]), 'PR merge-base');
+  if (options.event !== 'push') fail('arguments', 'unsupported event');
+  const ancestor = spawnSync(
+    'git',
+    ['merge-base', '--is-ancestor', base, head],
+    { cwd: root },
+  );
+  if (ancestor.status !== 0 || base === head)
+    fail('non-ancestor-before', 'push base must be a strict ancestor of head');
+  return base;
 }
 
 function object(value) {
@@ -136,12 +201,7 @@ function readPredecessor(root, sha) {
   const budget = metadata
     ? parseBudget(git(root, ['show', `${sha}:${BASELINE}`]))
     : null;
-  const introduced =
-    CHECKERS.some((file) => tree.has(file)) ||
-    [...tree.keys()].some((file) =>
-      /^apps\/(backend|frontend)\/lint-baseline\//.test(file),
-    );
-  return { budget, introduced };
+  return { budget, introduced: tree.has(CHECKER) };
 }
 
 function requireAtMost(left, right, code) {
@@ -298,17 +358,13 @@ export async function runKnipRatchet(
     if (head !== null) requireAtMost(head, predecessor.budget, 'budget-growth');
   } else if (!predecessor.introduced) {
     mode = 'seed';
+    const checker = path.join(root, CHECKER);
     if (
-      !CHECKERS.every((file) => {
-        const absolute = path.join(root, file);
-        return (
-          fs.existsSync(absolute) &&
-          fs.lstatSync(absolute).isFile() &&
-          fs.realpathSync(absolute) === absolute
-        );
-      })
+      !fs.existsSync(checker) ||
+      !fs.lstatSync(checker).isFile() ||
+      fs.realpathSync(checker) !== checker
     )
-      fail('seed-checkers-missing', 'P1 must introduce both checkers');
+      fail('seed-checkers-missing', 'P1 must introduce the checker');
     if (options.seed && head !== null)
       fail('seed-forbidden', 'head baseline already exists');
     if (!options.seed && head === null)
@@ -327,7 +383,6 @@ export async function runKnipRatchet(
         'retirement-nonzero',
         'removing or retiring the budget requires zero findings',
       );
-    assertJointRetirement(root);
     return { mode, baseSha, counts: actual };
   }
   if (options.seed) {

@@ -285,7 +285,7 @@ jobs:
 
       - name: Rails 계약 테스트
         if: ${{ steps.scope.outputs.rails == 'true' }}
-        run: node --test scripts/check-lint-ratchet.test.mjs scripts/check-knip-ratchet.test.mjs scripts/prisma-enum-names.test.mjs
+        run: node --test scripts/check-knip-ratchet.test.mjs scripts/prisma-enum-names.test.mjs
 
       - name: Rails predecessor 검사
         if: ${{ steps.scope.outputs.rails == 'true' }}
@@ -299,11 +299,9 @@ jobs:
           set -euo pipefail
           case "$EVENT_NAME" in
             pull_request)
-              node scripts/check-lint-ratchet.mjs --event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"
               node scripts/check-knip-ratchet.mjs --event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"
               ;;
             push)
-              node scripts/check-lint-ratchet.mjs --event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"
               node scripts/check-knip-ratchet.mjs --event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"
               ;;
             *)

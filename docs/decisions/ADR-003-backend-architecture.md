@@ -76,8 +76,8 @@ Domain-first + Layered를 모든 backend 업무 모듈의 목표 구조로 채�
 
 | 출발 | 허용 대상 |
 | --- | --- |
-| controller, job | service, dto, domain, auth의 인증 guard·AuthenticatedRequest, common |
-| service | 자기 repository·gateway, dto, 모든 모듈의 domain·service, storage, runtime-config, common |
+| controller, job | service, 자기 모듈 dto, domain, auth의 인증 guard·AuthenticatedRequest, common |
+| service | 자기 repository·gateway·dto, 모든 모듈의 domain·service, storage, runtime-config, common |
 | repository | 자기 모듈 repository, 모든 모듈의 domain, prisma 기반 기능, common |
 | gateway | domain, 외부 SDK, common |
 | dto | domain, common |
@@ -86,7 +86,7 @@ Domain-first + Layered를 모든 backend 업무 모듈의 목표 구조로 채�
 | composition, test | 자기 모듈 내부, 다른 모듈의 module 파일·service 및 명시적 테스트 예외 |
 
 표에 없는 계층 의존은 기본 거부하며 모든 계층은 common을 사용할 수 있다.
-다른 모듈의 repository·gateway 직접 import는 금지한다.
+다른 모듈의 repository·gateway·dto 직접 import는 금지한다.
 서비스 간 의존은 유스케이스·정책을 재사용할 때만 허용하며 순환 의존이나 한 줄 조회 중계는 허용하지 않는다.
 외부 호출은 gateway, Cron·Interval·CLI 진입은 job, 실행 가능한 업무 동작은 service가 소유한다.
 서비스가 job을 호출하거나 job이 repository를 직접 호출하지 않는다.
@@ -173,30 +173,26 @@ E2E는 명시적 storage 대역을 사용하며 실제 managed R2로 연결하�
 두 앱은 공통 type-aware lint와 no-comments 규칙을 공유하되 각 앱의 runtime·framework 규칙은 유지한다.
 backend 계층 경계는 `eslint-plugin-boundaries`, 순환 검사, 열거형 positive allowlist, 주입 키·DTO·테스트 경계 검사로 강제한다.
 boundaries 도구의 비호환을 임의 대체 구현으로 숨기지 않는다.
-순환 검사는 dpdm 그래프를 lint 진단으로 내보내며 기존 순환은 감소 전용 기준선으로 관리한다.
+순환 검사는 dpdm 그래프를 lint 오류로 내보낸다.
 dpdm이 간선을 수집하지 못하는 type 위치 `import()`·`import x = require()`는 운영 코드에서 금지하고 `@dpdm-ignore` 표식은 어디서도 허용하지 않는다.
 해석되지 않은 내부 의존은 순환 없음으로 간주하지 않고 검사 실패로 처리한다.
-모듈별 이관 중에는 아직 닫힌 폴더로 옮기지 않은 파일로의 의존을 경계 위반으로 따로 세지 않고 그 대상 파일의 미분류 부채로만 집계한다.
-대상 모듈이 이관되면 그 의존은 계층 정책으로 다시 검사되고, 위반이면 대상 모듈 이관 PR이 함께 고친다.
-미분류 파일이 남지 않는 P7에서 미분류 대상 검사를 다시 켠다.
+미분류 파일이 남지 않으므로 분류되지 않은 파일로의 운영 의존도 계층 정책으로 검사해 기본 거부한다.
 CLI 실행 진입점인 job은 앱 부트스트랩과 런타임 설정을 import할 수 있다.
 Knip은 명시적 runtime·CLI·seed·test 진입점을 기준으로 사용하지 않는 코드를 탐지한다.
 Nest DI나 decorator 때문에 생긴 findings는 근거 있는 entry·설정으로 다루며 광범위한 무시 규칙으로 감추지 않는다.
 
-이행 기간 lint baseline은 줄 번호가 아닌 `{file, ruleId, target}` identity로 관리한다.
-파일 전체를 가리키는 진단의 target은 파일 내용이 아니라 파일 자체로 정해 import 경로 수정만으로 기존 부채가 새 항목이 되지 않게 한다.
-기존 legacy 모듈 경계 규칙은 §10의 공개 `domain/` 교차 참조와 github 수집 trigger service를 허용한다.
-새 diagnostic·shard·항목 추가, 같은 개수 교환, 이동한 경로의 재등록, stale 항목을 거부하고 baseline은 줄어들기만 한다.
+rails 규칙은 각 앱의 `eslint.config.mjs`가 적용하는 일반 lint 오류이며 lint baseline과 lint ratchet은 P7에서 retire했다.
+legacy module-zone 규칙도 retire했고 그 고유 제약은 boundaries 정책과 `apps/backend/test/architecture/boundaries.eslint.spec.ts` fixture가 소유한다.
 Knip은 workspace·issue type별 실제 개수와 budget이 정확히 같아야 하며 head budget은 predecessor budget보다 커질 수 없다.
-기준 baseline은 working tree나 가변 ref가 아니라 신뢰된 predecessor SHA의 Git tree에서 읽는다.
+기준 budget은 working tree나 가변 ref가 아니라 신뢰된 predecessor SHA의 Git tree에서 읽는다.
 PR은 명시한 base·검사 head의 merge-base, main push는 event의 before SHA를 사용한다.
 0 SHA, 누락된 Git object, 비선조 before SHA는 실패로 처리하며 현재 main으로 대체하지 않는다.
 로컬 기준은 fetch한 origin/main과 HEAD의 merge-base이고 기준을 얻지 못하면 실패한다.
 
-predecessor에 checker와 baseline이 모두 없을 때만 P1의 최초 seed를 허용하고 seed는 실제 findings와 정확히 일치해야 한다.
-checker가 있는데 baseline이 없으면 자동 재생성하지 않는다.
-baseline을 없애는 retired 상태는 lint·Knip findings가 모두 0일 때만 허용하며 최종 이행에서 일반 오류 검사로 전환한다.
-root `pnpm lint`는 앱 lint뿐 아니라 구조 검사와 Knip도 실행하고 required CI는 별도 명시 단계로 같은 계약을 실행한다.
+predecessor에 Knip checker와 budget이 모두 없을 때만 P1의 최초 seed를 허용하고 seed는 실제 findings와 정확히 일치해야 한다.
+Knip checker가 있는데 budget이 없으면 자동 재생성하지 않는다.
+Knip budget을 없애는 retired 상태는 Knip findings가 0일 때만 허용하며 그때 일반 오류 검사로 전환한다.
+root `pnpm lint`는 rails를 포함한 앱 lint와 Knip ratchet을 실행하고 required CI는 앱 lint 단계와 별도 Knip 단계로 같은 계약을 실행한다.
 설정·checker·baseline 경로 변경은 관련 CI lane을 선택하며 invocation과 SHA 전달을 contract test로 고정한다.
 
 checker 자체는 PR head에서 실행되므로 predecessor 비교만으로 checker 변조까지 방지하지는 못한다.
@@ -282,6 +278,7 @@ trackType idempotency hash 문제는 별도 [#1477](https://github.com/JNU-SWCU/
 
 ## Changelog
 
+- 2026-10-11: P7에서 lint ratchet과 legacy module-zone 규칙을 retire하고 rails·미분류 대상 검사·다른 모듈 dto import 금지를 앱 lint 오류로 전환했다.
 - 2026-10-08: §10에 닫힌 계층 폴더, 주입 키, Prisma enum 허용, 단계별 잠금, 인증·권한 분리, storage 및 신뢰된 SHA 기반 rails 결정을 통합했다.
   S6의 쓰기 뒤 잠금 없는 재조회와 S8의 validation·Origin 우선 오류를 승인된 변경으로 기록하고 S4·S5·S7 조사 판단 및 미실행 후속 F1·F3·F4를 분리했다.
   ADR-010 §7·§8의 구조 규칙을 대체하며 Accepted와 전체 코드 이행 완료를 구분한다.
