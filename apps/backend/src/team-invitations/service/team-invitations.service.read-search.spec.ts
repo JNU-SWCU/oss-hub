@@ -1,5 +1,5 @@
 import { TeamInvitationStatus } from '@prisma/client';
-import { TeamInvitationErrorCode } from './team-invitation-error-code.enum';
+import { TeamInvitationErrorCode } from '../team-invitation-error-code.enum';
 import {
   buildService,
   sentInvitationRecord,

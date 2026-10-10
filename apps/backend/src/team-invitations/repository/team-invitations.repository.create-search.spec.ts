@@ -1,5 +1,5 @@
 import { Prisma, TeamInvitationStatus } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 
 const syntheticProgramId = 'cuid-synthetic-program';

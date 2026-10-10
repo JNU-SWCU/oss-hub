@@ -6,13 +6,13 @@ import {
   RepositoryConnectionMode,
   TeamInvitationStatus,
 } from '@prisma/client';
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import {
   REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   parseRepositoryAccessSyncEvent,
-} from '../github/repository-provision-event';
-import { PrismaService } from '../prisma/prisma.service';
-import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
+} from '../../github/repository-provision-event';
+import { PrismaService } from '../../prisma/prisma.service';
+import { canonicalUserCreateFromLabel } from '../../users/canonical-user-fixture';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 
 assertIsolatedIntegrationDatabase({
