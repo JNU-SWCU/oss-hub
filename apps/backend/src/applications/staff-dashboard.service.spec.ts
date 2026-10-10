@@ -3,7 +3,7 @@ import { ProgramTrackType } from '@prisma/client';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProgramActivitySummaryService } from '../programs/service/program-activity-summary.service';
-import { SubmissionDashboardSummaryService } from '../submissions/submission-dashboard-summary.service';
+import { SubmissionDashboardSummaryService } from '../submissions/service/submission-dashboard-summary.service';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import {
   RUNTIME_CONFIG,
