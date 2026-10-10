@@ -31,12 +31,14 @@ import { CreateMilestoneDocumentReviewRequestDto } from './dto/create-milestone-
 import { MilestoneDocumentArchiveQueryRequestDto } from './dto/milestone-document-archive-query.dto';
 import { CreateMilestoneDocumentSubmissionRequestDto } from './dto/create-milestone-document-submission-request.dto';
 import { MilestoneDocumentCollectionQueryRequestDto } from './dto/milestone-document-collection-query.dto';
-import type { MilestoneDocumentDeliveryCollectionResponseDto } from './dto/milestone-document-delivery-collection-response.dto';
+import type { MilestoneDocumentDeliveryCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { MilestoneDocumentHistoryQueryRequestDto } from './dto/milestone-document-history-query.dto';
-import { MilestoneDocumentListResponseDto } from './dto/milestone-document-list-response.dto';
 import type { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-response.dto';
-import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
+import {
+  MilestoneDocumentListResponseDto,
+  MilestoneDocumentResponseDto,
+} from './dto/milestone-document-response.dto';
 import { MilestoneDocumentReviewResponseDto } from './dto/milestone-document-review-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
 import { ReorderMilestoneDocumentsRequestDto } from './dto/reorder-milestone-documents-request.dto';
@@ -48,8 +50,8 @@ import {
 import {
   MilestoneDocumentArchiveEntryError,
   MilestoneDocumentArchiveService,
-  type MilestoneDocumentArchiveScope,
 } from './milestone-document-archive.service';
+import type { MilestoneDocumentArchiveScope } from './milestone-document-archive.types';
 import { milestoneDocumentAttachmentDisposition } from './milestone-document-attachment-disposition';
 import {
   type MilestoneDocumentFileUpload,

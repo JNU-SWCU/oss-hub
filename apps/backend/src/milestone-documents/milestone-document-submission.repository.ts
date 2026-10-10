@@ -1,5 +1,6 @@
 import {
   MilestoneDocumentSubmissionHistoryEvent,
+  MilestoneSubmissionType,
   Prisma,
   SubmissionFileLifecycle,
   SubmissionStatus,
@@ -9,6 +10,14 @@ import { lockSubmissionMembership } from '../prisma/submission-membership-lock';
 import { SubmissionMembershipChangedError } from '../submissions/domain/submission-membership-changed.error';
 import type { MilestoneDocumentSubmissionDetail } from './domain/milestone-document-record';
 import { nextMilestoneDocumentHistoryCreatedAt } from './milestone-document-history';
+
+export function milestoneDocumentSubmissionContent(
+  text: string | null,
+): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+  return text === null
+    ? Prisma.JsonNull
+    : { type: MilestoneSubmissionType.TEXT, text };
+}
 
 export interface UpsertMilestoneDocumentSubmissionInput {
   readonly milestoneDocumentId: string;

@@ -1,8 +1,10 @@
 import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import type { ObjectStoragePort } from '../storage/domain/object-storage';
-import type { MilestoneDocumentArchiveSubmission } from './domain/milestone-document-archive';
-import type { ArchiveProgram } from './milestone-document-archive.repository';
+import type {
+  ArchiveProgram,
+  MilestoneDocumentArchiveSubmission,
+} from './domain/milestone-document-archive';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import type { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 

@@ -39,13 +39,6 @@ import {
   upsertMilestoneDocumentSubmission,
   type UpsertMilestoneDocumentSubmissionInput,
 } from '../milestone-document-submission.repository';
-export {
-  MilestoneDocumentDeadlineClosedError,
-  MilestoneDocumentMissingError,
-  MilestoneDocumentPendingFileMissingError,
-  MilestoneDocumentReviewChangedError,
-  MilestoneDocumentSubmissionChangedError,
-} from '../milestone-document-submission.repository';
 
 export class InvalidMilestoneDocumentHistoryCursorError extends Error {
   override readonly name = 'InvalidMilestoneDocumentHistoryCursorError';

@@ -26,7 +26,7 @@ import {
   MilestoneDocumentsController,
 } from './milestone-documents.controller';
 import { MilestoneDocumentArchiveQueryRequestDto } from './dto/milestone-document-archive-query.dto';
-import type { MilestoneDocumentArchive } from './milestone-document-archive.service';
+import type { MilestoneDocumentArchive } from './milestone-document-archive.types';
 import {
   MilestoneDocumentArchiveEntryError,
   MilestoneDocumentArchiveService,

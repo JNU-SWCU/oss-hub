@@ -33,11 +33,6 @@ import type {
   MilestoneDocumentArchiveScope,
   ProgramDocumentArchiveScope,
 } from './milestone-document-archive.types';
-export type {
-  MilestoneDocumentArchive,
-  MilestoneDocumentArchiveScope,
-  ProgramDocumentArchiveScope,
-} from './milestone-document-archive.types';
 
 const MAX_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024;
 

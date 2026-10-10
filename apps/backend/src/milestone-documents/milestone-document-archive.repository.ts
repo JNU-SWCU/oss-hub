@@ -6,19 +6,9 @@ import {
   USER_PROFILE_NAME_SELECT,
 } from '../prisma/user-profile-read';
 import type {
-  MilestoneDocumentArchiveDocument,
+  ArchiveProgram,
   MilestoneDocumentArchiveTeam,
 } from './domain/milestone-document-archive';
-
-export interface ArchiveProgram {
-  readonly name: string;
-  readonly milestones: readonly {
-    readonly id: string;
-    readonly name: string;
-    readonly dueAt: Date;
-    readonly documents: readonly MilestoneDocumentArchiveDocument[];
-  }[];
-}
 
 export interface ProgramArchiveReader {
   findProgram(programId: string): Promise<ArchiveProgram | null>;

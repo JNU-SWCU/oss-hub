@@ -10,14 +10,14 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubmissionMembershipChangedError } from '../submissions/domain/submission-membership-changed.error';
+import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 import {
   MilestoneDocumentDeadlineClosedError,
   MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
-  MilestoneDocumentsRepository,
   MilestoneDocumentSubmissionChangedError,
-} from './repository/milestone-documents.repository';
+} from './milestone-document-submission.repository';
 
 function firstCallArgument<T>(mock: jest.Mock): T {
   const calls = mock.mock.calls as readonly (readonly unknown[])[];

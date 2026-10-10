@@ -5,7 +5,7 @@ import {
   ProgramArchiveIntegrationFixture,
   retainedImage,
 } from './milestone-document-archive.integration-fixture';
-import type { ProgramDocumentArchiveScope } from './milestone-document-archive.service';
+import type { ProgramDocumentArchiveScope } from './milestone-document-archive.types';
 import { startArchiveHttp } from './milestone-document-archive.http-fixture';
 
 assertIsolatedIntegrationDatabase({

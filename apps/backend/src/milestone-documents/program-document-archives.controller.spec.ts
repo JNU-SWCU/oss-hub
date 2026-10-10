@@ -15,7 +15,7 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './domain/milestone-documents-error-code.enum';
-import { type ProgramDocumentArchiveScope } from './milestone-document-archive.service';
+import { type ProgramDocumentArchiveScope } from './milestone-document-archive.types';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
 
 const secret = new Uint8Array(32).fill(39);

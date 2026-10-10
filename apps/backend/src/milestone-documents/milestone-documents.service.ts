@@ -1,10 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../users/service/authority.service';
-import {
-  MilestoneDocumentSubmissionHistoryEvent,
-  MilestoneSubmissionType,
-  Prisma,
-} from '@prisma/client';
+import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import { DomainException } from '../common/error-code';
 import { SubmissionMembershipChangedError } from '../submissions/domain/submission-membership-changed.error';
 import { buildMilestoneDocumentCollectionPage } from './domain/milestone-document-collection-page';
@@ -27,15 +23,18 @@ import {
 } from './domain/milestone-documents-error-code.enum';
 import {
   InvalidMilestoneDocumentHistoryCursorError,
+  MilestoneDocumentsRepository,
+  type UpdateMilestoneDocumentInput,
+} from './repository/milestone-documents.repository';
+import {
   MilestoneDocumentDeadlineClosedError,
   MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
-  MilestoneDocumentsRepository,
   MilestoneDocumentSubmissionChangedError,
-  type UpdateMilestoneDocumentInput,
-} from './repository/milestone-documents.repository';
-import type { UpsertMilestoneDocumentSubmissionInput } from './milestone-document-submission.repository';
+  milestoneDocumentSubmissionContent,
+  type UpsertMilestoneDocumentSubmissionInput,
+} from './milestone-document-submission.repository';
 import type {
   MilestoneDocumentRecord,
   UpsertMilestoneDocumentInput,
@@ -436,10 +435,7 @@ export class MilestoneDocumentsService {
             uploaderId: viewer.id,
             milestoneId,
           };
-    const submissionContent: Prisma.InputJsonValue | typeof Prisma.JsonNull =
-      content.text === null
-        ? Prisma.JsonNull
-        : { type: MilestoneSubmissionType.TEXT, text: content.text };
+    const submissionContent = milestoneDocumentSubmissionContent(content.text);
 
     try {
       const detail = await this.repository.upsertSubmission({

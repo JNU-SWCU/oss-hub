@@ -8,14 +8,14 @@ import {
 import { SubmissionMembershipChangedError } from '../submissions/domain/submission-membership-changed.error';
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
 import { MilestoneDocumentsErrorCode } from './domain/milestone-documents-error-code.enum';
+import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 import {
   MilestoneDocumentDeadlineClosedError,
   MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
-  MilestoneDocumentsRepository,
   MilestoneDocumentSubmissionChangedError,
-} from './repository/milestone-documents.repository';
+} from './milestone-document-submission.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 
 const authority = {

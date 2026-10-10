@@ -1,5 +1,7 @@
-import type { MilestoneDocumentArchiveDocument } from './domain/milestone-document-archive';
-import type { ArchiveProgram } from './milestone-document-archive.repository';
+import type {
+  ArchiveProgram,
+  MilestoneDocumentArchiveDocument,
+} from './domain/milestone-document-archive';
 import { milestoneDocumentArchiveFolderName } from './milestone-document-download-file-name';
 
 export function archiveDocumentsWithStageNames(

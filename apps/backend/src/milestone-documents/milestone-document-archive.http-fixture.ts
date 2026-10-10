@@ -10,10 +10,8 @@ import {
   archiveId,
   type ProgramArchiveIntegrationFixture,
 } from './milestone-document-archive.integration-fixture';
-import {
-  MilestoneDocumentArchiveService,
-  type ProgramDocumentArchiveScope,
-} from './milestone-document-archive.service';
+import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
+import type { ProgramDocumentArchiveScope } from './milestone-document-archive.types';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
 
 export async function startArchiveHttp(

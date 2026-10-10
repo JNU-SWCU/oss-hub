@@ -10,7 +10,7 @@ import {
   MILESTONE_DOCUMENT_ARCHIVE_GROUPINGS,
   type MilestoneDocumentArchiveGrouping,
 } from '../domain/milestone-document-archive';
-import type { MilestoneDocumentArchiveScope } from '../milestone-document-archive.service';
+import type { MilestoneDocumentArchiveScope } from '../milestone-document-archive.types';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
