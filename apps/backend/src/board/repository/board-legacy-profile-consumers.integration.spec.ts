@@ -6,7 +6,7 @@ import {
   ProgramCategory,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { StaffInsightsRepository } from '../../applications/staff-insights.repository';
+import { StaffInsightsRepository } from '../../applications/repository/staff-insights.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { searchInvitationCandidates } from '../../team-invitations/repository/team-invitations.repository';
 import { BoardRepository } from './board.repository';

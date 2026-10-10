@@ -14,11 +14,11 @@ import {
   canonicalUserCreateFromLabel,
 } from '../../users/repository/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { ApplicationsErrorCode } from '../../applications/applications-error-code.enum';
-import { ApplicationsRepository } from '../../applications/applications.repository';
-import { ApplicationsService } from '../../applications/applications.service';
-import { StudentRepositoryUrlRepository } from '../../applications/student-repository-url.repository';
-import { StudentRepositoryUrlService } from '../../applications/student-repository-url.service';
+import { ApplicationsErrorCode } from '../../applications/domain/applications-error-code.enum';
+import { ApplicationsRepository } from '../../applications/repository/applications.repository';
+import { ApplicationsService } from '../../applications/service/applications.service';
+import { StudentRepositoryUrlRepository } from '../../applications/repository/student-repository-url.repository';
+import { StudentRepositoryUrlService } from '../../applications/service/student-repository-url.service';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
 import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
 import { AuditLogService } from '../../audit-log/service/audit-log.service';

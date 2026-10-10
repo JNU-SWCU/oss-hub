@@ -1,0 +1,144 @@
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { ApplicationStatus } from '@prisma/client';
+import { OriginGuard } from '../../auth/controller/origin.guard';
+import { SessionGuard } from '../../auth/controller/session.guard';
+import { UpdateStudentApplicationRequestDto } from '../dto/update-student-application-request.dto';
+import type { StudentApplicationManagementService } from '../service/student-application-management.service';
+import { StudentApplicationsController } from './student-applications.controller';
+
+function guards(target: object): readonly unknown[] {
+  const value: unknown = Reflect.getMetadata(GUARDS_METADATA, target);
+  return Array.isArray(value) ? value : [];
+}
+
+function methodGuards(
+  methodName: 'updateMine' | 'cancelMine',
+): readonly unknown[] {
+  const method: unknown = Object.getOwnPropertyDescriptor(
+    StudentApplicationsController.prototype,
+    methodName,
+  )?.value;
+  return typeof method === 'function' ? guards(method) : [];
+}
+
+const APPLICATION = {
+  id: 'application-1',
+  programId: 'program-1',
+  status: ApplicationStatus.SUBMITTED,
+  teamId: null,
+  answers: {
+    applicantName: '합성 학생',
+    title: '제목',
+  },
+  submittedAt: new Date('2026-07-10T00:00:00.000Z'),
+  updatedAt: new Date('2026-07-11T00:00:00.000Z'),
+  rejectionReason: null,
+  canManage: true,
+} as const;
+
+function createService() {
+  return {
+    getMine: jest.fn().mockResolvedValue(APPLICATION),
+    updateMine: jest.fn().mockResolvedValue(APPLICATION),
+    cancelMine: jest.fn().mockResolvedValue({ cancelled: true }),
+  } satisfies Pick<
+    StudentApplicationManagementService,
+    'getMine' | 'updateMine' | 'cancelMine'
+  >;
+}
+
+function present<T>(value: T | null, what: string): T {
+  if (value === null) throw new Error(`${what}이(가) 있어야 하는 시나리오다`);
+  return value;
+}
+
+describe('StudentApplicationsController', () => {
+  it('모든 학생 신청 관리 요청에 SessionGuard를 적용한다', () => {
+    expect(guards(StudentApplicationsController)).toEqual([SessionGuard]);
+  });
+
+  it('수정과 취소 요청에 OriginGuard를 적용한다', () => {
+    expect(methodGuards('updateMine')).toEqual([OriginGuard]);
+    expect(methodGuards('cancelMine')).toEqual([OriginGuard]);
+  });
+
+  it('내 신청을 ISO 날짜 응답으로 조회한다', async () => {
+    const service = createService();
+    const controller = new StudentApplicationsController(service);
+
+    const result = present(
+      await controller.getMine({ sessionGithubId: 4242n }, 'program-1'),
+      '신청',
+    );
+
+    expect(service.getMine).toHaveBeenCalledWith(4242n, 'program-1');
+    expect(result).toMatchObject({
+      id: 'application-1',
+      submittedAt: '2026-07-10T00:00:00.000Z',
+      updatedAt: '2026-07-11T00:00:00.000Z',
+      canManage: true,
+      canEdit: true,
+      canCancel: true,
+    });
+  });
+
+  it('반려 사유를 응답에 그대로 싣는다', async () => {
+    const service = createService();
+    service.getMine.mockResolvedValue({
+      ...APPLICATION,
+      status: ApplicationStatus.REJECTED,
+      rejectionReason: '합성 반려 사유',
+      canManage: false,
+    });
+    const controller = new StudentApplicationsController(service);
+
+    const result = present(
+      await controller.getMine({ sessionGithubId: 4242n }, 'program-1'),
+      '신청',
+    );
+
+    expect(result.rejectionReason).toBe('합성 반려 사유');
+  });
+
+  it('반려가 아닌 신청도 사유 키를 null로 남긴다', async () => {
+    const service = createService();
+    const controller = new StudentApplicationsController(service);
+
+    const result = present(
+      await controller.getMine({ sessionGithubId: 4242n }, 'program-1'),
+      '신청',
+    );
+
+    expect(result).toHaveProperty('rejectionReason');
+    expect(result.rejectionReason).toBeNull();
+  });
+
+  it('수정 본문을 서비스에 전달한다', async () => {
+    const service = createService();
+    const controller = new StudentApplicationsController(service);
+    const body = Object.assign(new UpdateStudentApplicationRequestDto(), {
+      answers: { title: '수정 제목' },
+      applicationTemplateVersion: 1,
+    });
+
+    await controller.updateMine({ sessionGithubId: 4242n }, 'program-1', body);
+
+    expect(service.updateMine).toHaveBeenCalledWith(4242n, 'program-1', {
+      answers: { title: '수정 제목' },
+      applicationTemplateVersion: 1,
+    });
+  });
+
+  it('취소 요청을 서비스에 전달한다', async () => {
+    const service = createService();
+    const controller = new StudentApplicationsController(service);
+
+    const result = await controller.cancelMine(
+      { sessionGithubId: 4242n },
+      'program-1',
+    );
+
+    expect(service.cancelMine).toHaveBeenCalledWith(4242n, 'program-1');
+    expect(result).toEqual({ cancelled: true });
+  });
+});

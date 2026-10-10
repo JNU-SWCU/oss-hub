@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ApplicationStatus } from '@prisma/client';
-import { ApplicationsService } from '../../src/applications/applications.service';
+import { ApplicationsService } from '../../src/applications/service/applications.service';
 import { RepositoryOutboxConsumer } from '../../src/github/service/repository-outbox.consumer';
 import { RepositoryProvisionWorker } from '../../src/github/service/repository-provision.worker';
 import { MilestoneDocumentCurrentFileService } from '../../src/milestone-documents/milestone-document-current-file.service';

@@ -2,7 +2,7 @@ import { ApplicationStatus } from '@prisma/client';
 import type {
   TeamManagementListItem,
   TeamManagementListPage,
-} from '../applications.repository';
+} from '../domain/application-records';
 import {
   TeamManagementListItemResponseDto,
   TeamManagementListPageResponseDto,

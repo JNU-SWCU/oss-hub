@@ -6,7 +6,7 @@ import type {
   StaffDashboardComposedProgramSummary,
   StaffDashboardComposedSummary,
   StaffDashboardSubmissionSummary,
-} from '../staff-dashboard.service';
+} from '../domain/staff-dashboard';
 
 export class StaffDashboardApplicationCountsResponseDto {
   readonly total: number;

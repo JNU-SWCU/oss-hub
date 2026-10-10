@@ -7,7 +7,7 @@ import {
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
-} from '../applications-error-code.enum';
+} from '../domain/applications-error-code.enum';
 
 export class PatchApplicationDecisionRequestDto {
   @IsString()
