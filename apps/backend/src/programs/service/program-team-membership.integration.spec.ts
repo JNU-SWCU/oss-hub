@@ -9,13 +9,15 @@ import {
   TeamInvitationStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { TEAM_MEMBERSHIP_AUDIT_ACTIONS } from '../../audit-log/audit-log-metadata';
-import { AuditLogRepository } from '../../audit-log/audit-log.repository';
-import { AuditLogService } from '../../audit-log/audit-log.service';
+import { TEAM_MEMBERSHIP_AUDIT_ACTIONS } from '../../audit-log/domain/audit-log-metadata';
+import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
-import { TeamInvitationsRepository } from '../../team-invitations/team-invitations.repository';
+import { TeamInvitationsRepository } from '../../team-invitations/repository/team-invitations.repository';
 import { canonicalUserCreateFromLabel } from '../../users/canonical-user-fixture';
+import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
+import { UsersAuthorityService } from '../../users/service/authority.service';
 import { ProgramTeamDeletionRepository } from '../repository/program-team-deletion.repository';
 import { ProgramTeamsRepository } from '../repository/program-teams.repository';
 import { TeamsErrorCode } from '../teams-error-code.enum';
@@ -71,6 +73,7 @@ const service = new ProgramTeamsService(
   }),
   auditLog,
   new ProgramTeamDeletionRepository(prisma),
+  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
 );
 const invitations = new TeamInvitationsRepository(prisma);
 

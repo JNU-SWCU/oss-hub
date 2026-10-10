@@ -5,7 +5,7 @@ import {
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   APPLICATION_DECISION_AUDIT_ACTIONS,
   APPLICATION_SUBMITTED_AUDIT_ACTIONS,
@@ -13,11 +13,12 @@ import {
   createApplicationSubmittedAuditMetadata,
   createTeamCreatedAuditMetadata,
   TEAM_CREATED_AUDIT_ACTIONS,
-} from '../audit-log/audit-log-metadata';
-import { AuditLogService } from '../audit-log/audit-log.service';
+} from '../audit-log/domain/audit-log-metadata';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { DomainException } from '../common/error-code';
 import type { ProblemDetailExtensions } from '../common/error-code';
-import { parseGithubRepositoryUrl } from '../common/github-repository-url';
+import { parseGithubRepositoryUrl } from '../github/domain/github-repository-url';
 import {
   checkApplicationTemplateVersion,
   applicationAnswerTooLongMessage,
@@ -49,6 +50,7 @@ import type {
 } from './domain/application-decision';
 import { APPLICATION_DECISION_ACTIONS } from './domain/application-decision';
 import type { CreateApplicationInput } from './domain/create-application';
+import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
 
 type ApplicationDecisionPlan = {
   readonly provisionJob: RepositoryProvisionJobSnapshot | null;
@@ -120,6 +122,11 @@ export class ApplicationsService {
   constructor(
     private readonly repository: ApplicationsRepository,
     private readonly auditLog: AuditLogService,
+    @Inject(UsersAuthorityService)
+    private readonly authority: Pick<
+      UsersAuthorityService,
+      'assertActiveStaff'
+    >,
   ) {}
 
   async create(
@@ -313,17 +320,25 @@ export class ApplicationsService {
   }
 
   async listForProgram(
+    sessionGithubId: bigint,
     programId: string,
     query: ApplicationListQuery,
   ): Promise<ApplicationListPage> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(ApplicationsErrorCode.STAFF_LIST_ONLY),
+    );
     await this.requireProgram(programId);
     return this.repository.listApplicationsForProgram(programId, query);
   }
 
   async listTeamManagementForProgram(
+    sessionGithubId: bigint,
     programId: string,
     query: ApplicationListQuery,
   ): Promise<TeamManagementListPage> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(ApplicationsErrorCode.STAFF_LIST_ONLY),
+    );
     await this.requireProgram(programId);
     return this.repository.listTeamManagementForProgram(programId, query);
   }
@@ -335,7 +350,13 @@ export class ApplicationsService {
     }
   }
 
-  async getForStaff(applicationId: string): Promise<StaffApplicationDetail> {
+  async getForStaff(
+    sessionGithubId: bigint,
+    applicationId: string,
+  ): Promise<StaffApplicationDetail> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(ApplicationsErrorCode.STAFF_LIST_ONLY),
+    );
     const [application, reviewHistory] = await Promise.all([
       this.repository.findApplicationForStaff(applicationId),
       this.repository.listReviewHistory(applicationId),
@@ -346,16 +367,26 @@ export class ApplicationsService {
     return { application, reviewHistory };
   }
 
-  async staffSummary(): Promise<StaffDashboardSummary> {
+  async staffSummary(sessionGithubId: bigint): Promise<StaffDashboardSummary> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(ApplicationsErrorCode.STAFF_LIST_ONLY),
+    );
     return this.repository.listStaffDashboardSummary();
   }
 
   async decide(
-    actorId: string,
-    applicationId: string,
     actorGithubId: bigint,
-    action: ApplicationDecisionAction,
+    applicationId: string,
+    input: Pick<PatchApplicationDecisionRequestDto, 'action' | 'reason'>,
   ): Promise<ApplicationDecisionResult> {
+    const { actorId } = await this.authority.assertActiveStaff(
+      actorGithubId,
+      () => this.error(ApplicationsErrorCode.STAFF_ONLY),
+    );
+    const action = Object.assign(
+      new PatchApplicationDecisionRequestDto(),
+      input,
+    ).toAction();
     const idempotencyKey = `repository-provision:${applicationId}`;
     try {
       return await this.repository.withTransaction(async (store) => {

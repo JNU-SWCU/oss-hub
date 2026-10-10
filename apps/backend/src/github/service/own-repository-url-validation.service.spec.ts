@@ -1,8 +1,8 @@
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
-} from '../github-app.error';
-import type { GithubAppClient } from '../github-app.client';
+} from '../domain/github-app.error';
+import type { GithubAppClient } from '../gateway/github-app.client';
 import { OwnRepositoryUrlValidationService } from './own-repository-url-validation.service';
 
 function githubMock(): jest.Mocked<

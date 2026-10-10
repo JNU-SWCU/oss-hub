@@ -246,7 +246,7 @@ function button(text: string, dialog = false): HTMLButtonElement {
     (item) => item.textContent === text,
   );
   if (!found) throw new Error(`버튼 없음: ${text}`);
-  return found as HTMLButtonElement;
+  return found;
 }
 
 function iconButton(label: string): HTMLButtonElement {
@@ -536,7 +536,7 @@ describe('ProgramMyTeamPage 초대', () => {
     await renderPage();
     expect(useTeamInvitationManagement).toHaveBeenCalledWith({
       programId: 'program-1',
-      team: expect.objectContaining({ id: 'team-1' }),
+      team: expect.objectContaining({ id: 'team-1' }) as unknown,
       sessionKey: 'synthetic-leader',
     });
   });

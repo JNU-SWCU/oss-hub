@@ -97,16 +97,15 @@ describe('CollectionStreamsTable', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
   async function renderTable(
     repositories: readonly CollectionStreamRepository[],
   ): Promise<void> {
-    await act(() => {
+    await act(async () => {
       root.render(<CollectionStreamsTable repositories={repositories} />);
-      return Promise.resolve();
     });
   }
 

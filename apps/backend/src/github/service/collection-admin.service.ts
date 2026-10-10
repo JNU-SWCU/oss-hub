@@ -3,17 +3,17 @@ import { randomUUID } from 'node:crypto';
 import {
   COLLECTION_TRIGGER_AUDIT_ACTIONS,
   createCollectionTriggerAuditMetadata,
-} from '../../audit-log/audit-log-metadata';
-import { AuditLogService } from '../../audit-log/audit-log.service';
+} from '../../audit-log/domain/audit-log-metadata';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { DomainException } from '../../common/error-code';
 import { UsersAuthorityService } from '../../users/service/authority.service';
-import { ContributionInvariants } from '../contribution-invariants';
-import type { ContributionInvariantReport } from '../contribution-invariants';
+import { ContributionInvariants } from '../repository/contribution-invariants';
+import type { ContributionInvariantReport } from '../domain/contribution-invariants';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import {
   COLLECTION_ERROR_CODES,
   CollectionErrorCode,
-} from '../collection-error-code.enum';
+} from '../domain/collection-error-code.enum';
 import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import {
   CollectionSyncService,

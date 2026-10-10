@@ -1,5 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
+import { nextScheduledCollectionAt } from '../../github/service/collection-schedule';
 import {
   SystemStatusRepository,
   type CollectionExternalCollectionStatusDto,
@@ -8,6 +9,12 @@ import {
   type CollectionSweepActivityDto,
 } from '../repository/system-status.repository';
 import { SystemStatusService } from './system-status.service';
+
+jest.mock('../../github/service/collection-schedule', () => ({
+  nextScheduledCollectionAt: jest.fn(),
+}));
+
+const nextScheduledAt = jest.mocked(nextScheduledCollectionAt);
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const ACTOR_ID = 133n;
@@ -51,7 +58,6 @@ describe('SystemStatusService', () => {
   const findActor = jest.fn();
   const getIncrementalStatusSnapshot = jest.fn();
   const getIncrementalStatusStreams = jest.fn();
-  const findNextCycleAt = jest.fn();
   const getRecentSweepActivity = jest.fn();
   const getExternalCollectionStatus = jest.fn();
   const countFinalProvisionFailures = jest.fn();
@@ -61,7 +67,6 @@ describe('SystemStatusService', () => {
       countFinalProvisionFailures,
       getIncrementalStatusSnapshot,
       getIncrementalStatusStreams,
-      findNextCycleAt,
       getRecentSweepActivity,
       getExternalCollectionStatus,
     } as unknown as SystemStatusRepository,
@@ -76,7 +81,7 @@ describe('SystemStatusService', () => {
     });
     getIncrementalStatusSnapshot.mockReset().mockResolvedValue(snapshot());
     getIncrementalStatusStreams.mockReset().mockResolvedValue([]);
-    findNextCycleAt
+    nextScheduledAt
       .mockReset()
       .mockReturnValue(new Date('2026-07-25T20:30:00.000Z'));
     getRecentSweepActivity.mockReset().mockResolvedValue([]);
@@ -119,7 +124,7 @@ describe('SystemStatusService', () => {
     expect(findActor).toHaveBeenCalledWith(ACTOR_ID);
     expect(getIncrementalStatusSnapshot).toHaveBeenCalledTimes(1);
     expect(getIncrementalStatusStreams).toHaveBeenCalledTimes(1);
-    expect(findNextCycleAt).toHaveBeenCalledWith(NOW);
+    expect(nextScheduledAt).toHaveBeenCalledWith(NOW);
     expect(getRecentSweepActivity).toHaveBeenCalledWith(20);
     expect(getExternalCollectionStatus).toHaveBeenCalledTimes(1);
     expect(countFinalProvisionFailures).toHaveBeenCalledTimes(1);
@@ -139,7 +144,7 @@ describe('SystemStatusService', () => {
     );
     expect(getIncrementalStatusSnapshot).not.toHaveBeenCalled();
     expect(getIncrementalStatusStreams).not.toHaveBeenCalled();
-    expect(findNextCycleAt).not.toHaveBeenCalled();
+    expect(nextScheduledAt).not.toHaveBeenCalled();
     expect(getRecentSweepActivity).not.toHaveBeenCalled();
     expect(getExternalCollectionStatus).not.toHaveBeenCalled();
     expect(countFinalProvisionFailures).not.toHaveBeenCalled();
@@ -367,22 +372,35 @@ describe('SystemStatusService', () => {
   });
 
   describe('nextCycleAt', () => {
-    it('repository가 반환한 Date를 clock 시각으로 조회해 ISO 문자열로 옮긴다', async () => {
-      findNextCycleAt.mockReturnValue(new Date('2026-07-25T20:30:00.000Z'));
+    it('수집 스케줄이 반환한 Date를 clock 시각으로 조회해 ISO 문자열로 옮긴다', async () => {
+      nextScheduledAt.mockReturnValue(new Date('2026-07-25T20:30:00.000Z'));
 
       const result = await service.getStatus(ACTOR_ID);
 
-      expect(findNextCycleAt).toHaveBeenCalledWith(NOW);
+      expect(nextScheduledAt).toHaveBeenCalledWith(NOW);
       expect(result.collection.nextCycleAt).toBe('2026-07-25T20:30:00.000Z');
     });
 
-    it('repository가 null을 반환하면(cron 표현식 계산 불가) nextCycleAt만 null이고 나머지 응답은 그대로다', async () => {
-      findNextCycleAt.mockReturnValue(null);
+    it('수집 스케줄이 null을 반환하면(cron 표현식 계산 불가) nextCycleAt만 null이고 나머지 응답은 그대로다', async () => {
+      nextScheduledAt.mockReturnValue(null);
 
       const result = await service.getStatus(ACTOR_ID);
 
       expect(result.collection.nextCycleAt).toBeNull();
       expect(result.collection.health).toBe('NORMAL');
+    });
+
+    it('상태 스냅샷 조회를 시작하기 전에 스케줄을 먼저 계산한다', async () => {
+      await service.getStatus(ACTOR_ID);
+
+      expect(nextScheduledAt).toHaveBeenCalledTimes(1);
+      expect(getIncrementalStatusSnapshot).toHaveBeenCalledTimes(1);
+      const scheduleOrder =
+        nextScheduledAt.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY;
+      const snapshotOrder =
+        getIncrementalStatusSnapshot.mock.invocationCallOrder[0] ??
+        Number.POSITIVE_INFINITY;
+      expect(scheduleOrder).toBeLessThan(snapshotOrder);
     });
   });
 

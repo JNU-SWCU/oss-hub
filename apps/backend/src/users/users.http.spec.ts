@@ -6,7 +6,7 @@ import { sessionCookieName } from '../auth/domain/cookies';
 import { OriginGuard } from '../auth/controller/origin.guard';
 import { SessionGuard } from '../auth/controller/session.guard';
 import { issueSessionToken } from '../auth/domain/session-token';
-import { ProblemDetailFilter } from '../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
 import {
   USER_DEPARTMENT_MAX_LENGTH,
   USER_NAME_MAX_LENGTH,

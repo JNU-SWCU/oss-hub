@@ -1,0 +1,242 @@
+import { Inject, Injectable } from '@nestjs/common';
+import {
+  ApplicationStatus,
+  MilestoneDocumentKind,
+  type MilestoneSubmissionType,
+  Prisma,
+  type SubmissionStatus,
+} from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+
+const dashboardApplicationSelect = {
+  id: true,
+  programId: true,
+} as const;
+
+const dashboardMilestoneSelect = {
+  id: true,
+  programId: true,
+  submissionType: true,
+} as const;
+
+const dashboardMilestoneDocumentSelect = {
+  id: true,
+  milestoneId: true,
+  milestone: { select: { programId: true } },
+} as const satisfies Prisma.MilestoneDocumentSelect;
+
+const dashboardDocumentSubmissionSelect = {
+  applicationId: true,
+  milestoneDocumentId: true,
+  status: true,
+  application: { select: { programId: true } },
+  milestoneDocument: {
+    select: {
+      kind: true,
+      milestoneId: true,
+      milestone: { select: { programId: true } },
+    },
+  },
+} as const satisfies Prisma.MilestoneDocumentSubmissionSelect;
+
+export type DashboardApplicationRow = Prisma.ApplicationGetPayload<{
+  select: typeof dashboardApplicationSelect;
+}>;
+
+export type DashboardMilestoneRow = Prisma.MilestoneGetPayload<{
+  select: typeof dashboardMilestoneSelect;
+}>;
+
+export type DashboardMilestoneDocumentRow = Prisma.MilestoneDocumentGetPayload<{
+  select: typeof dashboardMilestoneDocumentSelect;
+}>;
+
+export type DashboardDocumentSubmissionRow =
+  Prisma.MilestoneDocumentSubmissionGetPayload<{
+    select: typeof dashboardDocumentSubmissionSelect;
+  }>;
+
+export interface SubmissionDashboardSummaryDataSource {
+  readonly application: {
+    findMany(args: {
+      readonly where: Prisma.ApplicationWhereInput;
+      readonly select: typeof dashboardApplicationSelect;
+    }): Promise<readonly DashboardApplicationRow[]>;
+  };
+  readonly milestone: {
+    findMany(args: {
+      readonly where: Prisma.MilestoneWhereInput;
+      readonly select: typeof dashboardMilestoneSelect;
+    }): Promise<readonly DashboardMilestoneRow[]>;
+  };
+  readonly milestoneDocument: {
+    findMany(args: {
+      readonly where: Prisma.MilestoneDocumentWhereInput;
+      readonly select: typeof dashboardMilestoneDocumentSelect;
+    }): Promise<readonly DashboardMilestoneDocumentRow[]>;
+  };
+  readonly milestoneDocumentSubmission: {
+    findMany(args: {
+      readonly where: Prisma.MilestoneDocumentSubmissionWhereInput;
+      readonly select: typeof dashboardDocumentSubmissionSelect;
+    }): Promise<readonly DashboardDocumentSubmissionRow[]>;
+  };
+}
+
+export interface SubmissionDashboardApplicationRecord {
+  readonly id: string;
+  readonly programId: string;
+}
+
+export interface SubmissionDashboardMilestoneRecord {
+  readonly id: string;
+  readonly programId: string;
+  readonly submissionType: MilestoneSubmissionType | null;
+}
+
+export interface SubmissionDashboardSubmissionRecord {
+  readonly applicationId: string;
+  readonly applicationProgramId: string;
+  readonly milestoneId: string;
+  readonly milestoneProgramId: string;
+  readonly status: SubmissionStatus;
+}
+
+export interface SubmissionDashboardMilestoneDocumentRecord {
+  readonly id: string;
+  readonly milestoneId: string;
+  readonly milestoneProgramId: string;
+}
+
+export interface SubmissionDashboardDocumentSubmissionRecord {
+  readonly applicationId: string;
+  readonly applicationProgramId: string;
+  readonly milestoneDocumentId: string;
+  readonly milestoneId: string;
+  readonly milestoneProgramId: string;
+  readonly status: SubmissionStatus;
+}
+
+export interface SubmissionDashboardSummaryRecords {
+  readonly applications: readonly SubmissionDashboardApplicationRecord[];
+  readonly milestones: readonly SubmissionDashboardMilestoneRecord[];
+  readonly submissions: readonly SubmissionDashboardSubmissionRecord[];
+  readonly milestoneDocuments: readonly SubmissionDashboardMilestoneDocumentRecord[];
+  readonly documentSubmissions: readonly SubmissionDashboardDocumentSubmissionRecord[];
+}
+
+export interface SubmissionDashboardSummaryRepositoryPort {
+  listRecords(
+    programIds: readonly string[],
+  ): Promise<SubmissionDashboardSummaryRecords>;
+}
+
+@Injectable()
+export class SubmissionDashboardSummaryRepository implements SubmissionDashboardSummaryRepositoryPort {
+  constructor(
+    @Inject(PrismaService)
+    private readonly prisma: SubmissionDashboardSummaryDataSource,
+  ) {}
+
+  async listRecords(
+    programIds: readonly string[],
+  ): Promise<SubmissionDashboardSummaryRecords> {
+    if (programIds.length === 0) {
+      return {
+        applications: [],
+        milestones: [],
+        submissions: [],
+        milestoneDocuments: [],
+        documentSubmissions: [],
+      };
+    }
+
+    const programFilter = { in: [...programIds] };
+    const [applications, milestones, milestoneDocuments, targetSubmissions] =
+      await Promise.all([
+        this.prisma.application.findMany({
+          where: {
+            programId: programFilter,
+            status: ApplicationStatus.APPROVED,
+          },
+          select: dashboardApplicationSelect,
+        }),
+        this.prisma.milestone.findMany({
+          where: { programId: programFilter },
+          select: dashboardMilestoneSelect,
+        }),
+
+        this.prisma.milestoneDocument.findMany({
+          where: {
+            required: true,
+            kind: MilestoneDocumentKind.DOCUMENT,
+            milestone: { is: { programId: programFilter } },
+          },
+          select: dashboardMilestoneDocumentSelect,
+        }),
+        this.prisma.milestoneDocumentSubmission.findMany({
+          where: {
+            application: {
+              is: {
+                programId: programFilter,
+                status: ApplicationStatus.APPROVED,
+              },
+            },
+            milestoneDocument: {
+              is: {
+                milestone: { is: { programId: programFilter } },
+                OR: [
+                  {
+                    kind: MilestoneDocumentKind.DOCUMENT,
+                    required: true,
+                  },
+                  { kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION },
+                ],
+              },
+            },
+          },
+          select: dashboardDocumentSubmissionSelect,
+        }),
+      ]);
+
+    const submissions: SubmissionDashboardSubmissionRecord[] = [];
+    const documentSubmissions: SubmissionDashboardDocumentSubmissionRecord[] =
+      [];
+    for (const submission of targetSubmissions) {
+      const { milestoneDocument } = submission;
+      if (
+        milestoneDocument.kind ===
+        MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION
+      ) {
+        submissions.push({
+          applicationId: submission.applicationId,
+          applicationProgramId: submission.application.programId,
+          milestoneId: milestoneDocument.milestoneId,
+          milestoneProgramId: milestoneDocument.milestone.programId,
+          status: submission.status,
+        });
+      } else if (milestoneDocument.kind === MilestoneDocumentKind.DOCUMENT) {
+        documentSubmissions.push({
+          applicationId: submission.applicationId,
+          applicationProgramId: submission.application.programId,
+          milestoneDocumentId: submission.milestoneDocumentId,
+          milestoneId: milestoneDocument.milestoneId,
+          milestoneProgramId: milestoneDocument.milestone.programId,
+          status: submission.status,
+        });
+      }
+    }
+
+    return {
+      applications,
+      milestones,
+      submissions,
+      milestoneDocuments: milestoneDocuments.map((document) => ({
+        id: document.id,
+        milestoneId: document.milestoneId,
+        milestoneProgramId: document.milestone.programId,
+      })),
+      documentSubmissions,
+    };
+  }
+}

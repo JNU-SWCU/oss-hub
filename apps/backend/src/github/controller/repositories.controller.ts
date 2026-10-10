@@ -9,16 +9,16 @@ import {
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { MyRepositoriesResponseDto } from '../dto/my-repositories-response.dto';
-import { RepositoriesService } from '../service/repositories.service';
+import { RepositoriesReadService } from '../service/repositories-read.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 @Controller('repositories')
 export class RepositoriesController {
   constructor(
-    @Inject(RepositoriesService)
+    @Inject(RepositoriesReadService)
     private readonly repositoriesService: Pick<
-      RepositoriesService,
+      RepositoriesReadService,
       'getMyRepositories'
     >,
   ) {}

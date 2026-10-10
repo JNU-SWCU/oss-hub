@@ -18,6 +18,7 @@ const series = [
   { key: 'commitCount', label: 'Commit', color: 'var(--chart-1)' },
   { key: 'prCount', label: 'Pull Request', color: 'var(--chart-2)' },
   { key: 'releaseCount', label: 'Release', color: 'var(--chart-3)' },
+  { key: 'issueCount', label: 'Issue', color: 'var(--chart-4)' },
   { key: 'total', label: '합계', color: 'var(--foreground)' },
 ] as const;
 
@@ -52,6 +53,12 @@ const TABLE_COLUMNS: DataTableColumn<ActivityPoint>[] = [
     ...NUMBER_COLUMN,
   },
   {
+    id: 'issueCount',
+    header: 'Issue',
+    cell: (point) => point.issueCount,
+    ...NUMBER_COLUMN,
+  },
+  {
     id: 'total',
     header: '합계',
     cell: (point) => point.total,
@@ -60,12 +67,23 @@ const TABLE_COLUMNS: DataTableColumn<ActivityPoint>[] = [
   },
 ];
 
+export function hasIssueCounts(points: readonly ActivityPoint[]): boolean {
+  return points.some((point) => point.issueCount !== null);
+}
+
 export function ActivityChart({
   points,
 }: {
   points: readonly ActivityPoint[];
 }) {
   const orderedPoints = orderActivityPoints(points);
+  const showIssues = hasIssueCounts(points);
+  const visibleSeries = showIssues
+    ? series
+    : series.filter((item) => item.key !== 'issueCount');
+  const columns = showIssues
+    ? TABLE_COLUMNS
+    : TABLE_COLUMNS.filter((column) => column.id !== 'issueCount');
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
@@ -97,12 +115,15 @@ export function ActivityChart({
               }}
             />
             <Legend
+              itemSorter={(item) =>
+                series.findIndex((entry) => entry.key === item.dataKey)
+              }
               formatter={(value: string) => (
                 <span className="text-foreground">{value}</span>
               )}
-              wrapperStyle={{ fontSize: 12 }}
+              wrapperStyle={{ fontSize: 12, left: 0 }}
             />
-            {series.map((item) => (
+            {visibleSeries.map((item) => (
               <Line
                 key={item.key}
                 type="monotone"
@@ -119,7 +140,7 @@ export function ActivityChart({
         </ResponsiveContainer>
       </div>
       <DataTable
-        columns={TABLE_COLUMNS}
+        columns={columns}
         data={[...orderedPoints.table]}
         rowKey={(point) => point.period}
         caption="기간별 활동량"

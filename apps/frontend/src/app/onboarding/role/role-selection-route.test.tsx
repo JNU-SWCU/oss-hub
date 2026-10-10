@@ -58,22 +58,18 @@ describe('역할 선택 라우트 — 게이트 스냅샷 배선', () => {
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
   });
 
   async function render(value: SessionRoleResult): Promise<string> {
-    await act(() => {
+    await act(async () =>
       root.render(
         <SessionRoleProvider value={value}>
           <RoleSelectionRoute />
         </SessionRoleProvider>,
-      );
-      return Promise.resolve();
-    });
+      ),
+    );
     return container.textContent ?? '';
   }
 

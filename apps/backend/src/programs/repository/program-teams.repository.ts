@@ -18,24 +18,22 @@ import {
   RepositoryProvisionJobStatus,
   type ProgramCategory,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../../audit-log/audit-log.repository';
+import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
 import { PrismaService } from '../../prisma/prisma.service';
 import { requiredMilestonesApproved } from '../../milestone-documents/domain/milestone-completion';
 import { publishBlockedReasons } from '../../github/domain/repository-publication';
-import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity';
-import {
-  repositoryAccessSyncEventData,
-  repositoryAccessSyncTargetWhere,
-} from '../../github/repository-provision-event';
+import { repositoryUrlFromNameWithOwner } from '../../github/domain/repository-identity';
+import { repositoryAccessSyncEventData } from '../../github/domain/repository-provision-event';
+import { repositoryAccessSyncTargetWhere } from '../../prisma/repository-access-sync';
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
-} from '../../submissions/submission-completion-projection';
+} from '../../submissions/domain/submission-completion-projection';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../profiles/user-profile-read';
+} from '../../prisma/user-profile-read';
 import type {
   TeamApplicationView,
   TeamRepositoryProvisioningJobStatus,

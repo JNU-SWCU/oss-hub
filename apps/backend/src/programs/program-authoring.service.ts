@@ -3,8 +3,8 @@ import { AccountStatus } from '@prisma/client';
 import {
   createProgramCreatedAuditMetadata,
   PROGRAM_CREATED_AUDIT_ACTIONS,
-} from '../audit-log/audit-log-metadata';
-import { AuditLogService } from '../audit-log/audit-log.service';
+} from '../audit-log/domain/audit-log-metadata';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { buildProgramAuthoringPlan } from './program-authoring-plan';
 import { hashProgramAuthoringPayload } from './program-authoring-payload-hash';
 import {

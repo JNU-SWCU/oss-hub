@@ -38,7 +38,7 @@ describe('ProgramAuthoringOperationsStep — 마감 알림 스위치', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
@@ -54,7 +54,7 @@ describe('ProgramAuthoringOperationsStep — 마감 알림 스위치', () => {
     latest: () => ProgramAuthoringState;
   }> {
     let latest = initial;
-    await act(() => {
+    await act(async () => {
       root.render(
         <OperationsStepHarness
           initial={initial}
@@ -63,8 +63,6 @@ describe('ProgramAuthoringOperationsStep — 마감 알림 스위치', () => {
           }}
         />,
       );
-
-      return Promise.resolve();
     });
     return { latest: () => latest };
   }
@@ -88,10 +86,8 @@ describe('ProgramAuthoringOperationsStep — 마감 알림 스위치', () => {
     const { latest } = await render(completedAuthoringState());
     expect(deadlineCheckbox().checked).toBe(true);
 
-    await act(() => {
+    await act(async () => {
       deadlineCheckbox().click();
-
-      return Promise.resolve();
     });
 
     expect(deadlineCheckbox().checked).toBe(false);
@@ -108,10 +104,8 @@ describe('ProgramAuthoringOperationsStep — 마감 알림 스위치', () => {
     });
     expect(deadlineCheckbox().checked).toBe(false);
 
-    await act(() => {
+    await act(async () => {
       deadlineCheckbox().click();
-
-      return Promise.resolve();
     });
 
     expect(latest().notifyOnDeadline).toBe(true);

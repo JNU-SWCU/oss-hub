@@ -9,7 +9,8 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
-import { computeJoinCodeDigest } from '../../src/common/join-code-digest';
+import { computeJoinCodeDigest } from '../../src/programs/domain/join-code-digest';
+import { resolveJoinCodeSecret } from '../../src/runtime-config/join-code-secret';
 import type { ObjectStoragePort } from '../../src/storage/domain/object-storage';
 import {
   offsetDays,
@@ -224,6 +225,7 @@ async function upsertDemoTeam(
           name: params.teamName,
           joinCodeDigest: computeJoinCodeDigest(
             `SEED-DEMO-${params.teamSlug.toUpperCase()}`,
+            resolveJoinCodeSecret(),
           ),
           leaderId: leaderUserId,
         },
@@ -233,6 +235,7 @@ async function upsertDemoTeam(
           name: params.teamName,
           joinCodeDigest: computeJoinCodeDigest(
             `SEED-DEMO-${params.teamSlug.toUpperCase()}`,
+            resolveJoinCodeSecret(),
           ),
           leaderId: leaderUserId,
         },

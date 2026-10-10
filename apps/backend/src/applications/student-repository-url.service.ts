@@ -1,16 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { AuditLogService } from '../audit-log/audit-log.service';
-import { APPLICATION_REPOSITORY_URL_CHANGED } from '../audit-log/application-repository-url-audit-metadata';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
+import { APPLICATION_REPOSITORY_URL_CHANGED } from '../audit-log/domain/application-repository-url-audit-metadata';
 import { DomainException } from '../common/error-code';
 import { canEditStudentRepositoryUrl } from '../programs/program-participant';
-import { ConsentsService } from '../consents/consents.service';
+import { ConsentsService } from '../consents/service/consents.service';
 import { CollectionTriggerService } from '../github/service/collection-trigger.service';
-import { GithubOperationsError } from '../github/github-app.error';
-import {
-  OwnRepositoryUrlValidationService,
-  RepositoryProvisionFailure,
-} from '../github/service/own-repository-url-validation.service';
+import { GithubOperationsError } from '../github/domain/github-app.error';
+import { OwnRepositoryUrlValidationService } from '../github/service/own-repository-url-validation.service';
+import { RepositoryProvisionFailure } from '../github/domain/repository-provision.failure';
 import { ApplicationsRepository } from './applications.repository';
 import {
   APPLICATIONS_ERROR_CODES,

@@ -1,11 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, Prisma, type ApplicationStatus } from '@prisma/client';
+import { programApplicationParticipantWhere } from '../prisma/program-application-participant';
 import { PrismaService } from '../prisma/prisma.service';
-import { STUDENT_MEMBER_WHERE } from '../profiles/user-profile-read';
-import {
-  programApplicationManagerWhere,
-  programApplicationParticipantWhere,
-} from '../programs/program-participant';
+import { STUDENT_MEMBER_WHERE } from '../prisma/user-profile-read';
+import { programApplicationManagerWhere } from '../programs/program-participant';
 import { StudentRepositoryUrlTransaction } from './student-repository-url.transaction.repository';
 
 export const STUDENT_REPOSITORY_URL_SELECT = {

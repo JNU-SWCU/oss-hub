@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../../common/error-code';
-import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth-error-code.enum';
+import {
+  AUTH_ERROR_CODES,
+  AuthErrorCode,
+} from '../domain/auth-error-code.enum';
 import { AuthConfig } from '../auth.config';
 import { AuthRepository } from '../repository/auth.repository';
 import type {

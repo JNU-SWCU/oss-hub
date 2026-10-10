@@ -2,7 +2,7 @@ import { AccountStatus } from '@prisma/client';
 import {
   ROLES_ERROR_CODES,
   RolesErrorCode,
-} from '../roles/roles-error-code.enum';
+} from './domain/roles-error-code.enum';
 import {
   ADMIN_ACCESS_DECISION_KINDS,
   ADMIN_ACCESS_PENDING_STATES,

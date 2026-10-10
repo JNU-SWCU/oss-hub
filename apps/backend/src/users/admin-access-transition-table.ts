@@ -1,6 +1,6 @@
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import type { AuthorityLabel } from './domain/authority-label';
-import { RolesErrorCode } from '../roles/roles-error-code.enum';
+import { RolesErrorCode } from './domain/roles-error-code.enum';
 
 type AccessAuthority = {
   readonly hasStaffAccess: boolean;

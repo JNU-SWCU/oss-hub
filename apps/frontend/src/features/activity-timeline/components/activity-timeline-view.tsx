@@ -13,7 +13,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
-import { ActivityChart } from './activity-chart';
+import { ActivityChart, hasIssueCounts } from './activity-chart';
 import type {
   ActivityGranularity,
   ActivityProgram,
@@ -165,6 +165,12 @@ export function ActivityTimelineView({
             </p>
           ) : null}
         </div>
+        {data && hasIssueCounts(data.series.points) ? (
+          <p className="text-sm text-muted-foreground">
+            합계는 Commit·Pull Request·Release를 더한 값입니다. Issue는 따로
+            셉니다.
+          </p>
+        ) : null}
         {status === 'error' ? (
           <Alert variant="destructive">
             <AlertCircle aria-hidden="true" />

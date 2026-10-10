@@ -10,18 +10,18 @@ import {
   RepositoryVisibility,
   RepositorySource,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../../audit-log/audit-log.repository';
+import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
 import { writeRepositoryIssuanceHistory } from '../../prisma/repository-provision-generation';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
-} from '../repository-identity';
+} from '../domain/repository-identity';
 import {
   parseRepositoryProvisionEvent,
   REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   REPOSITORY_PROVISION_EVENT_TYPE,
-} from '../repository-provision-event';
+} from '../domain/repository-provision-event';
 
 export interface ClaimProvisionEventInput {
   readonly workerId: string;
@@ -116,10 +116,6 @@ function toOwnedRepository(row: {
     source: row.source,
     invitations: row.invitations,
   };
-}
-
-export class RepositoryPublishStateError extends Error {
-  override readonly name = 'RepositoryPublishStateError';
 }
 
 export interface RepositoriesTransactionStore {

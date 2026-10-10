@@ -73,7 +73,7 @@ function button(text: string, dialog = false): HTMLButtonElement {
     (item) => item.textContent === text,
   );
   if (!found) throw new Error(`버튼 없음: ${text}`);
-  return found as HTMLButtonElement;
+  return found;
 }
 
 function deferred() {

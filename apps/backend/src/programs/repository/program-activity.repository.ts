@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { programApplicationParticipantWhere } from '../program-participant';
+import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
 
 export interface ProgramRepositoryActivityQuery {
   readonly repositoryIds: readonly bigint[];
@@ -14,6 +14,7 @@ export interface ProgramRepositoryActivity {
   readonly commitDates: readonly Date[];
   readonly pullRequestDates: readonly Date[];
   readonly releaseDates: readonly Date[];
+  readonly issueDates: readonly Date[];
 }
 
 function linkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
@@ -126,6 +127,10 @@ export class ProgramActivityRepository {
           where: authorWhere,
           select: { publishedAt: true },
         },
+        issues: {
+          where: authorWhere,
+          select: { createdAt: true },
+        },
       },
     });
 
@@ -138,6 +143,7 @@ export class ProgramActivityRepository {
         (pullRequest) => pullRequest.createdAt,
       ),
       releaseDates: repository.releases.map((release) => release.publishedAt),
+      issueDates: repository.issues.map((issue) => issue.createdAt),
     }));
   }
 }

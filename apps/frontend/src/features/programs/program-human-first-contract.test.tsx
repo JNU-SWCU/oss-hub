@@ -62,7 +62,7 @@ describe('사람 중심 프로그램 작성 계약', () => {
   it('마일스톤 화면은 캘린더·공지·첨부만 노출한다', async () => {
     const state = completedAuthoringState();
     const milestone = {
-      ...state.milestones[0]!,
+      ...state.milestones[0],
       requirements: [
         {
           id: 'requirement-1',

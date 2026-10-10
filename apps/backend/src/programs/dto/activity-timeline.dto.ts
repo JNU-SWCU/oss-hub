@@ -21,6 +21,7 @@ export interface ActivityPointResponseDto {
   readonly commitCount: number;
   readonly pullRequestCount: number;
   readonly releaseCount: number;
+  readonly issueCount: number;
   readonly total: number;
 }
 

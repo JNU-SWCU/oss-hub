@@ -1,11 +1,11 @@
-import type { AuditLogService } from '../audit-log/audit-log.service';
+import type { AuditLogService } from '../audit-log/service/audit-log.service';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
-import { RolesErrorCode } from '../roles/roles-error-code.enum';
+import { RolesErrorCode } from './domain/roles-error-code.enum';
 import { createAdminProfileAudit } from './admin-profile-audit';
 import { requireActiveAdmin } from './admin-access-authorization';
 import { roleError } from './admin-access-mutation-policy';
-import { isValidStudentId } from './user-profile-policy';
+import { isValidStudentId } from './domain/user-profile-policy';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.enum';
 import type {
   AdminProfileFields,

@@ -2,19 +2,20 @@ import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/service/auth.service';
 import { sessionCookieName } from '../auth/domain/cookies';
 import { OriginGuard } from '../auth/controller/origin.guard';
 import { issueSessionToken } from '../auth/domain/session-token';
 import { SessionGuard } from '../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
 import { PrismaService } from '../prisma/prisma.service';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
+import { UsersAuthorityRepository } from '../users/repository/authority.repository';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { ProgramTeamsController } from './controller/program-teams.controller';
-import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 import { ProgramTeamDeletionRepository } from './repository/program-team-deletion.repository';
 import { ProgramTeamsRepository } from './repository/program-teams.repository';
 import { ProgramTeamsService } from './service/program-teams.service';
@@ -95,7 +96,8 @@ beforeAll(async () => {
       },
       SessionGuard,
       OriginGuard,
-      ProgramTeamsStaffGuard,
+      UsersAuthorityService,
+      UsersAuthorityRepository,
       {
         provide: AuthService,
         useValue: {

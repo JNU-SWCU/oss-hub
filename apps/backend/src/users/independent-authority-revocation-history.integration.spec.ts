@@ -1,11 +1,11 @@
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
-import { AuditLogService } from '../audit-log/audit-log.service';
-import type { ConsentsService } from '../consents/consents.service';
+import { AuditLogRepository } from '../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
+import type { ConsentsService } from '../consents/service/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { RolesRepository } from '../roles/roles.repository';
-import { RolesService } from '../roles/roles.service';
+import { UsersOnboardingRepository } from './repository/onboarding.repository';
+import { RolesService } from '../roles/service/roles.service';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { STAFF_ACCESS_COMMANDS } from './domain/independent-authority';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
@@ -25,7 +25,10 @@ const authority = new IndependentAuthorityService(
 const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
   requireCurrent: jest.fn().mockResolvedValue(undefined),
 };
-const roles = new RolesService(new RolesRepository(prisma), consentsService);
+const roles = new RolesService(
+  new UsersOnboardingRepository(prisma),
+  consentsService,
+);
 
 const TEST_PREFIX = 'test:1383:independent-authority-revocation:';
 const GITHUB_ID_BASE = 9_013_830_000n;

@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { ExecutionContext } from '@nestjs/common';
 import { SignJWT } from 'jose';
 import { DomainException } from '../../common/error-code';
-import { AuthErrorCode } from '../auth-error-code.enum';
+import { AuthErrorCode } from '../domain/auth-error-code.enum';
 import { AuthConfig } from '../auth.config';
 import { AuthService } from '../service/auth.service';
 import { sessionCookieName } from '../domain/cookies';

@@ -2,20 +2,18 @@ import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ApplicationStatus } from '@prisma/client';
 import { ApplicationsService } from '../../src/applications/applications.service';
-import { RepositoryOutboxConsumer } from '../../src/github/repository-outbox.consumer';
-import { RepositoryProvisionWorker } from '../../src/github/repository-provision.worker';
+import { RepositoryOutboxConsumer } from '../../src/github/service/repository-outbox.consumer';
+import { RepositoryProvisionWorker } from '../../src/github/service/repository-provision.worker';
 import { MilestoneDocumentCurrentFileService } from '../../src/milestone-documents/milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from '../../src/milestone-documents/milestone-document-files.service';
 import { MilestoneDocumentsService } from '../../src/milestone-documents/milestone-documents.service';
-import {
-  DeadlineDigestService,
-  type DeadlineDigestSendRequest,
-} from '../../src/notifications/deadline-digest.service';
+import { DeadlineDigestService } from '../../src/notifications/service/deadline-digest.service';
+import type { DeadlineDigestSendRequest } from '../../src/notifications/domain/deadline-digest';
 import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
 import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';
 import { PrismaService } from '../../src/prisma/prisma.service';
-import { SubmissionFileCleanupService } from '../../src/submissions/submission-file-cleanup.service';
+import { SubmissionFileCleanupService } from '../../src/submissions/service/submission-file-cleanup.service';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import {
   configureFailure,
@@ -159,12 +157,9 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     ) {
       throw new E2eAdapterError(409);
     }
-    await this.applications.decide(
-      E2E_STAFF_ID,
-      application.id,
-      E2E_STAFF_GITHUB_ID,
-      { action: 'APPROVE' as const },
-    );
+    await this.applications.decide(E2E_STAFF_GITHUB_ID, application.id, {
+      action: 'APPROVE' as const,
+    });
     await this.consumeProvisionEvent();
     await this.runProvisionWorker(E2E_NOW);
   }
@@ -298,12 +293,9 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     }
     if (application === null) throw new E2eAdapterError(409);
     if (application.status === ApplicationStatus.SUBMITTED) {
-      await this.applications.decide(
-        E2E_STAFF_ID,
-        application.id,
-        E2E_STAFF_GITHUB_ID,
-        { action: 'APPROVE' as const },
-      );
+      await this.applications.decide(E2E_STAFF_GITHUB_ID, application.id, {
+        action: 'APPROVE' as const,
+      });
       await this.consumeProvisionEvent();
     } else if (application.status !== ApplicationStatus.APPROVED) {
       throw new E2eAdapterError(409);

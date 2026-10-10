@@ -1,15 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AuditLogModule } from '../audit-log/audit-log.module';
-import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { AuthModule } from '../auth/auth.module';
 import { CollectionModule } from '../github/collection.module';
 import { RepositoriesModule } from '../github/repositories.module';
 import { ProgramsModule } from '../programs/programs.module';
 import { SubmissionsModule } from '../submissions/submissions.module';
-import {
-  ApplicationsStaffGuard,
-  ApplicationsStaffListGuard,
-} from './applications-staff.guard';
+import { UsersModule } from '../users/users.module';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { ApplicationsController } from './applications.controller';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
@@ -34,6 +32,7 @@ import { StudentRepositoryUrlRepository } from './student-repository-url.reposit
     ConsentsModule,
     AuditLogModule,
     AuthModule,
+    UsersModule,
 
     CollectionModule,
     RepositoriesModule,
@@ -50,16 +49,16 @@ import { StudentRepositoryUrlRepository } from './student-repository-url.reposit
   providers: [
     StudentRepositoryUrlService,
     StudentRepositoryUrlRepository,
-    ApplicationsStaffGuard,
-    ApplicationsStaffListGuard,
     ApplicationsRepository,
     {
       provide: ApplicationsService,
-      inject: [ApplicationsRepository, AuditLogService],
+      inject: [ApplicationsRepository, AuditLogService, UsersAuthorityService],
       useFactory: (
         repository: ApplicationsRepository,
         auditLog: AuditLogService,
-      ): ApplicationsService => new ApplicationsService(repository, auditLog),
+        authority: UsersAuthorityService,
+      ): ApplicationsService =>
+        new ApplicationsService(repository, auditLog, authority),
     },
     StudentApplicationManagementRepository,
     StudentApplicationManagementService,

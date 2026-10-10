@@ -4,7 +4,7 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from 'class-validator';
-import { parseGithubRepositoryUrl } from '../../common/github-repository-url';
+import { parseGithubRepositoryUrl } from '../../github/domain/github-repository-url';
 
 @ValidatorConstraint({
   name: 'applicationRepositoryUrlByConnectionMode',

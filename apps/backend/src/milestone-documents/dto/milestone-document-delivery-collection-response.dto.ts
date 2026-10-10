@@ -1,4 +1,4 @@
-import type { DocumentDeliveryStatus } from '../../submissions/document-delivery-status';
+import type { DocumentDeliveryStatus } from '../../submissions/domain/document-delivery-status';
 import type {
   MilestoneDocumentCollectionResponseDto,
   MilestoneDocumentCollectionRowResponseDto,

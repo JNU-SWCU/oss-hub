@@ -5,7 +5,7 @@ import {
   ProgramAuthoringValidationError,
   type ProgramAuthoringDocumentRequest,
 } from './program-authoring.types';
-import type { AuditLogService } from '../audit-log/audit-log.service';
+import type { AuditLogService } from '../audit-log/service/audit-log.service';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import {

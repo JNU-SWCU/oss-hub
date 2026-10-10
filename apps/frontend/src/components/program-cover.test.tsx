@@ -15,61 +15,44 @@ beforeEach(() => {
   root = createRoot(container);
 });
 afterEach(async () => {
-  await act(() => {
-    root.unmount();
-    return Promise.resolve();
-  });
+  await act(async () => root.unmount());
   container.remove();
 });
 
 describe('program cover', () => {
   it('keeps poster geometry, falls back after a failed load, and tries a replacement URL', async () => {
-    await act(() => {
-      root.render(<ProgramCover src="/cover-one" />);
-      return Promise.resolve();
-    });
+    await act(async () => root.render(<ProgramCover src="/cover-one" />));
     const image = container.querySelector('img');
     expect(image?.className).toContain('object-contain');
     expect(image?.alt).toBe('');
-    await act(() => {
-      image?.dispatchEvent(new Event('error'));
-      return Promise.resolve();
-    });
+    await act(async () => image?.dispatchEvent(new Event('error')));
     expect(
       container.querySelector('[data-cover-state="error"]'),
     ).not.toBeNull();
     expect(container.querySelector('img')).toBeNull();
-    await act(() => {
-      root.render(<ProgramCover src="/cover-two" />);
-      return Promise.resolve();
-    });
+    await act(async () => root.render(<ProgramCover src="/cover-two" />));
     expect(container.querySelector('img')?.getAttribute('src')).toBe(
       '/cover-two',
     );
   });
 
   it('opens the complete detail image in a named dialog and closes it', async () => {
-    await act(() => {
+    await act(async () =>
       root.render(
         <ProgramCover src="/portrait" size="detail" title="합성 프로그램" />,
-      );
-      return Promise.resolve();
-    });
-    await act(() => {
-      container.querySelector('button')?.click();
-      return Promise.resolve();
-    });
+      ),
+    );
+    await act(async () => container.querySelector('button')?.click());
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
       '합성 프로그램 대표 이미지',
     );
     const enlarged = document.querySelector('[role="dialog"] img');
     expect(enlarged?.className).toContain('object-contain');
-    await act(() => {
+    await act(async () =>
       document
         .querySelector<HTMLButtonElement>('[aria-label="이미지 닫기"]')
-        ?.click();
-      return Promise.resolve();
-    });
+        ?.click(),
+    );
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 });
