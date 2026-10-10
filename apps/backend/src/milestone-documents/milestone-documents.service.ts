@@ -5,7 +5,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { DomainException } from '../common/error-code';
-import { SubmissionMembershipChangedError } from '../prisma/submission-membership-lock';
+import { SubmissionMembershipChangedError } from '../submissions/domain/submission-membership-changed.error';
 import { buildMilestoneDocumentCollectionPage } from './domain/milestone-document-collection-page';
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
 import {

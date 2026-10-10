@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 
 import { StorageModule } from '../storage/storage.module';
-import { SubmissionFilesRepository } from '../submissions/repository/submission-files.repository';
+import { SubmissionsModule } from '../submissions/submissions.module';
 import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,
@@ -22,7 +22,7 @@ import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
 
 @Module({
-  imports: [AuthModule, StorageModule],
+  imports: [AuthModule, StorageModule, SubmissionsModule],
   controllers: [
     ProgramDocumentArchivesController,
     MilestoneDocumentsController,
@@ -41,8 +41,6 @@ import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard'
     MilestoneDocumentArchiveService,
     MilestoneDocumentArchiveRepository,
     MilestoneDocumentsStaffGuard,
-
-    SubmissionFilesRepository,
   ],
   exports: [
     MilestoneDocumentsService,

@@ -6,10 +6,8 @@ import {
 import type { PrismaService } from '../../prisma/prisma.service';
 import type { CreateSubmissionInput } from '../domain/submission-content';
 import { submissionParticipantWhere } from './submission-application.record';
-import {
-  lockSubmissionMembership,
-  SubmissionMembershipChangedError,
-} from '../../prisma/submission-membership-lock';
+import { lockSubmissionMembership } from '../../prisma/submission-membership-lock';
+import { SubmissionMembershipChangedError } from '../domain/submission-membership-changed.error';
 import {
   type CreateSubmissionRevisionInput,
   StaleSubmissionRevisionError,

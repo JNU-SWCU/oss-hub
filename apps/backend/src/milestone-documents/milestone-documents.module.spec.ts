@@ -1,5 +1,10 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { SubmissionFilesRepository } from '../submissions/repository/submission-files.repository';
+import { Test } from '@nestjs/testing';
+import { AuthConfig } from '../auth/auth.config';
+import { PrismaModule } from '../prisma/prisma.module';
+import { PrismaService } from '../prisma/prisma.service';
+import { SubmissionsModule } from '../submissions/submissions.module';
+import { SubmissionFilesService } from '../submissions/service/submission-files.service';
 import {
   MilestoneDocumentFilesController,
   MilestoneDocumentsController,
@@ -55,10 +60,19 @@ describe('MilestoneDocumentsModule', () => {
 
         MilestoneDocumentArchiveService,
         MilestoneDocumentsStaffGuard,
-
-        SubmissionFilesRepository,
       ]),
     );
+  });
+
+  it('제출 파일 service는 provider 재등록 없이 SubmissionsModule import로 해결한다', () => {
+    const imports = getMetadataArray(MODULE_METADATA.IMPORTS);
+    const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
+
+    expect(imports).toContain(SubmissionsModule);
+    expect(providers).not.toContain(SubmissionFilesService);
+    expect(
+      Reflect.getMetadata('design:paramtypes', MilestoneDocumentFilesService),
+    ).toEqual([MilestoneDocumentsRepository, Object, SubmissionFilesService]);
   });
 
   it('E2E composition에 필요한 document services만 다른 모듈에 노출한다', () => {
@@ -69,5 +83,27 @@ describe('MilestoneDocumentsModule', () => {
       MilestoneDocumentFilesService,
       MilestoneDocumentCurrentFileService,
     ]);
+  });
+
+  it('외부 repository 재등록 없이 제출 파일 service 의존성을 조립한다', async () => {
+    const module = await Test.createTestingModule({
+      imports: [PrismaModule, MilestoneDocumentsModule],
+    })
+      .overrideProvider(PrismaService)
+      .useValue({})
+      .overrideProvider(AuthConfig)
+      .useValue({})
+      .compile();
+
+    try {
+      expect(module.get(MilestoneDocumentFilesService)).toBeInstanceOf(
+        MilestoneDocumentFilesService,
+      );
+      expect(module.get(SubmissionFilesService)).toBeInstanceOf(
+        SubmissionFilesService,
+      );
+    } finally {
+      await module.close();
+    }
   });
 });

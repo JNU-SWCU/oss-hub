@@ -19,12 +19,14 @@ import {
   ObjectStorageError,
   type ObjectStoragePort,
 } from '../../storage/domain/object-storage';
-import { SubmissionMembershipChangedError } from '../../prisma/submission-membership-lock';
+import { SubmissionMembershipChangedError } from '../domain/submission-membership-changed.error';
+import {
+  SubmissionFileQuotaExceededError,
+  SubmissionFileRetentionUnavailableError,
+} from '../domain/submission-file-errors';
 import {
   type CreatePendingSubmissionFileInput,
   type SubmissionFileResubmissionContext,
-  SubmissionFileQuotaExceededError,
-  SubmissionFileRetentionUnavailableError,
   SubmissionFilesRepository,
 } from '../repository/submission-files.repository';
 import {
@@ -50,6 +52,10 @@ export class SubmissionFilesService {
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
   ) {}
+
+  createPending(input: CreatePendingSubmissionFileInput) {
+    return this.repository.createPending(input);
+  }
 
   async upload(
     sessionGithubId: bigint,
@@ -128,7 +134,7 @@ export class SubmissionFilesService {
 
     let created;
     try {
-      created = await this.repository.createPending(pendingInput);
+      created = await this.createPending(pendingInput);
     } catch (error) {
       if (error instanceof SubmissionMembershipChangedError) {
         throw this.error(SubmissionsErrorCode.NOT_APPLICATION_MEMBER);

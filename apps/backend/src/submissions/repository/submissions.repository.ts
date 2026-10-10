@@ -30,10 +30,8 @@ import {
   checklistMilestoneSelect,
   toChecklistMilestone,
 } from './submission-checklist.record';
-import {
-  lockSubmissionMembership,
-  SubmissionMembershipChangedError,
-} from '../../prisma/submission-membership-lock';
+import { lockSubmissionMembership } from '../../prisma/submission-membership-lock';
+import { SubmissionMembershipChangedError } from '../domain/submission-membership-changed.error';
 import {
   exactSubmissionByPublicId,
   publicSubmissionId,

@@ -13,10 +13,12 @@ import { addOneCalendarYear } from '../../common/add-one-calendar-year';
 import { STUDENT_MEMBER_WHERE } from '../../profiles/user-profile-read';
 import { PrismaService } from '../../prisma/prisma.service';
 import { submissionParticipantWhere } from './submission-application.record';
+import { lockSubmissionMembership } from '../../prisma/submission-membership-lock';
+import { SubmissionMembershipChangedError } from '../domain/submission-membership-changed.error';
 import {
-  lockSubmissionMembership,
-  SubmissionMembershipChangedError,
-} from '../../prisma/submission-membership-lock';
+  SubmissionFileQuotaExceededError,
+  SubmissionFileRetentionUnavailableError,
+} from '../domain/submission-file-errors';
 import {
   exactSubmissionByPublicId,
   submissionPublicIdWhere,
@@ -89,14 +91,6 @@ export interface RecordSubmissionFileDeleteFailureInput {
   readonly attemptCount: number;
   readonly nextAttemptAt: Date | null;
   readonly error: 'STORAGE_DELETE_FAILED';
-}
-
-export class SubmissionFileRetentionUnavailableError extends Error {
-  override readonly name = 'SubmissionFileRetentionUnavailableError';
-}
-
-export class SubmissionFileQuotaExceededError extends Error {
-  override readonly name = 'SubmissionFileQuotaExceededError';
 }
 
 @Injectable()

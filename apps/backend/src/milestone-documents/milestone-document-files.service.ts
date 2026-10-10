@@ -19,9 +19,9 @@ import {
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
-  SubmissionFilesRepository,
-} from '../submissions/repository/submission-files.repository';
-import { SubmissionMembershipChangedError } from '../prisma/submission-membership-lock';
+} from '../submissions/domain/submission-file-errors';
+import { SubmissionFilesService } from '../submissions/service/submission-files.service';
+import { SubmissionMembershipChangedError } from '../submissions/domain/submission-membership-changed.error';
 import { inspectSubmissionZipMetadata } from '../submissions/domain/submission-zip-admission';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/domain/submission-upload-policy';
 import { milestoneDocumentSubmissionBlock } from './domain/milestone-document-submission-window';
@@ -78,7 +78,7 @@ export class MilestoneDocumentFilesService {
     private readonly repository: MilestoneDocumentsRepository,
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
-    private readonly submissionFiles: SubmissionFilesRepository,
+    private readonly submissionFiles: SubmissionFilesService,
   ) {}
 
   async upload(

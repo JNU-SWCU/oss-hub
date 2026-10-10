@@ -14,6 +14,7 @@ import { MilestoneDocumentFilesService } from '../milestone-documents/milestone-
 import { MilestoneDocumentsRepository } from '../milestone-documents/repository/milestone-documents.repository';
 import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import { SubmissionFilesRepository } from '../submissions/repository/submission-files.repository';
+import { SubmissionFilesService } from '../submissions/service/submission-files.service';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
 import {
   MilestoneDocumentMissingError,
@@ -246,7 +247,10 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     await new MilestoneDocumentFilesService(
       new MilestoneDocumentsRepository(prisma),
       memoryStorage(),
-      new SubmissionFilesRepository(prisma),
+      new SubmissionFilesService(
+        new SubmissionFilesRepository(prisma),
+        memoryStorage(),
+      ),
     ).uploadTemplate(
       `${TEST_PREFIX}staff`,
       milestoneId,
@@ -373,7 +377,10 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     const files = new MilestoneDocumentFilesService(
       new MilestoneDocumentsRepository(prisma),
       memoryStorage(),
-      new SubmissionFilesRepository(prisma),
+      new SubmissionFilesService(
+        new SubmissionFilesRepository(prisma),
+        memoryStorage(),
+      ),
     );
 
     await expect(
@@ -408,7 +415,10 @@ describe('ProgramEditorService milestone aggregate integration', () => {
             contentType: input.contentType,
           })),
       },
-      new SubmissionFilesRepository(prisma),
+      new SubmissionFilesService(
+        new SubmissionFilesRepository(prisma),
+        memoryStorage(),
+      ),
     );
     const direct = files.uploadTemplate(
       `${TEST_PREFIX}staff`,
@@ -544,7 +554,10 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     const files = new MilestoneDocumentFilesService(
       new MilestoneDocumentsRepository(prisma),
       memoryStorage(),
-      new SubmissionFilesRepository(prisma),
+      new SubmissionFilesService(
+        new SubmissionFilesRepository(prisma),
+        memoryStorage(),
+      ),
     );
     await expect(
       files.uploadTemplate(

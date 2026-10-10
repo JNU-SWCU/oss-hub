@@ -47,6 +47,10 @@ import { SubmissionsService } from './service/submissions.service';
     SubmissionMatrixRepository,
     SubmissionMatrixService,
   ],
-  exports: [SubmissionDashboardSummaryService, SubmissionFileCleanupService],
+  exports: [
+    SubmissionDashboardSummaryService,
+    SubmissionFileCleanupService,
+    SubmissionFilesService,
+  ],
 })
 export class SubmissionsModule {}

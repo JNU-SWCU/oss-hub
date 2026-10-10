@@ -7,12 +7,14 @@ import {
   type StoreObjectInput,
   type ObjectStoragePort,
 } from '../../storage/domain/object-storage';
-import { SubmissionMembershipChangedError } from '../../prisma/submission-membership-lock';
+import { SubmissionMembershipChangedError } from '../domain/submission-membership-changed.error';
+import {
+  SubmissionFileQuotaExceededError,
+  SubmissionFileRetentionUnavailableError,
+} from '../domain/submission-file-errors';
 import {
   type CreatePendingSubmissionFileInput,
   type DownloadableSubmissionFile,
-  SubmissionFileQuotaExceededError,
-  SubmissionFileRetentionUnavailableError,
   type SubmissionFilesRepository,
 } from '../repository/submission-files.repository';
 import {
@@ -159,6 +161,63 @@ describe('SubmissionFilesService', () => {
     jest.useFakeTimers({ doNotFake: ['setImmediate'] }).setSystemTime(NOW),
   );
   afterEach(() => jest.useRealTimers());
+
+  it('creates a pending file without uploading storage objects or changing its result', async () => {
+    const { service, repository, storage } = setup();
+    const input: CreatePendingSubmissionFileInput = {
+      uploaderId: 'student-opaque',
+      applicationId: 'app-opaque',
+      milestoneId: 'milestone-opaque',
+      storageKey: 'submission-files/pending-key',
+      originalFileName: 'report.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 14,
+      pendingExpiresAt: new Date('2026-07-26T12:00:00.000Z'),
+    };
+    const result = {
+      id: 'file-opaque',
+      originalFileName: input.originalFileName,
+      mimeType: input.mimeType,
+      sizeBytes: input.sizeBytes,
+      expiresAt: PROGRAM_END,
+    };
+    repository.createPending.mockResolvedValueOnce(result);
+
+    await expect(service.createPending(input)).resolves.toBe(result);
+
+    expect(repository.createPending).toHaveBeenCalledTimes(1);
+    expect(repository.createPending.mock.calls[0]?.[0]).toBe(input);
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    new SubmissionMembershipChangedError('app-opaque', 'student-opaque'),
+    new SubmissionFileQuotaExceededError(),
+    new SubmissionFileRetentionUnavailableError(),
+    new Error('database unavailable'),
+  ])(
+    'preserves pending creation error identity for caller mapping: %s',
+    async (failure) => {
+      const { service, repository, storage } = setup();
+      repository.createPending.mockRejectedValueOnce(failure);
+
+      await expect(
+        service.createPending({
+          uploaderId: 'student-opaque',
+          applicationId: 'app-opaque',
+          milestoneId: 'milestone-opaque',
+          storageKey: 'submission-files/pending-key',
+          originalFileName: 'report.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 14,
+          pendingExpiresAt: NOW,
+        }),
+      ).rejects.toBe(failure);
+
+      expect(repository.createPending).toHaveBeenCalledTimes(1);
+      expect(storage.put).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     ['document.pdf', 'application/pdf'],

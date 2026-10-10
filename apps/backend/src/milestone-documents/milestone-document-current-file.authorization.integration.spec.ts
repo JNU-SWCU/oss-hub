@@ -1,5 +1,6 @@
 import { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
+import { Test } from '@nestjs/testing';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -9,9 +10,16 @@ import {
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
-import type { ObjectStoragePort } from '../storage/domain/object-storage';
-import { SubmissionFilesRepository } from '../submissions/repository/submission-files.repository';
+import { loadRuntimeConfig } from '../runtime-config/runtime-config';
+import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
+import {
+  OBJECT_STORAGE,
+  type ObjectStoragePort,
+} from '../storage/domain/object-storage';
+import { SubmissionFilesService } from '../submissions/service/submission-files.service';
+import { SubmissionsModule } from '../submissions/submissions.module';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
@@ -132,11 +140,9 @@ const currentFileService = new MilestoneDocumentCurrentFileService(
   storage,
 );
 
-const staffFilesService = new MilestoneDocumentFilesService(
-  documentsRepository,
-  storage,
-  new SubmissionFilesRepository(prisma),
-);
+const sessionSecret = Buffer.from(`${prefix}-secret`).toString('base64url');
+
+let staffFilesService: MilestoneDocumentFilesService;
 
 interface TeamFixture {
   readonly key: string;
@@ -339,6 +345,31 @@ let revertedApplicationId = '';
 describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기」의 자격', () => {
   beforeAll(async () => {
     await prisma.$connect();
+
+    const submissionsModule = await Test.createTestingModule({
+      imports: [PrismaModule, SubmissionsModule],
+    })
+      .overrideProvider(RUNTIME_CONFIG)
+      .useValue(
+        loadRuntimeConfig({
+          SESSION_SECRET: sessionSecret,
+          FRONTEND_URL: 'http://localhost:3000',
+          GITHUB_OAUTH_CLIENT_ID: `${prefix}-client-id`,
+          GITHUB_OAUTH_CLIENT_SECRET: `${prefix}-client-secret`,
+        }),
+      )
+      .overrideProvider(PrismaService)
+      .useValue(prisma)
+      .overrideProvider(OBJECT_STORAGE)
+      .useValue(storage)
+      .compile();
+
+    staffFilesService = new MilestoneDocumentFilesService(
+      documentsRepository,
+      storage,
+      submissionsModule.get(SubmissionFilesService),
+    );
+
     await cleanup();
 
     await prisma.user.createMany({

@@ -1,10 +1,8 @@
 import { AccountStatus, Prisma, SubmissionFileLifecycle } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
-import {
-  lockSubmissionMembership,
-  SubmissionMembershipChangedError,
-} from '../../prisma/submission-membership-lock';
+import { lockSubmissionMembership } from '../../prisma/submission-membership-lock';
+import { SubmissionMembershipChangedError } from '../domain/submission-membership-changed.error';
 
 jest.mock('../../prisma/submission-membership-lock', () => ({
   ...jest.requireActual<Record<string, unknown>>(

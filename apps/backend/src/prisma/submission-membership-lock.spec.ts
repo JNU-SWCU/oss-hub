@@ -1,8 +1,5 @@
 import { Prisma } from '@prisma/client';
-import {
-  SubmissionMembershipChangedError,
-  lockSubmissionMembership,
-} from './submission-membership-lock';
+import { lockSubmissionMembership } from './submission-membership-lock';
 
 const APPLICATION_ID = 'synthetic-application';
 const PROGRAM_ID = 'synthetic-program';
@@ -261,19 +258,5 @@ describe('lockSubmissionMembership', () => {
     await expect(
       lockSubmissionMembership(tx, APPLICATION_ID, MEMBER_ID),
     ).rejects.toBe(failure);
-  });
-});
-
-describe('SubmissionMembershipChangedError', () => {
-  it('소비자가 NOT_APPLICATION_MEMBER 로 매핑할 수 있게 맥락을 담는다', () => {
-    const error = new SubmissionMembershipChangedError(
-      APPLICATION_ID,
-      DEPARTED_ID,
-    );
-
-    expect(error).toBeInstanceOf(Error);
-    expect(error.name).toBe('SubmissionMembershipChangedError');
-    expect(error.applicationId).toBe(APPLICATION_ID);
-    expect(error.userId).toBe(DEPARTED_ID);
   });
 });

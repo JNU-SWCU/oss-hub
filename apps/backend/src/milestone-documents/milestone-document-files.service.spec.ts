@@ -15,9 +15,9 @@ import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
-  type SubmissionFilesRepository,
-} from '../submissions/repository/submission-files.repository';
-import { SubmissionMembershipChangedError } from '../prisma/submission-membership-lock';
+} from '../submissions/domain/submission-file-errors';
+import type { SubmissionFilesService } from '../submissions/service/submission-files.service';
+import { SubmissionMembershipChangedError } from '../submissions/domain/submission-membership-changed.error';
 import { signatureValidZip } from '../submissions/domain/submission-zip-test-builder';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/domain/submission-upload-policy';
 
@@ -176,7 +176,7 @@ function buildSubmissionFiles(
   };
   return {
     mocks,
-    submissionFiles: mocks as unknown as SubmissionFilesRepository,
+    submissionFiles: mocks as unknown as SubmissionFilesService,
   };
 }
 

@@ -126,7 +126,7 @@ function milestoneDocumentService() {
   return new MilestoneDocumentFilesService(
     repository as unknown as MilestoneDocumentsRepository,
     storage,
-    submissionFiles as unknown as SubmissionFilesRepository,
+    submissionFiles as unknown as SubmissionFilesService,
   );
 }
 

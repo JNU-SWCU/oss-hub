@@ -20,7 +20,7 @@ import {
   resolveUserProfileName,
 } from '../../profiles/user-profile-read';
 
-import { submissionParticipantWhere } from '../../submissions/repository/submission-application.record';
+import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
 import type { MilestoneDocumentReviewRecord } from '../domain/milestone-document-review';
 import type {
   MilestoneDocumentRecord,
@@ -820,7 +820,7 @@ export class MilestoneDocumentsRepository {
     programId: string,
   ): Promise<StudentApplicationContext | null> {
     const application = await this.prisma.application.findFirst({
-      where: { programId, ...submissionParticipantWhere(userId) },
+      where: { programId, ...programApplicationParticipantWhere(userId) },
       select: {
         id: true,
         status: true,
