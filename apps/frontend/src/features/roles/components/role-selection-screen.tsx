@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 import { selectRole } from '../api';
 import type { RoleSelection } from '../types';
 
-export type ClosedStaffAccessRequestStatus = 'REJECTED';
+type ClosedStaffAccessRequestStatus = 'REJECTED';
 
 export interface ClosedStaffAccessRequestNotice {
   readonly status: ClosedStaffAccessRequestStatus;

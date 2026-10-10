@@ -61,7 +61,7 @@ export function resolveDepartment(
     : values.departmentOption;
 }
 
-export function resolveAffiliationName(
+function resolveAffiliationName(
   values: Pick<
     ProfileFormValues,
     | 'affiliationKind'

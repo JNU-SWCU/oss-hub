@@ -6,7 +6,7 @@ import type {
 import type { CanonicalAdminAccessDetail } from './independent-authority-api';
 import { adminDetail } from './admin-access-detail-test-fixture';
 
-export const PENDING_REQUEST_ID = 'request-pending';
+const PENDING_REQUEST_ID = 'request-pending';
 
 export const PENDING_DETAIL: CanonicalAdminAccessDetail = adminDetail({
   role: 'STUDENT',

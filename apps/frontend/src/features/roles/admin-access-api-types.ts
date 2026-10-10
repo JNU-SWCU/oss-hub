@@ -5,9 +5,9 @@ export type AdminAccessPendingFilter = 'NONE' | 'PENDING';
 export type AdminAccessSortField =
   'name' | 'createdAt' | 'lastLoginAt' | 'role' | 'accountStatus';
 export type AdminAccessSortDirection = 'asc' | 'desc';
-export type AdminAccessStaffAccessRequestStatus =
+type AdminAccessStaffAccessRequestStatus =
   'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
-export type AdminAccessLoginEvent = 'LOGIN' | 'LOGOUT';
+type AdminAccessLoginEvent = 'LOGIN' | 'LOGOUT';
 
 export interface AdminAccessPendingRequest {
   readonly id: string;
@@ -114,12 +114,12 @@ export interface AdminAccessHistoryParams {
   readonly loginLimit?: number;
 }
 
-export interface AdminAccessExpectedPendingRequest {
+interface AdminAccessExpectedPendingRequest {
   readonly id: string;
   readonly status: 'PENDING';
 }
 
-export type AdminAccessRequestDecisionInput =
+type AdminAccessRequestDecisionInput =
   | { readonly decision: 'APPROVE' }
   | { readonly decision: 'REJECT'; readonly reason: string };
 

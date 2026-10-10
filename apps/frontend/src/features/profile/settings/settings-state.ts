@@ -8,16 +8,12 @@ import {
   validateSettingsProfileForm,
 } from '../profile-state';
 import type { UserProfile } from '../types';
-import type {
-  SettingsFormErrors,
-  SettingsFormValues,
-  SettingsNotificationLoadState,
-} from './types';
+import type { SettingsFormErrors, SettingsFormValues } from './types';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const STAFF_NUMBER_MAX_LENGTH = 100;
 
-export function isValidNotificationEmail(email: string): boolean {
+function isValidNotificationEmail(email: string): boolean {
   return EMAIL_PATTERN.test(email.trim());
 }
 
@@ -134,5 +130,3 @@ export function notificationSaveFailureMessage(
       return '프로필은 저장했습니다. 알림 설정의 저장 여부는 확인하지 못했습니다. 입력값은 화면에 남아 있으니 저장을 다시 눌러 주세요. 같은 안내가 반복되면 설정 화면을 새로 열어 저장된 값을 확인해 주세요.';
   }
 }
-
-export type { SettingsNotificationLoadState };

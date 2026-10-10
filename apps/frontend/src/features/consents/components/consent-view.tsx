@@ -27,8 +27,6 @@ export { ConsentPolicyInline } from './consent-policy-document';
 const consentPanelClassName =
   'rounded-card border border-cosmos-border bg-cosmos-muted/5';
 
-export { CONSENT_POLICY_DOCUMENT_ID };
-
 type EditableConsentState = Extract<
   ConsentFlowState,
   | { readonly kind: 'ready' }
