@@ -13,7 +13,7 @@ function bool(value) {
   return value ? 'TRUE' : 'FALSE';
 }
 
-export function buildSeedSql(fixture) {
+function buildSeedSql(fixture) {
   const statements = [];
 
   for (const user of fixture.users) {
