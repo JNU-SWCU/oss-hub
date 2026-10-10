@@ -99,24 +99,3 @@ export function resolveProgramApplicationTemplate(
     )?.template ?? null
   );
 }
-
-export function mergeTemplateFieldsFromApi(
-  definitions: readonly ProgramTemplateDefinition[],
-  apiTemplates: readonly ApplicationFormTemplate[],
-): readonly ProgramTemplateDefinition[] {
-  const byKey = new Map(apiTemplates.map((item) => [item.key, item]));
-  return definitions.map((definition) => {
-    const fromApi = byKey.get(definition.template.key);
-    if (!fromApi) return definition;
-    return {
-      ...definition,
-      template: {
-        key: fromApi.key,
-        version: fromApi.version,
-        name: fromApi.name,
-        participation: fromApi.participation,
-        fields: fromApi.fields,
-      },
-    };
-  });
-}

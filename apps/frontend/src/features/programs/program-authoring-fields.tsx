@@ -63,26 +63,6 @@ export function ProgramAuthoringTextField({
   );
 }
 
-export function ProgramAuthoringDatePair({
-  legend,
-  first,
-  second,
-}: {
-  readonly legend: string;
-  readonly first: ProgramAuthoringTextFieldProps;
-  readonly second: ProgramAuthoringTextFieldProps;
-}) {
-  return (
-    <Field>
-      <FieldLabel>{legend}</FieldLabel>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <ProgramAuthoringTextField {...first} type="datetime-local" />
-        <ProgramAuthoringTextField {...second} type="datetime-local" />
-      </div>
-    </Field>
-  );
-}
-
 export function messageFor(
   issues: readonly ProgramAuthoringIssue[],
   path: string,

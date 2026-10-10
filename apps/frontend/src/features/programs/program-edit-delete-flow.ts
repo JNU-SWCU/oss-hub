@@ -3,14 +3,14 @@ import { programDocumentsHref } from '@/lib/program-route';
 import type { ProgramDeletionScopeCounts } from './api';
 import { programHref } from './program-paths';
 
-export interface ProgramDeleteBlockingCounts {
+interface ProgramDeleteBlockingCounts {
   readonly applications: number;
   readonly teams: number;
   readonly submissions: number;
   readonly boardPosts: number;
 }
 
-export interface ProgramDeleteBlockingItem {
+interface ProgramDeleteBlockingItem {
   readonly label: string;
   readonly count: number;
   readonly unit: string;

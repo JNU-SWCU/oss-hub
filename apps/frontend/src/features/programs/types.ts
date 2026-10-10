@@ -9,18 +9,11 @@ export type SubmissionStatus =
   'NOT_SUBMITTED' | 'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 export type SubmissionType = 'FILE' | 'TEXT';
 
-export const PROGRAM_PARTICIPATION_TYPES = ['individual', 'team'] as const;
-export type ProgramParticipation = (typeof PROGRAM_PARTICIPATION_TYPES)[number];
+export type ProgramParticipation = 'individual' | 'team';
 
-export const APPLICATION_FIELD_TYPES = ['auto', 'text', 'textarea'] as const;
-export type ApplicationFormFieldType = (typeof APPLICATION_FIELD_TYPES)[number];
+export type ApplicationFormFieldType = 'auto' | 'text' | 'textarea';
 
-export const APPLICATION_FIELD_KEYS = [
-  'applicantName',
-  'title',
-  'summary',
-] as const;
-export type ApplicationFormFieldKey = (typeof APPLICATION_FIELD_KEYS)[number];
+export type ApplicationFormFieldKey = 'applicantName' | 'title' | 'summary';
 
 export interface ApplicationFormField {
   readonly key: ApplicationFormFieldKey;
@@ -37,7 +30,7 @@ export interface ApplicationFormTemplate {
   readonly fields: readonly ApplicationFormField[];
 }
 
-export interface ProgramListItemNote {
+interface ProgramListItemNote {
   readonly text: string;
   readonly icon?: 'team';
 }
@@ -123,13 +116,8 @@ export interface ProgramListPage {
 
 export type ProgramStatusCounts = Readonly<Record<ProgramListStatus, number>>;
 
-export const APPLICATION_LIST_STATUSES = [
-  'all',
-  'SUBMITTED',
-  'APPROVED',
-  'REJECTED',
-] as const;
-export type ApplicationListStatus = (typeof APPLICATION_LIST_STATUSES)[number];
+export type ApplicationListStatus =
+  'all' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
 
 export interface ApplicationListParams {
   readonly page: number;
@@ -138,7 +126,7 @@ export interface ApplicationListParams {
   readonly status: ApplicationListStatus;
 }
 
-export interface TeamManagementMember {
+interface TeamManagementMember {
   readonly id: string;
   readonly name: string | null;
   readonly nickname: string;
@@ -171,15 +159,8 @@ export interface TeamManagementListPage {
   readonly totalPages: number;
 }
 
-export const REVIEW_HISTORY_EVENT_KINDS = [
-  'SUBMITTED',
-  'RESUBMITTED',
-  'APPROVED',
-  'REJECTED',
-  'REVERTED',
-] as const;
 export type ReviewHistoryEventKind =
-  (typeof REVIEW_HISTORY_EVENT_KINDS)[number];
+  'SUBMITTED' | 'RESUBMITTED' | 'APPROVED' | 'REJECTED' | 'REVERTED';
 
 export interface ReviewHistoryEntry {
   readonly id: string;
@@ -193,19 +174,16 @@ export interface ReviewHistoryEntry {
   readonly rejectionReason: string | null;
 }
 
-export const REPOSITORY_PROVISIONING_JOB_STATUSES = [
-  'NOT_REQUESTED',
-  'DISABLED',
-  'PENDING',
-  'PROCESSING',
-  'SUCCEEDED',
-  'RETRYABLE_FAILED',
-  'FAILED',
-  'ANOMALOUS',
-] as const;
 export type RepositoryProvisioningJobStatus =
-  (typeof REPOSITORY_PROVISIONING_JOB_STATUSES)[number];
-export type RepositoryProvisioningSafeErrorClass =
+  | 'NOT_REQUESTED'
+  | 'DISABLED'
+  | 'PENDING'
+  | 'PROCESSING'
+  | 'SUCCEEDED'
+  | 'RETRYABLE_FAILED'
+  | 'FAILED'
+  | 'ANOMALOUS';
+type RepositoryProvisioningSafeErrorClass =
   'AUTH' | 'RATE_LIMIT' | 'UPSTREAM_REJECTED' | 'UNKNOWN';
 
 export interface RepositoryProvisioning {
@@ -215,7 +193,7 @@ export interface RepositoryProvisioning {
   readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
 }
 
-export type RepositoryConnectionMode = 'NEW' | 'OWN';
+type RepositoryConnectionMode = 'NEW' | 'OWN';
 
 export interface ApplicationListItem {
   readonly id: string;
@@ -323,14 +301,6 @@ export interface RenamedTeam {
   readonly name: string;
 }
 
-export interface ApplicationListPage {
-  readonly items: readonly ApplicationListItem[];
-  readonly page: number;
-  readonly pageSize: number;
-  readonly totalItems: number;
-  readonly totalPages: number;
-}
-
 export interface StaffDashboardApplicationCounts {
   readonly total: number;
   readonly submitted: number;
@@ -382,7 +352,7 @@ export interface StaffDashboardSummary {
   readonly programs: readonly StaffDashboardProgramSummary[];
 }
 
-export interface SubmissionSummary {
+interface SubmissionSummary {
   readonly notSubmitted: number;
   readonly submitted: number;
   readonly approved: number;

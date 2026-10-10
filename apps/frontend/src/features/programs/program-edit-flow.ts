@@ -396,16 +396,16 @@ export function mapProgramEditError(error: unknown): ProgramEditErrors {
   return mapProgramProblem(error.problem);
 }
 
-export const MILESTONE_SAVE_FAILED_MESSAGE =
+const MILESTONE_SAVE_FAILED_MESSAGE =
   '마일스톤을 저장하지 못했습니다. 입력한 내용은 그대로 남아 있으니 잠시 후 다시 저장해 주세요.';
 
-export const MILESTONE_DELETE_FAILED_MESSAGE =
+const MILESTONE_DELETE_FAILED_MESSAGE =
   '마일스톤을 삭제하지 못했습니다. 목록을 새로고침해 현재 상태를 확인한 뒤 다시 시도해 주세요.';
 
-export const MILESTONE_REQUIRED_ON_SAVE_MESSAGE =
+const MILESTONE_REQUIRED_ON_SAVE_MESSAGE =
   '저장소 자동 생성을 켜려면 마일스톤이 1개 이상 있어야 합니다. 마일스톤을 추가한 뒤 다시 저장해 주세요.';
 
-export const MILESTONE_REQUIRED_ON_DELETE_MESSAGE =
+const MILESTONE_REQUIRED_ON_DELETE_MESSAGE =
   '저장소 자동 생성이 켜져 있어 마지막 마일스톤은 삭제할 수 없습니다. 다른 마일스톤을 먼저 추가하거나 저장소 자동 생성을 꺼 주세요.';
 
 export function mapMilestoneError(error: unknown): ProgramMilestoneErrors {

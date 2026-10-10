@@ -2,10 +2,9 @@ import { apiClient } from '@/lib/api-client';
 
 const jsonHeaders = { 'Content-Type': 'application/json' } as const;
 
-export type TeamInvitationStatus =
-  'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED';
+type TeamInvitationStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED';
 
-export interface TeamInvitation {
+interface TeamInvitation {
   readonly id: string;
   readonly teamId: string;
   readonly programId: string;
@@ -23,7 +22,7 @@ export interface ReceivedTeamInvitation extends TeamInvitation {
   readonly teamMaxSize: number;
 }
 
-export interface TeamInvitationInvitee {
+interface TeamInvitationInvitee {
   readonly id: string;
   readonly nickname: string;
   readonly name: string | null;

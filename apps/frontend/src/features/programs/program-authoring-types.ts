@@ -13,7 +13,7 @@ export const PROGRAM_AUTHORING_STEPS = [
 export type ProgramAuthoringStep =
   (typeof PROGRAM_AUTHORING_STEPS)[number]['id'];
 
-export type ProgramAuthoringTemplateFile = {
+type ProgramAuthoringTemplateFile = {
   readonly name: string;
   readonly size: number;
   readonly type: string;

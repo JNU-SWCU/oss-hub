@@ -112,4 +112,3 @@ function ProgramCard({
 }
 
 export { ProgramCard };
-export type { ProgramCardProps };

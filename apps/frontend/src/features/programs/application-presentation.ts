@@ -23,10 +23,6 @@ export const APPLICATION_STATUS_BADGE: Readonly<
   REJECTED: 'rejected',
 };
 
-export const NO_APPLICATION_LABEL = '신청 없음';
-
-export const REVIEW_ACTION_LABEL = '검토하기';
-
 export const PROVISIONING_LABELS: Readonly<
   Record<RepositoryProvisioningJobStatus, string>
 > = {
@@ -39,15 +35,6 @@ export const PROVISIONING_LABELS: Readonly<
   FAILED: '생성 실패',
   ANOMALOUS: '확인 필요',
 };
-
-export function isApplicationRevertBlocked(item: ApplicationListItem): boolean {
-  return (
-    item.status === 'APPROVED' &&
-    item.repositoryConnectionMode === 'NEW' &&
-    (item.repository !== null ||
-      item.repositoryProvisioning.jobStatus === 'SUCCEEDED')
-  );
-}
 
 export function formatSubmittedAt(value: string): string {
   return new Intl.DateTimeFormat('ko-KR', {

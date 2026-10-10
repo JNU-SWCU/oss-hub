@@ -1,27 +1,18 @@
 export {
   PROGRAM_AUTHORING_STEPS,
   createInitialProgramAuthoringState,
-  createMilestoneDraft,
   createRequirementDraft,
   programAuthoringReducer,
-  type ProgramAuthoringAction,
-  type ProgramAuthoringMilestone,
-  type ProgramAuthoringRequirement,
   type ProgramAuthoringState,
-  type ProgramAuthoringStep,
-  type ProgramAuthoringTemplateFile,
 } from './program-authoring-model';
 export {
   buildProgramAuthoringManifest,
   seoulDateTimeToIso,
-  seoulDateTimeSummary,
-  type ProgramAuthoringManifest,
 } from './program-authoring-manifest';
 export {
   validateProgramAuthoringManifest,
   validateProgramAuthoringStep,
   validateTemplateFile,
-  type ProgramAuthoringIssue,
 } from './program-authoring-validation';
 
 export const UNSAVED_PROGRAM_MESSAGE =
