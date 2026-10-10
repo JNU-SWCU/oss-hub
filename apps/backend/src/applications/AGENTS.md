@@ -14,7 +14,7 @@
 
 ## 접근과 경계
 
-- 판정은 `ApplicationsStaffGuard`, 교직원 목록은 `ApplicationsStaffListGuard`를 쓴다; 외부 오류 계약이 달라 guard를 합치지 않는다.
+- 판정·교직원 조회 권한은 service가 `UsersAuthorityService`로 확인하며 판정의 `STAFF_ONLY`와 조회의 `STAFF_LIST_ONLY` 오류 계약을 구분한다.
 - 학생 경로는 session 사용자 소유 Application만 읽고 변경한다.
 - 본인 관리와 교직원 통계는 각각 `student-application-management.service.ts`, `staff-insights.service.ts`의 별도 흐름이다.
 - `APP_*` 오류는 `applications-error-code.enum.ts`와 `DomainException` 계약을 유지한다.

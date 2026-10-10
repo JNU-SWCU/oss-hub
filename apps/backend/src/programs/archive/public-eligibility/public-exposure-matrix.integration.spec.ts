@@ -16,11 +16,11 @@ import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../../../audit-log/domain/audi
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
-} from '../../../github/repository-identity';
+} from '../../../github/domain/repository-identity';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
 import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
-import type { GithubAppClient } from '../../../github/github-app.client';
+import type { GithubAppClient } from '../../../github/gateway/github-app.client';
 import { RepositoriesRepository } from '../../../github/repository/repositories.repository';
 import { RepositoriesService } from '../../../github/service/repositories.service';
 import { RankingRepository } from '../../../ranking/repository/ranking.repository';

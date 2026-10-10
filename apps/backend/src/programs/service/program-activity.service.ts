@@ -187,7 +187,8 @@ export class ProgramActivityService {
       const points = new Map<string, ActivityPointResponseDto>();
       const add = (
         date: Date,
-        metric: 'commitCount' | 'pullRequestCount' | 'releaseCount',
+        metric:
+          'commitCount' | 'pullRequestCount' | 'releaseCount' | 'issueCount',
       ) => {
         const period = seoulPeriod(date, granularity);
         const current = points.get(period) ?? {
@@ -195,12 +196,13 @@ export class ProgramActivityService {
           commitCount: 0,
           pullRequestCount: 0,
           releaseCount: 0,
+          issueCount: 0,
           total: 0,
         };
         points.set(period, {
           ...current,
           [metric]: current[metric] + 1,
-          total: current.total + 1,
+          total: metric === 'issueCount' ? current.total : current.total + 1,
         });
       };
       for (const repository of canonicalByRepository.values()) {
@@ -209,6 +211,7 @@ export class ProgramActivityService {
           add(date, 'pullRequestCount'),
         );
         repository.releaseDates.forEach((date) => add(date, 'releaseCount'));
+        repository.issueDates.forEach((date) => add(date, 'issueCount'));
       }
 
       const programs = [

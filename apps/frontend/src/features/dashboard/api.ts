@@ -1,8 +1,11 @@
 import { apiClient } from '@/lib/api-client';
+import { programDocumentsHref } from '@/lib/program-route';
 import type {
   DashboardApplicationStatus,
+  DashboardFeedbackItem,
   DashboardItem,
   DashboardMilestone,
+  DashboardProgress,
   DashboardRepositoryInvitationStatus,
   DashboardRepositoryProvisionStatus,
   DashboardSubmissionStatus,
@@ -123,6 +126,22 @@ function isRepository(
   );
 }
 
+function isCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function hasItemCounts(value: Record<string, unknown>): boolean {
+  const { requiredItemCount, remainingItemCount } = value;
+  if (requiredItemCount === undefined && remainingItemCount === undefined) {
+    return true;
+  }
+  return (
+    isCount(requiredItemCount) &&
+    isCount(remainingItemCount) &&
+    remainingItemCount <= requiredItemCount
+  );
+}
+
 function isMilestone(value: unknown): value is DashboardMilestone {
   if (!isRecord(value)) return false;
 
@@ -131,7 +150,18 @@ function isMilestone(value: unknown): value is DashboardMilestone {
     isNonEmptyString(value.name) &&
     isNonEmptyString(value.dueAt) &&
     !Number.isNaN(Date.parse(value.dueAt)) &&
-    isSubmissionStatus(value.submissionStatus)
+    isSubmissionStatus(value.submissionStatus) &&
+    hasItemCounts(value)
+  );
+}
+
+function isProgress(value: unknown): value is DashboardProgress {
+  return (
+    isRecord(value) &&
+    isCount(value.approvedCount) &&
+    isCount(value.inReviewCount) &&
+    isCount(value.totalCount) &&
+    value.approvedCount + value.inReviewCount <= value.totalCount
   );
 }
 
@@ -140,6 +170,7 @@ function isDashboardItem(value: unknown): value is DashboardItem {
 
   const applicationStatus = value.applicationStatus;
   const nextMilestone = value.nextMilestone;
+  const progress = value.progress ?? null;
   const programId = value.programId;
 
   return (
@@ -152,6 +183,8 @@ function isDashboardItem(value: unknown): value is DashboardItem {
     isApplicationStatus(applicationStatus) &&
     (nextMilestone === null || isMilestone(nextMilestone)) &&
     (applicationStatus === 'APPROVED' || nextMilestone === null) &&
+    (progress === null || isProgress(progress)) &&
+    (applicationStatus === 'APPROVED' || progress === null) &&
     isProgramPath(
       value.detailUrl,
       programId,
@@ -178,6 +211,47 @@ function parseStudentDashboard(value: unknown): StudentDashboard {
 export async function fetchStudentDashboard(): Promise<StudentDashboard> {
   const response = await apiClient<unknown>('dashboard/student');
   return parseStudentDashboard(response);
+}
+
+function isDateString(value: unknown): value is string {
+  return isNonEmptyString(value) && !Number.isNaN(Date.parse(value));
+}
+
+function isFeedbackItem(value: unknown): value is DashboardFeedbackItem {
+  if (!isRecord(value)) return false;
+  const { programId, milestoneId } = value;
+
+  return (
+    isNonEmptyString(value.id) &&
+    (value.decision === 'APPROVED' ||
+      value.decision === 'CHANGES_REQUESTED' ||
+      value.decision === 'REJECTED') &&
+    (value.comment === null || typeof value.comment === 'string') &&
+    isDateString(value.reviewedAt) &&
+    (value.resubmissionDueAt === null ||
+      isDateString(value.resubmissionDueAt)) &&
+    isNonEmptyString(value.applicationId) &&
+    isNonEmptyString(programId) &&
+    isSafePathSegment(programId) &&
+    isNonEmptyString(milestoneId) &&
+    isNonEmptyString(value.milestoneName) &&
+    isNonEmptyString(value.itemName) &&
+    value.href === programDocumentsHref(programId, milestoneId)
+  );
+}
+
+export async function fetchStudentFeedback(): Promise<
+  readonly DashboardFeedbackItem[]
+> {
+  const response = await apiClient<unknown>('dashboard/student/feedback');
+  if (
+    !isRecord(response) ||
+    !Array.isArray(response.items) ||
+    !response.items.every(isFeedbackItem)
+  ) {
+    throw new Error('최근 피드백 응답 형식이 올바르지 않습니다.');
+  }
+  return response.items;
 }
 
 function isApplicationDecisionNotice(

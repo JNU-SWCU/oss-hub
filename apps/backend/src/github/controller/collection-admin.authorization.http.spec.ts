@@ -17,7 +17,7 @@ import { ProblemDetailFilter } from '../../common/controller/problem-detail.filt
 import { PrismaService } from '../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { AuditLogService } from '../../audit-log/service/audit-log.service';
-import { ContributionInvariants } from '../contribution-invariants';
+import { ContributionInvariants } from '../repository/contribution-invariants';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import { CollectionSyncService } from '../service/collection-sync.service';

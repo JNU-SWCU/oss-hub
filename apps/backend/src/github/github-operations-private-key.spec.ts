@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
-} from './github-app.error';
+} from './domain/github-app.error';
 import { GithubOperationsConfig } from './github-operations.config';
 import {
   PRIVATE_KEY_FILE_ERROR_CODES,

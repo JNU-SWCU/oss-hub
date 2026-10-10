@@ -58,7 +58,7 @@ const now = new Date('2026-07-21T00:00:00.000Z');
 
 describe('getProgramRecruitmentState', () => {
   it('classifies upcoming, recruiting, in_progress, ended without practice', () => {
-    const recruiting = programs[0]!;
+    const recruiting = programs[0];
     expect(
       getProgramRecruitmentState(
         recruiting,
@@ -84,9 +84,9 @@ describe('getProgramRecruitmentState', () => {
       ),
     ).toBe('in_progress');
 
-    expect(getProgramRecruitmentState(programs[1]!, now)).toBe('in_progress');
-    expect(getProgramRecruitmentState(programs[2]!, now)).toBe('upcoming');
-    expect(getProgramRecruitmentState(programs[3]!, now)).toBe('ended');
+    expect(getProgramRecruitmentState(programs[1], now)).toBe('in_progress');
+    expect(getProgramRecruitmentState(programs[2], now)).toBe('upcoming');
+    expect(getProgramRecruitmentState(programs[3], now)).toBe('ended');
   });
 
   it('prefers ended when apply window is open but endAt passed (U4)', () => {
@@ -178,11 +178,11 @@ describe('getProgramListBadge', () => {
       status: 'recruiting',
       label: '모집중',
     });
-    expect(getProgramListBadge(programs[1]!, now)).toEqual({
+    expect(getProgramListBadge(programs[1], now)).toEqual({
       status: 'in_progress',
       label: '진행중',
     });
-    expect(getProgramListBadge(programs[3]!, now)).toEqual({
+    expect(getProgramListBadge(programs[3], now)).toEqual({
       status: 'ended',
       label: '종료',
     });
