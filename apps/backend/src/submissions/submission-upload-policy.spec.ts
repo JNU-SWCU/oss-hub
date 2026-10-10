@@ -61,6 +61,7 @@ describe('상한 리터럴이 정본 밖으로 다시 퍼지지 않는다', () =
       if (entry.isDirectory()) return sourceFiles(full);
       if (!entry.name.endsWith('.ts')) return [];
       if (entry.name.endsWith('.spec.ts')) return [];
+      if (entry.name.startsWith('__lint_fixture_')) return [];
       return [full];
     });
   }

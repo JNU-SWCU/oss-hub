@@ -250,7 +250,8 @@ function listSourceFiles(dir: string): readonly string[] {
   const entries = readdirSync(dir);
   const files: string[] = [];
   for (const entry of entries) {
-    if (entry === 'node_modules') continue;
+    if (entry === 'node_modules' || entry.startsWith('__lint_fixture_'))
+      continue;
     const full = join(dir, entry);
     const stats = statSync(full);
     if (stats.isDirectory()) {
