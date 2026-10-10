@@ -16,7 +16,7 @@ import { OriginGuard } from '../auth/controller/origin.guard';
 import { AuthConfig } from '../auth/auth.config';
 import type { AuthenticatedRequest } from '../auth/controller/http-auth';
 import { SessionGuard } from '../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
 import { PrismaService } from '../prisma/prisma.service';
 import { DomainException } from '../common/error-code';
 import {

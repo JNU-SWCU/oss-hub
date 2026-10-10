@@ -9,7 +9,7 @@ import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../profiles/user-profile-read';
+} from '../../prisma/user-profile-read';
 import { safeSubmissionFileContentType } from '../../submissions/domain/submission-file-content-type';
 import { publicSubmissionId } from '../../submissions/domain/submission-public-id';
 import {

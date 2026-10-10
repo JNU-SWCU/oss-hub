@@ -8,7 +8,7 @@ import { OriginGuard } from '../../auth/controller/origin.guard';
 import { issueSessionToken } from '../../auth/domain/session-token';
 import { sessionCookieName } from '../../auth/domain/cookies';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
 import { ConsentsController } from './consents.controller';
 import { ConsentsRepository } from '../repository/consents.repository';
 import { ConsentsService } from '../service/consents.service';

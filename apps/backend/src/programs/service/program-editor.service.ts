@@ -1,6 +1,6 @@
 import { AccountStatus } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
-import { addOneCalendarYear } from '../../common/add-one-calendar-year';
+import { addOneCalendarYear } from '../../common/domain/add-one-calendar-year';
 import type { ProblemDetailExtensions } from '../../common/error-code';
 import { DomainException } from '../../common/error-code';
 import {

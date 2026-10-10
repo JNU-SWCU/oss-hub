@@ -13,7 +13,7 @@ import {
   AUTH_ERROR_CODES,
   AuthErrorCode,
 } from '../../auth/domain/auth-error-code.enum';
-import { ProblemDetailFilter } from '../../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { AuditLogService } from '../../audit-log/service/audit-log.service';

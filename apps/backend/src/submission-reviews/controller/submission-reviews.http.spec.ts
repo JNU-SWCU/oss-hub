@@ -10,7 +10,7 @@ import { AuthConfig } from '../../auth/auth.config';
 import { AuthService } from '../../auth/service/auth.service';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
 import {
   SubmissionRepositoryPublishingController,
   SubmissionReviewsController,
