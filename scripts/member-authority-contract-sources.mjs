@@ -17,11 +17,11 @@ export function isScannedSource(path) {
   return !EXCLUDE_PATTERNS.some((pattern) => pattern.test(path));
 }
 
-export function selectScannedSources(paths) {
+function selectScannedSources(paths) {
   return paths.filter(isScannedSource).sort();
 }
 
-export function listTrackedSources(repositoryRoot) {
+function listTrackedSources(repositoryRoot) {
   const tracked = execFileSync(
     'git',
     ['ls-files', '--', ...INCLUDE_ROOTS.map((root) => `${root}/**/*.ts`)],
@@ -32,7 +32,7 @@ export function listTrackedSources(repositoryRoot) {
   );
 }
 
-export { INCLUDE_ROOTS, EXCLUDE_PATTERNS };
+export { EXCLUDE_PATTERNS };
 
 function main() {
   const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
