@@ -1,4 +1,8 @@
-import type { DashboardItem, DashboardMilestone } from './types';
+import type {
+  DashboardFeedbackItem,
+  DashboardItem,
+  DashboardMilestone,
+} from './types';
 
 export type ActiveDashboardItem = DashboardItem & {
   readonly nextMilestone: DashboardMilestone;
@@ -56,4 +60,16 @@ export function submissionActionLabel(
   return milestone.submissionStatus === 'CHANGES_REQUESTED'
     ? '다시 내기'
     : '서류 내기';
+}
+
+export function feedbackByApplication(
+  items: readonly DashboardFeedbackItem[],
+): ReadonlyMap<string, readonly DashboardFeedbackItem[]> {
+  const groups = new Map<string, DashboardFeedbackItem[]>();
+  for (const item of items) {
+    const group = groups.get(item.applicationId);
+    if (group) group.push(item);
+    else groups.set(item.applicationId, [item]);
+  }
+  return groups;
 }

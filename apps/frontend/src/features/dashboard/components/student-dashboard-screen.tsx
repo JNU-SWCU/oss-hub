@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { consumeSignupCompletionNotice } from '@/lib/signup-completion-notice';
 import { loadStudentDashboard } from '../load-student-dashboard';
 import {
+  fetchStudentFeedback,
   fetchUnreadApplicationDecisionNotices,
   markApplicationDecisionNoticeRead,
 } from '../api';
@@ -12,6 +13,7 @@ import type {
   ApplicationDecisionNotice,
   StudentDashboard,
   StudentDashboardStatus,
+  StudentFeedbackState,
 } from '../types';
 import { StudentDashboardView } from './student-dashboard-view';
 
@@ -24,7 +26,16 @@ export function StudentDashboardScreen() {
     readonly ApplicationDecisionNotice[]
   >([]);
 
+  const [feedback, setFeedback] = useState<StudentFeedbackState>({
+    status: 'loading',
+  });
+  const [feedbackRequestKey, setFeedbackRequestKey] = useState(0);
+
   const retry = useCallback(() => setRequestKey((key) => key + 1), []);
+  const retryFeedback = useCallback(
+    () => setFeedbackRequestKey((key) => key + 1),
+    [],
+  );
 
   useEffect(() => {
     if (consumeSignupCompletionNotice()) {
@@ -75,13 +86,33 @@ export function StudentDashboardScreen() {
     };
   }, [requestKey]);
 
+  useEffect(() => {
+    let active = true;
+    setFeedback({ status: 'loading' });
+
+    void fetchStudentFeedback().then(
+      (items) => {
+        if (active) setFeedback({ status: 'success', items });
+      },
+      () => {
+        if (active) setFeedback({ status: 'error' });
+      },
+    );
+
+    return () => {
+      active = false;
+    };
+  }, [feedbackRequestKey]);
+
   return (
     <StudentDashboardView
       data={data}
       status={status}
       showSignupCompleteNotice={signupCompleted}
       applicationDecisionNotices={applicationDecisionNotices}
+      feedback={feedback}
       onRetry={retry}
+      onRetryFeedback={retryFeedback}
     />
   );
 }

@@ -3,8 +3,12 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DashboardProgramSections } from './components/dashboard-program-sections';
-import { dashboardItem, dashboardMilestone } from './fixtures';
-import type { DashboardItem } from './types';
+import {
+  dashboardFeedback,
+  dashboardItem,
+  dashboardMilestone,
+} from './fixtures';
+import type { DashboardFeedbackItem, DashboardItem } from './types';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -52,12 +56,16 @@ describe('DashboardProgramSections', () => {
     container.remove();
   });
 
-  async function render(items: readonly DashboardItem[]) {
+  async function render(
+    items: readonly DashboardItem[],
+    feedback: readonly DashboardFeedbackItem[] = [],
+  ) {
     await act(() => {
       root.render(
         <DashboardProgramSections
           items={items}
           now={new Date('2026-07-23T10:00:00+09:00')}
+          feedback={feedback}
         />,
       );
       return Promise.resolve();
@@ -134,5 +142,71 @@ describe('DashboardProgramSections', () => {
 
     expect(doneList().getAttribute('data-state')).toBe('open');
     expect(container.querySelector('[aria-controls]')).toBeNull();
+  });
+  it('피드백 더 보기는 그 자리에서 펼치고 접는 토글이고 초점은 버튼에 남는다', async () => {
+    const program = active('soon', '2026-07-25T23:59:59+09:00');
+    await render(
+      [program],
+      ['1', '2', '3', '4', '5'].map((key) => dashboardFeedback(program, key)),
+    );
+    const linkTexts = () =>
+      Array.from(
+        container.querySelectorAll('ul[aria-labelledby] a'),
+        (link) => link.textContent,
+      );
+    const toggle = buttonNamed('피드백 2건 더 보기');
+    const firstThree = [
+      '중간 보고 · 합성 서류 1',
+      '중간 보고 · 합성 서류 2',
+      '중간 보고 · 합성 서류 3',
+    ];
+
+    expect(linkTexts()).toEqual(firstThree);
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+    expect(
+      document.getElementById(toggle?.getAttribute('aria-controls') ?? '')
+        ?.tagName,
+    ).toBe('UL');
+
+    toggle?.focus();
+    await click(toggle);
+
+    expect(linkTexts()).toEqual([
+      ...firstThree,
+      '중간 보고 · 합성 서류 4',
+      '중간 보고 · 합성 서류 5',
+    ]);
+    expect(toggle?.textContent).toBe('피드백 접기');
+    expect(toggle?.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(toggle);
+
+    await click(toggle);
+
+    expect(linkTexts()).toEqual(firstThree);
+    expect(toggle?.textContent).toBe('피드백 2건 더 보기');
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it('새 피드백 칩은 판정을 받은 진행 중 카드와 마친 프로그램 줄만 한 묶음으로 보인다', async () => {
+    const [soon, later] = fiveItems;
+    if (soon === undefined || later === undefined) {
+      throw new Error('진행 중 프로그램 두 개가 필요합니다.');
+    }
+    await render(fiveItems, [
+      dashboardFeedback(later, 'a'),
+      dashboardFeedback(done, 'b', { decision: 'APPROVED' }),
+    ]);
+
+    await click(buttonNamed('새 피드백 있음 2'));
+
+    expect(headings()).toEqual(['새 피드백이 있는 프로그램']);
+    expect(
+      Array.from(container.querySelectorAll('h3'), (h3) => h3.textContent),
+    ).toEqual([later.programName, done.programName]);
+    expect(container.textContent).not.toContain(soon.programName);
+    expect(buttonNamed('새 피드백 있음 2')?.getAttribute('aria-pressed')).toBe(
+      'true',
+    );
   });
 });
