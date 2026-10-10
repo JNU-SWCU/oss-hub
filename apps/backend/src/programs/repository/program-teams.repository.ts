@@ -22,11 +22,9 @@ import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transacti
 import { PrismaService } from '../../prisma/prisma.service';
 import { requiredMilestonesApproved } from '../../milestone-documents/domain/milestone-completion';
 import { publishBlockedReasons } from '../../github/domain/repository-publication';
-import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity';
-import {
-  repositoryAccessSyncEventData,
-  repositoryAccessSyncTargetWhere,
-} from '../../github/repository-provision-event';
+import { repositoryUrlFromNameWithOwner } from '../../github/domain/repository-identity';
+import { repositoryAccessSyncEventData } from '../../github/domain/repository-provision-event';
+import { repositoryAccessSyncTargetWhere } from '../../prisma/repository-access-sync';
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,

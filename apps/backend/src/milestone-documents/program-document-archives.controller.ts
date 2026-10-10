@@ -5,12 +5,14 @@ import {
   Logger,
   Param,
   Query,
+  Req,
   Res,
   StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { SessionGuard } from '../auth/controller/session.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
 import { ProgramDocumentArchiveQueryRequestDto } from './dto/program-document-archive-query.dto';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { milestoneDocumentAttachmentDisposition } from './milestone-document-attachment-disposition';
@@ -18,7 +20,6 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './domain/milestone-documents-error-code.enum';
-import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
 
 @Controller('programs/:programId/documents/collection/archive')
 export class ProgramDocumentArchivesController {
@@ -28,14 +29,16 @@ export class ProgramDocumentArchivesController {
 
   @Get()
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard, MilestoneDocumentsStaffGuard)
+  @UseGuards(SessionGuard)
   async archive(
+    @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
     @Param('programId') programId: string,
     @Query() query: ProgramDocumentArchiveQueryRequestDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
     const scope = query.toScope();
     const archive = await this.archives.archiveForProgramStaff(
+      request.sessionGithubId,
       programId,
       scope,
     );

@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ApplicationStatus } from '@prisma/client';
 import { ApplicationsService } from '../../src/applications/applications.service';
-import { RepositoryOutboxConsumer } from '../../src/github/repository-outbox.consumer';
-import { RepositoryProvisionWorker } from '../../src/github/repository-provision.worker';
+import { RepositoryOutboxConsumer } from '../../src/github/service/repository-outbox.consumer';
+import { RepositoryProvisionWorker } from '../../src/github/service/repository-provision.worker';
 import { MilestoneDocumentCurrentFileService } from '../../src/milestone-documents/milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from '../../src/milestone-documents/milestone-document-files.service';
 import { MilestoneDocumentsService } from '../../src/milestone-documents/milestone-documents.service';
@@ -246,7 +246,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       throw new E2eAdapterError(409);
     }
     await this.files.uploadTemplate(
-      E2E_STAFF_ID,
+      E2E_STAFF_GITHUB_ID,
       this.fixtures.graph().milestoneId,
       this.fixtures.graph().documentId,
       uploadFile('template.pdf'),

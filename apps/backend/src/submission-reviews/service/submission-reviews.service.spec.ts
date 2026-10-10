@@ -8,7 +8,7 @@ import { DomainException } from '../../common/error-code';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
-} from '../../github/github-app.error';
+} from '../../github/domain/github-app.error';
 import type { RepositoriesService } from '../../github/service/repositories.service';
 import type {
   SubmissionReviewTransactionStore,

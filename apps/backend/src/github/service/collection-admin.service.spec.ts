@@ -1,7 +1,7 @@
 import { AccountStatus } from '@prisma/client';
 import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { UsersAuthorityService } from '../../users/service/authority.service';
-import { ContributionInvariants } from '../contribution-invariants';
+import { ContributionInvariants } from '../repository/contribution-invariants';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import { CollectionSyncService } from './collection-sync.service';

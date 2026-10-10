@@ -1,0 +1,181 @@
+import {
+  AccountStatus,
+  LoginHistoryEvent,
+  Prisma,
+  StaffAccessRequestStatus,
+} from '@prisma/client';
+import type { PrismaService } from '../../prisma/prisma.service';
+import {
+  ADMIN_ACCESS_DEFAULT_DIRECTION,
+  ADMIN_ACCESS_DEFAULT_SORT,
+  ADMIN_ACCESS_PENDING_FILTERS,
+  ADMIN_ACCESS_ROLE_FILTERS,
+  ADMIN_ACCESS_SORT_DIRECTIONS,
+  ADMIN_ACCESS_SORT_FIELDS,
+  type AdminAccessListQuery,
+  type AdminAccessSortDirection,
+  type AdminAccessSortField,
+} from '../domain/admin-access';
+
+type OrderedAdminAccessUserId = { readonly id: string };
+type AdminAccessListSortContext = 'directory' | 'requestQueue';
+
+const ORDER_DIRECTIONS = {
+  [ADMIN_ACCESS_SORT_DIRECTIONS.ASC]: Prisma.sql`ASC`,
+  [ADMIN_ACCESS_SORT_DIRECTIONS.DESC]: Prisma.sql`DESC`,
+} as const satisfies Readonly<Record<AdminAccessSortDirection, Prisma.Sql>>;
+
+export function listOrderedAdminAccessUserIds(
+  prisma: Pick<PrismaService, '$queryRaw'>,
+  query: AdminAccessListQuery,
+  sortContext: AdminAccessListSortContext = 'directory',
+): Promise<readonly OrderedAdminAccessUserId[]> {
+  const offset = (query.page - 1) * query.limit;
+  const where = adminAccessSqlWhere(query);
+  const orderBy = adminAccessOrderBy(query, sortContext);
+  return prisma.$queryRaw<readonly OrderedAdminAccessUserId[]>(Prisma.sql`
+    SELECT u."id"
+    FROM "User" AS u
+    LEFT JOIN "UserProfile" AS p ON p."userId" = u."id"
+    ${where}
+    ORDER BY ${orderBy}
+    LIMIT ${query.limit}
+    OFFSET ${offset}
+  `);
+}
+
+function adminAccessOrderBy(
+  query: AdminAccessListQuery,
+  sortContext: AdminAccessListSortContext,
+): Prisma.Sql {
+  const sort = query.sort ?? ADMIN_ACCESS_DEFAULT_SORT;
+  const direction = query.direction ?? ADMIN_ACCESS_DEFAULT_DIRECTION;
+  const directionSql = ORDER_DIRECTIONS[direction];
+  const orderings = {
+    [ADMIN_ACCESS_SORT_FIELDS.NAME]: Prisma.sql`
+      p."name" ${directionSql} NULLS LAST,
+      u."login" ${directionSql},
+      u."id" ${directionSql}
+    `,
+    [ADMIN_ACCESS_SORT_FIELDS.CREATED_AT]: Prisma.sql`
+      ${adminAccessCreatedAtSortExpression(sortContext)} ${directionSql} NULLS LAST,
+      u."id" ${directionSql}
+    `,
+    [ADMIN_ACCESS_SORT_FIELDS.LAST_LOGIN_AT]: Prisma.sql`
+      (
+        SELECT h."loginAt"
+        FROM "LoginHistory" AS h
+        WHERE h."userId" = u."id"
+          AND h."event" = ${LoginHistoryEvent.LOGIN}::"LoginHistoryEvent"
+          AND h."success" = TRUE
+        ORDER BY h."loginAt" DESC, h."id" DESC
+        LIMIT 1
+      ) ${directionSql} NULLS LAST,
+      u."id" ${directionSql}
+    `,
+    [ADMIN_ACCESS_SORT_FIELDS.ROLE]: Prisma.sql`
+      CASE
+        WHEN u."hasAdminAccess" THEN 3
+        WHEN u."hasStaffAccess" THEN 2
+        WHEN p."memberKind" = 'STUDENT'::"MemberKind" THEN 1
+        ELSE 0
+      END ${directionSql},
+      u."id" ${directionSql}
+    `,
+    [ADMIN_ACCESS_SORT_FIELDS.ACCOUNT_STATUS]: Prisma.sql`
+      CASE
+        WHEN u."accountStatus" = ${AccountStatus.ACTIVE}::"AccountStatus" THEN 0
+        WHEN u."accountStatus" = ${AccountStatus.DEACTIVATED}::"AccountStatus" THEN 1
+        ELSE 2
+      END ${directionSql},
+      u."id" ${directionSql}
+    `,
+  } as const satisfies Readonly<Record<AdminAccessSortField, Prisma.Sql>>;
+  return orderings[sort];
+}
+
+function adminAccessCreatedAtSortExpression(
+  sortContext: AdminAccessListSortContext,
+): Prisma.Sql {
+  switch (sortContext) {
+    case 'directory':
+      return Prisma.sql`u."createdAt"`;
+    case 'requestQueue':
+      return Prisma.sql`(
+        SELECT r."createdAt"
+        FROM "StaffAccessRequest" AS r
+        WHERE r."userId" = u."id"
+          AND r."status" = ${StaffAccessRequestStatus.PENDING}::"StaffAccessRequestStatus"
+        ORDER BY r."createdAt" DESC, r."id" DESC
+        LIMIT 1
+      )`;
+  }
+}
+
+function adminAccessSqlWhere(query: AdminAccessListQuery): Prisma.Sql {
+  const conditions: Prisma.Sql[] = [];
+  if (query.query) {
+    const contains = `%${query.query}%`;
+    conditions.push(Prisma.sql`
+      (
+        p."name" ILIKE ${contains}
+        OR u."login" ILIKE ${contains}
+      )
+    `);
+  }
+  if (query.role !== undefined) {
+    conditions.push(adminAccessRoleFilterSql(query.role));
+  }
+  if (query.accountStatus !== undefined) {
+    conditions.push(
+      Prisma.sql`u."accountStatus" = ${query.accountStatus}::"AccountStatus"`,
+    );
+  }
+  if (query.pendingRequest !== undefined) {
+    conditions.push(
+      query.pendingRequest === ADMIN_ACCESS_PENDING_FILTERS.PENDING
+        ? Prisma.sql`
+            EXISTS (
+              SELECT 1
+              FROM "StaffAccessRequest" AS r
+              WHERE r."userId" = u."id"
+                AND r."status" = ${StaffAccessRequestStatus.PENDING}::"StaffAccessRequestStatus"
+            )
+          `
+        : Prisma.sql`
+            NOT EXISTS (
+              SELECT 1
+              FROM "StaffAccessRequest" AS r
+              WHERE r."userId" = u."id"
+                AND r."status" = ${StaffAccessRequestStatus.PENDING}::"StaffAccessRequestStatus"
+            )
+          `,
+    );
+  }
+  return conditions.length === 0
+    ? Prisma.empty
+    : Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`;
+}
+
+function adminAccessRoleFilterSql(
+  filter: NonNullable<AdminAccessListQuery['role']>,
+): Prisma.Sql {
+  switch (filter) {
+    case ADMIN_ACCESS_ROLE_FILTERS.ADMIN:
+      return Prisma.sql`u."hasAdminAccess"`;
+    case ADMIN_ACCESS_ROLE_FILTERS.STAFF:
+      return Prisma.sql`(u."hasStaffAccess" AND NOT u."hasAdminAccess")`;
+    case ADMIN_ACCESS_ROLE_FILTERS.STUDENT:
+      return Prisma.sql`(
+        NOT u."hasStaffAccess"
+        AND NOT u."hasAdminAccess"
+        AND p."memberKind" = 'STUDENT'::"MemberKind"
+      )`;
+    case ADMIN_ACCESS_ROLE_FILTERS.UNASSIGNED:
+      return Prisma.sql`(
+        NOT u."hasStaffAccess"
+        AND NOT u."hasAdminAccess"
+        AND (p."memberKind" IS NULL OR p."memberKind" <> 'STUDENT'::"MemberKind")
+      )`;
+  }
+}

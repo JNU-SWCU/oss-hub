@@ -78,6 +78,11 @@ export function fixture() {
       repository as unknown as MilestoneDocumentsRepository,
       storage,
       programs,
+      {
+        assertActiveStaff: jest
+          .fn()
+          .mockResolvedValue({ actorId: 'cuid-synthetic-staff' }),
+      },
     ),
   };
 }

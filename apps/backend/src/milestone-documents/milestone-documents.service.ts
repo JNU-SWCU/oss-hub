@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import {
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
@@ -42,7 +43,14 @@ import type {
 
 @Injectable()
 export class MilestoneDocumentsService {
-  constructor(private readonly repository: MilestoneDocumentsRepository) {}
+  constructor(
+    private readonly repository: MilestoneDocumentsRepository,
+    @Inject(UsersAuthorityService)
+    private readonly authority: Pick<
+      UsersAuthorityService,
+      'assertActiveStaff'
+    >,
+  ) {}
 
   async listByMilestone(
     milestoneId: string,
@@ -130,10 +138,14 @@ export class MilestoneDocumentsService {
   }
 
   async collectForStaff(
+    sessionGithubId: bigint,
     milestoneId: string,
     query: MilestoneDocumentCollectionQuery,
     now: Date = new Date(),
   ): Promise<MilestoneDocumentCollectionResponseDto> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
+    );
     return this.repository.withCollectionSnapshot(async (store) => {
       const milestone = await store.findMilestone(milestoneId);
       if (milestone === null) {
@@ -188,11 +200,15 @@ export class MilestoneDocumentsService {
   }
 
   async historyForStaff(
+    sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
     applicationId: string,
     query: { readonly cursor: string | null; readonly limit: number },
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
+    );
     const document = await this.repository.findDocumentContext(documentId);
     if (document === null || document.milestoneId !== milestoneId) {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
@@ -262,9 +278,13 @@ export class MilestoneDocumentsService {
   }
 
   async createDocument(
+    sessionGithubId: bigint,
     milestoneId: string,
     input: UpsertMilestoneDocumentInput,
   ): Promise<MilestoneDocumentResponseDto> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
+    );
     const record = await this.repository.withTransaction(async (store) => {
       const milestone = await store.lockMilestone(milestoneId);
       if (milestone === null) {
@@ -279,10 +299,14 @@ export class MilestoneDocumentsService {
   }
 
   async updateDocument(
+    sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
     input: UpsertMilestoneDocumentInput,
   ): Promise<MilestoneDocumentResponseDto> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
+    );
     const record = await this.repository.withTransaction(async (store) => {
       const locked = await store.lockDocument(documentId);
       if (locked === null || locked.milestoneId !== milestoneId) {
@@ -294,9 +318,13 @@ export class MilestoneDocumentsService {
   }
 
   async reorderDocuments(
+    sessionGithubId: bigint,
     milestoneId: string,
     documentIds: readonly string[],
   ): Promise<MilestoneDocumentResponseDto[]> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
+    );
     const records = await this.repository.withTransaction(async (store) => {
       const milestone = await store.lockMilestone(milestoneId);
       if (milestone === null) {
@@ -311,7 +339,14 @@ export class MilestoneDocumentsService {
     return records.map((record) => MilestoneDocumentResponseDto.from(record));
   }
 
-  async deleteDocument(milestoneId: string, documentId: string): Promise<void> {
+  async deleteDocument(
+    sessionGithubId: bigint,
+    milestoneId: string,
+    documentId: string,
+  ): Promise<void> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
+    );
     await this.repository.withTransaction(async (store) => {
       const milestone = await store.lockMilestone(milestoneId);
 

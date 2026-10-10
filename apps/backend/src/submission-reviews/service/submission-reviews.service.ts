@@ -6,7 +6,7 @@ import {
 } from '@prisma/client';
 import { DomainException } from '../../common/error-code';
 import { UsersAuthorityService } from '../../users/service/authority.service';
-import { GithubOperationsError } from '../../github/github-app.error';
+import { GithubOperationsError } from '../../github/domain/github-app.error';
 import { RepositoryPublishStateError } from '../../github/domain/repository-publish-state.error';
 import {
   RepositoriesService,

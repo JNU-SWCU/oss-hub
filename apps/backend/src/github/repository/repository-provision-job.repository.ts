@@ -8,7 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import {
   assertCurrentRequest,
   assertSingleProvisionUpdate,
-} from '../repository-provision-state.helpers';
+} from './repository-provision-state.helpers';
 
 export interface ClaimRepositoryProvisionJobInput {
   readonly workerId: string;

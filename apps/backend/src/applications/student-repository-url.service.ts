@@ -6,11 +6,9 @@ import { DomainException } from '../common/error-code';
 import { canEditStudentRepositoryUrl } from '../programs/program-participant';
 import { ConsentsService } from '../consents/service/consents.service';
 import { CollectionTriggerService } from '../github/service/collection-trigger.service';
-import { GithubOperationsError } from '../github/github-app.error';
-import {
-  OwnRepositoryUrlValidationService,
-  RepositoryProvisionFailure,
-} from '../github/service/own-repository-url-validation.service';
+import { GithubOperationsError } from '../github/domain/github-app.error';
+import { OwnRepositoryUrlValidationService } from '../github/service/own-repository-url-validation.service';
+import { RepositoryProvisionFailure } from '../github/domain/repository-provision.failure';
 import { ApplicationsRepository } from './applications.repository';
 import {
   APPLICATIONS_ERROR_CODES,

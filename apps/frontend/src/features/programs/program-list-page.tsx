@@ -35,7 +35,6 @@ import type {
   ViewerRole,
 } from './types';
 import {
-  PROGRAM_CATEGORY_LABELS,
   PROGRAM_LIST_SORT_LABELS,
   PROGRAM_LIST_SORTS,
   PROGRAM_LIST_STATUSES,

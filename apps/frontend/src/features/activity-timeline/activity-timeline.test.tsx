@@ -27,6 +27,7 @@ const wireTimeline = {
 
         pullRequestCount: 3,
         releaseCount: 1,
+        issueCount: 4,
         total: 16,
       },
     ],
@@ -51,6 +52,7 @@ const timeline: ActivityTimeline = {
         commitCount: 12,
         prCount: 3,
         releaseCount: 1,
+        issueCount: 4,
         total: 16,
       },
     ],
@@ -141,7 +143,11 @@ describe('activity timeline', () => {
     expect(html).toContain('Commit');
     expect(html).toContain('Pull Request');
     expect(html).toContain('Release');
+    expect(html).toContain('Issue');
     expect(html).toContain('데이터 기준 시각');
+    expect(html).toContain(
+      '합계는 Commit·Pull Request·Release를 더한 값입니다. Issue는 따로 셉니다.',
+    );
     expect(html).toMatch(
       /<time dateTime="2026-08-01T00:00:00\.000Z">[^<]+<\/time>/,
     );
@@ -211,10 +217,49 @@ describe('activity timeline', () => {
     expect(html).not.toContain('참여한 프로그램이 없습니다');
   });
 
-  it('선 위의 pullRequestCount 를 내부 prCount 로 옮긴다', async () => {
+  it('선 위의 pullRequestCount 를 내부 prCount 로 옮기고 issueCount 를 받는다', async () => {
     stubTimelineResponse(wireTimeline);
 
     await expect(fetchActivityTimeline('MONTH')).resolves.toEqual(timeline);
+  });
+
+  it('issueCount가 없는 이전 백엔드 응답도 받아 Issue 없이 그린다', async () => {
+    const legacyPoint = {
+      period: '2026-01',
+      commitCount: 12,
+      pullRequestCount: 3,
+      releaseCount: 1,
+      total: 16,
+    };
+    stubTimelineResponse({
+      ...wireTimeline,
+      series: { ...wireTimeline.series, points: [legacyPoint] },
+    });
+
+    const legacy = await fetchActivityTimeline('MONTH');
+    expect(legacy.series.points).toEqual([
+      {
+        period: '2026-01',
+        commitCount: 12,
+        prCount: 3,
+        releaseCount: 1,
+        issueCount: null,
+        total: 16,
+      },
+    ]);
+
+    const html = renderToStaticMarkup(
+      <ActivityTimelineView
+        granularity="MONTH"
+        onGranularityChange={() => undefined}
+        status="success"
+        data={legacy}
+        onRetry={() => undefined}
+      />,
+    );
+    expect(html).not.toContain('>Issue<');
+    expect(html).not.toContain('Issue는 따로');
+    expect(html).toContain('>Commit<');
   });
 
   it.each([
@@ -285,6 +330,26 @@ describe('activity timeline', () => {
       },
     ],
     [
+      'total with issues',
+      {
+        ...wireTimeline,
+        series: {
+          ...wireTimeline.series,
+          points: [{ ...wireTimeline.series.points[0], total: 20 }],
+        },
+      },
+    ],
+    [
+      'negative issueCount',
+      {
+        ...wireTimeline,
+        series: {
+          ...wireTimeline.series,
+          points: [{ ...wireTimeline.series.points[0], issueCount: -1 }],
+        },
+      },
+    ],
+    [
       'unknown applicationMode',
       {
         ...wireTimeline,
@@ -307,10 +372,13 @@ describe('activity timeline', () => {
 
     expect(html).toContain('<table');
     expect(html).not.toContain('<table class="sr-only">');
-    expect(html).toContain('scope="col">기간</th>');
-    expect(html).toContain('scope="col">Commit</th>');
+    expect(
+      [...html.matchAll(/scope="col">([^<]+)<\/th>/g)].map(([, name]) => name),
+    ).toEqual(['기간', 'Commit', 'Pull Request', 'Release', 'Issue', '합계']);
     expect(html).toContain('scope="row">2026-01</th>');
-    expect(html).toContain('text-right">12</td>');
+    expect(
+      [...html.matchAll(/<td[^>]*>([^<]*)<\/td>/g)].map(([, value]) => value),
+    ).toEqual(['12', '3', '1', '4', '16']);
     expect(html).toContain(
       '<div aria-hidden="true" class="h-80 min-h-80 w-full overflow-hidden">',
     );

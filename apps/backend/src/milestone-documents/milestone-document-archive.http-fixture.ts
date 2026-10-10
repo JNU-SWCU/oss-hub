@@ -6,7 +6,6 @@ import { sessionCookieName } from '../auth/domain/cookies';
 import { issueSessionToken } from '../auth/domain/session-token';
 import { SessionGuard } from '../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
-import { PrismaService } from '../prisma/prisma.service';
 import {
   archiveId,
   type ProgramArchiveIntegrationFixture,
@@ -15,7 +14,6 @@ import {
   MilestoneDocumentArchiveService,
   type ProgramDocumentArchiveScope,
 } from './milestone-document-archive.service';
-import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
 
 export async function startArchiveHttp(
@@ -30,13 +28,11 @@ export async function startArchiveHttp(
     controllers: [ProgramDocumentArchivesController],
     providers: [
       SessionGuard,
-      MilestoneDocumentsStaffGuard,
       { provide: AuthConfig, useValue: { sessionSecret } },
       {
         provide: AuthService,
         useValue: { getMe: jest.fn().mockResolvedValue({ sessionVersion: 0 }) },
       },
-      { provide: PrismaService, useValue: fixture.prisma },
       { provide: MilestoneDocumentArchiveService, useValue: fixture.service },
     ],
   }).compile();

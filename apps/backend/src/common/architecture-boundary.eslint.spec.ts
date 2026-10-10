@@ -123,14 +123,14 @@ export class LintFixtureGreenControllerServiceController {
   describe('규칙 2 — collection concrete 구현의 모듈 외부 import 금지', () => {
     const redPath =
       'src/ranking/service/__lint_fixture_red_collection_internal.service.ts';
-    const redContent = `import { CollectionReadService } from '../../github/service/collection-read.service';
+    const redContent = `import { CollectionReadService } from '../../github/repository/collection-read.service';
 
 export function useFixture(service: CollectionReadService): CollectionReadService {
   return service;
 }
 `;
 
-    it('RED: ranking 또는 programs SERVICE가 github/service/collection-read.service를 import하면 실패한다', () => {
+    it('RED: ranking 또는 programs SERVICE가 github/repository/collection-read.service를 import하면 실패한다', () => {
       writeFixture(redPath, redContent);
 
       const messages = boundaryMessages(lintFixture(redPath));
@@ -361,7 +361,7 @@ export type Fixture = ProgramStatus;
         const relPath = `${dir}/__lint_fixture_depth${depth}_collection.ts`;
         writeFixture(
           relPath,
-          `import type { CollectionReadService } from '${up}/github/collection-read.service';
+          `import type { CollectionReadService } from '${up}/github/repository/collection-read.service';
 
 export type Fixture = CollectionReadService;
 `,
@@ -396,7 +396,7 @@ export type Fixture = PublicRankingRepository;
         const relPath = `${dir}/__lint_fixture_depth${depth}_collection.allowed.ts`;
         writeFixture(
           relPath,
-          `import { nextScheduledCollectionAt } from '${up}/github/collection-schedule';
+          `import { nextScheduledCollectionAt } from '${up}/github/service/collection-schedule';
 
 export const fixture = nextScheduledCollectionAt;
 `,
@@ -415,7 +415,7 @@ export const fixture = nextScheduledCollectionAt;
         'src/programs/repository/__lint_fixture_provision_event.allowed.repository.ts';
       writeFixture(
         relPath,
-        `import { repositoryAccessSyncEventData } from '../../github/repository-provision-event';
+        `import { repositoryAccessSyncEventData } from '../../github/domain/repository-provision-event';
 
 export const fixture = repositoryAccessSyncEventData;
 `,
@@ -450,7 +450,7 @@ export type Fixture = RepositoryProvisionStateRepository;
         'src/programs/repository/__lint_fixture_provision_event.consumer.repository.ts';
       writeFixture(
         relPath,
-        `import { RepositoryOutboxConsumer } from '../../github/repository-outbox.consumer';
+        `import { RepositoryOutboxConsumer } from '../../github/service/repository-outbox.consumer';
 
 export type Fixture = RepositoryOutboxConsumer;
 `,

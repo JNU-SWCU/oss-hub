@@ -12,7 +12,6 @@ import {
   type SentTeamInvitation,
 } from './team-invitation-api';
 import {
-  INVITATION_CANCEL_FAILED_MESSAGE,
   INVITATION_CREATE_FAILED_MESSAGE,
   SENT_INVITATIONS_LOAD_FAILED_MESSAGE,
   useTeamInvitationManagement,

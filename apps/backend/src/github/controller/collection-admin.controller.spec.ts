@@ -6,7 +6,7 @@ import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import type { AuditLogRecord } from '../../audit-log/repository/audit-log.repository';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { ContributionInvariants } from '../contribution-invariants';
+import { ContributionInvariants } from '../repository/contribution-invariants';
 import { CollectionAdminController } from './collection-admin.controller';
 import { CollectionAdminService } from '../service/collection-admin.service';
 import { UsersAuthorityService } from '../../users/service/authority.service';

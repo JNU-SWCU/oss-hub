@@ -67,7 +67,10 @@ function detailFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
-  const url = new URL(String(input), 'http://127.0.0.1');
+  const url = new URL(
+    typeof input === 'string' || input instanceof URL ? input : input.url,
+    'http://127.0.0.1',
+  );
   const method = init?.method ?? 'GET';
   if (method !== 'GET') {
     throw new Error(`unexpected ${method} ${url.pathname}`);
@@ -151,7 +154,7 @@ describe('내린 프로그램의 상세 화면이 신청을 권하지 않는다'
       (button) => button.textContent?.trim() === '신청하기',
     );
     expect(applyButtons).toHaveLength(1);
-    const applyButton = applyButtons[0] as HTMLButtonElement;
+    const applyButton = applyButtons[0];
     expect(applyButton.disabled).toBe(true);
 
     expect(
