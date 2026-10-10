@@ -10,7 +10,7 @@
 
 | 변경 경로 | 실행하는 검증 | 경계 |
 | --- | --- | --- |
-| `apps/backend/**`, `apps/frontend/**`, `eslint.shared.mjs`, `eslint-rules/**`, `knip.json`, `knip-baseline.json`, `scripts/check-*ratchet*`, `scripts/prisma-enum-names.mjs`, `scripts/prisma-enum-names.test.mjs`, `scripts/ci-path-contract.test.mjs`, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `.github/workflows/**` | rails scope에서 두 ratchet 검사와 `node --test scripts/check-lint-ratchet.test.mjs scripts/check-knip-ratchet.test.mjs scripts/prisma-enum-names.test.mjs`를 실행하며 frontend·backend scope도 함께 선택 | 의존성 설치와 backend Prisma client 생성 뒤 실행하며 predecessor 비교의 신뢰 계약은 [ADR-003 §10](../decisions/ADR-003-backend-architecture.md)을 따른다 |
+| `apps/backend/**`, `apps/frontend/**`, `eslint.shared.mjs`, `eslint-rules/**`, `knip.json`, `knip-baseline.json`, `scripts/check-*ratchet*`, `scripts/prisma-enum-names.mjs`, `scripts/prisma-enum-names.test.mjs`, `scripts/ci-path-contract.test.mjs`, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `.github/workflows/**` | rails scope에서 Knip ratchet 검사와 `node --test scripts/check-knip-ratchet.test.mjs scripts/prisma-enum-names.test.mjs`를 실행하며 rails 규칙을 포함한 앱 lint가 돌도록 frontend·backend scope도 함께 선택 | 의존성 설치와 backend Prisma client 생성 뒤 실행하며 predecessor 비교의 신뢰 계약은 [ADR-003 §10](../decisions/ADR-003-backend-architecture.md)을 따른다 |
 | 모든 PR 및 main push | `node --test scripts/ci-path-contract.test.mjs`로 실제 workflow의 경로·SHA env·checker invocation·required job 이름을 검사하고 workflow의 scope shell을 합성 입력으로 실행 | 운영 서비스 호출 없이 docs-only·rails-only PR 선택과 main 전체 lane 선택을 검증 |
 | `apps/frontend/**` | frontend lint · typecheck · test · build | Docker 이미지 빌드 없음 |
 | `apps/backend/src/submissions/job/reconcile-storage-orphans.ts`, `apps/backend/src/submissions/{domain,service,repository}/storage-orphan-reconciliation*`, `apps/backend/src/submissions/storage-orphan-reconciliation*`, `apps/backend/src/storage/**`, `scripts/run-backend-integration.sh` | `pnpm --filter backend test:storage-reconcile` — unit 뒤 격리 PostgreSQL·object-storage fixture에서 report/delete·run-start cutoff 경주·DB 연결 실패 fail-closed를 검증하고 실제 객체 부재/생존을 S3 `HeadObject`로 단언 | 운영 DB·버킷·자격증명 접근 없음. 임시 Compose 프로젝트만 기동하고 종료 시 volume까지 제거 |
@@ -34,11 +34,11 @@
 required `ci`는 `fetch-depth: 0`으로 `github.sha`를 checkout하고 같은 SHA를 checker의 검사 head로 전달한다.
 PR에서 검사 head는 Actions가 checkout하는 merge ref의 SHA이며 PR branch의 가변 head로 바꿔 읽지 않는다.
 PR은 `PR_BASE_SHA=github.event.pull_request.base.sha`, `CHECKED_HEAD_SHA=github.sha`를 env로 전달한다.
-각 checker는 `--event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"`를 받고 실제 checkout HEAD 일치를 확인한 뒤 PR merge-base를 계산한다.
+Knip checker는 `--event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"`를 받고 실제 checkout HEAD 일치를 확인한 뒤 PR merge-base를 계산한다.
 main push는 `BEFORE_SHA=github.event.before`, `PUSHED_SHA=github.sha`를 env로 전달한다.
-각 checker는 `--event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"`를 받고 checkout HEAD 일치와 before SHA의 유효성·선조 관계를 검사한다.
+Knip checker는 `--event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"`를 받고 checkout HEAD 일치와 before SHA의 유효성·선조 관계를 검사한다.
 입력 부재나 유효하지 않은 predecessor를 origin/main으로 대체하지 않는다.
 GitHub expression은 shell 명령 안에 직접 삽입하지 않고 env 경계로 전달한다.
 workflow 경로 필터로 required check 생성을 막지 않으며 main push는 rails를 포함한 모든 lane을 선택한다.
 `ci-path-contract.test.mjs`는 의존성 설치 전 항상 실행하고 generated-client drift 검사를 포함한 rails 테스트는 의존성 설치 후 rails lane에서 실행한다.
-로컬 root `lint`는 `pnpm -r lint && pnpm lint:structure`, `lint:structure`는 `node scripts/check-lint-ratchet.mjs && node scripts/check-knip-ratchet.mjs` 계약으로 같은 검사를 연결한다.
+로컬 root `lint`는 `pnpm -r lint && pnpm lint:structure`, `lint:structure`는 `node scripts/check-knip-ratchet.mjs` 계약으로 같은 검사를 연결한다.
