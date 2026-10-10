@@ -2,7 +2,7 @@ import type {
   ApplicationStatus,
   RepositoryConnectionMode,
 } from '@prisma/client';
-import type { CreatedApplication } from '../applications.repository';
+import type { CreatedApplication } from '../domain/application-records';
 
 export class CreateApplicationResponseDto {
   readonly id: string;

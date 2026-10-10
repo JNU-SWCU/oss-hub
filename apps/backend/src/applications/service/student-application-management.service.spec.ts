@@ -1,0 +1,650 @@
+import { ApplicationStatus } from '@prisma/client';
+import { DomainException } from '../../common/error-code';
+import { PrismaService } from '../../prisma/prisma.service';
+import { ApplicationsErrorCode } from '../domain/applications-error-code.enum';
+import { ApplicationsRepository } from '../repository/applications.repository';
+import { StudentApplicationManagementRepository } from '../repository/student-application-management.repository';
+import { StudentApplicationManagementService } from './student-application-management.service';
+
+const NOW = new Date('2026-07-15T00:00:00.000Z');
+const OPEN_PROGRAM = {
+  applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
+  applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),
+  applicationTemplateVersion: 1,
+} as const;
+const STUDENT = {
+  id: 'student-1',
+  name: '합성 학생',
+  nickname: 'synthetic-student',
+} as const;
+
+const APPLICATION = {
+  id: 'application-1',
+  programId: 'program-1',
+  status: ApplicationStatus.SUBMITTED,
+  teamId: 'team-1',
+  teamLeaderId: STUDENT.id,
+  applicant: {
+    id: 'applicant-1',
+    name: '합성 신청자',
+    nickname: 'synthetic-applicant',
+  },
+  answers: {
+    applicantName: '합성 학생',
+    title: '기존 제목',
+    summary: '기존 요약',
+  },
+  submittedAt: new Date('2026-07-10T00:00:00.000Z'),
+  updatedAt: new Date('2026-07-10T00:00:00.000Z'),
+  isRepositoryPublicationPlanned: true,
+  rejectionReason: null,
+} as const;
+
+function createRepository() {
+  const prisma = new PrismaService();
+  const repository = new StudentApplicationManagementRepository(prisma);
+  const applicationsRepository = new ApplicationsRepository(prisma);
+  const findActiveStudentByGithubId = jest
+    .spyOn(applicationsRepository, 'findActiveStudentByGithubId')
+    .mockResolvedValue(STUDENT);
+  const findOwnedApplication = jest
+    .spyOn(repository, 'findOwnedApplication')
+    .mockResolvedValue(APPLICATION);
+  const findProgramPolicy = jest
+    .spyOn(applicationsRepository, 'findProgramById')
+    .mockResolvedValue({
+      id: 'program-1',
+      name: '합성 프로그램',
+      category: 'BASIC',
+      repositoryProvisioningEnabled: false,
+      ...OPEN_PROGRAM,
+    });
+  const updatePendingApplication = jest
+    .spyOn(repository, 'updatePendingApplication')
+    .mockResolvedValue({
+      kind: 'updated',
+      application: {
+        ...APPLICATION,
+        answers: {
+          applicantName: '합성 신청자',
+          title: '수정 제목',
+        },
+      },
+    });
+  const deletePendingApplication = jest
+    .spyOn(repository, 'deletePendingApplication')
+    .mockResolvedValue({ kind: 'cancelled' });
+  return {
+    repository,
+    applicationsRepository,
+    findActiveStudentByGithubId,
+    findOwnedApplication,
+    findProgramPolicy,
+    updatePendingApplication,
+    deletePendingApplication,
+  };
+}
+async function expectDomainCode(
+  operation: Promise<unknown>,
+  code: ApplicationsErrorCode,
+): Promise<void> {
+  try {
+    await operation;
+    throw new Error(`Expected DomainException ${code}`);
+  } catch (error: unknown) {
+    if (!(error instanceof DomainException)) throw error;
+    expect(error.errorCode.code).toBe(code);
+  }
+}
+
+function present<T>(value: T | null, what: string): T {
+  if (value === null) throw new Error(`${what}이(가) 있어야 하는 시나리오다`);
+  return value;
+}
+
+describe('StudentApplicationManagementService', () => {
+  it('신청 기간 내 승인 대기 신청을 조회한다', async () => {
+    const { repository, applicationsRepository } = createRepository();
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    const result = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
+
+    expect(result).toEqual({
+      id: APPLICATION.id,
+      programId: APPLICATION.programId,
+      status: APPLICATION.status,
+      teamId: APPLICATION.teamId,
+      answers: {
+        applicantName: '합성 신청자',
+        title: '기존 제목',
+      },
+      submittedAt: APPLICATION.submittedAt,
+      updatedAt: APPLICATION.updatedAt,
+      isRepositoryPublicationPlanned:
+        APPLICATION.isRepositoryPublicationPlanned,
+      rejectionReason: null,
+      isManager: true,
+      canManage: true,
+    });
+  });
+
+  it('반려된 신청은 사유를 함께 돌려준다', async () => {
+    const { repository, applicationsRepository, findOwnedApplication } =
+      createRepository();
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      status: ApplicationStatus.REJECTED,
+      rejectionReason: '합성 반려 사유',
+    });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    const result = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
+
+    expect(result.rejectionReason).toBe('합성 반려 사유');
+    expect(result.status).toBe(ApplicationStatus.REJECTED);
+  });
+
+  it.each([ApplicationStatus.APPROVED, ApplicationStatus.SUBMITTED] as const)(
+    '%s 신청의 사유는 키를 지우지 않고 null로 싣는다',
+    async (status) => {
+      const { repository, applicationsRepository, findOwnedApplication } =
+        createRepository();
+      findOwnedApplication.mockResolvedValue({ ...APPLICATION, status });
+      const service = new StudentApplicationManagementService(
+        repository,
+        applicationsRepository,
+      );
+
+      const result = present(
+        await service.getMine(4242n, 'program-1', NOW),
+        '신청',
+      );
+
+      expect(result).toHaveProperty('rejectionReason');
+      expect(result.rejectionReason).toBeNull();
+    },
+  );
+
+  it('신청 기간 내 승인 대기 신청 내용을 수정한다', async () => {
+    const { repository, applicationsRepository, updatePendingApplication } =
+      createRepository();
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    const result = await service.updateMine(
+      4242n,
+      'program-1',
+      {
+        answers: { title: ' 수정 제목 ' },
+        applicationTemplateVersion: 1,
+      },
+      NOW,
+    );
+
+    expect(updatePendingApplication.mock.calls).toEqual([
+      [
+        {
+          programId: 'program-1',
+          studentId: 'student-1',
+          answers: {
+            applicantName: '합성 신청자',
+            title: '수정 제목',
+          },
+          applicationTemplateVersion: 1,
+        },
+      ],
+    ]);
+    expect(result.answers.title).toBe('수정 제목');
+  });
+
+  it('팀장이 조회하고 수정해도 원 신청자 이름을 유지한다', async () => {
+    const { repository, applicationsRepository, updatePendingApplication } =
+      createRepository();
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    const beforeUpdate = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
+    const afterUpdate = await service.updateMine(
+      4242n,
+      'program-1',
+      {
+        answers: { title: '팀원 수정 제목' },
+        applicationTemplateVersion: 1,
+      },
+      NOW,
+    );
+
+    expect(beforeUpdate.answers.applicantName).toBe('합성 신청자');
+    expect(updatePendingApplication.mock.calls[0]?.[0].answers).toEqual({
+      applicantName: '합성 신청자',
+      title: '팀원 수정 제목',
+    });
+    expect(afterUpdate.answers.applicantName).toBe('합성 신청자');
+  });
+
+  it.each(['update', 'cancel'] as const)(
+    '팀장이 아닌 팀원의 %s 요청을 거절한다',
+    async (operation) => {
+      const {
+        repository,
+        applicationsRepository,
+        findOwnedApplication,
+        updatePendingApplication,
+        deletePendingApplication,
+      } = createRepository();
+      findOwnedApplication.mockResolvedValue({
+        ...APPLICATION,
+        teamLeaderId: 'team-leader-1',
+      });
+      const service = new StudentApplicationManagementService(
+        repository,
+        applicationsRepository,
+      );
+
+      await expectDomainCode(
+        operation === 'update'
+          ? service.updateMine(
+              4242n,
+              'program-1',
+              {
+                answers: { title: '팀원 수정 제목' },
+                applicationTemplateVersion: 1,
+              },
+              NOW,
+            )
+          : service.cancelMine(4242n, 'program-1', NOW),
+        ApplicationsErrorCode.APPLICATION_NOT_FOUND,
+      );
+      expect(updatePendingApplication.mock.calls).toHaveLength(0);
+      expect(deletePendingApplication.mock.calls).toHaveLength(0);
+    },
+  );
+
+  it('팀원의 조회는 열어 두되 canManage를 내린다', async () => {
+    const { repository, applicationsRepository, findOwnedApplication } =
+      createRepository();
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      teamLeaderId: 'team-leader-1',
+      rejectionReason: null,
+    });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    const result = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
+
+    expect(result.answers.title).toBe('기존 제목');
+    expect(result.isManager).toBe(false);
+    expect(result.canManage).toBe(false);
+  });
+
+  it.each(['update', 'cancel'] as const)(
+    '팀장이 아닌 원 신청자의 %s 요청을 거절한다',
+    async (operation) => {
+      const {
+        repository,
+        applicationsRepository,
+        findOwnedApplication,
+        updatePendingApplication,
+        deletePendingApplication,
+      } = createRepository();
+      findOwnedApplication.mockResolvedValue({
+        ...APPLICATION,
+        teamLeaderId: 'successor-leader-1',
+        applicant: { ...APPLICATION.applicant, id: STUDENT.id },
+      });
+      const service = new StudentApplicationManagementService(
+        repository,
+        applicationsRepository,
+      );
+
+      await expectDomainCode(
+        operation === 'update'
+          ? service.updateMine(
+              4242n,
+              'program-1',
+              {
+                answers: { title: '원 신청자 수정 제목' },
+                applicationTemplateVersion: 1,
+              },
+              NOW,
+            )
+          : service.cancelMine(4242n, 'program-1', NOW),
+        ApplicationsErrorCode.APPLICATION_NOT_FOUND,
+      );
+      expect(updatePendingApplication.mock.calls).toHaveLength(0);
+      expect(deletePendingApplication.mock.calls).toHaveLength(0);
+    },
+  );
+
+  it('팀장이 아닌 원 신청자의 조회는 열어 두되 isManager를 내린다', async () => {
+    const { repository, applicationsRepository, findOwnedApplication } =
+      createRepository();
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      teamLeaderId: 'successor-leader-1',
+      applicant: { ...APPLICATION.applicant, id: STUDENT.id },
+    });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    const result = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
+
+    expect(result.isManager).toBe(false);
+    expect(result.canManage).toBe(false);
+  });
+
+  it.each(['update', 'cancel'] as const)(
+    '팀을 떠난 원 신청자의 %s 요청을 거절한다',
+    async (operation) => {
+      const {
+        repository,
+        applicationsRepository,
+        findOwnedApplication,
+        updatePendingApplication,
+        deletePendingApplication,
+      } = createRepository();
+      findOwnedApplication.mockResolvedValue(null);
+      const service = new StudentApplicationManagementService(
+        repository,
+        applicationsRepository,
+      );
+
+      const operations = {
+        update: () =>
+          service.updateMine(
+            4242n,
+            'program-1',
+            {
+              answers: { title: '떠난 사람의 수정' },
+              applicationTemplateVersion: 1,
+            },
+            NOW,
+          ),
+        cancel: () => service.cancelMine(4242n, 'program-1', NOW),
+      };
+      await expectDomainCode(
+        operations[operation](),
+        ApplicationsErrorCode.APPLICATION_NOT_FOUND,
+      );
+      expect(updatePendingApplication.mock.calls).toHaveLength(0);
+      expect(deletePendingApplication.mock.calls).toHaveLength(0);
+    },
+  );
+
+  it('보여줄 신청이 없으면 조회는 null을 돌려준다', async () => {
+    const { repository, applicationsRepository, findOwnedApplication } =
+      createRepository();
+    findOwnedApplication.mockResolvedValue(null);
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    const result = await service.getMine(4242n, 'program-1', NOW);
+
+    expect(result).toBeNull();
+  });
+
+  it('승계된 팀장은 기간 밖에서도 isManager를 유지하고 canManage만 내린다', async () => {
+    const { repository, applicationsRepository } = createRepository();
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    const result = present(
+      await service.getMine(
+        4242n,
+        'program-1',
+        new Date('2026-08-01T00:00:00.000Z'),
+      ),
+      '신청',
+    );
+
+    expect(result.isManager).toBe(true);
+    expect(result.canManage).toBe(false);
+  });
+
+  it('승인된 신청은 수정하지 않는다', async () => {
+    const {
+      repository,
+      applicationsRepository,
+      findOwnedApplication,
+      updatePendingApplication,
+    } = createRepository();
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      status: ApplicationStatus.APPROVED,
+    });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    await expectDomainCode(
+      service.updateMine(
+        4242n,
+        'program-1',
+        {
+          answers: { title: '수정 제목' },
+          applicationTemplateVersion: 1,
+        },
+        NOW,
+      ),
+      ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED,
+    );
+    expect(updatePendingApplication.mock.calls).toHaveLength(0);
+  });
+
+  it('신청 기간 내 승인 대기 신청을 취소한다', async () => {
+    const { repository, applicationsRepository, deletePendingApplication } =
+      createRepository();
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    const result = await service.cancelMine(4242n, 'program-1', NOW);
+
+    expect(deletePendingApplication.mock.calls).toEqual([
+      [{ programId: 'program-1', studentId: 'student-1' }],
+    ]);
+    expect(result).toEqual({ cancelled: true });
+  });
+
+  it('신청 기간이 끝나면 취소하지 않는다', async () => {
+    const { repository, applicationsRepository, deletePendingApplication } =
+      createRepository();
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    await expectDomainCode(
+      service.cancelMine(
+        4242n,
+        'program-1',
+        new Date('2026-08-01T00:00:00.000Z'),
+      ),
+      ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED,
+    );
+    expect(deletePendingApplication.mock.calls).toHaveLength(0);
+  });
+  it('uses the repository-resolved applicant name instead of the current actor nickname', async () => {
+    const {
+      repository,
+      applicationsRepository,
+      findActiveStudentByGithubId,
+      findOwnedApplication,
+    } = createRepository();
+    findActiveStudentByGithubId.mockResolvedValue({
+      id: 'student-1',
+      name: null,
+      nickname: 'current-actor-login',
+    });
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      applicant: {
+        id: 'applicant-1',
+        name: 'Profile Applicant',
+        nickname: 'legacy-applicant-login',
+      },
+      answers: {
+        applicantName: 'current-actor-login',
+        title: 'Existing title',
+        summary: 'Existing summary',
+      },
+    });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    const result = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
+
+    expect(result.answers.applicantName).toBe('Profile Applicant');
+  });
+});
+
+describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)', () => {
+  it.each([
+    [ApplicationStatus.SUBMITTED, true],
+    [ApplicationStatus.REJECTED, true],
+    [ApplicationStatus.APPROVED, false],
+  ] as const)('%s 신청의 수정 허용은 %s다', async (status, allowed) => {
+    const {
+      repository,
+      applicationsRepository,
+      findOwnedApplication,
+      updatePendingApplication,
+    } = createRepository();
+    findOwnedApplication.mockResolvedValue({ ...APPLICATION, status });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+    const update = () =>
+      service.updateMine(
+        4242n,
+        'program-1',
+        { answers: { title: '수정 제목' }, applicationTemplateVersion: 1 },
+        NOW,
+      );
+
+    if (allowed) {
+      await expect(update()).resolves.toBeDefined();
+      expect(updatePendingApplication.mock.calls).toHaveLength(1);
+    } else {
+      await expectDomainCode(
+        update(),
+        ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED,
+      );
+      expect(updatePendingApplication.mock.calls).toHaveLength(0);
+    }
+  });
+
+  it('반려 상태에서도 신청 기간이 닫혔으면 기간 오류로 막는다', async () => {
+    const {
+      repository,
+      applicationsRepository,
+      findOwnedApplication,
+      updatePendingApplication,
+    } = createRepository();
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      status: ApplicationStatus.REJECTED,
+    });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    await expectDomainCode(
+      service.updateMine(
+        4242n,
+        'program-1',
+        { answers: { title: '수정 제목' }, applicationTemplateVersion: 1 },
+        new Date('2027-01-01T00:00:00.000Z'),
+      ),
+      ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED,
+    );
+    expect(updatePendingApplication.mock.calls).toHaveLength(0);
+  });
+
+  it('반려 신청은 조회에서 수정 가능으로 보인다 — 화면이 재제출 진입점을 연다', async () => {
+    const { repository, applicationsRepository, findOwnedApplication } =
+      createRepository();
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      status: ApplicationStatus.REJECTED,
+      rejectionReason: '합성 반려 사유',
+    });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    const result = present(
+      await service.getMine(4242n, 'program-1', NOW),
+      '신청',
+    );
+
+    expect(result.canManage).toBe(true);
+  });
+
+  it('신청 취소는 반려 상태로 열리지 않는다 — 명세가 재제출만 확장했다', async () => {
+    const {
+      repository,
+      applicationsRepository,
+      findOwnedApplication,
+      deletePendingApplication,
+    } = createRepository();
+    findOwnedApplication.mockResolvedValue({
+      ...APPLICATION,
+      status: ApplicationStatus.REJECTED,
+    });
+    const service = new StudentApplicationManagementService(
+      repository,
+      applicationsRepository,
+    );
+
+    await expectDomainCode(
+      service.cancelMine(4242n, 'program-1', NOW),
+      ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED,
+    );
+    expect(deletePendingApplication.mock.calls).toHaveLength(0);
+  });
+});

@@ -12,8 +12,8 @@
     },
     "apps/backend": {
       "files": 2,
-      "exports": 79,
-      "types": 129,
+      "exports": 78,
+      "types": 127,
       "dependencies": 0,
       "devDependencies": 4,
       "unlisted": 8,
