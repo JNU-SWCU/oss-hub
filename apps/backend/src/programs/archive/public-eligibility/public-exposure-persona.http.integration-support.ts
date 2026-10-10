@@ -31,7 +31,8 @@ import { PublicUserProfileController } from '../public-projects/public-user-prof
 import { SubmissionRepositoryPublishingController } from '../../../submission-reviews/submission-reviews.controller';
 import { SubmissionReviewsRepository } from '../../../submission-reviews/submission-reviews.repository';
 import { SubmissionReviewsService } from '../../../submission-reviews/submission-reviews.service';
-import { SubmissionReviewsStaffGuard } from '../../../submission-reviews/submission-reviews-staff.guard';
+import { UsersAuthorityService } from '../../../users/service/authority.service';
+import { UsersAuthorityRepository } from '../../../users/repository/authority.repository';
 import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
 import { PublicEligibilityService } from './public-eligibility.service';
 
@@ -100,6 +101,7 @@ export class PublicExposurePersonaHttpHarness {
     const submissionReviewsService = new SubmissionReviewsService(
       new SubmissionReviewsRepository(this.prisma),
       repositoriesService,
+      new UsersAuthorityService(new UsersAuthorityRepository(this.prisma)),
     );
     this.githubPublishRepositoryMock = github.publishRepository;
 
@@ -122,7 +124,6 @@ export class PublicExposurePersonaHttpHarness {
         AuthenticationGuard,
         SessionGuard,
         OriginGuard,
-        SubmissionReviewsStaffGuard,
         { provide: PrismaService, useValue: this.prisma },
         {
           provide: AuthConfig,

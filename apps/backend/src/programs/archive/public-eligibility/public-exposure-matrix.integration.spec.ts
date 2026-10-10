@@ -31,6 +31,8 @@ import { PublicProjectsService } from '../public-projects/public-projects.servic
 import { SubmissionReviewsErrorCode } from '../../../submission-reviews/submission-reviews-error-code.enum';
 import { SubmissionReviewsRepository } from '../../../submission-reviews/submission-reviews.repository';
 import { SubmissionReviewsService } from '../../../submission-reviews/submission-reviews.service';
+import { UsersAuthorityService } from '../../../users/service/authority.service';
+import { UsersAuthorityRepository } from '../../../users/repository/authority.repository';
 import { PublicEligibilityService } from './public-eligibility.service';
 
 assertIsolatedIntegrationDatabase({
@@ -67,6 +69,7 @@ const repositoriesService = new RepositoriesService(
 const submissionReviewsService = new SubmissionReviewsService(
   new SubmissionReviewsRepository(prisma),
   repositoriesService,
+  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
 );
 
 const PREFIX = 'synthetic-exposure-matrix';
