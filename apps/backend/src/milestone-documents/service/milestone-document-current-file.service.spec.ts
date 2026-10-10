@@ -1,0 +1,156 @@
+import { createHash } from 'node:crypto';
+import { Readable } from 'node:stream';
+import { buffer } from 'node:stream/consumers';
+import type { ObjectStoragePort } from '../../storage/domain/object-storage';
+import type {
+  CurrentMilestoneDocumentFile,
+  MilestoneDocumentCurrentFileReader,
+} from '../repository/milestone-document-current-file.repository';
+import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
+import { MilestoneDocumentsErrorCode } from '../domain/milestone-documents-error-code.enum';
+
+const CURRENT_FILE: CurrentMilestoneDocumentFile = {
+  storageKey: 'objects/current',
+  originalFileName: 'current.pdf',
+  mimeType: 'application/pdf',
+  sizeBytes: 13,
+};
+
+function buildStorage(
+  get: (objectKey: string) => Promise<Readable> = () =>
+    Promise.resolve(Readable.from(Buffer.from('current-bytes'))),
+): ObjectStoragePort {
+  return {
+    put: jest.fn(),
+    get,
+    delete: jest.fn(),
+  };
+}
+
+function buildReader(
+  file: CurrentMilestoneDocumentFile | null,
+): MilestoneDocumentCurrentFileReader {
+  return { findForParticipant: jest.fn().mockResolvedValue(file) };
+}
+
+async function sha256(body: Readable): Promise<string> {
+  return createHash('sha256')
+    .update(await buffer(body))
+    .digest('hex');
+}
+
+describe('MilestoneDocumentCurrentFileService', () => {
+  it.each([
+    'cross-team',
+    'unauthorized-private-file',
+    'wrong-program',
+    'wrong-document',
+    'text-submission',
+    'nonexistent',
+    'missing-submission',
+    'replaced-file',
+    'deleted-file',
+    'expired-file',
+  ])('%s를 존재하지 않는 파일과 같은 MSD_020 404로 감춘다', async () => {
+    const get = jest.fn(() =>
+      Promise.resolve(Readable.from(Buffer.from('unused'))),
+    );
+    const storage = buildStorage(get);
+    const service = new MilestoneDocumentCurrentFileService(
+      buildReader(null),
+      storage,
+    );
+
+    await expect(
+      service.download(34_290_000n, 'milestone-hidden', 'document-hidden'),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+        status: 404,
+      },
+    });
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('현재 첨부가 교체되면 다음 다운로드는 새 bytes만 돌려준다', async () => {
+    let current = CURRENT_FILE;
+    const reader: MilestoneDocumentCurrentFileReader = {
+      findForParticipant: jest.fn(() => Promise.resolve(current)),
+    };
+    const bytesByKey = new Map([
+      ['objects/current', Buffer.from('current-bytes')],
+      ['objects/replacement', Buffer.from('replacement-bytes')],
+    ]);
+    const get = jest.fn((key: string) =>
+      Promise.resolve(Readable.from(bytesByKey.get(key) ?? Buffer.alloc(0))),
+    );
+    const service = new MilestoneDocumentCurrentFileService(
+      reader,
+      buildStorage(get),
+    );
+
+    const first = await service.download(
+      34_290_000n,
+      'milestone-current',
+      'document-current',
+    );
+    current = {
+      storageKey: 'objects/replacement',
+      originalFileName: 'replacement.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 17,
+    };
+    const replacement = await service.download(
+      34_290_000n,
+      'milestone-current',
+      'document-current',
+    );
+
+    await expect(sha256(first.body)).resolves.toBe(
+      createHash('sha256').update('current-bytes').digest('hex'),
+    );
+    await expect(sha256(replacement.body)).resolves.toBe(
+      createHash('sha256').update('replacement-bytes').digest('hex'),
+    );
+    expect(get).toHaveBeenNthCalledWith(1, 'objects/current');
+    expect(get).toHaveBeenNthCalledWith(2, 'objects/replacement');
+  });
+
+  it('저장된 이름을 다시 위생 처리하고 내려주기 타입은 확장자로 고른다', async () => {
+    const service = new MilestoneDocumentCurrentFileService(
+      buildReader({
+        ...CURRENT_FILE,
+        originalFileName: '../../current.pdf',
+        mimeType: 'text/html',
+      }),
+      buildStorage(),
+    );
+
+    const result = await service.download(
+      34_290_000n,
+      'milestone-current',
+      'document-current',
+    );
+
+    expect(result.fileName).toBe('current.pdf');
+    expect(result.contentType).toBe('application/pdf');
+    expect(result).not.toHaveProperty('storageKey');
+    expect(result).not.toHaveProperty('uploaderId');
+    expect(result).not.toHaveProperty('revision');
+  });
+
+  it('스토리지 오류 원문을 노출하지 않고 MSD_012로 감싼다', async () => {
+    const service = new MilestoneDocumentCurrentFileService(
+      buildReader(CURRENT_FILE),
+      buildStorage(() => Promise.reject(new Error('synthetic raw error'))),
+    );
+
+    await expect(
+      service.download(34_290_000n, 'milestone-current', 'document-current'),
+    ).rejects.toMatchObject({
+      errorCode: {
+        code: MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE,
+      },
+    });
+  });
+});

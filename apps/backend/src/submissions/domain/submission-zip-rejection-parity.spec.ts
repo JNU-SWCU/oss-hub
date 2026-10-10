@@ -5,7 +5,7 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from '../../milestone-documents/domain/milestone-documents-error-code.enum';
-import { MilestoneDocumentFilesService } from '../../milestone-documents/milestone-document-files.service';
+import { MilestoneDocumentFilesService } from '../../milestone-documents/service/milestone-document-files.service';
 import type { MilestoneDocumentsRepository } from '../../milestone-documents/repository/milestone-documents.repository';
 import type { SubmissionFilesRepository } from '../repository/submission-files.repository';
 import { SubmissionFilesService } from '../service/submission-files.service';
