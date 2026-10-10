@@ -1,8 +1,4 @@
-import type {
-  DashboardItem,
-  DashboardMilestone,
-  DashboardSubmissionStatus,
-} from './types';
+import type { DashboardItem, DashboardMilestone } from './types';
 
 export type ActiveDashboardItem = DashboardItem & {
   readonly nextMilestone: DashboardMilestone;
@@ -19,12 +15,17 @@ function isActive(item: DashboardItem): item is ActiveDashboardItem {
   return item.applicationStatus === 'APPROVED' && item.nextMilestone !== null;
 }
 
-function needsSubmission(status: DashboardSubmissionStatus): boolean {
-  return status === 'NOT_SUBMITTED' || status === 'CHANGES_REQUESTED';
+function canSubmit(milestone: DashboardMilestone, now: Date): boolean {
+  if (milestone.submissionStatus === 'CHANGES_REQUESTED') return true;
+  return (
+    milestone.submissionStatus === 'NOT_SUBMITTED' &&
+    now.getTime() <= Date.parse(milestone.dueAt)
+  );
 }
 
 export function splitDashboardItems(
   items: readonly DashboardItem[],
+  now: Date,
 ): DashboardSections {
   const active = items
     .filter(isActive)
@@ -42,16 +43,17 @@ export function splitDashboardItems(
     ),
     applying: items.filter((item) => item.applicationStatus !== 'APPROVED'),
     primaryApplicationId:
-      active.find((item) =>
-        needsSubmission(item.nextMilestone.submissionStatus),
-      )?.applicationId ?? null,
+      active.find((item) => canSubmit(item.nextMilestone, now))
+        ?.applicationId ?? null,
   };
 }
 
 export function submissionActionLabel(
-  status: DashboardSubmissionStatus,
+  milestone: DashboardMilestone,
+  now: Date,
 ): string {
-  if (status === 'NOT_SUBMITTED') return '서류 내기';
-  if (status === 'CHANGES_REQUESTED') return '다시 내기';
-  return '제출 현황';
+  if (!canSubmit(milestone, now)) return '제출 현황';
+  return milestone.submissionStatus === 'CHANGES_REQUESTED'
+    ? '다시 내기'
+    : '서류 내기';
 }

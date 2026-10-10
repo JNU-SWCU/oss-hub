@@ -236,7 +236,7 @@ export function ActiveProgramCard({
           <TeamButton href={item.teamUrl} />
           <Button asChild size="sm" variant={primary ? 'default' : 'outline'}>
             <Link href={item.checklistUrl}>
-              {submissionActionLabel(milestone.submissionStatus)}
+              {submissionActionLabel(milestone, now)}
             </Link>
           </Button>
         </div>

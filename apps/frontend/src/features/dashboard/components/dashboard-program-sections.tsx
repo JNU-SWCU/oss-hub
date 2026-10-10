@@ -41,8 +41,10 @@ export function DashboardProgramSections({
 }) {
   const [filter, setFilter] = useState<DashboardFilter>('all');
   const [doneExpanded, setDoneExpanded] = useState(false);
-  const { active, done, applying, primaryApplicationId } =
-    splitDashboardItems(items);
+  const { active, done, applying, primaryApplicationId } = splitDashboardItems(
+    items,
+    now,
+  );
   const doneCollapsible = filter === 'all' && active.length > 0;
   const doneOpen = !doneCollapsible || doneExpanded;
   const shows = (section: DashboardFilter) =>

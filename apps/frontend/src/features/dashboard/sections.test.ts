@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { dashboardItem, dashboardMilestone } from './fixtures';
 import { splitDashboardItems, submissionActionLabel } from './sections';
 
+const NOW = new Date('2026-07-23T10:00:00+09:00');
+
 const active = (
   key: string,
   dueAt: string,
@@ -18,14 +20,10 @@ describe('splitDashboardItems', () => {
     const submitted = dashboardItem('submitted', 'SUBMITTED');
     const rejected = dashboardItem('rejected', 'REJECTED');
 
-    const sections = splitDashboardItems([
-      submitted,
-      later,
-      done,
-      tieFirst,
-      rejected,
-      tieSecond,
-    ]);
+    const sections = splitDashboardItems(
+      [submitted, later, done, tieFirst, rejected, tieSecond],
+      NOW,
+    );
 
     expect(sections.active).toEqual([tieFirst, tieSecond, later]);
     expect(sections.done).toEqual([done]);
@@ -46,22 +44,45 @@ describe('splitDashboardItems', () => {
     const fresh = active('fresh', '2026-07-30T23:59:59+09:00');
 
     expect(
-      splitDashboardItems([fresh, resubmit, reviewing]).primaryApplicationId,
+      splitDashboardItems([fresh, resubmit, reviewing], NOW)
+        .primaryApplicationId,
     ).toBe(resubmit.applicationId);
-    expect(splitDashboardItems([fresh, reviewing]).primaryApplicationId).toBe(
-      fresh.applicationId,
-    );
+    expect(
+      splitDashboardItems([fresh, reviewing], NOW).primaryApplicationId,
+    ).toBe(fresh.applicationId);
   });
 
   it('낼 서류가 없으면 주 행동을 두지 않는다', () => {
     expect(
-      splitDashboardItems([
-        active('reviewing', '2026-07-24T23:59:59+09:00', 'SUBMITTED'),
-        active('final', '2026-07-25T23:59:59+09:00', 'REJECTED'),
-        dashboardItem('done', 'APPROVED'),
-        dashboardItem('submitted', 'SUBMITTED'),
-      ]).primaryApplicationId,
+      splitDashboardItems(
+        [
+          active('reviewing', '2026-07-24T23:59:59+09:00', 'SUBMITTED'),
+          active('final', '2026-07-25T23:59:59+09:00', 'REJECTED'),
+          dashboardItem('done', 'APPROVED'),
+          dashboardItem('submitted', 'SUBMITTED'),
+        ],
+        NOW,
+      ).primaryApplicationId,
     ).toBeNull();
+  });
+
+  it('마감이 지난 미제출 마일스톤은 낼 수 없어 주 행동에서 빠지고, 보완 요청은 마감 뒤에도 주 행동이 된다', () => {
+    const overdue = active('overdue', '2026-07-20T23:59:59+09:00');
+    const fresh = active('fresh', '2026-07-30T23:59:59+09:00');
+    const overdueResubmit = active(
+      'overdue-resubmit',
+      '2026-07-20T23:59:59+09:00',
+      'CHANGES_REQUESTED',
+    );
+
+    expect(
+      splitDashboardItems([overdue, fresh], NOW).primaryApplicationId,
+    ).toBe(fresh.applicationId);
+    expect(
+      splitDashboardItems([overdue, overdueResubmit, fresh], NOW)
+        .primaryApplicationId,
+    ).toBe(overdueResubmit.applicationId);
+    expect(splitDashboardItems([overdue], NOW).primaryApplicationId).toBeNull();
   });
 });
 
@@ -73,6 +94,26 @@ describe('submissionActionLabel', () => {
     ['APPROVED', '제출 현황'],
     ['REJECTED', '제출 현황'],
   ] as const)('다음 마일스톤이 %s이면 %s 버튼을 단다', (status, label) => {
-    expect(submissionActionLabel(status)).toBe(label);
+    expect(
+      submissionActionLabel(
+        dashboardMilestone('2026-07-30T23:59:59+09:00', status),
+        NOW,
+      ),
+    ).toBe(label);
   });
+
+  it.each([
+    ['NOT_SUBMITTED', '제출 현황'],
+    ['CHANGES_REQUESTED', '다시 내기'],
+  ] as const)(
+    '마감이 지난 다음 마일스톤이 %s이면 %s 버튼을 단다',
+    (status, label) => {
+      expect(
+        submissionActionLabel(
+          dashboardMilestone('2026-07-20T23:59:59+09:00', status),
+          NOW,
+        ),
+      ).toBe(label);
+    },
+  );
 });
