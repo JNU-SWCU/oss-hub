@@ -52,6 +52,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     }),
     findByMilestoneId: jest.fn().mockResolvedValue([baseDocument()]),
     findActiveUser: jest.fn().mockResolvedValue(null),
+    findActiveStudentByGithubId: jest.fn().mockResolvedValue(null),
     countApprovedApplications: jest.fn().mockResolvedValue(0),
     countSubmissionsByDocument: jest.fn().mockResolvedValue(new Map()),
     findStudentApplication: jest.fn().mockResolvedValue(null),
@@ -830,14 +831,8 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
 describe('MilestoneDocumentsService.submit (학생)', () => {
   const now = new Date('2026-09-16T14:22:00.000Z');
 
-  it('학생이 아니면 STUDENT_ONLY로 거부한다', async () => {
-    const { repository } = buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: 'staff-1',
-        hasStaffAccess: true,
-        hasAdminAccess: false,
-      }),
-    });
+  it('학생 유형이 아니면 STUDENT_ONLY로 거부한다', async () => {
+    const { mocks, repository } = buildRepository();
     const service = new MilestoneDocumentsService(repository);
 
     await expect(
@@ -851,15 +846,15 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.STUDENT_ONLY },
     });
+    expect(mocks.findActiveStudentByGithubId).toHaveBeenCalledWith(1n);
+    expect(mocks.findStudentApplication).not.toHaveBeenCalled();
   });
 
   it('마감 후 첫 제출은 MILESTONE_CLOSED로 거부한다', async () => {
     const { mocks, repository } = buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: syntheticUserId,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      }),
+      findActiveStudentByGithubId: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId }),
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
@@ -884,11 +879,9 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('마감 후 검토 전 교체는 SUBMISSION_REPLACEMENT_CLOSED로 거부한다', async () => {
     const { mocks, repository } = buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: syntheticUserId,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      }),
+      findActiveStudentByGithubId: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId }),
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
@@ -918,11 +911,9 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('검증 뒤 마감이 앞당겨졌으면 실제 쓰기 직전에도 막는다', async () => {
     const { repository } = buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: syntheticUserId,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      }),
+      findActiveStudentByGithubId: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId }),
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
@@ -949,11 +940,9 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('내용만 제출할 수 있다', async () => {
     const { mocks, repository } = buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: syntheticUserId,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      }),
+      findActiveStudentByGithubId: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId }),
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
@@ -993,13 +982,11 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
   });
 
-  it('이 프로그램 신청이 없으면 NOT_APPLICATION_MEMBER로 거부한다', async () => {
-    const { repository } = buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: syntheticUserId,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      }),
+  it('본인이 속한 신청이 없으면 다른 팀 신청으로 내지 않고 NOT_APPLICATION_MEMBER로 거부한다', async () => {
+    const { mocks, repository } = buildRepository({
+      findActiveStudentByGithubId: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1022,15 +1009,18 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     ).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER },
     });
+    expect(mocks.findStudentApplication).toHaveBeenCalledWith(
+      syntheticUserId,
+      syntheticProgramId,
+    );
+    expect(mocks.upsertSubmission).not.toHaveBeenCalled();
   });
 
   it('신청이 아직 승인 전이면 APPLICATION_APPROVAL_REQUIRED로 거부한다', async () => {
     const { repository } = buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: syntheticUserId,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      }),
+      findActiveStudentByGithubId: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1063,11 +1053,9 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('TEXT 제출은 content를 JSON으로 저장하고 응답 DTO로 감싼다', async () => {
     const { mocks, repository } = buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: syntheticUserId,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      }),
+      findActiveStudentByGithubId: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1118,11 +1106,9 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('파일 제출은 attachFile을 채우고 content는 Prisma.JsonNull이다', async () => {
     const { mocks, repository } = buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: syntheticUserId,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      }),
+      findActiveStudentByGithubId: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1185,11 +1171,9 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('내용과 파일을 함께 같은 제출 이력에 저장한다', async () => {
     const { mocks, repository } = buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: syntheticUserId,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      }),
+      findActiveStudentByGithubId: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId }),
       findStudentApplication: jest.fn().mockResolvedValue({
         applicationId: syntheticApplicationId,
         approved: true,
@@ -1227,11 +1211,9 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('pending 파일이 만료·소유자 불일치로 붙지 않으면 PENDING_FILE_NOT_FOUND로 변환한다', async () => {
     const { repository } = buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: syntheticUserId,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      }),
+      findActiveStudentByGithubId: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1265,11 +1247,9 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
   it('검증 뒤 서류가 삭제되면 FK 오류 대신 DOCUMENT_NOT_FOUND로 변환한다', async () => {
     const { repository } = buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: syntheticUserId,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      }),
+      findActiveStudentByGithubId: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1309,11 +1289,9 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     latestReview: { id: string; decision: ReviewDecision } | null,
   ) {
     return buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: syntheticUserId,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      }),
+      findActiveStudentByGithubId: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
@@ -1467,11 +1445,9 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
 
   function changeRequestedRepository(submissionStatus: SubmissionStatus) {
     return buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: syntheticUserId,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      }),
+      findActiveStudentByGithubId: jest
+        .fn()
+        .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,

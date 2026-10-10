@@ -1,4 +1,4 @@
-import { MemberKind } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 
 const prefix = 'qa152-document-flow';
@@ -34,6 +34,16 @@ export async function seedMilestoneDocumentFlow(
         hasStaffAccess: true,
       },
     ],
+  });
+  await prisma.userProfile.create({
+    data: {
+      userId: flowIds.student,
+      name: '합성 학생',
+      department: '합성 학과',
+      memberKind: MemberKind.STUDENT,
+      affiliationKind: AffiliationKind.DEPARTMENT,
+      affiliationName: '합성 학과',
+    },
   });
   await prisma.program.create({
     data: {

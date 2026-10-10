@@ -93,8 +93,9 @@ export class MilestoneDocumentFilesService {
     const originalName = await this.validateOriginalFileName(file);
     const uploadedFile = file as MilestoneDocumentFileUpload;
 
-    const viewer = await this.repository.findActiveUser(sessionGithubId);
-    if (viewer === null || viewer.hasStaffAccess || viewer.hasAdminAccess) {
+    const viewer =
+      await this.repository.findActiveStudentByGithubId(sessionGithubId);
+    if (viewer === null) {
       throw this.error(MilestoneDocumentsErrorCode.STUDENT_ONLY);
     }
 

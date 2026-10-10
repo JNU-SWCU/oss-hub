@@ -16,6 +16,7 @@ import {
 } from '../../prisma/lock-program-tree';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
+  STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
 } from '../../prisma/user-profile-read';
@@ -781,6 +782,19 @@ export class MilestoneDocumentsRepository {
     return this.prisma.user.findFirst({
       where: { githubId, accountStatus: AccountStatus.ACTIVE },
       select: { id: true, hasStaffAccess: true, hasAdminAccess: true },
+    });
+  }
+
+  async findActiveStudentByGithubId(
+    githubId: bigint,
+  ): Promise<{ readonly id: string } | null> {
+    return this.prisma.user.findFirst({
+      where: {
+        githubId,
+        accountStatus: AccountStatus.ACTIVE,
+        ...STUDENT_MEMBER_WHERE,
+      },
+      select: { id: true },
     });
   }
 

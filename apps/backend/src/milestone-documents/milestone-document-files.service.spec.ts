@@ -110,6 +110,9 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       hasStaffAccess: false,
       hasAdminAccess: false,
     }),
+    findActiveStudentByGithubId: jest
+      .fn()
+      .mockResolvedValue({ id: syntheticUserId }),
     findDocumentContext: jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
@@ -291,13 +294,9 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     });
   });
 
-  it('학생이 아니면 STUDENT_ONLY로 거부한다', async () => {
+  it('학생 유형이 아니면 STUDENT_ONLY로 거부한다', async () => {
     const { repository } = buildRepository({
-      findActiveUser: jest.fn().mockResolvedValue({
-        id: 'staff-1',
-        hasStaffAccess: true,
-        hasAdminAccess: false,
-      }),
+      findActiveStudentByGithubId: jest.fn().mockResolvedValue(null),
     });
     const service = new MilestoneDocumentFilesService(
       repository,
