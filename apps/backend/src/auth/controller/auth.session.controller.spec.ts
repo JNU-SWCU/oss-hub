@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { AccountStatus } from '@prisma/client';
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { AuthConfig } from '../auth.config';
 import { AuthController } from './auth.controller';
 import { AuthService } from '../service/auth.service';

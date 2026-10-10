@@ -7,7 +7,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 import { DomainException } from '../error-code';
 import { ProblemDetailFilter } from './problem-detail.filter';
 import { SystemErrorCode } from '../system-error-code.enum';
