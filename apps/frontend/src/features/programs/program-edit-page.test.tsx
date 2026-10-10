@@ -231,9 +231,9 @@ describe('마일스톤 저장 전 검증', () => {
         '2026-09-01T09:00',
       ),
     ).toMatchObject({
-      name: expect.any(String),
-      startAt: expect.any(String),
-      dueAt: expect.any(String),
+      name: expect.any(String) as unknown,
+      startAt: expect.any(String) as unknown,
+      dueAt: expect.any(String) as unknown,
     });
   });
 
@@ -260,8 +260,8 @@ describe('마일스톤 저장 전 검증', () => {
         '2026-09-01T09:00',
       ),
     ).toMatchObject({
-      startAt: expect.any(String),
-      dueAt: expect.any(String),
+      startAt: expect.any(String) as unknown,
+      dueAt: expect.any(String) as unknown,
     });
     expect(
       validateMilestoneForm(
@@ -347,7 +347,7 @@ describe('ProgramEditPage 컴포넌트', () => {
   function queryButton(name: string): HTMLButtonElement | undefined {
     return Array.from(document.querySelectorAll('button')).find(
       (candidate) => candidate.textContent?.trim() === name,
-    ) as HTMLButtonElement | undefined;
+    );
   }
 
   beforeEach(() => {
@@ -409,9 +409,9 @@ describe('ProgramEditPage 컴포넌트', () => {
       const setter = Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
         'value',
-      )?.set;
+      );
       await act(async () => {
-        setter?.call(nameInput, '삭제 직전에도 남아 있는 입력');
+        setter?.set?.call(nameInput, '삭제 직전에도 남아 있는 입력');
         nameInput.dispatchEvent(new Event('input', { bubbles: true }));
         await Promise.resolve();
       });
@@ -453,9 +453,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       'value',
-    )?.set;
+    );
     await act(async () => {
-      setter?.call(nameInput, '삭제 실패 뒤에도 남아 있는 입력');
+      setter?.set?.call(nameInput, '삭제 실패 뒤에도 남아 있는 입력');
       nameInput.dispatchEvent(new Event('input', { bubbles: true }));
       await Promise.resolve();
     });
@@ -494,9 +494,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       'value',
-    )?.set;
+    );
     await act(async () => {
-      setter?.call(nameInput, '삭제 취소 뒤에도 남아 있는 입력');
+      setter?.set?.call(nameInput, '삭제 취소 뒤에도 남아 있는 입력');
       nameInput.dispatchEvent(new Event('input', { bubbles: true }));
       await Promise.resolve();
     });
@@ -556,9 +556,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       'value',
-    )?.set;
+    );
     await act(async () => {
-      setter?.call(name, '새 마일스톤');
+      setter?.set?.call(name, '새 마일스톤');
       name.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await act(async () => getButton('마일스톤 저장').click());
@@ -769,9 +769,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       'value',
-    )?.set;
+    );
     await act(async () => {
-      setter?.call(nameInput, '저장 실패해도 남아야 하는 이름');
+      setter?.set?.call(nameInput, '저장 실패해도 남아야 하는 이름');
       nameInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
@@ -817,9 +817,9 @@ describe('ProgramEditPage 컴포넌트', () => {
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       'value',
-    )?.set;
+    );
     await act(async () => {
-      setter?.call(nameInput, '아직 저장 안 한 마일스톤');
+      setter?.set?.call(nameInput, '아직 저장 안 한 마일스톤');
       nameInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
