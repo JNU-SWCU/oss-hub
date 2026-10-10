@@ -6,7 +6,7 @@ import { SessionGuard } from '../../auth/controller/session.guard';
 import { sessionCookieName } from '../../auth/domain/cookies';
 import { issueSessionToken } from '../../auth/domain/session-token';
 import { AuthService } from '../../auth/service/auth.service';
-import { ProblemDetailFilter } from '../../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
 import { MilestoneDocumentFeedbackService } from '../service/milestone-document-feedback.service';
 import { MilestoneDocumentFeedbackController } from './milestone-document-feedback.controller';
 

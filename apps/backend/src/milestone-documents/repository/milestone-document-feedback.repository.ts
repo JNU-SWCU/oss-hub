@@ -7,7 +7,7 @@ import {
   type SubmissionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { submissionParticipantWhere } from '../../submissions/submission-application.record';
+import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
 
 const RECENT_FEEDBACK_LIMIT = 50;
 
@@ -75,7 +75,7 @@ export class MilestoneDocumentFeedbackRepository {
             application: {
               is: {
                 status: ApplicationStatus.APPROVED,
-                ...submissionParticipantWhere(user.id),
+                ...programApplicationParticipantWhere(user.id),
               },
             },
           },
