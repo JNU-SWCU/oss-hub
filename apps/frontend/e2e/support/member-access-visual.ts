@@ -67,7 +67,7 @@ export async function captureResponsiveMenu(
   }
 }
 
-async function assertTask9Layout(page: Page): Promise<void> {
+export async function assertTask9Layout(page: Page): Promise<void> {
   const result = await page.locator('body').evaluate(() => {
     const root = document.documentElement;
     const cjk = /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/;
