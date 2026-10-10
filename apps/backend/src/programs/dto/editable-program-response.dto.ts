@@ -3,7 +3,7 @@ import type {
   ProgramMilestoneDocumentView,
   ProgramMilestoneEditView,
   ProgramMilestoneView,
-} from '../program-editor.types';
+} from '../domain/program-editor.types';
 import {
   SUBMISSION_UPLOAD_MAX_BYTES,
   SUBMISSION_UPLOAD_MAX_LABEL,

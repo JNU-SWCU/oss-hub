@@ -2,8 +2,8 @@ import type {
   StaffTeamDetailView,
   TeamApplicationView,
   TeamMemberView,
-} from '../program-teams.types';
-import type { RepositoryUrlHistoryPage } from '../program-team-repository-evidence.types';
+} from '../domain/program-teams.types';
+import type { RepositoryUrlHistoryPage } from '../domain/program-team-repository-evidence.types';
 
 export class RepositoryUrlHistoryResponseDto {
   readonly items: RepositoryUrlHistoryPage['items'];

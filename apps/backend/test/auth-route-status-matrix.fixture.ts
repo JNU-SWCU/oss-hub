@@ -18,8 +18,8 @@ import { ProblemDetailFilter } from '../src/common/controller/problem-detail.fil
 import { HealthController } from '../src/health/controller/health.controller';
 import { HealthService } from '../src/health/service/health.service';
 import { LoginHistoryService } from '../src/login-history/service/login-history.service';
-import { ProgramOverviewController } from '../src/programs/archive/program-overview/program-overview.controller';
-import { ProgramOverviewService } from '../src/programs/archive/program-overview/program-overview.service';
+import { ProgramOverviewController } from '../src/programs/archive/program-overview/controller/program-overview.controller';
+import { ProgramOverviewService } from '../src/programs/archive/program-overview/service/program-overview.service';
 import { ProgramsController } from '../src/programs/controller/programs.controller';
 import { ProgramActivityService } from '../src/programs/service/program-activity.service';
 import { ProgramCreationService } from '../src/programs/service/program-creation.service';

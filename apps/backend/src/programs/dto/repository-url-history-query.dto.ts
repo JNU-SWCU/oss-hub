@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
-import type { RepositoryUrlHistoryCursor } from '../program-team-repository-evidence.types';
+import type { RepositoryUrlHistoryCursor } from '../domain/program-team-repository-evidence.types';
 
 export class RepositoryUrlHistoryQueryRequestDto {
   @IsOptional()

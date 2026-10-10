@@ -1,3 +1,4 @@
+import { ProgramListRecord } from '../domain/program-list';
 import { Injectable } from '@nestjs/common';
 import type { Program } from '@prisma/client';
 import {
@@ -17,36 +18,18 @@ import {
   submissionCompletionTargetSelect,
   type SubmissionCompletionTargetRow,
 } from '../../submissions/domain/submission-completion-projection';
-import type { ProgramListQuery } from '../program-list-query';
+import type { ProgramListQuery } from '../domain/program-list-query';
 import {
   emptyProgramStatusCounts,
+  type ProgramStatusCounts,
+} from '../domain/program-list-status';
+import {
   programListOrderBySql,
   programListPrismaWhere,
   programListSqlWhere,
   programStatusCountsSql,
-  type ProgramStatusCounts,
-} from '../program-list-status-filter';
+} from './program-list-status-filter';
 import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
-
-export type { ProgramStatusCounts };
-export type ProgramListRecord = Pick<
-  Program,
-  | 'id'
-  | 'name'
-  | 'organizer'
-  | 'trackType'
-  | 'applicationTemplateKey'
-  | 'lifecycle'
-  | 'applicationStartAt'
-  | 'applicationEndAt'
-  | 'endAt'
-  | 'description'
-  | 'teamMinSize'
-  | 'teamMaxSize'
-> & {
-  readonly coverId?: string | null;
-  readonly coverExternalImageUrl?: string | null;
-};
 
 export interface ProgramApplicationCounts {
   readonly total: number;

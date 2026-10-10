@@ -27,7 +27,7 @@ import type { TeamInvitationManagement } from './use-team-invitation-management'
 export type MyTeamApplicationStage =
   'draft' | 'submitted' | 'approved' | 'rejected';
 
-export function myTeamApplicationStage(
+function myTeamApplicationStage(
   application: StudentApplication | null,
 ): MyTeamApplicationStage {
   if (application === null) return 'draft';

@@ -29,27 +29,22 @@ export type {
   AdminAccessConflictProjection,
   AdminAccessDecidedRequest,
   AdminAccessDetail,
-  AdminAccessExpectedPendingRequest,
   AdminAccessFacetCounts,
   AdminAccessHistory,
   AdminAccessHistoryParams,
   AdminAccessListItem,
   AdminAccessListPage,
   AdminAccessListParams,
-  AdminAccessLoginEvent,
   AdminAccessLoginHistoryItem,
   AdminAccessMutationResponse,
   AdminAccessPatchRequest,
   AdminAccessPendingFilter,
-  AdminAccessPendingRequest,
   AdminAccessProfile,
-  AdminAccessRequestDecisionInput,
   AdminAccessRole,
   AdminAccessRoleFilter,
   AdminAccessSortDirection,
   AdminAccessSortField,
   AdminAccessStaffAccessRequestHistoryItem,
-  AdminAccessStaffAccessRequestStatus,
   AdminProfileUpdateCommand,
   AdminProfileUpdateResponse,
 } from './admin-access-api-types';
@@ -57,11 +52,9 @@ export {
   AdminAccessResponseError,
   parseAdminAccessConflictProjection,
   parseAdminAccessDetail,
-  parseAdminAccessFacets,
   parseAdminAccessHistory,
   parseAdminAccessListPage,
   parseAdminAccessMutationResponse,
-  parseAdminProfileUpdateResponse,
 };
 
 export function serializeAdminAccessListQuery(
@@ -81,7 +74,7 @@ export function serializeAdminAccessListQuery(
   return search.toString();
 }
 
-export function serializeAdminAccessHistoryQuery(
+function serializeAdminAccessHistoryQuery(
   params: AdminAccessHistoryParams,
 ): string {
   const search = new URLSearchParams();

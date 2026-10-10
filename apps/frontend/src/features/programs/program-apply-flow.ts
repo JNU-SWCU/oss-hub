@@ -5,15 +5,6 @@ import type { ApplicationFormTemplate, ProgramDetail } from './types';
 export type ProgramApplyBlockedReason =
   'period-closed' | 'already-applied' | 'team-required' | 'manage-not-allowed';
 
-export type ProgramApplyReadyState = {
-  readonly kind: 'ready';
-  readonly program: ProgramDetail;
-  readonly template: ApplicationFormTemplate;
-  readonly applicantName: string;
-  readonly teamId: string | null;
-  readonly teamMinimum: TeamMinimum | null;
-};
-
 export type TeamMinimum = {
   readonly memberCount: number;
   readonly teamMinSize: number;
@@ -30,22 +21,6 @@ export function remainingTeamMembers(teamMinimum: TeamMinimum | null): number {
   if (teamMinimum === null) return 0;
   return Math.max(teamMinimum.teamMinSize - teamMinimum.memberCount, 0);
 }
-
-export type ProgramApplyPageState =
-  | { readonly kind: 'loading' }
-  | { readonly kind: 'not-found' }
-  | { readonly kind: 'failed'; readonly message: string }
-  | {
-      readonly kind: 'blocked';
-      readonly reason: ProgramApplyBlockedReason;
-      readonly program: ProgramDetail;
-    }
-  | ProgramApplyReadyState
-  | {
-      readonly kind: 'success';
-      readonly program: ProgramDetail;
-      readonly applicationId: string;
-    };
 
 export type ProgramApplyFormValues = {
   readonly title?: string;

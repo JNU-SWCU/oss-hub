@@ -6,7 +6,7 @@ import {
   type AdminAccessRole,
 } from './admin-access-api';
 
-export type AdminMemberKind = 'STUDENT' | 'STAFF';
+type AdminMemberKind = 'STUDENT' | 'STAFF';
 export type AdminAuthorityCommand =
   'GRANT_ADMIN_ACCESS' | 'REVOKE_ADMIN_ACCESS';
 
@@ -22,7 +22,7 @@ export interface MemberKindMutationRequest extends MemberKindMutationFields {
   readonly expectedHasStaffAccess: boolean;
 }
 
-export interface IndependentAuthority {
+interface IndependentAuthority {
   readonly memberKind: AdminMemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
@@ -90,7 +90,7 @@ export function parseCanonicalAdminAccessDetail(
   };
 }
 
-export function parseIndependentAuthorityMutationResponse(
+function parseIndependentAuthorityMutationResponse(
   value: unknown,
 ): IndependentAuthorityMutationResponse {
   if (

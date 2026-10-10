@@ -9,7 +9,7 @@ import { DomainException } from '../../common/error-code';
 import {
   hasProgramDeadlinePassed,
   programDeadline,
-} from '../../programs/program-deadline';
+} from '../../programs/domain/program-deadline';
 import type {
   CreateSubmissionInput,
   ResubmitSubmissionInput,

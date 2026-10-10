@@ -53,14 +53,14 @@ interface ConsoleError {
   readonly path: string | null;
 }
 
-export interface AllowedFailedResponse {
+interface AllowedFailedResponse {
   readonly status: number;
   readonly path: string;
 
   readonly method?: string;
 }
 
-export interface BrowserAuditReceipt {
+interface BrowserAuditReceipt {
   readonly pageErrors: number;
   readonly consoleErrors: number;
   readonly requestFailures: number;

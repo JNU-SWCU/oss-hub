@@ -5,7 +5,7 @@ import {
 } from './cosmos-graph';
 import { ease, lerp, segment } from './cosmos-theme';
 
-export const TILT = 0.42;
+const TILT = 0.42;
 export const PERSP = 3.2;
 
 export interface CosmosWorldPoint {

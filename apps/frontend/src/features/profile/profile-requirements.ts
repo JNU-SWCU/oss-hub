@@ -4,8 +4,8 @@ export type ProfileRole = ProfileMemberKind | 'ADMIN';
 
 export const PROFILE_NAME_MAX_LENGTH = 100;
 export const PROFILE_DEPARTMENT_MAX_LENGTH = 100;
-export const STUDENT_ID_PATTERN = /^\d{6}$/;
-export const PHONE_PATTERN = /^\d{10,11}$/;
+const STUDENT_ID_PATTERN = /^\d{6}$/;
+const PHONE_PATTERN = /^\d{10,11}$/;
 
 export interface ProfileFieldRequirement {
   readonly studentId: boolean;

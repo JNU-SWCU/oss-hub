@@ -1,5 +1,5 @@
-import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
+import { linkedRepositoryFilter } from '../../prisma/linked-program-repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
 
@@ -15,15 +15,6 @@ export interface ProgramRepositoryActivity {
   readonly pullRequestDates: readonly Date[];
   readonly releaseDates: readonly Date[];
   readonly issueDates: readonly Date[];
-}
-
-function linkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
-  return {
-    OR: [
-      { source: 'ORG_PROVISIONED' },
-      { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
-    ],
-  };
 }
 
 @Injectable()

@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 
-export interface ProgramTeamDirectoryMember {
+interface ProgramTeamDirectoryMember {
   readonly userId: string;
   readonly displayName: string;
   readonly isLeader: boolean;

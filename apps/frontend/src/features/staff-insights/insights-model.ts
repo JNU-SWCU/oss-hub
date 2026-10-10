@@ -28,7 +28,7 @@ export const ACTIVITY_METRICS: readonly {
   { field: 'starCount', label: 'Star(누적)' },
   { field: 'total', label: '합계' },
 ];
-export const EMPTY_COHORT_METRICS: StaffInsightsMetrics = {
+const EMPTY_COHORT_METRICS: StaffInsightsMetrics = {
   studentCount: 0,
   activeStudentCount: 0,
   commitCount: 0,

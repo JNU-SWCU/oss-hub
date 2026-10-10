@@ -5,8 +5,11 @@ import {
   IsArray,
   IsBoolean,
   IsDateString,
+  IsEnum,
   IsIn,
   IsInt,
+  IsNotEmpty,
+  IsObject,
   IsOptional,
   IsString,
   Matches,
@@ -18,7 +21,6 @@ import {
 } from 'class-validator';
 import type { ValidationOptions } from 'class-validator';
 import { ProgramTrackType } from '@prisma/client';
-import { ProgramCoverRequestDto } from './program-cover-request.dto';
 
 function isUnknownArray(value: unknown): value is readonly unknown[] {
   return Array.isArray(value);
@@ -55,6 +57,30 @@ function AtMostDocuments(
         validate: (value: unknown) => hasAtMostDocuments(value, maximum),
       },
     });
+}
+
+class ProgramExternalCoverRequestDto {
+  @IsString()
+  @MaxLength(2048)
+  declare readonly sourceUrl: string;
+
+  @IsString()
+  @MaxLength(2048)
+  declare readonly imageUrl: string;
+}
+
+class ProgramCoverRequestDto {
+  @IsOptional()
+  @IsString()
+  @Matches(/^\S+$/u)
+  @MaxLength(128)
+  declare readonly coverUploadId?: string | null;
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => ProgramExternalCoverRequestDto)
+  declare readonly externalCover?: ProgramExternalCoverRequestDto | null;
 }
 
 export class ProgramAuthoringDocumentRequestDto {
@@ -151,4 +177,49 @@ export class ProgramAuthoringRequestDto extends ProgramCoverRequestDto {
   @ValidateNested({ each: true })
   @Type(() => ProgramAuthoringMilestoneRequestDto)
   declare readonly milestones: readonly ProgramAuthoringMilestoneRequestDto[];
+}
+
+export class UpdateProgramRequestDto extends ProgramCoverRequestDto {
+  @IsString()
+  @IsNotEmpty()
+  declare name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  declare organizer: string;
+
+  @IsEnum(ProgramTrackType)
+  declare trackType: ProgramTrackType;
+
+  @IsString()
+  declare applicationStartAt: string;
+
+  @IsString()
+  declare applicationEndAt: string;
+
+  @IsOptional()
+  @IsDateString({ strict: true, strictSeparator: true })
+  declare startAt?: string;
+
+  @IsOptional()
+  @IsString()
+  declare endAt?: string | null;
+
+  @IsBoolean()
+  declare repositoryProvisioningEnabled: boolean;
+
+  @IsBoolean()
+  declare notifyOnDeadline: boolean;
+
+  @IsString()
+  @IsNotEmpty()
+  declare description: string;
+
+  @IsOptional()
+  @IsInt()
+  declare teamMinSize?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  declare teamMaxSize?: number | null;
 }

@@ -21,10 +21,7 @@ import {
 import type { ProgramListStatus, StaffDashboardSummary } from './types';
 
 export { StaffDashboardPageView } from './staff-dashboard-page-view';
-export {
-  buildStaffDashboardPageModel,
-  type StaffDashboardPageModel,
-} from './staff-dashboard-page-model';
+export { buildStaffDashboardPageModel } from './staff-dashboard-page-model';
 export { StaffDashboardOverview } from './staff-dashboard-overview';
 export { StaffDashboardStatusSummary } from './staff-dashboard-status-summary';
 
@@ -33,7 +30,7 @@ type LoadState =
   | { readonly kind: 'ready'; readonly summary: StaffDashboardSummary }
   | { readonly kind: 'error'; readonly message: string };
 
-export function getStaffDashboardErrorMessage(error: unknown): string {
+function getStaffDashboardErrorMessage(error: unknown): string {
   return error instanceof ApiError && error.problem.status === 403
     ? '승인된 교직원 또는 관리자만 조회할 수 있습니다.'
     : '운영 대시보드를 불러오지 못했습니다.';

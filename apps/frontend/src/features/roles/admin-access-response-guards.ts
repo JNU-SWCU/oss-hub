@@ -38,7 +38,7 @@ export function isAdminAccessAccountStatus(
   return value === 'ACTIVE' || value === 'DEACTIVATED';
 }
 
-export function isAdminAccessPendingRequest(
+function isAdminAccessPendingRequest(
   value: unknown,
 ): value is AdminAccessPendingRequest {
   return (

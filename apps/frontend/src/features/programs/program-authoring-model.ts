@@ -12,7 +12,6 @@ export type {
   ProgramAuthoringRequirement,
   ProgramAuthoringState,
   ProgramAuthoringStep,
-  ProgramAuthoringTemplateFile,
 } from './program-authoring-types';
 
 export function createRequirementDraft(

@@ -1,24 +1,15 @@
+import { ProgramCoverChange } from '../domain/program-cover-change';
 import { ProgramAuthoringUploadLifecycle, type Prisma } from '@prisma/client';
 import {
   assertAttachableProgramAuthoringUploads,
   lockProgramAuthoringUploads,
-} from '../program-authoring-upload-transaction';
+} from './program-authoring-upload-transaction';
 import {
   ProgramAuthoringUploadConsumptionRaceError,
   type ProgramAuthoringUploadToken,
-} from '../program-authoring.types';
-import { assertProgramCoverUpload } from '../program-cover';
-import type { ProgramExternalCover } from '../program-external-cover';
-
-export type ProgramCoverChange = {
-  readonly actorId: string;
-} & (
-  | { readonly uploadId: string | null; readonly externalCover?: never }
-  | {
-      readonly externalCover: ProgramExternalCover | null;
-      readonly uploadId?: never;
-    }
-);
+} from '../domain/program-authoring.types';
+import { assertProgramCoverUpload } from '../domain/program-cover';
+import type { ProgramExternalCover } from '../domain/program-external-cover';
 
 export async function replaceProgramCover(
   transaction: Prisma.TransactionClient,

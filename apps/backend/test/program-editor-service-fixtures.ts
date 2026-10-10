@@ -4,13 +4,11 @@ import {
   ProgramCategory,
   ProgramTrackType,
 } from '@prisma/client';
-import type { UpdateProgramRequestDto } from '../src/programs/dto/update-program-request.dto';
+import type { UpdateProgramRequestDto } from '../src/programs/dto/program-authoring-request.dto';
 import type { UpsertMilestoneRequestDto } from '../src/programs/dto/upsert-milestone-request.dto';
-import {
-  ProgramEditorService,
-  type ProgramEditorRepositoryPort,
-  type ProgramEditorTransactionStore,
-} from '../src/programs/service/program-editor.service';
+import { ProgramEditorService } from '../src/programs/service/program-editor.service';
+import type { ProgramEditorRepository } from '../src/programs/repository/program-editor.repository';
+import type { ProgramEditorTransactionStore } from '../src/programs/domain/program-editor.types';
 
 export const updateInput: UpdateProgramRequestDto = {
   name: '  Updated OSS  ',
@@ -88,7 +86,7 @@ export function createProgramEditorServiceHarness(): {
     applyMilestoneEdit: jest.fn(),
   };
   const withTransaction = jest.fn();
-  const repository: ProgramEditorRepositoryPort = {
+  const repository: Pick<ProgramEditorRepository, 'withTransaction'> = {
     withTransaction: (operation) => {
       withTransaction(operation);
       return operation(store);

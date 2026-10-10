@@ -19,7 +19,7 @@ export function describeTargetType(targetType: string): string {
   );
 }
 
-export type AuditLogTargetVariant = 'handle' | 'name' | 'fallback';
+type AuditLogTargetVariant = 'handle' | 'name' | 'fallback';
 
 export type AuditLogSentenceSegment =
   | { readonly kind: 'text'; readonly value: string }

@@ -41,6 +41,9 @@
       "includeEntryExports": true
     },
     "apps/frontend": {
+      "tailwind": {
+        "entry": ["src/app/globals.css"]
+      },
       "entry": [
         "eslint.rails.mjs",
         "src/middleware.ts",

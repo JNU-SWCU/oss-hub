@@ -5,12 +5,12 @@ import type {
   ActivityPointResponseDto,
   ActivityTimelineResponseDto,
 } from '../dto/activity-timeline.dto';
-import type { ActivityGranularity } from '../program-activity-granularity';
-import { PROGRAM_ERROR_CODES } from '../program-error-code';
+import type { ActivityGranularity } from '../domain/program-activity-granularity';
+import { PROGRAM_ERROR_CODES } from '../domain/program-error-code';
 import {
   ProgramErrorCode,
   PROGRAM_ERROR_CODES as CREATION_ERROR_CODES,
-} from '../program-error-code.enum';
+} from '../domain/program-error-code.enum';
 import type {
   ProgramStudentViewer,
   ProgramViewer,

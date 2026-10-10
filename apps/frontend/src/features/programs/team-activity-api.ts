@@ -9,7 +9,7 @@ export const TEAM_ACTIVITY_METRICS = [
 export type TeamActivityMetric = (typeof TEAM_ACTIVITY_METRICS)[number];
 export type TeamActivityCounts = Readonly<Record<TeamActivityMetric, number>>;
 
-export interface TeamActivityPoint extends TeamActivityCounts {
+interface TeamActivityPoint extends TeamActivityCounts {
   readonly date: string;
 }
 
@@ -21,7 +21,7 @@ export interface TeamActivityMember {
   readonly points: readonly TeamActivityPoint[];
 }
 
-export type TeamActivityStatus =
+type TeamActivityStatus =
   'NOT_CONNECTED' | 'NOT_COLLECTED' | 'COLLECTED' | 'ERROR';
 
 export interface TeamActivity {
@@ -39,7 +39,7 @@ export interface TeamActivity {
   readonly members: readonly TeamActivityMember[];
 }
 
-export interface RepositoryHistoryItem {
+interface RepositoryHistoryItem {
   readonly id: string;
   readonly occurredAt: string;
   readonly actorGithubLogin: string;

@@ -1,7 +1,6 @@
 import type { ApplicationStatus, ViewerRole } from './types';
 
-export type MilestoneSubmissionBlockedReason =
-  'NOT_APPLIED' | 'AWAITING_DECISION';
+type MilestoneSubmissionBlockedReason = 'NOT_APPLIED' | 'AWAITING_DECISION';
 
 export interface BlockedMilestoneSubmissionAccess {
   readonly kind: 'blocked';
@@ -12,7 +11,7 @@ export interface BlockedMilestoneSubmissionAccess {
   readonly buttonNote: string;
 }
 
-export interface UnchangedMilestoneSubmissionAccess {
+interface UnchangedMilestoneSubmissionAccess {
   readonly kind: 'unchanged';
 }
 

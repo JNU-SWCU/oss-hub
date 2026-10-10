@@ -19,7 +19,7 @@ export const ROLE_REQUEST_RETRY_FAILURE_MESSAGE =
 
 const ROLE_REQUEST_RETRY_CONFLICT_STATUS = 409;
 
-export function staffAccessRequestRetryFailureMessage(error: unknown): string {
+function staffAccessRequestRetryFailureMessage(error: unknown): string {
   if (!(error instanceof ApiError)) {
     return ROLE_REQUEST_RETRY_FAILURE_MESSAGE;
   }

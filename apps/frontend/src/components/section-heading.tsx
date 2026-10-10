@@ -42,4 +42,3 @@ function SectionHeading({
 }
 
 export { SectionHeading };
-export type { SectionHeadingProps };

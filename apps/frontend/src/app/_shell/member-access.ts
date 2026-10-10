@@ -1,4 +1,4 @@
-export type MemberKind = 'STUDENT' | 'STAFF';
+type MemberKind = 'STUDENT' | 'STAFF';
 export type MemberSurface = 'student' | 'staff' | 'admin';
 
 export interface MemberAccess {

@@ -7,13 +7,13 @@ import {
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from '../program-error-code.enum';
+} from '../domain/program-error-code.enum';
 import {
   createProgramEditorServiceHarness,
   editableProgram,
 } from '../../../test/program-editor-service-fixtures';
-import { fingerprintProgramMilestoneEdit } from '../program-milestone-edit';
-import { ProgramAuthoringUploadTokenError } from '../program-authoring.types';
+import { fingerprintProgramMilestoneEdit } from '../domain/program-milestone-edit';
+import { ProgramAuthoringUploadTokenError } from '../domain/program-authoring.types';
 
 describe('ProgramEditorService authority', () => {
   it('loads edit data by canonical program id inside one repository transaction', async () => {

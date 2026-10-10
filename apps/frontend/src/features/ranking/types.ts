@@ -2,14 +2,6 @@ export const RANKING_YEAR_ALL = 'all' as const;
 
 export type RankingYear = number | typeof RANKING_YEAR_ALL;
 
-export const RANKING_PERIODS = {
-  THIS_YEAR: 'THIS_YEAR',
-  ALL: 'ALL',
-} as const;
-
-export type RankingPeriod =
-  (typeof RANKING_PERIODS)[keyof typeof RANKING_PERIODS];
-
 export const RANKING_VIEWER_CLASSES = {
   PUBLIC: 'public',
   MEMBER: 'member',
@@ -47,9 +39,6 @@ export interface StaffRankingItem {
   readonly total: number;
 }
 
-export type RankingItem =
-  PublicRankingItem | MemberRankingItem | StaffRankingItem;
-
 interface RankingPageEnvelope {
   readonly year: RankingYear;
   readonly page: number;
@@ -66,7 +55,7 @@ export interface PublicRankingPage extends RankingPageEnvelope {
   readonly items: readonly PublicRankingItem[];
 }
 
-export interface MemberRankingPage extends RankingPageEnvelope {
+interface MemberRankingPage extends RankingPageEnvelope {
   readonly viewerClass: typeof RANKING_VIEWER_CLASSES.MEMBER;
   readonly items: readonly MemberRankingItem[];
 }

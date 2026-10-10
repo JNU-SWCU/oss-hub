@@ -11,9 +11,9 @@ import { ProgramsRepository } from '../repository/programs.repository';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from '../program-error-code.enum';
-import { isProgramEndAtUndecided } from '../program-end-at';
-import { getProgramTemplate } from '../program-template.registry';
+} from '../domain/program-error-code.enum';
+import { isProgramEndAtUndecided } from '../domain/program-end-at';
+import { getProgramTemplate } from '../domain/program-template.registry';
 
 const INVALID_END_AT_FIELD_ERROR = {
   field: 'endAt',

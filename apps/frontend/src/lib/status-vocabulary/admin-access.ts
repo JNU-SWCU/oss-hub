@@ -9,7 +9,7 @@ export const ROLE_LABEL = {
   ADMIN: '관리자',
 } as const satisfies Readonly<Record<AdminAccessRoleKey, string>>;
 
-export const ROLE_BADGE = {
+const ROLE_BADGE = {
   STUDENT: 'closed',
   STAFF: 'pending',
   ADMIN: 'approved',
@@ -18,7 +18,7 @@ export const ROLE_BADGE = {
 >;
 
 export const UNASSIGNED_ROLE_LABEL = '미지정';
-export const UNASSIGNED_ROLE_BADGE = 'closed' satisfies StatusBadgeVariantName;
+const UNASSIGNED_ROLE_BADGE = 'closed' satisfies StatusBadgeVariantName;
 
 export function roleLabel(role: AdminAccessRoleKey | null): string {
   return role ? ROLE_LABEL[role] : UNASSIGNED_ROLE_LABEL;

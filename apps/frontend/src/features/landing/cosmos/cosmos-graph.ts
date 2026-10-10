@@ -1,6 +1,6 @@
 import { createRng } from './cosmos-theme';
 
-export type CosmosNodeKind = 'p' | 's' | 'r';
+type CosmosNodeKind = 'p' | 's' | 'r';
 
 export interface CosmosNode {
   kind: CosmosNodeKind;
@@ -20,7 +20,7 @@ export interface CosmosNode {
   z: number;
 }
 
-export interface CosmosEdge {
+interface CosmosEdge {
   a: number;
   b: number;
   prog: number;
@@ -28,7 +28,7 @@ export interface CosmosEdge {
   kind: 'sp' | 'rs' | 'ss';
 }
 
-export interface CosmosStar {
+interface CosmosStar {
   x: number;
   y: number;
   r: number;
@@ -36,13 +36,13 @@ export interface CosmosStar {
   b: number;
 }
 
-export interface CosmosStarLayer {
+interface CosmosStarLayer {
   depth: number;
   alpha: number;
   stars: CosmosStar[];
 }
 
-export interface CosmosCurtain {
+interface CosmosCurtain {
   x: number;
   w: number;
   top: number;
@@ -53,7 +53,7 @@ export interface CosmosCurtain {
   tint: number;
 }
 
-export interface CosmosStreak {
+interface CosmosStreak {
   a: number;
   r0: number;
   len: number;
@@ -75,7 +75,7 @@ export interface CosmosGraph {
 export const FOCUS_PROGRAM = 0;
 export const HERO_HANDLE = '@example-user';
 
-export const PROGRAM_TYPE_NAMES = [
+const PROGRAM_TYPE_NAMES = [
   '오픈소스 해커톤',
   'OSS 기여 챌린지',
   '데이터·AI 스터디',

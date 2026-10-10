@@ -1,6 +1,6 @@
 import type { Page, Route } from '@playwright/test';
 
-export type SyntheticMemberKind = 'STUDENT' | 'STAFF';
+type SyntheticMemberKind = 'STUDENT' | 'STAFF';
 
 export interface SyntheticAuthority {
   readonly role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;

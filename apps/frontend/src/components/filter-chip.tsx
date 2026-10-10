@@ -5,7 +5,7 @@ import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-export type FilterChipGroupProps = React.ComponentProps<'div'> &
+type FilterChipGroupProps = React.ComponentProps<'div'> &
   ({ readonly 'aria-label': string } | { readonly 'aria-labelledby': string });
 
 const CHIP_SELECTOR = 'button[data-variant="toggle"]:not(:disabled)';
@@ -46,7 +46,7 @@ function FilterChipGroup({
   );
 }
 
-export interface FilterChipProps extends Omit<
+interface FilterChipProps extends Omit<
   React.ComponentProps<typeof Button>,
   'variant' | 'size' | 'aria-pressed'
 > {

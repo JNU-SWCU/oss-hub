@@ -94,11 +94,6 @@ export function programSidebarGroup(
   return { label: '프로그램 메뉴', items };
 }
 
-export const PROGRAM_SIDEBAR_GROUP: SidebarGroup = programSidebarGroup();
-
-export const PROGRAM_SIDEBAR_ITEMS: readonly SidebarItem[] =
-  PROGRAM_SIDEBAR_GROUP.items;
-
 export interface ProgramScopeSidebarItem {
   readonly label: string;
   readonly href: string;
@@ -119,7 +114,7 @@ export function programScopeBackHref(): string {
   return '/programs';
 }
 
-export interface ProgramScopeMilestoneDocsSummary {
+interface ProgramScopeMilestoneDocsSummary {
   readonly milestoneId: string;
   readonly title: string;
 
@@ -128,7 +123,7 @@ export interface ProgramScopeMilestoneDocsSummary {
   readonly total: number;
 }
 
-export interface ProgramScopeMilestoneNavigation {
+interface ProgramScopeMilestoneNavigation {
   readonly milestoneId: string;
   readonly title: string;
 
@@ -356,7 +351,7 @@ export function rankingSidebarGroup(
   return { label: '랭킹', items };
 }
 
-export const DASHBOARD_SIDEBAR_BRAND = '대시보드';
+const DASHBOARD_SIDEBAR_BRAND = '대시보드';
 
 const SURFACE_GROUPS: Readonly<
   Record<

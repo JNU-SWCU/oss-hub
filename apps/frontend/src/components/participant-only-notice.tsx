@@ -45,4 +45,3 @@ function ParticipantOnlyNotice({
 }
 
 export { ParticipantOnlyNotice };
-export type { ParticipantOnlyNoticeProps };

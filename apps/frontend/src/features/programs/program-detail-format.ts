@@ -1,14 +1,9 @@
 import { SUBMISSION_STATUS_LABELS } from '@/lib/status-vocabulary';
-import type { ProgramDetail, SubmissionStatus, SubmissionType } from './types';
+import type { ProgramDetail, SubmissionStatus } from './types';
 import {
   PROGRAM_TRACK_TYPE_LABELS,
   type ProgramTrackType,
 } from './program-templates';
-
-const TYPE_LABELS = {
-  FILE: '파일',
-  TEXT: '텍스트',
-} as const satisfies Readonly<Record<SubmissionType, string>>;
 
 const DATE_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   timeZone: 'Asia/Seoul',
@@ -20,7 +15,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat('ko-KR', {
   hour12: false,
 });
 
-export function trackTypeLabel(trackType: ProgramTrackType): string {
+function trackTypeLabel(trackType: ProgramTrackType): string {
   return PROGRAM_TRACK_TYPE_LABELS[trackType];
 }
 
@@ -37,10 +32,6 @@ export function programDetailMeta(
 
 export function submissionLabel(status: SubmissionStatus): string {
   return SUBMISSION_STATUS_LABELS[status];
-}
-
-export function submissionTypeLabel(type: SubmissionType): string {
-  return TYPE_LABELS[type];
 }
 
 export function formatSeoulDate(value: string): string {
