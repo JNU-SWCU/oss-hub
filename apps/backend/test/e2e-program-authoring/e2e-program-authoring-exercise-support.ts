@@ -6,8 +6,6 @@ import {
 import type { E2eFailureKind } from './e2e-program-authoring.types';
 import { DeadlineDigestService } from '../../src/notifications/service/deadline-digest.service';
 import { ProgramAuthoringService } from '../../src/programs/service/program-authoring.service';
-import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/service/program-authoring-upload-maintenance.service';
-import { ProgramAuthoringUploadService } from '../../src/programs/service/program-authoring-upload.service';
 import type { ProgramAuthoringRequest } from '../../src/programs/domain/program-authoring.types';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import { E2eExternalPortFault } from './e2e-external-port-registry';
@@ -15,12 +13,9 @@ import {
   E2E_NOW,
   E2E_PROGRAM_ID,
   E2E_STAFF_GITHUB_ID,
-  E2E_STAFF_ID,
 } from './e2e-program-authoring-fixture';
 
-export function failureOperation(
-  kind: E2eFailureKind,
-): E2eExternalFailureOperation {
+function failureOperation(kind: E2eFailureKind): E2eExternalFailureOperation {
   switch (kind) {
     case 'upload':
       return E2E_EXTERNAL_FAILURE_OPERATIONS.STORAGE_PUT;
@@ -126,14 +121,4 @@ export async function exerciseSmtpFailure(
     E2E_NOW,
   );
   if (result.failedCount > 0) throw new E2eAdapterError(409);
-}
-
-export async function exerciseCleanupFailure(
-  uploads: ProgramAuthoringUploadService,
-  maintenance: ProgramAuthoringUploadMaintenanceService,
-): Promise<never> {
-  const upload = await uploads.upload(E2E_STAFF_ID, uploadFile('cleanup.pdf'));
-  await uploads.delete(E2E_STAFF_ID, upload.id);
-  await maintenance.runDue();
-  throw new E2eAdapterError(409);
 }

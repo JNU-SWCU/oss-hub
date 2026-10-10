@@ -1,7 +1,6 @@
 import {
   AccountStatus,
   MilestoneSubmissionType,
-  ProgramCategory,
   ProgramTrackType,
 } from '@prisma/client';
 import type { UpdateProgramRequestDto } from '../src/programs/dto/program-authoring-request.dto';
@@ -104,21 +103,4 @@ export function createProgramEditorServiceHarness(): {
     store,
     withTransaction,
   };
-}
-
-export function teamInputFor(category: ProgramCategory): {
-  readonly teamMinSize: number;
-  readonly teamMaxSize: number;
-} {
-  switch (category) {
-    case ProgramCategory.OSS_CONTEST:
-    case ProgramCategory.CAPSTONE:
-    case ProgramCategory.SW_CONVERGENCE:
-    case ProgramCategory.GLOBAL_MAKERTHON:
-      return { teamMinSize: 2, teamMaxSize: 4 };
-    case ProgramCategory.BASIC:
-    case ProgramCategory.SW_VALUE_SPREAD:
-    case ProgramCategory.CORPORATE_INTERNSHIP:
-      return { teamMinSize: 1, teamMaxSize: 1 };
-  }
 }

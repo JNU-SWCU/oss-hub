@@ -60,7 +60,7 @@ export function canonicalUserCreate(
   };
 }
 
-export function syntheticStudentId(githubId: bigint): string {
+function syntheticStudentId(githubId: bigint): string {
   return String(githubId % 10_000_000_000n).padStart(6, '0');
 }
 
