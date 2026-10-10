@@ -5,7 +5,7 @@ import type { CreateSubmissionReviewInput } from '../domain/submission-review';
 import {
   SUBMISSION_REVIEWS_ERROR_CODES,
   SubmissionReviewsErrorCode,
-} from '../submission-reviews-error-code.enum';
+} from '../domain/submission-reviews-error-code.enum';
 
 export class CreateSubmissionReviewRequestDto {
   @IsInt()

@@ -3,15 +3,15 @@ import {
   RepositoryInvitationStatus,
   RepositoryVisibility,
 } from '@prisma/client';
-import type { GithubAppClient } from '../src/github/github-app.client';
+import type { GithubAppClient } from '../src/github/gateway/github-app.client';
 import type { RepositoryProvisionJobRepository } from '../src/github/repository/repository-provision-job.repository';
 import type {
   ProvisionedRepository,
   RepositoryInvitationWork,
   RepositoryProvisionContext,
   RepositoryProvisionStateStore,
-} from '../src/github/repository-provision.contract';
-import { buildRepositoryOwnershipMarker } from '../src/github/repository-name';
+} from '../src/github/domain/repository-provision.contract';
+import { buildRepositoryOwnershipMarker } from '../src/github/domain/repository-name';
 
 export const PROVISION_NOW = new Date('2026-07-22T00:00:00.000Z');
 

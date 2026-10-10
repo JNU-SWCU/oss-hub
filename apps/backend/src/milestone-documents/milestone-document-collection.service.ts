@@ -10,7 +10,7 @@ import {
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.enum';
+} from './domain/milestone-documents-error-code.enum';
 
 @Injectable()
 export class MilestoneDocumentCollectionService {

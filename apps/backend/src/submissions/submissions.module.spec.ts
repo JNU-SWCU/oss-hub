@@ -1,7 +1,11 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
-import { SubmissionFileCleanupFailuresController } from './submission-file-cleanup-failures.controller';
-import { SubmissionFileCleanupFailuresService } from './submission-file-cleanup-failures.service';
+import { AuditLogModule } from '../audit-log/audit-log.module';
+import { SubmissionDashboardSummaryService } from './service/submission-dashboard-summary.service';
+import { SubmissionFileCleanupFailuresController } from './controller/submission-file-cleanup-failures.controller';
+import { SubmissionFileCleanupFailuresService } from './service/submission-file-cleanup-failures.service';
+import { SubmissionFileCleanupRetryService } from './service/submission-file-cleanup-retry.service';
+import { SubmissionFilesRepository } from './repository/submission-files.repository';
+import { SubmissionFilesService } from './service/submission-files.service';
 import { S3ObjectStorage } from '../storage/gateway/s3-object.storage';
 import { OBJECT_STORAGE } from '../storage/domain/object-storage';
 import { StorageModule } from '../storage/storage.module';
@@ -49,11 +53,31 @@ describe('SubmissionsModule storage provider', () => {
     expect(exports).toContain(SubmissionDashboardSummaryService);
   });
 
+  it('exports the submission file service while the repository stays module-internal', () => {
+    const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
+    const exports = getMetadataArray(MODULE_METADATA.EXPORTS);
+
+    expect(providers).toContain(SubmissionFilesService);
+    expect(exports).toContain(SubmissionFilesService);
+    expect(providers).toContain(SubmissionFilesRepository);
+    expect(exports).not.toContain(SubmissionFilesRepository);
+  });
+
   it('registers the operator-facing cleanup exhaustion read surface (#545)', () => {
     const controllers = getMetadataArray(MODULE_METADATA.CONTROLLERS);
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
 
     expect(controllers).toContain(SubmissionFileCleanupFailuresController);
     expect(providers).toContain(SubmissionFileCleanupFailuresService);
+  });
+
+  it('wires cleanup retry orchestration with the audit provider module', () => {
+    expect(getMetadataArray(MODULE_METADATA.IMPORTS)).toContain(AuditLogModule);
+    expect(getMetadataArray(MODULE_METADATA.PROVIDERS)).toContain(
+      SubmissionFileCleanupRetryService,
+    );
+    expect(getMetadataArray(MODULE_METADATA.EXPORTS)).not.toContain(
+      SubmissionFileCleanupRetryService,
+    );
   });
 });

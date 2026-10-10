@@ -4,8 +4,8 @@ import {
   type IndependentAuthorityAuditAction,
   type IndependentAuthorityAuditMetadata,
   type IndependentAuthorityAuditState,
-} from '../audit-log/audit-log-metadata';
-import type { AuditLogRecordInput } from '../audit-log/audit-log.repository';
+} from '../audit-log/domain/audit-log-metadata';
+import type { AuditLogRecordInput } from '../audit-log/domain/audit-log-record-input';
 import type { AdminAccessActor } from './admin-access.repository.types';
 import type {
   AdminAuthorityMutationCommand,

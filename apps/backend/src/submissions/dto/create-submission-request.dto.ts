@@ -1,19 +1,22 @@
 import { Type } from 'class-transformer';
 import {
   IsDefined,
+  IsInt,
   IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import {
   type CreateSubmissionInput,
   parseSubmissionContent,
+  type ResubmitSubmissionInput,
 } from '../domain/submission-content';
 
-export class SubmissionContentRequestDto {
+class SubmissionContentRequestDto {
   @IsString()
   declare readonly type: string;
 
@@ -51,6 +54,31 @@ export class CreateSubmissionRequestDto {
     return {
       applicationId: this.applicationId,
       milestoneId: this.milestoneId,
+      content: parseSubmissionContent(this.content),
+      comment: this.comment?.trim() || null,
+    };
+  }
+}
+
+export class CreateResubmissionRequestDto {
+  @IsInt()
+  @Min(1)
+  declare readonly baseRevision: number;
+
+  @ValidateNested()
+  @IsDefined()
+  @IsObject()
+  @Type(() => SubmissionContentRequestDto)
+  declare readonly content: SubmissionContentRequestDto;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  declare readonly comment?: string;
+
+  toInput(): ResubmitSubmissionInput {
+    return {
+      baseRevision: this.baseRevision,
       content: parseSubmissionContent(this.content),
       comment: this.comment?.trim() || null,
     };

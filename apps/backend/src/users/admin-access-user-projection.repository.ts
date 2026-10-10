@@ -5,7 +5,7 @@ import {
   USER_PROFILE_SELECT,
   resolveUserProfile,
   type UserProfileSource,
-} from '../profiles/user-profile-read';
+} from '../prisma/user-profile-read';
 import type {
   AdminAccessUserDetailRecord,
   AdminAccessUserRecord,
@@ -13,7 +13,7 @@ import type {
 import {
   isCompleteUserProfile,
   type UserProfileFields,
-} from './user-profile-policy';
+} from './domain/user-profile-policy';
 
 export const ADMIN_ACCESS_USER_SELECT = {
   id: true,

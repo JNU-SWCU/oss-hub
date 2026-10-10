@@ -73,7 +73,7 @@ run_deadline_digest() {
       "$session_secret" \
       "$frontend_origin" \
       "$backend_port" \
-      ./node_modules/.bin/ts-node src/notifications/cli/send-deadline-digest.ts
+      ./node_modules/.bin/ts-node src/notifications/job/send-deadline-digest.ts
   )
 }
 

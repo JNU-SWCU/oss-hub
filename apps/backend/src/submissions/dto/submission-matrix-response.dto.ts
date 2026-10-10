@@ -2,7 +2,7 @@ import type {
   MatrixApplicationMode,
   MatrixCellStatus,
 } from '../domain/submission-matrix';
-import type { DocumentDeliveryStatus } from '../document-delivery-status';
+import type { DocumentDeliveryStatus } from '../domain/document-delivery-status';
 
 export interface MatrixMilestoneResponseDto {
   readonly id: string;

@@ -1,11 +1,11 @@
 import { MyRepositoriesResponseDto } from './my-repositories-response.dto';
-import type { MyRepository } from '../service/repositories.service';
+import type { MyRepositoryResponseDto } from './repositories-read.dto';
 
 describe('MyRepositoriesResponseDto', () => {
   it.each(['NEW', 'OWN'] as const)(
     'preserves the %s connection mode during reconciliation failure',
     (connectionMode) => {
-      const item: MyRepository = {
+      const item: MyRepositoryResponseDto = {
         repositoryId: 'synthetic-repository',
         applicationId: 'synthetic-application',
         connectionMode,

@@ -1,4 +1,4 @@
-import { AcceptedInvitationResult } from '../team-invitations.service';
+import type { AcceptedInvitationResult } from '../domain/team-invitation';
 
 export class AcceptTeamInvitationResponseDto {
   teamId: string;

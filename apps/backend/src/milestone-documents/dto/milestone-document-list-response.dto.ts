@@ -3,7 +3,7 @@ import {
   SUBMISSION_UPLOAD_FORMAT_LABEL,
   SUBMISSION_UPLOAD_MAX_BYTES,
   SUBMISSION_UPLOAD_MAX_LABEL,
-} from '../../submissions/submission-upload-policy';
+} from '../../submissions/domain/submission-upload-policy';
 import { MilestoneDocumentResponseDto } from './milestone-document-response.dto';
 
 export class MilestoneDocumentUploadPolicyResponseDto {

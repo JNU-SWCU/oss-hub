@@ -5,7 +5,7 @@ import type {
   ProgramLifecycle,
   ProgramTrackType,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
+import type { AuditLogTransactionWriter } from '../prisma/audit-log-transaction-writer';
 import type { ProgramExternalCover } from './program-external-cover';
 
 export type ProgramAuthoringDocumentRequest = {

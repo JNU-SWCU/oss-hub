@@ -9,7 +9,7 @@ import {
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import type { ContributionInvariantReport } from '../contribution-invariants';
+import type { ContributionInvariantReport } from '../domain/contribution-invariants';
 import { CollectionRunListResponseDto } from '../dto/collection-run-list-response.dto';
 import { CollectionTriggerResponseDto } from '../dto/collection-trigger-response.dto';
 import { CollectionAdminService } from '../service/collection-admin.service';

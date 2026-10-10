@@ -3,8 +3,8 @@ import { AccountStatus, ProgramCategory } from '@prisma/client';
 import {
   createProgramCreatedAuditMetadata,
   PROGRAM_CREATED_AUDIT_ACTIONS,
-} from '../../audit-log/audit-log-metadata';
-import { AuditLogService } from '../../audit-log/audit-log.service';
+} from '../../audit-log/domain/audit-log-metadata';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { DomainException } from '../../common/error-code';
 import type { CreateProgramRequestDto } from '../dto/create-program-request.dto';
 import { ProgramsRepository } from '../repository/programs.repository';

@@ -6,8 +6,8 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { AuditLogService } from '../audit-log/audit-log.service';
-import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../audit-log/audit-log-metadata';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
+import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../audit-log/domain/audit-log-metadata';
 import { buildProgramAuthoringPlan } from './program-authoring-plan';
 import { hashProgramAuthoringPayload } from './program-authoring-payload-hash';
 import { ProgramAuthoringRepository } from './program-authoring.repository';

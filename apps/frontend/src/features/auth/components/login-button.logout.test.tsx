@@ -103,7 +103,6 @@ describe('LoginButton 로그아웃 착지', () => {
     mocks.usePathname.mockReturnValue(pathname);
     await act(async () => {
       root.render(<LoginButton />);
-      return Promise.resolve();
     });
     clickLogout();
     await act(async () => {
@@ -150,7 +149,6 @@ describe('LoginButton 로그아웃 착지', () => {
 
     await act(async () => {
       root.render(<LoginButton />);
-      return Promise.resolve();
     });
     clickLogout();
     await act(async () => {

@@ -6,7 +6,7 @@ import {
   ProgramLifecycle,
   ProgramTrackType,
 } from '@prisma/client';
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { assertIsolatedIntegrationDatabase } from '../integration-database.guard';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import {
   E2E_NOW,

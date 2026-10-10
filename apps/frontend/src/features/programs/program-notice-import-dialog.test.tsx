@@ -47,8 +47,8 @@ async function enterUrl(url: string) {
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       'value',
-    )?.set;
-    setter?.call(input, url);
+    );
+    setter?.set?.call(input, url);
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }

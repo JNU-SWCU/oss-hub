@@ -101,12 +101,12 @@ describe('프로그램 편집 일정 dialog — 종료일은 실제 날짜만 �
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
   async function render(program = datedProgram, isSaving = false) {
-    await act(() => {
+    await act(async () => {
       root.render(
         <Harness
           program={program}
@@ -117,18 +117,14 @@ describe('프로그램 편집 일정 dialog — 종료일은 실제 날짜만 �
           }}
         />,
       );
-
-      return Promise.resolve();
     });
   }
 
   async function openOperation() {
-    await act(() => {
+    await act(async () => {
       container
         .querySelector<HTMLButtonElement>('button[aria-label="운영 기간 수정"]')
         ?.click();
-
-      return Promise.resolve();
     });
   }
 
@@ -174,17 +170,15 @@ describe('프로그램 편집 일정 dialog — 종료일은 실제 날짜만 �
     await openOperation();
     const dialog = document.body.querySelector<HTMLElement>('[role="dialog"]');
     if (dialog === null) throw new TypeError('Missing dialog.');
-    await act(() => Promise.resolve(calendarDate('2026-08-17').click()));
+    await act(async () => calendarDate('2026-08-17').click());
     expect(
       dialog.querySelector<HTMLInputElement>(
         'input[aria-label="운영 기간 종료일"]',
       )?.value,
     ).toBe('2026-08-17');
-    await act(() =>
-      Promise.resolve(
-        dialog.dispatchEvent(
-          new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
-        ),
+    await act(async () =>
+      dialog.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
       ),
     );
 
@@ -219,14 +213,14 @@ describe('프로그램 편집 일정 dialog — 종료일은 실제 날짜만 �
       'input[aria-label="운영 기간 종료일"]',
     );
     expect(endDate?.value).toBe('');
-    await act(() => Promise.resolve(button('날짜 적용').click()));
+    await act(async () => button('날짜 적용').click());
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
     expect(document.body.textContent).toContain('운영 종료를 입력해 주세요.');
     expect(dirty).toEqual([]);
 
-    await act(() => Promise.resolve(calendarDate('2026-08-17').click()));
-    await act(() => Promise.resolve(calendarDate('2026-08-31').click()));
-    await act(() => Promise.resolve(button('날짜 적용').click()));
+    await act(async () => calendarDate('2026-08-17').click());
+    await act(async () => calendarDate('2026-08-31').click());
+    await act(async () => button('날짜 적용').click());
 
     expect(document.body.querySelector('[role="dialog"]')).toBeNull();
     expect(buildProgramEditInput(form, dirty).endAt).toBe(
@@ -237,7 +231,7 @@ describe('프로그램 편집 일정 dialog — 종료일은 실제 날짜만 �
   it('unchanged 적용은 callbacks/dirty 없이 원래 ISO 초·밀리초를 보존한다', async () => {
     await render();
     await openOperation();
-    await act(() => Promise.resolve(button('날짜 적용').click()));
+    await act(async () => button('날짜 적용').click());
 
     expect(dirty).toEqual([]);
     expect(buildProgramEditInput(form, dirty)).toMatchObject({
@@ -258,15 +252,13 @@ describe('프로그램 편집 일정 dialog — 종료일은 실제 날짜만 �
     expect(
       document.body.querySelector('input[aria-label="운영 기간 시작일"]'),
     ).not.toBeNull();
-    await act(() => {
+    await act(async () => {
       document.body
         .querySelector<HTMLButtonElement>('[data-calendar-date="2026-08-17"]')
         ?.click();
       document.body
         .querySelector<HTMLButtonElement>('[data-calendar-date="2026-08-31"]')
         ?.click();
-
-      return Promise.resolve();
     });
     expect(
       document.body.querySelector<HTMLInputElement>(
@@ -287,7 +279,7 @@ describe('프로그램 편집 일정 dialog — 종료일은 실제 날짜만 �
       'button[aria-label="신청 기간 수정"]',
     );
     expect(trigger?.disabled).toBe(true);
-    await act(() => Promise.resolve(trigger?.click()));
+    await act(async () => trigger?.click());
     expect(document.body.querySelector('[role="dialog"]')).toBeNull();
   });
 
@@ -300,11 +292,9 @@ describe('프로그램 편집 일정 dialog — 종료일은 실제 날짜만 �
     expect(trigger.dataset.size).toBe('icon');
 
     vi.useFakeTimers();
-    await act(() => {
+    await act(async () => {
       trigger.focus();
       vi.advanceTimersByTime(200);
-
-      return Promise.resolve();
     });
     expect(document.body.querySelector('[role="tooltip"]')?.textContent).toBe(
       '신청 기간 수정',

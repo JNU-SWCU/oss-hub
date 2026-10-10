@@ -14,7 +14,7 @@ it('필수 정보가 준비되지 않은 단계는 이동할 수 없고 준비�
   const root = createRoot(container);
   const onNavigate = vi.fn();
   const render = async (disabled: boolean) => {
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramAuthoringShell
           currentStep="information"
@@ -29,8 +29,6 @@ it('필수 정보가 준비되지 않은 단계는 이동할 수 없고 준비�
           <p>합성 신청 내용</p>
         </ProgramAuthoringShell>,
       );
-
-      return Promise.resolve();
     });
   };
   const compositionButton = () => {
@@ -43,18 +41,18 @@ it('필수 정보가 준비되지 않은 단계는 이동할 수 없고 준비�
   try {
     await render(true);
     expect(compositionButton().disabled).toBe(true);
-    await act(() => Promise.resolve(compositionButton().click()));
+    await act(async () => compositionButton().click());
     expect(onNavigate).not.toHaveBeenCalled();
 
     await render(false);
     expect(compositionButton().disabled).toBe(false);
-    await act(() => Promise.resolve(compositionButton().click()));
+    await act(async () => compositionButton().click());
     expect(onNavigate).toHaveBeenCalledExactlyOnceWith('composition');
     expect(container.querySelectorAll('main')).toHaveLength(1);
     expect(container.querySelectorAll('h1')).toHaveLength(1);
     expect(container.textContent).not.toContain('프로그램이 생성되지 않습니다');
   } finally {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   }
 });

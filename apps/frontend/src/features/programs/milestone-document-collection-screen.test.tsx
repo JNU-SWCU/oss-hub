@@ -131,19 +131,18 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
   async function render() {
-    await act(() => {
+    await act(async () => {
       root.render(
         <MilestoneDocumentCollectionScreen
           programId="program-capstone"
           milestoneId="milestone-1"
         />,
       );
-      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();
@@ -157,9 +156,8 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     if (!(found instanceof HTMLButtonElement)) {
       throw new TypeError(`버튼을 찾지 못했습니다: ${name}`);
     }
-    await act(() => {
+    await act(async () => {
       found.click();
-      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();
@@ -234,9 +232,8 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     if (!(found instanceof HTMLInputElement)) {
       throw new TypeError('서류 종류별로 묶기 토글을 찾지 못했습니다.');
     }
-    await act(() => {
+    await act(async () => {
       found.click();
-      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();

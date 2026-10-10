@@ -12,12 +12,12 @@ import { CollectionAdminService } from '../service/collection-admin.service';
 import {
   AUTH_ERROR_CODES,
   AuthErrorCode,
-} from '../../auth/auth-error-code.enum';
-import { ProblemDetailFilter } from '../../common/problem-detail.filter';
+} from '../../auth/domain/auth-error-code.enum';
+import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
-import { AuditLogService } from '../../audit-log/audit-log.service';
-import { ContributionInvariants } from '../contribution-invariants';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
+import { ContributionInvariants } from '../repository/contribution-invariants';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import { CollectionSyncService } from '../service/collection-sync.service';

@@ -22,7 +22,7 @@ export const SENT_INVITATIONS_LOAD_FAILED_MESSAGE =
   '보낸 초대를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
 export const INVITATION_SEARCH_FAILED_MESSAGE = '검색하지 못했습니다.';
 export const INVITATION_CREATE_FAILED_MESSAGE = '초대를 보내지 못했습니다.';
-export const INVITATION_CANCEL_FAILED_MESSAGE = '초대를 취소하지 못했습니다.';
+const INVITATION_CANCEL_FAILED_MESSAGE = '초대를 취소하지 못했습니다.';
 
 const NO_SENT_INVITATIONS: readonly SentTeamInvitation[] = [];
 const NO_CANDIDATES: readonly InvitationCandidate[] = [];

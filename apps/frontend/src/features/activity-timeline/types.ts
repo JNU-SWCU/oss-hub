@@ -13,6 +13,7 @@ export interface ActivityPoint {
   readonly commitCount: number;
   readonly prCount: number;
   readonly releaseCount: number;
+  readonly issueCount: number | null;
   readonly total: number;
 }
 

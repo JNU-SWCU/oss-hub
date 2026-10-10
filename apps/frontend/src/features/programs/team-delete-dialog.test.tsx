@@ -94,7 +94,7 @@ describe('TeamDeleteDialog', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
     document.body
       .querySelectorAll('[data-radix-portal]')
@@ -102,10 +102,8 @@ describe('TeamDeleteDialog', () => {
   });
 
   async function renderDialog(): Promise<HTMLElement> {
-    await act(() => {
+    await act(async () => {
       root.render(<Harness onDeleted={onDeleted} onCancel={onCancel} />);
-
-      return Promise.resolve();
     });
     const dialog = document.querySelector('[role="alertdialog"]');
     if (!(dialog instanceof HTMLElement)) {
@@ -116,7 +114,7 @@ describe('TeamDeleteDialog', () => {
 
   it('취소를 누르면 요청하지 않고 닫는다', async () => {
     const dialog = await renderDialog();
-    await act(() => Promise.resolve(getButton('취소', dialog).click()));
+    await act(async () => getButton('취소', dialog).click());
 
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(deleteStaffProgramTeamMock).not.toHaveBeenCalled();
@@ -145,7 +143,7 @@ describe('TeamDeleteDialog', () => {
     );
     expect(getButton('삭제', dialog).className).toContain('destructive');
 
-    await act(() => Promise.resolve(getButton('삭제', dialog).click()));
+    await act(async () => getButton('삭제', dialog).click());
     await flush();
 
     expect(deleteStaffProgramTeamMock).toHaveBeenCalledTimes(1);
@@ -174,7 +172,7 @@ describe('TeamDeleteDialog', () => {
       }),
     );
     const dialog = await renderDialog();
-    await act(() => Promise.resolve(getButton('삭제', dialog).click()));
+    await act(async () => getButton('삭제', dialog).click());
     await flush();
 
     expect(deleteStaffProgramTeamMock).toHaveBeenCalledTimes(1);
@@ -196,7 +194,7 @@ describe('TeamDeleteDialog', () => {
         detachedRepositories: 1,
       },
     });
-    await act(() => Promise.resolve(getButton('삭제', dialog).click()));
+    await act(async () => getButton('삭제', dialog).click());
     await flush();
 
     expect(deleteStaffProgramTeamMock).toHaveBeenCalledTimes(2);
@@ -223,7 +221,7 @@ describe('TeamDeleteDialog', () => {
       }),
     );
     const dialog = await renderDialog();
-    await act(() => Promise.resolve(getButton('삭제', dialog).click()));
+    await act(async () => getButton('삭제', dialog).click());
     await flush();
 
     expect(dialog.textContent).toContain('교직원만 팀을 삭제할 수 있습니다.');

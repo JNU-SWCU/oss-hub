@@ -87,19 +87,13 @@ describe('학생 대시보드는 받은 팀 초대를 스스로 조회하지 않
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
   });
 
   it('team-invitations/received 와 프로그램·팀 이름 보강을 호출하지 않는다', async () => {
-    await act(() => {
-      root.render(<StudentDashboardScreen />);
-      return Promise.resolve();
-    });
+    await act(async () => root.render(<StudentDashboardScreen />));
 
     await vi.waitFor(() => {
       expect(container.textContent ?? '').toContain(

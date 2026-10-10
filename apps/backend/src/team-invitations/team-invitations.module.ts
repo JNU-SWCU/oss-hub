@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
-import { TeamInvitationsController } from './team-invitations.controller';
-import { TeamInvitationsRepository } from './team-invitations.repository';
-import { TeamInvitationsService } from './team-invitations.service';
+import { TeamInvitationsController } from './controller/team-invitations.controller';
+import { TeamInvitationsRepository } from './repository/team-invitations.repository';
+import { TeamInvitationsService } from './service/team-invitations.service';
 
 @Module({
   imports: [AuthModule, AuditLogModule],

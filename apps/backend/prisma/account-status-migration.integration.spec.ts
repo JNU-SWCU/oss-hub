@@ -1,15 +1,15 @@
 import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
-import { AuthErrorCode } from '../src/auth/auth-error-code.enum';
+import { AuthErrorCode } from '../src/auth/domain/auth-error-code.enum';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/repository/auth.repository';
 import { AuthService } from '../src/auth/service/auth.service';
-import { AuditLogRepository } from '../src/audit-log/audit-log.repository';
-import { AuditLogService } from '../src/audit-log/audit-log.service';
-import type { ConsentsService } from '../src/consents/consents.service';
+import { AuditLogRepository } from '../src/audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../src/audit-log/service/audit-log.service';
+import type { ConsentsService } from '../src/consents/service/consents.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { loadRuntimeConfig } from '../src/runtime-config/runtime-config';
-import { RolesRepository } from '../src/roles/roles.repository';
-import { RolesService } from '../src/roles/roles.service';
+import { UsersOnboardingRepository } from '../src/users/repository/onboarding.repository';
+import { RolesService } from '../src/roles/service/roles.service';
 import { AdminAccessRepository } from '../src/users/admin-access.repository';
 import { AdminAccessService } from '../src/users/admin-access.service';
 import { canonicalUserCreateFromLabel } from '../src/users/canonical-user-fixture';
@@ -47,7 +47,7 @@ describe('accountStatus migration regression', () => {
     new AuthRepository(prisma, authConfig),
   );
 
-  const rolesService = new RolesService(new RolesRepository(prisma), {
+  const rolesService = new RolesService(new UsersOnboardingRepository(prisma), {
     requireCurrent: jest.fn(),
   } satisfies Pick<ConsentsService, 'requireCurrent'>);
   const adminAccessService = new AdminAccessService(

@@ -1,5 +1,7 @@
-import type { AuditLogService } from '../audit-log/audit-log.service';
+import type { AuditLogService } from '../audit-log/service/audit-log.service';
+import { AccountStatus } from '@prisma/client';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { StaffTeamDetailResponseDto } from './dto/team-detail-response.dto';
 import {
   ProgramTeamsRepository,
@@ -12,25 +14,74 @@ import { TeamsErrorCode } from './teams-error-code.enum';
 const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
 const JOIN_CODE_SECRET = 'synthetic-staff-detail-secret';
+const STAFF_GITHUB_ID = 5301n;
+
+type AuthorityActor = {
+  readonly id: string;
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+  readonly accountStatus: AccountStatus;
+};
+
+const STAFF_USER: AuthorityActor = {
+  id: 'synthetic-staff',
+  hasStaffAccess: true,
+  hasAdminAccess: false,
+  accountStatus: AccountStatus.ACTIVE,
+};
+
+const ADMIN_USER: AuthorityActor = {
+  id: 'synthetic-admin',
+  hasStaffAccess: false,
+  hasAdminAccess: true,
+  accountStatus: AccountStatus.ACTIVE,
+};
+
+const STUDENT_USER: AuthorityActor = {
+  id: 'synthetic-student',
+  hasStaffAccess: false,
+  hasAdminAccess: false,
+  accountStatus: AccountStatus.ACTIVE,
+};
+
+const INACTIVE_STAFF_USER: AuthorityActor = {
+  id: 'synthetic-inactive-staff',
+  hasStaffAccess: true,
+  hasAdminAccess: true,
+  accountStatus: AccountStatus.DEACTIVATED,
+};
 
 function buildService(overrides: {
   readonly detail?: StaffTeamDetailRecord | null;
+  readonly actor?: AuthorityActor | null;
 }) {
   const findStaffTeamDetail = jest
     .fn()
     .mockResolvedValue(
       overrides.detail === undefined ? null : overrides.detail,
     );
+  const findActorByGithubId = jest
+    .fn()
+    .mockResolvedValue(
+      overrides.actor === undefined ? STAFF_USER : overrides.actor,
+    );
   const repository = {
     findStaffTeamDetail,
   } as unknown as ProgramTeamsRepository;
+  const deletionRepository = stubTeamDeletionRepository();
   const service = new ProgramTeamsService(
     repository,
     loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
     { record: jest.fn() } as unknown as AuditLogService,
-    stubTeamDeletionRepository(),
+    deletionRepository,
+    new UsersAuthorityService({ findActorByGithubId }),
   );
-  return { service, findStaffTeamDetail };
+  return {
+    service,
+    findStaffTeamDetail,
+    findActorByGithubId,
+    readScopeCounts: jest.spyOn(deletionRepository, 'readScopeCounts'),
+  };
 }
 
 describe('ProgramTeamsService.getForStaff', () => {
@@ -50,7 +101,11 @@ describe('ProgramTeamsService.getForStaff', () => {
       },
     });
 
-    const detail = await service.getForStaff(PROGRAM_ID, TEAM_ID);
+    const detail = await service.getForStaff(
+      STAFF_GITHUB_ID,
+      PROGRAM_ID,
+      TEAM_ID,
+    );
 
     expect(detail.teamId).toBe(TEAM_ID);
     expect(detail.members.map((member) => member.userId)).toEqual([
@@ -95,7 +150,11 @@ describe('ProgramTeamsService.getForStaff', () => {
       },
     });
 
-    const detail = await service.getForStaff(PROGRAM_ID, TEAM_ID);
+    const detail = await service.getForStaff(
+      STAFF_GITHUB_ID,
+      PROGRAM_ID,
+      TEAM_ID,
+    );
 
     expect(detail.application).toEqual({
       id: 'application-1',
@@ -121,7 +180,7 @@ describe('ProgramTeamsService.getForStaff', () => {
     const { service, findStaffTeamDetail } = buildService({ detail: null });
 
     await expect(
-      service.getForStaff(PROGRAM_ID, TEAM_ID),
+      service.getForStaff(STAFF_GITHUB_ID, PROGRAM_ID, TEAM_ID),
     ).rejects.toMatchObject({
       errorCode: { code: TeamsErrorCode.TEAM_NOT_FOUND, status: 404 },
     });
@@ -155,7 +214,7 @@ describe('ProgramTeamsService.getForStaff', () => {
     const payload: unknown = JSON.parse(
       JSON.stringify(
         StaffTeamDetailResponseDto.from(
-          await service.getForStaff(PROGRAM_ID, TEAM_ID),
+          await service.getForStaff(STAFF_GITHUB_ID, PROGRAM_ID, TEAM_ID),
         ),
       ),
     );
@@ -210,6 +269,69 @@ describe('ProgramTeamsService.getForStaff', () => {
       expect(serialized).not.toContain(forbidden);
     }
   });
+});
+
+describe('ProgramTeamsService.getForStaff 권한', () => {
+  const DETAIL: StaffTeamDetailRecord = {
+    id: TEAM_ID,
+    name: '오픈소스팀',
+    leaderId: 'user-a',
+    repositoryContributions: null,
+    repositoryUrlHistory: { items: [], nextCursor: null },
+    members: [{ userId: 'user-a', nickname: 'login-a', name: '가나다' }],
+    application: null,
+  };
+
+  it.each([
+    ['STAFF', STAFF_USER],
+    ['ADMIN', ADMIN_USER],
+  ] as const)(
+    'ACTIVE %s 는 세션 식별자로 권한을 확인한 뒤 상세를 읽는다',
+    async (_label, actor) => {
+      const {
+        service,
+        findActorByGithubId,
+        findStaffTeamDetail,
+        readScopeCounts,
+      } = buildService({ actor, detail: DETAIL });
+
+      const detail = await service.getForStaff(
+        STAFF_GITHUB_ID,
+        PROGRAM_ID,
+        TEAM_ID,
+      );
+
+      expect(detail.teamId).toBe(TEAM_ID);
+      expect(findActorByGithubId).toHaveBeenCalledWith(STAFF_GITHUB_ID);
+      expect(findStaffTeamDetail).toHaveBeenCalledWith(PROGRAM_ID, TEAM_ID);
+      expect(readScopeCounts).toHaveBeenCalledWith(TEAM_ID);
+    },
+  );
+
+  it.each([
+    ['STUDENT', STUDENT_USER],
+    ['비활성 STAFF', INACTIVE_STAFF_USER],
+    ['없는 계정', null],
+  ] as const)(
+    '%s 은 팀 조회 전에 403 TEAM_003 으로 막힌다',
+    async (_label, actor) => {
+      const {
+        service,
+        findActorByGithubId,
+        findStaffTeamDetail,
+        readScopeCounts,
+      } = buildService({ actor, detail: DETAIL });
+
+      await expect(
+        service.getForStaff(STAFF_GITHUB_ID, PROGRAM_ID, TEAM_ID),
+      ).rejects.toMatchObject({
+        errorCode: { code: TeamsErrorCode.STAFF_ONLY, status: 403 },
+      });
+      expect(findActorByGithubId).toHaveBeenCalledWith(STAFF_GITHUB_ID);
+      expect(findStaffTeamDetail).not.toHaveBeenCalled();
+      expect(readScopeCounts).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('ProgramTeamsRepository.findStaffTeamDetail', () => {

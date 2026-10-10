@@ -3,7 +3,7 @@ import { DomainException } from '../../common/error-code';
 import {
   SUBMISSION_REVIEWS_ERROR_CODES,
   SubmissionReviewsErrorCode,
-} from '../submission-reviews-error-code.enum';
+} from '../domain/submission-reviews-error-code.enum';
 
 export class ConfirmRepositoryPublishRequestDto {
   @IsBoolean()
