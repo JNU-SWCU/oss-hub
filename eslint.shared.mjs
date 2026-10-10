@@ -1,7 +1,7 @@
 import tseslint from 'typescript-eslint';
 import noComments from './eslint-rules/no-comments.mjs';
 
-export const noCommentsPlugin = {
+const noCommentsPlugin = {
   rules: { 'no-comments': noComments },
 };
 

@@ -12,9 +12,18 @@
   "ignore": [".gjc/**"],
   "workspaces": {
     ".": {
-      "entry": ["scripts/**/*.test.mjs"],
-      "project": ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
-      "includeEntryExports": true
+      "entry": [
+        "scripts/**/*.test.mjs",
+        "scripts/auth-production-readonly-report.mjs",
+        "scripts/member-authority-contract-seed.mjs",
+        "scripts/member-authority-production-report.mjs",
+        "eslint.shared.mjs",
+        "eslint-rules/no-comments.mjs",
+        ".design-sync/compile-css.mjs",
+        ".design-sync/emit-types.mjs",
+        ".design-sync/previews/*.tsx"
+      ],
+      "project": ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"]
     },
     "apps/backend": {
       "entry": [

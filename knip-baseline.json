@@ -2,8 +2,8 @@
   "version": 1,
   "workspaces": {
     ".": {
-      "files": 25,
-      "exports": 5,
+      "files": 0,
+      "exports": 0,
       "types": 0,
       "dependencies": 0,
       "devDependencies": 0,
