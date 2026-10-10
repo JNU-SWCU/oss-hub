@@ -3,6 +3,7 @@ import { realpathSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { isBuiltin } from 'node:module';
 import { defineConfig } from 'eslint/config';
+import { builtinRules } from 'eslint/use-at-your-own-risk';
 import boundaries from 'eslint-plugin-boundaries';
 import tseslint from 'typescript-eslint';
 import ts from 'typescript';
@@ -63,6 +64,48 @@ const unsupportedCycleSyntax = [
       '순환 검사에서 지원하지 않는 import equals 대신 정적 import 선언을 사용한다.',
   },
 ];
+const runtimeConfigFile = 'src/runtime-config/runtime-config.ts';
+const nestTestingImport = {
+  name: '@nestjs/testing',
+  message:
+    '운영 코드는 @nestjs/testing을 참조하지 않는다 — E2E 조립은 test/e2e-program-authoring/main.ts에서만 한다 (#1427).',
+};
+const mainImport = {
+  group: ['**/main'],
+  message:
+    'main.ts는 하단에서 bootstrap()을 실행한다 — 공유 로직은 부수효과 없는 파일로 옮기고 그 파일을 import한다.',
+};
+const nodeEnvTestMessage =
+  '운영 코드는 지금 테스트 중인지 묻지 않는다 — NODE_ENV를 test와 비교해 분기하지 않는다 (#1427).';
+const envRestrictedSyntax = [
+  {
+    selector:
+      "MemberExpression[object.object.name='process'][object.property.name='env']",
+    message:
+      '환경변수는 runtime-config manifest를 거쳐 읽는다 — process.env 키 직접 접근 금지.',
+  },
+  {
+    selector:
+      "VariableDeclarator[init.object.name='process'][init.property.name='env'] > ObjectPattern",
+    message:
+      '환경변수는 runtime-config manifest를 거쳐 읽는다 — process.env 구조분해 금지.',
+  },
+  {
+    selector:
+      "BinaryExpression[operator=/^(===|!==|==|!=)$/][left.property.name='NODE_ENV'][right.value='test']",
+    message: nodeEnvTestMessage,
+  },
+  {
+    selector:
+      "BinaryExpression[operator=/^(===|!==|==|!=)$/][left.value='test'][right.property.name='NODE_ENV']",
+    message: nodeEnvTestMessage,
+  },
+];
+const collectionDelegateRestrictedSyntax = {
+  selector: 'MemberExpression[property.name=/^canonical[A-Z]/]',
+  message:
+    'collection Prisma delegate(canonical*)는 collection 구현 밖에서 접근하지 않는다 (ADR-003 DEC-42).',
+};
 
 const element = (type, captured) => ({
   element: { type, ...(captured ? { captured } : {}) },
@@ -467,6 +510,8 @@ export async function createRailsConfig(rootDir) {
             'dto-location': dtoLocation,
             'no-cycle': noCycle,
             'no-dpdm-ignore': noDpdmIgnore,
+            'restricted-imports': builtinRules.get('no-restricted-imports'),
+            'restricted-syntax': builtinRules.get('no-restricted-syntax'),
           },
         },
       },
@@ -576,7 +621,7 @@ export async function createRailsConfig(rootDir) {
           {
             default: 'disallow',
             checkAllOrigins: true,
-            checkUnknownLocals: false,
+            checkUnknownLocals: true,
             checkInternals: true,
             policies,
           },
@@ -649,6 +694,43 @@ export async function createRailsConfig(rootDir) {
       ignores: [...testFiles, ...dtoFiles],
       rules: {
         'architecture/dto-location': 'error',
+      },
+    },
+    {
+      files: ['src/**/*.ts'],
+      ignores: testFiles,
+      rules: {
+        'architecture/restricted-imports': [
+          'error',
+          { paths: [nestTestingImport], patterns: [mainImport] },
+        ],
+      },
+    },
+    {
+      files: ['test/**/*.ts'],
+      rules: {
+        'architecture/restricted-imports': [
+          'error',
+          { patterns: [mainImport] },
+        ],
+      },
+    },
+    {
+      files: ['src/**/*.ts'],
+      ignores: [...testFiles, runtimeConfigFile],
+      rules: {
+        'architecture/restricted-syntax': [
+          'error',
+          ...envRestrictedSyntax,
+          collectionDelegateRestrictedSyntax,
+        ],
+      },
+    },
+    {
+      files: ['src/github/**/*.ts'],
+      ignores: testFiles,
+      rules: {
+        'architecture/restricted-syntax': ['error', ...envRestrictedSyntax],
       },
     },
   ]);

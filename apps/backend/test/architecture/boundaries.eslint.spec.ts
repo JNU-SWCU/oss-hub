@@ -136,19 +136,19 @@ edge(
   true,
 );
 edge(
-  'migrated service may import a not yet migrated module file',
+  'service cannot import an unclassified module file',
   'src/alpha/service/legacy.ts',
   'src/beta/beta.service.ts',
-  true,
+  false,
 );
 edge(
-  'migrated test may import a not yet migrated module file',
+  'test may import an unclassified module file',
   'src/alpha/service/legacy.spec.ts',
   'src/beta/beta.service.ts',
   true,
 );
 edge(
-  'migrated service still cannot import a migrated foreign repository',
+  'service cannot import a foreign repository',
   'src/alpha/service/foreign.ts',
   'src/beta/repository/beta.repository.ts',
   false,
@@ -700,6 +700,102 @@ add(
   'architecture/no-class-alias',
 );
 
+const restrictedImports = 'architecture/restricted-imports';
+const restrictedSyntax = 'architecture/restricted-syntax';
+const nestTesting =
+  "import { Test } from '@nestjs/testing'; export const value = Test;";
+add(
+  'production cannot import @nestjs/testing',
+  'src/alpha/service/nest-testing.ts',
+  nestTesting,
+  restrictedImports,
+);
+for (const file of [
+  'src/alpha/service/nest-testing.spec.ts',
+  'src/alpha/service/nest-testing.test-support.ts',
+  'test/nest-testing.ts',
+]) {
+  add(`${file} may import @nestjs/testing`, file, nestTesting, null);
+}
+for (const file of [
+  'src/alpha/job/main-import.ts',
+  'test/main-import.spec.ts',
+]) {
+  add(
+    `${file} cannot import the bootstrap entry`,
+    file,
+    `import { value } from ${JSON.stringify(reference(file, 'src/main.ts'))}; export { value };`,
+    restrictedImports,
+  );
+}
+
+const envAccess: [string, string][] = [
+  ['process-env-read', 'export const value = process.env.KEY;'],
+  ['process-env-destructuring', 'const { KEY } = process.env; export { KEY };'],
+  [
+    'node-env-test-branch',
+    "export const isTest = (env: { NODE_ENV: string }) => env.NODE_ENV === 'test';",
+  ],
+  [
+    'reversed-node-env-test-branch',
+    "export const isTest = (env: { NODE_ENV: string }) => 'test' !== env.NODE_ENV;",
+  ],
+];
+for (const [name, code] of envAccess) {
+  add(
+    `production rejects ${name}`,
+    `src/alpha/service/${name}.ts`,
+    code,
+    restrictedSyntax,
+  );
+  add(
+    `github rejects ${name}`,
+    `src/github/service/${name}.ts`,
+    code,
+    restrictedSyntax,
+  );
+  add(`test accepts ${name}`, `src/alpha/service/${name}.spec.ts`, code, null);
+}
+add(
+  'NODE_ENV production branch is accepted',
+  'src/alpha/service/node-env-production.ts',
+  "export const isProduction = (env: { NODE_ENV: string }) => env.NODE_ENV === 'production';",
+  null,
+);
+add(
+  'runtime config manifest may read process.env',
+  'src/runtime-config/runtime-config.ts',
+  'export const value = process.env.KEY; export interface Shape { id: string }',
+  null,
+);
+
+const canonicalDelegate =
+  'export const read = (client: { canonicalOrganizationState: { findMany(): unknown } }) => client.canonicalOrganizationState.findMany();';
+add(
+  'canonical delegate is rejected outside github',
+  'src/alpha/repository/canonical.ts',
+  canonicalDelegate,
+  restrictedSyntax,
+);
+add(
+  'canonical delegate is accepted inside github',
+  'src/github/repository/canonical.ts',
+  canonicalDelegate,
+  null,
+);
+add(
+  'plain delegate is accepted outside github',
+  'src/alpha/repository/plain.ts',
+  canonicalDelegate.split('canonicalOrganizationState').join('user'),
+  null,
+);
+add(
+  'test may access canonical delegate',
+  'src/alpha/repository/canonical.spec.ts',
+  canonicalDelegate,
+  null,
+);
+
 const runner = `
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
@@ -1013,7 +1109,7 @@ for (const { name, root } of JSON.parse(requests)) {
 process.stdout.write(JSON.stringify(output));
 `;
 
-describe('physical cycle diagnostics for the trusted lint ratchet', () => {
+describe('physical cycle diagnostics', () => {
   const roots = new Set<string>();
   let results: Record<string, (Linter.LintMessage & { file: string })[]>;
 
@@ -1061,7 +1157,7 @@ describe('physical cycle diagnostics for the trusted lint ratchet', () => {
   }
 
   it.each(cycles)(
-    'emits ratchetable $name cycle diagnostics from physical files',
+    'emits $name cycle diagnostics from physical files',
     ({ name }) => {
       expect(findings(name).length).toBeGreaterThan(0);
       for (const message of findings(name)) {

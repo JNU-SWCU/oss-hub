@@ -30,7 +30,6 @@
         "config": ["eslint.config.mjs", "eslint.rails.mjs"]
       },
       "entry": [
-        "scripts/lint-fixture-runner.mjs",
         "src/main.ts",
         "test/e2e-program-authoring/main.ts",
         "prisma/seed.ts",
