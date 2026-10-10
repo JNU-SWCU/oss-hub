@@ -28,6 +28,7 @@
     "apps/backend": {
       "entry": [
         "eslint.rails.mjs",
+        "scripts/lint-fixture-runner.mjs",
         "src/main.ts",
         "test/e2e-program-authoring/main.ts",
         "prisma/seed.ts",
