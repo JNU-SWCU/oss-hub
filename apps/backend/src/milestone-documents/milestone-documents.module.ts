@@ -15,6 +15,12 @@ import { MilestoneDocumentCollectionReadRepository } from './milestone-document-
 import { MilestoneDocumentCurrentFileController } from './milestone-document-current-file.controller';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
+import { MilestoneDocumentFeedbackController } from './controller/milestone-document-feedback.controller';
+import { MilestoneDocumentFeedbackRepository } from './repository/milestone-document-feedback.repository';
+import {
+  MILESTONE_DOCUMENT_FEEDBACK_CLOCK,
+  MilestoneDocumentFeedbackService,
+} from './service/milestone-document-feedback.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
@@ -28,6 +34,7 @@ import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard'
     MilestoneDocumentsController,
     MilestoneDocumentFilesController,
     MilestoneDocumentCurrentFileController,
+    MilestoneDocumentFeedbackController,
   ],
   providers: [
     MilestoneDocumentsService,
@@ -36,6 +43,9 @@ import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard'
     MilestoneDocumentCollectionReadRepository,
     MilestoneDocumentCurrentFileRepository,
     MilestoneDocumentCurrentFileService,
+    MilestoneDocumentFeedbackRepository,
+    MilestoneDocumentFeedbackService,
+    { provide: MILESTONE_DOCUMENT_FEEDBACK_CLOCK, useValue: () => new Date() },
     MilestoneDocumentFilesService,
     MilestoneDocumentReviewsService,
     MilestoneDocumentArchiveService,

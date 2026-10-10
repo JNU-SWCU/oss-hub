@@ -1,6 +1,8 @@
 import { apiClient } from '@/lib/api-client';
+import { programDocumentsHref } from '@/lib/program-route';
 import type {
   DashboardApplicationStatus,
+  DashboardFeedbackItem,
   DashboardItem,
   DashboardMilestone,
   DashboardProgress,
@@ -209,6 +211,47 @@ function parseStudentDashboard(value: unknown): StudentDashboard {
 export async function fetchStudentDashboard(): Promise<StudentDashboard> {
   const response = await apiClient<unknown>('dashboard/student');
   return parseStudentDashboard(response);
+}
+
+function isDateString(value: unknown): value is string {
+  return isNonEmptyString(value) && !Number.isNaN(Date.parse(value));
+}
+
+function isFeedbackItem(value: unknown): value is DashboardFeedbackItem {
+  if (!isRecord(value)) return false;
+  const { programId, milestoneId } = value;
+
+  return (
+    isNonEmptyString(value.id) &&
+    (value.decision === 'APPROVED' ||
+      value.decision === 'CHANGES_REQUESTED' ||
+      value.decision === 'REJECTED') &&
+    (value.comment === null || typeof value.comment === 'string') &&
+    isDateString(value.reviewedAt) &&
+    (value.resubmissionDueAt === null ||
+      isDateString(value.resubmissionDueAt)) &&
+    isNonEmptyString(value.applicationId) &&
+    isNonEmptyString(programId) &&
+    isSafePathSegment(programId) &&
+    isNonEmptyString(milestoneId) &&
+    isNonEmptyString(value.milestoneName) &&
+    isNonEmptyString(value.itemName) &&
+    value.href === programDocumentsHref(programId, milestoneId)
+  );
+}
+
+export async function fetchStudentFeedback(): Promise<
+  readonly DashboardFeedbackItem[]
+> {
+  const response = await apiClient<unknown>('dashboard/student/feedback');
+  if (
+    !isRecord(response) ||
+    !Array.isArray(response.items) ||
+    !response.items.every(isFeedbackItem)
+  ) {
+    throw new Error('최근 피드백 응답 형식이 올바르지 않습니다.');
+  }
+  return response.items;
 }
 
 function isApplicationDecisionNotice(

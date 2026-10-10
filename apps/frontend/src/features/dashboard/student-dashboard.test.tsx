@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { StudentDashboardView } from './components/student-dashboard-view';
 import {
   completedDashboardFixture,
+  dashboardFeedback,
   dashboardFixture,
   dashboardItem,
   dashboardMilestone,
@@ -11,7 +12,12 @@ import {
   rejectedDashboardFixture,
 } from './fixtures';
 import { loadStudentDashboard } from './load-student-dashboard';
-import type { DashboardSubmissionStatus, StudentDashboard } from './types';
+import type {
+  DashboardFeedbackItem,
+  DashboardItem,
+  DashboardSubmissionStatus,
+  StudentDashboard,
+} from './types';
 
 const renderView = (
   props: Partial<Parameters<typeof StudentDashboardView>[0]> = {},
@@ -673,6 +679,225 @@ describe('StudentDashboardView 마일스톤 진행', () => {
     expect(bar).toContain('max="4"');
     expect(bar).toContain('value="4"');
     expect(bar).toContain('w-20');
+  });
+});
+
+describe('StudentDashboardView 프로그램별 새 피드백', () => {
+  const first = active('first', '2026-07-25T23:59:59+09:00');
+  const second = active('second', '2026-07-28T23:59:59+09:00');
+  const done = dashboardItem('done', 'APPROVED');
+  const withFeedback = (
+    items: readonly DashboardItem[],
+    feedback: readonly DashboardFeedbackItem[],
+  ) =>
+    renderView({
+      data: { items },
+      feedback: { status: 'success', items: feedback },
+    });
+  const cardOf = (html: string, item: DashboardItem) => {
+    const start = html.indexOf(`>${item.programName}</h3>`);
+    const end = html.indexOf('data-slot="card-footer"', start);
+    return html.slice(start, end);
+  };
+
+  it('판정을 그 신청의 카드 본문과 바닥 줄 사이에 붙이고 다른 신청의 판정은 섞지 않는다', () => {
+    const html = withFeedback(
+      [first, second],
+      [
+        dashboardFeedback(first, 'a'),
+        dashboardFeedback(second, 'b'),
+        dashboardFeedback(dashboardItem('elsewhere', 'APPROVED'), 'c'),
+      ],
+    );
+    const firstCard = cardOf(html, first);
+    const secondCard = cardOf(html, second);
+
+    expect(firstCard).toContain('합성 서류 a');
+    expect(firstCard).not.toContain('합성 서류 b');
+    expect(secondCard).toContain('합성 서류 b');
+    expect(firstCard.indexOf('>다음<')).toBeLessThan(
+      firstCard.indexOf('새 피드백 1건'),
+    );
+    expect(html).not.toContain('합성 서류 c');
+    expect(html.match(/새 피드백 1건/g)).toHaveLength(2);
+  });
+
+  it('행은 서류 화면 링크·판정·80자 의견·검토일·열린 보완 요청의 재제출 기한을 보인다', () => {
+    const html = withFeedback(
+      [first],
+      [dashboardFeedback(first, 'a', { comment: '가'.repeat(81) })],
+    );
+
+    expect(html).toContain(
+      `href="/programs/${first.programId}/documents?milestoneId=milestones-upcoming"`,
+    );
+    expect(html).toMatch(/data-variant="pending"[^>]*>보완 요청</);
+    expect(html).toContain(`${'가'.repeat(80)}…`);
+    expect(html).not.toContain('가'.repeat(81));
+    expect(html).toContain('>7월 22일</time> 검토 · <span');
+    expect(html).toContain('text-status-pending-fg">재제출 기한 D-3<');
+    expect(
+      withFeedback(
+        [first],
+        [dashboardFeedback(first, 'a', { resubmissionDueAt: null })],
+      ),
+    ).not.toContain('재제출 기한');
+    expect(
+      withFeedback(
+        [first],
+        [dashboardFeedback(first, 'a', { decision: 'APPROVED' })],
+      ),
+    ).not.toContain('재제출 기한');
+  });
+
+  it('재제출 기한이 지났으면 D+n 대신 며칠 지났는지를 반려 색으로 보인다', () => {
+    const passed = withFeedback(
+      [first],
+      [
+        dashboardFeedback(first, 'a', {
+          resubmissionDueAt: '2026-07-21T14:59:59.000Z',
+        }),
+      ],
+    );
+    const passedToday = withFeedback(
+      [first],
+      [
+        dashboardFeedback(first, 'a', {
+          resubmissionDueAt: '2026-07-23T00:00:00.000Z',
+        }),
+      ],
+    );
+
+    expect(passed).toContain('text-status-rejected-fg">재제출 기한 2일 지남<');
+    expect(passedToday).toContain('text-status-rejected-fg">재제출 기한 지남<');
+    expect(passed + passedToday).not.toContain('재제출 기한 D+');
+  });
+
+  it('항목 이름이 마일스톤 이름과 같으면 한 번만 보인다', () => {
+    const html = withFeedback(
+      [first],
+      [dashboardFeedback(first, 'a', { itemName: '중간 보고' })],
+    );
+
+    expect(html).toMatch(/>중간 보고<\/a>/);
+    expect(html).not.toContain('중간 보고 · 중간 보고');
+  });
+
+  it('최신 3건만 보이고 나머지는 「피드백 n건 더 보기」 뒤에 둔다', () => {
+    const rows = ['1', '2', '3', '4', '5'].map((key) =>
+      dashboardFeedback(first, key),
+    );
+    const html = withFeedback([first], rows);
+
+    expect(html).toContain('새 피드백 5건');
+    expect(html.indexOf('합성 서류 1')).toBeLessThan(
+      html.indexOf('합성 서류 2'),
+    );
+    expect(html).toContain('합성 서류 3');
+    expect(html).not.toContain('합성 서류 4');
+    expect(html).toContain('피드백 2건 더 보기');
+    expect(html).toMatch(/aria-expanded="false"[^>]*>피드백 2건 더 보기</);
+    expect(withFeedback([first], rows.slice(0, 3))).not.toContain('더 보기');
+  });
+
+  it('마친 프로그램 줄에도 기간 안에 받은 판정 묶음을 줄 아래에 둔다', () => {
+    const html = withFeedback(
+      [done],
+      [dashboardFeedback(done, 'final', { decision: 'APPROVED' })],
+    );
+
+    expect(html).toContain('예정된 제출 항목을 모두 마쳤습니다.');
+    expect(html).toMatch(/bg-muted\/50[^"]*"[^>]*>[\s\S]*새 피드백 1건/);
+    expect(html).toContain('합성 서류 final');
+  });
+
+  it.each([
+    ['불러오는 중', { status: 'loading' }],
+    ['기간 안 판정이 없음', { status: 'success', items: [] }],
+  ] as const)('%s이면 피드백 묶음과 칩을 그리지 않는다', (_l, feedback) => {
+    const five = [
+      first,
+      second,
+      done,
+      dashboardItem('submitted', 'SUBMITTED'),
+      dashboardItem('rejected', 'REJECTED'),
+    ];
+    const html = renderView({ data: { items: five }, feedback });
+
+    expect(html).toContain(first.programName);
+    expect(html).not.toContain('새 피드백');
+    expect(html.match(/aria-busy="true"/g)).toBeNull();
+  });
+
+  it('피드백 조회가 실패하면 알림 바로 아래에 재시도를 두고 카드는 피드백 없이 그린다', () => {
+    const html = renderView({
+      data: { items: [first] },
+      feedback: { status: 'error' },
+      onRetryFeedback: () => undefined,
+      applicationDecisionNotices: [
+        {
+          id: 'notification-1',
+          applicationId: 'application-1',
+          programId: 'program-1',
+          programName: '합성 알림 프로그램',
+          decision: 'APPROVED',
+          decidedAt: '2026-08-08T23:00:00.000Z',
+        },
+      ],
+    });
+    const failure = html.indexOf('새 피드백을 불러오지 못했습니다');
+
+    expect(failure).toBeGreaterThan(
+      html.indexOf('합성 알림 프로그램 신청이 승인되었습니다'),
+    );
+    expect(failure).toBeLessThan(html.indexOf(first.programName));
+    expect(html).toContain('다시 시도');
+    expect(html).toContain(`href="${first.checklistUrl}"`);
+    expect(html).not.toMatch(/새 피드백 \d+건/);
+  });
+
+  it('모두 진행 중이고 일부만 판정을 받았으면 전체와 같은 진행 중 칩은 빼고 새 피드백 칩을 둔다', () => {
+    const third = active('third', '2026-08-01T23:59:59+09:00');
+    const html = withFeedback(
+      [first, second, third],
+      [dashboardFeedback(second, 'a')],
+    );
+
+    expect(chipLabels(html)).toEqual(['전체 3', '새 피드백 있음 1']);
+  });
+
+  it('모든 프로그램이 판정을 받았고 한 묶음뿐이면 칩마다 같은 목록이라 칩을 두지 않는다', () => {
+    const html = withFeedback(
+      [first, second],
+      [dashboardFeedback(first, 'a'), dashboardFeedback(second, 'b')],
+    );
+
+    expect(html).toContain('새 피드백 1건');
+    expect(html).not.toContain('프로그램 거르기');
+    expect(chipLabels(html)).toEqual([]);
+  });
+
+  it('새 피드백 칩은 판정을 받은 진행 중·마친 프로그램 수를 세고 진행 중 칩 다음에 선다', () => {
+    const five = [
+      first,
+      second,
+      done,
+      dashboardItem('submitted', 'SUBMITTED'),
+      dashboardItem('rejected', 'REJECTED'),
+    ];
+    const html = withFeedback(five, [
+      dashboardFeedback(first, 'a'),
+      dashboardFeedback(first, 'b'),
+      dashboardFeedback(done, 'c', { decision: 'APPROVED' }),
+    ]);
+
+    expect(chipLabels(html)).toEqual([
+      '전체 5',
+      '진행 중 2',
+      '새 피드백 있음 2',
+      '마친 프로그램 1',
+      '신청 상태 2',
+    ]);
   });
 });
 

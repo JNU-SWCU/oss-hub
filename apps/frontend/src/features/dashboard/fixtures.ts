@@ -1,5 +1,6 @@
 import type {
   DashboardApplicationStatus,
+  DashboardFeedbackItem,
   DashboardItem,
   DashboardMilestone,
   DashboardSubmissionStatus,
@@ -43,6 +44,22 @@ export function dashboardItem(
           githubUrl: null,
         }
       : null,
+  };
+}
+
+export function dashboardFeedback(
+  item: DashboardItem,
+  key: string,
+  overrides: Partial<DashboardFeedbackItem> = {},
+): DashboardFeedbackItem {
+  return {
+    ...feedbackItemFixture,
+    id: `review-${item.applicationId}-${key}`,
+    applicationId: item.applicationId,
+    programId: item.programId,
+    itemName: `합성 서류 ${key}`,
+    href: `/programs/${item.programId}/documents?milestoneId=${feedbackItemFixture.milestoneId}`,
+    ...overrides,
   };
 }
 
@@ -152,4 +169,18 @@ export const rejectedDashboardFixture: StudentDashboard = {
       repository: null,
     },
   ],
+};
+
+export const feedbackItemFixture: DashboardFeedbackItem = {
+  id: 'review-changes-requested',
+  decision: 'CHANGES_REQUESTED',
+  comment: '표지와 목차를 보완해 주세요.',
+  reviewedAt: '2026-07-22T06:00:00.000Z',
+  resubmissionDueAt: '2026-07-26T14:59:59.000Z',
+  applicationId: 'application-solo-team',
+  programId: 'program-capstone',
+  milestoneId: 'milestones-upcoming',
+  milestoneName: '중간 보고',
+  itemName: '프로젝트 계획서',
+  href: '/programs/program-capstone/documents?milestoneId=milestones-upcoming',
 };

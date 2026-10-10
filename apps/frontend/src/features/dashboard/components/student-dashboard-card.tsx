@@ -24,10 +24,12 @@ import {
 } from '../deadline';
 import { submissionActionLabel, type ActiveDashboardItem } from '../sections';
 import type {
+  DashboardFeedbackItem,
   DashboardItem,
   DashboardProgress,
   DashboardRepositoryProvisionStatus,
 } from '../types';
+import { ProgramFeedback } from './program-feedback';
 
 type DashboardRepository = NonNullable<DashboardItem['repository']>;
 
@@ -188,10 +190,12 @@ export function ActiveProgramCard({
   item,
   now,
   primary,
+  feedback,
 }: {
   readonly item: ActiveDashboardItem;
   readonly now: Date;
   readonly primary: boolean;
+  readonly feedback: readonly DashboardFeedbackItem[];
 }) {
   const milestone = item.nextMilestone;
   const remainingItemCount = milestone.remainingItemCount ?? 0;
@@ -275,6 +279,11 @@ export function ActiveProgramCard({
         {item.repository?.provisionStatus === 'FAILED_FINAL' ? (
           <ProvisionFailureNotice className="col-span-full" />
         ) : null}
+        <ProgramFeedback
+          items={feedback}
+          now={now}
+          className="col-span-full mt-1 border-t border-border pt-3"
+        />
       </CardContent>
       <CardFooter className="flex-wrap gap-x-4 gap-y-3">
         {item.repository ? (
@@ -296,7 +305,15 @@ export function ActiveProgramCard({
   );
 }
 
-export function ProgramCompactRow({ item }: { readonly item: DashboardItem }) {
+export function ProgramCompactRow({
+  item,
+  now,
+  feedback,
+}: {
+  readonly item: DashboardItem;
+  readonly now: Date;
+  readonly feedback: readonly DashboardFeedbackItem[];
+}) {
   const approved = item.applicationStatus === 'APPROVED';
   const rejected = item.applicationStatus === 'REJECTED';
   const progress = visibleProgress(item.progress);
@@ -370,6 +387,11 @@ export function ProgramCompactRow({ item }: { readonly item: DashboardItem }) {
       {approved && item.repository?.provisionStatus === 'FAILED_FINAL' ? (
         <ProvisionFailureNotice className="basis-full" />
       ) : null}
+      <ProgramFeedback
+        items={feedback}
+        now={now}
+        className="basis-full rounded-md bg-muted/50 p-3"
+      />
     </ListRow>
   );
 }

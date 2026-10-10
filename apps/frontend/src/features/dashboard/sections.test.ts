@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { dashboardItem, dashboardMilestone } from './fixtures';
-import { splitDashboardItems, submissionActionLabel } from './sections';
+import {
+  dashboardFeedback,
+  dashboardItem,
+  dashboardMilestone,
+} from './fixtures';
+import {
+  feedbackByApplication,
+  splitDashboardItems,
+  submissionActionLabel,
+} from './sections';
 
 const NOW = new Date('2026-07-23T10:00:00+09:00');
 
@@ -116,4 +124,23 @@ describe('submissionActionLabel', () => {
       ).toBe(label);
     },
   );
+});
+
+describe('feedbackByApplication', () => {
+  it('판정을 신청 ID별로 묶고 받은 순서(최신순)를 지킨다', () => {
+    const first = dashboardItem('first', 'APPROVED');
+    const second = dashboardItem('second', 'APPROVED');
+    const newest = dashboardFeedback(first, 'newest');
+    const middle = dashboardFeedback(second, 'middle');
+    const oldest = dashboardFeedback(first, 'oldest');
+
+    const groups = feedbackByApplication([newest, middle, oldest]);
+
+    expect([...groups.keys()]).toEqual([
+      first.applicationId,
+      second.applicationId,
+    ]);
+    expect(groups.get(first.applicationId)).toEqual([newest, oldest]);
+    expect(groups.get(second.applicationId)).toEqual([middle]);
+  });
 });

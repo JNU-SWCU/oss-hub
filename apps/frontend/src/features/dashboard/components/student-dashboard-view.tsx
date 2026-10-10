@@ -1,7 +1,7 @@
 import { AlertCircle, CircleCheck, FolderOpen } from 'lucide-react';
 import Link from 'next/link';
 
-import { EmptyState, PageHeader } from '@/components';
+import { EmptyState, FailureState, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
@@ -9,6 +9,7 @@ import type {
   ApplicationDecisionNotice,
   StudentDashboard,
   StudentDashboardStatus,
+  StudentFeedbackState,
 } from '../types';
 import { ApplicationDecisionNotices } from './application-decision-notices';
 import { DashboardProgramSections } from './dashboard-program-sections';
@@ -20,7 +21,9 @@ interface StudentDashboardViewProps {
 
   showSignupCompleteNotice?: boolean;
   applicationDecisionNotices?: readonly ApplicationDecisionNotice[];
+  feedback?: StudentFeedbackState;
   onRetry: () => void;
+  onRetryFeedback?: () => void;
 }
 
 function DashboardSkeleton() {
@@ -39,7 +42,9 @@ export function StudentDashboardView({
   now = new Date(),
   showSignupCompleteNotice = false,
   applicationDecisionNotices = [],
+  feedback = { status: 'loading' },
   onRetry,
+  onRetryFeedback,
 }: StudentDashboardViewProps) {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-5 sm:p-8">
@@ -61,6 +66,13 @@ export function StudentDashboardView({
 
       <ApplicationDecisionNotices notices={applicationDecisionNotices} />
 
+      {feedback.status === 'error' ? (
+        <FailureState
+          title="새 피드백을 불러오지 못했습니다"
+          onRetry={onRetryFeedback}
+        />
+      ) : null}
+
       {status === 'loading' ? (
         <DashboardSkeleton />
       ) : status === 'error' ? (
@@ -81,7 +93,11 @@ export function StudentDashboardView({
           </AlertDescription>
         </Alert>
       ) : data && data.items.length > 0 ? (
-        <DashboardProgramSections items={data.items} now={now} />
+        <DashboardProgramSections
+          items={data.items}
+          now={now}
+          feedback={feedback.status === 'success' ? feedback.items : []}
+        />
       ) : (
         <EmptyState
           className="break-keep [overflow-wrap:anywhere]"
