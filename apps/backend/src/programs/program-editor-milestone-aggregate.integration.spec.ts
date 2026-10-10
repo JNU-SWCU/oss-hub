@@ -10,7 +10,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { ProgramErrorCode } from './program-error-code.enum';
 import { ProgramEditorRepository } from './repository/program-editor.repository';
 import { ProgramEditorService } from './service/program-editor.service';
-import { MilestoneDocumentFilesService } from '../milestone-documents/milestone-document-files.service';
+import { MilestoneDocumentFilesService } from '../milestone-documents/service/milestone-document-files.service';
 import { MilestoneDocumentsRepository } from '../milestone-documents/repository/milestone-documents.repository';
 import type { ObjectStoragePort } from '../storage/domain/object-storage';
 import { SubmissionFilesRepository } from '../submissions/repository/submission-files.repository';
@@ -19,7 +19,7 @@ import { ProgramAuthoringUploadRepository } from './program-authoring-upload.rep
 import {
   MilestoneDocumentMissingError,
   upsertMilestoneDocumentSubmission,
-} from '../milestone-documents/milestone-document-submission.repository';
+} from '../milestone-documents/repository/milestone-document-submission.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersAuthorityService } from '../users/service/authority.service';
 import { UsersAuthorityRepository } from '../users/repository/authority.repository';

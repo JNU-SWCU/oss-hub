@@ -3,7 +3,7 @@ import {
   milestoneDocumentArchiveFolderName,
   milestoneDocumentDownloadFileName,
   milestoneDocumentTextEntryFileName,
-} from '../milestone-document-download-file-name';
+} from './milestone-document-download-file-name';
 import { readMilestoneDocumentSubmittedContent } from './milestone-document-content';
 
 export type MilestoneDocumentArchiveGrouping = 'TEAM' | 'DOCUMENT';

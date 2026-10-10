@@ -20,7 +20,7 @@
 ## Scope map and tests
 
 - Nearer guides cover `applications/`, `audit-log/`, `github/`, `notifications/`, `programs/`, `roles/`, `submission-reviews/`, and `submissions/`.
-- `auth/` owns authentication with HTTP guards and request contracts in `controller/`, session resolution and use cases in `service/`, persistence in `repository/`, and pure cookie/OAuth/session helpers in `domain/`; `users/` owns account administration in `controller/`, `service/`, `repository/`, `dto/`, and `domain/`; `milestone-documents/` owns milestone-document APIs; `consents/` keeps HTTP entrypoints in `controller/`, consent policy orchestration in `service/`, and persistence in `repository/`.
+- `auth/` owns authentication with HTTP guards and request contracts in `controller/`, session resolution and use cases in `service/`, persistence in `repository/`, and pure cookie/OAuth/session helpers in `domain/`; `users/` owns account administration in `controller/`, `service/`, `repository/`, `dto/`, and `domain/`; `milestone-documents/` owns milestone-document APIs in `controller/`, `service/`, `repository/`, `dto/`, and `domain/`; `consents/` keeps HTTP entrypoints in `controller/`, consent policy orchestration in `service/`, and persistence in `repository/`.
 - `roles/` calls the users onboarding service for repository-owned transactions; shared onboarding and role-error contracts live in `users/domain/` without a users-to-roles dependency.
 - `runtime-config/` exposes `RUNTIME_CONFIG`; `prisma/` owns injected client lifecycle; `common/` owns cross-feature infrastructure contracts.
 - Unit specs are adjacent `*.spec.ts` files; `system-status/` keeps controllers, services, and repositories with their specs in `controller/`, `service/`, and `repository/`.
