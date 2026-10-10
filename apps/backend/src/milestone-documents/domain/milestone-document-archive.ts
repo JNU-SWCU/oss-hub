@@ -3,7 +3,7 @@ import {
   milestoneDocumentArchiveFolderName,
   milestoneDocumentDownloadFileName,
   milestoneDocumentTextEntryFileName,
-} from '../milestone-document-download-file-name';
+} from './milestone-document-download-file-name';
 import { readMilestoneDocumentSubmittedContent } from './milestone-document-content';
 
 export type MilestoneDocumentArchiveGrouping = 'TEAM' | 'DOCUMENT';
@@ -20,6 +20,16 @@ export interface MilestoneDocumentArchiveDocument {
   readonly id: string;
   readonly name: string;
   readonly required: boolean;
+}
+
+export interface ArchiveProgram {
+  readonly name: string;
+  readonly milestones: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly dueAt: Date;
+    readonly documents: readonly MilestoneDocumentArchiveDocument[];
+  }[];
 }
 
 export interface MilestoneDocumentArchiveTeam {

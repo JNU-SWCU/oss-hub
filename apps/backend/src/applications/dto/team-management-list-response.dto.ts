@@ -3,7 +3,7 @@ import type {
   TeamManagementListItem,
   TeamManagementListPage,
   TeamManagementMember,
-} from '../applications.repository';
+} from '../domain/application-records';
 
 export class TeamManagementListItemResponseDto {
   readonly id: string;

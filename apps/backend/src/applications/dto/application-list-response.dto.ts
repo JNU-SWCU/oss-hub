@@ -1,4 +1,5 @@
 import type {
+  ApplicationReviewEventKind,
   ApplicationStatus,
   RepositoryConnectionMode,
 } from '@prisma/client';
@@ -6,9 +7,11 @@ import type {
   ApplicationListItem,
   ApplicationListPage,
   ApplicationListRepository,
+  ApplicationReviewHistoryEntry,
   RepositoryProvisioningJobStatus,
   RepositoryProvisioningSafeErrorClass,
-} from '../applications.repository';
+  StaffApplicationDetail,
+} from '../domain/application-records';
 
 export class ApplicationListItemResponseDto {
   readonly id: string;
@@ -91,5 +94,49 @@ export class ApplicationListPageResponseDto {
 
   static from(page: ApplicationListPage): ApplicationListPageResponseDto {
     return new ApplicationListPageResponseDto(page);
+  }
+}
+
+export class ReviewHistoryEntryResponseDto {
+  readonly id: string;
+  readonly eventKind: ApplicationReviewEventKind;
+  readonly revision: number;
+  readonly actor: {
+    readonly name: string | null;
+    readonly nickname: string;
+  };
+  readonly occurredAt: string;
+  readonly rejectionReason: string | null;
+
+  private constructor(entry: ApplicationReviewHistoryEntry) {
+    this.id = entry.id;
+    this.eventKind = entry.eventKind;
+    this.revision = entry.revision;
+    this.actor = entry.actor;
+    this.occurredAt = entry.occurredAt.toISOString();
+    this.rejectionReason = entry.rejectionReason;
+  }
+
+  static from(
+    entry: ApplicationReviewHistoryEntry,
+  ): ReviewHistoryEntryResponseDto {
+    return new ReviewHistoryEntryResponseDto(entry);
+  }
+}
+
+export class ApplicationDetailResponseDto extends ApplicationListItemResponseDto {
+  readonly reviewHistory: readonly ReviewHistoryEntryResponseDto[];
+
+  private constructor(detail: StaffApplicationDetail) {
+    super(detail.application);
+    this.reviewHistory = detail.reviewHistory.map((entry) =>
+      ReviewHistoryEntryResponseDto.from(entry),
+    );
+  }
+
+  static fromDetail(
+    detail: StaffApplicationDetail,
+  ): ApplicationDetailResponseDto {
+    return new ApplicationDetailResponseDto(detail);
   }
 }

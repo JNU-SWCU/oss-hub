@@ -14,9 +14,6 @@ importers:
       '@commitlint/config-conventional':
         specifier: ^21.2.0
         version: 21.2.0
-      dpdm:
-        specifier: 4.3.0
-        version: 4.3.0
       knip:
         specifier: 6.40.0
         version: 6.40.0
@@ -114,6 +111,9 @@ importers:
       '@types/yazl':
         specifier: ^3.3.1
         version: 3.3.1
+      dpdm:
+        specifier: 4.3.0
+        version: 4.3.0
       eslint:
         specifier: ^9.18.0
         version: 9.39.4(jiti@2.7.0)

@@ -1,4 +1,5 @@
 import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
+import type { DocumentDeliveryStatus } from '../../submissions/domain/document-delivery-status';
 import type { MilestoneDocumentCollectionPage } from '../domain/milestone-document-collection-page';
 import {
   type MilestoneDocumentSubmittedContent,
@@ -137,6 +138,21 @@ export class MilestoneDocumentCollectionResponseDto {
       collection,
     );
   }
+}
+
+export interface MilestoneDocumentDeliveryCollectionResponseDto extends Omit<
+  MilestoneDocumentCollectionResponseDto,
+  'rows'
+> {
+  readonly rows: readonly (MilestoneDocumentCollectionRowResponseDto & {
+    readonly deliveryStatus: DocumentDeliveryStatus;
+  })[];
+  readonly deliveryCounts: {
+    readonly missing: number;
+    readonly late: number;
+    readonly complete: number;
+    readonly noRequiredItems: number;
+  };
 }
 
 function toCell(

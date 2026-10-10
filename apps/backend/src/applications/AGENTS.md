@@ -4,7 +4,7 @@
 ## 범위와 흐름
 
 - `applications.module.ts` 조립 아래 프로그램 신청 생성, 학생 본인 관리, 교직원 목록/대시보드, 판정을 소유한다.
-- `program-applications.controller.ts`가 프로그램별 GET/POST를, `applications.controller.ts`가 상세·판정을, `student-applications.controller.ts`가 본인 신청 관리를 받는다.
+- `controller/program-applications.controller.ts`가 프로그램별 GET/POST를, `controller/applications.controller.ts`가 상세·판정을, `controller/student-applications.controller.ts`가 본인 신청 관리를 받는다.
 - 생성 트랜잭션은 기간·중복·양식·팀 조건을 검증한다.
   기존 team membership이 있으면 그 팀을 잠그고 재사용하며, 없을 때만 1인 기본 팀과 join code를 만든다.
 - 생성은 Application과 필요한 Team을 함께 커밋하고 `TEAM_CREATED`·`APPLICATION_SUBMITTED` audit을 같은 트랜잭션에 기록한다.
@@ -16,14 +16,14 @@
 
 - 판정·교직원 조회 권한은 service가 `UsersAuthorityService`로 확인하며 판정의 `STAFF_ONLY`와 조회의 `STAFF_LIST_ONLY` 오류 계약을 구분한다.
 - 학생 경로는 session 사용자 소유 Application만 읽고 변경한다.
-- 본인 관리와 교직원 통계는 각각 `student-application-management.service.ts`, `staff-insights.service.ts`의 별도 흐름이다.
-- `APP_*` 오류는 `applications-error-code.enum.ts`와 `DomainException` 계약을 유지한다.
+- 본인 관리와 교직원 통계는 각각 `service/student-application-management.service.ts`, `service/staff-insights.service.ts`의 별도 흐름이다.
+- `APP_*` 오류는 `domain/applications-error-code.enum.ts`와 `DomainException` 계약을 유지한다.
 - audit에는 committed 신청/판정 사실을 기록하고 outbox consumer·worker의 retry 상태를 업무 audit으로 합성하지 않는다.
 
 ## 진입점과 검증
 
-- 구현: `applications.service.ts`, `applications.repository.ts`, `applications.controller.ts`, `program-applications.controller.ts`, `student-application-management.service.ts`.
-- 생성/판정: `applications.create.service.spec.ts`, `applications.decision-audit.service.spec.ts`.
-- 상세/목록/본인 관리: `applications.detail.service.spec.ts`, `applications.list.service.spec.ts`, `student-application-management.service.spec.ts`.
-- HTTP/통합: `program-applications-create-body.http.spec.ts`, `applications-publication-planned.http.spec.ts`, `applications.service.integration.spec.ts`, `student-application-management.service.integration.spec.ts`.
+- 구현: `service/applications.service.ts`, `repository/applications.repository.ts`, `controller/applications.controller.ts`, `controller/program-applications.controller.ts`, `service/student-application-management.service.ts`.
+- 생성/판정: `service/applications.create.service.spec.ts`, `service/applications.decision-audit.service.spec.ts`.
+- 상세/목록/본인 관리: `service/applications.detail.service.spec.ts`, `service/applications.list.service.spec.ts`, `service/student-application-management.service.spec.ts`.
+- HTTP/통합: `controller/program-applications-create-body.http.spec.ts`, `controller/applications-publication-planned.http.spec.ts`, `service/applications.service.integration.spec.ts`, `service/student-application-management.service.integration.spec.ts`.
 <!-- /init:managed id=craft-init-4-applications -->

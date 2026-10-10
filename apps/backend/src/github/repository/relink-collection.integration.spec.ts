@@ -12,7 +12,7 @@ import {
   targetId,
   targetGithubId,
   input,
-} from '../../applications/student-repository-url.integration.fixture';
+} from '../../applications/service/student-repository-url.integration.fixture';
 import { CollectionAppClient } from '../gateway/collection-app.client';
 import { ProviderRequestQueue } from '../gateway/collection-provider-queue';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';

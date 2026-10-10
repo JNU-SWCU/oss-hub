@@ -6,7 +6,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { DomainException } from '../../common/error-code';
-import type { ProgramDocumentArchiveScope } from '../milestone-document-archive.service';
+import type { ProgramDocumentArchiveScope } from '../milestone-document-archive.types';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
