@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.enum';
+} from './domain/milestone-documents-error-code.enum';
 
 interface MilestoneDocumentsStaffStore {
   readonly user: {

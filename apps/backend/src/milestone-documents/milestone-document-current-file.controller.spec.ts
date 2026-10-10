@@ -14,7 +14,7 @@ import { MilestoneDocumentCurrentFileService } from './milestone-document-curren
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.enum';
+} from './domain/milestone-documents-error-code.enum';
 
 const SESSION_GITHUB_ID = 342_900_002n;
 const SESSION_SECRET = new Uint8Array(32).fill(37);

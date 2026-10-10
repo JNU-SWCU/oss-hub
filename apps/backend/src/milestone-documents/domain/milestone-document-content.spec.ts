@@ -1,5 +1,5 @@
 import { MilestoneSubmissionType } from '@prisma/client';
-import { MilestoneDocumentsErrorCode } from '../milestone-documents-error-code.enum';
+import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
 import {
   parseMilestoneDocumentContent,
   readMilestoneDocumentSubmittedContent,

@@ -23,7 +23,7 @@ import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.enum';
+} from './domain/milestone-documents-error-code.enum';
 import {
   InvalidMilestoneDocumentHistoryCursorError,
   MilestoneDocumentDeadlineClosedError,

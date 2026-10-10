@@ -1,6 +1,6 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { signatureValidZip } from '../submissions/domain/submission-zip-test-builder';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
+import { MilestoneDocumentsErrorCode } from './domain/milestone-documents-error-code.enum';
 import {
   MilestoneDocumentFlowFixture,
   flowIds,

@@ -16,6 +16,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { TeamInvitationsRepository } from '../../team-invitations/repository/team-invitations.repository';
 import { canonicalUserCreateFromLabel } from '../../users/canonical-user-fixture';
+import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
+import { UsersAuthorityService } from '../../users/service/authority.service';
 import { ProgramTeamDeletionRepository } from '../repository/program-team-deletion.repository';
 import { ProgramTeamsRepository } from '../repository/program-teams.repository';
 import { TeamsErrorCode } from '../teams-error-code.enum';
@@ -71,6 +73,7 @@ const service = new ProgramTeamsService(
   }),
   auditLog,
   new ProgramTeamDeletionRepository(prisma),
+  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
 );
 const invitations = new TeamInvitationsRepository(prisma);
 

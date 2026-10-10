@@ -1,5 +1,6 @@
 import { ProgramCategory } from '@prisma/client';
 import type { AuditLogService } from '../../audit-log/service/audit-log.service';
+import { AccountStatus } from '@prisma/client';
 import {
   TEAM_CREATED_AUDIT_ACTIONS,
   TEAM_DELETED_AUDIT_ACTIONS,
@@ -9,6 +10,7 @@ import {
 import { DomainException } from '../../common/error-code';
 import { computeJoinCodeDigest } from '../domain/join-code-digest';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
+import { UsersAuthorityService } from '../../users/service/authority.service';
 import {
   type ProgramTeamsCreateStore,
   type ProgramTeamsRepository,
@@ -75,6 +77,19 @@ const DETAIL: TeamDetailRecord = {
     },
   ],
 };
+
+const ACTIVE_STAFF_ACTOR = {
+  id: 'synthetic-staff',
+  hasStaffAccess: true,
+  hasAdminAccess: false,
+  accountStatus: AccountStatus.ACTIVE,
+};
+
+function buildAuthority(): UsersAuthorityService {
+  return new UsersAuthorityService({
+    findActorByGithubId: jest.fn().mockResolvedValue(ACTIVE_STAFF_ACTOR),
+  });
+}
 
 function buildService(overrides: {
   readonly student?: TeamStudentActor | null;
@@ -155,6 +170,7 @@ function buildService(overrides: {
       }),
       { record } as unknown as AuditLogService,
       deletionRepository,
+      buildAuthority(),
     ),
     repository,
     deletionRepository,
@@ -694,6 +710,7 @@ describe('ProgramTeamsService membership transaction boundary', () => {
         loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
         { record } as unknown as AuditLogService,
         stubTeamDeletionRepository(),
+        buildAuthority(),
       ),
       accessed,
       leave,

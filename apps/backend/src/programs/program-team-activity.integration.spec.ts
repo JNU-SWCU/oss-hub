@@ -4,6 +4,8 @@ import { AuditLogRepository } from '../audit-log/repository/audit-log.repository
 import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
+import { UsersAuthorityRepository } from '../users/repository/authority.repository';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { ProgramTeamDeletionRepository } from './repository/program-team-deletion.repository';
 import { ProgramTeamsRepository } from './repository/program-teams.repository';
 import { ProgramTeamsService } from './service/program-teams.service';
@@ -19,6 +21,7 @@ const service = new ProgramTeamsService(
   loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret' }),
   new AuditLogService(new AuditLogRepository(prisma)),
   new ProgramTeamDeletionRepository(prisma),
+  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
 );
 const prefix = `team-activity-${randomUUID()}`;
 const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
