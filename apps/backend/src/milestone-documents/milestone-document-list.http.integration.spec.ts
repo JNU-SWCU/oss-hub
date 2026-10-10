@@ -18,6 +18,8 @@ import { MilestoneDocumentsController } from './milestone-documents.controller';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
+import { UsersAuthorityRepository } from '../users/repository/authority.repository';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 
 assertIsolatedIntegrationDatabase({
@@ -61,6 +63,8 @@ describe('authenticated milestone document list filename contract', () => {
         { provide: MilestoneDocumentCollectionService, useValue: {} },
         MilestoneDocumentsRepository,
         MilestoneDocumentsService,
+        UsersAuthorityRepository,
+        UsersAuthorityService,
         SessionGuard,
         { provide: MilestoneDocumentFilesService, useValue: {} },
         { provide: MilestoneDocumentReviewsService, useValue: {} },
