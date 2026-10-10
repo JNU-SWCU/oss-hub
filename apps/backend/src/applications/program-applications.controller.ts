@@ -13,7 +13,6 @@ import {
 import { OriginGuard } from '../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../auth/controller/http-auth';
 import { SessionGuard } from '../auth/controller/session.guard';
-import { ApplicationsStaffListGuard } from './applications-staff.guard';
 import { ApplicationsService } from './applications.service';
 import { ApplicationListQueryRequestDto } from './dto/application-list-query.dto';
 import { ApplicationListPageResponseDto } from './dto/application-list-response.dto';
@@ -34,8 +33,9 @@ export class ProgramApplicationsController {
   ) {}
 
   @Get()
-  @UseGuards(SessionGuard, ApplicationsStaffListGuard)
+  @UseGuards(SessionGuard)
   async list(
+    @Req() request: ApplicationSessionRequest,
     @Param('programId') programId: string,
     @Query() query: ApplicationListQueryRequestDto,
   ): Promise<
@@ -44,11 +44,19 @@ export class ProgramApplicationsController {
     const listQuery = query.toQuery();
     if (listQuery.view === 'team-management') {
       return TeamManagementListPageResponseDto.from(
-        await this.service.listTeamManagementForProgram(programId, listQuery),
+        await this.service.listTeamManagementForProgram(
+          request.sessionGithubId,
+          programId,
+          listQuery,
+        ),
       );
     }
     return ApplicationListPageResponseDto.from(
-      await this.service.listForProgram(programId, listQuery),
+      await this.service.listForProgram(
+        request.sessionGithubId,
+        programId,
+        listQuery,
+      ),
     );
   }
 

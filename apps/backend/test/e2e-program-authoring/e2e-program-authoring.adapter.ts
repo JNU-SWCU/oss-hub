@@ -157,12 +157,9 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     ) {
       throw new E2eAdapterError(409);
     }
-    await this.applications.decide(
-      E2E_STAFF_ID,
-      application.id,
-      E2E_STAFF_GITHUB_ID,
-      { action: 'APPROVE' as const },
-    );
+    await this.applications.decide(E2E_STAFF_GITHUB_ID, application.id, {
+      action: 'APPROVE' as const,
+    });
     await this.consumeProvisionEvent();
     await this.runProvisionWorker(E2E_NOW);
   }
@@ -296,12 +293,9 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     }
     if (application === null) throw new E2eAdapterError(409);
     if (application.status === ApplicationStatus.SUBMITTED) {
-      await this.applications.decide(
-        E2E_STAFF_ID,
-        application.id,
-        E2E_STAFF_GITHUB_ID,
-        { action: 'APPROVE' as const },
-      );
+      await this.applications.decide(E2E_STAFF_GITHUB_ID, application.id, {
+        action: 'APPROVE' as const,
+      });
       await this.consumeProvisionEvent();
     } else if (application.status !== ApplicationStatus.APPROVED) {
       throw new E2eAdapterError(409);

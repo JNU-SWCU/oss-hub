@@ -17,11 +17,7 @@ import { issueSessionToken } from '../auth/domain/session-token';
 import { sessionCookieName } from '../auth/domain/cookies';
 import { SessionGuard } from '../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
-import { PrismaService } from '../prisma/prisma.service';
-import {
-  ApplicationsStaffGuard,
-  ApplicationsStaffListGuard,
-} from './applications-staff.guard';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { ApplicationsController } from './applications.controller';
 import type {
   ApplicationListItem,
@@ -477,9 +473,17 @@ const applicationsRepository = {
   findRepositoryProvisionEvent,
   withTransaction,
 } as unknown as ApplicationsRepository;
-const applicationsService = new ApplicationsService(applicationsRepository, {
-  record,
-} as unknown as AuditLogService);
+const findActorByGithubId = jest.fn((githubId: bigint) =>
+  Promise.resolve(
+    actors.find((actor) => actor.githubId === githubId)?.row ?? null,
+  ),
+);
+const authority = new UsersAuthorityService({ findActorByGithubId });
+const applicationsService = new ApplicationsService(
+  applicationsRepository,
+  { record } as unknown as AuditLogService,
+  authority,
+);
 const summarizeActivity = jest.fn().mockResolvedValue([]);
 const listSubmissionsByProgram = jest.fn().mockResolvedValue([]);
 const staffDashboardService = new StaffDashboardService(
@@ -492,18 +496,15 @@ const listApprovedParticipations = jest.fn().mockResolvedValue([]);
 const listActivityTotals = jest.fn().mockResolvedValue([]);
 const findActivityDataAsOf = jest.fn().mockResolvedValue(null);
 const listActivityYears = jest.fn().mockResolvedValue([]);
-const staffInsightsService = new StaffInsightsService({
-  listStudents,
-  listApprovedParticipations,
-  listActivityTotals,
-  findActivityDataAsOf,
-  listActivityYears,
-} as unknown as StaffInsightsRepository);
-const findUnique = jest.fn((input: { where: { githubId: bigint } }) =>
-  Promise.resolve(
-    actors.find((actor) => actor.githubId === input.where.githubId)?.row ??
-      null,
-  ),
+const staffInsightsService = new StaffInsightsService(
+  {
+    listStudents,
+    listApprovedParticipations,
+    listActivityTotals,
+    findActivityDataAsOf,
+    listActivityYears,
+  } as unknown as StaffInsightsRepository,
+  authority,
 );
 const getMe = jest.fn((githubId: bigint) =>
   Promise.resolve({ id: `cuid-principal-${githubId}`, sessionVersion: 0 }),
@@ -731,8 +732,6 @@ beforeAll(async () => {
     providers: [
       SessionGuard,
       OriginGuard,
-      ApplicationsStaffGuard,
-      ApplicationsStaffListGuard,
       { provide: ApplicationsService, useValue: applicationsService },
       { provide: StaffDashboardService, useValue: staffDashboardService },
       { provide: StaffInsightsService, useValue: staffInsightsService },
@@ -741,7 +740,6 @@ beforeAll(async () => {
         provide: AuthConfig,
         useValue: { sessionSecret, allowedOrigin, useSecureCookies: false },
       },
-      { provide: PrismaService, useValue: { user: { findUnique } } },
     ],
   }).compile();
 
@@ -797,7 +795,7 @@ it.each(readCases)(
 );
 
 it.each(decisionCases)(
-  '$title 의 현재 응답 계약을 고정한다',
+  '$title 의 세션·Origin·형식 검증·권한·의미 검증 순서를 고정한다',
   async ({ actor, origin, body }) => {
     const response = await send({
       method: 'PATCH',
@@ -807,18 +805,32 @@ it.each(decisionCases)(
       body: { ...body.value },
     });
 
-    if (!actor.allowed) {
+    if (actor.githubId === null) {
       await expectProblem(response, deniedDecisionProblem(actor), decisionPath);
+      expect(findActorByGithubId).not.toHaveBeenCalled();
       expect(withTransaction).not.toHaveBeenCalled();
       return;
     }
     if (origin.header !== allowedOrigin) {
       await expectProblem(response, ORIGIN_FORBIDDEN, decisionPath);
+      expect(findActorByGithubId).not.toHaveBeenCalled();
+      expect(withTransaction).not.toHaveBeenCalled();
+      return;
+    }
+    if (body.problem?.code === 'SYS_003') {
+      await expectProblem(response, body.problem, decisionPath);
+      expect(findActorByGithubId).not.toHaveBeenCalled();
+      expect(withTransaction).not.toHaveBeenCalled();
+      return;
+    }
+    if (!actor.allowed) {
+      await expectProblem(response, deniedDecisionProblem(actor), decisionPath);
       expect(withTransaction).not.toHaveBeenCalled();
       return;
     }
     if (body.problem !== null) {
       await expectProblem(response, body.problem, decisionPath);
+      expect(findActorByGithubId).toHaveBeenCalledWith(actor.githubId);
       expect(withTransaction).not.toHaveBeenCalled();
       return;
     }
@@ -861,12 +873,13 @@ it.each(invalidQueryCases)(
 
     await expectProblem(
       response,
-      actor.allowed
+      actor.githubId !== null
         ? validationProblem(route.detail)
         : deniedReadProblem(actor),
       route.instance,
     );
     expect(route.notReached).not.toHaveBeenCalled();
+    expect(findActorByGithubId).not.toHaveBeenCalled();
   },
 );
 
