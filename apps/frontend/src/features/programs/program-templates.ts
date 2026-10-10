@@ -4,17 +4,14 @@ import type {
   ProgramDetail,
 } from './types';
 
-const PROGRAM_CATEGORIES = [
-  'BASIC',
-  'SW_VALUE_SPREAD',
-  'OSS_CONTEST',
-  'CAPSTONE',
-  'SW_CONVERGENCE',
-  'GLOBAL_MAKERTHON',
-  'CORPORATE_INTERNSHIP',
-] as const;
-
-type ProgramCategory = (typeof PROGRAM_CATEGORIES)[number];
+type ProgramCategory =
+  | 'BASIC'
+  | 'SW_VALUE_SPREAD'
+  | 'OSS_CONTEST'
+  | 'CAPSTONE'
+  | 'SW_CONVERGENCE'
+  | 'GLOBAL_MAKERTHON'
+  | 'CORPORATE_INTERNSHIP';
 
 export const PROGRAM_TRACK_TYPES = ['CURRICULAR', 'EXTRACURRICULAR'] as const;
 
