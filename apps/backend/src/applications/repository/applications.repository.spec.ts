@@ -26,9 +26,7 @@ function buildStoreHarness(overrides: {
     $transaction: (operation: (tx: typeof transaction) => Promise<unknown>) =>
       operation(transaction),
   } as unknown as PrismaService;
-  const repository = new ApplicationsRepository(prisma, {
-    TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
-  });
+  const repository = new ApplicationsRepository(prisma);
   return { repository, queryRaw, teamMemberFindUnique };
 }
 

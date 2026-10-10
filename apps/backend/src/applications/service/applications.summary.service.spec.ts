@@ -5,6 +5,7 @@ import { ApplicationsErrorCode } from '../domain/applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../../audit-log/service/audit-log.service';
 import type { UsersAuthorityService } from '../../users/service/authority.service';
+import { ApplicationJoinCodeService } from './application-join-code.service';
 
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
@@ -57,9 +58,16 @@ describe('ApplicationsService.staffSummary', () => {
     const repository = {
       listStaffDashboardSummary,
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository, noopAuditLog, {
-      assertActiveStaff: allowStaff(),
-    });
+    const service = new ApplicationsService(
+      repository,
+      noopAuditLog,
+      {
+        assertActiveStaff: allowStaff(),
+      },
+      new ApplicationJoinCodeService({
+        TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
+      }),
+    );
 
     await expect(service.staffSummary(SESSION_GITHUB_ID)).resolves.toEqual(
       summary,
@@ -71,9 +79,16 @@ describe('ApplicationsService.staffSummary', () => {
     const repository = {
       listStaffDashboardSummary: jest.fn().mockResolvedValue({ programs: [] }),
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository, noopAuditLog, {
-      assertActiveStaff: allowStaff(),
-    });
+    const service = new ApplicationsService(
+      repository,
+      noopAuditLog,
+      {
+        assertActiveStaff: allowStaff(),
+      },
+      new ApplicationJoinCodeService({
+        TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
+      }),
+    );
 
     await expect(service.staffSummary(SESSION_GITHUB_ID)).resolves.toEqual({
       programs: [],
@@ -86,9 +101,16 @@ describe('ApplicationsService.staffSummary', () => {
       listStaffDashboardSummary,
     } as unknown as ApplicationsRepository;
     const assertActiveStaff = denyStaff();
-    const service = new ApplicationsService(repository, noopAuditLog, {
-      assertActiveStaff,
-    });
+    const service = new ApplicationsService(
+      repository,
+      noopAuditLog,
+      {
+        assertActiveStaff,
+      },
+      new ApplicationJoinCodeService({
+        TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
+      }),
+    );
 
     await expect(service.staffSummary(SESSION_GITHUB_ID)).rejects.toMatchObject(
       {

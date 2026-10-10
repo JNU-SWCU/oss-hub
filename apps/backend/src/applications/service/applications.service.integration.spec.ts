@@ -19,6 +19,7 @@ import { UsersAuthorityRepository } from '../../users/repository/authority.repos
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { StudentApplicationManagementRepository } from '../repository/student-application-management.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
+import { ApplicationJoinCodeService } from './application-join-code.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -26,13 +27,14 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new ApplicationsRepository(prisma, {
-  TEAM_JOIN_CODE_SECRET: 'synthetic-applications-integration-secret',
-});
+const repository = new ApplicationsRepository(prisma);
 const service = new ApplicationsService(
   repository,
   new AuditLogService(new AuditLogRepository(prisma)),
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+  new ApplicationJoinCodeService({
+    TEAM_JOIN_CODE_SECRET: 'synthetic-applications-integration-secret',
+  }),
 );
 const studentService = new StudentApplicationManagementService(
   new StudentApplicationManagementRepository(prisma),

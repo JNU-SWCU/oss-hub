@@ -27,9 +27,7 @@ let targetId = '';
 let caseNumber = 0;
 let targetGithubId = 0n;
 const repository = new StudentRepositoryUrlRepository(prisma);
-const applications = new ApplicationsRepository(prisma, {
-  TEAM_JOIN_CODE_SECRET: 'synthetic-relink-secret',
-});
+const applications = new ApplicationsRepository(prisma);
 const audit = new AuditLogService(new AuditLogRepository(prisma));
 const resolver = {
   resolve: jest.fn().mockResolvedValue({

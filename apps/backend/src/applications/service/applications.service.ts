@@ -16,6 +16,7 @@ import {
 } from '../../audit-log/domain/audit-log-metadata';
 import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { UsersAuthorityService } from '../../users/service/authority.service';
+import { ApplicationJoinCodeService } from './application-join-code.service';
 import { DomainException } from '../../common/error-code';
 import type { ProblemDetailExtensions } from '../../common/error-code';
 import { parseGithubRepositoryUrl } from '../../github/domain/github-repository-url';
@@ -129,6 +130,11 @@ export class ApplicationsService {
       UsersAuthorityService,
       'assertActiveStaff'
     >,
+    @Inject(ApplicationJoinCodeService)
+    private readonly joinCodes: Pick<
+      ApplicationJoinCodeService,
+      'generateJoinCode' | 'computeJoinCodeDigest'
+    >,
   ) {}
 
   async create(
@@ -234,9 +240,8 @@ export class ApplicationsService {
           attempt < JOIN_CODE_ATTEMPTS;
           attempt += 1
         ) {
-          const joinCode = this.repository.generateJoinCode();
-          const joinCodeDigest =
-            this.repository.computeJoinCodeDigest(joinCode);
+          const joinCode = this.joinCodes.generateJoinCode();
+          const joinCodeDigest = this.joinCodes.computeJoinCodeDigest(joinCode);
           try {
             createdTeam = await store.createTeamWithLeader({
               programId,

@@ -26,9 +26,7 @@ const APPLICATION_A_ID = `${PREFIX}application-a`;
 const APPLICATION_B_ID = `${PREFIX}application-b`;
 
 const prisma = new PrismaService();
-const repository = new ApplicationsRepository(prisma, {
-  TEAM_JOIN_CODE_SECRET: 'synthetic-review-history-writer-secret',
-});
+const repository = new ApplicationsRepository(prisma);
 
 async function cleanup(): Promise<void> {
   await prisma.applicationReviewHistory.deleteMany({

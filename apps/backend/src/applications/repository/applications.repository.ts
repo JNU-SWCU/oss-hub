@@ -1,5 +1,4 @@
-import { randomBytes } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -18,8 +17,6 @@ import type {
   Prisma as PrismaTypes,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
-import { computeJoinCodeDigest } from '../../programs/domain/join-code-digest';
-import { resolveJoinCodeSecretFromConfig } from '../../runtime-config/join-code-secret';
 import { PrismaService } from '../../prisma/prisma.service';
 import { repositoryUrlFromNameWithOwner } from '../../github/domain/repository-identity';
 import { parseRepositoryProvisionEvent } from '../../github/domain/repository-provision-event';
@@ -33,8 +30,6 @@ import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
 } from '../../prisma/user-profile-read';
-import type { RuntimeConfig } from '../../runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from '../../runtime-config/runtime-config.module';
 import type { ApplicationListQuery } from '../domain/application-list-query';
 import type {
   ApplicationDecisionTarget,
@@ -554,23 +549,7 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
 
 @Injectable()
 export class ApplicationsRepository {
-  private readonly joinCodeSecret: string;
-
-  constructor(
-    private readonly prisma: PrismaService,
-    @Inject(RUNTIME_CONFIG)
-    runtimeConfig: Pick<RuntimeConfig, 'TEAM_JOIN_CODE_SECRET'>,
-  ) {
-    this.joinCodeSecret = resolveJoinCodeSecretFromConfig(runtimeConfig);
-  }
-
-  generateJoinCode(): string {
-    return randomBytes(6).toString('base64url').toUpperCase().slice(0, 10);
-  }
-
-  computeJoinCodeDigest(joinCode: string): string {
-    return computeJoinCodeDigest(joinCode, this.joinCodeSecret);
-  }
+  constructor(private readonly prisma: PrismaService) {}
 
   async withTransaction<T>(
     operation: (store: ApplicationsTransactionStore) => Promise<T>,

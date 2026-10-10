@@ -16,6 +16,7 @@ import { ApplicationsErrorCode } from '../domain/applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../../audit-log/service/audit-log.service';
 import type { UsersAuthorityService } from '../../users/service/authority.service';
+import { ApplicationJoinCodeService } from './application-join-code.service';
 
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
@@ -76,9 +77,16 @@ describe('ApplicationsService.listForProgram', () => {
       listApplicationsForProgram,
     } as unknown as ApplicationsRepository;
     const assertActiveStaff = denyStaff();
-    const service = new ApplicationsService(repository, noopAuditLog, {
-      assertActiveStaff,
-    });
+    const service = new ApplicationsService(
+      repository,
+      noopAuditLog,
+      {
+        assertActiveStaff,
+      },
+      new ApplicationJoinCodeService({
+        TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
+      }),
+    );
 
     await expect(
       service.listForProgram(SESSION_GITHUB_ID, PROGRAM_ID, DEFAULT_QUERY),
@@ -99,9 +107,16 @@ describe('ApplicationsService.listForProgram', () => {
       findProgramById: jest.fn().mockResolvedValue(null),
       listApplicationsForProgram,
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository, noopAuditLog, {
-      assertActiveStaff: allowStaff(),
-    });
+    const service = new ApplicationsService(
+      repository,
+      noopAuditLog,
+      {
+        assertActiveStaff: allowStaff(),
+      },
+      new ApplicationJoinCodeService({
+        TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
+      }),
+    );
 
     await expect(
       service.listForProgram(SESSION_GITHUB_ID, PROGRAM_ID, {
@@ -195,9 +210,16 @@ describe('ApplicationsService.listForProgram', () => {
       findProgramById: jest.fn().mockResolvedValue(OPEN_PROGRAM),
       listApplicationsForProgram,
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository, noopAuditLog, {
-      assertActiveStaff: allowStaff(),
-    });
+    const service = new ApplicationsService(
+      repository,
+      noopAuditLog,
+      {
+        assertActiveStaff: allowStaff(),
+      },
+      new ApplicationJoinCodeService({
+        TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
+      }),
+    );
     const query = {
       page: 2,
       pageSize: 10,
@@ -219,9 +241,16 @@ describe('ApplicationsService.listForProgram', () => {
       findProgramById: jest.fn().mockResolvedValue(OPEN_PROGRAM),
       listApplicationsForProgram: jest.fn().mockResolvedValue(EMPTY_PAGE),
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository, noopAuditLog, {
-      assertActiveStaff: allowStaff(),
-    });
+    const service = new ApplicationsService(
+      repository,
+      noopAuditLog,
+      {
+        assertActiveStaff: allowStaff(),
+      },
+      new ApplicationJoinCodeService({
+        TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
+      }),
+    );
 
     await expect(
       service.listForProgram(SESSION_GITHUB_ID, PROGRAM_ID, {
@@ -244,9 +273,16 @@ describe('ApplicationsService.listTeamManagementForProgram', () => {
       listTeamManagementForProgram,
     } as unknown as ApplicationsRepository;
     const assertActiveStaff = denyStaff();
-    const service = new ApplicationsService(repository, noopAuditLog, {
-      assertActiveStaff,
-    });
+    const service = new ApplicationsService(
+      repository,
+      noopAuditLog,
+      {
+        assertActiveStaff,
+      },
+      new ApplicationJoinCodeService({
+        TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
+      }),
+    );
 
     await expect(
       service.listTeamManagementForProgram(SESSION_GITHUB_ID, PROGRAM_ID, {
@@ -346,9 +382,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
             operation(transaction),
         ),
     };
-    const repository = new ApplicationsRepository(prisma as never, {
-      TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
-    });
+    const repository = new ApplicationsRepository(prisma as never);
 
     const page = await repository.listApplicationsForProgram(PROGRAM_ID, query);
 
@@ -596,9 +630,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
               operation(transaction),
           ),
       };
-      const repositoryUnderTest = new ApplicationsRepository(prisma as never, {
-        TEAM_JOIN_CODE_SECRET: 'synthetic-list-secret',
-      });
+      const repositoryUnderTest = new ApplicationsRepository(prisma as never);
 
       const page = await repositoryUnderTest.listApplicationsForProgram(
         PROGRAM_ID,

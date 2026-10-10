@@ -39,9 +39,7 @@ const SEARCH_ONLY_MEMBER_NAME = '검색전용팀원이름';
 const SEARCH_ONLY_MEMBER_NICKNAME = 'search-only-login';
 
 const prisma = new PrismaService();
-const repository = new ApplicationsRepository(prisma, {
-  TEAM_JOIN_CODE_SECRET: 'synthetic-staff-read-paths-secret',
-});
+const repository = new ApplicationsRepository(prisma);
 
 function query(overrides: Partial<ApplicationListQuery> = {}) {
   return {

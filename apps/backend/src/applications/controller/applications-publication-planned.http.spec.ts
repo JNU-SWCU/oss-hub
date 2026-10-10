@@ -34,6 +34,7 @@ import { StaffDashboardController } from './staff-dashboard.controller';
 import { StaffDashboardService } from '../service/staff-dashboard.service';
 import type { StaffInsightsRepository } from '../repository/staff-insights.repository';
 import { StaffInsightsService } from '../service/staff-insights.service';
+import { ApplicationJoinCodeService } from '../service/application-join-code.service';
 
 const allowedOrigin = 'http://frontend.test';
 const foreignOrigin = 'http://foreign.test';
@@ -483,6 +484,9 @@ const applicationsService = new ApplicationsService(
   applicationsRepository,
   { record } as unknown as AuditLogService,
   authority,
+  new ApplicationJoinCodeService({
+    TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
+  }),
 );
 const summarizeActivity = jest.fn().mockResolvedValue([]);
 const listSubmissionsByProgram = jest.fn().mockResolvedValue([]);

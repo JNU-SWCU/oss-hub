@@ -16,6 +16,7 @@ import type {
 import { ApplicationsErrorCode } from '../domain/applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
 import type { UsersAuthorityService } from '../../users/service/authority.service';
+import { ApplicationJoinCodeService } from './application-join-code.service';
 
 type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
 
@@ -113,6 +114,9 @@ function createHarness(
     repository,
     { record } as unknown as AuditLogService,
     { assertActiveStaff },
+    new ApplicationJoinCodeService({
+      TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
+    }),
   );
   return {
     service,

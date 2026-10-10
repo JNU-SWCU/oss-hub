@@ -130,6 +130,16 @@ function buildService(overrides: {
 
   let joinCodeCall = 0;
   const joinCodes = overrides.joinCodes ?? ['JOINCODE01'];
+  const joinCodeService = {
+    generateJoinCode: jest.fn().mockImplementation(() => {
+      const code = joinCodes[joinCodeCall] ?? `JOINCODE0${joinCodeCall + 1}`;
+      joinCodeCall += 1;
+      return code;
+    }),
+    computeJoinCodeDigest: jest
+      .fn()
+      .mockImplementation((joinCode: string) => `digest:${joinCode}`),
+  };
   const repository = {
     findActiveStudentByGithubId: jest
       .fn()
@@ -141,14 +151,6 @@ function buildService(overrides: {
       .mockResolvedValue(
         overrides.program === undefined ? OPEN_PROGRAM : overrides.program,
       ),
-    generateJoinCode: jest.fn().mockImplementation(() => {
-      const code = joinCodes[joinCodeCall] ?? `JOINCODE0${joinCodeCall + 1}`;
-      joinCodeCall += 1;
-      return code;
-    }),
-    computeJoinCodeDigest: jest
-      .fn()
-      .mockImplementation((joinCode: string) => `digest:${joinCode}`),
     withCreateTransaction: jest.fn(
       async (operation: (s: ApplicationCreateStore) => Promise<unknown>) =>
         operation(store),
@@ -166,6 +168,7 @@ function buildService(overrides: {
       repository,
       { record } as unknown as AuditLogService,
       { assertActiveStaff },
+      joinCodeService,
     ),
     repository,
     store,

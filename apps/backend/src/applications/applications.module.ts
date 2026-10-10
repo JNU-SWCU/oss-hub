@@ -10,6 +10,7 @@ import { UsersModule } from '../users/users.module';
 import { UsersAuthorityService } from '../users/service/authority.service';
 import { ApplicationsController } from './controller/applications.controller';
 import { ApplicationsRepository } from './repository/applications.repository';
+import { ApplicationJoinCodeService } from './service/application-join-code.service';
 import { ApplicationsService } from './service/applications.service';
 import { ProgramApplicationsController } from './controller/program-applications.controller';
 import { StaffDashboardController } from './controller/staff-dashboard.controller';
@@ -50,15 +51,22 @@ import { StudentRepositoryUrlRepository } from './repository/student-repository-
     StudentRepositoryUrlService,
     StudentRepositoryUrlRepository,
     ApplicationsRepository,
+    ApplicationJoinCodeService,
     {
       provide: ApplicationsService,
-      inject: [ApplicationsRepository, AuditLogService, UsersAuthorityService],
+      inject: [
+        ApplicationsRepository,
+        AuditLogService,
+        UsersAuthorityService,
+        ApplicationJoinCodeService,
+      ],
       useFactory: (
         repository: ApplicationsRepository,
         auditLog: AuditLogService,
         authority: UsersAuthorityService,
+        joinCodes: ApplicationJoinCodeService,
       ): ApplicationsService =>
-        new ApplicationsService(repository, auditLog, authority),
+        new ApplicationsService(repository, auditLog, authority, joinCodes),
     },
     StudentApplicationManagementRepository,
     StudentApplicationManagementService,

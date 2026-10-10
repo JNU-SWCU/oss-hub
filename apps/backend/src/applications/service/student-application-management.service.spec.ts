@@ -43,9 +43,7 @@ const APPLICATION = {
 function createRepository() {
   const prisma = new PrismaService();
   const repository = new StudentApplicationManagementRepository(prisma);
-  const applicationsRepository = new ApplicationsRepository(prisma, {
-    TEAM_JOIN_CODE_SECRET: 'synthetic-student-mgmt-secret',
-  });
+  const applicationsRepository = new ApplicationsRepository(prisma);
   const findActiveStudentByGithubId = jest
     .spyOn(applicationsRepository, 'findActiveStudentByGithubId')
     .mockResolvedValue(STUDENT);

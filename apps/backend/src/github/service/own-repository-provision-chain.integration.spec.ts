@@ -40,6 +40,7 @@ import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
 import { RepositoryProvisionWorker } from './repository-provision.worker';
 import { PROVISION_ERROR_CODES } from '../domain/repository-provision.failure';
 import { RepositoryOwnEnrollmentService } from './repository-own-enrollment.service';
+import { ApplicationJoinCodeService } from '../../applications/service/application-join-code.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -47,13 +48,14 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new ApplicationsRepository(prisma, {
-  TEAM_JOIN_CODE_SECRET: 'synthetic-own-provision-chain-secret',
-});
+const repository = new ApplicationsRepository(prisma);
 const service = new ApplicationsService(
   repository,
   new AuditLogService(new AuditLogRepository(prisma)),
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+  new ApplicationJoinCodeService({
+    TEAM_JOIN_CODE_SECRET: 'synthetic-own-provision-chain-secret',
+  }),
 );
 const outbox = new RepositoryOutboxConsumer(new RepositoriesRepository(prisma));
 const jobs = new RepositoryProvisionJobRepository(prisma);

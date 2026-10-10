@@ -10,6 +10,7 @@ import { ApplicationsErrorCode } from '../domain/applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../../audit-log/service/audit-log.service';
 import type { UsersAuthorityService } from '../../users/service/authority.service';
+import { ApplicationJoinCodeService } from './application-join-code.service';
 
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
@@ -90,9 +91,7 @@ function buildRepository(transaction: Record<string, unknown>): {
       (operation: (client: typeof transaction) => Promise<unknown>) =>
         operation(transaction),
     );
-  const repository = new ApplicationsRepository({ $transaction } as never, {
-    TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
-  });
+  const repository = new ApplicationsRepository({ $transaction } as never);
   return { repository, $transaction };
 }
 
@@ -123,9 +122,16 @@ describe('ApplicationsService.getForStaff', () => {
       listReviewHistory,
     } as unknown as ApplicationsRepository;
     const assertActiveStaff = denyStaff();
-    const service = new ApplicationsService(repository, noopAuditLog, {
-      assertActiveStaff,
-    });
+    const service = new ApplicationsService(
+      repository,
+      noopAuditLog,
+      {
+        assertActiveStaff,
+      },
+      new ApplicationJoinCodeService({
+        TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
+      }),
+    );
 
     await expect(
       service.getForStaff(SESSION_GITHUB_ID, APPLICATION_ID),
@@ -146,9 +152,16 @@ describe('ApplicationsService.getForStaff', () => {
       findApplicationForStaff,
       listReviewHistory: jest.fn().mockResolvedValue([]),
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository, noopAuditLog, {
-      assertActiveStaff: allowStaff(),
-    });
+    const service = new ApplicationsService(
+      repository,
+      noopAuditLog,
+      {
+        assertActiveStaff: allowStaff(),
+      },
+      new ApplicationJoinCodeService({
+        TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
+      }),
+    );
 
     await expect(
       service.getForStaff(SESSION_GITHUB_ID, APPLICATION_ID),
@@ -167,9 +180,16 @@ describe('ApplicationsService.getForStaff', () => {
       findApplicationForStaff: jest.fn().mockResolvedValue(item),
       listReviewHistory: jest.fn().mockResolvedValue(reviewHistory),
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository, noopAuditLog, {
-      assertActiveStaff: allowStaff(),
-    });
+    const service = new ApplicationsService(
+      repository,
+      noopAuditLog,
+      {
+        assertActiveStaff: allowStaff(),
+      },
+      new ApplicationJoinCodeService({
+        TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
+      }),
+    );
 
     await expect(
       service.getForStaff(SESSION_GITHUB_ID, APPLICATION_ID),
@@ -185,9 +205,16 @@ describe('ApplicationsService.getForStaff', () => {
       findApplicationForStaff: jest.fn().mockResolvedValue(null),
       listReviewHistory,
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(repository, noopAuditLog, {
-      assertActiveStaff: allowStaff(),
-    });
+    const service = new ApplicationsService(
+      repository,
+      noopAuditLog,
+      {
+        assertActiveStaff: allowStaff(),
+      },
+      new ApplicationJoinCodeService({
+        TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
+      }),
+    );
 
     await expect(
       service.getForStaff(SESSION_GITHUB_ID, APPLICATION_ID),

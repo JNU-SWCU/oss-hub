@@ -13,9 +13,7 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const applicationsRepository = new ApplicationsRepository(prisma, {
-  TEAM_JOIN_CODE_SECRET: 'synthetic-student-application-race-secret',
-});
+const applicationsRepository = new ApplicationsRepository(prisma);
 const now = () => NOW;
 const repository = new StudentApplicationManagementRepository(prisma, now);
 const service = new StudentApplicationManagementService(
