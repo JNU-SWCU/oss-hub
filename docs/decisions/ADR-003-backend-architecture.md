@@ -183,25 +183,23 @@ Nest DI나 decorator 때문에 생긴 findings는 근거 있는 entry·설정으
 
 rails 규칙은 각 앱의 `eslint.config.mjs`가 적용하는 일반 lint 오류이며 lint baseline과 lint ratchet은 P7에서 retire했다.
 legacy module-zone 규칙도 retire했고 그 고유 제약은 boundaries 정책과 `apps/backend/test/architecture/boundaries.eslint.spec.ts` fixture가 소유한다.
-Knip은 workspace·issue type별 실제 개수와 budget이 정확히 같아야 하며 head budget은 predecessor budget보다 커질 수 없다.
-기준 budget은 working tree나 가변 ref가 아니라 신뢰된 predecessor SHA의 Git tree에서 읽는다.
-PR은 명시한 base·검사 head의 merge-base, main push는 event의 before SHA를 사용한다.
-0 SHA, 누락된 Git object, 비선조 before SHA는 실패로 처리하며 현재 main으로 대체하지 않는다.
-로컬 기준은 fetch한 origin/main과 HEAD의 merge-base이고 기준을 얻지 못하면 실패한다.
+Knip budget과 Knip ratchet도 P7에서 retire했고 Knip은 finding이 하나라도 있으면 실패하는 일반 검사다.
+budget과 predecessor 비교가 없으므로 PR과 main push는 같은 `pnpm lint:structure`(`knip`)를 실행하고 이벤트 SHA를 입력으로 받지 않는다.
+root `pnpm lint`는 rails를 포함한 앱 lint와 Knip을 실행하고 required CI는 앱 lint 단계와 별도 Knip 단계로 같은 계약을 실행한다.
+`knip.json` 변경은 rails lane을 선택하며 Knip 단계 invocation과 root lint script를 contract test로 고정한다.
 
-predecessor에 Knip checker와 budget이 모두 없을 때만 P1의 최초 seed를 허용하고 seed는 실제 findings와 정확히 일치해야 한다.
-Knip checker가 있는데 budget이 없으면 자동 재생성하지 않는다.
-Knip budget을 없애는 retired 상태는 Knip findings가 0일 때만 허용하며 그때 일반 오류 검사로 전환한다.
-root `pnpm lint`는 rails를 포함한 앱 lint와 Knip ratchet을 실행하고 required CI는 앱 lint 단계와 별도 Knip 단계로 같은 계약을 실행한다.
-설정·checker·baseline 경로 변경은 관련 CI lane을 선택하며 invocation과 SHA 전달을 contract test로 고정한다.
+Knip이 정적으로 볼 수 없는 사용처는 `knip.json`의 workspace별 `ignoreDependencies`로만 다루고 파일 단위 `ignore`로 감추지 않는다.
+`apps/frontend`의 `pretendard`는 `next/font/local` `localFont`의 폰트 파일 경로로만 참조되어 Knip이 사용처를 인식하지 못한다.
+root와 `apps/frontend`의 `@prisma/client`는 `apps/backend/package.json` 기준 `createRequire`로 backend가 설치한 generated client를 의도적으로 읽으므로 root나 frontend 의존성으로 추가하지 않는다.
+새 무시 항목은 같은 수준의 근거를 이 절에 남길 때만 추가한다.
 
-checker 자체는 PR head에서 실행되므로 predecessor 비교만으로 checker 변조까지 방지하지는 못한다.
-이 잔여 위험은 필수 CI 경로 선택, invocation contract test, checker·baseline·설정 diff 리뷰로 완화하며 신뢰된 코드 실행과 동등하다고 주장하지 않는다.
+Knip은 PR head의 설정으로 실행되므로 `knip.json` 변조까지 방지하지는 못한다.
+이 잔여 위험은 필수 CI 경로 선택, invocation contract test, 설정 diff 리뷰로 완화하며 신뢰된 코드 실행과 동등하다고 주장하지 않는다.
 
 #### 10.8 결정과 이행의 구분
 
-이 절의 Accepted는 목표 구조와 명시한 S6·S8 예외의 승인이지 모든 모듈 이전이나 baseline 제거의 완료 판정이 아니다.
-먼저 rails를 도입하고 baseline을 고정한 뒤 의존 순서에 따라 책임을 분리하고 모듈별 이행에서 해당 baseline을 줄인다.
+이 절의 Accepted는 목표 구조와 명시한 S6·S8 예외의 승인이지 모든 모듈 이전의 완료 판정이 아니다.
+rails는 baseline과 함께 도입해 모듈별 이행에서 줄였고 lint baseline과 Knip budget은 §10.7대로 retire했다.
 완료 판정은 실제 실행한 검증과 연결된 Issue·PR에서만 기록하며 이 ADR에 진행 ledger를 복제하지 않는다.
 schema 변경, AppModule 변경 필요, 승인하지 않은 API 변화 또는 잠금 응답 변화는 별도 결정 대상이다.
 
@@ -278,6 +276,8 @@ trackType idempotency hash 문제는 별도 [#1477](https://github.com/JNU-SWCU/
 
 ## Changelog
 
+- 2026-10-11: P7에서 Knip budget과 Knip ratchet을 retire하고 Knip을 finding 0 기준의 일반 실패 검사로 전환했다.
+  `pretendard`·`@prisma/client` workspace별 무시 근거는 §10.7에 기록했다.
 - 2026-10-11: P7에서 lint ratchet과 legacy module-zone 규칙을 retire하고 rails·미분류 대상 검사·다른 모듈 dto import 금지를 앱 lint 오류로 전환했다.
 - 2026-10-08: §10에 닫힌 계층 폴더, 주입 키, Prisma enum 허용, 단계별 잠금, 인증·권한 분리, storage 및 신뢰된 SHA 기반 rails 결정을 통합했다.
   S6의 쓰기 뒤 잠금 없는 재조회와 S8의 validation·Origin 우선 오류를 승인된 변경으로 기록하고 S4·S5·S7 조사 판단 및 미실행 후속 F1·F3·F4를 분리했다.
