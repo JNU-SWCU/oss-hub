@@ -1,7 +1,7 @@
 import { MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../integration-database.guard';
 import { PrismaService } from '../../src/prisma/prisma.service';
-import { canonicalUserCreate } from '../../src/users/canonical-user-fixture';
+import { canonicalUserCreate } from '../../src/users/repository/canonical-user-fixture';
 import { DeadlineDigestRepository } from '../../src/notifications/repository/deadline-digest.repository';
 import { DeadlineDigestService } from '../../src/notifications/service/deadline-digest.service';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';

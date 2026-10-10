@@ -8,7 +8,7 @@ import {
   isValidUserName,
   USER_NAME_MAX_LENGTH,
 } from './user-profile-policy';
-import { USERS_ERROR_CODES, UsersErrorCode } from '../users-error-code.enum';
+import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.enum';
 
 it('astral Unicode characters count as one profile character', () => {
   const name = '😀'.repeat(51);

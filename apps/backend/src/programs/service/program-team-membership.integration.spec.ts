@@ -15,7 +15,7 @@ import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { TeamInvitationsRepository } from '../../team-invitations/repository/team-invitations.repository';
-import { canonicalUserCreateFromLabel } from '../../users/canonical-user-fixture';
+import { canonicalUserCreateFromLabel } from '../../users/repository/canonical-user-fixture';
 import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { ProgramTeamDeletionRepository } from '../repository/program-team-deletion.repository';
