@@ -4,7 +4,7 @@ import type {
   ProgramDetail,
 } from './types';
 
-export const PROGRAM_CATEGORIES = [
+const PROGRAM_CATEGORIES = [
   'BASIC',
   'SW_VALUE_SPREAD',
   'OSS_CONTEST',
