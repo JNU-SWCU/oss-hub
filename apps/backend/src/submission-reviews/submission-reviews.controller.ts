@@ -21,27 +21,25 @@ import {
   toRepositoryPublishResponse,
   toReviewContextResponse,
 } from './dto/submission-review-response.dto';
-import type { SubmissionReviewStaffRequest } from './submission-reviews-staff.guard';
-import { SubmissionReviewsStaffGuard } from './submission-reviews-staff.guard';
 import { SubmissionReviewsService } from './submission-reviews.service';
 
-type ReviewActorRequest = Pick<
-  SubmissionReviewStaffRequest,
-  'submissionReviewerId'
->;
+type ReviewActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 type PublishActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 @Controller('submissions')
-@UseGuards(SessionGuard, SubmissionReviewsStaffGuard)
+@UseGuards(SessionGuard)
 export class SubmissionReviewsController {
   constructor(private readonly service: SubmissionReviewsService) {}
 
   @Get(':submissionId/review-context')
   async context(
+    @Req() request: ReviewActorRequest,
     @Param('submissionId') submissionId: string,
   ): Promise<SubmissionReviewContextResponseDto> {
-    return toReviewContextResponse(await this.service.context(submissionId));
+    return toReviewContextResponse(
+      await this.service.context(submissionId, request.sessionGithubId),
+    );
   }
 
   @Post(':submissionId/reviews')
@@ -54,7 +52,7 @@ export class SubmissionReviewsController {
   ): Promise<CreateSubmissionReviewResponseDto> {
     return toCreateReviewResponse(
       await this.service.review(
-        request.submissionReviewerId,
+        request.sessionGithubId,
         submissionId,
         body.toInput(),
       ),
@@ -63,7 +61,7 @@ export class SubmissionReviewsController {
 }
 
 @Controller('repositories')
-@UseGuards(SessionGuard, SubmissionReviewsStaffGuard)
+@UseGuards(SessionGuard)
 export class SubmissionRepositoryPublishingController {
   constructor(private readonly service: SubmissionReviewsService) {}
 

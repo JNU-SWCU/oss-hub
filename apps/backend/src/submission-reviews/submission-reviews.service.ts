@@ -5,6 +5,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { DomainException } from '../common/error-code';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { GithubOperationsError } from '../github/github-app.error';
 import { RepositoryPublishStateError } from '../github/repository/repositories.repository';
 import {
@@ -46,9 +47,18 @@ export class SubmissionReviewsService {
     private readonly repository: SubmissionReviewsRepositoryPort,
     @Inject(RepositoriesService)
     private readonly repositories: Pick<RepositoriesService, 'publish'>,
+    @Inject(UsersAuthorityService)
+    private readonly authority: Pick<
+      UsersAuthorityService,
+      'assertActiveStaff'
+    >,
   ) {}
 
-  async context(submissionId: string): Promise<SubmissionReviewContext> {
+  async context(
+    submissionId: string,
+    actorGithubId: bigint,
+  ): Promise<SubmissionReviewContext> {
+    await this.assertStaff(actorGithubId);
     const context = await this.repository.findReviewContext(submissionId);
     if (context === null) {
       throw new DomainException(
@@ -61,11 +71,12 @@ export class SubmissionReviewsService {
   }
 
   async review(
-    reviewerId: string,
+    actorGithubId: bigint,
     submissionId: string,
     input: CreateSubmissionReviewInput,
     reviewedAt = new Date(),
   ): Promise<SubmissionReviewResult> {
+    const { actorId: reviewerId } = await this.assertStaff(actorGithubId);
     return this.repository.withTransaction(async (store) => {
       const target = await store.findReviewTarget(submissionId);
       if (target === null) {
@@ -121,6 +132,7 @@ export class SubmissionReviewsService {
     actorGithubId: bigint,
     publishedAt = new Date(),
   ): Promise<RepositoryPublishResult> {
+    await this.assertStaff(actorGithubId);
     const eligibility =
       await this.repository.findPublishEligibility(repositoryId);
     if (eligibility === null) {
@@ -182,6 +194,18 @@ export class SubmissionReviewsService {
       visibility: published.visibility,
       publishedAt: published.publishedAt,
     };
+  }
+
+  private assertStaff(actorGithubId: bigint): Promise<{ actorId: string }> {
+    return this.authority.assertActiveStaff(
+      actorGithubId,
+      () =>
+        new DomainException(
+          SUBMISSION_REVIEWS_ERROR_CODES[
+            SubmissionReviewsErrorCode.STAFF_APPROVAL_REQUIRED
+          ],
+        ),
+    );
   }
 }
 
