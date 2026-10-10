@@ -50,10 +50,9 @@ beforeAll(async () => {
       {
         provide: ProgramViewerService,
         useValue: {
-          fromGithubId: jest.fn().mockResolvedValue({
+          studentFromGithubId: jest.fn().mockResolvedValue({
             githubId: 11n,
             userId: 'student-1',
-            role: 'STUDENT',
           }),
         },
       },

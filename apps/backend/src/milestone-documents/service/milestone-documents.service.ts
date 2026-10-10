@@ -379,8 +379,9 @@ export class MilestoneDocumentsService {
     content: MilestoneDocumentContentInput,
     now: Date = new Date(),
   ): Promise<MilestoneDocumentSubmissionResponseDto> {
-    const viewer = await this.repository.findActiveUser(sessionGithubId);
-    if (viewer === null || viewer.hasStaffAccess || viewer.hasAdminAccess) {
+    const viewer =
+      await this.repository.findActiveStudentByGithubId(sessionGithubId);
+    if (viewer === null) {
       throw this.error(MilestoneDocumentsErrorCode.STUDENT_ONLY);
     }
 

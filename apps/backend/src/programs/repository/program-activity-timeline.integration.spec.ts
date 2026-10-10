@@ -128,7 +128,7 @@ it('counts only issues the student opened in the repository linked to the studen
   const timeline = await new ProgramActivityService(
     new ProgramsRepository(prisma),
     new ProgramActivityRepository(prisma),
-  ).activityTimeline({ githubId, userId: studentId, role: 'STUDENT' }, 'MONTH');
+  ).activityTimeline({ githubId, userId: studentId }, 'MONTH');
 
   expect(timeline.series.points).toEqual([
     {
