@@ -6,6 +6,7 @@ import {
   buildMilestoneDocumentCollectionPage,
   type MilestoneDocumentCollectionDocumentRule,
   type MilestoneDocumentCollectionApplicationRule,
+  type MilestoneDocumentCollectionPage,
   type MilestoneDocumentCollectionSubmissionRule,
 } from './milestone-document-collection-page';
 import type { MilestoneDocumentCollectionQuery } from './milestone-document-collection-query';
@@ -13,6 +14,22 @@ import type { MilestoneDocumentCollectionQuery } from './milestone-document-coll
 export interface MilestoneDocumentDeliveryQuery extends MilestoneDocumentCollectionQuery {
   readonly deliveryStatus?: DocumentDeliveryStatus;
 }
+
+type MilestoneDocumentDeliveryPage<
+  TApplication extends MilestoneDocumentCollectionApplicationRule,
+  TSubmission extends MilestoneDocumentCollectionSubmissionRule,
+> = Omit<MilestoneDocumentCollectionPage<TApplication, TSubmission>, 'rows'> & {
+  readonly rows: readonly (MilestoneDocumentCollectionPage<
+    TApplication,
+    TSubmission
+  >['rows'][number] & { readonly deliveryStatus: DocumentDeliveryStatus })[];
+  readonly deliveryCounts: {
+    readonly missing: number;
+    readonly late: number;
+    readonly complete: number;
+    readonly noRequiredItems: number;
+  };
+};
 
 export function buildMilestoneDocumentDeliveryPage<
   TDocument extends MilestoneDocumentCollectionDocumentRule,
@@ -28,7 +45,7 @@ export function buildMilestoneDocumentDeliveryPage<
     readonly dueAt: Date | null;
   },
   query: MilestoneDocumentDeliveryQuery,
-) {
+): MilestoneDocumentDeliveryPage<TApplication, TSubmission> {
   const base = buildMilestoneDocumentCollectionPage(
     source.documents,
     source.applications,
