@@ -7,7 +7,7 @@ import { AuthService } from '../../auth/service/auth.service';
 import { sessionCookieName } from '../../auth/domain/cookies';
 import { issueSessionToken } from '../../auth/domain/session-token';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
 import {
   SubmissionMatrixRepository,
   type SubmissionMatrixRepositoryPort,

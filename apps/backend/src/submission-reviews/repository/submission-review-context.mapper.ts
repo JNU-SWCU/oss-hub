@@ -4,14 +4,14 @@ import {
   Prisma,
   SubmissionFileLifecycle,
 } from '@prisma/client';
-import { requiredMilestonesApproved } from '../milestone-documents/domain/milestone-completion';
-import { repositoryUrlFromNameWithOwner } from '../github/repository-identity';
+import { requiredMilestonesApproved } from '../../milestone-documents/domain/milestone-completion';
+import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity';
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../profiles/user-profile-read';
-import { safeSubmissionFileContentType } from '../submissions/domain/submission-file-content-type';
-import { publicSubmissionId } from '../submissions/domain/submission-public-id';
+} from '../../prisma/user-profile-read';
+import { safeSubmissionFileContentType } from '../../submissions/domain/submission-file-content-type';
+import { publicSubmissionId } from '../../submissions/domain/submission-public-id';
 import {
   APPLICATION_MODES,
   publishBlockedReasons,
@@ -19,7 +19,7 @@ import {
   type SubmissionReviewContext,
   type SubmissionReviewFileRecord,
   type SubmissionRevisionRecord,
-} from './domain/submission-review';
+} from '../domain/submission-review';
 
 export const REVIEW_CONTEXT_SELECT = {
   id: true,

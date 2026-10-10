@@ -2,12 +2,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../prisma/audit-log-transaction-writer';
 import { DomainException } from '../common/error-code';
-import { withSerializationRetry } from '../common/prisma-serialization-retry';
+import { withSerializationRetry } from '../common/repository/prisma-serialization-retry';
 import {
   USER_PROFILE_SELECT,
   resolveUserProfile,
-} from '../profiles/user-profile-read';
-import { upsertUserProfile } from '../profiles/user-profile-write.repository';
+} from '../prisma/user-profile-read';
+import { upsertUserProfile } from '../profiles/repository/user-profile-write.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.enum';
 import type { AdminAccessActor } from './admin-access.repository.types';

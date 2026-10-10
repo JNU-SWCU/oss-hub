@@ -7,7 +7,7 @@ import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileDepartment,
   resolveUserProfileName,
-} from '../../profiles/user-profile-read';
+} from '../../prisma/user-profile-read';
 
 export type RankingViewerClass = 'public' | 'member' | 'staff';
 

@@ -20,7 +20,7 @@ import { AuthService } from '../service/auth.service';
 import { sessionCookieName } from '../domain/cookies';
 import type { AuthUser } from '../domain/auth-user';
 import { issueSessionToken } from '../domain/session-token';
-import { ProblemDetailFilter } from '../../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
 import { PrismaModule } from '../../prisma/prisma.module';
 
 const sessionSecret = new Uint8Array(randomBytes(32));

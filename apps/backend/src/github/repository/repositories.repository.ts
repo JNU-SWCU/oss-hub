@@ -118,10 +118,6 @@ function toOwnedRepository(row: {
   };
 }
 
-export class RepositoryPublishStateError extends Error {
-  override readonly name = 'RepositoryPublishStateError';
-}
-
 export interface RepositoriesTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   claimProvisionEvent(

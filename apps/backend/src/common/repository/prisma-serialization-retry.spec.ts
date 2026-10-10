@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { DomainException } from './error-code';
+import { DomainException } from '../error-code';
 import { withSerializationRetry } from './prisma-serialization-retry';
 
 function serializationFailure(): Prisma.PrismaClientKnownRequestError {

@@ -4,14 +4,14 @@ import {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
-import { DomainException } from '../common/error-code';
-import { UsersAuthorityService } from '../users/service/authority.service';
-import { GithubOperationsError } from '../github/github-app.error';
-import { RepositoryPublishStateError } from '../github/repository/repositories.repository';
+import { DomainException } from '../../common/error-code';
+import { UsersAuthorityService } from '../../users/service/authority.service';
+import { GithubOperationsError } from '../../github/github-app.error';
+import { RepositoryPublishStateError } from '../../github/domain/repository-publish-state.error';
 import {
   RepositoriesService,
   RepositoryNotFoundError,
-} from '../github/service/repositories.service';
+} from '../../github/service/repositories.service';
 import {
   publishBlockedReasons,
   type CreateSubmissionReviewInput,
@@ -19,15 +19,15 @@ import {
   type RepositoryPublishResult,
   type SubmissionReviewContext,
   type SubmissionReviewResult,
-} from './domain/submission-review';
+} from '../domain/submission-review';
 import {
   SubmissionReviewsRepository,
   type SubmissionReviewsRepositoryPort,
-} from './submission-reviews.repository';
+} from '../repository/submission-reviews.repository';
 import {
   SUBMISSION_REVIEWS_ERROR_CODES,
   SubmissionReviewsErrorCode,
-} from './submission-reviews-error-code.enum';
+} from '../domain/submission-reviews-error-code.enum';
 
 const PUBLISH_BLOCKED_ERROR_CODES = {
   REPOSITORY_NOT_READY: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY,

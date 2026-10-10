@@ -9,9 +9,9 @@ import {
 import type { GithubAppClient } from '../github-app.client';
 import {
   RepositoriesRepository,
-  RepositoryPublishStateError,
   type RepositoryPublishTarget,
 } from '../repository/repositories.repository';
+import { RepositoryPublishStateError } from '../domain/repository-publish-state.error';
 
 export class RepositoryNotFoundError extends Error {
   override readonly name = 'RepositoryNotFoundError';

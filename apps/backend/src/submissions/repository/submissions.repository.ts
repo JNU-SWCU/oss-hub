@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { STUDENT_MEMBER_WHERE } from '../../profiles/user-profile-read';
+import { STUDENT_MEMBER_WHERE } from '../../prisma/user-profile-read';
 import {
   AccountStatus,
   MilestoneDocumentKind,

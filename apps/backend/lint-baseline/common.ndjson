@@ -1,1 +1,0 @@
-{"file":"apps/backend/src/common/prisma-serialization-retry.ts","ruleId":"no-restricted-imports","target":"allowedImportNameWithCustomMessage:ImportDeclaration:e4b88de2-3274e99c-a98b822e-9f304564-c85d9633-3a5d35bb-218b9565-4a03c7ab:occurrence:1"}

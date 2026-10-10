@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
-import { normalizeMultipartFileName } from '../common/multipart-file-name';
+import { normalizeMultipartFileName } from '../common/domain/multipart-file-name';
 import {
   isAllowedSubmissionFileType,
   safeSubmissionFileContentType,

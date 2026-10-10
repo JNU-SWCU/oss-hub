@@ -1,4 +1,4 @@
-import type { ErrorCode } from '../common/error-code';
+import type { ErrorCode } from '../../common/error-code';
 
 export const SubmissionReviewsErrorCode = {
   SUBMISSION_NOT_FOUND: 'SUB_001',

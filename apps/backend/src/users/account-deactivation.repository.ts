@@ -5,7 +5,7 @@ import {
   StaffAccessRequestStatus,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../prisma/audit-log-transaction-writer';
-import { resolveUserProfileName } from '../profiles/user-profile-read';
+import { resolveUserProfileName } from '../prisma/user-profile-read';
 import { PrismaService } from '../prisma/prisma.service';
 import { authorityLabel, type AuthorityLabel } from './domain/authority-label';
 import { lockActiveAdminRows } from './admin-actor-locks';

@@ -4,7 +4,7 @@ import { Test } from '@nestjs/testing';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
 import { SubmissionFileCleanupFailuresController } from './submission-file-cleanup-failures.controller';
 import { SubmissionFileCleanupFailuresService } from '../service/submission-file-cleanup-failures.service';
 

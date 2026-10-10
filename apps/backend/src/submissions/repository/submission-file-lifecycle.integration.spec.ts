@@ -15,7 +15,7 @@ import { runProfile } from '../../../prisma/seed';
 import { seedGithubId, seedId, SeedStats } from '../../../prisma/seeds/helpers';
 import { MILESTONE_SCENARIOS } from '../../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { addOneCalendarYear } from '../../common/add-one-calendar-year';
+import { addOneCalendarYear } from '../../common/domain/add-one-calendar-year';
 import { PrismaService } from '../../prisma/prisma.service';
 import { S3ObjectStorage } from '../../storage/gateway/s3-object.storage';
 import { ObjectStorageConfig } from '../../storage/object-storage.config';

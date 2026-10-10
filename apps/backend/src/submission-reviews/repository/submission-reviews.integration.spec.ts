@@ -9,13 +9,13 @@ import {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
-import { AuditLogRepository } from '../audit-log/repository/audit-log.repository';
-import { AuditLogService } from '../audit-log/service/audit-log.service';
-import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../audit-log/domain/audit-log-metadata';
+import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
+import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../../audit-log/domain/audit-log-metadata';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
-} from '../github/repository-identity';
+} from '../../github/repository-identity';
 import {
   prisma as seedPrisma,
   seedGithubId,
@@ -23,21 +23,21 @@ import {
   seedNameWithOwner,
   seedRepositoryId,
   SeedStats,
-} from '../../prisma/seeds/helpers';
-import { seedMilestones } from '../../prisma/seeds/milestones';
-import { seedRepositories } from '../../prisma/seeds/repositories';
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { PrismaService } from '../prisma/prisma.service';
-import type { GithubAppClient } from '../github/github-app.client';
-import { BarrierRepositoriesRepository } from '../github/repositories.integration-support';
-import { RepositoriesRepository } from '../github/repository/repositories.repository';
-import { RepositoriesService } from '../github/service/repositories.service';
-import { PublicProjectsRepository } from '../programs/archive/public-projects/public-projects.repository';
-import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.enum';
+} from '../../../prisma/seeds/helpers';
+import { seedMilestones } from '../../../prisma/seeds/milestones';
+import { seedRepositories } from '../../../prisma/seeds/repositories';
+import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
+import { PrismaService } from '../../prisma/prisma.service';
+import type { GithubAppClient } from '../../github/github-app.client';
+import { BarrierRepositoriesRepository } from '../../github/repositories.integration-support';
+import { RepositoriesRepository } from '../../github/repository/repositories.repository';
+import { RepositoriesService } from '../../github/service/repositories.service';
+import { PublicProjectsRepository } from '../../programs/archive/public-projects/public-projects.repository';
+import { SubmissionReviewsErrorCode } from '../domain/submission-reviews-error-code.enum';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
-import { SubmissionReviewsService } from './submission-reviews.service';
-import { UsersAuthorityService } from '../users/service/authority.service';
-import { UsersAuthorityRepository } from '../users/repository/authority.repository';
+import { SubmissionReviewsService } from '../service/submission-reviews.service';
+import { UsersAuthorityService } from '../../users/service/authority.service';
+import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
