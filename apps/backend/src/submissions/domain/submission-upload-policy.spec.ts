@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { isAllowedSubmissionFileType } from './submission-file-content-type';
 import { MAX_FILE_BYTES } from '../service/submission-files.service';
-import { PROGRAM_AUTHORING_UPLOAD_MAX_BYTES } from '../../programs/program-authoring-upload.validation';
+import { PROGRAM_AUTHORING_UPLOAD_MAX_BYTES } from '../../programs/domain/program-authoring-upload.validation';
 import {
   SUBMISSION_UPLOAD_ACCEPT,
   SUBMISSION_UPLOAD_FORMAT_LABEL,

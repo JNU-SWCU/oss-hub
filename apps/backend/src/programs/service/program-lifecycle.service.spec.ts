@@ -7,7 +7,7 @@ import type { ProgramDeletionScopeCounts } from '../domain/program-deletion-scop
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from '../program-error-code.enum';
+} from '../domain/program-error-code.enum';
 import { ProgramLifecycleRepository } from '../repository/program-lifecycle.repository';
 import { ProgramLifecycleService } from './program-lifecycle.service';
 

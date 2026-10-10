@@ -5,7 +5,7 @@ import { APPLICATION_ANSWER_MAX_LENGTHS } from './application-answer-limits';
 
 const VALIDATOR_PATH = path.resolve(
   __dirname,
-  '../../../../backend/src/programs/application-answers.validator.ts',
+  '../../../../backend/src/programs/domain/application-answers.validator.ts',
 );
 const source = readFileSync(VALIDATOR_PATH, 'utf-8');
 

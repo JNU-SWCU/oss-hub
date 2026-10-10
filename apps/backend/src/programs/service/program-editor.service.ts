@@ -15,25 +15,25 @@ import {
   fingerprintProgramMilestoneEdit,
   preflightProgramMilestoneEditDocuments,
   ProgramMilestoneEditValidationError,
-} from '../program-milestone-edit';
+} from '../domain/program-milestone-edit';
 import {
   ProgramAuthoringUploadTokenError,
   type ProgramAuthoringUploadToken,
-} from '../program-authoring.types';
+} from '../domain/program-authoring.types';
 import { ProgramAuthoringValidationError } from '../domain/program-authoring-validation';
-import { validateProgramCoverChoice } from '../program-external-cover';
-import { isProgramEndAtUndecided } from '../program-end-at';
+import { validateProgramCoverChoice } from '../domain/program-external-cover';
+import { isProgramEndAtUndecided } from '../domain/program-end-at';
 import type {
   ProgramAuthority,
   ProgramEditorTransactionStore,
   ProgramMilestoneInput,
   ProgramMilestoneEditView,
   LockedProgramMilestoneEdit,
-} from '../program-editor.types';
+} from '../domain/program-editor.types';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from '../program-error-code.enum';
+} from '../domain/program-error-code.enum';
 
 const INVALID_APPLICATION_PERIOD_FIELD_ERRORS = [
   {

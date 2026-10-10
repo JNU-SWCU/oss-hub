@@ -5,7 +5,7 @@ import type {
   RenamedTeamView,
   StaffTeamView,
   TeamMemberView,
-} from '../program-teams.types';
+} from '../domain/program-teams.types';
 
 export class CreateTeamResponseDto {
   readonly id: string;

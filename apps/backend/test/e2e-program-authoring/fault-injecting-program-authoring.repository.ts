@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ProgramAuthoringRepository } from '../../src/programs/program-authoring.repository';
+import { ProgramAuthoringRepository } from '../../src/programs/repository/program-authoring.repository';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import type { ProgramAuthoringTransactionStore } from '../../src/programs/repository/program-authoring-transaction';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';

@@ -4,8 +4,8 @@
 ## 경계와 조립
 
 - 이 폴더는 인증 없는 `GET /projects`, `/projects/years`, `/projects/:projectId`, `/users/:userId/public-profile` read API만 소유한다.
-- 조립 원본은 `public-projects.module.ts`다. 후보 행은 `public-projects.repository.ts`, 응답 조합은 `public-projects.service.ts`, HTTP 변환은 `dto/`에 둔다.
-- 공개 가능성 판단은 `../public-eligibility/public-eligibility.service.ts`의 단일 책임이다. 이 폴더에서 Collection freshness 조건을 재구현하지 않는다.
+- 조립 원본은 `public-projects.module.ts`다. 후보 행은 `repository/public-projects.repository.ts`, 응답 조합은 `service/public-projects.service.ts`, HTTP 변환은 `dto/`에 둔다.
+- 공개 가능성 판단은 `../public-eligibility/service/public-eligibility.service.ts`의 단일 책임이다. 이 폴더에서 Collection freshness 조건을 재구현하지 않는다.
 - 누적 지표·기여자 조회는 `repository/public-project-metrics.repository.ts`의 배치 API만 사용한다. 행 또는 기여자별 조회를 추가하지 않는다.
 
 ## 공개 투영 규칙
@@ -18,15 +18,15 @@
 
 ## 페이징과 라우팅
 
-- `public-project-cursor.ts`의 인증 암호화 cursor를 그대로 사용한다. `RUNTIME_CONFIG.SESSION_SECRET`에서 키를 파생하는 fail-closed 경로를 평문 또는 새 환경변수 fallback으로 바꾸지 않는다.
+- `service/public-project-cursor.ts`의 인증 암호화 cursor를 그대로 사용한다. `RUNTIME_CONFIG.SESSION_SECRET`에서 키를 파생하는 fail-closed 경로를 평문 또는 새 환경변수 fallback으로 바꾸지 않는다.
 - 목록은 `(publishedAt desc, id desc)` keyset과 `pageSize + 1` lookahead를 쓴다. 다음 cursor는 eligibility 전 마지막 raw 행에서 만들며 fence 때문에 짧은 페이지가 가능하다.
-- `years`는 `:projectId`보다 먼저 `public-projects.controller.ts`에 등록한다.
-- 공개 프로필 경로는 `public-user-profile.controller.ts`의 `:userId/public-profile` 형태를 유지한다. `/users/me/profile`과 겹치는 param 경로를 만들지 않는다.
+- `years`는 `:projectId`보다 먼저 `controller/public-projects.controller.ts`에 등록한다.
+- 공개 프로필 경로는 `controller/public-user-profile.controller.ts`의 `:userId/public-profile` 형태를 유지한다. `/users/me/profile`과 겹치는 param 경로를 만들지 않는다.
 
 ## 변경별 검증 기준
 
-- projection·동일 404·상수 쿼리 수 변경은 `public-projects.service.spec.ts`와 `public-projects.repository.spec.ts`를 갱신한다.
-- Prisma 경계·실제 후보 필터는 `public-projects.repository.integration.spec.ts`에서, cursor 보안·순서는 `public-project-cursor.spec.ts`에서 고정한다.
-- HTTP DTO·캐시·라우팅 변경은 `public-projects.controller.spec.ts`, `public-user-profile.controller.spec.ts`, `public-user-profile-route.http.spec.ts`를 확인한다.
-- 공개 프로필 eligibility와 지표 변경은 `public-user-profile.integration.spec.ts`를 함께 다룬다.
+- projection·동일 404·상수 쿼리 수 변경은 `service/public-projects.service.spec.ts`와 `repository/public-projects.repository.spec.ts`를 갱신한다.
+- Prisma 경계·실제 후보 필터는 `repository/public-projects.repository.integration.spec.ts`에서, cursor 보안·순서는 `service/public-project-cursor.spec.ts`에서 고정한다.
+- HTTP DTO·캐시·라우팅 변경은 `controller/public-projects.controller.spec.ts`, `controller/public-user-profile.controller.spec.ts`, `controller/public-user-profile-route.http.spec.ts`를 확인한다.
+- 공개 프로필 eligibility와 지표 변경은 `repository/public-user-profile.integration.spec.ts`를 함께 다룬다.
 <!-- /init:managed id=backend-programs-public-projects -->

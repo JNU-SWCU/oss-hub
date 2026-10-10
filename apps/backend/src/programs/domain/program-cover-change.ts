@@ -1,4 +1,4 @@
-import type { ProgramExternalCover } from '../program-external-cover';
+import type { ProgramExternalCover } from './program-external-cover';
 
 export type ProgramCoverChange = {
   readonly actorId: string;

@@ -24,7 +24,7 @@ import {
   checkApplicationTemplateVersion,
   applicationAnswerTooLongMessage,
   normalizeAndValidateApplicationAnswers,
-} from '../../programs/application-answers.validator';
+} from '../../programs/domain/application-answers.validator';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,

@@ -2,7 +2,7 @@ import { IsIn } from 'class-validator';
 import {
   ACTIVITY_GRANULARITIES,
   type ActivityGranularity,
-} from '../program-activity-granularity';
+} from '../domain/program-activity-granularity';
 
 export class ActivityTimelineQueryRequestDto {
   @IsIn(ACTIVITY_GRANULARITIES)

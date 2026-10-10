@@ -18,14 +18,14 @@ import type {
   ApplicationSubmissionSummaryResponseDto,
   ProgramDetailResponseDto,
 } from '../dto/program-detail.dto';
-import { programDeadline } from '../program-deadline';
-import { programCoverImageUrl } from '../program-cover';
-import type { ProgramListQuery } from '../program-list-query';
-import { PROGRAM_ERROR_CODES } from '../program-error-code';
+import { programDeadline } from '../domain/program-deadline';
+import { programCoverImageUrl } from '../domain/program-cover';
+import type { ProgramListQuery } from '../domain/program-list-query';
+import { PROGRAM_ERROR_CODES } from '../domain/program-error-code';
 import {
   getTemplateByKey,
   PROGRAM_PARTICIPATION,
-} from '../program-template.registry';
+} from '../domain/program-template.registry';
 import type { ProgramViewer } from './program-viewer.service';
 import { ProgramsRepository } from '../repository/programs.repository';
 import { type ProgramStatusCounts } from '../domain/program-list-status';

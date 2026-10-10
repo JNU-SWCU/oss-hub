@@ -6,7 +6,10 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service';
-import { hasProgramDeadlinePassed, programDeadline } from '../program-deadline';
+import {
+  hasProgramDeadlinePassed,
+  programDeadline,
+} from '../domain/program-deadline';
 import type { ProgramViewer } from './program-viewer.service';
 import { ProgramsRepository } from '../repository/programs.repository';
 import { ProgramsService } from './programs.service';

@@ -1,5 +1,5 @@
 import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
-import type { ProgramExternalCover } from '../program-external-cover';
+import type { ProgramExternalCover } from '../domain/program-external-cover';
 import type {
   ProgramAuthoringProgramPlan,
   ProgramAuthoringUploadToken,
@@ -8,7 +8,7 @@ import type {
   ProgramAuthoringMilestonePlan,
   ProgramAuthoringDocumentPlan,
   ProgramAuthoringTemplateInput,
-} from '../program-authoring.types';
+} from '../domain/program-authoring.types';
 
 export interface ProgramAuthoringTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;

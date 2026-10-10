@@ -8,7 +8,7 @@ import type { UpdateProgramRequestDto } from '../src/programs/dto/program-author
 import type { UpsertMilestoneRequestDto } from '../src/programs/dto/upsert-milestone-request.dto';
 import { ProgramEditorService } from '../src/programs/service/program-editor.service';
 import type { ProgramEditorRepository } from '../src/programs/repository/program-editor.repository';
-import type { ProgramEditorTransactionStore } from '../src/programs/program-editor.types';
+import type { ProgramEditorTransactionStore } from '../src/programs/domain/program-editor.types';
 
 export const updateInput: UpdateProgramRequestDto = {
   name: '  Updated OSS  ',

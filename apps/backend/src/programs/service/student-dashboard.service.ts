@@ -18,7 +18,7 @@ import {
   milestoneCompletionStatus,
   type MilestoneCompletionStatus,
 } from '../../milestone-documents/domain/milestone-completion';
-import { programCoverImageUrl } from '../program-cover';
+import { programCoverImageUrl } from '../domain/program-cover';
 import { RepositoriesReadService } from '../../github/service/repositories-read.service';
 import { projectSubmissionCompletionTargets } from '../../submissions/domain/submission-completion-projection';
 import {

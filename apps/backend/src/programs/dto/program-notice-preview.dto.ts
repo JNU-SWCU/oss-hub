@@ -2,7 +2,7 @@ import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import type {
   ProgramNoticePreview,
   ProgramNoticeWarning,
-} from '../program-notice-extraction';
+} from '../domain/program-notice-extraction';
 
 export class ProgramNoticePreviewRequestDto {
   @IsString()

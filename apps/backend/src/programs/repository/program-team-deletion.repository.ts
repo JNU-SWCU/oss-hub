@@ -3,7 +3,7 @@ import { Prisma, SubmissionFileLifecycle } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
 import { isSerializationFailure } from '../../common/repository/prisma-serialization-retry';
 import { PrismaService } from '../../prisma/prisma.service';
-import { readTeamDeletionScopeCounts } from '../team-deletion-scope';
+import { readTeamDeletionScopeCounts } from './team-deletion-scope';
 import {
   sameTeamDeletionScopeCountValues,
   sameTeamDeletionScopeCounts,

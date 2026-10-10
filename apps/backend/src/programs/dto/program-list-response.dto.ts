@@ -1,5 +1,5 @@
 import { type ApplicationStatus } from '@prisma/client';
-import { programCoverImageUrl } from '../program-cover';
+import { programCoverImageUrl } from '../domain/program-cover';
 import type {
   PersonalizedProgramListItem,
   ProgramListItemNote,

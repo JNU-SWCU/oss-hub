@@ -8,7 +8,7 @@ import type {
   TeamRepositoryEvidenceView,
   RepositoryUrlHistoryCursor,
   RepositoryUrlHistoryPage,
-} from '../program-team-repository-evidence.types';
+} from '../domain/program-team-repository-evidence.types';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -38,7 +38,7 @@ import type {
   TeamApplicationView,
   TeamRepositoryProvisioningJobStatus,
   TeamRepositoryProvisioningSafeErrorClass,
-} from '../program-teams.types';
+} from '../domain/program-teams.types';
 
 export interface TeamStudentActor {
   readonly id: string;

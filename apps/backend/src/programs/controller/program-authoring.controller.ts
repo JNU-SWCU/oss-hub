@@ -25,19 +25,19 @@ import { ProgramAuthoringUploadPolicyResponseDto } from '../dto/program-authorin
 import {
   ProgramAuthoringForbiddenError,
   ProgramAuthoringService,
-} from '../program-authoring.service';
+} from '../service/program-authoring.service';
 import {
   ProgramAuthoringIdempotencyConflictError,
   ProgramAuthoringUploadTokenError,
-} from '../program-authoring.types';
+} from '../domain/program-authoring.types';
 import { ProgramAuthoringValidationError } from '../domain/program-authoring-validation';
-import { ProgramAuthoringUploadService } from '../program-authoring-upload.service';
+import { ProgramAuthoringUploadService } from '../service/program-authoring-upload.service';
 import {
   ProgramAuthoringUploadError,
   type ProgramAuthoringUploadFile,
-} from '../program-authoring-upload.types';
+} from '../domain/program-authoring-upload.types';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../../submissions/domain/submission-upload-policy';
-import { PROGRAM_COVER_MAX_BYTES } from '../program-cover';
+import { PROGRAM_COVER_MAX_BYTES } from '../domain/program-cover';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

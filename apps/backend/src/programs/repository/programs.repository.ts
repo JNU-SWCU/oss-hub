@@ -18,7 +18,7 @@ import {
   submissionCompletionTargetSelect,
   type SubmissionCompletionTargetRow,
 } from '../../submissions/domain/submission-completion-projection';
-import type { ProgramListQuery } from '../program-list-query';
+import type { ProgramListQuery } from '../domain/program-list-query';
 import {
   emptyProgramStatusCounts,
   type ProgramStatusCounts,
@@ -28,7 +28,7 @@ import {
   programListPrismaWhere,
   programListSqlWhere,
   programStatusCountsSql,
-} from '../program-list-status-filter';
+} from './program-list-status-filter';
 import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
 
 export interface ProgramApplicationCounts {

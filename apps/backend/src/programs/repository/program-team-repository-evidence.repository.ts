@@ -9,7 +9,7 @@ import type {
   RepositoryUrlHistoryPage,
   RepositoryUrlHistoryCursor,
   RepositoryUrlHistoryView,
-} from '../program-team-repository-evidence.types';
+} from '../domain/program-team-repository-evidence.types';
 import {
   APPLICATION_REPOSITORY_URL_CHANGED,
   parseApplicationRepositoryUrlAuditMetadata,

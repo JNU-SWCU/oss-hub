@@ -15,7 +15,7 @@ import {
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from '../program-error-code.enum';
+} from '../domain/program-error-code.enum';
 import type { ProgramPurgeResult } from '../domain/program-purge';
 import {
   isForeignKeyConflict,

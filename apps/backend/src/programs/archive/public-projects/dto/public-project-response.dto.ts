@@ -6,7 +6,7 @@ import type {
   PublicProjectPageResult,
   PublicUserProfileProjectResult,
   PublicUserProfileResult,
-} from '../public-project-result';
+} from '../domain/public-project-result';
 import type { PublicProjectRow } from '../domain/public-project-record';
 
 enum PublicProjectApplicationMode {

@@ -9,9 +9,9 @@ import { MilestoneDocumentFilesService } from '../../src/milestone-documents/ser
 import { MilestoneDocumentsService } from '../../src/milestone-documents/service/milestone-documents.service';
 import { DeadlineDigestService } from '../../src/notifications/service/deadline-digest.service';
 import type { DeadlineDigestSendRequest } from '../../src/notifications/domain/deadline-digest';
-import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
-import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/program-authoring-upload-maintenance.service';
-import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';
+import { ProgramAuthoringService } from '../../src/programs/service/program-authoring.service';
+import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/service/program-authoring-upload-maintenance.service';
+import { ProgramAuthoringUploadService } from '../../src/programs/service/program-authoring-upload.service';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { SubmissionFileCleanupService } from '../../src/submissions/service/submission-file-cleanup.service';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';

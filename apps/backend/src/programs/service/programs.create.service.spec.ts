@@ -11,7 +11,7 @@ import type { CreateProgramRequestDto } from '../dto/create-program-request.dto'
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from '../program-error-code.enum';
+} from '../domain/program-error-code.enum';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramsRepository } from '../repository/programs.repository';
 

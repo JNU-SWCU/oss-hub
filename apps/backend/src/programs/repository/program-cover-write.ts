@@ -3,13 +3,13 @@ import { ProgramAuthoringUploadLifecycle, type Prisma } from '@prisma/client';
 import {
   assertAttachableProgramAuthoringUploads,
   lockProgramAuthoringUploads,
-} from '../program-authoring-upload-transaction';
+} from './program-authoring-upload-transaction';
 import {
   ProgramAuthoringUploadConsumptionRaceError,
   type ProgramAuthoringUploadToken,
-} from '../program-authoring.types';
-import { assertProgramCoverUpload } from '../program-cover';
-import type { ProgramExternalCover } from '../program-external-cover';
+} from '../domain/program-authoring.types';
+import { assertProgramCoverUpload } from '../domain/program-cover';
+import type { ProgramExternalCover } from '../domain/program-external-cover';
 
 export async function replaceProgramCover(
   transaction: Prisma.TransactionClient,
