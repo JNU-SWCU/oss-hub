@@ -39,7 +39,7 @@ export function YearLinks({
   );
 }
 
-export function YearLink({
+function YearLink({
   href,
   current,
   children,

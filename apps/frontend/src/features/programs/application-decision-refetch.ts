@@ -18,7 +18,7 @@ export function decisionInputFor(
   return trimmed === '' ? null : { action: 'REJECT', reason: trimmed };
 }
 
-export type DecisionOutcome =
+type DecisionOutcome =
   | { readonly kind: 'applied' }
   | { readonly kind: 'stale' }
   | { readonly kind: 'gone' }

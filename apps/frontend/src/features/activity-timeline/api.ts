@@ -6,7 +6,7 @@ import type {
   ActivityTimeline,
 } from './types';
 
-export class ActivityTimelineResponseError extends Error {
+class ActivityTimelineResponseError extends Error {
   constructor() {
     super('활동 타임라인 응답 형식이 올바르지 않습니다.');
     this.name = 'ActivityTimelineResponseError';

@@ -4,17 +4,14 @@ import type {
   ProgramDetail,
 } from './types';
 
-export const PROGRAM_CATEGORIES = [
-  'BASIC',
-  'SW_VALUE_SPREAD',
-  'OSS_CONTEST',
-  'CAPSTONE',
-  'SW_CONVERGENCE',
-  'GLOBAL_MAKERTHON',
-  'CORPORATE_INTERNSHIP',
-] as const;
-
-type ProgramCategory = (typeof PROGRAM_CATEGORIES)[number];
+type ProgramCategory =
+  | 'BASIC'
+  | 'SW_VALUE_SPREAD'
+  | 'OSS_CONTEST'
+  | 'CAPSTONE'
+  | 'SW_CONVERGENCE'
+  | 'GLOBAL_MAKERTHON'
+  | 'CORPORATE_INTERNSHIP';
 
 export const PROGRAM_TRACK_TYPES = ['CURRICULAR', 'EXTRACURRICULAR'] as const;
 
@@ -98,25 +95,4 @@ export function resolveProgramApplicationTemplate(
       (item) => item.template.key === program.applicationTemplateKey,
     )?.template ?? null
   );
-}
-
-export function mergeTemplateFieldsFromApi(
-  definitions: readonly ProgramTemplateDefinition[],
-  apiTemplates: readonly ApplicationFormTemplate[],
-): readonly ProgramTemplateDefinition[] {
-  const byKey = new Map(apiTemplates.map((item) => [item.key, item]));
-  return definitions.map((definition) => {
-    const fromApi = byKey.get(definition.template.key);
-    if (!fromApi) return definition;
-    return {
-      ...definition,
-      template: {
-        key: fromApi.key,
-        version: fromApi.version,
-        name: fromApi.name,
-        participation: fromApi.participation,
-        fields: fromApi.fields,
-      },
-    };
-  });
 }

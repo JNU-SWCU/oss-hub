@@ -8,7 +8,7 @@ import type {
 
 export const ADMIN_PROFILE_NAME_MAX_LENGTH = 100;
 export const ADMIN_PROFILE_DEPARTMENT_MAX_LENGTH = 100;
-export const ADMIN_PROFILE_STUDENT_ID_PATTERN = /^\d{6}$/;
+const ADMIN_PROFILE_STUDENT_ID_PATTERN = /^\d{6}$/;
 
 export function isValidAdminProfileName(name: string): boolean {
   return name.trim().length > 0 && name.length <= ADMIN_PROFILE_NAME_MAX_LENGTH;

@@ -10,6 +10,3 @@ export const PROGRAM_EDIT_ERROR_CODES = {
   MILESTONE_REQUIRED: 'PRG_010',
   MILESTONE_EDIT_CHANGED: 'PRG_016',
 } as const;
-
-export type ProgramEditErrorCode =
-  (typeof PROGRAM_EDIT_ERROR_CODES)[keyof typeof PROGRAM_EDIT_ERROR_CODES];

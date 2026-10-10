@@ -108,7 +108,7 @@ export function milestoneDocumentCollectionPageState(input: {
   };
 }
 
-export function isSameMilestoneDocumentCollectionQuery(
+function isSameMilestoneDocumentCollectionQuery(
   a: MilestoneDocumentCollectionQueryInput,
   b: MilestoneDocumentCollectionQueryInput,
 ): boolean {

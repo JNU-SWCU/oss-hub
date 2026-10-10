@@ -1,6 +1,6 @@
 import { apiClient } from './api-client';
 
-export type RepositoryVisibility = 'PRIVATE' | 'PUBLIC';
+type RepositoryVisibility = 'PRIVATE' | 'PUBLIC';
 
 export type PublishBlockedReason =
   | 'REPOSITORY_NOT_READY'

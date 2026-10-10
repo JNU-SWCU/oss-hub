@@ -1,5 +1,5 @@
 export type ActivityGranularity = 'MONTH' | 'YEAR';
-export type ActivityApplicationMode = 'PERSONAL' | 'TEAM';
+type ActivityApplicationMode = 'PERSONAL' | 'TEAM';
 
 export interface ActivityProgram {
   readonly programId: string;

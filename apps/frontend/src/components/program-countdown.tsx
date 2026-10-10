@@ -17,9 +17,7 @@ export {
   formatCountdownDate,
   remainingUntil,
 } from './program-countdown-time';
-export type { RemainingTime } from './program-countdown-time';
-
-export interface SingleCountdownProps {
+interface SingleCountdownProps {
   readonly mode?: 'single';
   readonly nextMilestoneLabel: string;
 
@@ -30,7 +28,7 @@ export interface SingleCountdownProps {
   readonly untilLabel?: string;
 }
 
-export interface ProgramScheduleCountdownProps {
+interface ProgramScheduleCountdownProps {
   readonly mode: 'program';
   readonly milestones: readonly CountdownMilestone[];
   readonly now?: Date;

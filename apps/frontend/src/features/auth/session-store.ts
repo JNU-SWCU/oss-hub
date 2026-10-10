@@ -4,8 +4,7 @@ import { fetchSession } from './api';
 import { ApiError } from '@/lib/api-client';
 import type { Me } from './types';
 
-export type AuthSessionStatus =
-  'loading' | 'error' | 'anonymous' | 'authenticated';
+type AuthSessionStatus = 'loading' | 'error' | 'anonymous' | 'authenticated';
 
 export interface AuthSessionState {
   readonly status: AuthSessionStatus;

@@ -1,5 +1,4 @@
-export type AuthRole = 'STUDENT' | 'STAFF' | 'ADMIN';
-export type MemberKind = 'STUDENT' | 'STAFF';
+type MemberKind = 'STUDENT' | 'STAFF';
 
 export interface Me {
   readonly nickname: string;

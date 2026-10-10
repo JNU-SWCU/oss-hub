@@ -1,7 +1,7 @@
 import { apiClient } from '@/lib/api-client';
 import type { ViewerRole } from './types';
 
-export interface ProgramOverviewMilestoneDocument {
+interface ProgramOverviewMilestoneDocument {
   readonly milestoneId: string;
   readonly title: string;
   readonly completed: number;
@@ -41,7 +41,7 @@ class ProgramOverviewResponseError extends Error {
   }
 }
 
-export function parseProgramOverview(value: unknown): ProgramOverview {
+function parseProgramOverview(value: unknown): ProgramOverview {
   if (typeof value !== 'object' || value === null) {
     throw new ProgramOverviewResponseError();
   }

@@ -3,7 +3,7 @@ import { apiClient, apiPath } from '@/lib/api-client';
 import type { MilestoneDocumentSubmissionStatus } from './milestone-document-api';
 import type { MilestoneDocumentReviewDecision } from './milestone-document-review-api';
 
-export interface MilestoneDocumentCollectionMilestone {
+interface MilestoneDocumentCollectionMilestone {
   readonly id: string;
 
   readonly programId: string;
@@ -19,12 +19,12 @@ export interface MilestoneDocumentCollectionDocument {
   readonly sortOrder: number;
 }
 
-export interface MilestoneDocumentCollectionFile {
+interface MilestoneDocumentCollectionFile {
   readonly name: string;
   readonly sizeBytes: number;
 }
 
-export interface MilestoneDocumentCollectionReview {
+interface MilestoneDocumentCollectionReview {
   readonly id: string;
   readonly decision: MilestoneDocumentReviewDecision;
   readonly comment: string | null;
@@ -33,7 +33,7 @@ export interface MilestoneDocumentCollectionReview {
   readonly resubmissionDueAt: string | null;
 }
 
-export type MilestoneDocumentCollectionHistoryEvent =
+type MilestoneDocumentCollectionHistoryEvent =
   'SUBMITTED' | 'RESUBMITTED' | MilestoneDocumentReviewDecision;
 
 export interface MilestoneDocumentCollectionHistory {

@@ -199,4 +199,4 @@ function DataTable<TRow>({
 }
 
 export { DataTable };
-export type { DataTableColumn, DataTableProps };
+export type { DataTableColumn };

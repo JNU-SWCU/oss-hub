@@ -4,7 +4,7 @@ import type { MilestoneDocumentHistoryPage } from './milestone-document-collecti
 export type MilestoneDocumentSubmissionStatus =
   'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 
-export interface MilestoneDocumentViewerReview {
+interface MilestoneDocumentViewerReview {
   readonly comment: string | null;
   readonly reviewedAt: string;
 
@@ -30,7 +30,7 @@ export interface MilestoneDocumentViewerSubmission {
   };
 }
 
-export interface MilestoneDocumentTeamSubmissionCount {
+interface MilestoneDocumentTeamSubmissionCount {
   readonly submitted: number;
   readonly total: number;
 }
@@ -55,13 +55,6 @@ export interface UploadedMilestoneDocumentFile {
   readonly contentType: string;
   readonly size: number;
   readonly expiresAt: string;
-}
-
-export interface UploadedMilestoneDocumentTemplate {
-  readonly documentId: string;
-  readonly hasTemplateFile: true;
-  readonly fileName: string;
-  readonly uploadedAt: string;
 }
 
 export interface MilestoneDocumentUploadPolicy {

@@ -166,26 +166,6 @@ export function applyAdminAccessDecidedRequestToHistory(
   };
 }
 
-const SELF_DEACTIVATION_FORBIDDEN_CODE = 'ROL_017';
-const LAST_ACTIVE_ADMIN_REQUIRED_CODE = 'ROL_018';
-
-export type AdminAccessMutationBlockKind =
-  'SELF_DEACTIVATION' | 'LAST_ACTIVE_ADMIN' | null;
-
-export function classifyAdminAccessMutationBlock(
-  error: unknown,
-): AdminAccessMutationBlockKind {
-  if (!(error instanceof ApiError)) return null;
-  switch (error.problem.code) {
-    case SELF_DEACTIVATION_FORBIDDEN_CODE:
-      return 'SELF_DEACTIVATION';
-    case LAST_ACTIVE_ADMIN_REQUIRED_CODE:
-      return 'LAST_ACTIVE_ADMIN';
-    default:
-      return null;
-  }
-}
-
 export function adminAccessMutationErrorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.problem.detail;
   return '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';

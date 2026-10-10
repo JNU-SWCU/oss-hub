@@ -1,4 +1,4 @@
-export type AffiliationKind = 'DEPARTMENT' | 'PROGRAM_OFFICE';
+type AffiliationKind = 'DEPARTMENT' | 'PROGRAM_OFFICE';
 
 export interface UserProfile {
   readonly name: string;

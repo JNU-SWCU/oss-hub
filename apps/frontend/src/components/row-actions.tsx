@@ -17,4 +17,3 @@ function RowActions({ className, children, ...props }: RowActionsProps) {
 }
 
 export { RowActions };
-export type { RowActionsProps };

@@ -19,7 +19,7 @@ function mondayOf(day: number): number {
   return day - ((((day + 3) % 7) + 7) % 7);
 }
 
-export interface WeeklyMemberActivity {
+interface WeeklyMemberActivity {
   readonly member: TeamActivityMember;
 
   readonly contributed: boolean;

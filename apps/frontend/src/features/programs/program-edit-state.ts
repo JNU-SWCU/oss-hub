@@ -109,7 +109,7 @@ export function upsertMilestone(
   };
 }
 
-export function sortMilestones(
+function sortMilestones(
   milestones: readonly EditableMilestone[],
 ): EditableMilestone[] {
   return [...milestones].sort((a, b) => {

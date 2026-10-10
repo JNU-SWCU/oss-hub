@@ -145,21 +145,8 @@ export function eventsForDate(
   });
 }
 
-export function seoulToday(now: Date = new Date()): string {
+function seoulToday(now: Date = new Date()): string {
   return SEOUL_DATE_KEY_FORMATTER.format(now);
-}
-
-export function eventBoundaryLabel(
-  event: ProgramScheduleCalendarEvent,
-  selectedDate: string,
-): string {
-  const start = dateKey(event.startAt);
-  const end = dateKey(event.endAt);
-  if (start === selectedDate && end === selectedDate)
-    return `당일 · ${timePart(event.startAt)}–${timePart(event.endAt)}`;
-  if (start === selectedDate) return `시작 · ${timePart(event.startAt)}`;
-  if (end === selectedDate) return `마감 · ${timePart(event.endAt)}`;
-  return '진행 중';
 }
 
 export function milestoneColorVariant(
@@ -193,8 +180,4 @@ function formatDate(date: Date): string {
 
 function twoDigits(value: number): string {
   return String(value).padStart(2, '0');
-}
-
-function timePart(value: string): string {
-  return value.slice(11, 16) || '시각 미정';
 }

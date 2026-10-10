@@ -44,7 +44,7 @@ function isProblemDetail(value: unknown): value is ProblemDetail {
   );
 }
 
-export const UNEXPECTED_PROBLEM_CODE = 'API_000';
+const UNEXPECTED_PROBLEM_CODE = 'API_000';
 
 const UNEXPECTED_PROBLEM_DETAIL =
   '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';

@@ -115,29 +115,6 @@ export function programIdFromDetailUrl(value: string): string | null {
   return decodeURIComponent(encodedProgramId);
 }
 
-export async function uploadFixtureTemplate(
-  page: Page,
-  milestoneId: string,
-  documentId: string,
-): Promise<void> {
-  await expectApiStatus(
-    await page.request.post(
-      `/api/v1/milestones/${encodeURIComponent(milestoneId)}/documents/${encodeURIComponent(documentId)}/template`,
-      {
-        headers: originHeaders(),
-        multipart: {
-          file: {
-            name: 'fixture-template.pdf',
-            mimeType: 'application/pdf',
-            buffer: Buffer.from('%PDF-1.4\ntemplate\n'),
-          },
-        },
-      },
-    ),
-    201,
-  );
-}
-
 export async function submitProgramApplication(
   page: Page,
   programId: string,

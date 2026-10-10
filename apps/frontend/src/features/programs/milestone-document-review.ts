@@ -91,7 +91,7 @@ export function isMilestoneDocumentDeadlineLocked(
   return isMilestoneDocumentResubmissionDueAtPassed(viewerSubmission, now);
 }
 
-export function isMilestoneDocumentResubmissionDueAtPassed(
+function isMilestoneDocumentResubmissionDueAtPassed(
   viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
   now: number = Date.now(),
 ): boolean {

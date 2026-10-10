@@ -1,21 +1,15 @@
 import type {
   PublishBlockedReason,
-  PublishRepositoryResponse,
   RepositoryPublication,
-  RepositoryVisibility,
 } from '@/lib/repository-publication';
 
-export type {
-  PublishBlockedReason,
-  PublishRepositoryResponse,
-  RepositoryVisibility,
-};
+export type { PublishBlockedReason };
 
 export type ReviewDecision = 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 
 export type ApplicationMode = 'PERSONAL' | 'TEAM';
 
-export interface ReviewRecord {
+interface ReviewRecord {
   readonly id: string;
   readonly decision: ReviewDecision;
   readonly comment: string | null;
@@ -31,18 +25,17 @@ export interface SubmissionRevisionFile {
   readonly downloadUrl: string;
 }
 
-export interface SubmissionTextContent {
+interface SubmissionTextContent {
   readonly type: 'TEXT';
   readonly text: string;
 }
 
-export interface SubmissionFileContent {
+interface SubmissionFileContent {
   readonly type: 'FILE';
   readonly fileId: string;
 }
 
-export type SubmissionRevisionContent =
-  SubmissionTextContent | SubmissionFileContent;
+type SubmissionRevisionContent = SubmissionTextContent | SubmissionFileContent;
 
 export interface SubmissionRevision {
   readonly number: number;

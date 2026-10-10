@@ -184,4 +184,3 @@ function NavBar({
 }
 
 export { NavBar };
-export type { NavBarProps };

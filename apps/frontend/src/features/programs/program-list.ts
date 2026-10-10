@@ -7,16 +7,8 @@ import {
   type ViewerRole,
 } from './types';
 
-const SEOUL_TIME_ZONE = 'Asia/Seoul';
-
-export const PROGRAM_RECRUITMENT_STATES = [
-  'upcoming',
-  'recruiting',
-  'in_progress',
-  'ended',
-] as const;
 export type ProgramRecruitmentState =
-  (typeof PROGRAM_RECRUITMENT_STATES)[number];
+  'upcoming' | 'recruiting' | 'in_progress' | 'ended';
 
 export function getProgramRecruitmentState(
   program: ProgramListItem,
@@ -42,19 +34,6 @@ export function getProgramRecruitmentState(
     return 'recruiting';
   }
   return 'in_progress';
-}
-
-function yearInSeoul(date: Date): number {
-  return Number(
-    new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      timeZone: SEOUL_TIME_ZONE,
-    }).format(date),
-  );
-}
-
-function programYear(program: ProgramListItem): number {
-  return yearInSeoul(new Date(program.applicationStartAt));
 }
 
 const PROGRAM_LIST_HEADINGS = {
@@ -112,8 +91,4 @@ export function getProgramListBadge(
     return APPLICATION_STATUS_BADGES[program.viewerApplicationStatus];
   }
   return RECRUITMENT_STATE_BADGES[getProgramRecruitmentState(program, now)];
-}
-
-export function programStartYear(program: ProgramListItem): number {
-  return programYear(program);
 }

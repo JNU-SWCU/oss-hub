@@ -44,4 +44,3 @@ function PaginationNav({
 }
 
 export { PaginationNav };
-export type { PaginationNavProps };

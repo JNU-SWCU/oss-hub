@@ -50,4 +50,3 @@ function DetailPanelLayout({
 }
 
 export { DetailPanelLayout };
-export type { DetailPanelLayoutProps };

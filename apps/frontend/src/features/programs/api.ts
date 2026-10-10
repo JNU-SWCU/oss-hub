@@ -9,7 +9,6 @@ import type {
   ApplicationFormTemplate,
   ApplicationDetail,
   ApplicationListItem,
-  ApplicationListPage,
   ApplicationListParams,
   DeletedTeamResult,
   ProgramActivity,
@@ -80,7 +79,7 @@ export function listApplicationTemplates(): Promise<
   ).then((response) => response.items.map(mapApplicationTemplate));
 }
 
-export interface CreateProgramInput {
+interface CreateProgramInput {
   readonly name: string;
   readonly organizer: string;
   readonly trackType: ProgramTrackType;
@@ -90,14 +89,6 @@ export interface CreateProgramInput {
   readonly teamMinSize: number | null;
   readonly teamMaxSize: number | null;
   readonly description: string;
-}
-
-export interface CreatedProgram {
-  readonly id: string;
-  readonly trackType: ProgramTrackType;
-  readonly applicationTemplateKey: string;
-  readonly applicationTemplateVersion: number;
-  readonly detailUrl: string;
 }
 
 export interface EditableMilestone {
@@ -240,16 +231,6 @@ export interface UpsertMilestoneInput {
   readonly startAt: string;
   readonly dueAt: string;
   readonly instructions: string | null;
-}
-
-export function createProgram(
-  input: CreateProgramInput,
-): Promise<CreatedProgram> {
-  return apiClient<CreatedProgram>('programs', {
-    method: 'POST',
-    headers: jsonHeaders,
-    body: JSON.stringify(input),
-  });
 }
 
 export function listPrograms(
@@ -518,21 +499,6 @@ export function createTeam(
       headers: jsonHeaders,
       body: JSON.stringify(input),
     },
-  );
-}
-
-export function listProgramApplications(
-  programId: string,
-  params: ApplicationListParams,
-): Promise<ApplicationListPage> {
-  const search = new URLSearchParams({
-    page: String(params.page),
-    pageSize: String(params.pageSize),
-    search: params.search,
-    status: params.status,
-  });
-  return apiClient<ApplicationListPage>(
-    `programs/${encodeURIComponent(programId)}/applications?${search.toString()}`,
   );
 }
 

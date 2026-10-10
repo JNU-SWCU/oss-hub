@@ -44,4 +44,3 @@ function AppShell({
 }
 
 export { AppShell };
-export type { AppShellProps };
