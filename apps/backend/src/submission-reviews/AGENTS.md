@@ -14,7 +14,7 @@
 - `submission-reviews.service.ts` owns revision-safe review transitions through `withTransaction()`.
 - Keep `submission-reviews.module.ts` as the Nest composition point and preserve injected repository/service seams used by tests.
 - DTO conversion stays in `dto/`; shared eligibility and response shapes live in `domain/submission-review.ts`.
-- `submission-reviews-staff.guard.ts` is the staff authorization boundary; preserve `SessionGuard`, staff guard, and `OriginGuard` on mutating endpoints.
+- `submission-reviews.service.ts` checks staff authorization through `UsersAuthorityService`; preserve `SessionGuard` and `OriginGuard` on mutating endpoints.
 - Use `DomainException` and `submission-reviews-error-code.enum.ts` for domain failures; check `SUB_*` string uniqueness against `../submissions/`.
 
 ## Publication side effects

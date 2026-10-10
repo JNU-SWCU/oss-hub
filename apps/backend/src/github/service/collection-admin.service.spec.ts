@@ -1,5 +1,5 @@
 import { AccountStatus } from '@prisma/client';
-import { AuditLogService } from '../../audit-log/audit-log.service';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { ContributionInvariants } from '../contribution-invariants';
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';

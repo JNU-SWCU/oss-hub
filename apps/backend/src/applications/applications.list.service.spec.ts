@@ -14,7 +14,7 @@ import {
 } from './applications.repository';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsService } from './applications.service';
-import type { AuditLogService } from '../audit-log/audit-log.service';
+import type { AuditLogService } from '../audit-log/service/audit-log.service';
 
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 

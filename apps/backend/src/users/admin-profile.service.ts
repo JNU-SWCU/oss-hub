@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { mutateAdminUserProfile } from './admin-profile-mutation.service';
 import {
   AdminProfileRepository,

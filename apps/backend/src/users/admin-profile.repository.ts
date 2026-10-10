@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
+import type { AuditLogTransactionWriter } from '../prisma/audit-log-transaction-writer';
 import { DomainException } from '../common/error-code';
 import { withSerializationRetry } from '../common/prisma-serialization-retry';
 import {

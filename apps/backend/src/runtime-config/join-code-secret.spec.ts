@@ -1,8 +1,4 @@
-import {
-  computeJoinCodeDigest,
-  JoinCodeSecretError,
-  resolveJoinCodeSecret,
-} from './join-code-digest';
+import { JoinCodeSecretError, resolveJoinCodeSecret } from './join-code-secret';
 
 describe('resolveJoinCodeSecret', () => {
   it('설정된 TEAM_JOIN_CODE_SECRET을 반환한다', () => {
@@ -40,29 +36,5 @@ describe('resolveJoinCodeSecret', () => {
     const resolve = () => resolveJoinCodeSecret(env);
 
     expect(resolve).toThrow(JoinCodeSecretError);
-  });
-});
-
-describe('computeJoinCodeDigest', () => {
-  it('같은 참여코드와 secret에는 같은 SHA-256 digest를 만든다', () => {
-    const joinCode = 'SYNTHETIC-CODE';
-    const secret = 'synthetic-secret';
-
-    const first = computeJoinCodeDigest(joinCode, secret);
-    const second = computeJoinCodeDigest(joinCode, secret);
-
-    expect(first).toBe(second);
-    expect(first).toMatch(/^[0-9a-f]{64}$/);
-  });
-
-  it('참여코드나 secret이 다르면 digest가 달라진다', () => {
-    const joinCode = 'SYNTHETIC-CODE';
-
-    const base = computeJoinCodeDigest(joinCode, 'secret-a');
-    const changedCode = computeJoinCodeDigest('OTHER-CODE', 'secret-a');
-    const changedSecret = computeJoinCodeDigest(joinCode, 'secret-b');
-
-    expect(changedCode).not.toBe(base);
-    expect(changedSecret).not.toBe(base);
   });
 });

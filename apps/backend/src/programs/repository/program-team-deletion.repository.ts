@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, SubmissionFileLifecycle } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../../audit-log/audit-log.repository';
+import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
 import { isSerializationFailure } from '../../common/prisma-serialization-retry';
 import { PrismaService } from '../../prisma/prisma.service';
 import {

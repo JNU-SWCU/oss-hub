@@ -9,18 +9,10 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import type { AuditLogListQuery } from '../domain/audit-log-query';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
-
-export type AuditLogListQueryRequestDto = {
-  readonly actor?: string;
-  readonly action?: string;
-  readonly from?: string;
-  readonly to?: string;
-  readonly page: number;
-  readonly limit: number;
-};
 
 export class AuditLogListRequestDto {
   @IsOptional()
@@ -58,7 +50,7 @@ export class AuditLogListRequestDto {
   @Max(100)
   declare readonly limit?: number;
 
-  toQuery(): AuditLogListQueryRequestDto {
+  toQuery(): AuditLogListQuery {
     return {
       ...(this.actor === undefined ? {} : { actor: this.actor }),
       ...(this.action === undefined ? {} : { action: this.action }),

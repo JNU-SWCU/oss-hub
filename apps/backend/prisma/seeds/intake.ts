@@ -7,7 +7,8 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
-import { computeJoinCodeDigest } from '../../src/common/join-code-digest';
+import { computeJoinCodeDigest } from '../../src/programs/domain/join-code-digest';
+import { resolveJoinCodeSecret } from '../../src/runtime-config/join-code-secret';
 
 function placeholderAnswers(scenarioId: string): Prisma.InputJsonObject {
   return {
@@ -160,7 +161,10 @@ async function upsertTeam(
     leaderId: string;
   },
 ) {
-  const joinCodeDigest = computeJoinCodeDigest(params.joinCode);
+  const joinCodeDigest = computeJoinCodeDigest(
+    params.joinCode,
+    resolveJoinCodeSecret(),
+  );
   return upsertTracked(
     stats,
     'Team',

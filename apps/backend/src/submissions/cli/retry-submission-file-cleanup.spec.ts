@@ -1,6 +1,6 @@
 import { MemberKind } from '@prisma/client';
 import { NestFactory } from '@nestjs/core';
-import { AuditLogService } from '../../audit-log/audit-log.service';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SubmissionFilesRepository } from '../submission-files.repository';
 import { main } from './retry-submission-file-cleanup';

@@ -10,7 +10,7 @@ import type { RepositoryVisibility } from '@prisma/client';
 import {
   createRepositoryConnectionAuditMetadata,
   REPOSITORY_CONNECTION_AUDIT_ACTIONS,
-} from '../audit-log/audit-log-metadata';
+} from '../audit-log/domain/audit-log-metadata';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   repositoryNameFromNameWithOwner,

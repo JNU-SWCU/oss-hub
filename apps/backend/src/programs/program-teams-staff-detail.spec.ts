@@ -1,4 +1,4 @@
-import type { AuditLogService } from '../audit-log/audit-log.service';
+import type { AuditLogService } from '../audit-log/service/audit-log.service';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { StaffTeamDetailResponseDto } from './dto/team-detail-response.dto';
 import {

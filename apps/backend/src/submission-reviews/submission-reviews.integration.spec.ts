@@ -9,9 +9,9 @@ import {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
-import { AuditLogService } from '../audit-log/audit-log.service';
-import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../audit-log/audit-log-metadata';
+import { AuditLogRepository } from '../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
+import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../audit-log/domain/audit-log-metadata';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
@@ -36,6 +36,8 @@ import { PublicProjectsRepository } from '../programs/archive/public-projects/pu
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.enum';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
+import { UsersAuthorityService } from '../users/service/authority.service';
+import { UsersAuthorityRepository } from '../users/repository/authority.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -58,6 +60,7 @@ const repositories = new RepositoriesService(
 const service = new SubmissionReviewsService(
   new SubmissionReviewsRepository(prisma),
   repositories,
+  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
 );
 const publicProjects = new PublicProjectsRepository(prisma);
 const PROGRAM_ID = seedId('milestones', 'program');
@@ -234,14 +237,17 @@ describe('SubmissionReviewsService integration', () => {
   });
 
   it('seed 팀형 최신 revision 판정을 트랜잭션으로 저장하고 중복을 막는다', async () => {
-    const before = await service.context(EXISTING_SUBMISSION_ID);
+    const before = await service.context(
+      EXISTING_SUBMISSION_ID,
+      REVIEWER_GITHUB_ID,
+    );
     expect(before.application).toMatchObject({
       applicationMode: 'TEAM',
       displayName: 'seed-milestones-team',
     });
     expect(before.currentRevision.review).toBeNull();
 
-    await service.review(REVIEWER_ID, EXISTING_SUBMISSION_ID, {
+    await service.review(REVIEWER_GITHUB_ID, EXISTING_SUBMISSION_ID, {
       revision: 1,
       decision: ReviewDecision.APPROVED,
       comment: null,
@@ -260,7 +266,7 @@ describe('SubmissionReviewsService integration', () => {
       reviewHistories: [{ decision: ReviewDecision.APPROVED }],
     });
     await expect(
-      service.review(REVIEWER_ID, EXISTING_SUBMISSION_ID, {
+      service.review(REVIEWER_GITHUB_ID, EXISTING_SUBMISSION_ID, {
         revision: 1,
         decision: ReviewDecision.APPROVED,
         comment: null,
@@ -271,7 +277,10 @@ describe('SubmissionReviewsService integration', () => {
   });
 
   it('seed 보완요청의 판정 코멘트를 검토 문맥에 보존한다', async () => {
-    const context = await service.context(CHANGES_REQUESTED_SUBMISSION_ID);
+    const context = await service.context(
+      CHANGES_REQUESTED_SUBMISSION_ID,
+      REVIEWER_GITHUB_ID,
+    );
 
     expect(context.currentRevision.review).toMatchObject({
       decision: ReviewDecision.CHANGES_REQUESTED,

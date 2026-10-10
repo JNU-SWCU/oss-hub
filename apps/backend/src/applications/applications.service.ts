@@ -13,11 +13,11 @@ import {
   createApplicationSubmittedAuditMetadata,
   createTeamCreatedAuditMetadata,
   TEAM_CREATED_AUDIT_ACTIONS,
-} from '../audit-log/audit-log-metadata';
-import { AuditLogService } from '../audit-log/audit-log.service';
+} from '../audit-log/domain/audit-log-metadata';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { DomainException } from '../common/error-code';
 import type { ProblemDetailExtensions } from '../common/error-code';
-import { parseGithubRepositoryUrl } from '../common/github-repository-url';
+import { parseGithubRepositoryUrl } from '../github/domain/github-repository-url';
 import {
   checkApplicationTemplateVersion,
   applicationAnswerTooLongMessage,

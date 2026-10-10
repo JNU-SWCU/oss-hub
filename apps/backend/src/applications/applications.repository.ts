@@ -19,11 +19,9 @@ import type {
   OutboxEvent as PrismaOutboxEvent,
   Prisma as PrismaTypes,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
-import {
-  computeJoinCodeDigest,
-  resolveJoinCodeSecretFromConfig,
-} from '../common/join-code-digest';
+import type { AuditLogTransactionWriter } from '../prisma/audit-log-transaction-writer';
+import { computeJoinCodeDigest } from '../programs/domain/join-code-digest';
+import { resolveJoinCodeSecretFromConfig } from '../runtime-config/join-code-secret';
 import { PrismaService } from '../prisma/prisma.service';
 import { repositoryUrlFromNameWithOwner } from '../github/repository-identity';
 import { parseRepositoryProvisionEvent } from '../github/repository-provision-event';

@@ -14,7 +14,7 @@ const METADATA_FILES = [
 ] as const;
 const source = METADATA_FILES.map((file) =>
   readFileSync(
-    path.resolve(__dirname, '../../../../backend/src/audit-log', file),
+    path.resolve(__dirname, '../../../../backend/src/audit-log/domain', file),
     'utf-8',
   ),
 ).join('\n');

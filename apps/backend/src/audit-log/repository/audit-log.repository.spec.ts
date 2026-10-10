@@ -4,14 +4,14 @@ import {
   StaffAccessRequestStatus,
   type Prisma,
 } from '@prisma/client';
-import type { PrismaService } from '../prisma/prisma.service';
+import type { PrismaService } from '../../prisma/prisma.service';
 import {
   ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
   createProgramCreatedAuditMetadata,
   createProgramLifecycleAuditMetadata,
   createTeamCreatedAuditMetadata,
-} from './audit-log-metadata';
+} from '../domain/audit-log-metadata';
 import { AuditLogRepository } from './audit-log.repository';
 
 const LEGACY_REPOSITORY_PUBLISH_V1_METADATA = {

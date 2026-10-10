@@ -1,8 +1,8 @@
 import { AffiliationKind, MemberKind, Prisma } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
-import { AuditLogService } from '../audit-log/audit-log.service';
-import { USER_PROFILE_AUDIT_ACTIONS } from '../audit-log/audit-log-metadata';
+import { AuditLogRepository } from '../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
+import { USER_PROFILE_AUDIT_ACTIONS } from '../audit-log/domain/audit-log-metadata';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminProfileRepository } from './admin-profile.repository';

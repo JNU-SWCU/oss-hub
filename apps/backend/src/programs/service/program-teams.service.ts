@@ -15,13 +15,11 @@ import {
   TEAM_DELETED_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_RENAMED_AUDIT_ACTIONS,
-} from '../../audit-log/audit-log-metadata';
-import { AuditLogService } from '../../audit-log/audit-log.service';
+} from '../../audit-log/domain/audit-log-metadata';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { DomainException } from '../../common/error-code';
-import {
-  computeJoinCodeDigest,
-  resolveJoinCodeSecretFromConfig,
-} from '../../common/join-code-digest';
+import { computeJoinCodeDigest } from '../domain/join-code-digest';
+import { resolveJoinCodeSecretFromConfig } from '../../runtime-config/join-code-secret';
 import type { RuntimeConfig } from '../../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../../runtime-config/runtime-config.module';
 import {

@@ -1,5 +1,5 @@
 import { AccountStatus, MemberKind } from '@prisma/client';
-import type { AuditLogService } from '../../audit-log/audit-log.service';
+import type { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TeamInvitationsRepository } from '../repository/team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';

@@ -3,9 +3,9 @@ import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { AuditLogController } from '../../../audit-log/audit-log.controller';
-import { AuditLogRepository } from '../../../audit-log/audit-log.repository';
-import { AuditLogService } from '../../../audit-log/audit-log.service';
+import { AuditLogController } from '../../../audit-log/controller/audit-log.controller';
+import { AuditLogRepository } from '../../../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../../../audit-log/service/audit-log.service';
 import { AuthConfig } from '../../../auth/auth.config';
 import { AuthenticationGuard } from '../../../auth/controller/authentication.guard';
 import { AuthService } from '../../../auth/service/auth.service';
@@ -31,7 +31,8 @@ import { PublicUserProfileController } from '../public-projects/public-user-prof
 import { SubmissionRepositoryPublishingController } from '../../../submission-reviews/submission-reviews.controller';
 import { SubmissionReviewsRepository } from '../../../submission-reviews/submission-reviews.repository';
 import { SubmissionReviewsService } from '../../../submission-reviews/submission-reviews.service';
-import { SubmissionReviewsStaffGuard } from '../../../submission-reviews/submission-reviews-staff.guard';
+import { UsersAuthorityService } from '../../../users/service/authority.service';
+import { UsersAuthorityRepository } from '../../../users/repository/authority.repository';
 import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
 import { PublicEligibilityService } from './public-eligibility.service';
 
@@ -101,6 +102,7 @@ export class PublicExposurePersonaHttpHarness {
     const submissionReviewsService = new SubmissionReviewsService(
       new SubmissionReviewsRepository(this.prisma),
       repositoriesService,
+      new UsersAuthorityService(new UsersAuthorityRepository(this.prisma)),
     );
     this.githubPublishRepositoryMock = github.publishRepository;
 
@@ -123,7 +125,6 @@ export class PublicExposurePersonaHttpHarness {
         AuthenticationGuard,
         SessionGuard,
         OriginGuard,
-        SubmissionReviewsStaffGuard,
         { provide: PrismaService, useValue: this.prisma },
         {
           provide: AuthConfig,
