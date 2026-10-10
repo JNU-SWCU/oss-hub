@@ -76,7 +76,7 @@ export const TEAM_MEMBERSHIP_AUDIT_OPERATIONS = {
   REMOVE: 'REMOVE',
   TRANSFER_LEADER: 'TRANSFER_LEADER',
 } as const;
-export type TeamMembershipAuditOperation =
+type TeamMembershipAuditOperation =
   (typeof TEAM_MEMBERSHIP_AUDIT_OPERATIONS)[keyof typeof TEAM_MEMBERSHIP_AUDIT_OPERATIONS];
 
 export type TeamMembershipAuditMetadata = {
@@ -119,7 +119,7 @@ export const TEAM_DELETED_AUDIT_ACTIONS = {
   TEAM_DELETED: 'TEAM_DELETED',
 } as const;
 
-export type TeamDeletedAuditCounts = {
+type TeamDeletedAuditCounts = {
   readonly applications: number;
   readonly members: number;
   readonly invitations: number;

@@ -1,4 +1,4 @@
-export type CreateApplicationAnswersInput = Readonly<Record<string, unknown>>;
+type CreateApplicationAnswersInput = Readonly<Record<string, unknown>>;
 
 export interface CreateApplicationInput {
   readonly answers: CreateApplicationAnswersInput;

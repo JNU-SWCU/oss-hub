@@ -1,33 +1,15 @@
-export const REPOSITORY_SOURCES = [
-  'ORG_PROVISIONED',
-  'EXTERNAL_PUBLIC',
-] as const;
-export type RepositorySource = (typeof REPOSITORY_SOURCES)[number];
+export type RepositorySource = 'ORG_PROVISIONED' | 'EXTERNAL_PUBLIC';
 
-export const COLLECTION_STREAM_TYPES = [
-  'COMMIT',
-  'PULL_REQUEST',
-  'RELEASE',
-  'ISSUE',
-] as const;
-export type CollectionStreamType = (typeof COLLECTION_STREAM_TYPES)[number];
+export type CollectionStreamType =
+  'COMMIT' | 'PULL_REQUEST' | 'RELEASE' | 'ISSUE';
 
-export type CollectionRunKind = 'SWEEP' | 'REPOSITORY_LINK';
+type CollectionRunKind = 'SWEEP' | 'REPOSITORY_LINK';
 
-export const COLLECTION_STREAM_STATUSES = [
-  'PENDING',
-  'BACKFILLING',
-  'READY',
-  'VERIFYING',
-] as const;
-export type CollectionStreamStatus =
-  (typeof COLLECTION_STREAM_STATUSES)[number];
+type CollectionStreamStatus = 'PENDING' | 'BACKFILLING' | 'READY' | 'VERIFYING';
 
-export const COLLECTION_REPOSITORY_PRESENCE = ['PRESENT', 'ABSENT'] as const;
-export type CollectionRepositoryPresence =
-  (typeof COLLECTION_REPOSITORY_PRESENCE)[number];
+type CollectionRepositoryPresence = 'PRESENT' | 'ABSENT';
 
-export type CollectionRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
+type CollectionRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
 
 export interface RecordRepositoryObservationInput {
   githubOrganizationId: bigint | null;
@@ -131,35 +113,6 @@ export interface StreamFrontierRow {
   lastErrorAt: Date | null;
   lastErrorCode: string | null;
 }
-
-export interface RepositoryYearAggregateRow {
-  repositoryId: string;
-  year: number;
-  commitCount: number;
-  pullRequestCount: number;
-  releaseCount: number;
-}
-
-export interface ContributorYearAggregateRow {
-  repositoryId: string;
-  githubUserId: bigint;
-  githubLogin: string;
-  year: number;
-  commitCount: number;
-  pullRequestCount: number;
-  releaseCount: number;
-}
-
-export const zeroRepositoryYearAggregate = (
-  repositoryId: string,
-  year: number,
-): RepositoryYearAggregateRow => ({
-  repositoryId,
-  year,
-  commitCount: 0,
-  pullRequestCount: 0,
-  releaseCount: 0,
-});
 
 export interface SyncCursorInput {
   appId: bigint;

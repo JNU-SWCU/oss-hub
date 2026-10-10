@@ -12,7 +12,7 @@ import {
 } from '../../submissions/domain/submission-completion-projection';
 import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
 
-export interface StudentDashboardMilestoneRow {
+interface StudentDashboardMilestoneRow {
   readonly id: string;
   readonly name: string;
   readonly dueAt: Date;
@@ -37,7 +37,7 @@ export interface StudentDashboardApplicationRow {
   readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
 }
 
-export const studentDashboardApplicationSelect = {
+const studentDashboardApplicationSelect = {
   id: true,
   status: true,
   team: { select: { name: true } },

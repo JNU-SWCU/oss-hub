@@ -22,7 +22,7 @@ import {
 } from '../domain/users-error-code.enum';
 import { insertRevokedStaffAccessRequest } from './staff-access-revocation-write';
 
-export type MemberKindTargetProfile = {
+type MemberKindTargetProfile = {
   readonly name: string;
   readonly studentId: string | null;
   readonly department: string;
@@ -32,7 +32,7 @@ export type MemberKindTargetProfile = {
   readonly affiliationName: string;
 };
 
-export type MemberKindPendingRequest = {
+type MemberKindPendingRequest = {
   readonly id: string;
   readonly status: typeof StaffAccessRequestStatus.PENDING;
   readonly createdAt: Date;
@@ -62,7 +62,7 @@ export type MemberKindProfileUpdate = {
   readonly staffNumber?: string | null;
 };
 
-export type MemberKindUpdateOutcome = 'updated' | 'studentIdTaken';
+type MemberKindUpdateOutcome = 'updated' | 'studentIdTaken';
 
 export interface MemberKindTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;

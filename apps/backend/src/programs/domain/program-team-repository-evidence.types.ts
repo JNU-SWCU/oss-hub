@@ -1,4 +1,4 @@
-export interface RepositoryContributorView {
+interface RepositoryContributorView {
   readonly githubId: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;

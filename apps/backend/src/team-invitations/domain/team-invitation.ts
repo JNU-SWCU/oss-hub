@@ -1,6 +1,6 @@
 import { TeamInvitationStatus } from '@prisma/client';
 
-export interface TeamInvitationRecord {
+interface TeamInvitationRecord {
   id: string;
   teamId: string;
   programId: string;

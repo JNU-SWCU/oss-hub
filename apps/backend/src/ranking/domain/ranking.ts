@@ -15,10 +15,6 @@ export const LEGACY_RANKING_PERIODS = {
 export type LegacyRankingPeriod =
   (typeof LEGACY_RANKING_PERIODS)[keyof typeof LEGACY_RANKING_PERIODS];
 
-export const RANKING_PERIODS = LEGACY_RANKING_PERIODS;
-
-export type RankingPeriod = LegacyRankingPeriod;
-
 export const RANKING_VIEWER_CLASSES = {
   PUBLIC: 'public',
   MEMBER: 'member',
@@ -28,18 +24,12 @@ export const RANKING_VIEWER_CLASSES = {
 export type RankingViewerClass =
   (typeof RANKING_VIEWER_CLASSES)[keyof typeof RANKING_VIEWER_CLASSES];
 
-export interface RankingMetrics {
+interface RankingMetrics {
   readonly commitCount: number;
   readonly pullRequestCount: number;
   readonly issueCount: number;
   readonly repositoryCount: number;
   readonly starCount: number;
-}
-
-export interface RankingActivity extends RankingMetrics {
-  readonly githubId: bigint;
-  readonly githubLogin: string;
-  readonly department: string | null;
 }
 
 export interface RankingEntry extends RankingMetrics {

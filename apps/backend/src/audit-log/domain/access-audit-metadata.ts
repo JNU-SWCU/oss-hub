@@ -2,7 +2,7 @@ import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
 import type { AuthorityLabel } from '../../users/domain/authority-label';
 import { isJsonObject } from './audit-metadata-validation';
 
-export const ACCESS_AUDIT_SCHEMA_VERSION_V1 = 1 as const;
+const ACCESS_AUDIT_SCHEMA_VERSION_V1 = 1 as const;
 export const ACCESS_AUDIT_SCHEMA_VERSION = 2 as const;
 
 export const ACCESS_AUDIT_EVENT_KINDS = {
@@ -24,8 +24,6 @@ export const ACCESS_AUDIT_ACTIONS = {
   ACCOUNT_STATUS_CHANGED: 'USER_ACCOUNT_STATUS_CHANGED',
 } as const;
 
-export type AccessAuditEventKind =
-  (typeof ACCESS_AUDIT_EVENT_KINDS)[keyof typeof ACCESS_AUDIT_EVENT_KINDS];
 export type AccessAuditAction =
   (typeof ACCESS_AUDIT_ACTIONS)[keyof typeof ACCESS_AUDIT_ACTIONS];
 
@@ -36,7 +34,7 @@ export type AuditPersonSnapshot = {
 export type AuditActorSnapshot = AuditPersonSnapshot;
 export type AuditTargetSnapshot = AuditPersonSnapshot;
 
-export type AccessAuditState = {
+type AccessAuditState = {
   readonly role: AuthorityLabel | null;
   readonly accountStatus: AccountStatus;
   readonly requestStatus: StaffAccessRequestStatus | null;
@@ -66,8 +64,7 @@ type AccessAuditEventUnion<Base> =
   | (Base & { readonly eventKind: 'DIRECT_ROLE_CHANGED' })
   | (Base & { readonly eventKind: 'ACCOUNT_STATUS_CHANGED' });
 
-export type AccessAuditMetadataV1 =
-  AccessAuditEventUnion<AccessAuditMetadataBaseV1>;
+type AccessAuditMetadataV1 = AccessAuditEventUnion<AccessAuditMetadataBaseV1>;
 export type AccessAuditMetadataV2 =
   AccessAuditEventUnion<AccessAuditMetadataBaseV2>;
 export type AccessAuditMetadata = AccessAuditMetadataV1 | AccessAuditMetadataV2;

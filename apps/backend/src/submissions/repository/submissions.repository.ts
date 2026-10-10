@@ -40,7 +40,7 @@ import {
 
 type SubmissionsDatabase = Prisma.TransactionClient;
 
-export interface SubmissionActor {
+interface SubmissionActor {
   readonly id: string;
 }
 
@@ -54,7 +54,7 @@ export interface SubmissionMilestone {
   readonly programEndAt: Date;
 }
 
-export interface CreatedSubmission {
+interface CreatedSubmission {
   readonly id: string;
   readonly status: SubmissionStatus;
   readonly submittedAt: Date;

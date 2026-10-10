@@ -2,8 +2,8 @@ import { linkedRepositoryFilter } from '../../../../prisma/linked-program-reposi
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../prisma/prisma.service';
 
-export type ProgramRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
-export type ProgramRepositoryPresence = 'PRESENT' | 'ABSENT';
+type ProgramRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
+type ProgramRepositoryPresence = 'PRESENT' | 'ABSENT';
 
 export interface ProgramRepositoryMetricsQuery {
   readonly repositoryIds: readonly bigint[];

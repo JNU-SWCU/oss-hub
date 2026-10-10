@@ -20,7 +20,7 @@ type ApplicationDecisionAuditMetadataBaseV2 = {
   readonly before: { readonly status: ApplicationStatus };
   readonly after: { readonly status: ApplicationStatus };
 };
-export type ApplicationDecisionAuditMetadataV1 =
+type ApplicationDecisionAuditMetadataV1 =
   ApplicationDecisionAuditMetadataBaseV1;
 export type ApplicationDecisionAuditMetadataV2 =
   ApplicationDecisionAuditMetadataBaseV2;

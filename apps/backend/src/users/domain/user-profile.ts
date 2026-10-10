@@ -6,17 +6,14 @@ import {
 
 export {
   effectiveProfileMemberKind,
-  isCompleteProfileFields,
   isCompleteUserProfile,
   isValidDepartment,
-  isValidPhone,
   isValidStudentId,
   isValidUserName,
   normalizeProfileText,
   profileFieldRequirement,
   USER_DEPARTMENT_MAX_LENGTH,
   USER_NAME_MAX_LENGTH,
-  type ProfileFieldRequirement,
   type UserProfileRecord,
 } from './user-profile-policy';
 

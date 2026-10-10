@@ -9,7 +9,7 @@ export class ActivityTimelineQueryRequestDto {
   readonly granularity: ActivityGranularity = 'MONTH';
 }
 
-export interface ActivityProgramResponseDto {
+interface ActivityProgramResponseDto {
   readonly programId: string;
   readonly programName: string;
   readonly year: number;

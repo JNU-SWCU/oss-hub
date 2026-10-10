@@ -56,12 +56,12 @@ export interface TeamProgramRecord {
   readonly teamMaxSize: number;
 }
 
-export interface TeamMembershipRecord {
+interface TeamMembershipRecord {
   readonly teamId: string;
   readonly userId: string;
 }
 
-export interface CreateTeamRecordInput {
+interface CreateTeamRecordInput {
   readonly programId: string;
   readonly name: string;
   readonly joinCodeDigest: string;
@@ -154,7 +154,7 @@ export interface TeamActorAuthority {
   readonly isStaff: boolean;
 }
 
-export type TeamMembershipOperation = 'LEAVE' | 'REMOVE' | 'TRANSFER_LEADER';
+type TeamMembershipOperation = 'LEAVE' | 'REMOVE' | 'TRANSFER_LEADER';
 
 export interface TeamMembershipAuditEvent {
   readonly teamId: string;

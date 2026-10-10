@@ -10,9 +10,7 @@ export const REPOSITORY_PUBLISH_AUDIT_SCHEMA_VERSION = 2 as const;
 export const REPOSITORY_PUBLISH_AUDIT_ACTIONS = {
   REPOSITORY_PUBLISHED: 'REPOSITORY_PUBLISHED',
 } as const;
-export type RepositoryPublishAuditAction =
-  (typeof REPOSITORY_PUBLISH_AUDIT_ACTIONS)[keyof typeof REPOSITORY_PUBLISH_AUDIT_ACTIONS];
-export type RepositoryPublishAuditVisibilityState = {
+type RepositoryPublishAuditVisibilityState = {
   readonly visibility: RepositoryVisibility;
 };
 type RepositoryPublishAuditMetadataBaseV1 = {
@@ -32,8 +30,7 @@ type RepositoryPublishAuditMetadataBaseV2 = {
     readonly publishedAt: string;
   };
 };
-export type RepositoryPublishAuditMetadataV1 =
-  RepositoryPublishAuditMetadataBaseV1;
+type RepositoryPublishAuditMetadataV1 = RepositoryPublishAuditMetadataBaseV1;
 export type RepositoryPublishAuditMetadataV2 =
   RepositoryPublishAuditMetadataBaseV2;
 export type RepositoryPublishAuditMetadata =
@@ -90,12 +87,12 @@ export function parseRepositoryPublishAuditMetadata(
     : null;
 }
 
-export const REPOSITORY_CONNECTION_AUDIT_SCHEMA_VERSION = 1 as const;
+const REPOSITORY_CONNECTION_AUDIT_SCHEMA_VERSION = 1 as const;
 export const REPOSITORY_CONNECTION_AUDIT_ACTIONS = {
   REPOSITORY_CONNECTION_CHANGED: 'REPOSITORY_CONNECTION_CHANGED',
 } as const;
 
-export type RepositoryConnectionAuditState = {
+type RepositoryConnectionAuditState = {
   readonly repositoryId: string | null;
   readonly nameWithOwner: string | null;
   readonly connectionMode: RepositoryConnectionMode;
@@ -193,8 +190,7 @@ type ProgramLifecycleAuditMetadataBaseV2 = {
   readonly before: { readonly lifecycle: ProgramLifecycle };
   readonly after: { readonly lifecycle: ProgramLifecycle };
 };
-export type ProgramLifecycleAuditMetadataV1 =
-  ProgramLifecycleAuditMetadataBaseV1;
+type ProgramLifecycleAuditMetadataV1 = ProgramLifecycleAuditMetadataBaseV1;
 export type ProgramLifecycleAuditMetadataV2 =
   ProgramLifecycleAuditMetadataBaseV2;
 export type ProgramLifecycleAuditMetadata =

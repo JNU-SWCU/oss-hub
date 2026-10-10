@@ -43,9 +43,9 @@ export const ADMIN_ACCESS_REQUEST_EFFECTS = {
   REVOKED: StaffAccessRequestStatus.REVOKED,
 } as const;
 
-export type AdminAccessPendingState =
+type AdminAccessPendingState =
   (typeof ADMIN_ACCESS_PENDING_STATES)[keyof typeof ADMIN_ACCESS_PENDING_STATES];
-export type AdminAccessDecisionKind =
+type AdminAccessDecisionKind =
   (typeof ADMIN_ACCESS_DECISION_KINDS)[keyof typeof ADMIN_ACCESS_DECISION_KINDS];
 export type AdminAccessRequestEffect =
   (typeof ADMIN_ACCESS_REQUEST_EFFECTS)[keyof typeof ADMIN_ACCESS_REQUEST_EFFECTS];
@@ -62,7 +62,7 @@ export type AdminAccessTableDesiredState = {
   readonly decision: AdminAccessDecisionKind;
 };
 
-export type AdminAccessAllowedTransition = {
+type AdminAccessAllowedTransition = {
   readonly allowed: true;
   readonly status: 200;
   readonly code: null;
@@ -72,7 +72,7 @@ export type AdminAccessAllowedTransition = {
   readonly requiresLastActiveAdminGuard: boolean;
 };
 
-export type AdminAccessDeniedTransition = {
+type AdminAccessDeniedTransition = {
   readonly allowed: false;
   readonly status: 400 | 409;
   readonly code:
@@ -122,7 +122,7 @@ const TRANSITIONS_BY_KEY = new Map(
   ADMIN_ACCESS_TRANSITION_TABLE.map((entry) => [entry.key, entry]),
 );
 
-export class MissingAdminAccessTransitionError extends Error {
+class MissingAdminAccessTransitionError extends Error {
   constructor(key: string) {
     super(`Missing ADMIN access transition table entry: ${key}`);
     this.name = 'MissingAdminAccessTransitionError';

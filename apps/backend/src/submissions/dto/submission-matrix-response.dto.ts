@@ -4,7 +4,7 @@ import type {
 } from '../domain/submission-matrix';
 import type { DocumentDeliveryStatus } from '../domain/document-delivery-status';
 
-export interface MatrixMilestoneResponseDto {
+interface MatrixMilestoneResponseDto {
   readonly id: string;
   readonly name: string;
   readonly dueAt: string;

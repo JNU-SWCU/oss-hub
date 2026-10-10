@@ -118,7 +118,7 @@ export type ReviewContextRow = Prisma.MilestoneDocumentSubmissionGetPayload<{
   select: typeof REVIEW_CONTEXT_SELECT;
 }>;
 
-export class SubmissionRevisionInvariantError extends Error {
+class SubmissionRevisionInvariantError extends Error {
   override readonly name = 'SubmissionRevisionInvariantError';
 }
 

@@ -30,7 +30,7 @@ export interface ProblemDetailBlockingCounts {
   readonly boardPosts: number;
 }
 
-export interface ProblemDetailProgramDeletionScopeCounts extends ProblemDetailBlockingCounts {
+interface ProblemDetailProgramDeletionScopeCounts extends ProblemDetailBlockingCounts {
   readonly submissionEvents: number;
   readonly scopeFingerprint?: string;
 }

@@ -35,7 +35,7 @@ export interface CreatedSubmissionResponseDto {
   readonly submittedAt: string;
 }
 
-export interface SubmissionFileMetadataResponseDto {
+interface SubmissionFileMetadataResponseDto {
   readonly fileId: string;
   readonly fileName: string;
   readonly contentType: string;

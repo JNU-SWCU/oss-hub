@@ -1,25 +1,13 @@
-export const COLLECTION_HEALTH_VALUES = [
-  'EMPTY',
-  'NORMAL',
-  'DELAYED',
-  'PARTIAL',
-  'FAILED',
-] as const;
 export type CollectionHealthResponseDto =
-  (typeof COLLECTION_HEALTH_VALUES)[number];
+  'EMPTY' | 'NORMAL' | 'DELAYED' | 'PARTIAL' | 'FAILED';
 
-export const CURRENT_RUN_STATUS_VALUES = ['IDLE', 'PROCESSING'] as const;
-export type CurrentRunStatusResponseDto =
-  (typeof CURRENT_RUN_STATUS_VALUES)[number];
+export type CurrentRunStatusResponseDto = 'IDLE' | 'PROCESSING';
 
-export const SYSTEM_STATUS_SAFE_REASONS = [
-  'NO_TRACKED_REPOSITORIES',
-  'UPSTREAM_RATE_LIMITED',
-  'RUN_INCOMPLETE',
-  'STALE_DATA',
-] as const;
 export type SystemStatusSafeReasonResponseDto =
-  (typeof SYSTEM_STATUS_SAFE_REASONS)[number];
+  | 'NO_TRACKED_REPOSITORIES'
+  | 'UPSTREAM_RATE_LIMITED'
+  | 'RUN_INCOMPLETE'
+  | 'STALE_DATA';
 
 export class CollectionSystemStatusResponseDto {
   constructor(
@@ -44,23 +32,11 @@ export class RepositoryProvisioningSystemStatusResponseDto {
   constructor(readonly finalFailureCount: number) {}
 }
 
-export const COLLECTION_STREAM_BUCKET_VALUES = [
-  'READY',
-  'BACKFILLING',
-  'PARTIAL',
-  'RETRY_PENDING',
-] as const;
 export type CollectionStreamBucketResponseDto =
-  (typeof COLLECTION_STREAM_BUCKET_VALUES)[number];
+  'READY' | 'BACKFILLING' | 'PARTIAL' | 'RETRY_PENDING';
 
-export const COLLECTION_STREAM_TYPE_VALUES = [
-  'COMMIT',
-  'PULL_REQUEST',
-  'RELEASE',
-  'ISSUE',
-] as const;
 export type CollectionStreamTypeResponseDto =
-  (typeof COLLECTION_STREAM_TYPE_VALUES)[number];
+  'COMMIT' | 'PULL_REQUEST' | 'RELEASE' | 'ISSUE';
 
 export class CollectionRepositoryStreamResponseDto {
   constructor(

@@ -1,4 +1,4 @@
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import { StaffAccessRequestStatus } from '@prisma/client';
 import { DomainException } from '../../common/error-code';
 import {
   ROLES_ERROR_CODES,
@@ -50,17 +50,6 @@ export function matchesExpectedAccessState(
   }
 
   return current.role === command.expectedRole;
-}
-
-export function removesExpectedActiveAdmin(
-  command: AdminAccessMutationCommand,
-): boolean {
-  return (
-    command.expectedRole === 'ADMIN' &&
-    command.expectedAccountStatus === AccountStatus.ACTIVE &&
-    (command.desiredRole !== 'ADMIN' ||
-      command.desiredAccountStatus !== AccountStatus.ACTIVE)
-  );
 }
 
 export function toAdminAccessDecisionKind(

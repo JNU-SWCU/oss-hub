@@ -1,4 +1,4 @@
-export interface SyncLeaseKey {
+interface SyncLeaseKey {
   appId: bigint;
   scope: string;
 }
