@@ -5,23 +5,23 @@ import {
   RepositoryVisibility,
   SubmissionStatus,
 } from '@prisma/client';
-import type { RepositoriesService } from '../github/service/repositories.service';
+import type { RepositoriesService } from '../../github/service/repositories.service';
 import {
   PUBLISH_BLOCKED_REASONS,
   type PublishBlockedReason,
   type RepositoryPublishEligibility,
-} from './domain/submission-review';
-import type { PrismaService } from '../prisma/prisma.service';
+} from '../domain/submission-review';
+import type { PrismaService } from '../../prisma/prisma.service';
 import {
   SubmissionReviewsRepository,
   type SubmissionReviewsRepositoryPort,
-} from './submission-reviews.repository';
-import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.enum';
+} from '../repository/submission-reviews.repository';
+import { SubmissionReviewsErrorCode } from '../domain/submission-reviews-error-code.enum';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import {
   toReviewContext,
   type ReviewContextRow,
-} from './submission-review-context.mapper';
+} from '../repository/submission-review-context.mapper';
 
 const NOW = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');

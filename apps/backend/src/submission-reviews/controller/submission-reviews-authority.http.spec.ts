@@ -5,21 +5,21 @@ import { Test } from '@nestjs/testing';
 import {
   AUTH_ERROR_CODES,
   AuthErrorCode,
-} from '../auth/domain/auth-error-code.enum';
-import { AuthConfig } from '../auth/auth.config';
-import { SessionGuard } from '../auth/controller/session.guard';
-import { DomainException } from '../common/error-code';
-import { ProblemDetailFilter } from '../common/problem-detail.filter';
-import { UsersAuthorityService } from '../users/service/authority.service';
+} from '../../auth/domain/auth-error-code.enum';
+import { AuthConfig } from '../../auth/auth.config';
+import { SessionGuard } from '../../auth/controller/session.guard';
+import { DomainException } from '../../common/error-code';
+import { ProblemDetailFilter } from '../../common/problem-detail.filter';
+import { UsersAuthorityService } from '../../users/service/authority.service';
 import {
   SubmissionRepositoryPublishingController,
   SubmissionReviewsController,
 } from './submission-reviews.controller';
-import { SubmissionReviewsService } from './submission-reviews.service';
+import { SubmissionReviewsService } from '../service/submission-reviews.service';
 import type {
   SubmissionReviewTransactionStore,
   SubmissionReviewsRepositoryPort,
-} from './submission-reviews.repository';
+} from '../repository/submission-reviews.repository';
 
 const actors = [
   ['anonymous', null],
