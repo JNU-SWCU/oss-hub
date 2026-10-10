@@ -1,4 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { DomainException } from '../common/error-code';
+import { UsersAuthorityService } from '../users/service/authority.service';
+import {
+  APPLICATIONS_ERROR_CODES,
+  ApplicationsErrorCode,
+} from './applications-error-code.enum';
 import {
   classifyDepartment,
   DEPARTMENT_COHORTS,
@@ -92,9 +98,27 @@ function rankingTotal(activity: ActivityTotals): number {
 
 @Injectable()
 export class StaffInsightsService {
-  constructor(private readonly repository: StaffInsightsRepository) {}
+  constructor(
+    private readonly repository: StaffInsightsRepository,
+    @Inject(UsersAuthorityService)
+    private readonly authority: Pick<
+      UsersAuthorityService,
+      'assertActiveStaff'
+    >,
+  ) {}
 
-  async summarize(scope: InsightsYearScope): Promise<StaffInsightsSummary> {
+  async summarize(
+    sessionGithubId: bigint,
+    scope: InsightsYearScope,
+  ): Promise<StaffInsightsSummary> {
+    await this.authority.assertActiveStaff(
+      sessionGithubId,
+      () =>
+        new DomainException(
+          APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.STAFF_LIST_ONLY],
+        ),
+    );
+
     const [students, participations, activity, dataAsOf, years] =
       await Promise.all([
         this.repository.listStudents(),

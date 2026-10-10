@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { ProgramTrackType } from '@prisma/client';
+import { DomainException } from '../common/error-code';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProgramActivitySummaryService } from '../programs/service/program-activity-summary.service';
@@ -10,6 +11,10 @@ import {
   RuntimeConfigModule,
 } from '../runtime-config/runtime-config.module';
 import { ApplicationsModule } from './applications.module';
+import {
+  APPLICATIONS_ERROR_CODES,
+  ApplicationsErrorCode,
+} from './applications-error-code.enum';
 import { StaffDashboardService } from './staff-dashboard.service';
 
 describe('StaffDashboardService', () => {
@@ -85,7 +90,8 @@ describe('StaffDashboardService', () => {
       { listByProgram: submissionSummary },
     );
 
-    const summary = await service.summary();
+    const summary = await service.summary(4242n);
+    expect(applicationSummary).toHaveBeenCalledWith(4242n);
 
     expect(summary.programs[0]).toEqual({
       id: 'program:1',
@@ -177,5 +183,24 @@ describe('StaffDashboardService', () => {
     expect(summarize).toHaveBeenCalledWith(['program:1']);
     expect(listByProgram).toHaveBeenCalledWith(['program:1']);
     await compiled.close();
+  });
+
+  it('권한이 거부되면 활동·제출 요약을 조회하지 않는다', async () => {
+    const error = new DomainException(
+      APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.STAFF_LIST_ONLY],
+    );
+    const applicationSummary = jest.fn().mockRejectedValue(error);
+    const summarize = jest.fn();
+    const listByProgram = jest.fn();
+    const service = new StaffDashboardService(
+      { staffSummary: applicationSummary },
+      { summarize },
+      { listByProgram },
+    );
+
+    await expect(service.summary(4242n)).rejects.toBe(error);
+    expect(applicationSummary).toHaveBeenCalledWith(4242n);
+    expect(summarize).not.toHaveBeenCalled();
+    expect(listByProgram).not.toHaveBeenCalled();
   });
 });

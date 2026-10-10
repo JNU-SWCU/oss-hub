@@ -5,9 +5,10 @@ import {
 } from '@nestjs/common/constants';
 import { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
 import { SessionGuard } from '../auth/controller/session.guard';
-import { ApplicationsStaffListGuard } from './applications-staff.guard';
 import { StaffDashboardController } from './staff-dashboard.controller';
 import type { StaffDashboardService } from './staff-dashboard.service';
+
+const SESSION_GITHUB_ID = 4242n;
 
 function readGuards(
   target: object,
@@ -23,7 +24,7 @@ function readGuards(
 }
 
 describe('StaffDashboardController', () => {
-  it('applies route metadata, no-store cache, and staff list guards', () => {
+  it('applies route metadata, no-store cache, and only the session guard', () => {
     const summary: unknown = Object.getOwnPropertyDescriptor(
       StaffDashboardController.prototype,
       'summary',
@@ -42,7 +43,6 @@ describe('StaffDashboardController', () => {
     });
     expect(readGuards(StaffDashboardController.prototype, 'summary')).toEqual([
       SessionGuard,
-      ApplicationsStaffListGuard,
     ]);
   });
 
@@ -96,7 +96,9 @@ describe('StaffDashboardController', () => {
       const insights = { summarize: jest.fn() };
       const controller = new StaffDashboardController(service, insights);
 
-      await expect(controller.summary()).resolves.toEqual({
+      await expect(
+        controller.summary({ sessionGithubId: SESSION_GITHUB_ID }),
+      ).resolves.toEqual({
         programs: [
           {
             coverImageUrl: imageUrl ?? '/programs/program%3A1/cover/cover%3A1',
@@ -139,6 +141,7 @@ describe('StaffDashboardController', () => {
         ],
       });
       expect(summary).toHaveBeenCalledTimes(1);
+      expect(summary).toHaveBeenCalledWith(SESSION_GITHUB_ID);
     },
   );
 
@@ -165,14 +168,16 @@ describe('StaffDashboardController', () => {
       );
     }
 
-    await expect(controller.insightsSummary({})).resolves.toMatchObject({
+    await expect(
+      controller.insightsSummary({ sessionGithubId: SESSION_GITHUB_ID }, {}),
+    ).resolves.toMatchObject({
       scope: { kind: 'all' },
       years: [2026],
     });
-    expect(summarize).toHaveBeenCalledWith({ kind: 'all' });
+    expect(summarize).toHaveBeenCalledWith(SESSION_GITHUB_ID, { kind: 'all' });
     expect(
       readGuards(StaffDashboardController.prototype, 'insightsSummary'),
-    ).toEqual([SessionGuard, ApplicationsStaffListGuard]);
+    ).toEqual([SessionGuard]);
     expect(Reflect.getMetadata(PATH_METADATA, insightsSummary)).toBe(
       'insights',
     );

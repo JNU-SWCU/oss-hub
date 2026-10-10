@@ -22,9 +22,12 @@ import {
   TEAM_CREATED_AUDIT_ACTIONS,
 } from '../audit-log/domain/audit-log-metadata';
 import type { AuditLogService } from '../audit-log/service/audit-log.service';
+import type { UsersAuthorityService } from '../users/service/authority.service';
+type AssertActiveStaff = UsersAuthorityService['assertActiveStaff'];
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');
 const GITHUB_ID = 4_242n;
+const STAFF_ACTOR_ID = 'synthetic-staff';
 const PROGRAM_ID = 'synthetic-program';
 const STUDENT: ApplicationStudentActor = {
   id: 'synthetic-student',
@@ -154,10 +157,16 @@ function buildService(overrides: {
     findRepositoryProvisionEvent: jest.fn(),
   } as unknown as ApplicationsRepository;
 
+  const assertActiveStaff = jest
+    .fn<ReturnType<AssertActiveStaff>, Parameters<AssertActiveStaff>>()
+    .mockResolvedValue({ actorId: STAFF_ACTOR_ID });
+
   return {
-    service: new ApplicationsService(repository, {
-      record,
-    } as unknown as AuditLogService),
+    service: new ApplicationsService(
+      repository,
+      { record } as unknown as AuditLogService,
+      { assertActiveStaff },
+    ),
     repository,
     store,
     createApplication,
