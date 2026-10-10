@@ -57,6 +57,7 @@ describe('상한 리터럴이 정본 밖으로 다시 퍼지지 않는다', () =
 
   function sourceFiles(directory: string): readonly string[] {
     return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+      if (entry.name.startsWith('__lint_fixture_')) return [];
       const full = join(directory, entry.name);
       if (entry.isDirectory()) return sourceFiles(full);
       if (!entry.name.endsWith('.ts')) return [];
