@@ -5,8 +5,10 @@ const noCommentsPlugin = {
   rules: { 'no-comments': noComments },
 };
 
+export const typeCheckedConfig = tseslint.configs.recommendedTypeChecked;
+
 export const sharedConfig = [
-  ...tseslint.configs.recommendedTypeChecked,
+  ...typeCheckedConfig,
   {
     plugins: { local: noCommentsPlugin },
     linterOptions: { noInlineConfig: true },

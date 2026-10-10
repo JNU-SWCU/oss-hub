@@ -7,6 +7,7 @@ import typescriptParser from '@typescript-eslint/parser';
 import runtimeTestBoundary from './eslint-rules/runtime-test-boundary.mjs';
 import designSystemRules from './eslint-rules/design-system.mjs';
 import noComments from '../../eslint-rules/no-comments.mjs';
+import { typeCheckedConfig } from '../../eslint.shared.mjs';
 
 const featuresDir = path.join(import.meta.dirname, 'src/features');
 const featureNames = fs.existsSync(featuresDir)
@@ -177,6 +178,22 @@ export default defineConfig([
     },
   },
   prettier,
+  {
+    files: ['**/*.{ts,tsx,mts,cts}'],
+    extends: [...typeCheckedConfig, prettier],
+    languageOptions: {
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: ['vitest.config.mts'],
+        },
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+  {
+    files: ['**/*.test.{ts,tsx}', '**/*test-support.{ts,tsx}', 'e2e/**/*.ts'],
+    rules: { '@typescript-eslint/require-await': 'off' },
+  },
   apiClientEntryConfig,
   ...featureBoundaryConfigs,
   libBoundaryConfig,
