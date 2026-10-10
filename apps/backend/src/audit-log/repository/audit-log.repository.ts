@@ -4,10 +4,10 @@ import { type AccountStatus, type Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   parseAuditLogMetadata,
-  type AuditLogMetadata,
   type AuditLogMetadataEvidence,
   type AuditLogMetadataView,
 } from '../domain/audit-log-metadata';
+import type { AuditLogRecordInput } from '../domain/audit-log-record-input';
 import type { AuditLogListQuery } from '../domain/audit-log-query';
 
 const PROGRAM_TARGET_TYPE = 'PROGRAM';
@@ -61,14 +61,6 @@ export type AuditLogListResult = {
   readonly items: readonly AuditLogRecord[];
   readonly total: number;
 };
-
-export interface AuditLogRecordInput {
-  readonly actorGithubId: bigint;
-  readonly action: string;
-  readonly targetType: string;
-  readonly targetId: string;
-  readonly metadata: AuditLogMetadata;
-}
 
 @Injectable()
 export class AuditLogRepository {

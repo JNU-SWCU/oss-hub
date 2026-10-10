@@ -4,10 +4,8 @@ import {
   createAccessAuditMetadata,
 } from '../domain/audit-log-metadata';
 import { AuditLogErrorCode } from '../audit-log-error-code.enum';
-import type {
-  AuditLogRecordInput,
-  AuditLogRepository,
-} from '../repository/audit-log.repository';
+import type { AuditLogRecordInput } from '../domain/audit-log-record-input';
+import type { AuditLogRepository } from '../repository/audit-log.repository';
 import { AuditLogService } from './audit-log.service';
 
 type AuditLogRecordWriter = Parameters<AuditLogRepository['record']>[1];
