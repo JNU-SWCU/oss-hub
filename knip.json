@@ -26,8 +26,10 @@
       "project": ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"]
     },
     "apps/backend": {
+      "eslint": {
+        "config": ["eslint.config.mjs", "eslint.rails.mjs"]
+      },
       "entry": [
-        "eslint.rails.mjs",
         "scripts/lint-fixture-runner.mjs",
         "src/main.ts",
         "test/e2e-program-authoring/main.ts",
