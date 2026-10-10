@@ -67,12 +67,23 @@ const TABLE_COLUMNS: DataTableColumn<ActivityPoint>[] = [
   },
 ];
 
+export function hasIssueCounts(points: readonly ActivityPoint[]): boolean {
+  return points.some((point) => point.issueCount !== null);
+}
+
 export function ActivityChart({
   points,
 }: {
   points: readonly ActivityPoint[];
 }) {
   const orderedPoints = orderActivityPoints(points);
+  const showIssues = hasIssueCounts(points);
+  const visibleSeries = showIssues
+    ? series
+    : series.filter((item) => item.key !== 'issueCount');
+  const columns = showIssues
+    ? TABLE_COLUMNS
+    : TABLE_COLUMNS.filter((column) => column.id !== 'issueCount');
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
@@ -112,7 +123,7 @@ export function ActivityChart({
               )}
               wrapperStyle={{ fontSize: 12, left: 0 }}
             />
-            {series.map((item) => (
+            {visibleSeries.map((item) => (
               <Line
                 key={item.key}
                 type="monotone"
@@ -129,7 +140,7 @@ export function ActivityChart({
         </ResponsiveContainer>
       </div>
       <DataTable
-        columns={TABLE_COLUMNS}
+        columns={columns}
         data={[...orderedPoints.table]}
         rowKey={(point) => point.period}
         caption="기간별 활동량"

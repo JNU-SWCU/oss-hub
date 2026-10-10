@@ -223,6 +223,45 @@ describe('activity timeline', () => {
     await expect(fetchActivityTimeline('MONTH')).resolves.toEqual(timeline);
   });
 
+  it('issueCount가 없는 이전 백엔드 응답도 받아 Issue 없이 그린다', async () => {
+    const legacyPoint = {
+      period: '2026-01',
+      commitCount: 12,
+      pullRequestCount: 3,
+      releaseCount: 1,
+      total: 16,
+    };
+    stubTimelineResponse({
+      ...wireTimeline,
+      series: { ...wireTimeline.series, points: [legacyPoint] },
+    });
+
+    const legacy = await fetchActivityTimeline('MONTH');
+    expect(legacy.series.points).toEqual([
+      {
+        period: '2026-01',
+        commitCount: 12,
+        prCount: 3,
+        releaseCount: 1,
+        issueCount: null,
+        total: 16,
+      },
+    ]);
+
+    const html = renderToStaticMarkup(
+      <ActivityTimelineView
+        granularity="MONTH"
+        onGranularityChange={() => undefined}
+        status="success"
+        data={legacy}
+        onRetry={() => undefined}
+      />,
+    );
+    expect(html).not.toContain('>Issue<');
+    expect(html).not.toContain('Issue는 따로');
+    expect(html).toContain('>Commit<');
+  });
+
   it.each([
     [
       'invalid granularity',
@@ -301,20 +340,12 @@ describe('activity timeline', () => {
       },
     ],
     [
-      'missing issueCount',
+      'negative issueCount',
       {
         ...wireTimeline,
         series: {
           ...wireTimeline.series,
-          points: [
-            {
-              period: '2026-01',
-              commitCount: 12,
-              pullRequestCount: 3,
-              releaseCount: 1,
-              total: 16,
-            },
-          ],
+          points: [{ ...wireTimeline.series.points[0], issueCount: -1 }],
         },
       },
     ],

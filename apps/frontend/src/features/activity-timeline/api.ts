@@ -65,7 +65,8 @@ function parsePoint(
     !isNonNegativeInteger(value.commitCount) ||
     !isNonNegativeInteger(value.pullRequestCount) ||
     !isNonNegativeInteger(value.releaseCount) ||
-    !isNonNegativeInteger(value.issueCount) ||
+    (value.issueCount !== undefined &&
+      !isNonNegativeInteger(value.issueCount)) ||
     !isNonNegativeInteger(value.total) ||
     value.total !==
       value.commitCount + value.pullRequestCount + value.releaseCount
@@ -78,7 +79,9 @@ function parsePoint(
     commitCount: value.commitCount,
     prCount: value.pullRequestCount,
     releaseCount: value.releaseCount,
-    issueCount: value.issueCount,
+    issueCount: isNonNegativeInteger(value.issueCount)
+      ? value.issueCount
+      : null,
     total: value.total,
   };
 }
