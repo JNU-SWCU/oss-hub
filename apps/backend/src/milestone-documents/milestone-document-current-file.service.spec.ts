@@ -7,7 +7,7 @@ import type {
   MilestoneDocumentCurrentFileReader,
 } from './milestone-document-current-file.repository';
 import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
+import { MilestoneDocumentsErrorCode } from './domain/milestone-documents-error-code.enum';
 
 const CURRENT_FILE: CurrentMilestoneDocumentFile = {
   storageKey: 'objects/current',

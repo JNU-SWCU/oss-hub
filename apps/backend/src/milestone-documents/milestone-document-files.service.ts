@@ -30,7 +30,7 @@ import {
   MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES,
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.enum';
+} from './domain/milestone-documents-error-code.enum';
 import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 
 const MAX_FILE_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
