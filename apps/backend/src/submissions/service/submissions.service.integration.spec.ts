@@ -21,7 +21,7 @@ import { assertIsolatedIntegrationDatabase } from '../../../test/integration-dat
 import { addOneCalendarYear } from '../../common/add-one-calendar-year';
 import { DomainException } from '../../common/error-code';
 import { PrismaService } from '../../prisma/prisma.service';
-import { SubmissionsErrorCode } from '../submissions-error-code.enum';
+import { SubmissionsErrorCode } from '../domain/submissions-error-code.enum';
 import type { ObjectStoragePort } from '../../storage/domain/object-storage';
 import { SubmissionFilesRepository } from '../repository/submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';

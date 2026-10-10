@@ -23,7 +23,7 @@ import { signatureValidZip } from '../domain/submission-zip-test-builder';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
-} from '../submissions-error-code.enum';
+} from '../domain/submissions-error-code.enum';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const PROGRAM_END = new Date('2027-02-28T09:30:00.000Z');

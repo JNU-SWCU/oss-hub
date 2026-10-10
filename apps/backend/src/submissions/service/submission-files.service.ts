@@ -31,7 +31,7 @@ import {
   SUBMISSION_ZIP_REJECTION_ERROR_CODES,
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
-} from '../submissions-error-code.enum';
+} from '../domain/submissions-error-code.enum';
 import { inspectSubmissionZipMetadata } from '../domain/submission-zip-admission';
 import type {
   DownloadedSubmissionFile,

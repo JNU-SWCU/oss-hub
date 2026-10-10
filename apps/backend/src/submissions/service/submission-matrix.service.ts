@@ -20,7 +20,7 @@ import {
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
-} from '../submissions-error-code.enum';
+} from '../domain/submissions-error-code.enum';
 
 @Injectable()
 export class SubmissionMatrixService {

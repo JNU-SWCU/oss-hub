@@ -11,7 +11,7 @@ import {
   type SubmissionMatrixRepositoryPort,
 } from '../repository/submission-matrix.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
-import { SubmissionsErrorCode } from '../submissions-error-code.enum';
+import { SubmissionsErrorCode } from '../domain/submissions-error-code.enum';
 
 const STAFF_GITHUB_ID = 9_124_000_001n;
 const OUTSIDER_GITHUB_ID = 9_124_000_002n;

@@ -20,7 +20,7 @@ import type { SubmissionMatrixQuery } from '../domain/submission-matrix';
 import type { MatrixRowResponseDto } from '../dto/submission-matrix-response.dto';
 import { SubmissionMatrixRepository } from '../repository/submission-matrix.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
-import { SubmissionsErrorCode } from '../submissions-error-code.enum';
+import { SubmissionsErrorCode } from '../domain/submissions-error-code.enum';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

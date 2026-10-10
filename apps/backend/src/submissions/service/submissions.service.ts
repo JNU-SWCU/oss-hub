@@ -30,7 +30,7 @@ import { SubmissionMembershipChangedError } from '../repository/submission-membe
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
-} from '../submissions-error-code.enum';
+} from '../domain/submissions-error-code.enum';
 import {
   type ResubmissionTarget,
   StaleSubmissionRevisionError,

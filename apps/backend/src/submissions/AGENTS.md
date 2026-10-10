@@ -29,7 +29,7 @@
 ## HTTP, DTO, 검증 기준
 
 - 라우트와 multipart 한도·오류 매핑은 `controller/submissions.controller.ts`에 둔다. 생성/재제출 DTO는 `dto/create-submission-request.dto.ts`, 응답은 `dto/submission-response.dto.ts`를 사용한다.
-- 파일·상태 실패는 `submissions-error-code.enum.ts`의 `SUB_*` 계약을 사용한다. controller에서 저장소 오류를 임의 HTTP 오류로 바꾸지 않는다.
+- 파일·상태 실패는 `domain/submissions-error-code.enum.ts`의 `SUB_*` 계약을 사용한다. controller에서 저장소 오류를 임의 HTTP 오류로 바꾸지 않는다.
 - 제출·재제출·history 변경은 `service/submissions.service.resubmission.spec.ts`, `service/submissions.service.checklist.spec.ts`, `controller/submissions.http.spec.ts`를 갱신한다.
 - 파일 검증·권한·수명주기 변경은 `service/submission-files.service.spec.ts`, `repository/submission-file-lifecycle.integration.spec.ts`, `repository/submission-file-quota.integration.spec.ts`를 함께 다룬다.
 - 정리·고아 객체·매트릭스 변경은 `service/submission-file-cleanup.service.spec.ts`, `service/storage-orphan-reconciliation.spec.ts`, `service/submission-matrix.service.spec.ts`에서 고정한다.

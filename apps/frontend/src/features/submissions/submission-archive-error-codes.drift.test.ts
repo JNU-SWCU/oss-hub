@@ -5,7 +5,7 @@ import { SUBMISSION_ARCHIVE_ERROR_CODES } from './submission-form';
 
 const REGISTRY_PATH = path.resolve(
   __dirname,
-  '../../../../backend/src/submissions/submissions-error-code.enum.ts',
+  '../../../../backend/src/submissions/domain/submissions-error-code.enum.ts',
 );
 
 export function parseBackendArchiveCodes(source: string): string[] {

@@ -8,7 +8,7 @@ import type {
   ResubmitSubmissionInput,
 } from '../domain/submission-content';
 import { SubmissionMembershipChangedError } from '../repository/submission-membership.repository';
-import { SubmissionsErrorCode } from '../submissions-error-code.enum';
+import { SubmissionsErrorCode } from '../domain/submissions-error-code.enum';
 import type { SubmissionApplication } from '../domain/submission-record';
 import type {
   ResubmissionTarget,

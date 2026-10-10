@@ -6,7 +6,7 @@ import { signatureValidZip } from '../domain/submission-zip-test-builder';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
-} from '../submissions-error-code.enum';
+} from '../domain/submissions-error-code.enum';
 
 const MIB = 1024 * 1024;
 

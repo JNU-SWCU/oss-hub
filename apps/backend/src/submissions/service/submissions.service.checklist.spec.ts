@@ -4,7 +4,7 @@ import {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
-import { SubmissionsErrorCode } from '../submissions-error-code.enum';
+import { SubmissionsErrorCode } from '../domain/submissions-error-code.enum';
 import type { ChecklistMilestone } from '../domain/submission-record';
 import type {
   ChecklistApplication,

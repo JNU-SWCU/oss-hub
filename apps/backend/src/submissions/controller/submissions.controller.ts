@@ -44,7 +44,7 @@ import type {
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
-} from '../submissions-error-code.enum';
+} from '../domain/submissions-error-code.enum';
 import { SubmissionMatrixService } from '../service/submission-matrix.service';
 import { SubmissionsService } from '../service/submissions.service';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../domain/submission-upload-policy';
