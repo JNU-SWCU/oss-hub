@@ -10,7 +10,7 @@ import {
   ConsentErrorCode,
 } from '../../consents/consent-error-code.enum';
 import type { ConsentsService } from '../../consents/service/consents.service';
-import type { UserProfileView } from '../../profiles/repository/user-profile-read';
+import type { UserProfileView } from '../../prisma/user-profile-read';
 import type {
   StaffAccessRequestRecord,
   MemberUser,

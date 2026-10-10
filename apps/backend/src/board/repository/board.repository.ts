@@ -13,7 +13,7 @@ import {
 import {
   type UserProfileNameSource,
   resolveUserProfileName,
-} from '../../profiles/repository/user-profile-read';
+} from '../../prisma/user-profile-read';
 
 export interface BoardPostSummaryRecord {
   id: string;

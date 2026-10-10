@@ -6,7 +6,7 @@ import { withSerializationRetry } from '../common/repository/prisma-serializatio
 import {
   USER_PROFILE_SELECT,
   resolveUserProfile,
-} from '../profiles/repository/user-profile-read';
+} from '../prisma/user-profile-read';
 import { upsertUserProfile } from '../profiles/repository/user-profile-write.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.enum';

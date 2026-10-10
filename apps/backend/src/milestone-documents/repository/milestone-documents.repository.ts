@@ -18,7 +18,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../profiles/repository/user-profile-read';
+} from '../../prisma/user-profile-read';
 
 import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
 import type { MilestoneDocumentReviewRecord } from '../domain/milestone-document-review';

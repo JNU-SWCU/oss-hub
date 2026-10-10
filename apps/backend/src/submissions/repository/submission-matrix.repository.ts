@@ -11,7 +11,7 @@ import {
   userProfileNameWhere,
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../profiles/repository/user-profile-read';
+} from '../../prisma/user-profile-read';
 import type { SubmissionMatrixFilter } from '../domain/submission-matrix';
 import { publicSubmissionId } from '../domain/submission-public-id';
 import {

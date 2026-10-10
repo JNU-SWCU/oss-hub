@@ -4,7 +4,7 @@ import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_DEPARTMENT_SELECT,
   resolveUserProfileDepartment,
-} from '../profiles/repository/user-profile-read';
+} from '../prisma/user-profile-read';
 
 export interface StaffInsightsStudentRecord {
   readonly id: string;

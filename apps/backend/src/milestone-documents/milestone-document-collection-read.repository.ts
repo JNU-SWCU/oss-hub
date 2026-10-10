@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../profiles/repository/user-profile-read';
+} from '../prisma/user-profile-read';
 import { boundedReviewHistoryQuery } from './milestone-document-history';
 import type {
   MilestoneContext,
