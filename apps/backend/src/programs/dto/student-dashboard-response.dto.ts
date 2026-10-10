@@ -14,6 +14,8 @@ export interface StudentDashboardMilestoneResponseDto {
     | 'APPROVED'
     | 'CHANGES_REQUESTED'
     | 'REJECTED';
+  readonly requiredItemCount: number;
+  readonly remainingItemCount: number;
 }
 
 export interface StudentDashboardItemResponseDto {
@@ -27,6 +29,11 @@ export interface StudentDashboardItemResponseDto {
   readonly teamUrl: string;
   readonly applicationStatus: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
   readonly nextMilestone: StudentDashboardMilestoneResponseDto | null;
+  readonly progress: {
+    readonly approvedCount: number;
+    readonly inReviewCount: number;
+    readonly totalCount: number;
+  } | null;
   readonly detailUrl: string;
   readonly checklistUrl: string;
   readonly repository: {
@@ -55,8 +62,11 @@ export class StudentDashboardResponseDto {
             name: item.nextMilestone.name,
             dueAt: item.nextMilestone.dueAt.toISOString(),
             submissionStatus: item.nextMilestone.submissionStatus,
+            requiredItemCount: item.nextMilestone.requiredItemCount,
+            remainingItemCount: item.nextMilestone.remainingItemCount,
           }
         : null,
+      progress: item.progress,
       detailUrl: item.detailUrl,
       checklistUrl: item.checklistUrl,
       repository: item.repository,
