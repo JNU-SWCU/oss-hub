@@ -12,7 +12,6 @@ import { DeleteTeamRequestDto } from '../dto/delete-team-request.dto';
 import { RepositoryUrlHistoryQueryRequestDto } from '../dto/repository-url-history-query.dto';
 import { RenameTeamRequestDto } from '../dto/rename-team-request.dto';
 import { ProgramTeamsController } from './program-teams.controller';
-import { ProgramTeamsStaffGuard } from '../program-teams-staff.guard';
 
 type ControllerMethodName =
   | 'create'
@@ -100,8 +99,8 @@ describe('ProgramTeamsController', () => {
     expect(readGuards('me')).toEqual([SessionGuard]);
   });
 
-  it('list(교직원 팀 목록) 에 SessionGuard·ProgramTeamsStaffGuard 를 적용한다', () => {
-    expect(readGuards('list')).toEqual([SessionGuard, ProgramTeamsStaffGuard]);
+  it('list(교직원 팀 목록) 에 SessionGuard 만 적용한다', () => {
+    expect(readGuards('list')).toEqual([SessionGuard]);
   });
 
   it('GET me 를 GET (목록) 보다 먼저 선언한다', () => {
@@ -207,9 +206,12 @@ describe('ProgramTeamsController', () => {
       serviceStub({ listForStaff }),
     );
 
-    const response = await controller.list('program-1');
+    const response = await controller.list(
+      { sessionGithubId: 4242n },
+      'program-1',
+    );
 
-    expect(listForStaff).toHaveBeenCalledWith('program-1');
+    expect(listForStaff).toHaveBeenCalledWith(4242n, 'program-1');
     expect(response).toEqual([
       {
         teamId: 'team-1',
@@ -319,11 +321,8 @@ describe('ProgramTeamsController', () => {
     });
   });
 
-  it('detail(교직원 팀 상세) 에 SessionGuard·ProgramTeamsStaffGuard 를 적용한다', () => {
-    expect(readGuards('detail')).toEqual([
-      SessionGuard,
-      ProgramTeamsStaffGuard,
-    ]);
+  it('detail(교직원 팀 상세) 에 SessionGuard 만 적용한다', () => {
+    expect(readGuards('detail')).toEqual([SessionGuard]);
   });
 
   it('detail(:teamId) 을 me·list 보다 뒤에 선언한다', () => {
@@ -351,9 +350,13 @@ describe('ProgramTeamsController', () => {
     });
     const controller = new ProgramTeamsController(serviceStub({ getForStaff }));
 
-    const response = await controller.detail('program-1', 'team-1');
+    const response = await controller.detail(
+      { sessionGithubId: 4242n },
+      'program-1',
+      'team-1',
+    );
 
-    expect(getForStaff).toHaveBeenCalledWith('program-1', 'team-1');
+    expect(getForStaff).toHaveBeenCalledWith(4242n, 'program-1', 'team-1');
     expect(response).toEqual({
       teamId: 'team-1',
       name: '오픈소스팀',
@@ -459,7 +462,6 @@ describe('ProgramTeamsController.rename', () => {
       method ? Reflect.getMetadata(METHOD_METADATA, method) : undefined,
     ).toBe(RequestMethod.PATCH);
     expect(readGuards('rename')).toEqual([SessionGuard, OriginGuard]);
-    expect(readGuards('rename')).not.toContain(ProgramTeamsStaffGuard);
   });
 
   it('service 결과를 RenameTeamResponseDto 로 반환한다', async () => {
@@ -492,7 +494,6 @@ describe('ProgramTeamsController.remove', () => {
       method ? Reflect.getMetadata(METHOD_METADATA, method) : undefined,
     ).toBe(RequestMethod.DELETE);
     expect(readGuards('remove')).toEqual([SessionGuard, OriginGuard]);
-    expect(readGuards('remove')).not.toContain(ProgramTeamsStaffGuard);
   });
 
   it('정적 `me` 경로를 가로채지 않도록 뒤에 선언된다', () => {

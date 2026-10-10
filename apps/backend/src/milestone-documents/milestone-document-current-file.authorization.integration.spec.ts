@@ -23,7 +23,7 @@ import { SubmissionsModule } from '../submissions/submissions.module';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 import { MilestoneDocumentCurrentFileService } from './milestone-document-current-file.service';
 import { MilestoneDocumentFilesService } from './milestone-document-files.service';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
+import { MilestoneDocumentsErrorCode } from './domain/milestone-documents-error-code.enum';
 import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 

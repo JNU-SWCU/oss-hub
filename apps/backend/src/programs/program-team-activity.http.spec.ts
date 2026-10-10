@@ -13,8 +13,9 @@ import { ProblemDetailFilter } from '../common/controller/problem-detail.filter'
 import { PrismaService } from '../prisma/prisma.service';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../runtime-config/runtime-config.module';
+import { UsersAuthorityRepository } from '../users/repository/authority.repository';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { ProgramTeamsController } from './controller/program-teams.controller';
-import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 import { ProgramTeamDeletionRepository } from './repository/program-team-deletion.repository';
 import { ProgramTeamsRepository } from './repository/program-teams.repository';
 import { ProgramTeamsService } from './service/program-teams.service';
@@ -95,7 +96,8 @@ beforeAll(async () => {
       },
       SessionGuard,
       OriginGuard,
-      ProgramTeamsStaffGuard,
+      UsersAuthorityService,
+      UsersAuthorityRepository,
       {
         provide: AuthService,
         useValue: {
