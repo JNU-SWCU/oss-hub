@@ -3,7 +3,7 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthModule } from '../auth/auth.module';
 import { ConsentsModule } from '../consents/consents.module';
-import { ConsentsService } from '../consents/consents.service';
+import { ConsentsService } from '../consents/service/consents.service';
 import { RepositoriesController } from './controller/repositories.controller';
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { GithubAppClient } from './github-app.client';

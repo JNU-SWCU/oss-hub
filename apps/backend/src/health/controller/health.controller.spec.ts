@@ -1,7 +1,7 @@
 import { HttpStatus, ServiceUnavailableException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { HealthController } from './health.controller';
-import { HealthService } from './health.service';
+import { HealthService } from '../service/health.service';
 
 async function buildController(
   isDatabaseReachable: () => Promise<boolean>,

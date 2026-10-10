@@ -8,7 +8,7 @@ import {
   CONSENT_ERROR_CODES,
   ConsentErrorCode,
 } from '../../consents/consent-error-code.enum';
-import type { ConsentsService } from '../../consents/consents.service';
+import type { ConsentsService } from '../../consents/service/consents.service';
 import type { MemberUser } from '../../users/domain/member-onboarding';
 import type {
   OnboardingRepositoryPort,
