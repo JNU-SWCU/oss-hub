@@ -2,7 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import {
   createDeadlineDigestIntegrationHarness,
   DIGEST_FIXTURE as fixture,
-} from '../notifications/deadline-digest.integration-support';
+} from '../notifications/repository/deadline-digest.integration-support';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { buildMilestoneDocumentDeliveryPage } from './milestone-document-delivery-page';

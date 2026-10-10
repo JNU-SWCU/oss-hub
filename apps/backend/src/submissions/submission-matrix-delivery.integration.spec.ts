@@ -3,7 +3,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import {
   createDeadlineDigestIntegrationHarness,
   DIGEST_FIXTURE as fixture,
-} from '../notifications/deadline-digest.integration-support';
+} from '../notifications/repository/deadline-digest.integration-support';
 import { SubmissionMatrixRepository } from './submission-matrix.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import {
