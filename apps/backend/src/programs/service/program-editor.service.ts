@@ -1,12 +1,12 @@
 import { AccountStatus } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
-import { addOneCalendarYear } from '../../common/add-one-calendar-year';
+import { addOneCalendarYear } from '../../common/domain/add-one-calendar-year';
 import type { ProblemDetailExtensions } from '../../common/error-code';
 import { DomainException } from '../../common/error-code';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from '../../milestone-documents/milestone-documents-error-code.enum';
+} from '../../milestone-documents/domain/milestone-documents-error-code.enum';
 import type { UpdateProgramRequestDto } from '../dto/update-program-request.dto';
 import type { UpsertMilestoneRequestDto } from '../dto/upsert-milestone-request.dto';
 import type { UpdateMilestoneRequestDto } from '../dto/update-milestone-request.dto';

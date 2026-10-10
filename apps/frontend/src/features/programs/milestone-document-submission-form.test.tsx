@@ -29,12 +29,12 @@ describe('MilestoneDocumentSubmissionForm', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
   it('내용과 파일이 모두 비어 있으면 제출을 막는다', async () => {
-    await act(() => {
+    await act(async () => {
       root.render(
         <MilestoneDocumentSubmissionForm
           documentName="프로젝트 계획"
@@ -46,7 +46,6 @@ describe('MilestoneDocumentSubmissionForm', () => {
           onSubmit={vi.fn().mockResolvedValue(true)}
         />,
       );
-      return Promise.resolve();
     });
 
     const submit = [...container.querySelectorAll('button')].find(
@@ -58,7 +57,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
 
   it('내용만 입력해도 제출할 수 있다', async () => {
     const onSubmit = vi.fn().mockResolvedValue(true);
-    await act(() => {
+    await act(async () => {
       root.render(
         <MilestoneDocumentSubmissionForm
           documentName="프로젝트 계획"
@@ -70,7 +69,6 @@ describe('MilestoneDocumentSubmissionForm', () => {
           onSubmit={onSubmit}
         />,
       );
-      return Promise.resolve();
     });
     const textarea = container.querySelector('textarea');
     if (!(textarea instanceof HTMLTextAreaElement))
@@ -79,24 +77,22 @@ describe('MilestoneDocumentSubmissionForm', () => {
       window.HTMLTextAreaElement.prototype,
       'value',
     );
-    await act(() => {
+    await act(async () => {
       descriptor?.set?.call(textarea, '  계획 설명  ');
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
-      return Promise.resolve();
     });
     const form = container.querySelector('form');
-    await act(() => {
+    await act(async () => {
       form?.dispatchEvent(
         new Event('submit', { bubbles: true, cancelable: true }),
       );
-      return Promise.resolve();
     });
 
     expect(onSubmit).toHaveBeenCalledWith({ text: '계획 설명', file: null });
   });
 
   it('공백 없는 긴 파일명도 모바일 카드 너비 안에서 줄바꿈한다', async () => {
-    await act(() => {
+    await act(async () => {
       root.render(
         <MilestoneDocumentSubmissionForm
           documentName="프로젝트 계획"
@@ -108,7 +104,6 @@ describe('MilestoneDocumentSubmissionForm', () => {
           onSubmit={vi.fn().mockResolvedValue(true)}
         />,
       );
-      return Promise.resolve();
     });
     const input = container.querySelector('input[type="file"]');
     if (!(input instanceof HTMLInputElement))
@@ -118,10 +113,8 @@ describe('MilestoneDocumentSubmissionForm', () => {
       configurable: true,
       value: [new File(['synthetic'], name, { type: 'application/pdf' })],
     });
-    await act(() =>
-      Promise.resolve(
-        input.dispatchEvent(new Event('change', { bubbles: true })),
-      ),
+    await act(async () =>
+      input.dispatchEvent(new Event('change', { bubbles: true })),
     );
 
     const label = container.querySelector(`[title="${name}"]`);
@@ -132,7 +125,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
 
   describe('파일을 고르기 전과 고른 직후', () => {
     async function renderForm(onSubmit = vi.fn().mockResolvedValue(true)) {
-      await act(() => {
+      await act(async () => {
         root.render(
           <MilestoneDocumentSubmissionForm
             documentName="프로젝트 계획"
@@ -144,7 +137,6 @@ describe('MilestoneDocumentSubmissionForm', () => {
             onSubmit={onSubmit}
           />,
         );
-        return Promise.resolve();
       });
       return onSubmit;
     }
@@ -167,10 +159,8 @@ describe('MilestoneDocumentSubmissionForm', () => {
         configurable: true,
         value: [candidate],
       });
-      await act(() =>
-        Promise.resolve(
-          input.dispatchEvent(new Event('change', { bubbles: true })),
-        ),
+      await act(async () =>
+        input.dispatchEvent(new Event('change', { bubbles: true })),
       );
     }
 
@@ -239,7 +229,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
 
     async function renderForm() {
       const onSubmit = vi.fn().mockResolvedValue(true);
-      await act(() => {
+      await act(async () => {
         root.render(
           <MilestoneDocumentSubmissionForm
             documentName="프로젝트 계획"
@@ -251,7 +241,6 @@ describe('MilestoneDocumentSubmissionForm', () => {
             onSubmit={onSubmit}
           />,
         );
-        return Promise.resolve();
       });
       return onSubmit;
     }
@@ -264,10 +253,8 @@ describe('MilestoneDocumentSubmissionForm', () => {
         configurable: true,
         value: [file],
       });
-      await act(() =>
-        Promise.resolve(
-          input.dispatchEvent(new Event('change', { bubbles: true })),
-        ),
+      await act(async () =>
+        input.dispatchEvent(new Event('change', { bubbles: true })),
       );
       return input;
     }
@@ -295,9 +282,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
         '파일 확인 중…',
       );
 
-      await act(() =>
-        Promise.resolve(rejectCheck(problem('MSD_040', lockedDetail))),
-      );
+      await act(async () => rejectCheck(problem('MSD_040', lockedDetail)));
 
       const error = container.querySelector(
         '#document-1-submission-file-error',
@@ -343,7 +328,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
   });
 
   it('지금 붙어 있는 첨부가 있으면 그 이름과 함께 이번 제출에서 빠진다고 알린다', async () => {
-    await act(() => {
+    await act(async () => {
       root.render(
         <MilestoneDocumentSubmissionForm
           documentName="프로젝트 계획"
@@ -355,7 +340,6 @@ describe('MilestoneDocumentSubmissionForm', () => {
           onSubmit={vi.fn().mockResolvedValue(true)}
         />,
       );
-      return Promise.resolve();
     });
 
     expect(container.textContent).toContain('기존 제출 파일');
@@ -364,7 +348,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
   });
 
   it('새 파일을 고르면 빠진다는 경고를 거둔다', async () => {
-    await act(() => {
+    await act(async () => {
       root.render(
         <MilestoneDocumentSubmissionForm
           documentName="프로젝트 계획"
@@ -376,7 +360,6 @@ describe('MilestoneDocumentSubmissionForm', () => {
           onSubmit={vi.fn().mockResolvedValue(true)}
         />,
       );
-      return Promise.resolve();
     });
     const input = container.querySelector('input[type="file"]');
     if (!(input instanceof HTMLInputElement))
@@ -387,10 +370,8 @@ describe('MilestoneDocumentSubmissionForm', () => {
         new File(['synthetic'], '2차_계획서.pdf', { type: 'application/pdf' }),
       ],
     });
-    await act(() =>
-      Promise.resolve(
-        input.dispatchEvent(new Event('change', { bubbles: true })),
-      ),
+    await act(async () =>
+      input.dispatchEvent(new Event('change', { bubbles: true })),
     );
 
     expect(container.textContent).toContain('기존 제출 파일');
@@ -398,7 +379,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
   });
 
   it('붙어 있는 첨부가 없으면 사라질 파일이 없으므로 경고하지 않는다', async () => {
-    await act(() => {
+    await act(async () => {
       root.render(
         <MilestoneDocumentSubmissionForm
           documentName="프로젝트 계획"
@@ -410,7 +391,6 @@ describe('MilestoneDocumentSubmissionForm', () => {
           onSubmit={vi.fn().mockResolvedValue(true)}
         />,
       );
-      return Promise.resolve();
     });
 
     expect(container.textContent).not.toContain('기존 제출 파일');
@@ -418,7 +398,7 @@ describe('MilestoneDocumentSubmissionForm', () => {
   });
 
   it('걸린 파일과 빠질 첨부를 동시에 안고도 두 안내를 모두 가리킨다', async () => {
-    await act(() => {
+    await act(async () => {
       root.render(
         <MilestoneDocumentSubmissionForm
           documentName="프로젝트 계획"
@@ -430,7 +410,6 @@ describe('MilestoneDocumentSubmissionForm', () => {
           onSubmit={vi.fn().mockResolvedValue(true)}
         />,
       );
-      return Promise.resolve();
     });
     const input = container.querySelector('input[type="file"]');
     if (!(input instanceof HTMLInputElement))
@@ -444,10 +423,8 @@ describe('MilestoneDocumentSubmissionForm', () => {
       configurable: true,
       value: [oversized],
     });
-    await act(() =>
-      Promise.resolve(
-        input.dispatchEvent(new Event('change', { bubbles: true })),
-      ),
+    await act(async () =>
+      input.dispatchEvent(new Event('change', { bubbles: true })),
     );
 
     const describedBy = (input.getAttribute('aria-describedby') ?? '').split(

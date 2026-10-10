@@ -1,7 +1,6 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
-import { REPOSITORIES_READ_PORT } from './repositories-read.port';
 import { RepositoriesModule } from './repositories.module';
-import { RepositoriesService } from './service/repositories.service';
+import { RepositoriesReadService } from './service/repositories-read.service';
 
 const getMetadataArray = (key: string): unknown[] => {
   const metadata = Reflect.getMetadata(key, RepositoriesModule) as unknown;
@@ -10,18 +9,19 @@ const getMetadataArray = (key: string): unknown[] => {
 };
 
 describe('RepositoriesModule', () => {
-  it('exports the DTO-only read port backed by RepositoriesService', () => {
+  it('exports the concrete read service without aliases', () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
     const exports = getMetadataArray(MODULE_METADATA.EXPORTS);
 
-    expect(providers).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          provide: REPOSITORIES_READ_PORT,
-          useExisting: RepositoriesService,
-        }),
-      ]),
-    );
-    expect(exports).toContain(REPOSITORIES_READ_PORT);
+    expect(providers).toContain(RepositoriesReadService);
+    expect(exports).toContain(RepositoriesReadService);
+    expect(
+      providers.filter(
+        (provider) =>
+          typeof provider === 'object' &&
+          provider !== null &&
+          'useExisting' in provider,
+      ),
+    ).toEqual([]);
   });
 });

@@ -110,10 +110,7 @@ describe('ProgramApplyRoute 세션 조립', () => {
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
   });
 
@@ -126,13 +123,12 @@ describe('ProgramApplyRoute 세션 조립', () => {
     });
     const authenticated = nextSessionSnapshot('authenticated');
 
-    await act(() => {
+    await act(async () => {
       root.render(
         <RoleGate allow={['student']}>
           <ProgramApplyRoute programId="synthetic-program" />
         </RoleGate>,
       );
-      return Promise.resolve();
     });
     expect(mocks.fetchSession).toHaveBeenCalledTimes(1);
     expect(container.textContent).toContain('확인 중…');

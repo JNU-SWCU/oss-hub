@@ -4,10 +4,10 @@ import {
   type CollectionPullRequest,
   type CollectionRelease,
   type CollectionRepository,
-} from '../src/github/collection-app.client';
+} from '../src/github/gateway/collection-app.client';
 import { CollectionAppConfigValues } from '../src/github/collection-app.config';
-import { CollectionAppTokenProvider } from '../src/github/collection-app.token';
-import { ProviderRequestQueue } from '../src/github/collection-provider-queue';
+import { CollectionAppTokenProvider } from '../src/github/gateway/collection-app.token';
+import { ProviderRequestQueue } from '../src/github/gateway/collection-provider-queue';
 import type { CollectionSyncRuntime } from '../src/github/service/collection-sync.service';
 
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;

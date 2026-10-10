@@ -1,0 +1,332 @@
+import {
+  ArgumentsHost,
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
+import { Response } from 'express';
+import { DomainException } from '../error-code';
+import { ProblemDetailFilter } from './problem-detail.filter';
+import { SystemErrorCode } from '../system-error-code.enum';
+import { PROGRAM_ERROR_CODES } from '../../programs/program-error-code';
+
+describe('ProblemDetailFilter', () => {
+  const createHost = (
+    response: Response,
+    url = '/api/v1/members/missing',
+    path = '/api/v1/members/missing',
+  ): ArgumentsHost =>
+    ({
+      switchToHttp: () => ({
+        getRequest: () => ({ method: 'GET', originalUrl: url, path }),
+        getResponse: () => response,
+      }),
+    }) as ArgumentsHost;
+
+  const createResponse = (): {
+    response: Response;
+    json: jest.Mock;
+    contentType: jest.Mock;
+    status: jest.Mock;
+  } => {
+    const json = jest.fn();
+    const contentType = jest.fn().mockReturnThis();
+    const status = jest.fn().mockReturnThis();
+
+    return {
+      response: { json, contentType, status } as unknown as Response,
+      json,
+      contentType,
+      status,
+    };
+  };
+
+  it('도메인 예외를 ProblemDetail 형식으로 반환한다', () => {
+    const { response, json, contentType, status } = createResponse();
+    const exception = new DomainException({
+      code: 'MEM_001',
+      status: 404,
+      message: '회원을 찾을 수 없습니다.',
+    });
+
+    new ProblemDetailFilter().catch(exception, createHost(response));
+
+    expect(status).toHaveBeenCalledWith(404);
+    expect(contentType).toHaveBeenCalledWith('application/problem+json');
+    expect(json).toHaveBeenCalledWith({
+      type: 'about:blank',
+      title: 'NOT_FOUND',
+      status: 404,
+      detail: '회원을 찾을 수 없습니다.',
+      instance: '/api/v1/members/missing',
+      code: 'MEM_001',
+    });
+  });
+
+  it('도메인 예외의 retryNotBeforeAt 확장 필드를 보존한다', () => {
+    const { response, json } = createResponse();
+    const retryNotBeforeAt = '2026-01-01T00:01:00.000Z';
+    const exception = new DomainException(
+      {
+        code: 'COL_001',
+        status: 429,
+        message: 'GitHub API 요청 한도에 도달했습니다.',
+      },
+      { retryNotBeforeAt },
+    );
+
+    new ProblemDetailFilter().catch(exception, createHost(response));
+
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'COL_001',
+        status: 429,
+        retryNotBeforeAt,
+      }),
+    );
+  });
+
+  it('stale access 도메인 예외의 authoritative projection을 보존한다', () => {
+    const { response, json } = createResponse();
+    const currentAccess = {
+      id: 'synthetic-user',
+      role: 'STAFF' as const,
+      accountStatus: 'ACTIVE' as const,
+      pendingRequest: {
+        id: 'synthetic-request',
+        status: 'PENDING' as const,
+        createdAt: '2026-07-31T00:00:00.000Z',
+      },
+    };
+    const exception = new DomainException(
+      {
+        code: 'ROL_013',
+        status: 409,
+        message: '사용자 접근 상태가 조회 당시와 달라졌습니다.',
+      },
+      { currentAccess },
+    );
+
+    new ProblemDetailFilter().catch(exception, createHost(response));
+
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'ROL_013', currentAccess }),
+    );
+  });
+
+  it('client-visible 503 도메인 예외는 명시한 코드로 반환한다', () => {
+    const { response, json, status } = createResponse();
+    const exception = new DomainException({
+      code: 'COL_005',
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+      message: 'Legacy collection scope is disabled.',
+      exposeToClient: true,
+    });
+
+    new ProblemDetailFilter().catch(
+      exception,
+      createHost(response, '/api/v1/collection-runs'),
+    );
+
+    expect(status).toHaveBeenCalledWith(HttpStatus.SERVICE_UNAVAILABLE);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: HttpStatus.SERVICE_UNAVAILABLE,
+        code: 'COL_005',
+      }),
+    );
+  });
+
+  it('프로그램 상세 조회 실패는 계약된 안전한 500 코드를 반환한다', () => {
+    const { response, json, status } = createResponse();
+    const exception = new DomainException(
+      PROGRAM_ERROR_CODES.DETAIL_LOAD_FAILED,
+    );
+
+    new ProblemDetailFilter().catch(
+      exception,
+      createHost(response, '/api/v1/programs/program-1'),
+    );
+
+    expect(status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        code: 'PROGRAM_DETAIL_LOAD_FAILED',
+        detail: '프로그램 상세 정보를 불러오지 못했습니다.',
+      }),
+    );
+  });
+  it('opt-in하지 않은 5xx 도메인 예외는 기존처럼 응답을 sanitize한다', () => {
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const { response, json } = createResponse();
+    const exception = new DomainException({
+      code: 'SYNTHETIC_500',
+      status: HttpStatus.SERVICE_UNAVAILABLE,
+      message: 'synthetic-sensitive-detail',
+    });
+
+    new ProblemDetailFilter().catch(exception, createHost(response));
+
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        code: SystemErrorCode.INTERNAL_SERVER_ERROR,
+        detail: '예기치 못한 서버 오류가 발생했습니다.',
+      }),
+    );
+    error.mockRestore();
+  });
+
+  it.each([
+    [
+      '일반 잘못된 요청',
+      new BadRequestException('요청 형식이 올바르지 않습니다.'),
+      SystemErrorCode.BAD_REQUEST,
+    ],
+    [
+      '검증 오류',
+      new BadRequestException({
+        message: ['회원 ID 형식이 올바르지 않습니다.'],
+        error: 'Bad Request',
+        statusCode: HttpStatus.BAD_REQUEST,
+      }),
+      SystemErrorCode.VALIDATION_FAILED,
+    ],
+    ['없는 경로', new NotFoundException(), SystemErrorCode.ROUTE_NOT_FOUND],
+  ])(
+    '4xx framework 예외(%s)는 해당 시스템 코드를 반환하고 debug 로그를 남긴다',
+    (
+      _description: string,
+      exception: HttpException,
+      expectedCode: SystemErrorCode,
+    ) => {
+      const debug = jest.spyOn(Logger.prototype, 'debug').mockImplementation();
+      const { response, json } = createResponse();
+
+      new ProblemDetailFilter().catch(exception, createHost(response));
+
+      expect(json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: exception.getStatus(),
+          code: expectedCode,
+        }),
+      );
+      expect(debug).toHaveBeenCalledWith({
+        event: 'http.exception',
+        method: 'GET',
+        path: '/api/v1/members/missing',
+        status: exception.getStatus(),
+        code: expectedCode,
+      });
+
+      debug.mockRestore();
+    },
+  );
+
+  it('5xx framework 예외는 안전한 진단을 error 로그에 남기고 응답을 sanitize한다', () => {
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const { response, json } = createResponse();
+    const exception = new InternalServerErrorException('민감한 내부 오류');
+
+    new ProblemDetailFilter().catch(exception, createHost(response));
+
+    expect(error).toHaveBeenCalledWith({
+      event: 'http.exception',
+      method: 'GET',
+      path: '/api/v1/members/missing',
+      status: 500,
+      code: SystemErrorCode.INTERNAL_SERVER_ERROR,
+    });
+    expect(json).toHaveBeenCalledWith({
+      type: 'about:blank',
+      title: 'INTERNAL_SERVER_ERROR',
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      detail: '예기치 못한 서버 오류가 발생했습니다.',
+      instance: '/api/v1/members/missing',
+      code: SystemErrorCode.INTERNAL_SERVER_ERROR,
+    });
+
+    error.mockRestore();
+  });
+
+  it('unknown 예외는 안전한 진단을 error 로그에 남기고 응답을 sanitize한다', () => {
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const { response, json } = createResponse();
+    const exception = new Error('데이터베이스 연결 문자열 노출');
+
+    new ProblemDetailFilter().catch(exception, createHost(response));
+
+    expect(error).toHaveBeenCalledWith({
+      event: 'http.exception',
+      method: 'GET',
+      path: '/api/v1/members/missing',
+      status: 500,
+      code: SystemErrorCode.INTERNAL_SERVER_ERROR,
+    });
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        detail: '예기치 못한 서버 오류가 발생했습니다.',
+        code: SystemErrorCode.INTERNAL_SERVER_ERROR,
+      }),
+    );
+
+    error.mockRestore();
+  });
+
+  it('query string과 원문 예외 정보를 ProblemDetail 응답에 노출하지 않는다', () => {
+    const sensitiveQuery = 'synthetic-query-secret';
+    const sensitiveMessage = 'synthetic-storage-credential';
+    const path = '/api/v1/members/missing';
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const { response, json } = createResponse();
+
+    new ProblemDetailFilter().catch(
+      new Error(sensitiveMessage),
+      createHost(response, `${path}?token=${sensitiveQuery}`, path),
+    );
+
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        instance: path,
+        code: SystemErrorCode.INTERNAL_SERVER_ERROR,
+      }),
+    );
+    const serializedResponse = JSON.stringify(json.mock.calls);
+    expect(serializedResponse).not.toContain(sensitiveQuery);
+    expect(serializedResponse).not.toContain(sensitiveMessage);
+
+    error.mockRestore();
+  });
+
+  it('unknown 예외 로그에는 안전한 진단 필드만 남긴다', () => {
+    const sensitiveQuery = 'synthetic-query-secret';
+    const sensitiveMessage = 'synthetic-storage-credential';
+    const path = '/api/v1/members/missing';
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    const { response } = createResponse();
+
+    new ProblemDetailFilter().catch(
+      new Error(sensitiveMessage),
+      createHost(response, `${path}?token=${sensitiveQuery}`, path),
+    );
+
+    expect(error).toHaveBeenCalledWith({
+      event: 'http.exception',
+      method: 'GET',
+      path,
+      status: 500,
+      code: SystemErrorCode.INTERNAL_SERVER_ERROR,
+    });
+    const serializedLog = JSON.stringify(error.mock.calls);
+    expect(serializedLog).not.toContain(sensitiveQuery);
+    expect(serializedLog).not.toContain(sensitiveMessage);
+
+    error.mockRestore();
+  });
+});

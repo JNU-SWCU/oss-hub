@@ -73,7 +73,7 @@ describe('createApplication wire 계약', () => {
     expect(missing).toEqual([]);
   });
 
-  it('DTO 의 키 집합이 이 테스트가 아는 계약과 같다', async () => {
+  it('DTO 의 키 집합이 이 테스트가 아는 계약과 같다', () => {
     expect(
       backendDtoKeys()
         .map((key) => key.name)

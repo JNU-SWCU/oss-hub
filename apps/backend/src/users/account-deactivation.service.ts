@@ -4,9 +4,12 @@ import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
-} from '../audit-log/audit-log-metadata';
-import { AuditLogService } from '../audit-log/audit-log.service';
-import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
+} from '../audit-log/domain/audit-log-metadata';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
+import {
+  AUTH_ERROR_CODES,
+  AuthErrorCode,
+} from '../auth/domain/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
 import {
   AccountDeactivationRepository,

@@ -1,4 +1,4 @@
-import type { ProgramCategory, ProgramTrackType } from './program-templates';
+import type { ProgramTrackType } from './program-templates';
 import type { PublishBlockedReason } from '@/lib/repository-publication';
 
 export type ViewerRole = 'STUDENT' | 'STAFF' | 'ADMIN' | 'PENDING' | null;
@@ -81,16 +81,6 @@ export const PROGRAM_LIST_STATUS_LABELS = {
   upcoming: '예정',
   ended: '종료',
 } as const satisfies Readonly<Record<ProgramListStatus, string>>;
-
-export const PROGRAM_CATEGORY_LABELS = {
-  BASIC: '기본 프로그램',
-  SW_VALUE_SPREAD: 'SW 가치확산',
-  OSS_CONTEST: 'OSS 경진대회',
-  CAPSTONE: '캡스톤',
-  SW_CONVERGENCE: 'SW 융합',
-  GLOBAL_MAKERTHON: '글로벌 메이커톤',
-  CORPORATE_INTERNSHIP: '기업 인턴십',
-} as const satisfies Record<ProgramCategory, string>;
 
 export function programListHref(status: ProgramListStatus): string {
   if (status === 'all') return '/programs';

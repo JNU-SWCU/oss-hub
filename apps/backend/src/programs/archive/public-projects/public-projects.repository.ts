@@ -8,7 +8,7 @@ import {
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
-} from '../../../github/repository-identity';
+} from '../../../github/domain/repository-identity';
 
 export interface PublicProjectRow {
   readonly id: string;

@@ -5,7 +5,7 @@ import { MILESTONE_DOCUMENT_ARCHIVE_ERROR_CODES } from './milestone-document-upl
 
 const REGISTRY_PATH = path.resolve(
   __dirname,
-  '../../../../backend/src/milestone-documents/milestone-documents-error-code.enum.ts',
+  '../../../../backend/src/milestone-documents/domain/milestone-documents-error-code.enum.ts',
 );
 
 function parseBackendArchiveCodes(source: string): string[] {

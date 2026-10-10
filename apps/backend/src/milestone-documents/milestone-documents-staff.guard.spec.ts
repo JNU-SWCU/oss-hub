@@ -1,6 +1,6 @@
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import { AccountStatus } from '@prisma/client';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
+import { MilestoneDocumentsErrorCode } from './domain/milestone-documents-error-code.enum';
 import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
 import type { MilestoneDocumentsStaffRequest } from './milestone-documents-staff.guard';
 

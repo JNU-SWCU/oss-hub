@@ -1,6 +1,10 @@
 import { RepositoryVisibility } from '@prisma/client';
-import type { Prisma, ReviewDecision, SubmissionStatus } from '@prisma/client';
+import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import type { PublishBlockedReason } from '../../github/domain/repository-publication';
+
+type JsonObject = { [key in string]?: JsonValue };
+type JsonArray = JsonValue[];
+type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
 
 export const APPLICATION_MODES = {
   PERSONAL: 'PERSONAL',
@@ -35,7 +39,7 @@ export interface SubmissionReviewFileRecord {
 
 export interface SubmissionRevisionRecord {
   readonly number: number;
-  readonly content: Prisma.JsonValue;
+  readonly content: JsonValue;
   readonly comment: string | null;
   readonly submittedAt: Date;
   readonly files: readonly SubmissionReviewFileRecord[];

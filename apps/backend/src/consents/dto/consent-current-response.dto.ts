@@ -1,4 +1,4 @@
-import { ConsentStatus } from '../consents.service';
+import { ConsentStatus } from '../domain/consent';
 
 export interface ConsentRequiredItemResponseDto {
   key: string;

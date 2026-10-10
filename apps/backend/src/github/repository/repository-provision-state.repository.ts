@@ -13,7 +13,7 @@ import {
   InvalidRepositoryProvisionEventError,
   parseRepositoryProvisionEvent,
   REPOSITORY_PROVISION_EVENT_TYPE,
-} from '../repository-provision-event';
+} from '../domain/repository-provision-event';
 import type {
   CompleteRepositoryInvitationInput,
   FailRepositoryInvitationInput,
@@ -23,18 +23,16 @@ import type {
   RepositoryInvitationWork,
   RepositoryProvisionContext,
   RepositoryProvisionStateStore,
-} from '../repository-provision.contract';
+} from '../domain/repository-provision.contract';
 import {
   finalProvisionFailure,
   PROVISION_ERROR_CODES,
-} from '../repository-provision.failure';
-import { DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS } from '../repository-provision.failure';
+} from '../domain/repository-provision.failure';
+import { DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS } from '../domain/repository-provision.failure';
 import {
   assertCurrentRequest,
   assertProvisionLease,
   assertSingleProvisionUpdate,
-  canonicalGithubLogin,
-  canonicalGithubLogins,
   claimGithubRepositoryForApplication,
   claimedJobWhere,
   GithubRepositoryClaimConflictError,
@@ -50,7 +48,11 @@ import {
   RepositoryProvisionLeaseLostError,
   teamMemberLoginSelection,
   toProvisionedRepository,
-} from '../repository-provision-state.helpers';
+} from './repository-provision-state.helpers';
+import {
+  canonicalGithubLogin,
+  canonicalGithubLogins,
+} from '../domain/repository-provision-event';
 
 function failedInvitationStatus(
   input: FailRepositoryInvitationInput,

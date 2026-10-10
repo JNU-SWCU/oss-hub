@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
-import { normalizeMultipartFileName } from '../common/multipart-file-name';
+import { normalizeMultipartFileName } from '../common/domain/multipart-file-name';
 import { sanitizeSubmissionFileOriginalName } from '../submissions/domain/submission-file-object-key';
-import { hasValidSubmissionTemplateSignature } from '../submissions/submission-template-file-policy';
-import { inspectSubmissionZipMetadata } from '../submissions/submission-zip-admission';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
+import { hasValidSubmissionTemplateSignature } from '../submissions/domain/submission-template-file-policy';
+import { inspectSubmissionZipMetadata } from '../submissions/domain/submission-zip-admission';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/domain/submission-upload-policy';
 import {
   PROGRAM_AUTHORING_UPLOAD_ERROR_CODES,
   ProgramAuthoringUploadError,

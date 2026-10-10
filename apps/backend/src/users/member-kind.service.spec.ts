@@ -2,7 +2,7 @@ import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import {
   INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
   USER_PROFILE_AUDIT_ACTIONS,
-} from '../audit-log/audit-log-metadata';
+} from '../audit-log/domain/audit-log-metadata';
 import { PrismaService } from '../prisma/prisma.service';
 import { DomainException } from '../common/error-code';
 import type { AdminAccessActor } from './admin-access.repository.types';

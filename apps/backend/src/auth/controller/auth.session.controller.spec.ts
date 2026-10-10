@@ -11,7 +11,7 @@ import {
   SESSION_MAX_AGE_SECONDS,
   issueSessionToken,
 } from '../domain/session-token';
-import { LoginHistoryService } from '../../login-history/login-history.service';
+import { LoginHistoryService } from '../../login-history/service/login-history.service';
 
 const syntheticUser: AuthUser = {
   id: 'synthetic-id',

@@ -1,4 +1,4 @@
-import { RolesErrorCode } from '../roles/roles-error-code.enum';
+import { RolesErrorCode } from './domain/roles-error-code.enum';
 import { auditLogHarness } from './admin-access.service.spec-support';
 import { mutateAdminUserProfile } from './admin-profile-mutation.service';
 import {

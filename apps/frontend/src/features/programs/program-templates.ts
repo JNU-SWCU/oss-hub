@@ -14,7 +14,7 @@ export const PROGRAM_CATEGORIES = [
   'CORPORATE_INTERNSHIP',
 ] as const;
 
-export type ProgramCategory = (typeof PROGRAM_CATEGORIES)[number];
+type ProgramCategory = (typeof PROGRAM_CATEGORIES)[number];
 
 export const PROGRAM_TRACK_TYPES = ['CURRICULAR', 'EXTRACURRICULAR'] as const;
 

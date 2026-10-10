@@ -6,9 +6,9 @@ import {
   Prisma,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
+import type { AuditLogTransactionWriter } from '../prisma/audit-log-transaction-writer';
 import { DomainException } from '../common/error-code';
-import { withSerializationRetry } from '../common/prisma-serialization-retry';
+import { withSerializationRetry } from '../common/repository/prisma-serialization-retry';
 import { PrismaService } from '../prisma/prisma.service';
 import { authorityLabel, type AuthorityLabel } from './domain/authority-label';
 import {

@@ -2,7 +2,7 @@ import type { AffiliationKind, MemberKind } from '@prisma/client';
 import {
   isCompleteUserProfile,
   type UserProfileRecord,
-} from '../user-profile-policy';
+} from './user-profile-policy';
 
 export {
   effectiveProfileMemberKind,
@@ -18,7 +18,7 @@ export {
   USER_NAME_MAX_LENGTH,
   type ProfileFieldRequirement,
   type UserProfileRecord,
-} from '../user-profile-policy';
+} from './user-profile-policy';
 
 export interface UserProfile {
   readonly name: string;

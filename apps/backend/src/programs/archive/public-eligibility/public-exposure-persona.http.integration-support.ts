@@ -3,9 +3,9 @@ import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { AuditLogController } from '../../../audit-log/audit-log.controller';
-import { AuditLogRepository } from '../../../audit-log/audit-log.repository';
-import { AuditLogService } from '../../../audit-log/audit-log.service';
+import { AuditLogController } from '../../../audit-log/controller/audit-log.controller';
+import { AuditLogRepository } from '../../../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../../../audit-log/service/audit-log.service';
 import { AuthConfig } from '../../../auth/auth.config';
 import { AuthenticationGuard } from '../../../auth/controller/authentication.guard';
 import { AuthService } from '../../../auth/service/auth.service';
@@ -15,10 +15,10 @@ import { sessionCookieName } from '../../../auth/domain/cookies';
 import { OriginGuard } from '../../../auth/controller/origin.guard';
 import { issueSessionToken } from '../../../auth/domain/session-token';
 import { SessionGuard } from '../../../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../../../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../../../common/controller/problem-detail.filter';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
-import type { GithubAppClient } from '../../../github/github-app.client';
+import type { GithubAppClient } from '../../../github/gateway/github-app.client';
 import { RepositoriesRepository } from '../../../github/repository/repositories.repository';
 import { RepositoriesService } from '../../../github/service/repositories.service';
 import { RankingController } from '../../../ranking/controller/ranking.controller';
@@ -28,10 +28,11 @@ import { PublicProjectsController } from '../public-projects/public-projects.con
 import { PublicProjectsRepository } from '../public-projects/public-projects.repository';
 import { PublicProjectsService } from '../public-projects/public-projects.service';
 import { PublicUserProfileController } from '../public-projects/public-user-profile.controller';
-import { SubmissionRepositoryPublishingController } from '../../../submission-reviews/submission-reviews.controller';
-import { SubmissionReviewsRepository } from '../../../submission-reviews/submission-reviews.repository';
-import { SubmissionReviewsService } from '../../../submission-reviews/submission-reviews.service';
-import { SubmissionReviewsStaffGuard } from '../../../submission-reviews/submission-reviews-staff.guard';
+import { SubmissionRepositoryPublishingController } from '../../../submission-reviews/controller/submission-reviews.controller';
+import { SubmissionReviewsRepository } from '../../../submission-reviews/repository/submission-reviews.repository';
+import { SubmissionReviewsService } from '../../../submission-reviews/service/submission-reviews.service';
+import { UsersAuthorityService } from '../../../users/service/authority.service';
+import { UsersAuthorityRepository } from '../../../users/repository/authority.repository';
 import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
 import { PublicEligibilityService } from './public-eligibility.service';
 
@@ -96,11 +97,11 @@ export class PublicExposurePersonaHttpHarness {
       repositoriesRepository,
       github,
       auditLogService,
-      { requireOrganization: () => 'synthetic-org' },
     );
     const submissionReviewsService = new SubmissionReviewsService(
       new SubmissionReviewsRepository(this.prisma),
       repositoriesService,
+      new UsersAuthorityService(new UsersAuthorityRepository(this.prisma)),
     );
     this.githubPublishRepositoryMock = github.publishRepository;
 
@@ -123,7 +124,6 @@ export class PublicExposurePersonaHttpHarness {
         AuthenticationGuard,
         SessionGuard,
         OriginGuard,
-        SubmissionReviewsStaffGuard,
         { provide: PrismaService, useValue: this.prisma },
         {
           provide: AuthConfig,

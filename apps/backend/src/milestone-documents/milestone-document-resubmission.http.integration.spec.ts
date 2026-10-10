@@ -1,6 +1,6 @@
 import { ReviewDecision } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
+import { MilestoneDocumentsErrorCode } from './domain/milestone-documents-error-code.enum';
 import {
   MilestoneDocumentFlowFixture,
   flowIds,

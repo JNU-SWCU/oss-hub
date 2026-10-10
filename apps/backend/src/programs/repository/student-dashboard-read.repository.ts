@@ -9,8 +9,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import {
   submissionCompletionTargetSelect,
   type SubmissionCompletionTargetRow,
-} from '../../submissions/submission-completion-projection';
-import { programApplicationParticipantWhere } from '../program-participant';
+} from '../../submissions/domain/submission-completion-projection';
+import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
 
 export interface StudentDashboardMilestoneRow {
   readonly id: string;

@@ -21,10 +21,7 @@ describe('DialogShell', () => {
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
   });
 
@@ -35,7 +32,7 @@ describe('DialogShell', () => {
       children = <input aria-label="팀 이름" defaultValue="가팀" />,
       ...rest
     } = props;
-    await act(() => {
+    await act(async () => {
       root.render(
         <DialogShell
           title="팀 이름 변경"
@@ -47,7 +44,6 @@ describe('DialogShell', () => {
           {children}
         </DialogShell>,
       );
-      return Promise.resolve();
     });
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
     const button = (name: string) =>
@@ -92,15 +88,9 @@ describe('DialogShell', () => {
 
     expect(dialog?.querySelector('[aria-label="닫기"]')).toBeNull();
 
-    await act(() => {
-      button('저장')?.click();
-      return Promise.resolve();
-    });
+    await act(async () => button('저장')?.click());
     expect(onSave).toHaveBeenCalledTimes(1);
-    await act(() => {
-      button('취소')?.click();
-      return Promise.resolve();
-    });
+    await act(async () => button('취소')?.click());
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
@@ -123,20 +113,18 @@ describe('DialogShell', () => {
 
   it('Escape는 창을 닫지만 busy 동안에는 닫지 않는다', async () => {
     const { dialog, onCancel } = await render();
-    await act(() => {
+    await act(async () => {
       dialog?.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
       );
-      return Promise.resolve();
     });
     expect(onCancel).toHaveBeenCalledTimes(1);
 
     const busy = await render({ busy: true });
-    await act(() => {
+    await act(async () => {
       busy.dialog?.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
       );
-      return Promise.resolve();
     });
     expect(busy.onCancel).not.toHaveBeenCalled();
     expect(busy.button('저장')?.disabled).toBe(true);

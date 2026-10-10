@@ -9,10 +9,10 @@ import {
   createProgramDeletionAuditMetadata,
   PROGRAM_DELETION_AUDIT_ACTIONS,
   type ProgramDeletionAuditBlockingCounts,
-} from '../../audit-log/audit-log-metadata';
-import { AuditLogService } from '../../audit-log/audit-log.service';
+} from '../../audit-log/domain/audit-log-metadata';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { DomainException } from '../../common/error-code';
-import { isSerializationFailure } from '../../common/prisma-serialization-retry';
+import { isSerializationFailure } from '../../common/repository/prisma-serialization-retry';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   readProgramDeletionScopeCounts,

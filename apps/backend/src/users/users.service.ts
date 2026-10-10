@@ -1,8 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
+import {
+  AUTH_ERROR_CODES,
+  AuthErrorCode,
+} from '../auth/domain/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
-import { ConsentsService } from '../consents/consents.service';
+import { ConsentsService } from '../consents/service/consents.service';
 import type {
   PatchUserProfileInput,
   UserProfile,

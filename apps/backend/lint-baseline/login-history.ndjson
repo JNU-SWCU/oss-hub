@@ -1,4 +1,1 @@
 {"file":"apps/backend/src/login-history/login-history.controller.ts","ruleId":"boundaries/no-unknown-files","target":"boundaries/no-unknown-files:Program:d5a7c9c9-9679aea6-2d365254-dcdbe63b-b27f37c7-75cdb2ad-6af8241c-e201731b:occurrence:1"}
-{"file":"apps/backend/src/login-history/login-history.repository.ts","ruleId":"boundaries/no-unknown-files","target":"boundaries/no-unknown-files:Program:d5a7c9c9-9679aea6-2d365254-dcdbe63b-b27f37c7-75cdb2ad-6af8241c-e201731b:occurrence:1"}
-{"file":"apps/backend/src/login-history/login-history.repository.ts","ruleId":"no-restricted-imports","target":"allowedImportNameWithCustomMessage:ImportDeclaration:d418cafd-06281735-e50702c2-9223c40c-a579fd77-b9c36d3b-bc216b43-0b14a832:occurrence:1"}
-{"file":"apps/backend/src/login-history/login-history.service.ts","ruleId":"boundaries/no-unknown-files","target":"boundaries/no-unknown-files:Program:d5a7c9c9-9679aea6-2d365254-dcdbe63b-b27f37c7-75cdb2ad-6af8241c-e201731b:occurrence:1"}

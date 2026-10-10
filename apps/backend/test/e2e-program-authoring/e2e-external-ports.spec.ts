@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
-import { GithubOperationsError } from '../../src/github/github-app.error';
+import { GithubOperationsError } from '../../src/github/domain/github-app.error';
 import { ObjectStorageError } from '../../src/storage/domain/object-storage';
 import {
   E2E_EXTERNAL_FAILURE_OPERATIONS,

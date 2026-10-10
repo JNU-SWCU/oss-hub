@@ -5,7 +5,7 @@ import {
   MemberKind,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { RolesErrorCode } from '../roles/roles-error-code.enum';
+import { RolesErrorCode } from './domain/roles-error-code.enum';
 import { AdminAccessHttpHarness } from './admin-access.http.integration-support';
 
 assertIsolatedIntegrationDatabase({

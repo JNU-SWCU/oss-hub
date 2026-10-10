@@ -13,8 +13,10 @@ import { APPLICATION_DECISION_ACTIONS } from './domain/application-decision';
 import { ApplicationsErrorCode } from './applications-error-code.enum';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
-import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogRepository } from '../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
+import { UsersAuthorityRepository } from '../users/repository/authority.repository';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { StudentApplicationManagementRepository } from './student-application-management.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
 
@@ -30,6 +32,7 @@ const repository = new ApplicationsRepository(prisma, {
 const service = new ApplicationsService(
   repository,
   new AuditLogService(new AuditLogRepository(prisma)),
+  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
 );
 const studentService = new StudentApplicationManagementService(
   new StudentApplicationManagementRepository(prisma),
@@ -261,14 +264,9 @@ describe('ApplicationsService integration', () => {
     const applicationId = APPLICATION_IDS[0];
     await createApplication(applicationId, true);
 
-    const result = await service.decide(
-      ACTOR_ID,
-      applicationId,
-      ACTOR_GITHUB_ID,
-      {
-        action: APPLICATION_DECISION_ACTIONS.APPROVE,
-      },
-    );
+    const result = await service.decide(ACTOR_GITHUB_ID, applicationId, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
 
     const application = await prisma.application.findUniqueOrThrow({
       where: { id: applicationId },
@@ -345,14 +343,9 @@ describe('ApplicationsService integration', () => {
     const applicationId = APPLICATION_IDS[1];
     await createApplication(applicationId, false);
 
-    const result = await service.decide(
-      ACTOR_ID,
-      applicationId,
-      ACTOR_GITHUB_ID,
-      {
-        action: APPLICATION_DECISION_ACTIONS.APPROVE,
-      },
-    );
+    const result = await service.decide(ACTOR_GITHUB_ID, applicationId, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
 
     expect(result).toMatchObject({
       status: ApplicationStatus.APPROVED,
@@ -380,7 +373,7 @@ describe('ApplicationsService integration', () => {
       },
     });
 
-    await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+    await service.decide(ACTOR_GITHUB_ID, applicationId, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
@@ -402,7 +395,7 @@ describe('ApplicationsService integration', () => {
     const applicationId = APPLICATION_IDS[2];
     await createApplication(applicationId, true);
 
-    await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+    await service.decide(ACTOR_GITHUB_ID, applicationId, {
       action: APPLICATION_DECISION_ACTIONS.REJECT,
       reason: '합성 반려 사유',
     });
@@ -433,10 +426,10 @@ describe('ApplicationsService integration', () => {
     await createApplication(applicationId, true);
 
     const decisions = await Promise.allSettled([
-      service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+      service.decide(ACTOR_GITHUB_ID, applicationId, {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       }),
-      service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+      service.decide(ACTOR_GITHUB_ID, applicationId, {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       }),
     ]);
@@ -459,11 +452,11 @@ describe('ApplicationsService integration', () => {
     await createApplication(applicationId, false);
 
     const decisions = await Promise.allSettled([
-      service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+      service.decide(ACTOR_GITHUB_ID, applicationId, {
         action: APPLICATION_DECISION_ACTIONS.REJECT,
         reason: '합성 반려 사유 A',
       }),
-      service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+      service.decide(ACTOR_GITHUB_ID, applicationId, {
         action: APPLICATION_DECISION_ACTIONS.REJECT,
         reason: '합성 반려 사유 B',
       }),
@@ -507,7 +500,7 @@ describe('ApplicationsService integration', () => {
       },
     });
 
-    const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+    const decision = service.decide(ACTOR_GITHUB_ID, applicationId, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
@@ -553,7 +546,7 @@ describe('ApplicationsService integration', () => {
       data: { status: ApplicationStatus.APPROVED },
     });
 
-    const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+    const decision = service.decide(ACTOR_GITHUB_ID, applicationId, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
@@ -569,22 +562,17 @@ describe('ApplicationsService integration', () => {
   it('#1272 승인→반려: PATCH 한 번으로 전이하고 미완료 요청을 같은 트랜잭션에서 지운다', async () => {
     const applicationId = APPLICATION_IDS[8];
     await createApplication(applicationId, true);
-    await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+    await service.decide(ACTOR_GITHUB_ID, applicationId, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
     await expect(
       prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
     ).resolves.toBe(1);
 
-    const result = await service.decide(
-      ACTOR_ID,
-      applicationId,
-      ACTOR_GITHUB_ID,
-      {
-        action: APPLICATION_DECISION_ACTIONS.REJECT,
-        reason: '합성 재판정 사유',
-      },
-    );
+    const result = await service.decide(ACTOR_GITHUB_ID, applicationId, {
+      action: APPLICATION_DECISION_ACTIONS.REJECT,
+      reason: '합성 재판정 사유',
+    });
 
     expect(result).toMatchObject({
       kind: 'REJECTED',
@@ -630,17 +618,14 @@ describe('ApplicationsService integration', () => {
   it('#1272 반려→승인: PATCH 한 번으로 전이하고 새 프로비저닝 이벤트를 발행한다', async () => {
     const applicationId = APPLICATION_IDS[9];
     await createApplication(applicationId, true);
-    await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+    await service.decide(ACTOR_GITHUB_ID, applicationId, {
       action: APPLICATION_DECISION_ACTIONS.REJECT,
       reason: '합성 반려 사유',
     });
 
-    const result = await service.decide(
-      ACTOR_ID,
-      applicationId,
-      ACTOR_GITHUB_ID,
-      { action: APPLICATION_DECISION_ACTIONS.APPROVE },
-    );
+    const result = await service.decide(ACTOR_GITHUB_ID, applicationId, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
 
     const event = await prisma.outboxEvent.findUniqueOrThrow({
       where: { idempotencyKey: `repository-provision:${applicationId}` },
@@ -668,7 +653,7 @@ describe('ApplicationsService integration', () => {
   it('프로비저닝이 끝난 승인도 반려·되돌림·재승인이 다 되고 완료된 요청은 보존된다', async () => {
     const applicationId = APPLICATION_IDS[10];
     await createApplication(applicationId, true);
-    await service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+    await service.decide(ACTOR_GITHUB_ID, applicationId, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
     await prisma.repositoryProvisionJob.update({
@@ -684,7 +669,7 @@ describe('ApplicationsService integration', () => {
     });
 
     await expect(
-      service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+      service.decide(ACTOR_GITHUB_ID, applicationId, {
         action: APPLICATION_DECISION_ACTIONS.REJECT,
         reason: '합성 반려 사유',
       }),
@@ -708,7 +693,7 @@ describe('ApplicationsService integration', () => {
     ).resolves.toMatchObject({ id: provisionedEvent.id });
 
     await expect(
-      service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+      service.decide(ACTOR_GITHUB_ID, applicationId, {
         action: APPLICATION_DECISION_ACTIONS.REVERT,
       }),
     ).resolves.toMatchObject({ kind: 'REVERTED' });
@@ -718,12 +703,9 @@ describe('ApplicationsService integration', () => {
       }),
     ).resolves.toMatchObject({ id: provisionedJob.id });
 
-    const reapproved = await service.decide(
-      ACTOR_ID,
-      applicationId,
-      ACTOR_GITHUB_ID,
-      { action: APPLICATION_DECISION_ACTIONS.APPROVE },
-    );
+    const reapproved = await service.decide(ACTOR_GITHUB_ID, applicationId, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
 
     expect(reapproved).toMatchObject({
       kind: 'APPROVED',
@@ -801,7 +783,7 @@ describe('ApplicationsService integration', () => {
         ),
       );
 
-    const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+    const decision = service.decide(ACTOR_GITHUB_ID, applicationId, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
     await decisionReady;
@@ -821,9 +803,8 @@ describe('ApplicationsService integration', () => {
   });
   it('없는 신청은 404로 거부한다', async () => {
     const decision = service.decide(
-      ACTOR_ID,
-      'synthetic-missing-application',
       ACTOR_GITHUB_ID,
+      'synthetic-missing-application',
       {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       },
@@ -867,7 +848,7 @@ describe('ApplicationsService integration', () => {
         ),
       );
 
-    const decision = service.decide(ACTOR_ID, applicationId, ACTOR_GITHUB_ID, {
+    const decision = service.decide(ACTOR_GITHUB_ID, applicationId, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 

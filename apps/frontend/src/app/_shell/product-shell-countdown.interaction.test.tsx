@@ -93,13 +93,12 @@ async function renderShell(
   root: Root,
   options: { readonly initialCollapsed?: boolean } = {},
 ) {
-  await act(() => {
+  await act(async () => {
     root.render(
       <ProductShell initialCollapsed={options.initialCollapsed}>
         <p>본문</p>
       </ProductShell>,
     );
-    return Promise.resolve();
   });
   await act(async () => {
     await Promise.resolve();
@@ -128,10 +127,7 @@ describe('ProductShell program deadline countdown', () => {
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
     vi.useRealTimers();
   });

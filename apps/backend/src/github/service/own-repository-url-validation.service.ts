@@ -1,12 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { GithubAppClient } from '../github-app.client';
+import type { GithubAppClient } from '../gateway/github-app.client';
 import {
   PROVISION_ERROR_CODES,
   RepositoryProvisionFailure,
-} from '../repository-provision.failure';
-import { resolveOwnGithubRepository } from '../repository-provision.github';
-export type { OwnGithubRepositoryResolution } from '../repository-provision.github';
-export { RepositoryProvisionFailure } from '../repository-provision.failure';
+} from '../domain/repository-provision.failure';
+import { resolveOwnGithubRepository } from './repository-provision.github';
 
 export type OwnRepositoryUrlValidationResult =
   | { readonly kind: 'VALID' }

@@ -15,7 +15,7 @@ import {
   isValidUserName,
   normalizeProfileText,
   type UserProfileRecord,
-} from './user-profile-policy';
+} from './domain/user-profile-policy';
 
 type Affiliation = {
   readonly kind: AffiliationKind;

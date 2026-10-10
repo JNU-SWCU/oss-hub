@@ -5,7 +5,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import {
   CollectionDiscoveryClient,
   CollectionDiscoveryClientError,
-} from '../collection-discovery.client';
+} from '../gateway/collection-discovery.client';
+import { CollectionUserActivityRepository } from '../repository/collection-user-activity.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 
 function deferred<T>(): {
@@ -39,10 +40,10 @@ describe('CollectionUserActivityService', () => {
 
   const buildService = (): CollectionUserActivityService =>
     new CollectionUserActivityService(
-      {
+      new CollectionUserActivityRepository({
         user: { findMany },
         githubUserActivityHistory: { findUnique, upsert },
-      } as unknown as PrismaService,
+      } as unknown as PrismaService),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
       now,
     );
@@ -274,11 +275,11 @@ describe('CollectionUserActivityService', () => {
   it('Contribution 저장소 축에는 아무것도 쓰지 않는다', async () => {
     const contribution = { create: jest.fn(), upsert: jest.fn() };
     const service = new CollectionUserActivityService(
-      {
+      new CollectionUserActivityRepository({
         user: { findMany },
         githubUserActivityHistory: { findUnique, upsert },
         contribution,
-      } as unknown as PrismaService,
+      } as unknown as PrismaService),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
       now,
     );

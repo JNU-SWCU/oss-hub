@@ -61,15 +61,14 @@ describe('MilestoneDocumentCurrentFiles', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
     vi.restoreAllMocks();
   });
 
   async function render(): Promise<void> {
-    await act(() => {
+    await act(async () => {
       root.render(<MilestoneDocumentCurrentFiles milestoneId="milestone-1" />);
-      return Promise.resolve();
     });
   }
 
@@ -108,7 +107,7 @@ describe('MilestoneDocumentCurrentFiles', () => {
       throw new Error('download button expected');
     }
 
-    await act(() => Promise.resolve(button.click()));
+    await act(async () => button.click());
 
     expect(button.disabled).toBe(true);
     expect(button.getAttribute('aria-busy')).toBe('true');
@@ -143,7 +142,7 @@ describe('MilestoneDocumentCurrentFiles', () => {
       throw new Error('download button expected');
     }
 
-    await act(() => Promise.resolve(button.click()));
+    await act(async () => button.click());
 
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(
       '제출된 파일을 찾을 수 없습니다.',

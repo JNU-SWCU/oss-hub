@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
-import { safeSubmissionFileContentType } from '../submissions/submission-file-content-type';
+import { safeSubmissionFileContentType } from '../submissions/domain/submission-file-content-type';
 import { sanitizeSubmissionFileOriginalName } from '../submissions/domain/submission-file-object-key';
 import {
   OBJECT_STORAGE,
@@ -14,7 +14,7 @@ import {
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.enum';
+} from './domain/milestone-documents-error-code.enum';
 
 export interface DownloadedMilestoneDocumentCurrentFile {
   readonly body: Readable;

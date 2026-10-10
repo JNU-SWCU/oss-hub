@@ -97,7 +97,7 @@ describe('프로그램 편집 화면 — 마감 알림 스위치 왕복', () => 
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
@@ -114,7 +114,7 @@ describe('프로그램 편집 화면 — 마감 알림 스위치 왕복', () => 
   }> {
     let latest = toProgramEditForm(program);
     let latestDirty: readonly ProgramEditableField[] = [];
-    await act(() => {
+    await act(async () => {
       root.render(
         <EditViewHarness
           program={program}
@@ -124,8 +124,6 @@ describe('프로그램 편집 화면 — 마감 알림 스위치 왕복', () => 
           }}
         />,
       );
-
-      return Promise.resolve();
     });
     return {
       payload: () => buildProgramEditInput(latest, latestDirty),
@@ -137,10 +135,8 @@ describe('프로그램 편집 화면 — 마감 알림 스위치 왕복', () => 
     expect(deadlineCheckbox().checked).toBe(false);
     expect(payload().notifyOnDeadline).toBe(false);
 
-    await act(() => {
+    await act(async () => {
       deadlineCheckbox().click();
-
-      return Promise.resolve();
     });
 
     expect(deadlineCheckbox().checked).toBe(true);
@@ -154,10 +150,8 @@ describe('프로그램 편집 화면 — 마감 알림 스위치 왕복', () => 
     });
     expect(deadlineCheckbox().checked).toBe(true);
 
-    await act(() => {
+    await act(async () => {
       deadlineCheckbox().click();
-
-      return Promise.resolve();
     });
 
     expect(deadlineCheckbox().checked).toBe(false);
@@ -167,10 +161,8 @@ describe('프로그램 편집 화면 — 마감 알림 스위치 왕복', () => 
   it('저장 전에는 발송 대상 미리보기를 열지 않는다고 화면이 알려 준다', async () => {
     await render(editableProgram);
 
-    await act(() => {
+    await act(async () => {
       deadlineCheckbox().click();
-
-      return Promise.resolve();
     });
 
     expect(container.textContent).toContain(

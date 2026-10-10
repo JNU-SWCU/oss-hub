@@ -5,17 +5,17 @@ import { OriginGuard } from '../auth/controller/origin.guard';
 import {
   SubmissionChecklistController,
   SubmissionFormsController,
-} from '../submissions/submissions.controller';
-import { SubmissionsRepository } from '../submissions/submissions.repository';
-import { SubmissionsService } from '../submissions/submissions.service';
+} from '../submissions/controller/submissions.controller';
+import { SubmissionsRepository } from '../submissions/repository/submissions.repository';
+import { SubmissionsService } from '../submissions/service/submissions.service';
 import { ProgramAuthoringController } from './controller/program-authoring.controller';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 
-jest.mock('../submissions/submission-upload-policy', () => ({
+jest.mock('../submissions/domain/submission-upload-policy', () => ({
   ...jest.requireActual<Record<string, unknown>>(
-    '../submissions/submission-upload-policy',
+    '../submissions/domain/submission-upload-policy',
   ),
   SUBMISSION_UPLOAD_MAX_BYTES: 2 * 1024 * 1024,
   SUBMISSION_UPLOAD_MAX_LABEL: '2 MB',

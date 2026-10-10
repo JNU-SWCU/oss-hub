@@ -26,14 +26,14 @@ import {
   TeamInvitationStatus,
   ProgramTrackType,
 } from '@prisma/client';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
-import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogRepository } from '../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3ObjectStorage } from '../storage/gateway/s3-object.storage';
-import { SubmissionFileCleanupService } from '../submissions/submission-file-cleanup.service';
+import { SubmissionFileCleanupService } from '../submissions/service/submission-file-cleanup.service';
 import { ObjectStorageConfig } from '../storage/object-storage.config';
-import { SubmissionFilesRepository } from '../submissions/submission-files.repository';
+import { SubmissionFilesRepository } from '../submissions/repository/submission-files.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PublicProjectsRepository } from './archive/public-projects/public-projects.repository';
 import { readProgramDeletionScopeCounts } from './program-deletion-scope';

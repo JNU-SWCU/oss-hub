@@ -23,12 +23,13 @@ import {
   SeedStats,
   upsertSeedUser,
 } from './seeds/helpers';
-import { computeJoinCodeDigest } from '../src/common/join-code-digest';
+import { computeJoinCodeDigest } from '../src/programs/domain/join-code-digest';
+import { resolveJoinCodeSecret } from '../src/runtime-config/join-code-secret';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/repository/auth.repository';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { CONSENT_POLICY_VERSION } from '../src/consents/domain/consent-policy';
-import { repositoryUrlFromNameWithOwner } from '../src/github/repository-identity';
+import { repositoryUrlFromNameWithOwner } from '../src/github/domain/repository-identity';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { S3ObjectStorage } from '../src/storage/gateway/s3-object.storage';
 import { ObjectStorageConfig } from '../src/storage/object-storage.config';
@@ -1358,6 +1359,7 @@ describe('seed profile=demo 계약 (integration)', () => {
           name: 'teardown guard 팀',
           joinCodeDigest: computeJoinCodeDigest(
             `TEARDOWN-GUARD-${survivorTeamId}`,
+            resolveJoinCodeSecret(),
           ),
           leaderId: survivorUserId,
         },

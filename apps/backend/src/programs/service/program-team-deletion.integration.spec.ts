@@ -16,13 +16,15 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import { TEAM_DELETED_AUDIT_ACTIONS } from '../../audit-log/audit-log-metadata';
-import { AuditLogRepository } from '../../audit-log/audit-log.repository';
-import { AuditLogService } from '../../audit-log/audit-log.service';
+import { TEAM_DELETED_AUDIT_ACTIONS } from '../../audit-log/domain/audit-log-metadata';
+import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { DomainException } from '../../common/error-code';
 import { PrismaService } from '../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { canonicalUserCreateFromLabel } from '../../users/canonical-user-fixture';
+import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
+import { UsersAuthorityService } from '../../users/service/authority.service';
 import { ProgramTeamDeletionRepository } from '../repository/program-team-deletion.repository';
 import { ProgramTeamsRepository } from '../repository/program-teams.repository';
 import { TeamsErrorCode } from '../teams-error-code.enum';
@@ -67,6 +69,7 @@ const service = new ProgramTeamsService(
   loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: `${TEST_PREFIX}join-secret` }),
   auditLog,
   deletionRepository,
+  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
 );
 
 let teamSequence = 0;
