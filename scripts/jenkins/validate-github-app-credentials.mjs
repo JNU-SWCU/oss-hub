@@ -41,7 +41,7 @@ function base64urlJson(value) {
   return Buffer.from(JSON.stringify(value)).toString('base64url');
 }
 
-export function createAppJwt(appId, privateKey, now = new Date()) {
+function createAppJwt(appId, privateKey, now = new Date()) {
   const nowSeconds = Math.floor(now.getTime() / 1_000);
   const unsigned = `${base64urlJson({ alg: 'RS256', typ: 'JWT' })}.${base64urlJson(
     {

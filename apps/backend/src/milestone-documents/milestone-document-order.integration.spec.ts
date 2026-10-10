@@ -1,6 +1,8 @@
 import { ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersAuthorityService } from '../users/service/authority.service';
+import { UsersAuthorityRepository } from '../users/repository/authority.repository';
 import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 
@@ -19,8 +21,11 @@ const DOCUMENT_IDS = [
 ] as const;
 const FOREIGN_DOCUMENT_ID = 'test:1276:document-order:foreign';
 const prisma = new PrismaService();
+const staffGithubId = 9600000001276001n;
+const staffId = 'test:1276:document-order:staff';
 const service = new MilestoneDocumentsService(
   new MilestoneDocumentsRepository(prisma),
+  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
 );
 
 async function cleanup(): Promise<void> {
@@ -29,6 +34,7 @@ async function cleanup(): Promise<void> {
   });
   await prisma.milestone.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
+  await prisma.user.deleteMany({ where: { id: staffId } });
 }
 
 function storedOrder(milestoneId = MILESTONE_ID) {
@@ -46,6 +52,14 @@ describe('MilestoneDocumentsService durable document order', () => {
 
   beforeEach(async () => {
     await cleanup();
+    await prisma.user.create({
+      data: {
+        id: staffId,
+        githubId: staffGithubId,
+        nickname: staffId,
+        hasStaffAccess: true,
+      },
+    });
     await prisma.program.create({
       data: {
         id: PROGRAM_ID,
@@ -100,7 +114,11 @@ describe('MilestoneDocumentsService durable document order', () => {
   it('persists the requested whole-set order after the transaction returns', async () => {
     const [first, second, third] = DOCUMENT_IDS;
 
-    await service.reorderDocuments(MILESTONE_ID, [third, first, second]);
+    await service.reorderDocuments(staffGithubId, MILESTONE_ID, [
+      third,
+      first,
+      second,
+    ]);
 
     expect(await storedOrder()).toEqual([
       { id: third, sortOrder: 1 },
@@ -129,7 +147,7 @@ describe('MilestoneDocumentsService durable document order', () => {
     const otherBefore = await storedOrder(OTHER_MILESTONE_ID);
 
     await expect(
-      service.reorderDocuments(MILESTONE_ID, ids),
+      service.reorderDocuments(staffGithubId, MILESTONE_ID, ids),
     ).rejects.toMatchObject({
       errorCode: { code: 'MSD_019', status: 400 },
     });

@@ -3,6 +3,12 @@ import { MilestoneDocumentReviewsService } from './milestone-document-reviews.se
 import { MilestoneDocumentsErrorCode } from './domain/milestone-documents-error-code.enum';
 import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 
+const authority = {
+  assertActiveStaff: jest
+    .fn()
+    .mockResolvedValue({ actorId: 'cuid-synthetic-staff' }),
+};
+
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticDocumentId = 'cuid-synthetic-document-1';
@@ -125,7 +131,7 @@ function review(
   } = {},
 ) {
   return service.review(
-    syntheticStaffId,
+    1n,
     syntheticMilestoneId,
     syntheticDocumentId,
     syntheticApplicationId,
@@ -153,7 +159,7 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     const { mocks, clock, repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
@@ -172,7 +178,7 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
         required: true,
       }),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
@@ -186,7 +192,7 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
         .fn()
         .mockResolvedValue('cuid-synthetic-other-program'),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND },
@@ -199,7 +205,7 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     const { mocks, clock, repository } = buildRepository({
       findApplicationProgramId: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND },
@@ -211,7 +217,7 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     const { mocks, clock, repository } = buildRepository({
       findSubmissionForReview: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND },
@@ -227,7 +233,7 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
         milestoneId: 'cuid-synthetic-other-milestone',
       }),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
@@ -239,7 +245,7 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     const { mocks, clock, repository } = buildRepository({
       lockDocument: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
@@ -256,7 +262,7 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
         revision: seenRevision + 1,
       }),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED },
@@ -272,7 +278,7 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
         revision: seenRevision + 1,
       }),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED },
@@ -286,7 +292,7 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
         .fn()
         .mockResolvedValue('cuid-synthetic-review-newer'),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED },
@@ -298,7 +304,7 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     const { mocks, clock, repository } = buildRepository({
       findLatestReviewIdForSubmission: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await review(service, clock, ReviewDecision.APPROVED, null, {
       expectedLatestReviewId: null,
@@ -311,7 +317,7 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     const { mocks, clock, repository } = buildRepository({
       findLatestReviewIdForSubmission: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED },
@@ -321,7 +327,7 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
 
   it('최신 판정은 잠금 아래에서 그 제출 id로 다시 읽는다', async () => {
     const { mocks, transactionCalls, clock, repository } = buildRepository();
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await review(service, clock);
 
@@ -338,7 +344,7 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
 
   it('대조에 쓰는 제출 리비전은 잠금 아래에서 읽는다', async () => {
     const { transactionCalls, clock, repository } = buildRepository();
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await review(service, clock);
 
@@ -357,7 +363,7 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
         revision: seenRevision + 1,
       }),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED },
@@ -370,7 +376,7 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
   it('서류 행을 잠근 뒤에야 제출을 찾고 판정을 쌓고 상태를 옮긴다 — 한 트랜잭션 안이다', async () => {
     const { transactionCalls, clock, withTransaction, repository } =
       buildRepository();
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await review(service, clock);
 
@@ -387,7 +393,7 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
 
   it('판정 시각은 잠금을 얻은 뒤에 찍는다 — 커밋 순서와 reviewedAt 순서를 맞춘다', async () => {
     const { transactionCalls, clock, repository } = buildRepository();
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await review(service, clock);
 
@@ -404,7 +410,7 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
     const { clock, repository } = buildRepository({
       lockDocument: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
@@ -414,7 +420,7 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
 
   it('잠그는 대상은 판정 대상 서류 항목이다 — 전역 잠금 순서의 마지막 하나만 잡는다', async () => {
     const { mocks, clock, repository } = buildRepository();
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await review(service, clock);
 
@@ -423,7 +429,7 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
 
   it('제출은 (서류, 신청) 짝으로 찾는다 — 경로의 신청 id를 그대로 쓴다', async () => {
     const { mocks, clock, repository } = buildRepository();
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await review(service, clock);
 
@@ -443,7 +449,7 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
         latestHistoryCreatedAt: latest,
       }),
     });
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await review(service, () => latest);
 
@@ -458,7 +464,7 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
 describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', () => {
   it('판정자·사유·시각을 그대로 쌓고 판정자 nickname까지 실어 돌려준다', async () => {
     const { mocks, clock, repository } = buildRepository();
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     const result = await review(service, clock);
 
@@ -484,7 +490,7 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
 
   it('판정 시각보다 이르거나 같은 기한은 422로 거절하고 아무것도 쓰지 않는다', async () => {
     const { mocks, clock, repository } = buildRepository();
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     for (const dueAt of [
       new Date(reviewedAt.getTime() - 1),
@@ -512,7 +518,7 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
 
   it('승인은 사유 없이도 저장된다 — comment가 null로 들어간다', async () => {
     const { mocks, clock, repository } = buildRepository();
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await review(service, clock, ReviewDecision.APPROVED, null);
 
@@ -534,7 +540,7 @@ describe('MilestoneDocumentReviewsService.review — 판정 → 제출 상태', 
     [ReviewDecision.REJECTED, SubmissionStatus.REJECTED],
   ])('%s 판정은 제출 상태를 %s로 옮긴다', async (decision, status) => {
     const { mocks, clock, repository } = buildRepository();
-    const service = new MilestoneDocumentReviewsService(repository);
+    const service = new MilestoneDocumentReviewsService(repository, authority);
 
     await review(service, clock, decision, '사유');
 
