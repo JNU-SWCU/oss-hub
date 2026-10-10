@@ -5,7 +5,7 @@ import {
   MilestoneDocumentArchiveEntryError,
   MilestoneDocumentArchiveService,
 } from './milestone-document-archive.service';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
+import { MilestoneDocumentsErrorCode } from './domain/milestone-documents-error-code.enum';
 import type { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
