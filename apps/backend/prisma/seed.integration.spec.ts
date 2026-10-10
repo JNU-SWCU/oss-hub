@@ -23,7 +23,8 @@ import {
   SeedStats,
   upsertSeedUser,
 } from './seeds/helpers';
-import { computeJoinCodeDigest } from '../src/common/join-code-digest';
+import { computeJoinCodeDigest } from '../src/programs/domain/join-code-digest';
+import { resolveJoinCodeSecret } from '../src/runtime-config/join-code-secret';
 import { AuthConfig } from '../src/auth/auth.config';
 import { AuthRepository } from '../src/auth/repository/auth.repository';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -1358,6 +1359,7 @@ describe('seed profile=demo 계약 (integration)', () => {
           name: 'teardown guard 팀',
           joinCodeDigest: computeJoinCodeDigest(
             `TEARDOWN-GUARD-${survivorTeamId}`,
+            resolveJoinCodeSecret(),
           ),
           leaderId: survivorUserId,
         },

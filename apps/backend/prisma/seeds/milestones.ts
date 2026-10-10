@@ -17,7 +17,8 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
-import { computeJoinCodeDigest } from '../../src/common/join-code-digest';
+import { computeJoinCodeDigest } from '../../src/programs/domain/join-code-digest';
+import { resolveJoinCodeSecret } from '../../src/runtime-config/join-code-secret';
 
 const PROGRAM_ID = seedId('milestones', 'program');
 const REVIEWER_ID = seedId('milestones', 'user', 'reviewer');
@@ -339,13 +340,19 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
       prisma.team.upsert({
         where: { id: personalTeamId },
         update: {
-          joinCodeDigest: computeJoinCodeDigest('SEED-MILESTONES-SOLO'),
+          joinCodeDigest: computeJoinCodeDigest(
+            'SEED-MILESTONES-SOLO',
+            resolveJoinCodeSecret(),
+          ),
         },
         create: {
           id: personalTeamId,
           programId: PROGRAM_ID,
           name: '마일스톤 개인 참여 1인 팀',
-          joinCodeDigest: computeJoinCodeDigest('SEED-MILESTONES-SOLO'),
+          joinCodeDigest: computeJoinCodeDigest(
+            'SEED-MILESTONES-SOLO',
+            resolveJoinCodeSecret(),
+          ),
           leaderId: applicantPersonal.id,
         },
       }),
@@ -409,13 +416,19 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
       prisma.team.upsert({
         where: { id: TEAM_ID },
         update: {
-          joinCodeDigest: computeJoinCodeDigest('SEED-MILESTONES-TEAM'),
+          joinCodeDigest: computeJoinCodeDigest(
+            'SEED-MILESTONES-TEAM',
+            resolveJoinCodeSecret(),
+          ),
         },
         create: {
           id: TEAM_ID,
           programId: PROGRAM_ID,
           name: 'seed-milestones-team',
-          joinCodeDigest: computeJoinCodeDigest('SEED-MILESTONES-TEAM'),
+          joinCodeDigest: computeJoinCodeDigest(
+            'SEED-MILESTONES-TEAM',
+            resolveJoinCodeSecret(),
+          ),
           leaderId: teamLeader.id,
         },
       }),
