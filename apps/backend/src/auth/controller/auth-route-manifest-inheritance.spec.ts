@@ -12,7 +12,7 @@ import { MetadataScanner } from '@nestjs/core/metadata-scanner';
 import { PathsExplorer } from '@nestjs/core/router/paths-explorer';
 import { Test } from '@nestjs/testing';
 import { discoverModuleControllers } from '../../app-controller-discovery';
-import { compareStringsByCodeUnit } from '../../deterministic-string-order';
+import { compareStringsByCodeUnit } from '../../common/domain/deterministic-string-order';
 import {
   OptionalSession,
   Protected,
