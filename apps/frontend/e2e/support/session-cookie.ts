@@ -2,7 +2,7 @@ import { createHmac, createHash } from 'node:crypto';
 
 const ISSUER = 'oss-hub';
 const AUDIENCE = 'oss-hub-web';
-export const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+const SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
 function base64UrlEncode(input: Buffer | string): string {
   const buffer = typeof input === 'string' ? Buffer.from(input) : input;
@@ -16,7 +16,7 @@ function base64UrlEncode(input: Buffer | string): string {
 const SEED_GITHUB_ID_PREFIX = BigInt('9600000000000000');
 const SEED_ID_MODULUS = BigInt('1000000000000');
 
-export function seedGithubId(slug: string): bigint {
+function seedGithubId(slug: string): bigint {
   const digest = createHash('sha256').update(slug).digest();
   const value = digest.readBigUInt64BE(0) % SEED_ID_MODULUS;
   return SEED_GITHUB_ID_PREFIX + value;

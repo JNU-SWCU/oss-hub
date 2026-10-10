@@ -120,14 +120,6 @@ export async function downloadedArtifact(
   return artifactForDownload(await downloadPromise);
 }
 
-export async function artifactForResponse(
-  response: APIResponse,
-): Promise<DownloadedArtifact> {
-  const bytes = Buffer.from(await response.body());
-  const disposition = response.headers()['content-disposition'] ?? '';
-  return artifact(bytes, suggestedFilename(disposition));
-}
-
 export function toStateCounts(value: unknown): E2eProgramAuthoringState {
   const record = recordValue(value, 'E2E state response');
   return {
@@ -313,9 +305,4 @@ function sha256(record: Record<string, unknown>, key: string): string {
 
 function isSha256(value: unknown): value is string {
   return typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
-}
-
-function suggestedFilename(disposition: string): string {
-  const match = /filename="?([^";]+)"?/u.exec(disposition);
-  return match?.[1] ?? 'download';
 }

@@ -75,14 +75,6 @@ async function chooseRoleOption(
   await option.click();
 }
 
-export async function chooseAuthority(
-  page: Page,
-  authority: '관리자 접근',
-  next: '허용' | '회수',
-): Promise<void> {
-  await chooseRoleOption(page, authority, next === '허용' ? '허용' : '비허용');
-}
-
 export type MemberKind = 'STUDENT' | 'STAFF';
 
 export interface MemberKindChangeInput {
@@ -157,7 +149,7 @@ export async function chooseMemberKind(
   );
 }
 
-export async function chooseAccountStatus(
+async function chooseAccountStatus(
   page: Page,
   action: '재활성화' | '비활성화',
 ): Promise<void> {
@@ -166,14 +158,6 @@ export async function chooseAccountStatus(
     '계정 상태',
     action === '재활성화' ? '활성' : '비활성',
   );
-}
-
-export async function grantAuthority(
-  page: Page,
-  authority: '관리자 접근',
-): Promise<void> {
-  await chooseAuthority(page, authority, '허용');
-  await page.getByRole('button', { name: '허용 확정' }).click();
 }
 
 export async function deactivateAccount(page: Page): Promise<void> {
