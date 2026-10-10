@@ -1,26 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { DomainException } from '../common/error-code';
+import { DomainException } from '../../common/error-code';
 import {
   CONSENT_ERROR_CODES,
   ConsentErrorCode,
-} from './consent-error-code.enum';
-import { ConsentsRepository } from './consents.repository';
-import { ConsentRecord, ConsentUser } from './domain/consent';
-import { ConsentPolicy, CURRENT_CONSENT_POLICY } from './domain/consent-policy';
-
-export { CONSENT_POLICY_VERSION } from './domain/consent-policy';
-
-export interface ConsentStatus {
-  policy: ConsentPolicy;
-  consented: boolean;
-}
-
-export interface ConsentGrant {
-  policyVersion: string;
-  consentedAt: Date;
-  nextUrl: string;
-}
+} from '../consent-error-code.enum';
+import { ConsentsRepository } from '../repository/consents.repository';
+import {
+  ConsentGrant,
+  ConsentRecord,
+  ConsentStatus,
+  ConsentUser,
+} from '../domain/consent';
+import { CURRENT_CONSENT_POLICY } from '../domain/consent-policy';
 
 export interface AcceptConsentInput {
   policyVersion: string;

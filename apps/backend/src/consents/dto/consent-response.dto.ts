@@ -1,4 +1,4 @@
-import { ConsentGrant } from '../consents.service';
+import { ConsentGrant } from '../domain/consent';
 
 export class ConsentResponseDto {
   policyVersion: string;
