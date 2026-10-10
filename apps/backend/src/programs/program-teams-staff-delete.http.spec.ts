@@ -1,6 +1,5 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import type { AuditLogService } from '../audit-log/service/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
@@ -12,11 +11,9 @@ import { issueSessionToken } from '../auth/domain/session-token';
 import { SessionGuard } from '../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
 import { SystemErrorCode } from '../common/system-error-code.enum';
-import { PrismaService } from '../prisma/prisma.service';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { TeamsErrorCode } from './teams-error-code.enum';
 import { ProgramTeamsController } from './controller/program-teams.controller';
-import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 import type {
   ProgramTeamsRepository,
   TeamActorAuthority,
@@ -78,13 +75,6 @@ const STUDENT_AUTHORITY: TeamActorAuthority = {
 
 const DEACTIVATED_AUTHORITY: TeamActorAuthority | null = null;
 
-const STAFF_USER = {
-  id: 'synthetic-staff',
-  hasStaffAccess: true,
-  hasAdminAccess: false,
-  accountStatus: AccountStatus.ACTIVE,
-};
-
 function unauthenticatedProblem() {
   return {
     type: 'about:blank',
@@ -131,7 +121,6 @@ function validationProblem(detail: unknown = expect.any(String)) {
 
 const findActorAuthorityByGithubId = jest.fn();
 const repositoryDeleteTeam = jest.fn<Promise<TeamDeletionResult>, unknown[]>();
-const findUnique = jest.fn();
 
 const repository = {
   findActorAuthorityByGithubId,
@@ -142,6 +131,7 @@ const service = new ProgramTeamsService(
   loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
   { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository({ deleteTeam: repositoryDeleteTeam }),
+  { assertActiveStaff: jest.fn() },
 );
 
 const deleteForStaff = jest.fn(
@@ -249,7 +239,6 @@ beforeAll(async () => {
     providers: [
       { provide: ProgramTeamsService, useValue: { deleteForStaff } },
       SessionGuard,
-      ProgramTeamsStaffGuard,
       OriginGuard,
       {
         provide: AuthService,
@@ -263,7 +252,6 @@ beforeAll(async () => {
         provide: AuthConfig,
         useValue: { sessionSecret, allowedOrigin, useSecureCookies: false },
       },
-      { provide: PrismaService, useValue: { user: { findUnique } } },
     ],
   }).compile();
 
@@ -283,8 +271,6 @@ beforeAll(async () => {
 
 beforeEach(() => {
   deleteForStaff.mockClear();
-  findUnique.mockReset();
-  findUnique.mockResolvedValue(STAFF_USER);
   findActorAuthorityByGithubId.mockReset();
   findActorAuthorityByGithubId.mockResolvedValue(STAFF_AUTHORITY);
   repositoryDeleteTeam.mockReset();

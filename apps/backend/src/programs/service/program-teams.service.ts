@@ -18,6 +18,7 @@ import {
 } from '../../audit-log/domain/audit-log-metadata';
 import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { DomainException } from '../../common/error-code';
+import { UsersAuthorityService } from '../../users/service/authority.service';
 import { computeJoinCodeDigest } from '../domain/join-code-digest';
 import { resolveJoinCodeSecretFromConfig } from '../../runtime-config/join-code-secret';
 import type { RuntimeConfig } from '../../runtime-config/runtime-config';
@@ -100,6 +101,11 @@ export class ProgramTeamsService {
     @Inject(RUNTIME_CONFIG) runtimeConfig: RuntimeConfig,
     private readonly auditLog: AuditLogService,
     private readonly deletionRepository: ProgramTeamDeletionRepository,
+    @Inject(UsersAuthorityService)
+    private readonly authority: Pick<
+      UsersAuthorityService,
+      'assertActiveStaff'
+    >,
   ) {
     this.joinCodeSecret = resolveJoinCodeSecretFromConfig(runtimeConfig);
   }
@@ -370,7 +376,13 @@ export class ProgramTeamsService {
     );
   }
 
-  async listForStaff(programId: string): Promise<StaffTeamView[]> {
+  async listForStaff(
+    githubId: bigint,
+    programId: string,
+  ): Promise<StaffTeamView[]> {
+    await this.authority.assertActiveStaff(githubId, () =>
+      this.error(TeamsErrorCode.STAFF_ONLY),
+    );
     const program = await this.repository.findProgramById(programId);
     if (!program) {
       throw this.error(TeamsErrorCode.PROGRAM_NOT_FOUND);
@@ -380,9 +392,13 @@ export class ProgramTeamsService {
   }
 
   async getForStaff(
+    githubId: bigint,
     programId: string,
     teamId: string,
   ): Promise<StaffTeamDetailView> {
+    await this.authority.assertActiveStaff(githubId, () =>
+      this.error(TeamsErrorCode.STAFF_ONLY),
+    );
     const detail = await this.repository.findStaffTeamDetail(programId, teamId);
     if (!detail) {
       throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);

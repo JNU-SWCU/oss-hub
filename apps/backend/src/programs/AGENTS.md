@@ -13,6 +13,7 @@
 - aggregate `POST /program-authoring/programs` 생성은 `ProgramAuthoringService`, `program-authoring*.ts`, `program-authoring.service.spec.ts`가 소유한다.
   두 생성 표면의 validation·upload·응답 계약을 한 service로 합치지 않는다.
 - 수정·마일스톤은 `ProgramEditorService`, 팀 참여는 `ProgramTeamsService`, 삭제는 `ProgramLifecycleService`를 통한다.
+- 교직원 팀 목록·상세 권한은 `ProgramTeamsService`가 `UsersAuthorityService`로 확인하며 controller는 `SessionGuard`와 세션 식별자 전달만 맡는다.
 - 팀 참여코드 HMAC은 `domain/join-code-digest.ts`, secret 해석은 `../runtime-config/join-code-secret.ts`가 소유한다.
 - `ApplicationTemplatesController`는 parameterized program controller보다 먼저 등록해 정적 `application-templates` 경로가 `:id`에 흡수되지 않게 한다.
 - purge는 `expectedScope` 재검증, 명시적 자식 삭제 순서, 비동기 파일 정리를 유지한다.

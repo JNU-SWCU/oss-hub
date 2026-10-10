@@ -11,11 +11,10 @@ import { sessionCookieName } from '../auth/domain/cookies';
 import { issueSessionToken } from '../auth/domain/session-token';
 import { SessionGuard } from '../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
-import { PrismaService } from '../prisma/prisma.service';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { TeamsErrorCode } from './teams-error-code.enum';
 import { ProgramTeamsController } from './controller/program-teams.controller';
-import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 import type {
   ProgramTeamsRepository,
   StaffTeamDetailRecord,
@@ -159,6 +158,7 @@ const service = new ProgramTeamsService(
   loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
   { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository(),
+  new UsersAuthorityService({ findActorByGithubId: findUnique }),
 );
 
 const listForStaff = jest.fn(
@@ -255,7 +255,6 @@ beforeAll(async () => {
     providers: [
       { provide: ProgramTeamsService, useValue: { listForStaff, getForStaff } },
       SessionGuard,
-      ProgramTeamsStaffGuard,
       OriginGuard,
       {
         provide: AuthService,
@@ -269,7 +268,6 @@ beforeAll(async () => {
         provide: AuthConfig,
         useValue: { sessionSecret, allowedOrigin, useSecureCookies: false },
       },
-      { provide: PrismaService, useValue: { user: { findUnique } } },
     ],
   }).compile();
 
@@ -343,7 +341,7 @@ it('ACTIVE STAFF 는 팀 목록 배열을 200 으로 받는다', async () => {
   ]) {
     expect(serialized).not.toContain(forbidden);
   }
-  expect(listForStaff).toHaveBeenCalledWith(PROGRAM_ID);
+  expect(listForStaff).toHaveBeenCalledWith(5001n, PROGRAM_ID);
   expect(listStaffTeams).toHaveBeenCalledWith(PROGRAM_ID);
 });
 
@@ -362,7 +360,7 @@ it.each([
   ['역할 미지정', null, AccountStatus.ACTIVE],
   ['비활성 STAFF', 'STAFF', AccountStatus.DEACTIVATED],
 ])(
-  '%s 계정은 403 TEAM_003 로 막히고 service 를 호출하지 않는다',
+  '%s 계정은 403 TEAM_003 로 막히고 팀 repository 를 호출하지 않는다',
   async (_label, role, accountStatus) => {
     findUnique.mockResolvedValue({ id: 'synthetic-user', role, accountStatus });
 
@@ -375,11 +373,12 @@ it.each([
       code: TeamsErrorCode.STAFF_ONLY,
       instance: `/api/v1/programs/${PROGRAM_ID}/teams`,
     });
-    expect(listForStaff).not.toHaveBeenCalled();
+    expect(findProgramById).not.toHaveBeenCalled();
+    expect(listStaffTeams).not.toHaveBeenCalled();
   },
 );
 
-it('세션 쿠키가 없으면 401 이고 staff 가드까지 가지 않는다', async () => {
+it('세션 쿠키가 없으면 401 이고 권한 조회까지 가지 않는다', async () => {
   const response = await getTeams(null);
 
   expect(response.status).toBe(401);
@@ -477,5 +476,5 @@ it('대상 팀이 없으면 STAFF 상세 요청은 404 TEAM_010 이다', async (
     instance: DETAIL_INSTANCE,
     code: TeamsErrorCode.TEAM_NOT_FOUND,
   });
-  expect(getForStaff).toHaveBeenCalledWith(PROGRAM_ID, TEAM_ID);
+  expect(getForStaff).toHaveBeenCalledWith(5103n, PROGRAM_ID, TEAM_ID);
 });
