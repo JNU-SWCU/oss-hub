@@ -5,7 +5,7 @@ import {
 } from '@prisma/client';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { RepositoriesController } from './repositories.controller';
-import type { RepositoriesService } from '../service/repositories.service';
+import type { RepositoriesReadService } from '../service/repositories-read.service';
 
 const UPDATED_AT = new Date('2026-07-22T00:00:00.000Z');
 
@@ -38,7 +38,7 @@ describe('RepositoriesController', () => {
           updatedAt: UPDATED_AT,
         },
       ]),
-    } as jest.Mocked<Pick<RepositoriesService, 'getMyRepositories'>>;
+    } as jest.Mocked<Pick<RepositoriesReadService, 'getMyRepositories'>>;
     const controller = new RepositoriesController(repositoriesService);
 
     const response = await controller.getMyRepositories({

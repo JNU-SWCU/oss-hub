@@ -15,8 +15,11 @@ import type {
 import {
   RepositoriesService,
   RepositoryNotFoundError,
-  RepositoryProvisionStateError,
 } from './repositories.service';
+import {
+  RepositoriesReadService,
+  RepositoryProvisionStateError,
+} from './repositories-read.service';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const ACTOR_GITHUB_ID = 9_600_000_000_100_001n;
@@ -71,12 +74,11 @@ function dependencies() {
 }
 
 function serviceFrom(deps: ReturnType<typeof dependencies>) {
-  return new RepositoriesService(
-    deps.repository,
-    deps.github,
-    deps.auditLog,
-    deps.organization,
-  );
+  return new RepositoriesService(deps.repository, deps.github, deps.auditLog);
+}
+
+function readServiceFrom(deps: ReturnType<typeof dependencies>) {
+  return new RepositoriesReadService(deps.repository, deps.organization);
 }
 
 function job(
@@ -105,13 +107,13 @@ function job(
   };
 }
 
-describe('RepositoriesService.getMyRepositories', () => {
+describe('RepositoriesReadService.getMyRepositories', () => {
   it('returns an empty projection for an approved application with no provision job', async () => {
     const { repository, github, auditLog } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([]);
 
     await expect(
-      serviceFrom({
+      readServiceFrom({
         ...dependencies(),
         repository,
         github,
@@ -156,7 +158,7 @@ describe('RepositoriesService.getMyRepositories', () => {
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       }),
     ]);
-    const service = serviceFrom({
+    const service = readServiceFrom({
       ...dependencies(),
       repository,
       github,
@@ -226,7 +228,7 @@ describe('RepositoriesService.getMyRepositories', () => {
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       }),
     ]);
-    const service = serviceFrom({
+    const service = readServiceFrom({
       ...dependencies(),
       repository,
       github,
@@ -275,7 +277,7 @@ describe('RepositoriesService.getMyRepositories', () => {
       }),
     ]);
 
-    const result = await serviceFrom({
+    const result = await readServiceFrom({
       ...dependencies(),
       repository,
       github,
@@ -319,7 +321,7 @@ describe('RepositoriesService.getMyRepositories', () => {
       }),
     ]);
 
-    const result = await serviceFrom({
+    const result = await readServiceFrom({
       ...dependencies(),
       repository,
       github,
@@ -351,7 +353,7 @@ describe('RepositoriesService.getMyRepositories', () => {
     ]);
 
     await expect(
-      serviceFrom({
+      readServiceFrom({
         ...dependencies(),
         repository,
         github,
@@ -367,7 +369,7 @@ describe('RepositoriesService.getMyRepositories', () => {
     ]);
 
     await expect(
-      serviceFrom({
+      readServiceFrom({
         ...dependencies(),
         repository,
         github,
@@ -411,7 +413,7 @@ describe('RepositoriesService.getMyRepositories', () => {
     ]);
 
     await expect(
-      serviceFrom({
+      readServiceFrom({
         ...dependencies(),
         repository,
         github,
@@ -443,7 +445,7 @@ describe('RepositoriesService.getMyRepositories', () => {
       }),
     ]);
 
-    const [result] = await serviceFrom({
+    const [result] = await readServiceFrom({
       ...dependencies(),
       repository,
       github,
@@ -482,7 +484,7 @@ describe('RepositoriesService.getMyRepositories', () => {
       }),
     ]);
 
-    const result = await serviceFrom({
+    const result = await readServiceFrom({
       ...dependencies(),
       repository,
       github,
@@ -533,7 +535,7 @@ describe('RepositoriesService.getMyRepositories', () => {
     ]);
 
     await expect(
-      serviceFrom({
+      readServiceFrom({
         ...dependencies(),
         repository,
         github,
