@@ -1,4 +1,4 @@
-import { ErrorCode } from '../common/error-code';
+import { ErrorCode } from '../../common/error-code';
 
 export enum BoardErrorCode {
   ACCESS_FORBIDDEN = 'BRD_001',
