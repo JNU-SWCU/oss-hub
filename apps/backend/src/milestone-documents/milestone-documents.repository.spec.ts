@@ -9,7 +9,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { SubmissionMembershipChangedError } from '../submissions/repository/submission-membership.repository';
+import { SubmissionMembershipChangedError } from '../prisma/submission-membership-lock';
 import {
   MilestoneDocumentDeadlineClosedError,
   MilestoneDocumentMissingError,

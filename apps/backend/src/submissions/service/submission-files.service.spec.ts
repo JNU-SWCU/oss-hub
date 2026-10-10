@@ -7,7 +7,7 @@ import {
   type StoreObjectInput,
   type ObjectStoragePort,
 } from '../../storage/domain/object-storage';
-import { SubmissionMembershipChangedError } from '../repository/submission-membership.repository';
+import { SubmissionMembershipChangedError } from '../../prisma/submission-membership-lock';
 import {
   type CreatePendingSubmissionFileInput,
   type DownloadableSubmissionFile,

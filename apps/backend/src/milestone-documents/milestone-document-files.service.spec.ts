@@ -17,7 +17,7 @@ import {
   SubmissionFileRetentionUnavailableError,
   type SubmissionFilesRepository,
 } from '../submissions/repository/submission-files.repository';
-import { SubmissionMembershipChangedError } from '../submissions/repository/submission-membership.repository';
+import { SubmissionMembershipChangedError } from '../prisma/submission-membership-lock';
 import { signatureValidZip } from '../submissions/domain/submission-zip-test-builder';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/domain/submission-upload-policy';
 

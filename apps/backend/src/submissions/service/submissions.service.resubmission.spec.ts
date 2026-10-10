@@ -7,7 +7,7 @@ import type {
   CreateSubmissionInput,
   ResubmitSubmissionInput,
 } from '../domain/submission-content';
-import { SubmissionMembershipChangedError } from '../repository/submission-membership.repository';
+import { SubmissionMembershipChangedError } from '../../prisma/submission-membership-lock';
 import { SubmissionsErrorCode } from '../domain/submissions-error-code.enum';
 import type { SubmissionApplication } from '../domain/submission-record';
 import type {

@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import {
   SubmissionMembershipChangedError,
   lockSubmissionMembership,
-} from './submission-membership.repository';
+} from './submission-membership-lock';
 
 const APPLICATION_ID = 'synthetic-application';
 const PROGRAM_ID = 'synthetic-program';

@@ -26,7 +26,7 @@ import type {
   SubmissionChecklistResponseDto,
   SubmissionFormResponseDto,
 } from '../dto/submission-response.dto';
-import { SubmissionMembershipChangedError } from '../repository/submission-membership.repository';
+import { SubmissionMembershipChangedError } from '../../prisma/submission-membership-lock';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,

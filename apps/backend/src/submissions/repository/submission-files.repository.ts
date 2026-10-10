@@ -16,7 +16,7 @@ import { submissionParticipantWhere } from './submission-application.record';
 import {
   lockSubmissionMembership,
   SubmissionMembershipChangedError,
-} from './submission-membership.repository';
+} from '../../prisma/submission-membership-lock';
 import {
   exactSubmissionByPublicId,
   submissionPublicIdWhere,

@@ -21,7 +21,7 @@ import {
   SubmissionFileRetentionUnavailableError,
   SubmissionFilesRepository,
 } from '../submissions/repository/submission-files.repository';
-import { SubmissionMembershipChangedError } from '../submissions/repository/submission-membership.repository';
+import { SubmissionMembershipChangedError } from '../prisma/submission-membership-lock';
 import { inspectSubmissionZipMetadata } from '../submissions/domain/submission-zip-admission';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/domain/submission-upload-policy';
 import { milestoneDocumentSubmissionBlock } from './domain/milestone-document-submission-window';

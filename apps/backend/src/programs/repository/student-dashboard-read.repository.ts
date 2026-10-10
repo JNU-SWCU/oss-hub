@@ -10,7 +10,7 @@ import {
   submissionCompletionTargetSelect,
   type SubmissionCompletionTargetRow,
 } from '../../submissions/domain/submission-completion-projection';
-import { programApplicationParticipantWhere } from '../program-participant';
+import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
 
 export interface StudentDashboardMilestoneRow {
   readonly id: string;

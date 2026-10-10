@@ -4,11 +4,11 @@ import { SubmissionFilesRepository } from './submission-files.repository';
 import {
   lockSubmissionMembership,
   SubmissionMembershipChangedError,
-} from './submission-membership.repository';
+} from '../../prisma/submission-membership-lock';
 
-jest.mock('./submission-membership.repository', () => ({
+jest.mock('../../prisma/submission-membership-lock', () => ({
   ...jest.requireActual<Record<string, unknown>>(
-    './submission-membership.repository',
+    '../../prisma/submission-membership-lock',
   ),
   lockSubmissionMembership: jest.fn(),
 }));

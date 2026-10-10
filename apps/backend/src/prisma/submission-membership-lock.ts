@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { programApplicationParticipantWhere } from '../../programs/program-participant';
+import { programApplicationParticipantWhere } from './program-application-participant';
 
 type LockedRow = Readonly<{ id: string }>;
 

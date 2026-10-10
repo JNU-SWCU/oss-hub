@@ -33,7 +33,7 @@ import {
 import {
   lockSubmissionMembership,
   SubmissionMembershipChangedError,
-} from './submission-membership.repository';
+} from '../../prisma/submission-membership-lock';
 import {
   exactSubmissionByPublicId,
   publicSubmissionId,

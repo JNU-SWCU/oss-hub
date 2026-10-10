@@ -9,17 +9,17 @@ import { submissionParticipantWhere } from './submission-application.record';
 import {
   lockSubmissionMembership,
   SubmissionMembershipChangedError,
-} from './submission-membership.repository';
+} from '../../prisma/submission-membership-lock';
 import {
   type CreateSubmissionRevisionInput,
   StaleSubmissionRevisionError,
   SubmissionsRepository,
 } from './submissions.repository';
 
-jest.mock('./submission-membership.repository', () => {
+jest.mock('../../prisma/submission-membership-lock', () => {
   const actual = jest.requireActual<
-    typeof import('./submission-membership.repository')
-  >('./submission-membership.repository');
+    typeof import('../../prisma/submission-membership-lock')
+  >('../../prisma/submission-membership-lock');
   return { ...actual, lockSubmissionMembership: jest.fn() };
 });
 
