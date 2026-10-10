@@ -116,6 +116,35 @@ function setup() {
 }
 
 describe('ProgramAuthoringService', () => {
+  it.each([
+    null,
+    {
+      id: ACTOR_ID,
+      accountStatus: AccountStatus.DEACTIVATED,
+      hasStaffAccess: true,
+      hasAdminAccess: true,
+    },
+    {
+      id: ACTOR_ID,
+      accountStatus: AccountStatus.ACTIVE,
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+    },
+  ])(
+    'rejects an unavailable upload author before starting writes',
+    async (actor) => {
+      const { repository, transaction, service } = setup();
+      repository.findActor.mockResolvedValueOnce(actor);
+
+      await expect(service.requireAuthor(GITHUB_ID)).rejects.toMatchObject({
+        name: 'ProgramAuthoringForbiddenError',
+      });
+      expect(repository.findActor).toHaveBeenCalledWith(GITHUB_ID);
+      expect(transaction.createProgram.mock.calls).toEqual([]);
+      expect(repository.findReplay).not.toHaveBeenCalled();
+    },
+  );
+
   it('resolves the narrowed store through the concrete repository provider', async () => {
     const { repository } = setup();
     const moduleRef = await Test.createTestingModule({

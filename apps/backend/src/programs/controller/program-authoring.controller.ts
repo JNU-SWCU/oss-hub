@@ -22,7 +22,6 @@ import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { ProgramAuthoringRequestDto } from '../dto/program-authoring-request.dto';
 import { ProgramAuthoringUploadPolicyResponseDto } from '../dto/program-authoring-upload-policy-response.dto';
-import { ProgramAuthoringRepository } from '../program-authoring.repository';
 import {
   ProgramAuthoringForbiddenError,
   ProgramAuthoringService,
@@ -46,7 +45,6 @@ type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 export class ProgramAuthoringController {
   constructor(
     private readonly authoring: ProgramAuthoringService,
-    private readonly repository: ProgramAuthoringRepository,
     private readonly uploads: ProgramAuthoringUploadService,
   ) {}
 
@@ -153,15 +151,14 @@ export class ProgramAuthoringController {
   }
 
   private async requireAuthor(githubId: bigint): Promise<string> {
-    const actor = await this.repository.findActor(githubId);
-    if (
-      actor === null ||
-      actor.accountStatus !== 'ACTIVE' ||
-      (!actor.hasStaffAccess && !actor.hasAdminAccess)
-    ) {
-      throw new ConflictException('Program authoring is unavailable.');
+    try {
+      return await this.authoring.requireAuthor(githubId);
+    } catch (error) {
+      if (error instanceof ProgramAuthoringForbiddenError) {
+        throw new ConflictException('Program authoring is unavailable.');
+      }
+      throw error;
     }
-    return actor.id;
   }
 }
 

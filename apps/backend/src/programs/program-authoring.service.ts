@@ -38,11 +38,7 @@ export class ProgramAuthoringService {
     private readonly auditLog: AuditLogService,
   ) {}
 
-  async create(
-    githubId: bigint,
-    idempotencyKey: string,
-    request: ProgramAuthoringRequest,
-  ): Promise<ProgramAuthoringProgram> {
+  async requireAuthor(githubId: bigint): Promise<string> {
     const actor = await this.repository.findActor(githubId);
     if (
       actor === null ||
@@ -51,17 +47,26 @@ export class ProgramAuthoringService {
     ) {
       throw new ProgramAuthoringForbiddenError();
     }
+    return actor.id;
+  }
+
+  async create(
+    githubId: bigint,
+    idempotencyKey: string,
+    request: ProgramAuthoringRequest,
+  ): Promise<ProgramAuthoringProgram> {
+    const actorId = await this.requireAuthor(githubId);
     const plan = buildProgramAuthoringPlan(request);
     const payloadHash = hashProgramAuthoringPayload(plan);
-    const existing = await this.repository.findReplay(actor.id, idempotencyKey);
+    const existing = await this.repository.findReplay(actorId, idempotencyKey);
     if (existing !== null)
-      return replayOrConflict(existing, payloadHash, actor.id, idempotencyKey);
+      return replayOrConflict(existing, payloadHash, actorId, idempotencyKey);
     try {
       return await this.repository.withTransaction((store) =>
         this.createInTransaction(
           store,
           githubId,
-          actor.id,
+          actorId,
           idempotencyKey,
           payloadHash,
           plan,
@@ -69,9 +74,9 @@ export class ProgramAuthoringService {
       );
     } catch (error) {
       if (!(error instanceof ProgramAuthoringIdempotencyRaceError)) throw error;
-      const replay = await this.repository.findReplay(actor.id, idempotencyKey);
+      const replay = await this.repository.findReplay(actorId, idempotencyKey);
       if (replay === null) throw error;
-      return replayOrConflict(replay, payloadHash, actor.id, idempotencyKey);
+      return replayOrConflict(replay, payloadHash, actorId, idempotencyKey);
     }
   }
 

@@ -1,6 +1,7 @@
 import { Readable } from 'node:stream';
 import type { ExecutionContext, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { SessionGuard } from '../auth/controller/session.guard';
 import { OriginGuard } from '../auth/controller/origin.guard';
 import {
@@ -42,7 +43,8 @@ beforeAll(async () => {
     providers: [
       ProgramAuthoringUploadService,
       ProgramCoverService,
-      { provide: ProgramAuthoringService, useValue: {} },
+      ProgramAuthoringService,
+      { provide: AuditLogService, useValue: { record: jest.fn() } },
       {
         provide: ProgramAuthoringRepository,
         useValue: {
