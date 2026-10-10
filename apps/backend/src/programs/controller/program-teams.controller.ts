@@ -32,7 +32,6 @@ import {
   RenameTeamResponseDto,
   StaffProgramTeamResponseDto,
 } from '../dto/team-response.dto';
-import { ProgramTeamsStaffGuard } from '../program-teams-staff.guard';
 import { ProgramTeamsService } from '../service/program-teams.service';
 
 type TeamSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -106,23 +105,29 @@ export class ProgramTeamsController {
   }
 
   @Get()
-  @UseGuards(SessionGuard, ProgramTeamsStaffGuard)
+  @UseGuards(SessionGuard)
   async list(
+    @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
   ): Promise<StaffProgramTeamResponseDto[]> {
     return StaffProgramTeamResponseDto.fromAll(
-      await this.service.listForStaff(programId),
+      await this.service.listForStaff(request.sessionGithubId, programId),
     );
   }
 
   @Get(':teamId')
-  @UseGuards(SessionGuard, ProgramTeamsStaffGuard)
+  @UseGuards(SessionGuard)
   async detail(
+    @Req() request: TeamSessionRequest,
     @Param('programId') programId: string,
     @Param('teamId') teamId: string,
   ): Promise<StaffTeamDetailResponseDto> {
     return StaffTeamDetailResponseDto.from(
-      await this.service.getForStaff(programId, teamId),
+      await this.service.getForStaff(
+        request.sessionGithubId,
+        programId,
+        teamId,
+      ),
     );
   }
 
