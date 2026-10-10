@@ -98,19 +98,17 @@ describe('TeamRepositoryPanel', () => {
     container.remove();
   });
   async function render(teamId = 'team-1') {
-    await act(() =>
-      Promise.resolve(
-        root.render(
-          <TeamRepositoryPanel
-            programId="program-1"
-            teamId={teamId}
-            activityTitle="우리 팀 활동"
-            saveRepositoryUrl={saveRepositoryUrl}
-            onSaved={onSaved}
-          >
-            <p>화면 고유 줄</p>
-          </TeamRepositoryPanel>,
-        ),
+    await act(async () =>
+      root.render(
+        <TeamRepositoryPanel
+          programId="program-1"
+          teamId={teamId}
+          activityTitle="우리 팀 활동"
+          saveRepositoryUrl={saveRepositoryUrl}
+          onSaved={onSaved}
+        >
+          <p>화면 고유 줄</p>
+        </TeamRepositoryPanel>,
       ),
     );
   }
@@ -125,25 +123,21 @@ describe('TeamRepositoryPanel', () => {
     return found;
   }
   async function changeUrlTo(value: string) {
-    await act(() => Promise.resolve(button('저장소 URL 수정').click()));
+    await act(async () => button('저장소 URL 수정').click());
     const input = container.querySelector<HTMLInputElement>('#repository-url');
-    await act(() => {
+    await act(async () => {
       Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
         'value',
       )?.set?.call(input, value);
       input?.dispatchEvent(new Event('input', { bubbles: true }));
-
-      return Promise.resolve();
     });
-    await act(() =>
-      Promise.resolve(
-        container
-          .querySelector('form')
-          ?.dispatchEvent(
-            new Event('submit', { bubbles: true, cancelable: true }),
-          ),
-      ),
+    await act(async () =>
+      container
+        .querySelector('form')
+        ?.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true }),
+        ),
     );
   }
   function repositoryLink(): string | null | undefined {
@@ -173,7 +167,7 @@ describe('TeamRepositoryPanel', () => {
     expect(
       container.querySelector('section[aria-label="프로젝트 저장소"]'),
     ).toBeNull();
-    await act(() => Promise.resolve(button('다시 시도').click()));
+    await act(async () => button('다시 시도').click());
     expect(repositoryLink()).toBe('https://github.com/synthetic/a');
   });
 
@@ -197,7 +191,7 @@ describe('TeamRepositoryPanel', () => {
     expect(container.querySelector('[data-chart]')).toBeNull();
     expect(getTeamActivity).toHaveBeenCalledTimes(2);
 
-    await act(() => Promise.resolve(pending.resolve(relinked)));
+    await act(async () => pending.resolve(relinked));
     expect(container.textContent).toContain('첫 수집을 기다리는 중입니다');
     expect(repositoryLink()).toBe('https://github.com/synthetic/b');
   });
@@ -225,19 +219,17 @@ describe('TeamRepositoryPanel', () => {
       .mockReturnValueOnce(stale.promise)
       .mockResolvedValue(relinked);
 
-    await act(() => Promise.resolve(button('다시 불러오기').click()));
-    await act(() =>
-      Promise.resolve(
-        container
-          .querySelector('form')
-          ?.dispatchEvent(
-            new Event('submit', { bubbles: true, cancelable: true }),
-          ),
-      ),
+    await act(async () => button('다시 불러오기').click());
+    await act(async () =>
+      container
+        .querySelector('form')
+        ?.dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true }),
+        ),
     );
     expect(repositoryLink()).toBe('https://github.com/synthetic/b');
 
-    await act(() => Promise.resolve(stale.resolve(original)));
+    await act(async () => stale.resolve(original));
 
     expect(repositoryLink()).toBe('https://github.com/synthetic/b');
     expect(container.textContent).not.toContain(
@@ -255,7 +247,7 @@ describe('TeamRepositoryPanel', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
     expect(getRepositoryHistory).not.toHaveBeenCalled();
 
-    await act(() => Promise.resolve(trigger.click()));
+    await act(async () => trigger.click());
     expect(getRepositoryHistory).toHaveBeenCalledExactlyOnceWith(
       'program-1',
       'team-1',
@@ -291,7 +283,7 @@ describe('TeamRepositoryPanel', () => {
     await render('team-2');
     expect(getTeamActivity).toHaveBeenLastCalledWith('program-1', 'team-2');
     expect(repositoryLink()).toBeUndefined();
-    await act(() => Promise.resolve(next.resolve(relinked)));
+    await act(async () => next.resolve(relinked));
     expect(repositoryLink()).toBe('https://github.com/synthetic/b');
   });
 });

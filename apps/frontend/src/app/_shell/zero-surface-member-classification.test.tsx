@@ -50,10 +50,7 @@ describe('면이 없는 회원의 분류', () => {
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
   });
 
@@ -70,10 +67,7 @@ describe('면이 없는 회원의 분류', () => {
       return null;
     }
 
-    await act(() => {
-      root.render(<Probe />);
-      return Promise.resolve();
-    });
+    await act(async () => root.render(<Probe />));
     if (received === null) {
       throw new Error('스냅샷을 읽지 못했다.');
     }

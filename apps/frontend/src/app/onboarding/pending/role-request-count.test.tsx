@@ -109,21 +109,17 @@ describe('승인 대기 화면 역할 요청 조회', () => {
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
   });
 
   it('공통 셸·게이트·본문이 같은 최초 조회 결과를 한 번만 쓴다', async () => {
-    await act(() => {
+    await act(async () => {
       root.render(
         <AppFrame>
           <OnboardingPendingPage />
         </AppFrame>,
       );
-      return Promise.resolve();
     });
 
     expect(container.textContent).toContain('교직원 승인을 기다리고 있습니다');
@@ -173,13 +169,12 @@ describe('승인 대기 화면 역할 요청 조회', () => {
         rejectionReason: '소속 정보를 다시 확인해 주세요.',
       });
 
-    await act(() => {
+    await act(async () => {
       root.render(
         <AppFrame>
           <SharedRoleRefreshProbe />
         </AppFrame>,
       );
-      return Promise.resolve();
     });
     expect(container.textContent).toContain('PENDING');
 
@@ -189,10 +184,7 @@ describe('승인 대기 화면 역할 요청 조회', () => {
     if (!(refresh instanceof HTMLButtonElement)) {
       throw new TypeError('상태 새로고침 버튼을 찾지 못했습니다.');
     }
-    await act(() => {
-      refresh.click();
-      return Promise.resolve();
-    });
+    await act(async () => refresh.click());
     await vi.waitFor(() => {
       expect(container.textContent).toContain('REJECTED');
     });

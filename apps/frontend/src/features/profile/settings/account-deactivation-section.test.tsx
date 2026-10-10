@@ -60,39 +60,38 @@ describe('AccountDeactivationSection', () => {
     document.body.append(container);
     const root = createRoot(container);
 
-    await act(() => {
+    await act(async () => {
       root.render(
         <AccountDeactivationSection
           hasAdminAccess={false}
           onDeactivated={onDeactivated}
         />,
       );
-      return Promise.resolve();
     });
     const trigger = Array.from(container.querySelectorAll('button')).find(
       (button) => button.textContent?.trim() === '계정 비활성화',
     );
     if (!trigger) throw new TypeError('deactivation trigger not found');
-    await act(() => Promise.resolve(trigger.click()));
+    await act(async () => trigger.click());
 
     const confirm = Array.from(document.querySelectorAll('button')).find(
       (button) => button.textContent?.trim() === '비활성화하고 로그아웃',
     );
     if (!confirm) throw new TypeError('deactivation confirmation not found');
-    await act(() => Promise.resolve(confirm.click()));
+    await act(async () => confirm.click());
 
     expect(api.deactivateMyAccount).toHaveBeenCalledOnce();
     expect(onDeactivated).not.toHaveBeenCalled();
     expect(confirm.disabled).toBe(true);
     expect(document.body.textContent).toContain('비활성화 중…');
 
-    await act(() => Promise.resolve(confirm.click()));
+    await act(async () => confirm.click());
     expect(api.deactivateMyAccount).toHaveBeenCalledOnce();
 
-    await act(() => Promise.resolve(finish()));
+    await act(async () => finish());
     expect(onDeactivated).toHaveBeenCalledOnce();
 
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 });

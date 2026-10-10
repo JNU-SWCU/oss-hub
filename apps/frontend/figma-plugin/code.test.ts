@@ -187,16 +187,15 @@ function createFakeFigma(
       currentPage = page;
       return page;
     },
-    setCurrentPageAsync(page: AnyNode) {
+    async setCurrentPageAsync(page: AnyNode) {
       currentPage = page;
-      return Promise.resolve();
     },
     variables: {
-      getLocalVariableCollectionsAsync() {
-        return Promise.resolve(collections);
+      async getLocalVariableCollectionsAsync() {
+        return collections;
       },
-      getLocalVariablesAsync() {
-        return Promise.resolve(variables);
+      async getLocalVariablesAsync() {
+        return variables;
       },
       createVariableCollection(name: string) {
         const collection: VariableCollection = {
@@ -257,16 +256,14 @@ function createFakeFigma(
         };
       },
     },
-    listAvailableFontsAsync() {
-      return Promise.resolve(
-        ['Regular', 'Semi Bold', 'Bold'].map((style) => ({
-          fontName: { family: 'Inter', style },
-        })),
-      );
+    async listAvailableFontsAsync() {
+      return ['Regular', 'Semi Bold', 'Bold'].map((style) => ({
+        fontName: { family: 'Inter', style },
+      }));
     },
     async loadFontAsync() {},
-    getLocalTextStylesAsync() {
-      return Promise.resolve(textStyles);
+    async getLocalTextStylesAsync() {
+      return textStyles;
     },
     createTextStyle() {
       const style = { id: `style-${textStyles.length + 1}`, name: '' };
@@ -297,18 +294,15 @@ function createFakeFigma(
 }
 
 async function runPlugin(fake: ReturnType<typeof createFakeFigma>) {
-  const fetch = (url: string) =>
-    Promise.resolve({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(JSON.parse(TOKENS) as unknown),
-      text: () =>
-        Promise.resolve(
-          url.endsWith('.svg')
-            ? '<svg xmlns="http://www.w3.org/2000/svg"/>'
-            : TOKENS,
-        ),
-    });
+  const fetch = async (url: string) => ({
+    ok: true,
+    status: 200,
+    json: async () => JSON.parse(TOKENS) as unknown,
+    text: async () =>
+      url.endsWith('.svg')
+        ? '<svg xmlns="http://www.w3.org/2000/svg"/>'
+        : TOKENS,
+  });
   const sandbox = vm.createContext({
     figma: fake.figma,
     __html__: '',

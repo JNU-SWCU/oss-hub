@@ -81,15 +81,14 @@ describe('RankingScreen', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
   it('page fetch 의 nextCycleAt 을 발행하고 unmount 때 null 로 지운다', async () => {
     const onNextCycleAt = vi.fn();
-    await act(() => {
+    await act(async () => {
       root.render(<RankingScreen onNextCycleAt={onNextCycleAt} />);
-      return Promise.resolve();
     });
 
     expect(api.getRanking).toHaveBeenCalledWith(
@@ -100,7 +99,7 @@ describe('RankingScreen', () => {
     );
     expect(onNextCycleAt).toHaveBeenCalledWith('2026-08-21T00:00:00.000Z');
 
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     expect(onNextCycleAt).toHaveBeenLastCalledWith(null);
     root = createRoot(container);
   });
@@ -129,11 +128,10 @@ describe('RankingScreen', () => {
       })
       .mockResolvedValueOnce(pageTwo);
 
-    await act(() => {
+    await act(async () => {
       root.render(<RankingScreen onNextCycleAt={() => undefined} />);
-      return Promise.resolve();
     });
-    await act(() => Promise.resolve(captured.props?.onExportCsv()));
+    await act(async () => captured.props?.onExportCsv());
 
     expect(api.getRanking).toHaveBeenNthCalledWith(2, 2026, 1, 100);
     expect(api.getRanking).toHaveBeenNthCalledWith(3, 2026, 2, 100);
@@ -153,13 +151,11 @@ describe('RankingScreen', () => {
         pageSize: 100,
         total: 0,
       });
-    await act(() =>
-      Promise.resolve(
-        root.render(<RankingScreen onNextCycleAt={() => undefined} />),
-      ),
+    await act(async () =>
+      root.render(<RankingScreen onNextCycleAt={() => undefined} />),
     );
     api.downloadTextFile.mockReset();
-    await act(() => Promise.resolve(captured.props?.onExportCsv()));
+    await act(async () => captured.props?.onExportCsv());
     expect(api.downloadTextFile).toHaveBeenCalledWith(
       'ranking-2026.csv',
       expect.stringContaining('\uFEFFrank,name,githubLogin'),
@@ -178,22 +174,18 @@ describe('RankingScreen', () => {
         total: 2,
         items: [],
       });
-    await act(() =>
-      Promise.resolve(
-        root.render(<RankingScreen onNextCycleAt={() => undefined} />),
-      ),
+    await act(async () =>
+      root.render(<RankingScreen onNextCycleAt={() => undefined} />),
     );
     api.downloadTextFile.mockReset();
-    await act(() => Promise.resolve(captured.props?.onExportCsv()));
+    await act(async () => captured.props?.onExportCsv());
     expect(api.downloadTextFile).not.toHaveBeenCalled();
   });
 
   it('페이지 실패에서는 CSV를 다운로드하지 않는다', async () => {
     api.getRanking.mockReset().mockRejectedValue(new Error('page failed'));
-    await act(() =>
-      Promise.resolve(
-        root.render(<RankingScreen onNextCycleAt={() => undefined} />),
-      ),
+    await act(async () =>
+      root.render(<RankingScreen onNextCycleAt={() => undefined} />),
     );
     api.downloadTextFile.mockReset();
     await act(async () => {
