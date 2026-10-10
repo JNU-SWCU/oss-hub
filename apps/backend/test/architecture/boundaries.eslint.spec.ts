@@ -94,7 +94,7 @@ for (const from of layers) {
       const name = `${from}-${to}-${foreign ? 'foreign' : 'own'}`;
       const allowed =
         permitted[from].includes(to) &&
-        !(foreign && (to === 'repository' || to === 'gateway'));
+        !(foreign && (to === 'repository' || to === 'gateway' || to === 'dto'));
       edge(
         name,
         `src/alpha/${from}/${name}.ts`,
@@ -351,6 +351,86 @@ edge(
   'nested dto may use foreign domain',
   'src/programs/archive/projects/dto/read.ts',
   'src/alpha/domain/target.ts',
+  true,
+);
+edge(
+  'nested controller cannot use parent module dto',
+  'src/programs/archive/projects/controller/read.ts',
+  'src/programs/dto/target.ts',
+  false,
+);
+edge(
+  'deep service file cannot use foreign dto',
+  'src/alpha/service/internal/deep/dto.ts',
+  'src/beta/dto/target.ts',
+  false,
+);
+edge(
+  'deep service file may use foreign domain',
+  'src/alpha/service/internal/deep/domain.ts',
+  'src/beta/domain/target.ts',
+  true,
+);
+edge(
+  'deep service file cannot use foreign repository',
+  'src/alpha/service/internal/deep/repository.ts',
+  'src/beta/repository/target.ts',
+  false,
+);
+edge(
+  'test may use foreign dto',
+  'src/alpha/service/dto.spec.ts',
+  'src/beta/dto/target.ts',
+  true,
+);
+for (const consumer of ['programs', 'ranking', 'system-status']) {
+  edge(
+    `github service cannot import consumer ${consumer}`,
+    `src/github/service/${consumer}.ts`,
+    `src/${consumer}/service/target.ts`,
+    false,
+  );
+  edge(
+    `github test cannot import consumer ${consumer}`,
+    `src/github/service/${consumer}.spec.ts`,
+    `src/${consumer}/domain/target.ts`,
+    false,
+  );
+  edge(
+    `consumer ${consumer} may call github service`,
+    `src/${consumer}/service/github.ts`,
+    'src/github/service/target.ts',
+    true,
+  );
+}
+edge(
+  'github service may call non-consumer service',
+  'src/github/service/users.ts',
+  'src/users/service/authority.service.ts',
+  true,
+);
+edge(
+  'github composition cannot import consumer module',
+  'src/github/consumer.module.ts',
+  'src/programs/programs.module.ts',
+  false,
+);
+edge(
+  'consumer cannot import github repository',
+  'src/ranking/service/github-repository.ts',
+  'src/github/repository/target.ts',
+  false,
+);
+edge(
+  'consumer repository cannot import github service',
+  'src/programs/repository/github-service.ts',
+  'src/github/service/target.ts',
+  false,
+);
+edge(
+  'consumer repository may use github domain',
+  'src/programs/repository/github-domain.ts',
+  'src/github/domain/target.ts',
   true,
 );
 

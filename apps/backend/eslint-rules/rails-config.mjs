@@ -338,7 +338,7 @@ const policies = [
     allow: {
       to: [
         element('service'),
-        element('dto'),
+        element('dto', sameModule),
         element('domain'),
         category('auth-capability'),
       ],
@@ -349,7 +349,7 @@ const policies = [
     allow: {
       to: [
         element('service'),
-        element('dto'),
+        element('dto', sameModule),
         element('domain'),
         element('runtime-config'),
         category('auth-capability'),
@@ -362,7 +362,7 @@ const policies = [
     allow: {
       to: [
         element('service'),
-        element('dto'),
+        element('dto', sameModule),
         element('domain'),
         element('repository', sameModule),
         element('gateway', sameModule),
@@ -440,6 +440,14 @@ const policies = [
   {
     from: [element('repository'), category('test')],
     allow: { to: { file: { path: '**/src/prisma/lock-program-tree.ts' } } },
+  },
+  {
+    from: { file: { path: '**/src/github/**' } },
+    disallow: {
+      to: { file: { path: '**/src/{programs,ranking,system-status}/**' } },
+    },
+    message:
+      'github 구현은 소비자 모듈(programs/ranking/system-status)을 역참조하지 않는다 (ADR-003 DEC-42).',
   },
 ];
 

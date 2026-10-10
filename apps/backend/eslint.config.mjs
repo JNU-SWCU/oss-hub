@@ -1,94 +1,15 @@
-import path from 'node:path';
 import eslint from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
-import moduleZoneBoundary from './eslint-rules/module-zone-boundary.mjs';
 import { sharedConfig } from '../../eslint.shared.mjs';
 
-const srcDir = path.join(import.meta.dirname, 'src');
-const sharedDirs = new Set(['common', 'prisma']);
-
-const testFileBasenamePattern = '(\\.spec|fixtures?|support)\\.ts$';
 const testFileGlobs = [
   'src/**/*.spec.ts',
   'src/**/*fixture.ts',
   'src/**/*fixtures.ts',
   'src/**/*support.ts',
 ];
-
-const collectionPublicFiles = ['collection.module', 'repositories.module'];
-const collectionPublicDirs = ['dto', 'domain'];
-
-const collectionPublicPaths = [
-  'service/repositories.service',
-  'repository/repositories.repository',
-
-  'service/own-repository-url-validation.service',
-  'service/collection-trigger.service',
-  'service/repositories-read.service',
-  'gateway/github-app.client',
-  'repository/repositories.integration-support',
-  'service/collection-schedule',
-];
-const collectionInternalMessage =
-  '소비자 Service는 github의 concrete repository를 import하지 않는다. 소비자 Repository는 Prisma를 쓴다. (ADR-003 DEC-42)';
-
-const collectionConsumerZones = ['programs', 'ranking', 'system-status'];
-const collectionReverseImportMessage =
-  'github 구현은 소비자 모듈(programs/ranking/system-status)을 역참조하지 않는다 (ADR-003 DEC-42).';
-
-const controllerPrismaMessage =
-  'controller는 Prisma에 직접 접근하지 않는다 — service를 거쳐 repository/port로 위임한다 (ADR-003).';
-
-const moduleZoneBoundaryOptions = {
-  srcRoot: srcDir,
-  sharedZones: [...sharedDirs],
-  internalDirs: ['dto'],
-  encapsulated: [
-    {
-      zone: 'github',
-      publicFiles: collectionPublicFiles,
-      publicDirs: collectionPublicDirs,
-      publicPaths: collectionPublicPaths,
-      message: collectionInternalMessage,
-    },
-  ],
-  reverseDeny: [
-    {
-      from: 'github',
-      to: collectionConsumerZones,
-      message: collectionReverseImportMessage,
-    },
-  ],
-  rolePathDeny: [
-    {
-      fileSuffix: '.controller.ts',
-      denyPaths: ['prisma/prisma.service'],
-      message: controllerPrismaMessage,
-    },
-
-    {
-      fileSuffix: '.service.ts',
-      denyPaths: ['prisma/prisma.service'],
-      zones: ['programs', 'ranking'],
-
-      knownDebt: [
-        'programs/service/program-lifecycle.service.ts',
-        'programs/service/student-dashboard.service.ts',
-      ],
-      message:
-        'service 는 Prisma 를 직접 부르지 않는다 — repository 계층으로 위임한다 (ADR-010 §8).',
-    },
-  ],
-
-  testBoundary: {
-    testDir: path.join(import.meta.dirname, 'test'),
-    basenamePattern: testFileBasenamePattern,
-    message:
-      '운영 코드는 테스트 코드를 참조하지 않는다 — E2E 대역은 test/e2e-program-authoring/main.ts에서만 끼운다 (#1427).',
-  },
-};
 
 const envRestrictedSyntax = [
   {
@@ -138,14 +59,6 @@ export default tseslint.config(
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
-    },
-  },
-
-  {
-    files: ['src/**/*.ts'],
-    plugins: { boundary: { rules: { 'module-zone': moduleZoneBoundary } } },
-    rules: {
-      'boundary/module-zone': ['error', moduleZoneBoundaryOptions],
     },
   },
 
