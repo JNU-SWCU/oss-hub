@@ -9,7 +9,7 @@ import type {
 } from './types';
 import { DEPARTMENT_COHORTS } from './types';
 
-export class StaffInsightsResponseError extends Error {
+class StaffInsightsResponseError extends Error {
   constructor() {
     super('학생 활성 API 응답 형식이 올바르지 않습니다.');
     this.name = 'StaffInsightsResponseError';

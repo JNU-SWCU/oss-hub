@@ -2,11 +2,6 @@ export type ArchiveApplicationMode = 'PERSONAL' | 'TEAM';
 
 export type ArchiveTrackType = 'CURRICULAR' | 'EXTRACURRICULAR';
 
-export const ARCHIVE_TRACK_TYPE_LABELS = {
-  CURRICULAR: '교과',
-  EXTRACURRICULAR: '비교과',
-} as const satisfies Record<ArchiveTrackType, string>;
-
 export type ArchiveListFilter = 'all' | number;
 
 export function archiveListHref(filter: ArchiveListFilter): string {

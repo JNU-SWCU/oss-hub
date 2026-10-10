@@ -16,7 +16,6 @@ export {
   isFallbackTarget,
   type AuditLogDescription,
   type AuditLogSentenceSegment,
-  type AuditLogTargetVariant,
 } from './describe-segments';
 
 function isKnownAction(action: string): action is AuditLogAction {

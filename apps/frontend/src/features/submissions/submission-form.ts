@@ -94,7 +94,7 @@ export function submissionFileCheckMessage(
     : getSubmissionFileErrorMessage(problem.code, policy);
 }
 
-export const SUBMISSION_FIELD_IDS = {
+const SUBMISSION_FIELD_IDS = {
   FILE: 'submission-file',
   TEXT: 'submission-text',
 } as const satisfies Readonly<Record<SubmissionType, string>>;

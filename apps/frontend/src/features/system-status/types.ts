@@ -80,7 +80,7 @@ export type CollectionActivityWire = Omit<
 > &
   Partial<Pick<CollectionActivityEntry, 'kind' | 'insertedIssueCount'>>;
 
-export type ExternalCollectionStatusWire = Omit<
+type ExternalCollectionStatusWire = Omit<
   ExternalCollectionStatus,
   'lastSweep' | 'cumulativeIssueCount'
 > & {

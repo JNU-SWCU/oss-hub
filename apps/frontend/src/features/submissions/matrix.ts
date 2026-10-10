@@ -10,7 +10,6 @@ export {
   formatMatrixDueDateTime,
   formatSubmittedAt,
   notSubmittedDeadline,
-  type NotSubmittedDeadline,
 } from './matrix-format';
 
 export const MATRIX_PAGE_SIZE = 20;

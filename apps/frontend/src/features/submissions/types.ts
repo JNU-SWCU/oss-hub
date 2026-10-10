@@ -29,7 +29,7 @@ export interface SubmissionFormData {
   readonly blockedReason: SubmissionBlockedReason | null;
 }
 
-export type TextSubmissionContent = {
+type TextSubmissionContent = {
   readonly type: 'TEXT';
   readonly text: string;
 };
@@ -65,8 +65,7 @@ export interface CreatedSubmission {
 
 export type ChecklistSubmissionStatus =
   'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
-export type ChecklistReviewDecision =
-  'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED';
+type ChecklistReviewDecision = 'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED';
 
 export interface ChecklistSubmission {
   readonly id: string;
@@ -111,7 +110,7 @@ export interface CreatedResubmission {
 
 export type MatrixApplicationMode = 'PERSONAL' | 'TEAM';
 
-export type MatrixCellStatus =
+type MatrixCellStatus =
   'NOT_SUBMITTED' | 'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 
 export interface MatrixMilestone {
