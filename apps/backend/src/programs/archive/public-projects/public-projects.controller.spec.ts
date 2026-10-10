@@ -1,5 +1,5 @@
 import { HEADERS_METADATA, PATH_METADATA } from '@nestjs/common/constants';
-import type { PublicProjectRow } from './public-projects.repository';
+import type { PublicProjectRow } from './domain/public-project-record';
 import { PublicProjectsController } from './public-projects.controller';
 import type { PublicProjectsService } from './public-projects.service';
 

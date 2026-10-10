@@ -43,7 +43,7 @@ import {
   type TeamDeletionNotificationEvent,
   type TeamDeletionNotificationStore,
 } from '../repository/program-team-deletion.repository';
-import type { TeamDeletionScopeCounts } from '../team-deletion-scope';
+import type { TeamDeletionScopeCounts } from '../domain/team-deletion-scope';
 import { TEAMS_ERROR_CODES, TeamsErrorCode } from '../teams-error-code.enum';
 import type {
   CreatedTeamView,

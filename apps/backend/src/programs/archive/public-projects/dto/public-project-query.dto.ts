@@ -1,3 +1,7 @@
+import {
+  PUBLIC_PROJECT_YEAR_MIN,
+  PUBLIC_PROJECT_YEAR_MAX,
+} from '../domain/public-project-query';
 import { Type } from 'class-transformer';
 import {
   IsInt,
@@ -7,9 +11,6 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-
-export const PUBLIC_PROJECT_YEAR_MIN = 2000;
-export const PUBLIC_PROJECT_YEAR_MAX = 2100;
 
 export class PublicProjectQueryRequestDto {
   @IsOptional()

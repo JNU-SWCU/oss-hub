@@ -1,44 +1,19 @@
+import {
+  PublicProjectRow,
+  PublicProjectCursor,
+  PublicUserIdentity,
+} from './domain/public-project-record';
 import { Injectable } from '@nestjs/common';
 import { type ProgramTrackType } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import {
   PUBLIC_PROJECT_YEAR_MAX,
   PUBLIC_PROJECT_YEAR_MIN,
-} from './dto/public-project-query.dto';
+} from './domain/public-project-query';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
 } from '../../../github/domain/repository-identity';
-
-export interface PublicProjectRow {
-  readonly id: string;
-
-  readonly projectId: string;
-  readonly githubRepositoryId: bigint;
-  readonly repositoryName: string;
-  readonly githubUrl: string;
-  readonly publishedAt: Date;
-  readonly programId: string;
-  readonly programName: string;
-  readonly trackType: ProgramTrackType | null;
-  readonly teamName: string | null;
-
-  readonly teamMemberCount: number;
-  readonly applicantNickname: string;
-}
-
-export interface PublicProjectCursor {
-  readonly publishedAt: Date;
-  readonly id: string;
-}
-
-export interface PublicUserIdentity {
-  readonly userId: string;
-  readonly githubNickname: string;
-  readonly avatarUrl: string | null;
-
-  readonly githubId: bigint;
-}
 
 const PROJECT_ROW_SELECT = {
   id: true,

@@ -1,3 +1,8 @@
+import {
+  ProgramListItemNote,
+  PersonalizedProgramListItem,
+  ProgramListPage,
+} from '../domain/program-list';
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
@@ -22,11 +27,9 @@ import {
   PROGRAM_PARTICIPATION,
 } from '../program-template.registry';
 import type { ProgramViewer } from './program-viewer.service';
-import {
-  ProgramsRepository,
-  type ProgramListRecord,
-  type ProgramStatusCounts,
-} from '../repository/programs.repository';
+import { ProgramsRepository } from '../repository/programs.repository';
+import { type ProgramStatusCounts } from '../domain/program-list-status';
+import { type ProgramListRecord } from '../domain/program-list';
 
 type SubmissionRecord = {
   readonly milestoneId: string;
@@ -60,31 +63,6 @@ function milestoneStatusFor(
         ?.status ?? null,
   });
 }
-
-export interface ProgramListItemNote {
-  readonly text: string;
-  readonly icon?: 'team';
-}
-
-export interface PersonalizedProgramListItem extends ProgramListRecord {
-  readonly note?: ProgramListItemNote;
-
-  readonly viewerApplicationStatus?: ApplicationStatus;
-
-  readonly applicationCount?: number;
-
-  readonly pendingApplicationCount?: number;
-}
-
-export interface ProgramListPage {
-  readonly items: readonly PersonalizedProgramListItem[];
-  readonly page: number;
-  readonly pageSize: number;
-  readonly totalItems: number;
-  readonly totalPages: number;
-}
-
-export type { ProgramStatusCounts };
 
 const ANONYMOUS_VIEWER: ProgramViewer = {
   githubId: null,

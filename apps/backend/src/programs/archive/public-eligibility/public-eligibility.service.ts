@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
+import { PublicEligibilityRepository } from './repository/public-eligibility.repository';
 import { isPublicEligible } from './domain/public-eligibility';
 
 export interface PublicEligibilityCandidate {
@@ -9,7 +9,7 @@ export interface PublicEligibilityCandidate {
 
 @Injectable()
 export class PublicEligibilityService {
-  constructor(private readonly metrics: ProgramMetricsRepository) {}
+  constructor(private readonly metrics: PublicEligibilityRepository) {}
 
   async filterEligibleRepositoryIds(
     candidates: readonly PublicEligibilityCandidate[],

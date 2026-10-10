@@ -22,8 +22,8 @@ import {
   type ProgramAuthoringPlan,
   type ProgramAuthoringProgram,
   type ProgramAuthoringRequest,
-  type ProgramAuthoringTransactionStore,
 } from './program-authoring.types';
+import { type ProgramAuthoringTransactionStore } from './repository/program-authoring-transaction';
 
 type ProgramAuthoringStore = Pick<
   ProgramAuthoringRepository,

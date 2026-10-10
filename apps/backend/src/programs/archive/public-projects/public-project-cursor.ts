@@ -10,7 +10,7 @@ import {
   PUBLIC_PROJECTS_ERROR_CODES,
   PublicProjectsErrorCode,
 } from './public-projects-error-code.enum';
-import type { PublicProjectCursor } from './public-projects.repository';
+import type { PublicProjectCursor } from './domain/public-project-record';
 
 const CURSOR_VERSION = 1;
 const IV_BYTES = 12;

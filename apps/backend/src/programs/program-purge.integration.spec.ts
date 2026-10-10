@@ -41,6 +41,7 @@ import { ProgramErrorCode } from './program-error-code.enum';
 import { ProgramPurgeFileCleanupRepository } from './repository/program-purge-file-cleanup.repository';
 import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
 import { ProgramLifecycleService } from './service/program-lifecycle.service';
+import { ProgramLifecycleRepository } from './repository/program-lifecycle.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -60,7 +61,10 @@ const STUDENT_GITHUB_ID = 9_875_000_003n;
 const prisma = new PrismaService();
 const concurrentPrisma = new PrismaService();
 const auditLog = new AuditLogService(new AuditLogRepository(prisma));
-const lifecycle = new ProgramLifecycleService(prisma, auditLog);
+const lifecycle = new ProgramLifecycleService(
+  new ProgramLifecycleRepository(prisma),
+  auditLog,
+);
 const storageConfig = new ObjectStorageConfig();
 const storageSettings = storageConfig.requireSettings();
 const s3 = new S3Client({
@@ -1664,7 +1668,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       record: jest.fn().mockRejectedValue(new Error('induced audit failure')),
     } as unknown as AuditLogService;
     const failingLifecycle = new ProgramLifecycleService(
-      prisma,
+      new ProgramLifecycleRepository(prisma),
       failingAuditLog,
     );
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
@@ -1929,14 +1933,16 @@ describe('Program purge integration — full child graph, worker file deletion, 
       const resumePurge = deferred();
       let requestedOptions: InteractiveTransactionOptions | undefined;
       const pausingLifecycle = new ProgramLifecycleService(
-        pausingScopeReadPrisma(
-          async () => {
-            scopeRead.resolve();
-            await resumePurge.promise;
-          },
-          (options) => {
-            requestedOptions = options;
-          },
+        new ProgramLifecycleRepository(
+          pausingScopeReadPrisma(
+            async () => {
+              scopeRead.resolve();
+              await resumePurge.promise;
+            },
+            (options) => {
+              requestedOptions = options;
+            },
+          ),
         ),
         auditLog,
       );

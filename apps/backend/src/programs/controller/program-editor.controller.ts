@@ -15,7 +15,7 @@ import {
   EditableProgramResponseDto,
   ProgramMilestoneResponseDto,
 } from '../dto/editable-program-response.dto';
-import { UpdateProgramRequestDto } from '../dto/update-program-request.dto';
+import { UpdateProgramRequestDto } from '../dto/program-authoring-request.dto';
 import { UpsertMilestoneRequestDto } from '../dto/upsert-milestone-request.dto';
 import { ProgramEditorService } from '../service/program-editor.service';
 

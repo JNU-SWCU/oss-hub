@@ -355,7 +355,10 @@ describe('program-linked logical record allowlist (Notification/OutboxEvent)', (
       /\.notification\.(?:create|createMany)\(/g,
     );
     const purgeServiceSource = readFileSync(
-      join(process.cwd(), 'src/programs/service/program-lifecycle.service.ts'),
+      join(
+        process.cwd(),
+        'src/programs/repository/program-lifecycle.repository.ts',
+      ),
       'utf8',
     );
 
@@ -374,7 +377,10 @@ describe('program-linked logical record allowlist (Notification/OutboxEvent)', (
       /\.outboxEvent\.(?:create|createMany)\(/g,
     );
     const purgeServiceSource = readFileSync(
-      join(process.cwd(), 'src/programs/service/program-lifecycle.service.ts'),
+      join(
+        process.cwd(),
+        'src/programs/repository/program-lifecycle.repository.ts',
+      ),
       'utf8',
     );
 

@@ -1,3 +1,4 @@
+import { ProgramCoverChange } from '../domain/program-cover-change';
 import { ProgramAuthoringUploadLifecycle, type Prisma } from '@prisma/client';
 import {
   assertAttachableProgramAuthoringUploads,
@@ -9,16 +10,6 @@ import {
 } from '../program-authoring.types';
 import { assertProgramCoverUpload } from '../program-cover';
 import type { ProgramExternalCover } from '../program-external-cover';
-
-export type ProgramCoverChange = {
-  readonly actorId: string;
-} & (
-  | { readonly uploadId: string | null; readonly externalCover?: never }
-  | {
-      readonly externalCover: ProgramExternalCover | null;
-      readonly uploadId?: never;
-    }
-);
 
 export async function replaceProgramCover(
   transaction: Prisma.TransactionClient,

@@ -25,6 +25,7 @@ import { ProgramActivityService } from './service/program-activity.service';
 import { ProgramEditorController } from './controller/program-editor.controller';
 import { ProgramEditorRepository } from './repository/program-editor.repository';
 import { ProgramEditorService } from './service/program-editor.service';
+import { ProgramLifecycleRepository } from './repository/program-lifecycle.repository';
 import { ProgramLifecycleService } from './service/program-lifecycle.service';
 import { ProgramTeamsController } from './controller/program-teams.controller';
 import { ProgramTeamDeletionRepository } from './repository/program-team-deletion.repository';
@@ -93,6 +94,7 @@ import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
     ProgramEditorService,
     ProgramEditorRepository,
     ProgramLifecycleService,
+    ProgramLifecycleRepository,
     ProgramTeamsService,
     ProgramTeamsRepository,
     ProgramTeamDeletionRepository,

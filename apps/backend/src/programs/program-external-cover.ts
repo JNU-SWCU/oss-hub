@@ -1,4 +1,4 @@
-import { ProgramAuthoringValidationError } from './program-authoring.types';
+import { ProgramAuthoringValidationError } from './domain/program-authoring-validation';
 import { DomainException } from '../common/error-code';
 import {
   parseProgramNoticeImageUrl,

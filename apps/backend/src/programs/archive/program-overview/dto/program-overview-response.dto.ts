@@ -3,7 +3,7 @@ import {
   ProgramOverviewMilestoneDocument,
   ProgramOverviewRemainingMilestone,
   ProgramOverviewView,
-} from '../program-overview.service';
+} from '../domain/program-overview';
 
 export class RemainingMilestoneResponseDto {
   readonly label: string;

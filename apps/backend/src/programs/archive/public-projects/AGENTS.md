@@ -6,7 +6,7 @@
 - 이 폴더는 인증 없는 `GET /projects`, `/projects/years`, `/projects/:projectId`, `/users/:userId/public-profile` read API만 소유한다.
 - 조립 원본은 `public-projects.module.ts`다. 후보 행은 `public-projects.repository.ts`, 응답 조합은 `public-projects.service.ts`, HTTP 변환은 `dto/`에 둔다.
 - 공개 가능성 판단은 `../public-eligibility/public-eligibility.service.ts`의 단일 책임이다. 이 폴더에서 Collection freshness 조건을 재구현하지 않는다.
-- 누적 지표·기여자 조회는 `../../repository/program-metrics.repository.ts`의 배치 API만 사용한다. 행 또는 기여자별 조회를 추가하지 않는다.
+- 누적 지표·기여자 조회는 `repository/public-project-metrics.repository.ts`의 배치 API만 사용한다. 행 또는 기여자별 조회를 추가하지 않는다.
 
 ## 공개 투영 규칙
 

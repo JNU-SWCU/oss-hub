@@ -5,12 +5,10 @@ import type {
   ProgramTrackType,
   StaffAccessRequestStatus,
 } from '@prisma/client';
-import type { ProgramDeletionScopeCounts } from './program-deletion-scope';
+import type { ProgramDeletionScopeCounts } from './domain/program-deletion-scope';
 import type { ProgramAuthoringUploadToken } from './program-authoring.types';
-import type { ProgramCoverChange } from './repository/program-cover-write';
+import type { ProgramCoverChange } from './domain/program-cover-change';
 import type { ProgramExternalCover } from './program-external-cover';
-
-export type { ProgramDeletionScopeCounts } from './program-deletion-scope';
 
 export type ProgramAuthority = {
   readonly id: string;
@@ -232,10 +230,4 @@ export interface ProgramEditorTransactionStore {
     tokenIds: readonly string[],
   ): Promise<readonly ProgramAuthoringUploadToken[]>;
   applyMilestoneEdit(input: ApplyProgramMilestoneEditInput): Promise<void>;
-}
-
-export interface ProgramEditorRepositoryPort {
-  withTransaction<T>(
-    operation: (store: ProgramEditorTransactionStore) => Promise<T>,
-  ): Promise<T>;
 }

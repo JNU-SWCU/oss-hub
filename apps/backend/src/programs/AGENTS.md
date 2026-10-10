@@ -5,7 +5,7 @@
 
 - 프로그램, 마일스톤, 팀, 프로그램 활동, 학생 대시보드를 소유하고 `programs.module.ts`에서 controller/service/repository를 조립한다.
 - 신청 판정은 `applications/`, 제출·파일은 `submissions/`, 저장소 공개는 `github/` 소유이며 그 Prisma 조회나 업무 규칙을 복제하지 않는다.
-- 영구 삭제는 `ProgramLifecycleService`, 파일 후속 정리는 `program-purge-file-cleanup*.ts`가 맡는다.
+- 영구 삭제는 `ProgramLifecycleService`와 `repository/program-lifecycle.repository.ts`, 파일 후속 정리는 `program-purge-file-cleanup*.ts`가 맡는다.
 
 ## 생성·수정 표면
 

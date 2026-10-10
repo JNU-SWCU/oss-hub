@@ -2,9 +2,9 @@ import { ProgramAuthoringUploadLifecycle } from '@prisma/client';
 import {
   ProgramAuthoringIdempotencyConflictError,
   ProgramAuthoringUploadTokenError,
-  ProgramAuthoringValidationError,
   type ProgramAuthoringDocumentRequest,
 } from './program-authoring.types';
+import { ProgramAuthoringValidationError } from './domain/program-authoring-validation';
 import type { AuditLogService } from '../audit-log/service/audit-log.service';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';

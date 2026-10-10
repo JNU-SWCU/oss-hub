@@ -1,7 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../../../common/error-code';
-import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
-import { PublicEligibilityService } from '../../../programs/archive/public-eligibility/public-eligibility.service';
+import { PublicEligibilityService } from '../public-eligibility/public-eligibility.service';
 import type {
   PublicProjectDetailResult,
   PublicProjectMetrics,
@@ -19,6 +18,7 @@ import {
   PUBLIC_PROJECTS_ERROR_CODES,
   PublicProjectsErrorCode,
 } from './public-projects-error-code.enum';
+import { PublicProjectMetricsRepository } from './repository/public-project-metrics.repository';
 import { PublicProjectsRepository } from './public-projects.repository';
 import type { RuntimeConfig } from '../../../runtime-config/runtime-config';
 import { RUNTIME_CONFIG } from '../../../runtime-config/runtime-config.module';
@@ -30,7 +30,7 @@ export class PublicProjectsService {
   constructor(
     private readonly repository: PublicProjectsRepository,
     private readonly eligibility: PublicEligibilityService,
-    private readonly metrics: ProgramMetricsRepository,
+    private readonly metrics: PublicProjectMetricsRepository,
     @Inject(RUNTIME_CONFIG)
     runtimeConfig: Pick<RuntimeConfig, 'SESSION_SECRET'>,
   ) {

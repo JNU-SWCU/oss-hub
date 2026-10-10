@@ -1,4 +1,4 @@
-import type { StudentDashboardItem } from '../service/student-dashboard.service';
+import type { StudentDashboardItem } from '../domain/student-dashboard';
 import type {
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,

@@ -1,3 +1,4 @@
+import { PublicEligibilityRepository } from './repository/public-eligibility.repository';
 import { authorityFactsFor } from '../../../users/repository/canonical-user-fixture';
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
@@ -33,7 +34,7 @@ import { SubmissionReviewsRepository } from '../../../submission-reviews/reposit
 import { SubmissionReviewsService } from '../../../submission-reviews/service/submission-reviews.service';
 import { UsersAuthorityService } from '../../../users/service/authority.service';
 import { UsersAuthorityRepository } from '../../../users/repository/authority.repository';
-import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
+import { PublicProjectMetricsRepository } from '../public-projects/repository/public-project-metrics.repository';
 import { PublicEligibilityService } from './public-eligibility.service';
 
 const sessionSecret = new Uint8Array(32).fill(23);
@@ -63,7 +64,8 @@ export class PublicExposurePersonaHttpHarness {
   constructor(private readonly fixtureNamespace: string) {}
 
   readonly prisma = new PrismaService();
-  readonly metrics = new ProgramMetricsRepository(this.prisma);
+  readonly metrics = new PublicProjectMetricsRepository(this.prisma);
+  readonly eligibilityMetrics = new PublicEligibilityRepository(this.prisma);
   private application: INestApplication | null = null;
   private baseUrl = '';
   private sequence = 0;
@@ -74,7 +76,9 @@ export class PublicExposurePersonaHttpHarness {
   async start(): Promise<void> {
     await this.prisma.$connect();
 
-    const eligibilityService = new PublicEligibilityService(this.metrics);
+    const eligibilityService = new PublicEligibilityService(
+      this.eligibilityMetrics,
+    );
     const publicProjectsRepository = new PublicProjectsRepository(this.prisma);
     const publicProjectsService = new PublicProjectsService(
       publicProjectsRepository,

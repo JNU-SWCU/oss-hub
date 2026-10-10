@@ -1,9 +1,9 @@
 import { DomainException } from '../../../common/error-code';
 import type {
   ProgramContributorCumulativeMetrics,
-  ProgramMetricsRepository,
+  PublicProjectMetricsRepository,
   ProgramRepositoryCumulativeMetrics,
-} from '../../repository/program-metrics.repository';
+} from './repository/public-project-metrics.repository';
 import type { PublicEligibilityService } from '../public-eligibility/public-eligibility.service';
 import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
 import {
@@ -13,9 +13,9 @@ import {
 } from './public-project-cursor';
 import type {
   PublicProjectRow,
-  PublicProjectsRepository,
   PublicUserIdentity,
-} from './public-projects.repository';
+} from './domain/public-project-record';
+import type { PublicProjectsRepository } from './public-projects.repository';
 import { PublicProjectsService } from './public-projects.service';
 
 const SESSION_SECRET = Buffer.from(
@@ -84,7 +84,7 @@ function serviceWith(overrides: {
     getContributorCumulativeMetrics:
       overrides.getContributorCumulativeMetrics ??
       jest.fn().mockResolvedValue([]),
-  } as unknown as ProgramMetricsRepository;
+  } as unknown as PublicProjectMetricsRepository;
   const service = new PublicProjectsService(
     repository,
     eligibility,
@@ -285,7 +285,7 @@ describe('PublicProjectsService', () => {
         {
           filterEligibleRepositoryIds: jest.fn().mockResolvedValue(new Set()),
         } as unknown as PublicEligibilityService,
-        {} as unknown as ProgramMetricsRepository,
+        {} as unknown as PublicProjectMetricsRepository,
         loadRuntimeConfig({
           SESSION_SECRET: Buffer.from(
             'synthetic-public-projects-other-secret-01',

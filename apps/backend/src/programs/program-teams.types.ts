@@ -1,6 +1,6 @@
 import type { PublishBlockedReason } from '../github/domain/repository-publication';
 import type { TeamRepositoryEvidenceView } from './program-team-repository-evidence.types';
-import type { TeamDeletionScopeCounts } from './team-deletion-scope';
+import type { TeamDeletionScopeCounts } from './domain/team-deletion-scope';
 
 export interface TeamMemberView {
   readonly userId: string;

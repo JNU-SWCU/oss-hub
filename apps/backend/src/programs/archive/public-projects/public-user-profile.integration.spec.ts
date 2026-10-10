@@ -1,3 +1,4 @@
+import { PublicEligibilityRepository } from '../public-eligibility/repository/public-eligibility.repository';
 import {
   AffiliationKind,
   ApplicationStatus,
@@ -10,10 +11,10 @@ import {
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
+import { PublicProjectMetricsRepository } from './repository/public-project-metrics.repository';
 import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
 import { PublicEligibilityService } from '../public-eligibility/public-eligibility.service';
-import { PublicUserProfileResponseDto } from './dto/public-user-profile-response.dto';
+import { PublicUserProfileResponseDto } from './dto/public-project-response.dto';
 import { PublicProjectsRepository } from './public-projects.repository';
 import { PublicProjectsService } from './public-projects.service';
 
@@ -27,8 +28,9 @@ const SYNTHETIC_SESSION_SECRET = Buffer.from(
 ).toString('base64url');
 
 const prisma = new PrismaService();
-const metrics = new ProgramMetricsRepository(prisma);
-const eligibilityService = new PublicEligibilityService(metrics);
+const metrics = new PublicProjectMetricsRepository(prisma);
+const eligibilityMetrics = new PublicEligibilityRepository(prisma);
+const eligibilityService = new PublicEligibilityService(eligibilityMetrics);
 const publicProjectsRepository = new PublicProjectsRepository(prisma);
 const service = new PublicProjectsService(
   publicProjectsRepository,

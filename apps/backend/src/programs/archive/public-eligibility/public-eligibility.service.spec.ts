@@ -1,8 +1,8 @@
 import type {
-  ProgramMetricsRepository,
+  PublicEligibilityRepository,
   ProgramRepositoryMetrics,
   ProgramRepositoryMetricsQuery,
-} from '../../repository/program-metrics.repository';
+} from './repository/public-eligibility.repository';
 import {
   PublicEligibilityService,
   type PublicEligibilityCandidate,
@@ -35,7 +35,7 @@ function serviceWith(
 ): PublicEligibilityService {
   const metrics = {
     getRepositoryMetrics,
-  } as unknown as ProgramMetricsRepository;
+  } as unknown as PublicEligibilityRepository;
   return new PublicEligibilityService(metrics);
 }
 

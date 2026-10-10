@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
+import { PublicEligibilityRepository } from './repository/public-eligibility.repository';
 import { PublicEligibilityService } from './public-eligibility.service';
 
 @Module({
-  providers: [ProgramMetricsRepository, PublicEligibilityService],
-  exports: [ProgramMetricsRepository, PublicEligibilityService],
+  providers: [PublicEligibilityRepository, PublicEligibilityService],
+  exports: [PublicEligibilityService],
 })
 export class PublicEligibilityModule {}

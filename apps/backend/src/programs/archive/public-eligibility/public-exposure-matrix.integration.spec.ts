@@ -1,3 +1,4 @@
+import { PublicEligibilityRepository } from './repository/public-eligibility.repository';
 import {
   AffiliationKind,
   ApplicationStatus,
@@ -18,7 +19,7 @@ import {
   repositoryUrlFromNameWithOwner,
 } from '../../../github/domain/repository-identity';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { ProgramMetricsRepository } from '../../repository/program-metrics.repository';
+import { PublicProjectMetricsRepository } from '../public-projects/repository/public-project-metrics.repository';
 import { loadRuntimeConfig } from '../../../runtime-config/runtime-config';
 import type { GithubAppClient } from '../../../github/gateway/github-app.client';
 import { RepositoriesRepository } from '../../../github/repository/repositories.repository';
@@ -45,8 +46,9 @@ const SYNTHETIC_SESSION_SECRET = Buffer.from(
 ).toString('base64url');
 
 const prisma = new PrismaService();
-const metrics = new ProgramMetricsRepository(prisma);
-const eligibilityService = new PublicEligibilityService(metrics);
+const metrics = new PublicProjectMetricsRepository(prisma);
+const eligibilityMetrics = new PublicEligibilityRepository(prisma);
+const eligibilityService = new PublicEligibilityService(eligibilityMetrics);
 const publicProjectsRepository = new PublicProjectsRepository(prisma);
 const publicProjectsService = new PublicProjectsService(
   publicProjectsRepository,

@@ -1,6 +1,6 @@
 import { Controller, Get, Header, Param } from '@nestjs/common';
 import { Public } from '../../../auth/controller/auth-route-metadata';
-import { PublicUserProfileResponseDto } from './dto/public-user-profile-response.dto';
+import { PublicUserProfileResponseDto } from './dto/public-project-response.dto';
 import { PublicProjectsService } from './public-projects.service';
 
 @Controller('users')

@@ -1,5 +1,5 @@
 import { HEADERS_METADATA } from '@nestjs/common/constants';
-import type { PublicProjectRow } from './public-projects.repository';
+import type { PublicProjectRow } from './domain/public-project-record';
 import { PublicUserProfileController } from './public-user-profile.controller';
 import type { PublicProjectsService } from './public-projects.service';
 

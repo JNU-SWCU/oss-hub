@@ -9,10 +9,9 @@ import type { Prisma as PrismaTypes } from '@prisma/client';
 import { lockProgramTree } from '../../prisma/lock-program-tree';
 import { PrismaService } from '../../prisma/prisma.service';
 import { readProgramDeletionScopeCounts } from '../program-deletion-scope';
+import type { ProgramDeletionScopeCounts } from '../domain/program-deletion-scope';
 import type {
   EditableProgramView,
-  ProgramDeletionScopeCounts,
-  ProgramEditorRepositoryPort,
   ProgramEditorTransactionStore,
   LockedProgramMilestoneEdit,
   ApplyProgramMilestoneEditInput,
@@ -486,7 +485,7 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
 }
 
 @Injectable()
-export class ProgramEditorRepository implements ProgramEditorRepositoryPort {
+export class ProgramEditorRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   withTransaction<T>(

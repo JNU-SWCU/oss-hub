@@ -23,10 +23,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersAuthorityService } from '../users/service/authority.service';
 import { UsersAuthorityRepository } from '../users/repository/authority.repository';
-import type {
-  ProgramEditorRepositoryPort,
-  ProgramEditorTransactionStore,
-} from './program-editor.types';
+import type { ProgramEditorTransactionStore } from './program-editor.types';
 import {
   cleanup,
   createMilestone,
@@ -1165,7 +1162,7 @@ function createFaultingEditor(
     | 'countSubmissionHistoriesForDocuments',
 ): ProgramEditorService {
   const actual = new ProgramEditorRepository(prisma);
-  const repository: ProgramEditorRepositoryPort = {
+  const repository: Pick<ProgramEditorRepository, 'withTransaction'> = {
     withTransaction: (operation) =>
       actual.withTransaction(async (store) => {
         const overrides =
@@ -1225,7 +1222,7 @@ function pausingAggregateEditorAt(
   release: ReturnType<typeof deferred<void>>,
 ): ProgramEditorService {
   const actual = new ProgramEditorRepository(prisma);
-  const repository: ProgramEditorRepositoryPort = {
+  const repository: Pick<ProgramEditorRepository, 'withTransaction'> = {
     withTransaction: (operation) =>
       actual.withTransaction(async (store) => {
         const overrides =

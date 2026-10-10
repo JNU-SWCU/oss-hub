@@ -16,8 +16,8 @@ import {
   ProgramAuthoringIdempotencyRaceError,
   type ProgramAuthoringProgram,
   type ProgramAuthoringRequest,
-  type ProgramAuthoringTransactionStore,
 } from './program-authoring.types';
+import { type ProgramAuthoringTransactionStore } from './repository/program-authoring-transaction';
 
 const ACTOR_ID = 'actor-id';
 const GITHUB_ID = 7n;

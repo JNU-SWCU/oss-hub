@@ -4,7 +4,7 @@ import type {
   PersonalizedProgramListItem,
   ProgramListItemNote,
   ProgramListPage,
-} from '../service/programs.service';
+} from '../domain/program-list';
 
 export class ProgramListResponseDto {
   readonly coverImageUrl: string | null;

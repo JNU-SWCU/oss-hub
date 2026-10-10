@@ -29,8 +29,8 @@ import {
 import {
   ProgramAuthoringIdempotencyConflictError,
   ProgramAuthoringUploadTokenError,
-  ProgramAuthoringValidationError,
 } from '../program-authoring.types';
+import { ProgramAuthoringValidationError } from '../domain/program-authoring-validation';
 import { ProgramAuthoringUploadService } from '../program-authoring-upload.service';
 import {
   ProgramAuthoringUploadError,

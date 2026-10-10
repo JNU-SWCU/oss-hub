@@ -3,10 +3,12 @@ import {
   CurrentSubmissionMilestone,
   MilestoneDocumentCatalogEntry,
   MilestoneSchedule,
-  ProgramOverviewRecord,
   ProgramOverviewRepository,
-  PublicTeamRow,
 } from './program-overview.repository';
+import {
+  ProgramOverviewRecord,
+  PublicTeamRow,
+} from './domain/program-overview';
 import { ProgramOverviewService } from './program-overview.service';
 
 const syntheticProgramId = 'cuid-synthetic-program';

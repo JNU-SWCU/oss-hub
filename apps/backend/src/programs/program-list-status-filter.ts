@@ -185,14 +185,6 @@ export function programListSqlWhere(
   return Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`;
 }
 
-export type ProgramStatusCounts = {
-  readonly all: number;
-  readonly recruiting: number;
-  readonly in_progress: number;
-  readonly upcoming: number;
-  readonly ended: number;
-};
-
 export function programStatusCountsSql(now: Date): Prisma.Sql {
   const statusCase = programListStatusCaseSql(now);
   return Prisma.sql`
@@ -205,14 +197,4 @@ export function programStatusCountsSql(now: Date): Prisma.Sql {
     FROM "Program" AS p
     WHERE p."lifecycle" IN ('PUBLISHED', 'ARCHIVED')
   `;
-}
-
-export function emptyProgramStatusCounts(): ProgramStatusCounts {
-  return {
-    all: 0,
-    recruiting: 0,
-    in_progress: 0,
-    upcoming: 0,
-    ended: 0,
-  };
 }

@@ -1,7 +1,7 @@
-import type { PrismaService } from '../../prisma/prisma.service';
-import { ProgramMetricsRepository } from './program-metrics.repository';
+import type { PrismaService } from '../../../../prisma/prisma.service';
+import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 
-describe('ProgramMetricsRepository.getContributorCumulativeMetrics', () => {
+describe('PublicProjectMetricsRepository.getContributorCumulativeMetrics', () => {
   it('drops a contributor who only opened issues and keeps everyone else with their sums', async () => {
     const updatedAt = new Date('2026-09-01T00:00:00.000Z');
     const row = (
@@ -34,7 +34,7 @@ describe('ProgramMetricsRepository.getContributorCumulativeMetrics', () => {
       },
     };
 
-    const result = await new ProgramMetricsRepository(
+    const result = await new PublicProjectMetricsRepository(
       prisma as unknown as PrismaService,
     ).getContributorCumulativeMetrics({ repositoryIds: [101n] });
 

@@ -10,9 +10,9 @@ import { sessionCookieName } from '../auth/domain/cookies';
 import { issueSessionToken } from '../auth/domain/session-token';
 import { SessionGuard } from '../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
-import { TeamsErrorCode } from './teams-error-code.enum';
 import { loadRuntimeConfig } from '../runtime-config/runtime-config';
 import { UsersAuthorityService } from '../users/service/authority.service';
+import { TeamsErrorCode } from './teams-error-code.enum';
 import { ProgramTeamsController } from './controller/program-teams.controller';
 import type {
   ProgramTeamsRepository,

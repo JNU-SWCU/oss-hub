@@ -5,7 +5,6 @@ import type {
   ProgramLifecycle,
   ProgramTrackType,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../prisma/audit-log-transaction-writer';
 import type { ProgramExternalCover } from './program-external-cover';
 
 export type ProgramAuthoringDocumentRequest = {
@@ -105,19 +104,6 @@ export type ProgramAuthoringUploadToken = {
   readonly sizeBytes: number;
 };
 
-export type ProgramAuthoringValidationIssue = {
-  readonly path: string;
-  readonly code: string;
-};
-
-export class ProgramAuthoringValidationError extends Error {
-  override readonly name = 'ProgramAuthoringValidationError';
-
-  constructor(readonly issues: readonly ProgramAuthoringValidationIssue[]) {
-    super('Program authoring request is invalid.');
-  }
-}
-
 export class ProgramAuthoringIdempotencyConflictError extends Error {
   override readonly name = 'ProgramAuthoringIdempotencyConflictError';
 
@@ -183,45 +169,4 @@ export class ProgramAuthoringUploadConsumptionRaceError extends Error {
   constructor(readonly uploadId: string) {
     super('Program authoring upload changed before consumption.');
   }
-}
-
-export interface ProgramAuthoringTransactionStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
-  createProgram(
-    plan: ProgramAuthoringProgramPlan,
-    cover?:
-      | {
-          readonly actorId: string;
-          readonly upload: ProgramAuthoringUploadToken;
-        }
-      | { readonly externalCover: ProgramExternalCover },
-  ): Promise<ProgramAuthoringProgram>;
-  createRequest(input: ProgramAuthoringCreateRequestInput): Promise<string>;
-  lockUploads(
-    tokenIds: readonly string[],
-  ): Promise<readonly ProgramAuthoringUploadToken[]>;
-  createMilestone(
-    programId: string,
-    plan: ProgramAuthoringMilestonePlan,
-  ): Promise<string>;
-  createDocument(
-    milestoneId: string,
-    plan: ProgramAuthoringDocumentPlan,
-  ): Promise<string>;
-  createTemplate(input: ProgramAuthoringTemplateInput): Promise<void>;
-  attachUploads(
-    actorId: string,
-    requestId: string,
-    tokenIds: readonly string[],
-  ): Promise<void>;
-}
-
-export interface ProgramAuthoringRepositoryPort {
-  findReplay(
-    actorId: string,
-    idempotencyKey: string,
-  ): Promise<ProgramAuthoringReplay | null>;
-  withTransaction<T>(
-    operation: (store: ProgramAuthoringTransactionStore) => Promise<T>,
-  ): Promise<T>;
 }

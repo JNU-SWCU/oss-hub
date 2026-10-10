@@ -5,19 +5,10 @@ import {
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, MilestoneDocumentKind } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
-
-export interface ProgramOverviewRecord {
-  programId: string;
-  name: string;
-  trackType: string | null;
-  lifecycle: string;
-  milestoneCount: number;
-  boardPostCount: number;
-
-  participantCount: number;
-  teamCount: number;
-  connectedRepositoryCount: number;
-}
+import type {
+  ProgramOverviewRecord,
+  PublicTeamRow,
+} from './domain/program-overview';
 
 export interface CurrentSubmissionMilestone {
   milestoneId: string;
@@ -28,19 +19,6 @@ export interface CurrentSubmissionMilestone {
 export interface ViewerIdentity {
   userId: string;
   role: AuthorityLabel | null;
-}
-
-export interface PublicTeamMemberRow {
-  userId: string;
-
-  displayName: string;
-  isLeader: boolean;
-}
-
-export interface PublicTeamRow {
-  teamId: string;
-  name: string;
-  members: PublicTeamMemberRow[];
 }
 
 export interface MilestoneSchedule {

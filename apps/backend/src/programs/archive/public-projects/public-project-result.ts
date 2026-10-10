@@ -1,7 +1,7 @@
 import type {
   PublicProjectRow,
   PublicUserIdentity,
-} from './public-projects.repository';
+} from './domain/public-project-record';
 
 export interface PublicProjectPageResult {
   readonly items: readonly PublicProjectRow[];

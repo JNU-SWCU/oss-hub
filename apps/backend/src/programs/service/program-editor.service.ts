@@ -7,7 +7,7 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from '../../milestone-documents/domain/milestone-documents-error-code.enum';
-import type { UpdateProgramRequestDto } from '../dto/update-program-request.dto';
+import type { UpdateProgramRequestDto } from '../dto/program-authoring-request.dto';
 import type { UpsertMilestoneRequestDto } from '../dto/upsert-milestone-request.dto';
 import type { UpdateMilestoneRequestDto } from '../dto/update-milestone-request.dto';
 import { ProgramEditorRepository } from '../repository/program-editor.repository';
@@ -18,16 +18,14 @@ import {
 } from '../program-milestone-edit';
 import {
   ProgramAuthoringUploadTokenError,
-  ProgramAuthoringValidationError,
   type ProgramAuthoringUploadToken,
 } from '../program-authoring.types';
+import { ProgramAuthoringValidationError } from '../domain/program-authoring-validation';
 import { validateProgramCoverChoice } from '../program-external-cover';
 import { isProgramEndAtUndecided } from '../program-end-at';
 import type {
   ProgramAuthority,
-  ProgramEditorRepositoryPort,
   ProgramEditorTransactionStore,
-  ProgramEditorTransactionStore as ReexportedProgramEditorTransactionStore,
   ProgramMilestoneInput,
   ProgramMilestoneEditView,
   LockedProgramMilestoneEdit,
@@ -36,11 +34,6 @@ import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from '../program-error-code.enum';
-
-export type {
-  ProgramEditorRepositoryPort,
-  ReexportedProgramEditorTransactionStore as ProgramEditorTransactionStore,
-};
 
 const INVALID_APPLICATION_PERIOD_FIELD_ERRORS = [
   {
@@ -105,7 +98,10 @@ const INVALID_MILESTONE_START_FIELD_ERROR = {
 export class ProgramEditorService {
   constructor(
     @Inject(ProgramEditorRepository)
-    private readonly repository: ProgramEditorRepositoryPort,
+    private readonly repository: Pick<
+      ProgramEditorRepository,
+      'withTransaction'
+    >,
   ) {}
 
   getProgram(githubId: bigint, programId: string) {

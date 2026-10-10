@@ -14,9 +14,9 @@ import type {
   ProgramAuthoringProgramPlan,
   ProgramAuthoringReplay,
   ProgramAuthoringTemplateInput,
-  ProgramAuthoringTransactionStore,
   ProgramAuthoringUploadToken,
 } from './program-authoring.types';
+import type { ProgramAuthoringTransactionStore } from './repository/program-authoring-transaction';
 import { lockProgramAuthoringUploads } from './program-authoring-upload-transaction';
 import {
   createProgramCover,

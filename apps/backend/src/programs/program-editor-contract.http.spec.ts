@@ -9,10 +9,7 @@ import { ProgramEditorController } from './controller/program-editor.controller'
 import { MilestonesController } from './controller/milestones.controller';
 import { ProgramEditorRepository } from './repository/program-editor.repository';
 import { ProgramEditorService } from './service/program-editor.service';
-import type {
-  ProgramEditorRepositoryPort,
-  ProgramEditorTransactionStore,
-} from './service/program-editor.service';
+import type { ProgramEditorTransactionStore } from './program-editor.types';
 import {
   editableProgram,
   updateInput,
@@ -41,7 +38,7 @@ const store: jest.Mocked<ProgramEditorTransactionStore> = {
   applyMilestoneEdit: jest.fn(),
 };
 
-const repository: ProgramEditorRepositoryPort = {
+const repository: Pick<ProgramEditorRepository, 'withTransaction'> = {
   withTransaction: (operation) => operation(store),
 };
 

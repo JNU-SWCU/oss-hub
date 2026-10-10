@@ -1,6 +1,6 @@
 import { ProgramTrackType } from '@prisma/client';
+import { ProgramAuthoringValidationError } from './domain/program-authoring-validation';
 import {
-  ProgramAuthoringValidationError,
   type ProgramAuthoringDocumentRequest,
   type ProgramAuthoringMilestoneRequest,
   type ProgramAuthoringRequest,

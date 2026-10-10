@@ -4,11 +4,13 @@ import { validateProgramCoverChoice } from './program-external-cover';
 import { isProgramEndAtUndecided } from './program-end-at';
 import {
   ProgramAuthoringValidationError,
+  type ProgramAuthoringValidationIssue,
+} from './domain/program-authoring-validation';
+import {
   type ProgramAuthoringDocumentPlan,
   type ProgramAuthoringMilestonePlan,
   type ProgramAuthoringPlan,
   type ProgramAuthoringRequest,
-  type ProgramAuthoringValidationIssue,
 } from './program-authoring.types';
 
 const MAX_MILESTONES = 50;

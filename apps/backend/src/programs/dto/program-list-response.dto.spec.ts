@@ -1,5 +1,5 @@
 import { ApplicationStatus, ProgramLifecycle } from '@prisma/client';
-import type { PersonalizedProgramListItem } from '../service/programs.service';
+import type { PersonalizedProgramListItem } from '../domain/program-list';
 import {
   ProgramListPageResponseDto,
   ProgramListResponseDto,
