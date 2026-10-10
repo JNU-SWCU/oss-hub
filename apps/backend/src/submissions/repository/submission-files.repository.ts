@@ -10,7 +10,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { addOneCalendarYear } from '../../common/add-one-calendar-year';
-import { STUDENT_MEMBER_WHERE } from '../../profiles/user-profile-read';
+import { STUDENT_MEMBER_WHERE } from '../../profiles/repository/user-profile-read';
 import { PrismaService } from '../../prisma/prisma.service';
 import { submissionParticipantWhere } from './submission-application.record';
 import { lockSubmissionMembership } from '../../prisma/submission-membership-lock';

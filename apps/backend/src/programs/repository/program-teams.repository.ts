@@ -35,7 +35,7 @@ import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../profiles/user-profile-read';
+} from '../../profiles/repository/user-profile-read';
 import type {
   TeamApplicationView,
   TeamRepositoryProvisioningJobStatus,

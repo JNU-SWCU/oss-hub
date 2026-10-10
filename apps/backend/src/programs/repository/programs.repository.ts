@@ -11,7 +11,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../profiles/user-profile-read';
+} from '../../profiles/repository/user-profile-read';
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,

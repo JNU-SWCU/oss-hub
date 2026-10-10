@@ -5,7 +5,7 @@ import {
   USER_PROFILE_SELECT,
   resolveUserProfile,
   type UserProfileSource,
-} from '../profiles/user-profile-read';
+} from '../profiles/repository/user-profile-read';
 import type {
   AdminAccessUserDetailRecord,
   AdminAccessUserRecord,
