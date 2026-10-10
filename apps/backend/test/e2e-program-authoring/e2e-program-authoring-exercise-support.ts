@@ -4,7 +4,7 @@ import {
   type E2eExternalFailureOperation,
 } from './e2e-external-port-registry';
 import type { E2eFailureKind } from './e2e-program-authoring.types';
-import { DeadlineDigestService } from '../../src/notifications/deadline-digest.service';
+import { DeadlineDigestService } from '../../src/notifications/service/deadline-digest.service';
 import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
 import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';

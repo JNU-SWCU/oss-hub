@@ -333,7 +333,7 @@ describe('ProgramStaffTeamsPage — 확인 창이 말하는 것과 보내는 것
     );
     await mount();
 
-    const select = statusSelects()[0]!;
+    const select = statusSelects()[0];
     await act(async () => {
       select.value = 'APPROVED';
       select.dispatchEvent(new Event('change', { bubbles: true }));
@@ -353,7 +353,7 @@ describe('ProgramStaffTeamsPage — 확인 창이 말하는 것과 보내는 것
     );
     await mount();
 
-    const select = statusSelects()[0]!;
+    const select = statusSelects()[0];
     await act(async () => {
       select.value = 'REJECTED';
       select.dispatchEvent(new Event('change', { bubbles: true }));
@@ -371,7 +371,7 @@ describe('ProgramStaffTeamsPage — 확인 창이 말하는 것과 보내는 것
     );
     await mount();
 
-    const select = statusSelects()[0]!;
+    const select = statusSelects()[0];
     await act(async () => {
       select.value = 'APPROVED';
       select.dispatchEvent(new Event('change', { bubbles: true }));

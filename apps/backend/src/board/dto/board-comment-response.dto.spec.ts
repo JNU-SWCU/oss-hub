@@ -1,4 +1,4 @@
-import { BoardCommentResponseDto } from './board-comment-response.dto';
+import { BoardCommentResponseDto } from './board-post-response.dto';
 
 const syntheticCommentId = 'cuid-synthetic-comment';
 const syntheticPostId = 'cuid-synthetic-post';

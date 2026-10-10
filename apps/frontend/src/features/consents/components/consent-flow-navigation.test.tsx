@@ -60,14 +60,13 @@ describe('ConsentFlow completion navigation', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
   it('replaces the route when rendered as the direct consent page', async () => {
-    await act(() => {
+    await act(async () => {
       root.render(<ConsentFlow policyPresentation="dialog" />);
-      return Promise.resolve();
     });
 
     await flushEffects();
@@ -77,11 +76,10 @@ describe('ConsentFlow completion navigation', () => {
 
   it('calls the host callback instead of navigating when embedded', async () => {
     const onCompleted = vi.fn();
-    await act(() => {
+    await act(async () => {
       root.render(
         <ConsentFlow onCompleted={onCompleted} policyPresentation="dialog" />,
       );
-      return Promise.resolve();
     });
 
     await flushEffects();

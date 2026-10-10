@@ -8,6 +8,10 @@ describe('RankingService cache and year scope', () => {
     harness = setupRankingService();
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('동시 요청만 같은 집계를 공유하고 다음 요청은 공개 상태를 다시 읽는다', async () => {
     harness.findMetrics.mockResolvedValue([
       activity(1n, 'mina', { commitCount: 2 }),
@@ -87,10 +91,32 @@ describe('RankingService cache and year scope', () => {
     expect(harness.findMetrics).toHaveBeenLastCalledWith({});
   });
 
+  it('수집 일정은 집계를 읽은 뒤 평가 시각으로 한 번 계산되어 응답에 그대로 실린다', async () => {
+    const now = new Date('2026-08-20T00:00:00.000Z');
+    jest.useFakeTimers({ now });
+    const scheduled = new Date('2026-08-20T01:00:00.000Z');
+    const scheduleCallsWhenMetricsRead: number[] = [];
+    harness.findMetrics.mockImplementation(() => {
+      scheduleCallsWhenMetricsRead.push(
+        harness.nextScheduledCollectionAt.mock.calls.length,
+      );
+      return Promise.resolve([activity(1n, 'mina', { commitCount: 2 })]);
+    });
+    harness.nextScheduledCollectionAt.mockReturnValue(scheduled);
+
+    const page = await harness.service.findPage(2026, 1, 20, null);
+
+    expect(scheduleCallsWhenMetricsRead).toEqual([0]);
+    expect(harness.nextScheduledCollectionAt).toHaveBeenCalledTimes(1);
+    expect(harness.nextScheduledCollectionAt).toHaveBeenCalledWith(now);
+    expect(page.nextCycleAt).toBe(scheduled);
+  });
+
   it('listYears는 공개 연도 목록을 ranking repository에 위임한다', async () => {
     harness.listYears.mockResolvedValue([2026, 2025]);
 
     await expect(harness.service.listYears()).resolves.toEqual([2026, 2025]);
     expect(harness.listYears).toHaveBeenCalledTimes(1);
+    expect(harness.nextScheduledCollectionAt).not.toHaveBeenCalled();
   });
 });

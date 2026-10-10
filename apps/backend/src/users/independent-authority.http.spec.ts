@@ -1,14 +1,14 @@
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, MemberKind } from '@prisma/client';
-import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/service/auth.service';
 import { sessionCookieName } from '../auth/domain/cookies';
 import { OriginGuard } from '../auth/controller/origin.guard';
 import { issueSessionToken } from '../auth/domain/session-token';
 import { SessionGuard } from '../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
   AdminAccessActor,

@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { RepositoriesModule } from '../github/repositories.module';
 import { SubmissionsModule } from '../submissions/submissions.module';
 import { StorageModule } from '../storage/storage.module';
+import { UsersModule } from '../users/users.module';
 import { ProgramAuthoringController } from './controller/program-authoring.controller';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
@@ -25,7 +26,6 @@ import { ProgramEditorController } from './controller/program-editor.controller'
 import { ProgramEditorRepository } from './repository/program-editor.repository';
 import { ProgramEditorService } from './service/program-editor.service';
 import { ProgramLifecycleService } from './service/program-lifecycle.service';
-import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 import { ProgramTeamsController } from './controller/program-teams.controller';
 import { ProgramTeamDeletionRepository } from './repository/program-team-deletion.repository';
 import { ProgramTeamsRepository } from './repository/program-teams.repository';
@@ -53,6 +53,7 @@ import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
     RepositoriesModule,
     SubmissionsModule,
     StorageModule,
+    UsersModule,
   ],
   controllers: [
     ApplicationTemplatesController,
@@ -95,7 +96,6 @@ import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
     ProgramTeamsService,
     ProgramTeamsRepository,
     ProgramTeamDeletionRepository,
-    ProgramTeamsStaffGuard,
   ],
   exports: [
     ProgramActivitySummaryService,

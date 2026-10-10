@@ -158,7 +158,7 @@ describe('TeamInvitationNotifications', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
@@ -172,10 +172,8 @@ describe('TeamInvitationNotifications', () => {
       }),
     ]);
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(
@@ -184,10 +182,8 @@ describe('TeamInvitationNotifications', () => {
       ).toBe('1');
     });
 
-    await act(() => {
+    await act(async () => {
       findButton('팀 초대 알림').click();
-
-      return Promise.resolve();
     });
 
     await settleUntil(() => {
@@ -209,15 +205,11 @@ describe('TeamInvitationNotifications', () => {
       .mockRejectedValueOnce(problem('받은 초대를 읽지 못했습니다.', 500))
       .mockResolvedValue([pendingInvitation()]);
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
-
-      return Promise.resolve();
     });
-    await act(() => {
+    await act(async () => {
       findButton('팀 초대 알림').click();
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(document.body.textContent ?? '').toContain(
@@ -225,10 +217,8 @@ describe('TeamInvitationNotifications', () => {
       );
     });
 
-    await act(() => {
+    await act(async () => {
       findRetryButton().click();
-
-      return Promise.resolve();
     });
 
     await settleUntil(() => {
@@ -239,15 +229,11 @@ describe('TeamInvitationNotifications', () => {
   it('대기 중인 초대가 없으면 빈 상태를 보여 준다', async () => {
     mocks.listReceivedInvitations.mockResolvedValue([]);
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
-
-      return Promise.resolve();
     });
-    await act(() => {
+    await act(async () => {
       findButton('팀 초대 알림').click();
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(document.body.textContent ?? '').toContain(
@@ -260,10 +246,8 @@ describe('TeamInvitationNotifications', () => {
     mocks.listReceivedInvitations.mockResolvedValueOnce([]);
     mocks.listReceivedInvitations.mockResolvedValue([pendingInvitation()]);
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(mocks.listReceivedInvitations).toHaveBeenCalledTimes(1);
@@ -272,10 +256,8 @@ describe('TeamInvitationNotifications', () => {
       document.querySelector('[data-slot="team-invitation-count"]'),
     ).toBeNull();
 
-    await act(() => {
+    await act(async () => {
       findButton('팀 초대 알림').focus();
-
-      return Promise.resolve();
     });
 
     await settleUntil(() => {
@@ -295,10 +277,8 @@ describe('TeamInvitationNotifications', () => {
       problem('목록을 다시 읽지 못했습니다.', 500),
     );
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(
@@ -306,10 +286,8 @@ describe('TeamInvitationNotifications', () => {
           ?.textContent,
       ).toBe('1');
     });
-    await act(() => {
+    await act(async () => {
       findButton('팀 초대 알림').click();
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(document.body.textContent ?? '').toContain(
@@ -329,29 +307,23 @@ describe('TeamInvitationNotifications', () => {
       programId: 'prog:1',
     });
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(
         document.querySelector('[data-slot="team-invitation-count"]'),
       ).not.toBeNull();
     });
-    await act(() => {
+    await act(async () => {
       findButton('팀 초대 알림').click();
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(document.body.textContent ?? '').toContain('오픈소스팀');
     });
 
-    await act(() => {
+    await act(async () => {
       findButton('오픈소스팀 팀 초대 수락').click();
-
-      return Promise.resolve();
     });
 
     await settleUntil(() => {
@@ -378,29 +350,23 @@ describe('TeamInvitationNotifications', () => {
     });
     const events = recordMembershipEvents();
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(
         document.querySelector('[data-slot="team-invitation-count"]'),
       ).not.toBeNull();
     });
-    await act(() => {
+    await act(async () => {
       findButton('팀 초대 알림').click();
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(document.body.textContent ?? '').toContain('오픈소스팀');
     });
 
-    await act(() => {
+    await act(async () => {
       findButton('오픈소스팀 팀 초대 수락').click();
-
-      return Promise.resolve();
     });
 
     await settleUntil(() => {
@@ -416,20 +382,16 @@ describe('TeamInvitationNotifications', () => {
       pendingInvitation({ programId: 'prog:1', programName: '캡스톤 2026' }),
     ]);
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(
         document.querySelector('[data-slot="team-invitation-count"]'),
       ).not.toBeNull();
     });
-    await act(() => {
+    await act(async () => {
       findButton('팀 초대 알림').click();
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(document.body.textContent ?? '').toContain('캡스톤 2026');
@@ -448,29 +410,23 @@ describe('TeamInvitationNotifications', () => {
     mocks.listReceivedInvitations.mockResolvedValue([pendingInvitation()]);
     const events = recordMembershipEvents();
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(
         document.querySelector('[data-slot="team-invitation-count"]'),
       ).not.toBeNull();
     });
-    await act(() => {
+    await act(async () => {
       findButton('팀 초대 알림').click();
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(document.body.textContent ?? '').toContain('오픈소스팀');
     });
 
-    await act(() => {
+    await act(async () => {
       findButton('오픈소스팀 팀 초대 거절').click();
-
-      return Promise.resolve();
     });
 
     await settleUntil(() => {
@@ -491,29 +447,23 @@ describe('TeamInvitationNotifications', () => {
     );
     const events = recordMembershipEvents();
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(
         document.querySelector('[data-slot="team-invitation-count"]'),
       ).not.toBeNull();
     });
-    await act(() => {
+    await act(async () => {
       findButton('팀 초대 알림').click();
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(document.body.textContent ?? '').toContain('오픈소스팀');
     });
 
-    await act(() => {
+    await act(async () => {
       findButton('오픈소스팀 팀 초대 수락').click();
-
-      return Promise.resolve();
     });
 
     await settleUntil(() => {
@@ -533,34 +483,26 @@ describe('TeamInvitationNotifications', () => {
     mocks.acceptInvitation.mockReturnValue(accept.promise);
     const events = recordMembershipEvents();
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(
         document.querySelector('[data-slot="team-invitation-count"]'),
       ).not.toBeNull();
     });
-    await act(() => {
+    await act(async () => {
       findButton('팀 초대 알림').click();
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(document.body.textContent ?? '').toContain('오픈소스팀');
     });
-    await act(() => {
+    await act(async () => {
       findButton('오픈소스팀 팀 초대 수락').click();
-
-      return Promise.resolve();
     });
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-b" />);
-
-      return Promise.resolve();
     });
     await act(async () => {
       accept.resolve({ teamId: 'team-1', programId: 'program-1' });
@@ -578,38 +520,30 @@ describe('TeamInvitationNotifications', () => {
     mocks.listReceivedInvitations.mockResolvedValue([pendingInvitation()]);
     mocks.acceptInvitation.mockReturnValue(accept.promise);
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(
         document.querySelector('[data-slot="team-invitation-count"]'),
       ).not.toBeNull();
     });
-    await act(() => {
+    await act(async () => {
       findButton('팀 초대 알림').click();
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(document.body.textContent ?? '').toContain('오픈소스팀');
     });
 
     const acceptButton = findButton('오픈소스팀 팀 초대 수락');
-    await act(() => {
+    await act(async () => {
       acceptButton.click();
       acceptButton.click();
-
-      return Promise.resolve();
     });
 
     expect(mocks.acceptInvitation).toHaveBeenCalledTimes(1);
-    await act(() => {
+    await act(async () => {
       accept.resolve({ teamId: 'team-1', programId: 'program-1' });
-
-      return Promise.resolve();
     });
   });
 
@@ -622,10 +556,8 @@ describe('TeamInvitationNotifications', () => {
       programId: 'program-1',
     });
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(
@@ -633,28 +565,22 @@ describe('TeamInvitationNotifications', () => {
           ?.textContent,
       ).toBe('1');
     });
-    await act(() => {
+    await act(async () => {
       findButton('팀 초대 알림').click();
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(document.body.textContent ?? '').toContain('오픈소스팀');
     });
 
-    await act(() => {
+    await act(async () => {
       findButton('오픈소스팀 팀 초대 수락').click();
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(document.body.textContent ?? '').not.toContain('오픈소스팀');
     });
 
-    await act(() => {
+    await act(async () => {
       list.resolve([pendingInvitation()]);
-
-      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();
@@ -676,20 +602,14 @@ describe('TeamInvitationNotifications', () => {
       }),
     ]);
 
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
-
-      return Promise.resolve();
     });
-    await act(() => {
+    await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-b" />);
-
-      return Promise.resolve();
     });
-    await act(() => {
+    await act(async () => {
       first.resolve([pendingInvitation({ teamName: '이전 계정 팀' })]);
-
-      return Promise.resolve();
     });
 
     await settleUntil(() => {
@@ -698,10 +618,8 @@ describe('TeamInvitationNotifications', () => {
           ?.textContent,
       ).toBe('1');
     });
-    await act(() => {
+    await act(async () => {
       findButton('팀 초대 알림').click();
-
-      return Promise.resolve();
     });
     await settleUntil(() => {
       expect(document.body.textContent ?? '').toContain('새 계정 팀');

@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, StaffAccessRequestStatus } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../audit-log/audit-log.repository';
+import type { AuditLogTransactionWriter } from '../prisma/audit-log-transaction-writer';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   findAdminActorByGithubId,

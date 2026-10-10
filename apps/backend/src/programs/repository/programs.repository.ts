@@ -11,12 +11,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../profiles/user-profile-read';
+} from '../../prisma/user-profile-read';
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
   type SubmissionCompletionTargetRow,
-} from '../../submissions/submission-completion-projection';
+} from '../../submissions/domain/submission-completion-projection';
 import type { ProgramListQuery } from '../program-list-query';
 import {
   emptyProgramStatusCounts,
@@ -26,7 +26,7 @@ import {
   programStatusCountsSql,
   type ProgramStatusCounts,
 } from '../program-list-status-filter';
-import { programApplicationParticipantWhere } from '../program-participant';
+import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
 
 export type { ProgramStatusCounts };
 export type ProgramListRecord = Pick<

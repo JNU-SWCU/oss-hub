@@ -1,17 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
-import { normalizeMultipartFileName } from '../common/multipart-file-name';
+import { normalizeMultipartFileName } from '../common/domain/multipart-file-name';
 import {
   isAllowedSubmissionFileType,
   safeSubmissionFileContentType,
-} from '../submissions/submission-file-content-type';
+} from '../submissions/domain/submission-file-content-type';
 import {
   createSubmissionFileObjectKey,
   sanitizeSubmissionFileOriginalName,
 } from '../submissions/domain/submission-file-object-key';
-import { hasValidSubmissionFileSignature } from '../submissions/submission-file-signature';
-import { hasValidSubmissionTemplateSignature } from '../submissions/submission-template-file-policy';
+import { hasValidSubmissionFileSignature } from '../submissions/domain/submission-file-signature';
+import { hasValidSubmissionTemplateSignature } from '../submissions/domain/submission-template-file-policy';
 import {
   OBJECT_STORAGE,
   type ObjectStoragePort,
@@ -19,18 +19,18 @@ import {
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
-  SubmissionFilesRepository,
-} from '../submissions/submission-files.repository';
-import { SubmissionMembershipChangedError } from '../submissions/submission-membership.repository';
-import { inspectSubmissionZipMetadata } from '../submissions/submission-zip-admission';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
+} from '../submissions/domain/submission-file-errors';
+import { SubmissionFilesService } from '../submissions/service/submission-files.service';
+import { SubmissionMembershipChangedError } from '../submissions/domain/submission-membership-changed.error';
+import { inspectSubmissionZipMetadata } from '../submissions/domain/submission-zip-admission';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/domain/submission-upload-policy';
 import { milestoneDocumentSubmissionBlock } from './domain/milestone-document-submission-window';
 import { milestoneDocumentDownloadFileName } from './milestone-document-download-file-name';
 import {
   MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES,
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.enum';
+} from './domain/milestone-documents-error-code.enum';
 import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 
 const MAX_FILE_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
@@ -78,7 +78,7 @@ export class MilestoneDocumentFilesService {
     private readonly repository: MilestoneDocumentsRepository,
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
-    private readonly submissionFiles: SubmissionFilesRepository,
+    private readonly submissionFiles: SubmissionFilesService,
   ) {}
 
   async upload(

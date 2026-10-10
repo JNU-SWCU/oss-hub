@@ -65,14 +65,12 @@ describe('설정 화면', () => {
             : null;
         requests.push({ url, method, body });
         if (url.endsWith('/users/me/profile')) {
-          return Promise.resolve(
-            jsonResponse(
-              method === 'GET' ? SAVED_PROFILE : { ...SAVED_PROFILE, ...body },
-            ),
+          return jsonResponse(
+            method === 'GET' ? SAVED_PROFILE : { ...SAVED_PROFILE, ...body },
           );
         }
         if (url.endsWith('/users/me/notification-email')) {
-          return Promise.resolve(notificationResponder());
+          return notificationResponder();
         }
         throw new Error(`예상하지 못한 요청: ${method} ${url}`);
       }),
@@ -83,10 +81,7 @@ describe('설정 화면', () => {
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
   });
@@ -104,10 +99,7 @@ describe('설정 화면', () => {
       ...overrides,
       retry: () => {},
     });
-    await act(() => {
-      root.render(<SettingsPage />);
-      return Promise.resolve();
-    });
+    await act(async () => root.render(<SettingsPage />));
   }
 
   function renderStaffAwaitingRole(
@@ -129,13 +121,12 @@ describe('설정 화면', () => {
   }
 
   async function type(input: HTMLInputElement, value: string): Promise<void> {
-    await act(() => {
+    await act(async () => {
       Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
         'value',
       )?.set?.call(input, value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
-      return Promise.resolve();
     });
   }
 
@@ -152,11 +143,10 @@ describe('설정 화면', () => {
 
       await type(field('settings-name'), '김교직원');
       const form = container.querySelector('form');
-      await act(() => {
+      await act(async () => {
         form?.dispatchEvent(
           new Event('submit', { bubbles: true, cancelable: true }),
         );
-        return Promise.resolve();
       });
 
       const saved = requests.find(
@@ -182,13 +172,12 @@ describe('설정 화면', () => {
       isProfileComplete: true,
     });
     const submit = () =>
-      act(() => {
+      act(async () => {
         container
           .querySelector('form')
           ?.dispatchEvent(
             new Event('submit', { bubbles: true, cancelable: true }),
           );
-        return Promise.resolve();
       });
 
     await submit();

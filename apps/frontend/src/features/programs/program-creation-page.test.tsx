@@ -78,7 +78,7 @@ describe('ProgramCreationPage guided authoring', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
@@ -88,7 +88,7 @@ describe('ProgramCreationPage guided authoring', () => {
       JSON.stringify(completedAuthoringState()),
     );
 
-    await act(() => Promise.resolve(root.render(<ProgramCreationPage />)));
+    await act(async () => root.render(<ProgramCreationPage />));
 
     for (const label of [
       '기본 정보',
@@ -117,12 +117,12 @@ describe('ProgramCreationPage guided authoring', () => {
     '업로드 제한을 못 받으면 작성 대신 재시도를 보이고 복구한다: %s',
     async (error) => {
       mocks.getAuthoringUploadPolicy.mockRejectedValueOnce(error);
-      await act(() => Promise.resolve(root.render(<ProgramCreationPage />)));
+      await act(async () => root.render(<ProgramCreationPage />));
       expect(container.textContent).toContain(
         '파일 업로드 제한을 불러오지 못했습니다.',
       );
       expect(container.querySelector('input[type="file"]')).toBeNull();
-      await act(() => Promise.resolve(buttonNamed('다시 불러오기').click()));
+      await act(async () => buttonNamed('다시 불러오기').click());
       expect(container.textContent).toContain('기본 정보');
       expect(mocks.getAuthoringUploadPolicy).toHaveBeenCalledTimes(2);
     },
@@ -139,7 +139,7 @@ describe('ProgramCreationPage guided authoring', () => {
       await Promise.resolve();
     });
 
-    await act(() => Promise.resolve(buttonNamed('프로그램 만들기').click()));
+    await act(async () => buttonNamed('프로그램 만들기').click());
 
     expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
     expect(mocks.createAuthoringProgram).not.toHaveBeenCalled();
@@ -161,9 +161,9 @@ describe('ProgramCreationPage guided authoring', () => {
   });
 
   it('keeps an untouched form clean when navigating between steps', async () => {
-    await act(() => Promise.resolve(root.render(<ProgramCreationPage />)));
+    await act(async () => root.render(<ProgramCreationPage />));
 
-    await act(() => Promise.resolve(buttonNamed('기본 정보').click()));
+    await act(async () => buttonNamed('기본 정보').click());
 
     expect(mocks.useProgramExitGuard).toHaveBeenLastCalledWith(false);
     mocks.discardUnsaved?.();
@@ -188,31 +188,25 @@ describe('ProgramCreationPage guided authoring', () => {
       ...completedAuthoringState(),
       currentStep: 'basic' as const,
     };
-    await act(() =>
-      Promise.resolve(
-        root.render(<ProgramCreationPage initialState={initial} />),
-      ),
+    await act(async () =>
+      root.render(<ProgramCreationPage initialState={initial} />),
     );
-    await act(() => Promise.resolve(buttonNamed('공지에서 가져오기').click()));
+    await act(async () => buttonNamed('공지에서 가져오기').click());
     const url = document.querySelector<HTMLInputElement>('input[type="url"]');
-    await act(() => {
+    await act(async () => {
       Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
         'value',
       )?.set?.call(url, sourceUrl);
       url?.dispatchEvent(new Event('input', { bubbles: true }));
-
-      return Promise.resolve();
     });
-    await act(() => Promise.resolve(buttonNamed('불러오기').click()));
-    await act(() =>
-      Promise.resolve(
-        document
-          .querySelector<HTMLInputElement>('input[name="notice-description"]')
-          ?.click(),
-      ),
+    await act(async () => buttonNamed('불러오기').click());
+    await act(async () =>
+      document
+        .querySelector<HTMLInputElement>('input[name="notice-description"]')
+        ?.click(),
     );
-    await act(() => Promise.resolve(buttonNamed('선택한 내용 적용').click()));
+    await act(async () => buttonNamed('선택한 내용 적용').click());
     expect(container.querySelector('textarea')?.value).toBe(description);
     expect(
       container
@@ -220,11 +214,11 @@ describe('ProgramCreationPage guided authoring', () => {
         ?.getAttribute('src'),
     ).toBe(imageUrl);
     expect(mocks.createAuthoringProgram).not.toHaveBeenCalled();
-    await act(() => Promise.resolve(buttonNamed('최종 검토').click()));
+    await act(async () => buttonNamed('최종 검토').click());
     expect(container.textContent).toContain('공지에서 가져온 이미지');
-    await act(() => Promise.resolve(buttonNamed('프로그램 만들기').click()));
+    await act(async () => buttonNamed('프로그램 만들기').click());
     expect(mocks.createAuthoringProgram).not.toHaveBeenCalled();
-    await act(() => Promise.resolve(buttonNamed('생성 확정').click()));
+    await act(async () => buttonNamed('생성 확정').click());
     const sent = mocks.createAuthoringProgram.mock.calls[0]?.[0];
     expect(sent).toMatchObject({
       name: initial.name,
@@ -236,9 +230,9 @@ describe('ProgramCreationPage guided authoring', () => {
   });
 
   it('필드 오류가 있으면 입력 옆에만 표시하고 중복 요약 경고는 만들지 않는다', async () => {
-    await act(() => Promise.resolve(root.render(<ProgramCreationPage />)));
-    await act(() => Promise.resolve(buttonNamed('기본 정보').click()));
-    await act(() => Promise.resolve(buttonNamed('계속').click()));
+    await act(async () => root.render(<ProgramCreationPage />));
+    await act(async () => buttonNamed('기본 정보').click());
+    await act(async () => buttonNamed('계속').click());
 
     expect(container.textContent).toContain('주관기관을 입력해 주세요.');
     expect(container.textContent).not.toContain('입력 내용을 확인해 주세요');
@@ -246,8 +240,8 @@ describe('ProgramCreationPage guided authoring', () => {
   });
 
   it('navigates without persisting dirty form content', async () => {
-    await act(() => Promise.resolve(root.render(<ProgramCreationPage />)));
-    await act(() => Promise.resolve(buttonNamed('기본 정보').click()));
+    await act(async () => root.render(<ProgramCreationPage />));
+    await act(async () => buttonNamed('기본 정보').click());
 
     const name = container.querySelector<HTMLInputElement>('#program-name');
     if (name === null) throw new TypeError('Missing program name input.');
@@ -255,13 +249,11 @@ describe('ProgramCreationPage guided authoring', () => {
       HTMLInputElement.prototype,
       'value',
     );
-    await act(() => {
+    await act(async () => {
       setter?.set?.call(name, '계속 작성할 프로그램');
       name.dispatchEvent(new Event('input', { bubbles: true }));
-
-      return Promise.resolve();
     });
-    await act(() => Promise.resolve(buttonNamed('계속').click()));
+    await act(async () => buttonNamed('계속').click());
 
     expect(container.textContent).toContain('신청/운영 일정');
     expect(sessionStorage.getItem(PROGRAM_AUTHORING_RECOVERY_KEY)).toBeNull();
@@ -270,7 +262,7 @@ describe('ProgramCreationPage guided authoring', () => {
 
   it('마일스톤 단계에서 잘못된 날짜를 막고 편집 팝업을 연다', async () => {
     const completed = completedAuthoringState();
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramCreationPage
           initialState={{
@@ -285,10 +277,8 @@ describe('ProgramCreationPage guided authoring', () => {
           }}
         />,
       );
-
-      return Promise.resolve();
     });
-    await act(() => Promise.resolve(buttonNamed('계속').click()));
+    await act(async () => buttonNamed('계속').click());
 
     expect(document.body.textContent).toContain(
       '기간은 운영 기간 안에 있어야 합니다.',
@@ -299,7 +289,7 @@ describe('ProgramCreationPage guided authoring', () => {
 
   it('마일스톤 날짜가 비었으면 비활성 시각 입력 대신 날짜 달력으로 이동한다', async () => {
     const completed = completedAuthoringState();
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramCreationPage
           initialState={{
@@ -315,11 +305,9 @@ describe('ProgramCreationPage guided authoring', () => {
           }}
         />,
       );
-
-      return Promise.resolve();
     });
 
-    await act(() => Promise.resolve(buttonNamed('계속').click()));
+    await act(async () => buttonNamed('계속').click());
 
     expect(document.body.textContent).toContain('기간을 입력해 주세요.');
     const dialog = document.body.querySelector('[role="dialog"]');
@@ -343,7 +331,7 @@ describe('ProgramCreationPage guided authoring', () => {
       root.render(<ProgramCreationPage initialState={completed} />);
       await Promise.resolve();
     });
-    await act(() => Promise.resolve(buttonNamed('프로그램 만들기').click()));
+    await act(async () => buttonNamed('프로그램 만들기').click());
     await act(async () => {
       buttonNamed('생성 확정').click();
       await Promise.resolve();
@@ -365,7 +353,7 @@ describe('ProgramCreationPage guided authoring', () => {
 
   it('최종 검토에서 날짜 오류를 발견하면 마일스톤 편집으로 돌아간다', async () => {
     const completed = completedAuthoringState();
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramCreationPage
           initialState={{
@@ -379,10 +367,8 @@ describe('ProgramCreationPage guided authoring', () => {
           }}
         />,
       );
-
-      return Promise.resolve();
     });
-    await act(() => Promise.resolve(buttonNamed('프로그램 만들기').click()));
+    await act(async () => buttonNamed('프로그램 만들기').click());
     await vi.waitFor(() =>
       expect(document.body.textContent).toContain(
         '기간은 운영 기간 안에 있어야 합니다.',

@@ -1,4 +1,4 @@
-import { InvitationCandidateRecord } from '../team-invitations.repository';
+import type { InvitationCandidateRecord } from '../domain/team-invitation';
 
 export class InvitationCandidateResponseDto {
   id: string;

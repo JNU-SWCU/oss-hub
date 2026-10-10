@@ -454,10 +454,8 @@ describe('ProgramApplyPage — 초대 검색', () => {
     expect(document.body.textContent).toContain('octo9');
 
     const initialSentReads = listSentInvitationsMock.mock.calls.length;
-    await act(() => {
+    await act(async () => {
       buttonByText('초대').click();
-
-      return Promise.resolve();
     });
     await waitForCondition(
       () => listSentInvitationsMock.mock.calls.length > initialSentReads,
@@ -483,10 +481,8 @@ describe('ProgramApplyPage — 초대 검색', () => {
       '대기 중 초대 행',
     );
 
-    await act(() => {
+    await act(async () => {
       buttonByLabel('octo9 초대 취소').click();
-
-      return Promise.resolve();
     });
     await waitForCondition(
       () => cancelInvitationMock.mock.calls.length === 1,

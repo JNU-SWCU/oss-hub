@@ -91,7 +91,7 @@ describe('게시판 폼의 첫 오류 칸으로 초점 이동', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
     vi.restoreAllMocks();
   });
@@ -124,16 +124,14 @@ describe('게시판 폼의 첫 오류 칸으로 초점 이동', () => {
     await act(async () => {
       descriptor?.set?.call(element, value);
       element.dispatchEvent(new Event('input', { bubbles: true }));
-      return Promise.resolve();
     });
   }
 
   async function renderList(): Promise<void> {
     await act(async () => {
       root.render(<BoardListView programId="program-1" isStaff={false} />);
-      return Promise.resolve();
     });
-    await act(() => Promise.resolve(buttonNamed('질문 쓰기').click()));
+    await act(async () => buttonNamed('질문 쓰기').click());
   }
 
   async function renderDetail(): Promise<void> {
@@ -145,14 +143,13 @@ describe('게시판 폼의 첫 오류 칸으로 초점 이동', () => {
           isStaff={false}
         />,
       );
-      return Promise.resolve();
     });
   }
 
   it('제목·내용을 비우고 「올리기」를 누르면 제목 칸에서 커서가 깜박인다', async () => {
     await renderList();
 
-    await act(() => Promise.resolve(buttonNamed('올리기').click()));
+    await act(async () => buttonNamed('올리기').click());
 
     expect(document.activeElement).toBe(control('#board-new-post-title'));
     expect(mocks.createBoardPost).not.toHaveBeenCalled();
@@ -162,14 +159,14 @@ describe('게시판 폼의 첫 오류 칸으로 초점 이동', () => {
     await renderList();
     await fill(control<HTMLInputElement>('#board-new-post-title'), '제목 초안');
 
-    await act(() => Promise.resolve(buttonNamed('올리기').click()));
+    await act(async () => buttonNamed('올리기').click());
 
     expect(document.activeElement).toBe(control('#board-new-post-body'));
   });
 
   it('한 번 누른 뒤에는 그 칸을 채우면 다시 누르지 않아도 오류가 사라진다', async () => {
     await renderList();
-    await act(() => Promise.resolve(buttonNamed('올리기').click()));
+    await act(async () => buttonNamed('올리기').click());
     expect(container.textContent).toContain('제목을 입력해 주세요.');
 
     await fill(control<HTMLInputElement>('#board-new-post-title'), '제목 초안');
@@ -181,10 +178,10 @@ describe('게시판 폼의 첫 오류 칸으로 초점 이동', () => {
 
   it('수정에서 내용을 지우고 「저장」을 누르면 내용 칸으로 커서가 옮겨간다', async () => {
     await renderDetail();
-    await act(() => Promise.resolve(buttonNamed('수정').click()));
+    await act(async () => buttonNamed('수정').click());
     await fill(control<HTMLTextAreaElement>('#board-edit-body'), '   ');
 
-    await act(() => Promise.resolve(buttonNamed('저장').click()));
+    await act(async () => buttonNamed('저장').click());
 
     expect(document.activeElement).toBe(control('#board-edit-body'));
     expect(mocks.updateBoardPost).not.toHaveBeenCalled();
@@ -193,7 +190,7 @@ describe('게시판 폼의 첫 오류 칸으로 초점 이동', () => {
   it('빈 댓글로 「댓글 달기」를 누르면 댓글 칸으로 커서가 옮겨간다', async () => {
     await renderDetail();
 
-    await act(() => Promise.resolve(buttonNamed('댓글 달기').click()));
+    await act(async () => buttonNamed('댓글 달기').click());
 
     expect(document.activeElement).toBe(
       control('input[aria-label="댓글 내용"]'),

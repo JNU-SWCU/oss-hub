@@ -60,7 +60,7 @@ describe('프로필 온보딩 동의 다이얼로그', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
-        Promise.resolve(profileResponder(init?.method ?? 'GET')),
+        profileResponder(init?.method ?? 'GET'),
       ),
     );
     Object.defineProperty(window, 'location', {
@@ -73,7 +73,7 @@ describe('프로필 온보딩 동의 다이얼로그', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
   });
@@ -88,7 +88,7 @@ describe('프로필 온보딩 동의 다이얼로그', () => {
       return jsonResponse(profile());
     };
 
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProfileOnboardingScreen
           memberKind="STUDENT"
@@ -102,14 +102,13 @@ describe('프로필 온보딩 동의 다이얼로그', () => {
           }
         />,
       );
-      return Promise.resolve();
     });
 
     expect(container.textContent).toContain('동의 다이얼로그 완료');
     expect(mocks.replace).not.toHaveBeenCalledWith('/consent');
 
     const completion = container.querySelector('button');
-    await act(() => Promise.resolve(completion?.click()));
+    await act(async () => completion?.click());
 
     expect(mocks.replace).toHaveBeenCalledWith(NEXT_PATH);
   });
@@ -120,7 +119,7 @@ describe('프로필 온보딩 동의 다이얼로그', () => {
       return jsonResponse(profile());
     };
 
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProfileOnboardingScreen
           memberKind="STUDENT"
@@ -134,10 +133,9 @@ describe('프로필 온보딩 동의 다이얼로그', () => {
           }
         />,
       );
-      return Promise.resolve();
     });
     const dismiss = container.querySelector('button');
-    await act(() => Promise.resolve(dismiss?.click()));
+    await act(async () => dismiss?.click());
 
     const loading = container.querySelector('[data-slot="skeleton"]');
     expect(loading).toBeInstanceOf(HTMLElement);

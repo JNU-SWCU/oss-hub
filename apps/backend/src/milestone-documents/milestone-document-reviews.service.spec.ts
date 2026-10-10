@@ -1,6 +1,6 @@
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.enum';
+import { MilestoneDocumentsErrorCode } from './domain/milestone-documents-error-code.enum';
 import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 
 const syntheticMilestoneId = 'cuid-synthetic-milestone';

@@ -1,6 +1,6 @@
 import { AccountStatus } from '@prisma/client';
 import type { Response } from 'express';
-import { LoginHistoryService } from '../../login-history/login-history.service';
+import { LoginHistoryService } from '../../login-history/service/login-history.service';
 import { AuthConfig } from '../auth.config';
 import { AuthController } from './auth.controller';
 import { AuthService } from '../service/auth.service';

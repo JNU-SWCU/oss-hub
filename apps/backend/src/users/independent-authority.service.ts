@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { AuditLogService } from '../audit-log/audit-log.service';
-import { RolesErrorCode } from '../roles/roles-error-code.enum';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
+import { RolesErrorCode } from './domain/roles-error-code.enum';
 import { requireActiveAdmin } from './admin-access-authorization';
 import {
   createIndependentAuthorityAudit,

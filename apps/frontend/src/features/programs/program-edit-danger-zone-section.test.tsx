@@ -58,10 +58,8 @@ async function flush() {
 }
 
 async function openDialog() {
-  await act(() => {
+  await act(async () => {
     getButton('프로그램 삭제').click();
-
-    return Promise.resolve();
   });
   const dialog = document.querySelector('[role="alertdialog"]');
   if (dialog === null) throw new TypeError('Missing dialog.');
@@ -84,7 +82,7 @@ describe('ProgramEditDangerZoneSection', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
     document.body
       .querySelectorAll('[data-radix-portal]')
@@ -92,7 +90,7 @@ describe('ProgramEditDangerZoneSection', () => {
   });
 
   it('권한이 없으면 삭제 섹션을 렌더링하지 않는다', async () => {
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
@@ -101,8 +99,6 @@ describe('ProgramEditDangerZoneSection', () => {
           onDeleted={onDeleted}
         />,
       );
-
-      return Promise.resolve();
     });
 
     expect(container.textContent).toBe('');
@@ -110,7 +106,7 @@ describe('ProgramEditDangerZoneSection', () => {
   });
 
   it('권한이 있으면 프로그램 삭제 버튼 하나만 렌더링하고 내리기 안내를 보이지 않는다', async () => {
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
@@ -119,8 +115,6 @@ describe('ProgramEditDangerZoneSection', () => {
           onDeleted={onDeleted}
         />,
       );
-
-      return Promise.resolve();
     });
 
     expect(getButton('프로그램 삭제').disabled).toBe(false);
@@ -130,7 +124,7 @@ describe('ProgramEditDangerZoneSection', () => {
   });
 
   it('프로그램 삭제는 이름과 되돌릴 수 없는 경고, 현재 삭제 범위를 보여준다', async () => {
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
@@ -139,8 +133,6 @@ describe('ProgramEditDangerZoneSection', () => {
           onDeleted={onDeleted}
         />,
       );
-
-      return Promise.resolve();
     });
 
     const dialog = await openDialog();
@@ -168,7 +160,7 @@ describe('ProgramEditDangerZoneSection', () => {
       }),
     );
 
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
@@ -177,16 +169,12 @@ describe('ProgramEditDangerZoneSection', () => {
           onDeleted={onDeleted}
         />,
       );
-
-      return Promise.resolve();
     });
     const dialog = await openDialog();
 
     expect(getButton('삭제 범위 확인 중…', dialog).disabled).toBe(true);
-    await act(() => {
+    await act(async () => {
       getButton('취소', dialog).click();
-
-      return Promise.resolve();
     });
     resolveScope?.({ deletionScopeCounts });
     await flush();
@@ -197,7 +185,7 @@ describe('ProgramEditDangerZoneSection', () => {
 
   it('삭제 범위를 읽지 못하면 오류를 보여주고 삭제를 비활성화한다', async () => {
     getEditableProgramMock.mockRejectedValue(new Error('scope unavailable'));
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
@@ -206,8 +194,6 @@ describe('ProgramEditDangerZoneSection', () => {
           onDeleted={onDeleted}
         />,
       );
-
-      return Promise.resolve();
     });
 
     const dialog = await openDialog();
@@ -232,7 +218,7 @@ describe('ProgramEditDangerZoneSection', () => {
         resolvePurge = resolve;
       }),
     );
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
@@ -241,14 +227,12 @@ describe('ProgramEditDangerZoneSection', () => {
           onDeleted={onDeleted}
         />,
       );
-
-      return Promise.resolve();
     });
 
     const dialog = await openDialog();
     await flush();
-    await act(() => Promise.resolve(getButton('삭제', dialog).click()));
-    await act(() => Promise.resolve(getButton('삭제 중…', dialog).click()));
+    await act(async () => getButton('삭제', dialog).click());
+    await act(async () => getButton('삭제 중…', dialog).click());
 
     expect(purgeProgramMock).toHaveBeenCalledTimes(1);
     expect(purgeProgramMock).toHaveBeenCalledWith(
@@ -286,7 +270,7 @@ describe('ProgramEditDangerZoneSection', () => {
         ...{ currentScopeCounts: changedCounts },
       }),
     );
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
@@ -295,13 +279,11 @@ describe('ProgramEditDangerZoneSection', () => {
           onDeleted={onDeleted}
         />,
       );
-
-      return Promise.resolve();
     });
 
     const dialog = await openDialog();
     await flush();
-    await act(() => Promise.resolve(getButton('삭제', dialog).click()));
+    await act(async () => getButton('삭제', dialog).click());
     await flush();
 
     expect(purgeProgramMock).toHaveBeenCalledTimes(1);
@@ -318,7 +300,7 @@ describe('ProgramEditDangerZoneSection', () => {
       deleted: true,
       deletedCounts: { applications: 6 },
     });
-    await act(() => Promise.resolve(getButton('삭제', dialog).click()));
+    await act(async () => getButton('삭제', dialog).click());
     await flush();
 
     expect(purgeProgramMock).toHaveBeenCalledTimes(2);
@@ -332,7 +314,7 @@ describe('ProgramEditDangerZoneSection', () => {
     getEditableProgramMock.mockResolvedValue({
       deletionScopeCounts: zeroDeletionScopeCounts,
     });
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
@@ -341,14 +323,12 @@ describe('ProgramEditDangerZoneSection', () => {
           onDeleted={onDeleted}
         />,
       );
-
-      return Promise.resolve();
     });
 
     const dialog = await openDialog();
     await flush();
     expect(dialog.textContent).toContain('연결된 데이터 없음');
-    await act(() => Promise.resolve(getButton('취소', dialog).click()));
+    await act(async () => getButton('취소', dialog).click());
     expect(purgeProgramMock).not.toHaveBeenCalled();
   });
 
@@ -363,7 +343,7 @@ describe('ProgramEditDangerZoneSection', () => {
         instance: '/programs/program-1/purge',
       }),
     );
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
           programId="program-1"
@@ -372,13 +352,11 @@ describe('ProgramEditDangerZoneSection', () => {
           onDeleted={onDeleted}
         />,
       );
-
-      return Promise.resolve();
     });
 
     const dialog = await openDialog();
     await flush();
-    await act(() => Promise.resolve(getButton('삭제', dialog).click()));
+    await act(async () => getButton('삭제', dialog).click());
     await flush();
 
     expect(dialog.textContent).toContain('전체 삭제 권한이 없습니다.');

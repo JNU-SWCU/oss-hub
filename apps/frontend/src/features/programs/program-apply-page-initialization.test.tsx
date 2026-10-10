@@ -213,7 +213,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
     vi.clearAllMocks();
   });
@@ -246,7 +246,7 @@ describe('ProgramApplyPage 한 화면 신청', () => {
   }
 
   async function enterTitle(value: string): Promise<void> {
-    await act(() => {
+    await act(async () => {
       const input = titleInput();
       const setter = Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
@@ -254,8 +254,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       );
       setter?.set?.call(input, value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
-
-      return Promise.resolve();
     });
   }
 
@@ -264,15 +262,13 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     if (!(input instanceof HTMLInputElement)) {
       throw new TypeError(`Input not found: ${selector}`);
     }
-    await act(() => {
+    await act(async () => {
       const setter = Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
         'value',
       );
       setter?.set?.call(input, value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
-
-      return Promise.resolve();
     });
   }
 
@@ -341,15 +337,12 @@ describe('ProgramApplyPage 한 화면 신청', () => {
   }
 
   async function checkConsent(): Promise<void> {
-    await act(() => {
+    await act(async () => {
       const consent = container.querySelector<HTMLInputElement>(
         '#personal-data-consent',
       );
-      if (!consent)
-        return Promise.reject(new Error('Required consent control is missing'));
+      if (!consent) throw new Error('Required consent control is missing');
       consent.click();
-
-      return Promise.resolve();
     });
   }
 
@@ -487,10 +480,8 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     );
     await renderPage('program-consent');
 
-    await act(() => {
+    await act(async () => {
       button('신청 제출').click();
-
-      return Promise.resolve();
     });
 
     expect(createApplicationMock).not.toHaveBeenCalled();
@@ -499,10 +490,8 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     );
 
     await checkConsent();
-    await act(() => {
+    await act(async () => {
       button('신청 제출').click();
-
-      return Promise.resolve();
     });
     expect(createApplicationMock).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain('신청서를 제출하시겠습니까?');
@@ -515,10 +504,8 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     await renderPage('program-empty-name');
     await checkConsent();
 
-    await act(() => {
+    await act(async () => {
       button('신청 제출').click();
-
-      return Promise.resolve();
     });
 
     expect(container.querySelector('[role="alertdialog"]')).toBeNull();
@@ -1090,10 +1077,8 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       button('신청 제출').click();
       await Promise.resolve();
     });
-    await act(() => {
+    await act(async () => {
       button('신청서 제출', true).click();
-
-      return Promise.resolve();
     });
     await settleUntil(
       () => container.textContent?.includes('신청이 접수되었습니다') === true,

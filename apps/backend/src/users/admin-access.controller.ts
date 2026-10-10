@@ -17,7 +17,7 @@ import { DomainException } from '../common/error-code';
 import {
   ROLES_ERROR_CODES,
   RolesErrorCode,
-} from '../roles/roles-error-code.enum';
+} from './domain/roles-error-code.enum';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileService } from './admin-profile.service';
 import {

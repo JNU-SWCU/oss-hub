@@ -3,7 +3,7 @@ import { DomainException } from '../../common/error-code';
 import {
   ROLES_ERROR_CODES,
   RolesErrorCode,
-} from '../../roles/roles-error-code.enum';
+} from '../domain/roles-error-code.enum';
 import {
   ADMIN_ACCESS_COMMANDS,
   STAFF_ACCESS_COMMANDS,

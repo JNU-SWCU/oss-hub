@@ -25,17 +25,14 @@ describe('Dialog primitive', () => {
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
     document.body.innerHTML = '';
   });
 
   it('renders an accessible modal dialog and closes on Escape', async () => {
     const onOpenChange = vi.fn();
-    await act(() => {
+    await act(async () => {
       root.render(
         <Dialog open onOpenChange={onOpenChange}>
           <DialogContent aria-describedby="dialog-description">
@@ -47,7 +44,6 @@ describe('Dialog primitive', () => {
           </DialogContent>
         </Dialog>,
       );
-      return Promise.resolve();
     });
 
     const dialog = document.body.querySelector('[role="dialog"]');

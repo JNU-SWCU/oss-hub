@@ -50,14 +50,13 @@ it('아무 조작 없이 마감을 지나면 최초 제출만 닫고 재제출�
   document.body.append(container);
   const root = createRoot(container);
   try {
-    await act(() => {
+    await act(async () => {
       root.render(
         <SubmissionChecklistPage
           programId="program-clock"
           milestoneId={null}
         />,
       );
-      return Promise.resolve();
     });
     expect(
       container.querySelector('#submission-trigger-initial-clock')?.tagName,
@@ -75,7 +74,7 @@ it('아무 조작 없이 마감을 지나면 최초 제출만 닫고 재제출�
       container.querySelector('#submission-trigger-revision-clock')?.tagName,
     ).toBe('A');
   } finally {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
     vi.useRealTimers();
   }

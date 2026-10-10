@@ -142,12 +142,10 @@ describe('반려된 신청의 사유가 신청 상세 화면에 도달한다', (
     const lines = REJECTION_REASON.split('\n');
     expect(lines.length).toBeGreaterThan(REJECTION_REASON_MAX_LINES);
 
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramApplyPage programId={PROGRAM_ID} sessionUser={SESSION_USER} />,
       );
-
-      return Promise.resolve();
     });
     await vi.waitFor(() => {
       expect(container.textContent ?? '').toContain('반려 사유');
@@ -161,12 +159,10 @@ describe('반려된 신청의 사유가 신청 상세 화면에 도달한다', (
   });
 
   it('고치지 못하는 이유를 판정이 아니라 권한으로 말한다', async () => {
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProgramApplyPage programId={PROGRAM_ID} sessionUser={SESSION_USER} />,
       );
-
-      return Promise.resolve();
     });
     await vi.waitFor(() => {
       expect(container.textContent ?? '').toContain('반려 사유');

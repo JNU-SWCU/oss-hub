@@ -1,4 +1,4 @@
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { assertIsolatedIntegrationDatabase } from '../integration-database.guard';
 import { prisma as seedPrisma, SeedStats } from '../../prisma/seeds/helpers';
 import { seedAuth } from '../../prisma/seeds/auth';
 import {

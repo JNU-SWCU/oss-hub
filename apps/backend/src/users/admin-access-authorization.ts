@@ -1,10 +1,13 @@
 import { AccountStatus } from '@prisma/client';
-import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.enum';
+import {
+  AUTH_ERROR_CODES,
+  AuthErrorCode,
+} from '../auth/domain/auth-error-code.enum';
 import { DomainException } from '../common/error-code';
 import {
   ROLES_ERROR_CODES,
   RolesErrorCode,
-} from '../roles/roles-error-code.enum';
+} from './domain/roles-error-code.enum';
 import type { AdminAccessActor } from './admin-access.repository';
 import { isStaffOnlyAccess } from './admin-access-transition-table';
 import {

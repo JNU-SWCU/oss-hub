@@ -7,9 +7,9 @@
 - domain mutation이 이미 Prisma transaction을 가지면 `AuditLogService.record`에 transaction writer를 넘겨 업무 상태와 audit을 원자적으로 기록한다.
 - transaction 밖의 maintenance command는 실제 side effect가 성공한 순서 뒤에만 기록한다.
   실패한 시도, 단순 읽기, 비결정적 background 관측은 감사 사실로 만들지 않는다.
-- `audit-log.repository.ts`는 행을 목록 record로 변환하고 기간 필터를 적용한다.
-- `audit-log.controller.ts`의 `/api/v1/audit-logs`는 ADMIN 전용이며 `dto/audit-log-query.dto.ts`가 query 계약을 정규화한다.
-- 새 action은 writer metadata와 `audit-log-metadata.ts` 또는 분리 metadata validator를 함께 추가한다.
+- `repository/audit-log.repository.ts`는 행을 목록 record로 변환하고 기간 필터를 적용한다.
+- `controller/audit-log.controller.ts`의 `/api/v1/audit-logs`는 ADMIN 전용이며 `dto/audit-log-query.dto.ts`가 query 계약을 정규화한다.
+- 새 action은 writer metadata와 `domain/audit-log-metadata.ts` 또는 분리 metadata validator를 함께 추가한다.
 
 ## 버전과 개인정보
 
@@ -21,7 +21,7 @@
 
 ## 진입점과 검증
 
-- 구현: `audit-log.service.ts`, `audit-log.repository.ts`, `audit-log-metadata.ts`, `access-audit-metadata.ts`, `application-decision-audit-metadata.ts`.
-- unit: `audit-log.controller.spec.ts`, `audit-log.service.spec.ts`, `audit-log.repository.spec.ts`, `audit-log-metadata.spec.ts`, `independent-authority-audit-metadata.spec.ts`.
-- isolated integration: `audit-log-append-only.integration.spec.ts`, `audit-log.integration.spec.ts`.
+- 구현: `service/audit-log.service.ts`, `repository/audit-log.repository.ts`, `domain/audit-log-metadata.ts`, `domain/access-audit-metadata.ts`, `domain/application-decision-audit-metadata.ts`.
+- unit: `controller/audit-log.controller.spec.ts`, `service/audit-log.service.spec.ts`, `repository/audit-log.repository.spec.ts`, `domain/audit-log-metadata.spec.ts`, `domain/independent-authority-audit-metadata.spec.ts`.
+- isolated integration: `repository/audit-log-append-only.integration.spec.ts`, `repository/audit-log.integration.spec.ts`.
 <!-- /init:managed id=craft-init-4-audit-log -->

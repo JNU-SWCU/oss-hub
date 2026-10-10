@@ -3,7 +3,6 @@ import type {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
 } from '@prisma/client';
-import type { MyRepository } from '../service/repositories.service';
 
 export interface MyRepositoryItemResponseDto {
   readonly repositoryId: string | null;
@@ -24,7 +23,11 @@ export interface MyRepositoryItemResponseDto {
 export class MyRepositoriesResponseDto {
   readonly items: readonly MyRepositoryItemResponseDto[];
 
-  private constructor(items: readonly MyRepository[]) {
+  private constructor(
+    items: readonly (Omit<MyRepositoryItemResponseDto, 'updatedAt'> & {
+      readonly updatedAt: Date;
+    })[],
+  ) {
     this.items = items.map((item) => ({
       repositoryId: item.repositoryId,
       applicationId: item.applicationId,
@@ -42,7 +45,11 @@ export class MyRepositoriesResponseDto {
     }));
   }
 
-  static from(items: readonly MyRepository[]): MyRepositoriesResponseDto {
+  static from(
+    items: readonly (Omit<MyRepositoryItemResponseDto, 'updatedAt'> & {
+      readonly updatedAt: Date;
+    })[],
+  ): MyRepositoriesResponseDto {
     return new MyRepositoriesResponseDto(items);
   }
 }

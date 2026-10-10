@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { LoginHistoryRepository } from './login-history.repository';
-import { LoginHistoryService } from './login-history.service';
+import { LoginHistoryRepository } from './repository/login-history.repository';
+import { LoginHistoryService } from './service/login-history.service';
 
 @Module({
   providers: [LoginHistoryRepository, LoginHistoryService],

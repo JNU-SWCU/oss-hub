@@ -1,12 +1,12 @@
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogService } from '../audit-log/audit-log.service';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
+import { AuditLogRepository } from '../audit-log/repository/audit-log.repository';
 import { PrismaService } from '../prisma/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
 import { UsersRepository } from './users.repository';
 import type { ProfileCompletionOutcome } from './users.repository';
-import { isCompleteUserProfile } from './user-profile-policy';
+import { isCompleteUserProfile } from './domain/user-profile-policy';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

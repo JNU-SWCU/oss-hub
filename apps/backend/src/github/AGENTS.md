@@ -10,9 +10,10 @@
 
 ## 프로비저닝과 공개 전환
 
-- `repository-outbox.consumer.ts`가 lease와 `SKIP LOCKED`로 승인 event를 claim하고 scheduler가 `repository-provision.worker.ts`를 polling한다.
-- worker는 durable job 상태와 `nextAttemptAt`을 기록하고 `repository-provision.failure.ts`로 provider failure의 retry 가능성을 분류한다.
-- `repository-provision.github.ts`의 find-or-create와 `repository-name.ts`의 결정적 이름/ownership marker를 우회하지 않는다.
+- `service/repository-outbox.consumer.ts`가 lease와 `SKIP LOCKED`로 승인 event를 claim하고 scheduler가 `service/repository-provision.worker.ts`를 polling한다.
+- worker는 durable job 상태와 `nextAttemptAt`을 기록하고 `domain/repository-provision.failure.ts`로 provider failure의 retry 가능성을 분류한다.
+- `service/repository-provision.github.ts`의 find-or-create와 `domain/repository-name.ts`의 결정적 이름/ownership marker를 우회하지 않는다.
+- 저장소 URL 파싱은 `domain/github-repository-url.ts`의 순수 규칙을 재사용한다.
 - OWN enrollment는 current consent를 검증해 collection queue에 편입하며 신청 승인 outbox와 합치지 않는다.
 - `RepositoriesService.publish`는 review gate 뒤 GitHub provider 전환을 먼저 시도하고 private-only CAS를 수행한다.
   CAS winner만 local 공개 상태와 `REPOSITORY_PUBLISHED` audit을 커밋한다.
@@ -20,7 +21,7 @@
 ## 수집 흐름
 
 - `CollectionSyncService`가 collection fact의 유일한 live writer다; scheduler/admin trigger는 run을 시작하고 즉시 응답한다.
-- `collection-provider-queue.ts`의 queue/rate invariant는 org/external REST sync runtime에 적용한다.
+- `gateway/collection-provider-queue.ts`의 queue/rate invariant는 org/external REST sync runtime에 적용한다.
   public discovery/person GraphQL client의 direct fetch까지 queue를 지난다고 가정하지 않는다.
 - installation-token REST reconciliation은 조직 repository inventory/presence authority다.
   팀 연결 commit attribution은 installation-token GraphQL stream을 사용할 수 있다.
@@ -30,7 +31,7 @@
 
 ## 진입점과 검증
 
-- 구현: `repositories.module.ts`, `collection.module.ts`, `repository-provision.worker.ts`, `service/repositories.service.ts`, `collection-sync.service.ts`, `service/collection-trigger.service.ts`, `job/collection.scheduler.ts`.
-- unit: `repository-provision.worker.spec.ts`, `repositories.module.spec.ts`, `collection-sync.service.spec.ts`, `collection-provider-queue.spec.ts`.
-- integration: `repository-provision.worker.integration.spec.ts`, `repository-outbox.consumer.integration.spec.ts`, `repositories.repository.integration.spec.ts`, `collection-scheduler.integration.spec.ts`, `github-user-activity-history.integration.spec.ts`.
+- 구현: `repositories.module.ts`, `collection.module.ts`, `service/repository-provision.worker.ts`, `service/repositories.service.ts`, `service/repositories-read.service.ts`, `service/collection-sync.service.ts`, `service/collection-trigger.service.ts`, `job/collection.scheduler.ts`.
+- unit: `service/repository-provision.worker.spec.ts`, `repositories.module.spec.ts`, `service/collection-sync.service.spec.ts`, `gateway/collection-provider-queue.spec.ts`.
+- integration: `service/repository-provision.worker.integration.spec.ts`, `service/repository-outbox.consumer.integration.spec.ts`, `repository/repositories.repository.integration.spec.ts`, `job/collection-scheduler.integration.spec.ts`, `repository/github-user-activity-history.integration.spec.ts`.
 <!-- /init:managed id=craft-init-4-github -->

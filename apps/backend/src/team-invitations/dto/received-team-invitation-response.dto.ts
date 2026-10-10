@@ -1,5 +1,5 @@
 import { TeamInvitationStatus } from '@prisma/client';
-import { ReceivedTeamInvitationRecord } from '../team-invitations.repository';
+import type { ReceivedTeamInvitationRecord } from '../domain/team-invitation';
 
 export class ReceivedTeamInvitationResponseDto {
   id: string;

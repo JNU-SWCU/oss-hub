@@ -17,7 +17,8 @@ import {
   upsertSeedUser,
   upsertTracked,
 } from './helpers';
-import { computeJoinCodeDigest } from '../../src/common/join-code-digest';
+import { computeJoinCodeDigest } from '../../src/programs/domain/join-code-digest';
+import { resolveJoinCodeSecret } from '../../src/runtime-config/join-code-secret';
 
 const PROGRAM_ID = seedId('repositories', 'program');
 
@@ -73,6 +74,7 @@ async function ensureApplication(
           name: `${scenarioId} 1인 팀`,
           joinCodeDigest: computeJoinCodeDigest(
             `SEED-REPOSITORIES-${scenarioId}`,
+            resolveJoinCodeSecret(),
           ),
           leaderId: applicant.id,
         },

@@ -7,14 +7,14 @@ import {
   createIndependentAuthorityAuditMetadata,
   createUserProfileAuditMetadata,
   type UserProfileAuditFieldChange,
-} from '../audit-log/audit-log-metadata';
-import { AuditLogService } from '../audit-log/audit-log.service';
+} from '../audit-log/domain/audit-log-metadata';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
 import { AffiliationKind, MemberKind } from '@prisma/client';
 import { requireActiveAdmin } from './admin-access-authorization';
 import { roleError, staleAccessError } from './admin-access-mutation-policy';
-import { RolesErrorCode } from '../roles/roles-error-code.enum';
+import { RolesErrorCode } from './domain/roles-error-code.enum';
 import { authorityLabel } from './domain/authority-label';
 import {
   isCompleteProfileFields,
@@ -22,7 +22,7 @@ import {
   isValidDepartment,
   isValidStudentId,
   normalizeProfileText,
-} from './user-profile-policy';
+} from './domain/user-profile-policy';
 import {
   isValidStaffNumber,
   normalizeStaffNumber,

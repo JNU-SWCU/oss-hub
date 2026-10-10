@@ -21,7 +21,7 @@ import {
 import {
   ROLES_ERROR_CODES,
   RolesErrorCode,
-} from '../../roles/roles-error-code.enum';
+} from '../domain/roles-error-code.enum';
 
 class ExpectedPendingRequestDto {
   @IsString()

@@ -148,7 +148,7 @@ function openProgram(overrides: Partial<ProgramDetail> = {}): ProgramDetail {
     applicationPeriod: openPeriod,
     viewer: { role: 'STUDENT', applicationStatus: null },
     ...overrides,
-  } as ProgramDetail;
+  };
 }
 
 describe('loadProgramApplyContext', () => {

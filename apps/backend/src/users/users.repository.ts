@@ -1,21 +1,21 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { MemberKind, Prisma, StaffAccessRequestStatus } from '@prisma/client';
-import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { DomainException } from '../common/error-code';
 import { SystemErrorCode } from '../common/system-error-code.enum';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   fillStudentIdIfEmpty,
   type StudentIdFillOutcome,
-} from '../profiles/user-profile-write.repository';
-import { requestStaffAccess } from '../roles/staff-access-request';
+} from '../profiles/repository/user-profile-write.repository';
+import { requestStaffAccess } from './repository/staff-access-request';
 import {
   USER_PHONE_AUDIT_TRANSITIONS,
   USER_PROFILE_AUDIT_ACTIONS,
   USER_PROFILE_AUDIT_FIELDS,
   createUserPhoneAuditMetadata,
   createUserProfileAuditMetadata,
-} from '../audit-log/audit-log-metadata';
+} from '../audit-log/domain/audit-log-metadata';
 import type {
   CompleteUserProfileInput,
   UpdateProfileFieldsInput,

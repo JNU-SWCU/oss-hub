@@ -13,12 +13,8 @@ import {
   type MilestoneCompletionStatus,
 } from '../../milestone-documents/domain/milestone-completion';
 import { programCoverImageUrl } from '../program-cover';
-import {
-  type OwnedRepositoryProjectionDto,
-  REPOSITORIES_READ_PORT,
-  type RepositoriesReadPort,
-} from '../../github/repositories-read.port';
-import { projectSubmissionCompletionTargets } from '../../submissions/submission-completion-projection';
+import { RepositoriesReadService } from '../../github/service/repositories-read.service';
+import { projectSubmissionCompletionTargets } from '../../submissions/domain/submission-completion-projection';
 import {
   StudentDashboardReadRepository,
   type StudentDashboardApplicationRow,
@@ -152,8 +148,11 @@ function progressOf(
 export class StudentDashboardService {
   constructor(
     private readonly repository: StudentDashboardReadRepository,
-    @Inject(REPOSITORIES_READ_PORT)
-    private readonly repositories: RepositoriesReadPort,
+    @Inject(RepositoriesReadService)
+    private readonly repositories: Pick<
+      RepositoriesReadService,
+      'getMyRepositories'
+    >,
   ) {}
 
   async getStudentDashboard(
@@ -253,7 +252,10 @@ export class StudentDashboardService {
 
   private repositoryFor(
     application: StudentDashboardApplicationRow,
-    repositoryByApplication: ReadonlyMap<string, OwnedRepositoryProjectionDto>,
+    repositoryByApplication: ReadonlyMap<
+      string,
+      Awaited<ReturnType<RepositoriesReadService['getMyRepositories']>>[number]
+    >,
   ): StudentDashboardRepository | null {
     if (application.status !== ApplicationStatus.APPROVED) return null;
 

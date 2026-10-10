@@ -7,9 +7,9 @@ import {
   CollectionCommit,
   CollectionPullRequest,
   CollectionRelease,
-} from '../collection-app.client';
-import { requestFingerprintKey } from '../collection-app.frontier';
-import { ProviderRequestQueue } from '../collection-provider-queue';
+} from '../gateway/collection-app.client';
+import { requestFingerprintKey } from '../domain/collection-app.frontier';
+import { ProviderRequestQueue } from '../gateway/collection-provider-queue';
 import type { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import type {
   CollectionRepositoryRow,
