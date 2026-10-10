@@ -5,7 +5,7 @@ import {
   createAccessAuditMetadata,
   type AccessAuditAction,
   type AccessAuditMetadata,
-} from '../audit-log/audit-log-metadata';
+} from '../audit-log/domain/audit-log-metadata';
 import {
   ADMIN_ACCESS_REQUEST_DECISIONS,
   type AdminAccessMutationCommand,

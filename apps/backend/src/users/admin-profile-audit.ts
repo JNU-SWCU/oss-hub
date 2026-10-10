@@ -5,7 +5,7 @@ import {
   type UserProfileAuditAction,
   type UserProfileAuditFieldChange,
   type UserProfileAuditMetadata,
-} from '../audit-log/audit-log-metadata';
+} from '../audit-log/domain/audit-log-metadata';
 import type { AdminProfileFields } from './domain/admin-profile';
 import type { AdminProfileTargetRecord } from './admin-profile.repository.types';
 

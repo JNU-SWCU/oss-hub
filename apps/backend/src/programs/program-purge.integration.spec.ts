@@ -26,8 +26,8 @@ import {
   TeamInvitationStatus,
   ProgramTrackType,
 } from '@prisma/client';
-import { AuditLogRepository } from '../audit-log/audit-log.repository';
-import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogRepository } from '../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { DomainException } from '../common/error-code';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3ObjectStorage } from '../storage/gateway/s3-object.storage';

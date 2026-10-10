@@ -1,5 +1,5 @@
-import type { AuditLogRecord } from '../audit-log/audit-log.repository';
-import type { AuditLogService } from '../audit-log/audit-log.service';
+import type { AuditLogRecord } from '../audit-log/repository/audit-log.repository';
+import type { AuditLogService } from '../audit-log/service/audit-log.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersRepository } from './users.repository';
 import type { UserProfileRecord } from './domain/user-profile-policy';

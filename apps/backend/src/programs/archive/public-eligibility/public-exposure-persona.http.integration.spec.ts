@@ -15,7 +15,7 @@ import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
   createAccessAuditMetadata,
-} from '../../../audit-log/audit-log-metadata';
+} from '../../../audit-log/domain/audit-log-metadata';
 import { PublicExposurePersonaHttpHarness } from './public-exposure-persona.http.integration-support';
 
 assertIsolatedIntegrationDatabase({
@@ -702,7 +702,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     });
   });
 
-  it('POST /repositories/:id/publish — 익명은 401, STUDENT는 403, STAFF/ADMIN은 200이다(실제 SessionGuard+SubmissionReviewsStaffGuard)', async () => {
+  it('POST /repositories/:id/publish — 익명은 401, STUDENT는 403, STAFF/ADMIN은 200이다(실제 SessionGuard+UsersAuthorityService)', async () => {
     const anonymous = await harness.request(
       'POST',
       `/repositories/${gateRepoForStaff.repositoryId}/publish`,

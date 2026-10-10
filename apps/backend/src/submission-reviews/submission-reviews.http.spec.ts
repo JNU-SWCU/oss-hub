@@ -15,7 +15,6 @@ import {
   SubmissionRepositoryPublishingController,
   SubmissionReviewsController,
 } from './submission-reviews.controller';
-import { SubmissionReviewsStaffGuard } from './submission-reviews-staff.guard';
 import { SubmissionReviewsService } from './submission-reviews.service';
 
 let application: INestApplication | undefined;
@@ -69,12 +68,9 @@ beforeAll(async () => {
     providers: [{ provide: SubmissionReviewsService, useValue: service }],
   })
     .overrideGuard(SessionGuard)
-    .useValue({ canActivate: () => true })
-    .overrideGuard(SubmissionReviewsStaffGuard)
     .useValue({
       canActivate: (context: ExecutionContext) => {
         Object.assign(context.switchToHttp().getRequest<object>(), {
-          submissionReviewerId: 'reviewer-1',
           sessionGithubId: 9_600_000_000_100_001n,
         });
         return true;
@@ -117,10 +113,7 @@ beforeAll(async () => {
         useValue: unauthenticatedService,
       },
     ],
-  })
-    .overrideGuard(SubmissionReviewsStaffGuard)
-    .useValue({ canActivate: () => true })
-    .compile();
+  }).compile();
 
   unauthenticatedApplication = unauthenticatedModuleRef.createNestApplication();
   unauthenticatedApplication.setGlobalPrefix('api/v1');
@@ -163,11 +156,15 @@ it('판정 저장 API가 201과 현재 Submission 상태를 반환한다', async
     reviewId: 'review-1',
     submissionStatus: SubmissionStatus.APPROVED,
   });
-  expect(service.review).toHaveBeenCalledWith('reviewer-1', 'submission-1', {
-    revision: 2,
-    decision: ReviewDecision.APPROVED,
-    comment: null,
-  });
+  expect(service.review).toHaveBeenCalledWith(
+    9_600_000_000_100_001n,
+    'submission-1',
+    {
+      revision: 2,
+      decision: ReviewDecision.APPROVED,
+      comment: null,
+    },
+  );
 });
 
 it('저장소 공개 API가 200과 공개 완료 시각을 반환한다', async () => {

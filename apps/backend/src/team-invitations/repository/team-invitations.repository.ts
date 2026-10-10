@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { AuditLogTransactionWriter } from '../../audit-log/audit-log.repository';
+import type { AuditLogTransactionWriter } from '../../prisma/audit-log-transaction-writer';
 import {
   repositoryAccessSyncEventData,
   repositoryAccessSyncTargetWhere,

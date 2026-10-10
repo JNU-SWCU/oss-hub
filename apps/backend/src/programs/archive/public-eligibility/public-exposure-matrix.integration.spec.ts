@@ -10,9 +10,9 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../../test/integration-database.guard';
-import { AuditLogRepository } from '../../../audit-log/audit-log.repository';
-import { AuditLogService } from '../../../audit-log/audit-log.service';
-import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../../../audit-log/audit-log-metadata';
+import { AuditLogRepository } from '../../../audit-log/repository/audit-log.repository';
+import { AuditLogService } from '../../../audit-log/service/audit-log.service';
+import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../../../audit-log/domain/audit-log-metadata';
 import {
   repositoryNameFromNameWithOwner,
   repositoryUrlFromNameWithOwner,
@@ -31,6 +31,8 @@ import { PublicProjectsService } from '../public-projects/public-projects.servic
 import { SubmissionReviewsErrorCode } from '../../../submission-reviews/submission-reviews-error-code.enum';
 import { SubmissionReviewsRepository } from '../../../submission-reviews/submission-reviews.repository';
 import { SubmissionReviewsService } from '../../../submission-reviews/submission-reviews.service';
+import { UsersAuthorityService } from '../../../users/service/authority.service';
+import { UsersAuthorityRepository } from '../../../users/repository/authority.repository';
 import { PublicEligibilityService } from './public-eligibility.service';
 
 assertIsolatedIntegrationDatabase({
@@ -59,16 +61,15 @@ const github = {
 } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
 const auditLogService = new AuditLogService(new AuditLogRepository(prisma));
 const repositoriesRepository = new RepositoriesRepository(prisma);
-const organizationConfig = { requireOrganization: () => 'synthetic-org' };
 const repositoriesService = new RepositoriesService(
   repositoriesRepository,
   github,
   auditLogService,
-  organizationConfig,
 );
 const submissionReviewsService = new SubmissionReviewsService(
   new SubmissionReviewsRepository(prisma),
   repositoriesService,
+  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
 );
 
 const PREFIX = 'synthetic-exposure-matrix';

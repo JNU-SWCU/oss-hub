@@ -4,8 +4,8 @@ import { AppModule } from '../../app.module';
 import {
   SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS,
   createSubmissionFileCleanupAuditMetadata,
-} from '../../audit-log/audit-log-metadata';
-import { AuditLogService } from '../../audit-log/audit-log.service';
+} from '../../audit-log/domain/audit-log-metadata';
+import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { SubmissionFilesRepository } from '../submission-files.repository';

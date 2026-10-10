@@ -6,7 +6,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
-import type { RepositoriesReadPort } from '../../github/repositories-read.port';
+import type { RepositoriesReadService } from '../../github/service/repositories-read.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { canonicalUserCreateFromLabel } from '../../users/canonical-user-fixture';
 import { ProgramsRepository } from '../repository/programs.repository';
@@ -52,7 +52,7 @@ const MILESTONE_IDS = [
 ];
 
 const prisma = new PrismaService();
-const noRepositories: RepositoriesReadPort = {
+const noRepositories: Pick<RepositoriesReadService, 'getMyRepositories'> = {
   getMyRepositories: () => Promise.resolve([]),
 };
 const dashboard = new StudentDashboardService(

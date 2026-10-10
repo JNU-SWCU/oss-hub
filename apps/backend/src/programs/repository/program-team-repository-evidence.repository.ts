@@ -13,11 +13,11 @@ import type {
 import {
   APPLICATION_REPOSITORY_URL_CHANGED,
   parseApplicationRepositoryUrlAuditMetadata,
-} from '../../audit-log/application-repository-url-audit-metadata';
+} from '../../audit-log/domain/application-repository-url-audit-metadata';
 import {
   REPOSITORY_CONNECTION_AUDIT_ACTIONS,
   parseRepositoryConnectionAuditMetadata,
-} from '../../audit-log/repository-program-audit-metadata';
+} from '../../audit-log/domain/repository-program-audit-metadata';
 
 const REPOSITORY_CONNECTION_CHANGED =
   REPOSITORY_CONNECTION_AUDIT_ACTIONS.REPOSITORY_CONNECTION_CHANGED;

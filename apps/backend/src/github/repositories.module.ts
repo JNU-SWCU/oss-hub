@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuditLogModule } from '../audit-log/audit-log.module';
-import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { AuthModule } from '../auth/auth.module';
 import { ConsentsModule } from '../consents/consents.module';
 import { ConsentsService } from '../consents/service/consents.service';
@@ -11,7 +11,7 @@ import { GithubAppTokenProvider } from './github-app.token';
 import { GithubOperationsConfig } from './github-operations.config';
 import { RepositoriesRepository } from './repository/repositories.repository';
 import { RepositoriesService } from './service/repositories.service';
-import { REPOSITORIES_READ_PORT } from './repositories-read.port';
+import { RepositoriesReadService } from './service/repositories-read.service';
 import { RepositoryOutboxConsumer } from './repository-outbox.consumer';
 import { RepositoryProvisionJobRepository } from './repository/repository-provision-job.repository';
 import { RepositoryProvisionScheduler } from './repository-provision.scheduler';
@@ -69,19 +69,13 @@ import { OwnRepositoryUrlValidationService } from './service/own-repository-url-
     },
     {
       provide: RepositoriesService,
-      inject: [
-        RepositoriesRepository,
-        GithubAppClient,
-        AuditLogService,
-        GithubOperationsConfig,
-      ],
+      inject: [RepositoriesRepository, GithubAppClient, AuditLogService],
       useFactory: (
         repository: RepositoriesRepository,
         github: GithubAppClient,
         auditLog: AuditLogService,
-        config: GithubOperationsConfig,
       ): RepositoriesService =>
-        new RepositoriesService(repository, github, auditLog, config),
+        new RepositoriesService(repository, github, auditLog),
     },
     {
       provide: OwnRepositoryUrlValidationService,
@@ -91,10 +85,7 @@ import { OwnRepositoryUrlValidationService } from './service/own-repository-url-
       ): OwnRepositoryUrlValidationService =>
         new OwnRepositoryUrlValidationService(github),
     },
-    {
-      provide: REPOSITORIES_READ_PORT,
-      useExisting: RepositoriesService,
-    },
+    RepositoriesReadService,
     {
       provide: RepositoryProvisionScheduler,
       inject: [RepositoryOutboxConsumer, RepositoryProvisionWorker],
@@ -107,7 +98,7 @@ import { OwnRepositoryUrlValidationService } from './service/own-repository-url-
   ],
   exports: [
     RepositoriesService,
-    REPOSITORIES_READ_PORT,
+    RepositoriesReadService,
     OwnRepositoryUrlValidationService,
   ],
 })
