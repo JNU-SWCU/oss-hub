@@ -3,7 +3,7 @@ import { DomainException } from '../../common/error-code';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
-} from '../submissions-error-code.enum';
+} from './submissions-error-code.enum';
 
 export type SubmissionContentInput =
   | {

@@ -44,7 +44,7 @@ const onSearch = vi.fn();
 const onInvite = vi.fn();
 const onCancelInvitation = vi.fn();
 const onRetrySent = vi.fn();
-const reloadSent = vi.fn(() => Promise.resolve(undefined));
+const reloadSent = vi.fn(async () => undefined);
 const onClose = vi.fn();
 
 function management(
@@ -89,7 +89,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await act(() => Promise.resolve(root.unmount()));
+  await act(async () => root.unmount());
   host.remove();
   trigger.remove();
 });
@@ -98,16 +98,14 @@ async function render(
   overrides: Partial<TeamInvitationManagement> = {},
   open = true,
 ) {
-  await act(() =>
-    Promise.resolve(
-      root.render(
-        <TeamInvitePanel
-          invitation={management(overrides)}
-          open={open}
-          onClose={onClose}
-          returnFocusRef={returnFocusRef}
-        />,
-      ),
+  await act(async () =>
+    root.render(
+      <TeamInvitePanel
+        invitation={management(overrides)}
+        open={open}
+        onClose={onClose}
+        returnFocusRef={returnFocusRef}
+      />,
     ),
   );
 }
@@ -216,7 +214,7 @@ describe('TeamInvitePanel — 초대 보내기', () => {
       '[role="option"] button',
     );
     expect(buttons).toHaveLength(2);
-    await act(() => Promise.resolve(buttons[1]?.click()));
+    await act(async () => buttons[1]?.click());
     expect(onInvite).toHaveBeenCalledExactlyOnceWith(candidates[1]);
   });
 
@@ -237,15 +235,13 @@ describe('TeamInvitePanel — 초대 보내기', () => {
   it('입력은 화면 상태만 바꾼다 — 그 자체로는 아무것도 보내지 않는다', async () => {
     await render();
     const field = input();
-    await act(() => {
+    await act(async () => {
       const setValue = Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
         'value',
       );
       setValue?.set?.call(field, 'oct');
       field.dispatchEvent(new Event('input', { bubbles: true }));
-
-      return Promise.resolve();
     });
     expect(onInviteQueryChange).toHaveBeenCalledExactlyOnceWith('oct');
     expect(onInvite).not.toHaveBeenCalled();
@@ -292,7 +288,7 @@ describe('TeamInvitePanel — 중복 초대', () => {
     expect(options[0]?.textContent).not.toContain('초대 대기');
     const invite = options[0]?.querySelector('button');
     expect(invite?.textContent).toBe('초대');
-    await act(() => Promise.resolve(invite?.click()));
+    await act(async () => invite?.click());
     expect(onInvite).toHaveBeenCalledExactlyOnceWith(candidates[0]);
   });
 
@@ -302,7 +298,7 @@ describe('TeamInvitePanel — 중복 초대', () => {
       '[role="option"] button',
     );
     expect(before).toHaveLength(2);
-    await act(() => Promise.resolve(before[0]?.click()));
+    await act(async () => before[0]?.click());
     expect(onInvite).toHaveBeenCalledExactlyOnceWith(candidates[0]);
 
     await render({
@@ -338,7 +334,7 @@ describe('TeamInvitePanel — 닫기와 초점', () => {
     await render();
     const close = buttonWithText('닫기');
     expect(close).toBeDefined();
-    await act(() => Promise.resolve(close?.click()));
+    await act(async () => close?.click());
     expect(onClose).toHaveBeenCalledOnce();
   });
 

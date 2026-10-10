@@ -1,0 +1,425 @@
+import { ValidationPipe } from '@nestjs/common';
+import type { ExecutionContext, INestApplication } from '@nestjs/common';
+import {
+  GUARDS_METADATA,
+  INTERCEPTORS_METADATA,
+} from '@nestjs/common/constants';
+import { Test } from '@nestjs/testing';
+import { Readable } from 'node:stream';
+import { OriginGuard } from '../../auth/controller/origin.guard';
+import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
+import { SessionGuard } from '../../auth/controller/session.guard';
+import { ProblemDetailFilter } from '../../common/problem-detail.filter';
+import {
+  SubmissionChecklistController,
+  SubmissionFilesController,
+  SubmissionFormsController,
+  SubmissionsController,
+} from './submissions.controller';
+import { SubmissionFilesService } from '../service/submission-files.service';
+import { SubmissionsService } from '../service/submissions.service';
+
+let application: INestApplication | undefined;
+let baseUrl = '';
+const SESSION_GITHUB_ID = 342_900_001n;
+const form = jest.fn().mockResolvedValue({
+  applicationId: 'synthetic-application',
+  applicationMode: 'PERSONAL',
+  milestone: {
+    id: 'synthetic-milestone',
+    name: '합성 제출',
+    dueAt: '2026-08-30T00:00:00.000Z',
+    dDay: 38,
+    deadlineLabel: 'D-38',
+    submissionType: 'TEXT',
+    instructions: null,
+  },
+  existingSubmission: null,
+  canSubmit: true,
+  blockedReason: null,
+});
+const create = jest.fn();
+const checklist = jest.fn().mockResolvedValue({
+  applicationId: 'synthetic-application',
+  applicationMode: 'TEAM',
+  items: [
+    {
+      milestoneId: 'synthetic-milestone',
+      name: '중간 보고',
+      dueAt: '2026-09-01T14:59:59.000Z',
+      submissionType: 'TEXT',
+      submission: {
+        id: 'synthetic-submission',
+        status: 'CHANGES_REQUESTED',
+        currentRevision: 1,
+        lastReviewedAt: '2026-08-28T01:00:00.000Z',
+        reviewComment: '실행 화면을 추가해 주세요',
+        canResubmit: true,
+      },
+    },
+  ],
+});
+const resubmit = jest.fn().mockResolvedValue({
+  submissionId: 'synthetic-submission',
+  revision: 2,
+  status: 'SUBMITTED',
+});
+const download = jest.fn().mockResolvedValue({
+  body: Readable.from(Buffer.from('private-file-body')),
+  fileName: '보고서 1차.pdf',
+  contentType: 'application/pdf',
+  contentLength: 17,
+});
+const upload = jest.fn().mockResolvedValue({
+  fileId: 'synthetic-file',
+  fileName: 'synthetic.pdf',
+  contentType: 'application/pdf',
+  size: 14,
+  expiresAt: '2028-01-01T00:00:00.000Z',
+});
+const check = jest.fn().mockResolvedValue(undefined);
+
+beforeEach(() => {
+  create.mockClear();
+  resubmit.mockClear();
+  download.mockClear();
+  upload.mockClear();
+  check.mockClear();
+});
+
+beforeAll(async () => {
+  const moduleRef = await Test.createTestingModule({
+    controllers: [
+      SubmissionChecklistController,
+      SubmissionFilesController,
+      SubmissionFormsController,
+      SubmissionsController,
+    ],
+    providers: [
+      {
+        provide: SubmissionsService,
+        useValue: { form, create, checklist, resubmit },
+      },
+      {
+        provide: SubmissionFilesService,
+        useValue: { download, upload, check },
+      },
+    ],
+  })
+    .overrideGuard(SessionGuard)
+    .useValue({
+      canActivate: (context: ExecutionContext): boolean => {
+        const request = context
+          .switchToHttp()
+          .getRequest<AuthenticatedRequest>();
+        request.sessionGithubId = SESSION_GITHUB_ID;
+        return true;
+      },
+    })
+    .overrideGuard(OriginGuard)
+    .useValue({ canActivate: () => true })
+    .compile();
+
+  application = moduleRef.createNestApplication();
+  application.setGlobalPrefix('api/v1');
+  application.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+  application.useGlobalFilters(new ProblemDetailFilter());
+  await application.listen(0, '127.0.0.1');
+  baseUrl = await application.getUrl();
+});
+
+afterAll(async () => {
+  await application?.close();
+});
+
+it('private 제출 폼은 브라우저와 공유 캐시에 저장하지 않는다', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/v1/programs/synthetic-program/milestones/synthetic-milestone/submission-form`,
+  );
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get('cache-control')).toBe('private, no-store');
+  await expect(response.json()).resolves.toMatchObject({
+    applicationId: 'synthetic-application',
+  });
+});
+
+it('content가 누락된 최초 제출은 validation 4xx로 끝난다', async () => {
+  const body = {
+    applicationId: 'synthetic-application',
+    milestoneId: 'synthetic-milestone',
+    comment: '합성 코멘트',
+  };
+
+  const response = await fetch(`${baseUrl}/api/v1/submissions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
+  expect(create).not.toHaveBeenCalled();
+});
+
+it('10,000자를 넘는 TEXT 제출은 서비스 호출 전에 거절한다', async () => {
+  const body = {
+    applicationId: 'synthetic-application',
+    milestoneId: 'synthetic-milestone',
+    content: { type: 'TEXT', text: '가'.repeat(10_001) },
+  };
+
+  const response = await fetch(`${baseUrl}/api/v1/submissions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
+  expect(create).not.toHaveBeenCalled();
+});
+
+it('내 체크리스트는 계약 형태로 직렬화하고 브라우저·공유 캐시에 저장하지 않는다', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/v1/programs/synthetic-program/submissions/me`,
+  );
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get('cache-control')).toBe('private, no-store');
+  await expect(response.json()).resolves.toMatchObject({
+    applicationId: 'synthetic-application',
+    applicationMode: 'TEAM',
+    items: [
+      {
+        milestoneId: 'synthetic-milestone',
+        submission: {
+          status: 'CHANGES_REQUESTED',
+          currentRevision: 1,
+          canResubmit: true,
+        },
+      },
+    ],
+  });
+});
+
+it('파일 다운로드는 attachment 스트림과 private no-store 헤더를 반환한다', async () => {
+  const response = await fetch(
+    `${baseUrl}/api/v1/submission-files/synthetic-file`,
+  );
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get('cache-control')).toBe('private, no-store');
+  expect(response.headers.get('content-type')).toBe('application/pdf');
+  expect(response.headers.get('content-length')).toBe('17');
+  expect(response.headers.get('content-disposition')).toContain('attachment');
+  expect(response.headers.get('content-disposition')).toContain(
+    "filename*=UTF-8''%EB%B3%B4%EA%B3%A0%EC%84%9C%201%EC%B0%A8.pdf",
+  );
+  await expect(response.text()).resolves.toBe('private-file-body');
+  expect(download).toHaveBeenCalledWith(SESSION_GITHUB_ID, 'synthetic-file');
+});
+
+it('재제출은 baseRevision과 정규화된 content를 서비스에 전달하고 201로 끝난다', async () => {
+  const body = {
+    baseRevision: 1,
+    content: { type: 'TEXT', text: '보완한 본문' },
+    comment: '  실행 화면을 추가했습니다  ',
+  };
+
+  const response = await fetch(
+    `${baseUrl}/api/v1/submissions/synthetic-submission/resubmissions`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+
+  expect(response.status).toBe(201);
+  await expect(response.json()).resolves.toEqual({
+    submissionId: 'synthetic-submission',
+    revision: 2,
+    status: 'SUBMITTED',
+  });
+  expect(resubmit).toHaveBeenCalledWith(
+    SESSION_GITHUB_ID,
+    'synthetic-submission',
+    {
+      baseRevision: 1,
+      content: { type: 'TEXT', text: '보완한 본문' },
+      comment: '실행 화면을 추가했습니다',
+    },
+  );
+});
+
+it('content가 누락된 재제출은 validation 4xx로 끝난다', async () => {
+  const body = { baseRevision: 1, comment: '합성 코멘트' };
+
+  const response = await fetch(
+    `${baseUrl}/api/v1/submissions/synthetic-submission/resubmissions`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
+  expect(resubmit).not.toHaveBeenCalled();
+});
+
+it('FILE replacement multipart context를 업로드 서비스에 전달한다', async () => {
+  const body = new FormData();
+  body.append('applicationId', 'synthetic-application');
+  body.append('milestoneId', 'synthetic-milestone');
+  body.append('submissionId', 'synthetic-submission');
+  body.append('baseRevision', '1');
+  body.append(
+    'file',
+    new Blob([Buffer.from('%PDF-1.4\n%%EOF')], { type: 'application/pdf' }),
+    'synthetic.pdf',
+  );
+
+  const response = await fetch(`${baseUrl}/api/v1/submission-files`, {
+    method: 'POST',
+    body,
+  });
+
+  expect(response.status).toBe(201);
+  await expect(response.json()).resolves.toMatchObject({
+    fileId: 'synthetic-file',
+  });
+  expect(upload).toHaveBeenCalledWith(
+    SESSION_GITHUB_ID,
+    'synthetic-application',
+    'synthetic-milestone',
+    expect.objectContaining({
+      originalname: 'synthetic.pdf',
+      mimetype: 'application/pdf',
+    }),
+    'synthetic-submission',
+    '1',
+  );
+});
+
+it('브라우저 zip MIME 별칭을 업로드 서비스에 그대로 전달한다', async () => {
+  const body = new FormData();
+  body.append('applicationId', 'synthetic-application');
+  body.append('milestoneId', 'synthetic-milestone');
+  body.append(
+    'file',
+    new Blob([Buffer.from('PK\x03\x04')], {
+      type: 'application/x-zip-compressed',
+    }),
+    'archive.zip',
+  );
+
+  const response = await fetch(`${baseUrl}/api/v1/submission-files`, {
+    method: 'POST',
+    body,
+  });
+
+  expect(response.status).toBe(201);
+  expect(upload).toHaveBeenCalledWith(
+    SESSION_GITHUB_ID,
+    'synthetic-application',
+    'synthetic-milestone',
+    expect.objectContaining({
+      originalname: 'archive.zip',
+      mimetype: 'application/x-zip-compressed',
+    }),
+    undefined,
+    undefined,
+  );
+});
+
+it('정수가 아닌 baseRevision은 서비스 호출 전에 거절한다', async () => {
+  const body = {
+    baseRevision: '1',
+    content: { type: 'TEXT', text: '보완한 본문' },
+  };
+
+  const response = await fetch(
+    `${baseUrl}/api/v1/submissions/synthetic-submission/resubmissions`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  );
+
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003' });
+  expect(resubmit).not.toHaveBeenCalled();
+});
+
+it('파일 판정은 고른 파일만 서비스 판정에 넘기고 본문 없는 204로 끝난다', async () => {
+  const body = new FormData();
+  body.append(
+    'file',
+    new Blob([Buffer.from('PK\x03\x04')], { type: 'application/zip' }),
+    'archive.zip',
+  );
+
+  const response = await fetch(`${baseUrl}/api/v1/submission-files/checks`, {
+    method: 'POST',
+    body,
+  });
+
+  expect(response.status).toBe(204);
+  await expect(response.text()).resolves.toBe('');
+  expect(check).toHaveBeenCalledWith(
+    expect.objectContaining({
+      originalname: 'archive.zip',
+      mimetype: 'application/zip',
+    }),
+  );
+  expect(upload).not.toHaveBeenCalled();
+});
+
+function readGuards(
+  prototype: object,
+  propertyKey: string,
+  metadataKey: string = GUARDS_METADATA,
+): readonly unknown[] {
+  const handler: unknown = Object.getOwnPropertyDescriptor(
+    prototype,
+    propertyKey,
+  )?.value;
+  if (typeof handler !== 'function') {
+    throw new Error(`Missing controller handler: ${propertyKey}`);
+  }
+  const metadata: unknown = Reflect.getMetadata(metadataKey, handler);
+  return Array.isArray(metadata) ? metadata : [];
+}
+
+it('체크리스트는 세션 가드를, 재제출은 세션+Origin 가드를 요구한다', () => {
+  expect(
+    readGuards(SubmissionChecklistController.prototype, 'checklist'),
+  ).toEqual([SessionGuard]);
+  expect(readGuards(SubmissionFilesController.prototype, 'download')).toEqual([
+    SessionGuard,
+  ]);
+  expect(readGuards(SubmissionsController.prototype, 'resubmit')).toEqual([
+    SessionGuard,
+    OriginGuard,
+  ]);
+});
+
+it('파일 판정은 업로드와 같은 세션+Origin 가드와 multipart 한도를 쓴다', () => {
+  const files = SubmissionFilesController.prototype;
+  expect(readGuards(files, 'check')).toEqual([SessionGuard, OriginGuard]);
+  expect(readGuards(files, 'check')).toEqual(readGuards(files, 'upload'));
+  expect(readGuards(files, 'check', INTERCEPTORS_METADATA)).toHaveLength(1);
+  expect(readGuards(files, 'check', INTERCEPTORS_METADATA)).toEqual(
+    readGuards(files, 'upload', INTERCEPTORS_METADATA),
+  );
+});

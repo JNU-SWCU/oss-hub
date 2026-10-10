@@ -1,0 +1,252 @@
+import { Injectable } from '@nestjs/common';
+import {
+  AccountStatus,
+  ApplicationStatus,
+  MilestoneDocumentKind,
+  Prisma,
+  type SubmissionStatus,
+} from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import {
+  userProfileNameWhere,
+  USER_PROFILE_NAME_SELECT,
+  resolveUserProfileName,
+} from '../../profiles/user-profile-read';
+import type { SubmissionMatrixFilter } from '../domain/submission-matrix';
+import { publicSubmissionId } from '../domain/submission-public-id';
+import {
+  findMatrixDocumentFirstSubmissions,
+  type MatrixDocumentFirstSubmission,
+} from './submission-matrix-delivery.repository';
+
+export interface SubmissionMatrixViewer {
+  readonly id: string;
+}
+
+export interface MatrixMilestoneRecord {
+  readonly id: string;
+  readonly name: string;
+  readonly dueAt: Date;
+  readonly requiredDocumentIds: readonly string[];
+}
+
+export interface MatrixApplicationRecord {
+  readonly id: string;
+  readonly applicant: {
+    readonly name: string | null;
+    readonly nickname: string;
+  };
+  readonly team: {
+    readonly name: string;
+    readonly memberNicknames: readonly string[];
+  } | null;
+}
+
+export interface MatrixSubmissionRecord {
+  readonly id: string;
+  readonly applicationId: string;
+  readonly milestoneId: string;
+  readonly status: SubmissionStatus;
+  readonly currentRevision: number;
+
+  readonly submittedAt: Date | null;
+}
+
+export interface MatrixApplicationPage {
+  readonly items: readonly MatrixApplicationRecord[];
+  readonly total: number;
+}
+
+export interface SubmissionMatrixRepositoryPort {
+  findActiveStaffOrAdmin(
+    githubId: bigint,
+  ): Promise<SubmissionMatrixViewer | null>;
+  programExists(programId: string): Promise<boolean>;
+  findMilestones(programId: string): Promise<readonly MatrixMilestoneRecord[]>;
+  findApprovedApplications(
+    programId: string,
+    filter: SubmissionMatrixFilter,
+    skip: number,
+    take: number,
+  ): Promise<MatrixApplicationPage>;
+  findCurrentSubmissions(
+    applicationIds: readonly string[],
+  ): Promise<readonly MatrixSubmissionRecord[]>;
+  findDocumentFirstSubmissions(
+    applicationIds: readonly string[],
+    documentIds: readonly string[],
+  ): Promise<readonly MatrixDocumentFirstSubmission[]>;
+}
+
+export function submissionMatrixApplicationWhere(
+  programId: string,
+  filter: SubmissionMatrixFilter,
+): Prisma.ApplicationWhereInput {
+  const where: Prisma.ApplicationWhereInput = {
+    programId,
+    status: ApplicationStatus.APPROVED,
+  };
+
+  if (filter.q.length > 0) {
+    const contains = { contains: filter.q, mode: 'insensitive' as const };
+    where.OR = [
+      { applicant: userProfileNameWhere(filter.q) },
+      { applicant: { nickname: contains } },
+      { team: { name: contains } },
+      { team: { members: { some: { user: { nickname: contains } } } } },
+    ];
+  }
+  return where;
+}
+
+const matrixApplicationSelect = {
+  id: true,
+  applicant: {
+    select: {
+      nickname: true,
+      ...USER_PROFILE_NAME_SELECT,
+    },
+  },
+  team: {
+    select: {
+      name: true,
+      members: {
+        orderBy: { createdAt: 'asc' },
+        select: { user: { select: { nickname: true } } },
+      },
+    },
+  },
+} as const;
+
+type MatrixApplicationRow = Prisma.ApplicationGetPayload<{
+  select: typeof matrixApplicationSelect;
+}>;
+
+function toMatrixApplication(
+  application: MatrixApplicationRow,
+): MatrixApplicationRecord {
+  return {
+    id: application.id,
+    applicant: {
+      name: resolveUserProfileName(application.applicant),
+      nickname: application.applicant.nickname,
+    },
+    team: application.team
+      ? {
+          name: application.team.name,
+          memberNicknames: application.team.members.map(
+            (member) => member.user.nickname,
+          ),
+        }
+      : null,
+  };
+}
+
+@Injectable()
+export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
+  constructor(private readonly prisma: PrismaService) {}
+
+  findActiveStaffOrAdmin(
+    githubId: bigint,
+  ): Promise<SubmissionMatrixViewer | null> {
+    return this.prisma.user.findFirst({
+      where: {
+        githubId,
+        accountStatus: AccountStatus.ACTIVE,
+        OR: [{ hasStaffAccess: true }, { hasAdminAccess: true }],
+      },
+      select: { id: true },
+    });
+  }
+
+  async programExists(programId: string): Promise<boolean> {
+    const program = await this.prisma.program.findUnique({
+      where: { id: programId },
+      select: { id: true },
+    });
+    return program !== null;
+  }
+
+  async findMilestones(
+    programId: string,
+  ): Promise<readonly MatrixMilestoneRecord[]> {
+    const milestones = await this.prisma.milestone.findMany({
+      where: { programId },
+      orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        dueAt: true,
+        documents: {
+          where: { kind: MilestoneDocumentKind.DOCUMENT, required: true },
+          select: { id: true },
+        },
+      },
+    });
+    return milestones.map(({ documents, ...milestone }) => ({
+      ...milestone,
+      requiredDocumentIds: documents.map((document) => document.id),
+    }));
+  }
+
+  findDocumentFirstSubmissions(
+    applicationIds: readonly string[],
+    documentIds: readonly string[],
+  ): Promise<readonly MatrixDocumentFirstSubmission[]> {
+    return findMatrixDocumentFirstSubmissions(this.prisma, {
+      applicationIds,
+      documentIds,
+    });
+  }
+
+  async findApprovedApplications(
+    programId: string,
+    filter: SubmissionMatrixFilter,
+    skip: number,
+    take: number,
+  ): Promise<MatrixApplicationPage> {
+    const where = submissionMatrixApplicationWhere(programId, filter);
+    const [applications, total] = await Promise.all([
+      this.prisma.application.findMany({
+        where,
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        skip,
+        take,
+        select: matrixApplicationSelect,
+      }),
+      this.prisma.application.count({ where }),
+    ]);
+    return { items: applications.map(toMatrixApplication), total };
+  }
+
+  async findCurrentSubmissions(
+    applicationIds: readonly string[],
+  ): Promise<readonly MatrixSubmissionRecord[]> {
+    if (applicationIds.length === 0) return [];
+    const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
+      where: {
+        applicationId: { in: [...applicationIds] },
+        milestoneDocument: {
+          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
+        },
+      },
+      select: {
+        id: true,
+        legacySubmissionId: true,
+        applicationId: true,
+        status: true,
+        revision: true,
+        submittedAt: true,
+        milestoneDocument: { select: { milestoneId: true } },
+      },
+    });
+    return submissions.map((submission) => ({
+      id: publicSubmissionId(submission),
+      applicationId: submission.applicationId,
+      milestoneId: submission.milestoneDocument.milestoneId,
+      status: submission.status,
+      currentRevision: submission.revision,
+      submittedAt: submission.submittedAt,
+    }));
+  }
+}

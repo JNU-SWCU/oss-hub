@@ -131,7 +131,7 @@ describe('확정하지 않고 닫는 공통 버튼 이름', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
@@ -140,16 +140,14 @@ describe('확정하지 않고 닫는 공통 버튼 이름', () => {
     async ({ render, trigger }) => {
       const onCancel = vi.fn();
       const onConfirm = vi.fn();
-      await act(() =>
-        Promise.resolve(root.render(render(onCancel, onConfirm))),
-      );
+      await act(async () => root.render(render(onCancel, onConfirm)));
       if (trigger !== undefined) {
         const button = [...container.querySelectorAll('button')].find(
           (candidate) => candidate.textContent?.trim() === trigger,
         );
         if (button === undefined)
           throw new TypeError('확인창 열기 버튼이 없습니다.');
-        await act(() => Promise.resolve(button.click()));
+        await act(async () => button.click());
       }
       const dialog = document.querySelector('[role="alertdialog"]');
       if (dialog === null) throw new TypeError('확인창이 없습니다.');
@@ -163,7 +161,7 @@ describe('확정하지 않고 닫는 공통 버튼 이름', () => {
       ).toBeNull();
       expect(cancel.disabled).toBe(false);
 
-      await act(() => Promise.resolve(cancel.click()));
+      await act(async () => cancel.click());
 
       expect(onConfirm).not.toHaveBeenCalled();
       expect(deactivate).not.toHaveBeenCalled();

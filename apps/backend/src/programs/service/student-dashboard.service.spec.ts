@@ -10,7 +10,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RepositoriesReadService } from '../../github/service/repositories-read.service';
-import { submissionCompletionTargetSelect } from '../../submissions/submission-completion-projection';
+import { submissionCompletionTargetSelect } from '../../submissions/domain/submission-completion-projection';
 import {
   StudentDashboardReadRepository,
   type StudentDashboardApplicationRow,

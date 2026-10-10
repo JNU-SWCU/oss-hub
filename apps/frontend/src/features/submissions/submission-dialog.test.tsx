@@ -19,12 +19,12 @@ describe('SubmissionDialog typography', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
   it('좁은 화면에서 설명의 한글 어절을 중간에 나누지 않는다', async () => {
-    await act(() => {
+    await act(async () =>
       root.render(
         <SubmissionDialog
           title="제출 내용"
@@ -34,9 +34,8 @@ describe('SubmissionDialog typography', () => {
         >
           <div />
         </SubmissionDialog>,
-      );
-      return Promise.resolve();
-    });
+      ),
+    );
 
     const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
     const descriptionId = dialog?.getAttribute('aria-describedby');

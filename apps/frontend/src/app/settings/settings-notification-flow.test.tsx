@@ -64,10 +64,10 @@ describe('설정 알림 흐름', () => {
         const method = init?.method ?? 'GET';
         requests.push({ url, method });
         if (url.endsWith('/users/me/profile')) {
-          return Promise.resolve(jsonResponse(SAVED_PROFILE));
+          return jsonResponse(SAVED_PROFILE);
         }
         if (url.endsWith('/users/me/notification-email')) {
-          return Promise.resolve(notificationResponder());
+          return notificationResponder();
         }
         throw new Error(`예상하지 못한 요청: ${method} ${url}`);
       }),
@@ -78,19 +78,13 @@ describe('설정 알림 흐름', () => {
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
   });
 
   async function render(): Promise<void> {
-    await act(() => {
-      root.render(<SettingsPage />);
-      return Promise.resolve();
-    });
+    await act(async () => root.render(<SettingsPage />));
   }
 
   function field(id: string): HTMLInputElement {
@@ -102,13 +96,12 @@ describe('설정 알림 흐름', () => {
   }
 
   async function type(input: HTMLInputElement, value: string): Promise<void> {
-    await act(() => {
+    await act(async () => {
       Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
         'value',
       )?.set?.call(input, value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
-      return Promise.resolve();
     });
   }
 
@@ -135,10 +128,7 @@ describe('설정 알림 흐름', () => {
     ).length;
 
     notificationResponder = () => jsonResponse(SAVED_NOTIFICATION);
-    await act(() => {
-      button('알림 설정 다시 불러오기').click();
-      return Promise.resolve();
-    });
+    await act(async () => button('알림 설정 다시 불러오기').click());
 
     expect(field('settings-notification-email').value).toBe(
       SAVED_NOTIFICATION.notificationEmail,
@@ -157,13 +147,12 @@ describe('설정 알림 흐름', () => {
     await type(field('settings-notification-email'), 'changed@example.com');
     notificationResponder = () => new Response('', { status: 503 });
 
-    await act(() => {
+    await act(async () => {
       container
         .querySelector('form')
         ?.dispatchEvent(
           new Event('submit', { bubbles: true, cancelable: true }),
         );
-      return Promise.resolve();
     });
 
     expect(

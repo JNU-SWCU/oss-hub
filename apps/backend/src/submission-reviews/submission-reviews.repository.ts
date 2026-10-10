@@ -16,7 +16,7 @@ import type {
 import {
   exactSubmissionByPublicId,
   submissionPublicIdWhere,
-} from '../submissions/submission-public-id';
+} from '../submissions/domain/submission-public-id';
 import {
   REVIEW_CONTEXT_SELECT,
   toReviewContext,

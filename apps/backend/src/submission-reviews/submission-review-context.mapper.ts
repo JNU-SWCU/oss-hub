@@ -10,8 +10,8 @@ import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
 } from '../profiles/user-profile-read';
-import { safeSubmissionFileContentType } from '../submissions/submission-file-content-type';
-import { publicSubmissionId } from '../submissions/submission-public-id';
+import { safeSubmissionFileContentType } from '../submissions/domain/submission-file-content-type';
+import { publicSubmissionId } from '../submissions/domain/submission-public-id';
 import {
   APPLICATION_MODES,
   publishBlockedReasons,

@@ -6,7 +6,7 @@ import {
 import {
   SubmissionDashboardSummaryService,
   type SubmissionDashboardProgramSummary,
-} from '../submissions/submission-dashboard-summary.service';
+} from '../submissions/service/submission-dashboard-summary.service';
 import type {
   StaffDashboardApplicationCounts,
   StaffDashboardProgramSummary,

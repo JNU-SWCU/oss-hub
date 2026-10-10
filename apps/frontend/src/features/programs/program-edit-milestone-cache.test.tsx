@@ -123,7 +123,7 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
@@ -163,10 +163,8 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
       await Promise.resolve();
     });
 
-    await act(() =>
-      Promise.resolve(
-        getAccessibleButton(`${originalMilestone.name} 수정`).click(),
-      ),
+    await act(async () =>
+      getAccessibleButton(`${originalMilestone.name} 수정`).click(),
     );
     await selectRange('결과물 제출', '2026-08-16', '2026-08-20');
     await act(async () => {
@@ -174,14 +172,10 @@ describe('프로그램 편집 마일스톤 일정 동기화', () => {
       await Promise.resolve();
     });
 
-    await act(() =>
-      Promise.resolve(getAccessibleButton('운영 기간 수정').click()),
-    );
+    await act(async () => getAccessibleButton('운영 기간 수정').click());
     await selectRange('운영 기간', '2026-08-16', '2026-08-25');
-    await act(() => {
+    await act(async () => {
       getButton('날짜 적용').click();
-
-      return Promise.resolve();
     });
     await act(async () => {
       getButton('프로그램 정보 저장').click();
@@ -231,12 +225,12 @@ async function selectRange(
   if (startButton === null || startButton === undefined) {
     throw new TypeError(`Calendar range not found: ${start}–${end}`);
   }
-  await act(() => Promise.resolve(startButton.click()));
+  await act(async () => startButton.click());
   const endButton = calendar?.querySelector<HTMLButtonElement>(
     `[data-calendar-date="${end}"]`,
   );
   if (endButton === null || endButton === undefined) {
     throw new TypeError(`Calendar range not found: ${start}–${end}`);
   }
-  await act(() => Promise.resolve(endButton.click()));
+  await act(async () => endButton.click());
 }

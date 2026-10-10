@@ -1,7 +1,7 @@
 import {
   documentDeliveryStatus,
   type DocumentDeliveryStatus,
-} from '../submissions/document-delivery-status';
+} from '../submissions/domain/document-delivery-status';
 import {
   buildMilestoneDocumentCollectionPage,
   type MilestoneDocumentCollectionDocumentRule,

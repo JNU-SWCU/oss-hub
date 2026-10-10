@@ -1,13 +1,5 @@
 import { ApplicationStatus, type Prisma } from '@prisma/client';
 
-export function programApplicationParticipantWhere(
-  userId: string,
-): Prisma.ApplicationWhereInput {
-  return {
-    team: { members: { some: { userId } } },
-  };
-}
-
 export function programApplicationManagerWhere(
   userId: string,
 ): Prisma.ApplicationWhereInput {

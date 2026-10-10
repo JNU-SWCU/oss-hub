@@ -13,7 +13,7 @@ import { ProgramAuthoringService } from '../../src/programs/program-authoring.se
 import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';
 import { PrismaService } from '../../src/prisma/prisma.service';
-import { SubmissionFileCleanupService } from '../../src/submissions/submission-file-cleanup.service';
+import { SubmissionFileCleanupService } from '../../src/submissions/service/submission-file-cleanup.service';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import {
   configureFailure,

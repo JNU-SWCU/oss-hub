@@ -111,7 +111,7 @@ describe('ProgramAuthoringMilestoneStep', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
     document.body
       .querySelectorAll('[data-radix-portal]')
@@ -125,7 +125,7 @@ describe('ProgramAuthoringMilestoneStep', () => {
     const key = ++renderCount;
     let latest = initial;
     let files = new Map<string, File>();
-    await act(() => {
+    await act(async () => {
       root.render(
         <MilestoneStepHarness
           key={key}
@@ -139,8 +139,6 @@ describe('ProgramAuthoringMilestoneStep', () => {
           }}
         />,
       );
-
-      return Promise.resolve();
     });
     return { latest: () => latest, files: () => files };
   }
@@ -177,10 +175,8 @@ describe('ProgramAuthoringMilestoneStep', () => {
       element,
       value,
     );
-    await act(() => {
+    await act(async () => {
       element.dispatchEvent(new Event('input', { bubbles: true }));
-
-      return Promise.resolve();
     });
   }
 
@@ -189,17 +185,13 @@ describe('ProgramAuthoringMilestoneStep', () => {
       configurable: true,
       value: [file],
     });
-    await act(() => {
+    await act(async () => {
       element.dispatchEvent(new Event('change', { bubbles: true }));
-
-      return Promise.resolve();
     });
   }
 
   async function addBlankDraft() {
-    await act(() =>
-      Promise.resolve(button('마일스톤 추가', container).click()),
-    );
+    await act(async () => button('마일스톤 추가', container).click());
   }
 
   async function fillDraft(name = '중간 점검') {
@@ -222,15 +214,11 @@ describe('ProgramAuthoringMilestoneStep', () => {
   it('opens a prefilled add dialog after directly selecting two calendar dates', async () => {
     const view = await render();
 
-    await act(() =>
-      Promise.resolve(
-        input('[data-calendar-date="2026-09-03"]', container).click(),
-      ),
+    await act(async () =>
+      input('[data-calendar-date="2026-09-03"]', container).click(),
     );
-    await act(() =>
-      Promise.resolve(
-        input('[data-calendar-date="2026-09-05"]', container).click(),
-      ),
+    await act(async () =>
+      input('[data-calendar-date="2026-09-05"]', container).click(),
     );
 
     expect(document.body.textContent).toContain('마일스톤 추가');
@@ -245,28 +233,20 @@ describe('ProgramAuthoringMilestoneStep', () => {
 
   it('clears a partial calendar range when an alternate add flow is cancelled', async () => {
     const view = await render();
-    await act(() =>
-      Promise.resolve(
-        input('[data-calendar-date="2026-09-03"]', container).click(),
-      ),
+    await act(async () =>
+      input('[data-calendar-date="2026-09-03"]', container).click(),
     );
-    await act(() =>
-      Promise.resolve(button('마일스톤 추가', container).click()),
-    );
-    await act(() => Promise.resolve(button('취소').click()));
+    await act(async () => button('마일스톤 추가', container).click());
+    await act(async () => button('취소').click());
 
-    await act(() =>
-      Promise.resolve(
-        input('[data-calendar-date="2026-09-05"]', container).click(),
-      ),
+    await act(async () =>
+      input('[data-calendar-date="2026-09-05"]', container).click(),
     );
     expect(document.body.querySelector('[role="dialog"]')).toBeNull();
     expect(view.latest().milestones).toHaveLength(1);
 
-    await act(() =>
-      Promise.resolve(
-        input('[data-calendar-date="2026-09-06"]', container).click(),
-      ),
+    await act(async () =>
+      input('[data-calendar-date="2026-09-06"]', container).click(),
     );
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
     expect(view.latest().milestones[1]).toMatchObject({
@@ -278,15 +258,11 @@ describe('ProgramAuthoringMilestoneStep', () => {
   it('uses exact operation boundaries for calendar and dialog date selections', async () => {
     const view = await render();
 
-    await act(() =>
-      Promise.resolve(
-        input('[data-calendar-date="2026-09-02"]', container).click(),
-      ),
+    await act(async () =>
+      input('[data-calendar-date="2026-09-02"]', container).click(),
     );
-    await act(() =>
-      Promise.resolve(
-        input('[data-calendar-date="2026-09-30"]', container).click(),
-      ),
+    await act(async () =>
+      input('[data-calendar-date="2026-09-30"]', container).click(),
     );
 
     expect(view.latest().milestones[1]).toMatchObject({
@@ -348,12 +324,10 @@ describe('ProgramAuthoringMilestoneStep', () => {
       milestones: [milestoneWithRequirements('milestone-1', 20)],
     };
     await render(perMilestone);
-    await act(() =>
-      Promise.resolve(
-        container
-          .querySelector<HTMLButtonElement>('[aria-label="마일스톤 1 수정"]')!
-          .click(),
-      ),
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="마일스톤 1 수정"]')!
+        .click(),
     );
 
     expect(input('[aria-label="첨부파일 추가"]').disabled).toBe(true);
@@ -361,7 +335,7 @@ describe('ProgramAuthoringMilestoneStep', () => {
       '마일스톤마다 첨부파일은 최대 20개입니다.',
     );
 
-    await act(() => Promise.resolve(button('취소').click()));
+    await act(async () => button('취소').click());
     const totalLimit = {
       ...completedAuthoringState(),
       milestones: [
@@ -373,12 +347,10 @@ describe('ProgramAuthoringMilestoneStep', () => {
       ],
     };
     await render(totalLimit);
-    await act(() =>
-      Promise.resolve(
-        container
-          .querySelector<HTMLButtonElement>('[aria-label="마일스톤 1 수정"]')!
-          .click(),
-      ),
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="마일스톤 1 수정"]')!
+        .click(),
     );
 
     expect(input('[aria-label="첨부파일 추가"]').disabled).toBe(true);
@@ -411,7 +383,7 @@ describe('ProgramAuthoringMilestoneStep', () => {
   it('keeps invalid drafts open and displays local field errors', async () => {
     await render();
     await addBlankDraft();
-    await act(() => Promise.resolve(button('저장').click()));
+    await act(async () => button('저장').click());
 
     expect(document.body.textContent).toContain(
       '마일스톤 이름을 입력해 주세요.',
@@ -422,11 +394,9 @@ describe('ProgramAuthoringMilestoneStep', () => {
 
   async function pressSave() {
     const save = button('저장');
-    await act(() => {
+    await act(async () => {
       save.focus();
       save.click();
-
-      return Promise.resolve();
     });
   }
 
@@ -471,7 +441,7 @@ describe('ProgramAuthoringMilestoneStep', () => {
     expect(document.activeElement).toBe(input('[aria-label="시작일"]'));
 
     const name = input('#test-1-name');
-    await act(() => Promise.resolve(name.focus()));
+    await act(async () => name.focus());
     await change(name, '중간 점검');
     expect(document.activeElement).toBe(name);
   });
@@ -480,7 +450,7 @@ describe('ProgramAuthoringMilestoneStep', () => {
     const view = await render();
     await addBlankDraft();
     await fillDraft();
-    await act(() => Promise.resolve(button('저장').click()));
+    await act(async () => button('저장').click());
 
     expect(view.latest().milestones[1]).toMatchObject({
       name: '중간 점검',
@@ -526,20 +496,16 @@ describe('ProgramAuthoringMilestoneStep', () => {
     const replacement = new File(['new'], 'updated.pdf', {
       type: 'application/pdf',
     });
-    await act(() =>
-      Promise.resolve(
-        dialog()
-          .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')!
-          .click(),
-      ),
+    await act(async () =>
+      dialog()
+        .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')!
+        .click(),
     );
     await change(input('[aria-label="파일 제출물 이름"]'), '최종 결과물');
-    await act(() =>
-      Promise.resolve(
-        dialog()
-          .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 저장"]')!
-          .click(),
-      ),
+    await act(async () =>
+      dialog()
+        .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 저장"]')!
+        .click(),
     );
     await selectFile(
       input('input[aria-label="첨부파일 재업로드"]'),
@@ -553,15 +519,13 @@ describe('ProgramAuthoringMilestoneStep', () => {
     ).toBe('updated.pdf');
     expect(view.files().get('test-2')).toBe(replacement);
     const required = input('input[type="checkbox"]');
-    await act(() => Promise.resolve(required.click()));
+    await act(async () => required.click());
     expect(view.latest().milestones[1]?.requirements[0]?.required).toBe(false);
 
-    await act(() =>
-      Promise.resolve(
-        dialog()
-          .querySelector<HTMLButtonElement>('[aria-label="첨부파일 삭제"]')!
-          .click(),
-      ),
+    await act(async () =>
+      dialog()
+        .querySelector<HTMLButtonElement>('[aria-label="첨부파일 삭제"]')!
+        .click(),
     );
     expect(view.latest().milestones[1]?.requirements).toEqual([]);
     expect(view.files().has('test-2')).toBe(false);
@@ -575,15 +539,13 @@ describe('ProgramAuthoringMilestoneStep', () => {
       input('[aria-label="첨부파일 추가"]'),
       new File(['pdf'], 'guide.pdf', { type: 'application/pdf' }),
     );
-    await act(() =>
-      Promise.resolve(
-        dialog()
-          .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')!
-          .click(),
-      ),
+    await act(async () =>
+      dialog()
+        .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')!
+        .click(),
     );
     await change(input('[aria-label="파일 제출물 이름"]'), '최종 결과물');
-    await act(() => Promise.resolve(button('저장').click()));
+    await act(async () => button('저장').click());
 
     expect(view.latest().milestones[1]?.requirements[0]?.name).toBe(
       '최종 결과물',
@@ -598,21 +560,17 @@ describe('ProgramAuthoringMilestoneStep', () => {
       input('[aria-label="첨부파일 추가"]'),
       new File(['pdf'], 'guide.pdf', { type: 'application/pdf' }),
     );
-    await act(() =>
-      Promise.resolve(
-        dialog()
-          .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')!
-          .click(),
-      ),
+    await act(async () =>
+      dialog()
+        .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')!
+        .click(),
     );
     await change(input('[aria-label="파일 제출물 이름"]'), '임시 이름');
     const nameInput = input('[aria-label="파일 제출물 이름"]');
-    await act(() => Promise.resolve(nameInput.focus()));
-    await act(() =>
-      Promise.resolve(
-        nameInput.dispatchEvent(
-          new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }),
-        ),
+    await act(async () => nameInput.focus());
+    await act(async () =>
+      nameInput.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }),
       ),
     );
 
@@ -629,19 +587,17 @@ describe('ProgramAuthoringMilestoneStep', () => {
       input('[aria-label="첨부파일 추가"]'),
       new File(['pdf'], 'guide.pdf', { type: 'application/pdf' }),
     );
-    await act(() =>
-      Promise.resolve(
-        dialog()
-          .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')!
-          .click(),
-      ),
+    await act(async () =>
+      dialog()
+        .querySelector<HTMLButtonElement>('[aria-label="제출물 이름 수정"]')!
+        .click(),
     );
     await change(input('[aria-label="파일 제출물 이름"]'), '');
 
     expect(document.body.textContent).toContain(
       '제출 항목 이름을 입력해 주세요.',
     );
-    await act(() => Promise.resolve(button('저장').click()));
+    await act(async () => button('저장').click());
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
   });
 
@@ -667,26 +623,20 @@ describe('ProgramAuthoringMilestoneStep', () => {
     );
     expect(firstHandle?.disabled).toBe(false);
 
-    await act(() => {
+    await act(async () => {
       firstHandle?.dispatchEvent(
         new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }),
       );
-
-      return Promise.resolve();
     });
-    await act(() => {
+    await act(async () => {
       firstHandle?.dispatchEvent(
         new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowDown' }),
       );
-
-      return Promise.resolve();
     });
-    await act(() => {
+    await act(async () => {
       firstHandle?.dispatchEvent(
         new KeyboardEvent('keydown', { bubbles: true, key: 'Enter' }),
       );
-
-      return Promise.resolve();
     });
 
     expect(
@@ -745,7 +695,7 @@ describe('ProgramAuthoringMilestoneStep', () => {
     );
     expect(view.files().has('test-2')).toBe(true);
 
-    await act(() => Promise.resolve(button('취소').click()));
+    await act(async () => button('취소').click());
     expect(view.latest().milestones).toHaveLength(1);
     expect(view.files().has('test-2')).toBe(false);
     expect(document.body.querySelector('[role="dialog"]')).toBeNull();
@@ -763,12 +713,10 @@ describe('ProgramAuthoringMilestoneStep', () => {
     const view = await render(initial);
     view.files().set('requirement-1', existingFile);
 
-    await act(() =>
-      Promise.resolve(
-        container
-          .querySelector<HTMLButtonElement>('[aria-label="원래 이름 수정"]')!
-          .click(),
-      ),
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="원래 이름 수정"]')!
+        .click(),
     );
     await change(input('#milestone-1-name'), '변경된 이름');
     await change(input('[aria-label="시작일"]'), '2026-09-04');
@@ -776,14 +724,12 @@ describe('ProgramAuthoringMilestoneStep', () => {
       document.body.querySelector<HTMLTextAreaElement>('#milestone-1-notice')!,
       '변경된 공지',
     );
-    await act(() =>
-      Promise.resolve(
-        dialog()
-          .querySelector<HTMLButtonElement>('[aria-label="첨부파일 삭제"]')!
-          .click(),
-      ),
+    await act(async () =>
+      dialog()
+        .querySelector<HTMLButtonElement>('[aria-label="첨부파일 삭제"]')!
+        .click(),
     );
-    await act(() => Promise.resolve(button('취소').click()));
+    await act(async () => button('취소').click());
 
     expect(view.latest().milestones[0]).toEqual(original);
     expect(view.files().get('requirement-1')).toBe(existingFile);
@@ -791,15 +737,13 @@ describe('ProgramAuthoringMilestoneStep', () => {
 
   it('persists an existing edit on save', async () => {
     const view = await render();
-    await act(() =>
-      Promise.resolve(
-        container
-          .querySelector<HTMLButtonElement>('[aria-label="오리엔테이션 수정"]')!
-          .click(),
-      ),
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="오리엔테이션 수정"]')!
+        .click(),
     );
     await change(input('#milestone-1-name'), '최종 오리엔테이션');
-    await act(() => Promise.resolve(button('저장').click()));
+    await act(async () => button('저장').click());
 
     expect(view.latest().milestones[0]?.name).toBe('최종 오리엔테이션');
     expect(container.textContent).toContain('최종 오리엔테이션');
@@ -808,7 +752,7 @@ describe('ProgramAuthoringMilestoneStep', () => {
 
   it('uses the shared card anatomy for created milestones', async () => {
     const state = completedAuthoringState();
-    await act(() => {
+    await act(async () => {
       root.render(
         <MilestoneStepHarness
           initial={state}
@@ -816,8 +760,6 @@ describe('ProgramAuthoringMilestoneStep', () => {
           onFiles={() => undefined}
         />,
       );
-
-      return Promise.resolve();
     });
 
     expect(container.textContent).toContain('26.09.02 – 26.09.10 18:00');
