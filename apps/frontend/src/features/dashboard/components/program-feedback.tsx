@@ -11,7 +11,11 @@ import {
   SUBMISSION_STATUS_LABELS,
 } from '@/lib/status-vocabulary';
 import { cn } from '@/lib/utils';
-import { formatDashboardDate, formatDashboardDeadline } from '../deadline';
+import {
+  dashboardDeadlineDays,
+  formatDashboardDate,
+  formatDashboardDeadline,
+} from '../deadline';
 import type { DashboardFeedbackItem } from '../types';
 
 const VISIBLE_FEEDBACK_ROWS = 3;
@@ -25,6 +29,20 @@ function commentPreview(comment: string | null): string | null {
     : characters.join('');
 }
 
+function resubmissionDeadline(dueAt: string, now: Date) {
+  if (now.getTime() <= Date.parse(dueAt)) {
+    return {
+      label: `재제출 기한 ${formatDashboardDeadline(dueAt, now)}`,
+      tone: 'text-status-pending-fg',
+    };
+  }
+  const days = -dashboardDeadlineDays(dueAt, now);
+  return {
+    label: days > 0 ? `재제출 기한 ${days}일 지남` : '재제출 기한 지남',
+    tone: 'text-status-rejected-fg',
+  };
+}
+
 function FeedbackRow({
   item,
   now,
@@ -35,6 +53,10 @@ function FeedbackRow({
   const preview = commentPreview(item.comment);
   const resubmissionDueAt =
     item.decision === 'CHANGES_REQUESTED' ? item.resubmissionDueAt : null;
+  const resubmission =
+    resubmissionDueAt === null
+      ? null
+      : resubmissionDeadline(resubmissionDueAt, now);
 
   return (
     <li
@@ -65,11 +87,11 @@ function FeedbackRow({
           {formatDashboardDate(item.reviewedAt)}
         </time>
         {' 검토'}
-        {resubmissionDueAt ? (
+        {resubmission ? (
           <>
             {' · '}
-            <span className="font-semibold text-status-pending-fg">
-              재제출 기한 {formatDashboardDeadline(resubmissionDueAt, now)}
+            <span className={cn('font-semibold', resubmission.tone)}>
+              {resubmission.label}
             </span>
           </>
         ) : null}

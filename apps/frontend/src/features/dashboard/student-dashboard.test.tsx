@@ -750,6 +750,29 @@ describe('StudentDashboardView 프로그램별 새 피드백', () => {
     ).not.toContain('재제출 기한');
   });
 
+  it('재제출 기한이 지났으면 D+n 대신 며칠 지났는지를 반려 색으로 보인다', () => {
+    const passed = withFeedback(
+      [first],
+      [
+        dashboardFeedback(first, 'a', {
+          resubmissionDueAt: '2026-07-21T14:59:59.000Z',
+        }),
+      ],
+    );
+    const passedToday = withFeedback(
+      [first],
+      [
+        dashboardFeedback(first, 'a', {
+          resubmissionDueAt: '2026-07-23T00:00:00.000Z',
+        }),
+      ],
+    );
+
+    expect(passed).toContain('text-status-rejected-fg">재제출 기한 2일 지남<');
+    expect(passedToday).toContain('text-status-rejected-fg">재제출 기한 지남<');
+    expect(passed + passedToday).not.toContain('재제출 기한 D+');
+  });
+
   it('항목 이름이 마일스톤 이름과 같으면 한 번만 보인다', () => {
     const html = withFeedback(
       [first],
