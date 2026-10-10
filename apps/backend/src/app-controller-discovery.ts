@@ -1,7 +1,7 @@
 import { type Type } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { AppModule } from './app.module';
-import { compareStringsByCodeUnit } from './deterministic-string-order';
+import { compareStringsByCodeUnit } from './common/domain/deterministic-string-order';
 
 export function discoverAppModuleControllers(): Type<unknown>[] {
   return discoverModuleControllers(AppModule);
