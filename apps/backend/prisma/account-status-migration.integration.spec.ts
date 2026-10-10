@@ -10,9 +10,9 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { loadRuntimeConfig } from '../src/runtime-config/runtime-config';
 import { UsersOnboardingRepository } from '../src/users/repository/onboarding.repository';
 import { RolesService } from '../src/roles/service/roles.service';
-import { AdminAccessRepository } from '../src/users/admin-access.repository';
-import { AdminAccessService } from '../src/users/admin-access.service';
-import { canonicalUserCreateFromLabel } from '../src/users/canonical-user-fixture';
+import { AdminAccessRepository } from '../src/users/repository/admin-access.repository';
+import { AdminAccessService } from '../src/users/service/admin-access.service';
+import { canonicalUserCreateFromLabel } from '../src/users/repository/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 
 assertIsolatedIntegrationDatabase({

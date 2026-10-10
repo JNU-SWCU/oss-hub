@@ -12,7 +12,7 @@ import {
 import {
   canonicalUserCreate,
   canonicalUserCreateFromLabel,
-} from '../../users/canonical-user-fixture';
+} from '../../users/repository/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { ApplicationsErrorCode } from '../../applications/applications-error-code.enum';
 import { ApplicationsRepository } from '../../applications/applications.repository';
