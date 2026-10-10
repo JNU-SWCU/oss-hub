@@ -138,10 +138,7 @@ describe('면이 없는 회원의 화면 도달', () => {
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
   });
 
@@ -149,18 +146,12 @@ describe('면이 없는 회원의 화면 도달', () => {
     screen: ReactNode,
   ): Promise<{ readonly text: string; readonly redirects: readonly string[] }> {
     mocks.replace.mockClear();
-    await act(() => {
-      root.render(<ErrorBoundary>{screen}</ErrorBoundary>);
-      return Promise.resolve();
-    });
+    await act(async () => root.render(<ErrorBoundary>{screen}</ErrorBoundary>));
     const result = {
       text: container.textContent ?? '',
       redirects: mocks.replace.mock.calls.map(([target]) => String(target)),
     };
-    await act(() => {
-      root.render(<></>);
-      return Promise.resolve();
-    });
+    await act(async () => root.render(<></>));
     return result;
   }
 

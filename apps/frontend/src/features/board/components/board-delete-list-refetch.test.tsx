@@ -128,7 +128,7 @@ describe('게시글 삭제 후 목록 복귀', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
     vi.restoreAllMocks();
   });
@@ -155,7 +155,6 @@ describe('게시글 삭제 후 목록 복귀', () => {
           />
         </>,
       );
-      return Promise.resolve();
     });
     expect(mocks.listBoardPosts).toHaveBeenCalledOnce();
 
@@ -174,7 +173,6 @@ describe('게시글 삭제 후 목록 복귀', () => {
     }
     await act(async () => {
       deleteButton.click();
-      return Promise.resolve();
     });
     expect(mocks.deleteBoardPost).toHaveBeenCalledWith('program-1', 'post-1');
 
@@ -212,7 +210,6 @@ describe('게시글 삭제 후 목록 복귀', () => {
           />
         </>,
       );
-      return Promise.resolve();
     });
     await act(async () => {
       initialList.resolve(pageWithPost);
@@ -228,7 +225,6 @@ describe('게시글 삭제 후 목록 복귀', () => {
     }
     await act(async () => {
       deleteButton.click();
-      return Promise.resolve();
     });
     const deletionSettled = deletion.promise.catch(() => undefined);
     await act(async () => {

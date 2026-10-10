@@ -112,14 +112,13 @@ describe('SystemStatusScreen', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
   async function renderScreen(): Promise<void> {
-    await act(() => {
+    await act(async () => {
       root.render(<SystemStatusScreen />);
-      return Promise.resolve();
     });
   }
 

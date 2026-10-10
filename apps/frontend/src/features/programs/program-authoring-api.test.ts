@@ -14,8 +14,8 @@ describe('program authoring API', () => {
 
   it('프로그램 작성 전 서버의 파일 상한을 읽는다', async () => {
     const fileUpload = { maxBytes: 2 * 1024 * 1024, maxLabel: '2 MB' };
-    const request = vi.fn(() =>
-      Promise.resolve(new Response(JSON.stringify({ fileUpload }))),
+    const request = vi.fn(
+      async () => new Response(JSON.stringify({ fileUpload })),
     );
     vi.stubGlobal('fetch', request);
     await expect(getAuthoringUploadPolicy()).resolves.toEqual({ fileUpload });
@@ -26,11 +26,11 @@ describe('program authoring API', () => {
   });
 
   it('uploads multipart files through the shared API client', async () => {
-    const request = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
-      expect(init?.method).toBe('POST');
-      expect(init?.body).toBeInstanceOf(FormData);
-      return Promise.resolve(
-        new Response(
+    const request = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) => {
+        expect(init?.method).toBe('POST');
+        expect(init?.body).toBeInstanceOf(FormData);
+        return new Response(
           JSON.stringify({
             id: 'upload-id',
             fileName: 'plan.pdf',
@@ -39,9 +39,9 @@ describe('program authoring API', () => {
             expiresAt: '2026-09-02T00:00:00.000Z',
           }),
           { status: 200 },
-        ),
-      );
-    });
+        );
+      },
+    );
     vi.stubGlobal('fetch', request);
 
     const result = await uploadAuthoringFile(
@@ -56,18 +56,18 @@ describe('program authoring API', () => {
   });
 
   it('sends the final manifest with the idempotency key and supports explicit upload deletion', async () => {
-    const request = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
-      if (init?.method === 'DELETE')
-        return Promise.resolve(new Response(null, { status: 204 }));
-      expect(new Headers(init?.headers).get('Idempotency-Key')).toBe(
-        'request-1',
-      );
-      return Promise.resolve(
-        new Response(JSON.stringify({ id: 'program-created' }), {
+    const request = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === 'DELETE')
+          return new Response(null, { status: 204 });
+        expect(new Headers(init?.headers).get('Idempotency-Key')).toBe(
+          'request-1',
+        );
+        return new Response(JSON.stringify({ id: 'program-created' }), {
           status: 201,
-        }),
-      );
-    });
+        });
+      },
+    );
     vi.stubGlobal('fetch', request);
     const manifest = buildProgramAuthoringManifest(
       completedAuthoringState(),

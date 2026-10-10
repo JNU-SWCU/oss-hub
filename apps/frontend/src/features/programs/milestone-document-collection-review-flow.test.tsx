@@ -139,19 +139,18 @@ describe('수합 표에서 판정하기', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
   });
 
   async function render() {
-    await act(() => {
+    await act(async () => {
       root.render(
         <MilestoneDocumentCollectionScreen
           programId="program-capstone"
           milestoneId="milestone-1"
         />,
       );
-      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();
@@ -185,9 +184,8 @@ describe('수합 표에서 판정하기', () => {
   }
 
   async function click(button: HTMLButtonElement) {
-    await act(() => {
+    await act(async () => {
       button.click();
-      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();
@@ -435,11 +433,10 @@ describe('수합 표에서 판정하기', () => {
     });
 
     await click(byText('보완 요청'));
-    await act(() => {
+    await act(async () => {
       typeComment('  표지를 고쳐 주세요.  ');
 
       typeResubmissionDueAt(dueAtInput);
-      return Promise.resolve();
     });
     await click(byText('저장'));
 
@@ -462,9 +459,8 @@ describe('수합 표에서 판정하기', () => {
     await openPanelForGaTeam();
 
     await click(byText('보완 요청'));
-    await act(() => {
+    await act(async () => {
       typeComment('표지를 고쳐 주세요.');
-      return Promise.resolve();
     });
     await click(byText('저장'));
 
@@ -523,9 +519,8 @@ describe('수합 표에서 판정하기', () => {
     expect(byText('저장 중…').disabled).toBe(true);
     expect(createMilestoneDocumentReviewMock).toHaveBeenCalledTimes(1);
 
-    await act(() => {
+    await act(async () => {
       release?.();
-      return Promise.resolve();
     });
   });
 
@@ -612,9 +607,8 @@ describe('수합 표에서 판정하기', () => {
     const loadsAfterFilter =
       getMilestoneDocumentCollectionMock.mock.calls.length;
 
-    await act(() => {
+    await act(async () => {
       release?.();
-      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();
@@ -656,9 +650,8 @@ describe('수합 표에서 판정하기', () => {
     const loadsAfterFilter =
       getMilestoneDocumentCollectionMock.mock.calls.length;
 
-    await act(() => {
+    await act(async () => {
       reject?.();
-      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();
@@ -692,9 +685,8 @@ describe('수합 표에서 판정하기', () => {
     await click(byLabel('가팀 중간 보고 검토'));
     expect(panel()?.textContent).toContain('가팀 — 중간 보고');
 
-    await act(() => {
+    await act(async () => {
       release?.();
-      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();
@@ -769,7 +761,7 @@ describe('수합 표에서 판정하기', () => {
 
     expect(tableBusy()).toBe('true');
 
-    await act(() => Promise.resolve(release()));
+    await act(async () => release());
     await settle();
 
     expect(skeleton()).toBeNull();
@@ -799,7 +791,7 @@ describe('수합 표에서 판정하기', () => {
     expect(container.textContent).toContain('가팀');
     expect(tableBusy()).toBe('true');
 
-    await act(() => Promise.resolve(release()));
+    await act(async () => release());
     await settle();
 
     expect(skeleton()).toBeNull();
@@ -831,7 +823,7 @@ describe('수합 표에서 판정하기', () => {
     expect(status).not.toBeNull();
     expect(status?.closest('[aria-busy]')).toBeNull();
 
-    await act(() => Promise.resolve(release()));
+    await act(async () => release());
     await settle();
 
     expect(container.textContent).toContain('나팀');
@@ -860,7 +852,7 @@ describe('수합 표에서 판정하기', () => {
     expect(status).not.toBeNull();
     expect(status?.closest('[aria-busy]')).toBeNull();
 
-    await act(() => Promise.resolve(release()));
+    await act(async () => release());
     await settle();
 
     expect(container.textContent).toContain('나팀');
@@ -1010,7 +1002,7 @@ describe('수합 표에서 판정하기', () => {
     expect(container.textContent).toContain('가팀');
     expect(tableBusy()).toBe('true');
 
-    await act(() => Promise.resolve(release()));
+    await act(async () => release());
     await settle();
 
     expect(reviewNotice()?.textContent).toContain('다시 불러왔습니다');
@@ -1121,9 +1113,8 @@ describe('수합 표에서 판정하기', () => {
 
     await click(byLabel('가팀 기획서 검토'));
 
-    await act(() => {
+    await act(async () => {
       release?.();
-      return Promise.resolve();
     });
     await act(async () => {
       await Promise.resolve();

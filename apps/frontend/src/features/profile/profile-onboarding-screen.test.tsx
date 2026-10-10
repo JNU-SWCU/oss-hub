@@ -62,7 +62,7 @@ describe('프로필 온보딩 화면', () => {
         const body: unknown =
           typeof init?.body === 'string' ? JSON.parse(init.body) : null;
         requests.push({ method, body });
-        return Promise.resolve(profileResponder(method, body));
+        return profileResponder(method, body);
       }),
     );
 
@@ -80,20 +80,19 @@ describe('프로필 온보딩 화면', () => {
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
   });
 
   async function render(memberKind: ProfileMemberKind = 'STUDENT') {
-    await act(() => {
+    await act(async () => {
       root.render(
         <ProfileOnboardingScreen
           memberKind={memberKind}
           nextPath={NEXT_PATH}
         />,
       );
-      return Promise.resolve();
     });
   }
 
@@ -110,10 +109,9 @@ describe('프로필 온보딩 화면', () => {
       HTMLInputElement.prototype,
       'value',
     );
-    await act(() => {
+    await act(async () => {
       descriptor?.set?.call(input, value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
-      return Promise.resolve();
     });
   }
 
@@ -126,20 +124,18 @@ describe('프로필 온보딩 화면', () => {
       HTMLSelectElement.prototype,
       'value',
     );
-    await act(() => {
+    await act(async () => {
       descriptor?.set?.call(element, value);
       element.dispatchEvent(new Event('change', { bubbles: true }));
-      return Promise.resolve();
     });
   }
 
   async function submit(): Promise<void> {
     const form = container.querySelector('form');
-    await act(() => {
+    await act(async () => {
       form?.dispatchEvent(
         new Event('submit', { bubbles: true, cancelable: true }),
       );
-      return Promise.resolve();
     });
   }
 

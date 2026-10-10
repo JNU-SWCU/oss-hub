@@ -56,9 +56,8 @@ function setSearchParams(query: string): void {
 }
 
 async function renderScreen(root: Root): Promise<void> {
-  await act(() => {
+  await act(async () => {
     root.render(<ProgramDetailScreen programId="program:basic" />);
-    return Promise.resolve();
   });
 }
 
@@ -85,10 +84,7 @@ describe('ProgramDetailScreen submission navigation', () => {
   });
 
   afterEach(async () => {
-    await act(() => {
-      root.unmount();
-      return Promise.resolve();
-    });
+    await act(async () => root.unmount());
     container.remove();
   });
 

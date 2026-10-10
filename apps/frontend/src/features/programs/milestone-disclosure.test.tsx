@@ -100,28 +100,26 @@ describe('마일스톤 접기', () => {
     root = createRoot(container);
     vi.stubGlobal(
       'fetch',
-      vi.fn((input: RequestInfo | URL) => {
+      vi.fn(async (input: RequestInfo | URL) => {
         const url = String(
           typeof input === 'string' || input instanceof URL ? input : input.url,
         );
         const milestoneId = MILESTONES.map(({ id }) => id).find((id) =>
           url.includes(id),
         );
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              documents: milestoneId ? [documentOf(milestoneId)] : [],
-              fileUpload: milestoneDocumentUploadPolicy(),
-            }),
-            { status: 200, headers: { 'Content-Type': 'application/json' } },
-          ),
+        return new Response(
+          JSON.stringify({
+            documents: milestoneId ? [documentOf(milestoneId)] : [],
+            fileUpload: milestoneDocumentUploadPolicy(),
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
         );
       }),
     );
   });
 
   afterEach(async () => {
-    await act(() => Promise.resolve(root.unmount()));
+    await act(async () => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
     vi.useRealTimers();
@@ -130,9 +128,8 @@ describe('마일스톤 접기', () => {
   async function renderMilestones(
     program: ProgramDetail = programWith(MILESTONES),
   ): Promise<readonly HTMLElement[]> {
-    await act(() => {
+    await act(async () => {
       root.render(<ProgramMilestones program={program} />);
-      return Promise.resolve();
     });
     const groups = [
       ...container.querySelectorAll<HTMLElement>(
@@ -281,11 +278,11 @@ describe('마일스톤 접기', () => {
     const groups = await renderMilestones();
     const trigger = triggerOf(groups[0]) as HTMLButtonElement;
 
-    await act(() => Promise.resolve(trigger.click()));
+    await act(async () => trigger.click());
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
     expect(panelOf(trigger).getAttribute('data-state')).toBe('open');
 
-    await act(() => Promise.resolve(trigger.click()));
+    await act(async () => trigger.click());
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
     expect(panelOf(trigger).getAttribute('data-state')).toBe('closed');
   });
@@ -294,7 +291,7 @@ describe('마일스톤 접기', () => {
     const groups = await renderMilestones();
     const first = triggerOf(groups[0]) as HTMLButtonElement;
 
-    await act(() => Promise.resolve(first.click()));
+    await act(async () => first.click());
 
     expect(first.getAttribute('aria-expanded')).toBe('true');
     expect(triggerOf(groups[2])?.getAttribute('aria-expanded')).toBe('true');
