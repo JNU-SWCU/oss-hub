@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../common/error-code';
 import { normalizeMultipartFileName } from '../common/domain/multipart-file-name';
@@ -79,6 +80,11 @@ export class MilestoneDocumentFilesService {
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
     private readonly submissionFiles: SubmissionFilesService,
+    @Inject(UsersAuthorityService)
+    private readonly authority: Pick<
+      UsersAuthorityService,
+      'assertActiveStaff'
+    >,
   ) {}
 
   async upload(
@@ -198,11 +204,15 @@ export class MilestoneDocumentFilesService {
   }
 
   async uploadTemplate(
-    actorId: string,
+    sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
     file: MilestoneDocumentFileUpload | undefined,
   ): Promise<UploadedMilestoneDocumentTemplateResponse> {
+    const { actorId } = await this.authority.assertActiveStaff(
+      sessionGithubId,
+      () => this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
+    );
     const originalName = await this.validateOriginalFileName(file, 'TEMPLATE');
     const uploadedFile = file as MilestoneDocumentFileUpload;
 
@@ -307,11 +317,15 @@ export class MilestoneDocumentFilesService {
   }
 
   async downloadSubmissionFile(
+    sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
     applicationId: string,
     now: Date = new Date(),
   ): Promise<DownloadedMilestoneDocumentSubmissionFile> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
+    );
     const documentContext =
       await this.repository.findDocumentContext(documentId);
     if (

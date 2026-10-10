@@ -127,6 +127,7 @@ function milestoneDocumentService() {
     repository as unknown as MilestoneDocumentsRepository,
     storage,
     submissionFiles as unknown as SubmissionFilesService,
+    { assertActiveStaff: jest.fn() },
   );
 }
 

@@ -1,6 +1,8 @@
 import { AccountStatus, ApplicationStatus, MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersAuthorityService } from '../users/service/authority.service';
+import { UsersAuthorityRepository } from '../users/repository/authority.repository';
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
 import { MilestoneDocumentsRepository } from './repository/milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
@@ -20,7 +22,10 @@ const staffGithubId = 9600000000998001n;
 
 const prisma = new PrismaService();
 const repository = new MilestoneDocumentsRepository(prisma);
-const service = new MilestoneDocumentsService(repository);
+const service = new MilestoneDocumentsService(
+  repository,
+  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+);
 
 const collectionQuery: MilestoneDocumentCollectionQuery = {
   page: 1,
@@ -124,6 +129,7 @@ async function readCollectionTotal(
   documentId: string,
 ): Promise<{ readonly submitted: number; readonly total: number }> {
   const collection = await service.collectForStaff(
+    staffGithubId,
     milestoneId,
     collectionQuery,
   );

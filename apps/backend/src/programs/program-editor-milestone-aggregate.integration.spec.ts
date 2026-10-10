@@ -21,6 +21,8 @@ import {
   upsertMilestoneDocumentSubmission,
 } from '../milestone-documents/milestone-document-submission.repository';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersAuthorityService } from '../users/service/authority.service';
+import { UsersAuthorityRepository } from '../users/repository/authority.repository';
 import type {
   ProgramEditorRepositoryPort,
   ProgramEditorTransactionStore,
@@ -251,8 +253,9 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         new SubmissionFilesRepository(prisma),
         memoryStorage(),
       ),
+      new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
     ).uploadTemplate(
-      `${TEST_PREFIX}staff`,
+      STAFF_GITHUB_ID,
       milestoneId,
       firstDocumentId,
       pdfUpload(),
@@ -381,11 +384,12 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         new SubmissionFilesRepository(prisma),
         memoryStorage(),
       ),
+      new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
     );
 
     await expect(
       files.uploadTemplate(
-        `${TEST_PREFIX}staff`,
+        STAFF_GITHUB_ID,
         milestoneId,
         firstDocumentId,
         pdfUpload(),
@@ -419,9 +423,10 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         new SubmissionFilesRepository(prisma),
         memoryStorage(),
       ),
+      new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
     );
     const direct = files.uploadTemplate(
-      `${TEST_PREFIX}staff`,
+      STAFF_GITHUB_ID,
       milestoneId,
       firstDocumentId,
       pdfUpload(),
@@ -558,10 +563,11 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         new SubmissionFilesRepository(prisma),
         memoryStorage(),
       ),
+      new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
     );
     await expect(
       files.uploadTemplate(
-        `${TEST_PREFIX}staff`,
+        STAFF_GITHUB_ID,
         milestoneId,
         firstDocumentId,
         pdfUpload(),

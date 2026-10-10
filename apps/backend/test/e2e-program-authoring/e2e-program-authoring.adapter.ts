@@ -246,7 +246,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       throw new E2eAdapterError(409);
     }
     await this.files.uploadTemplate(
-      E2E_STAFF_ID,
+      E2E_STAFF_GITHUB_ID,
       this.fixtures.graph().milestoneId,
       this.fixtures.graph().documentId,
       uploadFile('template.pdf'),
