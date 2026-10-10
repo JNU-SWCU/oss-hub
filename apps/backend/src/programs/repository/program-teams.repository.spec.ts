@@ -6,7 +6,7 @@ import {
 import {
   REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
   repositoryAccessSyncEventData,
-} from '../../github/repository-provision-event';
+} from '../../github/domain/repository-provision-event';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   ProgramTeamsRepository,

@@ -1,7 +1,7 @@
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module';
 import { configureHttpApp } from '../../src/common/controller/configure-http-app';
-import { GithubAppClient } from '../../src/github/github-app.client';
+import { GithubAppClient } from '../../src/github/gateway/github-app.client';
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';
 import { MAIL_SENDER } from '../../src/notifications/domain/mail-sender.port';
 import { ProgramAuthoringRepository } from '../../src/programs/program-authoring.repository';

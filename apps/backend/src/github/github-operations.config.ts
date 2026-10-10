@@ -2,8 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
-} from './github-app.error';
-import type { GithubAppCredentials } from './github-app.token';
+} from './domain/github-app.error';
+import type { GithubAppCredentials } from './domain/github-app.types';
 import {
   loadRuntimeConfig,
   type RuntimeConfig,

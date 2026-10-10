@@ -1,13 +1,15 @@
 import {
   COLLABORATOR_OUTCOMES,
   type CollaboratorOutcome,
+} from '../../src/github/gateway/github-app.client';
+import {
   type GithubPublicRepositoryMetadata,
   type GithubRepositoryMetadata,
-} from '../../src/github/github-app.client';
+} from '../../src/github/domain/github-app.response';
 import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
-} from '../../src/github/github-app.error';
+} from '../../src/github/domain/github-app.error';
 import {
   E2E_EXTERNAL_FAILURE_OPERATIONS,
   type E2eExternalFailureOperation,

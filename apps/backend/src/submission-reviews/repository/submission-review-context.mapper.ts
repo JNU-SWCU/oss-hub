@@ -5,7 +5,7 @@ import {
   SubmissionFileLifecycle,
 } from '@prisma/client';
 import { requiredMilestonesApproved } from '../../milestone-documents/domain/milestone-completion';
-import { repositoryUrlFromNameWithOwner } from '../../github/repository-identity';
+import { repositoryUrlFromNameWithOwner } from '../../github/domain/repository-identity';
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
