@@ -4,7 +4,7 @@ import {
   MILESTONE_DOCUMENT_COLLECTION_FILTERS,
   type MilestoneDocumentCollectionFilter,
 } from '../domain/milestone-document-collection-query';
-import type { DocumentDeliveryStatus } from '../../submissions/document-delivery-status';
+import type { DocumentDeliveryStatus } from '../../submissions/domain/document-delivery-status';
 import type { MilestoneDocumentDeliveryQuery } from '../milestone-document-delivery-page';
 
 export const MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE = 20;

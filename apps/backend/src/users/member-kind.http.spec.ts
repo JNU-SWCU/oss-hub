@@ -7,7 +7,7 @@ import { AuthService } from '../auth/service/auth.service';
 import { AuthenticationGuard } from '../auth/controller/authentication.guard';
 import { sessionCookieName } from '../auth/domain/cookies';
 import { issueSessionToken } from '../auth/domain/session-token';
-import { ProblemDetailFilter } from '../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AdminAccessActor } from './admin-access.repository.types';

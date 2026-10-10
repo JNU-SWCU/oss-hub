@@ -8,7 +8,7 @@ import { AuthService } from '../auth/service/auth.service';
 import { sessionCookieName } from '../auth/domain/cookies';
 import { issueSessionToken } from '../auth/domain/session-token';
 import { DomainException } from '../common/error-code';
-import { ProblemDetailFilter } from '../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
 import { ProgramAuthoringRepository } from './program-authoring.repository';
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';

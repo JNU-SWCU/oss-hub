@@ -14,7 +14,7 @@ import type { MilestoneDocumentArchiveScope } from '../milestone-document-archiv
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from '../milestone-documents-error-code.enum';
+} from '../domain/milestone-documents-error-code.enum';
 
 export class MilestoneDocumentArchiveQueryRequestDto {
   @IsOptional()

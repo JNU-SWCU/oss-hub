@@ -23,6 +23,8 @@ import { DomainException } from '../../common/error-code';
 import { PrismaService } from '../../prisma/prisma.service';
 import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { canonicalUserCreateFromLabel } from '../../users/canonical-user-fixture';
+import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
+import { UsersAuthorityService } from '../../users/service/authority.service';
 import { ProgramTeamDeletionRepository } from '../repository/program-team-deletion.repository';
 import { ProgramTeamsRepository } from '../repository/program-teams.repository';
 import { TeamsErrorCode } from '../teams-error-code.enum';
@@ -67,6 +69,7 @@ const service = new ProgramTeamsService(
   loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: `${TEST_PREFIX}join-secret` }),
   auditLog,
   deletionRepository,
+  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
 );
 
 let teamSequence = 0;

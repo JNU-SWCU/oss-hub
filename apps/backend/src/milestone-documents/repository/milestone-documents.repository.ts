@@ -18,9 +18,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../profiles/user-profile-read';
+} from '../../prisma/user-profile-read';
 
-import { submissionParticipantWhere } from '../../submissions/submission-application.record';
+import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
 import type { MilestoneDocumentReviewRecord } from '../domain/milestone-document-review';
 import type {
   MilestoneDocumentRecord,
@@ -820,7 +820,7 @@ export class MilestoneDocumentsRepository {
     programId: string,
   ): Promise<StudentApplicationContext | null> {
     const application = await this.prisma.application.findFirst({
-      where: { programId, ...submissionParticipantWhere(userId) },
+      where: { programId, ...programApplicationParticipantWhere(userId) },
       select: {
         id: true,
         status: true,

@@ -1,6 +1,5 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../auth/auth.config';
 import { AuthService } from '../auth/service/auth.service';
@@ -8,10 +7,8 @@ import { OriginGuard } from '../auth/controller/origin.guard';
 import { sessionCookieName } from '../auth/domain/cookies';
 import { issueSessionToken } from '../auth/domain/session-token';
 import { SessionGuard } from '../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../common/problem-detail.filter';
-import { PrismaService } from '../prisma/prisma.service';
+import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
 import { ProgramTeamsController } from './controller/program-teams.controller';
-import { ProgramTeamsStaffGuard } from './program-teams-staff.guard';
 import { ProgramTeamsService } from './service/program-teams.service';
 
 const allowedOrigin = 'http://frontend.test';
@@ -20,7 +17,6 @@ const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
 
 const getForStaff = jest.fn();
-const findUnique = jest.fn();
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -46,7 +42,6 @@ beforeAll(async () => {
     providers: [
       { provide: ProgramTeamsService, useValue: { getForStaff } },
       SessionGuard,
-      ProgramTeamsStaffGuard,
       OriginGuard,
       {
         provide: AuthService,
@@ -60,7 +55,6 @@ beforeAll(async () => {
         provide: AuthConfig,
         useValue: { sessionSecret, allowedOrigin, useSecureCookies: false },
       },
-      { provide: PrismaService, useValue: { user: { findUnique } } },
     ],
   }).compile();
 
@@ -80,7 +74,6 @@ beforeAll(async () => {
 
 beforeEach(() => {
   getForStaff.mockReset();
-  findUnique.mockReset();
 });
 
 afterAll(async () => {
@@ -90,12 +83,6 @@ afterAll(async () => {
 });
 
 it('금지 필드(학번·학과·연락처·이메일·참여코드)는 신청·저장소가 있어도 응답에 없다', async () => {
-  findUnique.mockResolvedValue({
-    id: 'synthetic-staff',
-    hasStaffAccess: true,
-    hasAdminAccess: false,
-    accountStatus: AccountStatus.ACTIVE,
-  });
   getForStaff.mockResolvedValue({
     teamId: TEAM_ID,
     name: '오픈소스팀',
@@ -140,12 +127,6 @@ it('금지 필드(학번·학과·연락처·이메일·참여코드)는 신청�
 });
 
 it('신청이 없어도(application: null) 금지 필드가 없다', async () => {
-  findUnique.mockResolvedValue({
-    id: 'synthetic-staff',
-    hasStaffAccess: true,
-    hasAdminAccess: false,
-    accountStatus: AccountStatus.ACTIVE,
-  });
   getForStaff.mockResolvedValue({
     teamId: TEAM_ID,
     name: '오픈소스팀',

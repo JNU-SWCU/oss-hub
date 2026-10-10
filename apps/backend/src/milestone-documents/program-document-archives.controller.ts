@@ -17,7 +17,7 @@ import { milestoneDocumentAttachmentDisposition } from './milestone-document-att
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.enum';
+} from './domain/milestone-documents-error-code.enum';
 import { MilestoneDocumentsStaffGuard } from './milestone-documents-staff.guard';
 
 @Controller('programs/:programId/documents/collection/archive')

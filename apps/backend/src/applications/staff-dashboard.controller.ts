@@ -4,10 +4,11 @@ import {
   Header,
   Inject,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
 import { SessionGuard } from '../auth/controller/session.guard';
-import { ApplicationsStaffListGuard } from './applications-staff.guard';
 import { StaffDashboardSummaryResponseDto } from './dto/staff-dashboard-summary-response.dto';
 import { StaffInsightsQueryRequestDto } from './dto/staff-insights-query.dto';
 import { StaffInsightsResponseDto } from './dto/staff-insights-response.dto';
@@ -26,19 +27,27 @@ export class StaffDashboardController {
 
   @Get('summary')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard, ApplicationsStaffListGuard)
-  async summary(): Promise<StaffDashboardSummaryResponseDto> {
-    return StaffDashboardSummaryResponseDto.from(await this.service.summary());
+  @UseGuards(SessionGuard)
+  async summary(
+    @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
+  ): Promise<StaffDashboardSummaryResponseDto> {
+    return StaffDashboardSummaryResponseDto.from(
+      await this.service.summary(request.sessionGithubId),
+    );
   }
 
   @Get('insights')
   @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard, ApplicationsStaffListGuard)
+  @UseGuards(SessionGuard)
   async insightsSummary(
+    @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
     @Query() query: StaffInsightsQueryRequestDto,
   ): Promise<StaffInsightsResponseDto> {
     return StaffInsightsResponseDto.from(
-      await this.insights.summarize(parseInsightsYearQuery(query.year)),
+      await this.insights.summarize(
+        request.sessionGithubId,
+        parseInsightsYearQuery(query.year),
+      ),
     );
   }
 }

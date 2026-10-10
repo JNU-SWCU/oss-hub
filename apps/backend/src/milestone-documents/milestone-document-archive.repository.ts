@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   resolveUserProfileName,
   USER_PROFILE_NAME_SELECT,
-} from '../profiles/user-profile-read';
+} from '../prisma/user-profile-read';
 import type {
   MilestoneDocumentArchiveDocument,
   MilestoneDocumentArchiveTeam,

@@ -2,7 +2,7 @@ import { AccountStatus, Prisma } from '@prisma/client';
 import {
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../profiles/user-profile-read';
+} from '../prisma/user-profile-read';
 import { authorityLabel } from './domain/authority-label';
 import type { AdminAccessActor } from './admin-access.repository.types';
 

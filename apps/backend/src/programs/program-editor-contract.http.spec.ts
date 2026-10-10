@@ -4,7 +4,7 @@ import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { OriginGuard } from '../auth/controller/origin.guard';
 import { SessionGuard } from '../auth/controller/session.guard';
-import { ProblemDetailFilter } from '../common/problem-detail.filter';
+import { ProblemDetailFilter } from '../common/controller/problem-detail.filter';
 import { ProgramEditorController } from './controller/program-editor.controller';
 import { MilestonesController } from './controller/milestones.controller';
 import { ProgramEditorRepository } from './repository/program-editor.repository';

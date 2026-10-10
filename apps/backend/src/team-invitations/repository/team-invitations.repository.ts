@@ -29,7 +29,7 @@ import {
   userProfileNameWhere,
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../profiles/user-profile-read';
+} from '../../prisma/user-profile-read';
 
 const TEAM_INVITEE_SELECT = {
   id: true,

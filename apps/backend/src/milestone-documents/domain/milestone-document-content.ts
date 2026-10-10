@@ -3,7 +3,7 @@ import { DomainException } from '../../common/error-code';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from '../milestone-documents-error-code.enum';
+} from './milestone-documents-error-code.enum';
 
 export type MilestoneDocumentContentInput = {
   readonly text: string | null;

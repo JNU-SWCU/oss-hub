@@ -30,12 +30,12 @@ import {
 import {
   projectSubmissionCompletionTargets,
   submissionCompletionTargetSelect,
-} from '../../submissions/submission-completion-projection';
+} from '../../submissions/domain/submission-completion-projection';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
   resolveUserProfileName,
-} from '../../profiles/user-profile-read';
+} from '../../prisma/user-profile-read';
 import type {
   TeamApplicationView,
   TeamRepositoryProvisioningJobStatus,

@@ -1,5 +1,6 @@
-import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import {
+  ApplicationReviewEventKind,
+  ApplicationStatus,
   MemberKind,
   ProgramCategory,
   RepositoryConnectionMode,
@@ -14,7 +15,6 @@ import {
 } from '../users/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ApplicationsErrorCode } from '../applications/applications-error-code.enum';
-import { ApplicationsStaffGuard } from '../applications/applications-staff.guard';
 import { ApplicationsRepository } from '../applications/applications.repository';
 import { ApplicationsService } from '../applications/applications.service';
 import { StudentRepositoryUrlRepository } from '../applications/student-repository-url.repository';
@@ -25,6 +25,8 @@ import { AuditLogService } from '../audit-log/service/audit-log.service';
 import { ConsentsRepository } from '../consents/repository/consents.repository';
 import { ConsentsService } from '../consents/service/consents.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersAuthorityRepository } from '../users/repository/authority.repository';
+import { UsersAuthorityService } from '../users/service/authority.service';
 import type {
   GithubAppClient,
   GithubPublicRepositoryMetadata,
@@ -51,8 +53,8 @@ const repository = new ApplicationsRepository(prisma, {
 const service = new ApplicationsService(
   repository,
   new AuditLogService(new AuditLogRepository(prisma)),
+  new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
 );
-const staffGuard = new ApplicationsStaffGuard(prisma);
 const outbox = new RepositoryOutboxConsumer(new RepositoriesRepository(prisma));
 const jobs = new RepositoryProvisionJobRepository(prisma);
 const state = new RepositoryProvisionStateRepository(prisma);
@@ -84,6 +86,9 @@ const PRECHECK_PRIVATE_APPLICATION_ID =
   'synthetic-own-chain-precheck-private-application';
 const ORG_OWNER_EXTERNAL_APPLICATION_ID =
   'synthetic-own-chain-org-owner-external-application';
+const AUTHORITY_APPLICATION_ID = 'synthetic-own-chain-authority-application';
+const AUTHORITY_DENIED_APPLICATION_ID =
+  'synthetic-own-chain-authority-denied-application';
 const APPLICATION_IDS = [
   CHAIN_APPLICATION_ID,
   NO_CONSENT_APPLICATION_ID,
@@ -91,6 +96,8 @@ const APPLICATION_IDS = [
   PRECHECK_MISSING_APPLICATION_ID,
   PRECHECK_PRIVATE_APPLICATION_ID,
   ORG_OWNER_EXTERNAL_APPLICATION_ID,
+  AUTHORITY_APPLICATION_ID,
+  AUTHORITY_DENIED_APPLICATION_ID,
 ] as const;
 
 const OWN_GITHUB_REPOSITORY_ID = 8_520_100_001n;
@@ -297,26 +304,98 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     await prisma.$disconnect();
   });
 
-  describe('ApplicationsStaffGuard', () => {
-    it('실 DB의 STAFF actor를 허용하고 처리자 ID를 붙인다', async () => {
-      const request: { sessionGithubId: bigint; applicationActorId?: string } =
-        { sessionGithubId: STAFF_GITHUB_ID };
-      const context = new ExecutionContextHost([request]);
-      context.setType('http');
+  describe('ApplicationsService 판정 권한', () => {
+    it('실 DB의 STAFF 세션을 허용하고 해석한 처리자 ID를 판정·감사 이력에 남긴다', async () => {
+      await createOwnApplication(
+        AUTHORITY_APPLICATION_ID,
+        APPLICANT_ID,
+        OWN_REPOSITORY_URL,
+      );
 
-      await expect(staffGuard.canActivate(context)).resolves.toBe(true);
-      expect(request.applicationActorId).toBe(STAFF_ACTOR_ID);
+      const decision = await service.decide(
+        STAFF_GITHUB_ID,
+        AUTHORITY_APPLICATION_ID,
+        { action: 'APPROVE' },
+      );
+
+      expect(decision.kind).toBe('APPROVED');
+      await expect(
+        prisma.application.findUniqueOrThrow({
+          where: { id: AUTHORITY_APPLICATION_ID },
+        }),
+      ).resolves.toMatchObject({
+        status: ApplicationStatus.APPROVED,
+        processedById: STAFF_ACTOR_ID,
+      });
+      await expect(
+        prisma.applicationReviewHistory.findFirstOrThrow({
+          where: { applicationId: AUTHORITY_APPLICATION_ID },
+        }),
+      ).resolves.toMatchObject({
+        eventKind: ApplicationReviewEventKind.APPROVED,
+        actorId: STAFF_ACTOR_ID,
+      });
+      await expect(
+        prisma.auditLog.findFirstOrThrow({
+          where: {
+            targetType: 'APPLICATION',
+            targetId: AUTHORITY_APPLICATION_ID,
+          },
+        }),
+      ).resolves.toMatchObject({
+        actorId: STAFF_ACTOR_ID,
+        action: 'APPLICATION_APPROVED',
+      });
     });
 
-    it('실 DB의 STUDENT actor를 판정 전용 403으로 거부한다', async () => {
-      const context = new ExecutionContextHost([
-        { sessionGithubId: STUDENT_ACTOR_GITHUB_ID },
-      ]);
-      context.setType('http');
+    it('실 DB의 STUDENT 세션은 쓰기 전에 APP_004로 거부한다', async () => {
+      await createOwnApplication(
+        AUTHORITY_DENIED_APPLICATION_ID,
+        APPLICANT_ID,
+        OWN_REPOSITORY_URL,
+      );
 
-      await expect(staffGuard.canActivate(context)).rejects.toMatchObject({
+      await expect(
+        service.decide(
+          STUDENT_ACTOR_GITHUB_ID,
+          AUTHORITY_DENIED_APPLICATION_ID,
+          { action: 'APPROVE' },
+        ),
+      ).rejects.toMatchObject({
         errorCode: { code: ApplicationsErrorCode.STAFF_ONLY, status: 403 },
       });
+
+      await expect(
+        prisma.application.findUniqueOrThrow({
+          where: { id: AUTHORITY_DENIED_APPLICATION_ID },
+        }),
+      ).resolves.toMatchObject({
+        status: ApplicationStatus.SUBMITTED,
+        processedById: null,
+      });
+      await expect(
+        prisma.applicationReviewHistory.count({
+          where: { applicationId: AUTHORITY_DENIED_APPLICATION_ID },
+        }),
+      ).resolves.toBe(0);
+      await expect(
+        prisma.auditLog.count({
+          where: {
+            targetType: 'APPLICATION',
+            targetId: AUTHORITY_DENIED_APPLICATION_ID,
+          },
+        }),
+      ).resolves.toBe(0);
+      await expect(
+        prisma.outboxEvent.count({
+          where: { aggregateId: AUTHORITY_DENIED_APPLICATION_ID },
+        }),
+      ).resolves.toBe(0);
+      await expect(
+        prisma.repositoryProvisionJob.count({
+          where: { applicationId: AUTHORITY_DENIED_APPLICATION_ID },
+        }),
+      ).resolves.toBe(0);
     });
   });
 
@@ -324,13 +403,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     '권한 확인→승인 판정→outbox 소비→worker 편입까지 실 DB로 완주해 ' +
       'owner/repo와 defaultBranch를 가진 수집 행을 남긴다',
     async () => {
-      const guardRequest: { sessionGithubId: bigint } = {
-        sessionGithubId: STAFF_GITHUB_ID,
-      };
-      const guardContext = new ExecutionContextHost([guardRequest]);
-      guardContext.setType('http');
-      await expect(staffGuard.canActivate(guardContext)).resolves.toBe(true);
-
       await createOwnApplication(
         CHAIN_APPLICATION_ID,
         APPLICANT_ID,
@@ -338,9 +410,8 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       );
 
       const decision = await service.decide(
-        STAFF_ACTOR_ID,
-        CHAIN_APPLICATION_ID,
         STAFF_GITHUB_ID,
+        CHAIN_APPLICATION_ID,
         { action: 'APPROVE' },
       );
 
@@ -348,6 +419,11 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       if (decision.kind !== 'APPROVED') {
         throw new Error('fixture approval must succeed');
       }
+      await expect(
+        prisma.application.findUniqueOrThrow({
+          where: { id: CHAIN_APPLICATION_ID },
+        }),
+      ).resolves.toMatchObject({ processedById: STAFF_ACTOR_ID });
       await expect(
         prisma.outboxEvent.findUniqueOrThrow({
           where: {
@@ -418,9 +494,8 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       );
 
       const decision = await service.decide(
-        STAFF_ACTOR_ID,
-        ORG_OWNER_EXTERNAL_APPLICATION_ID,
         STAFF_GITHUB_ID,
+        ORG_OWNER_EXTERNAL_APPLICATION_ID,
         { action: 'APPROVE' },
       );
       expect(decision.kind).toBe('APPROVED');
@@ -487,9 +562,8 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       NO_CONSENT_REPOSITORY_URL,
     );
     const decision = await service.decide(
-      STAFF_ACTOR_ID,
-      NO_CONSENT_APPLICATION_ID,
       STAFF_GITHUB_ID,
+      NO_CONSENT_APPLICATION_ID,
       { action: 'APPROVE' },
     );
     if (decision.kind !== 'APPROVED') {
@@ -563,9 +637,8 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         ORG_OWN_REPOSITORY_URL,
       );
       const decision = await service.decide(
-        STAFF_ACTOR_ID,
-        ORG_OWN_APPLICATION_ID,
         STAFF_GITHUB_ID,
+        ORG_OWN_APPLICATION_ID,
         { action: 'APPROVE' },
       );
       if (decision.kind !== 'APPROVED') {
@@ -621,12 +694,9 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       APPLICANT_ID,
       OWN_REPOSITORY_URL,
     );
-    await service.decide(
-      STAFF_ACTOR_ID,
-      CHAIN_APPLICATION_ID,
-      STAFF_GITHUB_ID,
-      { action: 'APPROVE' },
-    );
+    await service.decide(STAFF_GITHUB_ID, CHAIN_APPLICATION_ID, {
+      action: 'APPROVE',
+    });
     const github = githubClient();
     github.findPublicRepository.mockResolvedValue(
       ownRepositoryMetadata(OWN_GITHUB_REPOSITORY_ID, OWN_NAME_WITH_OWNER),
@@ -687,7 +757,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         PRECHECK_APPLICANT_ID,
         'https://github.com/synthetic/private',
       );
-      await service.decide(STAFF_ACTOR_ID, applicationId, STAFF_GITHUB_ID, {
+      await service.decide(STAFF_GITHUB_ID, applicationId, {
         action: 'APPROVE',
       });
       const queueNow = await consumeApproval(

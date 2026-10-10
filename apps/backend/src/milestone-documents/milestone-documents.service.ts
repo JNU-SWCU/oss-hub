@@ -5,7 +5,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { DomainException } from '../common/error-code';
-import { SubmissionMembershipChangedError } from '../submissions/submission-membership.repository';
+import { SubmissionMembershipChangedError } from '../submissions/domain/submission-membership-changed.error';
 import { buildMilestoneDocumentCollectionPage } from './domain/milestone-document-collection-page';
 import type { MilestoneDocumentCollectionQuery } from './domain/milestone-document-collection-query';
 import {
@@ -23,7 +23,7 @@ import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.enum';
+} from './domain/milestone-documents-error-code.enum';
 import {
   InvalidMilestoneDocumentHistoryCursorError,
   MilestoneDocumentDeadlineClosedError,

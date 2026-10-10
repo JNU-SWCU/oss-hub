@@ -44,7 +44,7 @@ import { UpsertMilestoneDocumentRequestDto } from './dto/upsert-milestone-docume
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.enum';
+} from './domain/milestone-documents-error-code.enum';
 import {
   MilestoneDocumentArchiveEntryError,
   MilestoneDocumentArchiveService,
@@ -63,7 +63,7 @@ import {
   type MilestoneDocumentsStaffRequest,
 } from './milestone-documents-staff.guard';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/submission-upload-policy';
+import { SUBMISSION_UPLOAD_MAX_BYTES } from '../submissions/domain/submission-upload-policy';
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

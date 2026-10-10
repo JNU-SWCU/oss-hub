@@ -6,7 +6,7 @@ import {
 import {
   SubmissionDashboardSummaryService,
   type SubmissionDashboardProgramSummary,
-} from '../submissions/submission-dashboard-summary.service';
+} from '../submissions/service/submission-dashboard-summary.service';
 import type {
   StaffDashboardApplicationCounts,
   StaffDashboardProgramSummary,
@@ -68,8 +68,10 @@ export class StaffDashboardService {
     >,
   ) {}
 
-  async summary(): Promise<StaffDashboardComposedSummary> {
-    const base = await this.applications.staffSummary();
+  async summary(
+    sessionGithubId: bigint,
+  ): Promise<StaffDashboardComposedSummary> {
+    const base = await this.applications.staffSummary(sessionGithubId);
     const programIds = base.programs.map((program) => program.id);
     const [activities, submissions] = await Promise.all([
       this.activities.summarize(programIds),

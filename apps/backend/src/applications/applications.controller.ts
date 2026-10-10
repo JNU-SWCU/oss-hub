@@ -10,11 +10,7 @@ import {
 } from '@nestjs/common';
 import { OriginGuard } from '../auth/controller/origin.guard';
 import { SessionGuard } from '../auth/controller/session.guard';
-import {
-  ApplicationsStaffGuard,
-  ApplicationsStaffListGuard,
-} from './applications-staff.guard';
-import type { ApplicationStaffRequest } from './applications-staff.guard';
+import type { AuthenticatedRequest } from '../auth/controller/http-auth';
 import { ApplicationsService } from './applications.service';
 import {
   type ApplicationDecisionResponseDto,
@@ -23,10 +19,7 @@ import {
 import { ApplicationDetailResponseDto } from './dto/application-detail-response.dto';
 import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
 
-type ApplicationActorRequest = Pick<
-  ApplicationStaffRequest,
-  'applicationActorId' | 'sessionGithubId'
->;
+type ApplicationActorRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 @Controller('applications')
 export class ApplicationsController {
@@ -39,27 +32,27 @@ export class ApplicationsController {
   ) {}
 
   @Get(':id')
-  @UseGuards(SessionGuard, ApplicationsStaffListGuard)
+  @UseGuards(SessionGuard)
   async detail(
+    @Req() request: ApplicationActorRequest,
     @Param('id') applicationId: string,
   ): Promise<ApplicationDetailResponseDto> {
     return ApplicationDetailResponseDto.fromDetail(
-      await this.service.getForStaff(applicationId),
+      await this.service.getForStaff(request.sessionGithubId, applicationId),
     );
   }
 
   @Patch(':id')
-  @UseGuards(SessionGuard, ApplicationsStaffGuard, OriginGuard)
+  @UseGuards(SessionGuard, OriginGuard)
   async decide(
     @Req() request: ApplicationActorRequest,
     @Param('id') applicationId: string,
     @Body() body: PatchApplicationDecisionRequestDto,
   ): Promise<ApplicationDecisionResponseDto> {
     const result = await this.service.decide(
-      request.applicationActorId,
-      applicationId,
       request.sessionGithubId,
-      body.toAction(),
+      applicationId,
+      body,
     );
     return toApplicationDecisionResponse(result);
   }
