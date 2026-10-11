@@ -43,12 +43,6 @@ export default tseslint.config(
     extends: [tseslint.configs.disableTypeChecked],
   },
   {
-    files: [
-      'src/github/collection-sync.service.100-repositories.integration.spec.ts',
-    ],
-    rules: { '@typescript-eslint/unbound-method': 'off' },
-  },
-  {
     ignores: ['dist', 'node_modules'],
   },
 );
