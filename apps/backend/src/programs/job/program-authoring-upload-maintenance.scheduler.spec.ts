@@ -1,5 +1,7 @@
 import { Logger } from '@nestjs/common';
-import type { ProgramAuthoringUploadMaintenanceService } from '../service/program-authoring-upload-maintenance.service';
+import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
+import { Test, TestingModule } from '@nestjs/testing';
+import { ProgramAuthoringUploadMaintenanceService } from '../service/program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadMaintenanceScheduler } from './program-authoring-upload-maintenance.scheduler';
 
 function deferred(): {
@@ -16,7 +18,56 @@ function deferred(): {
   return { promise, resolve: resolvePromise };
 }
 
+const CRON_JOB_NAME = 'program-authoring-upload-cleanup';
+
 describe('ProgramAuthoringUploadMaintenanceScheduler', () => {
+  describe('SchedulerRegistry 등록', () => {
+    let testingModule: TestingModule;
+    const runDue = jest.fn<Promise<number>, []>();
+
+    const registry = () => testingModule.get(SchedulerRegistry);
+    const registeredJob = () => registry().getCronJob(CRON_JOB_NAME);
+
+    beforeEach(async () => {
+      runDue.mockReset();
+      runDue.mockResolvedValue(0);
+      testingModule = await Test.createTestingModule({
+        imports: [ScheduleModule.forRoot()],
+        providers: [
+          ProgramAuthoringUploadMaintenanceScheduler,
+          {
+            provide: ProgramAuthoringUploadMaintenanceService,
+            useValue: { runDue },
+          },
+        ],
+      }).compile();
+      await testingModule.init();
+    });
+
+    afterEach(async () => {
+      await testingModule.close();
+    });
+
+    it('업로드 정리 job 이름과 매시 정각 표현식, 프로세스 시간대, 라이브러리 완료 대기 없음으로 cron 하나를 등록한다', () => {
+      const job = registeredJob();
+
+      expect([...registry().getCronJobs().keys()]).toEqual([CRON_JOB_NAME]);
+      expect(job.name).toBe(CRON_JOB_NAME);
+      expect(job.cronTime.source).toBe('0 0-23/1 * * *');
+      expect(job.cronTime.timeZone).toBe(
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+      );
+      expect(job.waitForCompletion).toBe(false);
+    });
+
+    it('등록된 cron tick 1회가 업로드 정리 서비스의 기한 도래 실행 1회로 위임된다', async () => {
+      await registeredJob().fireOnTick();
+
+      expect(runDue).toHaveBeenCalledTimes(1);
+      expect(runDue).toHaveBeenCalledWith();
+    });
+  });
+
   it('skips an overlapping hourly run', async () => {
     const pending = deferred();
     const maintenance: jest.Mocked<
