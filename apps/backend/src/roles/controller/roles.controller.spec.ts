@@ -5,7 +5,7 @@ import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { DomainException } from '../../common/error-code';
-import type { StaffAccessRequestRecord } from '../../users/domain/member-onboarding';
+import type { StaffAccessRequestRecord } from '../domain/member-onboarding';
 import { SelectStaffAccessRequestDto } from '../dto/select-role-request.dto';
 import {
   OnboardingController,

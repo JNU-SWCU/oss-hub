@@ -14,16 +14,16 @@ import type { UserProfileView } from '../../prisma/user-profile-read';
 import type {
   StaffAccessRequestRecord,
   MemberUser,
-} from '../../users/domain/member-onboarding';
-import { requestStaffAccess } from '../../users/repository/staff-access-request';
+} from '../domain/member-onboarding';
+import { requestStaffAccess } from '../../prisma/staff-access-request';
 import type {
   StaffAccessRequestOutcome,
   StaffAccessRequestTarget,
-} from '../../users/domain/onboarding-store';
+} from '../../prisma/staff-access-request';
 import type {
-  OnboardingRepositoryPort,
   OnboardingTransactionStore,
-} from '../../users/domain/onboarding-store';
+  RolesRepository,
+} from '../repository/roles.repository';
 import { RolesErrorCode } from '../../users/domain/roles-error-code.enum';
 import { RolesService } from './roles.service';
 
@@ -142,7 +142,10 @@ class InMemoryRolesStore implements OnboardingTransactionStore {
   }
 }
 
-class InMemoryRolesRepository implements OnboardingRepositoryPort {
+class InMemoryRolesRepository implements Pick<
+  RolesRepository,
+  keyof RolesRepository
+> {
   constructor(private readonly store: InMemoryRolesStore) {}
 
   withTransaction<T>(
@@ -188,7 +191,7 @@ function createService(
   };
   return {
     service: new RolesService(
-      new InMemoryRolesRepository(store),
+      new InMemoryRolesRepository(store) as unknown as RolesRepository,
       consentsService,
     ),
     store,

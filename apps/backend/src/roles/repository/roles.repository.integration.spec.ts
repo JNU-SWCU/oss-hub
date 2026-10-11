@@ -6,7 +6,7 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import type { ConsentsService } from '../../consents/service/consents.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { UsersOnboardingRepository } from '../../users/repository/onboarding.repository';
+import { RolesRepository } from './roles.repository';
 import { RolesErrorCode } from '../../users/domain/roles-error-code.enum';
 import { RolesService } from '../service/roles.service';
 
@@ -29,9 +29,9 @@ const STAFF_PROFILE = {
   affiliationName: '인공지능학부',
 } as const;
 
-describe('UsersOnboardingRepository integration', () => {
+describe('RolesRepository integration', () => {
   const prisma = new PrismaService();
-  const repository = new UsersOnboardingRepository(prisma);
+  const repository = new RolesRepository(prisma);
   const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
     requireCurrent: jest.fn().mockResolvedValue(undefined),
   };

@@ -6,12 +6,12 @@ import {
   OnboardingController,
   StaffAccessRequestsController,
 } from './controller/roles.controller';
-import { UsersModule } from '../users/users.module';
+import { RolesRepository } from './repository/roles.repository';
 import { RolesService } from './service/roles.service';
 
 @Module({
-  imports: [AuditLogModule, AuthModule, ConsentsModule, UsersModule],
+  imports: [AuditLogModule, AuthModule, ConsentsModule],
   controllers: [OnboardingController, StaffAccessRequestsController],
-  providers: [RolesService],
+  providers: [RolesRepository, RolesService],
 })
 export class RolesModule {}

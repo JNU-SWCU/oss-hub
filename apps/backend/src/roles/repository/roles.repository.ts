@@ -5,17 +5,29 @@ import type {
   StaffAccessRequest as PrismaStaffAccessRequest,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { requestStaffAccess } from '../../prisma/staff-access-request';
+import type {
+  StaffAccessRequestOutcome,
+  StaffAccessRequestTarget,
+} from '../../prisma/staff-access-request';
 import type {
   MemberUser,
   StaffAccessRequestRecord,
 } from '../domain/member-onboarding';
-import { requestStaffAccess } from './staff-access-request';
-import type {
-  StaffAccessRequestOutcome,
-  StaffAccessRequestTarget,
-  OnboardingRepositoryPort,
-  OnboardingTransactionStore,
-} from '../domain/onboarding-store';
+
+export interface OnboardingTransactionStore {
+  findUserByGithubId(githubId: bigint): Promise<MemberUser | null>;
+  updateSelectedMemberKind(
+    userId: string,
+    memberKind: MemberKind,
+  ): Promise<MemberUser>;
+  findPendingRequest(userId: string): Promise<StaffAccessRequestRecord | null>;
+  findLatestRequest(userId: string): Promise<StaffAccessRequestRecord | null>;
+  createPendingRequest(userId: string): Promise<StaffAccessRequestRecord>;
+  requestStaffAccess(
+    target: StaffAccessRequestTarget,
+  ): Promise<StaffAccessRequestOutcome>;
+}
 
 const MEMBER_USER_SELECT = {
   id: true,
@@ -100,7 +112,7 @@ class PrismaOnboardingTransactionStore implements OnboardingTransactionStore {
 }
 
 @Injectable()
-export class UsersOnboardingRepository implements OnboardingRepositoryPort {
+export class RolesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async withTransaction<T>(

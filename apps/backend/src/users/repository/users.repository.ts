@@ -8,7 +8,7 @@ import {
   fillStudentIdIfEmpty,
   type StudentIdFillOutcome,
 } from '../../prisma/user-profile-write';
-import { requestStaffAccess } from './staff-access-request';
+import { requestStaffAccess } from '../../prisma/staff-access-request';
 import type {
   CompleteUserProfileInput,
   UpdateProfileFieldsInput,

@@ -4,22 +4,26 @@ import {
   OnboardingController,
   StaffAccessRequestsController,
 } from './controller/roles.controller';
+import { ConsentsService } from '../consents/service/consents.service';
 import { RolesModule } from './roles.module';
 import { UsersModule } from '../users/users.module';
+import { RolesRepository } from './repository/roles.repository';
 import { RolesService } from './service/roles.service';
-import { UsersOnboardingService } from '../users/service/onboarding.service';
 
 describe('RolesModule wiring (PR04H)', () => {
-  it('imports the users-owned onboarding capability without registering a foreign repository', () => {
-    expect(Reflect.getMetadata(MODULE_METADATA.IMPORTS, RolesModule)).toContain(
-      UsersModule,
-    );
+  it('owns its onboarding repository and injects it into RolesService without importing users', () => {
+    expect(
+      Reflect.getMetadata(MODULE_METADATA.IMPORTS, RolesModule),
+    ).not.toContain(UsersModule);
     expect(Reflect.getMetadata(MODULE_METADATA.PROVIDERS, RolesModule)).toEqual(
-      [RolesService],
+      [RolesRepository, RolesService],
     );
-    expect(Reflect.getMetadata('self:paramtypes', RolesService)).toContainEqual(
-      { index: 0, param: UsersOnboardingService },
-    );
+    expect(
+      (Reflect.getMetadata('design:paramtypes', RolesService) as unknown[])[0],
+    ).toBe(RolesRepository);
+    expect(Reflect.getMetadata('self:paramtypes', RolesService)).toEqual([
+      { index: 1, param: ConsentsService },
+    ]);
     expect(
       Reflect.getMetadata(MODULE_METADATA.IMPORTS, UsersModule),
     ).not.toContain(RolesModule);

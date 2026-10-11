@@ -17,12 +17,9 @@ import type {
   MemberUser,
   SelectableMemberKind,
   StaffAccessRequestRecord,
-} from '../../users/domain/member-onboarding';
-import { UsersOnboardingService } from '../../users/service/onboarding.service';
-import type {
-  OnboardingRepositoryPort,
-  OnboardingTransactionStore,
-} from '../../users/domain/onboarding-store';
+} from '../domain/member-onboarding';
+import { RolesRepository } from '../repository/roles.repository';
+import type { OnboardingTransactionStore } from '../repository/roles.repository';
 import {
   ROLES_ERROR_CODES,
   RolesErrorCode,
@@ -31,8 +28,7 @@ import {
 @Injectable()
 export class RolesService {
   constructor(
-    @Inject(UsersOnboardingService)
-    private readonly repository: OnboardingRepositoryPort,
+    private readonly repository: RolesRepository,
     @Inject(ConsentsService)
     private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,
   ) {}
