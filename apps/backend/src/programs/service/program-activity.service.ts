@@ -11,7 +11,10 @@ import {
   ProgramErrorCode,
   PROGRAM_ERROR_CODES as CREATION_ERROR_CODES,
 } from '../domain/program-error-code.enum';
-import type { ProgramViewer } from './program-viewer.service';
+import type {
+  ProgramStudentViewer,
+  ProgramViewer,
+} from './program-viewer.service';
 import {
   ProgramActivityRepository,
   type ProgramRepositoryActivity,
@@ -148,10 +151,10 @@ export class ProgramActivityService {
   }
 
   async activityTimeline(
-    viewer: ProgramViewer,
+    student: ProgramStudentViewer | null,
     granularity: ActivityGranularity,
   ): Promise<ActivityTimelineResponseDto> {
-    if (viewer.role !== 'STUDENT' || !viewer.userId || !viewer.githubId) {
+    if (!student) {
       throw new DomainException(
         CREATION_ERROR_CODES[ProgramErrorCode.FORBIDDEN],
       );
@@ -159,7 +162,7 @@ export class ProgramActivityService {
 
     try {
       const applications =
-        await this.repository.findStudentActivityApplications(viewer.userId);
+        await this.repository.findStudentActivityApplications(student.userId);
       const repositoryIds = [
         ...new Set(
           applications.flatMap((application) =>
@@ -171,7 +174,7 @@ export class ProgramActivityService {
       ];
       const activity = await this.activityReads.findRepositoryActivity({
         repositoryIds,
-        authorGithubId: viewer.githubId,
+        authorGithubId: student.githubId,
       });
       const canonicalByRepository = new Map<
         bigint,

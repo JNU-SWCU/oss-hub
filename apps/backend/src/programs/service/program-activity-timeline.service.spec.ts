@@ -8,13 +8,12 @@ import {
   ProgramActivityService,
   type ProgramActivityProgramStore,
 } from './program-activity.service';
-import type { ProgramViewer } from './program-viewer.service';
+import type { ProgramStudentViewer } from './program-viewer.service';
 import { StudentDashboardController } from '../controller/programs.controller';
 
-const student: ProgramViewer = {
+const student: ProgramStudentViewer = {
   githubId: 11n,
   userId: 'student-1',
-  role: 'STUDENT',
 };
 
 const application = {
@@ -217,27 +216,23 @@ describe('ProgramActivityService canonical activity', () => {
     expect(result.series.points).toEqual([]);
   });
 
-  it.each<'STAFF' | 'ADMIN' | null>(['STAFF', 'ADMIN', null])(
-    'rejects non-student role %s before reading activity',
-    async (role) => {
-      const findStudentActivityApplications = jest.fn();
-      const findRepositoryActivity = jest.fn<
-        ReturnType<ProgramActivityRepository['findRepositoryActivity']>,
-        Parameters<ProgramActivityRepository['findRepositoryActivity']>
-      >();
-      const repository = {
-        findStudentActivityApplications,
-      } as unknown as ProgramActivityProgramStore;
-      const viewer: ProgramViewer = { githubId: 11n, userId: 'user-1', role };
+  it('rejects a viewer who is not a student before reading activity', async () => {
+    const findStudentActivityApplications = jest.fn();
+    const findRepositoryActivity = jest.fn<
+      ReturnType<ProgramActivityRepository['findRepositoryActivity']>,
+      Parameters<ProgramActivityRepository['findRepositoryActivity']>
+    >();
+    const repository = {
+      findStudentActivityApplications,
+    } as unknown as ProgramActivityProgramStore;
 
-      await expect(
-        new ProgramActivityService(
-          repository,
-          activityReads(findRepositoryActivity),
-        ).activityTimeline(viewer, 'MONTH'),
-      ).rejects.toMatchObject({ errorCode: { status: 403 } });
-      expect(findStudentActivityApplications).not.toHaveBeenCalled();
-      expect(findRepositoryActivity).not.toHaveBeenCalled();
-    },
-  );
+    await expect(
+      new ProgramActivityService(
+        repository,
+        activityReads(findRepositoryActivity),
+      ).activityTimeline(null, 'MONTH'),
+    ).rejects.toMatchObject({ errorCode: { status: 403 } });
+    expect(findStudentActivityApplications).not.toHaveBeenCalled();
+    expect(findRepositoryActivity).not.toHaveBeenCalled();
+  });
 });

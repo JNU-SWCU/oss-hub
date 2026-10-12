@@ -283,6 +283,27 @@ describe('MilestoneDocumentsRepository.findActiveUser', () => {
   });
 });
 
+describe('MilestoneDocumentsRepository.findActiveStudentByGithubId', () => {
+  it('교직원·관리자 권한과 관계없이 활성 학생 유형 계정만 찾는다', async () => {
+    const findFirst = jest.fn().mockResolvedValue({ id: syntheticUserId });
+    const prisma = { user: { findFirst } } as unknown as PrismaService;
+    const repository = new MilestoneDocumentsRepository(prisma);
+
+    await expect(
+      repository.findActiveStudentByGithubId(9001n),
+    ).resolves.toEqual({ id: syntheticUserId });
+
+    expect(findFirst).toHaveBeenCalledWith({
+      where: {
+        githubId: 9001n,
+        accountStatus: AccountStatus.ACTIVE,
+        profile: { is: { memberKind: 'STUDENT' } },
+      },
+      select: { id: true },
+    });
+  });
+});
+
 describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissionsByDocument', () => {
   it('승인된 신청 수를 센다', async () => {
     const count = jest.fn().mockResolvedValue(8);

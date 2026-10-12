@@ -184,7 +184,7 @@ export class StudentDashboardController {
     @Query() query: ActivityTimelineQueryRequestDto,
   ): Promise<ActivityTimelineResponseDto> {
     return this.activity.activityTimeline(
-      await this.viewers.fromGithubId(request.sessionGithubId),
+      await this.viewers.studentFromGithubId(request.sessionGithubId),
       query.granularity,
     );
   }
