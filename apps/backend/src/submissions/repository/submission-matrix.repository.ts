@@ -4,7 +4,7 @@ import {
   ApplicationStatus,
   MilestoneDocumentKind,
   Prisma,
-  type SubmissionStatus,
+  SubmissionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -76,6 +76,14 @@ export interface SubmissionMatrixRepositoryPort {
     applicationIds: readonly string[],
     documentIds: readonly string[],
   ): Promise<readonly MatrixDocumentFirstSubmission[]>;
+  findDocumentChangeRequests(
+    applicationIds: readonly string[],
+  ): Promise<readonly MatrixDocumentChangeRequest[]>;
+}
+
+export interface MatrixDocumentChangeRequest {
+  readonly applicationId: string;
+  readonly milestoneId: string;
 }
 
 export function submissionMatrixApplicationWhere(
@@ -217,6 +225,27 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       this.prisma.application.count({ where }),
     ]);
     return { items: applications.map(toMatrixApplication), total };
+  }
+
+  async findDocumentChangeRequests(
+    applicationIds: readonly string[],
+  ): Promise<readonly MatrixDocumentChangeRequest[]> {
+    if (applicationIds.length === 0) return [];
+    const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
+      where: {
+        applicationId: { in: [...applicationIds] },
+        status: SubmissionStatus.CHANGES_REQUESTED,
+        milestoneDocument: { kind: MilestoneDocumentKind.DOCUMENT },
+      },
+      select: {
+        applicationId: true,
+        milestoneDocument: { select: { milestoneId: true } },
+      },
+    });
+    return submissions.map((submission) => ({
+      applicationId: submission.applicationId,
+      milestoneId: submission.milestoneDocument.milestoneId,
+    }));
   }
 
   async findCurrentSubmissions(
