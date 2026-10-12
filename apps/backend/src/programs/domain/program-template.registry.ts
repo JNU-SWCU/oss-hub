@@ -7,16 +7,16 @@ export const PROGRAM_PARTICIPATION = {
 export type ProgramParticipation =
   (typeof PROGRAM_PARTICIPATION)[keyof typeof PROGRAM_PARTICIPATION];
 
-export const APPLICATION_FIELD_TYPES = {
+const APPLICATION_FIELD_TYPES = {
   AUTO: 'auto',
   TEXT: 'text',
   TEXTAREA: 'textarea',
 } as const;
 
-export type ApplicationFieldType =
+type ApplicationFieldType =
   (typeof APPLICATION_FIELD_TYPES)[keyof typeof APPLICATION_FIELD_TYPES];
 
-export type ApplicationFieldKey = 'applicantName';
+type ApplicationFieldKey = 'applicantName';
 
 export interface FieldDef {
   readonly key: ApplicationFieldKey;
@@ -58,9 +58,7 @@ function template(key: string, name: string): ProgramTemplate {
   };
 }
 
-export const PROGRAM_TEMPLATES: Readonly<
-  Record<ProgramCategory, ProgramTemplate>
-> = {
+const PROGRAM_TEMPLATES: Readonly<Record<ProgramCategory, ProgramTemplate>> = {
   [ProgramCategory.BASIC]: template('basic', '기본 신청서'),
   [ProgramCategory.SW_VALUE_SPREAD]: template(
     'sw-value-spread',

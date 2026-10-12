@@ -9,7 +9,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { LoginHistoryService } from '../../login-history/service/login-history.service';
 import { AuthConfig } from '../auth.config';
 import { OptionalSession, Protected, Public } from './auth-route-metadata';

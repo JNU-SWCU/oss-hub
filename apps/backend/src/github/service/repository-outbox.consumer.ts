@@ -8,7 +8,7 @@ import {
 } from '../domain/repository-provision-event';
 import { RepositoriesRepository } from '../repository/repositories.repository';
 
-export const DEFAULT_OUTBOX_LEASE_MS = 5 * 60_000;
+const DEFAULT_OUTBOX_LEASE_MS = 5 * 60_000;
 
 export type RepositoryOutboxConsumeResult =
   | { readonly kind: 'EMPTY' }

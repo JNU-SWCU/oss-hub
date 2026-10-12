@@ -179,7 +179,6 @@ afterAll(async () => {
 export {
   prisma,
   service,
-  repository,
   applications,
   audit,
   resolver,

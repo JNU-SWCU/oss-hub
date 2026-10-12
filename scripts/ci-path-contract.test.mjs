@@ -231,8 +231,6 @@ const railsPaths = [
   'eslint.shared.mjs',
   'eslint-rules/**',
   'knip.json',
-  'knip-baseline.json',
-  'scripts/check-*ratchet*',
   'scripts/prisma-enum-names.mjs',
   'scripts/prisma-enum-names.test.mjs',
   'scripts/ci-path-contract.test.mjs',
@@ -252,15 +250,17 @@ const scopes = [
   'node_scripts',
   'rails',
 ];
-const railsTestCommand =
-  'node --test scripts/check-lint-ratchet.test.mjs scripts/check-knip-ratchet.test.mjs scripts/prisma-enum-names.test.mjs';
-const railsEnvironment = [
-  'EVENT_NAME: ${{ github.event_name }}',
-  'PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}',
-  'CHECKED_HEAD_SHA: ${{ github.sha }}',
-  'BEFORE_SHA: ${{ github.event.before }}',
-  'PUSHED_SHA: ${{ github.sha }}',
-];
+const railsTestCommand = 'node --test scripts/prisma-enum-names.test.mjs';
+const knipStep = [
+  'Knip 구조 검사',
+  "        if: ${{ steps.scope.outputs.rails == 'true' }}",
+  '        run: pnpm lint:structure',
+  '',
+  '',
+].join('\n');
+const rootManifest = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+);
 
 function workflowStep(source, name) {
   const step = source
@@ -289,9 +289,6 @@ function validateRails(source) {
     source,
     /^  public-safe:\n    name: public-safe\n    if: github\.event_name == 'pull_request'$/m,
   );
-  const checkout = workflowStep(ci, '체크아웃');
-  assert.match(checkout, /fetch-depth: 0\n/);
-  assert.match(checkout, /ref: \$\{\{ github\.sha \}\}\n/);
   const filters = section(ci, '            rails:\n', '\n\n');
   for (const path of railsPaths) {
     assert.ok(filters.includes(`- '${path}'`), path);
@@ -308,41 +305,26 @@ function validateRails(source) {
   }
   assert.doesNotMatch(stepRun(scope), /\$\{\{/);
   const contracts = workflowStep(ci, 'Rails 계약 테스트');
-  const checker = workflowStep(ci, 'Rails predecessor 검사');
-  for (const step of [contracts, checker]) {
-    assert.ok(step.includes("if: ${{ steps.scope.outputs.rails == 'true' }}"));
-  }
+  assert.ok(
+    contracts.includes("if: ${{ steps.scope.outputs.rails == 'true' }}"),
+  );
   assert.ok(contracts.includes(`run: ${railsTestCommand}\n`));
+  assert.equal(workflowStep(ci, 'Knip 구조 검사'), knipStep);
   assert.ok(
     workflowStep(ci, 'CI path 계약 검사').includes(
       'run: node --test scripts/ci-path-contract.test.mjs\n',
     ),
   );
   assert.doesNotMatch(workflowStep(ci, 'CI path 계약 검사'), /^        if:/m);
-  assert.ok(
-    ci.indexOf('name: 의존성 설치') < ci.indexOf('name: Rails 계약 테스트'),
-  );
-  for (const binding of railsEnvironment) {
-    assert.ok(checker.includes(`${binding}\n`), binding);
-  }
-  const expectedRun = [
-    'set -euo pipefail',
-    'case "$EVENT_NAME" in',
-    '  pull_request)',
-    '    node scripts/check-lint-ratchet.mjs --event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"',
-    '    node scripts/check-knip-ratchet.mjs --event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"',
-    '    ;;',
-    '  push)',
-    '    node scripts/check-lint-ratchet.mjs --event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"',
-    '    node scripts/check-knip-ratchet.mjs --event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"',
-    '    ;;',
-    '  *)',
-    '    echo "Unsupported rails event: $EVENT_NAME" >&2',
-    '    exit 1',
-    '    ;;',
-    'esac',
-  ].join('\n');
-  assert.equal(stepRun(checker).trim(), expectedRun);
+  const install = ci.indexOf('name: 의존성 설치');
+  assert.ok(install >= 0);
+  assert.ok(install < ci.indexOf('name: Rails 계약 테스트'));
+  assert.ok(install < ci.indexOf('name: Knip 구조 검사'));
+}
+
+function validateRootLint(manifest) {
+  assert.equal(manifest.scripts['lint:structure'], 'knip');
+  assert.equal(manifest.scripts.lint, 'pnpm -r lint && pnpm lint:structure');
 }
 
 function runScope(event, selected) {
@@ -376,26 +358,52 @@ function runScope(event, selected) {
   }
 }
 
-test('rails workflow binds immutable event SHAs and required checks', () => {
+test('rails workflow runs Knip as a plain check in the required ci job', () => {
   validateRails(workflow);
+});
+
+test('root lint runs app lint and plain Knip', () => {
+  validateRootLint(rootManifest);
+});
+
+test('root lint script drift fails closed', () => {
+  for (const [name, command] of [
+    ['lint:structure', 'knip || true'],
+    ['lint:structure', 'knip --no-exit-code'],
+    ['lint', 'pnpm -r lint'],
+  ]) {
+    assert.throws(() =>
+      validateRootLint({
+        ...rootManifest,
+        scripts: { ...rootManifest.scripts, [name]: command },
+      }),
+    );
+  }
 });
 
 test('rails path and invocation mutations fail closed', () => {
   for (const path of railsPaths) {
     assert.throws(() => validateRails(workflow.replaceAll(`- '${path}'`, '')));
   }
-  for (const binding of railsEnvironment) {
-    assert.throws(() => validateRails(workflow.replaceAll(binding, '')));
-  }
-  for (const command of [
-    railsTestCommand,
-    '--event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"',
-    '--event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"',
-    'fetch-depth: 0',
-    'ref: ${{ github.sha }}',
-  ]) {
+  for (const command of [railsTestCommand, 'run: pnpm lint:structure']) {
     assert.throws(() => validateRails(workflow.replace(command, '')));
   }
+  assert.throws(() =>
+    validateRails(
+      workflow.replace(
+        'run: pnpm lint:structure',
+        'run: pnpm lint:structure || true',
+      ),
+    ),
+  );
+  assert.throws(() =>
+    validateRails(
+      workflow.replace(
+        "      - name: Knip 구조 검사\n        if: ${{ steps.scope.outputs.rails == 'true' }}\n",
+        "      - name: Knip 구조 검사\n        if: ${{ github.event_name == 'push' }}\n",
+      ),
+    ),
+  );
   assert.throws(() =>
     validateRails(workflow.replace('on:\n', 'on:\n  paths: []\n')),
   );

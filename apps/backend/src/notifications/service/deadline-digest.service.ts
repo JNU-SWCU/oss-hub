@@ -29,7 +29,7 @@ import type {
   DeadlineDigestSendResult,
 } from '../domain/deadline-digest';
 
-export const DEADLINE_PREVIEW_TTL_MS = 10 * 60 * 1000;
+const DEADLINE_PREVIEW_TTL_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class DeadlineDigestService {

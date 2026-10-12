@@ -10,7 +10,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { authorityLabel, type AuthorityLabel } from '../domain/authority-label';
 import { lockActiveAdminRows } from './admin-actor-locks';
 
-export interface AccountDeactivationTarget {
+interface AccountDeactivationTarget {
   readonly id: string;
   readonly githubId: bigint;
   readonly githubLogin: string;

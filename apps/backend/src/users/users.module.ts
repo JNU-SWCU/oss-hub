@@ -21,8 +21,6 @@ import { UsersRepository } from './repository/users.repository';
 import { UsersService } from './service/users.service';
 import { UsersAuthorityRepository } from './repository/authority.repository';
 import { UsersAuthorityService } from './service/authority.service';
-import { UsersOnboardingRepository } from './repository/onboarding.repository';
-import { UsersOnboardingService } from './service/onboarding.service';
 
 @Module({
   imports: [AuditLogModule, AuthModule, ConsentsModule],
@@ -49,9 +47,7 @@ import { UsersOnboardingService } from './service/onboarding.service';
     UsersService,
     UsersAuthorityRepository,
     UsersAuthorityService,
-    UsersOnboardingRepository,
-    UsersOnboardingService,
   ],
-  exports: [UsersService, UsersAuthorityService, UsersOnboardingService],
+  exports: [UsersService, UsersAuthorityService],
 })
 export class UsersModule {}

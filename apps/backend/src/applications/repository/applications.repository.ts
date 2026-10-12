@@ -145,19 +145,19 @@ export interface ApplyProgramRecord {
   readonly repositoryProvisioningEnabled: boolean;
 }
 
-export interface CreateTeamForApplicationInput {
+interface CreateTeamForApplicationInput {
   readonly programId: string;
   readonly name: string;
   readonly joinCodeDigest: string;
   readonly leaderId: string;
 }
 
-export interface CreatedTeamForApplication {
+interface CreatedTeamForApplication {
   readonly id: string;
   readonly name: string;
 }
 
-export interface CreateApplicationRecordInput {
+interface CreateApplicationRecordInput {
   readonly programId: string;
   readonly applicantId: string;
   readonly teamId: string;

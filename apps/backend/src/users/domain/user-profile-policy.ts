@@ -31,7 +31,7 @@ export const USER_DEPARTMENT_MAX_LENGTH = 100;
 const STUDENT_ID_PATTERN = /^\d{6}$/;
 const PHONE_PATTERN = /^\d{10,11}$/;
 
-export const DEFAULT_PROFILE_MEMBER_KIND = 'STUDENT' satisfies MemberKind;
+const DEFAULT_PROFILE_MEMBER_KIND = 'STUDENT' satisfies MemberKind;
 
 export function effectiveProfileMemberKind(
   record: Pick<

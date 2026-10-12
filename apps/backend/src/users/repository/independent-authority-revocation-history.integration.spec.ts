@@ -4,7 +4,7 @@ import { AuditLogRepository } from '../../audit-log/repository/audit-log.reposit
 import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import type { ConsentsService } from '../../consents/service/consents.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { UsersOnboardingRepository } from './onboarding.repository';
+import { RolesRepository } from '../../roles/repository/roles.repository';
 import { RolesService } from '../../roles/service/roles.service';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { STAFF_ACCESS_COMMANDS } from '../domain/independent-authority';
@@ -25,10 +25,7 @@ const authority = new IndependentAuthorityService(
 const consentsService: Pick<ConsentsService, 'requireCurrent'> = {
   requireCurrent: jest.fn().mockResolvedValue(undefined),
 };
-const roles = new RolesService(
-  new UsersOnboardingRepository(prisma),
-  consentsService,
-);
+const roles = new RolesService(new RolesRepository(prisma), consentsService);
 
 const TEST_PREFIX = 'test:1383:independent-authority-revocation:';
 const GITHUB_ID_BASE = 9_013_830_000n;

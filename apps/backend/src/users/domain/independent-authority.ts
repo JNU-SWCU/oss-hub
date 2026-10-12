@@ -11,22 +11,22 @@ export const ADMIN_ACCESS_COMMANDS = {
   REVOKE: 'REVOKE_ADMIN_ACCESS',
 } as const;
 
-export type GrantStaffAccessCommand = {
+type GrantStaffAccessCommand = {
   readonly command: typeof STAFF_ACCESS_COMMANDS.GRANT;
 };
 
-export type RevokeStaffAccessCommand = {
+type RevokeStaffAccessCommand = {
   readonly command: typeof STAFF_ACCESS_COMMANDS.REVOKE;
 };
 
 export type StaffAccessMutationCommand =
   GrantStaffAccessCommand | RevokeStaffAccessCommand;
 
-export type GrantAdminAccessCommand = {
+type GrantAdminAccessCommand = {
   readonly command: typeof ADMIN_ACCESS_COMMANDS.GRANT;
 };
 
-export type RevokeAdminAccessCommand = {
+type RevokeAdminAccessCommand = {
   readonly command: typeof ADMIN_ACCESS_COMMANDS.REVOKE;
 };
 

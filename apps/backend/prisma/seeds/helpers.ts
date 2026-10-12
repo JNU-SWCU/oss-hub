@@ -9,7 +9,7 @@ import {
 
 export type SeedRole = 'STUDENT' | 'STAFF' | 'ADMIN';
 
-export const SEED_ROLE_FACTS: Record<
+const SEED_ROLE_FACTS: Record<
   SeedRole,
   {
     readonly memberKind: MemberKind | null;

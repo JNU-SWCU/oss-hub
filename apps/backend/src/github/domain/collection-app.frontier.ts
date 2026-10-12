@@ -20,10 +20,6 @@ export function requestFingerprintKey(fingerprint: RequestFingerprint): string {
   ].join('\u001f');
 }
 
-export interface CommitFrontier {
-  readonly headSha: string;
-}
-
 export interface PullRequestFrontier {
   readonly createdAt: string;
   readonly id: string;

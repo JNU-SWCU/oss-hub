@@ -6,7 +6,7 @@ import {
   type RepositorySource,
 } from '@prisma/client';
 
-export interface RepositoryProvisionHistoryPayload {
+interface RepositoryProvisionHistoryPayload {
   readonly applicationId: string;
   readonly repositoryConnectionMode: RepositoryConnectionMode;
   readonly requestedAt: string;
@@ -16,7 +16,7 @@ export type RepositoryProvisionHistoryPayloadParser = (
   value: unknown,
 ) => RepositoryProvisionHistoryPayload;
 
-export class InvalidRepositoryProvisionHistoryEventError extends Error {
+class InvalidRepositoryProvisionHistoryEventError extends Error {
   override readonly name = 'InvalidRepositoryProvisionHistoryEventError';
 }
 

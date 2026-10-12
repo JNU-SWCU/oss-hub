@@ -17,7 +17,7 @@ export const USER_PROFILE_AUDIT_FIELDS = {
   DEPARTMENT: 'department',
   STAFF_NUMBER: 'staffNumber',
 } as const;
-export type UserProfileAuditFieldName =
+type UserProfileAuditFieldName =
   (typeof USER_PROFILE_AUDIT_FIELDS)[keyof typeof USER_PROFILE_AUDIT_FIELDS];
 export type UserProfileAuditFieldChange = {
   readonly field: UserProfileAuditFieldName;

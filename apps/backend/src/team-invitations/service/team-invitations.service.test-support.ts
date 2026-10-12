@@ -10,8 +10,8 @@ export const syntheticUserId = 'cuid-synthetic-invitee';
 export const syntheticLeaderId = 'cuid-synthetic-leader';
 export const syntheticTeamId = 'cuid-synthetic-team';
 export const syntheticProgramId = 'cuid-synthetic-program';
-export const syntheticTeamName = '합성 팀';
-export const syntheticProgramName = '합성 프로그램';
+const syntheticTeamName = '합성 팀';
+const syntheticProgramName = '합성 프로그램';
 
 export const syntheticInviteeProjection = {
   id: syntheticUserId,

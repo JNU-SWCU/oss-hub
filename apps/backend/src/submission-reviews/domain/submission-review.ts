@@ -11,7 +11,7 @@ export const APPLICATION_MODES = {
   TEAM: 'TEAM',
 } as const;
 
-export type ApplicationMode =
+type ApplicationMode =
   (typeof APPLICATION_MODES)[keyof typeof APPLICATION_MODES];
 
 export {

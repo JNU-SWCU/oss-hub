@@ -33,7 +33,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.sha }}
 
       # 변경된 앱만 검사해 CI 실행 시간과 과금을 절감한다.
       # base는 pull_request 이벤트에서는 무시되므로(PR base 브랜치를 API로 조회) 지정하지 않는다.
@@ -132,8 +131,6 @@ jobs:
               - 'eslint.shared.mjs'
               - 'eslint-rules/**'
               - 'knip.json'
-              - 'knip-baseline.json'
-              - 'scripts/check-*ratchet*'
               - 'scripts/prisma-enum-names.mjs'
               - 'scripts/prisma-enum-names.test.mjs'
               - 'scripts/ci-path-contract.test.mjs'
@@ -285,32 +282,11 @@ jobs:
 
       - name: Rails 계약 테스트
         if: ${{ steps.scope.outputs.rails == 'true' }}
-        run: node --test scripts/check-lint-ratchet.test.mjs scripts/check-knip-ratchet.test.mjs scripts/prisma-enum-names.test.mjs
+        run: node --test scripts/prisma-enum-names.test.mjs
 
-      - name: Rails predecessor 검사
+      - name: Knip 구조 검사
         if: ${{ steps.scope.outputs.rails == 'true' }}
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          CHECKED_HEAD_SHA: ${{ github.sha }}
-          BEFORE_SHA: ${{ github.event.before }}
-          PUSHED_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          case "$EVENT_NAME" in
-            pull_request)
-              node scripts/check-lint-ratchet.mjs --event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"
-              node scripts/check-knip-ratchet.mjs --event pull_request --base-sha "$PR_BASE_SHA" --head-sha "$CHECKED_HEAD_SHA"
-              ;;
-            push)
-              node scripts/check-lint-ratchet.mjs --event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"
-              node scripts/check-knip-ratchet.mjs --event push --base-sha "$BEFORE_SHA" --head-sha "$PUSHED_SHA"
-              ;;
-            *)
-              echo "Unsupported rails event: $EVENT_NAME" >&2
-              exit 1
-              ;;
-          esac
+        run: pnpm lint:structure
 
       - name: env 계약 양방향 검사
         if: ${{ steps.scope.outputs.production_compose == 'true' }}

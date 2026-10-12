@@ -20,7 +20,7 @@ import { AdminProfileRepository } from '../repository/admin-profile.repository';
 import { AdminProfileService } from '../service/admin-profile.service';
 
 const sessionSecret = new Uint8Array(32).fill(17);
-export const ADMIN_ACCESS_ALLOWED_ORIGIN = 'http://frontend.test';
+const ADMIN_ACCESS_ALLOWED_ORIGIN = 'http://frontend.test';
 
 export class AdminAccessHttpHarness {
   constructor(

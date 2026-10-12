@@ -6,10 +6,10 @@ export const CONSENT_ITEM_KEYS = {
   ORG_REPOSITORY_TERMS: 'ORG_REPOSITORY_TERMS',
 } as const;
 
-export type ConsentItemKey =
+type ConsentItemKey =
   (typeof CONSENT_ITEM_KEYS)[keyof typeof CONSENT_ITEM_KEYS];
 
-export interface ConsentRequiredItem {
+interface ConsentRequiredItem {
   key: ConsentItemKey;
   label: string;
   documentUrl: string;

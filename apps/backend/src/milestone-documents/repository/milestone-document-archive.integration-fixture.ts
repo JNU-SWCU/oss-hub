@@ -10,7 +10,7 @@ import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 
 const prefix = 'qa152-program-archive';
 export const archiveId = (suffix: string) => `${prefix}-${suffix}`;
-export const archiveNow = new Date('2026-09-03T00:00:00Z');
+const archiveNow = new Date('2026-09-03T00:00:00Z');
 export const retainedImage = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 
 export class ProgramArchiveIntegrationFixture {

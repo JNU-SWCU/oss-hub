@@ -9,11 +9,11 @@ import {
   ConsentErrorCode,
 } from '../../consents/consent-error-code.enum';
 import type { ConsentsService } from '../../consents/service/consents.service';
-import type { MemberUser } from '../../users/domain/member-onboarding';
+import type { MemberUser } from '../domain/member-onboarding';
 import type {
-  OnboardingRepositoryPort,
   OnboardingTransactionStore,
-} from '../../users/domain/onboarding-store';
+  RolesRepository,
+} from '../repository/roles.repository';
 import { RolesService } from './roles.service';
 
 const GITHUB_ID = 424242n;
@@ -28,7 +28,10 @@ const USER: MemberUser = {
   profile: { name: null, studentId: null, department: null },
 };
 
-class InMemoryProfileRolesRepository implements OnboardingRepositoryPort {
+class InMemoryProfileRolesRepository implements Pick<
+  RolesRepository,
+  keyof RolesRepository
+> {
   transactionCount = 0;
 
   constructor(private readonly store: OnboardingTransactionStore) {}
@@ -87,7 +90,10 @@ function buildService(
   };
 
   return {
-    service: new RolesService(repository, consentsService),
+    service: new RolesService(
+      repository as unknown as RolesRepository,
+      consentsService,
+    ),
     store,
     repository,
     requireCurrent,

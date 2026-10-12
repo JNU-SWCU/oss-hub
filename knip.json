@@ -23,11 +23,11 @@
         ".design-sync/emit-types.mjs",
         ".design-sync/previews/*.tsx"
       ],
-      "project": ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"]
+      "project": ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
+      "ignoreDependencies": ["@prisma/client"]
     },
     "apps/backend": {
       "entry": [
-        "eslint.rails.mjs",
         "src/main.ts",
         "test/e2e-program-authoring/main.ts",
         "prisma/seed.ts",
@@ -45,7 +45,6 @@
         "entry": ["src/app/globals.css"]
       },
       "entry": [
-        "eslint.rails.mjs",
         "src/middleware.ts",
         "next.config.ts",
         "{src,test-support,e2e/support}/**/*.test.{ts,tsx}",
@@ -57,7 +56,8 @@
       "project": [
         "{src,e2e,test-support,scripts}/**/*.{js,mjs,cjs,ts,tsx}",
         "*.{js,mjs,cjs,ts,mts}"
-      ]
+      ],
+      "ignoreDependencies": ["pretendard", "@prisma/client"]
     }
   }
 }

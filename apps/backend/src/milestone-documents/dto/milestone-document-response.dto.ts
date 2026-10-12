@@ -7,7 +7,7 @@ import {
 } from '../../submissions/domain/submission-upload-policy';
 import type { MilestoneDocumentRecord } from '../domain/milestone-document-record';
 
-export interface MilestoneDocumentViewerReviewResponseDto {
+interface MilestoneDocumentViewerReviewResponseDto {
   readonly comment: string | null;
   readonly reviewedAt: string;
 

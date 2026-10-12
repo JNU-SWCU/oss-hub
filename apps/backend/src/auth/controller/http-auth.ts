@@ -6,18 +6,18 @@ export const HTTP_AUTH_KINDS = {
   AUTHENTICATED: 'AUTHENTICATED',
 } as const;
 
-export interface AnonymousHttpAuth {
+interface AnonymousHttpAuth {
   readonly kind: typeof HTTP_AUTH_KINDS.ANONYMOUS;
   readonly hasSessionCookie: boolean;
 }
 
-export interface AuthenticatedHttpAuth {
+interface AuthenticatedHttpAuth {
   readonly kind: typeof HTTP_AUTH_KINDS.AUTHENTICATED;
   readonly hasSessionCookie: true;
   readonly principal: ActiveAccountPrincipal;
 }
 
-export type HttpAuth = AnonymousHttpAuth | AuthenticatedHttpAuth;
+type HttpAuth = AnonymousHttpAuth | AuthenticatedHttpAuth;
 
 export interface OptionalSessionRequest extends Request {
   readonly auth: HttpAuth;

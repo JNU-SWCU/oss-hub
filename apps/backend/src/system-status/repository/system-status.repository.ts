@@ -21,14 +21,8 @@ const COLLECTION_STREAM_TYPES = [
 type CollectionStreamType = (typeof COLLECTION_STREAM_TYPES)[number];
 type CollectionStreamStatus = 'PENDING' | 'BACKFILLING' | 'READY' | 'VERIFYING';
 
-export const COLLECTION_STREAM_DETAIL_BUCKETS = [
-  'READY',
-  'BACKFILLING',
-  'PARTIAL',
-  'RETRY_PENDING',
-] as const;
-export type CollectionStreamDetailBucketDto =
-  (typeof COLLECTION_STREAM_DETAIL_BUCKETS)[number];
+type CollectionStreamDetailBucketDto =
+  'READY' | 'BACKFILLING' | 'PARTIAL' | 'RETRY_PENDING';
 
 export interface CollectionIncrementalStatusSnapshotDto {
   readonly trackedRepositoryCount: number;
@@ -46,7 +40,7 @@ export interface CollectionIncrementalStatusSnapshotDto {
   readonly lastRepositorySuccessAt: Date | null;
 }
 
-export interface CollectionRepositoryStreamDetailDto {
+interface CollectionRepositoryStreamDetailDto {
   readonly streamType: CollectionStreamType;
   readonly bucket: CollectionStreamDetailBucketDto;
   readonly lastSuccessAt: Date | null;

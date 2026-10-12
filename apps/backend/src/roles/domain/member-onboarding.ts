@@ -6,7 +6,7 @@ import type {
 
 export type SelectableMemberKind = MemberKind;
 
-export type MemberProfileFields = {
+type MemberProfileFields = {
   readonly name: string | null;
   readonly studentId: string | null;
   readonly department: string | null;

@@ -27,7 +27,7 @@ export type AdminAccessAudit = {
   readonly metadata: AccessAuditMetadata;
 };
 
-export class InvalidAdminAccessAuditError extends Error {
+class InvalidAdminAccessAuditError extends Error {
   override readonly name = 'InvalidAdminAccessAuditError';
 
   constructor() {

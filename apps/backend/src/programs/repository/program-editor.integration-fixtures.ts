@@ -1,32 +1,18 @@
-import {
-  MemberKind,
-  MilestoneSubmissionType,
-  ProgramCategory,
-} from '@prisma/client';
+import { MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { DomainException } from '../../common/error-code';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from '../service/program-editor.service';
-import { ProgramsRepository } from './programs.repository';
-import { ProgramsService } from '../service/programs.service';
 
 export const TEST_PREFIX = 'test:101:program-editor:concurrency:';
 export const STAFF_GITHUB_ID = 9_101_000_001n;
-export const PROGRAM_NAME = 'Issue 101 Same Name Program';
-export const NOW = new Date('2026-08-18T00:00:00.000Z');
-export const STAFF_VIEWER = {
-  githubId: STAFF_GITHUB_ID,
-  userId: `${TEST_PREFIX}staff`,
-  selectedMemberKind: MemberKind.STAFF,
-  hasStaffAccess: true,
-} as const;
+const PROGRAM_NAME = 'Issue 101 Same Name Program';
 
 export const prisma = new PrismaService();
 export const editor = new ProgramEditorService(
   new ProgramEditorRepository(prisma),
 );
-export const programs = new ProgramsService(new ProgramsRepository(prisma));
 
 export async function runTogether<T, U>(
   first: () => Promise<T>,

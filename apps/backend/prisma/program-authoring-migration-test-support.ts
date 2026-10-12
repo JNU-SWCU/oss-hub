@@ -19,7 +19,7 @@ export const VALID_PROGRAM_AUTHORING_FIXTURE: ProgramAuthoringFixture = {
   milestoneDueAt: '2026-08-20T00:00:00.000Z',
 };
 
-export const PROGRAM_AUTHORING_MIGRATION = readFileSync(
+const PROGRAM_AUTHORING_MIGRATION = readFileSync(
   resolve(
     __dirname,
     'migrations/20260810120000_add_program_authoring_foundation/migration.sql',

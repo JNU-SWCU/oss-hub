@@ -1,10 +1,4 @@
-import {
-  CollectionAppClient,
-  type CollectionCommit,
-  type CollectionPullRequest,
-  type CollectionRelease,
-  type CollectionRepository,
-} from '../src/github/gateway/collection-app.client';
+import { CollectionAppClient } from '../src/github/gateway/collection-app.client';
 import { CollectionAppConfigValues } from '../src/github/collection-app.config';
 import { CollectionAppTokenProvider } from '../src/github/gateway/collection-app.token';
 import { ProviderRequestQueue } from '../src/github/gateway/collection-provider-queue';
@@ -12,9 +6,9 @@ import type { CollectionSyncRuntime } from '../src/github/service/collection-syn
 
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
-export const SYNTHETIC_PAGE_SIZE = 4;
+const SYNTHETIC_PAGE_SIZE = 4;
 
-export const SYNTHETIC_API_BASE_URL = 'https://api.collection-scale-suite.test';
+const SYNTHETIC_API_BASE_URL = 'https://api.collection-scale-suite.test';
 
 export interface SyntheticCommitSeed {
   sha: string;
@@ -443,10 +437,3 @@ export function createSyntheticSyncRuntime(
     queue,
   };
 }
-
-export type {
-  CollectionCommit,
-  CollectionPullRequest,
-  CollectionRelease,
-  CollectionRepository,
-};

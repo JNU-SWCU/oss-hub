@@ -13,6 +13,7 @@ import {
   createTeamCreatedAuditMetadata,
 } from '../domain/audit-log-metadata';
 import { AuditLogRepository } from './audit-log.repository';
+import { PROGRAM_LIFECYCLE_AUDIT_ACTIONS } from '../domain/repository-program-audit-metadata';
 
 const LEGACY_REPOSITORY_PUBLISH_V1_METADATA = {
   schemaVersion: 1,
@@ -257,7 +258,7 @@ describe('AuditLogRepository', () => {
           {
             id: 'audit-program-v2',
             actor: { nickname: 'synthetic-staff' },
-            action: 'PROGRAM_ARCHIVED',
+            action: PROGRAM_LIFECYCLE_AUDIT_ACTIONS.PROGRAM_ARCHIVED,
             targetType: 'PROGRAM',
             targetId: 'program-1',
             metadata,
@@ -293,7 +294,7 @@ describe('AuditLogRepository', () => {
           {
             id: 'audit-program-v1',
             actor: { nickname: 'synthetic-staff' },
-            action: 'PROGRAM_ARCHIVED',
+            action: PROGRAM_LIFECYCLE_AUDIT_ACTIONS.PROGRAM_ARCHIVED,
             targetType: 'PROGRAM',
             targetId: 'program-2',
             metadata: legacyV1Metadata,
@@ -330,7 +331,7 @@ describe('AuditLogRepository', () => {
           {
             id: 'audit-program-missing',
             actor: { nickname: 'synthetic-staff' },
-            action: 'PROGRAM_ARCHIVED',
+            action: PROGRAM_LIFECYCLE_AUDIT_ACTIONS.PROGRAM_ARCHIVED,
             targetType: 'PROGRAM',
             targetId: 'program-deleted-somehow',
             metadata: legacyV1Metadata,
@@ -368,7 +369,7 @@ describe('AuditLogRepository', () => {
           {
             id: 'audit-a',
             actor: { nickname: 'synthetic-staff' },
-            action: 'PROGRAM_ARCHIVED',
+            action: PROGRAM_LIFECYCLE_AUDIT_ACTIONS.PROGRAM_ARCHIVED,
             targetType: 'PROGRAM',
             targetId: 'program-a',
             metadata: legacyV1Metadata,
@@ -377,7 +378,7 @@ describe('AuditLogRepository', () => {
           {
             id: 'audit-b',
             actor: { nickname: 'synthetic-staff' },
-            action: 'PROGRAM_RESTORED',
+            action: PROGRAM_LIFECYCLE_AUDIT_ACTIONS.PROGRAM_RESTORED,
             targetType: 'PROGRAM',
             targetId: 'program-b',
             metadata: legacyV1Metadata,

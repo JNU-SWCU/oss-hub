@@ -447,7 +447,7 @@ interface LockedUserRow {
   readonly id: string;
 }
 
-export type AcceptInvitationOkStore = {
+type AcceptInvitationOkStore = {
   readonly auditLogWriter: AuditLogTransactionWriter;
 };
 

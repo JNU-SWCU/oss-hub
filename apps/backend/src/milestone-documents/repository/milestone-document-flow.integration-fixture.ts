@@ -19,10 +19,7 @@ import {
   flowGithubIds,
   seedMilestoneDocumentFlow,
 } from './milestone-document-flow.integration-data';
-export {
-  flowIds,
-  flowGithubIds,
-} from './milestone-document-flow.integration-data';
+export { flowIds } from './milestone-document-flow.integration-data';
 
 const sessionSecret = new Uint8Array(32).fill(37);
 const origin = 'https://synthetic.example';
