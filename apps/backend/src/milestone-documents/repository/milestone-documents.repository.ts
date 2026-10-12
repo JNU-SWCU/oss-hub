@@ -222,6 +222,19 @@ export interface MilestoneDocumentWriteStore {
     submissionId: string,
     status: SubmissionStatus,
   ): Promise<void>;
+
+  lockProgramDocumentIds(programId: string): Promise<readonly string[]>;
+
+  findChangeRequestTargets(input: {
+    readonly documentIds: readonly string[];
+    readonly applicationIds: readonly string[];
+    readonly statuses: readonly SubmissionStatus[];
+  }): Promise<
+    readonly {
+      readonly milestoneDocumentId: string;
+      readonly applicationId: string;
+    }[]
+  >;
 }
 
 export interface MilestoneDocumentCollectionReadStore {
@@ -615,6 +628,45 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
       select: { id: true },
     });
   }
+
+  async lockProgramDocumentIds(programId: string): Promise<readonly string[]> {
+    const rows = await this.transaction.$queryRaw<readonly { id: string }[]>(
+      Prisma.sql`
+        SELECT document."id"
+        FROM "MilestoneDocument" document
+        JOIN "Milestone" milestone ON milestone."id" = document."milestoneId"
+        WHERE milestone."programId" = ${programId}
+          AND document."kind" = 'DOCUMENT'
+        ORDER BY document."id"
+        FOR UPDATE OF document
+      `,
+    );
+    return rows.map((row) => row.id);
+  }
+
+  findChangeRequestTargets(input: {
+    readonly documentIds: readonly string[];
+    readonly applicationIds: readonly string[];
+    readonly statuses: readonly SubmissionStatus[];
+  }): Promise<
+    readonly {
+      readonly milestoneDocumentId: string;
+      readonly applicationId: string;
+    }[]
+  > {
+    if (input.documentIds.length === 0 || input.applicationIds.length === 0) {
+      return Promise.resolve([]);
+    }
+    return this.transaction.milestoneDocumentSubmission.findMany({
+      where: {
+        milestoneDocumentId: { in: [...input.documentIds] },
+        applicationId: { in: [...input.applicationIds] },
+        status: { in: [...input.statuses] },
+      },
+      orderBy: { id: 'asc' },
+      select: { milestoneDocumentId: true, applicationId: true },
+    });
+  }
 }
 
 class PrismaMilestoneDocumentCollectionReadStore implements MilestoneDocumentCollectionReadStore {
@@ -746,6 +798,25 @@ export class MilestoneDocumentsRepository {
     return this.prisma.$transaction((transaction) =>
       operation(new PrismaMilestoneDocumentWriteStore(transaction)),
     );
+  }
+
+  async countChangeRequestTargets(
+    programId: string,
+    applicationIds: readonly string[],
+  ): Promise<ReadonlyMap<SubmissionStatus, number>> {
+    if (applicationIds.length === 0) return new Map();
+    const groups = await this.prisma.milestoneDocumentSubmission.groupBy({
+      by: ['status'],
+      where: {
+        applicationId: { in: [...applicationIds] },
+        milestoneDocument: {
+          kind: MilestoneDocumentKind.DOCUMENT,
+          milestone: { programId },
+        },
+      },
+      _count: { _all: true },
+    });
+    return new Map(groups.map((group) => [group.status, group._count._all]));
   }
 
   withCollectionSnapshot<T>(
