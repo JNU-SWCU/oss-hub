@@ -30,6 +30,9 @@ describe('program cover', () => {
       container.querySelector('[data-cover-state="error"]'),
     ).not.toBeNull();
     expect(container.querySelector('img')).toBeNull();
+    expect(
+      container.querySelector('svg[aria-hidden="true"]')?.textContent,
+    ).toBe('OSS Hub');
     await act(async () => root.render(<ProgramCover src="/cover-two" />));
     expect(container.querySelector('img')?.getAttribute('src')).toBe(
       '/cover-two',
@@ -56,11 +59,14 @@ describe('program cover', () => {
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
-  it('puts every list card in the same poster frame', async () => {
+  it('puts every list card in the same poster frame and draws the default graphic when empty', async () => {
     await act(async () => root.render(<ProgramCover src={null} />));
     const cover = container.querySelector('[data-slot="program-cover"]');
     expect(cover?.getAttribute('data-cover-state')).toBe('empty');
     expect(cover?.className).toContain('aspect-[1/1.414]');
+    expect(cover?.querySelector('svg[aria-hidden="true"]')?.textContent).toBe(
+      'OSS Hub',
+    );
 
     await act(async () => root.render(<ProgramCover src="/poster" />));
     expect(
@@ -68,12 +74,13 @@ describe('program cover', () => {
     ).toContain('aspect-[1/1.414]');
   });
 
-  it('keeps small thumbnails at 16:9', async () => {
+  it('keeps small thumbnails at 16:9 with only the icon', async () => {
     await act(async () =>
       root.render(<ProgramCover src={null} size="thumbnail" />),
     );
     const cover = container.querySelector('[data-slot="program-cover"]');
     expect(cover?.className).toContain('aspect-video');
+    expect(cover?.textContent).toBe('');
   });
 
   it('shows a detail image at its own ratio instead of a fixed frame', async () => {
