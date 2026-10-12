@@ -83,12 +83,15 @@ describe('program cover', () => {
     expect(cover?.textContent).toBe('');
   });
 
-  it('shows a detail image at its own ratio instead of a fixed frame', async () => {
+  it('shows a detail image at its own ratio up to an A4 height instead of a fixed frame', async () => {
     await act(async () =>
       root.render(<ProgramCover src="/portrait" size="detail" />),
     );
     const cover = container.querySelector('[data-slot="program-cover"]');
     expect(cover?.className).not.toContain('aspect-');
-    expect(cover?.querySelector('img')?.className).toContain('h-auto');
+    const image = cover?.querySelector('img');
+    expect(image?.className).toContain('h-auto');
+    expect(image?.className).toContain('max-h-[141.4cqw]');
+    expect(image?.className).toContain('object-top');
   });
 });

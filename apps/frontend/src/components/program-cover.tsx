@@ -66,7 +66,7 @@ export function ProgramCover({
         'relative flex items-center justify-center overflow-hidden bg-muted text-primary/50',
         size === 'thumbnail' && 'aspect-video w-24 shrink-0 rounded-md',
         size === 'card' && 'aspect-[1/1.414]',
-        size === 'detail' && 'rounded-card border border-border',
+        size === 'detail' && '@container rounded-card border border-border',
         size === 'detail' && !available && 'aspect-[1/1.414]',
         className,
       )}
@@ -80,7 +80,7 @@ export function ProgramCover({
           decoding="async"
           className={
             size === 'detail'
-              ? 'block h-auto w-full object-contain'
+              ? 'block h-auto max-h-[141.4cqw] w-full object-cover object-top'
               : 'absolute inset-0 h-full w-full object-contain'
           }
           onError={() => setFailedSource(src)}
