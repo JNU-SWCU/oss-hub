@@ -25,6 +25,7 @@ const submittedCell: MatrixCell = {
   deliveryStatus: 'COMPLETE',
   submittedAt: '2026-08-19T10:00:00+09:00',
   reviewUrl: '/programs/program-1/submissions/submission-existing/review',
+  changesRequestedCount: 0,
 };
 
 const teamRow: MatrixRow = {
@@ -94,6 +95,7 @@ describe('cellForMilestone', () => {
       deliveryStatus: 'MISSING',
       submittedAt: null,
       reviewUrl: null,
+      changesRequestedCount: 0,
     });
   });
 });
@@ -198,6 +200,7 @@ describe('isLateSubmission', () => {
       deliveryStatus: 'MISSING',
       submittedAt: null,
       reviewUrl: null,
+      changesRequestedCount: 0,
     };
     expect(isLateSubmission(empty)).toBe(false);
   });
@@ -212,6 +215,7 @@ describe('matrixCellDisplay', () => {
     deliveryStatus: 'MISSING',
     submittedAt: null,
     reviewUrl: null,
+    changesRequestedCount: 0,
   };
 
   it('저장 상태를 접지 않고 화면 값으로 그대로 옮긴다(QA49)', () => {

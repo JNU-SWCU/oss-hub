@@ -21,6 +21,7 @@ function cell(input: {
       deliveryStatus: 'MISSING',
       submittedAt: null,
       reviewUrl: null,
+      changesRequestedCount: 0,
     };
   }
   const submissionId = input.submissionId ?? 'submission-existing';
@@ -32,6 +33,7 @@ function cell(input: {
     deliveryStatus: 'COMPLETE',
     submittedAt: '2026-08-19T10:00:00+09:00',
     reviewUrl: `/programs/program-1/submissions/${submissionId}/review`,
+    changesRequestedCount: 0,
   };
 }
 
@@ -201,6 +203,27 @@ describe('SubmissionMatrixView', () => {
     expect(html).toContain('마감 초과 D+3');
 
     expect(html).toContain('D-45');
+  });
+
+  it('보완 요청 중인 서류가 있는 칸에만 그 건수를 함께 보인다', () => {
+    const [personal, team] = matrixData.rows;
+    const html = render({
+      data: {
+        ...matrixData,
+        rows: [
+          {
+            ...personal,
+            cells: personal.cells.map((item, index) =>
+              index === 2 ? { ...item, changesRequestedCount: 2 } : item,
+            ),
+          },
+          team,
+        ],
+      },
+    });
+
+    expect(html.match(/보완 요청 중 2건/g)).toHaveLength(1);
+    expect(html).not.toContain('보완 요청 중 0건');
   });
 
   it('제출이 있는 셀만 reviewUrl로 링크하고 미제출 셀은 링크가 없다', () => {

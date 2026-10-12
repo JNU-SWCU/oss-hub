@@ -36,6 +36,12 @@ export function MatrixCellContent({
       {DOCUMENT_DELIVERY_LABELS[cell.deliveryStatus]}
     </StatusBadge>
   );
+  const changeRequests =
+    cell.changesRequestedCount > 0 ? (
+      <span className="text-small font-semibold text-foreground">
+        보완 요청 중 {cell.changesRequestedCount}건
+      </span>
+    ) : null;
 
   if (cell.status === 'NOT_SUBMITTED') {
     const deadline = notSubmittedDeadline(milestone.dueAt, now);
@@ -53,6 +59,7 @@ export function MatrixCellContent({
             {deadline.label}
           </span>
         ) : null}
+        {changeRequests}
       </span>
     );
   }
@@ -74,6 +81,7 @@ export function MatrixCellContent({
           {secondaryLine}
         </span>
       ) : null}
+      {changeRequests}
     </span>
   );
 
