@@ -37,7 +37,7 @@ export function ProgramCoverPreview({
   return (
     <div
       data-slot="program-cover-preview"
-      className="w-full overflow-hidden rounded-card border border-border bg-card"
+      className="w-full max-w-[22rem] overflow-hidden rounded-card border border-border bg-card"
     >
       <ProgramCover src={src} />
       {showCaption ? (

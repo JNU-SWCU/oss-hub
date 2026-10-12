@@ -55,4 +55,33 @@ describe('program cover', () => {
     );
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
+
+  it('puts every list card in the same poster frame', async () => {
+    await act(async () => root.render(<ProgramCover src={null} />));
+    const cover = container.querySelector('[data-slot="program-cover"]');
+    expect(cover?.getAttribute('data-cover-state')).toBe('empty');
+    expect(cover?.className).toContain('aspect-[1/1.414]');
+
+    await act(async () => root.render(<ProgramCover src="/poster" />));
+    expect(
+      container.querySelector('[data-slot="program-cover"]')?.className,
+    ).toContain('aspect-[1/1.414]');
+  });
+
+  it('keeps small thumbnails at 16:9', async () => {
+    await act(async () =>
+      root.render(<ProgramCover src={null} size="thumbnail" />),
+    );
+    const cover = container.querySelector('[data-slot="program-cover"]');
+    expect(cover?.className).toContain('aspect-video');
+  });
+
+  it('shows a detail image at its own ratio instead of a fixed frame', async () => {
+    await act(async () =>
+      root.render(<ProgramCover src="/portrait" size="detail" />),
+    );
+    const cover = container.querySelector('[data-slot="program-cover"]');
+    expect(cover?.className).not.toContain('aspect-');
+    expect(cover?.querySelector('img')?.className).toContain('h-auto');
+  });
 });

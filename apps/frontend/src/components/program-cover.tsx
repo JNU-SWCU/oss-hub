@@ -26,9 +26,11 @@ export function ProgramCover({
       data-slot="program-cover"
       data-cover-state={available ? 'image' : src === null ? 'empty' : 'error'}
       className={cn(
-        'relative flex aspect-video items-center justify-center overflow-hidden bg-muted text-primary/50',
-        size === 'thumbnail' && 'w-24 shrink-0 rounded-md',
+        'relative flex items-center justify-center overflow-hidden bg-muted text-primary/50',
+        size === 'thumbnail' && 'aspect-video w-24 shrink-0 rounded-md',
+        size === 'card' && 'aspect-[1/1.414]',
         size === 'detail' && 'rounded-card border border-border',
+        size === 'detail' && !available && 'aspect-[1/1.414]',
         className,
       )}
     >
@@ -39,7 +41,11 @@ export function ProgramCover({
           alt=""
           loading={size === 'detail' ? 'eager' : 'lazy'}
           decoding="async"
-          className="absolute inset-0 h-full w-full object-contain"
+          className={
+            size === 'detail'
+              ? 'block h-auto w-full object-contain'
+              : 'absolute inset-0 h-full w-full object-contain'
+          }
           onError={() => setFailedSource(src)}
         />
       ) : (
