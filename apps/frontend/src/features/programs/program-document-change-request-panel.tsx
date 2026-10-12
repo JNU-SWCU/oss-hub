@@ -44,6 +44,11 @@ type TargetsState =
       readonly targets: ProgramDocumentChangeRequestTargets;
     };
 
+type TeamsState =
+  | { readonly kind: 'loading' }
+  | { readonly kind: 'error' }
+  | { readonly kind: 'ready'; readonly teams: readonly StaffProgramTeam[] };
+
 type Notice =
   | { readonly kind: 'sent'; readonly count: number }
   | { readonly kind: 'changed' }
@@ -112,7 +117,8 @@ function ChangeRequestDialog({
 }) {
   const id = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
-  const [teams, setTeams] = useState<readonly StaffProgramTeam[] | null>(null);
+  const [teams, setTeams] = useState<TeamsState>({ kind: 'loading' });
+  const [teamsReload, setTeamsReload] = useState(0);
   const [kind, setKind] =
     useState<ProgramDocumentChangeRequestScope['kind']>('PROGRAM');
   const [teamId, setTeamId] = useState('');
@@ -134,17 +140,18 @@ function ChangeRequestDialog({
 
   useEffect(() => {
     let active = true;
+    setTeams({ kind: 'loading' });
     listStaffProgramTeams(programId)
       .then((loaded) => {
-        if (active) setTeams(loaded);
+        if (active) setTeams({ kind: 'ready', teams: loaded });
       })
       .catch(() => {
-        if (active) setTeams([]);
+        if (active) setTeams({ kind: 'error' });
       });
     return () => {
       active = false;
     };
-  }, [programId]);
+  }, [programId, teamsReload]);
 
   useEffect(() => {
     if (kind === 'TEAM' && teamId === '') {
@@ -332,25 +339,46 @@ function ChangeRequestDialog({
                 <Select
                   id={`${id}-team`}
                   value={teamId}
-                  disabled={teams === null}
+                  disabled={teams.kind !== 'ready'}
+                  aria-invalid={teams.kind === 'error'}
+                  aria-describedby={
+                    teams.kind === 'error' ? `${id}-team-error` : undefined
+                  }
                   onChange={(event) => {
                     setTeamId(event.target.value);
                     setNotice(null);
                   }}
                 >
                   <option value="">
-                    {teams === null
+                    {teams.kind === 'loading'
                       ? '팀 목록을 불러오는 중…'
-                      : teams.length === 0
+                      : teams.kind === 'ready' && teams.teams.length === 0
                         ? '팀 없음'
                         : '팀을 선택해 주세요'}
                   </option>
-                  {(teams ?? []).map((team) => (
-                    <option key={team.teamId} value={team.teamId}>
-                      {team.name}
-                    </option>
-                  ))}
+                  {teams.kind === 'ready'
+                    ? teams.teams.map((team) => (
+                        <option key={team.teamId} value={team.teamId}>
+                          {team.name}
+                        </option>
+                      ))
+                    : null}
                 </Select>
+                {teams.kind === 'error' ? (
+                  <>
+                    <FieldError id={`${id}-team-error`}>
+                      팀 목록을 불러오지 못했습니다.
+                    </FieldError>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="justify-self-start"
+                      onClick={() => setTeamsReload((value) => value + 1)}
+                    >
+                      팀 목록 다시 불러오기
+                    </Button>
+                  </>
+                ) : null}
               </Field>
             ) : null}
             <label className="flex min-h-11 items-center gap-2 text-small">

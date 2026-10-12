@@ -241,3 +241,24 @@ it('팀 범위를 고르면 그 팀만 세고, 보낼 제출이 없으면 보낼
   );
   expect(inDialog('보완 요청 보내기').disabled).toBe(true);
 });
+
+it('팀 목록을 못 불러오면 팀 없음으로 보이지 않고 다시 불러오게 한다', async () => {
+  vi.mocked(listStaffProgramTeams).mockRejectedValueOnce(
+    new TypeError('offline'),
+  );
+  await open();
+  await act(async () =>
+    document.querySelector<HTMLInputElement>('input[value="TEAM"]')?.click(),
+  );
+
+  expect(dialog()?.textContent).toContain('팀 목록을 불러오지 못했습니다.');
+  expect(dialog()?.textContent).not.toContain('팀 없음');
+  expect(document.querySelector('select')?.disabled).toBe(true);
+
+  await act(async () => inDialog('팀 목록 다시 불러오기').click());
+
+  expect(listStaffProgramTeams).toHaveBeenCalledTimes(2);
+  expect(dialog()?.textContent).not.toContain('팀 목록을 불러오지 못했습니다.');
+  expect(document.querySelector('select')?.disabled).toBe(false);
+  expect(dialog()?.textContent).toContain('예시 팀 가');
+});
