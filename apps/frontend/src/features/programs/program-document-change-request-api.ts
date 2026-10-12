@@ -9,6 +9,7 @@ export interface ProgramDocumentChangeRequestTargets {
   readonly changesRequested: number;
   readonly approved: number;
   readonly rejected: number;
+  readonly version: string;
 }
 
 export interface ProgramDocumentChangeRequestInput {
@@ -16,7 +17,7 @@ export interface ProgramDocumentChangeRequestInput {
   readonly includeFinalDecisions: boolean;
   readonly comment: string;
   readonly resubmissionDueAt: string;
-  readonly expectedCount: number;
+  readonly expectedVersion: string;
 }
 
 export function changeRequestTargetCount(
@@ -65,7 +66,7 @@ export function createProgramDocumentChangeRequest(
         includeFinalDecisions: input.includeFinalDecisions,
         comment: input.comment,
         resubmissionDueAt: input.resubmissionDueAt,
-        expectedCount: input.expectedCount,
+        expectedVersion: input.expectedVersion,
       }),
     },
   );

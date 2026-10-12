@@ -210,7 +210,14 @@ function ChangeRequestDialog({
       'CHANGES_REQUESTED',
       resubmissionDueAt,
     );
-    if (scope === null || dueAt === undefined || busy) return;
+    if (
+      scope === null ||
+      dueAt === undefined ||
+      busy ||
+      targets.kind !== 'ready'
+    ) {
+      return;
+    }
     setBusy(true);
     try {
       const result = await createProgramDocumentChangeRequest(programId, {
@@ -218,7 +225,7 @@ function ChangeRequestDialog({
         includeFinalDecisions,
         comment: comment.trim(),
         resubmissionDueAt: dueAt,
-        expectedCount: count,
+        expectedVersion: targets.targets.version,
       });
       setNotice({ kind: 'sent', count: result.requestedCount });
       onSent();

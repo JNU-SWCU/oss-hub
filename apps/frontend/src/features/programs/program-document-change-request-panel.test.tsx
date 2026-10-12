@@ -33,6 +33,7 @@ const TARGETS = {
   changesRequested: 1,
   approved: 1,
   rejected: 0,
+  version: 'a'.repeat(64),
 } as const;
 
 let root: Root;
@@ -178,7 +179,7 @@ it('보내면 확인한 건수와 함께 보내고 표를 다시 부르며 닫�
     includeFinalDecisions: false,
     comment: '양식을 바꿔 다시 내 주세요.',
     resubmissionDueAt: '2099-06-30T14:59:00.000Z',
-    expectedCount: 3,
+    expectedVersion: 'a'.repeat(64),
   });
   expect(onSent).toHaveBeenCalledTimes(1);
   expect(dialog()?.textContent).toContain('제출 3건에 보완 요청을 보냈습니다.');
@@ -216,6 +217,7 @@ it('팀 범위를 고르면 그 팀만 세고, 보낼 제출이 없으면 보낼
     changesRequested: 0,
     approved: 0,
     rejected: 0,
+    version: 'b'.repeat(64),
   });
   await open();
   await act(async () =>

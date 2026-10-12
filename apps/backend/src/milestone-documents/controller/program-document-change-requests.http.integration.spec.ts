@@ -117,6 +117,17 @@ function sendChangeRequest(
   });
 }
 
+async function previewVersion(query = 'scope=PROGRAM'): Promise<string> {
+  const response = await fixture.request(
+    `${changeRequestsPath}/targets?${query}`,
+    {
+      actor: 'staff',
+    },
+  );
+  expect(response.status).toBe(200);
+  return ((await response.json()) as { readonly version: string }).version;
+}
+
 async function approveSecondTeam(): Promise<void> {
   const response = await fixture.request(
     `${fixture.documentPath()}/applications/${extra.application}/reviews`,
@@ -155,18 +166,23 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     );
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
+    const body = (await response.json()) as { readonly version: string };
+    expect(body).toEqual({
       submitted: 1,
       changesRequested: 0,
       approved: 1,
       rejected: 0,
+      version: body.version,
     });
+    expect(body.version).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('끝난 판정은 기본으로 그대로 두고 나머지 제출에만 보완 요청 이력을 더한다', async () => {
     await approveSecondTeam();
 
-    const response = await sendChangeRequest({ expectedCount: 1 });
+    const response = await sendChangeRequest({
+      expectedVersion: await previewVersion(),
+    });
 
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({ requestedCount: 1 });
@@ -205,7 +221,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
 
     const response = await sendChangeRequest({
       includeFinalDecisions: true,
-      expectedCount: 2,
+      expectedVersion: await previewVersion(),
     });
 
     expect(response.status).toBe(201);
@@ -218,7 +234,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     const response = await sendChangeRequest({
       scope: 'TEAM',
       teamId: extra.team,
-      expectedCount: 1,
+      expectedVersion: await previewVersion(`scope=TEAM&teamId=${extra.team}`),
     });
 
     expect(response.status).toBe(201);
@@ -230,8 +246,11 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     );
   });
 
-  it('확인한 건수와 지금 건수가 다르면 아무것도 바꾸지 않는다', async () => {
-    const response = await sendChangeRequest({ expectedCount: 3 });
+  it('미리 본 뒤 판정이 바뀌어 대상이 달라지면 아무것도 바꾸지 않는다', async () => {
+    const previewed = await previewVersion();
+    await approveSecondTeam();
+
+    const response = await sendChangeRequest({ expectedVersion: previewed });
 
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({
@@ -241,11 +260,12 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
       SubmissionStatus.SUBMITTED,
     );
     await expect(statusOf(extra.application)).resolves.toBe(
-      SubmissionStatus.SUBMITTED,
+      SubmissionStatus.APPROVED,
     );
     await expect(
       fixture.prisma.milestoneDocumentReviewHistory.count({
         where: {
+          decision: ReviewDecision.CHANGES_REQUESTED,
           milestoneDocumentSubmission: {
             milestoneDocumentId: flowIds.document,
           },
@@ -259,7 +279,10 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
       `${changeRequestsPath}/targets?scope=PROGRAM`,
       { actor: 'student' },
     );
-    const send = await sendChangeRequest({ expectedCount: 2 }, 'student');
+    const send = await sendChangeRequest(
+      { expectedVersion: '0'.repeat(64) },
+      'student',
+    );
 
     expect(targets.status).toBe(403);
     expect(send.status).toBe(403);
@@ -272,7 +295,10 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
   });
 
   it('서류 현황 칸에 보완 요청 중인 서류 수가 보인다', async () => {
-    expect((await sendChangeRequest({ expectedCount: 2 })).status).toBe(201);
+    expect(
+      (await sendChangeRequest({ expectedVersion: await previewVersion() }))
+        .status,
+    ).toBe(201);
 
     const response = await fixture.request(
       `programs/${flowIds.program}/submissions/matrix?page=1&pageSize=20`,

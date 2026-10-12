@@ -8,9 +8,10 @@ import {
 } from '../domain/milestone-documents-error-code.enum';
 import {
   changeRequestTargetStatuses,
+  changeRequestTargetsVersion,
   type ProgramDocumentChangeRequestInput,
+  type ProgramDocumentChangeRequestPreview,
   type ProgramDocumentChangeRequestScope,
-  type ProgramDocumentChangeRequestTargetCounts,
 } from '../domain/program-document-change-request';
 import {
   MilestoneDocumentArchiveRepository,
@@ -36,19 +37,25 @@ export class ProgramDocumentChangeRequestsService {
     sessionGithubId: bigint,
     programId: string,
     scope: ProgramDocumentChangeRequestScope,
-  ): Promise<ProgramDocumentChangeRequestTargetCounts> {
+  ): Promise<ProgramDocumentChangeRequestPreview> {
     await this.assertStaff(sessionGithubId);
     const applicationIds = await this.applicationIdsInScope(programId, scope);
-    const counts = await this.repository.countChangeRequestTargets(
+    const candidates = await this.repository.findChangeRequestCandidates(
       programId,
       applicationIds,
     );
+    const count = (status: SubmissionStatus) =>
+      candidates.filter((candidate) => candidate.status === status).length;
     return {
-      [SubmissionStatus.SUBMITTED]: counts.get(SubmissionStatus.SUBMITTED) ?? 0,
-      [SubmissionStatus.CHANGES_REQUESTED]:
-        counts.get(SubmissionStatus.CHANGES_REQUESTED) ?? 0,
-      [SubmissionStatus.APPROVED]: counts.get(SubmissionStatus.APPROVED) ?? 0,
-      [SubmissionStatus.REJECTED]: counts.get(SubmissionStatus.REJECTED) ?? 0,
+      counts: {
+        [SubmissionStatus.SUBMITTED]: count(SubmissionStatus.SUBMITTED),
+        [SubmissionStatus.CHANGES_REQUESTED]: count(
+          SubmissionStatus.CHANGES_REQUESTED,
+        ),
+        [SubmissionStatus.APPROVED]: count(SubmissionStatus.APPROVED),
+        [SubmissionStatus.REJECTED]: count(SubmissionStatus.REJECTED),
+      },
+      version: changeRequestTargetsVersion(candidates),
     };
   }
 
@@ -72,14 +79,19 @@ export class ProgramDocumentChangeRequestsService {
     const requestedCount = await this.repository.withTransaction(
       async (store) => {
         const documentIds = await store.lockProgramDocumentIds(programId);
-        const targets = await store.findChangeRequestTargets({
+        const candidates = await store.findChangeRequestCandidates({
           documentIds,
           applicationIds,
-          statuses: changeRequestTargetStatuses(input.includeFinalDecisions),
         });
-        if (targets.length !== input.expectedCount) {
+        if (changeRequestTargetsVersion(candidates) !== input.expectedVersion) {
           throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
         }
+        const statuses = changeRequestTargetStatuses(
+          input.includeFinalDecisions,
+        );
+        const targets = candidates.filter((candidate) =>
+          statuses.includes(candidate.status),
+        );
 
         for (const target of targets) {
           const submission = await store.findSubmissionForReview(

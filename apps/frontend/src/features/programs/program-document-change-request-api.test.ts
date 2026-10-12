@@ -24,13 +24,13 @@ describe('program document change request api', () => {
     );
   });
 
-  it('sends the program scope without a team and with the confirmed count', async () => {
+  it('sends the program scope without a team and with the previewed version', async () => {
     await createProgramDocumentChangeRequest('program', {
       scope: { kind: 'PROGRAM' },
       includeFinalDecisions: true,
       comment: '다시 내 주세요.',
       resubmissionDueAt: '2099-06-30T14:59:00.000Z',
-      expectedCount: 4,
+      expectedVersion: 'a'.repeat(64),
     });
 
     const [path, init] = vi.mocked(apiClient).mock.calls[0] ?? [];
@@ -43,16 +43,17 @@ describe('program document change request api', () => {
       includeFinalDecisions: true,
       comment: '다시 내 주세요.',
       resubmissionDueAt: '2099-06-30T14:59:00.000Z',
-      expectedCount: 4,
+      expectedVersion: 'a'.repeat(64),
     });
   });
 
-  it('counts finished decisions only when they are reopened', () => {
+  it('counts finished decisions only when they are included', () => {
     const targets = {
       submitted: 2,
       changesRequested: 1,
       approved: 3,
       rejected: 1,
+      version: 'a'.repeat(64),
     };
 
     expect(changeRequestTargetCount(targets, false)).toBe(3);

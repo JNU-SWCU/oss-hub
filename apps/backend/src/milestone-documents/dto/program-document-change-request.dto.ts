@@ -2,11 +2,10 @@ import {
   IsBoolean,
   IsIn,
   IsISO8601,
-  IsInt,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
-  Min,
   MinLength,
 } from 'class-validator';
 import { DomainException } from '../../common/error-code';
@@ -17,7 +16,7 @@ import {
 import type {
   ProgramDocumentChangeRequestInput,
   ProgramDocumentChangeRequestScope,
-  ProgramDocumentChangeRequestTargetCounts,
+  ProgramDocumentChangeRequestPreview,
 } from '../domain/program-document-change-request';
 
 function toScope(
@@ -68,9 +67,8 @@ export class CreateProgramDocumentChangeRequestRequestDto {
   @IsISO8601()
   declare readonly resubmissionDueAt: string;
 
-  @IsInt()
-  @Min(1)
-  declare readonly expectedCount: number;
+  @Matches(/^[0-9a-f]{64}$/)
+  declare readonly expectedVersion: string;
 
   toInput(): ProgramDocumentChangeRequestInput {
     const comment = this.comment.trim();
@@ -94,7 +92,7 @@ export class CreateProgramDocumentChangeRequestRequestDto {
       includeFinalDecisions: this.includeFinalDecisions,
       comment,
       resubmissionDueAt,
-      expectedCount: this.expectedCount,
+      expectedVersion: this.expectedVersion,
     };
   }
 }
@@ -105,16 +103,18 @@ export class ProgramDocumentChangeRequestTargetsResponseDto {
     readonly changesRequested: number,
     readonly approved: number,
     readonly rejected: number,
+    readonly version: string,
   ) {}
 
   static from(
-    counts: ProgramDocumentChangeRequestTargetCounts,
+    preview: ProgramDocumentChangeRequestPreview,
   ): ProgramDocumentChangeRequestTargetsResponseDto {
     return new ProgramDocumentChangeRequestTargetsResponseDto(
-      counts.SUBMITTED,
-      counts.CHANGES_REQUESTED,
-      counts.APPROVED,
-      counts.REJECTED,
+      preview.counts.SUBMITTED,
+      preview.counts.CHANGES_REQUESTED,
+      preview.counts.APPROVED,
+      preview.counts.REJECTED,
+      preview.version,
     );
   }
 }

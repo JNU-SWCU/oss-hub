@@ -23,6 +23,7 @@ import {
 
 import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
 import type { MilestoneDocumentReviewRecord } from '../domain/milestone-document-review';
+import type { ProgramDocumentChangeRequestCandidate } from '../domain/program-document-change-request';
 import type {
   MilestoneDocumentRecord,
   MilestoneContext,
@@ -225,16 +226,10 @@ export interface MilestoneDocumentWriteStore {
 
   lockProgramDocumentIds(programId: string): Promise<readonly string[]>;
 
-  findChangeRequestTargets(input: {
+  findChangeRequestCandidates(input: {
     readonly documentIds: readonly string[];
     readonly applicationIds: readonly string[];
-    readonly statuses: readonly SubmissionStatus[];
-  }): Promise<
-    readonly {
-      readonly milestoneDocumentId: string;
-      readonly applicationId: string;
-    }[]
-  >;
+  }): Promise<readonly ProgramDocumentChangeRequestCandidate[]>;
 }
 
 export interface MilestoneDocumentCollectionReadStore {
@@ -644,16 +639,10 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
     return rows.map((row) => row.id);
   }
 
-  findChangeRequestTargets(input: {
+  findChangeRequestCandidates(input: {
     readonly documentIds: readonly string[];
     readonly applicationIds: readonly string[];
-    readonly statuses: readonly SubmissionStatus[];
-  }): Promise<
-    readonly {
-      readonly milestoneDocumentId: string;
-      readonly applicationId: string;
-    }[]
-  > {
+  }): Promise<readonly ProgramDocumentChangeRequestCandidate[]> {
     if (input.documentIds.length === 0 || input.applicationIds.length === 0) {
       return Promise.resolve([]);
     }
@@ -661,10 +650,9 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
       where: {
         milestoneDocumentId: { in: [...input.documentIds] },
         applicationId: { in: [...input.applicationIds] },
-        status: { in: [...input.statuses] },
       },
       orderBy: { id: 'asc' },
-      select: { milestoneDocumentId: true, applicationId: true },
+      select: { milestoneDocumentId: true, applicationId: true, status: true },
     });
   }
 }
@@ -800,13 +788,12 @@ export class MilestoneDocumentsRepository {
     );
   }
 
-  async countChangeRequestTargets(
+  findChangeRequestCandidates(
     programId: string,
     applicationIds: readonly string[],
-  ): Promise<ReadonlyMap<SubmissionStatus, number>> {
-    if (applicationIds.length === 0) return new Map();
-    const groups = await this.prisma.milestoneDocumentSubmission.groupBy({
-      by: ['status'],
+  ): Promise<readonly ProgramDocumentChangeRequestCandidate[]> {
+    if (applicationIds.length === 0) return Promise.resolve([]);
+    return this.prisma.milestoneDocumentSubmission.findMany({
       where: {
         applicationId: { in: [...applicationIds] },
         milestoneDocument: {
@@ -814,9 +801,9 @@ export class MilestoneDocumentsRepository {
           milestone: { programId },
         },
       },
-      _count: { _all: true },
+      orderBy: { id: 'asc' },
+      select: { milestoneDocumentId: true, applicationId: true, status: true },
     });
-    return new Map(groups.map((group) => [group.status, group._count._all]));
   }
 
   withCollectionSnapshot<T>(
