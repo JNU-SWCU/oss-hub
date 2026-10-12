@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { PageBody } from '@/components/page-body';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { ProgramDocumentArchiveOptions } from './program-document-archive-options';
 import { ApiError } from '@/lib/api-client';
 import { getProgramDetail, listStaffProgramTeams } from './api';
@@ -154,13 +155,16 @@ export function ProgramDocumentArchivePanel({
     <section
       aria-label="제출 자료 ZIP 내려받기"
       data-testid="program-document-archive"
-      className="grid w-full min-w-0 gap-4"
+      className={embedded ? 'contents' : 'grid w-full min-w-0 gap-4'}
     >
       {embedded ? trigger : <div className="flex justify-end">{trigger}</div>}
       {open ? (
         <div
           id="program-document-archive-options"
-          className="grid min-w-0 gap-4 rounded-card border border-border p-4"
+          className={cn(
+            'grid min-w-0 gap-4 rounded-card border border-border p-4',
+            embedded && 'order-last basis-full',
+          )}
         >
           <h2 className="text-lg font-semibold">다운로드 범위</h2>
           <p className="break-keep text-small text-muted-foreground">

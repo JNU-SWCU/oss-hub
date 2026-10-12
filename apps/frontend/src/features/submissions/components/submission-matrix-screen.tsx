@@ -29,11 +29,13 @@ export function SubmissionMatrixScreen({
   selectedMilestoneId,
   onSelectMilestone,
   headerActions,
+  reloadKey = 0,
 }: {
   readonly programId: string;
   readonly selectedMilestoneId: string | null;
   readonly onSelectMilestone: (milestoneId: string | null) => void;
   readonly headerActions?: ReactNode;
+  readonly reloadKey?: number;
 }) {
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState<MatrixQueryInput>(INITIAL_QUERY);
@@ -72,7 +74,7 @@ export function SubmissionMatrixScreen({
   useEffect(() => {
     requestIdRef.current += 1;
     void load(query, requestIdRef.current);
-  }, [query, load]);
+  }, [query, load, reloadKey]);
 
   return (
     <SubmissionMatrixView
