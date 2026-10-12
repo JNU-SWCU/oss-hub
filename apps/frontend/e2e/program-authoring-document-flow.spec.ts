@@ -461,6 +461,32 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
       studentPage,
       foreignStudentPage,
     });
+
+    await staffPage.goto(
+      `/programs/${encodeURIComponent(programId)}/documents`,
+    );
+    await staffPage.getByRole('button', { name: '보완 요청 보내기' }).click();
+    await expect(
+      staffPage.getByTestId('program-document-change-request-targets'),
+    ).toContainText(/제출 \d+건에 보완 요청을 보냅니다\./);
+    await staffPage.getByLabel('사유').fill('e2e:bulk-change-request');
+    await staffPage.getByLabel('재제출 기한').fill('2099-06-30T23:59');
+    await staffPage
+      .getByRole('button', { name: /^\d+건 보완 요청 보내기$/ })
+      .click();
+    await staffPage
+      .getByRole('alertdialog')
+      .getByRole('button', { name: '보내기' })
+      .click();
+    await expect(
+      staffPage.getByText(/제출 \d+건에 보완 요청을 보냈습니다\./),
+    ).toBeVisible();
+    await expect(
+      staffPage
+        .getByRole('table')
+        .getByText(/보완 요청 중 \d+건/)
+        .first(),
+    ).toBeVisible();
   });
 });
 
