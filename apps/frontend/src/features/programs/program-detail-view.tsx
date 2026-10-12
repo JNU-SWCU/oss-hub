@@ -382,41 +382,43 @@ export function ProgramDetailReadyState({
 
   return (
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
-      <div className="grid items-start gap-6 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+      <div className="grid items-start gap-6 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
         <ProgramCover
           size="detail"
           title={program.name}
           src={programCoverSource(program.coverImageUrl)}
         />
-        <PageHeader
-          className="sm:flex-col"
-          title={
-            <span className="flex flex-wrap items-center gap-3">
-              <span className="break-keep text-2xl sm:text-3xl">
-                {program.name}
+        <div className="grid min-w-0 content-start gap-6">
+          <PageHeader
+            className="sm:flex-col"
+            title={
+              <span className="flex flex-wrap items-center gap-3">
+                <span className="break-keep text-2xl sm:text-3xl">
+                  {program.name}
+                </span>
+                <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
               </span>
-              <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
-            </span>
-          }
-          description={
-            <>
-              {`${meta.context} · `}
-              <span className="whitespace-nowrap">{meta.period}</span>
-            </>
-          }
-          actions={
-            <>
-              {program.viewer.role === 'STAFF' ||
-              program.viewer.role === 'ADMIN' ? (
-                <ProgramEditAction programId={program.id} />
-              ) : null}
-              <ProgramActions program={program} />
-            </>
-          }
-        />
+            }
+            description={
+              <>
+                {`${meta.context} · `}
+                <span className="whitespace-nowrap">{meta.period}</span>
+              </>
+            }
+            actions={
+              <>
+                {program.viewer.role === 'STAFF' ||
+                program.viewer.role === 'ADMIN' ? (
+                  <ProgramEditAction programId={program.id} />
+                ) : null}
+                <ProgramActions program={program} />
+              </>
+            }
+          />
+          <ProgramSummary program={program} />
+          <ProgramFactBar program={program} overview={overview} />
+        </div>
       </div>
-      <ProgramSummary program={program} />
-      <ProgramFactBar program={program} overview={overview} />
       <ProgramMilestones program={program} />
       <section id={ACTIVITY_SECTION_ID} aria-label="활동 상세">
         <ActivityGraphPanel
