@@ -210,7 +210,7 @@ it('그사이 대상이 바뀌었으면 표를 바꾸지 않고 건수를 다시
   expect(getProgramDocumentChangeRequestTargets).toHaveBeenCalledTimes(2);
 });
 
-it('팀 하나를 고르면 그 팀만 세고, 보낼 제출이 없으면 보낼 수 없다', async () => {
+it('팀 범위를 고르면 그 팀만 세고, 보낼 제출이 없으면 보낼 수 없다', async () => {
   vi.mocked(getProgramDocumentChangeRequestTargets).mockResolvedValue({
     submitted: 0,
     changesRequested: 0,

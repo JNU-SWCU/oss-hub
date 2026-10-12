@@ -212,7 +212,7 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
     );
   });
 
-  it('끝난 판정도 다시 열기를 켜면 승인·반려 상태까지 대상으로 찾는다', async () => {
+  it('이미 승인·반려한 제출도 포함하면 승인·반려 상태까지 대상으로 찾는다', async () => {
     const store = writeStore(targets);
     const { service: subject } = service({ store });
 

@@ -200,7 +200,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     ).resolves.toBe(2);
   });
 
-  it('끝난 판정도 다시 열기를 켜면 승인된 제출도 보완 요청으로 바꾼다', async () => {
+  it('이미 승인·반려한 제출도 포함하면 승인된 제출도 보완 요청으로 바꾼다', async () => {
     await approveSecondTeam();
 
     const response = await sendChangeRequest({
