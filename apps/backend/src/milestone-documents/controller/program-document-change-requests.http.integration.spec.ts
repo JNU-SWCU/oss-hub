@@ -177,6 +177,26 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     expect(body.version).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it('승인된 신청이 없는 팀은 거절하지 않고 0건으로 센다', async () => {
+    await fixture.prisma.application.update({
+      where: { id: extra.application },
+      data: { status: 'SUBMITTED' },
+    });
+
+    const response = await fixture.request(
+      `${changeRequestsPath}/targets?scope=TEAM&teamId=${extra.team}`,
+      { actor: 'staff' },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      submitted: 0,
+      changesRequested: 0,
+      approved: 0,
+      rejected: 0,
+    });
+  });
+
   it('끝난 판정은 기본으로 그대로 두고 나머지 제출에만 보완 요청 이력을 더한다', async () => {
     await approveSecondTeam();
 

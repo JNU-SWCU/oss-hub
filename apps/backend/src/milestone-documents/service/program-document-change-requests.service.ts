@@ -150,11 +150,6 @@ export class ProgramDocumentChangeRequestsService {
       programId,
       scope.kind === 'TEAM' ? scope.teamId : undefined,
     );
-    if (scope.kind === 'TEAM' && teams.length === 0) {
-      throw this.error(
-        MilestoneDocumentsErrorCode.CHANGE_REQUEST_TEAM_NOT_FOUND,
-      );
-    }
     return teams.map((team) => team.applicationId);
   }
 

@@ -48,7 +48,6 @@ export const MilestoneDocumentsErrorCode = {
   ZIP_TOO_MANY_ENTRIES: 'MSD_042',
   ZIP_CONTENT_TOO_LARGE: 'MSD_043',
   ZIP_EXPANDS_TOO_MUCH: 'MSD_044',
-  CHANGE_REQUEST_TEAM_NOT_FOUND: 'MSD_045',
 } as const;
 
 export type MilestoneDocumentsErrorCode =
@@ -68,12 +67,6 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     status: 404,
     message:
       '이 프로그램의 승인된 팀을 찾을 수 없습니다. 다운로드할 팀을 다시 선택해 주세요.',
-  },
-  [MilestoneDocumentsErrorCode.CHANGE_REQUEST_TEAM_NOT_FOUND]: {
-    code: MilestoneDocumentsErrorCode.CHANGE_REQUEST_TEAM_NOT_FOUND,
-    status: 404,
-    message:
-      '이 프로그램의 승인된 팀을 찾을 수 없습니다. 보완 요청을 보낼 팀을 다시 선택해 주세요.',
   },
   [MilestoneDocumentsErrorCode.STAFF_ONLY]: {
     code: MilestoneDocumentsErrorCode.STAFF_ONLY,

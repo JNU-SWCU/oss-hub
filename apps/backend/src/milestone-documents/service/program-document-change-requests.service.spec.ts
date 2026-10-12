@@ -151,20 +151,26 @@ describe('ProgramDocumentChangeRequestsService.targets', () => {
     ]);
   });
 
-  it('팀 범위는 그 팀의 승인 신청만 세고, 없는 팀이면 거절한다', async () => {
+  it('승인된 신청이 없는 팀이면 거절하지 않고 0건으로 센다', async () => {
     const reader = programs([]);
-    const { service: subject } = service({ programs: reader });
+    const { service: subject, repo } = service({
+      programs: reader,
+      preview: [],
+    });
 
-    const error = await subject
-      .targets(1n, programId, { kind: 'TEAM', teamId: 'team-x' })
-      .catch((caught: unknown) => caught);
-
-    expect(code(error)).toBe(
-      MilestoneDocumentsErrorCode.CHANGE_REQUEST_TEAM_NOT_FOUND,
-    );
+    await expect(
+      subject.targets(1n, programId, { kind: 'TEAM', teamId: 'team-x' }),
+    ).resolves.toEqual({
+      counts: { SUBMITTED: 0, CHANGES_REQUESTED: 0, APPROVED: 0, REJECTED: 0 },
+      version: changeRequestTargetsVersion([]),
+    });
     expect(reader.findApprovedTeams.mock.calls).toEqual([
       [programId, 'team-x'],
     ]);
+    expect(repo.findChangeRequestCandidates).toHaveBeenCalledWith(
+      programId,
+      [],
+    );
   });
 
   it('교직원이 아니면 아무것도 읽지 않고 거절한다', async () => {
