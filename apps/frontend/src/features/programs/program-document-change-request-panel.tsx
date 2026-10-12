@@ -297,8 +297,8 @@ function ChangeRequestDialog({
             <div className="flex flex-wrap gap-x-4">
               {(
                 [
-                  ['PROGRAM', '이 프로그램 전체'],
-                  ['TEAM', '팀 하나'],
+                  ['PROGRAM', '프로그램 전체'],
+                  ['TEAM', '팀'],
                 ] as const
               ).map(([value, label]) => (
                 <label
