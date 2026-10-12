@@ -1,7 +1,7 @@
 'use client';
 
-import { RotateCcw, X } from 'lucide-react';
-import { useEffect, useId, useState } from 'react';
+import { RotateCcw } from 'lucide-react';
+import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { DialogShell } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,8 @@ import {
   FieldDescription,
   FieldError,
   FieldLabel,
+  FieldLegend,
+  FieldSet,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
@@ -51,14 +53,17 @@ function targetBreakdown(
   targets: ProgramDocumentChangeRequestTargets,
   includeFinalDecisions: boolean,
 ): string {
-  const parts = [
-    `검토 대기 ${targets.submitted}건`,
-    `보완 요청 중 ${targets.changesRequested}건`,
+  const parts: [string, number][] = [
+    ['검토 대기', targets.submitted],
+    ['보완 요청 중', targets.changesRequested],
   ];
   if (includeFinalDecisions) {
-    parts.push(`승인 ${targets.approved}건`, `반려 ${targets.rejected}건`);
+    parts.push(['승인', targets.approved], ['반려', targets.rejected]);
   }
-  return parts.join(' · ');
+  return parts
+    .filter(([, count]) => count > 0)
+    .map(([label, count]) => `${label} ${count}건`)
+    .join(' · ');
 }
 
 export function ProgramDocumentChangeRequestPanel({
@@ -68,8 +73,45 @@ export function ProgramDocumentChangeRequestPanel({
   readonly programId: string;
   readonly onSent: () => void;
 }) {
-  const id = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Button
+        ref={triggerRef}
+        type="button"
+        variant="outline"
+        onClick={() => setOpen(true)}
+      >
+        <RotateCcw aria-hidden="true" />
+        보완 요청 보내기
+      </Button>
+      {open ? (
+        <ChangeRequestDialog
+          programId={programId}
+          returnFocusRef={triggerRef}
+          onSent={onSent}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function ChangeRequestDialog({
+  programId,
+  returnFocusRef,
+  onSent,
+  onClose,
+}: {
+  readonly programId: string;
+  readonly returnFocusRef: RefObject<HTMLButtonElement | null>;
+  readonly onSent: () => void;
+  readonly onClose: () => void;
+}) {
+  const id = useId();
+  const closeRef = useRef<HTMLButtonElement>(null);
   const [teams, setTeams] = useState<readonly StaffProgramTeam[] | null>(null);
   const [kind, setKind] =
     useState<ProgramDocumentChangeRequestScope['kind']>('PROGRAM');
@@ -83,15 +125,14 @@ export function ProgramDocumentChangeRequestPanel({
     readonly comment: string | null;
     readonly resubmissionDueAt: string | null;
   }>({ comment: null, resubmissionDueAt: null });
-  const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
 
   const scope: ProgramDocumentChangeRequestScope | null =
     kind === 'PROGRAM' ? { kind } : teamId === '' ? null : { kind, teamId };
+  const sent = notice?.kind === 'sent';
 
   useEffect(() => {
-    if (!open || teams !== null) return;
     let active = true;
     listStaffProgramTeams(programId)
       .then((loaded) => {
@@ -103,10 +144,10 @@ export function ProgramDocumentChangeRequestPanel({
     return () => {
       active = false;
     };
-  }, [open, programId, teams]);
+  }, [programId]);
 
   useEffect(() => {
-    if (!open || (kind === 'TEAM' && teamId === '')) {
+    if (kind === 'TEAM' && teamId === '') {
       setTargets({ kind: 'idle' });
       return;
     }
@@ -132,14 +173,22 @@ export function ProgramDocumentChangeRequestPanel({
     return () => {
       active = false;
     };
-  }, [open, programId, kind, teamId, reload]);
+  }, [programId, kind, teamId, reload]);
+
+  useEffect(() => {
+    if (sent) closeRef.current?.focus();
+  }, [sent]);
 
   const count =
     targets.kind === 'ready'
       ? changeRequestTargetCount(targets.targets, includeFinalDecisions)
       : 0;
+  const excluded =
+    targets.kind === 'ready' && !includeFinalDecisions
+      ? targets.targets.approved + targets.targets.rejected
+      : 0;
 
-  function review() {
+  async function send() {
     const nextErrors = {
       comment: comment.trim() === '' ? '보완 요청 사유를 입력해 주세요.' : null,
       resubmissionDueAt: milestoneDocumentResubmissionDueAtError(
@@ -157,10 +206,6 @@ export function ProgramDocumentChangeRequestPanel({
       document.getElementById(`${id}-due`)?.focus();
       return;
     }
-    setConfirming(true);
-  }
-
-  async function send() {
     const dueAt = milestoneDocumentResubmissionDueAtPayload(
       'CHANGES_REQUESTED',
       resubmissionDueAt,
@@ -176,7 +221,6 @@ export function ProgramDocumentChangeRequestPanel({
         expectedCount: count,
       });
       setNotice({ kind: 'sent', count: result.requestedCount });
-      setComment('');
       onSent();
     } catch (cause: unknown) {
       setNotice(
@@ -192,107 +236,166 @@ export function ProgramDocumentChangeRequestPanel({
                   : '보완 요청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.',
             },
       );
+      setReload((value) => value + 1);
     } finally {
       setBusy(false);
-      setConfirming(false);
-      setReload((value) => value + 1);
     }
   }
 
-  const toggleLabel = open ? '보완 요청 범위 닫기' : '보완 요청 보내기';
-
   return (
-    <section
-      aria-label="보완 요청 보내기"
-      data-testid="program-document-change-request"
-      className="contents"
+    <DialogShell
+      kind="alert"
+      title="보완 요청 보내기"
+      description={
+        sent
+          ? null
+          : '고른 범위의 서류 제출을 다시 받습니다. 이전 제출과 판정은 이력에 남습니다.'
+      }
+      busy={busy}
+      returnFocusRef={returnFocusRef}
+      onCancel={onClose}
+      footer={
+        sent ? (
+          <Button ref={closeRef} type="button" onClick={onClose}>
+            닫기
+          </Button>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={onClose}
+            >
+              취소
+            </Button>
+            <Button
+              type="button"
+              disabled={busy || targets.kind !== 'ready' || count === 0}
+              onClick={() => void send()}
+            >
+              {busy
+                ? '보내는 중…'
+                : count > 0
+                  ? `${count}건 보완 요청 보내기`
+                  : '보완 요청 보내기'}
+            </Button>
+          </>
+        )
+      }
     >
-      <Button
-        type="button"
-        variant="outline"
-        aria-label={toggleLabel}
-        aria-expanded={open}
-        aria-controls={`${id}-options`}
-        onClick={() => setOpen(!open)}
-      >
-        {open ? <X aria-hidden="true" /> : <RotateCcw aria-hidden="true" />}
-        보완 요청 보내기
-      </Button>
-      {open ? (
-        <div
-          id={`${id}-options`}
-          className="order-last grid min-w-0 basis-full gap-4 rounded-card border border-border p-4"
-        >
-          <h2 className="text-lg font-semibold">보완 요청 범위</h2>
-          <p className="break-keep text-small text-muted-foreground">
-            고른 범위의 서류 제출을 다시 받습니다. 이전 제출과 판정은 이력에
-            남습니다.
-          </p>
-          <fieldset className="flex flex-wrap gap-4" disabled={busy}>
-            <legend className="sr-only">보완 요청 범위</legend>
-            {(
-              [
-                ['PROGRAM', '이 프로그램 전체'],
-                ['TEAM', '팀 하나'],
-              ] as const
-            ).map(([value, label]) => (
-              <label
-                key={value}
-                className="flex min-h-11 items-center gap-2 text-small"
-              >
-                <input
-                  type="radio"
-                  name={`${id}-scope`}
-                  value={value}
-                  checked={kind === value}
-                  onChange={() => {
-                    setKind(value);
+      {notice?.kind === 'sent' ? (
+        <Alert role="status">
+          <AlertDescription>
+            제출 {notice.count}건에 보완 요청을 보냈습니다.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <>
+          <FieldSet className="gap-2" disabled={busy}>
+            <FieldLegend variant="label">범위</FieldLegend>
+            <div className="flex flex-wrap gap-x-4">
+              {(
+                [
+                  ['PROGRAM', '이 프로그램 전체'],
+                  ['TEAM', '팀 하나'],
+                ] as const
+              ).map(([value, label]) => (
+                <label
+                  key={value}
+                  className="flex min-h-11 items-center gap-2 text-small"
+                >
+                  <input
+                    type="radio"
+                    name={`${id}-scope`}
+                    value={value}
+                    checked={kind === value}
+                    onChange={() => {
+                      setKind(value);
+                      setNotice(null);
+                    }}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {kind === 'TEAM' ? (
+              <Field>
+                <FieldLabel htmlFor={`${id}-team`}>팀</FieldLabel>
+                <Select
+                  id={`${id}-team`}
+                  value={teamId}
+                  disabled={teams === null}
+                  onChange={(event) => {
+                    setTeamId(event.target.value);
                     setNotice(null);
                   }}
-                />
-                {label}
-              </label>
-            ))}
-          </fieldset>
-          {kind === 'TEAM' ? (
-            <Field>
-              <FieldLabel htmlFor={`${id}-team`}>팀</FieldLabel>
-              <Select
-                id={`${id}-team`}
-                value={teamId}
-                disabled={busy || teams === null}
+                >
+                  <option value="">
+                    {teams === null
+                      ? '팀 목록을 불러오는 중…'
+                      : teams.length === 0
+                        ? '팀 없음'
+                        : '팀을 선택해 주세요'}
+                  </option>
+                  {(teams ?? []).map((team) => (
+                    <option key={team.teamId} value={team.teamId}>
+                      {team.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : null}
+            <label className="flex min-h-11 items-center gap-2 text-small">
+              <input
+                type="checkbox"
+                checked={includeFinalDecisions}
                 onChange={(event) => {
-                  setTeamId(event.target.value);
+                  setIncludeFinalDecisions(event.target.checked);
                   setNotice(null);
                 }}
+              />
+              이미 승인·반려한 제출도 포함
+            </label>
+            <div
+              className="grid gap-1 rounded-control bg-muted p-4 text-small"
+              data-testid="program-document-change-request-targets"
+              role="status"
+            >
+              {scope === null ? (
+                <p>팀을 선택하면 보낼 제출 수를 보여 줍니다.</p>
+              ) : targets.kind === 'ready' ? (
+                count === 0 ? (
+                  <p>이 범위에는 보완 요청을 보낼 제출이 없습니다.</p>
+                ) : (
+                  <>
+                    <p>
+                      {targetBreakdown(targets.targets, includeFinalDecisions)}
+                    </p>
+                    {excluded > 0 ? (
+                      <p className="text-muted-foreground">
+                        승인·반려한 {excluded}건은 빠집니다.
+                      </p>
+                    ) : null}
+                  </>
+                )
+              ) : targets.kind === 'error' ? (
+                <p>{targets.message}</p>
+              ) : (
+                <p>보낼 제출 수를 세는 중…</p>
+              )}
+            </div>
+            {targets.kind === 'error' ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="justify-self-start"
+                onClick={() => setReload((value) => value + 1)}
               >
-                <option value="">
-                  {teams === null
-                    ? '팀 목록을 불러오는 중…'
-                    : teams.length === 0
-                      ? '팀 없음'
-                      : '팀을 선택해 주세요'}
-                </option>
-                {(teams ?? []).map((team) => (
-                  <option key={team.teamId} value={team.teamId}>
-                    {team.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          ) : null}
-          <label className="flex min-h-11 items-center gap-2 text-small">
-            <input
-              type="checkbox"
-              checked={includeFinalDecisions}
-              disabled={busy}
-              onChange={(event) => {
-                setIncludeFinalDecisions(event.target.checked);
-                setNotice(null);
-              }}
-            />
-            승인·반려로 끝난 제출도 다시 열기
-          </label>
+                다시 세기
+              </Button>
+            ) : null}
+          </FieldSet>
           <Field>
             <FieldLabel htmlFor={`${id}-comment`}>사유</FieldLabel>
             <Textarea
@@ -334,95 +437,22 @@ export function ProgramDocumentChangeRequestPanel({
               </FieldError>
             )}
           </Field>
-          <div
-            className="grid gap-1 rounded-control bg-muted p-4 text-small"
-            data-testid="program-document-change-request-targets"
-            role="status"
-          >
-            {scope === null ? (
-              <p>팀을 선택하면 보낼 제출 수를 보여 줍니다.</p>
-            ) : targets.kind === 'ready' ? (
-              count === 0 ? (
-                <p>이 범위에는 보완 요청을 보낼 제출이 없습니다.</p>
-              ) : (
-                <>
-                  <strong>제출 {count}건에 보완 요청을 보냅니다.</strong>
-                  <p>
-                    {targetBreakdown(targets.targets, includeFinalDecisions)}
-                  </p>
-                  {!includeFinalDecisions &&
-                  targets.targets.approved + targets.targets.rejected > 0 ? (
-                    <p>
-                      승인·반려로 끝난{' '}
-                      {targets.targets.approved + targets.targets.rejected}
-                      건은 그대로 둡니다.
-                    </p>
-                  ) : null}
-                </>
-              )
-            ) : targets.kind === 'error' ? (
-              <p>{targets.message}</p>
-            ) : (
-              <p>보낼 제출 수를 세는 중…</p>
-            )}
-          </div>
-          {targets.kind === 'error' ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="justify-self-start"
-              onClick={() => setReload((value) => value + 1)}
-            >
-              다시 세기
-            </Button>
-          ) : null}
-          {notice === null ? null : notice.kind === 'sent' ? (
-            <Alert role="status">
-              <AlertDescription>
-                제출 {notice.count}건에 보완 요청을 보냈습니다. 서류 현황에
-                「보완 요청 중」 건수로 표시됩니다.
-              </AlertDescription>
-            </Alert>
-          ) : notice.kind === 'changed' ? (
+          {notice?.kind === 'changed' ? (
             <Alert role="status">
               <AlertDescription className="break-keep">
                 그사이 제출이나 판정이 바뀌어 보낼 제출 수를 다시 셌습니다.
                 건수를 확인한 뒤 다시 보내 주세요.
               </AlertDescription>
             </Alert>
-          ) : (
+          ) : notice?.kind === 'error' ? (
             <Alert variant="destructive">
               <AlertDescription className="break-keep">
                 {notice.message}
               </AlertDescription>
             </Alert>
-          )}
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              disabled={busy || targets.kind !== 'ready' || count === 0}
-              onClick={review}
-            >
-              <RotateCcw aria-hidden="true" />
-              {count > 0 ? `${count}건 보완 요청 보내기` : '보완 요청 보내기'}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-      <DialogShell
-        open={confirming}
-        kind="alert"
-        title={`제출 ${count}건에 보완 요청을 보낼까요?`}
-        description="학생은 정한 기한까지 다시 낼 수 있고, 마감이 지난 단계라면 기한 안에 한 번 다시 낼 수 있습니다. 이전 제출과 판정은 이력에 남습니다."
-        busy={busy}
-        className="max-w-lg"
-        bodyClassName="mt-0"
-        confirmLabel={busy ? '보내는 중…' : '보내기'}
-        onCancel={() => setConfirming(false)}
-        onSave={() => void send()}
-      >
-        {null}
-      </DialogShell>
-    </section>
+          ) : null}
+        </>
+      )}
+    </DialogShell>
   );
 }

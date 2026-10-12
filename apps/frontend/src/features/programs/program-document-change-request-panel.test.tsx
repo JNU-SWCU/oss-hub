@@ -71,8 +71,12 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
-function button(label: string): HTMLButtonElement {
-  const value = [...document.querySelectorAll('button')].find(
+function dialog(): HTMLElement | null {
+  return document.querySelector('[role="alertdialog"]');
+}
+
+function button(label: string, root: ParentNode = document): HTMLButtonElement {
+  const value = [...root.querySelectorAll('button')].find(
     (item) =>
       (item.getAttribute('aria-label') ?? item.textContent?.trim()) === label,
   );
@@ -80,9 +84,15 @@ function button(label: string): HTMLButtonElement {
   return value;
 }
 
+function inDialog(label: string): HTMLButtonElement {
+  const root = dialog();
+  if (!root) throw new TypeError('Missing dialog');
+  return button(label, root);
+}
+
 function targetsText(): string {
   return (
-    container.querySelector(
+    document.querySelector(
       '[data-testid="program-document-change-request-targets"]',
     )?.textContent ?? ''
   );
@@ -93,7 +103,7 @@ async function open() {
 }
 
 async function type(selector: string, value: string) {
-  const field = container.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+  const field = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
     selector,
   );
   if (!field) throw new TypeError(`Missing ${selector}`);
@@ -115,45 +125,53 @@ async function fillReason() {
   await type('input[type="datetime-local"]', '2099-06-30T23:59');
 }
 
-it('범위 안 제출 수를 상태별로 보여 주고 끝난 판정은 체크해야 더한다', async () => {
+it('범위 안 제출 수를 상태별로 보여 주고 이미 끝난 판정은 체크해야 더한다', async () => {
   await open();
 
   expect(getProgramDocumentChangeRequestTargets).toHaveBeenCalledWith(
     'program-1',
     { kind: 'PROGRAM' },
   );
-  expect(targetsText()).toContain('제출 3건에 보완 요청을 보냅니다.');
   expect(targetsText()).toContain('검토 대기 2건 · 보완 요청 중 1건');
-  expect(targetsText()).toContain('승인·반려로 끝난 1건은 그대로 둡니다.');
+  expect(targetsText()).toContain('승인·반려한 1건은 빠집니다.');
+  expect(inDialog('3건 보완 요청 보내기').disabled).toBe(false);
 
-  const finals = container.querySelector<HTMLInputElement>(
+  const finals = document.querySelector<HTMLInputElement>(
     'input[type="checkbox"]',
   );
   await act(async () => finals?.click());
 
-  expect(targetsText()).toContain('제출 4건에 보완 요청을 보냅니다.');
+  expect(targetsText()).toContain(
+    '검토 대기 2건 · 보완 요청 중 1건 · 승인 1건',
+  );
+  expect(targetsText()).not.toContain('빠집니다');
+  expect(inDialog('4건 보완 요청 보내기').disabled).toBe(false);
   expect(getProgramDocumentChangeRequestTargets).toHaveBeenCalledTimes(1);
 });
 
-it('사유가 없으면 확인 창을 열지 않고 사유 칸에 오류를 보인다', async () => {
+it('사유가 없으면 보내지 않고 사유 칸에 오류를 보이며, 취소하면 입력을 버린다', async () => {
   await open();
-  await act(async () => button('3건 보완 요청 보내기').click());
+  await type('input[type="datetime-local"]', '2099-06-30T23:59');
+  await act(async () => inDialog('3건 보완 요청 보내기').click());
 
-  expect(container.textContent).toContain('보완 요청 사유를 입력해 주세요.');
-  expect(document.activeElement).toBe(container.querySelector('textarea'));
-  expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+  expect(dialog()?.textContent).toContain('보완 요청 사유를 입력해 주세요.');
+  expect(document.activeElement).toBe(document.querySelector('textarea'));
+  expect(createProgramDocumentChangeRequest).not.toHaveBeenCalled();
+
+  await act(async () => inDialog('취소').click());
+  expect(dialog()).toBeNull();
+  await open();
+  expect(
+    document.querySelector<HTMLInputElement>('input[type="datetime-local"]')
+      ?.value,
+  ).toBe('');
   expect(createProgramDocumentChangeRequest).not.toHaveBeenCalled();
 });
 
-it('확인 창에서 보내면 확인한 건수와 함께 보내고 표를 다시 부른다', async () => {
+it('보내면 확인한 건수와 함께 보내고 표를 다시 부르며 닫기로 끝낸다', async () => {
   await open();
   await fillReason();
-  await act(async () => button('3건 보완 요청 보내기').click());
-
-  expect(document.body.textContent).toContain(
-    '제출 3건에 보완 요청을 보낼까요?',
-  );
-  await act(async () => button('보내기').click());
+  await act(async () => inDialog('3건 보완 요청 보내기').click());
 
   expect(createProgramDocumentChangeRequest).toHaveBeenCalledWith('program-1', {
     scope: { kind: 'PROGRAM' },
@@ -163,8 +181,11 @@ it('확인 창에서 보내면 확인한 건수와 함께 보내고 표를 다�
     expectedCount: 3,
   });
   expect(onSent).toHaveBeenCalledTimes(1);
-  expect(container.textContent).toContain('제출 3건에 보완 요청을 보냈습니다.');
-  expect(getProgramDocumentChangeRequestTargets).toHaveBeenCalledTimes(2);
+  expect(dialog()?.textContent).toContain('제출 3건에 보완 요청을 보냈습니다.');
+  expect(document.activeElement).toBe(inDialog('닫기'));
+
+  await act(async () => inDialog('닫기').click());
+  expect(dialog()).toBeNull();
 });
 
 it('그사이 대상이 바뀌었으면 표를 바꾸지 않고 건수를 다시 센다', async () => {
@@ -180,11 +201,10 @@ it('그사이 대상이 바뀌었으면 표를 바꾸지 않고 건수를 다시
   );
   await open();
   await fillReason();
-  await act(async () => button('3건 보완 요청 보내기').click());
-  await act(async () => button('보내기').click());
+  await act(async () => inDialog('3건 보완 요청 보내기').click());
 
   expect(onSent).not.toHaveBeenCalled();
-  expect(container.textContent).toContain(
+  expect(dialog()?.textContent).toContain(
     '그사이 제출이나 판정이 바뀌어 보낼 제출 수를 다시 셌습니다.',
   );
   expect(getProgramDocumentChangeRequestTargets).toHaveBeenCalledTimes(2);
@@ -199,11 +219,11 @@ it('팀 하나를 고르면 그 팀만 세고, 보낼 제출이 없으면 보낼
   });
   await open();
   await act(async () =>
-    container.querySelector<HTMLInputElement>('input[value="TEAM"]')?.click(),
+    document.querySelector<HTMLInputElement>('input[value="TEAM"]')?.click(),
   );
   expect(targetsText()).toContain('팀을 선택하면 보낼 제출 수를 보여 줍니다.');
 
-  const team = container.querySelector('select');
+  const team = document.querySelector('select');
   if (!team) throw new TypeError('Missing team select');
   await act(async () => {
     team.value = 'team-1';
@@ -217,5 +237,5 @@ it('팀 하나를 고르면 그 팀만 세고, 보낼 제출이 없으면 보낼
   expect(targetsText()).toContain(
     '이 범위에는 보완 요청을 보낼 제출이 없습니다.',
   );
-  expect(button('보완 요청 보내기').disabled).toBe(true);
+  expect(inDialog('보완 요청 보내기').disabled).toBe(true);
 });
