@@ -352,6 +352,20 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     await expect(changeRequestReviewCount()).resolves.toBe(0);
   });
 
+  it('팀 범위의 팀 ID가 null이면 400으로 거절하고 아무것도 바꾸지 않는다', async () => {
+    const response = await sendChangeRequest({
+      scope: 'TEAM',
+      teamId: null,
+      expectedVersion: await previewVersion(),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: MilestoneDocumentsErrorCode.INVALID_REQUEST,
+    });
+    await expect(changeRequestReviewCount()).resolves.toBe(0);
+  });
+
   it('학생은 대상 건수도 보내기도 할 수 없다', async () => {
     const targets = await fixture.request(
       `${changeRequestsPath}/targets?scope=PROGRAM`,

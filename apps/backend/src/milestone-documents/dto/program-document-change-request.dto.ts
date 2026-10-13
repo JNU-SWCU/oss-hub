@@ -21,10 +21,12 @@ import type {
 
 function toScope(
   scope: ProgramDocumentChangeRequestScope['kind'],
-  teamId: string | undefined,
+  teamId: string | null | undefined,
 ): ProgramDocumentChangeRequestScope {
   if (scope === 'PROGRAM' && teamId === undefined) return { kind: 'PROGRAM' };
-  if (scope === 'TEAM' && teamId !== undefined) return { kind: 'TEAM', teamId };
+  if (scope === 'TEAM' && typeof teamId === 'string') {
+    return { kind: 'TEAM', teamId };
+  }
   throw new DomainException(
     MILESTONE_DOCUMENTS_ERROR_CODES[
       MilestoneDocumentsErrorCode.INVALID_REQUEST
@@ -40,7 +42,7 @@ export class ProgramDocumentChangeRequestTargetsQueryRequestDto {
   @IsString()
   @MinLength(1)
   @MaxLength(200)
-  declare readonly teamId?: string;
+  declare readonly teamId?: string | null;
 
   toScope(): ProgramDocumentChangeRequestScope {
     return toScope(this.scope, this.teamId);
@@ -55,7 +57,7 @@ export class CreateProgramDocumentChangeRequestRequestDto {
   @IsString()
   @MinLength(1)
   @MaxLength(200)
-  declare readonly teamId?: string;
+  declare readonly teamId?: string | null;
 
   @IsBoolean()
   declare readonly includeFinalDecisions: boolean;
