@@ -1,4 +1,6 @@
 import { expect, test } from './admin-session.fixture';
+import type { ProgramDetail } from '../src/features/programs/types';
+import type { ProgramOverview } from '../src/features/programs/program-overview-api';
 import {
   fixtureProgramId,
   originHeaders,
@@ -216,5 +218,156 @@ test.describe('프로그램 대표 이미지', () => {
     expect(uploads).toBe(2);
     expect(await savedCoverPath(staff, programId)).not.toBe(committedCover);
     await expect(field.getByRole('alert')).not.toBeVisible();
+  });
+
+  test('상세 제목 옆 액션은 좁은 열과 긴 제목에서도 겹치거나 잘리지 않는다', async ({
+    authSeedPage,
+  }, testInfo) => {
+    test.setTimeout(180_000);
+    for (const role of ['staff', 'student'] as const) {
+      const page = await authSeedPage(
+        role === 'staff' ? 'staff-revocable' : 'student-confirmed',
+      );
+      await page.clock.setFixedTime(new Date('2026-10-13T01:00:00.000Z'));
+      for (const id of ['ex:p1', 'ex:p6']) {
+        const path = `/api/v1/programs/${encodeURIComponent(id)}`;
+        const program: ProgramDetail = {
+          id,
+          name: '예시 교내 경진 대회',
+          organizer: '합성 주관기관',
+          trackType: 'EXTRACURRICULAR',
+          applicationTemplateKey: 'oss-contest',
+          lifecycle: 'PUBLISHED',
+          repositoryProvisioningEnabled: true,
+          description: '편집 버튼 정렬을 확인하는 합성 프로그램입니다.',
+          coverImageUrl: id === 'ex:p1' ? `/programs/${id}/cover` : null,
+          applicationPeriod: {
+            startsAt: '2026-10-01T00:00:00.000Z',
+            endsAt: '2026-10-31T14:59:59.000Z',
+          },
+          viewer: {
+            role: role === 'staff' ? 'STAFF' : 'STUDENT',
+            applicationStatus: null,
+          },
+          milestones: [],
+        };
+        await page.route(`**${path}/viewer`, (route) =>
+          route.fulfill({ json: program }),
+        );
+        await page.route(`**${path}`, (route) =>
+          route.fulfill({
+            json: {
+              ...program,
+              viewer: { role: null, applicationStatus: null },
+            },
+          }),
+        );
+        await page.route(`**${path}/overview`, (route) =>
+          route.fulfill({
+            json: {
+              programId: id,
+              name: program.name,
+              trackType: program.trackType,
+              lifecycle: 'PUBLISHED',
+              milestoneCount: 0,
+              boardPostCount: 0,
+              participantCount: 0,
+              teamCount: 0,
+              connectedRepositoryCount: 0,
+              viewerRole: program.viewer.role,
+              viewerDocumentsCompleted: 0,
+              viewerDocumentsTotal: 0,
+              fullySubmittedParticipantCount: 0,
+              remainingMilestones: [],
+              milestoneDocuments: [],
+            } satisfies ProgramOverview,
+          }),
+        );
+        await page.route(`**${path}/activity`, (route) =>
+          route.fulfill({ json: [] }),
+        );
+        await page.route(`**/api/v1/programs/${id}/cover`, (route) =>
+          route.fulfill({ contentType: 'image/png', body: COVER_PNG }),
+        );
+        for (const width of [1440, 1024, 768, 390]) {
+          await page.setViewportSize({
+            width,
+            height: width === 390 ? 844 : 900,
+          });
+          await page.goto(`/programs/${encodeURIComponent(id)}`);
+          const header = page.locator('main [data-slot="page-header"]');
+          await expect(header).toContainText(program.name);
+          await page.evaluate(() => document.fonts.ready);
+          const edit = header.getByRole('link', { name: '편집', exact: true });
+          const action =
+            role === 'staff'
+              ? edit
+              : header.getByRole('link', { name: '신청하기' });
+          await expect(action).toBeVisible();
+          await expect(edit).toHaveCount(role === 'staff' ? 1 : 0);
+          await page.locator('main > div:first-child').screenshot({
+            path: testInfo.outputPath(
+              `align-${role}-${width}-${id.slice(3)}.png`,
+            ),
+          });
+          await page.screenshot({
+            path: testInfo.outputPath(
+              `align-screen-${role}-${width}-${id.slice(3)}.png`,
+            ),
+          });
+          for (const long of [false, true]) {
+            if (long) {
+              await header
+                .locator('[data-slot="page-header-title"] > span > span')
+                .first()
+                .evaluate((element) => {
+                  element.textContent =
+                    '매우긴합성프로그램제목으로좁은열의줄바꿈을확인하는오픈소스경진대회';
+                });
+            }
+            const geometry = await header.evaluate((element) => {
+              const title = element.querySelector(
+                '[data-slot="page-header-title"]',
+              );
+              const action = element.querySelector(
+                '[data-slot="page-header-actions"] a',
+              );
+              if (!title || !action)
+                throw new Error('Header fixture is missing.');
+              const titleBox = title.getBoundingClientRect();
+              const actionBox = action.getBoundingClientRect();
+              return {
+                overflow: element.scrollWidth > element.clientWidth,
+                titleTop: titleBox.top,
+                titleRight: titleBox.right,
+                actionTop: actionBox.top,
+                actionLeft: actionBox.left,
+              };
+            });
+            const label = `${role} ${id} ${width} ${long ? 'long' : 'short'}`;
+            await testInfo.attach(label, {
+              body: JSON.stringify(geometry),
+              contentType: 'application/json',
+            });
+            if (long) {
+              await header.screenshot({
+                path: testInfo.outputPath(
+                  `align-long-${role}-${width}-${id.slice(3)}.png`,
+                ),
+              });
+            }
+            expect.soft(geometry.overflow, label).toBe(false);
+            if (width >= 640) {
+              expect
+                .soft(Math.abs(geometry.actionTop - geometry.titleTop), label)
+                .toBeLessThanOrEqual(1);
+              expect
+                .soft(geometry.actionLeft, label)
+                .toBeGreaterThanOrEqual(geometry.titleRight);
+            }
+          }
+        }
+      }
+    }
   });
 });

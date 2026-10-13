@@ -390,10 +390,9 @@ export function ProgramDetailReadyState({
         />
         <div className="grid min-w-0 content-start gap-6">
           <PageHeader
-            className="sm:flex-col"
             title={
               <span className="flex flex-wrap items-center gap-3">
-                <span className="break-keep text-2xl sm:text-3xl">
+                <span className="min-w-0 text-2xl [overflow-wrap:anywhere] sm:text-3xl">
                   {program.name}
                 </span>
                 <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
@@ -402,7 +401,7 @@ export function ProgramDetailReadyState({
             description={
               <>
                 {`${meta.context} · `}
-                <span className="whitespace-nowrap">{meta.period}</span>
+                <span>{meta.period}</span>
               </>
             }
             actions={
