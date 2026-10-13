@@ -327,7 +327,7 @@ test.describe('프로그램 대표 이미지', () => {
           const milestones = await page
             .locator('#milestones-title')
             .boundingBox();
-          expect.soft(cover?.width, `cover ${role} ${id} ${width}`).toBe(240);
+          expect.soft(cover?.width, `cover ${role} ${id} ${width}`).toBe(180);
           if (width >= 1024) {
             expect
               .soft(milestones?.y, `milestones ${role} ${id} ${width}`)

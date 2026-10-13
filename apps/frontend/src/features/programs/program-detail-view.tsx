@@ -382,8 +382,8 @@ export function ProgramDetailReadyState({
 
   return (
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
-      <div className="grid items-start gap-6 md:grid-cols-[15rem_minmax(0,1fr)]">
-        <div className="w-full max-w-60">
+      <div className="grid items-start gap-6 md:grid-cols-[11.25rem_minmax(0,1fr)]">
+        <div className="w-full max-w-45">
           <ProgramCover
             size="detail"
             title={program.name}
