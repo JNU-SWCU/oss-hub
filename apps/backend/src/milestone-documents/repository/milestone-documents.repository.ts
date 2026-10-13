@@ -226,6 +226,11 @@ export interface MilestoneDocumentWriteStore {
 
   lockProgramDocumentIds(programId: string): Promise<readonly string[]>;
 
+  lockApprovedApplicationIds(
+    programId: string,
+    teamId: string | undefined,
+  ): Promise<readonly string[]>;
+
   findChangeRequestCandidates(input: {
     readonly documentIds: readonly string[];
     readonly applicationIds: readonly string[];
@@ -637,6 +642,41 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
       `,
     );
     return rows.map((row) => row.id);
+  }
+
+  async lockApprovedApplicationIds(
+    programId: string,
+    teamId: string | undefined,
+  ): Promise<readonly string[]> {
+    const rows = await this.transaction.$queryRaw<
+      readonly {
+        id: string;
+        status: ApplicationStatus;
+        teamId: string | null;
+        teamProgramId: string | null;
+      }[]
+    >(
+      Prisma.sql`
+        SELECT
+          application."id",
+          application."status",
+          application."teamId",
+          team."programId" AS "teamProgramId"
+        FROM "Application" application
+        LEFT JOIN "Team" team ON team."id" = application."teamId"
+        WHERE application."programId" = ${programId}
+        ORDER BY application."id"
+        FOR SHARE OF application
+      `,
+    );
+    return rows
+      .filter(
+        (row) =>
+          row.status === ApplicationStatus.APPROVED &&
+          row.teamProgramId === programId &&
+          (teamId === undefined || row.teamId === teamId),
+      )
+      .map((row) => row.id);
   }
 
   findChangeRequestCandidates(input: {

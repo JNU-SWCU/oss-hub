@@ -117,6 +117,27 @@ function sendChangeRequest(
   });
 }
 
+function changeRequestReviewCount(): Promise<number> {
+  return fixture.prisma.milestoneDocumentReviewHistory.count({
+    where: {
+      decision: ReviewDecision.CHANGES_REQUESTED,
+      milestoneDocumentSubmission: { milestoneDocumentId: flowIds.document },
+    },
+  });
+}
+
+async function waitForDocumentLockWaiter(): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const rows = await fixture.prisma.$queryRaw<readonly { count: bigint }[]>`
+      SELECT count(*) AS "count" FROM pg_stat_activity
+      WHERE wait_event_type = 'Lock' AND query LIKE '%FOR UPDATE OF document%'
+    `;
+    if ((rows[0]?.count ?? 0n) > 0n) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error('bulk change request never waited on the document lock');
+}
+
 async function previewVersion(query = 'scope=PROGRAM'): Promise<string> {
   const response = await fixture.request(
     `${changeRequestsPath}/targets?${query}`,
@@ -292,6 +313,43 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
         },
       }),
     ).resolves.toBe(0);
+  });
+
+  it('서류 잠금을 기다리는 사이 신청이 반려되면 아무것도 바꾸지 않는다', async () => {
+    const previewed = await previewVersion();
+    let release = (): void => undefined;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let markLocked = (): void => undefined;
+    const locked = new Promise<void>((resolve) => {
+      markLocked = resolve;
+    });
+    const holder = fixture.prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "MilestoneDocument" WHERE "id" = ${flowIds.document} FOR UPDATE`;
+        markLocked();
+        await released;
+      },
+      { timeout: 30_000 },
+    );
+    await locked;
+
+    const sending = sendChangeRequest({ expectedVersion: previewed });
+    await waitForDocumentLockWaiter();
+    await fixture.prisma.application.update({
+      where: { id: extra.application },
+      data: { status: 'REJECTED', rejectionReason: '합성 반려' },
+    });
+    release();
+    await holder;
+    const response = await sending;
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED,
+    });
+    await expect(changeRequestReviewCount()).resolves.toBe(0);
   });
 
   it('학생은 대상 건수도 보내기도 할 수 없다', async () => {

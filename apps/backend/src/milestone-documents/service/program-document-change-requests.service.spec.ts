@@ -65,6 +65,9 @@ function writeStore(
 ) {
   return {
     lockProgramDocumentIds: jest.fn().mockResolvedValue(['document-1']),
+    lockApprovedApplicationIds: jest
+      .fn()
+      .mockResolvedValue(['application-a', 'application-b', 'application-c']),
     findChangeRequestCandidates: jest.fn().mockResolvedValue(candidates),
     findSubmissionForReview: jest.fn(
       (milestoneDocumentId: string, applicationId: string) =>
@@ -231,6 +234,37 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
       ['application-a:document-1', SubmissionStatus.CHANGES_REQUESTED],
       ['application-b:document-1', SubmissionStatus.CHANGES_REQUESTED],
     ]);
+  });
+
+  it('서류 행을 잠근 뒤 신청 행을 잠그고 그때의 승인 범위로 대상을 찾는다', async () => {
+    const store = writeStore();
+    store.lockApprovedApplicationIds.mockResolvedValue(['application-a']);
+    const reader = programs();
+    const { service: subject } = service({ store, programs: reader });
+
+    await subject
+      .requestChanges(
+        1n,
+        programId,
+        request({ scope: { kind: 'TEAM', teamId: 'team-a' } }),
+        () => now,
+      )
+      .catch((caught: unknown) => caught);
+
+    expect(store.lockApprovedApplicationIds).toHaveBeenCalledWith(
+      programId,
+      'team-a',
+    );
+    expect(store.findChangeRequestCandidates).toHaveBeenCalledWith({
+      documentIds: ['document-1'],
+      applicationIds: ['application-a'],
+    });
+    expect(
+      store.lockProgramDocumentIds.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      store.lockApprovedApplicationIds.mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(reader.findApprovedTeams.mock.calls).toEqual([]);
   });
 
   it('이미 승인·반려한 제출도 포함하면 승인된 제출까지 보완 요청으로 바꾼다', async () => {

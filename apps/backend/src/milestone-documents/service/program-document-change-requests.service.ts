@@ -71,14 +71,15 @@ export class ProgramDocumentChangeRequestsService {
         MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE,
       );
     }
-    const applicationIds = await this.applicationIdsInScope(
-      programId,
-      input.scope,
-    );
+    await this.assertProgram(programId);
 
     const requestedCount = await this.repository.withTransaction(
       async (store) => {
         const documentIds = await store.lockProgramDocumentIds(programId);
+        const applicationIds = await store.lockApprovedApplicationIds(
+          programId,
+          input.scope.kind === 'TEAM' ? input.scope.teamId : undefined,
+        );
         const candidates = await store.findChangeRequestCandidates({
           documentIds,
           applicationIds,
@@ -138,14 +139,17 @@ export class ProgramDocumentChangeRequestsService {
     );
   }
 
+  private async assertProgram(programId: string): Promise<void> {
+    if ((await this.programs.findProgram(programId)) === null) {
+      throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
+    }
+  }
+
   private async applicationIdsInScope(
     programId: string,
     scope: ProgramDocumentChangeRequestScope,
   ): Promise<readonly string[]> {
-    const program = await this.programs.findProgram(programId);
-    if (program === null) {
-      throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
-    }
+    await this.assertProgram(programId);
     const teams = await this.programs.findApprovedTeams(
       programId,
       scope.kind === 'TEAM' ? scope.teamId : undefined,
