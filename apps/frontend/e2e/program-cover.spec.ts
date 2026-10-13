@@ -321,6 +321,18 @@ test.describe('프로그램 대표 이미지', () => {
               `align-screen-${role}-${width}-${id.slice(3)}.png`,
             ),
           });
+          const cover = await page
+            .locator('main [data-slot="program-cover"]')
+            .boundingBox();
+          const milestones = await page
+            .locator('#milestones-title')
+            .boundingBox();
+          expect.soft(cover?.width, `cover ${role} ${id} ${width}`).toBe(240);
+          if (width >= 1024) {
+            expect
+              .soft(milestones?.y, `milestones ${role} ${id} ${width}`)
+              .toBeLessThan(900);
+          }
           for (const long of [false, true]) {
             if (long) {
               await header
