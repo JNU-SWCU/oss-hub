@@ -286,6 +286,9 @@ test.describe('프로그램 대표 이미지', () => {
         await page.route(`**${path}/activity`, (route) =>
           route.fulfill({ json: [] }),
         );
+        await page.route(`**${path}/applications/me`, (route) =>
+          route.fulfill({ json: null }),
+        );
         await page.route(`**/api/v1/programs/${id}/cover`, (route) =>
           route.fulfill({ contentType: 'image/png', body: COVER_PNG }),
         );
@@ -297,6 +300,9 @@ test.describe('프로그램 대표 이미지', () => {
           await page.goto(`/programs/${encodeURIComponent(id)}`);
           const header = page.locator('main [data-slot="page-header"]');
           await expect(header).toContainText(program.name);
+          await expect(
+            page.getByRole('button', { name: /계정 메뉴/ }),
+          ).toBeVisible();
           await page.evaluate(() => document.fonts.ready);
           const edit = header.getByRole('link', { name: '편집', exact: true });
           const action =
