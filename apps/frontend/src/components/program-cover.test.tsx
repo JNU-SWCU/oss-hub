@@ -30,6 +30,9 @@ describe('program cover', () => {
       container.querySelector('[data-cover-state="error"]'),
     ).not.toBeNull();
     expect(container.querySelector('img')).toBeNull();
+    expect(
+      container.querySelector('svg[aria-hidden="true"]')?.textContent,
+    ).toBe('OSS Hub');
     await act(async () => root.render(<ProgramCover src="/cover-two" />));
     expect(container.querySelector('img')?.getAttribute('src')).toBe(
       '/cover-two',
@@ -42,7 +45,13 @@ describe('program cover', () => {
         <ProgramCover src="/portrait" size="detail" title="합성 프로그램" />,
       ),
     );
-    await act(async () => container.querySelector('button')?.click());
+    const trigger = container.querySelector('button');
+    expect(trigger?.className).toContain('cursor-zoom-in');
+    expect(trigger?.textContent).toBe('');
+    expect(
+      trigger?.querySelector('[data-slot="program-cover-zoom"] svg'),
+    ).not.toBeNull();
+    await act(async () => trigger?.click());
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
       '합성 프로그램 대표 이미지',
     );
@@ -54,5 +63,41 @@ describe('program cover', () => {
         ?.click(),
     );
     expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it('puts every list card in the same poster frame and draws the default graphic when empty', async () => {
+    await act(async () => root.render(<ProgramCover src={null} />));
+    const cover = container.querySelector('[data-slot="program-cover"]');
+    expect(cover?.getAttribute('data-cover-state')).toBe('empty');
+    expect(cover?.className).toContain('aspect-[1/1.414]');
+    expect(cover?.querySelector('svg[aria-hidden="true"]')?.textContent).toBe(
+      'OSS Hub',
+    );
+
+    await act(async () => root.render(<ProgramCover src="/poster" />));
+    expect(
+      container.querySelector('[data-slot="program-cover"]')?.className,
+    ).toContain('aspect-[1/1.414]');
+  });
+
+  it('keeps small thumbnails at 16:9 with only the icon', async () => {
+    await act(async () =>
+      root.render(<ProgramCover src={null} size="thumbnail" />),
+    );
+    const cover = container.querySelector('[data-slot="program-cover"]');
+    expect(cover?.className).toContain('aspect-video');
+    expect(cover?.textContent).toBe('');
+  });
+
+  it('shows a detail image at its own ratio up to an A4 height instead of a fixed frame', async () => {
+    await act(async () =>
+      root.render(<ProgramCover src="/portrait" size="detail" />),
+    );
+    const cover = container.querySelector('[data-slot="program-cover"]');
+    expect(cover?.className).not.toContain('aspect-');
+    const image = cover?.querySelector('img');
+    expect(image?.className).toContain('h-auto');
+    expect(image?.className).toContain('max-h-[141.4cqw]');
+    expect(image?.className).toContain('object-top');
   });
 });

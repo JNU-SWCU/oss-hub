@@ -383,7 +383,7 @@ describe('ProgramDetailPage states', () => {
     expect(titleSlot).toContain('모집중');
 
     const description =
-      '운영기관 · 비교과 · <span class="whitespace-nowrap">신청 기간 2026.07.01 ~ 2026.08.31</span>';
+      '운영기관 · 비교과 · <span>신청 기간 2026.07.01 ~ 2026.08.31</span>';
     expect(html.split(description)).toHaveLength(2);
     expect(html).not.toContain('<strong>주관기관</strong>');
     expect(html).not.toContain('<strong>신청기간</strong>');
