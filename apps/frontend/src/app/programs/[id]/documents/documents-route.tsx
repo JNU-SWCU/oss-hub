@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PageBody } from '@/components/page-body';
 import { SubmissionChecklistPage } from '@/features/submissions/submission-checklist-page';
@@ -7,6 +8,7 @@ import { SubmissionMatrixScreen } from '@/features/submissions/components/submis
 import { programDocumentsHref } from '@/lib/program-route';
 import { useSharedSessionRole } from '../../../_shell/session-role-context';
 import { ProgramDocumentArchivePanel } from '@/features/programs/program-document-archive-panel';
+import { ProgramDocumentChangeRequestPanel } from '@/features/programs/program-document-change-request-panel';
 
 function withMilestoneQuery(
   programId: string,
@@ -28,18 +30,27 @@ export function DocumentsRoute({ programId }: { readonly programId: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedMilestoneId = searchParams.get('milestoneId');
+  const [matrixVersion, setMatrixVersion] = useState(0);
 
   if (session.hasStaffAccess) {
     return (
       <SubmissionMatrixScreen
         programId={programId}
         selectedMilestoneId={selectedMilestoneId}
+        reloadKey={matrixVersion}
         headerActions={
-          <ProgramDocumentArchivePanel
-            key={programId}
-            programId={programId}
-            embedded
-          />
+          <div className="flex flex-wrap items-center gap-3 sm:max-w-xl">
+            <ProgramDocumentChangeRequestPanel
+              key={`change-requests-${programId}`}
+              programId={programId}
+              onSent={() => setMatrixVersion((version) => version + 1)}
+            />
+            <ProgramDocumentArchivePanel
+              key={programId}
+              programId={programId}
+              embedded
+            />
+          </div>
         }
         onSelectMilestone={(milestoneId) => {
           router.replace(

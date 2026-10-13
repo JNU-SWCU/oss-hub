@@ -18,6 +18,7 @@ export interface MatrixCellResponseDto {
   readonly submittedAt: string | null;
   readonly reviewUrl: string | null;
   readonly deliveryStatus: DocumentDeliveryStatus;
+  readonly changesRequestedCount: number;
 }
 
 export interface MatrixRowResponseDto {

@@ -127,6 +127,7 @@ export interface MatrixCell {
   readonly status: MatrixCellStatus;
   readonly submittedAt: string | null;
   readonly reviewUrl: string | null;
+  readonly changesRequestedCount: number;
 }
 
 export interface MatrixRow {

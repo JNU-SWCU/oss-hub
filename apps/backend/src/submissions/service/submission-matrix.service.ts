@@ -54,12 +54,13 @@ export class SubmissionMatrixService {
     const applicationIds = applications.items.map(
       (application) => application.id,
     );
-    const [submissions, firstSubmissions] = await Promise.all([
+    const [submissions, firstSubmissions, changeRequests] = await Promise.all([
       this.repository.findCurrentSubmissions(applicationIds),
       this.repository.findDocumentFirstSubmissions(
         applicationIds,
         milestones.flatMap((milestone) => milestone.requiredDocumentIds),
       ),
+      this.repository.findDocumentChangeRequests(applicationIds),
     ]);
     const cellIndex = new Map<string, MatrixSubmissionRecord>();
     for (const submission of submissions) {
@@ -67,6 +68,11 @@ export class SubmissionMatrixService {
         cellKey(submission.applicationId, submission.milestoneId),
         submission,
       );
+    }
+    const changeRequestCounts = new Map<string, number>();
+    for (const request of changeRequests) {
+      const key = cellKey(request.applicationId, request.milestoneId);
+      changeRequestCounts.set(key, (changeRequestCounts.get(key) ?? 0) + 1);
     }
     const firstSubmissionIndex = new Map(
       firstSubmissions.map((submission) => [
@@ -85,6 +91,7 @@ export class SubmissionMatrixService {
         toMatrixRow(programId, application, milestones, {
           reviews: cellIndex,
           firstSubmissions: firstSubmissionIndex,
+          changeRequestCounts,
         }),
       ),
       page: query.page,
@@ -114,6 +121,7 @@ function toMatrixRow(
   index: {
     readonly reviews: ReadonlyMap<string, MatrixSubmissionRecord>;
     readonly firstSubmissions: ReadonlyMap<string, Date>;
+    readonly changeRequestCounts: ReadonlyMap<string, number>;
   },
 ): MatrixRowResponseDto {
   return {
@@ -142,6 +150,9 @@ function toMatrixRow(
             null,
         ),
       }),
+      changesRequestedCount:
+        index.changeRequestCounts.get(cellKey(application.id, milestone.id)) ??
+        0,
     })),
   };
 }
@@ -150,7 +161,7 @@ function toMatrixCell(
   programId: string,
   milestoneId: string,
   submission: MatrixSubmissionRecord | null,
-): Omit<MatrixCellResponseDto, 'deliveryStatus'> {
+): Omit<MatrixCellResponseDto, 'deliveryStatus' | 'changesRequestedCount'> {
   if (!submission) {
     return {
       milestoneId,

@@ -23,6 +23,7 @@ import {
 
 import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
 import type { MilestoneDocumentReviewRecord } from '../domain/milestone-document-review';
+import type { ProgramDocumentChangeRequestCandidate } from '../domain/program-document-change-request';
 import type {
   MilestoneDocumentRecord,
   MilestoneContext,
@@ -222,6 +223,18 @@ export interface MilestoneDocumentWriteStore {
     submissionId: string,
     status: SubmissionStatus,
   ): Promise<void>;
+
+  lockProgramDocumentIds(programId: string): Promise<readonly string[]>;
+
+  lockApprovedApplicationIds(
+    programId: string,
+    teamId: string | undefined,
+  ): Promise<readonly string[]>;
+
+  findChangeRequestCandidates(input: {
+    readonly documentIds: readonly string[];
+    readonly applicationIds: readonly string[];
+  }): Promise<readonly ProgramDocumentChangeRequestCandidate[]>;
 }
 
 export interface MilestoneDocumentCollectionReadStore {
@@ -615,6 +628,73 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
       select: { id: true },
     });
   }
+
+  async lockProgramDocumentIds(programId: string): Promise<readonly string[]> {
+    const rows = await this.transaction.$queryRaw<readonly { id: string }[]>(
+      Prisma.sql`
+        SELECT document."id"
+        FROM "MilestoneDocument" document
+        JOIN "Milestone" milestone ON milestone."id" = document."milestoneId"
+        WHERE milestone."programId" = ${programId}
+          AND document."kind" = 'DOCUMENT'
+        ORDER BY document."id"
+        FOR UPDATE OF document
+      `,
+    );
+    return rows.map((row) => row.id);
+  }
+
+  async lockApprovedApplicationIds(
+    programId: string,
+    teamId: string | undefined,
+  ): Promise<readonly string[]> {
+    const rows = await this.transaction.$queryRaw<
+      readonly {
+        id: string;
+        status: ApplicationStatus;
+        teamId: string | null;
+        teamProgramId: string | null;
+      }[]
+    >(
+      Prisma.sql`
+        SELECT
+          application."id",
+          application."status",
+          application."teamId",
+          team."programId" AS "teamProgramId"
+        FROM "Application" application
+        LEFT JOIN "Team" team ON team."id" = application."teamId"
+        WHERE application."programId" = ${programId}
+        ORDER BY application."id"
+        FOR SHARE OF application
+      `,
+    );
+    return rows
+      .filter(
+        (row) =>
+          row.status === ApplicationStatus.APPROVED &&
+          row.teamProgramId === programId &&
+          (teamId === undefined || row.teamId === teamId),
+      )
+      .map((row) => row.id);
+  }
+
+  findChangeRequestCandidates(input: {
+    readonly documentIds: readonly string[];
+    readonly applicationIds: readonly string[];
+  }): Promise<readonly ProgramDocumentChangeRequestCandidate[]> {
+    if (input.documentIds.length === 0 || input.applicationIds.length === 0) {
+      return Promise.resolve([]);
+    }
+    return this.transaction.milestoneDocumentSubmission.findMany({
+      where: {
+        milestoneDocumentId: { in: [...input.documentIds] },
+        applicationId: { in: [...input.applicationIds] },
+      },
+      orderBy: { id: 'asc' },
+      select: { milestoneDocumentId: true, applicationId: true, status: true },
+    });
+  }
 }
 
 class PrismaMilestoneDocumentCollectionReadStore implements MilestoneDocumentCollectionReadStore {
@@ -746,6 +826,24 @@ export class MilestoneDocumentsRepository {
     return this.prisma.$transaction((transaction) =>
       operation(new PrismaMilestoneDocumentWriteStore(transaction)),
     );
+  }
+
+  findChangeRequestCandidates(
+    programId: string,
+    applicationIds: readonly string[],
+  ): Promise<readonly ProgramDocumentChangeRequestCandidate[]> {
+    if (applicationIds.length === 0) return Promise.resolve([]);
+    return this.prisma.milestoneDocumentSubmission.findMany({
+      where: {
+        applicationId: { in: [...applicationIds] },
+        milestoneDocument: {
+          kind: MilestoneDocumentKind.DOCUMENT,
+          milestone: { programId },
+        },
+      },
+      orderBy: { id: 'asc' },
+      select: { milestoneDocumentId: true, applicationId: true, status: true },
+    });
   }
 
   withCollectionSnapshot<T>(

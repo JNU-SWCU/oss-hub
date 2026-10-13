@@ -10,6 +10,8 @@ import {
 } from './controller/milestone-documents.controller';
 import { MilestoneDocumentArchiveRepository } from './repository/milestone-document-archive.repository';
 import { ProgramDocumentArchivesController } from './controller/program-document-archives.controller';
+import { ProgramDocumentChangeRequestsController } from './controller/program-document-change-requests.controller';
+import { ProgramDocumentChangeRequestsService } from './service/program-document-change-requests.service';
 import { MilestoneDocumentArchiveService } from './service/milestone-document-archive.service';
 import { MilestoneDocumentCollectionService } from './service/milestone-document-collection.service';
 import { MilestoneDocumentCollectionReadRepository } from './repository/milestone-document-collection-read.repository';
@@ -31,6 +33,7 @@ import { MilestoneDocumentsService } from './service/milestone-documents.service
   imports: [AuthModule, StorageModule, SubmissionsModule, UsersModule],
   controllers: [
     ProgramDocumentArchivesController,
+    ProgramDocumentChangeRequestsController,
     MilestoneDocumentsController,
     MilestoneDocumentFilesController,
     MilestoneDocumentCurrentFileController,
@@ -48,6 +51,7 @@ import { MilestoneDocumentsService } from './service/milestone-documents.service
     { provide: MILESTONE_DOCUMENT_FEEDBACK_CLOCK, useValue: () => new Date() },
     MilestoneDocumentFilesService,
     MilestoneDocumentReviewsService,
+    ProgramDocumentChangeRequestsService,
     MilestoneDocumentArchiveService,
     MilestoneDocumentArchiveRepository,
   ],

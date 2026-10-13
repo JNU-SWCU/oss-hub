@@ -6,6 +6,7 @@ import type {
 import {
   submissionMatrixApplicationWhere,
   type MatrixApplicationRecord,
+  type MatrixDocumentChangeRequest,
   type MatrixMilestoneRecord,
   type MatrixSubmissionRecord,
   type SubmissionMatrixRepositoryPort,
@@ -22,6 +23,7 @@ interface FakeFixtures {
   readonly applications?: readonly MatrixApplicationRecord[];
   readonly total?: number;
   readonly submissions?: readonly MatrixSubmissionRecord[];
+  readonly changeRequests?: readonly MatrixDocumentChangeRequest[];
 }
 
 class FakeSubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
@@ -70,6 +72,9 @@ class FakeSubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
   findDocumentFirstSubmissions() {
     return Promise.resolve([]);
   }
+  findDocumentChangeRequests() {
+    return Promise.resolve(this.fixtures.changeRequests ?? []);
+  }
 }
 
 function query(
@@ -103,7 +108,7 @@ describe('SubmissionMatrixService', () => {
     expect(repository.pageCalls).toHaveLength(0);
   });
 
-  it('제출 셀은 현재 revision·reviewUrl, 미제출 셀은 NOT_SUBMITTED null들로 결합한다', async () => {
+  it('제출 셀은 현재 revision·reviewUrl, 미제출 셀은 NOT_SUBMITTED null들로 결합하고 칸마다 보완 요청 중인 서류 수를 센다', async () => {
     const submittedAt = new Date('2026-08-19T01:00:00.000Z');
     const repository = new FakeSubmissionMatrixRepository({
       milestones: [
@@ -145,6 +150,10 @@ describe('SubmissionMatrixService', () => {
           submittedAt,
         },
       ],
+      changeRequests: [
+        { applicationId: 'application-team', milestoneId: 'milestone-2' },
+        { applicationId: 'application-team', milestoneId: 'milestone-2' },
+      ],
     });
     const service = new SubmissionMatrixService(repository);
 
@@ -181,6 +190,7 @@ describe('SubmissionMatrixService', () => {
               submittedAt: submittedAt.toISOString(),
               reviewUrl: `/programs/${PROGRAM_ID}/submissions/submission-1/review`,
               deliveryStatus: 'NO_REQUIRED_ITEMS',
+              changesRequestedCount: 0,
             },
             {
               milestoneId: 'milestone-2',
@@ -190,6 +200,7 @@ describe('SubmissionMatrixService', () => {
               submittedAt: null,
               reviewUrl: null,
               deliveryStatus: 'NO_REQUIRED_ITEMS',
+              changesRequestedCount: 0,
             },
           ],
         },
@@ -207,6 +218,7 @@ describe('SubmissionMatrixService', () => {
               submittedAt: null,
               reviewUrl: null,
               deliveryStatus: 'NO_REQUIRED_ITEMS',
+              changesRequestedCount: 0,
             },
             {
               milestoneId: 'milestone-2',
@@ -216,6 +228,7 @@ describe('SubmissionMatrixService', () => {
               submittedAt: null,
               reviewUrl: null,
               deliveryStatus: 'NO_REQUIRED_ITEMS',
+              changesRequestedCount: 2,
             },
           ],
         },

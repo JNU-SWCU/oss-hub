@@ -83,6 +83,7 @@ export function cellForMilestone(
       deliveryStatus: 'MISSING',
       submittedAt: null,
       reviewUrl: null,
+      changesRequestedCount: 0,
     }
   );
 }

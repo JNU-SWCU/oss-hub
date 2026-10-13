@@ -79,6 +79,7 @@ const repository: SubmissionMatrixRepositoryPort = {
         submittedAt: new Date('2026-08-19T01:00:00.000Z'),
       },
     ]),
+  findDocumentChangeRequests: () => Promise.resolve([]),
   findDocumentFirstSubmissions: () =>
     Promise.resolve([
       {
@@ -190,6 +191,7 @@ it('STAFF 세션은 매트릭스를 캐시 금지 헤더와 함께 직렬화한�
             submittedAt: '2026-08-19T01:00:00.000Z',
             reviewUrl: `/programs/${PROGRAM_ID}/submissions/synthetic-submission/review`,
             deliveryStatus: 'COMPLETE',
+            changesRequestedCount: 0,
           },
         ],
       },
@@ -207,6 +209,7 @@ it('STAFF 세션은 매트릭스를 캐시 금지 헤더와 함께 직렬화한�
             submittedAt: null,
             reviewUrl: null,
             deliveryStatus: 'MISSING',
+            changesRequestedCount: 0,
           },
         ],
       },

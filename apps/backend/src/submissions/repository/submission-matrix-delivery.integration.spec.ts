@@ -109,6 +109,7 @@ it('exposes on-time delivery over the real route despite a late rejected revisio
             revision: null,
             submittedAt: null,
             reviewUrl: null,
+            changesRequestedCount: 0,
           },
         ],
       }),

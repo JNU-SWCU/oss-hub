@@ -52,6 +52,7 @@ function setup(firstTimes: readonly (Date | null)[]) {
           submittedAt: afterDue,
         },
       ]),
+    findDocumentChangeRequests: () => Promise.resolve([]),
     findDocumentFirstSubmissions: (
       applicationIds: readonly string[],
       requiredIds: readonly string[],
