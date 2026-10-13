@@ -49,6 +49,12 @@ test('프로그램별 실제 메일을 확인하고 모바일 탭을 바꿔도 �
     ['교직원용 메일 본문', staffFrame.getByRole('link').first()],
   ] as const) {
     await page.locator(`iframe[title="${title}"]`).scrollIntoViewIfNeeded();
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
     const destination = await link.getAttribute('href');
     if (destination === null) throw new Error('Missing preview destination');
     const [opened] = await Promise.all([
