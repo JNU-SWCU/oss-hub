@@ -45,7 +45,13 @@ describe('program cover', () => {
         <ProgramCover src="/portrait" size="detail" title="합성 프로그램" />,
       ),
     );
-    await act(async () => container.querySelector('button')?.click());
+    const trigger = container.querySelector('button');
+    expect(trigger?.className).toContain('cursor-zoom-in');
+    expect(trigger?.textContent).toBe('');
+    expect(
+      trigger?.querySelector('[data-slot="program-cover-zoom"] svg'),
+    ).not.toBeNull();
+    await act(async () => trigger?.click());
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
       '합성 프로그램 대표 이미지',
     );

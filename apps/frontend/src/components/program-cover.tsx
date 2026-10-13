@@ -98,12 +98,15 @@ export function ProgramCover({
   return (
     <Dialog.Root>
       <Dialog.Trigger
-        className="group relative block w-full rounded-card focus-visible:outline-2 focus-visible:outline-ring"
+        className="group relative block w-full cursor-zoom-in rounded-card focus-visible:outline-2 focus-visible:outline-ring"
         aria-label={`${title} 대표 이미지 크게 보기`}
       >
         {image}
-        <span className="absolute right-3 bottom-3 flex items-center gap-1 rounded-md bg-background/95 px-2 py-1 text-xs">
-          <Maximize2 className="size-3.5" aria-hidden="true" /> 크게 보기
+        <span
+          data-slot="program-cover-zoom"
+          className="absolute right-2 bottom-2 flex size-7 items-center justify-center rounded-full bg-foreground/60 text-background"
+        >
+          <Maximize2 className="size-3.5" aria-hidden="true" />
         </span>
       </Dialog.Trigger>
       <Dialog.Portal>
