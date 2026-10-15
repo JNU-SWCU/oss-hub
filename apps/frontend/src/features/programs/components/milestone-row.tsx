@@ -70,10 +70,10 @@ function MilestoneHeadText({
             aria-label="운영자 공지"
           >
             <span className="font-semibold text-foreground">운영자 공지</span>
-            <span>{milestone.description}</span>
+            <span className="whitespace-pre-wrap">{milestone.description}</span>
           </span>
         ) : (
-          <span className="block text-small leading-normal break-keep text-muted-foreground">
+          <span className="block text-small leading-normal break-keep whitespace-pre-wrap text-muted-foreground">
             {milestone.description}
           </span>
         )

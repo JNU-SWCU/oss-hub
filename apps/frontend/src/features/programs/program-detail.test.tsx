@@ -234,6 +234,28 @@ describe('MilestoneRow', () => {
     expect(html).toContain('aria-label="운영자 공지"');
     expect(html).toContain('PDF 기획서를 제출해 주세요.');
   });
+
+  it.each([
+    ['교직원', 'STAFF' as const],
+    ['역할 없는 사람', null],
+  ])('%s에게 마일스톤 안내의 줄바꿈을 보존해 표시한다', (_label, role) => {
+    const description =
+      '파일명은 아래 형식으로 기재 바랍니다.\n\n[팀명] 파일제목';
+    const html = renderToStaticMarkup(
+      <MilestoneRow
+        programId="program-1"
+        position={1}
+        nameId="milestone-1-name"
+        milestone={{ ...milestone, description }}
+        viewerRole={role}
+        submissionAccess={access(role)}
+      />,
+    );
+
+    expect(html).toMatch(
+      /<span class="[^"]*\bwhitespace-pre-wrap\b[^"]*">파일명은 아래 형식으로 기재 바랍니다.\n\n\[팀명\] 파일제목<\/span>/,
+    );
+  });
 });
 
 describe('ActivityPanelBody', () => {
