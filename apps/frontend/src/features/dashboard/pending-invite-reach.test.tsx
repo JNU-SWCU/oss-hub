@@ -63,7 +63,10 @@ function stubbedFetch(
   if (path === 'dashboard/student' || path === 'dashboard/student/feedback') {
     return Promise.resolve(json({ items: [] }));
   }
-  if (path === 'users/me/notifications/application-decisions') {
+  if (
+    path === 'users/me/notifications/application-decisions' ||
+    path === 'users/me/notifications/team-deletions'
+  ) {
     return Promise.resolve(json([]));
   }
   if (isDashboardOwnedInvitePath(path)) {
