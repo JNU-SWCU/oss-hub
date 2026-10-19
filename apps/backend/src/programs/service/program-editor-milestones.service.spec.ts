@@ -194,3 +194,112 @@ describe('ProgramEditorService milestones', () => {
     ]);
   });
 });
+
+describe('milestone due and document grace consistency', () => {
+  it.each(['2026-08-21T00:00:00Z', '2026-08-22T00:00:00Z'])(
+    '유예보다 같거나 늦어진 마감을 거절한다: %s',
+    async (dueAt) => {
+      const { service, store } = createProgramEditorServiceHarness();
+      store.findMilestoneForUpdate.mockResolvedValue({
+        id: 'milestone-1',
+        programId: 'program-1',
+        name: '단계',
+        startAt: new Date('2026-08-16'),
+        dueAt: new Date('2026-08-20'),
+        submissionType: MilestoneSubmissionType.FILE,
+        instructions: null,
+        programStartAt: new Date('2026-08-16'),
+        endAt: new Date('2026-08-31'),
+      });
+      store.findEarliestDocumentGraceDueAt.mockResolvedValue(
+        new Date('2026-08-21T00:00:00Z'),
+      );
+      await expect(
+        service.updateMilestone(101n, 'milestone-1', {
+          ...milestoneInput,
+          dueAt,
+        }),
+      ).rejects.toMatchObject({
+        extensions: {
+          fieldErrors: [
+            {
+              field: 'dueAt',
+              code: 'DOCUMENT_GRACE_DUE_AT_CONFLICT',
+              message:
+                '마감은 서류 유예 기한보다 앞이어야 합니다. 서류 유예 기한을 먼저 변경하거나 해제해 주세요.',
+            },
+          ],
+        },
+      });
+      expect(store.updateMilestone.mock.calls).toHaveLength(0);
+    },
+  );
+});
+
+it('문서 묶음 편집도 기존 유예 이후로 마감을 옮길 수 없다', async () => {
+  const { service, store } = createProgramEditorServiceHarness();
+  const locked = {
+    programId: 'program-1',
+    milestoneUpdatedAt: new Date('2026-08-16'),
+    view: {
+      milestone: {
+        id: 'milestone-1',
+        name: '단계',
+        startAt: new Date('2026-08-16'),
+        dueAt: new Date('2026-08-20'),
+        submissionType: MilestoneSubmissionType.FILE,
+        instructions: null,
+      },
+      operation: {
+        startAt: new Date('2026-08-16'),
+        endAt: new Date('2026-08-31'),
+      },
+      documents: [
+        {
+          id: 'document-1',
+          name: '서류',
+          required: true,
+          sortOrder: 1,
+          templateFileName: null,
+        },
+      ],
+    },
+    fingerprintDocuments: [
+      {
+        id: 'document-1',
+        name: '서류',
+        required: true,
+        sortOrder: 1,
+        updatedAt: new Date('2026-08-16'),
+        storageKey: null,
+      },
+    ],
+  };
+  store.lockMilestoneEdit.mockResolvedValue(locked);
+  store.findEarliestDocumentGraceDueAt.mockResolvedValue(
+    new Date('2026-08-21'),
+  );
+  const current = await service.getMilestoneEdit(101n, 'milestone-1');
+  await expect(
+    service.updateMilestoneEdit(101n, 'milestone-1', {
+      ...milestoneInput,
+      startAt: '2026-08-16T00:00:00Z',
+      instructions: null,
+      dueAt: '2026-08-21T00:00:00Z',
+      expectedFingerprint: current.fingerprint,
+      documents: [{ id: 'document-1', name: '서류', required: true }],
+    }),
+  ).rejects.toMatchObject({
+    extensions: {
+      fieldErrors: [
+        {
+          field: 'dueAt',
+          code: 'DOCUMENT_GRACE_DUE_AT_CONFLICT',
+          message:
+            '마감은 서류 유예 기한보다 앞이어야 합니다. 서류 유예 기한을 먼저 변경하거나 해제해 주세요.',
+        },
+      ],
+    },
+  });
+  expect(store.applyMilestoneEdit.mock.calls).toHaveLength(0);
+});

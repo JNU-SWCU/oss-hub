@@ -689,6 +689,7 @@ enum MilestoneDocumentKind {
 /// 기존 Milestone.submissionType(마일스톤당 단일 제출 유형)과 독립적으로 항목 단위 확장을
 /// 제공한다 — 서류가 없는 마일스톤은 documents가 비어 있다.
 model MilestoneDocument {
+  graceDueAt  DateTime?
   id          String    @id @default(cuid())
   milestoneId String
   milestone   Milestone @relation(fields: [milestoneId], references: [id])

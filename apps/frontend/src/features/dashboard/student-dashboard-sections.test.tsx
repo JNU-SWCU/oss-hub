@@ -92,6 +92,20 @@ describe('DashboardProgramSections', () => {
     return list;
   };
 
+  it('원래 D+n과 일부 서류의 유예 마감을 구분해서 보여준다', async () => {
+    await render([
+      dashboardItem('grace', 'APPROVED', {
+        ...dashboardMilestone('2026-07-20T23:59:59+09:00'),
+        lateSubmissionDueAt: '2026-07-24T23:59:00+09:00',
+      }),
+    ]);
+    expect(container.textContent).toContain('D+3');
+    expect(container.textContent).toContain(
+      '일부 미제출 서류 유예 · 7월 24일 23:59 마감',
+    );
+    expect(container.textContent).toContain('서류 내기');
+  });
+
   it('칩 하나를 고르면 그 묶음만 남기고 마친 프로그램은 펼쳐서 보인다', async () => {
     await render(fiveItems);
     const group = container.querySelector('[role="group"]');

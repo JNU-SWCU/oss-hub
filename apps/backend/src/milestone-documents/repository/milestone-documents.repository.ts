@@ -58,6 +58,7 @@ export interface MilestoneDocumentContext {
   readonly programId: string;
   readonly name: string;
   readonly dueAt: Date;
+  readonly graceDueAt: Date | null;
   readonly required: boolean;
 }
 
@@ -170,6 +171,7 @@ export interface UpdateMilestoneDocumentInput {
 
 interface LockedMilestone {
   readonly id: string;
+  readonly dueAt: Date;
 }
 
 interface LockedMilestoneDocument {
@@ -178,6 +180,7 @@ interface LockedMilestoneDocument {
 }
 
 export interface MilestoneDocumentWriteStore {
+  updateGraceDueAt(documentId: string, graceDueAt: Date | null): Promise<void>;
   lockMilestone(milestoneId: string): Promise<LockedMilestone | null>;
 
   lockDocument(documentId: string): Promise<LockedMilestoneDocument | null>;
@@ -268,6 +271,7 @@ const documentRecordSelect = {
   name: true,
   required: true,
   sortOrder: true,
+  graceDueAt: true,
   templateFile: { select: { id: true, originalFileName: true } },
 } as const;
 
@@ -277,6 +281,7 @@ function toDocumentRecord(row: {
   name: string;
   required: boolean;
   sortOrder: number;
+  graceDueAt: Date | null;
   templateFile: { id: string; originalFileName: string } | null;
 }): MilestoneDocumentRecord {
   return {
@@ -285,6 +290,7 @@ function toDocumentRecord(row: {
     name: row.name,
     required: row.required,
     sortOrder: row.sortOrder,
+    graceDueAt: row.graceDueAt,
     templateFileId: row.templateFile?.id ?? null,
     templateFileName: row.templateFile?.originalFileName ?? null,
   };
@@ -354,7 +360,11 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
       stage: 'milestone',
       milestoneId,
     });
-    return this.milestoneLock === null ? null : { id: this.milestoneLock.id };
+    if (this.milestoneLock === null) return null;
+    return this.transaction.milestone.findUniqueOrThrow({
+      where: { id: this.milestoneLock.id },
+      select: { id: true, dueAt: true },
+    });
   }
 
   async lockDocument(
@@ -370,6 +380,17 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
       FOR UPDATE
     `);
     return rows[0] ?? null;
+  }
+
+  async updateGraceDueAt(
+    documentId: string,
+    graceDueAt: Date | null,
+  ): Promise<void> {
+    await this.transaction.milestoneDocument.update({
+      where: { id: documentId, kind: MilestoneDocumentKind.DOCUMENT },
+      data: { graceDueAt },
+      select: { id: true },
+    });
   }
 
   async upsertTemplateFile(
@@ -437,6 +458,7 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
         name: true,
         required: true,
         sortOrder: true,
+        graceDueAt: true,
       },
     });
     return {
@@ -906,6 +928,7 @@ export class MilestoneDocumentsRepository {
         milestoneId: true,
         name: true,
         required: true,
+        graceDueAt: true,
         milestone: { select: { programId: true, dueAt: true } },
       },
     });
@@ -916,6 +939,7 @@ export class MilestoneDocumentsRepository {
       programId: document.milestone.programId,
       name: document.name,
       dueAt: document.milestone.dueAt,
+      graceDueAt: document.graceDueAt,
       required: document.required,
     };
   }

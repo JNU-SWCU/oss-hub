@@ -48,6 +48,7 @@ export function isPostDeadlineResubmissionOpen({
 
 export function milestoneDocumentSubmissionBlock({
   dueAt,
+  graceDueAt = null,
   now,
   hasSubmission,
   latestDecision,
@@ -55,6 +56,7 @@ export function milestoneDocumentSubmissionBlock({
   resubmissionDueAt,
 }: {
   readonly dueAt: Date;
+  readonly graceDueAt?: Date | null;
   readonly now: Date;
   readonly hasSubmission: boolean;
   readonly latestDecision: ReviewDecision | null;
@@ -88,5 +90,11 @@ export function milestoneDocumentSubmissionBlock({
   if (latestDecision === ReviewDecision.CHANGES_REQUESTED && hasSubmission) {
     return 'RESUBMISSION_ALREADY_USED';
   }
+  if (
+    latestDecision === null &&
+    graceDueAt !== null &&
+    !hasProgramDeadlinePassed(graceDueAt, now)
+  )
+    return null;
   return hasSubmission ? 'SUBMISSION_REPLACEMENT_CLOSED' : 'MILESTONE_CLOSED';
 }
