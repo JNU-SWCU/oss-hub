@@ -1452,6 +1452,134 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
   });
 
+  it('신청 준비와 대기·수락 참여자를 함께 삭제하고 다른 프로그램 준비와 계정은 보존한다', async () => {
+    await ensureGlobalActors();
+    const programId = await seedStandaloneProgram('preparation-purge');
+    const unrelatedProgramId = await seedStandaloneProgram('preparation-keep');
+    const preparation = await prisma.applicationPreparation.create({
+      data: {
+        programId,
+        leaderId: `${PREFIX}global:student`,
+        name: '삭제할 신청 준비',
+        participants: {
+          create: [
+            {
+              userId: `${PREFIX}global:student`,
+              status: TeamInvitationStatus.ACCEPTED,
+              respondedAt: NOW,
+            },
+            { userId: `${PREFIX}global:staff` },
+          ],
+        },
+      },
+      include: { participants: true },
+    });
+    const unrelatedPreparation = await prisma.applicationPreparation.create({
+      data: {
+        programId: unrelatedProgramId,
+        leaderId: `${PREFIX}global:student`,
+        name: '보존할 신청 준비',
+        participants: {
+          create: {
+            userId: `${PREFIX}global:staff`,
+          },
+        },
+      },
+      include: { participants: true },
+    });
+    expect(preparation.participants.map(({ status }) => status)).toEqual(
+      expect.arrayContaining([
+        TeamInvitationStatus.ACCEPTED,
+        TeamInvitationStatus.PENDING,
+      ]),
+    );
+
+    const expectedScope = await currentDeletionScopeCounts(programId);
+    await expect(
+      lifecycle.purge(ADMIN_GITHUB_ID, programId, expectedScope),
+    ).resolves.toMatchObject({ id: programId, deleted: true });
+
+    await expect(
+      prisma.program.findUnique({ where: { id: programId } }),
+    ).resolves.toBeNull();
+    await expect(
+      prisma.applicationPreparation.findUnique({
+        where: { id: preparation.id },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      prisma.applicationPreparationParticipant.count({ where: { programId } }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.applicationPreparation.findUnique({
+        where: { id: unrelatedPreparation.id },
+        include: { participants: true },
+      }),
+    ).resolves.toEqual(unrelatedPreparation);
+    await expect(
+      prisma.user.count({
+        where: {
+          id: { in: [`${PREFIX}global:student`, `${PREFIX}global:staff`] },
+        },
+      }),
+    ).resolves.toBe(2);
+  });
+
+  it.each(['preparation', 'invitation'] as const)(
+    'race: 확인 뒤 추가된 신청 준비 데이터(%s)가 있으면 삭제를 중단한다',
+    async (addedRow) => {
+      await ensureGlobalActors();
+      const programId = await seedStandaloneProgram(
+        `preparation-${addedRow}-race`,
+      );
+      const beforePreparation =
+        addedRow === 'invitation'
+          ? await prisma.applicationPreparation.create({
+              data: {
+                programId,
+                leaderId: `${PREFIX}global:student`,
+                name: '초대할 신청 준비',
+              },
+            })
+          : null;
+      const expectedScope = await currentDeletionScopeCounts(programId);
+      if (beforePreparation) {
+        await prisma.applicationPreparationParticipant.create({
+          data: {
+            preparationId: beforePreparation.id,
+            programId,
+            userId: `${PREFIX}global:staff`,
+          },
+        });
+      } else {
+        await prisma.applicationPreparation.create({
+          data: {
+            programId,
+            leaderId: `${PREFIX}global:student`,
+            name: '확인 뒤 시작한 신청 준비',
+          },
+        });
+      }
+
+      await expect(
+        lifecycle.purge(ADMIN_GITHUB_ID, programId, expectedScope),
+      ).rejects.toMatchObject({
+        errorCode: { code: ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED },
+      });
+      await expect(
+        prisma.program.findUnique({ where: { id: programId } }),
+      ).resolves.not.toBeNull();
+      await expect(
+        prisma.applicationPreparation.count({ where: { programId } }),
+      ).resolves.toBe(1);
+      await expect(
+        prisma.applicationPreparationParticipant.count({
+          where: { programId },
+        }),
+      ).resolves.toBe(addedRow === 'invitation' ? 1 : 0);
+    },
+  );
+
   it('이미 삭제 완료된 SubmissionFile은 완료 상태를 보존한 채 FK만 분리하고 purge한다', async () => {
     const fixture = await seedFullChildGraph('deleted-submission-file');
     const application = await prisma.application.findUniqueOrThrow({
