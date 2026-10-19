@@ -161,6 +161,101 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
     expect(container.textContent).not.toContain('이전 학생 화면');
   });
 
+  it('제출 후 요약과 단계 상태를 갱신하면서 열린 상세 DOM을 유지한다', async () => {
+    let submitted = false;
+    let failRefresh = false;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/viewer')) {
+        if (failRefresh) return problem(503, url);
+        return json({
+          ...PUBLIC_DETAIL,
+          viewer: { role: 'STUDENT', applicationStatus: 'APPROVED' },
+          milestones: [
+            {
+              id: 'plan',
+              name: '계획서',
+              dueAt: '2099-01-01T00:00:00.000Z',
+              dDay: 1,
+              deadlineLabel: 'D-1',
+              description: null,
+              submissionType: 'TEXT',
+              submissionItemCount: 0,
+              viewerSubmissionStatus: submitted ? 'SUBMITTED' : 'NOT_SUBMITTED',
+              applicationSubmissionSummary: null,
+            },
+          ],
+        });
+      }
+      if (url.endsWith('/overview'))
+        return json({
+          programId: PROGRAM_ID,
+          viewerRole: 'STUDENT',
+          participantCount: 1,
+          teamCount: 1,
+          connectedRepositoryCount: 0,
+          viewerDocumentsCompleted: submitted ? 1 : 0,
+          viewerDocumentsTotal: 1,
+        });
+      return problem(404, url);
+    });
+    await act(async () =>
+      root.render(
+        <ProgramDetailPage programId={PROGRAM_ID} session="present" />,
+      ),
+    );
+    expect(container.textContent).toContain('0 / 1 서류');
+    expect(container.textContent).toContain('미제출');
+    const group = container.querySelector('[data-testid="milestone-group"]');
+    submitted = true;
+    await act(async () =>
+      window.dispatchEvent(
+        new CustomEvent('oss-hub:milestone-document-submitted', {
+          detail: { milestoneId: 'other-program' },
+        }),
+      ),
+    );
+    expect(container.textContent).toContain('0 / 1 서류');
+    expect(
+      requestedPaths().filter((path) => path.endsWith('/viewer')),
+    ).toHaveLength(1);
+    await act(async () =>
+      window.dispatchEvent(
+        new CustomEvent('oss-hub:milestone-document-submitted', {
+          detail: { milestoneId: 'plan' },
+        }),
+      ),
+    );
+    expect(container.textContent).toContain('1 / 1 서류');
+    expect(container.textContent).not.toContain('미제출');
+    expect(container.querySelector('[data-testid="milestone-group"]')).toBe(
+      group,
+    );
+    failRefresh = true;
+    await act(async () =>
+      window.dispatchEvent(
+        new CustomEvent('oss-hub:milestone-document-submitted', {
+          detail: { milestoneId: 'plan' },
+        }),
+      ),
+    );
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      '집계',
+    );
+    expect(container.querySelector('[data-testid="milestone-group"]')).toBe(
+      group,
+    );
+    failRefresh = false;
+    const retry = container.querySelector('[role="alert"] button');
+    if (!(retry instanceof HTMLButtonElement))
+      throw new TypeError('retry button missing');
+    await act(async () => retry.click());
+    expect(container.textContent).not.toContain(
+      '제출은 저장되었지만 집계를 갱신하지 못했습니다.',
+    );
+    expect(container.textContent).toContain('1 / 1 서류');
+  });
+
   it('비로그인이면 공개 상세만 부르고 viewer·overview는 부르지 않는다', async () => {
     await act(async () => {
       root.render(
