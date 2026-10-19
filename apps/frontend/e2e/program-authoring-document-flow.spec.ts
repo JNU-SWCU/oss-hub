@@ -45,7 +45,9 @@ async function captureCollectionEvidence(
       [
         state,
         state === 'summary'
-          ? page.locator('section[aria-labelledby="collection-summary-heading"]')
+          ? page.locator(
+              'section[aria-labelledby="collection-summary-heading"]',
+            )
           : page.getByRole('region', { name: '팀별 서류 수합 표' }),
       ],
     ] as const) {
