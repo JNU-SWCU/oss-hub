@@ -32,6 +32,7 @@ import {
 import type { ApplicationListQuery } from '../domain/application-list-query';
 import {
   ApplicationDuplicateError,
+  ApplicationPreparationConflictError,
   ApplicationJoinCodeDigestConflictError,
   ApplicationTeamMembershipConflictError,
   ApplicationsRepository,
@@ -214,10 +215,16 @@ export class ApplicationsService {
             throw this.error(ApplicationsErrorCode.TEAM_LEADER_REQUIRED);
           }
         }
+        const preparation =
+          existingTeam === null
+            ? await store.findPreparationForApply(programId, student.id)
+            : null;
+        if (preparation !== null && preparation.leaderId !== student.id)
+          throw this.error(ApplicationsErrorCode.TEAM_LEADER_REQUIRED);
         const teamMinSize = await store.findTeamMinSize(programId);
         const memberCount = existingTeam
           ? await store.countTeamMembers(existingTeam.id)
-          : 1;
+          : (preparation?.memberIds.length ?? 1);
         if (teamMinSize !== null && memberCount < teamMinSize) {
           const extensions: TeamMinimumExtensions = {
             memberCount,
@@ -245,9 +252,10 @@ export class ApplicationsService {
           try {
             createdTeam = await store.createTeamWithLeader({
               programId,
-              name: teamName,
+              name: preparation?.name ?? teamName,
               joinCodeDigest,
               leaderId: student.id,
+              memberIds: preparation?.memberIds,
             });
             break;
           } catch (error) {
@@ -276,6 +284,7 @@ export class ApplicationsService {
           repositoryUrl: null,
         });
 
+        if (preparation !== null) await store.deletePreparation(preparation.id);
         await store.appendReviewHistory({
           applicationId: application.id,
           eventKind: ApplicationReviewEventKind.SUBMITTED,
@@ -316,6 +325,8 @@ export class ApplicationsService {
       });
     } catch (error) {
       if (error instanceof DomainException) throw error;
+      if (error instanceof ApplicationPreparationConflictError)
+        throw this.error(ApplicationsErrorCode.PREPARATION_CHANGED);
       if (error instanceof ApplicationDuplicateError) {
         throw this.error(ApplicationsErrorCode.DUPLICATE_APPLICATION);
       }

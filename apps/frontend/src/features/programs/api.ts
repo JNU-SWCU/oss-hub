@@ -346,6 +346,7 @@ export function deleteMilestone(
 }
 
 export interface CreateApplicationInput {
+  readonly teamName?: string;
   readonly answers: { readonly title?: string };
   readonly applicationTemplateVersion: number;
   readonly isRepositoryPublicationPlanned: boolean;
@@ -371,6 +372,7 @@ export function createApplication(
       headers: jsonHeaders,
       body: JSON.stringify({
         answers: input.answers,
+        teamName: input.teamName,
         applicationTemplateVersion: input.applicationTemplateVersion,
         isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
       }),
@@ -386,6 +388,7 @@ export interface TeamMember {
 }
 
 export interface ProgramTeam {
+  readonly preparation?: true;
   readonly id: string;
   readonly name: string;
   readonly memberCount: number;
@@ -460,6 +463,7 @@ function parseProgramTeam(value: unknown): ProgramTeam {
     canLeave: value.canLeave,
     isLeader: value.isLeader,
     members: value.members,
+    ...(value.preparation === true ? { preparation: true } : {}),
   };
 }
 
@@ -686,5 +690,42 @@ export function deleteStaffProgramTeam(
           : { expectedScope },
       ),
     },
+  );
+}
+
+export async function getMyApplicationPreparation(
+  programId: string,
+): Promise<ProgramTeam | null> {
+  const body = await apiClient<unknown>(
+    `application-preparations/programs/${encodeURIComponent(programId)}/me`,
+  );
+  return body === null ? null : parseProgramTeam(body);
+}
+
+export async function createApplicationPreparation(
+  programId: string,
+  input: { readonly name: string },
+): Promise<CreatedTeam> {
+  const body = await apiClient<unknown>(
+    `application-preparations/programs/${encodeURIComponent(programId)}`,
+    { method: 'POST', headers: jsonHeaders, body: JSON.stringify(input) },
+  );
+  return parseProgramTeam(body);
+}
+
+export function removePreparationMember(
+  programId: string,
+  userId: string,
+): Promise<void> {
+  return apiClient<void>(
+    `application-preparations/programs/${encodeURIComponent(programId)}/members/${encodeURIComponent(userId)}`,
+    { method: 'DELETE' },
+  );
+}
+
+export function leaveApplicationPreparation(programId: string): Promise<void> {
+  return apiClient<void>(
+    `application-preparations/programs/${encodeURIComponent(programId)}/me`,
+    { method: 'DELETE' },
   );
 }

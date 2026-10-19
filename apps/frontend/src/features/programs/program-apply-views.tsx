@@ -1,5 +1,7 @@
 'use client';
 
+import { ApplicationPreparationNotice } from './application-preparation-notice';
+
 import Link from 'next/link';
 import { useEffect, useRef, type RefObject } from 'react';
 import { AlertCircle } from 'lucide-react';
@@ -320,6 +322,13 @@ function MemberAwaitingView({
   return (
     <PageBody className="max-w-4xl">
       <PageHeader title={`${programName} 신청`} />
+      {team?.preparation ? (
+        <ApplicationPreparationNotice
+          programId={programId}
+          isLeader={team.isLeader}
+          onChanged={onChanged}
+        />
+      ) : null}
       <TeamMembersPanel
         programId={programId}
         team={team}
@@ -519,6 +528,13 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
           />
         </CardContent>
       </Card>
+      {team?.preparation ? (
+        <ApplicationPreparationNotice
+          programId={programId}
+          isLeader={team.isLeader}
+          onChanged={onTeamChanged}
+        />
+      ) : null}
       <TeamMembersPanel
         programId={programId}
         team={team}

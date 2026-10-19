@@ -33,6 +33,7 @@ export enum ApplicationsErrorCode {
   OWN_REPOSITORY_URL_UNREACHABLE = 'APP_027',
 
   TEAM_LEADER_REQUIRED = 'APP_028',
+  PREPARATION_CHANGED = 'APP_031',
 }
 
 export const APPLICATIONS_ERROR_CODES: Record<
@@ -121,6 +122,12 @@ export const APPLICATIONS_ERROR_CODES: Record<
     status: 400,
     message:
       '연결하려는 저장소를 찾을 수 없거나 비공개 저장소입니다. GitHub에 공개된 저장소만 연결할 수 있습니다.',
+  },
+  [ApplicationsErrorCode.PREPARATION_CHANGED]: {
+    code: ApplicationsErrorCode.PREPARATION_CHANGED,
+    status: 409,
+    message:
+      '신청 준비의 구성원 상태가 변경되었습니다. 구성원과 인원 제한을 확인해 주세요.',
   },
   [ApplicationsErrorCode.TEAM_LEADER_REQUIRED]: {
     code: ApplicationsErrorCode.TEAM_LEADER_REQUIRED,
