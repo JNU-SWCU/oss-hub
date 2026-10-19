@@ -66,7 +66,9 @@ export async function submitProgramAuthoring(options: {
         const existingProgramId =
           'existingProgramId' in error.problem &&
           typeof error.problem.existingProgramId === 'string' &&
-          /^[a-zA-Z0-9_-]+$/.test(error.problem.existingProgramId)
+          error.problem.existingProgramId.trim().length > 0 &&
+          error.problem.existingProgramId !== '.' &&
+          error.problem.existingProgramId !== '..'
             ? error.problem.existingProgramId
             : null;
         return { kind: 'conflict', existingProgramId };
