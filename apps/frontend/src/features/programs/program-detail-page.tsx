@@ -1,7 +1,13 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { ApiError } from '@/lib/api-client';
 import { getProgramDetail, getPublicProgramDetail } from './api';
 import {
@@ -44,25 +50,37 @@ export function ProgramDetailPage({
   readonly approvedStudentMilestones?: ReactNode;
 }) {
   const router = useRouter();
+  const operationsView = useSearchParams().get('view') === 'operations';
+  const requestId = useRef(0);
   const [state, setState] = useState<DetailState>({ kind: 'loading' });
   const load = useCallback(async () => {
+    const currentRequestId = ++requestId.current;
     if (session === 'unknown') return;
     setState({ kind: 'loading' });
     try {
       if (session === 'anonymous') {
         const program = await getPublicProgramDetail(programId);
-        setState({ kind: 'ready', program, overview: null });
+        if (requestId.current === currentRequestId)
+          setState({ kind: 'ready', program, overview: null });
         return;
       }
-      const program = await getProgramDetail(programId);
-      const overview = await getProgramOverview(programId).catch(() => null);
-      setState({ kind: 'ready', program, overview });
+      const program = await getProgramDetail(programId, operationsView);
+      const overview = await getProgramOverview(
+        programId,
+        operationsView,
+      ).catch(() => null);
+      if (requestId.current === currentRequestId)
+        setState({ kind: 'ready', program, overview });
     } catch (error: unknown) {
-      setState(detailFailure(error));
+      if (requestId.current === currentRequestId)
+        setState(detailFailure(error));
     }
-  }, [programId, session]);
+  }, [programId, session, operationsView]);
   useEffect(() => {
     void load();
+    return () => {
+      requestId.current += 1;
+    };
   }, [load]);
   useEffect(() => {
     if (state.kind === 'ready' && state.program.viewer.role === 'PENDING') {

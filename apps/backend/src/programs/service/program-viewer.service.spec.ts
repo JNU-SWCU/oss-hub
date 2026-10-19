@@ -29,6 +29,79 @@ function viewerRecord(fields: {
 }
 
 describe('ProgramViewerService', () => {
+  it('운영 권한 없는 학생은 operations 요청으로 권한이 올라가지 않는다', async () => {
+    const service = serviceFor(
+      viewerRecord({
+        memberKind: MemberKind.STUDENT,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+      }),
+    );
+    await expect(
+      service.fromGithubId(githubId, 'program-1', true),
+    ).resolves.toMatchObject({ role: 'STUDENT' });
+  });
+
+  it('학생 유형이 아닌 운영자는 참여와 무관하게 운영 화면을 유지한다', async () => {
+    const findStudentApplication = jest.fn();
+    const service = new ProgramViewerService({
+      findViewer: jest.fn().mockResolvedValue(
+        viewerRecord({
+          memberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
+          hasAdminAccess: false,
+        }),
+      ),
+      findStudentApplication,
+    } as unknown as ProgramsRepository);
+    await expect(
+      service.fromGithubId(githubId, 'program-1'),
+    ).resolves.toMatchObject({ role: 'STAFF' });
+    expect(findStudentApplication).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])(
+    '참여 학생의 기본 상세는 학생이고 운영 전환=%s에서는 원래 권한을 쓴다',
+    async (operations) => {
+      const findStudentApplication = jest
+        .fn()
+        .mockResolvedValue({ status: 'APPROVED' });
+      const service = new ProgramViewerService({
+        findViewer: jest.fn().mockResolvedValue(
+          viewerRecord({
+            memberKind: MemberKind.STUDENT,
+            hasStaffAccess: true,
+            hasAdminAccess: true,
+          }),
+        ),
+        findStudentApplication,
+      } as unknown as ProgramsRepository);
+
+      await expect(
+        service.fromGithubId(githubId, 'program-1', operations),
+      ).resolves.toMatchObject({ role: operations ? 'ADMIN' : 'STUDENT' });
+    },
+  );
+
+  it.each([null, { status: 'SUBMITTED' }])(
+    '미참여·미승인 학생 운영자는 운영 화면을 유지한다 (%s)',
+    async (application) => {
+      const service = new ProgramViewerService({
+        findViewer: jest.fn().mockResolvedValue(
+          viewerRecord({
+            memberKind: MemberKind.STUDENT,
+            hasStaffAccess: true,
+            hasAdminAccess: false,
+          }),
+        ),
+        findStudentApplication: jest.fn().mockResolvedValue(application),
+      } as unknown as ProgramsRepository);
+      await expect(
+        service.fromGithubId(githubId, 'program-1'),
+      ).resolves.toMatchObject({ role: 'STAFF' });
+    },
+  );
+
   it('비활성 교직원은 비공개 조회 권한을 얻지 못한다', async () => {
     const findUnique = jest.fn().mockResolvedValue({
       id: 'staff-1',

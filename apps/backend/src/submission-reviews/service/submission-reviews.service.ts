@@ -86,6 +86,13 @@ export class SubmissionReviewsService {
           ],
         );
       }
+      if (await store.isSubmissionParticipant(target.id, reviewerId)) {
+        throw new DomainException(
+          SUBMISSION_REVIEWS_ERROR_CODES[
+            SubmissionReviewsErrorCode.SELF_REVIEW_FORBIDDEN
+          ],
+        );
+      }
       if (target.currentRevision !== input.revision) {
         throw new DomainException(
           SUBMISSION_REVIEWS_ERROR_CODES[

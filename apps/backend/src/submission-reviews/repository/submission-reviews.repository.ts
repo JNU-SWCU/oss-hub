@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import type { Prisma as PrismaTypes, ReviewDecision } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { programApplicationParticipantWhere } from '../../prisma/program-application-participant';
 import { requiredMilestonesApproved } from '../../milestone-documents/domain/milestone-completion';
 import type {
   RepositoryPublishEligibility,
@@ -39,6 +40,11 @@ interface TransitionSubmissionInput {
 }
 
 export interface SubmissionReviewTransactionStore {
+  isSubmissionParticipant(
+    submissionId: string,
+    userId: string,
+  ): Promise<boolean>;
+
   findReviewTarget(
     submissionId: string,
   ): Promise<SubmissionReviewTarget | null>;
@@ -62,6 +68,21 @@ export interface SubmissionReviewsRepositoryPort {
 
 class PrismaSubmissionReviewTransactionStore implements SubmissionReviewTransactionStore {
   constructor(private readonly transaction: PrismaTypes.TransactionClient) {}
+
+  async isSubmissionParticipant(
+    submissionId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const submission =
+      await this.transaction.milestoneDocumentSubmission.findFirst({
+        where: {
+          id: submissionId,
+          application: programApplicationParticipantWhere(userId),
+        },
+        select: { id: true },
+      });
+    return submission !== null;
+  }
 
   async findReviewTarget(
     submissionId: string,

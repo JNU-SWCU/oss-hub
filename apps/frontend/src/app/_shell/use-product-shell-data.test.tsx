@@ -105,7 +105,7 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
       root.render(<Probe programDetailId="program-1" member />);
     });
 
-    expect(mocks.getProgramOverview).toHaveBeenCalledWith('program-1');
+    expect(mocks.getProgramOverview).toHaveBeenCalledWith('program-1', false);
     expect(mocks.getProgramNavigationMilestones).toHaveBeenCalledWith(
       'program-1',
     );

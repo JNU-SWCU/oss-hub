@@ -6,6 +6,7 @@ import {
 } from '../../submissions/domain/submission-zip-admission';
 
 export const MilestoneDocumentsErrorCode = {
+  SELF_REVIEW_FORBIDDEN: 'MSD_046',
   STAFF_ONLY: 'MSD_001',
   STUDENT_ONLY: 'MSD_002',
   MILESTONE_NOT_FOUND: 'MSD_003',
@@ -56,6 +57,12 @@ export type MilestoneDocumentsErrorCode =
 export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
   Record<MilestoneDocumentsErrorCode, ErrorCode>
 > = {
+  [MilestoneDocumentsErrorCode.SELF_REVIEW_FORBIDDEN]: {
+    code: MilestoneDocumentsErrorCode.SELF_REVIEW_FORBIDDEN,
+    status: 403,
+    message:
+      '자기 팀 서류는 검토할 수 없습니다. 다른 운영자에게 검토를 요청해 주세요.',
+  },
   [MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND]: {
     code: MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND,
     status: 404,

@@ -5,6 +5,7 @@ import {
   Prisma,
   SubmissionFileLifecycle,
 } from '@prisma/client';
+import { STUDENT_MEMBER_WHERE } from '../../prisma/user-profile-read';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const currentFileSelect = {
@@ -61,8 +62,7 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
     const activeStudent = {
       githubId: sessionGithubId,
       accountStatus: AccountStatus.ACTIVE,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
+      ...STUDENT_MEMBER_WHERE,
     } as const;
     const submission = await this.prisma.milestoneDocumentSubmission.findFirst({
       where: {

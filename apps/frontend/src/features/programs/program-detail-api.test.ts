@@ -112,3 +112,18 @@ describe('getProgramDetail', () => {
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 });
+
+it('운영 화면 요청은 서버에 명시적 화면 모드를 전달한다', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(publicDetail), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  );
+  vi.stubGlobal('fetch', fetchMock);
+  await getProgramDetail('program-1', true);
+  expect(fetchMock).toHaveBeenCalledWith(
+    apiPath('programs/program-1/viewer?view=operations'),
+    undefined,
+  );
+});

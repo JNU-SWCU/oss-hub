@@ -41,6 +41,8 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+const navigation = vi.hoisted(() => ({ search: new URLSearchParams() }));
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: vi.fn(),
@@ -51,7 +53,7 @@ vi.mock('next/navigation', () => ({
     forward: vi.fn(),
   }),
   usePathname: () => `/programs/${PROGRAM_ID}`,
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => navigation.search,
 }));
 
 import { ProgramDetailPage } from './program-detail-page';
@@ -96,6 +98,7 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    navigation.search = new URLSearchParams();
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -114,6 +117,49 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
   function requestedPaths(): string[] {
     return fetchMock.mock.calls.map((call) => String(call[0]));
   }
+
+  it('학생 상세의 늦은 응답이 이미 전환한 운영 화면을 덮어쓰지 않는다', async () => {
+    let resolveStudent: (response: Response) => void = () => {
+      throw new Error('student request not started');
+    };
+    const delayedStudent = new Promise<Response>((resolve) => {
+      resolveStudent = resolve;
+    });
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.endsWith('/viewer')) return delayedStudent;
+      if (url.endsWith('/viewer?view=operations'))
+        return json({
+          ...PUBLIC_DETAIL,
+          name: '운영 화면 결과',
+          viewer: { role: 'STAFF', applicationStatus: null },
+        });
+      return problem(401, url);
+    });
+    await act(async () =>
+      root.render(
+        <ProgramDetailPage programId={PROGRAM_ID} session="present" />,
+      ),
+    );
+    navigation.search = new URLSearchParams('view=operations');
+    await act(async () =>
+      root.render(
+        <ProgramDetailPage programId={PROGRAM_ID} session="present" />,
+      ),
+    );
+    expect(container.textContent).toContain('운영 화면 결과');
+    await act(async () =>
+      resolveStudent(
+        json({
+          ...PUBLIC_DETAIL,
+          name: '이전 학생 화면',
+          viewer: { role: 'STUDENT', applicationStatus: 'APPROVED' },
+        }),
+      ),
+    );
+    expect(container.textContent).toContain('운영 화면 결과');
+    expect(container.textContent).not.toContain('이전 학생 화면');
+  });
 
   it('비로그인이면 공개 상세만 부르고 viewer·overview는 부르지 않는다', async () => {
     await act(async () => {
