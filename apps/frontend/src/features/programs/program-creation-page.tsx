@@ -57,6 +57,9 @@ export function ProgramCreationPage({
   const [dirty, setDirty] = useState(false);
   const [issues, setIssues] = useState<readonly ProgramAuthoringIssue[]>([]);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [existingProgramId, setExistingProgramId] = useState<string | null>(
+    null,
+  );
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [fileUpload, setFileUpload] = useState<SubmissionUploadLimit | null>(
@@ -173,6 +176,10 @@ export function ProgramCreationPage({
   };
 
   const submit = async () => {
+    persistProgramAuthoringRecoveryKey(
+      window.sessionStorage,
+      state.idempotencyKey,
+    );
     setSubmitting(true);
     setServerError(null);
     const result = await submitProgramAuthoring({
@@ -201,17 +208,14 @@ export function ProgramCreationPage({
         );
         return;
       case 'conflict':
-        {
-          const idempotencyKey = newAuthoringId();
-          dispatch({ type: 'rotate_idempotency_key', key: idempotencyKey });
-          persistProgramAuthoringRecoveryKey(
-            window.sessionStorage,
-            idempotencyKey,
-          );
-        }
+        persistProgramAuthoringRecoveryKey(
+          window.sessionStorage,
+          state.idempotencyKey,
+        );
+        setExistingProgramId(result.existingProgramId);
         setConfirmationOpen(false);
         setServerError(
-          '이전 생성 요청과 내용이 충돌했습니다. 다시 확인해 주세요.',
+          '이전 요청으로 생성된 프로그램이 있을 수 있습니다. 기존 프로그램을 먼저 확인해 주세요. 작성 내용은 유지됩니다.',
         );
         return;
       case 'failure':
@@ -273,6 +277,20 @@ export function ProgramCreationPage({
             >
               {serverError}
             </p>
+          ) : null}
+          {existingProgramId ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                clearProgramAuthoringRecoveryKey(window.sessionStorage);
+                completeAndNavigate(
+                  `/programs/${encodeURIComponent(existingProgramId)}`,
+                );
+              }}
+            >
+              기존 프로그램 확인
+            </Button>
           ) : null}
           {state.currentStep !== 'basic' ? (
             <Button type="button" variant="outline" onClick={() => move(-1)}>

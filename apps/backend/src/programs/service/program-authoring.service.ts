@@ -167,7 +167,11 @@ function replayOrConflict(
   idempotencyKey: string,
 ): ProgramAuthoringProgram {
   if (replay.payloadHash !== payloadHash) {
-    throw new ProgramAuthoringIdempotencyConflictError(actorId, idempotencyKey);
+    throw new ProgramAuthoringIdempotencyConflictError(
+      actorId,
+      idempotencyKey,
+      replay.program.id,
+    );
   }
   return replay.program;
 }

@@ -3,12 +3,13 @@ import type { ProgramAuthoringPlan } from './program-authoring.types';
 
 export function canonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     ...(plan.coverUploadId ? { coverUploadId: plan.coverUploadId } : {}),
     ...(plan.externalCover ? { externalCover: plan.externalCover } : {}),
     program: {
       name: plan.program.name,
       organizer: plan.program.organizer,
+      trackType: plan.program.trackType,
       category: plan.program.category,
       applicationTemplateKey: plan.program.applicationTemplateKey,
       applicationTemplateVersion: plan.program.applicationTemplateVersion,

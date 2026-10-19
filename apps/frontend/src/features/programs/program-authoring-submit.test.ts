@@ -294,7 +294,7 @@ describe('program authoring submission', () => {
       },
     });
 
-    expect(result).toEqual({ kind: 'conflict' });
+    expect(result).toEqual({ kind: 'conflict', existingProgramId: null });
     expect(runtime.uploads.get('requirement-a')).toEqual({ id: 'upload-a' });
     expect(file.name).toBe('plan.pdf');
   });
