@@ -19,7 +19,12 @@ import {
 } from '@/components/ui/tooltip';
 import { ListPanel, ListRow } from '@/components/list-panel';
 import { ApiError } from '@/lib/api-client';
-import { removeMyTeamMember, type ProgramTeam, type TeamMember } from './api';
+import {
+  removePreparationMember,
+  removeMyTeamMember,
+  type ProgramTeam,
+  type TeamMember,
+} from './api';
 import { ApplicationActionDialog } from './application-confirmation-dialog';
 import { mapTeamError } from './program-teams-flow';
 import type { TeamInvitationManagement } from './use-team-invitation-management';
@@ -155,7 +160,7 @@ function TeamMembersPanelInstance({
           : null;
 
   function canRemove(member: TeamMember): boolean {
-    if (mode !== 'manage') return false;
+    if (mode !== 'manage' && team?.preparation !== true) return false;
     if (team === null || !team.canRemoveMembers) return false;
     if (member.isLeader) return false;
     return member.nickname !== sessionNickname;
@@ -167,7 +172,9 @@ function TeamMembersPanelInstance({
     setBusy(true);
     setError(null);
     try {
-      await removeMyTeamMember(programId, member.userId);
+      if (team?.preparation)
+        await removePreparationMember(programId, member.userId);
+      else await removeMyTeamMember(programId, member.userId);
 
       if (!active.current) return;
       setTarget(null);

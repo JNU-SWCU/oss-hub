@@ -118,7 +118,7 @@ export class TeamInvitationsRepository {
       },
     });
 
-    return invitations.map((invitation) => ({
+    const official = invitations.map((invitation) => ({
       id: invitation.id,
       teamId: invitation.teamId,
       programId: invitation.programId,
@@ -136,6 +136,59 @@ export class TeamInvitationsRepository {
       memberCount: invitation.team._count.members,
       teamMaxSize: invitation.team.program.teamMaxSize,
     }));
+    const preparations =
+      await this.prisma.applicationPreparationParticipant.findMany({
+        where: {
+          userId: inviteeId,
+          status: 'PENDING',
+          preparation: { leaderId: { not: inviteeId } },
+        },
+        select: {
+          id: true,
+          programId: true,
+          userId: true,
+          status: true,
+          invitedAt: true,
+          respondedAt: true,
+          preparation: {
+            select: {
+              id: true,
+              name: true,
+              leaderId: true,
+              leader: {
+                select: { nickname: true, ...USER_PROFILE_NAME_SELECT },
+              },
+              program: { select: { name: true, teamMaxSize: true } },
+              _count: {
+                select: { participants: { where: { status: 'ACCEPTED' } } },
+              },
+            },
+          },
+        },
+      });
+    const temporary: ReceivedTeamInvitationRecord[] = preparations.map(
+      (row) => ({
+        preparation: true,
+        id: row.id,
+        programId: row.programId,
+        teamId: row.preparation.id,
+        inviteeId: row.userId,
+        invitedById: row.preparation.leaderId,
+        status: row.status,
+        invitedAt: row.invitedAt,
+        respondedAt: row.respondedAt,
+        teamName: row.preparation.name,
+        programName: row.preparation.program.name,
+        invitedByDisplayName:
+          resolveUserProfileName(row.preparation.leader)?.trim() ||
+          row.preparation.leader.nickname,
+        memberCount: row.preparation._count.participants,
+        teamMaxSize: row.preparation.program.teamMaxSize,
+      }),
+    );
+    return [...official, ...temporary].sort(
+      (left, right) => right.invitedAt.getTime() - left.invitedAt.getTime(),
+    );
   }
 
   async findByTeamId(teamId: string): Promise<SentTeamInvitationRecord[]> {

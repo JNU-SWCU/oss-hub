@@ -1,6 +1,7 @@
 import { ApiError } from '@/lib/api-client';
 import {
   getMyTeam,
+  getMyApplicationPreparation,
   getProgramDetail,
   listApplicationTemplates,
   type ProgramTeam,
@@ -56,7 +57,9 @@ async function resolveTeam(programId: string): Promise<{
   readonly minimum: TeamMinimum | null;
   readonly team: ProgramTeam | null;
 }> {
-  const team = await getMyTeam(programId);
+  const team =
+    (await getMyTeam(programId)) ??
+    (await getMyApplicationPreparation(programId));
   if (team === null) return { teamId: null, minimum: null, team: null };
   return { teamId: team.id, minimum: resolveTeamMinimum(team), team };
 }
