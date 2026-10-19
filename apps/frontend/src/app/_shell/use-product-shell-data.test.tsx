@@ -113,6 +113,132 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
     expect(container.textContent).toContain('1차 계획서');
   });
 
+  it('제출 뒤 현재 프로그램 집계를 다시 읽고 교체 제출도 서버 집계를 유지한다', async () => {
+    const overview = {
+      ...OVERVIEW,
+      viewerDocumentsCompleted: 0,
+      viewerDocumentsTotal: 1,
+      milestoneDocuments: [
+        { milestoneId: 'plan', title: '계획서', completed: 0, total: 1 },
+      ],
+    };
+    mocks.getProgramOverview.mockResolvedValue(overview);
+    mocks.getProgramNavigationMilestones.mockResolvedValue([]);
+    await act(async () =>
+      root.render(<Probe programDetailId="program-1" member />),
+    );
+    expect(container.textContent).toContain('"viewerDocumentsCompleted":0');
+    mocks.getProgramOverview.mockResolvedValue({
+      ...overview,
+      viewerDocumentsCompleted: 1,
+    });
+    await act(async () =>
+      window.dispatchEvent(
+        new CustomEvent('oss-hub:milestone-document-submitted', {
+          detail: { milestoneId: 'other-program' },
+        }),
+      ),
+    );
+    expect(container.textContent).toContain('"viewerDocumentsCompleted":0');
+    expect(mocks.getProgramOverview).toHaveBeenCalledTimes(1);
+    await act(async () =>
+      window.dispatchEvent(
+        new CustomEvent('oss-hub:milestone-document-submitted', {
+          detail: { milestoneId: 'plan' },
+        }),
+      ),
+    );
+    expect(container.textContent).toContain('"viewerDocumentsCompleted":1');
+    await act(async () =>
+      window.dispatchEvent(
+        new CustomEvent('oss-hub:milestone-document-submitted', {
+          detail: { milestoneId: 'plan' },
+        }),
+      ),
+    );
+    expect(container.textContent).toContain('"viewerDocumentsCompleted":1');
+    expect(mocks.getProgramOverview).toHaveBeenCalledTimes(3);
+    expect(mocks.getProgramNavigationMilestones).toHaveBeenCalledTimes(1);
+  });
+
+  it('첫 집계 응답보다 제출이 먼저 끝나도 해당 프로그램임을 확인한 뒤 다시 읽는다', async () => {
+    const overview = {
+      ...OVERVIEW,
+      viewerDocumentsCompleted: 0,
+      viewerDocumentsTotal: 1,
+      milestoneDocuments: [
+        { milestoneId: 'plan', title: '계획서', completed: 0, total: 1 },
+      ],
+    };
+    let resolveInitial: (value: ProgramOverview) => void = () => {
+      throw new TypeError('initial request missing');
+    };
+    mocks.getProgramOverview
+      .mockReturnValueOnce(
+        new Promise<ProgramOverview>((resolve) => {
+          resolveInitial = resolve;
+        }),
+      )
+      .mockResolvedValue({ ...overview, viewerDocumentsCompleted: 1 });
+    mocks.getProgramNavigationMilestones.mockResolvedValue([]);
+    await act(async () =>
+      root.render(<Probe programDetailId="program-1" member />),
+    );
+    await act(async () =>
+      window.dispatchEvent(
+        new CustomEvent('oss-hub:milestone-document-submitted', {
+          detail: { milestoneId: 'plan' },
+        }),
+      ),
+    );
+    await act(async () => resolveInitial(overview));
+    expect(container.textContent).toContain('"viewerDocumentsCompleted":1');
+    expect(mocks.getProgramOverview).toHaveBeenCalledTimes(2);
+  });
+
+  it('이전 제출의 느린 집계 응답이 최신 제출 집계를 덮어쓰지 않는다', async () => {
+    const overview = {
+      ...OVERVIEW,
+      viewerDocumentsCompleted: 0,
+      viewerDocumentsTotal: 1,
+      milestoneDocuments: [
+        { milestoneId: 'plan', title: '계획서', completed: 0, total: 1 },
+      ],
+    };
+    mocks.getProgramOverview.mockResolvedValueOnce(overview);
+    mocks.getProgramNavigationMilestones.mockResolvedValue([]);
+    await act(async () =>
+      root.render(<Probe programDetailId="program-1" member />),
+    );
+    let resolveOlder: (value: ProgramOverview) => void = () => {
+      throw new TypeError('older request missing');
+    };
+    mocks.getProgramOverview
+      .mockReturnValueOnce(
+        new Promise<ProgramOverview>((resolve) => {
+          resolveOlder = resolve;
+        }),
+      )
+      .mockResolvedValue({ ...overview, viewerDocumentsCompleted: 1 });
+    await act(async () =>
+      window.dispatchEvent(
+        new CustomEvent('oss-hub:milestone-document-submitted', {
+          detail: { milestoneId: 'plan' },
+        }),
+      ),
+    );
+    await act(async () =>
+      window.dispatchEvent(
+        new CustomEvent('oss-hub:milestone-document-submitted', {
+          detail: { milestoneId: 'plan' },
+        }),
+      ),
+    );
+    expect(container.textContent).toContain('"viewerDocumentsCompleted":1');
+    await act(async () => resolveOlder(overview));
+    expect(container.textContent).toContain('"viewerDocumentsCompleted":1');
+  });
+
   it('단계 조회가 실패해도 개요는 남기고 단계만 조용히 접는다', async () => {
     mocks.getProgramOverview.mockResolvedValue(OVERVIEW);
     mocks.getProgramNavigationMilestones.mockRejectedValue(
