@@ -40,8 +40,8 @@ Git push·PR·로컬 `vercel --prod`·대시보드 Redeploy는 frontend producti
 저장소 계약은 `apps/frontend/vercel.json`의 `git.deploymentEnabled: false`다.
 `VERCEL_TOKEN`·`VERCEL_ORG_ID`·`VERCEL_PROJECT_ID`는 GitHub repository secret에만 두고 로컬 env·`.env.example`에 두지 않는다.
 Git 저장소 연결은 메타데이터용으로 남을 수 있고, 대시보드 auto-deploy·unused hook off는 병합 전 부트스트랩이지 계약 원본이 아니다.
-배포 대상은 직전 full SemVer 릴리스 태그와의 diff로 좁힌다 — frontend 산출물이 바뀌지 않은 릴리스는 배포하지 않고 그 no-op을 로그로 남긴다. production Compose에는 frontend runtime이 없으므로 backend 배포는 이미 backend 전용이고 Jenkins의 수렴 동작은 이 계약으로 바뀌지 않는다.
-판정은 두 불변 tag 사이의 diff만 사용하므로 저장소만으로 재현되며 배포 플랫폼 상태를 읽지 않는다. 이 job은 required check이 아니다 — required check에 path filter를 걸면 해당 경로를 건드리지 않은 PR에서 체크가 보고되지 않아 병합이 영구히 막힌다.
+Frontend 배포 대상은 GitHub Actions의 `frontend-release-deploy` job에서 `Vercel production 배포` 단계가 가장 최근에 성공한 SHA 한 건과의 diff로 좁힌다. 그보다 오래된 성공 이력은 현재 배포 상태로 취급하지 않는다. 성공한 no-op과 실패한 배포는 비교 기준이 아니다. frontend 산출물이 바뀌지 않으면 생략하고, 실패 뒤 다음 릴리스는 누락된 frontend 변경을 다시 배포한다. 공통 production concurrency group에서 실행 중 배포를 취소하지 않고 대기 실행을 보존하여 직렬화하며 가장 최근 성공 배포 SHA의 조상인 과거 릴리스 재실행은 no-op이다. 성공 이력이 없거나 조회·비교가 불확실하면 남은 과거 receipt로 no-op을 판정하지 않고 별도로 최신 정식 Release임을 확인한 대상만 배포하고, 과거 대상이거나 최신 여부도 확인할 수 없으면 실패하여 재시도를 요구한다. production Compose에는 frontend runtime이 없으므로 backend 배포는 이미 backend 전용이고 Jenkins의 수렴 동작은 이 계약으로 바뀌지 않는다.
+판정은 Actions의 실제 배포 성공 기록과 두 commit의 diff를 사용하며 Vercel 운영 상태를 직접 읽지 않는다. Actions 기록이 없거나 조회할 수 없을 때의 최신 릴리스 확인도 GitHub API를 사용한다. 이 job은 required check이 아니다 — required check에 path filter를 걸면 해당 경로를 건드리지 않은 PR에서 체크가 보고되지 않아 병합이 영구히 막힌다.
 공개 댓글 marker 승인 게이트(`RELEASE_ACCEPT`·`RELEASE_OVERRIDE`)는 폐지한다 — 권한 통제를 이미 가진 플랫폼 위에 별도 문자열 파싱 게이트를 얹으면 실패 지점만 늘고 인가 주체는 그대로다.
 별도 staging 서버는 두지 않는다.
 
