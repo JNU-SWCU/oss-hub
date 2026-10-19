@@ -69,6 +69,26 @@ describe('program authoring validation', () => {
     expect(validateProgramAuthoringStep(state, 'schedule')).toEqual([]);
   });
 
+  it.each([
+    ['', '신청 종료를 입력해 주세요.'],
+    ['2026-09-01T18:00', '신청 종료는 신청 시작 이후여야 합니다.'],
+  ])(
+    'explains the application end %s accurately',
+    (applicationEndAt, message) => {
+      const state = {
+        ...completedAuthoringState(),
+        applicationStartAt: '2026-09-02T09:00',
+        applicationEndAt,
+      };
+
+      expect(
+        validateProgramAuthoringStep(state, 'schedule')
+          .filter((issue) => issue.path === 'applicationEndAt')
+          .map((issue) => issue.message),
+      ).toEqual([message]);
+    },
+  );
+
   it('rejects an application period ending after operations', () => {
     const state = {
       ...completedAuthoringState(),

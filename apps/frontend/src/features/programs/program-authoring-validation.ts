@@ -121,10 +121,11 @@ function validateSchedule(
     issues.push(
       issue('applicationStartAt', 'schedule', '신청 시작을 입력해 주세요.'),
     );
-  if (
-    applicationEnd === null ||
-    (applicationStart !== null && applicationStart > applicationEnd)
-  )
+  if (applicationEnd === null)
+    issues.push(
+      issue('applicationEndAt', 'schedule', '신청 종료를 입력해 주세요.'),
+    );
+  else if (applicationStart !== null && applicationStart > applicationEnd)
     issues.push(
       issue(
         'applicationEndAt',
