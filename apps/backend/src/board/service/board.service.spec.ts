@@ -392,6 +392,70 @@ describe('BoardService', () => {
   });
 
   describe('updatePost', () => {
+    it.each([
+      {
+        label: '교직원',
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+        canDelete: true,
+      },
+      {
+        label: '관리자',
+        hasStaffAccess: false,
+        hasAdminAccess: true,
+        canDelete: true,
+      },
+      {
+        label: '학생',
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        canDelete: false,
+      },
+    ])(
+      '$label 작성자가 수정해도 타인 댓글 삭제 권한을 유지한다',
+      async (actor) => {
+        const session = sessionFor(syntheticAuthorId, actor.hasStaffAccess);
+        actors.set(session, {
+          id: syntheticAuthorId,
+          hasStaffAccess: actor.hasStaffAccess,
+          hasAdminAccess: actor.hasAdminAccess,
+          accountStatus: AccountStatus.ACTIVE,
+        });
+        const post = {
+          ...syntheticPostDetail(),
+          comments: [
+            {
+              id: syntheticCommentId,
+              postId: syntheticPostId,
+              authorId: syntheticOtherUserId,
+              authorRole: 'STUDENT',
+              authorName: '합성 댓글 작성자',
+              body: '합성 댓글',
+              createdAt: new Date('2026-07-01T01:00:00.000Z'),
+            },
+          ],
+        };
+        const { repository } = buildRepository({
+          findRefById: jest.fn().mockResolvedValue(post),
+          update: jest.fn().mockResolvedValue(post),
+        });
+
+        const result = await new BoardService(repository, authority).updatePost(
+          syntheticProgramId,
+          syntheticPostId,
+          session,
+          { title: '수정 제목', body: '수정 본문' },
+        );
+
+        expect(result.comments).toEqual([
+          expect.objectContaining({
+            id: syntheticCommentId,
+            canDelete: actor.canDelete,
+          }),
+        ]);
+      },
+    );
+
     it('작성자 본인이면 수정한다', async () => {
       const { mocks, repository } = buildRepository({
         findRefById: jest.fn().mockResolvedValue({

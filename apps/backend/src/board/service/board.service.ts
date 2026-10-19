@@ -103,13 +103,16 @@ export class BoardService {
     sessionGithubId: bigint,
     input: BoardPostWriteInput,
   ): Promise<BoardPostDetailResult> {
-    const { actorId } = await this.assertAccess(programId, sessionGithubId);
+    const { actorId, actorIsStaff } = await this.assertAccess(
+      programId,
+      sessionGithubId,
+    );
     const ref = await this.requirePostRef(programId, postId);
     if (ref.authorId !== actorId) {
       throw new DomainException(BOARD_ERROR_CODES[BoardErrorCode.NOT_AUTHOR]);
     }
     const post = await this.repository.update(postId, input);
-    return this.withDetailPermissions(post, actorId, false);
+    return this.withDetailPermissions(post, actorId, actorIsStaff);
   }
 
   async deletePost(
