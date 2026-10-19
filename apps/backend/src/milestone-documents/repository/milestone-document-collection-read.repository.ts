@@ -41,6 +41,7 @@ export class MilestoneDocumentCollectionReadStore {
         name: true,
         required: true,
         sortOrder: true,
+        graceDueAt: true,
         templateFile: { select: { id: true, originalFileName: true } },
       },
     });

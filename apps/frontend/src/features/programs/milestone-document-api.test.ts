@@ -3,6 +3,7 @@ import { apiPath } from '@/lib/api-client';
 import { milestoneDocumentUploadPolicy } from '../../../test-support/milestone-document-upload-policy';
 import {
   checkMilestoneDocumentFile,
+  updateMilestoneDocumentGrace,
   getMilestoneDocumentParticipantHistory,
   listMilestoneDocuments,
   milestoneDocumentTemplateHref,
@@ -172,4 +173,29 @@ describe('milestoneDocumentTemplateHref', () => {
       apiPath('milestones/milestone-1/documents/document-1/template'),
     );
   });
+});
+
+describe('updateMilestoneDocumentGrace', () => {
+  it.each(['2026-10-20T14:59:00.000Z', null])(
+    '유예 날짜만 보내거나 명시적으로 해제한다: %s',
+    async (graceDueAt) => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response(null, { status: 204 }));
+      vi.stubGlobal('fetch', fetchMock);
+      await updateMilestoneDocumentGrace(
+        'milestone/one',
+        'document/one',
+        graceDueAt,
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        apiPath('milestones/milestone%2Fone/documents/document%2Fone/grace'),
+        expect.objectContaining({
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ graceDueAt }),
+        }),
+      );
+    },
+  );
 });

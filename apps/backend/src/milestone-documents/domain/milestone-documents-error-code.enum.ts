@@ -49,6 +49,7 @@ export const MilestoneDocumentsErrorCode = {
   ZIP_TOO_MANY_ENTRIES: 'MSD_042',
   ZIP_CONTENT_TOO_LARGE: 'MSD_043',
   ZIP_EXPANDS_TOO_MUCH: 'MSD_044',
+  INVALID_GRACE_DUE_AT: 'MSD_045',
 } as const;
 
 export type MilestoneDocumentsErrorCode =
@@ -62,6 +63,11 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     status: 403,
     message:
       '자기 팀 서류는 검토할 수 없습니다. 다른 운영자에게 검토를 요청해 주세요.',
+  },
+  [MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT]: {
+    code: MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT,
+    status: 422,
+    message: '유예 기한은 마일스톤 마감보다 뒤여야 합니다.',
   },
   [MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND]: {
     code: MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND,

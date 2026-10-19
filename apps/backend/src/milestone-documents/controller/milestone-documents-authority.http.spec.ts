@@ -35,6 +35,7 @@ const documentBody = {
   name: '합성 서류',
   required: true,
   sortOrder: 1,
+  graceDueAt: null,
   hasTemplateFile: false,
   templateFileName: null,
 };
@@ -68,6 +69,13 @@ const routes = [
     [documentBody],
   ],
   ['DELETE', '/document', undefined, 204, null],
+  [
+    'PATCH',
+    '/document/grace',
+    { graceDueAt: '2099-01-01T00:00:00Z' },
+    204,
+    null,
+  ],
 ] as const;
 const writer = jest.fn();
 let app: INestApplication;
@@ -88,7 +96,10 @@ beforeAll(async () => {
     );
   };
   const store = {
-    lockMilestone: jest.fn().mockResolvedValue({ id: 'milestone' }),
+    lockMilestone: jest
+      .fn()
+      .mockResolvedValue({ id: 'milestone', dueAt: new Date('2026-01-01') }),
+    updateGraceDueAt: jest.fn().mockResolvedValue(undefined),
     lockDocument: jest.fn().mockResolvedValue(record),
     lockDocumentIdsOfMilestone: jest
       .fn()
@@ -189,7 +200,9 @@ it.each(actors)(
         });
       }
     }
-    expect(writer).toHaveBeenCalledTimes(expectedStatus === 200 ? 4 : 0);
+    expect(writer).toHaveBeenCalledTimes(
+      expectedStatus === 200 ? routes.length : 0,
+    );
   },
 );
 

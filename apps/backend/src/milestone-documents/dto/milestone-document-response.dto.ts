@@ -17,6 +17,7 @@ interface MilestoneDocumentViewerReviewResponseDto {
 export interface MilestoneDocumentViewerSubmissionResponseDto {
   readonly submitted: boolean;
   readonly submittedAt: string | null;
+  readonly submittedLate: boolean;
 
   readonly revision: number | null;
 
@@ -49,6 +50,7 @@ export class MilestoneDocumentResponseDto {
   name: string;
   required: boolean;
   sortOrder: number;
+  graceDueAt: string | null;
   hasTemplateFile: boolean;
   templateFileName: string | null;
 
@@ -65,6 +67,7 @@ export class MilestoneDocumentResponseDto {
     this.name = record.name;
     this.required = record.required;
     this.sortOrder = record.sortOrder;
+    this.graceDueAt = record.graceDueAt?.toISOString() ?? null;
     this.hasTemplateFile = record.templateFileId !== null;
     this.templateFileName = record.templateFileName;
     this.viewerSubmission = viewer.viewerSubmission;

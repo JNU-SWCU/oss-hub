@@ -50,6 +50,7 @@ function teamUrlFor(programId: string): string {
 interface MilestoneStatuses {
   readonly status: MilestoneCompletionStatus;
   readonly itemStatuses: readonly MilestoneCompletionStatus[];
+  readonly lateSubmissionDueAt: Date | null;
 }
 
 function milestoneStatusesFor(
@@ -85,6 +86,19 @@ function milestoneStatusesFor(
         {
           status: milestoneCompletionStatus(input),
           itemStatuses: collectAxisStatuses(input),
+          lateSubmissionDueAt: milestone.documents.reduce<Date | null>(
+            (latest, document) => {
+              const grace = document.graceDueAt;
+              if (
+                statusByDocument.has(document.id) ||
+                grace === null ||
+                grace <= milestone.dueAt
+              )
+                return latest;
+              return latest === null || grace > latest ? grace : latest;
+            },
+            null,
+          ),
         },
       ];
     }),
@@ -204,6 +218,7 @@ export class StudentDashboardService {
       id: milestone.id,
       name: milestone.name,
       dueAt: milestone.dueAt,
+      lateSubmissionDueAt: statuses?.lateSubmissionDueAt ?? null,
       submissionStatus: statuses?.status ?? MILESTONE_NOT_SUBMITTED,
       requiredItemCount: itemStatuses.length,
       remainingItemCount: itemStatuses.filter(
