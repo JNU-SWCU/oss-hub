@@ -113,6 +113,8 @@ function buildService(overrides: {
   const auditLogWriter = {} as ApplicationCreateStore['auditLogWriter'];
   const appendReviewHistory = jest.fn().mockResolvedValue({ revision: 1 });
   const store: ApplicationCreateStore = {
+    findPreparationForApply: jest.fn().mockResolvedValue(null),
+    deletePreparation: jest.fn().mockResolvedValue(undefined),
     auditLogWriter,
     appendReviewHistory,
     lockProgramForApply: jest

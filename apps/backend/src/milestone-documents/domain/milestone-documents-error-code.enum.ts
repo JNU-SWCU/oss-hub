@@ -62,7 +62,7 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     code: MilestoneDocumentsErrorCode.SELF_REVIEW_FORBIDDEN,
     status: 403,
     message:
-      '자기 팀 서류는 검토할 수 없습니다. 다른 운영자에게 검토를 요청해 주세요.',
+      '자기 팀 서류는 검토할 수 없습니다. 다른 교직원이나 운영자에게 검토를 요청해 주세요.',
   },
   [MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT]: {
     code: MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT,
