@@ -298,7 +298,10 @@ describe('public archive views', () => {
         onRetry={callbacks.onRetry}
       />,
     );
-    expect(detailHtml).toContain('GitHub 열기');
+    expect(detailHtml).toContain('GitHub 저장소 열기');
+    expect(detailHtml).toContain(
+      'href="https://github.com/JNU-SWCU/oss-public"',
+    );
     expect(detailHtml).toContain('누적 활동');
     expect(detailHtml).toContain('@octocat');
     expect(detailHtml).toContain('href="https://github.com/octocat"');
