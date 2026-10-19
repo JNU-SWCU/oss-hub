@@ -81,6 +81,37 @@ function render(
 }
 
 describe('ProgramScopeSidebar', () => {
+  it('운영 전환 query가 있어도 현재 서류와 선택 단계 표시를 유지한다', () => {
+    const groups = programScopeSidebarGroups({
+      programId: 'prog-1',
+      viewerRole: 'STAFF',
+      teamCount: 1,
+      boardPostCount: 0,
+      canSwitchView: true,
+      operationsView: true,
+      milestones: [
+        { milestoneId: 'm3', title: '선택할 단계', submissionEnabled: true },
+      ],
+    });
+    const html = render({
+      groups,
+      pathname: '/programs/prog-1/documents',
+      search: 'view=operations&milestoneId=m3',
+    });
+    expect(html).toMatch(
+      /href="[^"]*milestoneId=m3[^"]*"[^>]*data-selected="true"/,
+    );
+    expect(html).toMatch(
+      /href="[^"]*documents\?view=operations"[^>]*aria-current="page"/,
+    );
+    const overview = render({
+      groups,
+      pathname: '/programs/prog-1',
+      search: 'view=operations',
+    });
+    expect((overview.match(/aria-current="page"/g) ?? []).length).toBe(1);
+  });
+
   it('is desktop-only, same shell as AppSidebar', () => {
     const html = render();
     expect(html).toContain('hidden min-[900px]:flex');

@@ -22,12 +22,14 @@ export function useProductShellData({
   programDetailId,
   member,
   studentViewer,
+  operationsView = false,
 }: {
   readonly section: ShellSection;
   readonly programDetailId: string | null;
   readonly member: boolean;
 
   readonly studentViewer: boolean;
+  readonly operationsView?: boolean;
 }): {
   readonly facetData: SectionFacetData | undefined;
   readonly scopeOverview: ProgramOverview | undefined;
@@ -68,7 +70,7 @@ export function useProductShellData({
     }
     const controller = new AbortController();
     setScopeOverview(undefined);
-    void getProgramOverview(programDetailId)
+    void getProgramOverview(programDetailId, operationsView)
       .then((data) => {
         if (!controller.signal.aborted) setScopeOverview(data);
       })
@@ -76,7 +78,7 @@ export function useProductShellData({
         if (!controller.signal.aborted) setScopeOverview(undefined);
       });
     return () => controller.abort();
-  }, [programDetailId, member]);
+  }, [programDetailId, member, operationsView]);
 
   useEffect(() => {
     if (!shouldLoadProgramOverview(programDetailId, member)) {

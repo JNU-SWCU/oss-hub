@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ProgramViewContext } from '../../../_shell/program-shell-policy';
 import { PageBody } from '@/components/page-body';
 import { SubmissionChecklistPage } from '@/features/submissions/submission-checklist-page';
 import { SubmissionMatrixScreen } from '@/features/submissions/components/submission-matrix-screen';
@@ -27,12 +28,17 @@ function withMilestoneQuery(
 
 export function DocumentsRoute({ programId }: { readonly programId: string }) {
   const session = useSharedSessionRole();
+  const programView = useContext(ProgramViewContext);
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedMilestoneId = searchParams.get('milestoneId');
   const [matrixVersion, setMatrixVersion] = useState(0);
 
-  if (session.hasStaffAccess) {
+  const operationsView =
+    programView === null
+      ? session.hasStaffAccess
+      : programView === 'STAFF' || programView === 'ADMIN';
+  if (operationsView) {
     return (
       <SubmissionMatrixScreen
         programId={programId}
@@ -40,6 +46,11 @@ export function DocumentsRoute({ programId }: { readonly programId: string }) {
         reloadKey={matrixVersion}
         headerActions={
           <div className="flex flex-wrap items-center gap-3 sm:max-w-xl">
+            {session.memberKind === 'STUDENT' ? (
+              <p className="text-small text-muted-foreground">
+                우리 팀 서류는 다른 운영자가 검토합니다.
+              </p>
+            ) : null}
             <ProgramDocumentChangeRequestPanel
               key={`change-requests-${programId}`}
               programId={programId}

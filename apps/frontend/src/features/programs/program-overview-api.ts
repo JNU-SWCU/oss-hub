@@ -54,10 +54,11 @@ function parseProgramOverview(value: unknown): ProgramOverview {
 
 export async function getProgramOverview(
   programId: string,
+  operationsView = false,
 ): Promise<ProgramOverview> {
   return parseProgramOverview(
     await apiClient<unknown>(
-      `programs/${encodeURIComponent(programId)}/overview`,
+      `programs/${encodeURIComponent(programId)}/overview${operationsView ? '?view=operations' : ''}`,
     ),
   );
 }
