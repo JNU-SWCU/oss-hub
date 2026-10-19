@@ -258,6 +258,13 @@ describe('ApplicationsService integration', () => {
       const auditCount = await prisma.auditLog.count({
         where: { targetId: applicationId },
       });
+      const notificationWhere = {
+        type: 'APPLICATION_DECISION' as const,
+        payload: { path: ['applicationId'], equals: applicationId },
+      };
+      const notificationCount = await prisma.notification.count({
+        where: notificationWhere,
+      });
 
       await expect(
         service.decide(ACTOR_GITHUB_ID, applicationId, {
@@ -276,8 +283,8 @@ describe('ApplicationsService integration', () => {
         prisma.applicationReviewHistory.count({ where: { applicationId } }),
       ).resolves.toBe(0);
       await expect(
-        prisma.notification.count({ where: { type: 'APPLICATION_DECISION' } }),
-      ).resolves.toBe(0);
+        prisma.notification.count({ where: notificationWhere }),
+      ).resolves.toBe(notificationCount);
       await expect(
         prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
       ).resolves.toBe(0);

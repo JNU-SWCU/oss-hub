@@ -201,7 +201,7 @@ function TeamMembersPanelInstance({
               <h2 className="contents">팀 구성원</h2>
             </CardTitle>
             {team === null ? null : (
-              <CardDescription>
+              <CardDescription className="break-keep">
                 {`${team.name} · ${capacity}${sizeRule ? ` · ${sizeRule}` : ''}`}
               </CardDescription>
             )}
