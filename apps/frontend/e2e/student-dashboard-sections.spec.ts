@@ -229,6 +229,9 @@ test('학생 대시보드는 묶음·주 행동·접기·거르기를 넓은 화
       ) => {
         await fulfillJson(route, []);
       },
+      'GET /api/v1/users/me/notifications/team-deletions': async (route) => {
+        await fulfillJson(route, []);
+      },
       'GET /api/v1/team-invitations/received': async (route) => {
         await fulfillJson(route, []);
       },
