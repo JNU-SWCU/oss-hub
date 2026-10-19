@@ -122,6 +122,11 @@ describe('ApplicationsService integration', () => {
           hasStaffAccess: true,
         },
         {
+          id: 'synthetic-decision-member',
+          githubId: 8_000_000_000_003n,
+          nickname: 'Synthetic-Member',
+        },
+        {
           id: APPLICANT_ID,
           githubId: APPLICANT_GITHUB_ID,
           nickname: 'Synthetic-Applicant',
@@ -216,6 +221,72 @@ describe('ApplicationsService integration', () => {
   afterAll(async () => {
     await prisma.$disconnect();
   });
+
+  it.each([
+    ['staff', 'APPROVE', ApplicationStatus.SUBMITTED],
+    ['staff', 'REJECT', ApplicationStatus.APPROVED],
+    ['staff', 'REVERT', ApplicationStatus.REJECTED],
+    ['admin', 'APPROVE', ApplicationStatus.SUBMITTED],
+    ['admin', 'REJECT', ApplicationStatus.APPROVED],
+    ['admin', 'REVERT', ApplicationStatus.REJECTED],
+  ] as const)(
+    '%s cannot %s its current team application',
+    async (role, action, status) => {
+      const applicationId = 'synthetic-enabled-application';
+      await createApplication(applicationId, true);
+      await prisma.user.update({
+        where: { id: ACTOR_ID },
+        data: {
+          hasStaffAccess: role === 'staff',
+          hasAdminAccess: role === 'admin',
+        },
+      });
+      await prisma.teamMember.create({
+        data: {
+          teamId: `${applicationId}-team`,
+          programId: `${applicationId}-program`,
+          userId: ACTOR_ID,
+        },
+      });
+      await prisma.application.update({
+        where: { id: applicationId },
+        data: { status },
+      });
+      const before = await prisma.application.findUniqueOrThrow({
+        where: { id: applicationId },
+      });
+      const auditCount = await prisma.auditLog.count({
+        where: { targetId: applicationId },
+      });
+
+      await expect(
+        service.decide(ACTOR_GITHUB_ID, applicationId, {
+          action,
+          reason: 'synthetic reason',
+        }),
+      ).rejects.toMatchObject({ errorCode: { code: 'APP_029', status: 403 } });
+
+      await expect(
+        prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
+      ).resolves.toEqual(before);
+      await expect(
+        prisma.auditLog.count({ where: { targetId: applicationId } }),
+      ).resolves.toBe(auditCount);
+      await expect(
+        prisma.applicationReviewHistory.count({ where: { applicationId } }),
+      ).resolves.toBe(0);
+      await expect(
+        prisma.notification.count({ where: { type: 'APPLICATION_DECISION' } }),
+      ).resolves.toBe(0);
+      await expect(
+        prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
+      ).resolves.toBe(0);
+      await prisma.user.update({
+        where: { id: ACTOR_ID },
+        data: { hasStaffAccess: true, hasAdminAccess: false },
+      });
+    },
+  );
 
   it('프로그램 최소 인원이 1보다 크면 1인 팀 자동 생성 신청을 거절한다', async () => {
     await prisma.program.create({
@@ -371,7 +442,7 @@ describe('ApplicationsService integration', () => {
       data: {
         teamId,
         programId,
-        userId: ACTOR_ID,
+        userId: 'synthetic-decision-member',
       },
     });
 
@@ -384,7 +455,7 @@ describe('ApplicationsService integration', () => {
     });
     expect(event.payload).toMatchObject({
       teamId,
-      collaboratorGithubLogins: ['synthetic-applicant', 'synthetic-staff'],
+      collaboratorGithubLogins: ['synthetic-applicant', 'synthetic-member'],
     });
     await expect(
       prisma.notification.count({
@@ -764,19 +835,23 @@ describe('ApplicationsService integration', () => {
         originalWithTransaction((store) =>
           operation({
             auditLogWriter: store.auditLogWriter,
+            isCurrentTeamMember: (teamId, userId) =>
+              store.isCurrentTeamMember(teamId, userId),
             appendReviewHistory: (input) => store.appendReviewHistory(input),
-            findApplicationById: (id) => store.findApplicationById(id),
+            findApplicationById: async (id) => {
+              const application = await store.findApplicationById(id);
+              markDecisionReady?.();
+              await decisionGate;
+              return application;
+            },
             discardRepositoryProvisionRequest: (id, discardedAt) =>
               store.discardRepositoryProvisionRequest(id, discardedAt),
             findRepositoryProvisionJob: (id) =>
               store.findRepositoryProvisionJob(id),
             findRepositoryProvisionEvent: (key) =>
               store.findRepositoryProvisionEvent(key),
-            transitionApplication: async (input) => {
-              markDecisionReady?.();
-              await decisionGate;
-              return store.transitionApplication(input);
-            },
+            transitionApplication: (input) =>
+              store.transitionApplication(input),
             createApplicationDecisionNotifications: (input) =>
               store.createApplicationDecisionNotifications(input),
             createRepositoryProvisionEvent: (input) =>
@@ -830,6 +905,8 @@ describe('ApplicationsService integration', () => {
         originalWithTransaction((store) =>
           operation({
             auditLogWriter: store.auditLogWriter,
+            isCurrentTeamMember: (teamId, userId) =>
+              store.isCurrentTeamMember(teamId, userId),
             appendReviewHistory: (input) => store.appendReviewHistory(input),
             findApplicationById: (id) => store.findApplicationById(id),
             discardRepositoryProvisionRequest: (id, discardedAt) =>
