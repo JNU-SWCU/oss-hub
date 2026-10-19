@@ -225,6 +225,7 @@ interface ProgramApplyFormViewProps extends ProgramApplyTeamProps {
   readonly applicantName: string;
   readonly values: ProgramApplyFormValues;
   readonly errors: ProgramApplyFormErrors;
+  readonly validationAttempt?: number;
   readonly serverError: string | null;
   readonly mode: ApplicationFormMode;
 
@@ -245,23 +246,32 @@ interface ProgramApplyFormViewProps extends ProgramApplyTeamProps {
 function PersonalDataConsentField({
   checked,
   onToggle,
+  error,
 }: {
   readonly checked: boolean;
   readonly onToggle: (checked: boolean) => void;
+  readonly error?: string;
 }) {
   return (
-    <Field orientation="horizontal">
-      <input
-        id="personal-data-consent"
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onToggle(event.target.checked)}
-      />
-      <FieldLabel htmlFor="personal-data-consent">
-        <span className="font-semibold text-destructive">[필수]</span> 개인정보
-        수집·이용 동의
-      </FieldLabel>
-    </Field>
+    <div className="space-y-2">
+      <Field orientation="horizontal">
+        <input
+          id="personal-data-consent"
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => onToggle(event.target.checked)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'personal-data-consent-error' : undefined}
+        />
+        <FieldLabel htmlFor="personal-data-consent">
+          <span className="font-semibold text-destructive">[필수]</span>{' '}
+          개인정보 수집·이용 동의
+        </FieldLabel>
+      </Field>
+      {error ? (
+        <FieldError id="personal-data-consent-error">{error}</FieldError>
+      ) : null}
+    </div>
   );
 }
 
@@ -328,6 +338,7 @@ function MemberAwaitingView({
 }
 
 export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
+  const formRegionRef = useRef<HTMLElement>(null);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const {
@@ -345,6 +356,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     creating,
     values,
     errors,
+    validationAttempt = 0,
     serverError,
     mode,
     rejectionReason,
@@ -364,6 +376,14 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     onCloseConfirmation,
     onConfirm,
   } = props;
+  useEffect(() => {
+    if (validationAttempt === 0) return;
+    const firstInvalidField = formRegionRef.current?.querySelector<HTMLElement>(
+      '[aria-invalid="true"]:not(:disabled)',
+    );
+    firstInvalidField?.focus({ preventScroll: true });
+    firstInvalidField?.scrollIntoView?.({ block: 'center' });
+  }, [validationAttempt]);
   const missingTeamMembers = remainingTeamMembers(teamMinimum);
   const hasEditableAnswers = template.fields.some(
     (field) => field.key === 'title' && field.type !== 'auto',
@@ -395,7 +415,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
 
   if (mode === 'edit') {
     return (
-      <PageBody className="max-w-4xl">
+      <PageBody ref={formRegionRef} className="max-w-4xl">
         <PageHeader title={`${program.name} 신청`} />
 
         <RejectionReason reason={rejectionReason} />
@@ -476,7 +496,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
   }
 
   return (
-    <PageBody className="max-w-4xl">
+    <PageBody ref={formRegionRef} className="max-w-4xl">
       <PageHeader title={`${program.name} 신청`} />
       <Card>
         <CardHeader>
@@ -529,13 +549,16 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
           <PersonalDataConsentField
             checked={values.personalDataConsent}
             onToggle={onToggleConsent}
+            error={
+              values.personalDataConsent
+                ? undefined
+                : errors.personalDataConsent
+            }
           />
-          {errors.repositoryUrl || errors.personalDataConsent ? (
+          {errors.repositoryUrl ? (
             <Alert variant="destructive">
               <AlertTitle>제출할 수 없습니다</AlertTitle>
-              <AlertDescription>
-                {errors.repositoryUrl ?? errors.personalDataConsent}
-              </AlertDescription>
+              <AlertDescription>{errors.repositoryUrl}</AlertDescription>
             </Alert>
           ) : null}
           {serverError ? (
