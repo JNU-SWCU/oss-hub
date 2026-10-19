@@ -360,7 +360,7 @@ describe('ProgramCreationPage guided authoring', () => {
       detail: '이미 생성된 프로그램을 확인해 주세요.',
       instance: '/program-authoring/programs',
       code: 'PRG_017',
-      existingProgramId: 'existing-program',
+      existingProgramId: 'seed:e2e:existing-program',
     };
     mocks.createAuthoringProgram.mockRejectedValue(new ApiError(problem));
     await act(async () =>
@@ -372,7 +372,7 @@ describe('ProgramCreationPage guided authoring', () => {
     await act(async () => buttonNamed('기존 프로그램 확인').click());
 
     expect(mocks.completeAndNavigate).toHaveBeenCalledWith(
-      '/programs/existing-program',
+      '/programs/seed%3Ae2e%3Aexisting-program',
     );
     expect(mocks.createAuthoringProgram).toHaveBeenCalledTimes(1);
     expect(mocks.createAuthoringProgram.mock.calls[0]?.[1]).toBe(
