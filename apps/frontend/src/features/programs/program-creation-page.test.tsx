@@ -315,7 +315,7 @@ describe('ProgramCreationPage guided authoring', () => {
     expect(dialog?.contains(document.activeElement)).toBe(true);
   });
 
-  it('stores only a rotated recovery key after an idempotency conflict', async () => {
+  it('preserves the recovery key after an idempotency conflict', async () => {
     const completed = completedAuthoringState();
     mocks.createAuthoringProgram.mockRejectedValue(
       new ApiError({
@@ -339,7 +339,7 @@ describe('ProgramCreationPage guided authoring', () => {
     });
 
     const recoveryKey = loadProgramAuthoringRecoveryKey(sessionStorage);
-    expect(recoveryKey).not.toBe(completed.idempotencyKey);
+    expect(recoveryKey).toBe(completed.idempotencyKey);
     expect(sessionStorage.getItem(PROGRAM_AUTHORING_RECOVERY_KEY)).toBe(
       recoveryKey,
     );
@@ -349,6 +349,51 @@ describe('ProgramCreationPage guided authoring', () => {
     expect(mocks.useProgramExitGuard).toHaveBeenLastCalledWith(false);
     mocks.discardUnsaved?.();
     expect(sessionStorage.getItem(PROGRAM_AUTHORING_RECOVERY_KEY)).toBeNull();
+  });
+
+  it('opens the scoped existing program without creating a new request after a conflict', async () => {
+    const completed = completedAuthoringState();
+    const problem = {
+      type: 'about:blank',
+      title: 'Conflict',
+      status: 409,
+      detail: '이미 생성된 프로그램을 확인해 주세요.',
+      instance: '/program-authoring/programs',
+      code: 'PRG_017',
+      existingProgramId: 'existing-program',
+    };
+    mocks.createAuthoringProgram.mockRejectedValue(new ApiError(problem));
+    await act(async () =>
+      root.render(<ProgramCreationPage initialState={completed} />),
+    );
+    await act(async () => buttonNamed('프로그램 만들기').click());
+    await act(async () => buttonNamed('생성 확정').click());
+
+    await act(async () => buttonNamed('기존 프로그램 확인').click());
+
+    expect(mocks.completeAndNavigate).toHaveBeenCalledWith(
+      '/programs/existing-program',
+    );
+    expect(mocks.createAuthoringProgram).toHaveBeenCalledTimes(1);
+    expect(mocks.createAuthoringProgram.mock.calls[0]?.[1]).toBe(
+      completed.idempotencyKey,
+    );
+  });
+
+  it('keeps the request key after an uncertain network response', async () => {
+    const completed = completedAuthoringState();
+    mocks.createAuthoringProgram.mockRejectedValue(
+      new TypeError('network closed'),
+    );
+    await act(async () =>
+      root.render(<ProgramCreationPage initialState={completed} />),
+    );
+    await act(async () => buttonNamed('프로그램 만들기').click());
+    await act(async () => buttonNamed('생성 확정').click());
+
+    expect(loadProgramAuthoringRecoveryKey(sessionStorage)).toBe(
+      completed.idempotencyKey,
+    );
   });
 
   it('최종 검토에서 날짜 오류를 발견하면 마일스톤 편집으로 돌아간다', async () => {

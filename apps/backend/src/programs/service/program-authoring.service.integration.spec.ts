@@ -1,4 +1,10 @@
-import { ProgramAuthoringUploadLifecycle } from '@prisma/client';
+import { createHash } from 'node:crypto';
+import { canonicalProgramAuthoringPayload } from '../domain/program-authoring-payload-hash';
+import { buildProgramAuthoringPlan } from '../domain/program-authoring-plan';
+import {
+  ProgramTrackType,
+  ProgramAuthoringUploadLifecycle,
+} from '@prisma/client';
 import {
   ProgramAuthoringIdempotencyConflictError,
   ProgramAuthoringUploadTokenError,
@@ -151,6 +157,76 @@ describe('ProgramAuthoringService integration', () => {
         description: 'A distinct canonical payload',
       }),
     ).rejects.toBeInstanceOf(ProgramAuthoringIdempotencyConflictError);
+  });
+
+  it('rejects track changes while the original retry still returns exactly one program', async () => {
+    const actor = await harness.createActor('track-conflict');
+    const initial = authoringRequest('track-conflict', [
+      authoringMilestone('default-item', []),
+    ]);
+    const created = await service.create(actor.githubId, 'track-key', initial);
+
+    await expect(
+      service.create(actor.githubId, 'track-key', {
+        ...initial,
+        trackType: ProgramTrackType.EXTRACURRICULAR,
+      }),
+    ).rejects.toMatchObject({ existingProgramId: created.id });
+    expect(
+      (await service.create(actor.githubId, 'track-key', initial)).id,
+    ).toBe(created.id);
+    expect(
+      await harness.prisma.programCreateRequest.count({
+        where: { actorId: actor.id },
+      }),
+    ).toBe(1);
+  });
+
+  it('does not treat an edited current track as evidence of a historical creation input', async () => {
+    const actor = await harness.createActor('legacy-track');
+    const initial = authoringRequest('legacy-track', [
+      authoringMilestone('default-item', []),
+    ]);
+    const created = await service.create(actor.githubId, 'legacy-key', initial);
+    const canonical = canonicalProgramAuthoringPayload(
+      buildProgramAuthoringPlan(initial),
+    );
+    const { trackType, ...legacyProgram } = canonical.program;
+    expect(trackType).toBe(ProgramTrackType.CURRICULAR);
+    const payloadHash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          ...canonical,
+          schemaVersion: 1,
+          program: legacyProgram,
+        }),
+      )
+      .digest('hex');
+    await harness.prisma.programCreateRequest.update({
+      where: {
+        actorId_idempotencyKey: {
+          actorId: actor.id,
+          idempotencyKey: 'legacy-key',
+        },
+      },
+      data: { payloadHash },
+    });
+    await harness.prisma.program.update({
+      where: { id: created.id },
+      data: { trackType: ProgramTrackType.EXTRACURRICULAR },
+    });
+
+    await expect(
+      service.create(actor.githubId, 'legacy-key', {
+        ...initial,
+        trackType: ProgramTrackType.EXTRACURRICULAR,
+      }),
+    ).rejects.toMatchObject({ existingProgramId: created.id });
+    expect(
+      await harness.prisma.programCreateRequest.count({
+        where: { actorId: actor.id },
+      }),
+    ).toBe(1);
   });
 
   it.each([

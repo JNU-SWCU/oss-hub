@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import type {
   ApplicationDecisionNotice,
+  TeamDeletionNotice,
   StudentDashboard,
   StudentDashboardStatus,
   StudentFeedbackState,
 } from '../types';
+import { TeamDeletionNotices } from './team-deletion-notices';
 import { ApplicationDecisionNotices } from './application-decision-notices';
 import { DashboardProgramSections } from './dashboard-program-sections';
 
@@ -22,6 +24,10 @@ interface StudentDashboardViewProps {
   showSignupCompleteNotice?: boolean;
   applicationDecisionNotices?: readonly ApplicationDecisionNotice[];
   feedback?: StudentFeedbackState;
+  teamDeletionNotices?: readonly TeamDeletionNotice[];
+  teamDeletionFailed?: boolean;
+  onReadTeamDeletion?: (notificationId: string) => void;
+  onRetryTeamDeletions?: () => void;
   onRetry: () => void;
   onRetryFeedback?: () => void;
 }
@@ -43,6 +49,10 @@ export function StudentDashboardView({
   showSignupCompleteNotice = false,
   applicationDecisionNotices = [],
   feedback = { status: 'loading' },
+  teamDeletionNotices = [],
+  teamDeletionFailed = false,
+  onReadTeamDeletion,
+  onRetryTeamDeletions,
   onRetry,
   onRetryFeedback,
 }: StudentDashboardViewProps) {
@@ -65,6 +75,18 @@ export function StudentDashboardView({
       ) : null}
 
       <ApplicationDecisionNotices notices={applicationDecisionNotices} />
+      {onReadTeamDeletion ? (
+        <TeamDeletionNotices
+          notices={teamDeletionNotices}
+          onRead={onReadTeamDeletion}
+        />
+      ) : null}
+      {teamDeletionFailed ? (
+        <FailureState
+          title="팀 삭제 알림을 처리하지 못했습니다"
+          onRetry={onRetryTeamDeletions}
+        />
+      ) : null}
 
       {feedback.status === 'error' ? (
         <FailureState

@@ -1,3 +1,4 @@
+import { TeamDeletionNotificationResponseDto } from '../dto/team-deletion-notification-response.dto';
 import {
   Controller,
   Get,
@@ -17,17 +18,20 @@ import { ApplicationDecisionNotificationResponseDto } from '../dto/application-d
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
-@Controller('users/me/notifications/application-decisions')
+@Controller('users/me/notifications')
 export class ApplicationDecisionNotificationsController {
   constructor(
     @Inject(ApplicationDecisionNotificationsService)
     private readonly service: Pick<
       ApplicationDecisionNotificationsService,
-      'listUnread' | 'markRead'
+      | 'listUnread'
+      | 'markRead'
+      | 'listUnreadTeamDeletions'
+      | 'markTeamDeletionRead'
     >,
   ) {}
 
-  @Get()
+  @Get('application-decisions')
   @Header('Cache-Control', 'private, no-store')
   @UseGuards(SessionGuard)
   async listUnread(
@@ -39,7 +43,7 @@ export class ApplicationDecisionNotificationsController {
     );
   }
 
-  @Patch(':notificationId/read')
+  @Patch('application-decisions/:notificationId/read')
   @HttpCode(204)
   @UseGuards(SessionGuard, OriginGuard)
   async markRead(
@@ -47,5 +51,31 @@ export class ApplicationDecisionNotificationsController {
     @Param('notificationId') notificationId: string,
   ): Promise<void> {
     await this.service.markRead(request.sessionGithubId, notificationId);
+  }
+
+  @Get('team-deletions')
+  @Header('Cache-Control', 'private, no-store')
+  @UseGuards(SessionGuard)
+  async listUnreadTeamDeletions(
+    @Req() request: SessionIdentity,
+  ): Promise<readonly TeamDeletionNotificationResponseDto[]> {
+    return (
+      await this.service.listUnreadTeamDeletions(request.sessionGithubId)
+    ).map(
+      (notification) => new TeamDeletionNotificationResponseDto(notification),
+    );
+  }
+
+  @Patch('team-deletions/:notificationId/read')
+  @HttpCode(204)
+  @UseGuards(SessionGuard, OriginGuard)
+  async markTeamDeletionRead(
+    @Req() request: SessionIdentity,
+    @Param('notificationId') notificationId: string,
+  ): Promise<void> {
+    await this.service.markTeamDeletionRead(
+      request.sessionGithubId,
+      notificationId,
+    );
   }
 }
