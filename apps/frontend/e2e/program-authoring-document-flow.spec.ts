@@ -362,6 +362,27 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
         name: /^(?:필수 서류 미제출|미제출 있음) 1팀$/,
       }),
     ).toBeVisible();
+    const documentSummary = staffPage.getByRole('group', { name: '서류 선택' });
+    const requiredSummary = documentSummary.getByRole('button', {
+      name: new RegExp(`^${PROGRAM_AUTHORING_E2E.requiredDocumentName}`),
+    });
+    await expect(requiredSummary).toContainText('제출 1 / 2팀');
+    await requiredSummary.click();
+    const submissionSelection = staffPage.getByRole('group', {
+      name: `${PROGRAM_AUTHORING_E2E.requiredDocumentName} 제출 여부`,
+    });
+    await submissionSelection
+      .getByRole('button', { name: '미제출 1팀', exact: true })
+      .click();
+    await expect(
+      staffPage.getByRole('button', {
+        name: new RegExp(`${PROGRAM_AUTHORING_E2E.requiredDocumentName} 검토`),
+      }),
+    ).toHaveCount(0);
+    await expect(requiredSummary).toContainText('제출 1 / 2팀');
+    await submissionSelection
+      .getByRole('button', { name: '제출 1팀', exact: true })
+      .click();
     await staffPage
       .getByRole('button', {
         name: new RegExp(`${PROGRAM_AUTHORING_E2E.requiredDocumentName} 검토`),
