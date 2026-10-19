@@ -261,10 +261,25 @@ async function captureStudentStaffCompactHeader(
     const accountMenu = page.getByRole('button', {
       name: 'synthetic-member-access 계정 메뉴, 학생 · 교직원',
     });
-    for (const viewport of TASK_9_VIEWPORTS) {
+    for (const viewport of [
+      ...TASK_9_VIEWPORTS,
+      { name: 'phone', width: 390, height: 844 },
+      { name: 'before-badge', width: 479, height: 844 },
+      { name: 'badge-boundary', width: 480, height: 844 },
+      { name: 'before-desktop', width: 899, height: 900 },
+      { name: 'desktop-boundary', width: 900, height: 900 },
+    ] as const) {
       await page.setViewportSize(viewport);
       const summary = page.getByLabel('학생 · 교직원 권한');
-      if (viewport.name === 'narrow') {
+      if (viewport.width < 480) {
+        await expect(summary).toBeHidden();
+        await expect(
+          page.getByLabel('학생 권한', { exact: true }),
+        ).toBeHidden();
+        await expect(
+          page.getByLabel('교직원 권한', { exact: true }),
+        ).toBeHidden();
+      } else if (viewport.width < 900) {
         await expect(summary).toBeVisible();
         await expect(summary).toHaveText('권한 2개');
         await expect(
@@ -288,12 +303,19 @@ async function captureStudentStaffCompactHeader(
       await expect(
         menu.getByText('학생 · 교직원', { exact: true }),
       ).toBeVisible();
-      await captureTask9State(
-        page,
-        testInfo,
-        'account-student-staff',
-        viewport,
-      );
+      if (viewport.name === 'desktop' || viewport.name === 'narrow') {
+        await captureTask9State(
+          page,
+          testInfo,
+          'account-student-staff',
+          viewport,
+        );
+      } else {
+        await testInfo.attach(`account-student-staff-${viewport.width}.png`, {
+          body: await page.screenshot({ fullPage: true }),
+          contentType: 'image/png',
+        });
+      }
       await page.keyboard.press('Escape');
       await expect(menu).toHaveCount(0);
     }

@@ -49,7 +49,7 @@ export function AccountSlot() {
       {accountRoles ? (
         <StatusBadge
           variant="approved"
-          className="min-[900px]:hidden"
+          className="hidden min-[480px]:inline-flex min-[900px]:hidden"
           aria-label={`${accountRoles} 권한`}
         >
           권한 {surfaces.length}개
@@ -60,7 +60,9 @@ export function AccountSlot() {
           key={surface}
           variant={SURFACE_CHIP_VARIANT[surface]}
           className={
-            accountRoles ? 'hidden min-[900px]:inline-flex' : undefined
+            accountRoles
+              ? 'hidden min-[900px]:inline-flex'
+              : 'hidden min-[480px]:inline-flex'
           }
           aria-label={`${SURFACE_CHIP_LABEL[surface]} 권한`}
         >
