@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from '@/lib/api-client';
 import { ProgramStaffTeamsPage } from './program-staff-teams-page';
 import { APPLICATION_STATUS_LABELS } from './application-presentation';
 import type {
@@ -274,6 +275,36 @@ describe('ProgramStaffTeamsPage — 상태 드롭다운(AC-14)', () => {
 });
 
 describe('ProgramStaffTeamsPage — 재조회 4분기(AC-16)', () => {
+  it('자기 팀 승인이 거절되면 다른 교직원이나 운영자에게 검토를 요청하도록 안내한다', async () => {
+    decideApplicationMock.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Forbidden',
+        status: 403,
+        detail: 'Synthetic own-team decision denial',
+        instance: '/applications/a/decision',
+        code: 'APP_029',
+      }),
+    );
+    getApplicationDetailMock.mockResolvedValue(item('a', 'SUBMITTED'));
+    await mount();
+
+    const select = statusSelects()[0];
+    await act(async () => {
+      if (select) {
+        select.value = 'APPROVED';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+
+    expect(container.textContent).toContain(
+      '다른 교직원이나 운영자에게 검토를 요청해 주세요.',
+    );
+    expect(container.textContent).not.toContain('다시 시도해 주세요.');
+    expect(getApplicationDetailMock).toHaveBeenCalledWith('a');
+    expect(statusSelects()[0]?.value).toBe('SUBMITTED');
+  });
+
   it('재조회가 실패하면 확인 불가를 알리고 그 행의 다음 판정을 막는다', async () => {
     getApplicationDetailMock.mockRejectedValue(new TypeError('network'));
     await mount();
