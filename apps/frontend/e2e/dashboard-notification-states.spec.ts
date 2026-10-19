@@ -14,7 +14,7 @@ test('되돌린 신청과 삭제된 팀을 현재 상태에 맞게 안내하고 
     id: 'synthetic-team-deleted-notice',
     teamId: 'synthetic-deleted-team',
     teamName: '합성 오픈소스 팀',
-    programId: 'synthetic-program',
+    programId: 'seed:e2e:synthetic-program',
     programName: '합성 오픈소스 프로그램',
     message: '동일한 신청으로 만들어진 중복 팀을 정리했습니다.',
     deletedAt: '2026-10-19T12:00:00.000Z',
@@ -39,7 +39,7 @@ test('되돌린 신청과 삭제된 팀을 현재 상태에 맞게 안내하고 
           {
             id: 'synthetic-revert-notice',
             applicationId: 'synthetic-application',
-            programId: 'synthetic-program',
+            programId: 'seed:e2e:synthetic-program',
             programName: '합성 오픈소스 프로그램',
             decision: 'SUBMITTED',
             decidedAt: '2026-10-19T11:00:00.000Z',
@@ -63,7 +63,7 @@ test('되돌린 신청과 삭제된 팀을 현재 상태에 맞게 안내하고 
   const deletion = page.getByRole('region', { name: '팀 삭제 알림' });
   await expect(
     decision.getByRole('link', { name: '신청 상태 확인' }),
-  ).toHaveAttribute('href', '/programs/synthetic-program/apply');
+  ).toHaveAttribute('href', '/programs/seed%3Ae2e%3Asynthetic-program/apply');
   await expect(
     decision.getByRole('link', { name: '반려 사유 확인' }),
   ).toHaveCount(0);
@@ -76,7 +76,7 @@ test('되돌린 신청과 삭제된 팀을 현재 상태에 맞게 안내하고 
   );
   await expect(
     deletion.getByRole('link', { name: '프로그램 확인' }),
-  ).toHaveAttribute('href', '/programs/synthetic-program');
+  ).toHaveAttribute('href', '/programs/seed%3Ae2e%3Asynthetic-program');
   expect(acknowledged).toEqual([]);
 
   for (const viewport of [

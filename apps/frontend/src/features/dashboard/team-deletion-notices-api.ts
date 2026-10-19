@@ -15,7 +15,9 @@ function isTeamDeletionNotice(value: unknown): value is TeamDeletionNotice {
     value.teamName.trim().length > 0 &&
     'programId' in value &&
     typeof value.programId === 'string' &&
-    /^[a-zA-Z0-9_-]+$/.test(value.programId) &&
+    value.programId.trim().length > 0 &&
+    value.programId !== '.' &&
+    value.programId !== '..' &&
     'programName' in value &&
     typeof value.programName === 'string' &&
     value.programName.trim().length > 0 &&

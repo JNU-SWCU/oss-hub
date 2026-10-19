@@ -9,7 +9,7 @@ const notice = {
   id: 'deleted-notice',
   teamId: 'deleted-team',
   teamName: '합성 팀',
-  programId: 'program-1',
+  programId: 'seed:e2e:deadline-digest:program',
   programName: '합성 프로그램',
   message: '중복 팀 정리',
   deletedAt: '2026-08-09T00:00:00.000Z',
@@ -33,7 +33,9 @@ describe('team deletion notice API', () => {
   });
 
   it.each([
-    { ...notice, programId: '../team' },
+    { ...notice, programId: '' },
+    { ...notice, programId: '.' },
+    { ...notice, programId: '..' },
     { ...notice, deletedAt: 'invalid-date' },
     { ...notice, message: 1 },
   ])('rejects an unsafe or malformed notice', async (invalid) => {
