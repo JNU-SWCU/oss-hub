@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import {
   fetchAdminAccessHistory,
@@ -44,11 +44,19 @@ export function AdminAccessDetailView({
     kind: 'loading',
   });
   const [historyLoading, setHistoryLoading] = useState(false);
+  const historyRequestRef = useRef(0);
+  const [historyFailure, setHistoryFailure] = useState<{
+    readonly kind: 'staffAccessRequest' | 'login';
+    readonly page: number;
+  } | null>(null);
   const retry = useCallback(() => setAttempt((current) => current + 1), []);
 
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
+    historyRequestRef.current += 1;
+    setHistoryLoading(false);
+    setHistoryFailure(null);
     setState({ kind: 'loading' });
     void loadAdminAccessDetail(userId, controller.signal)
       .then((data) => {
@@ -64,6 +72,7 @@ export function AdminAccessDetailView({
       });
     return () => {
       active = false;
+      historyRequestRef.current += 1;
       controller.abort();
     };
   }, [attempt, userId]);
@@ -72,8 +81,10 @@ export function AdminAccessDetailView({
     kind: 'staffAccessRequest' | 'login',
     nextPage: number,
   ) => {
-    if (state.kind !== 'ready') return;
+    if (state.kind !== 'ready' || state.detail.id !== userId) return;
+    const request = ++historyRequestRef.current;
     setHistoryLoading(true);
+    setHistoryFailure(null);
     try {
       const history = await fetchAdminAccessHistory(userId, {
         staffAccessRequestPage:
@@ -85,12 +96,17 @@ export function AdminAccessDetailView({
           kind === 'login' ? nextPage : state.history.loginHistory.page,
         loginLimit: ADMIN_ACCESS_DETAIL_HISTORY_LIMIT,
       });
+      if (request !== historyRequestRef.current) return;
       setState((current) =>
-        current.kind === 'ready' ? { ...current, history } : current,
+        current.kind === 'ready' && current.detail.id === userId
+          ? { ...current, history }
+          : current,
       );
     } catch {
+      if (request !== historyRequestRef.current) return;
+      setHistoryFailure({ kind, page: nextPage });
     } finally {
-      setHistoryLoading(false);
+      if (request === historyRequestRef.current) setHistoryLoading(false);
     }
   };
 
@@ -251,6 +267,18 @@ export function AdminAccessDetailView({
       layoutContext={layoutContext}
       workspace={workspace}
       historyLoading={historyLoading}
+      historyError={
+        historyFailure
+          ? {
+              message: `${historyFailure.kind === 'login' ? '로그인' : '요청'} 이력을 불러오지 못했습니다. 이전 목록은 그대로 남아 있습니다.`,
+              onRetry: () =>
+                void changeHistoryPage(
+                  historyFailure.kind,
+                  historyFailure.page,
+                ),
+            }
+          : null
+      }
       onStaffAccessRequestPageChange={(page) =>
         void changeHistoryPage('staffAccessRequest', page)
       }

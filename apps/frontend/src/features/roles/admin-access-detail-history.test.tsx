@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
+  AdminAccessHistory,
   AdminAccessLoginHistoryItem,
   AdminAccessStaffAccessRequestHistoryItem,
 } from './admin-access-api';
@@ -12,7 +13,22 @@ import {
   adminMutation,
   historyPage,
 } from './admin-access-detail-test-fixture';
-import { AdminAccessDetailContentForState } from './components/admin-access-detail-view';
+import { fetchAdminAccessHistory } from './admin-access-api';
+import { loadAdminAccessDetail } from './admin-access-detail-api';
+import {
+  AdminAccessDetailContentForState,
+  AdminAccessDetailView,
+} from './components/admin-access-detail-view';
+
+vi.mock('./admin-access-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./admin-access-api')>()),
+  fetchAdminAccessHistory: vi.fn(),
+}));
+
+vi.mock('./admin-access-detail-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./admin-access-detail-api')>()),
+  loadAdminAccessDetail: vi.fn(),
+}));
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -23,9 +39,125 @@ let container: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
+  vi.resetAllMocks();
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
+});
+
+function pagedHistory(label: string, page = 1): AdminAccessHistory {
+  return adminHistory({
+    staffAccessRequests: historyPage({
+      page,
+      total: 40,
+      items: [
+        {
+          id: `${label}-request`,
+          status: 'REJECTED',
+          rejectionReason: label,
+          decidedAt: null,
+          decidedBy: null,
+          createdAt: '2026-10-01T00:00:00.000Z',
+        },
+      ],
+    }),
+    loginHistory: historyPage({ page, total: 40 }),
+  });
+}
+
+async function renderDetail(userId = 'target') {
+  await act(async () => {
+    root.render(<AdminAccessDetailView userId={userId} />);
+  });
+}
+
+async function nextHistoryPage(index: number) {
+  const button = [...container.querySelectorAll('button')].filter(
+    (candidate) => candidate.textContent === '다음',
+  )[index];
+  if (!button) throw new TypeError('History next button not found');
+  await act(async () => button.click());
+}
+
+describe('관리자 상세 이력 조회 복구와 사용자 전환', () => {
+  it.each([0, 1])(
+    '이력 %i 페이지 실패는 이전 목록과 재시도를 보존한다',
+    async (index) => {
+      vi.mocked(loadAdminAccessDetail).mockResolvedValue({
+        detail: adminDetail(),
+        history: pagedHistory('original-history'),
+      });
+      vi.mocked(fetchAdminAccessHistory)
+        .mockRejectedValueOnce(new Error('network'))
+        .mockResolvedValueOnce(pagedHistory('next-history', 2));
+      await renderDetail();
+      await nextHistoryPage(index);
+
+      expect(container.textContent).toContain('original-history');
+      expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+        '이력을 불러오지 못했습니다',
+      );
+      const retry = [...container.querySelectorAll('button')].find(
+        (button) => button.textContent === '다시 시도',
+      );
+      if (!retry) throw new TypeError('History retry button not found');
+      await act(async () => retry.click());
+
+      expect(
+        vi.mocked(fetchAdminAccessHistory).mock.calls[1]?.[1],
+      ).toMatchObject({
+        staffAccessRequestPage: index === 0 ? 2 : 1,
+        loginPage: index === 1 ? 2 : 1,
+      });
+      expect(container.textContent).toContain('next-history');
+      expect(container.textContent).not.toContain('original-history');
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+    },
+  );
+
+  it.each(['resolve', 'reject'])(
+    '이전 사용자의 늦은 %s는 새 이력과 로딩을 바꾸지 않는다',
+    async (outcome) => {
+      const oldRequest = Promise.withResolvers<AdminAccessHistory>();
+      const newRequest = Promise.withResolvers<AdminAccessHistory>();
+      vi.mocked(loadAdminAccessDetail)
+        .mockResolvedValueOnce({
+          detail: adminDetail(),
+          history: pagedHistory('old-user-history'),
+        })
+        .mockResolvedValueOnce({
+          detail: adminDetail({ id: 'new-target', githubLogin: 'new-target' }),
+          history: pagedHistory('new-user-history'),
+        });
+      vi.mocked(fetchAdminAccessHistory)
+        .mockReturnValueOnce(oldRequest.promise)
+        .mockReturnValueOnce(newRequest.promise);
+      await renderDetail();
+      await nextHistoryPage(0);
+      await renderDetail('new-target');
+      await nextHistoryPage(0);
+      expect(fetchAdminAccessHistory).toHaveBeenCalledTimes(2);
+
+      await act(async () => {
+        if (outcome === 'resolve')
+          oldRequest.resolve(pagedHistory('stale-user-history', 2));
+        else oldRequest.reject(new Error('old network error'));
+      });
+      expect(container.textContent).toContain('new-user-history');
+      expect(container.textContent).not.toContain('stale-user-history');
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+      expect(
+        [...container.querySelectorAll('button')]
+          .filter((button) => button.textContent === '다음')
+          .every((button) => button.disabled),
+      ).toBe(true);
+
+      await act(async () =>
+        newRequest.resolve(pagedHistory('new-user-page-two', 2)),
+      );
+      expect(container.textContent).toContain('new-user-page-two');
+    },
+  );
 });
 
 afterEach(() => {
