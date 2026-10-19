@@ -196,7 +196,7 @@ describe('설정 화면', () => {
   });
 
   it.each(['STUDENT', 'STAFF', 'ADMIN'] as const)(
-    '역할이 배정된 %s는 안내 없이 설정을 그대로 연다',
+    '역할이 배정된 %s는 가입 안내 없이 설정과 비차단 정책 변경 안내를 연다',
     async (role) => {
       await render({
         status: 'assigned',
@@ -209,6 +209,17 @@ describe('설정 화면', () => {
         SETTINGS_ONBOARDING_NOTICE_HEADING,
       );
       expect(field('settings-name').value).toBe(SAVED_PROFILE.name);
+      const notice = container.querySelector(
+        '[aria-labelledby="settings-policy-update-heading"]',
+      );
+      expect(notice?.textContent).toContain('학과');
+      expect(notice?.textContent).toContain('추가 동의 없이');
+      expect(
+        notice?.querySelector('input, button, [role="dialog"]'),
+      ).toBeNull();
+      expect(notice?.querySelector('a')?.getAttribute('href')).toBe(
+        '/policies/github-activity/2026-10-19.html',
+      );
     },
   );
 
