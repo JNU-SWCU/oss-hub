@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   AccountStatus,
   ProgramAuthoringUploadLifecycle,
@@ -9,11 +10,15 @@ import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../../audit-log/domain/audit-log-metadata';
 import { buildProgramAuthoringPlan } from '../domain/program-authoring-plan';
-import { hashProgramAuthoringPayload } from '../domain/program-authoring-payload-hash';
+import {
+  canonicalProgramAuthoringPayload,
+  hashProgramAuthoringPayload,
+} from '../domain/program-authoring-payload-hash';
 import { ProgramAuthoringRepository } from '../repository/program-authoring.repository';
 import { ProgramAuthoringService } from './program-authoring.service';
 import {
   ProgramAuthoringIdempotencyRaceError,
+  ProgramAuthoringIdempotencyConflictError,
   type ProgramAuthoringProgram,
   type ProgramAuthoringRequest,
 } from '../domain/program-authoring.types';
@@ -116,6 +121,57 @@ function setup() {
 }
 
 describe('ProgramAuthoringService', () => {
+  it('rejects a changed track on a retry instead of returning the first program', async () => {
+    const { service, repository, transaction } = setup();
+    repository.findReplay.mockResolvedValue({
+      payloadHash: hashProgramAuthoringPayload(
+        buildProgramAuthoringPlan(request()),
+      ),
+      program: program(),
+    });
+
+    await expect(
+      service.create(GITHUB_ID, 'key', {
+        ...request(),
+        trackType: ProgramTrackType.EXTRACURRICULAR,
+      }),
+    ).rejects.toMatchObject({
+      name: 'ProgramAuthoringIdempotencyConflictError',
+      existingProgramId: 'program-id',
+    });
+    expect(transaction.createProgram.mock.calls).toHaveLength(0);
+  });
+
+  it('requires existing-program confirmation when a historical hash has no track proof', async () => {
+    const { service, repository, transaction } = setup();
+    const canonical = canonicalProgramAuthoringPayload(
+      buildProgramAuthoringPlan(request()),
+    );
+    const { trackType, ...historicalProgram } = canonical.program;
+    const historicalHash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          ...canonical,
+          schemaVersion: 1,
+          program: historicalProgram,
+        }),
+      )
+      .digest('hex');
+    repository.findReplay.mockResolvedValue({
+      payloadHash: historicalHash,
+      program: { ...program(), trackType },
+    });
+
+    await expect(service.create(GITHUB_ID, 'key', request())).rejects.toEqual(
+      new ProgramAuthoringIdempotencyConflictError(
+        ACTOR_ID,
+        'key',
+        'program-id',
+      ),
+    );
+    expect(transaction.createProgram.mock.calls).toHaveLength(0);
+  });
+
   it.each([
     null,
     {
