@@ -15,6 +15,7 @@ import {
   ProgramMilestones,
 } from './program-detail-page';
 import { ProgramFactBar } from './program-detail-view';
+import { PROGRAM_END_AT_UNDECIDED } from './program-end-at';
 import type { ProgramOverview } from './program-overview-api';
 import { getProgramListBadge } from './program-list';
 import type {
@@ -388,6 +389,33 @@ describe('ProgramDetailPage states', () => {
     expect(html).not.toContain('<strong>주관기관</strong>');
     expect(html).not.toContain('<strong>신청기간</strong>');
   });
+
+  it.each([
+    {
+      endsAt: '2026-10-31T09:00:00.000Z',
+      expectedEnd: '2026년 10월 31일 18:00',
+    },
+    { endsAt: PROGRAM_END_AT_UNDECIDED, expectedEnd: '미정' },
+  ])(
+    '신청 기간과 구분한 운영 기간을 서울 시각으로 표시한다: $expectedEnd',
+    ({ endsAt, expectedEnd }) => {
+      const html = renderToStaticMarkup(
+        <ProgramDetailReadyState
+          program={{
+            ...programWithoutMilestones,
+            operatingPeriod: {
+              startsAt: '2026-09-01T00:00:00.000Z',
+              endsAt,
+            },
+          }}
+        />,
+      );
+
+      expect(html).toContain('신청 기간 2026.07.01 ~ 2026.08.31');
+      expect(html).toContain(`운영 기간 2026년 9월 1일 09:00 ~ ${expectedEnd}`);
+      expect(html).not.toContain('9999');
+    },
+  );
 
   it.each(['STAFF', 'ADMIN'] as const)(
     '%s에게 제목 옆 프로그램 편집 입구만 노출하고 신청자 목록·미구현 #124 경로는 숨긴다',
