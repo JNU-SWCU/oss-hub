@@ -1,7 +1,18 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  MILESTONE_DOCUMENT_SUBMITTED_EVENT,
+  submittedMilestoneId,
+} from './milestone-document-events';
 import { ApiError } from '@/lib/api-client';
 import { getProgramDetail, getPublicProgramDetail } from './api';
 import {
@@ -24,6 +35,7 @@ export type DetailState =
       readonly program: ProgramDetail;
 
       readonly overview: ProgramOverview | null;
+      readonly refreshFailed?: boolean;
     };
 
 export function detailFailure(error: unknown): DetailState {
@@ -44,26 +56,63 @@ export function ProgramDetailPage({
   readonly approvedStudentMilestones?: ReactNode;
 }) {
   const router = useRouter();
+  const operationsView = useSearchParams().get('view') === 'operations';
+  const requestId = useRef(0);
   const [state, setState] = useState<DetailState>({ kind: 'loading' });
-  const load = useCallback(async () => {
-    if (session === 'unknown') return;
-    setState({ kind: 'loading' });
-    try {
-      if (session === 'anonymous') {
-        const program = await getPublicProgramDetail(programId);
-        setState({ kind: 'ready', program, overview: null });
-        return;
+  const load = useCallback(
+    async (background = false) => {
+      const currentRequestId = ++requestId.current;
+      if (session === 'unknown') return;
+      if (!background) setState({ kind: 'loading' });
+      try {
+        if (session === 'anonymous') {
+          const program = await getPublicProgramDetail(programId);
+          if (requestId.current === currentRequestId)
+            setState({ kind: 'ready', program, overview: null });
+          return;
+        }
+        const program = await getProgramDetail(programId, operationsView);
+        const overview = await getProgramOverview(
+          programId,
+          operationsView,
+        ).catch((error: unknown) => {
+          if (background) throw error;
+          return null;
+        });
+        if (requestId.current === currentRequestId)
+          setState({ kind: 'ready', program, overview });
+      } catch (error: unknown) {
+        if (requestId.current === currentRequestId)
+          setState((previous) =>
+            background && previous.kind === 'ready'
+              ? { ...previous, refreshFailed: true }
+              : detailFailure(error),
+          );
       }
-      const program = await getProgramDetail(programId);
-      const overview = await getProgramOverview(programId).catch(() => null);
-      setState({ kind: 'ready', program, overview });
-    } catch (error: unknown) {
-      setState(detailFailure(error));
-    }
-  }, [programId, session]);
+    },
+    [programId, session, operationsView],
+  );
   useEffect(() => {
     void load();
+    return () => {
+      requestId.current += 1;
+    };
   }, [load]);
+  useEffect(() => {
+    if (state.kind !== 'ready') return;
+    const refresh = (event: Event) => {
+      const milestoneId = submittedMilestoneId(event);
+      if (
+        state.program.milestones.some(
+          (milestone) => milestone.id === milestoneId,
+        )
+      )
+        void load(true);
+    };
+    window.addEventListener(MILESTONE_DOCUMENT_SUBMITTED_EVENT, refresh);
+    return () =>
+      window.removeEventListener(MILESTONE_DOCUMENT_SUBMITTED_EVENT, refresh);
+  }, [load, state]);
   useEffect(() => {
     if (state.kind === 'ready' && state.program.viewer.role === 'PENDING') {
       router.replace('/onboarding/pending');
@@ -82,11 +131,21 @@ export function ProgramDetailPage({
     );
 
   return (
-    <ProgramDetailReadyState
-      program={state.program}
-      overview={state.overview}
-      approvedStudentMilestones={approvedStudentMilestones}
-    />
+    <>
+      {state.refreshFailed ? (
+        <div role="alert" className="flex items-center gap-3">
+          <p>제출은 저장되었지만 집계를 갱신하지 못했습니다.</p>
+          <Button variant="outline" onClick={() => void load(true)}>
+            집계 다시 불러오기
+          </Button>
+        </div>
+      ) : null}
+      <ProgramDetailReadyState
+        program={state.program}
+        overview={state.overview}
+        approvedStudentMilestones={approvedStudentMilestones}
+      />
+    </>
   );
 }
 

@@ -1,3 +1,4 @@
+import { IsIn, IsOptional } from 'class-validator';
 import type { AuthorityLabel } from '../../users/domain/authority-label';
 import type {
   ApplicationStatus,
@@ -77,4 +78,10 @@ export interface ProgramActivityResponseDto {
     readonly releaseCount: number;
   }[];
   readonly hasIncompleteContributions: boolean;
+}
+
+export class ProgramViewerQueryRequestDto {
+  @IsOptional()
+  @IsIn(['operations'])
+  view?: 'operations';
 }

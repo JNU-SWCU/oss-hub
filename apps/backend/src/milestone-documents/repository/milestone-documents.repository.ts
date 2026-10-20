@@ -181,6 +181,12 @@ interface LockedMilestoneDocument {
 
 export interface MilestoneDocumentWriteStore {
   updateGraceDueAt(documentId: string, graceDueAt: Date | null): Promise<void>;
+
+  isApplicationParticipant(
+    applicationId: string,
+    userId: string,
+  ): Promise<boolean>;
+
   lockMilestone(milestoneId: string): Promise<LockedMilestone | null>;
 
   lockDocument(documentId: string): Promise<LockedMilestoneDocument | null>;
@@ -354,6 +360,20 @@ function countSubmissionsForDocumentWith(
 class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
   private milestoneLock: MilestoneLock | null = null;
   constructor(private readonly transaction: Prisma.TransactionClient) {}
+
+  async isApplicationParticipant(
+    applicationId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const application = await this.transaction.application.findFirst({
+      where: {
+        id: applicationId,
+        ...programApplicationParticipantWhere(userId),
+      },
+      select: { id: true },
+    });
+    return application !== null;
+  }
 
   async lockMilestone(milestoneId: string): Promise<LockedMilestone | null> {
     this.milestoneLock = await lockProgramTree(this.transaction, {

@@ -29,7 +29,10 @@ export function ApplicationDecisionNotices({
       {notices.map((notice) => {
         const approved = notice.decision === 'APPROVED';
         return (
-          <Alert key={notice.id} variant={approved ? 'default' : 'destructive'}>
+          <Alert
+            key={notice.id}
+            variant={notice.decision === 'REJECTED' ? 'destructive' : 'default'}
+          >
             {approved ? (
               <CircleCheck aria-hidden="true" />
             ) : (
@@ -57,7 +60,11 @@ export function ApplicationDecisionNotices({
                 href={noticePath(notice)}
                 className="inline-flex min-h-10 items-center gap-1 font-semibold"
               >
-                {approved ? '제출 일정 확인' : '반려 사유 확인'}
+                {approved
+                  ? '제출 일정 확인'
+                  : notice.decision === 'SUBMITTED'
+                    ? '신청 상태 확인'
+                    : '반려 사유 확인'}
                 <ArrowRight aria-hidden="true" className="size-4" />
               </Link>
             </AlertDescription>

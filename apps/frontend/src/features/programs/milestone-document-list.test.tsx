@@ -117,16 +117,29 @@ describe('MilestoneDocumentSection response recovery', () => {
 });
 
 describe('제출과 판정이 부딪혔을 때', () => {
+  const submittedEvents: unknown[] = [];
+  function captureSubmission(event: Event) {
+    if (event instanceof CustomEvent) submittedEvents.push(event.detail);
+  }
   let container: HTMLDivElement;
   let root: Root;
 
   beforeEach(() => {
+    submittedEvents.length = 0;
+    window.addEventListener(
+      'oss-hub:milestone-document-submitted',
+      captureSubmission,
+    );
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
   });
 
   afterEach(async () => {
+    window.removeEventListener(
+      'oss-hub:milestone-document-submitted',
+      captureSubmission,
+    );
     await act(async () => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
@@ -318,6 +331,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     expect(notice?.textContent).toContain('「기획서」');
     expect(notice?.textContent).toContain('저장되지 않았습니다');
     expect(notice?.textContent).toContain('다시 불러왔습니다');
+    expect(submittedEvents).toEqual([]);
   });
 
   it('다시 부르는 것도 실패하면 못 불러왔다고 말한다', async () => {
@@ -430,6 +444,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(submittedEvents).toEqual([{ milestoneId: 'milestone-1' }]);
   });
 
   it('제출 저장 뒤 목록 재조회가 실패하면 재제출을 잠그고 최신 상태 재시도만 제공한다', async () => {

@@ -19,19 +19,35 @@ export interface ProgramStudentViewer {
 export class ProgramViewerService {
   constructor(private readonly repository: ProgramsRepository) {}
 
-  async fromGithubId(githubId: bigint | null): Promise<ProgramViewer> {
+  async fromGithubId(
+    githubId: bigint | null,
+    programId?: string,
+    operationsView = false,
+  ): Promise<ProgramViewer> {
     if (githubId === null) return { githubId: null, userId: null, role: null };
 
     const user = await this.repository.findViewer(githubId);
     if (!user || user.accountStatus !== AccountStatus.ACTIVE)
       return { githubId, userId: null, role: null };
 
-    const role: ProgramViewerRoleResponseDto =
+    let role: ProgramViewerRoleResponseDto =
       authorityLabel({
         memberKind: user.profile?.memberKind ?? null,
         hasStaffAccess: user.hasStaffAccess,
         hasAdminAccess: user.hasAdminAccess,
       }) ?? (user.staffAccessRequests.length > 0 ? 'PENDING' : null);
+    if (
+      programId !== undefined &&
+      !operationsView &&
+      user.profile?.memberKind === MemberKind.STUDENT &&
+      (role === 'STAFF' || role === 'ADMIN')
+    ) {
+      const application = await this.repository.findStudentApplication(
+        programId,
+        user.id,
+      );
+      if (application?.status === 'APPROVED') role = 'STUDENT';
+    }
     return { githubId, userId: user.id, role };
   }
 

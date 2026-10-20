@@ -175,6 +175,20 @@ describe('decisionInputFor', () => {
 });
 
 describe('decisionNoticeFor', () => {
+  it('자기 팀 판정 거절은 다시 시도 대신 다른 검토자를 안내한다', async () => {
+    const result = await runDecisionWithRefetch(
+      ports(
+        () => Promise.reject(problem(403, 'APP_029')),
+        () => Promise.resolve(APPLICATION),
+      ),
+    );
+
+    expect(decisionNoticeFor(result)).toBe(
+      '본인이 소속된 팀의 신청은 판정할 수 없습니다. 다른 교직원이나 운영자에게 검토를 요청해 주세요.',
+    );
+    expect(blocksFurtherDecisions(result)).toBe(false);
+  });
+
   it('요청한 대로 됐으면 할 말이 없다', () => {
     expect(
       decisionNoticeFor({

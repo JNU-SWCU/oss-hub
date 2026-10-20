@@ -1,9 +1,12 @@
-import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
 import { Public } from '../../../../auth/controller/auth-route-metadata';
 import type { AuthenticatedRequest } from '../../../../auth/controller/http-auth';
 import { SessionGuard } from '../../../../auth/controller/session.guard';
 import { ProgramOverviewTeamResponseDto } from '../dto/program-overview-team-response.dto';
-import { ProgramOverviewResponseDto } from '../dto/program-overview-response.dto';
+import {
+  ProgramOverviewQueryRequestDto,
+  ProgramOverviewResponseDto,
+} from '../dto/program-overview-response.dto';
 import { ProgramOverviewService } from '../service/program-overview.service';
 
 @Controller('programs/:programId/overview')
@@ -15,10 +18,12 @@ export class ProgramOverviewController {
   async get(
     @Param('programId') programId: string,
     @Req() request: AuthenticatedRequest,
+    @Query() query: ProgramOverviewQueryRequestDto = {},
   ): Promise<ProgramOverviewResponseDto> {
     const overview = await this.service.getOverview(
       programId,
       request.sessionGithubId,
+      query.view === 'operations',
     );
     return ProgramOverviewResponseDto.from(overview);
   }

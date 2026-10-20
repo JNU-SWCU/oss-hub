@@ -93,6 +93,13 @@ export function decisionNoticeFor(
     case 'gone':
       return '이 신청은 더 이상 없습니다.';
     case 'unknown':
+      if (
+        result.outcome.error instanceof ApiError &&
+        result.outcome.error.problem.status === 403 &&
+        result.outcome.error.problem.code === 'APP_029'
+      ) {
+        return '본인이 소속된 팀의 신청은 판정할 수 없습니다. 다른 교직원이나 운영자에게 검토를 요청해 주세요.';
+      }
       return '판정 요청이 실패했습니다. 갱신한 상태를 보고 다시 시도해 주세요.';
   }
 }

@@ -27,7 +27,7 @@ export type PendingUploadCandidate = {
 export type ProgramAuthoringSubmitResult =
   | { readonly kind: 'ignored' }
   | { readonly kind: 'success'; readonly programId: string }
-  | { readonly kind: 'conflict' }
+  | { readonly kind: 'conflict'; readonly existingProgramId: string | null }
   | {
       readonly kind: 'failure';
       readonly stage: 'upload' | 'aggregate';
@@ -63,7 +63,15 @@ export async function submitProgramAuthoring(options: {
       return { kind: 'success', programId: program.id };
     } catch (error: unknown) {
       if (error instanceof ApiError && error.problem.status === 409) {
-        return { kind: 'conflict' };
+        const existingProgramId =
+          'existingProgramId' in error.problem &&
+          typeof error.problem.existingProgramId === 'string' &&
+          error.problem.existingProgramId.trim().length > 0 &&
+          error.problem.existingProgramId !== '.' &&
+          error.problem.existingProgramId !== '..'
+            ? error.problem.existingProgramId
+            : null;
+        return { kind: 'conflict', existingProgramId };
       }
       return {
         kind: 'failure',

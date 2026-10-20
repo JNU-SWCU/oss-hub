@@ -70,6 +70,7 @@ export class MilestoneDocumentsService {
     const documentIds = documents.map((document) => document.id);
     const viewer = await this.repository.findActiveUser(sessionGithubId);
 
+    const counts = new Map<string, { submitted: number; total: number }>();
     if (viewer?.hasStaffAccess === true || viewer?.hasAdminAccess === true) {
       const [total, submittedByDocument] = await Promise.all([
         this.repository.countApprovedApplications(milestone.programId),
@@ -78,17 +79,20 @@ export class MilestoneDocumentsService {
           documentIds,
         ),
       ]);
-      return documents.map((document) =>
-        MilestoneDocumentResponseDto.from(document, {
-          teamSubmissionCount: {
-            submitted: submittedByDocument.get(document.id) ?? 0,
-            total,
-          },
-        }),
-      );
+      for (const document of documents) {
+        counts.set(document.id, {
+          submitted: submittedByDocument.get(document.id) ?? 0,
+          total,
+        });
+      }
     }
 
-    if (viewer !== null && !viewer.hasStaffAccess && !viewer.hasAdminAccess) {
+    if (
+      viewer !== null &&
+      ((!viewer.hasStaffAccess && !viewer.hasAdminAccess) ||
+        (await this.repository.findActiveStudentByGithubId(sessionGithubId)) !==
+          null)
+    ) {
       const application = await this.repository.findStudentApplication(
         viewer.id,
         milestone.programId,
@@ -105,6 +109,7 @@ export class MilestoneDocumentsService {
         return documents.map((document) => {
           const summary = summaryByDocument.get(document.id) ?? null;
           return MilestoneDocumentResponseDto.from(document, {
+            teamSubmissionCount: counts.get(document.id),
             viewerSubmission: {
               submitted: summary !== null,
               submittedAt: summary?.submittedAt.toISOString() ?? null,
@@ -135,7 +140,9 @@ export class MilestoneDocumentsService {
     }
 
     return documents.map((document) =>
-      MilestoneDocumentResponseDto.from(document),
+      MilestoneDocumentResponseDto.from(document, {
+        teamSubmissionCount: counts.get(document.id),
+      }),
     );
   }
 

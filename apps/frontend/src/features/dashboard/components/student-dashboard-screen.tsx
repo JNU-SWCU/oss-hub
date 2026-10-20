@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { ApiError } from '@/lib/api-client';
 import { consumeSignupCompletionNotice } from '@/lib/signup-completion-notice';
 import { loadStudentDashboard } from '../load-student-dashboard';
 import {
@@ -14,7 +15,12 @@ import type {
   StudentDashboard,
   StudentDashboardStatus,
   StudentFeedbackState,
+  TeamDeletionNotice,
 } from '../types';
+import {
+  fetchUnreadTeamDeletionNotices,
+  markTeamDeletionNoticeRead,
+} from '../team-deletion-notices-api';
 import { StudentDashboardView } from './student-dashboard-view';
 
 export function StudentDashboardScreen() {
@@ -25,6 +31,47 @@ export function StudentDashboardScreen() {
   const [applicationDecisionNotices, setApplicationDecisionNotices] = useState<
     readonly ApplicationDecisionNotice[]
   >([]);
+
+  const [teamDeletionNotices, setTeamDeletionNotices] = useState<
+    readonly TeamDeletionNotice[]
+  >([]);
+  const [teamDeletionFailed, setTeamDeletionFailed] = useState(false);
+  const [teamDeletionRequestKey, setTeamDeletionRequestKey] = useState(0);
+
+  const readTeamDeletion = async (notificationId: string) => {
+    try {
+      await markTeamDeletionNoticeRead(notificationId);
+      setTeamDeletionNotices((notices) =>
+        notices.filter((notice) => notice.id !== notificationId),
+      );
+      setTeamDeletionFailed(false);
+    } catch (error) {
+      if (
+        !(error instanceof ApiError) &&
+        !(error instanceof TypeError) &&
+        !(error instanceof SyntaxError)
+      )
+        throw error;
+      setTeamDeletionFailed(true);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    void fetchUnreadTeamDeletionNotices().then(
+      (notices) => {
+        if (!active) return;
+        setTeamDeletionNotices(notices);
+        setTeamDeletionFailed(false);
+      },
+      () => {
+        if (active) setTeamDeletionFailed(true);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [teamDeletionRequestKey]);
 
   const [feedback, setFeedback] = useState<StudentFeedbackState>({
     status: 'loading',
@@ -110,6 +157,10 @@ export function StudentDashboardScreen() {
       status={status}
       showSignupCompleteNotice={signupCompleted}
       applicationDecisionNotices={applicationDecisionNotices}
+      teamDeletionNotices={teamDeletionNotices}
+      teamDeletionFailed={teamDeletionFailed}
+      onReadTeamDeletion={(id) => void readTeamDeletion(id)}
+      onRetryTeamDeletions={() => setTeamDeletionRequestKey((key) => key + 1)}
       feedback={feedback}
       onRetry={retry}
       onRetryFeedback={retryFeedback}
