@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   activityTotal,
   type ActivityCounts,
-} from '../../github/domain/activity-counts';
+} from '../../common/domain/activity-counts';
 import { DomainException } from '../../common/error-code';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import {
