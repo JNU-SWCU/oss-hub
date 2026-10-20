@@ -41,7 +41,7 @@ function NavBar({
     <nav
       data-slot="nav-bar"
       className={cn(
-        'flex min-h-14 flex-nowrap items-center gap-x-1 overflow-x-clip border-b border-border bg-background px-2 py-2 sm:h-14 sm:gap-x-4 sm:px-4 sm:py-0',
+        'relative flex min-h-14 flex-nowrap items-center gap-x-1 overflow-x-clip border-b border-border bg-background px-2 py-2 sm:h-14 sm:gap-x-4 sm:px-4 sm:py-0',
         className,
       )}
       {...props}
@@ -90,7 +90,7 @@ function NavBar({
       <details
         key={menuResetKey}
         data-slot="nav-bar-menu"
-        className="group relative min-w-0 flex-1 min-[900px]:hidden"
+        className="group relative min-w-0 flex-1 max-[480px]:static min-[900px]:hidden"
 
         onKeyDown={(event) => {
           if (event.key !== 'Escape') return;
@@ -133,7 +133,10 @@ function NavBar({
         <ul
           data-slot="nav-bar-menu-items"
           data-surface="default"
-          className="absolute top-full left-0 z-50 mt-1 w-52 overflow-hidden rounded-lg border border-border bg-background py-1 shadow-lg"
+          className={cn(
+            'absolute top-full left-0 z-50 mt-1 w-52 overflow-hidden py-1 max-[480px]:left-2',
+            'rounded-lg border border-border bg-background shadow-lg',
+          )}
         >
           {items.map((item) => (
             <li key={item.href}>

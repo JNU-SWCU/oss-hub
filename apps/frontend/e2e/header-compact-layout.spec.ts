@@ -43,12 +43,16 @@ for (const multipleAuthorities of [false, true]) {
     await page.setViewportSize({ width: 320, height: 844 });
     await page.goto('/dashboard');
     const menu = page.locator('[data-slot="nav-bar-menu-trigger"]');
+    const menuDetails = page.locator('[data-slot="nav-bar-menu"]');
+    const menuItems = page.locator('[data-slot="nav-bar-menu-items"]');
     const invitations = page.getByRole('button', {
       name: '팀 초대 알림',
       exact: true,
     });
     await expect(invitations).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('header-320.png') });
+    const menuBounds: { viewportWidth: number; x: number; width: number }[] =
+      [];
 
     for (let width = 320; width <= 480; width += 1) {
       await page.setViewportSize({ width, height: 844 });
@@ -61,14 +65,73 @@ for (const multipleAuthorities of [false, true]) {
         menuBox.x + menuBox.width,
         `폭 ${width}px의 누름 영역`,
       ).toBeLessThanOrEqual(invitationBox.x);
+      expect(menuBox.width).toBeGreaterThanOrEqual(44);
+      expect(menuBox.height).toBeGreaterThanOrEqual(44);
+      expect(invitationBox.width).toBeGreaterThanOrEqual(44);
+      expect(invitationBox.height).toBeGreaterThanOrEqual(44);
+      await menu.click();
+      await expect(menuDetails).toHaveAttribute('open', '');
+      const menuItemsBox = await menuItems.boundingBox();
+      if (menuItemsBox === null)
+        throw new Error('탐색 메뉴가 보이지 않습니다.');
+      menuBounds.push({
+        viewportWidth: width,
+        x: menuItemsBox.x,
+        width: menuItemsBox.width,
+      });
+      if ([320, 390, 480].includes(width)) {
+        await page.screenshot({
+          path: testInfo.outputPath(`navigation-menu-${width}.png`),
+        });
+        await menuItems.screenshot({
+          path: testInfo.outputPath(`navigation-menu-element-${width}.png`),
+        });
+      }
+      expect(
+        menuItemsBox.x,
+        `폭 ${width}px의 메뉴 왼쪽`,
+      ).toBeGreaterThanOrEqual(0);
+      expect
+        .soft(
+          menuItemsBox.x + menuItemsBox.width,
+          `폭 ${width}px의 메뉴 오른쪽`,
+        )
+        .toBeLessThanOrEqual(width);
+      await page.keyboard.press('Escape');
+      await expect(menuDetails).not.toHaveAttribute('open', '');
+      await expect(menu).toBeFocused();
     }
+
+    for (const width of [480, 640, 899]) {
+      await page.setViewportSize({ width, height: 844 });
+      await menu.click();
+      const detailsBox = await menuDetails.boundingBox();
+      const menuItemsBox = await menuItems.boundingBox();
+      if (detailsBox === null || menuItemsBox === null) {
+        throw new Error('탐색 메뉴가 보이지 않습니다.');
+      }
+      expect(menuItemsBox.x).toBe(detailsBox.x);
+      expect(menuItemsBox.width).toBe(208);
+      menuBounds.push({
+        viewportWidth: width,
+        x: menuItemsBox.x,
+        width: menuItemsBox.width,
+      });
+      await page.keyboard.press('Escape');
+    }
+    await testInfo.attach('navigation-menu-bounds', {
+      body: JSON.stringify(menuBounds, null, 2),
+      contentType: 'application/json',
+    });
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(menu).toBeHidden();
+    await expect(page.locator('[data-slot="nav-bar-items"]')).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('header-1440.png') });
 
     await page.setViewportSize({ width: 320, height: 844 });
     await menu.click();
-    await expect(page.locator('[data-slot="nav-bar-menu"]')).toHaveAttribute(
-      'open',
-      '',
-    );
+    await expect(menuDetails).toHaveAttribute('open', '');
     await page.keyboard.press('Escape');
     await page
       .getByRole('button', { name: /synthetic-member-access 계정 메뉴/ })
