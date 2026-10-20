@@ -2,6 +2,11 @@ import { apiClient } from '@/lib/api-client';
 
 const jsonHeaders = { 'Content-Type': 'application/json' } as const;
 
+const teamBase = (preparation: boolean) =>
+  preparation ? 'application-preparations' : 'team-invitations/teams';
+const invitationBase = (preparation: boolean) =>
+  preparation ? 'application-preparations/invitations' : 'team-invitations';
+
 type TeamInvitationStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED';
 
 interface TeamInvitation {
@@ -59,7 +64,7 @@ export function listSentInvitations(
   preparation = false,
 ): Promise<readonly SentTeamInvitation[]> {
   return apiClient<readonly SentTeamInvitation[]>(
-    `${preparation ? 'application-preparations' : 'team-invitations/teams'}/${encodeURIComponent(teamId)}/sent`,
+    `${teamBase(preparation)}/${encodeURIComponent(teamId)}/sent`,
   );
 }
 
@@ -70,7 +75,7 @@ export function searchInvitationCandidates(
 ): Promise<readonly InvitationCandidate[]> {
   const search = new URLSearchParams({ query });
   return apiClient<readonly InvitationCandidate[]>(
-    `${preparation ? 'application-preparations' : 'team-invitations/teams'}/${encodeURIComponent(teamId)}/search?${search.toString()}`,
+    `${teamBase(preparation)}/${encodeURIComponent(teamId)}/search?${search.toString()}`,
   );
 }
 
@@ -80,7 +85,7 @@ export function createInvitation(
   preparation = false,
 ): Promise<SentTeamInvitation> {
   return apiClient<SentTeamInvitation>(
-    `${preparation ? 'application-preparations' : 'team-invitations/teams'}/${encodeURIComponent(teamId)}/invitations`,
+    `${teamBase(preparation)}/${encodeURIComponent(teamId)}/invitations`,
     {
       method: 'POST',
       headers: jsonHeaders,
@@ -94,7 +99,7 @@ export function cancelInvitation(
   preparation = false,
 ): Promise<void> {
   return apiClient<void>(
-    `${preparation ? 'application-preparations/invitations' : 'team-invitations'}/${encodeURIComponent(invitationId)}/cancel`,
+    `${invitationBase(preparation)}/${encodeURIComponent(invitationId)}/cancel`,
     { method: 'POST' },
   );
 }
@@ -104,7 +109,7 @@ export function declineInvitation(
   preparation = false,
 ): Promise<void> {
   return apiClient<void>(
-    `${preparation ? 'application-preparations/invitations' : 'team-invitations'}/${encodeURIComponent(invitationId)}/decline`,
+    `${invitationBase(preparation)}/${encodeURIComponent(invitationId)}/decline`,
     { method: 'POST' },
   );
 }
@@ -114,7 +119,7 @@ export function acceptInvitation(
   preparation = false,
 ): Promise<AcceptedTeamInvitation> {
   return apiClient<AcceptedTeamInvitation>(
-    `${preparation ? 'application-preparations/invitations' : 'team-invitations'}/${encodeURIComponent(invitationId)}/accept`,
+    `${invitationBase(preparation)}/${encodeURIComponent(invitationId)}/accept`,
     { method: 'POST' },
   );
 }
