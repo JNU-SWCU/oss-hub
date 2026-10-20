@@ -85,3 +85,13 @@ export type StudentFeedbackState =
       readonly status: 'success';
       readonly items: readonly DashboardFeedbackItem[];
     };
+
+export interface TeamDeletionNotice {
+  readonly id: string;
+  readonly teamId: string;
+  readonly teamName: string;
+  readonly programId: string;
+  readonly programName: string;
+  readonly message: string | null;
+  readonly deletedAt: string;
+}

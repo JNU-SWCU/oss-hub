@@ -7,7 +7,9 @@ export class ApplicationDecisionNotificationResponseDto {
   readonly programId: string;
   readonly programName: string;
   readonly decision:
-    typeof ApplicationStatus.APPROVED | typeof ApplicationStatus.REJECTED;
+    | typeof ApplicationStatus.APPROVED
+    | typeof ApplicationStatus.REJECTED
+    | typeof ApplicationStatus.SUBMITTED;
   readonly decidedAt: string;
 
   constructor(notification: ApplicationDecisionNotification) {

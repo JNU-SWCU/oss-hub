@@ -3,7 +3,13 @@ import { OriginGuard } from '../../auth/controller/origin.guard';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { ApplicationDecisionNotificationsController } from './application-decision-notifications.controller';
 
-function guards(method: 'listUnread' | 'markRead'): readonly unknown[] {
+function guards(
+  method:
+    | 'listUnread'
+    | 'markRead'
+    | 'listUnreadTeamDeletions'
+    | 'markTeamDeletionRead',
+): readonly unknown[] {
   const metadata: unknown = Reflect.getMetadata(
     GUARDS_METADATA,
     ApplicationDecisionNotificationsController.prototype[method],
@@ -15,6 +21,8 @@ describe('ApplicationDecisionNotificationsController', () => {
   it('keeps reads session-scoped and writes origin-protected', () => {
     expect(guards('listUnread')).toEqual([SessionGuard]);
     expect(guards('markRead')).toEqual([SessionGuard, OriginGuard]);
+    expect(guards('listUnreadTeamDeletions')).toEqual([SessionGuard]);
+    expect(guards('markTeamDeletionRead')).toEqual([SessionGuard, OriginGuard]);
   });
 
   it('forwards the session identity instead of accepting a user id', async () => {
@@ -22,6 +30,8 @@ describe('ApplicationDecisionNotificationsController', () => {
     const markRead = jest.fn().mockResolvedValue(undefined);
     const controller = new ApplicationDecisionNotificationsController({
       listUnread,
+      listUnreadTeamDeletions: jest.fn(),
+      markTeamDeletionRead: jest.fn(),
       markRead,
     });
 
