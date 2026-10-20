@@ -1,4 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
+import {
+  activityTotal,
+  type ActivityCounts,
+} from '../../github/domain/activity-counts';
 import { DomainException } from '../../common/error-code';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import {
@@ -26,15 +30,7 @@ import {
   type StaffInsightsStudentRecord,
 } from '../repository/staff-insights.repository';
 
-interface ActivityTotals {
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-  readonly starCount: number;
-}
-
-const EMPTY_ACTIVITY: ActivityTotals = {
+const EMPTY_ACTIVITY: ActivityCounts = {
   commitCount: 0,
   pullRequestCount: 0,
   issueCount: 0,
@@ -53,16 +49,6 @@ const EMPTY_METRICS: StaffInsightsMetrics = {
   total: 0,
   participantCount: 0,
 };
-
-function rankingTotal(activity: ActivityTotals): number {
-  return (
-    activity.commitCount +
-    activity.pullRequestCount +
-    activity.issueCount +
-    activity.repositoryCount +
-    activity.starCount
-  );
-}
 
 @Injectable()
 export class StaffInsightsService {
@@ -127,17 +113,17 @@ export class StaffInsightsService {
 
 function activityFor(
   student: StaffInsightsStudentRecord,
-  activityByGithubId: ReadonlyMap<string, ActivityTotals>,
-): ActivityTotals {
+  activityByGithubId: ReadonlyMap<string, ActivityCounts>,
+): ActivityCounts {
   return activityByGithubId.get(student.githubId.toString()) ?? EMPTY_ACTIVITY;
 }
 
 function addStudent(
   metrics: StaffInsightsMetrics,
-  activity: ActivityTotals,
+  activity: ActivityCounts,
   isParticipant: boolean,
 ): StaffInsightsMetrics {
-  const total = rankingTotal(activity);
+  const total = activityTotal(activity);
   return {
     studentCount: metrics.studentCount + 1,
     activeStudentCount: metrics.activeStudentCount + (total > 0 ? 1 : 0),
@@ -153,7 +139,7 @@ function addStudent(
 
 function buildCohortRows(
   students: readonly StaffInsightsStudentRecord[],
-  activityByGithubId: ReadonlyMap<string, ActivityTotals>,
+  activityByGithubId: ReadonlyMap<string, ActivityCounts>,
   participantIds: ReadonlySet<string>,
 ): readonly StaffInsightsCohortRow[] {
   const byCohort = new Map<DepartmentCohort, StaffInsightsMetrics>([
@@ -191,7 +177,7 @@ function buildCohortRows(
 
 function buildDepartmentRows(
   students: readonly StaffInsightsStudentRecord[],
-  activityByGithubId: ReadonlyMap<string, ActivityTotals>,
+  activityByGithubId: ReadonlyMap<string, ActivityCounts>,
   participantIds: ReadonlySet<string>,
 ): readonly StaffInsightsDepartmentRow[] {
   const byDepartment = new Map<
