@@ -12,7 +12,6 @@ import { CollectionDiscoveryClient } from './gateway/collection-discovery.client
 import { CollectionIncrementalRepository } from './repository/collection-incremental.repository';
 import { ProviderRequestQueue } from './gateway/collection-provider-queue';
 import { CollectionPublicTokenProvider } from './service/collection-public.token';
-import { CollectionReadService } from './repository/collection-read.service';
 import { CollectionScheduler } from './job/collection.scheduler';
 import { CollectionTriggerService } from './service/collection-trigger.service';
 import { CollectionUserActivityService } from './service/collection-user-activity.service';
@@ -126,8 +125,11 @@ describe('CollectionModule', () => {
           : String(entry),
     );
 
-    expect(providers).toEqual(expect.arrayContaining([CollectionReadService]));
-    expect(exports).not.toContain(CollectionReadService);
+    const providerNames = providers.map((provider) =>
+      typeof provider === 'function' ? provider.name : String(provider),
+    );
+    expect(providerNames).not.toContain('CollectionReadService');
+    expect(exportNames).not.toContain('CollectionReadService');
     expect(exportNames).not.toContain('COLLECTION_READ_PORT');
   });
 

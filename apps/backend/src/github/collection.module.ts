@@ -8,7 +8,6 @@ import { CollectionAdminController } from './controller/collection-admin.control
 import { ContributionInvariants } from './repository/contribution-invariants';
 import { CollectionAdminService } from './service/collection-admin.service';
 import { UsersModule } from '../users/users.module';
-import { CollectionReadService } from './repository/collection-read.service';
 import { CollectionScheduler } from './job/collection.scheduler';
 import { CollectionTriggerService } from './service/collection-trigger.service';
 import { CollectionUserActivityRepository } from './repository/collection-user-activity.repository';
@@ -25,7 +24,6 @@ import { collectionProviders } from './service/collection.providers';
     CollectionIncrementalRepository,
     CollectionCutoverRepository,
     CollectionUserActivityRepository,
-    CollectionReadService,
     ...collectionProviders,
   ],
   exports: [CollectionTriggerService],
