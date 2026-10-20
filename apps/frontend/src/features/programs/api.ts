@@ -259,10 +259,13 @@ export function getPublicProgramDetail(
 
 export async function getProgramDetail(
   programId: string,
+  operationsView = false,
 ): Promise<ProgramDetail> {
   const encodedId = encodeURIComponent(programId);
   try {
-    return await apiClient<ProgramDetail>(`programs/${encodedId}/viewer`);
+    return await apiClient<ProgramDetail>(
+      `programs/${encodedId}/viewer${operationsView ? '?view=operations' : ''}`,
+    );
   } catch (error: unknown) {
     if (!(error instanceof ApiError) || error.problem.status !== 401)
       throw error;

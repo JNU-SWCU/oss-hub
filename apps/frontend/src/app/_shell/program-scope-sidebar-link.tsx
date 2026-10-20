@@ -27,7 +27,8 @@ export function ScopeSidebarLink({
 }: ScopeSidebarLinkProps) {
   const depth = item.depth ?? 0;
 
-  const current = depth === 0 && pathname === item.href;
+  const current =
+    depth === 0 && !item.isViewSwitch && pathname === item.href.split('?')[0];
   const showCount = !collapsed && item.count !== undefined;
   const collapsedLabel = `${item.label}${
     item.count === undefined ? '' : ` ${item.count}`

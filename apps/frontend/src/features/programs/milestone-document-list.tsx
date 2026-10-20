@@ -1,5 +1,6 @@
 'use client';
 
+import { notifyMilestoneDocumentSubmitted } from './milestone-document-events';
 import { Download, Pencil, Upload } from 'lucide-react';
 import {
   useCallback,
@@ -560,6 +561,7 @@ function StudentDocumentRow({
           document.id,
           content,
         );
+        notifyMilestoneDocumentSubmitted(document.milestoneId);
         setEditing(false);
         await refreshDocument();
         return true;

@@ -85,6 +85,7 @@ function createHarness(
     .mockResolvedValue({ revision: 1 });
   const store: ApplicationsTransactionStore = {
     auditLogWriter,
+    isCurrentTeamMember: jest.fn().mockResolvedValue(false),
     appendReviewHistory,
     findApplicationById: jest.fn().mockResolvedValue(
       baseApplication({

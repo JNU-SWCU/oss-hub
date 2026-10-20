@@ -94,6 +94,7 @@ const repository: SubmissionReviewsRepositoryPort = {
     operation: (store: SubmissionReviewTransactionStore) => Promise<T>,
   ) =>
     operation({
+      isSubmissionParticipant: () => Promise.resolve(false),
       findReviewTarget: () => Promise.resolve(null),
       createReview: jest.fn(),
       transitionSubmission: jest.fn(),

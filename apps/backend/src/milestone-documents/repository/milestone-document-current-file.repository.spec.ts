@@ -1,5 +1,6 @@
 import {
   AccountStatus,
+  MemberKind,
   MilestoneDocumentKind,
   SubmissionFileLifecycle,
 } from '@prisma/client';
@@ -42,8 +43,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
     const activeStudent = {
       githubId: 34_290_000n,
       accountStatus: AccountStatus.ACTIVE,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
+      profile: { is: { memberKind: MemberKind.STUDENT } },
     };
     expect(findFirst).toHaveBeenCalledWith({
       where: {
