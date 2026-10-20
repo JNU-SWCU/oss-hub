@@ -297,15 +297,66 @@ describe('SubmissionChecklistView 체크리스트', () => {
     expect(html).not.toContain('data-variant="rejected"');
   });
 
-  it('정확한 마감을 한 번 적고 오늘·지난 마감의 맥락은 유지한다', () => {
+  it('정확한 마감과 D-day를 함께 적고 지난 마감의 맥락은 유지한다', () => {
     const html = render();
 
     expect(html).toContain('마감 지남');
-    expect(html).not.toMatch(/D-\d+/);
+    expect(html).toContain('D-3');
+    expect(html).toContain('D-20');
     for (const item of ITEMS) {
       expect(html).toContain(formatDeadline(item.dueAt));
     }
   });
+
+  it.each([
+    [
+      '서로 다른',
+      '2026-08-13T14:59:59.000Z',
+      '2026년 8월 13일 오후 11:59',
+      'D-20',
+    ],
+    ['같은', '2026-07-27T14:59:59.000Z', '2026년 7월 27일 오후 11:59', 'D-3'],
+  ])(
+    '%s 마감이어도 계획서와 결과물을 각자의 일정과 링크가 있는 별도 행으로 보존한다',
+    (_condition, resultDueAt, resultDate, resultDday) => {
+      const html = render({
+        checklist: {
+          ...CHECKLIST,
+          items: [
+            {
+              milestoneId: 'milestone-plan',
+              name: '계획서 제출',
+              dueAt: '2026-07-27T14:59:59.000Z',
+              submissionType: 'FILE',
+              submission: null,
+            },
+            {
+              milestoneId: 'milestone-result',
+              name: '결과물 제출',
+              dueAt: resultDueAt,
+              submissionType: 'FILE',
+              submission: null,
+            },
+          ],
+        },
+      });
+      const rows = html.split('data-slot="list-row"').slice(1);
+
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toContain('>계획서 제출</a>');
+      expect(rows[0]).toContain('마감 2026년 7월 27일 오후 11:59');
+      expect(rows[0]).toContain('>D-3</span>');
+      expect(rows[0]).toContain(
+        '/programs/program-1/documents?milestoneId=milestone-plan',
+      );
+      expect(rows[1]).toContain('>결과물 제출</a>');
+      expect(rows[1]).toContain(`마감 ${resultDate}`);
+      expect(rows[1]).toContain(`>${resultDday}</span>`);
+      expect(rows[1]).toContain(
+        '/programs/program-1/documents?milestoneId=milestone-result',
+      );
+    },
+  );
 
   it('서버 정렬이 깨져도 dueAt epoch 기준으로 방어 정렬한다', () => {
     const html = render({

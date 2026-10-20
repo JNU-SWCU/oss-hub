@@ -87,14 +87,8 @@ export function ChecklistRow({
         )}
 
         <p className="text-small break-keep text-muted-foreground">
-          마감 {formatDeadline(item.dueAt)}
-          {deadline.dDay <= 0 ? (
-            <>
-              {' '}
-              · <span className="whitespace-nowrap">{deadline.label}</span>
-            </>
-          ) : null}
-          {' · '}
+          마감 {formatDeadline(item.dueAt)} ·{' '}
+          <span className="whitespace-nowrap">{deadline.label}</span> ·{' '}
           {TYPE_LABELS[item.submissionType]}
         </p>
         {previousChangesRequested ? (
