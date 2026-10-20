@@ -12,7 +12,10 @@ import {
   ConsentStatus,
   ConsentUser,
 } from '../domain/consent';
-import { CURRENT_CONSENT_POLICY } from '../domain/consent-policy';
+import {
+  COMPATIBLE_CONSENT_POLICY_VERSIONS,
+  CURRENT_CONSENT_POLICY,
+} from '../domain/consent-policy';
 
 export interface AcceptConsentInput {
   policyVersion: string;
@@ -25,11 +28,16 @@ export class ConsentsService {
 
   async getCurrent(githubId: bigint): Promise<ConsentStatus> {
     const user = await this.requireUser(githubId);
-    const consent = await this.repository.findConsent(
-      user.id,
+    for (const policyVersion of [
       CURRENT_CONSENT_POLICY.policyVersion,
-    );
-    return { policy: CURRENT_CONSENT_POLICY, consented: consent !== null };
+      ...COMPATIBLE_CONSENT_POLICY_VERSIONS,
+    ]) {
+      const consent = await this.repository.findConsent(user.id, policyVersion);
+      if (consent) {
+        return { policy: CURRENT_CONSENT_POLICY, consented: true };
+      }
+    }
+    return { policy: CURRENT_CONSENT_POLICY, consented: false };
   }
 
   async requireCurrent(githubId: bigint): Promise<void> {
