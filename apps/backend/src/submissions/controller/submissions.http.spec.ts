@@ -10,12 +10,10 @@ import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
-import {
-  SubmissionChecklistController,
-  SubmissionFilesController,
-  SubmissionFormsController,
-  SubmissionsController,
-} from './submissions.controller';
+import { SubmissionsController } from './submissions.controller';
+import { SubmissionChecklistController } from './submission-checklist.controller';
+import { SubmissionFilesController } from './submission-files.controller';
+import { SubmissionFormsController } from './submission-forms.controller';
 import { SubmissionFilesService } from '../service/submission-files.service';
 import { SubmissionsService } from '../service/submissions.service';
 

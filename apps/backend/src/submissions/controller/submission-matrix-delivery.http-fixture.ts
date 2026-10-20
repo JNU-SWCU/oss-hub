@@ -7,7 +7,7 @@ import { issueSessionToken } from '../../auth/domain/session-token';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
 import { SubmissionMatrixService } from '../service/submission-matrix.service';
-import { SubmissionMatrixController } from './submissions.controller';
+import { SubmissionMatrixController } from './submission-matrix.controller';
 
 const sessionSecret = new Uint8Array(32).fill(48);
 

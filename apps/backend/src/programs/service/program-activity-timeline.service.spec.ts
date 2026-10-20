@@ -9,7 +9,7 @@ import {
   type ProgramActivityProgramStore,
 } from './program-activity.service';
 import type { ProgramStudentViewer } from './program-viewer.service';
-import { StudentDashboardController } from '../controller/programs.controller';
+import { StudentDashboardController } from '../controller/student-dashboard.controller';
 
 const student: ProgramStudentViewer = {
   githubId: 11n,

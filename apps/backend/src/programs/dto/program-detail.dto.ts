@@ -1,4 +1,3 @@
-import { IsIn, IsOptional } from 'class-validator';
 import type {
   ProgramDetailResult,
   ProgramActivityResult,
@@ -12,11 +11,11 @@ import type {
   SubmissionStatus,
 } from '@prisma/client';
 
-export type ProgramViewerRoleResponseDto = ProgramViewerRole;
+type ProgramViewerRoleResponseDto = ProgramViewerRole;
 type ViewerSubmissionStatusResponseDto =
   SubmissionStatus | 'NOT_SUBMITTED' | null;
 
-export interface ApplicationSubmissionSummaryResponseDto {
+interface ApplicationSubmissionSummaryResponseDto {
   readonly notSubmitted: number;
   readonly submitted: number;
   readonly approved: number;
@@ -84,12 +83,6 @@ export interface ProgramActivityResponseDto {
   readonly hasIncompleteContributions: boolean;
 }
 
-export class ProgramViewerQueryRequestDto {
-  @IsOptional()
-  @IsIn(['operations'])
-  view?: 'operations';
-}
-
 export function programDetailResponse(
   result: ProgramDetailResult,
 ): ProgramDetailResponseDto {
@@ -124,7 +117,17 @@ export function programDetailResponse(
       submissionType: milestone.submissionType,
       submissionItemCount: milestone.submissionItemCount,
       viewerSubmissionStatus: milestone.viewerSubmissionStatus,
-      applicationSubmissionSummary: milestone.applicationSubmissionSummary,
+      applicationSubmissionSummary: milestone.applicationSubmissionSummary
+        ? {
+            notSubmitted: milestone.applicationSubmissionSummary.notSubmitted,
+            submitted: milestone.applicationSubmissionSummary.submitted,
+            approved: milestone.applicationSubmissionSummary.approved,
+            changesRequested:
+              milestone.applicationSubmissionSummary.changesRequested,
+            rejected: milestone.applicationSubmissionSummary.rejected,
+            total: milestone.applicationSubmissionSummary.total,
+          }
+        : null,
       startAt: milestone.startAt.toISOString(),
       dueAt: milestone.dueAt.toISOString(),
     })),
@@ -141,7 +144,12 @@ export function programActivityResponse(
     pullRequestCount: result.pullRequestCount,
     releaseCount: result.releaseCount,
     collectionStatus: result.collectionStatus,
-    members: result.members,
+    members: result.members.map((member) => ({
+      githubLogin: member.githubLogin,
+      commitCount: member.commitCount,
+      pullRequestCount: member.pullRequestCount,
+      releaseCount: member.releaseCount,
+    })),
     hasIncompleteContributions: result.hasIncompleteContributions,
     lastActivityAt: result.lastActivityAt?.toISOString() ?? null,
     dataAsOf: result.dataAsOf?.toISOString() ?? null,

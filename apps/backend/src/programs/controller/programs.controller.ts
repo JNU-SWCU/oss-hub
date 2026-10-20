@@ -1,10 +1,8 @@
+import { ProgramViewerQueryRequestDto } from '../dto/program-viewer-query.dto';
 import {
   Body,
   Controller,
-  Delete,
   Get,
-  Header,
-  Inject,
   HttpCode,
   Param,
   Post,
@@ -26,14 +24,7 @@ import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { CreateProgramRequestDto } from '../dto/create-program-request.dto';
 import { CreateProgramResponseDto } from '../dto/create-program-response.dto';
-import { PurgeProgramRequestDto } from '../dto/purge-program-request.dto';
 import {
-  ActivityTimelineQueryRequestDto,
-  activityTimelineResponse,
-  type ActivityTimelineResponseDto,
-} from '../dto/activity-timeline.dto';
-import {
-  ProgramViewerQueryRequestDto,
   programDetailResponse,
   programActivityResponse,
   type ProgramActivityResponseDto,
@@ -42,13 +33,10 @@ import {
 import { ProgramListQueryRequestDto } from '../dto/program-list-query.dto';
 import { ProgramListPageResponseDto } from '../dto/program-list-response.dto';
 import { ProgramStatusCountsResponseDto } from '../dto/program-status-counts-response.dto';
-import { StudentDashboardResponseDto } from '../dto/student-dashboard-response.dto';
 import { ProgramActivityService } from '../service/program-activity.service';
 import { ProgramCreationService } from '../service/program-creation.service';
-import { ProgramLifecycleService } from '../service/program-lifecycle.service';
 import { ProgramViewerService } from '../service/program-viewer.service';
 import { ProgramsService } from '../service/programs.service';
-import { StudentDashboardService } from '../service/student-dashboard.service';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
@@ -66,7 +54,6 @@ export class ProgramsController {
     private readonly programs: ProgramsService,
     private readonly activity: ProgramActivityService,
     private readonly viewers: ProgramViewerService,
-    private readonly lifecycle: ProgramLifecycleService,
   ) {}
 
   @Get()
@@ -145,66 +132,5 @@ export class ProgramsController {
         await this.viewers.fromGithubId(request.sessionGithubId),
       )
     ).map(programActivityResponse);
-  }
-
-  @Delete(':id/purge')
-  @UseGuards(SessionGuard, OriginGuard)
-  purge(
-    @Param('id') programId: string,
-    @Body() body: PurgeProgramRequestDto,
-    @Req() request: SessionIdentity,
-  ) {
-    return this.lifecycle.purge(
-      request.sessionGithubId,
-      programId,
-      body.expectedScope,
-    );
-  }
-
-  @Delete(':id')
-  @UseGuards(SessionGuard, OriginGuard)
-  delete(
-    @Param('id') programId: string,
-    @Req() request: SessionIdentity,
-  ): Promise<{ readonly id: string; readonly deleted: true }> {
-    return this.lifecycle.delete(request.sessionGithubId, programId);
-  }
-}
-
-@Controller('dashboard/student')
-export class StudentDashboardController {
-  constructor(
-    @Inject(StudentDashboardService)
-    private readonly dashboard: Pick<
-      StudentDashboardService,
-      'getStudentDashboard'
-    >,
-    private readonly activity: ProgramActivityService,
-    private readonly viewers: ProgramViewerService,
-  ) {}
-
-  @Get()
-  @Header('Cache-Control', 'private, no-store')
-  @UseGuards(SessionGuard)
-  async dashboardSummary(
-    @Req() request: SessionIdentity,
-  ): Promise<StudentDashboardResponseDto> {
-    return StudentDashboardResponseDto.from(
-      await this.dashboard.getStudentDashboard(request.sessionGithubId),
-    );
-  }
-
-  @Get('activity-timeline')
-  @UseGuards(SessionGuard)
-  async activityTimeline(
-    @Req() request: SessionIdentity,
-    @Query() query: ActivityTimelineQueryRequestDto,
-  ): Promise<ActivityTimelineResponseDto> {
-    return activityTimelineResponse(
-      await this.activity.activityTimeline(
-        await this.viewers.studentFromGithubId(request.sessionGithubId),
-        query.granularity,
-      ),
-    );
   }
 }

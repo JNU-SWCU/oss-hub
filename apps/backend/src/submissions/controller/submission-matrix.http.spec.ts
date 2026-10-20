@@ -13,7 +13,7 @@ import {
   type SubmissionMatrixRepositoryPort,
 } from '../repository/submission-matrix.repository';
 import { SubmissionMatrixService } from '../service/submission-matrix.service';
-import { SubmissionMatrixController } from './submissions.controller';
+import { SubmissionMatrixController } from './submission-matrix.controller';
 
 const sessionSecret = new Uint8Array(32).fill(29);
 const allowedOrigin = 'http://frontend.test';

@@ -13,13 +13,11 @@ import { SubmissionDashboardSummaryRepository } from './repository/submission-da
 import { SubmissionDashboardSummaryService } from './service/submission-dashboard-summary.service';
 import { SubmissionMatrixRepository } from './repository/submission-matrix.repository';
 import { SubmissionMatrixService } from './service/submission-matrix.service';
-import {
-  SubmissionChecklistController,
-  SubmissionFilesController,
-  SubmissionFormsController,
-  SubmissionMatrixController,
-  SubmissionsController,
-} from './controller/submissions.controller';
+import { SubmissionsController } from './controller/submissions.controller';
+import { SubmissionChecklistController } from './controller/submission-checklist.controller';
+import { SubmissionFilesController } from './controller/submission-files.controller';
+import { SubmissionFormsController } from './controller/submission-forms.controller';
+import { SubmissionMatrixController } from './controller/submission-matrix.controller';
 import { SubmissionsRepository } from './repository/submissions.repository';
 import { SubmissionsService } from './service/submissions.service';
 
