@@ -103,7 +103,7 @@ describe('ProgramCountdown', () => {
     expect(html).not.toContain('마감 일정이 종료되었습니다.');
   });
 
-  it('renders program mode as the next active milestone and all future rows', () => {
+  it('renders the nearest milestone once and keeps later deadlines in stable order', () => {
     const milestones = [
       { label: '지난 마감', dueAt: '2026-08-04T19:35:42+09:00' },
       { label: '정각 마감', dueAt: '2026-08-04T19:35:43+09:00' },
@@ -128,8 +128,8 @@ describe('ProgramCountdown', () => {
     expect(html).toContain('리허설 제출 마감');
     expect(html).toContain('2026.08.05 (수) 09:00');
     expect(html).toContain('<ul');
-    expect(html.match(/<li/g)).toHaveLength(3);
-    expect(html.match(/<time/g)).toHaveLength(4);
+    expect(html.match(/<li/g)).toHaveLength(2);
+    expect(html.match(/<time/g)).toHaveLength(3);
     expect(html.match(/data-countdown-cell=/g)).toHaveLength(4);
     expect(html).toContain('>0<');
     expect(html).toContain('>13<');
@@ -205,8 +205,11 @@ describe('ProgramCountdown', () => {
       />,
     );
 
-    expect(html).toContain('class="min-w-0 truncate"');
-    expect(html).toContain('shrink-0 whitespace-nowrap tabular-nums');
+    expect(html).toContain('min-w-0 truncate');
+    expect(html).toContain('whitespace-nowrap');
+    expect(html.match(/아주 긴 한국어 마일스톤 라벨/g)).toHaveLength(1);
+    expect(html.match(/<time/g)).toHaveLength(1);
+    expect(html).not.toContain('<ul');
     expect(html).not.toMatch(/<time[^>]*class="[^"]*truncate/);
   });
 });

@@ -125,6 +125,7 @@ function ActiveProgramSchedule({
   clock,
 }: ActiveProgramScheduleProps) {
   const remaining = remainingUntil(nearest.dueDate, clock);
+  const laterMilestones = active.slice(1);
 
   return (
     <>
@@ -143,25 +144,27 @@ function ActiveProgramSchedule({
       >
         {formatCountdownDateTime(nearest.dueDate)}
       </time>
-      <ul className="mt-3 space-y-1">
-        {active.map((milestone) => (
-          <li
-            key={`${milestone.dueAt}:${milestone.label}:${milestone.sourceIndex}`}
-            className="flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground"
-          >
-            <span className="min-w-0 truncate">{milestone.label}</span>
-            <span aria-hidden className="shrink-0">
-              —
-            </span>
-            <time
-              dateTime={milestone.dueAt}
-              className="shrink-0 whitespace-nowrap tabular-nums"
+      {laterMilestones.length > 0 ? (
+        <ul aria-label="이후 마감 일정" className="mt-3 space-y-1">
+          {laterMilestones.map((milestone) => (
+            <li
+              key={`${milestone.dueAt}:${milestone.label}:${milestone.sourceIndex}`}
+              className="flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground"
             >
-              {formatCountdownListDate(milestone.dueDate)}
-            </time>
-          </li>
-        ))}
-      </ul>
+              <span className="min-w-0 truncate">{milestone.label}</span>
+              <span aria-hidden className="shrink-0">
+                —
+              </span>
+              <time
+                dateTime={milestone.dueAt}
+                className="shrink-0 whitespace-nowrap tabular-nums"
+              >
+                {formatCountdownListDate(milestone.dueDate)}
+              </time>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </>
   );
 }

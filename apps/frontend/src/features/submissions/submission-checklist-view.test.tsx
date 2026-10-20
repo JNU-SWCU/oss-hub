@@ -1,3 +1,4 @@
+import { formatDeadline } from './components/submission-form-view';
 import { submissionUploadLimit } from '../../../test-support/submission-upload-limit';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
@@ -296,12 +297,14 @@ describe('SubmissionChecklistView 체크리스트', () => {
     expect(html).not.toContain('data-variant="rejected"');
   });
 
-  it('D-day는 Asia/Seoul 기준 표시 상태로 계산한다', () => {
+  it('정확한 마감을 한 번 적고 오늘·지난 마감의 맥락은 유지한다', () => {
     const html = render();
 
     expect(html).toContain('마감 지남');
-    expect(html).toContain('D-3');
-    expect(html).toContain('D-20');
+    expect(html).not.toMatch(/D-\d+/);
+    for (const item of ITEMS) {
+      expect(html).toContain(formatDeadline(item.dueAt));
+    }
   });
 
   it('서버 정렬이 깨져도 dueAt epoch 기준으로 방어 정렬한다', () => {
