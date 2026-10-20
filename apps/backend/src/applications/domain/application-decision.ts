@@ -1,3 +1,8 @@
+import { DomainException } from '../../common/error-code';
+import {
+  APPLICATIONS_ERROR_CODES,
+  ApplicationsErrorCode,
+} from './applications-error-code.enum';
 import type {
   ApplicationStatus,
   RepositoryConnectionMode,
@@ -97,3 +102,34 @@ export type ApplicationDecisionResult =
       readonly applicationId: string;
       readonly status: ApplicationStatus;
     };
+
+export type ApplicationDecisionCommand = {
+  readonly action: string;
+  readonly reason?: string;
+};
+
+export function applicationDecisionAction(
+  input: ApplicationDecisionCommand,
+): ApplicationDecisionAction {
+  switch (input.action) {
+    case APPLICATION_DECISION_ACTIONS.APPROVE:
+      return { action: APPLICATION_DECISION_ACTIONS.APPROVE };
+    case APPLICATION_DECISION_ACTIONS.REJECT: {
+      const reason = input.reason?.trim();
+      if (!reason) {
+        throw new DomainException(
+          APPLICATIONS_ERROR_CODES[
+            ApplicationsErrorCode.REJECTION_REASON_REQUIRED
+          ],
+        );
+      }
+      return { action: APPLICATION_DECISION_ACTIONS.REJECT, reason };
+    }
+    case APPLICATION_DECISION_ACTIONS.REVERT:
+      return { action: APPLICATION_DECISION_ACTIONS.REVERT };
+    default:
+      throw new DomainException(
+        APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.INVALID_DECISION_ACTION],
+      );
+  }
+}
