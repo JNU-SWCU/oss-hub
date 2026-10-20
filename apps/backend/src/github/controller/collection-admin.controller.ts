@@ -32,7 +32,8 @@ export class CollectionAdminController {
   async trigger(
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
   ): Promise<CollectionTriggerResponseDto> {
-    return this.admin.trigger(request.sessionGithubId);
+    const result = await this.admin.trigger(request.sessionGithubId);
+    return new CollectionTriggerResponseDto(result.runId);
   }
 
   @Get('runs')
@@ -40,6 +41,8 @@ export class CollectionAdminController {
   async listRuns(
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,
   ): Promise<CollectionRunListResponseDto> {
-    return this.admin.listRuns(request.sessionGithubId);
+    return CollectionRunListResponseDto.from(
+      await this.admin.listRuns(request.sessionGithubId),
+    );
   }
 }

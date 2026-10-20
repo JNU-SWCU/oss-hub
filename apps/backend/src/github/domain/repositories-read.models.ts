@@ -5,7 +5,7 @@ import type {
   RepositoryVisibility,
 } from '@prisma/client';
 
-export interface MyRepositoryResponseDto {
+export interface MyRepositoryResult {
   readonly repositoryId: string | null;
   readonly applicationId: string;
   readonly connectionMode: RepositoryConnectionMode;

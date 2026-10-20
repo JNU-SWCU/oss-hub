@@ -23,8 +23,7 @@ import {
   CollectionUserActivityService,
   type CollectionUserActivitySweepResult,
 } from './collection-user-activity.service';
-import { CollectionRunListResponseDto } from '../dto/collection-run-list-response.dto';
-import { CollectionTriggerResponseDto } from '../dto/collection-trigger-response.dto';
+import type { CollectionSyncRunRow } from '../collection-incremental.types';
 
 const COLLECTION_RUN_LIST_LIMIT = 20;
 
@@ -62,7 +61,7 @@ export class CollectionAdminService {
 
   async trigger(
     sessionGithubId: bigint,
-  ): Promise<CollectionTriggerResponseDto> {
+  ): Promise<{ runId: string; status: 'PENDING' }> {
     await this.assertAdmin(sessionGithubId);
     if (await this.cutover.isQuiesced(new Date())) {
       throw new DomainException(
@@ -91,7 +90,7 @@ export class CollectionAdminService {
       this.sync.runExternal(this.ownerId, runId),
     );
     this.observePersonSweep(runId, startedAt, this.userActivity.run());
-    return new CollectionTriggerResponseDto(runId);
+    return { runId, status: 'PENDING' };
   }
 
   private observeSweep(
@@ -160,12 +159,11 @@ export class CollectionAdminService {
 
   async listRuns(
     sessionGithubId: bigint,
-  ): Promise<CollectionRunListResponseDto> {
+  ): Promise<readonly CollectionSyncRunRow[]> {
     await this.assertAdmin(sessionGithubId);
-    const runs = await this.incrementalRepository.listSyncRuns(
+    return this.incrementalRepository.listSyncRuns(
       new Date(),
       COLLECTION_RUN_LIST_LIMIT,
     );
-    return CollectionRunListResponseDto.from(runs);
   }
 }
