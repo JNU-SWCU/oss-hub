@@ -1,4 +1,3 @@
-import { TeamDeletionNotificationResponseDto } from '../dto/team-deletion-notification-response.dto';
 import {
   Controller,
   Get,
@@ -15,6 +14,7 @@ import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { ApplicationDecisionNotificationsService } from '../service/application-decision-notifications.service';
 import { ApplicationDecisionNotificationResponseDto } from '../dto/application-decision-notification-response.dto';
+import { TeamDeletionNotificationResponseDto } from '../dto/team-deletion-notification-response.dto';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

@@ -1,4 +1,3 @@
-import type { TeamDeletionNotification } from '../domain/team-deletion-notification';
 import { Inject, Injectable } from '@nestjs/common';
 import { ApplicationStatus } from '@prisma/client';
 import {
@@ -8,6 +7,7 @@ import {
 } from '../repository/application-decision-notifications.repository';
 
 import type { ApplicationDecisionNotification } from '../domain/application-decision-notification';
+import type { TeamDeletionNotification } from '../domain/team-deletion-notification';
 
 @Injectable()
 export class ApplicationDecisionNotificationsService {

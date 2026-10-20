@@ -15,12 +15,12 @@ import type {
   StudentDashboard,
   StudentDashboardStatus,
   StudentFeedbackState,
+  TeamDeletionNotice,
 } from '../types';
 import {
   fetchUnreadTeamDeletionNotices,
   markTeamDeletionNoticeRead,
 } from '../team-deletion-notices-api';
-import type { TeamDeletionNotice } from '../types';
 import { StudentDashboardView } from './student-dashboard-view';
 
 export function StudentDashboardScreen() {
