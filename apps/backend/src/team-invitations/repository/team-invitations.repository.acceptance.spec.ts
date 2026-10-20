@@ -81,6 +81,9 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
         count: jest.fn().mockResolvedValue(options.memberCount ?? 1),
         create: options.create ?? jest.fn().mockResolvedValue(undefined),
       },
+      applicationPreparationParticipant: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
       team: { update: jest.fn() },
       user: {
         findUnique: jest.fn().mockResolvedValue(
@@ -143,18 +146,20 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     expect(tx.teamMember.create).not.toHaveBeenCalled();
   });
 
-  it('Team → User 순서로 잠근 뒤 status=PENDING 조건으로 원자 전이한다', async () => {
+  it('Program → Team → User 순서로 잠근 뒤 status=PENDING 조건으로 원자 전이한다', async () => {
     const tx = buildTx();
 
     const outcome = await accept(tx);
 
     const lockCalls = tx.$queryRaw.mock.calls as [Prisma.Sql][];
-    expect(lockCalls).toHaveLength(2);
-    expect(lockCalls[0]![0].sql).toContain('"Team"');
-    expect(lockCalls[0]![0].sql).toContain('FOR UPDATE');
-    expect(lockCalls[0]![0].values).toEqual([syntheticTeamId]);
-    expect(lockCalls[1]![0].sql).toContain('"User"');
-    expect(lockCalls[1]![0].values).toEqual([syntheticInviteeId]);
+    expect(lockCalls).toHaveLength(3);
+    expect(lockCalls[0]?.[0].sql).toContain('"Program"');
+    expect(lockCalls[0]?.[0].values).toEqual([syntheticProgramId]);
+    expect(lockCalls[1]![0].sql).toContain('"Team"');
+    expect(lockCalls[1]![0].sql).toContain('FOR UPDATE');
+    expect(lockCalls[1]![0].values).toEqual([syntheticTeamId]);
+    expect(lockCalls[2]![0].sql).toContain('"User"');
+    expect(lockCalls[2]![0].values).toEqual([syntheticInviteeId]);
     expect(tx.teamInvitation.findUnique).toHaveBeenNthCalledWith(2, {
       where: { id: syntheticInvitationId },
       select: { status: true },

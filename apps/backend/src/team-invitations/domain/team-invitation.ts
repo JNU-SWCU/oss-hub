@@ -23,6 +23,7 @@ export interface SentTeamInvitationRecord extends TeamInvitationRecord {
 }
 
 export interface ReceivedTeamInvitationRecord extends TeamInvitationRecord {
+  readonly preparation?: true;
   readonly teamName: string;
   readonly programName: string;
   readonly invitedByDisplayName: string;

@@ -83,6 +83,8 @@ type ApplicationDatabase = Pick<
   | 'team'
   | 'teamMember'
   | 'application'
+  | 'applicationPreparation'
+  | 'applicationPreparationParticipant'
   | 'applicationReviewHistory'
   | 'auditLog'
   | '$queryRaw'
@@ -151,6 +153,7 @@ interface CreateTeamForApplicationInput {
   readonly name: string;
   readonly joinCodeDigest: string;
   readonly leaderId: string;
+  readonly memberIds?: readonly string[];
 }
 
 interface CreatedTeamForApplication {
@@ -177,6 +180,8 @@ export class ApplicationJoinCodeDigestConflictError extends Error {
   override readonly name = 'ApplicationJoinCodeDigestConflictError';
 }
 
+export class ApplicationPreparationConflictError extends Error {}
+
 export interface ApplicationCreateStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
 
@@ -193,6 +198,16 @@ export interface ApplicationCreateStore {
 
   lockTeamForApply(teamId: string, userId: string): Promise<boolean>;
 
+  findPreparationForApply(
+    programId: string,
+    userId: string,
+  ): Promise<{
+    readonly id: string;
+    readonly name: string;
+    readonly leaderId: string;
+    readonly memberIds: readonly string[];
+  } | null>;
+  deletePreparation(preparationId: string): Promise<void>;
   countTeamMembers(teamId: string): Promise<number>;
   createTeamWithLeader(
     input: CreateTeamForApplicationInput,
@@ -460,6 +475,57 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
     return membership?.team ?? null;
   }
 
+  async findPreparationForApply(programId: string, userId: string) {
+    const preparation = await this.database.applicationPreparation.findFirst({
+      where: {
+        programId,
+        participants: { some: { userId, status: 'ACCEPTED' } },
+      },
+      select: {
+        id: true,
+        name: true,
+        leaderId: true,
+        program: { select: { teamMaxSize: true } },
+        participants: {
+          where: { status: 'ACCEPTED' },
+          select: { userId: true },
+        },
+      },
+    });
+    if (preparation === null) return null;
+    const memberIds = preparation.participants
+      .map((participant) => participant.userId)
+      .sort();
+    await this.database.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "User" WHERE "id" IN (${Prisma.join(memberIds)}) ORDER BY "id" FOR UPDATE`,
+    );
+    const eligible = await this.database.user.count({
+      where: {
+        id: { in: memberIds },
+        accountStatus: AccountStatus.ACTIVE,
+        ...STUDENT_MEMBER_WHERE,
+        teamMemberships: { none: { programId } },
+      },
+    });
+    if (
+      eligible !== memberIds.length ||
+      memberIds.length > preparation.program.teamMaxSize
+    )
+      throw new ApplicationPreparationConflictError();
+    return {
+      id: preparation.id,
+      name: preparation.name,
+      leaderId: preparation.leaderId,
+      memberIds,
+    };
+  }
+
+  async deletePreparation(preparationId: string): Promise<void> {
+    await this.database.applicationPreparation.delete({
+      where: { id: preparationId },
+    });
+  }
+
   async countTeamMembers(teamId: string): Promise<number> {
     return this.database.teamMember.count({ where: { teamId } });
   }
@@ -493,12 +559,12 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
         },
         select: { id: true, name: true },
       });
-      await this.database.teamMember.create({
-        data: {
+      await this.database.teamMember.createMany({
+        data: (input.memberIds ?? [input.leaderId]).map((userId) => ({
           teamId: team.id,
           programId: input.programId,
-          userId: input.leaderId,
-        },
+          userId,
+        })),
       });
       return team;
     } catch (error) {

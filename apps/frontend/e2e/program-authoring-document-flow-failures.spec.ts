@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './admin-session.fixture';
+import { coverFile } from './support/program-cover';
 import {
   expectApiStatus,
   expectCleanState,
@@ -76,7 +77,7 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
     await fixtureProgramId(controlPage);
     const authoringPath = '/api/v1/program-authoring/programs';
     const authorPage = await programAuthoringActorPage('staff', {
-      status: 409,
+      status: 422,
       pathname: authoringPath,
     });
     const recoveryStorageKey = 'oss-hub:program-authoring:recovery-key';
@@ -147,6 +148,9 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
       .getByLabel('교과/비교과 *')
       .selectOption('EXTRACURRICULAR');
     await authorPage.getByLabel('소개/설명 *').fill(original.description);
+    await authorPage
+      .locator('[data-slot="program-cover-field"] input[type="file"]')
+      .setInputFiles(coverFile('recovery-poster.png'));
     await authorPage.getByRole('button', { name: '계속' }).click();
     await selectScheduleRange(authorPage, {
       rangeLabel: '신청 기간',
@@ -182,8 +186,9 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
     expect(conflictResponse.request().postDataJSON()).toEqual({
       ...original,
       trackType: 'EXTRACURRICULAR',
+      coverUploadId: expect.any(String),
     });
-    expect(conflictResponse.status()).toBe(409);
+    expect(conflictResponse.status()).toBe(422);
     expect(await conflictResponse.json()).toMatchObject({
       code: 'PRG_017',
       existingProgramId,
@@ -223,7 +228,16 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
       });
     }
     expect(browserPosts).toEqual([requestKey]);
-    await recoveryAction.click();
+    const [cleanupResponse] = await Promise.all([
+      authorPage.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname.startsWith(
+            '/api/v1/program-authoring/uploads/',
+          ) && response.request().method() === 'DELETE',
+      ),
+      recoveryAction.click(),
+    ]);
+    expect(cleanupResponse.status()).toBe(204);
     await expect(authorPage).toHaveURL(`/programs/${existingProgramId}`);
     await expect(
       authorPage.getByRole('heading', { name: original.name }),
@@ -246,7 +260,12 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
       tool: 'Playwright Chrome',
       source:
         'Real isolated API and PostgreSQL with synthetic users and program; no HTTP route mocks',
-      conflict: { status: 409, code: 'PRG_017', changedField: 'trackType' },
+      conflict: {
+        status: 422,
+        code: 'PRG_017',
+        changedFields: ['trackType', 'coverUploadId'],
+      },
+      pendingCoverCleanupStatus: cleanupResponse.status(),
       existingProgramId,
       browserAuthoringPosts: browserPosts.length,
       viewports,

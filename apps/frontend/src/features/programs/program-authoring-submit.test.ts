@@ -260,44 +260,50 @@ describe('program authoring submission', () => {
     expect(runtime.uploads.get('requirement-b')?.id).toBe('valid-b');
   });
 
-  it('maps a 409 conflict without clearing entered state or uploaded tokens', async () => {
-    const runtime = createProgramSubmissionRuntime();
-    const file = pdfFile();
-    const createProgram = vi.fn(async () => {
-      throw new ApiError({
-        type: 'about:blank',
-        title: 'Conflict',
-        status: 409,
-        detail: 'The idempotency key was already used.',
-        instance: '/program-authoring/programs',
-        code: 'SYS_009',
+  it.each([
+    { status: 409, code: 'SYS_009' },
+    { status: 422, code: 'PRG_017' },
+  ])(
+    'preserves state and uploads for a recovery response: %j',
+    async ({ status, code }) => {
+      const runtime = createProgramSubmissionRuntime();
+      const file = pdfFile();
+      const createProgram = vi.fn(async () => {
+        throw new ApiError({
+          type: 'about:blank',
+          title: 'Conflict',
+          status,
+          detail: 'The idempotency key was already used.',
+          instance: '/program-authoring/programs',
+          code,
+        });
       });
-    });
 
-    const result = await submitProgramAuthoring({
-      state: {
-        ...stateWithFiles(),
-        milestones: [
-          {
-            ...stateWithFiles().milestones[0],
-            requirements: [stateWithFiles().milestones[0]?.requirements[0]],
-          },
-        ],
-      },
-      files: new Map([['requirement-a', file]]),
-      runtime,
-      api: {
-        uploadCoverFile: vi.fn(),
-        uploadFile: vi.fn(async () => ({ id: 'upload-a' })),
-        deleteUpload: vi.fn(),
-        createProgram,
-      },
-    });
+      const result = await submitProgramAuthoring({
+        state: {
+          ...stateWithFiles(),
+          milestones: [
+            {
+              ...stateWithFiles().milestones[0],
+              requirements: [stateWithFiles().milestones[0]?.requirements[0]],
+            },
+          ],
+        },
+        files: new Map([['requirement-a', file]]),
+        runtime,
+        api: {
+          uploadCoverFile: vi.fn(),
+          uploadFile: vi.fn(async () => ({ id: 'upload-a' })),
+          deleteUpload: vi.fn(),
+          createProgram,
+        },
+      });
 
-    expect(result).toEqual({ kind: 'conflict', existingProgramId: null });
-    expect(runtime.uploads.get('requirement-a')).toEqual({ id: 'upload-a' });
-    expect(file.name).toBe('plan.pdf');
-  });
+      expect(result).toEqual({ kind: 'conflict', existingProgramId: null });
+      expect(runtime.uploads.get('requirement-a')).toEqual({ id: 'upload-a' });
+      expect(file.name).toBe('plan.pdf');
+    },
+  );
 });
 
 describe('program authoring cover upload', () => {

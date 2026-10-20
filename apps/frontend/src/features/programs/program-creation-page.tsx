@@ -88,20 +88,25 @@ export function ProgramCreationPage({
   const runtimeRef = useRef(createProgramSubmissionRuntime());
   const stepRegionRef = useRef<HTMLDivElement>(null);
 
-  const discardUnsavedFiles = () => {
+  const discardUnsavedFiles = async () => {
     clearProgramAuthoringRecoveryKey(window.sessionStorage);
     filesRef.current.clear();
-    void Promise.allSettled(
+    await Promise.allSettled(
       [...runtimeRef.current.uploads.values()].map((upload) =>
         deleteAuthoringUpload(upload.id),
       ),
     );
     runtimeRef.current.uploads.clear();
+    runtimeRef.current.uploadFiles.clear();
   };
-  const { completeAndNavigate } = useProgramExitGuard(
-    dirty,
-    discardUnsavedFiles,
-  );
+  const { completeAndNavigate } = useProgramExitGuard(dirty, () => {
+    void discardUnsavedFiles();
+  });
+  const openExistingProgram = async (programId: string) => {
+    setSubmitting(true);
+    await discardUnsavedFiles();
+    completeAndNavigate(`/programs/${encodeURIComponent(programId)}`);
+  };
 
   useEffect(() => {
     const idempotencyKey = loadProgramAuthoringRecoveryKey(
@@ -279,12 +284,8 @@ export function ProgramCreationPage({
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                clearProgramAuthoringRecoveryKey(window.sessionStorage);
-                completeAndNavigate(
-                  `/programs/${encodeURIComponent(existingProgramId)}`,
-                );
-              }}
+              disabled={submitting}
+              onClick={() => void openExistingProgram(existingProgramId)}
             >
               기존 프로그램 확인
             </Button>

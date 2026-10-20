@@ -212,9 +212,17 @@ export function TeamInvitationNotifications({
 
       try {
         const accepted =
-          action === 'accept' ? await acceptInvitation(invitation.id) : null;
+          action === 'accept'
+            ? await acceptInvitation(
+                invitation.id,
+                invitation.preparation === true,
+              )
+            : null;
         if (action === 'decline') {
-          await declineInvitation(invitation.id);
+          await declineInvitation(
+            invitation.id,
+            invitation.preparation === true,
+          );
         }
 
         if (!isCurrentIdentity()) return;
@@ -234,7 +242,11 @@ export function TeamInvitationNotifications({
         });
         if (accepted) {
           notifyTeamMembershipChanged(accepted.programId);
-          router.push(programMyTeamHref(accepted.programId));
+          router.push(
+            invitation.preparation
+              ? `/programs/${encodeURIComponent(accepted.programId)}/apply`
+              : programMyTeamHref(accepted.programId),
+          );
           router.refresh();
         }
       } catch (error: unknown) {
