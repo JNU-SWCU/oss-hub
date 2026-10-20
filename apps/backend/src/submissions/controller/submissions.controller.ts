@@ -1,3 +1,4 @@
+import { setDownloadHeaders } from '../../common/controller/download-response';
 import {
   Body,
   Controller,
@@ -143,12 +144,7 @@ export class SubmissionFilesController {
   ): Promise<StreamableFile> {
     const file = await this.service.download(request.sessionGithubId, fileId);
     response.setHeader('Cache-Control', 'private, no-store');
-    response.setHeader('Content-Type', file.contentType);
-    response.setHeader('Content-Length', String(file.contentLength));
-    response.setHeader(
-      'Content-Disposition',
-      attachmentDisposition(file.fileName),
-    );
+    setDownloadHeaders(response, file);
     return new StreamableFile(file.body);
   }
 
@@ -183,38 +179,6 @@ export class SubmissionFilesController {
   }
 }
 
-function attachmentDisposition(fileName: string): string {
-  const fallback = asciiFallbackFileName(fileName);
-  return `attachment; filename="${fallback}"; filename*=UTF-8''${rfc5987(fileName)}`;
-}
-
-function asciiFallbackFileName(fileName: string): string {
-  const fallback = [...fileName]
-    .map((character) => {
-      const code = character.charCodeAt(0);
-      if (
-        code < 0x20 ||
-        code > 0x7e ||
-        character === '"' ||
-        character === '\\' ||
-        character === '/' ||
-        character === ';'
-      ) {
-        return '_';
-      }
-      return character;
-    })
-    .join('')
-    .trim();
-  return fallback.length > 0 ? fallback : 'file';
-}
-
-function rfc5987(value: string): string {
-  return encodeURIComponent(value).replace(
-    /[!'()*]/g,
-    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
-  );
-}
 @Controller('submissions')
 export class SubmissionsController {
   constructor(private readonly service: SubmissionsService) {}

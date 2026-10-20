@@ -11,7 +11,7 @@ import {
 import type { Response } from 'express';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { milestoneDocumentAttachmentDisposition } from '../domain/milestone-document-attachment-disposition';
+import { setDownloadHeaders } from '../../common/controller/download-response';
 import { MilestoneDocumentCurrentFileService } from '../service/milestone-document-current-file.service';
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
@@ -34,12 +34,7 @@ export class MilestoneDocumentCurrentFileController {
       milestoneId,
       documentId,
     );
-    response.setHeader('Content-Type', file.contentType);
-    response.setHeader('Content-Length', String(file.contentLength));
-    response.setHeader(
-      'Content-Disposition',
-      milestoneDocumentAttachmentDisposition(file.fileName),
-    );
+    setDownloadHeaders(response, file);
     return new StreamableFile(file.body);
   }
 }

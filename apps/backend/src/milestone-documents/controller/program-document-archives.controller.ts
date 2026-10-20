@@ -15,7 +15,10 @@ import { SessionGuard } from '../../auth/controller/session.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { ProgramDocumentArchiveQueryRequestDto } from '../dto/program-document-archive-query.dto';
 import { MilestoneDocumentArchiveService } from '../service/milestone-document-archive.service';
-import { milestoneDocumentAttachmentDisposition } from '../domain/milestone-document-attachment-disposition';
+import {
+  setDownloadHeaders,
+  respondWithDownloadFailure,
+} from '../../common/controller/download-response';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -42,14 +45,7 @@ export class ProgramDocumentArchivesController {
       programId,
       scope,
     );
-    response.setHeader('Content-Type', archive.contentType);
-    if (archive.contentLength !== null) {
-      response.setHeader('Content-Length', String(archive.contentLength));
-    }
-    response.setHeader(
-      'Content-Disposition',
-      milestoneDocumentAttachmentDisposition(archive.fileName),
-    );
+    setDownloadHeaders(response, archive);
     response.once('close', () => archive.body.destroy());
 
     return new StreamableFile(archive.body).setErrorHandler((error) => {
@@ -57,28 +53,13 @@ export class ProgramDocumentArchivesController {
         `Program archive failed: programId=${programId} scope=${scope.kind}`,
         error.stack,
       );
-      if (response.destroyed) return;
-      if (response.headersSent) {
-        response.destroy();
-        return;
-      }
-      response.removeHeader('Content-Length');
-      response.removeHeader('Content-Disposition');
-      const code =
+      respondWithDownloadFailure(
+        response,
         MILESTONE_DOCUMENTS_ERROR_CODES[
           MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
-        ];
-      response
-        .status(code.status)
-        .contentType('application/problem+json')
-        .json({
-          type: 'about:blank',
-          title: 'Service Unavailable',
-          status: code.status,
-          detail: code.message,
-          instance: response.req.path,
-          code: code.code,
-        });
+        ],
+        'DESTROY',
+      );
     });
   }
 }

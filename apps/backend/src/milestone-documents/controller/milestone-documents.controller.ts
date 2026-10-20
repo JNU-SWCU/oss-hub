@@ -48,7 +48,10 @@ import {
   MilestoneDocumentArchiveService,
 } from '../service/milestone-document-archive.service';
 import type { MilestoneDocumentArchiveScope } from '../milestone-document-archive.types';
-import { milestoneDocumentAttachmentDisposition } from '../domain/milestone-document-attachment-disposition';
+import {
+  setDownloadHeaders,
+  respondWithDownloadFailure,
+} from '../../common/controller/download-response';
 import {
   type MilestoneDocumentFileUpload,
   MilestoneDocumentFilesService,
@@ -138,14 +141,7 @@ export class MilestoneDocumentsController {
       milestoneId,
       scope,
     );
-    response.setHeader('Content-Type', archive.contentType);
-    if (archive.contentLength !== null) {
-      response.setHeader('Content-Length', String(archive.contentLength));
-    }
-    response.setHeader(
-      'Content-Disposition',
-      milestoneDocumentAttachmentDisposition(archive.fileName),
-    );
+    setDownloadHeaders(response, archive);
 
     response.once('close', () => archive.body.destroy());
 
@@ -263,12 +259,7 @@ export class MilestoneDocumentsController {
       milestoneId,
       documentId,
     );
-    response.setHeader('Content-Type', file.contentType);
-    response.setHeader('Content-Length', String(file.contentLength));
-    response.setHeader(
-      'Content-Disposition',
-      milestoneDocumentAttachmentDisposition(file.fileName),
-    );
+    setDownloadHeaders(response, file);
     return new StreamableFile(file.body);
   }
 
@@ -288,12 +279,7 @@ export class MilestoneDocumentsController {
       documentId,
       applicationId,
     );
-    response.setHeader('Content-Type', file.contentType);
-    response.setHeader('Content-Length', String(file.contentLength));
-    response.setHeader(
-      'Content-Disposition',
-      milestoneDocumentAttachmentDisposition(file.fileName),
-    );
+    setDownloadHeaders(response, file);
     return new StreamableFile(file.body);
   }
 
@@ -422,27 +408,11 @@ function respondWithArchiveFailure(
   archiveLogger.error(
     `서류 일괄 내려받기가 압축 도중 실패했다: milestoneId=${request.milestoneId} scope=${request.scope.kind} storageKey=${failedStorageKey(error)} error=${error.message}`,
   );
-  if (response.destroyed) return;
-  if (response.headersSent) {
-    response.end();
-    return;
-  }
-
-  response.removeHeader('Content-Length');
-  response.removeHeader('Content-Disposition');
-  const errorCode =
+  respondWithDownloadFailure(
+    response,
     MILESTONE_DOCUMENTS_ERROR_CODES[
       MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
-    ];
-  response
-    .status(errorCode.status)
-    .contentType('application/problem+json')
-    .json({
-      type: 'about:blank',
-      title: 'Service Unavailable',
-      status: errorCode.status,
-      detail: errorCode.message,
-      instance: response.req.path,
-      code: errorCode.code,
-    });
+    ],
+    'END',
+  );
 }
