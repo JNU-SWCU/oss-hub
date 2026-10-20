@@ -46,7 +46,7 @@ import { ApplicationDecisionDialog } from './application-decision-dialog';
 import { StaffTeamMembersPanel } from './staff-team-members-panel';
 import { ApplicationStatusControl } from './application-status-control';
 import { ReviewHistoryTimeline } from './review-history-timeline';
-import { programHref } from './program-paths';
+import { staffProgramHref } from './program-paths';
 import { ProgramStaffRepositorySection } from './program-staff-repository-section';
 import { updateTeamRepositoryUrl } from './repository-url-api';
 import { TeamRepositoryPanel } from './team-repository-panel';
@@ -209,7 +209,7 @@ export function ProgramStaffTeamDetailPage({
     [applicationId, loadApplication, load],
   );
 
-  const teamsHref = programHref(programId, '/teams');
+  const teamsHref = staffProgramHref(programId, '/teams');
 
   if (loadState.kind === 'loading') {
     return (

@@ -45,25 +45,25 @@ describe('mapProgramDeleteError', () => {
           label: '지원서',
           count: 1,
           unit: '건',
-          href: '/programs/program%3A1/teams',
+          href: '/programs/program%3A1/teams?view=operations',
         },
         {
           label: '팀',
           count: 2,
           unit: '개',
-          href: '/programs/program%3A1/teams',
+          href: '/programs/program%3A1/teams?view=operations',
         },
         {
           label: '게시글',
           count: 4,
           unit: '건',
-          href: '/programs/program%3A1/board',
+          href: '/programs/program%3A1/board?view=operations',
         },
         {
           label: '제출물',
           count: 3,
           unit: '건',
-          href: '/programs/program%3A1/documents',
+          href: '/programs/program%3A1/documents?view=operations',
         },
       ],
     });
@@ -88,7 +88,7 @@ describe('mapProgramDeleteError', () => {
           label: '게시글',
           count: 2,
           unit: '건',
-          href: '/programs/program-1/board',
+          href: '/programs/program-1/board?view=operations',
         },
       ],
     });

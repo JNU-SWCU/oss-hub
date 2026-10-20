@@ -240,6 +240,19 @@ describe('ProgramStaffTeamDetailPage', () => {
     ].find((trigger) => trigger.textContent?.includes('검토 이력'));
   }
 
+  it('팀 목록으로 돌아갈 때 운영 화면 선택을 유지한다', async () => {
+    getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+    await render();
+
+    expect(
+      [...container.querySelectorAll('a')].some(
+        (link) =>
+          link.getAttribute('href') ===
+          '/programs/program-1/teams?view=operations',
+      ),
+    ).toBe(true);
+  });
+
   it('자기 팀 승인이 거절되면 상세에서도 다른 검토자를 안내한다', async () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
     decideApplicationMock.mockRejectedValue(
@@ -930,6 +943,29 @@ describe('ProgramStaffTeamDetailPage', () => {
   });
 
   describe('팀 삭제', () => {
+    it('삭제 뒤에도 운영 팀 목록으로 돌아간다', async () => {
+      getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      deleteStaffProgramTeamMock.mockResolvedValue({
+        deletedCounts: withApplication.deletionScope,
+      });
+      await render();
+      const trigger = [...container.querySelectorAll('button')].find(
+        (button) => button.textContent?.trim() === '팀 삭제',
+      );
+      await act(async () => trigger?.click());
+      const confirm = [
+        ...document.querySelectorAll('[role="alertdialog"] button'),
+      ].find((button) => button.textContent?.trim() === '삭제');
+
+      await act(async () => {
+        if (confirm instanceof HTMLButtonElement) confirm.click();
+      });
+
+      expect(routerPushMock).toHaveBeenCalledWith(
+        '/programs/program-1/teams?view=operations',
+      );
+    });
+
     it('위험 영역에 팀 삭제 버튼이 있고 누르면 확인 창이 열린다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
       await render();

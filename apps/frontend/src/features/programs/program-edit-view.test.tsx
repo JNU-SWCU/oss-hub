@@ -134,7 +134,7 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain('26.08.16 – 26.08.20 21:30');
     expect(html).toContain('운영자 공지');
     expect(html).not.toContain('제출 안내가 없습니다.');
-    expect(html).toContain('href="/programs/program-1"');
+    expect(html).toContain('href="/programs/program-1?view=operations"');
     expect(html).toContain('← 프로그램 개요');
   });
 

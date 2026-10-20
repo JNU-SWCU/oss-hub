@@ -380,7 +380,7 @@ describe('SubmissionMatrixView', () => {
     });
 
     expect(html).toContain('마일스톤이 없습니다');
-    expect(html).toContain('href="/programs/program-1/edit"');
+    expect(html).toContain('href="/programs/program-1/edit?view=operations"');
 
     expect(html).toContain('>마일스톤 추가<');
     expect(html).not.toContain('프로그램 편집에서 마일스톤 추가');

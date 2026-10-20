@@ -1,7 +1,6 @@
 import { ApiError } from '@/lib/api-client';
-import { programDocumentsHref } from '@/lib/program-route';
 import type { ProgramDeletionScopeCounts } from './api';
-import { programHref } from './program-paths';
+import { staffProgramHref } from './program-paths';
 
 interface ProgramDeleteBlockingCounts {
   readonly applications: number;
@@ -111,25 +110,25 @@ function blockingItems(
       label: '지원서',
       count: counts.applications,
       unit: '건',
-      href: programHref(programId, '/teams'),
+      href: staffProgramHref(programId, '/teams'),
     },
     {
       label: '팀',
       count: counts.teams,
       unit: '개',
-      href: programHref(programId, '/teams'),
+      href: staffProgramHref(programId, '/teams'),
     },
     {
       label: '게시글',
       count: counts.boardPosts,
       unit: '건',
-      href: programHref(programId, '/board'),
+      href: staffProgramHref(programId, '/board'),
     },
     {
       label: '제출물',
       count: counts.submissions,
       unit: '건',
-      href: programDocumentsHref(programId),
+      href: staffProgramHref(programId, '/documents'),
     },
   ] as const;
   return candidates.filter((item) => item.count > 0);

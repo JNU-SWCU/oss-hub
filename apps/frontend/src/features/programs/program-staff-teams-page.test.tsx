@@ -107,6 +107,17 @@ afterEach(async () => {
 });
 
 describe('ProgramStaffTeamsPage — 서버가 주는 순서와 페이지', () => {
+  it('팀 상세 링크에 운영 화면 선택을 유지한다', async () => {
+    await mount();
+
+    const link = [...container.querySelectorAll('a')].find((candidate) =>
+      candidate.textContent?.includes('합성 팀 a'),
+    );
+    expect(link?.getAttribute('href')).toBe(
+      '/programs/program-1/teams/a-team?view=operations',
+    );
+  });
+
   it('lean projection 을 서버 페이지네이션으로 한 번만 읽는다', async () => {
     await mount();
 
