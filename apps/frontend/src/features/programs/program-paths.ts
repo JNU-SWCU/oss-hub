@@ -2,8 +2,8 @@ export function programHref(programId: string, suffix = ''): string {
   return `/programs/${encodeURIComponent(programId)}${suffix}`;
 }
 
-export function staffProgramHref(programId: string, suffix: string): string {
-  return `/programs/${encodeURIComponent(programId)}${suffix}`;
+export function staffProgramHref(programId: string, suffix = ''): string {
+  return `/programs/${encodeURIComponent(programId)}${suffix}?view=operations`;
 }
 
 export function staffApplicationDetailHref(

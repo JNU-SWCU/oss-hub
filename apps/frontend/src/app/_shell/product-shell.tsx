@@ -30,7 +30,6 @@ import { useProductShellData } from './use-product-shell-data';
 import {
   ProgramViewContext,
   isProgramOperationsPath,
-  programScopeViewerRole,
   withoutLoadingCounts,
 } from './program-shell-policy';
 
@@ -66,20 +65,19 @@ export function ProductShell({
     searchParams.get('view') === 'operations' ||
     isProgramOperationsPath(pathname);
 
-  const { facetData, scopeOverview, scopeMilestones, scopeParticipant } =
-    useProductShellData({
-      section,
-      programDetailId,
-      member,
-      studentViewer: session.memberKind === 'STUDENT',
-      operationsView,
-    });
-  const scopeViewerRole = programScopeViewerRole(
-    member,
-    session,
+  const {
+    facetData,
+    scopeOverview,
+    scopeMilestones,
     scopeParticipant,
+    scopeViewerRole,
+  } = useProductShellData({
+    section,
+    programDetailId,
+    member,
+    authority: session,
     operationsView,
-  );
+  });
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const drawer = useSidebarDrawer();
   const closeDrawer = drawer?.close;
@@ -143,7 +141,7 @@ export function ProductShell({
         viewerParticipant: scopeParticipant,
         viewerHasAdminAccess: session.hasAdminAccess,
         canSwitchView:
-          scopeParticipant !== false &&
+          scopeParticipant === true &&
           session.memberKind === 'STUDENT' &&
           (session.hasStaffAccess || session.hasAdminAccess),
         operationsView,

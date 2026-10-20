@@ -26,26 +26,26 @@ export function programNewHref(): string {
 }
 
 export function programEditHref(programId: string): string {
-  return `/programs/${encodeURIComponent(programId)}/edit`;
+  return `/programs/${encodeURIComponent(programId)}/edit?view=operations`;
 }
 
 export function programSubmissionReviewHref(
   programId: string,
   submissionId: string,
 ): string {
-  return `/programs/${encodeURIComponent(programId)}/submissions/${encodeURIComponent(submissionId)}/review`;
+  return `/programs/${encodeURIComponent(programId)}/submissions/${encodeURIComponent(submissionId)}/review?view=operations`;
 }
 
 export function programMilestoneDocumentsHref(
   programId: string,
   milestoneId: string,
 ): string {
-  return `/programs/${encodeURIComponent(programId)}/milestones/${encodeURIComponent(milestoneId)}/documents`;
+  return `/programs/${encodeURIComponent(programId)}/milestones/${encodeURIComponent(milestoneId)}/documents?view=operations`;
 }
 
 export function programTeamDetailHref(
   programId: string,
   teamId: string,
 ): string {
-  return `/programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`;
+  return `/programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}?view=operations`;
 }

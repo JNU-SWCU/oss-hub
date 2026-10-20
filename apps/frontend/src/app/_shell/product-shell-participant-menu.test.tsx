@@ -290,27 +290,74 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
       expect(hrefs()).toContain('/programs/prog-1/board');
     });
 
-    it('내 제출물은 사라진다 — 관리자 권한으로도 열리지 않는 화면이다', async () => {
+    it('내 제출물 대신 운영 서류 현황을 제공한다', async () => {
       await renderShell();
 
       expect(sidebarText()).not.toContain('내 제출물');
-      expect(hrefs()).not.toContain('/programs/prog-1/documents');
-      expect(sidebarText()).not.toContain('스터디 계획서');
+      expect(sidebarText()).toContain('서류 현황');
+      expect(hrefs()).toContain('/programs/prog-1/documents');
     });
 
-    it('학생 면 그대로다 — 팀 관리·서류 현황으로 승격되지 않는다', async () => {
+    it('참여하지 않은 운영자는 운영 메뉴를 기본으로 본다', async () => {
       await renderShell();
 
       expect(mocks.getMyApplication).toHaveBeenCalledWith('prog-1');
-      expect(sidebarText()).not.toContain('서류 현황');
-      expect(sidebarText()).not.toContain('팀 관리');
-      expect(sidebarText()).toContain('참여 팀');
+      expect(sidebarText()).toContain('서류 현황');
+      expect(sidebarText()).toContain('팀 관리');
+      expect(sidebarText()).not.toContain('학생 화면으로 전환');
       expect(hrefs()).not.toContain('/programs/prog-1/applicants');
 
       expect(hrefs()).toContain('/programs/prog-1');
       expect(hrefs()).toContain('/programs/prog-1/teams');
     });
   });
+
+  it.each([
+    ['교직원', true, false],
+    ['운영자', false, true],
+  ] as const)(
+    '%s의 참여 조회 실패를 학생 참여로 간주하지 않는다',
+    async (_role, hasStaffAccess, hasAdminAccess) => {
+      mockSession('STUDENT');
+      mocks.useSessionRole.mockReturnValue({
+        ...mocks.useSessionRole(),
+        hasStaffAccess,
+        hasAdminAccess,
+      });
+      mocks.getMyApplication.mockRejectedValue(new TypeError('unavailable'));
+
+      await renderShell();
+
+      expect(sidebarText()).toContain('팀 관리');
+      expect(sidebarText()).not.toContain('우리 팀');
+      expect(sidebarText()).not.toContain('학생 화면으로 전환');
+    },
+  );
+
+  it('참여 조회 대기 중에는 운영 화면을 유지하고 전환 버튼을 제공하지 않는다', async () => {
+    mockStudentAdminSession();
+    mocks.getMyApplication.mockReturnValue(new Promise(() => {}));
+
+    await renderShell();
+
+    expect(sidebarText()).toContain('팀 관리');
+    expect(sidebarText()).not.toContain('우리 팀');
+    expect(sidebarText()).not.toContain('학생 화면으로 전환');
+  });
+
+  it.each(['SUBMITTED', 'REJECTED'])(
+    '%s 신청의 혼합 권한 계정은 승인 참여가 아니므로 운영 화면을 본다',
+    async (status) => {
+      mockStudentAdminSession();
+      mocks.getMyApplication.mockResolvedValue({ status });
+
+      await renderShell();
+
+      expect(sidebarText()).toContain('팀 관리');
+      expect(sidebarText()).not.toContain('우리 팀');
+      expect(sidebarText()).not.toContain('학생 화면으로 전환');
+    },
+  );
 
   it('비회원 좌측 패널도 그대로다 — 원래 개요 하나뿐이고 참여 여부를 묻지 않는다', async () => {
     mockAnonymousSession();

@@ -49,14 +49,18 @@ export type ProgramDetailSession = 'unknown' | 'anonymous' | 'present';
 export function ProgramDetailPage({
   programId,
   session,
+  operationsView: selectedOperationsView,
   approvedStudentMilestones,
 }: {
   readonly programId: string;
   readonly session: ProgramDetailSession;
+  readonly operationsView?: boolean;
   readonly approvedStudentMilestones?: ReactNode;
 }) {
   const router = useRouter();
-  const operationsView = useSearchParams().get('view') === 'operations';
+  const searchParams = useSearchParams();
+  const operationsView =
+    selectedOperationsView ?? searchParams.get('view') === 'operations';
   const requestId = useRef(0);
   const [state, setState] = useState<DetailState>({ kind: 'loading' });
   const load = useCallback(

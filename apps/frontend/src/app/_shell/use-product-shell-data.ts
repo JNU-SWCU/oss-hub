@@ -15,8 +15,10 @@ import {
 } from '@/features/programs/program-navigation-api';
 import { getMyApplication } from '@/features/programs/student-application-api';
 import { SECTION_FACETS, type SectionFacetData } from './section-facets';
-import type { ShellSection } from './sidebar-menu';
+import type { ProgramScopeViewerRole, ShellSection } from './sidebar-menu';
+import type { MemberAccess } from './member-access';
 import {
+  programScopeViewerRole,
   shouldLoadProgramOverview,
   shouldLoadProgramParticipation,
 } from './program-shell-policy';
@@ -25,14 +27,14 @@ export function useProductShellData({
   section,
   programDetailId,
   member,
-  studentViewer,
+  authority,
   operationsView = false,
 }: {
   readonly section: ShellSection;
   readonly programDetailId: string | null;
   readonly member: boolean;
 
-  readonly studentViewer: boolean;
+  readonly authority: MemberAccess;
   readonly operationsView?: boolean;
 }): {
   readonly facetData: SectionFacetData | undefined;
@@ -40,12 +42,22 @@ export function useProductShellData({
   readonly scopeMilestones: readonly ProgramNavigationMilestone[] | undefined;
 
   readonly scopeParticipant: boolean | undefined;
+  readonly scopeViewerRole: ProgramScopeViewerRole;
 } {
   const [facetData, setFacetData] = useState<SectionFacetData>();
   const [scopeOverview, setScopeOverview] = useState<ProgramOverview>();
   const [scopeMilestones, setScopeMilestones] =
     useState<readonly ProgramNavigationMilestone[]>();
   const [scopeParticipant, setScopeParticipant] = useState<boolean>();
+  const studentViewer = authority.memberKind === 'STUDENT';
+  const scopeViewerRole = programScopeViewerRole(
+    member,
+    authority,
+    scopeParticipant,
+    operationsView,
+  );
+  const overviewOperationsView =
+    scopeViewerRole === 'STAFF' || scopeViewerRole === 'ADMIN';
 
   useEffect(() => {
     const spec =
@@ -79,7 +91,10 @@ export function useProductShellData({
     const load = async () => {
       const currentRequestId = ++requestId;
       try {
-        const data = await getProgramOverview(programDetailId, operationsView);
+        const data = await getProgramOverview(
+          programDetailId,
+          overviewOperationsView,
+        );
         if (controller.signal.aborted || currentRequestId !== requestId) return;
         overview = data;
         const refreshPending = data.milestoneDocuments.some((milestone) =>
@@ -116,7 +131,7 @@ export function useProductShellData({
       controller.abort();
       window.removeEventListener(MILESTONE_DOCUMENT_SUBMITTED_EVENT, refresh);
     };
-  }, [programDetailId, member, operationsView]);
+  }, [programDetailId, member, overviewOperationsView]);
 
   useEffect(() => {
     if (!shouldLoadProgramOverview(programDetailId, member)) {
@@ -164,5 +179,6 @@ export function useProductShellData({
     scopeOverview,
     scopeMilestones,
     scopeParticipant,
+    scopeViewerRole,
   };
 }

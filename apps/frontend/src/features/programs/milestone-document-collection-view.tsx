@@ -67,7 +67,7 @@ import {
   formatSeoulDate,
   formatSeoulShortDateTime,
 } from './program-detail-format';
-import { programHref } from './program-paths';
+import { staffProgramHref } from './program-paths';
 import { MilestoneDocumentCollectionSummary } from './milestone-document-collection-summary';
 
 const SECTION_BODY = 'flex min-w-0 flex-col gap-8';
@@ -641,7 +641,7 @@ function CollectionBody(
         description="주소의 프로그램과 마일스톤이 서로 다릅니다. 프로그램 상세에서 마일스톤을 다시 골라 주세요."
         action={
           <Button asChild variant="link">
-            <Link href={programHref(props.programId)}>프로그램 개요</Link>
+            <Link href={staffProgramHref(props.programId)}>프로그램 개요</Link>
           </Button>
         }
       />
@@ -677,7 +677,7 @@ function CollectionBody(
           description="대기 중인 신청을 먼저 확인해 주세요. 신청을 승인하면 팀이 이 표에 나타납니다."
           action={
             <Button asChild variant="outline">
-              <Link href={programHref(props.programId, '/teams')}>
+              <Link href={staffProgramHref(props.programId, '/teams')}>
                 신청 확인하기
               </Link>
             </Button>

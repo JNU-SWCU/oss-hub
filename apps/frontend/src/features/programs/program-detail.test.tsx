@@ -429,7 +429,7 @@ describe('ProgramDetailPage states', () => {
         />,
       );
       expect(html).toContain('data-slot="page-header-actions"');
-      expect(html).toContain('href="/programs/program-1/edit"');
+      expect(html).toContain('href="/programs/program-1/edit?view=operations"');
 
       expect(html).toContain('편집');
       expect(html).toContain('lucide-pencil');
@@ -643,7 +643,9 @@ describe('ProgramDetailPage states', () => {
       <ProgramMilestones program={programWithoutMilestones} />,
     );
     expect(html).toContain('아직 등록된 마일스톤이 없습니다');
-    expect(html).toContain('/programs/program-1/edit#milestones');
+    expect(html).toContain(
+      '/programs/program-1/edit?view=operations#milestones',
+    );
   });
 
   it('교직원은 제출 항목이 있는 모든 마일스톤을 처음부터 펼쳐 둔다', () => {

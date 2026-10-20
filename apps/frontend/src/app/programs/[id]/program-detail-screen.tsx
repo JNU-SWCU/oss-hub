@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useContext, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from '@/features/auth/use-session';
 import {
@@ -9,6 +9,7 @@ import {
 } from '@/features/programs/program-detail-page';
 import { SubmissionChecklistPage } from '@/features/submissions/submission-checklist-page';
 import { programDocumentsHref } from '@/lib/program-route';
+import { ProgramViewContext } from '../../_shell/program-shell-policy';
 
 export function ProgramDetailScreen({
   programId,
@@ -17,6 +18,7 @@ export function ProgramDetailScreen({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const programView = useContext(ProgramViewContext);
   const legacyMilestoneId = searchParams.get('submission');
   const { status: sessionStatus } = useSession();
 
@@ -36,6 +38,11 @@ export function ProgramDetailScreen({
     <ProgramDetailPage
       programId={programId}
       session={session}
+      operationsView={
+        programView === null
+          ? undefined
+          : programView === 'STAFF' || programView === 'ADMIN'
+      }
       approvedStudentMilestones={
         <SubmissionChecklistPage
           milestoneId={null}
