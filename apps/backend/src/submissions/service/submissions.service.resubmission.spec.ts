@@ -484,7 +484,7 @@ describe('최초 제출', () => {
     expect(result).toEqual({
       submissionId: 'submission-1',
       status: SubmissionStatus.SUBMITTED,
-      submittedAt: NOW.toISOString(),
+      submittedAt: NOW,
     });
 
     expect(createSubmission).toHaveBeenCalledWith(

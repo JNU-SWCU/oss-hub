@@ -28,7 +28,7 @@ const form = jest.fn().mockResolvedValue({
   milestone: {
     id: 'synthetic-milestone',
     name: '합성 제출',
-    dueAt: '2026-08-30T00:00:00.000Z',
+    dueAt: new Date('2026-08-30T00:00:00.000Z'),
     dDay: 38,
     deadlineLabel: 'D-38',
     submissionType: 'TEXT',
@@ -46,13 +46,13 @@ const checklist = jest.fn().mockResolvedValue({
     {
       milestoneId: 'synthetic-milestone',
       name: '중간 보고',
-      dueAt: '2026-09-01T14:59:59.000Z',
+      dueAt: new Date('2026-09-01T14:59:59.000Z'),
       submissionType: 'TEXT',
       submission: {
         id: 'synthetic-submission',
         status: 'CHANGES_REQUESTED',
         currentRevision: 1,
-        lastReviewedAt: '2026-08-28T01:00:00.000Z',
+        lastReviewedAt: new Date('2026-08-28T01:00:00.000Z'),
         reviewComment: '실행 화면을 추가해 주세요',
         canResubmit: true,
       },

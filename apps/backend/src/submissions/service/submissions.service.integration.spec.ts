@@ -247,7 +247,6 @@ describe('SubmissionsService integration', () => {
     );
 
     expect(form.existingSubmission).toMatchObject({
-      checklistUrl: `/programs/${MILESTONES_PROGRAM_ID}/submissions?milestoneId=${milestoneId}`,
     });
     expect(form).toMatchObject({
       canSubmit: false,

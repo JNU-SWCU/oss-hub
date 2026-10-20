@@ -17,7 +17,7 @@ import { MILESTONE_SCENARIOS } from '../../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { SubmissionMatrixQuery } from '../domain/submission-matrix';
-import type { MatrixRowResponseDto } from '../dto/submission-matrix-response.dto';
+import type { MatrixRowResult } from '../domain/submission-matrix-result';
 import { SubmissionMatrixRepository } from '../repository/submission-matrix.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { SubmissionsErrorCode } from '../domain/submissions-error-code.enum';
@@ -62,7 +62,7 @@ function query(
   return { q: '', applicationMode: null, page: 1, pageSize: 20, ...overrides };
 }
 
-function cellFor(row: MatrixRowResponseDto, milestoneId: string) {
+function cellFor(row: MatrixRowResult, milestoneId: string) {
   const cell = row.cells.find(
     (candidate) => candidate.milestoneId === milestoneId,
   );
@@ -71,9 +71,9 @@ function cellFor(row: MatrixRowResponseDto, milestoneId: string) {
 }
 
 function rowFor(
-  rows: readonly MatrixRowResponseDto[],
+  rows: readonly MatrixRowResult[],
   applicationId: string,
-): MatrixRowResponseDto {
+): MatrixRowResult {
   const row = rows.find(
     (candidate) => candidate.applicationId === applicationId,
   );
@@ -271,9 +271,8 @@ describe('SubmissionMatrixService integration', () => {
       submissionId: approvedSubmissionId,
       revision: 1,
       status: SubmissionStatus.APPROVED,
-      reviewUrl: `/programs/${PROGRAM_ID}/submissions/${approvedSubmissionId}/review`,
     });
-    expect(approvedCell.submittedAt).toMatch(/T.*Z$/);
+    expect(approvedCell.submittedAt).toBeInstanceOf(Date);
     expect(
       cellFor(personal, MILESTONE_SCENARIOS['submission-rejected'][0]).status,
     ).toBe(SubmissionStatus.REJECTED);
@@ -288,7 +287,6 @@ describe('SubmissionMatrixService integration', () => {
       revision: null,
       status: 'NOT_SUBMITTED',
       submittedAt: null,
-      reviewUrl: null,
     });
 
     expect(
@@ -322,10 +320,7 @@ describe('SubmissionMatrixService integration', () => {
     expect(unsubmitted.cells.length).toBe(matrix.milestones.length);
     expect(
       unsubmitted.cells.every(
-        (cell) =>
-          cell.status === 'NOT_SUBMITTED' &&
-          cell.submissionId === null &&
-          cell.reviewUrl === null,
+        (cell) => cell.status === 'NOT_SUBMITTED' && cell.submissionId === null,
       ),
     ).toBe(true);
   });

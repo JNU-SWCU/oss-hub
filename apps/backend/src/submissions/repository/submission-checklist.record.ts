@@ -124,6 +124,5 @@ function currentRevisionFile(
     contentType: safeSubmissionFileContentType(file.originalFileName),
     size: file.sizeBytes,
     expiresAt: file.expiresAt,
-    downloadUrl: `/api/v1/submission-files/${file.id}`,
   };
 }

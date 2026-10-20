@@ -24,13 +24,20 @@ import {
   CreateSubmissionRequestDto,
 } from '../dto/create-submission-request.dto';
 import { SubmissionMatrixQueryRequestDto } from '../dto/submission-matrix-query.dto';
-import type { SubmissionMatrixResponseDto } from '../dto/submission-matrix-response.dto';
-import type {
-  CreatedSubmissionResponseDto,
-  ResubmittedSubmissionResponseDto,
-  SubmissionChecklistResponseDto,
-  SubmissionFormResponseDto,
+import {
+  presentCreatedSubmission,
+  presentResubmittedSubmission,
+  presentSubmissionChecklist,
+  presentSubmissionForm,
+  type CreatedSubmissionResponseDto,
+  type ResubmittedSubmissionResponseDto,
+  type SubmissionChecklistResponseDto,
+  type SubmissionFormResponseDto,
 } from '../dto/submission-response.dto';
+import {
+  presentSubmissionMatrix,
+  type SubmissionMatrixResponseDto,
+} from '../dto/submission-matrix-response.dto';
 import { SubmissionFilesService } from '../service/submission-files.service';
 import type {
   SubmissionFileUpload,
@@ -71,12 +78,17 @@ export class SubmissionFormsController {
   @Get('submission-form')
   @Header('Cache-Control', 'private, no-store')
   @UseGuards(SessionGuard)
-  form(
+  async form(
     @Req() request: SubmissionRequest,
     @Param('programId') programId: string,
     @Param('milestoneId') milestoneId: string,
   ): Promise<SubmissionFormResponseDto> {
-    return this.service.form(request.sessionGithubId, programId, milestoneId);
+    const result = await this.service.form(
+      request.sessionGithubId,
+      programId,
+      milestoneId,
+    );
+    return presentSubmissionForm(result, programId, milestoneId);
   }
 }
 
@@ -91,7 +103,9 @@ export class SubmissionChecklistController {
     @Req() request: SubmissionRequest,
     @Param('programId') programId: string,
   ): Promise<SubmissionChecklistResponseDto> {
-    return this.service.checklist(request.sessionGithubId, programId);
+    return this.service
+      .checklist(request.sessionGithubId, programId)
+      .then(presentSubmissionChecklist);
   }
 }
 
@@ -102,16 +116,17 @@ export class SubmissionMatrixController {
   @Get('matrix')
   @Header('Cache-Control', 'private, no-store')
   @UseGuards(SessionGuard)
-  matrix(
+  async matrix(
     @Req() request: SubmissionRequest,
     @Param('programId') programId: string,
     @Query() query: SubmissionMatrixQueryRequestDto,
   ): Promise<SubmissionMatrixResponseDto> {
-    return this.service.matrix(
+    const result = await this.service.matrix(
       request.sessionGithubId,
       programId,
       query.toQuery(),
     );
+    return presentSubmissionMatrix(result, programId);
   }
 }
 
@@ -211,7 +226,9 @@ export class SubmissionsController {
     @Req() request: SubmissionRequest,
     @Body() body: CreateSubmissionRequestDto,
   ): Promise<CreatedSubmissionResponseDto> {
-    return this.service.create(request.sessionGithubId, body.toInput());
+    return this.service
+      .create(request.sessionGithubId, body.toInput())
+      .then(presentCreatedSubmission);
   }
 
   @Post(':submissionId/resubmissions')
@@ -222,10 +239,8 @@ export class SubmissionsController {
     @Param('submissionId') submissionId: string,
     @Body() body: CreateResubmissionRequestDto,
   ): Promise<ResubmittedSubmissionResponseDto> {
-    return this.service.resubmit(
-      request.sessionGithubId,
-      submissionId,
-      body.toInput(),
-    );
+    return this.service
+      .resubmit(request.sessionGithubId, submissionId, body.toInput())
+      .then(presentResubmittedSubmission);
   }
 }
