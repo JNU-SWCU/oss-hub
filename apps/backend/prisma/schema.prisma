@@ -52,6 +52,8 @@ model User {
   consents                               Consent[]
   applications                           Application[]                        @relation("ApplicationApplicant")
   processedApplications                  Application[]                        @relation("ApplicationProcessedBy")
+  applicationPreparations                ApplicationPreparation[]
+  preparationParticipants                ApplicationPreparationParticipant[]
   ledTeams                               Team[]                               @relation("TeamLeader")
   teamMemberships                        TeamMember[]
   sentTeamInvitations                    TeamInvitation[]                     @relation("TeamInvitationInvitedBy")
@@ -217,6 +219,7 @@ model Program {
 
   milestones    Milestone[]
   applications  Application[]
+  preparations  ApplicationPreparation[]
   teams         Team[]
   repositories  GithubRepository[]
   boardPosts    BoardPost[]
@@ -689,6 +692,7 @@ enum MilestoneDocumentKind {
 /// 기존 Milestone.submissionType(마일스톤당 단일 제출 유형)과 독립적으로 항목 단위 확장을
 /// 제공한다 — 서류가 없는 마일스톤은 documents가 비어 있다.
 model MilestoneDocument {
+  graceDueAt  DateTime?
   id          String    @id @default(cuid())
   milestoneId String
   milestone   Milestone @relation(fields: [milestoneId], references: [id])
@@ -1478,4 +1482,33 @@ model CollectionSweepHistory {
   kind CollectionRunKind @default(SWEEP)
 
   @@index([sweepFinishedAt])
+}
+
+model ApplicationPreparation {
+  id           String                              @id @default(cuid())
+  programId    String
+  program      Program                             @relation(fields: [programId], references: [id], onDelete: Cascade)
+  leaderId     String
+  leader       User                                @relation(fields: [leaderId], references: [id])
+  name         String
+  createdAt    DateTime                            @default(now())
+  participants ApplicationPreparationParticipant[]
+
+  @@unique([id, programId])
+  @@unique([programId, leaderId])
+}
+
+model ApplicationPreparationParticipant {
+  id            String                 @id @default(cuid())
+  preparationId String
+  programId     String
+  preparation   ApplicationPreparation @relation(fields: [preparationId, programId], references: [id, programId], onDelete: Cascade)
+  userId        String
+  user          User                   @relation(fields: [userId], references: [id])
+  status        TeamInvitationStatus   @default(PENDING)
+  invitedAt     DateTime               @default(now())
+  respondedAt   DateTime?
+
+  @@unique([preparationId, userId])
+  @@index([programId, userId, status])
 }

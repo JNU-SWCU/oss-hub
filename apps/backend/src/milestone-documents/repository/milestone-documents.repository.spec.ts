@@ -256,6 +256,7 @@ describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
         name: true,
         required: true,
         sortOrder: true,
+        graceDueAt: true,
         templateFile: { select: { id: true, originalFileName: true } },
       },
     });
@@ -599,7 +600,8 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
   it('쓰기 직전 최신 마감 시각이 지났으면 제출을 저장하지 않는다', async () => {
     const queryRaw = jest
       .fn()
-      .mockResolvedValueOnce([{ dueAt: new Date('2026-09-19T09:00:00.000Z') }]);
+      .mockResolvedValueOnce([{ dueAt: new Date('2026-09-19T09:00:00.000Z') }])
+      .mockResolvedValueOnce([{ id: syntheticDocumentId, graceDueAt: null }]);
     const { prisma, submissionUpsert } = transactionPrisma({
       $queryRaw: queryRaw,
     });
@@ -2615,6 +2617,12 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
       ): Promise<unknown> => {
         const staged = new Map(committed);
         const result = await callback({
+          milestone: {
+            findUniqueOrThrow: jest.fn().mockResolvedValue({
+              id: syntheticMilestoneId,
+              dueAt: new Date('2026-09-19T09:00:00Z'),
+            }),
+          },
           $queryRaw: (query: { strings: string[]; values: unknown[] }) => {
             operations.push('lock');
             lockQueries.push(query);

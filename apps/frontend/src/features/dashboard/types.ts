@@ -15,6 +15,7 @@ export interface DashboardMilestone {
   readonly id: string;
   readonly name: string;
   readonly dueAt: string;
+  readonly lateSubmissionDueAt?: string | null;
   readonly submissionStatus: DashboardSubmissionStatus;
   readonly requiredItemCount?: number;
   readonly remainingItemCount?: number;

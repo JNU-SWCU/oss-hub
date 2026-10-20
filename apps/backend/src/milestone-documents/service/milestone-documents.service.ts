@@ -70,6 +70,7 @@ export class MilestoneDocumentsService {
     const documentIds = documents.map((document) => document.id);
     const viewer = await this.repository.findActiveUser(sessionGithubId);
 
+    const counts = new Map<string, { submitted: number; total: number }>();
     if (viewer?.hasStaffAccess === true || viewer?.hasAdminAccess === true) {
       const [total, submittedByDocument] = await Promise.all([
         this.repository.countApprovedApplications(milestone.programId),
@@ -78,17 +79,20 @@ export class MilestoneDocumentsService {
           documentIds,
         ),
       ]);
-      return documents.map((document) =>
-        MilestoneDocumentResponseDto.from(document, {
-          teamSubmissionCount: {
-            submitted: submittedByDocument.get(document.id) ?? 0,
-            total,
-          },
-        }),
-      );
+      for (const document of documents) {
+        counts.set(document.id, {
+          submitted: submittedByDocument.get(document.id) ?? 0,
+          total,
+        });
+      }
     }
 
-    if (viewer !== null && !viewer.hasStaffAccess && !viewer.hasAdminAccess) {
+    if (
+      viewer !== null &&
+      ((!viewer.hasStaffAccess && !viewer.hasAdminAccess) ||
+        (await this.repository.findActiveStudentByGithubId(sessionGithubId)) !==
+          null)
+    ) {
       const application = await this.repository.findStudentApplication(
         viewer.id,
         milestone.programId,
@@ -105,9 +109,13 @@ export class MilestoneDocumentsService {
         return documents.map((document) => {
           const summary = summaryByDocument.get(document.id) ?? null;
           return MilestoneDocumentResponseDto.from(document, {
+            teamSubmissionCount: counts.get(document.id),
             viewerSubmission: {
               submitted: summary !== null,
               submittedAt: summary?.submittedAt.toISOString() ?? null,
+              submittedLate:
+                summary !== null &&
+                summary.submittedAt.getTime() > milestone.dueAt.getTime(),
               revision: summary?.revision ?? null,
               status: summary?.status ?? null,
               hasCurrentFile: summary?.hasCurrentFile ?? false,
@@ -132,7 +140,9 @@ export class MilestoneDocumentsService {
     }
 
     return documents.map((document) =>
-      MilestoneDocumentResponseDto.from(document),
+      MilestoneDocumentResponseDto.from(document, {
+        teamSubmissionCount: counts.get(document.id),
+      }),
     );
   }
 
@@ -316,6 +326,32 @@ export class MilestoneDocumentsService {
     return MilestoneDocumentResponseDto.from(record);
   }
 
+  async updateGraceDueAt(
+    sessionGithubId: bigint,
+    milestoneId: string,
+    documentId: string,
+    graceDueAt: Date | null,
+  ): Promise<void> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
+    );
+    await this.repository.withTransaction(async (store) => {
+      const milestone = await store.lockMilestone(milestoneId);
+      if (milestone === null)
+        throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
+      const document = await store.lockDocument(documentId);
+      if (document === null || document.milestoneId !== milestoneId)
+        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      if (
+        graceDueAt !== null &&
+        (!Number.isFinite(graceDueAt.getTime()) ||
+          graceDueAt.getTime() <= milestone.dueAt.getTime())
+      )
+        throw this.error(MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT);
+      await store.updateGraceDueAt(documentId, graceDueAt);
+    });
+  }
+
   async reorderDocuments(
     sessionGithubId: bigint,
     milestoneId: string,
@@ -418,6 +454,7 @@ export class MilestoneDocumentsService {
     const submissionStatus = currentSubmission?.status ?? null;
     const blocked = milestoneDocumentSubmissionBlock({
       dueAt: documentContext.dueAt,
+      graceDueAt: documentContext.graceDueAt,
       now,
       hasSubmission: currentSubmission !== null,
       latestDecision,

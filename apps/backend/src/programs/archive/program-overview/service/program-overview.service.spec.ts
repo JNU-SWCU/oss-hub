@@ -57,6 +57,49 @@ const milestoneDocumentCatalog: MilestoneDocumentCatalogEntry[] = [
 
 describe('ProgramOverviewService', () => {
   describe('getOverview', () => {
+    it.each([false, true])(
+      '학생 운영자의 참여 프로그램 개요는 학생 통계를 기본으로 하고 운영 전환=%s를 따른다',
+      async (operationsView) => {
+        const repository = {
+          findByProgramId: jest.fn().mockResolvedValue(baseOverview),
+          findViewerIdentity: jest.fn().mockResolvedValue({
+            userId: syntheticUserId,
+            role: 'ADMIN',
+            memberKind: 'STUDENT',
+          }),
+          findApprovedViewerApplicationId: jest
+            .fn()
+            .mockResolvedValue(syntheticApplicationId),
+          findCurrentSubmissionMilestone: jest
+            .fn()
+            .mockResolvedValue(currentMilestone),
+          findViewerApplicationId: jest
+            .fn()
+            .mockResolvedValue(syntheticApplicationId),
+          findMilestoneDocumentCatalog: jest
+            .fn()
+            .mockResolvedValue(milestoneDocumentCatalog),
+          findSubmittedDocumentIds: jest
+            .fn()
+            .mockResolvedValue(new Set(['doc-1'])),
+          countFullySubmittedTeamsByMilestone: jest
+            .fn()
+            .mockResolvedValue(new Map()),
+          countFullySubmittedParticipants: jest.fn().mockResolvedValue(0),
+          findMilestoneSchedules: jest.fn().mockResolvedValue([]),
+        } as unknown as ProgramOverviewRepository;
+        const result = await new ProgramOverviewService(repository).getOverview(
+          syntheticProgramId,
+          syntheticGithubId,
+          operationsView,
+        );
+        expect(result.viewer.role).toBe(operationsView ? 'ADMIN' : 'STUDENT');
+        expect(result.viewer.myDocumentsCompleted).toBe(
+          operationsView ? null : 1,
+        );
+      },
+    );
+
     it('프로그램이 없으면 POV_001로 거부한다', async () => {
       const repository = {
         findByProgramId: jest.fn().mockResolvedValue(null),

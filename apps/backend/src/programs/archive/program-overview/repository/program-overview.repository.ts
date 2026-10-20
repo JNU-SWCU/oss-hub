@@ -3,7 +3,13 @@ import {
   type AuthorityLabel,
 } from '../../../../users/domain/authority-label';
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, MilestoneDocumentKind } from '@prisma/client';
+import {
+  AccountStatus,
+  ApplicationStatus,
+  MemberKind,
+  MilestoneDocumentKind,
+} from '@prisma/client';
+import { programApplicationParticipantWhere } from '../../../../prisma/program-application-participant';
 import { PrismaService } from '../../../../prisma/prisma.service';
 import type {
   ProgramOverviewRecord,
@@ -18,6 +24,7 @@ export interface CurrentSubmissionMilestone {
 
 export interface ViewerIdentity {
   userId: string;
+  memberKind: MemberKind | null;
   role: AuthorityLabel | null;
 }
 
@@ -129,6 +136,7 @@ export class ProgramOverviewRepository {
     }
     return {
       userId: user.id,
+      memberKind: user.profile?.memberKind ?? null,
       role: authorityLabel({
         memberKind: user.profile?.memberKind ?? null,
         hasStaffAccess: user.hasStaffAccess,
@@ -202,6 +210,21 @@ export class ProgramOverviewRepository {
         .filter((document) => document.required)
         .map((document) => document.id),
     }));
+  }
+
+  async findApprovedViewerApplicationId(
+    programId: string,
+    userId: string,
+  ): Promise<string | null> {
+    const application = await this.prisma.application.findFirst({
+      where: {
+        programId,
+        status: ApplicationStatus.APPROVED,
+        ...programApplicationParticipantWhere(userId),
+      },
+      select: { id: true },
+    });
+    return application?.id ?? null;
   }
 
   async findViewerApplicationId(

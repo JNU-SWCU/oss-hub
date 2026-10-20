@@ -78,7 +78,11 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     }),
     createDocument: jest.fn(),
     updateDocument: jest.fn(),
-    lockMilestone: jest.fn().mockResolvedValue({ id: syntheticMilestoneId }),
+    updateGraceDueAt: jest.fn().mockResolvedValue(undefined),
+    lockMilestone: jest.fn().mockResolvedValue({
+      id: syntheticMilestoneId,
+      dueAt: new Date('2026-09-19T09:00:00.000Z'),
+    }),
     lockDocument: jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
@@ -129,6 +133,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
           transactionCalls.push('createDocument');
           return mocks.createDocument(milestoneId, input) as Promise<unknown>;
         },
+        updateGraceDueAt: mocks.updateGraceDueAt,
         updateDocument: (
           documentId: string,
           input: unknown,
@@ -195,6 +200,57 @@ describe('MilestoneDocumentsService.listByMilestone', () => {
 });
 
 describe('MilestoneDocumentsService.listForViewer', () => {
+  it.each([
+    { hasStaffAccess: true, hasAdminAccess: false },
+    { hasStaffAccess: false, hasAdminAccess: true },
+  ])(
+    '겸권한 참여 학생에게 자기 제출과 기존 운영 집계를 함께 돌려준다 (%s)',
+    async (access) => {
+      const { repository, mocks } = buildRepository({
+        findActiveUser: jest
+          .fn()
+          .mockResolvedValue({ id: syntheticUserId, ...access }),
+        findActiveStudentByGithubId: jest
+          .fn()
+          .mockResolvedValue({ id: syntheticUserId }),
+        findStudentApplication: jest.fn().mockResolvedValue({
+          applicationId: syntheticApplicationId,
+          approved: true,
+        }),
+        findSubmittedSummaries: jest.fn().mockResolvedValue([
+          {
+            milestoneDocumentId: syntheticDocumentId,
+            submittedAt: new Date('2026-09-16T00:00:00Z'),
+            revision: 2,
+            status: SubmissionStatus.APPROVED,
+            hasCurrentFile: true,
+            currentFileName: '우리팀.pdf',
+            historyComplete: true,
+            review: null,
+          },
+        ]),
+      });
+      const result = await new MilestoneDocumentsService(
+        repository,
+        authority,
+      ).listForViewer(1n, syntheticMilestoneId);
+      expect(result[0]).toMatchObject({
+        viewerSubmission: {
+          submitted: true,
+          status: SubmissionStatus.APPROVED,
+          hasCurrentFile: true,
+          currentFileName: '우리팀.pdf',
+        },
+        teamSubmissionCount: { submitted: 0, total: 0 },
+      });
+      expect(mocks.findSubmittedSummaries).toHaveBeenCalledWith(
+        syntheticApplicationId,
+        [syntheticDocumentId],
+        expect.any(Date),
+      );
+    },
+  );
+
   it('마일스톤이 없으면 MILESTONE_NOT_FOUND를 던진다', async () => {
     const { repository } = buildRepository({
       findMilestone: jest.fn().mockResolvedValue(null),
@@ -277,6 +333,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         viewerSubmission: {
           submitted: true,
           submittedAt: submittedAt.toISOString(),
+          submittedLate: false,
           revision: 2,
           status: SubmissionStatus.SUBMITTED,
           hasCurrentFile: true,
@@ -366,6 +423,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     expect(result[0]?.viewerSubmission).toEqual({
       submitted: true,
       submittedAt: submittedAt.toISOString(),
+      submittedLate: false,
       revision: 1,
       status: SubmissionStatus.CHANGES_REQUESTED,
       hasCurrentFile: false,
@@ -2612,5 +2670,44 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     ]);
     expect(filtered.documentTotals).toEqual(all.documentTotals);
     expect(filtered.rows).toHaveLength(1);
+  });
+});
+
+describe('document grace configuration', () => {
+  it.each([new Date('2026-09-19T09:00:00.001Z'), null])(
+    '유예를 저장하거나 명시적으로 해제한다: %s',
+    async (graceDueAt) => {
+      const { repository, mocks } = buildRepository();
+      const service = new MilestoneDocumentsService(repository, authority);
+      await service.updateGraceDueAt(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        graceDueAt,
+      );
+      expect(mocks.updateGraceDueAt).toHaveBeenCalledWith(
+        syntheticDocumentId,
+        graceDueAt,
+      );
+    },
+  );
+  it.each([
+    new Date('invalid'),
+    new Date('2026-09-19T09:00:00Z'),
+    new Date('2026-09-18T09:00:00Z'),
+  ])('원래 마감보다 뒤가 아닌 유예를 거절한다: %s', async (graceDueAt) => {
+    const { repository, mocks } = buildRepository();
+    const service = new MilestoneDocumentsService(repository, authority);
+    await expect(
+      service.updateGraceDueAt(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        graceDueAt,
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT },
+    });
+    expect(mocks.updateGraceDueAt).not.toHaveBeenCalled();
   });
 });

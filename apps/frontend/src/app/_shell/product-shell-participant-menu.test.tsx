@@ -127,6 +127,7 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
     root = createRoot(container);
     mockSession('STUDENT');
     mocks.usePathname.mockReturnValue('/programs/prog-1');
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams());
     mocks.getProgramOverview.mockResolvedValue(OVERVIEW);
     mocks.getProgramNavigationMilestones.mockResolvedValue([
       { milestoneId: 'm1', title: '스터디 계획서', submissionEnabled: true },
@@ -208,6 +209,61 @@ describe('ProductShell 좌측 패널 — 참여자 전용 메뉴(#1099)', () => 
 
     expect(sidebarText()).toContain('스터디 계획서');
   });
+
+  it('교직원 권한 참여 학생은 기본 학생 메뉴와 명시적 운영 전환을 제공한다', async () => {
+    mockSession('STUDENT');
+    mocks.useSessionRole.mockReturnValue({
+      ...mocks.useSessionRole(),
+      hasStaffAccess: true,
+    });
+    mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
+    await renderShell();
+    expect(sidebarText()).toContain('내 제출물');
+    expect(sidebarText()).toContain('우리 팀');
+    expect(sidebarText()).not.toContain('팀 관리');
+    expect(hrefs()).toContain('/programs/prog-1?view=operations');
+  });
+
+  it('명시적 운영 화면은 이동 중에도 운영 상태를 유지하고 학생 화면으로 돌아갈 수 있다', async () => {
+    mockSession('STUDENT');
+    mocks.useSessionRole.mockReturnValue({
+      ...mocks.useSessionRole(),
+      hasStaffAccess: true,
+    });
+    mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
+    mocks.useSearchParams.mockReturnValue(
+      new URLSearchParams('view=operations'),
+    );
+    await renderShell();
+    expect(sidebarText()).toContain('서류 현황');
+    expect(sidebarText()).toContain('팀 관리');
+    expect(hrefs()).toContain('/programs/prog-1/documents?view=operations');
+    expect(hrefs()).toContain(
+      '/programs/prog-1/documents?milestoneId=m1&view=operations',
+    );
+    const studentLink = [...container.querySelectorAll('a')].find(
+      (a) => a.textContent === '학생 화면으로 전환',
+    );
+    expect(studentLink?.getAttribute('href')).toBe('/programs/prog-1');
+  });
+
+  it.each([
+    '/programs/prog-1/milestones/m1/documents',
+    '/programs/prog-1/submissions/s1/review',
+    '/programs/prog-1/teams/team-1',
+    '/programs/prog-1/edit',
+  ])(
+    '운영 도구 내부 링크 %s에서도 운영 메뉴와 복귀 경로를 유지한다',
+    async (pathname) => {
+      mockStudentAdminSession();
+      mocks.getMyApplication.mockResolvedValue({ status: 'APPROVED' });
+      mocks.usePathname.mockReturnValue(pathname);
+      await renderShell();
+      expect(sidebarText()).toContain('서류 현황');
+      expect(sidebarText()).toContain('학생 화면으로 전환');
+      expect(hrefs()).toContain('/programs/prog-1/documents?view=operations');
+    },
+  );
 
   it('교직원 좌측 패널은 참여 여부를 묻지도, 달라지지도 않는다', async () => {
     mockSession('STAFF');
