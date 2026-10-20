@@ -1,3 +1,7 @@
+import { MilestoneDocumentsRepository } from '../../milestone-documents/repository/milestone-documents.repository';
+import { MilestoneDocumentsService } from '../../milestone-documents/service/milestone-documents.service';
+import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
+import { UsersAuthorityService } from '../../users/service/authority.service';
 import { MemberKind } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { updateInput } from '../../../test/program-editor-service-fixtures';
@@ -61,6 +65,58 @@ describe('ProgramEditorService integration', () => {
   afterAll(async () => {
     await cleanup();
     await prisma.$disconnect();
+  });
+
+  it('serializes grace extension with an incompatible program end reduction', async () => {
+    const programId = `${TEST_PREFIX}program:grace-retention`;
+    const milestoneId = `${TEST_PREFIX}milestone:grace-retention`;
+    await createProgram(programId, false);
+    await createMilestone(milestoneId, programId);
+    const document = await prisma.milestoneDocument.create({
+      data: {
+        milestoneId,
+        name: 'Synthetic grace document',
+        required: true,
+        sortOrder: 1,
+      },
+    });
+    const documents = new MilestoneDocumentsService(
+      new MilestoneDocumentsRepository(prisma),
+      new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
+    );
+    const results = await runTogether(
+      () =>
+        documents.updateGraceDueAt(
+          STAFF_GITHUB_ID,
+          milestoneId,
+          document.id,
+          new Date('2027-08-30T00:00:00Z'),
+        ),
+      () =>
+        editor.updateProgram(STAFF_GITHUB_ID, programId, {
+          ...updateInput,
+          repositoryProvisioningEnabled: false,
+          endAt: '2026-08-29T00:00:00Z',
+        }),
+    );
+    expect(results.map((result) => result.status).sort()).toEqual([
+      'fulfilled',
+      'rejected',
+    ]);
+    const program = await prisma.program.findUniqueOrThrow({
+      where: { id: programId },
+    });
+    const saved = await prisma.milestoneDocument.findUniqueOrThrow({
+      where: { id: document.id },
+    });
+    expect({ endAt: program.endAt, graceDueAt: saved.graceDueAt }).toEqual(
+      results[0].status === 'fulfilled'
+        ? {
+            endAt: new Date('2026-08-31T00:00:00Z'),
+            graceDueAt: new Date('2027-08-30T00:00:00Z'),
+          }
+        : { endAt: new Date('2026-08-29T00:00:00Z'), graceDueAt: null },
+    );
   });
 
   it('keeps one milestone when the last two provisioning milestones are deleted concurrently', async () => {

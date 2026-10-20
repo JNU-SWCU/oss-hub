@@ -49,6 +49,31 @@ describe('per-document grace HTTP + PostgreSQL', () => {
   beforeEach(() => fixture.reset());
   afterAll(() => fixture.stop());
 
+  it.each([
+    ['2029-02-28T08:59:59.999Z', 204],
+    ['2029-02-28T09:00:00.000Z', 422],
+    ['2029-02-28T09:00:00.001Z', 422],
+    ['2029-03-01T09:00:00.000Z', 422],
+  ] as const)(
+    'validates leap-year file retention at %s',
+    async (value, status) => {
+      await fixture.prisma.program.update({
+        where: { id: flowIds.program },
+        data: { endAt: new Date('2028-02-29T09:00:00Z') },
+      });
+      await fixture.closeDeadline();
+      const response = await setGrace(value);
+      expect(response.status).toBe(status);
+      await expect(
+        fixture.prisma.milestoneDocument.findUnique({
+          where: { id: flowIds.document },
+          select: { graceDueAt: true },
+        }),
+      ).resolves.toEqual({
+        graceDueAt: status === 204 ? new Date(value) : null,
+      });
+    },
+  );
   it('기존 문서는 유예가 없고 학생이 기한을 설정할 수 없다', async () => {
     expect((await listedDocument()).documents[0]?.graceDueAt).toBeNull();
     expect((await setGrace(graceDueAt, 'student')).status).toBe(403);

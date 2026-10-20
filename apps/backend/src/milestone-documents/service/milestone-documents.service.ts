@@ -1,3 +1,4 @@
+import { addOneCalendarYear } from '../../common/domain/add-one-calendar-year';
 import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
@@ -336,7 +337,7 @@ export class MilestoneDocumentsService {
       this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
     );
     await this.repository.withTransaction(async (store) => {
-      const milestone = await store.lockMilestone(milestoneId);
+      const milestone = await store.lockMilestoneForGrace(milestoneId);
       if (milestone === null)
         throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
       const document = await store.lockDocument(documentId);
@@ -345,7 +346,9 @@ export class MilestoneDocumentsService {
       if (
         graceDueAt !== null &&
         (!Number.isFinite(graceDueAt.getTime()) ||
-          graceDueAt.getTime() <= milestone.dueAt.getTime())
+          graceDueAt.getTime() <= milestone.dueAt.getTime() ||
+          graceDueAt.getTime() >=
+            addOneCalendarYear(milestone.programEndAt).getTime())
       )
         throw this.error(MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT);
       await store.updateGraceDueAt(documentId, graceDueAt);

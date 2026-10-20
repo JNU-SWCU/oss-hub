@@ -180,6 +180,9 @@ interface LockedMilestoneDocument {
 }
 
 export interface MilestoneDocumentWriteStore {
+  lockMilestoneForGrace(
+    milestoneId: string,
+  ): Promise<(LockedMilestone & { readonly programEndAt: Date }) | null>;
   updateGraceDueAt(documentId: string, graceDueAt: Date | null): Promise<void>;
 
   isApplicationParticipant(
@@ -385,6 +388,34 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
       where: { id: this.milestoneLock.id },
       select: { id: true, dueAt: true },
     });
+  }
+
+  async lockMilestoneForGrace(milestoneId: string) {
+    const initial = await this.transaction.milestone.findUnique({
+      where: { id: milestoneId },
+      select: { programId: true },
+    });
+    if (initial === null) return null;
+    const program = await lockProgramTree(this.transaction, {
+      stage: 'program',
+      programId: initial.programId,
+    });
+    if (program === null) return null;
+    this.milestoneLock = await lockProgramTree(this.transaction, {
+      stage: 'milestone',
+      milestoneId,
+      after: program,
+    });
+    if (this.milestoneLock === null) return null;
+    const milestone = await this.transaction.milestone.findUniqueOrThrow({
+      where: { id: milestoneId },
+      select: { id: true, dueAt: true, program: { select: { endAt: true } } },
+    });
+    return {
+      id: milestone.id,
+      dueAt: milestone.dueAt,
+      programEndAt: milestone.program.endAt,
+    };
   }
 
   async lockDocument(

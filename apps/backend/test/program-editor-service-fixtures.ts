@@ -75,6 +75,7 @@ export function createProgramEditorServiceHarness(): {
     createMilestone: jest.fn(),
     findMilestoneForUpdate: jest.fn(),
     updateMilestone: jest.fn(),
+    findLatestDocumentGraceDueAt: jest.fn().mockResolvedValue(null),
     findEarliestDocumentGraceDueAt: jest.fn().mockResolvedValue(null),
 
     findMilestoneForDelete: jest.fn(),
