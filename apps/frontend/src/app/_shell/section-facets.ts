@@ -1,6 +1,6 @@
 import { loadArchiveYears } from '@/features/archive/api';
-import { getProgramStatusCounts } from '@/features/programs/api';
-import type { ProgramListStatus } from '@/features/programs/types';
+import { getProgramStatusCounts } from '@/features/programs/catalog/api';
+import type { ProgramListStatus } from '@/features/programs/catalog/program-list-options';
 import { getRankingYears } from '@/features/ranking/api';
 import type { ShellSection, SidebarItem } from './sidebar-menu';
 import {

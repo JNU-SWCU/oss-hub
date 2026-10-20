@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { StaffAccessRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from "@/features/roles/onboarding/types";
 import type { SessionRoleState } from '../_shell/use-session-role';
 
 const mocks = vi.hoisted(() => ({

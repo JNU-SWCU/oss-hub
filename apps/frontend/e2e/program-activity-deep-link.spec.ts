@@ -1,11 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { authenticatedSessionBody } from './support/session-mock';
-import type {
-  ProgramActivity,
-  ProgramDetail,
-} from '../src/features/programs/types';
-import type { ProgramOverview } from '../src/features/programs/program-overview-api';
+import type { ProgramActivity, ProgramDetail } from '../src/features/programs/catalog/dto';
+import type { ProgramOverview } from '../src/features/programs/catalog/program-overview-dto';
 
 const programId = 'activity-deep-link';
 

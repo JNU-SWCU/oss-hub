@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
-import type { ProgramOverview } from '@/features/programs/program-overview-api';
+import type { ProgramOverview } from '@/features/programs/catalog/program-overview-dto';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -15,13 +15,13 @@ const mocks = vi.hoisted(() => ({
   getMyApplication: vi.fn(),
 }));
 
-vi.mock('@/features/programs/program-overview-api', () => ({
+vi.mock("@/features/programs/catalog/program-overview-api", () => ({
   getProgramOverview: mocks.getProgramOverview,
 }));
-vi.mock('@/features/programs/program-navigation-api', () => ({
+vi.mock("@/features/programs/catalog/program-navigation-api", () => ({
   getProgramNavigationMilestones: mocks.getProgramNavigationMilestones,
 }));
-vi.mock('@/features/programs/student-application-api', () => ({
+vi.mock("@/features/programs/applications/student-application-api", () => ({
   getMyApplication: mocks.getMyApplication,
 }));
 

@@ -1,4 +1,4 @@
-import type { MilestoneDocumentUploadPolicy } from '@/features/programs/milestone-document-api';
+import type { MilestoneDocumentUploadPolicy } from '@/features/programs/documents/milestone-document-dto';
 
 export function milestoneDocumentUploadPolicy(
   overrides: Partial<MilestoneDocumentUploadPolicy> = {},

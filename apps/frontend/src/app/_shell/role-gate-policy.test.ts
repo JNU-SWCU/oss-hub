@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { StaffAccessRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from "@/features/roles/onboarding/types";
 import type { SessionRoleState } from './use-session-role';
 
 vi.mock('next/navigation', () => ({

@@ -101,12 +101,12 @@
       "count": 3
     }
   },
-  "src/features/programs/application-confirmation-dialog.test.tsx": {
+  "src/features/programs/applications/application-confirmation-dialog.test.tsx": {
     "local/design-no-raw-button": {
       "count": 4
     }
   },
-  "src/features/programs/application-decision-dialog.test.tsx": {
+  "src/features/programs/applications/application-decision-dialog.test.tsx": {
     "local/design-no-hex-color": {
       "count": 1
     },
@@ -114,27 +114,27 @@
       "count": 3
     }
   },
-  "src/features/programs/milestone-submission-block.test.tsx": {
+  "src/features/programs/documents/milestone-submission-block.test.tsx": {
     "local/design-no-hex-color": {
       "count": 1
     }
   },
-  "src/features/programs/program-detail-api.test.ts": {
+  "src/features/programs/catalog/program-detail-api.test.ts": {
     "local/design-no-hex-color": {
       "count": 1
     }
   },
-  "src/features/programs/program-detail.test.tsx": {
+  "src/features/programs/catalog/program-detail.test.tsx": {
     "local/design-no-hex-color": {
       "count": 4
     }
   },
-  "src/features/programs/program-edit-milestone-dialog.test.tsx": {
+  "src/features/programs/authoring/program-edit-milestone-dialog.test.tsx": {
     "local/design-no-raw-button": {
       "count": 1
     }
   },
-  "src/features/programs/program-edit-team-size.test.tsx": {
+  "src/features/programs/authoring/program-edit-team-size.test.tsx": {
     "local/design-no-hex-color": {
       "count": 1
     }
@@ -144,7 +144,7 @@
       "count": 1
     }
   },
-  "src/features/programs/program-type-modal.test.tsx": {
+  "src/features/programs/authoring/program-type-modal.test.tsx": {
     "local/design-no-raw-button": {
       "count": 1
     }

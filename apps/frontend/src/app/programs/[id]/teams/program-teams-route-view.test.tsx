@@ -13,10 +13,10 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
-vi.mock('@/features/programs/program-teams-page', () => ({
+vi.mock("@/features/programs/teams/program-teams-page", () => ({
   ProgramTeamsPage: () => <div>학생 팀 구성 화면</div>,
 }));
-vi.mock('@/features/programs/program-staff-teams-page', () => ({
+vi.mock("@/features/programs/teams/program-staff-teams-page", () => ({
   ProgramStaffTeamsPage: () => <div>교직원 참여 팀 목록</div>,
 }));
 

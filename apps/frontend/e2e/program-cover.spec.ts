@@ -1,6 +1,6 @@
 import { expect, test } from './admin-session.fixture';
-import type { ProgramDetail } from '../src/features/programs/types';
-import type { ProgramOverview } from '../src/features/programs/program-overview-api';
+import type { ProgramDetail } from '../src/features/programs/catalog/dto';
+import type { ProgramOverview } from '../src/features/programs/catalog/program-overview-dto';
 import {
   fixtureProgramId,
   originHeaders,

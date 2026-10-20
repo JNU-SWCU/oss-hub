@@ -1,5 +1,5 @@
 import { RolePanelShell } from '../../../../_shell/role-panel-shell';
-import { AdminAccessDetailView } from '@/features/roles/components/admin-access-detail-view';
+import { AdminAccessDetailScreen } from '@/features/roles/access-administration/components/admin-access-detail-screen';
 
 type ApplicantQueueDetailPageProps = {
   readonly params: Promise<{ readonly userId: string }>;
@@ -18,7 +18,7 @@ export default async function ApplicantQueueDetailPage({
 
   return (
     <RolePanelShell allow={['staff']}>
-      <AdminAccessDetailView userId={decodedUserId} workspace="queue" />
+      <AdminAccessDetailScreen userId={decodedUserId} workspace="queue" />
     </RolePanelShell>
   );
 }

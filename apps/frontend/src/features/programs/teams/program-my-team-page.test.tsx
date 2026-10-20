@@ -1,0 +1,814 @@
+import { act, type ReactNode } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ApiError, type ProblemDetail } from '@/lib/api-client';
+import { getMyTeam, leaveMyTeam, removeMyTeamMember } from './api';
+import { getProgramDetail } from '../catalog/api';
+import type { ProgramTeam } from './dto';
+import { updateRepositoryUrl } from './repository-url-api';
+import { ProgramMyTeamPage } from './program-my-team-page';
+import { getMyApplication } from '../applications/student-application-api';
+import type { StudentApplication } from '../applications/student-application-dto';
+import { getTeamActivity } from './team-activity-api';
+import type { TeamActivity } from './team-activity-dto';
+import type { ProgramDetail } from '../catalog/dto';
+import {
+  useTeamInvitationManagement,
+  type TeamInvitationManagement,
+} from './use-team-invitation-management';
+
+const mocks = vi.hoisted(() => ({
+  push: vi.fn(),
+  refresh: vi.fn(),
+  useSession: vi.fn(),
+}));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }),
+}));
+
+vi.mock('@/features/auth/use-session', () => ({
+  useSession: mocks.useSession,
+}));
+vi.mock('./api', () => ({
+  getMyTeam: vi.fn(),
+  getProgramDetail: vi.fn(),
+  removeMyTeamMember: vi.fn(),
+  leaveMyTeam: vi.fn(),
+}));
+vi.mock('../catalog/api', () => ({
+  getMyTeam: vi.fn(),
+  getProgramDetail: vi.fn(),
+  removeMyTeamMember: vi.fn(),
+  leaveMyTeam: vi.fn(),
+}));
+vi.mock('./repository-url-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./repository-url-api')>()),
+  updateRepositoryUrl: vi.fn(),
+}));
+vi.mock('./team-activity-api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./team-activity-api')>()),
+  getTeamActivity: vi.fn(),
+  getRepositoryHistory: vi.fn(),
+}));
+
+vi.mock('recharts', () => {
+  const Pass = ({ children }: { children?: ReactNode }) => (
+    <div data-chart="">{children}</div>
+  );
+  const Nothing = () => null;
+  return {
+    CartesianGrid: Nothing,
+    Line: Nothing,
+    LineChart: Pass,
+    ReferenceLine: Nothing,
+    ResponsiveContainer: Pass,
+    XAxis: Nothing,
+    YAxis: Nothing,
+  };
+});
+vi.mock('../applications/student-application-api', () => ({
+  getMyApplication: vi.fn(),
+}));
+vi.mock('./use-team-invitation-management', () => ({
+  useTeamInvitationManagement: vi.fn(),
+}));
+
+const program: ProgramDetail = {
+  id: 'program-1',
+  name: '합성 프로그램',
+  organizer: '합성 주관',
+  trackType: 'EXTRACURRICULAR',
+  applicationTemplateKey: 'basic',
+  lifecycle: 'PUBLISHED',
+  description: '',
+  repositoryProvisioningEnabled: false,
+  applicationPeriod: {
+    startsAt: '2020-01-01T00:00:00Z',
+    endsAt: '2099-01-01T00:00:00Z',
+  },
+  viewer: { role: 'STUDENT', applicationStatus: null },
+  milestones: [],
+};
+
+const team: ProgramTeam = {
+  id: 'team-1',
+  name: '합성 팀',
+  memberCount: 2,
+  minMembers: 2,
+  maxMembers: 4,
+  hasApplication: false,
+  canInvite: true,
+  canRemoveMembers: true,
+  canLeave: true,
+  isLeader: true,
+  members: [
+    {
+      userId: 'leader-1',
+      nickname: 'synthetic-leader',
+      name: null,
+      isLeader: true,
+    },
+    {
+      userId: 'member-1',
+      nickname: 'synthetic-member',
+      name: null,
+      isLeader: false,
+    },
+  ],
+};
+
+const application: StudentApplication = {
+  id: 'application-1',
+  programId: 'program-1',
+  status: 'SUBMITTED',
+  teamId: 'team-1',
+  answers: { applicantName: '합성 학생', title: '합성 신청서' },
+  submittedAt: '2026-01-02T00:00:00Z',
+  updatedAt: '2026-01-02T00:00:00Z',
+  isRepositoryPublicationPlanned: false,
+  rejectionReason: null,
+  isManager: true,
+  canManage: true,
+  canEdit: true,
+  canCancel: true,
+};
+
+const activity: TeamActivity = {
+  applicationId: 'application-1',
+  repository: null,
+  status: 'NOT_CONNECTED',
+  lastSuccessAt: null,
+  window: { from: '2026-08-03', to: '2026-08-16', timeZone: 'Asia/Seoul' },
+  canEditRepositoryUrl: false,
+  members: [],
+};
+
+function problem(code: string, status = 404, detail = ''): ProblemDetail {
+  return {
+    type: 'about:blank',
+    title: 'Error',
+    status,
+    detail,
+    code,
+    instance: 'urn:test',
+  };
+}
+
+function invitationStub(
+  overrides: Partial<TeamInvitationManagement> = {},
+): TeamInvitationManagement {
+  return {
+    sentInvitations: [],
+    sentLoading: false,
+    inviteQuery: '',
+    inviteCandidates: [],
+    searching: false,
+    searchError: null,
+    invitingUserId: null,
+    cancelingInvitationId: null,
+    inviteActionError: null,
+    sentError: null,
+    onRetrySent: vi.fn(),
+    onInviteQueryChange: vi.fn(),
+    onSearch: vi.fn(),
+    onInvite: vi.fn(),
+    onCancelInvitation: vi.fn(),
+    reloadSent: vi.fn(async () => {}),
+    ...overrides,
+  };
+}
+
+let host: HTMLDivElement;
+let root: Root;
+let reloadSent: TeamInvitationManagement['reloadSent'];
+
+function seedSession(nickname: string | null): void {
+  mocks.useSession.mockReturnValue(
+    nickname === null
+      ? { status: 'loading', user: null, retry: () => {} }
+      : {
+          status: 'authenticated',
+          user: { nickname, name: null },
+          retry: () => {},
+        },
+  );
+}
+
+beforeEach(() => {
+  Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+    configurable: true,
+    value: true,
+  });
+  vi.resetAllMocks();
+  seedSession('synthetic-leader');
+  vi.mocked(getTeamActivity).mockResolvedValue(activity);
+  reloadSent = vi.fn(async () => {});
+  vi.mocked(useTeamInvitationManagement).mockReturnValue(
+    invitationStub({ reloadSent }),
+  );
+  vi.mocked(getProgramDetail).mockResolvedValue(program);
+  vi.mocked(getMyTeam).mockResolvedValue(team);
+  host = document.createElement('div');
+  document.body.append(host);
+  root = createRoot(host);
+});
+
+afterEach(async () => {
+  await act(async () => root.unmount());
+  host.remove();
+});
+
+const SLOT_TEXT = '제출 현황 자리';
+
+async function renderPage(
+  options: {
+    readonly nickname?: string | null;
+    readonly submissionContent?: ReactNode;
+  } = {},
+) {
+  const nickname =
+    options.nickname === undefined ? 'synthetic-leader' : options.nickname;
+  seedSession(nickname);
+  await act(async () =>
+    root.render(
+      <ProgramMyTeamPage
+        programId="program-1"
+        sessionUser={nickname === null ? null : { nickname, name: null }}
+        submissionContent={options.submissionContent ?? <p>{SLOT_TEXT}</p>}
+      />,
+    ),
+  );
+}
+
+function button(text: string, dialog = false): HTMLButtonElement {
+  const scope = dialog
+    ? document.body.querySelector('[role="alertdialog"], [role="dialog"]')
+    : host;
+  const found = Array.from(scope?.querySelectorAll('button') ?? []).find(
+    (item) => item.textContent === text,
+  );
+  if (!found) throw new Error(`버튼 없음: ${text}`);
+  return found;
+}
+
+function iconButton(label: string): HTMLButtonElement {
+  const found = host.querySelector<HTMLButtonElement>(
+    `button[aria-label="${label}"]`,
+  );
+  if (!found) throw new Error(`아이콘 버튼 없음: ${label}`);
+  return found;
+}
+
+function inviteDialog(): Element | null {
+  return document.body.querySelector('[role="dialog"]');
+}
+
+function applyLink(): Element | null {
+  return host.querySelector('a[href="/programs/program-1/apply"]');
+}
+
+function headerBadge(): Element | null {
+  return host.querySelector(
+    '[data-slot="page-header-actions"] [data-slot="status-badge"]',
+  );
+}
+
+function stageCard(): Element {
+  const found = Array.from(host.querySelectorAll('[data-slot="card"]')).find(
+    (card) =>
+      card
+        .querySelector('[data-slot="card-title"]')
+        ?.textContent?.includes('신청 상태'),
+  );
+  if (!found) throw new Error('신청 상태 카드 없음');
+  return found;
+}
+
+describe('ProgramMyTeamPage 접근', () => {
+  it('세션 사용자가 없으면 어떤 비공개 조회도 시작하지 않는다', async () => {
+    await renderPage({ nickname: null });
+    expect(getProgramDetail).not.toHaveBeenCalled();
+    expect(getMyTeam).not.toHaveBeenCalled();
+    expect(getMyApplication).not.toHaveBeenCalled();
+    expect(host.textContent).toContain('불러오는 중');
+  });
+
+  it('세션이 뒤늦게 도착하면 그 계정으로 팀을 읽는다', async () => {
+    await renderPage({ nickname: null });
+    await renderPage();
+    expect(getMyTeam).toHaveBeenCalledExactlyOnceWith('program-1');
+    expect(host.querySelectorAll('main')).toHaveLength(1);
+    expect(host.querySelectorAll('h1')).toHaveLength(1);
+    expect(host.querySelector('h1')?.textContent).toBe('합성 팀');
+  });
+
+  it('머리글은 프로그램만 말하고 인원수는 명단이 한 번만 말한다', async () => {
+    await renderPage();
+    const heading = host.querySelector('h1');
+    const headerText = heading?.parentElement?.textContent ?? '';
+    expect(headerText).toContain('합성 프로그램');
+    expect(headerText).not.toContain('팀원 2명');
+
+    expect(host.textContent).toContain('팀원 2명');
+  });
+
+  it('팀이 없으면 신청 화면으로 안내하고 수동 합류를 만들지 않는다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue(null);
+    await renderPage();
+    expect(host.textContent).toContain('속한 팀이 없습니다');
+    expect(applyLink()).not.toBeNull();
+    expect(host.textContent).not.toContain('참여 코드');
+    expect(getMyApplication).not.toHaveBeenCalled();
+  });
+
+  it('프로그램이 없으면 팀 없음으로 접지 않는다', async () => {
+    vi.mocked(getProgramDetail).mockRejectedValue(
+      new ApiError(problem('PRG_001')),
+    );
+    vi.mocked(getMyTeam).mockRejectedValue(new ApiError(problem('TEAM_002')));
+    await renderPage();
+    expect(host.textContent).toContain('프로그램을 찾을 수 없습니다');
+    expect(host.textContent).not.toContain('속한 팀이 없습니다');
+  });
+
+  it('조회 실패는 빈 팀으로 바꾸지 않고 재시도한다', async () => {
+    vi.mocked(getMyTeam).mockRejectedValueOnce(new Error('network'));
+    await renderPage();
+    expect(host.textContent).toContain('우리 팀을 불러오지 못했습니다');
+    expect(host.querySelector('h1')).toBeNull();
+    await act(async () => button('다시 시도').click());
+    expect(host.querySelector('h1')?.textContent).toBe('합성 팀');
+  });
+});
+
+describe('ProgramMyTeamPage 신청 상태', () => {
+  it('팀장의 미제출 상태는 상태 배지 없이 이어 쓸 자리만 준다', async () => {
+    await renderPage();
+
+    expect(host.querySelector('[data-slot="page-header-actions"]')).toBeNull();
+    expect(host.textContent).not.toContain('신청 작성 중');
+
+    expect(host.textContent).toContain('아직 제출된 신청서가 없습니다');
+    expect(host.textContent).toContain('신청서 작성');
+    expect(applyLink()).not.toBeNull();
+
+    expect(host.textContent).toContain('제출 전 내용은 저장되지 않습니다');
+    expect(host.textContent).not.toContain('그대로 있습니다');
+    expect(getMyApplication).not.toHaveBeenCalled();
+  });
+
+  it('초대로 합류한 팀원에게는 팀장 대기만 알리고 중복 동선을 만들지 않는다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue({
+      ...team,
+      isLeader: false,
+      canInvite: false,
+      canRemoveMembers: false,
+    });
+    await renderPage({ nickname: 'synthetic-member' });
+    expect(host.querySelector('[data-slot="page-header-actions"]')).toBeNull();
+    expect(host.textContent).toContain('신청서는 팀장이 작성해 제출합니다');
+    expect(applyLink()).toBeNull();
+    expect(host.textContent).not.toContain('신청서 작성');
+    expect(host.querySelector('button[aria-label="팀원 초대"]')).toBeNull();
+  });
+
+  it('제출된 신청은 서버 상태를 그대로 보여 주고 제출 현황은 열지 않는다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+    vi.mocked(getMyApplication).mockResolvedValue(application);
+    await renderPage();
+
+    expect(headerBadge()?.textContent).toBe('신청');
+    expect(host.textContent).not.toContain('신청 검토 대기');
+    expect(host.textContent).toContain('교직원 검토를 기다리는 중입니다');
+    expect(host.textContent).toContain('합성 신청서');
+    expect(
+      stageCard().querySelector('[data-slot="card-content"]'),
+    ).not.toBeNull();
+    expect(host.textContent).not.toContain(SLOT_TEXT);
+
+    expect(host.textContent).not.toContain('프로젝트 저장소');
+    expect(getTeamActivity).not.toHaveBeenCalled();
+  });
+
+  it('반려는 서버가 남긴 사유를 그대로 전한다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+    vi.mocked(getMyApplication).mockResolvedValue({
+      ...application,
+      status: 'REJECTED',
+      rejectionReason: '팀 최소 인원을 채우지 못했습니다.',
+      canManage: false,
+    });
+    await renderPage();
+    expect(headerBadge()?.textContent).toBe('반려');
+    expect(host.textContent).toContain('팀 최소 인원을 채우지 못했습니다.');
+    expect(host.textContent).not.toContain(SLOT_TEXT);
+
+    expect(getTeamActivity).not.toHaveBeenCalled();
+  });
+
+  it('신청서가 있다는 팀의 빈 신청 조회를 「신청 없음」으로 접지 않는다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+
+    vi.mocked(getMyApplication).mockResolvedValueOnce(null);
+    vi.mocked(getMyApplication).mockResolvedValueOnce(application);
+    await renderPage();
+    expect(host.textContent).toContain('팀 신청서를 찾지 못했습니다');
+    expect(headerBadge()).toBeNull();
+    expect(host.textContent).not.toContain('신청서 작성');
+    await act(async () => button('다시 시도').click());
+    expect(headerBadge()?.textContent).toBe('신청');
+  });
+
+  it('승인된 팀에는 공용 활동 그래프와 제출 현황 조각을 함께 낸다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+    vi.mocked(getMyApplication).mockResolvedValue({
+      ...application,
+      status: 'APPROVED',
+    });
+    vi.mocked(getTeamActivity).mockResolvedValue({
+      ...activity,
+      repository: { id: 'repo-1', url: 'https://github.com/synthetic/team' },
+      status: 'COLLECTED',
+      lastSuccessAt: '2026-08-17T01:00:00.000Z',
+      canEditRepositoryUrl: true,
+      members: [
+        {
+          userId: 'leader-1',
+          githubLogin: 'synthetic-leader',
+          totals: { commitCount: 9, pullRequestCount: 2, issueCount: 0 },
+          points: [
+            {
+              date: '2026-08-04',
+              commitCount: 9,
+              pullRequestCount: 2,
+              issueCount: 0,
+            },
+          ],
+        },
+        {
+          userId: 'member-1',
+          githubLogin: 'synthetic-member',
+          totals: { commitCount: 0, pullRequestCount: 0, issueCount: 0 },
+          points: [],
+        },
+      ],
+    });
+    await renderPage();
+
+    expect(headerBadge()?.textContent).toBe('신청');
+    expect(host.textContent).not.toContain('참여 승인');
+
+    expect(stageCard().querySelector('[data-slot="card-content"]')).toBeNull();
+    expect(stageCard().textContent).toContain('합성 신청서');
+    expect(stageCard().textContent).toContain('2026년 1월 2일');
+    const graph = host.querySelector('[role="region"]');
+    expect(graph?.querySelector('h2')?.textContent).toBe('우리 팀 활동');
+    expect(graph?.querySelector('[data-chart]')).not.toBeNull();
+
+    const legend = graph?.querySelector('ul[aria-label="팀원"]');
+    expect(legend?.textContent).toContain('@synthetic-leader');
+    expect(legend?.textContent).toContain('@synthetic-member이 기간 기여 없음');
+    expect(legend?.textContent).not.toContain('9');
+    expect(host.textContent).not.toContain('데이터 기준');
+    expect(host.textContent).toContain(SLOT_TEXT);
+    expect(getTeamActivity).toHaveBeenCalledExactlyOnceWith(
+      'program-1',
+      'team-1',
+    );
+  });
+
+  it('아직 모으지 않은 활동을 0으로 그리지 않는다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+    vi.mocked(getMyApplication).mockResolvedValue({
+      ...application,
+      status: 'APPROVED',
+    });
+    vi.mocked(getTeamActivity).mockResolvedValue({
+      ...activity,
+      repository: { id: 'repo-1', url: 'https://github.com/synthetic/team' },
+      status: 'NOT_COLLECTED',
+    });
+    await renderPage();
+    expect(host.textContent).toContain('첫 수집을 기다리는 중입니다');
+    expect(host.querySelector('[data-chart]')).toBeNull();
+    expect(host.querySelector('table')).toBeNull();
+  });
+
+  it('상태·팀원·저장소·활동·이력 순서로 선다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+    vi.mocked(getMyApplication).mockResolvedValue({
+      ...application,
+      status: 'APPROVED',
+    });
+    await renderPage();
+    const text = host.textContent ?? '';
+    const order = [
+      '신청 상태',
+      '팀 구성원',
+      '프로젝트 저장소',
+      '우리 팀 활동',
+      '저장소 URL 변경 이력',
+      SLOT_TEXT,
+    ].map((label) => text.indexOf(label));
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((left, right) => left - right)).toEqual(order);
+  });
+});
+
+describe('ProgramMyTeamPage 초대', () => {
+  it('초대는 명단의 버튼이 열고 받은 초대함은 두지 않는다', async () => {
+    await renderPage();
+    expect(inviteDialog()).toBeNull();
+    expect(document.body.textContent).not.toContain(
+      '이름 또는 GitHub 아이디로 검색',
+    );
+    await act(async () => iconButton('팀원 초대').click());
+    const dialog = inviteDialog();
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain('이름 또는 GitHub 아이디로 검색');
+    expect(host.textContent).not.toContain('받은 초대');
+    await act(async () => button('닫기', true).click());
+    expect(inviteDialog()).toBeNull();
+    expect(document.body.textContent).not.toContain(
+      '이름 또는 GitHub 아이디로 검색',
+    );
+  });
+
+  it('초대 상태는 공통 훅에 현재 팀·세션 신원으로 위임한다', async () => {
+    await renderPage();
+    expect(useTeamInvitationManagement).toHaveBeenCalledWith({
+      programId: 'program-1',
+      team: expect.objectContaining({ id: 'team-1' }) as unknown,
+      sessionKey: 'synthetic-leader',
+    });
+  });
+
+  it('보낸 초대 조회 실패는 훅이 준 이유와 재시도로 드러낸다', async () => {
+    const onRetrySent = vi.fn();
+    vi.mocked(useTeamInvitationManagement).mockReturnValue(
+      invitationStub({
+        sentError: '보낸 초대를 불러오지 못했습니다.',
+        onRetrySent,
+      }),
+    );
+    await renderPage();
+
+    expect(host.textContent).toContain('보낸 초대를 불러오지 못했습니다');
+    await act(async () => button('다시 시도').click());
+    expect(onRetrySent).toHaveBeenCalledOnce();
+  });
+
+  it('초대 권한이 없으면 여는 버튼 자체를 두지 않는다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, canInvite: false });
+    await renderPage();
+    expect(host.querySelector('button[aria-label="팀원 초대"]')).toBeNull();
+    expect(inviteDialog()).toBeNull();
+  });
+});
+
+describe('ProgramMyTeamPage 팀 구성 변경', () => {
+  it('팀원 제외가 성공하면 현재 팀과 초대 현황을 다시 읽는다', async () => {
+    vi.mocked(removeMyTeamMember).mockResolvedValue(undefined);
+    await renderPage();
+    expect(getMyTeam).toHaveBeenCalledOnce();
+    await act(async () => iconButton('synthetic-member 팀에서 제외').click());
+    await act(async () => button('팀에서 제외', true).click());
+    expect(removeMyTeamMember).toHaveBeenCalledExactlyOnceWith(
+      'program-1',
+      'member-1',
+    );
+    expect(getMyTeam).toHaveBeenCalledTimes(2);
+    expect(reloadSent).toHaveBeenCalledOnce();
+    expect(mocks.push).not.toHaveBeenCalled();
+  });
+
+  it('본인 탈퇴가 성공하면 현재 신원으로 대시보드로 나간다', async () => {
+    vi.mocked(leaveMyTeam).mockResolvedValue(undefined);
+    await renderPage();
+    const details = host.querySelector('details');
+    if (details) details.open = true;
+    await act(async () => button('팀 탈퇴').click());
+    await act(async () => button('팀 탈퇴', true).click());
+    expect(leaveMyTeam).toHaveBeenCalledExactlyOnceWith('program-1');
+    expect(mocks.push).toHaveBeenCalledExactlyOnceWith('/dashboard');
+    expect(mocks.refresh).toHaveBeenCalledOnce();
+  });
+});
+
+describe('ProgramMyTeamPage 신원·범위 격리', () => {
+  it('늦게 도착한 이전 계정의 응답으로 화면을 갱신하지 않는다', async () => {
+    let resolveFirst!: (value: ProgramDetail) => void;
+    vi.mocked(getProgramDetail).mockImplementationOnce(
+      () =>
+        new Promise<ProgramDetail>((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+    await renderPage();
+    expect(host.textContent).toContain('불러오는 중');
+
+    vi.mocked(getProgramDetail).mockResolvedValue({
+      ...program,
+      name: '두 번째 계정 프로그램',
+    });
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, name: '두 번째 팀' });
+    await renderPage({ nickname: 'other-account' });
+    expect(host.querySelector('h1')?.textContent).toBe('두 번째 팀');
+
+    await act(async () =>
+      resolveFirst({ ...program, name: '첫 번째 계정 프로그램' }),
+    );
+    expect(host.textContent).not.toContain('첫 번째 계정 프로그램');
+    expect(host.textContent).toContain('두 번째 계정 프로그램');
+    expect(useTeamInvitationManagement).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sessionKey: 'other-account' }),
+    );
+  });
+
+  it('프로그램이 바뀌면 이전 프로그램의 팀을 남겨 두지 않는다', async () => {
+    await renderPage();
+    expect(host.querySelector('h1')?.textContent).toBe('합성 팀');
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, name: '다른 팀' });
+    vi.mocked(getProgramDetail).mockResolvedValue({
+      ...program,
+      id: 'program-2',
+      name: '다른 프로그램',
+    });
+    await act(async () =>
+      root.render(
+        <ProgramMyTeamPage
+          programId="program-2"
+          sessionUser={{ nickname: 'synthetic-leader', name: null }}
+          submissionContent={<p>{SLOT_TEXT}</p>}
+        />,
+      ),
+    );
+    expect(getMyTeam).toHaveBeenLastCalledWith('program-2');
+    expect(host.querySelector('h1')?.textContent).toBe('다른 팀');
+  });
+});
+
+it.each([true, false])(
+  'shows the team repository with server edit permission %s',
+  async (canEditRepositoryUrl) => {
+    vi.mocked(getMyTeam).mockResolvedValue({
+      ...team,
+      hasApplication: true,
+      isLeader: canEditRepositoryUrl,
+    });
+    vi.mocked(getMyApplication).mockResolvedValue({
+      ...application,
+      status: 'APPROVED',
+    });
+    vi.mocked(getTeamActivity).mockResolvedValue({
+      ...activity,
+      repository: { id: 'repo-1', url: 'https://github.com/synthetic/team' },
+      status: 'NOT_COLLECTED',
+      canEditRepositoryUrl,
+    });
+    await renderPage({
+      nickname: canEditRepositoryUrl ? 'synthetic-leader' : 'synthetic-member',
+    });
+    expect(
+      host.querySelector('a[href="https://github.com/synthetic/team"]'),
+    ).not.toBeNull();
+    const edit = Array.from(host.querySelectorAll('button')).find(
+      (button) => button.getAttribute('aria-label') === '저장소 URL 수정',
+    );
+    expect(edit).toBeDefined();
+    expect(edit?.disabled).toBe(!canEditRepositoryUrl);
+  },
+);
+
+it('does not request a repository before a team application exists', async () => {
+  await renderPage();
+  expect(getTeamActivity).not.toHaveBeenCalled();
+});
+
+it('re-reads repository permission when a quiet reload moves leadership', async () => {
+  vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+  vi.mocked(getMyApplication).mockResolvedValue({
+    ...application,
+    status: 'APPROVED',
+  });
+  vi.mocked(getTeamActivity).mockResolvedValue({
+    ...activity,
+    repository: { id: 'repo-1', url: 'https://github.com/synthetic/team' },
+    status: 'NOT_COLLECTED',
+    canEditRepositoryUrl: true,
+  });
+  await renderPage();
+  const edit = () =>
+    host.querySelector<HTMLButtonElement>(
+      'button[aria-label="저장소 URL 수정"]',
+    );
+  expect(edit()?.disabled).toBe(false);
+
+  vi.mocked(getMyTeam).mockResolvedValue({
+    ...team,
+    hasApplication: true,
+    isLeader: false,
+  });
+  vi.mocked(getTeamActivity).mockResolvedValue({
+    ...activity,
+    repository: { id: 'repo-1', url: 'https://github.com/synthetic/team' },
+    status: 'NOT_COLLECTED',
+    canEditRepositoryUrl: false,
+  });
+  await act(async () => window.dispatchEvent(new Event('focus')));
+
+  expect(getTeamActivity).toHaveBeenCalledTimes(2);
+  expect(edit()?.disabled).toBe(true);
+  expect(host.textContent).toContain(
+    '승인된 팀의 팀장만 프로그램 종료 전까지 변경할 수 있습니다.',
+  );
+});
+
+it('re-reads the graph when a quiet reload changes the member list', async () => {
+  const collected = (logins: readonly string[]): TeamActivity => ({
+    ...activity,
+    repository: { id: 'repo-1', url: 'https://github.com/synthetic/team' },
+    status: 'COLLECTED',
+    lastSuccessAt: '2026-08-16T00:00:00Z',
+    canEditRepositoryUrl: true,
+    members: logins.map((githubLogin, index) => ({
+      userId: `user-${index}`,
+      githubLogin,
+      totals: { commitCount: 1, pullRequestCount: 0, issueCount: 0 },
+      points: [
+        {
+          date: '2026-08-04',
+          commitCount: 1,
+          pullRequestCount: 0,
+          issueCount: 0,
+        },
+      ],
+    })),
+  });
+  vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+  vi.mocked(getMyApplication).mockResolvedValue({
+    ...application,
+    status: 'APPROVED',
+  });
+  vi.mocked(getTeamActivity).mockResolvedValue(
+    collected(['synthetic-leader', 'synthetic-member']),
+  );
+  await renderPage();
+  const legend = () =>
+    host.querySelector('ul[aria-label="팀원"]')?.textContent ?? '';
+  expect(legend()).toContain('@synthetic-member');
+
+  vi.mocked(getMyTeam).mockResolvedValue({
+    ...team,
+    hasApplication: true,
+    memberCount: 1,
+    members: team.members.filter((member) => member.isLeader),
+  });
+  vi.mocked(getTeamActivity).mockResolvedValue(collected(['synthetic-leader']));
+  await act(async () => window.dispatchEvent(new Event('focus')));
+
+  expect(getTeamActivity).toHaveBeenCalledTimes(2);
+  expect(legend()).toContain('@synthetic-leader');
+  expect(legend()).not.toContain('@synthetic-member');
+});
+
+it('saves the student change through my application route', async () => {
+  vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+  vi.mocked(getMyApplication).mockResolvedValue({
+    ...application,
+    status: 'APPROVED',
+  });
+  vi.mocked(getTeamActivity).mockResolvedValue({
+    ...activity,
+    repository: { id: 'repo-1', url: 'https://github.com/synthetic/team' },
+    status: 'NOT_COLLECTED',
+    canEditRepositoryUrl: true,
+  });
+  vi.mocked(updateRepositoryUrl).mockResolvedValue({
+    repositoryUrl: 'https://github.com/synthetic/next',
+    canEditRepositoryUrl: true,
+  });
+  await renderPage();
+  await act(async () =>
+    host
+      .querySelector<HTMLButtonElement>('button[aria-label="저장소 URL 수정"]')
+      ?.click(),
+  );
+  const input = host.querySelector<HTMLInputElement>('#repository-url');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )?.set?.call(input, 'https://github.com/synthetic/next');
+    input?.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () =>
+    host
+      .querySelector('form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
+  );
+  expect(updateRepositoryUrl).toHaveBeenCalledExactlyOnceWith('program-1', {
+    repositoryUrl: 'https://github.com/synthetic/next',
+  });
+});

@@ -42,8 +42,8 @@ vi.mock('../api', async (importOriginal) => {
   };
 });
 
-import { BoardDetailView } from './board-detail-view';
-import { BoardListView } from './board-list-view';
+import { BoardDetailScreen } from './board-detail-screen';
+import { BoardListScreen } from './board-list-screen';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -147,8 +147,8 @@ describe('게시글 삭제 후 목록 복귀', () => {
     await act(async () => {
       root.render(
         <>
-          <BoardListView programId="program-1" isStaff={false} />
-          <BoardDetailView
+          <BoardListScreen programId="program-1" isStaff={false} />
+          <BoardDetailScreen
             programId="program-1"
             postId="post-1"
             isStaff={false}
@@ -202,8 +202,8 @@ describe('게시글 삭제 후 목록 복귀', () => {
     await act(async () => {
       root.render(
         <>
-          <BoardListView programId="program-1" isStaff={false} />
-          <BoardDetailView
+          <BoardListScreen programId="program-1" isStaff={false} />
+          <BoardDetailScreen
             programId="program-1"
             postId="post-1"
             isStaff={false}

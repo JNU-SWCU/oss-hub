@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/types';
+import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/catalog/program-list-labels';
 import { programMyTeamHref } from '@/lib/program-route';
 import { isProgramScopedWorkspacePath } from './program-shell-policy';
 import { currentRankingYear } from '@/features/ranking/types';

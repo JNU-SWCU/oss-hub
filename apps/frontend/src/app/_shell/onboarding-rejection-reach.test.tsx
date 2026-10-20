@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   StaffAccessRequest,
   StaffAccessRequestStatus,
-} from '@/features/roles/types';
+} from "@/features/roles/onboarding/types";
 import { onboardingPathFor, type ProfileCheckStatus } from './onboarding-route';
 
 const REJECTION_REASON = '합성 반려 사유 — 소속 학과가 확인되지 않았습니다.';
@@ -47,7 +47,7 @@ vi.mock('next/navigation', () => ({
   },
 }));
 
-vi.mock('@/features/roles/api', () => ({
+vi.mock("@/features/roles/onboarding/api", () => ({
   fetchMyStaffAccessRequest: mocks.fetchMyStaffAccessRequest,
   fetchMyRoleSelection: mocks.fetchMyRoleSelection,
   selectRole: mocks.selectRole,

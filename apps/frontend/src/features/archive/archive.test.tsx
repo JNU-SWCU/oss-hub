@@ -10,7 +10,7 @@ import {
   parseArchivePage,
 } from './api';
 import { ArchiveDetailContent } from './components/archive-detail-view';
-import { ArchiveListContent } from './components/archive-list-view';
+import { ArchiveListContent } from './components/archive-list-content';
 import { archiveListHref, parseArchiveListFilter } from './types';
 
 vi.mock('@/lib/api-client', () => ({

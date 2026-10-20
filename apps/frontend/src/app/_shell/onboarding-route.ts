@@ -1,5 +1,5 @@
 import type { ProfileRole } from '@/features/profile/profile-requirements';
-import type { StaffAccessRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from "@/features/roles/onboarding/types";
 
 export type ProfileCheckStatus =
   'checking' | 'complete' | 'incomplete' | 'error';

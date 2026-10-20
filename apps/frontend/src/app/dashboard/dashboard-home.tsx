@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { StudentDashboardScreen } from '@/features/dashboard';
-import { StaffDashboardPage } from '@/features/programs/staff-dashboard-page';
+import { StaffDashboardPage } from "@/features/programs/staff-dashboard/staff-dashboard-page";
 import { useSharedSessionRole } from '../_shell/session-role-context';
 
 export function DashboardHome() {

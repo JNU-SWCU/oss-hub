@@ -13,11 +13,11 @@ import {
   PROGRAM_AUTHORING_CONTROL_PATH,
   resetProgramAuthoringControl,
 } from './support/program-authoring-ui';
-import { parseRepositoryUrlState } from '../src/features/programs/repository-url-api';
+import { parseRepositoryUrlState } from "../src/features/programs/teams/repository-url-api";
 import {
   parseRepositoryHistory,
   parseTeamActivity,
-} from '../src/features/programs/team-activity-api';
+} from "../src/features/programs/teams/team-activity-api";
 
 test.use({ timezoneId: 'Asia/Seoul' });
 

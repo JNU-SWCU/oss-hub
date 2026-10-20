@@ -1,8 +1,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ProgramDetail } from '@/features/programs/types';
-import type { ProgramOverview } from '@/features/programs/program-overview-api';
+import type { ProgramDetail } from '@/features/programs/catalog/dto';
+import type { ProgramOverview } from '@/features/programs/catalog/program-overview-dto';
 import { ApiError } from '@/lib/api-client';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -52,18 +52,18 @@ vi.mock('../../_shell/use-session-role', () => ({
     isProfileComplete: true,
   }),
 }));
-vi.mock('@/features/programs/student-application-api', () => ({
+vi.mock("@/features/programs/applications/student-application-api", () => ({
   getMyApplication: mocks.getMyApplication,
 }));
-vi.mock('@/features/programs/program-overview-api', () => ({
+vi.mock("@/features/programs/catalog/program-overview-api", () => ({
   getProgramOverview: mocks.getProgramOverview,
 }));
-vi.mock('@/features/programs/program-navigation-api', () => ({
+vi.mock("@/features/programs/catalog/program-navigation-api", () => ({
   getProgramNavigationMilestones: async () => [
     { milestoneId: 'milestone-1', title: '합성 단계', submissionEnabled: true },
   ],
 }));
-vi.mock('@/features/programs/components/activity-graph-panel', () => ({
+vi.mock("@/features/programs/catalog/components/activity-graph-panel", () => ({
   ActivityGraphPanel: () => null,
 }));
 

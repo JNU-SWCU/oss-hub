@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { StatusBadge } from '@/components/status-badge';
 import { LoginButton } from '@/features/auth/components/login-button';
-import { TeamInvitationNotifications } from '@/features/programs/team-invitation-notifications';
+import { TeamInvitationNotifications } from "@/features/programs/teams/team-invitation-notifications";
 import { useSession } from '@/features/auth/use-session';
 import { memberSurfaces, type MemberSurface } from './member-access';
 import { shouldShowAccountSlot } from './signup-completion';

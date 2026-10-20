@@ -28,7 +28,7 @@ vi.mock('../../../_shell/session-role-context', () => ({
   }),
 }));
 
-vi.mock('@/features/programs/program-edit-page', () => ({
+vi.mock("@/features/programs/authoring/program-edit-page", () => ({
   ProgramEditPage: (props: ProgramEditPageProps) => {
     captured.props = props;
     return null;

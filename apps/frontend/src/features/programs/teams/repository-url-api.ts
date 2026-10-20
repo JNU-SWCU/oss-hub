@@ -1,0 +1,72 @@
+import { apiClient } from '@/lib/api-client';
+import type {
+  RepositoryUrlState,
+  RepositoryUrlInput,
+} from './repository-url-dto';
+
+export class RepositoryUrlResponseError extends Error {
+  constructor() {
+    super('저장소 응답을 확인할 수 없습니다. 다시 불러와 주세요.');
+    this.name = 'RepositoryUrlResponseError';
+  }
+}
+
+export function isHttpsGithubOwnerRepoUrl(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    /^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(value)
+  );
+}
+
+export function parseRepositoryUrlState(value: unknown): RepositoryUrlState {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('repositoryUrl' in value) ||
+    !('canEditRepositoryUrl' in value) ||
+    (value.repositoryUrl !== null &&
+      !isHttpsGithubOwnerRepoUrl(value.repositoryUrl)) ||
+    typeof value.canEditRepositoryUrl !== 'boolean'
+  )
+    throw new RepositoryUrlResponseError();
+  return {
+    repositoryUrl: value.repositoryUrl,
+    canEditRepositoryUrl: value.canEditRepositoryUrl,
+  };
+}
+
+async function patchRepositoryUrl(
+  path: string,
+  input: RepositoryUrlInput,
+): Promise<RepositoryUrlState> {
+  return parseRepositoryUrlState(
+    await apiClient<unknown>(path, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        repositoryUrl: input.repositoryUrl.trim(),
+      }),
+    }),
+  );
+}
+
+export function updateRepositoryUrl(
+  programId: string,
+  input: RepositoryUrlInput,
+): Promise<RepositoryUrlState> {
+  return patchRepositoryUrl(
+    `programs/${encodeURIComponent(programId)}/applications/me/repository-url`,
+    input,
+  );
+}
+
+export function updateTeamRepositoryUrl(
+  programId: string,
+  teamId: string,
+  input: RepositoryUrlInput,
+): Promise<RepositoryUrlState> {
+  return patchRepositoryUrl(
+    `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}/repository-url`,
+    input,
+  );
+}

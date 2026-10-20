@@ -5,7 +5,7 @@ import {
   serializeCreateApplication,
   serializeTeamManagementQuery,
   TEAM_MANAGEMENT_PAGE_SIZE,
-} from '../../frontend/src/features/programs/application-wire';
+} from "../../frontend/src/features/programs/applications/application-wire";
 import { CreateApplicationRequestDto } from '../src/applications/dto/create-application-request.dto';
 import { ApplicationListQueryRequestDto } from '../src/applications/dto/application-list-query.dto';
 

@@ -10,7 +10,7 @@ vi.mock('../_shell/use-session-role', () => ({
   useSessionRole: mocks.useSessionRole,
 }));
 
-vi.mock('@/features/programs/program-list-page', () => ({
+vi.mock("@/features/programs/catalog/program-list-page", () => ({
   ProgramListPage: ({
     canCreateProgram,
     viewerRole,

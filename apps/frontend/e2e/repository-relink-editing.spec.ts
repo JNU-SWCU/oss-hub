@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './admin-session.fixture';
-import { parseRepositoryUrlState } from '../src/features/programs/repository-url-api';
-import { parseTeamActivity } from '../src/features/programs/team-activity-api';
+import { parseRepositoryUrlState } from "../src/features/programs/teams/repository-url-api";
+import { parseTeamActivity } from "../src/features/programs/teams/team-activity-api";
 import { expectApiStatus } from './support/program-authoring-flow';
 import {
   fixtureProgramId,

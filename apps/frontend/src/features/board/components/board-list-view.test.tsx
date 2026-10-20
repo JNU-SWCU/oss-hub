@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BoardListContent,
   type BoardListContentProps,
-} from './board-list-view';
+} from './board-list-content';
 import { openingTag, textOf } from './field-error-test-support';
 import type { BoardPostSummary } from '../types';
 

@@ -26,7 +26,7 @@ vi.mock('@/features/auth/components/login-button', () => ({
     </div>
   ),
 }));
-vi.mock('@/features/programs/team-invitation-notifications', () => ({
+vi.mock("@/features/programs/teams/team-invitation-notifications", () => ({
   TeamInvitationNotifications: ({
     identityKey,
   }: {

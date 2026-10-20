@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ProgramDetail } from '@/features/programs/types';
+import type { ProgramDetail } from '@/features/programs/catalog/dto';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -21,20 +21,20 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/features/auth/use-session', () => ({
   useSession: () => ({ status: 'authenticated' }),
 }));
-vi.mock('@/features/programs/api', () => ({
+vi.mock('@/features/programs/catalog/api', () => ({
   getProgramDetail: remote.detail,
   getPublicProgramDetail: remote.detail,
   getProgramActivity: vi.fn().mockResolvedValue([]),
 }));
-vi.mock('@/features/programs/program-overview-api', () => ({
+vi.mock("@/features/programs/catalog/program-overview-api", () => ({
   getProgramOverview: remote.overview,
 }));
 
 vi.mock(
-  '@/features/programs/milestone-document-api',
+  "@/features/programs/documents/milestone-document-api",
   async (importOriginal) => ({
     ...(await importOriginal<
-      typeof import('@/features/programs/milestone-document-api')
+      typeof import("@/features/programs/documents/milestone-document-api")
     >()),
     listMilestoneDocuments: vi
       .fn()

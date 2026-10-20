@@ -1,6 +1,6 @@
 'use client';
 
-import { ProgramEditPage } from '@/features/programs/program-edit-page';
+import { ProgramEditPage } from "@/features/programs/authoring/program-edit-page";
 import { useSharedSessionRole } from '../../../_shell/session-role-context';
 
 export function ProgramEditRoute({

@@ -44,8 +44,8 @@ vi.mock('../api', async (importOriginal) => {
   };
 });
 
-import { BoardDetailView } from './board-detail-view';
-import { BoardListView } from './board-list-view';
+import { BoardDetailScreen } from './board-detail-screen';
+import { BoardListScreen } from './board-list-screen';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -129,7 +129,7 @@ describe('게시판 폼의 첫 오류 칸으로 초점 이동', () => {
 
   async function renderList(): Promise<void> {
     await act(async () => {
-      root.render(<BoardListView programId="program-1" isStaff={false} />);
+      root.render(<BoardListScreen programId="program-1" isStaff={false} />);
     });
     await act(async () => buttonNamed('질문 쓰기').click());
   }
@@ -137,7 +137,7 @@ describe('게시판 폼의 첫 오류 칸으로 초점 이동', () => {
   async function renderDetail(): Promise<void> {
     await act(async () => {
       root.render(
-        <BoardDetailView
+        <BoardDetailScreen
           programId="program-1"
           postId="post-1"
           isStaff={false}

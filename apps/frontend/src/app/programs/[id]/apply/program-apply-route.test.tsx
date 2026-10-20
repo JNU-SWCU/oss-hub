@@ -23,12 +23,12 @@ vi.mock('@/features/auth/api', () => ({
   logout: vi.fn(),
 }));
 
-vi.mock('@/features/roles/api', () => ({
+vi.mock("@/features/roles/onboarding/api", () => ({
   fetchMyStaffAccessRequest: vi.fn(),
   fetchMyRoleSelection: vi.fn(),
 }));
 
-vi.mock('@/features/programs/program-apply-page', () => ({
+vi.mock("@/features/programs/applications/program-apply-page", () => ({
   ProgramApplyPage: ({
     sessionUser,
   }: {
