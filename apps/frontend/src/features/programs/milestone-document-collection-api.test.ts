@@ -54,6 +54,24 @@ describe('buildMilestoneDocumentCollectionSearchParams', () => {
   });
 });
 
+it('encodes the selected document and submission state alongside the existing filter', () => {
+  const query = {
+    page: 2,
+    pageSize: 20,
+    filter: 'LATE',
+    document: { id: 'report & 1', submissionState: 'MISSING' },
+  } as const;
+  const params = buildMilestoneDocumentCollectionSearchParams(query);
+  expect(Object.fromEntries(params)).toEqual({
+    page: '2',
+    pageSize: '20',
+    filter: 'ALL',
+    deliveryStatus: 'LATE',
+    documentId: 'report & 1',
+    submissionState: 'MISSING',
+  });
+});
+
 describe('getMilestoneDocumentCollection', () => {
   it('조회 조건을 쿼리로 붙여 collection 경로를 부른다', async () => {
     const body: MilestoneDocumentCollection = {

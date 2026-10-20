@@ -150,6 +150,10 @@ function isMilestone(value: unknown): value is DashboardMilestone {
     isNonEmptyString(value.name) &&
     isNonEmptyString(value.dueAt) &&
     !Number.isNaN(Date.parse(value.dueAt)) &&
+    (value.lateSubmissionDueAt === undefined ||
+      value.lateSubmissionDueAt === null ||
+      (isDateString(value.lateSubmissionDueAt) &&
+        Date.parse(value.lateSubmissionDueAt) > Date.parse(value.dueAt))) &&
     isSubmissionStatus(value.submissionStatus) &&
     hasItemCounts(value)
   );

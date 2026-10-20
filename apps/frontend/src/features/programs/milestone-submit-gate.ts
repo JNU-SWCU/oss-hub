@@ -20,11 +20,15 @@ export function milestoneDocumentSubmitGate({
   submissionAccess,
   viewerSubmission,
   closed,
+  graceDueAt = null,
+  now = Date.now(),
 }: {
   readonly submissionAccess: MilestoneSubmissionAccess;
   readonly viewerSubmission: MilestoneDocumentViewerSubmission | undefined;
 
   readonly closed: boolean;
+  readonly graceDueAt?: string | null;
+  readonly now?: number;
 }): MilestoneDocumentSubmitGate {
   if (!isMilestoneDocumentResubmittable(viewerSubmission)) {
     return {
@@ -36,7 +40,20 @@ export function milestoneDocumentSubmitGate({
     };
   }
 
-  if (isMilestoneDocumentDeadlineLocked(closed, viewerSubmission)) {
+  const graceOpen =
+    graceDueAt !== null &&
+    Number.isFinite(Date.parse(graceDueAt)) &&
+    now <= Date.parse(graceDueAt) &&
+    viewerSubmission?.review == null &&
+    viewerSubmission?.status !== 'CHANGES_REQUESTED';
+  if (
+    isMilestoneDocumentDeadlineLocked(
+      closed || (graceDueAt !== null && isPastDue(graceDueAt, now)),
+      viewerSubmission,
+      now,
+    ) &&
+    !graceOpen
+  ) {
     return { kind: 'held', note: '마감이 지나 제출할 수 없습니다' };
   }
 

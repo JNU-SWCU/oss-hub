@@ -118,7 +118,7 @@ export class TeamInvitationsRepository {
       },
     });
 
-    return invitations.map((invitation) => ({
+    const official = invitations.map((invitation) => ({
       id: invitation.id,
       teamId: invitation.teamId,
       programId: invitation.programId,
@@ -136,6 +136,59 @@ export class TeamInvitationsRepository {
       memberCount: invitation.team._count.members,
       teamMaxSize: invitation.team.program.teamMaxSize,
     }));
+    const preparations =
+      await this.prisma.applicationPreparationParticipant.findMany({
+        where: {
+          userId: inviteeId,
+          status: 'PENDING',
+          preparation: { leaderId: { not: inviteeId } },
+        },
+        select: {
+          id: true,
+          programId: true,
+          userId: true,
+          status: true,
+          invitedAt: true,
+          respondedAt: true,
+          preparation: {
+            select: {
+              id: true,
+              name: true,
+              leaderId: true,
+              leader: {
+                select: { nickname: true, ...USER_PROFILE_NAME_SELECT },
+              },
+              program: { select: { name: true, teamMaxSize: true } },
+              _count: {
+                select: { participants: { where: { status: 'ACCEPTED' } } },
+              },
+            },
+          },
+        },
+      });
+    const temporary: ReceivedTeamInvitationRecord[] = preparations.map(
+      (row) => ({
+        preparation: true,
+        id: row.id,
+        programId: row.programId,
+        teamId: row.preparation.id,
+        inviteeId: row.userId,
+        invitedById: row.preparation.leaderId,
+        status: row.status,
+        invitedAt: row.invitedAt,
+        respondedAt: row.respondedAt,
+        teamName: row.preparation.name,
+        programName: row.preparation.program.name,
+        invitedByDisplayName:
+          resolveUserProfileName(row.preparation.leader)?.trim() ||
+          row.preparation.leader.nickname,
+        memberCount: row.preparation._count.participants,
+        teamMaxSize: row.preparation.program.teamMaxSize,
+      }),
+    );
+    return [...official, ...temporary].sort(
+      (left, right) => right.invitedAt.getTime() - left.invitedAt.getTime(),
+    );
   }
 
   async findByTeamId(teamId: string): Promise<SentTeamInvitationRecord[]> {
@@ -483,6 +536,9 @@ export async function acceptTeamInvitationTransaction(
       if (!invitation) return { kind: 'not-found' };
       if (invitation.inviteeId !== inviteeId) return { kind: 'forbidden' };
 
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "Program" WHERE "id" = ${invitation.programId} FOR UPDATE`,
+      );
       await tx.$queryRaw<LockedTeamRow[]>(
         Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${invitation.teamId} FOR UPDATE`,
       );
@@ -524,6 +580,15 @@ export async function acceptTeamInvitationTransaction(
         select: { userId: true },
       });
       if (existingMembership) return { kind: 'already-in-team' };
+      const preparation = await tx.applicationPreparationParticipant.findFirst({
+        where: {
+          programId,
+          userId: inviteeId,
+          status: TeamInvitationStatus.ACCEPTED,
+        },
+        select: { id: true },
+      });
+      if (preparation !== null) return { kind: 'already-in-team' };
 
       const maxSize = invitation.team.program.teamMaxSize;
       const memberCount = await tx.teamMember.count({ where: { teamId } });

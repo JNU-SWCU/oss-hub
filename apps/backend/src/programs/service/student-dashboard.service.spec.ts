@@ -67,7 +67,10 @@ function documentMilestone(
     name,
     dueAt,
     submissionType: null,
-    documents: requiredDocumentIds.map((documentId) => ({ id: documentId })),
+    documents: requiredDocumentIds.map((documentId) => ({
+      id: documentId,
+      graceDueAt: null,
+    })),
   };
 }
 
@@ -109,6 +112,66 @@ describe('StudentDashboardService', () => {
     jest.clearAllMocks();
     findParticipatingApplications.mockResolvedValue([]);
     getMyRepositories.mockResolvedValue([]);
+  });
+
+  it('keeps the original deadline and exposes grace only for missing required documents', async () => {
+    const grace = new Date('2026-08-04T00:00:00.000Z');
+    const submittedGrace = new Date('2026-08-06T00:00:00.000Z');
+    const milestone = {
+      ...documentMilestone('milestone-1', 'First milestone', DUE_AT, []),
+      documents: [
+        { id: 'missing', graceDueAt: grace },
+        { id: 'missing-earlier', graceDueAt: SECOND_DUE_AT },
+        { id: 'submitted', graceDueAt: submittedGrace },
+        { id: 'changes-requested', graceDueAt: submittedGrace },
+      ],
+    };
+    findParticipatingApplications.mockResolvedValue([
+      application({
+        program: program([milestone]),
+        milestoneDocumentSubmissions: [
+          documentSubmission(
+            'milestone-1',
+            'submitted',
+            SubmissionStatus.SUBMITTED,
+          ),
+          documentSubmission(
+            'milestone-1',
+            'changes-requested',
+            SubmissionStatus.CHANGES_REQUESTED,
+          ),
+        ],
+      }),
+    ]);
+    const [item] = await service.getStudentDashboard(404n);
+    expect(item?.nextMilestone).toMatchObject({
+      dueAt: DUE_AT,
+      lateSubmissionDueAt: grace,
+    });
+  });
+
+  it('does not extend a missing item with a submitted document grace period', async () => {
+    const milestone = {
+      ...documentMilestone('milestone-1', 'First milestone', DUE_AT, []),
+      documents: [
+        { id: 'missing', graceDueAt: null },
+        { id: 'submitted', graceDueAt: SECOND_DUE_AT },
+      ],
+    };
+    findParticipatingApplications.mockResolvedValue([
+      application({
+        program: program([milestone]),
+        milestoneDocumentSubmissions: [
+          documentSubmission(
+            'milestone-1',
+            'submitted',
+            SubmissionStatus.SUBMITTED,
+          ),
+        ],
+      }),
+    ]);
+    const [item] = await service.getStudentDashboard(404n);
+    expect(item?.nextMilestone).toMatchObject({ lateSubmissionDueAt: null });
   });
 
   it('returns no items when the student is in no team', async () => {
@@ -397,7 +460,7 @@ describe('StudentDashboardService', () => {
         program: program([
           {
             ...legacyMilestone('milestone-1', 'First milestone', DUE_AT),
-            documents: [{ id: 'document-1' }],
+            documents: [{ id: 'document-1', graceDueAt: null }],
           },
         ]),
         milestoneDocumentSubmissions: [
@@ -428,6 +491,7 @@ describe('StudentDashboardService', () => {
       id: 'milestone-1',
       name: 'First milestone',
       dueAt: DUE_AT,
+      lateSubmissionDueAt: null,
       submissionStatus: 'NOT_SUBMITTED',
       requiredItemCount: 1,
       remainingItemCount: 1,

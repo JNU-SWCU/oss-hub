@@ -83,3 +83,64 @@ it('represents no required items separately instead of claiming completion', () 
     noRequiredItems: 3,
   });
 });
+
+it('filters a selected document before paging without shrinking milestone totals', () => {
+  const query = {
+    filter: 'ALL',
+    page: 2,
+    pageSize: 1,
+    document: { id: 'required', submissionState: 'SUBMITTED' },
+  } as const;
+  const page = buildMilestoneDocumentDeliveryPage(
+    { documents, applications, submissions, dueAt },
+    query,
+  );
+  expect(page.rows.map((row) => row.application.applicationId)).toEqual([
+    'late',
+  ]);
+  expect(page.total).toBe(2);
+  expect(page.documentTotals).toEqual([
+    { documentId: 'required', submitted: 2, total: 3 },
+    { documentId: 'optional', submitted: 0, total: 3 },
+  ]);
+  expect(page.filterCounts.all).toBe(3);
+});
+
+it('selects missing optional documents without declaring the teams incomplete', () => {
+  const query = {
+    filter: 'ALL',
+    page: 1,
+    pageSize: 20,
+    deliveryStatus: 'COMPLETE',
+    document: { id: 'optional', submissionState: 'MISSING' },
+  } as const;
+  const page = buildMilestoneDocumentDeliveryPage(
+    { documents, applications, submissions, dueAt },
+    query,
+  );
+  expect(page.rows.map((row) => row.application.applicationId)).toEqual([
+    'early',
+  ]);
+  expect(page.rows[0]?.deliveryStatus).toBe('COMPLETE');
+  expect(page.deliveryCounts.complete).toBe(1);
+});
+
+it('keeps whole-population totals when a document selection has no submitted teams', () => {
+  const query = {
+    filter: 'ALL',
+    page: 1,
+    pageSize: 20,
+    document: { id: 'optional', submissionState: 'SUBMITTED' },
+  } as const;
+  const page = buildMilestoneDocumentDeliveryPage(
+    { documents, applications, submissions, dueAt },
+    query,
+  );
+  expect(page.rows).toEqual([]);
+  expect(page.total).toBe(0);
+  expect(page.documentTotals[1]).toEqual({
+    documentId: 'optional',
+    submitted: 0,
+    total: 3,
+  });
+});

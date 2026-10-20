@@ -96,6 +96,22 @@ describe('splitDashboardItems', () => {
 
 describe('submissionActionLabel', () => {
   it.each([
+    ['2026-07-23T09:59:59.999+09:00', '서류 내기'],
+    ['2026-07-23T10:00:00.000+09:00', '서류 내기'],
+    ['2026-07-23T10:00:00.001+09:00', '제출 현황'],
+  ])('유예 종료 경계 %s에는 %s를 보여준다', (now, label) => {
+    const milestone = {
+      ...dashboardMilestone('2026-07-20T23:59:59+09:00'),
+      lateSubmissionDueAt: '2026-07-23T01:00:00Z',
+    };
+    expect(submissionActionLabel(milestone, new Date(now))).toBe(label);
+    const item = dashboardItem('grace', 'APPROVED', milestone);
+    expect(
+      splitDashboardItems([item], new Date(now)).primaryApplicationId,
+    ).toBe(label === '서류 내기' ? item.applicationId : null);
+  });
+
+  it.each([
     ['NOT_SUBMITTED', '서류 내기'],
     ['CHANGES_REQUESTED', '다시 내기'],
     ['SUBMITTED', '제출 현황'],

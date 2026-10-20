@@ -14,6 +14,7 @@ interface MilestoneDocumentViewerReview {
 export interface MilestoneDocumentViewerSubmission {
   readonly submitted: boolean;
   readonly submittedAt: string | null;
+  readonly submittedLate?: boolean;
 
   readonly revision: number | null;
 
@@ -41,6 +42,7 @@ export interface MilestoneDocument {
   readonly name: string;
   readonly required: boolean;
   readonly sortOrder: number;
+  readonly graceDueAt?: string | null;
   readonly hasTemplateFile: boolean;
   readonly templateFileName: string | null;
 
@@ -100,6 +102,18 @@ export function listMilestoneDocuments(
   milestoneId: string,
 ): Promise<MilestoneDocumentList> {
   return apiClient<MilestoneDocumentList>(documentsPath(milestoneId));
+}
+
+export async function updateMilestoneDocumentGrace(
+  milestoneId: string,
+  documentId: string,
+  graceDueAt: string | null,
+): Promise<void> {
+  await apiClient<null>(`${documentPath(milestoneId, documentId)}/grace`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ graceDueAt }),
+  });
 }
 
 export function getMilestoneDocumentParticipantHistory(

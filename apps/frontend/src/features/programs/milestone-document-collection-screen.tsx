@@ -5,6 +5,7 @@ import { ApiError } from '@/lib/api-client';
 import {
   milestoneDocumentCollectionDataFor,
   milestoneDocumentCollectionLoadPhase,
+  selectCollectionDocument,
   type LoadedMilestoneDocumentCollection,
 } from './milestone-document-collection';
 import {
@@ -283,6 +284,14 @@ export function MilestoneDocumentCollectionScreen({
       programId={programId}
       data={data}
       filter={query.filter}
+      documentSelection={query.document ?? null}
+      onDocumentSelectionChange={(document) => {
+        discardPendingReview();
+        historyRequestIdRef.current += 1;
+        setReview(null);
+        setReviewNotice(null);
+        setQuery((previous) => selectCollectionDocument(previous, document));
+      }}
       loadPhase={milestoneDocumentCollectionLoadPhase({ data, isLoading })}
       errorMessage={errorMessage}
       review={review}

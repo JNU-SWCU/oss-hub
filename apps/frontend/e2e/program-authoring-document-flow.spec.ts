@@ -1,4 +1,6 @@
+import type { Page, TestInfo } from '@playwright/test';
 import { expect, test } from './admin-session.fixture';
+import { captureEvidenceRegion } from './support/evidence-capture';
 import { verifyProgramArchiveScopes } from './support/program-authoring-archive-scopes';
 import {
   downloadedArtifact,
@@ -28,13 +30,57 @@ import {
 
 const controlPath = '/api/v1/_e2e/program-authoring';
 
+async function captureCollectionEvidence(
+  page: Page,
+  testInfo: TestInfo,
+  state: 'summary' | 'missing',
+) {
+  const previousViewport = page.viewportSize();
+  for (const viewport of [
+    { name: 'desktop', width: 1440, height: 900 },
+    { name: 'mobile', width: 390, height: 844 },
+  ] as const) {
+    for (const [name, target] of [
+      [`${state}-main`, page.locator('main:has(h1)')],
+      [
+        state,
+        state === 'summary'
+          ? page.locator(
+              'section[aria-labelledby="collection-summary-heading"]',
+            )
+          : page.getByRole('region', { name: '팀별 서류 수합 표' }),
+      ],
+    ] as const) {
+      await captureEvidenceRegion({
+        page,
+        testInfo,
+        phase: 'after',
+        prefix: 'collection',
+        name,
+        viewport,
+        target,
+      });
+    }
+    await page.getByRole('heading', { level: 1 }).scrollIntoViewIfNeeded();
+    const path = testInfo.outputPath(
+      `collection-after-${state}-${viewport.name}-full.png`,
+    );
+    await page.screenshot({ path, fullPage: true });
+    await testInfo.attach(`collection-after-${state}-${viewport.name}-full`, {
+      path,
+      contentType: 'image/png',
+    });
+  }
+  if (previousViewport !== null) await page.setViewportSize(previousViewport);
+}
+
 test.describe('프로그램 작성과 제출물 dry-run', () => {
   test.use({ timezoneId: 'Asia/Seoul' });
 
   test('교직원이 완전한 작성 그래프를 확정하고 학생 제출물 수합까지 검증한다', async ({
     authSeedPage,
     programAuthoringActorPage,
-  }) => {
+  }, testInfo) => {
     test.setTimeout(300_000);
     const controlPage = await authSeedPage('admin-confirmed');
     const schedule = await resetProgramAuthoringControl(controlPage);
@@ -362,6 +408,29 @@ test.describe('프로그램 작성과 제출물 dry-run', () => {
         name: /^(?:필수 서류 미제출|미제출 있음) 1팀$/,
       }),
     ).toBeVisible();
+    const documentSummary = staffPage.getByRole('group', { name: '서류 선택' });
+    const requiredSummary = documentSummary.getByRole('button', {
+      name: new RegExp(`^${PROGRAM_AUTHORING_E2E.requiredDocumentName}`),
+    });
+    await expect(requiredSummary).toContainText('제출 1 / 2팀');
+    await captureCollectionEvidence(staffPage, testInfo, 'summary');
+    await requiredSummary.click();
+    const submissionSelection = staffPage.getByRole('group', {
+      name: `${PROGRAM_AUTHORING_E2E.requiredDocumentName} 제출 여부`,
+    });
+    await submissionSelection
+      .getByRole('button', { name: '미제출 1팀', exact: true })
+      .click();
+    await expect(
+      staffPage.getByRole('button', {
+        name: new RegExp(`${PROGRAM_AUTHORING_E2E.requiredDocumentName} 검토`),
+      }),
+    ).toHaveCount(0);
+    await expect(requiredSummary).toContainText('제출 1 / 2팀');
+    await captureCollectionEvidence(staffPage, testInfo, 'missing');
+    await submissionSelection
+      .getByRole('button', { name: '제출 1팀', exact: true })
+      .click();
     await staffPage
       .getByRole('button', {
         name: new RegExp(`${PROGRAM_AUTHORING_E2E.requiredDocumentName} 검토`),

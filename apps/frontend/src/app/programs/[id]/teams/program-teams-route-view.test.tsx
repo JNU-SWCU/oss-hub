@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SessionRoleProvider } from '../../../_shell/session-role-context';
 import type { SessionRoleResult } from '../../../_shell/use-session-role';
 import type { AppRole } from '../../../_shell/role';
+import { ProgramViewContext } from '../../../_shell/program-shell-policy';
 import { ProgramTeamsRouteView } from './program-teams-route-view';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -57,6 +58,26 @@ describe('ProgramTeamsRouteView', () => {
       );
     });
   }
+
+  it.each(['STUDENT', 'STAFF'] as const)(
+    '복수권한 참여자의 팀 화면은 선택한 %s 화면을 따른다',
+    (view) => {
+      act(() =>
+        root.render(
+          <SessionRoleProvider
+            value={{ ...sessionFor('STUDENT'), hasStaffAccess: true }}
+          >
+            <ProgramViewContext.Provider value={view}>
+              <ProgramTeamsRouteView programId="program-1" />
+            </ProgramViewContext.Provider>
+          </SessionRoleProvider>,
+        ),
+      );
+      expect(container.textContent).toContain(
+        view === 'STUDENT' ? '학생 팀 구성 화면' : '교직원 참여 팀 목록',
+      );
+    },
+  );
 
   it('학생에게는 팀 구성 화면을 준다', () => {
     renderAs('STUDENT');

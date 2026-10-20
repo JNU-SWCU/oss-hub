@@ -13,6 +13,10 @@ import type { MilestoneDocumentCollectionQuery } from './milestone-document-coll
 
 export interface MilestoneDocumentDeliveryQuery extends MilestoneDocumentCollectionQuery {
   readonly deliveryStatus?: DocumentDeliveryStatus;
+  readonly document?: {
+    readonly id: string;
+    readonly submissionState: 'ALL' | 'SUBMITTED' | 'MISSING';
+  };
 }
 
 type MilestoneDocumentDeliveryPage<
@@ -73,7 +77,18 @@ export function buildMilestoneDocumentDeliveryPage<
       (row) => row.deliveryStatus === 'NO_REQUIRED_ITEMS',
     ).length,
   };
+  const documentIndex = source.documents.findIndex(
+    (document) => document.id === query.document?.id,
+  );
   const filtered = allRows.filter((row) => {
+    if (query.document !== undefined) {
+      if (documentIndex < 0) return false;
+      const submitted = row.cells[documentIndex] !== null;
+      if (query.document.submissionState === 'SUBMITTED' && !submitted)
+        return false;
+      if (query.document.submissionState === 'MISSING' && submitted)
+        return false;
+    }
     if (
       query.deliveryStatus !== undefined &&
       row.deliveryStatus !== query.deliveryStatus

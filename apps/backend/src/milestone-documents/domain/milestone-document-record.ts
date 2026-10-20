@@ -15,6 +15,7 @@ export interface MilestoneDocumentRecord {
   name: string;
   required: boolean;
   sortOrder: number;
+  graceDueAt: Date | null;
   templateFileId: string | null;
   templateFileName: string | null;
 }

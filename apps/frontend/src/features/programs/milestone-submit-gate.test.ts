@@ -164,3 +164,86 @@ describe('milestoneRowSubmitGate', () => {
     ).toEqual({ kind: 'open', status, resubmission });
   });
 });
+
+describe('document grace submission gate', () => {
+  const graceDueAt = '2026-10-20T23:59:00+09:00';
+  const now = Date.parse(graceDueAt);
+  it.each([null, 'SUBMITTED'] as const)(
+    '유예 시각까지 %s 제출을 연다',
+    (status) => {
+      expect(
+        milestoneDocumentSubmitGate({
+          submissionAccess: access('APPROVED'),
+          viewerSubmission: submission(status),
+          closed: true,
+          graceDueAt,
+          now,
+        }),
+      ).toEqual({ kind: 'open' });
+    },
+  );
+  it.each([null, 'invalid', '2026-10-20T23:58:59+09:00'])(
+    '없거나 지난 유예는 마감을 유지한다: %s',
+    (graceDueAt) => {
+      expect(
+        milestoneDocumentSubmitGate({
+          submissionAccess: access('APPROVED'),
+          viewerSubmission: submission(null),
+          closed: true,
+          graceDueAt,
+          now,
+        }).kind,
+      ).toBe('held');
+    },
+  );
+  it('보완 기한이 지났으면 유예로 열지 않는다', () => {
+    const viewerSubmission = {
+      ...submission('CHANGES_REQUESTED'),
+      review: {
+        comment: '보완',
+        reviewedAt: '2026-10-19T00:00:00Z',
+        resubmissionDueAt: '2026-10-20T23:58:59+09:00',
+      },
+    };
+    expect(
+      milestoneDocumentSubmitGate({
+        submissionAccess: access('APPROVED'),
+        viewerSubmission,
+        closed: true,
+        graceDueAt,
+        now,
+      }).kind,
+    ).toBe('held');
+  });
+  it('보완에 응한 제출은 유예로 다시 열지 않는다', () => {
+    const viewerSubmission = {
+      ...submission('SUBMITTED'),
+      review: {
+        comment: '보완',
+        reviewedAt: '2026-10-19T00:00:00Z',
+        resubmissionDueAt: graceDueAt,
+      },
+    };
+    expect(
+      milestoneDocumentSubmitGate({
+        submissionAccess: access('APPROVED'),
+        viewerSubmission,
+        closed: true,
+        graceDueAt,
+        now,
+      }).kind,
+    ).toBe('held');
+  });
+});
+
+it('마감 전부터 열어 둔 화면도 유예가 만료되면 제출을 닫는다', () => {
+  expect(
+    milestoneDocumentSubmitGate({
+      submissionAccess: access('APPROVED'),
+      viewerSubmission: submission(null),
+      closed: false,
+      graceDueAt: '2026-10-20T00:00:00Z',
+      now: Date.parse('2026-10-20T00:00:00.001Z'),
+    }).kind,
+  ).toBe('held');
+});

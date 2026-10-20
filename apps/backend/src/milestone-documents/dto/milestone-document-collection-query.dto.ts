@@ -1,5 +1,14 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 import {
   MILESTONE_DOCUMENT_COLLECTION_FILTERS,
   type MilestoneDocumentCollectionFilter,
@@ -32,12 +41,32 @@ export class MilestoneDocumentCollectionQueryRequestDto {
   @IsIn(['MISSING', 'LATE', 'COMPLETE', 'NO_REQUIRED_ITEMS'])
   declare readonly deliveryStatus?: DocumentDeliveryStatus;
 
+  @ValidateIf(
+    (query: MilestoneDocumentCollectionQueryRequestDto) =>
+      query.documentId !== undefined || query.submissionState !== undefined,
+  )
+  @IsString()
+  @IsNotEmpty()
+  declare readonly documentId?: string;
+
+  @IsOptional()
+  @IsIn(['ALL', 'SUBMITTED', 'MISSING'])
+  declare readonly submissionState?: 'ALL' | 'SUBMITTED' | 'MISSING';
+
   toQuery(): MilestoneDocumentDeliveryQuery {
     return {
       page: this.page ?? 1,
       pageSize:
         this.pageSize ?? MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE,
       filter: this.filter ?? 'ALL',
+      ...(this.documentId === undefined
+        ? {}
+        : {
+            document: {
+              id: this.documentId,
+              submissionState: this.submissionState ?? 'ALL',
+            },
+          }),
       ...(this.deliveryStatus === undefined
         ? {}
         : { deliveryStatus: this.deliveryStatus }),

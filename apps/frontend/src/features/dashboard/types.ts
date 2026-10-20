@@ -15,6 +15,7 @@ export interface DashboardMilestone {
   readonly id: string;
   readonly name: string;
   readonly dueAt: string;
+  readonly lateSubmissionDueAt?: string | null;
   readonly submissionStatus: DashboardSubmissionStatus;
   readonly requiredItemCount?: number;
   readonly remainingItemCount?: number;
@@ -85,3 +86,13 @@ export type StudentFeedbackState =
       readonly status: 'success';
       readonly items: readonly DashboardFeedbackItem[];
     };
+
+export interface TeamDeletionNotice {
+  readonly id: string;
+  readonly teamId: string;
+  readonly teamName: string;
+  readonly programId: string;
+  readonly programName: string;
+  readonly message: string | null;
+  readonly deletedAt: string;
+}

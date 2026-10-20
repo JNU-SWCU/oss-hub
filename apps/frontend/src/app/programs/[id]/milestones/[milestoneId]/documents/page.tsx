@@ -14,7 +14,7 @@ export default async function MilestoneDocumentCollectionPage({
   const { id, milestoneId } = await params;
 
   return (
-    <RolePanelShell allow={['staff']}>
+    <RolePanelShell allow={['staff', 'admin']}>
       <MilestoneDocumentCollectionScreen
         programId={decodeRouteProgramId(id)}
         milestoneId={decodeRouteProgramId(milestoneId)}
