@@ -7,6 +7,7 @@ import type {
   SubmissionReviewRecord,
   SubmissionReviewResult,
   SubmissionRevisionRecord,
+  SubmissionRevisionContent,
 } from '../domain/submission-review';
 
 interface SubmissionReviewResponseDto {
@@ -18,7 +19,7 @@ interface SubmissionReviewResponseDto {
 
 interface SubmissionRevisionResponseDto {
   readonly number: number;
-  readonly content: unknown;
+  readonly content: SubmissionRevisionContent;
   readonly comment: string | null;
   readonly submittedAt: string;
   readonly files: readonly SubmissionReviewFileResponseDto[];
