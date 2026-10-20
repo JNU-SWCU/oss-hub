@@ -1,3 +1,4 @@
+import { CollectionStreamCheckpoint } from './collection-stream-checkpoint';
 import { createHash, randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import {
@@ -5,8 +6,6 @@ import {
   CollectionAppClientError,
   CollectionAppClientTokenProvider,
   CollectionCommit,
-  CollectionPullRequest,
-  CollectionRelease,
 } from '../gateway/collection-app.client';
 import { requestFingerprintKey } from '../domain/collection-app.frontier';
 import { ProviderRequestQueue } from '../gateway/collection-provider-queue';
@@ -206,6 +205,7 @@ interface SweepInventory {
 @Injectable()
 export class CollectionSyncService {
   private readonly logger = new Logger(CollectionSyncService.name);
+  private readonly checkpoints: CollectionStreamCheckpoint;
 
   constructor(
     private readonly incrementalRepository: SyncRepository,
@@ -215,7 +215,12 @@ export class CollectionSyncService {
     private readonly createRunId: () => string = randomUUID,
 
     private readonly externalRuntimeFactory?: CollectionSyncRuntimeFactory,
-  ) {}
+  ) {
+    this.checkpoints = new CollectionStreamCheckpoint(
+      incrementalRepository,
+      now,
+    );
+  }
 
   async run(
     ownerId: string,
@@ -1009,7 +1014,7 @@ export class CollectionSyncService {
         ),
         deadline,
       );
-      return this.commitCheckpoint(
+      return this.checkpoints.commitCheckpoint(
         lease,
         repository.id,
         result.commits,
@@ -1044,7 +1049,7 @@ export class CollectionSyncService {
       deadline,
     );
     const headSha = probe.headSha ?? result.commits[0]?.sha ?? null;
-    return this.commitCheckpoint(
+    return this.checkpoints.commitCheckpoint(
       lease,
       repository.id,
       result.commits,
@@ -1093,7 +1098,7 @@ export class CollectionSyncService {
     }
 
     const teamCommits = [...bySha.values()];
-    return this.commitCheckpoint(
+    return this.checkpoints.commitCheckpoint(
       lease,
       repository.id,
       teamCommits,
@@ -1210,43 +1215,6 @@ export class CollectionSyncService {
     }
   }
 
-  private async commitCheckpoint(
-    lease: SyncLeaseToken,
-    repositoryId: string,
-    commits: readonly CollectionCommit[],
-    registeredGithubIds: RegisteredGithubIdSet,
-    headSha: string | null,
-    requestFingerprint: string,
-    etag: string | null,
-  ): Promise<number> {
-    return this.incrementalRepository.runInTransaction(async (repo) => {
-      await repo.assertSyncLeaseValid(lease, this.now());
-      const recorded = await repo.recordCommitFacts(
-        repositoryId,
-        commits.map((commit) => ({
-          sha: commit.sha,
-          committedAt: new Date(commit.committedAt),
-          authorGithubId:
-            commit.authorGithubId === null
-              ? null
-              : BigInt(commit.authorGithubId),
-          authorGithubLogin: commit.authorLogin,
-        })),
-        registeredGithubIds,
-      );
-      await repo.upsertStreamFrontier({
-        repositoryId,
-        streamType: 'COMMIT',
-        status: 'READY',
-        frontierSha: headSha,
-        requestFingerprint,
-        etag,
-        lastRunAt: this.now(),
-      });
-      return recorded.insertedCount;
-    });
-  }
-
   private async syncPullRequestStream(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
@@ -1286,7 +1254,7 @@ export class CollectionSyncService {
     );
     if (tieFrontier !== null && result.pullRequests.length === 0) return 0;
 
-    return this.pullRequestCheckpoint(
+    return this.checkpoints.pullRequestCheckpoint(
       lease,
       repository.id,
       this.onlyTeamAuthored(result.pullRequests, teamMembers),
@@ -1306,45 +1274,6 @@ export class CollectionSyncService {
     return items.filter((item) =>
       isTeamMemberAuthor(item.authorGithubId, memberIds),
     );
-  }
-
-  private async pullRequestCheckpoint(
-    lease: SyncLeaseToken,
-    repositoryId: string,
-    pullRequests: readonly CollectionPullRequest[],
-    registeredGithubIds: RegisteredGithubIdSet,
-    newFrontier: { createdAt: string; id: string } | null,
-    requestFingerprint: string,
-    teamMembershipFrontier: string | null,
-  ): Promise<number> {
-    return this.incrementalRepository.runInTransaction(async (repo) => {
-      await repo.assertSyncLeaseValid(lease, this.now());
-      const recorded = await repo.recordPullRequestFacts(
-        repositoryId,
-        pullRequests.map((pullRequest) => ({
-          githubPullRequestId: BigInt(pullRequest.id),
-          state: pullRequest.state,
-          createdAt: new Date(pullRequest.createdAt),
-          authorGithubId:
-            pullRequest.authorGithubId === null
-              ? null
-              : BigInt(pullRequest.authorGithubId),
-          authorGithubLogin: pullRequest.authorLogin,
-        })),
-        registeredGithubIds,
-      );
-      await repo.upsertStreamFrontier({
-        repositoryId,
-        streamType: 'PULL_REQUEST',
-        status: 'READY',
-        frontierSha: teamMembershipFrontier,
-        frontierCreatedAt: newFrontier ? new Date(newFrontier.createdAt) : null,
-        frontierEntityId: newFrontier ? BigInt(newFrontier.id) : null,
-        requestFingerprint,
-        lastRunAt: this.now(),
-      });
-      return recorded.insertedCount;
-    });
   }
 
   private async syncReleaseStream(
@@ -1374,7 +1303,7 @@ export class CollectionSyncService {
       runtime.client.listChangedPublishedReleases(owner, name),
       deadline,
     );
-    return this.releaseCheckpoint(
+    return this.checkpoints.releaseCheckpoint(
       lease,
       repository.id,
       this.onlyTeamAuthored(listing.releases, teamMembers),
@@ -1383,43 +1312,6 @@ export class CollectionSyncService {
       requestFingerprintKey(probe.fingerprint),
       probe.etag,
     );
-  }
-
-  private async releaseCheckpoint(
-    lease: SyncLeaseToken,
-    repositoryId: string,
-    releases: readonly CollectionRelease[],
-    registeredGithubIds: RegisteredGithubIdSet,
-    frontierProbe: string | null,
-    requestFingerprint: string,
-    etag: string | null,
-  ): Promise<number> {
-    return this.incrementalRepository.runInTransaction(async (repo) => {
-      await repo.assertSyncLeaseValid(lease, this.now());
-      const recorded = await repo.recordReleaseFacts(
-        repositoryId,
-        releases.map((release) => ({
-          githubReleaseId: BigInt(release.id),
-          publishedAt: new Date(release.publishedAt),
-          authorGithubId:
-            release.authorGithubId === null
-              ? null
-              : BigInt(release.authorGithubId),
-          authorGithubLogin: release.authorLogin,
-        })),
-        registeredGithubIds,
-      );
-      await repo.upsertStreamFrontier({
-        repositoryId,
-        streamType: 'RELEASE',
-        status: 'READY',
-        frontierSha: frontierProbe,
-        requestFingerprint,
-        etag,
-        lastRunAt: this.now(),
-      });
-      return recorded.insertedCount;
-    });
   }
 
   private async syncIssueStream(
@@ -1461,36 +1353,15 @@ export class CollectionSyncService {
     }
 
     const issues = this.onlyTeamAuthored(result.issues, teamMembers);
-    return this.incrementalRepository.runInTransaction(async (repo) => {
-      await repo.assertSyncLeaseValid(lease, this.now());
-      const recorded = await repo.recordIssueFacts(
-        repository.id,
-        issues.map((issue) => ({
-          githubIssueId: BigInt(issue.id),
-          state: issue.state,
-          createdAt: new Date(issue.createdAt),
-          authorGithubId:
-            issue.authorGithubId === null ? null : BigInt(issue.authorGithubId),
-          authorGithubLogin: issue.authorLogin,
-        })),
-        registeredGithubIds,
-      );
-      await repo.upsertStreamFrontier({
-        repositoryId: repository.id,
-        streamType: 'ISSUE',
-        status: 'READY',
-        frontierSha: teamMembershipFrontier,
-        frontierCreatedAt: result.newFrontier
-          ? new Date(result.newFrontier.createdAt)
-          : null,
-        frontierEntityId: result.newFrontier
-          ? BigInt(result.newFrontier.id)
-          : null,
-        requestFingerprint: requestFingerprintKey(result.fingerprint),
-        lastRunAt: this.now(),
-      });
-      return recorded.insertedCount;
-    });
+    return this.checkpoints.issueCheckpoint(
+      lease,
+      repository.id,
+      issues,
+      registeredGithubIds,
+      result.newFrontier,
+      requestFingerprintKey(result.fingerprint),
+      teamMembershipFrontier,
+    );
   }
 
   private async withHeartbeat<T>(
