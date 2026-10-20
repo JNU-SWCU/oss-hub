@@ -96,6 +96,11 @@ beforeAll(async () => {
     );
   };
   const store = {
+    lockMilestoneForGrace: jest.fn().mockResolvedValue({
+      id: 'milestone',
+      dueAt: new Date('2026-01-01'),
+      programEndAt: new Date('2099-01-01'),
+    }),
     lockMilestone: jest
       .fn()
       .mockResolvedValue({ id: 'milestone', dueAt: new Date('2026-01-01') }),

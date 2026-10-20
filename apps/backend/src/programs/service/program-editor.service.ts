@@ -213,6 +213,21 @@ export class ProgramEditorService {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
         });
       }
+      if (liveFileExpiresAt !== null) {
+        const latestGrace = await store.findLatestDocumentGraceDueAt(programId);
+        if (latestGrace !== null && latestGrace >= liveFileExpiresAt) {
+          this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+            fieldErrors: [
+              {
+                field: 'endAt',
+                code: 'INVALID_PROGRAM_END',
+                message:
+                  '프로그램 종료일을 변경하려면 서류 유예 기한이 파일 보관 만료 시각보다 앞이어야 합니다. 유예 기한을 먼저 변경해 주세요.',
+              },
+            ],
+          });
+        }
+      }
       if (
         input.repositoryProvisioningEnabled &&
         existing.milestones.length === 0

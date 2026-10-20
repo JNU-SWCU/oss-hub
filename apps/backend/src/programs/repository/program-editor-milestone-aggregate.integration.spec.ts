@@ -1284,6 +1284,8 @@ function instrumentStore(
     findMilestoneForUpdate: (milestoneId) =>
       store.findMilestoneForUpdate(milestoneId),
     updateMilestone: (input) => store.updateMilestone(input),
+    findLatestDocumentGraceDueAt: (programId) =>
+      store.findLatestDocumentGraceDueAt(programId),
     findEarliestDocumentGraceDueAt: (id, excluded) =>
       store.findEarliestDocumentGraceDueAt(id, excluded),
     findMilestoneForDelete: (milestoneId) =>
