@@ -263,6 +263,7 @@ function MilestoneGroup({
       milestoneId={milestone.id}
       viewerRole={program.viewer.role}
       closed={isPastDue(milestone.dueAt)}
+      dueAt={milestone.dueAt}
       submissionAccess={submissionAccess}
     />
   );

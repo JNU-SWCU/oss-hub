@@ -241,6 +241,37 @@ describe('StudentDashboardService milestone axes integration', () => {
     await prisma.$disconnect();
   });
 
+  it('projects grace only from unsubmitted required documents and clears it after submission', async () => {
+    const grace = new Date('2026-09-05T00:00:00.000Z');
+    const later = new Date('2026-09-07T00:00:00.000Z');
+    await prisma.milestoneDocument.update({
+      where: { id: REQUIRED_FIRST_A },
+      data: { graceDueAt: grace },
+    });
+    await prisma.milestoneDocument.update({
+      where: { id: OPTIONAL_FIRST },
+      data: { graceDueAt: later },
+    });
+    await setSubmissions(DOCUMENT_APPLICATION, [
+      [REQUIRED_FIRST_B, SubmissionStatus.APPROVED],
+    ]);
+    expect(await nextMilestoneOf(DOCUMENT_APPLICATION)).toMatchObject({
+      dueAt: new Date('2026-09-01T00:00:00.000Z'),
+      lateSubmissionDueAt: grace,
+    });
+    await setSubmissions(DOCUMENT_APPLICATION, [
+      [REQUIRED_FIRST_A, SubmissionStatus.SUBMITTED],
+      [REQUIRED_FIRST_B, SubmissionStatus.APPROVED],
+    ]);
+    expect(await nextMilestoneOf(DOCUMENT_APPLICATION)).toMatchObject({
+      lateSubmissionDueAt: null,
+    });
+    await prisma.milestoneDocument.updateMany({
+      where: { id: { in: [REQUIRED_FIRST_A, OPTIONAL_FIRST] } },
+      data: { graceDueAt: null },
+    });
+  });
+
   it('holds the first milestone until every required document is approved', async () => {
     await setSubmissions(DOCUMENT_APPLICATION, [
       [REQUIRED_FIRST_A, SubmissionStatus.APPROVED],

@@ -43,6 +43,7 @@ import { MilestoneDocumentReviewResponseDto } from '../dto/milestone-document-re
 import { MilestoneDocumentSubmissionResponseDto } from '../dto/milestone-document-submission-response.dto';
 import { ReorderMilestoneDocumentsRequestDto } from '../dto/reorder-milestone-documents-request.dto';
 import { UpsertMilestoneDocumentRequestDto } from '../dto/upsert-milestone-document-request.dto';
+import { UpdateMilestoneDocumentGraceRequestDto } from '../dto/update-milestone-document-grace-request.dto';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -183,6 +184,23 @@ export class MilestoneDocumentsController {
 
     return new StreamableFile(archive.body).setErrorHandler((error) =>
       respondWithArchiveFailure(error, response, { milestoneId, scope }),
+    );
+  }
+
+  @Patch(':documentId/grace')
+  @HttpCode(204)
+  @UseGuards(SessionGuard, OriginGuard)
+  updateGrace(
+    @Req() request: ViewerRequest,
+    @Param('milestoneId') milestoneId: string,
+    @Param('documentId') documentId: string,
+    @Body() body: UpdateMilestoneDocumentGraceRequestDto,
+  ): Promise<void> {
+    return this.service.updateGraceDueAt(
+      request.sessionGithubId,
+      milestoneId,
+      documentId,
+      body.toDate(),
     );
   }
 

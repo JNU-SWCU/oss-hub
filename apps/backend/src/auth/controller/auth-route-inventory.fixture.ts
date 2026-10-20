@@ -183,6 +183,7 @@ export const EXPECTED_AUTH_ROUTE_INVENTORY = [
   'PROTECTED PATCH /api/v1/applications/:id',
   'PROTECTED PATCH /api/v1/milestones/:id',
   'PROTECTED PATCH /api/v1/milestones/:milestoneId/documents/:documentId',
+  'PROTECTED PATCH /api/v1/milestones/:milestoneId/documents/:documentId/grace',
   'PROTECTED PATCH /api/v1/milestones/:milestoneId/documents/order',
   'PROTECTED PATCH /api/v1/programs/:id',
   'PROTECTED PATCH /api/v1/programs/:programId/applications/me',

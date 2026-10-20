@@ -6,6 +6,7 @@ import { StudentDashboardController } from './programs.controller';
 import { StudentDashboardService } from '../service/student-dashboard.service';
 
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
+const GRACE_DUE_AT = new Date('2026-08-03T00:00:00.000Z');
 
 function handler(): (...args: unknown[]) => unknown {
   const method: unknown = Object.getOwnPropertyDescriptor(
@@ -30,6 +31,7 @@ function dashboardItem(
       id: 'milestone-1',
       name: 'Synthetic milestone',
       dueAt: DUE_AT,
+      lateSubmissionDueAt: GRACE_DUE_AT,
       submissionStatus: 'NOT_SUBMITTED' as const,
       requiredItemCount: 2,
       remainingItemCount: 1,
@@ -78,6 +80,7 @@ describe('StudentDashboardController', () => {
       id: 'milestone-1',
       name: 'Synthetic milestone',
       dueAt: DUE_AT.toISOString(),
+      lateSubmissionDueAt: GRACE_DUE_AT.toISOString(),
       submissionStatus: 'NOT_SUBMITTED',
       requiredItemCount: 2,
       remainingItemCount: 1,

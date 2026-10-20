@@ -49,6 +49,7 @@ export const MilestoneDocumentsErrorCode = {
   ZIP_TOO_MANY_ENTRIES: 'MSD_042',
   ZIP_CONTENT_TOO_LARGE: 'MSD_043',
   ZIP_EXPANDS_TOO_MUCH: 'MSD_044',
+  INVALID_GRACE_DUE_AT: 'MSD_045',
 } as const;
 
 export type MilestoneDocumentsErrorCode =
@@ -57,6 +58,11 @@ export type MilestoneDocumentsErrorCode =
 export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
   Record<MilestoneDocumentsErrorCode, ErrorCode>
 > = {
+  [MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT]: {
+    code: MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT,
+    status: 422,
+    message: '유예 기한은 마일스톤 마감보다 뒤여야 합니다.',
+  },
   [MilestoneDocumentsErrorCode.SELF_REVIEW_FORBIDDEN]: {
     code: MilestoneDocumentsErrorCode.SELF_REVIEW_FORBIDDEN,
     status: 403,

@@ -139,6 +139,7 @@ export class MilestoneDocumentFilesService {
 
     const blocked = milestoneDocumentSubmissionBlock({
       dueAt: documentContext.dueAt,
+      graceDueAt: documentContext.graceDueAt,
       now,
       hasSubmission: currentSubmission !== null,
       latestDecision: latestReview?.decision ?? null,

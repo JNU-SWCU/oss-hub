@@ -23,7 +23,8 @@ function canSubmit(milestone: DashboardMilestone, now: Date): boolean {
   if (milestone.submissionStatus === 'CHANGES_REQUESTED') return true;
   return (
     milestone.submissionStatus === 'NOT_SUBMITTED' &&
-    now.getTime() <= Date.parse(milestone.dueAt)
+    now.getTime() <=
+      Date.parse(milestone.lateSubmissionDueAt ?? milestone.dueAt)
   );
 }
 

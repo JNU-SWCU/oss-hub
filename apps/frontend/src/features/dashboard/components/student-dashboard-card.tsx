@@ -262,6 +262,14 @@ export function ActiveProgramCard({
               </span>
             ) : null}
           </p>
+          {milestone.lateSubmissionDueAt &&
+          now.getTime() > Date.parse(milestone.dueAt) &&
+          now.getTime() <= Date.parse(milestone.lateSubmissionDueAt) ? (
+            <p className="text-status-pending-fg">
+              일부 미제출 서류 유예 ·{' '}
+              {formatDashboardDeadlineAbsolute(milestone.lateSubmissionDueAt)}
+            </p>
+          ) : null}
           {progress ? (
             <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2.5">
               <p className="text-muted-foreground">

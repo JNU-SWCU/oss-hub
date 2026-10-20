@@ -8,6 +8,7 @@ interface StudentDashboardMilestoneResponseDto {
   readonly id: string;
   readonly name: string;
   readonly dueAt: string;
+  readonly lateSubmissionDueAt: string | null;
   readonly submissionStatus:
     | 'NOT_SUBMITTED'
     | 'SUBMITTED'
@@ -61,6 +62,8 @@ export class StudentDashboardResponseDto {
             id: item.nextMilestone.id,
             name: item.nextMilestone.name,
             dueAt: item.nextMilestone.dueAt.toISOString(),
+            lateSubmissionDueAt:
+              item.nextMilestone.lateSubmissionDueAt?.toISOString() ?? null,
             submissionStatus: item.nextMilestone.submissionStatus,
             requiredItemCount: item.nextMilestone.requiredItemCount,
             remainingItemCount: item.nextMilestone.remainingItemCount,
