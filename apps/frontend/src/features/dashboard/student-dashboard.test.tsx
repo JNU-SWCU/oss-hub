@@ -418,6 +418,52 @@ describe('StudentDashboardView', () => {
     expect(htmlWithReason).not.toContain(secret);
   });
 });
+describe('StudentDashboardView 알림 상태', () => {
+  it('되돌린 신청은 반려 안내 없이 신청 상태로 연결한다', () => {
+    const html = renderView({
+      applicationDecisionNotices: [
+        {
+          id: 'notice-revert',
+          applicationId: 'application-1',
+          programId: 'program-1',
+          programName: '합성 프로그램',
+          decision: 'SUBMITTED',
+          decidedAt: '2026-08-09T00:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(html).toContain('href="/programs/program-1/apply"');
+    expect(html).toContain('신청 상태 확인');
+    expect(html).not.toContain('반려 사유 확인');
+    expect(html).not.toContain('text-destructive');
+  });
+
+  it('삭제된 팀 알림은 이름과 사유와 날짜를 보이고 프로그램으로 연결한다', () => {
+    const html = renderView({
+      teamDeletionNotices: [
+        {
+          id: 'notice-deleted',
+          teamId: 'deleted-team',
+          teamName: '합성 팀',
+          programId: 'program-1',
+          programName: '합성 프로그램',
+          message: '중복 팀 정리',
+          deletedAt: '2026-08-08T23:00:00.000Z',
+        },
+      ],
+      onReadTeamDeletion: () => undefined,
+    });
+
+    expect(html).toContain('합성 팀');
+    expect(html).toContain('합성 프로그램');
+    expect(html).toContain('중복 팀 정리');
+    expect(html).toContain('2026. 8. 9.');
+    expect(html).toContain('href="/programs/program-1"');
+    expect(html).not.toContain('href="/programs/program-1/teams/deleted-team"');
+  });
+});
+
 describe('StudentDashboardView 프로그램 묶음', () => {
   const soon = active('soon', '2026-07-25T23:59:59+09:00');
   const later = active('later', '2026-08-05T23:59:59+09:00');

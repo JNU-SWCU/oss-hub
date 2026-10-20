@@ -4,6 +4,8 @@ import {
   expectApiStatus,
   expectCleanState,
   parseDeadlinePreview,
+  seoulDeadlineDate,
+  seoulLocalInput,
   toStateCounts,
   writeArtifact,
 } from './support/program-authoring-flow';
@@ -11,6 +13,7 @@ import {
   fixtureProgramId,
   originHeaders,
   resetProgramAuthoringControl,
+  selectScheduleRange,
   submitProgramApplication,
 } from './support/program-authoring-ui';
 
@@ -62,6 +65,193 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
       });
     });
   }
+
+  test('생성 충돌은 기존 요청을 유지하고 추가 생성 없이 기존 프로그램으로 이동한다', async ({
+    authSeedPage,
+    programAuthoringActorPage,
+  }, testInfo) => {
+    test.setTimeout(90_000);
+    const controlPage = await authSeedPage('admin-confirmed');
+    const schedule = await resetProgramAuthoringControl(controlPage);
+    await fixtureProgramId(controlPage);
+    const authoringPath = '/api/v1/program-authoring/programs';
+    const authorPage = await programAuthoringActorPage('staff', {
+      status: 409,
+      pathname: authoringPath,
+    });
+    const recoveryStorageKey = 'oss-hub:program-authoring:recovery-key';
+    const requestKey = 'e2e-authoring-conflict-recovery';
+    const dayMs = 24 * 60 * 60 * 1000;
+    const applicationStart = seoulLocalInput(schedule, -dayMs);
+    const applicationEnd = seoulLocalInput(schedule, 2 * dayMs);
+    const operationEnd = seoulLocalInput(schedule, 10 * dayMs);
+    const milestoneDate = seoulDeadlineDate(new Date(schedule));
+    const toIso = (value: string) =>
+      new Date(`${value}:00+09:00`).toISOString();
+    const original = {
+      name: '합성 생성 복구 프로그램',
+      organizer: '합성 프로그램실',
+      trackType: 'CURRICULAR',
+      applicationStartAt: toIso(applicationStart),
+      applicationEndAt: toIso(applicationEnd),
+      startAt: toIso(applicationStart),
+      endAt: toIso(operationEnd),
+      teamMinSize: 1,
+      teamMaxSize: 1,
+      repositoryProvisioningEnabled: false,
+      notifyOnDeadline: false,
+      description: '같은 요청으로 이미 생성된 프로그램을 확인합니다.',
+      milestones: [
+        {
+          name: '합성 안내 마일스톤',
+          startAt: toIso(`${milestoneDate}T00:00`),
+          dueAt: toIso(`${milestoneDate}T23:59`),
+          instructions: null,
+          documents: [],
+        },
+      ],
+    };
+    const createdResponse = await authorPage.request.post(authoringPath, {
+      headers: { ...originHeaders(), 'Idempotency-Key': requestKey },
+      data: original,
+    });
+    await expectApiStatus(createdResponse, 201);
+    const created: unknown = await createdResponse.json();
+    if (
+      typeof created !== 'object' ||
+      created === null ||
+      !('id' in created) ||
+      typeof created.id !== 'string'
+    ) {
+      throw new Error('Created program must have an ID.');
+    }
+    const existingProgramId = created.id;
+    await authorPage.goto('/programs');
+    await authorPage.evaluate(
+      ({ key, value }) => sessionStorage.setItem(key, value),
+      { key: recoveryStorageKey, value: requestKey },
+    );
+    const browserPosts: string[] = [];
+    authorPage.on('request', (request) => {
+      if (
+        new URL(request.url()).pathname === authoringPath &&
+        request.method() === 'POST'
+      ) {
+        browserPosts.push(request.headers()['idempotency-key'] ?? '');
+      }
+    });
+    await authorPage.goto('/programs/new');
+    await authorPage.getByLabel('프로그램명 *').fill(original.name);
+    await authorPage.getByLabel('주관기관/학과 *').fill(original.organizer);
+    await authorPage
+      .getByLabel('교과/비교과 *')
+      .selectOption('EXTRACURRICULAR');
+    await authorPage.getByLabel('소개/설명 *').fill(original.description);
+    await authorPage.getByRole('button', { name: '계속' }).click();
+    await selectScheduleRange(authorPage, {
+      rangeLabel: '신청 기간',
+      startAt: applicationStart,
+      endAt: applicationEnd,
+    });
+    await selectScheduleRange(authorPage, {
+      rangeLabel: '운영 기간',
+      startAt: applicationStart,
+      endAt: operationEnd,
+    });
+    await authorPage.getByRole('button', { name: '계속' }).click();
+    await authorPage.getByRole('button', { name: '마일스톤 추가' }).click();
+    const milestoneDialog = authorPage.getByRole('dialog');
+    await milestoneDialog.getByLabel('시작일').fill(milestoneDate);
+    await milestoneDialog.getByLabel('마감일').fill(milestoneDate);
+    await milestoneDialog
+      .getByLabel('마일스톤 이름 *')
+      .fill(original.milestones[0].name);
+    await milestoneDialog.getByRole('button', { name: '저장' }).click();
+    await authorPage.getByRole('button', { name: '계속' }).click();
+    await authorPage.getByLabel('제출 마감 알림').uncheck();
+    await authorPage.getByRole('button', { name: '계속' }).click();
+    await authorPage.getByRole('button', { name: '프로그램 만들기' }).click();
+    const [conflictResponse] = await Promise.all([
+      authorPage.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === authoringPath &&
+          response.request().method() === 'POST',
+      ),
+      authorPage.getByRole('button', { name: '생성 확정' }).click(),
+    ]);
+    expect(conflictResponse.request().postDataJSON()).toEqual({
+      ...original,
+      trackType: 'EXTRACURRICULAR',
+    });
+    expect(conflictResponse.status()).toBe(409);
+    expect(await conflictResponse.json()).toMatchObject({
+      code: 'PRG_017',
+      existingProgramId,
+    });
+    const recoveryAction = authorPage.getByRole('button', {
+      name: '기존 프로그램 확인',
+      exact: true,
+    });
+    await expect(recoveryAction).toBeVisible();
+    await expect(authorPage.getByRole('main').getByRole('alert')).toContainText(
+      '작성 내용은 유지됩니다',
+    );
+    expect(
+      await authorPage.evaluate(
+        (key) => sessionStorage.getItem(key),
+        recoveryStorageKey,
+      ),
+    ).toBe(requestKey);
+    const viewports = [
+      { name: 'desktop', width: 1440, height: 900 },
+      { name: 'mobile', width: 390, height: 844 },
+    ];
+    for (const viewport of viewports) {
+      await authorPage.setViewportSize({
+        width: viewport.width,
+        height: viewport.height,
+      });
+      await recoveryAction.scrollIntoViewIfNeeded();
+      await expect(recoveryAction).toBeInViewport();
+      expect(
+        await authorPage.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
+      await authorPage.screenshot({
+        path: testInfo.outputPath(`authoring-recovery-${viewport.name}.png`),
+      });
+    }
+    expect(browserPosts).toEqual([requestKey]);
+    await recoveryAction.click();
+    await expect(authorPage).toHaveURL(`/programs/${existingProgramId}`);
+    await expect(
+      authorPage.getByRole('heading', { name: original.name }),
+    ).toBeVisible();
+    expect(browserPosts).toEqual([requestKey]);
+    expect(
+      await authorPage.evaluate(
+        (key) => sessionStorage.getItem(key),
+        recoveryStorageKey,
+      ),
+    ).toBeNull();
+    const existingResponse = await authorPage.request.get(
+      `/api/v1/programs/${existingProgramId}`,
+    );
+    await expectApiStatus(existingResponse, 200);
+    expect(await existingResponse.json()).toMatchObject({
+      trackType: 'CURRICULAR',
+    });
+    await writeArtifact('authoring-recovery/conditions.json', {
+      tool: 'Playwright Chrome',
+      source:
+        'Real isolated API and PostgreSQL with synthetic users and program; no HTTP route mocks',
+      conflict: { status: 409, code: 'PRG_017', changedField: 'trackType' },
+      existingProgramId,
+      browserAuthoringPosts: browserPosts.length,
+      viewports,
+    });
+  });
 
   test('반려 안내는 취소와 저장 실패를 보존하고 실제 재승인으로 복구된다', async ({
     authSeedPage,

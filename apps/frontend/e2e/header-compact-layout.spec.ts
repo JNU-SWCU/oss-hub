@@ -29,6 +29,9 @@ for (const multipleAuthorities of [false, true]) {
         ) => {
           await fulfillJson(route, []);
         },
+        'GET /api/v1/users/me/notifications/team-deletions': async (route) => {
+          await fulfillJson(route, []);
+        },
         'GET /api/v1/team-invitations/received': async (route) => {
           await fulfillJson(route, []);
         },

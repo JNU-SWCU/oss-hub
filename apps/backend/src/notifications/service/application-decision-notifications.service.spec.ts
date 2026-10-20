@@ -3,7 +3,11 @@ import { ApplicationDecisionNotificationsService } from './application-decision-
 import type { ApplicationDecisionNotificationsRepositoryPort } from '../repository/application-decision-notifications.repository';
 
 describe('ApplicationDecisionNotificationsService', () => {
-  it('returns only well-formed unread application decisions', async () => {
+  it.each([
+    ApplicationStatus.APPROVED,
+    ApplicationStatus.REJECTED,
+    ApplicationStatus.SUBMITTED,
+  ])('returns well-formed unread %s decisions', async (decision) => {
     const repository: ApplicationDecisionNotificationsRepositoryPort = {
       listUnread: jest.fn().mockResolvedValue([
         {
@@ -14,7 +18,7 @@ describe('ApplicationDecisionNotificationsService', () => {
             applicationId: 'application-1',
             programId: 'program-1',
             programName: '합성 프로그램',
-            decision: ApplicationStatus.APPROVED,
+            decision,
             decidedAt: '2026-08-08T23:59:00.000Z',
           },
         },
@@ -24,6 +28,8 @@ describe('ApplicationDecisionNotificationsService', () => {
           payload: { decision: 'APPROVED' },
         },
       ]),
+      listUnreadTeamDeletions: jest.fn(),
+      markTeamDeletionRead: jest.fn(),
       markRead: jest.fn(),
     };
     const service = new ApplicationDecisionNotificationsService(repository);
@@ -34,7 +40,7 @@ describe('ApplicationDecisionNotificationsService', () => {
         applicationId: 'application-1',
         programId: 'program-1',
         programName: '합성 프로그램',
-        decision: ApplicationStatus.APPROVED,
+        decision,
         decidedAt: new Date('2026-08-08T23:59:00.000Z'),
       },
     ]);
@@ -44,6 +50,8 @@ describe('ApplicationDecisionNotificationsService', () => {
     const markRead = jest.fn().mockResolvedValue(undefined);
     const service = new ApplicationDecisionNotificationsService({
       listUnread: jest.fn(),
+      listUnreadTeamDeletions: jest.fn(),
+      markTeamDeletionRead: jest.fn(),
       markRead,
     });
 
