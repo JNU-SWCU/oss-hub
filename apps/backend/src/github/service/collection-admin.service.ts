@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { CollectionSweepRunner } from './collection-sweep-runner';
 import {
@@ -29,12 +29,21 @@ export class CollectionAdminService {
   private readonly sweeps: CollectionSweepRunner;
 
   constructor(
-    sync: CollectionSyncService,
-    private readonly cutover: CollectionCutoverRepository,
-    private readonly incrementalRepository: CollectionIncrementalRepository,
-    private readonly auditLog: AuditLogService,
-    private readonly invariants: ContributionInvariants,
-    userActivity: CollectionUserActivityService,
+    @Inject(CollectionSyncService)
+    sync: Pick<CollectionSyncService, 'run' | 'runExternal'>,
+    @Inject(CollectionCutoverRepository)
+    private readonly cutover: Pick<CollectionCutoverRepository, 'isQuiesced'>,
+    @Inject(CollectionIncrementalRepository)
+    private readonly incrementalRepository: Pick<
+      CollectionIncrementalRepository,
+      'listSyncRuns'
+    >,
+    @Inject(AuditLogService)
+    private readonly auditLog: Pick<AuditLogService, 'record'>,
+    @Inject(ContributionInvariants)
+    private readonly invariants: Pick<ContributionInvariants, 'check'>,
+    @Inject(CollectionUserActivityService)
+    userActivity: Pick<CollectionUserActivityService, 'run'>,
     private readonly authority: UsersAuthorityService,
   ) {
     this.sweeps = new CollectionSweepRunner(
