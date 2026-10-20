@@ -10,7 +10,6 @@ import { sessionCookieName } from '../../auth/domain/cookies';
 import { issueSessionToken } from '../../auth/domain/session-token';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { TeamsErrorCode } from '../domain/teams-error-code.enum';
 import { ProgramTeamsController } from './program-teams.controller';
@@ -25,7 +24,6 @@ const allowedOrigin = 'http://frontend.test';
 const sessionSecret = new Uint8Array(32).fill(7);
 const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
-const JOIN_CODE_SECRET = 'synthetic-staff-detail-secret';
 const DETAIL_INSTANCE = `/api/v1/programs/${PROGRAM_ID}/teams/${TEAM_ID}`;
 
 const DELETION_SCOPE = {
@@ -61,7 +59,6 @@ const findUnique = jest.fn();
 
 const service = new ProgramTeamsService(
   { findStaffTeamDetail } as unknown as ProgramTeamsRepository,
-  loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
   { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository({ readScopeCounts }),
   new UsersAuthorityService({ findActorByGithubId: findUnique }),

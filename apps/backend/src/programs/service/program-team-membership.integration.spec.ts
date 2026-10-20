@@ -13,7 +13,6 @@ import { TEAM_MEMBERSHIP_AUDIT_ACTIONS } from '../../audit-log/domain/audit-log-
 import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
 import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { TeamInvitationsRepository } from '../../team-invitations/repository/team-invitations.repository';
 import { canonicalUserCreateFromLabel } from '../../users/repository/canonical-user-fixture';
 import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
@@ -68,9 +67,6 @@ const repository = new ProgramTeamsRepository(prisma);
 const auditLog = new AuditLogService(new AuditLogRepository(prisma));
 const service = new ProgramTeamsService(
   repository,
-  loadRuntimeConfig({
-    TEAM_JOIN_CODE_SECRET: `${TEST_PREFIX}join-code-secret`,
-  }),
   auditLog,
   new ProgramTeamDeletionRepository(prisma),
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),
