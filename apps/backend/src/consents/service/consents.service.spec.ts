@@ -99,6 +99,52 @@ describe('ConsentsService.getCurrent', () => {
     expect(status.consented).toBe(true);
   });
 
+  it('08/11 동의자는 새 문서를 안내받되 다시 동의하거나 기록을 바꾸지 않는다', async () => {
+    const { service, createConsent } = buildService({
+      findConsent: jest.fn((_userId: string, policyVersion: string) =>
+        Promise.resolve(
+          policyVersion === '2026-08-11'
+            ? { ...syntheticConsent, policyVersion }
+            : null,
+        ),
+      ),
+    });
+
+    const status = await service.getCurrent(syntheticGithubId);
+
+    expect(status.consented).toBe(true);
+    expect(status.policy.policyVersion).toBe('2026-10-19');
+    await expect(service.requireCurrent(syntheticGithubId)).resolves.toBe(
+      undefined,
+    );
+    expect(createConsent).not.toHaveBeenCalled();
+  });
+
+  it.each(['2026-07-21', '2026-08-04'])(
+    '%s 동의만으로는 현재 동의 요건을 충족하지 않는다',
+    async (previousVersion) => {
+      const { service, createConsent } = buildService({
+        findConsent: jest.fn((_userId: string, policyVersion: string) =>
+          Promise.resolve(
+            policyVersion === previousVersion
+              ? { ...syntheticConsent, policyVersion }
+              : null,
+          ),
+        ),
+      });
+
+      expect((await service.getCurrent(syntheticGithubId)).consented).toBe(
+        false,
+      );
+      await expect(
+        service.requireCurrent(syntheticGithubId),
+      ).rejects.toMatchObject({
+        errorCode: { code: ConsentErrorCode.REQUIRED_CONSENT_MISSING },
+      });
+      expect(createConsent).not.toHaveBeenCalled();
+    },
+  );
+
   it('세션 githubId의 사용자 행이 없으면 401 CON_001을 던진다', async () => {
     const { service } = buildService({
       findUserByGithubId: jest.fn().mockResolvedValue(null),
@@ -155,6 +201,20 @@ describe('ConsentsService.requireCurrent', () => {
 });
 
 describe('ConsentsService.accept', () => {
+  it('새 동의는 08/11 버전으로 제출할 수 없다', async () => {
+    const { service, createConsent } = buildService();
+
+    await expect(
+      service.accept(syntheticGithubId, {
+        policyVersion: '2026-08-11',
+        acceptedItems: allRequiredKeys,
+      }),
+    ).rejects.toMatchObject({
+      errorCode: { code: ConsentErrorCode.POLICY_VERSION_STALE },
+    });
+    expect(createConsent).not.toHaveBeenCalled();
+  });
+
   it('현행 버전 + 필수 항목 전체 동의는 레코드를 만들고 nextUrl을 돌려준다', async () => {
     const { service, createConsent } = buildService();
 
