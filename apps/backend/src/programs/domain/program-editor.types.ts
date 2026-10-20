@@ -163,6 +163,11 @@ export type ProgramMilestoneUpdateInput = ProgramMilestoneInput & {
 };
 
 export interface ProgramEditorTransactionStore {
+  findLatestDocumentGraceDueAt(programId: string): Promise<Date | null>;
+  findEarliestDocumentGraceDueAt(
+    milestoneId: string,
+    excludedDocumentIds?: readonly string[],
+  ): Promise<Date | null>;
   findUserAuthorityByGithubId(
     githubId: bigint,
   ): Promise<ProgramAuthority | null>;

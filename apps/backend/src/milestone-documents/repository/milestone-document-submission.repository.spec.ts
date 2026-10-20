@@ -51,6 +51,8 @@ function buildHarness(
     attachedCount?: number;
 
     member?: boolean;
+    graceDueAt?: Date | null;
+    currentStatus?: SubmissionStatus | null;
   }> = {},
 ): Harness {
   const revision = options.revision ?? 1;
@@ -67,7 +69,9 @@ function buildHarness(
     order.push(`lock:${table}`);
     if (table === 'Milestone') return Promise.resolve([{ dueAt: NOW }]);
     if (table === 'MilestoneDocument')
-      return Promise.resolve([{ id: DOCUMENT_ID }]);
+      return Promise.resolve([
+        { id: DOCUMENT_ID, graceDueAt: options.graceDueAt ?? null },
+      ]);
     throw new Error(`예상하지 못한 잠금 대상: ${table}`);
   });
 
@@ -81,7 +85,13 @@ function buildHarness(
   });
   const submissionFindUnique = jest.fn(() => {
     order.push('read:currentSubmission');
-    return Promise.resolve({ status: SubmissionStatus.CHANGES_REQUESTED });
+    return Promise.resolve(
+      options.currentStatus === null
+        ? null
+        : {
+            status: options.currentStatus ?? SubmissionStatus.CHANGES_REQUESTED,
+          },
+    );
   });
   const upsert = jest.fn((args: { update: { submittedById: string } }) => {
     order.push('write:submission');
@@ -290,4 +300,49 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
       }),
     );
   });
+});
+
+describe('atomic document grace admission', () => {
+  it.each([null, SubmissionStatus.SUBMITTED])(
+    '현재 잠긴 유예 시각에 첫 제출/교체를 허용한다: %s',
+    async (currentStatus) => {
+      const harness = buildHarness({
+        graceDueAt: AFTER_DEADLINE,
+        currentStatus,
+      });
+      await upsertMilestoneDocumentSubmission(
+        harness.prisma,
+        textInput({
+          submittedAt: AFTER_DEADLINE,
+          deadline: {
+            milestoneId: MILESTONE_ID,
+            allowAfterDeadline: false,
+            expectedSubmissionStatus: currentStatus,
+          },
+        }),
+      );
+      expect(harness.upsert).toHaveBeenCalledTimes(1);
+    },
+  );
+  it.each([null, NOW])(
+    '유예가 제거/단축되었으면 쓰기 전에 막는다: %s',
+    async (graceDueAt) => {
+      const harness = buildHarness({ graceDueAt, currentStatus: null });
+      await expect(
+        upsertMilestoneDocumentSubmission(
+          harness.prisma,
+          textInput({
+            submittedAt: AFTER_DEADLINE,
+            deadline: {
+              milestoneId: MILESTONE_ID,
+              allowAfterDeadline: false,
+              expectedSubmissionStatus: null,
+            },
+          }),
+        ),
+      ).rejects.toHaveProperty('name', 'MilestoneDocumentDeadlineClosedError');
+      expect(harness.order).toContain('lock:MilestoneDocument');
+      expect(harness.upsert).not.toHaveBeenCalled();
+    },
+  );
 });

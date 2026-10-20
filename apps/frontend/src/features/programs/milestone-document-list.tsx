@@ -45,6 +45,7 @@ import {
 } from './milestone-document-review';
 import {
   formatSeoulDate,
+  isPastDue,
   formatSeoulShortDateTime,
 } from './program-detail-format';
 import { MilestoneDocumentHistoryTimeline } from './milestone-document-history-timeline';
@@ -52,6 +53,7 @@ import { MilestoneDocumentResubmissionDialog } from './milestone-document-resubm
 import { MilestoneDocumentSubmissionForm } from './milestone-document-submission-form';
 import { isMilestoneDocumentArchiveErrorCode } from './milestone-document-upload-policy';
 import type { ViewerRole } from './types';
+import { MilestoneDocumentGraceEditor } from './milestone-document-grace-editor';
 
 export type MilestoneDocumentSectionState =
   | { readonly kind: 'loading' }
@@ -86,6 +88,7 @@ export function MilestoneDocumentSectionBody({
   state,
   viewerRole,
   closed,
+  dueAt,
   submissionAccess,
   conflictNotice,
   onRetry,
@@ -95,6 +98,7 @@ export function MilestoneDocumentSectionBody({
   readonly state: MilestoneDocumentSectionState;
   readonly viewerRole: 'STUDENT' | 'STAFF' | 'ADMIN';
   readonly closed: boolean;
+  readonly dueAt?: string;
 
   readonly submissionAccess: MilestoneSubmissionAccess;
 
@@ -148,13 +152,18 @@ export function MilestoneDocumentSectionBody({
       <ul className="grid gap-3" data-testid="milestone-document-rows">
         {state.documents.map((document) =>
           staff ? (
-            <StaffDocumentRow key={document.id} document={document} />
+            <StaffDocumentRow
+              key={document.id}
+              document={document}
+              onRefresh={onRefresh}
+            />
           ) : (
             <StudentDocumentRow
               key={document.id}
               document={document}
               fileUpload={state.fileUpload}
               closed={closed}
+              dueAt={dueAt}
               submissionAccess={submissionAccess}
               onRefresh={onRefresh}
               onSubmitConflict={onSubmitConflict}
@@ -170,11 +179,13 @@ export function MilestoneDocumentSection({
   milestoneId,
   viewerRole,
   closed,
+  dueAt,
   submissionAccess,
 }: {
   readonly milestoneId: string;
   readonly viewerRole: ViewerRole;
   readonly closed: boolean;
+  readonly dueAt?: string;
 
   readonly submissionAccess: MilestoneSubmissionAccess;
 }) {
@@ -220,6 +231,7 @@ export function MilestoneDocumentSection({
       state={state}
       viewerRole={viewerRole}
       closed={closed}
+      dueAt={dueAt}
       submissionAccess={submissionAccess}
       conflictNotice={conflictNotice}
       onRetry={() => {
@@ -273,8 +285,10 @@ function submitErrorMessage(error: unknown, fallback: string): string {
 
 function StaffDocumentRow({
   document,
+  onRefresh,
 }: {
   readonly document: MilestoneDocument;
+  readonly onRefresh: () => Promise<boolean>;
 }) {
   return (
     <li className="grid gap-1" data-testid="milestone-document-row">
@@ -302,6 +316,11 @@ function StaffDocumentRow({
           </Button>
         ) : null}
       </div>
+      <MilestoneDocumentGraceEditor
+        key={document.graceDueAt ?? 'no-grace'}
+        document={document}
+        onRefresh={onRefresh}
+      />
     </li>
   );
 }
@@ -391,6 +410,7 @@ function StudentDocumentRow({
   document,
   fileUpload,
   closed,
+  dueAt,
   submissionAccess,
   onRefresh,
   onSubmitConflict,
@@ -398,6 +418,7 @@ function StudentDocumentRow({
   readonly document: MilestoneDocument;
   readonly fileUpload: MilestoneDocumentUploadPolicy;
   readonly closed: boolean;
+  readonly dueAt?: string;
   readonly submissionAccess: MilestoneSubmissionAccess;
   readonly onRefresh: () => Promise<boolean>;
   readonly onSubmitConflict: (document: MilestoneDocument) => void;
@@ -444,16 +465,18 @@ function StudentDocumentRow({
       ? null
       : milestoneDocumentReviewNoticeTone(display, review.comment);
 
+  const [now, setNow] = useState(() => Date.now());
+  const deadlineClosed = dueAt === undefined ? closed : isPastDue(dueAt, now);
   const gate = milestoneDocumentSubmitGate({
     submissionAccess,
     viewerSubmission,
-    closed,
+    closed: deadlineClosed,
+    graceDueAt: document.graceDueAt,
+    now,
   });
 
-  const [now, setNow] = useState(() => Date.now());
-
   const resubmissionIsFinal = isMilestoneDocumentResubmissionFinal(
-    closed,
+    deadlineClosed,
     viewerSubmission,
   );
 
@@ -468,6 +491,19 @@ function StudentDocumentRow({
     viewerSubmission,
     now,
   );
+  const nextDeadline = Math.min(
+    ...[dueAt, document.graceDueAt]
+      .map((value) => (value == null ? Number.NaN : Date.parse(value)))
+      .filter((time) => time >= now),
+  );
+  useEffect(() => {
+    if (!Number.isFinite(nextDeadline)) return;
+    const timer = setTimeout(
+      () => setNow(Date.now()),
+      Math.min(Math.max(nextDeadline - Date.now() + 1, 0), 2_147_483_647),
+    );
+    return () => clearTimeout(timer);
+  }, [nextDeadline, now]);
   useEffect(() => {
     if (dueTickDelay === null) return;
     const timer = setTimeout(() => setNow(Date.now()), dueTickDelay);
@@ -693,6 +729,15 @@ function StudentDocumentRow({
           </Button>
         )}
       </div>
+      {viewerSubmission?.submittedLate === true ? (
+        <p className="text-small text-warning">지각 제출</p>
+      ) : null}
+      {document.graceDueAt != null && review === null ? (
+        <p className="text-small text-muted-foreground">
+          유예 기한: {formatSeoulShortDateTime(document.graceDueAt)} (한국
+          시간). 원래 마감 뒤 제출은 지각으로 표시됩니다.
+        </p>
+      ) : null}
       {review === null || reviewNoticeTone === null ? null : (
         <StudentReviewNotice
           display={display}
@@ -763,7 +808,7 @@ function StudentDocumentRow({
           )}
         </div>
       )}
-      {gate.kind !== 'settled' &&
+      {gate.kind === 'open' &&
       submissionAccess.kind !== 'blocked' &&
       syncNotice === null &&
       editing ? (

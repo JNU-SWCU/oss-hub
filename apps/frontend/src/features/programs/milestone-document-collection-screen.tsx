@@ -5,6 +5,7 @@ import { ApiError } from '@/lib/api-client';
 import {
   milestoneDocumentCollectionDataFor,
   milestoneDocumentCollectionLoadPhase,
+  selectCollectionDocument,
   type LoadedMilestoneDocumentCollection,
 } from './milestone-document-collection';
 import {
@@ -289,13 +290,7 @@ export function MilestoneDocumentCollectionScreen({
         historyRequestIdRef.current += 1;
         setReview(null);
         setReviewNotice(null);
-        setQuery((previous) => ({
-          page: 1,
-          pageSize: previous.pageSize,
-          filter:
-            document?.id === previous.document?.id ? previous.filter : 'ALL',
-          ...(document === null ? {} : { document }),
-        }));
+        setQuery((previous) => selectCollectionDocument(previous, document));
       }}
       loadPhase={milestoneDocumentCollectionLoadPhase({ data, isLoading })}
       errorMessage={errorMessage}

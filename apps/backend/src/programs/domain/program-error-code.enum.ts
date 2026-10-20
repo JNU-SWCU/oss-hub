@@ -20,7 +20,7 @@ export enum ProgramErrorCode {
 export const PROGRAM_ERROR_CODES: Record<ProgramErrorCode, ErrorCode> = {
   [ProgramErrorCode.AUTHORING_REQUEST_CONFLICT]: {
     code: ProgramErrorCode.AUTHORING_REQUEST_CONFLICT,
-    status: 409,
+    status: 422,
     message:
       '이전 생성 요청의 원래 내용을 확인할 수 없거나 입력이 다릅니다. 이미 생성된 프로그램을 먼저 확인해 주세요.',
   },

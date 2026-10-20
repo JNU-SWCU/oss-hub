@@ -95,19 +95,31 @@ export function upsertMilestoneDocumentSubmission(
       const dueAt = milestone[0]?.dueAt;
       afterDeadline =
         dueAt !== undefined && input.submittedAt.getTime() > dueAt.getTime();
-      if (afterDeadline && !input.deadline.allowAfterDeadline) {
-        throw new MilestoneDocumentDeadlineClosedError();
-      }
     }
-    const documents = await transaction.$queryRaw<readonly { id: string }[]>(
+    const documents = await transaction.$queryRaw<
+      readonly { id: string; graceDueAt: Date | null }[]
+    >(
       Prisma.sql`
-      SELECT "id"
+      SELECT "id", "graceDueAt"
       FROM "MilestoneDocument"
       WHERE "id" = ${input.milestoneDocumentId}
       FOR UPDATE
     `,
     );
-    if (documents.length === 0) throw new MilestoneDocumentMissingError();
+    const document = documents[0];
+    if (document === undefined) throw new MilestoneDocumentMissingError();
+    if (
+      afterDeadline &&
+      input.deadline !== undefined &&
+      !input.deadline.allowAfterDeadline &&
+      !(
+        input.expectedLatestReviewId === null &&
+        document.graceDueAt != null &&
+        input.submittedAt.getTime() <= document.graceDueAt.getTime()
+      )
+    ) {
+      throw new MilestoneDocumentDeadlineClosedError();
+    }
     const latestHistory =
       await transaction.milestoneDocumentSubmissionHistory.findFirst({
         where: {

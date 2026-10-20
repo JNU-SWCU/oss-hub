@@ -11,6 +11,33 @@ import {
 } from '../../../test/program-editor-service-fixtures';
 
 describe('ProgramEditorService update validation', () => {
+  it.each([
+    ['2027-08-29T23:59:59.999Z', true],
+    ['2027-08-30T00:00:00.000Z', false],
+    ['2027-08-30T00:00:00.001Z', false],
+  ] as const)(
+    'checks existing grace %s when shortening program end',
+    async (iso, accepted) => {
+      const { service, store } = createProgramEditorServiceHarness();
+      store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
+      store.findLatestDocumentGraceDueAt.mockResolvedValue(new Date(iso));
+      const update = service.updateProgram(101n, 'program-1', {
+        ...updateInput,
+        endAt: '2026-08-30T00:00:00.000Z',
+      });
+      if (accepted) await expect(update).resolves.toBeUndefined();
+      else {
+        await expect(update).rejects.toMatchObject({
+          errorCode: { code: ProgramErrorCode.VALIDATION_ERROR },
+          extensions: {
+            fieldErrors: [expect.objectContaining({ field: 'endAt' })],
+          },
+        });
+        expect(store.updateProgram.mock.calls).toHaveLength(0);
+      }
+    },
+  );
+
   it('요청이 팀 인원을 생략하면 지금 저장된 값을 그대로 둔다', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     const stored = { ...editableProgram, teamMinSize: 3, teamMaxSize: 5 };

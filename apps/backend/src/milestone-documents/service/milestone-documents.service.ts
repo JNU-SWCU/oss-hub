@@ -1,3 +1,4 @@
+import { addOneCalendarYear } from '../../common/domain/add-one-calendar-year';
 import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
@@ -113,6 +114,9 @@ export class MilestoneDocumentsService {
             viewerSubmission: {
               submitted: summary !== null,
               submittedAt: summary?.submittedAt.toISOString() ?? null,
+              submittedLate:
+                summary !== null &&
+                summary.submittedAt.getTime() > milestone.dueAt.getTime(),
               revision: summary?.revision ?? null,
               status: summary?.status ?? null,
               hasCurrentFile: summary?.hasCurrentFile ?? false,
@@ -323,6 +327,34 @@ export class MilestoneDocumentsService {
     return MilestoneDocumentResponseDto.from(record);
   }
 
+  async updateGraceDueAt(
+    sessionGithubId: bigint,
+    milestoneId: string,
+    documentId: string,
+    graceDueAt: Date | null,
+  ): Promise<void> {
+    await this.authority.assertActiveStaff(sessionGithubId, () =>
+      this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
+    );
+    await this.repository.withTransaction(async (store) => {
+      const milestone = await store.lockMilestoneForGrace(milestoneId);
+      if (milestone === null)
+        throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
+      const document = await store.lockDocument(documentId);
+      if (document === null || document.milestoneId !== milestoneId)
+        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      if (
+        graceDueAt !== null &&
+        (!Number.isFinite(graceDueAt.getTime()) ||
+          graceDueAt.getTime() <= milestone.dueAt.getTime() ||
+          graceDueAt.getTime() >=
+            addOneCalendarYear(milestone.programEndAt).getTime())
+      )
+        throw this.error(MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT);
+      await store.updateGraceDueAt(documentId, graceDueAt);
+    });
+  }
+
   async reorderDocuments(
     sessionGithubId: bigint,
     milestoneId: string,
@@ -425,6 +457,7 @@ export class MilestoneDocumentsService {
     const submissionStatus = currentSubmission?.status ?? null;
     const blocked = milestoneDocumentSubmissionBlock({
       dueAt: documentContext.dueAt,
+      graceDueAt: documentContext.graceDueAt,
       now,
       hasSubmission: currentSubmission !== null,
       latestDecision,

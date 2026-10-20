@@ -213,6 +213,21 @@ export class ProgramEditorService {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
         });
       }
+      if (liveFileExpiresAt !== null) {
+        const latestGrace = await store.findLatestDocumentGraceDueAt(programId);
+        if (latestGrace !== null && latestGrace >= liveFileExpiresAt) {
+          this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+            fieldErrors: [
+              {
+                field: 'endAt',
+                code: 'INVALID_PROGRAM_END',
+                message:
+                  '프로그램 종료일을 변경하려면 서류 유예 기한이 파일 보관 만료 시각보다 앞이어야 합니다. 유예 기한을 먼저 변경해 주세요.',
+              },
+            ],
+          });
+        }
+      }
       if (
         input.repositoryProvisioningEnabled &&
         existing.milestones.length === 0
@@ -299,15 +314,16 @@ export class ProgramEditorService {
       await this.requireEditor(store, githubId);
       const milestone = await store.findMilestoneForUpdate(milestoneId);
       if (milestone === null) this.fail(ProgramErrorCode.MILESTONE_NOT_FOUND);
-      return store.updateMilestone({
-        milestoneId,
-        ...this.milestoneData(
-          input,
-          milestone.programStartAt,
-          milestone.endAt,
-          milestone.submissionType,
-        ),
-      });
+      const metadata = this.milestoneData(
+        input,
+        milestone.programStartAt,
+        milestone.endAt,
+        milestone.submissionType,
+      );
+      const earliestGraceDueAt =
+        await store.findEarliestDocumentGraceDueAt(milestoneId);
+      this.assertDueBeforeDocumentGrace(metadata.dueAt, earliestGraceDueAt);
+      return store.updateMilestone({ milestoneId, ...metadata });
     });
   }
 
@@ -383,6 +399,11 @@ export class ProgramEditorService {
         locked.view.operation.endAt,
         locked.view.milestone.submissionType,
       );
+      const earliestGraceDueAt = await store.findEarliestDocumentGraceDueAt(
+        milestoneId,
+        deletedIds,
+      );
+      this.assertDueBeforeDocumentGrace(metadata.dueAt, earliestGraceDueAt);
       const tokenIds = input.documents.flatMap((document) =>
         document.templateUploadId === undefined
           ? []
@@ -427,6 +448,27 @@ export class ProgramEditorService {
       }
       await store.deleteMilestone(milestoneId);
     });
+  }
+
+  private assertDueBeforeDocumentGrace(
+    dueAt: Date,
+    earliestGraceDueAt: Date | null,
+  ): void {
+    if (
+      earliestGraceDueAt !== null &&
+      dueAt.getTime() >= earliestGraceDueAt.getTime()
+    ) {
+      this.fail(ProgramErrorCode.VALIDATION_ERROR, {
+        fieldErrors: [
+          {
+            field: 'dueAt',
+            code: 'DOCUMENT_GRACE_DUE_AT_CONFLICT',
+            message:
+              '마감은 서류 유예 기한보다 앞이어야 합니다. 서류 유예 기한을 먼저 변경하거나 해제해 주세요.',
+          },
+        ],
+      });
+    }
   }
 
   private snapshotMilestoneEdit(

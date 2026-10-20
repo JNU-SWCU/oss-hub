@@ -198,6 +198,29 @@ class PrismaProgramEditorStore implements ProgramEditorTransactionStore {
     };
   }
 
+  async findLatestDocumentGraceDueAt(programId: string): Promise<Date | null> {
+    const result = await this.transaction.milestoneDocument.aggregate({
+      where: { milestone: { programId }, kind: MilestoneDocumentKind.DOCUMENT },
+      _max: { graceDueAt: true },
+    });
+    return result._max.graceDueAt;
+  }
+
+  async findEarliestDocumentGraceDueAt(
+    milestoneId: string,
+    excludedDocumentIds: readonly string[] = [],
+  ): Promise<Date | null> {
+    const result = await this.transaction.milestoneDocument.aggregate({
+      where: {
+        milestoneId,
+        kind: MilestoneDocumentKind.DOCUMENT,
+        id: { notIn: [...excludedDocumentIds] },
+      },
+      _min: { graceDueAt: true },
+    });
+    return result._min.graceDueAt;
+  }
+
   async updateMilestone(
     input: ProgramMilestoneUpdateInput,
   ): Promise<ProgramMilestoneView> {

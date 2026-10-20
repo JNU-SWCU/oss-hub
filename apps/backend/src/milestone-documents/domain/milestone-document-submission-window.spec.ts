@@ -330,3 +330,75 @@ describe('isChangeRequestResubmissionOpen', () => {
     }
   });
 });
+
+describe('document grace window', () => {
+  const graceDueAt = new Date('2026-09-20T00:00:00+09:00');
+  const base = {
+    dueAt,
+    graceDueAt,
+    hasSubmission: false,
+    latestDecision: null,
+    submissionStatus: null,
+    resubmissionDueAt: null,
+  };
+
+  it.each([false, true])(
+    '유예 기한까지 첫 제출/교체를 허용한다: %s',
+    (hasSubmission) => {
+      const input = {
+        ...base,
+        hasSubmission,
+        submissionStatus: hasSubmission ? SubmissionStatus.SUBMITTED : null,
+        now: graceDueAt,
+      };
+      expect(milestoneDocumentSubmissionBlock(input)).toBeNull();
+    },
+  );
+
+  it('유예 기한 1ms 뒤에는 다시 마감한다', () => {
+    const input = { ...base, now: new Date(graceDueAt.getTime() + 1) };
+    expect(milestoneDocumentSubmissionBlock(input)).toBe('MILESTONE_CLOSED');
+  });
+
+  it.each([ReviewDecision.APPROVED, ReviewDecision.REJECTED])(
+    '유예가 확정 검토를 우회하지 않는다: %s',
+    (latestDecision) => {
+      const input = {
+        ...base,
+        now: afterDeadline,
+        hasSubmission: true,
+        latestDecision,
+      };
+      expect(milestoneDocumentSubmissionBlock(input)).toBe(
+        'RESUBMISSION_NOT_ALLOWED',
+      );
+    },
+  );
+
+  it('유예가 지난 보완 요청 기한을 연장하지 않는다', () => {
+    const input = {
+      ...base,
+      now: afterDeadline,
+      hasSubmission: true,
+      latestDecision: ReviewDecision.CHANGES_REQUESTED,
+      submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
+      resubmissionDueAt: dueAt,
+    };
+    expect(milestoneDocumentSubmissionBlock(input)).toBe(
+      'RESUBMISSION_DUE_AT_PASSED',
+    );
+  });
+
+  it('유예가 이미 사용한 보완 재제출을 다시 열지 않는다', () => {
+    const input = {
+      ...base,
+      now: afterDeadline,
+      hasSubmission: true,
+      latestDecision: ReviewDecision.CHANGES_REQUESTED,
+      submissionStatus: SubmissionStatus.SUBMITTED,
+    };
+    expect(milestoneDocumentSubmissionBlock(input)).toBe(
+      'RESUBMISSION_ALREADY_USED',
+    );
+  });
+});

@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
     vi.fn<typeof import('./program-authoring-api').createAuthoringProgram>(),
   deleteAuthoringUpload: vi.fn(),
   uploadAuthoringFile: vi.fn(),
+  uploadProgramCover: vi.fn(),
   getAuthoringUploadPolicy: vi.fn(),
   completeAndNavigate: vi.fn(),
   useProgramExitGuard: vi.fn(),
@@ -25,7 +26,7 @@ vi.mock('./program-notice-api', () => ({
 }));
 
 vi.mock('./program-authoring-api', () => ({
-  uploadProgramCover: vi.fn(),
+  uploadProgramCover: mocks.uploadProgramCover,
   createAuthoringProgram: mocks.createAuthoringProgram,
   deleteAuthoringUpload: mocks.deleteAuthoringUpload,
   uploadAuthoringFile: mocks.uploadAuthoringFile,
@@ -66,6 +67,7 @@ describe('ProgramCreationPage guided authoring', () => {
     mocks.createAuthoringProgram.mockReset();
     mocks.deleteAuthoringUpload.mockReset();
     mocks.uploadAuthoringFile.mockReset();
+    mocks.uploadProgramCover.mockReset();
     mocks.getAuthoringUploadPolicy.mockReset().mockResolvedValue({
       fileUpload: { maxBytes: 5 * 1024 * 1024, maxLabel: '5 MB' },
     });
@@ -378,6 +380,53 @@ describe('ProgramCreationPage guided authoring', () => {
     expect(mocks.createAuthoringProgram.mock.calls[0]?.[1]).toBe(
       completed.idempotencyKey,
     );
+  });
+
+  it('waits for prepared upload cleanup before opening the existing program', async () => {
+    const coverFile = new File(['synthetic-png'], 'cover.png', {
+      type: 'image/png',
+    });
+    const completed = { ...completedAuthoringState(), coverFile };
+    mocks.uploadProgramCover.mockResolvedValue({
+      id: 'pending-cover',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+    });
+    mocks.createAuthoringProgram.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Conflict',
+        status: 409,
+        detail: '이미 생성된 프로그램을 확인해 주세요.',
+        instance: '/program-authoring/programs',
+        code: 'PRG_017',
+        ...{ existingProgramId: 'existing-program' },
+      }),
+    );
+    let finishCleanup: (() => void) | undefined;
+    mocks.deleteAuthoringUpload.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishCleanup = resolve;
+        }),
+    );
+    await act(async () =>
+      root.render(<ProgramCreationPage initialState={completed} />),
+    );
+    await act(async () => buttonNamed('프로그램 만들기').click());
+    await act(async () => buttonNamed('생성 확정').click());
+
+    await act(async () => buttonNamed('기존 프로그램 확인').click());
+    expect(mocks.deleteAuthoringUpload).toHaveBeenCalledExactlyOnceWith(
+      'pending-cover',
+    );
+    expect(mocks.completeAndNavigate).not.toHaveBeenCalled();
+
+    await act(async () => finishCleanup?.());
+    expect(mocks.completeAndNavigate).toHaveBeenCalledExactlyOnceWith(
+      '/programs/existing-program',
+    );
+    expect(loadProgramAuthoringRecoveryKey(sessionStorage)).toBeNull();
+    expect(mocks.createAuthoringProgram).toHaveBeenCalledTimes(1);
   });
 
   it('hides the existing program link when a retry fails differently', async () => {
