@@ -8,6 +8,7 @@ import type {
   MilestoneDocumentCollectionFilterCounts,
   MilestoneDocumentCollectionQueryInput,
   MilestoneDocumentCollectionRow,
+  MilestoneDocumentCollectionSelection,
 } from './milestone-document-collection-api';
 
 export const MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS = {
@@ -21,6 +22,18 @@ export const MILESTONE_DOCUMENT_COLLECTION_FILTER_LABELS = {
 } as const satisfies Readonly<
   Record<MilestoneDocumentCollectionFilter, string>
 >;
+
+export function selectCollectionDocument(
+  query: MilestoneDocumentCollectionQueryInput,
+  document: MilestoneDocumentCollectionSelection | null,
+): MilestoneDocumentCollectionQueryInput {
+  return {
+    page: 1,
+    pageSize: query.pageSize,
+    filter: query.filter,
+    ...(document === null ? {} : { document }),
+  };
+}
 
 export function collectionCellFor(
   row: MilestoneDocumentCollectionRow,

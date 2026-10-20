@@ -11,12 +11,46 @@ import {
   milestoneDocumentCollectionLoadPhase,
   milestoneDocumentCollectionPageState,
   milestoneDocumentCollectionTotalPages,
+  selectCollectionDocument,
 } from './milestone-document-collection';
 import type {
   MilestoneDocumentCollection,
   MilestoneDocumentCollectionQueryInput,
   MilestoneDocumentCollectionRow,
 } from './milestone-document-collection-api';
+
+describe('selectCollectionDocument', () => {
+  it.each([undefined, { id: 'd1', submissionState: 'SUBMITTED' as const }])(
+    'keeps the quick filter and resets the page when selecting another document',
+    (document) => {
+      expect(
+        selectCollectionDocument(
+          { page: 3, pageSize: 20, filter: 'LATE', document },
+          { id: 'd2', submissionState: 'MISSING' },
+        ),
+      ).toEqual({
+        page: 1,
+        pageSize: 20,
+        filter: 'LATE',
+        document: { id: 'd2', submissionState: 'MISSING' },
+      });
+    },
+  );
+
+  it('keeps the quick filter when clearing the document selection', () => {
+    expect(
+      selectCollectionDocument(
+        {
+          page: 3,
+          pageSize: 20,
+          filter: 'HAS_MISSING',
+          document: { id: 'd1', submissionState: 'SUBMITTED' },
+        },
+        null,
+      ),
+    ).toEqual({ page: 1, pageSize: 20, filter: 'HAS_MISSING' });
+  });
+});
 
 function row(
   applicationId: string,
