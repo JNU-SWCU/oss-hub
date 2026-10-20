@@ -70,7 +70,11 @@ function Probe({
     section: 'programs',
     programDetailId,
     member,
-    studentViewer,
+    authority: {
+      memberKind: studentViewer ? 'STUDENT' : 'STAFF',
+      hasStaffAccess: !studentViewer,
+      hasAdminAccess: false,
+    },
   });
   return <output>{JSON.stringify(data)}</output>;
 }
@@ -105,7 +109,7 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
       root.render(<Probe programDetailId="program-1" member />);
     });
 
-    expect(mocks.getProgramOverview).toHaveBeenCalledWith('program-1', false);
+    expect(mocks.getProgramOverview).toHaveBeenCalledWith('program-1', true);
     expect(mocks.getProgramNavigationMilestones).toHaveBeenCalledWith(
       'program-1',
     );
