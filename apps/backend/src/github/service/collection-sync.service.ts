@@ -1,14 +1,28 @@
+import type {
+  CollectionSyncRuntime,
+  CollectionSyncRuntimeFactory,
+} from './collection-sync.runtime';
+export type {
+  CollectionSyncRuntime,
+  CollectionSyncRuntimeFactory,
+} from './collection-sync.runtime';
+import {
+  CollectionInventory,
+  type SweepInventory,
+} from './collection-inventory';
+import {
+  CollectionSyncDeadline,
+  RunDeadlineError,
+} from './collection-sync-deadline';
+import { splitNameWithOwner } from '../domain/collection-repository-identity';
 import { CollectionStreamCheckpoint } from './collection-stream-checkpoint';
 import { createHash, randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import {
-  CollectionAppClient,
   CollectionAppClientError,
-  CollectionAppClientTokenProvider,
   CollectionCommit,
 } from '../gateway/collection-app.client';
 import { requestFingerprintKey } from '../domain/collection-app.frontier';
-import { ProviderRequestQueue } from '../gateway/collection-provider-queue';
 import type { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import type {
   CollectionRepositoryRow,
@@ -25,20 +39,6 @@ const HEARTBEAT_MS = 2 * 60_000;
 const RUN_DEADLINE_MS = 45 * 60_000;
 
 const TEAM_SCOPED_COMMIT_FINGERPRINT = 'graphql:history(author:)#first=100';
-
-export interface CollectionSyncRuntime {
-  appId: string;
-  organizationLogin: string;
-
-  tokens: CollectionAppClientTokenProvider;
-  client: CollectionAppClient;
-  queue: ProviderRequestQueue;
-}
-
-export type CollectionSyncRuntimeFactory = () =>
-  CollectionSyncRuntime | Promise<CollectionSyncRuntime>;
-
-class RunDeadlineError extends Error {}
 
 export const DEFAULT_STREAM_ERROR_CODE = 'STREAM_SYNC_FAILED';
 
@@ -149,16 +149,6 @@ const pullRequestTeamMembershipFrontier = (
   return `team-members:v1:${digest}`;
 };
 
-const splitNameWithOwner = (nameWithOwner: string): [string, string] => {
-  const index = nameWithOwner.indexOf('/');
-  if (index < 0) {
-    throw new Error(
-      `invalid collection repository nameWithOwner: ${nameWithOwner}`,
-    );
-  }
-  return [nameWithOwner.slice(0, index), nameWithOwner.slice(index + 1)];
-};
-
 const orgScope = (organizationLogin: string): string =>
   `org:${organizationLogin}`;
 const EXTERNAL_SCOPE = 'external';
@@ -197,15 +187,12 @@ const isCollectionTarget = (repository: CollectionRepositoryRow): boolean =>
     repository.programId == null &&
     repository.teamId == null);
 
-interface SweepInventory {
-  readonly complete: boolean;
-  readonly repositories: readonly CollectionRepositoryRow[];
-}
-
 @Injectable()
 export class CollectionSyncService {
   private readonly logger = new Logger(CollectionSyncService.name);
   private readonly checkpoints: CollectionStreamCheckpoint;
+  private readonly inventory: CollectionInventory;
+  private readonly deadline: CollectionSyncDeadline;
 
   constructor(
     private readonly incrementalRepository: SyncRepository,
@@ -216,6 +203,12 @@ export class CollectionSyncService {
 
     private readonly externalRuntimeFactory?: CollectionSyncRuntimeFactory,
   ) {
+    this.deadline = new CollectionSyncDeadline(now);
+    this.inventory = new CollectionInventory(
+      incrementalRepository,
+      this.deadline,
+      now,
+    );
     this.checkpoints = new CollectionStreamCheckpoint(
       incrementalRepository,
       now,
@@ -238,7 +231,7 @@ export class CollectionSyncService {
       registeredGithubIds,
       runtime,
       discoverInventory: (lease, deadline) =>
-        this.syncOrgInventory(runtime, lease, githubOrganizationId, deadline),
+        this.inventory.org(runtime, lease, githubOrganizationId, deadline),
     });
   }
 
@@ -255,7 +248,7 @@ export class CollectionSyncService {
       runId,
       runtime,
       discoverInventory: (lease, deadline) =>
-        this.syncExternalInventory(runtime, lease, deadline),
+        this.inventory.external(runtime, lease, deadline),
     });
   }
 
@@ -596,146 +589,6 @@ export class CollectionSyncService {
     }
   }
 
-  private async syncOrgInventory(
-    runtime: CollectionSyncRuntime,
-    lease: SyncLeaseToken,
-    githubOrganizationId: bigint,
-    deadline: number,
-  ): Promise<SweepInventory> {
-    let listed;
-    try {
-      listed = await this.beforeDeadline(
-        runtime.client.listInstallationRepositories(),
-        deadline,
-      );
-    } catch {
-      const known =
-        await this.incrementalRepository.listPresentRepositories(
-          githubOrganizationId,
-        );
-      return { complete: false, repositories: known };
-    }
-
-    const observedAt = this.now();
-    const repositories = await this.incrementalRepository.runInTransaction(
-      async (repo) => {
-        await repo.assertSyncLeaseValid(lease, observedAt);
-        const upserted: CollectionRepositoryRow[] = [];
-        for (const item of listed) {
-          upserted.push(
-            await repo.recordRepositoryObservation({
-              githubOrganizationId,
-              githubRepositoryId: BigInt(item.id),
-              nameWithOwner: item.fullName,
-              defaultBranch: item.defaultBranch,
-              archived: item.archived,
-              visibility: item.private ? 'PRIVATE' : 'PUBLIC',
-              presence: 'PRESENT',
-              source: 'ORG_PROVISIONED',
-              observedAt,
-            }),
-          );
-        }
-        await repo.markAbsentRepositories(
-          githubOrganizationId,
-          upserted.map((row) => row.githubRepositoryId),
-          observedAt,
-        );
-        return upserted;
-      },
-    );
-
-    return { complete: true, repositories };
-  }
-
-  private async syncExternalInventory(
-    runtime: CollectionSyncRuntime,
-    lease: SyncLeaseToken,
-    deadline: number,
-  ): Promise<SweepInventory> {
-    const tracked = await this.incrementalRepository.listExternalRepositories();
-    const repositories: CollectionRepositoryRow[] = [];
-    let complete = true;
-
-    for (let index = 0; index < tracked.length; index += 1) {
-      const current = tracked[index];
-      if (current === undefined) continue;
-      if (runtime.queue.shouldStop()) {
-        complete = false;
-        repositories.push(
-          ...tracked
-            .slice(index)
-            .filter(
-              (repository) =>
-                repository.visibility === 'PUBLIC' &&
-                repository.presence === 'PRESENT',
-            ),
-        );
-        break;
-      }
-
-      const [owner, name] = splitNameWithOwner(current.nameWithOwner);
-      const observedAt = this.now();
-      let metadata;
-      try {
-        metadata = await this.beforeDeadline(
-          runtime.client.getRepository(owner, name),
-          deadline,
-        );
-      } catch (error) {
-        if (error instanceof RunDeadlineError) throw error;
-        if (
-          error instanceof CollectionAppClientError &&
-          (error.kind === 'NOT_FOUND' || error.kind === 'PERMISSION')
-        ) {
-          await this.incrementalRepository.runInTransaction(async (repo) => {
-            await repo.assertSyncLeaseValid(lease, observedAt);
-            await repo.markExternalRepositoryUnavailable(
-              current.githubRepositoryId,
-              error.kind === 'NOT_FOUND' ? 'ABSENT' : 'PRIVATE',
-              observedAt,
-            );
-          });
-          continue;
-        }
-        complete = false;
-
-        continue;
-      }
-
-      if (BigInt(metadata.id) !== current.githubRepositoryId) {
-        await this.incrementalRepository.runInTransaction(async (repo) => {
-          await repo.assertSyncLeaseValid(lease, observedAt);
-          await repo.markExternalRepositoryUnavailable(
-            current.githubRepositoryId,
-            'ABSENT',
-            observedAt,
-          );
-        });
-        continue;
-      }
-
-      const refreshed = await this.incrementalRepository.runInTransaction(
-        async (repo) => {
-          await repo.assertSyncLeaseValid(lease, observedAt);
-          return repo.refreshExternalRepositoryObservation({
-            githubRepositoryId: current.githubRepositoryId,
-            nameWithOwner: metadata.fullName,
-            defaultBranch: metadata.defaultBranch,
-            archived: metadata.archived,
-            visibility: metadata.private ? 'PRIVATE' : 'PUBLIC',
-            observedAt,
-          });
-        },
-      );
-      if (refreshed?.visibility === 'PUBLIC') {
-        repositories.push(refreshed);
-      }
-    }
-
-    return { complete, repositories };
-  }
-
   private async syncOne(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
@@ -1005,7 +858,7 @@ export class CollectionSyncService {
     const needsBackfill = !existing || existing.status !== 'READY';
 
     if (needsBackfill) {
-      const result = await this.beforeDeadline(
+      const result = await this.deadline.run(
         runtime.client.listCommitsUntilKnownSha(
           owner,
           name,
@@ -1025,7 +878,7 @@ export class CollectionSyncService {
       );
     }
 
-    const probe = await this.beforeDeadline(
+    const probe = await this.deadline.run(
       runtime.client.probeDefaultBranchHead(
         owner,
         name,
@@ -1039,7 +892,7 @@ export class CollectionSyncService {
     const known = existing.frontierSha
       ? new Set([existing.frontierSha])
       : new Set<string>();
-    const result = await this.beforeDeadline(
+    const result = await this.deadline.run(
       runtime.client.listCommitsUntilKnownSha(
         owner,
         name,
@@ -1073,7 +926,7 @@ export class CollectionSyncService {
   ): Promise<number> {
     const bySha = new Map<string, CollectionCommit>();
     for (const member of members) {
-      const authorNodeId = await this.beforeDeadline(
+      const authorNodeId = await this.deadline.run(
         runtime.client.resolveUserNodeId(member.nickname),
         deadline,
       );
@@ -1085,7 +938,7 @@ export class CollectionSyncService {
         });
         continue;
       }
-      const authored = await this.beforeDeadline(
+      const authored = await this.deadline.run(
         runtime.client.listDefaultBranchCommitsByAuthor(
           owner,
           name,
@@ -1157,7 +1010,7 @@ export class CollectionSyncService {
         };
 
         if (repository.defaultBranch !== null) {
-          const total = await this.beforeDeadline(
+          const total = await this.deadline.run(
             runtime.client.countDefaultBranchCommitsBetween(
               owner,
               name,
@@ -1179,7 +1032,7 @@ export class CollectionSyncService {
         }
         pullRequestCount = counted(
           (
-            await this.beforeDeadline(
+            await this.deadline.run(
               runtime.client.listNewPullRequests(owner, name, windowStart),
               deadline,
             )
@@ -1187,7 +1040,7 @@ export class CollectionSyncService {
         );
         issueCount = counted(
           (
-            await this.beforeDeadline(
+            await this.deadline.run(
               runtime.client.listNewIssues(owner, name, windowStart),
               deadline,
             )
@@ -1248,7 +1101,7 @@ export class CollectionSyncService {
           }
         : null;
 
-    const result = await this.beforeDeadline(
+    const result = await this.deadline.run(
       runtime.client.listNewPullRequests(owner, name, tieFrontier),
       deadline,
     );
@@ -1293,13 +1146,13 @@ export class CollectionSyncService {
     const previousEtag =
       existing && existing.status === 'READY' ? existing.etag : null;
 
-    const probe = await this.beforeDeadline(
+    const probe = await this.deadline.run(
       runtime.client.probeLatestRelease(owner, name, previousEtag),
       deadline,
     );
     if (!probe.changed) return 0;
 
-    const listing = await this.beforeDeadline(
+    const listing = await this.deadline.run(
       runtime.client.listChangedPublishedReleases(owner, name),
       deadline,
     );
@@ -1344,7 +1197,7 @@ export class CollectionSyncService {
           }
         : null;
 
-    const result = await this.beforeDeadline(
+    const result = await this.deadline.run(
       runtime.client.listNewIssues(owner, name, tieFrontier),
       deadline,
     );
@@ -1401,24 +1254,5 @@ export class CollectionSyncService {
       now,
       new Date(now.getTime() + LEASE_MS),
     );
-  }
-
-  private async beforeDeadline<T>(
-    operation: Promise<T>,
-    deadline: number,
-  ): Promise<T> {
-    const remaining = deadline - this.now().getTime();
-    if (remaining <= 0) throw new RunDeadlineError();
-    let timer: NodeJS.Timeout | undefined;
-    try {
-      return await Promise.race([
-        operation,
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(() => reject(new RunDeadlineError()), remaining);
-        }),
-      ]);
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
   }
 }
