@@ -56,10 +56,10 @@ export function programScopeViewerRole(
   operationsView = false,
 ): ProgramScopeViewerRole {
   if (!member) return 'GUEST';
-  if (authority.memberKind === 'STUDENT' && participant !== false) {
+  if (authority.memberKind === 'STUDENT' && participant === true) {
     if (!operationsView) return 'STUDENT';
-    if (authority.hasAdminAccess) return 'ADMIN';
   }
+  if (authority.hasAdminAccess) return 'ADMIN';
   if (authority.hasStaffAccess) return 'STAFF';
   return authority.memberKind === 'STUDENT' ? 'STUDENT' : 'GUEST';
 }

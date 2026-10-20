@@ -143,7 +143,7 @@ export function ProductShell({
         viewerParticipant: scopeParticipant,
         viewerHasAdminAccess: session.hasAdminAccess,
         canSwitchView:
-          scopeParticipant !== false &&
+          scopeParticipant === true &&
           session.memberKind === 'STUDENT' &&
           (session.hasStaffAccess || session.hasAdminAccess),
         operationsView,
