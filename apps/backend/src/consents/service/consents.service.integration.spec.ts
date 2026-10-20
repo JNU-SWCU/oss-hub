@@ -166,4 +166,26 @@ describe('ConsentsService integration (seed auth 시나리오)', () => {
       CURRENT_CONSENT_POLICY.policyVersion,
     ]);
   });
+
+  it('08/11 동의자는 온보딩을 계속 진행하며 기존 동의 행은 그대로 남는다', async () => {
+    const existingConsent = await prisma.consent.create({
+      data: {
+        userId: consentRequiredUserId,
+        policyVersion: '2026-08-11',
+        consentedAt: new Date('2026-08-12T00:00:00.000Z'),
+      },
+    });
+
+    const status = await service.getCurrent(consentRequiredGithubId);
+    expect(status.consented).toBe(true);
+    expect(status.policy.policyVersion).toBe('2026-10-19');
+    await expect(
+      service.requireCurrent(consentRequiredGithubId),
+    ).resolves.toBeUndefined();
+
+    const rows = await prisma.consent.findMany({
+      where: { userId: consentRequiredUserId },
+    });
+    expect(rows).toEqual([existingConsent]);
+  });
 });

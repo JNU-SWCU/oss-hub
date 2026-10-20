@@ -48,6 +48,18 @@ function request(): ProgramAuthoringRequest {
 }
 
 describe('Program authoring canonical payload hash', () => {
+  it('distinguishes curricular and extracurricular creation requests', () => {
+    const curricular = buildProgramAuthoringPlan(request());
+    const extracurricular = buildProgramAuthoringPlan({
+      ...request(),
+      trackType: ProgramTrackType.EXTRACURRICULAR,
+    });
+
+    expect(hashProgramAuthoringPayload(curricular)).not.toBe(
+      hashProgramAuthoringPayload(extracurricular),
+    );
+  });
+
   it('includes both external source and image in the idempotency payload', () => {
     const externalCover = {
       sourceUrl: 'https://sojoong.kr/notice/notice-board/?uid=123&mod=document',
@@ -75,7 +87,7 @@ describe('Program authoring canonical payload hash', () => {
       ),
     ).toBe(hashProgramAuthoringPayload(buildProgramAuthoringPlan(request())));
   });
-  it('preserves historical no-cover hashes and includes a selected cover token', () => {
+  it('normalizes no-cover requests and includes a selected cover token', () => {
     const original = buildProgramAuthoringPlan(request());
     const empty = buildProgramAuthoringPlan({
       ...request(),
@@ -97,7 +109,7 @@ describe('Program authoring canonical payload hash', () => {
     expect(covered.uploadTokenIds).toContain('cover-upload');
   });
 
-  it('gives semantically equivalent normalized requests one schemaVersion 1 hash', () => {
+  it('gives semantically equivalent normalized requests one canonical hash', () => {
     const implicit = buildProgramAuthoringPlan(request());
     const explicit = buildProgramAuthoringPlan({
       ...request(),
@@ -128,7 +140,7 @@ describe('Program authoring canonical payload hash', () => {
     const implicitHash = hashProgramAuthoringPayload(implicit);
     const explicitHash = hashProgramAuthoringPayload(explicit);
 
-    expect(canonicalProgramAuthoringPayload(implicit).schemaVersion).toBe(1);
+    expect(canonicalProgramAuthoringPayload(implicit).schemaVersion).toBe(2);
     expect(implicitHash).toMatch(/^[0-9a-f]{64}$/);
     expect(explicitHash).toBe(implicitHash);
   });
