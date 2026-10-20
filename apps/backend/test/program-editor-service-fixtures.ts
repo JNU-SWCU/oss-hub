@@ -3,13 +3,15 @@ import {
   MilestoneSubmissionType,
   ProgramTrackType,
 } from '@prisma/client';
-import type { UpdateProgramRequestDto } from '../src/programs/dto/program-authoring-request.dto';
-import type { UpsertMilestoneRequestDto } from '../src/programs/dto/upsert-milestone-request.dto';
+import type {
+  UpdateProgramCommand,
+  UpsertMilestoneCommand,
+} from '../src/programs/domain/program-write.commands';
 import { ProgramEditorService } from '../src/programs/service/program-editor.service';
 import type { ProgramEditorRepository } from '../src/programs/repository/program-editor.repository';
 import type { ProgramEditorTransactionStore } from '../src/programs/domain/program-editor.types';
 
-export const updateInput: UpdateProgramRequestDto = {
+export const updateInput: UpdateProgramCommand = {
   name: '  Updated OSS  ',
   organizer: '  SW Center  ',
   trackType: ProgramTrackType.EXTRACURRICULAR,
@@ -24,7 +26,7 @@ export const updateInput: UpdateProgramRequestDto = {
   teamMaxSize: 4,
 };
 
-export const milestoneInput: UpsertMilestoneRequestDto = {
+export const milestoneInput: UpsertMilestoneCommand = {
   name: '  Final  ',
   startAt: '2026-08-16T00:00:00.000Z',
   dueAt: '2026-08-20T00:00:00.000Z',

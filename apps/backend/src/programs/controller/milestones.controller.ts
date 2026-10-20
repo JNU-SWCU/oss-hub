@@ -1,6 +1,8 @@
 import {
   Body,
   BadRequestException,
+  ValidationPipe,
+  type PipeTransform,
   Controller,
   Delete,
   Get,
@@ -8,7 +10,6 @@ import {
   Patch,
   Req,
   UseGuards,
-  ValidationPipe,
 } from '@nestjs/common';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
@@ -17,6 +18,7 @@ import {
   ProgramMilestoneEditResponseDto,
   ProgramMilestoneResponseDto,
 } from '../dto/editable-program-response.dto';
+import type { MilestoneUpdateCommand } from '../domain/program-write.commands';
 import { UpdateMilestoneRequestDto } from '../dto/update-milestone-request.dto';
 import { UpsertMilestoneRequestDto } from '../dto/upsert-milestone-request.dto';
 import { ProgramEditorService } from '../service/program-editor.service';
@@ -28,6 +30,37 @@ const bodyValidationPipe = new ValidationPipe({
   whitelist: true,
   forbidNonWhitelisted: true,
 });
+
+export class MilestoneUpdatePipe implements PipeTransform<
+  unknown,
+  Promise<MilestoneUpdateCommand>
+> {
+  async transform(body: unknown): Promise<MilestoneUpdateCommand> {
+    if (typeof body !== 'object' || body === null) {
+      throw new BadRequestException('Milestone update body must be an object.');
+    }
+    if ('expectedFingerprint' in body || 'documents' in body) {
+      const input: unknown = await bodyValidationPipe.transform(body, {
+        metatype: UpdateMilestoneRequestDto,
+        type: 'body',
+      });
+      if (!(input instanceof UpdateMilestoneRequestDto)) {
+        throw new BadRequestException(
+          'Invalid aggregate milestone update body.',
+        );
+      }
+      return { kind: 'aggregate', input: { ...input } };
+    }
+    const input: unknown = await bodyValidationPipe.transform(body, {
+      metatype: UpsertMilestoneRequestDto,
+      type: 'body',
+    });
+    if (!(input instanceof UpsertMilestoneRequestDto)) {
+      throw new BadRequestException('Invalid legacy milestone update body.');
+    }
+    return { kind: 'legacy', input: { ...input } };
+  }
+}
 
 @Controller('milestones')
 @UseGuards(SessionGuard, OriginGuard)
@@ -48,40 +81,26 @@ export class MilestonesController {
   async update(
     @Req() request: SessionIdentity,
     @Param('id') id: string,
-    @Body() body: unknown,
+    @Body(new MilestoneUpdatePipe()) command: MilestoneUpdateCommand,
   ): Promise<ProgramMilestoneEditResponseDto | ProgramMilestoneResponseDto> {
-    if (!isRecord(body)) {
-      throw new BadRequestException('Milestone update body must be an object.');
-    }
-
-    if ('expectedFingerprint' in body || 'documents' in body) {
-      const input: unknown = await bodyValidationPipe.transform(body, {
-        metatype: UpdateMilestoneRequestDto,
-        type: 'body',
-      });
-      if (!(input instanceof UpdateMilestoneRequestDto)) {
-        throw new BadRequestException(
-          'Invalid aggregate milestone update body.',
+    switch (command.kind) {
+      case 'aggregate':
+        return ProgramMilestoneEditResponseDto.from(
+          await this.editor.updateMilestoneEdit(
+            request.sessionGithubId,
+            id,
+            command.input,
+          ),
         );
-      }
-      return ProgramMilestoneEditResponseDto.from(
-        await this.editor.updateMilestoneEdit(
-          request.sessionGithubId,
-          id,
-          input,
-        ),
-      );
+      case 'legacy':
+        return ProgramMilestoneResponseDto.from(
+          await this.editor.updateMilestone(
+            request.sessionGithubId,
+            id,
+            command.input,
+          ),
+        );
     }
-    const input: unknown = await bodyValidationPipe.transform(body, {
-      metatype: UpsertMilestoneRequestDto,
-      type: 'body',
-    });
-    if (!(input instanceof UpsertMilestoneRequestDto)) {
-      throw new BadRequestException('Invalid legacy milestone update body.');
-    }
-    return ProgramMilestoneResponseDto.from(
-      await this.editor.updateMilestone(request.sessionGithubId, id, input),
-    );
   }
 
   @Delete(':id')
@@ -92,8 +111,4 @@ export class MilestonesController {
     await this.editor.deleteMilestone(request.sessionGithubId, id);
     return { deleted: true };
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
