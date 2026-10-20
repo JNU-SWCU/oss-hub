@@ -151,18 +151,22 @@ export function ProgramScopeSidebarNav({
   collapsed,
   ariaLabel,
 }: ProgramScopeSidebarNavProps) {
-  const milestoneId = new URLSearchParams(search).get('milestoneId');
-  const requestedHref =
-    milestoneId === null
-      ? pathname
-      : `${pathname}?milestoneId=${encodeURIComponent(milestoneId)}`;
+  const currentSearch = new URLSearchParams(search);
+  const milestoneId = currentSearch.get('milestoneId');
+  const requestedQuery = new URLSearchParams();
+  if (milestoneId !== null) requestedQuery.set('milestoneId', milestoneId);
+  const operationsView = currentSearch.get('view') === 'operations';
+  if (operationsView) requestedQuery.set('view', 'operations');
+  const requestedHref = `${pathname}${requestedQuery.size > 0 ? `?${requestedQuery.toString()}` : ''}`;
   const hasRequestedStage = groups.some((group) =>
     group.items.some(
       (item) => (item.depth ?? 0) === 1 && item.href === requestedHref,
     ),
   );
 
-  const focusedHref = hasRequestedStage ? requestedHref : pathname;
+  const focusedHref = hasRequestedStage
+    ? requestedHref
+    : `${pathname}${operationsView ? '?view=operations' : ''}`;
 
   return (
     <TooltipProvider delayDuration={200}>

@@ -34,6 +34,7 @@ export enum ApplicationsErrorCode {
 
   TEAM_LEADER_REQUIRED = 'APP_028',
   PREPARATION_CHANGED = 'APP_031',
+  OWN_TEAM_DECISION_FORBIDDEN = 'APP_029',
 }
 
 export const APPLICATIONS_ERROR_CODES: Record<
@@ -59,7 +60,7 @@ export const APPLICATIONS_ERROR_CODES: Record<
     code: ApplicationsErrorCode.STAFF_ONLY,
     status: 403,
     message:
-      '승인된 교직원 또는 관리자만 신청을 승인하거나 반려할 수 있습니다.',
+      '승인된 교직원 또는 운영자만 신청을 승인하거나 반려할 수 있습니다.',
   },
   [ApplicationsErrorCode.REPOSITORY_EVENT_ALREADY_EXISTS]: {
     code: ApplicationsErrorCode.REPOSITORY_EVENT_ALREADY_EXISTS,
@@ -129,6 +130,12 @@ export const APPLICATIONS_ERROR_CODES: Record<
     message:
       '신청 준비의 구성원 상태가 변경되었습니다. 구성원과 인원 제한을 확인해 주세요.',
   },
+  [ApplicationsErrorCode.OWN_TEAM_DECISION_FORBIDDEN]: {
+    code: ApplicationsErrorCode.OWN_TEAM_DECISION_FORBIDDEN,
+    status: 403,
+    message:
+      '본인이 소속된 팀의 신청은 판정할 수 없습니다. 다른 교직원이나 운영자에게 검토를 요청해 주세요.',
+  },
   [ApplicationsErrorCode.TEAM_LEADER_REQUIRED]: {
     code: ApplicationsErrorCode.TEAM_LEADER_REQUIRED,
     status: 403,
@@ -157,7 +164,7 @@ export const APPLICATIONS_ERROR_CODES: Record<
   [ApplicationsErrorCode.STAFF_LIST_ONLY]: {
     code: ApplicationsErrorCode.STAFF_LIST_ONLY,
     status: 403,
-    message: '승인된 교직원 또는 관리자만 조회할 수 있습니다.',
+    message: '승인된 교직원 또는 운영자만 조회할 수 있습니다.',
   },
   [ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET]: {
     code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET,

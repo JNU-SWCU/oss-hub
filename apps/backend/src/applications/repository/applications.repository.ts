@@ -102,6 +102,7 @@ export interface ApplicationsTransactionStore {
   findApplicationById(
     applicationId: string,
   ): Promise<ApplicationDecisionTarget | null>;
+  isCurrentTeamMember(teamId: string, userId: string): Promise<boolean>;
   findRepositoryProvisionJob(
     applicationId: string,
   ): Promise<RepositoryProvisionJobSnapshot | null>;
@@ -250,6 +251,18 @@ class PrismaApplicationsTransactionStore implements ApplicationsTransactionStore
       },
     });
     return application ? toApplicationDecisionTarget(application) : null;
+  }
+
+  async isCurrentTeamMember(teamId: string, userId: string): Promise<boolean> {
+    await this.transaction.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
+    );
+    return (
+      (await this.transaction.teamMember.findUnique({
+        where: { teamId_userId: { teamId, userId } },
+        select: { id: true },
+      })) !== null
+    );
   }
 
   async findRepositoryProvisionJob(

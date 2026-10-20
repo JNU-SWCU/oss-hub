@@ -240,6 +240,30 @@ describe('ProgramStaffTeamDetailPage', () => {
     ].find((trigger) => trigger.textContent?.includes('검토 이력'));
   }
 
+  it('자기 팀 승인이 거절되면 상세에서도 다른 검토자를 안내한다', async () => {
+    getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+    decideApplicationMock.mockRejectedValue(
+      new ApiError(problem(403, 'APP_029')),
+    );
+    await render();
+
+    const select = container.querySelector<HTMLSelectElement>(
+      '#team-detail-application-status',
+    );
+    await act(async () => {
+      if (select === null) return;
+      select.value = 'APPROVED';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    const notice = container.querySelector('p[role="status"]');
+    expect(notice?.textContent).toContain(
+      '다른 교직원이나 운영자에게 검토를 요청해 주세요.',
+    );
+    expect(notice?.textContent).not.toContain('다시 시도해 주세요.');
+    expect(decideApplicationMock).toHaveBeenCalledTimes(1);
+  });
+
   it('인원수는 머리말이 아니라 팀원 섹션이 말한다', async () => {
     getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
     await render();

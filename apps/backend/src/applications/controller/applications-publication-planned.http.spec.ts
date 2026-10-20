@@ -134,13 +134,13 @@ const STAFF_ONLY: ProblemExpectation = {
   status: 403,
   title: 'FORBIDDEN',
   code: 'APP_004',
-  detail: '승인된 교직원 또는 관리자만 신청을 승인하거나 반려할 수 있습니다.',
+  detail: '승인된 교직원 또는 운영자만 신청을 승인하거나 반려할 수 있습니다.',
 };
 const STAFF_LIST_ONLY: ProblemExpectation = {
   status: 403,
   title: 'FORBIDDEN',
   code: 'APP_018',
-  detail: '승인된 교직원 또는 관리자만 조회할 수 있습니다.',
+  detail: '승인된 교직원 또는 운영자만 조회할 수 있습니다.',
 };
 const APPLICATION_NOT_FOUND: ProblemExpectation = {
   status: 404,
@@ -452,6 +452,7 @@ const transactionStore = {
   auditLogWriter: {},
   appendReviewHistory,
   findApplicationById,
+  isCurrentTeamMember: jest.fn().mockResolvedValue(false),
   findRepositoryProvisionJob,
   findRepositoryProvisionEvent,
   discardRepositoryProvisionRequest,

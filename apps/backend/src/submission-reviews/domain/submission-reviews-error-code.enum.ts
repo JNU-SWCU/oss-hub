@@ -1,6 +1,7 @@
 import type { ErrorCode } from '../../common/error-code';
 
 export const SubmissionReviewsErrorCode = {
+  SELF_REVIEW_FORBIDDEN: 'SUB_033',
   SUBMISSION_NOT_FOUND: 'SUB_001',
   STAFF_APPROVAL_REQUIRED: 'SUB_002',
   STALE_REVISION: 'SUB_003',
@@ -21,6 +22,12 @@ export const SUBMISSION_REVIEWS_ERROR_CODES: Record<
   SubmissionReviewsErrorCode,
   ErrorCode
 > = {
+  [SubmissionReviewsErrorCode.SELF_REVIEW_FORBIDDEN]: {
+    code: SubmissionReviewsErrorCode.SELF_REVIEW_FORBIDDEN,
+    status: 403,
+    message:
+      '자기 팀 서류는 검토할 수 없습니다. 다른 교직원이나 운영자에게 검토를 요청해 주세요.',
+  },
   [SubmissionReviewsErrorCode.SUBMISSION_NOT_FOUND]: {
     code: SubmissionReviewsErrorCode.SUBMISSION_NOT_FOUND,
     status: 404,

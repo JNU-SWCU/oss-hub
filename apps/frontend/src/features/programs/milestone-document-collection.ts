@@ -113,7 +113,11 @@ function isSameMilestoneDocumentCollectionQuery(
   b: MilestoneDocumentCollectionQueryInput,
 ): boolean {
   return (
-    a.page === b.page && a.pageSize === b.pageSize && a.filter === b.filter
+    a.page === b.page &&
+    a.pageSize === b.pageSize &&
+    a.filter === b.filter &&
+    a.document?.id === b.document?.id &&
+    a.document?.submissionState === b.document?.submissionState
   );
 }
 

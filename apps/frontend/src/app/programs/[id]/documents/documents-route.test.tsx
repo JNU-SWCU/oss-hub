@@ -1,4 +1,4 @@
-import { act } from 'react';
+import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SessionRoleResult } from '../../../_shell/use-session-role';
@@ -9,6 +9,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 });
 
 type MatrixProps = {
+  readonly headerActions?: ReactNode;
   readonly programId: string;
   readonly selectedMilestoneId: string | null;
   readonly onSelectMilestone: (milestoneId: string | null) => void;
@@ -68,7 +69,7 @@ vi.mock('../../../_shell/session-role-context', () => ({
 vi.mock('@/features/submissions/components/submission-matrix-screen', () => ({
   SubmissionMatrixScreen: (props: MatrixProps) => {
     state.matrixProps = props;
-    return <div>staff matrix</div>;
+    return <div>staff matrix{props.headerActions}</div>;
   },
 }));
 
@@ -79,6 +80,7 @@ vi.mock('@/features/submissions/submission-checklist-page', () => ({
   },
 }));
 
+import { ProgramViewContext } from '../../../_shell/program-shell-policy';
 import { DocumentsRoute } from './documents-route';
 
 async function renderRoute(root: Root): Promise<void> {
@@ -143,6 +145,36 @@ describe('DocumentsRoute role boundary', () => {
       programId: 'program:basic',
       milestoneId: 'final',
     });
+  });
+
+  it('겸권한 참여 학생의 기본 화면에는 자기 제출 체크리스트만 열린다', async () => {
+    state.session = { ...STUDENT, hasStaffAccess: true, hasAdminAccess: true };
+    await act(async () =>
+      root.render(
+        <ProgramViewContext.Provider value="STUDENT">
+          <DocumentsRoute programId="program:basic" />
+        </ProgramViewContext.Provider>,
+      ),
+    );
+    expect(container.textContent).toContain('student checklist');
+    expect(state.matrixProps).toBeNull();
+  });
+
+  it('운영 화면으로 전환해도 자기 팀 검토 제한을 안내한다', async () => {
+    state.session = { ...STUDENT, hasStaffAccess: true };
+    state.searchParams = new URLSearchParams('view=operations');
+    await act(async () =>
+      root.render(
+        <ProgramViewContext.Provider value="STAFF">
+          <DocumentsRoute programId="program:basic" />
+        </ProgramViewContext.Provider>,
+      ),
+    );
+    expect(container.textContent).toContain('staff matrix');
+    expect(container.textContent).toContain(
+      '우리 팀 서류는 다른 운영자가 검토합니다.',
+    );
+    expect(state.checklistProps).toBeNull();
   });
 
   it('교직원 단계 선택은 documents 주소의 milestoneId만 바꾼다', async () => {

@@ -69,6 +69,7 @@ export class ProgramOverviewService {
   async getOverview(
     programId: string,
     viewerGithubId: bigint,
+    operationsView = false,
   ): Promise<ProgramOverviewView> {
     const overview = await this.repository.findByProgramId(programId);
     if (!overview) {
@@ -80,7 +81,12 @@ export class ProgramOverviewService {
     }
 
     const [viewer, milestoneSchedules] = await Promise.all([
-      this.resolveViewerStats(programId, viewerGithubId, overview.teamCount),
+      this.resolveViewerStats(
+        programId,
+        viewerGithubId,
+        overview.teamCount,
+        operationsView,
+      ),
       this.repository.findMilestoneSchedules(programId),
     ]);
     return {
@@ -106,13 +112,22 @@ export class ProgramOverviewService {
     programId: string,
     viewerGithubId: bigint,
     teamCount: number,
+    operationsView: boolean,
   ): Promise<ProgramOverviewViewerStats> {
     const identity = await this.repository.findViewerIdentity(viewerGithubId);
     if (!identity || identity.role === null) {
       return { ...EMPTY_VIEWER_STATS, role: identity?.role ?? null };
     }
 
-    if (identity.role === 'STUDENT') {
+    if (
+      identity.role === 'STUDENT' ||
+      (!operationsView &&
+        identity.memberKind === 'STUDENT' &&
+        (await this.repository.findApprovedViewerApplicationId(
+          programId,
+          identity.userId,
+        )) !== null)
+    ) {
       return this.resolveStudentStats(programId, identity.userId);
     }
     if (identity.role === 'STAFF' || identity.role === 'ADMIN') {

@@ -110,6 +110,7 @@ export class ProgramAuthoringIdempotencyConflictError extends Error {
   constructor(
     readonly actorId: string,
     readonly idempotencyKey: string,
+    readonly existingProgramId: string,
   ) {
     super('The idempotency key was already used for another request.');
   }

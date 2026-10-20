@@ -104,7 +104,13 @@ export const MILESTONE_DOCUMENT_COLLECTION_FILTERS: readonly MilestoneDocumentCo
 
 export const MILESTONE_DOCUMENT_COLLECTION_PAGE_SIZE = 20;
 
+export interface MilestoneDocumentCollectionSelection {
+  readonly id: string;
+  readonly submissionState: 'ALL' | 'SUBMITTED' | 'MISSING';
+}
+
 export interface MilestoneDocumentCollectionQueryInput {
+  readonly document?: MilestoneDocumentCollectionSelection;
   readonly page: number;
   readonly pageSize: number;
   readonly filter: MilestoneDocumentCollectionFilter;
@@ -153,6 +159,10 @@ export function buildMilestoneDocumentCollectionSearchParams(
   const params = new URLSearchParams();
   params.set('page', String(query.page));
   params.set('pageSize', String(query.pageSize));
+  if (query.document !== undefined) {
+    params.set('documentId', query.document.id);
+    params.set('submissionState', query.document.submissionState);
+  }
   switch (query.filter) {
     case 'LATE':
     case 'COMPLETE':

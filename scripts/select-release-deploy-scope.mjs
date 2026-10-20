@@ -98,7 +98,6 @@ export function selectFrontendReleaseDeployScope(
   isLatestRelease = null,
 ) {
   if (!SHA.test(targetSha)) throw new Error('Invalid release SHA');
-  let uncertain = false;
   const deployments = [...history.deployments].sort(
     (left, right) =>
       Date.parse(right.completedAt) - Date.parse(left.completedAt),
@@ -120,11 +119,9 @@ export function selectFrontendReleaseDeployScope(
       if (git.isAncestor(targetSha, baselineSha))
         return { frontend: false, baselineSha, reason: 'newer-deployment' };
     } catch {
-      uncertain = true;
+      return requireDeployment('deployment-history-unavailable');
     }
   }
-
-  if (uncertain) return requireDeployment('deployment-history-unavailable');
   if (baselineSha === null)
     return requireDeployment('no-successful-deployment');
   try {

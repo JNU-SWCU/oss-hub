@@ -31,8 +31,10 @@ function reviewDependencies() {
     status: SubmissionStatus.SUBMITTED,
     revision: { id: 'revision-2', reviewId: null },
   };
+  const isSubmissionParticipant = jest.fn().mockResolvedValue(false);
   const store = {
     findReviewTarget: jest.fn().mockResolvedValue(target),
+    isSubmissionParticipant,
     createReview: jest.fn().mockResolvedValue({ id: 'review-1' }),
     transitionSubmission: jest.fn().mockResolvedValue(true),
   } as jest.Mocked<SubmissionReviewTransactionStore>;
@@ -50,7 +52,7 @@ function reviewDependencies() {
   const repositories = {
     publish: jest.fn(),
   } as jest.Mocked<Pick<RepositoriesService, 'publish'>>;
-  return { target, store, repository, repositories };
+  return { target, store, repository, repositories, isSubmissionParticipant };
 }
 
 it.each(['context', 'review', 'publishRepository'] as const)(
@@ -97,6 +99,36 @@ it.each(['context', 'review', 'publishRepository'] as const)(
 );
 
 describe('SubmissionReviewsService.review', () => {
+  it.each(Object.values(ReviewDecision))(
+    '현재 팀원이면 자기 팀의 %s 판정을 기록하지 않는다',
+    async (decision) => {
+      const { store, repository, repositories, isSubmissionParticipant } =
+        reviewDependencies();
+      isSubmissionParticipant.mockResolvedValue(true);
+      const service = new SubmissionReviewsService(
+        repository,
+        repositories,
+        authority,
+      );
+
+      await expect(
+        service.review(ACTOR_GITHUB_ID, 'submission-1', {
+          revision: 2,
+          decision,
+          comment: '검토 사유',
+        }),
+      ).rejects.toMatchObject({
+        errorCode: { code: 'SUB_033', status: 403 },
+      });
+      expect(isSubmissionParticipant).toHaveBeenCalledWith(
+        'submission-1',
+        'reviewer-1',
+      );
+      expect(store.createReview.mock.calls).toHaveLength(0);
+      expect(store.transitionSubmission.mock.calls).toHaveLength(0);
+    },
+  );
+
   it.each([
     [ReviewDecision.APPROVED, SubmissionStatus.APPROVED, null],
     [

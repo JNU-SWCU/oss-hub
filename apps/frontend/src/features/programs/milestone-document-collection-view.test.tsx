@@ -110,6 +110,8 @@ function render(
       programId="program-capstone"
       data={collection([document('d1')], [])}
       filter="ALL"
+      documentSelection={null}
+      onDocumentSelectionChange={() => {}}
       loadPhase="idle"
       errorMessage={null}
       review={null}

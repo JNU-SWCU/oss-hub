@@ -96,6 +96,7 @@ export function programSidebarGroup(
 
 export interface ProgramScopeSidebarItem {
   readonly label: string;
+  readonly isViewSwitch?: boolean;
   readonly href: string;
   readonly icon: ShellIconName;
   readonly depth?: 0 | 1;
@@ -142,6 +143,8 @@ export interface ProgramScopeSidebarInput {
   };
 
   readonly viewerParticipant?: boolean;
+  readonly canSwitchView?: boolean;
+  readonly operationsView?: boolean;
 
   readonly viewerHasAdminAccess?: boolean;
 
@@ -160,6 +163,8 @@ export function programScopeSidebarGroups(
     boardPostCount,
     viewerDocuments,
     viewerParticipant,
+    canSwitchView = false,
+    operationsView = false,
     viewerHasAdminAccess,
     milestones,
     milestoneDocuments = [],
@@ -299,10 +304,40 @@ export function programScopeSidebarGroups(
     ],
   };
 
-  return [
+  const groups = [
     overviewGroup,
     ...(documentsLocked ? [] : [documentsGroup]),
     ...(boardLocked ? [] : [boardGroup]),
+  ];
+  const viewGroups = operationsView
+    ? groups.map((group) => ({
+        ...group,
+        items: group.items.map((item) => ({
+          ...item,
+          href: `${item.href}${item.href.includes('?') ? '&' : '?'}view=operations`,
+        })),
+      }))
+    : groups;
+  return [
+    ...viewGroups,
+    ...(canSwitchView
+      ? [
+          {
+            label: '화면 전환',
+            items: [
+              {
+                isViewSwitch: true,
+                label: operationsView
+                  ? '학생 화면으로 전환'
+                  : '운영 도구로 전환',
+                href: `${programHref(programId)}${operationsView ? '' : '?view=operations'}`,
+                icon: 'home' as const,
+                depth: 0 as const,
+              },
+            ],
+          },
+        ]
+      : []),
   ];
 }
 

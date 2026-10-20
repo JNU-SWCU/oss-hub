@@ -3,6 +3,7 @@ import { buffer } from 'node:stream/consumers';
 import { Test } from '@nestjs/testing';
 import {
   AccountStatus,
+  AffiliationKind,
   ApplicationStatus,
   MemberKind,
   MilestoneDocumentKind,
@@ -390,6 +391,18 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
         accountStatus:
           'accountStatus' in user ? user.accountStatus : AccountStatus.ACTIVE,
         hasStaffAccess: 'hasStaffAccess' in user ? user.hasStaffAccess : false,
+      })),
+    });
+
+    await prisma.userProfile.createMany({
+      data: Object.entries(users).map(([key, user], index) => ({
+        userId: user.id,
+        name: `합성 ${key}`,
+        studentId: key === 'staff' ? null : String(997000 + index),
+        department: '합성학과',
+        memberKind: key === 'staff' ? MemberKind.STAFF : MemberKind.STUDENT,
+        affiliationKind: AffiliationKind.DEPARTMENT,
+        affiliationName: '합성학과',
       })),
     });
 
@@ -903,19 +916,42 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     ).resolves.toEqual(hiddenAsMissing);
   });
 
-  it('교직원은 그 팀의 팀원이어도 학생 경로로 받지 못한다', async () => {
-    const documents = await documentsService.listForViewer(
-      users.staffTeammate.githubId,
-      milestoneId,
-    );
-    expect(
-      documents.every((document) => document.viewerSubmission === undefined),
-    ).toBe(true);
-
-    await expect(
-      downloadFails(users.staffTeammate.githubId, milestoneId, ownDocumentId),
-    ).resolves.toEqual(hiddenAsMissing);
-  });
+  it.each([
+    { hasStaffAccess: true, hasAdminAccess: false },
+    { hasStaffAccess: false, hasAdminAccess: true },
+    { hasStaffAccess: true, hasAdminAccess: true },
+  ])(
+    '학생 운영자는 학생 경로에서 자기 팀 파일만 받는다 (%s)',
+    async (access) => {
+      await prisma.user.update({
+        where: { id: users.staffTeammate.id },
+        data: access,
+      });
+      const documents = await documentsService.listForViewer(
+        users.staffTeammate.githubId,
+        milestoneId,
+      );
+      expect(
+        documents.find((document) => document.id === ownDocumentId)
+          ?.viewerSubmission?.hasCurrentFile,
+      ).toBe(true);
+      const file = await currentFileService.download(
+        users.staffTeammate.githubId,
+        milestoneId,
+        ownDocumentId,
+      );
+      await expect(buffer(file.body)).resolves.toEqual(
+        Buffer.from(`bytes:${ownStorageKey}`),
+      );
+      await expect(
+        downloadFails(
+          users.staffTeammate.githubId,
+          milestoneId,
+          neighbourDocumentId,
+        ),
+      ).resolves.toEqual(hiddenAsMissing);
+    },
+  );
 
   it('교직원 전용 경로는 되돌려진 신청의 같은 파일을 그대로 돌려준다', async () => {
     const file = await staffFilesService.downloadSubmissionFile(

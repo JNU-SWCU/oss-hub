@@ -66,6 +66,10 @@ export class MilestoneDocumentReviewsService {
         throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
       }
 
+      if (await store.isApplicationParticipant(applicationId, reviewerId)) {
+        throw this.error(MilestoneDocumentsErrorCode.SELF_REVIEW_FORBIDDEN);
+      }
+
       if (submission.revision !== input.expectedRevision) {
         throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
       }

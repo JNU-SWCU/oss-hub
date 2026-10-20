@@ -417,6 +417,13 @@ export class ApplicationsService {
           );
         }
 
+        if (
+          application.teamId !== null &&
+          (await store.isCurrentTeamMember(application.teamId, actorId))
+        ) {
+          throw this.error(ApplicationsErrorCode.OWN_TEAM_DECISION_FORBIDDEN);
+        }
+
         const processedAt = new Date();
         const plan = await this.resolveDecisionPlan({
           application,

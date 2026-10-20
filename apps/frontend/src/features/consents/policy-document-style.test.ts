@@ -18,6 +18,10 @@ const DOCUMENTS = [
   'privacy/2026-08-11.html',
   'github-activity/2026-08-11.html',
   'org-repository-terms/2026-08-11.html',
+
+  'privacy/2026-10-19.html',
+  'github-activity/2026-10-19.html',
+  'org-repository-terms/2026-10-19.html',
 ];
 
 const stylesheet = readFileSync(
