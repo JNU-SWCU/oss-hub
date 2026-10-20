@@ -1,3 +1,5 @@
+import { presentMilestoneDocumentCollection } from '../dto/milestone-document-collection-response.dto';
+import { presentMilestoneDocumentDeliveryCollection } from '../dto/milestone-document-collection-response.dto';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import {
   createDeadlineDigestIntegrationHarness,
@@ -60,18 +62,22 @@ it('preserves the existing collection response, approved population and paging c
     data: { status: 'REJECTED' },
   });
 
-  const result = await service.collectForStaff(
-    fixture.staffOnGithub,
-    fixture.notifyMilestone,
-    { ...query, pageSize: 2 },
-    fixture.now,
-  );
-  const old = await legacyService.collectForStaff(
-    fixture.staffOnGithub,
-    fixture.notifyMilestone,
-    { ...query, pageSize: 2 },
-    fixture.now,
-  );
+  const result = await service
+    .collectForStaff(
+      fixture.staffOnGithub,
+      fixture.notifyMilestone,
+      { ...query, pageSize: 2 },
+      fixture.now,
+    )
+    .then(presentMilestoneDocumentDeliveryCollection);
+  const old = await legacyService
+    .collectForStaff(
+      fixture.staffOnGithub,
+      fixture.notifyMilestone,
+      { ...query, pageSize: 2 },
+      fixture.now,
+    )
+    .then(presentMilestoneDocumentCollection);
   const { deliveryCounts, rows, ...unchanged } = result;
 
   expect({
@@ -120,12 +126,14 @@ it('keeps an on-time first submission complete after a late resubmission and rej
     },
   });
 
-  const result = await service.collectForStaff(
-    fixture.staffOnGithub,
-    fixture.notifyMilestone,
-    { ...query, deliveryStatus: 'COMPLETE' },
-    fixture.now,
-  );
+  const result = await service
+    .collectForStaff(
+      fixture.staffOnGithub,
+      fixture.notifyMilestone,
+      { ...query, deliveryStatus: 'COMPLETE' },
+      fixture.now,
+    )
+    .then(presentMilestoneDocumentDeliveryCollection);
 
   expect(result.total).toBe(1);
   expect(result.rows[0]).toMatchObject({
@@ -153,12 +161,14 @@ it.each([
       data: { createdAt, submittedAt: late },
     });
 
-    const result = await service.collectForStaff(
-      fixture.staffOnGithub,
-      fixture.notifyMilestone,
-      { ...query, deliveryStatus },
-      fixture.now,
-    );
+    const result = await service
+      .collectForStaff(
+        fixture.staffOnGithub,
+        fixture.notifyMilestone,
+        { ...query, deliveryStatus },
+        fixture.now,
+      )
+      .then(presentMilestoneDocumentDeliveryCollection);
 
     expect(result.total).toBe(1);
     expect(result.rows[0]?.deliveryStatus).toBe(deliveryStatus);
@@ -166,12 +176,14 @@ it.each([
 );
 
 it('filters missing rows before pagination and keeps whole-population counts', async () => {
-  const result = await service.collectForStaff(
-    fixture.staffOnGithub,
-    fixture.notifyMilestone,
-    { ...query, deliveryStatus: 'MISSING', page: 2, pageSize: 1 },
-    fixture.now,
-  );
+  const result = await service
+    .collectForStaff(
+      fixture.staffOnGithub,
+      fixture.notifyMilestone,
+      { ...query, deliveryStatus: 'MISSING', page: 2, pageSize: 1 },
+      fixture.now,
+    )
+    .then(presentMilestoneDocumentDeliveryCollection);
 
   expect(result.rows).toHaveLength(1);
   expect(result.rows[0]?.deliveryStatus).toBe('MISSING');
@@ -193,12 +205,14 @@ it('does not call optional-only milestones complete or missing', async () => {
     data: { required: false },
   });
 
-  const result = await service.collectForStaff(
-    fixture.staffOnGithub,
-    fixture.notifyMilestone,
-    { ...query, deliveryStatus: 'NO_REQUIRED_ITEMS' },
-    fixture.now,
-  );
+  const result = await service
+    .collectForStaff(
+      fixture.staffOnGithub,
+      fixture.notifyMilestone,
+      { ...query, deliveryStatus: 'NO_REQUIRED_ITEMS' },
+      fixture.now,
+    )
+    .then(presentMilestoneDocumentDeliveryCollection);
 
   expect(result.total).toBe(4);
   expect(result.deliveryCounts).toEqual({
@@ -244,12 +258,14 @@ it('holds counts and visible details at one snapshot while another connection su
       ),
     };
   });
-  const after = await service.collectForStaff(
-    fixture.staffOnGithub,
-    fixture.notifyMilestone,
-    query,
-    fixture.now,
-  );
+  const after = await service
+    .collectForStaff(
+      fixture.staffOnGithub,
+      fixture.notifyMilestone,
+      query,
+      fixture.now,
+    )
+    .then(presentMilestoneDocumentDeliveryCollection);
 
   expect(before.page.deliveryCounts.complete).toBe(1);
   expect(before.details).toHaveLength(1);
@@ -263,16 +279,18 @@ it('holds counts and visible details at one snapshot while another connection su
 });
 
 it('selects a document before paging and hydrates the same submitted cell', async () => {
-  const result = await service.collectForStaff(
-    fixture.staffOnGithub,
-    fixture.notifyMilestone,
-    {
-      ...query,
-      pageSize: 1,
-      document: { id: fixture.notifyDocument, submissionState: 'SUBMITTED' },
-    },
-    fixture.now,
-  );
+  const result = await service
+    .collectForStaff(
+      fixture.staffOnGithub,
+      fixture.notifyMilestone,
+      {
+        ...query,
+        pageSize: 1,
+        document: { id: fixture.notifyDocument, submissionState: 'SUBMITTED' },
+      },
+      fixture.now,
+    )
+    .then(presentMilestoneDocumentDeliveryCollection);
   expect(result.total).toBe(1);
   expect(result.rows[0]?.cells[0]).toMatchObject({
     documentId: fixture.notifyDocument,
@@ -281,17 +299,19 @@ it('selects a document before paging and hydrates the same submitted cell', asyn
   expect(result.documentTotals).toEqual([
     { documentId: fixture.notifyDocument, submitted: 1, total: 4 },
   ]);
-  const missing = await service.collectForStaff(
-    fixture.staffOnGithub,
-    fixture.notifyMilestone,
-    {
-      ...query,
-      page: 2,
-      pageSize: 1,
-      document: { id: fixture.notifyDocument, submissionState: 'MISSING' },
-    },
-    fixture.now,
-  );
+  const missing = await service
+    .collectForStaff(
+      fixture.staffOnGithub,
+      fixture.notifyMilestone,
+      {
+        ...query,
+        page: 2,
+        pageSize: 1,
+        document: { id: fixture.notifyDocument, submissionState: 'MISSING' },
+      },
+      fixture.now,
+    )
+    .then(presentMilestoneDocumentDeliveryCollection);
   expect(missing.total).toBe(3);
   expect(missing.rows).toHaveLength(1);
   expect(missing.rows[0]?.cells[0]).toMatchObject({

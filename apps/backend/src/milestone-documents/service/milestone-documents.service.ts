@@ -14,10 +14,11 @@ import {
   isPostDeadlineResubmissionOpen,
   milestoneDocumentSubmissionBlock,
 } from '../domain/milestone-document-submission-window';
-import { MilestoneDocumentCollectionResponseDto } from '../dto/milestone-document-collection-response.dto';
-import type { MilestoneDocumentHistoryPageResponseDto } from '../dto/milestone-document-history-response.dto';
-import { MilestoneDocumentResponseDto } from '../dto/milestone-document-response.dto';
-import { MilestoneDocumentSubmissionResponseDto } from '../dto/milestone-document-submission-response.dto';
+import type {
+  MilestoneDocumentViewerResult,
+  MilestoneDocumentCollectionResult,
+  MilestoneDocumentHistoryResult,
+} from '../domain/milestone-document-result';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -38,6 +39,7 @@ import {
 } from '../repository/milestone-document-submission.repository';
 import type {
   MilestoneDocumentRecord,
+  MilestoneDocumentSubmissionDetail,
   UpsertMilestoneDocumentInput,
 } from '../domain/milestone-document-record';
 
@@ -62,7 +64,7 @@ export class MilestoneDocumentsService {
     sessionGithubId: bigint,
     milestoneId: string,
     now: Date = new Date(),
-  ): Promise<MilestoneDocumentResponseDto[]> {
+  ): Promise<MilestoneDocumentViewerResult[]> {
     const milestone = await this.repository.findMilestone(milestoneId);
     if (milestone === null) {
       throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
@@ -109,11 +111,12 @@ export class MilestoneDocumentsService {
         );
         return documents.map((document) => {
           const summary = summaryByDocument.get(document.id) ?? null;
-          return MilestoneDocumentResponseDto.from(document, {
+          return {
+            ...document,
             teamSubmissionCount: counts.get(document.id),
             viewerSubmission: {
               submitted: summary !== null,
-              submittedAt: summary?.submittedAt.toISOString() ?? null,
+              submittedAt: summary?.submittedAt ?? null,
               submittedLate:
                 summary !== null &&
                 summary.submittedAt.getTime() > milestone.dueAt.getTime(),
@@ -126,25 +129,23 @@ export class MilestoneDocumentsService {
                   ? null
                   : {
                       comment: summary.review.comment,
-                      reviewedAt: summary.review.reviewedAt.toISOString(),
-                      resubmissionDueAt:
-                        summary.review.resubmissionDueAt?.toISOString() ?? null,
+                      reviewedAt: summary.review.reviewedAt,
+                      resubmissionDueAt: summary.review.resubmissionDueAt,
                     },
               history: {
                 hasHistory: summary !== null,
                 isComplete: summary?.historyComplete ?? true,
               },
             },
-          });
+          };
         });
       }
     }
 
-    return documents.map((document) =>
-      MilestoneDocumentResponseDto.from(document, {
-        teamSubmissionCount: counts.get(document.id),
-      }),
-    );
+    return documents.map((document) => ({
+      ...document,
+      teamSubmissionCount: counts.get(document.id),
+    }));
   }
 
   async collectForStaff(
@@ -152,7 +153,7 @@ export class MilestoneDocumentsService {
     milestoneId: string,
     query: MilestoneDocumentCollectionQuery,
     now: Date = new Date(),
-  ): Promise<MilestoneDocumentCollectionResponseDto> {
+  ): Promise<MilestoneDocumentCollectionResult> {
     await this.authority.assertActiveStaff(sessionGithubId, () =>
       this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
     );
@@ -201,11 +202,7 @@ export class MilestoneDocumentsService {
           ),
         })),
       };
-      return MilestoneDocumentCollectionResponseDto.from(
-        milestone,
-        documents,
-        collection,
-      );
+      return { milestone, documents, ...collection };
     });
   }
 
@@ -215,7 +212,7 @@ export class MilestoneDocumentsService {
     documentId: string,
     applicationId: string,
     query: { readonly cursor: string | null; readonly limit: number },
-  ): Promise<MilestoneDocumentHistoryPageResponseDto> {
+  ): Promise<MilestoneDocumentHistoryResult> {
     await this.authority.assertActiveStaff(sessionGithubId, () =>
       this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
     );
@@ -235,9 +232,9 @@ export class MilestoneDocumentsService {
         revision: item.revision,
         actorNickname: item.actorNickname,
         comment: item.comment,
-        createdAt: item.createdAt.toISOString(),
+        createdAt: item.createdAt,
         fileName: item.fileName,
-        downloadUrl: submissionFileDownloadUrl(item.downloadableFileId),
+        downloadableFileId: item.downloadableFileId,
         content: readMilestoneDocumentSubmittedContent(item.content),
       })),
       nextCursor: page.nextCursor,
@@ -250,7 +247,7 @@ export class MilestoneDocumentsService {
     milestoneId: string,
     documentId: string,
     query: { readonly cursor: string | null; readonly limit: number },
-  ): Promise<MilestoneDocumentHistoryPageResponseDto> {
+  ): Promise<MilestoneDocumentHistoryResult> {
     const viewer = await this.repository.findActiveUser(sessionGithubId);
     if (viewer === null) {
       throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
@@ -277,9 +274,9 @@ export class MilestoneDocumentsService {
         revision: item.revision,
         actorNickname: studentHistoryActorLabel(item.event, item.actorNickname),
         comment: item.comment,
-        createdAt: item.createdAt.toISOString(),
+        createdAt: item.createdAt,
         fileName: item.fileName,
-        downloadUrl: submissionFileDownloadUrl(item.downloadableFileId),
+        downloadableFileId: item.downloadableFileId,
         content: readMilestoneDocumentSubmittedContent(item.content),
       })),
       nextCursor: page.nextCursor,
@@ -291,7 +288,7 @@ export class MilestoneDocumentsService {
     sessionGithubId: bigint,
     milestoneId: string,
     input: UpsertMilestoneDocumentInput,
-  ): Promise<MilestoneDocumentResponseDto> {
+  ): Promise<MilestoneDocumentRecord> {
     await this.authority.assertActiveStaff(sessionGithubId, () =>
       this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
     );
@@ -305,7 +302,7 @@ export class MilestoneDocumentsService {
         required: input.required,
       });
     });
-    return MilestoneDocumentResponseDto.from(record);
+    return record;
   }
 
   async updateDocument(
@@ -313,7 +310,7 @@ export class MilestoneDocumentsService {
     milestoneId: string,
     documentId: string,
     input: UpsertMilestoneDocumentInput,
-  ): Promise<MilestoneDocumentResponseDto> {
+  ): Promise<MilestoneDocumentRecord> {
     await this.authority.assertActiveStaff(sessionGithubId, () =>
       this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
     );
@@ -324,7 +321,7 @@ export class MilestoneDocumentsService {
       }
       return store.updateDocument(documentId, toUpdateInput(input));
     });
-    return MilestoneDocumentResponseDto.from(record);
+    return record;
   }
 
   async updateGraceDueAt(
@@ -359,7 +356,7 @@ export class MilestoneDocumentsService {
     sessionGithubId: bigint,
     milestoneId: string,
     documentIds: readonly string[],
-  ): Promise<MilestoneDocumentResponseDto[]> {
+  ): Promise<MilestoneDocumentRecord[]> {
     await this.authority.assertActiveStaff(sessionGithubId, () =>
       this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
     );
@@ -374,7 +371,7 @@ export class MilestoneDocumentsService {
       }
       return store.applyDocumentOrder(milestoneId, documentIds);
     });
-    return records.map((record) => MilestoneDocumentResponseDto.from(record));
+    return records;
   }
 
   async deleteDocument(
@@ -417,7 +414,7 @@ export class MilestoneDocumentsService {
     documentId: string,
     content: MilestoneDocumentContentInput,
     now: Date = new Date(),
-  ): Promise<MilestoneDocumentSubmissionResponseDto> {
+  ): Promise<MilestoneDocumentSubmissionDetail> {
     const viewer =
       await this.repository.findActiveStudentByGithubId(sessionGithubId);
     if (viewer === null) {
@@ -501,7 +498,7 @@ export class MilestoneDocumentsService {
 
         expectedLatestReviewId: latestReview?.id ?? null,
       });
-      return MilestoneDocumentSubmissionResponseDto.from(detail);
+      return detail;
     } catch (error) {
       if (error instanceof SubmissionMembershipChangedError) {
         throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
@@ -557,10 +554,6 @@ export class MilestoneDocumentsService {
     }
     return page;
   }
-}
-
-function submissionFileDownloadUrl(fileId: string | null): string | null {
-  return fileId === null ? null : `/api/v1/submission-files/${fileId}`;
 }
 
 function studentHistoryActorLabel(

@@ -1,3 +1,6 @@
+import { presentMilestoneDocumentViewer } from '../dto/milestone-document-response.dto';
+import { presentMilestoneDocumentDeliveryCollection } from '../dto/milestone-document-collection-response.dto';
+import { presentMilestoneDocumentHistory } from '../dto/milestone-document-history-response.dto';
 import {
   Body,
   Controller,
@@ -107,7 +110,9 @@ export class MilestoneDocumentsController {
     @Param('milestoneId') milestoneId: string,
   ): Promise<MilestoneDocumentListResponseDto> {
     return MilestoneDocumentListResponseDto.from(
-      await this.service.listForViewer(request.sessionGithubId, milestoneId),
+      (
+        await this.service.listForViewer(request.sessionGithubId, milestoneId)
+      ).map(presentMilestoneDocumentViewer),
     );
   }
 
@@ -119,11 +124,9 @@ export class MilestoneDocumentsController {
     @Param('milestoneId') milestoneId: string,
     @Query() query: MilestoneDocumentCollectionQueryRequestDto,
   ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
-    return this.collectionService.collectForStaff(
-      request.sessionGithubId,
-      milestoneId,
-      query.toQuery(),
-    );
+    return this.collectionService
+      .collectForStaff(request.sessionGithubId, milestoneId, query.toQuery())
+      .then(presentMilestoneDocumentDeliveryCollection);
   }
 
   @Get('collection/archive')
@@ -174,11 +177,11 @@ export class MilestoneDocumentsController {
     @Param('milestoneId') milestoneId: string,
     @Body() body: ReorderMilestoneDocumentsRequestDto,
   ): Promise<MilestoneDocumentResponseDto[]> {
-    return this.service.reorderDocuments(
-      request.sessionGithubId,
-      milestoneId,
-      body.documentIds,
-    );
+    return this.service
+      .reorderDocuments(request.sessionGithubId, milestoneId, body.documentIds)
+      .then((records) =>
+        records.map((record) => MilestoneDocumentResponseDto.from(record)),
+      );
   }
 
   @Post()
@@ -189,11 +192,9 @@ export class MilestoneDocumentsController {
     @Param('milestoneId') milestoneId: string,
     @Body() body: UpsertMilestoneDocumentRequestDto,
   ): Promise<MilestoneDocumentResponseDto> {
-    return this.service.createDocument(
-      request.sessionGithubId,
-      milestoneId,
-      body.toInput(),
-    );
+    return this.service
+      .createDocument(request.sessionGithubId, milestoneId, body.toInput())
+      .then((result) => MilestoneDocumentResponseDto.from(result));
   }
 
   @Patch(':documentId')
@@ -204,12 +205,14 @@ export class MilestoneDocumentsController {
     @Param('documentId') documentId: string,
     @Body() body: UpsertMilestoneDocumentRequestDto,
   ): Promise<MilestoneDocumentResponseDto> {
-    return this.service.updateDocument(
-      request.sessionGithubId,
-      milestoneId,
-      documentId,
-      body.toInput(),
-    );
+    return this.service
+      .updateDocument(
+        request.sessionGithubId,
+        milestoneId,
+        documentId,
+        body.toInput(),
+      )
+      .then((result) => MilestoneDocumentResponseDto.from(result));
   }
 
   @Delete(':documentId')
@@ -293,13 +296,15 @@ export class MilestoneDocumentsController {
     @Param('applicationId') applicationId: string,
     @Query() query: MilestoneDocumentHistoryQueryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
-    return this.service.historyForStaff(
-      request.sessionGithubId,
-      milestoneId,
-      documentId,
-      applicationId,
-      query.toQuery(),
-    );
+    return this.service
+      .historyForStaff(
+        request.sessionGithubId,
+        milestoneId,
+        documentId,
+        applicationId,
+        query.toQuery(),
+      )
+      .then(presentMilestoneDocumentHistory);
   }
 
   @Get(':documentId/history')
@@ -311,12 +316,14 @@ export class MilestoneDocumentsController {
     @Param('documentId') documentId: string,
     @Query() query: MilestoneDocumentHistoryQueryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
-    return this.service.historyForParticipant(
-      request.sessionGithubId,
-      milestoneId,
-      documentId,
-      query.toQuery(),
-    );
+    return this.service
+      .historyForParticipant(
+        request.sessionGithubId,
+        milestoneId,
+        documentId,
+        query.toQuery(),
+      )
+      .then(presentMilestoneDocumentHistory);
   }
 
   @Post(':documentId/applications/:applicationId/reviews')
@@ -329,13 +336,15 @@ export class MilestoneDocumentsController {
     @Param('applicationId') applicationId: string,
     @Body() body: CreateMilestoneDocumentReviewRequestDto,
   ): Promise<MilestoneDocumentReviewResponseDto> {
-    return this.reviewsService.review(
-      request.sessionGithubId,
-      milestoneId,
-      documentId,
-      applicationId,
-      body.toInput(),
-    );
+    return this.reviewsService
+      .review(
+        request.sessionGithubId,
+        milestoneId,
+        documentId,
+        applicationId,
+        body.toInput(),
+      )
+      .then((result) => MilestoneDocumentReviewResponseDto.from(result));
   }
 
   @Post(':documentId/submissions')
@@ -347,12 +356,9 @@ export class MilestoneDocumentsController {
     @Param('documentId') documentId: string,
     @Body() body: CreateMilestoneDocumentSubmissionRequestDto,
   ): Promise<MilestoneDocumentSubmissionResponseDto> {
-    return this.service.submit(
-      request.sessionGithubId,
-      milestoneId,
-      documentId,
-      body.toInput(),
-    );
+    return this.service
+      .submit(request.sessionGithubId, milestoneId, documentId, body.toInput())
+      .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
   }
 }
 

@@ -2,9 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { MilestoneDocumentKind } from '@prisma/client';
 import { isChangeRequestResubmissionOpen } from '../domain/milestone-document-submission-window';
 import type {
-  MilestoneDocumentFeedbackItemResponseDto,
-  MilestoneDocumentFeedbackResponseDto,
-} from '../dto/milestone-document-feedback-response.dto';
+  MilestoneDocumentFeedbackItemResult,
+  MilestoneDocumentFeedbackResult,
+} from '../domain/milestone-document-result';
 import {
   MilestoneDocumentFeedbackRepository,
   type RecentMilestoneDocumentReview,
@@ -38,7 +38,7 @@ export class MilestoneDocumentFeedbackService {
 
   async recentForParticipant(
     sessionGithubId: bigint,
-  ): Promise<MilestoneDocumentFeedbackResponseDto> {
+  ): Promise<MilestoneDocumentFeedbackResult> {
     const reviews = await this.repository.findRecentForParticipant(
       sessionGithubId,
       feedbackWindowStart(this.clock()),
@@ -57,7 +57,7 @@ export class MilestoneDocumentFeedbackService {
 function toFeedbackItem(
   review: RecentMilestoneDocumentReview,
   isLatestReview: boolean,
-): MilestoneDocumentFeedbackItemResponseDto {
+): MilestoneDocumentFeedbackItemResult {
   const resubmissionOpen =
     isLatestReview &&
     isChangeRequestResubmissionOpen({
@@ -68,10 +68,8 @@ function toFeedbackItem(
     id: review.id,
     decision: review.decision,
     comment: review.comment,
-    reviewedAt: review.reviewedAt.toISOString(),
-    resubmissionDueAt: resubmissionOpen
-      ? (review.resubmissionDueAt?.toISOString() ?? null)
-      : null,
+    reviewedAt: review.reviewedAt,
+    resubmissionDueAt: resubmissionOpen ? review.resubmissionDueAt : null,
     applicationId: review.applicationId,
     programId: review.programId,
     milestoneId: review.milestoneId,
@@ -80,6 +78,5 @@ function toFeedbackItem(
       review.documentKind === MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION
         ? review.milestoneName
         : review.documentName,
-    href: `/programs/${encodeURIComponent(review.programId)}/documents?milestoneId=${encodeURIComponent(review.milestoneId)}`,
   };
 }
