@@ -206,3 +206,13 @@ describe('adminProfileUpdateErrorMessage', () => {
     );
   });
 });
+
+describe('관리자 프로필 기존 UTF-16 길이', () => {
+  it.each(['😀'.repeat(100), 'e\u0301'.repeat(100), ` ${'a'.repeat(100)} `])(
+    '경계 입력의 현재 판정을 유지한다',
+    (value) => {
+      expect(isValidAdminProfileName(value)).toBe(false);
+      expect(isValidAdminProfileDepartment(value)).toBe(false);
+    },
+  );
+});
