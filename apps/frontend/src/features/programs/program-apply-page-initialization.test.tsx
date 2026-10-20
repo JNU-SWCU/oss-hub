@@ -400,8 +400,14 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       readyContext('program-noname', ''),
     );
     await renderPage('program-noname');
+    const teamName =
+      container.querySelector<HTMLInputElement>('#apply-team-name');
+    if (!teamName) throw new TypeError('Team name input not found');
+    const scroll = vi.fn();
+    teamName.scrollIntoView = scroll;
 
     await act(async () => {
+      inviteTrigger().focus();
       inviteTrigger().click();
       await Promise.resolve();
     });
@@ -409,6 +415,15 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(createTeamMock).not.toHaveBeenCalled();
     expect(inviteSearchInput()).toBeNull();
     expect(container.textContent).toContain('팀 이름을 입력해 주세요.');
+    expect(document.activeElement).toBe(teamName);
+    expect(scroll).toHaveBeenCalledWith({ block: 'center' });
+
+    await act(async () => {
+      inviteTrigger().focus();
+      inviteTrigger().click();
+    });
+    expect(document.activeElement).toBe(teamName);
+    expect(scroll).toHaveBeenCalledTimes(2);
   });
 
   it('같은 틱에 ＋를 두 번 눌러도 팀은 한 번만 만든다', async () => {
@@ -479,8 +494,15 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       readyContext('program-consent', '제목', 'team-consent'),
     );
     await renderPage('program-consent');
+    const consent = container.querySelector<HTMLInputElement>(
+      '#personal-data-consent',
+    );
+    if (!consent) throw new TypeError('Consent input not found');
+    const scroll = vi.fn();
+    consent.scrollIntoView = scroll;
 
     await act(async () => {
+      button('신청 제출').focus();
       button('신청 제출').click();
     });
 
@@ -488,8 +510,18 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(container.textContent).toContain(
       '개인정보 수집·이용에 동의해야 지원할 수 있습니다.',
     );
+    expect(document.activeElement).toBe(consent);
+    expect(scroll).toHaveBeenCalledWith({ block: 'center' });
+    expect(consent.getAttribute('aria-invalid')).toBe('true');
+    const errorId = consent.getAttribute('aria-describedby');
+    expect(errorId).toBeTruthy();
+    expect(errorId && document.getElementById(errorId)?.textContent).toBe(
+      '개인정보 수집·이용에 동의해야 지원할 수 있습니다.',
+    );
 
     await checkConsent();
+    expect(consent.getAttribute('aria-invalid')).toBeNull();
+    expect(consent.getAttribute('aria-describedby')).toBeNull();
     await act(async () => {
       button('신청 제출').click();
     });
@@ -503,8 +535,14 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     );
     await renderPage('program-empty-name');
     await checkConsent();
+    const teamName =
+      container.querySelector<HTMLInputElement>('#apply-team-name');
+    if (!teamName) throw new TypeError('Team name input not found');
+    const scroll = vi.fn();
+    teamName.scrollIntoView = scroll;
 
     await act(async () => {
+      button('신청 제출').focus();
       button('신청 제출').click();
     });
 
@@ -512,6 +550,8 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(container.textContent).toContain('팀 이름을 입력해 주세요.');
     expect(createTeamMock).not.toHaveBeenCalled();
     expect(createApplicationMock).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(teamName);
+    expect(scroll).toHaveBeenCalledWith({ block: 'center' });
   });
 
   it('혼자 신청하는 학생은 마지막 확인 한 번으로 팀을 만들고 신청을 낸다', async () => {

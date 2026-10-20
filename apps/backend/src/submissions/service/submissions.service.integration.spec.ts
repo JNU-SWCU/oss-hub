@@ -11,6 +11,7 @@ import {
 } from '@prisma/client';
 import { runProfile } from '../../../prisma/seed';
 import {
+  offsetDays,
   prisma as seedPrisma,
   seedGithubId,
   seedId,
@@ -130,7 +131,7 @@ describe('SubmissionsService integration', () => {
           id: FILE_MILESTONE_ID,
           programId: MILESTONES_PROGRAM_ID,
           name: '합성 파일 제출',
-          dueAt: new Date('2026-08-30T00:00:00.000Z'),
+          dueAt: offsetDays(30),
           submissionType: MilestoneSubmissionType.FILE,
         },
       ],
@@ -615,11 +616,11 @@ describe('SubmissionsService integration', () => {
       await Promise.all([
         prisma.program.update({
           where: { id: MILESTONES_PROGRAM_ID },
-          data: { endAt: new Date('2026-12-08T00:00:00.000Z') },
+          data: { endAt: offsetDays(120) },
         }),
         prisma.milestone.update({
           where: { id: FILE_MILESTONE_ID },
-          data: { dueAt: new Date('2026-08-30T00:00:00.000Z') },
+          data: { dueAt: offsetDays(30) },
         }),
       ]);
     }
@@ -693,11 +694,11 @@ describe('SubmissionsService integration', () => {
       await Promise.all([
         prisma.program.update({
           where: { id: MILESTONES_PROGRAM_ID },
-          data: { endAt: new Date('2026-12-08T00:00:00.000Z') },
+          data: { endAt: offsetDays(120) },
         }),
         prisma.milestone.update({
           where: { id: FILE_MILESTONE_ID },
-          data: { dueAt: new Date('2026-08-30T00:00:00.000Z') },
+          data: { dueAt: offsetDays(30) },
         }),
       ]);
     }

@@ -1,6 +1,7 @@
 import { AlertCircle } from 'lucide-react';
 import { DetailPanelLayout } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import type { AdminAccessDetailData } from '../admin-access-detail-api';
 import { adminAccessHistoryPageCount } from '../admin-access-detail-api';
 import type { AccessWorkspace } from '../admin-access-list-query';
@@ -36,6 +37,11 @@ export type AdminAccessDetailState =
   | { readonly kind: 'not-found' }
   | ({ readonly kind: 'ready' } & AdminAccessDetailData);
 
+type HistoryError = {
+  readonly message: string;
+  readonly onRetry: () => void;
+};
+
 function AdminAccessDetailContent({
   detail,
   history,
@@ -43,6 +49,7 @@ function AdminAccessDetailContent({
   layoutContext,
   workspace,
   historyLoading,
+  historyError,
   onStaffAccessRequestPageChange,
   onLoginHistoryPageChange,
   onProfileSaved,
@@ -51,6 +58,7 @@ function AdminAccessDetailContent({
   readonly layoutContext: AdminAccessDetailLayoutContext;
   readonly workspace: AccessWorkspace;
   readonly historyLoading: boolean;
+  readonly historyError: HistoryError | null;
   readonly onStaffAccessRequestPageChange: (page: number) => void;
   readonly onLoginHistoryPageChange: (page: number) => void;
   readonly onProfileSaved: () => void;
@@ -101,6 +109,22 @@ function AdminAccessDetailContent({
       <p className="text-xs font-semibold tracking-wide text-muted-foreground">
         이력
       </p>
+      {historyError ? (
+        <Alert variant="destructive">
+          <AlertCircle aria-hidden="true" />
+          <AlertTitle>이력 조회 실패</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>{historyError.message}</p>
+            <Button
+              variant="outline"
+              onClick={historyError.onRetry}
+              disabled={historyLoading}
+            >
+              다시 시도
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
       <StaffAccessRequestHistorySection
         items={history.staffAccessRequests.items}
         page={history.staffAccessRequests.page}
@@ -185,6 +209,7 @@ export function AdminAccessDetailContentForState({
   layoutContext = 'standalone',
   workspace = 'directory',
   historyLoading = false,
+  historyError = null,
   onStaffAccessRequestPageChange = () => {},
   onLoginHistoryPageChange = () => {},
   onProfileSaved = () => {},
@@ -195,6 +220,7 @@ export function AdminAccessDetailContentForState({
   readonly layoutContext?: AdminAccessDetailLayoutContext;
   readonly workspace?: AccessWorkspace;
   readonly historyLoading?: boolean;
+  readonly historyError?: HistoryError | null;
   readonly onStaffAccessRequestPageChange?: (page: number) => void;
   readonly onLoginHistoryPageChange?: (page: number) => void;
   readonly onProfileSaved?: () => void;
@@ -230,6 +256,7 @@ export function AdminAccessDetailContentForState({
       layoutContext={layoutContext}
       workspace={workspace}
       historyLoading={historyLoading}
+      historyError={historyError}
       onStaffAccessRequestPageChange={onStaffAccessRequestPageChange}
       onLoginHistoryPageChange={onLoginHistoryPageChange}
       onProfileSaved={onProfileSaved}

@@ -63,6 +63,7 @@ export function AdminAccessScreen({
   const [queryInput, setQueryInput] = useState(state.query);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const latestRequestId = useRef(0);
 
   const committedQueryRef = useRef(state.query);
   useEffect(() => {
@@ -89,6 +90,7 @@ export function AdminAccessScreen({
   );
 
   const load = useCallback(async () => {
+    const requestId = ++latestRequestId.current;
     setIsLoading(true);
     setError(null);
     try {
@@ -96,18 +98,23 @@ export function AdminAccessScreen({
       const result = isQueue
         ? await fetchAdminAccessRequests(params)
         : await fetchAdminAccessList(params);
+      if (requestId !== latestRequestId.current) return;
       setItems(result.items);
       setTotal(result.total);
       setPendingCount(result.facets.pendingRequests.pending);
     } catch (loadError) {
+      if (requestId !== latestRequestId.current) return;
       setError(errorMessage(loadError));
     } finally {
-      setIsLoading(false);
+      if (requestId === latestRequestId.current) setIsLoading(false);
     }
   }, [isQueue, state]);
 
   useEffect(() => {
     void load();
+    return () => {
+      latestRequestId.current += 1;
+    };
   }, [load]);
 
   const resetFilters = () => {

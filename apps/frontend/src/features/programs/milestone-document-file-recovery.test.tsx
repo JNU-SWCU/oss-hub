@@ -109,6 +109,42 @@ it('replaces a rejected file directly without clearing the text or submitting au
   expect(container.querySelector('textarea')?.value).toBe('수정 내용');
 });
 
+it('locks the draft while submitting and restores it for editing after failure', async () => {
+  await typeText('제출할 내용');
+  const file = new File(['%PDF-1.4'], 'draft.pdf');
+  await select(file);
+
+  async function renderSubmitting(submitting: boolean) {
+    await act(async () =>
+      root.render(
+        <MilestoneDocumentSubmissionForm
+          documentName="계획서"
+          documentId="document-1"
+          fileUpload={milestoneDocumentUploadPolicy()}
+          currentFileName="previous.pdf"
+          isResubmission
+          submitting={submitting}
+          onCancel={vi.fn()}
+          onSubmit={onSubmit}
+        />,
+      ),
+    );
+  }
+
+  await renderSubmitting(true);
+  expect(container.querySelector('textarea')).toHaveProperty('disabled', true);
+  expect(input().disabled).toBe(true);
+  await submit();
+  expect(onSubmit).not.toHaveBeenCalled();
+
+  await renderSubmitting(false);
+  expect(container.querySelector('textarea')).toHaveProperty('disabled', false);
+  expect(input().disabled).toBe(false);
+  expect(container.querySelector('textarea')?.value).toBe('제출할 내용');
+  await submit();
+  expect(onSubmit).toHaveBeenCalledWith({ text: '제출할 내용', file });
+});
+
 it('still refuses an empty submission after continuing without a rejected oversized file', async () => {
   const file = new File(['bad'], 'too-large.pdf');
   Object.defineProperty(file, 'size', { value: 5 * 1024 * 1024 + 1 });

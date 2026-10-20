@@ -88,6 +88,7 @@ export function ProgramApplyPage({
   const [values, setValues] =
     useState<ProgramApplyFormValues>(EMPTY_APPLY_FORM);
   const [errors, setErrors] = useState<ProgramApplyFormErrors>({});
+  const [validationAttempt, setValidationAttempt] = useState(0);
   const [serverError, setServerError] = useState<string | null>(null);
   const [confirmation, setConfirmation] =
     useState<ApplicationConfirmation>(null);
@@ -243,6 +244,7 @@ export function ProgramApplyPage({
       const name = createNameRef.current.trim();
       if (name.length === 0) {
         setTeamError(TEAM_NAME_REQUIRED_MESSAGE);
+        setValidationAttempt((current) => current + 1);
         return null;
       }
       try {
@@ -273,6 +275,7 @@ export function ProgramApplyPage({
     if (creatingTeamRef.current) return;
     if (createNameRef.current.trim().length === 0) {
       setTeamError(TEAM_NAME_REQUIRED_MESSAGE);
+      setValidationAttempt((current) => current + 1);
       return;
     }
     const started = currentMutationIdentity();
@@ -306,12 +309,16 @@ export function ProgramApplyPage({
       createName.trim().length === 0
     ) {
       setTeamError(TEAM_NAME_REQUIRED_MESSAGE);
+      setValidationAttempt((current) => current + 1);
       return;
     }
     const nextErrors = validateApplyForm(values, state.mode);
     setErrors(nextErrors);
     setServerError(null);
-    if (Object.keys(nextErrors).length > 0) return;
+    if (Object.keys(nextErrors).length > 0) {
+      setValidationAttempt((current) => current + 1);
+      return;
+    }
     setTeamError(null);
     setConfirmation(state.mode === 'create' ? 'submit' : 'save');
   }
@@ -485,6 +492,7 @@ export function ProgramApplyPage({
           applicantName={state.applicantName}
           values={values}
           errors={errors}
+          validationAttempt={validationAttempt}
           serverError={serverError}
           mode={state.mode}
           rejectionReason={state.rejectionReason}

@@ -102,6 +102,7 @@ export function MilestoneDocumentSubmissionForm({
           id={`${documentId}-submission-text`}
           aria-describedby={helpId}
           value={text}
+          disabled={submitting}
           placeholder="제출할 내용이나 설명을 적어 주세요."
           className={cn(
             'min-h-28 rounded-control border border-input bg-background p-3 text-body',
@@ -119,6 +120,7 @@ export function MilestoneDocumentSubmissionForm({
         <Input
           id={`${documentId}-submission-file`}
           type="file"
+          disabled={submitting}
           accept={fileUpload.accept}
           aria-label={`${documentName} 제출 파일 선택`}
           aria-invalid={fileError !== null}

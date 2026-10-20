@@ -8,8 +8,20 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 });
 
 import { AdminAccessView } from './components/admin-access-view';
+import { AdminAccessScreen } from './components/admin-access-screen';
 import type { AdminAccessListItem } from './admin-access-api';
 import { ADMIN_ACCESS_LIST_LIMIT } from './admin-access-list-query';
+
+const navigation = vi.hoisted(() => ({
+  searchParams: new URLSearchParams(),
+  push: vi.fn(),
+}));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: navigation.push }),
+  usePathname: () => '/dashboard/users',
+  useSearchParams: () => navigation.searchParams,
+}));
 
 const noOp = () => undefined;
 
@@ -103,8 +115,11 @@ describe('AdminAccessView — 행 클릭 상호작용', () => {
       'a[aria-label="GitHub 프로필 열기"]',
     );
     expect(githubLink).not.toBeNull();
+    githubLink?.addEventListener('click', (event) => event.preventDefault());
     act(() => {
-      githubLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      githubLink?.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, cancelable: true }),
+      );
     });
 
     expect(onRowClick).not.toHaveBeenCalled();
@@ -259,3 +274,83 @@ describe('AdminAccessView — 헤더 클릭 정렬 토글', () => {
     expect(createdAtHeaderAfter?.getAttribute('aria-sort')).toBe('descending');
   });
 });
+
+describe.each(['directory', 'queue'] as const)(
+  'AdminAccessScreen — %s 요청 순서',
+  (workspace) => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    function response(name: string, total: number) {
+      return new Response(
+        JSON.stringify({
+          items: [item({ name })],
+          page: 1,
+          limit: 20,
+          total,
+          facets: {
+            roles: { unassigned: 0, student: 0, staff: total, admin: 0 },
+            accountStatuses: { active: total, deactivated: 0 },
+            pendingRequests: { none: total, pending: 0 },
+          },
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    async function search(query: string) {
+      navigation.searchParams = new URLSearchParams({ query });
+      await act(async () =>
+        root.render(<AdminAccessScreen workspace={workspace} />),
+      );
+    }
+
+    it.each(['success', 'failure'] as const)(
+      '이전 검색의 늦은 %s가 최신 검색 결과를 바꾸지 않는다',
+      async (outcome) => {
+        const first = Promise.withResolvers<Response>();
+        const second = Promise.withResolvers<Response>();
+        vi.stubGlobal(
+          'fetch',
+          vi
+            .fn()
+            .mockReturnValueOnce(first.promise)
+            .mockReturnValueOnce(second.promise),
+        );
+        await search('first');
+        await search('second');
+        await act(async () => second.resolve(response('최신 결과', 2)));
+
+        expect(container.textContent).toContain('최신 결과');
+        await act(async () => {
+          if (outcome === 'success') first.resolve(response('이전 결과', 1));
+          else first.reject(new TypeError('Network request failed'));
+        });
+
+        expect(container.textContent).toContain('최신 결과');
+        expect(container.textContent).toContain('총 2명');
+        expect(container.textContent).not.toContain('이전 결과');
+        expect(container.querySelector('[role="alert"]')).toBeNull();
+      },
+    );
+
+    it('이전 검색 완료가 진행 중인 최신 검색의 로딩을 끝내지 않는다', async () => {
+      const first = Promise.withResolvers<Response>();
+      const second = Promise.withResolvers<Response>();
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockReturnValueOnce(first.promise)
+          .mockReturnValueOnce(second.promise),
+      );
+      await search('first');
+      await search('second');
+      await act(async () => first.resolve(response('이전 결과', 1)));
+
+      expect(container.textContent).not.toContain('이전 결과');
+      expect(container.textContent).toContain('불러오는 중…');
+      await act(async () => second.resolve(response('최신 결과', 2)));
+      expect(container.textContent).toContain('최신 결과');
+    });
+  },
+);

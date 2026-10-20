@@ -69,7 +69,7 @@ function DetailContent({ archive }: { readonly archive: ArchiveDetail }) {
           <Button asChild>
             <a href={archive.githubUrl} target="_blank" rel="noreferrer">
               <ExternalLink aria-hidden="true" />
-              GitHub 열기
+              GitHub 저장소 열기
             </a>
           </Button>
         }

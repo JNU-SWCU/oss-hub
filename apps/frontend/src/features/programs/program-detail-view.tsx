@@ -22,8 +22,13 @@ import { MilestoneRow } from './components/milestone-row';
 import { MilestoneDocumentSection } from './milestone-document-list';
 import { milestoneSubmissionAccess } from './milestone-submission-access';
 import type { MilestoneSubmissionAccess } from './milestone-submission-access';
-import { programDetailMeta, isPastDue } from './program-detail-format';
+import {
+  programDetailMeta,
+  isPastDue,
+  formatSeoulDate,
+} from './program-detail-format';
 import { ProgramFactBar, ProgramSummary } from './program-detail-summary';
+import { formatProgramEndAt } from './program-end-at';
 import { programEditHref } from '@/lib/program-route';
 import { programHref } from './program-paths';
 import type { ProgramOverview } from './program-overview-api';
@@ -416,6 +421,15 @@ export function ProgramDetailReadyState({
               </>
             }
           />
+          {program.operatingPeriod ? (
+            <p className="text-sm text-muted-foreground">
+              운영 기간 {formatSeoulDate(program.operatingPeriod.startsAt)} ~{' '}
+              {formatProgramEndAt(
+                program.operatingPeriod.endsAt,
+                formatSeoulDate,
+              )}
+            </p>
+          ) : null}
           <ProgramSummary program={program} />
           <ProgramFactBar program={program} overview={overview} />
         </div>
