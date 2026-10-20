@@ -37,7 +37,7 @@ import type {
   TeamManagementListItem,
 } from './types';
 
-const PAGE_SIZE = 20;
+import { TEAM_MANAGEMENT_PAGE_SIZE } from './application-wire';
 
 type StatusFilter = ApplicationListStatus;
 
@@ -94,7 +94,7 @@ export function ProgramStaffTeamsPage({
     try {
       const result = await listTeamManagementApplications(programId, {
         page,
-        pageSize: PAGE_SIZE,
+        pageSize: TEAM_MANAGEMENT_PAGE_SIZE,
         search,
         status: filter,
       });

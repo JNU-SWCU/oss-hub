@@ -1,3 +1,7 @@
+import {
+  serializeCreateApplication,
+  serializeTeamManagementQuery,
+} from './application-wire';
 import { ApiError, apiClient } from '@/lib/api-client';
 import { PROGRAM_EDIT_ERROR_CODES } from './program-edit-error-codes';
 import type { ProgramTrackType } from './program-templates';
@@ -373,12 +377,7 @@ export function createApplication(
     {
       method: 'POST',
       headers: jsonHeaders,
-      body: JSON.stringify({
-        answers: input.answers,
-        teamName: input.teamName,
-        applicationTemplateVersion: input.applicationTemplateVersion,
-        isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
-      }),
+      body: serializeCreateApplication(input),
     },
   );
 }
@@ -513,15 +512,9 @@ export function listTeamManagementApplications(
   programId: string,
   params: ApplicationListParams,
 ): Promise<TeamManagementListPage> {
-  const search = new URLSearchParams({
-    page: String(params.page),
-    pageSize: String(params.pageSize),
-    search: params.search,
-    status: params.status,
-    view: 'team-management',
-  });
+  const search = serializeTeamManagementQuery(params);
   return apiClient<TeamManagementListPage>(
-    `programs/${encodeURIComponent(programId)}/applications?${search.toString()}`,
+    `programs/${encodeURIComponent(programId)}/applications?${search}`,
   );
 }
 
