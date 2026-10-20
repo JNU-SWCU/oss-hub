@@ -536,6 +536,9 @@ export async function acceptTeamInvitationTransaction(
       if (!invitation) return { kind: 'not-found' };
       if (invitation.inviteeId !== inviteeId) return { kind: 'forbidden' };
 
+      await tx.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "Program" WHERE "id" = ${invitation.programId} FOR UPDATE`,
+      );
       await tx.$queryRaw<LockedTeamRow[]>(
         Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${invitation.teamId} FOR UPDATE`,
       );
@@ -577,6 +580,15 @@ export async function acceptTeamInvitationTransaction(
         select: { userId: true },
       });
       if (existingMembership) return { kind: 'already-in-team' };
+      const preparation = await tx.applicationPreparationParticipant.findFirst({
+        where: {
+          programId,
+          userId: inviteeId,
+          status: TeamInvitationStatus.ACCEPTED,
+        },
+        select: { id: true },
+      });
+      if (preparation !== null) return { kind: 'already-in-team' };
 
       const maxSize = invitation.team.program.teamMaxSize;
       const memberCount = await tx.teamMember.count({ where: { teamId } });
