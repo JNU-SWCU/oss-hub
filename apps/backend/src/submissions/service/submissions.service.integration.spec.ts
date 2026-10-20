@@ -246,8 +246,7 @@ describe('SubmissionsService integration', () => {
       NOW,
     );
 
-    expect(form.existingSubmission).toMatchObject({
-    });
+    expect(form.existingSubmission).toMatchObject({});
     expect(form).toMatchObject({
       canSubmit: false,
       blockedReason: 'SUBMISSION_ALREADY_EXISTS',

@@ -25,8 +25,7 @@ export function createSubmissionsServiceHarness(): {
       mockStoreMethod<'findActiveStudentByGithubId'>(),
     findMilestoneByProgram: mockStoreMethod<'findMilestoneByProgram'>(),
     findMilestoneById: mockStoreMethod<'findMilestoneById'>(),
-    findParticipantApplication:
-      mockStoreMethod<'findParticipantApplication'>(),
+    findParticipantApplication: mockStoreMethod<'findParticipantApplication'>(),
     findApplicationForParticipant:
       mockStoreMethod<'findApplicationForParticipant'>(),
     lockProgramEndAt: mockStoreMethod<'lockProgramEndAt'>(),

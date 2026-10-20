@@ -24,9 +24,7 @@ export interface MyRepositoryItemResponseDto {
 export class MyRepositoriesResponseDto {
   readonly items: readonly MyRepositoryItemResponseDto[];
 
-  private constructor(
-    items: readonly MyRepositoryResult[],
-  ) {
+  private constructor(items: readonly MyRepositoryResult[]) {
     this.items = items.map((item) => ({
       repositoryId: item.repositoryId,
       applicationId: item.applicationId,
@@ -44,9 +42,7 @@ export class MyRepositoriesResponseDto {
     }));
   }
 
-  static from(
-    items: readonly MyRepositoryResult[],
-  ): MyRepositoriesResponseDto {
+  static from(items: readonly MyRepositoryResult[]): MyRepositoriesResponseDto {
     return new MyRepositoriesResponseDto(items);
   }
 }

@@ -414,9 +414,7 @@ function buildCreateService(
     overrides.milestone === undefined ? milestone : overrides.milestone,
   );
   store.findApplicationForParticipant.mockResolvedValue(
-    overrides.application === undefined
-      ? application()
-      : overrides.application,
+    overrides.application === undefined ? application() : overrides.application,
   );
   store.lockProgramEndAt.mockResolvedValue(
     new Date('2027-01-01T00:00:00.000Z'),
