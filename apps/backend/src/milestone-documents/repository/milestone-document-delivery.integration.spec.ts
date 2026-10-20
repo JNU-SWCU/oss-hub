@@ -261,3 +261,59 @@ it('holds counts and visible details at one snapshot while another connection su
   expect(after.deliveryCounts.complete).toBe(2);
   expect(after.rows.filter((row) => row.cells[0]?.isSubmitted)).toHaveLength(2);
 });
+
+it('selects a document before paging and hydrates the same submitted cell', async () => {
+  const result = await service.collectForStaff(
+    fixture.staffOnGithub,
+    fixture.notifyMilestone,
+    {
+      ...query,
+      pageSize: 1,
+      document: { id: fixture.notifyDocument, submissionState: 'SUBMITTED' },
+    },
+    fixture.now,
+  );
+  expect(result.total).toBe(1);
+  expect(result.rows[0]?.cells[0]).toMatchObject({
+    documentId: fixture.notifyDocument,
+    isSubmitted: true,
+  });
+  expect(result.documentTotals).toEqual([
+    { documentId: fixture.notifyDocument, submitted: 1, total: 4 },
+  ]);
+  const missing = await service.collectForStaff(
+    fixture.staffOnGithub,
+    fixture.notifyMilestone,
+    {
+      ...query,
+      page: 2,
+      pageSize: 1,
+      document: { id: fixture.notifyDocument, submissionState: 'MISSING' },
+    },
+    fixture.now,
+  );
+  expect(missing.total).toBe(3);
+  expect(missing.rows).toHaveLength(1);
+  expect(missing.rows[0]?.cells[0]).toMatchObject({
+    documentId: fixture.notifyDocument,
+    isSubmitted: false,
+  });
+  expect(missing.documentTotals).toEqual(result.documentTotals);
+});
+
+it('rejects a document outside the milestone instead of reporting every team missing', async () => {
+  await expect(
+    service.collectForStaff(
+      fixture.staffOnGithub,
+      fixture.notifyMilestone,
+      {
+        ...query,
+        document: {
+          id: 'test:other-milestone-document',
+          submissionState: 'MISSING',
+        },
+      },
+      fixture.now,
+    ),
+  ).rejects.toMatchObject({ errorCode: { code: 'MSD_004' } });
+});

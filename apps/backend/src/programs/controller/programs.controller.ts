@@ -31,9 +31,10 @@ import {
   ActivityTimelineQueryRequestDto,
   type ActivityTimelineResponseDto,
 } from '../dto/activity-timeline.dto';
-import type {
-  ProgramActivityResponseDto,
-  ProgramDetailResponseDto,
+import {
+  ProgramViewerQueryRequestDto,
+  type ProgramActivityResponseDto,
+  type ProgramDetailResponseDto,
 } from '../dto/program-detail.dto';
 import { ProgramListQueryRequestDto } from '../dto/program-list-query.dto';
 import { ProgramListPageResponseDto } from '../dto/program-list-response.dto';
@@ -111,10 +112,15 @@ export class ProgramsController {
   async viewerDetail(
     @Param('id') programId: string,
     @Req() request: SessionIdentity,
+    @Query() query: ProgramViewerQueryRequestDto = {},
   ): Promise<ProgramDetailResponseDto> {
     return this.programs.detail(
       programId,
-      await this.viewers.fromGithubId(request.sessionGithubId),
+      await this.viewers.fromGithubId(
+        request.sessionGithubId,
+        programId,
+        query.view === 'operations',
+      ),
     );
   }
 

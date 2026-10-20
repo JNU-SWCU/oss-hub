@@ -49,6 +49,7 @@ import {
   type MilestoneDocumentCollectionFilterCounts,
   type MilestoneDocumentDeliveryCounts,
   type MilestoneDocumentCollectionRow,
+  type MilestoneDocumentCollectionSelection,
 } from './milestone-document-collection-api';
 import {
   isSameMilestoneDocumentReviewTarget,
@@ -67,6 +68,7 @@ import {
   formatSeoulShortDateTime,
 } from './program-detail-format';
 import { programHref } from './program-paths';
+import { MilestoneDocumentCollectionSummary } from './milestone-document-collection-summary';
 
 const SECTION_BODY = 'flex min-w-0 flex-col gap-8';
 const TABLE_CARD = 'min-w-0 overflow-hidden rounded-card border border-border';
@@ -82,6 +84,10 @@ export interface MilestoneDocumentCollectionViewProps {
   readonly programId: string;
   readonly data: MilestoneDocumentCollection | null;
   readonly filter: MilestoneDocumentCollectionFilter;
+  readonly documentSelection: MilestoneDocumentCollectionSelection | null;
+  readonly onDocumentSelectionChange: (
+    selection: MilestoneDocumentCollectionSelection | null,
+  ) => void;
 
   readonly loadPhase: MilestoneDocumentCollectionLoadPhase;
   readonly errorMessage: string | null;
@@ -655,36 +661,49 @@ function CollectionBody(
       />
     );
   }
+  const documentSummary = (
+    <MilestoneDocumentCollectionSummary
+      data={props.data}
+      selection={props.documentSelection}
+      onSelectionChange={props.onDocumentSelectionChange}
+    />
+  );
   if (empty === 'no-applications') {
     return (
-      <EmptyState
-        title="아직 승인된 신청이 없습니다"
-        description="대기 중인 신청을 먼저 확인해 주세요. 신청을 승인하면 팀이 이 표에 나타납니다."
-        action={
-          <Button asChild variant="outline">
-            <Link href={programHref(props.programId, '/teams')}>
-              신청 확인하기
-            </Link>
-          </Button>
-        }
-      />
+      <>
+        {documentSummary}
+        <EmptyState
+          title="아직 승인된 신청이 없습니다"
+          description="대기 중인 신청을 먼저 확인해 주세요. 신청을 승인하면 팀이 이 표에 나타납니다."
+          action={
+            <Button asChild variant="outline">
+              <Link href={programHref(props.programId, '/teams')}>
+                신청 확인하기
+              </Link>
+            </Button>
+          }
+        />
+      </>
     );
   }
 
   const collectionToolbar = (
-    <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <CollectionFilterButtons
-        filterCounts={filterCounts}
-        deliveryCounts={props.data.deliveryCounts}
-        filter={props.filter}
-        onFilterChange={props.onFilterChange}
-      />
-      <CollectionArchiveControls
-        milestoneId={milestone.id}
-        archiveGrouping={props.archiveGrouping}
-        onArchiveGroupingChange={props.onArchiveGroupingChange}
-      />
-    </div>
+    <>
+      {documentSummary}
+      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <CollectionFilterButtons
+          filterCounts={filterCounts}
+          deliveryCounts={props.data.deliveryCounts}
+          filter={props.filter}
+          onFilterChange={props.onFilterChange}
+        />
+        <CollectionArchiveControls
+          milestoneId={milestone.id}
+          archiveGrouping={props.archiveGrouping}
+          onArchiveGroupingChange={props.onArchiveGroupingChange}
+        />
+      </div>
+    </>
   );
 
   if (empty === 'no-filter-results') {
@@ -693,12 +712,16 @@ function CollectionBody(
         {collectionToolbar}
         <EmptyState
           title="조건에 맞는 팀이 없습니다"
-          description="빠른 필터를 바꿔 다시 확인해 보세요."
+          description="서류의 제출 여부나 빠른 필터를 바꿔 다시 확인해 보세요."
           action={
             <Button
               type="button"
               variant="outline"
-              onClick={() => props.onFilterChange('ALL')}
+              onClick={() =>
+                props.documentSelection === null
+                  ? props.onFilterChange('ALL')
+                  : props.onDocumentSelectionChange(null)
+              }
             >
               전체 보기
             </Button>

@@ -32,6 +32,17 @@ export function requireMilestoneDocumentList(
   if (!Array.isArray(body.documents) || !isUploadPolicy(body.fileUpload)) {
     throw new TypeError('Invalid milestone document list response');
   }
+  for (const value of body.documents) {
+    if (typeof value !== 'object' || value === null)
+      throw new TypeError('Invalid milestone document response');
+    const document = value as Record<string, unknown>;
+    if (
+      document.graceDueAt != null &&
+      (typeof document.graceDueAt !== 'string' ||
+        !Number.isFinite(Date.parse(document.graceDueAt)))
+    )
+      throw new TypeError('Invalid document grace deadline');
+  }
   return {
     documents: body.documents as readonly MilestoneDocument[],
     fileUpload: body.fileUpload,

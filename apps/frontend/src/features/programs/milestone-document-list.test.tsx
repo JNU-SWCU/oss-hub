@@ -117,16 +117,29 @@ describe('MilestoneDocumentSection response recovery', () => {
 });
 
 describe('제출과 판정이 부딪혔을 때', () => {
+  const submittedEvents: unknown[] = [];
+  function captureSubmission(event: Event) {
+    if (event instanceof CustomEvent) submittedEvents.push(event.detail);
+  }
   let container: HTMLDivElement;
   let root: Root;
 
   beforeEach(() => {
+    submittedEvents.length = 0;
+    window.addEventListener(
+      'oss-hub:milestone-document-submitted',
+      captureSubmission,
+    );
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
   });
 
   afterEach(async () => {
+    window.removeEventListener(
+      'oss-hub:milestone-document-submitted',
+      captureSubmission,
+    );
     await act(async () => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
@@ -318,6 +331,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     expect(notice?.textContent).toContain('「기획서」');
     expect(notice?.textContent).toContain('저장되지 않았습니다');
     expect(notice?.textContent).toContain('다시 불러왔습니다');
+    expect(submittedEvents).toEqual([]);
   });
 
   it('다시 부르는 것도 실패하면 못 불러왔다고 말한다', async () => {
@@ -430,6 +444,7 @@ describe('제출과 판정이 부딪혔을 때', () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(submittedEvents).toEqual([{ milestoneId: 'milestone-1' }]);
   });
 
   it('제출 저장 뒤 목록 재조회가 실패하면 재제출을 잠그고 최신 상태 재시도만 제공한다', async () => {
@@ -1475,5 +1490,201 @@ describe('압축 내용 거절은 파일 입력 한 자리에만 선다', () => 
       container.querySelector('#document-1-submission-file-error')?.textContent,
     ).toBe(lockedDetail);
     expect(container.querySelectorAll('[role="alert"]')).toHaveLength(1);
+  });
+});
+
+describe('문서 유예 설정과 학생 표시', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  const refresh = vi.fn<() => Promise<boolean>>();
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+    refresh.mockReset().mockResolvedValue(true);
+  });
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  async function render(
+    document: MilestoneDocument,
+    viewerRole: 'STAFF' | 'STUDENT' = 'STAFF',
+    dueAt?: string,
+  ) {
+    await act(async () =>
+      root.render(
+        <MilestoneDocumentSectionBody
+          state={{
+            kind: 'ready',
+            documents: [document],
+            fileUpload: milestoneDocumentUploadPolicy(),
+          }}
+          viewerRole={viewerRole}
+          closed={dueAt === undefined}
+          dueAt={dueAt}
+          submissionAccess={access(viewerRole, 'APPROVED')}
+          conflictNotice={null}
+          onRetry={() => undefined}
+          onDocumentChange={() => undefined}
+          onRefresh={refresh}
+          onSubmitConflict={() => undefined}
+        />,
+      ),
+    );
+  }
+  function button(label: string) {
+    const found = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === label,
+    );
+    if (found === undefined) throw new Error(`Missing button: ${label}`);
+    return found;
+  }
+
+  it('운영자가 한국 시간 날짜만 저장하고 문서를 다시 읽는다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await render(milestoneDocument);
+    await act(async () => button('유예 기한 설정').click());
+    const field = container.querySelector<HTMLInputElement>(
+      'input[type="datetime-local"]',
+    );
+    if (!field) throw new Error('Missing grace input');
+    expect(
+      container.querySelector(`label[for="${field.id}"]`)?.textContent,
+    ).toContain('한국 시간');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )?.set?.call(field, '2099-06-30T23:59');
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => button('유예 기한 저장').click());
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/document-1/grace'),
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ graceDueAt: '2099-06-30T14:59:00.000Z' }),
+      }),
+    );
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('유예 해제는 null만 보내고 저장 실패는 화면에 남긴다', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(problemResponse(422, 'MSD_045'));
+    vi.stubGlobal('fetch', fetchMock);
+    await render({ ...milestoneDocument, graceDueAt: '2099-06-30T14:59:00Z' });
+    await act(async () => button('유예 기한 변경').click());
+    await act(async () => button('유예 해제').click());
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ body: JSON.stringify({ graceDueAt: null }) }),
+    );
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      '합성 이력 조회 실패',
+    );
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('운영 집계를 함께 받은 겸권한 학생도 기본 화면에서는 설정을 볼 수 없다', async () => {
+    await render(
+      {
+        ...milestoneDocument,
+        graceDueAt: '2099-06-30T14:59:00Z',
+        teamSubmissionCount: { submitted: 1, total: 2 },
+      },
+      'STUDENT',
+    );
+    expect(container.textContent).not.toContain('유예 기한 설정');
+    expect(container.textContent).not.toContain('유예 기한 변경');
+    expect(button('올리기').disabled).toBe(false);
+    expect(container.textContent).toContain('지각으로 표시됩니다');
+  });
+
+  it('화면을 열어 둔 채 유예 기한을 넘으면 제출 버튼을 닫는다', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-20T00:00:00Z'));
+    await render(
+      { ...milestoneDocument, graceDueAt: '2026-10-20T00:00:01Z' },
+      'STUDENT',
+    );
+    expect(button('올리기').disabled).toBe(false);
+    await act(async () => vi.advanceTimersByTime(1001));
+    expect(button('올리기').disabled).toBe(true);
+    expect(container.textContent).toContain('마감이 지나 제출할 수 없습니다');
+  });
+  it('화면 새로고침으로 줄어든 유예 기한은 실제 현재 시각에 맞춰 닫는다', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-20T00:00:00Z'));
+    await render(
+      { ...milestoneDocument, graceDueAt: '2026-10-20T00:01:00Z' },
+      'STUDENT',
+    );
+    await act(async () => vi.advanceTimersByTime(30000));
+    await render(
+      { ...milestoneDocument, graceDueAt: '2026-10-20T00:00:20Z' },
+      'STUDENT',
+    );
+    await act(async () => vi.advanceTimersByTime(0));
+    expect(button('올리기').disabled).toBe(true);
+  });
+
+  it('원래 마감 뒤에 낸 서류를 지각 제출로 표시한다', async () => {
+    await render(
+      {
+        ...milestoneDocument,
+        graceDueAt: '2099-06-30T14:59:00Z',
+        viewerSubmission: {
+          submitted: true,
+          submittedAt: '2026-10-20T00:00:00Z',
+          submittedLate: true,
+          revision: 1,
+          status: 'SUBMITTED',
+          hasCurrentFile: false,
+          currentFileName: null,
+          review: null,
+          history: { hasHistory: false, isComplete: true },
+        },
+      },
+      'STUDENT',
+    );
+    expect(container.textContent).toContain('지각 제출');
+  });
+  it('마감 전에 연 화면도 원래 기한 1ms 뒤 제출 입력을 닫는다', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-20T00:00:00Z'));
+    await render(milestoneDocument, 'STUDENT', '2026-10-20T00:00:01Z');
+    expect(button('올리기').disabled).toBe(false);
+    await act(async () => vi.advanceTimersByTime(1000));
+    expect(button('올리기').disabled).toBe(false);
+    await act(async () => vi.advanceTimersByTime(1));
+    expect(button('올리기').disabled).toBe(true);
+  });
+
+  it('원래 마감 전부터 연 화면에서 유예를 해제하면 다시 닫는다', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-20T00:00:00Z'));
+    await render(
+      { ...milestoneDocument, graceDueAt: '2026-10-20T00:01:00Z' },
+      'STUDENT',
+      '2026-10-20T00:00:01Z',
+    );
+    await act(async () => vi.advanceTimersByTime(1500));
+    expect(button('올리기').disabled).toBe(false);
+    await render(
+      { ...milestoneDocument, graceDueAt: null },
+      'STUDENT',
+      '2026-10-20T00:00:01Z',
+    );
+    expect(button('올리기').disabled).toBe(true);
   });
 });

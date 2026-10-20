@@ -6,7 +6,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { EmptyState, FailureState, PageBody } from '@/components';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
-import { createApplication, createTeam, type ProgramTeam } from './api';
+import {
+  createApplication,
+  createApplicationPreparation,
+  type ProgramTeam,
+} from './api';
 import {
   loadProgramApplyContext,
   type ProgramApplyContext,
@@ -103,7 +107,7 @@ export function ProgramApplyPage({
   const creatingTeamRef = useRef(false);
   const submittingRef = useRef(false);
 
-  const teamCreatedRef = useRef(false);
+  const preparationCreatedRef = useRef(false);
   const mountedRef = useRef(true);
   const stateRef = useRef(state);
   const programIdRef = useRef(programId);
@@ -168,6 +172,7 @@ export function ProgramApplyPage({
       const current = stateRef.current;
       if (current.kind === 'success') return context;
       if (context.kind === 'ready') {
+        if (context.team === null) preparationCreatedRef.current = false;
         const modeChanged =
           current.kind === 'ready' && current.mode !== context.mode;
         if (!hasUserInput.current || modeChanged) {
@@ -187,7 +192,7 @@ export function ProgramApplyPage({
     hasUserInput.current = false;
     creatingTeamRef.current = false;
     submittingRef.current = false;
-    teamCreatedRef.current = false;
+    preparationCreatedRef.current = false;
     setCreatingTeam(false);
     setSubmitting(false);
     setConfirmation(null);
@@ -240,22 +245,16 @@ export function ProgramApplyPage({
     if (current.kind !== 'ready') return null;
     if (current.team !== null) return current.team;
 
-    if (!teamCreatedRef.current) {
+    if (!preparationCreatedRef.current) {
       const name = createNameRef.current.trim();
       if (name.length === 0) {
         setTeamError(TEAM_NAME_REQUIRED_MESSAGE);
         setValidationAttempt((current) => current + 1);
         return null;
       }
-      try {
-        await createTeam(programIdRef.current, { name });
-      } catch (error: unknown) {
-        if (!(error instanceof ApiError && error.problem.code === 'TEAM_006')) {
-          throw error;
-        }
-      }
+      await createApplicationPreparation(programIdRef.current, { name });
 
-      teamCreatedRef.current = true;
+      preparationCreatedRef.current = true;
     }
 
     invalidateBackgroundReads();
@@ -365,23 +364,8 @@ export function ProgramApplyPage({
         return;
       }
 
-      if (state.team === null) {
-        let ensured: ProgramTeam | null;
-        try {
-          ensured = await ensureTeam(started);
-        } catch (error: unknown) {
-          if (!mutationStillCurrent(started)) return;
-          setConfirmation(null);
-          setTeamError(mapTeamActionError(error));
-          return;
-        }
-        if (!mutationStillCurrent(started)) return;
-        if (ensured === null) {
-          setConfirmation(null);
-          return;
-        }
-      }
       const created = await createApplication(programId, {
+        teamName: createNameRef.current.trim(),
         answers: applicationAnswers(values),
         applicationTemplateVersion: currentTemplateVersion,
         isRepositoryPublicationPlanned:

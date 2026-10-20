@@ -978,7 +978,11 @@ function lockTeamRow(
 
 type TeamsTx = Pick<
   Prisma.TransactionClient,
-  'team' | 'teamMember' | 'auditLog'
+  | 'team'
+  | 'teamMember'
+  | 'auditLog'
+  | 'applicationPreparationParticipant'
+  | '$queryRaw'
 >;
 
 interface LockedTeamRow {
@@ -1006,6 +1010,22 @@ class PrismaProgramTeamsCreateStore implements ProgramTeamsCreateStore {
   async createTeamWithLeader(
     input: CreateTeamRecordInput,
   ): Promise<CreatedTeamRecord> {
+    await this.tx.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "Program" WHERE "id" = ${input.programId} FOR UPDATE`,
+    );
+    await this.tx.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${input.leaderId} FOR UPDATE`,
+    );
+    const preparation =
+      await this.tx.applicationPreparationParticipant.findFirst({
+        where: {
+          programId: input.programId,
+          userId: input.leaderId,
+          status: 'ACCEPTED',
+        },
+        select: { id: true },
+      });
+    if (preparation !== null) throw new TeamMembershipConflictError();
     try {
       const team = await this.tx.team.create({
         data: {

@@ -367,7 +367,11 @@ describe('useTeamInvitationManagement — 검색', () => {
     await act(async () => {
       current().onSearch();
     });
-    expect(searchInvitationCandidatesMock).toHaveBeenCalledWith('team-1', 'aa');
+    expect(searchInvitationCandidatesMock).toHaveBeenCalledWith(
+      'team-1',
+      'aa',
+      false,
+    );
 
     await act(async () => {
       current().onInviteQueryChange('a');
@@ -461,6 +465,7 @@ describe('useTeamInvitationManagement — 검색', () => {
     expect(searchInvitationCandidatesMock).toHaveBeenCalledWith(
       'team-1',
       'oct',
+      false,
     );
     expect(current().inviteCandidates.map((item) => item.id)).toEqual(['u9']);
   });
@@ -498,7 +503,7 @@ describe('useTeamInvitationManagement — 초대 생성·취소', () => {
     });
 
     expect(createInvitationMock).toHaveBeenCalledTimes(1);
-    expect(createInvitationMock).toHaveBeenCalledWith('team-1', 'u2');
+    expect(createInvitationMock).toHaveBeenCalledWith('team-1', 'u2', false);
     expect(current().invitingUserId).toBe('u2');
   });
 
@@ -530,6 +535,7 @@ describe('useTeamInvitationManagement — 초대 생성·취소', () => {
     expect(searchInvitationCandidatesMock).toHaveBeenCalledWith(
       'team-1',
       'octo',
+      false,
     );
     expect(current().invitingUserId).toBeNull();
   });
@@ -587,7 +593,7 @@ describe('useTeamInvitationManagement — 초대 생성·취소', () => {
     });
     await flush();
 
-    expect(cancelInvitationMock).toHaveBeenCalledWith('inv-1');
+    expect(cancelInvitationMock).toHaveBeenCalledWith('inv-1', false);
     expect(listSentInvitationsMock).toHaveBeenCalledTimes(2);
     expect(current().sentInvitations).toEqual([]);
     expect(current().inviteActionError).toBeNull();

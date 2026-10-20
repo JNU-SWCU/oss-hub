@@ -28,6 +28,7 @@ const store: jest.Mocked<ProgramEditorTransactionStore> = {
   createMilestone: jest.fn(),
   findMilestoneForUpdate: jest.fn(),
   updateMilestone: jest.fn(),
+  findEarliestDocumentGraceDueAt: jest.fn().mockResolvedValue(null),
 
   findMilestoneForDelete: jest.fn(),
   deleteMilestone: jest.fn(),

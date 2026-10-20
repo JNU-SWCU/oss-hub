@@ -2,6 +2,7 @@ import { TeamInvitationStatus } from '@prisma/client';
 import type { ReceivedTeamInvitationRecord } from '../domain/team-invitation';
 
 export class ReceivedTeamInvitationResponseDto {
+  readonly preparation?: true;
   id: string;
   teamId: string;
   programId: string;
@@ -16,6 +17,7 @@ export class ReceivedTeamInvitationResponseDto {
   teamMaxSize: number;
 
   private constructor(record: ReceivedTeamInvitationRecord) {
+    if (record.preparation) this.preparation = true;
     this.id = record.id;
     this.teamId = record.teamId;
     this.programId = record.programId;

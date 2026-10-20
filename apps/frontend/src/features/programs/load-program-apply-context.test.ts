@@ -3,6 +3,7 @@ import { ApiError } from '@/lib/api-client';
 import {
   createTeam,
   getMyTeam,
+  getMyApplicationPreparation,
   getProgramDetail,
   listApplicationTemplates,
   removeMyTeamMember,
@@ -28,6 +29,7 @@ vi.mock('@/lib/api-client', () => ({
 vi.mock('./api', () => ({
   createTeam: vi.fn(),
   getMyTeam: vi.fn(),
+  getMyApplicationPreparation: vi.fn().mockResolvedValue(null),
   getProgramDetail: vi.fn(),
   listApplicationTemplates: vi.fn(),
   removeMyTeamMember: vi.fn(),
@@ -451,6 +453,27 @@ describe('loadProgramApplyContext', () => {
       kind: 'ready',
       applicantName: 'Shared Applicant',
       githubHandle: 'shared-applicant',
+    });
+  });
+  it('loads accepted preparation when no official team exists', async () => {
+    vi.mocked(getProgramDetail).mockResolvedValue({
+      ...program,
+      applicationPeriod: openPeriod,
+      viewer: { role: 'STUDENT', applicationStatus: null },
+    });
+    vi.mocked(getMyTeam).mockResolvedValue(null);
+    vi.mocked(getMyApplicationPreparation).mockResolvedValueOnce({
+      ...leaderTeam,
+      preparation: true,
+    });
+
+    const context = await loadDefaultContext();
+
+    expect(context).toMatchObject({
+      kind: 'ready',
+      mode: 'create',
+      team: { id: leaderTeam.id, preparation: true },
+      teamMinimum: { memberCount: 2, teamMinSize: 2 },
     });
   });
 });

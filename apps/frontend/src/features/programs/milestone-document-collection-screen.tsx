@@ -283,6 +283,20 @@ export function MilestoneDocumentCollectionScreen({
       programId={programId}
       data={data}
       filter={query.filter}
+      documentSelection={query.document ?? null}
+      onDocumentSelectionChange={(document) => {
+        discardPendingReview();
+        historyRequestIdRef.current += 1;
+        setReview(null);
+        setReviewNotice(null);
+        setQuery((previous) => ({
+          page: 1,
+          pageSize: previous.pageSize,
+          filter:
+            document?.id === previous.document?.id ? previous.filter : 'ALL',
+          ...(document === null ? {} : { document }),
+        }));
+      }}
       loadPhase={milestoneDocumentCollectionLoadPhase({ data, isLoading })}
       errorMessage={errorMessage}
       review={review}

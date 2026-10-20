@@ -6,6 +6,8 @@ export interface ApplicationDecisionNotification {
   readonly programId: string;
   readonly programName: string;
   readonly decision:
-    typeof ApplicationStatus.APPROVED | typeof ApplicationStatus.REJECTED;
+    | typeof ApplicationStatus.APPROVED
+    | typeof ApplicationStatus.REJECTED
+    | typeof ApplicationStatus.SUBMITTED;
   readonly decidedAt: Date;
 }

@@ -34,6 +34,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       required: true,
     }),
     findApplicationProgramId: jest.fn().mockResolvedValue(syntheticProgramId),
+    isApplicationParticipant: jest.fn().mockResolvedValue(false),
     lockDocument: jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
@@ -68,6 +69,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
   const withTransaction = jest.fn(
     (operation: (store: unknown) => Promise<unknown>) =>
       operation({
+        isApplicationParticipant: mocks.isApplicationParticipant,
         lockDocument: (documentId: string): Promise<unknown> => {
           transactionCalls.push('lockDocument');
           return mocks.lockDocument(documentId) as Promise<unknown>;
@@ -155,6 +157,29 @@ function review(
 }
 
 describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
+  it.each(Object.values(ReviewDecision))(
+    '현재 팀원이면 자기 팀의 %s 판정을 기록하지 않는다',
+    async (decision) => {
+      const { mocks, clock, repository } = buildRepository({
+        isApplicationParticipant: jest.fn().mockResolvedValue(true),
+      });
+      const service = new MilestoneDocumentReviewsService(
+        repository,
+        authority,
+      );
+
+      await expect(review(service, clock, decision)).rejects.toMatchObject({
+        errorCode: { code: 'MSD_046', status: 403 },
+      });
+      expect(mocks.isApplicationParticipant).toHaveBeenCalledWith(
+        syntheticApplicationId,
+        syntheticStaffId,
+      );
+      expect(mocks.createReview).not.toHaveBeenCalled();
+      expect(mocks.updateSubmissionStatus).not.toHaveBeenCalled();
+    },
+  );
+
   it('서류 항목이 없으면 DOCUMENT_NOT_FOUND를 던지고 아무것도 쓰지 않는다', async () => {
     const { mocks, clock, repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue(null),

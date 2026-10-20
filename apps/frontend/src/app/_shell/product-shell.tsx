@@ -28,6 +28,8 @@ import { useSidebarDrawer } from './sidebar-drawer-context';
 import { useSessionRole } from './use-session-role';
 import { useProductShellData } from './use-product-shell-data';
 import {
+  ProgramViewContext,
+  isProgramOperationsPath,
   programScopeViewerRole,
   withoutLoadingCounts,
 } from './program-shell-policy';
@@ -60,15 +62,24 @@ export function ProductShell({
 
   const programDetailId = programDetailIdFromPathname(pathname);
 
-  const scopeViewerRole = programScopeViewerRole(member, session);
+  const operationsView =
+    searchParams.get('view') === 'operations' ||
+    isProgramOperationsPath(pathname);
 
   const { facetData, scopeOverview, scopeMilestones, scopeParticipant } =
     useProductShellData({
       section,
       programDetailId,
       member,
-      studentViewer: scopeViewerRole === 'STUDENT',
+      studentViewer: session.memberKind === 'STUDENT',
+      operationsView,
     });
+  const scopeViewerRole = programScopeViewerRole(
+    member,
+    session,
+    scopeParticipant,
+    operationsView,
+  );
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const drawer = useSidebarDrawer();
   const closeDrawer = drawer?.close;
@@ -131,6 +142,11 @@ export function ProductShell({
 
         viewerParticipant: scopeParticipant,
         viewerHasAdminAccess: session.hasAdminAccess,
+        canSwitchView:
+          scopeParticipant !== false &&
+          session.memberKind === 'STUDENT' &&
+          (session.hasStaffAccess || session.hasAdminAccess),
+        operationsView,
         milestones: scopeMilestones,
 
         milestoneDocuments: scopeOverview?.milestoneDocuments,
@@ -147,70 +163,72 @@ export function ProductShell({
 
   return (
     <RankingCycleProvider>
-      <div
-        data-slot="product-shell"
-        data-collapsed={collapsed ? 'true' : 'false'}
-        className={cn(
-          'grid min-h-0 flex-1 grid-cols-1',
-
-          'min-[900px]:transition-[grid-template-columns] motion-reduce:transition-none',
-          collapsed
-            ? 'min-[900px]:grid-cols-[var(--sidebar-collapsed-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-collapse-duration)] min-[900px]:ease-in'
-            : 'min-[900px]:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-expand-duration)] min-[900px]:ease-out',
-        )}
-      >
-        {programDetailId ? (
-          <ProgramScopeSidebar
-            programName={scopeOverview?.name ?? programDetailId}
-            groups={scopeGroups}
-            pathname={pathname}
-            search={search}
-            collapsed={collapsed}
-            onToggle={toggle}
-            backHref={programScopeBackHref()}
-            remainingMilestones={scopeOverview?.remainingMilestones}
-          />
-        ) : (
-          <AppSidebar
-            groups={groups}
-            pathname={pathname}
-            search={search}
-            collapsed={collapsed}
-            onToggle={toggle}
-            brandTitle={sidebarBrandTitle(section, groups)}
-          />
-        )}
+      <ProgramViewContext.Provider value={scopeViewerRole}>
         <div
-          id="main-content"
-          tabIndex={-1}
-          className="min-h-0 min-w-0 overflow-y-auto"
-        >
-          {children}
-        </div>
-        <SidebarDrawer
-          open={drawer?.open ?? false}
-          onClose={closeDrawer ?? (() => {})}
-          label={drawerLabel}
+          data-slot="product-shell"
+          data-collapsed={collapsed ? 'true' : 'false'}
+          className={cn(
+            'grid min-h-0 flex-1 grid-cols-1',
+
+            'min-[900px]:transition-[grid-template-columns] motion-reduce:transition-none',
+            collapsed
+              ? 'min-[900px]:grid-cols-[var(--sidebar-collapsed-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-collapse-duration)] min-[900px]:ease-in'
+              : 'min-[900px]:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)] min-[900px]:duration-[var(--sidebar-expand-duration)] min-[900px]:ease-out',
+          )}
         >
           {programDetailId ? (
-            <ProgramScopeSidebarNav
+            <ProgramScopeSidebar
+              programName={scopeOverview?.name ?? programDetailId}
               groups={scopeGroups}
               pathname={pathname}
               search={search}
-              collapsed={false}
-              ariaLabel={drawerLabel}
+              collapsed={collapsed}
+              onToggle={toggle}
+              backHref={programScopeBackHref()}
+              remainingMilestones={scopeOverview?.remainingMilestones}
             />
           ) : (
-            <AppSidebarNav
+            <AppSidebar
               groups={groups}
               pathname={pathname}
               search={search}
-              collapsed={false}
+              collapsed={collapsed}
+              onToggle={toggle}
               brandTitle={sidebarBrandTitle(section, groups)}
             />
           )}
-        </SidebarDrawer>
-      </div>
+          <div
+            id="main-content"
+            tabIndex={-1}
+            className="min-h-0 min-w-0 overflow-y-auto"
+          >
+            {children}
+          </div>
+          <SidebarDrawer
+            open={drawer?.open ?? false}
+            onClose={closeDrawer ?? (() => {})}
+            label={drawerLabel}
+          >
+            {programDetailId ? (
+              <ProgramScopeSidebarNav
+                groups={scopeGroups}
+                pathname={pathname}
+                search={search}
+                collapsed={false}
+                ariaLabel={drawerLabel}
+              />
+            ) : (
+              <AppSidebarNav
+                groups={groups}
+                pathname={pathname}
+                search={search}
+                collapsed={false}
+                brandTitle={sidebarBrandTitle(section, groups)}
+              />
+            )}
+          </SidebarDrawer>
+        </div>
+      </ProgramViewContext.Provider>
     </RankingCycleProvider>
   );
 }

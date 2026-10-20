@@ -7,6 +7,7 @@ export interface StudentDashboardMilestone {
   readonly id: string;
   readonly name: string;
   readonly dueAt: Date;
+  readonly lateSubmissionDueAt: Date | null;
   readonly submissionStatus:
     | 'NOT_SUBMITTED'
     | 'SUBMITTED'

@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import {
+  MILESTONE_DOCUMENT_SUBMITTED_EVENT,
+  submittedMilestoneId,
+} from '@/features/programs/milestone-document-events';
+import {
   getProgramOverview,
   type ProgramOverview,
 } from '@/features/programs/program-overview-api';
@@ -22,12 +26,14 @@ export function useProductShellData({
   programDetailId,
   member,
   studentViewer,
+  operationsView = false,
 }: {
   readonly section: ShellSection;
   readonly programDetailId: string | null;
   readonly member: boolean;
 
   readonly studentViewer: boolean;
+  readonly operationsView?: boolean;
 }): {
   readonly facetData: SectionFacetData | undefined;
   readonly scopeOverview: ProgramOverview | undefined;
@@ -67,16 +73,50 @@ export function useProductShellData({
       return;
     }
     const controller = new AbortController();
+    let requestId = 0;
+    let overview: ProgramOverview | undefined;
+    const pendingMilestones = new Set<string>();
+    const load = async () => {
+      const currentRequestId = ++requestId;
+      try {
+        const data = await getProgramOverview(programDetailId, operationsView);
+        if (controller.signal.aborted || currentRequestId !== requestId) return;
+        overview = data;
+        const refreshPending = data.milestoneDocuments.some((milestone) =>
+          pendingMilestones.has(milestone.milestoneId),
+        );
+        pendingMilestones.clear();
+        if (refreshPending) {
+          void load();
+          return;
+        }
+        setScopeOverview(data);
+      } catch {
+        if (!controller.signal.aborted && currentRequestId === requestId)
+          setScopeOverview(undefined);
+      }
+    };
+    const refresh = (event: Event) => {
+      const milestoneId = submittedMilestoneId(event);
+      if (milestoneId === null) return;
+      if (overview === undefined) {
+        pendingMilestones.add(milestoneId);
+      } else if (
+        overview.milestoneDocuments.some(
+          (milestone) => milestone.milestoneId === milestoneId,
+        )
+      ) {
+        void load();
+      }
+    };
     setScopeOverview(undefined);
-    void getProgramOverview(programDetailId)
-      .then((data) => {
-        if (!controller.signal.aborted) setScopeOverview(data);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setScopeOverview(undefined);
-      });
-    return () => controller.abort();
-  }, [programDetailId, member]);
+    void load();
+    window.addEventListener(MILESTONE_DOCUMENT_SUBMITTED_EVENT, refresh);
+    return () => {
+      controller.abort();
+      window.removeEventListener(MILESTONE_DOCUMENT_SUBMITTED_EVENT, refresh);
+    };
+  }, [programDetailId, member, operationsView]);
 
   useEffect(() => {
     if (!shouldLoadProgramOverview(programDetailId, member)) {

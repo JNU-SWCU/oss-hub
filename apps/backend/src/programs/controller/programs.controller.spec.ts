@@ -1,3 +1,5 @@
+import { ValidationPipe } from '@nestjs/common';
+import type { TestingModule } from '@nestjs/testing';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { AccountStatus, MemberKind } from '@prisma/client';
 import { Test } from '@nestjs/testing';
@@ -70,6 +72,7 @@ describe('ProgramsController read boundaries', () => {
   const viewers = { fromGithubId: jest.fn() };
   const lifecycle = { delete: jest.fn(), purge: jest.fn() };
   let controller: ProgramsController;
+  let moduleRef: TestingModule;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -84,10 +87,11 @@ describe('ProgramsController read boundaries', () => {
       ],
     })
       .overrideGuard(OriginGuard)
-      .useValue({ canActivate: jest.fn() })
+      .useValue({ canActivate: jest.fn(() => true) })
       .overrideGuard(SessionGuard)
-      .useValue({ canActivate: jest.fn() })
+      .useValue({ canActivate: jest.fn(() => true) })
       .compile();
+    moduleRef = module;
     controller = module.get(ProgramsController);
   });
 
@@ -262,6 +266,44 @@ describe('ProgramsController read boundaries', () => {
     expect(
       Reflect.getMetadata(GUARDS_METADATA, controllerMethod('detail')),
     ).toBeUndefined();
+  });
+
+  it('viewer HTTP 경계는 임의·중복 view 값을 400으로 거부한다', async () => {
+    const app = moduleRef.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
+    await app.listen(0, '127.0.0.1');
+    try {
+      for (const query of [
+        'view=admin',
+        'view=',
+        'view=operations&view=admin',
+      ]) {
+        const response = await fetch(
+          `${await app.getUrl()}/programs/program-1/viewer?${query}`,
+        );
+        expect(response.status).toBe(400);
+      }
+      expect(viewers.fromGithubId).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('프로그램 상세의 명시적 운영 전환만 viewer에 전달한다', async () => {
+    viewers.fromGithubId.mockResolvedValue({
+      githubId: 101n,
+      userId: 'student-1',
+      role: 'STAFF',
+    });
+    programs.detail.mockResolvedValue(publicDetail);
+    await controller.viewerDetail(
+      'program-1',
+      { sessionGithubId: 101n },
+      { view: 'operations' },
+    );
+    expect(viewers.fromGithubId).toHaveBeenCalledWith(101n, 'program-1', true);
   });
 
   it('viewer 상세와 활동 조회는 SessionGuard 뒤에서만 private viewer를 해석한다', async () => {

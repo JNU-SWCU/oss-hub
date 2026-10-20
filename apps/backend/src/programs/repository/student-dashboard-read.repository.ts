@@ -17,7 +17,10 @@ interface StudentDashboardMilestoneRow {
   readonly name: string;
   readonly dueAt: Date;
   readonly submissionType: MilestoneSubmissionType | null;
-  readonly documents: readonly { readonly id: string }[];
+  readonly documents: readonly {
+    readonly id: string;
+    readonly graceDueAt: Date | null;
+  }[];
 }
 
 export interface StudentDashboardApplicationRow {
@@ -56,7 +59,7 @@ const studentDashboardApplicationSelect = {
 
           documents: {
             where: { required: true, kind: MilestoneDocumentKind.DOCUMENT },
-            select: { id: true },
+            select: { id: true, graceDueAt: true },
           },
         },
       },

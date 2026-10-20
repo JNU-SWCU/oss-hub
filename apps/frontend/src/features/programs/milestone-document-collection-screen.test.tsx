@@ -164,6 +164,93 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
     });
   }
 
+  it('shows whole milestone summary and narrows the existing matrix by document submission', async () => {
+    getMilestoneDocumentCollectionMock.mockResolvedValue(
+      collection([row('a', '가팀')]),
+    );
+    await render();
+    expect(container.textContent).toContain('서류별 요약');
+    expect(container.textContent).toContain('제출 30 / 47팀');
+    await click('기획서');
+    await click('미제출 17팀');
+    expect(getMilestoneDocumentCollectionMock).toHaveBeenLastCalledWith(
+      'milestone-1',
+      {
+        page: 1,
+        pageSize: 20,
+        filter: 'ALL',
+        document: { id: 'd1', submissionState: 'MISSING' },
+      },
+    );
+    expect(container.querySelector('table')).not.toBeNull();
+    expect(container.textContent).toContain('가팀');
+    await click('모든 서류 보기');
+    expect(getMilestoneDocumentCollectionMock).toHaveBeenLastCalledWith(
+      'milestone-1',
+      {
+        page: 1,
+        pageSize: 20,
+        filter: 'ALL',
+      },
+    );
+  });
+
+  it('preserves a selected document through pagination and combines submission and delivery filters', async () => {
+    getMilestoneDocumentCollectionMock.mockResolvedValue(
+      collection([row('a', '가팀')], { total: 47 }),
+    );
+    await render();
+    await click('기획서');
+    await click('지각 제출');
+    await click('미제출 17팀');
+    await click('다음');
+    expect(getMilestoneDocumentCollectionMock).toHaveBeenLastCalledWith(
+      'milestone-1',
+      {
+        page: 2,
+        pageSize: 20,
+        filter: 'LATE',
+        document: { id: 'd1', submissionState: 'MISSING' },
+      },
+    );
+  });
+
+  it('clears both document and delivery selections from an empty result', async () => {
+    getMilestoneDocumentCollectionMock.mockResolvedValueOnce(
+      collection([row('a', '가팀')]),
+    );
+    getMilestoneDocumentCollectionMock.mockResolvedValue(
+      collection([], { total: 0 }),
+    );
+    await render();
+    await click('기획서');
+    await click('미제출 17팀');
+    expect(container.textContent).toContain('조건에 맞는 팀이 없습니다');
+    expect(container.textContent).toContain('제출 30 / 47팀');
+    await click('전체 보기');
+    expect(getMilestoneDocumentCollectionMock).toHaveBeenLastCalledWith(
+      'milestone-1',
+      {
+        page: 1,
+        pageSize: 20,
+        filter: 'ALL',
+      },
+    );
+  });
+
+  it('does not leave old rows under a document selection when that request fails', async () => {
+    getMilestoneDocumentCollectionMock.mockResolvedValueOnce(
+      collection([row('a', '가팀')]),
+    );
+    getMilestoneDocumentCollectionMock.mockRejectedValueOnce(loadFailure());
+    await render();
+    await click('기획서');
+    expect(container.textContent).not.toContain('가팀');
+    expect(container.textContent).toContain(
+      '표를 만드는 중 문제가 생겼습니다.',
+    );
+  });
+
   it('첫 조회는 전체 필터 1페이지를 부른다', async () => {
     getMilestoneDocumentCollectionMock.mockResolvedValue(
       collection([row('a', '가팀')]),

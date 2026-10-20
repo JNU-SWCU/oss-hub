@@ -35,6 +35,26 @@ function respondWith(body: unknown): void {
 }
 
 describe('fetchStudentDashboard', () => {
+  it.each(['not-a-date', 123, '2026-01-01T00:00:00Z'])(
+    '잘못된 유예 기한 %s를 거부한다',
+    async (lateSubmissionDueAt) => {
+      respondWith({
+        items: [
+          {
+            ...approvedItem,
+            nextMilestone: {
+              ...approvedItem.nextMilestone,
+              lateSubmissionDueAt,
+            },
+          },
+        ],
+      });
+      await expect(fetchStudentDashboard()).rejects.toThrow(
+        '학생 대시보드 응답 형식이 올바르지 않습니다.',
+      );
+    },
+  );
+
   it('학생 대시보드를 단일 API 요청으로 조회한다', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(dashboardFixture), {
