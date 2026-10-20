@@ -132,6 +132,7 @@ describe('ReadOnlyMilestoneDocuments', () => {
       );
     });
     expect(container.textContent).toContain('제출 항목이 없습니다.');
+    expect(listMilestoneDocumentsMock).not.toHaveBeenCalled();
   });
 });
 

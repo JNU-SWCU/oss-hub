@@ -1,3 +1,4 @@
+import { requireMilestoneDocumentList } from './milestone-document-list-response';
 import { apiClient, apiPath } from '@/lib/api-client';
 import type { MilestoneDocumentHistoryPage } from './milestone-document-collection-api';
 
@@ -98,10 +99,12 @@ function documentPath(milestoneId: string, documentId: string): string {
   return `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}`;
 }
 
-export function listMilestoneDocuments(
+export async function listMilestoneDocuments(
   milestoneId: string,
 ): Promise<MilestoneDocumentList> {
-  return apiClient<MilestoneDocumentList>(documentsPath(milestoneId));
+  return requireMilestoneDocumentList(
+    await apiClient<unknown>(documentsPath(milestoneId)),
+  );
 }
 
 export async function updateMilestoneDocumentGrace(

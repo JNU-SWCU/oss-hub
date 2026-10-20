@@ -29,7 +29,6 @@ import {
   milestoneDocumentSubmitConflictNotice,
   type MilestoneDocumentReloadResult,
 } from './milestone-document-conflict';
-import { requireMilestoneDocumentList } from './milestone-document-list-response';
 import type { MilestoneSubmissionAccess } from './milestone-submission-access';
 import { milestoneDocumentSubmitGate } from './milestone-submit-gate';
 import {
@@ -203,9 +202,7 @@ export function MilestoneDocumentSection({
         try {
           setState({
             kind: 'ready',
-            ...requireMilestoneDocumentList(
-              await listMilestoneDocuments(milestoneId),
-            ),
+            ...(await listMilestoneDocuments(milestoneId)),
           });
           return 'reloaded' as const;
         } catch {

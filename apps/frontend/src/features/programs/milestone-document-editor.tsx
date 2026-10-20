@@ -8,7 +8,6 @@ import type {
   MilestoneDocumentUploadPolicy,
 } from './milestone-document-api';
 import { listMilestoneDocuments } from './milestone-document-api';
-import { requireMilestoneDocumentList } from './milestone-document-list-response';
 import {
   addLocalMilestoneDocument,
   removeLocalMilestoneDocument,
@@ -45,9 +44,8 @@ export function ReadOnlyMilestoneDocuments({
     const requestId = (requestIdRef.current += 1);
     setState({ kind: 'loading' });
     try {
-      const { documents, fileUpload } = requireMilestoneDocumentList(
-        await listMilestoneDocuments(milestoneId),
-      );
+      const { documents, fileUpload } =
+        await listMilestoneDocuments(milestoneId);
       if (requestId !== requestIdRef.current) return;
       setState({
         kind: 'ready',

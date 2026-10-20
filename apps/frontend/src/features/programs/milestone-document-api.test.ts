@@ -50,6 +50,33 @@ describe('listMilestoneDocuments', () => {
   });
 });
 
+describe('서류 목록 API의 파싱 경계', () => {
+  it.each([
+    null,
+    {},
+    { documents: [] },
+    { documents: [], fileUpload: { maxBytes: 0 } },
+  ])('잘못된 성공 응답 %p를 호출부에 넘기지 않는다', async (body) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(body)));
+    await expect(listMilestoneDocuments('milestone-1')).rejects.toThrow(
+      TypeError,
+    );
+  });
+
+  it('추가 필드와 기존의 얕은 서류 계약을 그대로 허용한다', async () => {
+    const body = {
+      documents: [{ ...document, additional: true }],
+      fileUpload: { ...milestoneDocumentUploadPolicy(), additional: true },
+      additional: true,
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(body)));
+    await expect(listMilestoneDocuments('milestone-1')).resolves.toEqual({
+      documents: body.documents,
+      fileUpload: body.fileUpload,
+    });
+  });
+});
+
 describe('getMilestoneDocumentParticipantHistory', () => {
   it('정확한 학생 이력 endpoint에 제한과 cursor를 붙여 요청한다', async () => {
     const page = { items: [], nextCursor: 'older-page' };
