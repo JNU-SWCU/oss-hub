@@ -76,7 +76,7 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
     await fixtureProgramId(controlPage);
     const authoringPath = '/api/v1/program-authoring/programs';
     const authorPage = await programAuthoringActorPage('staff', {
-      status: 409,
+      status: 422,
       pathname: authoringPath,
     });
     const recoveryStorageKey = 'oss-hub:program-authoring:recovery-key';
@@ -183,7 +183,7 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
       ...original,
       trackType: 'EXTRACURRICULAR',
     });
-    expect(conflictResponse.status()).toBe(409);
+    expect(conflictResponse.status()).toBe(422);
     expect(await conflictResponse.json()).toMatchObject({
       code: 'PRG_017',
       existingProgramId,
@@ -246,7 +246,7 @@ test.describe('프로그램 작성 dry-run 실패 격리', () => {
       tool: 'Playwright Chrome',
       source:
         'Real isolated API and PostgreSQL with synthetic users and program; no HTTP route mocks',
-      conflict: { status: 409, code: 'PRG_017', changedField: 'trackType' },
+      conflict: { status: 422, code: 'PRG_017', changedField: 'trackType' },
       existingProgramId,
       browserAuthoringPosts: browserPosts.length,
       viewports,

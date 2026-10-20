@@ -14,6 +14,7 @@ import { ProgramAuthoringIdempotencyConflictError } from '../domain/program-auth
 
 let app: INestApplication;
 let baseUrl: string;
+const create = jest.fn();
 
 describe('program authoring conflict HTTP contract', () => {
   beforeAll(async () => {
@@ -22,15 +23,7 @@ describe('program authoring conflict HTTP contract', () => {
       providers: [
         {
           provide: ProgramAuthoringService,
-          useValue: {
-            create: () => {
-              throw new ProgramAuthoringIdempotencyConflictError(
-                'synthetic-actor',
-                'synthetic-key',
-                'synthetic-existing-program',
-              );
-            },
-          },
+          useValue: { create },
         },
         { provide: ProgramAuthoringUploadService, useValue: {} },
       ],
@@ -57,47 +50,86 @@ describe('program authoring conflict HTTP contract', () => {
     baseUrl = await app.getUrl();
   });
   afterAll(async () => app.close());
+  beforeEach(() => {
+    create.mockReset().mockImplementation(() => {
+      throw new ProgramAuthoringIdempotencyConflictError(
+        'synthetic-actor',
+        'synthetic-key',
+        'synthetic-existing-program',
+      );
+    });
+  });
+
+  const submit = (idempotencyKey: string) =>
+    fetch(`${baseUrl}/api/v1/program-authoring/programs`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': idempotencyKey,
+      },
+      body: JSON.stringify({
+        name: '합성 프로그램',
+        organizer: '합성 조직',
+        trackType: 'CURRICULAR',
+        applicationStartAt: '2026-11-01T00:00:00.000Z',
+        applicationEndAt: '2026-11-05T00:00:00.000Z',
+        startAt: '2026-11-06T00:00:00.000Z',
+        endAt: '2026-11-30T00:00:00.000Z',
+        description: '합성 설명',
+        teamMinSize: 1,
+        teamMaxSize: 4,
+        repositoryProvisioningEnabled: false,
+        notifyOnDeadline: false,
+        milestones: [
+          {
+            name: '합성 마일스톤',
+            dueAt: '2026-11-20T00:00:00.000Z',
+            documents: [],
+          },
+        ],
+      }),
+    });
 
   it('returns an actionable conflict without exposing actor ids or request keys', async () => {
-    const response = await fetch(
-      `${baseUrl}/api/v1/program-authoring/programs`,
-      {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'idempotency-key': 'synthetic-key',
-        },
-        body: JSON.stringify({
-          name: '합성 프로그램',
-          organizer: '합성 조직',
-          trackType: 'CURRICULAR',
-          applicationStartAt: '2026-11-01T00:00:00.000Z',
-          applicationEndAt: '2026-11-05T00:00:00.000Z',
-          startAt: '2026-11-06T00:00:00.000Z',
-          endAt: '2026-11-30T00:00:00.000Z',
-          description: '합성 설명',
-          teamMinSize: 1,
-          teamMaxSize: 4,
-          repositoryProvisioningEnabled: false,
-          notifyOnDeadline: false,
-          milestones: [
-            {
-              name: '합성 마일스톤',
-              dueAt: '2026-11-20T00:00:00.000Z',
-              documents: [],
-            },
-          ],
-        }),
-      },
-    );
+    const response = await submit('synthetic-key');
     const problem: unknown = await response.json();
 
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(422);
     expect(problem).toMatchObject({
       code: 'PRG_017',
+      status: 422,
       existingProgramId: 'synthetic-existing-program',
     });
     expect(problem).not.toHaveProperty('actorId');
     expect(problem).not.toHaveProperty('idempotencyKey');
+  });
+
+  it('keeps the legacy status-only client on the original key through repeated confirmation', async () => {
+    create.mockImplementation((_actor: bigint, key: string) => {
+      if (key === 'synthetic-key') {
+        throw new ProgramAuthoringIdempotencyConflictError(
+          'synthetic-actor',
+          key,
+          'synthetic-existing-program',
+        );
+      }
+      return { id: 'duplicate-program' };
+    });
+    let idempotencyKey = 'synthetic-key';
+    const responses: number[] = [];
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const response = await submit(idempotencyKey);
+      responses.push(response.status);
+      if (response.status === 409) idempotencyKey = 'rotated-key';
+      await response.arrayBuffer();
+    }
+
+    expect({
+      keys: create.mock.calls.map((call: unknown[]) => call[1]),
+      responses,
+    }).toEqual({
+      keys: ['synthetic-key', 'synthetic-key'],
+      responses: [422, 422],
+    });
   });
 });
