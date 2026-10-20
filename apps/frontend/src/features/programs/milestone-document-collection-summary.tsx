@@ -87,36 +87,28 @@ export function MilestoneDocumentCollectionSummary({
             </Button>
           </div>
           <FilterChipGroup aria-label={`${selected.name} 제출 여부`}>
-            <FilterChip
-              pressed={selection?.submissionState === 'ALL'}
-              onClick={() =>
-                onSelectionChange({ id: selected.id, submissionState: 'ALL' })
-              }
-            >
-              전체 {selectedTotal.total}팀
-            </FilterChip>
-            <FilterChip
-              pressed={selection?.submissionState === 'MISSING'}
-              onClick={() =>
-                onSelectionChange({
-                  id: selected.id,
-                  submissionState: 'MISSING',
-                })
-              }
-            >
-              미제출 {selectedTotal.total - selectedTotal.submitted}팀
-            </FilterChip>
-            <FilterChip
-              pressed={selection?.submissionState === 'SUBMITTED'}
-              onClick={() =>
-                onSelectionChange({
-                  id: selected.id,
-                  submissionState: 'SUBMITTED',
-                })
-              }
-            >
-              제출 {selectedTotal.submitted}팀
-            </FilterChip>
+            {[
+              ['ALL', `전체 ${selectedTotal.total}팀`],
+              [
+                'MISSING',
+                `미제출 ${selectedTotal.total - selectedTotal.submitted}팀`,
+              ],
+              ['SUBMITTED', `제출 ${selectedTotal.submitted}팀`],
+            ].map(([submissionState, label]) => (
+              <FilterChip
+                key={submissionState}
+                pressed={selection?.submissionState === submissionState}
+                onClick={() =>
+                  onSelectionChange({
+                    id: selected.id,
+                    submissionState:
+                      submissionState as MilestoneDocumentCollectionSelection['submissionState'],
+                  })
+                }
+              >
+                {label}
+              </FilterChip>
+            ))}
           </FilterChipGroup>
           <p className="text-small text-muted-foreground">
             {selected.isRequired
