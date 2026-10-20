@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../../common/error-code';
-import type { ProgramActivityResponseDto } from '../dto/program-detail.dto';
+import type { ProgramActivityResult } from '../domain/program-read.models';
 import type {
-  ActivityPointResponseDto,
-  ActivityTimelineResponseDto,
-} from '../dto/activity-timeline.dto';
+  ActivityPointResult,
+  ActivityTimelineResult,
+} from '../domain/activity-timeline.models';
 import type { ActivityGranularity } from '../domain/program-activity-granularity';
 import { PROGRAM_ERROR_CODES } from '../domain/program-error-code';
 import {
@@ -67,7 +67,7 @@ export class ProgramActivityService {
   async activity(
     programId: string,
     viewer: ProgramViewer,
-  ): Promise<readonly ProgramActivityResponseDto[]> {
+  ): Promise<readonly ProgramActivityResult[]> {
     if (!viewer.userId || !viewer.role || viewer.role === 'PENDING') return [];
     try {
       const applications =
@@ -75,7 +75,7 @@ export class ProgramActivityService {
           programId,
           viewer.role === 'STUDENT' ? viewer.userId : null,
         );
-      return applications.map((application): ProgramActivityResponseDto => {
+      return applications.map((application): ProgramActivityResult => {
         const repository = application.repository;
         const totals = {
           commitCount: repository?._count.commits ?? 0,
@@ -125,9 +125,8 @@ export class ProgramActivityService {
           applicationId: application.id,
           label: application.team.name,
           ...totals,
-          lastActivityAt: lastActivityAt?.toISOString() ?? null,
-          dataAsOf:
-            latestCommittedStreamAt(repository?.streams)?.toISOString() ?? null,
+          lastActivityAt: lastActivityAt,
+          dataAsOf: latestCommittedStreamAt(repository?.streams),
           collectionStatus: !repository
             ? 'NOT_CONNECTED'
             : repository.failureCount > 0
@@ -153,7 +152,7 @@ export class ProgramActivityService {
   async activityTimeline(
     student: ProgramStudentViewer | null,
     granularity: ActivityGranularity,
-  ): Promise<ActivityTimelineResponseDto> {
+  ): Promise<ActivityTimelineResult> {
     if (!student) {
       throw new DomainException(
         CREATION_ERROR_CODES[ProgramErrorCode.FORBIDDEN],
@@ -187,7 +186,7 @@ export class ProgramActivityService {
         }
       }
 
-      const points = new Map<string, ActivityPointResponseDto>();
+      const points = new Map<string, ActivityPointResult>();
       const add = (
         date: Date,
         metric:
@@ -246,7 +245,7 @@ export class ProgramActivityService {
       );
 
       return {
-        dataAsOf: dataAsOf?.toISOString() ?? null,
+        dataAsOf: dataAsOf,
         programs,
         series: {
           granularity,

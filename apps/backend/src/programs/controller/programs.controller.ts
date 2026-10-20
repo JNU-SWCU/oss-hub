@@ -29,10 +29,13 @@ import { CreateProgramResponseDto } from '../dto/create-program-response.dto';
 import { PurgeProgramRequestDto } from '../dto/purge-program-request.dto';
 import {
   ActivityTimelineQueryRequestDto,
+  activityTimelineResponse,
   type ActivityTimelineResponseDto,
 } from '../dto/activity-timeline.dto';
 import {
   ProgramViewerQueryRequestDto,
+  programDetailResponse,
+  programActivityResponse,
   type ProgramActivityResponseDto,
   type ProgramDetailResponseDto,
 } from '../dto/program-detail.dto';
@@ -103,8 +106,12 @@ export class ProgramsController {
 
   @Get(':id')
   @Public()
-  detail(@Param('id') programId: string): Promise<ProgramDetailResponseDto> {
-    return this.programs.detail(programId, ANONYMOUS_VIEWER);
+  async detail(
+    @Param('id') programId: string,
+  ): Promise<ProgramDetailResponseDto> {
+    return programDetailResponse(
+      await this.programs.detail(programId, ANONYMOUS_VIEWER),
+    );
   }
 
   @Get(':id/viewer')
@@ -114,12 +121,14 @@ export class ProgramsController {
     @Req() request: SessionIdentity,
     @Query() query: ProgramViewerQueryRequestDto = {},
   ): Promise<ProgramDetailResponseDto> {
-    return this.programs.detail(
-      programId,
-      await this.viewers.fromGithubId(
-        request.sessionGithubId,
+    return programDetailResponse(
+      await this.programs.detail(
         programId,
-        query.view === 'operations',
+        await this.viewers.fromGithubId(
+          request.sessionGithubId,
+          programId,
+          query.view === 'operations',
+        ),
       ),
     );
   }
@@ -130,10 +139,12 @@ export class ProgramsController {
     @Param('id') programId: string,
     @Req() request: SessionIdentity,
   ): Promise<readonly ProgramActivityResponseDto[]> {
-    return this.activity.activity(
-      programId,
-      await this.viewers.fromGithubId(request.sessionGithubId),
-    );
+    return (
+      await this.activity.activity(
+        programId,
+        await this.viewers.fromGithubId(request.sessionGithubId),
+      )
+    ).map(programActivityResponse);
   }
 
   @Delete(':id/purge')
@@ -189,9 +200,11 @@ export class StudentDashboardController {
     @Req() request: SessionIdentity,
     @Query() query: ActivityTimelineQueryRequestDto,
   ): Promise<ActivityTimelineResponseDto> {
-    return this.activity.activityTimeline(
-      await this.viewers.studentFromGithubId(request.sessionGithubId),
-      query.granularity,
+    return activityTimelineResponse(
+      await this.activity.activityTimeline(
+        await this.viewers.studentFromGithubId(request.sessionGithubId),
+        query.granularity,
+      ),
     );
   }
 }

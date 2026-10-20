@@ -1,3 +1,4 @@
+import type { ActivityTimelineResult } from '../domain/activity-timeline.models';
 import { IsIn } from 'class-validator';
 import {
   ACTIVITY_GRANULARITIES,
@@ -32,4 +33,10 @@ export interface ActivityTimelineResponseDto {
     readonly granularity: ActivityGranularity;
     readonly points: readonly ActivityPointResponseDto[];
   };
+}
+
+export function activityTimelineResponse(
+  result: ActivityTimelineResult,
+): ActivityTimelineResponseDto {
+  return { ...result, dataAsOf: result.dataAsOf?.toISOString() ?? null };
 }

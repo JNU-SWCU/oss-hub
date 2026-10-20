@@ -1,3 +1,4 @@
+import type { ProgramDetailResult } from '../domain/program-read.models';
 import { ValidationPipe } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
@@ -55,8 +56,24 @@ const controllerMethod = (name: keyof ProgramsController): object => {
   return method;
 };
 
-const publicDetail = {
+const publicDetail: ProgramDetailResult = {
   id: 'program-1',
+  coverImageUrl: null,
+  name: 'Synthetic program',
+  organizer: 'Synthetic organizer',
+  trackType: null,
+  applicationTemplateKey: 'basic',
+  lifecycle: 'PUBLISHED',
+  description: 'Synthetic description',
+  repositoryProvisioningEnabled: false,
+  applicationPeriod: {
+    startsAt: new Date('2026-10-01T00:00:00.000Z'),
+    endsAt: new Date('2026-10-10T00:00:00.000Z'),
+  },
+  operatingPeriod: {
+    startsAt: new Date('2026-10-11T00:00:00.000Z'),
+    endsAt: new Date('2026-11-01T00:00:00.000Z'),
+  },
   viewer: { role: null, applicationStatus: null },
   milestones: [],
 };
@@ -253,9 +270,22 @@ describe('ProgramsController read boundaries', () => {
   });
 
   it('공개 상세는 익명 viewer만 전달하고 인증·private 조회를 시작하지 않는다', async () => {
-    programs.detail.mockResolvedValue(publicDetail);
+    programs.detail.mockResolvedValue({
+      ...publicDetail,
+      internalKey: 'unpublished',
+    });
 
-    await expect(controller.detail('program-1')).resolves.toBe(publicDetail);
+    await expect(controller.detail('program-1')).resolves.toEqual({
+      ...publicDetail,
+      applicationPeriod: {
+        startsAt: '2026-10-01T00:00:00.000Z',
+        endsAt: '2026-10-10T00:00:00.000Z',
+      },
+      operatingPeriod: {
+        startsAt: '2026-10-11T00:00:00.000Z',
+        endsAt: '2026-11-01T00:00:00.000Z',
+      },
+    });
 
     expect(programs.detail).toHaveBeenCalledWith('program-1', {
       githubId: null,
