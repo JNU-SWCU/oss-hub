@@ -236,7 +236,7 @@ describe('SubmissionsService integration', () => {
     });
   });
 
-  it('기존 제출은 #116의 milestone query 체크리스트 URL을 반환한다', async () => {
+  it('기존 제출의 ID와 상태를 반환하고 새 제출을 막는다', async () => {
     const [milestoneId] = MILESTONE_SCENARIOS['submission-existing'];
 
     const form = await service.form(
@@ -246,7 +246,10 @@ describe('SubmissionsService integration', () => {
       NOW,
     );
 
-    expect(form.existingSubmission).toMatchObject({});
+    expect(form.existingSubmission).toEqual({
+      id: seedId('milestones', 'submission-existing', 'submission'),
+      status: SubmissionStatus.SUBMITTED,
+    });
     expect(form).toMatchObject({
       canSubmit: false,
       blockedReason: 'SUBMISSION_ALREADY_EXISTS',
