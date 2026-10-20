@@ -208,10 +208,6 @@ export function ProgramCreationPage({
         );
         return;
       case 'conflict':
-        persistProgramAuthoringRecoveryKey(
-          window.sessionStorage,
-          state.idempotencyKey,
-        );
         setExistingProgramId(result.existingProgramId);
         setConfirmationOpen(false);
         setServerError(
