@@ -380,6 +380,33 @@ describe('ProgramCreationPage guided authoring', () => {
     );
   });
 
+  it('hides the existing program link when a retry fails differently', async () => {
+    const completed = completedAuthoringState();
+    const problem = {
+      type: 'about:blank',
+      title: 'Conflict',
+      status: 409,
+      detail: '이미 생성된 프로그램을 확인해 주세요.',
+      instance: '/program-authoring/programs',
+      code: 'PRG_017',
+      existingProgramId: 'existing-program',
+    };
+    mocks.createAuthoringProgram
+      .mockRejectedValueOnce(new ApiError(problem))
+      .mockRejectedValueOnce(new TypeError('network closed'));
+    await act(async () =>
+      root.render(<ProgramCreationPage initialState={completed} />),
+    );
+    await act(async () => buttonNamed('프로그램 만들기').click());
+    await act(async () => buttonNamed('생성 확정').click());
+    expect(document.body.textContent).toContain('기존 프로그램 확인');
+
+    await act(async () => buttonNamed('프로그램 만들기').click());
+    await act(async () => buttonNamed('생성 확정').click());
+
+    expect(document.body.textContent).not.toContain('기존 프로그램 확인');
+  });
+
   it('keeps the request key after an uncertain network response', async () => {
     const completed = completedAuthoringState();
     mocks.createAuthoringProgram.mockRejectedValue(

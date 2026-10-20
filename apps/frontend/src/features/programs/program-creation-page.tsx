@@ -182,6 +182,7 @@ export function ProgramCreationPage({
     );
     setSubmitting(true);
     setServerError(null);
+    setExistingProgramId(null);
     const result = await submitProgramAuthoring({
       state,
       files: filesRef.current,
