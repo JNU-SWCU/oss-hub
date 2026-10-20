@@ -44,7 +44,7 @@ export function respondWithDownloadFailure(
   });
 }
 
-export function attachmentDisposition(fileName: string): string {
+function attachmentDisposition(fileName: string): string {
   const fallback = [...fileName]
     .map((character) => {
       const code = character.charCodeAt(0);

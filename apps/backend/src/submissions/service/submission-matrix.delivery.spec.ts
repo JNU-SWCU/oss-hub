@@ -1,3 +1,4 @@
+import { presentSubmissionMatrix } from '../dto/submission-matrix-response.dto';
 import { SubmissionStatus } from '@prisma/client';
 import type { SubmissionMatrixQuery } from '../domain/submission-matrix';
 import { SubmissionMatrixService } from './submission-matrix.service';
@@ -99,7 +100,10 @@ it.each([
   async (_, times, status) => {
     const { service } = setup(times);
 
-    const result = await service.matrix(1136n, 'program', query);
+    const result = presentSubmissionMatrix(
+      await service.matrix(1136n, 'program', query),
+      'program',
+    );
 
     expect(result.rows[0]?.cells[0]).toMatchObject({
       deliveryStatus: status,
@@ -128,7 +132,10 @@ it('does not treat another application or unrelated document as a required submi
       },
     ]);
 
-  const result = await service.matrix(1136n, 'program', query);
+  const result = presentSubmissionMatrix(
+    await service.matrix(1136n, 'program', query),
+    'program',
+  );
 
   expect(result.rows[0]?.cells[0]).toMatchObject({ deliveryStatus: 'MISSING' });
 });

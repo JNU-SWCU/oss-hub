@@ -13,7 +13,7 @@ import type {
   MilestoneDocumentCollectionSubmission,
 } from './milestone-document-record';
 
-export interface MilestoneDocumentViewerSubmissionResult {
+interface MilestoneDocumentViewerSubmissionResult {
   readonly submitted: boolean;
   readonly submittedAt: Date | null;
   readonly submittedLate: boolean;

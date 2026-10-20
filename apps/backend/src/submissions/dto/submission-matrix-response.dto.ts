@@ -12,7 +12,7 @@ interface MatrixMilestoneResponseDto {
   readonly dueAt: string;
 }
 
-export interface MatrixCellResponseDto {
+interface MatrixCellResponseDto {
   readonly milestoneId: string;
   readonly submissionId: string | null;
   readonly revision: number | null;
@@ -23,7 +23,7 @@ export interface MatrixCellResponseDto {
   readonly changesRequestedCount: number;
 }
 
-export interface MatrixRowResponseDto {
+interface MatrixRowResponseDto {
   readonly applicationId: string;
   readonly applicationMode: MatrixApplicationMode;
   readonly displayName: string;

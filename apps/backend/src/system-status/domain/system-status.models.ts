@@ -9,7 +9,7 @@ export type SystemStatusSafeReasonResult =
   | 'RUN_INCOMPLETE'
   | 'STALE_DATA';
 
-export interface CollectionSystemStatusResult {
+interface CollectionSystemStatusResult {
   readonly health: CollectionHealthResult;
   readonly dataAsOf: Date | null;
   readonly trackedRepositoryCount: number;
@@ -26,17 +26,17 @@ export interface CollectionSystemStatusResult {
   readonly safeReason: SystemStatusSafeReasonResult | null;
 }
 
-export interface RepositoryProvisioningSystemStatusResult {
+interface RepositoryProvisioningSystemStatusResult {
   readonly finalFailureCount: number;
 }
 
-export type CollectionStreamBucketResult =
+type CollectionStreamBucketResult =
   'READY' | 'BACKFILLING' | 'PARTIAL' | 'RETRY_PENDING';
 
-export type CollectionStreamTypeResult =
+type CollectionStreamTypeResult =
   'COMMIT' | 'PULL_REQUEST' | 'RELEASE' | 'ISSUE';
 
-export interface CollectionRepositoryStreamResult {
+interface CollectionRepositoryStreamResult {
   readonly streamType: CollectionStreamTypeResult;
   readonly bucket: CollectionStreamBucketResult;
   readonly lastSuccessAt: Date | null;
@@ -44,7 +44,7 @@ export interface CollectionRepositoryStreamResult {
   readonly lastErrorAt: Date | null;
 }
 
-export interface SystemStatusCollectionStreamsResult {
+interface SystemStatusCollectionStreamsResult {
   readonly repositoryName: string;
   readonly programName: string | null;
   readonly streams: readonly CollectionRepositoryStreamResult[];
@@ -67,7 +67,7 @@ export interface SystemStatusCollectionActivityResult {
   readonly stoppedForBudget: boolean;
 }
 
-export interface SystemStatusExternalCollectionResult {
+interface SystemStatusExternalCollectionResult {
   readonly trackedRepositoryCount: number;
   readonly lastSweep: SystemStatusCollectionActivityResult | null;
   readonly cumulativeCommitCount: number;

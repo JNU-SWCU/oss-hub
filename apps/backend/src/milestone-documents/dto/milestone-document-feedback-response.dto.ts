@@ -1,7 +1,7 @@
 import type { MilestoneDocumentFeedbackResult } from '../domain/milestone-document-result';
 import type { ReviewDecision } from '@prisma/client';
 
-export interface MilestoneDocumentFeedbackItemResponseDto {
+interface MilestoneDocumentFeedbackItemResponseDto {
   readonly id: string;
   readonly decision: ReviewDecision;
   readonly comment: string | null;

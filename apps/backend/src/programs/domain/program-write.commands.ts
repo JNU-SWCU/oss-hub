@@ -29,7 +29,7 @@ export type UpsertMilestoneCommand = {
   readonly instructions?: string | null;
 };
 
-export type EditMilestoneDocumentCommand = {
+type EditMilestoneDocumentCommand = {
   readonly id: string | null;
   readonly name: string;
   readonly required: boolean;

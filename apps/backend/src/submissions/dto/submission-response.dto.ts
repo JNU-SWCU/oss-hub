@@ -15,7 +15,7 @@ import type {
   SubmissionStatus,
 } from '@prisma/client';
 
-export type SubmissionBlockedReasonResponseDto =
+type SubmissionBlockedReasonResponseDto =
   'SUBMISSION_ALREADY_EXISTS' | 'MILESTONE_CLOSED';
 
 export interface SubmissionFormResponseDto {
@@ -55,7 +55,7 @@ interface SubmissionFileMetadataResponseDto {
   readonly downloadUrl: string;
 }
 
-export interface SubmissionChecklistItemResponseDto {
+interface SubmissionChecklistItemResponseDto {
   readonly milestoneId: string;
   readonly name: string;
   readonly dueAt: string;
