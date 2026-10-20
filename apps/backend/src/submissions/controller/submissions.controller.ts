@@ -1,13 +1,9 @@
 import {
   Body,
-  type CallHandler,
   Controller,
-  type ExecutionContext,
   Get,
   Header,
   HttpCode,
-  Injectable,
-  type NestInterceptor,
   Param,
   Post,
   Query,
@@ -18,9 +14,8 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { multipartFileUploadInterceptor } from '../../common/controller/multipart-file-upload.interceptor';
 import type { Response } from 'express';
-import { DomainException } from '../../common/error-code';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
@@ -51,52 +46,23 @@ import { SUBMISSION_UPLOAD_MAX_BYTES } from '../domain/submission-upload-policy'
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
-const MultipartFileInterceptor = FileInterceptor('file', {
-  limits: {
-    fileSize: SUBMISSION_UPLOAD_MAX_BYTES,
-    fieldNameSize: 100,
-    fieldSize: 512,
-    fields: 4,
-    files: 1,
-
-    parts: 6,
+const SubmissionFileUploadInterceptor = multipartFileUploadInterceptor(
+  {
+    limits: {
+      fileSize: SUBMISSION_UPLOAD_MAX_BYTES,
+      fieldNameSize: 100,
+      fieldSize: 512,
+      fields: 4,
+      files: 1,
+      parts: 6,
+    },
   },
-});
-
-@Injectable()
-class SubmissionFileUploadInterceptor
-  extends MultipartFileInterceptor
-  implements NestInterceptor
-{
-  override async intercept(context: ExecutionContext, next: CallHandler) {
-    try {
-      return await super.intercept(context, next);
-    } catch (error) {
-      if (typeof error === 'object' && error !== null && 'code' in error) {
-        if (error.code === 'LIMIT_FILE_SIZE') {
-          throw new DomainException(
-            SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.FILE_TOO_LARGE],
-          );
-        }
-        if (
-          [
-            'LIMIT_FIELD_KEY',
-            'LIMIT_FIELD_VALUE',
-            'LIMIT_FIELD_COUNT',
-            'LIMIT_FILE_COUNT',
-            'LIMIT_PART_COUNT',
-            'LIMIT_UNEXPECTED_FILE',
-          ].includes(String(error.code))
-        ) {
-          throw new DomainException(
-            SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.INVALID_FILE_UPLOAD],
-          );
-        }
-      }
-      throw error;
-    }
-  }
-}
+  {
+    fileTooLarge: SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.FILE_TOO_LARGE],
+    invalidUpload:
+      SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.INVALID_FILE_UPLOAD],
+  },
+);
 
 @Controller('programs/:programId/milestones/:milestoneId')
 export class SubmissionFormsController {

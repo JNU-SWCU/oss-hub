@@ -1,15 +1,11 @@
 import {
   Body,
-  type CallHandler,
   Controller,
   Delete,
-  type ExecutionContext,
   Get,
   Header,
   HttpCode,
-  Injectable,
   Logger,
-  type NestInterceptor,
   Param,
   Patch,
   Post,
@@ -21,12 +17,11 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { multipartFileUploadInterceptor } from '../../common/controller/multipart-file-upload.interceptor';
 import type { Response } from 'express';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { DomainException } from '../../common/error-code';
 import { CreateMilestoneDocumentReviewRequestDto } from '../dto/create-milestone-document-review-request.dto';
 import { MilestoneDocumentArchiveQueryRequestDto } from '../dto/milestone-document-archive-query.dto';
 import { CreateMilestoneDocumentSubmissionRequestDto } from '../dto/create-milestone-document-submission-request.dto';
@@ -68,56 +63,28 @@ type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 const archiveLogger = new Logger('MilestoneDocumentArchive');
 
-const MilestoneDocumentFileUploadOptions = {
-  limits: {
-    fileSize: SUBMISSION_UPLOAD_MAX_BYTES,
-    fieldNameSize: 100,
-    fieldSize: 512,
-    fields: 4,
-    files: 1,
-
-    parts: 4,
+const MilestoneDocumentFileUploadInterceptor = multipartFileUploadInterceptor(
+  {
+    limits: {
+      fileSize: SUBMISSION_UPLOAD_MAX_BYTES,
+      fieldNameSize: 100,
+      fieldSize: 512,
+      fields: 4,
+      files: 1,
+      parts: 4,
+    },
   },
-};
-
-@Injectable()
-class MilestoneDocumentFileUploadInterceptor
-  extends FileInterceptor('file', MilestoneDocumentFileUploadOptions)
-  implements NestInterceptor
-{
-  override async intercept(context: ExecutionContext, next: CallHandler) {
-    try {
-      return await super.intercept(context, next);
-    } catch (error) {
-      if (typeof error === 'object' && error !== null && 'code' in error) {
-        if (error.code === 'LIMIT_FILE_SIZE') {
-          throw new DomainException(
-            MILESTONE_DOCUMENTS_ERROR_CODES[
-              MilestoneDocumentsErrorCode.FILE_TOO_LARGE
-            ],
-          );
-        }
-        if (
-          [
-            'LIMIT_FIELD_KEY',
-            'LIMIT_FIELD_VALUE',
-            'LIMIT_FIELD_COUNT',
-            'LIMIT_FILE_COUNT',
-            'LIMIT_PART_COUNT',
-            'LIMIT_UNEXPECTED_FILE',
-          ].includes(String(error.code))
-        ) {
-          throw new DomainException(
-            MILESTONE_DOCUMENTS_ERROR_CODES[
-              MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD
-            ],
-          );
-        }
-      }
-      throw error;
-    }
-  }
-}
+  {
+    fileTooLarge:
+      MILESTONE_DOCUMENTS_ERROR_CODES[
+        MilestoneDocumentsErrorCode.FILE_TOO_LARGE
+      ],
+    invalidUpload:
+      MILESTONE_DOCUMENTS_ERROR_CODES[
+        MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD
+      ],
+  },
+);
 
 @Controller('milestones/:milestoneId/documents')
 export class MilestoneDocumentsController {
