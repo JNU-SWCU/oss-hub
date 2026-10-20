@@ -7,7 +7,7 @@ const overview: ProgramOverview = {
   programId: 'program-1',
   name: 'OSS 경진대회',
   trackType: 'EXTRACURRICULAR',
-  lifecycle: 'ACTIVE',
+  lifecycle: 'PUBLISHED',
   milestoneCount: 3,
   boardPostCount: 5,
   participantCount: 12,
@@ -26,6 +26,58 @@ afterEach(() => {
 });
 
 describe('getProgramOverview', () => {
+  it.each(['PUBLISHED', 'ARCHIVED', undefined] as const)(
+    '기존 상태와 필드 부재 %s를 읽는다',
+    async (lifecycle) => {
+      const response: unknown = JSON.parse(
+        JSON.stringify({ ...overview, lifecycle }),
+      );
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(new Response(JSON.stringify(response))),
+      );
+
+      await expect(getProgramOverview('program-1')).resolves.toEqual(response);
+    },
+  );
+
+  it.each(['ACTIVE', 'DRAFT', null, 0, false])(
+    '제공된 잘못된 게시 상태 %s를 거부한다',
+    async (lifecycle) => {
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValue(
+            new Response(JSON.stringify({ ...overview, lifecycle })),
+          ),
+      );
+
+      await expect(getProgramOverview('program-1')).rejects.toThrow(
+        '프로그램 게시 상태 응답 형식이 올바르지 않습니다.',
+      );
+    },
+  );
+
+  it('필드가 없어도 기존 category 거부 검증을 유지한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ...overview,
+            lifecycle: undefined,
+            category: 'legacy',
+          }),
+        ),
+      ),
+    );
+
+    await expect(getProgramOverview('program-1')).rejects.toThrow(
+      '프로그램 개요 응답 형식이 올바르지 않습니다.',
+    );
+  });
+
   it('programId를 인코딩해 올바른 경로로 GET 요청한다', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(overview), {

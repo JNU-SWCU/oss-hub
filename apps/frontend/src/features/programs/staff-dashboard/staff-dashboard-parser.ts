@@ -9,6 +9,7 @@ import type {
   StaffDashboardSubmissionSummary,
   StaffDashboardSummary,
 } from './dto';
+import { hasCompatibleProgramLifecycle } from '../program-lifecycle';
 
 export class StaffDashboardResponseError extends Error {
   constructor() {
@@ -46,12 +47,6 @@ function isProgramTrackType(value: unknown): value is ProgramTrackType | null {
     value === null ||
     PROGRAM_TRACK_TYPES.some((trackType) => trackType === value)
   );
-}
-
-function isProgramLifecycle(
-  value: unknown,
-): value is StaffDashboardProgramSummary['lifecycle'] {
-  return value === 'PUBLISHED' || value === 'ARCHIVED';
 }
 
 function isSafeProgramId(value: unknown): value is string {
@@ -123,7 +118,7 @@ function isProgram(value: unknown): value is StaffDashboardProgramSummary {
     Date.parse(value.applicationPeriod.startsAt) <=
       Date.parse(value.applicationPeriod.endsAt) &&
     isIsoDate(value.endAt) &&
-    isProgramLifecycle(value.lifecycle) &&
+    hasCompatibleProgramLifecycle(value) &&
     value.teamManagementPath === expectedTeamManagementPath &&
     isApplications(value.applications) &&
     isActivity(value.activity) &&

@@ -11,6 +11,7 @@ import type {
 } from './dto';
 import { ApiError, apiClient } from '../../../lib/api-client';
 import { PROGRAM_EDIT_ERROR_CODES } from './program-edit-error-codes';
+import { parseProgramLifecycle } from '../program-lifecycle';
 
 const jsonHeaders = { 'Content-Type': 'application/json' } as const;
 
@@ -41,25 +42,29 @@ export function editableMilestoneSnapshotFailure(
   return { kind: 'unknown' };
 }
 
-export function getEditableProgram(
+export async function getEditableProgram(
   programId: string,
 ): Promise<EditableProgram> {
-  return apiClient<EditableProgram>(
-    `programs/${encodeURIComponent(programId)}/edit`,
+  return parseProgramLifecycle(
+    await apiClient<EditableProgram>(
+      `programs/${encodeURIComponent(programId)}/edit`,
+    ),
   );
 }
 
-export function updateProgram(
+export async function updateProgram(
   programId: string,
   input: UpdateProgramInput,
 ): Promise<EditableProgram> {
-  return apiClient<EditableProgram>(
-    `programs/${encodeURIComponent(programId)}`,
-    {
-      method: 'PATCH',
-      headers: jsonHeaders,
-      body: JSON.stringify(input),
-    },
+  return parseProgramLifecycle(
+    await apiClient<EditableProgram>(
+      `programs/${encodeURIComponent(programId)}`,
+      {
+        method: 'PATCH',
+        headers: jsonHeaders,
+        body: JSON.stringify(input),
+      },
+    ),
   );
 }
 

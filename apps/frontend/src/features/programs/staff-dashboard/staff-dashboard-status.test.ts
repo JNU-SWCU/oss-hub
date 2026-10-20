@@ -56,6 +56,9 @@ const recruitingProgram = staffDashboardProgram({
   name: '모집중 프로그램',
 });
 
+const withoutLifecycle = { ...recruitingProgram };
+Reflect.deleteProperty(withoutLifecycle, 'lifecycle');
+
 const allPrograms = [
   endedProgram,
   archivedProgram,
@@ -70,6 +73,20 @@ function idsOf(status: 'ended' | 'in_progress' | 'recruiting'): string[] {
 }
 
 describe('교직원 대시보드 모집 상태', () => {
+  it('게시 상태 부재는 날짜로 집계하고 미래 ARCHIVED는 종료와 내림에 남긴다', () => {
+    expect(
+      summarizeStaffDashboardStatuses(
+        [withoutLifecycle, archivedWithFutureEndProgram],
+        now,
+      ),
+    ).toEqual({
+      recruiting: 1,
+      inProgress: 0,
+      ended: 1,
+      archived: 1,
+    });
+  });
+
   it('종료일이 지났거나 내린 프로그램을 「종료」 배지로 표시한다', () => {
     expect(getStaffRecruitmentBadge(endedProgram, now).label).toBe('종료');
     expect(getStaffRecruitmentBadge(archivedProgram, now).label).toBe('종료');

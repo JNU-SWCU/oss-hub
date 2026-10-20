@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import type { ProgramOverview } from './program-overview-dto';
+import { parseProgramLifecycle } from '../program-lifecycle';
 
 class ProgramOverviewResponseError extends Error {
   constructor() {
@@ -16,7 +17,7 @@ function parseProgramOverview(value: unknown): ProgramOverview {
   if ('category' in record) {
     throw new ProgramOverviewResponseError();
   }
-  return record as unknown as ProgramOverview;
+  return parseProgramLifecycle(record) as unknown as ProgramOverview;
 }
 
 export async function getProgramOverview(
