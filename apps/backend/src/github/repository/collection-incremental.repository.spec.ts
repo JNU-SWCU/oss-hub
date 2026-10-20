@@ -629,6 +629,7 @@ describe('CollectionIncrementalRepository — transactional scope (todo 8 import
     db.githubRepository.upsert.mockResolvedValue({ id: 'repo-1' });
 
     const result = await repositoryFor(db).runInTransaction(async (repo) => {
+      expect(repo).not.toHaveProperty('runInTransaction');
       const row = await repo.recordRepositoryObservation({
         githubOrganizationId: 10n,
         githubRepositoryId: 20n,
