@@ -206,7 +206,7 @@ export interface EditableProgram {
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
 
-  readonly startAt?: string;
+  readonly startAt: string;
   readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
   readonly notifyOnDeadline: boolean;

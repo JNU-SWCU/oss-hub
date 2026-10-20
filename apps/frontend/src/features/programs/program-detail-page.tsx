@@ -1,13 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   MILESTONE_DOCUMENT_SUBMITTED_EVENT,
@@ -50,12 +44,10 @@ export function ProgramDetailPage({
   programId,
   session,
   operationsView: selectedOperationsView,
-  approvedStudentMilestones,
 }: {
   readonly programId: string;
   readonly session: ProgramDetailSession;
   readonly operationsView?: boolean;
-  readonly approvedStudentMilestones?: ReactNode;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -147,7 +139,6 @@ export function ProgramDetailPage({
       <ProgramDetailReadyState
         program={state.program}
         overview={state.overview}
-        approvedStudentMilestones={approvedStudentMilestones}
       />
     </>
   );

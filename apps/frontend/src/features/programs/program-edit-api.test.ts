@@ -240,7 +240,7 @@ describe('program edit API', () => {
       trackType: editableProgram.trackType ?? 'EXTRACURRICULAR',
       applicationStartAt: editableProgram.applicationStartAt,
       applicationEndAt: editableProgram.applicationEndAt,
-      startAt: editableProgram.startAt ?? editableProgram.applicationEndAt,
+      startAt: editableProgram.startAt,
       endAt: editableProgram.endAt,
       repositoryProvisioningEnabled:
         editableProgram.repositoryProvisioningEnabled,

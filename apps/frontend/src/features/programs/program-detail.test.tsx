@@ -343,7 +343,7 @@ describe('ProgramDetailPage states', () => {
     vi.useRealTimers();
   });
 
-  it('승인된 학생에게도 approvedStudentMilestones 대신 항상 마일스톤 목록을 그린다', () => {
+  it('승인된 학생에게 마일스톤 목록을 그린다', () => {
     const html = renderToStaticMarkup(
       <ProgramDetailReadyState
         program={{
@@ -351,15 +351,11 @@ describe('ProgramDetailPage states', () => {
           viewer: { role: 'STUDENT', applicationStatus: 'APPROVED' },
           milestones: [milestone],
         }}
-        approvedStudentMilestones={
-          <section id="should-not-render" aria-label="체크리스트 불러오는 중" />
-        }
       />,
     );
 
     expect(html).toContain('id="milestones"');
     expect(html).toContain('기획서 제출');
-    expect(html).not.toContain('id="should-not-render"');
     expect(html).not.toContain('체크리스트 불러오는 중');
   });
 

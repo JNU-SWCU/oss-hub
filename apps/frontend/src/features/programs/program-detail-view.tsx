@@ -5,7 +5,7 @@ import { programCoverSource } from '@/components/program-cover-source';
 
 import Link from 'next/link';
 import { Pencil } from 'lucide-react';
-import { useEffect, useId, type ReactNode } from 'react';
+import { useEffect, useId } from 'react';
 import {
   EmptyState,
   FailureState,
@@ -378,8 +378,6 @@ export function ProgramDetailReadyState({
   readonly program: ProgramDetail;
 
   readonly overview?: ProgramOverview | null;
-
-  readonly approvedStudentMilestones?: ReactNode;
 }) {
   useActivityHashScroll();
 
