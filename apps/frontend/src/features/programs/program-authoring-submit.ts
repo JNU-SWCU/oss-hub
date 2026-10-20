@@ -62,7 +62,10 @@ export async function submitProgramAuthoring(options: {
       );
       return { kind: 'success', programId: program.id };
     } catch (error: unknown) {
-      if (error instanceof ApiError && error.problem.status === 409) {
+      if (
+        error instanceof ApiError &&
+        (error.problem.code === 'PRG_017' || error.problem.status === 409)
+      ) {
         const existingProgramId =
           'existingProgramId' in error.problem &&
           typeof error.problem.existingProgramId === 'string' &&
