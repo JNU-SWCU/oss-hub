@@ -66,8 +66,8 @@ async function recordTeamDeletionNotification(
 ): Promise<void> {
   if (event.recipientUserIds.length === 0) return;
   const deletedAt = event.deletedAt.toISOString();
-  await store.notificationWriter.notification.createMany({
-    data: event.recipientUserIds.map((userId) => ({
+  await store.createTeamDeletedNotifications(
+    event.recipientUserIds.map((userId) => ({
       userId,
       type: TEAM_DELETED_NOTIFICATION_TYPE,
       channel: 'IN_APP',
@@ -84,9 +84,7 @@ async function recordTeamDeletionNotification(
         deletedAt,
       },
     })),
-
-    skipDuplicates: true,
-  });
+  );
 }
 
 const JOIN_CODE_ATTEMPTS = 5;
