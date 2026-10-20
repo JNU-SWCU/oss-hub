@@ -14,7 +14,7 @@ vi.mock('../../_shell/role-panel-shell', () => ({
   }) => <section data-allow={allow.join(',')}>{children}</section>,
 }));
 
-vi.mock("@/features/programs/authoring/program-creation-page", () => ({
+vi.mock('@/features/programs/authoring/program-creation-page', () => ({
   ProgramCreationPage: () => <div>program creation</div>,
 }));
 

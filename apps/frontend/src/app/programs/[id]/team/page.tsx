@@ -3,7 +3,7 @@
 import { use, useMemo } from 'react';
 import { RolePanelShell } from '../../../_shell/role-panel-shell';
 import { useSession } from '@/features/auth/use-session';
-import { ProgramMyTeamPage } from "@/features/programs/teams/program-my-team-page";
+import { ProgramMyTeamPage } from '@/features/programs/teams/program-my-team-page';
 import { decodeRouteProgramId } from '@/features/programs/program-paths';
 import { SubmissionChecklistPage } from '@/features/submissions/submission-checklist-page';
 

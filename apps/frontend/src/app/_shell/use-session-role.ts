@@ -5,11 +5,11 @@ import { useSession } from '@/features/auth/use-session';
 import {
   fetchMyStaffAccessRequest,
   fetchMyRoleSelection,
-} from "@/features/roles/onboarding/api";
+} from '@/features/roles/onboarding/api';
 import type {
   StaffAccessRequestStatus,
   RoleSelection,
-} from "@/features/roles/onboarding/types";
+} from '@/features/roles/onboarding/types';
 import {
   EMPTY_MEMBER_ACCESS,
   memberSurfaces,

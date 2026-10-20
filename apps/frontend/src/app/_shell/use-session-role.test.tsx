@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   StaffAccessRequest,
   StaffAccessRequestStatus,
-} from "@/features/roles/onboarding/types";
+} from '@/features/roles/onboarding/types';
 
 const mocks = vi.hoisted(() => ({
   fetchMyStaffAccessRequest: vi.fn(),
@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
 }));
 
-vi.mock("@/features/roles/onboarding/api", () => ({
+vi.mock('@/features/roles/onboarding/api', () => ({
   fetchMyStaffAccessRequest: mocks.fetchMyStaffAccessRequest,
   fetchMyRoleSelection: mocks.fetchMyRoleSelection,
   selectRole: vi.fn(),

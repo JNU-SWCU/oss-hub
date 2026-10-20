@@ -1,4 +1,4 @@
-import type { StaffAccessRequest } from "@/features/roles/onboarding/types";
+import type { StaffAccessRequest } from '@/features/roles/onboarding/types';
 import type { MemberAccess } from './member-access';
 
 export const ZERO_SURFACE_STAFF: MemberAccess = {

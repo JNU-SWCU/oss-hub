@@ -2,7 +2,7 @@
 
 import type { ReactElement } from 'react';
 import { useSession } from '@/features/auth/use-session';
-import { ProgramApplyPage } from "@/features/programs/applications/program-apply-page";
+import { ProgramApplyPage } from '@/features/programs/applications/program-apply-page';
 
 type ProgramApplyRouteProps = {
   readonly programId: string;

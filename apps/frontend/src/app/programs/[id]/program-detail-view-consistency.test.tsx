@@ -52,18 +52,18 @@ vi.mock('../../_shell/use-session-role', () => ({
     isProfileComplete: true,
   }),
 }));
-vi.mock("@/features/programs/applications/student-application-api", () => ({
+vi.mock('@/features/programs/applications/student-application-api', () => ({
   getMyApplication: mocks.getMyApplication,
 }));
-vi.mock("@/features/programs/catalog/program-overview-api", () => ({
+vi.mock('@/features/programs/catalog/program-overview-api', () => ({
   getProgramOverview: mocks.getProgramOverview,
 }));
-vi.mock("@/features/programs/catalog/program-navigation-api", () => ({
+vi.mock('@/features/programs/catalog/program-navigation-api', () => ({
   getProgramNavigationMilestones: async () => [
     { milestoneId: 'milestone-1', title: '합성 단계', submissionEnabled: true },
   ],
 }));
-vi.mock("@/features/programs/catalog/components/activity-graph-panel", () => ({
+vi.mock('@/features/programs/catalog/components/activity-graph-panel', () => ({
   ActivityGraphPanel: () => null,
 }));
 

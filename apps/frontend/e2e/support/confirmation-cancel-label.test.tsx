@@ -2,11 +2,11 @@ import { act, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountDeactivationSection } from '@/features/profile/settings/components/account-deactivation-section';
-import { ApplicationConfirmationDialog } from "@/features/programs/applications/application-confirmation-dialog";
-import { ApplicationDecisionDialog } from "@/features/programs/applications/application-decision-dialog";
-import { MilestoneDocumentResubmissionDialog } from "@/features/programs/documents/milestone-document-resubmission-dialog";
-import { ProgramAuthoringConfirmationDialog } from "@/features/programs/authoring/program-authoring-confirmation-dialog";
-import { ProgramEditPurgeConfirmation } from "@/features/programs/authoring/program-edit-purge-confirmation";
+import { ApplicationConfirmationDialog } from '@/features/programs/applications/application-confirmation-dialog';
+import { ApplicationDecisionDialog } from '@/features/programs/applications/application-decision-dialog';
+import { MilestoneDocumentResubmissionDialog } from '@/features/programs/documents/milestone-document-resubmission-dialog';
+import { ProgramAuthoringConfirmationDialog } from '@/features/programs/authoring/program-authoring-confirmation-dialog';
+import { ProgramEditPurgeConfirmation } from '@/features/programs/authoring/program-edit-purge-confirmation';
 
 const deactivate = vi.hoisted(() => vi.fn());
 vi.mock(

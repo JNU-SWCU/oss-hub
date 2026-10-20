@@ -45,7 +45,7 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock("@/features/roles/onboarding/api", () => ({
+vi.mock('@/features/roles/onboarding/api', () => ({
   fetchMyStaffAccessRequest: mocks.fetchMyStaffAccessRequest,
   fetchMyRoleSelection: mocks.fetchMyRoleSelection,
   selectRole: vi.fn(),

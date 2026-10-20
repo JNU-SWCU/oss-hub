@@ -1,6 +1,6 @@
 'use client';
 
-import { ProgramListPage } from "@/features/programs/catalog/program-list-page";
+import { ProgramListPage } from '@/features/programs/catalog/program-list-page';
 import { useSessionRole } from '../_shell/use-session-role';
 
 export default function ProgramsPage() {

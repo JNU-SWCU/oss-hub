@@ -1,4 +1,4 @@
-import { AdminAccessOverlay } from "@/features/roles/access-administration/components/admin-access-overlay";
+import { AdminAccessOverlay } from '@/features/roles/access-administration/components/admin-access-overlay';
 
 type ApplicantQueueOverlayPageProps = {
   readonly params: Promise<{ readonly userId: string }>;

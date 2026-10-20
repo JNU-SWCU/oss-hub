@@ -2,7 +2,10 @@ import type { NavItem } from '@/components';
 import { programDocumentsHref, programMyTeamHref } from '@/lib/program-route';
 import { archiveListHref } from '@/features/archive/types';
 import { programHref } from '@/features/programs/program-paths';
-import { PROGRAM_LIST_STATUSES, type ProgramListStatus } from '@/features/programs/catalog/program-list-options';
+import {
+  PROGRAM_LIST_STATUSES,
+  type ProgramListStatus,
+} from '@/features/programs/catalog/program-list-options';
 import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/catalog/program-list-labels';
 import { programListHref } from '@/features/programs/program-paths';
 import {

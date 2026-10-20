@@ -6,7 +6,7 @@ import { useSession } from '@/features/auth/use-session';
 import {
   ProgramDetailPage,
   type ProgramDetailSession,
-} from "@/features/programs/catalog/program-detail-page";
+} from '@/features/programs/catalog/program-detail-page';
 import { programDocumentsHref } from '@/lib/program-route';
 import { ProgramViewContext } from '../../_shell/program-shell-policy';
 

@@ -42,13 +42,13 @@ vi.mock('next/link', () => ({
   ),
 }));
 vi.mock('./use-session-role', () => ({ useSessionRole: mocks.useSessionRole }));
-vi.mock("@/features/programs/catalog/program-overview-api", () => ({
+vi.mock('@/features/programs/catalog/program-overview-api', () => ({
   getProgramOverview: mocks.getProgramOverview,
 }));
-vi.mock("@/features/programs/catalog/program-navigation-api", () => ({
+vi.mock('@/features/programs/catalog/program-navigation-api', () => ({
   getProgramNavigationMilestones: mocks.getProgramNavigationMilestones,
 }));
-vi.mock("@/features/programs/applications/student-application-api", () => ({
+vi.mock('@/features/programs/applications/student-application-api', () => ({
   getMyApplication: mocks.getMyApplication,
 }));
 

@@ -26,27 +26,25 @@ vi.mock('@/features/programs/catalog/api', () => ({
   getPublicProgramDetail: remote.detail,
   getProgramActivity: vi.fn().mockResolvedValue([]),
 }));
-vi.mock("@/features/programs/catalog/program-overview-api", () => ({
+vi.mock('@/features/programs/catalog/program-overview-api', () => ({
   getProgramOverview: remote.overview,
 }));
 
 vi.mock(
-  "@/features/programs/documents/milestone-document-api",
+  '@/features/programs/documents/milestone-document-api',
   async (importOriginal) => ({
     ...(await importOriginal<
-      typeof import("@/features/programs/documents/milestone-document-api")
+      typeof import('@/features/programs/documents/milestone-document-api')
     >()),
-    listMilestoneDocuments: vi
-      .fn()
-      .mockResolvedValue({
-        documents: [],
-        fileUpload: {
-          maxBytes: 1024,
-          maxLabel: '1 KiB',
-          accept: '.pdf',
-          formatLabel: 'PDF',
-        },
-      }),
+    listMilestoneDocuments: vi.fn().mockResolvedValue({
+      documents: [],
+      fileUpload: {
+        maxBytes: 1024,
+        maxLabel: '1 KiB',
+        accept: '.pdf',
+        formatLabel: 'PDF',
+      },
+    }),
   }),
 );
 
