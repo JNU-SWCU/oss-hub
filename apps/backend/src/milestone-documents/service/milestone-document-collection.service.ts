@@ -53,6 +53,15 @@ export class MilestoneDocumentCollectionService {
         store.findDocuments(milestoneId),
         store.findApplications(milestone.programId),
       ]);
+      if (
+        query.document !== undefined &&
+        !documents.some((document) => document.id === query.document?.id)
+      )
+        throw new DomainException(
+          MILESTONE_DOCUMENTS_ERROR_CODES[
+            MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND
+          ],
+        );
       const documentIds = documents.map((document) => document.id);
       const coordinates = await store.findCoordinates(
         documentIds,
