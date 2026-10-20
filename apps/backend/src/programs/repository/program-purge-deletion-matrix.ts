@@ -159,6 +159,14 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
     operation: 'TOMBSTONE',
     covers: ['Program->ProgramCover'],
   },
+  {
+    id: 'application-preparations-cascade',
+    operation: 'DELETE',
+    covers: [
+      'ApplicationPreparation->ApplicationPreparationParticipant',
+      'Program->ApplicationPreparation',
+    ],
+  },
 ] as const satisfies readonly PurgeDeletionStep[];
 
 const TEAM_SUBTREE_PARENTS: ReadonlySet<string> = new Set([

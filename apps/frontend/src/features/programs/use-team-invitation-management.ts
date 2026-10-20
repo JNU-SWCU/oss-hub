@@ -38,7 +38,7 @@ type SentInvitationsState =
 
 export interface TeamInvitationManagementInput {
   readonly programId: string;
-  readonly team: Pick<ProgramTeam, 'id' | 'canInvite'> | null;
+  readonly team: Pick<ProgramTeam, 'id' | 'canInvite' | 'preparation'> | null;
   readonly sessionKey: string | null;
 }
 
@@ -99,6 +99,8 @@ export function useTeamInvitationManagement(
   const cancelingInvitationIdRef = useRef<string | null>(null);
   const identityKeyRef = useRef(identityKey);
   const teamIdRef = useRef(teamId);
+  const preparationRef = useRef(input.team?.preparation === true);
+  preparationRef.current = input.team?.preparation === true;
   const inviteQueryRef = useRef(inviteQuery);
   identityKeyRef.current = identityKey;
   teamIdRef.current = teamId;
@@ -129,7 +131,10 @@ export function useTeamInvitationManagement(
       const seq = ++sentSeqRef.current;
       if (!options?.quiet) setSent({ kind: 'loading' });
       try {
-        const invitations = await listSentInvitations(targetTeamId);
+        const invitations = await listSentInvitations(
+          targetTeamId,
+          preparationRef.current,
+        );
         if (seq !== sentSeqRef.current || !stillCurrent(epoch, key)) return;
         setSent({ kind: 'loaded', invitations });
       } catch (error: unknown) {
@@ -166,6 +171,7 @@ export function useTeamInvitationManagement(
         const candidates = await searchInvitationCandidates(
           targetTeamId,
           query,
+          preparationRef.current,
         );
         if (seq !== searchSeqRef.current || !stillCurrent(epoch, key)) return;
         setInviteCandidates(candidates);
@@ -238,7 +244,11 @@ export function useTeamInvitationManagement(
       setInvitingUserId(candidate.id);
       setInviteActionError(null);
       try {
-        await createInvitation(targetTeamId, candidate.id);
+        await createInvitation(
+          targetTeamId,
+          candidate.id,
+          preparationRef.current,
+        );
         if (!stillCurrent(epoch, key)) return;
 
         await loadSent({ quiet: true });
@@ -276,7 +286,7 @@ export function useTeamInvitationManagement(
       setCancelingInvitationId(invitationId);
       setInviteActionError(null);
       try {
-        await cancelInvitation(invitationId);
+        await cancelInvitation(invitationId, preparationRef.current);
         if (!stillCurrent(epoch, key)) return;
         await loadSent({ quiet: true });
       } catch (error: unknown) {

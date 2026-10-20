@@ -1,3 +1,6 @@
+import { ApplicationPreparationsController } from './controller/application-preparations.controller';
+import { ApplicationPreparationsService } from './service/application-preparations.service';
+import { ApplicationPreparationsRepository } from './repository/application-preparations.repository';
 import { Module } from '@nestjs/common';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuditLogService } from '../audit-log/service/audit-log.service';
@@ -41,6 +44,7 @@ import { StudentRepositoryUrlRepository } from './repository/student-repository-
     SubmissionsModule,
   ],
   controllers: [
+    ApplicationPreparationsController,
     StudentRepositoryUrlController,
     StaffDashboardController,
     StudentApplicationsController,
@@ -48,6 +52,8 @@ import { StudentRepositoryUrlRepository } from './repository/student-repository-
     ApplicationsController,
   ],
   providers: [
+    ApplicationPreparationsService,
+    ApplicationPreparationsRepository,
     StudentRepositoryUrlService,
     StudentRepositoryUrlRepository,
     ApplicationsRepository,
