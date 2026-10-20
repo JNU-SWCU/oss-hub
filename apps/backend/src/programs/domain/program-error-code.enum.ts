@@ -14,9 +14,16 @@ export enum ProgramErrorCode {
   PROGRAM_DELETE_BLOCKED = 'PRG_012',
   PROGRAM_PURGE_SCOPE_CHANGED = 'PRG_014',
   MILESTONE_EDIT_CHANGED = 'PRG_016',
+  AUTHORING_REQUEST_CONFLICT = 'PRG_017',
 }
 
 export const PROGRAM_ERROR_CODES: Record<ProgramErrorCode, ErrorCode> = {
+  [ProgramErrorCode.AUTHORING_REQUEST_CONFLICT]: {
+    code: ProgramErrorCode.AUTHORING_REQUEST_CONFLICT,
+    status: 409,
+    message:
+      '이전 생성 요청의 원래 내용을 확인할 수 없거나 입력이 다릅니다. 이미 생성된 프로그램을 먼저 확인해 주세요.',
+  },
   [ProgramErrorCode.VALIDATION_ERROR]: {
     code: ProgramErrorCode.VALIDATION_ERROR,
     status: 400,

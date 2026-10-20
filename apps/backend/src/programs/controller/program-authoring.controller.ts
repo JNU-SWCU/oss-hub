@@ -1,4 +1,12 @@
 import {
+  DomainException,
+  type ProblemDetailExtensions,
+} from '../../common/error-code';
+import {
+  PROGRAM_ERROR_CODES,
+  ProgramErrorCode,
+} from '../domain/program-error-code.enum';
+import {
   BadRequestException,
   Body,
   ConflictException,
@@ -138,7 +146,13 @@ export class ProgramAuthoringController {
         throw new ConflictException('Program authoring is unavailable.');
       }
       if (error instanceof ProgramAuthoringIdempotencyConflictError) {
-        throw new ConflictException('The idempotency key was already used.');
+        const extensions: ProblemDetailExtensions & {
+          readonly existingProgramId: string;
+        } = { existingProgramId: error.existingProgramId };
+        throw new DomainException(
+          PROGRAM_ERROR_CODES[ProgramErrorCode.AUTHORING_REQUEST_CONFLICT],
+          extensions,
+        );
       }
       if (
         error instanceof ProgramAuthoringValidationError ||
