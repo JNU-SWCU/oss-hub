@@ -223,6 +223,7 @@ describe('서류 수합 표의 조회 조건과 응답', () => {
       collection([], { total: 0 }),
     );
     await render();
+    await click('지각 제출');
     await click('기획서');
     await click('미제출 17팀');
     expect(container.textContent).toContain('조건에 맞는 팀이 없습니다');

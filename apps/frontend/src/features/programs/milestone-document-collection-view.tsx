@@ -717,11 +717,11 @@ function CollectionBody(
             <Button
               type="button"
               variant="outline"
-              onClick={() =>
-                props.documentSelection === null
-                  ? props.onFilterChange('ALL')
-                  : props.onDocumentSelectionChange(null)
-              }
+              onClick={() => {
+                props.onFilterChange('ALL');
+                if (props.documentSelection !== null)
+                  props.onDocumentSelectionChange(null);
+              }}
             >
               전체 보기
             </Button>
