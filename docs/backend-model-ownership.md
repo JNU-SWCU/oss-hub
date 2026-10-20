@@ -442,7 +442,7 @@
 4. **관계 재편 후보는 이름과 분리한다.** 사람×연도 활동과 저장소×사람×날짜 기여는 grain이 다르다. RepositoryIssuanceHistory의 detached ID와 outsider aggregate의 연결 증명도 의도다. 일반 FK 통일은 삭제/보존 의미를 바꾸므로 별도 정책·migration 작업이다.
 5. **Collection*Fact 개명은 행 단위/reader가 불변임을 확인한 뒤 별도 migration PR로 다룬다.** History 강제 접미사를 현재 리팩터에 섞지 않는다.
 6. **Program lifecycle 제거는 #1466이다.** 코드 경계 변경과 별도로 실제 운영 행·consumer·migration 경로를 확인해야 한다.
-7. **팀 삭제 알림 경계 후보:** `programs/service/program-teams.service.ts:69`의 `store.notificationWriter.notification.createMany`는 service가 transaction writer를 직접 쓰는 현재 예외다. 일반 서비스의 Prisma 소유 개선은 이 callback의 원자성·알림 payload·idempotency를 보존한 작은 별도 변경으로 판단한다.
+7. **팀 삭제 알림 쓰기 경계:** service는 알림 payload와 수신자 규칙을 만들고 `TeamDeletionNotificationStore.createTeamDeletedNotifications`를 호출한다. repository가 같은 transaction에서 `skipDuplicates` 쓰기를 수행하며, 알림→팀 트리 삭제→감사 순서와 실패 시 전체 rollback을 유지한다. Prisma notification delegate를 service에 노출하지 않는다.
 8. **신규 준비 모델 2개를 기존 Team으로 합치지 않는다.** 제출 전 준비 참여 상태와 확정 TeamMember의 프로그램 내 유일 소속은 서로 다른 상태다. 기존 43개 체크리스트를 그대로 완료 기준으로 쓰면 이 두 경계를 누락한다.
 
 ## 물리 스키마 후보와 현행 유지 판단
