@@ -94,7 +94,7 @@ Ownership and collaboration rules:
 - Reserve shared libraries, configuration, and CI work with an Issue before starting, and handle it in an independent small PR.
   Do not work on DB migration PRs concurrently.
 - Open PRs as Ready; only a lower PR in a stack may be Draft while its base is an unmerged upstream branch.
-- Follow [PR scope rules](docs/rules/pr-scope.en.md) and [ADR-005 (Korean)](docs/decisions/ADR-005-agent-driven-review-cycle.md) for commit, push, and PR procedures.
+- Follow [PR scope rules](docs/rules/pr-scope.en.md) and [ADR-005](docs/decisions/ADR-005-agent-driven-review-cycle.en.md) for commit, push, and PR procedures.
   Required `ci` and `public-safe` results and GitHub's mergeable status are the sources of truth for merge decisions.
 
 PUBLIC safety:
@@ -123,7 +123,7 @@ PUBLIC safety:
 
 The sources of truth are the Notion Decision Log for product and planning decisions, ADRs for technical and operational decisions, GitHub Issues/PRs for implementation status, and the operations vault alone for secret values.
 GitHub Issues are the sole source of truth for tickets and QA findings; do not duplicate them in another repository.
-The canonical rules for skill applicability, runtime loading, and versions are in [agent skill routing (Korean)](docs/rules/agent-skill-routing.md).
+The canonical rules for skill applicability, runtime loading, and versions are in [agent skill routing](docs/rules/agent-skill-routing.en.md).
 Implementation, ticket publication, release QA execution, PR submission, and comments are incomplete unless the applicable skill in that table has been read and followed.
 For information-only, planning, or reporting tasks, do not install or update plugins, read irrelevant SKILL files, or conduct interviews.
 The five repository skills (`run-release-qa`, `manage-qa-tickets`, `submit-pr-evidence`, `build-oss-hub-handbook`, `write-github-comment`) are maintained in `skills/`; Claude Code, Codex, Cursor, and GJC load the same content through symlinks in their runtime directories.
@@ -160,4 +160,4 @@ For craft-skills updates in implementation sessions, the runtime-native marketpl
   Do not manually run backup pruning or Jenkins deploy helpers outside the approved Jenkins path.
 - Record only verification that actually ran in a PR; do not hide warnings or tests to make a result pass.
   Do not submit without the applicable evidence.
-  [submit-pr-evidence (Korean)](skills/submit-pr-evidence/SKILL.md) is authoritative for PR evidence at submission time.
+  [submit-pr-evidence](skills/submit-pr-evidence/SKILL.en.md) is authoritative for PR evidence at submission time.

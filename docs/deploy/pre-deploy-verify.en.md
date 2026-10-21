@@ -8,13 +8,13 @@ The Korean document remains authoritative.
 Before the first deployment through a GitHub Release, perform a destructive migration rehearsal when needed, followed by a **dry run local to the deployment EC2 server**.
 Each stage must pass before proceeding to the next.
 The purpose is to prevent regressions in advance: the first deployment has no `PREV_TAG`, so automatic rollback is unavailable.
-[server-runbook (Korean)](./server-runbook.md) is authoritative for server access, installation, and job procedures; this document covers verification procedures only.
+[server-runbook](server-runbook.en.md) is authoritative for server access, installation, and job procedures; this document covers verification procedures only.
 
 The root `compose.yml` is authoritative for the production stack definition (nginx / backend / postgres).
 Compose nginx binds only to `127.0.0.1:8081`.
 Public ports `80/443` belong to the host nginx contract.
 
-Production-like integration verification is handled by the CI required checks (`ci` and `public-safe`) and the Jenkins release path in M7 of [server-runbook (Korean)](./server-runbook.md) (image build, `prisma migrate deploy`, `nginx -t`, and health/rollback smoke tests).
+Production-like integration verification is handled by the CI required checks (`ci` and `public-safe`) and the Jenkins release path in M7 of [server-runbook](server-runbook.en.md) (image build, `prisma migrate deploy`, `nginx -t`, and health/rollback smoke tests).
 There is no separate local Compose-based integration verification procedure.
 
 ## Notation
@@ -68,11 +68,11 @@ If `prisma migrate deploy` stops during deployment, first determine **where it s
 
 1. A preflight gate rejected the migration (the log contains `... requires reconciliation`).
    Because the entire migration file is one `BEGIN`/`COMMIT`, **nothing in the database has changed**, and there is no data to restore.
-   Only one failure record remains in `_prisma_migrations`; later deployments will be rejected unless that record is resolved — follow the `prisma migrate resolve --rolled-back` procedure in M11 of [server-runbook (Korean)](./server-runbook.md) exactly, using the relevant migration name.
+   Only one failure record remains in `_prisma_migrations`; later deployments will be rejected unless that record is resolved — follow the `prisma migrate resolve --rolled-back` procedure in M11 of [server-runbook](server-runbook.en.md) exactly, using the relevant migration name.
    Reconcile the data identified by the gate before deploying again.
 2. The migration failed after passing the gates.
    Destructive DDL may already have been committed.
-   The only recovery source is the deployment backup from M3 of [server-runbook (Korean)](./server-runbook.md), so restore from that dump.
+   The only recovery source is the deployment backup from M3 of [server-runbook](server-runbook.en.md), so restore from that dump.
    After restoration, verify that what the migration removed has actually returned — for the legacy-submission migration, these are the `Submission`, `SubmissionRevision`, and `Review` tables and the `SubmissionFile."submissionRevisionId"` column.
    Resolve `_prisma_migrations` after restoration in the same way as in item 1.
 
@@ -116,5 +116,5 @@ require_status 401 GET  http://127.0.0.1:8081/api/v1/submission-files/1
 
 ## ② Next Step
 
-Only after both ⓪ and ① pass, proceed to the parameterless Release deployment or no-op rerun in M7 of [server-runbook (Korean)](./server-runbook.md).
-[ADR-002 (Korean)](../decisions/ADR-002-CI-CD-파이프라인.md) is authoritative for the automatic trigger contract.
+Only after both ⓪ and ① pass, proceed to the parameterless Release deployment or no-op rerun in M7 of [server-runbook](server-runbook.en.md).
+[ADR-002](../decisions/ADR-002-CI-CD-파이프라인.en.md) is authoritative for the automatic trigger contract.

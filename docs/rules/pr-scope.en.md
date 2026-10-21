@@ -27,14 +27,14 @@ It extends the commit-level rule in [AGENTS.md Code Conventions](../../AGENTS.en
 - The default is a vertical slice by feature.
   Splitting by layer (FE/BE) is not a goal in itself.
 - Parallelize by dividing work into independent, small PRs: merge a small contract (specification/types) PR first, then open FE and BE PRs that are independent of each other and can merge in either order.
-  For API contract changes, first check consistency with [ADR-004 (Korean)](../decisions/ADR-004-REST-API-규격.md).
+  For API contract changes, first check consistency with [ADR-004](../decisions/ADR-004-REST-API-규격.en.md).
 - Merge code shared by multiple features (utilities, types, configuration) independently before the feature PRs — the same principle as the shared-path rule in [AGENTS.md Code Conventions](../../AGENTS.en.md#code-conventions--common-patterns).
 - References: [API contract-first](https://apisyouwonthate.com/blog/a-developers-guide-to-api-design-first/) · [vertical slice architecture](https://deviq.com/architecture/vertical-slice-architecture/) · [Independent in INVEST](<https://en.wikipedia.org/wiki/INVEST_(mnemonic)>)
 
 ## 4. Stacked PRs — Serialize by Default; Keep Exceptions Shallow
 
 - Even when a later PR has a sequential dependency and makes no sense without an earlier one, the default is serialization, not stacking: merge the earlier PR, then open the next PR from main.
-- Reason: under the head SHA revalidation rule in [ADR-005 (Korean)](../decisions/ADR-005-agent-driven-review-cycle.md), each rebase invalidates the reviews and verification of downstream PRs.
+- Reason: under the head SHA revalidation rule in [ADR-005](../decisions/ADR-005-agent-driven-review-cycle.en.md), each rebase invalidates the reviews and verification of downstream PRs.
   The author does not control merge timing because it is an approval gate, so “the base will merge quickly” cannot be a prerequisite.
 - Use a stack only for exceptions where preparing the changes in advance is worth the potential delay in merging the base.
   Even then, each layer must meet the size criteria in §2 and the stack must remain shallow.
@@ -51,5 +51,5 @@ It extends the commit-level rule in [AGENTS.md Code Conventions](../../AGENTS.en
 
 ---
 
-This document extends [AGENTS.md Code Conventions](../../AGENTS.en.md#code-conventions--common-patterns) (Draft PRs, shared paths, and commit rules) and follows [ADR-004 (Korean)](../decisions/ADR-004-REST-API-규격.md) (the authoritative API contract) and [ADR-005 (Korean)](../decisions/ADR-005-agent-driven-review-cycle.md) (head revalidation and merge gates).
+This document extends [AGENTS.md Code Conventions](../../AGENTS.en.md#code-conventions--common-patterns) (Draft PRs, shared paths, and commit rules) and follows [ADR-004](../decisions/ADR-004-REST-API-규격.en.md) (the authoritative API contract) and [ADR-005](../decisions/ADR-005-agent-driven-review-cycle.en.md) (head revalidation and merge gates).
 The DB migration serialization rule in [AGENTS.md Code Conventions](../../AGENTS.en.md#code-conventions--common-patterns) takes precedence over this document.
