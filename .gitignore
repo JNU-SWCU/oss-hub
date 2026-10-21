@@ -1,6 +1,7 @@
 node_modules
 
 .next/
+/apps/frontend/next-env.d.ts
 dist/
 build/
 coverage/

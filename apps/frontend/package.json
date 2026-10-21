@@ -9,7 +9,7 @@
     "e2e:install": "playwright install chrome",
     "lint": "eslint",
     "lint:prune": "eslint --prune-suppressions",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "NODE_ENV=development next typegen && tsc --noEmit",
     "tokens:export": "node scripts/export-design-tokens.mjs",
     "tokens:check": "node scripts/export-design-tokens.mjs --check",
     "test": "vitest run"
