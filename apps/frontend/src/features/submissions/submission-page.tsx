@@ -22,7 +22,6 @@ import {
   type SubmissionFormInput,
   isStaleSubmissionFormErrorCode,
   validateSubmissionContent,
-  validateSubmissionFile,
   SubmissionFileUploadCache,
 } from './submission-form';
 import type { CreatedSubmission, SubmissionFormData } from './types';
@@ -61,7 +60,7 @@ export function SubmissionPage({
     'program-ended' | 'storage-unavailable' | 'generic'
   >('generic');
   const [submitting, setSubmitting] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const file = input.file;
   const [fileError, setFileError] = useState<string | null>(null);
   const [submissionPhase, setSubmissionPhase] = useState<
     'uploading' | 'creating' | null
@@ -100,16 +99,11 @@ export function SubmissionPage({
       input,
       data.fileUpload,
     );
-    const fileValidation =
-      data.milestone.submissionType === 'FILE'
-        ? validateSubmissionFile(file, data.fileUpload)
-        : { ok: true as const };
-    const nextFileError = fileValidation.ok ? null : fileValidation.message;
     setErrors(nextErrors);
-    setFileError(nextFileError);
+    setFileError(null);
     setServerError(null);
     setServerErrorKind('generic');
-    if (Object.keys(nextErrors).length > 0 || nextFileError) {
+    if (Object.keys(nextErrors).length > 0) {
       focusSubmissionField(data.milestone.submissionType);
       return;
     }
@@ -230,7 +224,6 @@ export function SubmissionPage({
       submissionPhase={submissionPhase}
       onTextChange={(text) => setInput((previous) => ({ ...previous, text }))}
       onFileChange={(nextFile) => {
-        setFile(nextFile);
         setInput((previous) => ({ ...previous, file: nextFile }));
         setFileError(null);
         setErrors({});
