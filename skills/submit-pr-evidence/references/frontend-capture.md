@@ -41,7 +41,7 @@ selector 자체가 바뀌었으면(예: 요소가 다른 컨테이너로 옮겨�
 
 ## 올리기 전에 사람이 직접 공개 안전을 확인한다
 
-저장된 두 이미지를 열어 [보안 규칙](../../../docs/rules/security.md)의 공개 금지 범위에 걸리는 것이 화면에 보이는지 눈으로 확인한다.
+저장된 두 이미지를 열어 [보안 규칙](../../../scripts/check-public-safe.sh)의 공개 금지 범위에 걸리는 것이 화면에 보이는지 눈으로 확인한다.
 그 deny-list를 여기 옮겨 적지 않는다 — 사본은 원본이 바뀔 때 조용히 갈라진다.
 하나라도 보이면 올리지 않고 합성 데이터 상태에서 다시 찍는다.
 화면에 세션 토큰·쿠키 값·devtools 패널·인증 관련 쿼리 파라미터가 보이지 않는 상태에서 찍는다.
@@ -89,10 +89,10 @@ curl -sIL -o /dev/null -w "%{http_code}\n" "https://github.com/JNU-SWCU/oss-hub/
 ## 하지 않는 것
 
 - 로컬 파일 경로(`/tmp/before.png`)를 본문에 적고 첨부했다고 하지 않는다 — 아무 이미지도 렌더되지 않는다.
-- 증거 이미지를 제품 브랜치에 커밋하지 않는다 — 리뷰 대상 diff에 바이너리가 섞인다([pr-scope.md](../../../docs/rules/pr-scope.md) §1).
+- 증거 이미지를 제품 브랜치에 커밋하지 않는다 — 리뷰 대상 diff에 바이너리가 섞인다.
 - 증거 전용 브랜치를 만들지 않는다 — 그 브랜치를 영구히 보존해야 병합된 PR 본문의 이미지가 깨지지 않는다. 별도 worktree에서 orphan 브랜치를 만들면 그 작업트리에 `package.json`이 없어 `pre-push`의 `pnpm format:check`가 실패해 push까지 막힌다.
-- `gh release create`로 새 release를 발행하지 않는다 — 발행(published)이 production 배포 트리거다([ADR-002](../../../docs/decisions/ADR-002-CI-CD-파이프라인.md)). **이미 발행된 release에 `gh release upload`로 파일만 더하는 것은 그 이벤트를 쏘지 않으므로 안전하고, [이미 발행된 Release 에 에셋으로 올린다](#이미-발행된-release-에-에셋으로-올린다)가 쓰는 방법이다.**
-- `/artifacts/`에 두지 않는다 — gitignore 대상이고 학생별 원시 수치의 자리다(ADR-010 §5). 커밋되지 않으므로 주소도 생기지 않는다.
+- `gh release create`로 새 release를 발행하지 않는다 — 발행(published)이 production 배포 트리거다([Jenkinsfile](../../../Jenkinsfile)). **이미 발행된 release에 `gh release upload`로 파일만 더하는 것은 그 이벤트를 쏘지 않으므로 안전하고, [이미 발행된 Release 에 에셋으로 올린다](#이미-발행된-release-에-에셋으로-올린다)가 쓰는 방법이다.**
+- `/artifacts/`에 두지 않는다 — gitignore 대상이고 학생별 원시 수치의 자리다. 커밋되지 않으므로 주소도 생기지 않는다.
 - 목업·Figma 시안·테스트 출력·코드 diff로 실제 실행 화면을 대신하지 않는다.
 - 해당되는 화면을 찍지 못한 채 `Before/After 없음`을 쓰지 않는다.
 - 렌더되지 않은 컴포넌트의 `| 요소 |` 행을 지어내지 않는다.

@@ -6,7 +6,7 @@
 
 프로그램 탐색과 팀 구성부터 신청, 서류 제출·검토, GitHub 저장소와 활동 확인까지 한곳에서 이어갑니다.
 
-[서비스 바로가기](https://jnu-oss-hub.com) · [개발자 온보딩](docs/onboarding.md) · [이슈](https://github.com/JNU-SWCU/oss-hub/issues) · [릴리스](https://github.com/JNU-SWCU/oss-hub/releases)
+[서비스 바로가기](https://jnu-oss-hub.com) · [로컬에서 시작하기](#로컬에서-시작하기) · [이슈](https://github.com/JNU-SWCU/oss-hub/issues) · [릴리스](https://github.com/JNU-SWCU/oss-hub/releases)
 
 ## 목차
 
@@ -104,7 +104,7 @@ flowchart LR
 ```
 
 브라우저는 프런트엔드와 같은 도메인의 `/api/v1`을 사용하며, 데이터베이스와 파일 저장소 접근은 백엔드가 담당합니다.
-세부 경계와 배포 방식은 [시스템 지도](docs/architecture.md)와 [기술 결정 기록](docs/decisions/README.md)을 참고하세요.
+세부 경계와 배포 방식은 [운영 구성](compose.yml)와 [백엔드 모듈 구성](apps/backend/src/app.module.ts)을 참고하세요.
 
 ## 로컬에서 시작하기
 
@@ -145,7 +145,7 @@ http://localhost:3000/api/v1/auth/github/callback
 direnv allow
 ```
 
-GitHub App 연동과 역할별 테스트 계정 준비는 [로컬 개발 안내](docs/rules/local-dev.md)와 [온보딩](docs/onboarding.md)을 참고하세요.
+GitHub App 연동과 역할별 테스트 계정 준비는 [개발 실행 스크립트](scripts/dev.sh)와 [로컬에서 시작하기](#로컬에서-시작하기)을 참고하세요.
 역할별 테스트 계정은 첫 로그인 전에 `.envrc`의 `AUTH_INITIAL_ROLES`에 설정합니다.
 `.envrc`와 개인키 파일은 Git에 올리지 않습니다.
 로컬 설정의 시작점은 `.envrc.example`이며, `.env.example`은 운영 Compose가 요구하는 환경 변수 목록입니다.
@@ -177,10 +177,7 @@ apps/
 ├── frontend/            # Next.js 화면·기능·브라우저 테스트
 └── backend/             # NestJS API·업무 규칙·작업 처리
     └── prisma/          # 데이터 모델·마이그레이션
-docs/
-├── decisions/           # 기술·운영 결정 기록
-├── rules/               # 개발·보안·검증 규칙
-└── deploy/              # 배포·운영 안내
+docs/design-tokens/      # 디자인 토큰
 scripts/                 # 개발·검증·배포 보조 스크립트
 skills/                  # 저장소 전용 에이전트 작업 절차
 deploy/                  # nginx·Jenkins 설정
@@ -192,7 +189,7 @@ compose.yml              # 운영 런타임
 ## 개발과 검증
 
 저장소 루트에서 실행합니다.
-변경한 경로에 필요한 검증은 [CI 경로별 검증 규칙](docs/rules/ci-path-verification.md)을 기준으로 선택합니다.
+변경한 경로에 필요한 검증은 [CI workflow](.github/workflows/ci.yml)을 기준으로 선택합니다.
 
 | 목적                                 | 명령                                     |
 | ------------------------------------ | ---------------------------------------- |
@@ -210,20 +207,19 @@ DB 통합 테스트는 전용 격리 실행기를 사용하고, 브라우저 테
 브라우저 준비 명령은 `pnpm --filter frontend e2e:install`이며, 세부 실행 조건은 검증 규칙을 참고하세요.
 
 변경 사항은 이슈의 범위와 완료 조건에 맞춰 작성하고, 실제 수행한 검증을 PR에 기록합니다.
-기여를 시작할 때는 [온보딩](docs/onboarding.md), [PR 범위·제출 규칙](docs/rules/pr-scope.md), [보안 규칙](docs/rules/security.md)을 먼저 확인하세요.
+기여를 시작할 때는 [로컬에서 시작하기](#로컬에서-시작하기), [PR 증거 절차](skills/submit-pr-evidence/SKILL.md), [공개 안전 검사](scripts/check-public-safe.sh)을 먼저 확인하세요.
 
 ## 문서 길잡이
 
 | 알고 싶은 내용             | 문서                                               |
 | -------------------------- | -------------------------------------------------- |
-| 팀 참여와 첫 작업 시작     | [온보딩](docs/onboarding.md)                       |
-| 환경 설정·로그인·로컬 실행 | [로컬 개발 안내](docs/rules/local-dev.md)          |
-| 시스템 경계와 요청 흐름    | [아키텍처](docs/architecture.md)                   |
-| 기술 선택의 이유           | [ADR 인덱스](docs/decisions/README.md)             |
-| 변경 경로별 테스트         | [CI 검증 규칙](docs/rules/ci-path-verification.md) |
-| PR 작성과 검토             | [PR 범위·제출 규칙](docs/rules/pr-scope.md)        |
-| 공개 저장소와 데이터 보호  | [보안 규칙](docs/rules/security.md)                |
-| 배포 전 확인               | [배포 검증 안내](docs/deploy/pre-deploy-verify.md) |
-| 에이전트의 작업 기준       | [AGENTS.md](AGENTS.md)                             |
+| 팀 참여와 첫 작업 시작     | [로컬에서 시작하기](#로컬에서-시작하기)                       |
+| 환경 설정·로그인·로컬 실행 | [개발 실행 스크립트](scripts/dev.sh)          |
+| 시스템 경계와 요청 흐름    | [운영 구성](compose.yml)                   |
+| 백엔드 모듈 구성           | [AppModule](apps/backend/src/app.module.ts)             |
+| 변경 경로별 테스트         | [CI workflow](.github/workflows/ci.yml) |
+| PR 작성과 검토             | [PR 증거 절차](skills/submit-pr-evidence/SKILL.md)        |
+| 공개 저장소와 데이터 보호  | [공개 안전 검사](scripts/check-public-safe.sh)                |
+| 배포 전 확인               | [CI workflow](.github/workflows/ci.yml) |
 
 기능 개선과 알려진 문제의 최신 상태는 [GitHub Issues](https://github.com/JNU-SWCU/oss-hub/issues)에서 확인할 수 있습니다.

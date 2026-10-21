@@ -219,4 +219,4 @@ Program·User backbone을 만든다 — 빈 DB에서 어떤 profile을 단독 �
 
 ## 실제 계정 ↔ 역할 매핑
 
-`oss-hub` profile 외에서 실제 GitHub 계정을 특정 역할(STAFF/ADMIN)로 테스트하려면 [온보딩의 역할별 테스트 계정 로그인 절](../../../docs/onboarding.md#역할별-테스트-계정-로그인)을 따라 `AUTH_INITIAL_ROLES`를 설정한다 — 값은 이 문서에 적지 않는다.
+`oss-hub` profile 외에서 실제 GitHub 계정을 특정 역할(STAFF/ADMIN)로 테스트하려면 [README의 로컬 실행 안내](../../../README.md#로컬에서-시작하기)을 따라 `AUTH_INITIAL_ROLES`를 설정한다 — 값은 이 문서에 적지 않는다.

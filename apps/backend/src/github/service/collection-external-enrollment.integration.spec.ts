@@ -2,7 +2,6 @@ import { assertIsolatedIntegrationDatabase } from '../../../test/integration-dat
 import { ConsentsRepository } from '../../consents/repository/consents.repository';
 import { ConsentsService } from '../../consents/service/consents.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
 import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 import { RepositoryOwnEnrollmentService } from './repository-own-enrollment.service';
 
@@ -13,7 +12,6 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const enrollment = new CollectionIncrementalRepository(prisma);
-const cutover = new CollectionCutoverRepository(prisma);
 const REPOSITORY_IDS = [
   9_000_000_730_001n,
   9_000_000_730_002n,
@@ -390,18 +388,24 @@ describe('external repository enrollment integration', () => {
     ).resolves.toEqual([1, 1, 1, 1]);
     await expect(
       Promise.all([
-        cutover.countCommitFactsForRepositories(
-          [repository.id],
-          new Set([MEMBER_GITHUB_ID]),
-        ),
-        cutover.countPullRequestFactsForRepositories(
-          [repository.id],
-          new Set([MEMBER_GITHUB_ID]),
-        ),
-        cutover.countReleaseFactsForRepositories(
-          [repository.id],
-          new Set([MEMBER_GITHUB_ID]),
-        ),
+        prisma.collectionCommitFact.count({
+          where: {
+            repositoryId: repository.id,
+            authorGithubId: MEMBER_GITHUB_ID,
+          },
+        }),
+        prisma.collectionPullRequestFact.count({
+          where: {
+            repositoryId: repository.id,
+            authorGithubId: MEMBER_GITHUB_ID,
+          },
+        }),
+        prisma.collectionReleaseFact.count({
+          where: {
+            repositoryId: repository.id,
+            authorGithubId: MEMBER_GITHUB_ID,
+          },
+        }),
       ]),
     ).resolves.toEqual([0, 0, 0]);
   });

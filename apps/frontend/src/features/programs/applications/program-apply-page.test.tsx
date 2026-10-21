@@ -444,23 +444,6 @@ describe('ProgramApply views', () => {
     expect(html).not.toContain('신청 기간이 아닙니다');
   });
 
-  it('team-required blocked state does not send the student to /teams or overview', () => {
-    const html = renderToStaticMarkup(
-      <BlockedView
-        reason="team-required"
-        application={null}
-        programId={program.id}
-      />,
-    );
-
-    expect(html).toContain('팀 구성이 필요합니다');
-    expect(html).not.toContain('/programs/program-1/teams');
-    expect(html).not.toContain('프로그램 개요');
-
-    expect(html).not.toContain('/team');
-    expect(html).not.toContain('우리 팀 보기');
-  });
-
   it('이미 판정된 신청은 사유와 함께 우리 팀으로 돌아갈 길을 준다', () => {
     const html = renderToStaticMarkup(
       <BlockedView

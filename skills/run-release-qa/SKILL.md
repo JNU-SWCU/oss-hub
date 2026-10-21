@@ -6,7 +6,7 @@ description: >-
   report-only는 있는 기록만 읽고 없는 출처를 보고하며 도구 설치·서비스 기동·스위트 실행을 하지 않는다.
   버그 수정·배포·PR 제출·티켓 작성은 이 스킬이 아니다.
 metadata:
-  version: "1.2.1"
+  version: "1.2.2"
 ---
 
 # Run release QA
@@ -38,10 +38,10 @@ report-only는 설치·기동·스위트·시나리오 준비를 하지 않고, 
 
 ## 시작 전 경계
 
-1. 공개 가능 범위는 `docs/rules/security.md`다. 실데이터·개인정보가 보이는 화면은 찍지 않는다.
+1. 공개 가능 범위는 `scripts/check-public-safe.sh`다. 실데이터·개인정보가 보이는 화면은 찍지 않는다.
 2. 사용자 승인 없이 제품 코드, 운영 데이터, Issue, PR 상태를 수정하지 않는다.
 3. QA 중에는 결함을 고치지 않는다. 수정 범위는 따로 승인한다.
-4. 실행 범위(`recheck`·`delta`·`full`)만 루트·대상 경로 `AGENTS.md`, `docs/rules/local-dev.md`, `references/qa-scenarios.md`를 읽는다. report-only는 그 준비를 요구하지 않는다.
+4. 실행 범위(`recheck`·`delta`·`full`)만 `scripts/dev.sh`와 `references/qa-scenarios.md`를 읽는다. report-only는 그 준비를 요구하지 않는다.
 5. 제품 QA 발견 목록의 SSOT는 GitHub Issue(QA 티켓)다.
    읽을 수 없으면 설치하지 말고 `확인 필요`로 남긴다.
 
@@ -92,7 +92,7 @@ report-only는 레인 A–C를 실행하지 않는다. 기록 대조만 §4.D의
 
 ### A. 정적·자동 검증
 
-1. 선언한 QA 범위에 필요한 기존 검증을 [경로별 검증 규칙](../../docs/rules/ci-path-verification.md)에 따라 선택해 실행한다.
+1. 선언한 QA 범위에 필요한 기존 검증을 [CI workflow](../../.github/workflows/ci.yml)에 따라 선택해 실행한다.
 2. 실패와 경고를 분리한다. 테스트가 통과해도 반복 경고나 비결정적 신호는 별도 항목으로 기록한다.
 3. 권한 검사, null 처리, 날짜 경계, 캐시, 공개 응답 allowlist, 비동기 최종 실패를 코드에서 교차 확인한다.
 

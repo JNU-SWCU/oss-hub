@@ -21,19 +21,17 @@ const featureNames = fs.existsSync(featuresDir)
 const appReverseDependencyBan = {
   group: ['@/app', '@/app/**'],
   message:
-    'features는 app에 의존할 수 없다 — 의존 방향은 app → features → lib 단방향이다 (docs/rules/frontend.md).',
+    'features는 app에 의존할 수 없다 — 의존 방향은 app → features → lib 단방향이다.',
 };
 
 const apiClientImportPaths = [
   {
     name: 'axios',
-    message:
-      'HTTP 요청은 lib/api-client.ts만 사용한다 (docs/rules/frontend.md).',
+    message: 'HTTP 요청은 lib/api-client.ts만 사용한다.',
   },
   {
     name: 'ky',
-    message:
-      'HTTP 요청은 lib/api-client.ts만 사용한다 (docs/rules/frontend.md).',
+    message: 'HTTP 요청은 lib/api-client.ts만 사용한다.',
   },
 ];
 
@@ -55,7 +53,7 @@ const featureBoundaryConfigs = featureNames.map((name) => {
                   {
                     group: otherFeatureGroups,
                     message:
-                      'feature 간 직접 의존 금지 — 공용 계약은 명시적으로 추출한다 (docs/rules/frontend.md).',
+                      'feature 간 직접 의존 금지 — 공용 계약은 명시적으로 추출한다.',
                   },
                 ]
               : []),
@@ -77,8 +75,7 @@ const libBoundaryConfig = {
         patterns: [
           {
             group: ['@/features', '@/features/**'],
-            message:
-              'lib은 최하위 계층이다 — features에 의존할 수 없다 (docs/rules/frontend.md).',
+            message: 'lib은 최하위 계층이다 — features에 의존할 수 없다.',
           },
           appReverseDependencyBan,
         ],
@@ -95,16 +92,14 @@ const apiClientEntryConfig = {
       'error',
       {
         name: 'fetch',
-        message:
-          'fetch는 lib/api-client.ts에서만 사용한다 (docs/rules/frontend.md).',
+        message: 'fetch는 lib/api-client.ts에서만 사용한다.',
       },
     ],
     'no-restricted-syntax': [
       'error',
       {
         selector: 'Literal[value=/^\\/api\\/v1/]',
-        message:
-          "'/api/v1' 문자열은 lib/api-client.ts에서만 정의한다 (docs/rules/frontend.md).",
+        message: "'/api/v1' 문자열은 lib/api-client.ts에서만 정의한다.",
       },
     ],
   },

@@ -46,6 +46,8 @@ jobs:
           filters: |
             frontend:
               - 'apps/frontend/**'
+              - '.design-sync/**'
+              - 'scripts/design-sync-contract.test.mjs'
               - 'package.json'
               - 'pnpm-workspace.yaml'
               - 'pnpm-lock.yaml'
@@ -297,6 +299,10 @@ jobs:
       - name: prettier 포맷 검사
         if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' }}
         run: pnpm format:check
+
+      - name: design sync contract
+        if: ${{ steps.scope.outputs.frontend == 'true' }}
+        run: node --test scripts/design-sync-contract.test.mjs
 
       - name: frontend lint
         if: ${{ steps.scope.outputs.frontend == 'true' }}

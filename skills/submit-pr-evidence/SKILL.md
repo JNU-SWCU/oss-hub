@@ -8,7 +8,7 @@ description: >-
   해당 증거가 없으면 PR을 막는다.
   코멘트는 write-github-comment, QA 티켓은 manage-qa-tickets, 릴리스 QA는 run-release-qa를 쓴다.
 metadata:
-  version: "1.14.0"
+  version: "1.14.1"
 ---
 
 # Submit PR Evidence
@@ -62,8 +62,7 @@ metadata:
 빈 `하지 않을 것`은 경계 없음이 아니라 미기록이다.
 `선행 의존성`이 미충족이거나 순환이면 부분 구현을 시작하지 않고 그 번호를 보고한다.
 
-코드를 쓰기 전에 [루트 AGENTS.md](../../AGENTS.md)와 관련 중첩 AGENTS.md를 읽는다.
-보안·PR 범위는 [docs/rules/security.md](../../docs/rules/security.md), [docs/rules/pr-scope.md](../../docs/rules/pr-scope.md)가 원본이다.
+공개 안전 검사는 [scripts/check-public-safe.sh](../../scripts/check-public-safe.sh)를 따른다.
 `할 일`만 구현하고 `하지 않을 것`에 적힌 경로는 0건 수정한다.
 완료 조건은 한 항목씩 실제로 구동한 뒤에만 체크한다.
 
@@ -173,7 +172,7 @@ ponytail 결과를 근거 없이 「통과」로 적지 않는다.
 - `## 이 흐름이 자연스러운가` / `## 내가 고친 UX 문제`
 - `## UX 안티패턴 점검`
 - `## 흐름 다이어그램` / `## 검증`
-- `## 정리` — 본문 맨 마지막. `- 디자인 규격:` 줄에 이번 PR이 쓴 공용 컴포넌트·토큰과 그 규격 출처(docs/design.md 컴포넌트 카드 이름 또는 Figma 컴포넌트 링크)를 적는다. 새 색·새 컨트롤을 직접 만들었으면 그 사실과 이유를 적는다.
+- `## 정리` — 본문 맨 마지막. `- 디자인 규격:` 줄에 이번 PR이 쓴 공용 컴포넌트·토큰과 그 규격 출처(apps/frontend/src/components의 컴포넌트 경로 또는 docs/design-tokens/tokens.json 또는 Figma 컴포넌트 링크)를 적는다. 새 색·새 컨트롤을 직접 만들었으면 그 사실과 이유를 적는다.
 
 예외 문구는 해당 없을 때만 쓰며, 이 문자열로 시작하는 한 줄이고 사유가 비어 있으면 안 된다.
 못 만든 해당 증거에 이 문구를 쓰지 않는다.
@@ -231,7 +230,7 @@ Claude Code hook은 통과하지 않은 본문의 `gh pr create`를 막는다.
 ## PR을 연다
 
 1. `bash scripts/check-public-safe.sh`로 변경 파일·커밋 메시지의 public-safe 위반을 검사한다. PUBLIC repo이므로 본문·코멘트에도 같은 기준을 적용한다. 텍스트만이면 [references/public-safety-check.md](references/public-safety-check.md)의 `--text-only`를 쓴다.
-2. `gh pr create --body-file <경로>`로 연다. 브랜치명·커밋 형식은 [AGENTS.md](../../AGENTS.md)가 원본이다. 연 뒤 `gh pr view <n> --json body`로 본문을 다시 읽는다.
+2. `gh pr create --body-file <경로>`로 연다. 연 뒤 `gh pr view <n> --json body`로 본문을 다시 읽는다.
 3. 연리면 [프로젝트 보드](https://github.com/orgs/JNU-SWCU/projects/1)에서 해당 카드를 In Review로 옮긴다. 티켓 없는 PR이면 없는 카드를 만들지 않는다.
 4. PR이 Issue를 `Closes` 또는 `Refs`로 가리키면 GitHub가 링크하므로 PR URL을 Issue 코멘트로 남기지 않는다.
 
@@ -251,7 +250,7 @@ Claude Code hook은 통과하지 않은 본문의 `gh pr create`를 막는다.
 ## 하지 않는 것
 
 - 로컬 파일 경로를 본문에 적고 첨부했다고 하지 않는다.
-- 증거 이미지를 제품 브랜치에 커밋하지 않는다([pr-scope.md](../../docs/rules/pr-scope.md) §1).
+- 증거 이미지를 제품 브랜치에 커밋하지 않는다.
 - 증거 전용 브랜치를 만들지 않는다.
 - `gh release create`로 증거용 Release를 새로 발행하지 않는다. 이미 발행된 Release에 파일을 더하는 절차는 [frontend-capture.md](references/frontend-capture.md#이미-발행된-release-에-에셋으로-올린다)를 따른다.
 - `/artifacts/`에 두지 않는다.
@@ -265,7 +264,7 @@ Claude Code hook은 통과하지 않은 본문의 `gh pr create`를 막는다.
 ## 요구사항
 
 - `gh` — Issue가 있을 때의 view, PR 생성, 보드 카드 이동.
-- `git` — [AGENTS.md](../../AGENTS.md) 브랜치·커밋 흐름.
+- `git` — 변경 이력과 브랜치 확인.
 - `bash scripts/check-public-safe.sh`
 - `bash scripts/check-pr-body.sh <본문 파일>`
 - 화면 수동 점검이 해당되면 설치된 Aside CLI(`aside`, `aside repl`). 없는 명령을 만들지 않는다.
@@ -274,7 +273,6 @@ Claude Code hook은 통과하지 않은 본문의 `gh pr create`를 막는다.
 ## 완료 체크리스트
 
 - [ ] Issue면 세 계약 섹션을 읽었고, 완료 조건을 모두 채웠으면 `Closes #<번호>`, 증거 있는 PR 범위는 병합 가능하지만 이슈 의무가 남으면 `Refs #<번호>`다. 티켓 없으면 승인된 범위·완료·비범위와 `티켓 없음 — <이유>`가 있다. 있는 이슈를 티켓 없음으로 쓰지 않았다. 선행 의존성 미충족·순환이면 착수하지 않았다.
-- [ ] 첫 수정 전에 루트와 관련 중첩 AGENTS.md를 읽었다.
 - [ ] 금지 경로를 0건 수정했다.
 - [ ] 완료 조건 각 항목을 실제 증거로 실증했다.
 - [ ] 화면·브라우저가 해당되면 Before/After가 있다. 시각 변경은 `| 요소 |` 같은 selector 행이고, 비시각 브라우저 변경은 `비시각 브라우저 변경 — <이유>`와 `| 동작 |` 표다. 실제 Before/After 이미지와 After desktop·390x844가 공개 첨부되며 SHA·route·viewport·합성 상태와 isolated origin 차이를 적었다. 공개 안전·메타데이터를 사람이 확인했다. 해당 캡처를 못 찍어 면제하거나 N/A로 바꾸지 않았다.
@@ -284,7 +282,7 @@ Claude Code hook은 통과하지 않은 본문의 `gh pr create`를 막는다.
 - [ ] diff에서 과잉 구현을 걸렀고, ponytail을 쓰기 위해 새로 설치하지 않았다.
 - [ ] backend 로직이 해당되면 mermaid 또는 DOT를 `## 흐름 다이어그램`에 넣었고 실데이터·시크릿을 노드에 넣지 않았다.
 - [ ] `bash scripts/check-public-safe.sh`를 실행했다.
-- [ ] AGENTS.md 흐름대로 PR을 열었고, 보드 카드가 있으면 In Review로 옮겼다.
+- [ ] 검증된 PR을 열었고, 보드 카드가 있으면 In Review로 옮겼다.
 - [ ] PR이 Issue를 가리키면 PR URL을 Issue 코멘트로 다시 남기지 않았다.
 - [ ] 화면이 해당되고 답이 없었던 인터뷰만 물었고, 에이전트가 대신 답한 것이 0건이다.
 - [ ] `## 무엇이 좋아지나`와 화면이 있을 때 `## 이 흐름이 자연스러운가`를 한 문단 줄글로 썼다.

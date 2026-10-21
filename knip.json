@@ -24,7 +24,10 @@
         ".design-sync/previews/*.tsx"
       ],
       "project": ["**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
-      "ignoreDependencies": ["@prisma/client"]
+      "ignoreDependencies": ["@prisma/client"],
+      "paths": {
+        "frontend": ["./apps/frontend/src/components/index.ts"]
+      }
     },
     "apps/backend": {
       "entry": [

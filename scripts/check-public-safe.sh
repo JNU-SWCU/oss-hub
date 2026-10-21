@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# public-safe 검사 — docs/rules/security.md deny-list 중 기계 검사 가능한 항목을 CI에서 강제한다.
+# public-safe 검사 — public-safe deny-list 중 기계 검사 가능한 항목을 CI에서 강제한다.
 #
 # "프롬프트·눈검사만으로는 부족하다"는 벤더 공식 권고의 구현:
 #   - OpenAI, A Practical Guide to Building Agents (Guardrails):
@@ -112,7 +112,7 @@ CANDIDATE_EMAIL_RE='('"$QUOTED_LOCAL_RE"'|'"$PERMISSIVE_LOCAL_RE"')@'"$DOTTED_DO
 
 # 존재 자체가 유출인 파일 — env 실값, 개인키·인증서 키, 로컬 DB·덤프(실데이터 반입 금지, deny-list 6번),
 # 그리고 자격증명을 모아두는 관례적 메모 파일. 후자는 확장자가 문서라 내용 스캔만으로는
-# 늦게 잡히므로 파일명 단계에서 차단한다(AGENTS.md §4 시크릿 반입 금지).
+# 늦게 잡히므로 파일명 단계에서 차단한다.
 FORBIDDEN_FILE_RE='(^|/)\.env(\..+)?$|\.(pem|key|p12|pfx|jks|keystore)$|(^|/)id_(rsa|ed25519|ecdsa|dsa)$|(^|/)\.netrc$|\.(sqlite3?|db|dump)$|(^|/)(credentials?|secrets?|creds)([._-][^/]*)?\.(md|txt|json|ya?ml|csv)$'
 ALLOWED_FILE_RE='(^|/)\.env\.example$'
 
@@ -278,7 +278,7 @@ if [ "$TEXT_ONLY" -eq 0 ]; then
   if [ "$bad_file_count" -gt 0 ]; then
     report "금지 파일(.env 실값·개인키·로컬 DB류)" \
       "$(printf '  %s\n' "${bad_files[@]}")"
-    echo "  → env 실값은 secret store에, 실데이터는 repo 밖 격리 경로에 둔다 (docs/rules/security.md)"
+    echo "  → env 실값은 secret store에, 실데이터는 repo 밖 격리 경로에 둔다"
   fi
 
   # 2) 커밋 메시지 — 병합 커밋(합성 merge ref 포함) 제외, %h(축약 해시)도 제외.
@@ -298,7 +298,7 @@ scan_text "Issue 본문·댓글" 0 <<<"${ISSUE_TEXT:-}"
 
 if [ "$FAIL" -ne 0 ]; then
   echo ""
-  echo "docs/rules/security.md deny-list 위반이 감지되었습니다. 해당 값을 제거한 뒤 다시 push하세요."
+  echo "public-safe deny-list 위반이 감지되었습니다. 해당 값을 제거한 뒤 다시 push하세요."
   echo "이미 push된 커밋에 포함됐다면 삭제가 아니라 security.md의 '유출 사고 절차'를 따르세요."
   exit 1
 fi
