@@ -20,6 +20,9 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 
 const api = vi.hoisted(() => ({
   uploads: 0,
+  uploadedFiles: [] as File[],
+  createFailure: false,
+  uploadResult: null as (() => Promise<void>) | null,
   creates: 0,
   fileId: 'submission-file-1',
   uploadFailure: null as Error | null,
@@ -30,7 +33,13 @@ const api = vi.hoisted(() => ({
 vi.mock('./api', () => ({
   getSubmissionForm: (): Promise<SubmissionFormData> =>
     Promise.resolve(FILE_FORM),
-  uploadSubmissionFile: (): Promise<UploadedSubmissionFile> => {
+  uploadSubmissionFile: async (
+    _applicationId: string,
+    _milestoneId: string,
+    file: File,
+  ): Promise<UploadedSubmissionFile> => {
+    api.uploadedFiles.push(file);
+    await api.uploadResult?.();
     api.uploads += 1;
     if (api.uploadFailure) return Promise.reject(api.uploadFailure);
     return Promise.resolve({
@@ -43,6 +52,8 @@ vi.mock('./api', () => ({
   },
   createSubmission: () => {
     api.creates += 1;
+    if (api.createFailure)
+      return Promise.reject(new Error('synthetic create failure'));
     return Promise.resolve({
       submissionId: 'submission-1',
       status: 'SUBMITTED',
@@ -122,7 +133,7 @@ function submitScreen() {
   );
 }
 
-function pickFile(file: File): void {
+function pickFile(file: File | null): void {
   const input = document.querySelector<HTMLInputElement>('#submission-file');
   if (!input) throw new Error('파일 입력이 화면에 없다');
   Object.defineProperty(input, 'files', {
@@ -146,6 +157,9 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
 
   beforeEach(async () => {
     api.uploads = 0;
+    api.uploadedFiles = [];
+    api.createFailure = false;
+    api.uploadResult = null;
     api.creates = 0;
     api.fileId = 'submission-file-1';
     api.uploadFailure = null;
@@ -343,6 +357,67 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
 
     expect(document.querySelector('#submission-file-error')).toBeNull();
     expect(api.checks).toBe(1);
+  });
+
+  it('A를 B로 바꾸면 B를 업로드하고 기다리는 동안 중복 제출하지 않는다', async () => {
+    const a = new File(['A'], 'a.pdf', { type: 'application/pdf' });
+    const b = new File(['B'], 'b.pdf', { type: 'application/pdf' });
+    const pending = Promise.withResolvers<void>();
+    api.uploadResult = () => pending.promise;
+    await act(async () => pickFile(a));
+    await act(async () => pickFile(b));
+    await act(async () => {
+      clickSubmit();
+      clickSubmit();
+    });
+    expect(api.uploadedFiles).toEqual([b]);
+    await act(async () => pending.resolve());
+    expect(api.creates).toBe(1);
+  });
+
+  it('생성 실패 후 동일 File만 업로드를 재사용하고 같은 이름의 새 File은 다시 업로드한다', async () => {
+    api.createFailure = true;
+    const a = new File(['A'], 'same.pdf', { type: 'application/pdf' });
+    await act(async () => pickFile(a));
+    await act(async () => clickSubmit());
+    expect(document.body.textContent).toContain('제출하지 못했습니다');
+    await act(async () => clickSubmit());
+    expect(api.uploadedFiles).toEqual([a]);
+    expect(api.creates).toBe(2);
+    const b = new File(['B'], 'same.pdf', { type: 'application/pdf' });
+    await act(async () => pickFile(b));
+    api.createFailure = false;
+    await act(async () => clickSubmit());
+    expect(api.uploadedFiles).toEqual([a, b]);
+    expect(api.creates).toBe(3);
+  });
+
+  it('선택을 지우면 필수 오류를 표시하고 오래된 ZIP 판정이 새 파일을 덮지 않는다', async () => {
+    const pending = Promise.withResolvers<void>();
+    api.checkResult = () => pending.promise;
+    await act(async () =>
+      pickFile(new File(['PK'], 'a.zip', { type: 'application/zip' })),
+    );
+    await act(async () =>
+      pickFile(new File(['B'], 'b.pdf', { type: 'application/pdf' })),
+    );
+    await act(async () =>
+      pending.reject(
+        new ApiError({
+          type: 'about:blank',
+          title: 'SUB_027',
+          status: 422,
+          code: 'SUB_027',
+          detail: '오래된 ZIP 오류',
+          instance: '/synthetic/checks',
+        }),
+      ),
+    );
+    expect(document.body.textContent).not.toContain('오래된 ZIP 오류');
+    await act(async () => pickFile(null));
+    await act(async () => clickSubmit());
+    expect(document.body.textContent).toContain('제출할 파일을 선택해 주세요.');
+    expect(api.uploadedFiles).toHaveLength(0);
   });
 
   it('올바른 파일이면 업로드와 제출 생성이 이어서 나간다', async () => {

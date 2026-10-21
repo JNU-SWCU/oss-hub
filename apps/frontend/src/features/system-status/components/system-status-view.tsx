@@ -389,6 +389,21 @@ export function SystemStatusView({
         </Alert>
       ) : null}
 
+      {state.freshness === 'stale' ? (
+        <Alert variant="destructive">
+          <AlertTitle>최신 상태를 불러오지 못했습니다</AlertTitle>
+          <AlertDescription>
+            <p>마지막으로 확인한 상태를 표시합니다. 다시 불러와 주세요.</p>
+            <Button type="button" variant="outline" onClick={onRetry}>
+              상태 다시 불러오기
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {state.freshness === 'refreshing' ? (
+        <p role="status">최신 상태를 불러오는 중입니다.</p>
+      ) : null}
+
       {isEmpty ? (
         <EmptyState
           icon={<Database className="size-8" />}

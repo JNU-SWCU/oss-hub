@@ -14,6 +14,10 @@ import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 import { programApplyHref, programOverviewHref } from '@/lib/program-route';
 import { getMyTeam } from './api';
+import {
+  TEAM_MEMBERSHIP_CHANGED_EVENT,
+  type TeamMembershipChangedDetail,
+} from './team-membership-events';
 import { getProgramDetail } from '../catalog/api';
 import type { ProgramTeam } from './dto';
 import type { ProgramApplySessionUser } from '../applications/load-program-apply-context';
@@ -135,7 +139,11 @@ export function ProgramMyTeamPage({
         let application: StudentApplication | null = null;
         if (team !== null && team.hasApplication) {
           const failWith = (message: string): void => {
-            if (quiet && stateRef.current.kind === 'ready') {
+            if (
+              quiet &&
+              (stateRef.current.kind === 'ready' ||
+                stateRef.current.kind === 'no-team')
+            ) {
               setRefreshError(message);
               return;
             }
@@ -171,7 +179,11 @@ export function ProgramMyTeamPage({
         );
       } catch (error: unknown) {
         if (!stillCurrent()) return;
-        if (quiet && stateRef.current.kind === 'ready') {
+        if (
+          quiet &&
+          (stateRef.current.kind === 'ready' ||
+            stateRef.current.kind === 'no-team')
+        ) {
           setRefreshError(REFRESH_FAILED_MESSAGE);
           return;
         }
@@ -196,18 +208,32 @@ export function ProgramMyTeamPage({
   }, [load, identity]);
 
   useEffect(() => {
-    if (state.kind !== 'ready') return;
+    if (state.kind !== 'ready' && state.kind !== 'no-team') return;
     function refresh() {
       if (document.visibilityState !== 'visible') return;
       void load({ quiet: true });
     }
+    function membershipChanged(event: Event) {
+      if (
+        event instanceof CustomEvent &&
+        (event as CustomEvent<TeamMembershipChangedDetail>).detail
+          ?.programId === programId
+      ) {
+        void load({ quiet: true });
+      }
+    }
+    window.addEventListener(TEAM_MEMBERSHIP_CHANGED_EVENT, membershipChanged);
     window.addEventListener('focus', refresh);
     document.addEventListener('visibilitychange', refresh);
     return () => {
+      window.removeEventListener(
+        TEAM_MEMBERSHIP_CHANGED_EVENT,
+        membershipChanged,
+      );
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, [load, state.kind]);
+  }, [load, programId, state.kind]);
 
   const handleMembersChanged = useCallback(() => {
     void load({ quiet: true });
@@ -273,6 +299,13 @@ export function ProgramMyTeamPage({
     return (
       <PageBody className="max-w-4xl">
         <PageHeader title="우리 팀" description={state.program.name} />
+        {refreshError ? (
+          <FailureState
+            title="팀 상태 갱신 실패"
+            description={refreshError}
+            onRetry={() => void load({ quiet: true })}
+          />
+        ) : null}
         <EmptyState
           title="아직 이 프로그램에서 속한 팀이 없습니다"
           description={`${state.program.name}에는 팀으로 참여합니다. 신청 화면에서 팀을 만들어 신청하거나, 팀장이 보낸 초대를 헤더의 알림에서 수락하면 이 화면에 팀이 나타납니다.`}

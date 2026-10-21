@@ -119,7 +119,9 @@ function buildService(overrides: {
     appendReviewHistory,
     lockProgramForApply: jest
       .fn()
-      .mockResolvedValue(ProgramLifecycle.PUBLISHED),
+      .mockResolvedValue(
+        overrides.program === undefined ? OPEN_PROGRAM : overrides.program,
+      ),
     findTeamMinSize: jest.fn().mockResolvedValue(null),
     findExistingTeamMembership: jest.fn().mockResolvedValue(null),
 
@@ -195,6 +197,89 @@ describe('ApplicationsService.create', () => {
     });
     expect(createApplication).not.toHaveBeenCalled();
   });
+
+  it('잠금 전 정책이 닫혀 있어도 잠금 후 유효한 양식 버전으로 저장한다', async () => {
+    const { service, createApplication } = buildService({
+      program: {
+        ...OPEN_PROGRAM,
+        lifecycle: ProgramLifecycle.ARCHIVED,
+        applicationEndAt: new Date('2026-07-01T00:00:00.000Z'),
+      },
+      store: {
+        lockProgramForApply: jest.fn().mockResolvedValue({
+          ...OPEN_PROGRAM,
+          applicationTemplateVersion: 2,
+        }),
+      },
+    });
+
+    await service.create(
+      GITHUB_ID,
+      PROGRAM_ID,
+      { ...DEFAULT_INPUT, applicationTemplateVersion: 2 },
+      NOW,
+    );
+
+    expect(createApplication).toHaveBeenCalledWith(
+      expect.objectContaining({ applicationTemplateVersion: 2 }),
+    );
+  });
+
+  it.each([
+    [
+      {
+        ...OPEN_PROGRAM,
+        applicationStartAt: new Date('2026-07-16T00:00:00.000Z'),
+      },
+      ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED,
+    ],
+    [
+      {
+        ...OPEN_PROGRAM,
+        applicationEndAt: new Date('2026-07-14T00:00:00.000Z'),
+      },
+      ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED,
+    ],
+    [
+      { ...OPEN_PROGRAM, applicationTemplateVersion: 2 },
+      ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH,
+    ],
+    [
+      { ...OPEN_PROGRAM, lifecycle: ProgramLifecycle.ARCHIVED },
+      ApplicationsErrorCode.PROGRAM_ARCHIVED,
+    ],
+    [null, ApplicationsErrorCode.PROGRAM_NOT_FOUND],
+  ])(
+    '잠금 후 정책 %j는 %s로 거절하며 부수효과가 없다',
+    async (policy, code) => {
+      const {
+        service,
+        createApplication,
+        createTeamWithLeader,
+        record,
+        appendReviewHistory,
+      } = buildService({
+        store: { lockProgramForApply: jest.fn().mockResolvedValue(policy) },
+      });
+
+      await expect(
+        service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
+      ).rejects.toMatchObject({ errorCode: { code } });
+      expect(createApplication).not.toHaveBeenCalled();
+      expect(createTeamWithLeader).not.toHaveBeenCalled();
+      expect(record).not.toHaveBeenCalled();
+      expect(appendReviewHistory).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([OPEN_PROGRAM.applicationStartAt, OPEN_PROGRAM.applicationEndAt])(
+    '요청 시각 %s가 잠금 후 기간 경계와 같으면 신청한다',
+    async (now) => {
+      const { service, createApplication } = buildService({});
+      await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, now);
+      expect(createApplication).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it('신청 시 1인 팀을 만들고 leader 가 신청자이며 SUBMITTED 로 생성한다', async () => {
     const { service, createApplication, createTeamWithLeader } = buildService(

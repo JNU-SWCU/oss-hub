@@ -114,7 +114,7 @@ export function SettingsScreen({
   }, [loadSettings]);
 
   const retryNotificationLoad = useCallback(async (): Promise<void> => {
-    if (notificationRetryInFlight.current) {
+    if (notificationRetryInFlight.current || submissionInFlight.current) {
       return;
     }
     notificationRetryInFlight.current = true;
@@ -154,7 +154,11 @@ export function SettingsScreen({
   );
 
   async function submit(): Promise<void> {
-    if (!values || submissionInFlight.current) {
+    if (
+      !values ||
+      submissionInFlight.current ||
+      notificationRetryInFlight.current
+    ) {
       return;
     }
     setHasSubmitted(true);
@@ -259,9 +263,12 @@ export function SettingsScreen({
       isSubmitting={isSubmitting}
       submitError={submitError}
       toastMessage={toastMessage}
-      onChange={(patch) =>
-        setValues((current) => current && { ...current, ...patch })
-      }
+      onChange={(patch) => {
+        if (submissionInFlight.current || notificationRetryInFlight.current)
+          return;
+        setToastMessage(null);
+        setValues((current) => current && { ...current, ...patch });
+      }}
       onRetryNotification={() => void retryNotificationLoad()}
       onSubmit={() => void submit()}
     />

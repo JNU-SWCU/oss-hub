@@ -6,6 +6,7 @@ import { getMyTeam, leaveMyTeam, removeMyTeamMember } from './api';
 import { getProgramDetail } from '../catalog/api';
 import type { ProgramTeam } from './dto';
 import { updateRepositoryUrl } from './repository-url-api';
+import { notifyTeamMembershipChanged } from './team-membership-events';
 import { ProgramMyTeamPage } from './program-my-team-page';
 import { getMyApplication } from '../applications/student-application-api';
 import type { StudentApplication } from '../applications/student-application-dto';
@@ -810,5 +811,47 @@ it('saves the student change through my application route', async () => {
   );
   expect(updateRepositoryUrl).toHaveBeenCalledExactlyOnceWith('program-1', {
     repositoryUrl: 'https://github.com/synthetic/next',
+  });
+});
+
+describe('멤버십 변경 후 현재 팀 다시 읽기', () => {
+  it('빈 팀에서 같은 프로그램 이벤트만 읽고 팀이 생기거나 사라진 결과를 표시한다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue(null);
+    await renderPage();
+    await act(async () => notifyTeamMembershipChanged('other-program'));
+    expect(getMyTeam).toHaveBeenCalledTimes(1);
+    vi.mocked(getMyTeam).mockResolvedValue(team);
+    await act(async () => notifyTeamMembershipChanged('program-1'));
+    expect(getMyTeam).toHaveBeenCalledTimes(2);
+    expect(host.querySelector('h1')?.textContent).toBe('합성 팀');
+    vi.mocked(getMyTeam).mockResolvedValue(null);
+    await act(async () => notifyTeamMembershipChanged('program-1'));
+    expect(host.textContent).toContain('속한 팀이 없습니다');
+  });
+
+  it('빈 팀도 창 복귀로 갱신하고 실패하면 마지막 상태와 재시도를 유지한다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue(null);
+    await renderPage();
+    vi.mocked(getMyTeam).mockRejectedValueOnce(new Error('network'));
+    await act(async () => window.dispatchEvent(new Event('focus')));
+    expect(getMyTeam).toHaveBeenCalledTimes(2);
+    expect(host.textContent).toContain('속한 팀이 없습니다');
+    expect(host.textContent).toContain('최신 팀 상태를 불러오지 못했습니다');
+    vi.mocked(getMyTeam).mockResolvedValue(team);
+    await act(async () => button('다시 시도').click());
+    expect(host.querySelector('h1')?.textContent).toBe('합성 팀');
+  });
+
+  it('나중에 시작한 갱신이 먼저 끝나면 이전 응답을 무시한다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue(null);
+    await renderPage();
+    const older = Promise.withResolvers<ProgramTeam | null>();
+    vi.mocked(getMyTeam).mockReturnValueOnce(older.promise);
+    await act(async () => notifyTeamMembershipChanged('program-1'));
+    vi.mocked(getMyTeam).mockResolvedValue(team);
+    await act(async () => notifyTeamMembershipChanged('program-1'));
+    expect(host.querySelector('h1')?.textContent).toBe('합성 팀');
+    await act(async () => older.resolve(null));
+    expect(host.querySelector('h1')?.textContent).toBe('합성 팀');
   });
 });
