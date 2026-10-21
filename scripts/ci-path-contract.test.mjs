@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, matchesGlob } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
@@ -10,17 +10,6 @@ const workflowPath = fileURLToPath(
   new URL('../.github/workflows/ci.yml', import.meta.url),
 );
 const workflow = readFileSync(workflowPath, 'utf8');
-const paths = [
-  'scripts/check-member-authority-production*',
-  'scripts/member-authority-production-report.mjs',
-  'scripts/member-authority-jenkins-contract.test.mjs',
-  'scripts/ci-path-contract.test.mjs',
-];
-const tests = [
-  'scripts/check-member-authority-production.test.mjs',
-  'scripts/member-authority-jenkins-contract.test.mjs',
-];
-
 const backendOnlyPaths = [
   'scripts/member-authority-contract-contract*',
   'scripts/member-authority-contract-sources.mjs',
@@ -47,9 +36,6 @@ const deploymentHardeningPaths = [
   'scripts/check-production-image-pins*.sh',
   'scripts/jenkins/validate-production-env*',
   'Jenkinsfile',
-  'scripts/check-jenkinsfile.sh',
-  'scripts/check-jenkinsfile.test.sh',
-  'scripts/check-jenkinsfile.test.mjs',
   'scripts/jenkins/validate-rollback-images*',
   'scripts/prune-deploy-backups*.sh',
 ];
@@ -58,9 +44,6 @@ const deploymentHardeningCommands = [
   'node --test scripts/jenkins/validate-production-env.test.mjs',
   'bash scripts/check-production-image-pins.test.sh',
   'bash scripts/check-production-image-pins.sh',
-  'node --test scripts/check-jenkinsfile.test.mjs',
-  'bash scripts/check-jenkinsfile.test.sh',
-  'bash scripts/check-jenkinsfile.sh Jenkinsfile',
   "! grep -rlE 'oss-hub-release-c[d]|JENKINS[_]' .github/workflows",
   'bash scripts/jenkins/validate-rollback-images.test.sh',
   'bash scripts/prune-deploy-backups.test.sh',
@@ -75,15 +58,6 @@ function validate(workflowSource) {
     '            backend:',
     '            nginx:',
   );
-  const jenkins = section(
-    workflowSource,
-    '            jenkins:',
-    '            docker_context:',
-  );
-  for (const path of paths) {
-    assert.match(backend, new RegExp(escapeRegex(`'${path}'`)));
-    assert.match(jenkins, new RegExp(escapeRegex(`'${path}'`)));
-  }
   for (const path of backendOnlyPaths) {
     assert.match(backend, new RegExp(escapeRegex(`'${path}'`)));
   }
@@ -102,11 +76,6 @@ function validate(workflowSource) {
     /name: contract on real sources\s+if: [^\n]+\s+run: bash scripts\/check-member-authority-contract\.sh/,
   );
 
-  const command = tests.join(' ');
-  assert.match(
-    workflowSource,
-    new RegExp(escapeRegex(`node --test ${command}`)),
-  );
   assert.match(
     workflowSource,
     /name: CI path 계약 검사\s+run: node --test scripts\/ci-path-contract\.test\.mjs/,
@@ -143,10 +112,6 @@ function validateNginxSyntaxCheck(workflowSource) {
   assert.match(nginxStep, /nginx -t/);
 }
 
-test('member-authority paths select backend and Jenkins and run every contract test', () => {
-  validate(workflow);
-});
-
 test('deployment hardening paths run production env and image contracts', () => {
   validateDeploymentHardening(workflow);
 });
@@ -172,15 +137,6 @@ test('nginx syntax 검사 command drift fail closed', () => {
   assert.throws(() =>
     validateNginxSyntaxCheck(workflow.replace(nginxSyntaxCommand, '')),
   );
-});
-
-test('path and required-test drift fail closed', () => {
-  for (const path of paths) {
-    assert.throws(() => validate(workflow.replaceAll(`'${path}'`, '')));
-  }
-  for (const testPath of tests) {
-    assert.throws(() => validate(workflow.replace(testPath, '')));
-  }
 });
 
 test('contract paths select backend and run the contract test', () => {
@@ -452,3 +408,49 @@ test('actual workflow selects frontend independently for design changes', () => 
     ),
   );
 });
+
+function runScopeForPaths(paths) {
+  const filters = section(workflow, '          filters: |\n', '\n\n');
+  const selected = Object.fromEntries(
+    scopes.map((name) => {
+      const filter = filters
+        .split(`            ${name}:\n`)[1]
+        ?.split(/\n            [a-z_]+:/)[0];
+      assert.ok(filter, `Missing path filter: ${name}`);
+      const patterns = [...filter.matchAll(/- '([^']+)'/g)].map(
+        (match) => match[1],
+      );
+      return [
+        name.toUpperCase(),
+        String(
+          paths.some((path) =>
+            patterns.some((pattern) => matchesGlob(path, pattern)),
+          ),
+        ),
+      ];
+    }),
+  );
+  return runScope('pull_request', selected);
+}
+
+for (const [path, selected] of [
+  ['scripts/jenkins/release-behavior.test.mjs', ['jenkins']],
+  ['scripts/jenkins/runtime.sh', ['jenkins', 'shell_scripts']],
+  ['package.json', ['frontend', 'backend', 'rails']],
+  ['pnpm-lock.yaml', ['frontend', 'backend', 'rails']],
+  ['apps/frontend/package.json', ['frontend', 'backend', 'rails']],
+  ['.design-sync/config.json', ['frontend']],
+  ['scripts/design-sync-contract.test.mjs', ['frontend', 'node_scripts']],
+  ['docs/decisions/README.md', []],
+  ['README.md', []],
+  ['.github/workflows/ci.yml', scopes],
+]) {
+  test(`actual workflow scope selects expected PR lanes for ${path}`, () => {
+    assert.deepEqual(
+      runScopeForPaths([path]),
+      Object.fromEntries(
+        scopes.map((name) => [name, String(selected.includes(name))]),
+      ),
+    );
+  });
+}

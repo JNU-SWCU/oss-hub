@@ -4,25 +4,12 @@ import { createSign } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
+import { parseDotenv } from './validate-production-env.mjs';
+
 const API_BASE = 'https://api.github.com';
 
 export function parseDeploymentIdentity(source) {
-  const values = new Map();
-  for (const rawLine of source.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith('#')) continue;
-    const match = line.match(/^([A-Z][A-Z0-9_]*)=(.*)$/);
-    if (!match) continue;
-    let value = match[2].trim();
-    if (
-      value.length >= 2 &&
-      ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'")))
-    ) {
-      value = value.slice(1, -1);
-    }
-    values.set(match[1], value);
-  }
+  const values = parseDotenv(source);
 
   const required = (key) => {
     const value = values.get(key)?.trim();

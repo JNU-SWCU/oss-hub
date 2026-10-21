@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 class ContractError extends Error {}
 
@@ -6,7 +7,7 @@ function fail(diagnostic) {
   throw new ContractError(diagnostic);
 }
 
-function parseDotenv(contents) {
+export function parseDotenv(contents) {
   const environment = new Map();
   const lines = contents.split(/\n/u);
 
@@ -330,15 +331,37 @@ function validate(environment) {
   }
 }
 
-try {
-  if (process.argv.length !== 3) {
-    fail('ENV_FILE');
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  try {
+    if (
+      process.argv.length !== 3 &&
+      !(process.argv.length === 5 && process.argv[3] === '--value')
+    ) {
+      fail('ENV_FILE');
+    }
+    const contents = readFileSync(process.argv[2], 'utf8');
+    const environment = parseDotenv(contents);
+    validate(environment);
+    if (process.argv[3] === '--value') {
+      const key = process.argv[4];
+      if (
+        ![
+          'SUBMISSION_FILE_S3_ENDPOINT',
+          'SUBMISSION_FILE_S3_REGION',
+          'SUBMISSION_FILE_S3_BUCKET',
+          'SUBMISSION_FILE_S3_FORCE_PATH_STYLE',
+        ].includes(key)
+      )
+        fail('unsupported storage value');
+      process.stdout.write(required(environment, key));
+    }
+  } catch (error) {
+    const diagnostic =
+      error instanceof ContractError ? error.message : 'ENV_FILE';
+    console.error(`FAIL_CLOSED production_env: ${diagnostic}`);
+    process.exitCode = 1;
   }
-  const contents = readFileSync(process.argv[2], 'utf8');
-  validate(parseDotenv(contents));
-} catch (error) {
-  const diagnostic =
-    error instanceof ContractError ? error.message : 'ENV_FILE';
-  console.error(`FAIL_CLOSED production_env: ${diagnostic}`);
-  process.exitCode = 1;
 }

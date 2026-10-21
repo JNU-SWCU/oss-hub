@@ -2,7 +2,7 @@ name: ci
 
 # paths 필터를 사용하지 않아 모든 PR에서 required check이 생성되어 교착을 방지한다.
 # issues·issue_comment는 Issue 본문·댓글 public-safe 스캔 전용 트리거다
-# (PR title/body만 검사하던 사각지대 — #56 실증, docs/rules/security.md).
+# (PR title/body만 검사하던 사각지대 — #56 실증, scripts/check-public-safe.sh).
 # push(main)는 required check 우회 병합 등으로 main 자체가 red가 돼도
 # 병합 시점까지 아무 신호가 없던 사각지대를 잡는다 (PR #586 postmortem, ci job만 재실행).
 # release(published)는 배포 인가 이벤트다 — frontend 배포 주체를 CI 안으로 들인다
@@ -72,9 +72,6 @@ jobs:
               - 'scripts/rehearse-member-authority-contract*'
               - 'scripts/rehearse-legacy-submission-migrations*'
               - 'scripts/rehearse-legacy-table-drop*'
-              - 'scripts/check-member-authority-production*'
-              - 'scripts/member-authority-production-report.mjs'
-              - 'scripts/member-authority-jenkins-contract.test.mjs'
               - 'scripts/ci-path-contract.test.mjs'
               - '.github/workflows/**'
             nginx:
@@ -101,16 +98,8 @@ jobs:
               - 'scripts/jenkins/**'
               - 'scripts/jenkins/validate-production-env*'
               - 'scripts/jenkins/validate-rollback-images*'
-              - 'scripts/check-jenkinsfile.sh'
-              - 'scripts/check-jenkinsfile.test.sh'
-              - 'scripts/check-jenkinsfile.test.mjs'
               - 'scripts/check-production-image-pins*.sh'
-              - 'scripts/check-member-authority-production*'
-              - 'scripts/member-authority-production-report.mjs'
-              - 'scripts/member-authority-jenkins-contract.test.mjs'
               - 'scripts/ci-path-contract.test.mjs'
-              - 'scripts/check-auth-production-readonly*'
-              - 'scripts/auth-production-readonly-report.mjs'
               - 'scripts/prune-deploy-backups*.sh'
               - '.github/workflows/**'
             docker_context:
@@ -258,15 +247,11 @@ jobs:
       - name: Jenkins 배포 계약 회귀 테스트
         if: ${{ steps.scope.outputs.jenkins == 'true' }}
         run: |
+          node --test scripts/jenkins/release-behavior.test.mjs
           node --test scripts/jenkins/validate-production-env.test.mjs
           node --test scripts/jenkins/validate-github-app-credentials.test.mjs
-          node --test scripts/check-member-authority-production.test.mjs scripts/member-authority-jenkins-contract.test.mjs
-          node --test scripts/check-auth-production-readonly.test.mjs
           bash scripts/check-production-image-pins.test.sh
           bash scripts/check-production-image-pins.sh
-          node --test scripts/check-jenkinsfile.test.mjs
-          bash scripts/check-jenkinsfile.test.sh
-          bash scripts/check-jenkinsfile.sh Jenkinsfile
           # 어떤 workflow도 Jenkins를 트리거하지 않는다 — 배포는 outbound convergence만 사용한다(ADR-002).
           ! grep -rlE 'oss-hub-release-c[d]|JENKINS[_]' .github/workflows
           bash scripts/jenkins/validate-rollback-images.test.sh
@@ -324,7 +309,7 @@ jobs:
 
       - name: Prisma migration contract unit tests
         if: ${{ steps.scope.outputs.backend == 'true' }}
-        run: node --test scripts/rehearse-member-authority-migrations.test.mjs scripts/rehearse-legacy-submission-migrations.test.mjs scripts/rehearse-user-phone-column.test.mjs scripts/rehearse-legacy-table-drop.test.mjs scripts/member-authority-contract-contract.test.mjs scripts/prisma-migration-ledger.test.mjs scripts/check-open-prisma-migration-prs.test.mjs scripts/check-jenkinsfile.test.mjs scripts/test-prisma-migration-concurrency.test.mjs
+        run: node --test scripts/rehearse-member-authority-migrations.test.mjs scripts/rehearse-legacy-submission-migrations.test.mjs scripts/rehearse-user-phone-column.test.mjs scripts/rehearse-legacy-table-drop.test.mjs scripts/member-authority-contract-contract.test.mjs scripts/prisma-migration-ledger.test.mjs scripts/check-open-prisma-migration-prs.test.mjs scripts/test-prisma-migration-concurrency.test.mjs
 
       # 위 단계는 검사기가 합성 문자열에 대해 올바른지만 본다. 이 단계는 그 검사기를
       # **저장소의 실제 파일**(스키마·contract 마이그레이션·추적 중인 생산 TS)에 돌린다.
