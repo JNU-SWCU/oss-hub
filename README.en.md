@@ -8,7 +8,7 @@ OSS Hub brings program discovery, team formation, applications, document submiss
 
 [Visit OSS Hub](https://jnu-oss-hub.com) · [Developer onboarding](#getting-started-locally) · [Issues](https://github.com/JNU-SWCU/oss-hub/issues) · [Releases](https://github.com/JNU-SWCU/oss-hub/releases)
 
-The application interface, screenshots, and linked project documentation are currently in Korean.
+The application interface and screenshots are currently in Korean.
 
 ## Contents
 
@@ -207,7 +207,7 @@ Choose the checks required for your changes using the [CI workflow](.github/work
 
 `pnpm test` does not include backend database integration tests or browser tests.
 Database integration tests use a dedicated isolated runner, and browser tests use installed Chrome with a separate test environment.
-Use `pnpm --filter frontend e2e:install` to install the browser, and consult the verification rules for detailed requirements.
+Use `pnpm --filter frontend e2e:install` to install the browser, and see the [Playwright configuration](apps/frontend/playwright.config.ts) for the browser test settings.
 
 Keep changes within the issue's scope and acceptance criteria, and record the verification you actually performed in the PR.
 Before contributing, read the [onboarding guide](#getting-started-locally), [PR scope and submission rules](skills/submit-pr-evidence/SKILL.md), and [public safety checks](scripts/check-public-safe.sh).
