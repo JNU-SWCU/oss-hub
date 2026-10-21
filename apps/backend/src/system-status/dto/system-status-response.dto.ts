@@ -1,3 +1,7 @@
+import type {
+  SystemStatusResult,
+  SystemStatusCollectionActivityResult,
+} from '../domain/system-status.models';
 export type CollectionHealthResponseDto =
   'EMPTY' | 'NORMAL' | 'DELAYED' | 'PARTIAL' | 'FAILED';
 
@@ -94,4 +98,80 @@ export class SystemStatusResponseDto {
     readonly collectionActivity: readonly SystemStatusCollectionActivityResponseDto[],
     readonly externalCollection: SystemStatusExternalCollectionResponseDto,
   ) {}
+}
+
+export function systemStatusResponse(
+  result: SystemStatusResult,
+): SystemStatusResponseDto {
+  const collection = result.collection;
+  const external = result.externalCollection;
+  return new SystemStatusResponseDto(
+    new CollectionSystemStatusResponseDto(
+      collection.health,
+      collection.dataAsOf?.toISOString() ?? null,
+      collection.trackedRepositoryCount,
+      collection.readyStreamCount,
+      collection.backfillingStreamCount,
+      collection.partialStreamCount,
+      collection.retryPendingStreamCount,
+      collection.oldestReadyCheckpointAt?.toISOString() ?? null,
+      collection.oldestRetryPendingAt?.toISOString() ?? null,
+      collection.lastCycleStartedAt?.toISOString() ?? null,
+      collection.lastCycleCompletedAt?.toISOString() ?? null,
+      collection.nextCycleAt?.toISOString() ?? null,
+      collection.currentRunStatus,
+      collection.safeReason,
+    ),
+    new RepositoryProvisioningSystemStatusResponseDto(
+      result.repositoryProvisioning.finalFailureCount,
+    ),
+    result.collectionStreams.map(
+      (repository) =>
+        new SystemStatusCollectionStreamsResponseDto(
+          repository.repositoryName,
+          repository.programName,
+          repository.streams.map(
+            (stream) =>
+              new CollectionRepositoryStreamResponseDto(
+                stream.streamType,
+                stream.bucket,
+                stream.lastSuccessAt?.toISOString() ?? null,
+                stream.lastErrorCode,
+                stream.lastErrorAt?.toISOString() ?? null,
+              ),
+          ),
+        ),
+    ),
+    result.collectionActivity.map(collectionActivityResponse),
+    new SystemStatusExternalCollectionResponseDto(
+      external.trackedRepositoryCount,
+      external.lastSweep
+        ? collectionActivityResponse(external.lastSweep)
+        : null,
+      external.cumulativeCommitCount,
+      external.cumulativePullRequestCount,
+      external.cumulativeReleaseCount,
+      external.cumulativeIssueCount,
+    ),
+  );
+}
+
+function collectionActivityResponse(
+  sweep: SystemStatusCollectionActivityResult,
+): SystemStatusCollectionActivityResponseDto {
+  return new SystemStatusCollectionActivityResponseDto(
+    sweep.sweepFinishedAt.toISOString(),
+    sweep.cycleStartedAt?.toISOString() ?? null,
+    sweep.scope,
+    sweep.kind,
+    sweep.insertedCommitCount,
+    sweep.insertedPullRequestCount,
+    sweep.insertedReleaseCount,
+    sweep.insertedIssueCount,
+    sweep.attemptedRepositoryCount,
+    sweep.processedRepositoryCount,
+    sweep.failedRepositoryCount,
+    sweep.cycleCompleted,
+    sweep.stoppedForBudget,
+  );
 }

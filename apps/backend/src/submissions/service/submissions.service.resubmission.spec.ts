@@ -13,11 +13,9 @@ import type { SubmissionApplication } from '../domain/submission-record';
 import type {
   ResubmissionTarget,
   SubmissionMilestone,
-  SubmissionsRepository,
-  SubmissionsStore,
 } from '../repository/submissions.repository';
 import { StaleSubmissionRevisionError } from '../repository/submissions.repository';
-import { SubmissionsService } from './submissions.service';
+import { createSubmissionsServiceHarness } from './submissions.service-fixture';
 
 const githubId = 4242n;
 const submissionId = 'submission-1';
@@ -57,51 +55,34 @@ function buildService(
     readonly targets?: readonly (ResubmissionTarget | null)[];
   } = {},
 ) {
-  const store = {
-    findActiveStudentByGithubId: jest
-      .fn()
-      .mockResolvedValue(
-        overrides.actor === undefined ? { id: 'student-1' } : overrides.actor,
-      ),
-    findSubmissionForParticipant: jest
-      .fn()
-      .mockResolvedValue(
-        overrides.target === undefined ? target() : overrides.target,
-      ),
-    submissionExists: jest.fn().mockResolvedValue(overrides.exists ?? true),
-    lockProgramEndAt: jest
-      .fn()
-      .mockResolvedValue(new Date('2027-01-01T00:00:00.000Z')),
-    createSubmissionRevision: overrides.createError
-      ? jest.fn().mockRejectedValue(overrides.createError)
-      : jest.fn().mockResolvedValue({ revision: 2 }),
-  };
+  const { service, store, didRollBack } = createSubmissionsServiceHarness();
+  store.findActiveStudentByGithubId.mockResolvedValue(
+    overrides.actor === undefined ? { id: 'student-1' } : overrides.actor,
+  );
+  store.findSubmissionForParticipant.mockResolvedValue(
+    overrides.target === undefined ? target() : overrides.target,
+  );
+  store.submissionExists.mockResolvedValue(overrides.exists ?? true);
+  store.lockProgramEndAt.mockResolvedValue(
+    new Date('2027-01-01T00:00:00.000Z'),
+  );
+  if (overrides.createError) {
+    store.createSubmissionRevision.mockRejectedValue(overrides.createError);
+  } else {
+    store.createSubmissionRevision.mockResolvedValue({ revision: 2 });
+  }
   if (overrides.targets) {
     for (const value of overrides.targets) {
       store.findSubmissionForParticipant.mockResolvedValueOnce(value);
     }
   }
 
-  let rolledBack = false;
-  const repository = {
-    ...store,
-    withTransaction: async (
-      operation: (transactionStore: SubmissionsStore) => Promise<unknown>,
-    ) => {
-      try {
-        return await operation(store as unknown as SubmissionsStore);
-      } catch (error: unknown) {
-        rolledBack = true;
-        throw error;
-      }
-    },
-  } as unknown as SubmissionsRepository;
   return {
-    service: new SubmissionsService(repository),
+    service,
     createSubmissionRevision: store.createSubmissionRevision,
     submissionExists: store.submissionExists,
     findSubmissionForParticipant: store.findSubmissionForParticipant,
-    didRollBack: () => rolledBack,
+    didRollBack,
   };
 }
 
@@ -427,51 +408,30 @@ function buildCreateService(
     readonly createError?: Error;
   } = {},
 ) {
-  const store = {
-    findActiveStudentByGithubId: jest.fn().mockResolvedValue({
-      id: 'student-1',
-    }),
-    findMilestoneById: jest
-      .fn()
-      .mockResolvedValue(
-        overrides.milestone === undefined ? milestone : overrides.milestone,
-      ),
-    findApplicationForParticipant: jest
-      .fn()
-      .mockResolvedValue(
-        overrides.application === undefined
-          ? application()
-          : overrides.application,
-      ),
-    lockProgramEndAt: jest
-      .fn()
-      .mockResolvedValue(new Date('2027-01-01T00:00:00.000Z')),
-    createSubmission: overrides.createError
-      ? jest.fn().mockRejectedValue(overrides.createError)
-      : jest.fn().mockResolvedValue({
-          id: 'submission-1',
-          status: SubmissionStatus.SUBMITTED,
-          submittedAt: NOW,
-        }),
-  };
-  let rolledBack = false;
-  const repository = {
-    ...store,
-    withTransaction: async (
-      operation: (transactionStore: SubmissionsStore) => Promise<unknown>,
-    ) => {
-      try {
-        return await operation(store as unknown as SubmissionsStore);
-      } catch (error: unknown) {
-        rolledBack = true;
-        throw error;
-      }
-    },
-  } as unknown as SubmissionsRepository;
+  const { service, store, didRollBack } = createSubmissionsServiceHarness();
+  store.findActiveStudentByGithubId.mockResolvedValue({ id: 'student-1' });
+  store.findMilestoneById.mockResolvedValue(
+    overrides.milestone === undefined ? milestone : overrides.milestone,
+  );
+  store.findApplicationForParticipant.mockResolvedValue(
+    overrides.application === undefined ? application() : overrides.application,
+  );
+  store.lockProgramEndAt.mockResolvedValue(
+    new Date('2027-01-01T00:00:00.000Z'),
+  );
+  if (overrides.createError) {
+    store.createSubmission.mockRejectedValue(overrides.createError);
+  } else {
+    store.createSubmission.mockResolvedValue({
+      id: 'submission-1',
+      status: SubmissionStatus.SUBMITTED,
+      submittedAt: NOW,
+    });
+  }
   return {
-    service: new SubmissionsService(repository),
+    service,
     createSubmission: store.createSubmission,
-    didRollBack: () => rolledBack,
+    didRollBack,
   };
 }
 
@@ -484,7 +444,7 @@ describe('최초 제출', () => {
     expect(result).toEqual({
       submissionId: 'submission-1',
       status: SubmissionStatus.SUBMITTED,
-      submittedAt: NOW.toISOString(),
+      submittedAt: NOW,
     });
 
     expect(createSubmission).toHaveBeenCalledWith(

@@ -23,7 +23,7 @@
 - Prisma 조회는 `repository/programs.repository.ts`, `repository/program-editor.repository.ts`, `repository/program-teams.repository.ts`와 활동 repository에 둔다.
 - 템플릿과 신청 답변 규칙은 `domain/program-template.registry.ts`, `domain/application-answers.validator.ts`가 원본이다.
 - 목록 filter/sort는 `domain/program-list-query.ts`와 `dto/program-list-query.dto.ts`를 함께 변경한다.
-- HTTP 입력·출력은 `dto/` class에서 변환하고 controller에서 임의 response shape나 validation을 만들지 않는다.
+- HTTP 입력은 `dto/` runtime class와 decorator로 검증한다. 응답은 `dto/`의 명시적 presenter/class/interface로 변환하고, service는 `domain/` command/result를 사용한다. controller에서 별도 검증·응답 정책을 복제하지 않는다.
 - 공개 필드와 viewer personalization 변경은 `service/programs.service.ts`, `dto/program-detail.dto.ts`, `dto/program-list-response.dto.ts`를 함께 검토한다.
 - 활동 집계는 module이 export하는 `ProgramActivitySummaryService`를 사용하고 호출자가 집계 table이나 다른 module internals를 직접 읽지 않는다.
 

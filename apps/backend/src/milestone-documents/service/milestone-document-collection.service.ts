@@ -1,10 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { DomainException } from '../../common/error-code';
-import {
-  MilestoneDocumentCollectionResponseDto,
-  type MilestoneDocumentDeliveryCollectionResponseDto,
-} from '../dto/milestone-document-collection-response.dto';
+import type { MilestoneDocumentDeliveryCollectionResult } from '../domain/milestone-document-result';
 import { MilestoneDocumentCollectionReadRepository } from '../repository/milestone-document-collection-read.repository';
 import {
   buildMilestoneDocumentDeliveryPage,
@@ -31,7 +28,7 @@ export class MilestoneDocumentCollectionService {
     milestoneId: string,
     query: MilestoneDocumentDeliveryQuery,
     now = new Date(),
-  ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
+  ): Promise<MilestoneDocumentDeliveryCollectionResult> {
     await this.authority.assertActiveStaff(
       sessionGithubId,
       () =>
@@ -87,31 +84,20 @@ export class MilestoneDocumentCollectionService {
           submission,
         ]),
       );
-      const response = MilestoneDocumentCollectionResponseDto.from(
+      return {
         milestone,
         documents,
-        {
-          ...page,
-          rows: page.rows.map((row) => ({
-            application: row.application,
-            cells: documents.map(
-              (document) =>
-                detailByCell.get(
-                  `${row.application.applicationId}::${document.id}`,
-                ) ?? null,
-            ),
-          })),
-        },
-      );
-      return {
-        ...response,
-        deliveryCounts: page.deliveryCounts,
-        rows: response.rows.map((row, index) => {
-          const coordinateRow = page.rows[index];
-          if (coordinateRow === undefined)
-            throw new Error('Collection row mapping lost its source');
-          return { ...row, deliveryStatus: coordinateRow.deliveryStatus };
-        }),
+        ...page,
+        rows: page.rows.map((row) => ({
+          application: row.application,
+          deliveryStatus: row.deliveryStatus,
+          cells: documents.map(
+            (document) =>
+              detailByCell.get(
+                `${row.application.applicationId}::${document.id}`,
+              ) ?? null,
+          ),
+        })),
       };
     });
   }

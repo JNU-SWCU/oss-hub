@@ -1,15 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../../common/error-code';
 import { documentDeliveryStatus } from '../domain/document-delivery-status';
-import {
-  submissionMatrixReviewUrl,
-  type SubmissionMatrixQuery,
-} from '../domain/submission-matrix';
+import type { SubmissionMatrixQuery } from '../domain/submission-matrix';
 import type {
-  MatrixCellResponseDto,
-  MatrixRowResponseDto,
-  SubmissionMatrixResponseDto,
-} from '../dto/submission-matrix-response.dto';
+  MatrixCellResult,
+  MatrixRowResult,
+  SubmissionMatrixResult,
+} from '../domain/submission-matrix-result';
 import {
   SubmissionMatrixRepository,
   type MatrixApplicationRecord,
@@ -33,7 +30,7 @@ export class SubmissionMatrixService {
     githubId: bigint,
     programId: string,
     query: SubmissionMatrixQuery,
-  ): Promise<SubmissionMatrixResponseDto> {
+  ): Promise<SubmissionMatrixResult> {
     if (!(await this.repository.findActiveStaffOrAdmin(githubId))) {
       throw this.error(SubmissionsErrorCode.STAFF_ONLY);
     }
@@ -85,10 +82,10 @@ export class SubmissionMatrixService {
       milestones: milestones.map((milestone) => ({
         id: milestone.id,
         name: milestone.name,
-        dueAt: milestone.dueAt.toISOString(),
+        dueAt: milestone.dueAt,
       })),
       rows: applications.items.map((application) =>
-        toMatrixRow(programId, application, milestones, {
+        toMatrixRow(application, milestones, {
           reviews: cellIndex,
           firstSubmissions: firstSubmissionIndex,
           changeRequestCounts,
@@ -115,7 +112,6 @@ function isSoloTeam(application: MatrixApplicationRecord): boolean {
 }
 
 function toMatrixRow(
-  programId: string,
   application: MatrixApplicationRecord,
   milestones: readonly MatrixMilestoneRecord[],
   index: {
@@ -123,7 +119,7 @@ function toMatrixRow(
     readonly firstSubmissions: ReadonlyMap<string, Date>;
     readonly changeRequestCounts: ReadonlyMap<string, number>;
   },
-): MatrixRowResponseDto {
+): MatrixRowResult {
   return {
     applicationId: application.id,
 
@@ -138,7 +134,6 @@ function toMatrixRow(
       : [application.applicant.nickname],
     cells: milestones.map((milestone) => ({
       ...toMatrixCell(
-        programId,
         milestone.id,
         index.reviews.get(cellKey(application.id, milestone.id)) ?? null,
       ),
@@ -158,10 +153,9 @@ function toMatrixRow(
 }
 
 function toMatrixCell(
-  programId: string,
   milestoneId: string,
   submission: MatrixSubmissionRecord | null,
-): Omit<MatrixCellResponseDto, 'deliveryStatus' | 'changesRequestedCount'> {
+): Omit<MatrixCellResult, 'deliveryStatus' | 'changesRequestedCount'> {
   if (!submission) {
     return {
       milestoneId,
@@ -169,7 +163,6 @@ function toMatrixCell(
       revision: null,
       status: 'NOT_SUBMITTED',
       submittedAt: null,
-      reviewUrl: null,
     };
   }
   return {
@@ -177,7 +170,6 @@ function toMatrixCell(
     submissionId: submission.id,
     revision: submission.currentRevision,
     status: submission.status,
-    submittedAt: submission.submittedAt?.toISOString() ?? null,
-    reviewUrl: submissionMatrixReviewUrl(programId, submission.id),
+    submittedAt: submission.submittedAt,
   };
 }

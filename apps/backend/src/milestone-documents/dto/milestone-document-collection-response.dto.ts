@@ -1,3 +1,7 @@
+import type {
+  MilestoneDocumentCollectionResult,
+  MilestoneDocumentDeliveryCollectionResult,
+} from '../domain/milestone-document-result';
 import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import type { DocumentDeliveryStatus } from '../../submissions/domain/document-delivery-status';
 import type { MilestoneDocumentCollectionPage } from '../domain/milestone-document-collection-page';
@@ -198,5 +202,31 @@ function toCell(
             resubmissionDueAt:
               submission.review.resubmissionDueAt?.toISOString() ?? null,
           },
+  };
+}
+
+export function presentMilestoneDocumentCollection(
+  result: MilestoneDocumentCollectionResult,
+): MilestoneDocumentCollectionResponseDto {
+  return MilestoneDocumentCollectionResponseDto.from(
+    result.milestone,
+    result.documents,
+    result,
+  );
+}
+
+export function presentMilestoneDocumentDeliveryCollection(
+  result: MilestoneDocumentDeliveryCollectionResult,
+): MilestoneDocumentDeliveryCollectionResponseDto {
+  const response = presentMilestoneDocumentCollection(result);
+  return {
+    ...response,
+    deliveryCounts: result.deliveryCounts,
+    rows: response.rows.map((row, index) => {
+      const coordinateRow = result.rows[index];
+      if (coordinateRow === undefined)
+        throw new Error('Collection row mapping lost its source');
+      return { ...row, deliveryStatus: coordinateRow.deliveryStatus };
+    }),
   };
 }

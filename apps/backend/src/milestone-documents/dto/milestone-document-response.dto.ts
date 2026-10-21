@@ -1,3 +1,4 @@
+import type { MilestoneDocumentViewerResult } from '../domain/milestone-document-result';
 import { SubmissionStatus } from '@prisma/client';
 import {
   SUBMISSION_UPLOAD_ACCEPT,
@@ -117,4 +118,36 @@ export class MilestoneDocumentListResponseDto {
   ): MilestoneDocumentListResponseDto {
     return new MilestoneDocumentListResponseDto(documents);
   }
+}
+
+export function presentMilestoneDocumentViewer(
+  result: MilestoneDocumentViewerResult,
+): MilestoneDocumentResponseDto {
+  const submission = result.viewerSubmission;
+  return MilestoneDocumentResponseDto.from(result, {
+    teamSubmissionCount: result.teamSubmissionCount,
+    viewerSubmission:
+      submission === undefined
+        ? undefined
+        : {
+            submitted: submission.submitted,
+            submittedAt: submission.submittedAt?.toISOString() ?? null,
+            submittedLate: submission.submittedLate,
+            revision: submission.revision,
+            status: submission.status,
+            hasCurrentFile: submission.hasCurrentFile,
+            currentFileName: submission.currentFileName,
+            review:
+              submission.review === null
+                ? null
+                : {
+                    comment: submission.review.comment,
+                    reviewedAt: submission.review.reviewedAt.toISOString(),
+                    resubmissionDueAt:
+                      submission.review.resubmissionDueAt?.toISOString() ??
+                      null,
+                  },
+            history: submission.history,
+          },
+  });
 }

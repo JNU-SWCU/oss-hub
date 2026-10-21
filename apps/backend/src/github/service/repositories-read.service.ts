@@ -4,7 +4,7 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
 } from '@prisma/client';
-import type { MyRepositoryResponseDto } from '../dto/repositories-read.dto';
+import type { MyRepositoryResult } from '../domain/repositories-read.models';
 import { parseGithubRepositoryUrl } from '../domain/github-repository-url';
 import { GithubOperationsConfig } from '../github-operations.config';
 import { RepositoriesRepository } from '../repository/repositories.repository';
@@ -30,7 +30,7 @@ export class RepositoriesReadService {
 
   async getMyRepositories(
     githubId: bigint,
-  ): Promise<readonly MyRepositoryResponseDto[]> {
+  ): Promise<readonly MyRepositoryResult[]> {
     const jobs = await this.repository.listOwnedProvisionJobs(githubId);
     return jobs.map((job) => {
       const repository = job.application.repository;

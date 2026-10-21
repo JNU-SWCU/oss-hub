@@ -2,7 +2,7 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { ProgramActivityService } from '../service/program-activity.service';
 import { ProgramViewerService } from '../service/program-viewer.service';
-import { StudentDashboardController } from './programs.controller';
+import { StudentDashboardController } from './student-dashboard.controller';
 import { StudentDashboardService } from '../service/student-dashboard.service';
 
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');

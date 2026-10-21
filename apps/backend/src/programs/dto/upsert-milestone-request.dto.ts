@@ -1,3 +1,4 @@
+import type { UpsertMilestoneCommand } from '../domain/program-write.commands';
 import {
   IsDateString,
   IsNotEmpty,
@@ -5,7 +6,7 @@ import {
   IsString,
 } from 'class-validator';
 
-export class UpsertMilestoneRequestDto {
+export class UpsertMilestoneRequestDto implements UpsertMilestoneCommand {
   @IsString()
   @IsNotEmpty()
   declare name: string;

@@ -3,10 +3,8 @@ import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { OriginGuard } from '../../auth/controller/origin.guard';
-import {
-  SubmissionChecklistController,
-  SubmissionFormsController,
-} from '../../submissions/controller/submissions.controller';
+import { SubmissionChecklistController } from '../../submissions/controller/submission-checklist.controller';
+import { SubmissionFormsController } from '../../submissions/controller/submission-forms.controller';
 import { SubmissionsRepository } from '../../submissions/repository/submissions.repository';
 import { SubmissionsService } from '../../submissions/service/submissions.service';
 import { ProgramAuthoringController } from './program-authoring.controller';

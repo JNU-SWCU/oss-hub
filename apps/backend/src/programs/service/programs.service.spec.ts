@@ -120,9 +120,7 @@ describe('ProgramsService detail', () => {
     const detail = await service.detail('program-1', anonymous);
 
     expect(detail.lifecycle).toBe('PUBLISHED');
-    expect(detail.operatingPeriod.endsAt).toBe(
-      publicProgram.endAt.toISOString(),
-    );
+    expect(detail.operatingPeriod.endsAt).toBe(publicProgram.endAt);
   });
 
   it('승인된 학생에게 마일스톤별 현재 제출 상태를 반환한다', async () => {

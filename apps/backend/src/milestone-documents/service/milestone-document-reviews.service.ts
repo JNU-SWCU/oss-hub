@@ -5,7 +5,7 @@ import {
   type CreateMilestoneDocumentReviewInput,
   reviewDecisionToSubmissionStatus,
 } from '../domain/milestone-document-review';
-import { MilestoneDocumentReviewResponseDto } from '../dto/milestone-document-review-response.dto';
+import type { CreatedMilestoneDocumentReview } from '../domain/milestone-document-record';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -31,7 +31,7 @@ export class MilestoneDocumentReviewsService {
     applicationId: string,
     input: CreateMilestoneDocumentReviewInput,
     now: () => Date = () => new Date(),
-  ): Promise<MilestoneDocumentReviewResponseDto> {
+  ): Promise<CreatedMilestoneDocumentReview> {
     const { actorId: reviewerId } = await this.authority.assertActiveStaff(
       sessionGithubId,
       () => this.error(MilestoneDocumentsErrorCode.STAFF_ONLY),
@@ -110,7 +110,7 @@ export class MilestoneDocumentReviewsService {
       return review;
     });
 
-    return MilestoneDocumentReviewResponseDto.from(created);
+    return created;
   }
 
   private error(code: MilestoneDocumentsErrorCode): DomainException {

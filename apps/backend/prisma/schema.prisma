@@ -712,8 +712,7 @@ model MilestoneDocument {
   @@index([milestoneId, sortOrder])
 }
 
-/// 교직원이 올린 서류 항목별 양식 파일. 항목당 "현재 양식" 한 건만 유지하는 upsert 모양이라
-/// History 접미사를 쓰지 않는다 — "양식 교체"는 이 행을 덮어쓴다(#164 명명 규칙 §4).
+/// 교직원이 올린 서류 항목별 현재 양식 파일. 교체는 항목당 한 행을 갱신한다.
 model MilestoneDocumentTemplateFile {
   id                  String            @id @default(cuid())
   milestoneDocumentId String            @unique
@@ -820,10 +819,7 @@ model MilestoneDocumentSubmissionHistory {
 
 /// 서류 제출물에 대한 교직원 판정(승인 · 보완 요청 · 반려). 제출 하나에 판정이 **여러 건 쌓인다**.
 ///
-/// 이름이 `…History`로 끝나는 것은 그 모양 때문이다 — 시간 축(`reviewedAt`)이 전진할수록 행이
-/// 늘고 지난 행을 지우지 않는다(docs/rules/data-modeling.md §4). 바로 위
-/// `MilestoneDocumentTemplateFile`이 `History`를 **쓰지 않는** 것과 짝을 이룬다: 그쪽은 항목당
-/// 한 행을 덮어쓰는 upsert 모양이다.
+/// 각 판정은 별도의 불변 사건이며 현재 양식·제출 상태 헤더와 수명이 다르다.
 ///
 /// 이 모델은 판정마다 새 행을 쌓으므로 unique를 **일부러 걸지 않는다** — 서류 제출은
 /// `MilestoneDocumentSubmission` 한 행을
@@ -1210,14 +1206,11 @@ model Contribution {
 /// 이 테이블은 저장소를 거치지 않고 그 사람의 한 해 활동 전체를 GitHub에게 직접 묻는다.
 /// 키가 다르므로(`repositoryId` 없음) 한 테이블로 합칠 수 없다(§2 — PK 컬럼 NULL 불가).
 ///
-/// **연도 축으로 행이 쌓인다.** 지난 연도 행을 지우지 않고 새 연도 행이 늘어나므로
-/// 이름이 `History`로 끝난다(§4 · `LoginHistory` 선례). 당해 연도 행은 관측할 때마다
-/// 전량 재계산으로 덮어쓰고, 지난 연도 행은 그대로 둔다.
+/// ACTIVE 가입자를 관측한 사람×연도 값이다. 당해 연도 행은 관측마다 갱신하고
+/// 지난 연도 행은 유지한다. 매 관측마다 append하는 불변 사건과 구별한다.
 ///
-/// **`User` FK를 걸지 않는다**(§3). `githubId` 값으로 키를 잡고 `githubLogin`만
-/// 비정규화해 행 하나로 공개 표시가 끝나게 한다 — 아직 가입하지 않은 사람이 조용히
-/// 사라지지 않고, 공개 응답이 private 원본과 join할 구조적 여지도 생기지 않는다.
-/// 실명(`User.name`)·학과는 담지 않는다 — 조회 시점에 join해서 붙인다.
+/// `User` FK 없이 외부 githubId와 githubLogin을 보존한다. FK 부재는 private JOIN을
+/// 막지 않는다. 공개/STAFF 조회별 select와 응답 allowlist가 이름·학과 노출을 통제한다.
 ///
 /// 관측값만 담는다. 순위는 저장하지 않고 조회 시점에 계산한다(ADR-010 §4).
 /// `starCount`는 그 계정 공개 저장소의 **누적** star다 — GitHub이 연도별 분해를 주지 않는다.

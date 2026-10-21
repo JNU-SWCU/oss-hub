@@ -6,21 +6,21 @@ import { SystemStatusController } from './system-status.controller';
 import { SystemStatusService } from '../service/system-status.service';
 
 describe('SystemStatusController', () => {
-  it('세션의 githubId로 서비스를 호출하고 DTO를 그대로 반환한다', async () => {
-    const dto = {
+  it('세션의 githubId로 서비스를 호출하고 날짜를 응답 형식으로 변환한다', async () => {
+    const result = {
       collection: {
         health: 'NORMAL' as const,
-        dataAsOf: '2026-07-25T11:00:00.000Z',
+        dataAsOf: new Date('2026-07-25T11:00:00.000Z'),
         trackedRepositoryCount: 2,
         readyStreamCount: 6,
         backfillingStreamCount: 0,
         partialStreamCount: 0,
         retryPendingStreamCount: 0,
-        oldestReadyCheckpointAt: '2026-07-25T10:00:00.000Z',
+        oldestReadyCheckpointAt: new Date('2026-07-25T10:00:00.000Z'),
         oldestRetryPendingAt: null,
-        lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
-        lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
-        nextCycleAt: '2026-07-25T20:30:00.000Z',
+        lastCycleStartedAt: new Date('2026-07-25T10:55:00.000Z'),
+        lastCycleCompletedAt: new Date('2026-07-25T11:00:00.000Z'),
+        nextCycleAt: new Date('2026-07-25T20:30:00.000Z'),
         currentRunStatus: 'IDLE' as const,
         safeReason: null,
       },
@@ -35,7 +35,7 @@ describe('SystemStatusController', () => {
             {
               streamType: 'COMMIT' as const,
               bucket: 'READY' as const,
-              lastSuccessAt: '2026-07-25T10:00:00.000Z',
+              lastSuccessAt: new Date('2026-07-25T10:00:00.000Z'),
               lastErrorCode: null,
               lastErrorAt: null,
             },
@@ -44,8 +44,8 @@ describe('SystemStatusController', () => {
       ],
       collectionActivity: [
         {
-          sweepFinishedAt: '2026-07-25T11:00:00.000Z',
-          cycleStartedAt: '2026-07-25T10:55:00.000Z',
+          sweepFinishedAt: new Date('2026-07-25T11:00:00.000Z'),
+          cycleStartedAt: new Date('2026-07-25T10:55:00.000Z'),
           scope: 'org:JNU-SWCU',
           kind: 'SWEEP' as const,
           insertedCommitCount: 3,
@@ -72,7 +72,7 @@ describe('SystemStatusController', () => {
       ReturnType<SystemStatusService['getStatus']>,
       [bigint]
     >();
-    getStatus.mockResolvedValue(dto);
+    getStatus.mockResolvedValue(result);
     const testingModule = await Test.createTestingModule({
       controllers: [SystemStatusController],
       providers: [{ provide: SystemStatusService, useValue: { getStatus } }],
@@ -84,7 +84,7 @@ describe('SystemStatusController', () => {
 
     await expect(
       controller.getStatus({ sessionGithubId: 133n } as AuthenticatedRequest),
-    ).resolves.toBe(dto);
+    ).resolves.toEqual(JSON.parse(JSON.stringify(result)));
     expect(getStatus).toHaveBeenCalledWith(133n);
     await testingModule.close();
   });

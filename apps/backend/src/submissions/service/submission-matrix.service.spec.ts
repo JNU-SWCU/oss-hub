@@ -108,7 +108,7 @@ describe('SubmissionMatrixService', () => {
     expect(repository.pageCalls).toHaveLength(0);
   });
 
-  it('제출 셀은 현재 revision·reviewUrl, 미제출 셀은 NOT_SUBMITTED null들로 결합하고 칸마다 보완 요청 중인 서류 수를 센다', async () => {
+  it('제출 셀은 현재 revision·제출 시각, 미제출 셀은 NOT_SUBMITTED null들로 결합하고 칸마다 보완 요청 중인 서류 수를 센다', async () => {
     const submittedAt = new Date('2026-08-19T01:00:00.000Z');
     const repository = new FakeSubmissionMatrixRepository({
       milestones: [
@@ -167,12 +167,12 @@ describe('SubmissionMatrixService', () => {
         {
           id: 'milestone-1',
           name: '기획서',
-          dueAt: '2026-08-20T00:00:00.000Z',
+          dueAt: new Date('2026-08-20T00:00:00.000Z'),
         },
         {
           id: 'milestone-2',
           name: '최종 제출',
-          dueAt: '2026-09-20T00:00:00.000Z',
+          dueAt: new Date('2026-09-20T00:00:00.000Z'),
         },
       ],
       rows: [
@@ -187,8 +187,7 @@ describe('SubmissionMatrixService', () => {
               submissionId: 'submission-1',
               revision: 2,
               status: SubmissionStatus.CHANGES_REQUESTED,
-              submittedAt: submittedAt.toISOString(),
-              reviewUrl: `/programs/${PROGRAM_ID}/submissions/submission-1/review`,
+              submittedAt,
               deliveryStatus: 'NO_REQUIRED_ITEMS',
               changesRequestedCount: 0,
             },
@@ -198,7 +197,6 @@ describe('SubmissionMatrixService', () => {
               revision: null,
               status: 'NOT_SUBMITTED',
               submittedAt: null,
-              reviewUrl: null,
               deliveryStatus: 'NO_REQUIRED_ITEMS',
               changesRequestedCount: 0,
             },
@@ -216,7 +214,6 @@ describe('SubmissionMatrixService', () => {
               revision: null,
               status: 'NOT_SUBMITTED',
               submittedAt: null,
-              reviewUrl: null,
               deliveryStatus: 'NO_REQUIRED_ITEMS',
               changesRequestedCount: 0,
             },
@@ -226,7 +223,6 @@ describe('SubmissionMatrixService', () => {
               revision: null,
               status: 'NOT_SUBMITTED',
               submittedAt: null,
-              reviewUrl: null,
               deliveryStatus: 'NO_REQUIRED_ITEMS',
               changesRequestedCount: 2,
             },

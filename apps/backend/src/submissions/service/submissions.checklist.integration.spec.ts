@@ -216,7 +216,7 @@ describe('SubmissionsService checklist/resubmission integration', () => {
 
     expect(checklist.applicationId).toBe(PERSONAL_APPLICATION_ID);
     expect(checklist.applicationMode).toBe('PERSONAL');
-    const dueAts = checklist.items.map((item) => Date.parse(item.dueAt));
+    const dueAts = checklist.items.map((item) => item.dueAt.getTime());
     expect(dueAts).toEqual([...dueAts].sort((a, b) => a - b));
 
     const upcoming = checklist.items.find(
@@ -392,8 +392,7 @@ describe('SubmissionsService checklist/resubmission integration', () => {
       fileName: 'report.pdf',
       contentType: 'application/pdf',
       size: 1024,
-      expiresAt: '2028-01-01T00:00:00.000Z',
-      downloadUrl: '/api/v1/submission-files/synthetic-checklist-file-ok',
+      expiresAt: new Date('2028-01-01T00:00:00.000Z'),
     });
     expect(JSON.stringify(fileMilestone)).not.toContain('storageKey');
     expect(JSON.stringify(fileMilestone)).not.toContain('private-pending');

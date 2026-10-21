@@ -66,8 +66,8 @@ describe('ProgramActivityService', () => {
       commitCount: 2,
       pullRequestCount: 1,
       releaseCount: 1,
-      lastActivityAt: '2026-07-23T00:00:00.000Z',
-      dataAsOf: '2026-07-24T00:00:00.000Z',
+      lastActivityAt: new Date('2026-07-23T00:00:00.000Z'),
+      dataAsOf: new Date('2026-07-24T00:00:00.000Z'),
       collectionStatus: 'READY',
     });
     expect(findProgramActivityApplications).toHaveBeenCalledWith(
@@ -173,7 +173,7 @@ describe('ProgramActivityService', () => {
       commitCount: 2,
       pullRequestCount: 1,
       releaseCount: 1,
-      dataAsOf: '2026-07-25T00:00:00.000Z',
+      dataAsOf: new Date('2026-07-25T00:00:00.000Z'),
     });
   });
 
@@ -191,7 +191,7 @@ describe('ProgramActivityService', () => {
       commitCount: 2,
       pullRequestCount: 1,
       releaseCount: 1,
-      dataAsOf: '2026-07-26T00:00:00.000Z',
+      dataAsOf: new Date('2026-07-26T00:00:00.000Z'),
     });
   });
 

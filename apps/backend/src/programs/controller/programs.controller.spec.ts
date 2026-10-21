@@ -1,3 +1,4 @@
+import type { ProgramDetailResult } from '../domain/program-read.models';
 import { ValidationPipe } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
@@ -11,7 +12,6 @@ import { OriginGuard } from '../../auth/controller/origin.guard';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { ProgramActivityService } from '../service/program-activity.service';
 import { ProgramCreationService } from '../service/program-creation.service';
-import { ProgramLifecycleService } from '../service/program-lifecycle.service';
 import { ProgramViewerService } from '../service/program-viewer.service';
 import { ProgramsController } from './programs.controller';
 import { ProgramsService } from '../service/programs.service';
@@ -55,8 +55,24 @@ const controllerMethod = (name: keyof ProgramsController): object => {
   return method;
 };
 
-const publicDetail = {
+const publicDetail: ProgramDetailResult = {
   id: 'program-1',
+  coverImageUrl: null,
+  name: 'Synthetic program',
+  organizer: 'Synthetic organizer',
+  trackType: null,
+  applicationTemplateKey: 'basic',
+  lifecycle: 'PUBLISHED',
+  description: 'Synthetic description',
+  repositoryProvisioningEnabled: false,
+  applicationPeriod: {
+    startsAt: new Date('2026-10-01T00:00:00.000Z'),
+    endsAt: new Date('2026-10-10T00:00:00.000Z'),
+  },
+  operatingPeriod: {
+    startsAt: new Date('2026-10-11T00:00:00.000Z'),
+    endsAt: new Date('2026-11-01T00:00:00.000Z'),
+  },
   viewer: { role: null, applicationStatus: null },
   milestones: [],
 };
@@ -70,7 +86,6 @@ describe('ProgramsController read boundaries', () => {
   };
   const activity = { activity: jest.fn() };
   const viewers = { fromGithubId: jest.fn() };
-  const lifecycle = { delete: jest.fn(), purge: jest.fn() };
   let controller: ProgramsController;
   let moduleRef: TestingModule;
 
@@ -83,7 +98,6 @@ describe('ProgramsController read boundaries', () => {
         { provide: ProgramsService, useValue: programs },
         { provide: ProgramActivityService, useValue: activity },
         { provide: ProgramViewerService, useValue: viewers },
-        { provide: ProgramLifecycleService, useValue: lifecycle },
       ],
     })
       .overrideGuard(OriginGuard)
@@ -253,9 +267,22 @@ describe('ProgramsController read boundaries', () => {
   });
 
   it('공개 상세는 익명 viewer만 전달하고 인증·private 조회를 시작하지 않는다', async () => {
-    programs.detail.mockResolvedValue(publicDetail);
+    programs.detail.mockResolvedValue({
+      ...publicDetail,
+      internalKey: 'unpublished',
+    });
 
-    await expect(controller.detail('program-1')).resolves.toBe(publicDetail);
+    await expect(controller.detail('program-1')).resolves.toEqual({
+      ...publicDetail,
+      applicationPeriod: {
+        startsAt: '2026-10-01T00:00:00.000Z',
+        endsAt: '2026-10-10T00:00:00.000Z',
+      },
+      operatingPeriod: {
+        startsAt: '2026-10-11T00:00:00.000Z',
+        endsAt: '2026-11-01T00:00:00.000Z',
+      },
+    });
 
     expect(programs.detail).toHaveBeenCalledWith('program-1', {
       githubId: null,
@@ -325,51 +352,5 @@ describe('ProgramsController read boundaries', () => {
     expect(
       Reflect.getMetadata(GUARDS_METADATA, controllerMethod('programActivity')),
     ).toContain(SessionGuard);
-  });
-
-  it('삭제는 세션·origin guard 뒤에 있고 세션 githubId·programId를 lifecycle 서비스에 그대로 넘긴다', async () => {
-    lifecycle.delete.mockResolvedValue({ id: 'program-1', deleted: true });
-    const request = { sessionGithubId: 101n };
-
-    await expect(controller.delete('program-1', request)).resolves.toEqual({
-      id: 'program-1',
-      deleted: true,
-    });
-
-    expect(lifecycle.delete).toHaveBeenCalledWith(101n, 'program-1');
-    expect(
-      Reflect.getMetadata(GUARDS_METADATA, controllerMethod('delete')),
-    ).toEqual([SessionGuard, OriginGuard]);
-  });
-
-  it('purge는 세션·origin guard 뒤에 있고 세션 githubId·programId·expectedScope를 lifecycle 서비스에 그대로 넘긴다', async () => {
-    const purgeResult = {
-      id: 'program-1',
-      deleted: true,
-      deletedCounts: { applications: 2, teams: 1 },
-    };
-    lifecycle.purge.mockResolvedValue(purgeResult);
-    const request = { sessionGithubId: 101n };
-    const expectedScope = {
-      applications: 2,
-      teams: 1,
-      boardPosts: 0,
-      submissions: 0,
-      submissionEvents: 0,
-      scopeFingerprint: '0123456789abcdef0123456789abcdef',
-    };
-
-    await expect(
-      controller.purge('program-1', { expectedScope }, request),
-    ).resolves.toEqual(purgeResult);
-
-    expect(lifecycle.purge).toHaveBeenCalledWith(
-      101n,
-      'program-1',
-      expectedScope,
-    );
-    expect(
-      Reflect.getMetadata(GUARDS_METADATA, controllerMethod('purge')),
-    ).toEqual([SessionGuard, OriginGuard]);
   });
 });

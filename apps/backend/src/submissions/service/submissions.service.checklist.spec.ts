@@ -64,7 +64,7 @@ function buildService(
   };
 }
 
-it('미제출 마일스톤은 submission=null로, 필드는 계약 형태로 직렬화한다', async () => {
+it('미제출 마일스톤은 submission=null로, 마감은 Date로 반환한다', async () => {
   const { service, listChecklistMilestones } = buildService({
     milestones: [milestone()],
   });
@@ -78,14 +78,13 @@ it('미제출 마일스톤은 submission=null로, 필드는 계약 형태로 직
     now,
   );
   expect(checklist).toEqual({
-    fileUpload: { maxBytes: 5 * 1024 * 1024, maxLabel: '5 MB' },
     applicationId: 'application-1',
     applicationMode: 'PERSONAL',
     items: [
       {
         milestoneId: 'milestone-1',
         name: '중간 보고',
-        dueAt: '2026-09-01T14:59:59.000Z',
+        dueAt: new Date('2026-09-01T14:59:59.000Z'),
         submissionType: MilestoneSubmissionType.TEXT,
         submission: null,
       },
@@ -216,7 +215,7 @@ it.each([
 
     expect(checklist.items[0]?.submission).toMatchObject({
       decision,
-      lastReviewedAt: '2026-08-28T01:00:00.000Z',
+      lastReviewedAt: new Date('2026-08-28T01:00:00.000Z'),
       reviewComment: '검토 코멘트',
     });
     expect(checklist.items[1]?.submission).toMatchObject({

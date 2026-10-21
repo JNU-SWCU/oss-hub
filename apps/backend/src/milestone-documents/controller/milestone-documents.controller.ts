@@ -1,15 +1,14 @@
+import { presentMilestoneDocumentViewer } from '../dto/milestone-document-response.dto';
+import { presentMilestoneDocumentDeliveryCollection } from '../dto/milestone-document-collection-response.dto';
+import { presentMilestoneDocumentHistory } from '../dto/milestone-document-history-response.dto';
 import {
   Body,
-  type CallHandler,
   Controller,
   Delete,
-  type ExecutionContext,
   Get,
   Header,
   HttpCode,
-  Injectable,
   Logger,
-  type NestInterceptor,
   Param,
   Patch,
   Post,
@@ -21,12 +20,11 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { multipartFileUploadInterceptor } from '../../common/controller/multipart-file-upload.interceptor';
 import type { Response } from 'express';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { DomainException } from '../../common/error-code';
 import { CreateMilestoneDocumentReviewRequestDto } from '../dto/create-milestone-document-review-request.dto';
 import { MilestoneDocumentArchiveQueryRequestDto } from '../dto/milestone-document-archive-query.dto';
 import { CreateMilestoneDocumentSubmissionRequestDto } from '../dto/create-milestone-document-submission-request.dto';
@@ -53,7 +51,10 @@ import {
   MilestoneDocumentArchiveService,
 } from '../service/milestone-document-archive.service';
 import type { MilestoneDocumentArchiveScope } from '../milestone-document-archive.types';
-import { milestoneDocumentAttachmentDisposition } from '../domain/milestone-document-attachment-disposition';
+import {
+  setDownloadHeaders,
+  respondWithDownloadFailure,
+} from '../../common/controller/download-response';
 import {
   type MilestoneDocumentFileUpload,
   MilestoneDocumentFilesService,
@@ -68,56 +69,28 @@ type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
 const archiveLogger = new Logger('MilestoneDocumentArchive');
 
-const MilestoneDocumentFileUploadOptions = {
-  limits: {
-    fileSize: SUBMISSION_UPLOAD_MAX_BYTES,
-    fieldNameSize: 100,
-    fieldSize: 512,
-    fields: 4,
-    files: 1,
-
-    parts: 4,
+const MilestoneDocumentFileUploadInterceptor = multipartFileUploadInterceptor(
+  {
+    limits: {
+      fileSize: SUBMISSION_UPLOAD_MAX_BYTES,
+      fieldNameSize: 100,
+      fieldSize: 512,
+      fields: 4,
+      files: 1,
+      parts: 4,
+    },
   },
-};
-
-@Injectable()
-class MilestoneDocumentFileUploadInterceptor
-  extends FileInterceptor('file', MilestoneDocumentFileUploadOptions)
-  implements NestInterceptor
-{
-  override async intercept(context: ExecutionContext, next: CallHandler) {
-    try {
-      return await super.intercept(context, next);
-    } catch (error) {
-      if (typeof error === 'object' && error !== null && 'code' in error) {
-        if (error.code === 'LIMIT_FILE_SIZE') {
-          throw new DomainException(
-            MILESTONE_DOCUMENTS_ERROR_CODES[
-              MilestoneDocumentsErrorCode.FILE_TOO_LARGE
-            ],
-          );
-        }
-        if (
-          [
-            'LIMIT_FIELD_KEY',
-            'LIMIT_FIELD_VALUE',
-            'LIMIT_FIELD_COUNT',
-            'LIMIT_FILE_COUNT',
-            'LIMIT_PART_COUNT',
-            'LIMIT_UNEXPECTED_FILE',
-          ].includes(String(error.code))
-        ) {
-          throw new DomainException(
-            MILESTONE_DOCUMENTS_ERROR_CODES[
-              MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD
-            ],
-          );
-        }
-      }
-      throw error;
-    }
-  }
-}
+  {
+    fileTooLarge:
+      MILESTONE_DOCUMENTS_ERROR_CODES[
+        MilestoneDocumentsErrorCode.FILE_TOO_LARGE
+      ],
+    invalidUpload:
+      MILESTONE_DOCUMENTS_ERROR_CODES[
+        MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD
+      ],
+  },
+);
 
 @Controller('milestones/:milestoneId/documents')
 export class MilestoneDocumentsController {
@@ -137,7 +110,9 @@ export class MilestoneDocumentsController {
     @Param('milestoneId') milestoneId: string,
   ): Promise<MilestoneDocumentListResponseDto> {
     return MilestoneDocumentListResponseDto.from(
-      await this.service.listForViewer(request.sessionGithubId, milestoneId),
+      (
+        await this.service.listForViewer(request.sessionGithubId, milestoneId)
+      ).map(presentMilestoneDocumentViewer),
     );
   }
 
@@ -149,11 +124,9 @@ export class MilestoneDocumentsController {
     @Param('milestoneId') milestoneId: string,
     @Query() query: MilestoneDocumentCollectionQueryRequestDto,
   ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
-    return this.collectionService.collectForStaff(
-      request.sessionGithubId,
-      milestoneId,
-      query.toQuery(),
-    );
+    return this.collectionService
+      .collectForStaff(request.sessionGithubId, milestoneId, query.toQuery())
+      .then(presentMilestoneDocumentDeliveryCollection);
   }
 
   @Get('collection/archive')
@@ -171,14 +144,7 @@ export class MilestoneDocumentsController {
       milestoneId,
       scope,
     );
-    response.setHeader('Content-Type', archive.contentType);
-    if (archive.contentLength !== null) {
-      response.setHeader('Content-Length', String(archive.contentLength));
-    }
-    response.setHeader(
-      'Content-Disposition',
-      milestoneDocumentAttachmentDisposition(archive.fileName),
-    );
+    setDownloadHeaders(response, archive);
 
     response.once('close', () => archive.body.destroy());
 
@@ -211,11 +177,11 @@ export class MilestoneDocumentsController {
     @Param('milestoneId') milestoneId: string,
     @Body() body: ReorderMilestoneDocumentsRequestDto,
   ): Promise<MilestoneDocumentResponseDto[]> {
-    return this.service.reorderDocuments(
-      request.sessionGithubId,
-      milestoneId,
-      body.documentIds,
-    );
+    return this.service
+      .reorderDocuments(request.sessionGithubId, milestoneId, body.documentIds)
+      .then((records) =>
+        records.map((record) => MilestoneDocumentResponseDto.from(record)),
+      );
   }
 
   @Post()
@@ -226,11 +192,9 @@ export class MilestoneDocumentsController {
     @Param('milestoneId') milestoneId: string,
     @Body() body: UpsertMilestoneDocumentRequestDto,
   ): Promise<MilestoneDocumentResponseDto> {
-    return this.service.createDocument(
-      request.sessionGithubId,
-      milestoneId,
-      body.toInput(),
-    );
+    return this.service
+      .createDocument(request.sessionGithubId, milestoneId, body.toInput())
+      .then((result) => MilestoneDocumentResponseDto.from(result));
   }
 
   @Patch(':documentId')
@@ -241,12 +205,14 @@ export class MilestoneDocumentsController {
     @Param('documentId') documentId: string,
     @Body() body: UpsertMilestoneDocumentRequestDto,
   ): Promise<MilestoneDocumentResponseDto> {
-    return this.service.updateDocument(
-      request.sessionGithubId,
-      milestoneId,
-      documentId,
-      body.toInput(),
-    );
+    return this.service
+      .updateDocument(
+        request.sessionGithubId,
+        milestoneId,
+        documentId,
+        body.toInput(),
+      )
+      .then((result) => MilestoneDocumentResponseDto.from(result));
   }
 
   @Delete(':documentId')
@@ -296,12 +262,7 @@ export class MilestoneDocumentsController {
       milestoneId,
       documentId,
     );
-    response.setHeader('Content-Type', file.contentType);
-    response.setHeader('Content-Length', String(file.contentLength));
-    response.setHeader(
-      'Content-Disposition',
-      milestoneDocumentAttachmentDisposition(file.fileName),
-    );
+    setDownloadHeaders(response, file);
     return new StreamableFile(file.body);
   }
 
@@ -321,12 +282,7 @@ export class MilestoneDocumentsController {
       documentId,
       applicationId,
     );
-    response.setHeader('Content-Type', file.contentType);
-    response.setHeader('Content-Length', String(file.contentLength));
-    response.setHeader(
-      'Content-Disposition',
-      milestoneDocumentAttachmentDisposition(file.fileName),
-    );
+    setDownloadHeaders(response, file);
     return new StreamableFile(file.body);
   }
 
@@ -340,13 +296,15 @@ export class MilestoneDocumentsController {
     @Param('applicationId') applicationId: string,
     @Query() query: MilestoneDocumentHistoryQueryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
-    return this.service.historyForStaff(
-      request.sessionGithubId,
-      milestoneId,
-      documentId,
-      applicationId,
-      query.toQuery(),
-    );
+    return this.service
+      .historyForStaff(
+        request.sessionGithubId,
+        milestoneId,
+        documentId,
+        applicationId,
+        query.toQuery(),
+      )
+      .then(presentMilestoneDocumentHistory);
   }
 
   @Get(':documentId/history')
@@ -358,12 +316,14 @@ export class MilestoneDocumentsController {
     @Param('documentId') documentId: string,
     @Query() query: MilestoneDocumentHistoryQueryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
-    return this.service.historyForParticipant(
-      request.sessionGithubId,
-      milestoneId,
-      documentId,
-      query.toQuery(),
-    );
+    return this.service
+      .historyForParticipant(
+        request.sessionGithubId,
+        milestoneId,
+        documentId,
+        query.toQuery(),
+      )
+      .then(presentMilestoneDocumentHistory);
   }
 
   @Post(':documentId/applications/:applicationId/reviews')
@@ -376,13 +336,15 @@ export class MilestoneDocumentsController {
     @Param('applicationId') applicationId: string,
     @Body() body: CreateMilestoneDocumentReviewRequestDto,
   ): Promise<MilestoneDocumentReviewResponseDto> {
-    return this.reviewsService.review(
-      request.sessionGithubId,
-      milestoneId,
-      documentId,
-      applicationId,
-      body.toInput(),
-    );
+    return this.reviewsService
+      .review(
+        request.sessionGithubId,
+        milestoneId,
+        documentId,
+        applicationId,
+        body.toInput(),
+      )
+      .then((result) => MilestoneDocumentReviewResponseDto.from(result));
   }
 
   @Post(':documentId/submissions')
@@ -394,12 +356,9 @@ export class MilestoneDocumentsController {
     @Param('documentId') documentId: string,
     @Body() body: CreateMilestoneDocumentSubmissionRequestDto,
   ): Promise<MilestoneDocumentSubmissionResponseDto> {
-    return this.service.submit(
-      request.sessionGithubId,
-      milestoneId,
-      documentId,
-      body.toInput(),
-    );
+    return this.service
+      .submit(request.sessionGithubId, milestoneId, documentId, body.toInput())
+      .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
   }
 }
 
@@ -455,27 +414,11 @@ function respondWithArchiveFailure(
   archiveLogger.error(
     `서류 일괄 내려받기가 압축 도중 실패했다: milestoneId=${request.milestoneId} scope=${request.scope.kind} storageKey=${failedStorageKey(error)} error=${error.message}`,
   );
-  if (response.destroyed) return;
-  if (response.headersSent) {
-    response.end();
-    return;
-  }
-
-  response.removeHeader('Content-Length');
-  response.removeHeader('Content-Disposition');
-  const errorCode =
+  respondWithDownloadFailure(
+    response,
     MILESTONE_DOCUMENTS_ERROR_CODES[
       MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
-    ];
-  response
-    .status(errorCode.status)
-    .contentType('application/problem+json')
-    .json({
-      type: 'about:blank',
-      title: 'Service Unavailable',
-      status: errorCode.status,
-      detail: errorCode.message,
-      instance: response.req.path,
-      code: errorCode.code,
-    });
+    ],
+    'END',
+  );
 }

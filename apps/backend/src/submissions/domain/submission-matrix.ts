@@ -15,10 +15,3 @@ export interface SubmissionMatrixQuery extends SubmissionMatrixFilter {
 }
 
 export type MatrixCellStatus = SubmissionStatus | 'NOT_SUBMITTED';
-
-export function submissionMatrixReviewUrl(
-  programId: string,
-  submissionId: string,
-): string {
-  return `/programs/${programId}/submissions/${submissionId}/review`;
-}

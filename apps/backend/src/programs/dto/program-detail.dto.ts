@@ -1,5 +1,8 @@
-import { IsIn, IsOptional } from 'class-validator';
-import type { AuthorityLabel } from '../../users/domain/authority-label';
+import type {
+  ProgramDetailResult,
+  ProgramActivityResult,
+  ProgramViewerRole,
+} from '../domain/program-read.models';
 import type {
   ApplicationStatus,
   MilestoneSubmissionType,
@@ -8,11 +11,11 @@ import type {
   SubmissionStatus,
 } from '@prisma/client';
 
-export type ProgramViewerRoleResponseDto = AuthorityLabel | 'PENDING' | null;
+type ProgramViewerRoleResponseDto = ProgramViewerRole;
 type ViewerSubmissionStatusResponseDto =
   SubmissionStatus | 'NOT_SUBMITTED' | null;
 
-export interface ApplicationSubmissionSummaryResponseDto {
+interface ApplicationSubmissionSummaryResponseDto {
   readonly notSubmitted: number;
   readonly submitted: number;
   readonly approved: number;
@@ -80,8 +83,75 @@ export interface ProgramActivityResponseDto {
   readonly hasIncompleteContributions: boolean;
 }
 
-export class ProgramViewerQueryRequestDto {
-  @IsOptional()
-  @IsIn(['operations'])
-  view?: 'operations';
+export function programDetailResponse(
+  result: ProgramDetailResult,
+): ProgramDetailResponseDto {
+  return {
+    id: result.id,
+    coverImageUrl: result.coverImageUrl,
+    name: result.name,
+    organizer: result.organizer,
+    trackType: result.trackType,
+    applicationTemplateKey: result.applicationTemplateKey,
+    lifecycle: result.lifecycle,
+    description: result.description,
+    repositoryProvisioningEnabled: result.repositoryProvisioningEnabled,
+    viewer: {
+      role: result.viewer.role,
+      applicationStatus: result.viewer.applicationStatus,
+    },
+    applicationPeriod: {
+      startsAt: result.applicationPeriod.startsAt.toISOString(),
+      endsAt: result.applicationPeriod.endsAt.toISOString(),
+    },
+    operatingPeriod: {
+      startsAt: result.operatingPeriod.startsAt.toISOString(),
+      endsAt: result.operatingPeriod.endsAt.toISOString(),
+    },
+    milestones: result.milestones.map((milestone) => ({
+      id: milestone.id,
+      name: milestone.name,
+      dDay: milestone.dDay,
+      deadlineLabel: milestone.deadlineLabel,
+      description: milestone.description,
+      submissionType: milestone.submissionType,
+      submissionItemCount: milestone.submissionItemCount,
+      viewerSubmissionStatus: milestone.viewerSubmissionStatus,
+      applicationSubmissionSummary: milestone.applicationSubmissionSummary
+        ? {
+            notSubmitted: milestone.applicationSubmissionSummary.notSubmitted,
+            submitted: milestone.applicationSubmissionSummary.submitted,
+            approved: milestone.applicationSubmissionSummary.approved,
+            changesRequested:
+              milestone.applicationSubmissionSummary.changesRequested,
+            rejected: milestone.applicationSubmissionSummary.rejected,
+            total: milestone.applicationSubmissionSummary.total,
+          }
+        : null,
+      startAt: milestone.startAt.toISOString(),
+      dueAt: milestone.dueAt.toISOString(),
+    })),
+  };
+}
+
+export function programActivityResponse(
+  result: ProgramActivityResult,
+): ProgramActivityResponseDto {
+  return {
+    applicationId: result.applicationId,
+    label: result.label,
+    commitCount: result.commitCount,
+    pullRequestCount: result.pullRequestCount,
+    releaseCount: result.releaseCount,
+    collectionStatus: result.collectionStatus,
+    members: result.members.map((member) => ({
+      githubLogin: member.githubLogin,
+      commitCount: member.commitCount,
+      pullRequestCount: member.pullRequestCount,
+      releaseCount: member.releaseCount,
+    })),
+    hasIncompleteContributions: result.hasIncompleteContributions,
+    lastActivityAt: result.lastActivityAt?.toISOString() ?? null,
+    dataAsOf: result.dataAsOf?.toISOString() ?? null,
+  };
 }

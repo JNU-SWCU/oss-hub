@@ -3,65 +3,46 @@
 이 문서는 `schema.prisma`에 테이블을 추가할 때, 모델·필드 이름을 정할 때, 공개 집계용 projection을 설계할 때 적용한다.
 아래 규칙은 모두 이 저장소의 실제 스키마에서 확인된 사례에서 나왔다.
 
-## 1. 새 테이블을 만들기 전에 같은 개념의 기존 테이블 writer/reader를 먼저 읽는다
+## 1. 모델의 실제 읽기·쓰기와 트랜잭션 소유자를 확인한다
 
-모델 이름이 그 모델의 개념을 보장하지 않는다. `GithubRepository`는 저장소 엔티티이면서 동시에 신청 1건당 프로비저닝 기록이기도 하다 — `applicationId @unique`(nullable, `#617` 단계 D에서 흡수)가 그 정체를 드러낸다. 유일한 writer는 `apps/backend/src/github/repository/repository-provision-state.repository.ts` 하나다.
+모델 이름만으로 개념이나 writer를 판단하지 않는다. `GithubRepository`는 원격 identity/관측과 신청 연결을 함께 보존한다. provisioning, inventory, OWN 연결, 공개 전환, purge가 서로 다른 필드와 변경 사실을 소유한다. 테이블당 파일 하나를 강제하지 않고 각 변경의 권한·CAS·lock·audit/outbox 원자성을 기록한다.
 
-절차: 모델 이름이 아니라 실제 접근 지점을 센다.
+조사는 delegate 이름뿐 아니라 transaction/db 별칭, nested mutation, raw SQL, migration, CLI와 외부 reader까지 포함한다. `rg` 검색은 출발점이며 검색 결과 0건은 운영 데이터 0건이나 제거 허가를 뜻하지 않는다. 정본·projection·호환 사본을 구분하고 삭제 전에는 운영 행·외부 consumer·보존 의무를 확인한다.
 
-```bash
-grep -rn "prisma\.<모델명 camelCase>\." apps/backend/src --include='*.ts'
-```
+[45개 모델 소유·관계 목록](../backend-model-ownership.md)은 기준 commit의 grain·키·관계·writer/reader·보존·공개 경계를 고정한다. 코드 리팩터와 물리 스키마 변경은 별도 검증 단위다.
 
-- writer 0건 → 죽은 테이블이다. 새 테이블을 얹기 전에 제거 여부를 먼저 판단한다.
-- writer 1곳 → 그 파일이 이 테이블의 개념 정의다. 스키마 주석보다 그 코드를 믿는다.
+## 2. 행의 단위와 관계를 먼저 정한다
 
-이 확인을 건너뛰면 같은 저장소가 두 테이블에 중복 저장되고, 어느 쪽이 진실인지 판정할 수 없게 된다.
-
-## 2. 모델링 축은 엔티티가 아니라 관계다
-
-이 도메인의 축은 둘이다.
+GitHub 활동 수집에서 사용하는 관계 축은 다음과 같다. 프로그램·팀·신청·문서까지 이 세 축에 끼워 넣지 않는다.
 
 | 축 | 답하는 질문 |
 | --- | --- |
-| `user ↔ repository` | 누가 어느 저장소에 얼마나 기여했는가 |
-| `user ↔ yearly activity history` | 그 사람이 한 해 동안 GitHub에서 얼마나 활동했는가 |
-| `repository ↔ history` | 그 저장소가 시점별로 어떤 상태였는가 |
+| `repository ↔ user ↔ date` | 어느 저장소에서 누가 어느 날 기여했는가 |
+| `user ↔ year` | 그 사람이 한 해 동안 GitHub에서 얼마나 활동했는가 |
+| `repository ↔ observation/event` | 저장소의 어떤 상태를 관측하거나 변경했는가 |
 
-새 테이블은 셋 중 한 축에 배치할 수 있어야 한다. 어느 축에도 속하지 않는 테이블은 죽는다 — 이 저장소에서 실제로 셋이 그렇게 됐다. `OrgRepositoryInventory`·`OrgRepositoryActivityEvent`는 production writer가 0건이었고, `RepositoryOwnerProjection`은 reader가 한 곳뿐인데 그 모듈을 쓰는 곳이 없었다. 셋 다 "저장소 그 자체"를 독립 엔티티로 붙잡으려다 아무 질문에도 답하지 못하게 되어 제거됐다.
+`Contribution(repositoryId, githubId, date)`과 `GithubUserActivityHistory(githubId, year)`는 모집단·키·원천이 다르다. 가짜 repository id를 만들어 합치지 않는다. 사람 축 writer는 ACTIVE 가입자를 순회하며 당해 연도 관측값을 upsert하고, 지난 연도 행은 유지한다. 연도별 행이 있다는 사실은 매 관측마다 불변 사건을 append한다는 뜻이 아니다.
 
-반대로 축이 다르면 합치지 않는다. 이력을 갖는 관계와 시점 사실은 키가 다르다 — 억지로 한 테이블에 넣으면 한쪽 행에서 PK 컬럼이 NULL이 되어야 하는데 PostgreSQL은 이를 허용하지 않는다.
+프로그램 소속, 준비 단계 참여, 확정 팀원, 신청 회차, 제출 상태 헤더와 불변 검토 사건도 각각 다른 grain과 수명을 가진다. JSON 답변·메시지 payload·감사 metadata는 버전 있는 문서 계약을 먼저 확인하고, JSON이라는 이유만으로 EAV나 개별 테이블로 분해하지 않는다.
 
-`user ↔ repository`와 `user ↔ yearly activity history`가 정확히 그 관계다. 앞의 축은 `Contribution(repositoryId, githubId, date)`이 담고 "우리 저장소에서 무엇이 일어났는가"(② 팀 기여도·프로그램 지표)에 답한다. 뒤의 축은 `GithubUserActivityHistory(githubId, year)`가 담고 저장소를 거치지 않은 채 "그 사람이 올 한 해 얼마나 활동했는가"(랭킹)에 답한다. 뒤의 축에는 `repositoryId`가 존재하지 않으므로 두 축을 한 테이블에 합칠 수 없고, 가짜 `repositoryId`를 만들어 억지로 넣지도 않는다.
+## 3. 공개 경계는 명시적 query와 응답 allowlist가 지킨다
 
-`GithubUserActivityHistory`의 grain은 그 writer가 정의한다(§1) — 사람 축 수집 서비스가 가입(ACTIVE) 사용자를 순회하며 `(githubId, year)` 한 행을 관측할 때마다 전량 재계산으로 upsert한다. 당해 연도 행은 관측마다 덮어쓰고 지난 연도 행은 그대로 남으므로 연도 축을 따라 행이 쌓이며, 그래서 이름이 `History`로 끝난다(§4). `User` FK는 걸지 않고 `githubId` 값으로 키를 잡아 `githubLogin`까지만 비정규화한다(§3) — 실명·학과는 담지 않고 조회 시점에 join한다.
+외부 GitHub id와 내부 User FK의 선택은 데이터의 출처·소속·삭제·보존 의미로 판단한다. `GithubUserActivityHistory`는 외부 githubId와 githubLogin을 보존하지만 현재 person sweep의 대상은 ACTIVE 가입자다. FK가 없다는 사실만으로 private JOIN이 불가능해지거나 미가입자 랭킹을 보장하지 않는다.
 
-## 3. projection 행은 내부 FK 없이 독립적으로 완결시킨다
+공개 query는 승인된 repository의 명시적 `select`와 response allowlist를 사용한다. public/STUDENT 응답과 ACTIVE STAFF/ADMIN 응답의 필드 차이, private/nonexistent 동일 오류, 현재 권한 조회 시점을 유지한다. 이름·학과 등 private 필드를 먼저 전부 읽고 나중에 지우는 방식으로 바꾸지 않는다.
 
-공개 집계·공개 응답용 테이블은 내부 `User`를 FK로 참조하지 않는다. GitHub 숫자 id로 키를 잡고 표시값(`githubLogin`, `nameWithOwner`)을 비정규화해 행 하나만으로 표시가 끝나게 한다 — `GithubUserActivityHistory`가 이 패턴이다. `githubId`로 키를 잡고 `githubLogin`까지만 비정규화하며 실명·학과는 담지 않고 조회 시점에 join한다.
+표시값을 복사하는 경우 원본, 갱신 주기, 부분 갱신 시 drift 처리, 계정 비활성화·연결 해제 뒤 보존 의미를 명시한다. nullable legacy alias를 새 데이터와 같은 사실이라고 추정해 채우지 않는다.
 
-이유는 둘이다.
+## 4. 이름은 grain과 가변성을 표현한다
 
-- 내부 FK를 넣으면 아직 가입하지 않은 기여자가 조용히 집계에서 사라진다. 지금 랭킹에 보이는 사람이 사라지는 사용자 가시 회귀다.
-- 공개 응답이 private 원본과 join할 구조적 여지 자체가 없어진다([AGENTS.md Architecture & Data Flow](../../AGENTS.md#architecture--data-flow)). 규율이 아니라 스키마가 경계를 강제한다.
+- 현재 상태를 덮어쓰는 snapshot, 불변 event, 관측 fact, 조회 projection을 구분한다. 시간 필드나 연도 키만으로 `History`를 강제하거나 `Snapshot`·`Fact`를 금지하지 않는다.
+- 이름은 도메인에서 사용하는 말을 쓰고 불필요하게 축약하지 않는다. 외부 출처가 중요하면 `Github*`로 밝힌다.
+- 영속 계층은 `*Repository`를 유지한다. 모델 이름과 클래스 접미사를 바꾸기보다 각 쓰기·읽기 책임을 분명히 한다.
+- GitHub 경로는 `nameWithOwner`로 표현한다. 사람 이름인 `name`과 혼동하지 않는다.
 
-단 비정규화는 **수집이 매번 전체를 덮어쓰는 테이블에만** 쓴다. 부분 갱신 테이블에 같은 패턴을 쓰면 drift를 막을 방법이 없다.
+논리 이름만 고치면 되는 경우 Prisma `@map`/`@@map`으로 물리 이름을 보존할 수 있다. 물리 rename·column 제거·FK 추가는 generated client, raw SQL, 제약/인덱스, 외부 consumer를 조사한 별도 migration으로 다룬다. 기존 migration을 다시 쓰지 않는다.
 
-## 4. 이름은 데이터의 모양과 어긋나면 안 된다
-
-- 시점별로 쌓이지 않고 키마다 한 행을 upsert한다면 `Snapshot`·`History`·`Event`를 쓰지 않는다.
-- 반대로 **시간 축을 따라 행이 쌓이는 테이블은 `History`로 끝낸다.** 기존 행을 지우지 않고 축(로그인 시각·연도·발생 시점)이 전진할수록 행 수가 늘어난다면, 그 축이 이름에 드러나야 한다 — `LoginHistory`가 이 패턴이다. `Fact`·`Record`·`Aggregate`는 "행이 언제 늘어나는가"에 답하지 못하므로 신규 모델에 쓰지 않는다.
-- 축약하지 않는다 — `Repo`가 아니라 `Repository`.
-- **모델명은 도메인어를 그대로 쓴다.** 이 도메인의 `repository`는 GitHub 저장소를 뜻하므로 모델명이 `Repository`로 끝나도 된다 — 학생·운영자가 화면에서 쓰는 단어를 모델이 버리지 않는다.
-- **영속 계층 클래스 이름은 프레임워크 관례를 따른다.** NestJS/DDD에서 `*Repository`는 표준 이름이므로 그대로 쓴다. 모델명과 겹쳐 보이는 문제는 DAO 접미사를 바꿔서가 아니라 **모델 이름을 정확하게** 해서 푼다 — 예전 `model Repository`가 "GitHub 저장소 일반"이 아니라 신청 1건당 1행인 프로비저닝 기록이었을 때 이 규칙이 그 정체를 드러내는 이름을 요구했다. 결국 `#617` 단계 D에서 그 프로비저닝 필드(`applicationId`/`programId`/`teamId`/`publishedAt`)를 `GithubRepository`로 흡수해 모델을 하나로 합쳤다 — 두 개념이 실제로는 같은 행(신청이 프로비저닝한 저장소 = 수집 대상 저장소)을 가리켰기 때문이다. 외부 서비스에서 온 데이터를 담는 모델은 출처를 접두사로 밝힌다(`Github*`) — 기존 `GithubRawObservation`·`GithubWebhookObservation`과 같은 관례.
-- 저장소 경로 필드는 `nameWithOwner`다(GitHub GraphQL 필드명 그대로). `fullName`은 실명을 담는 `User.name`과 충돌해 사람 이름으로 읽힌다.
-- 도메인에서 실제로 쓰지 않는 말(법률·프로그래밍 은어)을 모델명에 쓰지 않는다. 학생·운영자가 화면에서 쓰는 단어를 쓴다.
-
-판정 기준: **모델명만 읽고 "이 테이블에 행이 언제, 몇 개 생기는가"에 답할 수 없으면 이름이 틀린 것이다.**
-
-기존 모델도 이 규칙을 따르도록 개명한다. 다만 개명은 동작 변경과 섞이므로 **개명만 담는 별도 PR**로 다루고(`pr-scope.md:9`), 마이그레이션은 직렬로 넣는다([AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)).
-
-지우기로 결정된 테이블은 개명 대상에서 제외한다 — 개명하지 않고 지운다. `Canonical*` 8개(todo 14 전환으로 authority 상실)가 그 선례다 — ADR-006이 정한 보존 기간(1개 릴리스)을 넘기고 전 테이블 0행을 실측한 뒤 `20260820000000_drop_canonical_generation_tables`가 단일 FK 클러스터를 통째로 드롭해 **제거가 완료됐다**. 남아 있던 `PublicShowcase*`와 옛 수집 기록(`CollectionRun`·`GithubRawObservation`)도 참조를 먼저 걷어 배포한 뒤 `20260924120000_drop_legacy_projection_tables`가 0행 확인 가드와 함께 지웠다(#1133).
+스키마 후보는 현행 유지안과 변경안을 비교하고 expand → 근거 있는 backfill → reader/writer 전환 → 동등성 검증 → contract 순서, 잠금 비용, 버전 공존, 중단점, 백업/rollback을 기록한다. 운영 null 출처나 과거 사건 대응이 불명확하면 보존하고, 실제 DB 검사·migration·배포는 승인된 별도 범위에서 수행한다.
 
 ## 5. 외부 API 전제는 문서 기억이 아니라 실측으로 확정한다
 
@@ -73,5 +54,5 @@ GitHub API 동작을 기억으로 단정하지 않는다. 새 쿼리를 설계�
 
 ---
 
-이 문서는 [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)(DB 마이그레이션 직렬 규칙)와 [AGENTS.md Architecture & Data Flow](../../AGENTS.md#architecture--data-flow)(공개 endpoint와 private 테이블 join 금지)를 확장하며, [ADR-003](../decisions/ADR-003-backend-architecture.md)(백엔드 아키텍처)을 따른다.
+이 문서는 [AGENTS.md Code Conventions](../../AGENTS.md#code-conventions--common-patterns)(DB 마이그레이션 직렬 규칙)와 [AGENTS.md Architecture & Data Flow](../../AGENTS.md#architecture--data-flow)(공개 query와 응답 allowlist 경계)를 확장하며, [ADR-003](../decisions/ADR-003-backend-architecture.md)(백엔드 아키텍처)을 따른다.
 스키마 변경 PR의 범위·분해 기준은 [`pr-scope.md`](pr-scope.md)가 원본이다.
