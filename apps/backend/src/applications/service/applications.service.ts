@@ -156,53 +156,52 @@ export class ApplicationsService {
     if (!program) {
       throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
     }
-    if (program.lifecycle === ProgramLifecycle.ARCHIVED) {
-      throw this.error(ApplicationsErrorCode.PROGRAM_ARCHIVED);
-    }
-
-    if (now < program.applicationStartAt || now > program.applicationEndAt) {
-      throw this.error(ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED);
-    }
-
-    const versionCheck = checkApplicationTemplateVersion(
-      input.applicationTemplateVersion,
-      program.applicationTemplateVersion,
-    );
-    if (!versionCheck.ok) {
-      throw this.error(ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH);
-    }
-
-    const applicantName = (student.name ?? student.nickname).trim();
-    const answersResult = normalizeAndValidateApplicationAnswers(
-      input.answers,
-      applicantName,
-      'enforce-length',
-    );
-    if (!answersResult.ok) {
-      if (answersResult.reason === 'TOO_LONG')
-        throw new DomainException(
-          APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.ANSWER_TOO_LONG],
-          {
-            fieldErrors: (answersResult.tooLongKeys ?? []).map((key) => ({
-              field: key,
-              code: ApplicationsErrorCode.ANSWER_TOO_LONG,
-              message: applicationAnswerTooLongMessage(key),
-            })),
-          },
-        );
-      throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
-    }
-
     const teamName = input.teamName?.trim() || `${student.nickname}의 팀`;
 
     try {
       return await this.repository.withCreateTransaction(async (store) => {
-        const programLifecycle = await store.lockProgramForApply(programId);
-        if (!programLifecycle) {
+        const lockedProgram = await store.lockProgramForApply(programId);
+        if (!lockedProgram) {
           throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
         }
-        if (programLifecycle === ProgramLifecycle.ARCHIVED) {
+        if (lockedProgram.lifecycle === ProgramLifecycle.ARCHIVED) {
           throw this.error(ApplicationsErrorCode.PROGRAM_ARCHIVED);
+        }
+
+        if (
+          now < lockedProgram.applicationStartAt ||
+          now > lockedProgram.applicationEndAt
+        ) {
+          throw this.error(ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED);
+        }
+
+        const versionCheck = checkApplicationTemplateVersion(
+          input.applicationTemplateVersion,
+          lockedProgram.applicationTemplateVersion,
+        );
+        if (!versionCheck.ok) {
+          throw this.error(ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH);
+        }
+
+        const applicantName = (student.name ?? student.nickname).trim();
+        const answersResult = normalizeAndValidateApplicationAnswers(
+          input.answers,
+          applicantName,
+          'enforce-length',
+        );
+        if (!answersResult.ok) {
+          if (answersResult.reason === 'TOO_LONG')
+            throw new DomainException(
+              APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.ANSWER_TOO_LONG],
+              {
+                fieldErrors: (answersResult.tooLongKeys ?? []).map((key) => ({
+                  field: key,
+                  code: ApplicationsErrorCode.ANSWER_TOO_LONG,
+                  message: applicationAnswerTooLongMessage(key),
+                })),
+              },
+            );
+          throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
         }
 
         const existingTeam = await store.findExistingTeamMembership(
@@ -281,7 +280,7 @@ export class ApplicationsService {
           applicantId: student.id,
           teamId: applicationTeam.id,
           answers: answersResult.answers,
-          applicationTemplateVersion: program.applicationTemplateVersion,
+          applicationTemplateVersion: lockedProgram.applicationTemplateVersion,
           isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
           repositoryConnectionMode: RepositoryConnectionMode.NEW,
           repositoryUrl: null,
