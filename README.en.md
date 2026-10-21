@@ -6,9 +6,10 @@
 
 OSS Hub brings program discovery, team formation, applications, document submission and review, and GitHub repositories and activity together in one place.
 
-[Visit OSS Hub](https://jnu-oss-hub.com) · [Developer onboarding](docs/onboarding.md) · [Issues](https://github.com/JNU-SWCU/oss-hub/issues) · [Releases](https://github.com/JNU-SWCU/oss-hub/releases)
+[Visit OSS Hub](https://jnu-oss-hub.com) · [Developer onboarding](docs/onboarding.en.md) · [Issues](https://github.com/JNU-SWCU/oss-hub/issues) · [Releases](https://github.com/JNU-SWCU/oss-hub/releases)
 
-The application interface, screenshots, and linked project documentation are currently in Korean.
+The application interface and screenshots are currently in Korean.
+The guides linked below are available in English; links marked “(Korean)” in those guides lead to documents without an English version.
 
 ## Contents
 
@@ -107,7 +108,7 @@ flowchart LR
 ```
 
 The browser uses `/api/v1` on the same domain as the frontend, and the backend handles access to the database and file storage.
-See the [system architecture](docs/architecture.md) and [architecture decision records](docs/decisions/README.md) for detailed boundaries and deployment arrangements.
+See the [system architecture](docs/architecture.en.md) and [architecture decision records](docs/decisions/README.en.md) for detailed boundaries and deployment arrangements.
 
 ## Getting started locally
 
@@ -148,7 +149,7 @@ Once configured, load the settings into your shell:
 direnv allow
 ```
 
-See the [local development guide](docs/rules/local-dev.md) and [onboarding guide](docs/onboarding.md) for GitHub App integration and test accounts with different roles.
+See the [local development guide](docs/rules/local-dev.en.md) and [onboarding guide](docs/onboarding.en.md) for GitHub App integration and test accounts with different roles.
 Configure roles for test accounts in `AUTH_INITIAL_ROLES` in `.envrc` before their first sign-in.
 Do not commit `.envrc` or private key files to Git.
 Use `.envrc.example` as the starting point for local configuration; `.env.example` lists the environment variables required by the production Compose setup.
@@ -195,7 +196,7 @@ compose.yml              # Production runtime
 ## Development and verification
 
 Run these commands from the repository root.
-Choose the checks required for your changes using the [CI verification rules by path](docs/rules/ci-path-verification.md).
+Choose the checks required for your changes using the [CI verification rules by path](docs/rules/ci-path-verification.en.md).
 
 | Purpose                                   | Command                                  |
 | ----------------------------------------- | ---------------------------------------- |
@@ -213,20 +214,20 @@ Database integration tests use a dedicated isolated runner, and browser tests us
 Use `pnpm --filter frontend e2e:install` to install the browser, and consult the verification rules for detailed requirements.
 
 Keep changes within the issue's scope and acceptance criteria, and record the verification you actually performed in the PR.
-Before contributing, read the [onboarding guide](docs/onboarding.md), [PR scope and submission rules](docs/rules/pr-scope.md), and [security rules](docs/rules/security.md).
+Before contributing, read the [onboarding guide](docs/onboarding.en.md), [PR scope and submission rules](docs/rules/pr-scope.en.md), and [security rules](docs/rules/security.en.md).
 
 ## Documentation guide
 
 | Topic                                             | Document                                                    |
 | ------------------------------------------------- | ----------------------------------------------------------- |
-| Joining the team and starting your first task     | [Onboarding](docs/onboarding.md)                            |
-| Environment setup, sign-in, and local development | [Local development](docs/rules/local-dev.md)                |
-| System boundaries and request flow                | [Architecture](docs/architecture.md)                        |
-| Reasons behind technical decisions                | [ADR index](docs/decisions/README.md)                       |
-| Tests required for each changed path              | [CI verification rules](docs/rules/ci-path-verification.md) |
-| Writing and reviewing PRs                         | [PR scope and submission rules](docs/rules/pr-scope.md)     |
-| Public repository safety and data protection      | [Security rules](docs/rules/security.md)                    |
-| Pre-deployment checks                             | [Deployment verification](docs/deploy/pre-deploy-verify.md) |
-| Working guidelines for agents                     | [AGENTS.md](AGENTS.md)                                      |
+| Joining the team and starting your first task     | [Onboarding](docs/onboarding.en.md)                            |
+| Environment setup, sign-in, and local development | [Local development](docs/rules/local-dev.en.md)                |
+| System boundaries and request flow                | [Architecture](docs/architecture.en.md)                        |
+| Reasons behind technical decisions                | [ADR index](docs/decisions/README.en.md)                       |
+| Tests required for each changed path              | [CI verification rules](docs/rules/ci-path-verification.en.md) |
+| Writing and reviewing PRs                         | [PR scope and submission rules](docs/rules/pr-scope.en.md)     |
+| Public repository safety and data protection      | [Security rules](docs/rules/security.en.md)                    |
+| Pre-deployment checks                             | [Deployment verification](docs/deploy/pre-deploy-verify.en.md) |
+| Working guidelines for agents                     | [AGENTS.md](AGENTS.en.md)                                      |
 
 See [GitHub Issues](https://github.com/JNU-SWCU/oss-hub/issues) for the latest status of improvements and known issues.
