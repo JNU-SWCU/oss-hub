@@ -1,10 +1,9 @@
 import type { ProblemDetail, ProblemDetailFieldError } from '@/lib/api-client';
 import type { ProgramTeam } from '../teams/dto';
-import type { ApplicationFormTemplate } from './dto';
 import type { ProgramDetail } from '../catalog/dto';
 
 export type ProgramApplyBlockedReason =
-  'period-closed' | 'already-applied' | 'team-required' | 'manage-not-allowed';
+  'period-closed' | 'already-applied' | 'manage-not-allowed';
 
 export type TeamMinimum = {
   readonly memberCount: number;
@@ -51,8 +50,6 @@ export function isApplicationPeriodOpen(
 
 export function resolveApplyBlockedReason(
   program: ProgramDetail,
-  _template: ApplicationFormTemplate,
-  _teamId: string | null,
   now: number = Date.now(),
 ): ProgramApplyBlockedReason | null {
   if (!isApplicationPeriodOpen(program, now)) return 'period-closed';

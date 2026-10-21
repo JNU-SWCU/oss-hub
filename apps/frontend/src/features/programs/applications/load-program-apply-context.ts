@@ -133,7 +133,7 @@ export async function loadProgramApplyContext(
     }
 
     const team = await resolveTeam(programId);
-    const blocked = resolveApplyBlockedReason(program, template, team.teamId);
+    const blocked = resolveApplyBlockedReason(program);
     if (blocked) {
       return { kind: 'blocked', reason: blocked, program, application: null };
     }

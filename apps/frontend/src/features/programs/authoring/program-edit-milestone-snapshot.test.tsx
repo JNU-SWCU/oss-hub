@@ -3,7 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
 import type { EditableMilestone, EditableProgram } from './dto';
-import { UNSAVED_PROGRAM_MESSAGE } from './program-creation-flow';
+import { UNSAVED_PROGRAM_MESSAGE } from './program-exit-guard';
 import { ProgramEditPage } from './program-edit-page';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
