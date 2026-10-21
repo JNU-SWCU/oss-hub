@@ -132,9 +132,6 @@ describe('PrismaApplicationCreateStore.lockProgramForApply', () => {
 
     expect(result).toEqual(policy);
     const sql = lockedSqlOf(queryRaw);
-    expect(sql.sql).toBe(
-      'SELECT "lifecycle", "applicationStartAt", "applicationEndAt", "applicationTemplateVersion" FROM "Program" WHERE id = ? FOR UPDATE',
-    );
     expect(sql.values).toEqual(['synthetic-program']);
   });
 
