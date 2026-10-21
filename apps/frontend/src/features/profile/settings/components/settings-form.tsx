@@ -105,93 +105,101 @@ export function SettingsForm({
         noValidate
         onSubmit={handleSubmit}
       >
-        <SettingsProfileSection
-          memberKind={memberKind}
-          values={values}
-          errors={errors}
-          showValidationErrors={showValidationErrors}
-          onChange={onChange}
-        />
-
-        <FormSection
-          title="알림 수신"
-          description="마감 임박 알림 메일을 받을 이메일과 수신 여부를 설정합니다."
+        <fieldset
+          disabled={isSubmitting || isRetryingNotification}
+          className="flex min-w-0 flex-col gap-16"
         >
-          {notificationLoad.kind === 'unavailable' ? (
-            <Alert>
-              <AlertTitle>알림 설정을 사용할 수 없습니다</AlertTitle>
-              <AlertDescription className="flex flex-col items-start gap-4">
-                <span>{notificationLoad.message}</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isRetryingNotification}
-                  onClick={onRetryNotification}
-                >
-                  {isRetryingNotification
-                    ? '알림 설정 불러오는 중…'
-                    : '알림 설정 다시 불러오기'}
-                </Button>
-              </AlertDescription>
+          <SettingsProfileSection
+            memberKind={memberKind}
+            values={values}
+            errors={errors}
+            showValidationErrors={showValidationErrors}
+            onChange={onChange}
+          />
+
+          <FormSection
+            title="알림 수신"
+            description="마감 임박 알림 메일을 받을 이메일과 수신 여부를 설정합니다."
+          >
+            {notificationLoad.kind === 'unavailable' ? (
+              <Alert>
+                <AlertTitle>알림 설정을 사용할 수 없습니다</AlertTitle>
+                <AlertDescription className="flex flex-col items-start gap-4">
+                  <span>{notificationLoad.message}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isRetryingNotification || isSubmitting}
+                    onClick={onRetryNotification}
+                  >
+                    {isRetryingNotification
+                      ? '알림 설정 불러오는 중…'
+                      : '알림 설정 다시 불러오기'}
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                <Field data-invalid={showEmailError || undefined}>
+                  <FieldLabel htmlFor="settings-notification-email">
+                    수신 이메일
+                  </FieldLabel>
+                  <Input
+                    id="settings-notification-email"
+                    name="notificationEmail"
+                    type="email"
+                    autoComplete="email"
+                    value={values.notificationEmail}
+                    aria-invalid={showEmailError}
+                    aria-describedby={
+                      showEmailError
+                        ? 'settings-notification-email-error'
+                        : undefined
+                    }
+                    onChange={(event) =>
+                      onChange({ notificationEmail: event.target.value })
+                    }
+                  />
+                  {showEmailError ? (
+                    <FieldError id="settings-notification-email-error">
+                      {errors.notificationEmail}
+                    </FieldError>
+                  ) : null}
+                </Field>
+                <label className="flex min-h-control items-center gap-3 text-body">
+                  <input
+                    type="checkbox"
+                    className="size-5"
+                    name="notifyEnabled"
+                    checked={values.notifyEnabled}
+                    onChange={(event) =>
+                      onChange({ notifyEnabled: event.target.checked })
+                    }
+                  />
+                  마감 임박 알림 받기
+                </label>
+              </>
+            )}
+          </FormSection>
+
+          <AccountDeactivationSection hasAdminAccess={hasAdminAccess} />
+
+          {submitError ? (
+            <Alert variant="destructive">
+              <AlertTitle>저장 결과를 확인해 주세요</AlertTitle>
+              <AlertDescription>{submitError}</AlertDescription>
             </Alert>
-          ) : (
-            <>
-              <Field data-invalid={showEmailError || undefined}>
-                <FieldLabel htmlFor="settings-notification-email">
-                  수신 이메일
-                </FieldLabel>
-                <Input
-                  id="settings-notification-email"
-                  name="notificationEmail"
-                  type="email"
-                  autoComplete="email"
-                  value={values.notificationEmail}
-                  aria-invalid={showEmailError}
-                  aria-describedby={
-                    showEmailError
-                      ? 'settings-notification-email-error'
-                      : undefined
-                  }
-                  onChange={(event) =>
-                    onChange({ notificationEmail: event.target.value })
-                  }
-                />
-                {showEmailError ? (
-                  <FieldError id="settings-notification-email-error">
-                    {errors.notificationEmail}
-                  </FieldError>
-                ) : null}
-              </Field>
-              <label className="flex min-h-control items-center gap-3 text-body">
-                <input
-                  type="checkbox"
-                  className="size-5"
-                  name="notifyEnabled"
-                  checked={values.notifyEnabled}
-                  onChange={(event) =>
-                    onChange({ notifyEnabled: event.target.checked })
-                  }
-                />
-                마감 임박 알림 받기
-              </label>
-            </>
-          )}
-        </FormSection>
+          ) : null}
 
-        <AccountDeactivationSection hasAdminAccess={hasAdminAccess} />
-
-        {submitError ? (
-          <Alert variant="destructive">
-            <AlertTitle>저장 결과를 확인해 주세요</AlertTitle>
-            <AlertDescription>{submitError}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        <div className="flex flex-wrap items-center gap-4">
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? '저장 중…' : '저장'}
-          </Button>
-        </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <Button
+              type="submit"
+              disabled={isSubmitting || isRetryingNotification}
+            >
+              {isSubmitting ? '저장 중…' : '저장'}
+            </Button>
+          </div>
+        </fieldset>
       </form>
     </PageBody>
   );
