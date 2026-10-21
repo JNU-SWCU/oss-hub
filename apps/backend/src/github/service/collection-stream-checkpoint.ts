@@ -8,6 +8,10 @@ import type { RegisteredGithubIdSet } from '../collection-incremental.types';
 import type { SyncLeaseToken } from '../collection-sync.types';
 import type { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
 
+function bigIntOrNull(value: string | null): bigint | null {
+  return value === null ? null : BigInt(value);
+}
+
 export class CollectionStreamCheckpoint {
   constructor(
     private readonly incrementalRepository: Pick<
@@ -33,10 +37,7 @@ export class CollectionStreamCheckpoint {
         commits.map((commit) => ({
           sha: commit.sha,
           committedAt: new Date(commit.committedAt),
-          authorGithubId:
-            commit.authorGithubId === null
-              ? null
-              : BigInt(commit.authorGithubId),
+          authorGithubId: bigIntOrNull(commit.authorGithubId),
           authorGithubLogin: commit.authorLogin,
         })),
         registeredGithubIds,
@@ -71,10 +72,7 @@ export class CollectionStreamCheckpoint {
           githubPullRequestId: BigInt(pullRequest.id),
           state: pullRequest.state,
           createdAt: new Date(pullRequest.createdAt),
-          authorGithubId:
-            pullRequest.authorGithubId === null
-              ? null
-              : BigInt(pullRequest.authorGithubId),
+          authorGithubId: bigIntOrNull(pullRequest.authorGithubId),
           authorGithubLogin: pullRequest.authorLogin,
         })),
         registeredGithubIds,
@@ -109,10 +107,7 @@ export class CollectionStreamCheckpoint {
         releases.map((release) => ({
           githubReleaseId: BigInt(release.id),
           publishedAt: new Date(release.publishedAt),
-          authorGithubId:
-            release.authorGithubId === null
-              ? null
-              : BigInt(release.authorGithubId),
+          authorGithubId: bigIntOrNull(release.authorGithubId),
           authorGithubLogin: release.authorLogin,
         })),
         registeredGithubIds,
@@ -147,8 +142,7 @@ export class CollectionStreamCheckpoint {
           githubIssueId: BigInt(issue.id),
           state: issue.state,
           createdAt: new Date(issue.createdAt),
-          authorGithubId:
-            issue.authorGithubId === null ? null : BigInt(issue.authorGithubId),
+          authorGithubId: bigIntOrNull(issue.authorGithubId),
           authorGithubLogin: issue.authorLogin,
         })),
         registeredGithubIds,

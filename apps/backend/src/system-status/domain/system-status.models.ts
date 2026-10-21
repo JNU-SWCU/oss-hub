@@ -54,7 +54,6 @@ export interface SystemStatusCollectionActivityResult {
   readonly sweepFinishedAt: Date;
   readonly cycleStartedAt: Date | null;
   readonly scope: string;
-
   readonly kind: 'SWEEP' | 'REPOSITORY_LINK';
   readonly insertedCommitCount: number;
   readonly insertedPullRequestCount: number;

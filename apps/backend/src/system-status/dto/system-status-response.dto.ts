@@ -65,7 +65,6 @@ export class SystemStatusCollectionActivityResponseDto {
     readonly sweepFinishedAt: string,
     readonly cycleStartedAt: string | null,
     readonly scope: string,
-
     readonly kind: 'SWEEP' | 'REPOSITORY_LINK',
     readonly insertedCommitCount: number,
     readonly insertedPullRequestCount: number,
