@@ -15,8 +15,6 @@
 /scripts/check-host-nginx*.sh                @GoBeromsu
 /scripts/check-submission-upload-route*.sh   @GoBeromsu
 /scripts/probe-nginx-callback-log.sh          @GoBeromsu
-/scripts/check-jenkinsfile.sh      @GoBeromsu
-/scripts/check-jenkinsfile.test.sh @GoBeromsu
 /scripts/jenkins/                  @GoBeromsu
 /scripts/prune-deploy-backups.sh      @GoBeromsu
 /scripts/prune-deploy-backups.test.sh @GoBeromsu

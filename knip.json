@@ -14,9 +14,8 @@
     ".": {
       "entry": [
         "scripts/**/*.test.mjs",
-        "scripts/auth-production-readonly-report.mjs",
+        "scripts/jenkins/probe-release-state.mjs",
         "scripts/member-authority-contract-seed.mjs",
-        "scripts/member-authority-production-report.mjs",
         "eslint.shared.mjs",
         "eslint-rules/no-comments.mjs",
         ".design-sync/compile-css.mjs",
