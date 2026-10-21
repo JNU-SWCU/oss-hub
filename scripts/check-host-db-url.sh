@@ -24,7 +24,7 @@ db guard: 호스트 lane의 env 원본은 .envrc입니다.
 db guard:   cp .envrc.example .envrc && direnv allow
 db guard: direnv를 쓰지 않으면 현재 쉘에 직접 주입하세요:
 db guard:   set -a; . ./.envrc; set +a
-db guard: 자세한 절차는 docs/rules/local-dev.md의 "두 실행 경로"를 따릅니다.
+db guard: 자세한 절차는 scripts/dev.sh와 compose.dev.yml를 따릅니다.
 GUIDE
   exit 1
 fi

@@ -26,7 +26,7 @@
 #   DATABASE_URL=... scripts/diagnose-collection.sh
 #   DATABASE_URL=... RANKING_URL=https://<host>/api/v1/ranking scripts/diagnose-collection.sh
 #
-# 서버 접속은 `docs/deploy/server-runbook.md` M1(SSM 또는 Tailscale SSH)을 따른다.
+# 서버 접속은 승인된 운영 접근 경로를 사용한다.
 set -euo pipefail
 
 readonly STALE_THRESHOLD_HOURS=${STALE_THRESHOLD_HOURS:-2}

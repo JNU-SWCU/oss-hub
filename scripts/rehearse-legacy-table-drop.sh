@@ -11,7 +11,7 @@
 #                                           snapshot and runs the named release image's own
 #                                           `npx prisma migrate deploy`. Intended to run ON
 #                                           the production host, by the owner, before the
-#                                           release ships (docs/deploy/pre-deploy-verify.md ⓪).
+#                                           release ships.
 #
 # Both modes own a disposable PostgreSQL container and delete it on exit. Production-dump
 # mode additionally runs on an `--internal` Docker network (no host port, no outside route)
@@ -286,7 +286,7 @@ migration_finished_count() {
 }
 
 # Non-zero only when our migration name has an attempt recorded that never finished — the
-# artifact a rejected preflight gate leaves behind (docs/deploy/pre-deploy-verify.md ⓪ §1).
+# artifact a rejected preflight gate leaves behind.
 migration_unfinished_count() {
   psql_value "SELECT count(*) FROM \"_prisma_migrations\" WHERE migration_name = '$migration_dir' AND finished_at IS NULL"
 }

@@ -2,7 +2,7 @@
 # 호스트 hot reload 개발 실행기 — `pnpm dev`의 구현.
 #
 # 인프라(postgres·object-storage)는 Docker가, 앱(backend·frontend)은 호스트 프로세스가 담당한다.
-# env 원본은 direnv가 주입하는 `.envrc`다(compose 경로의 `.env`와 별개 — docs/rules/local-dev.md).
+# env 원본은 direnv가 주입하는 `.envrc`다(compose 경로의 `.env`와 별개).
 #
 # 방어 순서: env 확인 → 포트 preflight → 인프라 기동 → 마이그레이션 → watcher 2개.
 # 값은 어떤 단계에서도 출력하지 않는다. 키 이름만 보고한다.
@@ -49,7 +49,7 @@ check_required_env() {
     cat >&2 <<'GUIDE'
 dev: .envrc.example을 .envrc로 복사하고 "직접 채운다" 항목을 채운 뒤 direnv allow를 실행하세요.
 dev:   cp .envrc.example .envrc && direnv allow
-dev: 자세한 절차는 docs/rules/local-dev.md의 "두 실행 경로"를 따릅니다.
+dev: 자세한 절차는 scripts/dev.sh와 compose.dev.yml를 따릅니다.
 GUIDE
     exit 1
   fi

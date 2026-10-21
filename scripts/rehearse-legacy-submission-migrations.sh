@@ -11,7 +11,7 @@
 #
 # 로컬·E2E·CI는 매번 빈 데이터베이스에 마이그레이션을 적용하므로 bridge의 복사
 # 로직과 contract의 게이트는 그 경로에서 단 한 행도 처리해보지 않는다. 이 스크립트가
-# 그 빈자리를 메운다. 실행 시점과 실패 시 복구 절차는 docs/deploy/pre-deploy-verify.md.
+# 그 빈자리를 메운다. 실행 시점과 실패 복구는 승인된 배포 경로에서 관리한다.
 set -euo pipefail
 
 scenario=${1:-}
