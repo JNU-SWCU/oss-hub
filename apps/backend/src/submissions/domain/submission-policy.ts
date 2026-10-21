@@ -30,10 +30,10 @@ export function assertResubmittable(
 ): void {
   if (input.baseRevision !== target.currentRevision)
     throw submissionError(SubmissionsErrorCode.STALE_SUBMISSION_REVISION);
-  if (target.status === SubmissionStatus.REJECTED)
-    throw submissionError(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
-
-  if (target.status === SubmissionStatus.APPROVED)
+  if (
+    target.status === SubmissionStatus.REJECTED ||
+    target.status === SubmissionStatus.APPROVED
+  )
     throw submissionError(SubmissionsErrorCode.RESUBMISSION_NOT_ALLOWED);
   if (
     target.status !== SubmissionStatus.CHANGES_REQUESTED &&
