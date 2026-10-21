@@ -137,7 +137,7 @@ rebuild → capture → 채점.
 
 ### 프리뷰에 사람 이름을 쓸 때
 
-이 repo는 PUBLIC이고 AGENTS.md 4절이 실명 반입을 금지한다. 프리뷰는 커밋될 뿐
+이 repo는 PUBLIC이고 scripts/check-public-safe.sh가 공개 안전 검사를 수행한다. 프리뷰는 커밋될 뿐
 아니라 디자인 프로젝트로 업로드되므로 더 노출된다. **가공 인물임이 자명한 이름만
 쓴다** — repo의 확립된 플레이스홀더는 `홍길동`이다(fixtures·테스트 16곳). 평범한
 실명형 이름(예: 흔한 성+두 글자 조합)은 실제 교직원처럼 읽히므로 쓰지 않는다.
@@ -193,9 +193,8 @@ rebuild → capture → 채점.
 - `FieldSeparator`, `FieldContent`, `FieldTitle` — `ui/field.tsx`의 export지만 소비처 0.
   (`FieldSet`/`FieldLegend`/`FieldGroup`은 실사용처가 있어 프리뷰에 들어갔다.)
 - `AlertAction` — `ui/alert.tsx`의 export지만 소비처 0.
-- `Label`·`Separator`는 **단독** 사용처가 0이다(전부 `FieldLabel`/`FieldSeparator` 경유).
-  프리뷰는 있되, 실제 호출처에서 검증된 문구를 원시 컴포넌트에 그대로 붙이는 방식으로
-  작성했다.
+- `Label`은 `FieldLabel`을 통해 사용한다.
+  단독 `Separator` 프리뷰는 퇴역했으며 필드 구분은 `FieldSeparator`가 소유한다.
 - `AppShell`도 실제 라우트에서 쓰이지 않는다(자기 스모크 테스트뿐). 프리뷰는
   `app/layout.tsx`의 NavBar 배선 + 실제 목록/대시보드 화면 조각을 조합한 것이라, 이
   20개 중 "포팅"에서 가장 먼 케이스다.

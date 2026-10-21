@@ -7,10 +7,7 @@
   "tsconfig": "tsconfig.json",
   "cssEntry": ".ds-css/ds-compiled.css",
   "readmeHeader": ".design-sync/conventions.md",
-  "guidelinesGlob": [
-    "../../../../docs/design.md",
-    "../../../../docs/rules/frontend.md"
-  ],
+  "guidelinesGlob": [],
   "dtsPropsFor": {
     "FieldLabel": "className?: string; children?: React.ReactNode; htmlFor?: string; id?: string; style?: React.CSSProperties; asChild?: boolean;"
   },
