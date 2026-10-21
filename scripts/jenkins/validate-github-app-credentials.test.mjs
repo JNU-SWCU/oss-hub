@@ -85,3 +85,22 @@ test('다른 App key는 installation token 발급 전에 거부한다', async ()
   );
   assert.equal(calls, 1);
 });
+
+test('identity accepts quoted CRLF and rejects duplicate or malformed dotenv before authentication', () => {
+  const source =
+    'GITHUB_APP_ORG="synthetic-org"\r\nGITHUB_COLLECTION_APP_ID=12345\r\nGITHUB_OPERATIONS_APP_ID=67890\r\n';
+  assert.equal(parseDeploymentIdentity(source).organization, 'synthetic-org');
+  for (const suffix of [
+    'GITHUB_APP_ORG=secret-sentinel\n',
+    'broken secret-sentinel\n',
+    'IGNORED_SECRET="secret-sentinel\n',
+  ]) {
+    assert.throws(
+      () => parseDeploymentIdentity(source + suffix),
+      (error) => {
+        assert.equal(error.message.includes('secret-sentinel'), false);
+        return true;
+      },
+    );
+  }
+});

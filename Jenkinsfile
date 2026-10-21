@@ -1,54 +1,57 @@
-// Jenkinsfile — 파라미터 없는 latest Release 수렴 배포.
-//
-// 계약 요약:
-// - RELEASE_TAG = 이미지 태그(IMAGE_TAG). RELEASE_SHA = checkout 불변 신원. 둘 다 OCI label.
-// - 영속 배포 상태 파일 없음. no-op 권위는 실행 중 backend 컨테이너뿐.
-// - 동일 실행 중 tag+SHA만 성공 no-op. 하위 SemVer는 실행 중 metadata가 일치할 때만 no-op.
-// - same-tag/different-SHA, stopped-only, missing/invalid label·SemVer는 fail-closed.
-// - 중지·모호 상태는 deploy 권한 없음. no-op은 완전 증명된 running metadata만.
-// - BuildKit 캐시는 이미지 빌드·배포 전과 성공 뒤에 5GB 상한으로 정리한다. 이미지·백업 보존 정리는 성공 뒤에만 한다.
-//   실행 중+직전 이미지를 보존하고, 백업은 최근 N=30을 보존한다.
-// - 이미지 빌드 후 migration·rollout·health/smoke·rollback을 수행한다.
 pipeline {
   agent {
-    label 'oss-hub-production'
+    node {
+      label 'oss-hub-production'
+      customWorkspace '/var/lib/oss-hub/controller'
+    }
   }
-
   options {
     disableConcurrentBuilds()
     skipDefaultCheckout(true)
   }
-
-  triggers {
-    cron('H/10 * * * *')
-  }
-
+  triggers { cron('H/10 * * * *') }
   environment {
     COMPOSE_PROJECT_NAME = 'oss-hub'
     BACKUP_DIR = '/var/lib/oss-hub/backups'
-    // GREENFIELD_DEPLOY_ACK=1 만 호스트에 이전 배포 흔적이 있을 때
-    // 최초 배포(재프로비저닝)를 허용한다. 기본은 차단(fail-closed).
-    // C4 승인 상수. 성공 배포 뒤에만 적용하고 최신 N개를 보존한다.
     BACKUP_RETENTION_N = '30'
-    // BuildKit shared/internal 캐시는 이미지 빌드·배포 전과 성공 뒤 LRU 기준 최대 5GB까지만 보존한다.
     BUILD_CACHE_MAX_SPACE = '5GB'
-    // 개인키 SOURCE는 compose.yml이 :? 로 요구한다. compose 호출이 5곳이라 stage마다 넣으면
-    // 하나만 빠뜨려도 배포가 멈추므로 pipeline 수준에 한 번만 둔다. rollback의 withEnv도
-    // 이 값을 그대로 물려받는다.
-    // 같은 블록 안의 변수를 참조하지 않고 경로를 반복한다 — 블록 내 상호참조는 실제 실행
-    // 없이는 검증할 수 없고, 여기는 그 불확실성을 감당할 자리가 아니다.
     SECRETS_DIR = '/var/lib/oss-hub/secrets'
-    GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE = '/var/lib/oss-hub/secrets/current/collection.pem'
-    GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE = '/var/lib/oss-hub/secrets/current/operations.pem'
   }
-
   stages {
-    stage('소스 체크아웃') {
+    stage('controller mount 경계 검증과 체크아웃') {
       steps {
-        checkout scm
+        script {
+          env.CONTROLLER_DIR = pwd()
+          sh '''#!/usr/bin/env bash
+set -euo pipefail
+node --input-type=module <<'NODE'
+import { execFileSync } from 'node:child_process';
+import { realpathSync } from 'node:fs';
+import { sep } from 'node:path';
+try {
+const workspace = realpathSync(process.env.CONTROLLER_DIR);
+const ids = execFileSync('docker', ['ps', '--all', '--quiet', '--filter', 'label=com.docker.compose.project=oss-hub'], {encoding:'utf8'}).trim().split(/\\s+/).filter(Boolean);
+for (const id of ids) {
+  const containers = JSON.parse(execFileSync('docker', ['inspect', id], {encoding:'utf8'}));
+  if (containers.length !== 1) throw new Error('ambiguous mount inventory');
+  for (const mount of containers[0].Mounts) {
+    if (mount.Type !== 'bind') continue;
+    const source = realpathSync(mount.Source);
+    if (workspace === source || workspace.startsWith(source + sep) || source.startsWith(workspace + sep)) throw new Error('controller overlaps live bind source');
+  }
+}
+} catch {
+  console.error('FAIL_CLOSED controller mount inventory or checkout overlap');
+  process.exit(1);
+}
+NODE
+'''
+          checkout scm
+          env.CONTROLLER_SHA = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+          echo "CONTROLLER_SHA=${env.CONTROLLER_SHA}; workspace=${env.CONTROLLER_DIR}"
+        }
       }
     }
-
     stage('latest Release 검증 및 exact SHA 해석') {
       steps {
         script {
@@ -56,8 +59,6 @@ pipeline {
           env.PREV_TAG = ''
           env.PREV_BE_IMAGE_ID = ''
           env.PREV_SHA = ''
-          env.PRIVATE_KEYS_CHANGED = 'false'
-          env.PREV_PRIVATE_KEY_GENERATION = ''
 
           def tag = sh(
             script: '''#!/usr/bin/env bash
@@ -108,23 +109,60 @@ printf '%s' "$release_sha"
       }
     }
 
-    stage('exact SHA checkout') {
+    stage('credential 없는 실행 상태 판단') {
       steps {
-        sh 'git checkout --detach "$RELEASE_SHA"'
-      }
-    }
-
-    stage('운영 환경 사전 검증') {
-      steps {
-        withCredentials([
-          file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
-        ]) {
-          sh 'node scripts/jenkins/validate-production-env.mjs "$OSS_HUB_ENV_FILE"'
+        script {
+          def fields = sh(script: '''#!/usr/bin/env bash
+set -euo pipefail
+node "$CONTROLLER_DIR/scripts/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" | jq -er '[.decision,.tag,.sha,.imageId,.postgresId] | @tsv'
+''', returnStdout: true).trim().split('\t')
+          env.DEPLOY_NOOP = fields[0] == 'noop' ? 'true' : 'false'
+          env.PREV_TAG = fields[1]
+          env.PREV_SHA = fields[2]
+          env.PREV_BE_IMAGE_ID = fields[3]
+          env.PREV_POSTGRES_ID = fields[4]
+          currentBuild.description = "${env.RELEASE_TAG} ${fields[0]} (running ${env.PREV_TAG})"
         }
       }
     }
-
-    stage('개인키 검증 및 안정 경로 설치') {
+    stage('exact release source와 복구 구성 캡처') {
+      when { expression { env.DEPLOY_NOOP == 'false' } }
+      steps {
+        script {
+          env.RELEASE_SOURCE = "${env.CONTROLLER_DIR}/release-source"
+          env.PREVIOUS_STATE = "${env.CONTROLLER_DIR}/previous-state.json"
+          sh '''#!/usr/bin/env bash
+set -euo pipefail
+test -w /var/lib/oss-hub
+mkdir -p /var/lib/oss-hub/runtime/releases
+test -w /var/lib/oss-hub/runtime/releases
+test -d "$SECRETS_DIR"
+test -w "$SECRETS_DIR"
+node "$CONTROLLER_DIR/scripts/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --capture "$CONTROLLER_DIR" "$SECRETS_DIR" > "$PREVIOUS_STATE"
+bash "$CONTROLLER_DIR/scripts/jenkins/validate-rollback-images.sh"
+test ! -L "$RELEASE_SOURCE"
+if [ ! -d "$RELEASE_SOURCE" ]; then
+  git clone --no-checkout --no-hardlinks "$CONTROLLER_DIR" "$RELEASE_SOURCE"
+fi
+git -C "$RELEASE_SOURCE" fetch --quiet "$CONTROLLER_DIR" "$RELEASE_SHA"
+git -C "$RELEASE_SOURCE" checkout --detach --force "$RELEASE_SHA"
+git -C "$RELEASE_SOURCE" clean -ffd
+test "$(git -C "$RELEASE_SOURCE" rev-parse HEAD)" = "$RELEASE_SHA"
+bash "$CONTROLLER_DIR/scripts/check-host-nginx-drift.sh" "$RELEASE_SOURCE/deploy/host-nginx/oss-hub.conf"
+'''
+          env.CANDIDATE_COMPOSE = sh(script: '''#!/usr/bin/env bash
+set -euo pipefail
+snapshot="$(mktemp -d /var/lib/oss-hub/runtime/releases/release.XXXXXX)"
+mkdir "$snapshot/deploy"
+cp "$RELEASE_SOURCE/compose.yml" "$snapshot/compose.yml"
+cp -R "$RELEASE_SOURCE/deploy/nginx" "$snapshot/deploy/nginx"
+printf '%s/compose.yml' "$snapshot"
+''', returnStdout: true).trim()
+        }
+      }
+    }
+    stage('deploy credential 검증과 키 staging') {
+      when { expression { env.DEPLOY_NOOP == 'false' } }
       steps {
         withCredentials([
           file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
@@ -132,360 +170,58 @@ printf '%s' "$release_sha"
           file(credentialsId: 'oss-hub-operations-app-private-key', variable: 'OPERATIONS_PEM_SRC'),
         ]) {
           script {
-            def keyState = sh(
-              script: '''#!/usr/bin/env bash
+            env.STAGED_KEY_GENERATION = sh(script: '''#!/usr/bin/env bash
 set -euo pipefail
-
-# App ID·조직과 각 file credential이 실제 GitHub에서 같은 App으로 인증되고
-# installation token까지 발급하는지 먼저 확인한다. 값·JWT·token은 출력하지 않는다.
-node scripts/jenkins/validate-github-app-credentials.mjs \
-  "$OSS_HUB_ENV_FILE" "$COLLECTION_PEM_SRC" "$OPERATIONS_PEM_SRC"
-
-# 이후 모든 compose 호출이 SECRETS_DIR/current 아래 파일을 요구하므로 probe보다 앞에 둔다.
-# SECRETS_DIR의 setgid 비트가 gid 1000을 상속시켜 0640 + gid 1000을 만든다.
+set +x
+node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE"
+node "$CONTROLLER_DIR/scripts/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --storage "$OSS_HUB_ENV_FILE" >/dev/null
+node "$CONTROLLER_DIR/scripts/jenkins/validate-github-app-credentials.mjs" "$OSS_HUB_ENV_FILE" "$COLLECTION_PEM_SRC" "$OPERATIONS_PEM_SRC" >&2
 umask 027
-mkdir -p "$SECRETS_DIR"
-previous=''
-if [ -L "${SECRETS_DIR}/current" ]; then
-  previous="$(readlink -f "${SECRETS_DIR}/current")"
-fi
-
-if [ -n "$previous" ] && \
-   cmp -s "$COLLECTION_PEM_SRC" "${SECRETS_DIR}/current/collection.pem" && \
-   cmp -s "$OPERATIONS_PEM_SRC" "${SECRETS_DIR}/current/operations.pem"; then
-  printf 'changed=false\nprevious=%s\n' "$previous"
-  exit 0
-fi
-
-generation="${SECRETS_DIR}/gen-${BUILD_NUMBER}"
-mkdir -p "$generation"
-install -m 640 "$COLLECTION_PEM_SRC" "${generation}/collection.pem"
-install -m 640 "$OPERATIONS_PEM_SRC" "${generation}/operations.pem"
-
-for pem in collection operations; do
-  if ! openssl pkey -in "${generation}/${pem}.pem" -noout 2>/dev/null; then
-    echo "설치한 ${pem} 개인키를 파싱할 수 없습니다. 자격증명 내용을 확인하세요." >&2
-    exit 1
-  fi
+generation="$(mktemp -d "$SECRETS_DIR/gen.XXXXXX")"
+chmod 750 "$generation"
+test "$(stat -c %g "$generation")" = 1000
+install -m 640 "$COLLECTION_PEM_SRC" "$generation/collection.pem"
+install -m 640 "$OPERATIONS_PEM_SRC" "$generation/operations.pem"
+for role in collection operations; do
+  openssl pkey -in "$generation/$role.pem" -noout 2>/dev/null
 done
-
-# current 교체는 원자적이어야 한다. 직후 실경로까지 대조해 교체 실패를 숨기지 않는다.
-ln -sfn "$generation" "${SECRETS_DIR}/.current-next"
-mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
-if [ "$(readlink -f "${SECRETS_DIR}/current")" != "$generation" ]; then
-  echo '개인키 활성 generation 검증에 실패했습니다.' >&2
-  exit 1
-fi
-printf 'changed=true\nprevious=%s\n' "$previous"
-''',
-              returnStdout: true,
-            ).trim()
-
-            def keyFields = [:]
-            keyState.split(/\r?\n/).each { line ->
-              def idx = line.indexOf('=')
-              if (idx > 0) keyFields[line.substring(0, idx)] = line.substring(idx + 1)
-            }
-            env.PRIVATE_KEYS_CHANGED = keyFields.get('changed', 'false')
-            env.PREV_PRIVATE_KEY_GENERATION = keyFields.get('previous', '')
-            echo env.PRIVATE_KEYS_CHANGED == 'true' ? 'GitHub App 개인키 generation을 교체했습니다.' : 'GitHub App 개인키가 같아 generation 교체를 생략합니다.'
+printf '%s' "$generation"
+''', returnStdout: true).trim()
           }
         }
       }
     }
-
-    stage('실행 중 이미지 기준 no-op 및 이전 태그 캡처') {
-      steps {
-        withCredentials([
-          file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
-          usernamePassword(credentialsId: 'oss-hub-r2-s3-credentials', usernameVariable: 'R2_STORAGE_ACCESS_KEY_ID', passwordVariable: 'R2_STORAGE_SECRET_ACCESS_KEY'),
-        ]) {
-          script {
-            // no-op 권위는 실행 중 컨테이너만. 존재/부분 배포 판정은 --all.
-            def probe = sh(
-              script: '''#!/usr/bin/env bash
-set -euo pipefail
-
-storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
-unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
-[ "$storage_mode" = 'managed' ] || { echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1; }
-: "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
-: "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
-export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
-export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
-
-
-compose=(docker compose --env-file "$OSS_HUB_ENV_FILE")
-
-be_running="$("${compose[@]}" ps -q backend)"
-be_all="$("${compose[@]}" ps --all -q backend)"
-
-# greenfield: backend 컨테이너가 존재하지 않음.
-# 컨테이너 부재만으로 확정하지 않는다. 호스트 SQL/객체 백업이나 compose
-# named volume 이 남아 있으면 fail-closed. 재프로비저닝만
-# GREENFIELD_DEPLOY_ACK=1 로 우회한다.
-if [ -z "$be_all" ]; then
-  bash scripts/jenkins/assert-greenfield-host-clean.sh
-  printf 'state=greenfield\n'
-  exit 0
-fi
-
-read_meta() {
-  local container="$1"
-  local image version revision image_id
-  image="$(docker inspect --format '{{.Config.Image}}' "$container")"
-  version="$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$container")"
-  revision="$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$container")"
-  # 컨테이너가 가리키는 불변 이미지 ID. 태그 이동과 무관한 rollback 바이트 신원.
-  image_id="$(docker inspect --format '{{.Image}}' "$container")"
-  printf '%s\t%s\t%s\t%s\n' "$image" "$version" "$revision" "$image_id"
-}
-
-# stopped-only: 존재하지만 비실행. no-op·deploy 모두 금지 (fail-closed).
-if [ -z "$be_running" ]; then
-  echo 'FAIL_CLOSED stopped_container: 중지된 backend는 no-op/배포 기준이 될 수 없습니다.' >&2
-  exit 2
-fi
-
-# 실행 중 backend와 candidate의 non-secret storage tuple은 모든 no-op·재생성 판정보다 먼저 같아야 한다.
-read_storage_value() {
-  awk -F= -v key="$1" '$1 == key { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE"
-}
-candidate_storage_hash="$(
-  printf '%s\\0%s\\0%s\\0%s\\0%s' \
-    "$storage_mode" \
-    "$(read_storage_value SUBMISSION_FILE_S3_ENDPOINT)" \
-    "$(read_storage_value SUBMISSION_FILE_S3_REGION)" \
-    "$(read_storage_value SUBMISSION_FILE_S3_BUCKET)" \
-    "$(read_storage_value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)" |
-    sha256sum | awk '{print $1}'
-)"
-docker exec "$be_running" \
-  node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const values = keys.map((key) => process.env[key] ?? ""); const digest = createHash("sha256").update(values.join("\\0")).digest("hex"); process.exit(digest === process.argv[1] ? 0 : 1)' \
-  "$candidate_storage_hash" ||
-  { echo 'FAIL_CLOSED running_storage_tuple: candidate storage tuple differs from the active backend.' >&2; exit 2; }
-
-# 여기까지 오면 backend가 실행 중 — no-op 권위는 완전 증명된 metadata에만 부여.
-be_meta="$(read_meta "$be_running")"
-be_image="$(printf '%s' "$be_meta" | cut -f1)"
-be_version="$(printf '%s' "$be_meta" | cut -f2)"
-be_revision="$(printf '%s' "$be_meta" | cut -f3)"
-be_image_id="$(printf '%s' "$be_meta" | cut -f4)"
-
-if [[ "$be_image" != oss-hub-backend:* ]]; then
-  echo 'FAIL_CLOSED running_metadata: 실행 중 이미지 참조가 oss-hub-backend 형식이 아닙니다.' >&2
-  exit 2
-fi
-
-be_tag="${be_image#oss-hub-backend:}"
-
-if [ -z "$be_image_id" ]; then
-  echo 'FAIL_CLOSED running_metadata: 실행 중 컨테이너 immutable Image ID를 읽지 못했습니다.' >&2
-  exit 2
-fi
-
-# 완전 증명된 running metadata만 진행. 누락·불일치·비SemVer는 deploy 권한 없음.
-if [ -z "$be_version" ] || [ -z "$be_revision" ]; then
-  echo 'FAIL_CLOSED running_metadata: OCI label 누락 — no-op/배포 기준을 확정할 수 없습니다.' >&2
-  exit 2
-fi
-
-if [ "$be_version" != "$be_tag" ]; then
-  echo 'FAIL_CLOSED running_metadata: image tag와 org.opencontainers.image.version 불일치.' >&2
-  exit 2
-fi
-if [[ ! "$be_revision" =~ ^[0-9a-f]{40}$ ]]; then
-  echo 'FAIL_CLOSED running_metadata: org.opencontainers.image.revision이 40-hex SHA가 아닙니다.' >&2
-  exit 2
-fi
-if [[ ! "$be_tag" =~ ^v(0|[1-9][0-9]*)[.](0|[1-9][0-9]*)[.](0|[1-9][0-9]*)$ ]]; then
-  echo 'FAIL_CLOSED running_metadata: 실행 중 태그가 full SemVer가 아닙니다.' >&2
-  exit 2
-fi
-
-printf 'state=running\n'
-printf 'prev_tag=%s\n' "$be_tag"
-printf 'prev_sha=%s\n' "$be_revision"
-printf 'prev_be_image_id=%s\n' "$be_image_id"
-''',
-              returnStdout: true,
-            ).trim()
-
-            def fields = [:]
-            probe.split(/\r?\n/).each { line ->
-              def idx = line.indexOf('=')
-              if (idx > 0) {
-                fields[line.substring(0, idx)] = line.substring(idx + 1)
-              }
-            }
-            def state = fields.get('state', '')
-
-            if (state == 'greenfield') {
-              env.PREV_TAG = ''
-              env.PREV_SHA = ''
-              env.PREV_BE_IMAGE_ID = ''
-              env.DEPLOY_NOOP = 'false'
-              echo 'greenfield: 실행/존재 컨테이너 없음. 최초 배포를 계속합니다.'
-              return
-            }
-
-            if (state != 'running') {
-              error("FAIL_CLOSED unexpected_probe_state: ${state}")
-            }
-
-            def prevTag = fields.get('prev_tag', '')
-            def prevSha = fields.get('prev_sha', '')
-            def prevBeImageId = fields.get('prev_be_image_id', '')
-            if (!prevTag?.trim() || !prevSha?.trim() || !prevBeImageId?.trim()) {
-              error('FAIL_CLOSED running_metadata: running probe가 tag/SHA/Image ID를 모두 반환하지 않았습니다.')
-            }
-            env.PREV_TAG = prevTag
-            env.PREV_SHA = prevSha
-            env.PREV_BE_IMAGE_ID = prevBeImageId
-
-            // same-tag/different-SHA → fail-closed (재태깅·이동 태그 방어)
-            if (prevTag == env.RELEASE_TAG && prevSha != env.RELEASE_SHA) {
-              error("FAIL_CLOSED same_tag_different_sha: tag ${prevTag} 실행 중 SHA(${prevSha}) ≠ release SHA(${env.RELEASE_SHA})")
-            }
-
-            // 동일 실행 중 tag+SHA → 성공 no-op
-            if (prevTag == env.RELEASE_TAG && prevSha == env.RELEASE_SHA) {
-              env.DEPLOY_NOOP = 'true'
-              currentBuild.description = "${env.RELEASE_TAG} no-op (running ${prevTag}@${prevSha.take(12)})"
-              echo "${env.RELEASE_TAG}(${env.RELEASE_SHA})는 실행 중 tag+SHA와 같아 성공 no-op 처리합니다."
-              return
-            }
-
-            // 하위 SemVer 타깃: 실행 중 metadata가 일치할 때만 성공 no-op (downgrade guard).
-            // SemVer 구성요소는 선행 0이 없는 십진 문자열이므로 길이 후 사전순으로 비교한다.
-            // Jenkins sandbox 승인이 필요한 숫자 생성자를 사용하지 않는다.
-            def parseFullSemVer = { String raw ->
-              if (!(raw ==~ /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/)) {
-                error("FAIL_CLOSED semver: full SemVer가 아닙니다: ${raw}")
-              }
-              return raw.substring(1).split(/\./)
-            }
-            def compareDecimal = { String left, String right ->
-              def lengthCmp = left.length() <=> right.length()
-              return lengthCmp != 0 ? lengthCmp : (left <=> right)
-            }
-            def targetParts = parseFullSemVer(env.RELEASE_TAG)
-            def runningParts = parseFullSemVer(prevTag)
-            def cmp = compareDecimal(targetParts[0], runningParts[0])
-            if (cmp == 0) { cmp = compareDecimal(targetParts[1], runningParts[1]) }
-            if (cmp == 0) { cmp = compareDecimal(targetParts[2], runningParts[2]) }
-
-            if (cmp < 0 && env.PRIVATE_KEYS_CHANGED == 'true') {
-              if (!env.PREV_PRIVATE_KEY_GENERATION?.trim()) {
-                error('FAIL_CLOSED key_rotation_downgrade: 이전 개인키 generation이 없어 활성 포인터를 복구할 수 없습니다.')
-              }
-              sh '''#!/usr/bin/env bash
-set -euo pipefail
-ln -sfn "$PREV_PRIVATE_KEY_GENERATION" "${SECRETS_DIR}/.current-next"
-mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
-'''
-              error('FAIL_CLOSED key_rotation_downgrade: 하위 Release checkout으로 실행 중 상위 Release의 backend를 재생성할 수 없습니다.')
-            }
-
-            if (cmp < 0) {
-              env.DEPLOY_NOOP = 'true'
-              currentBuild.description = "${env.RELEASE_TAG} no-op downgrade (running ${prevTag})"
-              echo "downgrade_noop: 대상 ${env.RELEASE_TAG} < 실행 중 ${prevTag} 이고 실행 metadata 일치 → 성공 no-op."
-              return
-            }
-
-            env.DEPLOY_NOOP = 'false'
-            echo "deploy_required: PREV_TAG=${env.PREV_TAG} PREV_SHA=${env.PREV_SHA} → target ${env.RELEASE_TAG}@${env.RELEASE_SHA}"
-          }
-        }
-      }
-    }
-
-    stage('Buildx 캐시 상한 사전 검증') {
-      when {
-        expression { env.DEPLOY_NOOP != 'true' }
-      }
-      steps {
-        sh '''
-          if ! docker buildx prune --help 2>&1 | grep -F -- '--max-used-space' >/dev/null; then
-            echo 'FAIL_CLOSED buildx_preflight: docker buildx prune가 --max-used-space를 지원하지 않습니다. Buildx를 업그레이드하십시오.' >&2
-            exit 1
-          fi
-        '''
-      }
-    }
-
-    stage('Buildx 캐시 상한 사전 정리') {
-      when {
-        expression { env.DEPLOY_NOOP != 'true' }
-      }
+    stage('Buildx 캐시 상한') {
+      when { expression { env.DEPLOY_NOOP == 'false' } }
       steps {
         sh '''#!/usr/bin/env bash
 set -euo pipefail
+docker buildx prune --help | grep -F -- '--max-used-space' >/dev/null
 docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
 '''
       }
     }
-
-    stage('롤백 이미지 사전 검증') {
-      when {
-        expression { env.DEPLOY_NOOP != 'true' }
-      }
-      steps {
-        script {
-          if (!env.PREV_TAG?.trim()) {
-            echo 'rollback_preflight: greenfield — 이전 이미지 없음. 계속합니다.'
-            return
-          }
-          withEnv([
-            "PREV_TAG=${env.PREV_TAG}",
-            "PREV_SHA=${env.PREV_SHA ?: ''}",
-            "PREV_BE_IMAGE_ID=${env.PREV_BE_IMAGE_ID ?: ''}",
-          ]) {
-            sh 'bash scripts/jenkins/validate-rollback-images.sh'
-          }
-        }
-      }
-    }
-
-    stage('호스트 nginx 드리프트 사전 검증') {
-      steps {
-        // 호스트 nginx 는 시스템 서비스라 이 파이프라인이 파일을 반영하지 않는다(#562).
-        // 반영은 배포 런북 절차로 사람이 수행하므로, 저장소 원본과 실행 중 설정이 갈라진 채로
-        // 배포가 흘러가지 않게 여기서 fail-closed 로 세운다. 새 권한은 필요하지 않다 —
-        // 활성 설정이 0644 라 배포 계정이 읽을 수 있다.
-        sh 'bash scripts/check-host-nginx-drift.sh'
-      }
-    }
-
-    stage('PostgreSQL 기동 및 배포 전 백업') {
-      when {
-        expression { env.DEPLOY_NOOP != 'true' }
-      }
+    stage('실행 중 PostgreSQL과 managed storage 백업') {
+      when { expression { env.DEPLOY_NOOP == 'false' } }
       steps {
         withCredentials([
           file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
           usernamePassword(credentialsId: 'oss-hub-r2-s3-credentials', usernameVariable: 'R2_STORAGE_ACCESS_KEY_ID', passwordVariable: 'R2_STORAGE_SECRET_ACCESS_KEY'),
         ]) {
           sh '''#!/usr/bin/env bash
-            set -euo pipefail
-            set +x
-            storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
-unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
-            [ "$storage_mode" = 'managed' ] || { echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1; }
-                : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
-                : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
-                export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
-                export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
-
-            docker compose --env-file "$OSS_HUB_ENV_FILE" up -d postgres --wait --wait-timeout 90
-            docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T postgres sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+set -euo pipefail
+set +x
+node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE"
+node "$CONTROLLER_DIR/scripts/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --storage "$OSS_HUB_ENV_FILE" >/dev/null
+export SUBMISSION_FILE_S3_ACCESS_KEY_ID="${R2_STORAGE_ACCESS_KEY_ID:?}"
+export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="${R2_STORAGE_SECRET_ACCESS_KEY:?}"
+docker exec "$PREV_POSTGRES_ID" sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
             umask 077
             backup_target="${BACKUP_DIR}/${RELEASE_TAG}-${BUILD_NUMBER}.sql"
             test ! -e "$backup_target"
             backup_tmp="$(mktemp "${backup_target}.XXXXXX")"
             trap 'rm -f "$backup_tmp"' EXIT
-            docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > "$backup_tmp"
+            docker exec "$PREV_POSTGRES_ID" sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > "$backup_tmp"
             test -s "$backup_tmp"
             mv "$backup_tmp" "$backup_target"
             trap - EXIT
@@ -504,30 +240,12 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
             receipt_tmp="$(mktemp "${object_backup_target}.receipt.XXXXXX")"
             trap 'rm -rf "$object_backup_tmp"; rm -f "$object_list" "$object_manifest_tmp" "$receipt_tmp"' EXIT
 
-            read_storage_value() {
-              awk -F= -v key="$1" '$1 == key { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE"
-            }
-            if [ -n "${PREV_TAG:-}" ]; then
-              candidate_storage_hash="$(
-                printf '%s\\0%s\\0%s\\0%s\\0%s' \
-                  "$storage_mode" \
-                  "$(read_storage_value SUBMISSION_FILE_S3_ENDPOINT)" \
-                  "$(read_storage_value SUBMISSION_FILE_S3_REGION)" \
-                  "$(read_storage_value SUBMISSION_FILE_S3_BUCKET)" \
-                  "$(read_storage_value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)" |
-                  sha256sum | awk '{print $1}'
-              )"
-              docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T backend \
-                node -e 'const { createHash } = require("node:crypto"); const keys = ["SUBMISSION_FILE_STORAGE_MODE", "SUBMISSION_FILE_S3_ENDPOINT", "SUBMISSION_FILE_S3_REGION", "SUBMISSION_FILE_S3_BUCKET", "SUBMISSION_FILE_S3_FORCE_PATH_STYLE"]; const values = keys.map((key) => process.env[key] ?? ""); const digest = createHash("sha256").update(values.join("\\0")).digest("hex"); process.exit(digest === process.argv[1] ? 0 : 1)' \
-                "$candidate_storage_hash" ||
-                { echo 'FAIL_CLOSED object_backup: active backend storage tuple disagrees with validated configuration.' >&2; exit 1; }
-            fi
             # Validation requires configured HTTPS endpoint, region, bucket, and path-style;
             # credentials are Jenkins-only environment variables, never read from the env file.
-            export SUBMISSION_FILE_S3_ENDPOINT="$(read_storage_value SUBMISSION_FILE_S3_ENDPOINT)"
-            export SUBMISSION_FILE_S3_REGION="$(read_storage_value SUBMISSION_FILE_S3_REGION)"
-            export SUBMISSION_FILE_S3_BUCKET="$(read_storage_value SUBMISSION_FILE_S3_BUCKET)"
-            export SUBMISSION_FILE_S3_FORCE_PATH_STYLE="$(read_storage_value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)"
+            export SUBMISSION_FILE_S3_ENDPOINT="$(node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_ENDPOINT)"
+            export SUBMISSION_FILE_S3_REGION="$(node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_REGION)"
+            export SUBMISSION_FILE_S3_BUCKET="$(node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_BUCKET)"
+            export SUBMISSION_FILE_S3_FORCE_PATH_STYLE="$(node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_FORCE_PATH_STYLE)"
             case "$SUBMISSION_FILE_S3_FORCE_PATH_STYLE" in
               true|false) ;;
               *) echo 'FAIL_CLOSED object_backup: invalid validated path-style setting.' >&2; exit 1 ;;
@@ -577,334 +295,54 @@ unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
             )
             rm -f "$object_list"
             object_list=
-            trap - EXIT
-          '''
+            trap - EXIT'''
         }
       }
     }
-
-    stage('버전 이미지 빌드') {
-      when {
-        expression { env.DEPLOY_NOOP != 'true' }
-      }
+    stage('exact release 이미지 빌드') {
+      when { expression { env.DEPLOY_NOOP == 'false' } }
       steps {
-        sh '''#!/usr/bin/env bash
+        dir("${env.RELEASE_SOURCE}") {
+          sh '''#!/usr/bin/env bash
 set -euo pipefail
-# release-tag 이름 + OCI label(RELEASE_TAG, RELEASE_SHA). backend 이미지는 1회만 빌드.
-docker build \
-  --file apps/backend/Dockerfile \
-  --tag "oss-hub-backend:${IMAGE_TAG}" \
-  --label "org.opencontainers.image.version=${RELEASE_TAG}" \
-  --label "org.opencontainers.image.revision=${RELEASE_SHA}" \
-  .
+docker build --file apps/backend/Dockerfile --tag "oss-hub-backend:${IMAGE_TAG}" --label "org.opencontainers.image.version=${RELEASE_TAG}" --label "org.opencontainers.image.revision=${RELEASE_SHA}" .
 '''
+        }
       }
     }
-
-    stage('Prisma 마이그레이션') {
-      when {
-        expression { env.DEPLOY_NOOP != 'true' }
-      }
+    stage('migration과 후보 nginx 사전 검증') {
+      when { expression { env.DEPLOY_NOOP == 'false' } }
       steps {
         withCredentials([
           file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
           usernamePassword(credentialsId: 'oss-hub-r2-s3-credentials', usernameVariable: 'R2_STORAGE_ACCESS_KEY_ID', passwordVariable: 'R2_STORAGE_SECRET_ACCESS_KEY'),
         ]) {
           sh '''#!/usr/bin/env bash
-            set -euo pipefail
-            set +x
-            storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
-unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
-            managed_s3_env=()
-            [ "$storage_mode" = 'managed' ] || { echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1; }
-                : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
-                : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
-                export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
-                export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
-                managed_s3_env=(--env SUBMISSION_FILE_S3_ACCESS_KEY_ID --env SUBMISSION_FILE_S3_SECRET_ACCESS_KEY)
-
-            docker run --rm \
-              --network "${COMPOSE_PROJECT_NAME}_default" \
-              --env-file "$OSS_HUB_ENV_FILE" \
-              "${managed_s3_env[@]}" \
-              "oss-hub-backend:${IMAGE_TAG}" \
-              npx prisma migrate deploy
-          '''
+set -euo pipefail
+set +x
+export SUBMISSION_FILE_S3_ACCESS_KEY_ID="${R2_STORAGE_ACCESS_KEY_ID:?}"
+export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="${R2_STORAGE_SECRET_ACCESS_KEY:?}"
+export GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE="$STAGED_KEY_GENERATION/collection.pem"
+export GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE="$STAGED_KEY_GENERATION/operations.pem"
+compose=(docker compose -p oss-hub -f "$CANDIDATE_COMPOSE" --env-file "$OSS_HUB_ENV_FILE")
+"${compose[@]}" run --rm --no-deps backend npx prisma migrate deploy
+"${compose[@]}" pull --quiet postgres nginx
+"${compose[@]}" run --rm --no-deps nginx nginx -t
+'''
         }
       }
     }
-
-    stage('서비스 교체 및 스모크 확인') {
-      when {
-        expression { env.DEPLOY_NOOP != 'true' }
-      }
+    stage('활성화와 실패 복구') {
+      when { expression { env.DEPLOY_NOOP == 'false' } }
       steps {
         withCredentials([
           file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
           usernamePassword(credentialsId: 'oss-hub-r2-s3-credentials', usernameVariable: 'R2_STORAGE_ACCESS_KEY_ID', passwordVariable: 'R2_STORAGE_SECRET_ACCESS_KEY'),
         ]) {
-          script {
-            try {
-              sh '''#!/usr/bin/env bash
-                set -euo pipefail
-                set +x
-                storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
-unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
-                [ "$storage_mode" = 'managed' ] || { echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1; }
-                    : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
-                    : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
-                    export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
-                    export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
-
-                require_status() {
-                  expected=$1
-                  method=$2
-                  url=$3
-                  shift 3
-                  for status_attempt in 1 2 3 4 5; do
-                    actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
-                    [ "$actual" = "$expected" ] && return 0
-                    [ "$status_attempt" = 5 ] || sleep 1
-                  done
-                  printf '스모크 실패: method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
-                  return 1
-                }
-
-                # 레지스트리에서 받아오는 이미지는 미리 당겨둔다. 받는 시간이 아래 --wait 예산에
-                # 섞이지 않고, 레지스트리 장애도 교체 전에 드러난다.
-                # rollout 동안 PREV_TAG rollback 이미지는 삭제하지 않는다(성공 후 retention만 정리).
-                docker compose --env-file "$OSS_HUB_ENV_FILE" pull --quiet postgres nginx
-                docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 180
-                mounted_digest() {
-                  docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T backend \
-                    node -e "const fs=require('node:fs'),c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(fs.readFileSync(process.argv[1])).digest('hex'))" "$1"
-                }
-                for pem in collection operations; do
-                  host_digest="$(sha256sum "${SECRETS_DIR}/current/${pem}.pem" | cut -d' ' -f1)"
-                  container_digest="$(mounted_digest "/run/secrets/github_${pem}_app_private_key")"
-                  if [ "$host_digest" != "$container_digest" ]; then
-                    echo "FAIL_CLOSED ${pem} 개인키 mount가 활성 generation과 다릅니다." >&2
-                    exit 1
-                  fi
-                done
-                # bind mount 내용은 Compose 서비스 해시에 없어 up -d가 nginx를 재생성하지 않으므로 명시적 reload 없이는 낡은 설정이 계속 서빙된다.
-                docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t
-                docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload
-                require_status 404 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
-                require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-                # 미인증 401은 nginx를 통과해 backend SessionGuard에 도달했음을 검증한다.
-                require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-                require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-                require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-                require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-                require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-                # 실행 중 ingress 가 업로드 본문을 실제로 통과시키는지 확인한다.
-                # 저장소 설정 검사만으로는 실행 중 설정 드리프트를 증명하지 못한다(ADR-002).
-                bash scripts/check-upload-body-runtime.sh \
-                  http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused \
-                  -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-                UPLOAD_BODY_PROBE_BYTES=4718592 bash scripts/check-upload-body-runtime.sh \
-                  https://jnu-oss-hub.com/api/v1/submission-files \
-                  --retry 5 --retry-connrefused
-                require_status 200 GET https://jnu-oss-hub.com/ --retry 5 --retry-connrefused
-                require_status 200 GET https://jnu-oss-hub.com/api/v1/health --retry 5 --retry-connrefused
-                require_status 404 GET https://jnu-oss-hub.com/api/v1/submission-files --retry 5 --retry-connrefused
-                require_status 401 POST https://jnu-oss-hub.com/api/v1/submission-files --retry 5 --retry-connrefused
-                require_status 404 GET https://jnu-oss-hub.com/api/v1/Submission-Files --retry 5 --retry-connrefused
-                require_status 401 POST https://jnu-oss-hub.com/api/v1/Submission-Files --retry 5 --retry-connrefused
-                require_status 401 GET https://jnu-oss-hub.com/api/v1/submission-files/1 --retry 5 --retry-connrefused
-              '''
-            } catch (deploymentFailure) {
-              sh '''#!/usr/bin/env bash
-                set -euo pipefail
-                set +x
-                storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
-unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
-                [ "$storage_mode" = 'managed' ] || { echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1; }
-                : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
-                : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
-                export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
-                export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
-                docker compose --env-file "$OSS_HUB_ENV_FILE" ps || true
-                docker compose --env-file "$OSS_HUB_ENV_FILE" logs --no-color || true
-              '''
-
-              if (env.PRIVATE_KEYS_CHANGED == 'true' && env.PREV_PRIVATE_KEY_GENERATION?.trim()) {
-                sh '''#!/usr/bin/env bash
-set -euo pipefail
-ln -sfn "$PREV_PRIVATE_KEY_GENERATION" "${SECRETS_DIR}/.current-next"
-mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
-'''
-              }
-
-              if (env.PREV_TAG?.trim()) {
-                echo "서비스 교체 또는 스모크 실패: ${env.PREV_TAG} 이미지로 한 번 복구합니다."
-                withEnv(["IMAGE_TAG=${env.PREV_TAG}"]) {
-                  sh '''#!/usr/bin/env bash
-                    set -euo pipefail
-                    set +x
-                    storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
-unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
-                    [ "$storage_mode" = 'managed' ] || { echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1; }
-                        : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
-                        : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
-                        export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
-                        export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
-
-                    require_status() {
-                      expected=$1
-                      method=$2
-                      url=$3
-                      shift 3
-                      for status_attempt in 1 2 3 4 5; do
-                        actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
-                        [ "$actual" = "$expected" ] && return 0
-                        [ "$status_attempt" = 5 ] || sleep 1
-                      done
-                      printf '스모크 실패: method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
-                      return 1
-                    }
-
-                    docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build --wait --wait-timeout 180
-                    # rollback은 이전 앱 이미지만 복구하고 nginx 설정은 현재 워크스페이스를 유지하므로 아래 스모크로 backend 인증 경로를 다시 검증한다.
-                    docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -t
-                    docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T nginx nginx -s reload
-                    require_status 404 GET http://127.0.0.1:8081/
-                    require_status 200 GET http://127.0.0.1:8081/api/v1/health -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-                    require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-                    require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-                    require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-                    require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-                    require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-                    require_status 200 GET https://jnu-oss-hub.com/
-                    require_status 200 GET https://jnu-oss-hub.com/api/v1/health
-                    require_status 404 GET https://jnu-oss-hub.com/api/v1/submission-files
-                    require_status 401 POST https://jnu-oss-hub.com/api/v1/submission-files
-                    require_status 404 GET https://jnu-oss-hub.com/api/v1/Submission-Files
-                    require_status 401 POST https://jnu-oss-hub.com/api/v1/Submission-Files
-                    require_status 401 GET https://jnu-oss-hub.com/api/v1/submission-files/1
-                  '''
-                }
-              } else {
-                echo '첫 배포 실패라 이전 이미지가 없습니다. 로그와 백업을 보존하고 수동 복구로 전환합니다.'
-              }
-
-              throw deploymentFailure
-            }
-          }
+          sh 'bash "$CONTROLLER_DIR/scripts/jenkins/activate-release.sh"'
         }
       }
     }
-
-    stage('no-op 개인키 변경 반영') {
-      when {
-        expression { env.DEPLOY_NOOP == 'true' && env.PRIVATE_KEYS_CHANGED == 'true' }
-      }
-      steps {
-        withCredentials([
-          file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
-          usernamePassword(credentialsId: 'oss-hub-r2-s3-credentials', usernameVariable: 'R2_STORAGE_ACCESS_KEY_ID', passwordVariable: 'R2_STORAGE_SECRET_ACCESS_KEY'),
-        ]) {
-          script {
-            try {
-              sh '''#!/usr/bin/env bash
-set -euo pipefail
-set +x
-
-storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
-unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
-[ "$storage_mode" = 'managed' ] || { echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1; }
-    : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
-    : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
-    export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
-    export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
-
-
-docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build \
-  --force-recreate --no-deps --wait --wait-timeout 180 backend
-
-mounted_digest() {
-  docker compose --env-file "$OSS_HUB_ENV_FILE" exec -T backend \
-    node -e "const fs=require('node:fs'),c=require('node:crypto');process.stdout.write(c.createHash('sha256').update(fs.readFileSync(process.argv[1])).digest('hex'))" "$1"
-}
-for pem in collection operations; do
-  host_digest="$(sha256sum "${SECRETS_DIR}/current/${pem}.pem" | cut -d' ' -f1)"
-  container_digest="$(mounted_digest "/run/secrets/github_${pem}_app_private_key")"
-  if [ "$host_digest" != "$container_digest" ]; then
-    echo "FAIL_CLOSED ${pem} 개인키 mount가 활성 generation과 다릅니다." >&2
-    exit 1
-  fi
-done
-curl --fail --silent --show-error --retry 5 --retry-connrefused \
-  -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1' \
-  http://127.0.0.1:8081/api/v1/health >/dev/null
-'''
-            } catch (keyReloadFailure) {
-              if (env.PREV_PRIVATE_KEY_GENERATION?.trim()) {
-                sh '''#!/usr/bin/env bash
-set -euo pipefail
-set +x
-
-storage_mode="$(awk -F= '$1=="SUBMISSION_FILE_STORAGE_MODE" { if (++count == 1) value=$2 } END { if (count == 0 || count > 1 || value == "") exit 1; print value }' "$OSS_HUB_ENV_FILE")"
-unset SUBMISSION_FILE_S3_ACCESS_KEY_ID SUBMISSION_FILE_S3_SECRET_ACCESS_KEY
-[ "$storage_mode" = 'managed' ] || { echo 'FAIL_CLOSED storage_mode: invalid validated storage mode.' >&2; exit 1; }
-    : "${R2_STORAGE_ACCESS_KEY_ID:?missing Jenkins R2 access key}"
-    : "${R2_STORAGE_SECRET_ACCESS_KEY:?missing Jenkins R2 secret key}"
-    export SUBMISSION_FILE_S3_ACCESS_KEY_ID="$R2_STORAGE_ACCESS_KEY_ID"
-    export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$R2_STORAGE_SECRET_ACCESS_KEY"
-
-ln -sfn "$PREV_PRIVATE_KEY_GENERATION" "${SECRETS_DIR}/.current-next"
-mv -T "${SECRETS_DIR}/.current-next" "${SECRETS_DIR}/current"
-docker compose --env-file "$OSS_HUB_ENV_FILE" up -d --no-build \
-  --force-recreate --no-deps --wait --wait-timeout 180 backend
-'''
-              }
-              throw keyReloadFailure
-            }
-          }
-        }
-      }
-    }
-
-    stage('no-op 실행 중 nginx 드리프트 검증') {
-      when {
-        expression { env.DEPLOY_NOOP == 'true' }
-      }
-      steps {
-        sh '''
-          require_status() {
-            expected=$1
-            method=$2
-            url=$3
-            shift 3
-            for status_attempt in 1 2 3 4 5; do
-              actual="$(curl -o /dev/null -w '%{http_code}' --silent --show-error --request "$method" "$@" "$url")"
-              [ "$actual" = "$expected" ] && return 0
-              [ "$status_attempt" = 5 ] || sleep 1
-            done
-            printf 'FAIL_CLOSED nginx_drift: 실행 중 nginx 설정이 저장소 계약과 다릅니다. method=%s url=%s expected=%s actual=%s\n' "$method" "$url" "$expected" "$actual" >&2
-            return 1
-          }
-
-          # no-op은 checkout한 릴리스가 실행 중 버전보다 낮을 수 있으므로 reload 없이 읽기 전용 스모크로 드리프트만 검출한다.
-          require_status 404 GET http://127.0.0.1:8081/ --retry 5 --retry-connrefused
-          require_status 200 GET http://127.0.0.1:8081/api/v1/health --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-          require_status 404 GET http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-          require_status 401 POST http://127.0.0.1:8081/api/v1/submission-files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-          require_status 404 GET http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-          require_status 401 POST http://127.0.0.1:8081/api/v1/Submission-Files --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-          require_status 401 GET http://127.0.0.1:8081/api/v1/submission-files/1 --retry 5 --retry-connrefused -H 'Host: jnu-oss-hub.com' -H 'X-Vercel-Forwarded-For: 192.0.2.1'
-          require_status 200 GET https://jnu-oss-hub.com/ --retry 5 --retry-connrefused
-          require_status 200 GET https://jnu-oss-hub.com/api/v1/health --retry 5 --retry-connrefused
-          require_status 404 GET https://jnu-oss-hub.com/api/v1/submission-files --retry 5 --retry-connrefused
-          require_status 401 POST https://jnu-oss-hub.com/api/v1/submission-files --retry 5 --retry-connrefused
-          require_status 404 GET https://jnu-oss-hub.com/api/v1/Submission-Files --retry 5 --retry-connrefused
-          require_status 401 POST https://jnu-oss-hub.com/api/v1/Submission-Files --retry 5 --retry-connrefused
-          require_status 401 GET https://jnu-oss-hub.com/api/v1/submission-files/1 --retry 5 --retry-connrefused
-        '''
-      }
-    }
-
     stage('성공 후 이미지·백업 보존 정리') {
       when {
         expression { env.DEPLOY_NOOP != 'true' }
@@ -961,8 +399,8 @@ done < "$images_inventory"
 docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
 
 # backup retention N=30 (C4). Jenkins와 격리 fixture가 같은 fail-closed 구현을 호출한다.
-bash scripts/prune-deploy-backups.sh "$BACKUP_DIR" "$BACKUP_RETENTION_N"
-bash scripts/prune-deploy-backups.sh "$BACKUP_DIR/objects" "$BACKUP_RETENTION_N" --objects
+bash "$CONTROLLER_DIR/scripts/prune-deploy-backups.sh" "$BACKUP_DIR" "$BACKUP_RETENTION_N"
+bash "$CONTROLLER_DIR/scripts/prune-deploy-backups.sh" "$BACKUP_DIR/objects" "$BACKUP_RETENTION_N" --objects
 
 echo "retention: kept image tags=${retention_keep_tags[*]}; backup keep newest n=${BACKUP_RETENTION_N}; build cache cap=${BUILD_CACHE_MAX_SPACE}"
 '''
