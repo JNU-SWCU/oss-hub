@@ -4,7 +4,10 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import { createBoardPost, listBoardPosts } from '../api';
-import { subscribeBoardListInvalidation } from '../board-list-refetch';
+import {
+  invalidateBoardList,
+  subscribeBoardListInvalidation,
+} from '../board-list-refetch';
 import {
   hasBoardPostInputError,
   mapBoardError,
@@ -91,6 +94,7 @@ export function BoardListScreen({
     setNewPostSubmitError(null);
     createBoardPost(programId, { title: newPostTitle, body: newPostBody })
       .then((post) => {
+        invalidateBoardList(programId);
         router.push(boardPostHref(programId, post.id));
       })
       .catch((error: unknown) => {

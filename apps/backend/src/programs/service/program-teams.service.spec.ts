@@ -2,17 +2,13 @@ import { ProgramCategory } from '@prisma/client';
 import type { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { AccountStatus } from '@prisma/client';
 import {
-  TEAM_CREATED_AUDIT_ACTIONS,
   TEAM_DELETED_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_RENAMED_AUDIT_ACTIONS,
 } from '../../audit-log/domain/audit-log-metadata';
 import { DomainException } from '../../common/error-code';
-import { computeJoinCodeDigest } from '../domain/join-code-digest';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import {
-  type ProgramTeamsCreateStore,
   type ProgramTeamsRepository,
   type RecordTeamMembershipAudit,
   type TeamDetailRecord,
@@ -32,10 +28,8 @@ import {
 } from './program-teams.service.test-support';
 import { TeamsErrorCode } from '../domain/teams-error-code.enum';
 
-const NOW = new Date('2026-07-15T00:00:00.000Z');
 const GITHUB_ID = 4_242n;
 const PROGRAM_ID = 'synthetic-program';
-const JOIN_CODE_SECRET = 'synthetic-program-teams-secret';
 const STUDENT: TeamStudentActor = {
   id: 'synthetic-student',
   name: '합성 학생',
@@ -95,33 +89,19 @@ function buildService(overrides: {
   readonly student?: TeamStudentActor | null;
   readonly program?: TeamProgramRecord | null;
   readonly detail?: TeamDetailRecord | null;
-  readonly createStore?: Partial<ProgramTeamsCreateStore>;
   readonly actorAuthority?: TeamActorAuthority | null;
   readonly renameResult?: TeamRenameResult;
   readonly deletionResult?: TeamDeletionResult;
 }) {
-  const createTeamWithLeader = jest.fn().mockResolvedValue({
-    id: 'synthetic-team',
-    name: '오픈소스팀',
-  });
-  const findMembership = jest.fn().mockResolvedValue(null);
   const findProgramById = jest
     .fn()
     .mockResolvedValue(
       overrides.program === undefined ? TEAM_PROGRAM : overrides.program,
     );
 
-  const auditLogWriter = {} as ProgramTeamsCreateStore['auditLogWriter'];
   const record = jest
     .fn<Promise<unknown>, Parameters<AuditLogService['record']>>()
     .mockResolvedValue(undefined);
-  const createStore: ProgramTeamsCreateStore = {
-    auditLogWriter,
-    findMembershipByProgramUser: findMembership,
-    createTeamWithLeader,
-    ...overrides.createStore,
-  };
-
   const repository = {
     findActiveStudentByGithubId: jest
       .fn()
@@ -134,10 +114,6 @@ function buildService(overrides: {
       .mockResolvedValue(
         overrides.detail === undefined ? DETAIL : overrides.detail,
       ),
-    withCreateTransaction: jest.fn(
-      async (operation: (s: ProgramTeamsCreateStore) => Promise<unknown>) =>
-        operation(createStore),
-    ),
     leave: jest.fn().mockResolvedValue('removed'),
     removeMember: jest.fn().mockResolvedValue('removed'),
     findActorAuthorityByGithubId: jest
@@ -165,9 +141,6 @@ function buildService(overrides: {
   return {
     service: new ProgramTeamsService(
       repository,
-      loadRuntimeConfig({
-        TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET,
-      }),
       { record } as unknown as AuditLogService,
       deletionRepository,
       buildAuthority(),
@@ -175,11 +148,8 @@ function buildService(overrides: {
     repository,
     deletionRepository,
     deleteTeam,
-    createTeamWithLeader,
-    findMembership,
     findProgramById,
     record,
-    auditLogWriter,
     leave: jest.spyOn(repository, 'leave'),
     removeMember: jest.spyOn(repository, 'removeMember'),
     renameTeam: jest.spyOn(repository, 'renameTeam'),
@@ -235,102 +205,6 @@ function present<T>(value: T | null, what: string): T {
 }
 
 describe('ProgramTeamsService', () => {
-  it('팀을 생성하고 평문 joinCode 를 한 번 반환하며 digest 만 저장한다', async () => {
-    const { service, createTeamWithLeader } = buildService({});
-
-    const result = await service.create(
-      GITHUB_ID,
-      PROGRAM_ID,
-      '오픈소스팀',
-      NOW,
-    );
-
-    expect(result.id).toBe('synthetic-team');
-    expect(result.name).toBe('오픈소스팀');
-    expect(result.memberCount).toBe(1);
-    expect(result.joinCode.length).toBeGreaterThanOrEqual(8);
-    expect(createTeamWithLeader).toHaveBeenCalledWith(
-      expect.objectContaining({
-        programId: PROGRAM_ID,
-        name: '오픈소스팀',
-        leaderId: STUDENT.id,
-        joinCodeDigest: computeJoinCodeDigest(
-          result.joinCode,
-          JOIN_CODE_SECRET,
-        ),
-      }),
-    );
-  });
-
-  it('records TEAM_CREATED once inside the create transaction without joinCode', async () => {
-    const { service, record, auditLogWriter } = buildService({});
-
-    await service.create(GITHUB_ID, PROGRAM_ID, '오픈소스팀', NOW);
-
-    expect(record).toHaveBeenCalledTimes(1);
-    expect(record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actorGithubId: GITHUB_ID,
-        action: TEAM_CREATED_AUDIT_ACTIONS.TEAM_CREATED,
-        targetType: 'TEAM',
-        targetId: 'synthetic-team',
-        metadata: {
-          schemaVersion: 1,
-          programName: TEAM_PROGRAM.name,
-          teamName: '오픈소스팀',
-        },
-      }),
-      auditLogWriter,
-    );
-    const createdCall = record.mock.calls[0];
-    if (createdCall === undefined) {
-      throw new Error('expected TEAM_CREATED record');
-    }
-    expect(JSON.stringify(createdCall[0].metadata)).not.toMatch(
-      /joinCode|joinCodeDigest/,
-    );
-  });
-
-  it('BASIC 1..1 프로그램에서도 1인 팀을 생성한다', async () => {
-    const { service, createTeamWithLeader } = buildService({
-      program: {
-        ...TEAM_PROGRAM,
-        category: ProgramCategory.OSS_CONTEST,
-        teamMinSize: 1,
-        teamMaxSize: 1,
-      },
-    });
-
-    const result = await service.create(GITHUB_ID, PROGRAM_ID, '1인팀', NOW);
-
-    expect(result.id).toBe('synthetic-team');
-    expect(createTeamWithLeader).toHaveBeenCalledWith(
-      expect.objectContaining({
-        programId: PROGRAM_ID,
-        name: '1인팀',
-        leaderId: STUDENT.id,
-      }),
-    );
-  });
-
-  it('이미 팀에 있으면 생성 409', async () => {
-    const { service } = buildService({
-      createStore: {
-        findMembershipByProgramUser: jest.fn().mockResolvedValue({
-          teamId: 'other-team',
-          userId: STUDENT.id,
-        }),
-      },
-    });
-
-    try {
-      await service.create(GITHUB_ID, PROGRAM_ID, '팀', NOW);
-      throw new Error('expected throw');
-    } catch (error) {
-      expectCode(error, TeamsErrorCode.ALREADY_IN_PROGRAM_TEAM);
-    }
-  });
-
   it('참여코드 합류 표면을 노출하지 않는다', () => {
     const { service } = buildService({});
     const surface = service as unknown as Record<string, unknown>;
@@ -468,26 +342,10 @@ describe('ProgramTeamsService', () => {
     const { service } = buildService({ student: null });
 
     try {
-      await service.create(GITHUB_ID, PROGRAM_ID, '팀', NOW);
+      await service.getMe(GITHUB_ID, PROGRAM_ID);
       throw new Error('expected throw');
     } catch (error) {
       expectCode(error, TeamsErrorCode.STUDENT_ONLY);
-    }
-  });
-
-  it('신청 기간 밖 create 는 422', async () => {
-    const { service } = buildService({});
-
-    try {
-      await service.create(
-        GITHUB_ID,
-        PROGRAM_ID,
-        '팀',
-        new Date('2026-08-01T00:00:00.000Z'),
-      );
-      throw new Error('expected throw');
-    } catch (error) {
-      expectCode(error, TeamsErrorCode.APPLICATION_PERIOD_CLOSED);
     }
   });
 
@@ -707,7 +565,6 @@ describe('ProgramTeamsService membership transaction boundary', () => {
     return {
       service: new ProgramTeamsService(
         repository,
-        loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
         { record } as unknown as AuditLogService,
         stubTeamDeletionRepository(),
         buildAuthority(),

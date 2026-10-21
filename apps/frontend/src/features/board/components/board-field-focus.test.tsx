@@ -176,6 +176,54 @@ describe('게시판 폼의 첫 오류 칸으로 초점 이동', () => {
     expect(container.textContent).toContain('내용을 입력해 주세요.');
   });
 
+  it.each(['success', 'failure'] as const)(
+    '작성 결과 %s에 따라 성공한 경우만 목록을 갱신한다',
+    async (outcome) => {
+      let resolveCreation: (value: BoardPostDetail) => void = () => {
+        throw new Error('missing creation');
+      };
+      let rejectCreation: (error: Error) => void = () => {
+        throw new Error('missing creation');
+      };
+      mocks.createBoardPost.mockReturnValue(
+        new Promise<BoardPostDetail>((resolve, reject) => {
+          resolveCreation = resolve;
+          rejectCreation = reject;
+        }),
+      );
+      await renderList();
+      await fill(
+        control<HTMLInputElement>('#board-new-post-title'),
+        post.title,
+      );
+      await fill(
+        control<HTMLTextAreaElement>('#board-new-post-body'),
+        post.body,
+      );
+      await act(async () => buttonNamed('올리기').click());
+      expect(mocks.listBoardPosts).toHaveBeenCalledTimes(1);
+      expect(mocks.push).not.toHaveBeenCalled();
+      await act(async () => {
+        if (outcome === 'success') resolveCreation(post);
+        else rejectCreation(new Error('synthetic failed creation'));
+      });
+      expect(mocks.listBoardPosts).toHaveBeenCalledTimes(
+        outcome === 'success' ? 2 : 1,
+      );
+      if (outcome === 'success') {
+        expect(mocks.push).toHaveBeenCalledWith(
+          '/programs/program-1/board/post-1',
+        );
+      } else {
+        expect(mocks.push).not.toHaveBeenCalled();
+        expect(control<HTMLInputElement>('#board-new-post-title').value).toBe(
+          post.title,
+        );
+        expect(container.textContent).toContain('잠시 후 다시 시도해 주세요.');
+      }
+    },
+  );
+
   it('수정에서 내용을 지우고 「저장」을 누르면 내용 칸으로 커서가 옮겨간다', async () => {
     await renderDetail();
     await act(async () => buttonNamed('수정').click());

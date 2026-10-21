@@ -56,23 +56,6 @@ export interface TeamProgramRecord {
   readonly teamMaxSize: number;
 }
 
-interface TeamMembershipRecord {
-  readonly teamId: string;
-  readonly userId: string;
-}
-
-interface CreateTeamRecordInput {
-  readonly programId: string;
-  readonly name: string;
-  readonly joinCodeDigest: string;
-  readonly leaderId: string;
-}
-
-export interface CreatedTeamRecord {
-  readonly id: string;
-  readonly name: string;
-}
-
 export interface TeamDetailRecord {
   readonly id: string;
   readonly name: string;
@@ -109,14 +92,6 @@ export interface StaffTeamDetailRecord extends TeamRepositoryEvidenceView {
     readonly name: string | null;
   }[];
   readonly application: TeamApplicationView | null;
-}
-
-export class TeamMembershipConflictError extends Error {
-  override readonly name = 'TeamMembershipConflictError';
-}
-
-export class JoinCodeDigestConflictError extends Error {
-  override readonly name = 'JoinCodeDigestConflictError';
 }
 
 export type TeamLeaveResult =
@@ -175,17 +150,6 @@ export type RecordTeamMembershipAudit = (
   store: TeamMembershipAuditStore,
   event: TeamMembershipAuditEvent,
 ) => Promise<void>;
-
-export interface ProgramTeamsCreateStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
-  findMembershipByProgramUser(
-    programId: string,
-    userId: string,
-  ): Promise<TeamMembershipRecord | null>;
-  createTeamWithLeader(
-    input: CreateTeamRecordInput,
-  ): Promise<CreatedTeamRecord>;
-}
 
 @Injectable()
 export class ProgramTeamsRepository {
@@ -611,14 +575,6 @@ export class ProgramTeamsRepository {
     );
   }
 
-  withCreateTransaction<T>(
-    operation: (store: ProgramTeamsCreateStore) => Promise<T>,
-  ): Promise<T> {
-    return this.prisma.$transaction((tx) =>
-      operation(new PrismaProgramTeamsCreateStore(tx)),
-    );
-  }
-
   async leave(
     programId: string,
     userId: string,
@@ -976,93 +932,8 @@ function lockTeamRow(
   );
 }
 
-type TeamsTx = Pick<
-  Prisma.TransactionClient,
-  | 'team'
-  | 'teamMember'
-  | 'auditLog'
-  | 'applicationPreparationParticipant'
-  | '$queryRaw'
->;
-
 interface LockedTeamRow {
   readonly id: string;
-}
-
-class PrismaProgramTeamsCreateStore implements ProgramTeamsCreateStore {
-  constructor(private readonly tx: TeamsTx) {}
-
-  get auditLogWriter(): AuditLogTransactionWriter {
-    return this.tx;
-  }
-
-  async findMembershipByProgramUser(
-    programId: string,
-    userId: string,
-  ): Promise<TeamMembershipRecord | null> {
-    const row = await this.tx.teamMember.findUnique({
-      where: { programId_userId: { programId, userId } },
-      select: { teamId: true, userId: true },
-    });
-    return row;
-  }
-
-  async createTeamWithLeader(
-    input: CreateTeamRecordInput,
-  ): Promise<CreatedTeamRecord> {
-    await this.tx.$queryRaw(
-      Prisma.sql`SELECT "id" FROM "Program" WHERE "id" = ${input.programId} FOR UPDATE`,
-    );
-    await this.tx.$queryRaw(
-      Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${input.leaderId} FOR UPDATE`,
-    );
-    const preparation =
-      await this.tx.applicationPreparationParticipant.findFirst({
-        where: {
-          programId: input.programId,
-          userId: input.leaderId,
-          status: 'ACCEPTED',
-        },
-        select: { id: true },
-      });
-    if (preparation !== null) throw new TeamMembershipConflictError();
-    try {
-      const team = await this.tx.team.create({
-        data: {
-          programId: input.programId,
-          name: input.name,
-          joinCodeDigest: input.joinCodeDigest,
-          leaderId: input.leaderId,
-        },
-        select: { id: true, name: true },
-      });
-      await this.tx.teamMember.create({
-        data: {
-          teamId: team.id,
-          programId: input.programId,
-          userId: input.leaderId,
-        },
-      });
-      return team;
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        const target = error.meta?.target;
-        const fields = Array.isArray(target)
-          ? target.map(String)
-          : typeof target === 'string'
-            ? [target]
-            : [];
-        if (fields.some((field) => field.includes('joinCodeDigest'))) {
-          throw new JoinCodeDigestConflictError();
-        }
-        throw new TeamMembershipConflictError();
-      }
-      throw error;
-    }
-  }
 }
 
 interface TeamProvisionOutbox {

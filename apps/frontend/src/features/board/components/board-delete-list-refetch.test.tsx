@@ -191,6 +191,32 @@ describe('게시글 삭제 후 목록 복귀', () => {
     expect(container.textContent).toContain('아직 등록된 글이 없습니다');
   });
 
+  it('삭제를 취소하면 삭제 요청과 목록 재조회가 없다', async () => {
+    mocks.listBoardPosts.mockResolvedValue(pageWithPost);
+    mocks.getBoardPost.mockResolvedValue(post);
+    vi.mocked(window.confirm).mockReturnValue(false);
+    await act(async () =>
+      root.render(
+        <>
+          <BoardListScreen programId="program-1" isStaff={false} />
+          <BoardDetailScreen
+            programId="program-1"
+            postId="post-1"
+            isStaff={false}
+          />
+        </>,
+      ),
+    );
+    const button = [...container.querySelectorAll('button')].find(
+      (candidate) => candidate.textContent === '삭제',
+    );
+    if (!button) throw new Error('missing delete button');
+    await act(async () => button.click());
+    expect(mocks.deleteBoardPost).not.toHaveBeenCalled();
+    expect(mocks.listBoardPosts).toHaveBeenCalledTimes(1);
+    expect(mocks.push).not.toHaveBeenCalled();
+  });
+
   it('삭제 API가 실패하면 목록 상태와 현재 화면을 그대로 유지한다', async () => {
     const initialList = deferred<BoardPostsPage>();
     const detail = deferred<BoardPostDetail>();

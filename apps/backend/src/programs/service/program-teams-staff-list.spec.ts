@@ -1,7 +1,6 @@
 import { ProgramCategory } from '@prisma/client';
 import type { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { AccountStatus } from '@prisma/client';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { StaffProgramTeamResponseDto } from '../dto/team-response.dto';
 import {
@@ -14,7 +13,6 @@ import { stubTeamDeletionRepository } from './program-teams.service.test-support
 import { TeamsErrorCode } from '../domain/teams-error-code.enum';
 
 const PROGRAM_ID = 'synthetic-program';
-const JOIN_CODE_SECRET = 'synthetic-staff-list-secret';
 const STAFF_GITHUB_ID = 5201n;
 
 type AuthorityActor = {
@@ -84,7 +82,6 @@ function buildService(overrides: {
   } as unknown as ProgramTeamsRepository;
   const service = new ProgramTeamsService(
     repository,
-    loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
     { record: jest.fn() } as unknown as AuditLogService,
     stubTeamDeletionRepository(),
     new UsersAuthorityService({ findActorByGithubId }),
