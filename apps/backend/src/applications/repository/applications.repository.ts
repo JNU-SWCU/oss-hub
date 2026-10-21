@@ -90,7 +90,12 @@ type ApplicationDatabase = Pick<
   | '$queryRaw'
 >;
 
-type LockedProgramRow = Readonly<{ lifecycle: ProgramLifecycle }>;
+export interface LockedProgramPolicy {
+  readonly lifecycle: ProgramLifecycle;
+  readonly applicationStartAt: Date;
+  readonly applicationEndAt: Date;
+  readonly applicationTemplateVersion: number;
+}
 type LockedTeamRow = Readonly<{ id: string; leaderId: string }>;
 
 export interface ApplicationsTransactionStore {
@@ -188,7 +193,7 @@ export interface ApplicationCreateStore {
   appendReviewHistory(
     input: AppendReviewHistoryInput,
   ): Promise<AppendedReviewHistory>;
-  lockProgramForApply(programId: string): Promise<ProgramLifecycle | null>;
+  lockProgramForApply(programId: string): Promise<LockedProgramPolicy | null>;
   findTeamMinSize(programId: string): Promise<number | null>;
 
   findExistingTeamMembership(
@@ -449,11 +454,11 @@ class PrismaApplicationCreateStore implements ApplicationCreateStore {
 
   async lockProgramForApply(
     programId: string,
-  ): Promise<ProgramLifecycle | null> {
-    const rows = await this.database.$queryRaw<readonly LockedProgramRow[]>(
-      Prisma.sql`SELECT "lifecycle" FROM "Program" WHERE id = ${programId} FOR UPDATE`,
+  ): Promise<LockedProgramPolicy | null> {
+    const rows = await this.database.$queryRaw<readonly LockedProgramPolicy[]>(
+      Prisma.sql`SELECT "lifecycle", "applicationStartAt", "applicationEndAt", "applicationTemplateVersion" FROM "Program" WHERE id = ${programId} FOR UPDATE`,
     );
-    return rows[0]?.lifecycle ?? null;
+    return rows[0] ?? null;
   }
 
   async findTeamMinSize(programId: string): Promise<number | null> {
