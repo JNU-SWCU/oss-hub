@@ -7,14 +7,12 @@ import {
 } from '@nestjs/common/constants';
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
 import { DeleteTeamRequestDto } from '../dto/delete-team-request.dto';
 import { RepositoryUrlHistoryQueryRequestDto } from '../dto/repository-url-history-query.dto';
 import { RenameTeamRequestDto } from '../dto/rename-team-request.dto';
 import { ProgramTeamsController } from './program-teams.controller';
 
 type ControllerMethodName =
-  | 'create'
   | 'me'
   | 'leave'
   | 'removeMember'
@@ -59,7 +57,6 @@ function serviceStub(
   overrides: Partial<ControllerService> = {},
 ): ControllerService {
   return {
-    create: jest.fn(),
     getMe: jest.fn(),
     leave: jest.fn(),
     removeMember: jest.fn(),
@@ -76,10 +73,6 @@ function serviceStub(
 }
 
 describe('ProgramTeamsController', () => {
-  it('create 에 SessionGuard·OriginGuard 를 적용한다', () => {
-    expect(readGuards('create')).toEqual([SessionGuard, OriginGuard]);
-  });
-
   it('join handler 를 등록하지 않는다 — 초대 수락만 팀에 들어오는 경로다', () => {
     const prototype: object = ProgramTeamsController.prototype;
     expect(Object.getOwnPropertyNames(prototype)).not.toContain('join');
@@ -227,33 +220,6 @@ describe('ProgramTeamsController', () => {
         ],
       },
     ]);
-  });
-
-  it('create 는 service 결과를 CreateTeamResponseDto 로 반환한다', async () => {
-    const create = jest.fn().mockResolvedValue({
-      id: 'team-1',
-      name: '오픈소스팀',
-      joinCode: 'ABCD1234XY',
-      memberCount: 1,
-    });
-    const controller = new ProgramTeamsController(serviceStub({ create }));
-    const body = Object.assign(new CreateTeamRequestDto(), {
-      name: '오픈소스팀',
-    });
-
-    const response = await controller.create(
-      { sessionGithubId: 4242n },
-      'program-1',
-      body,
-    );
-
-    expect(create).toHaveBeenCalledWith(4242n, 'program-1', '오픈소스팀');
-    expect(response).toEqual({
-      id: 'team-1',
-      name: '오픈소스팀',
-      joinCode: 'ABCD1234XY',
-      memberCount: 1,
-    });
   });
 
   describe('GET me 응답 계약', () => {

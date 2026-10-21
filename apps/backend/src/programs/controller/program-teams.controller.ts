@@ -7,7 +7,6 @@ import {
   Inject,
   Param,
   Patch,
-  Post,
   Query,
   Req,
   UseGuards,
@@ -15,7 +14,6 @@ import {
 import { OriginGuard } from '../../auth/controller/origin.guard';
 import type { AuthenticatedRequest } from '../../auth/controller/http-auth';
 import { SessionGuard } from '../../auth/controller/session.guard';
-import { CreateTeamRequestDto } from '../dto/create-team-request.dto';
 import { DeleteTeamRequestDto } from '../dto/delete-team-request.dto';
 import { RenameTeamRequestDto } from '../dto/rename-team-request.dto';
 import { TransferTeamLeaderRequestDto } from '../dto/transfer-team-leader-request.dto';
@@ -26,7 +24,6 @@ import {
 import { RepositoryUrlHistoryQueryRequestDto } from '../dto/repository-url-history-query.dto';
 import { TeamActivityResponseDto } from '../dto/team-activity-response.dto';
 import {
-  CreateTeamResponseDto,
   DeleteTeamResponseDto,
   ProgramTeamResponseDto,
   RenameTeamResponseDto,
@@ -42,7 +39,6 @@ export class ProgramTeamsController {
     @Inject(ProgramTeamsService)
     private readonly service: Pick<
       ProgramTeamsService,
-      | 'create'
       | 'getMe'
       | 'leave'
       | 'removeMember'
@@ -56,22 +52,6 @@ export class ProgramTeamsController {
       | 'transferLeaderForStaff'
     >,
   ) {}
-
-  @Post()
-  @HttpCode(201)
-  @UseGuards(SessionGuard, OriginGuard)
-  async create(
-    @Req() request: TeamSessionRequest,
-    @Param('programId') programId: string,
-    @Body() body: CreateTeamRequestDto,
-  ): Promise<CreateTeamResponseDto> {
-    const team = await this.service.create(
-      request.sessionGithubId,
-      programId,
-      body.name,
-    );
-    return CreateTeamResponseDto.from(team);
-  }
 
   @Get('me')
   @UseGuards(SessionGuard)

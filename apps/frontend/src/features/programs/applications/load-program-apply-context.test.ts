@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
 import {
-  createTeam,
   getMyTeam,
   getMyApplicationPreparation,
   removeMyTeamMember,
@@ -26,7 +25,6 @@ vi.mock('@/lib/api-client', () => ({
 }));
 
 vi.mock('../teams/api', () => ({
-  createTeam: vi.fn(),
   getMyTeam: vi.fn(),
   getMyApplicationPreparation: vi.fn().mockResolvedValue(null),
   getProgramDetail: vi.fn(),
@@ -34,7 +32,6 @@ vi.mock('../teams/api', () => ({
   removeMyTeamMember: vi.fn(),
 }));
 vi.mock('../catalog/api', () => ({
-  createTeam: vi.fn(),
   getMyTeam: vi.fn(),
   getMyApplicationPreparation: vi.fn().mockResolvedValue(null),
   getProgramDetail: vi.fn(),
@@ -42,7 +39,6 @@ vi.mock('../catalog/api', () => ({
   removeMyTeamMember: vi.fn(),
 }));
 vi.mock('./api', () => ({
-  createTeam: vi.fn(),
   getMyTeam: vi.fn(),
   getMyApplicationPreparation: vi.fn().mockResolvedValue(null),
   getProgramDetail: vi.fn(),
@@ -170,7 +166,6 @@ function openProgram(overrides: Partial<ProgramDetail> = {}): ProgramDetail {
 
 describe('loadProgramApplyContext', () => {
   beforeEach(() => {
-    vi.mocked(createTeam).mockReset();
     vi.mocked(removeMyTeamMember).mockReset();
     vi.mocked(getMyApplication).mockReset();
     vi.mocked(getMyTeam).mockReset();
@@ -311,7 +306,6 @@ describe('loadProgramApplyContext', () => {
     });
     expect(getMyTeam).toHaveBeenCalledWith('program-1');
 
-    expect(createTeam).not.toHaveBeenCalled();
     expect(removeMyTeamMember).not.toHaveBeenCalled();
   });
 
@@ -376,7 +370,6 @@ describe('loadProgramApplyContext', () => {
       team: invitedMemberTeam,
       canManage: false,
     });
-    expect(createTeam).not.toHaveBeenCalled();
   });
 
   it('returns edit state only when a submitted application can be edited', async () => {

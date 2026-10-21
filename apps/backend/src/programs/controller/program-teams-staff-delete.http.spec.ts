@@ -11,7 +11,6 @@ import { issueSessionToken } from '../../auth/domain/session-token';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
 import { SystemErrorCode } from '../../common/system-error-code.enum';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { TeamsErrorCode } from '../domain/teams-error-code.enum';
 import { ProgramTeamsController } from './program-teams.controller';
 import type {
@@ -26,7 +25,6 @@ const allowedOrigin = 'http://frontend.test';
 const sessionSecret = new Uint8Array(32).fill(7);
 const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
-const JOIN_CODE_SECRET = 'synthetic-program-teams-secret';
 const INSTANCE = `/api/v1/programs/${PROGRAM_ID}/teams/${TEAM_ID}`;
 
 const EXPECTED_SCOPE = {
@@ -128,7 +126,6 @@ const repository = {
 
 const service = new ProgramTeamsService(
   repository,
-  loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
   { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository({ deleteTeam: repositoryDeleteTeam }),
   { assertActiveStaff: jest.fn() },
