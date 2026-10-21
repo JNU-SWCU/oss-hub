@@ -29,7 +29,7 @@ docs/
 - `apps/frontend` owns the browser UI and screen-specific state, and makes API calls through a single client.
 - `apps/backend` owns the `/api/v1` REST API, DTO validation, business rules, and persistence access.
 - Only the backend accesses PostgreSQL directly.
-- See the [model ownership inventory (Korean)](backend-model-ownership.md) for backend model grain, read/write boundaries, and retention boundaries.
+- See the [model ownership inventory](backend-model-ownership.en.md) for backend model grain, read/write boundaries, and retention boundaries.
 - `deploy/` and the Compose files own runtime networking, proxies, and deployment automation.
 - `docs/decisions` owns long-term decisions, while `docs/deploy` owns deployment runbooks and repeatable manual operating procedures.
 

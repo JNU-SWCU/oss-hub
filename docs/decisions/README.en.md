@@ -12,19 +12,19 @@ ADRs are permanent topic anchors and are not deleted; when a decision changes, u
 
 | Number  | Status   | Decision                                                                            | Document                                                                                   |
 | ------- | -------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| ADR-001 | Accepted | Technology stack                                                                    | [ADR-001-테크스택 (Korean)](ADR-001-테크스택.md)                                           |
-| ADR-002 | Accepted | CI/CD pipeline                                                                      | [ADR-002-CI-CD-파이프라인 (Korean)](ADR-002-CI-CD-파이프라인.md)                           |
-| ADR-003 | Accepted | Backend layering, injection tokens, and authentication/authorization boundaries     | [ADR-003-backend-architecture (Korean)](ADR-003-backend-architecture.md)                   |
-| ADR-004 | Accepted | REST API specification                                                              | [ADR-004-REST-API-규격 (Korean)](ADR-004-REST-API-규격.md)                                 |
-| ADR-005 | Accepted | Agent-Driven Review Cycle                                                           | [ADR-005-agent-driven-review-cycle (Korean)](ADR-005-agent-driven-review-cycle.md)         |
-| ADR-006 | Accepted | GitHub App integration for organization automation                                  | [ADR-006-github-app-integration (Korean)](ADR-006-github-app-integration.md)               |
-| ADR-007 | Accepted | Explicit fallback contract                                                          | [ADR-007-explicit-fallback-contract (Korean)](ADR-007-explicit-fallback-contract.md)       |
-| ADR-008 | Accepted | API response field ownership boundaries                                             | [ADR-008-api-response-field-ownership (Korean)](ADR-008-api-response-field-ownership.md)   |
-| ADR-009 | Accepted | Permission and collection boundaries for student-owned repository connections (OWN) | [ADR-009-own-repository-connection (Korean)](ADR-009-own-repository-connection.md)         |
-| ADR-010 | Accepted | Contribution tracking context — the §7 Port policy is superseded by ADR-003         | [ADR-010-contribution-tracking-context (Korean)](ADR-010-contribution-tracking-context.md) |
-| ADR-011 | Accepted | Type boundaries for query filters — do not pass sentinel strings as SQL values      | [ADR-011-query-filter-type-boundary (Korean)](ADR-011-query-filter-type-boundary.md)       |
+| ADR-001 | Accepted | Technology stack                                                                    | [ADR-001 — Technology stack](ADR-001-테크스택.en.md)                                           |
+| ADR-002 | Accepted | CI/CD pipeline                                                                      | [ADR-002 — CI/CD pipeline](ADR-002-CI-CD-파이프라인.en.md)                           |
+| ADR-003 | Accepted | Backend layering, injection tokens, and authentication/authorization boundaries     | [ADR-003-backend-architecture](ADR-003-backend-architecture.en.md)                   |
+| ADR-004 | Accepted | REST API specification                                                              | [ADR-004 — REST API specification](ADR-004-REST-API-규격.en.md)                                 |
+| ADR-005 | Accepted | Agent-Driven Review Cycle                                                           | [ADR-005-agent-driven-review-cycle](ADR-005-agent-driven-review-cycle.en.md)         |
+| ADR-006 | Accepted | GitHub App integration for organization automation                                  | [ADR-006-github-app-integration](ADR-006-github-app-integration.en.md)               |
+| ADR-007 | Accepted | Explicit fallback contract                                                          | [ADR-007-explicit-fallback-contract](ADR-007-explicit-fallback-contract.en.md)       |
+| ADR-008 | Accepted | API response field ownership boundaries                                             | [ADR-008-api-response-field-ownership](ADR-008-api-response-field-ownership.en.md)   |
+| ADR-009 | Accepted | Permission and collection boundaries for student-owned repository connections (OWN) | [ADR-009-own-repository-connection](ADR-009-own-repository-connection.en.md)         |
+| ADR-010 | Accepted | Contribution tracking context — the §7 Port policy is superseded by ADR-003         | [ADR-010-contribution-tracking-context](ADR-010-contribution-tracking-context.en.md) |
+| ADR-011 | Accepted | Type boundaries for query filters — do not pass sentinel strings as SQL values      | [ADR-011-query-filter-type-boundary](ADR-011-query-filter-type-boundary.en.md)       |
 | ADR-012 | Accepted | ProgramTrackType replaces category in the public API and authoring input            | [012-program-track-type](012-program-track-type.md)                                        |
-| ADR-013 | Accepted | Frontend runtime and test dependency boundaries                                     | [ADR-013-runtime-test-boundary (Korean)](ADR-013-runtime-test-boundary.md)                 |
+| ADR-013 | Accepted | Frontend runtime and test dependency boundaries                                     | [ADR-013-runtime-test-boundary](ADR-013-runtime-test-boundary.en.md)                 |
 
 ## ADR lifecycle
 

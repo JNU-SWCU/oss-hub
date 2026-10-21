@@ -62,7 +62,7 @@ Follow [onboarding](../onboarding.en.md) for the detailed procedure.
 
 ## Operational notes
 
-- In production, host nginx handles public ports 80/443 and TLS, and Compose nginx binds only to `127.0.0.1:8081` ([ADR-002 (Korean)](../decisions/ADR-002-CI-CD-파이프라인.md)).
+- In production, host nginx handles public ports 80/443 and TLS, and Compose nginx binds only to `127.0.0.1:8081` ([ADR-002](../decisions/ADR-002-CI-CD-파이프라인.en.md)).
   **8081 is an internal hop and does not appear in the callback URL.**
   Local `pnpm dev` does not use nginx: the frontend binds directly to port 3000, and the rewrite in `next.config.ts` proxies requests to the backend.
 - `pnpm db:up` and `pnpm --filter backend test:integration` use `compose.dev.yml` on its own.

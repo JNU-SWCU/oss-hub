@@ -9,7 +9,8 @@ OSS Hub brings program discovery, team formation, applications, document submiss
 [Visit OSS Hub](https://jnu-oss-hub.com) · [Developer onboarding](docs/onboarding.en.md) · [Issues](https://github.com/JNU-SWCU/oss-hub/issues) · [Releases](https://github.com/JNU-SWCU/oss-hub/releases)
 
 The application interface and screenshots are currently in Korean.
-The guides linked below are available in English; links marked “(Korean)” in those guides lead to documents without an English version.
+English versions are available for the guides below and their linked repository documents.
+Each translation links back to its authoritative Korean source.
 
 ## Contents
 
