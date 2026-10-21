@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   rmSync,
   cpSync,
+  renameSync,
 } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
@@ -17,6 +18,8 @@ const tsconfig = path.join(repo, '.design-sync/tsconfig.dts.json');
 
 const temporary = mkdtempSync(path.join(tmpdir(), 'design-types-'));
 const typesDir = path.join(temporary, 'types');
+let staged;
+let previousMoved = false;
 try {
   execFileSync(tsc, ['-p', tsconfig, '--declarationDir', typesDir], {
     stdio: 'inherit',
@@ -41,13 +44,35 @@ try {
     '',
   ].join('\n');
 
-  writeFileSync(path.join(temporary, 'index.d.ts'), lines);
-  rmSync(path.join(pkgDir, 'ds-types'), { recursive: true, force: true });
-  cpSync(typesDir, path.join(pkgDir, 'ds-types'), { recursive: true });
-  cpSync(path.join(temporary, 'index.d.ts'), path.join(pkgDir, 'index.d.ts'));
-  const count = readdirSync(path.join(pkgDir, 'ds-types/components')).filter(
-    (f) => f.endsWith('.d.ts'),
+  const count = readdirSync(path.join(typesDir, 'components')).filter((f) =>
+    f.endsWith('.d.ts'),
   ).length;
+  staged = mkdtempSync(path.join(pkgDir, '.design-types-'));
+  const publishedTypes = path.join(pkgDir, 'ds-types');
+  const previousTypes = path.join(staged, 'previous');
+  cpSync(typesDir, path.join(staged, 'ds-types'), { recursive: true });
+  writeFileSync(path.join(staged, 'index.d.ts'), lines);
+  let installed = false;
+  try {
+    if (existsSync(publishedTypes)) {
+      renameSync(publishedTypes, previousTypes);
+      previousMoved = true;
+    }
+    renameSync(path.join(staged, 'ds-types'), publishedTypes);
+    installed = true;
+    renameSync(
+      path.join(staged, 'index.d.ts'),
+      path.join(pkgDir, 'index.d.ts'),
+    );
+    previousMoved = false;
+  } catch (error) {
+    if (installed) rmSync(publishedTypes, { recursive: true, force: true });
+    if (previousMoved) {
+      renameSync(previousTypes, publishedTypes);
+      previousMoved = false;
+    }
+    throw error;
+  }
   console.error(
     `[TYPES] ${count} component + ${ui.length} ui 선언 → ds-types/, index.d.ts 생성`,
   );
@@ -56,4 +81,12 @@ try {
   process.exitCode = 1;
 } finally {
   rmSync(temporary, { recursive: true, force: true });
+  if (previousMoved) {
+    console.error(
+      '[TYPES] previous declarations retained at:',
+      path.join(staged, 'previous'),
+    );
+  } else if (staged) {
+    rmSync(staged, { recursive: true, force: true });
+  }
 }
