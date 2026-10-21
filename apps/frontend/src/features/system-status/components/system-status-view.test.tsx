@@ -58,6 +58,7 @@ function render(
     state.kind === 'success'
       ? {
           ...state,
+          freshness: 'current' as const,
           collectionStreams: state.collectionStreams ?? [],
           collectionActivity: state.collectionActivity ?? [],
           externalCollection:
