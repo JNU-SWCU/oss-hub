@@ -334,15 +334,15 @@ check_summary_checklist() {
 }
 
 # ---- R12: '정리' 절의 디자인 규격 줄 ----------------------------------------------
-# 디자인 시스템 정착(#1309). 이번 PR이 쓴 공용 컴포넌트·토큰과 그 규격 출처(docs/design.md
-# 컴포넌트 카드 이름 또는 Figma 컴포넌트 링크)를 적거나, 화면 변경이 없으면 이유가 비어
+# 디자인 시스템 정착(#1309). 이번 PR이 쓴 공용 컴포넌트·토큰과 그 규격 출처(공용 컴포넌트 경로,
+# docs/design-tokens/tokens.json 또는 Figma 컴포넌트 링크)를 적거나, 화면 변경이 없으면 이유가 비어
 # 있지 않은 `화면 변경 없음 — <이유>`를 쓴다. 템플릿의 `<…>` 자리표시자가 남으면 위반이다.
 check_design_spec() {
   local file=$1 body line value
   body=$(section_body "$file" "정리")
   line=$(grep -E '^- 디자인 규격:' <<<"$body" | head -n 1 || true)
   if [[ -z "$line" ]]; then
-    violations+=("R12 '정리' 절에 '- 디자인 규격:' 줄이 없다 — 쓴 공용 컴포넌트·토큰과 규격 출처(design.md 카드 또는 Figma 링크)를 적거나 \`화면 변경 없음 — <이유>\`로 적는다")
+    violations+=("R12 '정리' 절에 '- 디자인 규격:' 줄이 없다 — 쓴 공용 컴포넌트·토큰과 규격 출처(공용 컴포넌트 경로, docs/design-tokens/tokens.json 또는 Figma 링크)를 적거나 \`화면 변경 없음 — <이유>\`로 적는다")
     return
   fi
   value=${line#- 디자인 규격:}

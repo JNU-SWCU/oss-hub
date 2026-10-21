@@ -2,7 +2,7 @@
 
 코드의 토큰(`docs/design-tokens/tokens.json`, 원본 `globals.css`)과 부품 스펙대로 Figma 파일에
 변수(Light·Dark) · 텍스트 스타일 · 컴포넌트를 **그려 주는** 플러그인이다. 사람이 그리는 대신
-코드가 그린다(design.md R-36의 연장). 값이 어긋나면 코드가 맞다.
+코드가 그린다. 값이 어긋나면 코드가 맞다.
 
 ## 실행
 

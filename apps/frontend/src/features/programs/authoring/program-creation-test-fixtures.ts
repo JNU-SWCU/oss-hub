@@ -1,7 +1,7 @@
 import {
   createInitialProgramAuthoringState,
   type ProgramAuthoringState,
-} from './program-creation-flow';
+} from './program-authoring-model';
 
 export function completedAuthoringState(): ProgramAuthoringState {
   const initial = createInitialProgramAuthoringState({

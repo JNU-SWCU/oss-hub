@@ -2,7 +2,7 @@
 
 이 문서는 반복 가능한 수동 QA 절차의 원본이다.
 화면 목록이 아니라 **페르소나 간 상호작용에서 파생되는 워크플로**를 담는다 — 화면 단위로 훑으면 "각자 잘 되는데 이어지면 깨지는" 것을 잡지 못한다.
-결정·계약의 원본은 각 ADR과 `docs/rules/`이며 이 문서는 링크와 ID만 남긴다.
+이 문서는 실행 구현과 검증 시나리오의 링크와 ID를 연결한다.
 
 ## 페르소나 8종
 
@@ -46,7 +46,7 @@ QA에서 먼저 건드리면 뒤 시나리오가 막히므로 **마지막에 실
 | W8 | 교 → 심사 | **파일 다운로드** → 판정 | `APPROVED` / `REJECTED` / `CHANGES_REQUESTED` / 동시 심사 경합 | `submission-reviews.controller.ts` |
 | W9 | 반려 → 재제출 | **학생이 반려를 보고** → 재제출 → 새 revision | 이전 이력 보존 / 교직원 재심사 / 재제출 폼 fail-closed | `submissions.service.ts` |
 | W10 | 최종 반려 | `REJECTED` 확인 | **재제출 불가가 실제로 막히는가** | `submissions.service.ts` |
-| W11 | 교 → 공개 확정 | 다섯 게이트 통과 → publish | 비로그인 `archive` 노출 / 게이트 미충족 차단 | `submission-reviews/AGENTS.md` |
+| W11 | 교 → 공개 확정 | 다섯 게이트 통과 → publish | 비로그인 `archive` 노출 / 게이트 미충족 차단 | `apps/backend/src/submission-reviews/service` |
 | W12 | 마감 임박 → 알림 | 교직원 다이제스트 **실수신** | 학생 리마인드 / 미제출자 명단 정확도 / Asia/Seoul 표기 | `deadline-digest.service.ts` |
 | W13 | 활동 수집 → 랭킹 | 가입자 실명 노출 | 미가입자 `githubLogin` + '미가입' 배지 / 비로그인 조회 | `ranking.service.ts` |
 | W14 | 관 → 계정 상태 | 비활성화 → 접근 차단 | 재활성화 → 복구 / 자기 비활성화 차단 / 마지막 관리자 제거 차단 | `admin-access-mutation-policy.ts` |
@@ -165,8 +165,8 @@ QA에서 반드시 눌러봐야 하는 지점이다.
 
 ## 관련 문서
 
-- 배포 계약·백업·롤백: [ADR-002](../../../docs/decisions/ADR-002-CI-CD-파이프라인.md)
-- 리뷰·병합 게이트: [ADR-005](../../../docs/decisions/ADR-005-agent-driven-review-cycle.md)
-- GitHub App 통합·수집: [ADR-006](../../../docs/decisions/ADR-006-github-app-integration.md)
-- public-safe deny-list·공개 strict-read: [security.md](../../../docs/rules/security.md)
-- 서버 접속·복구 절차: [server-runbook.md](../../../docs/deploy/server-runbook.md)
+- 배포 계약·백업·롤백: [Jenkinsfile](../../../Jenkinsfile)
+- 리뷰·병합 게이트: [CI workflow](../../../.github/workflows/ci.yml)
+- GitHub App 통합·수집: [CollectionModule](../../../apps/backend/src/github/collection.module.ts)
+- 공개 자료 deny-list: [public-safe 검사](../../../scripts/check-public-safe.sh)
+- 릴리스 배포·복구 실행: [Jenkinsfile](../../../Jenkinsfile)

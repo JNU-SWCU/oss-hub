@@ -6,7 +6,7 @@
 
 /*
  * 디자인 토큰 3-tier: primitive → semantic → component.
- * 자세한 설명·팔레트·타이포 스케일 표는 docs/design.md 참고.
+ * 팔레트·타이포 토큰 값은 docs/design-tokens/tokens.json 참고.
  *
  * 1) primitive — 의미 없는 원시 값(색상 램프). 아래 `--palette-*`.
  * 2) semantic  — 역할 토큰. `:root`/`.dark`의 `--background` 등과 `--status-*` 그룹.
@@ -319,7 +319,7 @@
   --status-rejected-bg: var(--palette-red-50); /* 반려 */
   --status-rejected-fg: var(--palette-red-700);
 
-  /* 반전 표면 — 랜딩 히어로/클로징 CTA가 소비한다. docs/design.md 색상 표 참고 */
+  /* 반전 표면 — 랜딩 히어로/클로징 CTA가 소비한다. docs/design-tokens/tokens.json 참고 */
   --hero-from: var(--palette-navy-950);
   --hero-via: var(--palette-navy-900);
   --hero-to: var(--palette-navy-800);

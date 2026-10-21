@@ -7,7 +7,7 @@ import {
   uploadAuthoringFile,
 } from './program-authoring-api';
 import { completedAuthoringState } from './program-creation-test-fixtures';
-import { buildProgramAuthoringManifest } from './program-creation-flow';
+import { buildProgramAuthoringManifest } from './program-authoring-manifest';
 
 describe('program authoring API', () => {
   afterEach(() => vi.unstubAllGlobals());

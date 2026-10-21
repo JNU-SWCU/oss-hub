@@ -173,7 +173,7 @@ CardGrid(§3)처럼 컬럼 수를 아예 쓰지 않는 `auto-fit`/`minmax` 패�
 ### 타이포그래피
 - 크기 계단(먼저 쓴다): `text-page`(40) `text-section`(24) `text-body`(16)
   `text-small`(13) `text-badge`(12, 상태 배지) `text-table`(14, 표 본문·사이드바 메뉴)
-  — 원본은 `globals.css`의 `--step-*`, 규칙은 `docs/design.md` 타이포그래피 절
+  — 원본은 `globals.css`의 `--step-*`, 토큰 값은 `docs/design-tokens/tokens.json`
 - 크기: `text-xs` `text-sm` `text-base` `text-lg` `text-xl` `text-2xl` `text-3xl`
   `text-4xl` (반응형 전용으로 `sm:text-3xl` `sm:text-5xl`도 존재 — 비반응형
   `text-5xl` 이상은 없다)
@@ -292,14 +292,14 @@ CardGrid(§3)처럼 컬럼 수를 아예 쓰지 않는 `auto-fit`/`minmax` 패�
 - 표를 감싸는 컨테이너에 `rounded-lg border border-border`를 주는 것이 이 repo의
   실제 패턴이다(컴포넌트 자체가 테두리를 갖지 않는다).
 
-### 카드 목록: `CardGrid` + `ProgramCard`/`Card` + `StatusBadge`
+### 카드 목록: `CardGrid` + `Card` + `StatusBadge`
 - `CardGrid`는 컬럼 수를 prop으로 받지 않는다 — `grid-template-columns:
   repeat(auto-fit, minmax(min(18rem,100%), 1fr))`로 뷰포트에 맞춰 자동으로
   줄바꿈된다. 카드 목록에 열 개수를 지정하고 싶다는 요구가 와도 `CardGrid`
   자체에는 그 prop이 없다.
-- 프로그램 카드가 목적이면 `Card`를 직접 조립하지 말고 `ProgramCard`
-  (`title`/`category`/`period`/`status`/`footer`)를 쓴다. `status`에는
-  `StatusBadge`를, `footer`에는 보통 `outline` + `sm` 크기 `Button`을 넣는다.
+- 프로그램 카드는 `CardHeader`·`CardTitle`·`CardContent`·`CardFooter`로 조립한다.
+  상태는 `StatusBadge`로, 행동은 `outline` + `sm` 크기 `Button`으로 표시한다.
+  실제 조합은 `.design-sync/previews/Card.tsx`와 `AppShell.tsx`를 참고한다.
 - `StatusBadge`의 `variant`는 5개뿐이다: `recruiting`(모집중, 기본값) `closed`
   `pending` `approved` `rejected`. 도메인 문구는 자유롭게 바꿔도 되지만
   (역할 요청 화면은 같은 `pending`/`approved`/`rejected`를 "승인 대기"/"승인"/
