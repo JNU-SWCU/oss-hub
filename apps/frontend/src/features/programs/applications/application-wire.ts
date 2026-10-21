@@ -1,5 +1,4 @@
-import type { CreateApplicationInput } from './dto';
-import type { ApplicationListParams } from './dto';
+import type { ApplicationListParams, CreateApplicationInput } from './dto';
 
 export const TEAM_MANAGEMENT_PAGE_SIZE = 20;
 

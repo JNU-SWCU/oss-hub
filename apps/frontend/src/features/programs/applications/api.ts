@@ -12,7 +12,6 @@ import type {
   ApplicationDecisionInput,
   ApplicationDecisionResponse,
 } from './dto';
-import type { ProgramParticipation } from '../program-contract';
 import { apiClient } from '../../../lib/api-client';
 import {
   serializeCreateApplication,
@@ -20,13 +19,6 @@ import {
 } from './application-wire';
 
 const jsonHeaders = { 'Content-Type': 'application/json' } as const;
-
-function mapParticipation(
-  value: ApplicationTemplateApiItem['participation'],
-): ProgramParticipation {
-  void value;
-  return 'team';
-}
 
 function mapApplicationTemplate(
   item: ApplicationTemplateApiItem,
@@ -41,7 +33,7 @@ function mapApplicationTemplate(
     key: item.key,
     version: item.version,
     name: item.name,
-    participation: mapParticipation(item.participation),
+    participation: 'team',
     fields,
   };
 }
