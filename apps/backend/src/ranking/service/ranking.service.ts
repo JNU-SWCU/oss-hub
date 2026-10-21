@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { activityTotal } from '../../common/domain/activity-counts';
 import { nextScheduledCollectionAt } from '../../github/service/collection-schedule';
 import {
   RANKING_VIEWER_CLASSES,
@@ -7,10 +8,7 @@ import {
   type RankingPage,
   type RankingYear,
 } from '../domain/ranking';
-import {
-  RankingRepository,
-  type RankingMetricRow,
-} from '../repository/ranking.repository';
+import { RankingRepository } from '../repository/ranking.repository';
 
 interface RankedPublicEntry extends RankingEntry {
   readonly githubId: bigint;
@@ -112,7 +110,7 @@ export class RankingService {
       issueCount: row.issueCount,
       repositoryCount: row.repositoryCount,
       starCount: row.starCount,
-      total: rankingTotal(row),
+      total: activityTotal(row),
     }));
 
     return [...candidates]
@@ -165,16 +163,6 @@ export class RankingService {
       name: names.get(entry.githubId) ?? null,
     }));
   }
-}
-
-function rankingTotal(row: RankingMetricRow): number {
-  return (
-    row.commitCount +
-    row.pullRequestCount +
-    row.issueCount +
-    row.repositoryCount +
-    row.starCount
-  );
 }
 
 function toPublicEntry(entry: RankedPublicEntry): RankingEntry {

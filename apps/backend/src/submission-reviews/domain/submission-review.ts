@@ -6,6 +6,8 @@ type JsonObject = { [key in string]?: JsonValue };
 type JsonArray = JsonValue[];
 type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
 
+export type SubmissionRevisionContent = JsonValue;
+
 export const APPLICATION_MODES = {
   PERSONAL: 'PERSONAL',
   TEAM: 'TEAM',
@@ -39,7 +41,7 @@ export interface SubmissionReviewFileRecord {
 
 export interface SubmissionRevisionRecord {
   readonly number: number;
-  readonly content: JsonValue;
+  readonly content: SubmissionRevisionContent;
   readonly comment: string | null;
   readonly submittedAt: Date;
   readonly files: readonly SubmissionReviewFileRecord[];

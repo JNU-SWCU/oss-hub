@@ -63,14 +63,13 @@ describe('MilestoneDocumentFeedbackService', () => {
         id: 'review-1',
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '표지를 보완해 주세요.',
-        reviewedAt: '2026-09-20T01:00:00.000Z',
-        resubmissionDueAt: '2026-09-27T14:59:00.000Z',
+        reviewedAt: new Date('2026-09-20T01:00:00.000Z'),
+        resubmissionDueAt: new Date('2026-09-27T14:59:00.000Z'),
         applicationId: 'synthetic-application',
         programId: 'synthetic-program',
         milestoneId: 'seed:milestone',
         milestoneName: '중간 보고',
         itemName: '합성 계획서',
-        href: '/programs/synthetic-program/documents?milestoneId=seed%3Amilestone',
       },
       expect.objectContaining({
         id: 'review-0',
@@ -144,7 +143,7 @@ describe('MilestoneDocumentFeedbackService', () => {
     expect(
       response.items.map((item) => [item.id, item.resubmissionDueAt]),
     ).toEqual([
-      ['review-3', '2026-09-27T14:59:00.000Z'],
+      ['review-3', new Date('2026-09-27T14:59:00.000Z')],
       ['review-2', null],
       ['review-1', null],
     ]);
@@ -166,7 +165,6 @@ describe('MilestoneDocumentFeedbackService', () => {
       'applicationId',
       'comment',
       'decision',
-      'href',
       'id',
       'itemName',
       'milestoneId',

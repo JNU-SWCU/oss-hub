@@ -252,6 +252,8 @@ describe('RepositoryProvisionWorker integration', () => {
       include: { invitations: { orderBy: { githubLogin: 'asc' } } },
     });
     expect(repository.visibility).toBe(RepositoryVisibility.PRIVATE);
+    expect(repository.nextRunAt.getTime()).toBeLessThanOrEqual(Date.now());
+    expect(repository.failureCount).toBe(0);
     expect(
       repository.invitations.map(({ githubLogin, status }) => [
         githubLogin,
@@ -861,6 +863,8 @@ describe('RepositoryProvisionWorker integration', () => {
     });
 
     expect(enrolled.nameWithOwner).toContain('/');
+    expect(enrolled.nextRunAt.getTime()).toBeLessThanOrEqual(Date.now());
+    expect(enrolled.failureCount).toBe(0);
 
     await expect(
       prisma.githubRepository.findUniqueOrThrow({ where: { applicationId } }),

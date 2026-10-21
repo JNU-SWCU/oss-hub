@@ -15,9 +15,9 @@ import {
   milestoneCompletionStatus,
 } from '../../milestone-documents/domain/milestone-completion';
 import type {
-  ApplicationSubmissionSummaryResponseDto,
-  ProgramDetailResponseDto,
-} from '../dto/program-detail.dto';
+  ApplicationSubmissionSummaryResult,
+  ProgramDetailResult,
+} from '../domain/program-read.models';
 import { programDeadline } from '../domain/program-deadline';
 import { programCoverImageUrl } from '../domain/program-cover';
 import type { ProgramListQuery } from '../domain/program-list-query';
@@ -97,7 +97,7 @@ const EMPTY_SUMMARY = {
   changesRequested: 0,
   rejected: 0,
   total: 0,
-} as const satisfies ApplicationSubmissionSummaryResponseDto;
+} as const satisfies ApplicationSubmissionSummaryResult;
 
 @Injectable()
 export class ProgramsService {
@@ -174,7 +174,7 @@ export class ProgramsService {
     programId: string,
     viewer: ProgramViewer,
     now: Date = new Date(),
-  ): Promise<ProgramDetailResponseDto> {
+  ): Promise<ProgramDetailResult> {
     try {
       const program = await this.repository.findProgramDetail(programId);
       if (!program) throw new DomainException(PROGRAM_ERROR_CODES.NOT_FOUND);
@@ -206,12 +206,12 @@ export class ProgramsService {
         description: program.description,
         repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
         applicationPeriod: {
-          startsAt: program.applicationStartAt.toISOString(),
-          endsAt: program.applicationEndAt.toISOString(),
+          startsAt: program.applicationStartAt,
+          endsAt: program.applicationEndAt,
         },
         operatingPeriod: {
-          startsAt: program.startAt.toISOString(),
-          endsAt: program.endAt.toISOString(),
+          startsAt: program.startAt,
+          endsAt: program.endAt,
         },
         viewer: {
           role: viewer.role,
@@ -222,8 +222,8 @@ export class ProgramsService {
           return {
             id: milestone.id,
             name: milestone.name,
-            startAt: milestone.startAt.toISOString(),
-            dueAt: milestone.dueAt.toISOString(),
+            startAt: milestone.startAt,
+            dueAt: milestone.dueAt,
             dDay: deadline.dDay,
             deadlineLabel: deadline.label,
             description: milestone.instructions,
@@ -260,7 +260,7 @@ export class ProgramsService {
       readonly submissions: readonly SubmissionRecord[];
       readonly milestoneDocumentSubmissions: readonly DocumentSubmissionRecord[];
     }[],
-  ): ApplicationSubmissionSummaryResponseDto {
+  ): ApplicationSubmissionSummaryResult {
     const summary = { ...EMPTY_SUMMARY, total: applications.length };
     for (const application of applications) {
       const status = milestoneStatusFor(

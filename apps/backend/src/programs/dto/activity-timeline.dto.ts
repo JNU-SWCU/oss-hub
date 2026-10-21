@@ -1,13 +1,5 @@
-import { IsIn } from 'class-validator';
-import {
-  ACTIVITY_GRANULARITIES,
-  type ActivityGranularity,
-} from '../domain/program-activity-granularity';
-
-export class ActivityTimelineQueryRequestDto {
-  @IsIn(ACTIVITY_GRANULARITIES)
-  readonly granularity: ActivityGranularity = 'MONTH';
-}
+import type { ActivityTimelineResult } from '../domain/activity-timeline.models';
+import { type ActivityGranularity } from '../domain/program-activity-granularity';
 
 interface ActivityProgramResponseDto {
   readonly programId: string;
@@ -16,7 +8,7 @@ interface ActivityProgramResponseDto {
   readonly applicationMode: 'PERSONAL' | 'TEAM';
 }
 
-export interface ActivityPointResponseDto {
+interface ActivityPointResponseDto {
   readonly period: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;
@@ -31,5 +23,30 @@ export interface ActivityTimelineResponseDto {
   readonly series: {
     readonly granularity: ActivityGranularity;
     readonly points: readonly ActivityPointResponseDto[];
+  };
+}
+
+export function activityTimelineResponse(
+  result: ActivityTimelineResult,
+): ActivityTimelineResponseDto {
+  return {
+    dataAsOf: result.dataAsOf?.toISOString() ?? null,
+    programs: result.programs.map((program) => ({
+      programId: program.programId,
+      programName: program.programName,
+      year: program.year,
+      applicationMode: program.applicationMode,
+    })),
+    series: {
+      granularity: result.series.granularity,
+      points: result.series.points.map((point) => ({
+        period: point.period,
+        commitCount: point.commitCount,
+        pullRequestCount: point.pullRequestCount,
+        releaseCount: point.releaseCount,
+        issueCount: point.issueCount,
+        total: point.total,
+      })),
+    },
   };
 }

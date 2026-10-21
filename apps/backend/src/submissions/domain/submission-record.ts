@@ -30,7 +30,6 @@ export interface SubmissionFileMetadata {
   readonly contentType: string;
   readonly size: number;
   readonly expiresAt: Date;
-  readonly downloadUrl: string;
 }
 
 export interface ChecklistMilestone {

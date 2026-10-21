@@ -405,7 +405,6 @@ const policies = [
     allow: {
       to: [
         element('service'),
-        element('dto', sameModule),
         element('domain'),
         element('repository', sameModule),
         element('gateway', sameModule),

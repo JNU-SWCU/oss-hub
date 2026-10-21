@@ -1,3 +1,4 @@
+import { presentMilestoneDocumentFeedback } from '../dto/milestone-document-feedback-response.dto';
 import {
   ApplicationStatus,
   MemberKind,
@@ -271,7 +272,9 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
   });
 
   it('지금 팀원인 승인 신청의 판정 중 서울 날짜로 7일 전 0시 이후 것을 모두 최신순으로 돌려준다', async () => {
-    const { items } = await service.recentForParticipant(studentGithubId);
+    const { items } = await service
+      .recentForParticipant(studentGithubId)
+      .then(presentMilestoneDocumentFeedback);
 
     expect(items.map((item) => item.id)).toEqual([
       `${prefix}-review-legacy`,
@@ -286,7 +289,9 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
   });
 
   it('판정마다 그 판정을 받은 신청 ID를 실어 프로그램 카드에 나눠 붙일 수 있게 한다', async () => {
-    const { items } = await service.recentForParticipant(studentGithubId);
+    const { items } = await service
+      .recentForParticipant(studentGithubId)
+      .then(presentMilestoneDocumentFeedback);
     const applicationIdOf = new Map(
       items.map((item) => [item.id, item.applicationId]),
     );
@@ -300,7 +305,9 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
   });
 
   it('옛 단일 제출 슬롯은 마일스톤 이름으로, 서류는 서류 이름으로 부르고 검토자를 싣지 않는다', async () => {
-    const { items } = await service.recentForParticipant(studentGithubId);
+    const { items } = await service
+      .recentForParticipant(studentGithubId)
+      .then(presentMilestoneDocumentFeedback);
     const href = `/programs/${prefix}-main-program/documents?milestoneId=${prefix}-main-milestone`;
 
     expect(items[0]).toEqual({

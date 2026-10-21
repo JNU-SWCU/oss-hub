@@ -1,3 +1,7 @@
+import {
+  appendSubmissionReview,
+  appendSubmissionReviewEvent,
+} from '../../prisma/submission-review-writer';
 import { Injectable } from '@nestjs/common';
 import {
   MilestoneDocumentKind,
@@ -150,30 +154,10 @@ class PrismaSubmissionReviewTransactionStore implements SubmissionReviewTransact
   async createReview(
     input: CreateReviewRecordInput,
   ): Promise<{ readonly id: string }> {
-    const review = await this.transaction.milestoneDocumentReviewHistory.create(
-      {
-        data: {
-          milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
-          submissionHistoryId: input.submissionHistoryId,
-          reviewerId: input.reviewerId,
-          decision: input.decision,
-          comment: input.comment,
-          reviewedAt: input.reviewedAt,
-        },
-        select: { id: true },
-      },
-    );
-    await this.transaction.milestoneDocumentSubmissionHistory.create({
-      data: {
-        milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
-        event: input.decision,
-        revision: input.revision,
-        comment: input.comment,
-        actorId: input.reviewerId,
-        createdAt: input.reviewedAt,
-      },
-      select: { id: true },
+    const review = await appendSubmissionReview(this.transaction, input, {
+      id: true,
     });
+    await appendSubmissionReviewEvent(this.transaction, input);
     return review;
   }
 

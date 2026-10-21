@@ -93,17 +93,17 @@ describe('SystemStatusService', () => {
     await expect(service.getStatus(ACTOR_ID)).resolves.toEqual({
       collection: {
         health: 'NORMAL',
-        dataAsOf: '2026-07-25T11:00:00.000Z',
+        dataAsOf: new Date('2026-07-25T11:00:00.000Z'),
         trackedRepositoryCount: 2,
         readyStreamCount: 6,
         backfillingStreamCount: 0,
         partialStreamCount: 0,
         retryPendingStreamCount: 0,
-        oldestReadyCheckpointAt: '2026-07-25T10:00:00.000Z',
+        oldestReadyCheckpointAt: new Date('2026-07-25T10:00:00.000Z'),
         oldestRetryPendingAt: null,
-        lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
-        lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
-        nextCycleAt: '2026-07-25T20:30:00.000Z',
+        lastCycleStartedAt: new Date('2026-07-25T10:55:00.000Z'),
+        lastCycleCompletedAt: new Date('2026-07-25T11:00:00.000Z'),
+        nextCycleAt: new Date('2026-07-25T20:30:00.000Z'),
         currentRunStatus: 'IDLE',
         safeReason: null,
       },
@@ -277,7 +277,7 @@ describe('SystemStatusService', () => {
           {
             streamType: 'COMMIT',
             bucket: 'READY',
-            lastSuccessAt: '2026-07-25T10:00:00.000Z',
+            lastSuccessAt: new Date('2026-07-25T10:00:00.000Z'),
             lastErrorCode: null,
             lastErrorAt: null,
           },
@@ -286,7 +286,7 @@ describe('SystemStatusService', () => {
             bucket: 'RETRY_PENDING',
             lastSuccessAt: null,
             lastErrorCode: 'COL_RATE_LIMITED',
-            lastErrorAt: '2026-07-25T09:00:00.000Z',
+            lastErrorAt: new Date('2026-07-25T09:00:00.000Z'),
           },
           {
             streamType: 'RELEASE',
@@ -339,8 +339,8 @@ describe('SystemStatusService', () => {
 
     expect(result.collectionActivity).toEqual([
       {
-        sweepFinishedAt: '2026-07-25T11:00:00.000Z',
-        cycleStartedAt: '2026-07-25T10:55:00.000Z',
+        sweepFinishedAt: new Date('2026-07-25T11:00:00.000Z'),
+        cycleStartedAt: new Date('2026-07-25T10:55:00.000Z'),
         scope: 'org:JNU-SWCU',
         kind: 'SWEEP',
         insertedCommitCount: 3,
@@ -354,7 +354,7 @@ describe('SystemStatusService', () => {
         stoppedForBudget: false,
       },
       {
-        sweepFinishedAt: '2026-07-25T10:00:00.000Z',
+        sweepFinishedAt: new Date('2026-07-25T10:00:00.000Z'),
         cycleStartedAt: null,
         scope: 'external',
         kind: 'REPOSITORY_LINK',
@@ -378,7 +378,9 @@ describe('SystemStatusService', () => {
       const result = await service.getStatus(ACTOR_ID);
 
       expect(nextScheduledAt).toHaveBeenCalledWith(NOW);
-      expect(result.collection.nextCycleAt).toBe('2026-07-25T20:30:00.000Z');
+      expect(result.collection.nextCycleAt).toEqual(
+        new Date('2026-07-25T20:30:00.000Z'),
+      );
     });
 
     it('수집 스케줄이 null을 반환하면(cron 표현식 계산 불가) nextCycleAt만 null이고 나머지 응답은 그대로다', async () => {
@@ -451,8 +453,8 @@ describe('SystemStatusService', () => {
       expect(result.externalCollection).toEqual({
         trackedRepositoryCount: 3,
         lastSweep: {
-          sweepFinishedAt: '2026-07-25T10:00:00.000Z',
-          cycleStartedAt: '2026-07-25T09:55:00.000Z',
+          sweepFinishedAt: new Date('2026-07-25T10:00:00.000Z'),
+          cycleStartedAt: new Date('2026-07-25T09:55:00.000Z'),
           scope: 'external',
           kind: 'SWEEP',
           insertedCommitCount: 5,

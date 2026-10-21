@@ -1,3 +1,5 @@
+import type { SubmissionMatrixResult } from '../domain/submission-matrix-result';
+
 import type {
   MatrixApplicationMode,
   MatrixCellStatus,
@@ -10,7 +12,7 @@ interface MatrixMilestoneResponseDto {
   readonly dueAt: string;
 }
 
-export interface MatrixCellResponseDto {
+interface MatrixCellResponseDto {
   readonly milestoneId: string;
   readonly submissionId: string | null;
   readonly revision: number | null;
@@ -21,7 +23,7 @@ export interface MatrixCellResponseDto {
   readonly changesRequestedCount: number;
 }
 
-export interface MatrixRowResponseDto {
+interface MatrixRowResponseDto {
   readonly applicationId: string;
   readonly applicationMode: MatrixApplicationMode;
   readonly displayName: string;
@@ -35,4 +37,39 @@ export interface SubmissionMatrixResponseDto {
   readonly page: number;
   readonly pageSize: number;
   readonly total: number;
+}
+
+export function presentSubmissionMatrix(
+  result: SubmissionMatrixResult,
+  programId: string,
+): SubmissionMatrixResponseDto {
+  return {
+    milestones: result.milestones.map((milestone) => ({
+      id: milestone.id,
+      name: milestone.name,
+      dueAt: milestone.dueAt.toISOString(),
+    })),
+    rows: result.rows.map((row) => ({
+      applicationId: row.applicationId,
+      applicationMode: row.applicationMode,
+      displayName: row.displayName,
+      githubLogins: row.githubLogins,
+      cells: row.cells.map((cell) => ({
+        milestoneId: cell.milestoneId,
+        submissionId: cell.submissionId,
+        revision: cell.revision,
+        status: cell.status,
+        submittedAt: cell.submittedAt?.toISOString() ?? null,
+        reviewUrl:
+          cell.submissionId === null
+            ? null
+            : `/programs/${programId}/submissions/${cell.submissionId}/review`,
+        deliveryStatus: cell.deliveryStatus,
+        changesRequestedCount: cell.changesRequestedCount,
+      })),
+    })),
+    page: result.page,
+    pageSize: result.pageSize,
+    total: result.total,
+  };
 }

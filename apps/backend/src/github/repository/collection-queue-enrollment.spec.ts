@@ -67,22 +67,6 @@ describe('수집 편입 큐 계약 (ADR-010 §6)', () => {
       expect(field?.default).toBe(0);
     });
   });
-
-  describe('편입은 코드가 아니라 기본값이 한다', () => {
-    it('저장소 관측 upsert 가 nextRunAt 을 직접 지정하지 않는다', () => {
-      const source = fs.readFileSync(
-        path.join(__dirname, 'collection-incremental.repository.ts'),
-        'utf8',
-      );
-      const start = source.indexOf('async recordRepositoryObservation');
-      expect(start).toBeGreaterThan(-1);
-
-      const body = source.slice(start, source.indexOf('\n  }', start));
-
-      expect(body).toContain('githubRepository.upsert');
-      expect(body).not.toContain('nextRunAt');
-    });
-  });
 });
 
 describe('Contribution 입자 계약 (ADR-010 §4)', () => {

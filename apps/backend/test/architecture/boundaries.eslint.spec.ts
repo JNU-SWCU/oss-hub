@@ -80,7 +80,7 @@ function edge(
 
 const permitted: Record<Layer, readonly Layer[]> = {
   controller: ['service', 'dto', 'domain'],
-  service: ['service', 'repository', 'gateway', 'dto', 'domain'],
+  service: ['service', 'repository', 'gateway', 'domain'],
   repository: ['repository', 'domain'],
   gateway: ['domain'],
   job: ['service', 'dto', 'domain'],
@@ -108,6 +108,16 @@ for (const from of layers) {
     `src/alpha/${from}/common.ts`,
     'src/common/contract.ts',
     true,
+  );
+}
+
+for (const syntax of ['type', 'barrel', 'dynamic', 'require', 'sideEffect']) {
+  edge(
+    `${syntax} cannot restore service DTO coupling`,
+    `src/alpha/service/dto-${syntax}.ts`,
+    'src/alpha/dto/target.ts',
+    false,
+    syntax,
   );
 }
 

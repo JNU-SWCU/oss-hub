@@ -1,11 +1,5 @@
 import { AccountStatus } from '@prisma/client';
-import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { UsersAuthorityService } from '../../users/service/authority.service';
-import { ContributionInvariants } from '../repository/contribution-invariants';
-import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
-import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
-import { CollectionSyncService } from './collection-sync.service';
-import { CollectionUserActivityService } from './collection-user-activity.service';
 import { CollectionAdminService } from './collection-admin.service';
 
 const deniedActors = [
@@ -44,12 +38,12 @@ describe('CollectionAdminService authorization', () => {
     });
     const work = jest.fn();
     const service = new CollectionAdminService(
-      { run: work, runExternal: work } as unknown as CollectionSyncService,
-      { isQuiesced: work } as unknown as CollectionCutoverRepository,
-      { listSyncRuns: work } as unknown as CollectionIncrementalRepository,
-      { record: work } as unknown as AuditLogService,
-      { check: work } as unknown as ContributionInvariants,
-      { run: work } as unknown as CollectionUserActivityService,
+      { run: work, runExternal: work },
+      { isQuiesced: work },
+      { listSyncRuns: work },
+      { record: work },
+      { check: work },
+      { run: work },
       authority,
     );
     const action =

@@ -1,3 +1,4 @@
+import type { UpdateProgramCommand } from '../domain/program-write.commands';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -179,7 +180,10 @@ export class ProgramAuthoringRequestDto extends ProgramCoverRequestDto {
   declare readonly milestones: readonly ProgramAuthoringMilestoneRequestDto[];
 }
 
-export class UpdateProgramRequestDto extends ProgramCoverRequestDto {
+export class UpdateProgramRequestDto
+  extends ProgramCoverRequestDto
+  implements UpdateProgramCommand
+{
   @IsString()
   @IsNotEmpty()
   declare name: string;

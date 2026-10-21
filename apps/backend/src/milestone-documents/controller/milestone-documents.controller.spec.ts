@@ -51,10 +51,19 @@ const listForViewer = jest.fn().mockResolvedValue([
     name: '개인정보 수집·이용 동의서',
     required: true,
     sortOrder: 1,
-    hasTemplateFile: true,
+    templateFileId: 'synthetic-template',
+    templateFileName: '양식.pdf',
+    graceDueAt: null,
     viewerSubmission: {
       submitted: true,
-      submittedAt: '2026-09-16T14:22:00.000Z',
+      submittedLate: false,
+      revision: 1,
+      status: 'SUBMITTED',
+      hasCurrentFile: false,
+      currentFileName: null,
+      review: null,
+      history: { hasHistory: true, isComplete: true },
+      submittedAt: new Date('2026-09-16T14:22:00.000Z'),
     },
   },
 ]);
@@ -63,7 +72,7 @@ const collectForStaff = jest.fn().mockResolvedValue({
     id: 'synthetic-milestone',
     programId: 'cuid-synthetic-program',
     name: '프로젝트 계획서 제출',
-    dueAt: '2026-09-19T09:00:00.000Z',
+    dueAt: new Date('2026-09-19T09:00:00.000Z'),
   },
   documents: [
     {
@@ -75,20 +84,28 @@ const collectForStaff = jest.fn().mockResolvedValue({
   ],
   rows: [
     {
-      applicationId: 'synthetic-application',
-      teamName: '가나다팀',
-      applicantName: '합성 신청자',
-      memberNicknames: ['synthetic-leader'],
+      application: {
+        applicationId: 'synthetic-application',
+        teamName: '가나다팀',
+        applicantName: '합성 신청자',
+        memberNicknames: ['synthetic-leader'],
+      },
+      deliveryStatus: 'COMPLETE',
       cells: [
         {
-          documentId: 'synthetic-document',
-          isSubmitted: true,
-          submittedAt: '2026-09-16T14:22:00.000Z',
-          file: { name: '최종_진짜최종.hwp', sizeBytes: 2048 },
+          milestoneDocumentId: 'synthetic-document',
+          applicationId: 'synthetic-application',
+          revision: 1,
+          status: 'SUBMITTED',
+          content: null,
+          review: null,
+          submittedAt: new Date('2026-09-16T14:22:00.000Z'),
+          file: { originalFileName: '최종_진짜최종.hwp', sizeBytes: 2048 },
         },
       ],
     },
   ],
+  deliveryCounts: { missing: 0, late: 0, complete: 1, noRequiredItems: 0 },
   page: 1,
   pageSize: 20,
   total: 1,
@@ -101,7 +118,7 @@ const submit = jest.fn().mockResolvedValue({
   id: 'synthetic-submission',
   status: 'SUBMITTED',
   content: { type: 'TEXT', text: '본문' },
-  submittedAt: '2026-09-16T14:22:00.000Z',
+  submittedAt: new Date('2026-09-16T14:22:00.000Z'),
   files: [],
 });
 const createDocument = jest.fn().mockResolvedValue({
@@ -178,8 +195,8 @@ const review = jest.fn().mockResolvedValue({
   id: 'synthetic-review',
   decision: 'CHANGES_REQUESTED',
   comment: '2쪽 서명이 빠졌습니다.',
-  reviewedAt: '2026-09-18T09:00:00.000Z',
-  resubmissionDueAt: '2026-09-25T09:00:00.000Z',
+  reviewedAt: new Date('2026-09-18T09:00:00.000Z'),
+  resubmissionDueAt: new Date('2026-09-25T09:00:00.000Z'),
   reviewerNickname: 'synthetic-staff',
 });
 

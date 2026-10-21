@@ -1,3 +1,4 @@
+import { ProgramLifecycleController } from './controller/program-lifecycle.controller';
 import { Module } from '@nestjs/common';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { AuthModule } from '../auth/auth.module';
@@ -32,10 +33,8 @@ import { ProgramTeamDeletionRepository } from './repository/program-team-deletio
 import { ProgramTeamsRepository } from './repository/program-teams.repository';
 import { ProgramTeamsService } from './service/program-teams.service';
 import { ProgramViewerService } from './service/program-viewer.service';
-import {
-  ProgramsController,
-  StudentDashboardController,
-} from './controller/programs.controller';
+import { ProgramsController } from './controller/programs.controller';
+import { StudentDashboardController } from './controller/student-dashboard.controller';
 import { ProgramsRepository } from './repository/programs.repository';
 import { StudentDashboardReadRepository } from './repository/student-dashboard-read.repository';
 import { ProgramsService } from './service/programs.service';
@@ -62,6 +61,7 @@ import { ProgramNoticeFetchClient } from './gateway/program-notice-fetch.client'
     ProgramAuthoringController,
     ProgramCoverController,
     ProgramsController,
+    ProgramLifecycleController,
     StudentDashboardController,
     ProgramEditorController,
     MilestonesController,

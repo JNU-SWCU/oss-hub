@@ -19,7 +19,7 @@ export interface MilestoneDocumentDeliveryQuery extends MilestoneDocumentCollect
   };
 }
 
-type MilestoneDocumentDeliveryPage<
+export type MilestoneDocumentDeliveryPage<
   TApplication extends MilestoneDocumentCollectionApplicationRule,
   TSubmission extends MilestoneDocumentCollectionSubmissionRule,
 > = Omit<MilestoneDocumentCollectionPage<TApplication, TSubmission>, 'rows'> & {

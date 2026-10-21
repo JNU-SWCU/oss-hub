@@ -13,7 +13,7 @@
 - `repository/submission-reviews.repository.ts` is this module's Prisma boundary; controller and service do not access Prisma directly.
 - `service/submission-reviews.service.ts` owns revision-safe review transitions through `withTransaction()`.
 - Keep `submission-reviews.module.ts` as the Nest composition point and preserve injected repository/service seams used by tests.
-- DTO conversion stays in `dto/`; shared eligibility and response shapes live in `domain/submission-review.ts`.
+- DTO conversion stays in `dto/`; shared eligibility and response shapes live in `domain/submission-review.ts`. `SubmissionRevisionContent` preserves legacy JSON scalar/null/array/object values; do not force historical reads into the current write-content union.
 - `service/submission-reviews.service.ts` checks staff authorization through `UsersAuthorityService`; preserve `SessionGuard` and `OriginGuard` on mutating endpoints.
 - Use `DomainException` and `domain/submission-reviews-error-code.enum.ts` for domain failures; check `SUB_*` string uniqueness against `../submissions/`.
 

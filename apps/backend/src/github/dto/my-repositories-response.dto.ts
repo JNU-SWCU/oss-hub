@@ -1,3 +1,4 @@
+import type { MyRepositoryResult } from '../domain/repositories-read.models';
 import type {
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
@@ -23,11 +24,7 @@ export interface MyRepositoryItemResponseDto {
 export class MyRepositoriesResponseDto {
   readonly items: readonly MyRepositoryItemResponseDto[];
 
-  private constructor(
-    items: readonly (Omit<MyRepositoryItemResponseDto, 'updatedAt'> & {
-      readonly updatedAt: Date;
-    })[],
-  ) {
+  private constructor(items: readonly MyRepositoryResult[]) {
     this.items = items.map((item) => ({
       repositoryId: item.repositoryId,
       applicationId: item.applicationId,
@@ -45,11 +42,7 @@ export class MyRepositoriesResponseDto {
     }));
   }
 
-  static from(
-    items: readonly (Omit<MyRepositoryItemResponseDto, 'updatedAt'> & {
-      readonly updatedAt: Date;
-    })[],
-  ): MyRepositoriesResponseDto {
+  static from(items: readonly MyRepositoryResult[]): MyRepositoriesResponseDto {
     return new MyRepositoriesResponseDto(items);
   }
 }

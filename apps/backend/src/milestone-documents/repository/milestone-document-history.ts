@@ -1,8 +1,4 @@
-import {
-  MilestoneDocumentSubmissionHistoryEvent,
-  Prisma,
-  type ReviewDecision,
-} from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 export const milestoneDocumentHistoryDescendingOrderBy = [
   { createdAt: 'desc' },
@@ -32,16 +28,3 @@ export const boundedReviewHistoryQuery = {
     submissionHistory: { select: { revision: true } },
   },
 } satisfies Prisma.MilestoneDocumentSubmission$reviewHistoriesArgs;
-
-export function reviewDecisionToHistoryEvent(
-  decision: ReviewDecision,
-): MilestoneDocumentSubmissionHistoryEvent {
-  switch (decision) {
-    case 'APPROVED':
-      return MilestoneDocumentSubmissionHistoryEvent.APPROVED;
-    case 'CHANGES_REQUESTED':
-      return MilestoneDocumentSubmissionHistoryEvent.CHANGES_REQUESTED;
-    case 'REJECTED':
-      return MilestoneDocumentSubmissionHistoryEvent.REJECTED;
-  }
-}

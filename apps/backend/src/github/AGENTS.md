@@ -20,7 +20,7 @@
 
 ## 수집 흐름
 
-- `CollectionSyncService`가 collection fact의 유일한 live writer다; scheduler/admin trigger는 run을 시작하고 즉시 응답한다.
+- `CollectionSyncService`는 sweep lifecycle과 stream 수집을 조정하고, `CollectionInventory`는 inventory 관측, `CollectionStreamCheckpoint`는 fact/frontier의 원자적 저장을 맡는다. scheduler/admin trigger는 `CollectionSweepRunner`로 run을 시작하고 즉시 응답한다.
 - `gateway/collection-provider-queue.ts`의 queue/rate invariant는 org/external REST sync runtime에 적용한다.
   public discovery/person GraphQL client의 direct fetch까지 queue를 지난다고 가정하지 않는다.
 - installation-token REST reconciliation은 조직 repository inventory/presence authority다.
