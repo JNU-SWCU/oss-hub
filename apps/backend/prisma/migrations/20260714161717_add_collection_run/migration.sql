@@ -1,13 +1,9 @@
--- CreateEnum
 CREATE TYPE "CollectionTrigger" AS ENUM ('SELF', 'BATCH');
 
--- CreateEnum
 CREATE TYPE "CollectionRunStatus" AS ENUM ('RUNNING', 'SUCCEEDED', 'FAILED', 'RATE_LIMITED');
 
--- CreateEnum
 CREATE TYPE "ObservationSourceType" AS ENUM ('PROFILE', 'REPO', 'EVENT');
 
--- CreateTable
 CREATE TABLE "CollectionRun" (
     "id" TEXT NOT NULL,
     "targetGithubId" BIGINT NOT NULL,
@@ -24,7 +20,6 @@ CREATE TABLE "CollectionRun" (
     CONSTRAINT "CollectionRun_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
 CREATE TABLE "GithubRawObservation" (
     "id" TEXT NOT NULL,
     "runId" TEXT NOT NULL,
@@ -36,8 +31,6 @@ CREATE TABLE "GithubRawObservation" (
     CONSTRAINT "GithubRawObservation_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
 CREATE UNIQUE INDEX "GithubRawObservation_runId_sourceType_sourceId_key" ON "GithubRawObservation"("runId", "sourceType", "sourceId");
 
--- AddForeignKey
 ALTER TABLE "GithubRawObservation" ADD CONSTRAINT "GithubRawObservation_runId_fkey" FOREIGN KEY ("runId") REFERENCES "CollectionRun"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

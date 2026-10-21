@@ -1,5 +1,3 @@
--- #177 Org 전체 저장소의 canonical identity와 최소 파생 metric 이력을 추가한다.
--- 기존 Repository·CollectionRun·GithubRawObservation 계약은 변경하지 않는다.
 
 CREATE TABLE "OrgRepositoryInventory" (
     "id" TEXT NOT NULL,

@@ -1,12 +1,9 @@
 BEGIN;
 
--- Preflight와 DDL 사이에 legacy writer가 새 invalid row를 넣지 못하게 쓰기 잠금을
--- Program -> Milestone 순서로 잡는다. 1초 안에 잡지 못하면 배포를 중단하고 재시도한다.
 SET LOCAL lock_timeout = '1s';
 LOCK TABLE "Program" IN SHARE ROW EXCLUSIVE MODE;
 LOCK TABLE "Milestone" IN SHARE ROW EXCLUSIVE MODE;
 
--- 기존 행으로부터 계산될 값을 먼저 검증한다. 잠금 아래에서 이 블록을 통과한 뒤에만 DDL/백필한다.
 DO $$
 DECLARE
   invalid_count BIGINT;
@@ -66,8 +63,6 @@ UPDATE "Program"
 SET "teamMaxSize" = 1
 WHERE "teamMaxSize" IS NULL;
 
--- Legacy null endAt meant "not ended". Preserve that meaning with a finite
--- JavaScript-safe timestamp while the final schema remains non-null.
 UPDATE "Program"
 SET "endAt" = TIMESTAMP '9999-12-31 23:59:59.999'
 WHERE "endAt" IS NULL;
@@ -97,10 +92,6 @@ CHECK (
 ALTER TABLE "Milestone" ADD CONSTRAINT "Milestone_operatingWindow_check"
 CHECK ("startAt" < "dueAt");
 
--- ADR-002 rolls the image back without reversing migrations. These triggers let
--- the previous image omit new startAt columns and keep writing nullable legacy
--- end/team values. Retire both triggers/default sentinels only after that image
--- is no longer a rollback candidate.
 CREATE FUNCTION "Program_legacy_write_compatibility"()
 RETURNS trigger
 LANGUAGE plpgsql

@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# 커밋될 내용(index)에 CI와 같은 ESLint(local/no-comments 포함)를 돌린다.
-# 대상은 각 앱의 lint 범위와 같다. 검사할 수 없으면 커밋을 막는다.
-# 우회: git commit --no-verify. CI lint는 그대로 돈다.
 set -euo pipefail
 
 root="$(git rev-parse --show-toplevel)"

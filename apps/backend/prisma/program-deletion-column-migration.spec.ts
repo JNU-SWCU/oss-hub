@@ -75,7 +75,6 @@ test('rehearsal never consumes an ambient connection or production environment',
 });
 
 test('rehearsal fails closed for remote Docker endpoints with Docker precedence preserved', () => {
-  assert.match(rehearsal, /DOCKER_CONTEXT takes precedence over DOCKER_HOST/);
   assert.match(rehearsal, /if \[\[ -n \$\{DOCKER_CONTEXT:-\} \]\]/);
   assert.match(rehearsal, /elif \[\[ -n \$\{DOCKER_HOST:-\} \]\]/);
   assert.match(

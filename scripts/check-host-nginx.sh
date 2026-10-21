@@ -135,9 +135,6 @@ for marker, (methods, zone) in compose_paths.items():
 if compose.count('server {') != 2 or 'location /api/ {' in compose:
     fail('Compose must have exactly default/canonical servers and only /api/v1 ingress')
 
-# Text checks above keep diagnostics concise. This directive tree is the
-# authority: comments and multiline quoted values cannot impersonate active
-# security directives or their ancestry.
 class Node:
     def __init__(self, name, args, children):
         self.name = name
@@ -306,9 +303,6 @@ def descendants(nodes):
         yield node
         yield from descendants(node.children or [])
 
-# #1453이 없앤 관리자 등록 주소. 전용 location이 돌아오면 폐기된 요청이 다시 수집 실행
-# rate-limit 예산을 쓰므로(#1455), 요구하지 않는 데서 그치지 않고 금지한다. nginx는 location을
-# 다른 location 안에 중첩할 수 있으므로 server 바로 아래만이 아니라 모든 깊이를 본다.
 retired_path = '/api/v1/admin/collection/discover-external'
 for label, nodes in (('host', host_tree), ('Compose', compose_tree)):
     for node in descendants(nodes):

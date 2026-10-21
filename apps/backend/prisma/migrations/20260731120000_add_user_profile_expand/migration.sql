@@ -1,10 +1,5 @@
 BEGIN;
 
--- Valid onboarding states before this expand migration are:
---   * expected incomplete: studentId and department are both NULL; name may be NULL or the legacy GitHub display name.
---   * complete: name, studentId, and department are all non-NULL and satisfy the onboarding profile policy.
--- The onboarding API writes all three fields on first completion and never writes
--- studentId or department independently, so every other NULL combination is anomalous.
 DO $$
 DECLARE
   impossible_partial_count BIGINT;

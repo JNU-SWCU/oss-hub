@@ -8,7 +8,6 @@ source "$support_directory/backend-env.sh"
 sanitized_home="$(mktemp -d "${TMPDIR:-/tmp}/oss-hub-e2e-home-test.XXXXXX")"
 trap 'rm -rf "$sanitized_home"' EXIT
 
-# Given: representative live-capable and unknown parent variables hold sentinels.
 export E2E_UNKNOWN_PARENT_CREDENTIAL_PATH=sentinel-must-not-reach-child
 export GITHUB_APP_ORG=sentinel-must-not-reach-child
 export GITHUB_COLLECTION_APP_ID=sentinel-must-not-reach-child
@@ -27,7 +26,6 @@ export SUBMISSION_FILE_CLEANUP_OPERATOR_ID=sentinel-must-not-reach-child
 
 tool_path="$(dirname "$(command -v node)"):/usr/bin:/bin"
 
-# When: the same allowlisted launcher used by run-stack starts a child process.
 e2e_backend_server_env \
   "$tool_path" \
   "$sanitized_home" \
@@ -58,5 +56,4 @@ tool_github_app_org="$(
 )"
 test -z "$tool_github_app_org"
 
-# Then: the probe exits zero only when sentinels are absent and test values win.
 printf 'backend env isolation: ok\n'

@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Fail-closed greenfield host check. Called only when frontend/backend
-# containers are both absent. Leftover SQL/object backups or compose
-# named volumes mean this is not a first deploy.
-# Genuine re-provision: set GREENFIELD_DEPLOY_ACK=1.
 set -euo pipefail
 
 fail_closed() {

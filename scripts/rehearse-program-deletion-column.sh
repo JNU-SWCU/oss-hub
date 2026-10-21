@@ -1,17 +1,4 @@
 #!/usr/bin/env bash
-# Program deletionProtected contract rehearsal (#1237).
-#
-# This intentionally uses focused-table isolation rather than the complete repo
-# migration ledger: the first release has already removed the application/client
-# contract, and this second release owns only the physical column. A disposable
-# PostgreSQL container holds a production-shaped Program table, related rows, and
-# unrelated control table. No caller database connection is consulted; Docker
-# endpoint variables are checked explicitly and remote endpoints are rejected.
-#
-# `migrate` snapshots the populated pre-contract database, invokes this exact
-# migration file, checks the surviving rows/constraints, and restores the dump.
-# `negative` first removes the column and proves the exact migration rejects that
-# drift without changing any unrelated data.
 set -euo pipefail
 
 scenario=${1:-}
@@ -57,9 +44,6 @@ backup=''
 result_emitted=0
 success_result=''
 
-# DOCKER_CONTEXT takes precedence over DOCKER_HOST. When it is absent,
-# DOCKER_HOST takes precedence over the selected context endpoint. Both paths
-# are checked before any container operation; only a local Unix socket is safe.
 if [[ -n ${DOCKER_CONTEXT:-} ]]; then
   effective_docker_context=$DOCKER_CONTEXT
   effective_docker_host=$(
@@ -86,7 +70,6 @@ cleanup() {
   local status=$?
   local cleanup_status=0
   trap - EXIT INT TERM
-  # The container owns the only database. `-v` also removes its anonymous volume.
   if (( container_started == 1 )); then
     if (( lock_session_started == 1 )); then
       if ! cleanup_lock_session; then
@@ -103,8 +86,6 @@ cleanup() {
     rm -rf -- "$tmp_root" || cleanup_status=1
   fi
   if (( cleanup_status != 0 )); then
-    # Do not expose daemon details or endpoint material; cleanup failure is still
-    # a failed rehearsal even when the migration assertions passed.
     printf '[program-column] status=failed scenario=%s reason=cleanup failed\n' "$scenario" >&2
     status=1
   elif (( status != 0 && result_emitted == 0 )); then
@@ -118,8 +99,6 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-# No host port is published and no caller connection string is read. Every SQL
-# command runs inside this container against the synthetic database.
 "${docker_cli[@]}" run -d --name "$container" \
   -e POSTGRES_USER=migration \
   -e POSTGRES_PASSWORD="$password" \
@@ -172,8 +151,6 @@ lock_session_count() {
 }
 
 start_lock_session() {
-  # A detached psql process is a separate container session. Its transaction
-  # holds the conflicting SHARE lock while the exact migration runs elsewhere.
   "${docker_cli[@]}" exec -d \
     -e "PGPASSWORD=$password" \
     -e "PGCONNECT_TIMEOUT=$pg_connect_timeout" \
@@ -219,8 +196,6 @@ cleanup_lock_session() {
   return 1
 }
 
-# This is the smallest useful production-shaped slice: the current Program
-# columns, the deployed Program checks, a child FK, and independent control data.
 seed_database() {
   psql_exec >/dev/null 2>"$tmp_root/seed.log" <<'SQL'
 DROP SCHEMA public CASCADE;
@@ -385,8 +360,6 @@ indexes_before=$(index_digest)
   fail 'pre-drop fingerprints must not be empty'
 [[ "$columns_before" == *deletionProtected* ]] || fail 'fixture must contain deletionProtected before DROP'
 
-# The custom archive is the pre-DROP image used by the restore check. It never
-# leaves the temporary directory and is consumed only by this container.
 "${docker_cli[@]}" exec \
   -e "PGPASSWORD=$password" \
   -e "PGCONNECT_TIMEOUT=$pg_connect_timeout" \
@@ -396,7 +369,6 @@ indexes_before=$(index_digest)
 [[ -s "$backup" ]] || fail 'pre-drop backup is empty'
 
 if [[ $scenario == 'migrate' ]]; then
-  # Invoke the tracked SQL itself, not a reconstructed ALTER statement.
   if ! psql_exec -f "$container_migration" >"$tmp_root/migration.log" 2>&1; then
     fail 'exact migration failed on a populated pre-contract table'
   fi
@@ -464,8 +436,6 @@ if [[ $scenario == 'locked' ]]; then
   exit 0
 fi
 
-# Negative lane: create the exact drift a repeated/partially applied deployment
-# would see, then run the same tracked migration and require its explicit error.
 psql_exec -c 'ALTER TABLE "Program" DROP COLUMN "deletionProtected"' >/dev/null 2>&1
 negative_program_before=$(program_digest)
 negative_control_before=$(control_digest)

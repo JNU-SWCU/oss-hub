@@ -1,6 +1,3 @@
--- #1034 contract: the target milestone-document ledger is the only submission ledger.
--- This migration deliberately has no compatibility path: reconciliation must be complete before
--- the source schema is removed.
 BEGIN;
 
 SET LOCAL lock_timeout = '10s';
@@ -16,8 +13,6 @@ LOCK TABLE
   "MilestoneDocumentReviewHistory"
 IN ACCESS EXCLUSIVE MODE;
 
--- All reconciliation gates precede every destructive schema change. A row is a disposable source
--- seed only when both its Submission id and its Application id use the reserved seed: prefix.
 DO $preflight$
 BEGIN
   IF EXISTS (
@@ -305,8 +300,6 @@ BEGIN
 END
 $preflight$;
 
--- The bridge fences would reject a source-linked seed file whose id is not itself a seed id.
--- Gates above prove that only fully reserved source seed graphs enter this cleanup path.
 DROP TRIGGER "SubmissionFile_bridge_provenance_fence" ON "SubmissionFile";
 DROP TRIGGER "Submission_bridge_write_fence" ON "Submission";
 DROP TRIGGER "SubmissionRevision_bridge_write_fence" ON "SubmissionRevision";
@@ -314,10 +307,6 @@ DROP TRIGGER "Review_bridge_write_fence" ON "Review";
 DROP FUNCTION "protect_legacy_submission_file_provenance"();
 DROP FUNCTION "reject_legacy_submission_mutation"();
 
--- Source-only seed uploads are retained for the asynchronous object cleaner; no user data or
--- storage object is deleted in this contract migration.
--- A seed file already preserved by the target ledger keeps its lifecycle/object and only loses
--- obsolete source provenance.
 UPDATE "SubmissionFile" AS file
 SET "submissionRevisionId" = NULL
 FROM "SubmissionRevision" AS revision
@@ -329,8 +318,6 @@ WHERE file."submissionRevisionId" = revision."id"
   AND file."milestoneDocumentSubmissionId" IS NOT NULL
   AND file."milestoneDocumentSubmissionHistoryId" IS NOT NULL;
 
--- Targetless seed uploads are retained for the asynchronous object cleaner; no user data or
--- storage object is deleted in this contract migration.
 UPDATE "SubmissionFile" AS file
 SET
   "submissionRevisionId" = NULL,
@@ -352,8 +339,6 @@ WHERE file."submissionRevisionId" = revision."id"
   AND file."milestoneDocumentSubmissionId" IS NULL
   AND file."milestoneDocumentSubmissionHistoryId" IS NULL;
 
--- Target-only provenance: pending uploads have no attachment, attached files name both target
--- header and immutable history, and cleanup states retain the existing lifecycle flexibility.
 ALTER TABLE "SubmissionFile"
   DROP CONSTRAINT "SubmissionFile_lifecycle_attachment_check";
 
@@ -383,7 +368,6 @@ ALTER TABLE "SubmissionFile"
 ALTER TABLE "SubmissionFile"
   VALIDATE CONSTRAINT "SubmissionFile_lifecycle_attachment_check";
 
--- Source provenance is now absent from every retained row and the target-only constraint is live.
 ALTER TABLE "SubmissionFile"
   DROP CONSTRAINT "SubmissionFile_submissionRevisionId_fkey";
 DROP INDEX "SubmissionFile_submissionRevisionId_idx";

@@ -57,9 +57,6 @@ ALTER TABLE "MilestoneDocumentReviewHistory"
   FOREIGN KEY ("submissionHistoryId")
   REFERENCES "MilestoneDocumentSubmissionHistory"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- 파일이 둘 이상이면 어느 것이 현재 revision인지 스키마만으로 증명할 수 없다.
--- 이 경우 일부만 옮겨 원래 열리던 파일을 숨기지 말고, 변경 전 상태 그대로
--- 트랜잭션 전체를 중단해 운영 행 단위 대조를 요구한다.
 DO $migration$
 BEGIN
   IF EXISTS (
@@ -77,7 +74,6 @@ BEGIN
 END
 $migration$;
 
--- 현재 헤더가 증명하는 최신 snapshot만 옮긴다. 과거 revision·판정의 연결은 추정하지 않는다.
 INSERT INTO "MilestoneDocumentSubmissionHistory" (
   "id",
   "milestoneDocumentSubmissionId",
@@ -100,8 +96,6 @@ SELECT
   submission."submittedAt"
 FROM "MilestoneDocumentSubmission" AS submission;
 
--- 기존 판정도 새 이력 화면에서 사라지지 않도록 사건 원장에 옮긴다. 당시 어느 제출 차수를
--- 검토했는지는 기존 스키마가 기록하지 않았으므로 revision은 추정하지 않고 NULL로 둔다.
 INSERT INTO "MilestoneDocumentSubmissionHistory" (
   "id",
   "milestoneDocumentSubmissionId",
@@ -121,9 +115,6 @@ SELECT
   review."reviewedAt"
 FROM "MilestoneDocumentReviewHistory" AS review;
 
--- 현재 header에 ATTACHED 파일이 딱 하나인 경우만 최신 snapshot으로 연결한다.
--- 둘 이상인 행은 위 preflight가 트랜잭션 전체를 이미 중단했으므로, 이 UPDATE가
--- 실행될 때는 단일 파일인 행만 존재한다. 모호한 행을 NULL로 남겨 조용히 넘기지 않는다.
 WITH "UnambiguousAttachedFile" AS (
   SELECT "milestoneDocumentSubmissionId"
   FROM "SubmissionFile"

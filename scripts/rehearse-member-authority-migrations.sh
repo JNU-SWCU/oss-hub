@@ -13,8 +13,6 @@ schema="$repo_root/apps/backend/prisma/schema.prisma"
 expand_migration="$repo_root/apps/backend/prisma/migrations/20260821000000_add_member_authority_schema_expand/migration.sql"
 contract_migration="$repo_root/apps/backend/prisma/migrations/20260824000000_contract_member_authority/migration.sql"
 
-# 계약 레인은 정적 계약을 먼저 통과시킨 뒤에야 컨테이너를 띄운다 — 검사기가
-# 잡을 수 있는 결함에 대해 30초짜리 Docker 리허설을 낭비하지 않는다.
 if [[ $scenario == 'contract' || $scenario == 'contract-negative' ]]; then
   node "$repo_root/scripts/member-authority-contract-contract.mjs" \
     "$schema" "$contract_migration"
@@ -160,12 +158,6 @@ Promise.all([
   prisma.user.count(),
   prisma.userProfile.count(),
 ]).then(([user, userCount, profileCount]) => {
-  // bridge 마이그레이션이 접근 권한 두 칸을 legacy role에서 backfill한 뒤 NOT NULL로 잠근다.
-  // STUDENT는 교직원·관리자 접근이 모두 없으므로 두 값이 false다.
-  //
-  // 정본 프로필 세 칸도 같은 마이그레이션이 채운다. 이 행은 legacy role이
-  // STUDENT라 회원 유형이 STUDENT로 해소되고, 소속 유형은 원본 기본값인
-  // DEPARTMENT, 소속명은 `department`의 사본이 된다.
   const expected = { name: "legacy-name", studentId: "123456", department: "legacy-department", role: "STUDENT", selectedRole: "STUDENT",
     selectedMemberKind: null, hasStaffAccess: false, hasAdminAccess: false,
     profile: { name: "profile-name", studentId: "123456", department: "profile-department", memberKind: "STUDENT", affiliationKind: "DEPARTMENT", affiliationName: "profile-department" } };

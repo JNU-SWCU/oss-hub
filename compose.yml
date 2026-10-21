@@ -19,43 +19,32 @@ services:
     image: oss-hub-backend:${IMAGE_TAG:?IMAGE_TAG is required}
     restart: unless-stopped
     environment:
-      # migration과 runtime은 서버 .env의 postgres 서비스 DNS를 가리키는 동일한 DATABASE_URL을 사용한다.
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required}
       TEAM_JOIN_CODE_SECRET: ${TEAM_JOIN_CODE_SECRET:?TEAM_JOIN_CODE_SECRET is required}
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
       GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:?GITHUB_OAUTH_CLIENT_ID is required}
       GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:?GITHUB_OAUTH_CLIENT_SECRET is required}
-      # Optional compatibility placeholder. Runtime derives and validates the callback from FRONTEND_URL.
       GITHUB_OAUTH_CALLBACK_URL: ${GITHUB_OAUTH_CALLBACK_URL:-}
       GITHUB_COLLECTION_APP_ID: ${GITHUB_COLLECTION_APP_ID:?GITHUB_COLLECTION_APP_ID is required}
       GITHUB_APP_ORG: ${GITHUB_APP_ORG:?GITHUB_APP_ORG is required}
-      # 기본값은 아래 secrets 이름과 짝을 이룬다 — 한쪽만 바꾸면 마운트 지점과 어긋난다.
       GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE: ${GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE:-/run/secrets/github_collection_app_private_key}
       GITHUB_COLLECTION_APP_API_BASE_URL: ${GITHUB_COLLECTION_APP_API_BASE_URL:-}
       GITHUB_COLLECTION_APP_MAX_PAGES: ${GITHUB_COLLECTION_APP_MAX_PAGES:-}
       GITHUB_COLLECTION_APP_DEADLINE_MS: ${GITHUB_COLLECTION_APP_DEADLINE_MS:-}
-      # 선택값. 조직 밖 public 저장소 탐색 전용 서비스 계정 PAT. 없으면 조직 수집은
-      # 그대로 동작하고 외부 탐색만 비활성화된다.
       GITHUB_PUBLIC_READ_TOKEN: ${GITHUB_PUBLIC_READ_TOKEN:-}
       GITHUB_OPERATIONS_APP_ID: ${GITHUB_OPERATIONS_APP_ID:?GITHUB_OPERATIONS_APP_ID is required}
       GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE: ${GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE:-/run/secrets/github_operations_app_private_key}
-      # 선택값. 코드 기본 cron은 매시 정각(초 포함 6필드), listen 포트 기본은 4000.
       COLLECTION_CRON_EXPRESSION: ${COLLECTION_CRON_EXPRESSION:-}
       PORT: ${PORT:-4000}
       SUBMISSION_FILE_STORAGE_MODE: ${SUBMISSION_FILE_STORAGE_MODE:?SUBMISSION_FILE_STORAGE_MODE is required}
-      # Application storage credentials are managed S3 credentials.
       SUBMISSION_FILE_S3_ENDPOINT: ${SUBMISSION_FILE_S3_ENDPOINT:?SUBMISSION_FILE_S3_ENDPOINT is required}
       SUBMISSION_FILE_S3_REGION: ${SUBMISSION_FILE_S3_REGION:?SUBMISSION_FILE_S3_REGION is required}
       SUBMISSION_FILE_S3_BUCKET: ${SUBMISSION_FILE_S3_BUCKET:?SUBMISSION_FILE_S3_BUCKET is required}
       SUBMISSION_FILE_S3_ACCESS_KEY_ID: ${SUBMISSION_FILE_S3_ACCESS_KEY_ID:?SUBMISSION_FILE_S3_ACCESS_KEY_ID is required}
       SUBMISSION_FILE_S3_SECRET_ACCESS_KEY: ${SUBMISSION_FILE_S3_SECRET_ACCESS_KEY:?SUBMISSION_FILE_S3_SECRET_ACCESS_KEY is required}
       SUBMISSION_FILE_S3_FORCE_PATH_STYLE: ${SUBMISSION_FILE_S3_FORCE_PATH_STYLE:?SUBMISSION_FILE_S3_FORCE_PATH_STYLE is required}
-      # 미설정이면 역할 시드를 적용하지 않는다.
       AUTH_INITIAL_ROLES: ${AUTH_INITIAL_ROLES:-}
-      # MAIL_MODE는 exact send|dry-run만 허용한다. 운영은 send, 로컬 예시는 dry-run을 쓴다.
-      # Gmail 자격은 컨테이너에 선택 전달하고 MAIL_MODE=send일 때 앱이 4종 전부를 검증한다.
-      # compose --env-file 치환만으로는 컨테이너에 전달되지 않으므로 여기서 명시 매핑한다.
       MAIL_MODE: ${MAIL_MODE:?MAIL_MODE is required}
       GMAIL_SENDER: ${GMAIL_SENDER:-}
       GMAIL_OAUTH_CLIENT_ID: ${GMAIL_OAUTH_CLIENT_ID:-}
@@ -92,18 +81,13 @@ services:
       backend:
         condition: service_healthy
     ports:
-      # 공인 80/443은 host nginx가 담당하고 Compose ingress는 loopback에서만 받는다.
       - '127.0.0.1:8081:80'
     volumes:
-      # 단일 파일 마운트는 inode를 고정해 배포 뒤 낡은 설정이 남으므로 디렉터리를 마운트한다.
       - ./deploy/nginx:/etc/nginx/conf.d:ro
 
 volumes:
   pgdata:
 
-# uid/gid/mode를 일부러 지정하지 않는다 — 호스트 파일의 소유·모드가 그대로 컨테이너에
-# 전달되므로(Compose v5.3.1 실측) 지정하면 설치 측이 보장하는 0640 + gid 1000과 어긋난다.
-# 필수 표기(:?)가 legacy 값 키에서 이 SOURCE 경로 키로 옮겨왔다.
 secrets:
   github_collection_app_private_key:
     file: ${GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE:?GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE is required}

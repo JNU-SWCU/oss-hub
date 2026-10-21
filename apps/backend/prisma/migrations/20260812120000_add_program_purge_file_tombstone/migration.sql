@@ -1,5 +1,3 @@
--- Program purge는 트랜잭션에서 객체 키를 이 tombstone으로 옮기고,
--- 실제 storage 삭제는 worker가 후속 수행한다. 기존 FK의 Cascade 동작은 바꾸지 않는다.
 CREATE TYPE "ProgramPurgeFileTombstoneLifecycle" AS ENUM ('DELETE_PENDING', 'DELETED');
 
 CREATE TABLE "ProgramPurgeFileTombstone" (

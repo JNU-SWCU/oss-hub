@@ -90,8 +90,6 @@ fi
 
 database_url="postgresql://oss:oss-dev@127.0.0.1:${published_port}/${postgres_database}?schema=public"
 
-# postgres 초기화 중의 임시 서버도 pg_isready를 통과해 healthcheck가 일찍 healthy가 된다.
-# 연속 성공을 요구해 재시작으로 TCP가 끊기는 창에서 migrate·seed가 죽지 않게 한다.
 attempt=0
 ready_streak=0
 until [ "$ready_streak" -ge 3 ]; do

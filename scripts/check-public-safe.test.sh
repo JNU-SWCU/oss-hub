@@ -7,7 +7,6 @@ SCANNER="$ROOT/scripts/check-public-safe.sh"
 TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/public-safe-email-test.XXXXXX")"
 trap 'rm -rf "$TEMP_ROOT"' EXIT
 
-# 완성된 이메일 literal을 저장소에 남기지 않고 실행 시점에만 합성한다.
 allowed_noreply='noreply'"@"'synthetic.local'
 allowed_reserved='fixture'"@"'sub.example.com'
 allowed_reserved_upper='FIXTURE'"@"'SYNTHETIC.INVALID'
@@ -25,22 +24,11 @@ blocked_name='-SyntheticName'
 mixed_same_line="$allowed_noreply $blocked_contact"
 git_identity="$allowed_noreply"
 
-# 학번 추정 패턴(20으로 시작하는 연속 9자리) 회귀 — 실제 학번 리터럴을 그대로 두지
-# 않고 다른 합성 fixture와 같은 방식으로 문자열을 조립한다.
 blocked_student_id_like='20'"$(printf '%07d' 1)"
-# pull_request CI의 합성 merge ref(refs/pull/N/merge) HEAD가 갖는 자동 생성 커밋
-# 메시지 형태 — 40자 SHA 안에 학번 추정 패턴과 같은 자리수의 숫자열이 우연히
-# 들어갈 수 있다(실제 사례: PR #451 run 30660762098). SHA 자체는 검사 대상
-# 콘텐츠가 아니므로 이 형태의 병합 커밋 메시지는 커밋 메시지 스캔에서 제외돼야 한다.
-# 이 회귀 테스트 소스 파일 자체도 public-safe 파일 내용 검사 대상이므로, SHA
-# 리터럴을 9자리 연속 숫자로 이어붙이지 않고 조각내 조립한다(다른 합성 fixture와
-# 동일한 관행).
 merge_head_sha='eca42ea847a58497965dd26c7a95a0e1348eed8a'
 merge_base_sha='ec3b0d1d5648c205e397003dfe0b2'"055235"'37c61'
 synthetic_merge_ref_message="Merge ${merge_head_sha} into ${merge_base_sha}"
 
-# GitHub @handle 멘션 오탐 회귀 — 도메인 형태(점 + 마지막 점 뒤 2자 이상)가 없어
-# 이메일 후보가 될 수 없는 문장들. 리터럴 그대로 써도 이메일처럼 보이지 않는다.
 mention_bullet_dot='@GoBeromsu·@Lumiere001의 free-role 예외'
 mention_paren_comma='사람은 GitHub @handle로만 표기했다(@GoBeromsu, @Lumiere001)'
 mention_quoted_sentence='"PM+Tech Lead 이중 승인"에서 "@GoBeromsu 단독"으로 바뀐다'
@@ -49,19 +37,11 @@ mention_shell_assignment_ellipsis="셸 문자열(var='${at_sign}handle...' 형�
 mention_dotless_unicode_token="담당자${at_sign}내부도메인"
 mention_quoted_dotless_token='"quoted local"'"${at_sign}"'내부도메인'
 
-# 도메인 형태 요건 도입 후에도 계속 차단돼야 하는 실제 이메일류 — 소스에 완성된
-# literal이 남지 않도록 at_sign으로 쪼갠다.
 blocked_kr_tld_email="사용자${at_sign}example.co.kr"
 blocked_quoted_local_dotted_domain='"quoted local"'"${at_sign}"'example.com'
 blocked_punycode_ascii_domain="admin${at_sign}xn--80ak6aa92e.com"
 blocked_unicode_local_and_domain="테스트${at_sign}도메인.한국"
 
-# 독립 보안 리뷰가 재현한 회귀 3건과 스스로 구성한 반례 — local part의 구분자 제외를
-# 되돌리고 도메인 쪽에만 걸었는지, 점 없는 도메인도 갈래 B로 잡는지 확인한다.
-# 가운뎃점 케이스는 도메인에 점을 둔다: local part 끝의 구분자로 판별하면
-# "@GoBeromsu·@Lumiere001" 같은 정상 멘션(mention_bullet_dot)과 문자 단위로
-# 구분이 불가능해, 점 있는 도메인(갈래 A, local part 내용과 무관하게 잡힘)으로만
-# 안전하게 재현할 수 있다.
 blocked_backtick_local_dotted_domain='담당자`'"${at_sign}"'example.com'
 blocked_bullet_dot_before_at_dotted_domain="관리자·${at_sign}example.com"
 blocked_paren_wrapped_dotted_domain="(사용자${at_sign}example.com)"
@@ -131,9 +111,6 @@ scan_issue_text() {
   )
 }
 
-# 로케일 불변성 확인 — bracket expression 안의 가운뎃점 리터럴이 비UTF-8 로케일에서
-# 바이트 단위로 쪼개지는 결함을 스크립트가 스스로 UTF-8 로케일을 고정해 막는지 검증한다.
-# 외부에서 LC_ALL=C를 강제해도 스캐너 내부의 로케일 고정이 우선해야 같은 결과가 나온다.
 scan_issue_text_lc_all_c() {
   (
     cd "$ROOT"
@@ -288,7 +265,6 @@ expect_fail '도메인 형태 요건 도입 후에도 차단되는 punycode 이�
 expect_fail '도메인 형태 요건 도입 후에도 차단되는 비ASCII local·domain 이메일' \
   scan_pr_text "$blocked_unicode_local_and_domain"
 
-# local part 구분자 제외를 되돌린 뒤에도 아래 회귀·반례가 계속 차단되는지 확인한다.
 expect_fail '백틱이 @ 바로 앞에 오는 비ASCII local + 점 있는 도메인' \
   scan_pr_text "$blocked_backtick_local_dotted_domain"
 expect_fail '가운뎃점이 @ 바로 앞에 오고 도메인에 점이 있는 경우' \
@@ -417,7 +393,6 @@ git -C "$FIXTURE_REPO" add docs/credentials-prod.md
 commit_fixture commit -qm 'test: suffixed credentials note fixture'
 expect_fail '접미사 붙은 자격증명 메모 경로(docs/credentials-prod.md)' scan_fixture_repo
 
-# 오탐 경계: 이름에 credential 이 들어가도 소스 파일과 정책 문서는 막지 않는다.
 init_fixture_repo allowed-credential-like-source
 mkdir -p "$FIXTURE_REPO/src" "$FIXTURE_REPO/docs/rules"
 printf 'export const noop = 1;\n' >"$FIXTURE_REPO/src/credentials.service.ts"

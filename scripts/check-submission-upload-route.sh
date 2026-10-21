@@ -1,18 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Compose nginx 제출 파일 경로가 backend로 프록시되는 계약 검사.
-# 실제 nginx 기동 없이 결정론적으로 검증한다:
-#   1) nginx location 선택 규칙(= → ^~ → 정규식 선언 순서 → 최장 prefix)을 그대로 모사한다
-#   2) 제출 파일 경로(exact·descendant·대소문자 변형)가 모두 /api/ backend proxy로 선택된다
-#   3) 해당 경로를 가로채는 4xx/5xx return location이 남아 있지 않다
-#   4) sibling 경로(submission-files-export 등)와 무관한 /api/ 는 차단되지 않는다
-#   5) /api/ 는 최상위 backend proxy 를 유지하고 차단 return 이 없다
-# Nest(Express)는 라우트 대소문자를 구분하지 않는다. 차단 location을 제거하면 대소문자
-# 변형도 /api/ 하나로 수렴하므로, 이전의 case-insensitive regex deny는 더 이상 필요 없다.
-# 인용·이스케이프·주석·세미콜론 묶음·중첩 블록을 인식하는 제한 nginx 파서로만 판정한다
-# (정규식/라인 폴백 없음). 조건부·중첩 return, 문자열 속 지시어 위장, sibling 과차단
-# 은 계약 위반. 위반·파일 부재는 exit 1.
 
 config=${1:-deploy/nginx/nginx.conf}
 
@@ -31,8 +19,6 @@ import sys
 
 PREFIX = 'submission-upload-route contract'
 
-# backend proxy에 반드시 도달해야 하는 제출 파일 경로. 대소문자 변형은 Express 라우팅이
-# 구분하지 않기 때문에 포함한다.
 MUST_PROXY = (
     '/api/v1/submission-files',
     '/api/v1/Submission-Files',
@@ -43,7 +29,6 @@ MUST_PROXY = (
     '/api/v1/Submission-Files/1',
 )
 
-# 차단이 번져서는 안 되는 경로. sibling 과차단과 무관 API 마비를 잡는다.
 MUST_NOT_BLOCK = (
     '/api/v1/submission-files-export',
     '/api/v1/submission-filesXYZ',
@@ -242,9 +227,6 @@ def blocking_returns(node: Node, *, top_level_only: bool) -> list[str]:
 
     def collect(children: list[Node]) -> None:
         for child in children:
-            # The production Compose boundary rejects a missing trusted Vercel
-            # client key before proxying. This conditional guard is not an
-            # upload-path block; check-host-nginx owns its exact contract.
             if child.name == 'if' and any(
                 '$vercel_client_key' in argument for argument in child.args
             ):
@@ -350,8 +332,6 @@ def main() -> None:
         if blocking_returns(selected, top_level_only=False):
             fail(f'{path} selects {describe(selected)} which blocks backend access')
 
-    # 업로드 본문 한도. nginx 기본값 1m 이면 backend 가 허용하는 5MB 제출이 413 으로
-    # 죽는다 — 차단 return 이 없어도 실질적으로 업로드가 막히므로 계약으로 고정한다.
     body_size = next(
         (
             child.args[0]
@@ -380,9 +360,6 @@ def main() -> None:
         if blocking_returns(selected, top_level_only=False):
             fail(f'{path} selects {describe(selected)} which over-blocks an unrelated route')
 
-    # Increment A: compose nginx mirrors non-TLS headers and banner hiding.
-    # Upload-route checks above stay fail-fast so existing fixtures fail for
-    # the original reason.
     edge_errors: list[str] = []
 
     def edge(message: str) -> None:

@@ -1,4 +1,3 @@
-# 빌드 산출물 · 의존성
 node_modules
 dist
 build
@@ -7,36 +6,26 @@ coverage
 out
 .vercel
 
-# 잠금 파일 — 도구가 소유한 포맷
 pnpm-lock.yaml
 
-# 생성 파일 — apps/frontend/scripts/export-design-tokens.mjs가 소유한다
 docs/design-tokens/tokens.json
 
-# Prisma가 생성하는 마이그레이션 SQL — 도구 산출물
 apps/backend/prisma/migrations
 
-# 문서는 "한 문장 한 줄" 규칙(AGENTS.md)을 따로 쓴다 — prettier 프로즈 재포맷 대상 아님
 *.md
 
-# 에이전트 로컬 상태 — 커밋 대상 아님
 .omc
 
-# shadcn CLI가 소유한 설정 — 키·값 줄 분리 형태 유지 필요(public-safe가 같은 줄의 인용부호 직후 골뱅이 기호를 이메일 후보로 오탐)
 apps/frontend/components.json
 
-# agent worktrees / local evidence
 .claude/worktrees/
 .worktrees/
 .omo/
 .playwright-mcp/
-# 화면 정합 대조용 프로토타입 로컬 작업본 — 도구 산출물이고 커밋 대상이 아니다(대조가 끝나면 폴더와 함께 이 두 줄도 지운다)
-# 한글 폴더명은 macOS(NFD)와 저장된 문자열(NFC)의 정규화가 달라 매칭에 실패하므로 ASCII 접두사 glob으로 지정한다
 OSS Hub *
 OSS Hub */**
 apps/backend/scripts/seed-staff-settings.js
 
-# design-sync 컨버터 산출물 — 도구가 생성하는 번들/타입, 손으로 포맷하지 않는다
 .ds-sync
 ds-bundle
 apps/frontend/.ds-css

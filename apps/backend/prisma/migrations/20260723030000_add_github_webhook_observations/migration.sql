@@ -1,4 +1,3 @@
--- CreateEnum
 CREATE TYPE "GithubWebhookObservationOutcome" AS ENUM (
     'ACCEPTED',
     'DUPLICATE',
@@ -6,7 +5,6 @@ CREATE TYPE "GithubWebhookObservationOutcome" AS ENUM (
     'FAILED'
 );
 
--- CreateTable
 CREATE TABLE "GithubWebhookObservation" (
     "id" TEXT NOT NULL,
     "deliveryId" TEXT NOT NULL,
@@ -23,14 +21,11 @@ CREATE TABLE "GithubWebhookObservation" (
     )
 );
 
--- CreateIndex: deliveryId is intentionally not unique because every retry is observed.
 CREATE INDEX "GithubWebhookObservation_deliveryId_idx"
 ON "GithubWebhookObservation"("deliveryId");
 
--- CreateIndex
 CREATE INDEX "GithubWebhookObservation_receivedAt_idx"
 ON "GithubWebhookObservation"("receivedAt");
 
--- CreateIndex
 CREATE INDEX "GithubWebhookObservation_outcome_receivedAt_idx"
 ON "GithubWebhookObservation"("outcome", "receivedAt");

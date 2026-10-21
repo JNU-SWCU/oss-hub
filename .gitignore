@@ -1,27 +1,21 @@
-# Dependencies
 node_modules
 
-# Build output
 .next/
+/apps/frontend/next-env.d.ts
 dist/
 build/
 coverage/
 
-# Environment files
 .env
 .env.*
 !.env.example
 
-# 자격증명 메모·개인키 — PUBLIC 저장소이므로 추적하지 않는다 (AGENTS.md §4·§6).
-# check-public-safe.sh 가 파일명 단계에서도 차단하지만, 실수로 스테이징되는 것부터 막는다.
 credentials*.md
 secrets*.md
 creds*.txt
 *.private-key.pem
-# 로컬 개발용 개인키 배치 경로. 파일 입력(*_FILE) 계약이 이 디렉터리를 가리킨다.
 secrets/
 
-# Logs
 logs/
 *.log
 npm-debug.log*
@@ -29,7 +23,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# OS and editor files
 .DS_Store
 Thumbs.db
 .vscode/
@@ -37,7 +30,6 @@ Thumbs.db
 *.swp
 *.swo
 
-# Local agent state (.gjc/skills holds committed symlinks to skills/)
 .gjc/*
 !.gjc/skills/
 .omo/
@@ -47,21 +39,16 @@ Thumbs.db
 .openchrome/
 .clawhip/
 .omx/
-# 브라우저 QA 산출물 — 페이지 스냅샷에 세션·사용자 데이터가 담길 수 있어 추적하지 않는다.
 .playwright-mcp/
 
-# Next.js / TypeScript artifacts
 out/
 .vercel/
 *.tsbuildinfo
 
-# direnv (dev DATABASE_URL 주입용, 비커밋)
 .envrc
 
-# Local package store
 .pnpm-store/
 
-# design-sync (claude.ai/design) — staged scripts, build output, machine state
 .ds-sync/
 ds-bundle/
 .design-sync/.cache/
@@ -71,6 +58,4 @@ apps/frontend/.ds-css/
 apps/frontend/ds-types/
 apps/frontend/index.d.ts
 
-# 검증 산출물 — 학생별 원시 수치(비공개 기여량 포함)가 들어가므로 공개 저장소에 넣지 않는다.
-# PR 본문에도 집계 판정만 남긴다(ADR-010 §5).
 /artifacts/

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# check-host-nginx-drift.sh 계약 픽스처.
 set -euo pipefail
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
