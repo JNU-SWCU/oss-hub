@@ -1,3 +1,4 @@
+import { presentMilestoneDocumentHistory } from '../dto/milestone-document-history-response.dto';
 import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import {
   InvalidMilestoneDocumentHistoryCursorError,
@@ -39,13 +40,12 @@ describe('MilestoneDocumentsService historyForStaff', () => {
     } as unknown as MilestoneDocumentsRepository;
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.historyForStaff(
-      1n,
-      'milestone-1',
-      'document-1',
-      'application-1',
-      { cursor: null, limit: 20 },
-    );
+    const result = await service
+      .historyForStaff(1n, 'milestone-1', 'document-1', 'application-1', {
+        cursor: null,
+        limit: 20,
+      })
+      .then(presentMilestoneDocumentHistory);
 
     expect(result).toEqual({
       items: [
@@ -140,12 +140,12 @@ describe('MilestoneDocumentsService history download links', () => {
       authority,
     );
 
-    const result = await service.historyForParticipant(
-      1n,
-      'milestone-1',
-      'document-1',
-      { cursor: null, limit: 20 },
-    );
+    const result = await service
+      .historyForParticipant(1n, 'milestone-1', 'document-1', {
+        cursor: null,
+        limit: 20,
+      })
+      .then(presentMilestoneDocumentHistory);
 
     expect(result.items[0]).toEqual(
       expect.objectContaining({
@@ -166,13 +166,12 @@ describe('MilestoneDocumentsService history download links', () => {
       authority,
     );
 
-    const result = await service.historyForStaff(
-      1n,
-      'milestone-1',
-      'document-1',
-      'application-1',
-      { cursor: null, limit: 20 },
-    );
+    const result = await service
+      .historyForStaff(1n, 'milestone-1', 'document-1', 'application-1', {
+        cursor: null,
+        limit: 20,
+      })
+      .then(presentMilestoneDocumentHistory);
 
     expect(result.items[0]).toEqual(
       expect.objectContaining({
@@ -192,13 +191,12 @@ describe('MilestoneDocumentsService history download links', () => {
       authority,
     );
 
-    const result = await service.historyForStaff(
-      1n,
-      'milestone-1',
-      'document-1',
-      'application-1',
-      { cursor: null, limit: 20 },
-    );
+    const result = await service
+      .historyForStaff(1n, 'milestone-1', 'document-1', 'application-1', {
+        cursor: null,
+        limit: 20,
+      })
+      .then(presentMilestoneDocumentHistory);
 
     expect(result.items[0]).toEqual(
       expect.objectContaining({

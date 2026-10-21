@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, MemberKind } from '@prisma/client';
-import type { ProgramViewerRoleResponseDto } from '../dto/program-detail.dto';
+import type { ProgramViewerRole } from '../domain/program-read.models';
 import { authorityLabel } from '../../users/domain/authority-label';
 import { ProgramsRepository } from '../repository/programs.repository';
 
 export interface ProgramViewer {
   readonly githubId: bigint | null;
   readonly userId: string | null;
-  readonly role: ProgramViewerRoleResponseDto;
+  readonly role: ProgramViewerRole;
 }
 
 export interface ProgramStudentViewer {
@@ -30,7 +30,7 @@ export class ProgramViewerService {
     if (!user || user.accountStatus !== AccountStatus.ACTIVE)
       return { githubId, userId: null, role: null };
 
-    let role: ProgramViewerRoleResponseDto =
+    let role: ProgramViewerRole =
       authorityLabel({
         memberKind: user.profile?.memberKind ?? null,
         hasStaffAccess: user.hasStaffAccess,

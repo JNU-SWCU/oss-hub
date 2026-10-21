@@ -34,7 +34,20 @@ let application: INestApplication | undefined;
 let feedbackUrl = '';
 
 beforeEach(() => {
-  recentForParticipant.mockReset().mockResolvedValue(FEEDBACK);
+  recentForParticipant.mockReset().mockResolvedValue({
+    items: FEEDBACK.items.map((item) => ({
+      id: item.id,
+      decision: item.decision,
+      comment: item.comment,
+      reviewedAt: new Date(item.reviewedAt),
+      resubmissionDueAt: new Date(item.resubmissionDueAt),
+      applicationId: item.applicationId,
+      programId: item.programId,
+      milestoneId: item.milestoneId,
+      milestoneName: item.milestoneName,
+      itemName: item.itemName,
+    })),
+  });
 });
 
 beforeAll(async () => {

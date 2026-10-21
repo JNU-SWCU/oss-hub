@@ -27,7 +27,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-it('counts only issues the student opened in the repository linked to the student application', async () => {
+it('counts only current linked activity and never substitutes detached or unrelated repository facts', async () => {
   await prisma.user.create({
     data: { id: studentId, githubId, nickname: 'synthetic-student' },
   });
@@ -125,10 +125,14 @@ it('counts only issues the student opened in the repository linked to the studen
     },
   });
 
-  const timeline = await new ProgramActivityService(
+  const service = new ProgramActivityService(
     new ProgramsRepository(prisma),
     new ProgramActivityRepository(prisma),
-  ).activityTimeline({ githubId, userId: studentId }, 'MONTH');
+  );
+  const timeline = await service.activityTimeline(
+    { githubId, userId: studentId },
+    'MONTH',
+  );
 
   expect(timeline.series.points).toEqual([
     {
@@ -148,4 +152,50 @@ it('counts only issues the student opened in the repository linked to the studen
       total: 1,
     },
   ]);
+  expect(
+    await prisma.githubIssueHistory.count({
+      where: { repositoryId: unlinkedRepositoryId },
+    }),
+  ).toBe(1);
+  await prisma.githubRepository.update({
+    where: { id: linkedRepositoryId },
+    data: { applicationId: null },
+  });
+  const detached = await service.activityTimeline(
+    { githubId, userId: studentId },
+    'MONTH',
+  );
+  expect(detached.series.points).toEqual([]);
+  expect(detached.dataAsOf).toBeNull();
+  expect(
+    await prisma.collectionCommitFact.count({
+      where: { repositoryId: linkedRepositoryId },
+    }),
+  ).toBe(1);
+  await expect(
+    prisma.githubRepository.findUniqueOrThrow({
+      where: { id: linkedRepositoryId },
+    }),
+  ).resolves.toMatchObject({ programId, teamId });
+
+  await prisma.githubRepository.update({
+    where: { id: linkedRepositoryId },
+    data: { applicationId },
+  });
+  await prisma.collectionCommitFact.deleteMany({
+    where: { repositoryId: linkedRepositoryId },
+  });
+  await prisma.githubIssueHistory.deleteMany({
+    where: { repositoryId: linkedRepositoryId },
+  });
+  const empty = await service.activityTimeline(
+    { githubId, userId: studentId },
+    'MONTH',
+  );
+  expect(empty.series.points).toEqual([]);
+  expect(
+    await prisma.githubIssueHistory.count({
+      where: { repositoryId: unlinkedRepositoryId },
+    }),
+  ).toBe(1);
 });

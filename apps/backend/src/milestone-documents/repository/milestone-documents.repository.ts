@@ -1,3 +1,7 @@
+import {
+  appendSubmissionReview,
+  appendSubmissionReviewEvent,
+} from '../../prisma/submission-review-writer';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
@@ -35,7 +39,6 @@ import type {
 import {
   boundedReviewHistoryQuery,
   milestoneDocumentHistoryDescendingOrderBy,
-  reviewDecisionToHistoryEvent,
 } from './milestone-document-history';
 import {
   upsertMilestoneDocumentSubmission,
@@ -650,37 +653,15 @@ class PrismaMilestoneDocumentWriteStore implements MilestoneDocumentWriteStore {
   async createReview(
     input: CreateMilestoneDocumentReviewInput,
   ): Promise<CreatedMilestoneDocumentReview> {
-    await this.transaction.milestoneDocumentSubmissionHistory.create({
-      data: {
-        milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
-        event: reviewDecisionToHistoryEvent(input.decision),
-        revision: input.revision,
-        actorId: input.reviewerId,
-        comment: input.comment,
-        createdAt: input.reviewedAt,
-      },
-      select: { id: true },
+    await appendSubmissionReviewEvent(this.transaction, input);
+    const created = await appendSubmissionReview(this.transaction, input, {
+      id: true,
+      decision: true,
+      comment: true,
+      reviewedAt: true,
+      resubmissionDueAt: true,
+      reviewer: { select: { nickname: true } },
     });
-    const created =
-      await this.transaction.milestoneDocumentReviewHistory.create({
-        data: {
-          milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
-          submissionHistoryId: input.submissionHistoryId,
-          reviewerId: input.reviewerId,
-          decision: input.decision,
-          comment: input.comment,
-          resubmissionDueAt: input.resubmissionDueAt,
-          reviewedAt: input.reviewedAt,
-        },
-        select: {
-          id: true,
-          decision: true,
-          comment: true,
-          reviewedAt: true,
-          resubmissionDueAt: true,
-          reviewer: { select: { nickname: true } },
-        },
-      });
     return {
       id: created.id,
       decision: created.decision,

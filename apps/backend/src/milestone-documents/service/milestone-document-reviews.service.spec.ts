@@ -507,8 +507,8 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
-      reviewedAt: reviewedAt.toISOString(),
-      resubmissionDueAt: resubmissionDueAt.toISOString(),
+      reviewedAt,
+      resubmissionDueAt,
       reviewerNickname: 'synthetic-staff',
     });
   });

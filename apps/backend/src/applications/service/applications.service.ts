@@ -54,7 +54,10 @@ import type {
 } from '../domain/application-decision';
 import { APPLICATION_DECISION_ACTIONS } from '../domain/application-decision';
 import type { CreateApplicationInput } from '../domain/create-application';
-import { PatchApplicationDecisionRequestDto } from '../dto/patch-application-decision-request.dto';
+import {
+  applicationDecisionAction,
+  type ApplicationDecisionCommand,
+} from '../domain/application-decision';
 
 type ApplicationDecisionPlan = {
   readonly provisionJob: RepositoryProvisionJobSnapshot | null;
@@ -395,16 +398,13 @@ export class ApplicationsService {
   async decide(
     actorGithubId: bigint,
     applicationId: string,
-    input: Pick<PatchApplicationDecisionRequestDto, 'action' | 'reason'>,
+    input: ApplicationDecisionCommand,
   ): Promise<ApplicationDecisionResult> {
     const { actorId } = await this.authority.assertActiveStaff(
       actorGithubId,
       () => this.error(ApplicationsErrorCode.STAFF_ONLY),
     );
-    const action = Object.assign(
-      new PatchApplicationDecisionRequestDto(),
-      input,
-    ).toAction();
+    const action = applicationDecisionAction(input);
     const idempotencyKey = `repository-provision:${applicationId}`;
     try {
       return await this.repository.withTransaction(async (store) => {

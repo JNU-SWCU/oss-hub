@@ -1,3 +1,7 @@
+import { presentMilestoneDocumentCollection } from '../dto/milestone-document-collection-response.dto';
+import { presentMilestoneDocumentHistory } from '../dto/milestone-document-history-response.dto';
+import { presentMilestoneDocumentViewer } from '../dto/milestone-document-response.dto';
+import { MilestoneDocumentSubmissionResponseDto } from '../dto/milestone-document-submission-response.dto';
 import {
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
@@ -284,7 +288,9 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.listForViewer(1n, syntheticMilestoneId);
+    const result = await service
+      .listForViewer(1n, syntheticMilestoneId)
+      .then((records) => records.map(presentMilestoneDocumentViewer));
 
     expect(result).toEqual([
       expect.objectContaining({
@@ -331,7 +337,9 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.listForViewer(1n, syntheticMilestoneId);
+    const result = await service
+      .listForViewer(1n, syntheticMilestoneId)
+      .then((records) => records.map(presentMilestoneDocumentViewer));
 
     expect(result).toEqual([
       expect.objectContaining({
@@ -424,7 +432,9 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.listForViewer(1n, syntheticMilestoneId);
+    const result = await service
+      .listForViewer(1n, syntheticMilestoneId)
+      .then((records) => records.map(presentMilestoneDocumentViewer));
 
     expect(result[0]?.viewerSubmission).toEqual({
       submitted: true,
@@ -455,7 +465,9 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.listForViewer(1n, syntheticMilestoneId);
+    const result = await service
+      .listForViewer(1n, syntheticMilestoneId)
+      .then((records) => records.map(presentMilestoneDocumentViewer));
 
     expect(result).toEqual([
       expect.objectContaining({ id: syntheticDocumentId }),
@@ -470,7 +482,9 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.listForViewer(1n, syntheticMilestoneId);
+    const result = await service
+      .listForViewer(1n, syntheticMilestoneId)
+      .then((records) => records.map(presentMilestoneDocumentViewer));
 
     expect(result).toEqual([
       expect.objectContaining({ id: syntheticDocumentId }),
@@ -1041,13 +1055,15 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    await service.submit(
-      1n,
-      syntheticMilestoneId,
-      syntheticDocumentId,
-      { text: '본문', fileId: null },
-      now,
-    );
+    await service
+      .submit(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        { text: '본문', fileId: null },
+        now,
+      )
+      .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
 
     expect(mocks.upsertSubmission).toHaveBeenCalledWith({
       milestoneDocumentId: syntheticDocumentId,
@@ -1161,13 +1177,15 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.submit(
-      1n,
-      syntheticMilestoneId,
-      syntheticDocumentId,
-      { text: '본문', fileId: null },
-      now,
-    );
+    const result = await service
+      .submit(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        { text: '본문', fileId: null },
+        now,
+      )
+      .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
 
     expect(mocks.upsertSubmission).toHaveBeenCalledWith({
       milestoneDocumentId: syntheticDocumentId,
@@ -1221,13 +1239,15 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.submit(
-      1n,
-      syntheticMilestoneId,
-      syntheticDocumentId,
-      { text: null, fileId: 'cuid-synthetic-file' },
-      now,
-    );
+    const result = await service
+      .submit(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        { text: null, fileId: 'cuid-synthetic-file' },
+        now,
+      )
+      .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
 
     expect(mocks.upsertSubmission).toHaveBeenCalledWith({
       milestoneDocumentId: syntheticDocumentId,
@@ -1272,13 +1292,15 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    await service.submit(
-      1n,
-      syntheticMilestoneId,
-      syntheticDocumentId,
-      { text: '설명', fileId: 'cuid-synthetic-file' },
-      now,
-    );
+    await service
+      .submit(
+        1n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        { text: '설명', fileId: 'cuid-synthetic-file' },
+        now,
+      )
+      .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
 
     expect(mocks.upsertSubmission).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1695,12 +1717,9 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { repository } = collectionRepository();
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
+    const result = await service
+      .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.milestone).toEqual({
       id: syntheticMilestoneId,
@@ -1730,12 +1749,9 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { mocks, repository } = collectionRepository();
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
+    const result = await service
+      .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
+      .then(presentMilestoneDocumentCollection);
 
     expect(mocks.findApprovedApplicationsForCollection).toHaveBeenCalledWith(
       syntheticProgramId,
@@ -1755,12 +1771,9 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { repository } = collectionRepository();
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
+    const result = await service
+      .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
+      .then(presentMilestoneDocumentCollection);
 
     for (const row of result.rows) {
       expect(row.cells).toEqual([
@@ -1817,12 +1830,9 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
+    const result = await service
+      .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.rows[0]?.cells).toEqual([
       {
@@ -1872,12 +1882,9 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
+    const result = await service
+      .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
+      .then(presentMilestoneDocumentCollection);
 
     expect(mocks.findSubmissionsForCollection).toHaveBeenCalledWith(
       [syntheticDocumentId, secondDocumentId],
@@ -1912,12 +1919,9 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
+    const result = await service
+      .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.rows[0]?.cells[1]?.content).toEqual({
       type: MilestoneSubmissionType.TEXT,
@@ -1941,12 +1945,9 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
+    const result = await service
+      .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.rows[0]?.cells[1]?.isSubmitted).toBe(true);
     expect(result.rows[0]?.cells[1]?.content).toBeNull();
@@ -1975,12 +1976,9 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
+    const result = await service
+      .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.rows[0]?.cells[0]).toEqual({
       documentId: syntheticDocumentId,
@@ -2035,12 +2033,9 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
+    const result = await service
+      .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.rows[0]?.cells.map((cell) => cell.status)).toEqual([
       SubmissionStatus.APPROVED,
@@ -2052,12 +2047,9 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { mocks, repository } = collectionRepository();
     const service = new MilestoneDocumentsService(repository, authority);
 
-    await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
+    await service
+      .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
+      .then(presentMilestoneDocumentCollection);
 
     expect(mocks.findByMilestoneId).toHaveBeenCalledTimes(1);
     expect(mocks.findApprovedApplicationsForCollection).toHaveBeenCalledTimes(
@@ -2114,12 +2106,9 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     } as unknown as MilestoneDocumentsRepository;
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
+    const result = await service
+      .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.total).toBe(1);
     expect(result.documentTotals).toEqual([
@@ -2179,12 +2168,14 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.historyForParticipant(
-      8_100_002n,
-      syntheticMilestoneId,
-      syntheticDocumentId,
-      query,
-    );
+    const result = await service
+      .historyForParticipant(
+        8_100_002n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        query,
+      )
+      .then(presentMilestoneDocumentHistory);
 
     expect(result.nextCursor).toBe('history-cursor');
     expect(result.isComplete).toBe(false);
@@ -2231,12 +2222,14 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.historyForParticipant(
-      8_100_002n,
-      syntheticMilestoneId,
-      syntheticDocumentId,
-      query,
-    );
+    const result = await service
+      .historyForParticipant(
+        8_100_002n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        query,
+      )
+      .then(presentMilestoneDocumentHistory);
 
     expect(result.items.map((item) => item.revision)).toEqual([1]);
     expect(result.isComplete).toBe(true);
@@ -2291,13 +2284,17 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const list = await service.listForViewer(8_100_002n, syntheticMilestoneId);
-    const history = await service.historyForParticipant(
-      8_100_002n,
-      syntheticMilestoneId,
-      syntheticDocumentId,
-      query,
-    );
+    const list = await service
+      .listForViewer(8_100_002n, syntheticMilestoneId)
+      .then((records) => records.map(presentMilestoneDocumentViewer));
+    const history = await service
+      .historyForParticipant(
+        8_100_002n,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        query,
+      )
+      .then(presentMilestoneDocumentHistory);
 
     expect(list[0]?.viewerSubmission?.history).toEqual({
       hasHistory: true,
@@ -2437,12 +2434,9 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
+    const result = await service
+      .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.page).toBe(1);
     expect(result.pageSize).toBe(20);
@@ -2454,18 +2448,22 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const first = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery({ pageSize: 2 }),
-      now,
-    );
-    const second = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery({ page: 2, pageSize: 2 }),
-      now,
-    );
+    const first = await service
+      .collectForStaff(
+        1n,
+        syntheticMilestoneId,
+        collectionQuery({ pageSize: 2 }),
+        now,
+      )
+      .then(presentMilestoneDocumentCollection);
+    const second = await service
+      .collectForStaff(
+        1n,
+        syntheticMilestoneId,
+        collectionQuery({ page: 2, pageSize: 2 }),
+        now,
+      )
+      .then(presentMilestoneDocumentCollection);
 
     expect(first.rows.map((row) => row.teamName)).toEqual([
       '가나다팀',
@@ -2488,12 +2486,14 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery({ page: 9, pageSize: 2 }),
-      now,
-    );
+    const result = await service
+      .collectForStaff(
+        1n,
+        syntheticMilestoneId,
+        collectionQuery({ page: 9, pageSize: 2 }),
+        now,
+      )
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.rows).toEqual([]);
     expect(result.total).toBe(4);
@@ -2503,12 +2503,14 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery({ filter: 'HAS_MISSING' }),
-      now,
-    );
+    const result = await service
+      .collectForStaff(
+        1n,
+        syntheticMilestoneId,
+        collectionQuery({ filter: 'HAS_MISSING' }),
+        now,
+      )
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.rows.map((row) => row.teamName)).toEqual([
       '사아자팀',
@@ -2521,12 +2523,14 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery({ filter: 'ZERO_SUBMISSION' }),
-      now,
-    );
+    const result = await service
+      .collectForStaff(
+        1n,
+        syntheticMilestoneId,
+        collectionQuery({ filter: 'ZERO_SUBMISSION' }),
+        now,
+      )
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.rows.map((row) => row.teamName)).toEqual(['차카타팀']);
     expect(result.total).toBe(1);
@@ -2540,12 +2544,14 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery({ filter: 'ZERO_SUBMISSION' }),
-      now,
-    );
+    const result = await service
+      .collectForStaff(
+        1n,
+        syntheticMilestoneId,
+        collectionQuery({ filter: 'ZERO_SUBMISSION' }),
+        now,
+      )
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.rows).toEqual([]);
     expect(result.total).toBe(0);
@@ -2563,12 +2569,14 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery({ filter: 'HAS_MISSING' }),
-      now,
-    );
+    const result = await service
+      .collectForStaff(
+        1n,
+        syntheticMilestoneId,
+        collectionQuery({ filter: 'HAS_MISSING' }),
+        now,
+      )
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.rows).toEqual([]);
     expect(result.filterCounts.hasMissing).toBe(0);
@@ -2579,12 +2587,14 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery({ filter: 'ZERO_SUBMISSION', pageSize: 1 }),
-      now,
-    );
+    const result = await service
+      .collectForStaff(
+        1n,
+        syntheticMilestoneId,
+        collectionQuery({ filter: 'ZERO_SUBMISSION', pageSize: 1 }),
+        now,
+      )
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.filterCounts).toEqual({
       all: 4,
@@ -2614,12 +2624,9 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     });
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const result = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
+    const result = await service
+      .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
+      .then(presentMilestoneDocumentCollection);
 
     expect(result.filterCounts).toEqual({
       all: 4,
@@ -2631,23 +2638,27 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       { documentId: optionalDocumentId, submitted: 2, total: 4 },
     ]);
 
-    const hasMissing = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery({ filter: 'HAS_MISSING' }),
-      now,
-    );
+    const hasMissing = await service
+      .collectForStaff(
+        1n,
+        syntheticMilestoneId,
+        collectionQuery({ filter: 'HAS_MISSING' }),
+        now,
+      )
+      .then(presentMilestoneDocumentCollection);
     expect(hasMissing.rows.map((row) => row.teamName)).toEqual([
       '사아자팀',
       '차카타팀',
     ]);
 
-    const zeroSubmission = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery({ filter: 'ZERO_SUBMISSION' }),
-      now,
-    );
+    const zeroSubmission = await service
+      .collectForStaff(
+        1n,
+        syntheticMilestoneId,
+        collectionQuery({ filter: 'ZERO_SUBMISSION' }),
+        now,
+      )
+      .then(presentMilestoneDocumentCollection);
     expect(zeroSubmission.rows.map((row) => row.teamName)).toEqual([
       '차카타팀',
     ]);
@@ -2657,18 +2668,17 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new MilestoneDocumentsService(repository, authority);
 
-    const filtered = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery({ filter: 'ZERO_SUBMISSION', pageSize: 1 }),
-      now,
-    );
-    const all = await service.collectForStaff(
-      1n,
-      syntheticMilestoneId,
-      collectionQuery(),
-      now,
-    );
+    const filtered = await service
+      .collectForStaff(
+        1n,
+        syntheticMilestoneId,
+        collectionQuery({ filter: 'ZERO_SUBMISSION', pageSize: 1 }),
+        now,
+      )
+      .then(presentMilestoneDocumentCollection);
+    const all = await service
+      .collectForStaff(1n, syntheticMilestoneId, collectionQuery(), now)
+      .then(presentMilestoneDocumentCollection);
 
     expect(filtered.documentTotals).toEqual([
       { documentId: requiredDocumentId, submitted: 2, total: 4 },

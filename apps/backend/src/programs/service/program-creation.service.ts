@@ -6,7 +6,7 @@ import {
 } from '../../audit-log/domain/audit-log-metadata';
 import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { DomainException } from '../../common/error-code';
-import type { CreateProgramRequestDto } from '../dto/create-program-request.dto';
+import type { CreateProgramCommand } from '../domain/program-write.commands';
 import { ProgramsRepository } from '../repository/programs.repository';
 import {
   PROGRAM_ERROR_CODES,
@@ -29,7 +29,7 @@ export class ProgramCreationService {
     private readonly auditLog: AuditLogService,
   ) {}
 
-  async create(githubId: bigint, input: CreateProgramRequestDto) {
+  async create(githubId: bigint, input: CreateProgramCommand) {
     const user = await this.repository.findCreatorRole(githubId);
     if (
       user?.accountStatus !== AccountStatus.ACTIVE ||

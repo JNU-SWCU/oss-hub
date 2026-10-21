@@ -3,23 +3,14 @@ import { AccountStatus } from '@prisma/client';
 import { nextScheduledCollectionAt } from '../../github/service/collection-schedule';
 import {
   SystemStatusRepository,
-  type CollectionExternalCollectionStatusDto,
   type CollectionIncrementalStatusSnapshotDto,
-  type CollectionRepositoryStreamsDto,
-  type CollectionSweepActivityDto,
 } from '../repository/system-status.repository';
-import {
-  CollectionRepositoryStreamResponseDto,
-  CollectionSystemStatusResponseDto,
-  RepositoryProvisioningSystemStatusResponseDto,
-  SystemStatusCollectionActivityResponseDto,
-  SystemStatusCollectionStreamsResponseDto,
-  SystemStatusExternalCollectionResponseDto,
-  SystemStatusResponseDto,
-  type CollectionHealthResponseDto,
-  type CurrentRunStatusResponseDto,
-  type SystemStatusSafeReasonResponseDto,
-} from '../dto/system-status-response.dto';
+import type {
+  SystemStatusResult,
+  CollectionHealthResult,
+  CurrentRunStatusResult,
+  SystemStatusSafeReasonResult,
+} from '../domain/system-status.models';
 
 const RECENT_SWEEP_ACTIVITY_LIMIT = 20;
 const STALE_AFTER_MS = 90 * 60 * 1000;
@@ -27,8 +18,8 @@ export const SYSTEM_STATUS_CLOCK = Symbol('SYSTEM_STATUS_CLOCK');
 export type SystemStatusClock = () => Date;
 
 interface StatusDecision {
-  health: CollectionHealthResponseDto;
-  reason: SystemStatusSafeReasonResponseDto | null;
+  health: CollectionHealthResult;
+  reason: SystemStatusSafeReasonResult | null;
 }
 
 @Injectable()
@@ -38,7 +29,7 @@ export class SystemStatusService {
     @Inject(SYSTEM_STATUS_CLOCK) private readonly clock: SystemStatusClock,
   ) {}
 
-  async getStatus(actorGithubId: bigint): Promise<SystemStatusResponseDto> {
+  async getStatus(actorGithubId: bigint): Promise<SystemStatusResult> {
     const actor = await this.repository.findActor(actorGithubId);
     if (
       actor?.hasAdminAccess !== true ||
@@ -57,80 +48,28 @@ export class SystemStatusService {
         this.repository.getExternalCollectionStatus(),
       ]);
     const decision = this.decide(snapshot);
-    return new SystemStatusResponseDto(
-      new CollectionSystemStatusResponseDto(
-        decision.health,
-        snapshot.latestCheckpointAt?.toISOString() ?? null,
-        snapshot.trackedRepositoryCount,
-        snapshot.readyStreamCount,
-        snapshot.backfillingStreamCount,
-        snapshot.partialStreamCount,
-        snapshot.retryPendingStreamCount,
-        snapshot.oldestReadyCheckpointAt?.toISOString() ?? null,
-        snapshot.oldestRetryPendingAt?.toISOString() ?? null,
-        snapshot.lastCycleStartedAt?.toISOString() ?? null,
-        snapshot.lastCycleCompletedAt?.toISOString() ?? null,
-        nextCycleAt?.toISOString() ?? null,
-        this.currentRunStatus(snapshot),
-        decision.reason,
-      ),
-      new RepositoryProvisioningSystemStatusResponseDto(finalFailureCount),
-      streams.map((repository) => this.toStreamsResponse(repository)),
-      activity.map((sweep) => this.toActivityResponse(sweep)),
-      this.toExternalCollectionResponse(externalStatus),
-    );
-  }
-
-  private toExternalCollectionResponse(
-    status: CollectionExternalCollectionStatusDto,
-  ): SystemStatusExternalCollectionResponseDto {
-    return new SystemStatusExternalCollectionResponseDto(
-      status.trackedRepositoryCount,
-      status.lastSweep ? this.toActivityResponse(status.lastSweep) : null,
-      status.cumulativeCommitCount,
-      status.cumulativePullRequestCount,
-      status.cumulativeReleaseCount,
-      status.cumulativeIssueCount,
-    );
-  }
-
-  private toStreamsResponse(
-    repository: CollectionRepositoryStreamsDto,
-  ): SystemStatusCollectionStreamsResponseDto {
-    return new SystemStatusCollectionStreamsResponseDto(
-      repository.repositoryName,
-      repository.programName,
-      repository.streams.map(
-        (stream) =>
-          new CollectionRepositoryStreamResponseDto(
-            stream.streamType,
-            stream.bucket,
-            stream.lastSuccessAt?.toISOString() ?? null,
-            stream.lastErrorCode,
-            stream.lastErrorAt?.toISOString() ?? null,
-          ),
-      ),
-    );
-  }
-
-  private toActivityResponse(
-    sweep: CollectionSweepActivityDto,
-  ): SystemStatusCollectionActivityResponseDto {
-    return new SystemStatusCollectionActivityResponseDto(
-      sweep.sweepFinishedAt.toISOString(),
-      sweep.cycleStartedAt?.toISOString() ?? null,
-      sweep.scope,
-      sweep.kind,
-      sweep.insertedCommitCount,
-      sweep.insertedPullRequestCount,
-      sweep.insertedReleaseCount,
-      sweep.insertedIssueCount,
-      sweep.attemptedRepositoryCount,
-      sweep.processedRepositoryCount,
-      sweep.failedRepositoryCount,
-      sweep.cycleCompleted,
-      sweep.stoppedForBudget,
-    );
+    return {
+      collection: {
+        health: decision.health,
+        dataAsOf: snapshot.latestCheckpointAt,
+        trackedRepositoryCount: snapshot.trackedRepositoryCount,
+        readyStreamCount: snapshot.readyStreamCount,
+        backfillingStreamCount: snapshot.backfillingStreamCount,
+        partialStreamCount: snapshot.partialStreamCount,
+        retryPendingStreamCount: snapshot.retryPendingStreamCount,
+        oldestReadyCheckpointAt: snapshot.oldestReadyCheckpointAt,
+        oldestRetryPendingAt: snapshot.oldestRetryPendingAt,
+        lastCycleStartedAt: snapshot.lastCycleStartedAt,
+        lastCycleCompletedAt: snapshot.lastCycleCompletedAt,
+        nextCycleAt,
+        currentRunStatus: this.currentRunStatus(snapshot),
+        safeReason: decision.reason,
+      },
+      repositoryProvisioning: { finalFailureCount },
+      collectionStreams: streams,
+      collectionActivity: activity,
+      externalCollection: externalStatus,
+    };
   }
 
   private decide(
@@ -160,7 +99,7 @@ export class SystemStatusService {
 
   private currentRunStatus(
     snapshot: CollectionIncrementalStatusSnapshotDto,
-  ): CurrentRunStatusResponseDto {
+  ): CurrentRunStatusResult {
     const started = snapshot.lastCycleStartedAt;
     const completed = snapshot.lastCycleCompletedAt;
     const isProcessing =

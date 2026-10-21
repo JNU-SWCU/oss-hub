@@ -7,9 +7,11 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from '../../milestone-documents/domain/milestone-documents-error-code.enum';
-import type { UpdateProgramRequestDto } from '../dto/program-authoring-request.dto';
-import type { UpsertMilestoneRequestDto } from '../dto/upsert-milestone-request.dto';
-import type { UpdateMilestoneRequestDto } from '../dto/update-milestone-request.dto';
+import type {
+  UpdateProgramCommand,
+  UpsertMilestoneCommand,
+  EditMilestoneCommand,
+} from '../domain/program-write.commands';
 import { ProgramEditorRepository } from '../repository/program-editor.repository';
 import {
   fingerprintProgramMilestoneEdit,
@@ -116,7 +118,7 @@ export class ProgramEditorService {
   updateProgram(
     githubId: bigint,
     programId: string,
-    input: UpdateProgramRequestDto,
+    input: UpdateProgramCommand,
   ) {
     return this.repository.withTransaction(async (store) => {
       const actor = await this.requireEditor(store, githubId);
@@ -291,7 +293,7 @@ export class ProgramEditorService {
   createMilestone(
     githubId: bigint,
     programId: string,
-    input: UpsertMilestoneRequestDto,
+    input: UpsertMilestoneCommand,
   ) {
     return this.repository.withTransaction(async (store) => {
       await this.requireEditor(store, githubId);
@@ -308,7 +310,7 @@ export class ProgramEditorService {
   updateMilestone(
     githubId: bigint,
     milestoneId: string,
-    input: UpsertMilestoneRequestDto,
+    input: UpsertMilestoneCommand,
   ) {
     return this.repository.withTransaction(async (store) => {
       await this.requireEditor(store, githubId);
@@ -342,7 +344,7 @@ export class ProgramEditorService {
   updateMilestoneEdit(
     githubId: bigint,
     milestoneId: string,
-    input: UpdateMilestoneRequestDto,
+    input: EditMilestoneCommand,
   ): Promise<ProgramMilestoneEditView> {
     return this.repository.withTransaction(async (store) => {
       const actor = await this.requireEditor(store, githubId);
@@ -488,7 +490,7 @@ export class ProgramEditorService {
   }
 
   private editMilestoneData(
-    input: UpdateMilestoneRequestDto,
+    input: EditMilestoneCommand,
     programStartAt: Date,
     endAt: Date,
     existingSubmissionType: ProgramMilestoneInput['submissionType'],
@@ -518,7 +520,7 @@ export class ProgramEditorService {
   }
 
   private milestoneData(
-    input: UpsertMilestoneRequestDto,
+    input: UpsertMilestoneCommand,
     programStartAt: Date,
     endAt: Date,
     existingSubmissionType: ProgramMilestoneInput['submissionType'] = null,
@@ -630,7 +632,7 @@ function validPeriod(startAt: Date, endAt: Date): boolean {
 }
 
 function resolveTeamSize(
-  input: Pick<UpdateProgramRequestDto, 'teamMinSize' | 'teamMaxSize'>,
+  input: Pick<UpdateProgramCommand, 'teamMinSize' | 'teamMaxSize'>,
   current: {
     readonly teamMinSize: number;
     readonly teamMaxSize: number;

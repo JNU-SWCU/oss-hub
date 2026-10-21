@@ -104,7 +104,27 @@ export class AuthRouteStatusHarness {
         upcoming: 0,
         ended: 0,
       }),
-      detail: jest.fn().mockResolvedValue({ id: 'synthetic-program' }),
+      detail: jest.fn().mockResolvedValue({
+        id: 'synthetic-program',
+        coverImageUrl: null,
+        name: 'Synthetic program',
+        organizer: 'Synthetic organizer',
+        trackType: null,
+        applicationTemplateKey: 'basic',
+        lifecycle: 'PUBLISHED',
+        description: 'Synthetic description',
+        repositoryProvisioningEnabled: false,
+        applicationPeriod: {
+          startsAt: new Date('2026-10-01T00:00:00.000Z'),
+          endsAt: new Date('2026-10-10T00:00:00.000Z'),
+        },
+        operatingPeriod: {
+          startsAt: new Date('2026-10-11T00:00:00.000Z'),
+          endsAt: new Date('2026-11-01T00:00:00.000Z'),
+        },
+        viewer: { role: null, applicationStatus: null },
+        milestones: [],
+      } satisfies Awaited<ReturnType<ProgramsService['detail']>>),
     };
     const moduleRef = await Test.createTestingModule({
       controllers: [

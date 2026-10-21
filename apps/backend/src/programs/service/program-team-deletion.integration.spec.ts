@@ -768,31 +768,95 @@ function teamDeletedNotifications(teamId: string) {
   });
 }
 
-it('문구를 비우면 삭제 사실만 담은 알림이 팀원 전원에게 같은 커밋으로 남는다', async () => {
+it.each([null, '   '])(
+  '문구가 %p이면 삭제 사실만 담은 알림이 팀원 전원에게 같은 커밋으로 남는다',
+  async (message) => {
+    const fixture = await seedApprovedTeam();
+    const expectedScope = await currentScope(fixture.teamId);
+
+    await service.deleteForStaff(
+      STAFF_GITHUB_ID,
+      PROGRAM_ID,
+      fixture.teamId,
+      expectedScope,
+      message,
+    );
+
+    const notifications = await teamDeletedNotifications(fixture.teamId);
+    expect(notifications.map((row) => row.userId).sort()).toEqual(
+      [LEADER_ID, MEMBER_ID].sort(),
+    );
+    expect(notifications[0]?.payload).toMatchObject({
+      schemaVersion: 1,
+      teamId: fixture.teamId,
+      programId: PROGRAM_ID,
+      message: null,
+    });
+
+    await expect(
+      prisma.team.findUnique({ where: { id: fixture.teamId } }),
+    ).resolves.toBeNull();
+  },
+);
+
+it('삭제 감사가 실패하면 이미 쓴 알림과 팀 삭제가 함께 되돌아간다', async () => {
   const fixture = await seedApprovedTeam();
   const expectedScope = await currentScope(fixture.teamId);
+  const failure = new Error('synthetic deletion audit failure');
+  const audit = jest.spyOn(auditLog, 'record').mockRejectedValueOnce(failure);
+
+  try {
+    await expect(
+      service.deleteForStaff(
+        STAFF_GITHUB_ID,
+        PROGRAM_ID,
+        fixture.teamId,
+        expectedScope,
+      ),
+    ).rejects.toBe(failure);
+  } finally {
+    audit.mockRestore();
+  }
+
+  await expect(currentScope(fixture.teamId)).resolves.toEqual(expectedScope);
+  await expect(teamDeletedNotifications(fixture.teamId)).resolves.toEqual([]);
+  await expect(
+    prisma.team.count({ where: { id: fixture.teamId } }),
+  ).resolves.toBe(1);
+});
+
+it('이미 저장한 수신자 키는 유지하고 나머지 팀원 알림만 추가한다', async () => {
+  const fixture = await seedApprovedTeam();
+  const existing = await prisma.notification.create({
+    data: {
+      userId: LEADER_ID,
+      type: 'TEAM_DELETED',
+      channel: 'IN_APP',
+      status: 'UNREAD',
+      idempotencyKey: `team-deleted:${fixture.teamId}:${LEADER_ID}`,
+      payload: { schemaVersion: 1, message: 'existing notification' },
+    },
+  });
 
   await service.deleteForStaff(
     STAFF_GITHUB_ID,
     PROGRAM_ID,
     fixture.teamId,
-    expectedScope,
+    await currentScope(fixture.teamId),
   );
 
   const notifications = await teamDeletedNotifications(fixture.teamId);
-  expect(notifications.map((row) => row.userId).sort()).toEqual(
-    [LEADER_ID, MEMBER_ID].sort(),
+  expect(notifications).toHaveLength(2);
+  expect(notifications.find((row) => row.userId === LEADER_ID)).toEqual(
+    existing,
   );
-  expect(notifications[0]?.payload).toMatchObject({
-    schemaVersion: 1,
+  expect(
+    notifications.find((row) => row.userId === MEMBER_ID)?.payload,
+  ).toMatchObject({
     teamId: fixture.teamId,
     programId: PROGRAM_ID,
     message: null,
   });
-
-  await expect(
-    prisma.team.findUnique({ where: { id: fixture.teamId } }),
-  ).resolves.toBeNull();
 });
 
 it('문구를 채우면 그 문구가 알림 payload 에 함께 담긴다', async () => {

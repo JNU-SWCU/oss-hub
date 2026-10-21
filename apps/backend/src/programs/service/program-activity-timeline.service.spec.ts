@@ -9,7 +9,7 @@ import {
   type ProgramActivityProgramStore,
 } from './program-activity.service';
 import type { ProgramStudentViewer } from './program-viewer.service';
-import { StudentDashboardController } from '../controller/programs.controller';
+import { StudentDashboardController } from '../controller/student-dashboard.controller';
 
 const student: ProgramStudentViewer = {
   githubId: 11n,
@@ -108,7 +108,7 @@ describe('ProgramActivityService canonical activity', () => {
       activityReads(findRepositoryActivity),
     ).activityTimeline(student, 'MONTH');
 
-    expect(result.dataAsOf).toBe('2026-08-01T00:00:00.000Z');
+    expect(result.dataAsOf).toEqual(new Date('2026-08-01T00:00:00.000Z'));
     expect(result.series.points).toEqual([
       {
         period: '2026-07',
@@ -156,7 +156,7 @@ describe('ProgramActivityService canonical activity', () => {
       activityReads(findRepositoryActivity),
     ).activityTimeline(student, 'MONTH');
 
-    expect(result.dataAsOf).toBe('2026-08-02T00:00:00.000Z');
+    expect(result.dataAsOf).toEqual(new Date('2026-08-02T00:00:00.000Z'));
     expect(result.series.points).toEqual([
       {
         period: '2026-08',
@@ -212,7 +212,7 @@ describe('ProgramActivityService canonical activity', () => {
       activityReads(findRepositoryActivity),
     ).activityTimeline(student, 'MONTH');
 
-    expect(result.dataAsOf).toBe('2026-08-01T00:00:00.000Z');
+    expect(result.dataAsOf).toEqual(new Date('2026-08-01T00:00:00.000Z'));
     expect(result.series.points).toEqual([]);
   });
 

@@ -1,3 +1,4 @@
+import type { CreateProgramCommand } from '../domain/program-write.commands';
 import { ProgramTrackType } from '@prisma/client';
 import {
   IsDateString,
@@ -8,7 +9,7 @@ import {
   IsString,
 } from 'class-validator';
 
-export class CreateProgramRequestDto {
+export class CreateProgramRequestDto implements CreateProgramCommand {
   @IsString()
   @IsNotEmpty()
   declare name: string;

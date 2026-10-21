@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import type {
   CollectionRepositoryRow,
@@ -72,17 +73,28 @@ interface AffectedDay {
   githubId: bigint | null;
 }
 
-@Injectable()
-export class CollectionIncrementalRepository {
-  constructor(private readonly db: PrismaService) {}
+type CollectionStoreClient = Pick<
+  Prisma.TransactionClient,
+  | '$executeRaw'
+  | '$executeRawUnsafe'
+  | '$queryRawUnsafe'
+  | 'collectionCommitFact'
+  | 'collectionPullRequestFact'
+  | 'collectionReleaseFact'
+  | 'collectionRepositoryStream'
+  | 'collectionSweepHistory'
+  | 'collectionSyncCursor'
+  | 'collectionSyncLease'
+  | 'contribution'
+  | 'githubIssueHistory'
+  | 'githubRepository'
+  | 'githubRepositoryOutsiderContribution'
+  | 'teamMember'
+  | 'user'
+>;
 
-  async runInTransaction<T>(
-    fn: (repo: CollectionIncrementalRepository) => Promise<T>,
-  ): Promise<T> {
-    return this.db.$transaction((tx) =>
-      fn(new CollectionIncrementalRepository(tx as unknown as PrismaService)),
-    );
-  }
+export class CollectionIncrementalStore {
+  constructor(private readonly db: CollectionStoreClient) {}
 
   async recordRepositoryObservation(
     input: RecordRepositoryObservationInput,
@@ -289,18 +301,6 @@ export class CollectionIncrementalRepository {
   }
 
   async enrollExternalRepository(input: {
-    readonly githubRepositoryId: bigint;
-    readonly nameWithOwner: string;
-    readonly defaultBranch: string | null;
-    readonly archived: boolean;
-    readonly observedAt: Date;
-  }): Promise<boolean> {
-    return this.runInTransaction((repo) =>
-      repo.enrollExternalRepositoryInTransaction(input),
-    );
-  }
-
-  private async enrollExternalRepositoryInTransaction(input: {
     readonly githubRepositoryId: bigint;
     readonly nameWithOwner: string;
     readonly defaultBranch: string | null;
@@ -972,5 +972,30 @@ export class CollectionIncrementalRepository {
       now,
     );
     if (!rows[0]) throw new Error('Collection sync lease is stale');
+  }
+}
+
+@Injectable()
+export class CollectionIncrementalRepository extends CollectionIncrementalStore {
+  constructor(private readonly prisma: PrismaService) {
+    super(prisma);
+  }
+
+  async runInTransaction<T>(
+    fn: (store: CollectionIncrementalStore) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction((tx) =>
+      fn(new CollectionIncrementalStore(tx)),
+    );
+  }
+
+  override async enrollExternalRepository(
+    input: Parameters<
+      CollectionIncrementalStore['enrollExternalRepository']
+    >[0],
+  ): Promise<boolean> {
+    return this.runInTransaction((store) =>
+      store.enrollExternalRepository(input),
+    );
   }
 }

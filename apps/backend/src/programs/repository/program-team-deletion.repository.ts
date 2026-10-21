@@ -29,8 +29,27 @@ export type RecordTeamDeletionAudit = (
 ) => Promise<void>;
 
 export interface TeamDeletionNotificationStore {
-  readonly notificationWriter: Pick<Prisma.TransactionClient, 'notification'>;
+  createTeamDeletedNotifications(
+    notifications: readonly TeamDeletionNotificationInput[],
+  ): Promise<void>;
 }
+
+type TeamDeletionNotificationInput = {
+  readonly userId: string;
+  readonly type: 'TEAM_DELETED';
+  readonly channel: 'IN_APP';
+  readonly status: 'UNREAD';
+  readonly idempotencyKey: string;
+  readonly payload: {
+    readonly schemaVersion: 1;
+    readonly teamId: string;
+    readonly teamName: string;
+    readonly programId: string;
+    readonly programName: string;
+    readonly message: string | null;
+    readonly deletedAt: string;
+  };
+};
 
 export interface TeamDeletionNotificationEvent {
   readonly teamId: string;
@@ -112,7 +131,14 @@ export class ProgramTeamDeletionRepository {
             select: { userId: true },
           });
           await recordNotification(
-            { notificationWriter: tx },
+            {
+              async createTeamDeletedNotifications(notifications) {
+                await tx.notification.createMany({
+                  data: [...notifications],
+                  skipDuplicates: true,
+                });
+              },
+            },
             {
               teamId,
               teamName: team.name,

@@ -40,11 +40,11 @@ backend는 기능 모듈 폴더를 최상위 구성 단위로 사용한다.
 모듈 내부는 Controller → Service → Repository의 단방향 Layered 구조다.
 Prisma DB 접근은 repository와 `prisma/`에만 두며 열거형 import와 조립·테스트 예외는 §10을 따른다.
 Service는 Fowler Service Layer로서 usecase와 트랜잭션(Unit of Work)을 소유하고 HTTP 전송 타입과 Prisma model을 노출하지 않는다.
-Controller는 HTTP 입력 검증, request DTO→application DTO 변환, guard/header/status와 response DTO 변환을 담당하고 DB 접근과 업무 규칙을 소유하지 않는다.
+Controller는 HTTP 입력 검증, request DTO→domain command 변환, guard/header/status와 response DTO 변환을 담당하고 DB 접근과 업무 규칙을 소유하지 않는다.
 Repository는 영속성 접근과 persistence DTO를 담당하고 Prisma row를 계층 밖으로 흘리지 않는다.
 DTO와 도메인 모델은 분리한다.
 
-NestJS 전역 예외 필터가 예외를 API 오류 응답으로 변환한다. 모든 데이터 변경 usecase의 트랜잭션 시작·완료·실패 처리는 Service Layer가 소유한다. Controller↔Service와 Service↔Repository 계약은 명시적 DTO를 쓰며 Controller와 Service 사이에 Port를 만들지 않는다. 기능 요구가 없는 포트·어댑터·추가 추상화는 도입하지 않는다. 한 줄 hop은 orchestration이 아니다.
+NestJS 전역 예외 필터가 예외를 API 오류 응답으로 변환한다. 모든 데이터 변경 usecase의 트랜잭션 시작·완료·실패 처리는 Service Layer가 소유한다. Controller↔Service와 Service↔Repository 계약은 명시적 command/query/result를 쓰며 Controller와 Service 사이에 Port를 만들지 않는다. 기능 요구가 없는 포트·어댑터·추가 추상화는 도입하지 않는다. 한 줄 hop은 orchestration이 아니다.
 
 외부 시스템(GitHub HTTP 등)에 대한 호출은 모듈 내부 gateway에 둔다.
 같은 DB 접근 앞에 별칭 주입 키나 별도 Port 계층을 만들지 않는다.
@@ -77,7 +77,7 @@ Domain-first + Layered를 모든 backend 업무 모듈의 목표 구조로 채�
 | 출발 | 허용 대상 |
 | --- | --- |
 | controller, job | service, 자기 모듈 dto, domain, auth의 인증 guard·AuthenticatedRequest, common |
-| service | 자기 repository·gateway·dto, 모든 모듈의 domain·service, storage, runtime-config, common |
+| service | 자기 repository·gateway, 모든 모듈의 domain·service, storage, runtime-config, common |
 | repository | 자기 모듈 repository, 모든 모듈의 domain, prisma 기반 기능, common |
 | gateway | domain, 외부 SDK, common |
 | dto | domain, common |
@@ -91,6 +91,7 @@ Domain-first + Layered를 모든 backend 업무 모듈의 목표 구조로 채�
 외부 호출은 gateway, Cron·Interval·CLI 진입은 job, 실행 가능한 업무 동작은 service가 소유한다.
 서비스가 job을 호출하거나 job이 repository를 직접 호출하지 않는다.
 `*Dto` 선언은 dto에 두고 운영 코드가 테스트·fixture를 import하지 못하게 한다.
+HTTP 입력 DTO의 runtime class·decorator metadata는 유지한다. service/domain은 HTTP DTO를 import하지 않고 domain command/query/result를 사용하며, 날짜·URL·공개 allowlist 변환은 dto presenter가 담당한다. 응답 계약은 명시적 interface도 허용한다.
 
 #### 10.2 주입 키와 S4·S5 판단
 

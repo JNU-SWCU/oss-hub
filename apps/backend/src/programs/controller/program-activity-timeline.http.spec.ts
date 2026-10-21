@@ -7,11 +7,8 @@ import { OriginGuard } from '../../auth/controller/origin.guard';
 import { ProgramActivityRepository } from '../repository/program-activity.repository';
 import { ProgramActivityService } from '../service/program-activity.service';
 import { ProgramCreationService } from '../service/program-creation.service';
-import { ProgramLifecycleService } from '../service/program-lifecycle.service';
-import {
-  ProgramsController,
-  StudentDashboardController,
-} from './programs.controller';
+import { ProgramsController } from './programs.controller';
+import { StudentDashboardController } from './student-dashboard.controller';
 import { ProgramsRepository } from '../repository/programs.repository';
 import { ProgramsService } from '../service/programs.service';
 import { ProgramViewerService } from '../service/program-viewer.service';
@@ -46,7 +43,6 @@ beforeAll(async () => {
       { provide: ProgramCreationService, useValue: {} },
       { provide: ProgramsService, useValue: {} },
 
-      { provide: ProgramLifecycleService, useValue: { delete: jest.fn() } },
       {
         provide: ProgramViewerService,
         useValue: {

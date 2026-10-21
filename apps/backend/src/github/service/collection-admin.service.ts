@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { CollectionSweepRunner } from './collection-sweep-runner';
 import {
   COLLECTION_TRIGGER_AUDIT_ACTIONS,
   createCollectionTriggerAuditMetadata,
@@ -15,16 +16,9 @@ import {
   CollectionErrorCode,
 } from '../domain/collection-error-code.enum';
 import { CollectionIncrementalRepository } from '../repository/collection-incremental.repository';
-import {
-  CollectionSyncService,
-  type CollectionSyncRunResult,
-} from './collection-sync.service';
-import {
-  CollectionUserActivityService,
-  type CollectionUserActivitySweepResult,
-} from './collection-user-activity.service';
-import { CollectionRunListResponseDto } from '../dto/collection-run-list-response.dto';
-import { CollectionTriggerResponseDto } from '../dto/collection-trigger-response.dto';
+import { CollectionSyncService } from './collection-sync.service';
+import { CollectionUserActivityService } from './collection-user-activity.service';
+import type { CollectionSyncRunRow } from '../collection-incremental.types';
 
 const COLLECTION_RUN_LIST_LIMIT = 20;
 
@@ -32,16 +26,33 @@ const COLLECTION_RUN_LIST_LIMIT = 20;
 export class CollectionAdminService {
   private readonly logger = new Logger('CollectionAdminController');
   private readonly ownerId = `admin:${randomUUID()}`;
+  private readonly sweeps: CollectionSweepRunner;
 
   constructor(
-    private readonly sync: CollectionSyncService,
-    private readonly cutover: CollectionCutoverRepository,
-    private readonly incrementalRepository: CollectionIncrementalRepository,
-    private readonly auditLog: AuditLogService,
-    private readonly invariants: ContributionInvariants,
-    private readonly userActivity: CollectionUserActivityService,
+    @Inject(CollectionSyncService)
+    sync: Pick<CollectionSyncService, 'run' | 'runExternal'>,
+    @Inject(CollectionCutoverRepository)
+    private readonly cutover: Pick<CollectionCutoverRepository, 'isQuiesced'>,
+    @Inject(CollectionIncrementalRepository)
+    private readonly incrementalRepository: Pick<
+      CollectionIncrementalRepository,
+      'listSyncRuns'
+    >,
+    @Inject(AuditLogService)
+    private readonly auditLog: Pick<AuditLogService, 'record'>,
+    @Inject(ContributionInvariants)
+    private readonly invariants: Pick<ContributionInvariants, 'check'>,
+    @Inject(CollectionUserActivityService)
+    userActivity: Pick<CollectionUserActivityService, 'run'>,
     private readonly authority: UsersAuthorityService,
-  ) {}
+  ) {
+    this.sweeps = new CollectionSweepRunner(
+      sync,
+      userActivity,
+      this.logger,
+      'collection.admin',
+    );
+  }
 
   private async assertAdmin(sessionGithubId: bigint): Promise<void> {
     await this.authority.assertAdmin(
@@ -62,7 +73,7 @@ export class CollectionAdminService {
 
   async trigger(
     sessionGithubId: bigint,
-  ): Promise<CollectionTriggerResponseDto> {
+  ): Promise<{ runId: string; status: 'PENDING' }> {
     await this.assertAdmin(sessionGithubId);
     if (await this.cutover.isQuiesced(new Date())) {
       throw new DomainException(
@@ -77,95 +88,17 @@ export class CollectionAdminService {
       targetId: runId,
       metadata: createCollectionTriggerAuditMetadata({ runId }),
     });
-    const startedAt = Date.now();
-    this.observeSweep(
-      'org',
-      runId,
-      startedAt,
-      this.sync.run(this.ownerId, runId),
-    );
-    this.observeSweep(
-      'external',
-      runId,
-      startedAt,
-      this.sync.runExternal(this.ownerId, runId),
-    );
-    this.observePersonSweep(runId, startedAt, this.userActivity.run());
-    return new CollectionTriggerResponseDto(runId);
-  }
-
-  private observeSweep(
-    scope: 'org' | 'external',
-    runId: string,
-    startedAt: number,
-    sweep: Promise<CollectionSyncRunResult>,
-  ): void {
-    void sweep.then(
-      (result) => {
-        this.logger.log({
-          event: 'collection.admin.completed',
-          scope,
-          runId,
-          syncStatus: result.status,
-          durationMs: Date.now() - startedAt,
-          repositoryCount: result.processedRepositoryCount,
-          insertedFactCount: result.insertedFactCount,
-          inventoryComplete: result.inventoryComplete,
-          cycleCompleted: result.cycleCompleted,
-          stoppedForBudget: result.stoppedForBudget,
-        });
-      },
-      (error: unknown) => {
-        this.logger.error({
-          event:
-            scope === 'org'
-              ? 'collection.admin.sync_failed'
-              : 'collection.admin.external_sync_failed',
-          scope,
-          runId,
-          errorName: error instanceof Error ? error.name : 'UnknownError',
-        });
-      },
-    );
-  }
-
-  private observePersonSweep(
-    runId: string,
-    startedAt: number,
-    sweep: Promise<CollectionUserActivitySweepResult>,
-  ): void {
-    void sweep.then(
-      (result) => {
-        this.logger.log({
-          event: 'collection.admin.completed',
-          scope: 'person',
-          runId,
-          durationMs: Date.now() - startedAt,
-          observedUserCount: result.observedUserCount,
-          upsertedRowCount: result.upsertedRowCount,
-          skippedPastYearCount: result.skippedPastYearCount,
-          failedUserCount: result.failedUserCount,
-        });
-      },
-      (error: unknown) => {
-        this.logger.error({
-          event: 'collection.admin.person_sync_failed',
-          scope: 'person',
-          runId,
-          errorName: error instanceof Error ? error.name : 'UnknownError',
-        });
-      },
-    );
+    this.sweeps.start(this.ownerId, runId);
+    return { runId, status: 'PENDING' };
   }
 
   async listRuns(
     sessionGithubId: bigint,
-  ): Promise<CollectionRunListResponseDto> {
+  ): Promise<readonly CollectionSyncRunRow[]> {
     await this.assertAdmin(sessionGithubId);
-    const runs = await this.incrementalRepository.listSyncRuns(
+    return this.incrementalRepository.listSyncRuns(
       new Date(),
       COLLECTION_RUN_LIST_LIMIT,
     );
-    return CollectionRunListResponseDto.from(runs);
   }
 }

@@ -1,3 +1,4 @@
+import type { EditMilestoneCommand } from '../domain/program-write.commands';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -41,7 +42,7 @@ export class UpdateMilestoneDocumentRequestDto {
   declare readonly templateUploadId?: string;
 }
 
-export class UpdateMilestoneRequestDto {
+export class UpdateMilestoneRequestDto implements EditMilestoneCommand {
   @Transform(({ value }: { readonly value: unknown }) => trimString(value))
   @IsString()
   @Matches(/\S/u)
