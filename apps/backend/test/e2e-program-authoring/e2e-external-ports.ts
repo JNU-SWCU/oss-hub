@@ -25,10 +25,10 @@ class E2eProgramAuthoringExternalPorts {
     this.failures.resetFailures();
   }
 
-  reset(): void {
+  reset(retainedStorageKeys: ReadonlySet<string> = new Set()): void {
     this.failures.reset();
     this.github.reset();
-    this.storage.reset();
+    this.storage.reset(retainedStorageKeys);
   }
 }
 
