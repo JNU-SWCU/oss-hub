@@ -90,7 +90,7 @@ type ApplicationDatabase = Pick<
   | '$queryRaw'
 >;
 
-export interface LockedProgramPolicy {
+interface LockedProgramPolicy {
   readonly lifecycle: ProgramLifecycle;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
