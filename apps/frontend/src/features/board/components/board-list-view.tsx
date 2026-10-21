@@ -21,7 +21,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { ApiError } from '@/lib/api-client';
 import { programApplyHref, programOverviewHref } from '@/lib/program-route';
 import { createBoardPost, listBoardPosts } from '../api';
-import { subscribeBoardListInvalidation } from '../board-list-refetch';
+import {
+  invalidateBoardList,
+  subscribeBoardListInvalidation,
+} from '../board-list-refetch';
 import {
   BOARD_CATEGORY_BADGE_VARIANT,
   BOARD_CATEGORY_LABELS,
@@ -393,6 +396,7 @@ export function BoardListView({
     setNewPostSubmitError(null);
     createBoardPost(programId, { title: newPostTitle, body: newPostBody })
       .then((post) => {
+        invalidateBoardList(programId);
         router.push(boardPostHref(programId, post.id));
       })
       .catch((error: unknown) => {
