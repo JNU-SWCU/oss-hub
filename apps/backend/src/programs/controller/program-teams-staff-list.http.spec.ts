@@ -12,7 +12,6 @@ import { issueSessionToken } from '../../auth/domain/session-token';
 import { SessionGuard } from '../../auth/controller/session.guard';
 import { ProblemDetailFilter } from '../../common/controller/problem-detail.filter';
 import { UsersAuthorityService } from '../../users/service/authority.service';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { TeamsErrorCode } from '../domain/teams-error-code.enum';
 import { ProgramTeamsController } from './program-teams.controller';
 import type {
@@ -31,7 +30,6 @@ const allowedOrigin = 'http://frontend.test';
 const sessionSecret = new Uint8Array(32).fill(7);
 const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
-const JOIN_CODE_SECRET = 'synthetic-program-teams-secret';
 const LIST_INSTANCE = `/api/v1/programs/${PROGRAM_ID}/teams`;
 const DETAIL_INSTANCE = `${LIST_INSTANCE}/${TEAM_ID}`;
 const UNAUTHENTICATED_DETAIL = '로그인이 필요합니다.';
@@ -155,7 +153,6 @@ const repository = {
 
 const service = new ProgramTeamsService(
   repository,
-  loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: JOIN_CODE_SECRET }),
   { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository(),
   new UsersAuthorityService({ findActorByGithubId: findUnique }),

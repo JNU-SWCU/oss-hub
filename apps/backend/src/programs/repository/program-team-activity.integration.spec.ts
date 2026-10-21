@@ -3,7 +3,6 @@ import { assertIsolatedIntegrationDatabase } from '../../../test/integration-dat
 import { AuditLogRepository } from '../../audit-log/repository/audit-log.repository';
 import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
 import { UsersAuthorityService } from '../../users/service/authority.service';
 import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
@@ -18,7 +17,6 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const service = new ProgramTeamsService(
   new ProgramTeamsRepository(prisma),
-  loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret' }),
   new AuditLogService(new AuditLogRepository(prisma)),
   new ProgramTeamDeletionRepository(prisma),
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),

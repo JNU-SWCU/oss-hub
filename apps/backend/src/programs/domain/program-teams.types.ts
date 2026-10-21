@@ -9,13 +9,6 @@ export interface TeamMemberView {
   readonly isLeader: boolean;
 }
 
-export interface CreatedTeamView {
-  readonly id: string;
-  readonly name: string;
-  readonly joinCode: string;
-  readonly memberCount: number;
-}
-
 export interface RenamedTeamView {
   readonly teamId: string;
   readonly name: string;
