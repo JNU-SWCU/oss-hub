@@ -168,5 +168,5 @@ QA에서 반드시 눌러봐야 하는 지점이다.
 - 배포 계약·백업·롤백: [Jenkinsfile](../../../Jenkinsfile)
 - 리뷰·병합 게이트: [CI workflow](../../../.github/workflows/ci.yml)
 - GitHub App 통합·수집: [CollectionModule](../../../apps/backend/src/github/collection.module.ts)
-- public-safe deny-list·공개 strict-read: [security.md](../../../scripts/check-public-safe.sh)
-- 서버 접속·복구 절차: [server-runbook.md](../../../Jenkinsfile)
+- 공개 자료 deny-list: [public-safe 검사](../../../scripts/check-public-safe.sh)
+- 릴리스 배포·복구 실행: [Jenkinsfile](../../../Jenkinsfile)

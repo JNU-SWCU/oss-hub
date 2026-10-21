@@ -34,7 +34,7 @@ readonly INVENTORY_STALE_HOURS=${INVENTORY_STALE_HOURS:-24}
 readonly RANKING_URL=${RANKING_URL:-}
 
 if [[ -z ${DATABASE_URL:-} ]]; then
-  echo "diagnose-collection: DATABASE_URL 이 없다 — 서버 안에서 실행한다(server-runbook.md M1)" >&2
+  echo "diagnose-collection: DATABASE_URL 이 없다 — 승인된 서버 환경에서 DATABASE_URL을 주입한 뒤 이 스크립트를 다시 실행한다" >&2
   exit 1
 fi
 
