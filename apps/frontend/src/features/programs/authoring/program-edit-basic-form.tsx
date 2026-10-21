@@ -1,0 +1,231 @@
+import { ProgramCoverField } from './program-cover-field';
+import type { ProgramCoverSelection } from './program-cover-selection';
+import { ProgramNoticeImport } from './program-notice-import';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { FormSection } from '@/components/form-section';
+import type { EditableProgram } from './dto';
+import {
+  type ProgramEditableField,
+  type ProgramEditErrors,
+  type ProgramEditForm,
+} from './program-edit-flow';
+import {
+  PROGRAM_TRACK_TYPE_LABELS,
+  PROGRAM_TRACK_TYPES,
+} from '../program-contract';
+import { ProgramDeadlineControl } from './program-deadline-control';
+
+interface ProgramEditBasicFormProps {
+  readonly coverSelection?: ProgramCoverSelection;
+  readonly onCoverChange: (selection: ProgramCoverSelection) => void;
+  readonly isSaving?: boolean;
+  readonly program: EditableProgram;
+  readonly form: ProgramEditForm;
+  readonly errors: ProgramEditErrors;
+  readonly onFieldChange: (
+    field: ProgramEditableField,
+    value: string | boolean,
+  ) => void;
+}
+
+export function ProgramEditBasicForm({
+  coverSelection,
+  onCoverChange,
+  isSaving,
+  program,
+  form,
+  errors,
+  onFieldChange,
+}: ProgramEditBasicFormProps) {
+  return (
+    <FormSection
+      aria-labelledby="edit-basic-title"
+      className="[&>legend]:w-full"
+      title={
+        <span className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <span id="edit-basic-title">기본 정보</span>
+          <ProgramNoticeImport
+            currentName={form.name}
+            currentDescription={form.description}
+            hasCover={Boolean(
+              coverSelection ||
+              (coverSelection === undefined && program.coverImageUrl),
+            )}
+            sourceUrl={program.externalCover?.sourceUrl}
+            disabled={isSaving}
+            onApply={(patch) => {
+              if (patch.name !== undefined) onFieldChange('name', patch.name);
+              if (patch.description !== undefined)
+                onFieldChange('description', patch.description);
+              if (patch.externalCover !== undefined)
+                onCoverChange(patch.externalCover);
+            }}
+          />
+        </span>
+      }
+      description="프로그램 목록과 상세 화면에 표시할 정보를 입력하세요."
+    >
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="program-name">프로그램명 *</FieldLabel>
+          <Input
+            id="program-name"
+            value={form.name}
+            aria-invalid={Boolean(errors.name)}
+            aria-describedby={errors.name ? 'program-name-error' : undefined}
+            onChange={(event) => onFieldChange('name', event.target.value)}
+          />
+          <FieldError id="program-name-error" role="alert">
+            {errors.name}
+          </FieldError>
+        </Field>
+        <ProgramCoverField
+          selection={coverSelection}
+          currentImageUrl={program.coverImageUrl}
+          disabled={isSaving}
+          serverError={errors.coverUploadId}
+          onChange={onCoverChange}
+        />
+        <Field>
+          <FieldLabel htmlFor="program-organizer">주관기관 *</FieldLabel>
+          <Input
+            id="program-organizer"
+            value={form.organizer}
+            aria-invalid={Boolean(errors.organizer)}
+            aria-describedby={
+              errors.organizer ? 'program-organizer-error' : undefined
+            }
+            onChange={(event) => onFieldChange('organizer', event.target.value)}
+          />
+          <FieldError id="program-organizer-error" role="alert">
+            {errors.organizer}
+          </FieldError>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="program-track-type">교과/비교과 *</FieldLabel>
+          <select
+            id="program-track-type"
+            className="h-control rounded-control border border-input bg-background px-4 text-body"
+            value={form.trackType}
+            aria-invalid={Boolean(errors.trackType)}
+            aria-describedby={
+              errors.trackType ? 'program-track-type-error' : undefined
+            }
+            onChange={(event) => onFieldChange('trackType', event.target.value)}
+          >
+            <option value="">선택</option>
+            {PROGRAM_TRACK_TYPES.map((trackType) => (
+              <option key={trackType} value={trackType}>
+                {PROGRAM_TRACK_TYPE_LABELS[trackType]}
+              </option>
+            ))}
+          </select>
+          <FieldError id="program-track-type-error" role="alert">
+            {errors.trackType}
+          </FieldError>
+        </Field>
+        <Field>
+          <FieldLabel>팀 인원 *</FieldLabel>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="space-y-2">
+              <FieldLabel
+                className="text-small"
+                htmlFor="program-team-min-size"
+              >
+                최소
+              </FieldLabel>
+              <Input
+                id="program-team-min-size"
+                type="number"
+                min="1"
+                value={form.teamMinSize}
+                aria-invalid={Boolean(errors.team)}
+                aria-describedby={`program-team-size-description${errors.team ? ' program-team-size-error' : ''}`}
+                onChange={(event) =>
+                  onFieldChange('teamMinSize', event.target.value)
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <FieldLabel
+                className="text-small"
+                htmlFor="program-team-max-size"
+              >
+                최대
+              </FieldLabel>
+              <Input
+                id="program-team-max-size"
+                type="number"
+                min="1"
+                value={form.teamMaxSize}
+                aria-invalid={Boolean(errors.team)}
+                aria-describedby={`program-team-size-description${errors.team ? ' program-team-size-error' : ''}`}
+                onChange={(event) =>
+                  onFieldChange('teamMaxSize', event.target.value)
+                }
+              />
+            </div>
+          </div>
+          <FieldError id="program-team-size-error" role="alert">
+            {errors.team}
+          </FieldError>
+          <FieldDescription
+            id="program-team-size-description"
+            className="break-keep"
+          >
+            개인으로만 신청받으려면 최소·최대 인원을 모두 1명으로 설정하세요.
+          </FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="program-description">소개/설명 *</FieldLabel>
+          <textarea
+            id="program-description"
+            value={form.description}
+            aria-invalid={Boolean(errors.description)}
+            aria-describedby={
+              errors.description ? 'program-description-error' : undefined
+            }
+            onChange={(event) =>
+              onFieldChange('description', event.target.value)
+            }
+            className="min-h-32 rounded-control border border-input bg-transparent p-4 text-body"
+          />
+          <FieldError id="program-description-error" role="alert">
+            {errors.description}
+          </FieldError>
+        </Field>
+        <Field orientation="horizontal">
+          <input
+            id="repository-provisioning"
+            type="checkbox"
+            checked={form.repositoryProvisioningEnabled}
+            onChange={(event) =>
+              onFieldChange(
+                'repositoryProvisioningEnabled',
+                event.target.checked,
+              )
+            }
+          />
+          <FieldLabel htmlFor="repository-provisioning">
+            신청 승인 시 GitHub 저장소 자동 생성
+          </FieldLabel>
+        </Field>
+        <ProgramDeadlineControl
+          enabled={form.notifyOnDeadline}
+          persistedEnabled={program.notifyOnDeadline}
+          programId={program.id}
+          onEnabledChange={(enabled) =>
+            onFieldChange('notifyOnDeadline', enabled)
+          }
+        />
+      </FieldGroup>
+    </FormSection>
+  );
+}

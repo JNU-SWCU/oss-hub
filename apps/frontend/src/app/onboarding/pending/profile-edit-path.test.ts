@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { PENDING_PROFILE_EDIT_PATH } from '@/features/roles/components/role-request-screen';
+import { PENDING_PROFILE_EDIT_PATH } from '@/features/roles/onboarding/components/role-request-screen';
 
 import { isSettingsOpenForStaffAwaitingRole } from '../../settings/settings-access';
 import type { SessionRoleState } from '../../_shell/use-session-role';

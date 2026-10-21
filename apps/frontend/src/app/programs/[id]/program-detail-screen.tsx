@@ -6,8 +6,7 @@ import { useSession } from '@/features/auth/use-session';
 import {
   ProgramDetailPage,
   type ProgramDetailSession,
-} from '@/features/programs/program-detail-page';
-import { SubmissionChecklistPage } from '@/features/submissions/submission-checklist-page';
+} from '@/features/programs/catalog/program-detail-page';
 import { programDocumentsHref } from '@/lib/program-route';
 import { ProgramViewContext } from '../../_shell/program-shell-policy';
 
@@ -42,17 +41,6 @@ export function ProgramDetailScreen({
         programView === null
           ? undefined
           : programView === 'STAFF' || programView === 'ADMIN'
-      }
-      approvedStudentMilestones={
-        <SubmissionChecklistPage
-          milestoneId={null}
-          onSelectMilestone={(milestoneId) => {
-            router.push(programDocumentsHref(programId, milestoneId), {
-              scroll: false,
-            });
-          }}
-          programId={programId}
-        />
       }
     />
   );

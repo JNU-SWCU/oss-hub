@@ -1,5 +1,5 @@
-import { ArchiveListView } from '@/features/archive';
+import { ArchiveListScreen } from '@/features/archive';
 
 export default function ArchivePage() {
-  return <ArchiveListView />;
+  return <ArchiveListScreen />;
 }

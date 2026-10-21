@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { StaffAccessRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from '@/features/roles/onboarding/types';
 import { SessionRoleProvider } from '../../_shell/session-role-context';
 import type { SessionRoleResult } from '../../_shell/use-session-role';
 
@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   selectRole: vi.fn(),
 }));
 
-vi.mock('@/features/roles/api', () => ({
+vi.mock('@/features/roles/onboarding/api', () => ({
   fetchMyStaffAccessRequest: mocks.fetchMyStaffAccessRequest,
   fetchMyRoleSelection: mocks.fetchMyRoleSelection,
   selectRole: mocks.selectRole,

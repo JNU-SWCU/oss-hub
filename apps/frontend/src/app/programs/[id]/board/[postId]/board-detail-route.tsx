@@ -1,6 +1,6 @@
 'use client';
 
-import { BoardDetailView } from '@/features/board/components/board-detail-view';
+import { BoardDetailScreen } from '@/features/board/components/board-detail-screen';
 import { useSharedSessionRole } from '../../../../_shell/session-role-context';
 
 export function BoardDetailRoute({
@@ -12,7 +12,7 @@ export function BoardDetailRoute({
 }) {
   const { hasStaffAccess } = useSharedSessionRole();
   return (
-    <BoardDetailView
+    <BoardDetailScreen
       programId={programId}
       postId={postId}
       isStaff={hasStaffAccess}

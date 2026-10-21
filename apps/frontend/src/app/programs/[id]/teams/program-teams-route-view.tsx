@@ -2,8 +2,8 @@
 
 import { useContext } from 'react';
 import { ProgramViewContext } from '../../../_shell/program-shell-policy';
-import { ProgramStaffTeamsPage } from '@/features/programs/program-staff-teams-page';
-import { ProgramTeamsPage } from '@/features/programs/program-teams-page';
+import { ProgramStaffTeamsPage } from '@/features/programs/teams/program-staff-teams-page';
+import { ProgramTeamsPage } from '@/features/programs/teams/program-teams-page';
 import { useSharedSessionRole } from '../../../_shell/session-role-context';
 
 export function ProgramTeamsRouteView({

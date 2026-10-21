@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { CardGrid } from './card-grid';
-import { ProgramCard } from '@/features/programs/program-card';
+import { ProgramCard } from '@/features/programs/catalog/program-card';
 import { StatusBadge } from './status-badge';
 import { EmptyState } from './empty-state';
 

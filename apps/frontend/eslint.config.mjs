@@ -5,6 +5,7 @@ import nextPlugin from '@next/eslint-plugin-next';
 import prettier from 'eslint-config-prettier';
 import typescriptParser from '@typescript-eslint/parser';
 import runtimeTestBoundary from './eslint-rules/runtime-test-boundary.mjs';
+import featureOwnership from './eslint-rules/feature-ownership.mjs';
 import designSystemRules from './eslint-rules/design-system.mjs';
 import noComments from '../../eslint-rules/no-comments.mjs';
 import { typeCheckedConfig } from '../../eslint.shared.mjs';
@@ -166,6 +167,7 @@ export default defineConfig([
       local: {
         rules: {
           'runtime-test-boundary': runtimeTestBoundary,
+          'feature-ownership': featureOwnership,
           'no-comments': noComments,
           ...designSystemRules,
         },
@@ -174,6 +176,7 @@ export default defineConfig([
     rules: {
       ...nextPlugin.configs.recommended.rules,
       'local/runtime-test-boundary': 'error',
+      'local/feature-ownership': 'error',
       'local/no-comments': 'error',
     },
   },

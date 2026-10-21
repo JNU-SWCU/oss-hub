@@ -1,0 +1,110 @@
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { applicationAnswerMaxLength } from './application-answer-limits';
+import type { ApplicationFormField, ApplicationFormTemplate } from './dto';
+import type { ProgramParticipation } from '../program-contract';
+
+const PARTICIPATION_LABELS: Readonly<Record<ProgramParticipation, string>> = {
+  individual: '팀 신청',
+  team: '팀 신청',
+};
+
+export type FormRendererMode = 'preview' | 'edit';
+
+export function FormRenderer({
+  template,
+  mode = 'preview',
+  values = {},
+  onChange,
+  showMetadata = true,
+}: {
+  readonly template: ApplicationFormTemplate;
+  readonly mode?: FormRendererMode;
+  readonly values?: Readonly<Partial<Record<string, string>>>;
+  readonly onChange?: (key: string, value: string) => void;
+  readonly showMetadata?: boolean;
+}) {
+  return (
+    <section
+      aria-label={
+        showMetadata ? `${template.name} 템플릿 미리보기` : '신청 정보'
+      }
+      className="space-y-3"
+    >
+      {showMetadata ? (
+        <div>
+          <p className="font-medium text-foreground">{template.name}</p>
+          <p className="text-sm text-muted-foreground">
+            {template.key} v{template.version} ·{' '}
+            {PARTICIPATION_LABELS[template.participation]}
+          </p>
+        </div>
+      ) : null}
+      <div className="space-y-3">
+        {template.fields.map((field) => (
+          <FormFieldControl
+            key={field.key}
+            field={field}
+            mode={mode}
+            value={values[field.key] ?? ''}
+            onChange={onChange}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FormFieldControl({
+  field,
+  mode,
+  value,
+  onChange,
+}: {
+  readonly field: ApplicationFormField;
+  readonly mode: FormRendererMode;
+  readonly value: string;
+  readonly onChange?: (key: string, value: string) => void;
+}) {
+  const readOnly = mode === 'preview' || field.type === 'auto';
+  const inputId = `application-field-${field.key}`;
+  const requiredMark = field.required ? ' *' : '';
+
+  const maxLength = applicationAnswerMaxLength(field.key);
+
+  return (
+    <Field>
+      <FieldLabel htmlFor={inputId}>
+        {field.label}
+        {requiredMark}
+      </FieldLabel>
+      {field.type === 'textarea' ? (
+        <textarea
+          id={inputId}
+          name={field.key}
+          value={value}
+          maxLength={maxLength}
+          readOnly={readOnly}
+          disabled={readOnly && mode === 'preview'}
+          onChange={(event) => onChange?.(field.key, event.target.value)}
+          className={cn(
+            'min-h-24 w-full rounded-lg border border-input bg-transparent p-3 text-sm',
+            'disabled:cursor-not-allowed disabled:opacity-70',
+          )}
+        />
+      ) : (
+        <Input
+          id={inputId}
+          name={field.key}
+          type="text"
+          value={value}
+          maxLength={maxLength}
+          readOnly={readOnly}
+          disabled={readOnly && mode === 'preview'}
+          onChange={(event) => onChange?.(field.key, event.target.value)}
+        />
+      )}
+    </Field>
+  );
+}

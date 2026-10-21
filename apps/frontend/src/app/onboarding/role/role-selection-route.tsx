@@ -1,6 +1,6 @@
 'use client';
 
-import { RoleSelectionScreen } from '@/features/roles/components/role-selection-screen';
+import { RoleSelectionScreen } from '@/features/roles/onboarding/components/role-selection-screen';
 import { useSharedSessionRole } from '../../_shell/session-role-context';
 
 export function RoleSelectionRoute() {

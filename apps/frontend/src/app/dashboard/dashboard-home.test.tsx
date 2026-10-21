@@ -19,7 +19,7 @@ vi.mock('@/features/dashboard', () => ({
   ),
 }));
 
-vi.mock('@/features/programs/staff-dashboard-page', () => ({
+vi.mock('@/features/programs/staff-dashboard/staff-dashboard-page', () => ({
   StaffDashboardPage: () => (
     <div data-testid="staff-dashboard">운영 대시보드</div>
   ),

@@ -6,7 +6,7 @@ import {
   validateProfileForm,
 } from '@/features/profile/profile-state';
 import { profileFieldRequirement } from '@/features/profile/profile-requirements';
-import type { StaffAccessRequestStatus } from '@/features/roles/types';
+import type { StaffAccessRequestStatus } from '@/features/roles/onboarding/types';
 import type { AppRole } from '../_shell/role';
 import {
   effectiveProfileRole,

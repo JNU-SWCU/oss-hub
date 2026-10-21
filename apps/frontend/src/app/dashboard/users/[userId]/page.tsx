@@ -1,5 +1,5 @@
 import { RolePanelShell } from '../../../_shell/role-panel-shell';
-import { AdminAccessDetailView } from '@/features/roles/components/admin-access-detail-view';
+import { AdminAccessDetailScreen } from '@/features/roles/access-administration/components/admin-access-detail-screen';
 
 type AdminAccessDetailPageProps = {
   readonly params: Promise<{ readonly userId: string }>;
@@ -18,7 +18,7 @@ export default async function AdminAccessDetailPage({
 
   return (
     <RolePanelShell allow={['admin']}>
-      <AdminAccessDetailView userId={decodedUserId} workspace="directory" />
+      <AdminAccessDetailScreen userId={decodedUserId} workspace="directory" />
     </RolePanelShell>
   );
 }

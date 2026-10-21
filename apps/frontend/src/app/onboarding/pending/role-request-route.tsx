@@ -1,7 +1,7 @@
 'use client';
 
 import { useSharedSessionRole } from '../../_shell/session-role-context';
-import { StaffAccessRequestScreen } from '@/features/roles/components/role-request-screen';
+import { StaffAccessRequestScreen } from '@/features/roles/onboarding/components/role-request-screen';
 
 export function StaffAccessRequestRoute() {
   const { staffAccessRequestStatus, staffAccessRequestRejectionReason, retry } =

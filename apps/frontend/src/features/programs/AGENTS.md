@@ -4,15 +4,19 @@
 ## Ownership
 
 - Own program catalog, detail, application, team, milestone, staff dashboard, authoring, and editing behavior in `apps/frontend/src/features/programs/`.
-- App routes import focused feature entries such as `program-list-page.tsx`, `program-detail-page.tsx`, `program-apply-page.tsx`, `program-edit-page.tsx`, and `program-staff-teams-page.tsx`; keep route decoding in `program-paths.ts`.
-- `components/activity-graph-panel.tsx` and `components/milestone-row.tsx` are program-only compositions, not shared-component candidates by default.
+- App routes import focused entries in `catalog/`, `applications/`, `authoring/`, `teams/`, `documents/`, and `staff-dashboard/`; keep route decoding in `program-paths.ts`.
+- `catalog/components/activity-graph-panel.tsx` and `documents/components/milestone-row.tsx` are program-only compositions, not shared-component candidates by default.
 
 ## Public interfaces and API
 
-- `types.ts` is the feature contract for program, application, team, milestone, viewer-role, and list state shapes; update its unions and labels with the consuming flow.
-- `api.ts` owns broad program, application, and staff-dashboard endpoints. Keep focused remote boundaries in the established `program-*-api.ts`, `milestone-document-*-api.ts`, `student-application-api.ts`, and `team-invitation-api.ts` modules; parse staff-dashboard responses in `staff-dashboard-parser.ts`.
+- Each business module owns its request/response DTOs in `dto.ts` or focused `*-dto.ts` files, its API boundary, and its pure screen models.
+- `program-contract.ts` contains only shared program concepts; it must not re-export business DTOs, screens, or APIs.
+- `catalog/program-list-options.ts` owns list options; `catalog/program-list-labels.ts` owns their display labels.
+- Keep remote boundaries inside their owner. API functions serialize requests and connect response parsers before returning data; callers must not repeat required parsing.
+- Cross-module consumers use the focused entries declared by `apps/frontend/eslint-rules/feature-ownership.mjs`; do not add a catch-all barrel or an old-path forwarding module.
+- Alias and relative paths follow the same boundary, including type-only imports. Test-owned compositions are separate from production dependencies.
 - Use `apiClient` and `ApiError` from `@/lib/api-client`; map endpoint details and problem codes at the feature boundary rather than in shared UI.
-- Keep route-id decoding and base program helpers in `program-paths.ts`; named cross-feature program hrefs live in `@/lib/program-route`. Use `program-templates.ts` for categories and template fields instead of recreating them in pages.
+- Keep route-id decoding and base program helpers in `program-paths.ts`; named cross-feature program hrefs live in `@/lib/program-route`. Use `applications/program-templates.ts` for categories and template fields instead of recreating them in pages.
 
 ## State and flow patterns
 
@@ -20,7 +24,7 @@
 - Form components consume flow results and validation messages; do not duplicate date, team-size, submission, or lifecycle validation inside the rendered form.
 - Preserve explicit loading, error, blocked, and ready branches in page modules. Map application and mutation failures from `ApiError.problem.code` in the matching flow or page boundary.
 - Keep browser navigation protection split between `use-program-exit-guard.ts` and the injected, testable rules in `program-exit-guard.ts`.
-- Backend templates are authoritative when loaded. `program-templates.ts` retains the deliberate local fields/version fallback used after template-list failure; do not expand or silently remove that fallback.
+- Backend templates are authoritative when loaded. `applications/program-templates.ts` retains local fields/version fallback only when a successful template response lacks the selected key; request failures keep their explicit failure/404 flow.
 
 ## Constraints
 

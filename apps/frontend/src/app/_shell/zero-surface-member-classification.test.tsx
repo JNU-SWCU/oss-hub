@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { StaffAccessRequest } from '@/features/roles/types';
+import type { StaffAccessRequest } from '@/features/roles/onboarding/types';
 import type { MemberAccess } from './member-access';
 
 const mocks = vi.hoisted(() => ({
@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   useSession: vi.fn(),
 }));
 
-vi.mock('@/features/roles/api', () => ({
+vi.mock('@/features/roles/onboarding/api', () => ({
   fetchMyStaffAccessRequest: mocks.fetchMyStaffAccessRequest,
   fetchMyRoleSelection: mocks.fetchMyRoleSelection,
   selectRole: vi.fn(),

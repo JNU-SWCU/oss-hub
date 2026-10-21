@@ -1,0 +1,285 @@
+﻿import Link from 'next/link';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { FieldError } from '@/components/ui/field';
+import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
+import type {
+  EditableMilestone,
+  EditableProgram,
+  EditableMilestoneEditSnapshot,
+  EditableMilestoneDocument,
+} from './dto';
+import { ProgramEditBasicForm } from './program-edit-basic-form';
+import type { ProgramCoverSelection } from './program-cover-selection';
+import { ProgramEditScheduleEditor } from './program-edit-schedule-editor';
+import { ProgramEditDangerZoneSection } from './program-edit-danger-zone-section';
+import { ProgramEditMilestones } from './program-edit-milestones';
+import {
+  type ProgramEditableField,
+  type ProgramEditErrors,
+  type ProgramEditForm,
+  type ProgramMilestoneEditor,
+  type ProgramMilestoneField,
+  type ProgramMilestoneDraft,
+} from './program-edit-flow';
+import { staffProgramHref } from '../program-paths';
+import { editScheduleEvents } from './program-schedule-overview-model';
+import { FormSection, PageBody, PageHeader } from '@/components';
+
+const FORM_WIDTH = 'max-w-4xl';
+
+const SECTIONS = 'flex min-w-0 flex-col gap-16';
+
+interface ProgramEditViewProps {
+  readonly coverSelection?: ProgramCoverSelection;
+  readonly onCoverChange: (selection: ProgramCoverSelection) => void;
+  readonly program: EditableProgram;
+  readonly form: ProgramEditForm;
+  readonly errors: ProgramEditErrors;
+  readonly toastMessage: string | null;
+  readonly generalAlert: string | null;
+  readonly isSaving: boolean;
+  readonly milestoneEditor: ProgramMilestoneEditor;
+  readonly milestoneEditTriggerRef?: React.RefObject<HTMLElement | null>;
+  readonly deleteTarget: EditableMilestone | null;
+  readonly isMilestoneBusy: boolean;
+  readonly milestoneSnapshot?: EditableMilestoneEditSnapshot | null;
+  readonly latestMilestoneSnapshot?: EditableMilestoneEditSnapshot | null;
+  readonly milestoneSnapshotLoadFailed?: boolean;
+  readonly canonicalDocumentsByMilestoneId?: ReadonlyMap<
+    string,
+    readonly EditableMilestoneDocument[]
+  >;
+
+  readonly canDeleteProgram: boolean;
+  readonly onProgramDeleted: (notice?: string) => void;
+  readonly onFieldChange: (
+    field: ProgramEditableField,
+    value: string | boolean,
+  ) => void;
+  readonly onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  readonly onAddMilestone: () => void;
+  readonly onEditMilestone: (milestone: EditableMilestone) => void;
+  readonly onCancelMilestone: () => void;
+  readonly onMilestoneFieldChange: (
+    field: ProgramMilestoneField,
+    value: string,
+  ) => void;
+  readonly onSaveMilestone: (
+    event: React.FormEvent<HTMLFormElement>,
+    documents?: ProgramMilestoneDraft['documents'],
+  ) => void;
+  readonly onRefreshMilestone?: () => void;
+  readonly onMilestoneDocumentsDirtyChange?: (dirty: boolean) => void;
+  readonly onRestartMilestoneFromLatest?: (
+    snapshot: EditableMilestoneEditSnapshot,
+  ) => void;
+  readonly onRequestDeleteMilestone: (milestone: EditableMilestone) => void;
+  readonly onCancelDelete: () => void;
+  readonly onConfirmDelete: () => void;
+}
+
+export function ProgramEditSkeleton() {
+  return (
+    <PageBody className={FORM_WIDTH} aria-label="프로그램 편집 불러오는 중">
+      <Skeleton
+        label="프로그램 편집 불러오는 중"
+        className="flex flex-col gap-12"
+      >
+        <SkeletonBlock className="h-20 rounded-card" />
+        <div className={SECTIONS}>
+          <SkeletonBlock className="h-72 rounded-card" />
+          <SkeletonBlock className="h-48 rounded-card" />
+        </div>
+      </Skeleton>
+    </PageBody>
+  );
+}
+
+export function ProgramEditLoadFailure({
+  message,
+  onRetry,
+}: {
+  readonly message: string;
+  readonly onRetry: () => void;
+}) {
+  return (
+    <PageBody className={FORM_WIDTH}>
+      <Alert variant="destructive">
+        <AlertTitle>프로그램을 불러오지 못했습니다</AlertTitle>
+        <AlertDescription>{message}</AlertDescription>
+      </Alert>
+      <p className="mt-4 text-small text-muted-foreground">
+        다시 시도해도 열리지 않으면 프로그램 목록으로 돌아갈 수 있습니다.
+      </p>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Button type="button" onClick={onRetry}>
+          다시 시도
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/programs">프로그램 목록</Link>
+        </Button>
+      </div>
+    </PageBody>
+  );
+}
+
+export function ProgramEditView({
+  coverSelection,
+  onCoverChange,
+  program,
+  form,
+  errors,
+  toastMessage,
+  generalAlert,
+  isSaving,
+  milestoneEditor,
+  milestoneEditTriggerRef,
+  deleteTarget,
+  isMilestoneBusy,
+  milestoneSnapshot,
+  latestMilestoneSnapshot,
+  milestoneSnapshotLoadFailed,
+  canonicalDocumentsByMilestoneId,
+  canDeleteProgram,
+  onProgramDeleted,
+  onFieldChange,
+  onSubmit,
+  onAddMilestone,
+  onEditMilestone,
+  onCancelMilestone,
+  onMilestoneFieldChange,
+  onSaveMilestone,
+  onRefreshMilestone,
+  onMilestoneDocumentsDirtyChange,
+  onRestartMilestoneFromLatest,
+  onRequestDeleteMilestone,
+  onCancelDelete,
+  onConfirmDelete,
+}: ProgramEditViewProps) {
+  return (
+    <PageBody className={FORM_WIDTH}>
+      <div className="flex flex-col gap-4">
+        <Button asChild variant="ghost" size="sm" className="self-start">
+          <Link href={staffProgramHref(program.id)}>← 프로그램 개요</Link>
+        </Button>
+        <div className="grid items-start gap-6">
+          <div className="grid min-w-0 gap-6">
+            <PageHeader title="프로그램 편집" description={program.name} />
+          </div>
+        </div>
+      </div>
+      <div className={SECTIONS}>
+        {toastMessage ? (
+          <div
+            role="status"
+            className="rounded-card border border-status-approved-bg bg-status-approved-bg px-4 py-3 text-small text-status-approved-fg"
+          >
+            {toastMessage}
+          </div>
+        ) : null}
+        {generalAlert ? (
+          <Alert variant="destructive">
+            <AlertTitle>처리 실패</AlertTitle>
+            <AlertDescription className="grid gap-1">
+              <span>{generalAlert}</span>
+              <span>
+                안내에 따라 아래 입력값이나 마일스톤 설정을 고친 뒤 다시 시도해
+                주세요.
+              </span>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        <form className="grid min-w-0 gap-10" onSubmit={onSubmit}>
+          <ProgramEditBasicForm
+            coverSelection={coverSelection}
+            onCoverChange={onCoverChange}
+            isSaving={isSaving}
+            program={program}
+            form={form}
+            errors={errors}
+            onFieldChange={onFieldChange}
+          />
+          <FormSection title="신청 · 운영 일정">
+            <ProgramEditScheduleEditor
+              program={program}
+              form={form}
+              errors={errors}
+              isSaving={isSaving}
+              onFieldChange={onFieldChange}
+            />
+          </FormSection>
+          <div className="grid gap-3">
+            <FieldError role="alert">{errors.general}</FieldError>
+            <p id="program-save-scope" className="sr-only">
+              기본 정보, 신청·운영 일정, 저장소와 알림 설정을 함께 저장합니다.
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="submit"
+                disabled={isSaving}
+                aria-describedby="program-save-scope"
+              >
+                {isSaving ? '저장 중…' : '프로그램 정보 저장'}
+              </Button>
+            </div>
+          </div>
+        </form>
+        <Card
+          className={
+            milestoneEditor.mode === 'create'
+              ? '-mx-6 [--card-spacing:--spacing(2)] sm:mx-0 sm:[--card-spacing:var(--card-padding)]'
+              : undefined
+          }
+        >
+          <CardContent className="pt-card">
+            <ProgramEditMilestones
+              milestones={program.milestones}
+              editor={milestoneEditor}
+              editTriggerRef={milestoneEditTriggerRef}
+              deleteTarget={deleteTarget}
+              operationStartAt={form.startAt}
+              operationEndAt={form.endAt}
+              contextEvents={editScheduleEvents(
+                form,
+                program.milestones,
+                milestoneEditor,
+              )}
+              isBusy={isMilestoneBusy}
+              milestoneSnapshot={milestoneSnapshot}
+              latestMilestoneSnapshot={latestMilestoneSnapshot}
+              snapshotLoadFailed={milestoneSnapshotLoadFailed}
+              canonicalDocumentsByMilestoneId={canonicalDocumentsByMilestoneId}
+              onAdd={onAddMilestone}
+              onEdit={onEditMilestone}
+              onCancelEdit={onCancelMilestone}
+              onFieldChange={onMilestoneFieldChange}
+              onSave={onSaveMilestone}
+              onRefreshMilestone={onRefreshMilestone ?? (() => undefined)}
+              onDocumentsDirtyChange={
+                onMilestoneDocumentsDirtyChange ?? (() => undefined)
+              }
+              onRestartMilestoneFromLatest={
+                onRestartMilestoneFromLatest ?? (() => undefined)
+              }
+              onRequestDelete={onRequestDeleteMilestone}
+              onCancelDelete={onCancelDelete}
+              onConfirmDelete={onConfirmDelete}
+            />
+          </CardContent>
+        </Card>
+        {canDeleteProgram ? (
+          <div className="border-t border-border pt-10">
+            <ProgramEditDangerZoneSection
+              programId={program.id}
+              programName={program.name}
+              canDeleteProgram
+              onDeleted={onProgramDeleted}
+            />
+          </div>
+        ) : null}
+      </div>
+    </PageBody>
+  );
+}

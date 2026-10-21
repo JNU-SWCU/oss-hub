@@ -4,7 +4,7 @@ import { use } from 'react';
 import { RolePanelShell } from '../../../../_shell/role-panel-shell';
 import { useSession } from '@/features/auth/use-session';
 import { decodeRouteProgramId } from '@/features/programs/program-paths';
-import { ProgramStaffTeamDetailPage } from '@/features/programs/program-staff-team-detail-page';
+import { ProgramStaffTeamDetailPage } from '@/features/programs/teams/program-staff-team-detail-page';
 
 function ProgramStaffTeamDetailWorkspace({
   programId,

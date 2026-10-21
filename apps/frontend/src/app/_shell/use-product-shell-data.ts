@@ -5,16 +5,12 @@ import { subscribeBoardListInvalidation } from '@/features/board/board-list-refe
 import {
   MILESTONE_DOCUMENT_SUBMITTED_EVENT,
   submittedMilestoneId,
-} from '@/features/programs/milestone-document-events';
-import {
-  getProgramOverview,
-  type ProgramOverview,
-} from '@/features/programs/program-overview-api';
-import {
-  getProgramNavigationMilestones,
-  type ProgramNavigationMilestone,
-} from '@/features/programs/program-navigation-api';
-import { getMyApplication } from '@/features/programs/student-application-api';
+} from '@/features/programs/documents/milestone-document-events';
+import { getProgramOverview } from '@/features/programs/catalog/program-overview-api';
+import type { ProgramOverview } from '@/features/programs/catalog/program-overview-dto';
+import { getProgramNavigationMilestones } from '@/features/programs/catalog/program-navigation-api';
+import type { ProgramNavigationMilestone } from '@/features/programs/catalog/program-navigation-dto';
+import { getMyApplication } from '@/features/programs/applications/student-application-api';
 import { SECTION_FACETS, type SectionFacetData } from './section-facets';
 import type { ProgramScopeViewerRole, ShellSection } from './sidebar-menu';
 import type { MemberAccess } from './member-access';

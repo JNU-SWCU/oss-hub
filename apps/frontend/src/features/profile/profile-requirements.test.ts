@@ -245,3 +245,13 @@ describe('unicode name and student-id contract', () => {
     }
   });
 });
+
+describe('본인 프로필 NFC 코드 포인트 길이', () => {
+  it.each(['😀'.repeat(100), 'e\u0301'.repeat(100), ` ${'a'.repeat(100)} `])(
+    '경계 입력의 현재 판정을 유지한다',
+    (value) => {
+      expect(isValidProfileName(value)).toBe(true);
+      expect(isValidDepartment(value)).toBe(true);
+    },
+  );
+});
