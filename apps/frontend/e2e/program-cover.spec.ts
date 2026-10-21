@@ -73,6 +73,11 @@ test.describe('프로그램 대표 이미지', () => {
           () => document.documentElement.scrollWidth <= innerWidth,
         ),
       ).toBe(true);
+      await resetProgramAuthoringControl(control);
+      expect(await savedCoverPath(guest, programId)).toBe(path);
+      const retainedCover = await guest.request.get(`/api/v1${path}`);
+      expect(retainedCover.status()).toBe(200);
+      expect(await retainedCover.body()).toEqual(COVER_PNG);
     } finally {
       await context.close();
     }
@@ -251,8 +256,9 @@ test.describe('프로그램 대표 이미지', () => {
           },
           milestones: [],
         };
-        await page.route(`**${path}/viewer`, (route) =>
-          route.fulfill({ json: program }),
+        await page.route(
+          (url) => url.pathname === `${path}/viewer`,
+          (route) => route.fulfill({ json: program }),
         );
         await page.route(`**${path}`, (route) =>
           route.fulfill({
@@ -262,26 +268,28 @@ test.describe('프로그램 대표 이미지', () => {
             },
           }),
         );
-        await page.route(`**${path}/overview`, (route) =>
-          route.fulfill({
-            json: {
-              programId: id,
-              name: program.name,
-              trackType: program.trackType,
-              lifecycle: 'PUBLISHED',
-              milestoneCount: 0,
-              boardPostCount: 0,
-              participantCount: 0,
-              teamCount: 0,
-              connectedRepositoryCount: 0,
-              viewerRole: program.viewer.role,
-              viewerDocumentsCompleted: 0,
-              viewerDocumentsTotal: 0,
-              fullySubmittedParticipantCount: 0,
-              remainingMilestones: [],
-              milestoneDocuments: [],
-            } satisfies ProgramOverview,
-          }),
+        await page.route(
+          (url) => url.pathname === `${path}/overview`,
+          (route) =>
+            route.fulfill({
+              json: {
+                programId: id,
+                name: program.name,
+                trackType: program.trackType,
+                lifecycle: 'PUBLISHED',
+                milestoneCount: 0,
+                boardPostCount: 0,
+                participantCount: 0,
+                teamCount: 0,
+                connectedRepositoryCount: 0,
+                viewerRole: program.viewer.role,
+                viewerDocumentsCompleted: 0,
+                viewerDocumentsTotal: 0,
+                fullySubmittedParticipantCount: 0,
+                remainingMilestones: [],
+                milestoneDocuments: [],
+              } satisfies ProgramOverview,
+            }),
         );
         await page.route(`**${path}/activity`, (route) =>
           route.fulfill({ json: [] }),

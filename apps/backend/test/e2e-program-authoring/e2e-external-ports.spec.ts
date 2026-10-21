@@ -134,6 +134,35 @@ describe('e2eProgramAuthoringExternalPorts', () => {
     ).toBe(0);
   });
 
+  it('preserves retained cover bytes while resetting discarded objects and captures', async () => {
+    const storage = e2eProgramAuthoringExternalPorts.storage;
+    const retainedKey = 'program-covers/retained';
+    const discardedKey = 'program-covers/discarded';
+    const body = Buffer.from('retained-cover');
+    for (const objectKey of [retainedKey, discardedKey]) {
+      await storage.put({
+        objectKey,
+        body,
+        contentType: 'image/png',
+        originalName: 'synthetic-cover.png',
+      });
+    }
+
+    e2eProgramAuthoringExternalPorts.reset(new Set([retainedKey]));
+
+    expect(await buffer(await storage.get(retainedKey))).toEqual(body);
+    expect(() => storage.get(discardedKey)).toThrow(ObjectStorageError);
+    expect(e2eProgramAuthoringExternalPorts.capture().storage).toEqual({
+      objectCount: 0,
+      objectKeys: [],
+      contentHashes: [],
+    });
+
+    e2eProgramAuthoringExternalPorts.reset();
+
+    expect(() => storage.get(retainedKey)).toThrow(ObjectStorageError);
+  });
+
   it('limits failure configuration and routes smtp and GitHub failures through their ports', async () => {
     e2eProgramAuthoringExternalPorts.failures.configure(
       E2E_EXTERNAL_FAILURE_OPERATIONS.SMTP_SEND,

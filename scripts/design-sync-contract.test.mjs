@@ -151,10 +151,11 @@ test('converter input paths resolve and missing input fails', () => {
   }
 });
 
-for (const fail of [false, true]) {
+for (const failure of [null, 'compiler', 'copy', 'entry']) {
+  const fail = failure !== null;
   test(
     fail
-      ? 'compiler failure preserves existing artifact and exits nonzero'
+      ? `${failure} failure preserves existing artifacts and permits a successful rerun`
       : 'successful emission replaces stale declarations with fresh exports',
     () => {
       const directory = mkdtempSync(path.join(tmpdir(), 'design-emission-'));
@@ -168,10 +169,8 @@ for (const fail of [false, true]) {
         mkdirSync(path.join(pkg, 'ds-types/components/ui'), {
           recursive: true,
         });
-        writeFileSync(
-          path.join(pkg, 'ds-types/components/ui/stale.d.ts'),
-          'stale',
-        );
+        const stale = path.join(pkg, 'ds-types/components/ui/stale.d.ts');
+        writeFileSync(stale, 'stale');
         writeFileSync(path.join(pkg, 'index.d.ts'), 'previous');
         cpSync(
           path.join(root, '.design-sync/emit-types.mjs'),
@@ -181,40 +180,65 @@ for (const fail of [false, true]) {
         writeFileSync(
           compiler,
           '#!/usr/bin/env node\n' +
-            `const fs=require('node:fs');const path=require('node:path');const out=process.argv[process.argv.indexOf('--declarationDir')+1];fs.mkdirSync(path.join(out,'components/ui'),{recursive:true});fs.writeFileSync(path.join(out,'components/index.d.ts'),'export {};');fs.writeFileSync(path.join(out,'components/ui/fresh.d.ts'),'export {};');fs.writeFileSync(process.env.COMPILER_OUTPUT_RECEIPT,out);process.exit(${fail ? 2 : 0});`,
+            `const fs=require('node:fs');const path=require('node:path');const out=process.argv[process.argv.indexOf('--declarationDir')+1];fs.mkdirSync(path.join(out,'components/ui'),{recursive:true});fs.writeFileSync(path.join(out,'components/index.d.ts'),'export {};');fs.writeFileSync(path.join(out,'components/ui/fresh.d.ts'),'export {};');fs.writeFileSync(process.env.COMPILER_OUTPUT_RECEIPT,out);process.exit(process.env.EMISSION_FAILURE==='compiler'?2:0);`,
         );
         chmodSync(compiler, 0o755);
-        const result = spawnSync(
-          process.execPath,
-          [path.join(directory, '.design-sync/emit-types.mjs')],
-          {
-            encoding: 'utf8',
-            env: {
-              ...process.env,
-              TMPDIR: temporary,
-              COMPILER_OUTPUT_RECEIPT: receipt,
-            },
-          },
+        const fault = path.join(directory, 'fault.cjs');
+        writeFileSync(
+          fault,
+          `const fs = require('node:fs');
+const path = require('node:path');
+for (const name of ['cpSync', 'renameSync']) {
+  const original = fs[name];
+  fs[name] = (source, destination, ...args) => {
+    const entry = process.env.EMISSION_FAILURE === 'entry' && destination === ${JSON.stringify(path.join(pkg, 'index.d.ts'))};
+    const copy = process.env.EMISSION_FAILURE === 'copy' && name === 'cpSync' && path.basename(destination) === 'ds-types';
+    if (copy) original(source, destination, ...args);
+    if (copy || entry) throw Object.assign(new Error('injected publication EIO'), { code: 'EIO' });
+    return original(source, destination, ...args);
+  };
+}
+require('node:module').syncBuiltinESMExports();`,
         );
+        const run = (failure) =>
+          spawnSync(
+            process.execPath,
+            [
+              '--require',
+              fault,
+              path.join(directory, '.design-sync/emit-types.mjs'),
+            ],
+            {
+              encoding: 'utf8',
+              env: {
+                ...process.env,
+                TMPDIR: temporary,
+                COMPILER_OUTPUT_RECEIPT: receipt,
+                EMISSION_FAILURE: failure ?? '',
+              },
+            },
+          );
+        const result = run(failure);
         assert.equal(result.status, fail ? 1 : 0, result.stderr);
-        const output = readFileSync(path.join(pkg, 'index.d.ts'), 'utf8');
+        if (failure === 'copy' || failure === 'entry')
+          assert.match(result.stderr, /injected publication EIO/);
         if (fail) {
-          assert.equal(output, 'previous');
           assert.equal(
-            readFileSync(
-              path.join(pkg, 'ds-types/components/ui/stale.d.ts'),
-              'utf8',
-            ),
-            'stale',
+            readFileSync(path.join(pkg, 'index.d.ts'), 'utf8'),
+            'previous',
           );
-        } else {
-          assert.match(output, /ui\/fresh/);
-          assert.doesNotMatch(output, /stale/);
-          assert.equal(
-            existsSync(path.join(pkg, 'ds-types/components/ui/stale.d.ts')),
-            false,
+          assert.equal(readFileSync(stale, 'utf8'), 'stale');
+          assert.deepEqual(
+            readdirSync(path.join(pkg, 'ds-types'), { recursive: true }).sort(),
+            ['components', 'components/ui', 'components/ui/stale.d.ts'],
           );
+          const retry = run(null);
+          assert.equal(retry.status, 0, retry.stderr);
         }
+        const output = readFileSync(path.join(pkg, 'index.d.ts'), 'utf8');
+        assert.match(output, /ui\/fresh/);
+        assert.doesNotMatch(output, /stale/);
+        assert.equal(existsSync(stale), false);
         const emittedDirectory = readFileSync(receipt, 'utf8');
         assert.ok(
           emittedDirectory.startsWith(temporary + path.sep),

@@ -16,8 +16,10 @@ export class E2eFakeSubmissionFileStorage implements ObjectStoragePort {
 
   constructor(private readonly registry: E2eExternalPortRegistry) {}
 
-  reset(): void {
-    this.objects.clear();
+  reset(retainedStorageKeys: ReadonlySet<string> = new Set()): void {
+    for (const key of this.objects.keys()) {
+      if (!retainedStorageKeys.has(key)) this.objects.delete(key);
+    }
   }
 
   put(input: StoreObjectInput): Promise<StoredObject> {
