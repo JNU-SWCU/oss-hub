@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type ProblemDetail } from '@/lib/api-client';
+import { invalidateBoardList } from '@/features/board/board-list-refetch';
 import type { ProgramOverview } from '@/features/programs/program-overview-api';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
@@ -84,6 +85,7 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
   let root: Root;
 
   beforeEach(() => {
+    vi.resetAllMocks();
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -241,6 +243,84 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
     expect(container.textContent).toContain('"viewerDocumentsCompleted":1');
     await act(async () => resolveOlder(overview));
     expect(container.textContent).toContain('"viewerDocumentsCompleted":1');
+  });
+
+  it('같은 프로그램 게시글 변경만 집계를 갱신하고 이전 프로그램 구독은 해제한다', async () => {
+    mocks.getProgramOverview.mockResolvedValue(OVERVIEW);
+    mocks.getProgramNavigationMilestones.mockResolvedValue([]);
+    await act(async () =>
+      root.render(<Probe programDetailId="program-1" member />),
+    );
+    await act(async () => invalidateBoardList('other-program'));
+    expect(mocks.getProgramOverview).toHaveBeenCalledTimes(1);
+    mocks.getProgramOverview.mockResolvedValue({
+      ...OVERVIEW,
+      boardPostCount: 1,
+    });
+    await act(async () => invalidateBoardList('program-1'));
+    expect(container.textContent).toContain('"boardPostCount":1');
+    expect(mocks.getProgramOverview).toHaveBeenCalledTimes(2);
+    expect(mocks.getProgramNavigationMilestones).toHaveBeenCalledTimes(1);
+    await act(async () => root.render(<Probe programDetailId={null} member />));
+    await act(async () => invalidateBoardList('program-1'));
+    expect(mocks.getProgramOverview).toHaveBeenCalledTimes(2);
+    expect(container.textContent).not.toContain('"scopeOverview":');
+  });
+
+  it.each(['resolve', 'reject'] as const)(
+    '첫 집계가 지연돼도 게시글 변경을 다시 읽고 이전 %s 결과를 무시한다',
+    async (settle) => {
+      let resolveInitial: (value: ProgramOverview) => void = () => {
+        throw new Error('missing initial');
+      };
+      let rejectInitial: (error: Error) => void = () => {
+        throw new Error('missing initial');
+      };
+      mocks.getProgramOverview
+        .mockReturnValueOnce(
+          new Promise<ProgramOverview>((resolve, reject) => {
+            resolveInitial = resolve;
+            rejectInitial = reject;
+          }),
+        )
+        .mockResolvedValue({ ...OVERVIEW, boardPostCount: 1 });
+      mocks.getProgramNavigationMilestones.mockResolvedValue([]);
+      await act(async () =>
+        root.render(<Probe programDetailId="program-1" member />),
+      );
+      await act(async () => invalidateBoardList('program-1'));
+      expect(container.textContent).toContain('"boardPostCount":1');
+      await act(async () => {
+        if (settle === 'resolve') resolveInitial(OVERVIEW);
+        else rejectInitial(new Error('stale request'));
+      });
+      expect(container.textContent).toContain('"boardPostCount":1');
+      expect(mocks.getProgramOverview).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it('작성 뒤 느린 집계가 삭제 뒤 최신 수를 덮어쓰지 않는다', async () => {
+    mocks.getProgramOverview.mockResolvedValue(OVERVIEW);
+    mocks.getProgramNavigationMilestones.mockResolvedValue([]);
+    await act(async () =>
+      root.render(<Probe programDetailId="program-1" member />),
+    );
+    let resolveOlder: (value: ProgramOverview) => void = () => {
+      throw new Error('missing older');
+    };
+    mocks.getProgramOverview
+      .mockReturnValueOnce(
+        new Promise<ProgramOverview>((resolve) => {
+          resolveOlder = resolve;
+        }),
+      )
+      .mockResolvedValue(OVERVIEW);
+    await act(async () => invalidateBoardList('program-1'));
+    await act(async () => invalidateBoardList('program-1'));
+    expect(mocks.getProgramOverview).toHaveBeenCalledTimes(3);
+    expect(container.textContent).toContain('"boardPostCount":0');
+    await act(async () => resolveOlder({ ...OVERVIEW, boardPostCount: 1 }));
+    expect(container.textContent).toContain('"boardPostCount":0');
   });
 
   it('단계 조회가 실패해도 개요는 남기고 단계만 조용히 접는다', async () => {

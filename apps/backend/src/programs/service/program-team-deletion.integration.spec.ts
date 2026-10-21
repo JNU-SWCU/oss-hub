@@ -21,7 +21,6 @@ import { AuditLogRepository } from '../../audit-log/repository/audit-log.reposit
 import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { DomainException } from '../../common/error-code';
 import { PrismaService } from '../../prisma/prisma.service';
-import { loadRuntimeConfig } from '../../runtime-config/runtime-config';
 import { canonicalUserCreateFromLabel } from '../../users/repository/canonical-user-fixture';
 import { UsersAuthorityRepository } from '../../users/repository/authority.repository';
 import { UsersAuthorityService } from '../../users/service/authority.service';
@@ -66,7 +65,6 @@ const deletionRepository = new ProgramTeamDeletionRepository(prisma);
 const auditLog = new AuditLogService(new AuditLogRepository(prisma));
 const service = new ProgramTeamsService(
   new ProgramTeamsRepository(prisma),
-  loadRuntimeConfig({ TEAM_JOIN_CODE_SECRET: `${TEST_PREFIX}join-secret` }),
   auditLog,
   deletionRepository,
   new UsersAuthorityService(new UsersAuthorityRepository(prisma)),

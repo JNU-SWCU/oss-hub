@@ -1,10 +1,6 @@
 import { Prisma, ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
 import { PrismaService } from '../../prisma/prisma.service';
-import {
-  ProgramTeamsRepository,
-  TeamMembershipConflictError,
-} from '../../programs/repository/program-teams.repository';
 import { canonicalUserCreateFromLabel } from '../../users/repository/canonical-user-fixture';
 import { TeamInvitationsRepository } from '../../team-invitations/repository/team-invitations.repository';
 import {
@@ -75,23 +71,6 @@ function pauseBeforeCommit(
       return value;
     },
   });
-}
-
-function official(client: PrismaService, path: 'create' | 'accept') {
-  if (path === 'accept')
-    return new TeamInvitationsRepository(client).withAcceptTransaction(
-      invitationId,
-      actorId,
-      now,
-    );
-  return new ProgramTeamsRepository(client).withCreateTransaction((store) =>
-    store.createTeamWithLeader({
-      programId,
-      leaderId: actorId,
-      name: 'Synthetic official team',
-      joinCodeDigest: `${prefix}actor-digest`,
-    }),
-  );
 }
 
 function preparation(client: PrismaService, path: 'create' | 'accept') {
@@ -168,17 +147,13 @@ describe('official and preparation membership exclusion', () => {
   afterAll(() => prisma.$disconnect());
 
   it.each([
-    ['create', 'create', 'preparation'],
-    ['create', 'accept', 'preparation'],
-    ['accept', 'create', 'preparation'],
-    ['accept', 'accept', 'preparation'],
-    ['create', 'create', 'official'],
-    ['create', 'accept', 'official'],
-    ['accept', 'create', 'official'],
-    ['accept', 'accept', 'official'],
+    ['create', 'preparation'],
+    ['accept', 'preparation'],
+    ['create', 'official'],
+    ['accept', 'official'],
   ] as const)(
-    'preparation %s and official %s preserve only the first %s membership',
-    async (preparationPath, officialPath, first) => {
+    'preparation %s and official invitation acceptance preserve only the first %s membership',
+    async (preparationPath, first) => {
       const blocker = backendPid();
       const waiter = backendPid();
       const paused = deferred();
@@ -189,12 +164,20 @@ describe('official and preparation membership exclusion', () => {
       const firstOperation =
         first === 'preparation'
           ? preparation(firstClient, preparationPath)
-          : official(firstClient, officialPath);
+          : new TeamInvitationsRepository(firstClient).withAcceptTransaction(
+              invitationId,
+              actorId,
+              now,
+            );
       operations.push(firstOperation);
       await paused.promise;
       const secondOperation =
         first === 'preparation'
-          ? official(secondClient, officialPath)
+          ? new TeamInvitationsRepository(secondClient).withAcceptTransaction(
+              invitationId,
+              actorId,
+              now,
+            )
           : preparation(secondClient, preparationPath);
       operations.push(secondOperation.catch(() => undefined));
       await releaseAfterBlocked(
@@ -205,14 +188,10 @@ describe('official and preparation membership exclusion', () => {
         operations,
       );
       await expect(firstOperation).resolves.toBeDefined();
-      if (first === 'preparation' && officialPath === 'accept')
+      if (first === 'preparation')
         await expect(secondOperation).resolves.toEqual({
           kind: 'already-in-team',
         });
-      else if (first === 'preparation')
-        await expect(secondOperation).rejects.toBeInstanceOf(
-          TeamMembershipConflictError,
-        );
       else
         await expect(secondOperation).rejects.toMatchObject({
           reason: 'membership-conflict',

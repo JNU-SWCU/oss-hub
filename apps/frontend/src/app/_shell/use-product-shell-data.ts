@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { subscribeBoardListInvalidation } from '@/features/board/board-list-refetch';
 import {
   MILESTONE_DOCUMENT_SUBMITTED_EVENT,
   submittedMilestoneId,
@@ -125,10 +126,15 @@ export function useProductShellData({
       }
     };
     setScopeOverview(undefined);
+    const unsubscribeBoard = subscribeBoardListInvalidation(
+      programDetailId,
+      () => void load(),
+    );
     void load();
     window.addEventListener(MILESTONE_DOCUMENT_SUBMITTED_EVENT, refresh);
     return () => {
       controller.abort();
+      unsubscribeBoard();
       window.removeEventListener(MILESTONE_DOCUMENT_SUBMITTED_EVENT, refresh);
     };
   }, [programDetailId, member, overviewOperationsView]);

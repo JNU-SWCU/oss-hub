@@ -1,29 +1,10 @@
 import type {
-  CreatedTeamView,
   DeletedTeamView,
   ProgramTeamView,
   RenamedTeamView,
   StaffTeamView,
   TeamMemberView,
 } from '../domain/program-teams.types';
-
-export class CreateTeamResponseDto {
-  readonly id: string;
-  readonly name: string;
-  readonly joinCode: string;
-  readonly memberCount: number;
-
-  private constructor(view: CreatedTeamView) {
-    this.id = view.id;
-    this.name = view.name;
-    this.joinCode = view.joinCode;
-    this.memberCount = view.memberCount;
-  }
-
-  static from(view: CreatedTeamView): CreateTeamResponseDto {
-    return new CreateTeamResponseDto(view);
-  }
-}
 
 export class RenameTeamResponseDto {
   readonly teamId: string;

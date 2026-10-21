@@ -495,20 +495,6 @@ export function removeMyTeamMember(
   );
 }
 
-export function createTeam(
-  programId: string,
-  input: { readonly name: string },
-): Promise<CreatedTeam> {
-  return apiClient<CreatedTeam>(
-    `programs/${encodeURIComponent(programId)}/teams`,
-    {
-      method: 'POST',
-      headers: jsonHeaders,
-      body: JSON.stringify(input),
-    },
-  );
-}
-
 export function listTeamManagementApplications(
   programId: string,
   params: ApplicationListParams,

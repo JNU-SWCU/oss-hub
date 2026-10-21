@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import type {
   RepositoryUrlHistoryCursor,
   RepositoryUrlHistoryPage,
@@ -7,11 +6,9 @@ import type {
 import { canEditStudentRepositoryUrl } from '../domain/program-participant';
 import { Inject, Injectable } from '@nestjs/common';
 import {
-  createTeamCreatedAuditMetadata,
   createTeamDeletedAuditMetadata,
   createTeamMembershipAuditMetadata,
   createTeamRenamedAuditMetadata,
-  TEAM_CREATED_AUDIT_ACTIONS,
   TEAM_DELETED_AUDIT_ACTIONS,
   TEAM_MEMBERSHIP_AUDIT_ACTIONS,
   TEAM_RENAMED_AUDIT_ACTIONS,
@@ -19,21 +16,13 @@ import {
 import { AuditLogService } from '../../audit-log/service/audit-log.service';
 import { DomainException } from '../../common/error-code';
 import { UsersAuthorityService } from '../../users/service/authority.service';
-import { computeJoinCodeDigest } from '../domain/join-code-digest';
-import { resolveJoinCodeSecretFromConfig } from '../../runtime-config/join-code-secret';
-import type { RuntimeConfig } from '../../runtime-config/runtime-config';
-import { RUNTIME_CONFIG } from '../../runtime-config/runtime-config.module';
 import {
-  JoinCodeDigestConflictError,
   ProgramTeamsRepository,
-  TeamMembershipConflictError,
-  type CreatedTeamRecord,
   type StaffTeamDetailRecord,
   type StaffTeamRecord,
   type TeamDetailRecord,
   type TeamMembershipAuditEvent,
   type TeamMembershipAuditStore,
-  type TeamProgramRecord,
   type TeamRenameAuditEvent,
 } from '../repository/program-teams.repository';
 import {
@@ -49,7 +38,6 @@ import {
   TeamsErrorCode,
 } from '../domain/teams-error-code.enum';
 import type {
-  CreatedTeamView,
   DeletedTeamView,
   ProgramTeamView,
   RenamedTeamView,
@@ -87,19 +75,10 @@ async function recordTeamDeletionNotification(
   );
 }
 
-const JOIN_CODE_ATTEMPTS = 5;
-
-function generateJoinCode(): string {
-  return randomBytes(6).toString('base64url').toUpperCase().slice(0, 10);
-}
-
 @Injectable()
 export class ProgramTeamsService {
-  private readonly joinCodeSecret: string;
-
   constructor(
     private readonly repository: ProgramTeamsRepository,
-    @Inject(RUNTIME_CONFIG) runtimeConfig: RuntimeConfig,
     private readonly auditLog: AuditLogService,
     private readonly deletionRepository: ProgramTeamDeletionRepository,
     @Inject(UsersAuthorityService)
@@ -107,83 +86,7 @@ export class ProgramTeamsService {
       UsersAuthorityService,
       'assertActiveStaff'
     >,
-  ) {
-    this.joinCodeSecret = resolveJoinCodeSecretFromConfig(runtimeConfig);
-  }
-
-  async create(
-    githubId: bigint,
-    programId: string,
-    name: string,
-    now: Date = new Date(),
-  ): Promise<CreatedTeamView> {
-    const student = await this.requireStudent(githubId);
-    const program = await this.requireOpenProgram(programId, now);
-    const trimmedName = name.trim();
-
-    let joinCode = '';
-    let created: CreatedTeamRecord | null = null;
-
-    for (let attempt = 0; attempt < JOIN_CODE_ATTEMPTS; attempt += 1) {
-      joinCode = generateJoinCode();
-      const joinCodeDigest = computeJoinCodeDigest(
-        joinCode,
-        this.joinCodeSecret,
-      );
-      try {
-        created = await this.repository.withCreateTransaction(async (store) => {
-          const existing = await store.findMembershipByProgramUser(
-            programId,
-            student.id,
-          );
-          if (existing) {
-            throw this.error(TeamsErrorCode.ALREADY_IN_PROGRAM_TEAM);
-          }
-          const team = await store.createTeamWithLeader({
-            programId,
-            name: trimmedName,
-            joinCodeDigest,
-            leaderId: student.id,
-          });
-          await this.auditLog.record(
-            {
-              actorGithubId: githubId,
-              action: TEAM_CREATED_AUDIT_ACTIONS.TEAM_CREATED,
-              targetType: 'TEAM',
-              targetId: team.id,
-              metadata: createTeamCreatedAuditMetadata({
-                programName: program.name,
-                teamName: team.name,
-              }),
-            },
-            store.auditLogWriter,
-          );
-          return team;
-        });
-        break;
-      } catch (error) {
-        if (error instanceof DomainException) throw error;
-        if (error instanceof TeamMembershipConflictError) {
-          throw this.error(TeamsErrorCode.ALREADY_IN_PROGRAM_TEAM);
-        }
-        if (error instanceof JoinCodeDigestConflictError) {
-          continue;
-        }
-        throw error;
-      }
-    }
-
-    if (!created) {
-      throw new Error('join code digest collision retries exhausted');
-    }
-
-    return {
-      id: created.id,
-      name: created.name,
-      joinCode,
-      memberCount: 1,
-    };
-  }
+  ) {}
 
   async getMe(
     githubId: bigint,
@@ -581,20 +484,6 @@ export class ProgramTeamsService {
       throw this.error(TeamsErrorCode.STUDENT_ONLY);
     }
     return student;
-  }
-
-  private async requireOpenProgram(
-    programId: string,
-    now: Date,
-  ): Promise<TeamProgramRecord> {
-    const program = await this.repository.findProgramById(programId);
-    if (!program) {
-      throw this.error(TeamsErrorCode.PROGRAM_NOT_FOUND);
-    }
-    if (now < program.applicationStartAt || now > program.applicationEndAt) {
-      throw this.error(TeamsErrorCode.APPLICATION_PERIOD_CLOSED);
-    }
-    return program;
   }
 
   private toTeamView(
