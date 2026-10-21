@@ -184,10 +184,10 @@ node "$CONTROLLER_DIR/scripts/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$
 node "$CONTROLLER_DIR/scripts/jenkins/validate-github-app-credentials.mjs" "$OSS_HUB_ENV_FILE" "$COLLECTION_PEM_SRC" "$OPERATIONS_PEM_SRC" >&2
 umask 027
 generation="$(mktemp -d "$SECRETS_DIR/gen.XXXXXX")"
-chmod 750 "$generation"
 test "$(stat -c %g "$generation")" = 1000
 install -m 640 "$COLLECTION_PEM_SRC" "$generation/collection.pem"
 install -m 640 "$OPERATIONS_PEM_SRC" "$generation/operations.pem"
+chmod 750 "$generation"
 for role in collection operations; do
   openssl pkey -in "$generation/$role.pem" -noout 2>/dev/null
 done
