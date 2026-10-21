@@ -1,3 +1,2 @@
 #!/usr/bin/env bash
-# push하기 전 CI와 같은 포맷 검사를 한다.
 pnpm format:check </dev/null || exit $?

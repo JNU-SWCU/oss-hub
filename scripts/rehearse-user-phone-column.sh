@@ -1,20 +1,4 @@
 #!/usr/bin/env bash
-# Canonical user phone contract rehearsal (QA148, PR #1244).
-#
-# This intentionally uses focused-table isolation rather than the complete repo
-# migration ledger: the release owns one migration that adds `User.phone` with a
-# digits CHECK and drops the unused `TeamMember.phone` copy. A disposable
-# PostgreSQL container holds production-shaped `User`, `Team`, `TeamMember`
-# tables with populated phone values plus an unrelated control table. No caller
-# database connection is consulted; Docker endpoint variables are checked
-# explicitly and remote endpoints are rejected.
-#
-# `migrate` snapshots the populated pre-drop database, invokes this exact
-# migration file in one transaction (as `prisma migrate deploy` does), checks the
-# surviving rows/constraints and the new CHECK behaviour, then restores the dump
-# and requires the dropped phone values to come back. `negative` first removes
-# the column and proves the exact migration rejects that drift without leaving
-# `User.phone` behind.
 set -euo pipefail
 
 scenario=${1:-}
@@ -56,9 +40,6 @@ backup=''
 result_emitted=0
 success_result=''
 
-# DOCKER_CONTEXT takes precedence over DOCKER_HOST. When it is absent,
-# DOCKER_HOST takes precedence over the selected context endpoint. Both paths
-# are checked before any container operation; only a local Unix socket is safe.
 if [[ -n ${DOCKER_CONTEXT:-} ]]; then
   effective_docker_context=$DOCKER_CONTEXT
   effective_docker_host=$(
@@ -85,7 +66,6 @@ cleanup() {
   local status=$?
   local cleanup_status=0
   trap - EXIT INT TERM
-  # The container owns the only database. `-v` also removes its anonymous volume.
   if (( container_started == 1 )); then
     if ! "${docker_cli[@]}" rm -f -v "$container" >/dev/null 2>&1; then
       cleanup_status=1
@@ -95,8 +75,6 @@ cleanup() {
     rm -rf -- "$tmp_root" || cleanup_status=1
   fi
   if (( cleanup_status != 0 )); then
-    # Do not expose daemon details or endpoint material; cleanup failure is still
-    # a failed rehearsal even when the migration assertions passed.
     printf '[user-phone] status=failed scenario=%s reason=cleanup failed\n' "$scenario" >&2
     status=1
   elif (( status != 0 && result_emitted == 0 )); then
@@ -110,8 +88,6 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-# No host port is published and no caller connection string is read. Every SQL
-# command runs inside this container against the synthetic database.
 "${docker_cli[@]}" run -d --name "$container" \
   -e POSTGRES_USER=migration \
   -e POSTGRES_PASSWORD="$password" \
@@ -152,9 +128,6 @@ psql_exec_with_options() {
     psql -v ON_ERROR_STOP=1 -U migration -d "$database" "$@"
 }
 
-# `prisma migrate deploy` runs one migration file as one transaction. The file
-# here has three statements, so a per-statement run would let the ADD COLUMN
-# commit even when the DROP fails — that is not the deployed behaviour.
 psql_migration() {
   psql_exec --single-transaction -f "$container_migration"
 }
@@ -166,9 +139,6 @@ psql_value() {
 tmp_root=$(mktemp -d "${TMPDIR:-/tmp}/user-phone-rehearsal.XXXXXX")
 backup="$tmp_root/pre-drop.dump"
 
-# This is the smallest useful production-shaped slice: the pre-migration User
-# columns, the Team/TeamMember pair that owns the dropped copy, and independent
-# control data.
 seed_database() {
   psql_exec >/dev/null 2>"$tmp_root/seed.log" <<'SQL'
 DROP SCHEMA public CASCADE;
@@ -251,8 +221,6 @@ INSERT INTO "User" (
 INSERT INTO "Team" ("id", "programId", "name") VALUES
   ('synthetic-team', 'synthetic-program', 'Synthetic Team');
 
--- One populated copy and one NULL copy: the DROP must lose both, and the
--- restore must bring the populated one back byte for byte.
 INSERT INTO "TeamMember" (
   "id", "teamId", "programId", "userId", "department", "name", "phone", "email", "createdAt"
 ) VALUES
@@ -283,8 +251,6 @@ column_is_nullable() {
   psql_value "SELECT COALESCE(max(is_nullable), 'MISSING') FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '$1' AND column_name = '$2'"
 }
 
-# The migration appends `User.phone`, so the comparable image is every other
-# column. The new column is checked by name, nullability and CHECK behaviour.
 user_digest() {
   psql_value 'SELECT md5(COALESCE((SELECT jsonb_agg(to_jsonb(u) - '"'"'phone'"'"' ORDER BY id)::text FROM "User" AS u), '"'"'[]'"'"'))'
 }
@@ -313,7 +279,6 @@ phone_check_definition() {
   psql_value 'SELECT COALESCE(max(pg_get_constraintdef(oid)), '"'"'<missing>'"'"') FROM pg_constraint WHERE conrelid = '"'"'"User"'"'"'::regclass AND conname = '"'"'User_phone_digits_check'"'"''
 }
 
-# The CHECK is only useful if it actually refuses bad input on a populated table.
 phone_write_rejected() {
   if psql_exec -c "UPDATE \"User\" SET \"phone\" = '$1' WHERE \"id\" = 'synthetic-user-member'" >/dev/null 2>&1; then
     psql_exec -c 'UPDATE "User" SET "phone" = NULL WHERE "id" = '"'"'synthetic-user-member'"'"'' >/dev/null 2>&1
@@ -371,8 +336,6 @@ indexes_before=$(index_digest)
 [[ "$member_columns_before" == *phone* ]] || fail 'fixture must contain TeamMember.phone before DROP'
 [[ "$(column_count 'User' 'phone')" == '0' ]] || fail 'fixture must not contain User.phone before the migration'
 
-# The custom archive is the pre-DROP image used by the restore check. It never
-# leaves the temporary directory and is consumed only by this container.
 "${docker_cli[@]}" exec \
   -e "PGPASSWORD=$password" \
   -e "PGCONNECT_TIMEOUT=$pg_connect_timeout" \
@@ -382,7 +345,6 @@ indexes_before=$(index_digest)
 [[ -s "$backup" ]] || fail 'pre-drop backup is empty'
 
 if [[ $scenario == 'migrate' ]]; then
-  # Invoke the tracked SQL itself, not reconstructed ALTER statements.
   if ! psql_migration >"$tmp_root/migration.log" 2>&1; then
     fail 'exact migration failed on a populated pre-drop database'
   fi
@@ -425,8 +387,6 @@ if [[ $scenario == 'migrate' ]]; then
   exit 0
 fi
 
-# Negative lane: create the exact drift a repeated/partially applied deployment
-# would see, then run the same tracked migration and require its explicit error.
 psql_exec -c 'ALTER TABLE "TeamMember" DROP COLUMN "phone"' >/dev/null 2>&1
 negative_user_before=$(user_digest)
 negative_member_before=$(member_digest_without_phone)
@@ -442,7 +402,6 @@ negative_message=$(<"$negative_error")
 [[ "$negative_message" == *'column "phone" of relation "TeamMember" does not exist'* ]] ||
   fail 'negative migration did not report the missing column explicitly'
 [[ "$(column_count 'TeamMember' 'phone')" == '0' ]] || fail 'negative lane recreated the absent column'
-# The whole file is one transaction, so the earlier ADD COLUMN must roll back too.
 [[ "$(column_count 'User' 'phone')" == '0' ]] ||
   fail 'negative lane left User.phone behind after the failed migration'
 [[ "$(phone_check_definition)" == '<missing>' ]] ||

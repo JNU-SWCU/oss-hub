@@ -17,8 +17,6 @@ services:
 
   object-storage:
     image: adobe/s3mock:5.2.3@sha256:ab01a6946750f451ca215a47e91030695b260e4003b8a5a6201d25029b8fca92
-    # 이미지 기본 사용자(uid 1000)는 root 소유로 새로 생기는 마운트 지점 /data에 쓰지 못해
-    # PutObject가 500으로 실패한다. 로컬·CI 전용 substitute라 root로 실행한다.
     user: '0:0'
     environment:
       COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: ${SUBMISSION_FILE_S3_BUCKET:-oss-hub-submission-files-local}

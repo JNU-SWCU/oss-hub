@@ -1,12 +1,5 @@
 name: ci
 
-# paths 필터를 사용하지 않아 모든 PR에서 required check이 생성되어 교착을 방지한다.
-# issues·issue_comment는 Issue 본문·댓글 public-safe 스캔 전용 트리거다
-# (PR title/body만 검사하던 사각지대 — #56 실증, scripts/check-public-safe.sh).
-# push(main)는 required check 우회 병합 등으로 main 자체가 red가 돼도
-# 병합 시점까지 아무 신호가 없던 사각지대를 잡는다 (PR #586 postmortem, ci job만 재실행).
-# release(published)는 배포 인가 이벤트다 — frontend 배포 주체를 CI 안으로 들인다
-# (ADR-002, Issue #1172). ci·public-safe job은 이 이벤트에서 돌지 않는다.
 on:
   pull_request:
   push:
@@ -18,7 +11,6 @@ on:
   issue_comment:
     types: [created, edited]
 
-# dorny/paths-filter가 PR 변경 파일을 조회할 수 있도록 최소 권한을 명시한다.
 permissions:
   contents: read
   pull-requests: read
@@ -34,11 +26,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 변경된 앱만 검사해 CI 실행 시간과 과금을 절감한다.
-      # base는 pull_request 이벤트에서는 무시되므로(PR base 브랜치를 API로 조회) 지정하지 않는다.
-      # push 이벤트에서는 base를 생략하면 저장소 기본 브랜치(main)로 자동 결정된다.
-      # main push는 base와 head가 같으므로, paths-filter가 push 전 마지막 커밋
-      # (github.event.before) 기준으로 diff를 비교한다 — 병합 커밋의 변경분만 잡힌다.
       - name: 변경 감지
         id: changes
         uses: dorny/paths-filter@v3
@@ -63,6 +50,7 @@ jobs:
               - 'scripts/check-open-prisma-migration-prs*'
               - 'scripts/test-prisma-migration-concurrency*'
               - 'scripts/prisma-migration-ledger.mjs'
+              - 'scripts/prisma-comment-checksums.test.mjs'
               - 'scripts/member-authority-expand-contract.mjs'
               - 'scripts/member-authority-contract-contract*'
               - 'scripts/member-authority-contract-sources.mjs'
@@ -130,10 +118,6 @@ jobs:
               - 'pnpm-lock.yaml'
               - '.github/workflows/**'
 
-      # push(main)는 paths filter를 무시하고 전체 스코프를 강제한다. push 이벤트에서도
-      # filter 결과를 그대로 쓰면, 특정 앱만 바뀐 커밋이 다른 앱의 lint/typecheck/test/build
-      # 없이 main에 올라가고 그대로 Release로 배포될 수 있었다(배포 시점 재검증 삭제 전 마지막 방어선).
-      # pull_request에서는 기존 paths filter 결과를 그대로 쓴다 — PR 비용 절감이 목적이므로 유지한다.
       - name: 실행 스코프 결정
         id: scope
         env:
@@ -176,7 +160,6 @@ jobs:
             echo "rails=$RAILS"
           } >> "$GITHUB_OUTPUT"
 
-      # 의존성이 없는 Node 내장 테스트는 모든 PR에서 실행한다.
       - name: Node 설정
         uses: actions/setup-node@v4
         with:
@@ -185,13 +168,9 @@ jobs:
       - name: CI path 계약 검사
         run: node --test scripts/ci-path-contract.test.mjs
 
-      # 릴리스 배포 대상 판정은 배포 인가 경로의 게이트이므로 모든 PR에서 고정한다.
-      # 이 판정이 조용히 비면 모든 릴리스가 no-op이 되어 배포가 멈춘다.
       - name: 릴리스 배포 스코프 판정 단위테스트
         run: node --test scripts/select-release-deploy-scope.test.mjs scripts/select-frontend-release-baseline.test.mjs
 
-      # 앱 변경이 있을 때만 pnpm store를 만들고 캐시한다. docs-only PR에서
-      # 존재하지 않는 store를 저장하려는 setup-node 후처리 실패를 막는다.
       - name: pnpm 설정
         if: ${{ steps.scope.outputs.frontend == 'true' || steps.scope.outputs.backend == 'true' || steps.scope.outputs.production_compose == 'true' || steps.scope.outputs.jenkins == 'true' }}
         uses: pnpm/action-setup@v4
@@ -203,7 +182,6 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      # bash -n 은 첫 인자만 파싱하고 나머지는 위치 인자로 버린다. 한 파일씩 돌려야 전수 검사가 된다.
       - name: shell script 문법 검사
         if: ${{ steps.scope.outputs.shell_scripts == 'true' }}
         run: |
@@ -252,7 +230,6 @@ jobs:
           node --test scripts/jenkins/validate-github-app-credentials.test.mjs
           bash scripts/check-production-image-pins.test.sh
           bash scripts/check-production-image-pins.sh
-          # 어떤 workflow도 Jenkins를 트리거하지 않는다 — 배포는 outbound convergence만 사용한다(ADR-002).
           ! grep -rlE 'oss-hub-release-c[d]|JENKINS[_]' .github/workflows
           bash scripts/jenkins/validate-rollback-images.test.sh
           bash scripts/prune-deploy-backups.test.sh
@@ -311,9 +288,6 @@ jobs:
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: node --test scripts/rehearse-member-authority-migrations.test.mjs scripts/rehearse-legacy-submission-migrations.test.mjs scripts/rehearse-user-phone-column.test.mjs scripts/rehearse-legacy-table-drop.test.mjs scripts/member-authority-contract-contract.test.mjs scripts/prisma-migration-ledger.test.mjs scripts/check-open-prisma-migration-prs.test.mjs scripts/test-prisma-migration-concurrency.test.mjs
 
-      # 위 단계는 검사기가 합성 문자열에 대해 올바른지만 본다. 이 단계는 그 검사기를
-      # **저장소의 실제 파일**(스키마·contract 마이그레이션·추적 중인 생산 TS)에 돌린다.
-      # 둘 다 있어야 한다 — 앞은 검사기의 결함을, 뒤는 저장소의 회귀를 잡는다.
       - name: contract on real sources
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: bash scripts/check-member-authority-contract.sh
@@ -342,17 +316,14 @@ jobs:
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: bash scripts/test-prisma-migration-concurrency.sh
 
+      - name: Prisma comment checksum reconciliation
+        if: ${{ steps.scope.outputs.backend == 'true' }}
+        run: node scripts/prisma-comment-checksums.test.mjs
+
       - name: backend build
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend build
 
-      # Playwright 묶음은 CI에서 돌리지 않는다(PM 결정, 2026-08-11). 브라우저·ffmpeg
-      # 설치와 dev 서버 온디맨드 컴파일에 의존해 러너 환경 결함이 제품 결함으로
-      # 둔갑하고(#856), PR에서는 어차피 실행되지 않아 회귀를 늦게만 알려 준다.
-      # 실행은 로컬 `pnpm --filter frontend e2e`로 옮긴다 — 릴리스 전 수동 게이트다.
-
-  # 커밋 메시지 규칙(AGENTS.md §5)은 변경 경로와 무관하므로 paths-filter 없이 모든 PR에서 실행한다.
-  # issue 이벤트에는 GITHUB_BASE_REF가 없어 실행하지 않는다.
   commitlint:
     name: commitlint
     if: github.event_name == 'pull_request'
@@ -372,15 +343,12 @@ jobs:
           node-version: 24
           cache: pnpm
 
-      # prisma generate 등 앱 postinstall은 이 검사에 불필요하므로 건너뛴다.
       - name: 의존성 설치 (ignore-scripts)
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Conventional Commits 검사
         run: pnpm exec commitlint --config commitlint.config.cjs --from "origin/${GITHUB_BASE_REF}" --to HEAD --verbose
 
-  # deny-list 표면은 문서·PR 본문이 핵심이므로 paths-filter 없이 모든 PR에서 항상 실행한다.
-  # branch protection에서 required check로 등록해야 강제된다.
   public-safe:
     name: public-safe
     if: github.event_name == 'pull_request'
@@ -394,8 +362,6 @@ jobs:
       - name: public-safe regex 회귀 테스트
         run: bash scripts/check-public-safe.test.sh
 
-      # org repo는 gitleaks-action이 라이선스 키를 요구하므로 MIT 라이선스인 CLI를 직접 실행한다.
-      # https://github.com/gitleaks/gitleaks-action#environment-variables
       - name: gitleaks 시크릿 스캔 (이 PR의 신규 커밋만)
         run: |
           curl -sSL -o gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
@@ -403,7 +369,6 @@ jobs:
           tar -xzf gitleaks.tar.gz gitleaks
           ./gitleaks git --no-banner --redact --log-opts="origin/${GITHUB_BASE_REF}..HEAD" .
 
-      # PR 본문은 ${{ }} 인라인 치환이 아니라 env 주입 — script injection 방지 (GitHub 공식 권고)
       - name: public-safe regex 스캔 (deny-list)
         env:
           PR_TEXT: |
@@ -411,8 +376,6 @@ jobs:
             ${{ github.event.pull_request.body }}
         run: bash scripts/check-public-safe.sh "origin/${GITHUB_BASE_REF}"
 
-  # Issue 본문·댓글까지 deny-list 스캔 확장 (PR title/body만 검사하던 사각지대 — #56 실증).
-  # Issue에는 required check 병합 게이트가 없으므로 탐지·가시화 목적으로 실행한다.
   public-safe-issue:
     name: public-safe-issue
     if: github.event_name == 'issues' || github.event_name == 'issue_comment'
@@ -421,7 +384,6 @@ jobs:
       - name: 체크아웃
         uses: actions/checkout@v4
 
-      # Issue 본문·댓글도 ${{ }} 인라인 치환이 아니라 env 주입 — script injection 방지
       - name: public-safe regex 스캔 (Issue 본문·댓글, deny-list)
         env:
           ISSUE_TEXT: |
@@ -430,13 +392,6 @@ jobs:
             ${{ github.event.comment.body }}
         run: bash scripts/check-public-safe.sh --text-only
 
-  # 배포 인가는 GitHub Release의 발행 자체다(ADR-002). backend는 Jenkins가 tailnet에서
-  # outbound로 최신 Release에 수렴하고, 이 job은 주체가 없던 frontend(Vercel) 배포를
-  # 같은 인가 이벤트 위로 올린다. production Compose에는 frontend runtime이 없으므로
-  # backend 배포는 이미 backend 전용이고 이 job은 Jenkins 동작을 바꾸지 않는다.
-  #
-  # required check이 아니다. required check에 path filter를 걸면 그 경로를 건드리지 않은
-  # PR에서 체크가 영영 보고되지 않아 병합이 막힌다 — 선택 실행은 required가 아닌 이 job만 한다.
   frontend-release-deploy:
     name: frontend-release-deploy
     if: ${{ github.event_name == 'release' && !github.event.release.draft && !github.event.release.prerelease }}
@@ -449,15 +404,12 @@ jobs:
       contents: read
       actions: read
     steps:
-      # 배포 대상은 branch head가 아니라 tag가 가리키는 정확한 SHA다.
-      # 성공한 배포 SHA와의 diff를 계산해야 하므로 전체 이력을 받는다.
       - name: 체크아웃
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event.release.tag_name }}
 
-      # 잘못된 릴리스 입력은 배포를 시작하기 전에 멈춘다.
       - name: 릴리스 입력 검증
         id: release
         env:
@@ -477,8 +429,6 @@ jobs:
           echo "RELEASE_INPUT tag=$TAG sha=$sha"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-      # 실제 Vercel 배포 단계가 성공한 SHA와 비교한다. 릴리스 발행이나
-      # 성공 no-op은 배포 증거가 아니며, 실패 뒤 다음 릴리스가 누락분을 회복한다.
       - name: 배포 대상 판정
         id: scope
         env:
@@ -487,7 +437,6 @@ jobs:
           RELEASE_SHA: ${{ steps.release.outputs.sha }}
         run: node scripts/select-release-deploy-scope.mjs >> "$GITHUB_OUTPUT"
 
-      # 건너뛴 사실이 로그에 남아야 「배포가 안 됐다」와 「배포할 게 없었다」가 구분된다.
       - name: frontend 무변경 no-op
         if: ${{ steps.scope.outputs.frontend != 'true' }}
         run: echo "frontend 배포 산출물에 변경이 없어 Vercel 배포를 건너뛴다."

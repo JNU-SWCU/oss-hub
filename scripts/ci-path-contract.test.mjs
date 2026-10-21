@@ -18,6 +18,7 @@ const backendOnlyPaths = [
   'scripts/rehearse-member-authority-contract*',
   'scripts/rehearse-legacy-submission-migrations*',
   'scripts/rehearse-legacy-table-drop*',
+  'scripts/prisma-comment-checksums.test.mjs',
 ];
 
 const contractTests = [
@@ -441,6 +442,7 @@ for (const [path, selected] of [
   ['apps/frontend/package.json', ['frontend', 'backend', 'rails']],
   ['.design-sync/config.json', ['frontend']],
   ['scripts/design-sync-contract.test.mjs', ['frontend', 'node_scripts']],
+  ['scripts/prisma-comment-checksums.test.mjs', ['backend', 'node_scripts']],
   ['docs/decisions/README.md', []],
   ['README.md', []],
   ['.github/workflows/ci.yml', scopes],

@@ -1,16 +1,3 @@
--- legacy-submission 이관 리허설이 심는 원본 그래프. 값은 전부 합성이다.
---
--- 이 파일은 **expand 직전** 스키마 위에서 돈다. 그 시점 Prisma 클라이언트는 이관 이후
--- 모양으로 생성되어 있어 사라진 세 테이블을 쓸 수 없으므로 SQL을 직접 낸다.
---
--- id 접두사 세 갈래가 이 픽스처의 전부다.
---   `seed:`            — 이관이 폐기 대상으로 보는 예약 그래프. Submission·Application 둘 다
---                        이 접두사여야 폐기 대상이며, 한쪽만이면 생산 데이터로 취급된다.
---   `fixture-synthetic:` — 생산 모양(비-seed) 그래프. bridge가 심는 write fence는 id에
---                        `synthetic`이 든 행을 통과시키므로 negative 레인이 이 행만 흔든다.
---   `fixture:`          — 생산 모양이면서 fence 면제도 아닌 행. bridge 이후 원본이 정말
---                        잠기는지 증명하는 데만 쓰고 어떤 레인도 이 행을 건드리지 않는다.
-
 BEGIN;
 
 INSERT INTO "User" (id, "githubId", login, "accountStatus", "createdAt", "updatedAt") VALUES
@@ -24,7 +11,6 @@ INSERT INTO "UserProfile" ("userId", name, "studentId", department, "memberKind"
 INSERT INTO "Program" (id, name, organizer, category, "applicationTemplateKey", "applicationTemplateVersion", "applicationStartAt", "applicationEndAt", "startAt", "endAt", "teamMinSize", "teamMaxSize", description, "createdAt", "updatedAt") VALUES
   ('fixture-synthetic:legacy-submission:program', '합성 이관 리허설 프로그램', '합성 사업단', 'BASIC', 'basic', 1, TIMESTAMP '2026-01-01 00:00:00', TIMESTAMP '2026-01-10 00:00:00', TIMESTAMP '2026-01-10 00:00:00', TIMESTAMP '2026-12-31 00:00:00', 1, 4, '합성 설명', TIMESTAMP '2026-01-01 00:00:00', TIMESTAMP '2026-01-01 00:00:00');
 
--- 신청은 (프로그램, 팀)마다 하나뿐이라 신청 네 건에는 팀도 네 개가 필요하다.
 INSERT INTO "Team" (id, "programId", name, "leaderId", "joinCodeDigest", "createdAt", "updatedAt") VALUES
   ('fixture-synthetic:legacy-submission:team:001', 'fixture-synthetic:legacy-submission:program', '합성 팀 001', 'fixture-synthetic:legacy-submission:user:student', 'synthetic-join-code-digest-001', TIMESTAMP '2026-01-02 00:00:00', TIMESTAMP '2026-01-02 00:00:00'),
   ('fixture-synthetic:legacy-submission:team:002', 'fixture-synthetic:legacy-submission:program', '합성 팀 002', 'fixture-synthetic:legacy-submission:user:student', 'synthetic-join-code-digest-002', TIMESTAMP '2026-01-02 00:00:00', TIMESTAMP '2026-01-02 00:00:00'),
@@ -35,14 +21,12 @@ INSERT INTO "Milestone" (id, "programId", name, "startAt", "dueAt", "submissionT
   ('fixture-synthetic:legacy-submission:milestone:file', 'fixture-synthetic:legacy-submission:program', '합성 1차 산출물', TIMESTAMP '2026-01-10 00:00:00', TIMESTAMP '2026-02-10 00:00:00', 'FILE', TIMESTAMP '2026-01-05 00:00:00', TIMESTAMP '2026-01-05 00:00:00'),
   ('fixture-synthetic:legacy-submission:milestone:text', 'fixture-synthetic:legacy-submission:program', '합성 2차 보고', TIMESTAMP '2026-01-10 00:00:00', TIMESTAMP '2026-03-10 00:00:00', 'TEXT', TIMESTAMP '2026-01-05 00:00:00', TIMESTAMP '2026-01-05 00:00:00');
 
--- 신청 네 건. 앞 둘은 생산 모양, `fixture:`는 fence 증명용, `seed:`는 폐기 대상 그래프다.
 INSERT INTO "Application" (id, "programId", "applicantId", "teamId", answers, "applicationTemplateVersion", status, "submittedAt", "createdAt", "updatedAt") VALUES
   ('fixture-synthetic:legacy-submission:application:001', 'fixture-synthetic:legacy-submission:program', 'fixture-synthetic:legacy-submission:user:student', 'fixture-synthetic:legacy-submission:team:001', '{"synthetic":true}', 1, 'APPROVED', TIMESTAMP '2026-01-06 00:00:00', TIMESTAMP '2026-01-06 00:00:00', TIMESTAMP '2026-01-06 00:00:00'),
   ('fixture-synthetic:legacy-submission:application:002', 'fixture-synthetic:legacy-submission:program', 'fixture-synthetic:legacy-submission:user:student', 'fixture-synthetic:legacy-submission:team:002', '{"synthetic":true}', 1, 'APPROVED', TIMESTAMP '2026-01-06 00:00:00', TIMESTAMP '2026-01-06 00:00:00', TIMESTAMP '2026-01-06 00:00:00'),
   ('fixture:legacy-submission:application:fenced', 'fixture-synthetic:legacy-submission:program', 'fixture-synthetic:legacy-submission:user:student', 'fixture:legacy-submission:team:fenced', '{"synthetic":true}', 1, 'APPROVED', TIMESTAMP '2026-01-06 00:00:00', TIMESTAMP '2026-01-06 00:00:00', TIMESTAMP '2026-01-06 00:00:00'),
   ('seed:legacy-submission:application:001', 'fixture-synthetic:legacy-submission:program', 'fixture-synthetic:legacy-submission:user:student', 'seed:legacy-submission:team:001', '{"synthetic":true}', 1, 'APPROVED', TIMESTAMP '2026-01-06 00:00:00', TIMESTAMP '2026-01-06 00:00:00', TIMESTAMP '2026-01-06 00:00:00');
 
--- 이관과 무관한 대조군 문서 원장. 이관 전후로 한 행도 움직이지 않아야 한다.
 INSERT INTO "MilestoneDocument" (id, "milestoneId", name, required, "sortOrder", "createdAt", "updatedAt") VALUES
   ('fixture-synthetic:legacy-submission:document:control', 'fixture-synthetic:legacy-submission:milestone:text', '합성 대조 문서', TRUE, 0, TIMESTAMP '2026-01-05 00:00:00', TIMESTAMP '2026-01-05 00:00:00'),
   ('seed:legacy-submission:document:target', 'fixture-synthetic:legacy-submission:milestone:file', '합성 seed 대상 문서', TRUE, 0, TIMESTAMP '2026-01-05 00:00:00', TIMESTAMP '2026-01-05 00:00:00');
@@ -58,8 +42,6 @@ INSERT INTO "MilestoneDocumentSubmissionHistory" (id, "milestoneDocumentSubmissi
 INSERT INTO "MilestoneDocumentReviewHistory" (id, "milestoneDocumentSubmissionId", "submissionHistoryId", "reviewerId", decision, comment, "reviewedAt") VALUES
   ('fixture-synthetic:legacy-submission:document-review:control', 'fixture-synthetic:legacy-submission:document-submission:control', 'fixture-synthetic:legacy-submission:document-history:control', 'fixture-synthetic:legacy-submission:user:reviewer', 'APPROVED', '합성 대조 검토', TIMESTAMP '2026-02-02 00:00:00');
 
--- 원본 원장. 한 건은 재제출 3회 + 검토 2회, 한 건은 단발 + 승인, 한 건은 2회 + 검토 1회다.
--- 게이트 아홉 개 중 이력·검토·파일 계열은 이 분포가 있어야만 볼 것이 생긴다.
 INSERT INTO "Submission" (id, "milestoneId", "applicationId", status, "currentRevision", "createdAt", "updatedAt") VALUES
   ('fixture-synthetic:legacy-submission:submission:multi', 'fixture-synthetic:legacy-submission:milestone:file', 'fixture-synthetic:legacy-submission:application:001', 'CHANGES_REQUESTED', 3, TIMESTAMP '2026-01-20 00:00:00', TIMESTAMP '2026-01-27 00:00:00'),
   ('fixture-synthetic:legacy-submission:submission:single', 'fixture-synthetic:legacy-submission:milestone:text', 'fixture-synthetic:legacy-submission:application:001', 'APPROVED', 1, TIMESTAMP '2026-01-21 00:00:00', TIMESTAMP '2026-01-22 00:00:00'),
@@ -85,8 +67,6 @@ INSERT INTO "Review" (id, "submissionRevisionId", "reviewerId", decision, commen
   ('fixture-synthetic:legacy-submission:review:single:1', 'fixture-synthetic:legacy-submission:revision:single:1', 'fixture-synthetic:legacy-submission:user:reviewer', 'APPROVED', '승인합니다', TIMESTAMP '2026-01-22 12:00:00'),
   ('fixture-synthetic:legacy-submission:review:pair:1', 'fixture-synthetic:legacy-submission:revision:pair:1', 'fixture-synthetic:legacy-submission:user:reviewer', 'CHANGES_REQUESTED', NULL, TIMESTAMP '2026-01-23 10:00:00');
 
--- expand 이전 CHECK는 ATTACHED 파일에 source·target provenance 중 **하나만** 허용한다.
--- 그래서 seed 매핑 파일의 target 연결은 여기 둘 수 없고 expand 직후에 붙인다.
 INSERT INTO "SubmissionFile" (id, "uploaderId", "storageKey", "originalFileName", "mimeType", "sizeBytes", "submissionRevisionId", "applicationId", "milestoneId", lifecycle, "pendingExpiresAt", "expiresAt", "createdAt") VALUES
   ('fixture-synthetic:legacy-submission:file:multi:1', 'fixture-synthetic:legacy-submission:user:student', 'synthetic/legacy/multi-1.pdf', '합성 1차.pdf', 'application/pdf', 1024, 'fixture-synthetic:legacy-submission:revision:multi:1', 'fixture-synthetic:legacy-submission:application:001', 'fixture-synthetic:legacy-submission:milestone:file', 'ATTACHED', NULL, NULL, TIMESTAMP '2026-01-20 09:00:00'),
   ('fixture-synthetic:legacy-submission:file:multi:3', 'fixture-synthetic:legacy-submission:user:student', 'synthetic/legacy/multi-3.pdf', '합성 3차.pdf', 'application/pdf', 2048, 'fixture-synthetic:legacy-submission:revision:multi:3', 'fixture-synthetic:legacy-submission:application:001', 'fixture-synthetic:legacy-submission:milestone:file', 'ATTACHED', NULL, NULL, TIMESTAMP '2026-01-26 09:00:00'),

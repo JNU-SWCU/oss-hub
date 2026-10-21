@@ -1,2 +1,1 @@
--- DropTable
 DROP TABLE "Member";

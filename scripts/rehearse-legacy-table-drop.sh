@@ -1,27 +1,4 @@
 #!/usr/bin/env bash
-# Legacy projection table drop rehearsal (#1133 PR6b,
-# 20260924120000_drop_legacy_projection_tables).
-#
-# Two modes, selected by argument count:
-#   migrate|negative                     — synthetic mode. Builds a database from the
-#                                           tracked pre-existing migrations (no prod dump,
-#                                           no release image) so CI/local can run this with
-#                                           only Docker + the repo's own prisma CLI.
-#   migrate|negative <dump> <image_tag>  — production-dump mode. Restores a `pg_dump -Fc`
-#                                           snapshot and runs the named release image's own
-#                                           `npx prisma migrate deploy`. Intended to run ON
-#                                           the production host, by the owner, before the
-#                                           release ships.
-#
-# Both modes own a disposable PostgreSQL container and delete it on exit. Production-dump
-# mode additionally runs on an `--internal` Docker network (no host port, no outside route)
-# and never reads a caller DATABASE_URL or `--env-file` — the only credential in play is the
-# throwaway container's own synthetic password, generated here.
-#
-# `migrate`  — proves the four empty legacy tables (and the three enums only they used) are
-#              gone, and that every other table/constraint/index is byte-for-byte unchanged.
-# `negative` — seeds one CollectionRun row, proves the preflight gate rejects the migration,
-#              and proves nothing was dropped or altered.
 set -euo pipefail
 
 scenario=${1:-}
@@ -66,8 +43,6 @@ command -v docker >/dev/null 2>&1 || {
   exit 1
 }
 
-# Pinned to the exact digest compose.yml runs in production — the rehearsal must exercise
-# the same engine build, not whatever "latest 17-alpine" happens to resolve to today.
 postgres_image='postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73'
 
 fail() {
@@ -92,9 +67,6 @@ staged=''
 result_emitted=0
 success_result=''
 
-# DOCKER_CONTEXT takes precedence over DOCKER_HOST. When it is absent, DOCKER_HOST takes
-# precedence over the selected context endpoint. Both paths are checked before any container
-# operation; only a local Unix socket is safe — this touches production-shaped data.
 if [[ -n ${DOCKER_CONTEXT:-} ]]; then
   effective_docker_context=$DOCKER_CONTEXT
   effective_docker_host=$(
@@ -122,7 +94,6 @@ cleanup() {
   local cleanup_status=0
   trap - EXIT INT TERM
   if (( container_started == 1 )); then
-    # `-v` also removes the container's anonymous volume — the only copy of restored data.
     if ! "${docker_cli[@]}" rm -f -v "$container" >/dev/null 2>&1; then
       cleanup_status=1
     fi
@@ -134,8 +105,6 @@ cleanup() {
   fi
   for dir in "${tmp_root:-}" "${staged:-}"; do
     [[ -n $dir ]] || continue
-    # ponytail: shred when available (every Linux production host has coreutils), plain rm
-    # elsewhere (e.g. a contributor's Mac running synthetic mode has no data to shred anyway).
     if command -v shred >/dev/null 2>&1; then
       find "$dir" -type f -exec shred -u -- {} + 2>/dev/null || true
     fi
@@ -158,13 +127,9 @@ trap 'exit 143' TERM
 
 tmp_root=$(mktemp -d "${TMPDIR:-/tmp}/legacy-table-drop-rehearsal.XXXXXX")
 
-# The input dump (production-dump mode) is never copied into tmp_root and is never written
-# to by this script — only read by pg_restore below. It is not touched by the cleanup above.
 
 if [[ $mode == 'production-dump' ]]; then
   network="oss-hub-legacy-drop-net-$(date +%s)-$$-$RANDOM"
-  # `--internal`: no default route out of this network. Even if the release image tried to
-  # reach anything besides the throwaway database, it could not.
   "${docker_cli[@]}" network create --internal "$network" >/dev/null
   network_created=1
   "${docker_cli[@]}" run -d --name "$container" --network "$network" \
@@ -173,8 +138,6 @@ if [[ $mode == 'production-dump' ]]; then
     -e POSTGRES_DB="$database" \
     "$postgres_image" >/dev/null
 else
-  # Synthetic mode reaches Postgres from the host (`pnpm exec prisma` runs outside Docker),
-  # so it needs a published port. `0` picks an ephemeral one — never a fixed, guessable port.
   "${docker_cli[@]}" run -d --name "$container" -p 127.0.0.1:0:5432 \
     -e POSTGRES_USER=migration \
     -e POSTGRES_PASSWORD="$password" \
@@ -217,17 +180,10 @@ if [[ $mode == 'synthetic' ]]; then
   host_port=$("${docker_cli[@]}" port "$container" 5432/tcp | head -1 | sed 's/.*://')
   host_database_url="postgresql://migration:${password}@127.0.0.1:${host_port}/${database}?schema=public"
 else
-  # Container-to-container DNS on the `--internal` network — never a caller-supplied host.
   container_database_url="postgresql://migration:${password}@${container}:5432/${database}?schema=public"
 fi
 
-# --- snapshot helpers -------------------------------------------------------------------
-# None of these ever select row contents into script output — only counts and md5 hashes of
-# per-row text, so a failure message can say "table X drifted" without printing what changed.
 
-# Every public table except the four this migration drops and Prisma's own ledger. One
-# combined listing (name|count|hash per line) doubles as the "everything else" digest and,
-# on a mismatch, tells the operator which table to look at without leaking its contents.
 table_snapshot() {
   psql_exec -tA <<'SQL'
 CREATE TEMP TABLE table_digests (tablename text, row_count bigint, content_hash text);
@@ -255,8 +211,6 @@ SELECT tablename || '|' || row_count || '|' || content_hash FROM table_digests O
 SQL
 }
 
-# `excluding-dropped` computes what the BEFORE snapshot would look like if the four tables'
-# constraints/indexes were already gone — the exact shape the AFTER snapshot must match.
 constraint_digest() {
   local extra_filter=''
   [[ ${1:-} == 'excluding-dropped' ]] && extra_filter="AND conrelid::regclass::text NOT IN ('\"PublicShowcaseRepository\"','\"PublicShowcaseContributor\"','\"CollectionRun\"','\"GithubRawObservation\"')"
@@ -279,14 +233,10 @@ migrations_row_count() {
   psql_value 'SELECT count(*) FROM "_prisma_migrations"'
 }
 
-# Non-zero only when our migration name has a row with finished_at set and no rollback —
-# i.e. Prisma's ledger agrees the migration actually ran to completion.
 migration_finished_count() {
   psql_value "SELECT count(*) FROM \"_prisma_migrations\" WHERE migration_name = '$migration_dir' AND finished_at IS NOT NULL AND rolled_back_at IS NULL"
 }
 
-# Non-zero only when our migration name has an attempt recorded that never finished — the
-# artifact a rejected preflight gate leaves behind.
 migration_unfinished_count() {
   psql_value "SELECT count(*) FROM \"_prisma_migrations\" WHERE migration_name = '$migration_dir' AND finished_at IS NULL"
 }
@@ -299,7 +249,6 @@ collection_run_row_count() {
   psql_value 'SELECT count(*) FROM "CollectionRun"'
 }
 
-# --- build the pre-migration database ---------------------------------------------------
 
 if [[ $mode == 'production-dump' ]]; then
   "${docker_cli[@]}" exec -i \
@@ -311,8 +260,6 @@ if [[ $mode == 'production-dump' ]]; then
     >"$tmp_root/restore.log" 2>&1 ||
     fail 'pg_restore of the input dump failed'
 else
-  # Stage a copy of the real migrations tree with the new migration held out, so "deploy
-  # everything up to but not including this one" is the tracked history, not a rebuild.
   staged=$(mktemp -d "${TMPDIR:-/tmp}/legacy-table-drop-staged.XXXXXX")
   cp -R "$backend/prisma/migrations" "$staged/migrations"
   cp "$backend/prisma/schema.prisma" "$staged/schema.prisma"
@@ -324,8 +271,6 @@ else
     >"$tmp_root/deploy-base.log" 2>&1 ||
     fail 'deploying the pre-existing migration history failed'
 
-  # One minimal control row so the "everything else" digest is provably non-empty — an
-  # empty-vs-empty comparison would pass even if the digest query itself were broken.
   psql_exec >/dev/null 2>"$tmp_root/seed.log" <<'SQL' || fail 'seeding the synthetic control row failed'
 INSERT INTO "User" ("id", "githubId", "login", "updatedAt")
 VALUES ('synthetic-legacy-drop-control-user', 9990000001, 'synthetic-legacy-drop-control', now());
@@ -345,15 +290,12 @@ SQL
   [[ "$(collection_run_row_count)" == '1' ]] || fail 'negative-lane fixture row did not land'
 fi
 
-# --- BEFORE snapshot ---------------------------------------------------------------------
 
 snapshot_before=$(table_snapshot)
 constraints_before=$(constraint_digest)
 indexes_before=$(index_digest)
 enums_before=$(enum_digest)
 migrations_before=$(migrations_row_count)
-# migrate 레인이 비교할 기대값 — 네 표와 세 enum을 뺀 나머지 스키마의 지문. 이관 **전에**
-# 잡아야 한다. 이관 뒤에 잡으면 기대값과 비교값이 같은 카탈로그에서 나와 늘 같다.
 expected_constraints=$(constraint_digest 'excluding-dropped')
 expected_indexes=$(index_digest 'excluding-dropped')
 expected_enums=$(enum_digest 'excluding-dropped')
@@ -362,13 +304,6 @@ expected_enums=$(enum_digest 'excluding-dropped')
 [[ -n "$constraints_before" && -n "$indexes_before" && -n "$enums_before" ]] ||
   fail 'pre-migration schema fingerprints must not be empty'
 
-# For the negative lane, pin the gate's exact wording by running the tracked file directly
-# with `ON_ERROR_STOP=1` first. Prisma's own engine applies a migration statement by
-# statement over one connection and, once the preflight DO block aborts the transaction,
-# every later statement in the same file re-reports only the generic "current transaction is
-# aborted" — so the real deploy path below proves rejection, but never the gate's own message.
-# Nothing commits either way (the file's own BEGIN/COMMIT never reaches COMMIT), so running
-# this first does not disturb the state the real deploy path attempts next.
 if [[ $scenario == 'negative' ]]; then
   gate_log="$tmp_root/gate-check.log"
   set +e
@@ -383,13 +318,10 @@ if [[ $scenario == 'negative' ]]; then
   output: $gate_output"
 fi
 
-# --- run the migration --------------------------------------------------------------------
 
 deploy_log="$tmp_root/deploy-migration.log"
 set +e
 if [[ $mode == 'production-dump' ]]; then
-  # Never --env-file: the only credential this container ever sees is the synthetic password
-  # generated above, and DATABASE_URL names only the throwaway container, never a real host.
   "${docker_cli[@]}" run --rm --network "$network" \
     -e DATABASE_URL="$container_database_url" \
     "$image_tag" npx prisma migrate deploy >"$deploy_log" 2>&1
@@ -432,9 +364,6 @@ if [[ $scenario == 'migrate' ]]; then
   exit 0
 fi
 
-# negative lane — the gate must reject, and nothing may move. The gate's exact wording was
-# already pinned above by running the tracked file directly; this proves the real deploy path
-# (Prisma's engine, possibly inside the release image) also refuses to proceed.
 (( deploy_status != 0 )) || fail 'migrate deploy unexpectedly succeeded with a non-empty legacy table'
 
 [[ "$(legacy_tables_present_count)" == '4' ]] || fail 'negative lane dropped a legacy table despite the failed gate'

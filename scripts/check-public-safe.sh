@@ -1,54 +1,8 @@
 #!/usr/bin/env bash
-# public-safe 검사 — public-safe deny-list 중 기계 검사 가능한 항목을 CI에서 강제한다.
-#
-# "프롬프트·눈검사만으로는 부족하다"는 벤더 공식 권고의 구현:
-#   - OpenAI, A Practical Guide to Building Agents (Guardrails):
-#     "Think of guardrails as a layered defense mechanism." + rules-based(regex) 가드레일 병행 권고
-#     https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf
-#   - Anthropic, Claude Code hooks:
-#     "Hooks ... provide deterministic control ... rather than relying on the LLM"
-#     https://code.claude.com/docs/en/hooks-guide
-#
-# 패턴 출처 (기성 검증형 regex 채택):
-#   - 주민등록번호: 생년월일 유효성(월 01-12, 일 01-31) + 뒷자리 첫 숫자 1-8(내국인 1-4, 외국인 5-8)
-#     통용 검증형: \d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])-?[1-8]\d{6}
-#     참고: https://owen-cho-sik.github.io/java/regexp/ , gitleaks 커스텀 룰 관행
-#   - 휴대폰번호: 01[016789] 국번 검증형 (통용 패턴)
-#   - 여권번호([MSRODG]\d{8})·계좌번호는 오탐율이 높아 제외 — 필요 시 keyword 문맥과 함께 추가
-#
-# 사용법:
-#   scripts/check-public-safe.sh [BASE_REF]     # 기본값 origin/main. PR diff·커밋 메시지·PR_TEXT 검사
-#   scripts/check-public-safe.sh --text-only    # git 컨텍스트 없이 ISSUE_TEXT만 검사 (Issue 본문·댓글)
-#
-# 검사 대상 5종 (deny-list가 정의한 공개 표면):
-#   0) 커밋된 파일 경로 자체 — .env·개인키·DB 파일 등 존재만으로 유출인 파일
-#      (.gitignore가 막지만 `git add -f`로 우회 가능하므로 CI에서 재차단) — full 모드만
-#   1) BASE_REF...HEAD 에서 추가·수정된 파일 내용 — full 모드만
-#   2) BASE_REF..HEAD  커밋 메시지, 병합 커밋 제외(--no-merges) — full 모드만
-#      pull_request CI의 기본 checkout은 refs/pull/N/merge(합성 merge ref)를 쓰므로
-#      HEAD가 "Merge <head 40자 SHA> into <base 40자 SHA>" 형태의 자동 생성 병합
-#      커밋이다. 이 메시지의 SHA 자체는 검사 대상 콘텐츠가 아니므로 병합 커밋은
-#      스캔에서 제외한다(학번 추정 패턴 등 숫자열 오탐 방지). 병합 안 된 실제
-#      커밋 메시지는 학번·전화번호·개인 경로·실명만 검사한다. 이메일 후보는
-#      커밋 메시지 자동 검사에서 뺀다 — 에이전트가 메시지를 쓰는 경로에서
-#      오탐이 잦고, 실제 유출 신호는 파일·PR·Issue 표면과 리뷰가 담당한다.
-#      %h(축약 해시)도 스캔 대상에서 제외한다 — 해시가 우연히 전부 숫자로
-#      축약되면 같은 클래스의 오탐이 나기 때문이다.
-#   3) $PR_TEXT        (CI가 PR 제목+본문을 주입) — full 모드만
-#   4) $ISSUE_TEXT     (CI가 Issue/댓글 제목+본문을 주입) — 두 모드 모두
-#
-# 실명 차단:
-#   실명 목록 파일을 repo에 두면 그 자체가 deny-list 1번(실명) 위반이므로,
-#   `BLOCKED_NAMES`(쉼표 구분)는 신뢰된 수동 실행에서만 주입한다.
-#   pull_request CI는 PR-controlled script에 repository secret을 전달하지 않는다.
 
 set -euo pipefail
 
-# POSIX 문자 클래스([:alnum:] 등)의 Unicode 판정은 로케일에 의존한다. 이 스크립트는
-# 로컬 훅과 CI 양쪽에서 실행되는 보안 게이트이므로 실행 환경이 물려준 로케일에 기대지
-# 않고 스스로 UTF-8 로케일을 고정한다. 사용 가능한 UTF-8 로케일이 하나도 없으면
-# 조용히 넘어가지 않고 즉시 실패한다(fail-closed).
-pick_utf8_locale() { # 이식성을 위해 후보를 복수로 두고 locale -a로 실제 지원 여부를 확인
+pick_utf8_locale() {
   local candidates=(C.UTF-8 en_US.UTF-8 en_US.utf8 C.utf8 UTF-8) cand available
   if ! available="$(locale -a 2>/dev/null)"; then
     return 1
@@ -85,7 +39,6 @@ if [ "$TEXT_ONLY" -eq 0 ]; then
   fi
 fi
 
-# "라벨|extended regex" — 첫 번째 |까지가 라벨, 나머지가 정규식. 새 금지 패턴은 한 줄 추가.
 PATTERNS=(
   '주민등록번호|(^|[^0-9])[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[- ]?[1-8][0-9]{6}($|[^0-9])'
   '전화번호|(^|[^0-9])01[016789][-. ]?[0-9]{3,4}[-. ]?[0-9]{4}($|[^0-9])'
@@ -94,15 +47,8 @@ PATTERNS=(
   '학번 추정(20으로 시작하는 연속 9자리)|(^|[^0-9])20[0-9]{7}($|[^0-9])'
 )
 
-# 이메일 매치 중 허용할 예외 — 봇 이메일, 문서용 예시 도메인 (RFC 2606 reserved)
-# grep -n 출력의 "line:email" 전체를 고정해 유사 도메인의 부분 일치를 막는다.
 ALLOW_EMAIL_RE='^[0-9]+:(noreply@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|[A-Za-z0-9._%+-]+@users\.noreply\.github\.com|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.(example|test|invalid|localhost)|[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+\.)*example\.(com|org|net))$'
 
-# quoted·비ASCII·IDN 보조 검사는 "점으로 구분된 도메인 + 2자 이상 마지막 label"을 가진
-# 토큰만 이메일 후보로 본다. 점 없는 GitHub handle, 멘션 나열, 셸 변수와 말줄임표를
-# 연락처로 오인하지 않는 것이 이 보조 검사의 우선 경계다. local part는 quoted/EAI를
-# 보수적으로 잡기 위해 관대하게 두되, domain은 Unicode 문자를 포함한 영숫자·하이픈
-# label만 허용한다. 점 없는 사내 도메인 형태는 자동 검사의 대상이 아니라 리뷰 경계다.
 PERMISSIVE_LOCAL_RE='[^[:space:]@"]+'
 QUOTED_LOCAL_RE='"([^"\\]|\\.)*"'
 DOMAIN_LABEL_RE='[[:alnum:]][[:alnum:]-]*'
@@ -110,23 +56,20 @@ DOMAIN_TLD_RE='[[:alnum:]][[:alnum:]-]*[[:alnum:]]'
 DOTTED_DOMAIN_RE="$DOMAIN_LABEL_RE(\\.$DOMAIN_LABEL_RE)*\\.$DOMAIN_TLD_RE"
 CANDIDATE_EMAIL_RE='('"$QUOTED_LOCAL_RE"'|'"$PERMISSIVE_LOCAL_RE"')@'"$DOTTED_DOMAIN_RE"
 
-# 존재 자체가 유출인 파일 — env 실값, 개인키·인증서 키, 로컬 DB·덤프(실데이터 반입 금지, deny-list 6번),
-# 그리고 자격증명을 모아두는 관례적 메모 파일. 후자는 확장자가 문서라 내용 스캔만으로는
-# 늦게 잡히므로 파일명 단계에서 차단한다.
 FORBIDDEN_FILE_RE='(^|/)\.env(\..+)?$|\.(pem|key|p12|pfx|jks|keystore)$|(^|/)id_(rsa|ed25519|ecdsa|dsa)$|(^|/)\.netrc$|\.(sqlite3?|db|dump)$|(^|/)(credentials?|secrets?|creds)([._-][^/]*)?\.(md|txt|json|ya?ml|csv)$'
 ALLOWED_FILE_RE='(^|/)\.env\.example$'
 
-report() { # $1=라벨 $2=매치 내용
+report() {
   echo "::error::public-safe 위반 [$1]"
   echo "$2"
   FAIL=1
 }
 
-line_evidence() { # grep -n 출력에서 매치 원문을 빼고 라인 번호만 증거로 남긴다
+line_evidence() {
   printf '%s\n' "$1" | cut -d: -f1 | sort -nu | sed 's/^/  line /'
 }
 
-safe_path_id() { # 파일명 원문을 로그에 내보내지 않는 안정적 식별자
+safe_path_id() {
   local path="$1" digest
   if ! digest="$(printf '%s' "$path" | git hash-object --stdin 2>/dev/null)"; then
     return 1
@@ -134,7 +77,7 @@ safe_path_id() { # 파일명 원문을 로그에 내보내지 않는 안정적 �
   printf 'path-id:%s' "$digest"
 }
 
-is_forbidden_file() { # 금지 확장자는 대소문자 무관, 허용 예외는 정확한 소문자만
+is_forbidden_file() {
   local path="$1" matched=1 nocase_was_set=0
   if shopt -q nocasematch; then
     nocase_was_set=1
@@ -156,7 +99,7 @@ is_forbidden_file() { # 금지 확장자는 대소문자 무관, 허용 예외�
   return "$matched"
 }
 
-run_grep() { # grep의 1(매치 없음)은 빈 출력으로 정규화하고 2+(검사 오류)만 올린다.
+run_grep() {
   local output status=0
   output="$(grep "$@")" || status=$?
   if [ "$status" -gt 1 ]; then
@@ -166,8 +109,6 @@ run_grep() { # grep의 1(매치 없음)은 빈 출력으로 정규화하고 2+(�
   printf '%s' "$output"
 }
 
-# EAI·Unicode domain은 허용 예외로 지원하지 않는다. 비ASCII email-shaped token과
-# punycode IDN 후보는 ASCII 이메일 허용 목록보다 우선해 보수적으로 차단한다.
 report_unsupported_email_candidates() {
   local src="$1" text="$2"
   local candidates quoted_candidates non_ascii_candidates punycode_candidates unsupported
@@ -187,7 +128,7 @@ report_unsupported_email_candidates() {
   return 0
 }
 
-scan_text() { # $1=출처 라벨 $2=이메일 검사(0=함 1=건너뜀) stdin=텍스트
+scan_text() {
   local src="$1" skip_email="$2" text entry label re hits name name_hits
   text="$(cat)"
   [ -z "$text" ] && return 0
@@ -221,7 +162,6 @@ scan_text() { # $1=출처 라벨 $2=이메일 검사(0=함 1=건너뜀) stdin=�
       [ -z "$name" ] && continue
       name_hits="$(printf '%s\n' "$text" | run_grep -Fn -- "$name")" || return 2
       if [ -n "$name_hits" ]; then
-        # 이름 자체를 로그에 남기면 그것도 유출이므로 라인 번호만 출력
         report "실명 @ $src" "$(line_evidence "$name_hits")"
       fi
     done
@@ -231,8 +171,6 @@ scan_text() { # $1=출처 라벨 $2=이메일 검사(0=함 1=건너뜀) stdin=�
 }
 
 if [ "$TEXT_ONLY" -eq 0 ]; then
-  # 1) 변경 파일 내용 (신규 A·복사 C·수정 M·이름변경 R만 — 삭제 제외)
-  #    자기 자신(패턴 정의)과 lockfile(해시 오탐)은 제외
   if ! changed_file_list="$(mktemp "${TMPDIR:-/tmp}/public-safe-files.XXXXXX")"; then
     echo "::error::public-safe 임시 파일을 만들 수 없습니다."
     exit 2
@@ -263,7 +201,6 @@ if [ "$TEXT_ONLY" -eq 0 ]; then
     scan_text "파일 $file_id" 0 <<<"$file_text"
   done <"$changed_file_list"
 
-  # 0) 금지 파일 경로 — 내용과 무관하게 커밋 자체를 차단
   bad_files=()
   bad_file_count=0
   if [ "$changed_file_count" -gt 0 ]; then
@@ -281,19 +218,15 @@ if [ "$TEXT_ONLY" -eq 0 ]; then
     echo "  → env 실값은 secret store에, 실데이터는 repo 밖 격리 경로에 둔다"
   fi
 
-  # 2) 커밋 메시지 — 병합 커밋(합성 merge ref 포함) 제외, %h(축약 해시)도 제외.
-  #    이메일 후보는 검사하지 않는다(파일·PR·Issue 표면과 리뷰가 담당).
   if ! commit_text="$(git log --no-merges --format='%s%n%b' "$BASE_REF"..HEAD)"; then
     echo "::error::public-safe 커밋 메시지를 읽을 수 없습니다."
     exit 2
   fi
   scan_text "커밋 메시지" 1 <<<"$commit_text"
 
-  # 3) PR 제목·본문 (CI에서 env로 주입)
   scan_text "PR 제목·본문" 0 <<<"${PR_TEXT:-}"
 fi
 
-# 4) Issue·댓글 제목+본문 (CI에서 env로 주입 — text-only 모드, issues·issue_comment 이벤트)
 scan_text "Issue 본문·댓글" 0 <<<"${ISSUE_TEXT:-}"
 
 if [ "$FAIL" -ne 0 ]; then

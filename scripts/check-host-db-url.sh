@@ -1,14 +1,4 @@
 #!/usr/bin/env bash
-# 호스트 lane(`pnpm dev`) prisma 실행 전 DATABASE_URL 가드.
-#
-# 왜 필요한가: `pnpm db:reset`은 `prisma migrate reset --force`라 파괴적이다.
-# 이전에는 연결 문자열이 package.json에 인라인으로 박혀 있어, compose.dev.yml이
-# 허용하는 POSTGRES_PORT·POSTGRES_DB override를 쓰면 `pnpm db:up`은 새 주소로
-# 옮겨가고 이 명령만 5432에 남아 **그 자리의 다른 DB를 지웠다**.
-#
-# 이 스크립트는 호스트 lane의 유일한 env 원본인 `.envrc`의 DATABASE_URL이
-# compose.dev.yml이 실제로 publish하는 주소를 가리키는지만 확인한다.
-# 값은 어떤 경로에서도 출력하지 않는다 — 키 이름과 불일치 사실만 보고한다.
 
 set -euo pipefail
 
@@ -29,12 +19,9 @@ GUIDE
   exit 1
 fi
 
-# compose.dev.yml의 기본값과 같은 규칙으로 기대 주소를 만든다.
 expected_port="${POSTGRES_PORT:-5432}"
 expected_database="${POSTGRES_DB:-oss_hub}"
 
-# 파싱은 node에 맡긴다 — 자격증명에 포함된 특수문자를 정규식으로 다루면 오판한다.
-# 출력은 검증 결과 3줄뿐이며 URL 자체는 반환하지 않는다.
 parsed=$(
   node -e '
     const raw = process.env.DATABASE_URL;
@@ -49,9 +36,7 @@ parsed=$(
       console.log("SCHEME_ERROR");
       process.exit(0);
     }
-    // pathname은 "/dbname" 형태다. 선행 슬래시만 제거한다.
     const database = decodeURIComponent(url.pathname.replace(/^\//, ""));
-    // 포트 생략은 PostgreSQL 기본값 5432을 뜻한다.
     const port = url.port === "" ? "5432" : url.port;
     console.log(["OK", url.hostname, port, database].join("\t"));
   '
@@ -64,8 +49,6 @@ esac
 
 IFS=$'\t' read -r _ actual_host actual_port actual_database <<<"$parsed"
 
-# 호스트 lane은 compose.dev.yml이 로컬로 publish한 포트에만 붙는다.
-# 원격 주소를 거부해 운영·공유 DB를 파괴적 명령의 사정거리에서 제외한다.
 case "$actual_host" in
   localhost | 127.0.0.1 | ::1 | '[::1]') ;;
   *)

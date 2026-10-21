@@ -1,32 +1,4 @@
 #!/usr/bin/env bash
-# 수집 갱신 정지 진단 — read-only.
-#
-# "랭킹이 비어 있다"가 아니라 "랭킹이 멈췄다"를 가르는 스크립트다.
-# 숫자는 있는데 안 늘어나는 상황에서 원인 후보 10개(C1~C10) 중 하나를 1차 판정한다.
-#
-# 4층으로 좁힌다.
-#   O0 접근성  — DB에 붙을 수 있는가
-#   O1 시간축  — 어디서 멈췄는가 (테이블별 최신 시각)
-#   O2 집합축  — 무엇이 수집 대상인가 (source/presence/visibility 분포)
-#   O3 표면축  — 화면이 DB를 따라오는가 (공개 랭킹 응답)
-#
-# 운영 표면은 셋이다 (2026-08-19) — org sweep · external sweep · person sweep.
-#   앞의 둘은 저장소 축이라 `Contribution` 과 fact 테이블을 채우고 ② 프로그램 화면이 읽는다.
-#   person sweep 은 사람 축이라 가입(ACTIVE) 유저의 한 해 활동을 GraphQL 로 받아
-#   `GithubUserActivityHistory`(githubId, year) 를 채우고 ① 공개 랭킹이 그것만 읽는다.
-#   따라서 org 가 멈춰도 랭킹은 살아 있고, 랭킹이 멈춰도 ② 화면은 멀쩡할 수 있다 —
-#   두 축을 같은 증상으로 읽지 않는다. 축 경계의 근거는 ADR-010 2026-08-19 개정 노트다.
-#   아래 O1 은 아직 저장소 축 테이블만 본다. 사람 축은 `max("observedAt")` 을
-#   `GithubUserActivityHistory` 에서 직접 확인한다(다음 tick ≤1h 에 전진해야 한다).
-#
-# 이 스크립트는 SELECT 만 실행한다. 쓰기·삭제·마이그레이션을 하지 않는다.
-# 출력에 저장소 이름·학생 식별자·접속 문자열을 담지 않는다 — CI 로그와 PR 본문이 공개 범위다.
-#
-# 사용:
-#   DATABASE_URL=... scripts/diagnose-collection.sh
-#   DATABASE_URL=... RANKING_URL=https://<host>/api/v1/ranking scripts/diagnose-collection.sh
-#
-# 서버 접속은 승인된 운영 접근 경로를 사용한다.
 set -euo pipefail
 
 readonly STALE_THRESHOLD_HOURS=${STALE_THRESHOLD_HOURS:-2}
@@ -43,12 +15,6 @@ if ! command -v psql >/dev/null 2>&1; then
   exit 1
 fi
 
-# psql 을 read-only 로 고정한다. 실수로 쓰기 구문이 들어가도 서버가 거부한다.
-#
-# 명시적 `BEGIN ... COMMIT` 을 쓰지 않는다 — `--tuples-only` 로도 psql 은 그 둘의
-# 명령 태그를 stdout 에 찍고, 그 줄이 값으로 읽혀 `EXTERNAL_PUBLIC=BEGIN` 같은
-# 거짓 관측을 만든다. 진단 도구가 틀린 값을 내면 없느니만 못하다.
-# 대신 세션 기본값을 서버측에서 read-only 로 잠근다.
 run_sql() {
   PGOPTIONS='-c default_transaction_read_only=on' \
     psql "$DATABASE_URL" \
@@ -62,7 +28,6 @@ section() {
   echo "── $1"
 }
 
-# ── O0 접근성 ────────────────────────────────────────────────────────────────
 section "O0 접근성"
 if ! run_sql "SELECT 1" >/dev/null 2>&1; then
   echo "  DB 연결 실패 — 이 시점에서 멈춘다. 접속 경로부터 복구한다."
@@ -70,8 +35,6 @@ if ! run_sql "SELECT 1" >/dev/null 2>&1; then
 fi
 echo "  DB 연결 OK (read-only 트랜잭션)"
 
-# ── O1 시간축 ────────────────────────────────────────────────────────────────
-# 어느 층에서 시간이 멈췄는지가 후보를 즉시 가른다.
 section "O1 시간축 — 층별 최신 시각"
 o1=$(run_sql "
 SELECT 'stream.lastRunAt',        max(\"lastRunAt\")                        FROM \"CollectionRepositoryStream\"
@@ -92,7 +55,6 @@ stream_last_run=$(printf '%s\n' "$o1" | awk -F'|' '$1=="stream.lastRunAt"{print 
 commit_observed=$(printf '%s\n' "$o1" | awk -F'|' '$1=="commit.observedAt"{print $2}')
 aggregate_updated=$(printf '%s\n' "$o1" | awk -F'|' '$1=="contribution.updatedAt"{print $2}')
 
-# 스윕이 최근에 돌았는지로 후보군이 갈린다.
 sweep_fresh=$(run_sql "
 SELECT CASE
          WHEN max(\"lastRunAt\") IS NULL THEN 'none'
@@ -115,7 +77,6 @@ case "$sweep_fresh" in
     ;;
 esac
 
-# C7 — fact 는 늘어나는데 집계만 안 따라오는 경우.
 c7_lag=$(run_sql "
 SELECT count(*) FROM \"CollectionCommitFact\"
 WHERE \"observedAt\" > COALESCE((SELECT max(\"updatedAt\") FROM \"Contribution\"), 'epoch')
@@ -124,7 +85,6 @@ if [[ ${c7_lag:-0} -gt 0 ]]; then
   echo "  집계보다 나중에 들어온 커밋 fact ${c7_lag}건 → C7(aggregate 만 고장) 유력"
 fi
 
-# C4 — 커서가 특정 저장소에서 멈춰 사이클이 안 닫히는 경우.
 c4_open=$(run_sql "
 SELECT count(*) FROM \"CollectionSyncCursor\" WHERE \"cycleCompletedAt\" IS NULL
 ")
@@ -132,7 +92,6 @@ if [[ ${c4_open:-0} -gt 0 ]]; then
   echo "  닫히지 않은 사이클 ${c4_open}건 → C4(cursor 정지) 후보. 같은 저장소 id 가 반복 실패하는지 로그로 확증"
 fi
 
-# C2 — 죽은 워커가 잡고 있는 lease.
 c2_held=$(run_sql "
 SELECT count(*) FROM \"CollectionSyncLease\" WHERE \"expiresAt\" > now()
 ")
@@ -140,7 +99,6 @@ if [[ ${c2_held:-0} -gt 0 ]]; then
   echo "  살아 있는 sync lease ${c2_held}건 → C2(stale lease) 후보"
 fi
 
-# C3 — cutover quiesce 가 트리거를 막고 있는 경우.
 c3_quiesced=$(run_sql "
 SELECT count(*) FROM \"CollectionCutoverLease\" WHERE \"expiresAt\" > now()
 ")
@@ -148,8 +106,6 @@ if [[ ${c3_quiesced:-0} -gt 0 ]]; then
   echo "  활성 cutover lease ${c3_quiesced}건 → C3(quiesce, COL_008 거부) 후보"
 fi
 
-# ── O2 집합축 ────────────────────────────────────────────────────────────────
-# 이름을 뽑지 않는다. 분포와 개수만 본다.
 section "O2 집합축 — 수집 대상 분포"
 run_sql "
 SELECT \"source\", \"presence\", \"visibility\", count(*),
@@ -161,7 +117,6 @@ GROUP BY 1,2,3 ORDER BY 1,2,3
   printf '  %-16s %-9s %-8s %5s  inventory=%s\n' "$source" "$presence" "$visibility" "$count" "$inventory"
 done
 
-# C9 — 인벤토리가 오래 partial 이면 신규 저장소가 관측되지 않는다.
 c9_stale=$(run_sql "
 SELECT count(*) FROM \"GithubRepository\"
 WHERE \"source\" = 'ORG_PROVISIONED'
@@ -172,7 +127,6 @@ if [[ ${c9_stale:-0} -gt 0 ]]; then
   echo "  인벤토리가 ${INVENTORY_STALE_HOURS}시간 넘게 갱신 안 된 조직 저장소 ${c9_stale}건 → C9(인벤토리 partial) 후보"
 fi
 
-# C10 — 외부 저장소는 스윕이 재발견하지 않는다. 등록 자체가 누락되면 O1 이 못 잡는다.
 section "O2 판정 — 외부 저장소 등록 대조 (C10)"
 run_sql "
 SELECT
@@ -187,23 +141,10 @@ SELECT
   fi
 done
 
-# ── O3 표면축 ────────────────────────────────────────────────────────────────
-# DB 가 최신인데 화면만 옛것이면 배포본이 옛것이다.
-#
-# 두 번 호출해 해시를 비교하지 않는다 — 랭킹 응답은 `Cache-Control: no-store` 이고
-# TTL 캐시가 없다(동시 요청 single-flight 만 남았다, ADR-010). 캐시가 없으면
-# "불변" 은 데이터가 그대로라는 뜻일 뿐인데, 옛 로직은 그걸 C8(배포본 옛것)로
-# 읽었다. 진단이 없는 원인을 가리키면 사람을 헛곳으로 보낸다.
-#
-# 대신 응답의 `dataAsOf` 를 본다. 이 값은 마지막 성공 수집 시각이므로
-# O1 의 마지막 스윕 시각과 맞춰 보면 표면이 DB 를 따라오는지 바로 갈린다.
 section "O3 표면축 — 공개 랭킹 응답"
 if [[ -z $RANKING_URL ]]; then
   echo "  RANKING_URL 미지정 — 표면 확인을 건너뛴다"
 elif ! command -v curl >/dev/null 2>&1; then
-  # psql 과 curl 이 같은 컨테이너에 함께 있으리라는 보장이 없다 — 프로덕션에서
-  # postgres 이미지에는 curl 이 없다. 여기서 raw 셸 오류로 죽으면 앞의 O0~O2
-  # 관측까지 같이 버려진다. 진단 도구는 한 층을 못 봐도 나머지를 내놓아야 한다.
   echo "  curl 이 없어 표면 확인을 건너뛴다 — O0~O2 관측은 위 결과가 유효하다"
   echo "  표면은 HTTP 가 되는 곳에서 직접 본다:"
   echo "    curl -fsS <ranking-url>   # 응답의 dataAsOf 를 위 스윕 시각과 비교"
@@ -219,7 +160,6 @@ else
   fi
 fi
 
-# ── 요약 ─────────────────────────────────────────────────────────────────────
 section "요약"
 printf '  스윕 상태          %s\n' "$sweep_fresh"
 printf '  마지막 스윕        %s\n' "${stream_last_run:-<없음>}"

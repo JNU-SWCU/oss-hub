@@ -1,13 +1,8 @@
--- #1034 bridge: non-seed legacy submission history is copied into one internal target slot per
--- milestone. Source rows and source FKs remain intact until the separate contract migration.
--- Jenkins applies this transaction before rolling out the exact-SHA target-only backend image.
 BEGIN;
 
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';
 
--- Stop source mutations while the final source snapshot is copied. Reads remain available to the
--- old image until the same release rolls out the target-only image.
 LOCK TABLE "Submission", "SubmissionRevision", "Review", "SubmissionFile"
   IN SHARE ROW EXCLUSIVE MODE;
 
@@ -305,9 +300,6 @@ BEGIN
     END IF;
     RETURN NEW;
   END IF;
-  -- Seed/synthetic fixture rows are isolated from production user data and remain writable so
-  -- post-migration CI can construct and tear down its own graphs. Runtime-created ids never use
-  -- these reserved markers.
   IF (TG_OP = 'DELETE' AND (OLD."id" LIKE 'seed:%' OR OLD."id" LIKE '%synthetic%'))
     OR (TG_OP <> 'DELETE' AND (NEW."id" LIKE 'seed:%' OR NEW."id" LIKE '%synthetic%'))
   THEN

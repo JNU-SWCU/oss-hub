@@ -1,6 +1,5 @@
 CREATE TYPE "SubmissionFileLifecycle" AS ENUM ('PENDING', 'ATTACHED', 'DELETE_PENDING', 'DELETED');
 
--- Program."endAt"은 선행 마이그레이션 20260726120000_add_program_end_at(#265)이 추가한다.
 ALTER TABLE "SubmissionFile"
 ADD COLUMN "applicationId" TEXT,
 ADD COLUMN "milestoneId" TEXT,
@@ -23,8 +22,6 @@ ALTER TABLE "SubmissionFile"
 ADD CONSTRAINT "SubmissionFile_milestoneId_fkey"
 FOREIGN KEY ("milestoneId") REFERENCES "Milestone"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- Legacy files were attached through their revision before explicit lifecycle
--- ownership existed. Backfill only a complete, internally consistent chain.
 UPDATE "SubmissionFile" AS sf
 SET
   "applicationId" = s."applicationId",
@@ -39,9 +36,6 @@ WHERE sf."submissionRevisionId" = sr."id"
   AND m."programId" = a."programId"
   AND sf."lifecycle" = 'ATTACHED';
 
--- Do not silently delete historical attachments or manufacture ownership.
--- A missing Program.endAt is a supported legacy state: ownership is backfilled,
--- expiresAt remains NULL, and the Program editor assigns it when ADMIN sets endAt.
 DO $$
 DECLARE
   orphan_count BIGINT;
@@ -66,8 +60,6 @@ BEGIN
 END
 $$;
 
--- The backfill and fail-closed ownership gate above preserve historical records.
--- Legacy ATTACHED rows may retain NULL expiresAt only until Program.endAt is set.
 ALTER TABLE "SubmissionFile"
 ADD CONSTRAINT "SubmissionFile_lifecycle_attachment_check" CHECK (
   ("lifecycle" = 'PENDING' AND "applicationId" IS NOT NULL AND "milestoneId" IS NOT NULL

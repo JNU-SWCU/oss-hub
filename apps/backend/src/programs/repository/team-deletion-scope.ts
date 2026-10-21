@@ -54,9 +54,6 @@ export async function readTeamDeletionScopeCounts(
           OR repository."applicationId" IN (SELECT id FROM team_application)
       ),
       team_provision_job AS (
-        -- 저장소를 거치는 별도 edge를 두지 않는다 — RepositoryProvisionJob.applicationId는
-        -- 필수+unique라 이 조건 하나로 빠짐이 없고, 지문과 실제 삭제가 같은 집합을
-        -- 가리켜야 「센 것」과 「지운 것」이 갈라지지 않는다.
         SELECT job.id
         FROM "RepositoryProvisionJob" AS job
         WHERE job."applicationId" IN (SELECT id FROM team_application)

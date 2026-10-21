@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# .githooks/pre-commit이 특수 문자 파일명을 앱 상대 경로 그대로 ESLint에 넘기는지 확인한다.
-# 실제 ESLint 대신 받은 인자와 stdin을 기록하는 spy를 쓴다.
 set -euo pipefail
 
 hook="$(cd "$(dirname "$0")/.." && pwd)/.githooks/pre-commit"

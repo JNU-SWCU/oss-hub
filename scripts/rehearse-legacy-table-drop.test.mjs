@@ -122,10 +122,12 @@ test('cleanup shreds temp files when shred is available and never touches the in
 
   assert.ok(!rehearsal.includes('dump_path"'.concat('\n')));
   assert.ok(!/dump_path=.*mktemp/.test(rehearsal));
-  assert.ok(
-    rehearsal.includes(
-      'The input dump (production-dump mode) is never copied into tmp_root',
-    ),
+  const cleanup = rehearsal.match(/cleanup\(\) \{([\s\S]*?)\n\}/);
+  assert.ok(cleanup);
+  assert.doesNotMatch(cleanup[1], /\bdump_path\b/);
+  assert.match(
+    cleanup[1],
+    /for dir in "\$\{tmp_root:-\}" "\$\{staged:-\}"; do/,
   );
 });
 
@@ -150,8 +152,15 @@ test('rehearsal runs the tracked migration file, not a reconstructed statement',
 });
 
 test('negative lane pins the gate wording directly, because Prisma only reports its last error', () => {
-  assert.ok(rehearsal.includes('current transaction is'));
-  assert.ok(rehearsal.includes('aborted'));
+  assert.match(
+    rehearsal,
+    /psql_exec <"\$migration_sql" >"\$gate_log" 2>&1\n\s+gate_status=\$\?/,
+  );
+  assert.match(rehearsal, /gate_status != 0 \)\) \|\|/);
+  assert.ok(
+    rehearsal.indexOf('gate_status=$?') <
+      rehearsal.indexOf('deploy_log="$tmp_root/deploy-migration.log"'),
+  );
   assert.match(
     rehearsal,
     /gate_output" == \*'legacy tables require reconciliation'\*/,
@@ -227,7 +236,9 @@ test('migrate lane proves the drop and that everything else is byte-for-byte unc
 });
 
 test('migrate lane takes its schema expectations before the migration runs', () => {
-  const deploy = rehearsal.indexOf('# --- run the migration');
+  const deploy = rehearsal.indexOf(
+    'deploy_log="$tmp_root/deploy-migration.log"',
+  );
   assert.ok(deploy > 0);
   for (const kind of ['constraint', 'index', 'enum']) {
     const expected = rehearsal.indexOf(`$(${kind}_digest 'excluding-dropped')`);

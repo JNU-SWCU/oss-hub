@@ -84,7 +84,6 @@ jq -r '.tag_name' "$release_file"
             error('Release tag는 vMAJOR.MINOR.PATCH full SemVer 형식이어야 합니다.')
           }
           env.RELEASE_TAG = tag
-          // 이미지 태그는 release tag. SHA 이름공간을 이미지 태그로 쓰지 않는다.
           env.IMAGE_TAG = tag
 
           def releaseSha = sh(
@@ -246,8 +245,6 @@ docker exec "$PREV_POSTGRES_ID" sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTG
             receipt_tmp="$(mktemp "${object_backup_target}.receipt.XXXXXX")"
             trap 'rm -rf "$object_backup_tmp"; rm -f "$object_list" "$object_manifest_tmp" "$receipt_tmp"' EXIT
 
-            # Validation requires configured HTTPS endpoint, region, bucket, and path-style;
-            # credentials are Jenkins-only environment variables, never read from the env file.
             export SUBMISSION_FILE_S3_ENDPOINT="$(node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_ENDPOINT)"
             export SUBMISSION_FILE_S3_REGION="$(node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_REGION)"
             export SUBMISSION_FILE_S3_BUCKET="$(node "$CONTROLLER_DIR/scripts/jenkins/validate-production-env.mjs" "$OSS_HUB_ENV_FILE" --value SUBMISSION_FILE_S3_BUCKET)"
@@ -256,7 +253,6 @@ docker exec "$PREV_POSTGRES_ID" sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTG
               true|false) ;;
               *) echo 'FAIL_CLOSED object_backup: invalid validated path-style setting.' >&2; exit 1 ;;
             esac
-            # The previous backend image's AWS SDK downloads every object and verifies listed size.
             [ -n "${PREV_TAG:-}" ] || { echo 'FAIL_CLOSED object_backup: managed backup requires a previous backend image.' >&2; exit 1; }
             docker run --rm \
                 --env SUBMISSION_FILE_S3_ACCESS_KEY_ID \
@@ -358,9 +354,6 @@ compose=(docker compose -p oss-hub -f "$CANDIDATE_COMPOSE" --env-file "$OSS_HUB_
 set -euo pipefail
 
 
-# success-only retention. 실패 경로에서는 이 stage에 들어오지 않는다.
-# 실행 중(방금 배포한 IMAGE_TAG)과 직전 PREV_TAG는 절대 삭제하지 않는다.
-# oss-hub-backend 앱 이미지만 대상으로 하며 무관 이미지는 건드리지 않는다.
 
 retention_keep_tags=()
 retention_keep_tags+=("${IMAGE_TAG}")
@@ -379,8 +372,6 @@ is_kept_tag() {
   return 1
 }
 
-# docker images 포맷: repository:tag. dangling/untagged 는 스킵.
-# producer 실패는 빈 목록 성공으로 취급하지 않는다. 상태 검사된 임시 파일로 목록을 고정한 뒤 소비한다.
 images_raw="$(mktemp)"
 images_inventory="$(mktemp)"
 trap 'rm -f "$images_raw" "$images_inventory"' EXIT
@@ -397,14 +388,11 @@ while IFS="$(printf '\t')" read -r repo tag image_id; do
   if is_kept_tag "$tag"; then
     continue
   fi
-  # 결정적 삭제. 참조 중이면 실패 → fail-closed.
   docker image rm "${repo}:${tag}"
 done < "$images_inventory"
 
-# 성공 배포 뒤에만 shared/internal BuildKit 캐시를 LRU 기준 상한까지 정리한다.
 docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
 
-# backup retention N=30 (C4). Jenkins와 격리 fixture가 같은 fail-closed 구현을 호출한다.
 bash "$CONTROLLER_DIR/scripts/prune-deploy-backups.sh" "$BACKUP_DIR" "$BACKUP_RETENTION_N"
 bash "$CONTROLLER_DIR/scripts/prune-deploy-backups.sh" "$BACKUP_DIR/objects" "$BACKUP_RETENTION_N" --objects
 
@@ -418,9 +406,6 @@ echo "retention: kept image tags=${retention_keep_tags[*]}; backup keep newest n
     failure {
       echo 'Jenkins 배포가 실패했습니다. 기존 서비스 상태와 보존된 build·Compose 로그를 확인하십시오.'
       script {
-        // 실패 알림은 email-ext 플러그인으로 보낸다. 수신자·SMTP는 Jenkins UI 설정에만 둔다
-        // (Manage Jenkins → System → Extended E-mail Notification: Default Recipients + SMTP).
-        // 저장소엔 이메일 주소를 남기지 않으며 '$DEFAULT_RECIPIENTS'가 그 UI 값으로 치환된다.
         emailext(
           to: '$DEFAULT_RECIPIENTS',
           subject: "[oss-hub] 배포 실패 ${env.RELEASE_TAG ?: ''} #${env.BUILD_NUMBER}",

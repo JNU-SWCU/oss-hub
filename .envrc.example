@@ -1,28 +1,6 @@
-# 호스트 hot reload(`pnpm dev`) 전용 env 계약. direnv가 이 값을 쉘에 주입한다.
-#
-#   cp .envrc.example .envrc   # .envrc는 gitignore된다(.gitignore:47)
-#   # 아래 "직접 채운다" 항목을 채운 뒤
-#   direnv allow
-#
-# `.envrc` → `pnpm dev`. backend·frontend가 **호스트 프로세스**로 돌고 인프라만 Docker다.
-# 따라서 모든 호스트명이 `localhost`이고 포트는 compose.dev.yml이 publish한 것을 쓴다.
-#
-# 자세한 실행 순서는 scripts/dev.sh를 따른다.
 
-# --- 인프라 연결 (compose.dev.yml이 publish하는 주소) ---
-# 자격증명은 compose.dev.yml:5-6의 인라인 값과 일치해야 한다.
-#
-# 주소는 박지 않고 compose.dev.yml:7,9와 **같은 override 규칙으로 파생**시킨다. 포트·DB를
-# 두 곳에서 따로 관리하면 `pnpm db:up`만 새 주소로 옮겨가고 이 값은 5432에 남는데,
-# `pnpm db:reset`이 `prisma migrate reset --force`라 그 자리의 다른 DB를 지운다(#374).
-#
-# 포트나 DB 이름을 바꾸려면 이 줄 **위에** 아래처럼 선언한다. DATABASE_URL은 자동으로 따라온다.
-#   export POSTGRES_PORT=55432      # `pnpm db:up`이 보려면 export여야 한다
-#   export POSTGRES_DB=oss_hub_scratch
 export DATABASE_URL=postgresql://oss:oss-dev@localhost:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-oss_hub}
 
-# compose.dev.yml:21,25의 object-storage 기본값과 일치해야 한다.
-# s3mock은 자격증명을 검증하지 않지만 AWS SDK 클라이언트가 값 존재를 요구하므로 placeholder를 채운다.
 export SUBMISSION_FILE_STORAGE_MODE=local
 export SUBMISSION_FILE_S3_ENDPOINT=http://localhost:9000
 export SUBMISSION_FILE_S3_REGION=us-east-1
@@ -31,39 +9,21 @@ export SUBMISSION_FILE_S3_ACCESS_KEY_ID=oss-hub-local
 export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY=oss-hub-local-synthetic-secret
 export SUBMISSION_FILE_S3_FORCE_PATH_STYLE=true
 
-# --- 앱 주소 ---
-# FRONTEND_URL은 path/query/hash 없는 origin이어야 한다(apps/backend/src/auth/auth.config.ts).
 export FRONTEND_URL=http://localhost:3000
-# next.config.ts가 개발 rewrite 대상으로만 읽는다. 운영 런타임은 이 키를 쓰지 않는다.
 export BACKEND_ORIGIN=http://localhost:4000
 export PORT=4000
-# 로컬은 실제 발송을 하지 않는다. send로 바꾸면 GMAIL_* 4종이 함께 필수가 된다.
 export MAIL_MODE=dry-run
 
-# --- 직접 채운다: 세션·토큰 서명 키 ---
-# 아래 명령으로 각각 생성해 붙인다. 두 값은 서로 달라야 한다.
-#   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
-# SESSION_SECRET은 base64url 32바이트 이상이어야 기동한다(auth.config.ts).
 export SESSION_SECRET=
 export TEAM_JOIN_CODE_SECRET=
 
-# --- 직접 채운다: GitHub OAuth (dev App) ---
-# 비어 있으면 backend가 기동하지 않는다(auth.config.ts loadOauthSettings).
-# 아래는 기동만 되게 하는 placeholder이며, 실제 GitHub 로그인을 하려면 dev OAuth App의
-# 값으로 교체해야 한다. 콜백은 FRONTEND_URL에서 파생되므로 별도 설정이 필요 없다.
 export GITHUB_OAUTH_CLIENT_ID=dev-oauth-client-id-placeholder
 export GITHUB_OAUTH_CLIENT_SECRET=dev-oauth-client-secret-placeholder
 
-# --- 선택: GitHub App (수집·저장소 자동화) ---
-# 기동에는 필요하지 않다. 해당 기능을 실제로 호출할 때만 검증된다.
 export GITHUB_APP_ORG=
 export GITHUB_COLLECTION_APP_ID=
 export GITHUB_OPERATIONS_APP_ID=
-# 개인키는 값이 아니라 **파일 경로**로 준다. 파일은 gitignore된 secrets/에 사람이 배치한다.
-# 실제 파일명은 각자의 App에서 내려받은 것을 쓴다(저장소에 파일명을 적지 않는다).
 export GITHUB_COLLECTION_APP_PRIVATE_KEY_FILE=./secrets/collection-app.private-key.pem
 export GITHUB_OPERATIONS_APP_PRIVATE_KEY_FILE=./secrets/operations-app.private-key.pem
 
-# --- 선택: 역할 시드 ---
-# "githubId:ROLE" 쉼표 구분. ROLE은 ADMIN|STAFF|STUDENT만 허용한다.
 export AUTH_INITIAL_ROLES=

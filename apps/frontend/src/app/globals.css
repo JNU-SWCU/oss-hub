@@ -4,20 +4,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/*
- * 디자인 토큰 3-tier: primitive → semantic → component.
- * 팔레트·타이포 토큰 값은 docs/design-tokens/tokens.json 참고.
- *
- * 1) primitive — 의미 없는 원시 값(색상 램프). 아래 `--palette-*`.
- * 2) semantic  — 역할 토큰. `:root`/`.dark`의 `--background` 등과 `--status-*` 그룹.
- *    shadcn 컴포넌트(Button/Input/Field/Card/Alert/Table)가 이 계층을 직접 참조한다.
- * 3) component — Tailwind 유틸리티 매핑. 아래 `@theme inline` 블록.
- *    프리미티브가 `bg-primary`처럼 유틸리티 클래스로 소비하는 지점이다.
- */
-
-/* ---------- 1) Primitive ---------- */
 :root {
-  /* Navy — sojoong.kr 주조색 anchor #003399 = --palette-navy-600 */
   --palette-navy-50: #eef2fb;
   --palette-navy-100: #d6e0f5;
   --palette-navy-200: #adc1eb;
@@ -30,7 +17,6 @@
   --palette-navy-900: #001a4d;
   --palette-navy-950: #000d29;
 
-  /* Green — sojoong.kr 보조색 anchor #00923F = --palette-green-500 */
   --palette-green-50: #e8f8ee;
   --palette-green-100: #c6edd4;
   --palette-green-200: #96dcae;
@@ -42,7 +28,6 @@
   --palette-green-800: #004a20;
   --palette-green-900: #003215;
 
-  /* Gray — sojoong.kr 본문색 anchor #444444 = --palette-gray-700 */
   --palette-gray-50: #f7f7f7;
   --palette-gray-100: #eeeeee;
   --palette-gray-200: #dddddd;
@@ -54,27 +39,13 @@
   --palette-gray-800: #2b2b2b;
   --palette-gray-900: #1a1a1a;
 
-  /* 상태색 — 브랜드 팔레트 밖의 보조 램프. semantic --status-* 그룹이 참조한다 */
   --palette-amber-50: #fdf3e2;
   --palette-amber-100: #f8e2b8;
   --palette-amber-500: #e0a030;
   --palette-amber-700: #a06f1a;
-  /* amber-800은 `--status-pending-*`의 명도비 확보용으로 신설했다.
-     amber-700은 amber-50과 3.99:1, 흰 배경과 4.39:1로 AA(4.5:1) 미달이다
-     — 대기 배지(bg/fg 짝)와 독립 텍스트(`text-status-pending-fg`) 양쪽에서 걸린다.
-     amber-800은 amber-50과 5.74:1, 흰 배경과 6.32:1이다. */
   --palette-amber-800: #805814;
   --palette-red-50: #fbe9e9;
   --palette-red-100: #f3c6c6;
-  /* red-300·red-600은 `--destructive`의 명도비 확보용으로 신설했다(#282).
-     red-500(#d64545)은 흰 배경에서 4.38:1, gray-900 배경에서 3.98:1로 양쪽 모두
-     WCAG AA(4.5:1) 미달이다. 밝은 표면은 더 어둡게(600), 어두운 표면은 더
-     밝게(300) 분리한다.
-
-     다크는 페이지 배경(gray-900)만 보고 정하면 안 된다 — 같은 텍스트가 카드
-     표면(gray-800) 위에도 놓이고, 그쪽이 더 밝아 명도비가 낮다. 중간값인
-     #e26a6a는 gray-900에서 5.39:1이지만 gray-800에서 4.38:1로 미달이라
-     한 단계 더 밝은 red-300을 쓴다(gray-900 6.81:1 · gray-800 5.54:1). */
   --palette-red-300: #e98686;
   --palette-red-500: #d64545;
   --palette-red-600: #c02626;
@@ -84,14 +55,7 @@
   --palette-black: #000000;
 }
 
-/* ---------- 1) Primitive — 치수·타이포 램프 (업무 화면 미감 시안 v2) ----------
- * 색과 같은 원리다. 화면마다 제각각 px를 쓰지 못하게 원시 값은 여기에만 둔다.
- * 시안 원본: 사용자 확정 v2 (여백 8의 배수 / 크기 네 계단 / 조작 사각형 44px).
- */
 :root {
-  /* 여백 척도 — 하나뿐이다. 8의 배수(12는 8·16 사이의 반 단계로 시안이 허용).
-     Tailwind 기본 spacing(0.25rem 배수)의 1·2·3·4·6·8·12·16·24와 값이 정확히
-     같아, `p-4`(16px)처럼 유틸리티로 써도 이 척도를 벗어나지 않는다. */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -102,10 +66,6 @@
   --space-8: 64px;
   --space-9: 96px;
 
-  /* 크기 계단 — 여섯 단계. 페이지 제목 / 섹션 / 본문 / 보조 / 배지 / 표.
-     배지·표 두 칸은 rem(12px·14px)이다. 이 두 칸이 대신한 `text-xs`·`text-sm`이 rem이라
-     브라우저 기본 글자 크기를 키운 사용자에게 배지·표 글자가 따라 커졌고, px로 두면
-     그 사용자에게만 표 머리글(`text-xs`)이 칸 글자보다 커지는 역전이 생긴다(#1344). */
   --step-page: 40px;
   --step-section: 24px;
   --step-body: 16px;
@@ -113,8 +73,6 @@
   --step-badge: 0.75rem;
   --step-table: 0.875rem;
 
-  /* 네모의 크기 — 여백 척도의 배수가 아닌 고정 치수. 여백과 섞이면 둘 다 흐려지므로
-     별도 램프로 둔다. 44는 터치 타깃 최소치, 26은 읽는 라벨(배지) 높이다. */
   --measure-26: 26px;
   --measure-44: 44px;
   --measure-64: 64px;
@@ -124,7 +82,6 @@
   --measure-248: 248px;
 }
 
-/* ---------- 3) Component (Tailwind 유틸리티 매핑) ---------- */
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
@@ -160,7 +117,6 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  /* 도메인 상태색 — StatusBadge(B-6)가 소비할 component 계층 매핑 */
   --color-status-recruiting-bg: var(--status-recruiting-bg);
   --color-status-recruiting-fg: var(--status-recruiting-fg);
   --color-status-closed-bg: var(--status-closed-bg);
@@ -171,7 +127,6 @@
   --color-status-approved-fg: var(--status-approved-fg);
   --color-status-rejected-bg: var(--status-rejected-bg);
   --color-status-rejected-fg: var(--status-rejected-fg);
-  /* 반전 표면 — 랜딩 히어로/클로징 CTA 전용 component 매핑 */
   --color-hero-from: var(--hero-from);
   --color-hero-via: var(--hero-via);
   --color-hero-to: var(--hero-to);
@@ -179,7 +134,6 @@
   --color-hero-muted: var(--hero-muted);
   --color-hero-border: var(--hero-border);
   --color-hero-danger: var(--hero-danger);
-  /* 시네마틱 랜딩 전용 semantic → component 매핑 */
   --color-cosmos-void: var(--cosmos-void);
   --color-cosmos-near: var(--cosmos-near);
   --color-cosmos-copy: var(--cosmos-copy);
@@ -189,10 +143,6 @@
   --color-cosmos-edge: var(--cosmos-edge);
   --color-cosmos-border: var(--cosmos-border);
   --color-cosmos-danger: var(--cosmos-danger);
-  /* 시안 v2 치수 semantic → Tailwind 유틸리티.
-     `--spacing-*` 네임스페이스는 크기·여백 유틸리티를 함께 만든다
-     (`h-control`·`min-h-control`·`w-sidebar-open`·`p-card`·`gap-card` …).
-     화면이 리터럴 px(`h-[44px]`)를 쓰지 않고 이 이름만 쓰게 하는 것이 목적이다. */
   --spacing-control: var(--control-height);
   --spacing-tag: var(--tag-height);
   --spacing-row: var(--row-height);
@@ -201,10 +151,6 @@
   --spacing-topbar: var(--topbar-height);
   --spacing-sidebar-open: var(--sidebar-open-width);
   --spacing-sidebar-collapsed: var(--sidebar-collapsed-width);
-  /* 크기 계단 여섯 단계 — `text-page`·`text-section`·`text-body`·`text-small`·
-     `text-badge`·`text-table`. 배지·표 두 단계는 그 자리가 쓰던 `text-xs`·`text-sm`을
-     대신하므로 줄 간격(16px·20px)도 함께 옮긴다. px가 아니라 비율로 적는다 — 칸 안에서
-     글자 크기만 바꾼 자손이 지금처럼 자기 크기에 비례한 줄 간격을 물려받는다. */
   --text-page: var(--step-page);
   --text-section: var(--step-section);
   --text-body: var(--step-body);
@@ -213,11 +159,8 @@
   --text-badge--line-height: calc(16 / 12);
   --text-table: var(--step-table);
   --text-table--line-height: calc(20 / 14);
-  /* 카드 12 / 조작 사각형 8. 기존 `--radius`(shadcn 전역)는 건드리지 않는다 —
-     본문 컴포넌트 전체가 거기 매달려 있고 이번 단계는 셸까지다. */
   --radius-card: var(--card-radius);
   --radius-control: var(--control-radius);
-  /* 사이드바 현재 위치 표시 — 색·굵기·왼쪽 막대 세 신호를 함께 쓴다 */
   --color-sidebar-current: var(--sidebar-current);
   --color-sidebar-current-foreground: var(--sidebar-current-foreground);
   --color-sidebar-current-marker: var(--sidebar-current-marker);
@@ -230,7 +173,6 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* ---------- 2) Semantic (역할 토큰) ---------- */
 :root {
   --background: var(--palette-white);
   --foreground: var(--palette-gray-700);
@@ -243,24 +185,10 @@
   --secondary: var(--palette-gray-100);
   --secondary-foreground: var(--palette-gray-800);
   --muted: var(--palette-gray-50);
-  /* muted 텍스트는 흰 배경뿐 아니라 `bg-muted`(gray-50) 위에도 놓인다. gray-500은
-     그 조합에서 4.3:1로 AA 미달이라 gray-600으로 내린다(#282 스캔에서 발견).
-     본문(`--foreground` = gray-700)보다는 여전히 밝아 위계는 유지된다. */
   --muted-foreground: var(--palette-gray-600);
-  /* green-500은 sojoong.kr 보조색 anchor지만 흰 전경과 4.05:1로 AA 미달이다.
-     보조색은 두 형태로 쓰인다 — 배경 위 흰 글씨(role-select focus)와 밝은 배경
-     위 글씨·아이콘(`text-accent`). 둘 다 같은 4.05:1이라 한 단계 어둡게 내리면
-     함께 해소된다(green-600 = 5.48:1). 브랜드 램프 안의 인접 단계이므로 톤은
-     유지된다. 차트·막대 같은 비텍스트 용도(`--chart-2`)는 3:1 기준이라 anchor를
-     그대로 둔다. */
   --accent: var(--palette-green-600);
   --accent-foreground: var(--palette-white);
   --destructive: var(--palette-red-600);
-  /* destructive tint 위에 놓이는 텍스트. 같은 토큰을 텍스트와 반투명 배경에
-     함께 쓰면(예: Button destructive variant의 `bg-destructive/10` +
-     `hover:bg-destructive/20`) 배경이 텍스트 색조로 물들어 대비가 상한에
-     갇힌다 — 토큰을 진하게 해도 hover에서 4.27:1을 넘지 못했다. 텍스트는
-     tint와 **반대 방향으로 한 단계 더** 밀어야 한다(라이트는 더 어둡게). */
   --destructive-on-tint: var(--palette-red-700);
   --border: var(--palette-gray-200);
   --input: var(--palette-gray-200);
@@ -280,16 +208,10 @@
   --sidebar-border: var(--palette-gray-200);
   --sidebar-ring: var(--palette-navy-400);
 
-  /* 사이드바 현재 위치 — 강조색(남색)을 유지하되 색 하나에만 기대지 않는다.
-     소비하는 쪽(app-sidebar.tsx)이 배경 + 굵기 + 왼쪽 막대 셋을 함께 건다. */
   --sidebar-current: var(--palette-navy-50);
   --sidebar-current-foreground: var(--palette-navy-900);
   --sidebar-current-marker: var(--palette-navy-900);
 
-  /* ── 시안 v2 치수 semantic ─────────────────────────────────────────────
-     "네모의 규격"에 이름을 준다. 여기 값만 바꾸면 셸·버튼·입력·목록이 함께 움직인다.
-     조작 가능한 사각형은 전부 같은 높이(--control-height)이고, 상태 배지만
-     예외(--tag-height)다 — 누르는 것이 아니라 읽는 라벨이기 때문이다. */
   --control-height: var(--measure-44);
   --tag-height: var(--measure-26);
   --row-height: var(--measure-76);
@@ -300,26 +222,20 @@
   --topbar-height: var(--measure-64);
   --sidebar-open-width: var(--measure-248);
   --sidebar-collapsed-width: var(--measure-72);
-  /* 사이드바 폭 트랜지션 (F5) — 펼침 200ms ease-out / 접힘 140ms ease-in */
   --sidebar-expand-duration: 200ms;
   --sidebar-collapse-duration: 140ms;
 
-  /* 상태 그룹 — StatusBadge(B-6)가 참조할 이름. 값은 브랜드 팔레트 재사용.
-     recruiting은 navy(브랜드 주조색) 계열로 분리해 approved(green)와 구분한다 —
-     모집중은 "지금 열려 있으니 행동하라"는 능동 상태라 success(승인)와 다른 의미다.
-     예전에는 둘 다 green-50/green-700이라 동일 색으로 렌더링되는 결함이 있었다. */
-  --status-recruiting-bg: var(--palette-navy-50); /* 모집중 */
+  --status-recruiting-bg: var(--palette-navy-50);
   --status-recruiting-fg: var(--palette-navy-700);
-  --status-closed-bg: var(--palette-gray-100); /* 마감 */
+  --status-closed-bg: var(--palette-gray-100);
   --status-closed-fg: var(--palette-gray-600);
-  --status-pending-bg: var(--palette-amber-50); /* 대기 */
+  --status-pending-bg: var(--palette-amber-50);
   --status-pending-fg: var(--palette-amber-800);
-  --status-approved-bg: var(--palette-green-50); /* 승인 */
+  --status-approved-bg: var(--palette-green-50);
   --status-approved-fg: var(--palette-green-700);
-  --status-rejected-bg: var(--palette-red-50); /* 반려 */
+  --status-rejected-bg: var(--palette-red-50);
   --status-rejected-fg: var(--palette-red-700);
 
-  /* 반전 표면 — 랜딩 히어로/클로징 CTA가 소비한다. docs/design-tokens/tokens.json 참고 */
   --hero-from: var(--palette-navy-950);
   --hero-via: var(--palette-navy-900);
   --hero-to: var(--palette-navy-800);
@@ -328,10 +244,6 @@
   --hero-border: color-mix(in oklch, var(--palette-white) 10%, transparent);
   --hero-danger: var(--palette-red-100);
 
-  /* 시네마틱 랜딩 — 기존 primitive만 조합하는 의미 토큰
-     ⚠ `--cosmos-void` 는 canvas 하늘 맨 위 색(cosmos-theme.ts 의 sky[0])과
-     같아야 한다. 다르면 canvas 가 첫 프레임을 그리기 전에 배경색이 튄다.
-     ramp 사이에 없는 값이라 여기서 직접 적는다(#627). */
   --cosmos-void: #00133a;
   --cosmos-near: #063a8f;
   --cosmos-copy: var(--palette-white);
@@ -340,20 +252,12 @@
   --cosmos-repository: var(--palette-green-300);
   --cosmos-edge: var(--palette-navy-300);
   --cosmos-border: color-mix(in oklch, var(--palette-white) 12%, transparent);
-  /* 어두운 우주 바탕 위 경고 글자(#517). `--destructive`는 반전 스코프에서
-     `--hero-danger`(red-100)로 덮여 있어 여기서는 쓸 수 없다 — 이 계열은
-     검정 바탕에서 8.2:1로 AA를 넘는다. */
   --cosmos-danger: var(--palette-red-300);
-  /* 글자가 읽히도록 canvas 를 덮는 막. 검정으로 두면 하늘을 남색으로 바꿔도
-     그 위가 검정에 눌려 아무 차이가 안 보인다 — 하늘의 가장 어두운 색을
-     그대로 쓴다(#627).
-     막은 정지점마다 투명도가 달라 채널만 토큰으로 내보낸다. */
-  --cosmos-scrim-rgb: 0 19 58; /* = --cosmos-void */
+  --cosmos-scrim-rgb: 0 19 58;
   --cosmos-scrim-strong: rgb(var(--cosmos-scrim-rgb) / 95%);
   --cosmos-scrim-soft: rgb(var(--cosmos-scrim-rgb) / 48%);
 }
 
-/* 사이드바 폭 트랜지션 — reduced motion 사용자는 즉시 전환 (F5) */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --sidebar-expand-duration: 0ms;
@@ -377,7 +281,6 @@
   --accent: var(--palette-green-400);
   --accent-foreground: var(--palette-green-900);
   --destructive: var(--palette-red-300);
-  /* 어두운 표면에서는 반대로 더 밝게 밀어야 tint 위에서 대비가 확보된다. */
   --destructive-on-tint: var(--palette-red-50);
   --border: color-mix(in oklch, var(--palette-white) 12%, transparent);
   --input: color-mix(in oklch, var(--palette-white) 16%, transparent);
@@ -396,8 +299,6 @@
   --sidebar-border: color-mix(in oklch, var(--palette-white) 12%, transparent);
   --sidebar-ring: var(--palette-navy-300);
 
-  /* 어두운 표면에서는 밝은 남색을 전경으로 올린다(라이트의 반전). 치수 토큰은
-     테마와 무관하므로 :root에만 둔다 — 여기서 다시 선언할 것이 없다. */
   --sidebar-current: var(--palette-navy-800);
   --sidebar-current-foreground: var(--palette-navy-100);
   --sidebar-current-marker: var(--palette-navy-300);
@@ -413,7 +314,6 @@
   --status-rejected-bg: var(--palette-red-700);
   --status-rejected-fg: var(--palette-red-50);
 
-  /* 반전 표면 — 히어로는 본질적으로 어두운 표면이라 다크 모드에서도 반전하지 않는다 */
   --hero-from: var(--palette-navy-950);
   --hero-via: var(--palette-navy-900);
   --hero-to: var(--palette-navy-800);
@@ -423,20 +323,7 @@
   --hero-danger: var(--palette-red-100);
 }
 
-/* 반전 표면 — 이 스코프 안의 shadcn 컴포넌트는 어두운 배경 기준으로 다시 색칠된다.
-   `.dark`와 같은 메커니즘이다. theme-inline 블록이 --color-* 를 semantic var로 매핑하므로
-   하위 유틸리티가 스코프 안에서 다시 색칠된다.
-   붙이는 곳은 셋이다 — 우주 바탕 경로의 본문 전체(app/_shell/app-frame.tsx의 #main-content,
-   무대 밖에 그려지는 인증·온보딩 게이트 문구까지 덮는다, #1436), 가입 무대
-   (app/_shell/signup-stage.tsx), 동의 창 두 곳(consent-required-dialog.tsx의 안쪽 패널,
-   consent-policy-dialog.tsx). 처음에는 랜딩 히어로 위 ShellNav 전용이었으나 #933부터
-   ShellNav는 쓰지 않는다. */
 [data-surface='inverted'] {
-  /* 색을 스스로 선언하지 않는 자손(예: Button ghost 변형의 기본 상태)은 `color`를 상속한다.
-     상속은 조상에서 이미 계산이 끝난 값을 물려받는 것이라, 여기서 --foreground를 재정의해도
-     상속원인 body { color: var(--foreground) }의 계산값(어두운 색)은 바뀌지 않는다.
-     body가 하는 일을 표면 경계에서 한 번 더 선언해 상속원 자체를 이 스코프의 --foreground로
-     바꿔야 자손이 실제로 반전된 색을 물려받는다. */
   color: var(--foreground);
   --background: transparent;
   --foreground: var(--hero-foreground);
@@ -445,42 +332,13 @@
   --accent: color-mix(in oklch, var(--palette-white) 8%, transparent);
   --accent-foreground: var(--hero-foreground);
   --border: var(--hero-border);
-  /* 카드·알림 표면. 덮지 않으면 :root의 흰 판이 우주 바탕 위에 그대로 떠, 아래
-     --destructive(red-100) 글자가 흰 판 위 1.53:1로 무너진다(가입 화면의 오류 Alert 네 곳).
-     --muted와 같은 흰 8% 유리 — 무대 광원 한가운데서도 hero-danger 7.88:1, 90% 설명문 6.71:1.
-     --popover·--primary는 일부러 덮지 않는다: 학과 select의 열린 목록(QA34)과 흰 주 버튼의
-     남색 글자(QA43)가 :root 값에 기댄다. */
   --card: color-mix(in oklch, var(--palette-white) 8%, transparent);
   --card-foreground: var(--hero-foreground);
-  /* 초점 표시(#281의 1안). :root의 navy-400은 흰 판 기준 값이라, 이 무대에서는 후광
-     (ring-ring/50)이 1.87:1이고 위 --card 유리 안의 버튼(오류 Alert의 「다시 시도」)은
-     불투명 테두리마저 2.53:1로 WCAG 1.4.11(3:1)에 못 미친다. 같은 무대의 역할 카드와
-     동의 체크박스가 이미 흰 링(cosmos-copy)을 쓰므로 스코프 전체를 흰색으로 맞춘다.
-     --ring을 조정하는 작업은 이 무대도 함께 재야 한다. */
   --ring: var(--hero-foreground);
-  /* 오류 텍스트도 이 표면 기준으로 바꿔야 한다. 덮지 않으면 가입 무대의 오류 Alert가
-     :root의 `--palette-red-600`을 물려받아 위 --card 유리 위에서 약 2.0–2.5:1로 AA(4.5:1)에
-     못 미친다. 이 줄을 처음 넣을 때(#275 리뷰, 당시 :root는 red-500으로 약 3.26:1)에는 이
-     스코프가 ShellNav에 붙어 있어(#933 이전) nav의 로그아웃 실패 `role="alert"`가 그 자리였다.
-     `--hero-danger`는 #275가 정확히 이 목적으로 도입해 히어로 그라디언트 전 구간
-     9.65–12.6:1로 검증한 토큰이다. */
   --destructive: var(--hero-danger);
   --destructive-on-tint: var(--hero-danger);
 }
 
-/* 반전 표면 안에 중첩된 밝은 패널(계정 메뉴 등)을 되돌리는 리셋 — :root(53-68행 근방)와
-   같은 primitive만 참조한다. 리터럴 hex는 새로 쓰지 않는다.
-   불변식: 이 블록은 위 반전 스코프가 덮는 var 집합과 **정확히 같은 집합**을 되돌린다.
-   하나라도 빠지면 그 var에 의존하는 패널 내부 요소가 어두운 표면용 값을 밝은 배경에
-   그대로 쓰게 된다(예: --destructive가 빠지면 흰 배경에 연한 로즈색 오류 텍스트).
-   셀렉터를 `[data-surface='inverted'] [data-surface='default']`로 좁힌 이유(명시도 0-2-0):
-   `[data-surface='default']` 단독(명시도 0-1-0)은 `.dark`(역시 0-1-0, 이 블록보다 앞)와
-   소스 순서로만 이겨서 다크 모드에서도 항상 적용되어 버린다 — 계정 메뉴는 히어로 위에서만
-   쓰는 게 아니라 항상 이 attribute를 가지므로 그건 다크 모드 회귀다. 조상에 반전 스코프를
-   요구하는 이 형태는 명시도로 확실히 이기고, 반전 스코프 밖(다크 모드 포함)에서는 아예
-   매치되지 않으므로 다크 모드는 애초에 영향받지 않는다.
-   `color: var(--foreground)`도 선언해야 한다 — 그러지 않으면 위와 같은 이유로 패널 안의
-   ghost 버튼·평문이 흰색을 계속 상속한다. */
 [data-surface='inverted'] [data-surface='default'] {
   color: var(--foreground);
   --background: var(--palette-white);

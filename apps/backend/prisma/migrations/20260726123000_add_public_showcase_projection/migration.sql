@@ -1,4 +1,3 @@
--- Public-safe allowlist projection for #126/#134. Public queries must not join private source tables.
 CREATE TABLE "PublicShowcaseRepository" (
     "repositoryId" TEXT NOT NULL,
     "githubRepositoryId" BIGINT NOT NULL,

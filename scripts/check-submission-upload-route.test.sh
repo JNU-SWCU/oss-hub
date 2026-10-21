@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# check-submission-upload-route.sh 합성 fixture 회귀 테스트.
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 checker="$repo_root/scripts/check-submission-upload-route.sh"
 source_config="$repo_root/deploy/nginx/nginx.conf"

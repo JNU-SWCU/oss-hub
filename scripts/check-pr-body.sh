@@ -1,25 +1,8 @@
 #!/usr/bin/env bash
-# PR 본문이 SPEC(`.github/pull_request_template.md`)의 절 순서·제목·예외 문구 계약을 지키는지
-# 기계적으로 검사한다.
-#
-# 리뷰어가 매번 같은 것("화면 캡처 어딨나", "다이어그램 없네")을 요청하게 만드는 절 누락은
-# 사람이 눈으로 잡기엔 반복 비용이 크다. 이 검사는 그 반복을 파일 검사와
-# `gh pr create`/`gh pr edit` 훅 양쪽에서 fail-closed로 대신 막는다.
-#
-# 사용:
-#   scripts/check-pr-body.sh <본문 파일>   # 파일 검사. 통과 0 / 위반 1 / 사용 오류 2
-#   scripts/check-pr-body.sh --hook        # stdin으로 Claude Code PreToolUse JSON을 받아
-#                                           # gh pr create / gh pr edit 를 가로챈다
 set -euo pipefail
 
-# macOS 기본 /usr/bin/awk(one true awk)는 UTF-8 로케일에서 문자열 `==` 비교에 locale
-# collation을 타 바이트 길이가 같은 서로 다른 한글 문자열(예: "## 검증" vs "## 정리")을
-# 같다고 판정하는 결함이 있다 — 이 스크립트의 모든 절 경계·판정값 비교가 그 비교에
-# 의존하므로, 상속받은 로케일과 무관하게 바이트 단위 비교가 되도록 C로 고정한다.
 export LC_ALL=C
 
-# 절 제목(H2) — 이 순서로, 이 문자열과 글자 단위로 같아야 한다.
-# 첫 줄(Closes/Refs/티켓 없음)은 R2가 따로 검사하므로 여기 포함하지 않는다.
 HEADINGS=(
   "무엇이 좋아지나"
   "바로 확인"
@@ -34,7 +17,6 @@ HEADINGS=(
 
 violations=()
 
-# "## <제목>" 절 본문(다음 "## " 줄 또는 파일 끝까지)을 추출한다.
 section_body() {
   local file=$1 heading=$2
   awk -v target="## $heading" '
@@ -44,21 +26,11 @@ section_body() {
   ' "$file"
 }
 
-# 절 본문에 이유가 비어 있지 않은 예외 문구(줄 시작)가 있는지 검사한다.
-# 실제로 증거가 적용되지 않는지는 리뷰가 판단하며, 수집 실패는 예외가 아니다.
 has_exemption() {
   local body=$1 prefix=$2
   grep -qE "^${prefix}.*[^[:space:]]" <<<"$body"
 }
 
-# `.github/pull_request_template.md`의 안내용 HTML 주석(단일·여러 줄)을 전부 지운다.
-#
-# GitHub 웹 UI에서 PR을 열 때 템플릿의 안내 주석을 지우지 않고 그 밑에 내용만 채우는 경우가
-# 흔하다. 그 주석을 실제 본문과 같은 텍스트로 보면 "검증 절이 비어 있지 않다"거나 "예외
-# 문구가 없다" 같은 판정이 주석 안의 예시 문구·설명 때문에 잘못 나온다. 그래서 R8·R9를
-# 제외한 모든 규칙은 주석을 지운 사본에 대해서만 판정한다 — R8(로컬 경로 금지)과 R9
-# (자리표시자 금지)는 반대로 주석 자체가 검사 대상(예: 주석에 남은 로컬 캡처 경로,
-# `<!-- 첨부 대기`)이므로 원본을 그대로 쓴다.
 strip_html_comments() {
   local file=$1
   awk '
@@ -91,7 +63,6 @@ strip_html_comments() {
   ' "$file"
 }
 
-# ---- R1: 절 제목 9개(H2)가 순서대로 전부 있다(첫 줄까지 세면 열 개) ------------
 check_headings() {
   local file=$1
   local missing=() lines=() h line_no prev order_ok
@@ -125,7 +96,6 @@ check_headings() {
   fi
 }
 
-# ---- R2: 첫 비어 있지 않은 줄 -------------------------------------------------
 check_first_line() {
   local file=$1 first_line
   first_line=$(awk '/[^[:space:]]/ { sub(/^[ \t]+/, ""); print; exit }' "$file")
@@ -139,7 +109,6 @@ check_first_line() {
   violations+=("R2 첫 줄이 'Closes #<번호>', 'Refs #<번호>' 또는 '티켓 없음 — <이유>' 형식이 아니다: ${first_line:-(비어 있음)}")
 }
 
-# ---- R3: 바로 확인 ------------------------------------------------------------
 check_quick_check() {
   local file=$1 body
   body=$(section_body "$file" "바로 확인")
@@ -152,7 +121,6 @@ check_quick_check() {
   violations+=("R3 '바로 확인' 절에 확인 링크(https://jnu-oss-hub.com/)나 예외 문구가 없다")
 }
 
-# ---- R4: Before / After --------------------------------------------------------
 check_before_after() {
   local file=$1 body rendered image_count
   body=$(section_body "$file" "Before / After")
@@ -186,8 +154,6 @@ check_before_after() {
   violations+=("R4 'Before / After' 절에 이미지도 예외 문구도 없다")
 }
 
-# ---- R11: '이 흐름이 자연스러운가'·'내가 고친 UX 문제' 절이 비어 있지 않다 -------------
-# 두 절 다 적용되지 않는 이유가 있는 "화면 없음 — <이유>"를 유효한 답으로 친다.
 check_ux_narrative_sections() {
   local file=$1 heading body
   for heading in "이 흐름이 자연스러운가" "내가 고친 UX 문제"; do
@@ -200,11 +166,6 @@ check_ux_narrative_sections() {
   done
 }
 
-# ---- R5: UX 안티패턴 점검 -------------------------------------------------------
-# AP-1..AP-24 행이 절 안에 있는지 본다. 넷(AP-1·AP-4·AP-7·AP-8)은 세면 끝나고
-# 나머지 열아홉은 사람이 판정한다. 행은 <details> 안이어도 된다 — <details>는
-# HTML 주석이 아니라서 strip_html_comments가 지우지 않고, section_body는 다음
-# H2까지를 그대로 넘긴다. <summary>와 표 사이 빈 줄도 요구하지 않는다.
 check_ux_antipatterns() {
   local file=$1 body n missing=() no_evidence
   body=$(section_body "$file" "UX 안티패턴 점검")
@@ -244,7 +205,6 @@ check_ux_antipatterns() {
   fi
 }
 
-# ---- R6: 흐름 다이어그램 --------------------------------------------------------
 check_flow_diagram() {
   local file=$1 body
   body=$(section_body "$file" "흐름 다이어그램")
@@ -257,7 +217,6 @@ check_flow_diagram() {
   violations+=("R6 '흐름 다이어그램' 절에 mermaid/dot 코드 블록도 예외 문구도 없다")
 }
 
-# ---- R7: 검증 -------------------------------------------------------------------
 check_verification() {
   local file=$1 body
   body=$(section_body "$file" "검증")
@@ -266,12 +225,9 @@ check_verification() {
   fi
 }
 
-# ---- R8: 로컬 경로 금지 · 이미지는 https:// -------------------------------------
 check_paths_and_images() {
   local file=$1 hits src url img
 
-  # `-n`(줄번호 접두) + `cut -d: -f2`는 매치 자체에 `:`가 들어있는 `file://`를 "file"로
-  # 잘라버렸다 — 줄번호 없이 매치 텍스트만 그대로 뽑는다.
   hits=$(grep -oE 'file://|/Users/|/home/|/tmp/|/private/' "$file" | sort -u | tr '\n' ' ' || true)
   if [[ -n "${hits// /}" ]]; then
     violations+=("R8 본문에 로컬/파일 경로가 있다: ${hits% }")
@@ -281,7 +237,7 @@ check_paths_and_images() {
     [[ -z "$src" ]] && continue
     url=${src#src=\"}
     url=${url%\"}
-    [[ -z "$url" ]] && continue # 빈 src는 R9가 자리표시자로 잡는다
+    [[ -z "$url" ]] && continue
     if [[ "$url" != https://* ]]; then
       violations+=("R8 이미지 src가 https:// 로 시작하지 않는다: $url")
     fi
@@ -290,36 +246,28 @@ check_paths_and_images() {
   while IFS= read -r img; do
     [[ -z "$img" ]] && continue
     url=$(sed -E 's/.*\(([^)]*)\)/\1/' <<<"$img")
-    [[ -z "$url" ]] && continue # 빈 괄호는 R9가 자리표시자로 잡는다
+    [[ -z "$url" ]] && continue
     if [[ "$url" != https://* ]]; then
       violations+=("R8 마크다운 이미지 링크가 https:// 로 시작하지 않는다: $url")
     fi
   done < <(grep -oE '!\[[^]]*\]\([^)]*\)' "$file")
 }
 
-# ---- R9: 자리표시자 금지 ---------------------------------------------------------
 check_placeholders() {
   local file=$1
   grep -qF '<!-- 첨부 대기' "$file" && violations+=("R9 자리표시자가 남아있다: <!-- 첨부 대기")
-  # `TODO:` 또는 줄이 (선행 `- ` 포함) TODO 하나뿐인 경우만 잡는다 — 「남은 TODO 정리는
-  # 별도 이슈로」 같은 산문 속 TODO는 자리표시자가 아니므로 잡지 않는다.
   grep -qE 'TODO:|^[[:space:]]*(-[[:space:]]*)?TODO([[:space:]]|$)' "$file" \
     && violations+=("R9 자리표시자가 남아있다: TODO")
-  # `<img>`는 다른 속성(width·alt 등)이 src보다 먼저 올 수 있으므로 태그 어디든 src=""면 잡는다.
   grep -qE '<img[^>]*src=""' "$file" && violations+=("R9 자리표시자가 남아있다: <img src=\"\">")
-  # 마크다운 이미지는 alt 텍스트가 있어도 괄호(공백만 포함)가 비어 있으면 자리표시자다.
   grep -qE '!\[[^]]*\]\([[:space:]]*\)' "$file" && violations+=("R9 자리표시자가 남아있다: ![]()")
   return 0
 }
 
-# ---- R10: 정리 체크박스 넷 전부 [x] ----------------------------------------------
 check_summary_checklist() {
   local file=$1 body count line
   body=$(section_body "$file" "정리")
   count=$(grep -cE '^- \[[ xX]\]' <<<"$body" || true)
 
-  # 넷 미만이면 필수 체크박스가 빠진 것이지만, 넷을 넘는 것은(프로젝트별 추가 항목)
-  # 허용한다 — 아래 all-checked 루프가 초과분까지 포함해 전부 체크됐는지 계속 검사한다.
   if [[ "$count" -lt 4 ]]; then
     violations+=("R10 '정리' 절 체크박스가 4개가 아니다: ${count}개")
     return
@@ -333,10 +281,6 @@ check_summary_checklist() {
   done < <(grep -E '^- \[[ xX]\]' <<<"$body")
 }
 
-# ---- R12: '정리' 절의 디자인 규격 줄 ----------------------------------------------
-# 디자인 시스템 정착(#1309). 이번 PR이 쓴 공용 컴포넌트·토큰과 그 규격 출처(공용 컴포넌트 경로,
-# docs/design-tokens/tokens.json 또는 Figma 컴포넌트 링크)를 적거나, 화면 변경이 없으면 이유가 비어
-# 있지 않은 `화면 변경 없음 — <이유>`를 쓴다. 템플릿의 `<…>` 자리표시자가 남으면 위반이다.
 check_design_spec() {
   local file=$1 body line value
   body=$(section_body "$file" "정리")
@@ -356,7 +300,6 @@ check_design_spec() {
   fi
 }
 
-# ---- 파일 전체 검사 --------------------------------------------------------------
 check_file() {
   local file=$1
   violations=()
@@ -374,8 +317,8 @@ check_file() {
   check_ux_antipatterns "$stripped"
   check_flow_diagram "$stripped"
   check_verification "$stripped"
-  check_paths_and_images "$file" # R8도 주석 속 로컬 경로를 잡아야 하므로 원본을 쓴다
-  check_placeholders "$file" # R9는 주석 자체가 위반 대상이므로 원본을 쓴다
+  check_paths_and_images "$file"
+  check_placeholders "$file"
   check_summary_checklist "$stripped"
   check_design_spec "$stripped"
 
@@ -392,16 +335,12 @@ check_file() {
   return 1
 }
 
-# ---- --hook: gh pr create / gh pr edit 를 가로챈다 -------------------------------
 
 hook_reject() {
   echo "pr-body: $1" >&2
   exit 2
 }
 
-# 명령 문자열에서 플래그 토큰(공백/시작 경계, 공백·`=`·쉘 구분자·끝 경계)이 있는지 검사한다.
-# 닫는 경계에 `;&|)`도 포함해 `(gh pr create --fill)`, `gh pr create --fill;` 처럼
-# 공백 없이 쉘 메타문자가 바로 붙는 경우도 놓치지 않는다.
 has_token() {
   local cmd=$1 flag=$2
   grep -qE "(^|[[:space:]])${flag}([[:space:]=;&|)]|\$)" <<<"$cmd"
@@ -415,21 +354,13 @@ run_hook() {
     exit 0
   fi
 
-  # 입력에 'gh'가 아예 없으면 node를 띄우지 않고 즉시 통과시킨다 — Bash 호출마다 매번
-  # node 프로세스 두 개(tool_name, command)를 띄우던 비용을 없앤다.
   grep -qF 'gh' <<<"$input" || exit 0
 
-  # node가 없으면 이 훅은 아무 검사도 할 수 없다 — 조용히 통과(exit 0)시키면 실제로는
-  # fail-open이 되므로, gh가 언급된 입력은 대신 fail-closed로 막는다(Node ≥24는 저장소
-  # 필수 도구이므로 정상 환경에서는 발생하지 않는다).
   if ! command -v node >/dev/null 2>&1; then
     echo "pr-body: node를 찾을 수 없다 — PR 본문 검사를 할 수 없어 fail-closed로 막는다(Node ≥24는 저장소 필수 도구다)" >&2
     exit 2
   fi
 
-  # tool_name과 command를 한 번의 node 프로세스에서 NUL로 구분해 함께 뽑는다(이전에는
-  # node를 두 번 띄웠다). 명령 문자열에 개행이 섞여 있을 수 있으므로(예: 여러 줄
-  # heredoc) 줄바꿈이 아니라 NUL로 분리해서 읽는다.
   local -a fields
   mapfile -d '' -t fields < <(printf '%s' "$input" | node -e '
 let d = "";
@@ -462,16 +393,11 @@ process.stdin.on("end", () => {
     exit 0
   fi
 
-  # gh pr create / gh pr edit 언급이 없으면 관여하지 않는다. 과잉 매칭보다 과소 매칭이 낫다.
-  # `gh`는 명령 시작이거나 쉘 구분자(`;&|(`) 뒤(공백 0개 이상)에 와야 한다 — 그냥 공백만으로는
-  # 매칭하지 않아 `git commit -m "fix: gh pr create flow"`처럼 인용 문자열 속 언급은 피한다.
   match=$(grep -oE '(^|[;&|(])[[:space:]]*gh[[:space:]]+pr[[:space:]]+(create|edit)([[:space:]]|$)' <<<"$command" | head -n1) || true
   if [[ -z "$match" ]]; then
     exit 0
   fi
 
-  # --help 는 관여하지 않는다. `-h`는 다른 명령의 무관한 플래그(예: `du -h`)와 겹치므로
-  # 더 이상 별도 인지하지 않는다.
   if has_token "$command" '--help'; then
     exit 0
   fi
@@ -482,7 +408,6 @@ process.stdin.on("end", () => {
     action=create
   fi
 
-  # gh pr edit 는 본문을 바꾸는 플래그가 있을 때만 관여한다.
   if [[ "$action" == "edit" ]]; then
     if ! has_token "$command" '(--body-file|-F|--body|-b)'; then
       exit 0
@@ -497,10 +422,6 @@ process.stdin.on("end", () => {
     hook_reject "PR 본문은 파일로 만들어 --body-file 로 넘긴다 — submit-pr-evidence 절차를 먼저 수행하라(skills/submit-pr-evidence/SKILL.md)"
   fi
 
-  # 값이 따옴표로 감싸인 경우(공백이 든 경로)와 `--body-file=`/`-F` 형태를 모두 받는다.
-  # `set -euo pipefail` 아래에서 매칭이 없으면 grep이 1로 종료해 스크립트가 메시지 없이
-  # 죽었던 버그가 있었다 — `|| true`로 파이프라인을 항상 성공시키고, 그 결과 body_file이
-  # 비면 아래 분기가 hook_reject로 넘어가 exit 2와 메시지를 함께 낸다.
   body_file=$(grep -oE -- '(--body-file|-F)[[:space:]=]+("[^"]*"|'\''[^'\'']*'\''|[^[:space:]]+)' <<<"$command" \
     | head -n1 \
     | sed -E 's/^(--body-file|-F)[[:space:]=]+//; s/^"(.*)"$/\1/; s/^'\''(.*)'\''$/\1/') || true

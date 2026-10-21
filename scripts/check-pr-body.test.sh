@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# check-pr-body.sh 계약 픽스처. 합성 PR 본문만 사용한다.
 set -euo pipefail
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -48,7 +47,6 @@ expect_exit() {
   fi
 }
 
-# ---- 완전한 본문(통과) ---------------------------------------------------------
 cat >"$fixture_dir/full-pass.md" <<'EOF'
 Closes #1234
 
@@ -141,7 +139,6 @@ flowchart LR
 - [x] submit-pr-evidence 절차를 수행했다
 EOF
 
-# ---- 화면 없는 변경의 예외 문구 본문(통과) --------------------------------------
 cat >"$fixture_dir/exemption-pass.md" <<'EOF'
 티켓 없음 — 문서 오타
 
@@ -189,15 +186,11 @@ UX 안티패턴 해당 없음 — docs만 바뀜
 - [x] submit-pr-evidence 절차를 수행했다
 EOF
 
-# ---- 실패 픽스처: 완전한 본문에서 하나씩 어긋낸다 --------------------------------
 
-# 절 하나 빠짐 — '## 검증' 절 자체를 지운다
 awk '/^## 검증$/{skip=1; next} /^## 정리$/{skip=0} skip{next} {print}' "$fixture_dir/full-pass.md" >"$fixture_dir/missing-section.md"
 
-# Closes 줄 없음
 sed '1s/.*/그냥 시작/' "$fixture_dir/full-pass.md" >"$fixture_dir/no-closes.md"
 
-# Before/After에 이미지 없고 예외 문구도 없음
 awk '
   /^## Before \/ After$/ { print; print ""; skip=1; next }
   /^## 이 흐름이 자연스러운가$/ { skip=0 }
@@ -205,7 +198,6 @@ awk '
   { print }
 ' "$fixture_dir/full-pass.md" >"$fixture_dir/before-after-empty.md"
 
-# 이미지 있는데 요소 행 없음
 awk '
   /^## Before \/ After$/ {
     print;
@@ -218,13 +210,10 @@ awk '
   { print }
 ' "$fixture_dir/full-pass.md" >"$fixture_dir/image-no-header.md"
 
-# AP 행 22개 — AP-21 행을 지운다
 grep -v '^| AP-21 ' "$fixture_dir/full-pass.md" >"$fixture_dir/ap-missing-21.md"
 
-# 옛 스무 줄 본문 — AP-21·AP-22·AP-23이 없다(AP-24는 남아 세 줄만 보고되는지 본다)
 grep -vE '^\| AP-2[123] ' "$fixture_dir/full-pass.md" >"$fixture_dir/ap-20-rows.md"
 
-# 스물네 줄이 <details> 안에 있고 summary와 표 사이에 빈 줄이 없다
 awk '
   /^## UX 안티패턴 점검$/ { print; print ""; print "<details><summary>스물네 줄 판정 표</summary>"; skip_blank=1; next }
   skip_blank && /^$/ { next }
@@ -232,35 +221,25 @@ awk '
   { print }
 ' "$fixture_dir/full-pass.md" >"$fixture_dir/ap-details.md"
 
-# 근거 없이 '통과'만 적힌 AP 행
 sed 's/AP-16 닿지 않는 본문 | 위반 → 고침 | 배지 색을 상태값과 매핑했다/AP-16 닿지 않는 본문 | 통과 | /' \
   "$fixture_dir/full-pass.md" >"$fixture_dir/ap-no-evidence.md"
 
-# 로컬 경로 이미지
 sed 's#https://github.com/JNU-SWCU/oss-hub/releases/download/v0.0.0/1234-before-element-badge.png#/tmp/synthetic/badge-before.png#' \
   "$fixture_dir/full-pass.md" >"$fixture_dir/local-path-image.md"
 
-# 자리표시자
 sed 's/- 자연스럽다\./- TODO 다시 확인/' "$fixture_dir/full-pass.md" >"$fixture_dir/placeholder.md"
 
-# 체크박스 미체크
 sed 's/- \[x\] submit-pr-evidence 절차를 수행했다/- [ ] submit-pr-evidence 절차를 수행했다/' \
   "$fixture_dir/full-pass.md" >"$fixture_dir/checklist-unchecked.md"
 
-# 디자인 규격 줄 없음
 grep -v '^- 디자인 규격:' "$fixture_dir/full-pass.md" >"$fixture_dir/design-spec-missing.md"
 
-# 디자인 규격 줄에 템플릿 자리표시자가 남음
 sed 's/^- 디자인 규격: .*/- 디자인 규격: <쓴 공용 컴포넌트·토큰과 그 규격 출처 \/ 화면 변경 없음 — 이유>/' \
   "$fixture_dir/full-pass.md" >"$fixture_dir/design-spec-placeholder.md"
 
-# 디자인 규격의 '화면 변경 없음' 예외 이유가 비어 있음
 sed 's/^- 디자인 규격: .*/- 디자인 규격: 화면 변경 없음 — /' \
   "$fixture_dir/full-pass.md" >"$fixture_dir/design-spec-empty-reason.md"
 
-# ---- HTML 주석이 남은 본문(통과) ------------------------------------------------
-# 실제 .github/pull_request_template.md처럼 첫 줄이 주석이고, 절마다 여러 줄짜리
-# 안내 주석이 실제 내용과 함께 남아있는 본문 — 사람이 GitHub 웹 UI에서 PR을 열 때 흔한 모양이다.
 cat >"$fixture_dir/comments-left-in.md" <<'EOF'
 <!-- 이 형식의 원본은 skills/submit-pr-evidence/SKILL.md다 — PR을 열기 전에 그 스킬 절차를 먼저 수행한다. -->
 
@@ -375,7 +354,6 @@ flowchart LR
 - [x] submit-pr-evidence 절차를 수행했다
 EOF
 
-# ---- '검증' 절 본문이 HTML 주석뿐임(위반) ---------------------------------------
 cat >"$fixture_dir/verification-only-comment.md" <<'EOF'
 Closes #1234
 
@@ -423,11 +401,9 @@ UX 안티패턴 해당 없음 — x
 - [x] submit-pr-evidence 절차를 수행했다
 EOF
 
-# ---- `<!-- 첨부 대기 -->` 주석은 다른 주석과 달리 원본에서 계속 잡힌다(위반) --------
 sed 's/제출 상태 배지가 실제 상태를 반영한다\./제출 상태 배지가 실제 상태를 반영한다.\n\n<!-- 첨부 대기 -->/' \
   "$fixture_dir/comments-left-in.md" >"$fixture_dir/attachment-pending-comment.md"
 
-# ---- '바로 확인' 절 본문이 비어있음(예외 문구 없음) -----------------------------
 awk '
   /^## 바로 확인$/ { print; print ""; skip=1; next }
   /^## Before \/ After$/ { skip=0 }
@@ -435,7 +411,6 @@ awk '
   { print }
 ' "$fixture_dir/full-pass.md" >"$fixture_dir/quick-check-empty.md"
 
-# ---- '흐름 다이어그램' 절 본문이 비어있음(예외 문구 없음) -----------------------
 awk '
   /^## 흐름 다이어그램$/ { print; print ""; skip=1; next }
   /^## 검증$/ { skip=0 }
@@ -443,23 +418,18 @@ awk '
   { print }
 ' "$fixture_dir/full-pass.md" >"$fixture_dir/flow-diagram-empty.md"
 
-# ---- R9: src=""가 다른 속성 뒤에 와도(alt·width가 먼저) 자리표시자로 잡힌다 -------
 sed 's/- 제출 상태 배지가 실제 상태를 반영한다\./- 제출 상태 배지가 실제 상태를 반영한다.\n\n<img width="480" alt="아직" src="">/' \
   "$fixture_dir/full-pass.md" >"$fixture_dir/placeholder-img-src-empty.md"
 
-# ---- R9: 마크다운 이미지가 alt 텍스트는 있어도 괄호가 비면 자리표시자다 ----------
 sed 's/- 제출 상태 배지가 실제 상태를 반영한다\./- 제출 상태 배지가 실제 상태를 반영한다.\n\n![아직 없음]()/' \
   "$fixture_dir/full-pass.md" >"$fixture_dir/placeholder-md-image-empty.md"
 
-# ---- R5: 근거가 있어도 판정 칸이 '통과'뿐이면 위반이다 ---------------------------
 sed 's/AP-16 닿지 않는 본문 | 위반 → 고침 | 배지 색을 상태값과 매핑했다/AP-16 닿지 않는 본문 | 통과 | 봤음/' \
   "$fixture_dir/full-pass.md" >"$fixture_dir/ap-bare-pass-with-evidence.md"
 
-# ---- R8: HTML 주석 안에 남은 로컬 경로도 원본 스캔으로 잡힌다 -------------------
 sed '1s#.*#<!-- 캡처 원본: /tmp/synthetic/local-capture.png -->#' \
   "$fixture_dir/comments-left-in.md" >"$fixture_dir/local-path-in-comment.md"
 
-# ---- R11: '이 흐름이 자연스러운가' 절이 비어있음(예외 문구 없음) ----------------
 awk '
   /^## 이 흐름이 자연스러운가$/ { print; print ""; skip=1; next }
   /^## 내가 고친 UX 문제$/ { skip=0 }
@@ -467,10 +437,8 @@ awk '
   { print }
 ' "$fixture_dir/full-pass.md" >"$fixture_dir/ux-narrative-empty.md"
 
-# ---- R11: '화면 없음 — <이유>' 예외 문구는 유효한 내용으로 통과한다(통과) --------
 sed 's/- 자연스럽다\./화면 없음 — 문서만 바뀜/' "$fixture_dir/full-pass.md" >"$fixture_dir/ux-narrative-exempt.md"
 
-# ---- R10: 체크박스가 4개를 넘어도 전부 체크면 통과한다(통과) --------------------
 sed 's/- \[x\] submit-pr-evidence 절차를 수행했다/- [x] submit-pr-evidence 절차를 수행했다\n- [x] 추가로 확인한 항목/' \
   "$fixture_dir/full-pass.md" >"$fixture_dir/checklist-five-checked.md"
 
@@ -536,7 +504,6 @@ for prefix in \
   done
 done
 
-# ---- 비시각 브라우저 변경도 이미지와 근거를 요구한다 ----------------------------
 awk '
   /^\| 요소 \|/ {
     print "비시각 브라우저 변경 — 렌더링 변경 없이 API 라우팅만 바뀐다."
@@ -581,7 +548,6 @@ awk '
 ' "$fixture_dir/nonvisual-pass.md" >"$fixture_dir/nonvisual-code-only.md"
 expect_fail '코드 블록 속 표와 이미지는 렌더된 증거가 아니다' "$fixture_dir/nonvisual-code-only.md"
 
-# ---- --hook 모드 ----------------------------------------------------------------
 hook_input() {
   local command=$1
   node -e '
@@ -625,14 +591,12 @@ expect_hook_exit 'hook: gh pr create --fill; echo done 도 차단된다' 2 "gh p
 expect_hook_exit 'hook: du -h && gh pr create --fill 도 차단된다(du -h의 -h와 혼동하지 않는다)' 2 "du -h && gh pr create --fill"
 expect_hook_exit 'hook: 커밋 메시지 문자열 속 gh pr create 언급은 관여하지 않는다' 0 'git commit -m "gh pr create"'
 
-# ---- 공백이 든 --body-file 경로(따옴표로 감쌈) -----------------------------------
 space_dir="$fixture_dir/dir with space"
 mkdir -p "$space_dir"
 cp "$fixture_dir/full-pass.md" "$space_dir/full-pass.md"
 expect_hook_exit 'hook: 공백이 든 --body-file 경로도 따옴표로 감싸면 처리한다' 0 \
   "gh pr create --title x --body-file \"$space_dir/full-pass.md\""
 
-# ---- JSON이 깨져도(파서 버그 대비) fail-open으로 통과시키고 stderr에 남긴다 -------
 malformed_exit=0
 malformed_stderr=$(printf '%s' '{"tool_name":"Bash","tool_input":{"command":"gh pr create' \
   | bash "$checker" --hook 2>&1 >/dev/null) || malformed_exit=$?
@@ -644,7 +608,6 @@ else
   failed=$((failed + 1))
 fi
 
-# ---- node가 PATH에 없을 때: gh 언급이 있으면 fail-closed, 없으면 그대로 통과 ------
 restricted_path="/usr/bin:/bin"
 
 no_node_gh_exit=0
@@ -669,7 +632,6 @@ else
   failed=$((failed + 1))
 fi
 
-# tool_name이 Bash가 아닌 경우는 hook_input 헬퍼가 항상 Bash를 넣으므로 JSON을 직접 구성한다.
 not_bash_result=0
 printf '%s' '{"tool_name":"Write","tool_input":{"command":"gh pr create --fill"}}' \
   | bash "$checker" --hook >/dev/null 2>&1 || not_bash_result=$?

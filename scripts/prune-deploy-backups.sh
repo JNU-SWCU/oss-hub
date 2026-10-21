@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# prune-deploy-backups.sh — success-only deploy DB backup retention.
-# Keep the newest N production-named backups under an explicit directory.
-# Intended call site: Jenkins success path after smoke (not before).
 set -euo pipefail
 
 usage() {
@@ -14,16 +11,10 @@ fail_closed() {
   exit 1
 }
 
-# Exact production backup naming contract:
-#   ${RELEASE_TAG}-${BUILD_NUMBER}.sql
-#   RELEASE_TAG = vMAJOR.MINOR.PATCH (full SemVer, no leading zeros in numeric parts)
-#   BUILD_NUMBER = positive integer
-# Accepted basenames exclude tabs/newlines (and slashes), so mtime+basename TSV is delimiter-safe.
 BACKUP_NAME_RE='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-[1-9][0-9]*\.sql$'
 
 file_mtime_epoch() {
   local path=$1
-  # BSD stat (macOS) then GNU stat (Linux Jenkins agent).
   if stat -f '%m' "$path" >/dev/null 2>&1; then
     stat -f '%m' "$path"
   elif stat -c '%Y' "$path" >/dev/null 2>&1; then
@@ -85,8 +76,6 @@ prune_object_backups() {
 }
 
 
-# Count direct children of a given type without relying on find/sort producers.
-# type: "symlink" | "file"
 count_dir_entries() {
   local dir=$1
   local kind=$2
@@ -94,10 +83,7 @@ count_dir_entries() {
   local p
   local base
 
-  # Use find-free directory enumeration via bash glob; portable with nullglob/dotglob off.
-  # Only maxdepth-1 basenames; skip . and .. implicitly.
   for p in "$dir"/*; do
-    # When dir is empty, the literal glob may remain; treat as no match.
     if [[ "$p" == "$dir"/* && ! -e "$p" && ! -L "$p" ]]; then
       continue
     fi
@@ -120,11 +106,8 @@ count_dir_entries() {
   printf '%s\n' "$count"
 }
 
-# Read one NUL-terminated path from stdin.
-# Sets _read_path. Returns 0 on record, 1 on clean EOF, 2 on incomplete/error.
 read_nul_path() {
   _read_path=
-  # Capture read status via || so set -e does not abort on EOF (rc=1).
   local rc=0
   IFS= read -r -d '' _read_path || rc=$?
   if ((rc == 0)); then
@@ -132,18 +115,14 @@ read_nul_path() {
     return 0
   fi
   if [[ -n "$_read_path" ]]; then
-    # Partial record before EOF/error — not a clean delimiter boundary.
     return 2
   fi
-  # bash read: 1 == EOF. Anything else is a hard failure.
   if ((rc == 1)); then
     return 1
   fi
   return 2
 }
 
-# Read one TSV record (mtime<TAB>basename) from stdin.
-# Sets _read_mtime/_read_base. Same EOF/error contract as read_nul_path.
 read_tsv_record() {
   _read_mtime=
   _read_base=
@@ -152,7 +131,6 @@ read_tsv_record() {
   IFS= read -r line || rc=$?
   if ((rc == 0)); then
     [[ -n "$line" ]] || return 2
-    # Exactly one tab separating two non-empty fields; fields themselves must not contain tab.
     if [[ "$line" != *$'\t'* || "$line" == *$'\t'*$'\t'* ]]; then
       return 2
     fi
@@ -162,7 +140,6 @@ read_tsv_record() {
     return 0
   fi
   if [[ -n "$line" ]]; then
-    # bash read returns >0 for a final line without trailing newline; treat as incomplete.
     return 2
   fi
   if ((rc == 1)); then
@@ -198,11 +175,8 @@ if [[ ! -d "$backup_dir" ]]; then
   fail_closed "backup_dir is not a directory"
 fi
 
-# Canonical absolute path; -P resolves intermediates but dir itself is not a symlink.
 backup_dir=$(cd -- "$backup_dir" && pwd -P)
 
-# Materialize NUL inventories with checked producers. Process substitutions do not
-# propagate find's exit status, so a failed inventory must not become empty success.
 inventory_dir=$(mktemp -d "${TMPDIR:-/tmp}/prune-deploy-backups.inv.XXXXXX")
 cleanup_inventory() {
   rm -rf -- "$inventory_dir"
@@ -216,7 +190,6 @@ if ! find "$backup_dir" -maxdepth 1 -type l -print0 >"$symlink_inventory"; then
   fail_closed "symlink inventory producer failed"
 fi
 
-# Independent producer-side attestation before any consumer derivation.
 attest_nul_inventory() {
   local inv_path=$1
   local label=$2
@@ -242,7 +215,6 @@ attest_nul_inventory() {
     fi
   fi
 
-  # Count every NUL record independently of later filtered candidate derivation.
   while true; do
     path_item=
     rc=0
@@ -261,7 +233,6 @@ attest_nul_inventory() {
     fail_closed "${label} inventory read failed"
   done <"$inv_path"
 
-  # Empty inventory must have size 0; non-empty must end with NUL and match count.
   if ((count == 0)); then
     if ((size != 0)); then
       fail_closed "${label} inventory size/count mismatch (empty)"
@@ -294,7 +265,6 @@ symlink_readback="$inventory_dir/symlinks.readback.print0"
 : >"$symlink_readback"
 symlink_consumed=0
 
-# 계약 이름을 가진 symlink는 외부 파일 오인 가능성이 있으므로 전체 작업을 중단한다.
 while true; do
   rc=0
   read_nul_path <&3 || rc=$?
@@ -305,7 +275,6 @@ while true; do
     fail_closed "symlink inventory read failed or truncated"
   fi
   entry=$_read_path
-  # Serialize every consumed source record for independent readback attestation.
   printf '%s\0' "$entry" >>"$symlink_readback" \
     || fail_closed "symlink inventory readback write failed"
   symlink_consumed=$((symlink_consumed + 1))
@@ -329,8 +298,6 @@ if [[ "$symlink_readback_size" != "$symlink_expected_size" ]]; then
   fail_closed "symlink inventory readback size mismatch"
 fi
 
-# Collect matching regular files only. maxdepth 1: never traverse subdirs or outside.
-# -type f excludes symlinks (even when the target is a regular file).
 if ! find "$backup_dir" -maxdepth 1 -type f -print0 >"$file_inventory"; then
   fail_closed "file inventory producer failed"
 fi
@@ -367,7 +334,6 @@ while true; do
   file_consumed=$((file_consumed + 1))
   base=${entry##*/}
 
-  # Defense in depth: never operate on symlink entries.
   if [[ -L "$entry" ]]; then
     continue
   fi
@@ -376,11 +342,9 @@ while true; do
   fi
 
   if [[ ! "$base" =~ $BACKUP_NAME_RE ]]; then
-    # Unknown / non-contract names stay untouched (including separator-bearing names).
     continue
   fi
 
-  # Contract basename must be a single path segment with no record separators.
   if [[ "$base" == */* || "$base" == '.' || "$base" == '..' ]]; then
     fail_closed "contract basename is not a single path segment"
   fi
@@ -403,7 +367,6 @@ while true; do
     fail_closed "invalid mtime for candidate"
   fi
 
-  # Serialize mtime + basename only; reconstruct under canonical backup_dir after sort.
   candidates+=("${mtime}"$'\t'"${base}")
 done 3<"$file_inventory"
 
@@ -427,7 +390,6 @@ fi
 
 candidate_count=${#candidates[@]}
 
-# Build an independent source multiset for membership/uniqueness checks (no sort trust).
 source_keys=()
 source_counts=()
 source_key_index() {
@@ -450,8 +412,6 @@ for rec in "${candidates[@]}"; do
   fi
 done
 
-# Newest-first by mtime (numeric desc), then basename for deterministic ties.
-# Materialize sort output so a failed order producer cannot become empty success.
 sort_inventory="$inventory_dir/sorted.tsv"
 if ! printf '%s\n' "${candidates[@]}" | LC_ALL=C sort -t $'\t' -k1,1nr -k2,2 >"$sort_inventory"; then
   fail_closed "mtime order producer failed"
@@ -508,8 +468,6 @@ while true; do
     seen_counts+=(1)
   fi
 
-  # Adjacent ordering independent of the sort binary: numeric mtime desc,
-  # then LC_ALL=C basename ascending on ties.
   if ((have_prev)); then
     if ((10#$mtime > 10#$prev_mtime)); then
       fail_closed "sort inventory mtime not descending"
@@ -530,12 +488,10 @@ while true; do
   sorted_bases+=("$base")
 done 3<"$sort_inventory"
 
-# Fail closed before any deletion when the ordered inventory is incomplete or corrupted.
 if ((${#sorted_bases[@]} != candidate_count)); then
   fail_closed "sort inventory count mismatch"
 fi
 
-# Every source record must appear exactly its source multiplicity (no omit/duplicate).
 if ((${#seen_keys[@]} != ${#source_keys[@]})); then
   fail_closed "sort inventory unique-key coverage mismatch"
 fi
@@ -565,7 +521,6 @@ fi
 for ((i = retain_n; i < total; i++)); do
   base=${sorted_bases[i]}
 
-  # Reconstruct only under the already-canonical non-symlink backup_dir.
   stale="$backup_dir/$base"
 
   case "$stale" in
@@ -575,7 +530,6 @@ for ((i = retain_n; i < total; i++)); do
       ;;
   esac
 
-  # Re-check immediately before delete: regular file only, never symlink.
   if [[ -L "$stale" ]]; then
     fail_closed "refusing to delete symlink entry"
   fi

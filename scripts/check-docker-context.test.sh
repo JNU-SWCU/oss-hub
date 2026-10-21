@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# check-docker-context.sh의 합성 fixture 회귀 테스트 (Issue #44).
-# 실제 시크릿·실데이터 없이 공격 시나리오를 fixture로 고정한다.
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 checker="$repo_root/scripts/check-docker-context.sh"
@@ -38,7 +36,6 @@ expect_fail() {
   fi
 }
 
-# 실제 repo 파일로 합성 context를 구성한다. 실데이터·시크릿 없음.
 make_context() {
   local name=$1
   local context="$fixture_dir/$name"
@@ -46,7 +43,6 @@ make_context() {
   mkdir -p "$context/apps/backend" "$context/apps/worker"
   cp "$repo_root/.dockerignore" "$context/.dockerignore"
   cp "$repo_root/apps/backend/Dockerfile" "$context/apps/backend/Dockerfile"
-  # 실제 apps/worker는 없다 — COPY 경계 검사에 쓰는 두 번째 Dockerfile의 synthetic fixture다.
   cat >"$context/apps/worker/Dockerfile" <<'DOCKERFILE'
 FROM node:24-alpine
 WORKDIR /workspace
