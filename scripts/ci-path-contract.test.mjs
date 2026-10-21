@@ -443,3 +443,12 @@ test('actual workflow preserves unrelated and docs-only PR selection', () => {
     ),
   );
 });
+
+test('actual workflow selects frontend independently for design changes', () => {
+  assert.deepEqual(
+    runScope('pull_request', { FRONTEND: 'true' }),
+    Object.fromEntries(
+      scopes.map((name) => [name, name === 'frontend' ? 'true' : 'false']),
+    ),
+  );
+});

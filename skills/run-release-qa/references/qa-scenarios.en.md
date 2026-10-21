@@ -7,7 +7,7 @@ The Korean document remains authoritative.
 
 This document is the authoritative source for repeatable manual QA procedures.
 It contains **workflows derived from interactions between personas**, not a list of screens: scanning screen by screen misses cases where each part works alone but the connected workflow breaks.
-The authoritative decisions and contracts live in their respective ADRs and `docs/rules/`; this document retains only links and IDs.
+This document connects executable implementations and verification scenarios through links and IDs.
 
 ## Eight personas
 
@@ -53,7 +53,7 @@ This is the full path: a contest created by faculty/staff becomes visible to a s
 | W8 | 교 → review | **Download file** → decision | `APPROVED` / `REJECTED` / `CHANGES_REQUESTED` / concurrent-review race | `submission-reviews.controller.ts` |
 | W9 | Rejection → resubmission | **Student sees the rejection** → resubmits → new revision | Preserve earlier history / faculty/staff review again / resubmission form fails closed | `submissions.service.ts` |
 | W10 | Final rejection | Confirm `REJECTED` | **Is resubmission actually blocked?** | `submissions.service.ts` |
-| W11 | 교 → publication confirmation | Pass all five gates → publish | Visible in `archive` while signed out / blocked when a gate is unmet | `submission-reviews/AGENTS.md` |
+| W11 | 교 → publication confirmation | Pass all five gates → publish | Visible in `archive` while signed out / blocked when a gate is unmet | `apps/backend/src/submission-reviews/service` |
 | W12 | Deadline approaching → notification | Faculty/staff digest **actually received** | Student reminder / accuracy of the list of non-submitters / Asia/Seoul display | `deadline-digest.service.ts` |
 | W13 | Activity collection → ranking | Registered users' real names displayed | Unregistered users show `githubLogin` plus a '미가입' (“unregistered”) badge / signed-out access | `ranking.service.ts` |
 | W14 | 관 → account state | Deactivate → access blocked | Reactivate → restored / block self-deactivation / block removal of the last administrator | `admin-access-mutation-policy.ts` |
@@ -179,8 +179,8 @@ These points must be exercised during QA.
 
 ## Related documents
 
-- Deployment contracts, backups, and rollback: [ADR-002](../../../docs/decisions/ADR-002-CI-CD-파이프라인.en.md)
-- Review and merge gates: [ADR-005](../../../docs/decisions/ADR-005-agent-driven-review-cycle.en.md)
-- GitHub App integration and collection: [ADR-006](../../../docs/decisions/ADR-006-github-app-integration.en.md)
-- public-safe deny-list and public strict-read: [security.md](../../../docs/rules/security.en.md)
-- Server access and recovery procedures: [server-runbook.md](../../../docs/deploy/server-runbook.en.md)
+- Deployment contracts, backups, and rollback: [Jenkinsfile](../../../Jenkinsfile)
+- Review and merge gates: [CI workflow](../../../.github/workflows/ci.yml)
+- GitHub App integration and collection: [CollectionModule](../../../apps/backend/src/github/collection.module.ts)
+- Public content deny-list: [public-safety checker](../../../scripts/check-public-safe.sh)
+- Release deployment and recovery execution: [Jenkinsfile](../../../Jenkinsfile)

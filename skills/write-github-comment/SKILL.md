@@ -6,7 +6,7 @@ description: >-
   지적·답글·UX 제안·진행만 다룬다. 화면 이야기는 요소 캡처가 필요하고, 위젯이 이미 보여 주는 말은 답글에 쓰지 않는다.
   PR 본문은 submit-pr-evidence, 티켓 본문은 manage-qa-tickets다.
 metadata:
-  version: "1.2.0"
+  version: "1.2.1"
 ---
 
 # Write GitHub Comment
@@ -45,7 +45,7 @@ metadata:
 
 답글에는 고쳤다 / 유지한다+이유 / 판단을 기다린다 중 하나와 다음 행동을 쓴다.
 재실행으로 통과한 검사·원인 미확정·보류·승인 대기는 숨기지 않는다.
-browser E2E는 로컬 수동 게이트라 실행 사실을 답글에 남긴다([AGENTS.md](../../AGENTS.md)).
+browser E2E는 로컬 수동 게이트라 실행 사실을 답글에 남긴다.
 못 돌린 검증은 반드시 [본문 `## 검증`](../submit-pr-evidence/SKILL.md#로컬-환경-잡음을-본문에-넣지-않는다)에 남긴다.
 열린 PR이라는 상태를 되풀이하는 면책은 지우되, 배포 미확인 등 판단에 영향을 주는 한계는 한 번 명시한다.
 

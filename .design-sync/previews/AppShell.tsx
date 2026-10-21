@@ -8,7 +8,6 @@ import {
   CardTitle,
   NavBar,
   PageHeader,
-  ProgramCard,
   StatusBadge,
 } from 'frontend';
 
@@ -38,28 +37,32 @@ export function Default() {
           description="참여할 프로그램을 찾아보세요."
         />
         <CardGrid>
-          <ProgramCard
-            title="캡스톤 디자인 경진대회"
-            category="캡스톤/산학"
-            period="2026.03 - 2026.06"
-            status={<StatusBadge variant="recruiting">모집중</StatusBadge>}
-            footer={
+          <Card>
+            <CardHeader>
+              <CardTitle>캡스톤 디자인 경진대회</CardTitle>
+              <StatusBadge variant="recruiting">모집중</StatusBadge>
+            </CardHeader>
+            <CardContent>
+              <p>캡스톤/산학</p>
+              <p>2026.03 - 2026.06</p>
               <Button variant="outline" size="sm">
                 더 보기
               </Button>
-            }
-          />
-          <ProgramCard
-            title="오픈소스 컨트리뷰션 아카데미"
-            category="교육/멘토링"
-            period="2026.07 - 2026.08"
-            status={<StatusBadge variant="pending">모집 예정</StatusBadge>}
-            footer={
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>오픈소스 컨트리뷰션 아카데미</CardTitle>
+              <StatusBadge variant="pending">모집 예정</StatusBadge>
+            </CardHeader>
+            <CardContent>
+              <p>교육/멘토링</p>
+              <p>2026.07 - 2026.08</p>
               <Button variant="outline" size="sm">
                 더 보기
               </Button>
-            }
-          />
+            </CardContent>
+          </Card>
         </CardGrid>
       </section>
     </AppShell>

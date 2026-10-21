@@ -9,7 +9,7 @@ description: >-
   Block PR submission if that evidence is missing.
   Use write-github-comment for comments, manage-qa-tickets for QA tickets, and run-release-qa for release QA.
 metadata:
-  version: "1.14.0"
+  version: "1.14.1"
 ---
 
 # Submit PR Evidence
@@ -70,8 +70,7 @@ Do not start implementation if any of the three sections is empty.
 An empty `하지 않을 것` means exclusions are unrecorded, not that there is no boundary.
 If `선행 의존성` (“Prerequisite dependencies”) is unmet or cyclic, report the ticket number without starting a partial implementation.
 
-Before writing code, read the [root AGENTS.md](../../AGENTS.en.md) and applicable nested AGENTS.md files.
-The authoritative security and PR-scope rules are [docs/rules/security.md](../../docs/rules/security.en.md) and [docs/rules/pr-scope.md](../../docs/rules/pr-scope.en.md).
+Follow [scripts/check-public-safe.sh](../../scripts/check-public-safe.sh) for public-safety checks.
 Implement only `할 일` and make zero changes to paths listed under `하지 않을 것`.
 Check each completion criterion only after actually running it.
 
@@ -191,7 +190,7 @@ Put what a person needs to read first; place what the diff already says later.
 - `## UX 안티패턴 점검`
 - `## 흐름 다이어그램` / `## 검증`
 - `## 정리` — “Summary,” always last in the body.
-  On the `- 디자인 규격:` (“Design specification”) line, list the shared components and tokens used by this PR and their specification sources (component-card names in docs/design.md or Figma component links).
+  On the `- 디자인 규격:` (“Design specification”) line, list the shared components and tokens used by this PR and their specification sources (component paths under apps/frontend/src/components, docs/design-tokens/tokens.json, or Figma component links).
   If new colors or controls were built directly, state that and why.
 
 Use exemption phrases only when inapplicable: one line starting with the exact string below and a nonempty reason.
@@ -253,7 +252,6 @@ Pass its final self-check before publishing.
    This is a PUBLIC repository, so apply the same standard to bodies and comments.
    For text only, use `--text-only` from [references/public-safety-check.md](references/public-safety-check.en.md).
 2. Open with `gh pr create --body-file <경로>`.
-   [AGENTS.md](../../AGENTS.en.md) defines branch names and commit format.
    After opening, read the body back with `gh pr view <n> --json body`.
 3. After opening, move the corresponding card to In Review on the [project board](https://github.com/orgs/JNU-SWCU/projects/1).
    For a ticketless PR, do not create a nonexistent card.
@@ -277,7 +275,7 @@ Update that section when checks are rerun.
 ## Do not
 
 - Put a local file path in the body and call it an attachment.
-- Commit evidence images to a product branch ([pr-scope.md](../../docs/rules/pr-scope.en.md) §1).
+- Commit evidence images to a product branch.
 - Create an evidence-only branch.
 - Create a new evidence Release with `gh release create`.
   Follow [frontend-capture.md](references/frontend-capture.en.md#upload-assets-to-an-already-published-release) to add files to an existing Release.
@@ -292,7 +290,7 @@ Update that section when checks are rerun.
 ## Requirements
 
 - `gh` — View Issues when they exist, create PRs, and move board cards.
-- `git` — The branch and commit workflow in [AGENTS.md](../../AGENTS.en.md).
+- `git` — Inspect change history and branches.
 - `bash scripts/check-public-safe.sh`
 - `bash scripts/check-pr-body.sh <본문 파일>`
 - For applicable manual screen checks, the installed Aside CLI (`aside`, `aside repl`).
@@ -302,7 +300,6 @@ Update that section when checks are rerun.
 ## Completion checklist
 
 - [ ] For an Issue, I read the three contract sections and use `Closes #<번호>` when all completion criteria are met, or `Refs #<번호>` when the evidenced PR scope is mergeable but Issue obligations remain. For ticketless work, there is an approved scope, completion criteria, exclusions, and `티켓 없음 — <이유>`. I did not describe an existing Issue as ticketless. I did not start with unmet or cyclic prerequisites.
-- [ ] I read the root and applicable nested AGENTS.md before the first edit.
 - [ ] I changed zero prohibited paths.
 - [ ] I demonstrated every completion criterion with actual evidence.
 - [ ] Where screen/browser evidence applies, Before/After exists. Visual changes use `| 요소 |` rows with identical selectors; nonvisual browser changes use `비시각 브라우저 변경 — <이유>` and a `| 동작 |` table. Actual Before/After images and desktop/390x844 After captures are publicly attached, with SHA, route, viewport, synthetic state, and isolated-origin differences recorded. A person checked public safety and metadata. I did not exempt an uncaptured applicable screen or replace it with N/A.
@@ -312,7 +309,7 @@ Update that section when checks are rerun.
 - [ ] I removed excess implementation from the diff and did not install ponytail just to run it.
 - [ ] For applicable backend logic, I put Mermaid or DOT under `## 흐름 다이어그램` without real data or secrets in nodes.
 - [ ] I ran `bash scripts/check-public-safe.sh`.
-- [ ] I opened the PR using the AGENTS.md workflow and moved an existing board card to In Review.
+- [ ] I opened the verified PR and moved an existing board card to In Review.
 - [ ] If the PR points to an Issue, I did not repost the PR URL as an Issue comment.
 - [ ] I asked only previously unanswered interview questions for applicable screens, with zero answers supplied by the agent on the author's behalf.
 - [ ] I wrote `## 무엇이 좋아지나` and, when a screen exists, `## 이 흐름이 자연스러운가` as one prose paragraph each.

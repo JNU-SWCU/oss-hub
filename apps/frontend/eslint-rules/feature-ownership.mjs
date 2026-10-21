@@ -81,7 +81,7 @@ export default {
     schema: [],
     messages: {
       internal:
-        '{{owner}} 내부 모듈 대신 명시된 업무 진입점을 사용한다 (docs/rules/frontend.md): {{module}}',
+        '{{owner}} 내부 모듈 대신 명시된 업무 진입점을 사용한다 (apps/frontend/eslint-rules/feature-ownership.mjs): {{module}}',
     },
   },
   create(context) {

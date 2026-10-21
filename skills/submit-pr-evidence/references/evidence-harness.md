@@ -38,7 +38,7 @@ pnpm --filter frontend e2e
 UI만 가로챈 응답은 레이아웃·오류 문구 증명이지 저장·인가·트랜잭션 증명이 아니다.
 새 미리보기 서버를 추가하지 않는다.
 
-역할별 합성 계정은 [onboarding.md](../../../docs/onboarding.md)의 `AUTH_INITIAL_ROLES` 절차를 따른다.
+역할별 합성 계정은 [README](../../../README.md)의 `AUTH_INITIAL_ROLES` 절차를 따른다.
 실명·실데이터·개인 머신 경로를 화면이나 파일명에 넣지 않는다.
 
 ## Before / After를 같은 조건으로 얻는 방법

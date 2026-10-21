@@ -43,7 +43,7 @@ This command starts isolated PostgreSQL and the real backend.
 Responses intercepted only at the UI prove layout and error copy, not persistence, authorization, or transactions.
 Do not add a new preview server.
 
-Follow the `AUTH_INITIAL_ROLES` procedure in [onboarding.md](../../../docs/onboarding.en.md) for synthetic role accounts.
+Follow the `AUTH_INITIAL_ROLES` procedure in [README](../../../README.en.md) for synthetic role accounts.
 Do not put real names, real data, or personal machine paths in screens or filenames.
 
 ## Obtain Before / After under matching conditions

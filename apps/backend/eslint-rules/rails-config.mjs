@@ -104,7 +104,7 @@ const envRestrictedSyntax = [
 const collectionDelegateRestrictedSyntax = {
   selector: 'MemberExpression[property.name=/^canonical[A-Z]/]',
   message:
-    'collection Prisma delegate(canonical*)는 collection 구현 밖에서 접근하지 않는다 (ADR-003 DEC-42).',
+    'collection Prisma delegate(canonical*)는 collection 구현 밖에서 접근하지 않는다.',
 };
 
 const element = (type, captured) => ({
@@ -489,7 +489,7 @@ const policies = [
       to: { file: { path: '**/src/{programs,ranking,system-status}/**' } },
     },
     message:
-      'github 구현은 소비자 모듈(programs/ranking/system-status)을 역참조하지 않는다 (ADR-003 DEC-42).',
+      'github 구현은 소비자 모듈(programs/ranking/system-status)을 역참조하지 않는다.',
   },
 ];
 

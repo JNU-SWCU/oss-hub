@@ -7,7 +7,7 @@
 # `.envrc` → `pnpm dev`. backend·frontend가 **호스트 프로세스**로 돌고 인프라만 Docker다.
 # 따라서 모든 호스트명이 `localhost`이고 포트는 compose.dev.yml이 publish한 것을 쓴다.
 #
-# 자세한 실행 순서는 docs/rules/local-dev.md를 따른다.
+# 자세한 실행 순서는 scripts/dev.sh를 따른다.
 
 # --- 인프라 연결 (compose.dev.yml이 publish하는 주소) ---
 # 자격증명은 compose.dev.yml:5-6의 인라인 값과 일치해야 한다.

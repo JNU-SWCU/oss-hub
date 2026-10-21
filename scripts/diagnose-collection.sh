@@ -26,7 +26,7 @@
 #   DATABASE_URL=... scripts/diagnose-collection.sh
 #   DATABASE_URL=... RANKING_URL=https://<host>/api/v1/ranking scripts/diagnose-collection.sh
 #
-# 서버 접속은 `docs/deploy/server-runbook.md` M1(SSM 또는 Tailscale SSH)을 따른다.
+# 서버 접속은 승인된 운영 접근 경로를 사용한다.
 set -euo pipefail
 
 readonly STALE_THRESHOLD_HOURS=${STALE_THRESHOLD_HOURS:-2}
@@ -34,7 +34,7 @@ readonly INVENTORY_STALE_HOURS=${INVENTORY_STALE_HOURS:-24}
 readonly RANKING_URL=${RANKING_URL:-}
 
 if [[ -z ${DATABASE_URL:-} ]]; then
-  echo "diagnose-collection: DATABASE_URL 이 없다 — 서버 안에서 실행한다(server-runbook.md M1)" >&2
+  echo "diagnose-collection: DATABASE_URL 이 없다 — 승인된 서버 환경에서 DATABASE_URL을 주입한 뒤 이 스크립트를 다시 실행한다" >&2
   exit 1
 fi
 

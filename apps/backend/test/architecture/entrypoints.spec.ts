@@ -97,23 +97,6 @@ describe('workspace runtime entrypoint contracts', () => {
     }
   });
 
-  it('keeps documented production CLI paths aligned with package entrypoints', () => {
-    const runbook = readFileSync(
-      path.join(repositoryRoot, 'docs/deploy/demo-runbook.md'),
-      'utf8',
-    );
-    const targets = Array.from(
-      runbook.matchAll(/\bdist\/(src\/[\w./-]+)\.js\b/g),
-      (match) => `${requiredString(match[1], 'runbook target capture')}.ts`,
-    );
-    expect(targets.length).toBeGreaterThan(0);
-    const cliTargets = Object.values(scripts).flatMap(tsNodeTargets);
-    for (const target of targets) {
-      expect(cliTargets).toContain(target);
-      expectSourceFile(target);
-    }
-  });
-
   it('keeps the browser E2E stack on the registered digest and isolated server', () => {
     const stack = readFileSync(
       path.join(repositoryRoot, 'apps/frontend/e2e/run-stack.sh'),

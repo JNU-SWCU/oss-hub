@@ -1,3 +1,5 @@
+import { assertIsolatedIntegrationDatabase } from '../../../test/integration-database.guard';
+import { PrismaService } from '../../prisma/prisma.service';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { CollectionCutoverRepository } from '../repository/collection-cutover.repository';
@@ -8,7 +10,15 @@ import {
   type CollectionUserActivitySweepResult,
 } from '../service/collection-user-activity.service';
 
+assertIsolatedIntegrationDatabase({
+  databaseUrl: process.env.DATABASE_URL,
+  runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
+});
+
 describe('CollectionScheduler integration', () => {
+  const prisma = new PrismaService();
+  const leaseKey = { appId: 9_000_000_740_001n, scope: 'synthetic-scheduler' };
+  const cutover = new CollectionCutoverRepository(prisma);
   let testingModule: TestingModule;
   let scheduler: CollectionTriggerService;
   const run = jest.fn<
@@ -19,18 +29,18 @@ describe('CollectionScheduler integration', () => {
     Promise<{ runId: string; status: 'COMPLETED' }>,
     [string]
   >();
-  const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
   const runUserActivity = jest.fn<
     Promise<CollectionUserActivitySweepResult>,
     []
   >();
 
   beforeAll(async () => {
+    await prisma.$connect();
     testingModule = await Test.createTestingModule({
       providers: [
         CollectionTriggerService,
         { provide: CollectionSyncService, useValue: { run, runExternal } },
-        { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
+        { provide: CollectionCutoverRepository, useValue: cutover },
         {
           provide: CollectionUserActivityService,
           useValue: { run: runUserActivity },
@@ -40,19 +50,19 @@ describe('CollectionScheduler integration', () => {
     scheduler = testingModule.get(CollectionTriggerService);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await prisma.collectionCutoverLease.deleteMany({ where: leaseKey });
     run.mockReset();
     runExternal.mockReset();
-    isQuiesced.mockReset();
     runUserActivity.mockReset();
   });
 
   afterAll(async () => {
     await testingModule.close();
+    await prisma.$disconnect();
   });
 
   it('스케줄 실행을 증분 sync writer로 전달하고 PENDING 응답을 즉시 보존한다', async () => {
-    isQuiesced.mockResolvedValue(false);
     run.mockResolvedValue({
       runId: 'synthetic-scheduler-run-id',
       status: 'COMPLETED',
@@ -77,7 +87,14 @@ describe('CollectionScheduler integration', () => {
   });
 
   it('COL_008 quiesce 거부를 변경 없이 전파한다', async () => {
-    isQuiesced.mockResolvedValue(true);
+    await prisma.collectionCutoverLease.create({
+      data: {
+        ...leaseKey,
+        ownerId: 'synthetic-owner',
+        runId: 'synthetic-active-run',
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
 
     await expect(scheduler.trigger()).rejects.toMatchObject({
       errorCode: { code: 'COL_008', status: 409 },
@@ -85,5 +102,23 @@ describe('CollectionScheduler integration', () => {
     expect(run).not.toHaveBeenCalled();
     expect(runExternal).not.toHaveBeenCalled();
     expect(runUserActivity).not.toHaveBeenCalled();
+  });
+  it('실제 lease는 만료 경계부터 수집을 차단하지 않는다', async () => {
+    const expiresAt = new Date('2026-10-01T00:00:00.000Z');
+    await prisma.collectionCutoverLease.create({
+      data: {
+        ...leaseKey,
+        ownerId: 'synthetic-owner',
+        runId: 'synthetic-expired-run',
+        expiresAt,
+      },
+    });
+    await expect(
+      cutover.isQuiesced(new Date(expiresAt.getTime() - 1)),
+    ).resolves.toBe(true);
+    await expect(cutover.isQuiesced(expiresAt)).resolves.toBe(false);
+    await expect(
+      cutover.isQuiesced(new Date(expiresAt.getTime() + 1)),
+    ).resolves.toBe(false);
   });
 });

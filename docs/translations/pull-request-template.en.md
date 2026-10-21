@@ -138,7 +138,7 @@ Update this section after correcting findings and rerunning checks; it is not fi
 
 Use “none” for inapplicable exclusions, reviewer decisions, or environment prerequisites.
 Check all four checkboxes below.
-For design specifications, name shared components/tokens and their source (docs/design.md component-card name or Figma component link).
+For design specifications, name shared components/tokens and their source (component path under apps/frontend/src/components, docs/design-tokens/tokens.json, or Figma component link).
 If new colors or controls were created directly, explain what and why.
 With no screen changes, use `화면 변경 없음 — ` followed by a reason.
 

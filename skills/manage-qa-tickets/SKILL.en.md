@@ -6,7 +6,7 @@ description: >-
   New titles are imperative tasks. GitHub `#번호` (#number) is the identifier. Do not change already published titles.
   Implementation and PR evidence belong to submit-pr-evidence, release QA to run-release-qa, and comments to write-github-comment.
 metadata:
-  version: "5.0.1"
+  version: "5.0.2"
 ---
 
 # Manage QA tickets
@@ -32,9 +32,7 @@ If the three versions diverge, the ticket becomes impossible to execute; this sk
 | --- | --- | --- |
 | QA observations, evidence, and execution contract | GitHub Issue | Nothing; the draft file is temporary until publication |
 | Progress | GitHub Issue and PR | Nothing |
-| Repository, branch, commit, and security rules | [AGENTS.md](../../AGENTS.en.md) and its linked documents | Nothing; this skill does not duplicate the rules |
 
-This skill does not transcribe the rules in AGENTS.md.
 Copies silently diverge when their source changes, and work following a diverged copy is only discovered during review.
 
 ## Identify the stage first
@@ -74,7 +72,7 @@ Broadening publication rights does not broaden these two permissions:
 
 ## Common guardrails
 
-1. Before any write, read [AGENTS.md](../../AGENTS.en.md) and the [security rules](../../docs/rules/security.en.md).
+1. Before any write, check the prohibited public content in the [public-safety checker](../../scripts/check-public-safe.sh).
 2. While managing tickets, do not change product code, deployment state, accounts, or test data.
    Implementation in the execution stage is the exception, and its scope is the ticket contract.
 3. A screen ticket covers one screen and one logical change; a ticket without a screen covers one artifact location and one logical change.
@@ -319,8 +317,6 @@ A PR without a ticket also belongs to submit-pr-evidence, not this stage.
 - Running capture, anchors, and duplicate lookup sequentially in one lane → use concurrent lanes because they do not share inputs.
   Only duplicate lookup is performed by the orchestrator with `gh issue list --search`.
 - Accepting a lane summary as evidence → require a path, `경로:줄` (path:line), or Issue number behind every claim.
-- Copying AGENTS.md's branch, commit, and security rules into this skill → copies diverge from the source.
-  Always read AGENTS.md directly.
 - Adding an “improvement” to the PR that required scope (`할 일` or `최소 요구`) did not request → remove it and propose a separate ticket.
 - Checking completion criteria without running the work → actually run it first, then check them.
 - Starting future titles with a symptom description or adding `QA<n>` → use only `<명령형 할 일>` and put the symptom in the body's `문제` section.

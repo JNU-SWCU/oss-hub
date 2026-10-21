@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
   PROGRAM_AUTHORING_STEPS,
-  buildProgramAuthoringManifest,
   createInitialProgramAuthoringState,
   createRequirementDraft,
   programAuthoringReducer,
+} from './program-authoring-model';
+import {
+  buildProgramAuthoringManifest,
   seoulDateTimeToIso,
+} from './program-authoring-manifest';
+import {
   validateProgramAuthoringManifest,
   validateProgramAuthoringStep,
   validateTemplateFile,
-} from './program-creation-flow';
+} from './program-authoring-validation';
 import { completedAuthoringState } from './program-creation-test-fixtures';
 
 describe('program authoring reducer', () => {

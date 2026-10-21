@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { UNSAVED_PROGRAM_MESSAGE } from './program-creation-flow';
+import { UNSAVED_PROGRAM_MESSAGE } from './program-exit-guard';
 import {
   installProgramExitGuard,
   type ProgramExitGuard,

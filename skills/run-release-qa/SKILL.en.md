@@ -8,7 +8,7 @@ description: >-
   running suites. Bug fixes, deployment, PR submission, and ticket writing belong
   to other skills.
 metadata:
-  version: "1.2.1"
+  version: "1.2.2"
 ---
 
 # Run Release QA
@@ -46,10 +46,10 @@ Do not register it as a new finding; cite only its existing URL/number.
 
 ## Boundaries before starting
 
-1. `docs/rules/security.md` defines what may be public. Do not capture screens displaying real data or personal information.
+1. `scripts/check-public-safe.sh` defines what may be public. Do not capture screens displaying real data or personal information.
 2. Do not alter product code, production data, or Issue/PR state without user approval.
 3. Do not fix defects during QA. Obtain approval for the fix scope separately.
-4. Only execution scopes (`recheck`, `delta`, `full`) read the root/target-path AGENTS.md, `docs/rules/local-dev.md`, and `references/qa-scenarios.md` as preparation. Report-only does not require this preparation.
+4. Only execution scopes (`recheck`, `delta`, `full`) read `scripts/dev.sh` and `references/qa-scenarios.md` as preparation. Report-only does not require this preparation.
 5. GitHub Issues (QA tickets) are the single source of truth for product QA findings. If they cannot be read, mark them `확인 필요`; do not install tools to compensate.
 
 ## 0. Read records
@@ -99,7 +99,7 @@ Report-only does not execute lanes A–C; it performs only the record comparison
 
 ### A. Static and automated verification
 
-1. Select and run existing checks needed for the declared scope according to the [verification rules by path](../../docs/rules/ci-path-verification.en.md).
+1. Select and run existing checks needed for the declared scope according to the [CI workflow](../../.github/workflows/ci.yml).
 2. Separate failures from warnings. Even if tests pass, record recurring warnings or nondeterministic signals separately.
 3. Cross-check authorization, null handling, date boundaries, caches, public-response allowlists, and terminal asynchronous failures in code.
 

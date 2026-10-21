@@ -8,7 +8,7 @@ description: >-
   replies do not repeat information already shown by widgets. PR bodies belong
   to submit-pr-evidence; ticket bodies belong to manage-qa-tickets.
 metadata:
-  version: "1.2.0"
+  version: "1.2.1"
 ---
 
 # Write GitHub Comment
@@ -54,7 +54,7 @@ Follow [review reply principles](../submit-pr-evidence/SKILL.en.md#review-reply-
 
 A reply states one of: fixed; retained with a reason; awaiting a decision — followed by the next action.
 Do not hide checks that passed only after rerunning, unknown causes, deferred work, or pending approval.
-Browser E2E is a local manual gate, so record its execution in the reply ([AGENTS.md](../../AGENTS.en.md)).
+Browser E2E is a local manual gate, so record its execution in the reply.
 Always record unexecuted verification in the [body's `## 검증`](../submit-pr-evidence/SKILL.en.md#keep-local-environment-noise-out-of-the-body).
 Remove disclaimers that merely repeat that a PR is open, but state decision-relevant limits, such as unverified deployment, once.
 

@@ -8,13 +8,12 @@ export const designClassNameLength = {
   meta: {
     type: 'suggestion',
     docs: {
-      description:
-        'docs/design.md R-08a — 120자를 넘는 className 문자열 리터럴을 금지한다',
+      description: '120자를 넘는 className 문자열 리터럴을 금지한다',
     },
     schema: [],
     messages: {
       tooLong:
-        'className 문자열이 {{length}}자다 — 120자를 넘으면 cva variant나 공용 컴포넌트로 옮긴다 (docs/design.md R-08a).',
+        'className 문자열이 {{length}}자다 — 120자를 넘으면 cva variant나 공용 컴포넌트로 옮긴다.',
     },
   },
   create(context) {
@@ -42,14 +41,12 @@ export const designNoHexColor = {
   meta: {
     type: 'suggestion',
     docs: {
-      description:
-        'docs/design.md R-08b — hex 색 리터럴과 --palette-* 직접 참조를 금지한다',
+      description: 'hex 색 리터럴과 --palette-* 직접 참조를 금지한다',
     },
     schema: [],
     messages: {
-      hex: 'hex 색 {{value}} — semantic 토큰(text-*/bg-*/border-* 유틸리티, var(--…))을 쓴다 (docs/design.md R-08b).',
-      palette:
-        '`--palette-*` 직접 참조 — semantic 토큰을 쓴다 (docs/design.md R-08b).',
+      hex: 'hex 색 {{value}} — semantic 토큰(text-*/bg-*/border-* 유틸리티, var(--…))을 쓴다.',
+      palette: '`--palette-*` 직접 참조 — semantic 토큰을 쓴다.',
     },
   },
   create(context) {
@@ -78,12 +75,11 @@ export const designNoRawButton = {
   meta: {
     type: 'suggestion',
     docs: {
-      description:
-        'docs/design.md R-38 — 날 <button> 대신 Button 프리미티브를 쓴다',
+      description: '날 <button> 대신 Button 프리미티브를 쓴다',
     },
     schema: [],
     messages: {
-      raw: '날 <button> 대신 `Button`(@/components/ui/button)을 쓴다. 아이콘만이면 variant="ghost" size="icon"에 aria-label과 툴팁을 붙인다 (docs/design.md R-38).',
+      raw: '날 <button> 대신 `Button`(@/components/ui/button)을 쓴다. 아이콘만이면 variant="ghost" size="icon"에 aria-label과 툴팁을 붙인다.',
     },
   },
   create(context) {

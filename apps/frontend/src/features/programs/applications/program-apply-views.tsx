@@ -81,10 +81,6 @@ const BLOCKED_CONTENT: Record<
     title: '수정할 수 없는 신청입니다',
     description: '승인 또는 반려된 신청서는 수정하거나 취소할 수 없습니다.',
   },
-  'team-required': {
-    title: '팀 구성이 필요합니다',
-    description: '팀을 만든 뒤 신청 화면에서 다시 시도해 주세요.',
-  },
   'manage-not-allowed': {
     title: '신청서를 수정할 권한이 없습니다',
     description:
@@ -102,7 +98,7 @@ export function BlockedView({
   readonly programId?: string;
 }) {
   const content = BLOCKED_CONTENT[reason];
-  const showMyTeam = programId !== undefined && reason !== 'team-required';
+  const showMyTeam = programId !== undefined;
 
   return (
     <PageBody className="max-w-3xl">

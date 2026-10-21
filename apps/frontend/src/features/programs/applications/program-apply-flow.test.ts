@@ -11,7 +11,6 @@ import {
   resolveTeamMinimum,
   validateApplyForm,
 } from './program-apply-flow';
-import type { ApplicationFormTemplate } from './dto';
 import type { ProgramDetail } from '../catalog/dto';
 
 const baseProgram: ProgramDetail = {
@@ -29,15 +28,6 @@ const baseProgram: ProgramDetail = {
   },
   viewer: { role: 'STUDENT', applicationStatus: null },
   milestones: [],
-};
-const template: ApplicationFormTemplate = {
-  key: 'basic',
-  version: 1,
-  name: '기본 신청서',
-  participation: 'team',
-  fields: [
-    { key: 'applicantName', type: 'auto', label: '신청자', required: true },
-  ],
 };
 const baseValues = {
   isRepositoryPublicationPlanned: true,
@@ -82,12 +72,7 @@ describe('program-apply-flow', () => {
 
   it('기간과 중복 신청을 차단하되 팀이 없는 학생도 신청 화면에 진입한다', () => {
     expect(
-      resolveApplyBlockedReason(
-        baseProgram,
-        template,
-        null,
-        Date.parse('2026-08-01'),
-      ),
+      resolveApplyBlockedReason(baseProgram, Date.parse('2026-08-01')),
     ).toBe('period-closed');
     expect(
       resolveApplyBlockedReason(
@@ -95,26 +80,11 @@ describe('program-apply-flow', () => {
           ...baseProgram,
           viewer: { role: 'STUDENT', applicationStatus: 'SUBMITTED' },
         },
-        template,
-        null,
         Date.parse('2026-07-15'),
       ),
     ).toBe('already-applied');
     expect(
-      resolveApplyBlockedReason(
-        baseProgram,
-        template,
-        null,
-        Date.parse('2026-07-15'),
-      ),
-    ).toBeNull();
-    expect(
-      resolveApplyBlockedReason(
-        baseProgram,
-        template,
-        'team-1',
-        Date.parse('2026-07-15'),
-      ),
+      resolveApplyBlockedReason(baseProgram, Date.parse('2026-07-15')),
     ).toBeNull();
   });
 

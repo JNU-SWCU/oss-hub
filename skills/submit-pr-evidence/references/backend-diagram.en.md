@@ -63,7 +63,7 @@ Source alone does not let a reviewer see the diagram.
 
 - If flow changes, show Before and After side by side in the first diagram, or emphasize changed edges with `-.->` and `style ... stroke-width` in one diagram.
 - Use plain-language names in the first diagram and actual class/method names in the detailed diagram. Do not invent identifiers.
-- Do not put real data, secrets, or personal values in nodes; the [security rules](../../../docs/rules/security.en.md) deny-list applies here too.
+- Do not put real data, secrets, or personal values in nodes; the [public-safety checker](../../../scripts/check-public-safe.sh) deny-list applies here too.
 - Below the diagram, explain what changed and why in one to three lines.
 
 ## Example

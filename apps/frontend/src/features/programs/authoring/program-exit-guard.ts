@@ -1,3 +1,6 @@
+export const UNSAVED_PROGRAM_MESSAGE =
+  '작성 중인 내용이 있습니다. 나가면 복구 정보가 삭제됩니다.';
+
 export interface ProgramExitGuard {
   readonly setDirty: (dirty: boolean) => void;
   readonly isDirty: () => boolean;

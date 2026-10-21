@@ -10,7 +10,6 @@ Use the original template when publishing; retain its Korean execution block and
 Template metadata: name `작업 티켓` (Work ticket); description: work on one screen, publishable by any team member, with zero or one assignee; title `[P0] <화면 이름>` (screen name); labels `[ticket]`.
 
 [issue-ticket-contract.md](../../skills/manage-qa-tickets/references/issue-ticket-contract.en.md) owns the body format.
-AGENTS.md owns common rules; do not repeat them here.
 The ticket contains only this screen's functional specification.
 Follow [readability.md](../../skills/submit-pr-evidence/references/readability.en.md).
 
@@ -24,7 +23,7 @@ Follow [readability.md](../../skills/submit-pr-evidence/references/readability.e
 (에이전트가 gh로 이 본문을 가져와 AGENTS.md 규칙 아래 수행)
 ```
 
-It tells the assignee to ask their agent to work on the numbered OSS Hub ticket; the agent retrieves the body through gh and follows AGENTS.md.
+It tells the assignee to ask their agent to work on the numbered OSS Hub ticket; the quoted execution block is retained from the runtime template.
 
 ## 문제
 

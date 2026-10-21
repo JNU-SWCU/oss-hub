@@ -54,7 +54,7 @@ For a PR without a ticket, use a no-ticket slug in place of the issue number.
 
 ## Manually inspect public safety before uploading
 
-Open the two saved images and visually inspect them for anything prohibited from public disclosure by the [security rules](../../../docs/rules/security.en.md).
+Open the two saved images and visually inspect them for anything prohibited from public disclosure by the [public-safety checker](../../../scripts/check-public-safe.sh).
 Do not copy that deny-list here: copies silently diverge when the original changes.
 If anything prohibited is visible, do not upload; capture again with synthetic data.
 Capture without session tokens, cookie values, devtools panels, or authentication-related query parameters visible on screen.
@@ -104,12 +104,12 @@ Record capture conditions together on one `<sub>` caption line in the [PR templa
 ## Do not do these things
 
 - Do not put a local path such as `/tmp/before.png` in the body and claim an attachment exists; no image renders.
-- Do not commit evidence images to the product branch: binaries would enter the review diff ([pr-scope.md](../../../docs/rules/pr-scope.en.md) §1).
+- Do not commit evidence images to the product branch: binaries would enter the review diff.
 - Do not create an evidence-only branch: that branch would have to be preserved forever to keep images in merged PR bodies from breaking.
   Creating an orphan branch in a separate worktree leaves that worktree without `package.json`, causing the `pre-push` `pnpm format:check` to fail and block the push.
-- Do not publish a new release with `gh release create`: publication is the production deployment trigger ([ADR-002](../../../docs/decisions/ADR-002-CI-CD-파이프라인.en.md)).
+- Do not publish a new release with `gh release create`: publication is the production deployment trigger ([Jenkinsfile](../../../Jenkinsfile)).
   **Adding files to an already published release with `gh release upload` does not emit that event and is safe; this is the method used in [Upload assets to an already published Release](#upload-assets-to-an-already-published-release).**
-- Do not put evidence in `/artifacts/`: it is gitignored and reserved for raw per-student metrics (ADR-010 §5).
+- Do not put evidence in `/artifacts/`: it is gitignored and reserved for raw per-student metrics.
   Uncommitted files do not acquire a URL.
 - Do not substitute mockups, Figma designs, test output, or code diffs for actual running screens.
 - Do not use `Before/After 없음` without obtaining applicable screen captures.

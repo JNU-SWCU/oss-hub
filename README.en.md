@@ -6,10 +6,10 @@
 
 OSS Hub brings program discovery, team formation, applications, document submission and review, and GitHub repositories and activity together in one place.
 
-[Visit OSS Hub](https://jnu-oss-hub.com) · [Developer onboarding](docs/onboarding.en.md) · [Issues](https://github.com/JNU-SWCU/oss-hub/issues) · [Releases](https://github.com/JNU-SWCU/oss-hub/releases)
+[Visit OSS Hub](https://jnu-oss-hub.com) · [Developer onboarding](#getting-started-locally) · [Issues](https://github.com/JNU-SWCU/oss-hub/issues) · [Releases](https://github.com/JNU-SWCU/oss-hub/releases)
 
 The application interface and screenshots are currently in Korean.
-English versions are available for the guides below and their linked repository documents.
+English reading references are available for the retained skills and templates.
 Each translation links back to its authoritative Korean source.
 
 ## Contents
@@ -109,7 +109,7 @@ flowchart LR
 ```
 
 The browser uses `/api/v1` on the same domain as the frontend, and the backend handles access to the database and file storage.
-See the [system architecture](docs/architecture.en.md) and [architecture decision records](docs/decisions/README.en.md) for detailed boundaries and deployment arrangements.
+See the [production configuration](compose.yml) and [backend module composition](apps/backend/src/app.module.ts) for detailed boundaries and deployment arrangements.
 
 ## Getting started locally
 
@@ -150,7 +150,7 @@ Once configured, load the settings into your shell:
 direnv allow
 ```
 
-See the [local development guide](docs/rules/local-dev.en.md) and [onboarding guide](docs/onboarding.en.md) for GitHub App integration and test accounts with different roles.
+See the [development script](scripts/dev.sh) and [onboarding guide](#getting-started-locally) for GitHub App integration and test accounts with different roles.
 Configure roles for test accounts in `AUTH_INITIAL_ROLES` in `.envrc` before their first sign-in.
 Do not commit `.envrc` or private key files to Git.
 Use `.envrc.example` as the starting point for local configuration; `.env.example` lists the environment variables required by the production Compose setup.
@@ -182,10 +182,7 @@ apps/
 ├── frontend/            # Next.js UI, features, and browser tests
 └── backend/             # NestJS API, business rules, and background jobs
     └── prisma/          # Data model and migrations
-docs/
-├── decisions/           # Technical and operational decisions
-├── rules/               # Development, security, and verification rules
-└── deploy/              # Deployment and operations guides
+docs/design-tokens/      # Design tokens
 scripts/                 # Development, verification, and deployment helpers
 skills/                  # Repository-specific agent workflows
 deploy/                  # nginx and Jenkins configuration
@@ -197,7 +194,7 @@ compose.yml              # Production runtime
 ## Development and verification
 
 Run these commands from the repository root.
-Choose the checks required for your changes using the [CI verification rules by path](docs/rules/ci-path-verification.en.md).
+Choose the checks required for your changes using the [CI workflow](.github/workflows/ci.yml).
 
 | Purpose                                   | Command                                  |
 | ----------------------------------------- | ---------------------------------------- |
@@ -212,23 +209,22 @@ Choose the checks required for your changes using the [CI verification rules by 
 
 `pnpm test` does not include backend database integration tests or browser tests.
 Database integration tests use a dedicated isolated runner, and browser tests use installed Chrome with a separate test environment.
-Use `pnpm --filter frontend e2e:install` to install the browser, and consult the verification rules for detailed requirements.
+Use `pnpm --filter frontend e2e:install` to install the browser, and see the [Playwright configuration](apps/frontend/playwright.config.ts) for the browser test settings.
 
 Keep changes within the issue's scope and acceptance criteria, and record the verification you actually performed in the PR.
-Before contributing, read the [onboarding guide](docs/onboarding.en.md), [PR scope and submission rules](docs/rules/pr-scope.en.md), and [security rules](docs/rules/security.en.md).
+Before contributing, read the [onboarding guide](#getting-started-locally), [PR scope and submission rules](skills/submit-pr-evidence/SKILL.md), and [public safety checks](scripts/check-public-safe.sh).
 
 ## Documentation guide
 
 | Topic                                             | Document                                                    |
 | ------------------------------------------------- | ----------------------------------------------------------- |
-| Joining the team and starting your first task     | [Onboarding](docs/onboarding.en.md)                            |
-| Environment setup, sign-in, and local development | [Local development](docs/rules/local-dev.en.md)                |
-| System boundaries and request flow                | [Architecture](docs/architecture.en.md)                        |
-| Reasons behind technical decisions                | [ADR index](docs/decisions/README.en.md)                       |
-| Tests required for each changed path              | [CI verification rules](docs/rules/ci-path-verification.en.md) |
-| Writing and reviewing PRs                         | [PR scope and submission rules](docs/rules/pr-scope.en.md)     |
-| Public repository safety and data protection      | [Security rules](docs/rules/security.en.md)                    |
-| Pre-deployment checks                             | [Deployment verification](docs/deploy/pre-deploy-verify.en.md) |
-| Working guidelines for agents                     | [AGENTS.md](AGENTS.en.md)                                      |
+| Joining the team and starting your first task     | [Onboarding](#getting-started-locally)                            |
+| Environment setup, sign-in, and local development | [Development script](scripts/dev.sh)                |
+| System boundaries and request flow                | [Production configuration](compose.yml)                        |
+| Backend module composition                | [AppModule](apps/backend/src/app.module.ts)                       |
+| Tests required for each changed path              | [CI workflow](.github/workflows/ci.yml) |
+| Writing and reviewing PRs                         | [PR scope and submission rules](skills/submit-pr-evidence/SKILL.md)     |
+| Public repository safety and data protection      | [Public safety checks](scripts/check-public-safe.sh)                    |
+| Pre-deployment checks                             | [Deployment verification](.github/workflows/ci.yml) |
 
 See [GitHub Issues](https://github.com/JNU-SWCU/oss-hub/issues) for the latest status of improvements and known issues.

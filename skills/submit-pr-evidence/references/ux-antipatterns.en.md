@@ -267,7 +267,7 @@ Keep visible text on the main CTA; icon-only controls are limited to a few unive
 The basis is NN/g Icon Usability, already included in the references.
 
 The minimum requirement for an icon-only control is `aria-label`.
-Existing repository examples apply `aria-hidden="true"` to the icon and `aria-label` to the `size="icon"` button: `consent-policy-document.tsx:52-66` (`aria-label="전문 닫기"`, “close full text”), `program-type-modal.tsx:51-60`, and `submission-dialog.tsx:59-68`.
+Existing repository examples apply `aria-hidden="true"` to the icon and `aria-label` to the `size="icon"` button: `consent-policy-document.tsx:52-66` (`aria-label="전문 닫기"`, “close full text”), and `submission-dialog.tsx:59-68`.
 The `Tooltip` primitive (`apps/frontend/src/components/ui/tooltip.tsx`) also has real consumers: icon-only edit/delete buttons in `program-milestone-card.tsx` combine `aria-label` and `Tooltip`.
 Follow these examples by recommending both `aria-label` and `Tooltip` for repeated icons; require at least `aria-label` without exception.
 

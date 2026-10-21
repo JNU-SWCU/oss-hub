@@ -4,7 +4,7 @@
 
 English translation of the [Korean source](issue-ticket-contract.md).
 The Korean document remains authoritative.
-This file is an English reading reference; runtime skill loading continues to use the canonical [SKILL.md](../SKILL.en.md).
+This file is an English reading reference; runtime skill loading continues to use the canonical [SKILL.md](../SKILL.md).
 The Korean section headings and field markers in the templates are retained because they are part of the canonical ticket contract; the surrounding text and template instructions explain their English meanings.
 
 A GitHub Issue is the sole canonical source for a QA or work ticket.
