@@ -7,7 +7,7 @@ import {
   type ProgramListStatus,
 } from '@/features/programs/catalog/program-list-options';
 import { PROGRAM_LIST_STATUS_LABELS } from '@/features/programs/catalog/program-list-labels';
-import { programListHref } from '@/features/programs/program-paths';
+import { buildProgramListHref } from '@/features/programs/catalog/program-list-sort';
 import {
   currentRankingYear,
   RANKING_YEAR_ALL,
@@ -86,7 +86,7 @@ export function programSidebarGroup(
 ): SidebarGroup {
   const items: SidebarItem[] = PROGRAM_LIST_STATUSES.map((status) => ({
     label: PROGRAM_LIST_STATUS_LABELS[status],
-    href: programListHref(status),
+    href: buildProgramListHref({ status }),
     icon: PROGRAM_STATUS_ICONS[status],
     depth: 0 as const,
     count: counts?.[status],

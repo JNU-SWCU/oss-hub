@@ -1,5 +1,3 @@
-import type { ProgramListStatus } from './catalog/program-list-options';
-
 export function programHref(programId: string, suffix = ''): string {
   return `/programs/${encodeURIComponent(programId)}${suffix}`;
 }
@@ -21,9 +19,4 @@ export function decodeRouteProgramId(rawId: string): string {
   } catch {
     return rawId;
   }
-}
-
-export function programListHref(status: ProgramListStatus): string {
-  if (status === 'all') return '/programs';
-  return `/programs?status=${status}`;
 }
