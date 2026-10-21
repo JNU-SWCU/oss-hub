@@ -125,7 +125,7 @@ export class ProgramActivityService {
           applicationId: application.id,
           label: application.team.name,
           ...totals,
-          lastActivityAt: lastActivityAt,
+          lastActivityAt,
           dataAsOf: latestCommittedStreamAt(repository?.streams),
           collectionStatus: !repository
             ? 'NOT_CONNECTED'
@@ -245,7 +245,7 @@ export class ProgramActivityService {
       );
 
       return {
-        dataAsOf: dataAsOf,
+        dataAsOf,
         programs,
         series: {
           granularity,

@@ -154,13 +154,13 @@ export class CollectionStreamCheckpoint {
         registeredGithubIds,
       );
       await repo.upsertStreamFrontier({
-        repositoryId: repositoryId,
+        repositoryId,
         streamType: 'ISSUE',
         status: 'READY',
         frontierSha: teamMembershipFrontier,
         frontierCreatedAt: newFrontier ? new Date(newFrontier.createdAt) : null,
         frontierEntityId: newFrontier ? BigInt(newFrontier.id) : null,
-        requestFingerprint: requestFingerprint,
+        requestFingerprint,
         lastRunAt: this.now(),
       });
       return recorded.insertedCount;

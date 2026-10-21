@@ -1,6 +1,7 @@
 import type {
   CreatedSubmissionResult,
   ResubmittedSubmissionResult,
+  SubmissionBlockedReason,
   SubmissionChecklistResult,
   SubmissionFormResult,
 } from '../domain/submission-result';
@@ -14,9 +15,6 @@ import type {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
-
-type SubmissionBlockedReasonResponseDto =
-  'SUBMISSION_ALREADY_EXISTS' | 'MILESTONE_CLOSED';
 
 export interface SubmissionFormResponseDto {
   readonly fileUpload: { readonly maxBytes: number; readonly maxLabel: string };
@@ -37,7 +35,7 @@ export interface SubmissionFormResponseDto {
     readonly checklistUrl: string;
   } | null;
   readonly canSubmit: boolean;
-  readonly blockedReason: SubmissionBlockedReasonResponseDto | null;
+  readonly blockedReason: SubmissionBlockedReason | null;
 }
 
 export interface CreatedSubmissionResponseDto {
