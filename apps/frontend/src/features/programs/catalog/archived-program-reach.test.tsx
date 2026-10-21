@@ -22,9 +22,15 @@ const ARCHIVED_DETAIL = {
     startsAt: '2026-01-01T00:00:00.000Z',
     endsAt: '2026-12-31T23:59:59.000Z',
   },
+  operatingPeriod: {
+    startsAt: '2026-01-01T00:00:00.000Z',
+    endsAt: '2027-12-31T23:59:59.000Z',
+  },
   viewer: { role: 'STUDENT', applicationStatus: null },
   milestones: [],
 } as const satisfies ProgramDetail;
+
+let detail: ProgramDetail = ARCHIVED_DETAIL;
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -77,7 +83,7 @@ function detailFetch(
     throw new Error(`unexpected ${method} ${url.pathname}`);
   }
   if (url.pathname === apiPath(`programs/${PROGRAM_ID}/viewer`)) {
-    return Promise.resolve(jsonResponse(ARCHIVED_DETAIL));
+    return Promise.resolve(jsonResponse(detail));
   }
   if (url.pathname === apiPath(`programs/${PROGRAM_ID}/overview`)) {
     return Promise.resolve(
@@ -85,7 +91,7 @@ function detailFetch(
         programId: PROGRAM_ID,
         name: ARCHIVED_DETAIL.name,
         trackType: ARCHIVED_DETAIL.trackType,
-        lifecycle: ARCHIVED_DETAIL.lifecycle,
+        lifecycle: detail.lifecycle,
         milestoneCount: 0,
         boardPostCount: 0,
         participantCount: 0,
@@ -108,6 +114,7 @@ describe('내린 프로그램의 상세 화면이 신청을 권하지 않는다'
   let root: Root;
 
   beforeEach(() => {
+    detail = ARCHIVED_DETAIL;
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(INSIDE_APPLICATION_PERIOD);
     container = document.createElement('div');
@@ -171,4 +178,22 @@ describe('내린 프로그램의 상세 화면이 신청을 권하지 않는다'
       '종료된 프로그램이라 신청을 받지 않습니다.',
     );
   });
+
+  it.each(['PUBLISHED', undefined] as const)(
+    '기존 게시 상태와 필드 부재 %s에서는 날짜에 따라 모집중이며 신청으로 이동한다',
+    async (lifecycle) => {
+      detail = { ...ARCHIVED_DETAIL, lifecycle };
+      await openDetail();
+
+      expect(
+        container.querySelector(
+          '[data-slot="page-header-title"] [data-slot="status-badge"]',
+        )?.textContent,
+      ).toBe('모집중');
+      const apply = [...container.querySelectorAll('a')].find(
+        (anchor) => anchor.textContent?.trim() === '신청하기',
+      );
+      expect(apply?.getAttribute('href')).toBe(`/programs/${PROGRAM_ID}/apply`);
+    },
+  );
 });

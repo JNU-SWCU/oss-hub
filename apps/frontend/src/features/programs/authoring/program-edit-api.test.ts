@@ -11,6 +11,7 @@ import {
 } from './api';
 import type { EditableProgram } from './dto';
 import {
+  buildProgramEditInput,
   isMilestoneSubmissionConflict,
   mapProgramEditError,
   PROGRAM_EDIT_ERROR_CODES,
@@ -62,6 +63,43 @@ describe('program edit API', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
+
+  it.each(['PUBLISHED', 'ARCHIVED', undefined] as const)(
+    '편집 조회와 저장 응답의 기존 상태 및 필드 부재 %s를 보존한다',
+    async (lifecycle) => {
+      const response: unknown = JSON.parse(
+        JSON.stringify({ ...editableProgram, lifecycle }),
+      );
+      fetchMock.mockImplementation(async () => jsonResponse(response));
+
+      await expect(getEditableProgram('program-1')).resolves.toEqual(response);
+      await expect(
+        updateProgram(
+          'program-1',
+          buildProgramEditInput(toProgramEditForm(editableProgram)),
+        ),
+      ).resolves.toEqual(response);
+    },
+  );
+
+  it.each(['DRAFT', null, 0, false])(
+    '편집 조회와 저장 응답의 잘못된 게시 상태 %s를 거부한다',
+    async (lifecycle) => {
+      fetchMock.mockImplementation(async () =>
+        jsonResponse({ ...editableProgram, lifecycle }),
+      );
+
+      await expect(getEditableProgram('program-1')).rejects.toThrow(
+        '프로그램 게시 상태 응답 형식이 올바르지 않습니다.',
+      );
+      await expect(
+        updateProgram(
+          'program-1',
+          buildProgramEditInput(toProgramEditForm(editableProgram)),
+        ),
+      ).rejects.toThrow('프로그램 게시 상태 응답 형식이 올바르지 않습니다.');
+    },
+  );
 
   it('loads editable fields through the guarded edit endpoint', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ id: 'program-1' }));

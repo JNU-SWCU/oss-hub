@@ -74,7 +74,7 @@ function overview(
     programId: 'prog-1',
     name: '2026 하계 SW 현장실습 연계 프로그램',
     trackType: 'EXTRACURRICULAR',
-    lifecycle: '모집마감',
+    lifecycle: 'PUBLISHED',
     milestoneCount: 3,
     boardPostCount: 1,
     participantCount: 2,

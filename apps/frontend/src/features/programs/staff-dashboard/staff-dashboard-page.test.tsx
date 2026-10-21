@@ -67,7 +67,7 @@ describe('staff dashboard parser and model', () => {
     ).toThrow('운영 대시보드 응답 형식이 올바르지 않습니다.');
   });
 
-  it('종료일과 게시 축이 빠진 응답을 형식 오류로 끊는다', () => {
+  it('게시 상태 부재만 허용하고 종료일 부재와 잘못된 게시 상태는 거부한다', () => {
     const withoutEndAt = { ...fixtureProgram };
     Reflect.deleteProperty(withoutEndAt, 'endAt');
     const withoutLifecycle = {
@@ -78,9 +78,9 @@ describe('staff dashboard parser and model', () => {
     expect(() =>
       parseStaffDashboardSummary({ programs: [withoutEndAt] }),
     ).toThrow('운영 대시보드 응답 형식이 올바르지 않습니다.');
-    expect(() =>
+    expect(
       parseStaffDashboardSummary({ programs: [withoutLifecycle] }),
-    ).toThrow('운영 대시보드 응답 형식이 올바르지 않습니다.');
+    ).toEqual({ programs: [withoutLifecycle] });
     expect(() =>
       parseStaffDashboardSummary({
         programs: [{ ...fixtureProgram, lifecycle: 'DRAFT' }],

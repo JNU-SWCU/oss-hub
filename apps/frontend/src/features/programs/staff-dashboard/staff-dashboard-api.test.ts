@@ -69,6 +69,44 @@ describe('getStaffDashboardSummary', () => {
     expect(apiClient).toHaveBeenCalledWith('dashboard/staff/summary');
   });
 
+  it('게시 상태 필드가 없는 후속 응답도 그대로 읽는다', async () => {
+    const program = { ...validResponse.programs[0] };
+    Reflect.deleteProperty(program, 'lifecycle');
+    const response = { programs: [program] };
+    apiClient.mockResolvedValue(response);
+
+    await expect(getStaffDashboardSummary()).resolves.toEqual(response);
+  });
+
+  it.each(['DRAFT', null, 0, false])(
+    '게시 상태가 제공됐지만 잘못된 값 %s이면 거부한다',
+    async (lifecycle) => {
+      apiClient.mockResolvedValue({
+        programs: [{ ...validResponse.programs[0], lifecycle }],
+      });
+
+      await expect(getStaffDashboardSummary()).rejects.toBeInstanceOf(
+        StaffDashboardResponseError,
+      );
+    },
+  );
+
+  it.each([
+    { endAt: null },
+    { endAt: 'invalid-date' },
+    { name: '' },
+    { applications: { total: -1 } },
+    { teamManagementPath: '/programs/other/teams' },
+  ])('게시 상태가 없어도 다른 잘못된 필드는 거부한다: %s', async (invalid) => {
+    const program = { ...validResponse.programs[0], ...invalid };
+    Reflect.deleteProperty(program, 'lifecycle');
+    apiClient.mockResolvedValue({ programs: [program] });
+
+    await expect(getStaffDashboardSummary()).rejects.toBeInstanceOf(
+      StaffDashboardResponseError,
+    );
+  });
+
   it('잘못된 운영 대시보드 응답을 거부한다', async () => {
     apiClient.mockResolvedValue({
       programs: [

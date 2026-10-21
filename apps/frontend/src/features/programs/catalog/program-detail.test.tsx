@@ -685,7 +685,7 @@ const overviewBase: ProgramOverview = {
   programId: 'program-1',
   name: 'OSS 경진대회',
   trackType: 'EXTRACURRICULAR',
-  lifecycle: 'ACTIVE',
+  lifecycle: 'PUBLISHED',
   milestoneCount: 1,
   boardPostCount: 0,
   participantCount: 12,

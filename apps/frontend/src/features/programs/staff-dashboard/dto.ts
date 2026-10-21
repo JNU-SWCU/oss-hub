@@ -1,4 +1,5 @@
 import type { ProgramTrackType } from '../program-contract';
+import type { ProgramLifecycle } from '../program-lifecycle';
 
 export interface StaffDashboardApplicationCounts {
   readonly total: number;
@@ -40,7 +41,7 @@ export interface StaffDashboardProgramSummary {
 
   readonly endAt: string;
 
-  readonly lifecycle: 'PUBLISHED' | 'ARCHIVED';
+  readonly lifecycle?: ProgramLifecycle;
   readonly applications: StaffDashboardApplicationCounts;
   readonly teamManagementPath: string;
   readonly activity: StaffDashboardActivitySummary;
