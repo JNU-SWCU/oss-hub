@@ -14,6 +14,7 @@ import {
 import type { ApplicationsService } from '../service/applications.service';
 import type { ApplicationListItem } from '../domain/application-records';
 import { PatchApplicationDecisionRequestDto } from '../dto/patch-application-decision-request.dto';
+import { applicationDecisionAction } from '../domain/application-decision';
 
 type ControllerService = Pick<ApplicationsService, 'decide' | 'getForStaff'>;
 
@@ -82,7 +83,7 @@ describe('ApplicationsController', () => {
 
     let thrown: unknown;
     try {
-      body.toAction();
+      applicationDecisionAction(body);
     } catch (error) {
       thrown = error;
     }
