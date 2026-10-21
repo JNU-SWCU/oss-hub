@@ -14,6 +14,7 @@ import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/ser
 import { ProgramAuthoringUploadService } from '../../src/programs/service/program-authoring-upload.service';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { SubmissionFileCleanupService } from '../../src/submissions/service/submission-file-cleanup.service';
+import { PrismaStorageReferenceRepository } from '../../src/submissions/repository/storage-orphan-reconciliation.repository';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import {
   configureFailure,
@@ -77,7 +78,10 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     this.uploadFailureTokenId = null;
     this.cleanupTokenId = null;
     this.prismaUploadTokenId = null;
-    e2eProgramAuthoringExternalPorts.reset();
+    const retainedStorageKeys = await new PrismaStorageReferenceRepository(
+      this.prisma,
+    ).loadLiveKeys();
+    e2eProgramAuthoringExternalPorts.reset(retainedStorageKeys);
   }
 
   async fixture(): Promise<E2eProgramAuthoringGraph> {

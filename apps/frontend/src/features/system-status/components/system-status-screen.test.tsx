@@ -34,12 +34,16 @@ const captured = vi.hoisted(() => ({
   props: null as CapturedViewProps | null,
 }));
 
-vi.mock('./system-status-view', () => ({
-  SystemStatusView: (props: CapturedViewProps) => {
-    captured.props = props;
-    return null;
-  },
-}));
+vi.mock('./system-status-view', async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import('./system-status-view')>();
+  return {
+    SystemStatusView: (props: CapturedViewProps) => {
+      captured.props = props;
+      return <original.SystemStatusView {...props} />;
+    },
+  };
+});
 
 import { SystemStatusScreen } from './system-status-screen';
 
@@ -155,6 +159,7 @@ describe('SystemStatusScreen', () => {
         await props().onTrigger();
       });
 
+      expect(api.fetchSystemStatus).toHaveBeenCalledTimes(1);
       expect(props().triggerNotice).toEqual({
         kind: 'error',
         message:
@@ -192,5 +197,52 @@ describe('SystemStatusScreen', () => {
       });
       expect(props().state.kind).toBe('success');
     });
+  });
+  it('접수 뒤 조회가 두 번 실패해도 마지막 데이터와 접수 결과를 보존하고 조회만 재시도한다', async () => {
+    await renderScreen();
+    api.triggerCollection.mockResolvedValue({
+      status: 'PENDING',
+      runId: 'run-1',
+    });
+    api.fetchSystemStatus.mockRejectedValueOnce(new Error('network'));
+    await act(async () => props().onTrigger());
+    expect(props().state).toMatchObject({
+      kind: 'success',
+      status: baseStatus,
+    });
+    expect(container.textContent).toContain('수집 요청을 접수했습니다.');
+    expect(container.textContent).toContain('마지막으로 확인한 상태');
+    expect(container.textContent).not.toContain(
+      '최신 상태를 다시 불러왔습니다',
+    );
+    api.fetchSystemStatus.mockRejectedValueOnce(new Error('network'));
+    await act(async () => props().onRetry());
+    expect(container.textContent).toContain('마지막으로 확인한 상태');
+    api.fetchSystemStatus.mockResolvedValue(
+      statusData({ ...baseStatus, trackedRepositoryCount: 9 }),
+    );
+    await act(async () => props().onRetry());
+    expect(props().state).toMatchObject({
+      status: { trackedRepositoryCount: 9 },
+    });
+    expect(container.textContent).not.toContain('마지막으로 확인한 상태');
+    expect(api.triggerCollection).toHaveBeenCalledTimes(1);
+    expect(api.fetchSystemStatus).toHaveBeenCalledTimes(4);
+  });
+
+  it('수동 조회보다 늦게 시작한 접수 후 조회 결과를 이전 응답이 덮지 않는다', async () => {
+    await renderScreen();
+    const older = Promise.withResolvers<SystemStatusData>();
+    api.fetchSystemStatus.mockReturnValueOnce(older.promise);
+    await act(async () => props().onRetry());
+    api.triggerCollection.mockResolvedValue({
+      status: 'PENDING',
+      runId: 'run-1',
+    });
+    const latest = { ...baseStatus, dataAsOf: '2026-07-26T11:00:00.000Z' };
+    api.fetchSystemStatus.mockResolvedValueOnce(statusData(latest));
+    await act(async () => props().onTrigger());
+    await act(async () => older.resolve(statusData(baseStatus)));
+    expect(props().state).toMatchObject({ kind: 'success', status: latest });
   });
 });

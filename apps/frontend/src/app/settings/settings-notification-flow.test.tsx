@@ -51,10 +51,12 @@ describe('설정 알림 흐름', () => {
   let container: HTMLDivElement;
   let root: Root;
   let requests: RequestRecord[];
-  let notificationResponder: () => Response;
+  let notificationResponder: () => Response | Promise<Response>;
+  let profileResponder: () => Response | Promise<Response>;
 
   beforeEach(() => {
     requests = [];
+    profileResponder = () => jsonResponse(SAVED_PROFILE);
     notificationResponder = () => jsonResponse(SAVED_NOTIFICATION);
     mocks.useSessionRole.mockReturnValue(assignedStaffSession());
     vi.stubGlobal(
@@ -64,7 +66,7 @@ describe('설정 알림 흐름', () => {
         const method = init?.method ?? 'GET';
         requests.push({ url, method });
         if (url.endsWith('/users/me/profile')) {
-          return jsonResponse(SAVED_PROFILE);
+          return profileResponder();
         }
         if (url.endsWith('/users/me/notification-email')) {
           return notificationResponder();
@@ -168,5 +170,77 @@ describe('설정 알림 흐름', () => {
       'changed@example.com',
     );
     expect(container.textContent).not.toContain('저장되었습니다');
+  });
+  function submitForm(): void {
+    container
+      .querySelector('form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  }
+
+  it('프로필과 알림 저장 전체 기간 입력을 잠그고 완료 후 편집하면 성공 표시를 지운다', async () => {
+    await render();
+    const profile = Promise.withResolvers<Response>();
+    const notification = Promise.withResolvers<Response>();
+    profileResponder = () => profile.promise;
+    notificationResponder = () => notification.promise;
+    await act(async () => submitForm());
+    expect(
+      field('settings-name').closest('form')?.querySelector('fieldset')
+        ?.disabled,
+    ).toBe(true);
+    expect(
+      field('settings-notification-email')
+        .closest('form')
+        ?.querySelector('fieldset')?.disabled,
+    ).toBe(true);
+    await act(async () => profile.resolve(jsonResponse(SAVED_PROFILE)));
+    expect(
+      field('settings-name').closest('form')?.querySelector('fieldset')
+        ?.disabled,
+    ).toBe(true);
+    await act(async () =>
+      notification.resolve(jsonResponse(SAVED_NOTIFICATION)),
+    );
+    expect(container.textContent).toContain('저장되었습니다.');
+    expect(
+      field('settings-name').closest('form')?.querySelector('fieldset')
+        ?.disabled,
+    ).toBe(false);
+    await type(field('settings-name'), '합성 수정');
+    expect(container.textContent).not.toContain('저장되었습니다.');
+  });
+
+  it('재조회와 저장은 같은 이벤트 루프에서도 양방향으로 진입을 막는다', async () => {
+    notificationResponder = () => new Response('', { status: 503 });
+    await render();
+    const notification = Promise.withResolvers<Response>();
+    notificationResponder = () => notification.promise;
+    await act(async () => {
+      button('알림 설정 다시 불러오기').click();
+      submitForm();
+    });
+    expect(requests.filter(({ method }) => method === 'PATCH')).toHaveLength(0);
+    expect(button('저장').disabled).toBe(true);
+    await act(async () =>
+      notification.resolve(new Response('', { status: 503 })),
+    );
+    const profile = Promise.withResolvers<Response>();
+    profileResponder = () => profile.promise;
+    const readsBefore = requests.filter(
+      ({ method, url }) =>
+        method === 'GET' && url.endsWith('/notification-email'),
+    ).length;
+    await act(async () => {
+      submitForm();
+      button('알림 설정 다시 불러오기').click();
+    });
+    expect(
+      requests.filter(
+        ({ method, url }) =>
+          method === 'GET' && url.endsWith('/notification-email'),
+      ),
+    ).toHaveLength(readsBefore);
+    expect(button('알림 설정 다시 불러오기').disabled).toBe(true);
+    await act(async () => profile.resolve(jsonResponse(SAVED_PROFILE)));
   });
 });

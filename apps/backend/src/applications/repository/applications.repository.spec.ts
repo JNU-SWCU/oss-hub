@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, ProgramLifecycle } from '@prisma/client';
 import { ApplicationsRepository } from './applications.repository';
 import type { PrismaService } from '../../prisma/prisma.service';
 
@@ -9,7 +9,7 @@ const MEMBER_ID = 'synthetic-member';
 type LockQueryMock = jest.Mock<Promise<unknown>, [Prisma.Sql]>;
 
 function buildStoreHarness(overrides: {
-  readonly lockedRows: readonly { id: string; leaderId: string }[];
+  readonly lockedRows: readonly unknown[];
   readonly membership?: { id: string } | null;
 }) {
   const queryRaw: LockQueryMock = jest
@@ -33,7 +33,7 @@ function buildStoreHarness(overrides: {
 function lockedSqlOf(queryRaw: LockQueryMock): Prisma.Sql {
   const call = queryRaw.mock.calls[0];
   if (call === undefined) {
-    throw new Error('expected a Team FOR UPDATE query');
+    throw new Error('expected a FOR UPDATE query');
   }
   return call[0];
 }
@@ -111,5 +111,36 @@ describe('PrismaApplicationCreateStore.lockTeamForApply', () => {
     const membershipOrder =
       teamMemberFindUnique.mock.invocationCallOrder[0] ?? 0;
     expect(lockOrder).toBeLessThan(membershipOrder);
+  });
+});
+
+describe('PrismaApplicationCreateStore.lockProgramForApply', () => {
+  it('프로그램 행을 잠그면서 신청 정책 네 필드를 함께 조회한다', async () => {
+    const policy = {
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
+      applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),
+      applicationTemplateVersion: 2,
+    };
+    const { repository, queryRaw } = buildStoreHarness({
+      lockedRows: [policy],
+    });
+
+    const result = await repository.withCreateTransaction((store) =>
+      store.lockProgramForApply('synthetic-program'),
+    );
+
+    expect(result).toEqual(policy);
+    const sql = lockedSqlOf(queryRaw);
+    expect(sql.values).toEqual(['synthetic-program']);
+  });
+
+  it('잠글 프로그램이 없으면 null을 반환한다', async () => {
+    const { repository } = buildStoreHarness({ lockedRows: [] });
+    await expect(
+      repository.withCreateTransaction((store) =>
+        store.lockProgramForApply('synthetic-missing-program'),
+      ),
+    ).resolves.toBeNull();
   });
 });

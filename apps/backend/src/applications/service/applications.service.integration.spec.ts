@@ -3,6 +3,7 @@ import {
   ApplicationStatus,
   MemberKind,
   ProgramCategory,
+  ProgramLifecycle,
   RepositoryConnectionMode,
   RepositoryIssuanceOutcome,
   RepositoryProvisionJobStatus,
@@ -293,6 +294,198 @@ describe('ApplicationsService integration', () => {
         data: { hasStaffAccess: true, hasAdminAccess: false },
       });
     },
+  );
+
+  it.each([
+    {
+      name: '잠금 후 최신 양식으로 신청',
+      policy: { applicationTemplateVersion: 2 },
+      submittedVersion: 2,
+      errorCode: null,
+    },
+    {
+      name: '신청 종료일 변경',
+      policy: { applicationEndAt: new Date('2026-07-14T00:00:00.000Z') },
+      submittedVersion: 1,
+      errorCode: ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED,
+    },
+    {
+      name: '신청 시작일 변경',
+      policy: { applicationStartAt: new Date('2026-07-16T00:00:00.000Z') },
+      submittedVersion: 1,
+      errorCode: ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED,
+    },
+    {
+      name: '오래된 신청 양식',
+      policy: { applicationTemplateVersion: 2 },
+      submittedVersion: 1,
+      errorCode: ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH,
+    },
+    {
+      name: '프로그램 보관 전환',
+      policy: { lifecycle: ProgramLifecycle.ARCHIVED },
+      submittedVersion: 1,
+      errorCode: ApplicationsErrorCode.PROGRAM_ARCHIVED,
+    },
+  ])(
+    '편집 잠금 대기 후 $name',
+    async ({ policy, submittedVersion, errorCode }) => {
+      await prisma.program.create({
+        data: {
+          id: CREATE_PROGRAM_ID,
+          name: 'synthetic-policy-program',
+          organizer: 'synthetic-organizer',
+          category: ProgramCategory.BASIC,
+          lifecycle: ProgramLifecycle.PUBLISHED,
+          applicationTemplateKey: 'synthetic-template',
+          applicationTemplateVersion: 1,
+          applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
+          applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),
+          description: 'synthetic-description',
+        },
+      });
+      const databaseUrl = new URL(process.env.DATABASE_URL ?? '');
+      databaseUrl.searchParams.set('connection_limit', '1');
+      const applicantPrisma = new PrismaService({
+        datasources: { db: { url: databaseUrl.toString() } },
+      });
+      const applicantService = new ApplicationsService(
+        new ApplicationsRepository(applicantPrisma),
+        new AuditLogService(new AuditLogRepository(applicantPrisma)),
+        new UsersAuthorityService(
+          new UsersAuthorityRepository(applicantPrisma),
+        ),
+        new ApplicationJoinCodeService({
+          TEAM_JOIN_CODE_SECRET: 'synthetic-policy-integration-secret',
+        }),
+      );
+      let releaseEditor!: () => void;
+      const editorRelease = new Promise<void>((resolve) => {
+        releaseEditor = resolve;
+      });
+      let markEditorReady!: (pid: number) => void;
+      const editorReady = new Promise<number>((resolve) => {
+        markEditorReady = resolve;
+      });
+      const auditCount = await prisma.auditLog.count({
+        where: { actorId: APPLICANT_ID },
+      });
+      const editor = prisma.$transaction(
+        async (transaction) => {
+          await transaction.program.update({
+            where: { id: CREATE_PROGRAM_ID },
+            data: policy,
+          });
+          const [connection] = await transaction.$queryRaw<
+            [{ pid: number }]
+          >`SELECT pg_backend_pid() AS pid`;
+          markEditorReady(connection.pid);
+          await editorRelease;
+        },
+        { timeout: 10_000 },
+      );
+      const editorOutcome = editor.then(
+        () => ({ status: 'fulfilled' as const }),
+        (reason: unknown) => ({ status: 'rejected' as const, reason }),
+      );
+      let application: Promise<unknown> | undefined;
+      try {
+        const editorPid = await Promise.race([
+          editorReady,
+          editorOutcome.then(() => {
+            throw new Error('Editor ended before acquiring the Program lock');
+          }),
+        ]);
+        const [applicantConnection] = await applicantPrisma.$queryRaw<
+          [{ pid: number }]
+        >`SELECT pg_backend_pid() AS pid`;
+        application = applicantService
+          .create(
+            APPLICANT_GITHUB_ID,
+            CREATE_PROGRAM_ID,
+            {
+              answers: { title: '합성 신청 제목' },
+              teamName: null,
+              applicationTemplateVersion: submittedVersion,
+              isRepositoryPublicationPlanned: true,
+            },
+            new Date('2026-07-15T00:00:00.000Z'),
+          )
+          .then(
+            (value) => ({ status: 'fulfilled' as const, value }),
+            (reason: unknown) => ({ status: 'rejected' as const, reason }),
+          );
+        const deadline = Date.now() + 4_000;
+        let waiting = false;
+        while (!waiting) {
+          const [state] = await prisma.$queryRaw<[{ waiting: boolean }]>`
+          SELECT EXISTS (
+            SELECT 1 FROM pg_stat_activity
+            WHERE pid = ${applicantConnection.pid}
+              AND wait_event_type = 'Lock'
+              AND ${editorPid} = ANY(pg_blocking_pids(pid))
+          ) AS waiting`;
+          waiting = state.waiting;
+          if (!waiting && Date.now() >= deadline) {
+            throw new Error(
+              'Applicant did not wait for the editor-held Program lock',
+            );
+          }
+        }
+        expect(waiting).toBe(true);
+        releaseEditor();
+        expect(await editorOutcome).toEqual({ status: 'fulfilled' });
+        const outcome = await application;
+        if (errorCode !== null) {
+          expect(outcome).toMatchObject({
+            status: 'rejected',
+            reason: { errorCode: { code: errorCode } },
+          });
+          expect(
+            await prisma.application.count({
+              where: { programId: CREATE_PROGRAM_ID },
+            }),
+          ).toBe(0);
+          expect(
+            await prisma.team.count({
+              where: { programId: CREATE_PROGRAM_ID },
+            }),
+          ).toBe(0);
+          expect(
+            await prisma.teamMember.count({
+              where: { programId: CREATE_PROGRAM_ID },
+            }),
+          ).toBe(0);
+          expect(
+            await prisma.auditLog.count({ where: { actorId: APPLICANT_ID } }),
+          ).toBe(auditCount);
+        } else {
+          expect(outcome).toMatchObject({ status: 'fulfilled' });
+          const applications = await prisma.application.findMany({
+            where: { programId: CREATE_PROGRAM_ID },
+          });
+          expect(applications).toHaveLength(1);
+          expect(applications[0]).toMatchObject({
+            applicationTemplateVersion: 2,
+            status: ApplicationStatus.SUBMITTED,
+          });
+          expect(
+            await prisma.team.count({
+              where: { programId: CREATE_PROGRAM_ID },
+            }),
+          ).toBe(1);
+          expect(
+            await prisma.auditLog.count({ where: { actorId: APPLICANT_ID } }),
+          ).toBe(auditCount + 2);
+        }
+      } finally {
+        releaseEditor();
+        await editorOutcome;
+        await application;
+        await applicantPrisma.$disconnect();
+      }
+    },
+    15_000,
   );
 
   it('프로그램 최소 인원이 1보다 크면 1인 팀 자동 생성 신청을 거절한다', async () => {

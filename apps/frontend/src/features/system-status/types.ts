@@ -109,6 +109,7 @@ export type SystemStatusViewState =
   | { readonly kind: 'error' }
   | {
       readonly kind: 'success';
+      readonly freshness: 'current' | 'refreshing' | 'stale';
       readonly status: SystemStatus;
       readonly collectionStreams: readonly CollectionStreamRepository[];
       readonly collectionActivity: readonly CollectionActivityEntry[];

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import { fetchSystemStatus, triggerCollection } from '../api';
 import type { SystemStatusViewState, TriggerNotice } from '../types';
@@ -15,88 +15,74 @@ export function SystemStatusScreen() {
   const [state, setState] = useState<SystemStatusViewState>({
     kind: 'loading',
   });
-  const [requestKey, setRequestKey] = useState(0);
+  const requestSequence = useRef(0);
+  const triggerInFlight = useRef(false);
+  const mounted = useRef(false);
   const [isTriggering, setIsTriggering] = useState(false);
   const [triggerNotice, setTriggerNotice] = useState<TriggerNotice | null>(
     null,
   );
-  const retry = useCallback(() => setRequestKey((key) => key + 1), []);
 
-  useEffect(() => {
-    let active = true;
-    setState({ kind: 'loading' });
-
-    fetchSystemStatus()
-      .then(
-        ({
-          status,
-          collectionStreams,
-          collectionActivity,
-          externalCollection,
-        }) => {
-          if (active) {
-            setState({
-              kind: 'success',
-              status,
-              collectionStreams,
-              collectionActivity,
-              externalCollection,
-            });
-          }
-        },
-      )
-      .catch(() => {
-        if (active) setState({ kind: 'error' });
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [requestKey]);
-
-  const refreshQuietly = useCallback(async () => {
+  const refresh = useCallback(async () => {
+    const sequence = ++requestSequence.current;
+    setState((previous) =>
+      previous.kind === 'success'
+        ? { ...previous, freshness: 'refreshing' }
+        : { kind: 'loading' },
+    );
     try {
-      const {
-        status,
-        collectionStreams,
-        collectionActivity,
-        externalCollection,
-      } = await fetchSystemStatus();
-      setState({
-        kind: 'success',
-        status,
-        collectionStreams,
-        collectionActivity,
-        externalCollection,
-      });
-    } catch {}
+      const data = await fetchSystemStatus();
+      if (!mounted.current || sequence !== requestSequence.current) return;
+      setState({ kind: 'success', freshness: 'current', ...data });
+    } catch {
+      if (!mounted.current || sequence !== requestSequence.current) return;
+      setState((previous) =>
+        previous.kind === 'success'
+          ? { ...previous, freshness: 'stale' }
+          : { kind: 'error' },
+      );
+    }
   }, []);
 
+  useEffect(() => {
+    mounted.current = true;
+    void refresh();
+    return () => {
+      mounted.current = false;
+      requestSequence.current += 1;
+    };
+  }, [refresh]);
+
   const handleTrigger = useCallback(async () => {
+    if (triggerInFlight.current) return;
+    triggerInFlight.current = true;
     setIsTriggering(true);
     setTriggerNotice(null);
     try {
       await triggerCollection();
+      if (!mounted.current) return;
       setTriggerNotice({
         kind: 'success',
-        message: '수집을 시작했습니다. 최신 상태를 다시 불러왔습니다.',
+        message: '수집 요청을 접수했습니다.',
       });
-      await refreshQuietly();
+      await refresh();
     } catch (error: unknown) {
+      if (!mounted.current) return;
       const message =
         error instanceof ApiError && error.problem.code === 'COL_008'
           ? QUIESCE_TRIGGER_MESSAGE
           : GENERIC_TRIGGER_ERROR_MESSAGE;
       setTriggerNotice({ kind: 'error', message });
     } finally {
-      setIsTriggering(false);
+      triggerInFlight.current = false;
+      if (mounted.current) setIsTriggering(false);
     }
-  }, [refreshQuietly]);
+  }, [refresh]);
 
   return (
     <SystemStatusView
       state={state}
-      onRetry={retry}
+      onRetry={() => void refresh()}
       onTrigger={() => void handleTrigger()}
       isTriggering={isTriggering}
       triggerNotice={triggerNotice}
