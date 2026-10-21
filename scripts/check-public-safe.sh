@@ -299,7 +299,7 @@ scan_text "Issue 본문·댓글" 0 <<<"${ISSUE_TEXT:-}"
 if [ "$FAIL" -ne 0 ]; then
   echo ""
   echo "public-safe deny-list 위반이 감지되었습니다. 해당 값을 제거한 뒤 다시 push하세요."
-  echo "이미 push된 커밋에 포함됐다면 삭제가 아니라 security.md의 '유출 사고 절차'를 따르세요."
+  echo "이미 push된 자격증명은 즉시 폐기·재발급하고, 노출된 공개 이력과 로그도 정리하세요. 값만 삭제해도 기존 자격증명은 무효화되지 않습니다."
   exit 1
 fi
 if [ "$TEXT_ONLY" -eq 1 ]; then

@@ -342,7 +342,7 @@ check_design_spec() {
   body=$(section_body "$file" "정리")
   line=$(grep -E '^- 디자인 규격:' <<<"$body" | head -n 1 || true)
   if [[ -z "$line" ]]; then
-    violations+=("R12 '정리' 절에 '- 디자인 규격:' 줄이 없다 — 쓴 공용 컴포넌트·토큰과 규격 출처(design.md 카드 또는 Figma 링크)를 적거나 \`화면 변경 없음 — <이유>\`로 적는다")
+    violations+=("R12 '정리' 절에 '- 디자인 규격:' 줄이 없다 — 쓴 공용 컴포넌트·토큰과 규격 출처(공용 컴포넌트 경로, docs/design-tokens/tokens.json 또는 Figma 링크)를 적거나 \`화면 변경 없음 — <이유>\`로 적는다")
     return
   fi
   value=${line#- 디자인 규격:}

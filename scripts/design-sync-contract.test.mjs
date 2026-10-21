@@ -160,6 +160,9 @@ for (const fail of [false, true]) {
       const directory = mkdtempSync(path.join(tmpdir(), 'design-emission-'));
       try {
         const pkg = path.join(directory, 'apps/frontend');
+        const temporary = path.join(directory, 'tmp');
+        const receipt = path.join(directory, 'compiler-output.txt');
+        mkdirSync(temporary);
         mkdirSync(path.join(directory, '.design-sync'), { recursive: true });
         mkdirSync(path.join(pkg, 'node_modules/.bin'), { recursive: true });
         mkdirSync(path.join(pkg, 'ds-types/components/ui'), {
@@ -178,13 +181,20 @@ for (const fail of [false, true]) {
         writeFileSync(
           compiler,
           '#!/usr/bin/env node\n' +
-            `const fs=require('node:fs');const path=require('node:path');const out=process.argv[process.argv.indexOf('--declarationDir')+1];fs.mkdirSync(path.join(out,'components/ui'),{recursive:true});fs.writeFileSync(path.join(out,'components/index.d.ts'),'export {};');fs.writeFileSync(path.join(out,'components/ui/fresh.d.ts'),'export {};');process.exit(${fail ? 2 : 0});`,
+            `const fs=require('node:fs');const path=require('node:path');const out=process.argv[process.argv.indexOf('--declarationDir')+1];fs.mkdirSync(path.join(out,'components/ui'),{recursive:true});fs.writeFileSync(path.join(out,'components/index.d.ts'),'export {};');fs.writeFileSync(path.join(out,'components/ui/fresh.d.ts'),'export {};');fs.writeFileSync(process.env.COMPILER_OUTPUT_RECEIPT,out);process.exit(${fail ? 2 : 0});`,
         );
         chmodSync(compiler, 0o755);
         const result = spawnSync(
           process.execPath,
           [path.join(directory, '.design-sync/emit-types.mjs')],
-          { encoding: 'utf8' },
+          {
+            encoding: 'utf8',
+            env: {
+              ...process.env,
+              TMPDIR: temporary,
+              COMPILER_OUTPUT_RECEIPT: receipt,
+            },
+          },
         );
         assert.equal(result.status, fail ? 1 : 0, result.stderr);
         const output = readFileSync(path.join(pkg, 'index.d.ts'), 'utf8');
@@ -205,10 +215,12 @@ for (const fail of [false, true]) {
             false,
           );
         }
-        assert.deepEqual(
-          readdirSync(pkg).filter((name) => name.startsWith('.ds-types-')),
-          [],
+        const emittedDirectory = readFileSync(receipt, 'utf8');
+        assert.ok(
+          emittedDirectory.startsWith(temporary + path.sep),
+          'compiler output must be inside the isolated TMPDIR',
         );
+        assert.deepEqual(readdirSync(temporary), []);
       } finally {
         rmSync(directory, { recursive: true, force: true });
       }
