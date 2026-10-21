@@ -1,5 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import {
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  statSync,
+  lstatSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
 import { parseDotenv } from './validate-production-env.mjs';
@@ -42,9 +49,31 @@ const mount = (container, destination) => {
 };
 
 try {
-  const [tag, sha, mode, source, secrets] = process.argv.slice(2);
+  const [tag, sha, mode, source, secrets, keyIdentityFile] =
+    process.argv.slice(2);
   const target = semver(tag);
   if (!/^[a-f0-9]{40}$/.test(sha)) fail('invalid revision');
+  if (mode === '--verify-keys') {
+    const metadata = lstatSync(source);
+    if (!metadata.isFile() || (metadata.mode & 0o077) !== 0)
+      fail('unprotected key identity');
+    const identity = JSON.parse(readFileSync(source, 'utf8'));
+    same(
+      identity.generation,
+      realpathSync(secrets),
+      'previous key generation mismatch',
+    );
+    for (const role of ['collection', 'operations']) {
+      if (!/^[a-f0-9]{64}$/.test(identity.hashes?.[role]))
+        fail('invalid previous key identity');
+      same(
+        hash(join(identity.generation, `${role}.pem`)),
+        identity.hashes[role],
+        'previous key bytes changed',
+      );
+    }
+    process.exit(0);
+  }
   const ids = docker(
     'ps',
     '--all',
@@ -207,6 +236,21 @@ try {
         );
         if (!expected.equals(readFileSync(actual)))
           fail('previous config differs from revision');
+      }
+      if (keyIdentityFile !== undefined) {
+        writeFileSync(
+          keyIdentityFile,
+          JSON.stringify({
+            generation,
+            hashes: Object.fromEntries(
+              ['collection', 'operations'].map((role) => [
+                role,
+                hash(join(generation, `${role}.pem`)),
+              ]),
+            ),
+          }),
+          { flag: 'wx', mode: 0o600 },
+        );
       }
     } else {
       const previous = JSON.parse(readFileSync(source, 'utf8'));

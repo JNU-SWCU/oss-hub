@@ -130,7 +130,13 @@ node "$CONTROLLER_DIR/scripts/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$
       steps {
         script {
           env.RELEASE_SOURCE = "${env.CONTROLLER_DIR}/release-source"
-          env.PREVIOUS_STATE = "${env.CONTROLLER_DIR}/previous-state.json"
+          env.RECOVERY_DIR = sh(script: '''#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+mktemp -d "$SECRETS_DIR/recovery.XXXXXX"
+''', returnStdout: true).trim()
+          env.PREVIOUS_STATE = "${env.RECOVERY_DIR}/state.json"
+          env.PREVIOUS_KEY_IDENTITY = "${env.RECOVERY_DIR}/keys.json"
           sh '''#!/usr/bin/env bash
 set -euo pipefail
 test -w /var/lib/oss-hub
@@ -138,7 +144,7 @@ mkdir -p /var/lib/oss-hub/runtime/releases
 test -w /var/lib/oss-hub/runtime/releases
 test -d "$SECRETS_DIR"
 test -w "$SECRETS_DIR"
-node "$CONTROLLER_DIR/scripts/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --capture "$CONTROLLER_DIR" "$SECRETS_DIR" > "$PREVIOUS_STATE"
+node "$CONTROLLER_DIR/scripts/jenkins/probe-release-state.mjs" "$RELEASE_TAG" "$RELEASE_SHA" --capture "$CONTROLLER_DIR" "$SECRETS_DIR" "$PREVIOUS_KEY_IDENTITY" > "$PREVIOUS_STATE"
 bash "$CONTROLLER_DIR/scripts/jenkins/validate-rollback-images.sh"
 test ! -L "$RELEASE_SOURCE"
 if [ ! -d "$RELEASE_SOURCE" ]; then

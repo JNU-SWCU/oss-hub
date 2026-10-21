@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import {
   mkdtempSync,
   mkdirSync,
@@ -9,11 +9,13 @@ import {
   cpSync,
   realpathSync,
   symlinkSync,
+  statSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { createServer } from 'node:http';
 
 const helpers = dirname(fileURLToPath(import.meta.url));
 const oldId = `sha256:${'1'.repeat(64)}`;
@@ -43,6 +45,7 @@ else if (a[0] === 'inspect') {
   if (op === 'up') {
     if (!a.includes('--force-recreate') || !a.includes('--no-deps')) process.exit(44);
     if (!candidate && state.failure === 'recovery') process.exit(45);
+    if (!candidate && state.failure === 'recovery-key-drift') fs.writeFileSync(path.join(root,'secrets/old/collection.pem'), 'synthetic changed during recovery');
     const image = state.images['oss-hub-backend:'+tag];
     const be = state.containers.backend, ng = state.containers.nginx;
     be.Image = image.Id; be.Config.Image = 'oss-hub-backend:'+tag;
@@ -57,11 +60,15 @@ else if (a[0] === 'inspect') {
       m.Source = source;
       state.mountedKeys[role] = fs.readFileSync(source,'utf8');
     }
+    if (!candidate && state.failure === 'recovery-mounted-key-drift') state.mountedKeys.collection = 'synthetic incorrect mounted bytes';
     if (!(candidate && state.failure === 'partial-up')) ng.Mounts[0].Source = path.join(path.dirname(compose),'deploy/nginx');
     state.active = candidate ? 'candidate' : 'previous';
     save();
-    if (candidate && ['partial-up','recovery'].includes(state.failure)) process.exit(46);
+    if (candidate && state.failure === 'old-key-drift') { fs.writeFileSync(path.join(root,'secrets/old/collection.pem'), 'synthetic replaced old key'); process.exit(46); }
+    if (candidate && state.failure === 'diagnostic-hang') { console.error('CANDIDATE_UP_FAILED'); process.exit(46); }
+    if (candidate && ['partial-up','recovery','recovery-key-drift','recovery-mounted-key-drift'].includes(state.failure)) process.exit(46);
   } else if (op === 'ps') {
+    if (state.failure === 'diagnostic-hang') { console.error('SYNTHETIC_DIAGNOSTIC_HUNG'); setInterval(()=>{},10000); }
     if (state.failure === 'diagnostic') process.exit(47);
   } else if (op === 'exec') {
     if (a.includes('node')) {
@@ -238,6 +245,7 @@ function fixture(t) {
     FIXTURE: root,
     CANDIDATE_COMPOSE: join(candidate, 'compose.yml'),
     PREVIOUS_STATE: join(root, 'previous.json'),
+    PREVIOUS_KEY_IDENTITY: join(root, 'previous-keys.json'),
     STAGED_KEY_GENERATION: join(secrets, 'new'),
     SECRETS_DIR: secrets,
     OSS_HUB_ENV_FILE: join(root, 'env'),
@@ -337,9 +345,16 @@ function fixture(t) {
         '--capture',
         source,
         secrets,
+        env.PREVIOUS_KEY_IDENTITY,
       );
       assert.equal(r.status, 0, r.stderr);
       writeFileSync(env.PREVIOUS_STATE, r.stdout);
+      assert.equal(statSync(env.PREVIOUS_KEY_IDENTITY).mode & 0o777, 0o600);
+      const privateIdentity = JSON.parse(
+        readFileSync(env.PREVIOUS_KEY_IDENTITY, 'utf8'),
+      );
+      for (const fingerprint of Object.values(privateIdentity.hashes))
+        assert.equal((r.stdout + r.stderr).includes(fingerprint), false);
     },
     activate: () => invoke('bash', [join(helpers, 'activate-release.sh')]),
   };
@@ -619,3 +634,167 @@ for (const suffix of [
     assert.notEqual(storage.status, 0);
     assert.doesNotMatch(storage.stderr, /secret-sentinel/);
   });
+
+function invokeBounded(f, binary, args, extra = {}, deadlineMs = 20000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(binary, args, {
+      env: { ...f.env, ...extra },
+      detached: true,
+    });
+    let stdout = '',
+      stderr = '',
+      timedOut = false;
+    const guard = setTimeout(() => {
+      timedOut = true;
+      process.kill(-child.pid, 'SIGKILL');
+    }, deadlineMs);
+    child.stdout.on('data', (data) => {
+      stdout += data;
+    });
+    child.stderr.on('data', (data) => {
+      stderr += data;
+    });
+    child.on('error', (error) => {
+      clearTimeout(guard);
+      reject(error);
+    });
+    child.on('close', (status, signal) => {
+      clearTimeout(guard);
+      const result = { status, signal, stdout, stderr, timedOut };
+      writeFileSync(join(f.root, 'last-result.json'), JSON.stringify(result));
+      resolve(result);
+    });
+  });
+}
+
+test('unresponsive diagnostic cannot delay single recovery', async (t) => {
+  const f = fixture(t);
+  f.capture();
+  f.change((s) => {
+    s.failure = 'diagnostic-hang';
+  });
+  const r = await invokeBounded(f, 'bash', [
+    join(helpers, 'activate-release.sh'),
+  ]);
+  assert.match(r.stderr, /CANDIDATE_UP_FAILED/);
+  assert.equal(
+    r.timedOut,
+    false,
+    'recovery must complete without waiting for diagnostics',
+  );
+  assert.equal(r.status, 46);
+  assert.match(r.stderr, /RECOVERY=ok/);
+  assert.equal(f.ledger().filter((c) => c.args?.includes('up')).length, 2);
+  assert.equal(
+    f
+      .ledger()
+      .filter((c) => c.args?.[0] === 'compose' && c.args?.includes('ps'))
+      .length,
+    0,
+  );
+  assert.equal(
+    realpathSync(join(f.secrets, 'current')),
+    join(f.secrets, 'old'),
+  );
+});
+
+test('original previous key drift never certifies recovery', (t) => {
+  const f = fixture(t);
+  f.capture();
+  f.change((s) => {
+    s.failure = 'old-key-drift';
+  });
+  const r = f.activate();
+  assert.equal(r.status, 46);
+  assert.match(r.stderr, /RECOVERY_FAILED/);
+  assert.doesNotMatch(r.stderr, /RECOVERY=ok/);
+  assert.equal(f.ledger().filter((c) => c.args?.includes('up')).length, 1);
+  assert.equal(
+    realpathSync(join(f.secrets, 'current')),
+    join(f.secrets, 'new'),
+  );
+});
+
+test('every smoke request including uploads has finite curl deadlines', (t) => {
+  const f = fixture(t);
+  const r = f.invoke('bash', [join(helpers, 'smoke-release.sh')]);
+  assert.equal(r.status, 0, r.stderr);
+  const calls = f.ledger().filter((c) => c.command === 'curl');
+  assert.equal(calls.length, 16);
+  for (const call of calls) {
+    for (const option of [
+      '--connect-timeout',
+      '--max-time',
+      '--retry-max-time',
+    ]) {
+      const index = call.args.indexOf(option);
+      assert.ok(index >= 0, `missing ${option}`);
+      const bound = Number(call.args[index + 1]);
+      assert.ok(Number.isFinite(bound) && bound > 0 && bound <= 60);
+    }
+  }
+});
+
+for (const failure of ['recovery-key-drift', 'recovery-mounted-key-drift'])
+  test(`${failure} fails against captured original identity`, (t) => {
+    const f = fixture(t);
+    f.capture();
+    f.change((s) => {
+      s.failure = failure;
+    });
+    const r = f.activate();
+    assert.equal(r.status, 46);
+    assert.match(r.stderr, /RECOVERY_FAILED/);
+    assert.doesNotMatch(r.stderr, /RECOVERY=ok/);
+    assert.equal(f.ledger().filter((c) => c.args?.includes('up')).length, 2);
+    const identity = JSON.parse(
+      readFileSync(f.env.PREVIOUS_KEY_IDENTITY, 'utf8'),
+    );
+    for (const fingerprint of Object.values(identity.hashes))
+      assert.equal((r.stdout + r.stderr).includes(fingerprint), false);
+  });
+
+test('real curl terminates an accepted stalled loopback request', async (t) => {
+  const realCurl = spawnSync('which', ['curl'], { encoding: 'utf8' });
+  assert.equal(realCurl.status, 0);
+  const f = fixture(t);
+  let accepted = 0;
+  const server = createServer(() => {
+    accepted += 1;
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(async () => {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  });
+  writeFileSync(
+    join(f.root, 'bin/curl'),
+    `#!/usr/bin/env node
+const {spawnSync}=require('node:child_process');
+const args=process.argv.slice(2);
+args[args.length-1]=process.env.LOOPBACK_URL;
+const result=spawnSync(process.env.REAL_CURL,args,{stdio:'inherit'});
+process.exit(result.status ?? 1);
+`,
+    { mode: 0o755 },
+  );
+  const r = await invokeBounded(
+    f,
+    'bash',
+    [join(helpers, 'smoke-release.sh')],
+    {
+      REAL_CURL: realCurl.stdout.trim(),
+      LOOPBACK_URL: `http://127.0.0.1:${server.address().port}/`,
+      NO_PROXY: '127.0.0.1',
+      no_proxy: '127.0.0.1',
+    },
+    60000,
+  );
+  assert.ok(
+    accepted > 0,
+    'the local server must accept the actual curl request',
+  );
+  assert.equal(r.timedOut, false, 'curl must expire before the harness guard');
+  assert.equal(r.status, 28);
+  assert.doesNotMatch(r.stdout, /RELEASE_SMOKE=ok/);
+});
