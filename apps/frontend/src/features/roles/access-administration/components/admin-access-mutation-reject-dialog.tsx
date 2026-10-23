@@ -1,3 +1,8 @@
+'use client';
+
+import { useRef } from 'react';
+
+import { DialogShell } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -21,26 +26,46 @@ export function AdminAccessMutationRejectDialog({
   onCancel,
   onConfirm,
 }: AdminAccessMutationRejectDialogProps) {
+  const returnFocusRef = useRef<HTMLElement | null>(
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null,
+  );
+
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="admin-access-reject-title"
+    <DialogShell
+      kind="alert"
+      title="요청 반려"
+      description={`${githubLogin}님의 교직원 권한 요청을 반려합니다.`}
+      busy={isProcessing}
+      returnFocusRef={returnFocusRef}
+      className="max-w-md break-keep [overflow-wrap:anywhere]"
+      onCancel={onCancel}
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isProcessing}
+          >
+            취소
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={isProcessing || reason.trim().length === 0}
+          >
+            반려 확정
+          </Button>
+        </>
+      }
     >
-      <div className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-lg">
-        <h2
-          id="admin-access-reject-title"
-          className="font-heading text-xl font-bold"
-        >
-          요청 반려
-        </h2>
-        <p className="mt-2 break-keep text-sm text-muted-foreground">
-          {githubLogin}님의 교직원 권한 요청을 반려합니다.
-        </p>
+      <div>
         <label
           htmlFor="admin-access-reject-reason"
-          className="mt-5 block text-sm font-medium"
+          className="block text-sm font-medium"
         >
           반려 사유
         </label>
@@ -70,25 +95,7 @@ export function AdminAccessMutationRejectDialog({
             <AlertDescription>{errorMessage}</AlertDescription>
           </Alert>
         ) : null}
-        <div className="mt-5 flex justify-end gap-2">
-          <Button
-            className="h-11"
-            variant="outline"
-            onClick={onCancel}
-            disabled={isProcessing}
-          >
-            취소
-          </Button>
-          <Button
-            className="h-11"
-            variant="destructive"
-            onClick={onConfirm}
-            disabled={isProcessing || reason.trim().length === 0}
-          >
-            반려 확정
-          </Button>
-        </div>
       </div>
-    </div>
+    </DialogShell>
   );
 }

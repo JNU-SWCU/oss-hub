@@ -259,7 +259,9 @@ test.describe('마일스톤 편집 재구성', () => {
       `[data-canonical-id="${milestoneId}"]`,
     );
     const deleteControl = milestoneCard.getByRole('button', { name: /삭제$/ });
-    const dialog = staffPage.getByRole('dialog', { name: deleteDialogName });
+    const dialog = staffPage.getByRole('alertdialog', {
+      name: deleteDialogName,
+    });
 
     for (const viewport of [
       { name: 'desktop', width: 1440, height: 900 },
@@ -653,12 +655,11 @@ async function captureOpenDialogEvidence(
     height: innerHeight,
   }));
   expect(viewport).toEqual(page.viewportSize());
-  const panel = dialog.locator(':scope > div').first();
-  await expect(panel).toBeVisible();
+  await expect(dialog).toBeVisible();
   const elementPath = testInfo.outputPath(`${name}-element.png`);
   const viewportPath = testInfo.outputPath(`${name}-viewport.png`);
   const conditionsPath = testInfo.outputPath(`${name}-conditions.json`);
-  const elementImage = await panel.screenshot({ path: elementPath });
+  const elementImage = await dialog.screenshot({ path: elementPath });
   const viewportImage = await page.screenshot({ path: viewportPath });
   expect(new Set(elementImage).size).toBeGreaterThan(32);
   expect(new Set(viewportImage).size).toBeGreaterThan(32);
@@ -704,7 +705,7 @@ async function expectNoHorizontalOverflow(
         const surfaces = [
           document.documentElement,
           ...document.querySelectorAll<HTMLElement>(
-            '[role="dialog"], [role="dialog"] form > div, [data-testid="program-schedule-calendar-scroll"]',
+            '[role="dialog"], [role="alertdialog"], [role="dialog"] form > div, [data-testid="program-schedule-calendar-scroll"]',
           ),
         ];
         return surfaces

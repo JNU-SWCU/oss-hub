@@ -252,7 +252,7 @@ describe('ProgramEditView contract', () => {
     expect(html).toContain(fieldErrors.period);
   });
 
-  it('renders delete confirmation, submission conflict alert, and success toast', () => {
+  it('renders submission conflict alert and success toast', () => {
     const html = renderToStaticMarkup(
       <ProgramEditView
         onCoverChange={() => undefined}
@@ -263,7 +263,7 @@ describe('ProgramEditView contract', () => {
         generalAlert="제출물이 있는 마일스톤은 삭제할 수 없습니다."
         isSaving={false}
         milestoneEditor={{ mode: 'closed' }}
-        deleteTarget={editableProgram.milestones[0]}
+        deleteTarget={null}
         isMilestoneBusy={false}
         {...lifecycleActionProps}
         onFieldChange={noOp}
@@ -279,9 +279,6 @@ describe('ProgramEditView contract', () => {
       />,
     );
 
-    expect(html).toContain('role="dialog"');
-    expect(html).toContain('마일스톤을 되돌릴 수 없이 삭제할까요?');
-    expect(html).toContain('삭제 확정');
     expect(html).toContain('제출물이 있는 마일스톤은 삭제할 수 없습니다');
     expect(html).toContain('role="status"');
 

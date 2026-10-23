@@ -87,6 +87,7 @@ export function ProgramEditPage({
   const [deleteTarget, setDeleteTarget] = useState<EditableMilestone | null>(
     null,
   );
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isMilestoneBusy, setIsMilestoneBusy] = useState(false);
   const [milestoneSnapshot, setMilestoneSnapshot] =
     useState<EditableMilestoneEditSnapshot | null>(null);
@@ -540,12 +541,13 @@ export function ProgramEditPage({
     if (deleteTarget === null) return;
     setIsMilestoneBusy(true);
     setGeneralAlert(null);
+    setDeleteError(null);
     try {
       await deleteMilestone(deleteTarget.id);
       setState((current) => removeMilestone(current, deleteTarget.id));
       setDeleteTarget(null);
     } catch (error: unknown) {
-      setGeneralAlert(mapMilestoneDeleteError(error));
+      setDeleteError(mapMilestoneDeleteError(error));
     } finally {
       setIsMilestoneBusy(false);
     }
@@ -580,6 +582,7 @@ export function ProgramEditPage({
         milestoneEditor={milestoneEditor}
         milestoneEditTriggerRef={milestoneEditTriggerRef}
         deleteTarget={deleteTarget}
+        deleteError={deleteError}
         isMilestoneBusy={isMilestoneBusy}
         milestoneSnapshot={milestoneSnapshot}
         canonicalDocumentsByMilestoneId={canonicalDocumentsByMilestoneId}
@@ -632,7 +635,10 @@ export function ProgramEditPage({
           );
           setHasUnsavedMilestoneDocuments(false);
         }}
-        onRequestDeleteMilestone={setDeleteTarget}
+        onRequestDeleteMilestone={(milestone) => {
+          setDeleteError(null);
+          setDeleteTarget(milestone);
+        }}
         onCancelDelete={() => setDeleteTarget(null)}
         onConfirmDelete={() => void confirmDelete()}
       />

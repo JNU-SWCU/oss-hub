@@ -43,6 +43,7 @@ interface ProgramEditViewProps {
   readonly milestoneEditor: ProgramMilestoneEditor;
   readonly milestoneEditTriggerRef?: React.RefObject<HTMLElement | null>;
   readonly deleteTarget: EditableMilestone | null;
+  readonly deleteError?: string | null;
   readonly isMilestoneBusy: boolean;
   readonly milestoneSnapshot?: EditableMilestoneEditSnapshot | null;
   readonly latestMilestoneSnapshot?: EditableMilestoneEditSnapshot | null;
@@ -137,6 +138,7 @@ export function ProgramEditView({
   milestoneEditor,
   milestoneEditTriggerRef,
   deleteTarget,
+  deleteError,
   isMilestoneBusy,
   milestoneSnapshot,
   latestMilestoneSnapshot,
@@ -239,6 +241,7 @@ export function ProgramEditView({
               editor={milestoneEditor}
               editTriggerRef={milestoneEditTriggerRef}
               deleteTarget={deleteTarget}
+              deleteError={deleteError}
               operationStartAt={form.startAt}
               operationEndAt={form.endAt}
               contextEvents={editScheduleEvents(
