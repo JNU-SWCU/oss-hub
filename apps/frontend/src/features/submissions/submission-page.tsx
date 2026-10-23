@@ -67,16 +67,19 @@ export function SubmissionPage({
   >(null);
   const uploadedFile = useRef(new SubmissionFileUploadCache());
   const submitInFlight = useRef(false);
+  const latestRequestId = useRef(0);
   const fileCheck = useSubmissionFileCheck(file);
 
   const load = useCallback(async () => {
+    const requestId = latestRequestId.current + 1;
+    latestRequestId.current = requestId;
     setState({ kind: 'loading' });
     try {
-      setState({
-        kind: 'ready',
-        data: await getSubmissionForm(programId, milestoneId),
-      });
+      const data = await getSubmissionForm(programId, milestoneId);
+      if (requestId !== latestRequestId.current) return;
+      setState({ kind: 'ready', data });
     } catch (error: unknown) {
+      if (requestId !== latestRequestId.current) return;
       setState({
         kind: 'failed',
         message:
@@ -89,6 +92,9 @@ export function SubmissionPage({
 
   useEffect(() => {
     void load();
+    return () => {
+      latestRequestId.current += 1;
+    };
   }, [load]);
 
   const submit = async (data: SubmissionFormData) => {

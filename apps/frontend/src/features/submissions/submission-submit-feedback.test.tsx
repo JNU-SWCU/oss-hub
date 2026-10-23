@@ -28,11 +28,16 @@ const api = vi.hoisted(() => ({
   uploadFailure: null as Error | null,
   checks: 0,
   checkResult: null as (() => Promise<void>) | null,
+  formResult: null as
+    ((milestoneId: string) => Promise<SubmissionFormData>) | null,
 }));
 
 vi.mock('./api', () => ({
-  getSubmissionForm: (): Promise<SubmissionFormData> =>
-    Promise.resolve(FILE_FORM),
+  getSubmissionForm: (
+    _programId: string,
+    milestoneId: string,
+  ): Promise<SubmissionFormData> =>
+    api.formResult?.(milestoneId) ?? Promise.resolve(FILE_FORM),
   uploadSubmissionFile: async (
     _applicationId: string,
     _milestoneId: string,
@@ -429,6 +434,55 @@ describe('제출 화면이 누른 결과를 사용자에게 돌려준다', () =>
 
     expect(api.uploads).toBe(1);
     expect(api.creates).toBe(1);
+  });
+});
+
+describe('SubmissionPage', () => {
+  it('마일스톤이 바뀐 뒤 늦게 도착한 이전 양식 응답이 새 양식을 덮지 않는다', async () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    const previous = Promise.withResolvers<SubmissionFormData>();
+    const next = Promise.withResolvers<SubmissionFormData>();
+    api.formResult = (milestoneId) =>
+      milestoneId === 'milestone-1' ? previous.promise : next.promise;
+    const screen = (milestoneId: string) => (
+      <SubmissionPage
+        programId="program-1"
+        milestoneId={milestoneId}
+        onCancel={vi.fn()}
+      />
+    );
+    try {
+      await act(async () => root.render(screen('milestone-1')));
+      await act(async () => root.render(screen('milestone-2')));
+      await act(async () =>
+        next.resolve({
+          ...FILE_FORM,
+          milestone: {
+            ...FILE_FORM.milestone,
+            id: 'milestone-2',
+            instructions: '새 마일스톤 안내',
+          },
+        }),
+      );
+      await act(async () =>
+        previous.resolve({
+          ...FILE_FORM,
+          milestone: {
+            ...FILE_FORM.milestone,
+            instructions: '이전 마일스톤 안내',
+          },
+        }),
+      );
+
+      expect(container.textContent).toContain('새 마일스톤 안내');
+      expect(container.textContent).not.toContain('이전 마일스톤 안내');
+    } finally {
+      api.formResult = null;
+      await act(async () => root.unmount());
+      container.remove();
+    }
   });
 });
 
