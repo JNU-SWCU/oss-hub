@@ -98,9 +98,12 @@ describe('MilestoneDocumentCurrentFiles', () => {
     const revokeObjectURL = vi
       .spyOn(URL, 'revokeObjectURL')
       .mockImplementation(() => undefined);
+    const clicked: string[] = [];
     const click = vi
       .spyOn(HTMLAnchorElement.prototype, 'click')
-      .mockImplementation(() => undefined);
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        clicked.push(`${this.download}:${this.isConnected}`);
+      });
     await render();
     const button = container.querySelector('button');
     if (!(button instanceof HTMLButtonElement)) {
@@ -121,6 +124,7 @@ describe('MilestoneDocumentCurrentFiles', () => {
     });
     expect(createObjectURL).toHaveBeenCalledOnce();
     expect(click).toHaveBeenCalledOnce();
+    expect(clicked).toEqual(['현재.pdf:true']);
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:current-file');
     expect(button.disabled).toBe(false);
   });

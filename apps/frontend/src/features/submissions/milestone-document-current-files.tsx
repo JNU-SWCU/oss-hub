@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
+import { downloadBlob } from '@/lib/download-blob';
 import {
   downloadMilestoneDocumentCurrentFile,
   listMilestoneDocumentCurrentFiles,
@@ -61,12 +62,7 @@ export function MilestoneDocumentCurrentFiles({
         milestoneId,
         document.id,
       );
-      const objectUrl = URL.createObjectURL(file.blob);
-      const link = window.document.createElement('a');
-      link.href = objectUrl;
-      link.download = file.fileName;
-      link.click();
-      URL.revokeObjectURL(objectUrl);
+      downloadBlob(file.blob, file.fileName);
     } catch (error: unknown) {
       setDownloadError(
         error instanceof ApiError
