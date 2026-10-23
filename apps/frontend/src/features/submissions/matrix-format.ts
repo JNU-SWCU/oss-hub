@@ -37,7 +37,7 @@ export function formatMatrixDueDateTime(dueAt: string): string {
   return `${get('year')}년 ${get('month')}월 ${get('day')}일 (${get('weekday')}) ${get('dayPeriod')} ${get('hour')}:${get('minute')}`;
 }
 
-function seoulCalendarDayNumber(value: Date): number {
+export function seoulCalendarDayNumber(value: Date): number {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: SEOUL_TIME_ZONE,
     year: 'numeric',
