@@ -46,7 +46,7 @@ export function MilestoneDocumentGraceEditor({
         );
     } catch (failure: unknown) {
       setError(
-        failure instanceof ApiError && !isUnexpectedApiProblem(failure.problem)
+        failure instanceof ApiError && !isUnexpectedApiProblem(failure)
           ? failure.problem.detail
           : '유예 기한을 저장하지 못했습니다. 다시 시도해 주세요.',
       );
