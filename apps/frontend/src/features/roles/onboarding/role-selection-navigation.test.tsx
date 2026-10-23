@@ -61,6 +61,25 @@ describe('role selection navigation', () => {
     expect(navigation.assign).toHaveBeenCalledWith('/programs');
   });
 
+  it.each([
+    ['외부 URL', 'https://evil.example'],
+    ['프로토콜 상대 URL', '//evil.example'],
+  ])('%s이면 프로필 입력 화면으로 되돌린다', (_label, redirectTo) => {
+    const navigation = { assign: vi.fn() };
+
+    navigateAfterRoleSelection(redirectTo, navigation);
+
+    expect(navigation.assign).toHaveBeenCalledWith('/onboarding/profile');
+  });
+
+  it('내부 경로는 하위 경로까지 그대로 연다', () => {
+    const navigation = { assign: vi.fn() };
+
+    navigateAfterRoleSelection('/programs/1', navigation);
+
+    expect(navigation.assign).toHaveBeenCalledWith('/programs/1');
+  });
+
   it('학생 역할 저장 성공 시 새 문서로 결과 경로를 연다', async () => {
     mocks.selectRole.mockResolvedValue({
       selectedRole: 'STUDENT',
