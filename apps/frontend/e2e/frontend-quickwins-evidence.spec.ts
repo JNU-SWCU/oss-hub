@@ -1,10 +1,11 @@
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import type { Locator, Page, TestInfo } from '@playwright/test';
 import { expect, test } from './admin-session.fixture';
 import { chooseMutation, openDetail } from './support/admin-access-actions';
 import { installBrowserAudit } from './support/browser-audit';
 import {
   captureBothViewports,
+  captureEvidenceRegion,
   capturePhase,
   EVIDENCE_VIEWPORTS,
   type CapturePhase,
@@ -12,6 +13,7 @@ import {
 import {
   fixtureProgramId,
   originHeaders,
+  PROGRAM_AUTHORING_CONTROL_PATH,
   resetProgramAuthoringControl,
   submitProgramApplication,
 } from './support/program-authoring-ui';
@@ -29,6 +31,19 @@ const ROLE_PATH = '/api/v1/onboarding/role';
 const DELETE_TITLE = '마일스톤을 되돌릴 수 없이 삭제할까요?';
 const DELETE_REFUSAL = '제출물이 있는 마일스톤은 삭제할 수 없습니다.';
 const EXTERNAL_REDIRECT = '//external.example/landing';
+const RANKING_ITEM = {
+  rank: 1,
+  displayName: 'synthetic-1',
+  githubLogin: 'synthetic-1',
+  name: '=1+1',
+  department: 'synthetic-department',
+  commitCount: 1,
+  pullRequestCount: 2,
+  issueCount: 3,
+  repositoryCount: 4,
+  starCount: 5,
+  total: 15,
+};
 
 test.use({ timezoneId: 'Asia/Seoul' });
 
@@ -71,6 +86,42 @@ async function capture(
     name,
     target,
     masks: [page.locator(SIDEBAR_FOOT)],
+  });
+  await page.setViewportSize(EVIDENCE_VIEWPORTS[0]);
+}
+
+async function captureLowHeight(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+  title: string,
+  panel: Locator,
+): Promise<void> {
+  await captureEvidenceRegion({
+    page,
+    testInfo,
+    phase: PHASE,
+    prefix: PREFIX,
+    name: `screen-${name}-low`,
+    viewport: { ...EVIDENCE_VIEWPORTS[1], height: 440 },
+    target:
+      PHASE === 'before'
+        ? page
+            .locator('[role="dialog"][aria-modal="true"]')
+            .filter({ hasText: title })
+        : page.locator('[data-slot="dialog-overlay"]'),
+    masks: [page.locator(SIDEBAR_FOOT)],
+  });
+  await record(testInfo, `${name}-low`, {
+    buttons: await panel.getByRole('button').evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const { top, bottom } = button.getBoundingClientRect();
+        return {
+          name: button.textContent?.trim() ?? '',
+          inView: top >= 0 && bottom <= window.innerHeight,
+        };
+      }),
+    ),
   });
   await page.setViewportSize(EVIDENCE_VIEWPORTS[0]);
 }
@@ -376,6 +427,7 @@ test('마일스톤 삭제 다이얼로그는 Escape로 닫히고 실패 이유�
     alertInDialog: await panel.locator('[role="alert"]').count(),
     antiPatterns: await antiPatterns(page),
   });
+  await captureLowHeight(page, testInfo, 'delete-failure', DELETE_TITLE, panel);
   audit.assertClean([{ status: 409, path: MILESTONE_PATH, method: 'DELETE' }]);
 });
 
@@ -417,6 +469,20 @@ test('요청 반려 다이얼로그는 Escape로 닫히고 반려 버튼으로 �
       adminPage.getByRole('button', { name: '반려', exact: true }),
     ).toBeFocused();
   }
+
+  await chooseMutation(adminPage, '요청 반려');
+  await panel
+    .getByLabel('반려 사유', { exact: true })
+    .fill(
+      '제출한 재직 증빙 서류의 발급일이 신청 기준일보다 오래되어 확인하기 어렵습니다. 최근 3개월 안에 발급한 서류로 다시 신청해 주세요.',
+    );
+  await captureLowHeight(
+    adminPage,
+    testInfo,
+    'reject-dialog',
+    '요청 반려',
+    panel,
+  );
   audit.assertClean();
 });
 
@@ -464,5 +530,187 @@ test('역할 선택 뒤 외부 주소로 보내는 응답을 받아도 앱 안�
     pathname: landed.pathname,
   });
   await capture(page, testInfo, 'screen-role-redirect', page.locator('body'));
+  audit.assertClean();
+});
+
+test('순위 CSV는 수식으로 읽힐 이름 앞에 작은따옴표를 붙여 내려준다', async ({
+  authSeedPage,
+  programAuthoringActorPage,
+}, testInfo) => {
+  test.setTimeout(120_000);
+  const control = await authSeedPage('admin-confirmed');
+  await resetProgramAuthoringControl(control);
+  await fixtureProgramId(control);
+  const page = await programAuthoringActorPage('staff');
+  await page.route('**/api/v1/ranking*', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/years')) return route.fallback();
+    const requestPage = Number(url.searchParams.get('page') ?? '1');
+    await route.fulfill({
+      json: {
+        year: 2026,
+        items: requestPage === 1 ? [RANKING_ITEM] : [],
+        page: requestPage,
+        pageSize: Number(url.searchParams.get('pageSize') ?? '20'),
+        total: 1,
+        dataAsOf: '2026-08-19T02:30:00.000Z',
+        viewerClass: 'staff',
+        nextCycleAt: new Date(Date.now() + 3 * 86_400_000).toISOString(),
+      },
+    });
+  });
+  await page.route('**/api/v1/ranking/years*', (route) =>
+    route.fulfill({ json: { years: [2026] } }),
+  );
+  const audit = installBrowserAudit(page);
+  await page.goto('/ranking?year=2026');
+  await expect(page.getByRole('button', { name: /계정 메뉴/ })).toBeVisible();
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'CSV 다운로드' }).click();
+  const download = await downloading;
+  const firstRow = (await readFile(await download.path()))
+    .toString('utf8')
+    .replace(/^\uFEFF/, '')
+    .split('\r\n')[1];
+  expect(download.suggestedFilename()).toBe('ranking-2026.csv');
+  expect(firstRow).toBe(
+    PHASE === 'before'
+      ? '1,=1+1,synthetic-1,synthetic-department,1,2,3,4,5,15'
+      : "1,'=1+1,synthetic-1,synthetic-department,1,2,3,4,5,15",
+  );
+  await record(testInfo, 'ranking-csv', {
+    filename: download.suggestedFilename(),
+    firstRow,
+  });
+  await capture(page, testInfo, 'screen-ranking-csv', page.locator('body'));
+  audit.assertClean();
+});
+
+test('마일스톤이 바뀐 뒤 늦게 온 이전 제출 양식 응답은 화면을 덮지 않는다', async ({
+  authSeedPage,
+  programAuthoringActorPage,
+}, testInfo) => {
+  test.setTimeout(120_000);
+  const control = await authSeedPage('admin-confirmed');
+  await resetProgramAuthoringControl(control);
+  const programId = await fixtureProgramId(control);
+  expect(
+    (
+      await control.request.post(
+        `${PROGRAM_AUTHORING_CONTROL_PATH}/applications`,
+        { data: { mode: 'NEW' } },
+      )
+    ).status(),
+  ).toBe(201);
+  expect(
+    (
+      await control.request.post(
+        `${PROGRAM_AUTHORING_CONTROL_PATH}/approve-and-run`,
+      )
+    ).status(),
+  ).toBe(201);
+  const page = await programAuthoringActorPage('student');
+  const day = 86_400_000;
+  const dueAt = new Date(
+    (Math.floor(Date.now() / day) + 30) * day,
+  ).toISOString();
+  const fileUpload = { maxBytes: 10_485_760, maxLabel: '10 MB' };
+  const milestones = [
+    { id: 'synthetic-milestone-a', name: '합성 A 단계' },
+    { id: 'synthetic-milestone-b', name: '합성 B 단계' },
+  ];
+  const aRequested = Promise.withResolvers<void>();
+  const aReleased = Promise.withResolvers<void>();
+  await page.route('**/api/v1/programs/*/submissions/me', (route) =>
+    route.fulfill({
+      json: {
+        fileUpload,
+        applicationId: 'synthetic-application',
+        applicationMode: 'PERSONAL',
+        items: milestones.map((milestone) => ({
+          milestoneId: milestone.id,
+          name: milestone.name,
+          dueAt,
+          submissionType: 'TEXT',
+          submission: null,
+        })),
+      },
+    }),
+  );
+  await page.route(
+    '**/api/v1/programs/*/milestones/*/submission-form',
+    async (route) => {
+      const id = decodeURIComponent(
+        new URL(route.request().url()).pathname.split('/').at(-2) ?? '',
+      );
+      const milestone = milestones.find((candidate) => candidate.id === id);
+      if (!milestone) return route.fallback();
+      if (milestone.id === 'synthetic-milestone-a') {
+        aRequested.resolve();
+        await aReleased.promise;
+      }
+      await route.fulfill({
+        json: {
+          fileUpload,
+          applicationId: 'synthetic-application',
+          applicationMode: 'PERSONAL',
+          milestone: {
+            id: milestone.id,
+            name: milestone.name,
+            dueAt,
+            dDay: 30,
+            deadlineLabel: 'D-30',
+            submissionType: 'TEXT',
+            instructions: `${milestone.name} 제출 안내`,
+          },
+          existingSubmission: null,
+          canSubmit: true,
+          blockedReason: null,
+        },
+      });
+    },
+  );
+  const audit = installBrowserAudit(page);
+  await page.goto(
+    `/programs/${encodeURIComponent(programId)}/documents?milestoneId=synthetic-milestone-a`,
+  );
+  await aRequested.promise;
+  await page.evaluate(
+    (id) =>
+      window.history.pushState(
+        null,
+        '',
+        `${window.location.pathname}?milestoneId=${encodeURIComponent(id)}`,
+      ),
+    'synthetic-milestone-b',
+  );
+  const dialog = page.getByRole('dialog', { name: '합성 B 단계' });
+  await expect(dialog).toBeVisible();
+  const body = page.getByTestId('submission-dialog-body');
+  await expect(body).toContainText('합성 B 단계 제출 안내');
+  const lateA = page.waitForResponse((response) =>
+    response.url().includes('synthetic-milestone-a/submission-form'),
+  );
+  aReleased.resolve();
+  await lateA;
+  if (PHASE === 'before')
+    await expect(body).toContainText('합성 A 단계 제출 안내');
+  else {
+    await page.waitForTimeout(500);
+    await expect(body).toContainText('합성 B 단계 제출 안내');
+    await expect(body).not.toContainText('합성 A 단계 제출 안내');
+  }
+  await record(testInfo, 'submission-stale', {
+    dialogTitle: await dialog.getByRole('heading').first().textContent(),
+    showsA: await body.getByText('합성 A 단계 제출 안내').count(),
+    showsB: await body.getByText('합성 B 단계 제출 안내').count(),
+  });
+  await capture(page, testInfo, 'element-submission-stale', dialog);
+  await capture(
+    page,
+    testInfo,
+    'screen-submission-stale',
+    page.locator('body'),
+  );
   audit.assertClean();
 });
