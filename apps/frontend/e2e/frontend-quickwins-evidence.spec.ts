@@ -247,6 +247,8 @@ test('초대 취소 버튼이 아이콘을 보여 준다', async ({
     iconVisible: await icon.isVisible(),
     antiPatterns: await antiPatterns(control),
   });
+  await cancel.click();
+  await expect(cancel).toBeHidden();
   audit.assertClean();
 });
 
@@ -421,7 +423,7 @@ test('요청 반려 다이얼로그는 Escape로 닫히고 반려 버튼으로 �
 test('역할 선택 뒤 외부 주소로 보내는 응답을 받아도 앱 안에 머문다', async ({
   authSeedPage,
 }, testInfo) => {
-  const page = await authSeedPage('student-onboarding-unassigned');
+  const page = await authSeedPage('user-role-unselected');
   await page.route(
     (url) => url.pathname === ROLE_PATH,
     async (route) => {
