@@ -5,7 +5,6 @@ import {
   isValidPhone,
   isValidProfileName,
   isValidStudentId,
-  normalizePhone,
   normalizeProfileText,
   PROFILE_DEPARTMENT_MAX_LENGTH,
   PROFILE_NAME_MAX_LENGTH,
@@ -94,11 +93,10 @@ function studentIdError(studentId: string, required: boolean): string | null {
 }
 
 function phoneError(phone: string, required: boolean): string | null {
-  const normalizedPhone = normalizePhone(phone);
-  if (!required && normalizedPhone.length === 0) {
+  if (!required && phone.length === 0) {
     return null;
   }
-  return isValidPhone(normalizedPhone)
+  return isValidPhone(phone)
     ? null
     : '전화번호는 숫자 10~11자리로 입력해 주세요.';
 }
@@ -158,9 +156,7 @@ export function toCompleteProfileRequest(
   return {
     name: normalizeProfileText(values.name),
     ...(studentId ? { studentId } : {}),
-    ...(normalizePhone(values.phone)
-      ? { phone: normalizePhone(values.phone) }
-      : {}),
+    ...(values.phone ? { phone: values.phone } : {}),
     affiliationKind: values.affiliationKind,
     affiliationName: normalizeProfileText(resolveAffiliationName(values)),
   };
@@ -206,9 +202,7 @@ export function toUpdateProfileRequest(
   return {
     name: normalizeProfileText(values.name),
     ...(studentId ? { studentId } : {}),
-    ...(normalizePhone(values.phone)
-      ? { phone: normalizePhone(values.phone) }
-      : {}),
+    ...(values.phone ? { phone: values.phone } : {}),
     department,
   };
 }
