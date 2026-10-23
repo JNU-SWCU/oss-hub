@@ -1,3 +1,5 @@
+'use client';
+
 import { FileText, FileUp, Send } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';

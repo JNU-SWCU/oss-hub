@@ -1,3 +1,5 @@
+'use client';
+
 import { useId, type ReactElement } from 'react';
 import { FilterChip, FilterChipGroup } from '@/components';
 import { Button } from '@/components/ui/button';

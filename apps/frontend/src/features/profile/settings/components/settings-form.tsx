@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { FormSection, PageBody, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
