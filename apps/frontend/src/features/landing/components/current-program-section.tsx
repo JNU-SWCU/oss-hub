@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ProgramCover } from '@/components';
 import { programCoverSource } from '@/components/program-cover-source';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
+import { programOverviewHref } from '@/lib/program-route';
 import { cn } from '@/lib/utils';
 import { ArrowRight, CalendarDays } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -105,7 +106,7 @@ export function CurrentProgramSectionView({
             {state.programs.map((program) => (
               <li key={program.id}>
                 <Link
-                  href={`/programs/${encodeURIComponent(program.id)}`}
+                  href={programOverviewHref(program.id)}
                   className={cn(
                     'group grid gap-4 py-5 transition-colors motion-reduce:transition-none',
                     'hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-4',

@@ -2,6 +2,7 @@ import { Info } from 'lucide-react';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { programOverviewHref } from '@/lib/program-route';
 import type { TeamDeletionNotice } from '../types';
 
 const deletionTime = new Intl.DateTimeFormat('ko-KR', {
@@ -38,9 +39,7 @@ export function TeamDeletionNotices({
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Button asChild variant="outline">
-                <Link
-                  href={`/programs/${encodeURIComponent(notice.programId)}`}
-                >
+                <Link href={programOverviewHref(notice.programId)}>
                   프로그램 확인
                 </Link>
               </Button>

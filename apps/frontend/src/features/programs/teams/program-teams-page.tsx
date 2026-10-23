@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ApiError } from '@/lib/api-client';
+import { programApplyHref } from '@/lib/program-route';
 import { getMyTeam } from './api';
 import { getProgramDetail } from '../catalog/api';
 import { getProgramTeamDirectory } from './program-team-directory-api';
@@ -161,9 +162,7 @@ export function ProgramTeamsPage({
         actions={
           state.program.viewer.role === 'STUDENT' ? (
             <Button asChild variant="outline">
-              <Link href={`/programs/${encodeURIComponent(programId)}/apply`}>
-                내 신청 확인
-              </Link>
+              <Link href={programApplyHref(programId)}>내 신청 확인</Link>
             </Button>
           ) : undefined
         }
