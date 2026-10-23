@@ -1,4 +1,5 @@
 import { ApiError, apiClient } from '@/lib/api-client';
+import { isRecord } from '@/lib/is-record';
 import type {
   PublicProfile,
   PublicProfileApplicationMode,
@@ -32,10 +33,6 @@ export class PublicProfileNotFoundError extends Error {
 
 function invalidResponse(): never {
   throw new PublicProfileResponseError();
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function nonEmptyString(value: unknown): string {

@@ -1,3 +1,5 @@
+import { isRecord } from '@/lib/is-record';
+
 export type LandingGraphNodeKind = 'program' | 'repository' | 'student';
 
 export interface LandingGraphNode {
@@ -57,10 +59,6 @@ export class LandingOverviewResponseError extends Error {
 
 function invalidResponse(): never {
   throw new LandingOverviewResponseError();
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function record(value: unknown): Record<string, unknown> {

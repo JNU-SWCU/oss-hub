@@ -1,4 +1,5 @@
 import { ApiError, apiClient } from '@/lib/api-client';
+import { isRecord } from '@/lib/is-record';
 import { isConsistentCompleteProfile } from './profile-requirements';
 import type {
   CompleteProfileRequest,
@@ -18,10 +19,6 @@ export class ProfileResponseError extends Error {
     super('프로필 API 응답 형식이 올바르지 않습니다.');
     this.name = 'ProfileResponseError';
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function parseProfile(value: unknown): UserProfile {
@@ -68,7 +65,6 @@ export async function completeMyProfile(
   return parseProfile(
     await apiClient<unknown>('users/me/profile', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
     }),
   );
@@ -80,7 +76,6 @@ export async function updateMyProfile(
   return parseProfile(
     await apiClient<unknown>('users/me/profile', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
     }),
   );

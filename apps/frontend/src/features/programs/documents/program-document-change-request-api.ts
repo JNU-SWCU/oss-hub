@@ -45,7 +45,6 @@ export function createProgramDocumentChangeRequest(
     changeRequestsPath(programId),
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...scopeFields(input.scope),
         includeFinalDecisions: input.includeFinalDecisions,

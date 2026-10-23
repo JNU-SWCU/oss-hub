@@ -6,8 +6,6 @@ import type {
   AcceptedTeamInvitation,
 } from './team-invitation-dto';
 
-const jsonHeaders = { 'Content-Type': 'application/json' } as const;
-
 const teamBase = (preparation: boolean) =>
   preparation ? 'application-preparations' : 'team-invitations/teams';
 
@@ -51,7 +49,6 @@ export function createInvitation(
     `${teamBase(preparation)}/${encodeURIComponent(teamId)}/invitations`,
     {
       method: 'POST',
-      headers: jsonHeaders,
       body: JSON.stringify({ inviteeUserId }),
     },
   );

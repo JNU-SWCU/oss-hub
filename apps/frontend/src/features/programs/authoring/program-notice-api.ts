@@ -7,7 +7,6 @@ export function previewProgramNotice(
 ): Promise<ProgramNoticePreview> {
   return apiClient<ProgramNoticePreview>('program-authoring/notice-preview', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url }),
     signal,
   });

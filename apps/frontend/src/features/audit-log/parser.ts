@@ -1,3 +1,4 @@
+import { isRecord } from '@/lib/is-record';
 import type {
   AuditLogPage,
   AuditLogRecord,
@@ -17,10 +18,6 @@ export class AuditLogResponseError extends Error {
 
 function invalidResponse(): never {
   throw new AuditLogResponseError();
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function hasExactKeys(

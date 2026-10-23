@@ -168,7 +168,6 @@ export async function patchAdminAccess(
     `users/${encodeURIComponent(id)}/access`,
     {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
       ...(signal ? { signal } : {}),
     },
@@ -185,7 +184,6 @@ export async function patchAdminUserProfile(
     `users/${encodeURIComponent(id)}/profile`,
     {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(command),
       ...(signal ? { signal } : {}),
     },

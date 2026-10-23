@@ -1,3 +1,4 @@
+import { isRecord } from '@/lib/is-record';
 import type {
   AdminAccessDetail,
   AdminAccessFacetCounts,
@@ -10,7 +11,6 @@ import {
   AdminAccessResponseError,
   isAdminAccessListItem,
   isNonEmptyString,
-  isRecord,
   isStrictIsoTimestamp,
 } from './admin-access-response-guards';
 

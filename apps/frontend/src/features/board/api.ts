@@ -41,7 +41,6 @@ export function createBoardPost(
 ): Promise<BoardPostDetail> {
   return apiClient<BoardPostDetail>(postsBase(programId), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
 }
@@ -53,7 +52,6 @@ export function updateBoardPost(
 ): Promise<BoardPostDetail> {
   return apiClient<BoardPostDetail>(postPath(programId, postId), {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
 }
@@ -76,7 +74,6 @@ export function setBoardPostPinned(
     `${postPath(programId, postId)}/pin`,
     {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pinned }),
     },
   );
@@ -89,7 +86,6 @@ export function createBoardComment(
 ): Promise<BoardComment> {
   return apiClient<BoardComment>(`${postPath(programId, postId)}/comments`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
 }

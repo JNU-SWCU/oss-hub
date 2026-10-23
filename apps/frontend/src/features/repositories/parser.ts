@@ -1,3 +1,4 @@
+import { isRecord } from '@/lib/is-record';
 import type {
   MyRepositories,
   MyRepositoriesResponse,
@@ -20,10 +21,6 @@ class MyRepositoriesResponseError extends Error {
 
 function invalidResponse(): never {
   throw new MyRepositoriesResponseError();
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function nonEmptyString(value: unknown): string {

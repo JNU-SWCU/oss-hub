@@ -1,4 +1,5 @@
 import { ApiError, apiClient } from '@/lib/api-client';
+import { isRecord } from '@/lib/is-record';
 
 export interface NotificationChannelSettings {
   readonly notificationEmail: string | null;
@@ -18,10 +19,6 @@ export class NotificationChannelResponseError extends Error {
     super('알림 설정 API 응답 형식이 올바르지 않습니다.');
     this.name = 'NotificationChannelResponseError';
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function parseSettings(value: unknown): NotificationChannelSettings {
@@ -56,7 +53,6 @@ export async function updateMyNotificationChannel(
   return parseSettings(
     await apiClient<unknown>('users/me/notification-email', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
     }),
   );

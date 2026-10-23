@@ -48,7 +48,6 @@ export function publishRepository(
     `repositories/${repositoryId}/publish`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isConfirmed: true }),
     },
   );

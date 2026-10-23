@@ -28,7 +28,6 @@ describe('repository URL contracts', () => {
         'programs/program%2F1/applications/me/repository-url',
         {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             repositoryUrl: response.repositoryUrl,
           }),
@@ -52,7 +51,6 @@ describe('repository URL contracts', () => {
       'programs/program%2F1/teams/team%2F1/repository-url',
       {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repositoryUrl: response.repositoryUrl }),
       },
     );
@@ -109,7 +107,6 @@ describe('repository URL contracts', () => {
       'programs/program-1/applications',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           answers: { title: 'Synthetic application' },
           applicationTemplateVersion: 1,

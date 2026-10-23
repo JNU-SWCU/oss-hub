@@ -128,7 +128,6 @@ describe('Task 8 independent authority API', () => {
     ).resolves.toMatchObject({ hasStaffAccess: true, hasAdminAccess: true });
     expect(apiClient).toHaveBeenCalledWith('users/target%3Auser/member-kind', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
     });
   });

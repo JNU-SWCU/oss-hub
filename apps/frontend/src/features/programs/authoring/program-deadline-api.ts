@@ -5,15 +5,13 @@ import type {
   ProgramDeadlineSendResult,
 } from './program-deadline-dto';
 
-const jsonHeaders = { 'Content-Type': 'application/json' } as const;
-
 export function previewProgramDeadline(
   programId: string,
   guidance: ProgramDeadlineGuidance,
 ): Promise<ProgramDeadlinePreview> {
   return apiClient<ProgramDeadlinePreview>(
     `programs/${encodeURIComponent(programId)}/deadline-digest/preview`,
-    { method: 'POST', headers: jsonHeaders, body: JSON.stringify(guidance) },
+    { method: 'POST', body: JSON.stringify(guidance) },
   );
 }
 
@@ -26,7 +24,6 @@ export function sendProgramDeadline(
     `programs/${encodeURIComponent(programId)}/deadline-digest/send`,
     {
       method: 'POST',
-      headers: jsonHeaders,
       body: JSON.stringify(preview),
     },
   );

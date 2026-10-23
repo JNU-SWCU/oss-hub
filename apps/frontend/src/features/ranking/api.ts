@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { isRecord } from '@/lib/is-record';
 import {
   RANKING_VIEWER_CLASSES,
   RANKING_YEAR_ALL,
@@ -16,10 +17,6 @@ export class RankingResponseError extends Error {
     super('랭킹 API 응답 형식이 올바르지 않습니다.');
     this.name = 'RankingResponseError';
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function isPositiveInteger(value: unknown): value is number {

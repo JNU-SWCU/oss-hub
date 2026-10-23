@@ -9,11 +9,9 @@ import type {
   ProgramDeletionScopeCounts,
   ProgramPurgeResult,
 } from './dto';
-import { ApiError, apiClient } from '../../../lib/api-client';
+import { ApiError, apiClient } from '@/lib/api-client';
 import { PROGRAM_EDIT_ERROR_CODES } from './program-edit-error-codes';
 import { parseProgramLifecycle } from '../program-lifecycle';
-
-const jsonHeaders = { 'Content-Type': 'application/json' } as const;
 
 export function editableMilestoneSnapshotFailure(
   error: unknown,
@@ -61,7 +59,6 @@ export async function updateProgram(
       `programs/${encodeURIComponent(programId)}`,
       {
         method: 'PATCH',
-        headers: jsonHeaders,
         body: JSON.stringify(input),
       },
     ),
@@ -84,7 +81,6 @@ export function updateEditableMilestone(
     `milestones/${encodeURIComponent(milestoneId)}`,
     {
       method: 'PATCH',
-      headers: jsonHeaders,
       body: JSON.stringify(input),
     },
   );
@@ -98,7 +94,6 @@ export function createMilestone(
     `programs/${encodeURIComponent(programId)}/milestones`,
     {
       method: 'POST',
-      headers: jsonHeaders,
       body: JSON.stringify(input),
     },
   );
@@ -130,7 +125,6 @@ export function purgeProgram(
     `programs/${encodeURIComponent(programId)}/purge`,
     {
       method: 'DELETE',
-      headers: jsonHeaders,
       body: JSON.stringify({ expectedScope }),
     },
   );

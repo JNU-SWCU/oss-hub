@@ -3,7 +3,7 @@ import type {
   RepositoryConnectionMode,
   RepositoryProvisioning,
 } from '../applications/dto';
-import type { PublishBlockedReason } from '../../../lib/repository-publication';
+import type { PublishBlockedReason } from '@/lib/repository-publication';
 
 export interface TeamMember {
   readonly userId: string;

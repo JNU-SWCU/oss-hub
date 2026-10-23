@@ -119,6 +119,50 @@ describe('apiClient', () => {
       expect(isUnexpectedApiProblem(error)).toBe(true);
     }
   });
+
+  it('headers 없는 문자열 본문에는 JSON Content-Type을 기본으로 붙인다', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await apiClient('members', { method: 'POST', body: '{"name":"홍길동"}' });
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/members', {
+      method: 'POST',
+      body: '{"name":"홍길동"}',
+      headers: { 'Content-Type': 'application/json' },
+    });
+  });
+
+  it('FormData 본문에는 Content-Type을 붙이지 않는다', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const body = new FormData();
+    body.append('file', new File(['pdf'], 'report.pdf'));
+
+    await apiClient('submission-files', { method: 'POST', body });
+
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toBeUndefined();
+  });
+
+  it('호출자가 넘긴 headers는 합치지 않고 그대로 보낸다', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const init = {
+      method: 'PATCH',
+      headers: { 'If-Match': '"3"' },
+      body: '{}',
+    };
+
+    await apiClient('members/member-1', init);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/members/member-1', init);
+  });
 });
 
 describe('apiFileClient', () => {

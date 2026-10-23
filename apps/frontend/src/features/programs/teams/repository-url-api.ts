@@ -42,7 +42,6 @@ async function patchRepositoryUrl(
   return parseRepositoryUrlState(
     await apiClient<unknown>(path, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         repositoryUrl: input.repositoryUrl.trim(),
       }),

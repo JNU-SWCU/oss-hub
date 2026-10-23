@@ -103,7 +103,6 @@ export function createSubmission(input: {
 }): Promise<CreatedSubmission> {
   return apiClient<CreatedSubmission>('submissions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
 }
@@ -131,7 +130,6 @@ export function createResubmission(input: {
     `submissions/${encodeURIComponent(submissionId)}/resubmissions`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     },
   );

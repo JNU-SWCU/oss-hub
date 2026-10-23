@@ -1,3 +1,4 @@
+import { isRecord } from '@/lib/is-record';
 import {
   PROGRAM_TRACK_TYPES,
   type ProgramTrackType,
@@ -16,10 +17,6 @@ export class StaffDashboardResponseError extends Error {
     super('운영 대시보드 응답 형식이 올바르지 않습니다.');
     this.name = 'StaffDashboardResponseError';
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function isNonEmptyString(value: unknown): value is string {

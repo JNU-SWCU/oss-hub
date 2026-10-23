@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { isRecord } from '@/lib/is-record';
 import { programDocumentsHref } from '@/lib/program-route';
 import type {
   DashboardApplicationStatus,
@@ -12,10 +13,6 @@ import type {
   StudentDashboard,
   ApplicationDecisionNotice,
 } from './types';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;

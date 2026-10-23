@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { apiPath } from '../../../lib/api-client';
+import { apiPath } from '@/lib/api-client';
 import {
   createAuthoringProgram,
   deleteAuthoringUpload,
@@ -62,6 +62,9 @@ describe('program authoring API', () => {
           return new Response(null, { status: 204 });
         expect(new Headers(init?.headers).get('Idempotency-Key')).toBe(
           'request-1',
+        );
+        expect(new Headers(init?.headers).get('Content-Type')).toBe(
+          'application/json',
         );
         return new Response(JSON.stringify({ id: 'program-created' }), {
           status: 201,
