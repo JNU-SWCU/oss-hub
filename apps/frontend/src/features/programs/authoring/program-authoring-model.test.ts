@@ -214,4 +214,30 @@ describe('program authoring milestone model', () => {
     ]);
     expect(missing.milestones).toEqual(replaced.milestones);
   });
+
+  it('restores a draft saved on the removed type step at the basic step', () => {
+    const initial = createInitialProgramAuthoringState({
+      idempotencyKey: 'request-1',
+      milestoneId: 'unused-milestone-id',
+    });
+
+    const legacy = programAuthoringReducer(initial, {
+      type: 'restore_state',
+      state: {
+        ...initial,
+        currentStep: 'type' as never,
+        trackType: 'CURRICULAR',
+      },
+    });
+    const current = programAuthoringReducer(initial, {
+      type: 'restore_state',
+      state: { ...initial, currentStep: 'milestones' },
+    });
+
+    expect(legacy).toMatchObject({
+      currentStep: 'basic',
+      trackType: 'CURRICULAR',
+    });
+    expect(current.currentStep).toBe('milestones');
+  });
 });

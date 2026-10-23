@@ -161,20 +161,7 @@ function migrateProgramAuthoringState(
     (state as { readonly currentStep: string }).currentStep === 'type'
       ? 'basic'
       : state.currentStep;
-  const legacy = state as ProgramAuthoringState & {
-    readonly category?: string;
-  };
-  const trackType =
-    state.trackType !== ''
-      ? state.trackType
-      : legacy.category === undefined
-        ? ''
-        : '';
-  return {
-    ...state,
-    currentStep,
-    trackType,
-  };
+  return { ...state, currentStep };
 }
 
 function mapMilestone(
