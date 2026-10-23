@@ -1,9 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertDialog } from 'radix-ui';
 import { FormSection } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogOverlay,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -67,7 +75,7 @@ export function AccountDeactivationSection({
             : ''}
         </p>
 
-        <AlertDialog.Root
+        <AlertDialog
           open={open}
           onOpenChange={(nextOpen) => {
             if (!submitting) {
@@ -76,27 +84,27 @@ export function AccountDeactivationSection({
             }
           }}
         >
-          <AlertDialog.Trigger asChild>
+          <AlertDialogTrigger asChild>
             <Button type="button" variant="destructive">
               계정 비활성화
             </Button>
-          </AlertDialog.Trigger>
-          <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/35" />
-          <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 outline-none">
+          </AlertDialogTrigger>
+          <AlertDialogOverlay />
+          <AlertDialogContent>
             <Card className="max-h-[calc(100svh-2rem)] overflow-y-auto shadow-xl">
               <CardHeader>
-                <AlertDialog.Title asChild>
+                <AlertDialogTitle asChild>
                   <CardTitle className="[word-break:keep-all]">
                     계정을 비활성화하시겠습니까?
                   </CardTitle>
-                </AlertDialog.Title>
+                </AlertDialogTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                <AlertDialog.Description className="text-sm leading-6 text-muted-foreground [word-break:keep-all]">
+                <AlertDialogDescription className="text-sm leading-6 text-muted-foreground [word-break:keep-all]">
                   확인하면 이 서비스에서 즉시 로그아웃되고 접근이 차단됩니다.
                   제출물과 동의·활동 이력은 삭제되지 않습니다. 다시 사용하려면
                   관리자에게 재활성화를 요청해야 합니다.
-                </AlertDialog.Description>
+                </AlertDialogDescription>
                 {error ? (
                   <Alert variant="destructive">
                     <AlertTitle>계정을 비활성화하지 못했습니다</AlertTitle>
@@ -104,7 +112,7 @@ export function AccountDeactivationSection({
                   </Alert>
                 ) : null}
                 <div className="flex flex-wrap justify-end gap-2">
-                  <AlertDialog.Cancel asChild>
+                  <AlertDialogCancel asChild>
                     <Button
                       type="button"
                       variant="outline"
@@ -112,7 +120,7 @@ export function AccountDeactivationSection({
                     >
                       취소
                     </Button>
-                  </AlertDialog.Cancel>
+                  </AlertDialogCancel>
                   <Button
                     type="button"
                     variant="destructive"
@@ -124,8 +132,8 @@ export function AccountDeactivationSection({
                 </div>
               </CardContent>
             </Card>
-          </AlertDialog.Content>
-        </AlertDialog.Root>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </FormSection>
   );

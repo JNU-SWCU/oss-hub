@@ -3,12 +3,21 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Bell, LoaderCircle, RefreshCw, X } from 'lucide-react';
-import { Popover } from 'radix-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import {
+  Popover,
+  PopoverClose,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { ApiError } from '@/lib/api-client';
-import { programMyTeamHref, programOverviewHref } from '@/lib/program-route';
+import {
+  programApplyHref,
+  programMyTeamHref,
+  programOverviewHref,
+} from '@/lib/program-route';
 import { cn } from '@/lib/utils';
 import {
   acceptInvitation,
@@ -244,7 +253,7 @@ export function TeamInvitationNotifications({
           notifyTeamMembershipChanged(accepted.programId);
           router.push(
             invitation.preparation
-              ? `/programs/${encodeURIComponent(accepted.programId)}/apply`
+              ? programApplyHref(accepted.programId)
               : programMyTeamHref(accepted.programId),
           );
           router.refresh();
@@ -292,8 +301,8 @@ export function TeamInvitationNotifications({
       data-slot="team-invitation-notifications"
       className={cn('relative flex items-center', className)}
     >
-      <Popover.Root open={open} onOpenChange={handleOpenChange}>
-        <Popover.Trigger asChild>
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
           <Button
             type="button"
             variant="ghost"
@@ -320,199 +329,194 @@ export function TeamInvitationNotifications({
               </span>
             ) : null}
           </Button>
-        </Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Content
-            align="end"
-            sideOffset={8}
-            aria-labelledby="team-invitation-notifications-title"
-            className={cn(
-              'z-50 w-[min(24rem,calc(100vw-2rem))] rounded-card border border-border',
-              'bg-background p-4 text-foreground shadow-lg outline-none',
-            )}
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          sideOffset={8}
+          aria-labelledby="team-invitation-notifications-title"
+          className="w-[min(24rem,calc(100vw-2rem))] p-4"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2
+                id="team-invitation-notifications-title"
+                className="font-heading text-base font-semibold"
+              >
+                팀 초대
+              </h2>
+            </div>
+            <PopoverClose asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="팀 초대 알림 닫기"
+              >
+                <X aria-hidden="true" />
+              </Button>
+            </PopoverClose>
+          </div>
+
+          <div
+            className="mt-4"
+            aria-busy={loadState.kind === 'loading'}
+            data-slot="team-invitation-notifications-state"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2
-                  id="team-invitation-notifications-title"
-                  className="font-heading text-base font-semibold"
-                >
-                  팀 초대
-                </h2>
+            {loadState.kind === 'loading' ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className={cn(
+                  'flex items-center gap-2 py-6 text-small',
+                  'text-muted-foreground',
+                )}
+              >
+                <LoaderCircle
+                  aria-hidden="true"
+                  className="size-4 animate-spin motion-reduce:animate-none"
+                />
+                <span>팀 초대를 불러오는 중입니다.</span>
               </div>
-              <Popover.Close asChild>
+            ) : null}
+
+            {loadState.kind === 'error' ? (
+              <div
+                role="alert"
+                className={cn(
+                  'flex flex-col gap-3 rounded-control border border-destructive/40',
+                  'bg-destructive/5 p-3 text-small',
+                )}
+              >
+                <p>{loadState.message}</p>
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="팀 초대 알림 닫기"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    void loadInvitations('replace');
+                  }}
                 >
-                  <X aria-hidden="true" />
+                  <RefreshCw aria-hidden="true" />
+                  다시 시도
                 </Button>
-              </Popover.Close>
-            </div>
+              </div>
+            ) : null}
 
-            <div
-              className="mt-4"
-              aria-busy={loadState.kind === 'loading'}
-              data-slot="team-invitation-notifications-state"
-            >
-              {loadState.kind === 'loading' ? (
-                <div
-                  role="status"
-                  aria-live="polite"
-                  className={cn(
-                    'flex items-center gap-2 py-6 text-small',
-                    'text-muted-foreground',
-                  )}
+            {refreshError ? (
+              <div
+                role="alert"
+                className={cn(
+                  'mb-3 flex flex-col gap-3 rounded-control',
+                  'border border-destructive/40 bg-destructive/5 p-3 text-small',
+                )}
+              >
+                <p>{refreshError}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    void loadInvitations('refresh');
+                  }}
                 >
-                  <LoaderCircle
-                    aria-hidden="true"
-                    className="size-4 animate-spin motion-reduce:animate-none"
-                  />
-                  <span>팀 초대를 불러오는 중입니다.</span>
-                </div>
-              ) : null}
+                  <RefreshCw aria-hidden="true" />
+                  다시 시도
+                </Button>
+              </div>
+            ) : null}
 
-              {loadState.kind === 'error' ? (
-                <div
-                  role="alert"
-                  className={cn(
-                    'flex flex-col gap-3 rounded-control border border-destructive/40',
-                    'bg-destructive/5 p-3 text-small',
-                  )}
-                >
-                  <p>{loadState.message}</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      void loadInvitations('replace');
-                    }}
-                  >
-                    <RefreshCw aria-hidden="true" />
-                    다시 시도
-                  </Button>
-                </div>
-              ) : null}
+            {loadState.kind === 'ready' && items.length === 0 ? (
+              <p className="py-6 text-center text-small text-muted-foreground">
+                새로운 팀 초대가 없습니다.
+              </p>
+            ) : null}
 
-              {refreshError ? (
-                <div
-                  role="alert"
-                  className={cn(
-                    'mb-3 flex flex-col gap-3 rounded-control',
-                    'border border-destructive/40 bg-destructive/5 p-3 text-small',
-                  )}
-                >
-                  <p>{refreshError}</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      void loadInvitations('refresh');
-                    }}
-                  >
-                    <RefreshCw aria-hidden="true" />
-                    다시 시도
-                  </Button>
-                </div>
-              ) : null}
-
-              {loadState.kind === 'ready' && items.length === 0 ? (
-                <p className="py-6 text-center text-small text-muted-foreground">
-                  새로운 팀 초대가 없습니다.
-                </p>
-              ) : null}
-
-              {loadState.kind === 'ready' && items.length > 0 ? (
-                <ul className="flex max-h-[min(28rem,60vh)] flex-col gap-3 overflow-y-auto">
-                  {items.map((invitation) => {
-                    const actionState = actionStates[invitation.id];
-                    const responding = actionState?.status === 'pending';
-                    const errorId = invitationErrorId(invitation.id);
-                    const teamLabel = invitation.teamName || '이름 없는 팀';
-                    return (
-                      <li
-                        key={invitation.id}
-                        data-slot="team-invitation-item"
-                        data-invitation-id={invitation.id}
-                        aria-busy={responding}
-                        className="rounded-control border border-border p-3"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-semibold">{teamLabel}</p>
-                          <p className="mt-1 text-small text-muted-foreground">
-                            <Link
-                              href={programOverviewHref(invitation.programId)}
-                              className="underline underline-offset-2 hover:text-foreground"
-                            >
-                              {invitation.programName}
-                            </Link>
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {invitation.invitedByDisplayName}님이 초대했습니다 ·{' '}
-                            {invitation.memberCount}/{invitation.teamMaxSize}명
-                          </p>
-                        </div>
-                        <div className="mt-3 flex flex-wrap justify-end gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={responding}
-                            aria-label={`${teamLabel} 팀 초대 수락`}
-                            aria-describedby={
-                              actionState?.status === 'error'
-                                ? errorId
-                                : undefined
-                            }
-                            onClick={() => {
-                              void respondToInvitation(invitation, 'accept');
-                            }}
+            {loadState.kind === 'ready' && items.length > 0 ? (
+              <ul className="flex max-h-[min(28rem,60vh)] flex-col gap-3 overflow-y-auto">
+                {items.map((invitation) => {
+                  const actionState = actionStates[invitation.id];
+                  const responding = actionState?.status === 'pending';
+                  const errorId = invitationErrorId(invitation.id);
+                  const teamLabel = invitation.teamName || '이름 없는 팀';
+                  return (
+                    <li
+                      key={invitation.id}
+                      data-slot="team-invitation-item"
+                      data-invitation-id={invitation.id}
+                      aria-busy={responding}
+                      className="rounded-control border border-border p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-semibold">{teamLabel}</p>
+                        <p className="mt-1 text-small text-muted-foreground">
+                          <Link
+                            href={programOverviewHref(invitation.programId)}
+                            className="underline underline-offset-2 hover:text-foreground"
                           >
-                            {responding && actionState.kind === 'accept'
-                              ? '처리 중…'
-                              : '수락'}
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={responding}
-                            aria-label={`${teamLabel} 팀 초대 거절`}
-                            aria-describedby={
-                              actionState?.status === 'error'
-                                ? errorId
-                                : undefined
-                            }
-                            onClick={() => {
-                              void respondToInvitation(invitation, 'decline');
-                            }}
-                          >
-                            {responding && actionState.kind === 'decline'
-                              ? '처리 중…'
-                              : '거절'}
-                          </Button>
-                        </div>
-                        {actionState?.status === 'error' ? (
-                          <p
-                            id={errorId}
-                            role="alert"
-                            className="mt-2 text-small text-destructive"
-                          >
-                            {actionState.message}
-                          </p>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
-            </div>
-          </Popover.Content>
-        </Popover.Portal>
-      </Popover.Root>
+                            {invitation.programName}
+                          </Link>
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {invitation.invitedByDisplayName}님이 초대했습니다 ·{' '}
+                          {invitation.memberCount}/{invitation.teamMaxSize}명
+                        </p>
+                      </div>
+                      <div className="mt-3 flex flex-wrap justify-end gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={responding}
+                          aria-label={`${teamLabel} 팀 초대 수락`}
+                          aria-describedby={
+                            actionState?.status === 'error'
+                              ? errorId
+                              : undefined
+                          }
+                          onClick={() => {
+                            void respondToInvitation(invitation, 'accept');
+                          }}
+                        >
+                          {responding && actionState.kind === 'accept'
+                            ? '처리 중…'
+                            : '수락'}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={responding}
+                          aria-label={`${teamLabel} 팀 초대 거절`}
+                          aria-describedby={
+                            actionState?.status === 'error'
+                              ? errorId
+                              : undefined
+                          }
+                          onClick={() => {
+                            void respondToInvitation(invitation, 'decline');
+                          }}
+                        >
+                          {responding && actionState.kind === 'decline'
+                            ? '처리 중…'
+                            : '거절'}
+                        </Button>
+                      </div>
+                      {actionState?.status === 'error' ? (
+                        <p
+                          id={errorId}
+                          role="alert"
+                          className="mt-2 text-small text-destructive"
+                        >
+                          {actionState.message}
+                        </p>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }
