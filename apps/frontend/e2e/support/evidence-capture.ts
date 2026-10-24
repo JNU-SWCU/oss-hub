@@ -3,11 +3,10 @@ import {
   expect,
   type Locator,
   type Page,
-  type Route,
   type TestInfo,
 } from '@playwright/test';
 
-export type CapturePhase = 'before' | 'after';
+type CapturePhase = 'before' | 'after';
 
 type EvidenceViewport = {
   readonly name: 'desktop' | 'mobile';
@@ -27,41 +26,10 @@ type CaptureInput = {
   readonly masks?: readonly Locator[];
 };
 
-export type EvidenceApiHandlers = {
-  readonly [methodAndPath: string]: (route: Route) => Promise<void>;
-};
-
 const BLOCKED_PNG_CHUNKS = new Set(['eXIf', 'tEXt', 'iTXt', 'zTXt']);
 const PNG_SIGNATURE = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
 ]);
-
-export async function fulfillJson(route: Route, body: unknown): Promise<void> {
-  await route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify(body),
-  });
-}
-
-function unexpectedInterceptedApi(method: string, pathname: string): never {
-  throw new Error(`Unexpected intercepted API request: ${method} ${pathname}`);
-}
-
-export async function installExactApiRouter(
-  page: Page,
-  handlers: () => EvidenceApiHandlers,
-): Promise<void> {
-  await page.route('**/api/v1/**', async (route) => {
-    const method = route.request().method();
-    const pathname = new URL(route.request().url()).pathname;
-    const handler = handlers()[`${method} ${pathname}`];
-    if (!handler) {
-      unexpectedInterceptedApi(method, pathname);
-    }
-    await handler(route);
-  });
-}
 
 async function expectNoForbiddenPngChunks(path: string): Promise<void> {
   const bytes = await readFile(path);
