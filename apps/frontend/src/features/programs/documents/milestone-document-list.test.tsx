@@ -1595,6 +1595,20 @@ describe('문서 유예 설정과 학생 표시', () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
+  it('예상 밖 서버 오류는 서버 문구 대신 저장 실패 안내를 보인다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(problemResponse(502, 'API_000')),
+    );
+    await render({ ...milestoneDocument, graceDueAt: '2099-06-30T14:59:00Z' });
+    await act(async () => button('유예 기한 변경').click());
+    await act(async () => button('유예 해제').click());
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      '유예 기한을 저장하지 못했습니다. 다시 시도해 주세요.',
+    );
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
   it('운영 집계를 함께 받은 겸권한 학생도 기본 화면에서는 설정을 볼 수 없다', async () => {
     await render(
       {

@@ -4,8 +4,6 @@ import type {
   UpdateStudentApplicationInput,
 } from './student-application-dto';
 
-const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
-
 export function getMyApplication(
   programId: string,
 ): Promise<StudentApplication | null> {
@@ -22,7 +20,6 @@ export function updateMyApplication(
     `programs/${encodeURIComponent(programId)}/applications/me`,
     {
       method: 'PATCH',
-      headers: JSON_HEADERS,
       body: JSON.stringify(input),
     },
   );

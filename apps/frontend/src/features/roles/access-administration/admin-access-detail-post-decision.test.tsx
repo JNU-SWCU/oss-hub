@@ -199,11 +199,14 @@ describe('가입 신청(queue) 결정 — 권위 있는 응답으로만 갱신�
       await flush();
     });
     await act(async () => {
-      typeRejectReason(container, '합성 반려 사유 — 소속 확인이 필요합니다.');
+      typeRejectReason(
+        document.body,
+        '합성 반려 사유 — 소속 확인이 필요합니다.',
+      );
       await flush();
     });
     await act(async () => {
-      clickButton(container, '반려 확정');
+      clickButton(document.body, '반려 확정');
       await flush();
     });
 

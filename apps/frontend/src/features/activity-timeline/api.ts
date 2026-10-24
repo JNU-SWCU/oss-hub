@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { isRecord } from '@/lib/is-record';
 import type {
   ActivityGranularity,
   ActivityPoint,
@@ -11,10 +12,6 @@ class ActivityTimelineResponseError extends Error {
     super('활동 타임라인 응답 형식이 올바르지 않습니다.');
     this.name = 'ActivityTimelineResponseError';
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isNonNegativeInteger(value: unknown): value is number {

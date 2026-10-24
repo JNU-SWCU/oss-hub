@@ -59,7 +59,6 @@ describe('team-invitation-api', () => {
       'team-invitations/teams/team-1/invitations',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inviteeUserId: 'user-2' }),
       },
     );

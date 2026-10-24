@@ -84,7 +84,7 @@ describe('landing public overview boundary', () => {
       items: [
         {
           projectId: 'repo_public_01',
-          programId: 'program_public_01',
+          programId: 'seed:program_public_01',
           programName: '공개 OSS 기여 프로그램',
           displayName: 'campus-map',
         },
@@ -105,7 +105,7 @@ describe('landing public overview boundary', () => {
         expect.objectContaining({
           kind: 'program',
           label: '공개 OSS 기여 프로그램',
-          href: '/programs/program_public_01',
+          href: '/programs/seed%3Aprogram_public_01',
         }),
         expect.objectContaining({
           kind: 'repository',

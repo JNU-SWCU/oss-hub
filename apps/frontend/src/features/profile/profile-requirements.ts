@@ -56,10 +56,6 @@ export function isValidStudentId(studentId: string): boolean {
   return STUDENT_ID_PATTERN.test(studentId);
 }
 
-export function normalizePhone(value: string): string {
-  return value;
-}
-
 export function isValidPhone(phone: string): boolean {
   return PHONE_PATTERN.test(phone);
 }

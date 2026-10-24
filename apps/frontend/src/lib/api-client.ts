@@ -74,12 +74,18 @@ export function apiPath(path: string): string {
   return `${baseURL}${endpoint}`;
 }
 
+function withJsonContentType(init?: RequestInit): RequestInit | undefined {
+  return typeof init?.body === 'string' && init.headers === undefined
+    ? { ...init, headers: { 'Content-Type': 'application/json' } }
+    : init;
+}
+
 export async function apiClient<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
   const target = apiPath(path);
-  const response = await fetch(target, init);
+  const response = await fetch(target, withJsonContentType(init));
 
   if (response.ok) {
     const body = await response.text();

@@ -33,7 +33,6 @@ export function createMilestoneDocumentReview(
     reviewsPath(milestoneId, documentId, applicationId),
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
     },
   );

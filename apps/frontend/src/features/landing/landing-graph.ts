@@ -1,3 +1,4 @@
+import { programOverviewHref } from '@/lib/program-route';
 import type {
   LandingArchiveDetail,
   LandingArchiveItem,
@@ -38,7 +39,7 @@ export function buildPublicLandingGraph(
         id: programNodeId,
         kind: 'program',
         label: item.programName,
-        href: `/programs/${item.programId}`,
+        href: programOverviewHref(item.programId),
         ...(PROGRAM_POSITIONS[index] ?? PROGRAM_POSITIONS[0]),
       });
     }

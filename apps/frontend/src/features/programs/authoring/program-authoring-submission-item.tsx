@@ -1,3 +1,5 @@
+'use client';
+
 import { Check, Pencil, RefreshCw, Trash2, X } from 'lucide-react';
 import { useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';

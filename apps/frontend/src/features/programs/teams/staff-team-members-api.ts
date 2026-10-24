@@ -1,7 +1,5 @@
 import { apiClient } from '@/lib/api-client';
 
-const jsonHeaders = { 'Content-Type': 'application/json' } as const;
-
 export function removeStaffTeamMember(
   programId: string,
   teamId: string,
@@ -22,7 +20,6 @@ export function transferStaffTeamLeader(
     `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}/leader`,
     {
       method: 'PATCH',
-      headers: jsonHeaders,
       body: JSON.stringify({ userId }),
     },
   );

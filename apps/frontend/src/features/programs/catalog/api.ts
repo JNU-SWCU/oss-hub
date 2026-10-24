@@ -5,7 +5,7 @@ import type {
   ProgramDetail,
   ProgramActivity,
 } from './dto';
-import { apiClient, ApiError } from '../../../lib/api-client';
+import { apiClient, ApiError } from '@/lib/api-client';
 import { parseProgramLifecycle } from '../program-lifecycle';
 
 export async function listPrograms(

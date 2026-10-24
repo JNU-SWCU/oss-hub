@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { PageBody } from '@/components/page-body';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { downloadBlob } from '@/lib/download-blob';
 import { cn } from '@/lib/utils';
 import { ProgramDocumentArchiveOptions } from './program-document-archive-options';
 import { ApiError } from '@/lib/api-client';
@@ -115,14 +116,7 @@ export function ProgramDocumentArchivePanel({
         scope,
         grouping,
       );
-      const url = URL.createObjectURL(file.blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = file.fileName;
-      document.body.append(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      downloadBlob(file.blob, file.fileName);
       setNotice(
         'ZIP 파일을 준비했습니다. 브라우저의 다운로드 목록에서 확인해 주세요.',
       );

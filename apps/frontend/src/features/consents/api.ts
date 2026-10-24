@@ -1,5 +1,6 @@
 import { ApiError, apiClient } from '@/lib/api-client';
 import { isInternalPath } from '@/lib/internal-path';
+import { isRecord } from '@/lib/is-record';
 
 export interface ConsentRequiredItem {
   readonly key: string;
@@ -33,10 +34,6 @@ export class ConsentResponseError extends Error {
     super('동의 API 응답 형식이 올바르지 않습니다.');
     this.name = 'ConsentResponseError';
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -119,7 +116,6 @@ export async function acceptConsent(
 ): Promise<AcceptedConsent> {
   const value = await apiClient<unknown>('consents', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
     ...(signal ? { signal } : {}),
   });

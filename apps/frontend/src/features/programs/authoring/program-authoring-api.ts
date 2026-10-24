@@ -6,8 +6,6 @@ import {
 import type { ProgramAuthoringManifest } from './program-authoring-manifest';
 import type { ProgramAuthoringUpload } from './program-authoring-dto';
 
-const jsonHeaders = { 'Content-Type': 'application/json' } as const;
-
 export async function getAuthoringUploadPolicy(): Promise<{
   readonly fileUpload: SubmissionUploadLimit;
 }> {
@@ -52,7 +50,10 @@ export function createAuthoringProgram(
 ): Promise<{ readonly id: string }> {
   return apiClient<{ readonly id: string }>('program-authoring/programs', {
     method: 'POST',
-    headers: { ...jsonHeaders, 'Idempotency-Key': idempotencyKey },
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey,
+    },
     body: JSON.stringify(manifest),
   });
 }

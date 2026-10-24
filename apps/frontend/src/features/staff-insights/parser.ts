@@ -1,3 +1,4 @@
+import { isRecord } from '@/lib/is-record';
 import type {
   DepartmentCohort,
   InsightsYearScope,
@@ -14,10 +15,6 @@ class StaffInsightsResponseError extends Error {
     super('학생 활성 API 응답 형식이 올바르지 않습니다.');
     this.name = 'StaffInsightsResponseError';
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function isNonNegativeInteger(value: unknown): value is number {

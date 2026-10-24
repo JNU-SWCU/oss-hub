@@ -3,6 +3,15 @@ import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  flushDelayedUnmount,
+  pressEscape,
+} from '@/components/dialog-shell-test-utils';
+import {
+  clickButton,
+  findButton,
+  typeRejectReason,
+} from './admin-access-detail-post-decision-fixture';
+import {
   adminDetail,
   adminHistory,
   adminMutation,
@@ -35,6 +44,28 @@ function renderDialog(content: ReactNode): HTMLElement {
     throw new TypeError('공용 확인 다이얼로그를 찾지 못했습니다.');
   }
   return dialog;
+}
+
+function rejectContent(
+  overrides: Parameters<typeof adminMutation>[0] = {},
+): ReactNode {
+  return (
+    <AdminAccessDetailContentForState
+      state={{
+        kind: 'ready',
+        detail: adminDetail({
+          pendingRequest: {
+            id: 'req-1',
+            status: 'PENDING',
+            createdAt: '2026-07-30T00:00:00.000Z',
+          },
+        }),
+        history: adminHistory(),
+      }}
+      onRetry={() => {}}
+      mutation={adminMutation({ confirmAction: 'REJECT', ...overrides })}
+    />
+  );
 }
 
 describe('요청/계정 상태 확인 다이얼로그', () => {
@@ -142,50 +173,112 @@ describe('요청/계정 상태 확인 다이얼로그', () => {
 });
 
 describe('반려 다이얼로그 — REJECT 액션에서만 뜨는 사유 입력형 (변경 없음)', () => {
-  it('confirmAction이 REJECT면 사유 입력란과 반려 확정 버튼을 그린다', () => {
-    const html = renderToStaticMarkup(
-      <AdminAccessDetailContentForState
-        state={{
-          kind: 'ready',
-          detail: adminDetail({
-            pendingRequest: {
-              id: 'req-1',
-              status: 'PENDING',
-              createdAt: '2026-07-30T00:00:00.000Z',
-            },
-          }),
-          history: adminHistory(),
-        }}
-        onRetry={() => {}}
-        mutation={adminMutation({ confirmAction: 'REJECT' })}
-      />,
+  it('confirmAction이 REJECT면 사유 입력란과 반려 확정 버튼을 가진 alertdialog를 그린다', () => {
+    const dialog = renderDialog(rejectContent());
+
+    expect(dialog.getAttribute('role')).toBe('alertdialog');
+    expect(
+      document.getElementById(dialog.getAttribute('aria-labelledby') ?? '')
+        ?.textContent,
+    ).toBe('요청 반려');
+    expect(dialog.textContent).toContain(
+      'octocat님의 교직원 권한 요청을 반려합니다.',
     );
-    expect(html).toContain('요청 반려');
-    expect(html).toContain('반려 사유');
-    expect(html).toContain('반려 확정');
+    expect(
+      dialog.querySelector('label[for="admin-access-reject-reason"]')
+        ?.textContent,
+    ).toBe('반려 사유');
+    expect(
+      dialog.querySelector('textarea#admin-access-reject-reason'),
+    ).not.toBeNull();
+    expect(findButton(dialog, '반려 확정')).toBeDefined();
   });
 
-  it('사유가 비어 있으면 반려 확정 버튼이 비활성화된다', () => {
-    const html = renderToStaticMarkup(
-      <AdminAccessDetailContentForState
-        state={{
-          kind: 'ready',
-          detail: adminDetail({
-            pendingRequest: {
-              id: 'req-1',
-              status: 'PENDING',
-              createdAt: '2026-07-30T00:00:00.000Z',
-            },
-          }),
-          history: adminHistory(),
-        }}
-        onRetry={() => {}}
-        mutation={adminMutation({ confirmAction: 'REJECT', rejectReason: '' })}
-      />,
+  it('사유가 비어 있거나 공백뿐이면 반려 확정 버튼이 비활성화된다', () => {
+    const dialog = renderDialog(rejectContent({ rejectReason: '' }));
+    expect(findButton(dialog, '반려 확정')?.disabled).toBe(true);
+
+    renderDialog(rejectContent({ rejectReason: '   ' }));
+    expect(findButton(dialog, '반려 확정')?.disabled).toBe(true);
+
+    renderDialog(rejectContent({ rejectReason: '소속 확인이 필요합니다.' }));
+    expect(findButton(dialog, '반려 확정')?.disabled).toBe(false);
+  });
+
+  it('사유를 입력하면 onReasonChange에 입력값을 전달한다', () => {
+    const onReasonChange = vi.fn();
+    renderDialog(rejectContent({ onReasonChange }));
+
+    act(() => typeRejectReason(document.body, '소속 확인이 필요합니다.'));
+
+    expect(onReasonChange).toHaveBeenCalledWith('소속 확인이 필요합니다.');
+  });
+
+  it('취소 버튼은 onCancel을, 반려 확정 버튼은 onConfirm을 호출한다', () => {
+    const onCancel = vi.fn();
+    const onConfirm = vi.fn();
+    renderDialog(
+      rejectContent({
+        rejectReason: '소속 확인이 필요합니다.',
+        onCancel,
+        onConfirm,
+      }),
     );
-    const confirmIndex = html.indexOf('반려 확정');
-    const before = html.slice(Math.max(0, confirmIndex - 200), confirmIndex);
-    expect(before).toContain('disabled');
+
+    act(() => clickButton(document.body, '취소'));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onConfirm).not.toHaveBeenCalled();
+
+    act(() => clickButton(document.body, '반려 확정'));
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('반려 처리 중에는 버튼과 사유 입력란이 잠기고 Escape로도 닫히지 않는다', () => {
+    const onCancel = vi.fn();
+    const dialog = renderDialog(
+      rejectContent({
+        processingAction: 'REJECT',
+        rejectReason: '소속 확인이 필요합니다.',
+        onCancel,
+      }),
+    );
+
+    act(() => pressEscape(dialog));
+
+    expect(findButton(dialog, '취소')?.disabled).toBe(true);
+    expect(findButton(dialog, '반려 확정')?.disabled).toBe(true);
+    expect(
+      dialog.querySelector<HTMLTextAreaElement>('#admin-access-reject-reason')
+        ?.disabled,
+    ).toBe(true);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+  });
+
+  it('dialogError가 있으면 반려 다이얼로그 안에 에러를 그린다', () => {
+    const dialog = renderDialog(
+      rejectContent({ dialogError: '이미 처리된 요청입니다.' }),
+    );
+
+    expect(dialog.querySelector('[role="alert"]')?.textContent).toContain(
+      '이미 처리된 요청입니다.',
+    );
+  });
+
+  it('열리면 취소 버튼에 포커스를 두고 닫히면 반려를 누른 버튼으로 돌려준다', async () => {
+    act(() => root.render(rejectContent({ confirmAction: null })));
+    const opener = findButton(container, '반려');
+    if (!opener) throw new TypeError('반려 버튼을 찾지 못했습니다.');
+    opener.focus();
+
+    const dialog = renderDialog(rejectContent());
+    expect(document.activeElement).toBe(findButton(dialog, '취소'));
+
+    act(() => root.render(rejectContent({ confirmAction: null })));
+    await flushDelayedUnmount();
+
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(document.activeElement).toBe(opener);
   });
 });
 

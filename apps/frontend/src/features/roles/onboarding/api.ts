@@ -14,7 +14,6 @@ export function selectRole(
 ): Promise<RoleSelectionResult> {
   return apiClient<RoleSelectionResult>('onboarding/role', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ selectedRole }),
   });
 }

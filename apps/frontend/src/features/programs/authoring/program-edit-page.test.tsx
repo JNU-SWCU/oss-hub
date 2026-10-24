@@ -52,13 +52,14 @@ const { purgeProgramMock, getEditableProgramMock, updateProgramMock } =
     updateProgramMock: vi.fn(),
   }));
 const listMilestoneDocumentsMock = vi.hoisted(() => vi.fn());
+const deleteMilestoneMock = vi.hoisted(() => vi.fn());
 
 vi.mock('./api', () => ({
   getEditableProgram: getEditableProgramMock,
   purgeProgram: purgeProgramMock,
   updateProgram: updateProgramMock,
   createMilestone: vi.fn(),
-  deleteMilestone: vi.fn(),
+  deleteMilestone: deleteMilestoneMock,
 }));
 
 vi.mock('../documents/milestone-document-api', () => ({
@@ -359,6 +360,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     getEditableProgramMock.mockReset();
     purgeProgramMock.mockReset();
     updateProgramMock.mockReset();
+    deleteMilestoneMock.mockReset();
     listMilestoneDocumentsMock.mockResolvedValue({
       documents: [],
       fileUpload: {
@@ -865,5 +867,52 @@ describe('ProgramEditPage 컴포넌트', () => {
 
     expect(container.textContent).not.toContain('위험 영역');
     expect(queryButton('프로그램 삭제')).toBeUndefined();
+  });
+
+  it('마일스톤 삭제가 실패하면 다이얼로그 안에서 이유를 알린다', async () => {
+    getEditableProgramMock.mockResolvedValue({
+      ...editableProgram,
+      milestones: [
+        {
+          id: 'milestone-1',
+          name: '기획서 제출',
+          startAt: '2026-08-16T09:30:59.000Z',
+          dueAt: '2026-08-20T12:30:59.000Z',
+          submissionType: 'TEXT',
+          instructions: null,
+        },
+      ],
+    });
+    deleteMilestoneMock.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: 'Conflict',
+        status: 409,
+        detail: '',
+        code: 'PRG_009',
+        instance: '/milestones/milestone-1',
+      }),
+    );
+
+    await act(async () => {
+      root.render(
+        <ProgramEditPage programId="program-1" canDeleteProgram={false} />,
+      );
+      await Promise.resolve();
+    });
+    await act(async () =>
+      document
+        .querySelector<HTMLButtonElement>(
+          'button[aria-label="기획서 제출 삭제"]',
+        )
+        ?.click(),
+    );
+    await act(async () => getButton('삭제 확정').click());
+
+    expect(deleteMilestoneMock).toHaveBeenCalledWith('milestone-1');
+    expect(
+      document.querySelector('[role="alertdialog"] [role="alert"]')
+        ?.textContent,
+    ).toBe('제출물이 있는 마일스톤은 삭제할 수 없습니다.');
   });
 });

@@ -56,3 +56,21 @@ test('CSV is UTF-8 BOM + RFC 4180 columns and never includes studentId or github
   expect(csv).not.toContain('studentId');
   expect(csv).not.toContain('githubId');
 });
+
+test.each([
+  ['=1+1', "'=1+1"],
+  ['+cmd', "'+cmd"],
+  ['-x', "'-x"],
+  ['@SUM(A1)', "'@SUM(A1)"],
+  ['\tx', "'\tx"],
+  ['\rx', '"\'\rx"'],
+  ['plain', 'plain'],
+])('CSV text cell %j is exported as %j', (name, cell) => {
+  expect(buildRankingCsv([staffRow({ name })])).toContain(
+    `1,${cell},synthetic-top,`,
+  );
+});
+
+test('CSV keeps negative numbers numeric', () => {
+  expect(buildRankingCsv([staffRow({ total: -3 })])).toContain(',5,-3\r\n');
+});

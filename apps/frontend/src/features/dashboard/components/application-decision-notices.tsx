@@ -1,6 +1,7 @@
 import { AlertCircle, ArrowRight, CircleCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { programApplyHref } from '@/lib/program-route';
 import type { ApplicationDecisionNotice } from '../types';
 
 const decisionTime = new Intl.DateTimeFormat('ko-KR', {
@@ -10,11 +11,9 @@ const decisionTime = new Intl.DateTimeFormat('ko-KR', {
 });
 
 function noticePath(notice: ApplicationDecisionNotice): string {
-  const programId = encodeURIComponent(notice.programId);
-
   return notice.decision === 'APPROVED'
-    ? `/programs/${programId}/submissions`
-    : `/programs/${programId}/apply`;
+    ? `/programs/${encodeURIComponent(notice.programId)}/submissions`
+    : programApplyHref(notice.programId);
 }
 
 export function ApplicationDecisionNotices({

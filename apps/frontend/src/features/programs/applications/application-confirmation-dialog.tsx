@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, type ReactNode, type RefObject } from 'react';
 import { DialogShell } from '@/components';
 import { Button } from '@/components/ui/button';

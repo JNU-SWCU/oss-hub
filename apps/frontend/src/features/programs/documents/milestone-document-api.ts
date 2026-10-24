@@ -31,7 +31,6 @@ export async function updateMilestoneDocumentGrace(
 ): Promise<void> {
   await apiClient<null>(`${documentPath(milestoneId, documentId)}/grace`, {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ graceDueAt }),
   });
 }
@@ -82,7 +81,6 @@ export function submitMilestoneDocument(
     `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}/submissions`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
     },
   );

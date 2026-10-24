@@ -1,4 +1,5 @@
 import { ApiError } from '@/lib/api-client';
+import { isRecord } from '@/lib/is-record';
 import type {
   AdminAccessConflictProjection,
   AdminAccessDecidedRequest,
@@ -11,7 +12,6 @@ import {
   isAdminAccessRole,
   isNonEmptyString,
   isNullableAdminAccessPendingRequest,
-  isRecord,
 } from './admin-access-response-guards';
 
 const ACCESS_STATE_MISMATCH_CODE = 'ROL_013';

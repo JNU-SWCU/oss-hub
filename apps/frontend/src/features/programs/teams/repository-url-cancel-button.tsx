@@ -1,6 +1,18 @@
+'use client';
+
 import { X } from 'lucide-react';
 import { useState } from 'react';
-import { AlertDialog } from 'radix-ui';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogOverlay,
+  AlertDialogPortal,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -16,14 +28,14 @@ export function RepositoryUrlCancelButton({
   const [open, setOpen] = useState(false);
 
   return (
-    <AlertDialog.Root
+    <AlertDialog
       open={open}
       onOpenChange={(nextOpen) => {
         if (nextOpen && !dirty) onDiscard();
         else setOpen(nextOpen);
       }}
     >
-      <AlertDialog.Trigger asChild>
+      <AlertDialogTrigger asChild>
         <Button
           type="button"
           variant="outline"
@@ -34,27 +46,27 @@ export function RepositoryUrlCancelButton({
         >
           <X aria-hidden="true" />
         </Button>
-      </AlertDialog.Trigger>
-      <AlertDialog.Portal>
-        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-foreground/35" />
-        <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 outline-none">
+      </AlertDialogTrigger>
+      <AlertDialogPortal>
+        <AlertDialogOverlay />
+        <AlertDialogContent>
           <Card className="shadow-xl">
             <CardHeader>
-              <AlertDialog.Title asChild>
+              <AlertDialogTitle asChild>
                 <CardTitle>변경사항을 저장하지 않고 돌아가겠습니까?</CardTitle>
-              </AlertDialog.Title>
+              </AlertDialogTitle>
             </CardHeader>
             <CardContent className="grid gap-5">
-              <AlertDialog.Description className="text-body text-muted-foreground [word-break:keep-all]">
+              <AlertDialogDescription className="text-body text-muted-foreground [word-break:keep-all]">
                 수정한 저장소 URL이 저장되지 않습니다.
-              </AlertDialog.Description>
+              </AlertDialogDescription>
               <div className="flex flex-wrap justify-end gap-2">
-                <AlertDialog.Cancel asChild>
+                <AlertDialogCancel asChild>
                   <Button type="button" variant="outline">
                     이어서 수정하기
                   </Button>
-                </AlertDialog.Cancel>
-                <AlertDialog.Action asChild>
+                </AlertDialogCancel>
+                <AlertDialogAction asChild>
                   <Button
                     type="button"
                     variant="destructive"
@@ -62,12 +74,12 @@ export function RepositoryUrlCancelButton({
                   >
                     변경사항 버리기
                   </Button>
-                </AlertDialog.Action>
+                </AlertDialogAction>
               </div>
             </CardContent>
           </Card>
-        </AlertDialog.Content>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
+        </AlertDialogContent>
+      </AlertDialogPortal>
+    </AlertDialog>
   );
 }

@@ -8,19 +8,14 @@ import type {
   TeamDeletionScope,
   DeletedTeamResult,
 } from './dto';
-import { apiClient } from '../../../lib/api-client';
-
-const jsonHeaders = { 'Content-Type': 'application/json' } as const;
+import { apiClient } from '@/lib/api-client';
+import { isRecord } from '@/lib/is-record';
 
 export class ProgramTeamResponseError extends Error {
   constructor() {
     super('팀 응답 형식이 올바르지 않습니다.');
     this.name = 'ProgramTeamResponseError';
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -122,7 +117,6 @@ export function renameProgramTeam(
     `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
     {
       method: 'PATCH',
-      headers: jsonHeaders,
       body: JSON.stringify({ name }),
     },
   );
@@ -140,8 +134,6 @@ export function deleteStaffProgramTeam(
     `programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`,
     {
       method: 'DELETE',
-      headers: jsonHeaders,
-
       body: JSON.stringify(
         trimmed
           ? { expectedScope, notificationMessage: trimmed }
@@ -166,7 +158,7 @@ export async function createApplicationPreparation(
 ): Promise<CreatedTeam> {
   const body = await apiClient<unknown>(
     `application-preparations/programs/${encodeURIComponent(programId)}`,
-    { method: 'POST', headers: jsonHeaders, body: JSON.stringify(input) },
+    { method: 'POST', body: JSON.stringify(input) },
   );
   return parseProgramTeam(body);
 }

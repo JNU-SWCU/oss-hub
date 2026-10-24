@@ -1,3 +1,4 @@
+import { isRecord } from '@/lib/is-record';
 import type {
   AdminAccessAccountStatus,
   AdminAccessListItem,
@@ -10,10 +11,6 @@ export class AdminAccessResponseError extends Error {
     super('관리자 접근 API 응답 형식이 올바르지 않습니다.');
     this.name = 'AdminAccessResponseError';
   }
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 export function isNonEmptyString(value: unknown): value is string {

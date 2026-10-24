@@ -12,13 +12,11 @@ import type {
   ApplicationDecisionInput,
   ApplicationDecisionResponse,
 } from './dto';
-import { apiClient } from '../../../lib/api-client';
+import { apiClient } from '@/lib/api-client';
 import {
   serializeCreateApplication,
   serializeTeamManagementQuery,
 } from './application-wire';
-
-const jsonHeaders = { 'Content-Type': 'application/json' } as const;
 
 function mapApplicationTemplate(
   item: ApplicationTemplateApiItem,
@@ -54,7 +52,6 @@ export function createApplication(
     `programs/${encodeURIComponent(programId)}/applications`,
     {
       method: 'POST',
-      headers: jsonHeaders,
       body: serializeCreateApplication(input),
     },
   );
@@ -98,7 +95,6 @@ export function decideApplication(
     `applications/${encodeURIComponent(applicationId)}`,
     {
       method: 'PATCH',
-      headers: jsonHeaders,
       body: JSON.stringify(input),
     },
   );

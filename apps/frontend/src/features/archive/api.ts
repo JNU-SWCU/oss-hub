@@ -1,4 +1,5 @@
 import { ApiError, apiClient } from '@/lib/api-client';
+import { isRecord } from '@/lib/is-record';
 import {
   type ArchiveApplicationMode,
   type ArchiveTrackType,
@@ -35,10 +36,6 @@ export class ArchiveNotFoundError extends Error {
 
 function invalidResponse(): never {
   throw new ArchiveResponseError();
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function hasExactKeys(

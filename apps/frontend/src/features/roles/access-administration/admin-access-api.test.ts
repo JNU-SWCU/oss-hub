@@ -202,7 +202,6 @@ describe('관리자 접근 통합 API 클라이언트', () => {
 
       expect(apiClient).toHaveBeenCalledWith('users/synthetic%3Auser/access', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           expectedRole: null,
           desiredRole: 'STAFF',

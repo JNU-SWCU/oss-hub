@@ -1,3 +1,5 @@
+'use client';
+
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';

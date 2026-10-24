@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { isRecord } from '@/lib/is-record';
 import {
   AdminAccessResponseError,
   parseAdminAccessDetail,
@@ -40,10 +41,6 @@ export interface CanonicalAdminAccessDetail
 export interface IndependentAuthorityMutationResponse extends IndependentAuthority {
   readonly id: string;
   readonly role: AdminAccessRole | null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function isMemberKind(value: unknown): value is AdminMemberKind {
@@ -134,7 +131,6 @@ async function patchIndependentMutation(
     `users/${encodeURIComponent(id)}/${path}`,
     {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       ...(signal ? { signal } : {}),
     },

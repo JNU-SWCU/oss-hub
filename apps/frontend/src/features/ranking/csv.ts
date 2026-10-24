@@ -1,3 +1,4 @@
+import { downloadBlob } from '@/lib/download-blob';
 import {
   RANKING_YEAR_ALL,
   type RankingYear,
@@ -35,6 +36,9 @@ export function rfc4180Field(value: string): string {
 
 function csvCell(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return '';
+  if (typeof value === 'string' && /^[=+\-@\t\r]/.test(value)) {
+    return rfc4180Field(`'${value}`);
+  }
   return rfc4180Field(String(value));
 }
 
@@ -58,13 +62,8 @@ export function buildRankingCsv(items: readonly StaffRankingItem[]): string {
 }
 
 export function downloadTextFile(filename: string, contents: string): void {
-  const blob = new Blob([contents], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
+  downloadBlob(
+    new Blob([contents], { type: 'text/csv;charset=utf-8' }),
+    filename,
+  );
 }

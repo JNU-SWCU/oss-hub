@@ -1,3 +1,5 @@
+'use client';
+
 import { deleteAuthoringUpload } from './program-authoring-api';
 import { ProgramAuthoringBasicStep } from './program-authoring-detail-steps';
 import { ProgramAuthoringScheduleStep } from './program-authoring-schedule-step';

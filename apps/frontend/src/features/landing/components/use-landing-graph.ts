@@ -4,33 +4,17 @@ import { useEffect, useState } from 'react';
 import { streamLandingGraph } from '../api';
 import type { LandingGraphStage } from '../api';
 import { LANDING_GRAPH_EXAMPLE } from '../landing-graph';
-import type {
-  LandingGraph,
-  LandingGraphCompleteness,
-} from '../landing-overview';
-
-interface LandingGraphState {
-  readonly graph: LandingGraph;
-
-  readonly completeness: LandingGraphCompleteness;
-  readonly isLocalhost: boolean;
-}
 
 const EXAMPLE_STAGE: LandingGraphStage = {
   graph: LANDING_GRAPH_EXAMPLE,
   completeness: 'complete',
 };
 
-export function useLandingGraph(): LandingGraphState {
+export function useLandingGraph(): LandingGraphStage {
   const [stage, setStage] = useState<LandingGraphStage>(EXAMPLE_STAGE);
-  const [isLocalhost, setIsLocalhost] = useState(false);
 
   useEffect(() => {
     let active = true;
-    setIsLocalhost(
-      window.location.hostname === 'localhost' ||
-        window.location.hostname === '127.0.0.1',
-    );
 
     void streamLandingGraph()
       .then(async ({ base, complete }) => {
@@ -47,9 +31,5 @@ export function useLandingGraph(): LandingGraphState {
     };
   }, []);
 
-  return {
-    graph: stage.graph,
-    completeness: stage.completeness,
-    isLocalhost,
-  };
+  return stage;
 }

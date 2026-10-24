@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
 import { ApiError } from '@/lib/api-client';
+import { programHref } from '../program-paths';
 import {
   createAuthoringProgram,
   deleteAuthoringUpload,
@@ -105,7 +106,7 @@ export function ProgramCreationPage({
   const openExistingProgram = async (programId: string) => {
     setSubmitting(true);
     await discardUnsavedFiles();
-    completeAndNavigate(`/programs/${encodeURIComponent(programId)}`);
+    completeAndNavigate(programHref(programId));
   };
 
   useEffect(() => {
@@ -209,9 +210,7 @@ export function ProgramCreationPage({
         runtimeRef.current.uploads.clear();
         setDirty(false);
         setConfirmationOpen(false);
-        completeAndNavigate(
-          `/programs/${encodeURIComponent(result.programId)}`,
-        );
+        completeAndNavigate(programHref(result.programId));
         return;
       case 'conflict':
         setExistingProgramId(result.existingProgramId);

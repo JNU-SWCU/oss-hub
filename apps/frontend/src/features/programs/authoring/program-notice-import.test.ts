@@ -38,7 +38,6 @@ describe('notice import authoring contract', () => {
     ).toEqual(result);
     expect(apiClient).toHaveBeenCalledWith('program-authoring/notice-preview', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: externalCover.sourceUrl }),
       signal: controller.signal,
     });

@@ -1,7 +1,17 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { AlertDialog, Dialog } from 'radix-ui';
+import { Dialog } from 'radix-ui';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogOverlay,
+  AlertDialogPortal,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type {
@@ -241,7 +251,7 @@ export function ProgramEditMilestoneDialog({
           )}
         </Dialog.Content>
       </Dialog.Portal>
-      <AlertDialog.Root
+      <AlertDialog
         open={discardOpen}
         onOpenChange={(open) => {
           setDiscardOpen(open);
@@ -250,31 +260,27 @@ export function ProgramEditMilestoneDialog({
           }
         }}
       >
-        <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 z-[60] bg-foreground/45" />
-          <AlertDialog.Content
-            className={cn(
-              'fixed top-1/2 left-1/2 z-[60] w-[calc(100%-2rem)] max-w-md -translate-x-1/2',
-              '-translate-y-1/2 rounded-card border border-border bg-background p-card',
-              'shadow-lg outline-none',
-            )}
+        <AlertDialogPortal>
+          <AlertDialogOverlay className="z-[60] bg-foreground/45" />
+          <AlertDialogContent
+            className="z-[60] max-w-md rounded-card border border-border bg-background p-card shadow-lg"
             onCloseAutoFocus={(event) => {
               event.preventDefault();
             }}
           >
-            <AlertDialog.Title className="font-heading text-section font-semibold">
+            <AlertDialogTitle className="font-heading text-section font-semibold">
               저장하지 않은 변경을 버릴까요?
-            </AlertDialog.Title>
-            <AlertDialog.Description className="sr-only">
+            </AlertDialogTitle>
+            <AlertDialogDescription className="sr-only">
               버리면 되돌릴 수 없습니다.
-            </AlertDialog.Description>
+            </AlertDialogDescription>
             <div className="mt-6 flex justify-end gap-2">
-              <AlertDialog.Cancel asChild>
+              <AlertDialogCancel asChild>
                 <Button type="button" variant="outline">
                   계속 편집
                 </Button>
-              </AlertDialog.Cancel>
-              <AlertDialog.Action asChild>
+              </AlertDialogCancel>
+              <AlertDialogAction asChild>
                 <Button
                   type="button"
                   variant="destructive"
@@ -285,11 +291,11 @@ export function ProgramEditMilestoneDialog({
                 >
                   버리기
                 </Button>
-              </AlertDialog.Action>
+              </AlertDialogAction>
             </div>
-          </AlertDialog.Content>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
+          </AlertDialogContent>
+        </AlertDialogPortal>
+      </AlertDialog>
     </Dialog.Root>
   );
 }

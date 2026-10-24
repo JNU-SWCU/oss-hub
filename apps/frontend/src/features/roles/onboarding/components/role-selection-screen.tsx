@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 import { clampRejectionReason } from '@/lib/display-text';
+import { toInternalPath } from '@/lib/internal-path';
 import { cn } from '@/lib/utils';
 
 import { selectRole } from '../api';
@@ -102,7 +103,7 @@ export function navigateAfterRoleSelection(
   redirectTo: string,
   navigation: DocumentNavigation = window.location,
 ): void {
-  navigation.assign(redirectTo);
+  navigation.assign(toInternalPath(redirectTo, '/onboarding/profile'));
 }
 
 function RoleIcon({ role }: { readonly role: RoleSelection }) {
