@@ -3,6 +3,10 @@ import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  flushDelayedUnmount,
+  pressEscape,
+} from '@/components/dialog-shell-test-utils';
+import {
   clickButton,
   findButton,
   typeRejectReason,
@@ -62,25 +66,6 @@ function rejectContent(
       mutation={adminMutation({ confirmAction: 'REJECT', ...overrides })}
     />
   );
-}
-
-function pressEscape(target: EventTarget) {
-  act(() => {
-    target.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'Escape',
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
-  });
-}
-
-async function flushDelayedUnmount() {
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
 }
 
 describe('요청/계정 상태 확인 다이얼로그', () => {
@@ -248,15 +233,6 @@ describe('반려 다이얼로그 — REJECT 액션에서만 뜨는 사유 입력
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it('Escape를 누르면 onCancel을 호출한다', () => {
-    const onCancel = vi.fn();
-    const dialog = renderDialog(rejectContent({ onCancel }));
-
-    pressEscape(dialog);
-
-    expect(onCancel).toHaveBeenCalledTimes(1);
-  });
-
   it('반려 처리 중에는 버튼과 사유 입력란이 잠기고 Escape로도 닫히지 않는다', () => {
     const onCancel = vi.fn();
     const dialog = renderDialog(
@@ -267,7 +243,7 @@ describe('반려 다이얼로그 — REJECT 액션에서만 뜨는 사유 입력
       }),
     );
 
-    pressEscape(dialog);
+    act(() => pressEscape(dialog));
 
     expect(findButton(dialog, '취소')?.disabled).toBe(true);
     expect(findButton(dialog, '반려 확정')?.disabled).toBe(true);

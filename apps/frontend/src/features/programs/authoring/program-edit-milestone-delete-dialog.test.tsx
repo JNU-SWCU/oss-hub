@@ -1,6 +1,10 @@
 import { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  flushDelayedUnmount,
+  pressEscape,
+} from '@/components/dialog-shell-test-utils';
 import type { EditableMilestone } from './dto';
 import { ProgramEditMilestones } from './program-edit-milestones';
 
@@ -82,13 +86,6 @@ afterEach(async () => {
   expect(consoleErrors).toEqual([]);
 });
 
-async function flushDelayedUnmount() {
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-}
-
 function getButton(name: string): HTMLButtonElement {
   const button = Array.from(document.querySelectorAll('button')).find(
     (candidate) => candidate.textContent?.trim() === name,
@@ -111,16 +108,6 @@ function getDialog(): HTMLElement {
   const dialog = document.querySelector<HTMLElement>('[role="alertdialog"]');
   if (!dialog) throw new TypeError('Delete dialog not found');
   return dialog;
-}
-
-function pressEscape(target: EventTarget) {
-  target.dispatchEvent(
-    new KeyboardEvent('keydown', {
-      key: 'Escape',
-      bubbles: true,
-      cancelable: true,
-    }),
-  );
 }
 
 async function openDeleteDialog(props: DeleteHarnessProps = {}) {
