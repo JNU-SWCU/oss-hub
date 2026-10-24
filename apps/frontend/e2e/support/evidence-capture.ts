@@ -31,24 +31,10 @@ export type EvidenceApiHandlers = {
   readonly [methodAndPath: string]: (route: Route) => Promise<void>;
 };
 
-export const EVIDENCE_VIEWPORTS = [
-  { name: 'desktop', width: 1280, height: 900 },
-  { name: 'mobile', width: 390, height: 844 },
-] as const satisfies readonly EvidenceViewport[];
-
 const BLOCKED_PNG_CHUNKS = new Set(['eXIf', 'tEXt', 'iTXt', 'zTXt']);
 const PNG_SIGNATURE = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
 ]);
-
-export function capturePhase(variableName: string): CapturePhase {
-  const phase = process.env[variableName];
-  if (phase === undefined || phase === '') return 'after';
-  if (phase === 'before' || phase === 'after') return phase;
-  throw new Error(
-    `${variableName} must be before or after, received ${JSON.stringify(phase)}.`,
-  );
-}
 
 export async function fulfillJson(route: Route, body: unknown): Promise<void> {
   await route.fulfill({
@@ -75,17 +61,6 @@ export async function installExactApiRouter(
     }
     await handler(route);
   });
-}
-
-export async function expectByPhase(
-  locator: Locator,
-  phase: CapturePhase,
-): Promise<void> {
-  if (phase === 'before') {
-    await expect(locator).toHaveCount(0);
-    return;
-  }
-  await expect(locator).toBeVisible();
 }
 
 async function expectNoForbiddenPngChunks(path: string): Promise<void> {
@@ -121,14 +96,4 @@ export async function captureEvidenceRegion(
     { path, contentType: 'image/png' },
   );
   return path;
-}
-
-export async function captureBothViewports(
-  input: Omit<CaptureInput, 'viewport'>,
-): Promise<readonly string[]> {
-  const paths: string[] = [];
-  for (const viewport of EVIDENCE_VIEWPORTS) {
-    paths.push(await captureEvidenceRegion({ ...input, viewport }));
-  }
-  return paths;
 }
