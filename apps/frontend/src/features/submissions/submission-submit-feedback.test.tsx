@@ -484,6 +484,44 @@ describe('SubmissionPage', () => {
       container.remove();
     }
   });
+
+  it('마일스톤이 바뀐 뒤 늦게 실패한 이전 양식 요청이 새 양식을 오류로 덮지 않는다', async () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    const previous = Promise.withResolvers<SubmissionFormData>();
+    api.formResult = (milestoneId) =>
+      milestoneId === 'milestone-1'
+        ? previous.promise
+        : Promise.resolve({
+            ...FILE_FORM,
+            milestone: {
+              ...FILE_FORM.milestone,
+              instructions: '새 마일스톤 안내',
+            },
+          });
+    const screen = (milestoneId: string) => (
+      <SubmissionPage
+        programId="program-1"
+        milestoneId={milestoneId}
+        onCancel={vi.fn()}
+      />
+    );
+    try {
+      await act(async () => root.render(screen('milestone-1')));
+      await act(async () => root.render(screen('milestone-2')));
+      await act(async () => previous.reject(new Error('stale')));
+
+      expect(container.textContent).toContain('새 마일스톤 안내');
+      expect(container.textContent).not.toContain(
+        '제출 정보를 불러오지 못했습니다',
+      );
+    } finally {
+      api.formResult = null;
+      await act(async () => root.unmount());
+      container.remove();
+    }
+  });
 });
 
 describe('SubmissionDialog', () => {
