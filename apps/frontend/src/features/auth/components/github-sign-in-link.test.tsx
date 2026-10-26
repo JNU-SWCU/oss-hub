@@ -31,7 +31,9 @@ describe('GitHubSignInLink', () => {
     act(() => root.unmount());
     container.remove();
   });
-  function render(props: Omit<Parameters<typeof GitHubSignInLink>[0], 'children'>) {
+  function render(
+    props: Omit<Parameters<typeof GitHubSignInLink>[0], 'children'>,
+  ) {
     act(() =>
       root.render(<GitHubSignInLink {...props}>로그인</GitHubSignInLink>),
     );
@@ -64,14 +66,17 @@ describe('GitHubSignInLink', () => {
     click();
     expect(takeLoginDestination(sessionStorage)).toBe('/programs/42/apply');
   });
-  it.each([{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }])(
-    '새 탭·창 클릭 %j는 목적지를 저장하지 않는다',
-    (init) => {
-      render({ returnTo: '/programs/42/apply' });
-      click(init);
-      expect(sessionStorage.getItem(KEY)).toBeNull();
-    },
-  );
+  it.each([
+    { metaKey: true },
+    { ctrlKey: true },
+    { shiftKey: true },
+    { altKey: true },
+    { button: 1 },
+  ])('새 탭·창 클릭 %j는 목적지를 저장하지 않는다', (init) => {
+    render({ returnTo: '/programs/42/apply' });
+    click(init);
+    expect(sessionStorage.getItem(KEY)).toBeNull();
+  });
   it.each(['//evil.com', 'javascript:alert(1)', '/signup'])(
     '잘못된 returnTo %s는 아무것도 저장하지 않는다',
     (returnTo) => {
@@ -88,7 +93,11 @@ describe('GitHubSignInLink', () => {
     expect(sessionStorage.getItem(KEY)).toBe(before);
   });
   it('나머지 앵커 속성을 그대로 전달한다', () => {
-    render({ returnTo: null, className: 'size-4', 'aria-label': 'GitHub으로 로그인' });
+    render({
+      returnTo: null,
+      className: 'size-4',
+      'aria-label': 'GitHub으로 로그인',
+    });
     expect(link().getAttribute('class')).toBe('size-4');
     expect(link().getAttribute('aria-label')).toBe('GitHub으로 로그인');
   });

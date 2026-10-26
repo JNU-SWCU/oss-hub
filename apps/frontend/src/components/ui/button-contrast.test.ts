@@ -286,9 +286,10 @@ function readSignupSecondaryLinkSource(): string {
 }
 
 function textUtilityOf(source: string): string {
-  const match = /(?:^|\s)text-((?!sm\b|xs\b|lg\b|base\b|body\b|small\b)[\w-]+)/.exec(
-    source,
-  );
+  const match =
+    /(?:^|\s)text-((?!sm\b|xs\b|lg\b|base\b|body\b|small\b)[\w-]+)/.exec(
+      source,
+    );
   if (!match) {
     throw new Error(`"${source}"에서 글자 색 유틸리티를 찾지 못했습니다`);
   }

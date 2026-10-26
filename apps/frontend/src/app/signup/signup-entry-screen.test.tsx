@@ -5,11 +5,7 @@ import {
   githubLoginPath,
 } from '@/features/auth/login-paths';
 import { SignupEntryView } from './signup-entry-screen';
-import {
-  SignupEyebrow,
-  SignupLede,
-  SignupTitle,
-} from '@/components';
+import { SignupEyebrow, SignupLede, SignupTitle } from '@/components';
 import { ONBOARDING_ENTRY_PATH } from './signup-entry';
 
 function renderInvite(): string {
@@ -78,10 +74,7 @@ describe('SignupEntryView', () => {
   it('GitHub으로는 보이는 버튼 글자가 아니라 aria-label로만 알린다', () => {
     const html = renderInvite();
     const withoutAriaLabels = html.replace(/\saria-label="[^"]*"/g, '');
-    const withoutAccountHelp = withoutAriaLabels.replace(
-      accountHelp(html),
-      '',
-    );
+    const withoutAccountHelp = withoutAriaLabels.replace(accountHelp(html), '');
 
     expect(withoutAccountHelp).not.toContain('GitHub으로');
     expect(html).toContain('aria-label="GitHub으로 계속하기"');

@@ -16,10 +16,7 @@ import {
 } from '@/components';
 import { SignupStage } from '../_shell/signup-stage';
 import { useSessionRole } from '../_shell/use-session-role';
-import {
-  signupEntryDecision,
-  type SignupEntryDecision,
-} from './signup-entry';
+import { signupEntryDecision, type SignupEntryDecision } from './signup-entry';
 
 export function SignupInviteView() {
   const [returnTo, setReturnTo] = useState<string | null>(null);

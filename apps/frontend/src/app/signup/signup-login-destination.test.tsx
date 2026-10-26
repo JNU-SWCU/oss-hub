@@ -107,9 +107,7 @@ describe('로그인 시작 버튼의 원래 목적지 보존', () => {
 
     click(githubLoginPath);
 
-    expect(sessionStorage.getItem('oss-hub-login-destination')).toBe(
-      storedRaw,
-    );
+    expect(sessionStorage.getItem('oss-hub-login-destination')).toBe(storedRaw);
     expect(takeLoginDestination(sessionStorage, 300001)).toBe(
       '/programs/42/apply',
     );

@@ -8,8 +8,10 @@ import {
   rememberLoginDestination,
 } from '@/features/auth/login-destination';
 
-interface GitHubSignInLinkProps
-  extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> {
+interface GitHubSignInLinkProps extends Omit<
+  AnchorHTMLAttributes<HTMLAnchorElement>,
+  'href'
+> {
   readonly returnTo?: string | null;
   readonly selectAccount?: boolean;
   readonly children: ReactNode;

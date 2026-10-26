@@ -67,8 +67,8 @@ export function LandingEntryActionView({
             inverted ? 'text-hero-muted' : 'text-muted-foreground',
           )}
         >
-          로그인 상태를 확인하지 못했습니다. 잠시 뒤 새로고침하거나 다시 로그인해
-          주세요.
+          로그인 상태를 확인하지 못했습니다. 잠시 뒤 새로고침하거나 다시
+          로그인해 주세요.
         </p>
       </div>
     );
