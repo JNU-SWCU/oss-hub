@@ -58,7 +58,7 @@ describe('LoginButtonView', () => {
     expect(html).toBe('');
   });
 
-  it('익명 세션이면 GitHub이 아니라 가입·로그인 진입(/signup)으로 보낸다', () => {
+  it('익명 세션이면 /signup을 거치지 않고 GitHub 로그인으로 바로 보낸다', () => {
     const session = { isAuthenticated: false } satisfies AuthSession;
 
     const html = renderToStaticMarkup(
@@ -73,11 +73,11 @@ describe('LoginButtonView', () => {
     );
 
     expect(html).toContain('로그인');
-    expect(html).toContain('href="/signup?returnTo=%2Fprograms"');
-    expect(html).not.toContain(githubLoginPath);
+    expect(html).toContain(`href="${githubLoginPath}"`);
+    expect(html).not.toContain('/signup');
   });
 
-  it('좁은 화면용 짧은 라벨을 함께 렌더하고 접근성 이름은 전체 라벨로 고정한다', () => {
+  it('보이는 라벨은 "로그인"이고 GitHub 표기는 접근성 이름에만 둔다', () => {
     const session = { isAuthenticated: false } satisfies AuthSession;
 
     const html = renderToStaticMarkup(
@@ -91,9 +91,9 @@ describe('LoginButtonView', () => {
       />,
     );
 
-    expect(html).toContain('aria-label="로그인"');
-    expect(html).toContain('<span class="sm:hidden">로그인</span>');
-    expect(html).toContain('<span class="hidden sm:inline">로그인');
+    expect(html).toContain('aria-label="GitHub으로 로그인"');
+    expect(html).toContain('<span>로그인</span>');
+    expect(html).not.toContain('sm:hidden');
   });
 
   it('인증 세션이면 아바타·닉네임 트리거를 렌더하고 닫힌 메뉴는 숨긴다', () => {

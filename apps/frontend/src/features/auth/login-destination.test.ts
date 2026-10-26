@@ -3,7 +3,6 @@ import { apiPath } from '@/lib/api-client';
 import {
   loginDestination,
   rememberLoginDestination,
-  signupForDestination,
   takeLoginDestination,
 } from './login-destination';
 
@@ -11,9 +10,6 @@ describe('로그인 후 원래 화면으로 돌아가기', () => {
   beforeEach(() => sessionStorage.clear());
   afterEach(() => vi.restoreAllMocks());
   it('원래 업무 경로는 한 번만 복귀한다', () => {
-    expect(signupForDestination('/programs/42/apply')).toBe(
-      '/signup?returnTo=%2Fprograms%2F42%2Fapply',
-    );
     rememberLoginDestination(sessionStorage, '/programs/42/apply', 0);
     expect(takeLoginDestination(sessionStorage, 1)).toBe('/programs/42/apply');
     expect(takeLoginDestination(sessionStorage, 2)).toBeNull();

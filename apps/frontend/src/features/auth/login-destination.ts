@@ -31,13 +31,6 @@ export function loginDestination(value: unknown): string | null {
   return value;
 }
 
-export function signupForDestination(value: unknown): string {
-  const destination = loginDestination(value);
-  return destination && destination !== '/'
-    ? `/signup?${new URLSearchParams({ returnTo: destination })}`
-    : '/signup';
-}
-
 export function getLoginDestinationStorage(): Storage | null {
   try {
     return window.sessionStorage;

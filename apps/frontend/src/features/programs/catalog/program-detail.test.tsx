@@ -467,9 +467,14 @@ describe('ProgramDetailPage states', () => {
     expect(html).not.toContain('신청자 목록');
   });
 
-  it('역할 없는 사람을 랜딩이 아니라 가입 진입점으로 보낸다', () => {
+  it('역할 없는 사람의 신청 입구는 주입된 로그인 입구에 신청 경로를 넘겨 그린다', () => {
     const html = renderToStaticMarkup(
       <ProgramActions
+        renderSignInApply={(applyHref) => (
+          <a href="/injected" data-apply-href={applyHref}>
+            신청하기
+          </a>
+        )}
         program={{
           ...programWithoutMilestones,
           viewer: { role: null, applicationStatus: null },
@@ -478,7 +483,9 @@ describe('ProgramDetailPage states', () => {
     );
 
     expect(html).toContain('신청하기');
-    expect(html).toContain('href="/signup"');
+    expect(html).toContain('href="/injected"');
+    expect(html).toContain('data-apply-href="/programs/program-1/apply"');
+    expect(html).not.toContain('/signup');
     expect(html).not.toContain('로그인');
     expect(html).not.toContain('href="/"');
   });
@@ -578,7 +585,7 @@ describe('ProgramDetailPage states', () => {
             viewer: '비로그인',
             role: null,
             label: '신청하기',
-            href: '/signup',
+            href: '/programs/program-1/apply',
           },
         ].map((entry) => ({ ...entry, kind, program })),
       ),

@@ -1,4 +1,4 @@
-import { apiClient, apiPath } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 import { buildPublicLandingGraph } from './landing-graph';
 import {
   parseLandingArchiveDetail,
@@ -10,8 +10,6 @@ import type {
   LandingGraphCompleteness,
   LandingProgram,
 } from './landing-overview';
-
-export const githubLoginPath = apiPath('auth/github');
 
 export async function loadLandingPrograms(): Promise<
   readonly LandingProgram[]

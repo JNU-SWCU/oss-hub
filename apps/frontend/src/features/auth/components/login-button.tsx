@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { logout } from '../api';
-import { SIGNUP_ENTRY, shouldShowEntryLink } from '../signup-entry-link';
+import { GitHubMark } from '@/components/github-mark';
+import { GitHubSignInLink } from './github-sign-in-link';
 import { refreshSession } from '../session-store';
 import { toAccountMenuSession } from '../session-view';
 import { useSession } from '../use-session';
@@ -14,7 +14,6 @@ import type { AuthSession, Me } from '../types';
 import {
   clearLoginDestination,
   getLoginDestinationStorage,
-  signupForDestination,
 } from '../login-destination';
 
 interface LoginButtonViewProps {
@@ -93,18 +92,18 @@ export function LoginButtonView({
 
   switch (session.isAuthenticated) {
     case false:
-      if (!shouldShowEntryLink(SIGNUP_ENTRY.href, pathname)) {
+      if (pathname === '/signup') {
         return null;
       }
       return (
         <Button asChild variant="ghost">
-          <Link
-            href={signupForDestination(pathname)}
-            aria-label={SIGNUP_ENTRY.label}
+          <GitHubSignInLink
+            returnTo={pathname === '/' ? null : pathname}
+            aria-label="GitHub으로 로그인"
           >
-            <span className="sm:hidden">{SIGNUP_ENTRY.compactLabel}</span>
-            <span className="hidden sm:inline">{SIGNUP_ENTRY.label}</span>
-          </Link>
+            <GitHubMark className="size-4" />
+            <span>로그인</span>
+          </GitHubSignInLink>
         </Button>
       );
     case true: {

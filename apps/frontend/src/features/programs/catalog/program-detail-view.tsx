@@ -5,7 +5,7 @@ import { programCoverSource } from '@/components/program-cover-source';
 
 import Link from 'next/link';
 import { Pencil } from 'lucide-react';
-import { useEffect, useId } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
 import {
   EmptyState,
   FailureState,
@@ -39,7 +39,7 @@ import type { ViewerRole } from '../program-contract';
 
 export { ProgramFactBar };
 
-const SIGNUP_ENTRY_HREF = '/signup';
+export type RenderSignInApply = (applyHref: string) => ReactNode;
 
 const ACTIVITY_SECTION_ID = 'activity';
 const ACTIVITY_HASH = `#${ACTIVITY_SECTION_ID}`;
@@ -162,15 +162,16 @@ export function ProgramDetailSkeleton() {
 
 export function ProgramActions({
   program,
+  renderSignInApply,
 }: {
   readonly program: ProgramDetail;
+  readonly renderSignInApply?: RenderSignInApply;
 }) {
   const role = program.viewer.role;
 
   const applyBlocked = isEnded(program);
 
-  const applyEntryHref =
-    role === null ? SIGNUP_ENTRY_HREF : programHref(program.id, '/apply');
+  const applyHref = programHref(program.id, '/apply');
   if (
     role === null ||
     (role === 'STUDENT' && program.viewer.applicationStatus === null)
@@ -179,7 +180,11 @@ export function ProgramActions({
       <BlockedApplyEntry label="신청하기" />
     ) : (
       <Button asChild>
-        <Link href={applyEntryHref}>신청하기</Link>
+        {role === null ? (
+          renderSignInApply?.(applyHref)
+        ) : (
+          <Link href={applyHref}>신청하기</Link>
+        )}
       </Button>
     );
   }
@@ -370,8 +375,10 @@ export function ProgramMilestones({
 export function ProgramDetailReadyState({
   program,
   overview = null,
+  renderSignInApply,
 }: {
   readonly program: ProgramDetail;
+  readonly renderSignInApply?: RenderSignInApply;
 
   readonly overview?: ProgramOverview | null;
 }) {
@@ -412,7 +419,10 @@ export function ProgramDetailReadyState({
                 program.viewer.role === 'ADMIN' ? (
                   <ProgramEditAction programId={program.id} />
                 ) : null}
-                <ProgramActions program={program} />
+                <ProgramActions
+                  program={program}
+                  renderSignInApply={renderSignInApply}
+                />
               </>
             }
           />
