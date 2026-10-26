@@ -90,7 +90,7 @@ function NavBar({
       <details
         key={menuResetKey}
         data-slot="nav-bar-menu"
-        className="group relative min-w-0 flex-1 max-[480px]:static min-[900px]:hidden"
+        className="group relative min-w-0 flex-1 max-[480px]:static min-[640px]:hidden"
 
         onKeyDown={(event) => {
           if (event.key !== 'Escape') return;
@@ -157,7 +157,7 @@ function NavBar({
       </details>
       <ul
         data-slot="nav-bar-items"
-        className="hidden min-w-0 flex-1 items-center gap-0 min-[900px]:flex sm:gap-1"
+        className="hidden min-w-0 flex-1 items-center gap-0 min-[640px]:flex sm:gap-1"
       >
         {items.map((item) => (
           <li key={item.href}>

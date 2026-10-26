@@ -279,3 +279,222 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     expect(dialog()).toBeNull();
   });
 });
+
+const ANONYMOUS_SESSION: DrawerSession = {
+  status: 'anonymous',
+  role: null,
+  memberKind: null,
+  hasStaffAccess: false,
+  hasAdminAccess: false,
+  isProfileComplete: false,
+};
+
+const HERO_TRANSITION = 'transition-[background-color,border-color]';
+const OVERLAY_WRAPPER = '.fixed.inset-x-0.top-0.z-40';
+
+class FakeIntersectionObserver {
+  static instances: FakeIntersectionObserver[] = [];
+
+  readonly observe = vi.fn();
+  readonly unobserve = vi.fn();
+  readonly disconnect = vi.fn();
+
+  constructor(
+    readonly callback: IntersectionObserverCallback,
+    readonly options?: IntersectionObserverInit,
+  ) {
+    FakeIntersectionObserver.instances.push(this);
+  }
+}
+
+describe('AppFrame 랜딩(/) 내비 — 히어로 위 투명 상태 통합', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    FakeIntersectionObserver.instances = [];
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    mocks.getProgramNavigationMilestones
+      .mockReset()
+      .mockReturnValue(new Promise(() => {}));
+    mockSession(ANONYMOUS_SESSION);
+    container = document.createElement('div');
+    document.body.append(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  function nav(): HTMLElement {
+    const el = container.querySelector<HTMLElement>('nav[data-slot="nav-bar"]');
+    if (el === null) throw new Error('상단 nav를 찾지 못했습니다');
+    return el;
+  }
+
+  function latestObserver(): FakeIntersectionObserver {
+    const observer = FakeIntersectionObserver.instances.at(-1);
+    if (observer === undefined) {
+      throw new Error('IntersectionObserver가 만들어지지 않았습니다');
+    }
+    return observer;
+  }
+
+  async function renderAt(pathname: string, hero = true): Promise<void> {
+    mocks.usePathname.mockReturnValue(pathname);
+    await act(async () => {
+      root.render(
+        <AppFrame brand="OSS Hub" items={ITEMS}>
+          {hero ? <section id="landing-hero">히어로</section> : <p>본문</p>}
+        </AppFrame>,
+      );
+    });
+  }
+
+  async function heroIntersects(isIntersecting: boolean): Promise<void> {
+    const observer = latestObserver();
+    await act(async () => {
+      observer.callback(
+        [{ isIntersecting } as IntersectionObserverEntry],
+        observer as unknown as IntersectionObserver,
+      );
+    });
+  }
+
+  function expectSolid(): void {
+    const bar = nav();
+    expect(bar.getAttribute('data-surface')).toBeNull();
+    expect(bar.classList.contains('bg-background')).toBe(true);
+    expect(bar.classList.contains('bg-transparent')).toBe(false);
+    expect(bar.classList.contains('border-transparent')).toBe(false);
+  }
+
+  function expectInverted(): void {
+    const bar = nav();
+    expect(bar.getAttribute('data-surface')).toBe('inverted');
+    expect(bar.classList.contains('bg-transparent')).toBe(true);
+    expect(bar.classList.contains('border-transparent')).toBe(true);
+    expect(bar.classList.contains('bg-background')).toBe(false);
+    expect(bar.classList.contains('border-border')).toBe(false);
+  }
+
+  it('마운트 직후에는 흰 바이고, 히어로를 nav 높이(-56px) 루트 마진으로 관찰한다', async () => {
+    await renderAt('/');
+
+    expectSolid();
+    const observer = latestObserver();
+    expect(observer.options).toEqual({
+      rootMargin: '-56px 0px 0px 0px',
+      threshold: 0,
+    });
+    expect(observer.observe).toHaveBeenCalledTimes(1);
+    expect(observer.observe).toHaveBeenCalledWith(
+      container.querySelector('#landing-hero'),
+    );
+    expect(nav().classList.contains(HERO_TRANSITION)).toBe(true);
+    expect(nav().classList.contains('duration-200')).toBe(true);
+    expect(container.querySelector(OVERLAY_WRAPPER)?.contains(nav())).toBe(
+      true,
+    );
+  });
+
+  it('히어로가 nav 아래 있으면 반전·투명 바, 지나가면 다시 흰 바', async () => {
+    await renderAt('/');
+
+    await heroIntersects(true);
+    expectInverted();
+    expect(
+      container
+        .querySelector('[data-slot="nav-bar-menu-items"]')
+        ?.getAttribute('data-surface'),
+    ).toBe('default');
+
+    await heroIntersects(false);
+    expectSolid();
+  });
+
+  it('한 번에 여러 항목이 오면 마지막 항목이 이긴다', async () => {
+    await renderAt('/');
+    const observer = latestObserver();
+
+    await act(async () => {
+      observer.callback(
+        [
+          { isIntersecting: true } as IntersectionObserverEntry,
+          { isIntersecting: false } as IntersectionObserverEntry,
+        ],
+        observer as unknown as IntersectionObserver,
+      );
+    });
+
+    expectSolid();
+  });
+
+  it('#landing-hero 가 없으면 관찰하지 않고 흰 바를 유지한다', async () => {
+    await renderAt('/', false);
+
+    expectSolid();
+    expect(FakeIntersectionObserver.instances).toHaveLength(0);
+  });
+
+  it('/ → /signup 은 같은 nav 인스턴스에서 관찰을 끊고 흰 바로 돌아온다', async () => {
+    await renderAt('/');
+    await heroIntersects(true);
+    expectInverted();
+    const first = latestObserver();
+    const bar = nav();
+
+    await renderAt('/signup');
+
+    expect(nav()).toBe(bar);
+    expect(first.disconnect).toHaveBeenCalledTimes(1);
+    expectSolid();
+    expect(nav().classList.contains(HERO_TRANSITION)).toBe(false);
+    expect(container.querySelector(OVERLAY_WRAPPER)).toBeNull();
+    expect(FakeIntersectionObserver.instances).toHaveLength(1);
+  });
+
+  it('/ → /programs 로 가면 관찰을 끊고 흰 바가 된다', async () => {
+    await renderAt('/');
+    await heroIntersects(true);
+    const first = latestObserver();
+
+    await renderAt('/programs');
+
+    expect(first.disconnect).toHaveBeenCalledTimes(1);
+    expectSolid();
+    expect(container.querySelector(OVERLAY_WRAPPER)).toBeNull();
+    expect(FakeIntersectionObserver.instances).toHaveLength(1);
+  });
+
+  it('랜딩으로 돌아오면 새 관찰을 시작하고, 최신 보고 전까지는 흰 바다(예전 상태 재사용 금지)', async () => {
+    await renderAt('/');
+    await heroIntersects(true);
+    expectInverted();
+
+    await renderAt('/signup');
+    await renderAt('/');
+
+    expect(FakeIntersectionObserver.instances).toHaveLength(2);
+    const second = latestObserver();
+    expect(second.observe).toHaveBeenCalledWith(
+      container.querySelector('#landing-hero'),
+    );
+    expectSolid();
+
+    await heroIntersects(true);
+    expectInverted();
+  });
+
+  it('/signup 은 흰 바이고 fixed가 아니며 히어로를 관찰하지 않는다', async () => {
+    await renderAt('/signup');
+
+    expectSolid();
+    expect(container.querySelector(OVERLAY_WRAPPER)).toBeNull();
+    expect(FakeIntersectionObserver.instances).toHaveLength(0);
+  });
+});
