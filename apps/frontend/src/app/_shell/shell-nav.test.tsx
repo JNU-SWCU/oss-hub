@@ -18,8 +18,6 @@ const ITEMS: NavItem[] = [
   { label: '아카이브', href: '/archive' },
 ];
 
-const HERO_TRANSITION = 'transition-[background-color,border-color]';
-
 function navClass(html: string): string[] {
   return (
     html.match(/data-slot="nav-bar"[^>]*class="([^"]*)"/)?.[1].split(' ') ?? []
@@ -27,7 +25,7 @@ function navClass(html: string): string[] {
 }
 
 describe('ShellNav', () => {
-  it('랜딩(/)은 마운트 전에는 흰 바이고 여정용 fixed만 둔다', () => {
+  it('랜딩(/)도 흰 바이고 히어로 위에 fixed로만 둔다', () => {
     mocks.usePathname.mockReturnValue('/');
 
     const html = renderToStaticMarkup(
@@ -45,24 +43,18 @@ describe('ShellNav', () => {
     expect(html).not.toContain('absolute inset-x-0 top-0');
   });
 
-  it('랜딩(/) 바만 색 전환을 가진다 — 모션 축소 분기는 없다', () => {
-    mocks.usePathname.mockReturnValue('/');
-    const landing = navClass(
-      renderToStaticMarkup(<ShellNav items={ITEMS} brand="OSS Hub" />),
-    );
-    expect(landing).toContain(HERO_TRANSITION);
-    expect(landing).toContain('duration-200');
-    expect(landing.some((token) => token.startsWith('motion-reduce:'))).toBe(
-      false,
-    );
-
-    for (const pathname of ['/signup', '/programs']) {
+  it('어느 경로에서도 바 색 전환 클래스가 없다', () => {
+    for (const pathname of ['/', '/signup', '/programs']) {
       mocks.usePathname.mockReturnValue(pathname);
-      const other = navClass(
+      const bar = navClass(
         renderToStaticMarkup(<ShellNav items={ITEMS} brand="OSS Hub" />),
       );
-      expect(other, pathname).not.toContain(HERO_TRANSITION);
-      expect(other, pathname).not.toContain('duration-200');
+      expect(bar, pathname).toContain('bg-background');
+      expect(bar, pathname).not.toContain('bg-transparent');
+      expect(
+        bar.some((token) => token.startsWith('transition-[background')),
+        pathname,
+      ).toBe(false);
     }
   });
 
