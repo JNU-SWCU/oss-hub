@@ -13,6 +13,10 @@ vi.mock('./components/use-landing-graph', () => ({
   useLandingGraph: mocks.useLandingGraph,
 }));
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 import { LandingJourney } from './components/landing-journey';
 
 const graphOf = (

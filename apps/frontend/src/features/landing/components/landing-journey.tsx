@@ -2,16 +2,20 @@
 
 import { CircleAlert } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
+  applyCosmosPrograms,
+  attachCosmosInteraction,
   buildCosmosGraph,
   createCosmosQualityGovernor,
   createCosmosRenderer,
   layoutCosmosGraph,
   type CosmosGraph,
+  type CosmosProgram,
 } from '@/features/landing/cosmos';
 import { deriveLandingStats } from '../landing-stats';
 import styles from './landing-journey.module.css';
@@ -33,35 +37,28 @@ const FLOW_STEPS: readonly (readonly [string, string, string])[] = [
   ['STEP 4', '공개 아카이브', '— 연도별 아카이브에 남음'],
 ];
 
-function applyProgramNames(graph: CosmosGraph, names: readonly string[]): void {
-  if (names.length === 0) return;
-  let cursor = 0;
-  for (const node of graph.nodes) {
-    if (node.kind !== 'p') continue;
-    const name = names[cursor];
-    if (name) node.name = name;
-    cursor += 1;
-  }
-}
-
 export function LandingJourney({
   authErrorMessage,
   notice,
   primaryAction,
   contentAnchor = '#current-programs',
 }: LandingJourneyProps) {
+  const router = useRouter();
   const heroRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const graphRef = useRef<CosmosGraph | null>(null);
   const revealRef = useRevealOnce();
   const { graph: publicGraph, completeness } = useLandingGraph();
 
-  const programNamesRef = useRef<readonly string[]>([]);
-  const programNames = useMemo(
+  const programsRef = useRef<readonly CosmosProgram[]>([]);
+  const programs = useMemo(
     () =>
       publicGraph.nodes
         .filter((node) => node.kind === 'program')
-        .map((node) => node.label),
+        .map((node): CosmosProgram => ({
+          name: node.label,
+          href: publicGraph.source === 'public' ? node.href : null,
+        })),
     [publicGraph],
   );
 
@@ -71,9 +68,9 @@ export function LandingJourney({
   );
 
   useEffect(() => {
-    programNamesRef.current = programNames;
-    if (graphRef.current) applyProgramNames(graphRef.current, programNames);
-  }, [programNames]);
+    programsRef.current = programs;
+    if (graphRef.current) applyCosmosPrograms(graphRef.current, programs);
+  }, [programs]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -86,7 +83,7 @@ export function LandingJourney({
       graphRef.current = graph;
     }
     const graph = graphRef.current;
-    applyProgramNames(graph, programNamesRef.current);
+    applyCosmosPrograms(graph, programsRef.current);
 
     const renderer = createCosmosRenderer({
       canvas,
@@ -95,6 +92,15 @@ export function LandingJourney({
         window.getComputedStyle(hero).fontFamily || 'system-ui, sans-serif',
     });
     const quality = createCosmosQualityGovernor();
+    const interaction = attachCosmosInteraction({
+      canvas,
+      pick: renderer.pick,
+      canOpen: (index) => typeof graph.nodes[index]?.href === 'string',
+      open: (index) => {
+        const href = graph.nodes[index]?.href;
+        if (href) router.push(href);
+      },
+    });
 
     let frame: number | null = null;
     let visible = true;
@@ -102,7 +108,13 @@ export function LandingJourney({
     const loop = (t: number): void => {
       frame = window.requestAnimationFrame(loop);
       const startedAt = performance.now();
-      renderer.render(0, t, quality.qualityScale());
+      interaction.advance();
+      renderer.render({
+        ...interaction.orbit(),
+        time: t,
+        hovered: interaction.hovered(),
+        qualityScale: quality.qualityScale(),
+      });
       quality.recordFrame(
         performance.now() - startedAt,
         canvas.clientWidth < 900 ? 33 : 16.7,
@@ -134,9 +146,10 @@ export function LandingJourney({
       stop();
       intersectionObserver.disconnect();
       document.removeEventListener('visibilitychange', syncActivity);
+      interaction.dispose();
       renderer.dispose();
     };
-  }, []);
+  }, [router]);
 
   return (
     <div id="landing-journey" className={styles.journey}>
@@ -147,7 +160,6 @@ export function LandingJourney({
         className={styles.hero}
       >
         <canvas ref={canvasRef} className={styles.sky} aria-hidden="true" />
-        <div className={styles.vignette} aria-hidden="true" />
         <div className={styles.scrim} aria-hidden="true" />
 
         <a className={styles.skip} href={contentAnchor}>
@@ -187,39 +199,43 @@ export function LandingJourney({
           </div>
         </div>
 
-        <div className={styles.legend} aria-hidden="true">
-          <span>
-            <i
-              style={{
-                width: 8,
-                height: 8,
-                background: 'var(--cosmos-student)',
-              }}
-            />
-            학생
-          </span>
-          <span>
-            <i
-              style={{
-                width: 6,
-                height: 6,
-                background: 'var(--cosmos-repository)',
-              }}
-            />
-            저장소
-          </span>
-          <span>
-            <i
-              style={{
-                width: 10,
-                height: 10,
-                background: 'var(--cosmos-copy)',
-                boxShadow: '0 0 8px rgba(255,255,255,.9)',
-              }}
-            />
-            프로그램
-          </span>
-          <span className={styles.legendNote}>예시 구성</span>
+        <div className={styles.corner} aria-hidden="true">
+          <div className={styles.legend}>
+            <span>
+              <i
+                style={{
+                  width: 7,
+                  height: 7,
+                  background: 'var(--cosmos-student)',
+                }}
+              />
+              학생
+            </span>
+            <span>
+              <i
+                style={{
+                  width: 5,
+                  height: 5,
+                  background: 'var(--cosmos-copy)',
+                }}
+              />
+              저장소
+            </span>
+            <span>
+              <i
+                style={{
+                  width: 9,
+                  height: 9,
+                  background: 'var(--cosmos-repository)',
+                }}
+              />
+              프로그램
+            </span>
+            <span className={styles.legendNote}>예시 구성</span>
+          </div>
+          <p className={styles.hint}>
+            끌어서 돌리고, 확대해서 들여다보고, 점을 누르면 열립니다
+          </p>
         </div>
       </section>
 

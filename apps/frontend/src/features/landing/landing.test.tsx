@@ -1,11 +1,15 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   CurrentProgramSection,
   CurrentProgramSectionView,
 } from './components/current-program-section';
 import { LandingFooter } from './components/landing-footer';
 import { LandingJourney } from './components/landing-journey';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 const renderJourney = (
   props: Partial<Parameters<typeof LandingJourney>[0]> = {},
@@ -67,6 +71,14 @@ describe('landing page sections', () => {
     expect(html).not.toContain('소개 진행 상태');
     expect(html).not.toContain('단계</span>');
     expect(html).not.toContain('SCROLL');
+  });
+
+  it('renders the graph interaction hint beside the legend', () => {
+    const html = renderJourney();
+
+    expect(html).toContain(
+      '끌어서 돌리고, 확대해서 들여다보고, 점을 누르면 열립니다',
+    );
   });
 
   it('renders the story sections with stats, flow steps and activity copy', () => {
