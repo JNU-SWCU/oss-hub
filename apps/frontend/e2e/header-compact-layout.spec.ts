@@ -85,7 +85,7 @@ for (const multipleAuthorities of [false, true]) {
       await expect(menu).toBeFocused();
     }
 
-    for (const width of [481, 640, 899]) {
+    for (const width of [481, 639]) {
       await page.setViewportSize({ width, height: 844 });
       await menu.click();
       const detailsBox = await menuDetails.boundingBox();
@@ -98,9 +98,11 @@ for (const multipleAuthorities of [false, true]) {
       await page.keyboard.press('Escape');
     }
 
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await expect(menu).toBeHidden();
-    await expect(page.locator('[data-slot="nav-bar-items"]')).toBeVisible();
+    for (const width of [640, 899, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(menu).toBeHidden();
+      await expect(page.locator('[data-slot="nav-bar-items"]')).toBeVisible();
+    }
 
     await page.setViewportSize({ width: 320, height: 844 });
     await menu.click();

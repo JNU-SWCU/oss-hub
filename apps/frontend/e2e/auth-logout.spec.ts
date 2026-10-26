@@ -54,11 +54,12 @@ test('logout success returns to the anonymous home introduction', async ({
   await expect(
     page.getByRole('heading', { name: '흩어진 정보를 한 곳으로' }),
   ).toBeVisible();
-  await expect(
-    page
-      .locator('[data-slot="nav-bar"]')
-      .getByRole('link', { name: '로그인', exact: true }),
-  ).toBeVisible();
+  const navSignIn = page
+    .locator('[data-slot="nav-bar"]')
+    .getByRole('link', { name: 'GitHub으로 로그인', exact: true });
+  await expect(navSignIn).toBeVisible();
+  await expect(navSignIn).toHaveText('로그인');
+  await expect(navSignIn).toHaveAttribute('href', '/api/v1/auth/github');
   await expect(
     page.getByRole('button', { name: ACCOUNT_MENU_LABEL }),
   ).toHaveCount(0);
