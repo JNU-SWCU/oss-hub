@@ -21,6 +21,14 @@ import { getProgramListBadge } from './program-list';
 import type { ApplicationStatus, ViewerRole } from '../program-contract';
 import type { ProgramDetail, ProgramListItem, ProgramMilestone } from './dto';
 
+function stubSignInApply(applyHref: string) {
+  return (
+    <a href="/stub-sign-in" data-apply-href={applyHref}>
+      신청하기
+    </a>
+  );
+}
+
 function access(
   role: ViewerRole,
   applicationStatus: ApplicationStatus | null = null,
@@ -341,6 +349,7 @@ describe('ProgramDetailPage states', () => {
   it('승인된 학생에게 마일스톤 목록을 그린다', () => {
     const html = renderToStaticMarkup(
       <ProgramDetailReadyState
+        renderSignInApply={stubSignInApply}
         program={{
           ...programWithoutMilestones,
           viewer: { role: 'STUDENT', applicationStatus: 'APPROVED' },
@@ -356,7 +365,10 @@ describe('ProgramDetailPage states', () => {
 
   it('renders the activity anchor used by the staff dashboard direct link', () => {
     const html = renderToStaticMarkup(
-      <ProgramDetailReadyState program={programWithoutMilestones} />,
+      <ProgramDetailReadyState
+        renderSignInApply={stubSignInApply}
+        program={programWithoutMilestones}
+      />,
     );
     expect(html).toContain('id="activity"');
     expect(html).toContain('aria-label="활동 상세"');
@@ -364,7 +376,10 @@ describe('ProgramDetailPage states', () => {
 
   it('제목 줄에 모집 배지가 붙고, 주관기관·유형·신청 기간은 헤더 설명 줄에 한 번만 표시된다', () => {
     const html = renderToStaticMarkup(
-      <ProgramDetailReadyState program={programWithoutMilestones} />,
+      <ProgramDetailReadyState
+        renderSignInApply={stubSignInApply}
+        program={programWithoutMilestones}
+      />,
     );
 
     const titleSlot = html.match(
@@ -392,6 +407,7 @@ describe('ProgramDetailPage states', () => {
     ({ endsAt, expectedEnd }) => {
       const html = renderToStaticMarkup(
         <ProgramDetailReadyState
+          renderSignInApply={stubSignInApply}
           program={{
             ...programWithoutMilestones,
             operatingPeriod: {
@@ -413,6 +429,7 @@ describe('ProgramDetailPage states', () => {
     (role) => {
       const html = renderToStaticMarkup(
         <ProgramDetailReadyState
+          renderSignInApply={stubSignInApply}
           program={{
             ...programWithoutMilestones,
             viewer: { role, applicationStatus: null },
@@ -442,6 +459,7 @@ describe('ProgramDetailPage states', () => {
     ({ role, applicationStatus }) => {
       const html = renderToStaticMarkup(
         <ProgramDetailReadyState
+          renderSignInApply={stubSignInApply}
           program={{
             ...programWithoutMilestones,
             viewer: { role, applicationStatus },
@@ -456,6 +474,7 @@ describe('ProgramDetailPage states', () => {
   it('신청 전 학생에게 신청하기 CTA를 노출한다', () => {
     const html = renderToStaticMarkup(
       <ProgramActions
+        renderSignInApply={stubSignInApply}
         program={{
           ...programWithoutMilestones,
           viewer: { role: 'STUDENT', applicationStatus: null },
@@ -527,7 +546,10 @@ describe('ProgramDetailPage states', () => {
 
     function titleSlotOf(program: ProgramDetail): string {
       const html = renderToStaticMarkup(
-        <ProgramDetailReadyState program={program} />,
+        <ProgramDetailReadyState
+          renderSignInApply={stubSignInApply}
+          program={program}
+        />,
       );
       return (
         html.match(/<h1 data-slot="page-header-title"[^>]*>(.*?)<\/h1>/)?.[1] ??
@@ -572,28 +594,24 @@ describe('ProgramDetailPage states', () => {
       },
     );
 
+    const anonymous: ProgramDetail = {
+      ...live,
+      viewer: { role: null, applicationStatus: null },
+    };
+
     it.each(
       endedCases.flatMap(({ kind, program }) =>
         [
-          {
-            viewer: '학생',
-            role: 'STUDENT' as const,
-            label: '신청하기',
-            href: '/programs/program-1/apply',
-          },
-          {
-            viewer: '비로그인',
-            role: null,
-            label: '신청하기',
-            href: '/programs/program-1/apply',
-          },
+          { viewer: '학생', role: 'STUDENT' as const, label: '신청하기' },
+          { viewer: '비로그인', role: null, label: '신청하기' },
         ].map((entry) => ({ ...entry, kind, program })),
       ),
     )(
       '$kind 의 $viewer 신청 입구를 이유와 함께 비활성으로 그린다',
-      ({ program, role, label, href }) => {
+      ({ program, role, label }) => {
         const html = renderToStaticMarkup(
           <ProgramActions
+            renderSignInApply={stubSignInApply}
             program={{
               ...program,
               viewer: { role, applicationStatus: null },
@@ -606,12 +624,28 @@ describe('ProgramDetailPage states', () => {
         expect(html).toContain('종료된 프로그램이라 신청을 받지 않습니다.');
 
         expect(html).toContain('aria-describedby=');
-        expect(html).not.toContain(`href="${href}"`);
+        expect(html).not.toContain('href="/stub-sign-in"');
+        expect(html).not.toContain('href="/programs/program-1/apply"');
       },
     );
 
+    it('게시 중이고 아직 안 끝난 프로그램의 비로그인 신청 입구는 주입된 로그인 입구로 연다', () => {
+      const actions = renderToStaticMarkup(
+        <ProgramActions
+          renderSignInApply={stubSignInApply}
+          program={anonymous}
+        />,
+      );
+
+      expect(actions).toContain('href="/stub-sign-in"');
+      expect(actions).toContain('data-apply-href="/programs/program-1/apply"');
+      expect(actions).not.toContain('disabled=""');
+    });
+
     it('게시 중이고 아직 안 끝난 프로그램은 지금과 똑같이 신청 입구를 연다', () => {
-      const actions = renderToStaticMarkup(<ProgramActions program={live} />);
+      const actions = renderToStaticMarkup(
+        <ProgramActions renderSignInApply={stubSignInApply} program={live} />,
+      );
 
       expect(titleSlotOf(live)).toContain('모집중');
       expect(actions).toContain('href="/programs/program-1/apply"');
@@ -630,7 +664,10 @@ describe('ProgramDetailPage states', () => {
       expect(titleSlotOf(withoutOperatingPeriod)).toContain('모집중');
       expect(
         renderToStaticMarkup(
-          <ProgramActions program={withoutOperatingPeriod} />,
+          <ProgramActions
+            renderSignInApply={stubSignInApply}
+            program={withoutOperatingPeriod}
+          />,
         ),
       ).toContain('href="/programs/program-1/apply"');
     });

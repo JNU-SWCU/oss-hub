@@ -48,7 +48,7 @@ export function ProgramDetailPage({
   readonly programId: string;
   readonly session: ProgramDetailSession;
   readonly operationsView?: boolean;
-  readonly renderSignInApply?: RenderSignInApply;
+  readonly renderSignInApply: RenderSignInApply;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();

@@ -165,7 +165,7 @@ export function ProgramActions({
   renderSignInApply,
 }: {
   readonly program: ProgramDetail;
-  readonly renderSignInApply?: RenderSignInApply;
+  readonly renderSignInApply: RenderSignInApply;
 }) {
   const role = program.viewer.role;
 
@@ -181,7 +181,7 @@ export function ProgramActions({
     ) : (
       <Button asChild>
         {role === null ? (
-          renderSignInApply?.(applyHref)
+          renderSignInApply(applyHref)
         ) : (
           <Link href={applyHref}>신청하기</Link>
         )}
@@ -378,8 +378,7 @@ export function ProgramDetailReadyState({
   renderSignInApply,
 }: {
   readonly program: ProgramDetail;
-  readonly renderSignInApply?: RenderSignInApply;
-
+  readonly renderSignInApply: RenderSignInApply;
   readonly overview?: ProgramOverview | null;
 }) {
   useActivityHashScroll();
