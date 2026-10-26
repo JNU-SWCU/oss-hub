@@ -25,6 +25,18 @@ describe('ListCard', () => {
     expect(link?.querySelector('time')?.dateTime).toBe('2026-09-01');
   });
 
+  it('keeps the sr-only status span inside a positioned card root', () => {
+    const view = render({
+      title: '합성 프로그램',
+      badge: { text: '모집중', variant: 'recruiting' },
+      statusDescription: '상태: 모집중. ',
+      href: '/programs/synthetic',
+    });
+    const root = view.querySelector('[data-slot="list-card"]');
+    expect(root?.classList.contains('relative')).toBe(true);
+    expect(root?.querySelector('.sr-only')?.textContent).toBe('상태: 모집중. ');
+  });
+
   it('omits absent badge, subtitle, metadata and action rows', () => {
     const view = render({ title: '제목만 있는 항목' });
     expect(view.textContent).toBe('제목만 있는 항목');

@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { CardGrid } from './card-grid';
+import { Card } from './ui/card';
 import { ProgramCard } from '@/features/programs/catalog/program-card';
 import { StatusBadge } from './status-badge';
 import { EmptyState } from './empty-state';
@@ -30,6 +31,13 @@ describe('card components', () => {
     expect(html).toContain('캡스톤 디자인 경진대회');
     expect(html).toContain('모집중');
     expect(html).toContain('마감');
+  });
+
+  it('positions the Card root so absolute descendants (sr-only) stay inside it', () => {
+    const html = renderToStaticMarkup(<Card>본문</Card>);
+    const match = /data-slot="card"[^>]*class="([^"]*)"/.exec(html);
+    expect(match).not.toBeNull();
+    expect((match?.[1] ?? '').split(' ')).toContain('relative');
   });
 
   it('renders all StatusBadge variants without throwing', () => {
