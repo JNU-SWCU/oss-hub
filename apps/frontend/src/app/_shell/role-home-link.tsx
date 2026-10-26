@@ -3,10 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import {
-  SIGNUP_ENTRY,
-  shouldShowEntryLink,
-} from '@/features/auth/signup-entry-link';
 import { useSessionRole, type SessionStatus } from './use-session-role';
 import type { MemberAccess } from './member-access';
 import { ADMIN_SYSTEM_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
@@ -20,6 +16,11 @@ const STAFF_HOME: SessionEntry = {
   href: '/dashboard',
   label: STAFF_MENU[0].label,
   compactLabel: '대시보드',
+};
+const CONTINUE_SIGNUP: SessionEntry = {
+  href: '/consent',
+  label: '가입 이어하기',
+  compactLabel: '가입 이어하기',
 };
 const ADMIN_HOME: SessionEntry = {
   href: ADMIN_SYSTEM_MENU[0].href,
@@ -52,10 +53,10 @@ export function resolveSessionEntry(
       return null;
 
     case 'unassigned':
-      return SIGNUP_ENTRY;
+      return CONTINUE_SIGNUP;
     case 'assigned':
       if (!isProfileComplete) {
-        return SIGNUP_ENTRY;
+        return CONTINUE_SIGNUP;
       }
 
       if (access?.hasStaffAccess) return STAFF_HOME;
@@ -78,7 +79,7 @@ export function SessionEntryNavLink() {
   }
   const destination = resolveSessionEntry(status, session, isProfileComplete);
 
-  if (!destination || !shouldShowEntryLink(destination.href, pathname)) {
+  if (!destination || destination.href === pathname) {
     return null;
   }
 

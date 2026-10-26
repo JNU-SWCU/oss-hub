@@ -41,13 +41,13 @@ describe('resolveSessionEntry', () => {
     });
   });
 
-  it('역할 미확정 사용자도 가입·로그인 진입으로 보낸다', () => {
+  it('역할 미확정 사용자는 /consent에서 가입을 이어간다', () => {
     const destination = resolveSessionEntry('unassigned', null, false);
 
     expect(destination).toEqual({
-      href: '/signup',
-      label: '로그인',
-      compactLabel: '로그인',
+      href: '/consent',
+      label: '가입 이어하기',
+      compactLabel: '가입 이어하기',
     });
   });
 
@@ -56,14 +56,14 @@ describe('resolveSessionEntry', () => {
     { memberKind: 'STAFF', hasStaffAccess: true, hasAdminAccess: false },
     { memberKind: null, hasStaffAccess: false, hasAdminAccess: true },
   ] as const)(
-    '프로필을 마치지 않은 canonical 회원은 역할 홈 대신 가입·로그인 진입을 준다',
+    '프로필을 마치지 않은 canonical 회원은 역할 홈 대신 가입 이어하기를 준다',
     (access) => {
       const destination = resolveSessionEntry('assigned', access, false);
 
       expect(destination).toEqual({
-        href: '/signup',
-        label: '로그인',
-        compactLabel: '로그인',
+        href: '/consent',
+        label: '가입 이어하기',
+        compactLabel: '가입 이어하기',
       });
     },
   );
