@@ -1,20 +1,14 @@
 'use client';
 
-import { useEffect, type MouseEvent } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  githubLoginPath,
-  githubAccountChoicePath,
-} from '@/features/auth/login-paths';
-import {
-  getLoginDestinationStorage,
-  rememberLoginDestination,
-} from '@/features/auth/login-destination';
+import { GitHubSignInLink } from '@/features/auth/components/github-sign-in-link';
 import { GITHUB_LOGOUT_URL } from '@/features/auth/logout-notice';
 import {
+  GitHubMark,
   signupPrimaryClassName,
   SignupEyebrow,
   SignupLede,
@@ -23,64 +17,37 @@ import {
 import { SignupStage } from '../_shell/signup-stage';
 import { useSessionRole } from '../_shell/use-session-role';
 import {
-  GITHUB_SIGNUP_URL,
   signupEntryDecision,
   type SignupEntryDecision,
 } from './signup-entry';
 
 export function SignupInviteView() {
-  function rememberDestination(event: MouseEvent<HTMLAnchorElement>) {
-    if (
-      event.button !== 0 ||
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey
-    )
-      return;
-    rememberLoginDestination(
-      getLoginDestinationStorage(),
-      new URLSearchParams(window.location.search).get('returnTo'),
-    );
-  }
+  const [returnTo, setReturnTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    setReturnTo(new URLSearchParams(window.location.search).get('returnTo'));
+  }, []);
+
   return (
     <SignupStage>
-      <SignupEyebrow>로그인</SignupEyebrow>
-      <SignupTitle>GitHub으로 시작하기</SignupTitle>
-      <SignupLede>
-        처음이라면 가입을, 이용 중이라면 로그인을 진행합니다.
-      </SignupLede>
+      <SignupTitle>로그인</SignupTitle>
       <div className="flex flex-col items-start gap-5 break-keep">
         <Button asChild className={signupPrimaryClassName} size="lg">
-          <a href={githubLoginPath} onClick={rememberDestination}>
-            GitHub으로 계속하기
-            <ArrowRight aria-hidden="true" />
-          </a>
-        </Button>
-        <a
-          className="inline-flex min-h-11 items-center text-sm text-cosmos-repository underline underline-offset-4"
-          href={githubAccountChoicePath}
-          onClick={rememberDestination}
-        >
-          다른 GitHub 계정으로 로그인
-        </a>
-        <p className="text-sm text-muted-foreground">
-          GitHub 계정이 없나요?{' '}
-          <Button
-            asChild
-            size="lg"
-            variant="link"
-            className="text-cosmos-repository underline"
+          <GitHubSignInLink
+            returnTo={returnTo}
+            aria-label="GitHub으로 계속하기"
           >
-            <a
-              href={GITHUB_SIGNUP_URL}
-              rel="noreferrer noopener"
-              target="_blank"
-            >
-              계정 만들기<span className="sr-only"> (새 탭)</span>
-            </a>
-          </Button>
-        </p>
+            <GitHubMark className="size-4" />
+            계속하기
+          </GitHubSignInLink>
+        </Button>
+        <GitHubSignInLink
+          selectAccount
+          returnTo={returnTo}
+          className="inline-flex min-h-11 items-center text-sm text-cosmos-repository underline underline-offset-4"
+        >
+          다른 계정으로 로그인
+        </GitHubSignInLink>
         <details
           id="account-help"
           className="max-w-prose text-sm text-muted-foreground"

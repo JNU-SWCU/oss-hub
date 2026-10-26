@@ -273,24 +273,26 @@ function tokenOfUtility(utility: string): string {
   return `--${utility.replace(/^(?:bg|text)-/, '')}`;
 }
 
-function readSignupExternalLinkTextUtility(): string {
-  const opening = /<Button\b[^>]*variant="link"[^>]*>/.exec(signupEntrySource);
+function readSignupSecondaryLinkSource(): string {
+  const opening = /<GitHubSignInLink\b[^>]*\bselectAccount\b[^>]*>/.exec(
+    signupEntrySource,
+  )?.[0];
   if (!opening) {
     throw new Error(
-      'signup-entry-screen.tsx에서 variant="link" Button을 찾지 못했습니다',
+      'signup-entry-screen.tsx에서 다른 계정으로 로그인 링크(GitHubSignInLink)를 찾지 못했습니다',
     );
   }
-  const override = /\btext-([\w-]+)/.exec(opening[0]);
-  if (override) {
-    return `text-${override[1]}`;
-  }
+  return opening;
+}
 
-  const linkVariant = /\blink:\s*'([^']+)'/.exec(buttonSource)?.[1] ?? '';
-  const fallback = /\btext-([\w-]+)/.exec(linkVariant);
-  if (!fallback) {
-    throw new Error('button.tsx의 link variant에서 글자 색을 찾지 못했습니다');
+function textUtilityOf(source: string): string {
+  const match = /(?:^|\s)text-((?!sm\b|xs\b|lg\b|base\b|body\b|small\b)[\w-]+)/.exec(
+    source,
+  );
+  if (!match) {
+    throw new Error(`"${source}"에서 글자 색 유틸리티를 찾지 못했습니다`);
   }
-  return `text-${fallback[1]}`;
+  return `text-${match[1]}`;
 }
 
 describe('가입 무대 반전 표면 Button 대비', () => {
@@ -300,20 +302,16 @@ describe('가입 무대 반전 표면 Button 대비', () => {
   }
   const ground = resolveInvertedHex(`--${groundUtility}`);
 
-  it('「GitHub 계정 만들기」 링크가 우주 바탕에서 AA를 만족한다', () => {
+  it('「다른 계정으로 로그인」 링크가 우주 바탕에서 AA를 만족한다', () => {
     const text = resolveInvertedHex(
-      tokenOfUtility(readSignupExternalLinkTextUtility()),
+      tokenOfUtility(textUtilityOf(readSignupSecondaryLinkSource())),
     );
 
     expect(contrast(text, ground)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 
   it('링크임을 색만으로 알리지 않는다', () => {
-    const opening = /<Button\b[^>]*variant="link"[^>]*>/.exec(
-      signupEntrySource,
-    )?.[0];
-
-    expect(opening).toMatch(/\bunderline\b/);
+    expect(readSignupSecondaryLinkSource()).toMatch(/\bunderline\b/);
   });
 
   it('주 버튼이 흰 바탕에서 AA를 만족한다 — 토큰을 밝게 바꾸면 여기서 깨진다', () => {

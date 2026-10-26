@@ -5,8 +5,6 @@ import type { SessionStatus } from '../_shell/use-session-role';
 
 export const ONBOARDING_ENTRY_PATH = '/consent';
 
-export const GITHUB_SIGNUP_URL = 'https://github.com/signup';
-
 export type SignupEntryDecision =
   | { readonly kind: 'invite' }
   | { readonly kind: 'checking' }
