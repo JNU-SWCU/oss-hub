@@ -12,18 +12,34 @@ const EXCLUDED = [
   '/account-deactivated',
 ] as const;
 
-export function loginDestination(value: unknown): string | null {
-  if (!isInternalPath(value) || /[?#\s%]/.test(value)) return null;
-  if (
-    [...value].some(
+const PROBE_ORIGIN = 'https://internal.invalid';
+
+function decodedSegments(path: string): string[] | null {
+  try {
+    return path.split('/').map((segment) => decodeURIComponent(segment));
+  } catch {
+    return null;
+  }
+}
+
+function isUnsafeSegment(segment: string): boolean {
+  return (
+    segment === '.' ||
+    segment === '..' ||
+    /[/\\]/.test(segment) ||
+    [...segment].some(
       (character) =>
         character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
     )
-  )
-    return null;
-  if (value.split('/').some((segment) => segment === '.' || segment === '..'))
-    return null;
-  const path = value.toLowerCase();
+  );
+}
+
+export function loginDestination(value: unknown): string | null {
+  if (!isInternalPath(value) || /[?#\s]/.test(value)) return null;
+  if (new URL(value, PROBE_ORIGIN).pathname !== value) return null;
+  const segments = decodedSegments(value);
+  if (!segments || segments.some(isUnsafeSegment)) return null;
+  const path = segments.join('/').toLowerCase();
   if (
     EXCLUDED.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
   )

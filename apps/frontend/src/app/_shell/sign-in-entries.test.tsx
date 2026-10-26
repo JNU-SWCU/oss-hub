@@ -69,10 +69,14 @@ describe('익명 로그인 진입점은 GitHub으로 직행하며 돌아올 곳�
     );
   }
   function renderApply(id: string) {
-    act(() => root.render(<ProgramActions
+    act(() =>
+      root.render(
+        <ProgramActions
           program={programWithId(id)}
           renderSignInApply={renderSignInApplyEntry}
-        />));
+        />,
+      ),
+    );
   }
   function clickLink() {
     const element = container.querySelector('a');
@@ -113,12 +117,12 @@ describe('익명 로그인 진입점은 GitHub으로 직행하며 돌아올 곳�
     expect(sessionStorage.getItem(KEY)).toBe(before);
   });
 
-  it('인코딩이 필요한 id(ex:p1)의 신청하기 클릭은 저장값을 건드리지 않는다', () => {
-    rememberLoginDestination(sessionStorage, '/programs/42/apply', SEEDED_AT);
-    const before = sessionStorage.getItem(KEY);
+  it('인코딩이 필요한 id(ex:p1)의 신청하기도 인코딩된 신청 경로를 저장한다', () => {
     renderApply('ex:p1');
     clickLink();
-    expect(sessionStorage.getItem(KEY)).toBe(before);
+    expect(takeLoginDestination(sessionStorage)).toBe(
+      '/programs/ex%3Ap1/apply',
+    );
   });
 
   it('/signup 에서는 로그인 버튼을 내지 않는다', () => {

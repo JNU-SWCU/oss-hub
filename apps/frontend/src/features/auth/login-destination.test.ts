@@ -43,8 +43,25 @@ describe('로그인 후 원래 화면으로 돌아가기', () => {
     '/API/v1/auth/github',
     '/onboarding/../auth/github',
     '/programs\u0000',
+    '/programs/%2e%2e/auth/github',
+    '/programs/%2E%2E/%2e%2e/api/v1/auth/logout',
+    '/programs/a%2f..%2f..%2fauth',
+    '/programs/a%5cevil.example',
+    '/programs/a%00',
+    '/%61pi/v1/auth/logout',
+    '/programs/%E0%A4%A',
+    '/programs/ü',
   ])('인증 또는 정규화 우회 경로 %s를 거절한다', (value) => {
     expect(loginDestination(value)).toBeNull();
+  });
+  it.each([
+    '/programs/seed%3Ae2e%3Adeadline-digest%3Aprogram/apply',
+    '/programs/ex%3Ap1',
+    '/programs/cmui7576v006gqm0100o20wkf/apply',
+  ])('인코딩된 프로그램 경로 %s는 그대로 복귀 목적지가 된다', (value) => {
+    expect(loginDestination(value)).toBe(value);
+    rememberLoginDestination(sessionStorage, value, 0);
+    expect(takeLoginDestination(sessionStorage, 1)).toBe(value);
   });
   it('정확히 10분이 지나면 만료하고 조작된 먼 미래 만료값도 버린다', () => {
     rememberLoginDestination(sessionStorage, '/ranking', 0);
