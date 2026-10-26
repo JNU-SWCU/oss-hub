@@ -52,7 +52,7 @@ function renderWith(completeness: LandingGraphCompleteness): string {
 const statValue = (html: string, key: string): string | undefined =>
   new RegExp(`>([^<>]*)</div><div[^>]*>${key}</div>`).exec(html)?.[1];
 
-describe('LandingJourney second panel stats', () => {
+describe('LandingJourney program story stats', () => {
   it('renders the contributor slot as an em dash and badges 일부 집계 when the graph is partial', () => {
     const html = renderWith('partial');
 

@@ -23,6 +23,7 @@ const happyDomTests = [
   'src/features/board/components/{board-delete-list-refetch.test.tsx,board-field-focus.test.tsx}',
   'src/features/consents/components/{consent-flow-navigation.test.tsx,consent-required-dialog.test.tsx}',
   'src/features/dashboard/{pending-invite-reach.test.tsx,student-dashboard-screen.test.tsx,student-dashboard-sections.test.tsx}',
+  'src/features/landing/landing-reveal.test.tsx',
   'src/features/profile/{profile-onboarding-consent.test.tsx,profile-onboarding-screen.test.tsx}',
   'src/features/profile/settings/account-deactivation-section.test.tsx',
   'src/features/programs/applications/{application-confirmation-dialog.test.tsx,application-decision-dialog.test.tsx,application-team-departure.test.tsx,program-apply-invitation-search.test.tsx,program-apply-page-initialization.test.tsx,program-apply-page.test.tsx,student-rejection-reach.test.tsx}',

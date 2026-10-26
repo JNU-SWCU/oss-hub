@@ -1,13 +1,11 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { ClosingCtaSection } from './components/closing-cta-section';
 import {
   CurrentProgramSection,
   CurrentProgramSectionView,
 } from './components/current-program-section';
 import { LandingFooter } from './components/landing-footer';
 import { LandingJourney } from './components/landing-journey';
-import { ProgramFlowSection } from './components/program-flow-section';
 
 const renderJourney = (
   props: Partial<Parameters<typeof LandingJourney>[0]> = {},
@@ -20,19 +18,18 @@ const renderJourney = (
   );
 
 describe('landing page sections', () => {
-  it('renders all five journey panels of the cosmos scroll experience', () => {
+  it('renders the hero followed by the three story sections', () => {
     const html = renderJourney();
 
     expect(html).toContain('id="landing-journey"');
-    for (const index of [0, 1, 2, 3, 4]) {
-      expect(html).toContain(`data-panel="${index}"`);
-    }
-
+    expect(html).toContain('id="landing-hero"');
     expect(html).toContain('aria-labelledby="landing-hero-heading"');
     expect(html).toContain('aria-labelledby="landing-program-heading"');
     expect(html).toContain('aria-labelledby="landing-flow-heading"');
     expect(html).toContain('aria-labelledby="landing-activity-heading"');
-    expect(html).toContain('aria-labelledby="landing-entry-heading"');
+    expect(html.match(/<section/g)).toHaveLength(4);
+    expect(html).not.toContain('landing-entry-heading');
+    expect(html).not.toContain('data-panel=');
   });
 
   it('renders exactly one h1 carrying the landing hero heading id', () => {
@@ -43,32 +40,49 @@ describe('landing page sections', () => {
     expect(html).toContain('흩어진 정보를 한 곳으로');
   });
 
-  it('renders the primary action and the programs link in the journey', () => {
+  it('renders the primary action once, beside the programs link in the hero', () => {
     const html = renderJourney();
 
-    expect(html).toContain('GitHub으로 로그인');
-    expect(html).toContain('href="/login"');
-    expect(html).toContain('href="/programs"');
+    expect(html.match(/GitHub으로 로그인/g)).toHaveLength(1);
+    expect(html.match(/href="\/login"/g)).toHaveLength(1);
+    expect(html.match(/href="\/programs"/g)).toHaveLength(1);
     expect(html).toContain('프로그램 둘러보기');
   });
 
-  it('lets the journey skip link point at the content anchor below the journey', () => {
+  it('lets the hero skip link point at the content anchor below the journey', () => {
     const html = renderJourney();
 
     expect(html).toContain('href="#current-programs"');
-    expect(html).toContain('로그인·프로그램 정보로 건너뛰기');
+    expect(html).toContain('프로그램 정보로 건너뛰기');
+    expect(html).not.toContain('로그인·프로그램 정보로 건너뛰기');
   });
 
-  it('renders the legend, the progress ticks and the scroll hint', () => {
+  it('renders the legend without progress ticks or a scroll hint', () => {
     const html = renderJourney();
 
     expect(html).toContain('학생');
     expect(html).toContain('저장소');
     expect(html).toContain('프로그램');
     expect(html).toContain('예시 구성');
-    expect(html).toContain('aria-label="소개 진행 상태"');
-    expect(html.match(/단계<\/span>/g)).toHaveLength(5);
-    expect(html).toContain('SCROLL');
+    expect(html).not.toContain('소개 진행 상태');
+    expect(html).not.toContain('단계</span>');
+    expect(html).not.toContain('SCROLL');
+  });
+
+  it('renders the story sections with stats, flow steps and activity copy', () => {
+    const html = renderJourney();
+
+    expect(html).toContain('공개 프로그램');
+    expect(html).toContain('공개 저장소');
+    expect(html).toContain('공개 기여자');
+    expect(html.match(/STEP \d/g)).toHaveLength(4);
+    expect(html).toContain('참여 기록이');
+  });
+
+  it('serves the story sections visible: no reveal attribute in server markup', () => {
+    const html = renderJourney();
+
+    expect(html).not.toContain('data-reveal');
   });
 
   it('renders the journey auth error alert with hero danger color, not the light-surface destructive variant', () => {
@@ -198,52 +212,14 @@ describe('landing page sections', () => {
     expect(html).toContain(`src="${external}"`);
   });
 
-  it('renders the program flow section with the step-by-step flow', () => {
-    const html = renderToStaticMarkup(<ProgramFlowSection />);
-
-    expect(html).toContain('참여부터 기록까지 한 흐름으로 연결됩니다');
-    expect(html).toContain('01');
-    expect(html).toContain('요구사항에 맞춰 제출합니다.');
-    expect(html).not.toContain('요구사항을 확인한 뒤 결과물을 제출합니다.');
-    expect(html).not.toContain('결과를 공개 아카이브에 남깁니다.');
-    expect(html).not.toContain('활동이 실시간으로 보여요');
-    expect(html).toContain('sm:grid-cols-2');
-    expect(html).toContain('lg:grid-cols-4');
-    expect(html).toContain('break-keep');
-  });
-
-  it('renders the closing CTA section with the GitHub login link', () => {
-    const html = renderToStaticMarkup(
-      <ClosingCtaSection action={<a href="/login">GitHub으로 로그인</a>} />,
-    );
-
-    expect(html).toContain('프로그램 참여와 제출 현황을 확인하세요');
-    expect(html).toContain('href="/login"');
-  });
-
   it('renders each landing section as a named region landmark', () => {
-    const sections = [
-      {
-        name: 'CurrentProgramSection',
-        html: renderToStaticMarkup(<CurrentProgramSection />),
-      },
-      {
-        name: 'ProgramFlowSection',
-        html: renderToStaticMarkup(<ProgramFlowSection />),
-      },
-      {
-        name: 'ClosingCtaSection',
-        html: renderToStaticMarkup(
-          <ClosingCtaSection action={<a href="/login">GitHub으로 로그인</a>} />,
-        ),
-      },
+    const html = `${renderJourney()}${renderToStaticMarkup(<CurrentProgramSection />)}`;
+    const landmarks = [
+      ...html.matchAll(/<section[^>]*aria-labelledby="([^"]+)"/g),
     ];
 
-    for (const { name, html } of sections) {
-      const match = /<section[^>]*aria-labelledby="([^"]+)"/.exec(html);
-      expect(match, `${name}에 aria-labelledby가 없습니다`).not.toBeNull();
-
-      const headingId = match?.[1];
+    expect(landmarks).toHaveLength(5);
+    for (const [, headingId] of landmarks) {
       expect(html).toContain(`id="${headingId}"`);
     }
   });

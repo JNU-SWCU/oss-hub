@@ -87,11 +87,3 @@ export function cameraAt(
     reveal: segment(p, 0.4, 0.64),
   };
 }
-
-export const PANEL_RANGES: readonly (readonly [number, number])[] = [
-  [0.0, 0.16],
-  [0.2, 0.38],
-  [0.44, 0.6],
-  [0.66, 0.82],
-  [0.88, 1.01],
-];

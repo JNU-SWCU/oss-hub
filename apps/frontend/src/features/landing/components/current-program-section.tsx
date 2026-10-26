@@ -108,7 +108,7 @@ export function CurrentProgramSectionView({
                 <Link
                   href={programOverviewHref(program.id)}
                   className={cn(
-                    'group grid gap-4 py-5 transition-colors motion-reduce:transition-none',
+                    'group grid gap-4 py-5 transition-colors',
                     'hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-4',
                     'focus-visible:outline-primary sm:grid-cols-[1fr_auto] sm:items-center sm:px-3',
                   )}
