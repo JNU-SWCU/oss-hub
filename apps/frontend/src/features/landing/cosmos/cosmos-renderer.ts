@@ -43,6 +43,7 @@ export interface CosmosRenderer {
 }
 
 const BLOOM_SCALE = 3;
+const AURORA_SCALE = 4;
 
 export function createCosmosRenderer({
   canvas,
@@ -54,6 +55,8 @@ export function createCosmosRenderer({
 
   const bloom = document.createElement('canvas');
   const bctx = bloom.getContext('2d');
+  const aurora = document.createElement('canvas');
+  const actx = aurora.getContext('2d');
   const proj: Projected[] = new Array<Projected>(graph.nodes.length);
   const labelBoxes: number[][] = [];
   let lastP = 0;
@@ -95,16 +98,14 @@ export function createCosmosRenderer({
     cam: CosmosCamera,
     t: number,
   ): void {
-    if (!ctx) return;
+    if (!ctx || !actx) return;
     const A = theme.auroraAlpha * (1 - cam.toNebula * 0.55);
     if (A < 0.004) return;
-    ctx.globalCompositeOperation = 'screen';
+    actx.globalCompositeOperation = 'screen';
 
     const STRIPS = 16;
     const OVERLAP = 3.4;
     const EVEN = 1.9 / OVERLAP;
-    const previousFilter = ctx.filter;
-    ctx.filter = `blur(${Math.max(5, Math.round(w * 0.009))}px)`;
 
     for (const curtain of graph.curtains) {
       const tint = tintAt(theme.aurora, curtain.tint);
@@ -129,23 +130,26 @@ export function createCosmosRenderer({
           yT + curtain.h * h * (0.75 + 0.35 * Math.sin(u * 2.3 + tt * 0.8));
         const skew = Math.sin(u * 1.7 + tt * 0.6) * curtain.amp * w * 0.3;
 
-        const gradient = ctx.createLinearGradient(x, yT, x + skew, yB);
+        const gradient = actx.createLinearGradient(x, yT, x + skew, yB);
         gradient.addColorStop(0, rgba(tint, 0));
         gradient.addColorStop(0.3, rgba(tint, a * 1.5));
         gradient.addColorStop(0.65, rgba(tint, a * 0.7));
         gradient.addColorStop(1, rgba(tint, 0));
-        ctx.strokeStyle = gradient;
-        ctx.lineWidth = stripW;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(x, yT);
-        ctx.lineTo(x + skew, yB);
-        ctx.stroke();
+        actx.strokeStyle = gradient;
+        actx.lineWidth = stripW;
+        actx.lineCap = 'round';
+        actx.beginPath();
+        actx.moveTo(x, yT);
+        actx.lineTo(x + skew, yB);
+        actx.stroke();
       }
     }
-    ctx.filter = previousFilter;
-    ctx.lineCap = 'butt';
-    ctx.globalCompositeOperation = 'source-over';
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(aurora, 0, 0, w, h);
+    ctx.restore();
   }
 
   function drawNebulae(w: number, h: number, cam: CosmosCamera): void {
@@ -637,13 +641,28 @@ export function createCosmosRenderer({
     if (canvas.width !== bw || canvas.height !== bh) {
       canvas.width = bw;
       canvas.height = bh;
-      bloom.width = Math.max(1, Math.round(bw / BLOOM_SCALE));
-      bloom.height = Math.max(1, Math.round(bh / BLOOM_SCALE));
+    }
+    const bloomWidth = Math.max(1, Math.round(bw / BLOOM_SCALE));
+    const bloomHeight = Math.max(1, Math.round(bh / BLOOM_SCALE));
+    if (bloom.width !== bloomWidth || bloom.height !== bloomHeight) {
+      bloom.width = bloomWidth;
+      bloom.height = bloomHeight;
+    }
+    const auroraWidth = Math.ceil(bw / AURORA_SCALE);
+    const auroraHeight = Math.ceil(bh / AURORA_SCALE);
+    if (aurora.width !== auroraWidth || aurora.height !== auroraHeight) {
+      aurora.width = auroraWidth;
+      aurora.height = auroraHeight;
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (bctx) {
       bctx.setTransform(dpr / BLOOM_SCALE, 0, 0, dpr / BLOOM_SCALE, 0, 0);
       bctx.clearRect(0, 0, w, h);
+    }
+    if (actx) {
+      actx.setTransform(1, 0, 0, 1, 0, 0);
+      actx.clearRect(0, 0, aurora.width, aurora.height);
+      actx.setTransform(dpr / AURORA_SCALE, 0, 0, dpr / AURORA_SCALE, 0, 0);
     }
 
     const cam = cameraAt(graph, p, t);
@@ -684,9 +703,7 @@ export function createCosmosRenderer({
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = Math.min(1, gain * 0.55);
-      ctx.filter = 'blur(7px)';
       ctx.drawImage(bloom, 0, 0, w, h);
-      ctx.filter = 'none';
       ctx.restore();
     }
 
@@ -704,6 +721,8 @@ export function createCosmosRenderer({
     dispose(): void {
       bloom.width = 1;
       bloom.height = 1;
+      aurora.width = 1;
+      aurora.height = 1;
       proj.length = 0;
       labelBoxes.length = 0;
     },
