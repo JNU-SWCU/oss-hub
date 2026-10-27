@@ -19,9 +19,9 @@ export {
   SignupLede,
   SignupTitle,
 } from './signup-typography';
-export { ProgramCountdown } from './program-countdown';
+export { ProgramCountdown } from './program/program-countdown';
 export { ParticipantOnlyNotice } from './participant-only-notice';
-export { ProgramCover } from './program-cover';
+export { ProgramCover } from './program/program-cover';
 
 export { ListCard } from './list-card';
 

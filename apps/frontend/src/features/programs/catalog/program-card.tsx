@@ -1,6 +1,6 @@
 import { ListCard } from '@/components/list-card';
-import { ProgramCover } from '@/components/program-cover';
-import { programCoverSource } from '@/components/program-cover-source';
+import { ProgramCover } from '@/components/program/program-cover';
+import { programCoverSource } from '@/components/program/program-cover-source';
 import * as React from 'react';
 import type { VariantProps } from 'class-variance-authority';
 

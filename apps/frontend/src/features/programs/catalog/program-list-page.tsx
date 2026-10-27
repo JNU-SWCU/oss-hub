@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CardGrid, EmptyState, FailureState, PageHeader } from '@/components';
 import { listCardClasses, listCardCoverClasses } from '@/components/list-card';
-import { programCoverCardFrame } from '@/components/program-cover';
+import { programCoverCardFrame } from '@/components/program/program-cover';
 import { ProgramCard } from './program-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';

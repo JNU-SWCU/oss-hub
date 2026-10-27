@@ -9,7 +9,7 @@ import {
 import Link from 'next/link';
 
 import { ListRow, ProgramCover, StatusBadge } from '@/components';
-import { programCoverSource } from '@/components/program-cover-source';
+import { programCoverSource } from '@/components/program/program-cover-source';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import {

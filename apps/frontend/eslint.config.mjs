@@ -129,7 +129,7 @@ const designSystemConfig = {
 const designSystemExemptions = [
   {
     files: [
-      'src/components/program-cover.tsx',
+      'src/components/program/program-cover.tsx',
       'src/features/auth/components/login-button.tsx',
       'src/features/profile/components/public-profile-view.tsx',
     ],
