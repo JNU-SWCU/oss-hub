@@ -191,14 +191,14 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
 
   it('드로어 트리거는 드로어를 열고 aria-expanded를 반영한다', async () => {
     await renderFrame('/archive');
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(drawerTrigger()?.getAttribute('aria-expanded')).toBe('false');
 
     await act(async () => {
       drawerTrigger()?.click();
     });
 
-    expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
     expect(drawerTrigger()?.getAttribute('aria-expanded')).toBe('true');
     expect(productShell()?.getAttribute('data-collapsed')).toBe('false');
   });
@@ -220,7 +220,7 @@ describe('상단바 사이드바 토글 — AppFrame 통합', () => {
       drawerTrigger()?.click();
     });
 
-    const dialog = container.querySelector('[role="dialog"]');
+    const dialog = document.querySelector('[role="dialog"]');
     expect(dialog?.querySelector('[data-slot="program-countdown"]')).not.toBeNull();
     expect(
       dialog?.querySelector('[data-slot="sidebar-shell"][data-variant="drawer"]'),

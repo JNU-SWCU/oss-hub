@@ -117,7 +117,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
   }
 
   function dialog(): HTMLElement | null {
-    return container.querySelector('[role="dialog"]');
+    return document.querySelector('[role="dialog"]');
   }
 
   async function renderFrame(pathname: string, search = ''): Promise<void> {
@@ -249,7 +249,7 @@ describe('AppFrame 사이드바 드로어 — 통합', () => {
     });
 
     expect(dialog()).toBeNull();
-    expect(document.activeElement).toBe(trigger());
+    await vi.waitFor(() => expect(document.activeElement).toBe(trigger()));
   });
 
   it('경로가 바뀌면(라우트 전환) 드로어가 자동으로 닫힌다', async () => {
