@@ -10,6 +10,7 @@ import {
   type CosmosFocus,
   type CosmosProgram,
 } from '../cosmos';
+import { cosmosEntranceMs } from '../cosmos/cosmos-entrance';
 import { settledCosmosGraph } from '../cosmos/cosmos-layout';
 import { isCosmosFocus, observeChapterFocus } from './landing-focus';
 
@@ -54,7 +55,7 @@ export function useCosmosCanvas(programs: readonly CosmosProgram[]) {
         fontFamily:
           window.getComputedStyle(journey).fontFamily ||
           'system-ui, sans-serif',
-        entranceMs: entrancePlayed || startedAt > 1200 ? 0 : 1400,
+        entranceMs: cosmosEntranceMs(startedAt, entrancePlayed),
       });
       entrancePlayed = true;
       interaction.advance();

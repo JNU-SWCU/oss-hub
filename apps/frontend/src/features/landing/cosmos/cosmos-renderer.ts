@@ -4,10 +4,26 @@ import {
   type CosmosOrbit,
   type CosmosProjected,
 } from './cosmos-camera';
+import { COSMOS_ENTRANCE_MS } from './cosmos-entrance';
 import type { CosmosGraph, CosmosNode, CosmosNodeKind } from './cosmos-graph';
-import { cosmosNodeRadius as baseRadius } from './cosmos-initial';
+import {
+  COSMOS_EDGE_BUCKETS,
+  COSMOS_NODE_ALPHA_STEPS,
+  cosmosEdgeAlpha,
+  cosmosEdgeBucket,
+  cosmosEdgeBucketAlpha,
+  cosmosEdgeReveal,
+  cosmosLabelLit,
+  cosmosLabelSize,
+  cosmosNodeAlpha,
+  cosmosNodeAlphaStep,
+  cosmosNodeRadius as baseRadius,
+} from './cosmos-initial';
 import {
   COSMOS_LABEL_GAP,
+  COSMOS_LABEL_OFFSET,
+  COSMOS_LABEL_PLATE_RADIUS,
+  cosmosLabelPlate,
   cosmosLabelText as truncate,
   cosmosLabelWidth,
 } from './cosmos-label';
@@ -57,18 +73,12 @@ interface FlowPath {
   readonly repository: number;
 }
 
-const EDGE_BUCKETS = 24;
-const EDGE_ALPHA_FAR = 0.1;
-const EDGE_ALPHA_NEAR = 0.3;
-const EDGE_ALPHA_MAX = 0.9;
 const EDGE_ALPHA_LIT = 0.8;
 const STAR_ALPHA_STEPS = 5;
 const PICK_RADIUS = 14;
 const STAR_AREA_PER_STAR = 5200;
-const LABEL_PLATE_RADIUS = 4;
 const HOVER_EASE_MS = 110;
 const FOCUS_EASE_MS = 600;
-const ENTRANCE_MS = 1400;
 const FLOW_PERIOD_MS = 3600;
 const FLOW_LEG_ONE = [0.02, 0.36] as const;
 const FLOW_LEG_TWO = [0.4, 0.74] as const;
@@ -162,7 +172,7 @@ export function createCosmosRenderer({
   theme = NIGHT_THEME,
   dayTheme = DAWN_THEME,
   fontFamily = 'system-ui, sans-serif',
-  entranceMs = ENTRANCE_MS,
+  entranceMs = COSMOS_ENTRANCE_MS,
 }: CosmosRendererOptions): CosmosRenderer {
   const ctx = canvas.getContext('2d');
   const count = graph.nodes.length;
@@ -227,7 +237,7 @@ export function createCosmosRenderer({
     r: theme.repository,
   };
   const edgeBuckets: number[][] = Array.from(
-    { length: EDGE_BUCKETS },
+    { length: COSMOS_EDGE_BUCKETS },
     () => [],
   );
   const nodeBuckets = new Map<string, number[]>();
@@ -403,7 +413,7 @@ export function createCosmosRenderer({
     if (!ctx) return;
     for (const bucket of edgeBuckets) bucket.length = 0;
     const hoverSet = hovered === null ? null : neighbors[hovered];
-    const reveal = 0.7 + 0.3 * smoothstep(0, 1, entrance);
+    const reveal = cosmosEdgeReveal(entrance);
     if (reveal <= 0) return;
     ctx.lineWidth = 1;
     for (let e = 0; e < graph.edges.length; e += 1) {
@@ -415,21 +425,12 @@ export function createCosmosRenderer({
       const incident =
         hovered !== null && (edge.a === hovered || edge.b === hovered);
       if (incident) continue;
-      let alpha = lerp(
-        EDGE_ALPHA_FAR,
-        EDGE_ALPHA_NEAR,
-        (A.depth + B.depth) / 2,
-      );
+      let alpha = cosmosEdgeAlpha(A.depth, B.depth);
       alpha = lerp(alpha, EDGE_ALPHA_LIT, edgeLit(e));
       alpha *= 1 - EDGE_DIM_STRENGTH * edgeShade(e, edge.kind);
       if (hoverSet) alpha *= 1 - 0.65 * mix;
       alpha *= reveal;
-      const index = clamp(
-        Math.floor((alpha / EDGE_ALPHA_MAX) * EDGE_BUCKETS),
-        0,
-        EDGE_BUCKETS - 1,
-      );
-      edgeBuckets[index]?.push(e);
+      edgeBuckets[cosmosEdgeBucket(alpha)]?.push(e);
     }
     edgeBuckets.forEach((bucket, index) => {
       if (bucket.length === 0) return;
@@ -443,10 +444,7 @@ export function createCosmosRenderer({
         ctx.moveTo(A.x, A.y);
         ctx.lineTo(B.x, B.y);
       }
-      ctx.strokeStyle = rgba(
-        palette.edge,
-        ((index + 0.5) / EDGE_BUCKETS) * EDGE_ALPHA_MAX,
-      );
+      ctx.strokeStyle = rgba(palette.edge, cosmosEdgeBucketAlpha(index));
       ctx.stroke();
     });
     if (hovered === null) return;
@@ -521,8 +519,7 @@ export function createCosmosRenderer({
     hovered: number | null,
     mix: number,
   ): number {
-    const floor = node.kind === 'p' ? 0.5 : 0.32;
-    let alpha = lerp(floor, 1, P.depth);
+    let alpha = cosmosNodeAlpha(node.kind, P.depth);
     alpha = lerp(alpha, 1, clamp(lift(i, node), 0, 1));
     alpha *= 1 - DIM_STRENGTH * clamp(shade(i, node), 0, 1);
     if (hovered === null) return alpha;
@@ -541,7 +538,7 @@ export function createCosmosRenderer({
       const P = proj[i];
       if (!node || !P || !P.ok || i === hovered) continue;
       const alpha = nodeAlpha(i, node, P, hovered, mix);
-      const key = `${node.kind}${Math.round(alpha * 10)}`;
+      const key = `${node.kind}${cosmosNodeAlphaStep(alpha)}`;
       let bucket = nodeBuckets.get(key);
       if (!bucket) {
         bucket = [];
@@ -551,7 +548,7 @@ export function createCosmosRenderer({
     }
     const kinds: CosmosNodeKind[] = ['r', 's', 'p'];
     for (const kind of kinds) {
-      for (let step = 1; step <= 10; step += 1) {
+      for (let step = 1; step <= COSMOS_NODE_ALPHA_STEPS; step += 1) {
         const bucket = nodeBuckets.get(`${kind}${step}`);
         if (!bucket || bucket.length === 0) continue;
         ctx.beginPath();
@@ -563,7 +560,7 @@ export function createCosmosRenderer({
           ctx.moveTo(P.x + r, P.y);
           ctx.arc(P.x, P.y, r, 0, 6.283);
         }
-        ctx.fillStyle = rgba(kindColor[kind], step / 10);
+        ctx.fillStyle = rgba(kindColor[kind], step / COSMOS_NODE_ALPHA_STEPS);
         ctx.fill();
       }
     }
@@ -597,13 +594,20 @@ export function createCosmosRenderer({
     if (!node || !P || !P.ok) return;
     const font = `${weight} ${size}px ${fontFamily}`;
     const width = measure(text, size);
-    const offset = baseRadius(node) * P.scale * radiusScale(i, node) + 6;
+    const offset =
+      baseRadius(node) * P.scale * radiusScale(i, node) + COSMOS_LABEL_OFFSET;
     const flip = P.x + offset + width > w - 12;
     const x0 = flip ? P.x - offset - width : P.x + offset;
     const y0 = P.y - size * 0.62;
     const y1 = P.y + size * 0.5;
     if (x0 < 8 || y0 < 8 || y1 > h - 8) return;
-    const box = [x0 - 4, y0 - 2, x0 + width + 4, y1 + 2];
+    const plate = cosmosLabelPlate(size, width);
+    const box = [
+      x0 + plate.x,
+      P.y + plate.y,
+      x0 + plate.x + plate.width,
+      P.y + plate.y + plate.height,
+    ];
     for (const b of labelBoxes) {
       if (box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1]) {
         return;
@@ -614,9 +618,9 @@ export function createCosmosRenderer({
     ctx.roundRect(
       box[0],
       box[1],
-      box[2] - box[0],
-      box[3] - box[1],
-      LABEL_PLATE_RADIUS,
+      plate.width,
+      plate.height,
+      COSMOS_LABEL_PLATE_RADIUS,
     );
     ctx.fillStyle = rgba(ink.plate, alpha * LABEL_PLATE_ALPHA);
     ctx.fill();
@@ -669,13 +673,12 @@ export function createCosmosRenderer({
         gap < COSMOS_LABEL_GAP
       )
         continue;
-      const lit = lerp(lerp(LABEL_MIN_ALPHA, 0.95, P.depth), 1, wPrograms);
       placeLabel(
         i,
         truncate(node.name),
-        Math.round(lerp(lerp(10, 13, P.depth), 13, wPrograms)),
+        Math.round(cosmosLabelSize(P.depth, wPrograms)),
         500,
-        lerp(lit, LABEL_MIN_ALPHA, dimTo),
+        lerp(cosmosLabelLit(P.depth, wPrograms), LABEL_MIN_ALPHA, dimTo),
         w,
         h,
       );

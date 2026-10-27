@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { LandingJourney } from './components/landing-journey';
-import { CosmosPoster } from './components/cosmos-poster';
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 describe('server supplied landing props', () => {
@@ -14,7 +13,6 @@ describe('server supplied landing props', () => {
         primaryAction={null}
         starPrograms={programs}
         stats={stats}
-        poster={<CosmosPoster programs={programs} />}
       />,
     );
 
@@ -26,12 +24,7 @@ describe('server supplied landing props', () => {
     const stats = { items: [], note: null };
 
     const html = renderToStaticMarkup(
-      <LandingJourney
-        primaryAction={null}
-        starPrograms={[]}
-        stats={stats}
-        poster={null}
-      />,
+      <LandingJourney primaryAction={null} starPrograms={[]} stats={stats} />,
     );
 
     expect(html).not.toContain('<ul');

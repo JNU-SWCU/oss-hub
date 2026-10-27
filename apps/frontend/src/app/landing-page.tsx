@@ -11,16 +11,8 @@ import { LandingEntryActionView } from './_shell/landing-entry-action';
 import { SessionError } from './_shell/session-error';
 import { useSessionRole } from './_shell/use-session-role';
 import type { LandingData } from '@/features/landing/server/load-landing-data';
-import type { ReactNode } from 'react';
 
-export function LandingPage({
-  recruiting,
-  starPrograms,
-  stats,
-  poster,
-}: LandingData & {
-  readonly poster: ReactNode;
-}) {
+export function LandingPage({ recruiting, starPrograms, stats }: LandingData) {
   const session = useSessionRole();
   const { status, isProfileComplete, retry } = session;
   const [serializedSearchParams, setSerializedSearchParams] = useState('');
@@ -49,7 +41,6 @@ export function LandingPage({
         <LandingJourney
           starPrograms={starPrograms}
           stats={stats}
-          poster={poster}
           authErrorMessage={authErrorMessage}
           contentAnchor="#current-programs"
           notice={showLogoutNotice ? <LogoutNoticeBanner /> : undefined}

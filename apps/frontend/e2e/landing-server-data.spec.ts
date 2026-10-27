@@ -32,7 +32,17 @@ for (const viewport of [
     const html = await response?.text();
     expect(html).toContain('data-cosmos-poster');
     for (const program of recruiting) expect(html).toContain(program.name);
-    await expect(page.locator('[data-cosmos-poster] circle')).toHaveCount(158);
+    expect(
+      await page
+        .locator('[data-cosmos-poster] [data-kind] path')
+        .evaluateAll((paths) =>
+          paths.reduce(
+            (count, path) =>
+              count + (path.getAttribute('d')?.match(/h0/g)?.length ?? 0),
+            0,
+          ),
+        ),
+    ).toBe(158);
     await expect(page.locator('#current-programs li')).toHaveCount(
       recruiting.length,
     );

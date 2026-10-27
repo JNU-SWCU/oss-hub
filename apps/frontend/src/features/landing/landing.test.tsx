@@ -15,7 +15,6 @@ const renderJourney = (
     <LandingJourney
       starPrograms={[]}
       stats={{ items: [], note: null }}
-      poster={null}
       primaryAction={<a href="/login">GitHub으로 로그인</a>}
       {...props}
     />,

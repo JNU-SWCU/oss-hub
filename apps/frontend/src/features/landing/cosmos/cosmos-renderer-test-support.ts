@@ -9,6 +9,13 @@ export const fillText = vi.fn<(text: string, x: number, y: number) => void>();
 export const arc = vi.fn<(x: number, y: number, r: number) => void>();
 export const createRadialGradient = vi.fn(() => ({ addColorStop: vi.fn() }));
 export const labelPairs: { plate: string; text: string }[] = [];
+export type Point = readonly [number, number];
+export const strokes: { style: string; lines: (readonly [Point, Point])[] }[] =
+  [];
+export const fills: {
+  style: string;
+  arcs: (readonly [number, number, number])[];
+}[] = [];
 
 class FakeCanvas {
   width = 300;
@@ -19,24 +26,45 @@ class FakeCanvas {
   getContext() {
     let plateArmed = false;
     let plate = '';
+    let cursor: Point = [0, 0];
+    let lines: (readonly [Point, Point])[] = [];
+    let arcs: (readonly [number, number, number])[] = [];
     const ctx = {
       fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 1,
       setTransform: vi.fn(),
       clearRect: vi.fn(),
       fillRect: vi.fn(),
-      beginPath: vi.fn(),
-      moveTo: vi.fn(),
-      lineTo: vi.fn(),
+      beginPath: () => {
+        lines = [];
+        arcs = [];
+      },
+      moveTo: (x: number, y: number) => {
+        cursor = [x, y];
+      },
+      lineTo: (x: number, y: number) => {
+        lines.push([cursor, [x, y]]);
+        cursor = [x, y];
+      },
       roundRect: () => {
         plateArmed = true;
       },
-      arc,
+      arc: (x: number, y: number, r: number) => {
+        arcs.push([x, y, r]);
+        arc(x, y, r);
+      },
       fill: () => {
+        fills.push({ style: ctx.fillStyle, arcs });
+        arcs = [];
         if (!plateArmed) return;
         plate = ctx.fillStyle;
         plateArmed = false;
       },
-      stroke: vi.fn(),
+      stroke: () => {
+        strokes.push({ style: ctx.strokeStyle, lines });
+        lines = [];
+      },
       strokeText: vi.fn(),
       fillText: (text: string, x: number, y: number) => {
         labelPairs.push({ plate, text: ctx.fillStyle });
@@ -150,4 +178,6 @@ afterEach(() => {
   arc.mockClear();
   createRadialGradient.mockClear();
   labelPairs.length = 0;
+  strokes.length = 0;
+  fills.length = 0;
 });

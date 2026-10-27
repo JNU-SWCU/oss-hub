@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { CosmosProgram } from '../cosmos';
 import type { LandingStatsDisplay } from '../landing-stats';
+import { CosmosPoster } from './cosmos-poster';
 import styles from './landing-journey.module.css';
 import { useRevealOnce } from './landing-reveal';
 import { useCosmosCanvas } from './use-cosmos-canvas';
@@ -17,7 +18,6 @@ export interface LandingJourneyProps {
   readonly primaryAction: ReactNode;
   readonly starPrograms: readonly CosmosProgram[];
   readonly stats: LandingStatsDisplay;
-  readonly poster: ReactNode;
   readonly contentAnchor?: string;
 }
 
@@ -34,7 +34,6 @@ export function LandingJourney({
   primaryAction,
   starPrograms,
   stats,
-  poster,
   contentAnchor = '#current-programs',
 }: LandingJourneyProps) {
   const { journeyRef, skyRef, canvasRef, focus } =
@@ -179,7 +178,7 @@ export function LandingJourney({
           aria-hidden="true"
         >
           <div className={styles.skyStage}>
-            {poster}
+            <CosmosPoster programs={starPrograms} />
             <canvas ref={canvasRef} className={styles.sky} />
           </div>
           <div className={styles.corner}>

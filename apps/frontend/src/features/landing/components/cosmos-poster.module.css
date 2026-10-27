@@ -9,18 +9,87 @@
   transition: opacity 300ms ease;
 }
 
-.edges {
+.poster svg {
   position: absolute;
+  overflow: visible;
+  fill: none;
+}
+
+.poster [data-stage] {
   left: calc(50% - var(--cosmos-radius));
   top: calc(48% - var(--cosmos-radius));
   width: calc(var(--cosmos-radius) * 2);
   height: calc(var(--cosmos-radius) * 2);
+  stroke: var(--cosmos-copy);
+  stroke-width: 1;
 }
 
-.nodes {
-  position: absolute;
+.poster [data-stage] path {
+  vector-effect: non-scaling-stroke;
+}
+
+.poster [data-kind] {
+  stroke-linecap: round;
+}
+
+.poster [data-kind='p'] {
+  stroke: var(--cosmos-program);
+}
+
+.poster [data-kind='s'] {
+  stroke: var(--cosmos-student);
+}
+
+.poster [data-kind='r'] {
+  stroke: var(--cosmos-repository-star);
+}
+
+.poster [data-labels] {
   inset: 0;
   width: 100%;
   height: 100%;
-  overflow: visible;
+}
+
+.poster [data-label] {
+  --gap: 1;
+  --label-flip: clamp(
+    calc((var(--width) + 2 * var(--offset)) * -1px),
+    calc(
+      (
+          var(--cosmos-radius) * var(--x) +
+            (var(--offset) + var(--width) + 12) * 1px - 50cqw
+        ) *
+        -100000
+    ),
+    0px
+  );
+  --label-left: calc(
+    50cqw + var(--cosmos-radius) * var(--x) + var(--offset) * 1px +
+      var(--label-flip)
+  );
+  --label-middle: calc(48cqh + var(--cosmos-radius) * var(--y));
+  --label-hide: clamp(
+    0px,
+    max(
+      calc((18px - var(--cosmos-radius) * var(--gap)) * 100000),
+      calc((8px - var(--label-left)) * 100000),
+      calc((8px - (var(--label-middle) - var(--size) * 0.62px)) * 100000),
+      calc((var(--label-middle) + var(--size) * 0.5px - 100cqh + 8px) * 100000)
+    ),
+    100000px
+  );
+  transform: translate(
+    var(--label-left),
+    calc(var(--label-middle) + var(--label-hide))
+  );
+}
+
+.poster [data-label] rect {
+  fill: var(--cosmos-ink);
+}
+
+.poster [data-label] text {
+  fill: var(--cosmos-copy);
+  font-weight: 500;
+  dominant-baseline: central;
 }
