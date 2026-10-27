@@ -1,20 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { ProgramCountdown } from '@/components';
+import type { CountdownMilestone } from '@/components/program-countdown';
 import { cn } from '@/lib/utils';
-import { AppSidebar, AppSidebarNav } from './app-sidebar';
-import {
-  ProgramScopeSidebar,
-  ProgramScopeSidebarNav,
-} from './program-scope-sidebar';
+import { AppSidebar } from './app-sidebar';
+import { ProgramScopeSidebar } from './program-scope-sidebar';
 import { programDetailIdFromPathname } from './section-facets';
 import { SidebarDrawer } from './sidebar-drawer';
-import {
-  SIDEBAR_COLLAPSED_VALUE,
-  SIDEBAR_OPEN_VALUE,
-  SIDEBAR_STORAGE_KEY,
-} from './sidebar-collapsed';
 import {
   programScopeBackHref,
   programScopeSidebarGroups,
@@ -22,9 +16,17 @@ import {
   sidebarBrandTitle,
   sidebarGroupsFor,
 } from './sidebar-menu';
-import { RankingCycleProvider } from './ranking-cycle-context';
-import { EMPTY_MEMBER_ACCESS, memberSurfaces } from './member-access';
+import {
+  RankingCycleProvider,
+  useOptionalRankingNextCycleAt,
+} from './ranking-cycle-context';
 import { useSidebarDrawer } from './sidebar-drawer-context';
+import {
+  hasShellSidebar,
+  isShellMember,
+  shellSidebarAccess,
+} from './sidebar-presence';
+import type { SidebarShellVariant } from './sidebar-shell';
 import { useSessionRole } from './use-session-role';
 import { useProductShellData } from './use-product-shell-data';
 import {
@@ -45,22 +47,49 @@ export {
 export * from './sidebar-collapsed';
 export { shouldLoadProgramOverview } from './program-shell-policy';
 
+function RankingCycleCountdown() {
+  const nextCycleAt = useOptionalRankingNextCycleAt();
+  if (nextCycleAt === null) return null;
+  return (
+    <ProgramCountdown
+      nextMilestoneLabel="다음 수집"
+      dueAt={nextCycleAt}
+      untilLabel="다음 수집까지"
+    />
+  );
+}
+
+function sidebarBottomFor({
+  pathname,
+  programDetailId,
+  remainingMilestones,
+}: {
+  readonly pathname: string;
+  readonly programDetailId: string | null;
+  readonly remainingMilestones: readonly CountdownMilestone[] | undefined;
+}): ReactNode {
+  if (programDetailId !== null) {
+    return remainingMilestones === undefined ? undefined : (
+      <ProgramCountdown mode="program" milestones={remainingMilestones} />
+    );
+  }
+  if (pathname === '/ranking') return <RankingCycleCountdown />;
+  return undefined;
+}
+
 export function ProductShell({
   children,
   initialCollapsed = false,
 }: {
   readonly children: ReactNode;
+
   readonly initialCollapsed?: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
   const session = useSessionRole();
-  const { status, isProfileComplete } = session;
-  const member =
-    status === 'assigned' &&
-    isProfileComplete &&
-    memberSurfaces(session).length > 0;
+  const member = isShellMember(session);
   const section = shellSectionFromPathname(pathname);
 
   const programDetailId = programDetailIdFromPathname(pathname);
@@ -91,33 +120,17 @@ export function ProductShell({
     authority: session,
     operationsView,
   });
-  const [collapsed, setCollapsed] = useState(initialCollapsed);
-  const drawer = useSidebarDrawer();
-  const closeDrawer = drawer?.close;
+  const shell = useSidebarDrawer();
+  const collapsed = shell?.collapsed ?? initialCollapsed;
+  const closeDrawer = shell?.close;
 
   useEffect(() => {
     closeDrawer?.();
   }, [pathname, search, closeDrawer]);
 
-  useEffect(() => {
-    document.cookie = `${SIDEBAR_STORAGE_KEY}=${
-      collapsed ? SIDEBAR_COLLAPSED_VALUE : SIDEBAR_OPEN_VALUE
-    }; Path=/; Max-Age=31536000; SameSite=Lax`;
-  }, [collapsed]);
-
-  const toggle = useCallback(() => setCollapsed((prev) => !prev), []);
-
-  const groups = programDetailId
-    ? []
-    : sidebarGroupsFor(section, member ? session : EMPTY_MEMBER_ACCESS, {
-        programCounts: facetData?.programCounts,
-        rankingYears: facetData?.rankingYears,
-        rankingCounts: facetData?.rankingCounts,
-      });
-
   if (programDetailId !== null && operationsView === null) return null;
 
-  if (!programDetailId && groups.length === 0) {
+  if (!hasShellSidebar(pathname, session)) {
     return (
       <RankingCycleProvider>
         <div
@@ -130,6 +143,14 @@ export function ProductShell({
       </RankingCycleProvider>
     );
   }
+
+  const groups = programDetailId
+    ? []
+    : sidebarGroupsFor(section, shellSidebarAccess(session), {
+        programCounts: facetData?.programCounts,
+        rankingYears: facetData?.rankingYears,
+        rankingCounts: facetData?.rankingCounts,
+      });
 
   let viewerDocuments:
     { readonly completed: number; readonly total: number } | undefined;
@@ -169,9 +190,40 @@ export function ProductShell({
       ? scopeGroupsRaw
       : withoutLoadingCounts(scopeGroupsRaw);
 
+  const brandTitle = sidebarBrandTitle(section, groups);
   const drawerLabel = programDetailId
     ? (scopeOverview?.name ?? programDetailId)
-    : sidebarBrandTitle(section, groups);
+    : brandTitle;
+
+  const bottom = sidebarBottomFor({
+    pathname,
+    programDetailId,
+    remainingMilestones: scopeOverview?.remainingMilestones,
+  });
+
+  const sidebar = (variant: SidebarShellVariant) =>
+    programDetailId ? (
+      <ProgramScopeSidebar
+        variant={variant}
+        programName={scopeOverview?.name ?? programDetailId}
+        groups={scopeGroups}
+        pathname={pathname}
+        search={search}
+        collapsed={variant === 'aside' && collapsed}
+        backHref={programScopeBackHref()}
+        bottom={bottom}
+      />
+    ) : (
+      <AppSidebar
+        variant={variant}
+        groups={groups}
+        pathname={pathname}
+        search={search}
+        collapsed={variant === 'aside' && collapsed}
+        brandTitle={brandTitle}
+        bottom={bottom}
+      />
+    );
 
   return (
     <RankingCycleProvider>
@@ -188,27 +240,7 @@ export function ProductShell({
               : 'shell:grid-cols-[var(--sidebar-open-width)_minmax(0,1fr)] shell:duration-[var(--sidebar-expand-duration)] shell:ease-out',
           )}
         >
-          {programDetailId ? (
-            <ProgramScopeSidebar
-              programName={scopeOverview?.name ?? programDetailId}
-              groups={scopeGroups}
-              pathname={pathname}
-              search={search}
-              collapsed={collapsed}
-              onToggle={toggle}
-              backHref={programScopeBackHref()}
-              remainingMilestones={scopeOverview?.remainingMilestones}
-            />
-          ) : (
-            <AppSidebar
-              groups={groups}
-              pathname={pathname}
-              search={search}
-              collapsed={collapsed}
-              onToggle={toggle}
-              brandTitle={sidebarBrandTitle(section, groups)}
-            />
-          )}
+          {sidebar('aside')}
           <div
             id="main-content"
             tabIndex={-1}
@@ -217,27 +249,11 @@ export function ProductShell({
             {children}
           </div>
           <SidebarDrawer
-            open={drawer?.open ?? false}
+            open={shell?.open ?? false}
             onClose={closeDrawer ?? (() => {})}
             label={drawerLabel}
           >
-            {programDetailId ? (
-              <ProgramScopeSidebarNav
-                groups={scopeGroups}
-                pathname={pathname}
-                search={search}
-                collapsed={false}
-                ariaLabel={drawerLabel}
-              />
-            ) : (
-              <AppSidebarNav
-                groups={groups}
-                pathname={pathname}
-                search={search}
-                collapsed={false}
-                brandTitle={sidebarBrandTitle(section, groups)}
-              />
-            )}
+            {sidebar('drawer')}
           </SidebarDrawer>
         </div>
       </ProgramViewContext.Provider>

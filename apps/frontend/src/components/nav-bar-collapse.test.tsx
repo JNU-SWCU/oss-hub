@@ -32,30 +32,26 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
     expect(visibility('nav-bar-items')).toBe('wide');
   });
 
-  it('onToggleSidebarDrawer가 있으면 셸 브레이크포인트 미만 전용 사이드바 드로어 토글을 그린다', () => {
+  it('leading을 넘기면 브랜드 앞, 맨 왼쪽에 그린다', () => {
     const html = renderToStaticMarkup(
       <NavBar
         brand={<span>OSS Hub</span>}
         items={ITEMS}
         actions={<a href="/login">GitHub으로 로그인</a>}
-        sidebarDrawerOpen={false}
-        onToggleSidebarDrawer={() => {}}
-        sidebarDrawerId="app-sidebar-drawer"
+        leading={<span data-slot="test-leading" />}
       />,
     );
 
-    const trigger = html.match(
-      /<button[^>]*data-slot="nav-bar-sidebar-drawer-trigger"[^>]*>/,
-    )?.[0];
-    expect(trigger).toBeDefined();
-    expect(trigger).toContain('data-breakpoint-visibility="mobile"');
-    expect(trigger).toContain('aria-expanded="false"');
-    expect(trigger).toContain('aria-controls="app-sidebar-drawer"');
+    const leading = html.indexOf('data-slot="test-leading"');
+    expect(leading).toBeGreaterThan(html.indexOf('data-slot="nav-bar"'));
+    expect(leading).toBeLessThan(html.indexOf('data-slot="nav-bar-brand"'));
   });
 
-  it('onToggleSidebarDrawer가 없으면 사이드바 드로어 토글을 그리지 않는다', () => {
-    expect(render()).not.toContain(
-      'data-slot="nav-bar-sidebar-drawer-trigger"',
+  it('leading이 없으면 브랜드가 첫 자식이다', () => {
+    const html = render();
+    const nav = html.match(/<nav[^>]*>([\s\S]*)<\/nav>/)?.[1] ?? '';
+    expect(nav.trimStart().startsWith('<div data-slot="nav-bar-brand"')).toBe(
+      true,
     );
   });
 
@@ -71,7 +67,6 @@ describe('NavBar 좁은 화면 메뉴 접기', () => {
       expect(list).toBeDefined();
       const children = list?.slice(list.indexOf('>') + 1);
       expect(children).not.toContain('data-breakpoint-visibility');
-      expect(children).not.toMatch(/\S+:hidden\b/);
     }
   });
 

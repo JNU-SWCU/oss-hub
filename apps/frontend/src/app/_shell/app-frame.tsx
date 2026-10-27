@@ -11,6 +11,7 @@ import type { NavItem } from '@/components';
 import { PUBLIC_MENU } from './public-menus';
 import { ProductShell, SidebarDrawerProvider } from './product-shell';
 import { ShellNav } from './shell-nav';
+import { hasShellSidebar } from './sidebar-presence';
 import { COSMOS_GROUND_PATHS, PRE_MEMBER_PATHS } from './signup-routes';
 import { SessionRoleProvider } from './session-role-context';
 import { useSessionRole } from './use-session-role';
@@ -103,12 +104,13 @@ function SessionAppFrame({
 
   return (
     <SessionRoleProvider value={session}>
-      <SidebarDrawerProvider>
+      <SidebarDrawerProvider
+        initialCollapsed={initialSidebarCollapsed}
+        sidebarAvailable={hasShellSidebar(pathname, session)}
+      >
         <div className="flex h-dvh flex-col overflow-hidden">
           <ShellNav brand={brand} items={navItems} actions={actions} />
-          <ProductShell initialCollapsed={initialSidebarCollapsed}>
-            {children}
-          </ProductShell>
+          <ProductShell>{children}</ProductShell>
         </div>
       </SidebarDrawerProvider>
     </SessionRoleProvider>

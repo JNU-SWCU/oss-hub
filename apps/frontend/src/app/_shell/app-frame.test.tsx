@@ -170,7 +170,7 @@ describe('AppFrame', () => {
     }
   });
 
-  it('셸 브레이크포인트 미만 사이드바 드로어 토글은 세션과 무관하게 렌더되고 모바일 전용이다', () => {
+  it('사이드바가 있는 경로에서 상단바 드로어 트리거는 모바일 전용 속성으로 렌더된다', () => {
     const html = render('/dashboard');
     const trigger = html.match(
       /<button[^>]*data-slot="nav-bar-sidebar-drawer-trigger"[^>]*>/,
@@ -222,6 +222,35 @@ describe('AppFrame', () => {
     expect(html).toMatch(
       /data-slot="product-shell"[^>]*data-collapsed="false"/,
     );
+  });
+
+  it('쿠키로 읽은 접힘 시드는 SSR 마크업의 셸과 상단바 토글에 함께 반영된다', () => {
+    mocks.usePathname.mockReturnValue('/dashboard');
+    mocks.useSessionRole.mockReturnValue({
+      status: 'assigned',
+      role: 'STUDENT',
+      memberKind: 'STUDENT',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+      staffAccessRequestStatus: null,
+      staffAccessRequestRejectionReason: null,
+      selectedRole: null,
+      isProfileComplete: true,
+      retry: () => {},
+    });
+    const html = renderToStaticMarkup(
+      <AppFrame brand="OSS Hub" items={ITEMS} initialSidebarCollapsed>
+        <p>본문</p>
+      </AppFrame>,
+    );
+    expect(html).toMatch(/data-slot="product-shell"[^>]*data-collapsed="true"/);
+    expect(html).toMatch(/data-slot="app-sidebar"[^>]*data-collapsed="true"/);
+    const toggle = html.match(
+      /<button[^>]*data-slot="nav-bar-sidebar-toggle"[^>]*>/,
+    )?.[0];
+    expect(toggle).toBeDefined();
+    expect(toggle).toContain('aria-expanded="false"');
+    expect(toggle).toContain('aria-label="사이드바 펼치기"');
   });
 
   it('미해결 호환 세션도 정상 인증 셸과 본문을 렌더한다', () => {

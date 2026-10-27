@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -9,19 +9,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { ProgramCountdown } from '@/components';
-import { useOptionalRankingNextCycleAt } from './ranking-cycle-context';
 import { ShellIcon } from './shell-icons';
 import { isCurrentSidebarItem, type SidebarGroup } from './sidebar-menu';
+import { SidebarShell, type SidebarShellVariant } from './sidebar-shell';
 
 interface AppSidebarProps {
   readonly groups: readonly SidebarGroup[];
   readonly pathname: string;
   readonly search?: string;
   readonly collapsed: boolean;
-  readonly onToggle: () => void;
 
   readonly brandTitle?: string;
+
+  readonly bottom?: ReactNode;
+
+  readonly variant?: SidebarShellVariant;
 }
 
 export function formatSidebarCount(n: number): string {
@@ -47,89 +49,28 @@ export function AppSidebar({
   pathname,
   search = '',
   collapsed,
-  onToggle,
   brandTitle,
+  bottom,
+  variant = 'aside',
 }: AppSidebarProps) {
   const title = brandTitle ?? groups[0]?.label ?? '메뉴';
-  const toggleLabel = collapsed ? '사이드바 펼치기' : '사이드바 접기';
-  const nextCycleAt = useOptionalRankingNextCycleAt();
-  const showRankingCountdown =
-    !collapsed && pathname === '/ranking' && nextCycleAt !== null;
 
   return (
-    <aside
-      data-slot="app-sidebar"
-      data-breakpoint-visibility="desktop"
-      data-collapsed={collapsed ? 'true' : 'false'}
-      className={cn(
-        'hidden shell:flex shell:h-full shell:min-h-0 shell:flex-col shell:overflow-hidden',
-        'border-sidebar-border bg-sidebar shell:border-r',
-      )}
-    >
-      <div
-        data-slot="app-sidebar-brand"
-        className={cn(
-          'flex h-topbar shrink-0 items-center gap-3 border-b border-sidebar-border px-4',
-          collapsed && 'justify-center px-0',
-        )}
-      >
-        {!collapsed ? (
-          <p className="font-heading text-table font-bold tracking-[-0.02em] text-sidebar-foreground">
-            {title}
-          </p>
-        ) : null}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={onToggle}
-          aria-expanded={!collapsed}
-          aria-label={toggleLabel}
-          title={toggleLabel}
-          className={cn(
-            'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-foreground focus-visible:ring-sidebar-ring aria-expanded:bg-transparent aria-expanded:hover:bg-sidebar-accent aria-expanded:hover:text-sidebar-foreground',
-            !collapsed &&
-              'ml-auto border-sidebar-border text-muted-foreground aria-expanded:text-muted-foreground',
-          )}
-        >
-          <ShellIcon
-            name="chevronLeft"
-            className={cn(
-              'size-sidebar-icon shrink-0 transition-transform',
-              collapsed && 'rotate-180',
-            )}
-          />
-        </Button>
-      </div>
-
-      <AppSidebarNav
-        groups={groups}
-        pathname={pathname}
-        search={search}
-        collapsed={collapsed}
-        brandTitle={title}
-      />
-
-      {showRankingCountdown && nextCycleAt !== null ? (
-        <ProgramCountdown
-          nextMilestoneLabel="다음 수집"
-          dueAt={nextCycleAt}
-          untilLabel="다음 수집까지"
+    <SidebarShell
+      kind="app-sidebar"
+      variant={variant}
+      collapsed={collapsed}
+      bottom={bottom}
+      nav={
+        <AppSidebarNav
+          groups={groups}
+          pathname={pathname}
+          search={search}
+          collapsed={collapsed}
+          brandTitle={title}
         />
-      ) : null}
-
-      <p
-        data-slot="app-sidebar-foot"
-        className={cn(
-          'mt-auto shrink-0 border-t border-sidebar-border p-4 text-small whitespace-nowrap text-muted-foreground',
-          collapsed && 'hidden',
-        )}
-      >
-        전남대학교
-        <br />
-        SW중심대학사업단
-      </p>
-    </aside>
+      }
+    />
   );
 }
 

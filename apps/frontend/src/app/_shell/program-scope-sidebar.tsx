@@ -1,17 +1,18 @@
 'use client';
 
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { ProgramCountdown } from '@/components';
-import type { CountdownMilestone } from '@/components/program/program-countdown';
-import { ShellIcon } from './shell-icons';
 import type {
   ProgramScopeSidebarGroup,
   ProgramScopeSidebarItem,
 } from './sidebar-menu';
 import { ScopeSidebarLink } from './program-scope-sidebar-link';
+import {
+  SidebarScopeRow,
+  SidebarShell,
+  type SidebarShellVariant,
+} from './sidebar-shell';
 
 export interface ProgramScopeSidebarProps {
   readonly programName: string;
@@ -19,10 +20,11 @@ export interface ProgramScopeSidebarProps {
   readonly pathname: string;
   readonly search: string;
   readonly collapsed: boolean;
-  readonly onToggle: () => void;
   readonly backHref: string;
 
-  readonly remainingMilestones?: readonly CountdownMilestone[];
+  readonly bottom?: ReactNode;
+
+  readonly variant?: SidebarShellVariant;
 }
 
 export function ProgramScopeSidebar({
@@ -31,90 +33,34 @@ export function ProgramScopeSidebar({
   pathname,
   search,
   collapsed,
-  onToggle,
   backHref,
-  remainingMilestones,
+  bottom,
+  variant = 'aside',
 }: ProgramScopeSidebarProps) {
-  const toggleLabel = collapsed ? '사이드바 펼치기' : '사이드바 접기';
-
   return (
-    <aside
-      data-slot="program-scope-sidebar"
-      data-breakpoint-visibility="desktop"
-      data-collapsed={collapsed ? 'true' : 'false'}
-      className={cn(
-        'hidden shell:flex shell:h-full shell:min-h-0 shell:flex-col shell:overflow-hidden',
-        'border-sidebar-border bg-sidebar shell:border-r',
-      )}
-    >
-      <div
-        data-slot="program-scope-sidebar-brand"
-        className={cn(
-          'flex h-topbar shrink-0 items-center gap-3 border-b border-sidebar-border px-4',
-          collapsed && 'justify-center px-0',
-        )}
-      >
-        {!collapsed ? (
-          <div className="flex min-w-0 flex-1 flex-col items-start justify-center gap-0.5">
-            <Link
-              href={backHref}
-              className="text-xs font-bold tracking-[0.02em] whitespace-nowrap text-primary hover:underline"
-            >
-              ‹ 프로그램 목록
-            </Link>
-            <p className="w-full truncate font-heading text-small font-semibold tracking-[-0.01em] text-sidebar-foreground">
-              {programName}
-            </p>
-          </div>
-        ) : null}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={onToggle}
-          aria-expanded={!collapsed}
-          aria-label={toggleLabel}
-          title={toggleLabel}
-          className={cn(
-            'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-sidebar-foreground focus-visible:ring-sidebar-ring aria-expanded:bg-transparent aria-expanded:hover:bg-sidebar-accent aria-expanded:hover:text-sidebar-foreground',
-            !collapsed &&
-              'ml-auto border-sidebar-border text-muted-foreground aria-expanded:text-muted-foreground',
-          )}
-        >
-          <ShellIcon
-            name="chevronLeft"
-            className={cn(
-              'size-sidebar-icon shrink-0 transition-transform',
-              collapsed && 'rotate-180',
-            )}
-          />
-        </Button>
-      </div>
-
-      <ProgramScopeSidebarNav
-        groups={groups}
-        pathname={pathname}
-        search={search}
-        collapsed={collapsed}
-        ariaLabel={programName}
-      />
-
-      {!collapsed && remainingMilestones !== undefined ? (
-        <ProgramCountdown mode="program" milestones={remainingMilestones} />
-      ) : null}
-
-      <p
-        data-slot="program-scope-sidebar-foot"
-        className={cn(
-          'mt-auto shrink-0 border-t border-sidebar-border p-4 text-small whitespace-nowrap text-muted-foreground',
-          collapsed && 'hidden',
-        )}
-      >
-        전남대학교
-        <br />
-        SW중심대학사업단
-      </p>
-    </aside>
+    <SidebarShell
+      kind="program-scope-sidebar"
+      variant={variant}
+      collapsed={collapsed}
+      bottom={bottom}
+      scope={
+        <SidebarScopeRow
+          backHref={backHref}
+          backLabel="프로그램 목록"
+          title={programName}
+          collapsed={collapsed}
+        />
+      }
+      nav={
+        <ProgramScopeSidebarNav
+          groups={groups}
+          pathname={pathname}
+          search={search}
+          collapsed={collapsed}
+          ariaLabel={programName}
+        />
+      }
+    />
   );
 }
 

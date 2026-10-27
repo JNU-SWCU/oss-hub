@@ -26,6 +26,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
+import { ProgramCountdown } from '@/components';
 import { ProgramScopeSidebar } from './program-scope-sidebar';
 import { programScopeSidebarGroups } from './sidebar-menu';
 
@@ -77,7 +78,6 @@ function render(
       pathname="/programs/prog-1"
       search=""
       collapsed={false}
-      onToggle={() => {}}
       backHref="/programs"
       {...overrides}
     />,
@@ -125,11 +125,36 @@ describe('ProgramScopeSidebar', () => {
     expect(html).toContain('overflow-hidden');
   });
 
-  it('shows the back link and program title instead of an eyebrow group label', () => {
+  it('carries no header row and no collapse toggle', () => {
+    for (const collapsed of [false, true]) {
+      const html = render({ collapsed });
+      expect(html, String(collapsed)).not.toMatch(/data-slot="[a-z-]+-brand"/);
+      expect(html, String(collapsed)).not.toContain('<button');
+      expect(html, String(collapsed)).not.toContain('사이드바 접기');
+    }
+  });
+
+  it('shows the back link and program title as the scope row above the nav', () => {
     const html = render();
     expect(html).toContain('‹ 프로그램 목록');
     expect(html).toContain('href="/programs"');
     expect(html).toContain('2026-2 오픈소스 SW 프로젝트');
+    expect(html.indexOf('data-slot="sidebar-shell-scope"')).toBeLessThan(
+      html.indexOf('data-slot="program-scope-sidebar-nav"'),
+    );
+  });
+
+  it('collapsed scope row keeps only an icon back link with the label in aria-label', () => {
+    const html = render({ collapsed: true });
+    expect(html).toMatch(
+      /data-slot="sidebar-shell-back"[^>]*href="\/programs"|href="\/programs"[^>]*data-slot="sidebar-shell-back"/,
+    );
+    expect(html).toContain('aria-label="프로그램 목록"');
+    expect(html).not.toContain('‹ 프로그램 목록');
+    expect(html).not.toContain('data-slot="sidebar-shell-scope-title"');
+    expect(html).toMatch(
+      /data-slot="program-scope-sidebar-nav"[^>]*aria-label="2026-2 오픈소스 SW 프로젝트"/,
+    );
   });
 
   it('respects a custom backHref', () => {
@@ -159,7 +184,6 @@ describe('ProgramScopeSidebar', () => {
         pathname="/programs/prog-1"
         search=""
         collapsed={false}
-        onToggle={() => {}}
         backHref="/programs"
       />,
     );
@@ -180,7 +204,6 @@ describe('ProgramScopeSidebar', () => {
         pathname="/programs/prog-1/teams"
         search=""
         collapsed={false}
-        onToggle={() => {}}
         backHref="/programs"
       />,
     );
@@ -277,41 +300,42 @@ describe('ProgramScopeSidebar', () => {
     expect(html).toContain('aria-current="page"');
   });
 
-  it('renders the countdown block only when expanded and remaining milestones are loaded', () => {
-    const withCountdown = render({
-      remainingMilestones: [
-        {
-          label: '주제 선정 · 저장소 연결',
-          dueAt: '2026-09-12T18:00:00+09:00',
-        },
-      ],
-    });
+  it('renders the bottom slot only when expanded', () => {
+    const countdown = (
+      <ProgramCountdown
+        mode="program"
+        milestones={[
+          {
+            label: '주제 선정 · 저장소 연결',
+            dueAt: '2026-09-12T18:00:00+09:00',
+          },
+        ]}
+      />
+    );
+    const withCountdown = render({ bottom: countdown });
     expect(withCountdown).toContain('data-slot="program-countdown"');
 
-    const endedSchedule = render({ remainingMilestones: [] });
-    expect(endedSchedule).toContain('data-slot="program-countdown"');
-
-    const withoutCountdown = render({ remainingMilestones: undefined });
+    const withoutCountdown = render({ bottom: undefined });
     expect(withoutCountdown).not.toContain('data-slot="program-countdown"');
 
     const collapsedWithCountdown = render({
       collapsed: true,
-      remainingMilestones: [
-        {
-          label: '주제 선정 · 저장소 연결',
-          dueAt: '2026-09-12T18:00:00+09:00',
-        },
-      ],
+      bottom: countdown,
     });
     expect(collapsedWithCountdown).not.toContain(
       'data-slot="program-countdown"',
     );
   });
 
-  it('keeps the institution footer', () => {
+  it('keeps the institution footer while expanded', () => {
     const html = render();
+    expect(html).toContain('data-slot="program-scope-sidebar-foot"');
     expect(html).toContain('전남대학교');
     expect(html).toContain('SW중심대학사업단');
+
+    expect(render({ collapsed: true })).not.toContain(
+      'data-slot="program-scope-sidebar-foot"',
+    );
   });
 
   it('collapsed hides labels and count badges but exposes them via aria-label', () => {
