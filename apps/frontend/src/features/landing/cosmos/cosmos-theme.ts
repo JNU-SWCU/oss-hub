@@ -10,19 +10,33 @@ export interface CosmosTheme {
   readonly repository: CosmosColor;
 }
 
-const COSMOS_VOID: CosmosColor = [0, 19, 58];
+const COSMOS_INK: CosmosColor = [5, 10, 26];
+const COSMOS_SKY: CosmosColor = [233, 241, 248];
 const PALETTE_WHITE: CosmosColor = [255, 255, 255];
 const PALETTE_GREEN_300: CosmosColor = [92, 198, 135];
+const PALETTE_GREEN_600: CosmosColor = [0, 122, 52];
 const PALETTE_NAVY_200: CosmosColor = [173, 193, 235];
+const PALETTE_NAVY_600: CosmosColor = [0, 51, 153];
+const PALETTE_NAVY_950: CosmosColor = [0, 13, 41];
 
 export const NIGHT_THEME: CosmosTheme = {
-  void: COSMOS_VOID,
+  void: COSMOS_INK,
   star: PALETTE_WHITE,
   edge: PALETTE_WHITE,
   label: PALETTE_WHITE,
   program: PALETTE_GREEN_300,
   student: PALETTE_NAVY_200,
   repository: PALETTE_WHITE,
+};
+
+export const DAWN_THEME: CosmosTheme = {
+  void: COSMOS_SKY,
+  star: PALETTE_WHITE,
+  edge: PALETTE_NAVY_950,
+  label: PALETTE_NAVY_950,
+  program: PALETTE_GREEN_600,
+  student: PALETTE_NAVY_600,
+  repository: PALETTE_NAVY_950,
 };
 
 const clamp01 = (value: number): number =>
@@ -38,6 +52,17 @@ export const smoothstep = (a: number, b: number, x: number): number => {
   const t = clamp01((x - a) / (b - a));
   return t * t * (3 - 2 * t);
 };
+
+export const mixColor = (
+  a: CosmosColor,
+  b: CosmosColor,
+  t: number,
+): CosmosColor =>
+  t <= 0
+    ? a
+    : t >= 1
+      ? b
+      : [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
 
 export const rgba = (color: CosmosColor, alpha: number): string =>
   `rgba(${color[0] | 0},${color[1] | 0},${color[2] | 0},${

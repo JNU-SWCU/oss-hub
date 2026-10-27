@@ -143,6 +143,19 @@
   --color-cosmos-edge: var(--cosmos-edge);
   --color-cosmos-border: var(--cosmos-border);
   --color-cosmos-danger: var(--cosmos-danger);
+  --color-cosmos-ink: var(--cosmos-ink);
+  --color-cosmos-deep: var(--cosmos-deep);
+  --color-cosmos-dusk: var(--cosmos-dusk);
+  --color-cosmos-horizon: var(--cosmos-horizon);
+  --color-cosmos-dawn: var(--cosmos-dawn);
+  --color-cosmos-peach: var(--cosmos-peach);
+  --color-cosmos-sky: var(--cosmos-sky);
+  --color-cosmos-day-copy: var(--cosmos-day-copy);
+  --color-cosmos-day-muted: var(--cosmos-day-muted);
+  --color-cosmos-day-border: var(--cosmos-day-border);
+  --color-cosmos-day-student: var(--cosmos-day-student);
+  --color-cosmos-day-program: var(--cosmos-day-program);
+  --color-cosmos-day-repository: var(--cosmos-day-repository);
   --spacing-control: var(--control-height);
   --spacing-tag: var(--tag-height);
   --spacing-row: var(--row-height);
@@ -256,6 +269,21 @@
   --cosmos-scrim-rgb: 0 19 58;
   --cosmos-scrim-strong: rgb(var(--cosmos-scrim-rgb) / 95%);
   --cosmos-scrim-soft: rgb(var(--cosmos-scrim-rgb) / 48%);
+  --cosmos-ink: #050a1a;
+  --cosmos-ink-rgb: 5 10 26;
+  --cosmos-deep: #131f43;
+  --cosmos-dusk: #3b3462;
+  --cosmos-horizon: #948299;
+  --cosmos-dawn: #d7bdc0;
+  --cosmos-peach: #ebdad4;
+  --cosmos-sky: #e9f1f8;
+  --cosmos-day-copy: var(--palette-navy-950);
+  --cosmos-day-copy-rgb: 0 13 41;
+  --cosmos-day-muted: var(--palette-gray-700);
+  --cosmos-day-border: rgb(var(--cosmos-day-copy-rgb) / 16%);
+  --cosmos-day-student: var(--palette-navy-600);
+  --cosmos-day-program: var(--palette-green-600);
+  --cosmos-day-repository: var(--palette-navy-950);
 }
 
 @media (prefers-reduced-motion: reduce) {

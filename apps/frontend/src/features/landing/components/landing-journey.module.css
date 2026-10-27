@@ -1,24 +1,101 @@
 .journey {
+  --journey-copy: var(--cosmos-copy);
+  --journey-muted: var(--cosmos-muted);
+  --journey-rule: var(--cosmos-border);
+  --journey-card: color-mix(in oklch, var(--cosmos-copy) 5%, transparent);
+  --journey-panel: rgb(var(--cosmos-ink-rgb) / 86%);
+  --legend-student: var(--cosmos-student);
+  --legend-repository: var(--cosmos-copy);
+  --legend-program: var(--cosmos-repository);
+  --journey-ink-hold: 60svh;
+  --journey-deep-at: 135svh;
+  --journey-dusk-until: 115svh;
+  --journey-horizon-until: 86svh;
+  --journey-dawn-until: 64svh;
+  --journey-peach-until: 28svh;
+  --journey-sky-until: 8svh;
   position: relative;
-  background: var(--cosmos-void);
-  color: var(--cosmos-copy);
+  isolation: isolate;
+  color: var(--journey-copy);
+  background-color: var(--cosmos-ink);
+  background-image: linear-gradient(
+    to bottom,
+    var(--cosmos-ink) 0,
+    var(--cosmos-ink) var(--journey-ink-hold),
+    var(--cosmos-deep) var(--journey-deep-at),
+    var(--cosmos-dusk) calc(100% - var(--journey-dusk-until)),
+    var(--cosmos-horizon) calc(100% - var(--journey-horizon-until)),
+    var(--cosmos-dawn) calc(100% - var(--journey-dawn-until)),
+    var(--cosmos-peach) calc(100% - var(--journey-peach-until)),
+    var(--cosmos-sky) calc(100% - var(--journey-sky-until)),
+    var(--background) 100%
+  );
 }
 
-.hero {
+.journey::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+  background-size: 160px 160px;
+}
+
+.grid {
   position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.copy {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  min-height: 100vh;
-  min-height: 100svh;
-  padding: clamp(72px, 12vh, 128px) clamp(16px, 6vw, 96px);
-  overflow: hidden;
-  isolation: isolate;
+  min-width: 0;
+  padding-inline: clamp(20px, 6vw, 96px);
+}
+
+.skyColumn {
+  position: relative;
+  box-sizing: border-box;
+  grid-row: 1;
+  height: 46svh;
+  min-height: 320px;
+  padding-top: var(--topbar-height);
+}
+
+.skyColumn::before {
+  content: '';
+  position: absolute;
+  inset: var(--topbar-height) 0 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 66% 58% at 50% 48%,
+    color-mix(in oklch, var(--cosmos-deep) 85%, transparent),
+    transparent 72%
+  );
+  transition: opacity 900ms ease;
+}
+
+.skyColumn[data-focus='flow']::before,
+.skyColumn[data-focus='activity']::before {
+  opacity: 0;
+}
+
+.skyColumn[data-focus='activity'] {
+  --journey-copy: var(--cosmos-day-copy);
+  --journey-muted: var(--cosmos-day-muted);
+  --journey-rule: var(--cosmos-day-border);
+  --journey-panel: color-mix(in oklch, var(--cosmos-sky) 86%, transparent);
+  --legend-student: var(--cosmos-day-student);
+  --legend-repository: var(--cosmos-day-repository);
+  --legend-program: var(--cosmos-day-program);
 }
 
 .sky {
-  position: absolute;
-  inset: 0;
+  position: relative;
   display: block;
   width: 100%;
   height: 100%;
@@ -26,56 +103,72 @@
   cursor: grab;
 }
 
-.scrim {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 3;
-  background: linear-gradient(
-    100deg,
-    rgb(var(--cosmos-scrim-rgb) / 95%) 0%,
-    rgb(var(--cosmos-scrim-rgb) / 88%) max(26%, 420px),
-    rgb(var(--cosmos-scrim-rgb) / 62%) max(50%, 880px),
-    rgb(var(--cosmos-scrim-rgb) / 12%) max(70%, 1030px),
-    transparent max(84%, 1180px)
-  );
+.copy {
+  grid-row: 2;
 }
 
-@media (max-width: 900px) {
-  .hero {
-    justify-content: flex-end;
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: minmax(0, 11fr) minmax(0, 10fr);
   }
 
-  .scrim {
-    background: linear-gradient(
-      to bottom,
-      transparent 0%,
-      rgb(var(--cosmos-scrim-rgb) / 12%) 36%,
-      rgb(var(--cosmos-scrim-rgb) / 74%) 54%,
-      rgb(var(--cosmos-scrim-rgb) / 84%) 100%
-    );
+  .copy {
+    grid-column: 1;
+    grid-row: 1;
   }
+
+  .skyColumn {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100svh;
+    min-height: 0;
+  }
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100svh;
+  padding-block: calc(var(--topbar-height) + 24px) clamp(48px, 8vh, 96px);
 }
 
 .heroCopy {
-  position: relative;
-  z-index: 4;
-  max-width: 720px;
+  max-width: 640px;
 }
 
-.story {
-  position: relative;
-  max-width: 720px;
-  margin-inline: clamp(16px, 6vw, 96px);
-  padding-block: clamp(72px, 12vh, 128px);
+.chapter {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 88svh;
+  max-width: 640px;
+  padding-block: clamp(48px, 8vh, 96px);
 }
 
-.story[data-reveal='armed'] {
+.chapter:last-child {
+  min-height: 100svh;
+  padding-bottom: clamp(96px, 20vh, 220px);
+}
+
+.chapter[data-tone='dawn'] {
+  --journey-copy: var(--cosmos-day-copy);
+  --journey-muted: var(--cosmos-day-muted);
+  --journey-rule: var(--cosmos-day-border);
+  --journey-card: color-mix(in oklch, var(--cosmos-sky) 78%, transparent);
+  --journey-numeral: 55%;
+  color: var(--journey-copy);
+}
+
+.chapter[data-reveal='armed'] {
   opacity: 0;
   transform: translateY(8px);
 }
 
-.story[data-reveal='shown'] {
+.chapter[data-reveal='shown'] {
   opacity: 1;
   transform: none;
   transition:
@@ -83,43 +176,67 @@
     transform 400ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
+.chapterHead {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  padding-top: 22px;
+  border-top: 1px solid var(--journey-rule);
+}
+
+.chapterNo {
+  font-size: clamp(36px, 4.4vw, 64px);
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(
+    in oklch,
+    var(--journey-copy) var(--journey-numeral, 42%),
+    transparent
+  );
+}
+
 .eyebrow {
   display: inline-block;
-  border: 1px solid var(--cosmos-border);
-  background: color-mix(in oklch, var(--cosmos-muted) 8%, transparent);
-  border-radius: 999px;
-  padding: 6px 14px;
   font-size: var(--step-badge);
   font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--cosmos-muted);
+  letter-spacing: 0.12em;
+  color: var(--journey-muted);
+}
+
+.heroCopy .eyebrow {
   margin-bottom: 22px;
 }
 
 .heroCopy h1,
-.story h2 {
-  margin: 0 0 18px;
+.chapter h2 {
+  margin: 0;
   font-weight: 800;
-  letter-spacing: -0.025em;
-  line-height: 1.16;
+  letter-spacing: -0.03em;
+  line-height: 1.14;
   word-break: keep-all;
 }
 
 .heroCopy h1 {
-  font-size: clamp(24px, 5.4vw, 62px);
+  margin-bottom: 20px;
+  font-size: clamp(32px, 4.4vw, 60px);
 }
 
-.story h2 {
-  font-size: clamp(22px, 3.6vw, 42px);
+.chapter h2 {
+  margin: 28px 0 16px;
+  font-size: clamp(26px, 3vw, 40px);
+  font-weight: 700;
+  line-height: 1.22;
 }
 
 .heroCopy p,
-.story p {
+.chapter p {
   margin: 0;
-  font-size: clamp(15px, 1.3vw, 18px);
+  font-size: clamp(15px, 1.2vw, 18px);
   line-height: 1.75;
-  color: var(--cosmos-muted);
-  max-width: 40em;
+  color: var(--journey-muted);
+  max-width: 36em;
   word-break: keep-all;
 }
 
@@ -135,153 +252,129 @@
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  color: color-mix(in oklch, var(--cosmos-copy) 85%, transparent);
+  color: color-mix(in oklch, var(--journey-copy) 85%, transparent);
   font-size: var(--step-table);
   text-decoration: underline;
   text-underline-offset: 4px;
 }
 
 .link:hover {
-  color: var(--cosmos-copy);
+  color: var(--journey-copy);
 }
 
 .steps {
   display: grid;
-  gap: 12px;
-  margin-top: 26px;
+  margin: 28px 0 0;
   padding: 0;
   list-style: none;
 }
 
 .step {
-  display: flex;
-  gap: 14px;
-  align-items: baseline;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  column-gap: 16px;
+  row-gap: 2px;
+  padding: 12px 0;
+  border-top: 1px solid var(--journey-rule);
+}
+
+.step:last-child {
+  border-bottom: 1px solid var(--journey-rule);
 }
 
 .stepNo {
+  grid-row: 1 / span 2;
+  padding-top: 3px;
   font-size: var(--step-badge);
   font-weight: 600;
   letter-spacing: 0.1em;
-  color: var(--cosmos-repository);
-  min-width: 52px;
+  color: var(--journey-muted);
 }
 
 .stepTitle {
-  font-size: var(--step-table);
-  color: var(--cosmos-copy);
+  font-size: var(--step-body);
+  font-weight: 600;
+  color: var(--journey-copy);
 }
 
 .stepDesc {
   font-size: var(--step-table);
-  color: color-mix(in oklch, var(--cosmos-muted) 72%, transparent);
+  color: var(--journey-muted);
 }
 
 .stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 28px;
-  margin-top: 28px;
+  gap: 32px;
+  margin: 28px 0 0;
   padding: 0;
   list-style: none;
 }
 
 .statValue {
-  font-size: var(--step-section);
-  font-weight: 700;
+  font-size: clamp(24px, 2.2vw, 32px);
+  font-weight: 600;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  color: var(--journey-copy);
+}
+
+.statValue[data-pending='true'] {
+  padding-top: 0.45em;
+  font-size: var(--step-body);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--journey-muted);
 }
 
 .statKey {
-  font-size: var(--step-badge);
-  color: var(--cosmos-edge);
   margin-top: 4px;
+  font-size: var(--step-badge);
   letter-spacing: 0.04em;
+  color: var(--journey-muted);
 }
 
 .statNote {
-  margin-top: 14px;
   display: inline-block;
-  border: 1px solid var(--cosmos-border);
+  align-self: flex-start;
+  margin-top: 16px;
+  border: 1px solid var(--journey-rule);
   border-radius: 6px;
   padding: 3px 8px;
   font-size: var(--step-badge);
   letter-spacing: 0.04em;
-  color: color-mix(in oklch, var(--cosmos-muted) 70%, transparent);
-}
-
-@media (max-height: 520px) {
-  .eyebrow {
-    padding: 4px 12px;
-    margin-bottom: 8px;
-  }
-
-  .heroCopy h1 {
-    font-size: clamp(22px, 4vw, 34px);
-    margin-bottom: 10px;
-  }
-
-  .story h2 {
-    font-size: clamp(20px, 2.8vw, 28px);
-    margin-bottom: 10px;
-  }
-
-  .heroCopy p,
-  .story p {
-    line-height: 1.6;
-  }
-
-  .actions {
-    margin-top: 18px;
-    gap: 14px;
-  }
-
-  .steps {
-    margin-top: 14px;
-    gap: 6px;
-  }
-
-  .stats {
-    margin-top: 16px;
-    gap: 22px;
-  }
-
-  .statNote {
-    margin-top: 10px;
-  }
+  color: var(--journey-muted);
 }
 
 .corner {
   position: absolute;
-  right: clamp(16px, 4vw, 40px);
-  bottom: 24px;
-  z-index: 5;
+  right: clamp(20px, 3vw, 40px);
+  bottom: clamp(24px, 5vh, 44px);
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 10px;
-}
-
-.hint {
-  margin: 0;
-  font-size: var(--step-badge);
-  letter-spacing: 0.01em;
-  color: color-mix(in oklch, var(--cosmos-muted) 68%, transparent);
+  max-width: calc(100% - 40px);
 }
 
 .legend {
   display: flex;
-  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px 18px;
   align-items: center;
-  border: 1px solid var(--cosmos-border);
-  background: rgb(var(--cosmos-scrim-rgb) / 60%);
+  border: 1px solid var(--journey-rule);
+  background: var(--journey-panel);
   backdrop-filter: blur(8px);
   border-radius: 999px;
   padding: 9px 16px;
   font-size: var(--step-badge);
-  color: var(--cosmos-muted);
+  color: var(--journey-muted);
+  transition:
+    color 600ms ease,
+    background-color 600ms ease,
+    border-color 600ms ease;
 }
 
 .legend span {
@@ -293,22 +386,52 @@
 .legend i {
   display: block;
   border-radius: 999px;
+  transition: background-color 600ms ease;
+}
+
+.dotStudent {
+  width: 7px;
+  height: 7px;
+  background: var(--legend-student);
+}
+
+.dotRepository {
+  width: 5px;
+  height: 5px;
+  background: var(--legend-repository);
+}
+
+.dotProgram {
+  width: 9px;
+  height: 9px;
+  background: var(--legend-program);
 }
 
 .legendNote {
-  color: color-mix(in oklch, var(--cosmos-muted) 66%, transparent);
+  color: var(--journey-muted);
 }
 
-@media (max-width: 820px) {
-  .corner {
-    display: none;
-  }
+.hint {
+  margin: 0;
+  border: 1px solid var(--journey-rule);
+  background: var(--journey-panel);
+  backdrop-filter: blur(8px);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: var(--step-badge);
+  letter-spacing: 0.01em;
+  text-align: right;
+  color: var(--journey-muted);
+  transition:
+    color 600ms ease,
+    background-color 600ms ease,
+    border-color 600ms ease;
 }
 
 .skip {
   position: absolute;
   left: clamp(16px, 6vw, 96px);
-  top: 16px;
+  top: calc(var(--topbar-height) + 12px);
   z-index: 8;
   display: inline-flex;
   align-items: center;
@@ -316,14 +439,100 @@
   padding: 0 16px;
   border: 1px solid var(--cosmos-border);
   border-radius: 8px;
-  background: rgb(var(--cosmos-scrim-rgb) / 75%);
+  background: rgb(var(--cosmos-ink-rgb) / 85%);
   color: var(--cosmos-copy);
   font-size: var(--step-table);
   font-weight: 600;
   text-decoration: none;
-  transform: translateY(-200%);
+  transform: translateY(-300%);
 }
 
 .skip:focus-visible {
   transform: translateY(0);
+}
+
+@media (max-width: 1023px) {
+  .journey {
+    --journey-ink-hold: 50svh;
+    --journey-deep-at: 110svh;
+    --journey-dusk-until: 30svh;
+    --journey-horizon-until: 22svh;
+    --journey-dawn-until: 16svh;
+    --journey-peach-until: 9svh;
+    --journey-sky-until: 3svh;
+  }
+
+  .hero {
+    min-height: 54svh;
+    justify-content: flex-start;
+    padding-block: 8px clamp(40px, 7vh, 72px);
+  }
+
+  .chapter {
+    min-height: auto;
+    max-width: none;
+    margin-bottom: 16px;
+    padding: 26px 22px 28px;
+    border: 1px solid var(--journey-rule);
+    border-radius: var(--card-radius);
+    background: var(--journey-card);
+  }
+
+  .chapter:last-child {
+    min-height: auto;
+    margin-bottom: clamp(56px, 12vh, 96px);
+    padding-bottom: 28px;
+  }
+
+  .chapterHead {
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .corner {
+    display: none;
+  }
+}
+
+@media (max-height: 520px) {
+  .heroCopy .eyebrow {
+    margin-bottom: 8px;
+  }
+
+  .heroCopy h1 {
+    margin-bottom: 10px;
+    font-size: clamp(22px, 4vw, 34px);
+  }
+
+  .chapter h2 {
+    margin: 14px 0 10px;
+    font-size: clamp(20px, 2.8vw, 28px);
+  }
+
+  .heroCopy p,
+  .chapter p {
+    line-height: 1.6;
+  }
+
+  .actions {
+    gap: 14px;
+    margin-top: 18px;
+  }
+
+  .steps {
+    margin-top: 14px;
+  }
+
+  .step {
+    padding: 6px 0;
+  }
+
+  .stats {
+    gap: 22px;
+    margin-top: 16px;
+  }
+
+  .statNote {
+    margin-top: 10px;
+  }
 }

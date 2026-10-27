@@ -31,10 +31,10 @@ const PUBLIC_GRAPH = graphOf('public', [
 ]);
 
 describe('landing stats display derivation', () => {
-  it('hides the contributor count and badges 일부 집계 when the graph is partial', () => {
+  it('marks the contributor count as pending and badges 일부 집계 when the graph is partial', () => {
     const stats = deriveLandingStats(PUBLIC_GRAPH, 'partial');
 
-    expect(stats.students).toBe('—');
+    expect(stats.students).toBe('집계 중');
     expect(stats.note).toBe('일부 집계');
 
     expect(stats.programs).toBe('1');
@@ -50,13 +50,13 @@ describe('landing stats display derivation', () => {
     });
   });
 
-  it('keeps 공개 아카이브 기준 with an em dash while the first stage has no contributors yet', () => {
+  it('keeps 공개 아카이브 기준 with a pending count while the first stage has no contributors yet', () => {
     const base = graphOf('public', ['program', 'repository', 'repository']);
 
     expect(deriveLandingStats(base, 'complete')).toEqual({
       programs: '1',
       repositories: '2',
-      students: '—',
+      students: '집계 중',
       note: '공개 아카이브 기준',
     });
   });
@@ -73,9 +73,9 @@ describe('landing stats display derivation', () => {
 
   it('falls back to 공개 집계 준비 중 when nothing has been counted', () => {
     expect(deriveLandingStats(graphOf('public', []), 'complete')).toEqual({
-      programs: '—',
-      repositories: '—',
-      students: '—',
+      programs: '집계 중',
+      repositories: '집계 중',
+      students: '집계 중',
       note: '공개 집계 준비 중',
     });
   });

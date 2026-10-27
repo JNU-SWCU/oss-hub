@@ -57,10 +57,11 @@ const statValue = (html: string, key: string): string | undefined =>
   new RegExp(`>([^<>]*)</div><div[^>]*>${key}</div>`).exec(html)?.[1];
 
 describe('LandingJourney program story stats', () => {
-  it('renders the contributor slot as an em dash and badges 일부 집계 when the graph is partial', () => {
+  it('renders the contributor slot as pending and badges 일부 집계 when the graph is partial', () => {
     const html = renderWith('partial');
 
-    expect(statValue(html, '공개 기여자')).toBe('—');
+    expect(statValue(html, '공개 기여자')).toBe('집계 중');
+    expect(html).toContain('data-pending="true"');
     expect(html).toContain('일부 집계');
     expect(html).not.toContain('공개 아카이브 기준');
 

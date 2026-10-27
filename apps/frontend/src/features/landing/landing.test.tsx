@@ -36,12 +36,32 @@ describe('landing page sections', () => {
     expect(html).not.toContain('data-panel=');
   });
 
+  it('tags the hero and each chapter with the graph focus it drives', () => {
+    const html = renderJourney();
+
+    expect(html).toContain('data-focus="hero"');
+    expect(html).toContain('data-focus="programs"');
+    expect(html).toContain('data-focus="flow"');
+    expect(html).toContain('data-focus="activity"');
+    expect(html).toContain('data-tone="dawn"');
+    expect(html.match(/<canvas /g)).toHaveLength(1);
+  });
+
+  it('keeps every dash out of the rendered landing copy', () => {
+    const html = renderJourney({
+      authErrorMessage: '로그인 요청을 완료하지 못했습니다.',
+    });
+
+    expect(html).not.toMatch(/[\u2014\u2013]/);
+  });
+
   it('renders exactly one h1 carrying the landing hero heading id', () => {
     const html = renderJourney();
 
     expect(html.match(/<h1[^>]*>/g)).toHaveLength(1);
     expect(html).toContain('<h1 id="landing-hero-heading">');
-    expect(html).toContain('흩어진 정보를 한 곳으로');
+    expect(html).toContain('오픈소스로 성장하는 곳');
+    expect(html).toContain('GitHub 계정 하나면 시작할 수 있습니다.');
   });
 
   it('renders the primary action once, beside the programs link in the hero', () => {
@@ -88,7 +108,12 @@ describe('landing page sections', () => {
     expect(html).toContain('공개 저장소');
     expect(html).toContain('공개 기여자');
     expect(html.match(/STEP \d/g)).toHaveLength(4);
-    expect(html).toContain('참여 기록이');
+    expect(html).toContain('해커톤도, 스터디도 하나의 별자리로');
+    expect(html).toContain('실제 오픈소스처럼 일합니다');
+    expect(html).toContain('내 기여가 포트폴리오가 됩니다');
+    expect(html).toContain('팀 꾸리기');
+    expect(html).toContain('초대를 수락해 함께 시작합니다');
+    expect(html).toContain('연도별 아카이브에 남습니다');
   });
 
   it('serves the story sections visible: no reveal attribute in server markup', () => {
@@ -122,14 +147,16 @@ describe('landing page sections', () => {
     const html = renderJourney();
 
     for (const rejected of [
-      '별처럼 이어지는 곳',
-      '나의 별자리',
-      '성운',
-      '별무리',
-      '자산으로 쌓인다',
-      '개발 패널',
+      /별처럼 이어지는 곳/,
+      /(?<!하)나의 별자리/,
+      /성운/,
+      /별무리/,
+      /자산으로 쌓인다/,
+      /개발 패널/,
     ]) {
-      expect(html, `${rejected} 문구가 남아 있습니다`).not.toContain(rejected);
+      expect(html, `${rejected.source} 문구가 남아 있습니다`).not.toMatch(
+        rejected,
+      );
     }
   });
 

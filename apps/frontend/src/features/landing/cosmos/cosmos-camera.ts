@@ -1,4 +1,3 @@
-import type { CosmosNode } from './cosmos-graph';
 import { smoothstep } from './cosmos-theme';
 
 const PERSP = 3.2;
@@ -24,34 +23,29 @@ export interface CosmosProjected {
 }
 
 export function viewFor(w: number, h: number, zoom: number): CosmosView {
-  if (w > 900) {
-    return {
-      cx: w * 0.67,
-      cy: h * 0.5,
-      radius: Math.min(w * 0.42, h * 0.56) * zoom,
-    };
-  }
   return {
     cx: w * 0.5,
-    cy: h * 0.33,
-    radius: Math.min(w * 0.62, h * 0.34) * zoom,
+    cy: h * 0.48,
+    radius: Math.min(w * 0.46, h * 0.42) * zoom,
   };
 }
 
-export function projectNode(
-  node: CosmosNode,
+export function projectPoint(
+  px: number,
+  py: number,
+  pz: number,
   orbit: CosmosOrbit,
   view: CosmosView,
   out: CosmosProjected,
 ): void {
   const cy = Math.cos(orbit.yaw);
   const sy = Math.sin(orbit.yaw);
-  const x = node.x * cy + node.z * sy;
-  const z1 = -node.x * sy + node.z * cy;
+  const x = px * cy + pz * sy;
+  const z1 = -px * sy + pz * cy;
   const cp = Math.cos(orbit.pitch);
   const sp = Math.sin(orbit.pitch);
-  const y = node.y * cp - z1 * sp;
-  const z = node.y * sp + z1 * cp;
+  const y = py * cp - z1 * sp;
+  const z = py * sp + z1 * cp;
   if (z > PERSP - 0.4) {
     out.ok = false;
     out.scale = 0;

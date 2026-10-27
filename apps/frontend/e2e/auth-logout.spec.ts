@@ -52,7 +52,7 @@ test('logout success returns to the anonymous home introduction', async ({
 
   await expect(page).toHaveURL(new URL('/', page.url()).href);
   await expect(
-    page.getByRole('heading', { name: '흩어진 정보를 한 곳으로' }),
+    page.getByRole('heading', { name: '오픈소스로 성장하는 곳' }),
   ).toBeVisible();
   const navSignIn = page
     .locator('[data-slot="nav-bar"]')

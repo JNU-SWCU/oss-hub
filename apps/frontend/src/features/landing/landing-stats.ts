@@ -17,8 +17,10 @@ interface GraphCounts {
   readonly students: number;
 }
 
+const COUNT_PENDING = '집계 중';
+
 function formatCount(value: number): string {
-  return value > 0 ? String(value) : '—';
+  return value > 0 ? String(value) : COUNT_PENDING;
 }
 
 function countByKind(graph: LandingGraph): GraphCounts {
@@ -42,7 +44,7 @@ export function deriveLandingStats(
   return {
     programs: formatCount(counts.programs),
     repositories: formatCount(counts.repositories),
-    students: isPartial ? '—' : formatCount(counts.students),
+    students: isPartial ? COUNT_PENDING : formatCount(counts.students),
     note: !hasCounts
       ? '공개 집계 준비 중'
       : isPartial
