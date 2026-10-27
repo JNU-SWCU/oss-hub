@@ -182,7 +182,7 @@ async function measureCardGrid(
       trackCapacity: tracks.length,
       expectedCapacity: Math.max(
         1,
-        Math.floor((width + gap) / (Math.min(20 * rootFont, width) + gap)),
+        Math.floor((width + gap) / (Math.min(17 * rootFont, width) + gap)),
       ),
       occupiedColumns: new Set(cards.map(({ left }) => Math.round(left))).size,
       firstRow: cards.filter(({ top }) => Math.abs(top - (firstTop ?? 0)) <= 1),
@@ -328,12 +328,12 @@ test('H1 tablet wrap matches available RAM capacity', async ({ page }) => {
   audit.assertClean();
 });
 
-for (const width of [655, 656, 991, 992]) {
+for (const width of [559, 560, 847, 848, 1135, 1136]) {
   test(`G3 H1 forced grid ${width}px crosses intrinsic thresholds`, async ({
     page,
   }) => {
     const audit = await openPrograms(page);
-    if (width === 656 || width === 992) {
+    if (width === 560 || width === 848 || width === 1136) {
       const below = await measureCardGrid(page, width - 1);
       await record(`G3 ${width} lower boundary`, below);
       expect
@@ -341,7 +341,7 @@ for (const width of [655, 656, 991, 992]) {
           below.occupiedColumns,
           'G3 column transition occurs at threshold, not before',
         )
-        .toBe(width === 656 ? 1 : 2);
+        .toBe(width === 560 ? 1 : width === 848 ? 2 : 3);
     }
     const result = await measureCardGrid(page, width);
     await record(`G3 ${width}`, result);
@@ -353,12 +353,12 @@ for (const width of [655, 656, 991, 992]) {
     assertNoOverflow(result);
     expect
       .soft(result.occupiedColumns, 'G3 threshold columns')
-      .toBe(width < 656 ? 1 : width < 992 ? 2 : 3);
-    if (width === 991) {
+      .toBe(width < 560 ? 1 : width < 848 ? 2 : width < 1136 ? 3 : 4);
+    if (width === 847) {
       expect
         .soft(
-          Math.abs(result.cards[0].width - 487.5),
-          'G3 991px card width 487.5',
+          Math.abs(result.cards[0].width - 415.5),
+          'G3 847px card width 415.5',
         )
         .toBeLessThanOrEqual(1);
     }
@@ -384,7 +384,7 @@ for (const containerWidth of [null, 300]) {
   });
 }
 
-test('G5 H1 wide section is centered with at most three columns', async ({
+test('G5 H1 wide section is centered with at most four columns', async ({
   page,
 }) => {
   const audit = await openPrograms(page, {}, 1920);
@@ -392,8 +392,8 @@ test('G5 H1 wide section is centered with at most three columns', async ({
   await record('G5 H1', result);
   assertTracks(result);
   expect
-    .soft(result.trackCapacity, 'G5 maximum three tracks')
-    .toBeLessThanOrEqual(3);
+    .soft(result.trackCapacity, 'G5 maximum four tracks')
+    .toBeLessThanOrEqual(4);
   expect
     .soft(result.grid.width, 'G5 grid inner maximum 1152')
     .toBeLessThanOrEqual(1153);
